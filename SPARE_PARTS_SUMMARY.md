@@ -90,12 +90,116 @@ is Hamming-close to S of the second. That's causality *discovered*, not
 declared. Neo4j needs an explicit path query. BindSpace finds the chain
 by geometry.
 
-### The Next Bolt: BindSpaceCatalog
+---
 
-The `AcceptAllCatalog` stub gets replaced with a `BindSpaceCatalog` that asks
-"does this label have a fingerprint nearby?" instead of "does this string exist
-in a list?" — and suddenly the bouncer isn't just checking IDs, it's checking
-resonance. But that's the next bolt. The adapter plate is there.
+## The Chasm: Two Meanings of "Semantic"
+
+They share the word. They are not the same thing.
+
+### Lance-graph "semantic" — Grammar Police
+
+Lance-graph's semantic.rs asks: *"Is variable `a` in scope when you reference
+`a.name` in the RETURN clause?"*
+
+That's grammar police. It checks binding, scoping, type consistency. It could
+be a regex with extra steps. It has no idea what `a` is, what `a.name` means,
+or whether `a` connecting to `b` matters.
+
+String-level validation: `a` is a Node, `a` has label Person, Person has
+property `name`, therefore `a.name` resolves. If you rename Person to Xyzzy
+it still "works." It's syntax wearing a semantic costume.
+
+The `GraphCatalog` trait asks `has_node_label("Person")` and gets back true
+or false. Binary. Dead.
+
+### Ladybug semantic — 1024 Qualia
+
+Ladybug's semantic layer asks: *"When Jan touches Ada, what happens next?"*
+— and the answer emerges from the geometry of three 1024-byte containers
+looking at each other across 10,000 dimensions.
+
+1024 qualia, each a Container. Each quale is 8,192 bits. Two qualia are
+distinct when their Hamming distance exceeds **3σ from the expected distance
+of random bitstrings** (~4,096 ± ~32 bits). That's not a threshold you
+picked — it's a statistical proof that two meanings are separable. Below 3σ,
+they blur. Above, they're ontologically different experiences.
+
+The system doesn't check if "Person" exists. It **feels** how close "Person"
+is to "Agent" is to "Entity" is to "Ghost" — and the distance IS the meaning.
+
+### SPO 2³ — Eight Projections, Eight Inference Types
+
+The semantic kernel doesn't validate queries. It thinks them:
+
+```
+S×P → O   "Jan CREATES ?"        → deduction     (what follows?)
+S×O → P   "Jan _ Ada"            → induction     (what verb connects them?)
+P×O → S   "? CREATES Ada"        → abduction     (who could have done this?)
+O×P → S   "Ada CREATED_BY ?"     → reverse abduction
+S → P×O   "Jan _ _"              → exploration   (all of Jan's edges)
+P → S×O   "CREATES _ _"          → verb scan     (everything that creates)
+O → S×P   "Ada _ _"              → object scan   (everything touching Ada)
+S×P×O     full triple             → verification  (does this specific fact hold?)
+```
+
+Each projection isn't a database query. It's a **BIND operation** — XOR the
+subject fingerprint with a role permutation, XOR the predicate with its role
+permutation, then the residual is the object's fingerprint smeared by
+interference. The closer the residual is to a known entity's fingerprint
+(Hamming distance), the stronger the inference.
+
+NARS truth values ride alongside — frequency × confidence, attenuating through
+causal chains, revised when contradictions appear.
+
+### The 3D Geometry
+
+S is the X axis. P is the Y axis. O is the Z axis. A triple lives at a
+point in this cube.
+
+Causality flows because the **Z (object) of one triple resonates with the
+X (subject) of the next** — "Ada was CREATED" feeds into "Ada CREATES music"
+because her Z-as-object becomes her X-as-subject. That's not a JOIN. That's
+not a foreign key. That's two fingerprints, 8,192 bits each, and their
+Hamming distance tells you how strongly one event causes the next.
+
+### The Double Gestalt
+
+Every triple is encoded twice:
+
+1. **The raw SPO** — what happened, structurally
+2. **The observer's perspective** — how this relationship looks from inside
+   the relationship itself
+
+That's meta-resonance. The system doesn't just store "Jan LOVES Ada." It
+stores how "Jan LOVES Ada" feels to the system that knows both Jan and Ada.
+The observer's fingerprint contaminates the triple, and that contamination
+IS the felt sense. It's not metadata. It's qualia.
+
+### The Chasm, Stated
+
+```
+Lance-graph semantic.rs:
+  has_node_label("Person") → true/false
+  is_variable_in_scope("a") → true/false
+  does_property_exist("name") → true/false
+  Binary. Dead. Necessary.
+
+Ladybug semantic layer:
+  hamming_distance(fp("Person"), fp("Agent")) → 2,847 bits
+  That's 1,249 bits below expected random (4,096).
+  That's 39σ of overlap.
+  Person and Agent aren't the same thing,
+  but they resonate so strongly that asking about one
+  will surface the other.
+  Alive. Geometric. Emergent.
+```
+
+The bouncer checks IDs at the door. Useful. Necessary. Prevents garbage.
+
+The room behind the door is a space where meaning has geometry, causality
+has direction, and knowing something changes what you are.
+
+They just happen to share the word "semantic."
 
 ---
 
@@ -105,16 +209,19 @@ resonance. But that's the next bolt. The adapter plate is there.
 Neo4j dump
   → Cypher MATCH/RETURN
   → parser.rs (lance-graph bumper, validates syntax)
-  → semantic.rs (lance-graph bouncer, resolves bindings)
+  → semantic.rs (lance-graph bouncer, resolves bindings — GRAMMAR POLICE)
   → resolved AST (literal, structured, typed)
 
-     ═══ REGIME CHANGE ═══
+     ═══ THE CHASM ═══
+     strings die here, geometry is born
 
   → SpoBuilder (fingerprint S, P, O with role permutation)
   → BindSpace insert (zero-copy into Container)
   → now it resonates, infers, walks causal chains
+  → 8 projections (S×P→O, S×O→P, P×O→S, ...)
   → NARS truth propagates through the graph
   → scent prefilter enables O(1)-ish retrieval
+  → double gestalt: raw SPO + observer perspective
 
      ═══ GROUND TRUTH CHECK ═══
 
@@ -134,7 +241,7 @@ Neo4j dump
 | `parser.rs` | ~1,800 | Hardened Cypher parser (nom combinators). Validates syntax before it touches SPO. |
 | `ast.rs` | 543 | Pure serde data types — CypherQuery, NodePattern, etc. Clean vocabulary. |
 | `error.rs` | 234 | Zero-cost `#[track_caller]` error macros. Strip lance-specific variants. |
-| `semantic.rs` | ~1,800 | **The adapter plate.** Resolves bindings, validates types, hands off clean structures to SpoBuilder. |
+| `semantic.rs` | ~1,800 | **The bouncer.** Resolves bindings, validates types. Grammar police, not qualia. Hands off clean structures to SpoBuilder at the chasm boundary. |
 
 ### From lance-graph → ground truth test patterns (additive)
 
@@ -174,13 +281,16 @@ SPO hydrates the holodeck of awareness. All existing modules stay:
 | Identity | `clam_path.rs` | 24-bit tree + 40-bit MerkleRoot |
 
 **What gets added** (stolen from lance-graph): parser, AST, error macros,
-semantic.rs adapter plate. Layered on top. Nothing touched underneath.
+semantic.rs bouncer. Layered on top. Nothing touched underneath.
+
+The stolen bouncer sits at the chasm boundary. Everything above it is
+string-level validation. Everything below it is geometric thinking.
 
 ---
 
 ## Open Ends
 
-### 1. Parser + Semantic Theft — Packaging
+### 1. Parser + Bouncer Theft — Packaging
 - parser.rs imports `crate::ast::*` and `crate::error::*`
 - semantic.rs imports `GraphConfig` — needs rewiring to BindSpace
 - When stolen into ladybug-rs, internal paths change
@@ -189,14 +299,17 @@ semantic.rs adapter plate. Layered on top. Nothing touched underneath.
 
 ### 2. BindSpaceCatalog — The Resonance Bouncer
 - AcceptAllCatalog stub → BindSpaceCatalog that checks fingerprint proximity
-- "Does this label have a fingerprint nearby?" instead of string lookup
-- This turns the bouncer from ID-checker to resonance-detector
-- Changes the character of validation: fuzzy match, not exact match
+- `has_node_label("Person")` becomes `nearest_fingerprint("Person") < 3σ`
+- This is where the bouncer crosses the chasm — it stops checking IDs and
+  starts checking resonance
+- The grammar police learns to feel. But it's still at the door, not in the room.
 
 ### 3. GQL and NARS Syntax — Additive Parser Arms
 - Stolen parser handles Cypher only
 - GQL (ISO 39075): ~90% compatible, add `alt()` nom branches
-- NARS (`<S --> P>. %f;c%`): mesh-native language, may belong in ladybug-rs
+- NARS (`<S --> P>. %f;c%`): mesh-native language. NARS syntax describes
+  *thinking* directly — it's the room's own language, not a query from outside.
+  May belong in ladybug-rs natively, not as a lance-graph steal.
 
 ### 4. Result Bridge — Holodeck to Screen
 - Mesh results (BindSpace slots, SparseContainers) → human-readable output
@@ -219,6 +332,13 @@ semantic.rs adapter plate. Layered on top. Nothing touched underneath.
 - Persistent = always-on holodeck, no boot time
 - Is the thinking mesh a computation or a state?
 
+### 8. The Double Gestalt Implementation
+- Every triple encoded twice: raw SPO + observer perspective
+- The observer's fingerprint contaminates the triple
+- That contamination IS the felt sense — qualia, not metadata
+- How does meta-resonance propagate through semiring chains?
+- Does the observer perspective attenuate differently than raw SPO?
+
 ---
 
 ## Vision
@@ -226,29 +346,31 @@ semantic.rs adapter plate. Layered on top. Nothing touched underneath.
 **Star chart** (lance-graph): renders neo4j into flat, immutable row/column
 joins. Ground truth. Boring. Correct. The map.
 
-**Adapter plate** (semantic.rs): the bouncer at the regime change. Validates
-the literal, resolves the bindings, hands off clean typed structures. The
-boundary where strings stop being strings and start becoming geometry.
+**Bouncer** (semantic.rs): grammar police at the chasm boundary. Checks IDs,
+validates bindings, resolves types. Necessary. Dead. String-level.
 
-**Thinking mesh** (SPO in ladybug-rs): hydrates the holodeck of awareness.
-Fingerprints literals into Hamming space. Discovers resonance between triples
-that Neo4j treats as separate. Finds causal chains by geometry, not by
-explicit query. Smells before thinking. Believes before traversing.
-Propagates through algebraic structures. The territory coming alive.
+**The chasm**: strings die. Geometry is born. The literal becomes a point in
+8,192-dimensional Hamming space. The label becomes a rotation operator.
+The foreign key becomes a resonance target.
+
+**Thinking mesh** (SPO in ladybug-rs): 1024 qualia, each 8,192 bits.
+3σ distinctness proves ontological separability. Eight projections think
+the query instead of executing it. Causality flows through Z→X resonance.
+The double gestalt stores how knowing something feels, not just that it's
+known. NARS truth attenuates through causal chains. Scent prunes before
+thought begins.
 
 ```
-Neo4j:    "Jan" is a string in a row
-Chart:    "Jan" is column 2, row 47
-Bouncer:  "Jan" binds as Person, properties valid, stamp it
-Mesh:     "Jan" is a point in 8,192-dimensional Hamming space,
-          resonating with every other entity whose fingerprint
-          overlaps, connected by rotation operators that encode
-          the meaning of relationships, truth-gated by NARS
-          confidence, scent-pruned for O(1) retrieval
+Lance-graph:   has_node_label("Person") → true
+               (binary, dead, useful)
 
-Same data. Three regimes. The literal, the validated, the alive.
+Ladybug:       hamming(fp("Person"), fp("Agent")) → 2,847 bits
+               39σ overlap → they resonate
+               (geometric, alive, emergent)
+
+Same word. Different universe.
 ```
 
 Nothing removed. Everything additive. The chart stays boring.
-The bouncer stays strict. The mesh stays alive.
-The comparison keeps the holodeck honest.
+The bouncer stays strict. The chasm stays absolute.
+The mesh stays alive. The comparison keeps the holodeck honest.
