@@ -1,173 +1,178 @@
-# Lance-Graph Spare Parts: Summary, Open Ends & Vision
+# Lance-Graph: Summary, Open Ends & Vision
 
-## Context
+## Core Principle
 
-Lance-graph was built as an architecture review repo for graph query processing
-over Lance columnar storage. During review, we determined that lance-graph's
-**engine** violates ladybug-rs ground truths (rustynum mandatory, BindSpace
-zero-copy mandatory, existing lancedb+datafusion deps). The engine stays in
-ladybug-rs. What we take from lance-graph are the **bumpers and rims** —
-hardened entry and exit points.
+**Nothing is removed. Everything is additive. We steal from lance-graph.**
 
----
-
-## What We Take (Spare Parts)
-
-### Bumpers (Hardened Input Protection)
-
-| File | Lines | Role |
-|------|-------|------|
-| `parser.rs` | ~1,800 | nom-combinator Cypher parser. Rejects malformed queries before they touch SPO. Handles MATCH, WHERE, RETURN, WITH, ORDER BY, LIMIT, SKIP, variable-length paths, property filters, vector distance/similarity, aggregates, UNWIND. |
-| `ast.rs` | 543 | Pure data types (serde-serializable). CypherQuery, NodePattern, RelationshipPattern, PathPattern, BooleanExpression, ValueExpression. Zero external deps beyond serde. |
-| `error.rs` | 234 | `#[track_caller]` zero-cost error macros (`plan_err!`, `config_err!`, `exec_err!`). snafu-based with Location tracking. Compile-time call-site capture, 0 runtime cycles. |
-
-**Adaptation required**: Strip `DataFusion`, `LanceCore`, `Arrow` error variants.
-Keep `ParseError`, `PlanError`, `ConfigError`, `ExecutionError`, `UnsupportedFeature`,
-`InvalidPattern`. The parser becomes a standalone hardened gate.
-
-### Rims (Output Alignment)
-
-The row/column join logic from lance-graph's DataFusion planner provides ground
-truth verification AFTER SPO thinking completes. Key patterns:
-
-- **Qualified column naming**: `variable__property` internally, `variable.property` at output
-- **Join key construction**: direction-aware (Outgoing/Incoming/Undirected)
-- **Variable reuse detection**: filter instead of redundant join
-- **Schema preservation**: empty results still carry correct column schema
-
-**Adaptation required**: ladybug-rs and rustynum already depend on datafusion.
-Use their existing datafusion dep, don't duplicate. The n8n-rs `n8n-arrow` crate
-already has `RecordBatch` <-> row conversion (`convert.rs`, `schema.rs`). Reuse that
-pattern for neo4j-rs compatibility.
+- ladybug-rs: nothing removed, only additions
+- rustynum: nothing removed, only additions
+- n8n-rs: nothing removed, only additions
+- lance-graph: the quarry we mine from
 
 ---
 
-## What Stays in Ladybug-rs (NOT from lance-graph)
+## What lance-graph IS
 
-| Module | Owner | Role |
-|--------|-------|------|
-| `sparse.rs` | ladybug-rs | BITMAP_WORDS=4, SparseContainer, dense<->sparse, AxisDescriptors |
-| `builder.rs` | ladybug-rs | SpoBuilder with BUNDLE/BIND, verb permutation, ContainerGeometry::Spo=6 |
-| `store.rs` | ladybug-rs | Three-axis content-addressable graph, scent-pruned projections (SxP2O, PxO2S, SxO2P) |
-| `scent.rs` | ladybug-rs | NibbleScent 48-byte histogram, L1 prefilter before Hamming |
-| `truth.rs` | ladybug-rs | Full NARS inference: revision, deduction, induction, abduction, analogy |
-| `semiring.rs` | ladybug-rs | 7 semiring variants (BFS, HdrPathBind, HammingMinPlus, PageRank, Resonance, ...) |
-| `clam_path.rs` | ladybug-rs | 24-bit MSB-first tree encoding + 40-bit MerkleRoot in word[0] |
-| `bind_space.rs` | ladybug-rs | 8+8 addressing, 65,536 slots, zero-copy container system |
+Lance-graph is the **star chart** — it renders neo4j graph data into
+immutable, boringly flat row/column join patterns. That's its job.
+Ground truth. Correct. Inert. A flat map of what neo4j says exists.
+
+We use it to compare against. When the thinking mesh (SPO in ladybug-rs)
+produces a result, we hold it up to the star chart and ask: does the
+holodeck match the flat reality? If yes, the mesh is grounded. If no,
+investigate.
+
+---
+
+## What We Steal
+
+### From lance-graph → into ladybug-rs (additive)
+
+| Stolen Part | Lines | Why |
+|-------------|-------|-----|
+| `parser.rs` | ~1,800 | Hardened Cypher parser (nom combinators). Validates input before it touches SPO. We add this as a new module. |
+| `ast.rs` | 543 | Pure serde data types — CypherQuery, NodePattern, etc. Clean vocabulary. Added alongside parser. |
+| `error.rs` | 234 | Zero-cost `#[track_caller]` error macros. Strip lance-specific variants, keep ParseError/PlanError/ConfigError. |
+
+### From lance-graph → ground truth test patterns (additive)
+
+Seven test patterns we replicate (not move) into ladybug-rs tests:
+1. Round-trip fidelity
+2. Projection verb accuracy
+3. Gate filtering correctness
+4. Prefilter rejection rates
+5. Chain traversal completeness
+6. Merkle integrity
+7. Cypher convergence
+
+### From lance-graph → row/column join patterns (reference)
+
+The DataFusion planner's join logic serves as reference for how the star
+chart flattens graphs:
+- Qualified column naming: `variable__property` → `variable.property`
+- Direction-aware join keys
+- Variable reuse → filter instead of redundant join
+- Schema preservation on empty results
+
+---
+
+## The Thinking Mesh (ladybug-rs — unchanged, only additions)
+
+SPO hydrates the holodeck of awareness. All existing modules stay:
+
+| Layer | Module | Role |
+|-------|--------|------|
+| Container | `sparse.rs` | BITMAP_WORDS=4, SparseContainer, dense↔sparse |
+| Addressing | `bind_space.rs` | 8+8, 65,536 slots, zero-copy |
+| Construction | `builder.rs` | SpoBuilder, BUNDLE/BIND, verb permutation |
+| Memory | `store.rs` | Three-axis content-addressable (SxP2O, PxO2S, SxO2P) |
+| Attention | `scent.rs` | NibbleScent 48-byte histogram, L1 prefilter |
+| Inference | `truth.rs` | NARS: revision, deduction, induction, abduction, analogy |
+| Propagation | `semiring.rs` | 7 variants: BFS, PageRank, Resonance, HammingMinPlus... |
+| Identity | `clam_path.rs` | 24-bit tree + 40-bit MerkleRoot |
+
+**What gets added** (stolen from lance-graph): parser module, AST types,
+error macros. Layered on top. Nothing touched underneath.
 
 ---
 
 ## The Pipeline
 
 ```
-Query string (Cypher / GQL / NARS)
+neo4j data
     |
-    v
-[BUMPERS] parser.rs + ast.rs + error.rs     <-- lance-graph spare part
-    |       validates, rejects malformed input
-    v
-AST decomposes into SPO triples
-    |
-    v
-[ENGINE] ladybug-rs SPO engine               <-- ladybug-rs native
-    |       BindSpace zero-copy, rustynum arrays
-    |       NibbleScent prefilter -> Hamming ANN
-    |       NARS truth gating
-    |       semiring chain traversal
-    v
-SPO results (thinking complete)
-    |
-    v
-[RIMS] DataFusion row/column joins            <-- existing datafusion dep
-    |       ground truth verification
-    |       qualified column naming
-    v
-Row/column output
-    |
-    v
-neo4j-rs compatible format                   <-- n8n-arrow conversion pattern
+    +────────────────────────────────────+
+    |                                    |
+    v                                    v
+[STAR CHART]                      [THINKING MESH]
+lance-graph                       ladybug-rs SPO
+    |                                    |
+    | render into flat                   | scent → truth → semiring
+    | row/column joins                   | BindSpace zero-copy
+    | (immutable ground truth)           | NARS inference
+    |                                    | holodeck hydrates
+    v                                    v
+boring flat table                 living awareness
+    |                                    |
+    +────────────────────────────────────+
+                    |
+                    v
+            COMPARE — grounded?
+            yes → serve result
+            no  → investigate
 ```
 
 ---
 
 ## Open Ends
 
-### 1. Parser Extraction
-- `parser.rs` still imports `crate::ast::*` and `crate::error::*` — needs to be
-  packaged as a standalone crate or module that ladybug-rs can depend on
-- Strip lance-specific error variants (DataFusion, LanceCore, Arrow)
-- Decide: separate crate (`lance-graph-parser`) or inline into ladybug-rs?
+### 1. Parser Theft — Packaging
+- parser.rs imports `crate::ast::*` and `crate::error::*`
+- When we steal it into ladybug-rs, internal paths change
+- Strip DataFusion/LanceCore/Arrow error variants (additive error.rs)
+- Decide: new `ladybug-rs/src/cypher/` module? Or `ladybug-rs/src/parser/`?
 
-### 2. GQL and NARS Syntax
-- Parser currently handles Cypher only
-- GQL (ISO/IEC 39075) is ~90% Cypher syntax but has divergences:
-  graph patterns, OPTIONAL keyword placement, GRAPH prefix
-- NARS syntax (`<S --> P>. %f;c%`) is fundamentally different — needs its own
-  parser arm or a separate nom combinator module
-- Decision: extend parser.rs with `alt()` branches, or separate parsers per syntax?
+### 2. GQL and NARS Syntax — Additive Parser Arms
+- Stolen parser handles Cypher only
+- GQL (ISO 39075): ~90% compatible, add `alt()` nom branches
+- NARS (`<S --> P>. %f;c%`): separate nom module, mesh-native language
+- NARS may belong as a ladybug-rs native parser, not a lance-graph steal
 
-### 3. Semantic Analysis Dependency
-- `semantic.rs` (~1,800 lines) depends on `GraphConfig` from lance-graph
-- Needs adaptation to validate against ladybug-rs BindSpace schema instead
-- Variable binding and scope validation is generic and portable
-- Type checking needs to know what labels/properties exist in BindSpace
+### 3. Semantic Validation Handshake
+- lance-graph's `semantic.rs` validates queries against GraphConfig
+- We need an additive adapter that validates against BindSpace schema
+- "Does the mesh have a slot for what the chart is pointing at?"
 
-### 4. Neo4j-rs Result Bridge
-- aiwar-neo4j-harvest is currently write-only (Cypher generation, no result reading)
-- n8n-rs `n8n-arrow` has the `RecordBatch` <-> row conversion pattern
-- Need to wire: SPO results -> DataFusion RecordBatch -> neo4j-rs Row format
-- Open: should this be a trait in rustynum or a standalone adapter crate?
+### 4. Result Bridge — Holodeck to Screen
+- Mesh results (BindSpace slots, SparseContainers) → human-readable output
+- n8n-rs `n8n-arrow` already has RecordBatch ↔ row conversion
+- Additive bridge: mesh → RecordBatch → neo4j-rs Row format
 
-### 5. Ground Truth Test Portability
-- lance-graph has 7 SPO ground truth tests (spo_ground_truth.rs)
-- Test patterns (round-trip, projection verbs, gate filtering, prefilter rejection,
-  chain traversal, merkle integrity, cypher convergence) are valuable
-- Need to rewrite against ladybug-rs types (SparseContainer, CogRecord, etc.)
-- The verify_lineage gap (doesn't re-hash content) is documented — verify_integrity
-  is the correct path
+### 5. Comparison Engine — Chart vs. Holodeck
+- The quality gate: flat ground truth vs. hydrated awareness
+- Does the holodeck match what the boring chart says?
+- This doesn't exist yet — additive module, location TBD
 
 ### 6. Outage Recovery
-- PRs 168-171 on ladybug-rs are pending during infrastructure outages
-- Merging spare parts should wait until the storm passes
-- Risk: force-pushing during outages can lose work
+- PRs 168-171 on ladybug-rs pending during infrastructure storms
+- Wait for clear skies before adding stolen parts
 
-### 7. lance-graph Engine Disposal
-- Once spare parts are extracted, lance-graph's SPO engine code
-  (builder.rs, store.rs, truth.rs, semiring.rs, merkle.rs, sparse.rs, fingerprint.rs)
-  can be archived or removed
-- The engine was a prototype — ladybug-rs has the production implementation
-- Keep the ground truth test patterns as reference
+### 7. Persistent Mesh
+- Once hydrated, does the holodeck persist or rebuild per query?
+- BindSpace is zero-copy — the mesh *is* the storage
+- Persistent = always-on holodeck, no boot time
+- Is the thinking mesh a computation or a state?
 
 ---
 
 ## Vision
 
-Lance-graph becomes a **thin hardened shell** — a parser crate that validates
-Cypher/GQL/NARS input and produces a clean AST. No engine, no storage, no
-traversal. Just bumpers and rims.
+**Star chart** (lance-graph): renders neo4j into flat, immutable row/column
+joins. Ground truth. Boring. Correct. The map.
 
-The AST feeds into ladybug-rs's SPO engine, which does the actual graph
-thinking using BindSpace zero-copy containers, rustynum arrays, NibbleScent
-prefiltering, NARS truth inference, and semiring algebra. All native, all
-zero-copy.
+**Thinking mesh** (SPO in ladybug-rs): hydrates the holodeck of awareness.
+Smells before thinking (scent). Believes before traversing (NARS truth).
+Propagates through algebraic structures (semirings). Addresses without
+copying (BindSpace). The territory coming alive.
 
-After thinking, the results flow through the existing DataFusion dep in
-ladybug-rs/rustynum for row/column ground truth verification, then out
-through n8n-arrow's conversion pattern into neo4j-rs compatible format.
+**We steal from the chart to harden the mesh.** Parser, AST, error handling —
+the entry gates that protect SPO from malformed input. Everything else in
+the mesh is already there. Nothing removed. Only hardened.
+
+Then we compare. The chart says what *is*. The mesh says what it *means*.
+If they agree, the holodeck is grounded. If they disagree, the mesh
+needs work.
 
 ```
-lance-graph-parser (bumpers)
-         |
-         v
-   ladybug-rs SPO engine (rustynum + BindSpace)
-         |
-         v
-   datafusion (already in ladybug-rs) -> row/column rims
-         |
-         v
-   neo4j-rs / n8n-arrow (existing pattern)
+star chart:       "Alice → KNOWS → Bob, row 47, column 3"
+
+thinking mesh:    "Alice connects to Bob with confidence 0.87,
+                   deduced through 3 hops, each truth-gated,
+                   scent-verified, resonating at second harmonic"
+
+comparison:       row 47 present? ✓  confidence justified? ✓
+                  holodeck is grounded in reality
 ```
 
-Three repos, one pipeline, zero duplication. The parser protects the entry,
-the engine does the thinking, the rims format the output. Each part owned
-by the repo that knows it best.
+Nothing removed. Everything additive. The chart stays boring.
+The mesh stays alive. The comparison keeps the holodeck honest.
