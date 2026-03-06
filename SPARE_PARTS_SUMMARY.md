@@ -308,6 +308,44 @@ THINKING MESH SIDE (you do NOT touch):
 The adapter plate (semantic.rs) sits ON the boundary. It faces the star chart
 side. Its back is to the mesh. It does not turn around.
 
+### SLEDGEHAMMER #1: RUSTYNUM IS MANDATORY
+
+All numeric operations go through rustynum. No `count_ones()`, no hand-rolled
+hamming, no `popcount` in lance_parser/. If you need distance, similarity, or
+any bit operation, it lives in rustynum-core. Not here. Not ever.
+
+```
+grep -rn "count_ones()\|\.hamming\|popcount\|xor.*distance" src/query/lance_parser/
+# MUST print nothing.
+```
+
+### SLEDGEHAMMER #2: NO SERDE_JSON ON THE HOT PATH
+
+`NodeParameterValue` is not `serde_json::Value`. They are not interchangeable.
+They are not convertible. One is a typed enum designed for zero-serialization
+execution. The other is a heap-allocated recursive tree that parses and emits
+JSON.
+
+If the compiler says they don't match, **the compiler is correct.** The fix is
+never `impl From<NodeParameterValue> for serde_json::Value`. The fix is never
+`param_to_json()`. The fix is never converting domain types to JSON to satisfy
+a function signature. If a function expects `serde_json::Value` and receives
+`NodeParameterValue`, the function signature is wrong, not the caller.
+
+```
+grep -rn "serde_json::Value" n8n-rust/crates/n8n-core/src/hot_path.rs
+# MUST print nothing.
+```
+
+If it prints anything, the hot path has been poisoned. Revert.
+
+**Why this matters**: n8n-rs killed JSON from the hot path on purpose. The
+entire point of `NodeParameterValue` is zero-serialization execution — NaN
+survives, types are preserved, no heap allocation for tree traversal. Bridging
+it back to `serde_json::Value` undoes weeks of deliberate engineering. If a
+pre-existing type mismatch blocks your build, the answer is to skip n8n tests
+or gate the build, NOT to reintroduce JSON serialization.
+
 ### Tripwires — If You Find Yourself Doing This, STOP
 
 - Adding `use crate::spo` in lance_parser/ → **STOP.** Wrong side of boundary.
