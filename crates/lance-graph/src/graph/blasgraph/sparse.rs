@@ -42,7 +42,12 @@ impl SparseVec {
 
     /// Insert or replace an entry. Maintains sorted order.
     pub fn set(&mut self, index: usize, value: BitVec) {
-        assert!(index < self.dim, "index {} out of bounds (dim={})", index, self.dim);
+        assert!(
+            index < self.dim,
+            "index {} out of bounds (dim={})",
+            index,
+            self.dim
+        );
         match self.entries.binary_search_by_key(&index, |e| e.index) {
             Ok(pos) => self.entries[pos].value = value,
             Err(pos) => self.entries.insert(pos, SparseEntry { index, value }),
@@ -100,8 +105,18 @@ impl CooStorage {
 
     /// Add a triplet `(row, col, value)`.
     pub fn push(&mut self, row: usize, col: usize, value: BitVec) {
-        assert!(row < self.nrows, "row {} out of bounds (nrows={})", row, self.nrows);
-        assert!(col < self.ncols, "col {} out of bounds (ncols={})", col, self.ncols);
+        assert!(
+            row < self.nrows,
+            "row {} out of bounds (nrows={})",
+            row,
+            self.nrows
+        );
+        assert!(
+            col < self.ncols,
+            "col {} out of bounds (ncols={})",
+            col,
+            self.ncols
+        );
         self.rows.push(row);
         self.cols.push(col);
         self.vals.push(value);

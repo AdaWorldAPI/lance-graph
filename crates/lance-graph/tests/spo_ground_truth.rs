@@ -81,18 +81,12 @@ fn test_projection_verbs_consistency() {
     // SxO2P: Jan ? Ada → CREATES
     // (bind S and O, find P — what verb connects Jan to Ada?)
     let sxo2p = store.query_relation(&jan_fp, &ada_fp, 100);
-    assert!(
-        !sxo2p.is_empty(),
-        "SxO2P: Jan ? Ada should find CREATES"
-    );
+    assert!(!sxo2p.is_empty(), "SxO2P: Jan ? Ada should find CREATES");
 
     // PxO2S: CREATES ? Ada → Jan
     // (bind P and O, find S — who CREATES Ada?)
     let pxo2s = store.query_reverse(&creates_fp, &ada_fp, 100);
-    assert!(
-        !pxo2s.is_empty(),
-        "PxO2S: CREATES ? Ada should find Jan"
-    );
+    assert!(!pxo2s.is_empty(), "PxO2S: CREATES ? Ada should find Jan");
 
     // All three should agree on the Jan-CREATES-Ada triple
     // Verify the forward query found the right record
@@ -265,7 +259,10 @@ fn test_clam_merkle_integrity() {
 
     // Verify the root matches the original fingerprint
     let expected_root = MerkleRoot::from_fingerprint(&fp);
-    assert_eq!(*root, expected_root, "Root should match original fingerprint");
+    assert_eq!(
+        *root, expected_root,
+        "Root should match original fingerprint"
+    );
 
     // Corrupt the fingerprint
     space.read_mut(addr).unwrap().fingerprint[5] ^= 0xFFFF; // flip some bits

@@ -29,11 +29,7 @@ impl fmt::Debug for BitVec {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let pop = self.popcount();
         let density = self.density();
-        write!(
-            f,
-            "BitVec {{ popcount: {}, density: {:.4} }}",
-            pop, density
-        )
+        write!(f, "BitVec {{ popcount: {}, density: {:.4} }}", pop, density)
     }
 }
 

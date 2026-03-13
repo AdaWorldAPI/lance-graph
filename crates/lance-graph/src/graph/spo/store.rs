@@ -85,12 +85,7 @@ impl SpoStore {
     }
 
     /// Raw bitmap query with truth gate filtering.
-    fn query_bitmap_gated(
-        &self,
-        query: &Bitmap,
-        radius: u32,
-        gate: TruthGate,
-    ) -> Vec<SpoHit> {
+    fn query_bitmap_gated(&self, query: &Bitmap, radius: u32, gate: TruthGate) -> Vec<SpoHit> {
         let mut hits: Vec<SpoHit> = self
             .records
             .iter()

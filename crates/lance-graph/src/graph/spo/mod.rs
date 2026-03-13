@@ -140,7 +140,10 @@ mod spo_redisgraph_parity {
 
         // Jan-[KNOWS]->Ada has truth (0.9, 0.8), expectation = 0.82 → passes STRONG (0.75)
         let strong_hits = store.query_forward_gated(&jan, &knows, 200, TruthGate::STRONG);
-        assert!(!strong_hits.is_empty(), "STRONG gate should pass 0.82 expectation");
+        assert!(
+            !strong_hits.is_empty(),
+            "STRONG gate should pass 0.82 expectation"
+        );
 
         // Max-[HELPS]->Jan has truth (0.6, 0.3), expectation = 0.53 → fails STRONG
         let max = label_fp("Max");

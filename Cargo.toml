@@ -4,4 +4,7 @@ members = [
     "crates/lance-graph-catalog",
     "crates/lance-graph-benches",
 ]
+exclude = [
+    "crates/lance-graph-python",
+]
 resolver = "2"

@@ -19,21 +19,21 @@
 //! | BOOLEAN | AND | OR | Reachability |
 //! | XOR_FIELD | XOR | XOR | GF(2) algebra |
 
-pub mod types;
-pub mod semiring;
-pub mod matrix;
-pub mod vector;
-pub mod ops;
-pub mod sparse;
 pub mod descriptor;
+pub mod matrix;
+pub mod ops;
+pub mod semiring;
+pub mod sparse;
+pub mod types;
+pub mod vector;
 
-pub use types::*;
-pub use matrix::GrBMatrix;
-pub use vector::GrBVector;
-pub use semiring::{Semiring, HdrSemiring};
-pub use sparse::{SparseFormat, CsrStorage, CooStorage};
 pub use descriptor::{Descriptor, GrBDesc};
+pub use matrix::GrBMatrix;
 pub use ops::*;
+pub use semiring::{HdrSemiring, Semiring};
+pub use sparse::{CooStorage, CsrStorage, SparseFormat};
+pub use types::*;
+pub use vector::GrBVector;
 
 /// GraphBLAS status codes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -11,9 +11,9 @@
 //! it does not re-hash the fingerprint data to detect bit-flip corruption.
 //! This is documented and tested (test 6 expects this gap).
 
-use crate::graph::fingerprint::{Fingerprint, ZERO_FP};
 #[cfg(test)]
 use crate::graph::fingerprint::FINGERPRINT_WORDS;
+use crate::graph::fingerprint::{Fingerprint, ZERO_FP};
 
 /// A Merkle root stamped on a BindSpace node at write time.
 ///
@@ -125,9 +125,7 @@ impl BindSpace {
 
     /// Get ClamPath and MerkleRoot for a node.
     pub fn clam_merkle(&self, addr: usize) -> Option<(&ClamPath, &MerkleRoot)> {
-        self.nodes
-            .get(addr)
-            .map(|n| (&n.clam_path, &n.merkle_root))
+        self.nodes.get(addr).map(|n| (&n.clam_path, &n.merkle_root))
     }
 
     /// Verify lineage integrity for a node.

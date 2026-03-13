@@ -85,16 +85,12 @@ impl Semiring for HdrSemiring {
         match self {
             HdrSemiring::XorBundle | HdrSemiring::BindFirst | HdrSemiring::XorField => {
                 match (a, b) {
-                    (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => {
-                        HdrScalar::Vector(va.xor(vb))
-                    }
+                    (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => HdrScalar::Vector(va.xor(vb)),
                     _ => HdrScalar::Empty,
                 }
             }
             HdrSemiring::Resonance => match (a, b) {
-                (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => {
-                    HdrScalar::Vector(va.xor(vb))
-                }
+                (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => HdrScalar::Vector(va.xor(vb)),
                 _ => HdrScalar::Empty,
             },
             HdrSemiring::HammingMin => match (a, b) {
@@ -111,9 +107,7 @@ impl Semiring for HdrSemiring {
                 _ => HdrScalar::Empty,
             },
             HdrSemiring::Boolean => match (a, b) {
-                (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => {
-                    HdrScalar::Vector(va.and(vb))
-                }
+                (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => HdrScalar::Vector(va.and(vb)),
                 (HdrScalar::Bool(ba), HdrScalar::Bool(bb)) => HdrScalar::Bool(*ba && *bb),
                 _ => HdrScalar::Empty,
             },
@@ -141,15 +135,11 @@ impl Semiring for HdrSemiring {
                 a.clone()
             }
             HdrSemiring::HammingMin => match (a, b) {
-                (HdrScalar::Float(fa), HdrScalar::Float(fb)) => {
-                    HdrScalar::Float(fa.min(*fb))
-                }
+                (HdrScalar::Float(fa), HdrScalar::Float(fb)) => HdrScalar::Float(fa.min(*fb)),
                 _ => a.clone(),
             },
             HdrSemiring::SimilarityMax => match (a, b) {
-                (HdrScalar::Float(fa), HdrScalar::Float(fb)) => {
-                    HdrScalar::Float(fa.max(*fb))
-                }
+                (HdrScalar::Float(fa), HdrScalar::Float(fb)) => HdrScalar::Float(fa.max(*fb)),
                 _ => a.clone(),
             },
             HdrSemiring::Resonance => match (a, b) {
@@ -165,16 +155,12 @@ impl Semiring for HdrSemiring {
                 _ => a.clone(),
             },
             HdrSemiring::Boolean => match (a, b) {
-                (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => {
-                    HdrScalar::Vector(va.or(vb))
-                }
+                (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => HdrScalar::Vector(va.or(vb)),
                 (HdrScalar::Bool(ba), HdrScalar::Bool(bb)) => HdrScalar::Bool(*ba || *bb),
                 _ => a.clone(),
             },
             HdrSemiring::XorField => match (a, b) {
-                (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => {
-                    HdrScalar::Vector(va.xor(vb))
-                }
+                (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => HdrScalar::Vector(va.xor(vb)),
                 _ => a.clone(),
             },
         }
