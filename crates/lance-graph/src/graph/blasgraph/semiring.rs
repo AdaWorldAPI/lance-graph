@@ -58,8 +58,8 @@ impl HdrSemiring {
         match self {
             HdrSemiring::XorBundle => BinaryOp::Xor,
             HdrSemiring::BindFirst => BinaryOp::Xor,
-            HdrSemiring::HammingMin => BinaryOp::HammingDistance,
-            HdrSemiring::SimilarityMax => BinaryOp::Similarity,
+            HdrSemiring::HammingMin => BinaryOp::Xor,
+            HdrSemiring::SimilarityMax => BinaryOp::Xor,
             HdrSemiring::Resonance => BinaryOp::Xor,
             HdrSemiring::Boolean => BinaryOp::And,
             HdrSemiring::XorField => BinaryOp::Xor,
@@ -71,8 +71,8 @@ impl HdrSemiring {
         match self {
             HdrSemiring::XorBundle => MonoidOp::BundleMonoid,
             HdrSemiring::BindFirst => MonoidOp::First,
-            HdrSemiring::HammingMin => MonoidOp::Min,
-            HdrSemiring::SimilarityMax => MonoidOp::Max,
+            HdrSemiring::HammingMin => MonoidOp::MinPopcount,
+            HdrSemiring::SimilarityMax => MonoidOp::MinPopcount,
             HdrSemiring::Resonance => MonoidOp::BestDensity,
             HdrSemiring::Boolean => MonoidOp::Or,
             HdrSemiring::XorField => MonoidOp::XorField,
@@ -93,16 +93,9 @@ impl Semiring for HdrSemiring {
                 (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => HdrScalar::Vector(va.xor(vb)),
                 _ => HdrScalar::Empty,
             },
-            HdrSemiring::HammingMin => match (a, b) {
+            HdrSemiring::HammingMin | HdrSemiring::SimilarityMax => match (a, b) {
                 (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => {
-                    HdrScalar::Float(va.hamming_distance(vb) as f32)
-                }
-                _ => HdrScalar::Empty,
-            },
-            HdrSemiring::SimilarityMax => match (a, b) {
-                (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => {
-                    let dist = va.hamming_distance(vb);
-                    HdrScalar::Float(hamming_to_similarity(dist))
+                    HdrScalar::Vector(va.xor(vb))
                 }
                 _ => HdrScalar::Empty,
             },
@@ -134,12 +127,18 @@ impl Semiring for HdrSemiring {
                 // Return first non-empty; `a` is non-empty at this point.
                 a.clone()
             }
-            HdrSemiring::HammingMin => match (a, b) {
-                (HdrScalar::Float(fa), HdrScalar::Float(fb)) => HdrScalar::Float(fa.min(*fb)),
-                _ => a.clone(),
-            },
-            HdrSemiring::SimilarityMax => match (a, b) {
-                (HdrScalar::Float(fa), HdrScalar::Float(fb)) => HdrScalar::Float(fa.max(*fb)),
+            HdrSemiring::HammingMin | HdrSemiring::SimilarityMax => match (a, b) {
+                (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => {
+                    // Keep the vector with the smallest popcount (min Hamming
+                    // weight). For HammingMin this is "shortest path"; for
+                    // SimilarityMax it is "highest similarity" (least
+                    // difference).
+                    if va.popcount() <= vb.popcount() {
+                        a.clone()
+                    } else {
+                        b.clone()
+                    }
+                }
                 _ => a.clone(),
             },
             HdrSemiring::Resonance => match (a, b) {
@@ -170,10 +169,10 @@ impl Semiring for HdrSemiring {
         match self {
             HdrSemiring::XorBundle
             | HdrSemiring::BindFirst
+            | HdrSemiring::HammingMin
+            | HdrSemiring::SimilarityMax
             | HdrSemiring::Resonance
             | HdrSemiring::XorField => HdrScalar::Empty,
-            HdrSemiring::HammingMin => HdrScalar::Float(f32::INFINITY),
-            HdrSemiring::SimilarityMax => HdrScalar::Float(f32::NEG_INFINITY),
             HdrSemiring::Boolean => HdrScalar::Bool(false),
         }
     }
@@ -311,6 +310,16 @@ pub fn apply_monoid(op: MonoidOp, a: &HdrScalar, b: &HdrScalar) -> HdrScalar {
             (HdrScalar::Float(fa), HdrScalar::Float(fb)) => HdrScalar::Float(fa + fb),
             _ => a.clone(),
         },
+        MonoidOp::MinPopcount => match (a, b) {
+            (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => {
+                if va.popcount() <= vb.popcount() {
+                    a.clone()
+                } else {
+                    b.clone()
+                }
+            }
+            _ => a.clone(),
+        },
         MonoidOp::BestDensity => match (a, b) {
             (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => {
                 let da = (va.density() - 0.5).abs();
@@ -375,27 +384,31 @@ mod tests {
         let a = make_vec(1);
         let b = make_vec(2);
 
+        // Multiply produces XOR vector, not Float.
         let prod = sr.multiply(&a, &b);
-        assert!(prod.as_float().is_some());
+        assert!(prod.as_vector().is_some());
 
-        let f1 = HdrScalar::Float(100.0);
-        let f2 = HdrScalar::Float(50.0);
-        let sum = sr.add(&f1, &f2);
-        assert_eq!(sum.as_float(), Some(50.0));
+        // Add keeps the vector with smallest popcount (shortest path).
+        let sparse = HdrScalar::Vector(BitVec::zero()); // popcount 0
+        let dense = HdrScalar::Vector(BitVec::ones()); // popcount 16384
+        let sum = sr.add(&sparse, &dense);
+        assert_eq!(sum.as_vector().unwrap().popcount(), 0);
     }
 
     #[test]
     fn test_similarity_max_semiring() {
         let sr = HdrSemiring::SimilarityMax;
         let a = make_vec(1);
-        let prod = sr.multiply(&a, &a);
-        // Same vector => similarity 1.0
-        assert_eq!(prod.as_float(), Some(1.0));
 
-        let f1 = HdrScalar::Float(0.3);
-        let f2 = HdrScalar::Float(0.8);
-        let sum = sr.add(&f1, &f2);
-        assert_eq!(sum.as_float(), Some(0.8));
+        // Same vector XOR => zero vector (perfect similarity).
+        let prod = sr.multiply(&a, &a);
+        assert!(prod.as_vector().unwrap().is_zero());
+
+        // Add keeps the vector with min popcount (max similarity).
+        let close = HdrScalar::Vector(BitVec::zero());
+        let far = HdrScalar::Vector(BitVec::ones());
+        let sum = sr.add(&close, &far);
+        assert_eq!(sum.as_vector().unwrap().popcount(), 0);
     }
 
     #[test]

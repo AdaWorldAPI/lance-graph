@@ -368,6 +368,8 @@ pub enum MonoidOp {
     FloatAdd,
     /// Best density: keep the vector with density closest to 0.5.
     BestDensity,
+    /// Keep the vector with the smallest popcount (min Hamming weight).
+    MinPopcount,
     /// XOR for GF(2) field.
     XorField,
 }

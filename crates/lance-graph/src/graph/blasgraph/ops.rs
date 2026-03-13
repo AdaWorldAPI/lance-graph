@@ -197,62 +197,71 @@ pub fn hdr_bfs(adj: &GrBMatrix, source: usize, max_depth: usize) -> GrBVector {
 
 /// Single-source shortest path using Hamming distance.
 ///
-/// Performs Bellman-Ford-like relaxation using the HAMMING_MIN semiring.
-/// Returns a vector where entry `i` contains the minimum total Hamming
-/// distance from `source` to node `i`.
+/// Performs Bellman-Ford relaxation where each edge's weight is the
+/// popcount (Hamming weight) of its `BitVec`. Path costs are tracked
+/// as cumulative `u32` popcount sums alongside XOR-composed path
+/// vectors.
 ///
-/// The adjacency matrix should contain edge vectors; the "weight" of
-/// each edge is the Hamming distance between the endpoint vectors.
+/// Returns a vector where entry `i` holds the XOR-composed path vector
+/// from `source` to node `i`. The path cost for node `i` is
+/// `result.get(i).unwrap().popcount()` — but note this is the popcount
+/// of the XOR composition, not the cumulative edge weight sum. For the
+/// cumulative cost, use `result.get_scalar(i)` which returns
+/// `Float(cumulative_cost)`.
 pub fn hdr_sssp(adj: &GrBMatrix, source: usize, max_iters: usize) -> GrBVector {
     let n = adj.nrows();
     assert_eq!(n, adj.ncols(), "adjacency matrix must be square");
     assert!(source < n, "source out of bounds");
 
-    let semiring = HdrSemiring::HammingMin;
-    let desc = GrBDesc::default();
+    // Cumulative path costs as u32 (u32::MAX = unreachable).
+    let mut cost: Vec<u32> = vec![u32::MAX; n];
+    cost[source] = 0;
 
-    // Distance vector: source has distance 0.
-    let mut dist = GrBVector::new(n);
-    dist.set(source, BitVec::zero());
+    // XOR-composed path vectors.
+    let mut path_vecs: Vec<Option<BitVec>> = vec![None; n];
+    path_vecs[source] = Some(BitVec::zero());
 
     for _iter in 0..max_iters {
-        let next = adj.vxm(&dist, &semiring, &desc);
-
-        // Check for convergence: if no distances improved, stop.
         let mut changed = false;
-        let mut new_dist = GrBVector::new(n);
 
-        for (idx, v) in dist.iter() {
-            new_dist.set(idx, v.clone());
-        }
-
-        for (idx, v) in next.iter() {
-            match new_dist.get(idx) {
-                Some(existing) => {
-                    // The semiring produces Float scalars for Hamming, but here
-                    // we are working with BitVec elements; keep the "better" one
-                    // (closer to zero).
-                    if v.hamming_distance(&BitVec::zero())
-                        < existing.hamming_distance(&BitVec::zero())
-                    {
-                        new_dist.set(idx, v.clone());
-                        changed = true;
-                    }
-                }
-                None => {
-                    new_dist.set(idx, v.clone());
+        for u in 0..n {
+            if cost[u] == u32::MAX {
+                continue;
+            }
+            for (v, edge_vec) in adj.row(u) {
+                let edge_weight = edge_vec.popcount();
+                let new_cost = cost[u].saturating_add(edge_weight);
+                if new_cost < cost[v] {
+                    cost[v] = new_cost;
+                    let path = match &path_vecs[u] {
+                        Some(pv) => pv.xor(edge_vec),
+                        None => edge_vec.clone(),
+                    };
+                    path_vecs[v] = Some(path);
                     changed = true;
                 }
             }
         }
 
-        dist = new_dist;
         if !changed {
             break;
         }
     }
 
-    dist
+    // Build result: BitVec path vectors + u32 cost scalars.
+    let mut result = GrBVector::new(n);
+    for (i, pv) in path_vecs.into_iter().enumerate() {
+        if let Some(v) = pv {
+            result.set(i, v);
+        }
+    }
+    for (i, &c) in cost.iter().enumerate() {
+        if c < u32::MAX {
+            result.set_scalar(i, HdrScalar::Float(c as f32));
+        }
+    }
+
+    result
 }
 
 /// HDR PageRank: iterative importance scoring using XOR_BUNDLE semiring.
@@ -451,9 +460,32 @@ mod tests {
     fn test_hdr_sssp_path_graph() {
         let adj = path_graph(4);
         let result = hdr_sssp(&adj, 0, 10);
-        // Source should have the zero vector.
+        // Source should have the zero vector and zero cost.
         assert!(result.get(0).is_some());
         assert_eq!(result.get(0).unwrap().popcount(), 0);
+        assert_eq!(result.get_scalar(0).and_then(|s| s.as_float()), Some(0.0));
+
+        // All nodes should be reachable.
+        for i in 0..4 {
+            assert!(result.get(i).is_some(), "node {} unreachable", i);
+            assert!(
+                result.get_scalar(i).is_some(),
+                "node {} missing cost scalar",
+                i
+            );
+        }
+
+        // Costs should be non-decreasing along the path.
+        let costs: Vec<f32> = (0..4)
+            .map(|i| result.get_scalar(i).unwrap().as_float().unwrap())
+            .collect();
+        for w in costs.windows(2) {
+            assert!(
+                w[0] <= w[1],
+                "cost should be non-decreasing: {:?}",
+                costs
+            );
+        }
     }
 
     #[test]
