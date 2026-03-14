@@ -17,10 +17,16 @@ use crate::graph::blasgraph::types::{
 ///
 /// Elements are stored sorted by index. Absent positions are structural
 /// zeros and occupy no memory.
+///
+/// Non-vector semiring outputs (e.g. `Float` from `HammingMin`) are stored
+/// in a separate scalar side-channel so that `mxv`/`vxm` never silently
+/// drops results.
 #[derive(Clone, Debug)]
 pub struct GrBVector {
-    /// Underlying sparse storage.
+    /// Underlying sparse storage for BitVec entries.
     storage: SparseVec,
+    /// Non-vector scalar results from semiring operations, sorted by index.
+    scalar_entries: Vec<(usize, HdrScalar)>,
 }
 
 impl GrBVector {
@@ -28,6 +34,7 @@ impl GrBVector {
     pub fn new(dim: usize) -> Self {
         Self {
             storage: SparseVec::new(dim),
+            scalar_entries: Vec::new(),
         }
     }
 
@@ -214,6 +221,42 @@ impl GrBVector {
                 self.set(dst_idx, v.clone());
             }
         }
+    }
+
+    // -----------------------------------------------------------------
+    // Scalar side-channel (for non-vector semiring outputs)
+    // -----------------------------------------------------------------
+
+    /// Store a non-vector scalar result at the given index.
+    ///
+    /// Used by `mxv`/`vxm` when semirings like `HammingMin` or
+    /// `SimilarityMax` produce `Float` accumulators instead of `Vector`.
+    pub fn set_scalar(&mut self, index: usize, value: HdrScalar) {
+        match self
+            .scalar_entries
+            .binary_search_by_key(&index, |e| e.0)
+        {
+            Ok(pos) => self.scalar_entries[pos].1 = value,
+            Err(pos) => self.scalar_entries.insert(pos, (index, value)),
+        }
+    }
+
+    /// Retrieve a scalar result at the given index.
+    pub fn get_scalar(&self, index: usize) -> Option<&HdrScalar> {
+        self.scalar_entries
+            .binary_search_by_key(&index, |e| e.0)
+            .ok()
+            .map(|pos| &self.scalar_entries[pos].1)
+    }
+
+    /// Iterate over `(index, &HdrScalar)` scalar entries.
+    pub fn iter_scalars(&self) -> impl Iterator<Item = (usize, &HdrScalar)> {
+        self.scalar_entries.iter().map(|(i, s)| (*i, s))
+    }
+
+    /// Number of stored scalar entries.
+    pub fn scalar_nnz(&self) -> usize {
+        self.scalar_entries.len()
     }
 }
 

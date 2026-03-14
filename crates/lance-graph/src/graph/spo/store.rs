@@ -209,16 +209,24 @@ impl SpoStore {
             let mut best_hit: Option<SpoHit> = None;
             for record in self.records.values() {
                 let d = hamming_distance(&current_subject, &record.subject);
-                if d < radius / 2 + 1 && !visited.contains(&self.key_for_object(&record.object)) {
-                    match &best_hit {
-                        Some(existing) if d >= existing.distance => {}
-                        _ => {
-                            best_hit = Some(SpoHit {
-                                key: self.key_for_object(&record.object),
-                                distance: d,
-                                record: record.clone(),
-                            });
+                let candidate_key = self.key_for_object(&record.object);
+                if d < radius / 2 + 1 && !visited.contains(&candidate_key) {
+                    let dominated = match &best_hit {
+                        Some(existing) if d > existing.distance => true,
+                        // Deterministic tie-breaking: smallest key wins.
+                        Some(existing)
+                            if d == existing.distance && candidate_key >= existing.key =>
+                        {
+                            true
                         }
+                        _ => false,
+                    };
+                    if !dominated {
+                        best_hit = Some(SpoHit {
+                            key: candidate_key,
+                            distance: d,
+                            record: record.clone(),
+                        });
                     }
                 }
             }
