@@ -175,12 +175,6 @@ pub struct Belichtungsmesser {
     sigma: u32,
     /// Precomputed band thresholds: [μ-3σ, μ-2σ, μ-σ, μ].
     bands: [u32; 4],
-    /// Cascade stage 1 threshold (1/16 sample): μ − 4σ.
-    /// Accounts for the 4× amplified σ of 1/16 extrapolation.
-    cascade_s1: u32,
-    /// Cascade stage 2 threshold (1/4 sample): μ − 2σ.
-    /// Accounts for the 2× amplified σ of 1/4 extrapolation.
-    cascade_s2: u32,
     // -- Welford's online statistics for shift detection --
     running_count: u64,
     running_sum: u64,
@@ -204,10 +198,6 @@ impl Belichtungsmesser {
             mu,
             sigma,
             bands,
-            // 1/16 sample: projected σ = σ * √16 = 4σ. Reject above μ − 4σ.
-            cascade_s1: mu.saturating_sub(4 * sigma),
-            // 1/4 sample: projected σ = σ * √4 = 2σ. Reject above μ − 2σ.
-            cascade_s2: mu.saturating_sub(2 * sigma),
             running_count: 0,
             running_sum: 0,
             running_m2: 0,
@@ -244,8 +234,6 @@ impl Belichtungsmesser {
             mu,
             sigma,
             bands,
-            cascade_s1: mu.saturating_sub(4 * sigma),
-            cascade_s2: mu.saturating_sub(2 * sigma),
             running_count: n,
             running_sum: sum,
             running_m2: var_sum,
@@ -313,18 +301,22 @@ impl Belichtungsmesser {
             debug_assert_eq!(candidate.len(), nwords);
 
             // -- Stage 1: 1/16 sample --
+            // Threshold: bands[2] = μ-σ. With 1/16 Stichprobe (1024 bits),
+            // this is the maximum confidence the sample size supports.
             if do_stage1 {
                 let projected = words_hamming_sampled(query, candidate, 16);
-                if projected > self.cascade_s1 {
-                    continue; // reject: above μ − 4σ (sampling-aware)
+                if projected > self.bands[2] {
+                    continue;
                 }
             }
 
             // -- Stage 2: 1/4 sample --
+            // Threshold: bands[1] = μ-2σ. With 1/4 Stichprobe (4096 bits),
+            // the larger sample supports tighter 2σ confidence.
             if do_stage2 {
                 let projected = words_hamming_sampled(query, candidate, 4);
-                if projected > self.cascade_s2 {
-                    continue; // reject: above μ − 2σ (sampling-aware)
+                if projected > self.bands[1] {
+                    continue;
                 }
             }
 
@@ -436,8 +428,6 @@ impl Belichtungsmesser {
             self.mu.saturating_sub(self.sigma),
             self.mu,
         ];
-        self.cascade_s1 = self.mu.saturating_sub(4 * self.sigma);
-        self.cascade_s2 = self.mu.saturating_sub(2 * self.sigma);
     }
 }
 
@@ -517,8 +507,6 @@ mod tests {
             mu: 8192,
             sigma: 64,
             bands: [8192 - 192, 8192 - 128, 8192 - 64, 8192],
-            cascade_s1: 8192 - 256,
-            cascade_s2: 8192 - 128,
             running_count: 1000,
             running_sum: 8_192_000,
             running_m2: 64 * 64 * 1000,
@@ -545,9 +533,13 @@ mod tests {
 
     // -- Test 3: Cascade eliminates most random candidates --
     //
-    // Design doc: stage 1 alone eliminates ~84% (threshold at μ−σ is lenient
-    // because the 1/16 sample has 4× the std of full comparison).
-    // Combined cascade eliminates >95%.
+    // Cascade thresholds match Stichprobe confidence:
+    //   Stage 1 (1/16 sample, 1024 bits): bands[2] = μ-σ. 1σ confidence.
+    //   Stage 2 (1/4 sample, 4096 bits): bands[1] = μ-2σ. 2σ confidence.
+    //   Stage 3 (full, 16384 bits): exact classification into all bands.
+    //
+    // You can't claim more σ than your sample size supports.
+    // Higher σ thresholds with small Stichprobe = hallucinated confidence.
 
     #[test]
     fn test_elimination_rate() {
@@ -566,16 +558,16 @@ mod tests {
 
         let t0 = std::time::Instant::now();
         for candidate in &candidates {
-            // Stage 1: 1/16 sample (sampling-aware threshold).
+            // Stage 1: 1/16 sample → bands[2] (μ-σ).
             let s1 = words_hamming_sampled(&query, candidate, 16);
-            if s1 > meter.cascade_s1 {
+            if s1 > meter.bands[2] {
                 continue;
             }
             stage1_pass += 1;
 
-            // Stage 2: 1/4 sample (sampling-aware threshold).
+            // Stage 2: 1/4 sample → bands[1] (μ-2σ).
             let s2 = words_hamming_sampled(&query, candidate, 4);
-            if s2 > meter.cascade_s2 {
+            if s2 > meter.bands[1] {
                 continue;
             }
             stage2_pass += 1;
@@ -588,36 +580,35 @@ mod tests {
         }
         let elapsed = t0.elapsed();
 
-        let s1_reject_pct = 100 - (stage1_pass as u64 * 100 / n_candidates as u64);
-        let total_reject_pct =
-            100 - (stage2_pass as u64 * 100 / n_candidates as u64);
+        let s1_reject_pct = 100.0 * (1.0 - stage1_pass as f64 / n_candidates as f64);
+        let total_reject_pct = 100.0 * (1.0 - stage2_pass as f64 / n_candidates as f64);
 
         println!(
-            "Stage 1: {}/{} pass ({}% rejected)",
-            stage1_pass, n_candidates, s1_reject_pct
+            "Stage 1: {}/{} pass ({:.1}% rejected) [threshold: μ-σ={}]",
+            stage1_pass, n_candidates, s1_reject_pct, meter.bands[2]
         );
-        println!("Stage 2: {}/{} pass", stage2_pass, stage1_pass);
-        println!("Stage 3: {} final", stage3_pass);
         println!(
-            "Combined cascade: {}% rejected",
-            total_reject_pct
+            "Stage 2: {}/{} pass [threshold: μ-2σ={}]",
+            stage2_pass, stage1_pass, meter.bands[1]
         );
+        println!("Stage 3: {} final", stage3_pass);
+        println!("Combined cascade: {:.1}% rejected", total_reject_pct);
         println!(
             "Cascade time: {:?} ({} ns/candidate)",
             elapsed,
             elapsed.as_nanos() / n_candidates as u128
         );
 
-        // Stage 1 alone: ~84% (sampling noise is high, threshold is lenient).
+        // Stage 1 with 1/16 Stichprobe and 1σ threshold: rejects >50%.
         assert!(
-            s1_reject_pct > 70,
-            "Stage 1 must reject >70% of random candidates, got {}%",
+            s1_reject_pct > 50.0,
+            "Stage 1 must reject >50% of random candidates, got {:.1}%",
             s1_reject_pct
         );
-        // Combined cascade: >90% total elimination.
+        // Combined cascade: multi-stage filtering compounds rejection.
         assert!(
-            total_reject_pct > 90,
-            "Combined cascade must reject >90% of random candidates, got {}%",
+            total_reject_pct > 80.0,
+            "Combined cascade must reject >80% of random candidates, got {:.1}%",
             total_reject_pct
         );
     }
@@ -642,12 +633,12 @@ mod tests {
         let t_cascade = std::time::Instant::now();
         for c in &candidates {
             let s1 = words_hamming_sampled(&query, c, 16);
-            if s1 > meter.cascade_s1 {
+            if s1 > meter.bands[2] {
                 continue;
             }
             s1_pass += 1;
             let s2 = words_hamming_sampled(&query, c, 4);
-            if s2 > meter.cascade_s2 {
+            if s2 > meter.bands[1] {
                 continue;
             }
             s2_pass += 1;
@@ -706,8 +697,6 @@ mod tests {
             mu: 8192,
             sigma: 64,
             bands: [8192 - 192, 8192 - 128, 8192 - 64, 8192],
-            cascade_s1: 8192 - 256,
-            cascade_s2: 8192 - 128,
             running_count: 1000,
             running_sum: 8_192_000,
             running_m2: 64 * 64 * 1000,
