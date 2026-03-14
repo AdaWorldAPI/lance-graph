@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright The Lance Authors
 
-//! # LightMeter — HDR Exposure Cascade for Binary Vector Search
+//! # Cascade — HDR Exposure Cascade for Binary Vector Search
 //!
 //! Self-calibrating exposure meter for Hamming distance queries on binary
 //! vectors. Eliminates 97%+ of candidates using sampled bit comparisons
@@ -230,6 +230,10 @@ impl ReservoirSample {
         self.samples.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.samples.is_empty()
+    }
+
     /// Deterministic hash-based PRNG for reservoir replacement decisions.
     fn fast_rand(seed: u64) -> u64 {
         let mut z = seed.wrapping_add(0x9e3779b97f4a7c15);
@@ -240,7 +244,7 @@ impl ReservoirSample {
 }
 
 // ---------------------------------------------------------------------------
-// LightMeter — the exposure meter
+// Cascade — the exposure meter
 // ---------------------------------------------------------------------------
 
 /// Self-calibrating exposure meter for Hamming distance queries.
@@ -256,15 +260,15 @@ impl ReservoirSample {
 /// # Usage
 ///
 /// ```ignore
-/// let meter = LightMeter::calibrate(&sample_distances);
+/// let meter = Cascade::calibrate(&sample_distances);
 /// let band = meter.band(7950); // → Band::Foveal
-/// let results = meter.cascade_query(query_words, &candidates, 10);
+/// let results = meter.query(query_words, &candidates, 10);
 ///
 /// if let Some(alert) = meter.observe(distance) {
 ///     meter.recalibrate(&alert);
 /// }
 /// ```
-pub struct LightMeter {
+pub struct Cascade {
     // -- Parametric (σ-based, fast) --
     /// Calibrated mean pairwise Hamming distance.
     mu: u32,
@@ -312,7 +316,7 @@ pub struct LightMeter {
     running_m2: u64,
 }
 
-impl LightMeter {
+impl Cascade {
     /// Compute cascade thresholds at quarter-sigma intervals.
     ///
     /// ```text
@@ -480,6 +484,23 @@ impl LightMeter {
         }
     }
 
+    /// Classify a single distance into a sigma band.
+    ///
+    /// Public alias for `band()`. Naming follows the exposure-meter metaphor:
+    /// "expose" a distance to see which confidence band it falls into.
+    #[inline]
+    pub fn expose(&self, distance: u32) -> Band {
+        self.band(distance)
+    }
+
+    /// Single pair test: is this distance in a useful band?
+    ///
+    /// Returns `true` if the distance falls in Foveal, Near, or Good bands.
+    #[inline]
+    pub fn test_distance(&self, distance: u32) -> bool {
+        self.band(distance) <= Band::Good
+    }
+
     /// Current calibrated mean.
     pub fn mu(&self) -> u32 {
         self.mu
@@ -567,7 +588,7 @@ impl LightMeter {
     /// sorted by `u32` distance within each bucket. No float anywhere.
     ///
     /// Automatically uses empirical thresholds when `use_empirical` is set.
-    pub fn cascade_query(
+    pub fn query(
         &self,
         query: &[u64],
         candidates: &[&[u64]],
@@ -683,7 +704,7 @@ impl LightMeter {
         self.reservoir.observe(distance);
 
         // Check every 1000 observations.
-        if self.running_count % 1000 == 0 && self.running_count > 1000 {
+        if self.running_count.is_multiple_of(1000) && self.running_count > 1000 {
             let running_mu = new_mean as u32;
             let running_var = (self.running_m2 / self.running_count) as u32;
             let running_sigma = isqrt(running_var).max(1);
@@ -805,23 +826,23 @@ mod tests {
         result.max(0) as u32
     }
 
-    /// Create a LightMeter with explicit parametric values (for unit tests).
-    fn meter_with_params(mu: u32, sigma: u32) -> LightMeter {
+    /// Create a Cascade with explicit parametric values (for unit tests).
+    fn meter_with_params(mu: u32, sigma: u32) -> Cascade {
         let bands = [
             mu.saturating_sub(3 * sigma),
             mu.saturating_sub(2 * sigma),
             mu.saturating_sub(sigma),
             mu,
         ];
-        let cascade = LightMeter::compute_cascade(mu, sigma);
-        LightMeter {
+        let cascade = Cascade::compute_cascade(mu, sigma);
+        Cascade {
             mu,
             sigma,
             bands,
             cascade,
             stage1_level: 0,
             stage2_level: 3,
-            reservoir: ReservoirSample::new(LightMeter::RESERVOIR_CAP),
+            reservoir: ReservoirSample::new(Cascade::RESERVOIR_CAP),
             empirical_bands: bands,
             empirical_cascade: cascade,
             use_empirical: false,
@@ -838,7 +859,7 @@ mod tests {
     #[test]
     fn test_calibration_from_corpus() {
         let dists = random_pairwise_distances(256, 100, 42);
-        let meter = LightMeter::calibrate(&dists);
+        let meter = Cascade::calibrate(&dists);
 
         assert!(
             meter.mu > 7800 && meter.mu < 8600,
@@ -886,7 +907,7 @@ mod tests {
     #[test]
     fn test_elimination_rate() {
         let nwords = 256;
-        let meter = LightMeter::for_width(nwords as u32 * 64);
+        let meter = Cascade::for_width(nwords as u32 * 64);
 
         let query = random_words(nwords, 0);
         let n_candidates = 10_000;
@@ -941,7 +962,7 @@ mod tests {
     #[test]
     fn test_work_savings() {
         let nwords = 256;
-        let meter = LightMeter::for_width(nwords as u32 * 64);
+        let meter = Cascade::for_width(nwords as u32 * 64);
         let n_candidates: u64 = 10_000;
         let cascade = meter.active_cascade();
 
@@ -1020,7 +1041,7 @@ mod tests {
 
     #[test]
     fn test_no_float_guarantee() {
-        let meter = LightMeter::calibrate(&[8000, 8100, 8200, 8300, 8400]);
+        let meter = Cascade::calibrate(&[8000, 8100, 8200, 8300, 8400]);
 
         let b: Band = meter.band(8050);
         assert!(matches!(b, Band::Foveal | Band::Near | Band::Good | Band::Weak | Band::Reject));
@@ -1067,7 +1088,7 @@ mod tests {
 
     #[test]
     fn test_cascade_table_structure() {
-        let meter = LightMeter::for_width(16384);
+        let meter = Cascade::for_width(16384);
         let c = meter.cascade;
 
         assert_eq!(c[0], 8192 - 64);       // μ - 1.00σ = 8128
@@ -1108,7 +1129,7 @@ mod tests {
         assert_eq!(reservoir.len(), 1000);
 
         // Empirical cascade thresholds should be close to theoretical.
-        let cascade = LightMeter::compute_empirical_cascade(&reservoir);
+        let cascade = Cascade::compute_empirical_cascade(&reservoir);
         println!("Empirical cascade (from N(8192,64)): {:?}", cascade);
 
         // 1σ threshold should be near 8128 (±25).
@@ -1157,12 +1178,12 @@ mod tests {
         let dists_2k = random_pairwise_distances(nwords, 64, 42);
         assert!(dists_2k.len() >= 2000);
 
-        let mut meter = LightMeter::calibrate(&dists_2k);
+        let mut meter = Cascade::calibrate(&dists_2k);
 
         println!("=== Phase 1: Warmup ({} samples) ===", dists_2k.len());
         println!("  μ={}, σ={}, reservoir={}", meter.mu, meter.sigma, meter.reservoir.len());
         println!("  cascade: {:?}", meter.cascade);
-        println!("  empirical: {:?}", LightMeter::compute_empirical_cascade(&meter.reservoir));
+        println!("  empirical: {:?}", Cascade::compute_empirical_cascade(&meter.reservoir));
         println!("  use_empirical: {}", meter.use_empirical);
 
         assert!(meter.sigma > 50 && meter.sigma < 80,
@@ -1253,7 +1274,7 @@ mod tests {
         println!("Part 1: Full-width σ thresholds vs normal distribution theory");
         println!("============================================================");
 
-        let meter = LightMeter::for_width(total_bits);
+        let meter = Cascade::for_width(total_bits);
         let query = random_words(nwords, 0);
         let n_test = 10_000usize;
         let candidates: Vec<Vec<u64>> = (1..=n_test)
@@ -1335,7 +1356,7 @@ mod tests {
             Phase { name: "C (μ=8500, σ=40)", mu: 8500, sigma: 40, n_obs: 5000 },
         ];
 
-        let mut meter = LightMeter::for_width(total_bits);
+        let mut meter = Cascade::for_width(total_bits);
         let mut total_delta = 0.0f64;
         let mut n_measurements = 0u32;
         let mut rng = 12345u64;
@@ -1401,7 +1422,7 @@ mod tests {
 
     #[test]
     fn test_empirical_auto_switch() {
-        let mut meter = LightMeter::for_width(16384);
+        let mut meter = Cascade::for_width(16384);
         let mut rng = 42u64;
 
         // Phase 1: Normal data — should stay σ-based.
