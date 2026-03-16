@@ -11,6 +11,7 @@ pub mod blasgraph;
 pub mod fingerprint;
 pub mod sparse;
 pub mod spo;
+pub mod versioned;
 
 /// Container geometry identifiers for graph storage layouts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

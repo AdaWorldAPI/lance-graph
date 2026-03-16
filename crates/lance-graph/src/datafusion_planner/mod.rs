@@ -17,8 +17,10 @@
 pub mod analysis;
 mod builder;
 mod config_helpers;
+pub mod cost_estimation;
 mod expression;
 mod join_ops;
+pub mod predicate_pushdown;
 mod scan_ops;
 mod udf;
 pub mod vector_ops;

@@ -877,6 +877,9 @@ fn try_execute_with_lance_index(
         RustDistanceMetric::L2 => "l2",
         RustDistanceMetric::Cosine => "cosine",
         RustDistanceMetric::Dot => "dot",
+        RustDistanceMetric::Hamming => {
+            return Ok(None); // Hamming not supported via Lance ANN path
+        }
     };
 
     // Build the `nearest` dict for Lance's to_table() ANN query.
