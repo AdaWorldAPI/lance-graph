@@ -10,6 +10,7 @@
 pub mod blasgraph;
 pub mod fingerprint;
 pub mod metadata;
+pub mod neighborhood;
 pub mod sparse;
 pub mod spo;
 pub mod versioned;
