@@ -5273,6 +5273,7 @@ dependencies = [
  "arrow-array 57.3.0",
  "arrow-schema 57.3.0",
  "async-trait",
+ "chrono",
  "datafusion 51.0.0",
  "datafusion-common 51.0.0",
  "datafusion-expr 51.0.0",

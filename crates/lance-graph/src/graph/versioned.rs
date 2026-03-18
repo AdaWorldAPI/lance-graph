@@ -32,14 +32,18 @@
 use std::collections::HashSet;
 
 use arrow_array::{
-    Array, FixedSizeBinaryArray, RecordBatch, RecordBatchIterator, UInt32Array,
+    builder::FixedSizeBinaryBuilder, Array, FixedSizeBinaryArray, Int64Array, RecordBatch,
+    RecordBatchIterator, TimestampMicrosecondArray, UInt16Array, UInt32Array,
 };
 use arrow_schema::SchemaRef;
 use futures::TryStreamExt;
 use lance::dataset::{Dataset, WriteMode, WriteParams};
+use std::sync::Arc;
 
 use crate::error::{GraphError, Result};
 use super::blasgraph::columnar::{EdgeSchema, FingerprintSchema, NodeSchema};
+use crate::graph::neighborhood::{scope, storage};
+use crate::graph::neighborhood::scope::{NeighborhoodVector, ScopeMap};
 
 // ---------------------------------------------------------------------------
 // GraphSealStatus — result of comparing seals across versions
@@ -147,6 +151,18 @@ impl VersionedGraph {
         format!("{}/fingerprints.lance", self.base_path)
     }
 
+    fn scopes_path(&self) -> String {
+        format!("{}/scopes.lance", self.base_path)
+    }
+
+    fn neighborhoods_path(&self) -> String {
+        format!("{}/neighborhoods.lance", self.base_path)
+    }
+
+    fn cognitive_nodes_path(&self) -> String {
+        format!("{}/cognitive_nodes.lance", self.base_path)
+    }
+
     // -- write operations ---------------------------------------------------
 
     /// Commit an encounter round: write node, edge, and fingerprint batches.
@@ -220,6 +236,187 @@ impl VersionedGraph {
     /// Open the fingerprints dataset at the current (latest) version.
     pub async fn open_fingerprints(&self) -> Result<Dataset> {
         Ok(Dataset::open(&self.fingerprints_path()).await?)
+    }
+
+    /// Open the scopes dataset at the current (latest) version.
+    pub async fn open_scopes(&self) -> Result<Dataset> {
+        Ok(Dataset::open(&self.scopes_path()).await?)
+    }
+
+    /// Open the neighborhoods dataset at the current (latest) version.
+    pub async fn open_neighborhoods(&self) -> Result<Dataset> {
+        Ok(Dataset::open(&self.neighborhoods_path()).await?)
+    }
+
+    /// Open the cognitive_nodes dataset at the current (latest) version.
+    pub async fn open_cognitive_nodes(&self) -> Result<Dataset> {
+        Ok(Dataset::open(&self.cognitive_nodes_path()).await?)
+    }
+
+    // -- neighborhood extension write operations ----------------------------
+
+    /// Write a scope definition to scopes.lance.
+    ///
+    /// Each call creates a new version. If the dataset doesn't exist, creates it.
+    pub async fn write_scope(&self, scope: &ScopeMap) -> Result<u64> {
+        let schema = Arc::new(storage::scopes_schema());
+        let node_ids_buf = storage::serialize_scope_node_ids(scope);
+
+        let node_ids_size = (scope::MAX_SCOPE_SIZE * 8) as i32;
+        let mut node_ids_builder =
+            FixedSizeBinaryBuilder::with_capacity(1, node_ids_size);
+        node_ids_builder.append_value(&node_ids_buf).map_err(|e| {
+            GraphError::ExecutionError {
+                message: format!("Failed to build node_ids column: {e}"),
+                location: snafu::Location::new(file!(), line!(), column!()),
+            }
+        })?;
+
+        let now = chrono::Utc::now().timestamp_micros();
+        let batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![
+                Arc::new(Int64Array::from(vec![scope.scope_id as i64])),
+                Arc::new(node_ids_builder.finish()),
+                Arc::new(UInt16Array::from(vec![scope.node_ids.len() as u16])),
+                Arc::new(TimestampMicrosecondArray::from(vec![Some(now)])),
+            ],
+        )
+        .map_err(|e| GraphError::ExecutionError {
+            message: format!("Failed to build scope batch: {e}"),
+            location: snafu::Location::new(file!(), line!(), column!()),
+        })?;
+
+        self.write_batch(&self.scopes_path(), batch, schema).await
+    }
+
+    /// Write neighborhood vectors to neighborhoods.lance.
+    ///
+    /// Each NeighborhoodVector becomes one row. Scent and resolution are
+    /// stored as separate FixedSizeBinary columns for Lance column pruning
+    /// (reading scent never loads resolution from disk).
+    pub async fn write_neighborhoods(
+        &self,
+        scope_id: u64,
+        neighborhoods: &[NeighborhoodVector],
+    ) -> Result<u64> {
+        let schema = Arc::new(storage::neighborhoods_schema());
+        let n = neighborhoods.len();
+        let bin_size = scope::MAX_SCOPE_SIZE as i32;
+
+        let node_ids: Vec<i64> = neighborhoods.iter().map(|nv| nv.node_id as i64).collect();
+        let scope_ids: Vec<i64> = vec![scope_id as i64; n];
+        let edge_counts: Vec<u16> =
+            neighborhoods.iter().map(|nv| nv.edge_count() as u16).collect();
+        let now = chrono::Utc::now().timestamp_micros();
+        let timestamps: Vec<Option<i64>> = vec![Some(now); n];
+
+        let mut scent_builder = FixedSizeBinaryBuilder::with_capacity(n, bin_size);
+        for nv in neighborhoods {
+            let buf = storage::serialize_scent(nv);
+            scent_builder.append_value(&buf).map_err(|e| {
+                GraphError::ExecutionError {
+                    message: format!("Failed to build scent column: {e}"),
+                    location: snafu::Location::new(file!(), line!(), column!()),
+                }
+            })?;
+        }
+
+        let mut resolution_builder = FixedSizeBinaryBuilder::with_capacity(n, bin_size);
+        for nv in neighborhoods {
+            let buf = storage::serialize_resolution(nv);
+            resolution_builder.append_value(&buf).map_err(|e| {
+                GraphError::ExecutionError {
+                    message: format!("Failed to build resolution column: {e}"),
+                    location: snafu::Location::new(file!(), line!(), column!()),
+                }
+            })?;
+        }
+
+        let batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![
+                Arc::new(Int64Array::from(node_ids)),
+                Arc::new(Int64Array::from(scope_ids)),
+                Arc::new(scent_builder.finish()),
+                Arc::new(resolution_builder.finish()),
+                Arc::new(UInt16Array::from(edge_counts)),
+                Arc::new(TimestampMicrosecondArray::from(timestamps)),
+            ],
+        )
+        .map_err(|e| GraphError::ExecutionError {
+            message: format!("Failed to build neighborhoods batch: {e}"),
+            location: snafu::Location::new(file!(), line!(), column!()),
+        })?;
+
+        self.write_batch(&self.neighborhoods_path(), batch, schema)
+            .await
+    }
+
+    /// Load scent vectors for all nodes in a scope.
+    ///
+    /// Only reads the `scent` column — Lance column pruning ensures
+    /// the `resolution` column is never loaded from disk.
+    ///
+    /// Returns (node_id, scent_bytes) pairs.
+    pub async fn load_scope_scent(&self, scope_id: u64) -> Result<Vec<(u64, Vec<u8>)>> {
+        let ds = Dataset::open(&self.neighborhoods_path()).await?;
+
+        let batches: Vec<RecordBatch> = ds
+            .scan()
+            .project(&["node_id", "scope_id", "scent", "edge_count"])
+            .map_err(|e| GraphError::ExecutionError {
+                message: format!("Failed to project scent columns: {e}"),
+                location: snafu::Location::new(file!(), line!(), column!()),
+            })?
+            .try_into_stream()
+            .await
+            .map_err(|e| GraphError::ExecutionError {
+                message: format!("Failed to scan neighborhoods: {e}"),
+                location: snafu::Location::new(file!(), line!(), column!()),
+            })?
+            .try_collect()
+            .await
+            .map_err(|e| GraphError::ExecutionError {
+                message: format!("Failed to collect batches: {e}"),
+                location: snafu::Location::new(file!(), line!(), column!()),
+            })?;
+
+        let mut result = Vec::new();
+        for batch in &batches {
+            let node_ids = batch
+                .column(0)
+                .as_any()
+                .downcast_ref::<Int64Array>()
+                .expect("node_id column");
+            let scope_ids = batch
+                .column(1)
+                .as_any()
+                .downcast_ref::<Int64Array>()
+                .expect("scope_id column");
+            let scents = batch
+                .column(2)
+                .as_any()
+                .downcast_ref::<FixedSizeBinaryArray>()
+                .expect("scent column");
+            let edge_counts = batch
+                .column(3)
+                .as_any()
+                .downcast_ref::<UInt16Array>()
+                .expect("edge_count column");
+
+            for row in 0..batch.num_rows() {
+                if scope_ids.value(row) == scope_id as i64 {
+                    let nid = node_ids.value(row) as u64;
+                    let ec = edge_counts.value(row);
+                    let scent_buf = scents.value(row);
+                    let scent = storage::deserialize_scent(scent_buf, ec);
+                    result.push((nid, scent));
+                }
+            }
+        }
+
+        Ok(result)
     }
 
     /// Open the nodes dataset at a specific version (time travel).
@@ -763,5 +960,96 @@ mod tests {
         assert_eq!(diff.new_edges.len(), 2);
 
         assert_eq!(diff.seal_status, GraphSealStatus::Staunen);
+    }
+
+    // -- neighborhood extension tests ---------------------------------------
+
+    use crate::graph::neighborhood::scope::ScopeBuilder;
+    use crate::graph::blasgraph::types::BitVec;
+
+    fn random_triple(s: u64, p: u64, o: u64) -> (BitVec, BitVec, BitVec) {
+        (BitVec::random(s), BitVec::random(p), BitVec::random(o))
+    }
+
+    #[tokio::test]
+    async fn test_write_and_read_scope() {
+        let dir = tempfile::tempdir().unwrap();
+        let g = VersionedGraph::local(dir.path().to_str().unwrap());
+
+        let ids: Vec<u64> = (100..110).collect();
+        let scope = ScopeMap::new(1, ids);
+
+        let version = g.write_scope(&scope).await.unwrap();
+        assert!(version >= 1);
+
+        let ds = g.open_scopes().await.unwrap();
+        let batches = VersionedGraph::read_all_batches(&ds).await.unwrap();
+        assert_eq!(batches.iter().map(|b| b.num_rows()).sum::<usize>(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_write_and_read_neighborhoods() {
+        let dir = tempfile::tempdir().unwrap();
+        let g = VersionedGraph::local(dir.path().to_str().unwrap());
+
+        let planes = vec![
+            random_triple(10, 11, 12),
+            random_triple(20, 21, 22),
+            random_triple(30, 31, 32),
+        ];
+        let ids = vec![100u64, 200, 300];
+        let (scope, neighborhoods) = ScopeBuilder::build(1, &ids, &planes);
+
+        // Write scope
+        g.write_scope(&scope).await.unwrap();
+
+        // Write neighborhoods
+        let version = g.write_neighborhoods(1, &neighborhoods).await.unwrap();
+        assert!(version >= 1);
+
+        // Read back scent only (column pruning)
+        let scents = g.load_scope_scent(1).await.unwrap();
+        assert_eq!(scents.len(), 3);
+
+        // Verify node IDs came back
+        let returned_ids: Vec<u64> = scents.iter().map(|&(id, _)| id).collect();
+        assert!(returned_ids.contains(&100));
+        assert!(returned_ids.contains(&200));
+        assert!(returned_ids.contains(&300));
+
+        // Verify scent bytes are non-trivial (not all zeros for non-self edges)
+        for (_, scent) in &scents {
+            assert!(!scent.is_empty());
+        }
+    }
+
+    #[test]
+    fn test_neighborhoods_path_helpers() {
+        let g = VersionedGraph::local("/tmp/test-graph");
+        assert_eq!(g.scopes_path(), "/tmp/test-graph/scopes.lance");
+        assert_eq!(
+            g.neighborhoods_path(),
+            "/tmp/test-graph/neighborhoods.lance"
+        );
+        assert_eq!(
+            g.cognitive_nodes_path(),
+            "/tmp/test-graph/cognitive_nodes.lance"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_scope_versioning() {
+        let dir = tempfile::tempdir().unwrap();
+        let g = VersionedGraph::local(dir.path().to_str().unwrap());
+
+        // Write scope v1
+        let scope1 = ScopeMap::new(1, vec![1, 2, 3]);
+        let v1 = g.write_scope(&scope1).await.unwrap();
+
+        // Write scope v2 (overwrites = new version)
+        let scope2 = ScopeMap::new(1, vec![1, 2, 3, 4, 5]);
+        let v2 = g.write_scope(&scope2).await.unwrap();
+
+        assert!(v2 > v1);
     }
 }
