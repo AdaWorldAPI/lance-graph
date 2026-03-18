@@ -181,6 +181,20 @@ pub fn zeckf64_scent_distance(a: u64, b: u64) -> u32 {
     (ba - bb).unsigned_abs() as u32
 }
 
+/// Scent-only distance: Hamming on byte 0.
+///
+/// Alternative metric from the blasgraph implementation. Counts differing
+/// bits in the scent byte via `popcount(a ^ b)`. Range: 0–8.
+///
+/// More aligned with the boolean lattice structure of scent bytes,
+/// where each bit represents an independent band classification.
+#[inline]
+pub fn zeckf64_scent_hamming_distance(a: u64, b: u64) -> u32 {
+    let ba = (a & 0xFF) as u8;
+    let bb = (b & 0xFF) as u8;
+    (ba ^ bb).count_ones()
+}
+
 /// Progressive distance: L1 on bytes 0..=n (inclusive).
 ///
 /// `n = 0`: scent only (1 byte). `n = 7`: full ZeckF64 (8 bytes).

@@ -27,10 +27,24 @@
 //! | 3     | TWIG | 50 × 10KB    | ~200K    | ~500 µs |
 //! | 4     | LEAF | 50 cold loads | 50       | ~100 µs |
 
+pub mod clam;
 pub mod scope;
 pub mod search;
+pub mod sparse;
+pub mod storage;
 pub mod zeckf64;
 
+pub use clam::{
+    analyze_pareto_convergence, measure_cluster_radii, ParetoAnalysis, RadiusObservation,
+};
 pub use scope::{NeighborhoodVector, ScopeBuilder, ScopeMap};
 pub use search::{HeelResult, SearchCascade, SearchConfig};
-pub use zeckf64::{resolution, scent, zeckf64, zeckf64_distance, zeckf64_scent_distance};
+pub use sparse::ScentCsr;
+pub use storage::{
+    cognitive_nodes_schema, deserialize_scope_node_ids, neighborhoods_schema, scopes_schema,
+    serialize_scent, serialize_scope_node_ids,
+};
+pub use zeckf64::{
+    resolution, scent, zeckf64, zeckf64_distance, zeckf64_scent_distance,
+    zeckf64_scent_hamming_distance,
+};
