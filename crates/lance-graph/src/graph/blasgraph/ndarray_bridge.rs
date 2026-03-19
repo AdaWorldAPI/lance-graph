@@ -107,6 +107,29 @@ impl From<&NdarrayFingerprint> for BitVec {
 }
 
 // ---------------------------------------------------------------------------
+// From conversions: ndarray::Array1<u64> <-> NdarrayFingerprint (feature-gated)
+// ---------------------------------------------------------------------------
+
+#[cfg(feature = "ndarray-hpc")]
+impl From<&ndarray::Array1<u64>> for NdarrayFingerprint {
+    fn from(arr: &ndarray::Array1<u64>) -> Self {
+        assert_eq!(arr.len(), VECTOR_WORDS, "Array1 must have exactly {} elements", VECTOR_WORDS);
+        let mut words = [0u64; VECTOR_WORDS];
+        for (i, &w) in arr.iter().enumerate() {
+            words[i] = w;
+        }
+        Self { words }
+    }
+}
+
+#[cfg(feature = "ndarray-hpc")]
+impl From<&NdarrayFingerprint> for ndarray::Array1<u64> {
+    fn from(fp: &NdarrayFingerprint) -> Self {
+        ndarray::Array1::from_vec(fp.words.to_vec())
+    }
+}
+
+// ---------------------------------------------------------------------------
 // SIMD dispatch — 4-tier fallback matching ndarray's bitwise.rs pattern
 // ---------------------------------------------------------------------------
 
@@ -548,5 +571,35 @@ mod tests {
         let bv = BitVec::random(777);
         let fp = NdarrayFingerprint::from(&bv);
         assert_eq!(&fp.words, bv.words());
+    }
+}
+
+#[cfg(all(test, feature = "ndarray-hpc"))]
+mod ndarray_tests {
+    use super::*;
+
+    #[test]
+    fn test_ndarray_roundtrip() {
+        let bv = BitVec::random(42);
+        let fp = NdarrayFingerprint::from(&bv);
+        let arr: ndarray::Array1<u64> = ndarray::Array1::from(&fp);
+        let fp2 = NdarrayFingerprint::from(&arr);
+        assert_eq!(fp, fp2);
+    }
+
+    #[test]
+    fn test_ndarray_hamming_via_bridge() {
+        let a = BitVec::random(1);
+        let b = BitVec::random(2);
+        let expected = a.hamming_distance(&b) as u64;
+
+        let fa = NdarrayFingerprint::from(&a);
+        let fb = NdarrayFingerprint::from(&b);
+        let arr_a: ndarray::Array1<u64> = ndarray::Array1::from(&fa);
+        let arr_b: ndarray::Array1<u64> = ndarray::Array1::from(&fb);
+
+        let fa2 = NdarrayFingerprint::from(&arr_a);
+        let fb2 = NdarrayFingerprint::from(&arr_b);
+        assert_eq!(fa2.hamming_distance(&fb2), expected);
     }
 }

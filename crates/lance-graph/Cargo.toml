@@ -39,12 +39,14 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 snafu = "0.8"
 deltalake = { version = "0.30", features = ["datafusion", "s3", "azure", "gcs"], optional = true }
+ndarray = { path = "../../../ndarray", version = "0.17", default-features = false, features = ["std"], optional = true }
 url = { version = "2", optional = true }
 
 [features]
 default = ["unity-catalog", "delta"]
 unity-catalog = ["lance-graph-catalog/unity-catalog"]
 delta = ["dep:deltalake", "dep:url"]
+ndarray-hpc = ["dep:ndarray"]
 
 [dev-dependencies]
 futures = "0.3"
