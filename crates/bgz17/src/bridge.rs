@@ -31,35 +31,8 @@ use crate::palette::PaletteEdge;
 use crate::distance_matrix::SpoDistanceMatrices;
 use crate::layered::LayeredScope;
 
-/// Precision levels for distance computation.
-///
-/// ## Metric Safety
-///
-/// CAKES DFS sieve requires a true metric (triangle inequality must hold).
-/// - **Scent**: NOT metric-safe. The 19-pattern Boolean lattice breaks
-///   triangle inequality. Use ONLY as heuristic pre-filter (HEEL stage).
-/// - **Palette**: Metric-safe. L1 on i16[17] is a metric. Safe for CAKES pruning.
-/// - **Base**: Metric-safe. L1 on i16[17] is a metric. Safe for CAKES pruning.
-/// - **Exact**: Metric-safe. Hamming distance is a metric.
-///
-/// Rule: any function that feeds CAKES `delta_minus` / `delta_plus` bounds
-/// MUST use Palette or higher. Scent is for heuristic pre-filtering only.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Precision {
-    /// Layer 0: scent byte Hamming (1 byte, ρ=0.937).
-    /// ⚠️ NOT metric-safe — Boolean lattice breaks triangle inequality.
-    /// Use ONLY for heuristic pre-filtering (HEEL stage), never for CAKES pruning.
-    Scent,
-    /// Layer 1: palette matrix lookup (3 bytes, ρ=0.965).
-    /// ✓ Metric-safe — L1 satisfies triangle inequality.
-    Palette,
-    /// Layer 2: full i16[17] base L1 (102 bytes, ρ=0.992).
-    /// ✓ Metric-safe.
-    Base,
-    /// Layer 3: exact Hamming on full planes (6 KB, ρ=1.000).
-    /// ✓ Metric-safe.
-    Exact,
-}
+// Precision is defined in lib.rs (crate root) and re-exported here for convenience.
+pub use crate::Precision;
 
 /// A distance oracle that bgz17 provides to CLAM/CAKES.
 ///

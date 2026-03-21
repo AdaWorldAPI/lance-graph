@@ -107,7 +107,7 @@ impl ScalarCsr {
     }
 
     /// Convert a DistanceMatrix to ScalarCsr (threshold-filtered).
-    pub fn from_distance_matrix(dm: &super::distance_matrix::DistanceMatrix, threshold: u16) -> Self {
+    pub fn from_distance_matrix(dm: &crate::distance_matrix::DistanceMatrix, threshold: u16) -> Self {
         let k = dm.k;
         let dense: Vec<f32> = dm.data.iter().map(|&d| d as f32).collect();
         ScalarCsr::from_dense(&dense, k, k, threshold as f32)

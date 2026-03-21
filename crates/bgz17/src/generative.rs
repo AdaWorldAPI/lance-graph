@@ -122,13 +122,13 @@ pub fn generative_batch(
 ///
 /// This is the "bandwidth detection" from the Opus analogy:
 /// anomalous regions get more bits, stable regions get fewer.
-pub fn anomaly_to_layer(anomaly_score: f32) -> super::bridge::Precision {
+pub fn anomaly_to_layer(anomaly_score: f32) -> crate::Precision {
     if anomaly_score > 0.75 {
-        super::bridge::Precision::Base    // 102 bytes — can't trust palette
+        crate::Precision::Base    // 102 bytes — can't trust palette
     } else if anomaly_score > 0.5 {
-        super::bridge::Precision::Palette // 3 bytes — palette with correction
+        crate::Precision::Palette // 3 bytes — palette with correction
     } else {
-        super::bridge::Precision::Scent   // 1 byte — scent is sufficient
+        crate::Precision::Scent   // 1 byte — scent is sufficient
     }
 }
 
@@ -207,9 +207,9 @@ mod tests {
 
     #[test]
     fn test_anomaly_to_layer() {
-        assert_eq!(anomaly_to_layer(0.1), super::super::bridge::Precision::Scent);
-        assert_eq!(anomaly_to_layer(0.6), super::super::bridge::Precision::Palette);
-        assert_eq!(anomaly_to_layer(0.9), super::super::bridge::Precision::Base);
+        assert_eq!(anomaly_to_layer(0.1), crate::Precision::Scent);
+        assert_eq!(anomaly_to_layer(0.6), crate::Precision::Palette);
+        assert_eq!(anomaly_to_layer(0.9), crate::Precision::Base);
     }
 
     #[test]
