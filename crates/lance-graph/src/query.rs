@@ -57,6 +57,8 @@ pub enum ExecutionStrategy {
     DataFusion,
     /// Use Lance native executor (not yet implemented)
     LanceNative,
+    /// Use BlasGraph semiring algebra (matrix multiply on TypedGraph)
+    BlasGraph,
 }
 
 /// A Cypher query that can be executed against Lance datasets
@@ -178,8 +180,8 @@ impl CypherQuery {
         let strategy = strategy.unwrap_or_default();
         match strategy {
             ExecutionStrategy::DataFusion => self.execute_datafusion(datasets).await,
-            ExecutionStrategy::LanceNative => Err(GraphError::UnsupportedFeature {
-                feature: "Lance native execution strategy is not yet implemented".to_string(),
+            ExecutionStrategy::LanceNative | ExecutionStrategy::BlasGraph => Err(GraphError::UnsupportedFeature {
+                feature: format!("{:?} execution strategy is not yet implemented", strategy),
                 location: snafu::Location::new(file!(), line!(), column!()),
             }),
         }
@@ -223,8 +225,8 @@ impl CypherQuery {
                 self.execute_with_catalog_and_context(std::sync::Arc::new(catalog), ctx)
                     .await
             }
-            ExecutionStrategy::LanceNative => Err(GraphError::UnsupportedFeature {
-                feature: "Lance native execution strategy is not yet implemented".to_string(),
+            ExecutionStrategy::LanceNative | ExecutionStrategy::BlasGraph => Err(GraphError::UnsupportedFeature {
+                feature: format!("{:?} execution strategy is not yet implemented", strategy),
                 location: snafu::Location::new(file!(), line!(), column!()),
             }),
         }

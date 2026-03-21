@@ -19,6 +19,7 @@
 //! | BOOLEAN | AND | OR | Reachability |
 //! | XOR_FIELD | XOR | XOR | GF(2) algebra |
 
+pub mod blasgraph_planner;
 pub mod cascade_ops;
 pub mod clam_neighborhood;
 pub mod columnar;
@@ -33,6 +34,7 @@ pub mod neighborhood_csr;
 pub mod ops;
 pub mod semiring;
 pub mod sparse;
+pub mod typed_graph;
 pub mod types;
 pub mod vector;
 pub mod zeckf64;
@@ -41,7 +43,7 @@ pub use descriptor::{Descriptor, GrBDesc};
 pub use matrix::GrBMatrix;
 pub use ops::*;
 pub use semiring::{HdrSemiring, Semiring};
-pub use sparse::{CooStorage, CsrStorage, SparseFormat};
+pub use sparse::{CooStorage, CscStorage, CsrStorage, HyperCsrStorage, SparseFormat, StorageFormat};
 pub use types::*;
 pub use vector::GrBVector;
 

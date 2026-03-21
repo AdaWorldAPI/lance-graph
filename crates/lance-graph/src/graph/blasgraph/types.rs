@@ -190,12 +190,11 @@ impl BitVec {
     }
 
     /// Hamming distance to another vector (number of differing bits).
+    ///
+    /// Dispatches to the best available SIMD implementation:
+    /// AVX-512 VPOPCNTDQ → AVX2 → scalar fallback.
     pub fn hamming_distance(&self, other: &BitVec) -> u32 {
-        let mut dist = 0u32;
-        for i in 0..VECTOR_WORDS {
-            dist += (self.words[i] ^ other.words[i]).count_ones();
-        }
-        dist
+        hamming_distance_dispatch(&self.words, &other.words)
     }
 
     /// Bundle (majority vote) over a slice of vectors.
@@ -424,6 +423,101 @@ pub enum SelectOp {
     LessThan,
 }
 
+// ─── SIMD-dispatched Hamming distance ─────────────────────────────────
+//
+// Dispatch chain: AVX-512 VPOPCNTDQ → AVX2 → scalar.
+// Uses `std::arch` intrinsics only, no external crate.
+
+/// Scalar fallback: portable popcount via `count_ones()`.
+fn hamming_distance_scalar(a: &[u64; VECTOR_WORDS], b: &[u64; VECTOR_WORDS]) -> u32 {
+    let mut dist = 0u32;
+    for i in 0..VECTOR_WORDS {
+        dist += (a[i] ^ b[i]).count_ones();
+    }
+    dist
+}
+
+/// AVX2 implementation: processes 4 × u64 = 256 bits per iteration.
+/// Uses the Harley-Seal popcount algorithm on 256-bit XOR results.
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx2")]
+unsafe fn hamming_distance_avx2(a: &[u64; VECTOR_WORDS], b: &[u64; VECTOR_WORDS]) -> u32 {
+    use std::arch::x86_64::*;
+
+    // Lookup table for 4-bit popcount
+    let lookup = _mm256_setr_epi8(
+        0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3,
+        2, 3, 3, 4,
+    );
+    let low_mask = _mm256_set1_epi8(0x0f);
+    let mut total = _mm256_setzero_si256();
+
+    let a_ptr = a.as_ptr() as *const __m256i;
+    let b_ptr = b.as_ptr() as *const __m256i;
+    let n_vecs = VECTOR_WORDS / 4; // 256 / 4 = 64 iterations
+
+    for i in 0..n_vecs {
+        let va = _mm256_loadu_si256(a_ptr.add(i));
+        let vb = _mm256_loadu_si256(b_ptr.add(i));
+        let xor = _mm256_xor_si256(va, vb);
+
+        // Popcount via lookup table (Mula et al.)
+        let lo = _mm256_and_si256(xor, low_mask);
+        let hi = _mm256_and_si256(_mm256_srli_epi16(xor, 4), low_mask);
+        let popcnt_lo = _mm256_shuffle_epi8(lookup, lo);
+        let popcnt_hi = _mm256_shuffle_epi8(lookup, hi);
+        let popcnt = _mm256_add_epi8(popcnt_lo, popcnt_hi);
+
+        // Horizontal sum within bytes → u64 sums via sad
+        let sad = _mm256_sad_epu8(popcnt, _mm256_setzero_si256());
+        total = _mm256_add_epi64(total, sad);
+    }
+
+    // Extract and sum the 4 u64 lanes
+    let lo128 = _mm256_castsi256_si128(total);
+    let hi128 = _mm256_extracti128_si256(total, 1);
+    let sum128 = _mm_add_epi64(lo128, hi128);
+    let upper = _mm_unpackhi_epi64(sum128, sum128);
+    let final_sum = _mm_add_epi64(sum128, upper);
+    _mm_cvtsi128_si64(final_sum) as u32
+}
+
+/// AVX-512 VPOPCNTDQ implementation: processes 8 × u64 = 512 bits per iteration.
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx512f,avx512vpopcntdq")]
+unsafe fn hamming_distance_avx512(a: &[u64; VECTOR_WORDS], b: &[u64; VECTOR_WORDS]) -> u32 {
+    use std::arch::x86_64::*;
+
+    let mut total = _mm512_setzero_si512();
+    let a_ptr = a.as_ptr() as *const __m512i;
+    let b_ptr = b.as_ptr() as *const __m512i;
+    let n_vecs = VECTOR_WORDS / 8; // 256 / 8 = 32 iterations
+
+    for i in 0..n_vecs {
+        let va = _mm512_loadu_si512(a_ptr.add(i));
+        let vb = _mm512_loadu_si512(b_ptr.add(i));
+        let xor = _mm512_xor_si512(va, vb);
+        let popcnt = _mm512_popcnt_epi64(xor);
+        total = _mm512_add_epi64(total, popcnt);
+    }
+
+    _mm512_reduce_add_epi64(total) as u32
+}
+
+/// Runtime-dispatched Hamming distance using best available SIMD.
+fn hamming_distance_dispatch(a: &[u64; VECTOR_WORDS], b: &[u64; VECTOR_WORDS]) -> u32 {
+    #[cfg(target_arch = "x86_64")]
+    {
+        if is_x86_feature_detected!("avx512f") && is_x86_feature_detected!("avx512vpopcntdq") {
+            return unsafe { hamming_distance_avx512(a, b) };
+        }
+        if is_x86_feature_detected!("avx2") {
+            return unsafe { hamming_distance_avx2(a, b) };
+        }
+    }
+    hamming_distance_scalar(a, b)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -610,5 +704,50 @@ mod tests {
 
         let se = HdrScalar::Empty;
         assert!(se.is_empty());
+    }
+
+    // ── SIMD Hamming distance tests ─────────────────────────────────
+
+    #[test]
+    fn test_simd_hamming_matches_scalar() {
+        // Verify that dispatched SIMD matches scalar for random vectors
+        for seed in 0..20u64 {
+            let a = BitVec::random(seed * 100 + 1);
+            let b = BitVec::random(seed * 100 + 2);
+
+            let scalar_dist = hamming_distance_scalar(a.words(), b.words());
+            let dispatch_dist = hamming_distance_dispatch(a.words(), b.words());
+            assert_eq!(
+                scalar_dist, dispatch_dist,
+                "SIMD dispatch mismatch for seed={}: scalar={}, dispatch={}",
+                seed, scalar_dist, dispatch_dist
+            );
+        }
+    }
+
+    #[test]
+    fn test_simd_hamming_self_zero() {
+        let v = BitVec::random(42);
+        assert_eq!(hamming_distance_dispatch(v.words(), v.words()), 0);
+    }
+
+    #[test]
+    fn test_simd_hamming_complement_max() {
+        let v = BitVec::random(42);
+        let inv = v.not();
+        assert_eq!(
+            hamming_distance_dispatch(v.words(), inv.words()),
+            VECTOR_BITS as u32
+        );
+    }
+
+    #[test]
+    fn test_simd_hamming_zero_ones() {
+        let z = BitVec::zero();
+        let o = BitVec::ones();
+        assert_eq!(
+            hamming_distance_dispatch(z.words(), o.words()),
+            VECTOR_BITS as u32
+        );
     }
 }
