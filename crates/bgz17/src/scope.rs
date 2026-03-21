@@ -24,7 +24,7 @@
 
 use crate::base17::{Base17, SpoBase17};
 use crate::palette::{Palette, PaletteEdge};
-use crate::distance_matrix::{DistanceMatrix, SpoDistanceMatrices};
+use crate::distance_matrix::SpoDistanceMatrices;
 use crate::layered::LayeredScope;
 
 /// Complete bgz17 scope: everything needed for layered search.
