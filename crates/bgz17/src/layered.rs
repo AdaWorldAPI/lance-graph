@@ -11,7 +11,7 @@
 //! at Layer 0-1. Only decision-boundary cases need Layer 2-3.
 
 use crate::base17::SpoBase17;
-use crate::palette::{Palette, PaletteEdge};
+use crate::palette::PaletteEdge;
 use crate::distance_matrix::SpoDistanceMatrices;
 
 /// A search hit with layered distance information.
@@ -211,7 +211,7 @@ mod tests {
             .collect();
 
         // Compute scent bytes (self-referential for testing)
-        let query = &edges[0];
+        let query = edges[0].clone();
         let scent: Vec<u8> = edges.iter()
             .map(|e| query.scent(e))
             .collect();

@@ -7,5 +7,6 @@ members = [
 ]
 exclude = [
     "crates/lance-graph-codec-research",
+    "crates/bgz17",
 ]
 resolver = "2"
