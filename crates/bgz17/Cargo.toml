@@ -1,0 +1,13 @@
+[package]
+name = "bgz17"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "Blasgraph-ZeckBF17 unified distance codec: palette-indexed SPO search via HHTL"
+
+# No dependencies — compiles standalone.
+# lance-graph integration (BitVec bridge, Lance I/O) added when wired into production.
+[dependencies]
+
+[dev-dependencies]
