@@ -33,6 +33,8 @@ pub mod tripartite;
 pub mod layered;
 pub mod scalar_sparse;
 pub mod scope;
+pub mod bridge;
+pub mod generative;
 
 /// Maximum palette size per plane.
 pub const MAX_PALETTE_SIZE: usize = 256;
