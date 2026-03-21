@@ -334,6 +334,114 @@ mod tests {
     }
 
     #[test]
+    fn test_page_curve() {
+        let threshold = 10i16;
+        let constant_bands: [u16; BARK_BANDS] = core::array::from_fn(|i| 0x3F80 + i as u16);
+
+        println!("\nPAGE CURVE (constant signal)");
+        println!("========================");
+        println!("{:>10} {:>12} {:>12} {:>10}",
+            "encounters", "alpha_before", "alpha_after", "components");
+
+        for n in [5, 10, 20, 30, 50, 75, 100, 150, 200, 300] {
+            let mut acc = SpectralAccumulator::new();
+            for _ in 0..n {
+                acc.accumulate_frame(&constant_bands);
+            }
+            let alpha_before = acc.alpha_density(threshold);
+
+            // Diamond Markov extraction
+            let mut components = 0;
+            loop {
+                let crystal = acc.crystallize(threshold);
+                let significant = crystal.alpha.iter().filter(|&&a| a).count();
+                if significant < 3 { break; }
+                acc.unbind(&crystal);
+                components += 1;
+                if components > 20 { break; }
+            }
+            let alpha_after = acc.alpha_density(threshold);
+
+            println!("{:>10} {:>12.4} {:>12.4} {:>10}",
+                n, alpha_before, alpha_after, components);
+        }
+    }
+
+    #[test]
+    fn test_page_curve_structured() {
+        let threshold = 10i16;
+        let patterns: [[u16; BARK_BANDS]; 5] = core::array::from_fn(|p| {
+            core::array::from_fn(|i| 0x3F00 + (p * 100 + i * 7) as u16)
+        });
+
+        println!("\nPAGE CURVE (structured: 5 cycling patterns)");
+        println!("========================");
+        println!("{:>10} {:>12} {:>12} {:>10}",
+            "encounters", "alpha_before", "alpha_after", "components");
+
+        for n in [5, 10, 20, 30, 50, 75, 100, 150, 200, 300] {
+            let mut acc = SpectralAccumulator::new();
+            for frame in 0..n {
+                acc.accumulate_frame(&patterns[frame % 5]);
+            }
+            let alpha_before = acc.alpha_density(threshold);
+
+            let mut components = 0;
+            loop {
+                let crystal = acc.crystallize(threshold);
+                let significant = crystal.alpha.iter().filter(|&&a| a).count();
+                if significant < 3 { break; }
+                acc.unbind(&crystal);
+                components += 1;
+                if components > 20 { break; }
+            }
+            let alpha_after = acc.alpha_density(threshold);
+
+            println!("{:>10} {:>12.4} {:>12.4} {:>10}",
+                n, alpha_before, alpha_after, components);
+        }
+    }
+
+    #[test]
+    fn test_page_curve_random() {
+        let threshold = 10i16;
+
+        println!("\nPAGE CURVE (random signal)");
+        println!("========================");
+        println!("{:>10} {:>12} {:>12} {:>10}",
+            "encounters", "alpha_before", "alpha_after", "components");
+
+        let mut rng = 12345u64;
+
+        for n in [5, 10, 20, 30, 50, 75, 100, 150, 200, 300] {
+            let mut acc = SpectralAccumulator::new();
+            rng = 12345u64; // reset per experiment
+            for _ in 0..n {
+                let bands: [u16; BARK_BANDS] = core::array::from_fn(|i| {
+                    rng = rng.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+                    (rng >> (16 + i)) as u16
+                });
+                acc.accumulate_frame(&bands);
+            }
+            let alpha_before = acc.alpha_density(threshold);
+
+            let mut components = 0;
+            loop {
+                let crystal = acc.crystallize(threshold);
+                let significant = crystal.alpha.iter().filter(|&&a| a).count();
+                if significant < 3 { break; }
+                acc.unbind(&crystal);
+                components += 1;
+                if components > 20 { break; }
+            }
+            let alpha_after = acc.alpha_density(threshold);
+
+            println!("{:>10} {:>12.4} {:>12.4} {:>10}",
+                n, alpha_before, alpha_after, components);
+        }
+    }
+
+    #[test]
     fn test_noise_floor_exists() {
         let mut acc = SpectralAccumulator::new();
         // Mix of signal and noise: alternating bands

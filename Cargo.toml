@@ -5,4 +5,7 @@ members = [
     "crates/lance-graph-python",
     "crates/lance-graph-benches",
 ]
+exclude = [
+    "crates/lance-graph-codec-research",
+]
 resolver = "2"

@@ -421,10 +421,23 @@ pub struct FidelityReport {
 
 pub fn fidelity_experiment(n_nodes: usize, n_encounters: usize) -> FidelityReport {
     let mut rng = 42u64;
-    let mut next = |r: &mut u64| -> u64 {
+    let next = |r: &mut u64| -> u64 {
         *r = r.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
         *r
     };
+
+    // Build reverse mapping: for each dimension, which base index does it belong to?
+    // The encoder maps base index bi → position golden_position(bi) within each octave.
+    // So dimension (octave * BASE_DIM + golden_position(bi)) → base index bi.
+    let mut dim_to_base = vec![0usize; FULL_DIM];
+    for octave in 0..N_OCTAVES {
+        for bi in 0..BASE_DIM {
+            let dim = octave * BASE_DIM + golden_position(bi);
+            if dim < FULL_DIM {
+                dim_to_base[dim] = bi;
+            }
+        }
+    }
 
     let mut nodes: Vec<(Vec<i8>, Vec<i8>, Vec<i8>)> = Vec::with_capacity(n_nodes);
 
@@ -432,21 +445,31 @@ pub fn fidelity_experiment(n_nodes: usize, n_encounters: usize) -> FidelityRepor
         let mut s = vec![0i8; FULL_DIM];
         let mut p = vec![0i8; FULL_DIM];
         let mut o = vec![0i8; FULL_DIM];
-        let node_seed = next(&mut rng) ^ (node as u64 * 0x517cc1b727220a95);
+        let node_seed = next(&mut rng) ^ (node as u64).wrapping_mul(0x517cc1b727220a95);
 
+        // Generate a base signal per base class (17 values per plane).
+        // This is the "true" signal the encoding should capture.
+        let mut base_s = [0i8; BASE_DIM];
+        let mut base_p = [0i8; BASE_DIM];
+        let mut base_o = [0i8; BASE_DIM];
+        for bi in 0..BASE_DIM {
+            let h = node_seed.wrapping_mul(bi as u64 + 1).wrapping_add(0x9e3779b97f4a7c15);
+            base_s[bi] = if (h >> 17) & 1 == 1 { 1i8 } else { -1 };
+            base_p[bi] = if (h >> 23) & 1 == 1 { 1i8 } else { -1 };
+            base_o[bi] = if (h >> 29) & 1 == 1 { 1i8 } else { -1 };
+        }
+
+        // Fill all 16,384 dims: each dim gets its base class signal + noise.
+        // 70% signal (agrees with base), 30% noise (flips sign).
+        // This models real accumulators where octaves carry redundant info.
         for d in 0..FULL_DIM {
-            let h = node_seed.wrapping_mul(d as u64 + 1).wrapping_add(0x9e3779b97f4a7c15);
-            let (bs, bp, bo) = (
-                if (h >> 17) & 1 == 1 { 1i8 } else { -1 },
-                if (h >> 23) & 1 == 1 { 1i8 } else { -1 },
-                if (h >> 29) & 1 == 1 { 1i8 } else { -1 },
-            );
+            let bi = dim_to_base[d];
             let (mut vs, mut vp, mut vo) = (0i8, 0i8, 0i8);
-            for enc in 0..n_encounters {
-                let eh = next(&mut rng) ^ (enc as u64);
-                vs = vs.saturating_add(if (eh >> 7) % 10 < 7 { bs } else { -bs });
-                vp = vp.saturating_add(if (eh >> 13) % 10 < 7 { bp } else { -bp });
-                vo = vo.saturating_add(if (eh >> 19) % 10 < 7 { bo } else { -bo });
+            for _enc in 0..n_encounters {
+                let eh = next(&mut rng);
+                vs = vs.saturating_add(if (eh >> 7) % 10 < 7 { base_s[bi] } else { -base_s[bi] });
+                vp = vp.saturating_add(if (eh >> 13) % 10 < 7 { base_p[bi] } else { -base_p[bi] });
+                vo = vo.saturating_add(if (eh >> 19) % 10 < 7 { base_o[bi] } else { -base_o[bi] });
             }
             s[d] = vs; p[d] = vp; o[d] = vo;
         }
