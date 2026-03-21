@@ -47,13 +47,126 @@ three separate matrices, three separate base patterns). It compares against
 ## Module Map
 
 ```
-base17.rs           — i16[17] base pattern, golden-step encode/decode, L1 distance
-palette.rs          — k-means codebook (≤256 entries), palette encode/decode
-distance_matrix.rs  — precomputed 256×256 u16 pairwise L1 matrices (128 KB, fits L1 cache)
-tripartite.rs       — cross-plane S×P×O reasoning via scalar sparse matrices
-scalar_sparse.rs    — scalar CSR with standard and min-plus (tropical) semiring SpMV
-layered.rs          — the 4-layer search codec: scent → palette → base → exact
-scope.rs            — scope builder: raw planes → bgz17 scope ready for search
+CORE CODEC:
+  base17.rs           228  — i16[17] base pattern, golden-step encode/decode, L1 distance
+  palette.rs          256  — k-means codebook (≤256 entries), palette encode/decode
+  distance_matrix.rs  163  — precomputed 256×256 u16 pairwise L1 matrices (128 KB, L1 cache)
+  scope.rs            227  — scope builder: raw planes → bgz17 scope ready for search
+
+SEARCH:
+  layered.rs          284  — the 4-layer search codec: scent → palette → base → exact
+  bridge.rs           480  — Bgz17Distance trait, metric safety contract, CAKES/HHTL wiring
+  router.rs           240  — query routing: bgz17 vs blasgraph vs ndarray cascade fallback
+  prefetch.rs         448  — software prefetch pipeline + LFD correction (Zend Optimizer)
+  clam_bridge.rs      777  — concrete DistanceFn injection into CLAM/CAKES
+
+ALGEBRA:
+  scalar_sparse.rs    149  — scalar CSR with standard + min-plus (tropical) semiring SpMV
+  tripartite.rs       171  — cross-plane S×P×O reasoning via scalar sparse matrices
+  generative.rs       225  — arXiv:2602.03505 LFD correction, anomaly→layer routing
+```
+
+## Synergy Map: bgz17 × ndarray × blasgraph
+
+### Encode Path
+
+```
+ndarray HPC                         lance-graph blasgraph
+──────────                          ─────────────────────
+
+Plane(i8[16384])                    BitVec(u64[256])
+     ↓                                   ↓
+Base17(i16[17])                     ZeckF64(u64, 8 bytes)
+     ↓                                   ↓
+Palette(u8)                         Scent(u8, byte 0)
+```
+
+### Search Path — HHTL with bgz17 LEAF Replacement
+
+```
+HEEL (10KB)   scent XOR popcount ← bgz17 Layer 0 (same, heuristic)
+HIP  (500KB)  scent XOR popcount ← bgz17 Layer 0 (same, heuristic)
+TWIG (500KB)  scent XOR popcount ← bgz17 Layer 0 (same, heuristic)
+                    ↓ 50 candidates
+              ┌────── DECISION POINT ──────┐
+              │                             │
+  LEAF L1     │  OLD: BitVec Hamming 16Kbit │  ← KILL THIS
+              │  ρ=0.834, 2KB, WRONG        │
+              │                             │
+              │  NEW: bgz17 palette lookup  │  ← USE THIS
+              │  ρ=0.965, 3 bytes, O(1)     │
+              │                             │
+  LEAF L2     │  bgz17 Base17 L1 (top 10)  │
+              │  ρ=0.992, 102 bytes          │
+              │                             │
+  LEAF L3     │  exact S+P+O (top 3)       │
+              │  ρ=1.000, 6KB per edge       │
+              └─────────────────────────────┘
+```
+
+### Three Synergies
+
+**Synergy 1: bgz17 replaces integrated BitVec in LEAF L1**
+
+```
+BEFORE: LEAF L1 loads 2KB BitVec, computes 16K-bit Hamming  → ρ=0.834
+AFTER:  LEAF L1 loads 3 bytes, does 3 matrix lookups         → ρ=0.965
+Speedup:  ~10,000× (cache load vs popcount chain)
+Storage:  680× smaller
+```
+
+**Synergy 2: CLAM tree uses bgz17 palette as its metric**
+
+ClamTree takes `DistanceFn = fn(&[u8], &[u8]) -> u64` (function pointer, zero-cost).
+bgz17 palette L1 IS a valid metric (triangle inequality verified, 0 violations).
+clam_bridge.rs resolves 99.4% at palette, 0.6% at base.
+
+**Synergy 3: panCAKES XOR-diff compresses Base17 layer**
+
+panCAKES stores points as XOR-diffs from cluster center.
+Applied to Base17: cluster center = palette entry (34B shared),
+diff = ~5-8 dimensions × 3 bytes = 15-24 bytes instead of 102.
+
+### Query Routing (router.rs)
+
+```
+SearchType::Knn / Range  → bgz17 Layered (if ≥32 edges, else ndarray cascade)
+SearchType::Bfs / Sssp   → blasgraph grb_mxm (multi-hop needs BitVec XOR)
+SearchType::SemiringOp   → blasgraph (XOR_BUNDLE, RESONANCE, BIND_FIRST)
+SearchType::AnomalyDetect→ CLAM+CHAODA (if tree exists, else ndarray cascade)
+```
+
+### Fallback Signals
+
+| Situation | Detection | Fallback |
+|---|---|---|
+| Scent prune insufficient | <30% eliminated at Layer 0 | Skip HEEL, brute-force palette |
+| Palette too coarse | >10% collision rate | Escalate to Layer 2 (Base17) |
+| CLAM tree too shallow | depth < 3 | ndarray cascade Stroke 1-3 |
+| High anomaly | CHAODA score > 0.75 | Load full planes (Layer 3) |
+| Multi-hop reasoning | BFS/SSSP query | blasgraph grb_mxm |
+| New scope bootstrap | < 32 edges | ndarray cascade until palette buildable |
+
+### SIMD Integration
+
+| ndarray Hot Path | With bgz17 | Speedup |
+|---|---|---|
+| cascade Stroke 1 (128B prefix) | scent byte XOR (1B) | ~128× |
+| cascade Stroke 2 (2KB full) | palette lookup (3B) | ~10,000× |
+| clam_search::rho_nn | palette on 3B edges | ~10,000× |
+| clam_compress::hamming_to_compressed | XOR-diff on 102B Base17 | ~20× |
+| hamming_distance_raw (2KB) | NOT REPLACED (Layer 3 fallback) | 1× |
+| grb_mxm inner product | NOT REPLACED (needs BitVec XOR) | N/A |
+
+### Key Insight: bgz17 IS ndarray's Stroke 1+2 Replacement
+
+```
+ndarray Cascade          bgz17 Layered           Relationship
+───────────────         ──────────────           ────────────
+Stroke 1 (prefix)   →   Layer 0 (scent)          SAME (both heuristic)
+Stroke 2 (full Ham) →   Layer 1 (palette)         bgz17 WINS (O(1) vs O(n))
+Stroke 3 (precision)→   Layer 2 (base17)          bgz17 WINS (102B vs 2KB)
+                    →   Layer 3 (exact planes)     SAME (both fallback)
 ```
 
 ## How blasgraph Connects
@@ -72,6 +185,10 @@ The tripartite cross-plane matrices (SP, SO, PO) generalize the scent
 byte's 3 pairwise bits to continuous distances at palette resolution.
 blasgraph's `grb_mxm` with HammingMin semiring computes multi-hop paths;
 bgz17's `spmv_min_plus` computes shortest paths in palette space.
+
+bgz17 CANNOT replace blasgraph for: multi-hop BFS/SSSP, semiring algebra
+(XOR_BUNDLE, RESONANCE, BIND_FIRST), or any operation needing BitVec XOR
+as the multiplicative operator. These fall back to blasgraph via router.rs.
 
 ## Storage Per Scope (10K edges)
 
