@@ -1,0 +1,15 @@
+[package]
+name = "lance-graph-codec-research"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "Research crate: per-frame vs streaming accumulator vs hybrid audio encoding"
+
+[dependencies]
+hound = "3"
+half = "2"
+rustfft = "6"
+
+[dev-dependencies]
+tempfile = "3"
