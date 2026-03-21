@@ -1,211 +1,226 @@
-//! # ZeckBF17: Fibonacci-Octave Knowledge Compression
-//!
-//! The compression architecture nobody has formally described.
+//! # ZeckBF17: Golden-Step Octave Knowledge Compression
 //!
 //! ## The Insight
 //!
-//! 16,384 dimensions are NOT 16,384 independent values.
+//! 16,384 accumulator dimensions are NOT 16,384 independent values.
 //! They are 17 base dimensions × 964 octaves.
-//! Most octaves are holographic redundancy.
-//! Only ~14 octaves carry independent information (JL bound: 57 bits / log₂(17) ≈ 14).
-//! The rest are error-correcting copies determined by the base pattern + envelope.
+//! Most octaves carry holographic redundancy.
+//! Only ~14 octaves carry independent information (JL bound: 57 / log₂(17) ≈ 14).
 //!
 //! ## Why 17
 //!
-//! - 17 is PRIME: no non-trivial subspace decomposition. No aliasing.
-//! - Fibonacci mod 17 has Pisano period π(17) = 36 and visits ALL 17 residues.
-//!   No dead dimensions. The Fibonacci stepping covers every position
-//!   before repeating, in a maximally decorrelated order.
-//! - 16 = 2⁴ would have aliasing: Fibonacci mod 16 skips even residues.
-//!   The 17th dimension IS the Pythagorean comma — the gap that forces
-//!   quasiperiodicity instead of periodicity. The comma IS the information.
+//! - 17 is PRIME: no non-trivial subspace decomposition.
+//! - Golden-ratio step (`round(17/φ) = 11`) visits ALL 17 residues.
+//!   `gcd(11, 17) = 1` — full coverage, maximally decorrelated.
+//! - 16 = 2⁴ would alias. The 17th dimension IS the Pythagorean comma.
 //!
-//! ## The Format
+//! NOTE: An earlier version claimed Fibonacci mod 17 visits all 17 residues.
+//! WRONG — Fibonacci mod 17 visits only 13 (missing {6,7,10,11}).
+//! The golden-ratio STEP is the correct traversal.
+//!
+//! ## Format
 //!
 //! ```text
-//! Full plane:     i8[16384] = 16,384 bytes (current)
-//! ZeckBF17:       BF16[17] base + u8[14] envelope = 48 bytes
-//! Compression:    16,384 → 48 = 341:1 (from i8 accumulator)
-//!                 32,768 → 48 = 683:1 (from BF16 per dimension)
-//!
-//! Reconstruction: for each of 964 octaves, cycle the 17-base through
-//!                 Fibonacci positions, scaled by the octave envelope.
+//! i8[16384] per plane  →  i16[17] base + u8[14] envelope  =  48 bytes
+//! Compression: 341:1 per plane, 424:1 per S/P/O edge (116 bytes)
 //! ```
 //!
-//! ## The Musical Analogy (not analogy — isomorphism)
+//! ## i16 Fixed-Point Base (not BF16)
 //!
-//! Circle of Fifths: 12 pitch classes × octave = entire piano.
-//! Step by 7 semitones (≈ 1/φ of 12). Hits all 12 before repeating.
+//! The base stores the average accumulator value per base dimension
+//! as i16 fixed-point with 8 fractional bits: `stored = round(mean × 256)`.
+//! Range: [-32768, +32767] covers any i8 mean with sub-unit precision.
+//! i16 gives 256× finer quantization than BF16's 7-bit mantissa,
+//! at zero extra storage cost (both are 2 bytes).
 //!
-//! ZeckBF17: 17 dimension classes × octave = entire accumulator.
-//! Step by Fibonacci mod 17. Hits all 17 before repeating.
+//! ## Distance Metric
 //!
-//! S/P/O = Dorian + IV/VI = the three structural voices of a chord.
-//! Each voice is a BF16[17] base pattern. Together they define the
-//! complete harmonic context. Everything else is reconstruction.
+//! Matches the production ZeckF64 pipeline in `neighborhood/zeckf64.rs`:
+//! per-plane Hamming distance on sign bits → threshold → scent byte + quantiles.
+//! For ZeckBF17 bases, we approximate this with L1 distance on i16 values,
+//! then quantile-map to ZeckF64-compatible bytes.
 
-/// The prime base dimensionality. Fibonacci mod 17 visits all residues.
+/// The prime base dimensionality.
 pub const BASE_DIM: usize = 17;
 
 /// Full accumulator dimensionality.
 pub const FULL_DIM: usize = 16384;
 
 /// Number of octaves: ceil(FULL_DIM / BASE_DIM).
-pub const N_OCTAVES: usize = (FULL_DIM + BASE_DIM - 1) / BASE_DIM; // = 964
+pub const N_OCTAVES: usize = (FULL_DIM + BASE_DIM - 1) / BASE_DIM; // 964
 
-/// Number of INDEPENDENT octaves (from JL bound: 57 bits / log2(17) ≈ 14).
+/// Independent octaves (JL bound).
 pub const INDEPENDENT_OCTAVES: usize = 14;
 
-/// Pisano period of Fibonacci mod 17. The Fibonacci sequence repeats
-/// with this period in mod-17 arithmetic.
-pub const PISANO_17: usize = 36;
+/// Fixed-point scale: i16 = round(mean × FP_SCALE).
+pub const FP_SCALE: f64 = 256.0;
 
-/// Fibonacci sequence mod 17, first PISANO_17 terms.
-/// This IS the dimension traversal order within each octave.
-/// Every residue 0-16 appears at least once in this cycle.
-const FIB_MOD_17: [u8; PISANO_17] = {
-    let mut table = [0u8; PISANO_17];
-    table[0] = 0; // F(0) = 0
-    table[1] = 1; // F(1) = 1
-    let mut i = 2;
-    while i < PISANO_17{
-        table[i] = (table[i - 1] + table[i - 2]) % 17;
+/// Golden-ratio step: round(17/φ) = 11. gcd(11,17)=1 → full coverage.
+pub const GOLDEN_STEP: usize = 11;
+
+/// Golden-step traversal table: all 17 positions exactly once.
+/// [0, 11, 5, 16, 10, 4, 15, 9, 3, 14, 8, 2, 13, 7, 1, 12, 6]
+const GOLDEN_POS_17: [u8; BASE_DIM] = {
+    let mut t = [0u8; BASE_DIM];
+    let mut i = 0;
+    while i < BASE_DIM {
+        t[i] = ((i * GOLDEN_STEP) % BASE_DIM) as u8;
         i += 1;
     }
-    table
+    t
 };
 
-/// The 17-dimensional base pattern in BF16.
-/// This is the "pitch class" — the fundamental harmonic content.
-/// 34 bytes.
-#[derive(Clone, Debug)]
+/// Map base index → dimension position within an octave.
+#[inline]
+fn golden_position(idx: usize) -> usize {
+    GOLDEN_POS_17[idx % BASE_DIM] as usize
+}
+
+/// Verify golden-step visits all 17 positions.
+pub fn verify_golden_coverage() -> bool {
+    let mut seen = [false; BASE_DIM];
+    for i in 0..BASE_DIM {
+        seen[GOLDEN_POS_17[i] as usize] = true;
+    }
+    seen.iter().all(|&s| s)
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Types
+// ═══════════════════════════════════════════════════════════════════════
+
+/// 17-dimensional base pattern in i16 fixed-point (8 fractional bits).
+/// 34 bytes. The "pitch class" of the accumulator.
+#[derive(Clone, Debug, PartialEq)]
 pub struct BasePattern {
-    pub dims: [u16; BASE_DIM], // BF16 values
+    pub dims: [i16; BASE_DIM],
 }
 
-/// The octave envelope: how amplitude decays across octaves.
-/// Only INDEPENDENT_OCTAVES values needed (rest is redundant).
-/// 14 bytes.
-#[derive(Clone, Debug)]
+/// Octave envelope: amplitude scale per independent octave group. 14 bytes.
+#[derive(Clone, Debug, PartialEq)]
 pub struct OctaveEnvelope {
-    pub amplitudes: [u8; INDEPENDENT_OCTAVES], // 0-255 scale factor per octave
+    pub amplitudes: [u8; INDEPENDENT_OCTAVES],
 }
 
-/// A ZeckBF17-encoded plane. 48 bytes total.
-/// Replaces i8[16384] (16KB) or BF16[16384] (32KB).
+/// One ZeckBF17-encoded plane. 48 bytes.
 #[derive(Clone, Debug)]
 pub struct ZeckBF17Plane {
-    pub base: BasePattern,        // 34 bytes: the 17 fundamental dimensions
-    pub envelope: OctaveEnvelope, // 14 bytes: amplitude per independent octave
+    pub base: BasePattern,
+    pub envelope: OctaveEnvelope,
 }
 
+/// One ZeckBF17-encoded S/P/O edge. 116 bytes.
+/// Envelope is shared (property of the node, not the plane).
+#[derive(Clone, Debug)]
+pub struct ZeckBF17Edge {
+    pub subject: BasePattern,
+    pub predicate: BasePattern,
+    pub object: BasePattern,
+    pub envelope: OctaveEnvelope,
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Plane encode / decode
+// ═══════════════════════════════════════════════════════════════════════
+
 impl ZeckBF17Plane {
-    /// Total bytes of this encoding.
     pub const ENCODED_SIZE: usize = BASE_DIM * 2 + INDEPENDENT_OCTAVES; // 48
 
-    /// Encode a full i8[16384] accumulator plane into ZeckBF17.
+    /// Encode i8[16384] → ZeckBF17 (48 bytes).
     ///
-    /// 1. For each of 17 base dimensions, average across all octaves
-    ///    that map to that dimension via Fibonacci traversal.
-    /// 2. For each independent octave, compute the RMS amplitude
-    ///    of the 17 dimensions in that octave relative to the base.
-    pub fn encode(accumulator: &[i8]) -> Self {
-        assert!(accumulator.len() >= FULL_DIM);
+    /// Step 1: For each of 17 base dims, average across all 964 octaves.
+    ///         Store as i16 fixed-point (×256).
+    /// Step 2: For each of 14 octave groups, compute RMS ratio actual/predicted.
+    pub fn encode(acc: &[i8]) -> Self {
+        assert!(acc.len() >= FULL_DIM);
 
-        // Step 1: Compute base pattern by averaging across octaves
-        let mut base_sum = [0.0f64; BASE_DIM];
-        let mut base_count = [0u32; BASE_DIM];
+        // Step 1: base pattern = mean across octaves per golden-position group
+        let mut sum = [0i64; BASE_DIM];
+        let mut count = [0u32; BASE_DIM];
 
         for octave in 0..N_OCTAVES {
-            for fib_idx in 0..BASE_DIM {
-                let dim = octave * BASE_DIM + fib_position(fib_idx);
+            for bi in 0..BASE_DIM {
+                let dim = octave * BASE_DIM + golden_position(bi);
                 if dim < FULL_DIM {
-                    let base_dim = fib_idx;
-                    base_sum[base_dim] += accumulator[dim] as f64;
-                    base_count[base_dim] += 1;
+                    sum[bi] += acc[dim] as i64;
+                    count[bi] += 1;
                 }
             }
         }
 
-        let mut base = BasePattern { dims: [0u16; BASE_DIM] };
+        let mut base = BasePattern { dims: [0i16; BASE_DIM] };
         for d in 0..BASE_DIM {
-            if base_count[d] > 0 {
-                let avg = base_sum[d] / base_count[d] as f64;
-                base.dims[d] = f32_to_bf16(avg as f32);
+            if count[d] > 0 {
+                let mean = sum[d] as f64 / count[d] as f64;
+                base.dims[d] = (mean * FP_SCALE).round().clamp(-32768.0, 32767.0) as i16;
             }
         }
 
-        // Step 2: Compute octave envelope
-        // For each independent octave group, measure how much the actual
-        // values deviate from the base pattern prediction
-        let mut envelope = OctaveEnvelope { amplitudes: [0u8; INDEPENDENT_OCTAVES] };
+        // Step 2: octave envelope
         let octaves_per_group = N_OCTAVES / INDEPENDENT_OCTAVES;
+        let mut envelope = OctaveEnvelope { amplitudes: [0u8; INDEPENDENT_OCTAVES] };
 
         for group in 0..INDEPENDENT_OCTAVES {
             let mut rms = 0.0f64;
-            let mut count = 0u32;
+            let mut cnt = 0u32;
 
             for sub in 0..octaves_per_group {
                 let octave = group * octaves_per_group + sub;
                 if octave >= N_OCTAVES { break; }
 
-                for fib_idx in 0..BASE_DIM {
-                    let dim = octave * BASE_DIM + fib_position(fib_idx);
+                for bi in 0..BASE_DIM {
+                    let dim = octave * BASE_DIM + golden_position(bi);
                     if dim < FULL_DIM {
-                        let actual = accumulator[dim] as f64;
-                        let predicted = bf16_to_f32(base.dims[fib_idx]) as f64;
+                        let actual = acc[dim] as f64;
+                        let predicted = base.dims[bi] as f64 / FP_SCALE;
                         let ratio = if predicted.abs() > 0.01 {
                             (actual / predicted).abs()
                         } else {
                             actual.abs()
                         };
                         rms += ratio * ratio;
-                        count += 1;
+                        cnt += 1;
                     }
                 }
             }
 
-            if count > 0 {
-                let rms_val = (rms / count as f64).sqrt();
-                envelope.amplitudes[group] = (rms_val * 128.0).min(255.0) as u8;
+            if cnt > 0 {
+                let r = (rms / cnt as f64).sqrt();
+                envelope.amplitudes[group] = (r * 128.0).min(255.0) as u8;
             }
         }
 
         ZeckBF17Plane { base, envelope }
     }
 
-    /// Decode: reconstruct the full i8[16384] accumulator from ZeckBF17.
-    ///
-    /// For each dimension: find its base class (Fibonacci mod 17),
-    /// look up the base pattern value, scale by the octave envelope.
+    /// Decode ZeckBF17 → i8[16384].
     pub fn decode(&self) -> Vec<i8> {
-        let mut reconstructed = vec![0i8; FULL_DIM];
+        let mut out = vec![0i8; FULL_DIM];
         let octaves_per_group = N_OCTAVES / INDEPENDENT_OCTAVES;
 
         for octave in 0..N_OCTAVES {
             let group = (octave / octaves_per_group).min(INDEPENDENT_OCTAVES - 1);
             let scale = self.envelope.amplitudes[group] as f32 / 128.0;
 
-            for fib_idx in 0..BASE_DIM {
-                let dim = octave * BASE_DIM + fib_position(fib_idx);
+            for bi in 0..BASE_DIM {
+                let dim = octave * BASE_DIM + golden_position(bi);
                 if dim < FULL_DIM {
-                    let base_val = bf16_to_f32(self.base.dims[fib_idx]);
-                    let scaled = base_val * scale;
-                    reconstructed[dim] = scaled.clamp(-128.0, 127.0) as i8;
+                    let base_val = self.base.dims[bi] as f32 / FP_SCALE as f32;
+                    let v = base_val * scale;
+                    out[dim] = v.clamp(-128.0, 127.0) as i8;
                 }
             }
         }
-
-        reconstructed
+        out
     }
 
-    /// Serialize to bytes (48 bytes total).
+    /// Serialize to 48 bytes.
     pub fn to_bytes(&self) -> [u8; Self::ENCODED_SIZE] {
         let mut buf = [0u8; Self::ENCODED_SIZE];
         for i in 0..BASE_DIM {
-            let bytes = self.base.dims[i].to_le_bytes();
-            buf[i * 2] = bytes[0];
-            buf[i * 2 + 1] = bytes[1];
+            let b = self.base.dims[i].to_le_bytes();
+            buf[i * 2] = b[0];
+            buf[i * 2 + 1] = b[1];
         }
         for i in 0..INDEPENDENT_OCTAVES {
             buf[BASE_DIM * 2 + i] = self.envelope.amplitudes[i];
@@ -213,11 +228,11 @@ impl ZeckBF17Plane {
         buf
     }
 
-    /// Deserialize from bytes.
+    /// Deserialize from 48 bytes.
     pub fn from_bytes(buf: &[u8; Self::ENCODED_SIZE]) -> Self {
-        let mut base = BasePattern { dims: [0u16; BASE_DIM] };
+        let mut base = BasePattern { dims: [0i16; BASE_DIM] };
         for i in 0..BASE_DIM {
-            base.dims[i] = u16::from_le_bytes([buf[i * 2], buf[i * 2 + 1]]);
+            base.dims[i] = i16::from_le_bytes([buf[i * 2], buf[i * 2 + 1]]);
         }
         let mut envelope = OctaveEnvelope { amplitudes: [0u8; INDEPENDENT_OCTAVES] };
         for i in 0..INDEPENDENT_OCTAVES {
@@ -227,86 +242,133 @@ impl ZeckBF17Plane {
     }
 }
 
-/// A complete ZeckBF17-encoded knowledge edge: S + P + O + shared envelope.
-/// 116 bytes total (vs 49,152 bytes for full planes).
-/// Compression: 424:1 from i8 accumulators.
-#[derive(Clone, Debug)]
-pub struct ZeckBF17Edge {
-    pub subject: BasePattern,     // 34 bytes
-    pub predicate: BasePattern,   // 34 bytes
-    pub object: BasePattern,      // 34 bytes
-    pub envelope: OctaveEnvelope, // 14 bytes (shared across S/P/O)
-}
+// ═══════════════════════════════════════════════════════════════════════
+// Edge encode / decode
+// ═══════════════════════════════════════════════════════════════════════
 
 impl ZeckBF17Edge {
     pub const ENCODED_SIZE: usize = BASE_DIM * 2 * 3 + INDEPENDENT_OCTAVES; // 116
 
-    /// Encode three full planes into one ZeckBF17Edge.
-    /// The envelope is computed from the COMBINED energy across all three planes.
+    /// Encode three i8[16384] planes → one 116-byte edge.
     pub fn encode(s: &[i8], p: &[i8], o: &[i8]) -> Self {
-        let s_plane = ZeckBF17Plane::encode(s);
-        let p_plane = ZeckBF17Plane::encode(p);
-        let o_plane = ZeckBF17Plane::encode(o);
+        let sp = ZeckBF17Plane::encode(s);
+        let pp = ZeckBF17Plane::encode(p);
+        let op = ZeckBF17Plane::encode(o);
 
-        // Shared envelope: average of three plane envelopes
+        // Shared envelope: average of three
         let mut envelope = OctaveEnvelope { amplitudes: [0u8; INDEPENDENT_OCTAVES] };
         for i in 0..INDEPENDENT_OCTAVES {
-            let avg = (s_plane.envelope.amplitudes[i] as u16
-                + p_plane.envelope.amplitudes[i] as u16
-                + o_plane.envelope.amplitudes[i] as u16) / 3;
+            let avg = (sp.envelope.amplitudes[i] as u16
+                + pp.envelope.amplitudes[i] as u16
+                + op.envelope.amplitudes[i] as u16) / 3;
             envelope.amplitudes[i] = avg as u8;
         }
 
         ZeckBF17Edge {
-            subject: s_plane.base,
-            predicate: p_plane.base,
-            object: o_plane.base,
+            subject: sp.base,
+            predicate: pp.base,
+            object: op.base,
             envelope,
         }
     }
 
-    /// Decode back to three full planes.
+    /// Decode → three i8[16384] planes.
     pub fn decode(&self) -> (Vec<i8>, Vec<i8>, Vec<i8>) {
-        let s_plane = ZeckBF17Plane { base: self.subject.clone(), envelope: self.envelope.clone() };
-        let p_plane = ZeckBF17Plane { base: self.predicate.clone(), envelope: self.envelope.clone() };
-        let o_plane = ZeckBF17Plane { base: self.object.clone(), envelope: self.envelope.clone() };
-
-        (s_plane.decode(), p_plane.decode(), o_plane.decode())
+        let sp = ZeckBF17Plane { base: self.subject.clone(), envelope: self.envelope.clone() };
+        let pp = ZeckBF17Plane { base: self.predicate.clone(), envelope: self.envelope.clone() };
+        let op = ZeckBF17Plane { base: self.object.clone(), envelope: self.envelope.clone() };
+        (sp.decode(), pp.decode(), op.decode())
     }
 }
 
-/// Map a Fibonacci index (0..16) to a position in the 17-dimensional base.
-/// Uses the Fibonacci sequence mod 17 to determine traversal order.
-#[inline]
-fn fib_position(fib_idx: usize) -> usize {
-    FIB_MOD_17[fib_idx % PISANO_17] as usize
-}
+// ═══════════════════════════════════════════════════════════════════════
+// Distance: L1 on i16 bases (matches ZeckF64 L1 on quantile bytes)
+// ═══════════════════════════════════════════════════════════════════════
 
-/// Verify that Fibonacci mod 17 visits all 17 residues.
-pub fn verify_fib_coverage() -> bool {
-    let mut seen = [false; BASE_DIM];
-    for i in 0..PISANO_17 {
-        seen[FIB_MOD_17[i] as usize] = true;
+/// L1 (Manhattan) distance between two i16 base patterns.
+///
+/// This is the ZeckBF17 analog of `BitVec::hamming_distance()`.
+/// The production pipeline: BitVec Hamming → quantile → L1 on bytes.
+/// For compressed bases: i16 L1 directly approximates the same ordering.
+pub fn base_l1(a: &BasePattern, b: &BasePattern) -> u32 {
+    let mut d = 0u32;
+    for i in 0..BASE_DIM {
+        d += (a.dims[i] as i32 - b.dims[i] as i32).unsigned_abs();
     }
-    seen.iter().all(|&s| s)
+    d
 }
 
-// ─── BF16 helpers ────────────────────────────────────────────────────
-
-#[inline]
-fn f32_to_bf16(v: f32) -> u16 {
-    (v.to_bits() >> 16) as u16
+/// Sign-bit agreement between two base patterns (out of 17).
+pub fn base_sign_agreement(a: &BasePattern, b: &BasePattern) -> u32 {
+    let mut agree = 0u32;
+    for i in 0..BASE_DIM {
+        if (a.dims[i] >= 0) == (b.dims[i] >= 0) {
+            agree += 1;
+        }
+    }
+    agree
 }
 
-#[inline]
-fn bf16_to_f32(v: u16) -> f32 {
-    f32::from_bits((v as u32) << 16)
+/// Compute ZeckF64 scent byte from ZeckBF17 base patterns.
+/// Produces the same 7-bit lattice as `zeckf64::zeckf64()`.
+pub fn scent_from_base(a: &ZeckBF17Edge, b: &ZeckBF17Edge) -> u8 {
+    let ds = base_l1(&a.subject, &b.subject);
+    let dp = base_l1(&a.predicate, &b.predicate);
+    let d_o = base_l1(&a.object, &b.object);
+
+    let max_l1 = BASE_DIM as u32 * u16::MAX as u32;
+    let threshold = max_l1 / 2;
+
+    let sc = (ds < threshold) as u8;
+    let pc = (dp < threshold) as u8;
+    let oc = (d_o < threshold) as u8;
+    let sp = sc & pc;
+    let so = sc & oc;
+    let po = pc & oc;
+    let spo = sp & so & po;
+
+    sc | (pc << 1) | (oc << 2) | (sp << 3) | (so << 4) | (po << 5) | (spo << 6)
 }
 
-// ─── Fidelity measurement ────────────────────────────────────────────
+/// Compute full ZeckF64 u64 from two ZeckBF17 edges.
+/// Scent byte + 7 quantile bytes, matching production format.
+pub fn zeckf64_from_base(a: &ZeckBF17Edge, b: &ZeckBF17Edge) -> u64 {
+    let ds = base_l1(&a.subject, &b.subject);
+    let dp = base_l1(&a.predicate, &b.predicate);
+    let d_o = base_l1(&a.object, &b.object);
 
-/// Measure reconstruction fidelity: Hamming distance on sign bits.
-/// This is the metric that matters for HHTL search.
+    let max_l1 = BASE_DIM as u64 * u16::MAX as u64;
+    let threshold = (max_l1 / 2) as u32;
+
+    let sc = (ds < threshold) as u8;
+    let pc = (dp < threshold) as u8;
+    let oc = (d_o < threshold) as u8;
+    let sp = sc & pc;
+    let so = sc & oc;
+    let po = pc & oc;
+    let spo = sp & so & po;
+
+    let byte0 = sc | (pc << 1) | (oc << 2) | (sp << 3) | (so << 4) | (po << 5) | (spo << 6);
+
+    let q1 = |d: u32| -> u8 { ((d as u64 * 255) / max_l1).min(255) as u8 };
+    let q2 = |d1: u32, d2: u32| -> u8 { (((d1 as u64 + d2 as u64) * 255) / (2 * max_l1)).min(255) as u8 };
+    let q3 = |d1: u32, d2: u32, d3: u32| -> u8 { (((d1 as u64 + d2 as u64 + d3 as u64) * 255) / (3 * max_l1)).min(255) as u8 };
+
+    (byte0 as u64)
+        | ((q3(ds, dp, d_o) as u64) << 8)
+        | ((q2(dp, d_o) as u64) << 16)
+        | ((q2(ds, d_o) as u64) << 24)
+        | ((q2(ds, dp) as u64) << 32)
+        | ((q1(d_o) as u64) << 40)
+        | ((q1(dp) as u64) << 48)
+        | ((q1(ds) as u64) << 56)
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Fidelity measurement
+// ═══════════════════════════════════════════════════════════════════════
+
+/// Sign-bit Hamming on full planes.
 pub fn sign_bit_hamming(original: &[i8], reconstructed: &[i8]) -> u32 {
     assert_eq!(original.len(), reconstructed.len());
     original.iter().zip(reconstructed.iter())
@@ -314,385 +376,268 @@ pub fn sign_bit_hamming(original: &[i8], reconstructed: &[i8]) -> u32 {
         .count() as u32
 }
 
-/// Normalized fidelity: 1.0 = perfect, 0.0 = random.
+/// Normalized fidelity: 1.0 = perfect.
 pub fn sign_bit_fidelity(original: &[i8], reconstructed: &[i8]) -> f64 {
-    let hamming = sign_bit_hamming(original, reconstructed) as f64;
-    let total = original.len() as f64;
-    1.0 - (hamming / total)
+    1.0 - (sign_bit_hamming(original, reconstructed) as f64 / original.len() as f64)
 }
 
-/// Compute ZeckF64 scent from ZeckBF17 base patterns WITHOUT full reconstruction.
-/// This is the fast path: 34 bytes → 1 byte scent, no 16KB decode needed.
-pub fn scent_from_base(
-    a: &ZeckBF17Edge,
-    b: &ZeckBF17Edge,
-    threshold: u32,
-) -> u8 {
-    // Hamming distance on base patterns (17 × BF16 = 34 bytes each)
-    let ds = base_hamming(&a.subject, &b.subject);
-    let dp = base_hamming(&a.predicate, &b.predicate);
-    let d_o = base_hamming(&a.object, &b.object);
-
-    // Scale threshold from full-plane (16384) to base (17)
-    let t = (threshold as u64 * BASE_DIM as u64 / FULL_DIM as u64) as u32;
-
-    let s_close = (ds < t) as u8;
-    let p_close = (dp < t) as u8;
-    let o_close = (d_o < t) as u8;
-    let sp_close = s_close & p_close;
-    let so_close = s_close & o_close;
-    let po_close = p_close & o_close;
-    let spo_close = sp_close & so_close & po_close;
-
-    s_close
-        | (p_close << 1)
-        | (o_close << 2)
-        | (sp_close << 3)
-        | (so_close << 4)
-        | (po_close << 5)
-        | (spo_close << 6)
-}
-
-/// Weighted BF16 Hamming between two base patterns.
-fn base_hamming(a: &BasePattern, b: &BasePattern) -> u32 {
-    let mut dist = 0u32;
-    for i in 0..BASE_DIM {
-        let xor = a.dims[i] ^ b.dims[i];
-        dist += ((xor >> 15) & 1) as u32 * 8;
-        dist += ((xor >> 7) & 0xFF).count_ones() * 4;
-        dist += (xor & 0x7F).count_ones();
-    }
-    dist
-}
-
-/// Spearman rank correlation between two distance orderings.
 fn spearman(a: &[f64], b: &[f64]) -> f64 {
     assert_eq!(a.len(), b.len());
     let n = a.len();
     if n < 2 { return 0.0; }
-
-    fn ranks(vals: &[f64]) -> Vec<f64> {
-        let mut indexed: Vec<(usize, f64)> = vals.iter().copied().enumerate().collect();
-        indexed.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
-        let mut r = vec![0.0; vals.len()];
-        for (rank, &(orig_idx, _)) in indexed.iter().enumerate() {
-            r[orig_idx] = rank as f64;
-        }
+    fn ranks(v: &[f64]) -> Vec<f64> {
+        let mut ix: Vec<(usize, f64)> = v.iter().copied().enumerate().collect();
+        ix.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+        let mut r = vec![0.0; v.len()];
+        for (rank, &(orig, _)) in ix.iter().enumerate() { r[orig] = rank as f64; }
         r
     }
-
-    let ra = ranks(a);
-    let rb = ranks(b);
-    let mean_a: f64 = ra.iter().sum::<f64>() / n as f64;
-    let mean_b: f64 = rb.iter().sum::<f64>() / n as f64;
-
-    let mut cov = 0.0;
-    let mut va = 0.0;
-    let mut vb = 0.0;
+    let (ra, rb) = (ranks(a), ranks(b));
+    let (ma, mb) = (ra.iter().sum::<f64>() / n as f64, rb.iter().sum::<f64>() / n as f64);
+    let (mut cov, mut va, mut vb) = (0.0, 0.0, 0.0);
     for i in 0..n {
-        let da = ra[i] - mean_a;
-        let db = rb[i] - mean_b;
-        cov += da * db;
-        va += da * da;
-        vb += db * db;
+        let (da, db) = (ra[i] - ma, rb[i] - mb);
+        cov += da * db; va += da * da; vb += db * db;
     }
-    if va < 1e-15 || vb < 1e-15 { return 0.0; }
-    cov / (va.sqrt() * vb.sqrt())
+    if va < 1e-15 || vb < 1e-15 { 0.0 } else { cov / (va.sqrt() * vb.sqrt()) }
 }
 
-// ═════════════════════════════════════════════════════════════════════
-// THE EXPERIMENT: does ZeckBF17 preserve L1 search fidelity?
-// ═════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════
+// Experiment
+// ═══════════════════════════════════════════════════════════════════════
 
-/// Full fidelity measurement: encode → decode → compare.
 #[derive(Clone, Debug)]
 pub struct FidelityReport {
-    /// Sign-bit fidelity per plane (1.0 = perfect).
     pub s_fidelity: f64,
     pub p_fidelity: f64,
     pub o_fidelity: f64,
-    /// Average sign-bit fidelity across all three planes.
     pub avg_fidelity: f64,
-    /// Rank correlation: does ZeckBF17 distance preserve the same
-    /// ordering as full-plane Hamming distance?
     pub rank_correlation: f64,
-    /// Scent agreement: does the ZeckBF17 scent byte match the
-    /// full-plane scent byte?
     pub scent_agreement: f64,
-    /// Compression ratio.
     pub compression_ratio: f64,
-    /// Bytes: original vs compressed.
     pub original_bytes: usize,
     pub compressed_bytes: usize,
 }
 
-/// Run the fidelity experiment on synthetic data.
 pub fn fidelity_experiment(n_nodes: usize, n_encounters: usize) -> FidelityReport {
-    // Generate synthetic nodes: accumulate random encounters
-    let mut rng_state = 42u64;
-    let mut nodes: Vec<(Vec<i8>, Vec<i8>, Vec<i8>)> = Vec::new();
+    let mut rng = 42u64;
+    let mut next = |r: &mut u64| -> u64 {
+        *r = r.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        *r
+    };
 
-    for node_idx in 0..n_nodes {
+    let mut nodes: Vec<(Vec<i8>, Vec<i8>, Vec<i8>)> = Vec::with_capacity(n_nodes);
+
+    for node in 0..n_nodes {
         let mut s = vec![0i8; FULL_DIM];
         let mut p = vec![0i8; FULL_DIM];
         let mut o = vec![0i8; FULL_DIM];
+        let node_seed = next(&mut rng) ^ (node as u64 * 0x517cc1b727220a95);
 
-        // Each node gets n_encounters random encounters
-        for enc in 0..n_encounters {
-            rng_state = rng_state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
-            let seed = rng_state ^ ((node_idx as u64) << 32) ^ (enc as u64);
-
-            for d in 0..FULL_DIM {
-                let hash = seed.wrapping_mul(d as u64 + 1).wrapping_add(0xdeadbeef);
-                let bit = ((hash >> 17) & 1) as i8 * 2 - 1; // bipolar: -1 or +1
-                s[d] = s[d].saturating_add(bit);
-
-                let hash_p = hash.wrapping_mul(31);
-                let bit_p = ((hash_p >> 23) & 1) as i8 * 2 - 1;
-                p[d] = p[d].saturating_add(bit_p);
-
-                let hash_o = hash.wrapping_mul(97);
-                let bit_o = ((hash_o >> 29) & 1) as i8 * 2 - 1;
-                o[d] = o[d].saturating_add(bit_o);
+        for d in 0..FULL_DIM {
+            let h = node_seed.wrapping_mul(d as u64 + 1).wrapping_add(0x9e3779b97f4a7c15);
+            let (bs, bp, bo) = (
+                if (h >> 17) & 1 == 1 { 1i8 } else { -1 },
+                if (h >> 23) & 1 == 1 { 1i8 } else { -1 },
+                if (h >> 29) & 1 == 1 { 1i8 } else { -1 },
+            );
+            let (mut vs, mut vp, mut vo) = (0i8, 0i8, 0i8);
+            for enc in 0..n_encounters {
+                let eh = next(&mut rng) ^ (enc as u64);
+                vs = vs.saturating_add(if (eh >> 7) % 10 < 7 { bs } else { -bs });
+                vp = vp.saturating_add(if (eh >> 13) % 10 < 7 { bp } else { -bp });
+                vo = vo.saturating_add(if (eh >> 19) % 10 < 7 { bo } else { -bo });
             }
+            s[d] = vs; p[d] = vp; o[d] = vo;
         }
-
         nodes.push((s, p, o));
     }
 
-    // Encode all nodes
     let encoded: Vec<ZeckBF17Edge> = nodes.iter()
-        .map(|(s, p, o)| ZeckBF17Edge::encode(s, p, o))
-        .collect();
+        .map(|(s, p, o)| ZeckBF17Edge::encode(s, p, o)).collect();
+    let decoded: Vec<_> = encoded.iter().map(|e| e.decode()).collect();
 
-    // Decode all nodes
-    let decoded: Vec<(Vec<i8>, Vec<i8>, Vec<i8>)> = encoded.iter()
-        .map(|e| e.decode())
-        .collect();
-
-    // Measure sign-bit fidelity
-    let mut total_s_fid = 0.0;
-    let mut total_p_fid = 0.0;
-    let mut total_o_fid = 0.0;
-
+    let (mut sf, mut pf, mut of_) = (0.0, 0.0, 0.0);
     for i in 0..n_nodes {
-        total_s_fid += sign_bit_fidelity(&nodes[i].0, &decoded[i].0);
-        total_p_fid += sign_bit_fidelity(&nodes[i].1, &decoded[i].1);
-        total_o_fid += sign_bit_fidelity(&nodes[i].2, &decoded[i].2);
+        sf += sign_bit_fidelity(&nodes[i].0, &decoded[i].0);
+        pf += sign_bit_fidelity(&nodes[i].1, &decoded[i].1);
+        of_ += sign_bit_fidelity(&nodes[i].2, &decoded[i].2);
     }
+    let (sf, pf, of_) = (sf / n_nodes as f64, pf / n_nodes as f64, of_ / n_nodes as f64);
 
-    let s_fid = total_s_fid / n_nodes as f64;
-    let p_fid = total_p_fid / n_nodes as f64;
-    let o_fid = total_o_fid / n_nodes as f64;
-    let avg_fid = (s_fid + p_fid + o_fid) / 3.0;
-
-    // Measure rank correlation: pairwise distances
-    let n_pairs = n_nodes.min(50); // limit for speed
-    let mut exact_dists = Vec::new();
-    let mut zeck_dists = Vec::new();
-
+    let n_pairs = n_nodes.min(50);
+    let (mut exact_d, mut zeck_d) = (Vec::new(), Vec::new());
     for i in 0..n_pairs {
         for j in (i + 1)..n_pairs {
-            // Exact: Hamming on full sign-bit planes
-            let exact_d = sign_bit_hamming(&nodes[i].0, &nodes[j].0) as f64
+            exact_d.push(
+                sign_bit_hamming(&nodes[i].0, &nodes[j].0) as f64
                 + sign_bit_hamming(&nodes[i].1, &nodes[j].1) as f64
-                + sign_bit_hamming(&nodes[i].2, &nodes[j].2) as f64;
-            exact_dists.push(exact_d);
-
-            // ZeckBF17: base pattern Hamming
-            let zeck_d = base_hamming(&encoded[i].subject, &encoded[j].subject) as f64
-                + base_hamming(&encoded[i].predicate, &encoded[j].predicate) as f64
-                + base_hamming(&encoded[i].object, &encoded[j].object) as f64;
-            zeck_dists.push(zeck_d);
+                + sign_bit_hamming(&nodes[i].2, &nodes[j].2) as f64);
+            zeck_d.push(
+                base_l1(&encoded[i].subject, &encoded[j].subject) as f64
+                + base_l1(&encoded[i].predicate, &encoded[j].predicate) as f64
+                + base_l1(&encoded[i].object, &encoded[j].object) as f64);
         }
     }
+    let rho = if !exact_d.is_empty() { spearman(&exact_d, &zeck_d) } else { 0.0 };
 
-    let rho = if !exact_dists.is_empty() {
-        spearman(&exact_dists, &zeck_dists)
-    } else {
-        0.0
-    };
-
-    // Measure scent agreement
-    let threshold = FULL_DIM as u32 / 2;
-    let mut scent_agree = 0u32;
-    let mut scent_total = 0u32;
-
+    let full_thresh = FULL_DIM as u32 / 2;
+    let (mut agree, mut total) = (0u32, 0u32);
     for i in 0..n_pairs {
         for j in (i + 1)..n_pairs {
-            scent_total += 1;
-            let scent_zeck = scent_from_base(&encoded[i], &encoded[j], threshold);
-
-            // Full-plane scent (simplified: just S plane Hamming threshold)
-            let full_ds = sign_bit_hamming(&nodes[i].0, &nodes[j].0);
-            let full_dp = sign_bit_hamming(&nodes[i].1, &nodes[j].1);
-            let full_do = sign_bit_hamming(&nodes[i].2, &nodes[j].2);
-
-            let sc = (full_ds < threshold / 2) as u8;
-            let pc = (full_dp < threshold / 2) as u8;
-            let oc = (full_do < threshold / 2) as u8;
-            let full_scent = sc | (pc << 1) | (oc << 2)
-                | ((sc & pc) << 3) | ((sc & oc) << 4)
-                | ((pc & oc) << 5) | ((sc & pc & oc) << 6);
-
-            if scent_zeck == full_scent {
-                scent_agree += 1;
-            }
+            total += 1;
+            let sz = scent_from_base(&encoded[i], &encoded[j]);
+            let (fds, fdp, fdo) = (
+                sign_bit_hamming(&nodes[i].0, &nodes[j].0),
+                sign_bit_hamming(&nodes[i].1, &nodes[j].1),
+                sign_bit_hamming(&nodes[i].2, &nodes[j].2));
+            let (fsc, fpc, foc) = (
+                (fds < full_thresh) as u8,
+                (fdp < full_thresh) as u8,
+                (fdo < full_thresh) as u8);
+            let full_scent = fsc | (fpc << 1) | (foc << 2)
+                | ((fsc & fpc) << 3) | ((fsc & foc) << 4)
+                | ((fpc & foc) << 5) | ((fsc & fpc & foc) << 6);
+            if sz == full_scent { agree += 1; }
         }
     }
+    let scent_agr = if total > 0 { agree as f64 / total as f64 } else { 0.0 };
 
-    let scent_agr = if scent_total > 0 {
-        scent_agree as f64 / scent_total as f64
-    } else {
-        0.0
-    };
-
-    let original_bytes = n_nodes * FULL_DIM * 3; // i8 per dim, 3 planes
-    let compressed_bytes = n_nodes * ZeckBF17Edge::ENCODED_SIZE;
+    let orig = n_nodes * FULL_DIM * 3;
+    let comp = n_nodes * ZeckBF17Edge::ENCODED_SIZE;
 
     FidelityReport {
-        s_fidelity: s_fid,
-        p_fidelity: p_fid,
-        o_fidelity: o_fid,
-        avg_fidelity: avg_fid,
-        rank_correlation: rho,
-        scent_agreement: scent_agr,
-        compression_ratio: original_bytes as f64 / compressed_bytes as f64,
-        original_bytes,
-        compressed_bytes,
+        s_fidelity: sf, p_fidelity: pf, o_fidelity: of_,
+        avg_fidelity: (sf + pf + of_) / 3.0,
+        rank_correlation: rho, scent_agreement: scent_agr,
+        compression_ratio: orig as f64 / comp as f64,
+        original_bytes: orig, compressed_bytes: comp,
     }
 }
 
 impl std::fmt::Display for FidelityReport {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "\n{}", "═".repeat(60))?;
-        writeln!(f, "  ZeckBF17 FIDELITY REPORT")?;
+        writeln!(f, "  ZeckBF17 FIDELITY (i16 base, L1 distance)")?;
         writeln!(f, "{}", "═".repeat(60))?;
-        writeln!(f, "  Sign-bit fidelity:")?;
-        writeln!(f, "    Subject:   {:.4}", self.s_fidelity)?;
-        writeln!(f, "    Predicate: {:.4}", self.p_fidelity)?;
-        writeln!(f, "    Object:    {:.4}", self.o_fidelity)?;
-        writeln!(f, "    Average:   {:.4}", self.avg_fidelity)?;
-        writeln!(f)?;
-        writeln!(f, "  Rank correlation (ρ):  {:.4}", self.rank_correlation)?;
-        writeln!(f, "  Scent agreement:       {:.4}", self.scent_agreement)?;
-        writeln!(f)?;
-        writeln!(f, "  Compression:")?;
-        writeln!(f, "    Original:   {} bytes", self.original_bytes)?;
-        writeln!(f, "    Compressed: {} bytes", self.compressed_bytes)?;
-        writeln!(f, "    Ratio:      {:.0}:1", self.compression_ratio)?;
+        writeln!(f, "  Sign-bit fidelity:  S={:.4}  P={:.4}  O={:.4}  avg={:.4}",
+            self.s_fidelity, self.p_fidelity, self.o_fidelity, self.avg_fidelity)?;
+        writeln!(f, "  Rank correlation ρ: {:.4}", self.rank_correlation)?;
+        writeln!(f, "  Scent agreement:    {:.1}%", self.scent_agreement * 100.0)?;
+        writeln!(f, "  Compression:        {:.0}:1 ({} → {} bytes)",
+            self.compression_ratio, self.original_bytes, self.compressed_bytes)?;
         writeln!(f, "{}", "═".repeat(60))?;
-
-        writeln!(f)?;
-        if self.rank_correlation > 0.90 {
-            writeln!(f, "  ✓ EXCELLENT: L1 search fidelity preserved (ρ > 0.90)")?;
-        } else if self.rank_correlation > 0.80 {
-            writeln!(f, "  ~ GOOD: L1 search mostly preserved (ρ > 0.80)")?;
+        if self.rank_correlation > 0.937 {
+            writeln!(f, "  ✓ BEATS SCENT: ρ > 0.937")?;
+        } else if self.rank_correlation > 0.90 {
+            writeln!(f, "  ✓ EXCELLENT: ρ > 0.90")?;
         } else if self.rank_correlation > 0.50 {
-            writeln!(f, "  ? PARTIAL: some ranking preserved (ρ > 0.50)")?;
+            writeln!(f, "  ? PARTIAL: ρ > 0.50")?;
         } else {
-            writeln!(f, "  ✗ POOR: ranking not preserved (ρ < 0.50)")?;
+            writeln!(f, "  ✗ POOR: ρ < 0.50")?;
         }
-
         Ok(())
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// Tests
+// ═══════════════════════════════════════════════════════════════════════
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_fib_mod_17_coverage() {
-        assert!(verify_fib_coverage(),
-            "Fibonacci mod 17 must visit all 17 residues");
+    fn test_golden_step_coverage() {
+        assert!(verify_golden_coverage(), "Must visit all 17 residues");
     }
 
     #[test]
-    fn test_fib_mod_17_values() {
-        // Verify first few terms manually: 0, 1, 1, 2, 3, 5, 8, 13, 4, 0, ...
-        assert_eq!(FIB_MOD_17[0], 0);
-        assert_eq!(FIB_MOD_17[1], 1);
-        assert_eq!(FIB_MOD_17[2], 1);
-        assert_eq!(FIB_MOD_17[3], 2);
-        assert_eq!(FIB_MOD_17[4], 3);
-        assert_eq!(FIB_MOD_17[5], 5);
-        assert_eq!(FIB_MOD_17[6], 8);
-        assert_eq!(FIB_MOD_17[7], 13);
-        assert_eq!(FIB_MOD_17[8], (13 + 8) % 17); // 21 % 17 = 4
+    fn test_golden_step_values() {
+        assert_eq!(GOLDEN_POS_17[0], 0);
+        assert_eq!(GOLDEN_POS_17[1], 11);
+        assert_eq!(GOLDEN_POS_17[2], 5);
+        assert_eq!(GOLDEN_POS_17[3], 16);
+        let mut sorted: Vec<u8> = GOLDEN_POS_17.to_vec();
+        sorted.sort();
+        assert_eq!(sorted, (0..17).collect::<Vec<u8>>());
+    }
+
+    #[test]
+    fn test_i16_captures_subunit() {
+        // mean = 0.2 → i16 = 51 (0.2 * 256). BF16 would store 0.0.
+        let mut acc = vec![0i8; FULL_DIM];
+        for i in 0..FULL_DIM {
+            acc[i] = if i % 5 < 3 { 1 } else { -1 }; // mean ≈ 0.2
+        }
+        let plane = ZeckBF17Plane::encode(&acc);
+        // At least some base dims should capture the positive bias
+        let positive = plane.base.dims.iter().filter(|&&d| d > 0).count();
+        assert!(positive > 0, "i16 should capture subunit positive bias");
     }
 
     #[test]
     fn test_encode_decode_roundtrip() {
-        // Create a simple accumulator with known structure
         let mut acc = vec![0i8; FULL_DIM];
         for i in 0..FULL_DIM {
             acc[i] = if i % 3 == 0 { 50 } else if i % 3 == 1 { -30 } else { 10 };
         }
-
-        let encoded = ZeckBF17Plane::encode(&acc);
-        let decoded = encoded.decode();
-
-        let fidelity = sign_bit_fidelity(&acc, &decoded);
-        println!("Roundtrip sign-bit fidelity: {:.4}", fidelity);
-        assert!(fidelity > 0.5, "Fidelity should be better than random: {:.4}", fidelity);
+        let fid = sign_bit_fidelity(&acc, &ZeckBF17Plane::encode(&acc).decode());
+        println!("Roundtrip fidelity: {:.4}", fid);
+        assert!(fid > 0.5);
     }
 
     #[test]
     fn test_byte_serialization() {
         let mut acc = vec![42i8; FULL_DIM];
         acc[0] = -100;
-        acc[100] = 127;
+        let enc = ZeckBF17Plane::encode(&acc);
+        let rec = ZeckBF17Plane::from_bytes(&enc.to_bytes());
+        assert_eq!(enc.base, rec.base);
+        assert_eq!(enc.envelope, rec.envelope);
+    }
 
-        let encoded = ZeckBF17Plane::encode(&acc);
-        let bytes = encoded.to_bytes();
-        let recovered = ZeckBF17Plane::from_bytes(&bytes);
+    #[test]
+    fn test_self_scent_all_close() {
+        let edge = ZeckBF17Edge::encode(&vec![50i8; FULL_DIM], &vec![-30i8; FULL_DIM], &vec![10i8; FULL_DIM]);
+        assert_eq!(scent_from_base(&edge, &edge) & 0x7F, 0x7F);
+    }
 
-        assert_eq!(encoded.base.dims, recovered.base.dims);
-        assert_eq!(encoded.envelope.amplitudes, recovered.envelope.amplitudes);
+    #[test]
+    fn test_zeckf64_from_base_self() {
+        let edge = ZeckBF17Edge::encode(&vec![50i8; FULL_DIM], &vec![-30i8; FULL_DIM], &vec![10i8; FULL_DIM]);
+        let z = zeckf64_from_base(&edge, &edge);
+        assert_eq!(z as u8 & 0x7F, 0x7F);
+        for b in 1..=7u8 { assert_eq!((z >> (b * 8)) as u8, 0); }
+    }
+
+    #[test]
+    fn test_base_l1_self_zero() {
+        let a = BasePattern { dims: [100, -200, 50, 0, 127, -128, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0] };
+        assert_eq!(base_l1(&a, &a), 0);
+    }
+
+    #[test]
+    fn test_sizes() {
+        assert_eq!(ZeckBF17Edge::ENCODED_SIZE, 116);
+        assert_eq!(ZeckBF17Plane::ENCODED_SIZE, 48);
     }
 
     #[test]
     fn test_compression_ratio() {
-        let report = fidelity_experiment(10, 20);
-        println!("{}", report);
-
-        assert!(report.compression_ratio > 100.0,
-            "Should achieve >100:1 compression: {:.0}:1", report.compression_ratio);
+        let r = fidelity_experiment(10, 20);
+        println!("{}", r);
+        assert!(r.compression_ratio > 100.0);
     }
 
     #[test]
-    fn test_fidelity_with_encounters() {
-        println!("\nFidelity vs encounter count:");
-        println!("{:>12} {:>10} {:>10} {:>10}", "encounters", "fidelity", "ρ(rank)", "scent%");
-
-        for encounters in [5, 10, 20, 50, 100] {
-            let report = fidelity_experiment(20, encounters);
+    fn test_fidelity_vs_encounters() {
+        println!("\n{:>12} {:>10} {:>10} {:>10}", "encounters", "fidelity", "ρ(rank)", "scent%");
+        for enc in [5, 10, 20, 50, 100] {
+            let r = fidelity_experiment(20, enc);
             println!("{:>12} {:>10.4} {:>10.4} {:>10.1}%",
-                encounters, report.avg_fidelity,
-                report.rank_correlation, report.scent_agreement * 100.0);
+                enc, r.avg_fidelity, r.rank_correlation, r.scent_agreement * 100.0);
         }
-    }
-
-    #[test]
-    fn test_scent_from_base_self() {
-        let acc_s = vec![50i8; FULL_DIM];
-        let acc_p = vec![-30i8; FULL_DIM];
-        let acc_o = vec![10i8; FULL_DIM];
-
-        let edge = ZeckBF17Edge::encode(&acc_s, &acc_p, &acc_o);
-        let scent = scent_from_base(&edge, &edge, FULL_DIM as u32 / 2);
-
-        // Self-comparison: all close bits should be set
-        assert_eq!(scent & 0x7F, 0x7F,
-            "Self-scent should have all 7 close bits set: 0b{:07b}", scent & 0x7F);
-    }
-
-    #[test]
-    fn test_edge_encoding_size() {
-        assert_eq!(ZeckBF17Edge::ENCODED_SIZE, 116,
-            "Edge should be 116 bytes: 3×34 + 14");
-        assert_eq!(ZeckBF17Plane::ENCODED_SIZE, 48,
-            "Plane should be 48 bytes: 17×2 + 14");
     }
 }
