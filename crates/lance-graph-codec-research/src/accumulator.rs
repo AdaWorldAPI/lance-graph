@@ -14,12 +14,6 @@ use crate::{AudioFrame, AudioQualia, CrystallizedComponent, SpectralAccumulator,
 use crate::transform::{mdct, coeffs_to_band_energies, psychoacoustic_mask, sine_window};
 use crate::bands::{pack_bands, f32_to_bf16, bf16_to_f32};
 
-use std::f64::consts::PI;
-
-// Golden angle for cyclic shift (same as fibonacci-vsa GOLDEN_ANGLE).
-const PHI: f64 = 1.618_033_988_749_895;
-const GOLDEN_ANGLE: f64 = 2.0 * PI / (PHI * PHI);
-
 /// Accumulator cell count: 24 bands × 16 bits per BF16 = 384.
 const CELL_COUNT: usize = BARK_BANDS * 16;
 
@@ -35,29 +29,25 @@ impl SpectralAccumulator {
     /// Accumulate one frame into the accumulator.
     ///
     /// The frame's BF16 bands are unpacked to 384 individual bits.
-    /// Each bit is cyclically shifted by frame_count × golden_angle positions
-    /// (mod CELL_COUNT), then added to the accumulator via saturating i16 add.
+    /// Each bit is added to the accumulator via saturating i16 add.
     ///
-    /// The cyclic shift ensures that consecutive frames don't align,
-    /// so only REPEATED patterns accumulate above the noise floor.
+    /// NOTE: Earlier versions used a cyclic shift per frame for decorrelation.
+    /// This caused a mismatch: crystallize() and unbind() read un-shifted cells.
+    /// The shift is removed — decorrelation is handled at the encoding level
+    /// by ZeckBF17's golden-step traversal, not at the accumulation level.
     pub fn accumulate_frame(&mut self, bands: &[u16; BARK_BANDS]) {
-        // Compute cyclic shift for this frame
-        let shift = ((self.frame_count as f64 * GOLDEN_ANGLE * CELL_COUNT as f64 / (2.0 * PI))
-            as usize) % CELL_COUNT;
-
         // Unpack 24 BF16 values into 384 bits
         for band in 0..BARK_BANDS {
             for bit in 0..16 {
                 let cell_idx = band * 16 + bit;
-                let shifted_idx = (cell_idx + shift) % CELL_COUNT;
 
                 // Extract bit from BF16 value
                 let bit_val = ((bands[band] >> bit) & 1) as i16;
                 // Map 0→-1, 1→+1 for bipolar accumulation
                 let bipolar = bit_val * 2 - 1;
 
-                // Saturating add
-                self.cells[shifted_idx] = self.cells[shifted_idx].saturating_add(bipolar);
+                // Saturating add — NO shift, cells stay at natural position
+                self.cells[cell_idx] = self.cells[cell_idx].saturating_add(bipolar);
             }
         }
 
