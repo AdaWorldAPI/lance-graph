@@ -8,7 +8,6 @@
 
 use crate::base17::Base17;
 use crate::palette::Palette;
-use crate::distance_matrix::DistanceMatrix;
 use crate::scalar_sparse::ScalarCsr;
 
 /// Cross-plane distance between two palette entries from DIFFERENT planes.

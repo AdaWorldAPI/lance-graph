@@ -4,9 +4,7 @@
 //! Every subsequent distance lookup becomes a single u16 array load.
 //! The 128 KB matrix fits in L1 cache. ~10,000× faster than recomputing.
 
-use crate::base17::Base17;
 use crate::palette::Palette;
-use crate::MAX_PALETTE_SIZE;
 
 /// Precomputed pairwise distance matrix for one plane's palette.
 ///
@@ -107,6 +105,7 @@ impl SpoDistanceMatrices {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::base17::Base17;
     use crate::palette::Palette;
 
     fn make_palette(k: usize) -> Palette {
