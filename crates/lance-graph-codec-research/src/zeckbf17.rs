@@ -282,6 +282,168 @@ impl ZeckBF17Edge {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// Palette Compression: 8-bit indexed archetypes
+// ═══════════════════════════════════════════════════════════════════════
+
+/// Maximum palette size (8-bit index → 256 entries).
+pub const MAX_PALETTE: usize = 256;
+
+/// A palette of archetypal base patterns.
+/// Shared codebook: 256 × 34 bytes = 8,704 bytes.
+#[derive(Clone, Debug)]
+pub struct BasePalette {
+    pub entries: Vec<BasePattern>,
+}
+
+/// A palette-compressed edge: 3 bytes (one u8 index per plane).
+#[derive(Clone, Debug)]
+pub struct PaletteEdge {
+    pub s_idx: u8,
+    pub p_idx: u8,
+    pub o_idx: u8,
+}
+
+impl PaletteEdge {
+    pub const ENCODED_SIZE: usize = 3;
+}
+
+impl BasePalette {
+    /// Build a palette from a collection of base patterns using k-means clustering.
+    /// `patterns` is a flat list of all base patterns to cluster.
+    /// `k` is the palette size (max 256).
+    pub fn build(patterns: &[BasePattern], k: usize) -> Self {
+        let k = k.min(MAX_PALETTE).min(patterns.len());
+        if k == 0 {
+            return Self { entries: Vec::new() };
+        }
+
+        // Initialize centroids: use first k distinct patterns (or spread evenly)
+        let mut centroids: Vec<[f64; BASE_DIM]> = Vec::with_capacity(k);
+        let step = patterns.len().max(1) / k.max(1);
+        for i in 0..k {
+            let idx = (i * step).min(patterns.len() - 1);
+            let mut c = [0.0f64; BASE_DIM];
+            for d in 0..BASE_DIM {
+                c[d] = patterns[idx].dims[d] as f64;
+            }
+            centroids.push(c);
+        }
+
+        // K-means iterations
+        let mut assignments = vec![0usize; patterns.len()];
+        for _iter in 0..20 {
+            let mut changed = false;
+
+            // Assign each pattern to nearest centroid
+            for (pi, pat) in patterns.iter().enumerate() {
+                let mut best_dist = f64::MAX;
+                let mut best_c = 0;
+                for (ci, cent) in centroids.iter().enumerate() {
+                    let mut d = 0.0f64;
+                    for dim in 0..BASE_DIM {
+                        let diff = pat.dims[dim] as f64 - cent[dim];
+                        d += diff.abs();
+                    }
+                    if d < best_dist {
+                        best_dist = d;
+                        best_c = ci;
+                    }
+                }
+                if assignments[pi] != best_c {
+                    assignments[pi] = best_c;
+                    changed = true;
+                }
+            }
+
+            if !changed { break; }
+
+            // Recompute centroids
+            let mut sums = vec![[0.0f64; BASE_DIM]; k];
+            let mut counts = vec![0usize; k];
+            for (pi, pat) in patterns.iter().enumerate() {
+                let c = assignments[pi];
+                counts[c] += 1;
+                for d in 0..BASE_DIM {
+                    sums[c][d] += pat.dims[d] as f64;
+                }
+            }
+            for ci in 0..k {
+                if counts[ci] > 0 {
+                    for d in 0..BASE_DIM {
+                        centroids[ci][d] = sums[ci][d] / counts[ci] as f64;
+                    }
+                }
+            }
+        }
+
+        // Convert centroids to BasePattern
+        let entries = centroids.iter().map(|c| {
+            let mut dims = [0i16; BASE_DIM];
+            for d in 0..BASE_DIM {
+                dims[d] = c[d].round().clamp(-32768.0, 32767.0) as i16;
+            }
+            BasePattern { dims }
+        }).collect();
+
+        Self { entries }
+    }
+
+    /// Find the nearest palette entry for a given base pattern.
+    pub fn nearest(&self, pat: &BasePattern) -> u8 {
+        let mut best_dist = u32::MAX;
+        let mut best_idx = 0u8;
+        for (i, entry) in self.entries.iter().enumerate() {
+            let d = base_l1(pat, entry);
+            if d < best_dist {
+                best_dist = d;
+                best_idx = i as u8;
+            }
+        }
+        best_idx
+    }
+
+    /// Compress a ZeckBF17Edge to a PaletteEdge (3 bytes).
+    pub fn compress(&self, edge: &ZeckBF17Edge) -> PaletteEdge {
+        PaletteEdge {
+            s_idx: self.nearest(&edge.subject),
+            p_idx: self.nearest(&edge.predicate),
+            o_idx: self.nearest(&edge.object),
+        }
+    }
+
+    /// Look up the base pattern for a palette index.
+    pub fn lookup(&self, idx: u8) -> &BasePattern {
+        &self.entries[idx as usize]
+    }
+
+    /// Compute L1 distance between two palette edges using precomputed entries.
+    pub fn edge_distance(&self, a: &PaletteEdge, b: &PaletteEdge) -> u32 {
+        base_l1(self.lookup(a.s_idx), self.lookup(b.s_idx))
+            + base_l1(self.lookup(a.p_idx), self.lookup(b.p_idx))
+            + base_l1(self.lookup(a.o_idx), self.lookup(b.o_idx))
+    }
+
+    /// Total bytes: codebook + n_edges × 3.
+    pub fn total_bytes(&self, n_edges: usize) -> usize {
+        self.entries.len() * BASE_DIM * 2 + n_edges * PaletteEdge::ENCODED_SIZE
+    }
+
+    /// Build a precomputed 256×256 distance matrix for fast lookup.
+    pub fn distance_matrix(&self) -> Vec<Vec<u32>> {
+        let n = self.entries.len();
+        let mut mat = vec![vec![0u32; n]; n];
+        for i in 0..n {
+            for j in (i + 1)..n {
+                let d = base_l1(&self.entries[i], &self.entries[j]);
+                mat[i][j] = d;
+                mat[j][i] = d;
+            }
+        }
+        mat
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // Distance: L1 on i16 bases (matches ZeckF64 L1 on quantile bytes)
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -1731,6 +1893,379 @@ mod tests {
                 if conv_at > 0 { format!("{}", conv_at) } else { "—".to_string() },
                 final_fid,
                 marker);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // SWEEP 14: Palette compression — 8-bit indexed archetypes
+    // ═══════════════════════════════════════════════════════════════════
+    #[test]
+    fn test_palette_compression() {
+        println!("\n{:═<80}", "═ PALETTE COMPRESSION: archetype codebook ");
+
+        let mut rng = 42u64;
+        let next = |r: &mut u64| -> u64 {
+            *r = r.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            *r
+        };
+
+        // Build reverse mapping
+        let mut dim_to_base = vec![0usize; FULL_DIM];
+        for octave in 0..N_OCTAVES {
+            for bi in 0..BASE_DIM {
+                let dim = octave * BASE_DIM + golden_position(bi);
+                if dim < FULL_DIM { dim_to_base[dim] = bi; }
+            }
+        }
+
+        // Generate nodes with octave structure
+        let n_nodes = 100;
+        let n_encounters = 30;
+        let mut nodes: Vec<(Vec<i8>, Vec<i8>, Vec<i8>)> = Vec::new();
+        for node in 0..n_nodes {
+            let mut s = vec![0i8; FULL_DIM];
+            let mut p = vec![0i8; FULL_DIM];
+            let mut o = vec![0i8; FULL_DIM];
+            let node_seed = next(&mut rng) ^ (node as u64).wrapping_mul(0x517cc1b727220a95);
+
+            let mut base_s = [0i8; BASE_DIM];
+            let mut base_p = [0i8; BASE_DIM];
+            let mut base_o = [0i8; BASE_DIM];
+            for bi in 0..BASE_DIM {
+                let h = node_seed.wrapping_mul(bi as u64 + 1).wrapping_add(0x9e3779b97f4a7c15);
+                base_s[bi] = if (h >> 17) & 1 == 1 { 1i8 } else { -1 };
+                base_p[bi] = if (h >> 23) & 1 == 1 { 1i8 } else { -1 };
+                base_o[bi] = if (h >> 29) & 1 == 1 { 1i8 } else { -1 };
+            }
+            for d in 0..FULL_DIM {
+                let bi = dim_to_base[d];
+                let (mut vs, mut vp, mut vo) = (0i8, 0i8, 0i8);
+                for _enc in 0..n_encounters {
+                    let eh = next(&mut rng);
+                    vs = vs.saturating_add(if (eh >> 7) % 10 < 7 { base_s[bi] } else { -base_s[bi] });
+                    vp = vp.saturating_add(if (eh >> 13) % 10 < 7 { base_p[bi] } else { -base_p[bi] });
+                    vo = vo.saturating_add(if (eh >> 19) % 10 < 7 { base_o[bi] } else { -base_o[bi] });
+                }
+                s[d] = vs; p[d] = vp; o[d] = vo;
+            }
+            nodes.push((s, p, o));
+        }
+
+        // Encode to ZeckBF17 first
+        let edges: Vec<ZeckBF17Edge> = nodes.iter()
+            .map(|(s, p, o)| ZeckBF17Edge::encode(s, p, o)).collect();
+
+        // Collect all base patterns for clustering
+        let mut all_patterns: Vec<BasePattern> = Vec::new();
+        for e in &edges {
+            all_patterns.push(e.subject.clone());
+            all_patterns.push(e.predicate.clone());
+            all_patterns.push(e.object.clone());
+        }
+
+        // Compute ground truth distances (from full planes)
+        let n_pairs = n_nodes.min(50);
+        let mut exact_d: Vec<f64> = Vec::new();
+        for i in 0..n_pairs {
+            for j in (i + 1)..n_pairs {
+                exact_d.push(
+                    sign_bit_hamming(&nodes[i].0, &nodes[j].0) as f64
+                    + sign_bit_hamming(&nodes[i].1, &nodes[j].1) as f64
+                    + sign_bit_hamming(&nodes[i].2, &nodes[j].2) as f64);
+            }
+        }
+
+        // ZeckBF17 baseline (no palette)
+        let mut zeck_d: Vec<f64> = Vec::new();
+        for i in 0..n_pairs {
+            for j in (i + 1)..n_pairs {
+                zeck_d.push(
+                    base_l1(&edges[i].subject, &edges[j].subject) as f64
+                    + base_l1(&edges[i].predicate, &edges[j].predicate) as f64
+                    + base_l1(&edges[i].object, &edges[j].object) as f64);
+            }
+        }
+        let rho_baseline = spearman(&exact_d, &zeck_d);
+
+        println!("\n  Baseline (ZeckBF17, no palette):");
+        println!("    ρ={:.4}  bytes/edge={}  total={}",
+            rho_baseline, ZeckBF17Edge::ENCODED_SIZE, n_nodes * ZeckBF17Edge::ENCODED_SIZE);
+
+        // Sweep palette sizes
+        println!("\n{:>8} {:>10} {:>10} {:>12} {:>12} {:>10}",
+            "palette", "ρ(rank)", "Δρ", "bytes/edge", "total_bytes", "ratio");
+        println!("{}", "─".repeat(68));
+
+        for palette_size in [2, 4, 8, 16, 32, 64, 128, 256] {
+            let palette = BasePalette::build(&all_patterns, palette_size);
+
+            // Compress edges
+            let pal_edges: Vec<PaletteEdge> = edges.iter()
+                .map(|e| palette.compress(e)).collect();
+
+            // Compute palette distances
+            let mut pal_d: Vec<f64> = Vec::new();
+            for i in 0..n_pairs {
+                for j in (i + 1)..n_pairs {
+                    pal_d.push(palette.edge_distance(&pal_edges[i], &pal_edges[j]) as f64);
+                }
+            }
+
+            let rho = spearman(&exact_d, &pal_d);
+            let delta_rho = rho - rho_baseline;
+            let total = palette.total_bytes(n_nodes);
+            let orig = n_nodes * FULL_DIM * 3;
+            let ratio = orig as f64 / total as f64;
+            let bytes_per_edge = total as f64 / n_nodes as f64;
+
+            let marker = if rho > 0.937 { " ★" }
+                else if rho > 0.90 { " ●" }
+                else { "" };
+
+            println!("{:>8} {:>10.4} {:>+10.4} {:>12.1} {:>12} {:>9.0}:1{}",
+                palette_size, rho, delta_rho, bytes_per_edge,
+                total, ratio, marker);
+        }
+
+        // Count unique palette indices actually used
+        let palette_256 = BasePalette::build(&all_patterns, 256);
+        let pal_edges_256: Vec<PaletteEdge> = edges.iter()
+            .map(|e| palette_256.compress(e)).collect();
+        let mut used_s = std::collections::HashSet::new();
+        let mut used_p = std::collections::HashSet::new();
+        let mut used_o = std::collections::HashSet::new();
+        for pe in &pal_edges_256 {
+            used_s.insert(pe.s_idx);
+            used_p.insert(pe.p_idx);
+            used_o.insert(pe.o_idx);
+        }
+        println!("\n  Palette utilization (k=256, {} edges):", n_nodes);
+        println!("    S: {}/256 entries used", used_s.len());
+        println!("    P: {}/256 entries used", used_p.len());
+        println!("    O: {}/256 entries used", used_o.len());
+        let total_unique: std::collections::HashSet<u8> = used_s.union(&used_p)
+            .chain(used_o.iter()).copied().collect();
+        println!("    Total unique: {}/256", total_unique.len());
+
+        // Effective bits per plane
+        let effective_bits = (total_unique.len() as f64).log2();
+        println!("    Effective bits: {:.1} per plane → {:.1} bits/edge",
+            effective_bits, effective_bits * 3.0);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // SWEEP 15: Palette + scent threshold co-optimization
+    // ═══════════════════════════════════════════════════════════════════
+    #[test]
+    fn test_palette_scent() {
+        println!("\n{:═<80}", "═ PALETTE × SCENT THRESHOLD ");
+
+        let mut rng = 42u64;
+        let next = |r: &mut u64| -> u64 {
+            *r = r.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            *r
+        };
+
+        let mut dim_to_base = vec![0usize; FULL_DIM];
+        for octave in 0..N_OCTAVES {
+            for bi in 0..BASE_DIM {
+                let dim = octave * BASE_DIM + golden_position(bi);
+                if dim < FULL_DIM { dim_to_base[dim] = bi; }
+            }
+        }
+
+        let n_nodes = 50;
+        let mut nodes: Vec<(Vec<i8>, Vec<i8>, Vec<i8>)> = Vec::new();
+        for node in 0..n_nodes {
+            let mut s = vec![0i8; FULL_DIM];
+            let mut p = vec![0i8; FULL_DIM];
+            let mut o = vec![0i8; FULL_DIM];
+            let node_seed = next(&mut rng) ^ (node as u64).wrapping_mul(0x517cc1b727220a95);
+            let mut base_s = [0i8; BASE_DIM];
+            let mut base_p = [0i8; BASE_DIM];
+            let mut base_o = [0i8; BASE_DIM];
+            for bi in 0..BASE_DIM {
+                let h = node_seed.wrapping_mul(bi as u64 + 1).wrapping_add(0x9e3779b97f4a7c15);
+                base_s[bi] = if (h >> 17) & 1 == 1 { 1 } else { -1 };
+                base_p[bi] = if (h >> 23) & 1 == 1 { 1 } else { -1 };
+                base_o[bi] = if (h >> 29) & 1 == 1 { 1 } else { -1 };
+            }
+            for d in 0..FULL_DIM {
+                let bi = dim_to_base[d];
+                let (mut vs, mut vp, mut vo) = (0i8, 0i8, 0i8);
+                for _enc in 0..30 {
+                    let eh = next(&mut rng);
+                    vs = vs.saturating_add(if (eh >> 7) % 10 < 7 { base_s[bi] } else { -base_s[bi] });
+                    vp = vp.saturating_add(if (eh >> 13) % 10 < 7 { base_p[bi] } else { -base_p[bi] });
+                    vo = vo.saturating_add(if (eh >> 19) % 10 < 7 { base_o[bi] } else { -base_o[bi] });
+                }
+                s[d] = vs; p[d] = vp; o[d] = vo;
+            }
+            nodes.push((s, p, o));
+        }
+
+        let edges: Vec<ZeckBF17Edge> = nodes.iter()
+            .map(|(s, p, o)| ZeckBF17Edge::encode(s, p, o)).collect();
+        let mut all_patterns: Vec<BasePattern> = Vec::new();
+        for e in &edges {
+            all_patterns.push(e.subject.clone());
+            all_patterns.push(e.predicate.clone());
+            all_patterns.push(e.object.clone());
+        }
+
+        // Ground truth
+        let full_thresh = FULL_DIM as u32 / 2;
+        let n_pairs = n_nodes;
+        let mut exact_scents: Vec<u8> = Vec::new();
+        for i in 0..n_pairs {
+            for j in (i + 1)..n_pairs {
+                let (fds, fdp, fdo) = (
+                    sign_bit_hamming(&nodes[i].0, &nodes[j].0),
+                    sign_bit_hamming(&nodes[i].1, &nodes[j].1),
+                    sign_bit_hamming(&nodes[i].2, &nodes[j].2));
+                let (sc, pc, oc) = (
+                    (fds < full_thresh) as u8,
+                    (fdp < full_thresh) as u8,
+                    (fdo < full_thresh) as u8);
+                exact_scents.push(sc | (pc << 1) | (oc << 2)
+                    | ((sc & pc) << 3) | ((sc & oc) << 4)
+                    | ((pc & oc) << 5) | ((sc & pc & oc) << 6));
+            }
+        }
+
+        println!("{:>8} {:>8} {:>10} {:>10} {:>12}",
+            "palette", "thresh", "scent%", "ρ(rank)", "bytes/edge");
+        println!("{}", "─".repeat(52));
+
+        let mut best_combined = 0.0f64;
+        let mut best_cfg = String::new();
+
+        for palette_size in [8, 16, 32, 64, 128, 256] {
+            let palette = BasePalette::build(&all_patterns, palette_size);
+            let pal_edges: Vec<PaletteEdge> = edges.iter()
+                .map(|e| palette.compress(e)).collect();
+
+            // Compute palette distances for ρ
+            let mut exact_d: Vec<f64> = Vec::new();
+            let mut pal_d: Vec<f64> = Vec::new();
+            let mut pal_scents: Vec<u8> = Vec::new();
+
+            for i in 0..n_pairs {
+                for j in (i + 1)..n_pairs {
+                    exact_d.push(
+                        sign_bit_hamming(&nodes[i].0, &nodes[j].0) as f64
+                        + sign_bit_hamming(&nodes[i].1, &nodes[j].1) as f64
+                        + sign_bit_hamming(&nodes[i].2, &nodes[j].2) as f64);
+                    pal_d.push(palette.edge_distance(&pal_edges[i], &pal_edges[j]) as f64);
+                }
+            }
+            let rho = spearman(&exact_d, &pal_d);
+
+            // Sweep scent thresholds for this palette
+            let max_l1 = BASE_DIM as u32 * u16::MAX as u32;
+            for thresh_frac in [0.001, 0.01, 0.05, 0.10, 0.20, 0.50] {
+                let thresh = (max_l1 as f64 * thresh_frac) as u32;
+                let mut agree = 0u32;
+                let mut total = 0u32;
+                let mut pair_idx = 0;
+                for i in 0..n_pairs {
+                    for j in (i + 1)..n_pairs {
+                        let ds = base_l1(palette.lookup(pal_edges[i].s_idx), palette.lookup(pal_edges[j].s_idx));
+                        let dp = base_l1(palette.lookup(pal_edges[i].p_idx), palette.lookup(pal_edges[j].p_idx));
+                        let d_o = base_l1(palette.lookup(pal_edges[i].o_idx), palette.lookup(pal_edges[j].o_idx));
+                        let sc = (ds < thresh) as u8;
+                        let pc = (dp < thresh) as u8;
+                        let oc = (d_o < thresh) as u8;
+                        let pal_scent = sc | (pc << 1) | (oc << 2)
+                            | ((sc & pc) << 3) | ((sc & oc) << 4)
+                            | ((pc & oc) << 5) | ((sc & pc & oc) << 6);
+                        if pal_scent == exact_scents[pair_idx] { agree += 1; }
+                        total += 1;
+                        pair_idx += 1;
+                    }
+                }
+                let scent_agr = agree as f64 / total.max(1) as f64;
+                let combined = rho * 0.6 + scent_agr * 0.4;
+                let bytes_per = palette.total_bytes(n_nodes) as f64 / n_nodes as f64;
+
+                if combined > best_combined {
+                    best_combined = combined;
+                    best_cfg = format!("k={} thresh={:.3}", palette_size, thresh_frac);
+                }
+
+                let marker = if rho > 0.937 && scent_agr > 0.50 { " ★★" }
+                    else if rho > 0.937 { " ★" }
+                    else { "" };
+
+                if scent_agr > 0.15 || thresh_frac == 0.01 || thresh_frac == 0.50 {
+                    println!("{:>8} {:>8.3} {:>9.1}% {:>10.4} {:>11.1}{}",
+                        palette_size, thresh_frac, scent_agr * 100.0,
+                        rho, bytes_per, marker);
+                }
+            }
+        }
+
+        println!("\n  BEST COMBINED: {} → score={:.4}", best_cfg, best_combined);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // SWEEP 16: Palette psychometric convergence
+    // Does palette compression have its own fixed point?
+    // encode → palette-compress → palette-lookup → decode → encode...
+    // ═══════════════════════════════════════════════════════════════════
+    #[test]
+    fn test_palette_convergence() {
+        println!("\n{:═<80}", "═ PALETTE PSYCHOMETRIC CONVERGENCE ");
+
+        // Generate 200 base patterns
+        let mut rng = 42u64;
+        let next = |r: &mut u64| -> u64 {
+            *r = r.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            *r
+        };
+
+        let mut patterns: Vec<BasePattern> = Vec::new();
+        for _ in 0..200 {
+            let mut dims = [0i16; BASE_DIM];
+            for d in 0..BASE_DIM {
+                let h = next(&mut rng);
+                dims[d] = (((h >> 8) % 2001) as i32 - 1000) as i16;
+            }
+            patterns.push(BasePattern { dims });
+        }
+
+        println!("{:>8} {:>6} {:>10} {:>10} {:>12}",
+            "palette", "iter", "Δ_total", "unique_idx", "converged?");
+        println!("{}", "─".repeat(50));
+
+        for palette_size in [8, 16, 32, 64, 128, 256] {
+            let palette = BasePalette::build(&patterns, palette_size);
+
+            // Quantize → lookup → re-quantize, track convergence
+            let mut current = patterns.clone();
+            for iter in 0..10 {
+                let mut new_patterns = Vec::new();
+                let mut total_delta = 0u64;
+                let mut indices = std::collections::HashSet::new();
+
+                for pat in &current {
+                    let idx = palette.nearest(pat);
+                    indices.insert(idx);
+                    let quantized = palette.lookup(idx).clone();
+                    total_delta += base_l1(pat, &quantized) as u64;
+                    new_patterns.push(quantized);
+                }
+
+                let converged = total_delta == 0;
+                let marker = if converged { "★ FIXED" } else { "" };
+
+                println!("{:>8} {:>6} {:>10} {:>10} {:>12}",
+                    palette_size, iter, total_delta, indices.len(), marker);
+
+                if converged { break; }
+                current = new_patterns;
+            }
+            println!("{}", "─".repeat(50));
         }
     }
 }
