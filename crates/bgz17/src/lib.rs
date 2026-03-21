@@ -36,6 +36,7 @@ pub mod scope;
 pub mod bridge;
 pub mod generative;
 pub mod prefetch;
+pub mod clam_bridge;
 
 /// Maximum palette size per plane.
 pub const MAX_PALETTE_SIZE: usize = 256;
