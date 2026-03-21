@@ -9,14 +9,30 @@ with precomputed 256×256 distance matrices for O(1) lookup.
 ## The Layered Distance Codec
 
 ```
-Layer 0: Scent (1 byte)      — Hamming on 7-bit lattice,   ρ=0.937
-Layer 1: Palette (3 bytes)   — matrix[s][s'] + matrix[p][p'] + matrix[o][o'],  ρ≈0.965
-Layer 2: ZeckBF17 (102 bytes)— i16[17] L1 per plane,       ρ=0.992
-Layer 3: Full planes (6 KB)  — exact Hamming,               ρ=1.000
+Layer 0: Scent (1 byte)      — Hamming on 7-bit lattice,   ρ=0.937  ⚠️ NOT metric-safe
+Layer 1: Palette (3 bytes)   — matrix[s][s'] + matrix[p][p'] + matrix[o][o'],  ρ≈0.965  ✓ metric-safe
+Layer 2: ZeckBF17 (102 bytes)— i16[17] L1 per plane,       ρ=0.992  ✓ metric-safe
+Layer 3: Full planes (6 KB)  — exact Hamming,               ρ=1.000  ✓ metric-safe
 
 95%+ of searches terminate at Layer 0-1 (CAKES triangle inequality).
 Layer 2 for decision-boundary cases. Layer 3 almost never loaded.
 ```
+
+## Metric Safety (CRITICAL for CAKES correctness)
+
+CAKES DFS sieve requires triangle inequality: d(a,c) ≤ d(a,b) + d(b,c).
+
+**Palette (Layer 1):** L1 on i16[17]. IS a metric. Safe for CAKES pruning.
+**Base (Layer 2):** L1 on i16[17]. IS a metric. Safe for CAKES pruning.
+**Scent (Layer 0):** Hamming on 7-bit Boolean lattice. NOT a metric.
+  The 19-pattern constraint means some "distances" violate triangle inequality.
+  Use ONLY as heuristic pre-filter (HEEL stage). NEVER for CAKES bounds.
+
+Production search path:
+  HEEL (Scent, heuristic, 10K → 200) → CAKES sieve (Palette, metric-safe, 200 → k)
+
+`distance_adaptive()` guarantees Palette-minimum precision.
+`distance_heuristic()` returns Scent — caller must NOT use for CAKES bounds.
 
 ## Critical Insight: L2 BitVec (ρ=0.834) is WRONG baseline
 

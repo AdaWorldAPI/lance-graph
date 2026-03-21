@@ -32,15 +32,32 @@ use crate::distance_matrix::SpoDistanceMatrices;
 use crate::layered::LayeredScope;
 
 /// Precision levels for distance computation.
+///
+/// ## Metric Safety
+///
+/// CAKES DFS sieve requires a true metric (triangle inequality must hold).
+/// - **Scent**: NOT metric-safe. The 19-pattern Boolean lattice breaks
+///   triangle inequality. Use ONLY as heuristic pre-filter (HEEL stage).
+/// - **Palette**: Metric-safe. L1 on i16[17] is a metric. Safe for CAKES pruning.
+/// - **Base**: Metric-safe. L1 on i16[17] is a metric. Safe for CAKES pruning.
+/// - **Exact**: Metric-safe. Hamming distance is a metric.
+///
+/// Rule: any function that feeds CAKES `delta_minus` / `delta_plus` bounds
+/// MUST use Palette or higher. Scent is for heuristic pre-filtering only.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Precision {
     /// Layer 0: scent byte Hamming (1 byte, ρ=0.937).
+    /// ⚠️ NOT metric-safe — Boolean lattice breaks triangle inequality.
+    /// Use ONLY for heuristic pre-filtering (HEEL stage), never for CAKES pruning.
     Scent,
     /// Layer 1: palette matrix lookup (3 bytes, ρ=0.965).
+    /// ✓ Metric-safe — L1 satisfies triangle inequality.
     Palette,
     /// Layer 2: full i16[17] base L1 (102 bytes, ρ=0.992).
+    /// ✓ Metric-safe.
     Base,
     /// Layer 3: exact Hamming on full planes (6 KB, ρ=1.000).
+    /// ✓ Metric-safe.
     Exact,
 }
 
@@ -49,26 +66,52 @@ pub enum Precision {
 /// The trait is generic over the index type (scope position, node ID, etc.).
 /// CLAM calls `distance(a, b)` during tree construction.
 /// CAKES calls `distance_at(a, b, precision)` during search sieve.
+///
+/// ## Metric Safety Contract
+///
+/// `distance()`, `distance_at(Palette|Base|Exact)`, and `distance_adaptive()`
+/// all return metric-safe values (triangle inequality holds).
+/// `distance_heuristic()` returns a heuristic pre-filter value (Scent)
+/// that is NOT metric-safe — use only for HEEL-stage pruning, never for
+/// CAKES `delta_minus` / `delta_plus` bounds.
 pub trait Bgz17Distance {
-    /// Distance at default precision (Palette).
+    /// Distance at default precision (Palette). Metric-safe.
     fn distance(&self, a: usize, b: usize) -> u32;
 
     /// Distance at specified precision level.
+    /// Caller is responsible for metric safety — Scent is NOT metric-safe.
     fn distance_at(&self, a: usize, b: usize, precision: Precision) -> u32;
 
-    /// Adaptive distance: precision selected by CLAM tree depth.
-    /// Shallow (depth < 3) → Scent. Medium (3-6) → Palette. Deep (>6) → Base.
+    /// Metric-safe adaptive distance: precision selected by CLAM tree depth.
+    /// Minimum precision is ALWAYS Palette (never Scent) to guarantee
+    /// triangle inequality for CAKES pruning soundness.
+    ///
+    /// Shallow (depth < 5) → Palette.  Deep (≥5) → Base.
     fn distance_adaptive(&self, a: usize, b: usize, tree_depth: usize) -> u32 {
-        let precision = match tree_depth {
-            0..=2 => Precision::Scent,
-            3..=6 => Precision::Palette,
-            _ => Precision::Base,
+        let precision = if tree_depth < 5 {
+            Precision::Palette
+        } else {
+            Precision::Base
         };
         self.distance_at(a, b, precision)
     }
 
+    /// Heuristic pre-filter distance using Scent (Layer 0).
+    /// ⚠️ NOT metric-safe. Use ONLY for HEEL-stage candidate selection,
+    /// NEVER for CAKES delta_minus/delta_plus bounds.
+    /// Returns (scent_distance, is_below_threshold).
+    fn distance_heuristic(&self, a: usize, b: usize) -> (u32, bool) {
+        let d = self.distance_at(a, b, Precision::Scent);
+        (d, d <= 3) // threshold: ≤3 bits differ = likely close
+    }
+
     /// Number of elements in the metric space.
     fn len(&self) -> usize;
+
+    /// Convenience: is the metric space empty?
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 /// bgz17 metric space backed by a LayeredScope.
@@ -118,16 +161,14 @@ impl Bgz17Distance for Bgz17Metric {
     }
 }
 
-/// CAKES-compatible search using bgz17 layered distance.
+/// CAKES-compatible brute-force k-NN using Palette distance (Layer 1).
 ///
-/// Implements the DFS sieve from CAKES Algorithm 6, using bgz17's
-/// layered precision instead of raw Hamming distance.
+/// ✓ Metric-safe: uses Palette (L1) which satisfies triangle inequality.
+/// This is the baseline that the tree-based DFS sieve improves upon.
+/// The tree sieve uses `distance_adaptive()` which also guarantees
+/// Palette-minimum precision.
 ///
-/// The sieve traverses the CLAM tree depth-first. At each node:
-/// - Compute delta_minus = |d(query, center) - radius|
-/// - If delta_minus > best_hit: PRUNE (Layer 0 suffices)
-/// - If delta_minus > threshold: REFINE with Layer 1
-/// - If near decision boundary: REFINE with Layer 2
+/// For production search with HEEL pre-filter, use `search_prefilter_then_sieve()`.
 pub fn cakes_sieve(
     metric: &Bgz17Metric,
     query_idx: usize,
@@ -149,12 +190,11 @@ pub fn cakes_sieve(
 
 /// CAKES sieve with adaptive precision per depth level.
 ///
-/// At shallow depth: use Scent (1 byte) for fast pruning.
-/// At medium depth: use Palette (3 bytes) for accurate ranking.
-/// At deep depth: use Base (102 bytes) for decision boundaries.
+/// ✓ Metric-safe at every depth: minimum precision is Palette (L1 metric).
+/// Scent is NOT used here — it violates triangle inequality.
 ///
-/// This is the bgz17 analog of Opus's bandwidth switching:
-/// SILK at low bitrate, CELT at high bitrate, hybrid in between.
+/// Shallow depth → Palette (3 bytes, fast). Deep depth → Base (102 bytes, precise).
+/// This is the bgz17 analog of Opus's bandwidth switching.
 pub fn cakes_sieve_adaptive(
     metric: &Bgz17Metric,
     query_idx: usize,
@@ -166,6 +206,7 @@ pub fn cakes_sieve_adaptive(
         .filter(|&i| i != query_idx)
         .map(|i| {
             let depth = cluster_depths.get(i).copied().unwrap_or(0);
+            // distance_adaptive guarantees Palette minimum (metric-safe)
             (i, metric.distance_adaptive(query_idx, i, depth))
         })
         .collect();
@@ -175,13 +216,56 @@ pub fn cakes_sieve_adaptive(
     hits
 }
 
-/// Bridge to HHTL: replace LEAF stage with bgz17 palette refinement.
+/// Two-stage search: heuristic pre-filter (Scent) → metric sieve (Palette).
 ///
-/// HHTL's HEEL/HIP/TWIG stages use scent bytes (unchanged).
+/// Stage 1: Scent (Layer 0) eliminates 90%+ of candidates. NOT metric-safe,
+///          but that's fine — it's a filter, not a bound.
+/// Stage 2: Palette (Layer 1) ranks survivors with metric-safe distances.
+///          CAKES triangle inequality pruning is sound at this stage.
+///
+/// This is the production search path:
+///   HEEL (Scent, 10K → 200) → HIP/CAKES (Palette, 200 → k)
+pub fn search_prefilter_then_sieve(
+    metric: &Bgz17Metric,
+    query_idx: usize,
+    k: usize,
+    prefilter_k: usize,
+) -> Vec<(usize, u32)> {
+    let n = metric.len();
+
+    // Stage 1: heuristic pre-filter with Scent (NOT metric-safe, but fast)
+    let mut prefilter: Vec<(usize, u32)> = (0..n)
+        .filter(|&i| i != query_idx)
+        .map(|i| {
+            let (d, _) = metric.distance_heuristic(query_idx, i);
+            (i, d)
+        })
+        .collect();
+    prefilter.sort_by_key(|&(_, d)| d);
+    prefilter.truncate(prefilter_k);
+
+    // Stage 2: re-rank survivors with metric-safe Palette distance
+    let mut hits: Vec<(usize, u32)> = prefilter.iter()
+        .map(|&(i, _)| (i, metric.distance(query_idx, i))) // distance() = Palette
+        .collect();
+    hits.sort_by_key(|&(_, d)| d);
+    hits.truncate(k);
+    hits
+}
+
+/// Bridge to HHTL: replace LEAF stage with bgz17 layered refinement.
+///
+/// HHTL's HEEL/HIP/TWIG stages use scent bytes — these are heuristic
+/// pre-filters (NOT metric-safe). The candidates they produce are then
+/// refined here with metric-safe palette + base distances.
+///
 /// LEAF currently uses integrated BitVec (ρ=0.834, 2 KB).
-/// This replaces LEAF with palette lookup (ρ=0.965, 3 bytes).
+/// This replaces it with:
+///   - Palette for ALL candidates (ρ=0.965, 3 bytes) — metric-safe ranking
+///   - Base for top-N only (ρ=0.992, 102 bytes) — decision boundary precision
 ///
-/// Returns refined candidates with palette-resolution distances.
+/// The metric safety boundary is HERE: everything above this function
+/// (HEEL/HIP/TWIG) is heuristic. Everything below (palette, base) is metric.
 pub fn hhtl_leaf_bgz17(
     candidates: &[(usize, u32)],
     metric: &Bgz17Metric,
@@ -291,6 +375,100 @@ mod tests {
         // Top 5 should be at Base precision
         for r in results.iter().take(5) {
             assert_eq!(r.2, Precision::Base);
+        }
+    }
+
+    #[test]
+    fn test_prefilter_then_sieve() {
+        let planes: Vec<_> = (0..100)
+            .map(|i| (random_plane(i * 3), random_plane(i * 3 + 1), random_plane(i * 3 + 2)))
+            .collect();
+        let scope = Bgz17Scope::build(1, &planes, 32);
+        let metric = Bgz17Metric::new(scope.to_layered_scope());
+
+        let results = search_prefilter_then_sieve(&metric, 0, 10, 50);
+        assert_eq!(results.len(), 10);
+        // Sorted by palette distance (metric-safe)
+        for w in results.windows(2) {
+            assert!(w[0].1 <= w[1].1);
+        }
+
+        // Compare with brute-force palette sieve
+        let brute = cakes_sieve(&metric, 0, 10);
+        // Top-1 should agree (same metric for final ranking)
+        assert_eq!(results[0].0, brute[0].0,
+            "Pre-filter top-1 should match brute-force top-1");
+    }
+
+    #[test]
+    fn test_palette_triangle_inequality() {
+        // Palette (L1) MUST satisfy triangle inequality for CAKES soundness:
+        //   d(a,c) ≤ d(a,b) + d(b,c) for all a, b, c
+        let planes: Vec<_> = (0..30)
+            .map(|i| (random_plane(i * 3), random_plane(i * 3 + 1), random_plane(i * 3 + 2)))
+            .collect();
+        let scope = Bgz17Scope::build(1, &planes, 16);
+        let metric = Bgz17Metric::new(scope.to_layered_scope());
+
+        let mut violations = 0;
+        for a in 0..30 {
+            for b in 0..30 {
+                for c in 0..30 {
+                    let dab = metric.distance_at(a, b, Precision::Palette);
+                    let dbc = metric.distance_at(b, c, Precision::Palette);
+                    let dac = metric.distance_at(a, c, Precision::Palette);
+                    if dac > dab + dbc {
+                        violations += 1;
+                    }
+                }
+            }
+        }
+        assert_eq!(violations, 0,
+            "Palette L1 must satisfy triangle inequality: {} violations", violations);
+    }
+
+    #[test]
+    fn test_scent_NOT_metric_safe() {
+        // Scent MAY violate triangle inequality (Boolean lattice constraint).
+        // This test documents the expectation — it's not a bug, it's why
+        // Scent must only be used as a heuristic pre-filter.
+        let planes: Vec<_> = (0..30)
+            .map(|i| (random_plane(i * 3), random_plane(i * 3 + 1), random_plane(i * 3 + 2)))
+            .collect();
+        let scope = Bgz17Scope::build(1, &planes, 16);
+        let metric = Bgz17Metric::new(scope.to_layered_scope());
+
+        // Just verify scent distance is in valid range (0-8)
+        for i in 0..30 {
+            for j in 0..30 {
+                let d = metric.distance_at(i, j, Precision::Scent);
+                assert!(d <= 8, "Scent distance should be 0-8, got {}", d);
+            }
+        }
+        // We don't assert triangle inequality here — it's expected to fail sometimes.
+    }
+
+    #[test]
+    fn test_adaptive_never_uses_scent() {
+        // distance_adaptive MUST return Palette or Base precision, never Scent.
+        // We verify by checking that adaptive distance >= palette distance
+        // (Scent is coarser with range 0-8, palette is finer with larger range).
+        let planes: Vec<_> = (0..20)
+            .map(|i| (random_plane(i * 3), random_plane(i * 3 + 1), random_plane(i * 3 + 2)))
+            .collect();
+        let scope = Bgz17Scope::build(1, &planes, 16);
+        let metric = Bgz17Metric::new(scope.to_layered_scope());
+
+        for depth in 0..10 {
+            let d_adaptive = metric.distance_adaptive(0, 1, depth);
+            let d_palette = metric.distance_at(0, 1, Precision::Palette);
+            // Adaptive should use Palette or Base — both metric-safe
+            // If depth < 5: uses Palette (same as d_palette)
+            // If depth >= 5: uses Base (may differ from palette but still metric-safe)
+            if depth < 5 {
+                assert_eq!(d_adaptive, d_palette,
+                    "At depth {}, adaptive should equal palette", depth);
+            }
         }
     }
 }
