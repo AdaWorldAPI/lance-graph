@@ -136,13 +136,13 @@ impl FallbackSignals {
     }
 
     /// Determine minimum precision needed based on signals.
-    pub fn minimum_precision(&self) -> super::bridge::Precision {
+    pub fn minimum_precision(&self) -> crate::Precision {
         if self.max_anomaly_score > 0.75 {
-            super::bridge::Precision::Base
+            crate::Precision::Base
         } else if self.palette_collision_rate > 0.10 {
-            super::bridge::Precision::Base
+            crate::Precision::Base
         } else {
-            super::bridge::Precision::Palette
+            crate::Precision::Palette
         }
     }
 }
@@ -238,7 +238,7 @@ mod tests {
             max_anomaly_score: 0.85,
         };
         assert_eq!(signals.should_escalate(), Some(Route::NdarrayCascade));
-        assert_eq!(signals.minimum_precision(), super::super::bridge::Precision::Base);
+        assert_eq!(signals.minimum_precision(), crate::Precision::Base);
     }
 
     #[test]
@@ -261,7 +261,7 @@ mod tests {
             max_anomaly_score: 0.20,
         };
         assert_eq!(signals.should_escalate(), None);
-        assert_eq!(signals.minimum_precision(), super::super::bridge::Precision::Palette);
+        assert_eq!(signals.minimum_precision(), crate::Precision::Palette);
     }
 
     #[test]
@@ -274,6 +274,6 @@ mod tests {
         };
         // Shouldn't escalate system — just use higher precision
         assert_eq!(signals.should_escalate(), None);
-        assert_eq!(signals.minimum_precision(), super::super::bridge::Precision::Base);
+        assert_eq!(signals.minimum_precision(), crate::Precision::Base);
     }
 }
