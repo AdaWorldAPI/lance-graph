@@ -16,14 +16,9 @@
 //! If any correlation is r < 0.3, the mapping is substrate-specific
 //! and doesn't transfer. Still useful, but not universal.
 
-use std::f64::consts::PI;
-
 // ═══════════════════════════════════════════════════════════════════════
 // SHARED: The Universal Accumulator
 // ═══════════════════════════════════════════════════════════════════════
-
-const PHI: f64 = 1.618_033_988_749_895;
-const GOLDEN_ANGLE: f64 = 2.0 * PI / (PHI * PHI);
 
 /// A modality-agnostic accumulator.
 /// Works on any signal decomposed into N bands of B bits each.
@@ -50,20 +45,16 @@ impl UniversalAccumulator {
     }
 
     /// Accumulate one frame: N_bands values, each B bits.
-    /// Cyclic shift by golden angle per frame (same for ALL modalities).
+    /// Direct accumulation — no cyclic shift (decorrelation at encoding level).
     pub fn accumulate(&mut self, band_values: &[u16]) {
         assert_eq!(band_values.len(), self.n_bands);
-        let total_cells = self.cells.len();
-        let shift = ((self.frame_count as f64 * GOLDEN_ANGLE * total_cells as f64
-            / (2.0 * PI)) as usize) % total_cells;
 
         for band in 0..self.n_bands {
             for bit in 0..self.bits_per_band {
                 let cell_idx = band * self.bits_per_band + bit;
-                let shifted = (cell_idx + shift) % total_cells;
                 let bit_val = ((band_values[band] >> bit) & 1) as i16;
                 let bipolar = bit_val * 2 - 1;
-                self.cells[shifted] = self.cells[shifted].saturating_add(bipolar);
+                self.cells[cell_idx] = self.cells[cell_idx].saturating_add(bipolar);
             }
         }
         self.frame_count += 1;
