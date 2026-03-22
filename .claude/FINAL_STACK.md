@@ -413,3 +413,61 @@ bit is traceable, and GPU tensor cores doing tropical pathfinding on
 a knowledge graph that gets smarter every time you query it.
 
 Same workflows. Different universe.
+
+---
+
+## INTEGRATION STATUS (2026-03-22)
+
+### What's Done
+- ndarray: All 55 HPC modules ported (880 tests), Fingerprint/Plane/Seal/Node/Cascade/BF16Truth
+- lance-graph Phase 1 (blasgraph CSC/Planner): DONE
+- lance-graph Phase 2 (bgz17 container/semiring): DONE (121 tests)
+- rs-graph-llm core framework: DONE (10,387 lines)
+- crewai-rust core pipeline + drivers: DONE (48K LOC, 192 tests)
+
+### What's Open
+- lance-graph Phase 3 (dual-path, bgz17-codec feature flag): NOT STARTED
+- lance-graph Phase 4 (FalkorDB 3-backend routing): NOT STARTED
+- AriGraph schema → rs-graph-llm: PLANNED (5-sprint plan, zero code)
+- crewai-rust → rs-graph-llm integration: NOT PLANNED (decision pending)
+- ladybug-rs rustynum → ndarray migration: NOT STARTED
+- ladybug-rs lance-graph wiring: NOT STARTED (blocked on dead code deletion)
+
+### Cross-Repo Awareness Gaps (being fixed)
+- rs-graph-llm docs don't reference ndarray or lance-graph as dependencies
+- ladybug-rs docs still reference rustynum, not ndarray
+- crewai-rust docs don't mention rs-graph-llm
+
+### Master Plan
+See `/home/user/INTEGRATION_PLAN.md` for the four-plateau migration strategy.
+
+## STATUS (2026-03-22 Deep Audit)
+
+### lance-graph: MOSTLY DONE
+- Core (semirings, SPO, TypedGraph, GrBMatrix, HHTL, cascade, Cypher parser): **DONE** (200+ tests)
+- bgz17 crate (palette semiring/matrix/CSR, Base17 VSA, SIMD, TypedPaletteGraph): **DONE** (121 tests)
+- FalkorDB compat shim: **PARTIAL** (blasgraph only; DataFusion + palette backends not wired)
+- bgz17 isolated — still in workspace `exclude`, not wired into lance-graph (Phase 3 OPEN)
+- Phase 3-4 integration (bgz17 feature flag, plane_to_base17, parallel_search, 3-backend routing): **OPEN**
+
+### ndarray: ALL PORTING DONE
+- 55 HPC modules in src/hpc/, 6 backend files — **ALL DONE** (880 lib tests)
+- Every "must be ported" item (BLAS L1-3, BF16/Int8 GEMM, LAPACK, FFT, VML, HDC, etc.): **DONE**
+- Build currently fails (exit 101) — needs investigation
+
+### rs-graph-llm: CORE DONE, INTEGRATION OPEN
+- graph-flow framework (Task, Context, Runner, FanOut, ReAct, MCP, storage backends): **DONE** (10K+ lines)
+- 3 example services: **DONE**
+- AriGraph integration (graph-flow-memory crate): **OPEN** — plan only, zero code
+
+### Cross-Repo Build Status
+| Repo | Compiles | Tests |
+|------|----------|-------|
+| lance-graph (lib) | partial | ~200+ passing |
+| bgz17 | YES | 121 passing |
+| ndarray | NO (exit 101) | 880 when it builds |
+| rs-graph-llm | NO (ort-sys SSL) | untestable |
+| rustynum | NO (missing unsafe) | untestable |
+| ladybug-rs | NO (path deps) | untestable |
+| n8n-rs | NO (missing wasmtime) | untestable |
+| crewai-rust | NO (30 type errors) | untestable |
