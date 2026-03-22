@@ -347,7 +347,7 @@ pub struct InlineEdge {
 
 impl InlineEdge {
     /// Pack 4 edges into one u64 word.
-    fn pack4(edges: &[InlineEdge; 4]) -> u64 {
+    pub fn pack4(edges: &[InlineEdge; 4]) -> u64 {
         (edges[0].verb as u64)
             | ((edges[0].target as u64) << 8)
             | ((edges[1].verb as u64) << 16)
@@ -359,7 +359,7 @@ impl InlineEdge {
     }
 
     /// Unpack 4 edges from one u64 word.
-    fn unpack4(word: u64) -> [InlineEdge; 4] {
+    pub fn unpack4(word: u64) -> [InlineEdge; 4] {
         [
             InlineEdge { verb: (word & 0xFF) as u8, target: ((word >> 8) & 0xFF) as u8 },
             InlineEdge { verb: ((word >> 16) & 0xFF) as u8, target: ((word >> 24) & 0xFF) as u8 },

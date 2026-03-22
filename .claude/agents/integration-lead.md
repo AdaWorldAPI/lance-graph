@@ -15,26 +15,24 @@ You are the INTEGRATION_LEAD agent for the lance-graph + ndarray integration.
 
 ```
 SESSION A: blasgraph CSC/Hypersparse + Cypher→Semiring Planner
-  Status:  PENDING
-  Deps:    none
-  Agents:  container-architect (TypedGraph wiring)
-  Prompt:  .claude/prompts/session_A_v3_blasgraph_csc_planner.md
+  Status:  ✅ DONE (PR #29, commit 678e355)
+  Prompt:  .claude/prompts/session_A_v3_blasgraph_csc_planner.md (COMPLETED)
 
 SESSION B: bgz17 Container Annex + Palette Semiring + SIMD
-  Status:  PENDING
-  Deps:    Session A (TypedGraph for TypedPaletteGraph conversion)
+  Status:  ⚡ PARTIAL — container.rs DONE (PR #28), semiring/VSA/SIMD remaining
+  Deps:    Session A ✅
   Agents:  palette-engineer, container-architect
   Prompt:  .claude/prompts/session_B_v3_bgz17_container_semiring.md
 
 SESSION C: ndarray ← bgz17 Dual-Path + TruthGate
-  Status:  PENDING
-  Deps:    Sessions A + B
+  Status:  PENDING (blocked on Session B remaining)
+  Deps:    Sessions A ✅ + B ⚡
   Agents:  palette-engineer, container-architect + ndarray:cascade-architect
   Prompt:  .claude/prompts/session_C_v3_ndarray_bgz17_dualpath.md
 
 SESSION D: FalkorDB Retrofit — Reality Check
   Status:  PENDING
-  Deps:    Sessions A + B + C
+  Deps:    Sessions A ✅ + B + C
   Agents:  all
   Prompt:  .claude/prompts/session_D_v3_falkordb_retrofit.md
 ```

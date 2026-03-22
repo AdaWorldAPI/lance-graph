@@ -39,6 +39,10 @@ pub mod prefetch;
 pub mod clam_bridge;
 pub mod router;
 pub mod container;
+pub mod palette_semiring;
+pub mod palette_matrix;
+pub mod palette_csr;
+pub mod simd;
 
 /// Maximum palette size per plane.
 pub const MAX_PALETTE_SIZE: usize = 256;

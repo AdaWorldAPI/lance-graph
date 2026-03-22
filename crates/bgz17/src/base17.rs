@@ -77,9 +77,58 @@ impl Base17 {
         a
     }
 
-    /// All-zero pattern.
+    /// All-zero pattern (identity for xor_bind).
     pub fn zero() -> Self {
         Base17 { dims: [0i16; BASE_DIM] }
+    }
+
+    /// XOR bind: path composition in hyperdimensional space.
+    ///
+    /// Bitwise XOR on each i16 dimension (reinterpreted as u16).
+    /// Self-inverse: `a.xor_bind(&b).xor_bind(&b) == a`.
+    /// Identity: `a.xor_bind(&Base17::zero()) == a`.
+    #[inline]
+    pub fn xor_bind(&self, other: &Base17) -> Base17 {
+        let mut dims = [0i16; BASE_DIM];
+        for i in 0..BASE_DIM {
+            dims[i] = (self.dims[i] as u16 ^ other.dims[i] as u16) as i16;
+        }
+        Base17 { dims }
+    }
+
+    /// Bundle: element-wise majority vote (set union in VSA).
+    ///
+    /// For each dimension, sums all patterns and takes the sign.
+    /// Ties (sum == 0) resolve to 0.
+    pub fn bundle(patterns: &[&Base17]) -> Base17 {
+        if patterns.is_empty() {
+            return Base17::zero();
+        }
+        let mut dims = [0i16; BASE_DIM];
+        let mut sums = [0i64; BASE_DIM];
+        for p in patterns {
+            for d in 0..BASE_DIM {
+                sums[d] += p.dims[d] as i64;
+            }
+        }
+        let n = patterns.len() as i64;
+        for d in 0..BASE_DIM {
+            dims[d] = (sums[d] / n).clamp(-32768, 32767) as i16;
+        }
+        Base17 { dims }
+    }
+
+    /// Permute: cyclic dimension shift (sequence encoding in VSA).
+    ///
+    /// `result[i] = self[(i + shift) % 17]`.
+    /// Quasi-orthogonal to original for shift > 0.
+    #[inline]
+    pub fn permute(&self, shift: usize) -> Base17 {
+        let mut dims = [0i16; BASE_DIM];
+        for i in 0..BASE_DIM {
+            dims[i] = self.dims[(i + shift) % BASE_DIM];
+        }
+        Base17 { dims }
     }
 
     /// Serialize to 34 bytes.
@@ -216,6 +265,57 @@ mod tests {
             object: Base17 { dims: [25; BASE_DIM] },
         };
         assert_eq!(edge.scent(&edge) & 0x7F, 0x7F);
+    }
+
+    #[test]
+    fn test_xor_bind_self_inverse() {
+        let a = Base17 { dims: [100, -200, 300, -400, 500, -600, 700, -800, 900, -1000, 1100, -1200, 1300, -1400, 1500, -1600, 1700] };
+        let b = Base17 { dims: [-50, 150, -250, 350, -450, 550, -650, 750, -850, 950, -1050, 1150, -1250, 1350, -1450, 1550, -1650] };
+        let bound = a.xor_bind(&b);
+        let recovered = bound.xor_bind(&b);
+        assert_eq!(a, recovered, "xor_bind must be its own inverse");
+    }
+
+    #[test]
+    fn test_xor_bind_identity() {
+        let a = Base17 { dims: [100, -200, 300, -400, 500, -600, 700, -800, 900, -1000, 1100, -1200, 1300, -1400, 1500, -1600, 1700] };
+        let zero = Base17::zero();
+        assert_eq!(a.xor_bind(&zero), a, "xor_bind with zero must be identity");
+    }
+
+    #[test]
+    fn test_bundle_single() {
+        let a = Base17 { dims: [100; BASE_DIM] };
+        let result = Base17::bundle(&[&a]);
+        assert_eq!(result, a);
+    }
+
+    #[test]
+    fn test_bundle_majority() {
+        let pos = Base17 { dims: [100; BASE_DIM] };
+        let neg = Base17 { dims: [-100; BASE_DIM] };
+        // 2 positive + 1 negative → majority is positive
+        let result = Base17::bundle(&[&pos, &pos, &neg]);
+        for d in 0..BASE_DIM {
+            assert!(result.dims[d] > 0, "dim {} should be positive from majority vote", d);
+        }
+    }
+
+    #[test]
+    fn test_permute_identity() {
+        let a = Base17 { dims: [1, -2, 3, -4, 5, -6, 7, -8, 9, -10, 11, -12, 13, -14, 15, -16, 17] };
+        assert_eq!(a.permute(0), a, "permute(0) must be identity");
+        assert_eq!(a.permute(BASE_DIM), a, "permute(17) must wrap to identity");
+    }
+
+    #[test]
+    fn test_permute_cyclic() {
+        let a = Base17 { dims: [1, -2, 3, -4, 5, -6, 7, -8, 9, -10, 11, -12, 13, -14, 15, -16, 17] };
+        let shifted = a.permute(1);
+        // shifted[0] = a[1], shifted[1] = a[2], ...
+        for i in 0..BASE_DIM {
+            assert_eq!(shifted.dims[i], a.dims[(i + 1) % BASE_DIM]);
+        }
     }
 
     #[test]

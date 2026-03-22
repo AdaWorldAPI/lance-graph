@@ -13,42 +13,49 @@
 ✅ ndarray HPC types: Fingerprint, Plane, Seal, Node, Cascade, BF16Truth ported
 ```
 
-## Phase 1: Session A — blasgraph Storage + Planner
+## Phase 1: Session A — blasgraph Storage + Planner ✅ DONE
 
-**Gate criteria (all must pass before Phase 2):**
-
-```
-[ ] CscStorage compiles and roundtrips with CsrStorage
-[ ] HyperCsrStorage saves >90% memory for sparse test graph
-[ ] TypedGraph holds per-reltype matrices + label masks
-[ ] TypedGraph::from_spo_store() bridges existing SPO
-[ ] blasgraph_planner.rs compiles LogicalOperator::Expand → grb_mxm
-[ ] Planner + TruthGate: STRONG gate filters weak edges in test
-[ ] SIMD Hamming (types.rs) matches scalar for random vectors
-[ ] `cd crates/lance-graph && cargo test` passes
-```
-
-**Branch:** `feat/blasgraph-csc-planner`
-**Prompt:** `.claude/prompts/session_A_v3_blasgraph_csc_planner.md`
-**Agents:** container-architect
-
-## Phase 2: Session B — bgz17 Container Annex + Semiring
-
-**Gate criteria (all must pass before Phase 3):**
+**Merged:** PR #29 (commit 678e355)
 
 ```
-[ ] container_annex.rs: write_bgz17_annex → read_bgz17_annex roundtrip
-[ ] W126 checksum detects corruption in W112-124
+[x] CscStorage compiles and roundtrips with CsrStorage
+[x] HyperCsrStorage saves >90% memory for sparse test graph
+[x] TypedGraph holds per-reltype matrices + label masks
+[x] TypedGraph::from_spo_store() bridges existing SPO
+[x] blasgraph_planner.rs compiles LogicalOperator::Expand → grb_mxm
+[x] Planner + TruthGate: STRONG gate filters weak edges in test
+[x] SIMD Hamming (types.rs) AVX-512 + AVX2 + scalar fallback
+```
+
+**Prompt:** `.claude/prompts/session_A_v3_blasgraph_csc_planner.md` (COMPLETED)
+
+## Phase 2: Session B — bgz17 Container Annex + Semiring ⚡ PARTIAL
+
+**Done (PR #28, container.rs 728 lines, 15 tests):**
+
+```
+[x] container.rs: pack_annex / unpack_annex roundtrip
+[x] W126 wide checksum: compute_wide_checksum + verify_wide_checksum
+[x] Pack/unpack Base17 annex (W112-124)
+[x] Pack/unpack palette word (W125)
+[x] SPO crystal (W128-143), extended edges (W224-239)
+[x] seal_wide_meta, has_bgz17_annex
+```
+
+**Remaining (gate criteria for Phase 3):**
+
+```
 [ ] PaletteSemiring compose_table: compose(a, identity) = a
 [ ] PaletteMatrix mxm: 2-hop matches manual computation
 [ ] PaletteCsr::from_scope_with_edges reads W16-31 inline edges
 [ ] Base17::xor_bind is its own inverse
 [ ] SIMD batch_palette_distance matches scalar for all inputs
 [ ] PaletteResolution::auto_select returns appropriate k for edge counts
-[ ] `cd crates/bgz17 && cargo test` passes
+[ ] TypedPaletteGraph from TypedGraph + palettes
+[ ] `cd crates/bgz17 && cargo test` passes with new modules
 ```
 
-**Branch:** `feat/bgz17-container-semiring`
+**Branch:** `feat/bgz17-palette-semiring`
 **Prompt:** `.claude/prompts/session_B_v3_bgz17_container_semiring.md`
 **Agents:** palette-engineer, container-architect
 

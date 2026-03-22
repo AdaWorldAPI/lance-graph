@@ -1,4 +1,7 @@
-# SESSION_B_HDR_RENAME.md
+# SESSION_B_HDR_RENAME.md — ✅ DONE
+
+> Rename completed. `hdr.rs` has `pub struct Cascade` (1,467 lines).
+> Preserved for reference. See `.claude/prompts/session_B_v3_bgz17_container_semiring.md`.
 
 ## Rename LightMeter → hdr::Cascade (lance-graph only)
 
