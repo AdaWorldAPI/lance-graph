@@ -174,6 +174,53 @@ impl Palette {
     }
 }
 
+/// Palette resolution: trade compression vs accuracy.
+///
+/// Edge count determines optimal palette size:
+/// - Few edges → small palette (less data, faster build)
+/// - Many edges → larger palette (more archetypes, better rank correlation)
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PaletteResolution {
+    /// Full 256-entry palette. 128KB distance matrix, ρ=0.992.
+    Full256,
+    /// Half 128-entry palette. 32KB distance matrix, ρ=0.965.
+    Half128,
+    /// Quarter 64-entry palette. 8KB distance matrix, ρ=0.738.
+    Quarter64,
+}
+
+impl PaletteResolution {
+    /// Auto-select palette resolution based on edge count.
+    ///
+    /// - <100 edges: Quarter64 (64 archetypes is enough, saves memory)
+    /// - 100-1000 edges: Half128 (good balance)
+    /// - >1000 edges: Full256 (need maximum discrimination)
+    pub fn auto_select(edge_count: usize) -> Self {
+        if edge_count < 100 {
+            PaletteResolution::Quarter64
+        } else if edge_count <= 1000 {
+            PaletteResolution::Half128
+        } else {
+            PaletteResolution::Full256
+        }
+    }
+
+    /// Return the k value for this resolution.
+    pub fn k(self) -> usize {
+        match self {
+            PaletteResolution::Full256 => 256,
+            PaletteResolution::Half128 => 128,
+            PaletteResolution::Quarter64 => 64,
+        }
+    }
+
+    /// Distance matrix byte size for this resolution.
+    pub fn matrix_bytes(self) -> usize {
+        let k = self.k();
+        k * k * 2 // u16 per entry
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -229,6 +276,31 @@ mod tests {
         let bytes = pe.to_bytes();
         let pe2 = PaletteEdge::from_bytes(&bytes);
         assert_eq!(pe, pe2);
+    }
+
+    #[test]
+    fn test_palette_resolution_auto_select() {
+        assert_eq!(PaletteResolution::auto_select(10), PaletteResolution::Quarter64);
+        assert_eq!(PaletteResolution::auto_select(99), PaletteResolution::Quarter64);
+        assert_eq!(PaletteResolution::auto_select(100), PaletteResolution::Half128);
+        assert_eq!(PaletteResolution::auto_select(500), PaletteResolution::Half128);
+        assert_eq!(PaletteResolution::auto_select(1000), PaletteResolution::Half128);
+        assert_eq!(PaletteResolution::auto_select(1001), PaletteResolution::Full256);
+        assert_eq!(PaletteResolution::auto_select(10000), PaletteResolution::Full256);
+    }
+
+    #[test]
+    fn test_palette_resolution_k() {
+        assert_eq!(PaletteResolution::Quarter64.k(), 64);
+        assert_eq!(PaletteResolution::Half128.k(), 128);
+        assert_eq!(PaletteResolution::Full256.k(), 256);
+    }
+
+    #[test]
+    fn test_palette_resolution_matrix_bytes() {
+        assert_eq!(PaletteResolution::Quarter64.matrix_bytes(), 8192);
+        assert_eq!(PaletteResolution::Half128.matrix_bytes(), 32768);
+        assert_eq!(PaletteResolution::Full256.matrix_bytes(), 131072);
     }
 
     #[test]
