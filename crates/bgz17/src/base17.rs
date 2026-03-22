@@ -65,6 +65,25 @@ impl Base17 {
         d
     }
 
+    /// PCDVQ-informed L1: weight sign dimension 20x over mantissa.
+    ///
+    /// From arxiv 2506.05432: direction (sign) is 20x more sensitive to
+    /// quantization than magnitude. BF16 decomposition maps to polar:
+    ///   dim 0 = sign (direction), dims 1-6 = exponent (magnitude scale),
+    ///   dims 7-16 = mantissa (fine detail).
+    ///
+    /// Returns weighted L1 distance. Higher values for direction mismatches.
+    #[inline]
+    pub fn l1_weighted(&self, other: &Base17) -> u32 {
+        let mut d = 0u32;
+        for i in 0..BASE_DIM {
+            let diff = (self.dims[i] as i32 - other.dims[i] as i32).unsigned_abs();
+            let weight = if i == 0 { 20 } else if i < 7 { 3 } else { 1 };
+            d += diff * weight;
+        }
+        d
+    }
+
     /// Sign-bit agreement (out of 17).
     #[inline]
     pub fn sign_agreement(&self, other: &Base17) -> u32 {
@@ -324,5 +343,37 @@ mod tests {
         let bytes = a.to_bytes();
         let b = Base17::from_bytes(&bytes);
         assert_eq!(a, b);
+    }
+
+    #[test]
+    fn test_l1_weighted_sign_dim_dominates() {
+        // Difference only in dim 0 (sign) vs only in dim 10 (mantissa)
+        let a = Base17 { dims: [0; 17] };
+        let mut b_sign = Base17 { dims: [0; 17] };
+        b_sign.dims[0] = 100; // sign dimension diff = 100
+        let mut b_mant = Base17 { dims: [0; 17] };
+        b_mant.dims[10] = 100; // mantissa dimension diff = 100
+
+        let d_sign = a.l1_weighted(&b_sign);
+        let d_mant = a.l1_weighted(&b_mant);
+
+        // Sign diff should be 20× the mantissa diff
+        assert_eq!(d_sign, 100 * 20);
+        assert_eq!(d_mant, 100 * 1);
+        assert!(d_sign > d_mant * 10, "sign should dominate: {} vs {}", d_sign, d_mant);
+    }
+
+    #[test]
+    fn test_l1_weighted_self_zero() {
+        let a = Base17 { dims: [100, -50, 30, 0, 10, -20, 40, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] };
+        assert_eq!(a.l1_weighted(&a), 0);
+    }
+
+    #[test]
+    fn test_l1_weighted_geq_l1() {
+        // Weighted L1 should be >= plain L1 (all weights >= 1)
+        let a = Base17 { dims: [100, -50, 30, 0, 10, -20, 40, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] };
+        let b = Base17 { dims: [-50, 30, 0, 10, -20, 40, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100] };
+        assert!(a.l1_weighted(&b) >= a.l1(&b));
     }
 }
