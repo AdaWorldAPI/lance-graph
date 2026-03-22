@@ -8,6 +8,8 @@
 //! via DataFusion, this layer provides direct fingerprint-based graph operations.
 
 pub mod blasgraph;
+pub mod falkor_compat;
+pub mod falkor_semirings;
 pub mod fingerprint;
 pub mod metadata;
 pub mod neighborhood;
