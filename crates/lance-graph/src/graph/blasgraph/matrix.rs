@@ -9,18 +9,20 @@
 
 use crate::graph::blasgraph::descriptor::Descriptor;
 use crate::graph::blasgraph::semiring::{apply_binary_op, apply_monoid, Semiring};
-use crate::graph::blasgraph::sparse::{CooStorage, CsrStorage};
+use crate::graph::blasgraph::sparse::{CooStorage, CscStorage, CsrStorage};
 use crate::graph::blasgraph::types::{BinaryOp, BitVec, HdrScalar, MonoidOp, UnaryOp};
 use crate::graph::blasgraph::vector::GrBVector;
 
-/// A sparse matrix of [`BitVec`] elements stored in CSR format.
+/// A sparse matrix of [`BitVec`] elements with dual CSR/CSC storage.
 ///
 /// Rows and columns are zero-indexed. Structural zeros (absent entries)
-/// are never stored.
+/// are never stored. When both CSR and CSC are present, transpose is zero-copy.
 #[derive(Clone, Debug)]
 pub struct GrBMatrix {
-    /// Underlying CSR storage.
+    /// Primary CSR storage (always present).
     storage: CsrStorage,
+    /// Optional CSC storage — populated on demand for efficient transpose/column access.
+    csc: Option<CscStorage>,
 }
 
 impl GrBMatrix {
@@ -28,6 +30,7 @@ impl GrBMatrix {
     pub fn new(nrows: usize, ncols: usize) -> Self {
         Self {
             storage: CsrStorage::new(nrows, ncols),
+            csc: None,
         }
     }
 
@@ -35,12 +38,39 @@ impl GrBMatrix {
     pub fn from_coo(coo: &CooStorage) -> Self {
         Self {
             storage: coo.to_csr(),
+            csc: None,
         }
     }
 
     /// Build a matrix from CSR storage.
     pub fn from_csr(csr: CsrStorage) -> Self {
-        Self { storage: csr }
+        Self { storage: csr, csc: None }
+    }
+
+    /// Build a matrix from CSC storage.
+    pub fn from_csc(csc: CscStorage) -> Self {
+        let csr = csc.to_csr();
+        Self {
+            storage: csr,
+            csc: Some(csc),
+        }
+    }
+
+    /// Build a matrix with both CSR and CSC populated.
+    pub fn from_csr_and_csc(csr: CsrStorage, csc: CscStorage) -> Self {
+        Self { storage: csr, csc: Some(csc) }
+    }
+
+    /// Ensure CSC storage is populated (built from CSR if needed).
+    pub fn ensure_csc(&mut self) {
+        if self.csc.is_none() {
+            self.csc = Some(CscStorage::from_csr(&self.storage));
+        }
+    }
+
+    /// Borrow the optional CSC storage.
+    pub fn csc(&self) -> Option<&CscStorage> {
+        self.csc.as_ref()
     }
 
     /// Number of rows.
@@ -85,6 +115,8 @@ impl GrBMatrix {
             coo.push(row, col, value);
         }
         self.storage = coo.to_csr();
+        // Invalidate CSC cache
+        self.csc = None;
     }
 
     /// Borrow the underlying CSR storage.
@@ -107,9 +139,35 @@ impl GrBMatrix {
     }
 
     /// Transpose the matrix, returning a new matrix.
+    ///
+    /// When CSC is available, this is a zero-copy index swap (CSR ↔ CSC).
     pub fn transpose(&self) -> GrBMatrix {
-        GrBMatrix {
-            storage: self.storage.transpose(),
+        if let Some(csc) = &self.csc {
+            // Zero-copy: the CSC of A is the CSR of A^T
+            let transposed_csr = CsrStorage {
+                nrows: self.storage.ncols,
+                ncols: self.storage.nrows,
+                row_ptrs: csc.col_ptrs.clone(),
+                col_indices: csc.row_indices.clone(),
+                values: csc.values.clone(),
+            };
+            // The original CSR becomes the CSC of the transposed matrix
+            let transposed_csc = CscStorage {
+                nrows: self.storage.ncols,
+                ncols: self.storage.nrows,
+                col_ptrs: self.storage.row_ptrs.clone(),
+                row_indices: self.storage.col_indices.clone(),
+                values: self.storage.values.clone(),
+            };
+            GrBMatrix {
+                storage: transposed_csr,
+                csc: Some(transposed_csc),
+            }
+        } else {
+            GrBMatrix {
+                storage: self.storage.transpose(),
+                csc: None,
+            }
         }
     }
 
