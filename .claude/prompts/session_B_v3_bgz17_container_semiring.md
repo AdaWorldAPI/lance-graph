@@ -1,5 +1,13 @@
 # SESSION B v3: bgz17 Container Annex + Palette Semiring + SIMD
 
+## STATUS: ⚡ PARTIAL
+
+**DONE (PR #28, container.rs, 728 lines, 15 tests):**
+Annex pack/unpack (W112-125), wide checksum (W254), SPO crystal (W128-143),
+extended edges (W224-239), seal_wide_meta, has_bgz17_annex. Skip Deliverable 1.
+
+**REMAINING:** Deliverables 2-7 below.
+
 ## CONTEXT
 
 **Repo:** `AdaWorldAPI/lance-graph` branch from `main`

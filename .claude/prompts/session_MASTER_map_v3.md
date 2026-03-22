@@ -134,20 +134,17 @@ cascade_ops.rs:   CascadeScanConfig, hamming_predicate_to_cascade
 ## Session Order
 
 ```
-SESSION A: blasgraph storage + Cypher→Semiring planner
-  ADDS: CscStorage, HyperCsrStorage, TypedGraph, blasgraph_planner.rs
-  PRESERVES: all SPO modules, Cascade, existing semirings
-  WIRES: logical_plan.rs Expand → grb_mxm on TypedGraph
+SESSION A: blasgraph storage + Cypher→Semiring planner  ✅ DONE (PR #29)
+  SHIPPED: CscStorage, HyperCsrStorage, TypedGraph + from_spo_store(),
+           blasgraph_planner + TruthGate, SIMD Hamming (AVX-512/AVX2)
 
-SESSION B: bgz17 container annex + palette semiring + SIMD
-  ADDS: container annex writer (W112-125, W96-111, W176-191)
-        PaletteSemiring, PaletteMatrix, compose_table, PaletteCsr
-        Base17 VSA ops (xor_bind, bundle, permute)
-        SIMD batch palette distance (AVX-512/AVX2/scalar)
-  PRESERVES: W0-95 untouched, W126-127 checksum still valid
+SESSION B: bgz17 container annex + palette semiring + SIMD  ⚡ PARTIAL
+  DONE:  container.rs (PR #28): annex pack/unpack, checksum, crystal, edges
+  TODO:  PaletteSemiring, PaletteMatrix, compose_table, PaletteCsr
+         Base17 VSA ops (xor_bind, bundle, permute)
+         SIMD batch palette distance (AVX-512/AVX2/scalar)
   WIRES: PaletteCsr reads W16-31 inline edges → archetype topology
          Base17 encodes from PLANES (not container)
-         Qualia W56-63 maps to Base17 dims (parallel encoding)
 
 SESSION C: ndarray ← bgz17 dual-path integration
   ADDS: bgz17-codec feature flag

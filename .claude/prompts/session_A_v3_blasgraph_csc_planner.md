@@ -1,4 +1,9 @@
-# SESSION A v3: blasgraph Storage + Cypher→Semiring Planner
+# SESSION A v3: blasgraph Storage + Cypher→Semiring Planner — ✅ COMPLETED
+
+**Merged:** PR #29 (commit 678e355). All 5 deliverables shipped:
+CscStorage, HyperCSR, TypedGraph + from_spo_store(), blasgraph_planner + TruthGate, SIMD Hamming.
+
+---
 
 ## CONTEXT
 

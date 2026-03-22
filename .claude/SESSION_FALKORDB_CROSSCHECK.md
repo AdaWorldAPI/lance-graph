@@ -1,4 +1,7 @@
-# SESSION_FALKORDB_CROSSCHECK.md
+# SESSION_FALKORDB_CROSSCHECK.md — SUPERSEDED
+
+> Superseded by `.claude/prompts/session_D_v3_falkordb_retrofit.md`.
+> Preserved for competitive analysis reference. See also `.claude/FALKORDB_ANALYSIS.md`.
 
 ## Mission: Reverse-Engineer FalkorDB-rs-next-gen → Connect Dots to Lance-Graph
 
