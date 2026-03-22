@@ -46,6 +46,29 @@ impl DistanceMatrix {
         self.data[a as usize * self.k + b as usize]
     }
 
+    /// Build with PCDVQ direction-weighted L1 distances.
+    ///
+    /// From arxiv 2506.05432: direction is 20x more sensitive to quantization.
+    /// Uses `Base17::l1_weighted()` instead of `Base17::l1()`.
+    pub fn build_pcdvq_weighted(palette: &Palette) -> Self {
+        let k = palette.len();
+        let mut data = vec![0u16; k * k];
+
+        for i in 0..k {
+            for j in (i + 1)..k {
+                let d = palette.entries[i].l1_weighted(&palette.entries[j]);
+                // Scale to u16. Max weighted L1 = 20 + 6*3 + 10*1 = 48 per dim,
+                // but using i16 range: max ≈ 20*65535 + ... ≈ 2.7M
+                let max_weighted = 20u64 * 65535 + 6 * 3 * 65535 + 10 * 65535;
+                let scaled = ((d as u64 * 65535) / max_weighted).min(65535) as u16;
+                data[i * k + j] = scaled;
+                data[j * k + i] = scaled;
+            }
+        }
+
+        DistanceMatrix { data, k }
+    }
+
     /// Byte size of the matrix.
     pub fn byte_size(&self) -> usize {
         self.k * self.k * 2
