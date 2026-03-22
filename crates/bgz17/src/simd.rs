@@ -52,17 +52,18 @@ pub fn batch_palette_distance(
     out: &mut [u16],
 ) {
     assert_eq!(candidates.len(), out.len());
-    let _level = detect_simd();
+    let level = detect_simd();
 
-    // Currently using scalar for all paths. AVX2/AVX512 gather would be:
-    //   - Compute base offset: query_row = query as usize * k
-    //   - Gather: load dm_data[query_row + candidate[i]] for 8/16 at once
-    //
-    // The scalar path is already memory-bound (single cache line per row),
-    // so SIMD mainly helps with instruction-level parallelism on large batches.
-    //
-    // TODO: Uncomment SIMD paths when targeting AVX2/AVX512 deployment.
-    scalar_batch(dm_data, k, query, candidates, out);
+    match level {
+        #[cfg(target_arch = "x86_64")]
+        SimdLevel::Avx2 => {
+            // Safety: detect_simd() confirmed AVX2 is available.
+            unsafe { avx2_batch(dm_data, k, query, candidates, out) };
+        }
+        _ => {
+            scalar_batch(dm_data, k, query, candidates, out);
+        }
+    }
 }
 
 /// Scalar batch lookup: dm[query][candidate_i] for each candidate.
@@ -71,6 +72,69 @@ fn scalar_batch(dm_data: &[u16], k: usize, query: u8, candidates: &[u8], out: &m
     let row_offset = query as usize * k;
     for (i, &cand) in candidates.iter().enumerate() {
         out[i] = dm_data[row_offset + cand as usize];
+    }
+}
+
+/// AVX2 gather batch lookup: process 8 lookups at a time using _mm256_i32gather_epi32.
+///
+/// The distance matrix stores u16 values. We use i32 gather on the u16 data
+/// reinterpreted as bytes, then extract the u16 values from the gathered i32 words.
+///
+/// # Safety
+/// Caller must ensure AVX2 is available (checked via `is_x86_feature_detected!("avx2")`).
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx2")]
+unsafe fn avx2_batch(dm_data: &[u16], k: usize, query: u8, candidates: &[u8], out: &mut [u16]) {
+    use core::arch::x86_64::*;
+
+    let row_offset = query as usize * k;
+    let row_ptr = dm_data.as_ptr().add(row_offset);
+    let n = candidates.len();
+
+    // Process 8 candidates at a time
+    let chunks = n / 8;
+    let remainder = n % 8;
+
+    for chunk in 0..chunks {
+        let base = chunk * 8;
+
+        // Build index vector: candidate indices as i32
+        let indices = _mm256_set_epi32(
+            candidates[base + 7] as i32,
+            candidates[base + 6] as i32,
+            candidates[base + 5] as i32,
+            candidates[base + 4] as i32,
+            candidates[base + 3] as i32,
+            candidates[base + 2] as i32,
+            candidates[base + 1] as i32,
+            candidates[base] as i32,
+        );
+
+        // Gather u16 values via i32 gather on the u16 array.
+        // We reinterpret the u16 pointer as i32 pointer for gather, but use
+        // byte-level indices: each u16 is 2 bytes, so scale=2.
+        // _mm256_i32gather_epi32 gathers i32 at base + index*scale.
+        // With scale=2 on the u16 base pointer, we get the right u16 (plus the next u16 in the high half).
+        let gathered = _mm256_i32gather_epi32(row_ptr as *const i32, indices, 2);
+
+        // Mask to extract only the low u16 from each i32 lane
+        let mask = _mm256_set1_epi32(0x0000FFFF);
+        let masked = _mm256_and_si256(gathered, mask);
+
+        // Pack i32 lanes to u16: extract and store individually
+        // (No direct i32→u16 pack that preserves all 8 lanes easily)
+        let mut tmp = [0i32; 8];
+        _mm256_storeu_si256(tmp.as_mut_ptr() as *mut __m256i, masked);
+
+        for i in 0..8 {
+            out[base + i] = tmp[i] as u16;
+        }
+    }
+
+    // Scalar fallback for remaining elements
+    let tail_start = chunks * 8;
+    for i in 0..remainder {
+        out[tail_start + i] = dm_data[row_offset + candidates[tail_start + i] as usize];
     }
 }
 

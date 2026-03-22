@@ -22,6 +22,8 @@ pub struct PaletteCsr {
     pub distances: SpoDistanceMatrices,
     /// Node → archetype assignment (palette index of dominant plane or combined).
     pub assignments: Vec<u8>,
+    /// Per-node actual palette indices (s_idx, p_idx, o_idx).
+    pub palette_indices: Vec<PaletteEdge>,
     /// Archetype → list of member node indices.
     pub archetype_members: Vec<Vec<usize>>,
     /// Per-archetype edge topology: `[(verb_palette, target_palette)]`.
@@ -99,6 +101,7 @@ impl PaletteCsr {
         PaletteCsr {
             distances: scope.matrices.clone(),
             assignments,
+            palette_indices: scope.palette_indices.clone(),
             archetype_members,
             edge_topology,
             k,
@@ -229,10 +232,11 @@ impl PaletteCsr {
         let mut results: Vec<(usize, u32)> = Vec::new();
         for &(arch, _) in &arch_scores {
             for &node_idx in &self.archetype_members[arch as usize] {
-                // Use the node's actual palette indices for distance
+                // Use the node's actual palette indices (s, p, o) for distance
+                let node_pe = &self.palette_indices[node_idx];
                 let d = self.distances.spo_distance(
                     query_pe.s_idx, query_pe.p_idx, query_pe.o_idx,
-                    arch, arch, arch,
+                    node_pe.s_idx, node_pe.p_idx, node_pe.o_idx,
                 );
                 results.push((node_idx, d));
             }

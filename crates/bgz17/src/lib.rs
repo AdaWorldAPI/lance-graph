@@ -44,6 +44,7 @@ pub mod palette_matrix;
 pub mod palette_csr;
 pub mod simd;
 pub mod rabitq_compat;
+pub mod typed_palette_graph;
 
 /// Maximum palette size per plane.
 pub const MAX_PALETTE_SIZE: usize = 256;
