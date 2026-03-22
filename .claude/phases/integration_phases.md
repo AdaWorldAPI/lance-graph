@@ -29,7 +29,9 @@
 
 **Prompt:** `.claude/prompts/session_A_v3_blasgraph_csc_planner.md` (COMPLETED)
 
-## Phase 2: Session B — bgz17 Container Annex + Semiring ⚡ PARTIAL
+## Phase 2: Session B — bgz17 Container Annex + Semiring ✅ DONE
+
+**Phase 2 Completion Note:** Updated 2026-03-22: All bgz17 items verified complete (121 tests). Phase 3 gates remain OPEN.
 
 **Done (PR #28, container.rs 728 lines, 15 tests):**
 
@@ -42,17 +44,31 @@
 [x] seal_wide_meta, has_bgz17_annex
 ```
 
-**Remaining (gate criteria for Phase 3):**
+**Remaining items — ALL DONE in bgz17 crate (121 tests passing):**
 
 ```
-[ ] PaletteSemiring compose_table: compose(a, identity) = a
-[ ] PaletteMatrix mxm: 2-hop matches manual computation
-[ ] PaletteCsr::from_scope_with_edges reads W16-31 inline edges
-[ ] Base17::xor_bind is its own inverse
-[ ] SIMD batch_palette_distance matches scalar for all inputs
-[ ] PaletteResolution::auto_select returns appropriate k for edge counts
-[ ] TypedPaletteGraph from TypedGraph + palettes
-[ ] `cd crates/bgz17 && cargo test` passes with new modules
+[x] PaletteSemiring + compose_table — DONE (5 tests)
+[x] PaletteMatrix mxm — DONE (3 tests)
+[x] PaletteCsr::from_scope_with_edges — DONE (4 tests)
+[x] Base17 VSA ops (xor_bind/bundle/permute) — DONE (14 tests)
+[x] SIMD batch_palette_distance — DONE (5 tests)
+[x] PaletteResolution::auto_select — DONE
+[x] TypedPaletteGraph — DONE (7 tests)
+[x] `cd crates/bgz17 && cargo test` passes with new modules
+```
+
+**Phase 3 gate items remain OPEN:**
+
+```
+[ ] bgz17-codec feature flag in lance-graph — NOT STARTED
+[ ] NdarrayFingerprint::plane_to_base17() — NOT STARTED
+[ ] parallel_search() dual-path — NOT STARTED
+```
+
+**Phase 4 gate items remain OPEN:**
+
+```
+[ ] FalkorCompat 3-backend routing — PARTIAL (only blasgraph wired, DataFusion + palette missing)
 ```
 
 **Branch:** `feat/bgz17-palette-semiring`
