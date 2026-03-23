@@ -50,3 +50,10 @@ Mapping FalkorDB concepts to our lance-graph equivalents.
 4. **Query routing:** FalkorDB has one execution path (GraphBLAS C FFI).
    We have three backends: DataFusion (cold SQL), blasgraph (BitVec hot path),
    palette (bgz17 compressed hot path), with automatic routing via `FalkorCompat`.
+
+## FalkorCompat Shim Status
+
+The `FalkorCompat` shim currently exists with the **blasgraph backend only** (8 tests passing).
+The DataFusion and palette backends are **not yet wired**. Routing logic dispatches to
+blasgraph unconditionally; the planned 3-backend routing (DataFusion for cold SQL queries,
+blasgraph for BitVec hot-path, palette for bgz17 compressed hot-path) is not yet implemented.
