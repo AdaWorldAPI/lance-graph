@@ -1,0 +1,29 @@
+[package]
+name = "lance-graph-planner"
+version = "0.1.0"
+edition = "2021"
+description = "Unified query planner: MUL+Compass -> Thinking Orchestration -> Graph Query Planning"
+license = "Apache-2.0"
+
+[dependencies]
+# Core
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yml = "0.0.12"
+
+# Error handling
+thiserror = "2"
+
+# Async
+tokio = { version = "1", features = ["rt", "sync"] }
+
+# Logging
+tracing = "0.1"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+
+[features]
+default = []
+jit = []          # Enable Cranelift JIT compilation of thinking styles
+datafusion = []   # Enable DataFusion physical backend
