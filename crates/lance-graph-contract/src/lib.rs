@@ -1,0 +1,40 @@
+//! # lance-graph-contract — The Single Source of Truth
+//!
+//! Zero-dependency trait crate that defines the contract between:
+//! - **lance-graph-planner** (implements these traits)
+//! - **ladybug-rs** (calls Planner + CamPq + OrchestrationBridge)
+//! - **crewai-rust** (calls ThinkingStyleContract + MulContract)
+//! - **n8n-rs** (calls JitContract + OrchestrationBridge)
+//!
+//! # Why This Exists
+//!
+//! Before this crate, each consumer duplicated thinking style enums,
+//! field modulation structs, and query plan types. Now:
+//!
+//! ```text
+//! crewai-rust ──┐
+//!               │
+//! n8n-rs ───────┤── depend on ──► lance-graph-contract (traits only)
+//!               │
+//! ladybug-rs ───┘
+//!
+//! lance-graph-planner ──► implements lance-graph-contract traits
+//! ```
+//!
+//! # Module Layout
+//!
+//! - [`thinking`] — 36 thinking styles, 6 clusters, τ addresses, 23D vectors
+//! - [`mul`] — MUL assessment (Dunning-Kruger, trust, flow, compass)
+//! - [`plan`] — Query planning traits (PlanStrategy, PlanResult)
+//! - [`cam`] — CAM-PQ distance contract (6-byte fingerprint ops)
+//! - [`jit`] — JIT compilation contract (jitson template → kernel)
+//! - [`orchestration`] — Bridge trait for single-binary routing
+//! - [`nars`] — NARS inference types shared across all consumers
+
+pub mod thinking;
+pub mod mul;
+pub mod plan;
+pub mod cam;
+pub mod jit;
+pub mod orchestration;
+pub mod nars;
