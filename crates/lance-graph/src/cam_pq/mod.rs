@@ -15,7 +15,9 @@
 //! - `udf`: DataFusion scalar UDF `cam_distance(query, cam_column)`
 //! - `storage`: Lance table schema for CAM fingerprints + codebooks
 //! - `ivf`: IVF coarse partitioning for billion-scale search
+//! - `jitson_kernel`: JITSON templates for compiled ADC scan pipelines
 
 pub mod udf;
 pub mod storage;
 pub mod ivf;
+pub mod jitson_kernel;

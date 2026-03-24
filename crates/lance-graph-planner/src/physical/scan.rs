@@ -41,6 +41,11 @@ impl ScanOp {
             ScanStrategy::Cascade => self.cascade_scan(query_fp, data),
             ScanStrategy::Full => self.full_scan(query_fp, data),
             ScanStrategy::Index => self.index_scan(query_fp, data),
+            ScanStrategy::CamPq => {
+                // CAM-PQ uses its own physical operator (CamPqScanOp).
+                // If we reach here, fall back to full scan on raw fingerprints.
+                self.full_scan(query_fp, data)
+            }
         }
     }
 
