@@ -1,0 +1,11 @@
+[package]
+name = "lance-graph-contract"
+version = "0.1.0"
+edition = "2021"
+description = "Thin contract crate: traits + types for lance-graph consumers (ladybug-rs, crewai-rust, n8n-rs)"
+license = "Apache-2.0"
+keywords = ["lance", "graph", "contract", "orchestration", "thinking"]
+
+[dependencies]
+# Zero dependencies by design — this is a trait-only crate.
+# Consumers depend on this; implementations depend on lance-graph-planner.

@@ -57,6 +57,9 @@ pub mod selector;
 pub mod compose;
 pub mod strategy;
 
+// === Internal API (same-binary, zero-serde) ===
+pub mod api;
+
 use ir::LogicalPlan;
 use mul::{MulAssessment, GateDecision};
 use thinking::ThinkingContext;
@@ -129,6 +132,11 @@ impl PlannerAwareness {
     /// Register an additional custom strategy.
     pub fn register_strategy(&mut self, strategy: Box<dyn PlanStrategy>) {
         self.strategies.push(strategy);
+    }
+
+    /// Get a reference to all registered strategies.
+    pub fn strategies(&self) -> &[Box<dyn PlanStrategy>] {
+        &self.strategies
     }
 
     /// Plan a query with full MUL + Thinking + Strategy pipeline.
