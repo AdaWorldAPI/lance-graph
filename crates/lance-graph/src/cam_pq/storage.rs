@@ -21,9 +21,14 @@
 //!     label       VARCHAR                     -- semantic label (CLAM mode)
 //! );
 //! ```
-//!
-//! In Lance columnar format, the `cam` column is 6 bytes per row.
-//! 1 million vectors = 6MB. 1 billion = 6GB. Fits in RAM.
+
+use arrow::datatypes::{DataType, Field, Schema};
+use arrow_array::{
+    builder::FixedSizeBinaryBuilder, Array, FixedSizeBinaryArray, Float32Array,
+    Int64Array, RecordBatch, UInt8Array,
+};
+use arrow_array::builder::Float32Builder;
+use std::sync::Arc;
 
 /// CAM column name in Lance tables.
 pub const CAM_COLUMN: &str = "cam";
@@ -35,91 +40,189 @@ pub const CAM_SIZE: usize = 6;
 pub const CODEBOOK_TABLE: &str = "cam_codebook";
 
 /// Schema for the CAM vectors table.
-#[derive(Debug, Clone)]
-pub struct CamVectorSchema {
-    /// Name of the table.
-    pub table_name: String,
-    /// Name of the CAM column.
-    pub cam_column: String,
-    /// Name of the ID column.
-    pub id_column: String,
-}
-
-impl Default for CamVectorSchema {
-    fn default() -> Self {
-        Self {
-            table_name: "vectors".into(),
-            cam_column: CAM_COLUMN.into(),
-            id_column: "id".into(),
-        }
-    }
+pub fn cam_vectors_schema() -> Schema {
+    Schema::new(vec![
+        Field::new("id", DataType::Int64, false),
+        Field::new("cam", DataType::FixedSizeBinary(CAM_SIZE as i32), false),
+    ])
 }
 
 /// Schema for the codebook table.
-#[derive(Debug, Clone)]
-pub struct CamCodebookSchema {
-    /// Name of the codebook table.
-    pub table_name: String,
-    /// Number of subspaces (always 6).
-    pub num_subspaces: usize,
-    /// Number of centroids per subspace (always 256).
-    pub num_centroids: usize,
-    /// Dimension per subspace (D/6).
-    pub subspace_dim: usize,
+pub fn cam_codebook_schema(subspace_dim: usize) -> Schema {
+    Schema::new(vec![
+        Field::new("subspace", DataType::UInt8, false),
+        Field::new("centroid_id", DataType::UInt8, false),
+        Field::new(
+            "vector",
+            DataType::FixedSizeList(
+                Arc::new(Field::new("item", DataType::Float32, false)),
+                subspace_dim as i32,
+            ),
+            false,
+        ),
+    ])
 }
 
-impl CamCodebookSchema {
-    pub fn new(total_dim: usize) -> Self {
-        Self {
-            table_name: CODEBOOK_TABLE.into(),
-            num_subspaces: 6,
-            num_centroids: 256,
-            subspace_dim: total_dim / 6,
+/// Build a RecordBatch of CAM fingerprints for writing to Lance.
+///
+/// `ids` and `cams` must have the same length.
+/// Each `cams[i]` is a 6-byte CAM fingerprint.
+pub fn build_cam_batch(ids: &[i64], cams: &[[u8; CAM_SIZE]]) -> Result<RecordBatch, arrow::error::ArrowError> {
+    assert_eq!(ids.len(), cams.len());
+
+    let schema = Arc::new(cam_vectors_schema());
+    let n = ids.len();
+
+    let id_array = Int64Array::from(ids.to_vec());
+    let mut cam_builder = FixedSizeBinaryBuilder::with_capacity(n, CAM_SIZE as i32);
+    for cam in cams {
+        cam_builder.append_value(cam)?;
+    }
+
+    RecordBatch::try_new(
+        schema,
+        vec![
+            Arc::new(id_array),
+            Arc::new(cam_builder.finish()),
+        ],
+    )
+}
+
+/// Build a RecordBatch for the codebook table.
+///
+/// `codebook[subspace][centroid]` = centroid vector (f32 slice of length subspace_dim).
+pub fn build_codebook_batch(
+    codebook: &[Vec<Vec<f32>>],
+    subspace_dim: usize,
+) -> Result<RecordBatch, arrow::error::ArrowError> {
+    let num_subspaces = codebook.len();
+    let total_rows: usize = codebook.iter().map(|s| s.len()).sum();
+    let schema = Arc::new(cam_codebook_schema(subspace_dim));
+
+    let mut subspace_ids = Vec::with_capacity(total_rows);
+    let mut centroid_ids = Vec::with_capacity(total_rows);
+    let mut float_builder = Float32Builder::with_capacity(total_rows * subspace_dim);
+
+    for s in 0..num_subspaces {
+        for (c, centroid) in codebook[s].iter().enumerate() {
+            subspace_ids.push(s as u8);
+            centroid_ids.push(c as u8);
+            for &val in centroid {
+                float_builder.append_value(val);
+            }
         }
     }
 
-    /// Total rows in the codebook table: 6 × 256 = 1536.
-    pub fn total_rows(&self) -> usize {
-        self.num_subspaces * self.num_centroids
+    let vector_array = arrow_array::builder::FixedSizeListBuilder::new(
+        Float32Builder::with_capacity(total_rows * subspace_dim),
+        subspace_dim as i32,
+    );
+    // Build the FixedSizeList manually via values + offsets
+    let flat_values: Vec<f32> = codebook.iter()
+        .flat_map(|s| s.iter().flat_map(|c| c.iter().copied()))
+        .collect();
+    let values_array = Float32Array::from(flat_values);
+    let list_array = arrow_array::FixedSizeListArray::try_new(
+        Arc::new(Field::new("item", DataType::Float32, false)),
+        subspace_dim as i32,
+        Arc::new(values_array),
+        None,
+    )?;
+
+    // Drop the unused builder
+    drop(vector_array);
+
+    RecordBatch::try_new(
+        schema,
+        vec![
+            Arc::new(UInt8Array::from(subspace_ids)),
+            Arc::new(UInt8Array::from(centroid_ids)),
+            Arc::new(list_array),
+        ],
+    )
+}
+
+/// Extract CAM fingerprints from a RecordBatch (read path).
+///
+/// Reads the "cam" column and returns Vec of 6-byte arrays.
+pub fn extract_cam_fingerprints(batch: &RecordBatch) -> Vec<[u8; CAM_SIZE]> {
+    let cam_col = batch
+        .column_by_name(CAM_COLUMN)
+        .expect("cam column not found")
+        .as_any()
+        .downcast_ref::<FixedSizeBinaryArray>()
+        .expect("cam column must be FixedSizeBinary(6)");
+
+    (0..cam_col.len())
+        .map(|i| {
+            let bytes = cam_col.value(i);
+            [bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5]]
+        })
+        .collect()
+}
+
+/// Extract codebook from a codebook RecordBatch (read path).
+///
+/// Returns `codebook[subspace][centroid]` = Vec<f32>.
+pub fn extract_codebook(batch: &RecordBatch, num_subspaces: usize) -> Vec<Vec<Vec<f32>>> {
+    let subspace_col = batch
+        .column_by_name("subspace")
+        .expect("subspace column")
+        .as_any()
+        .downcast_ref::<UInt8Array>()
+        .expect("subspace must be UInt8");
+    let centroid_col = batch
+        .column_by_name("centroid_id")
+        .expect("centroid_id column")
+        .as_any()
+        .downcast_ref::<UInt8Array>()
+        .expect("centroid_id must be UInt8");
+    let vector_col = batch
+        .column_by_name("vector")
+        .expect("vector column")
+        .as_any()
+        .downcast_ref::<arrow_array::FixedSizeListArray>()
+        .expect("vector must be FixedSizeList");
+
+    let mut codebook = vec![vec![]; num_subspaces];
+
+    for row in 0..batch.num_rows() {
+        let s = subspace_col.value(row) as usize;
+        let _c = centroid_col.value(row) as usize;
+        let list_ref = vector_col.value(row);
+        let values = list_ref
+            .as_any()
+            .downcast_ref::<Float32Array>()
+            .expect("centroid values must be Float32");
+        let centroid: Vec<f32> = (0..values.len()).map(|i| values.value(i)).collect();
+        codebook[s].push(centroid);
     }
 
-    /// Codebook size in bytes: 1536 × (D/6) × 4.
-    pub fn codebook_bytes(&self) -> usize {
-        self.total_rows() * self.subspace_dim * 4
-    }
+    codebook
 }
 
 /// Storage statistics for a CAM-PQ dataset.
 #[derive(Debug, Clone)]
 pub struct CamStorageStats {
-    /// Number of vectors stored.
     pub num_vectors: u64,
-    /// Storage for CAM column (bytes).
     pub cam_bytes: u64,
-    /// Codebook size (bytes).
     pub codebook_bytes: u64,
-    /// Compression ratio vs raw vectors.
     pub compression_ratio: f64,
 }
 
 impl CamStorageStats {
     pub fn compute(num_vectors: u64, total_dim: usize) -> Self {
         let cam_bytes = num_vectors * CAM_SIZE as u64;
-        let codebook = CamCodebookSchema::new(total_dim);
-        let codebook_bytes = codebook.codebook_bytes() as u64;
-        let raw_bytes = num_vectors * total_dim as u64 * 4; // f32
-        let compression_ratio = if cam_bytes + codebook_bytes > 0 {
-            raw_bytes as f64 / (cam_bytes + codebook_bytes) as f64
+        let subspace_dim = total_dim / 6;
+        let codebook_bytes = (6 * 256 * subspace_dim * 4) as u64;
+        let raw_bytes = num_vectors * total_dim as u64 * 4;
+        let compressed = cam_bytes + codebook_bytes;
+        let compression_ratio = if compressed > 0 {
+            raw_bytes as f64 / compressed as f64
         } else {
             0.0
         };
-
-        CamStorageStats {
-            num_vectors,
-            cam_bytes,
-            codebook_bytes,
-            compression_ratio,
-        }
+        CamStorageStats { num_vectors, cam_bytes, codebook_bytes, compression_ratio }
     }
 }
 
@@ -128,26 +231,63 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_build_cam_batch() {
+        let ids: Vec<i64> = (0..100).collect();
+        let cams: Vec<[u8; 6]> = (0..100u8).map(|i| [i, i + 1, i + 2, i + 3, i + 4, i + 5]).collect();
+
+        let batch = build_cam_batch(&ids, &cams).unwrap();
+        assert_eq!(batch.num_rows(), 100);
+        assert_eq!(batch.num_columns(), 2);
+
+        // Read back
+        let extracted = extract_cam_fingerprints(&batch);
+        assert_eq!(extracted.len(), 100);
+        assert_eq!(extracted[0], [0, 1, 2, 3, 4, 5]);
+        assert_eq!(extracted[99], [99, 100, 101, 102, 103, 104]);
+    }
+
+    #[test]
+    fn test_build_codebook_batch() {
+        // 6 subspaces × 4 centroids × dim 2
+        let codebook: Vec<Vec<Vec<f32>>> = (0..6)
+            .map(|s| {
+                (0..4)
+                    .map(|c| vec![s as f32 * 10.0 + c as f32, s as f32 * 10.0 + c as f32 + 0.5])
+                    .collect()
+            })
+            .collect();
+
+        let batch = build_codebook_batch(&codebook, 2).unwrap();
+        assert_eq!(batch.num_rows(), 24); // 6 × 4
+
+        let extracted = extract_codebook(&batch, 6);
+        assert_eq!(extracted.len(), 6);
+        assert_eq!(extracted[0].len(), 4);
+        assert_eq!(extracted[0][0], vec![0.0, 0.5]);
+        assert_eq!(extracted[5][3], vec![53.0, 53.5]);
+    }
+
+    #[test]
     fn test_storage_stats_1m_256d() {
         let stats = CamStorageStats::compute(1_000_000, 256);
-        assert_eq!(stats.cam_bytes, 6_000_000); // 6MB
-        // Raw: 1M × 256 × 4 = 1024MB. Compressed: ~6MB + codebook
+        assert_eq!(stats.cam_bytes, 6_000_000);
         assert!(stats.compression_ratio > 100.0);
     }
 
     #[test]
     fn test_storage_stats_1b_1024d() {
         let stats = CamStorageStats::compute(1_000_000_000, 1024);
-        assert_eq!(stats.cam_bytes, 6_000_000_000); // 6GB
+        assert_eq!(stats.cam_bytes, 6_000_000_000);
         assert!(stats.compression_ratio > 500.0);
     }
 
     #[test]
-    fn test_codebook_schema() {
-        let schema = CamCodebookSchema::new(1024);
-        assert_eq!(schema.total_rows(), 1536);
-        assert_eq!(schema.subspace_dim, 170); // 1024/6 ≈ 170
-        // ~1MB codebook
-        assert!(schema.codebook_bytes() < 2_000_000);
+    fn test_schema_creation() {
+        let vectors_schema = cam_vectors_schema();
+        assert_eq!(vectors_schema.fields().len(), 2);
+        assert_eq!(vectors_schema.field(1).data_type(), &DataType::FixedSizeBinary(6));
+
+        let codebook_schema = cam_codebook_schema(170);
+        assert_eq!(codebook_schema.fields().len(), 3);
     }
 }

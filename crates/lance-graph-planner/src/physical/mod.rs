@@ -9,11 +9,13 @@ pub mod broadcast;
 pub mod scan;
 pub mod accumulate;
 pub mod collapse;
+pub mod cam_pq_scan;
 
 pub use broadcast::BroadcastOp;
 pub use scan::ScanOp;
 pub use accumulate::AccumulateOp;
 pub use collapse::CollapseOp;
+pub use cam_pq_scan::CamPqScanOp;
 
 /// Physical operator trait.
 /// Each operator processes morsels of data in a pipeline.

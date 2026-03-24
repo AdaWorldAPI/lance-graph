@@ -268,6 +268,10 @@ pub enum ScanStrategy {
     Full,
     /// Precomputed proximity index.
     Index,
+    /// CAM-PQ: 6-byte Product Quantization with ADC distance.
+    /// Selected when dataset has CAM fingerprints and > 100K candidates.
+    /// Sub-strategy (FullAdc/Cascade/IvfCascade) chosen by CamPqScanOp.
+    CamPq,
 }
 
 /// Semiring type for ACCUMULATE operator.
