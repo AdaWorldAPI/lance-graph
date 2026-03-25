@@ -334,10 +334,12 @@ No gradient descent. No training loop. NARS revision on graph edges.
 ```
 docs/
   META_INTEGRATION_PLAN.md           ← THIS DOCUMENT
+  ORCHESTRATION_IS_GRAPH.md          ← Capstone: adjacency IS orchestration, 4-layer SPO
+  WIKIDATA_HHTL_TILES.md             ← S3-backed 112M entities, HHTL compressor/de-esser
+  THINKING_MICROCODE.md              ← YAML templates + JIT + LazyLock + NARS RL
   deepnsm_cam_architecture.md       ← Technical reference (15 sections)
   DEEPNSM_ARCHITECTURE.md           ← High-level vision (3 replacements)
   THINKING_PIPELINE.md              ← Thinking pipeline architecture
-  THINKING_MICROCODE.md             ← YAML templates + JIT + LazyLock + NARS RL
 
 .claude/
   DEEPNSM_CAM_REFERENCE.md          ← Quick reference for CC sessions
