@@ -1,0 +1,7 @@
+target/
+.git/
+.claude/
+*.md
+!README*.md
+.github/
+AdaWorldAPI-lance-graph-*/
