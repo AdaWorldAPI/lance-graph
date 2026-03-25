@@ -1,284 +1,179 @@
-# WIKIDATA HHTL TILES
-# S3-Backed Entity Search via bgz17 Compressor/De-esser Encoding
+# WIKIDATA VIA LANCE + bgz17
+# Zero-Copy Storage, Built-in RaBitQ, bgz17 Cascade
 
-## The Encoding: Compressor + De-esser
+> The files stay in S3. LanceDB mmaps them zero-copy. RaBitQ is built-in.
+> bgz17's precision cascade ranks results. No custom tile management.
 
-bgz17's Fibonacci/Euler gamma rotation is an audio compressor + de-esser for data.
+## 1. Why Lance, Not Custom Tiles
 
-### Compressor: i8 Dynamic Range Normalization
+LanceDB already provides everything the previous design tried to build by hand:
 
-```
-Problem: Wikidata entities have insane dynamic range.
-  Q30 (United States):     500 properties, millions of references
-  Q98616473 (random fish): 8 properties, 2 references
-  Raw values span 6 orders of magnitude → distance is meaningless
+- Zero-copy reads via mmap (no deserialization, no memory copy)
+- S3/object store as native backend (compute-storage separation)
+- Built-in IVF_RQ (RaBitQ quantization, 1 bit/dim + corrections)
+- Columnar format (read scent column without touching 6 KB planes)
+- Automatic versioning (time travel on Wikidata snapshots)
+- Fragment-level caching (LanceDB manages prefetch automatically)
 
-Solution: i8[10,000] encoding.
-  i8 = [-128, +127]. 256 levels. No NaN. No Inf. No subnormals.
-  
-  Loud parts (common properties like instance_of:human) → attenuated.
-  Quiet parts (rare properties like IUCN_conservation_status) → amplified.
-  Character preserved. Dynamic range compressed.
-  
-  Both USA and random fish live in the same [-128, +127] range.
-  L1 distance between them is now MEANINGFUL.
-  Rare properties of fish matter as much as common properties of USA.
-```
+## 2. Actual Numbers from Code
 
-### De-esser: Fibonacci Rotation Prevents SPO Bleed
+From `ndarray/src/hpc/spo_bundle.rs`:
+- Per plane: 16,384 bits = 2,048 bytes = 2 KB
+- SPO triple: 3 × 2 KB = 6 KB (Exact Hamming)
+- spo_bundle Level A: 8,192 bits = 1 KB (metadata index)
+- spo_bundle Level B: 16,384 bits = 2 KB (holographic)
+- Golden shift A: 3,131 (odd, gcd=1, full orbit — de-esser)
+- Golden shift B: 6,261 (odd, gcd=1, full orbit — de-esser)
 
-```
-Problem: When you bundle S+P+O into one vector, the planes BLEED.
-  Regular PQ: S in dims [0:3333], P in [3333:6666], O in [6666:10000]
-  At boundaries 3333 and 6666: S leaks into P, P leaks into O
-  Like audio sibilance: harsh peaks at specific frequencies
-  → false similarities, can't unbind cleanly
+From `ndarray/src/hpc/zeck.rs`:
+- ZeckF64: 8 bytes progressive (scent + 7 resolution bytes)
+- Scent (byte 0): 7 boolean lattice bits, 19/128 legal patterns
+- Progressive reading: byte 0 alone gives ρ ≈ 0.94 rank correlation
 
-Solution: Fibonacci/Euler gamma rotation.
-  S at Fibonacci positions shifted by φ^0 = 1.000
-  P at Fibonacci positions shifted by φ^1 = 1.618
-  O at Fibonacci positions shifted by φ^2 = 2.618
+From `bgz17/src/lib.rs` — precision cascade:
 
-  φ is irrational. No two planes EVER share a harmonic.
-  No beating. No aliasing. No moiré. No sibilance.
-  Like Fujifilm X-Trans vs Bayer sensor.
-  Like a de-esser removing the "ssss" at 4-8 kHz.
+| Level | Size | ρ | Metric-safe | Use |
+|-------|------|---|-------------|-----|
+| Scent | 1 byte | 0.937 | ❌ NO | HEEL pre-filter only |
+| Palette | 3 bytes | 0.965 | ✓ | CLAM/CAKES pruning |
+| Base | 102 bytes | 0.992 | ✓ | fine ranking (i16[17]) |
+| Exact | 6 KB | 1.000 | ✓ | ground truth (Hamming) |
 
-  The shape IS weird. A Fibonacci spiral, not a grid.
-  But weird = no NaN, no artifacts, exact reconstruction.
-```
+From `bgz17/src/rabitq_compat.rs` — already bridges RaBitQ ↔ bgz17:
 
-### Zeckendorf = Brick Wall Limiter
-
-```
-Every positive integer has exactly ONE Fibonacci decomposition.
-No ambiguity. No rounding. No "which decomposition did we use?"
-Like a brick wall limiter: absolute ceiling, nothing above.
-Digital clipping impossible. Signal integrity guaranteed.
-No matter how complex the entity.
+```rust
+pub struct RaBitQEncoding {
+    pub binary: Vec<u64>,       // RaBitQ sign bits (1 bit/dim)
+    pub norm: f32,              // L2 norm correction
+    pub dot_correction: f32,    // unbiased distance scalar
+    pub palette: PaletteEdge,   // bgz17 palette (3 bytes)
+}
 ```
 
-## The Tile Architecture
+## 3. Lance Table Schema
 
-```
-Tile: 10,001 vectors × i8[10,000]
-      = 10,000 entities + 1 orthogonal reference (90° rotation)
-      = 100.01 MB per tile
-
-Wikidata: 112M entities / 10K per tile = 11,200 tiles
-S3 storage: 11,200 × 100 MB = ~1.12 TB
-(with bgz17 palette compression: ~200-400 GB)
-```
-
-## The Cascade INSIDE the Tile
-
-NOT 100M ops. 7M ops. The HEEL filters 93% first.
-
-```
-Query vector: i8[10,000]
-Tile: 10,000 entities × i8[10,000]
-
-HEEL pass (first 16 dimensions):
-  query[0..16] vs entity[0..16] for all 10,000 entities
-  16 bytes × 10,000 = 160 KB (fits L2)
-  L1 > threshold → REJECT
-  93% rejected. 700 survive.
-  Cost: ~5μs
-
-BRANCH pass (dims 16..128):
-  query[16..128] vs 700 survivors
-  112 bytes × 700 = 78 KB (fits L1)
-  Tighter threshold. 50% of survivors gone.
-  350 remain.
-  Cost: ~3μs
-
-FULL pass (all 10,000 dims):
-  query[0..10000] vs 350 survivors
-  10 KB × 350 = 3.5 MB (fits L3)
-  Exact L1 distance. Ranked.
-  Cost: ~30μs
-
-TOTAL: ~38μs per tile (vs 500μs brute force)
-       7M ops (vs 100M brute force)
-       350 scored entities (vs 10,000 brute force)
+```sql
+CREATE TABLE wikidata_entities (
+    qid           BIGINT PRIMARY KEY,
+    label         VARCHAR,
+    -- bgz17 cascade columns (read bottom-up by precision level)
+    scent         TINYINT UNSIGNED,           -- 1 byte, ρ=0.937
+    palette       FIXED_SIZE_BINARY(3),       -- 3 bytes, ρ=0.965
+    zeckf64       BIGINT,                     -- 8 bytes, ρ=0.94 progressive
+    base17        FIXED_SIZE_BINARY(102),     -- 102 bytes, ρ=0.992
+    plane_s       FIXED_SIZE_BINARY(2048),    -- 2 KB, exact
+    plane_p       FIXED_SIZE_BINARY(2048),    -- 2 KB, exact
+    plane_o       FIXED_SIZE_BINARY(2048),    -- 2 KB, exact
+    -- RaBitQ (for LanceDB IVF_RQ built-in ANN)
+    rabitq_vec    FIXED_SIZE_LIST(Float32, D),
+    rabitq_norm   FLOAT,
+    rabitq_dot    FLOAT,
+    -- DeepNSM projection
+    nsm_rank      SMALLINT UNSIGNED,          -- 12-bit concept mapping
+    nsm_cam       FIXED_SIZE_BINARY(6),       -- CAM-PQ fingerprint
+);
 ```
 
-## Two-Cycle Resonance with 90° Rotation
+Zero-copy: Lance reads ONLY the columns you query. Scent filter
+reads 112 MB (112M × 1 byte), not 672 GB (112M × 6 KB).
 
-### Cycle 1: Horizontal — "Which entities match?"
-
-```
-query_vec L1 against all 10,000 entities (via cascade)
-→ 350 scored → 27 resonate (top 0.27%)
-27 entities ARE the answer to "what matches the query"
-```
-
-### Cycle 2: Vertical — "What does the match MEAN?"
+## 4. Query Pipeline
 
 ```
-The 10,001st vector is orthogonal to all entity vectors.
-It's the predicate axis. Separates WHAT from HOW.
+Query: "scientists at CERN"
 
-bundle(27 resonators) → meta_vec (majority vote)
-rotate(meta_vec, orthogonal_ref) → gestalt_vec
+STEP 1 — DeepNSM (local, ~1μs):
+  tokenize + parse → SPO(scientist, work, CERN)
 
-gestalt_vec is NOT the query. It's the PATTERN of what resonated.
-"what kind of entity clusters around this query?"
-If query = "scientists at CERN":
-  meta_vec encodes: [human, physics, European, institution]
-  gestalt_vec (rotated): [research, collaboration, experiment]
-  
-gestalt_vec L1 against prefetched entities → next-hop filter
-Finds entities that RELATE to the pattern, not repeat it.
+STEP 2 — LanceDB IVF_RQ (built-in RaBitQ, zero-copy from S3):
+  table.search(query_vector).index_type("IVF_RQ").limit(1000)
+  → RaBitQ binary dot product + corrections → 1,000 candidates
+  → Cost: ~10ms (S3 fragment fetch + RaBitQ scan)
+
+STEP 3 — bgz17 Scent (HEEL, 1 byte per candidate):
+  1,000 × zeckf64_scent_hamming() = 1 KB scan
+  → 85% reject → 150 survive. Cost: ~1μs.
+
+STEP 4 — bgz17 ZeckF64 (8 bytes per survivor):
+  150 × zeckf64_progressive_distance() → full ranking
+  → top-27. Cost: ~2μs.
+
+STEP 5 — Hydrate winners (zero-copy column access):
+  Lance reads plane_s + plane_p + plane_o for 27 entities ONLY
+  27 × 6 KB = 162 KB from S3. Cost: ~20ms.
+
+STEP 6 — bgz17 Exact Hamming (6 KB per winner):
+  27 × hamming_distance_raw() → per-plane (S, P, O) distances
+  → SimilarityTable → calibrated f32. Cost: ~10μs.
+
+TOTAL:  ~30ms first query (S3). ~15μs cached (Lance cache hit).
 ```
 
-## 32 MB Prefetch Pipeline
+## 5. Compressor/De-esser Analogy
+
+**Compressor** (bgz17 palette/scent): normalizes dynamic range.
+USA (500 properties) and random fish (8 properties) both encode
+to the same 1-byte scent / 3-byte palette / 102-byte Base17.
+Rare properties amplified. Common properties attenuated.
+
+**De-esser** (Fibonacci golden shift): prevents SPO bleed.
+Shift 3,131 on 8,192 bits. gcd=1, full orbit.
+S, P, O planes at φ-spaced rotations. No aliasing. No moiré.
+Unbinding is exact: `cyclic_shift(bits, D - shift)`.
+
+**Limiter** (ZeckF64 lattice): 19/128 legal scent patterns.
+85% of random bit patterns are ILLEGAL → built-in error detection.
+No NaN possible (integer encoding throughout).
+
+## 6. RaBitQ + bgz17: Same Data, Two Views
+
+RaBitQ (LanceDB built-in): O(N) coarse ANN across 112M entities.
+bgz17 (lance-graph): O(K) precision cascade on K candidates.
+
+Both stored in the SAME Lance table. Both operate on the SAME entity.
+`rabitq_compat.rs` already bridges them — same struct carries both
+RaBitQ binary code AND bgz17 palette index.
 
 ```
-27 resonators × ~25 outbound edges = 675 cross-tile targets
-deduplicate → ~200 unique target entities
-
-Prefetch 25× lookahead:
-  200 entities × 25 neighbors each = 5,000 candidates
-  5,000 × palette (3 bytes) = 15 KB coarse pre-filter
-  palette filter → ~1,000 worth full hydration
-  1,000 × 10 KB = 10 MB entity vectors
-
-Plus resonators' own tile fragments:
-  ~3 tiles × partial hydration = ~20 MB
-
-Total prefetch: ~32 MB
-  = 0.27% of a full tile (10K entities)
-  = exactly the resonating fraction
-  = lands in L3 while cycle 1 is returning results
-  = available for cycle 2 with zero wait
+RaBitQ finds 1,000 candidates from 112M entities  → 10ms (LanceDB)
+bgz17 cascade ranks 1,000 → 27 winners             → 3μs (lance-graph)
+bgz17 exact scores 27 with SPO decomposition        → 10μs (lance-graph)
 ```
 
-## Memory Layout
+## 7. Elevation = bgz17 Precision
+
+| ElevationLevel | bgz17 Precision | Size/Entity | Lance Column |
+|----------------|----------------|-------------|-------------|
+| Point | Scent | 1 byte | `scent` |
+| Scan | Palette | 3 bytes | `palette` |
+| Cascade | Base (i16[17]) | 102 bytes | `base17` |
+| Batch | Exact (Hamming) | 6 KB | `plane_s/p/o` |
+
+Each level reads MORE bytes from the Lance table.
+Each level is MORE expensive but MORE accurate.
+The elevation operator decides WHEN to pay the cost.
+Zero-copy: each level reads only its column, nothing more.
+
+## 8. Scale Check
 
 ```
-HOT (always in RAM, ~2.2 GB):
-  CAM index:          672 MB    all 112M entities, 6 bytes each
-  Popular tiles:      1 GB      top 100K entities, pre-hydrated
-  DeepNSM runtime:    9 MB      4K vocab + distance matrix + similarity
-  Tile cache (LRU):   500 MB    ~5 recently used tiles
+112M entities:
+  IVF_RQ index:    ~1 GB RAM (LanceDB manages)
+  Scent column:    112 MB (zero-copy, fits RAM)
+  ZeckF64 column:  896 MB (zero-copy, fits RAM)
+  Exact planes:    672 GB (S3, loaded only for winners)
 
-WARM (S3, prefetched on demand):
-  Entity tiles:       ~1.12 TB  11,200 tiles × 100 MB
-  Cross-tile edges:   ~1 GB     inter-tile adjacency
-  
-QUERY COST:
-  First query:  ~50ms   (S3 fetch dominates)
-  Cached:       ~70μs   (cascade + resonance + ranking)
-  Popular:      ~40μs   (pre-hydrated, no S3)
+1.65B statements:
+  Edge table:      ~30 GB on S3 (Lance columnar)
+
+Total RAM:         ~1.5 GB (LanceDB manages the rest)
+S3 storage:        ~700 GB (zero-copy, pay only for what you read)
+
+Query latency:
+  First:           ~30ms (S3 fragment fetch)
+  Cached:          ~15μs (Lance cache hit)
+  Popular:         <1ms (Lance fragment cache warm)
 ```
 
-## Semiring on HHTL Vectors
-
-The BlasGraph semiring operates directly on i8[10,000]:
-
-```
-multiply(entity, truth_value):
-  entity[i] * confidence → weighted entity
-  i8 × f16 → i8 (clamp, no NaN)
-  "propagate belief along an edge"
-
-add(path_a, path_b):
-  majority_vote(a[i], b[i]) → merged entity
-  two paths arriving at same node → bundle evidence
-  "merge two reasoning chains"
-
-zero: i8[10,000] all zeros (no evidence)
-one:  the entity itself (full evidence)
-
-These ARE the spo_bundle operations from ndarray:
-  cyclic_shift (Fibonacci rotation) = SPO plane separation
-  majority_vote = evidence bundling
-  L1 distance = similarity measurement
-```
-
-## Elevation Hierarchy (same entity, increasing precision)
-
-```
-Level       Size/Entity   Total (112M)   Cache     Operation
-─────       ───────────   ────────────   ─────     ─────────
-CAM-6       6 bytes       672 MB         RAM       stroke cascade
-Palette-3   3 bytes       336 MB         RAM/L3    palette lookup
-Base17      34 bytes      3.8 GB         L3/S3     L1 on i16[17]
-HHTL raw    10 KB         1.12 TB        S3        L1 on i8[10,000]
-
-Same SimilarityTable calibrates ALL levels.
-Elevation operator: try CAM → if insufficient → palette → Base17 → raw.
-Each level subsumes the previous.
-```
-
-## Connection to ORCHESTRATION_IS_GRAPH
-
-```
-Layer 1 — Subject:    ThinkingStyle (36 nodes, local, LazyLock)
-Layer 2 — Predicate:  CognitiveVerb (13 verbs, local, compiled)
-Layer 3 — Object:     Wikidata entity (112M, S3-backed, HHTL encoded)
-Layer 4 — Adjacent:   Entity property bag (decoded from HHTL vector)
-                      The adjacency IS the gestalt.
-                      Process entities have process-shaped adjacency.
-                      Person entities have person-shaped adjacency.
-                      No type field needed. The shape IS the type.
-
-The bgz17 compressor normalizes all entities to the same dynamic range.
-The Fibonacci de-esser keeps SPO planes separate.
-The Zeckendorf limiter guarantees unique encoding.
-The cascade filter does 7M ops instead of 100M.
-The 90° rotation separates "what matches" from "what the match means."
-The 32MB prefetch = exactly the resonating fraction.
-
-Everything is one graph traversal.
-```
-
-## S3 Layout
-
-```
-s3://wikidata-hhtl/
-├── tiles/
-│   ├── tile_0000.bin       ← 10,001 × i8[10,000] = 100.01 MB
-│   ├── tile_0001.bin
-│   ├── ...
-│   └── tile_1119.bin       ← 11,200 tiles total
-│
-├── index/
-│   ├── entity_to_tile.bin  ← Q-number → tile_id + offset (448 MB)
-│   ├── adjacency_cross.bin ← cross-tile edge list (~1 GB)
-│   └── popular_100k.bin    ← pre-hydrated hot entities (1 GB)
-│
-├── cam/
-│   └── entity_cam.bin      ← 112M × 6 bytes = 672 MB (RAM resident)
-│
-└── palette/
-    └── entity_palette.bin  ← 112M × 3 bytes = 336 MB (optional RAM)
-```
-
-## Why No NaN
-
-```
-1. i8 is integer. Integer types have no NaN representation.
-   Every bit pattern in i8 is a valid value in [-128, 127].
-
-2. Fibonacci decomposition is unique. No ambiguity, no "undefined."
-   Zeckendorf's theorem: every positive integer has exactly one
-   representation as a sum of non-consecutive Fibonacci numbers.
-
-3. Euler gamma rotation uses modular arithmetic, not floating point.
-   cyclic_shift(bits, golden_shift(D)) is integer shift + OR.
-   No division. No sqrt. No floating-point operation that could produce NaN.
-
-4. Majority vote on i8 values: sum → sign → i8.
-   Sum of i8s fits in i32. Sign is always defined. Cast to i8 clamps.
-   No edge case produces NaN.
-
-5. L1 distance on i8: |a - b| is always defined, always non-negative.
-   No division by zero. No negative under sqrt. No undefined result.
-
-The entire pipeline from raw Wikidata entity to L1 distance score
-uses exactly ZERO floating-point operations that could produce NaN.
-Float only enters at SimilarityTable lookup: u32 → f16 → f32.
-And f16 values in the table are precomputed and validated (no NaN stored).
-```
+No custom tiles. No custom prefetch. No custom index.
+LanceDB handles storage. bgz17 handles precision. DeepNSM handles meaning.
