@@ -16,7 +16,7 @@
 //! LIMIT 10
 //! ```
 
-use arrow::array::{ArrayRef, FixedSizeBinaryArray, Float32Array};
+use arrow::array::{Array, ArrayRef, FixedSizeBinaryArray, Float32Array};
 use arrow::datatypes::DataType;
 use datafusion::logical_expr::{ScalarUDF, Signature, Volatility};
 use datafusion::physical_plan::ColumnarValue;
