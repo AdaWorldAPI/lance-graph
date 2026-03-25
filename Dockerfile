@@ -1,17 +1,27 @@
 # lance-graph — Railway compile-test image
 # Verifies the workspace builds cleanly (core + bgz17 + planner + contract)
+# Requires Rust 1.94.0 (LazyLock, modern std APIs)
 #
 # Build: docker build -t lance-graph-test .
 # Run:   docker run --rm lance-graph-test
 
-FROM rust:1.85-slim AS builder
-
-WORKDIR /app
+FROM debian:bookworm-slim AS builder
 
 # System deps for arrow/lance/protobuf
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    pkg-config libssl-dev protobuf-compiler cmake \
+    curl ca-certificates gcc libc6-dev pkg-config libssl-dev \
+    protobuf-compiler cmake \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Rust 1.94.0 via rustup
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:$PATH
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
+    sh -s -- -y --default-toolchain 1.94.0 --profile minimal \
+    && rustc --version | grep -q "1.94.0"
+
+WORKDIR /app
 
 # Copy workspace manifest and lock
 COPY Cargo.toml Cargo.lock ./
@@ -51,4 +61,4 @@ RUN cargo test --release \
 # Minimal runtime image
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
-CMD ["echo", "lance-graph build verified"]
+CMD ["echo", "lance-graph build verified — Rust 1.94.0"]
