@@ -11,30 +11,33 @@
 //! │  "How should I think about this?"                │
 //! ├─────────────────────────────────────────────────┤
 //! │  STRATEGY REGISTRY (inner loop)                  │
-//! │  13 composable strategies, selected by:          │
+//! │  16 composable strategies, selected by:          │
 //! │  - User: "use dp_join + sigma_scan"              │
 //! │  - AGI: MUL+Compass+ThinkingStyle → affinity     │
 //! │  - Auto: each strategy reports affinity           │
 //! └─────────────────────────────────────────────────┘
 //! ```
 //!
-//! ## The 13 Strategies
+//! ## The 16 Strategies
 //!
 //! | # | Strategy | Phase | Source |
 //! |---|----------|-------|--------|
-//! | 1 | CypherParse | Parse | lance-graph nom |
-//! | 2 | ArenaIR | Plan | Polars arena |
-//! | 3 | DPJoinEnum | Plan | Kuzudb DP |
-//! | 4 | RuleOptimizer | Optimize | DataFusion |
-//! | 5 | HistogramCost | Optimize | Hyrise |
-//! | 6 | SigmaBandScan | Physicalize | lance-graph |
-//! | 7 | MorselExec | Physicalize | Kuzudb/Polars |
-//! | 8 | StreamPipeline | Execute | Polars |
-//! | 9 | TruthPropagation | Physicalize | lance-graph semiring |
-//! | 10 | CollapseGate | Physicalize | agi-chat |
-//! | 11 | JitCompile | Execute | ndarray |
-//! | 12 | WorkflowDAG | Plan | LangGraph |
-//! | 13 | ExtensionPlanner | any | DataFusion |
+//! | 1 | CypherParse | Parse | lance-graph nom (Cypher) |
+//! | 2 | GremlinParse | Parse | TinkerPop Gremlin |
+//! | 3 | SparqlParse | Parse | W3C SPARQL |
+//! | 4 | GqlParse | Parse | ISO GQL (39075) |
+//! | 5 | ArenaIR | Plan | Polars arena |
+//! | 6 | DPJoinEnum | Plan | Kuzudb DP |
+//! | 7 | RuleOptimizer | Optimize | DataFusion |
+//! | 8 | HistogramCost | Optimize | Hyrise |
+//! | 9 | SigmaBandScan | Physicalize | lance-graph |
+//! | 10 | MorselExec | Physicalize | Kuzudb/Polars |
+//! | 11 | StreamPipeline | Execute | Polars |
+//! | 12 | TruthPropagation | Physicalize | lance-graph semiring |
+//! | 13 | CollapseGate | Physicalize | agi-chat |
+//! | 14 | JitCompile | Execute | ndarray |
+//! | 15 | WorkflowDAG | Plan | LangGraph |
+//! | 16 | ExtensionPlanner | any | DataFusion |
 
 // === P0: Adjacency Substrate (THE GROUND) ===
 pub mod adjacency;

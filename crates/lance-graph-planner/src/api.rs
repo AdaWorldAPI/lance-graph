@@ -237,6 +237,163 @@ impl Default for Planner {
 }
 
 // =============================================================================
+// Polyglot Query Language Detection + API
+// =============================================================================
+
+/// Supported graph query languages.
+///
+/// The planner auto-detects the language and routes to the correct parse strategy.
+/// All languages produce the same IR — downstream strategies are language-agnostic.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum QueryLanguage {
+    /// Neo4j Cypher: `MATCH (n:Person) RETURN n`
+    Cypher,
+    /// ISO GQL (ISO/IEC 39075): Cypher-like with path modes, LEFT MATCH, LET
+    Gql,
+    /// Apache TinkerPop Gremlin: `g.V().hasLabel("Person").out("KNOWS")`
+    Gremlin,
+    /// W3C SPARQL: `SELECT ?s WHERE { ?s rdf:type :Person }`
+    Sparql,
+    /// Unknown — will try all parsers by affinity
+    Unknown,
+}
+
+impl QueryLanguage {
+    /// Auto-detect the query language from the source text.
+    ///
+    /// Heuristic order:
+    /// 1. Gremlin: starts with `g.` or contains `.hasLabel(`
+    /// 2. SPARQL: starts with `PREFIX` or contains `SELECT ?`
+    /// 3. GQL: contains GQL-specific keywords (LEFT MATCH, ANY SHORTEST, etc.)
+    /// 4. Cypher: contains MATCH/CREATE/RETURN
+    /// 5. Unknown: let strategies vote by affinity
+    pub fn detect(source: &str) -> Self {
+        let trimmed = source.trim();
+        let upper = trimmed.to_uppercase();
+
+        // Gremlin: method-chain style starting with g.
+        if trimmed.starts_with("g.") || trimmed.starts_with("g\n.")
+            || trimmed.contains(".hasLabel(")
+            || (trimmed.contains(".outE(") && !upper.contains("MATCH"))
+        {
+            return Self::Gremlin;
+        }
+
+        // SPARQL: PREFIX declarations or SELECT ?variable
+        if upper.starts_with("PREFIX ") || upper.starts_with("BASE ")
+            || upper.contains("SELECT ?") || upper.contains("CONSTRUCT {")
+            || upper.contains("ASK {") || upper.contains("DESCRIBE ")
+        {
+            return Self::Sparql;
+        }
+
+        // GQL: ISO-specific keywords that Cypher doesn't have
+        let gql_signals = [
+            "LEFT MATCH", "MANDATORY MATCH",
+            "ANY SHORTEST", "ALL SHORTEST", "ANY CHEAPEST",
+            "ALL TRAIL", "ANY SIMPLE", "ALL ACYCLIC",
+            "GRAPH TYPE", "USE GRAPH", "LET ",
+        ];
+        if gql_signals.iter().any(|kw| upper.contains(kw)) {
+            return Self::Gql;
+        }
+
+        // Cypher: MATCH / CREATE / RETURN
+        if upper.contains("MATCH") || upper.contains("CREATE")
+            || upper.contains("RETURN") || upper.contains("MERGE")
+        {
+            return Self::Cypher;
+        }
+
+        Self::Unknown
+    }
+
+    /// Which parse strategy name to prefer for this language.
+    pub fn preferred_parser(&self) -> &'static str {
+        match self {
+            Self::Cypher => "cypher_parse",
+            Self::Gql => "gql_parse",
+            Self::Gremlin => "gremlin_parse",
+            Self::Sparql => "sparql_parse",
+            Self::Unknown => "cypher_parse", // default fallback
+        }
+    }
+}
+
+impl std::fmt::Display for QueryLanguage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Cypher => write!(f, "Cypher"),
+            Self::Gql => write!(f, "GQL"),
+            Self::Gremlin => write!(f, "Gremlin"),
+            Self::Sparql => write!(f, "SPARQL"),
+            Self::Unknown => write!(f, "Unknown"),
+        }
+    }
+}
+
+/// Result of polyglot planning — includes detected language.
+pub struct PolyglotResult {
+    /// Auto-detected (or overridden) query language.
+    pub language: QueryLanguage,
+    /// The plan result.
+    pub plan: PlanResult,
+}
+
+impl Planner {
+    /// Plan a query with auto-detection of the query language.
+    ///
+    /// Detects Cypher/GQL/Gremlin/SPARQL from the source text,
+    /// routes to the correct parser strategy, then plans normally.
+    ///
+    /// This is the primary entry point for the q2 notebook server.
+    ///
+    /// ```rust,ignore
+    /// let planner = Planner::new();
+    ///
+    /// // Cypher
+    /// let r = planner.plan_polyglot("MATCH (n:System) RETURN n.name")?;
+    /// assert_eq!(r.language, QueryLanguage::Cypher);
+    ///
+    /// // Gremlin
+    /// let r = planner.plan_polyglot("g.V().hasLabel('System').values('name')")?;
+    /// assert_eq!(r.language, QueryLanguage::Gremlin);
+    ///
+    /// // SPARQL
+    /// let r = planner.plan_polyglot("SELECT ?s WHERE { ?s rdf:type :System }")?;
+    /// assert_eq!(r.language, QueryLanguage::Sparql);
+    /// ```
+    pub fn plan_polyglot(&self, query: &str) -> Result<PolyglotResult, PlanError> {
+        let language = QueryLanguage::detect(query);
+        let plan = self.inner.plan_auto(query)?;
+        Ok(PolyglotResult { language, plan })
+    }
+
+    /// Plan a query with an explicit language override.
+    ///
+    /// Use when the notebook cell has a language tag (e.g. `%%gremlin`).
+    pub fn plan_polyglot_with_lang(
+        &self,
+        query: &str,
+        language: QueryLanguage,
+    ) -> Result<PolyglotResult, PlanError> {
+        let plan = self.inner.plan_auto(query)?;
+        Ok(PolyglotResult { language, plan })
+    }
+
+    /// Plan multiple queries as a batch (notebook runbook mode).
+    ///
+    /// Each query is independently detected and planned. Returns results
+    /// in the same order as the input queries. Errors in one query don't
+    /// stop the others — they appear as `Err` in the result vector.
+    ///
+    /// Future optimization: shared subgraph deduplication across cells.
+    pub fn plan_batch(&self, queries: &[&str]) -> Vec<Result<PolyglotResult, PlanError>> {
+        queries.iter().map(|q| self.plan_polyglot(q)).collect()
+    }
+}
+
+// =============================================================================
 // CAM-PQ Search API
 // =============================================================================
 
