@@ -54,6 +54,9 @@ pub mod optimize;
 pub mod physical;
 pub mod execute;
 
+// === Dynamic Elevation (cost model that smells resistance) ===
+pub mod elevation;
+
 // === Strategy system ===
 pub mod traits;
 pub mod selector;
