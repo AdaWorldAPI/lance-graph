@@ -716,14 +716,31 @@ parse(sentence)        < 500ns        6-state FSM
 triple_distance        < 10ns         3 matrix lookups
 triple_similarity      < 15ns         3 lookups + table
 sentence_similarity    < 5μs          VSA compose + hamming
+context_push           < 1μs          XOR-in/XOR-out
+disambiguate(word)     < 100ns        word XOR context
 decompose(word)        < 1μs          scan 63 primes
 full pipeline          < 10μs         text → calibrated similarity
 ```
+
+## DELIVERABLE 8: Streaming Context Window
+
+±5 sentence ring buffer with incremental majority vote.
+Replaces transformer attention for local disambiguation.
+O(1) push per sentence, ~220KB working memory.
+
+- `push(sentence_vec)`: XOR-in new, XOR-out oldest, update majority counts
+- `contextualize(word)`: word XOR context → disambiguated representation
+- `disambiguation_strength()`: measures how much context shifted meaning
+- ±5 = 11 sentences = 2-3 paragraphs = natural discourse coherence unit
+- For real-time: asymmetric (-5 past only). For documents: symmetric (±5).
 
 ## OUTPUT
 
 Branch: `feat/deepnsm-cam`
 New crate: `crates/deepnsm/`
+New files: `nsm_tokenizer.rs`, `nsm_parser.rs`, `nsm_encoder.rs`,
+           `nsm_similarity.rs`, `nsm_context.rs`, `nsm_build.rs`
 Modified: `crates/lance-graph-planner/src/thinking/{mod,graph,semantic}.rs`
 Data: loaded from `DeepNSM/word_frequency/` at build time
-Tests: 24+ tests covering tokenizer, parser, similarity, integration
+Docs: `docs/deepnsm_cam_architecture.md`, `docs/META_INTEGRATION_PLAN.md`
+Tests: 24+ tests covering tokenizer, parser, similarity, context, integration
