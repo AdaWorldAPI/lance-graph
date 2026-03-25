@@ -19,6 +19,7 @@ This is not a chatbot. It's a knowledge engine that thinks about graph queries.
 ## 2. THE STACK (bottom to top)
 
 ```
+LAYER 8: Microcode       36 YAML templates → JIT → LazyLock → NARS RL
 LAYER 7: Application     query → plan → execute → result
 LAYER 6: AriGraph        observe → retrieve → plan → decide (AriGraph transcode)
 LAYER 5: Cognitive Verbs  EXPLORE/HYPOTHESIS/SYNTHESIS/... (13 verbs, composable)
@@ -332,15 +333,17 @@ No gradient descent. No training loop. NARS revision on graph edges.
 
 ```
 docs/
+  META_INTEGRATION_PLAN.md           ← THIS DOCUMENT
   deepnsm_cam_architecture.md       ← Technical reference (15 sections)
   DEEPNSM_ARCHITECTURE.md           ← High-level vision (3 replacements)
   THINKING_PIPELINE.md              ← Thinking pipeline architecture
-  META_INTEGRATION_PLAN.md          ← THIS DOCUMENT
+  THINKING_MICROCODE.md             ← YAML templates + JIT + LazyLock + NARS RL
 
 .claude/
   DEEPNSM_CAM_REFERENCE.md          ← Quick reference for CC sessions
   knowledge/
     deepnsm_integration_map.md       ← How DeepNSM connects to bgz17 + cam_pq
+    thinking_microcode.md            ← YAML + JIT + LazyLock + NARS RL pipeline
   prompts/
     session_deepnsm_cam.md           ← DeepNSM deliverables (8 deliverables, 24 tests)
     session_arigraph_transcode.md    ← AriGraph → Rust transcode (4 deliverables)
