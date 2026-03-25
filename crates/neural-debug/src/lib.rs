@@ -1,0 +1,11 @@
+//! Neural Debugger — static analysis + runtime diagnosis for the graph engine stack.
+//!
+//! Scans .rs files across all repos, detects dead neurons (todo!(), unimplemented!()),
+//! stubs (Default::default() returns), NaN risks (f32::NAN, division patterns),
+//! and produces a full function registry with neuron states.
+//!
+//! The 16 planning strategies use this to self-check their dependency chains.
+
+pub mod scanner;
+pub mod diagnosis;
+pub mod registry;

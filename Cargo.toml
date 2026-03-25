@@ -6,6 +6,7 @@ members = [
     "crates/lance-graph-benches",
     "crates/lance-graph-planner",
     "crates/lance-graph-contract",
+    "crates/neural-debug",
 ]
 exclude = [
     "crates/lance-graph-codec-research",
