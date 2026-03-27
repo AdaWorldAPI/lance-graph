@@ -1,0 +1,74 @@
+//! # bgz-tensor: Metric-Algebraic Tensor Codec
+//!
+//! Not quantization — computation compilation.
+//!
+//! ## The Thesis
+//!
+//! Transformer weight quantization (TurboQuant, GPTQ, AWQ, GGUF Q4_K_M) makes
+//! the NUMBERS smaller but keeps the OPERATION unchanged: multiply, accumulate,
+//! activate. You're compressing operands but running the same matmul.
+//!
+//! bgz-tensor replaces the operation. Weight matrices are projected through
+//! golden-step folding into a 17-dimensional metric space with algebraic
+//! structure (distance + compose). Every attention score becomes a u16 table
+//! lookup. Every multi-hop composition becomes a u8 table lookup. The matmul
+//! collapses into addressing.
+//!
+//! ## Architecture
+//!
+//! ```text
+//! Weight matrix W (d_model × d_head)         64 MB per matrix
+//!   │
+//!   ▼ projection.rs: golden-step folding
+//! Base17 patterns (d_head × 34 bytes)         136 KB (470× smaller)
+//!   │
+//!   ▼ palette.rs: CLAM manifold clustering
+//! 256 archetypes + assignments                8.5 KB codebook + N bytes indices
+//!   │
+//!   ▼ attention.rs: precompute ALL pairs
+//! Distance table (256 × 256 × u16)           128 KB (fits L1 cache)
+//! Compose table (256 × 256 × u8)             64 KB
+//!   │
+//!   ▼ cascade.rs: HHTL progressive elimination
+//! Inference: 95% of pairs skipped at Layer 0-1
+//! Remaining 5%: one table lookup each
+//! ```
+//!
+//! ## Comparison
+//!
+//! | | TurboQuant/GPTQ/AWQ | bgz-tensor |
+//! |---|---|---|
+//! | What's compressed | Weight values | Weight computation |
+//! | Inference kernel | matmul (cuBLAS) | table lookup (L1 cache) |
+//! | Bits per weight | 2-4 bits | 8 bits (palette index) |
+//! | Bytes per matrix | 4-8 MB (Q4_K_M) | 12.5 KB (palette + indices) |
+//! | Attention score | O(d) multiply-adds | O(1) table lookup |
+//! | Multi-hop | Stack attention layers | O(1) compose table |
+//! | Sparsity | Learned (BigBird etc.) | Metric-induced (triangle ineq) |
+//! | Hardware | GPU (tensor cores) | CPU (L1 cache) |
+//!
+//! ## Quality Targets
+//!
+//! Measured as Pearson correlation ρ between palette-compiled attention
+//! scores and ground-truth dot-product attention:
+//!
+//! - ρ > 0.95 → paper quality (publishable)
+//! - ρ > 0.99 → product quality (deployable)
+//!
+//! bgz17 achieves ρ = 0.992 for general distance preservation.
+//! The question is whether attention-specific distance (dot product similarity)
+//! preserves as well as generic L1 distance.
+
+pub mod attention;
+pub mod cascade;
+pub mod palette;
+pub mod projection;
+pub mod quality;
+
+// ─── Re-exports ──────────────────────────────────────────────────────────────
+
+pub use attention::{AttentionSemiring, AttentionTable, CompiledHead, ComposeTable};
+pub use cascade::{CascadeConfig, CascadeLevel, CascadeStats};
+pub use palette::WeightPalette;
+pub use projection::Base17;
+pub use quality::QualityReport;
