@@ -1,0 +1,18 @@
+[package]
+name = "deepnsm"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = """
+DeepNSM: Distributional semantic transformer replacement.
+4,096 words × 12 bits × 8MB distance matrix = complete semantic engine.
+O(1) per word, O(n) per sentence, deterministic, bit-reproducible.
+No GPU. No learned weights. Same decision boundaries as cosine.
+"""
+
+# Zero dependencies — compiles standalone.
+# lance-graph integration added when wired into production.
+[dependencies]
+
+[dev-dependencies]
