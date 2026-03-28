@@ -57,6 +57,9 @@ pub mod execute;
 // === Dynamic Elevation (cost model that smells resistance) ===
 pub mod elevation;
 
+// === Prediction Engine (temporal NARS simulation + news ingestion) ===
+pub mod prediction;
+
 // === Strategy system ===
 pub mod traits;
 pub mod selector;
