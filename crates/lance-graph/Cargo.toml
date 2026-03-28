@@ -44,15 +44,20 @@ url = { version = "2", optional = true }
 
 # AdaWorldAPI/ndarray fork with 55 HPC modules (Fingerprint, CAM-PQ, CLAM, BLAS, ZeckF64)
 # Source: https://github.com/AdaWorldAPI/ndarray
-ndarray = { path = "../../../ndarray", optional = true, default-features = false }
+ndarray = { path = "../../../ndarray", optional = true, default-features = false, features = ["std"] }
+
+# Unified query planner (MUL, thinking, strategies, CAM-PQ scan)
+lance-graph-planner = { path = "../lance-graph-planner", optional = true }
 
 [features]
-default = ["unity-catalog", "delta", "ndarray-hpc"]
+default = ["unity-catalog", "delta", "ndarray-hpc", "planner"]
 unity-catalog = ["lance-graph-catalog/unity-catalog"]
 delta = ["dep:deltalake", "dep:url"]
 # ndarray-hpc: use AdaWorldAPI/ndarray for Fingerprint<256>, CAM-PQ, CLAM, BLAS, ZeckF64.
 # Disable for minimal builds (CI, wasm, embedded) — falls back to standalone ndarray_bridge.rs.
 ndarray-hpc = ["dep:ndarray"]
+# planner: wire lance-graph-planner for query classification, thinking styles, MUL gate.
+planner = ["dep:lance-graph-planner"]
 
 [dev-dependencies]
 futures = "0.3"

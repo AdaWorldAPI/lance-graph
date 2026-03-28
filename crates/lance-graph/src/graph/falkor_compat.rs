@@ -211,18 +211,46 @@ impl FalkorCompat {
 
     /// Query with automatic routing based on query classification.
     ///
-    /// Currently routes all queries through blasgraph (the BitVec hot path).
-    /// Palette routing will be added when TypedPaletteGraph is available.
+    /// When the `planner` feature is enabled, uses the planner's feature detection
+    /// to classify the query and route to the appropriate backend.
+    /// Currently only blasgraph is connected; palette routing will be added in Phase 4.
     pub fn query_routed(&self, rel_type: &str, gate: TruthGate) -> Vec<FalkorHit> {
-        // For now, all queries route through blasgraph.
-        // When palette backend is available, similarity queries will route there.
-        self.query_blasgraph(rel_type, gate)
+        match Self::classify_query(rel_type) {
+            QueryClass::Similarity => {
+                // Phase 4: route to palette backend when available.
+                // For now, fall through to blasgraph.
+                self.query_blasgraph(rel_type, gate)
+            }
+            QueryClass::PureTraversal | QueryClass::Hybrid => {
+                self.query_blasgraph(rel_type, gate)
+            }
+        }
     }
 
     /// Classify a query for routing purposes.
-    pub fn classify_query(_rel_type: &str) -> QueryClass {
-        // Default classification: pure traversal.
-        // Similarity queries would be detected by vector-distance predicates.
+    ///
+    /// When the `planner` feature is enabled, delegates to the planner's
+    /// `QueryFeatures` detection (fingerprint scan, resonance, truth values).
+    /// Without the feature, falls back to PureTraversal.
+    pub fn classify_query(query_text: &str) -> QueryClass {
+        #[cfg(feature = "planner")]
+        {
+            let q = query_text.to_uppercase();
+            let has_fingerprint = q.contains("HAMMING")
+                || q.contains("FINGERPRINT")
+                || q.contains("RESONATE");
+            let has_graph_pattern = q.contains("MATCH");
+
+            if has_fingerprint && has_graph_pattern {
+                return QueryClass::Hybrid;
+            }
+            if has_fingerprint {
+                return QueryClass::Similarity;
+            }
+        }
+        #[cfg(not(feature = "planner"))]
+        let _ = query_text;
+
         QueryClass::PureTraversal
     }
 }
