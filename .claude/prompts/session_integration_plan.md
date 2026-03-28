@@ -258,3 +258,81 @@ Phase I (wasm32 SIMD) ← independent, can run in parallel with any phase
 - [ ] Contract traits implemented, q2 uses traits not direct types
 - [ ] wasm32 SIMD tier compiles and produces identical results
 - [ ] All tests pass (currently: ~250+ lance-graph, 23 deepnsm, 38 crate, 30 tensor)
+
+---
+
+### Phase J: Free Energy Minimization — Contradictions as Exploration Fuel
+**Goal**: Entropy is potential, not waste. Contradictions are navigation waypoints, not errors.
+**Effort**: ~8 hours
+**Depends on**: Phases C, D, E, F
+
+The Friston free energy principle applied to the codec chain:
+
+```
+F = Entropy(model) - Evidence(observations)
+
+Minimize F via:
+  PERCEPTION: update model → NARS revision + modifier discovery → entropy ↓
+  ACTION: explore contradictions → find modifiers → resolve → evidence ↑
+```
+
+1. **OutcomeTriad**: desired (goal) × expected (prediction) × factual (reality)
+   - Each encoded as QualiaVector (16 channels)
+   - Three deltas: Δ_surprise, Δ_satisfaction, Δ_aspiration
+   - Per-channel learning signals (SOCIAL surprise, TEMPORAL surprise, etc.)
+   - Epiphany detector: large positive Δ_surprise → exploration burst
+   - Blunder detector: large negative Δ_surprise → consolidation
+
+2. **Contradiction-as-modifier search**:
+   - Contradiction = pointer to missing variable, NOT noise to eliminate
+   - For each contradiction, search for qualifying modifiers:
+     temporal ("X R Y WHEN t1" vs "X R' Y WHEN t2")
+     spatial ("X R Y WHERE loc1" vs "X R' Y WHERE loc2")
+     causal (CausalEdge64 Pearl mask: L1 observation vs L2 intervention vs L3 counterfactual)
+   - Finding the modifier = epiphany (model becomes more specific)
+   - Not finding = genuine contradiction → reduce weaker confidence
+
+3. **Entropy-as-Friston-potential**:
+   - GraphSensorium.truth_entropy IS the free energy proxy
+   - High entropy + low epiphany = rich unexplored territory
+   - High entropy + high epiphany = active learning (let it flow)
+   - Low entropy + low epiphany = check for hidden drift (α dropping?)
+   - Orchestrator temperature directly tracks free energy
+
+4. **HHTL cascade as entropy gradient descent**:
+   - HEEL: rank contradictions by entropy contribution (explore highest first)
+   - HIP: search for modifiers via Pearl mask projections
+   - BRANCH: successful modifiers become qualified triplets
+   - TWIG: psychometric validation (did α improve? genuine learning?)
+   - LEAF: residual → NARS abduction → hypothesize new latent factor
+
+5. **Epiphany-driven self-reinforcement**:
+   - Epiphany (+): surprise > threshold, factual > expected
+     → DK shifts toward Valley (humility), temperature spikes
+     → Explore the new territory, don't consolidate prematurely
+   - Blunder (-): surprise > threshold, factual < expected
+     → DK shifts toward MountStupid check, temperature drops
+     → Consolidate, run contradiction detection, find what went wrong
+   - Stagnation (0): no surprise, check if mastery or plateau trap
+     → Periodic perturbation via temperature injection
+     → α check: genuine mastery (α stable) vs hidden drift (α dropping)
+
+6. **2 billion scientific studies scenario**:
+   - Each study = observation → DeepNSM → SPO triples → CausalEdge64
+   - Contradictions between studies = modifier search targets
+   - "Study A says X causes Y, Study B says X prevents Y"
+     → Modifier: population, dosage, timeframe, methodology
+   - Finding the modifier = meta-analysis result (automatically)
+   - Entropy of the knowledge graph = remaining scientific disagreement
+   - Free energy minimization = systematic resolution of disagreements
+   - The chaos IS the signal — more contradictions = more potential for discovery
+   - Thanks for the chaos, it feeds our tensors
+
+Success criteria:
+  - [ ] OutcomeTriad with 16-channel QualiaVector comparison
+  - [ ] Modifier search via CausalEdge64 Pearl projections
+  - [ ] Entropy-as-potential integrated into GraphSensorium
+  - [ ] Epiphany/blunder detection with per-channel localization
+  - [ ] HHTL cascade as entropy gradient descent
+  - [ ] Psychometric validation of modifier discoveries (α improvement)
+  - [ ] Self-reinforcement: epiphanies improve exploration, blunders improve consolidation
