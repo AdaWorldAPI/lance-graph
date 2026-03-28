@@ -9,4 +9,5 @@ pub mod triplet_graph;
 pub mod episodic;
 pub mod retrieval;
 pub mod sensorium;
+pub mod orchestrator;
 pub mod xai_client;
