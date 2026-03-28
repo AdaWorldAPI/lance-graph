@@ -85,7 +85,7 @@ impl NsmRuntime {
 
         let encoder = NsmEncoder::new(
             matrix,
-            RoleVectors::from_seed(0xADA_DEEP_NSM),
+            RoleVectors::from_seed(0xADA_DE00_0005_u64),
             prime_ranks,
         );
 
