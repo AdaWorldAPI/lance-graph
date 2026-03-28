@@ -38,4 +38,3 @@ pub mod cam;
 pub mod jit;
 pub mod orchestration;
 pub mod nars;
-pub mod sensorium;
