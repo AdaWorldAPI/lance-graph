@@ -107,6 +107,31 @@ impl From<&NdarrayFingerprint> for BitVec {
 }
 
 // ---------------------------------------------------------------------------
+// ndarray::hpc::fingerprint::Fingerprint<256> bridge (feature = "ndarray-hpc")
+// ---------------------------------------------------------------------------
+
+#[cfg(feature = "ndarray-hpc")]
+impl From<&ndarray::hpc::fingerprint::Fingerprint<256>> for NdarrayFingerprint {
+    fn from(fp: &ndarray::hpc::fingerprint::Fingerprint<256>) -> Self {
+        NdarrayFingerprint { words: fp.words }
+    }
+}
+
+#[cfg(feature = "ndarray-hpc")]
+impl From<&NdarrayFingerprint> for ndarray::hpc::fingerprint::Fingerprint<256> {
+    fn from(fp: &NdarrayFingerprint) -> ndarray::hpc::fingerprint::Fingerprint<256> {
+        ndarray::hpc::fingerprint::Fingerprint { words: fp.words }
+    }
+}
+
+#[cfg(feature = "ndarray-hpc")]
+impl From<&ndarray::hpc::fingerprint::Fingerprint<256>> for BitVec {
+    fn from(fp: &ndarray::hpc::fingerprint::Fingerprint<256>) -> Self {
+        BitVec::from_words(&fp.words)
+    }
+}
+
+// ---------------------------------------------------------------------------
 // SIMD dispatch — 4-tier fallback matching ndarray's bitwise.rs pattern
 // ---------------------------------------------------------------------------
 
