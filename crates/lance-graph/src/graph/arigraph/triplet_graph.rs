@@ -288,6 +288,605 @@ impl Default for TripletGraph {
     }
 }
 
+// ============================================================================
+// Missing Python transcode: normalization, directions, spatial, exclude
+// Ported from AriGraph utils.py + parent_graph.py
+// ============================================================================
+
+/// Normalize a triplet: alias "I"→"inventory", "P"→"player", lowercase, strip punctuation.
+///
+/// Transcoded from Python `clear_triplet()` (utils.py:163-172).
+pub fn clear_triplet(subject: &str, relation: &str, object: &str) -> (String, String, String) {
+    fn normalize(s: &str) -> String {
+        let s = match s.trim() {
+            "I" => "inventory",
+            "P" => "player",
+            other => other,
+        };
+        s.to_lowercase()
+            .trim_matches(|c: char| "\"'. `;:".contains(c))
+            .to_string()
+    }
+    (normalize(subject), normalize(relation), normalize(object))
+}
+
+/// Extract cardinal direction from an action string.
+///
+/// Transcoded from Python `find_direction()` (utils.py:61-70).
+pub fn find_direction(action: &str) -> &'static str {
+    let a = action.to_lowercase();
+    if a.contains("north") {
+        "is north of"
+    } else if a.contains("east") {
+        "is east of"
+    } else if a.contains("south") {
+        "is south of"
+    } else if a.contains("west") {
+        "is west of"
+    } else {
+        "can be achieved from"
+    }
+}
+
+/// Extract the opposite cardinal direction.
+///
+/// Transcoded from Python `find_opposite_direction()` (utils.py:72-81).
+pub fn find_opposite_direction(action: &str) -> &'static str {
+    let a = action.to_lowercase();
+    if a.contains("north") {
+        "is south of"
+    } else if a.contains("east") {
+        "is west of"
+    } else if a.contains("south") {
+        "is north of"
+    } else if a.contains("west") {
+        "is east of"
+    } else {
+        "can be achieved from"
+    }
+}
+
+/// Check if a relation string denotes a spatial connection (north/south/east/west).
+///
+/// Transcoded from Python `check_conn()` (utils.py:160-161).
+pub fn is_spatial_connection(relation: &str) -> bool {
+    let r = relation.to_lowercase();
+    r.contains("north") || r.contains("south") || r.contains("east") || r.contains("west")
+}
+
+/// Parse raw triplet text from LLM output.
+///
+/// Transcoded from Python `process_triplets()` (utils.py:26-40).
+/// Handles: semicolon-separated triplets, leading digit strip, colon-delimited subjects.
+pub fn process_triplets(raw: &str, timestamp: u64) -> Vec<Triplet> {
+    raw.split(';')
+        .filter_map(|part| {
+            let parts: Vec<&str> = part.split(',').collect();
+            if parts.len() != 3 {
+                return None;
+            }
+            let mut subj = parts[0].trim().to_string();
+            // Strip leading digit (e.g., "1. subject" → "subject")
+            if subj.starts_with(|c: char| c.is_ascii_digit()) {
+                if let Some(rest) = subj.get(2..) {
+                    subj = rest.to_string();
+                }
+            }
+            // Handle colon-delimited subjects (e.g., "Step 1: subject")
+            if let Some(pos) = subj.rfind(':') {
+                subj = subj[pos + 1..].to_string();
+            }
+            let subj = subj.trim_matches(|c: char| " '\n\"".contains(c)).to_string();
+            let rel = parts[1].trim_matches(|c: char| " '\n\"".contains(c)).to_string();
+            let obj = parts[2].trim_matches(|c: char| " '\n\"".contains(c)).to_string();
+            if subj.is_empty() || rel.is_empty() || obj.is_empty() {
+                return None;
+            }
+            let (s, r, o) = clear_triplet(&subj, &rel, &obj);
+            Some(Triplet::new(&s, &o, &r, timestamp))
+        })
+        .collect()
+}
+
+/// Parse outdated triplet patterns from LLM refinement output.
+///
+/// Transcoded from Python `parse_triplets_removing()` (utils.py:83-98).
+/// Handles the `[[old -> new], [old2 -> new2]]` format.
+pub fn parse_triplets_removing(text: &str) -> Vec<(String, String, String)> {
+    let text = if text.contains("[[") {
+        text.split("[[").last().unwrap_or(text)
+    } else if text.contains("[\n[") {
+        text.split("[\n[").last().unwrap_or(text)
+    } else {
+        text
+    };
+    let text = text.replace('[', "");
+    let text = text.trim_end_matches(']');
+    text.split("],")
+        .filter_map(|pair| {
+            let parts: Vec<&str> = pair.split("->").collect();
+            if parts.len() != 2 {
+                return None;
+            }
+            let triplet_parts: Vec<&str> = parts[0].split(',').collect();
+            if triplet_parts.len() != 3 {
+                return None;
+            }
+            let subj = triplet_parts[0].trim_matches(|c: char| " '\"\n".contains(c)).to_string();
+            let rel = triplet_parts[1].trim_matches(|c: char| " '\"\n".contains(c)).to_string();
+            let obj = triplet_parts[2].trim_matches(|c: char| " '\"\n".contains(c)).to_string();
+            Some((subj, rel, obj))
+        })
+        .collect()
+}
+
+/// Find unexplored exits from a location by scanning triplets.
+///
+/// Transcoded from Python `find_unexplored_exits()` (utils.py:316-359).
+pub fn find_unexplored_exits(location: &str, triplet_strings: &[String]) -> Vec<String> {
+    let mut exits: HashSet<String> = HashSet::new();
+    let mut explored: HashSet<String> = HashSet::new();
+    let loc_lower = location.to_lowercase();
+
+    for ts in triplet_strings {
+        let parts: Vec<&str> = ts.split(", ").collect();
+        if parts.len() < 3 {
+            continue;
+        }
+        let subj = parts[0].to_lowercase();
+        let rel = parts[1].to_lowercase();
+        let obj = parts[2].to_lowercase();
+
+        // First pass: exits FROM this location
+        if subj == loc_lower && rel.contains("has exit") {
+            exits.insert(obj.clone());
+        } else if subj == loc_lower
+            && (rel.contains("exit") || rel.contains("lead") || rel.contains("entr") || rel.contains("path"))
+        {
+            for dir in &["north", "south", "east", "west"] {
+                if rel.contains(dir) || obj.contains(dir) {
+                    exits.insert(dir.to_string());
+                }
+            }
+        }
+
+        // Second pass: explored directions (where we've come FROM)
+        if obj == loc_lower && parts[1].split(' ').count() >= 2 {
+            let direction = parts[1].split(' ').nth(1).unwrap_or("");
+            if exits.contains(direction) {
+                explored.insert(direction.to_string());
+            }
+        }
+    }
+
+    exits.difference(&explored).cloned().collect()
+}
+
+impl TripletGraph {
+    /// Auto-extract spatial edges from triplets that contain directional relations.
+    ///
+    /// Transcoded from Python `compute_spatial_graph()` (parent_graph.py:131-154).
+    pub fn compute_spatial_graph(&mut self) {
+        self.spatial_edges.clear();
+        let edges: Vec<(String, String, String)> = self
+            .triplets
+            .iter()
+            .filter(|t| !t.is_deleted() && is_spatial_connection(&t.relation))
+            .map(|t| (t.subject.to_lowercase(), t.object.to_lowercase(), t.relation.clone()))
+            .collect();
+        for (from, to, dir) in edges {
+            self.add_spatial_edge(&from, &to, &dir);
+        }
+    }
+
+    /// Find path returning movement directions instead of location names.
+    ///
+    /// Transcoded from Python `find_path()` (parent_graph.py:157-203).
+    pub fn find_path_directions(&self, from: &str, to: &str) -> Option<Vec<String>> {
+        if from == to {
+            return Some(Vec::new());
+        }
+        let mut visited: HashSet<String> = HashSet::new();
+        let mut queue: VecDeque<(String, Vec<String>)> = VecDeque::new();
+        visited.insert(from.to_string());
+        queue.push_back((from.to_string(), Vec::new()));
+
+        while let Some((current, directions)) = queue.pop_front() {
+            if let Some(neighbors) = self.spatial_edges.get(&current) {
+                for (neighbor, direction) in neighbors {
+                    if neighbor == to {
+                        let mut dirs = directions.clone();
+                        // Convert "is north of" → "go north"
+                        let movement = direction
+                            .replace("is ", "go ")
+                            .replace(" of", "");
+                        dirs.push(movement);
+                        return Some(dirs);
+                    }
+                    if !visited.contains(neighbor) {
+                        visited.insert(neighbor.clone());
+                        let mut dirs = directions.clone();
+                        let movement = direction
+                            .replace("is ", "go ")
+                            .replace(" of", "");
+                        dirs.push(movement);
+                        queue.push_back((neighbor.clone(), dirs));
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    /// Filter new triplets against existing graph — return only truly new ones.
+    ///
+    /// Transcoded from Python `exclude()` (parent_graph.py:121-128).
+    pub fn exclude(&self, candidates: &[Triplet]) -> Vec<Triplet> {
+        candidates
+            .iter()
+            .filter(|t| {
+                !self.triplets.iter().any(|existing| {
+                    !existing.is_deleted()
+                        && existing.subject == t.subject
+                        && existing.object == t.object
+                        && existing.relation == t.relation
+                })
+            })
+            .cloned()
+            .collect()
+    }
+
+    /// Delete outdated triplets with location protection.
+    ///
+    /// Won't delete triplets where both subject and object are known locations.
+    /// Transcoded from Python `delete_triplets()` (parent_graph.py:89-94).
+    pub fn delete_with_location_protection(
+        &mut self,
+        patterns: &[(String, String, String)],
+        locations: &HashSet<String>,
+    ) {
+        for (subj, rel, obj) in patterns {
+            // Protect spatial triplets
+            if locations.contains(&subj.to_lowercase())
+                && locations.contains(&obj.to_lowercase())
+            {
+                continue;
+            }
+            for triplet in self.triplets.iter_mut() {
+                if triplet.subject == *subj
+                    && triplet.relation == *rel
+                    && triplet.object == *obj
+                {
+                    triplet.truth = TruthValue::unknown();
+                }
+            }
+        }
+    }
+
+    /// Full OSINT update cycle: extract → exclude → refine → delete → spatial.
+    ///
+    /// Transcoded from Python `ContrieverGraph.update()` (contriever_graph.py:26-84).
+    /// The LLM calls are replaced by pre-parsed inputs (the caller handles HTTP).
+    pub fn update(
+        &mut self,
+        new_triplets_raw: &[Triplet],
+        outdated_patterns: &[(String, String, String)],
+        locations: &mut HashSet<String>,
+        current_location: Option<&str>,
+        previous_location: Option<&str>,
+        action: Option<&str>,
+    ) {
+        // 1. Filter out already-known triplets
+        let new_triplets = self.exclude(new_triplets_raw);
+
+        // 2. Delete outdated triplets (with location protection)
+        self.delete_with_location_protection(outdated_patterns, locations);
+
+        // 3. Add spatial edges if the agent moved
+        if let (Some(curr), Some(prev), Some(act)) = (current_location, previous_location, action)
+        {
+            if curr != prev && !act.contains("go to") {
+                let dir = find_direction(act);
+                let opp = find_opposite_direction(act);
+                let curr_l = curr.to_lowercase();
+                let prev_l = prev.to_lowercase();
+
+                // Add bidirectional spatial triplets
+                let spatial_fwd = Triplet::new(&curr_l, &prev_l, dir, 0);
+                let spatial_rev = Triplet::new(&prev_l, &curr_l, opp, 0);
+                self.add_triplets(&[spatial_fwd, spatial_rev]);
+                locations.insert(curr_l);
+            }
+        }
+
+        // 4. Add the new triplets
+        self.add_triplets(&new_triplets);
+
+        // 5. Rebuild spatial graph from all triplets
+        self.compute_spatial_graph();
+    }
+}
+
+// ============================================================================
+// NARS inference integration (from adaworldapi/ndarray hpc/nars.rs)
+// ============================================================================
+
+impl TripletGraph {
+    /// NARS deduction over 2-hop chains: A→B and B→C yields A→C.
+    ///
+    /// Scans all pairs of triplets sharing an entity and produces inferred
+    /// triplets with deduced truth values: f = f1 * f2, c = f1 * f2 * c1 * c2.
+    pub fn infer_deductions(&self) -> Vec<Triplet> {
+        let mut inferred = Vec::new();
+
+        for t1 in &self.triplets {
+            if t1.is_deleted() {
+                continue;
+            }
+            // Look for triplets where t1.object == t2.subject
+            if let Some(indices) = self.entity_index.get(&t1.object.to_lowercase()) {
+                for &idx in indices {
+                    let t2 = &self.triplets[idx];
+                    if t2.is_deleted() {
+                        continue;
+                    }
+                    if t2.subject.to_lowercase() != t1.object.to_lowercase() {
+                        continue;
+                    }
+                    // Don't create self-loops
+                    if t1.subject == t2.object {
+                        continue;
+                    }
+                    // Deduction: f = f1 * f2, c = f1 * f2 * c1 * c2
+                    let f = t1.truth.frequency * t2.truth.frequency;
+                    let c = t1.truth.frequency
+                        * t2.truth.frequency
+                        * t1.truth.confidence
+                        * t2.truth.confidence;
+                    let combined_rel = format!("{} (via {})", t2.relation, t1.object);
+                    let mut triplet = Triplet::with_truth(
+                        &t1.subject,
+                        &t2.object,
+                        &combined_rel,
+                        TruthValue::new(f, c),
+                        t2.timestamp.max(t1.timestamp),
+                    );
+                    // Only keep inferences with meaningful confidence
+                    if triplet.truth.confidence > 0.1 {
+                        inferred.push(triplet);
+                    }
+                }
+            }
+        }
+        inferred
+    }
+
+    /// NARS contradiction detection: find triplets that conflict.
+    ///
+    /// Two triplets contradict if they share subject+object but have
+    /// different relations and both have high confidence.
+    /// Returns pairs of (triplet_index_a, triplet_index_b).
+    pub fn detect_contradictions(&self, confidence_threshold: f32) -> Vec<(usize, usize)> {
+        let mut contradictions = Vec::new();
+        for (i, t1) in self.triplets.iter().enumerate() {
+            if t1.is_deleted() || t1.truth.confidence < confidence_threshold {
+                continue;
+            }
+            for (j, t2) in self.triplets.iter().enumerate().skip(i + 1) {
+                if t2.is_deleted() || t2.truth.confidence < confidence_threshold {
+                    continue;
+                }
+                // Same subject and object but different relation
+                if t1.subject == t2.subject
+                    && t1.object == t2.object
+                    && t1.relation != t2.relation
+                {
+                    contradictions.push((i, j));
+                }
+            }
+        }
+        contradictions
+    }
+
+    /// NARS revision: when the same triplet is observed again, increase confidence.
+    ///
+    /// Finds existing triplets matching subject+relation+object and revises
+    /// their truth value with new evidence.
+    pub fn revise_with_evidence(&mut self, observation: &Triplet) {
+        for triplet in self.triplets.iter_mut() {
+            if !triplet.is_deleted()
+                && triplet.subject == observation.subject
+                && triplet.relation == observation.relation
+                && triplet.object == observation.object
+            {
+                triplet.truth = triplet.truth.revision(&observation.truth);
+                triplet.timestamp = observation.timestamp.max(triplet.timestamp);
+                return;
+            }
+        }
+        // Not found — add as new
+        self.add_triplets(&[observation.clone()]);
+    }
+}
+
+#[cfg(test)]
+mod extended_tests {
+    use super::*;
+
+    #[test]
+    fn test_clear_triplet_normalization() {
+        let (s, r, o) = clear_triplet("I", "is in", "kitchen");
+        assert_eq!(s, "inventory");
+        assert_eq!(r, "is in");
+        assert_eq!(o, "kitchen");
+
+        let (s, _, _) = clear_triplet("P", "has", "sword");
+        assert_eq!(s, "player");
+    }
+
+    #[test]
+    fn test_find_direction() {
+        assert_eq!(find_direction("go north"), "is north of");
+        assert_eq!(find_direction("go east"), "is east of");
+        assert_eq!(find_direction("go south"), "is south of");
+        assert_eq!(find_direction("go west"), "is west of");
+        assert_eq!(find_direction("teleport"), "can be achieved from");
+    }
+
+    #[test]
+    fn test_find_opposite_direction() {
+        assert_eq!(find_opposite_direction("go north"), "is south of");
+        assert_eq!(find_opposite_direction("go east"), "is west of");
+    }
+
+    #[test]
+    fn test_process_triplets() {
+        let triplets = process_triplets(
+            "alice, knows, bob; 1.charlie, works at, company; Step 1: dave, lives in, city",
+            1,
+        );
+        assert_eq!(triplets.len(), 3);
+        assert_eq!(triplets[0].subject, "alice");
+        assert_eq!(triplets[0].object, "bob");
+        assert_eq!(triplets[2].subject, "dave");
+    }
+
+    #[test]
+    fn test_parse_triplets_removing() {
+        let patterns = parse_triplets_removing(
+            "[[alice, knows, bob -> alice, loves, bob], [cat, is in, box -> cat, is in, bag]]",
+        );
+        assert_eq!(patterns.len(), 2);
+        assert_eq!(patterns[0].0, "alice");
+    }
+
+    #[test]
+    fn test_compute_spatial_graph() {
+        let mut g = TripletGraph::new();
+        g.add_triplets(&[
+            Triplet::new("room1", "room2", "is north of", 1),
+            Triplet::new("room2", "room3", "is east of", 2),
+            Triplet::new("alice", "bob", "knows", 3),
+        ]);
+        g.compute_spatial_graph();
+        assert!(g.spatial_edges.contains_key("room1"));
+        assert!(g.spatial_edges.contains_key("room2"));
+        assert!(!g.spatial_edges.contains_key("alice"));
+    }
+
+    #[test]
+    fn test_find_path_directions() {
+        let mut g = TripletGraph::new();
+        g.add_spatial_edge("room1", "room2", "is north of");
+        g.add_spatial_edge("room2", "room3", "is east of");
+        let dirs = g.find_path_directions("room1", "room3").unwrap();
+        assert_eq!(dirs.len(), 2);
+        assert!(dirs[0].contains("north"));
+        assert!(dirs[1].contains("east"));
+    }
+
+    #[test]
+    fn test_exclude_filters_known() {
+        let mut g = TripletGraph::new();
+        g.add_triplets(&[Triplet::new("alice", "bob", "knows", 1)]);
+        let candidates = vec![
+            Triplet::new("alice", "bob", "knows", 2),
+            Triplet::new("carol", "dave", "knows", 2),
+        ];
+        let new = g.exclude(&candidates);
+        assert_eq!(new.len(), 1);
+        assert_eq!(new[0].subject, "carol");
+    }
+
+    #[test]
+    fn test_delete_with_location_protection() {
+        let mut g = TripletGraph::new();
+        g.add_triplets(&[
+            Triplet::new("room1", "room2", "is north of", 1),
+            Triplet::new("alice", "bob", "knows", 2),
+        ]);
+        let locations: HashSet<String> = ["room1", "room2"].into_iter().map(String::from).collect();
+        g.delete_with_location_protection(
+            &[
+                ("room1".into(), "is north of".into(), "room2".into()),
+                ("alice".into(), "knows".into(), "bob".into()),
+            ],
+            &locations,
+        );
+        // room1→room2 protected (both are locations)
+        assert!(!g.triplets[0].is_deleted());
+        // alice→bob not protected
+        assert!(g.triplets[1].is_deleted());
+    }
+
+    #[test]
+    fn test_full_update_cycle() {
+        let mut g = TripletGraph::new();
+        let mut locations: HashSet<String> = ["kitchen"].into_iter().map(String::from).collect();
+
+        let new_triplets = vec![
+            Triplet::new("apple", "table", "is on", 1),
+            Triplet::new("knife", "kitchen", "is in", 1),
+        ];
+        g.update(&new_triplets, &[], &mut locations, Some("bedroom"), Some("kitchen"), Some("go north"));
+
+        assert!(g.len() >= 2);
+        assert!(locations.contains("bedroom"));
+        assert!(!g.spatial_edges.is_empty());
+    }
+
+    #[test]
+    fn test_infer_deductions() {
+        let mut g = TripletGraph::new();
+        g.add_triplets(&[
+            Triplet::new("alice", "bob", "knows", 1),
+            Triplet::new("bob", "carol", "knows", 2),
+        ]);
+        let inferred = g.infer_deductions();
+        assert!(!inferred.is_empty());
+        assert_eq!(inferred[0].subject, "alice");
+        assert_eq!(inferred[0].object, "carol");
+        assert!(inferred[0].truth.confidence > 0.0);
+    }
+
+    #[test]
+    fn test_detect_contradictions() {
+        let mut g = TripletGraph::new();
+        g.add_triplets(&[
+            Triplet::new("apple", "table", "is on", 1),
+            Triplet::new("apple", "table", "is under", 2),
+        ]);
+        let contradictions = g.detect_contradictions(0.5);
+        assert_eq!(contradictions.len(), 1);
+    }
+
+    #[test]
+    fn test_revise_with_evidence() {
+        let mut g = TripletGraph::new();
+        g.add_triplets(&[Triplet::new("alice", "bob", "knows", 1)]);
+        let c_before = g.triplets[0].truth.confidence;
+
+        g.revise_with_evidence(&Triplet::new("alice", "bob", "knows", 2));
+        // Revision should increase confidence
+        assert!(g.triplets[0].truth.confidence >= c_before);
+        // Should NOT create a duplicate
+        assert_eq!(g.triplets.iter().filter(|t| !t.is_deleted()).count(), 1);
+    }
+
+    #[test]
+    fn test_find_unexplored_exits() {
+        let triplets = vec![
+            "kitchen, has exit, north".to_string(),
+            "kitchen, has exit, east".to_string(),
+            "bedroom, is north of, kitchen".to_string(),
+        ];
+        let unexplored = find_unexplored_exits("kitchen", &triplets);
+        // north is explored (bedroom is north of kitchen), east is not
+        assert!(unexplored.contains(&"east".to_string()));
+        assert!(!unexplored.contains(&"north".to_string()));
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
