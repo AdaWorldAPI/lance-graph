@@ -12,5 +12,6 @@ exclude = [
     "crates/lance-graph-codec-research",
     "crates/bgz17",
     "crates/deepnsm",
+    "crates/bgz-tensor",
 ]
 resolver = "2"

@@ -1,0 +1,24 @@
+[package]
+name = "bgz-tensor"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = """
+bgz-tensor: Metric-algebraic tensor codec for transformer weight matrices.
+
+Not quantization — computation compilation. Projects weight matrices through
+golden-step folding into Base17 metric space, palette-quantizes via CLAM
+manifold clustering, then replaces matmul with precomputed distance table lookup.
+
+640× compression with algebraic structure preserved:
+  - Distance matrix: every attention score is a u16 table lookup
+  - Compose table: multi-hop reasoning is a u8 table lookup
+  - PCDVQ weighting: 20× sign / 3× magnitude / 1× detail
+  - HHTL cascade: 95% of attention computation eliminated at Layer 0-1
+"""
+
+# Zero dependencies — same philosophy as bgz17 and deepnsm.
+[dependencies]
+
+[dev-dependencies]
