@@ -52,6 +52,7 @@ pub mod sql_catalog;
 pub mod sql_query;
 pub mod table_readers;
 pub mod cam_pq;
+pub mod nsm;
 
 /// Maximum allowed hops for variable-length relationship expansion (e.g., *1..N)
 pub const MAX_VARIABLE_LENGTH_HOPS: u32 = 20;

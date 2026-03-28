@@ -350,14 +350,18 @@ fn split_words(text: &str) -> Vec<String> {
                 let rest: String = chars[i..].iter().take(4).collect();
                 let rest_lower = rest.to_lowercase();
 
-                if rest_lower.starts_with("n't") || rest_lower.starts_with("\u{2019}t") {
+                if current.ends_with('n') && (rest_lower.starts_with("'t") || rest_lower.starts_with("\u{2019}t")) {
                     // "don't" → push "do", then "n't"
+                    // Pop the 'n' from current before pushing
+                    current.pop();
                     if !current.is_empty() {
                         words.push(current.clone());
                         current.clear();
+                    } else {
+                        current.clear();
                     }
                     words.push("n't".to_string());
-                    i += 3;
+                    i += 2; // skip 't (apostrophe already at i)
                 } else if rest_lower.starts_with("'s")
                     || rest_lower.starts_with("'re")
                     || rest_lower.starts_with("'m")

@@ -111,7 +111,7 @@ impl DeepNsmEngine {
             cam_array.len(),
             cam_array.len()
         );
-        let distance_matrix = WordDistanceMatrix::build_from_cam(&cam_array, &codebook.centroids);
+        let distance_matrix = WordDistanceMatrix::build_from_cam(&cam_array, codebook.centroids());
         eprintln!(
             "[deepnsm] Distance matrix built: {} bytes",
             distance_matrix.byte_size()
