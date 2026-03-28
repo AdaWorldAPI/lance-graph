@@ -7,6 +7,7 @@
 //! the Cypher query engine. While the Cypher layer operates on property graphs
 //! via DataFusion, this layer provides direct fingerprint-based graph operations.
 
+pub mod arigraph;
 pub mod blasgraph;
 pub mod falkor_compat;
 pub mod falkor_semirings;

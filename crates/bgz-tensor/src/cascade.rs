@@ -213,7 +213,7 @@ pub fn cascade_attention(
     };
     let mut active = Vec::new();
 
-    let scent_threshold = 50000u32; // per-plane threshold for scent computation
+    let scent_threshold = 1500u32; // per-plane threshold for scent computation
     let leaf_max = (total as f32 * config.leaf_budget) as usize;
     let mut leaf_count = 0;
 
@@ -241,10 +241,12 @@ pub fn cascade_attention(
             }
 
             // LEAF: would compute full precision here — for now, accept
-            if leaf_count < leaf_max {
+            // if within leaf budget, count as active; otherwise eliminate
+            if leaf_count >= leaf_max {
                 stats.eliminated_at[3] += 1;
-                leaf_count += 1;
+                continue;
             }
+            leaf_count += 1;
 
             active.push((i, j, distance));
             stats.active_pairs += 1;

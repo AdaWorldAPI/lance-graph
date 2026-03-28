@@ -51,7 +51,7 @@ impl VsaVec {
     /// Deterministic: same rank always produces the same vector.
     pub fn from_rank(rank: u16) -> Self {
         // Use rank as seed with a large prime multiplier for spread
-        Self::random(rank as u64 * 0x9E3779B97F4A7C15 + 0xBF58476D1CE4E5B9)
+        Self::random((rank as u64).wrapping_mul(0x9E3779B97F4A7C15).wrapping_add(0xBF58476D1CE4E5B9))
     }
 
     /// XOR bind: `self ⊕ other`. Reversible: `(a ⊕ b) ⊕ b = a`.

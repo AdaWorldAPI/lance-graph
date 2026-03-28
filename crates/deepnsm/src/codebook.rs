@@ -89,6 +89,11 @@ impl Codebook {
         })
     }
 
+    /// Access flat centroid storage: `[6][256][16]` as `&[f32]`.
+    pub fn centroids(&self) -> &[f32] {
+        &self.centroids
+    }
+
     /// Get centroid vector for a subspace and centroid index.
     #[inline]
     pub fn centroid(&self, subspace: usize, centroid_idx: u8) -> &[f32] {
