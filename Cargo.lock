@@ -5284,6 +5284,7 @@ dependencies = [
  "lance 2.0.1",
  "lance-arrow 2.0.1",
  "lance-graph-catalog",
+ "lance-graph-planner",
  "lance-index 2.0.1",
  "lance-linalg 2.0.1",
  "lance-namespace 2.0.1",
