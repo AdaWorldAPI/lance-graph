@@ -11,7 +11,7 @@
 ///
 /// - `frequency` ∈ [0.0, 1.0]: proportion of positive evidence
 /// - `confidence` ∈ [0.0, 1.0]: amount of evidence relative to total possible
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct TruthValue {
     pub frequency: f32,
     pub confidence: f32,
