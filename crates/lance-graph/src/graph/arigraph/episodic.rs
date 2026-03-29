@@ -65,6 +65,11 @@ impl EpisodicMemory {
         self.episodes.push(episode);
     }
 
+    /// Maximum capacity.
+    pub fn capacity(&self) -> usize {
+        self.capacity
+    }
+
     /// Retrieve the `k` most similar episodes to the query string.
     ///
     /// Similarity is measured by Hamming distance on fingerprints (lower = closer).

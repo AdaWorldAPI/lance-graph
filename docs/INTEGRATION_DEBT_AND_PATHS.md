@@ -333,4 +333,51 @@ When ndarray has MKL enabled:
 
 ---
 
+## 10. POST-PR60 UPDATE (2026-03-29)
+
+### Debt Items Resolved
+
+| # | Item | Resolution | PR |
+|---|------|-----------|-----|
+| **W-resolved** | GraphSensorium only in q2 | **MIGRATED** to `arigraph/sensorium.rs` (539L) + `contract/sensorium.rs` (236L) | #59 |
+| **W-resolved** | MetaOrchestrator only in q2 | **MIGRATED** to `arigraph/orchestrator.rs` (1562L) | #59 |
+| **W-resolved** | Compilation errors in migration | **FIXED**: f32/f64 casts, TruthValue serde, EpisodicMemory capacity() | this session |
+
+### New Assets from PR #59-60
+
+| Asset | Lines | What It Adds |
+|-------|-------|-------------|
+| `contract/sensorium.rs` | 236 | GraphSignals, GraphBias, HealingType, SensoriumProvider + OrchestratorProvider traits |
+| `arigraph/sensorium.rs` | 539 | GraphSensorium::from_graph(), compute(), suggested_bias(), diagnose_healing() |
+| `arigraph/orchestrator.rs` | 1562 | MetaOrchestrator, MUL assessment, NARS RL topology, temperature, auto-heal |
+| `session_unified_26_epiphanies.md` | 385 | 26 epiphanies cross-referenced, 11 paths, 5 agents, QA savant protocol |
+| `session_master_integration.md` | ~1000 | 18 epiphanies → 6 layers → 42 hours estimate |
+| `session_epiphany_integration.md` | ~800 | 14 epiphanies + priorities |
+| `session_integration_plan.md` | ~600 | 9 phases, 40 hours, DeepNSM+AriGraph+SIMD+psychometrics |
+
+### New Epiphanies (S1-S18, from session_unified_26_epiphanies.md)
+
+- **S1**: Everything is a lookup table (SIMD dispatch, PQ, attention, NARS revision)
+- **S2**: SPO decomposition IS attention (bgz-tensor connection)
+- **S3**: SimilarityTable unifies scoring (1 table calibrates all distances)
+- **S7**: CausalEdge64 = 8-byte everything (SPO + NARS + Pearl + plasticity + temporal)
+- **S9**: Psychometric validation (measure meaning, not pattern)
+- **S10**: Friston free energy (entropy = exploration fuel)
+- **S15**: Bias as rotation vector (VSA unbind to debias)
+- **S18**: NARS contradiction = awareness compass for navigation
+
+### Updated Dependency Verification Matrix (from session_unified_26_epiphanies.md)
+
+```
+Path 1 (Foundation):     ndarray builds? ✓  tests pass? ✓
+Path 2 (Contract):       sensorium traits added ✓  first impl (AriGraph) ✓  others? BLOCKED
+Path 3 (ndarray wire):   ndarray dep wired ✓  From impls ✓  ZeckF64 dedup? NOT STARTED
+Path 4 (Planner wire):   classify_query wired ✓  full pipeline? NOT STARTED
+Path 5 (bgz17):          121 tests ✓  in workspace? NOT STARTED
+Path 8 (DeepNSM↔Ari):   deepnsm compiles (38 tests) ✓  entity resolution? NOT STARTED
+Path 9 (Causal↔Ari):     causal-edge exists ✓  palette assignment? NOT STARTED
+Path 10 (Psychometrics): CONCEPT DOCUMENTED, NOT STARTED
+Path 11 (Cartography):   VISION DOCUMENTED, NOT STARTED
+```
+
 *This document is the map. The territory is the code. Walk the code with this map and you'll never get lost.*

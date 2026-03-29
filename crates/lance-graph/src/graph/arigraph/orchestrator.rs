@@ -695,14 +695,14 @@ impl TopologyEdge {
         // New evidence truth: frequency = quality, confidence grows with observations.
         let evidence_f = quality.clamp(0.0, 1.0);
         let evidence_c = (self.observations as f64 / (self.observations as f64 + 5.0)).min(0.99);
-        let evidence = TruthValue::new(evidence_f, evidence_c);
+        let evidence = TruthValue::new(evidence_f as f32, evidence_c as f32);
 
         self.truth = self.truth.revision(&evidence);
     }
 
     /// Expected quality = truth expectation.
     fn expected_quality(&self) -> f64 {
-        self.truth.expectation()
+        self.truth.expectation() as f64
     }
 }
 
@@ -746,7 +746,7 @@ impl StyleTopology {
         // Deterministic "random" from step counter for reproducibility.
         let pseudo_random = ((step.wrapping_mul(0x9E3779B97F4A7C15)) >> 56) as f32 / 256.0;
 
-        if pseudo_random < EXPLORATION_RATE {
+        if pseudo_random < BASE_EXPLORATION_RATE {
             // Explore: pick the LEAST observed edge (maximize information gain).
             let mut best = AgentStyle::Plan;
             let mut min_obs = u64::MAX;
@@ -785,9 +785,9 @@ impl StyleTopology {
             .map(|e| TopologyEdgeSnapshot {
                 from: e.from.name().to_string(),
                 to: e.to.name().to_string(),
-                frequency: e.truth.frequency,
-                confidence: e.truth.confidence,
-                expectation: e.truth.expectation(),
+                frequency: e.truth.frequency as f64,
+                confidence: e.truth.confidence as f64,
+                expectation: e.truth.expectation() as f64,
                 observations: e.observations,
                 avg_quality: if e.observations > 0 {
                     e.total_quality / e.observations as f64
@@ -980,7 +980,7 @@ impl MetaOrchestrator {
         // ── MUL Assessment (self-regulated from graph signals when available) ──
         let avg_confidence = self.topology.edges.values()
             .filter(|e| e.observations > 0)
-            .map(|e| e.truth.confidence)
+            .map(|e| e.truth.confidence as f64)
             .sum::<f64>()
             / self.topology.edges.values().filter(|e| e.observations > 0).count().max(1) as f64;
         let mul = if let Some(ref signals) = self.sensorium {
@@ -1076,7 +1076,7 @@ impl MetaOrchestrator {
                         best,
                         StepReason::TopologyExploit {
                             expected_quality: best_eq,
-                            confidence: edge.truth.confidence * mul.trust.trust_factor() as f64,
+                            confidence: edge.truth.confidence as f64 * mul.trust.trust_factor() as f64,
                         },
                     )
                 }
