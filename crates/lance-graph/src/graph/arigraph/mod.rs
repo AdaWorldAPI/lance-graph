@@ -11,3 +11,4 @@ pub mod retrieval;
 pub mod sensorium;
 pub mod orchestrator;
 pub mod xai_client;
+pub mod language;
