@@ -324,3 +324,165 @@ All share the same codec:
   hpc::gguf (loader) + hpc::jina::codec (Base17 + palette) + hpc::jina::causal (CausalEdge64)
   One codebase. Multiple models. Same 34-byte format.
 ```
+
+---
+
+## Plan E: OpenAI-Compatible API Server (LM Studio-style)
+
+### The Idea
+
+Serve our compressed Jina/GPT-2/BERT/CLIP models via an OpenAI-compatible
+REST API. Any client that speaks OpenAI API (LangChain, LlamaIndex, AutoGPT,
+ComfyUI, n8n) connects to our server instead of OpenAI/Jina/HuggingFace.
+
+Same API surface. Local models. 4.5MB total. No GPU. No API keys needed.
+
+### Endpoints
+
+```
+POST /v1/embeddings
+  Input:  { "model": "jina-v4", "input": ["hello world"] }
+  Output: { "data": [{ "embedding": [0.1, ...], "index": 0 }] }
+  
+  Backend: JINA.heel_similarity() or BERT.heel_similarity()
+  Returns: Base17-projected embeddings (17D) or palette index (1D)
+  
+  Models: "jina-v4", "bert-base", "gpt-2", "clip" (when added)
+
+POST /v1/chat/completions  
+  Input:  { "model": "gpt-2", "messages": [...] }
+  Output: { "choices": [{ "message": { "content": "..." } }] }
+  
+  Backend: GPT-2 attention tables → next-token prediction via table lookup
+  OR: forward to xAI/Grok (ADA_XAI) for actual generation
+  OR: forward to any OpenAI-compatible endpoint (configurable)
+
+POST /v1/images/generations
+  Input:  { "model": "stable-diffusion", "prompt": "a bird on a fence" }
+  Output: { "data": [{ "url": "..." }] }
+  
+  Backend: CLIP text encoder (palette lookup) → SD UNet (via burn/ComfyUI)
+
+GET /v1/models
+  Output: list of available models with our compression stats
+
+POST /v1/similarity  (extension — not in OpenAI API)
+  Input:  { "model": "gpt-2", "a": "bird", "b": "sparrow" }
+  Output: { "similarity": 0.85, "level": "heel", "bytes_used": 1 }
+  
+  Backend: HHTL cascade → calibrated SimilarityTable
+
+POST /v1/spo  (extension — DeepNSM)
+  Input:  { "text": "the bird perches on the fence" }
+  Output: { "triples": [{ "s": "bird", "p": "perch", "o": "fence", 
+            "truth": { "f": 0.82, "c": 0.65 } }] }
+  
+  Backend: DeepNSM → SPO extraction → CausalEdge64
+
+POST /v1/causal  (extension — Pearl hierarchy)
+  Input:  { "edge": "bird perch fence", "pearl": "counterfactual" }
+  Output: { "query": "what if no fence?", "result": "bird would fly" }
+  
+  Backend: CausalEdge64 Pearl mask → counterfactual reasoning
+```
+
+### Architecture
+
+```
+q2 cockpit-server (Axum, already exists):
+  Existing: /mcp/*, /api/debug/*, /api/mri/*, /mri, /render
+  NEW:      /v1/embeddings, /v1/chat/completions, /v1/models, etc.
+
+  The SAME binary serves:
+    - Palantir cockpit (React frontend)
+    - MCP endpoints (lance-graph queries)
+    - Brain MRI (live visualization)
+    - OpenAI-compatible API (NEW)
+
+  All backed by the same LazyLock runtimes:
+    ndarray::hpc::jina::runtime::{JINA, GPT2, BERT}
+```
+
+### Implementation
+
+```rust
+// In q2/crates/cockpit-server/src/main.rs:
+
+.route("/v1/embeddings", post(openai_embeddings_handler))
+.route("/v1/chat/completions", post(openai_chat_handler))
+.route("/v1/models", get(openai_models_handler))
+.route("/v1/similarity", post(similarity_handler))
+.route("/v1/spo", post(spo_handler))
+.route("/v1/causal", post(causal_handler))
+
+async fn openai_embeddings_handler(Json(req): Json<EmbeddingRequest>) -> Json<EmbeddingResponse> {
+    let runtime = match req.model.as_str() {
+        "jina-v4" | "jina" => &*ndarray::hpc::jina::runtime::JINA,
+        "gpt-2" | "gpt2"  => &*ndarray::hpc::jina::runtime::GPT2,
+        "bert" | "bert-base" => &*ndarray::hpc::jina::runtime::BERT,
+        _ => return error_response("Unknown model"),
+    };
+    
+    // Tokenize input → look up Base17 embeddings → return
+    let embeddings = req.input.iter().map(|text| {
+        // DeepNSM tokenize → token indices → Base17 vectors
+        let tokens = deepnsm_tokenize(text);
+        let embedding: Vec<f32> = tokens.iter()
+            .flat_map(|&t| runtime.tokens[t].dims.iter().map(|&d| d as f32 / 1000.0))
+            .collect();
+        embedding
+    }).collect();
+    
+    Json(EmbeddingResponse { data: embeddings })
+}
+```
+
+### Comparison: Remote API vs Our Server
+
+```
+                     OpenAI API       Jina API         Our Server
+Latency/embed        ~100ms           ~100ms           0.01μs (palette)
+                                                       10μs (DeepNSM)
+Cost/1M embeds       $200             $200             $0 (local)
+Embedding dim        1536 (ada-002)   768/2048         17 (Base17)
+Models               1 (remote)       1 (remote)       3 (local)
+Causality            No               No               Yes (CausalEdge64)
+SPO extraction       No               No               Yes (DeepNSM)
+Pearl hierarchy      No               No               Yes (L1/L2/L3)
+Offline              No               No               Yes
+```
+
+### Env Vars (Railway.com)
+
+```
+# Our local models (always available, zero cost):
+# No env vars needed — weights are embedded in the binary
+
+# Optional: forward to remote for full generation:
+ADA_XAI=...            # xAI/Grok for OSINT extraction
+OPENAI_API_KEY=...     # Forward chat/completions to OpenAI
+JINA_API_KEY=...       # Forward embeddings to Jina API for comparison
+
+# The server checks:
+#   1. Can I serve this locally? → use local runtime (0μs, free)
+#   2. No local model? → forward to configured remote API
+#   3. No remote configured? → return error
+```
+
+### Files to Create/Modify
+
+```
+q2/crates/cockpit-server/src/openai_compat.rs  ← NEW: request/response types
+q2/crates/cockpit-server/src/main.rs           ← add routes
+q2/crates/stubs/notebook-query/src/embedding.rs ← NEW: embedding service
+```
+
+### Priority
+```
+P0: /v1/embeddings (use local Jina/GPT-2/BERT Base17 embeddings)
+P1: /v1/models (list available models with stats)
+P2: /v1/similarity (HHTL cascade similarity, extension API)
+P3: /v1/spo (DeepNSM SPO extraction, extension API)
+P4: /v1/chat/completions (forward to ADA_XAI or OPENAI_API_KEY)
+P5: /v1/causal (Pearl hierarchy queries, extension API)
+```
