@@ -139,3 +139,30 @@ You can't search the bitstream. You can't navigate it. You can't query
 Our codec is a GRAPH: audio → transform → graph nodes → searchable.
 HHTL-search for "frames that feel like emberglow" across a million songs in 1ms.
 The audio IS the graph. The graph IS searchable. The search IS real-time.
+
+## Forked Repos (in AdaWorldAPI org, ready for CC sessions)
+
+```
+WHISPER (STT):
+  AdaWorldAPI/oxiwhisper       Rust port (cool-japan, 3★)
+  AdaWorldAPI/whisper-burn     Rust/Burn port (346★, more mature)
+  → Session 2 should READ oxiwhisper first (pure Rust, small)
+  → whisper-burn uses Burn ML framework — heavier but tested
+
+OPUS (Codec):
+  AdaWorldAPI/opus             C reference implementation (xiph, 3K★, BSD)
+  AdaWorldAPI/opus-native      Rust FFI bindings (16★)
+  → Session 1 should READ opus C source for CELT understanding
+  → opus-native gives us FFI bindings for validation/parity tests
+
+BARK (TTS):
+  AdaWorldAPI/bark             Python, 3-stage RVQ (suno, 39K★, MIT)
+  → Session 3, read bark/generation.py for the 3-stage pipeline
+  → bark/model.py for GPT-2 architecture we REPLACE with graph traversal
+
+REFERENCE:
+  Hendro Wibowo's approach: Rust + LiveKit + Whisper + React Native
+  = pipeline of separate services connected via WebRTC
+  Our approach: transcode the internals into ONE binary (lance-graph + ndarray)
+  = same capability, no service mesh, runs on Orange Pi 5
+```
