@@ -509,3 +509,119 @@ The bridge makes them interoperable: one palette, three mask types, same algebra
 
 This is Epiphany 19 — the realization that DeepNSM, CausalEdge64, and bgz-tensor
 are three instances of the same abstract machine. The bridge makes that concrete.
+
+---
+
+## Path 13: burn-adaworld Backend — Wire Our Stack Into Burn's Backend Trait
+
+**Epiphanies**: S1, S2, A3, E19
+**Depends on**: Path 1 (SIMD foundation), Path 12 (DeepNSM×CausalEdge64 bridge)
+**Effort**: ~8 hours
+**Agent**: vector-synthesis
+**Repo**: adaworldapi/burn (fork)
+
+### The Approach
+
+Use the burn fork. Wire our CPU SIMD first. See what burn adds later.
+
+burn's Backend trait requires implementing:
+  - FloatTensorOps (matmul, add, mul, div, exp, softmax, etc.)
+  - IntTensorOps, BoolTensorOps
+  - ModuleOps (conv, pool, embedding, etc.)
+  - ActivationOps (relu, sigmoid, gelu, etc.)
+  - QTensorOps (quantized operations)
+
+### Phase 1: burn-adaworld CPU Backend (~500 lines)
+
+```rust
+/// AdaWorld backend: ndarray + crate::simd + LazyLock dispatch.
+pub struct AdaWorld;
+
+impl Backend for AdaWorld {
+    type Device = CpuDevice;
+    type FloatTensorPrimitive = NdArrayTensor<f32>;
+    type FloatElem = f32;
+    // ...
+    
+    fn name() -> &'static str { "adaworld-simd" }
+}
+
+impl FloatTensorOps<AdaWorld> for AdaWorld {
+    fn float_matmul(lhs: FloatTensor, rhs: FloatTensor) -> FloatTensor {
+        // Check if bgz-tensor compiled table exists for these dimensions
+        if let Some(table) = CompiledAttentionCache::get(lhs.shape(), rhs.shape()) {
+            return table_lookup_matmul(lhs, rhs, table);
+        }
+        // Fall through to ndarray BLAS with crate::simd dispatch
+        ndarray_matmul_simd(lhs, rhs)
+    }
+    
+    fn float_exp(tensor: FloatTensor) -> FloatTensor {
+        // Use ndarray vml::vsexp (already SIMD via F32x16)
+        simd_exp(tensor)
+    }
+}
+```
+
+### Phase 2: bgz-tensor Compiled Attention
+
+```rust
+/// When a model is loaded, compile weight matrices into lookup tables.
+/// This is the GGUF → bgz-tensor pipeline:
+///   f32 weights → Base17 projection → 256 palette → AttentionTable
+///
+/// After compilation, matmul() for attention becomes O(1) table lookup.
+pub struct CompiledAttentionCache {
+    heads: HashMap<(usize, usize), AttentionTable>,  // (layer, head) → table
+}
+```
+
+### Phase 3: Whisper on Our Backend
+
+```rust
+// Change one line in whisper-burn:
+// BEFORE: type B = burn_tch::TchBackend<f32>;
+// AFTER:  type B = burn_adaworld::AdaWorld;
+
+let whisper = Whisper::<AdaWorld>::load(weights_dir, &device);
+let text = whisper.transcribe(&audio_samples);
+// Now running on AVX-512 SIMD + bgz-tensor table lookup
+// No GPU, no PyTorch, no matmul
+```
+
+### What Burns Gives Us For Free
+
+By implementing their Backend trait, we get:
+  - [ ] Whisper inference (whisper-burn)
+  - [ ] MNIST/vision models (burn examples)
+  - [ ] Any burn model definition works with our backend
+  - [ ] burn-autodiff for fine-tuning on our backend (future)
+  - [ ] burn-train for training loops (future)
+  - [ ] WASM deployment via burn's existing WASM examples
+  - [ ] Model serialization via burn's Record system
+
+### What We Give Burn
+
+  - [ ] LazyLock runtime SIMD dispatch (AVX-512/AVX2 without recompilation)
+  - [ ] bgz-tensor O(1) attention (replaces matmul after compilation)
+  - [ ] CAM-PQ product quantization (170× compression)
+  - [ ] CausalEdge64 causal reasoning (Pearl hierarchy in attention)
+  - [ ] NARS truth values on tensor operations (confidence tracking)
+
+### Tests
+
+  - [ ] burn-adaworld passes burn-backend-tests (burn's own test suite)
+  - [ ] SIMD operations produce identical results to burn-ndarray backend
+  - [ ] bgz-tensor compiled attention matches standard matmul within ρ > 0.95
+  - [ ] Whisper transcription quality unchanged with burn-adaworld backend
+  - [ ] WASM build works: cargo build --target wasm32-unknown-unknown
+
+### Epiphany 20: Burn Backend Trait = Universal Adapter
+
+burn's Backend trait IS the universal adapter pattern. By implementing it once
+with our SIMD + table lookup stack, every burn model instantly runs on our
+infrastructure. We don't need to port Whisper, Llama, or any other model —
+we port the BACKEND, and all models follow.
+
+This is the same insight as Epiphany 19 (same algebra, three domains) but
+at the framework level: one Backend implementation, infinite model compatibility.
