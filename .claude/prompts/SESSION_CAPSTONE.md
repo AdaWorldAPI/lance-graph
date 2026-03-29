@@ -496,3 +496,180 @@ docs/TYPE_DUPLICATION_MAP.md       → 40+ duplicated types with file:line
 docs/SEMIRING_ALGEBRA_SURFACE.md   → all 14 semirings across 4 repos
 docs/THINKING_MICROCODE.md         → YAML→JIT→LazyLock→NARS RL
 ```
+
+---
+
+## Part 9: Path 16 — Vocabulary Expansion via Machine-Readable Wordlists
+
+**Source**: github.com/lpmi-13/machine_readable_wordlists
+**Depends on**: Path 8 (DeepNSM↔AriGraph), Path 11 (Cartography)
+**Effort**: ~6 hours
+**Agent**: arigraph-osint + vector-synthesis
+
+### The Opportunity
+
+DeepNSM covers 98.4% of running English text with 4,096 COCA words.
+But OSINT, medical, cyber, and scientific domains use specialized vocabulary
+that falls in the 1.6% gap. These wordlists fill that gap with
+CURATED domain-specific terms — not random OOV words.
+
+### Phase 1: BNC/COCA Extension (4,096 → 25,000)
+
+```
+Source:    BNC/COCA Lists (29 JSON files, 25 × 1,000-word frequency lists)
+Format:   JSON/YML, already frequency-ranked
+Effort:   2 hours
+Approach: Same corpus family as our existing 4,096 — distributional vectors
+          are COMPATIBLE. Just load additional words + compute prime weights.
+          
+  Current: word_rank_lookup.csv (5,050 entries, top 4,096 used)
+  Extended: BNC/COCA 25K → 25,000 entries with frequency + PoS
+  
+  The 12-bit vocabulary index (4,096 max) becomes 15-bit (32,768 max).
+  SpoTriple: [S:15][P:15][O:15] = 45 bits, fits in u64 (was 36 bits).
+  CausalEdge64: S/P/O palette indices stay 8-bit (256 archetypes).
+  The palette handles the compression: 25K words → 256 archetypes.
+```
+
+### Phase 2: Domain-Specific OSINT Vocabularies
+
+```
+Priority domain lists (all JSON, machine-readable):
+
+  Newspaper Word List (NWL):     588 families
+    → OSINT: deploy, sanction, treaty, alliance, regime, insurgent
+    → Maps to NSM: [Do, Bad, Not, Can, Someone, Place, Time]
+    
+  Medical Academic (MAWL):       623 headwords
+    → Health OSINT: pathogen, epidemic, vaccine, transmission, mortality
+    → Maps to NSM: [Die, Live, Body, Bad, Many, Someone]
+    
+  Computer Science:              433 headwords + 23 multi-word
+    → Cyber OSINT: vulnerability, encryption, breach, malware, protocol
+    → Maps to NSM: [Bad, Thing, Inside, Not, Can, Do]
+    
+  Business English (BEAWL):      415 headwords
+    → Financial OSINT: acquisition, compliance, dividend, leverage
+    → Maps to NSM: [Mine, Much, Do, Want, More, Big]
+    
+  Science Jargon:                ~500 terms
+    → Scientific OSINT: correlation, hypothesis, variable, significant
+    → Maps to NSM: [Think, True, Maybe, Because, Like, Know]
+    
+  Engineering (EEWL):            729 families
+    → Technical OSINT: specification, tolerance, calibration, throughput
+    → Maps to NSM: [Do, Thing, Kind, Part, Good, Much]
+
+  Total: ~3,288 domain terms not in COCA top 4K
+  Combined with BNC/COCA 25K: covers ~99.5% of domain text
+```
+
+### Phase 3: NSM Prime Weight Computation for New Words
+
+```
+For each new word, compute 74 prime weights automatically:
+
+  Method 1 (if COCA distributional vector available):
+    Load 96D vector from subgenres_5k.csv or BNC/COCA frequency data
+    Project through DeepNSM's existing decomposition
+    → prime weights from distributional statistics
+    
+  Method 2 (if no distributional vector):
+    Use DeepNSM's existing vocabulary to APPROXIMATE:
+    "sanction" → nearest known words: "punish" (0.7), "law" (0.5), "stop" (0.6)
+    → weighted average of their prime decompositions
+    → sanction_primes ≈ 0.7 × punish_primes + 0.5 × law_primes + 0.6 × stop_primes
+    
+  Method 3 (via xAI/Grok):
+    Ask: "decompose 'sanction' into NSM semantic primes"
+    → LLM-assisted prime weight assignment
+    → validate via Cronbach's α against Method 1/2
+    
+  All three methods produce the same shape: [f32; 74] per word.
+  Cross-validation: methods that agree have high α → reliable decomposition.
+```
+
+### Phase 4: Wikidata Entity Resolution Enhancement
+
+```
+ICE-CORE (7 English varieties × ~1,000 words):
+  "colour" (UK) = "color" (US) → same entity
+  "lorry" (UK) = "truck" (US) → same entity
+  
+  For Wikidata ingestion: entity labels vary by English variety.
+  The ICE-CORE wordlist provides cross-variety mapping.
+  DeepNSM: dist(colour, color) should be ≈ 0 after variety normalization.
+
+Academic Spoken (1,741 word families at 4 proficiency levels):
+  Wikidata descriptions use academic vocabulary.
+  "photosynthesis" is in ASWL but not COCA top 4K.
+  With ASWL loaded: DeepNSM can parse Wikidata science descriptions.
+
+Secondary Vocabulary List (8 subjects):
+  biology, chemistry, economics, English, geology, history, math, physics
+  Each subject's terms help classify Wikidata entities BY DOMAIN.
+  "mitosis" → biology. "valence" → chemistry. "GDP" → economics.
+  This IS the domain classifier for Wikidata entity typing.
+```
+
+### Phase 5: Integration with 36 Thinking Styles
+
+```
+Each domain wordlist aligns with specific thinking style clusters:
+
+  NWL (newspaper)    → Analytical, Systematic (factual reporting)
+  MAWL (medical)     → Systematic, Convergent (evidence-based)
+  CS wordlist        → Analytical, Focused (technical precision)
+  BEAWL (business)   → Pragmatic, Convergent (outcome-focused)
+  Science Jargon     → Exploratory, Metacognitive (hypothesis testing)
+  EEWL (engineering) → Systematic, Focused (specification-driven)
+
+  When the MetaOrchestrator detects domain-specific vocabulary in the input
+  (via DeepNSM tokenization), it ACTIVATES the corresponding thinking style
+  cluster automatically. Medical text → Systematic. News → Analytical.
+  
+  This IS the MODULATE cognitive verb: content drives thinking mode.
+```
+
+### Implementation Steps
+
+```
+1. git clone https://github.com/lpmi-13/machine_readable_wordlists /tmp/wordlists
+2. Parse JSON: extract (word, pos, frequency, domain) per list
+3. Merge with existing COCA vocabulary (deduplicate by lemma)
+4. Compute NSM prime weights for new words (Method 1/2/3)
+5. Update DeepNSM vocabulary.rs to load extended vocabulary
+6. Update SpoTriple to 15-bit indices (45-bit total, still fits u64)
+7. Rebuild palette: k-means on expanded vocabulary → 256 archetypes
+8. Test: domain-specific text → correct tokenization → correct SPO
+9. Benchmark: coverage % on OSINT/medical/cyber/scientific text samples
+```
+
+### Expected Impact
+
+```
+Coverage improvement:
+  Current: 98.4% of general English text
+  With BNC/COCA 25K: ~99.2% of general English
+  With domain lists: ~99.5% of domain-specific text
+  
+OSINT improvement:
+  "Country X deployed Y" → "deploy" now in vocabulary (was OOV)
+  → DeepNSM parses correctly → SPO(X, deploy, Y)
+  → CausalEdge64 with proper predicate (not fallback)
+  
+Wikidata improvement:
+  Scientific entity descriptions → parseable with academic vocabulary
+  Cross-variety entity resolution → "colour"="color" normalized
+  Domain classification → SVL subject lists → entity type detection
+```
+
+### Files to Modify
+
+```
+lance-graph/crates/deepnsm/src/vocabulary.rs  → extended loading
+lance-graph/crates/deepnsm/src/spo.rs         → 15-bit indices
+lance-graph/crates/deepnsm/src/pipeline.rs    → load domain lists
+ndarray/src/hpc/deepnsm.rs                    → extended prime weights
+NEW: lance-graph/crates/deepnsm/data/         → domain wordlist JSON files
+```
