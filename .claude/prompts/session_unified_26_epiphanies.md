@@ -382,3 +382,130 @@ Path 9 (Causal↔Ari):     causal-edge crate exists? ✓ Palette assignment? NOT
 Path 10 (Psychometrics): Path 8 done? COCA data loaded? BLOCKED on P8
 Path 11 (Cartography):   Paths 9+10 done? BLOCKED on P9+P10
 ```
+
+---
+
+## Path 12: DeepNSM × CausalEdge64 Bridge — Causal-Semantic Reasoning
+
+**Epiphanies**: S1, S2, S6, S7, A3, A5
+**Depends on**: Path 8 (DeepNSM↔AriGraph), Path 9 (CausalEdge64↔AriGraph)
+**Effort**: ~6 hours
+**Agent**: vector-synthesis + savant-architect
+
+### The Insight
+
+Pearl's 3-bit causal mask and DeepNSM's 16 NsmCategory decomposition are
+the SAME operation viewed from opposite ends:
+  - Pearl projects out SPO planes to change causal rung (2³ = 8 projections)
+  - DeepNSM projects out semantic categories (2¹⁶ = 65,536 potential, but
+    psychometric α identifies which projections carry information)
+
+Combined: causal-semantic queries like "what CAUSED this, in the MENTAL category?"
+
+### Architecture
+
+```
+DeepNSM 4,096 words (96D COCA vectors)
+  ↓ k-means clustering
+256 palette archetypes (8-bit index per word)
+  ↓ pairwise L2 distance
+AttentionTable[256][256] (distributional similarity at palette resolution)
+  ↓ XOR bind
+ComposeTable[256][256] (multi-hop semantic reasoning in O(1))
+  ↓ pack into CausalEdge64
+[S_palette:8][P_palette:8][O_palette:8][NARS:16][Pearl:3][...][T:12]
+```
+
+Each CausalEdge64 now carries DeepNSM distributional meaning.
+Pearl mask selects causal rung. Category mask selects semantic dimension.
+
+### Deliverables
+
+```rust
+/// Bridge DeepNSM vocabulary → CausalEdge64 palette.
+pub struct DeepNsmCausalBridge {
+    /// 4,096 words → 256 palette indices
+    word_to_palette: [u8; 4096],
+    /// 256 × 256 distributional distance table
+    attention: AttentionTable,
+    /// 256 × 256 composition table (multi-hop O(1))
+    compose: ComposeTable,
+    /// 16 NsmCategory masks over 96D space
+    category_masks: [[bool; 96]; 16],
+    /// Per-category distance tables (Pearl-style semantic projection)
+    category_tables: [AttentionTable; 16],
+}
+```
+
+### Operations
+
+1. **word_to_edge(subject, predicate, object, timestamp)** → CausalEdge64
+   - Look up each word → palette index
+   - Pack into CausalEdge64 with NARS truth + temporal index
+
+2. **semantic_projection(edge_a, edge_b, category_mask)** → f32
+   - Like Pearl mask but on semantic categories
+   - "similarity between A and B, considering only Mental primes"
+   - Uses category_tables[category] instead of full attention table
+
+3. **cross_domain_analogy(word, source_category, target_category)** → word
+   - Counterfactual in semantic space: "what is spatially what 'think' is mentally?"
+   - Zero out source_category dimensions, fill with target_category
+   - Nearest palette entry = the analogy result
+
+4. **compose_chain(edge_a, edge_b)** → composed_edge
+   - Multi-hop: "alice through bob" = compose(alice_palette, bob_palette)
+   - Result is a new palette index representing the composed concept
+   - attention[composed][target] = semantic distance through the chain
+
+5. **causal_semantic_query(edges, pearl_mask, category_mask)** → results
+   - Combined Pearl × NsmCategory projection
+   - "what entities CAUSED (L2) this outcome, in the SOCIAL dimension?"
+   - pearl_mask selects causal rung, category_mask selects semantic plane
+
+### CAM-PQ Stroke Alignment
+
+The 6 CAM-PQ subspaces (HEEL→GAMMA, each 16D) can align with NsmCategory:
+  Subspace 0-1: Substantive + Relational (entity identity)
+  Subspace 2-3: Mental + Action + Speech (behavior)
+  Subspace 4-5: Evaluator + Descriptor + Intensifier (quality)
+
+Stroke cascade = progressive semantic inclusion:
+  Stroke 1 (HEEL): entity identity only = interventional (who doesn't matter)
+  Stroke 2 (+BRANCH): + behavior = observational
+  Stroke 3 (full): all dimensions = complete model
+
+### Base17 Connection (Epiphany A5)
+
+The 17 golden-step dimensions from bgz-tensor projection are the MINIMAL
+semantic basis. The 17th dimension (Pythagorean comma) prevents aliasing
+between semantic categories. These 17 dimensions could be the canonical
+axes: the smallest set that preserves all semantic distinctions.
+
+Mapping: 96D COCA → 17D Base17 → 256 palette → 8-bit CausalEdge64 index
+Each stage is a known transformation with measured ρ.
+The full chain: ρ ≈ 0.992 × 0.965 ≈ 0.957 end-to-end.
+
+### Tests
+
+- [ ] word_to_edge roundtrip: word → palette → nearest word ≈ original
+- [ ] semantic_projection: Mental-only distance("think","know") < Mental-only distance("think","big")
+- [ ] cross_domain_analogy: spatial("think") ∈ {explore, search, navigate}
+- [ ] compose_chain: compose(alice, bob) closer to carol than to unrelated entity
+- [ ] causal_semantic_query: L2 + Mental returns different results than L1 + Spatial
+- [ ] Spearman ρ > 0.93 between full AttentionTable and DeepNSM WordDistanceMatrix
+- [ ] category_tables sum ≈ full attention table (categories partition the space)
+
+### Epiphany 19: Same Algebra, Three Domains
+
+```
+DeepNSM:       symmetric lookup on SEMANTIC categories (16 planes)
+CausalEdge64:  symmetric lookup on CAUSAL roles (3 planes, 2³ projections)
+bgz-tensor:    symmetric lookup on WEIGHT archetypes (256 palette entries)
+
+All three: precomputed distance table + plane-selective mask + O(1) lookup.
+The bridge makes them interoperable: one palette, three mask types, same algebra.
+```
+
+This is Epiphany 19 — the realization that DeepNSM, CausalEdge64, and bgz-tensor
+are three instances of the same abstract machine. The bridge makes that concrete.
