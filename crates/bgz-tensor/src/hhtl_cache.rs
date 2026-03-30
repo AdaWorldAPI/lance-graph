@@ -259,6 +259,48 @@ fn nearest_archetype(query: &Base17, archetypes: &[Base17]) -> (usize, u32) {
     (best_idx, best_dist)
 }
 
+/// HIP-level cache: 64 archetypes for p64 Palette64 compatibility.
+///
+/// 64 entries × 34 bytes Base17 = 2,176 bytes palette
+/// 64 × 64 × 2 bytes distances  = 8,192 bytes
+/// 64 × 4 bytes radii            = 256 bytes
+/// Total: 10,630 bytes (~10 KB) — fits L1 cache.
+///
+/// This is the sweet spot for p64: `Palette64::attend()` works on 64 rows.
+/// The 9B model has ~40 transformer layers × ~64 heads = ~640 unique patterns.
+/// Furthest-point sampling from 640 to 64 gives ~93% coverage.
+///
+/// For 27B (~64 layers × ~64 heads = ~4096 patterns), sampling to 64 gives
+/// ~76% coverage. Use k=256 HHTL for 27B, k=64 HIP for 9B.
+pub type HipCache = HhtlCache;
+
+impl HhtlCache {
+    /// Build a HIP-level cache (k=64) for p64 compatibility.
+    pub fn build_hip(rows: &[Base17]) -> Self {
+        Self::from_base17_rows(rows, 64)
+    }
+
+    /// Build a full HHTL cache (k=256) for 27B models.
+    pub fn build_full(rows: &[Base17]) -> Self {
+        Self::from_base17_rows(rows, 256)
+    }
+
+    /// Export as 64×64 distance matrix for p64 Palette64 operations.
+    ///
+    /// Returns None if k > 64 (use full HHTL instead).
+    pub fn as_p64_distances(&self) -> Option<[[u16; 64]; 64]> {
+        if self.k() > 64 { return None; }
+        let k = self.k();
+        let mut matrix = [[0u16; 64]; 64];
+        for i in 0..k {
+            for j in 0..k {
+                matrix[i][j] = self.distance(i as u8, j as u8);
+            }
+        }
+        Some(matrix)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
