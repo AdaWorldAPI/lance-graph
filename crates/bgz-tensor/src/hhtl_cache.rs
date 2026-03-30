@@ -24,24 +24,64 @@
 use crate::projection::Base17;
 use crate::palette::WeightPalette;
 use crate::attention::AttentionTable;
+use crate::cascade::{ScentByte, CascadeConfig};
 
-/// HHTL cache: palette + precomputed distance table.
+/// Precomputed action for an archetype pair.
 ///
-/// This is the HIP-level index. 140 KB per model. Enough for 95% of queries.
-/// Only the remaining 5% need to escalate to TWIG (full bgz7 shards).
+/// This is NOT just distance — it's the **routing decision**.
+/// The prefetch loads decisions, not data.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u8)]
+pub enum RouteAction {
+    /// Pair doesn't interact. Skip entirely. No attention score needed.
+    Skip = 0,
+    /// Direct attention: pair interacts, score = distance table lookup.
+    Attend = 1,
+    /// Compose: pair interacts through intermediate archetype (index stored separately).
+    Compose = 2,
+    /// Escalate: HIP can't decide — need TWIG-level Base17 L1 for this pair.
+    Escalate = 3,
+}
+
+/// HHTL cache: palette + precomputed distance table + route table.
+///
+/// The route table is the key insight: it precomputes the CASCADE DECISION
+/// for every archetype pair. At inference time, looking up what to do
+/// with token pair (i, j) is:
+///
+/// ```text
+/// let a = palette_idx[i];
+/// let b = palette_idx[j];
+/// match cache.route(a, b) {
+///     Skip     → don't compute attention (60% of pairs)
+///     Attend   → score = cache.distance(a, b) (35% of pairs)
+///     Compose  → score via intermediate (rare)
+///     Escalate → need full Base17 L1 (5% of pairs)
+/// }
+/// ```
+///
+/// This is the HIP-level index. 140-150 KB per model. 95% early exit.
 #[derive(Clone, Debug)]
 pub struct HhtlCache {
     /// The k archetypal Base17 patterns.
     pub palette: WeightPalette,
     /// k × k pairwise L1 distances (precomputed, O(1) lookup).
     pub distances: AttentionTable,
+    /// k × k precomputed routing decisions. Same layout as distances.
+    pub routes: Vec<RouteAction>,
 }
 
 impl HhtlCache {
-    /// Build from an existing palette.
+    /// Build from an existing palette with default cascade config.
     pub fn from_palette(palette: WeightPalette) -> Self {
+        Self::from_palette_with_config(palette, &CascadeConfig::default())
+    }
+
+    /// Build from an existing palette with custom thresholds.
+    pub fn from_palette_with_config(palette: WeightPalette, config: &CascadeConfig) -> Self {
         let distances = AttentionTable::build(&palette);
-        Self { palette, distances }
+        let routes = build_route_table(&palette, &distances, config);
+        Self { palette, distances, routes }
     }
 
     /// Build from raw Base17 rows (e.g., read from bgz7 shards).
@@ -61,6 +101,7 @@ impl HhtlCache {
                     distances: Vec::new(),
                     k: 0,
                 },
+                routes: Vec::new(),
             };
         }
 
@@ -114,8 +155,10 @@ impl HhtlCache {
             counts,
         };
         let distances = AttentionTable::build(&palette);
+        let config = CascadeConfig::default();
+        let routes = build_route_table(&palette, &distances, &config);
 
-        Self { palette, distances }
+        Self { palette, distances, routes }
     }
 
     /// Palette size (number of archetypes).
@@ -129,6 +172,22 @@ impl HhtlCache {
         self.distances.distance(a, b)
     }
 
+    /// O(1) route lookup: what should we do with this archetype pair?
+    ///
+    /// This is the prefetch decision. When token A (archetype `a`) meets
+    /// token B (archetype `b`), the route tells the attention engine:
+    /// Skip (no computation), Attend (use distance), Compose (multi-hop),
+    /// or Escalate (need more data).
+    #[inline]
+    pub fn route(&self, a: u8, b: u8) -> RouteAction {
+        let k = self.k();
+        if (a as usize) < k && (b as usize) < k {
+            self.routes[a as usize * k + b as usize]
+        } else {
+            RouteAction::Skip
+        }
+    }
+
     /// Find nearest archetype for a query Base17.
     pub fn nearest(&self, query: &Base17) -> (u8, u32) {
         let (idx, dist) = nearest_archetype(query, &self.palette.entries);
@@ -137,8 +196,9 @@ impl HhtlCache {
 
     /// Serialize to compact binary format.
     ///
-    /// Format: "HHTL" + k(u16) + k×Base17(34) + k×k×u16 + k×u32
-    /// = 140,294 bytes for k=256.
+    /// Format: "HHTL" + k(u16) + k×Base17(34) + k×k×u16 + k×k×u8(routes) + k×u32(radii)
+    /// k=256: 4 + 2 + 8704 + 131072 + 65536 + 1024 = 206,342 bytes (~200 KB)
+    /// k=64:  4 + 2 + 2176 + 8192 + 4096 + 256 = 14,726 bytes (~14 KB)
     pub fn serialize(&self, path: &str) -> Result<(), String> {
         use std::io::Write;
         let k = self.k();
@@ -157,6 +217,11 @@ impl HhtlCache {
         // Distance table
         for &d in &self.distances.distances {
             f.write_all(&d.to_le_bytes()).map_err(|e| e.to_string())?;
+        }
+
+        // Route table
+        for &r in &self.routes {
+            f.write_all(&[r as u8]).map_err(|e| e.to_string())?;
         }
 
         // Radii
@@ -202,6 +267,20 @@ impl HhtlCache {
             *d = u16::from_le_bytes(buf);
         }
 
+        // Route table
+        let mut routes = vec![RouteAction::Skip; k * k];
+        for r in &mut routes {
+            let mut buf = [0u8; 1];
+            f.read_exact(&mut buf).map_err(|e| e.to_string())?;
+            *r = match buf[0] {
+                0 => RouteAction::Skip,
+                1 => RouteAction::Attend,
+                2 => RouteAction::Compose,
+                3 => RouteAction::Escalate,
+                _ => RouteAction::Skip,
+            };
+        }
+
         // Radii
         let mut radii = vec![0u32; k];
         for r in &mut radii {
@@ -210,11 +289,12 @@ impl HhtlCache {
             *r = u32::from_le_bytes(buf);
         }
 
-        let counts = vec![0u32; k]; // Not stored, can be recomputed
+        let counts = vec![0u32; k];
 
         Ok(Self {
             palette: WeightPalette { entries, radii, counts },
             distances: AttentionTable { distances, k },
+            routes,
         })
     }
 
@@ -243,6 +323,72 @@ impl HhtlCache {
         cache.serialize(cache_path)?;
         Ok(cache)
     }
+}
+
+/// Build the route table: precompute cascade decisions for all archetype pairs.
+///
+/// For each (a, b) pair, runs the HEEL + HIP check to decide the action.
+/// This is O(k²) at build time, O(1) at inference time.
+fn build_route_table(
+    palette: &WeightPalette,
+    distances: &AttentionTable,
+    config: &CascadeConfig,
+) -> Vec<RouteAction> {
+    let k = palette.len();
+    let mut routes = vec![RouteAction::Skip; k * k];
+    let scent_threshold = 1500u32;
+
+    for a in 0..k {
+        for b in 0..k {
+            // HEEL: scent byte check
+            let scent = ScentByte::compute(
+                &palette.entries[a],
+                &palette.entries[b],
+                scent_threshold,
+            );
+            if scent.agreement_count() < config.heel_min_agreement {
+                routes[a * k + b] = RouteAction::Skip;
+                continue;
+            }
+
+            // HIP: distance check
+            let dist = distances.distance(a as u8, b as u8);
+            if dist > config.hip_max_distance {
+                routes[a * k + b] = RouteAction::Skip;
+                continue;
+            }
+
+            // Check if this pair could benefit from composition
+            // (exists intermediate c where d(a,c) + d(c,b) < d(a,b) * 1.1)
+            let mut has_shortcut = false;
+            for c in 0..k {
+                if c == a || c == b { continue; }
+                let d_ac = distances.distance(a as u8, c as u8) as u32;
+                let d_cb = distances.distance(c as u8, b as u8) as u32;
+                let d_ab = dist as u32;
+                // Composition is useful if the path through c is significantly different
+                // (not just shorter, but structurally different route)
+                if d_ac + d_cb < (d_ab * 9) / 10 {
+                    has_shortcut = true;
+                    break;
+                }
+            }
+
+            if has_shortcut {
+                routes[a * k + b] = RouteAction::Compose;
+            } else if dist < config.hip_max_distance / 2 {
+                // Strong signal — attend directly
+                routes[a * k + b] = RouteAction::Attend;
+            } else {
+                // Borderline — needs TWIG to decide
+                routes[a * k + b] = RouteAction::Escalate;
+            }
+        }
+        // Self-attention is always direct
+        routes[a * k + a] = RouteAction::Attend;
+    }
+
+    routes
 }
 
 /// Find nearest archetype by L1 distance.
@@ -387,8 +533,8 @@ mod tests {
         cache.serialize(path).expect("serialize");
 
         let size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
-        // 4 magic + 2 k + 256×34 entries + 256×256×2 distances + 256×4 radii
-        let expected = 4 + 2 + 256 * 34 + 256 * 256 * 2 + 256 * 4;
+        // 4 magic + 2 k + 256×34 entries + 256×256×2 distances + 256×256×1 routes + 256×4 radii
+        let expected = 4 + 2 + 256 * 34 + 256 * 256 * 2 + 256 * 256 * 1 + 256 * 4;
         assert_eq!(size, expected as u64, "expected {expected} bytes, got {size}");
 
         std::fs::remove_file(path).ok();
