@@ -55,6 +55,41 @@ pub fn read_palette(name: &str) -> io::Result<Vec<u8>> {
     std::fs::read(&path)
 }
 
+/// Which models are enabled by feature flags.
+///
+/// No feature = palette-only (zero download).
+/// Consumer picks what they need:
+/// ```toml
+/// bgz-tensor = { path = "...", features = ["qwen35-9b"] }           # 80 MB
+/// bgz-tensor = { path = "...", features = ["qwen35-9b", "qwen35-27b-v2"] }  # 254 MB
+/// ```
+pub fn enabled_models() -> Vec<&'static str> {
+    let mut models = Vec::new();
+
+    if cfg!(feature = "qwen35-9b") {
+        models.push("qwen35-9b-base");
+        models.push("qwen35-9b-distilled");
+    }
+    if cfg!(feature = "qwen35-27b-v1") {
+        models.push("qwen35-27b-base");
+        models.push("qwen35-27b-distilled-v1");
+    }
+    if cfg!(feature = "qwen35-27b-v2") {
+        models.push("qwen35-27b-base");
+        models.push("qwen35-27b-distilled-v2");
+    }
+
+    // Deduplicate (base appears in multiple features)
+    models.sort();
+    models.dedup();
+    models
+}
+
+/// Check if a model is enabled by feature flags.
+pub fn is_enabled(model: &str) -> bool {
+    enabled_models().contains(&model)
+}
+
 /// Verify SHA256 of a file against expected hash.
 pub fn verify_sha256(path: &Path, expected: &str) -> io::Result<bool> {
     use sha2::{Digest, Sha256};

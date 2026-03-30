@@ -27,6 +27,16 @@ sha2 = { version = "0.10", optional = true }
 
 [features]
 default = []
+
+# Model selection — controls which bgz7 shards `hydrate --download` fetches.
+# No feature = palette-only (4 KB, always works, no download).
+# Pick ONE 27B variant. 9B is small enough to always include with a 27B.
+qwen35-9b = []              # 80 MB — quick thinking, shallow routing
+qwen35-27b-v1 = []          # 174 MB — Opus 4.5 behavior (deep reasoning)
+qwen35-27b-v2 = []          # 174 MB — Opus 4.6 precision (code/format)
+qwen35-full = ["qwen35-9b", "qwen35-27b-v1", "qwen35-27b-v2"]  # 430 MB — all variants
+
+# Hydrate binary deps (serde + sha2). Only needed for the CLI tool.
 hydrate = ["dep:serde", "dep:serde_json", "dep:sha2"]
 
 [[bin]]

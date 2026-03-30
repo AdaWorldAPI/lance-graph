@@ -5,7 +5,7 @@
 //!   --features hydrate --bin hydrate -- --list
 //! ```
 
-use bgz_tensor::manifest::{self, load_manifest, is_hydrated, bgz7_path, verify_sha256};
+use bgz_tensor::manifest::{self, load_manifest, is_hydrated, is_enabled, enabled_models, bgz7_path, verify_sha256};
 use std::{env, fs, process};
 
 fn main() {
@@ -23,6 +23,7 @@ fn main() {
 
     match command.as_str() {
         "--list" => cmd_list(&manifest),
+        "--download" if model == "--enabled" || model.is_empty() => cmd_download_enabled(&manifest),
         "--download" => cmd_download(&manifest, model),
         "--reindex" => cmd_reindex(&manifest, model),
         "--verify" => cmd_verify(&manifest, model),
@@ -39,29 +40,64 @@ fn usage() {
     eprintln!("bgz-tensor hydrate — manage model tensor indexes");
     eprintln!();
     eprintln!("Usage:");
-    eprintln!("  hydrate --list                 Show all models and status");
-    eprintln!("  hydrate --download MODEL       Fetch pre-built bgz7 from GitHub Release");
+    eprintln!("  hydrate --list                 Show all models and hydration status");
+    eprintln!("  hydrate --download             Download all feature-enabled models");
+    eprintln!("  hydrate --download MODEL       Download a specific model");
     eprintln!("  hydrate --reindex MODEL        Stream from HuggingFace, build bgz7 locally");
     eprintln!("  hydrate --verify MODEL         Check SHA256 of existing shards");
     eprintln!();
-    eprintln!("Models are defined in data/manifest.json.");
+    eprintln!("Feature flags control which models are enabled (zero download by default):");
+    eprintln!("  qwen35-9b      80 MB  — quick thinking, shallow routing");
+    eprintln!("  qwen35-27b-v1  174 MB — Opus 4.5 behavior (deep reasoning)");
+    eprintln!("  qwen35-27b-v2  174 MB — Opus 4.6 precision (code/format)");
+    eprintln!("  qwen35-full    430 MB — all variants");
 }
 
 fn cmd_list(manifest: &manifest::Manifest) {
+    let enabled = enabled_models();
     eprintln!("bgz-tensor model index");
+    if enabled.is_empty() {
+        eprintln!("  No models enabled. Add features: qwen35-9b, qwen35-27b-v1, qwen35-27b-v2");
+    } else {
+        eprintln!("  Enabled: {}", enabled.join(", "));
+    }
     eprintln!();
     for (name, entry) in &manifest.models {
+        let flag = if is_enabled(name) { "►" } else { " " };
         let status = if is_hydrated(name, entry.shards) {
             "HYDRATED"
+        } else if is_enabled(name) {
+            "ENABLED"
         } else {
-            "missing"
+            "disabled"
         };
         println!(
-            "{status:>10}  {name:<35} {shards:>2} shards  {mb:>6.0} MB  ({source})",
+            " {flag} {status:>10}  {name:<35} {shards:>2} shards  {mb:>6.0} MB  ({source})",
             shards = entry.shards,
             mb = entry.total_bytes_bgz7 as f64 / 1_000_000.0,
             source = entry.source,
         );
+    }
+}
+
+fn cmd_download_enabled(manifest: &manifest::Manifest) {
+    let enabled = enabled_models();
+    if enabled.is_empty() {
+        eprintln!("No models enabled. Add features to Cargo.toml:");
+        eprintln!("  bgz-tensor = {{ features = [\"qwen35-9b\"] }}");
+        process::exit(1);
+    }
+    for model in &enabled {
+        let entry = match manifest.models.get(*model) {
+            Some(e) => e,
+            None => continue,
+        };
+        if is_hydrated(model, entry.shards) {
+            println!("{model}: already hydrated, skipping");
+            continue;
+        }
+        println!("\n═══ Downloading {model} ═══");
+        cmd_download(manifest, model);
     }
 }
 
