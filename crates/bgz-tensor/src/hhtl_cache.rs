@@ -1,0 +1,354 @@
+//! HHTL cache: compact index alongside bgz7 weight files.
+//!
+//! Extracts the 256-entry palette + distance table from bgz7 shards
+//! and writes a compact cache file for HIP-level early exit.
+//!
+//! ```text
+//! Per model:
+//!   shard-00.bgz7           (17 MB)  ← full weight fingerprints
+//!   shard-00_hhtl.bgz       (140 KB) ← palette + distance table (95% queries)
+//!
+//! Or per model (aggregated):
+//!   qwen35-9b-base_hhtl.bgz (140 KB) ← combined from all 4 shards
+//! ```
+//!
+//! Format: "HHTL" + k(u16) + k × Base17(34) + k × k × u16 + k × u32 radii
+//!   = 4 + 2 + 256×34 + 256×256×2 + 256×4 = 140,294 bytes for k=256
+//!
+//! The HHTL cache enables:
+//!   HEEL: PAL8 palette bits → which blocks? (4 KB, from ndarray)
+//!   HIP:  HHTL cache → L1 distance between any two archetypes (140 KB, this file)
+//!   TWIG: bgz7 → per-row Base17 lookup (17+ MB, feature-gated download)
+//!   LEAF: BF16 from HuggingFace → never stored locally
+
+use crate::projection::Base17;
+use crate::palette::WeightPalette;
+use crate::attention::AttentionTable;
+
+/// HHTL cache: palette + precomputed distance table.
+///
+/// This is the HIP-level index. 140 KB per model. Enough for 95% of queries.
+/// Only the remaining 5% need to escalate to TWIG (full bgz7 shards).
+#[derive(Clone, Debug)]
+pub struct HhtlCache {
+    /// The k archetypal Base17 patterns.
+    pub palette: WeightPalette,
+    /// k × k pairwise L1 distances (precomputed, O(1) lookup).
+    pub distances: AttentionTable,
+}
+
+impl HhtlCache {
+    /// Build from an existing palette.
+    pub fn from_palette(palette: WeightPalette) -> Self {
+        let distances = AttentionTable::build(&palette);
+        Self { palette, distances }
+    }
+
+    /// Build from raw Base17 rows (e.g., read from bgz7 shards).
+    ///
+    /// Selects up to 256 archetypes via furthest-point sampling,
+    /// computes the distance table, stores radii for distortion bounds.
+    pub fn from_base17_rows(rows: &[Base17], max_k: usize) -> Self {
+        let k = rows.len().min(max_k).min(256);
+        if k == 0 {
+            return Self {
+                palette: WeightPalette {
+                    entries: Vec::new(),
+                    radii: Vec::new(),
+                    counts: Vec::new(),
+                },
+                distances: AttentionTable {
+                    distances: Vec::new(),
+                    k: 0,
+                },
+            };
+        }
+
+        // Furthest-point sampling for coverage
+        let mut selected = Vec::with_capacity(k);
+        let mut selected_idx = Vec::with_capacity(k);
+        let mut min_dists = vec![u32::MAX; rows.len()];
+
+        // Start with first row
+        selected.push(rows[0].clone());
+        selected_idx.push(0);
+
+        for _ in 1..k {
+            // Update min distances to nearest selected
+            let last = selected.last().unwrap();
+            for (i, row) in rows.iter().enumerate() {
+                let d = row.l1(last);
+                if d < min_dists[i] {
+                    min_dists[i] = d;
+                }
+            }
+
+            // Pick the row farthest from all selected
+            let mut best_idx = 0;
+            let mut best_dist = 0u32;
+            for (i, &d) in min_dists.iter().enumerate() {
+                if d > best_dist && !selected_idx.contains(&i) {
+                    best_dist = d;
+                    best_idx = i;
+                }
+            }
+
+            selected.push(rows[best_idx].clone());
+            selected_idx.push(best_idx);
+        }
+
+        // Compute radii: for each archetype, max L1 to any assigned row
+        let mut radii = vec![0u32; k];
+        let mut counts = vec![0u32; k];
+        for row in rows {
+            let (nearest, dist) = nearest_archetype(row, &selected);
+            counts[nearest] += 1;
+            if dist > radii[nearest] {
+                radii[nearest] = dist;
+            }
+        }
+
+        let palette = WeightPalette {
+            entries: selected,
+            radii,
+            counts,
+        };
+        let distances = AttentionTable::build(&palette);
+
+        Self { palette, distances }
+    }
+
+    /// Palette size (number of archetypes).
+    pub fn k(&self) -> usize {
+        self.palette.len()
+    }
+
+    /// O(1) distance lookup between two archetype indices.
+    #[inline]
+    pub fn distance(&self, a: u8, b: u8) -> u16 {
+        self.distances.distance(a, b)
+    }
+
+    /// Find nearest archetype for a query Base17.
+    pub fn nearest(&self, query: &Base17) -> (u8, u32) {
+        let (idx, dist) = nearest_archetype(query, &self.palette.entries);
+        (idx as u8, dist)
+    }
+
+    /// Serialize to compact binary format.
+    ///
+    /// Format: "HHTL" + k(u16) + k×Base17(34) + k×k×u16 + k×u32
+    /// = 140,294 bytes for k=256.
+    pub fn serialize(&self, path: &str) -> Result<(), String> {
+        use std::io::Write;
+        let k = self.k();
+        let mut f = std::fs::File::create(path).map_err(|e| e.to_string())?;
+
+        f.write_all(b"HHTL").map_err(|e| e.to_string())?;
+        f.write_all(&(k as u16).to_le_bytes()).map_err(|e| e.to_string())?;
+
+        // Palette entries
+        for entry in &self.palette.entries {
+            for &dim in &entry.dims {
+                f.write_all(&dim.to_le_bytes()).map_err(|e| e.to_string())?;
+            }
+        }
+
+        // Distance table
+        for &d in &self.distances.distances {
+            f.write_all(&d.to_le_bytes()).map_err(|e| e.to_string())?;
+        }
+
+        // Radii
+        for &r in &self.palette.radii {
+            f.write_all(&r.to_le_bytes()).map_err(|e| e.to_string())?;
+        }
+
+        Ok(())
+    }
+
+    /// Deserialize from compact binary.
+    pub fn deserialize(path: &str) -> Result<Self, String> {
+        use std::io::Read;
+        let mut f = std::fs::File::open(path).map_err(|e| e.to_string())?;
+
+        let mut magic = [0u8; 4];
+        f.read_exact(&mut magic).map_err(|e| e.to_string())?;
+        if &magic != b"HHTL" {
+            return Err(format!("bad magic: {:?}", magic));
+        }
+
+        let mut k_buf = [0u8; 2];
+        f.read_exact(&mut k_buf).map_err(|e| e.to_string())?;
+        let k = u16::from_le_bytes(k_buf) as usize;
+
+        // Palette entries
+        let mut entries = Vec::with_capacity(k);
+        for _ in 0..k {
+            let mut dims = [0i16; 17];
+            for d in &mut dims {
+                let mut buf = [0u8; 2];
+                f.read_exact(&mut buf).map_err(|e| e.to_string())?;
+                *d = i16::from_le_bytes(buf);
+            }
+            entries.push(Base17 { dims });
+        }
+
+        // Distance table
+        let mut distances = vec![0u16; k * k];
+        for d in &mut distances {
+            let mut buf = [0u8; 2];
+            f.read_exact(&mut buf).map_err(|e| e.to_string())?;
+            *d = u16::from_le_bytes(buf);
+        }
+
+        // Radii
+        let mut radii = vec![0u32; k];
+        for r in &mut radii {
+            let mut buf = [0u8; 4];
+            f.read_exact(&mut buf).map_err(|e| e.to_string())?;
+            *r = u32::from_le_bytes(buf);
+        }
+
+        let counts = vec![0u32; k]; // Not stored, can be recomputed
+
+        Ok(Self {
+            palette: WeightPalette { entries, radii, counts },
+            distances: AttentionTable { distances, k },
+        })
+    }
+
+    /// Check if HHTL cache exists for a model.
+    pub fn cache_path(model_dir: &str, model_name: &str) -> String {
+        format!("{}/{}_hhtl.bgz", model_dir, model_name)
+    }
+
+    /// Load or build: try cache first, build from bgz7 rows if missing.
+    pub fn load_or_build(
+        cache_path: &str,
+        rows: Option<&[Base17]>,
+        max_k: usize,
+    ) -> Result<Self, String> {
+        // Try cache first
+        if std::fs::metadata(cache_path).is_ok() {
+            return Self::deserialize(cache_path);
+        }
+
+        // Build from rows
+        let rows = rows.ok_or_else(|| {
+            format!("{cache_path} not found and no rows provided — run hydrate first")
+        })?;
+
+        let cache = Self::from_base17_rows(rows, max_k);
+        cache.serialize(cache_path)?;
+        Ok(cache)
+    }
+}
+
+/// Find nearest archetype by L1 distance.
+fn nearest_archetype(query: &Base17, archetypes: &[Base17]) -> (usize, u32) {
+    let mut best_idx = 0;
+    let mut best_dist = u32::MAX;
+    for (i, a) in archetypes.iter().enumerate() {
+        let d = query.l1(a);
+        if d < best_dist {
+            best_dist = d;
+            best_idx = i;
+        }
+    }
+    (best_idx, best_dist)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_hhtl_cache_empty() {
+        let cache = HhtlCache::from_base17_rows(&[], 256);
+        assert_eq!(cache.k(), 0);
+    }
+
+    #[test]
+    fn test_hhtl_cache_small() {
+        let rows: Vec<Base17> = (0..10).map(|i| {
+            let mut dims = [0i16; 17];
+            dims[0] = (i * 100) as i16;
+            dims[1] = (i * 50) as i16;
+            Base17 { dims }
+        }).collect();
+
+        let cache = HhtlCache::from_base17_rows(&rows, 256);
+        assert_eq!(cache.k(), 10); // fewer rows than max_k
+
+        // Distance should be symmetric
+        let d01 = cache.distance(0, 1);
+        let d10 = cache.distance(1, 0);
+        assert_eq!(d01, d10);
+
+        // Self-distance should be 0
+        assert_eq!(cache.distance(0, 0), 0);
+    }
+
+    #[test]
+    fn test_hhtl_cache_serialization_roundtrip() {
+        let rows: Vec<Base17> = (0..20).map(|i| {
+            let mut dims = [0i16; 17];
+            dims[0] = (i * 100) as i16;
+            dims[3] = (i * 77) as i16;
+            dims[16] = -(i * 30) as i16;
+            Base17 { dims }
+        }).collect();
+
+        let cache = HhtlCache::from_base17_rows(&rows, 16);
+        assert_eq!(cache.k(), 16);
+
+        let path = "/tmp/test_hhtl_roundtrip.bgz";
+        cache.serialize(path).expect("serialize");
+
+        let loaded = HhtlCache::deserialize(path).expect("deserialize");
+        assert_eq!(loaded.k(), 16);
+
+        // Distances should match
+        for i in 0..16 {
+            for j in 0..16 {
+                assert_eq!(
+                    cache.distance(i as u8, j as u8),
+                    loaded.distance(i as u8, j as u8),
+                    "mismatch at ({i}, {j})"
+                );
+            }
+        }
+
+        // Palette entries should match
+        for i in 0..16 {
+            assert_eq!(cache.palette.entries[i], loaded.palette.entries[i]);
+        }
+
+        std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn test_hhtl_cache_256_size() {
+        // Verify file size for k=256
+        let rows: Vec<Base17> = (0..300).map(|i| {
+            let mut dims = [0i16; 17];
+            dims[0] = (i % 256) as i16 * 100;
+            dims[1] = (i / 3) as i16;
+            Base17 { dims }
+        }).collect();
+
+        let cache = HhtlCache::from_base17_rows(&rows, 256);
+        assert_eq!(cache.k(), 256);
+
+        let path = "/tmp/test_hhtl_256.bgz";
+        cache.serialize(path).expect("serialize");
+
+        let size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+        // 4 magic + 2 k + 256×34 entries + 256×256×2 distances + 256×4 radii
+        let expected = 4 + 2 + 256 * 34 + 256 * 256 * 2 + 256 * 4;
+        assert_eq!(size, expected as u64, "expected {expected} bytes, got {size}");
+
+        std::fs::remove_file(path).ok();
+    }
+}
