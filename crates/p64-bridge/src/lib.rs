@@ -223,6 +223,222 @@ pub fn semiring_to_modes(semiring_name: &str) -> (u8, u8) {
 }
 
 // ============================================================================
+// Blumenstrauß: 8 planes bundled — topology × metric × algebra
+// ============================================================================
+
+/// Blumenstrauß: binds p64 topology with bgz17 O(1) distance.
+///
+/// ```text
+/// Mask (p64):     [u64; 64]       WHICH pairs interact (topology)
+/// Distance (bgz17): [u16; k×k]   HOW FAR apart (metric, O(1) lookup)
+/// Compose (bgz17):  [u8; k×k]    WHAT path composition means (algebra, O(1))
+/// ```
+///
+/// No POPCNT. No Hamming. Distance is PRECOMPUTED in the codebook.
+/// The mask gates access. The table provides the answer. O(1).
+pub mod blumenstrauss {
+    use bgz17::distance_matrix::DistanceMatrix;
+    use bgz17::palette::Palette;
+    use bgz17::palette_semiring::PaletteSemiring;
+
+    /// 8 planes × 64 rows = 512 u64 = topology mask.
+    /// Each plane corresponds to a predicate layer (CAUSES..BECOMES).
+    /// Each bit at `planes[z][row] & (1 << col)` means:
+    ///   "archetype block `row` relates to block `col` via predicate `z`."
+    ///
+    /// Distance between any two archetype indices = `semiring.distance(a, b)`.
+    /// Path composition = `semiring.compose(a, b)`.
+    /// Both O(1). The mask just says WHERE to look.
+    pub struct Blumenstrauss<'a> {
+        /// 8 predicate planes (topology).
+        pub planes: [[u64; 64]; 8],
+        /// bgz17 semiring: distance + compose + identity.
+        pub semiring: &'a PaletteSemiring,
+        /// Palette size (typically 256).
+        pub k: usize,
+    }
+
+    /// Result of a cascade query.
+    #[derive(Debug, Clone)]
+    pub struct CascadeHit {
+        /// Target archetype index (0..255).
+        pub target: u8,
+        /// Precomputed distance from query to target.
+        pub distance: u16,
+        /// Which predicate layers connect them (bitmask).
+        pub predicates: u8,
+    }
+
+    impl<'a> Blumenstrauss<'a> {
+        /// Construct from layered rows (output of `edges_to_layered_rows`) + bgz17 semiring.
+        pub fn new(planes: [[u64; 64]; 8], semiring: &'a PaletteSemiring) -> Self {
+            Self {
+                planes,
+                semiring,
+                k: semiring.k,
+            }
+        }
+
+        /// HHTL Cascade: find all targets within `radius` of `query`.
+        ///
+        /// ```text
+        /// HEEL: which predicate planes are active? (layer_mask gates Z)
+        /// HIP:  scan mask row for active bits     (topology gates X-Y)
+        /// TWIG: expand block → 4 archetype indices (4×4 refinement)
+        /// LEAF: semiring.distance(query, target)   (O(1) metric lookup)
+        /// ```
+        ///
+        /// Returns hits sorted by distance ascending.
+        pub fn cascade(
+            &self,
+            query: u8,
+            radius: u16,
+            layer_mask: u8,
+        ) -> Vec<CascadeHit> {
+            let block_row = query as usize / 4;
+            if block_row >= 64 {
+                return Vec::new();
+            }
+
+            // Collect which block-columns are active across selected layers
+            let mut active_cols = 0u64;
+            let mut per_col_predicates = [0u8; 64];
+
+            for z in 0..8 {
+                if layer_mask & (1 << z) == 0 {
+                    continue;
+                }
+                let row_mask = self.planes[z][block_row];
+                let mut bits = row_mask;
+                while bits != 0 {
+                    let col = bits.trailing_zeros() as usize;
+                    bits &= bits - 1;
+                    active_cols |= 1u64 << col;
+                    per_col_predicates[col] |= 1 << z;
+                }
+            }
+
+            // Expand active block-columns to archetype indices, lookup distance
+            let mut hits = Vec::new();
+            let mut bits = active_cols;
+            while bits != 0 {
+                let block_col = bits.trailing_zeros() as usize;
+                bits &= bits - 1;
+
+                // 4 archetype indices per block
+                for sub in 0..4 {
+                    let target = (block_col * 4 + sub) as u8;
+                    if (target as usize) >= self.k {
+                        continue;
+                    }
+                    let dist = self.semiring.distance(query, target);
+                    if dist <= radius {
+                        hits.push(CascadeHit {
+                            target,
+                            distance: dist,
+                            predicates: per_col_predicates[block_col],
+                        });
+                    }
+                }
+            }
+
+            hits.sort_by_key(|h| h.distance);
+            hits
+        }
+
+        /// Transitive deduction: A→B→C via compose.
+        ///
+        /// Given query A, find all B where A→B exists (CAUSES layer),
+        /// then for each B, compose(A,B) gives the intermediate,
+        /// and scan for all C where B→C exists (ENABLES layer).
+        /// Distance of the composed path = distance(A, compose(A,B)) + distance(compose(A,B), C).
+        pub fn deduce_path(
+            &self,
+            query: u8,
+            cause_layer: usize,
+            effect_layer: usize,
+            max_hops: usize,
+        ) -> Vec<(u8, u16, Vec<u8>)> {
+            let mut results = Vec::new();
+            let mut visited = [false; 256];
+            visited[query as usize] = true;
+
+            let mut frontier = vec![(query, 0u16, vec![query])];
+
+            for _hop in 0..max_hops {
+                let mut next_frontier = Vec::new();
+
+                for (current, cumulative_dist, path) in &frontier {
+                    let block_row = *current as usize / 4;
+                    if block_row >= 64 {
+                        continue;
+                    }
+
+                    // Which targets does `current` connect to in the specified layer?
+                    let layer = if _hop == 0 { cause_layer } else { effect_layer };
+                    let mask = self.planes[layer.min(7)][block_row];
+                    let mut bits = mask;
+
+                    while bits != 0 {
+                        let block_col = bits.trailing_zeros() as usize;
+                        bits &= bits - 1;
+
+                        for sub in 0..4 {
+                            let target = (block_col * 4 + sub) as u8;
+                            if (target as usize) >= self.k || visited[target as usize] {
+                                continue;
+                            }
+
+                            // Compose: what does the path through current→target produce?
+                            let composed = self.semiring.compose(*current, target);
+                            let step_dist = self.semiring.distance(*current, target);
+                            let total = cumulative_dist + step_dist;
+
+                            visited[target as usize] = true;
+                            let mut new_path = path.clone();
+                            new_path.push(target);
+                            results.push((composed, total, new_path.clone()));
+                            next_frontier.push((target, total, new_path));
+                        }
+                    }
+                }
+
+                if next_frontier.is_empty() {
+                    break;
+                }
+                frontier = next_frontier;
+            }
+
+            results.sort_by_key(|(_, dist, _)| *dist);
+            results
+        }
+
+        /// Density per layer.
+        pub fn layer_densities(&self) -> [f32; 8] {
+            let mut d = [0.0f32; 8];
+            for z in 0..8 {
+                let bits: u32 = self.planes[z].iter().map(|r| r.count_ones()).sum();
+                d[z] = bits as f32 / 4096.0;
+            }
+            d
+        }
+
+        /// Memory footprint.
+        pub fn topology_bytes(&self) -> usize {
+            8 * 64 * 8 // 8 planes × 64 rows × 8 bytes per u64
+        }
+
+        pub fn metric_bytes(&self) -> usize {
+            self.semiring.byte_size()
+        }
+
+        pub fn total_bytes(&self) -> usize {
+            self.topology_bytes() + self.metric_bytes()
+        }
+    }
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 
@@ -325,5 +541,101 @@ mod tests {
         let (comb, ctr) = semiring_to_modes("XOR_BUNDLE");
         assert_eq!(comb, combine::UNION);
         assert_eq!(ctr, contra::INVERT);
+    }
+
+    #[test]
+    fn blumenstrauss_cascade() {
+        use super::blumenstrauss::Blumenstrauss;
+        use bgz17::base17::Base17;
+        use bgz17::palette::Palette;
+        use bgz17::palette_semiring::PaletteSemiring;
+
+        // Build a small palette: 16 entries with distinct Base17 patterns
+        let entries: Vec<Base17> = (0..16).map(|i| {
+            let mut dims = [0i16; 17];
+            dims[0] = (i * 100) as i16;  // spread on dim 0
+            dims[1] = ((i * 37) % 200) as i16;
+            Base17 { dims }
+        }).collect();
+        let palette = Palette { entries };
+        let semiring = PaletteSemiring::build(&palette);
+
+        // Build layered mask: CAUSES connects neighbors, ENABLES connects every other
+        let mut planes = [[0u64; 64]; 8];
+        for i in 0..4 {  // 16 entries / 4 = 4 blocks
+            // CAUSES: each block connects to next block
+            if i + 1 < 4 {
+                planes[CAUSES][i] |= 1u64 << (i + 1);
+            }
+            // ENABLES: each block connects to block+2
+            if i + 2 < 4 {
+                planes[ENABLES][i] |= 1u64 << (i + 2);
+            }
+            // SUPPORTS: self-connection
+            planes[SUPPORTS][i] |= 1u64 << i;
+        }
+
+        let b = Blumenstrauss::new(planes, &semiring);
+
+        // Cascade from entry 0, radius = 5000 (wide), all layers
+        let hits = b.cascade(0, 5000, 0xFF);
+
+        eprintln!("\n=== Blumenstrauß Cascade ===");
+        eprintln!("Query: archetype 0, radius=5000, all layers");
+        eprintln!("Hits: {}", hits.len());
+        for hit in &hits {
+            eprintln!("  target={:3} dist={:5} predicates={:08b}", 
+                hit.target, hit.distance, hit.predicates);
+        }
+
+        assert!(!hits.is_empty(), "Should find at least one hit");
+        // All distances should be from bgz17 lookup, not POPCNT
+        for hit in &hits {
+            let expected_dist = semiring.distance(0, hit.target);
+            assert_eq!(hit.distance, expected_dist, 
+                "Distance should match bgz17 O(1) lookup for target {}", hit.target);
+        }
+
+        // Memory footprint
+        eprintln!("Topology: {} bytes", b.topology_bytes());
+        eprintln!("Metric:   {} bytes", b.metric_bytes());
+        eprintln!("Total:    {} bytes", b.total_bytes());
+        eprintln!("Densities: {:?}", b.layer_densities());
+    }
+
+    #[test]
+    fn blumenstrauss_deduction() {
+        use super::blumenstrauss::Blumenstrauss;
+        use bgz17::base17::Base17;
+        use bgz17::palette::Palette;
+        use bgz17::palette_semiring::PaletteSemiring;
+
+        let entries: Vec<Base17> = (0..16).map(|i| {
+            let mut dims = [0i16; 17];
+            dims[0] = (i * 100) as i16;
+            dims[1] = ((i * 37) % 200) as i16;
+            Base17 { dims }
+        }).collect();
+        let palette = Palette { entries };
+        let semiring = PaletteSemiring::build(&palette);
+
+        // Chain: 0→1 (CAUSES), 1→2 (ENABLES), 2→3 (ENABLES)
+        let mut planes = [[0u64; 64]; 8];
+        planes[CAUSES][0] = 0b0010;   // block 0 → block 1
+        planes[ENABLES][0] = 0b0100;  // block 0 → block 2
+        planes[ENABLES][0] |= 0b1000; // block 0 → block 3
+
+        let b = Blumenstrauss::new(planes, &semiring);
+
+        let paths = b.deduce_path(0, CAUSES, ENABLES, 2);
+
+        eprintln!("\n=== Blumenstrauß Deduction ===");
+        eprintln!("Query: 0, CAUSES→ENABLES, max 2 hops");
+        for (composed, dist, path) in &paths {
+            eprintln!("  composed={composed} dist={dist} path={path:?}");
+        }
+
+        // Should find paths via compose(0, target) = O(1) algebra
+        assert!(!paths.is_empty(), "Should find deduced paths");
     }
 }
