@@ -1,0 +1,52 @@
+{
+  "models": {
+    "qwen35-9b-base": {
+      "source": "Qwen/Qwen3.5-9B",
+      "format": "safetensors",
+      "shards": 4,
+      "total_bytes_bgz7": 83375714,
+      "release_tag": "v0.1.0-bgz-data",
+      "sha256": {}
+    },
+    "qwen35-9b-distilled": {
+      "source": "Jackrong/Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled",
+      "format": "safetensors",
+      "shards": 4,
+      "total_bytes_bgz7": 83375714,
+      "release_tag": "v0.1.0-bgz-data",
+      "sha256": {}
+    },
+    "qwen35-27b-base": {
+      "source": "Qwen/Qwen3.5-27B",
+      "format": "safetensors",
+      "shards": 11,
+      "total_bytes_bgz7": 178266914,
+      "release_tag": "v0.1.0-bgz-data",
+      "sha256": {}
+    },
+    "qwen35-27b-distilled-v1": {
+      "source": "Jackrong/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled",
+      "format": "safetensors",
+      "shards": 11,
+      "total_bytes_bgz7": 178266914,
+      "release_tag": "v0.1.0-bgz-data",
+      "sha256": {}
+    },
+    "qwen35-27b-distilled-v2": {
+      "source": "Jackrong/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2",
+      "format": "safetensors",
+      "shards": 11,
+      "total_bytes_bgz7": 178266914,
+      "release_tag": "v0.1.0-bgz-data",
+      "sha256": {}
+    },
+    "llama4-scout": {
+      "source": "meta-llama/Llama-4-Scout-17B-16E-Instruct",
+      "format": "gguf",
+      "shards": 5,
+      "total_bytes_bgz7": 37400000,
+      "release_tag": "v0.1.0-bgz-data",
+      "sha256": {}
+    }
+  }
+}

@@ -18,7 +18,20 @@ manifold clustering, then replaces matmul with precomputed distance table lookup
   - HHTL cascade: 95% of attention computation eliminated at Layer 0-1
 """
 
-# Zero dependencies — same philosophy as bgz17 and deepnsm.
+# Zero dependencies for the library — same philosophy as bgz17 and deepnsm.
+# The hydrate binary has optional deps for manifest parsing + integrity checks.
 [dependencies]
+serde = { version = "1", features = ["derive"], optional = true }
+serde_json = { version = "1", optional = true }
+sha2 = { version = "0.10", optional = true }
+
+[features]
+default = []
+hydrate = ["dep:serde", "dep:serde_json", "dep:sha2"]
+
+[[bin]]
+name = "hydrate"
+path = "src/hydrate.rs"
+required-features = ["hydrate"]
 
 [dev-dependencies]

@@ -65,6 +65,9 @@ pub mod palette;
 pub mod projection;
 pub mod quality;
 
+#[cfg(feature = "hydrate")]
+pub mod manifest;
+
 // ─── Re-exports ──────────────────────────────────────────────────────────────
 
 pub use attention::{AttentionSemiring, AttentionTable, CompiledHead, ComposeTable};
