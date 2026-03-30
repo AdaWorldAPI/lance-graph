@@ -48,5 +48,31 @@
       "release_tag": "v0.1.0-bgz-data",
       "sha256": {}
     }
+  },
+  "savants": {
+    "core": {
+      "source": "extracted from 9B ∩ 27B GROUNDS layer",
+      "k": 64,
+      "file": "palettes/core_savant.hhtl.bgz",
+      "size_bytes": 14726,
+      "committed": true,
+      "description": "Scale-invariant gatekeeper. Always loaded. L1 cache resident."
+    },
+    "psychology": {
+      "source": "extracted from v1 \\ v2 heads (Opus 4.5 behavioral)",
+      "k": 256,
+      "file": "palettes/psychology_savant.hhtl.bgz",
+      "size_bytes": 206342,
+      "committed": true,
+      "description": "Behavioral pattern backend. Loaded on escalation. Persona traits, tone, metacognition."
+    },
+    "linguistics": {
+      "source": "extracted from v2 \\ v1 heads (Opus 4.6 precision)",
+      "k": 256,
+      "file": "palettes/linguistics_savant.hhtl.bgz",
+      "size_bytes": 206342,
+      "committed": true,
+      "description": "Structural analysis backend. Loaded on escalation. Code, syntax, format compliance."
+    }
   }
 }

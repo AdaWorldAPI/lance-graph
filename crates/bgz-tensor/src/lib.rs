@@ -65,6 +65,7 @@ pub mod hhtl_cache;
 pub mod palette;
 pub mod projection;
 pub mod quality;
+pub mod savant;
 
 #[cfg(feature = "hydrate")]
 pub mod manifest;
