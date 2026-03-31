@@ -20,10 +20,19 @@ tokio = { version = "1", features = ["rt", "sync"] }
 # Logging
 tracing = "0.1"
 
+# HTTP server (optional, behind "serve" feature)
+axum = { version = "0.8", optional = true }
+
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 
 [features]
 default = []
-jit = []          # Enable Cranelift JIT compilation of thinking styles
-datafusion = []   # Enable DataFusion physical backend
+jit = []
+datafusion = []
+serve = ["dep:axum", "tokio/rt-multi-thread", "tokio/macros"]
+
+[[bin]]
+name = "serve"
+path = "src/serve.rs"
+required-features = ["serve"]
