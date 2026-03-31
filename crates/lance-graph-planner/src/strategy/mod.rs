@@ -18,7 +18,7 @@
 //! |14 | GremlinParse      | Parse               | TinkerPop Gremlin    |
 //! |15 | SparqlParse       | Parse               | W3C SPARQL           |
 //! |16 | GqlParse          | Parse               | ISO GQL (39075)      |
-//! |17 | ChatBundle        | Extension           | BindSpace hot path   |
+//! |17 | AutocompleteCache | Extension           | BindSpace hot path   |
 
 pub mod cypher_parse;
 pub mod gremlin_parse;
@@ -72,7 +72,7 @@ pub fn default_strategies() -> Vec<Box<dyn PlanStrategy>> {
         // Cross-cutting
         Box::new(workflow_dag::WorkflowDAG),
         Box::new(extension::ExtensionPlanner),
-        // Chat hot path (BindSpace bundling)
-        Box::new(chat_bundle::ChatBundleStrategy),
+        // Chat hot path (AutocompleteCache — full causal cognition engine)
+        Box::new(chat_bundle::AutocompleteCacheStrategy),
     ]
 }
