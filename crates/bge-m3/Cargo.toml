@@ -1,0 +1,12 @@
+[package]
+name = "bge-m3"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.94"
+description = "BGE-M3: multilingual embedding via XLM-RoBERTa inference. 100+ languages. No API."
+license = "Apache-2.0"
+
+[dependencies]
+ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
+
+[dev-dependencies]

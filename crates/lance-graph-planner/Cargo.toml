@@ -20,10 +20,35 @@ tokio = { version = "1", features = ["rt", "sync"] }
 # Logging
 tracing = "0.1"
 
+# Hardware acceleration layer (mandatory)
+ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
+
+# Causal edge protocol (CausalEdge64, NarsTables, Pearl hierarchy)
+causal-edge = { path = "../causal-edge" }
+
+# p64: convergence point — both ndarray and lance-graph meet here
+p64 = { path = "../../../ndarray/crates/p64" }
+
+# p64-bridge: CausalEdge64 + bgz17 → Blumenstrauss
+p64-bridge = { path = "../p64-bridge" }
+
+# bgz17: palette semiring codec (Base17 VSA, 121 tests)
+bgz17 = { path = "../bgz17" }
+
+# HTTP server (optional, behind "serve" feature)
+axum = { version = "0.8", optional = true }
+
+
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 
 [features]
 default = []
-jit = []          # Enable Cranelift JIT compilation of thinking styles
-datafusion = []   # Enable DataFusion physical backend
+jit = []
+datafusion = []
+serve = ["dep:axum", "tokio/rt-multi-thread", "tokio/macros"]
+
+[[bin]]
+name = "serve"
+path = "src/serve.rs"
+required-features = ["serve"]

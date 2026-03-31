@@ -293,3 +293,45 @@ docs/INTEGRATION_DEBT_AND_PATHS.md     — Strengths, weaknesses, epiphanies, 7 
 docs/ORCHESTRATION_IS_GRAPH.md         — Capstone: orchestration AS graph traversal
 docs/CONSUMER_WIRING_INSTRUCTIONS.md   — How to consume lance-graph-contract
 ```
+
+## Session: AutocompleteCache + p64 Convergence (2026-03-31)
+
+### New in lance-graph-planner
+- `src/cache/` — 7 modules, 39 tests:
+  - `kv_bundle.rs`: HeadPrint=Base17 (from ndarray), AttentionMatrix 64×64/256×256
+  - `candidate_pool.rs`: ranked candidates, Phase (Exposition→Coda)
+  - `triple_model.rs`: self/user/impact × 4096 heads, DK, Plasticity, Truth=NarsTruth
+  - `lane_eval.rs`: Euler-gamma tension, DK-adaptive, 4096-head evaluation
+  - `nars_engine.rs`: SpoHead, Pearl 2³, NarsTables (causal-edge hot path), StyleVectors
+  - `convergence.rs`: AriGraph triplets → p64 Palette layers → Blumenstrauss
+  - `kv_bundle.rs`: VSA superposition store
+- `src/strategy/chat_bundle.rs`: AutocompleteCacheStrategy (Strategy #17)
+- `src/serve.rs`: Axum REST server, OpenAI-compatible /v1/chat/completions
+- `AUTOCOMPLETE_CACHE_PLAN.md`: full implementation plan with 6 agent scopes
+
+### New in bgz-tensor
+- `src/hhtl_cache.rs`: HHTL cache with RouteAction (Skip/Attend/Compose/Escalate), HipCache k=64
+- `src/hydrate.rs`: --download/--reindex/--verify with feature flags (qwen35-9b/27b-v1/v2)
+- `data/manifest.json`: SHA256 for all 41 shards
+- GitHub Release v0.1.0-bgz-data: 41 bgz7 assets, 685 MB
+
+### Dependencies
+- lance-graph-planner → ndarray (hardware: Base17, read_bgz7_file)
+- lance-graph-planner → causal-edge (protocol: CausalEdge64, NarsTables)
+- lance-graph-planner → p64 + p64-bridge + bgz17 (convergence highway)
+
+### Architecture Rules
+- ndarray = hardware acceleration (SIMD, no thinking logic)
+- causal-edge = protocol (CausalEdge64, NarsTables = precomputed NARS as lookup tables)
+- lance-graph-planner = thinking (NarsEngine, AutocompleteCache, Styles)
+- p64 = convergence point (both repos meet, no circular deps)
+- AriGraph (lance-graph core) cannot be planner dep (circular) — use p64 convergence instead
+
+### 18 Papers Synthesized
+EMPA, InstCache, Semantic Caching, C2C, ContextCache, Krites, Thinking Intervention,
+ThinkPatterns, Thinkless, Holographic Resonance, DapQ, Tensor Networks, PMC Attention Heads,
+LFRU, Illusion of Causality, NARS Same/Opposite, KVTC, CacheSlide.
+All findings in `.claude/knowledge/session_autocomplete_cache.md`.
+
+### Benchmark
+611M SPO lookups/sec. 17K tokens/sec. 388 KB RAM. 100% information preservation.

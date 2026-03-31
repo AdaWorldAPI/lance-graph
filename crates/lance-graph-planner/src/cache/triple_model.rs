@@ -30,32 +30,20 @@ impl Plasticity {
     }
 }
 
-/// NARS truth value (frequency, confidence).
-#[derive(Clone, Copy, Debug)]
-pub struct Truth {
-    pub f: f32,
-    pub c: f32,
+/// NARS truth value — type alias for ndarray's canonical NarsTruth.
+/// API: `.frequency`, `.confidence`, `.expectation()`, `::new(f, c)`.
+/// Revision: use `truth_revision(a, b)` free function below.
+pub use ndarray::hpc::nars::NarsTruth as Truth;
+
+/// Revision: merge evidence from two truth values.
+/// Wraps ndarray's `nars_revision` for convenience.
+pub fn truth_revision(a: Truth, b: Truth) -> Truth {
+    ndarray::hpc::nars::nars_revision(a, b)
 }
 
-impl Truth {
-    pub fn new(f: f32, c: f32) -> Self {
-        Self {
-            f: f.clamp(0.0, 1.0),
-            c: c.clamp(0.0, 0.99),
-        }
-    }
-    pub fn unknown() -> Self { Self { f: 0.5, c: 0.0 } }
-    pub fn expectation(&self) -> f32 { self.c * (self.f - 0.5) + 0.5 }
-
-    pub fn revision(self, other: Self) -> Self {
-        let w1 = self.c / (1.0 - self.c + f32::EPSILON);
-        let w2 = other.c / (1.0 - other.c + f32::EPSILON);
-        let w = w1 + w2;
-        if w < f32::EPSILON {
-            return Self::unknown();
-        }
-        Self::new((w1 * self.f + w2 * other.f) / w, w / (w + 1.0))
-    }
+/// Create the "unknown" / ignorance truth value (f=0.5, c=0.0).
+pub fn truth_unknown() -> Truth {
+    Truth::new(0.5, 0.0)
 }
 
 /// Dunning-Kruger position.
@@ -80,7 +68,7 @@ impl ModelState {
         Self {
             matrix: AttentionMatrix::new_hip(),
             plasticity: Plasticity::ALL_HOT,
-            truth: Truth::unknown(),
+            truth: truth_unknown(),
             dk: DkPosition::MountStupid,
         }
     }
@@ -88,10 +76,10 @@ impl ModelState {
     /// Update one head and revise model truth.
     pub fn update_head(&mut self, row: usize, col: usize, head: HeadPrint, evidence: Truth) {
         self.matrix.set(row, col, head);
-        self.truth = self.truth.revision(evidence);
-        self.plasticity.freeze_if_confident(self.truth.c);
+        self.truth = truth_revision(self.truth, evidence);
+        self.plasticity.freeze_if_confident(self.truth.confidence);
         // DK transitions based on confidence trajectory
-        self.dk = match (self.dk, self.truth.c) {
+        self.dk = match (self.dk, self.truth.confidence) {
             (DkPosition::MountStupid, c) if c < 0.3 => DkPosition::ValleyOfDespair,
             (DkPosition::ValleyOfDespair, c) if c > 0.5 => DkPosition::SlopeOfEnlightenment,
             (DkPosition::SlopeOfEnlightenment, c) if c > 0.8 => DkPosition::PlateauOfMastery,
@@ -132,7 +120,7 @@ impl TripleModel {
         let prediction_error = self.impact_model.matrix.surprise(input);
         // Revise impact model based on error
         let error_truth = Truth::new(1.0 - prediction_error, 0.8);
-        self.impact_model.truth = self.impact_model.truth.revision(error_truth);
+        self.impact_model.truth = truth_revision(self.impact_model.truth, error_truth);
     }
 
     /// Friston surprise: how wrong was my prediction?
@@ -179,7 +167,7 @@ mod tests {
         // Self model should have the head set
         assert_eq!(triple.self_model.matrix.get(5, 10), &head);
         // Truth should have been revised from unknown
-        assert!(triple.self_model.truth.c > 0.0, "confidence should increase after evidence");
+        assert!(triple.self_model.truth.confidence > 0.0, "confidence should increase after evidence");
         assert_eq!(triple.self_model.matrix.epoch, 1);
     }
 
@@ -189,7 +177,7 @@ mod tests {
         let input = HeadPrint {
             dims: [50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850],
         };
-        let initial_impact_truth = triple.impact_model.truth.c;
+        let initial_impact_truth = triple.impact_model.truth.confidence;
 
         triple.on_user_input(&input, 3, 7);
 
@@ -197,7 +185,7 @@ mod tests {
         assert_eq!(triple.user_model.matrix.get(3, 7), &input);
         // Impact model truth should be revised
         assert!(
-            triple.impact_model.truth.c > initial_impact_truth,
+            triple.impact_model.truth.confidence > initial_impact_truth,
             "impact model confidence should increase after revision"
         );
     }
@@ -236,7 +224,7 @@ mod tests {
         let head = HeadPrint::zero();
         state.update_head(0, 0, head.clone(), low_evidence);
         // After one low-confidence revision, c should be low enough
-        if state.truth.c < 0.3 {
+        if state.truth.confidence < 0.3 {
             assert_eq!(state.dk, DkPosition::ValleyOfDespair);
         }
 
@@ -246,7 +234,7 @@ mod tests {
         let med_evidence = Truth::new(0.9, 0.6);
         state.update_head(1, 1, head.clone(), med_evidence);
         // After revision with existing 0.55 and new 0.6, confidence should exceed 0.5
-        if state.truth.c > 0.5 {
+        if state.truth.confidence > 0.5 {
             assert_eq!(state.dk, DkPosition::SlopeOfEnlightenment);
         }
 
@@ -255,7 +243,7 @@ mod tests {
         state.truth = Truth::new(0.9, 0.85);
         let high_evidence = Truth::new(0.95, 0.9);
         state.update_head(2, 2, head, high_evidence);
-        if state.truth.c > 0.8 {
+        if state.truth.confidence > 0.8 {
             assert_eq!(state.dk, DkPosition::PlateauOfMastery);
         }
     }

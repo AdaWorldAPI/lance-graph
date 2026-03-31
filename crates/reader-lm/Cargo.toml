@@ -1,0 +1,12 @@
+[package]
+name = "reader-lm"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.94"
+description = "Reader LM 1.5B: HTML→Markdown via Qwen2 inference. Transcoded from jinaai/reader-lm-1.5b."
+license = "Apache-2.0"
+
+[dependencies]
+ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
+
+[dev-dependencies]
