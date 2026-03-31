@@ -61,9 +61,13 @@
 
 pub mod attention;
 pub mod cascade;
+pub mod hhtl_cache;
 pub mod palette;
 pub mod projection;
 pub mod quality;
+
+#[cfg(feature = "hydrate")]
+pub mod manifest;
 
 // ─── Re-exports ──────────────────────────────────────────────────────────────
 
