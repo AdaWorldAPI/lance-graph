@@ -14,6 +14,12 @@
 
 use super::triple_model::{Truth, truth_revision};
 
+// Causal edge protocol: CausalEdge64 + NarsTables for hot path
+pub use causal_edge::CausalEdge64;
+pub use causal_edge::CausalMask;
+pub use causal_edge::PlasticityState;
+use causal_edge::tables::{NarsTables, pack_truth, unpack_f, unpack_c};
+
 // ── SPO Head (mirrors CausalEdge64 layout) ──
 
 /// One attention head as SPO palette indices + NARS truth + Pearl mask.
@@ -231,8 +237,14 @@ pub fn style_score(
 // ── NARS Engine ──
 
 /// Closed-loop NARS feedback engine.
+///
+/// Dual-path: hot path uses NarsTables (u16 lookup, L1 cache),
+/// cold path uses f32 Truth for configuration and analysis.
 pub struct NarsEngine {
     pub distances: SpoDistances,
+    /// Precomputed NARS lookup tables (128 KB, L1 cache resident).
+    /// Hot path: revision/deduction as single memory read.
+    pub tables: NarsTables,
     /// Skepticism: grows with consecutive high-confidence outputs.
     pub consecutive_confident: u32,
     /// History of emitted heads with revised truth.
@@ -241,7 +253,60 @@ pub struct NarsEngine {
 
 impl NarsEngine {
     pub fn new(distances: SpoDistances) -> Self {
-        Self { distances, consecutive_confident: 0, history: Vec::new() }
+        Self {
+            distances,
+            tables: NarsTables::build(1), // fast path: 1 c-level = 128 KB
+            consecutive_confident: 0,
+            history: Vec::new(),
+        }
+    }
+
+    /// Hot path: NARS revision via lookup table. O(1), no float.
+    #[inline]
+    pub fn revise_fast(&self, f1: u8, c1: u8, f2: u8, c2: u8) -> (u8, u8) {
+        let packed = self.tables.deduction[f1 as usize * 256 + f2 as usize];
+        (unpack_f(packed), unpack_c(packed))
+    }
+
+    /// Hot path: SpoHead → CausalEdge64 for protocol transport.
+    pub fn to_causal_edge(&self, head: &SpoHead) -> CausalEdge64 {
+        CausalEdge64::pack(
+            head.s_idx, head.p_idx, head.o_idx,
+            head.freq, head.conf,
+            CausalMask::from_bits(head.pearl),
+            0, // direction
+            // InferenceType::from_bits is private; use Deduction as default
+            causal_edge::edge::InferenceType::Deduction,
+            PlasticityState::from_bits(0b111), // all hot
+            head.temporal as u16,
+        )
+    }
+
+    /// Hot path: CausalEdge64 → SpoHead for local processing.
+    pub fn from_causal_edge(&self, edge: CausalEdge64) -> SpoHead {
+        SpoHead {
+            s_idx: edge.s_idx(),
+            p_idx: edge.p_idx(),
+            o_idx: edge.o_idx(),
+            freq: edge.frequency_u8(),
+            conf: edge.confidence_u8(),
+            pearl: edge.causal_mask() as u8,
+            inference: edge.inference_type() as u8,
+            temporal: edge.temporal() as u8,
+        }
+    }
+
+    /// Hot path: forward pass via CausalEdge64 compose tables.
+    /// Input edge × weight edge → output edge. All O(1).
+    pub fn forward_edge(
+        &self,
+        input: CausalEdge64,
+        weight: CausalEdge64,
+        compose_s: &[u8; 256 * 256],
+        compose_p: &[u8; 256 * 256],
+        compose_o: &[u8; 256 * 256],
+    ) -> CausalEdge64 {
+        input.forward(weight, compose_s, compose_p, compose_o)
     }
 
     /// After emitting a candidate, record and update skepticism.

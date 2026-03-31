@@ -23,8 +23,12 @@ tracing = "0.1"
 # Hardware acceleration layer (mandatory)
 ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
 
+# Causal edge protocol (CausalEdge64, NarsTables, Pearl hierarchy)
+causal-edge = { path = "../causal-edge" }
+
 # HTTP server (optional, behind "serve" feature)
 axum = { version = "0.8", optional = true }
+
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }

@@ -1357,6 +1357,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "37b2a672a2cb129a2e41c10b1224bb368f9f37a2b16b612598138befd7b37eb5"
 
 [[package]]
+name = "causal-edge"
+version = "0.1.0"
+
+[[package]]
 name = "cbc"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5389,6 +5393,7 @@ name = "lance-graph-planner"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "causal-edge",
  "ndarray 0.17.2",
  "serde",
  "serde_json",
