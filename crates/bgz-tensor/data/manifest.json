@@ -4,17 +4,27 @@
       "source": "Qwen/Qwen3.5-9B",
       "format": "safetensors",
       "shards": 4,
-      "total_bytes_bgz7": 83375714,
+      "total_bytes_bgz7": 83374714,
       "release_tag": "v0.1.0-bgz-data",
-      "sha256": {}
+      "sha256": {
+        "shard-00.bgz7": "43ce49e73502b4991a3d3e3be81d3c43802968d64b0b5e11c8fc03e45f578dac",
+        "shard-01.bgz7": "eee6c31ecaf85a37e01fbf5fe49ee7c04de99c9b203f10e8007e10dbc0fa3ea8",
+        "shard-02.bgz7": "9a8791f9af9a4d4aa07743defa653668968f8e7eab7aa84bd0cac63457100acd",
+        "shard-03.bgz7": "82a962c49222c00b0913fc51f8b20a90f8f4482d2200c852d41f7ae5e39413ba"
+      }
     },
     "qwen35-9b-distilled": {
       "source": "Jackrong/Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled",
       "format": "safetensors",
       "shards": 4,
-      "total_bytes_bgz7": 83375714,
+      "total_bytes_bgz7": 83374714,
       "release_tag": "v0.1.0-bgz-data",
-      "sha256": {}
+      "sha256": {
+        "shard-00.bgz7": "04d714022c06db76bace7000b262bf8b2937811057cec58dda5b9c7ba46ed04f",
+        "shard-01.bgz7": "8cc712d4678508b0e0a34c5d36792e7217a33d44f56f35aae006e99943c0e431",
+        "shard-02.bgz7": "df6e1ed36e2974f386703ea83e28509f6d657f0d26167d4031063c59624ad541",
+        "shard-03.bgz7": "be93a38342fa40ee16abc4f2aa211eb1ff90dd50a98e19855fd0a41e9b3c2bcb"
+      }
     },
     "qwen35-27b-base": {
       "source": "Qwen/Qwen3.5-27B",
@@ -22,15 +32,39 @@
       "shards": 11,
       "total_bytes_bgz7": 178266914,
       "release_tag": "v0.1.0-bgz-data",
-      "sha256": {}
+      "sha256": {
+        "shard-00.bgz7": "85b331cd69b9aa1e77251927580ac7347043d800474473ada620a48d88594039",
+        "shard-01.bgz7": "233f924e355112532d6e5c58161f3977def5d86b8c0d3d80f311a15a27702826",
+        "shard-02.bgz7": "31434ee2fb1250129059cf42adc1098eb4e6002d18aa1ac1ed22a33f70403b4f",
+        "shard-03.bgz7": "ab6464fcfe131961908dcbd0fe820cb510603a6e7329382d289f0384b76d273f",
+        "shard-04.bgz7": "df75167fbfb9582877be6b33b5a19fe0187c88492dfe0ab3ea70cc474e1a2471",
+        "shard-05.bgz7": "f76ffa917a883cf0c9b84d7ccb24c1233860c22a63044c1a3e5f886a0d4d4f4b",
+        "shard-06.bgz7": "7aad28a3c712a665a49dfb3a7adda35cf9b7340ea5aefd8424303ec4359a8dd1",
+        "shard-07.bgz7": "ba5dbc52e2a40ee537483cefe8c66f61ca79771d5947ef17910e5a640f506eb8",
+        "shard-08.bgz7": "0d4c8963e382ff222b36c8f3d6326223b693fdcd19b98c6769c601ba6e3297cf",
+        "shard-09.bgz7": "452ac32541d19c7aec23e1cc9ce051d9aa21922c8b93f7be739af711ef08ba97",
+        "shard-10.bgz7": "69cd6604abe47389ab40a713be4145eba82787e9288c79c351d86e6b8e5d9534"
+      }
     },
     "qwen35-27b-distilled-v1": {
       "source": "Jackrong/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled",
       "format": "safetensors",
       "shards": 11,
-      "total_bytes_bgz7": 178266914,
+      "total_bytes_bgz7": 177151902,
       "release_tag": "v0.1.0-bgz-data",
-      "sha256": {}
+      "sha256": {
+        "shard-00.bgz7": "a54b8697f275bf9d43b9301e86d3517b672cc94c99dccfa944b149e73cbf1033",
+        "shard-01.bgz7": "fe51993b1f09ddde4a7f54ce2a8f3300532454427aca8fce53985c86dd810e1e",
+        "shard-02.bgz7": "3b3fd4ab220d17ffba653fa0ade9ff83f50bb7c5aea10a52acd8f9b2eb054f7f",
+        "shard-03.bgz7": "d69c7abf83ea8d96f1f66a4341804f3c8f7beb2fbaeb16d4510eaced08810eeb",
+        "shard-04.bgz7": "ae8dc185dd6e33b2fe5408e84c24d43e26f106f2b349f7a0262d2e99a607210f",
+        "shard-05.bgz7": "596640e74a64493b977bada2422bbfde20f32d08c4aaf073b25c27cb6406ddcd",
+        "shard-06.bgz7": "aabc241903d221b1c7cf434004944610c80054b15e720bd723b14bdf78dbc5e1",
+        "shard-07.bgz7": "75462913319a0dc67aebd31a8935e7b1a3a55688eebcc689eaf73a87a48d29da",
+        "shard-08.bgz7": "e0ed727d0c4eb05ff4790fa601fa78d1a89c33e7d4132a500a7260a0da97bc32",
+        "shard-09.bgz7": "195f2a8649c8cf480c4190687ed98d8ef02ba4dd0c35ab82105c0ed1890840d3",
+        "shard-10.bgz7": "7bb1d420e0dc8af9ec6fffa4ac3b1ed1339f932891aaf5dbe35ea6e9b3e8e2bf"
+      }
     },
     "qwen35-27b-distilled-v2": {
       "source": "Jackrong/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2",
@@ -38,7 +72,19 @@
       "shards": 11,
       "total_bytes_bgz7": 178266914,
       "release_tag": "v0.1.0-bgz-data",
-      "sha256": {}
+      "sha256": {
+        "shard-00.bgz7": "f579c339e9108a3bba85d4ddf9e4cda883de25a2278059e16b1dd658c2467189",
+        "shard-01.bgz7": "a7bf3dc72d7e4d3a1ac21bf67eaaec09e674a5f68ca8912e0f4cba9fd9559897",
+        "shard-02.bgz7": "e6d590c2df8b415cea490da61c82289eedef51cd00273e9308e1dd08843e2ba4",
+        "shard-03.bgz7": "0c1e1aecfaf63a785c4e8dab3bc76721dcaf755508f51b543e6c873f6c04c8ce",
+        "shard-04.bgz7": "440c08a3455c7825ea69a6e0c63018990bbff078cc930a655ed9599e5bf9afc8",
+        "shard-05.bgz7": "9e772729ae07a78e76be836276807c4ae4eceffa7b7d14a4659a1c286ecf8734",
+        "shard-06.bgz7": "344db7153b77d3e8609c3e6ac2dd519c5d20552580a4fc7023f89f2cef026f80",
+        "shard-07.bgz7": "a4e27836d36e0d9c293a07d4c905471c676923c896fa9fc5d6352b274e3ce48b",
+        "shard-08.bgz7": "adf98c2a73c06caebebe1cf56b24b224338906aee977b19f3fe8962ae8ba06e3",
+        "shard-09.bgz7": "0ac24397cdc45f1c6dd4a7ed2bde9fd5f6f2b5429bacd638a351165e0c49ace0",
+        "shard-10.bgz7": "7567db78e62baba1b1cf551e2961e3a7559cba4906574490b4c12e0390578e36"
+      }
     },
     "llama4-scout": {
       "source": "meta-llama/Llama-4-Scout-17B-16E-Instruct",
@@ -51,7 +97,7 @@
   },
   "savants": {
     "core": {
-      "source": "extracted from 9B ∩ 27B GROUNDS layer",
+      "source": "extracted from 9B \u2229 27B GROUNDS layer",
       "k": 64,
       "file": "palettes/core_savant.hhtl.bgz",
       "size_bytes": 14726,
