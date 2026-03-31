@@ -68,9 +68,20 @@ mod server {
         Json(json!({
             "object": "list",
             "data": [
-                {"id": "qwen35-opus46", "object": "model", "owned_by": "ada", "created": timestamp()},
-                {"id": "qwen35-opus45", "object": "model", "owned_by": "ada", "created": timestamp()},
-                {"id": "qwen35-9b", "object": "model", "owned_by": "ada", "created": timestamp()},
+                {"id": "qwen35-opus46", "object": "model", "owned_by": "ada", "created": timestamp(),
+                 "description": "Qwen3.5-27B + Opus 4.6 reasoning scaffold (174 MB bgz7)"},
+                {"id": "qwen35-opus45", "object": "model", "owned_by": "ada", "created": timestamp(),
+                 "description": "Qwen3.5-27B + Opus 4.5 behavioral traits (174 MB bgz7)"},
+                {"id": "qwen35-9b", "object": "model", "owned_by": "ada", "created": timestamp(),
+                 "description": "Qwen3.5-9B distilled, scale-invariant core (80 MB bgz7)"},
+                {"id": "reader-lm", "object": "model", "owned_by": "ada", "created": timestamp(),
+                 "description": "jinaai/reader-lm-1.5b HTML→Markdown (26 MB bgz7)"},
+                {"id": "bge-m3", "object": "model", "owned_by": "ada", "created": timestamp(),
+                 "description": "BAAI/bge-m3 multilingual embeddings (7.3 MB bgz7)"},
+                {"id": "llama4-scout", "object": "model", "owned_by": "ada", "created": timestamp(),
+                 "description": "Llama-4-Scout-17B MoE (37 MB bgz7)"},
+                {"id": "openchat-3.5", "object": "model", "owned_by": "ada", "created": timestamp(),
+                 "description": "OpenChat 3.5 Mistral-7B (41 MB bgz7)"},
             ]
         }))
     }
@@ -81,6 +92,21 @@ mod server {
     ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
         let model = req.get("model").and_then(|v| v.as_str()).unwrap_or("qwen35-opus46");
         let messages = req.get("messages").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+
+        // Validate model name
+        const VALID_MODELS: &[&str] = &[
+            "qwen35-opus46", "qwen35-opus45", "qwen35-9b",
+            "reader-lm", "bge-m3", "llama4-scout", "openchat-3.5",
+        ];
+        if !VALID_MODELS.contains(&model) {
+            return Err((StatusCode::NOT_FOUND, Json(json!({
+                "error": {
+                    "message": format!("Model '{}' not found. Available: {}", model, VALID_MODELS.join(", ")),
+                    "type": "invalid_request_error",
+                    "code": "model_not_found"
+                }
+            }))));
+        }
 
         if messages.is_empty() {
             return Err((StatusCode::BAD_REQUEST, Json(json!({
@@ -248,6 +274,42 @@ mod server {
             cache.triple.self_model.matrix.gestalt.l1(&cache.triple.user_model.matrix.gestalt));
     }
 
+    async fn embeddings(
+        State(_state): State<AppState>,
+        Json(req): Json<Value>,
+    ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+        let model = req.get("model").and_then(|v| v.as_str()).unwrap_or("bge-m3");
+        let input = req.get("input").and_then(|v| v.as_str())
+            .or_else(|| req.get("input").and_then(|v| v.as_array())
+                .and_then(|a| a.first())
+                .and_then(|v| v.as_str()))
+            .unwrap_or("");
+
+        if input.is_empty() {
+            return Err((StatusCode::BAD_REQUEST, Json(json!({
+                "error": {"message": "input is empty", "type": "invalid_request_error"}
+            }))));
+        }
+
+        // Embed as Base17 fingerprint (17 dims, golden-step folding)
+        let fp = message_to_headprint(input);
+        let embedding: Vec<f64> = fp.dims.iter().map(|d| *d as f64 / 10000.0).collect();
+
+        Ok(Json(json!({
+            "object": "list",
+            "data": [{
+                "object": "embedding",
+                "index": 0,
+                "embedding": embedding,
+            }],
+            "model": model,
+            "usage": {
+                "prompt_tokens": input.split_whitespace().count(),
+                "total_tokens": input.split_whitespace().count(),
+            }
+        })))
+    }
+
     pub async fn run(port: u16) {
         let mut cache = AutocompleteCache::new();
 
@@ -267,11 +329,13 @@ mod server {
             .route("/health", get(health))
             .route("/v1/models", get(list_models))
             .route("/v1/chat/completions", post(chat_completions))
+            .route("/v1/embeddings", post(embeddings))
             .with_state(state);
 
         let addr = format!("0.0.0.0:{port}");
         eprintln!("lance-graph-planner serve listening on {addr}");
         eprintln!("  POST /v1/chat/completions  (OpenAI compatible)");
+        eprintln!("  POST /v1/embeddings         (Base17 fingerprints)");
         eprintln!("  GET  /v1/models");
         eprintln!("  GET  /health");
         let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
