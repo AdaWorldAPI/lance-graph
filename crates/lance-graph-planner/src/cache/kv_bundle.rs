@@ -9,42 +9,26 @@
 //!   HIP:   64×64 = 4096 entries (32 KB, attention topology)
 //!   TWIG:  256×256 = 65536 entries (512 KB, fine-grain)
 
+/// Type alias: HeadPrint is ndarray's Base17 (17 × i16 = 34 bytes).
+/// All downstream code continues to use the `HeadPrint` name unchanged.
+pub use ndarray::hpc::bgz17_bridge::Base17 as HeadPrint;
+
 const BASE_DIM: usize = 17;
 
-/// One attention head fingerprint (17 × i16 = 34 bytes).
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct HeadPrint {
-    pub dims: [i16; BASE_DIM],
+/// Bundle: weighted addition (majority vote analog for i16).
+pub fn bundle_into(source: &HeadPrint, target: &mut HeadPrint, weight_self: f32, weight_new: f32) {
+    let total = weight_self + weight_new;
+    for d in 0..BASE_DIM {
+        let old = target.dims[d] as f32 * weight_self;
+        let new = source.dims[d] as f32 * weight_new;
+        target.dims[d] = ((old + new) / total).round() as i16;
+    }
 }
 
-impl HeadPrint {
-    pub fn zero() -> Self {
-        Self { dims: [0; BASE_DIM] }
-    }
-
-    pub fn l1(&self, other: &Self) -> u32 {
-        self.dims
-            .iter()
-            .zip(other.dims.iter())
-            .map(|(a, b)| (*a as i32 - *b as i32).unsigned_abs())
-            .sum()
-    }
-
-    /// Bundle: weighted addition (majority vote analog for i16).
-    pub fn bundle_into(&self, target: &mut HeadPrint, weight_self: f32, weight_new: f32) {
-        let total = weight_self + weight_new;
-        for d in 0..BASE_DIM {
-            let old = target.dims[d] as f32 * weight_self;
-            let new = self.dims[d] as f32 * weight_new;
-            target.dims[d] = ((old + new) / total).round() as i16;
-        }
-    }
-
-    /// Unbundle: subtract out (XOR analog for i16).
-    pub fn unbundle_from(&self, target: &mut HeadPrint) {
-        for d in 0..BASE_DIM {
-            target.dims[d] = target.dims[d].wrapping_sub(self.dims[d]);
-        }
+/// Unbundle: subtract out (XOR analog for i16).
+pub fn unbundle_from(source: &HeadPrint, target: &mut HeadPrint) {
+    for d in 0..BASE_DIM {
+        target.dims[d] = target.dims[d].wrapping_sub(source.dims[d]);
     }
 }
 
@@ -91,9 +75,10 @@ impl AttentionMatrix {
     pub fn set(&mut self, row: usize, col: usize, head: HeadPrint) {
         let idx = row * self.resolution + col;
         // Unbundle old from gestalt
-        self.heads[idx].unbundle_from(&mut self.gestalt);
+        let old = self.heads[idx].clone();
+        unbundle_from(&old, &mut self.gestalt);
         // Bundle new into gestalt
-        head.bundle_into(&mut self.gestalt, self.epoch as f32, 1.0);
+        bundle_into(&head, &mut self.gestalt, self.epoch as f32, 1.0);
         self.heads[idx] = head;
         self.epoch += 1;
     }
@@ -131,10 +116,10 @@ mod tests {
 
         // Bundle a and b into a target with equal weight
         let mut target = HeadPrint::zero();
-        a.bundle_into(&mut target, 0.0, 1.0); // first item: target becomes a
+        bundle_into(&a, &mut target, 0.0, 1.0); // first item: target becomes a
         assert_eq!(target, a);
 
-        b.bundle_into(&mut target, 1.0, 1.0); // second item: average of a and b
+        bundle_into(&b, &mut target, 1.0, 1.0); // second item: average of a and b
         for d in 0..BASE_DIM {
             let expected = ((a.dims[d] as f32 + b.dims[d] as f32) / 2.0).round() as i16;
             assert_eq!(target.dims[d], expected, "dim {d} mismatch");
@@ -142,7 +127,7 @@ mod tests {
 
         // Unbundle b from target: should shift back toward a
         let before_unbundle = target.clone();
-        b.unbundle_from(&mut target);
+        unbundle_from(&b, &mut target);
         // After unbundle, each dim should be before - b
         for d in 0..BASE_DIM {
             let expected = before_unbundle.dims[d].wrapping_sub(b.dims[d]);

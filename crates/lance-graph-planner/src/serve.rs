@@ -169,52 +169,22 @@ mod server {
     }
 
     /// Load Base17 rows from a bgz7 file into HeadPrints.
+    /// Delegates to ndarray's canonical bgz7 parser.
     fn load_bgz7(path: &str) -> Vec<(String, Vec<HeadPrint>)> {
-        use std::io::Read;
-        let mut file = match std::fs::File::open(path) {
-            Ok(f) => std::io::BufReader::new(f),
-            Err(e) => { eprintln!("  SKIP {path}: {e}"); return Vec::new(); }
-        };
-        let mut buf4 = [0u8; 4];
-        let mut buf1 = [0u8; 1];
-        let mut buf34 = [0u8; 34];
-
-        if file.read_exact(&mut buf4).is_err() { return Vec::new(); }
-        if &buf4 != b"BGZ7" { eprintln!("  SKIP {path}: bad magic"); return Vec::new(); }
-
-        if file.read_exact(&mut buf4).is_err() { return Vec::new(); }
-        let n_tensors = u32::from_le_bytes(buf4) as usize;
-
-        let mut tensors = Vec::new();
-        for _ in 0..n_tensors {
-            // name length
-            if file.read_exact(&mut buf4).is_err() { break; }
-            let name_len = u32::from_le_bytes(buf4) as usize;
-            let mut name_buf = vec![0u8; name_len];
-            if file.read_exact(&mut name_buf).is_err() { break; }
-            let name = String::from_utf8_lossy(&name_buf).to_string();
-            // layer type
-            if file.read_exact(&mut buf1).is_err() { break; }
-            // n_rows, n_cols
-            if file.read_exact(&mut buf4).is_err() { break; }
-            let n_rows = u32::from_le_bytes(buf4) as usize;
-            if file.read_exact(&mut buf4).is_err() { break; }
-            let _n_cols = u32::from_le_bytes(buf4) as usize;
-            // rows
-            let mut rows = Vec::with_capacity(n_rows.min(1000));
-            for _ in 0..n_rows {
-                if file.read_exact(&mut buf34).is_err() { break; }
-                let mut dims = [0i16; 17];
-                for d in 0..17 {
-                    dims[d] = i16::from_le_bytes([buf34[d*2], buf34[d*2+1]]);
-                }
-                if rows.len() < 1000 { // cap per tensor
-                    rows.push(HeadPrint { dims });
-                }
+        match ndarray::hpc::gguf_indexer::read_bgz7_file(path) {
+            Ok(tensors) => tensors
+                .into_iter()
+                .map(|ct| {
+                    // Cap rows at 1000 per tensor to match previous behavior
+                    let rows: Vec<HeadPrint> = ct.rows.into_iter().take(1000).collect();
+                    (ct.name, rows)
+                })
+                .collect(),
+            Err(e) => {
+                eprintln!("  SKIP {path}: {e}");
+                Vec::new()
             }
-            tensors.push((name, rows));
         }
-        tensors
     }
 
     /// Populate attention matrix from bgz7 weight fingerprints.

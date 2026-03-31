@@ -12,7 +12,7 @@
 //!
 //! The 34 thinking styles are weight vectors over the 8 Pearl projections.
 
-use super::triple_model::Truth;
+use super::triple_model::{Truth, truth_revision};
 
 // ── SPO Head (mirrors CausalEdge64 layout) ──
 
@@ -41,8 +41,8 @@ impl SpoHead {
     pub fn expectation(&self) -> f32 { self.confidence() * (self.frequency() - 0.5) + 0.5 }
 
     pub fn set_truth(&mut self, t: Truth) {
-        self.freq = (t.f.clamp(0.0, 1.0) * 255.0).round() as u8;
-        self.conf = (t.c.clamp(0.0, 0.99) * 255.0).round() as u8;
+        self.freq = (t.frequency.clamp(0.0, 1.0) * 255.0).round() as u8;
+        self.conf = (t.confidence.clamp(0.0, 0.99) * 255.0).round() as u8;
     }
 
     // Pearl mask accessors
@@ -155,7 +155,7 @@ pub fn nars_infer(a: &SpoHead, b: &SpoHead, rule: Inference) -> Truth {
             Truth::new(fa, w / (w + 1.0))
         }
         Inference::Revision => {
-            a.truth().revision(b.truth())
+            truth_revision(a.truth(), b.truth())
         }
         Inference::Analogy => {
             let f = fa * fb;
@@ -257,7 +257,7 @@ impl NarsEngine {
     /// After user responds, revise all history via NARS revision.
     pub fn on_response(&mut self, response: &SpoHead) {
         for (_, truth) in &mut self.history {
-            *truth = truth.revision(response.truth());
+            *truth = truth_revision(*truth, response.truth());
         }
     }
 
@@ -302,7 +302,7 @@ impl NarsEngine {
     pub fn should_stop(&self) -> bool {
         if self.history.len() < 3 { return false; }
         let recent: Vec<f32> = self.history.iter().rev().take(3)
-            .map(|(_, t)| t.c).collect();
+            .map(|(_, t)| t.confidence).collect();
         recent.iter().all(|c| *c > 0.85)
     }
 
@@ -401,9 +401,9 @@ mod tests {
         let fa = a.frequency();
         let fb = b.frequency();
         let expected_f = fa * fb;
-        assert!((t.f - expected_f).abs() < 0.01, "deduction f: {} vs {}", t.f, expected_f);
+        assert!((t.frequency - expected_f).abs() < 0.01, "deduction f: {} vs {}", t.frequency, expected_f);
         // Confidence should be less than both inputs (attenuation)
-        assert!(t.c < a.confidence(), "deduction should attenuate confidence");
+        assert!(t.confidence < a.confidence(), "deduction should attenuate confidence");
     }
 
     #[test]
@@ -413,9 +413,9 @@ mod tests {
 
         let t = nars_infer(&a, &b, Inference::Revision);
         // Revision of two identical truths should increase confidence
-        assert!(t.c > a.confidence(), "revision should increase confidence: {} vs {}", t.c, a.confidence());
+        assert!(t.confidence > a.confidence(), "revision should increase confidence: {} vs {}", t.confidence, a.confidence());
         // Frequency should stay roughly the same
-        assert!((t.f - a.frequency()).abs() < 0.02, "revision should preserve frequency");
+        assert!((t.frequency - a.frequency()).abs() < 0.02, "revision should preserve frequency");
     }
 
     #[test]
@@ -425,9 +425,9 @@ mod tests {
 
         let t = nars_infer(&a, &b, Inference::Abduction);
         // Abduction: f = fa, c = fb * ca * cb / (fb * ca * cb + 1)
-        assert!((t.f - a.frequency()).abs() < 0.01, "abduction frequency should be fa");
-        assert!(t.c < 1.0, "abduction confidence should be bounded");
-        assert!(t.c > 0.0, "abduction confidence should be positive");
+        assert!((t.frequency - a.frequency()).abs() < 0.01, "abduction frequency should be fa");
+        assert!(t.confidence < 1.0, "abduction confidence should be bounded");
+        assert!(t.confidence > 0.0, "abduction confidence should be positive");
     }
 
     #[test]

@@ -5389,6 +5389,7 @@ name = "lance-graph-planner"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "ndarray 0.17.2",
  "serde",
  "serde_json",
  "serde_yml",
