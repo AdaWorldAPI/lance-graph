@@ -66,6 +66,9 @@ pub mod selector;
 pub mod compose;
 pub mod strategy;
 
+// === Autocomplete Cache (VSA superposition KV-cache) ===
+pub mod cache;
+
 // === Internal API (same-binary, zero-serde) ===
 pub mod api;
 
