@@ -1,8 +1,8 @@
 //! OpenAI-compatible REST server powered by lance-graph-planner.
 //!
-//! Weight vectors are raw Base17 (34 bytes, ρ=0.993 vs BF16).
-//! No palette indirection — direct L1 on 17 dims is sub-microsecond.
-//! At scale: store in LanceDB, use RaBitQ index for ANN search.
+//! Request flow:
+//!   message → extract SPO triplets → triplet_to_headprint → headprint_to_spo
+//!   → NarsEngine.score() with SpoDistances + StyleVector → NARS reasoning
 //!
 //! ```bash
 //! cargo run --manifest-path crates/lance-graph-planner/Cargo.toml \
@@ -27,79 +27,20 @@ mod server {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use lance_graph_planner::cache::candidate_pool::Phase;
-    use lance_graph_planner::cache::kv_bundle::HeadPrint;
-    use lance_graph_planner::cache::nars_engine::{
-        NarsEngine, SpoDistances, SpoHead, MASK_SPO,
+    use lance_graph_planner::cache::convergence::{
+        triplet_to_headprint, headprint_to_spo,
     };
-    use lance_graph_planner::cache::triple_model::TripleModel;
+    use lance_graph_planner::cache::nars_engine::{
+        analytical_style, nars_infer, Inference, SpoHead,
+    };
     use lance_graph_planner::strategy::chat_bundle::AutocompleteCache;
-
-    /// Raw weight vectors. 34 bytes each. Direct L1 search.
-    struct WeightStore {
-        /// All weight rows as raw Base17 vectors.
-        vectors: Vec<HeadPrint>,
-        /// Tensor name per row (provenance).
-        names: Vec<String>,
-        /// HEEL: element-wise mean of all vectors (the gestalt).
-        heel: HeadPrint,
-    }
-
-    impl WeightStore {
-        fn new() -> Self {
-            Self {
-                vectors: Vec::new(),
-                names: Vec::new(),
-                heel: HeadPrint::zero(),
-            }
-        }
-
-        /// Add vectors from a bgz7 file.
-        fn ingest(&mut self, path: &str) {
-            match ndarray::hpc::gguf_indexer::read_bgz7_file(path) {
-                Ok(tensors) => {
-                    for ct in tensors {
-                        for row in ct.rows.into_iter().take(10000) {
-                            self.vectors.push(row);
-                            self.names.push(ct.name.clone());
-                        }
-                    }
-                }
-                Err(e) => eprintln!("  SKIP {path}: {e}"),
-            }
-        }
-
-        /// Compute HEEL after all ingestion.
-        fn compute_heel(&mut self) {
-            if self.vectors.is_empty() { return; }
-            let n = self.vectors.len() as f64;
-            let mut sums = [0.0f64; 17];
-            for v in &self.vectors {
-                for d in 0..17 { sums[d] += v.dims[d] as f64; }
-            }
-            for d in 0..17 {
-                self.heel.dims[d] = (sums[d] / n).round() as i16;
-            }
-        }
-
-        /// Direct L1 nearest neighbor search. Returns (index, distance, tensor_name).
-        fn nearest(&self, query: &HeadPrint, k: usize) -> Vec<(usize, u32, &str)> {
-            let mut scored: Vec<(usize, u32)> = self.vectors.iter()
-                .enumerate()
-                .map(|(i, v)| (i, query.l1(v)))
-                .collect();
-            scored.sort_unstable_by_key(|&(_, d)| d);
-            scored.truncate(k);
-            scored.iter()
-                .map(|&(i, d)| (i, d, self.names[i].as_str()))
-                .collect()
-        }
-
-        fn len(&self) -> usize { self.vectors.len() }
-    }
 
     struct ServerState {
         cache: AutocompleteCache,
-        weights: WeightStore,
+        /// SPO heads from ingested weight tensors (the knowledge base).
+        knowledge: Vec<SpoHead>,
+        /// Last context SpoHead (for NARS scoring with style vectors).
+        context: SpoHead,
     }
 
     type AppState = std::sync::Arc<Mutex<ServerState>>;
@@ -108,19 +49,66 @@ mod server {
         SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs()
     }
 
-    /// Hash message content into Base17 space.
-    /// TODO: replace with BGE-M3 embed → golden-step projection for real semantic matching.
-    fn message_to_base17(content: &str) -> HeadPrint {
-        let mut dims = [0i16; 17];
-        let bytes = content.as_bytes();
-        for (i, &b) in bytes.iter().enumerate() {
-            dims[i % 17] = dims[i % 17].wrapping_add(b as i16 * 31);
+    /// Extract SPO triplets from text using verb-pattern matching.
+    /// Returns (subject, predicate, object) tuples.
+    fn extract_triplets(text: &str) -> Vec<(String, String, String)> {
+        let mut triplets = Vec::new();
+        // Split on sentence boundaries
+        for sentence in text.split(|c| c == '.' || c == '!' || c == '?' || c == '\n') {
+            let sentence = sentence.trim();
+            if sentence.is_empty() { continue; }
+
+            let words: Vec<&str> = sentence.split_whitespace().collect();
+            if words.len() < 2 { continue; }
+
+            // Find verb position by morphological cues or common verb list
+            let verb_pos = words.iter().position(|w| {
+                let w = w.to_lowercase();
+                w.ends_with("ed") || w.ends_with("ing") || w.ends_with("es")
+                    || w.ends_with("ize") || w.ends_with("ify")
+                    || COMMON_VERBS.contains(&w.as_str())
+            });
+
+            if let Some(vp) = verb_pos {
+                if vp > 0 && vp < words.len() - 1 {
+                    let subject = words[..vp].join(" ");
+                    let predicate = words[vp].to_string();
+                    let object = words[vp + 1..].join(" ");
+                    triplets.push((subject, predicate, object));
+                }
+            } else if words.len() >= 3 {
+                // Fallback: first word = S, second = P, rest = O
+                triplets.push((
+                    words[0].to_string(),
+                    words[1].to_string(),
+                    words[2..].join(" "),
+                ));
+            } else if words.len() == 2 {
+                // Intransitive: S P (no object)
+                triplets.push((
+                    words[0].to_string(),
+                    words[1].to_string(),
+                    String::new(),
+                ));
+            }
         }
-        for d in &mut dims {
-            *d = (*d % 1000).abs() as i16;
-        }
-        HeadPrint { dims }
+        triplets
     }
+
+    const COMMON_VERBS: &[&str] = &[
+        "is", "are", "was", "were", "has", "have", "had", "do", "does", "did",
+        "can", "could", "will", "would", "shall", "should", "may", "might",
+        "must", "need", "know", "think", "want", "like", "use", "find", "give",
+        "tell", "say", "get", "make", "go", "see", "come", "take", "help",
+        "show", "try", "ask", "work", "call", "keep", "let", "begin", "seem",
+        "run", "move", "live", "believe", "hold", "bring", "happen", "write",
+        "provide", "sit", "stand", "lose", "pay", "meet", "include", "continue",
+        "set", "learn", "change", "lead", "understand", "watch", "follow",
+        "stop", "create", "speak", "read", "allow", "add", "spend", "grow",
+        "open", "walk", "win", "offer", "remember", "love", "consider", "appear",
+        "buy", "wait", "serve", "die", "send", "expect", "build", "stay",
+        "fall", "cut", "reach", "kill", "remain", "causes", "enables", "supports",
+    ];
 
     fn phase_to_str(phase: Phase) -> &'static str {
         match phase {
@@ -185,6 +173,7 @@ mod server {
         }
 
         let mut server = state.lock().unwrap();
+        let style = analytical_style();
 
         let mut last_content = String::new();
 
@@ -192,40 +181,92 @@ mod server {
             let role = msg.get("role").and_then(|v| v.as_str()).unwrap_or("user");
             let content = msg.get("content").and_then(|v| v.as_str()).unwrap_or("");
 
-            let query = message_to_base17(content);
-
             match role {
                 "user" => {
-                    if server.weights.len() > 0 {
-                        // Direct L1 nearest neighbor on raw Base17 vectors
-                        let neighbors = server.weights.nearest(&query, 5);
-                        let heel_dist = query.l1(&server.weights.heel);
+                    // 1. Extract SPO triplets from message text
+                    let triplets = extract_triplets(content);
 
-                        let top: Vec<String> = neighbors.iter()
-                            .map(|(i, d, name)| format!("{}:r{}(d={})", name, i, d))
-                            .collect();
+                    if triplets.is_empty() {
+                        // Can't decompose — use whole message as single SPO
+                        let fp = triplet_to_headprint(content, "states", "");
+                        let spo = headprint_to_spo(&fp, 0.9, 0.5);
+                        let score = server.cache.nars.score(&spo, &server.context, &style);
 
                         last_content = format!(
-                            "[L1 search] heel_dist={} top_5=[{}] | \
-                             vectors={} | Phase: {} | Model: {}",
-                            heel_dist,
-                            top.join(", "),
-                            server.weights.len(),
+                            "[SPO] S={} P={} O={} | score={:.3} E={:.3} | \
+                             Phase: {} | Model: {}",
+                            spo.s_idx, spo.p_idx, spo.o_idx,
+                            score, spo.expectation(),
                             phase_to_str(server.cache.phase()),
                             model,
                         );
-                    } else {
-                        let surprise = server.cache.triple.free_energy(&query);
-                        last_content = format!(
-                            "[No weights] Surprise={:.3} | Phase: {} | Model: {}",
-                            surprise,
-                            phase_to_str(server.cache.phase()),
-                            model,
-                        );
+                        server.context = spo;
+                        continue;
                     }
+
+                    // 2. Process each triplet through the convergence pipeline
+                    let mut results = Vec::new();
+                    for (s, p, o) in &triplets {
+                        let fp = triplet_to_headprint(s, p, o);
+                        let spo = headprint_to_spo(&fp, 0.9, 0.7);
+
+                        // 3. Score against context using NARS + style vector
+                        let score = server.cache.nars.score(&spo, &server.context, &style);
+
+                        // 4. NARS inference against knowledge base
+                        let mut best_inference = None;
+                        let mut best_truth_e = 0.0f32;
+                        for known in &server.knowledge {
+                            // Try deduction: known → spo
+                            let truth = nars_infer(known, &spo, Inference::Deduction);
+                            let e = truth.expectation();
+                            if e > best_truth_e {
+                                best_truth_e = e;
+                                best_inference = Some(("deduction", known.s_idx, known.p_idx, known.o_idx, e));
+                            }
+                            // Try abduction: spo ← known
+                            let truth = nars_infer(&spo, known, Inference::Abduction);
+                            let e = truth.expectation();
+                            if e > best_truth_e {
+                                best_truth_e = e;
+                                best_inference = Some(("abduction", known.s_idx, known.p_idx, known.o_idx, e));
+                            }
+                        }
+
+                        // 5. Update context (the last SPO becomes the new context)
+                        server.cache.nars.on_emit(&spo);
+                        server.context = spo.clone();
+
+                        let inference_str = match best_inference {
+                            Some((rule, s, p, o, e)) => format!(" | NARS {}→[{},{},{}] E={:.3}", rule, s, p, o, e),
+                            None => String::new(),
+                        };
+
+                        results.push(format!(
+                            "({} —{}→ {}) S={} P={} O={} score={:.3}{}",
+                            s, p, o, spo.s_idx, spo.p_idx, spo.o_idx, score, inference_str,
+                        ));
+                    }
+
+                    last_content = format!(
+                        "[SPO×{}] {} | Phase: {} | knowledge={} | Model: {}",
+                        triplets.len(),
+                        results.join(" ; "),
+                        phase_to_str(server.cache.phase()),
+                        server.knowledge.len(),
+                        model,
+                    );
                 }
                 "assistant" => {
-                    server.cache.on_self_output(&query);
+                    // Extract triplets from assistant response, add to knowledge
+                    let triplets = extract_triplets(content);
+                    for (s, p, o) in &triplets {
+                        let fp = triplet_to_headprint(s, p, o);
+                        let spo = headprint_to_spo(&fp, 0.85, 0.8);
+                        server.knowledge.push(spo);
+                    }
+                    let fp = triplet_to_headprint(content, "responds", "");
+                    server.cache.on_self_output(&fp);
                 }
                 _ => {}
             }
@@ -239,19 +280,19 @@ mod server {
             "choices": [{
                 "index": 0,
                 "message": { "role": "assistant", "content": last_content },
-                "finish_reason": "length",
+                "finish_reason": if server.cache.should_stop() { "stop" } else { "length" },
             }],
             "usage": {
                 "prompt_tokens": messages.len(),
                 "completion_tokens": 1,
                 "total_tokens": messages.len() + 1,
             },
-            "system_fingerprint": format!("base17-{}", server.weights.len()),
+            "system_fingerprint": format!("spo-{}", phase_to_str(server.cache.phase())),
         })))
     }
 
     async fn embeddings(
-        State(state): State<AppState>,
+        State(_state): State<AppState>,
         Json(req): Json<Value>,
     ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
         let model = req.get("model").and_then(|v| v.as_str()).unwrap_or("bge-m3");
@@ -267,9 +308,21 @@ mod server {
             }))));
         }
 
-        // Base17: 17 dims, f32 for OpenAI compat
-        let fp = message_to_base17(input);
-        let embedding: Vec<f64> = fp.dims.iter().map(|&d| d as f64).collect();
+        // SPO-decomposed embedding: extract triplets, encode each, bundle
+        let triplets = extract_triplets(input);
+        let embedding: Vec<f64> = if !triplets.is_empty() {
+            // Average of all triplet HeadPrints
+            let mut sums = [0.0f64; 17];
+            for (s, p, o) in &triplets {
+                let fp = triplet_to_headprint(s, p, o);
+                for d in 0..17 { sums[d] += fp.dims[d] as f64; }
+            }
+            let n = triplets.len() as f64;
+            sums.iter().map(|s| s / n).collect()
+        } else {
+            let fp = triplet_to_headprint(input, "states", "");
+            fp.dims.iter().map(|&d| d as f64).collect()
+        };
 
         Ok(Json(json!({
             "object": "list",
@@ -286,30 +339,46 @@ mod server {
         })))
     }
 
-    pub async fn run(port: u16) {
-        let mut weights = WeightStore::new();
+    /// Load bgz7 weight shards into knowledge base as SPO heads.
+    fn ingest_weights(knowledge: &mut Vec<SpoHead>, path: &str) {
+        match ndarray::hpc::gguf_indexer::read_bgz7_file(path) {
+            Ok(tensors) => {
+                for ct in tensors {
+                    // Each tensor becomes an SPO: tensor_name → "encodes" → layer
+                    let fp = triplet_to_headprint(&ct.name, "encodes", "weights");
+                    let spo = headprint_to_spo(&fp, 0.95, 0.99);
+                    knowledge.push(spo);
 
-        // Ingest available bgz7 shards
+                    // Sample weight rows as additional knowledge
+                    for (_r, row) in ct.rows.iter().enumerate().take(100) {
+                        let row_spo = headprint_to_spo(row, 0.9, 0.95);
+                        knowledge.push(row_spo);
+                    }
+                }
+            }
+            Err(e) => eprintln!("  SKIP {path}: {e}"),
+        }
+    }
+
+    pub async fn run(port: u16) {
+        let mut knowledge = Vec::new();
+
+        // Ingest available bgz7 shards into knowledge base
         for path in &[
             "/tmp/qwen35_27b_v2_shard02.bgz7",
             "/tmp/qwen35_27b_base_shard02.bgz7",
         ] {
             if std::fs::metadata(path).is_ok() {
                 eprintln!("Ingesting {path}...");
-                weights.ingest(path);
+                ingest_weights(&mut knowledge, path);
             }
         }
-
-        if weights.len() > 0 {
-            weights.compute_heel();
-            eprintln!("WeightStore: {} vectors, HEEL={:?}", weights.len(), weights.heel.dims);
-        } else {
-            eprintln!("No bgz7 weights found — running empty");
-        }
+        eprintln!("Knowledge base: {} SPO heads", knowledge.len());
 
         let server = ServerState {
             cache: AutocompleteCache::new(),
-            weights,
+            knowledge,
+            context: SpoHead::zero(),
         };
 
         let state: AppState = std::sync::Arc::new(Mutex::new(server));
