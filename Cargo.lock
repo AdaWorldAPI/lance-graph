@@ -1143,6 +1143,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "55248b47b0caf0546f7988906588779981c43bb1bc9d0c44087278f80cdb44ba"
 
 [[package]]
+name = "bgz17"
+version = "0.1.0"
+
+[[package]]
 name = "bigdecimal"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5393,8 +5397,11 @@ name = "lance-graph-planner"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "bgz17",
  "causal-edge",
  "ndarray 0.17.2",
+ "p64",
+ "p64-bridge",
  "serde",
  "serde_json",
  "serde_yml",
@@ -6626,6 +6633,14 @@ name = "p64"
 version = "0.1.0"
 dependencies = [
  "phyllotactic-manifold",
+]
+
+[[package]]
+name = "p64-bridge"
+version = "0.1.0"
+dependencies = [
+ "bgz17",
+ "causal-edge",
 ]
 
 [[package]]

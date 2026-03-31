@@ -26,6 +26,15 @@ ndarray = { path = "../../../ndarray", default-features = false, features = ["st
 # Causal edge protocol (CausalEdge64, NarsTables, Pearl hierarchy)
 causal-edge = { path = "../causal-edge" }
 
+# p64: convergence point — both ndarray and lance-graph meet here
+p64 = { path = "../../../ndarray/crates/p64" }
+
+# p64-bridge: CausalEdge64 + bgz17 → Blumenstrauss
+p64-bridge = { path = "../p64-bridge" }
+
+# bgz17: palette semiring codec (Base17 VSA, 121 tests)
+bgz17 = { path = "../bgz17" }
+
 # HTTP server (optional, behind "serve" feature)
 axum = { version = "0.8", optional = true }
 
