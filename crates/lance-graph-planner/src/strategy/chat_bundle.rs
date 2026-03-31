@@ -26,6 +26,9 @@ pub struct AutocompleteCache {
     pub evaluator: LaneEvaluator,
     pub nars: NarsEngine,
     pub turn_count: u32,
+    /// Palette indices for each cached weight row (from bgz17 Palette::nearest).
+    /// Populated at startup when bgz7 weights are loaded and palette is built.
+    pub palette_indices: Vec<u8>,
 }
 
 impl AutocompleteCache {
@@ -36,6 +39,7 @@ impl AutocompleteCache {
             evaluator: LaneEvaluator::new(Tension::integrative()),
             nars: NarsEngine::new(SpoDistances::new_zero()),
             turn_count: 0,
+            palette_indices: Vec::new(),
         }
     }
 

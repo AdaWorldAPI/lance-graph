@@ -14,6 +14,7 @@ pub mod falkor_semirings;
 pub mod fingerprint;
 pub mod hydrate;
 pub mod metadata;
+pub mod neuron;
 pub mod neighborhood;
 pub mod sparse;
 pub mod spo;
