@@ -14,3 +14,4 @@
 pub mod weights;
 pub mod inference;
 pub mod classifier;
+pub mod tokenizer;
