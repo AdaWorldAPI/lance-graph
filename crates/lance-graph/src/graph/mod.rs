@@ -12,6 +12,7 @@ pub mod blasgraph;
 pub mod falkor_compat;
 pub mod falkor_semirings;
 pub mod fingerprint;
+pub mod hydrate;
 pub mod metadata;
 pub mod neighborhood;
 pub mod sparse;
