@@ -115,17 +115,20 @@ fn cmd_download(manifest: &manifest::Manifest, model: &str) {
     let tag = &entry.release_tag;
 
     for shard in 0..entry.shards {
-        let filename = format!("shard-{shard:02}.bgz7");
-        let dest = dir.join(&filename);
+        let local_filename = format!("shard-{shard:02}.bgz7");
+        let dest = dir.join(&local_filename);
 
         if dest.exists() && fs::metadata(&dest).map(|m| m.len() > 0).unwrap_or(false) {
-            println!("  {filename}: already present, skipping");
+            println!("  {local_filename}: already present, skipping");
             continue;
         }
 
-        let asset_name = format!("{model}--{filename}");
+        // Release assets are 1-indexed (shard-01..shard-11),
+        // local storage is 0-indexed (shard-00..shard-10) matching manifest.
+        let release_shard = shard + 1;
+        let asset_name = format!("{model}--shard-{release_shard:02}.bgz7");
         let url = format!("https://github.com/{repo}/releases/download/{tag}/{asset_name}");
-        println!("  Downloading {filename} from release {tag}...");
+        println!("  Downloading {local_filename} (from asset {asset_name})...");
 
         let status = process::Command::new("curl")
             .args(["-fSL", "--retry", "4", "--retry-delay", "2",
@@ -134,8 +137,7 @@ fn cmd_download(manifest: &manifest::Manifest, model: &str) {
             .expect("curl not found");
 
         if !status.success() {
-            eprintln!("  FAILED to download {filename}");
-            // Clean up partial file
+            eprintln!("  FAILED to download {local_filename}");
             let _ = fs::remove_file(&dest);
             process::exit(1);
         }
