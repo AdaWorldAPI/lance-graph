@@ -5,3 +5,4 @@
 
 pub mod weights;
 pub mod embed;
+pub mod tokenizer;

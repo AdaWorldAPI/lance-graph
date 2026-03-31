@@ -93,6 +93,26 @@
       "total_bytes_bgz7": 37400000,
       "release_tag": "v0.1.0-bgz-data",
       "sha256": {}
+    },
+    "reader-lm-1.5b": {
+      "source": "jinaai/reader-lm-1.5b",
+      "format": "safetensors",
+      "shards": 1,
+      "total_bytes_bgz7": 27262976,
+      "release_tag": "v0.1.0-bgz-data",
+      "sha256": {
+        "reader-lm-1.5b.bgz7": "ec576cdd37c6ee2f1e138970bf75528c4214491c432c5403a0d9f9e3c025a6ba"
+      }
+    },
+    "bge-m3-f16": {
+      "source": "CompendiumLabs/bge-m3-gguf",
+      "format": "gguf",
+      "shards": 1,
+      "total_bytes_bgz7": 7654400,
+      "release_tag": "v0.1.0-bgz-data",
+      "sha256": {
+        "bge-m3-f16.bgz7": "970daa4d248df76f7d28cf830158ea1261cbb8a2066ffb9cff53e84704a6a50b"
+      }
     }
   },
   "savants": {
