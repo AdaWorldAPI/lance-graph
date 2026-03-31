@@ -115,17 +115,18 @@ fn cmd_download(manifest: &manifest::Manifest, model: &str) {
     let tag = &entry.release_tag;
 
     for shard in 0..entry.shards {
-        let filename = format!("shard-{shard:02}.bgz7");
-        let dest = dir.join(&filename);
+        let local_filename = format!("shard-{shard:02}.bgz7");  // 0-indexed local
+        let release_shard = shard + 1;  // 1-indexed in GitHub releases
+        let dest = dir.join(&local_filename);
 
         if dest.exists() && fs::metadata(&dest).map(|m| m.len() > 0).unwrap_or(false) {
-            println!("  {filename}: already present, skipping");
+            println!("  {local_filename}: already present, skipping");
             continue;
         }
 
-        let asset_name = format!("{model}--{filename}");
+        let asset_name = format!("{model}--shard-{release_shard:02}.bgz7");
         let url = format!("https://github.com/{repo}/releases/download/{tag}/{asset_name}");
-        println!("  Downloading {filename} from release {tag}...");
+        println!("  Downloading {local_filename} (from {asset_name})...");
 
         let status = process::Command::new("curl")
             .args(["-fSL", "--retry", "4", "--retry-delay", "2",
@@ -134,7 +135,7 @@ fn cmd_download(manifest: &manifest::Manifest, model: &str) {
             .expect("curl not found");
 
         if !status.success() {
-            eprintln!("  FAILED to download {filename}");
+            eprintln!("  FAILED to download {local_filename}");
             // Clean up partial file
             let _ = fs::remove_file(&dest);
             process::exit(1);
