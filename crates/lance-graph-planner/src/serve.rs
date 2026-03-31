@@ -168,8 +168,129 @@ mod server {
         })))
     }
 
+    /// Load Base17 rows from a bgz7 file into HeadPrints.
+    fn load_bgz7(path: &str) -> Vec<(String, Vec<HeadPrint>)> {
+        use std::io::Read;
+        let mut file = match std::fs::File::open(path) {
+            Ok(f) => std::io::BufReader::new(f),
+            Err(e) => { eprintln!("  SKIP {path}: {e}"); return Vec::new(); }
+        };
+        let mut buf4 = [0u8; 4];
+        let mut buf1 = [0u8; 1];
+        let mut buf34 = [0u8; 34];
+
+        if file.read_exact(&mut buf4).is_err() { return Vec::new(); }
+        if &buf4 != b"BGZ7" { eprintln!("  SKIP {path}: bad magic"); return Vec::new(); }
+
+        if file.read_exact(&mut buf4).is_err() { return Vec::new(); }
+        let n_tensors = u32::from_le_bytes(buf4) as usize;
+
+        let mut tensors = Vec::new();
+        for _ in 0..n_tensors {
+            // name length
+            if file.read_exact(&mut buf4).is_err() { break; }
+            let name_len = u32::from_le_bytes(buf4) as usize;
+            let mut name_buf = vec![0u8; name_len];
+            if file.read_exact(&mut name_buf).is_err() { break; }
+            let name = String::from_utf8_lossy(&name_buf).to_string();
+            // layer type
+            if file.read_exact(&mut buf1).is_err() { break; }
+            // n_rows, n_cols
+            if file.read_exact(&mut buf4).is_err() { break; }
+            let n_rows = u32::from_le_bytes(buf4) as usize;
+            if file.read_exact(&mut buf4).is_err() { break; }
+            let _n_cols = u32::from_le_bytes(buf4) as usize;
+            // rows
+            let mut rows = Vec::with_capacity(n_rows.min(1000));
+            for _ in 0..n_rows {
+                if file.read_exact(&mut buf34).is_err() { break; }
+                let mut dims = [0i16; 17];
+                for d in 0..17 {
+                    dims[d] = i16::from_le_bytes([buf34[d*2], buf34[d*2+1]]);
+                }
+                if rows.len() < 1000 { // cap per tensor
+                    rows.push(HeadPrint { dims });
+                }
+            }
+            tensors.push((name, rows));
+        }
+        tensors
+    }
+
+    /// Populate attention matrix from bgz7 weight fingerprints.
+    fn populate_cache(cache: &mut AutocompleteCache, v2_path: &str, base_path: &str) {
+        eprintln!("Loading Qwen3.5-27B v2 (Opus 4.6) weights...");
+        let v2_tensors = load_bgz7(v2_path);
+        eprintln!("  {} tensors, {} total rows",
+            v2_tensors.len(),
+            v2_tensors.iter().map(|(_, r)| r.len()).sum::<usize>());
+
+        eprintln!("Loading Qwen3.5-27B base weights...");
+        let base_tensors = load_bgz7(base_path);
+        eprintln!("  {} tensors, {} total rows",
+            base_tensors.len(),
+            base_tensors.iter().map(|(_, r)| r.len()).sum::<usize>());
+
+        // Populate self_model with v2 weights (what Opus 4.6 looks like)
+        let mut head_count = 0usize;
+        for (name, rows) in &v2_tensors {
+            for (r, fp) in rows.iter().enumerate().take(64) {
+                let row = head_count % 64;
+                let col = r % 64;
+                cache.triple.self_model.matrix.set(row, col, fp.clone());
+                head_count += 1;
+            }
+            if head_count >= 4096 { break; }
+        }
+        eprintln!("  self_model: {} heads populated", head_count.min(4096));
+
+        // Populate user_model with base weights (what the user "knows")
+        head_count = 0;
+        for (name, rows) in &base_tensors {
+            for (r, fp) in rows.iter().enumerate().take(64) {
+                let row = head_count % 64;
+                let col = r % 64;
+                cache.triple.user_model.matrix.set(row, col, fp.clone());
+                head_count += 1;
+            }
+            if head_count >= 4096 { break; }
+        }
+        eprintln!("  user_model: {} heads populated", head_count.min(4096));
+
+        // Impact model starts as diff: where self and user diverge
+        for row in 0..64 {
+            for col in 0..64 {
+                let s = cache.triple.self_model.matrix.get(row, col);
+                let u = cache.triple.user_model.matrix.get(row, col);
+                let dist = s.l1(u);
+                if dist > 0 {
+                    // Impact = the difference
+                    let mut impact_dims = [0i16; 17];
+                    for d in 0..17 {
+                        impact_dims[d] = s.dims[d].wrapping_sub(u.dims[d]);
+                    }
+                    cache.triple.impact_model.matrix.set(row, col, HeadPrint { dims: impact_dims });
+                }
+            }
+        }
+        eprintln!("  impact_model: populated from diff");
+        eprintln!("  Gestalt L1 (self vs user): {}",
+            cache.triple.self_model.matrix.gestalt.l1(&cache.triple.user_model.matrix.gestalt));
+    }
+
     pub async fn run(port: u16) {
-        let cache = AutocompleteCache::new();
+        let mut cache = AutocompleteCache::new();
+
+        // Try to load bgz7 weights from /tmp/ (from indexing session)
+        let v2_shard = "/tmp/qwen35_27b_v2_shard02.bgz7";
+        let base_shard = "/tmp/qwen35_27b_base_shard02.bgz7";
+        if std::fs::metadata(v2_shard).is_ok() && std::fs::metadata(base_shard).is_ok() {
+            populate_cache(&mut cache, v2_shard, base_shard);
+        } else {
+            eprintln!("No bgz7 weights found in /tmp/ — running with empty cache");
+            eprintln!("  Run indexing first or hydrate --download qwen35-27b-distilled-v2");
+        }
+
         let state: AppState = std::sync::Arc::new(Mutex::new(cache));
 
         let app = Router::new()
