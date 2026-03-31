@@ -78,6 +78,43 @@ pub fn hydrate_bgz7(path: &str) -> Result<RecordBatch, String> {
     Ok(bgz7_to_batch(&tensors))
 }
 
+/// Write a RecordBatch to a Lance dataset at the given path.
+///
+/// Creates a new dataset or appends to an existing one.
+/// This is the LanceDB persistence layer for hydrated bgz7 vectors.
+pub async fn write_to_lance(
+    batch: &RecordBatch,
+    dataset_path: &str,
+) -> Result<(), String> {
+    use lance::dataset::{WriteMode, WriteParams};
+    use lance::Dataset;
+
+    let batches = vec![batch.clone()];
+    let reader = arrow::record_batch::RecordBatchIterator::new(
+        batches.into_iter().map(Ok),
+        batch.schema(),
+    );
+
+    let params = WriteParams {
+        mode: WriteMode::Append,
+        ..Default::default()
+    };
+
+    Dataset::write(reader, dataset_path, Some(params))
+        .await
+        .map_err(|e| format!("Lance write error: {e}"))?;
+
+    Ok(())
+}
+
+/// Hydrate a bgz7 file and write directly to Lance dataset.
+pub async fn hydrate_to_lance(bgz7_path: &str, dataset_path: &str) -> Result<usize, String> {
+    let batch = hydrate_bgz7(bgz7_path)?;
+    let n_rows = batch.num_rows();
+    write_to_lance(&batch, dataset_path).await?;
+    Ok(n_rows)
+}
+
 /// Compute HEEL vector: column-wise bundle of ALL BF16-hydrated rows.
 pub fn compute_heel(batch: &RecordBatch) -> ndarray::hpc::bgz17_bridge::Base17 {
     let base17_col = batch.column_by_name("base17").expect("base17 column");

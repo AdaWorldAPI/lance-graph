@@ -31,7 +31,23 @@ mod server {
     use lance_graph_planner::cache::triple_model::TripleModel;
     use lance_graph_planner::strategy::chat_bundle::AutocompleteCache;
 
-    type AppState = std::sync::Arc<Mutex<AutocompleteCache>>;
+    /// Compiled palette pipeline: bgz17 Palette → DistanceMatrix → SimilarityTable.
+    /// Built once at startup from bgz7 weight rows. All subsequent lookups are O(1).
+    struct PalettePipeline {
+        /// 256 archetypal Base17 patterns from weight manifold.
+        palette: bgz17::palette::Palette,
+        /// 256×256 precomputed L1 distances (128 KB, L1-cache resident).
+        distance: bgz17::distance_matrix::DistanceMatrix,
+        /// σ-calibrated CDF: raw distance → [0.0, 1.0] similarity.
+        similarity: bgz17::similarity::SimilarityTable,
+    }
+
+    struct ServerState {
+        cache: AutocompleteCache,
+        pipeline: Option<PalettePipeline>,
+    }
+
+    type AppState = std::sync::Arc<Mutex<ServerState>>;
 
     fn timestamp() -> u64 {
         SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs()
@@ -49,6 +65,36 @@ mod server {
             *d = (*d % 1000).abs() as i16;
         }
         HeadPrint { dims }
+    }
+
+    /// Convert ndarray HeadPrint (Base17) to bgz17 Base17 for palette lookup.
+    /// Both types have identical layout: dims: [i16; 17].
+    fn headprint_to_bgz17(hp: &HeadPrint) -> bgz17::base17::Base17 {
+        bgz17::base17::Base17 { dims: hp.dims }
+    }
+
+    /// Score a message against the palette pipeline.
+    /// Returns (palette_index, best_match_index, similarity_score).
+    fn palette_score(
+        pipeline: &PalettePipeline,
+        query: &HeadPrint,
+        cached_indices: &[u8],
+    ) -> (u8, usize, f32) {
+        let bgz_query = headprint_to_bgz17(query);
+        let q_idx = pipeline.palette.nearest(&bgz_query);
+
+        // Find best match among cached palette indices
+        let mut best_sim = 0.0f32;
+        let mut best_pos = 0usize;
+        for (pos, &c_idx) in cached_indices.iter().enumerate() {
+            let dist = pipeline.distance.distance(q_idx, c_idx) as u32;
+            let sim = pipeline.similarity.similarity(dist);
+            if sim > best_sim {
+                best_sim = sim;
+                best_pos = pos;
+            }
+        }
+        (q_idx, best_pos, best_sim)
     }
 
     fn phase_to_str(phase: Phase) -> &'static str {
@@ -114,7 +160,7 @@ mod server {
             }))));
         }
 
-        let mut cache = state.lock().unwrap();
+        let mut server = state.lock().unwrap();
 
         // Process each message through the cache
         let mut last_content = String::new();
@@ -128,8 +174,51 @@ mod server {
 
             match role {
                 "user" => {
-                    if let Some(spo) = cache.on_user_message(&fp) {
-                        // Cache hit — we have a candidate
+                    // Try palette pipeline first (σ-calibrated scoring)
+                    if let Some(ref pipeline) = server.pipeline {
+                        let (q_idx, best_pos, sim) = palette_score(
+                            pipeline,
+                            &fp,
+                            &server.cache.palette_indices,
+                        );
+
+                        if sim > 0.3 {
+                            // Palette HIT — σ-calibrated similarity above threshold
+                            cache_hit = true;
+                            let dist = pipeline.distance.distance(
+                                q_idx,
+                                server.cache.palette_indices.get(best_pos).copied().unwrap_or(0),
+                            );
+                            last_content = format!(
+                                "[Palette HIT] idx={} match={} dist={} sim={:.4} | \
+                                 Phase: {} | \
+                                 Palette k={} | \
+                                 σ-calibrated | \
+                                 Model: {}",
+                                q_idx, best_pos, dist, sim,
+                                phase_to_str(server.cache.phase()),
+                                pipeline.palette.len(),
+                                model,
+                            );
+                        } else {
+                            // Palette MISS — similarity too low, fall through
+                            let surprise = server.cache.triple.free_energy(&fp);
+                            let alignment = server.cache.triple.alignment();
+                            last_content = format!(
+                                "[Palette MISS → LLM] idx={} best_sim={:.4} | \
+                                 Surprise={:.3} Alignment={:.3} | \
+                                 Phase: {} | \
+                                 Pool: {} candidates | \
+                                 Model: {}",
+                                q_idx, sim,
+                                surprise, alignment,
+                                phase_to_str(server.cache.phase()),
+                                server.cache.pool.count(),
+                                model,
+                            );
+                        }
+                    } else if let Some(spo) = server.cache.on_user_message(&fp) {
+                        // Fallback: old cache path (no palette pipeline)
                         cache_hit = true;
                         last_content = format!(
                             "[Cache HIT] Palette route: S={} P={} O={} | \
@@ -140,13 +229,13 @@ mod server {
                             spo.s_idx, spo.p_idx, spo.o_idx,
                             spo.frequency(), spo.confidence(), spo.expectation(),
                             spo.pearl,
-                            phase_to_str(cache.phase()),
+                            phase_to_str(server.cache.phase()),
                             model,
                         );
                     } else {
-                        // Cache miss — would normally call LLM
-                        let surprise = cache.triple.free_energy(&fp);
-                        let alignment = cache.triple.alignment();
+                        // Cache miss — no pipeline, no cache hit
+                        let surprise = server.cache.triple.free_energy(&fp);
+                        let alignment = server.cache.triple.alignment();
                         last_content = format!(
                             "[Cache MISS → LLM fallthrough] \
                              Surprise={:.3} Alignment={:.3} | \
@@ -155,16 +244,16 @@ mod server {
                              DK: self={:?} user={:?} | \
                              Model: {}",
                             surprise, alignment,
-                            phase_to_str(cache.phase()),
-                            cache.pool.count(),
-                            cache.triple.self_model.dk,
-                            cache.triple.user_model.dk,
+                            phase_to_str(server.cache.phase()),
+                            server.cache.pool.count(),
+                            server.cache.triple.self_model.dk,
+                            server.cache.triple.user_model.dk,
                             model,
                         );
                     }
                 }
                 "assistant" => {
-                    cache.on_self_output(&fp);
+                    server.cache.on_self_output(&fp);
                 }
                 _ => {} // system, tool — pass through
             }
@@ -183,14 +272,14 @@ mod server {
                     "role": "assistant",
                     "content": last_content,
                 },
-                "finish_reason": if cache.should_stop() { "stop" } else { "length" },
+                "finish_reason": if server.cache.should_stop() { "stop" } else { "length" },
             }],
             "usage": {
                 "prompt_tokens": messages.len(),
                 "completion_tokens": 1,
                 "total_tokens": messages.len() + 1,
             },
-            "system_fingerprint": format!("palette-{}", phase_to_str(cache.phase())),
+            "system_fingerprint": format!("palette-{}", phase_to_str(server.cache.phase())),
         })))
     }
 
@@ -213,8 +302,43 @@ mod server {
         }
     }
 
+    /// Build the palette pipeline from bgz7 weight rows.
+    /// Returns (PalettePipeline, palette_indices) for all collected Base17 rows.
+    fn build_palette_pipeline(all_rows: &[HeadPrint]) -> (PalettePipeline, Vec<u8>) {
+        // Convert HeadPrint (ndarray Base17) → bgz17 Base17 for palette building
+        let bgz_rows: Vec<bgz17::base17::Base17> = all_rows
+            .iter()
+            .map(|hp| bgz17::base17::Base17 { dims: hp.dims })
+            .collect();
+
+        eprintln!("  Building palette from {} weight rows...", bgz_rows.len());
+        let palette = bgz17::palette::Palette::build(&bgz_rows, 256, 10);
+        eprintln!("  Palette: {} archetypes", palette.len());
+
+        let distance = bgz17::distance_matrix::DistanceMatrix::build(&palette);
+        eprintln!("  DistanceMatrix: {} KB", distance.byte_size() / 1024);
+
+        // Collect all pairwise distances for SimilarityTable calibration
+        let k = palette.len();
+        let mut reservoir: Vec<u32> = Vec::with_capacity(k * (k - 1) / 2);
+        for i in 0..k {
+            for j in (i + 1)..k {
+                reservoir.push(distance.distance(i as u8, j as u8) as u32);
+            }
+        }
+        let similarity = bgz17::similarity::SimilarityTable::from_reservoir(&mut reservoir);
+        eprintln!("  SimilarityTable: bucket_width={} max_dist={}",
+            similarity.bucket_width(), similarity.max_distance());
+
+        // Assign all weight rows to palette indices
+        let indices: Vec<u8> = bgz_rows.iter().map(|r| palette.nearest(r)).collect();
+        eprintln!("  Assigned {} rows to palette indices", indices.len());
+
+        (PalettePipeline { palette, distance, similarity }, indices)
+    }
+
     /// Populate attention matrix from bgz7 weight fingerprints.
-    fn populate_cache(cache: &mut AutocompleteCache, v2_path: &str, base_path: &str) {
+    fn populate_cache(server: &mut ServerState, v2_path: &str, base_path: &str) {
         eprintln!("Loading Qwen3.5-27B v2 (Opus 4.6) weights...");
         let v2_tensors = load_bgz7(v2_path);
         eprintln!("  {} tensors, {} total rows",
@@ -227,9 +351,26 @@ mod server {
             base_tensors.len(),
             base_tensors.iter().map(|(_, r)| r.len()).sum::<usize>());
 
+        // Collect ALL weight rows for palette building
+        let mut all_rows: Vec<HeadPrint> = Vec::new();
+        for (_, rows) in &v2_tensors {
+            all_rows.extend_from_slice(rows);
+        }
+        for (_, rows) in &base_tensors {
+            all_rows.extend_from_slice(rows);
+        }
+
+        // Build palette pipeline
+        if !all_rows.is_empty() {
+            let (pipeline, indices) = build_palette_pipeline(&all_rows);
+            server.cache.palette_indices = indices;
+            server.pipeline = Some(pipeline);
+        }
+
         // Populate self_model with v2 weights (what Opus 4.6 looks like)
+        let cache = &mut server.cache;
         let mut head_count = 0usize;
-        for (name, rows) in &v2_tensors {
+        for (_name, rows) in &v2_tensors {
             for (r, fp) in rows.iter().enumerate().take(64) {
                 let row = head_count % 64;
                 let col = r % 64;
@@ -242,7 +383,7 @@ mod server {
 
         // Populate user_model with base weights (what the user "knows")
         head_count = 0;
-        for (name, rows) in &base_tensors {
+        for (_name, rows) in &base_tensors {
             for (r, fp) in rows.iter().enumerate().take(64) {
                 let row = head_count % 64;
                 let col = r % 64;
@@ -260,7 +401,6 @@ mod server {
                 let u = cache.triple.user_model.matrix.get(row, col);
                 let dist = s.l1(u);
                 if dist > 0 {
-                    // Impact = the difference
                     let mut impact_dims = [0i16; 17];
                     for d in 0..17 {
                         impact_dims[d] = s.dims[d].wrapping_sub(u.dims[d]);
@@ -275,7 +415,7 @@ mod server {
     }
 
     async fn embeddings(
-        State(_state): State<AppState>,
+        State(state): State<AppState>,
         Json(req): Json<Value>,
     ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
         let model = req.get("model").and_then(|v| v.as_str()).unwrap_or("bge-m3");
@@ -291,9 +431,18 @@ mod server {
             }))));
         }
 
+        let server = state.lock().unwrap();
+
         // Embed as Base17 fingerprint (17 dims, golden-step folding)
         let fp = message_to_headprint(input);
-        let embedding: Vec<f64> = fp.dims.iter().map(|d| *d as f64 / 10000.0).collect();
+        let mut embedding: Vec<f64> = fp.dims.iter().map(|d| *d as f64 / 10000.0).collect();
+
+        // If palette pipeline available, append palette index as extra dim
+        if let Some(ref pipeline) = server.pipeline {
+            let bgz = headprint_to_bgz17(&fp);
+            let idx = pipeline.palette.nearest(&bgz);
+            embedding.push(idx as f64 / 256.0);
+        }
 
         Ok(Json(json!({
             "object": "list",
@@ -311,19 +460,28 @@ mod server {
     }
 
     pub async fn run(port: u16) {
-        let mut cache = AutocompleteCache::new();
+        let mut server = ServerState {
+            cache: AutocompleteCache::new(),
+            pipeline: None,
+        };
 
         // Try to load bgz7 weights from /tmp/ (from indexing session)
         let v2_shard = "/tmp/qwen35_27b_v2_shard02.bgz7";
         let base_shard = "/tmp/qwen35_27b_base_shard02.bgz7";
         if std::fs::metadata(v2_shard).is_ok() && std::fs::metadata(base_shard).is_ok() {
-            populate_cache(&mut cache, v2_shard, base_shard);
+            populate_cache(&mut server, v2_shard, base_shard);
         } else {
             eprintln!("No bgz7 weights found in /tmp/ — running with empty cache");
             eprintln!("  Run indexing first or hydrate --download qwen35-27b-distilled-v2");
         }
 
-        let state: AppState = std::sync::Arc::new(Mutex::new(cache));
+        if server.pipeline.is_some() {
+            eprintln!("Palette pipeline: ACTIVE (σ-calibrated scoring)");
+        } else {
+            eprintln!("Palette pipeline: INACTIVE (no weight data)");
+        }
+
+        let state: AppState = std::sync::Arc::new(Mutex::new(server));
 
         let app = Router::new()
             .route("/health", get(health))
