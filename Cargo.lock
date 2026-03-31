@@ -6172,6 +6172,8 @@ dependencies = [
  "num-complex",
  "num-integer",
  "num-traits",
+ "p64",
+ "phyllotactic-manifold",
  "portable-atomic",
  "portable-atomic-util",
  "rawpointer",
@@ -6555,6 +6557,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "p64"
+version = "0.1.0"
+dependencies = [
+ "phyllotactic-manifold",
+]
+
+[[package]]
 name = "parking"
 version = "2.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6761,6 +6770,10 @@ checksum = "06005508882fb681fd97892ecff4b7fd0fee13ef1aa569f8695dae7ab9099981"
 dependencies = [
  "siphasher",
 ]
+
+[[package]]
+name = "phyllotactic-manifold"
+version = "0.1.0"
 
 [[package]]
 name = "pin-project"
