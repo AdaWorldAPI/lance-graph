@@ -1,4 +1,4 @@
-//! Strategy registry: all 16 composable planning strategies.
+//! Strategy registry: all 17 composable planning strategies.
 //!
 //! | # | Strategy          | Capability           | Source               |
 //! |---|-------------------|---------------------|----------------------|
@@ -18,6 +18,7 @@
 //! |14 | GremlinParse      | Parse               | TinkerPop Gremlin    |
 //! |15 | SparqlParse       | Parse               | W3C SPARQL           |
 //! |16 | GqlParse          | Parse               | ISO GQL (39075)      |
+//! |17 | ChatBundle        | Extension           | BindSpace hot path   |
 
 pub mod cypher_parse;
 pub mod gremlin_parse;
@@ -35,6 +36,7 @@ pub mod collapse_gate;
 pub mod jit_compile;
 pub mod workflow_dag;
 pub mod extension;
+pub mod chat_bundle;
 
 use crate::traits::PlanStrategy;
 
@@ -70,5 +72,7 @@ pub fn default_strategies() -> Vec<Box<dyn PlanStrategy>> {
         // Cross-cutting
         Box::new(workflow_dag::WorkflowDAG),
         Box::new(extension::ExtensionPlanner),
+        // Chat hot path (BindSpace bundling)
+        Box::new(chat_bundle::ChatBundleStrategy),
     ]
 }
