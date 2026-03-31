@@ -13,6 +13,7 @@ exclude = [
     "crates/bgz17",
     "crates/deepnsm",
     "crates/bgz-tensor",
+    "crates/lance-graph-osint",
     "crates/p64-bridge",
     "crates/causal-edge",
 ]
