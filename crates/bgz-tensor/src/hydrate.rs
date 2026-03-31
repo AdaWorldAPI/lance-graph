@@ -123,9 +123,12 @@ fn cmd_download(manifest: &manifest::Manifest, model: &str) {
             continue;
         }
 
-        let asset_name = format!("{model}--{filename}");
+        // Release assets are 1-indexed (shard-01..shard-11),
+        // local files are 0-indexed (shard-00..shard-10) to match manifest.
+        let remote_name = format!("shard-{:02}.bgz7", shard + 1);
+        let asset_name = format!("{model}--{remote_name}");
         let url = format!("https://github.com/{repo}/releases/download/{tag}/{asset_name}");
-        println!("  Downloading {filename} from release {tag}...");
+        println!("  Downloading {remote_name} → {filename} from release {tag}...");
 
         let status = process::Command::new("curl")
             .args(["-fSL", "--retry", "4", "--retry-delay", "2",
