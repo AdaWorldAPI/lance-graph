@@ -64,6 +64,7 @@ pub mod belichtungsmesser;
 pub mod cascade;
 pub mod codebook4096;
 pub mod euler_fold;
+pub mod gamma_phi;
 pub mod hdr_belichtung;
 pub mod hhtl_cache;
 pub mod jina;
