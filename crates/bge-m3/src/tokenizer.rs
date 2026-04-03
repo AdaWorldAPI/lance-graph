@@ -40,6 +40,24 @@ pub fn token_count(text: &str) -> usize {
     tokenize(text).len()
 }
 
+// --- Real tokenizer support (HuggingFace tokenizers crate) ---
+
+/// Load the real BGE-M3 tokenizer from HuggingFace.
+#[cfg(feature = "real-tokenizer")]
+pub fn load_real_tokenizer() -> Result<tokenizers::Tokenizer, String> {
+    tokenizers::Tokenizer::from_pretrained("BAAI/bge-m3", None)
+        .map_err(|e| format!("Failed to load bge-m3 tokenizer: {}", e))
+}
+
+/// Tokenize text using the real tokenizer, falling back to the stub on error.
+#[cfg(feature = "real-tokenizer")]
+pub fn tokenize_real(tokenizer: &tokenizers::Tokenizer, text: &str) -> Vec<u32> {
+    tokenizer
+        .encode(text, true)
+        .map(|enc| enc.get_ids().to_vec())
+        .unwrap_or_else(|_| tokenize(text)) // fallback to stub
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -90,5 +108,26 @@ mod tests {
     #[test]
     fn test_token_count() {
         assert_eq!(token_count("a b c"), 5); // CLS + a + b + c + SEP
+    }
+}
+
+#[cfg(all(test, feature = "real-tokenizer"))]
+mod real_tokenizer_tests {
+    use super::*;
+
+    #[test]
+    fn test_load_real_tokenizer() {
+        let tokenizer = load_real_tokenizer().expect("should load tokenizer from HuggingFace");
+        let encoding = tokenizer.encode("Hello world", true).expect("should encode");
+        let ids = encoding.get_ids();
+        assert!(ids.len() > 0, "token count must be > 0");
+    }
+
+    #[test]
+    fn test_real_tokenizer_deterministic() {
+        let tokenizer = load_real_tokenizer().expect("should load tokenizer");
+        let ids_a = tokenize_real(&tokenizer, "Hello world");
+        let ids_b = tokenize_real(&tokenizer, "Hello world");
+        assert_eq!(ids_a, ids_b, "same input must produce same output");
     }
 }

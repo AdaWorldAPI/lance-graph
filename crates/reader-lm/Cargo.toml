@@ -9,5 +9,10 @@ license = "Apache-2.0"
 [dependencies]
 ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
 bgz-tensor = { path = "../bgz-tensor" }
+tokenizers = { version = "0.22", optional = true, features = ["http"] }
+
+[features]
+default = []
+real-tokenizer = ["dep:tokenizers"]
 
 [dev-dependencies]
