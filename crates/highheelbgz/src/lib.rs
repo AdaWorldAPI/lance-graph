@@ -12,6 +12,7 @@
 //! The HEEL walks the spiral in high strides.
 
 pub mod rehydrate;
+pub mod simd_hardened;
 pub mod source;
 
 use std::f64::consts::GOLDEN_RATIO;
