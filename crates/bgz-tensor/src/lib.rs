@@ -63,6 +63,7 @@ pub mod attention;
 pub mod belichtungsmesser;
 pub mod cascade;
 pub mod codebook4096;
+pub mod euler_fold;
 pub mod hhtl_cache;
 pub mod jina;
 pub mod palette;
