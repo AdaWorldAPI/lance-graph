@@ -121,7 +121,7 @@ fn main() {
         .collect();
 
     // Cluster fingerprints by Hamming distance
-    println!("Top 10 most similar fingerprint pairs:");
+    println!("Top 10 most similar fingerprint pairs (by bit disagreement):");
     let mut pairs: Vec<(usize, usize, u32)> = Vec::new();
     for i in 0..n {
         for j in (i+1)..n {
@@ -132,7 +132,7 @@ fn main() {
 
     for (rank, &(i, j, d)) in pairs.iter().take(10).enumerate() {
         let cos = cosine_f32_slice(&raw_vectors[i], &raw_vectors[j]);
-        println!("  {:>2}. hamming={:>2} cos={:.4} | {} <-> {}",
+        println!("  {:>2}. disagree={:>2} cos={:.4} | {} <-> {}",
             rank + 1, d, cos,
             if texts[i].len() > 30 { &texts[i][..30] } else { texts[i] },
             if texts[j].len() > 30 { &texts[j][..30] } else { texts[j] });
