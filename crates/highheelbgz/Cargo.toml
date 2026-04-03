@@ -1,0 +1,20 @@
+[package]
+name = "highheelbgz"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.94"
+license = "Apache-2.0"
+publish = false
+description = """
+HighHeelBGZ: 3-integer spiral address encoding for weight vectors.
+
+Not compression — addressing. Each vector is (start, stride, length):
+where it enters the golden spiral, how it samples, how far it walks.
+The actual values are recomputed on demand from the source data.
+
+6-12 bytes per vector. Everything else derived at query time.
+"""
+
+[dependencies]
+
+[dev-dependencies]

@@ -18,5 +18,6 @@ exclude = [
     "crates/bge-m3",
     "crates/p64-bridge",
     "crates/causal-edge",
+    "crates/highheelbgz",
 ]
 resolver = "2"
