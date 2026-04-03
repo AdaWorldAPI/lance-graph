@@ -15,7 +15,7 @@
 | BGE-M3 | `bge-m3-f16` | CompendiumLabs/bge-m3-gguf F16 (1158 MB) | 64 | 1024 | 4096 | ✓ Built |
 | GPT-2 | `gpt2` | QuantFactory/gpt2-GGUF Q8_0 (178 MB) | 64 | 768 | 3072 | ✓ Built |
 | MiniLM-L6-v2 | `all-MiniLM-L6-v2` | second-state/All-MiniLM-L6-v2-Embedding-GGUF Q8_0 (25 MB) | 64 | 384 | 1536 | ✓ Built |
-| reader-LM 1.5B | — | Not accessible (gated/removed) | — | — | — | ✗ Blocked |
+| reader-LM 1.5B | `reader-lm-1.5b` | bartowski/reader-lm-1.5b-GGUF Q8_0 (1647 MB) | 64 | 256 | 1536 | ✓ Built |
 | OpenChat 3.5 | — | Already have bgz7 (i16, MUSH) | — | — | — | Needs GGUF |
 | Qwen 27B | — | On GitHub release (bgz7 only) | — | — | — | Needs GGUF |
 | Llama4 Scout | — | Have bgz7 (i16, MARGINAL) | — | — | — | Needs GGUF |
@@ -112,6 +112,10 @@ python3 -c "from huggingface_hub import hf_hub_download; \
 # GPT-2 (Q8_0, 178 MB)
 python3 -c "from huggingface_hub import hf_hub_download; \
   print(hf_hub_download('QuantFactory/gpt2-GGUF', 'gpt2.Q8_0.gguf', cache_dir='/tmp/hf_cache'))"
+
+# reader-LM 1.5B (Q8_0, 1647 MB) — bartowski has excellent GGUF conversions
+python3 -c "from huggingface_hub import hf_hub_download; \
+  print(hf_hub_download('bartowski/reader-lm-1.5b-GGUF', 'reader-lm-1.5b-Q8_0.gguf', cache_dir='/tmp/hf_cache'))"
 
 # MiniLM-L6-v2 (Q8_0, 25 MB)
 python3 -c "from huggingface_hub import hf_hub_download; \
