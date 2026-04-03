@@ -16,5 +16,10 @@ The actual values are recomputed on demand from the source data.
 """
 
 [dependencies]
+bgz-tensor = { path = "../bgz-tensor", optional = true }
+
+[features]
+default = []
+tensor = ["dep:bgz-tensor"]
 
 [dev-dependencies]
