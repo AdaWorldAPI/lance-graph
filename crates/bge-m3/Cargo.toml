@@ -8,5 +8,6 @@ license = "Apache-2.0"
 
 [dependencies]
 ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
+bgz-tensor = { path = "../bgz-tensor" }
 
 [dev-dependencies]
