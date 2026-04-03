@@ -16,9 +16,11 @@
 | GPT-2 | `gpt2` | QuantFactory/gpt2-GGUF Q8_0 (178 MB) | 64 | 768 | 3072 | ✓ Built |
 | MiniLM-L6-v2 | `all-MiniLM-L6-v2` | second-state/All-MiniLM-L6-v2-Embedding-GGUF Q8_0 (25 MB) | 64 | 384 | 1536 | ✓ Built |
 | reader-LM 1.5B | `reader-lm-1.5b` | bartowski/reader-lm-1.5b-GGUF Q8_0 (1647 MB) | 64 | 256 | 1536 | ✓ Built |
+| Qwen 2.5 3B | `Qwen2.5-3B-Instruct` | bartowski/Qwen2.5-3B-Instruct-GGUF Q8_0 (3290 MB) | 64 | 256 | 2048 | ✓ Built |
+| Qwen 3.5 9B Opus v2 | `Qwen3.5-9B` | Jackrong/Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-v2 Q8_0 (9530 MB) | 64 | 1024 | 4096 | ✓ Built |
+| Qwopus 27B v3 | — | Jackrong/Qwopus3.5-27B-v3-GGUF (Q8_0=29GB, Q2_K=10.7GB) | — | — | — | ✗ Needs Q2_K/Q4_K dequant |
 | OpenChat 3.5 | — | Already have bgz7 (i16, MUSH) | — | — | — | Needs GGUF |
-| Qwen 27B | — | On GitHub release (bgz7 only) | — | — | — | Needs GGUF |
-| Llama4 Scout | — | Have bgz7 (i16, MARGINAL) | — | — | — | Needs GGUF |
+| Llama4 Scout | — | bartowski (17B MoE, Q8_0=30+GB) | — | — | — | Needs disk space |
 
 ---
 
@@ -132,8 +134,10 @@ python3 -c "from huggingface_hub import hf_hub_download; \
 4. **Multi-codebook distance table**: 4096+1024+256 = 5376 combined entries
 5. **Wire to ThinkingEngine**: Load distance table → perturb → think → commit
 6. **Tokenizer integration**: tokenize text → token_id → assignment[token_id] → codebook index
-7. **reader-LM GGUF**: Find alternative source or build from safetensors
-8. **OpenChat/Qwen/Llama4**: Download GGUF, reindex at stacked resolution (not i16)
+7. **Q2_K/Q4_K_M dequant**: Add K-quant support for 27B+ models (superblock structure)
+8. **Qwopus 27B v3**: Needs Q4_K_M dequant or larger disk for Q8_0
+9. **Llama4 Scout**: bartowski has it but 17B MoE = 30+ GB Q8_0
+10. **bartowski catalog**: Excellent GGUF source for most models (LM Studio affiliated)
 
 ---
 
