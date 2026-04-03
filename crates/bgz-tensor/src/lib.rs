@@ -70,6 +70,7 @@ pub mod projection;
 pub mod quality;
 pub mod similarity;
 pub mod stacked;
+pub mod stacked_n;
 pub mod variance;
 
 #[cfg(feature = "hydrate")]
@@ -81,6 +82,7 @@ pub use attention::{AttentionSemiring, AttentionTable, CompiledHead, ComposeTabl
 pub use belichtungsmesser::{Band, Belichtungsmesser};
 pub use codebook4096::{Codebook4096, CodebookIndex};
 pub use stacked::{StackedBF16x4, SearchKey17, VedicCascadeConfig};
+pub use stacked_n::{StackedN, ClamCodebook, HdrCascadeConfig};
 pub use cascade::{CascadeConfig, CascadeLevel, CascadeStats};
 pub use palette::WeightPalette;
 pub use projection::Base17;
