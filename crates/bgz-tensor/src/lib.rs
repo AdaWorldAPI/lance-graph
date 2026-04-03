@@ -63,6 +63,7 @@ pub mod attention;
 pub mod belichtungsmesser;
 pub mod cascade;
 pub mod codebook4096;
+pub mod codebook_calibrated;
 pub mod euler_fold;
 pub mod gamma_phi;
 pub mod hdr_belichtung;

@@ -125,20 +125,18 @@ impl StackedN {
     // ─── Distance metrics ───────────────────────────────────────────────
 
     /// Cosine similarity using all hydrated f32 values.
+    ///
+    /// Uses ndarray SIMD cosine (F64x8 FMA) when available.
+    /// Hydrates BF16→f32, then F64x8 three-accumulator cosine.
     pub fn cosine(&self, other: &StackedN) -> f64 {
         assert_eq!(self.samples_per_dim, other.samples_per_dim);
-        let mut dot = 0.0f64;
-        let mut norm_a = 0.0f64;
-        let mut norm_b = 0.0f64;
-        for i in 0..self.data.len() {
-            let a = bf16_to_f32(self.data[i]) as f64;
-            let b = bf16_to_f32(other.data[i]) as f64;
-            dot += a * b;
-            norm_a += a * a;
-            norm_b += b * b;
-        }
-        let denom = (norm_a * norm_b).sqrt();
-        if denom < 1e-12 { 0.0 } else { dot / denom }
+
+        // Hydrate BF16→f32 (scalar bit shift — fast, 1 instruction per value)
+        let a_f32 = self.hydrate_f32();
+        let b_f32 = other.hydrate_f32();
+
+        // SIMD cosine via ndarray (F64x8 FMA on AVX-512, scalar fallback)
+        ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd(&a_f32, &b_f32)
     }
 
     /// L1 distance on hydrated f32 values.
@@ -314,8 +312,16 @@ impl ClamCodebook {
 //   - Palette L1 lookup is O(1), correct, and cheaper than sign extraction
 // See hdr_belichtung.rs for the correct cascade implementation.
 
-/// f32 cosine similarity.
+/// f32 cosine similarity — SIMD accelerated.
+///
+/// Uses ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd when available.
+/// Falls back to scalar on non-x86.
 pub fn cosine_f32_slice(a: &[f32], b: &[f32]) -> f64 {
+    ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd(a, b)
+}
+
+/// Scalar f32 cosine (for reference/testing).
+pub fn cosine_f32_slice_scalar(a: &[f32], b: &[f32]) -> f64 {
     let n = a.len().min(b.len());
     let mut dot = 0.0f64;
     let mut na = 0.0f64;
