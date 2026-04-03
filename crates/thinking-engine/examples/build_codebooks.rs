@@ -17,35 +17,33 @@ use std::path::Path;
 const N_CENTROIDS: usize = 64;
 
 fn main() {
-    let models: Vec<(&str, &str)> = vec![
-        ("jina-v3", "/tmp/hf_cache/models--gaianet--jina-embeddings-v3-GGUF/snapshots/d7d998aab1a7f2ea0aa256d8b3f035cbd0af682a/jina-embeddings-v3-Q8_0.gguf"),
-        ("bge-m3", ""),      // filled in dynamically
-        ("reader-lm-1.5b", ""), // filled in dynamically
-        ("gpt2", ""),          // filled in dynamically
-    ];
-
-    // Discover downloaded GGUFs
+    // Discover ALL GGUF files in /tmp/hf_cache
     let mut paths: Vec<(String, String)> = Vec::new();
 
-    // 1. Jina v3 (known path)
-    let jina_path = models[0].1;
+    // Known path for Jina v3
+    let jina_path = "/tmp/hf_cache/models--gaianet--jina-embeddings-v3-GGUF/snapshots/d7d998aab1a7f2ea0aa256d8b3f035cbd0af682a/jina-embeddings-v3-Q8_0.gguf";
     if Path::new(jina_path).exists() {
         paths.push(("jina-v3".into(), jina_path.into()));
     } else {
         eprintln!("[SKIP] Jina v3: not found at {}", jina_path);
     }
 
-    // 2-4. Search /tmp/hf_cache for other GGUFs
-    for (tag, pattern) in &[
-        ("bge-m3", "bge-m3"),
-        ("reader-lm-1.5b", "reader-lm"),
-        ("gpt2", "pt-2"),  // matches GPT-2 or gpt2
-    ] {
-        if let Some(p) = find_gguf_in_cache(pattern) {
-            paths.push((tag.to_string(), p));
-        } else {
-            eprintln!("[SKIP] {}: no GGUF found in /tmp/hf_cache matching '{}'", tag, pattern);
-        }
+    // Scan /tmp/hf_cache for all other GGUF files
+    let mut all_ggufs = Vec::new();
+    find_all_ggufs(Path::new("/tmp/hf_cache"), &mut all_ggufs);
+    for gguf_path in all_ggufs {
+        // Skip Jina (already added) and skip .no_exist markers (0 bytes)
+        if gguf_path.contains("jina-embeddings") { continue; }
+        if gguf_path.contains(".no_exist") { continue; }
+        let size = std::fs::metadata(&gguf_path).map(|m| m.len()).unwrap_or(0);
+        if size < 1000 { continue; } // skip marker files
+
+        // Derive a tag from the filename
+        let fname = Path::new(&gguf_path).file_stem()
+            .and_then(|s| s.to_str()).unwrap_or("unknown");
+        let tag = fname.replace(".Q8_0", "").replace("-Q8_0", "")
+            .replace("-f16", "-f16").replace("_", "-");
+        paths.push((tag, gguf_path));
     }
 
     if paths.is_empty() {
@@ -75,32 +73,21 @@ fn main() {
     println!("=== Done ===");
 }
 
-fn find_gguf_in_cache(pattern: &str) -> Option<String> {
-    let cache = Path::new("/tmp/hf_cache");
-    if !cache.exists() { return None; }
-    find_gguf_recursive(cache, pattern)
-}
-
-fn find_gguf_recursive(dir: &Path, pattern: &str) -> Option<String> {
-    let entries = std::fs::read_dir(dir).ok()?;
+fn find_all_ggufs(dir: &Path, results: &mut Vec<String>) {
+    let entries = match std::fs::read_dir(dir) {
+        Ok(e) => e,
+        Err(_) => return,
+    };
     for entry in entries.flatten() {
         let path = entry.path();
         if path.is_dir() {
-            if let Some(found) = find_gguf_recursive(&path, pattern) {
-                return Some(found);
-            }
+            find_all_ggufs(&path, results);
         } else if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-            let name_lower = name.to_lowercase();
-            let pattern_lower = pattern.to_lowercase();
-            if name_lower.contains(&pattern_lower)
-                && name_lower.contains("q8_0")
-                && name_lower.ends_with(".gguf")
-            {
-                return Some(path.to_string_lossy().into());
+            if name.ends_with(".gguf") {
+                results.push(path.to_string_lossy().into());
             }
         }
     }
-    None
 }
 
 fn process_model(name: &str, path: &str) -> Result<(), String> {
@@ -111,21 +98,43 @@ fn process_model(name: &str, path: &str) -> Result<(), String> {
         index.tensors.len(), t1.elapsed().as_secs_f64());
 
     // Filter to 2D weight tensors with reasonable dimensions
+    // Support Q8_0 (dtype=8), F16 (dtype=1), F32 (dtype=0)
+    let supported_dtypes = [0, 1, 8];
     let weight_tensors: Vec<&TensorLocation> = index.tensors.iter()
-        .filter(|t| t.n_rows() >= 4 && t.n_cols >= 32 && t.dtype == 8) // Q8_0 only
+        .filter(|t| t.n_rows() >= 4 && t.n_cols >= 32 && supported_dtypes.contains(&t.dtype))
         .collect();
 
     if weight_tensors.is_empty() {
-        return Err("no Q8_0 2D tensors found".into());
+        // Show what dtypes we DO have
+        let mut dtype_counts = std::collections::HashMap::new();
+        for t in &index.tensors {
+            *dtype_counts.entry(t.dtype).or_insert(0u32) += 1;
+        }
+        return Err(format!("no supported 2D tensors found (dtypes present: {:?})", dtype_counts));
     }
 
-    println!("  Q8_0 weight tensors: {} (of {} total)",
-        weight_tensors.len(), index.tensors.len());
+    // Count by dtype
+    let n_q8 = weight_tensors.iter().filter(|t| t.dtype == 8).count();
+    let n_f16 = weight_tensors.iter().filter(|t| t.dtype == 1).count();
+    let n_f32 = weight_tensors.iter().filter(|t| t.dtype == 0).count();
+    println!("  Weight tensors: {} total ({} Q8_0, {} F16, {} F32) of {} tensors",
+        weight_tensors.len(), n_q8, n_f16, n_f32, index.tensors.len());
 
-    // Step 2: Collect all rows from largest tensor (for codebook)
-    // Pick the largest tensor by row count for representative sampling
+    // Step 2: Pick a good representative tensor for codebook building.
+    // Prefer internal weight matrices (not token embeddings which are huge/sparse).
+    // Look for tensors with moderate dimensions (64-8192 rows, 64-8192 cols).
     let target = weight_tensors.iter()
-        .max_by_key(|t| t.n_rows() * t.n_cols)
+        .filter(|t| {
+            let r = t.n_rows();
+            let c = t.n_cols;
+            r >= 64 && r <= 8192 && c >= 64 && c <= 8192
+            && !t.name.contains("token_embd")
+            && !t.name.contains("output.weight")
+        })
+        .max_by_key(|t| t.n_rows())
+        .or_else(|| weight_tensors.iter()
+            .max_by_key(|t| t.n_rows())
+        )
         .unwrap();
 
     println!("  Target tensor: {} ({}x{}, {} elements)",
@@ -135,11 +144,11 @@ fn process_model(name: &str, path: &str) -> Result<(), String> {
     let n_rows = target.n_rows();
     let n_cols = target.n_cols;
 
-    // Read all rows
+    // Read all rows (dispatch by dtype)
     let mut rows: Vec<Vec<f32>> = Vec::with_capacity(n_rows);
     let mut file = std::fs::File::open(path).map_err(|e| e.to_string())?;
     for r in 0..n_rows {
-        let row = hydrate_q8_0_row(&mut file, target, r)?;
+        let row = hydrate_row(&mut file, target, r)?;
         rows.push(row);
     }
     println!("  [2] Dequantized {} rows x {} cols, {:.2}s",
@@ -338,30 +347,52 @@ impl GgufIndex {
     }
 }
 
-fn hydrate_q8_0_row<R: Read + Seek>(
+fn hydrate_row<R: Read + Seek>(
     file: &mut R,
     tensor: &TensorLocation,
     row_idx: usize,
 ) -> Result<Vec<f32>, String> {
     let n_cols = tensor.n_cols;
-    let blocks_per_row = (n_cols + 31) / 32;
-    let bytes_per_block = 34; // 2 (f16 scale) + 32 (int8 values)
-    let row_offset = tensor.data_offset + (row_idx * blocks_per_row * bytes_per_block) as u64;
-    file.seek(SeekFrom::Start(row_offset)).map_err(|e| e.to_string())?;
-    let mut buf = vec![0u8; blocks_per_row * bytes_per_block];
-    file.read_exact(&mut buf).map_err(|e| e.to_string())?;
+    match tensor.dtype {
+        8 => { // Q8_0: blocks of 32 int8 + f16 scale
+            let blocks_per_row = (n_cols + 31) / 32;
+            let bytes_per_block = 34; // 2 (f16 scale) + 32 (int8 values)
+            let row_offset = tensor.data_offset + (row_idx * blocks_per_row * bytes_per_block) as u64;
+            file.seek(SeekFrom::Start(row_offset)).map_err(|e| e.to_string())?;
+            let mut buf = vec![0u8; blocks_per_row * bytes_per_block];
+            file.read_exact(&mut buf).map_err(|e| e.to_string())?;
 
-    let mut result = Vec::with_capacity(n_cols);
-    for b in 0..blocks_per_row {
-        let o = b * bytes_per_block;
-        let scale_bits = u16::from_le_bytes([buf[o], buf[o + 1]]);
-        let scale = f16_to_f32(scale_bits);
-        for i in 0..32 {
-            if result.len() >= n_cols { break; }
-            result.push(buf[o + 2 + i] as i8 as f32 * scale);
+            let mut result = Vec::with_capacity(n_cols);
+            for b in 0..blocks_per_row {
+                let o = b * bytes_per_block;
+                let scale_bits = u16::from_le_bytes([buf[o], buf[o + 1]]);
+                let scale = f16_to_f32(scale_bits);
+                for i in 0..32 {
+                    if result.len() >= n_cols { break; }
+                    result.push(buf[o + 2 + i] as i8 as f32 * scale);
+                }
+            }
+            Ok(result)
         }
+        1 => { // F16
+            let row_offset = tensor.data_offset + (row_idx * n_cols * 2) as u64;
+            file.seek(SeekFrom::Start(row_offset)).map_err(|e| e.to_string())?;
+            let mut buf = vec![0u8; n_cols * 2];
+            file.read_exact(&mut buf).map_err(|e| e.to_string())?;
+            Ok(buf.chunks_exact(2).map(|c| {
+                let bits = u16::from_le_bytes([c[0], c[1]]);
+                f16_to_f32(bits)
+            }).collect())
+        }
+        0 => { // F32
+            let row_offset = tensor.data_offset + (row_idx * n_cols * 4) as u64;
+            file.seek(SeekFrom::Start(row_offset)).map_err(|e| e.to_string())?;
+            let mut buf = vec![0u8; n_cols * 4];
+            file.read_exact(&mut buf).map_err(|e| e.to_string())?;
+            Ok(buf.chunks_exact(4).map(|c| f32::from_le_bytes([c[0],c[1],c[2],c[3]])).collect())
+        }
+        _ => Err(format!("unsupported dtype {} for {}", tensor.dtype, tensor.name)),
     }
-    Ok(result)
 }
 
 fn f16_to_f32(bits: u16) -> f32 {
