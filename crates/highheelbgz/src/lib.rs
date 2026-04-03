@@ -15,6 +15,9 @@ pub mod rehydrate;
 pub mod simd_hardened;
 pub mod source;
 
+#[cfg(feature = "tensor")]
+pub mod tensor_bridge;
+
 use std::f64::consts::GOLDEN_RATIO;
 
 pub const BASE_DIM: usize = 17;
