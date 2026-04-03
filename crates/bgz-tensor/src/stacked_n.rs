@@ -1,5 +1,5 @@
-//! Variable-resolution stacked BF16 encoding with CLAM cosine,
-//! HDR popcount cascade, and BF16→f32 leaf hydration.
+//! Variable-resolution stacked BF16 encoding with CLAM cosine codebook
+//! and BF16→f32 leaf hydration.
 //!
 //! Supports encoding at any sample count per dimension:
 //!   4 samples/dim  = 136 bytes  (BF16×4, compact)
@@ -9,7 +9,7 @@
 //!
 //! Codebook sizes: 512 / 1024 / 2048 / 4096 / 8192 / 16384
 //! CLAM clustering uses cosine distance (not L1).
-//! Cascade: HDR popcount on sign bits → Vedic upper → full → leaf hydration.
+//! Cascade: use hdr_belichtung::PaletteCascade (palette L1, ndarray Welford σ).
 
 use crate::projection::{BASE_DIM, GOLDEN_STEP};
 
@@ -153,43 +153,13 @@ impl StackedN {
         d
     }
 
-    // ─── HDR popcount sign cascade ──────────────────────────────────────
-
-    /// Extract sign bits as a bitmask: one bit per sample.
-    /// Returns ceil(17*spd / 64) u64 words.
-    pub fn sign_bits(&self) -> Vec<u64> {
-        let n_bits = self.data.len();
-        let n_words = (n_bits + 63) / 64;
-        let mut words = vec![0u64; n_words];
-        for (i, &bf16) in self.data.iter().enumerate() {
-            if bf16 & 0x8000 != 0 {
-                words[i / 64] |= 1u64 << (i % 64);
-            }
-        }
-        words
-    }
-
-    /// HDR popcount distance: Hamming distance on sign bit vectors.
-    ///
-    /// This is the cheapest possible comparison — one XOR+POPCNT per u64 word.
-    /// High popcount distance ≈ many sign disagreements ≈ low cosine.
-    pub fn popcount_distance(&self, other: &StackedN) -> u32 {
-        let a_signs = self.sign_bits();
-        let b_signs = other.sign_bits();
-        let mut d = 0u32;
-        for (wa, wb) in a_signs.iter().zip(b_signs.iter()) {
-            d += (wa ^ wb).count_ones();
-        }
-        d
-    }
-
-    /// Sign agreement fraction (0.0 to 1.0).
-    pub fn sign_agreement(&self, other: &StackedN) -> f64 {
-        let total = self.data.len() as u32;
-        let disagreements = self.popcount_distance(other);
-        1.0 - disagreements as f64 / total as f64
-    }
 }
+
+// NOTE: popcount_distance / sign_bits / sign_agreement REMOVED.
+// bgz17 data is i16[17] — Hamming distance is meaningless on it.
+// Use palette L1 lookup (hdr_belichtung::PaletteCascade) for cheap distance.
+// Use ndarray::hpc::cascade::Cascade for Welford σ tracking + ShiftAlert.
+// POPCOUNT is only valid for ThinkingStyleFingerprint texture resonance checks.
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Parameterized Codebook: 512 / 1K / 2K / 4K / 8K / 16K entries
@@ -337,172 +307,12 @@ impl ClamCodebook {
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// HDR Popcount Cascade with Belichtungsmesser + Leaf Hydration
-// ═══════════════════════════════════════════════════════════════════════════
-
-/// Stage of the HDR cascade where a pair was resolved.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum CascadeStage {
-    /// Rejected at sign-bit popcount (cheapest).
-    Popcount,
-    /// Rejected at codebook index comparison.
-    Codebook,
-    /// Rejected at stacked cosine.
-    StackedCosine,
-    /// Passed to leaf hydration (most expensive, exact).
-    Leaf,
-}
-
-/// Configuration for the HDR popcount cascade.
-#[derive(Clone, Debug)]
-pub struct HdrCascadeConfig {
-    /// Minimum sign agreement to pass popcount stage (0.0 to 1.0).
-    /// Lower = more permissive. Typical: 0.4 (reject pairs with <40% sign agreement).
-    pub popcount_min_agreement: f64,
-    /// Maximum codebook index distance to pass codebook stage.
-    /// For CLAM cosine codebook: max cosine distance between entries.
-    pub codebook_max_distance: f64,
-    /// Minimum stacked cosine to pass to leaf hydration.
-    pub stacked_min_cosine: f64,
-}
-
-impl Default for HdrCascadeConfig {
-    fn default() -> Self {
-        HdrCascadeConfig {
-            popcount_min_agreement: 0.4,
-            codebook_max_distance: 0.8,
-            stacked_min_cosine: 0.2,
-        }
-    }
-}
-
-/// A pair that survived all cascade stages, with leaf-hydrated cosine.
-#[derive(Clone, Debug)]
-pub struct LeafResult {
-    pub idx_a: usize,
-    pub idx_b: usize,
-    /// Sign agreement (popcount stage).
-    pub sign_agreement: f64,
-    /// Codebook cosine distance.
-    pub codebook_cosine_dist: f64,
-    /// Stacked cosine similarity.
-    pub stacked_cosine: f64,
-    /// Leaf-hydrated f32 cosine similarity (ground truth equivalent).
-    pub leaf_cosine: f64,
-}
-
-/// Cascade statistics.
-#[derive(Clone, Debug, Default)]
-pub struct HdrCascadeStats {
-    pub total_pairs: usize,
-    pub popcount_rejected: usize,
-    pub codebook_rejected: usize,
-    pub stacked_rejected: usize,
-    pub leaf_computed: usize,
-}
-
-impl HdrCascadeStats {
-    pub fn summary(&self) -> String {
-        let pct = |n: usize| if self.total_pairs > 0 { n as f64 / self.total_pairs as f64 * 100.0 } else { 0.0 };
-        format!(
-            "HDR Cascade: {} pairs\n\
-             Stage 1 (popcount):  {:>6} rejected ({:.1}%)\n\
-             Stage 2 (codebook):  {:>6} rejected ({:.1}%)\n\
-             Stage 3 (stacked):   {:>6} rejected ({:.1}%)\n\
-             Stage 4 (leaf):      {:>6} computed  ({:.1}%)\n\
-             Elimination rate:    {:.1}%",
-            self.total_pairs,
-            self.popcount_rejected, pct(self.popcount_rejected),
-            self.codebook_rejected, pct(self.codebook_rejected),
-            self.stacked_rejected, pct(self.stacked_rejected),
-            self.leaf_computed, pct(self.leaf_computed),
-            100.0 - pct(self.leaf_computed),
-        )
-    }
-}
-
-/// Run the full HDR cascade with leaf hydration.
-///
-/// Stages:
-/// 1. **Popcount** (HEEL): XOR+POPCNT on sign bits → reject sign-disagreeing pairs
-/// 2. **Codebook** (HIP): compare codebook indices → reject distant entries
-/// 3. **Stacked cosine** (TWIG): full cosine on stacked encoding → borderline pairs
-/// 4. **Leaf hydration** (LEAF): BF16→f32 exact cosine → ground truth
-pub fn hdr_cascade(
-    vectors: &[StackedN],
-    codebook: &ClamCodebook,
-    config: &HdrCascadeConfig,
-    max_pairs: usize,
-) -> (Vec<LeafResult>, HdrCascadeStats) {
-    let n = vectors.len();
-    let total = n * (n - 1) / 2;
-    let mut stats = HdrCascadeStats { total_pairs: total.min(max_pairs), ..Default::default() };
-    let mut results = Vec::new();
-
-    // Pre-compute codebook assignments
-    let cb_assignments: Vec<u16> = vectors.iter()
-        .map(|v| codebook.assign(v).0)
-        .collect();
-
-    let mut pair_count = 0;
-    'outer: for i in 0..n {
-        for j in (i + 1)..n {
-            if pair_count >= max_pairs { break 'outer; }
-            pair_count += 1;
-
-            // Stage 1: Popcount (sign bit Hamming)
-            let sign_agree = vectors[i].sign_agreement(&vectors[j]);
-            if sign_agree < config.popcount_min_agreement {
-                stats.popcount_rejected += 1;
-                continue;
-            }
-
-            // Stage 2: Codebook index
-            let cb_a = cb_assignments[i];
-            let cb_b = cb_assignments[j];
-            let cb_dist = if cb_a == cb_b {
-                0.0
-            } else {
-                let ea = codebook.get(cb_a);
-                let eb = codebook.get(cb_b);
-                match (ea, eb) {
-                    (Some(a), Some(b)) => 1.0 - a.stacked.cosine(&b.stacked),
-                    _ => 1.0,
-                }
-            };
-            if cb_dist > config.codebook_max_distance {
-                stats.codebook_rejected += 1;
-                continue;
-            }
-
-            // Stage 3: Stacked cosine
-            let stacked_cos = vectors[i].cosine(&vectors[j]);
-            if stacked_cos < config.stacked_min_cosine {
-                stats.stacked_rejected += 1;
-                continue;
-            }
-
-            // Stage 4: Leaf hydration — BF16 → f32 exact cosine
-            let a_f32 = vectors[i].hydrate_f32();
-            let b_f32 = vectors[j].hydrate_f32();
-            let leaf_cos = cosine_f32_slice(&a_f32, &b_f32);
-
-            stats.leaf_computed += 1;
-            results.push(LeafResult {
-                idx_a: i,
-                idx_b: j,
-                sign_agreement: sign_agree,
-                codebook_cosine_dist: cb_dist,
-                stacked_cosine: stacked_cos,
-                leaf_cosine: leaf_cos,
-            });
-        }
-    }
-
-    stats.total_pairs = pair_count;
-    (results, stats)
-}
+// HDR cascade REMOVED from stacked_n.rs.
+// Use hdr_belichtung::PaletteCascade (palette L1, ndarray Cascade Welford σ).
+// The popcount-based cascade was architecturally wrong:
+//   - Hamming distance on BF16 sign bits is not a valid metric for bgz17
+//   - Palette L1 lookup is O(1), correct, and cheaper than sign extraction
+// See hdr_belichtung.rs for the correct cascade implementation.
 
 /// f32 cosine similarity.
 pub fn cosine_f32_slice(a: &[f32], b: &[f32]) -> f64 {
@@ -554,12 +364,8 @@ mod tests {
         assert!((v.cosine(&v) - 1.0).abs() < 1e-6);
     }
 
-    #[test]
-    fn popcount_self_zero() {
-        let v = StackedN::from_f32(&(0..100).map(|i| i as f32 * 0.1).collect::<Vec<_>>(), 4);
-        assert_eq!(v.popcount_distance(&v), 0);
-        assert!((v.sign_agreement(&v) - 1.0).abs() < 1e-6);
-    }
+    // popcount_self_zero test REMOVED — popcount is not valid on bgz17 data.
+    // Use palette L1 via hdr_belichtung::PaletteCascade instead.
 
     #[test]
     fn hydrate_roundtrip() {
@@ -588,20 +394,8 @@ mod tests {
         eprintln!("{}", cb.summary());
     }
 
-    #[test]
-    fn hdr_cascade_runs() {
-        let vecs = make_vectors(50, 256, 4);
-        let cb = ClamCodebook::build_cosine(&vecs, 16);
-        let config = HdrCascadeConfig::default();
-        let (results, stats) = hdr_cascade(&vecs, &cb, &config, 500);
-        eprintln!("{}", stats.summary());
-        assert!(stats.popcount_rejected + stats.codebook_rejected +
-                stats.stacked_rejected + stats.leaf_computed == stats.total_pairs);
-        // Leaf results should have valid cosines
-        for r in &results {
-            assert!(r.leaf_cosine >= -1.0 && r.leaf_cosine <= 1.0);
-        }
-    }
+    // hdr_cascade_runs test REMOVED — popcount cascade replaced by
+    // hdr_belichtung::PaletteCascade (palette L1, ndarray Welford σ).
 
     #[test]
     fn higher_spd_preserves_better() {
