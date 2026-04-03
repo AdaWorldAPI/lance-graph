@@ -11,9 +11,11 @@
 //!
 //! The HEEL walks the spiral in high strides.
 
+pub mod source;
+
 use std::f64::consts::GOLDEN_RATIO;
 
-const BASE_DIM: usize = 17;
+pub const BASE_DIM: usize = 17;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SpiralAddress: the 3-integer representation
