@@ -88,7 +88,7 @@ fn main() {
                     let mut intra_hamming = Vec::new();
                     for i in 0..sample {
                         for j in (i+1)..sample.min(i+10) {
-                            intra_hamming.push(fps[i].hamming(&fps[j]) as f64);
+                            intra_hamming.push(fps[i].bit_disagreements(&fps[j]) as f64);
                         }
                     }
                     let mean_intra = intra_hamming.iter().sum::<f64>() / intra_hamming.len().max(1) as f64;
@@ -108,7 +108,7 @@ fn main() {
                     if sample == 0 { continue; }
                     let mut inter = Vec::new();
                     for k in 0..sample {
-                        inter.push(fps_a[k].hamming(&fps_b[k]) as f64);
+                        inter.push(fps_a[k].bit_disagreements(&fps_b[k]) as f64);
                     }
                     let mean = inter.iter().sum::<f64>() / inter.len() as f64;
                     println!("  {} <-> {}: mean hamming = {:.1}", role_names[i], role_names[j], mean);
@@ -204,7 +204,7 @@ fn main() {
                 let mut intra = Vec::new();
                 for i in 0..sample {
                     for j in (i+1)..sample.min(i+5) {
-                        intra.push(fps[i].hamming(&fps[j]) as f64);
+                        intra.push(fps[i].bit_disagreements(&fps[j]) as f64);
                     }
                 }
                 let mean = intra.iter().sum::<f64>() / intra.len().max(1) as f64;

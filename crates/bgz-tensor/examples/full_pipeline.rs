@@ -96,7 +96,7 @@ fn main() {
             .collect();
 
         let sign_agree: Vec<f64> = gt_pairs.iter()
-            .map(|&(i, j, _)| encoded[i].sign_agreement(&encoded[j]))
+            .map(|&(i, j, _)| encoded[i].cosine(&encoded[j]))
             .collect();
 
         // Leaf hydration: BF16→f32
@@ -172,33 +172,63 @@ fn main() {
     println!("└──────────┴───────┴──────────┴──────────┴──────────────┘\n");
 
     // ═══════════════════════════════════════════════════════════════════════
-    // PART 3: HDR Popcount Cascade with Leaf Hydration
+    // PART 3: Palette L1 Cascade with ndarray Welford σ + Leaf Hydration
     // ═══════════════════════════════════════════════════════════════════════
     println!("======================================================================");
-    println!("PART 3: HDR Popcount Cascade + Leaf Hydration (SPD=16)");
+    println!("PART 3: Palette L1 Cascade + Leaf Hydration (SPD=16)");
     println!("======================================================================\n");
 
-    let cb_16 = bgz_tensor::ClamCodebook::build_cosine(&encoded_16, 16);
+    // Collapse encoded_16 to Base17 for palette cascade
+    let base17_from_stacked: Vec<bgz_tensor::Base17> = encoded_16.iter()
+        .map(|enc| {
+            // Collapse stacked to Base17 by averaging samples per dim
+            let mut dims = [0i16; 17];
+            for d in 0..17 {
+                let start = d * 16;
+                let end = start + 16;
+                let mean: f64 = enc.data[start..end].iter()
+                    .map(|&b| bgz_tensor::stacked_n::bf16_to_f32(b) as f64)
+                    .sum::<f64>() / 16.0;
+                dims[d] = (mean * 256.0).round().clamp(-32768.0, 32767.0) as i16;
+            }
+            bgz_tensor::Base17 { dims }
+        })
+        .collect();
 
-    for (label, config) in &[
-        ("Permissive", bgz_tensor::HdrCascadeConfig {
-            popcount_min_agreement: 0.3,
-            codebook_max_distance: 0.9,
-            stacked_min_cosine: -0.5,
-        }),
-        ("Moderate", bgz_tensor::HdrCascadeConfig {
-            popcount_min_agreement: 0.4,
-            codebook_max_distance: 0.7,
-            stacked_min_cosine: 0.0,
-        }),
-        ("Strict", bgz_tensor::HdrCascadeConfig {
-            popcount_min_agreement: 0.5,
-            codebook_max_distance: 0.5,
-            stacked_min_cosine: 0.3,
-        }),
+    // Build 256-palette and distance table
+    let palette = bgz_tensor::WeightPalette::build(&base17_from_stacked, 256);
+    let palette_indices: Vec<u8> = palette.assign_all(&base17_from_stacked);
+
+    // Build 256×256 L1 distance table
+    let k = palette.len();
+    let mut palette_table = vec![0u16; 256 * 256];
+    for a in 0..k {
+        for b in (a+1)..k {
+            let d = palette.entries[a].l1(&palette.entries[b]) as u16;
+            palette_table[a * 256 + b] = d;
+            palette_table[b * 256 + a] = d;
+        }
+    }
+
+    // Calibrate cascade from palette distances
+    let cal_dists: Vec<u32> = gt_pairs.iter()
+        .map(|&(i, j, _)| palette_table[palette_indices[i] as usize * 256 + palette_indices[j] as usize] as u32)
+        .collect();
+
+    for (label, heel_band, hip_band, twig_band) in &[
+        ("Permissive", 8u8, 10u8, 11u8),
+        ("Moderate",    6,    8,   10),
+        ("Strict",      4,    6,    8),
     ] {
-        let (results, stats) = bgz_tensor::stacked_n::hdr_cascade(
-            &encoded_16, &cb_16, config, gt_pairs.len()
+        let mut cascade = bgz_tensor::PaletteCascade::calibrate(&cal_dists);
+        cascade.heel_max_band = *heel_band;
+        cascade.hip_max_band = *hip_band;
+        cascade.twig_max_band = *twig_band;
+
+        let (results, stats) = bgz_tensor::hdr_belichtung::run_palette_cascade(
+            &base17_from_stacked, &base17_from_stacked,
+            &palette_indices, &palette_indices,
+            &palette_table, &cascade, gt_pairs.len(),
         );
         println!("--- {} cascade ---", label);
         println!("{}", stats.summary());
@@ -210,36 +240,10 @@ fn main() {
         let top_set: std::collections::HashSet<(usize, usize)> = gt_sorted[..top_k]
             .iter().map(|p| (p.0, p.1)).collect();
         let survived_top = results.iter()
-            .filter(|r| top_set.contains(&(r.idx_a, r.idx_b)))
+            .filter(|&(qi, ki, _)| top_set.contains(&(*qi, *ki)))
             .count();
-        println!("Top-{} recall: {}/{} ({:.0}%)", top_k, survived_top, top_k,
+        println!("Top-{} recall: {}/{} ({:.0}%)\n", top_k, survived_top, top_k,
             survived_top as f64 / top_k as f64 * 100.0);
-
-        // Leaf cosine vs ground truth for survivors
-        if !results.is_empty() {
-            let leaf_cosines: Vec<f64> = results.iter().map(|r| r.leaf_cosine).collect();
-            let survivor_gt: Vec<f64> = results.iter()
-                .map(|r| gt_pairs.iter()
-                    .find(|p| p.0 == r.idx_a && p.1 == r.idx_b)
-                    .map(|p| p.2).unwrap_or(0.0))
-                .collect();
-            let leaf_pearson = bgz_tensor::quality::pearson(&survivor_gt, &leaf_cosines);
-            println!("Leaf↔GT Pearson: {:.4} (leaf hydration fidelity)", leaf_pearson);
-
-            // Show top 5 leaf results
-            let mut sorted_results = results.clone();
-            sorted_results.sort_by(|a, b| b.leaf_cosine.partial_cmp(&a.leaf_cosine).unwrap());
-            println!("\nTop 5 leaf-hydrated pairs:");
-            for (i, r) in sorted_results.iter().take(5).enumerate() {
-                let gt = gt_pairs.iter()
-                    .find(|p| p.0 == r.idx_a && p.1 == r.idx_b)
-                    .map(|p| p.2).unwrap_or(0.0);
-                println!("  {}. leaf={:.4} gt={:.4} err={:.4} | {} ↔ {}",
-                    i + 1, r.leaf_cosine, gt, (r.leaf_cosine - gt).abs(),
-                    truncate(all_texts[r.idx_a], 30), truncate(all_texts[r.idx_b], 30));
-            }
-        }
-        println!();
     }
 
     // ═══════════════════════════════════════════════════════════════════════

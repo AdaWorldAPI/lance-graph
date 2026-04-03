@@ -42,7 +42,14 @@ impl SpatialRole {
 /// and runtime observation markers.
 ///
 /// NOT a compressed vector — a CLASSIFICATION of thinking dynamics.
-/// Hamming distance IS the correct metric (uniform bits, POPCOUNT).
+/// NOT a random projection — structured cognitive categories.
+///
+/// POPCOUNT is valid ONLY for texture resonance threshold checks:
+/// "does this neuron's texture meet minimum similarity to the query texture?"
+/// This is a binary gate (pass/fail), not a distance metric for ranking.
+///
+/// For ranking/distance between thinking styles, use τ address distance
+/// (ordinal position in 6 clusters × 6 styles) or FieldModulation cosine (7D).
 ///
 /// The 64 bits encode observed cognitive operations:
 ///
@@ -62,16 +69,39 @@ pub struct ThinkingStyleFingerprint {
 }
 
 impl ThinkingStyleFingerprint {
-    /// Hamming distance (POPCOUNT of XOR). O(1).
+    /// Texture resonance check: does this fingerprint meet minimum
+    /// similarity threshold against another?
+    ///
+    /// Uses POPCOUNT (XOR + count_ones) — valid here because this is a
+    /// binary pass/fail gate for texture matching, NOT a distance metric
+    /// for ranking thinking styles.
+    ///
+    /// For ranking/ordering thinking styles, use τ address distance or
+    /// FieldModulation cosine from lance-graph-contract.
     #[inline]
-    pub fn hamming(&self, other: &ThinkingStyleFingerprint) -> u32 {
-        (self.bits ^ other.bits).count_ones()
+    pub fn texture_resonance_check(&self, other: &ThinkingStyleFingerprint, min_agreement: u32) -> bool {
+        let agreement = 64 - (self.bits ^ other.bits).count_ones();
+        agreement >= min_agreement
     }
 
-    /// Hamming similarity = 1.0 - hamming/64.
+    /// Cosine replacement: bit agreement fraction as cosine proxy.
+    ///
+    /// Valid because the 64 bits encode structured cognitive dimensions
+    /// (sign balance, sparsity, magnitude, kurtosis, oscillation, etc.)
+    /// where bit agreement correlates with functional similarity.
+    ///
+    /// This is the same principle as bgz17 palette distance replacing cosine:
+    /// a precomputed discrete proxy for the continuous metric.
     #[inline]
-    pub fn similarity(&self, other: &ThinkingStyleFingerprint) -> f64 {
-        1.0 - self.hamming(other) as f64 / 64.0
+    pub fn cosine_proxy(&self, other: &ThinkingStyleFingerprint) -> f64 {
+        let agreement = 64 - (self.bits ^ other.bits).count_ones();
+        agreement as f64 / 64.0
+    }
+
+    /// Raw bit disagreement count (for diagnostics).
+    #[inline]
+    pub fn bit_disagreements(&self, other: &ThinkingStyleFingerprint) -> u32 {
+        (self.bits ^ other.bits).count_ones()
     }
 
     /// Empty fingerprint.
@@ -394,9 +424,9 @@ impl HeterogeneousNeuronPrint {
         self.q.cosine(&other.k)
     }
 
-    /// Thinking style match (Hamming distance on Gate fingerprints).
+    /// Thinking style match (cosine proxy via structured bit agreement).
     pub fn style_match(&self, other: &HeterogeneousNeuronPrint) -> f64 {
-        self.thinking_style.similarity(&other.thinking_style)
+        self.thinking_style.cosine_proxy(&other.thinking_style)
     }
 
     /// Combined relevance score: spatial + style.
@@ -477,8 +507,8 @@ mod tests {
         assert_ne!(dense.bits, one_sided.bits, "dense and one-sided should differ");
 
         // Hamming distance should reflect structural difference
-        let d_sparse_dense = sparse.hamming(&dense);
-        let d_sparse_osc = sparse.hamming(&oscillating);
+        let d_sparse_dense = sparse.bit_disagreements(&dense);
+        let d_sparse_osc = sparse.bit_disagreements(&oscillating);
         eprintln!("sparse:      {}", sparse.profile());
         eprintln!("dense:       {}", dense.profile());
         eprintln!("oscillating: {}", oscillating.profile());
@@ -491,8 +521,9 @@ mod tests {
     fn thinking_style_self_zero() {
         let gate = make_gate("dense");
         let a = ThinkingStyleFingerprint::from_gate_weights(&gate);
-        assert_eq!(a.hamming(&a), 0);
-        assert!((a.similarity(&a) - 1.0).abs() < 1e-10);
+        assert_eq!(a.bit_disagreements(&a), 0);
+        assert!(a.texture_resonance_check(&a, 64)); // self always passes
+        assert!((a.cosine_proxy(&a) - 1.0).abs() < 1e-10);
     }
 
     #[test]

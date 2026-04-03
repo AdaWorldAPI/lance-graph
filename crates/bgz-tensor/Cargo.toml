@@ -18,9 +18,11 @@ manifold clustering, then replaces matmul with precomputed distance table lookup
   - HHTL cascade: 95% of attention computation eliminated at Layer 0-1
 """
 
-# Zero dependencies for the library — same philosophy as bgz17 and deepnsm.
-# The hydrate binary has optional deps for manifest parsing + integrity checks.
+# ndarray provides SIMD hardware acceleration (Cascade, Base17 L1, palette distance).
+# bgz-tensor is the consumer — it uses ndarray's kernels, does not reimplement them.
+# NOT optional — both live in same binary.
 [dependencies]
+ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
 serde = { version = "1", features = ["derive"], optional = true }
 serde_json = { version = "1", optional = true }
 sha2 = { version = "0.10", optional = true }

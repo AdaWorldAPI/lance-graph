@@ -25,6 +25,10 @@
 use crate::stacked_n::StackedN;
 use crate::projection::Base17;
 
+// ndarray = hardware acceleration (Welford σ, ShiftAlert, SIMD L1).
+// bgz-tensor = consumer. NOT optional — both in same binary.
+pub use ndarray::hpc::cascade::{Cascade as NdarrayCascade, Band as NdarrayBand, ShiftAlert};
+
 /// Number of quarter-sigma bands.
 pub const N_BANDS: usize = 12;
 
@@ -149,67 +153,59 @@ pub fn leaf_hydrate_cosine(a: &StackedN, b: &StackedN) -> f64 {
 
 /// Full cascade: HEEL(palette) → HIP(ranking) → TWIG(L1) → LEAF(hydrate).
 ///
-/// Each stage uses the Cascade's current μ/σ for band classification.
-/// When ShiftAlert fires upstream, the Cascade's μ/σ update, and all
-/// band thresholds change automatically — no manual recalibration needed.
+/// Delegates Welford σ tracking to ndarray::hpc::cascade::Cascade.
+/// Quarter-sigma bands are derived from the Cascade's current μ/σ.
+/// When ShiftAlert fires, bands recalculate automatically.
 pub struct PaletteCascade {
-    /// Current μ from Welford tracking (delegated to ndarray Cascade).
-    pub mu: f64,
-    /// Current σ from Welford tracking.
-    pub sigma: f64,
+    /// ndarray Cascade: Welford μ/σ, ShiftAlert, band classification.
+    /// ndarray = hardware, bgz-tensor = consumer. Same binary.
+    inner: NdarrayCascade,
     /// Maximum ¼σ band to pass HEEL (0 = only Foveal, 11 = pass all).
     pub heel_max_band: u8,
     /// Maximum ¼σ band to pass HIP.
     pub hip_max_band: u8,
     /// Maximum ¼σ band to pass TWIG.
     pub twig_max_band: u8,
-    /// Observation count (for Welford).
-    observations: usize,
 }
 
 impl PaletteCascade {
-    /// Create with initial calibration from distances.
+    /// Create with initial calibration. Delegates to ndarray Cascade::calibrate().
     pub fn calibrate(distances: &[u32]) -> Self {
-        if distances.is_empty() {
-            return Self { mu: 0.0, sigma: 1.0, heel_max_band: 6, hip_max_band: 8, twig_max_band: 10, observations: 0 };
-        }
-        let n = distances.len() as f64;
-        let mu = distances.iter().map(|&d| d as f64).sum::<f64>() / n;
-        let var = distances.iter().map(|&d| { let diff = d as f64 - mu; diff * diff }).sum::<f64>() / n;
-        let sigma = var.sqrt().max(1.0);
-        Self { mu, sigma, heel_max_band: 6, hip_max_band: 8, twig_max_band: 10, observations: distances.len() }
+        let inner = NdarrayCascade::calibrate(distances, 34); // 34 = Base17 byte size
+        Self { inner, heel_max_band: 6, hip_max_band: 8, twig_max_band: 10 }
     }
 
-    /// Welford online update — returns ShiftAlert if floor changes.
+    /// Welford online update — delegates to ndarray Cascade::observe().
+    /// Returns true if ShiftAlert fired (floor change detected).
     pub fn observe(&mut self, distance: u32) -> bool {
-        let d = distance as f64;
-        self.observations += 1;
-        if self.observations == 1 {
-            self.mu = d;
-            self.sigma = 1.0;
-            return false;
-        }
-        let old_mu = self.mu;
-        let old_sigma = self.sigma;
-        let delta = d - self.mu;
-        self.mu += delta / self.observations as f64;
-        let delta2 = d - self.mu;
-        let m2 = old_sigma * old_sigma * (self.observations - 1) as f64 + delta * delta2;
-        self.sigma = (m2 / self.observations as f64).sqrt().max(1.0);
-
-        // ShiftAlert: μ moved more than 2σ
-        self.observations > 10 && old_sigma > 0.0 && (self.mu - old_mu).abs() > 2.0 * old_sigma
+        self.inner.observe(distance).is_some()
     }
 
-    /// Current ¼σ bands (recomputed from current μ/σ — no storage).
+    /// Access ndarray Cascade directly for expose() / query() / recalibrate().
+    pub fn ndarray_cascade(&self) -> &NdarrayCascade {
+        &self.inner
+    }
+
+    /// Mutable access for recalibrate() after ShiftAlert.
+    pub fn ndarray_cascade_mut(&mut self) -> &mut NdarrayCascade {
+        &mut self.inner
+    }
+
+    /// Current μ from ndarray Cascade.
+    pub fn mu(&self) -> f64 { self.inner.mu() }
+
+    /// Current σ from ndarray Cascade.
+    pub fn sigma(&self) -> f64 { self.inner.sigma() }
+
+    /// Current ¼σ bands (recomputed from Cascade's rolling μ/σ).
     pub fn bands(&self) -> [QuarterSigmaBand; N_BANDS] {
-        quarter_sigma_bands(self.mu, self.sigma)
+        quarter_sigma_bands(self.mu(), self.sigma())
     }
 
     /// Classify a distance into current ¼σ band.
     #[inline]
     pub fn classify(&self, distance: f64) -> u8 {
-        classify_band(distance, self.mu, self.sigma)
+        classify_band(distance, self.mu(), self.sigma())
     }
 
     /// Should this distance be rejected at a given stage?
@@ -341,14 +337,14 @@ mod tests {
     fn palette_cascade_calibrate() {
         let distances: Vec<u32> = (0..1000).map(|i| (i * 3 % 500) as u32).collect();
         let cascade = PaletteCascade::calibrate(&distances);
-        assert!(cascade.sigma > 0.0);
-        assert!(cascade.observations == 1000);
+        assert!(cascade.sigma() > 0.0);
+        assert!(cascade.ndarray_cascade().observations() == 1000);
     }
 
     #[test]
     fn palette_cascade_observe_welford() {
         let mut cascade = PaletteCascade::calibrate(&[100, 200, 150, 180, 120]);
-        let initial_mu = cascade.mu;
+        let initial_mu = cascade.mu();
 
         // Normal observations shouldn't trigger shift
         for d in [110, 130, 140, 160, 170, 190, 200, 150, 140, 130] {
@@ -361,8 +357,8 @@ mod tests {
             cascade.observe(5000);
         }
         // After many extreme observations, mu should have moved significantly
-        assert!(cascade.mu > initial_mu + 100.0,
-            "extreme observations should shift mu: {} vs {}", cascade.mu, initial_mu);
+        assert!(cascade.mu() > initial_mu + 100.0,
+            "extreme observations should shift mu: {} vs {}", cascade.mu(), initial_mu);
     }
 
     #[test]

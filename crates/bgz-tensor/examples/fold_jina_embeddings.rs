@@ -125,7 +125,7 @@ fn main() {
     let mut pairs: Vec<(usize, usize, u32)> = Vec::new();
     for i in 0..n {
         for j in (i+1)..n {
-            pairs.push((i, j, fingerprints[i].hamming(&fingerprints[j])));
+            pairs.push((i, j, fingerprints[i].bit_disagreements(&fingerprints[j])));
         }
     }
     pairs.sort_by_key(|p| p.2);
