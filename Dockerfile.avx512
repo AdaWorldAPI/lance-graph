@@ -1,0 +1,52 @@
+# lance-graph — AVX-512 pinned build (server/Railway)
+# target-cpu=x86-64-v4: native AVX-512, all SIMD inlined.
+# Consumes ndarray with same AVX-512 pinning.
+#
+# ONLY deploy on AVX-512 hardware.
+#
+# Build: docker build -f Dockerfile.avx512 -t lance-graph-avx512 .
+# Run:   docker run --rm lance-graph-avx512
+
+FROM debian:bookworm-slim AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl ca-certificates gcc libc6-dev pkg-config libssl-dev \
+    protobuf-compiler cmake \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:$PATH
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
+    sh -s -- -y --default-toolchain 1.94.0 --profile minimal \
+    && rustc --version | grep -q "1.94.0"
+
+WORKDIR /app
+
+COPY Cargo.toml Cargo.lock ./
+COPY crates/ crates/
+
+# AVX-512 pinned: compile-time dispatch, everything inlined
+ENV RUSTFLAGS="-C target-cpu=x86-64-v4"
+
+# bgz17 standalone (zero deps, fast check)
+RUN cargo build --release --manifest-path crates/bgz17/Cargo.toml 2>&1 \
+    && echo "=== BGZ17 AVX-512 BUILD OK ==="
+
+RUN cargo test --release --manifest-path crates/bgz17/Cargo.toml 2>&1 \
+    && echo "=== BGZ17 AVX-512 TESTS OK ==="
+
+# Workspace (skip python bindings)
+RUN cargo build --release \
+    --workspace \
+    --exclude lance-graph-python \
+    2>&1 && echo "=== WORKSPACE AVX-512 BUILD OK ==="
+
+RUN cargo test --release \
+    --workspace \
+    --exclude lance-graph-python \
+    2>&1 && echo "=== WORKSPACE AVX-512 TESTS OK ==="
+
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+CMD ["echo", "lance-graph AVX-512 build verified — Rust 1.94.0, target-cpu=x86-64-v4"]
