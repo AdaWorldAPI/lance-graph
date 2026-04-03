@@ -60,11 +60,15 @@
 //! preserves as well as generic L1 distance.
 
 pub mod attention;
+pub mod belichtungsmesser;
 pub mod cascade;
 pub mod hhtl_cache;
+pub mod jina;
 pub mod palette;
 pub mod projection;
 pub mod quality;
+pub mod similarity;
+pub mod variance;
 
 #[cfg(feature = "hydrate")]
 pub mod manifest;
@@ -72,7 +76,10 @@ pub mod manifest;
 // ─── Re-exports ──────────────────────────────────────────────────────────────
 
 pub use attention::{AttentionSemiring, AttentionTable, CompiledHead, ComposeTable};
+pub use belichtungsmesser::{Band, Belichtungsmesser};
 pub use cascade::{CascadeConfig, CascadeLevel, CascadeStats};
 pub use palette::WeightPalette;
 pub use projection::Base17;
 pub use quality::QualityReport;
+pub use similarity::SimilarityTable;
+pub use variance::RoleVarianceReport;

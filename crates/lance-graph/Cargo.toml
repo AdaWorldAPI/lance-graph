@@ -49,8 +49,14 @@ ndarray = { path = "../../../ndarray", optional = true, default-features = false
 # Unified query planner (MUL, thinking, strategies, CAM-PQ scan)
 lance-graph-planner = { path = "../lance-graph-planner", optional = true }
 
+# bgz17: palette semiring codec (0 deps, 121 tests)
+bgz17 = { path = "../bgz17", optional = true }
+
+# bgz-tensor: attention as table lookup, SimilarityTable, variance audit
+bgz-tensor = { path = "../bgz-tensor", optional = true }
+
 [features]
-default = ["unity-catalog", "delta", "ndarray-hpc", "planner"]
+default = ["unity-catalog", "delta", "ndarray-hpc", "planner", "bgz17-codec", "tensor-codec"]
 unity-catalog = ["lance-graph-catalog/unity-catalog"]
 delta = ["dep:deltalake", "dep:url"]
 # ndarray-hpc: use AdaWorldAPI/ndarray for Fingerprint<256>, CAM-PQ, CLAM, BLAS, ZeckF64.
@@ -58,6 +64,10 @@ delta = ["dep:deltalake", "dep:url"]
 ndarray-hpc = ["dep:ndarray"]
 # planner: wire lance-graph-planner for query classification, thinking styles, MUL gate.
 planner = ["dep:lance-graph-planner"]
+# bgz17-codec: palette semiring, HHTL distance matrix, SPO tripartite search.
+bgz17-codec = ["dep:bgz17"]
+# tensor-codec: attention as table lookup, SimilarityTable, Belichtungsmesser, variance audit.
+tensor-codec = ["dep:bgz-tensor"]
 
 [dev-dependencies]
 futures = "0.3"
