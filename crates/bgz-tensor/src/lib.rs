@@ -66,6 +66,7 @@ pub mod codebook4096;
 pub mod euler_fold;
 pub mod hhtl_cache;
 pub mod jina;
+pub mod neuron_hetero;
 pub mod palette;
 pub mod projection;
 pub mod quality;
