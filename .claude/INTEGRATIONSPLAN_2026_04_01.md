@@ -420,9 +420,7 @@ async fn chat(State(state): State<AppState>, Json(req): Json<ChatRequest>) -> Js
 
     // 5. Extract triplets from our own response (self-learning)
     let self_triplets = backend.extract_triplets(&response_text, &[], now())?;
-    for t in &self_triplets {
-        state.engine.learn(&triplet_to_spo(t));
-    }
+    for t in &self_triplets { state.engine.learn(&triplet_to_spo(t)); }
 
     Json(ChatResponse { content: response_text, .. })
 }
@@ -433,11 +431,9 @@ async fn chat(State(state): State<AppState>, Json(req): Json<ChatRequest>) -> Js
 **Current**: q2 cockpit `/v1/chat/completions` returns placeholder string.
 **Target**: Proxy to lance-graph serve.rs (port 3000) or embed the planner directly.
 
-**Option A** (quick, recommended): HTTP proxy in `q2/crates/cockpit-server/src/openai.rs`
-
-**Option B** (embedded): Add lance-graph-planner as a dependency of cockpit-server.
-More coupling but eliminates the HTTP hop and lets the cockpit UI show live
-SPO/NARS diagnostics alongside the chat response.
+**Option A** (quick, recommended): HTTP proxy — cockpit forwards to port 3000.
+**Option B** (embedded): Add lance-graph-planner as a dep of cockpit-server.
+More coupling but eliminates the HTTP hop and exposes live SPO/NARS diagnostics.
 
 ### 4.3 Chess / thinking-about-thinking application
 
@@ -450,15 +446,15 @@ The SPO + NARS pipeline naturally supports chess and meta-reasoning:
 ("player", "plans", "kingside-attack")   -- strategic intention
 
 # Meta-reasoning (thinking about thinking):
-("my-analysis", "overlooked", "back-rank-mate")  -- self-correction
-("pattern-X", "similar-to", "Sicilian-defense")  -- analogy
+("my-analysis", "overlooked", "back-rank-mate")   -- self-correction
+("pattern-X", "similar-to", "Sicilian-defense")   -- analogy
 ("confidence", "decreasing-for", "kingside-plan") -- NARS truth update
 ```
 
-Each triplet gets 6D NeuronPrint encoding, palette edge, NARS inference.
+Each triplet gets 6D NeuronPrint encoding -> palette edge -> NARS inference.
 The sensorium tracks temperature (stagnation), plasticity (learning rate),
 and the orchestrator triggers backend swaps when the position is novel
-(high contradiction rate = switch to ExternalBackend for verification).
+(high contradiction rate -> switch to ExternalBackend for verification).
 
 ### 4.4 Chat input/output flow
 
@@ -499,28 +495,28 @@ to validate the full stack end-to-end.
 |------|------|------|----------|
 | **1** | `cargo test -p bgz17` | CLI | 121 tests pass -- palette, semiring, SIMD |
 | **2** | `cargo test -p lance-graph --lib -- graph::neuron` | CLI | 9 tests -- NeuronPrint/Query/Trace |
-| **3** | `cargo test -p lance-graph --lib -- graph::hydrate` | CLI | 9 tests -- TensorRole, partition columns |
+| **3** | `cargo test -p lance-graph --lib -- graph::hydrate` | CLI | 9 tests -- TensorRole, partition cols |
 | **4** | `cargo test -p lance-graph --lib -- graph::arigraph` | CLI | TripletGraph BFS, EpisodicMemory retrieval |
 | **5** | `cargo check -p lance-graph --features bgz17-codec` | CLI | Compiles -- bgz17 wired as optional dep |
 | **6** | `cargo test -p lance-graph-contract` | CLI | 15 tests -- ThinkingStyle, modulation |
 | **7** | `cargo test -p lance-graph-planner --lib -- cache` | CLI | 39 tests -- HeadPrint, NARS, convergence |
 | **8** | `neural-scan --repo lance-graph` | neural-debug | 0 dead neurons in critical path |
 | **9** | `neural-scan --repo ndarray` | neural-debug | Stubbed bridges flagged (Wire Synapses 1-3) |
-| **10** | `cargo run -p lance-graph-planner --features serve` | Runtime | Server on :3000, `/health` = "ok" |
+| **10** | `cargo run -p lance-graph-planner --features serve` | Runtime | Server on :3000, `/health` returns "ok" |
 | **11** | `curl localhost:3000/v1/models` | HTTP | 7 models listed |
 | **12** | POST `/v1/chat/completions` "Alice knows Bob" | HTTP | SPO: (Alice, knows, Bob), NARS score |
-| **13** | POST again "Bob teaches Carol" | HTTP | NARS deduction chain: Alice->Bob->Carol |
-| **14** | POST `/v1/embeddings` "test sentence" | HTTP | 17-dim HeadPrint vector returned |
-| **15** | `cargo test -p lance-graph-osint -- --ignored` | CLI | OSINT pipeline fetches URL, extracts triplets |
-| **16** | `curl localhost:2718/api/debug/strategies` | HTTP | 16 strategies with call counts, NaN report |
-| **17** | `curl localhost:2718/mri` | HTTP | Plasticity, activation, NARS visualization |
-| **18** | `cargo test -p lance-graph-planner -- convergence` | CLI | Episodes -> palette layers -> Blumenstrauss |
-| **19** | Blumenstrauss cascade test | Unit | HEEL->HIP->TWIG->LEAF, correct result |
-| **20** | Full round-trip integration | E2E | Input text -> SPO -> NeuronPrint -> palette -> store -> retrieve -> NL response |
+| **13** | POST "Bob teaches Carol" | HTTP | NARS deduction chain: Alice->Bob->Carol |
+| **14** | POST `/v1/embeddings` "test sentence" | HTTP | 17-dim HeadPrint vector |
+| **15** | `cargo test -p lance-graph-osint -- --ignored` | CLI | OSINT fetch + triplet extraction |
+| **16** | `curl localhost:2718/api/debug/strategies` | HTTP | 16 strategies with call counts |
+| **17** | `curl localhost:2718/mri` | HTTP | Plasticity, activation, NARS chains |
+| **18** | `cargo test -p lance-graph-planner --lib -- cache::convergence` | CLI | Episodes -> palette -> Blumenstrauss |
+| **19** | Blumenstrauss cascade test | Unit | HEEL->HIP->TWIG->LEAF 4-stage completes |
+| **20** | Full round-trip: chat -> triplets -> NeuronPrint -> palette -> store -> retrieve -> NL | Integration | End-to-end knowledge cycle |
 
 ### Consumer contract expansion via p64 highway
 
-Expand `lance-graph-contract` for the p64 highway + episodic + persona layer:
+Expand `lance-graph-contract` for episodic + persona:
 
 ```rust
 // New in lance-graph-contract/src/persona.rs:
@@ -544,10 +540,6 @@ pub struct EpisodeSummary {
     pub nars_truth: (f32, f32),   // (frequency, confidence)
 }
 ```
-
-Consumers (ladybug-rs, crewai-rust, n8n-rs) implement these traits.
-The p64 highway provides the fast path: `attend()` for persona routing,
-`nearest_k()` for episodic retrieval, `moe_gate()` for expert selection.
 
 ---
 
@@ -580,7 +572,7 @@ impl From<OpenClawCard> for Persona {
 
 ### 6.2 Testing with OpenClaw
 
-Our serve.rs (port 3000) is already an OpenAI-compatible backend:
+Since OpenClaw uses OpenAI-compatible API, our serve.rs is already a valid backend:
 
 ```bash
 # 1. Start lance-graph server
@@ -590,16 +582,15 @@ cargo run -p lance-graph-planner --features serve
 export OPENAI_API_BASE=http://localhost:3000/v1
 export OPENAI_API_KEY=dummy  # our server doesn't require auth
 
-# 3. Run OpenClaw agent -- it POSTs to /v1/chat/completions
-# Every message flows through SPO extraction + NARS reasoning
+# 3. Run OpenClaw agent -- every message flows through SPO + NARS
 openclaw run --card agent.yaml
 ```
 
 **Rust transcode vs OpenAI API drop-in**: Both work simultaneously.
-- **Rust transcode**: Import OpenClaw card -> Persona struct -> in-process
+- **Rust transcode path**: Import OpenClaw card -> Persona struct -> in-process
   NeuronPrint routing, p64 attend, palette distance. Zero HTTP overhead.
-- **OpenAI API drop-in**: Any OpenAI-compatible client connects to :3000.
-  Gets SPO reasoning transparently. No code changes on client side.
+- **OpenAI API drop-in path**: Any OpenAI-compatible client connects to port 3000.
+  Gets SPO reasoning transparently. No client-side code changes needed.
 
 ### 6.3 Self-improving AGI loop
 
@@ -609,29 +600,29 @@ openclaw run --card agent.yaml
                     |  (sensorium + DK-gating)      |
                     +------+----------+-------------+
                            |          |
-                    +------v--+  +----v--------+
+                    +------v--+  +----v-------+
                     | Internal |  |  External   |
                     | Backend  |  |  Backend    |
                     |(OpenChat)|  |  (xAI/Grok) |
-                    +------+--+  +----+---------+
+                    +------+--+  +----+--------+
                            |          |
                     +------v----------v-------------+
                     |      ContextBlackboard         |
                     |  (BFS into TripletGraph)       |
                     +------+----------+-------------+
                            |          |
-                    +------v--+  +----v--------+
+                    +------v--+  +----v-------+
                     | Episodic |  |  Triplet   |
                     | Memory   |  |  Graph     |
                     |(NeurPrt) |  |  (NARS)    |
-                    +------+--+  +----+---------+
+                    +------+--+  +----+--------+
                            |          |
                     +------v----------v-------------+
                     |   p64 Highway (Blumenstrauss)  |
                     |  attend / cascade / deduce     |
                     +------+----------+-------------+
                            |          |
-                    +------v--+  +----v--------+
+                    +------v--+  +----v-------+
                     | Palette  |  |  Lance     |
                     | 3-byte   |  |  Dataset   |
                     | O(1)     |  |  (persist) |
@@ -649,15 +640,14 @@ openclaw run --card agent.yaml
 3. **Learning from every interaction**: Both user messages AND self-responses
    get triplet-extracted and stored. The graph grows with every turn.
 
-4. **Multi-persona**: PersonaRouter selects the best-matching persona for each
-   query. New personas spawn from OpenClaw cards or knowledge clustering.
+4. **Multi-persona**: PersonaRouter selects best-matching persona per query.
+   New personas spawn from OpenClaw cards or knowledge clustering.
 
-5. **Meta-reasoning**: The orchestrator's sensorium tracks temperature,
-   plasticity, and contradiction rate. It can:
+5. **Meta-reasoning**: Sensorium tracks temperature, plasticity, contradiction rate.
    - Switch backends when stuck (temperature rising)
    - Reduce learning rate when confident (plasticity decrease)
    - Spawn new exploration when contradictions accumulate
-   - Merge personas when their gestalts converge
+   - Merge personas when gestalts converge
 
 6. **Hardware-accelerated thinking**: p64 Palette64 + AVX-512 SIMD means
    persona routing, episodic retrieval, and graph traversal are sub-microsecond.
@@ -671,7 +661,7 @@ openclaw run --card agent.yaml
 |---|------|--------|--------|-------|------------|
 | 1 | Add bgz17 as lance-graph dep | **Critical** | 15 min | 0.6 | Nothing |
 | 2 | Update integration-lead agent | Low | 10 min | 0.1 | Nothing |
-| 3 | bgz7-to-f32 weight bridge | **Critical** | 2h | 1.1 | Nothing |
+| 3 | bgz7->f32 weight bridge | **Critical** | 2h | 1.1 | Nothing |
 | 4 | Real tokenizers | **Critical** | 1h | 1.2 | Nothing |
 | 5 | InternalBackend impl | **High** | 2h | 1.3 | ndarray as dep |
 | 6 | ExternalBackend impl | Medium | 1h | 1.4 | xai_client (done) |
@@ -702,19 +692,19 @@ openclaw run --card agent.yaml
 
 **Answer: Both, at different stages.**
 
-| Stage | Encoding | Size | When |
+| Layer | Encoding | Size | When |
 |-------|----------|------|------|
-| Learning | 3x16kbit Plane | 48 KB/edge | During encounter (saturating i8) |
-| Storage | Base17 | 102 B/edge | After crystallization |
-| Traversal | Palette edge | 3 B/edge | Graph algebra, semiring mxm |
-| Identity | Holographic bundle | 34 B/node | Persona/episode addressing |
+| **Learning** | 3x16kbit Plane | 48 KB/edge | During encounter (saturating i8 accum) |
+| **Storage** | Base17 | 102 B/edge | After crystallization (golden-step) |
+| **Traversal** | Palette index | 3 B/edge | Graph algebra, semiring mxm, bulk |
+| **Inspection** | NeuronPrint 6D | 204 B/node | "What does this neuron do?" |
 
 For **cognitive edges** (6D SPO): 6 palette indices = 6 bytes per edge.
 The palette distance table gives O(1) similarity per role independently.
 
 The 3x16kbit Plane is **never stored as an edge**. It is the write-path
-accumulator. Once crystallized to Base17, the Plane can be GC'd. The Plane
-only re-materializes for un-learning or RL reward signals.
+accumulator used during learning. Once crystallized to Base17, the Plane
+can be GC'd. It only re-materializes for un-learn or RL reward signals.
 
 ---
 
