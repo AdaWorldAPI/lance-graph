@@ -77,8 +77,8 @@ impl NeuronPrint {
         self.gate.xor_bind(&self.up).xor_bind(&self.down)
     }
 
-    /// Byte size of the full neuron print.
-    pub const BYTE_SIZE: usize = 6 * 34; // 204
+    /// Byte size of the 6 Base17 role vectors (payload only, excludes layer/feature metadata).
+    pub const PAYLOAD_SIZE: usize = 6 * 34; // 204
 }
 
 // ─── Query: how you ASK a neuron ────────────────────────────────────────────
@@ -239,8 +239,8 @@ mod tests {
     }
 
     #[test]
-    fn test_neuron_byte_size() {
-        assert_eq!(NeuronPrint::BYTE_SIZE, 204);
+    fn test_neuron_payload_size() {
+        assert_eq!(NeuronPrint::PAYLOAD_SIZE, 204);
     }
 
     #[test]

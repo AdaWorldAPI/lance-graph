@@ -12,7 +12,6 @@ use arrow::array::{
     ArrayRef, FixedSizeListBuilder, Float32Builder, Int16Builder,
     StringArray, UInt16Array, UInt32Array, UInt8Array,
 };
-use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
 use std::sync::Arc;
 
@@ -93,35 +92,6 @@ pub fn parse_layer_idx(name: &str) -> Option<u16> {
     } else {
         None
     }
-}
-
-/// Schema for the hydrated weight table with partition columns.
-pub fn weight_schema() -> Schema {
-    Schema::new(vec![
-        Field::new("tensor_name", DataType::Utf8, false),
-        Field::new("row_idx", DataType::UInt32, false),
-        Field::new("layer_idx", DataType::UInt16, true),
-        Field::new("tensor_role", DataType::UInt8, false),
-        Field::new(
-            "vector",
-            DataType::FixedSizeList(
-                Arc::new(Field::new("item", DataType::Float32, false)),
-                17,
-            ),
-            false,
-        ),
-        Field::new(
-            "base17",
-            DataType::FixedSizeList(
-                Arc::new(Field::new("item", DataType::Int16, false)),
-                17,
-            ),
-            false,
-        ),
-        Field::new("palette_s", DataType::UInt8, true),
-        Field::new("palette_p", DataType::UInt8, true),
-        Field::new("palette_o", DataType::UInt8, true),
-    ])
 }
 
 /// Convert bgz7 compressed tensors to Arrow RecordBatch with partition columns.
@@ -258,12 +228,6 @@ pub fn compute_heel(batch: &RecordBatch) -> ndarray::hpc::bgz17_bridge::Base17 {
 mod tests {
     use super::*;
     use ndarray::hpc::bgz17_bridge::Base17;
-
-    #[test]
-    fn test_weight_schema() {
-        let schema = weight_schema();
-        assert_eq!(schema.fields().len(), 9);
-    }
 
     #[test]
     fn test_bgz7_to_batch() {
