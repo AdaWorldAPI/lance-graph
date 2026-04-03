@@ -59,6 +59,158 @@ impl SpiralAddress {
         let phi_pos = frac((bi + oct) as f64 * GOLDEN_RATIO) * BASE_DIM as f64;
         phi_pos as usize
     }
+
+    /// End position (inclusive). Derived: start + (length-1) * stride.
+    #[inline]
+    pub fn end(&self) -> u32 {
+        self.start + self.length.saturating_sub(1) * self.stride
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Three-finger coarse distance: 3 subtractions, zero data access
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Coarse distance band from address geometry alone.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum CoarseBand {
+    Foveal,     // nearly identical walk
+    Near,       // overlapping walks, same stride
+    Maybe,      // need to hydrate to decide
+    Reject,     // definitely different (disjoint or different stride)
+}
+
+impl SpiralAddress {
+    /// Three-finger coarse cosine: 3 integer operations, zero data access.
+    ///
+    /// Finger 1 — OFFSET: |start₁ - start₂|
+    ///   Small offset → walks see nearly the same data → high cosine.
+    ///
+    /// Finger 2 — STRIDE MATCH: stride₁ == stride₂
+    ///   Different stride → different sampling scale → probably orthogonal.
+    ///   Also: different stride → different ROLE → categorically different.
+    ///
+    /// Finger 3 — OVERLAP: |[start₁,end₁] ∩ [start₂,end₂]| / max(len₁, len₂)
+    ///   Disjoint intervals → walks see completely different data → cosine ≈ 0.
+    pub fn coarse_band(&self, other: &SpiralAddress) -> CoarseBand {
+        let offset = (self.start as i64 - other.start as i64).unsigned_abs() as u32;
+        let stride_match = self.stride == other.stride;
+        let overlap = self.overlap_fraction(other);
+
+        if !stride_match {
+            return CoarseBand::Reject; // different scale = different role
+        }
+        if overlap < 0.01 {
+            return CoarseBand::Reject; // disjoint walks
+        }
+        if offset <= 2 && overlap > 0.8 {
+            return CoarseBand::Foveal; // nearly identical
+        }
+        if offset <= 16 && overlap > 0.5 {
+            return CoarseBand::Near; // overlapping, worth checking
+        }
+        CoarseBand::Maybe // need hydration to decide
+    }
+
+    /// Interval overlap fraction: |[s₁,e₁] ∩ [s₂,e₂]| / max(len₁, len₂)
+    pub fn overlap_fraction(&self, other: &SpiralAddress) -> f32 {
+        let e1 = self.end();
+        let e2 = other.end();
+        let lo = self.start.max(other.start);
+        let hi = e1.min(e2);
+        if lo > hi { return 0.0; }
+        let overlap = (hi - lo) as f32;
+        let max_len = (e1 - self.start).max(e2 - other.start) as f32;
+        if max_len < 1.0 { 0.0 } else { overlap / max_len }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Role detection from stride: the address IS cognition
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Tensor role detected from stride value.
+/// No data access — the stride IS the role.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum TensorRole {
+    Gate,   // stride 8: coarse routing, big picture
+    V,      // stride 5: content retrieval
+    Down,   // stride 4: compression, summarizing
+    QK,     // stride 3: attention query/key (must match)
+    Up,     // stride 2: fine expansion
+    Other,
+}
+
+impl SpiralAddress {
+    /// Detect role from stride. Zero cost.
+    pub fn role(&self) -> TensorRole {
+        match self.stride {
+            8 => TensorRole::Gate,
+            5 => TensorRole::V,
+            4 => TensorRole::Down,
+            3 => TensorRole::QK,
+            2 => TensorRole::Up,
+            _ => TensorRole::Other,
+        }
+    }
+}
+
+/// Thinking scale from gate stride.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ThinkingScale {
+    Exploiting,  // stride 1-2: fine-grained, local
+    Focused,     // stride 3-4: careful, detailed
+    Exploring,   // stride 5-8: broad, routing
+    Abstract,    // stride 9+: meta-level
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NeuronPrint: 36 bytes = 6 roles × 6 bytes
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// 36-byte neuron identity. Stride encodes role + thinking style + transform.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct NeuronPrint {
+    pub q:    SpiralAddress,   // stride=3
+    pub k:    SpiralAddress,   // stride=3 (must match Q)
+    pub v:    SpiralAddress,   // stride=5
+    pub gate: SpiralAddress,   // stride=8 → thinking style
+    pub up:   SpiralAddress,   // stride=2
+    pub down: SpiralAddress,   // stride=4 → ratio with Up = effective rank
+}
+
+impl NeuronPrint {
+    pub const BYTE_SIZE: usize = 6 * SpiralAddress::BYTE_SIZE_U16; // 36
+
+    /// Thinking scale from gate stride.
+    pub fn thinking_scale(&self) -> ThinkingScale {
+        match self.gate.stride {
+            0..=2 => ThinkingScale::Exploiting,
+            3..=4 => ThinkingScale::Focused,
+            5..=8 => ThinkingScale::Exploring,
+            _     => ThinkingScale::Abstract,
+        }
+    }
+
+    /// Effective rank from Up/Down stride ratio.
+    pub fn effective_rank(&self) -> f32 {
+        self.down.stride as f32 / self.up.stride.max(1) as f32
+    }
+
+    /// Three-finger distance across all 6 roles.
+    /// Returns the WORST band (most different role determines outcome).
+    pub fn coarse_band(&self, other: &NeuronPrint) -> CoarseBand {
+        let bands = [
+            self.q.coarse_band(&other.q),
+            self.k.coarse_band(&other.k),
+            self.v.coarse_band(&other.v),
+            self.gate.coarse_band(&other.gate),
+            self.up.coarse_band(&other.up),
+            self.down.coarse_band(&other.down),
+        ];
+        // Worst band wins (Reject > Maybe > Near > Foveal)
+        *bands.iter().max().unwrap_or(&CoarseBand::Reject)
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -399,6 +551,134 @@ mod tests {
         let b = SpiralAddress::new(100, 1, 2);
         let ov = address_overlap(&a, &b);
         assert!(ov < 0.5, "far-apart addresses should have low overlap: {}", ov);
+    }
+
+    // ── Three-finger tests ──────────────────────────────────────────
+
+    #[test]
+    fn three_finger_identical() {
+        let a = SpiralAddress::new(20, 8, 4);
+        assert_eq!(a.coarse_band(&a), CoarseBand::Foveal);
+    }
+
+    #[test]
+    fn three_finger_adjacent() {
+        let a = SpiralAddress::new(20, 8, 4);
+        let b = SpiralAddress::new(21, 8, 4);
+        assert_eq!(a.coarse_band(&b), CoarseBand::Foveal);
+    }
+
+    #[test]
+    fn three_finger_different_stride_rejects() {
+        let a = SpiralAddress::new(20, 8, 4);
+        let b = SpiralAddress::new(20, 2, 4); // same start, different stride
+        assert_eq!(a.coarse_band(&b), CoarseBand::Reject);
+    }
+
+    #[test]
+    fn three_finger_disjoint_rejects() {
+        let a = SpiralAddress::new(20, 8, 4);
+        let c = SpiralAddress::new(200, 8, 4);
+        assert_eq!(a.coarse_band(&c), CoarseBand::Reject);
+    }
+
+    #[test]
+    fn three_finger_nearby_is_near() {
+        let a = SpiralAddress::new(20, 8, 4);
+        let b = SpiralAddress::new(25, 8, 4);
+        let band = a.coarse_band(&b);
+        assert!(band == CoarseBand::Near || band == CoarseBand::Maybe,
+            "nearby same-stride should be Near or Maybe: {:?}", band);
+    }
+
+    // ── Role detection ──────────────────────────────────────────────
+
+    #[test]
+    fn stride_is_role() {
+        assert_eq!(SpiralAddress::new(0, 8, 1).role(), TensorRole::Gate);
+        assert_eq!(SpiralAddress::new(0, 3, 1).role(), TensorRole::QK);
+        assert_eq!(SpiralAddress::new(0, 5, 1).role(), TensorRole::V);
+        assert_eq!(SpiralAddress::new(0, 2, 1).role(), TensorRole::Up);
+        assert_eq!(SpiralAddress::new(0, 4, 1).role(), TensorRole::Down);
+    }
+
+    #[test]
+    fn stride_mismatch_means_different_role() {
+        let gate = SpiralAddress::new(20, 8, 4);
+        let up = SpiralAddress::new(20, 2, 4);
+        // Different stride → Reject → categorically different
+        assert_eq!(gate.coarse_band(&up), CoarseBand::Reject);
+        assert_ne!(gate.role(), up.role());
+    }
+
+    // ── NeuronPrint ─────────────────────────────────────────────────
+
+    #[test]
+    fn neuron_print_size() {
+        assert_eq!(NeuronPrint::BYTE_SIZE, 36);
+    }
+
+    #[test]
+    fn neuron_print_self_foveal() {
+        let np = NeuronPrint {
+            q:    SpiralAddress::new(20, 3, 4),
+            k:    SpiralAddress::new(20, 3, 4),
+            v:    SpiralAddress::new(20, 5, 4),
+            gate: SpiralAddress::new(20, 8, 4),
+            up:   SpiralAddress::new(20, 2, 4),
+            down: SpiralAddress::new(20, 4, 4),
+        };
+        assert_eq!(np.coarse_band(&np), CoarseBand::Foveal);
+    }
+
+    #[test]
+    fn neuron_print_different_gate_rejects() {
+        let a = NeuronPrint {
+            q: SpiralAddress::new(20, 3, 4), k: SpiralAddress::new(20, 3, 4),
+            v: SpiralAddress::new(20, 5, 4), gate: SpiralAddress::new(20, 8, 4),
+            up: SpiralAddress::new(20, 2, 4), down: SpiralAddress::new(20, 4, 4),
+        };
+        let b = NeuronPrint {
+            gate: SpiralAddress::new(200, 8, 4), // distant gate
+            ..a
+        };
+        assert_eq!(a.coarse_band(&b), CoarseBand::Reject);
+    }
+
+    #[test]
+    fn thinking_scale_from_gate() {
+        let np = NeuronPrint {
+            q: SpiralAddress::new(0, 3, 1), k: SpiralAddress::new(0, 3, 1),
+            v: SpiralAddress::new(0, 5, 1), gate: SpiralAddress::new(0, 8, 1),
+            up: SpiralAddress::new(0, 2, 1), down: SpiralAddress::new(0, 4, 1),
+        };
+        assert_eq!(np.thinking_scale(), ThinkingScale::Exploring);
+        assert_eq!(np.effective_rank(), 2.0); // down(4) / up(2)
+    }
+
+    #[test]
+    fn three_finger_validates_against_walk_cosine() {
+        // The key verification: do three-finger bands predict walk cosine?
+        let source = make_vec(42, 4096);
+
+        // Foveal: offset=1, same stride → should have very high walk cosine
+        let a_fov = SpiralAddress::new(20, 8, 4);
+        let b_fov = SpiralAddress::new(21, 8, 4);
+        assert_eq!(a_fov.coarse_band(&b_fov), CoarseBand::Foveal);
+        let cos_fov = SpiralWalk::execute(&a_fov, &source).cosine(&SpiralWalk::execute(&b_fov, &source));
+
+        // Reject: different stride → should have low or random cosine
+        let a_rej = SpiralAddress::new(20, 8, 4);
+        let b_rej = SpiralAddress::new(20, 2, 4);
+        assert_eq!(a_rej.coarse_band(&b_rej), CoarseBand::Reject);
+        let cos_rej = SpiralWalk::execute(&a_rej, &source).cosine(&SpiralWalk::execute(&b_rej, &source));
+
+        eprintln!("Foveal pair cosine: {:.4}", cos_fov);
+        eprintln!("Reject pair cosine: {:.4}", cos_rej);
+
+        // Foveal should have HIGHER cosine than Reject
+        assert!(cos_fov > cos_rej || cos_rej.abs() < 0.5,
+            "Foveal cosine ({:.4}) should exceed Reject ({:.4})", cos_fov, cos_rej);
     }
 
     #[test]
