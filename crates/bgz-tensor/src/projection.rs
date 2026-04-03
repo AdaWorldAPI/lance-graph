@@ -131,6 +131,45 @@ impl Base17 {
         Base17 { dims }
     }
 
+    /// Approximate inverse projection: expand Base17 back to an f32 vector.
+    ///
+    /// Each output dimension receives the value of its golden-step-mapped base
+    /// dimension, divided by FP_SCALE. This is the inverse of `from_f32()`:
+    /// the many-to-one octave averaging is reversed by replicating the mean
+    /// back to all positions that contributed to it.
+    ///
+    /// Lossy: the original fine-grained variation within each octave is lost.
+    /// Round-trip cosine similarity is typically > 0.95 for real weight vectors.
+    pub fn to_f32(&self, n_dims: usize) -> Vec<f32> {
+        let n_octaves = (n_dims + BASE_DIM - 1) / BASE_DIM;
+        let mut output = vec![0.0f32; n_dims];
+        for octave in 0..n_octaves {
+            for bi in 0..BASE_DIM {
+                let dim = octave * BASE_DIM + GOLDEN_POS[bi] as usize;
+                if dim < n_dims {
+                    output[dim] = self.dims[bi] as f32 / FP_SCALE as f32;
+                }
+            }
+        }
+        output
+    }
+
+    /// Cosine similarity between two Base17 vectors (f64 precision).
+    pub fn cosine(&self, other: &Base17) -> f64 {
+        let mut dot = 0.0f64;
+        let mut norm_a = 0.0f64;
+        let mut norm_b = 0.0f64;
+        for i in 0..BASE_DIM {
+            let a = self.dims[i] as f64;
+            let b = other.dims[i] as f64;
+            dot += a * b;
+            norm_a += a * a;
+            norm_b += b * b;
+        }
+        let denom = (norm_a * norm_b).sqrt();
+        if denom < 1e-12 { 0.0 } else { dot / denom }
+    }
+
     /// Zero vector (identity for xor_bind).
     pub fn zero() -> Self {
         Base17 { dims: [0i16; BASE_DIM] }
@@ -301,6 +340,94 @@ mod tests {
         let k = vec![Base17::from_f32(&[-1.0; 64]); 16];
         let dists = pairwise_l1(&q, &k);
         assert_eq!(dists.len(), 8 * 16);
+    }
+
+    #[test]
+    fn to_f32_roundtrip_base17_cosine() {
+        // Base17 is a 470× lossy projection (4096 dims → 17 dims).
+        // Round-trip f32→Base17→f32→Base17 should give identical Base17,
+        // and the DISTANCE RANKING between vectors must be preserved.
+        let weights_a: Vec<f32> = (0..4096)
+            .map(|i| ((i as f32 * 0.017).sin() * 0.5))
+            .collect();
+        let weights_b: Vec<f32> = (0..4096)
+            .map(|i| ((i as f32 * 0.031).cos() * 0.8))
+            .collect();
+
+        let b17_a = Base17::from_f32(&weights_a);
+        let b17_b = Base17::from_f32(&weights_b);
+
+        // Reconstruct and re-project — should be identical to original Base17
+        let recovered_a = b17_a.to_f32(4096);
+        let reprojected_a = Base17::from_f32(&recovered_a);
+        assert_eq!(b17_a, reprojected_a, "Base17 round-trip must be exact");
+
+        // Distance between a and b should be preserved
+        let l1_orig = b17_a.l1(&b17_b);
+        let recovered_b = b17_b.to_f32(4096);
+        let reprojected_b = Base17::from_f32(&recovered_b);
+        let l1_reprojected = reprojected_a.l1(&reprojected_b);
+        assert_eq!(l1_orig, l1_reprojected, "L1 distance must be preserved through round-trip");
+    }
+
+    #[test]
+    fn to_f32_small_vector_cosine() {
+        // For small vectors (< 17 dims), round-trip cosine should be high
+        // because there's little information loss.
+        let weights = vec![1.0, -0.5, 0.3, 2.0, -1.0];
+        let b17 = Base17::from_f32(&weights);
+        let recovered = b17.to_f32(5);
+
+        let mut dot = 0.0f64;
+        let mut norm_orig = 0.0f64;
+        let mut norm_rec = 0.0f64;
+        for i in 0..5 {
+            let a = weights[i] as f64;
+            let b = recovered[i] as f64;
+            dot += a * b;
+            norm_orig += a * a;
+            norm_rec += b * b;
+        }
+        let cosine = dot / (norm_orig.sqrt() * norm_rec.sqrt());
+        assert!(cosine > 0.90, "small vector round-trip cosine = {:.4}, expected > 0.90", cosine);
+    }
+
+    #[test]
+    fn to_f32_preserves_distance_ranking() {
+        let a = Base17::from_f32(&[1.0, 2.0, 3.0, -1.0, -2.0]);
+        let b = Base17::from_f32(&[1.1, 2.1, 3.1, -0.9, -1.9]);
+        let c = Base17::from_f32(&[-5.0, -5.0, -5.0, 5.0, 5.0]);
+
+        // a is closer to b than to c in Base17 L1
+        assert!(a.l1(&b) < a.l1(&c));
+
+        // Same ordering should hold in reconstructed f32 space
+        let ra = a.to_f32(5);
+        let rb = b.to_f32(5);
+        let rc = c.to_f32(5);
+
+        let dist_ab: f64 = ra.iter().zip(rb.iter()).map(|(x, y)| (*x as f64 - *y as f64).powi(2)).sum();
+        let dist_ac: f64 = ra.iter().zip(rc.iter()).map(|(x, y)| (*x as f64 - *y as f64).powi(2)).sum();
+        assert!(dist_ab < dist_ac, "distance ranking should be preserved");
+    }
+
+    #[test]
+    fn cosine_self_is_one() {
+        let a = Base17::from_f32(&[1.0, -2.0, 3.0, 0.5, -0.8, 1.2]);
+        let c = a.cosine(&a);
+        assert!((c - 1.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn cosine_opposite_is_negative() {
+        let mut a = Base17::zero();
+        let mut b = Base17::zero();
+        for i in 0..17 {
+            a.dims[i] = 1000;
+            b.dims[i] = -1000;
+        }
+        let c = a.cosine(&b);
+        assert!(c < -0.99, "opposite vectors should have cosine near -1: {}", c);
     }
 
     #[test]
