@@ -180,11 +180,21 @@ pub struct EmbeddedParagraph {
 
 /// Fetch a URL and return embedded paragraphs.
 ///
-/// 1. HTTP GET via ureq (no Jina, no API key)
-/// 2. Strip HTML tags
-/// 3. Split into paragraphs
-/// 4. Embed each paragraph as Base17 fingerprint
+/// Detects content type and routes:
+/// - `.pdf` → download binary → pdftotext (text layer) or pdftoppm+tesseract (OCR)
+/// - everything else → strip HTML → split paragraphs
+///
+/// Handles: HTML, PDF with text layer, scanned PDF (OCR), Wikileaks docs, etc.
 pub fn fetch_and_embed(url: &str) -> Result<Vec<EmbeddedParagraph>, ReaderError> {
+    // Route: PDF or HTML?
+    let is_pdf = url.to_lowercase().ends_with(".pdf")
+        || url.contains("/pdf/")
+        || url.contains("pdf?");
+
+    if is_pdf {
+        return fetch_and_embed_pdf(url);
+    }
+
     // 1. Fetch via curl (handles proxies, self-signed certs, MITM)
     let body = curl_fetch(url)?;
 
@@ -221,6 +231,147 @@ pub fn embed_text(text: &str) -> Vec<EmbeddedParagraph> {
             EmbeddedParagraph { text, fingerprint: fp, word_count }
         })
         .collect()
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PDF + OCR PIPELINE
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Fetch a PDF URL, extract text (text layer or OCR), return embedded paragraphs.
+///
+/// Pipeline:
+/// 1. curl downloads PDF binary to /tmp
+/// 2. Try `pdftotext` (fast, for PDFs with text layer)
+/// 3. If text layer empty → `pdftoppm` renders pages → `tesseract` OCRs each
+/// 4. Split into paragraphs → embed as Base17
+///
+/// Handles: Wikileaks docs, scanned contracts, academic papers, etc.
+fn fetch_and_embed_pdf(url: &str) -> Result<Vec<EmbeddedParagraph>, ReaderError> {
+    // 1. Download PDF binary
+    let pdf_path = format!("/tmp/osint_{}.pdf", url_hash(url));
+    curl_fetch_binary(url, &pdf_path)?;
+
+    // 2. Try pdftotext first (fast, for text-layer PDFs)
+    let text = pdf_to_text(&pdf_path);
+
+    let final_text = if text.split_whitespace().count() > 20 {
+        // Good text layer, use it
+        text
+    } else {
+        // 3. Scanned PDF: render pages → OCR
+        ocr_pdf(&pdf_path)?
+    };
+
+    // Clean up temp file
+    std::fs::remove_file(&pdf_path).ok();
+
+    if final_text.split_whitespace().count() < 5 {
+        return Err(ReaderError::Empty(format!("PDF too short after extraction: {}", url)));
+    }
+
+    // 4. Split and embed
+    Ok(embed_text(&final_text))
+}
+
+/// Download binary file via curl.
+fn curl_fetch_binary(url: &str, output_path: &str) -> Result<(), ReaderError> {
+    let status = std::process::Command::new("curl")
+        .args(["-sLk", "--max-time", "30", "-o", output_path, url])
+        .status()
+        .map_err(|e| ReaderError::Fetch(format!("curl binary: {e}")))?;
+    if !status.success() {
+        return Err(ReaderError::Fetch(format!("curl exit: {}", status)));
+    }
+    // Verify file exists and has content
+    let meta = std::fs::metadata(output_path)
+        .map_err(|e| ReaderError::Read(format!("pdf not saved: {e}")))?;
+    if meta.len() < 100 {
+        return Err(ReaderError::Empty(format!("PDF too small: {} bytes", meta.len())));
+    }
+    Ok(())
+}
+
+/// Extract text from PDF using pdftotext (poppler-utils).
+/// Returns empty string if no text layer.
+fn pdf_to_text(pdf_path: &str) -> String {
+    let output = std::process::Command::new("pdftotext")
+        .args(["-layout", pdf_path, "-"])
+        .output();
+    match output {
+        Ok(o) if o.status.success() => {
+            String::from_utf8_lossy(&o.stdout).to_string()
+        }
+        _ => String::new(),
+    }
+}
+
+/// OCR a scanned PDF: render pages as images → tesseract each page.
+fn ocr_pdf(pdf_path: &str) -> Result<String, ReaderError> {
+    let tmp_dir = format!("/tmp/osint_ocr_{}", url_hash(pdf_path));
+    std::fs::create_dir_all(&tmp_dir).ok();
+
+    // Render PDF pages as PNG images (300 DPI for good OCR)
+    let render_status = std::process::Command::new("pdftoppm")
+        .args(["-png", "-r", "300", pdf_path, &format!("{}/page", tmp_dir)])
+        .status()
+        .map_err(|e| ReaderError::Fetch(format!("pdftoppm: {e}")))?;
+
+    if !render_status.success() {
+        std::fs::remove_dir_all(&tmp_dir).ok();
+        return Err(ReaderError::Fetch("pdftoppm failed".into()));
+    }
+
+    // Find rendered page images
+    let mut pages: Vec<String> = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(&tmp_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().map(|e| e == "png").unwrap_or(false) {
+                pages.push(path.to_string_lossy().to_string());
+            }
+        }
+    }
+    pages.sort(); // page-01.png, page-02.png, ...
+
+    if pages.is_empty() {
+        std::fs::remove_dir_all(&tmp_dir).ok();
+        return Err(ReaderError::Fetch("pdftoppm produced no pages".into()));
+    }
+
+    // OCR each page with tesseract
+    let mut all_text = String::new();
+    for page_path in &pages {
+        let output = std::process::Command::new("tesseract")
+            .args([page_path.as_str(), "stdout", "-l", "eng", "--psm", "1"])
+            .output();
+        if let Ok(o) = output {
+            if o.status.success() {
+                let page_text = String::from_utf8_lossy(&o.stdout);
+                if !page_text.trim().is_empty() {
+                    all_text.push_str(&page_text);
+                    all_text.push_str("\n\n");
+                }
+            }
+        }
+    }
+
+    // Clean up temp images
+    std::fs::remove_dir_all(&tmp_dir).ok();
+
+    if all_text.trim().is_empty() {
+        return Err(ReaderError::Fetch("tesseract produced no text".into()));
+    }
+
+    Ok(all_text)
+}
+
+/// Simple URL hash for temp file naming.
+fn url_hash(url: &str) -> u64 {
+    let mut h: u64 = 0xcafe_babe;
+    for b in url.bytes() {
+        h = h.wrapping_mul(31).wrapping_add(b as u64);
+    }
+    h
 }
 
 /// Text → Base17 fingerprint.
