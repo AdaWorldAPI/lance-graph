@@ -64,12 +64,26 @@ fn main() {
 
     let embd_data = read_tensor_f32(&mut file, &header, embd)
         .expect("Failed to read token_embd tensor");
-    let embd_rows = embd.dims[0] as usize;
-    let embd_cols: usize = embd.dims[1..].iter().map(|&d| d as usize).product();
-    println!("  Shape: {} rows × {} cols, {} floats total",
+
+    // GGUF stores embedding as [hidden_dim, vocab_size] — need to handle both layouts
+    let (embd_rows, embd_cols) = if embd.dims[0] as usize == VOCAB_SIZE {
+        (embd.dims[0] as usize, embd.dims[1] as usize)
+    } else if embd.dims.len() >= 2 && embd.dims[1] as usize == VOCAB_SIZE {
+        // Transposed: [hidden_dim, vocab_size] → treat as [vocab_size, hidden_dim]
+        (embd.dims[1] as usize, embd.dims[0] as usize)
+    } else if embd.dims[0] as usize == HIDDEN_DIM {
+        // [1024, 250002] layout — vocab is dim[1]
+        (embd.dims[1] as usize, embd.dims[0] as usize)
+    } else {
+        panic!("Unexpected embedding dims: {:?}", embd.dims);
+    };
+    println!("  Logical shape: {} tokens × {} hidden_dim, {} floats total",
         embd_rows, embd_cols, embd_data.len());
-    assert_eq!(embd_rows, VOCAB_SIZE, "Expected {} rows", VOCAB_SIZE);
-    assert_eq!(embd_cols, HIDDEN_DIM, "Expected {} cols", HIDDEN_DIM);
+    assert_eq!(embd_rows, VOCAB_SIZE, "Expected {} tokens", VOCAB_SIZE);
+    assert_eq!(embd_cols, HIDDEN_DIM, "Expected {} hidden_dim", HIDDEN_DIM);
+
+    // If transposed, we read token i's embedding as strided access
+    let is_transposed = embd.dims[0] as usize == HIDDEN_DIM;
 
     // ── Step 4: Pre-normalize centroid rows (attn_q) ──────────────────────
     println!("\n[4] Pre-normalizing {} centroid rows ...", TABLE_ROWS);
@@ -93,7 +107,17 @@ fn main() {
     let indices: Vec<u16> = (0..embd_rows)
         .into_par_iter()
         .map(|tok_id| {
-            let tok_row = &embd_data[tok_id * embd_cols..(tok_id + 1) * embd_cols];
+            // Handle both layouts: [vocab, hidden] contiguous vs [hidden, vocab] strided
+            let tok_row_owned: Vec<f32>;
+            let tok_row: &[f32] = if !is_transposed {
+                &embd_data[tok_id * embd_cols..(tok_id + 1) * embd_cols]
+            } else {
+                // Transposed: [hidden_dim, vocab_size] — gather column tok_id
+                tok_row_owned = (0..embd_cols)
+                    .map(|dim| embd_data[dim * embd_rows + tok_id])
+                    .collect();
+                &tok_row_owned
+            };
 
             // Pre-normalize token embedding
             let norm = tok_row.iter().map(|v| (*v as f64) * (*v as f64)).sum::<f64>().sqrt();
