@@ -28,7 +28,7 @@
 - [ ] 3A.3: NdarrayFingerprint::plane_to_base17()
 - [ ] 3A.4: parallel_search() dual-path (HHTL + CLAM merge)
 - [ ] 3A.5: Wire TruthGate into search results
-- [ ] 3D.1: FalkorCompat 3-backend routing
+- [ ] 3D.1: GraphRouter 3-backend routing
 - [ ] 3D.2: Palette 2-hop ranking validation (ρ > 0.9)
 - [ ] 3D.3: Performance benchmark
 

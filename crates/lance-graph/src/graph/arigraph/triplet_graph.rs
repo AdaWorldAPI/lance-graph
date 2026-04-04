@@ -644,7 +644,7 @@ impl TripletGraph {
                         * t1.truth.confidence
                         * t2.truth.confidence;
                     let combined_rel = format!("{} (via {})", t2.relation, t1.object);
-                    let mut triplet = Triplet::with_truth(
+                    let triplet = Triplet::with_truth(
                         &t1.subject,
                         &t2.object,
                         &combined_rel,
