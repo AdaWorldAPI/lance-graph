@@ -76,37 +76,49 @@ fn main() {
         let query = format!("{} {} {}", edge.source, edge.label, edge.target);
         queries_done += 1;
 
-        // Google Custom Search → article URLs → fetch each full article → embed
-        // Falls back to DuckDuckGo HTML if GOOGLE_API_KEY not set
-        let paragraphs = match reader::search_and_embed(&query, 5) {
-            Ok(p) if !p.is_empty() => p,
-            _ => {
-                // Fallback: DuckDuckGo HTML (snippets only, less effective)
-                if queries_done == 1 {
-                    eprintln!("[info] Set GOOGLE_API_KEY + GOOGLE_CX for full article fetching");
-                    eprintln!("[info] Falling back to DuckDuckGo HTML (search snippets only)");
+        // Spider crawls Google search → extracts article URLs → fetches articles
+        // No API key needed. Zero cost.
+        #[cfg(feature = "spider-crawl")]
+        let (paragraphs, extra_triplets) = {
+            let result = lance_graph_osint::crawler::crawl::crawl_query(&query, 5, queries_done as u64);
+            if result.pages_fetched == 0 {
+                fetch_failures += 1;
+                if queries_done <= 3 || queries_done % 20 == 0 {
+                    eprintln!("[fetch fail #{}/{}] {}: no pages", fetch_failures, queries_done, query);
                 }
-                let ddg_url = format!("https://html.duckduckgo.com/html/?q={}", urlencoding(&query));
-                match reader::fetch_and_embed(&ddg_url) {
-                    Ok(p) => p,
-                    Err(e) => {
-                        fetch_failures += 1;
-                        if queries_done <= 3 || queries_done % 20 == 0 {
-                            eprintln!("[fetch fail #{}/{}] {}: {}", fetch_failures, queries_done, query, e);
-                        }
-                        continue;
+                continue;
+            }
+            // embed_text on snippets already done inside crawl_query
+            (Vec::<reader::EmbeddedParagraph>::new(), result.triplets)
+        };
+
+        #[cfg(not(feature = "spider-crawl"))]
+        let (paragraphs, extra_triplets) = {
+            // Fallback: curl + DuckDuckGo HTML
+            let ddg_url = format!("https://html.duckduckgo.com/html/?q={}", urlencoding(&query));
+            match reader::fetch_and_embed(&ddg_url) {
+                Ok(p) => (p, Vec::new()),
+                Err(e) => {
+                    fetch_failures += 1;
+                    if queries_done <= 3 || queries_done % 20 == 0 {
+                        eprintln!("[fetch fail #{}/{}] {}: {}", fetch_failures, queries_done, query, e);
                     }
+                    continue;
                 }
             }
         };
 
-        // Extract triplets from each paragraph
+        // Extract triplets from paragraphs + spider-extracted triplets
         let mut round_new = 0;
         let mut round_confirmed = 0;
 
+        // Collect all triplets: from paragraphs + from spider crawler
+        let mut all_triplets_for_round: Vec<extractor::Triplet> = extra_triplets;
         for para in &paragraphs {
-            let triplets = extractor::extract_triplets(&para.text, queries_done as u64);
-            for t in &triplets {
+            all_triplets_for_round.extend(extractor::extract_triplets(&para.text, queries_done as u64));
+        }
+
+        for t in &all_triplets_for_round {
                 let s = t.subject.to_lowercase();
                 let o = t.object.to_lowercase();
                 let r = t.relation.to_lowercase();
@@ -154,7 +166,6 @@ fn main() {
                         discoveries += 1;
                     }
                 }
-            }
         }
 
         // Progress report

@@ -35,41 +35,45 @@ pub mod crawl {
 
     /// Crawl search results for a query using the spider framework.
     ///
-    /// 1. Google Custom Search → article URLs
-    /// 2. Spider crawls each URL (async, proper TLS, follows redirects)
-    /// 3. Extract paragraphs → triplets
+    /// No API key needed. Spider fetches Google search HTML directly,
+    /// extracts result URLs, then fetches each article page.
     ///
-    /// Falls back to curl if spider fails.
+    /// 1. Spider crawls `google.com/search?q=...` → raw HTML
+    /// 2. Parse result URLs from search page
+    /// 3. Spider crawls each result article
+    /// 4. Extract paragraphs → triplets
     pub fn crawl_query(query: &str, max_articles: usize, clock: u64) -> CrawlResult {
-        // Get article URLs from Google Custom Search
-        let urls = match reader::google_search(query, max_articles) {
-            Ok(results) => results.into_iter().map(|r| r.link).collect::<Vec<_>>(),
-            Err(_) => {
-                // Fallback: construct a single DuckDuckGo URL
-                vec![format!("https://html.duckduckgo.com/html/?q={}",
-                    reader::urlencoding_pub(query))]
-            }
-        };
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            crawl_query_async(query, max_articles, clock).await
+        })
+    }
 
-        if urls.is_empty() {
-            return CrawlResult {
+    async fn crawl_query_async(query: &str, max_articles: usize, clock: u64) -> CrawlResult {
+        // 1. Crawl Google search results page
+        let search_url = format!(
+            "https://www.google.com/search?q={}",
+            reader::urlencoding_pub(query)
+        );
+
+        let search_html = match crawl_single_url(&search_url).await {
+            Some(html) => html,
+            None => return CrawlResult {
                 pages_fetched: 0, paragraphs: 0,
                 triplets: vec![], urls_crawled: vec![],
-            };
-        }
+            },
+        };
 
-        // Crawl each URL with spider
-        let rt = tokio::runtime::Runtime::new().unwrap();
+        // 2. Extract article URLs from search results
+        let article_urls = extract_search_result_urls(&search_html, max_articles);
+
+        // 3. Crawl each article
         let mut all_triplets = Vec::new();
         let mut total_paragraphs = 0;
         let mut urls_crawled = Vec::new();
 
-        for url in &urls {
-            let page_text = rt.block_on(async {
-                crawl_single_url(url).await
-            });
-
-            if let Some(text) = page_text {
+        for url in &article_urls {
+            if let Some(text) = crawl_single_url(url).await {
                 let paragraphs = reader::embed_text(&text);
                 total_paragraphs += paragraphs.len();
 
@@ -81,12 +85,58 @@ pub mod crawl {
             }
         }
 
+        // 4. Also extract from search snippets (they contain useful triplets too)
+        let snippet_paragraphs = reader::embed_text(&search_html);
+        for para in &snippet_paragraphs {
+            let extracted = extractor::extract_triplets(&para.text, clock);
+            all_triplets.extend(extracted);
+        }
+        total_paragraphs += snippet_paragraphs.len();
+
         CrawlResult {
-            pages_fetched: urls_crawled.len(),
+            pages_fetched: urls_crawled.len() + 1, // +1 for search page
             paragraphs: total_paragraphs,
             triplets: all_triplets,
             urls_crawled,
         }
+    }
+
+    /// Extract article URLs from Google search results HTML.
+    ///
+    /// Parses `<a href="/url?q=https://...&...">` patterns from Google's HTML.
+    fn extract_search_result_urls(html: &str, max: usize) -> Vec<String> {
+        let mut urls = Vec::new();
+        let mut seen = HashSet::new();
+
+        // Google wraps result URLs in /url?q=ACTUAL_URL&...
+        let pattern = "/url?q=";
+        let mut pos = 0;
+        while let Some(start) = html[pos..].find(pattern) {
+            let abs_start = pos + start + pattern.len();
+            if abs_start >= html.len() { break; }
+
+            // Find the end of the URL (& or " or ')
+            let remaining = &html[abs_start..];
+            let end = remaining.find(|c: char| c == '&' || c == '"' || c == '\'')
+                .unwrap_or(remaining.len());
+            let url = &remaining[..end];
+
+            // Filter: only keep real article URLs
+            if url.starts_with("http")
+                && !url.contains("google.com")
+                && !url.contains("youtube.com/watch")
+                && !url.contains("accounts.google")
+                && !seen.contains(url)
+            {
+                seen.insert(url.to_string());
+                urls.push(url.to_string());
+                if urls.len() >= max { break; }
+            }
+
+            pos = abs_start + end;
+        }
+
+        urls
     }
 
     /// Crawl a single URL using spider, return stripped text.
