@@ -12,7 +12,21 @@
 //!     → Palette lookup (u8 index, O(1))
 //! ```
 
+use std::sync::Arc;
 use ndarray::hpc::bgz17_bridge::Base17;
+
+/// Fetch URL body via curl (handles MITM proxies, self-signed certs, Let's Encrypt).
+fn curl_fetch(url: &str) -> Result<String, ReaderError> {
+    let output = std::process::Command::new("curl")
+        .args(["-sLk", "--max-time", "15", url])
+        .output()
+        .map_err(|e| ReaderError::Fetch(format!("curl: {e}")))?;
+    if !output.status.success() {
+        return Err(ReaderError::Fetch(format!("curl exit: {}", output.status)));
+    }
+    String::from_utf8(output.stdout)
+        .map_err(|e| ReaderError::Read(format!("utf8: {e}")))
+}
 
 /// A paragraph with its Base17 fingerprint.
 #[derive(Clone, Debug)]
@@ -32,14 +46,8 @@ pub struct EmbeddedParagraph {
 /// 3. Split into paragraphs
 /// 4. Embed each paragraph as Base17 fingerprint
 pub fn fetch_and_embed(url: &str) -> Result<Vec<EmbeddedParagraph>, ReaderError> {
-    // 1. Fetch
-    let response = ureq::get(url)
-        .header("User-Agent", "ada-osint/0.1")
-        .call()
-        .map_err(|e| ReaderError::Fetch(format!("{e}")))?;
-
-    let body = response.into_body().read_to_string()
-        .map_err(|e| ReaderError::Read(format!("{e}")))?;
+    // 1. Fetch via curl (handles proxies, self-signed certs, MITM)
+    let body = curl_fetch(url)?;
 
     if body.is_empty() {
         return Err(ReaderError::Empty(url.to_string()));

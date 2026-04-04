@@ -20,7 +20,8 @@ deepnsm = { path = "../deepnsm" }
 ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
 
 # HTTP client for fetching raw web pages
-ureq = "3"
+ureq = { version = "3", features = ["native-tls"] }
+webpki-roots = "1"
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
