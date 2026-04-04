@@ -15,5 +15,7 @@
 
 pub mod engine;
 pub mod dto;
+pub mod sensor;
 pub mod layered;
 pub mod branching;
+pub mod bridge;
