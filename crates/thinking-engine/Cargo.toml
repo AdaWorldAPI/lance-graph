@@ -19,3 +19,4 @@ highheelbgz = { path = "../highheelbgz" }
 
 [dev-dependencies]
 rayon = "1.10"
+tokenizers = { version = "0.22", features = ["http"] }

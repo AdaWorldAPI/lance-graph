@@ -58,7 +58,7 @@ pub struct StreamDto {
 #[derive(Clone, Debug)]
 pub struct ResonanceDto {
     /// Energy distribution. THIS IS the thought state.
-    pub energy: [f64; CODEBOOK_SIZE],
+    pub energy: Vec<f64>,
     /// How many MatVec cycles ran.
     pub cycle_count: u16,
     /// Did the energy converge before max cycles?
@@ -68,8 +68,13 @@ pub struct ResonanceDto {
 }
 
 impl ResonanceDto {
-    /// Build from energy vector.
+    /// Build from fixed-size energy array (legacy 4096).
     pub fn from_energy(energy: &[f64; CODEBOOK_SIZE], cycles: u16) -> Self {
+        Self::from_energy_vec(energy.as_slice(), cycles)
+    }
+
+    /// Build from any-size energy slice.
+    pub fn from_energy_vec(energy: &[f64], cycles: u16) -> Self {
         let mut indexed: Vec<(usize, f64)> = energy.iter()
             .enumerate()
             .map(|(i, &e)| (i, e))
@@ -81,11 +86,9 @@ impl ResonanceDto {
             top_k[k] = (idx as u16, val);
         }
 
-        // Converged if ran fewer than 10 cycles
-        // (caller passed actual count, convergence = stopped early)
         let converged = cycles < 10;
 
-        Self { energy: *energy, cycle_count: cycles, converged, top_k }
+        Self { energy: energy.to_vec(), cycle_count: cycles, converged, top_k }
     }
 
     /// Entropy of the resonance field.
