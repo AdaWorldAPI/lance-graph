@@ -356,16 +356,17 @@ impl LayeredEngine {
 mod tests {
     use super::*;
 
-    /// Build a synthetic N×N distance table where nearby indices are similar.
+    /// Build a synthetic N×N distance table where nearby indices are very similar.
+    /// Values range from 0 (distant) to 255 (self), with strong topology signal
+    /// well above the median floor.
     fn make_table(n: usize) -> Vec<u8> {
-        let mut table = vec![128u8; n * n];
+        let mut table = vec![64u8; n * n]; // baseline at 64 (below typical median)
         for i in 0..n {
-            table[i * n + i] = 255; // self = max similarity
+            table[i * n + i] = 255;
             for j in 0..n {
                 let dist = (i as i64 - j as i64).unsigned_abs() as usize;
-                if dist < n / 2 {
-                    let sim = 255 - (dist * 255 / n).min(254);
-                    table[i * n + j] = sim as u8;
+                if dist > 0 && dist <= n / 4 {
+                    table[i * n + j] = (200 - dist * 10).max(100) as u8;
                 }
             }
         }
