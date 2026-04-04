@@ -17,7 +17,7 @@ pub enum SourceType {
     DeepNsm,    // distributional semantics (COCA co-occurrence)
     Wikidata,   // entity type prototypes
     AriGraph,   // graph-derived persona
-    HiDream,    // image generation latent
+    ImageGen,   // image generation model
     User,       // direct user input
 }
 
