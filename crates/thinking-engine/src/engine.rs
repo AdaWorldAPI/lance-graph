@@ -208,11 +208,29 @@ impl ThinkingEngine {
             "distance table length {} is not a perfect square", total);
         assert!(size >= 4, "need at least 4 atoms");
 
-        // Compute median as floor (σ-distribution baseline)
+        // Compute 1σ floor (74th percentile) — kills 74% of noise,
+        // keeps only the top 26% as real topology.
+        // Median (50%) is useless — half the table surviving is not a floor.
         let mut sorted = distance_table.clone();
         sorted.sort_unstable();
-        let floor = sorted[total / 2];
+        let floor = sorted[total * 3 / 4]; // p75 ≈ μ + 0.675σ
 
+        Self {
+            distance_table,
+            energy: vec![0.0f32; size],
+            size,
+            cycles: 0,
+            convergence_threshold: 0.001,
+            floor,
+        }
+    }
+
+    /// Create engine with explicit floor override.
+    pub fn with_floor(distance_table: Vec<u8>, floor: u8) -> Self {
+        let total = distance_table.len();
+        let size = (total as f64).sqrt() as usize;
+        assert_eq!(size * size, total);
+        assert!(size >= 4);
         Self {
             distance_table,
             energy: vec![0.0f32; size],
