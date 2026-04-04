@@ -1,344 +1,537 @@
-//! Three-layer thinking cascade: 64² → 256² → 4096².
+//! Layered thinking cascade with CausalEdge64 upstream propagation.
 //!
-//! NOT a flat 4096² MatVec. Three layers with branching:
+//! Three tiers of ThinkingEngine, connected by causal edges:
 //!
 //! ```text
-//! Layer 1:  64 ×  64 =   4 KB   L1-resident   coarse routing     ~μs
-//! Layer 2: 256 × 256 =  64 KB   L1/L2         mid-resolution     ~μs
-//! Layer 3: 4096×4096 = 16 MB    L3 (or GPU)   full resolution    ~ms
+//! L1 (small, routing)  ──edges──►  L2 (mid, role resonance)  ──edges──►  L3 (full thought)
 //! ```
 //!
-//! Same cascade as Belichtungsmesser / p64 Blumenstrauß:
-//! Layer 1 rejects ~90%. Layer 2 refines survivors. Layer 3 for peaks only.
-//!
-//! The thinking LANES branch from coarse to fine:
-//! ```text
-//! Perturb → Layer 1 (64²): which macro-regions activate?
-//!   → survivors branch into Layer 2 (256²): which meso-regions?
-//!     → survivors branch into Layer 3 (4096²): full resolution for peaks
-//! ```
-//!
-//! Layer 1 and 2 are p64 Blumenstrauß scale — proven, SIMD-hardened.
-//! Layer 3 is the GPU target for later. On CPU: only survivors reach it.
+//! CausalEdge64 packs 8 channels (7 constructive + 1 destructive) into a u64.
+//! Each channel is one byte (0-255). Constructive channels add energy;
+//! the CONTRADICTS channel subtracts energy.
 
-/// Layer 1: 64 macro-regions. 64×64 = 4 KB. Always L1-hot.
-pub const L1_SIZE: usize = 64;
-/// Layer 2: 256 meso-regions. 256×256 = 64 KB. L1/L2.
-pub const L2_SIZE: usize = 256;
-/// Layer 3: 4096 micro-regions. 4096×4096 = 16 MB. L3 or GPU.
-pub const L3_SIZE: usize = 4096;
+use crate::dto::BusDto;
+use crate::engine::ThinkingEngine;
 
-/// Mapping from Layer 2 index to Layer 1 region.
-/// Each L1 region contains L2_SIZE / L1_SIZE = 4 L2 entries.
-pub const L2_PER_L1: usize = L2_SIZE / L1_SIZE;  // 4
-/// Mapping from Layer 3 index to Layer 2 region.
-pub const L3_PER_L2: usize = L3_SIZE / L2_SIZE;  // 16
+// ═══════════════════════════════════════════════════════════════════════════
+// CausalEdge64: packed u64 with 7 constructive + 1 destructive channel
+// ═══════════════════════════════════════════════════════════════════════════
 
-/// Three-layer thinking engine with branching cascade.
+/// Channel indices.
+/// 0=BECOMES, 1=CAUSES, 2=SUPPORTS, 3=REFINES,
+/// 4=GROUNDS, 5=ABSTRACTS, 6=RELATES, 7=CONTRADICTS.
+pub const CHANNEL_BECOMES: u8 = 0;
+pub const CHANNEL_CAUSES: u8 = 1;
+pub const CHANNEL_SUPPORTS: u8 = 2;
+pub const CHANNEL_REFINES: u8 = 3;
+pub const CHANNEL_GROUNDS: u8 = 4;
+pub const CHANNEL_ABSTRACTS: u8 = 5;
+pub const CHANNEL_RELATES: u8 = 6;
+pub const CHANNEL_CONTRADICTS: u8 = 7;
+
+/// CausalEdge64: packed u64 with 7 constructive + 1 destructive channel.
+///
+/// Layout (little-endian byte order within the u64):
+///   bits  0..7  = channel 0 (BECOMES)
+///   bits  8..15 = channel 1 (CAUSES)
+///   bits 16..23 = channel 2 (SUPPORTS)
+///   bits 24..31 = channel 3 (REFINES)
+///   bits 32..39 = channel 4 (GROUNDS)
+///   bits 40..47 = channel 5 (ABSTRACTS)
+///   bits 48..55 = channel 6 (RELATES)
+///   bits 56..63 = channel 7 (CONTRADICTS)
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CausalEdge64(pub u64);
+
+impl CausalEdge64 {
+    /// Create a zero edge (no causal strength on any channel).
+    pub fn new() -> Self {
+        CausalEdge64(0)
+    }
+
+    /// Set a channel's value. `channel` must be 0..=7, `value` is 0..=255.
+    pub fn set_channel(&mut self, channel: u8, value: u8) {
+        assert!(channel < 8, "channel must be 0..=7, got {}", channel);
+        let shift = channel as u64 * 8;
+        self.0 = (self.0 & !(0xFF << shift)) | ((value as u64) << shift);
+    }
+
+    /// Get a channel's value.
+    pub fn get_channel(&self, channel: u8) -> u8 {
+        assert!(channel < 8, "channel must be 0..=7, got {}", channel);
+        let shift = channel as u64 * 8;
+        ((self.0 >> shift) & 0xFF) as u8
+    }
+
+    /// Total constructive strength: sum of channels 0..=6.
+    pub fn constructive_strength(&self) -> u16 {
+        let mut sum: u16 = 0;
+        for ch in 0..7u8 {
+            sum += self.get_channel(ch) as u16;
+        }
+        sum
+    }
+
+    /// Destructive strength: channel 7 (CONTRADICTS).
+    pub fn contradiction_strength(&self) -> u8 {
+        self.get_channel(CHANNEL_CONTRADICTS)
+    }
+
+    /// Net strength: constructive - destructive. Can be negative.
+    pub fn net_strength(&self) -> i16 {
+        self.constructive_strength() as i16 - self.contradiction_strength() as i16
+    }
+
+    /// Convenience: create an edge with CAUSES channel set to `strength`.
+    ///
+    /// Source and target are NOT stored inside the u64 (all 64 bits are channels).
+    /// They are carried alongside as the tuple key `(u16, CausalEdge64)`.
+    pub fn with_source_target(_source: u16, _target: u16, strength: u8) -> Self {
+        let mut e = Self::new();
+        e.set_channel(CHANNEL_CAUSES, strength);
+        e
+    }
+}
+
+impl Default for CausalEdge64 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TierEngine: wraps ThinkingEngine for one level of the cascade
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// A tier engine wrapping ThinkingEngine for one level of the cascade.
+///
+/// Keeps a shadow copy of the distance table for neighbor lookups
+/// (ThinkingEngine's table field is private).
+pub struct TierEngine {
+    engine: ThinkingEngine,
+    /// Shadow copy of the N×N distance table for causal edge emission.
+    distance_table: Vec<u8>,
+    tier_name: String,
+    size: usize,
+}
+
+impl TierEngine {
+    /// Create a tier engine from an N×N distance table.
+    pub fn new(distance_table: Vec<u8>, name: &str) -> Self {
+        let total = distance_table.len();
+        let size = (total as f64).sqrt() as usize;
+        assert_eq!(size * size, total,
+            "distance table length {} is not a perfect square", total);
+        let engine = ThinkingEngine::new(distance_table.clone());
+        Self {
+            engine,
+            distance_table,
+            tier_name: name.to_string(),
+            size,
+        }
+    }
+
+    /// Run thinking cycles on this tier.
+    pub fn think(&mut self, max_cycles: usize) {
+        self.engine.think(max_cycles);
+    }
+
+    /// Get top-k peaks from current energy, sorted descending by energy.
+    pub fn top_k(&self, k: usize) -> Vec<(u16, f64)> {
+        let mut indexed: Vec<(usize, f64)> = self.engine.energy.iter()
+            .enumerate()
+            .map(|(i, &e)| (i, e))
+            .collect();
+        indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        indexed.iter()
+            .take(k)
+            .map(|&(i, e)| (i as u16, e))
+            .collect()
+    }
+
+    /// Emit CausalEdge64 events from top-k peaks.
+    ///
+    /// For each of the top-k peaks, emit edges to their 4 nearest neighbors
+    /// in the distance table (highest similarity = strongest constructive edges).
+    pub fn emit_causal_edges(&self, k: usize) -> Vec<(u16, CausalEdge64)> {
+        let peaks = self.top_k(k);
+        let mut edges = Vec::new();
+
+        for &(peak_idx, peak_energy) in &peaks {
+            if peak_energy < 1e-15 {
+                continue;
+            }
+            let pi = peak_idx as usize;
+            let row_offset = pi * self.size;
+
+            // Collect (neighbor_index, similarity) excluding self.
+            let mut neighbors: Vec<(usize, u8)> = (0..self.size)
+                .filter(|&j| j != pi)
+                .map(|j| (j, self.distance_table[row_offset + j]))
+                .collect();
+            // Sort by similarity descending to find nearest neighbors.
+            neighbors.sort_by(|a, b| b.1.cmp(&a.1));
+
+            // Take top 4 neighbors.
+            for &(neighbor_idx, sim) in neighbors.iter().take(4) {
+                // Strength proportional to similarity and peak energy.
+                let strength = ((sim as f64 / 255.0) * peak_energy * 255.0)
+                    .round()
+                    .clamp(0.0, 255.0) as u8;
+                if strength == 0 {
+                    continue;
+                }
+                let mut edge = CausalEdge64::new();
+                edge.set_channel(CHANNEL_CAUSES, strength);
+                edges.push((neighbor_idx as u16, edge));
+            }
+        }
+
+        edges
+    }
+
+    /// Apply causal edges as energy perturbation.
+    ///
+    /// Constructive channels (0..=6) add positive energy.
+    /// CONTRADICTS channel (7) subtracts energy.
+    pub fn apply_edges(&mut self, edges: &[(u16, CausalEdge64)]) {
+        for &(target, edge) in edges {
+            let idx = target as usize;
+            if idx >= self.size {
+                continue;
+            }
+            let net = edge.net_strength();
+            // Scale: divide by 255 to keep in reasonable range.
+            let delta = net as f64 / 255.0;
+            self.engine.energy[idx] += delta;
+            // Clamp to zero floor.
+            if self.engine.energy[idx] < 0.0 {
+                self.engine.energy[idx] = 0.0;
+            }
+        }
+        // Re-normalize.
+        let total: f64 = self.engine.energy.iter().sum();
+        if total > 1e-15 {
+            for e in &mut self.engine.energy {
+                *e /= total;
+            }
+        }
+    }
+
+    /// Reset energy to zero.
+    pub fn reset(&mut self) {
+        self.engine.reset();
+    }
+
+    /// Number of thought-atoms in this tier.
+    pub fn size(&self) -> usize {
+        self.size
+    }
+
+    /// Perturb this tier with codebook indices.
+    pub fn perturb(&mut self, indices: &[u16]) {
+        self.engine.perturb(indices);
+    }
+
+    /// Access the underlying engine.
+    pub fn engine(&self) -> &ThinkingEngine {
+        &self.engine
+    }
+
+    /// Tier name.
+    pub fn name(&self) -> &str {
+        &self.tier_name
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LayeredEngine: three-level cascade with causal edge propagation
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Three-level cascade: L1 → L2 → L3 with CausalEdge64 upstream propagation.
 pub struct LayeredEngine {
-    /// Layer 1: coarse routing. 64×64 u8 distance table.
-    pub layer1: Box<[u8; L1_SIZE * L1_SIZE]>,
-    /// Layer 2: mid-resolution. 256×256 u8 distance table.
-    pub layer2: Box<[u8; L2_SIZE * L2_SIZE]>,
-    /// Layer 3: full resolution. 4096×4096 u8 distance table.
-    /// Optional — may be on GPU or not yet built.
-    pub layer3: Option<Vec<u8>>,
-
-    /// Energy at each layer.
-    pub energy_l1: [f64; L1_SIZE],
-    pub energy_l2: [f64; L2_SIZE],
-    pub energy_l3: [f64; L3_SIZE],
-
-    /// Which L1 regions survived (for branching into L2).
-    pub l1_survivors: Vec<u8>,
-    /// Which L2 regions survived (for branching into L3).
-    pub l2_survivors: Vec<u16>,
-
-    /// Cycle counter.
-    pub cycles: u16,
-
-    /// Survivor threshold: minimum energy to branch into next layer.
-    pub branch_threshold: f64,
+    l1: TierEngine,
+    l2: TierEngine,
+    l3: TierEngine,
 }
 
 impl LayeredEngine {
-    /// Create with Layer 1 + Layer 2 tables. Layer 3 optional.
-    pub fn new(
-        layer1: Box<[u8; L1_SIZE * L1_SIZE]>,
-        layer2: Box<[u8; L2_SIZE * L2_SIZE]>,
-        layer3: Option<Vec<u8>>,
-    ) -> Self {
-        if let Some(ref l3) = layer3 {
-            assert_eq!(l3.len(), L3_SIZE * L3_SIZE);
-        }
+    /// Create from three distance tables (any sizes).
+    pub fn new(l1_table: Vec<u8>, l2_table: Vec<u8>, l3_table: Vec<u8>) -> Self {
         Self {
-            layer1, layer2, layer3,
-            energy_l1: [0.0; L1_SIZE],
-            energy_l2: [0.0; L2_SIZE],
-            energy_l3: [0.0; L3_SIZE],
-            l1_survivors: Vec::new(),
-            l2_survivors: Vec::new(),
-            cycles: 0,
-            branch_threshold: 0.01,
+            l1: TierEngine::new(l1_table, "L1-routing"),
+            l2: TierEngine::new(l2_table, "L2-resonance"),
+            l3: TierEngine::new(l3_table, "L3-thought"),
         }
     }
 
-    /// Perturb: inject codebook indices. Maps to L1 region first.
-    pub fn perturb(&mut self, indices: &[u16]) {
-        for &idx in indices {
-            let l1_idx = (idx as usize) / (L3_SIZE / L1_SIZE); // 4096/64 = 64 per L1 region
-            let l2_idx = (idx as usize) / (L3_SIZE / L2_SIZE); // 4096/256 = 16 per L2 region
-            if l1_idx < L1_SIZE { self.energy_l1[l1_idx] += 1.0; }
-            if l2_idx < L2_SIZE { self.energy_l2[l2_idx] += 1.0; }
-            if (idx as usize) < L3_SIZE { self.energy_l3[idx as usize] += 1.0; }
-        }
-        normalize(&mut self.energy_l1);
-        normalize(&mut self.energy_l2);
-        normalize(&mut self.energy_l3);
+    /// Full cascade: perturb L1 → think → emit edges → apply to L2 →
+    /// think → emit → apply to L3 → think → commit.
+    pub fn process(&mut self, codebook_indices: &[u16]) -> BusDto {
+        // Map raw indices down to L1 scale.
+        let l1_size = self.l1.size();
+        let l3_size = self.l3.size();
+        let scale = if l1_size > 0 && l3_size > l1_size {
+            l3_size / l1_size
+        } else {
+            1
+        };
+        let l1_indices: Vec<u16> = codebook_indices.iter()
+            .map(|&idx| {
+                let mapped = (idx as usize) / scale.max(1);
+                mapped.min(l1_size.saturating_sub(1)) as u16
+            })
+            .collect();
+
+        // L1: perturb and think.
+        self.l1.perturb(&l1_indices);
+        self.l1.think(10);
+
+        // L1 → L2: emit causal edges, scale targets to L2 index space.
+        let l1_edges = self.l1.emit_causal_edges(4);
+        let l2_size = self.l2.size();
+        let l1_to_l2 = if l1_size > 0 && l2_size > l1_size {
+            l2_size / l1_size
+        } else {
+            1
+        };
+        let l2_edges: Vec<(u16, CausalEdge64)> = l1_edges.iter()
+            .map(|&(idx, edge)| {
+                let scaled = (idx as usize * l1_to_l2).min(l2_size.saturating_sub(1));
+                (scaled as u16, edge)
+            })
+            .collect();
+        self.l2.apply_edges(&l2_edges);
+        self.l2.think(10);
+
+        // L2 → L3: emit causal edges, scale targets to L3 index space.
+        let l2_edges_out = self.l2.emit_causal_edges(4);
+        let l2_to_l3 = if l2_size > 0 && l3_size > l2_size {
+            l3_size / l2_size
+        } else {
+            1
+        };
+        let l3_edges: Vec<(u16, CausalEdge64)> = l2_edges_out.iter()
+            .map(|&(idx, edge)| {
+                let scaled = (idx as usize * l2_to_l3).min(l3_size.saturating_sub(1));
+                (scaled as u16, edge)
+            })
+            .collect();
+        self.l3.apply_edges(&l3_edges);
+        self.l3.think(10);
+
+        // Commit from L3.
+        self.l3.engine().commit()
     }
 
-    /// One full cascade cycle: L1 → branch → L2 → branch → L3.
-    pub fn cycle(&mut self) {
-        // ── Layer 1: coarse MatVec (64² = 4096 ops, μs) ──
-        let mut next_l1 = [0.0f64; L1_SIZE];
-        for i in 0..L1_SIZE {
-            if self.energy_l1[i] < 1e-15 { continue; }
-            let row = i * L1_SIZE;
-            for j in 0..L1_SIZE {
-                next_l1[j] += (self.layer1[row + j] as f64 / 255.0) * self.energy_l1[i];
-            }
-        }
-        normalize(&mut next_l1);
-        self.energy_l1 = next_l1;
-
-        // ── Branch: which L1 regions survive? ──
-        self.l1_survivors.clear();
-        for (i, &e) in self.energy_l1.iter().enumerate() {
-            if e > self.branch_threshold {
-                self.l1_survivors.push(i as u8);
-            }
-        }
-
-        // ── Layer 2: MatVec ONLY on survivors (256² but sparse) ──
-        let mut next_l2 = [0.0f64; L2_SIZE];
-        for &l1_idx in &self.l1_survivors {
-            // Each L1 region covers L2_PER_L1 entries in L2
-            let l2_start = l1_idx as usize * L2_PER_L1;
-            let l2_end = (l2_start + L2_PER_L1).min(L2_SIZE);
-
-            for i in l2_start..l2_end {
-                if self.energy_l2[i] < 1e-15 { continue; }
-                let row = i * L2_SIZE;
-                // Only compute against other survivor regions
-                for &other_l1 in &self.l1_survivors {
-                    let other_start = other_l1 as usize * L2_PER_L1;
-                    let other_end = (other_start + L2_PER_L1).min(L2_SIZE);
-                    for j in other_start..other_end {
-                        next_l2[j] += (self.layer2[row + j] as f64 / 255.0) * self.energy_l2[i];
-                    }
-                }
-            }
-        }
-        normalize(&mut next_l2);
-        self.energy_l2 = next_l2;
-
-        // ── Branch: which L2 regions survive? ──
-        self.l2_survivors.clear();
-        for (i, &e) in self.energy_l2.iter().enumerate() {
-            if e > self.branch_threshold {
-                self.l2_survivors.push(i as u16);
-            }
-        }
-
-        // ── Layer 3: full resolution ONLY on L2 survivors ──
-        if let Some(ref table) = self.layer3 {
-            let mut next_l3 = [0.0f64; L3_SIZE];
-            for &l2_idx in &self.l2_survivors {
-                let l3_start = l2_idx as usize * L3_PER_L2;
-                let l3_end = (l3_start + L3_PER_L2).min(L3_SIZE);
-
-                for i in l3_start..l3_end {
-                    if self.energy_l3[i] < 1e-15 { continue; }
-                    let row = i * L3_SIZE;
-                    for &other_l2 in &self.l2_survivors {
-                        let other_start = other_l2 as usize * L3_PER_L2;
-                        let other_end = (other_start + L3_PER_L2).min(L3_SIZE);
-                        for j in other_start..other_end {
-                            next_l3[j] += (table[row + j] as f64 / 255.0) * self.energy_l3[i];
-                        }
-                    }
-                }
-            }
-            normalize(&mut next_l3);
-            self.energy_l3 = next_l3;
-        }
-
-        self.cycles += 1;
+    /// Access L1 tier.
+    pub fn l1(&self) -> &TierEngine {
+        &self.l1
     }
 
-    /// Run cascade until convergence.
-    pub fn think(&mut self, max_cycles: usize) -> CascadeResult {
-        for _ in 0..max_cycles {
-            let prev_l1 = self.energy_l1;
-            self.cycle();
-            let delta: f64 = self.energy_l1.iter().zip(&prev_l1)
-                .map(|(a, b)| (a - b).abs()).sum();
-            if delta < 0.001 { break; }
-        }
-
-        CascadeResult {
-            l1_survivors: self.l1_survivors.len(),
-            l2_survivors: self.l2_survivors.len(),
-            cycles: self.cycles,
-            top_l1: top_k(&self.energy_l1, 4),
-            top_l2: top_k_u16(&self.energy_l2, 4),
-            top_l3: if self.layer3.is_some() { top_k_u16(&self.energy_l3, 4) } else { Vec::new() },
-        }
+    /// Access L2 tier.
+    pub fn l2(&self) -> &TierEngine {
+        &self.l2
     }
 
-    /// Reset all layers.
+    /// Access L3 tier.
+    pub fn l3(&self) -> &TierEngine {
+        &self.l3
+    }
+
+    /// Reset all tiers.
     pub fn reset(&mut self) {
-        self.energy_l1 = [0.0; L1_SIZE];
-        self.energy_l2 = [0.0; L2_SIZE];
-        self.energy_l3 = [0.0; L3_SIZE];
-        self.l1_survivors.clear();
-        self.l2_survivors.clear();
-        self.cycles = 0;
+        self.l1.reset();
+        self.l2.reset();
+        self.l3.reset();
     }
 }
 
-/// Result of a cascade thinking cycle.
-#[derive(Clone, Debug)]
-pub struct CascadeResult {
-    pub l1_survivors: usize,
-    pub l2_survivors: usize,
-    pub cycles: u16,
-    pub top_l1: Vec<(u8, f64)>,
-    pub top_l2: Vec<(u16, f64)>,
-    pub top_l3: Vec<(u16, f64)>,
-}
-
-fn normalize(energy: &mut [f64]) {
-    let total: f64 = energy.iter().sum();
-    if total > 1e-15 { for e in energy.iter_mut() { *e /= total; } }
-}
-
-fn top_k(energy: &[f64], k: usize) -> Vec<(u8, f64)> {
-    let mut indexed: Vec<(usize, f64)> = energy.iter().enumerate()
-        .map(|(i, &e)| (i, e)).collect();
-    indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-    indexed.iter().take(k).map(|&(i, e)| (i as u8, e)).collect()
-}
-
-fn top_k_u16(energy: &[f64], k: usize) -> Vec<(u16, f64)> {
-    let mut indexed: Vec<(usize, f64)> = energy.iter().enumerate()
-        .map(|(i, &e)| (i, e)).collect();
-    indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-    indexed.iter().take(k).map(|&(i, e)| (i as u16, e)).collect()
-}
+// ═══════════════════════════════════════════════════════════════════════════
+// Tests
+// ═══════════════════════════════════════════════════════════════════════════
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn make_l1_table() -> Box<[u8; L1_SIZE * L1_SIZE]> {
-        let mut table = Box::new([128u8; L1_SIZE * L1_SIZE]);
-        for i in 0..L1_SIZE {
-            table[i * L1_SIZE + i] = 255;
-            for j in 0..L1_SIZE {
+    /// Build a synthetic N×N distance table where nearby indices are similar.
+    fn make_table(n: usize) -> Vec<u8> {
+        let mut table = vec![128u8; n * n];
+        for i in 0..n {
+            table[i * n + i] = 255; // self = max similarity
+            for j in 0..n {
                 let dist = (i as i64 - j as i64).unsigned_abs() as usize;
-                if dist < 10 { table[i * L1_SIZE + j] = (255 - dist * 10).min(255) as u8; }
+                if dist < n / 2 {
+                    let sim = 255 - (dist * 255 / n).min(254);
+                    table[i * n + j] = sim as u8;
+                }
             }
         }
         table
     }
 
-    fn make_l2_table() -> Box<[u8; L2_SIZE * L2_SIZE]> {
-        let mut table = Box::new([128u8; L2_SIZE * L2_SIZE]);
-        for i in 0..L2_SIZE {
-            table[i * L2_SIZE + i] = 255;
-            for j in 0..L2_SIZE {
-                let dist = (i as i64 - j as i64).unsigned_abs() as usize;
-                if dist < 20 { table[i * L2_SIZE + j] = (255 - dist * 5).min(255) as u8; }
-            }
+    // ── CausalEdge64 tests ──
+
+    #[test]
+    fn causal_edge_channels() {
+        let mut edge = CausalEdge64::new();
+        assert_eq!(edge.0, 0);
+
+        // Set each channel to a distinct value.
+        for ch in 0..8u8 {
+            edge.set_channel(ch, (ch + 1) * 30);
         }
-        table
+        // Read back all 8 channels.
+        for ch in 0..8u8 {
+            assert_eq!(edge.get_channel(ch), (ch + 1) * 30,
+                "channel {} mismatch", ch);
+        }
     }
 
     #[test]
-    fn layered_creates() {
-        let engine = LayeredEngine::new(make_l1_table(), make_l2_table(), None);
-        assert_eq!(engine.cycles, 0);
+    fn causal_edge_constructive_sum() {
+        let mut edge = CausalEdge64::new();
+        // Channels 0-6 = 10 each.
+        for ch in 0..7u8 {
+            edge.set_channel(ch, 10);
+        }
+        // Channel 7 (CONTRADICTS) = 50.
+        edge.set_channel(CHANNEL_CONTRADICTS, 50);
+
+        assert_eq!(edge.constructive_strength(), 70); // 7 * 10
+        assert_eq!(edge.contradiction_strength(), 50);
     }
 
     #[test]
-    fn layered_perturb_maps_to_layers() {
-        let mut engine = LayeredEngine::new(make_l1_table(), make_l2_table(), None);
-        engine.perturb(&[100, 200, 300]);
+    fn causal_edge_net_strength() {
+        let mut edge = CausalEdge64::new();
+        // Constructive: channels 0-6 = 20 each = 140 total.
+        for ch in 0..7u8 {
+            edge.set_channel(ch, 20);
+        }
+        // Destructive: channel 7 = 100.
+        edge.set_channel(CHANNEL_CONTRADICTS, 100);
+        assert_eq!(edge.net_strength(), 40); // 140 - 100
 
-        // L1: index 100 maps to L1 region 100 / 64 = 1
-        assert!(engine.energy_l1[1] > 0.0);
-        // L2: index 100 maps to L2 region 100 / 16 = 6
-        assert!(engine.energy_l2[6] > 0.0);
+        // Destructive dominates.
+        let mut edge2 = CausalEdge64::new();
+        edge2.set_channel(CHANNEL_CAUSES, 10);
+        edge2.set_channel(CHANNEL_CONTRADICTS, 200);
+        assert_eq!(edge2.net_strength(), -190); // 10 - 200
+    }
+
+    // ── TierEngine tests ──
+
+    #[test]
+    fn tier_engine_basic() {
+        let table = make_table(8);
+        let mut tier = TierEngine::new(table, "test");
+        assert_eq!(tier.size(), 8);
+
+        tier.perturb(&[3]);
+        tier.think(5);
+
+        let peaks = tier.top_k(3);
+        assert!(!peaks.is_empty());
+        assert!(peaks[0].1 > 0.0, "top peak should have positive energy");
     }
 
     #[test]
-    fn layered_cycle_branches() {
-        let mut engine = LayeredEngine::new(make_l1_table(), make_l2_table(), None);
-        engine.perturb(&[100, 110, 120]);
-        engine.cycle();
+    fn tier_engine_emit_edges() {
+        let table = make_table(8);
+        let mut tier = TierEngine::new(table, "test");
+        tier.perturb(&[2, 3]);
+        tier.think(3);
 
-        assert!(!engine.l1_survivors.is_empty(), "should have L1 survivors");
-        eprintln!("L1 survivors: {:?}", engine.l1_survivors);
-        eprintln!("L2 survivors: {} entries", engine.l2_survivors.len());
+        let edges = tier.emit_causal_edges(2);
+        // With a structured distance table, top peaks should produce edges
+        // to their nearest neighbors.
+        assert!(!edges.is_empty(), "should emit causal edges from peaks");
+
+        // All edges should have positive CAUSES channel.
+        for &(_target, edge) in &edges {
+            assert!(edge.get_channel(CHANNEL_CAUSES) > 0,
+                "emitted edge should have positive CAUSES strength");
+        }
     }
 
     #[test]
-    fn layered_think_converges() {
-        let mut engine = LayeredEngine::new(make_l1_table(), make_l2_table(), None);
-        engine.perturb(&[50, 60, 70]);
-        let result = engine.think(20);
+    fn tier_engine_apply_edges_constructive() {
+        let table = make_table(8);
+        let mut tier = TierEngine::new(table, "test");
 
-        eprintln!("Converged in {} cycles", result.cycles);
-        eprintln!("L1 survivors: {}, L2 survivors: {}", result.l1_survivors, result.l2_survivors);
-        eprintln!("Top L1: {:?}", result.top_l1);
-        eprintln!("Top L2: {:?}", result.top_l2);
-        assert!(result.l1_survivors > 0);
+        // Start with zero energy, apply constructive edges.
+        let mut edge = CausalEdge64::new();
+        edge.set_channel(CHANNEL_CAUSES, 100);
+        edge.set_channel(CHANNEL_SUPPORTS, 50);
+
+        tier.apply_edges(&[(3, edge), (5, edge)]);
+
+        // Targets 3 and 5 should have positive energy.
+        assert!(tier.engine().energy[3] > 0.0,
+            "target 3 should have energy after constructive edge");
+        assert!(tier.engine().energy[5] > 0.0,
+            "target 5 should have energy after constructive edge");
+        // They should have equal energy (same edge applied).
+        let diff = (tier.engine().energy[3] - tier.engine().energy[5]).abs();
+        assert!(diff < 1e-10, "same edges should produce same energy");
     }
 
     #[test]
-    fn layered_cascade_reduces_candidates() {
-        let mut engine = LayeredEngine::new(make_l1_table(), make_l2_table(), None);
-        // Perturb widely
-        engine.perturb(&[10, 500, 1000, 2000, 3000]);
-        engine.cycle();
+    fn tier_engine_apply_edges_contradiction() {
+        let table = make_table(8);
+        let mut tier = TierEngine::new(table, "test");
 
-        // With a structured table, nearby entries reinforce and distant ones decay.
-        // After one cycle, energy concentrates — but with uniform structure all may survive.
-        // The key property: energy should be NON-UNIFORM after a cycle.
-        let l1_active = engine.l1_survivors.len();
-        let max_e = engine.energy_l1.iter().cloned().fold(0.0f64, f64::max);
-        let min_e = engine.energy_l1.iter().cloned().fold(f64::INFINITY, f64::min);
-        assert!(max_e > min_e, "energy should be non-uniform after cycle");
-        eprintln!("L1: {}/{} survive, L2: {}/{} survive",
-            l1_active, L1_SIZE, engine.l2_survivors.len(), L2_SIZE);
+        // Give some initial energy.
+        tier.perturb(&[3]);
+        let initial = tier.engine().energy[3];
+        assert!(initial > 0.0);
+
+        // Apply a strongly contradicting edge to atom 3.
+        let mut edge = CausalEdge64::new();
+        edge.set_channel(CHANNEL_CONTRADICTS, 255);
+        tier.apply_edges(&[(3, edge)]);
+
+        // Energy at 3 should decrease (clamped to zero, then renormalized).
+        let after = tier.engine().energy[3];
+        assert!(after < initial,
+            "contradiction should reduce energy: before={}, after={}", initial, after);
+    }
+
+    // ── LayeredEngine tests ──
+
+    #[test]
+    fn layered_engine_cascade() {
+        let l1 = make_table(8);
+        let l2 = make_table(16);
+        let l3 = make_table(32);
+
+        let mut engine = LayeredEngine::new(l1, l2, l3);
+        let bus = engine.process(&[10, 15, 20]);
+
+        assert!(bus.energy > 0.0, "cascade should produce positive energy");
+        assert!(bus.cycle_count > 0, "should have run cycles");
     }
 
     #[test]
-    fn memory_budget() {
-        let l1_bytes = L1_SIZE * L1_SIZE;          // 4 KB
-        let l2_bytes = L2_SIZE * L2_SIZE;          // 64 KB
-        let l3_bytes = L3_SIZE * L3_SIZE;          // 16 MB
-        let energy_bytes = (L1_SIZE + L2_SIZE + L3_SIZE) * 8; // ~35 KB
+    fn layered_engine_reset() {
+        let l1 = make_table(8);
+        let l2 = make_table(16);
+        let l3 = make_table(32);
 
-        eprintln!("Layer 1: {} bytes ({} KB)", l1_bytes, l1_bytes / 1024);
-        eprintln!("Layer 2: {} bytes ({} KB)", l2_bytes, l2_bytes / 1024);
-        eprintln!("Layer 3: {} bytes ({} MB)", l3_bytes, l3_bytes / (1024 * 1024));
-        eprintln!("Energy:  {} bytes ({} KB)", energy_bytes, energy_bytes / 1024);
-        eprintln!("L1+L2 (CPU): {} KB", (l1_bytes + l2_bytes + energy_bytes) / 1024);
+        let mut engine = LayeredEngine::new(l1, l2, l3);
+        engine.process(&[5, 10]);
 
-        assert_eq!(l1_bytes, 4096);       // 4 KB
-        assert_eq!(l2_bytes, 65536);      // 64 KB
-        assert_eq!(l3_bytes, 16777216);   // 16 MB
+        // After process, L3 should have energy.
+        assert!(engine.l3().engine().energy.iter().any(|&e| e > 0.0));
+
+        engine.reset();
+
+        // After reset, all energy should be zero.
+        assert_eq!(engine.l1().engine().energy.iter().sum::<f64>(), 0.0);
+        assert_eq!(engine.l2().engine().energy.iter().sum::<f64>(), 0.0);
+        assert_eq!(engine.l3().engine().energy.iter().sum::<f64>(), 0.0);
     }
 }
