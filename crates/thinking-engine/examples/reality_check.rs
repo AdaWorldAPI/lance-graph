@@ -23,8 +23,10 @@ fn main() {
     println!("[codebook] tokens={} unique_centroids={}", codebook.len(), codebook.unique_centroids());
 
     // Load distance table
-    let table = std::fs::read("/tmp/codebooks/bge-m3-roles-f16/attn_q/distance_table_1024x1024.u8")
-        .expect("distance table not found");
+    // Try semantic table first (built from token embedding centroids), fall back to attn_q
+    let table = std::fs::read("/tmp/codebooks/bge-m3-roles-f16/semantic_distance_1024x1024.u8")
+        .or_else(|_| std::fs::read("/tmp/codebooks/bge-m3-roles-f16/attn_q/distance_table_1024x1024.u8"))
+        .expect("no distance table found");
     println!("[table] size={}×{} bytes={}", 1024, 1024, table.len());
 
     // Table statistics
