@@ -14,6 +14,159 @@
 
 use ndarray::hpc::bgz17_bridge::Base17;
 
+/// Fetch URL body via curl (handles MITM proxies, self-signed certs, Let's Encrypt).
+fn curl_fetch(url: &str) -> Result<String, ReaderError> {
+    let output = std::process::Command::new("curl")
+        .args(["-sLk", "--max-time", "15", url])
+        .output()
+        .map_err(|e| ReaderError::Fetch(format!("curl: {e}")))?;
+    if !output.status.success() {
+        return Err(ReaderError::Fetch(format!("curl exit: {}", output.status)));
+    }
+    String::from_utf8(output.stdout)
+        .map_err(|e| ReaderError::Read(format!("utf8: {e}")))
+}
+
+/// A Google Custom Search result.
+#[derive(Clone, Debug)]
+pub struct SearchResult {
+    pub title: String,
+    pub link: String,
+    pub snippet: String,
+}
+
+/// Search Google via Custom Search JSON API.
+///
+/// Requires env vars:
+/// - `GOOGLE_API_KEY`: API key from console.cloud.google.com
+/// - `GOOGLE_CX`: Programmable Search Engine ID
+///
+/// Returns up to `num` results (max 10 per request).
+pub fn google_search(query: &str, num: usize) -> Result<Vec<SearchResult>, ReaderError> {
+    let api_key = std::env::var("GOOGLE_API_KEY")
+        .map_err(|_| ReaderError::Fetch("GOOGLE_API_KEY not set".into()))?;
+    let cx = std::env::var("GOOGLE_CX")
+        .map_err(|_| ReaderError::Fetch("GOOGLE_CX not set".into()))?;
+
+    let num = num.min(10); // API max per request
+    let url = format!(
+        "https://www.googleapis.com/customsearch/v1?key={}&cx={}&q={}&num={}",
+        api_key, cx, urlencoding(query), num
+    );
+
+    let json_str = curl_fetch(&url)?;
+    parse_search_results(&json_str)
+}
+
+/// Search + fetch each article + embed all paragraphs.
+///
+/// This is the full OSINT pipeline:
+/// 1. Google Custom Search → article URLs
+/// 2. curl fetch each article → raw HTML
+/// 3. strip HTML → split paragraphs → Base17 embed
+///
+/// Returns all paragraphs from all articles, flattened.
+pub fn search_and_embed(query: &str, max_results: usize) -> Result<Vec<EmbeddedParagraph>, ReaderError> {
+    let results = google_search(query, max_results)?;
+    let mut all_paragraphs = Vec::new();
+
+    for result in &results {
+        match fetch_and_embed(&result.link) {
+            Ok(paragraphs) => {
+                all_paragraphs.extend(paragraphs);
+            }
+            Err(_) => continue, // skip failed fetches
+        }
+    }
+
+    Ok(all_paragraphs)
+}
+
+/// Parse Google Custom Search JSON response (minimal, no serde).
+fn parse_search_results(json: &str) -> Result<Vec<SearchResult>, ReaderError> {
+    let mut results = Vec::new();
+
+    // Find "items" array
+    let items_start = match json.find("\"items\"") {
+        Some(pos) => pos,
+        None => return Ok(results), // no results
+    };
+
+    let after = &json[items_start..];
+    let bracket = match after.find('[') {
+        Some(pos) => items_start + pos,
+        None => return Ok(results),
+    };
+
+    // Find matching closing bracket
+    let mut depth = 0;
+    let mut end = bracket;
+    for (i, c) in json[bracket..].char_indices() {
+        match c {
+            '[' => depth += 1,
+            ']' => { depth -= 1; if depth == 0 { end = bracket + i; break; } }
+            _ => {}
+        }
+    }
+
+    let items_str = &json[bracket + 1..end];
+
+    // Parse each item object
+    let mut obj_depth = 0;
+    let mut obj_start = 0;
+    for (i, c) in items_str.char_indices() {
+        match c {
+            '{' => { if obj_depth == 0 { obj_start = i; } obj_depth += 1; }
+            '}' => {
+                obj_depth -= 1;
+                if obj_depth == 0 {
+                    let obj = &items_str[obj_start..=i];
+                    let title = extract_json_string(obj, "title").unwrap_or_default();
+                    let link = extract_json_string(obj, "link").unwrap_or_default();
+                    let snippet = extract_json_string(obj, "snippet").unwrap_or_default();
+                    if !link.is_empty() {
+                        results.push(SearchResult { title, link, snippet });
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    Ok(results)
+}
+
+/// Extract a string value from a JSON object by key.
+fn extract_json_string(obj: &str, key: &str) -> Option<String> {
+    let pattern = format!("\"{}\"", key);
+    let pos = obj.find(&pattern)?;
+    let after = &obj[pos + pattern.len()..];
+    let after = after.trim_start();
+    let after = after.strip_prefix(':')?;
+    let after = after.trim_start();
+    if !after.starts_with('"') { return None; }
+    // Find closing quote, handling escapes
+    let mut escaped = false;
+    let mut end = 0;
+    for (i, c) in after[1..].char_indices() {
+        if escaped { escaped = false; continue; }
+        if c == '\\' { escaped = true; continue; }
+        if c == '"' { end = i; break; }
+    }
+    Some(after[1..1 + end].replace("\\n", " ").replace("\\\"", "\""))
+}
+
+/// URL-encode a string (public for crawler module).
+pub fn urlencoding_pub(s: &str) -> String { urlencoding(s) }
+
+fn urlencoding(s: &str) -> String {
+    s.chars().map(|c| match c {
+        ' ' => "+".to_string(),
+        'a'..='z' | 'A'..='Z' | '0'..='9' | '-' | '_' | '.' => c.to_string(),
+        _ => format!("%{:02X}", c as u32),
+    }).collect()
+}
+
 /// A paragraph with its Base17 fingerprint.
 #[derive(Clone, Debug)]
 pub struct EmbeddedParagraph {
@@ -32,14 +185,8 @@ pub struct EmbeddedParagraph {
 /// 3. Split into paragraphs
 /// 4. Embed each paragraph as Base17 fingerprint
 pub fn fetch_and_embed(url: &str) -> Result<Vec<EmbeddedParagraph>, ReaderError> {
-    // 1. Fetch
-    let response = ureq::get(url)
-        .header("User-Agent", "ada-osint/0.1")
-        .call()
-        .map_err(|e| ReaderError::Fetch(format!("{e}")))?;
-
-    let body = response.into_body().read_to_string()
-        .map_err(|e| ReaderError::Read(format!("{e}")))?;
+    // 1. Fetch via curl (handles proxies, self-signed certs, MITM)
+    let body = curl_fetch(url)?;
 
     if body.is_empty() {
         return Err(ReaderError::Empty(url.to_string()));
