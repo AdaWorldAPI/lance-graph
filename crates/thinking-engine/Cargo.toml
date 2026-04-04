@@ -16,6 +16,11 @@ One MatVec per cycle. 10 cycles per thought. ~7 ms on CPU.
 ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
 bgz-tensor = { path = "../bgz-tensor" }
 highheelbgz = { path = "../highheelbgz" }
+tokenizers = { version = "0.22", optional = true, features = ["http"] }
+
+[features]
+default = ["tokenizer"]
+tokenizer = ["dep:tokenizers"]
 
 [dev-dependencies]
 rayon = "1.10"

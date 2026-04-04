@@ -21,3 +21,6 @@ pub mod branching;
 pub mod bridge;
 pub mod codebook_index;
 pub mod l4;
+#[cfg(feature = "tokenizer")]
+pub mod lookup;
+pub mod qualia;
