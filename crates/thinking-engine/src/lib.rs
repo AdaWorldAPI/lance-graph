@@ -35,3 +35,4 @@ pub mod cognitive_stack;
 pub mod meaning_axes;
 pub mod contract_bridge;
 pub mod persona;
+pub mod awareness_dto;
