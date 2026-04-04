@@ -156,6 +156,9 @@ fn extract_json_string(obj: &str, key: &str) -> Option<String> {
     Some(after[1..1 + end].replace("\\n", " ").replace("\\\"", "\""))
 }
 
+/// URL-encode a string (public for crawler module).
+pub fn urlencoding_pub(s: &str) -> String { urlencoding(s) }
+
 fn urlencoding(s: &str) -> String {
     s.chars().map(|c| match c {
         ' ' => "+".to_string(),

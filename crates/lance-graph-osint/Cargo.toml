@@ -23,6 +23,11 @@ ndarray = { path = "../../../ndarray", default-features = false, features = ["st
 ureq = { version = "3", features = ["native-tls"] }
 webpki-roots = "1"
 
+# Async spider framework (optional, for production crawling)
+# Forked to AdaWorldAPI/spider for lance-graph integration
+spider = { git = "https://github.com/AdaWorldAPI/spider.git", default-features = false, features = ["sync"], optional = true }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"], optional = true }
+
 # Serialization
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -33,5 +38,6 @@ serde_json = "1"
 [features]
 default = []
 # arigraph = ["dep:lance-graph"]
+spider-crawl = ["dep:spider", "dep:tokio"]
 
 [dev-dependencies]
