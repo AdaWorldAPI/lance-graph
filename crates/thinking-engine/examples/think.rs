@@ -1,180 +1,196 @@
-//! THINK: Send text, get a structured thought back.
+//! THINK: text → structured thought with verbose per-lens debug.
 //!
-//! Uses ALL available lenses, domino cascade, NARS voting, qualia 17D.
-//! This is the closest we can get to "LLM-like reasoning" without forward passes.
+//! Shows each lens's individual answer, the ripple convergence,
+//! and the joined multi-lens awareness verdict.
 //!
 //! cargo run --release --manifest-path crates/thinking-engine/Cargo.toml \
-//!   --example think -- "Your question or text here"
+//!   --example think -- "Your text here"
 
 use thinking_engine::engine::ThinkingEngine;
-use thinking_engine::domino::{DominoCascade, CascadeAtom};
-use thinking_engine::qualia::{Qualia17D, DIMS_17D, FAMILY_CENTROIDS};
+use thinking_engine::domino::DominoCascade;
+use thinking_engine::qualia::{Qualia17D, DIMS_17D};
 use thinking_engine::jina_lens;
 use thinking_engine::bge_m3_lens;
+use thinking_engine::centroid_labels::JINA_CENTROID_LABELS;
+
+fn label(centroid: u16) -> &'static str {
+    if (centroid as usize) < JINA_CENTROID_LABELS.len() {
+        JINA_CENTROID_LABELS[centroid as usize]
+    } else { "?" }
+}
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let input = if args.len() > 1 {
-        args[1..].join(" ")
-    } else {
-        "What is the meaning of love?".to_string()
-    };
+    let input = if args.len() > 1 { args[1..].join(" ") }
+    else { "What is the meaning of love?".to_string() };
 
-    println!("╔══════════════════════════════════════════════════════════╗");
-    println!("║  THINK: Multi-Lens HDR Cognitive Engine                 ║");
-    println!("╚══════════════════════════════════════════════════════════╝\n");
-    println!("  Input: \"{}\"\n", input);
-
-    // ── Load tokenizer ──
     let tokenizer = match tokenizers::Tokenizer::from_file("/tmp/bge-m3-tokenizer.json") {
         Ok(t) => t,
-        Err(_) => {
-            eprintln!("  Tokenizer not found. Download: curl -sL -o /tmp/bge-m3-tokenizer.json \\");
-            eprintln!("    https://huggingface.co/BAAI/bge-m3/resolve/main/tokenizer.json");
-            return;
-        }
+        Err(_) => { eprintln!("Need /tmp/bge-m3-tokenizer.json"); return; }
     };
 
     let encoding = tokenizer.encode(input.as_str(), true).expect("tokenize");
     let token_ids = encoding.get_ids();
     let tokens: Vec<String> = encoding.get_tokens().iter().map(|s| s.to_string()).collect();
-    println!("  Tokens ({}): {}", token_ids.len(),
-        tokens.iter().take(10).map(|s| s.as_str()).collect::<Vec<_>>().join(" "));
 
-    // ── Multi-lens lookup ──
-    println!("\n─── LENS VOTING ───\n");
+    println!("╔══════════════════════════════════════════════════════════════╗");
+    println!("║  \"{}\"", &input[..input.len().min(55)]);
+    println!("╚══════════════════════════════════════════════════════════════╝");
+    println!("  tokens: {}\n", tokens.iter().take(12).map(|s| s.as_str()).collect::<Vec<_>>().join(" "));
 
-    let jina_centroids = jina_lens::jina_lookup_many(token_ids);
-    let bge_centroids = bge_m3_lens::bge_m3_lookup_many(token_ids);
+    // ═══ PER-LENS INDIVIDUAL ANSWERS ═══
+    println!("─── LENS 1: Jina v3 (semantic similarity) ───\n");
+    let jina_result = run_lens("Jina", token_ids, |ids| jina_lens::jina_lookup_many(ids), &jina_lens::jina_engine());
 
-    // Unique centroids per lens
-    let jina_unique: std::collections::HashSet<u16> = jina_centroids.iter().cloned().collect();
-    let bge_unique: std::collections::HashSet<u16> = bge_centroids.iter().cloned().collect();
-    println!("  Jina v3:  {} tokens → {} unique centroids", token_ids.len(), jina_unique.len());
-    println!("  BGE-M3:   {} tokens → {} unique centroids", token_ids.len(), bge_unique.len());
+    println!("─── LENS 2: BGE-M3 (multilingual retrieval) ───\n");
+    let bge_result = run_lens("BGE", token_ids, |ids| bge_m3_lens::bge_m3_lookup_many(ids), &bge_m3_lens::bge_m3_engine());
 
-    // Agreement: how many tokens map to the SAME centroid in both lenses?
-    let mut agree_count = 0;
-    for i in 0..token_ids.len() {
-        if jina_centroids[i] == bge_centroids[i] { agree_count += 1; }
-    }
-    println!("  Agreement: {}/{} tokens ({:.0}%)",
-        agree_count, token_ids.len(), agree_count as f64 / token_ids.len() as f64 * 100.0);
+    // ═══ RIPPLE CONVERGENCE ═══
+    println!("─── RIPPLE CONVERGENCE ───\n");
 
-    // ── Domino cascade on BOTH lenses ──
-    println!("\n─── DOMINO CASCADE ───\n");
+    // Show how each lens's cascade ripples through the table
+    println!("  Jina ripple:  {} → {} → {} → {} → {}",
+        label(jina_result.chain[0]), label(jina_result.chain.get(1).copied().unwrap_or(0)),
+        label(jina_result.chain.get(2).copied().unwrap_or(0)),
+        label(jina_result.chain.get(3).copied().unwrap_or(0)),
+        label(jina_result.dominant));
+    println!("  BGE  ripple:  {} → {} → {} → {} → {}",
+        label(bge_result.chain[0]), label(bge_result.chain.get(1).copied().unwrap_or(0)),
+        label(bge_result.chain.get(2).copied().unwrap_or(0)),
+        label(bge_result.chain.get(3).copied().unwrap_or(0)),
+        label(bge_result.dominant));
 
-    // Jina lens cascade
-    let jina_engine = jina_lens::jina_engine();
-    let jina_counts = vec![1u32; 256];
-    let jina_cascade = DominoCascade::new(&jina_engine, &jina_counts);
-    let (jina_dom, jina_stages, jina_dis) = jina_cascade.think(&jina_centroids);
-    let jina_chain: Vec<u16> = jina_stages.iter()
-        .filter_map(|s| s.focus.first().map(|a| a.index)).collect();
-
-    // BGE-M3 lens cascade
-    let bge_engine = bge_m3_lens::bge_m3_engine();
-    let bge_counts = vec![1u32; 256];
-    let bge_cascade = DominoCascade::new(&bge_engine, &bge_counts);
-    let (bge_dom, bge_stages, bge_dis) = bge_cascade.think(&bge_centroids);
-    let bge_chain: Vec<u16> = bge_stages.iter()
-        .filter_map(|s| s.focus.first().map(|a| a.index)).collect();
-
-    println!("  Jina:  dom={:>3} chain={:?} dis={:.2}", jina_dom, jina_chain, jina_dis.total_dissonance);
-    println!("  BGE:   dom={:>3} chain={:?} dis={:.2}", bge_dom, bge_chain, bge_dis.total_dissonance);
-
-    // Consensus: do they agree on the dominant?
-    let dom_agree = jina_dom == bge_dom;
-    let chain_overlap: usize = jina_chain.iter()
-        .filter(|a| bge_chain.contains(a)).count();
-    println!("  Dominant agree: {}  Chain overlap: {}/{}",
-        if dom_agree { "YES ✓" } else { "NO ✗" },
-        chain_overlap, jina_chain.len().max(bge_chain.len()));
-
-    // ── Cognitive Markers (best of both) ──
-    println!("\n─── COGNITIVE MARKERS ───\n");
-
-    let jina_staunen = jina_stages.iter().map(|s| s.markers.staunen).fold(0.0f32, f32::max);
-    let jina_wisdom = jina_stages.iter().map(|s| s.markers.wisdom).fold(0.0f32, f32::max);
-    let bge_staunen = bge_stages.iter().map(|s| s.markers.staunen).fold(0.0f32, f32::max);
-    let bge_wisdom = bge_stages.iter().map(|s| s.markers.wisdom).fold(0.0f32, f32::max);
-
-    let max_staunen = jina_staunen.max(bge_staunen);
-    let max_wisdom = jina_wisdom.max(bge_wisdom);
-    let avg_dissonance = (jina_dis.total_dissonance + bge_dis.total_dissonance) / 2.0;
-
-    if max_staunen > 0.05 { println!("  ✨ Staunen (wonder):  {:.2} — novel territory discovered", max_staunen); }
-    if max_wisdom > 0.05 { println!("  🦉 Wisdom:           {:.2} — convergent paths confirmed", max_wisdom); }
-    if avg_dissonance > 0.1 { println!("  ⚡ Dissonance:       {:.2} — unresolved tension", avg_dissonance); }
-    if avg_dissonance < 0.05 { println!("  🕊  Consonance:      {:.2} — harmonious, resolved", avg_dissonance); }
-
-    // ── NARS Truth ──
-    let truth_freq = jina_stages.last().map(|s| s.markers.truth_freq).unwrap_or(0.0);
-    let truth_conf = if dom_agree { 0.8 } else { 0.4 }; // agreement boosts confidence
-    println!("  Truth: freq={:.2} conf={:.2}", truth_freq, truth_conf);
-
-    // ── Qualia 17D ──
-    println!("\n─── QUALIA (how this thought FEELS) ───\n");
-
-    // Use Jina engine for qualia (richer semantics)
-    let qualia = Qualia17D::from_engine(&jina_engine);
-    let (family, dist) = qualia.nearest_family();
-    println!("  Family: {} (dist={:.2})", family, dist);
-
-    // Show top-5 most active dimensions
-    let mut dims: Vec<(&str, f32)> = DIMS_17D.iter().zip(&qualia.dims)
-        .map(|(&name, &val)| (name, val)).collect();
-    dims.sort_by(|a, b| b.1.abs().partial_cmp(&a.1.abs()).unwrap());
-    println!("  Strongest dims:");
-    for (name, val) in dims.iter().take(5) {
-        let bar_len = (val.abs() * 15.0).min(15.0) as usize;
-        let bar = "█".repeat(bar_len);
-        println!("    {:<14} {:.2}  {}", name, val, bar);
-    }
-
-    // ── Structured Answer ──
-    println!("\n╔══════════════════════════════════════════════════════════╗");
-    println!("║  STRUCTURED THOUGHT                                     ║");
-    println!("╚══════════════════════════════════════════════════════════╝\n");
-
-    // The "answer" is the topology traversal interpreted through qualia
-    println!("  Topic:      \"{}\"", input);
-    println!("  Tokens:     {}", token_ids.len());
-    println!("  Lenses:     Jina v3 + BGE-M3 (multi-lens vote)");
-    println!("  Consensus:  {}", if dom_agree { "STRONG" } else { "DIVERGENT" });
-    println!("  Dominant:   atom {} (Jina) / atom {} (BGE)", jina_dom, bge_dom);
-    println!("  Feel:       {} ({:.2})", family, dist);
-    println!("  Clarity:    {:.2}", qualia.dims[4]);
-    println!("  Tension:    {:.2}", qualia.dims[2]);
-    println!("  Confidence: {:.2}", truth_conf);
-
-    // Interpret the cascade chain as a "reasoning path"
-    println!("\n  Reasoning path (Jina):");
-    for (i, stage) in jina_stages.iter().enumerate() {
-        if let Some(focus) = stage.focus.first() {
-            let markers = &stage.markers;
-            let mut flags = String::new();
-            if markers.staunen > 0.05 { flags += " ✨"; }
-            if markers.wisdom > 0.05 { flags += " 🦉"; }
-            println!("    step {}: atom {:>3} (freq={:.2} conf={:.2}){}",
-                i, focus.index, focus.frequency, focus.confidence, flags);
-        }
-    }
-
-    // Final verdict
-    println!("\n  ────────────────────────────────────────");
-    if dom_agree && avg_dissonance < 0.1 {
-        println!("  Verdict: Both lenses converge. High confidence thought.");
-        println!("  The topology says: this input activates a clear, consonant region.");
-    } else if dom_agree {
-        println!("  Verdict: Lenses agree on destination but the path is turbulent.");
-        println!("  Dissonance {:.2} suggests unresolved tension in the reasoning.", avg_dissonance);
+    // Find where ripples CONVERGE (shared atoms in chains)
+    let jina_set: std::collections::HashSet<u16> = jina_result.chain.iter().cloned().collect();
+    let bge_set: std::collections::HashSet<u16> = bge_result.chain.iter().cloned().collect();
+    let convergent: Vec<u16> = jina_set.intersection(&bge_set).cloned().collect();
+    if !convergent.is_empty() {
+        println!("\n  ✓ Ripples CONVERGE at: {}",
+            convergent.iter().map(|&c| label(c)).collect::<Vec<_>>().join(", "));
     } else {
-        println!("  Verdict: Lenses DISAGREE — the input is ambiguous or novel.");
-        println!("  Jina sees atom {}, BGE sees atom {}. Different semantic readings.", jina_dom, bge_dom);
-        println!("  This is WHERE creative insight lives — at the boundary of interpretations.");
+        println!("\n  ✗ Ripples DIVERGE — different semantic territory");
     }
 
-    println!("\n  Time: {:.1}ms (tokenize + 2 cascades + qualia)", 0.0); // placeholder
+    // ═══ JOINED AWARENESS ═══
+    println!("\n─── JOINED AWARENESS ───\n");
+
+    let dom_agree = jina_result.dominant == bge_result.dominant;
+    let dis_avg = (jina_result.dissonance + bge_result.dissonance) / 2.0;
+    let confidence = if dom_agree { 0.85 } else if !convergent.is_empty() { 0.6 } else { 0.35 };
+
+    // Qualia from Jina (richer semantics)
+    let qualia = &jina_result.qualia;
+    let (family, _) = qualia.nearest_family();
+
+    println!("  Consensus:    {}", if dom_agree { "STRONG — both lenses agree" }
+        else if !convergent.is_empty() { "PARTIAL — ripples share territory" }
+        else { "WEAK — lenses see different things" });
+    println!("  Confidence:   {:.0}%", confidence * 100.0);
+    println!("  Dissonance:   {:.2}{}", dis_avg,
+        if dis_avg > 0.3 { " (turbulent)" } else if dis_avg > 0.1 { " (some tension)" } else { " (calm)" });
+    println!("  Feel:         {}", family);
+
+    // Show which tokens drive the strongest activations
+    println!("\n  Token activations:");
+    let jina_cents = jina_lens::jina_lookup_many(token_ids);
+    for (i, tok) in tokens.iter().enumerate().take(10) {
+        if tok == "<s>" || tok == "</s>" { continue; }
+        let c = jina_cents[i];
+        let tok_clean = tok.replace('▁', "");
+        println!("    {:>12} → c{:>3} [{}]", tok_clean, c, label(c));
+    }
+
+    // ═══ VERBOSE: per-stage ripple detail ═══
+    println!("\n─── RIPPLE DETAIL (Jina) ───\n");
+    for (i, stage) in jina_result.stages.iter().enumerate() {
+        let focus_labels: Vec<String> = stage.focus.iter().take(3)
+            .map(|a| format!("{}({})", label(a.index), a.index))
+            .collect();
+        let m = &stage.markers;
+        let mut flags = String::new();
+        if m.staunen > 0.05 { flags += &format!(" ✨{:.1}", m.staunen); }
+        if m.wisdom > 0.05 { flags += &format!(" 🦉{:.1}", m.wisdom); }
+
+        println!("  stage {}: [{}]  truth({:.1},{:.1}){}",
+            i, focus_labels.join(", "), m.truth_freq, m.truth_conf, flags);
+    }
+
+    // ═══ FINAL ANSWER ═══
+    println!("\n╔══════════════════════════════════════════════════════════════╗");
+    println!("║  ANSWER                                                      ║");
+    println!("╚══════════════════════════════════════════════════════════════╝\n");
+
+    // The "answer" = the convergent meaning from both lenses
+    let jina_meaning = label(jina_result.dominant);
+    let bge_meaning = label(bge_result.dominant);
+
+    if dom_agree {
+        println!("  This thought converges to: {}", jina_meaning);
+        println!("  Both lenses see the same territory. Confidence {:.0}%.", confidence * 100.0);
+    } else if !convergent.is_empty() {
+        let shared_meaning: Vec<&str> = convergent.iter().map(|&c| label(c)).collect();
+        println!("  Jina sees: {}", jina_meaning);
+        println!("  BGE sees:  {}", bge_meaning);
+        println!("  They meet at: {}", shared_meaning.join(", "));
+        println!("  The thought HOLDS BOTH perspectives. Confidence {:.0}%.", confidence * 100.0);
+    } else {
+        println!("  Jina interpretation: {}", jina_meaning);
+        println!("  BGE interpretation:  {}", bge_meaning);
+        println!("  These are DIFFERENT readings of the same text.");
+        println!("  The ambiguity is the answer. Confidence {:.0}%.", confidence * 100.0);
+    }
+
+    if dis_avg > 0.2 {
+        println!("\n  ⚡ Unresolved tension — this thought hasn't settled.");
+    }
+    if jina_result.max_staunen > 0.5 {
+        println!("  ✨ High wonder — novel conceptual territory.");
+    }
+    if jina_result.max_wisdom > 0.3 {
+        println!("  🦉 Wisdom detected — multiple paths confirm this.");
+    }
+
+    println!("\n  Family: {}  Clarity: {:.1}  Tension: {:.1}",
+        family, qualia.dims[4], qualia.dims[2]);
     println!();
+}
+
+struct LensResult {
+    dominant: u16,
+    chain: Vec<u16>,
+    dissonance: f32,
+    max_staunen: f32,
+    max_wisdom: f32,
+    qualia: Qualia17D,
+    stages: Vec<thinking_engine::domino::StageResult>,
+}
+
+fn run_lens(
+    name: &str,
+    token_ids: &[u32],
+    lookup: impl Fn(&[u32]) -> Vec<u16>,
+    engine: &ThinkingEngine,
+) -> LensResult {
+    let centroids = lookup(token_ids);
+    let unique: std::collections::HashSet<u16> = centroids.iter().cloned().collect();
+
+    let counts = vec![1u32; engine.size];
+    let cascade = DominoCascade::new(engine, &counts);
+    let (dom, stages, dis) = cascade.think(&centroids);
+    let chain: Vec<u16> = stages.iter()
+        .filter_map(|s| s.focus.first().map(|a| a.index)).collect();
+
+    let max_staunen = stages.iter().map(|s| s.markers.staunen).fold(0.0f32, f32::max);
+    let max_wisdom = stages.iter().map(|s| s.markers.wisdom).fold(0.0f32, f32::max);
+
+    let qualia = Qualia17D::from_engine(engine);
+
+    println!("  {} unique centroids from {} tokens", unique.len(), token_ids.len());
+    println!("  Dominant: c{} [{}]", dom, label(dom));
+    println!("  Chain: {}", chain.iter().map(|&c| format!("{}", label(c))).collect::<Vec<_>>().join(" → "));
+    println!("  Dissonance: {:.2}  Staunen: {:.2}  Wisdom: {:.2}\n",
+        dis.total_dissonance, max_staunen, max_wisdom);
+
+    LensResult { dominant: dom, chain, dissonance: dis.total_dissonance,
+        max_staunen, max_wisdom, qualia, stages }
 }

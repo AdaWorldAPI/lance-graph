@@ -27,3 +27,4 @@ pub mod qualia;
 pub mod domino;
 pub mod jina_lens;
 pub mod bge_m3_lens;
+pub mod centroid_labels;
