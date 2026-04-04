@@ -28,8 +28,8 @@ pub struct SelfState {
     pub rung: u8,
     /// Collapse gate state: 0=Flow, 1=Hold, 2=Block.
     pub gate: u8,
-    /// Processing fluidity: 0=Ice(frozen), 1=Tar, 2=Honey, 3=Oil, 4=Water(fastest).
-    pub fluidity: u8,
+    /// Processing mode: 0=Ice(committed), 1=Tar(stalled), 2=Honey(iterating), 3=Oil(deliberate), 4=Water(streaming).
+    pub processing_mode: u8,
     /// Confidence in current reasoning (0.0–1.0).
     pub confidence: f32,
     /// Calibration quality (Brier score, 0.0 = perfect, 1.0 = worst).
@@ -160,7 +160,7 @@ mod tests {
     fn world_model_is_clone() {
         let wm = WorldModelDto {
             self_state: SelfState {
-                style_id: 1, rung: 3, gate: 0, fluidity: 3,
+                style_id: 1, rung: 3, gate: 0, processing_mode: 3,
                 confidence: 0.8, calibration_error: 0.1,
                 should_acknowledge_limits: false,
                 trace_count: 5, free_energy: 0.05, thought_count: 42,
@@ -194,7 +194,7 @@ mod tests {
     #[test]
     fn self_state_is_copy() {
         let s = SelfState {
-            style_id: 0, rung: 0, gate: 0, fluidity: 0,
+            style_id: 0, rung: 0, gate: 0, processing_mode: 0,
             confidence: 0.0, calibration_error: 0.0,
             should_acknowledge_limits: false,
             trace_count: 0, free_energy: 0.0, thought_count: 0,
