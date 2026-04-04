@@ -74,23 +74,29 @@ fn main() {
 
         // Generate search query (Pearl Level 1: SEE)
         let query = format!("{} {} {}", edge.source, edge.label, edge.target);
-        // DuckDuckGo HTML search (native-tls uses OS cert store)
-        let search_url = format!(
-            "https://html.duckduckgo.com/html/?q={}",
-            urlencoding(&query)
-        );
-
         queries_done += 1;
 
-        // Fetch via reader-lm pipeline (local, no Jina API)
-        let paragraphs = match reader::fetch_and_embed(&search_url) {
-            Ok(p) => p,
-            Err(e) => {
-                fetch_failures += 1;
-                if queries_done <= 3 || queries_done % 10 == 0 {
-                    eprintln!("[fetch fail #{}/{}] {}: {}", fetch_failures, queries_done, query, e);
+        // Google Custom Search → article URLs → fetch each full article → embed
+        // Falls back to DuckDuckGo HTML if GOOGLE_API_KEY not set
+        let paragraphs = match reader::search_and_embed(&query, 5) {
+            Ok(p) if !p.is_empty() => p,
+            _ => {
+                // Fallback: DuckDuckGo HTML (snippets only, less effective)
+                if queries_done == 1 {
+                    eprintln!("[info] Set GOOGLE_API_KEY + GOOGLE_CX for full article fetching");
+                    eprintln!("[info] Falling back to DuckDuckGo HTML (search snippets only)");
                 }
-                continue;
+                let ddg_url = format!("https://html.duckduckgo.com/html/?q={}", urlencoding(&query));
+                match reader::fetch_and_embed(&ddg_url) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        fetch_failures += 1;
+                        if queries_done <= 3 || queries_done % 20 == 0 {
+                            eprintln!("[fetch fail #{}/{}] {}: {}", fetch_failures, queries_done, query, e);
+                        }
+                        continue;
+                    }
+                }
             }
         };
 
