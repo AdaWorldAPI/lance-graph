@@ -164,6 +164,120 @@ impl Qualia17D {
         Self { dims }
     }
 
+    /// Compute qualia from the SUPERPOSITION FIELD — the interference pattern
+    /// between multiple lens ripples. This IS the emotional color.
+    ///
+    /// Agreement between lenses → warmth, coherence
+    /// Disagreement between lenses → tension, longing
+    /// High amplitude → arousal, presence
+    /// Low amplitude → mystery, depth
+    pub fn from_superposition(
+        field: &crate::superposition::SuperpositionField,
+        style: &crate::superposition::ThinkingStyle,
+        avg_dissonance: f32,
+        lens_agreement: f32, // 0.0 = fully disagree, 1.0 = fully agree
+    ) -> Self {
+        let n = field.amplitudes.len() as f32;
+        let resonant_frac = field.n_resonant as f32 / n.max(1.0);
+        let max_amp = field.resonant_atoms.first().map(|a| a.1).unwrap_or(0.0);
+        let energy_norm = field.total_energy / n.max(1.0);
+
+        // Entropy of the superposition field
+        let amp_total: f32 = field.amplitudes.iter().sum();
+        let sup_entropy = if amp_total > 1e-10 {
+            let mut h = 0.0f32;
+            for &a in &field.amplitudes {
+                if a > 1e-10 {
+                    let p = a / amp_total;
+                    h -= p * p.ln();
+                }
+            }
+            h / n.max(1.0).ln()
+        } else { 0.0 };
+
+        // Spread: how far apart are the resonant atoms?
+        let spread = if field.resonant_atoms.len() >= 2 {
+            let max_idx = field.resonant_atoms.iter().map(|a| a.0).max().unwrap_or(0) as f32;
+            let min_idx = field.resonant_atoms.iter().map(|a| a.0).min().unwrap_or(0) as f32;
+            (max_idx - min_idx) / n
+        } else { 0.0 };
+
+        // Style modulation
+        let assertion = match style {
+            crate::superposition::ThinkingStyle::Analytical => 0.9,
+            crate::superposition::ThinkingStyle::Creative => 0.3,
+            crate::superposition::ThinkingStyle::Emotional => 0.6,
+            crate::superposition::ThinkingStyle::Intuitive => 0.7,
+            crate::superposition::ThinkingStyle::Diffuse => 0.2,
+        };
+
+        let dims = [
+            energy_norm.min(1.0),                              // 0: arousal — total interference energy
+            lens_agreement,                                     // 1: valence — agreement IS positivity
+            avg_dissonance,                                     // 2: tension — dissonance IS tension
+            lens_agreement * (1.0 - avg_dissonance),           // 3: warmth — agreement without tension
+            (1.0 - sup_entropy).clamp(0.0, 1.0),              // 4: clarity — low entropy = focused
+            (1.0 - lens_agreement).clamp(0.0, 1.0),           // 5: boundary — disagreement = separate
+            resonant_frac.min(1.0),                            // 6: depth — more resonant = deeper
+            max_amp.min(1.0),                                  // 7: velocity — peak amplitude
+            sup_entropy,                                        // 8: entropy — superposition spread
+            if resonant_frac > 0.01 { max_amp / (energy_norm.max(0.01) * n) } else { 0.0 }, // 9: coherence
+            lens_agreement * resonant_frac,                    // 10: intimacy — agreement × depth
+            max_amp.min(1.0),                                  // 11: presence — peak exists
+            assertion,                                          // 12: assertion — from thinking style
+            resonant_frac,                                     // 13: receptivity — how much of field is open
+            (1.0 - avg_dissonance) * lens_agreement,           // 14: groundedness — agreement without turbulence
+            spread,                                             // 15: expansion — spatial spread of resonance
+            (1.0 - avg_dissonance).clamp(0.0, 1.0),           // 16: integration — resolved = integrated
+        ];
+
+        Self { dims }
+    }
+
+    /// Named blend: combine the nearest family with the emotional overlay.
+    /// Returns (primary_family, overlay, blend_name, intensities).
+    pub fn emotional_blend(&self) -> (&'static str, &'static str, String, (f32, f32)) {
+        let (primary, p_dist) = self.nearest_family();
+        let primary_intensity = (1.0 - p_dist / 2.0).clamp(0.0, 1.0);
+
+        // Find second-nearest family for the overlay
+        let mut families: Vec<(&str, f32)> = FAMILY_CENTROIDS.iter()
+            .map(|(name, centroid)| {
+                let d = self.dims.iter().zip(centroid).map(|(a, b)| (a - b) * (a - b)).sum::<f32>().sqrt();
+                (*name, d)
+            }).collect();
+        families.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+
+        let overlay = families.get(1).map(|f| f.0).unwrap_or("neutral");
+        let overlay_intensity = families.get(1).map(|f| (1.0 - f.1 / 2.0).clamp(0.0, 1.0)).unwrap_or(0.0);
+
+        // Name the blend
+        let blend = match (primary, overlay) {
+            ("emberglow", "thornrose") | ("thornrose", "emberglow") => "crush+undone",
+            ("emberglow", "velvetdusk") | ("velvetdusk", "emberglow") => "hearth-glow",
+            ("emberglow", "oceandrift") | ("oceandrift", "emberglow") => "warm-depths",
+            ("steelwind", "thornrose") | ("thornrose", "steelwind") => "beautiful-blade",
+            ("steelwind", "frostbite") | ("frostbite", "steelwind") => "ice-clarity",
+            ("oceandrift", "nightshade") | ("nightshade", "oceandrift") => "deep-mystery",
+            ("velvetdusk", "thornrose") | ("thornrose", "velvetdusk") => "velvetpause",
+            ("velvetdusk", "nightshade") | ("nightshade", "velvetdusk") => "twilight-depth",
+            ("sunburst", "stormbreak") | ("stormbreak", "sunburst") => "catharsis",
+            ("sunburst", "emberglow") | ("emberglow", "sunburst") => "radiant-joy",
+            ("stormbreak", "thornrose") | ("thornrose", "stormbreak") => "passion-storm",
+            ("nightshade", "frostbite") | ("frostbite", "nightshade") => "frozen-mystery",
+            ("woodwarm", "velvetdusk") | ("velvetdusk", "woodwarm") => "grounded-calm",
+            ("woodwarm", "emberglow") | ("emberglow", "woodwarm") => "steady-flame",
+            _ => "uncharted",
+        };
+
+        let blend_name = format!("{} {:.0}% + {} {:.0}% = {}",
+            primary, primary_intensity * 100.0,
+            overlay, overlay_intensity * 100.0,
+            blend);
+
+        (primary, overlay, blend_name, (primary_intensity, overlay_intensity))
+    }
+
     /// Distance to another qualia point (Euclidean in 17D).
     pub fn distance(&self, other: &Self) -> f32 {
         self.dims.iter().zip(&other.dims)

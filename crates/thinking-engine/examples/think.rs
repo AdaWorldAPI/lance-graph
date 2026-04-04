@@ -78,17 +78,13 @@ fn main() {
     let dis_avg = (jina_result.dissonance + bge_result.dissonance) / 2.0;
     let confidence = if dom_agree { 0.85 } else if !convergent.is_empty() { 0.6 } else { 0.35 };
 
-    // Qualia from Jina (richer semantics)
-    let qualia = &jina_result.qualia;
-    let (family, _) = qualia.nearest_family();
-
     println!("  Consensus:    {}", if dom_agree { "STRONG — both lenses agree" }
         else if !convergent.is_empty() { "PARTIAL — ripples share territory" }
         else { "WEAK — lenses see different things" });
     println!("  Confidence:   {:.0}%", confidence * 100.0);
     println!("  Dissonance:   {:.2}{}", dis_avg,
         if dis_avg > 0.3 { " (turbulent)" } else if dis_avg > 0.1 { " (some tension)" } else { " (calm)" });
-    println!("  Feel:         {}", family);
+    println!("  Feel:         (computed after superposition)");
 
     // Show which tokens drive the strongest activations
     println!("\n  Token activations:");
@@ -163,6 +159,17 @@ fn main() {
         }
     }
 
+    // ═══ QUALIA FROM SUPERPOSITION ═══
+    let qualia = Qualia17D::from_superposition(&field, &style, dis_avg, confidence);
+    let (family, _) = qualia.nearest_family();
+    let (primary, overlay, blend_name, (p_int, o_int)) = qualia.emotional_blend();
+
+    println!("\n─── EMOTIONAL COLOR (qualia from interference) ───\n");
+    println!("  {}", blend_name);
+    if qualia.is_dissonant() {
+        println!("  ♯ Dissonant — unresolved, like a tritone");
+    }
+
     // ═══ FINAL ANSWER ═══
     println!("\n╔══════════════════════════════════════════════════════════════╗");
     println!("║  ANSWER                                                      ║");
@@ -198,8 +205,10 @@ fn main() {
         println!("  🦉 Wisdom detected — multiple paths confirm this.");
     }
 
-    println!("\n  Family: {}  Clarity: {:.1}  Tension: {:.1}",
-        family, qualia.dims[4], qualia.dims[2]);
+    println!("\n  {} {:.0}% + {} {:.0}%", primary, p_int * 100.0, overlay, o_int * 100.0);
+    println!("  = {}", blend_name.split(" = ").last().unwrap_or("uncharted"));
+    println!("  Clarity: {:.2}  Tension: {:.2}  Warmth: {:.2}  Depth: {:.2}",
+        qualia.dims[4], qualia.dims[2], qualia.dims[3], qualia.dims[6]);
     println!();
 }
 
