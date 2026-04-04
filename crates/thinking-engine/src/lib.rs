@@ -25,3 +25,4 @@ pub mod l4;
 pub mod lookup;
 pub mod qualia;
 pub mod domino;
+pub mod jina_lens;
