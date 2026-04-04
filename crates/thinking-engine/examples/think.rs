@@ -115,6 +115,54 @@ fn main() {
             i, focus_labels.join(", "), m.truth_freq, m.truth_conf, flags);
     }
 
+    // ═══ SUPERPOSITION GATE ═══
+    println!("─── SUPERPOSITION (multi-lens interference) ───\n");
+
+    let (field, style, gated) = thinking_engine::superposition::superposition_cascade(
+        &[&jina_result.stages, &bge_result.stages],
+        256,
+        dis_avg,
+        &thinking_engine::superposition::StyleThresholds::default(),
+    );
+
+    println!("  Resonant atoms: {} / 256 ({:.0}%)",
+        field.n_resonant, field.n_resonant as f64 / 256.0 * 100.0);
+    println!("  Total energy:   {:.1}", field.total_energy);
+    println!("  Thinking style: {}", style);
+
+    // Show top resonant atoms (constructive interference)
+    println!("  Top resonance peaks:");
+    for (atom, amp) in field.resonant_atoms.iter().take(5) {
+        println!("    atom {:>3} [{}] amplitude={:.2}",
+            atom, label(*atom), amp);
+    }
+
+    // Gated survivors (what passes the threshold)
+    if !gated.is_empty() {
+        println!("  Gated survivors ({}):", gated.len());
+        for &a in gated.iter().take(8) {
+            println!("    → {} (c{})", label(a), a);
+        }
+    } else {
+        println!("  No atoms survive the gate — fully destructive interference.");
+    }
+
+    // SPO resonance: each gated atom pair = a potential Subject-Predicate-Object triple
+    if gated.len() >= 2 {
+        println!("\n  SPO resonance (gated atom pairs → potential triples):");
+        for i in 0..gated.len().min(3) {
+            for j in (i+1)..gated.len().min(4) {
+                let a = gated[i];
+                let b = gated[j];
+                let dist_jina = thinking_engine::jina_lens::jina_distance(a, b);
+                let dist_bge = thinking_engine::bge_m3_lens::bge_m3_distance(a, b);
+                let agreement = 1.0 - (dist_jina as f32 - dist_bge as f32).abs() / 255.0;
+                println!("    ({}) —[{:.0}%]→ ({})  jina:{} bge:{}",
+                    label(a), agreement * 100.0, label(b), dist_jina, dist_bge);
+            }
+        }
+    }
+
     // ═══ FINAL ANSWER ═══
     println!("\n╔══════════════════════════════════════════════════════════════╗");
     println!("║  ANSWER                                                      ║");

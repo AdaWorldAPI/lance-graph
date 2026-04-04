@@ -28,3 +28,4 @@ pub mod domino;
 pub mod jina_lens;
 pub mod bge_m3_lens;
 pub mod centroid_labels;
+pub mod superposition;
