@@ -244,9 +244,18 @@ impl<'a> DominoCascade<'a> {
         query.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
 
         let mut stages = Vec::new();
+        // Visit counter: anti-confirmation-bias gate.
+        // Established insights (frequently visited hubs) get suppressed
+        // so the cascade explores past familiar territory into the forest.
+        let mut visit_count: std::collections::HashMap<u16, u32> = std::collections::HashMap::new();
 
         for stage in 0..self.max_stages {
             let mut all_neighbors: Vec<CascadeAtom> = Vec::new();
+
+            // Record visits for current query atoms
+            for &(q_idx, _) in &query {
+                *visit_count.entry(q_idx).or_insert(0) += 1;
+            }
 
             // For each query atom, scan its row
             for &(q_idx, q_energy) in &query {
@@ -273,9 +282,15 @@ impl<'a> DominoCascade<'a> {
                     let freq = (val as f32 - floor as f32) / (255.0 - floor as f32);
                     let conf = self.idf.get(j).copied().unwrap_or(1.0);
 
+                    // Novelty gate: suppress revisited atoms.
+                    // Trees (established insights) get gated so we see the forest.
+                    let visits = visit_count.get(&(j as u16)).copied().unwrap_or(0);
+                    let novelty = 1.0 / (1.0 + visits as f32 * visits as f32);
+                    // novelty: 1.0 (never seen) → 0.5 (seen once) → 0.2 (twice) → 0.1 (three times)
+
                     all_neighbors.push(CascadeAtom {
                         index: j as u16,
-                        energy: freq * q_energy * conf,
+                        energy: freq * q_energy * conf * novelty,
                         frequency: freq,
                         confidence: conf,
                         stage: stage as u8,
