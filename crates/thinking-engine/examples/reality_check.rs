@@ -45,9 +45,14 @@ fn main() {
     let above_median = table.iter().filter(|&&v| v > median).count();
     println!("[table] values_above_median={} ({:.1}%)", above_median, above_median as f64 / table.len() as f64 * 100.0);
 
-    // Build engine
+    // Build engine with top-K sparsification
     let mut engine = ThinkingEngine::new(table.clone());
-    println!("[engine] size={} floor={}", engine.size, engine.floor);
+    println!("[engine] size={} floor={} (before sparsify)", engine.size, engine.floor);
+    engine.sparsify(16); // each atom connects to its 16 strongest neighbors only
+    println!("[engine] floor={} (after sparsify top-16)", engine.floor);
+    // Recount above-floor
+    let above_new = engine.distance_table_ref().iter().filter(|&&v| v > engine.floor).count();
+    println!("[engine] values_above_floor={} ({:.1}%)", above_new, above_new as f64 / (engine.size * engine.size) as f64 * 100.0);
     println!();
 
     // Test sentences
