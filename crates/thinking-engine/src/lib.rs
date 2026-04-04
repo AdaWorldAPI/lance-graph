@@ -34,3 +34,4 @@ pub mod ghosts;
 pub mod cognitive_stack;
 pub mod meaning_axes;
 pub mod contract_bridge;
+pub mod persona;
