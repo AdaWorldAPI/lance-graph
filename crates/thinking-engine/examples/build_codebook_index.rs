@@ -1,8 +1,9 @@
 //! Build real token → centroid codebook assignment for BGE-M3.
 //!
 //! For each of 250,002 token embeddings, finds the nearest weight row
-//! in blk.23.attn_q.weight (1024 rows) by cosine similarity.
-//! Saves as codebook_index.u16 (250,002 × 2 bytes = ~500 KB).
+//! by cosine similarity in two roles:
+//!   - blk.23.attn_q.weight  (1024 rows × 1024 cols) → codebook_index.u16
+//!   - blk.23.ffn_down.weight (4096 rows × 1024 cols) → ffn_down/codebook_index.u16
 //!
 //! Requires BGE-M3 F16 GGUF in /tmp/hf_cache (already cached).
 //!
@@ -17,6 +18,7 @@ use thinking_engine::codebook_index::CodebookIndex;
 const VOCAB_SIZE: usize = 250_002;
 const HIDDEN_DIM: usize = 1024;
 const TABLE_ROWS: usize = 1024; // blk.23.attn_q.weight rows
+const FFN_DOWN_ROWS: usize = 4096; // blk.23.ffn_down.weight rows
 
 fn main() {
     println!("═══════════════════════════════════════════════════════");
@@ -242,7 +244,182 @@ fn main() {
     }
 
     println!("\n═══════════════════════════════════════════════════════");
-    println!("  DONE: {} → {}", gguf_path, out_path.display());
+    println!("  DONE (attn_q): {} → {}", gguf_path, out_path.display());
+    println!("═══════════════════════════════════════════════════════");
+
+    // ══════════════════════════════════════════════════════════════════════════
+    //  PASS 2: ffn_down (4096 rows × 1024 cols)
+    // ══════════════════════════════════════════════════════════════════════════
+    println!("\n\n═══════════════════════════════════════════════════════");
+    println!("  PASS 2: BUILD CODEBOOK INDEX for ffn_down");
+    println!("═══════════════════════════════════════════════════════\n");
+
+    // ── Step 8: Read blk.23.ffn_down.weight (4096 × 1024, F16) ──────────────
+    println!("[8] Reading blk.23.ffn_down.weight ({} × {}) ...", FFN_DOWN_ROWS, HIDDEN_DIM);
+    let ffn_down = header.tensors.iter()
+        .find(|t| t.name.contains("blk.23") && t.name.contains("ffn_down") && t.name.contains("weight"))
+        .expect("blk.23.ffn_down.weight not found in GGUF");
+    println!("  Tensor: {} (dtype={}, dims={:?})", ffn_down.name, ffn_down.dtype, ffn_down.dims);
+    assert!(
+        ffn_down.dtype == 1 || ffn_down.dtype == 30,
+        "Expected F16 (1) or BF16 (30), got dtype={}",
+        ffn_down.dtype
+    );
+
+    // Re-open file to re-seek (file handle was used for embeddings above)
+    let mut file = std::fs::File::open(&gguf_path)
+        .expect("Failed to re-open GGUF file");
+    let ffn_down_data = read_tensor_f32(&mut file, &header, ffn_down)
+        .expect("Failed to read ffn_down tensor");
+    let ffn_down_rows = ffn_down.dims[0] as usize;
+    let ffn_down_cols: usize = ffn_down.dims[1..].iter().map(|&d| d as usize).product();
+    println!("  Shape: {} rows × {} cols, {} floats total",
+        ffn_down_rows, ffn_down_cols, ffn_down_data.len());
+    assert_eq!(ffn_down_rows, FFN_DOWN_ROWS, "Expected {} rows", FFN_DOWN_ROWS);
+    assert_eq!(ffn_down_cols, HIDDEN_DIM, "Expected {} cols", HIDDEN_DIM);
+
+    // ── Step 9: Pre-normalize ffn_down centroid rows ─────────────────────────
+    println!("\n[9] Pre-normalizing {} ffn_down centroid rows ...", FFN_DOWN_ROWS);
+    let start = std::time::Instant::now();
+    let ffn_centroids: Vec<Vec<f32>> = (0..FFN_DOWN_ROWS).map(|r| {
+        let row = &ffn_down_data[r * ffn_down_cols..(r + 1) * ffn_down_cols];
+        let norm = row.iter().map(|v| (*v as f64) * (*v as f64)).sum::<f64>().sqrt();
+        if norm < 1e-12 {
+            vec![0.0f32; ffn_down_cols]
+        } else {
+            let inv = (1.0 / norm) as f32;
+            row.iter().map(|v| v * inv).collect()
+        }
+    }).collect();
+    println!("  Done in {:.1}ms", start.elapsed().as_secs_f64() * 1000.0);
+
+    // ── Step 10: For each token embedding, find nearest ffn_down centroid ────
+    println!("\n[10] Finding nearest ffn_down centroid for each of {} tokens (chunked, rayon) ...", VOCAB_SIZE);
+    let start = std::time::Instant::now();
+
+    let chunk_size = 25000;
+    let mut ffn_indices = vec![0u16; VOCAB_SIZE];
+
+    for chunk_start in (0..VOCAB_SIZE).step_by(chunk_size) {
+        let chunk_end = (chunk_start + chunk_size).min(VOCAB_SIZE);
+        let chunk_indices: Vec<u16> = (chunk_start..chunk_end)
+            .into_par_iter()
+            .map(|tok_id| {
+                let tok_row = &embd_data[tok_id * HIDDEN_DIM..(tok_id + 1) * HIDDEN_DIM];
+
+                // Pre-normalize
+                let norm = tok_row.iter().map(|v| (*v as f64) * (*v as f64)).sum::<f64>().sqrt();
+                if norm < 1e-12 { return 0u16; }
+                let inv = (1.0 / norm) as f32;
+                let tok_normed: Vec<f32> = tok_row.iter().map(|v| v * inv).collect();
+
+                // Find nearest centroid by f32 dot product (both normalized → dot = cosine)
+                let mut best_idx = 0u16;
+                let mut best_dot = f32::NEG_INFINITY;
+                for (c_idx, centroid) in ffn_centroids.iter().enumerate() {
+                    let dot: f32 = tok_normed.iter().zip(centroid.iter())
+                        .map(|(a, b)| a * b).sum();
+                    if dot > best_dot {
+                        best_dot = dot;
+                        best_idx = c_idx as u16;
+                    }
+                }
+                best_idx
+            })
+            .collect();
+
+        for (i, &idx) in chunk_indices.iter().enumerate() {
+            ffn_indices[chunk_start + i] = idx;
+        }
+        let elapsed = start.elapsed().as_secs_f64();
+        let pct = (chunk_end as f64 / VOCAB_SIZE as f64) * 100.0;
+        println!("  [{:>6}/{:>6}] {:.0}%  {:.1}s", chunk_end, VOCAB_SIZE, pct, elapsed);
+    }
+
+    let elapsed = start.elapsed();
+    println!("  Done in {:.2}s ({:.0} tokens/sec)",
+        elapsed.as_secs_f64(),
+        VOCAB_SIZE as f64 / elapsed.as_secs_f64());
+
+    // ── Step 11: Build CodebookIndex and save (ffn_down) ─────────────────────
+    println!("\n[11] Building ffn_down CodebookIndex and saving ...");
+    let ffn_codebook = CodebookIndex::new(ffn_indices, FFN_DOWN_ROWS as u16, "bge-m3".into());
+
+    let ffn_out_dir = "/tmp/codebooks/bge-m3-roles-f16/ffn_down";
+    std::fs::create_dir_all(ffn_out_dir).expect("Failed to create ffn_down output dir");
+    let ffn_out_path = std::path::Path::new(ffn_out_dir).join("codebook_index.u16");
+    ffn_codebook.save(&ffn_out_path).expect("Failed to save ffn_down codebook index");
+
+    let file_size = std::fs::metadata(&ffn_out_path).map(|m| m.len()).unwrap_or(0);
+    println!("  Saved: {} ({} bytes, {:.1} KB)",
+        ffn_out_path.display(), file_size, file_size as f64 / 1024.0);
+
+    // ── Step 12: Print ffn_down stats ────────────────────────────────────────
+    println!("\n═══════════════════════════════════════════════════════");
+    println!("  FFN_DOWN CODEBOOK INDEX STATS");
+    println!("═══════════════════════════════════════════════════════\n");
+
+    let unique = ffn_codebook.unique_centroids();
+    println!("  Vocab size:       {}", ffn_codebook.len());
+    println!("  Table rows:       {}", ffn_codebook.table_size());
+    println!("  Unique centroids: {} / {} ({:.1}%)",
+        unique, FFN_DOWN_ROWS, unique as f64 / FFN_DOWN_ROWS as f64 * 100.0);
+
+    let counts = ffn_codebook.centroid_counts();
+    let max_count = *counts.iter().max().unwrap_or(&0);
+    let min_count = *counts.iter().min().unwrap_or(&0);
+    let empty_centroids = counts.iter().filter(|&&c| c == 0).count();
+    let mean_count = ffn_codebook.len() as f64 / FFN_DOWN_ROWS as f64;
+
+    println!("  Tokens/centroid:  min={}, max={}, mean={:.1}",
+        min_count, max_count, mean_count);
+    println!("  Empty centroids:  {} ({:.1}%)",
+        empty_centroids, empty_centroids as f64 / FFN_DOWN_ROWS as f64 * 100.0);
+
+    // Histogram: bucket sizes
+    let mut histogram = std::collections::BTreeMap::new();
+    for &c in &counts {
+        let bucket = match c {
+            0 => "      0",
+            1..=10 => "   1-10",
+            11..=50 => "  11-50",
+            51..=100 => " 51-100",
+            101..=500 => "101-500",
+            501..=1000 => "501-1K",
+            _ => "  1K+",
+        };
+        *histogram.entry(bucket).or_insert(0u32) += 1;
+    }
+    println!("\n  Distribution of centroid cluster sizes:");
+    for (bucket, count) in &histogram {
+        let bar_len = (*count as usize).min(60);
+        let bar: String = std::iter::repeat('#').take(bar_len).collect();
+        println!("    {} tokens: {:>4} centroids  {}", bucket, count, bar);
+    }
+
+    // Top-10 most popular centroids
+    let mut indexed_counts: Vec<(usize, u32)> = counts.iter().enumerate()
+        .map(|(i, &c)| (i, c))
+        .collect();
+    indexed_counts.sort_by(|a, b| b.1.cmp(&a.1));
+    println!("\n  Top-10 most popular centroids:");
+    for (i, (centroid, count)) in indexed_counts.iter().take(10).enumerate() {
+        println!("    #{}: centroid {:>4} → {} tokens", i + 1, centroid, count);
+    }
+
+    // Bottom-10 (least used, excluding empty)
+    let mut nonempty: Vec<(usize, u32)> = indexed_counts.iter()
+        .filter(|(_, c)| *c > 0)
+        .copied()
+        .collect();
+    nonempty.sort_by(|a, b| a.1.cmp(&b.1));
+    println!("\n  Bottom-10 least popular (non-empty) centroids:");
+    for (i, (centroid, count)) in nonempty.iter().take(10).enumerate() {
+        println!("    #{}: centroid {:>4} → {} tokens", i + 1, centroid, count);
+    }
+
+    println!("\n═══════════════════════════════════════════════════════");
+    println!("  DONE (ffn_down): {} → {}", gguf_path, ffn_out_path.display());
     println!("═══════════════════════════════════════════════════════");
 }
 

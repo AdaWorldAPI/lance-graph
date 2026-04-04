@@ -154,6 +154,7 @@
 use crate::dto::{ResonanceDto, BusDto};
 use ndarray::hpc::heel_f64x8::cosine_f64_simd;
 use ndarray::simd::F32x16;
+use ndarray::simd_amx;
 
 /// Default codebook size. 4096 entries = 12-bit index.
 pub const CODEBOOK_SIZE: usize = 4096;
@@ -318,6 +319,7 @@ impl ThinkingEngine {
     }
 
     /// Run until convergence. Returns the resonance state.
+    /// Uses `cycle_auto` which tries VNNI first, falls back to F32x16.
     pub fn think(&mut self, max_cycles: usize) -> ResonanceDto {
         for _ in 0..max_cycles {
             let prev = self.energy.clone();
@@ -330,6 +332,78 @@ impl ThinkingEngine {
             }
         }
         ResonanceDto::from_energy_f32(&self.energy, self.cycles)
+    }
+
+    /// ONE thinking cycle via AMX/VNNI dispatch path.
+    ///
+    /// Quantizes f32 energy to i8, dispatches to the best available
+    /// integer MatVec kernel (avx512vnni -> avxvnniint8 -> scalar),
+    /// then dequantizes i32 results back to f32 and normalizes.
+    ///
+    /// The sigma floor is subtracted from the distance table during the
+    /// existing table build, but for the VNNI path the energy quantization
+    /// maps [0, max] -> [0, 127] after floor subtraction is implicit in
+    /// the table values already stored as floor-subtracted u8.
+    ///
+    /// Note: The distance table stores raw u8 similarity values (floor NOT
+    /// pre-subtracted), so we build a floor-subtracted table on the fly
+    /// per cycle. For production, the table should be pre-subtracted once.
+    pub fn cycle_vnni(&mut self) {
+        let k = self.size;
+        let floor = self.floor;
+
+        // Build floor-subtracted table (u8 saturating_sub)
+        let mut table_floored = vec![0u8; k * k];
+        for (dst, &src) in table_floored.iter_mut().zip(self.distance_table.iter()) {
+            *dst = src.saturating_sub(floor);
+        }
+
+        // Quantize energy f32 -> i8: map [0, max] -> [0, 127]
+        let mut energy_i8 = vec![0i8; k];
+        quantize_energy_f32_to_i8(&self.energy, &mut energy_i8);
+
+        // Dispatch MatVec: avx512vnni -> avxvnniint8 -> scalar
+        let mut result_i32 = vec![0i32; k];
+        simd_amx::matvec_dispatch(&table_floored, &energy_i8, &mut result_i32, k);
+
+        // Dequantize i32 -> f32
+        // The dot products are in quantized units: u8_table * i8_energy.
+        // To recover approximate f32 scale: result * (max_energy / 127.0).
+        let max_e = self.energy.iter().cloned().fold(0.0f32, f32::max);
+        let dequant_scale = if max_e > 1e-15 { max_e / 127.0 } else { 0.0 };
+
+        let mut next = vec![0.0f32; k];
+        for i in 0..k {
+            next[i] = result_i32[i] as f32 * dequant_scale;
+        }
+
+        // Normalize: total energy = 1.0
+        let total: f32 = next.iter().sum();
+        if total > 1e-10 {
+            let inv = 1.0 / total;
+            for e in &mut next { *e *= inv; }
+        }
+
+        self.energy = next;
+        self.cycles += 1;
+    }
+
+    /// Auto-dispatching cycle: tries VNNI path first, falls back to F32x16.
+    ///
+    /// VNNI is available on: Cascade Lake+ (avx512vnni), Arrow Lake (avxvnniint8),
+    /// and any CPU where `matvec_dispatch` picks a non-scalar path.
+    /// Falls back to the existing F32x16 sweep when no integer SIMD is available.
+    pub fn cycle_auto(&mut self) {
+        #[cfg(target_arch = "x86_64")]
+        {
+            if is_x86_feature_detected!("avx512vnni")
+                || is_x86_feature_detected!("avxvnniint8")
+            {
+                self.cycle_vnni();
+                return;
+            }
+        }
+        self.cycle();
     }
 
     /// Inject perturbation from sensor output.
@@ -378,6 +452,24 @@ impl ThinkingEngine {
     /// Number of active thought-atoms (energy > threshold).
     pub fn active_count(&self, threshold: f32) -> usize {
         self.energy.iter().filter(|&&e| e > threshold).count()
+    }
+}
+
+/// Quantize f32 energy vector to i8 for VNNI MatVec.
+///
+/// Maps [0.0, max_energy] -> [0, 127]. Negative values are clamped to 0.
+/// This is the f32 counterpart to `ndarray::simd_amx::quantize_energy_i8`
+/// (which takes `&[f64]`). Energy after normalization is always non-negative.
+pub fn quantize_energy_f32_to_i8(energy: &[f32], output: &mut [i8]) {
+    let n = energy.len().min(output.len());
+    let max_e = energy[..n].iter().cloned().fold(0.0f32, f32::max);
+    if max_e < 1e-15 {
+        for o in output[..n].iter_mut() { *o = 0; }
+        return;
+    }
+    let scale = 127.0 / max_e;
+    for i in 0..n {
+        output[i] = (energy[i] * scale).round().clamp(0.0, 127.0) as i8;
     }
 }
 

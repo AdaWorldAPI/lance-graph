@@ -152,6 +152,11 @@ impl TextToThought {
         (a, b, dist)
     }
 
+    /// Get a reference to the underlying engine (for qualia computation).
+    pub fn engine(&self) -> &ThinkingEngine {
+        &self.engine
+    }
+
     /// Get the sigma floor the engine is using.
     pub fn floor(&self) -> u8 {
         self.engine.floor
