@@ -115,6 +115,264 @@ impl InferenceOp {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// PEARL 2³ SURVIVOR DECOMPOSITION — the wiring between stages
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Pearl 2³ causal mask (3-bit, 8 projections of an SPO triple).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(u8)]
+pub enum CausalMask {
+    /// 000: Prior (no projection, background knowledge).
+    None = 0,
+    /// 001: Object marginal — "what is O?"
+    O = 1,
+    /// 010: Predicate marginal — "what does P mean?"
+    P = 2,
+    /// 011: Predicate×Object — P(Y|do(X)), Pearl Level 2 (DO).
+    PO = 3,
+    /// 100: Subject marginal — "who is S?"
+    S = 4,
+    /// 101: Subject×Object — P(Y|X), Pearl Level 1 (SEE).
+    SO = 5,
+    /// 110: Subject×Predicate — confounder detection.
+    SP = 6,
+    /// 111: Full SPO — P(Y|do(X'),X=x), Pearl Level 3 (IMAGINE).
+    SPO = 7,
+}
+
+impl CausalMask {
+    pub const ALL: [CausalMask; 8] = [
+        Self::None, Self::O, Self::P, Self::PO,
+        Self::S, Self::SO, Self::SP, Self::SPO,
+    ];
+
+    /// Pearl level for this mask.
+    pub fn pearl_level(&self) -> u8 {
+        match self {
+            Self::None | Self::S | Self::P | Self::O => 0, // marginals
+            Self::SO => 1,  // SEE: association P(Y|X)
+            Self::PO | Self::SP => 2, // DO: intervention P(Y|do(X))
+            Self::SPO => 3, // IMAGINE: counterfactual
+        }
+    }
+
+    /// Which inference ops naturally consume this projection.
+    pub fn target_ops(&self) -> &'static [InferenceOp] {
+        match self {
+            Self::None => &[InferenceOp::Intuition],
+            Self::S    => &[InferenceOp::Abduction, InferenceOp::Association],
+            Self::P    => &[InferenceOp::Induction, InferenceOp::Deduction],
+            Self::O    => &[InferenceOp::Abduction, InferenceOp::Association],
+            Self::SO   => &[InferenceOp::Induction, InferenceOp::Association],
+            Self::PO   => &[InferenceOp::Deduction, InferenceOp::Hypothesis],
+            Self::SP   => &[InferenceOp::Hypothesis, InferenceOp::HypothesisTest],
+            Self::SPO  => &[InferenceOp::Counterfactual, InferenceOp::Synthesis],
+        }
+    }
+}
+
+/// A surviving triplet after NARS truth gating + Pearl 2³ decomposition.
+///
+/// This is the unit that flows between DAG stages.
+/// Not the raw triplet — a **causal projection** of a surviving triplet.
+#[derive(Debug, Clone)]
+pub struct SurvivorProjection {
+    /// Original triplet: subject.
+    pub subject: String,
+    /// Original triplet: predicate.
+    pub predicate: String,
+    /// Original triplet: object.
+    pub object: String,
+    /// Which causal projection this represents.
+    pub mask: CausalMask,
+    /// NARS truth of the original triplet (survived the gate).
+    pub truth_freq: f32,
+    pub truth_conf: f32,
+    /// Which DAG node produced this survivor.
+    pub source_node: usize,
+}
+
+impl SurvivorProjection {
+    /// The query text for this projection (what to search/reason about).
+    pub fn query(&self) -> String {
+        match self.mask {
+            CausalMask::None => format!("{} {} {}", self.subject, self.predicate, self.object),
+            CausalMask::S    => format!("who is {}", self.subject),
+            CausalMask::P    => format!("what does {} mean", self.predicate),
+            CausalMask::O    => format!("what is {}", self.object),
+            CausalMask::SO   => format!("{} related to {}", self.subject, self.object),
+            CausalMask::PO   => format!("what causes {} {}", self.predicate, self.object),
+            CausalMask::SP   => format!("{} as {}", self.subject, self.predicate),
+            CausalMask::SPO  => format!("what if {} had not {} {}", self.subject, self.predicate, self.object),
+        }
+    }
+
+    /// Is this projection relevant to a given inference op?
+    pub fn feeds(&self, op: InferenceOp) -> bool {
+        self.mask.target_ops().contains(&op)
+    }
+}
+
+/// Decompose surviving triplets into Pearl 2³ projections for the next stage.
+///
+/// Each survivor with conf > threshold gets split into 8 causal projections.
+/// Each projection is routed to the inference ops that consume it.
+pub fn decompose_survivors(
+    survivors: &[(String, String, String, f32, f32, usize)], // (s, p, o, freq, conf, source_node)
+    conf_threshold: f32,
+) -> Vec<SurvivorProjection> {
+    let mut projections = Vec::new();
+    for (s, p, o, freq, conf, source) in survivors {
+        if *conf < conf_threshold { continue; }
+        for &mask in &CausalMask::ALL {
+            projections.push(SurvivorProjection {
+                subject: s.clone(),
+                predicate: p.clone(),
+                object: o.clone(),
+                mask,
+                truth_freq: *freq,
+                truth_conf: *conf,
+                source_node: *source,
+            });
+        }
+    }
+    projections
+}
+
+/// Filter projections relevant to a specific inference op.
+pub fn projections_for_op(projections: &[SurvivorProjection], op: InferenceOp) -> Vec<&SurvivorProjection> {
+    projections.iter().filter(|p| p.feeds(op)).collect()
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HYPOTHESIS TESTING — projections become testable claims
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// A hypothesis formed from survivor projections.
+#[derive(Debug, Clone)]
+pub struct Hypothesis {
+    /// The claim to test (natural language).
+    pub claim: String,
+    /// Which projection spawned this hypothesis.
+    pub source_mask: CausalMask,
+    /// Pearl level of the hypothesis (1=associative, 2=causal, 3=counterfactual).
+    pub pearl_level: u8,
+    /// Prior truth (from the source projection's NARS truth).
+    pub prior: PathTruth,
+    /// Evidence for (positive hits from Jina cross-validation).
+    pub evidence_for: Vec<f32>,
+    /// Evidence against (negative/contradicting hits).
+    pub evidence_against: Vec<f32>,
+    /// Current posterior truth after all evidence.
+    pub posterior: PathTruth,
+    /// Status.
+    pub status: HypothesisStatus,
+}
+
+/// Hypothesis lifecycle.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HypothesisStatus {
+    /// Just formed, no evidence yet.
+    Pending,
+    /// Being tested (evidence accumulating).
+    Testing,
+    /// Confirmed: posterior freq > 0.7, conf > 0.6.
+    Confirmed,
+    /// Denied: posterior freq < 0.3, conf > 0.6.
+    Denied,
+    /// Inconclusive: conf too low to decide.
+    Inconclusive,
+}
+
+impl Hypothesis {
+    /// Form a hypothesis from a survivor projection.
+    pub fn from_projection(proj: &SurvivorProjection) -> Self {
+        let claim = match proj.mask {
+            CausalMask::None => format!("{} {} {}", proj.subject, proj.predicate, proj.object),
+            CausalMask::S    => format!("{} is a significant entity in this domain", proj.subject),
+            CausalMask::P    => format!("the relationship '{}' is meaningful here", proj.predicate),
+            CausalMask::O    => format!("{} is a significant entity in this domain", proj.object),
+            CausalMask::SO   => format!("{} and {} are directly associated", proj.subject, proj.object),
+            CausalMask::PO   => format!("{} causally leads to {}", proj.predicate, proj.object),
+            CausalMask::SP   => format!("{} as {} may be a confounding factor", proj.subject, proj.predicate),
+            CausalMask::SPO  => format!("if {} had not {} {}, the outcome would differ", proj.subject, proj.predicate, proj.object),
+        };
+        Self {
+            claim,
+            source_mask: proj.mask,
+            pearl_level: proj.mask.pearl_level(),
+            prior: PathTruth { frequency: proj.truth_freq, confidence: proj.truth_conf },
+            evidence_for: Vec::new(),
+            evidence_against: Vec::new(),
+            posterior: PathTruth { frequency: proj.truth_freq, confidence: proj.truth_conf },
+            status: HypothesisStatus::Pending,
+        }
+    }
+
+    /// Add evidence (Jina BF16 relevance score). Positive if supports, negative if contradicts.
+    pub fn add_evidence(&mut self, relevance: f32, supports: bool) {
+        if supports {
+            self.evidence_for.push(relevance);
+        } else {
+            self.evidence_against.push(relevance);
+        }
+        self.status = HypothesisStatus::Testing;
+        self.update_posterior();
+    }
+
+    /// Update posterior from accumulated evidence via NARS revision.
+    fn update_posterior(&mut self) {
+        let mut truth = self.prior;
+        for &r in &self.evidence_for {
+            truth = truth.revise(r.max(0.6), r.max(0.1)); // positive evidence
+        }
+        for &r in &self.evidence_against {
+            truth = truth.revise(1.0 - r.max(0.3), r.max(0.1)); // negative evidence
+        }
+        self.posterior = truth;
+
+        // Update status
+        if truth.confidence > 0.6 {
+            if truth.frequency > 0.7 {
+                self.status = HypothesisStatus::Confirmed;
+            } else if truth.frequency < 0.3 {
+                self.status = HypothesisStatus::Denied;
+            } else {
+                self.status = HypothesisStatus::Testing;
+            }
+        } else {
+            self.status = if self.evidence_for.len() + self.evidence_against.len() > 5 {
+                HypothesisStatus::Inconclusive
+            } else {
+                HypothesisStatus::Testing
+            };
+        }
+    }
+
+    /// Generate a search query to test this hypothesis.
+    pub fn test_query(&self) -> String {
+        match self.pearl_level {
+            0 | 1 => self.claim.clone(), // SEE: just search the claim
+            2 => format!("evidence {} causes", self.claim), // DO: look for causal evidence
+            3 => format!("what would happen without {}", self.claim), // IMAGINE: counterfactual
+            _ => self.claim.clone(),
+        }
+    }
+}
+
+/// Batch-form hypotheses from survivor projections.
+/// Higher Pearl levels get priority (counterfactual > causal > associative).
+pub fn form_hypotheses(projections: &[SurvivorProjection], max: usize) -> Vec<Hypothesis> {
+    let mut hypotheses: Vec<Hypothesis> = projections.iter()
+        .map(|p| Hypothesis::from_projection(p))
+        .collect();
+    // Sort by Pearl level descending (test deeper claims first)
+    hypotheses.sort_by(|a, b| b.pearl_level.cmp(&a.pearl_level));
+    hypotheses.truncate(max);
+    hypotheses
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // INFERENCE DAG — stages connected as a directed acyclic graph
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -623,5 +881,186 @@ mod tests {
         let dag = InferenceDag::exploratory_pipeline();
         let total = dag.total_fan_out();
         assert!(total > 20, "exploratory should have wide fan-out: {}", total);
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    // FULL PIPELINE: survive → decompose → route → hypothesize → test
+    // ═══��═════════════════════════════════���═══════════════════════════════
+
+    #[test]
+    fn test_pearl_decompose_survivors() {
+        let survivors = vec![
+            ("Palantir".into(), "developed".into(), "Gotham".into(), 0.9, 0.7, 0usize),
+        ];
+        let projections = decompose_survivors(&survivors, 0.5);
+        assert_eq!(projections.len(), 8); // 8 Pearl masks per survivor
+
+        // Check routing: S mask feeds Abduction
+        let s_proj = projections.iter().find(|p| p.mask == CausalMask::S).unwrap();
+        assert!(s_proj.feeds(InferenceOp::Abduction));
+        assert!(!s_proj.feeds(InferenceOp::Counterfactual));
+
+        // SPO mask feeds Counterfactual
+        let spo_proj = projections.iter().find(|p| p.mask == CausalMask::SPO).unwrap();
+        assert!(spo_proj.feeds(InferenceOp::Counterfactual));
+        assert!(spo_proj.feeds(InferenceOp::Synthesis));
+    }
+
+    #[test]
+    fn test_survivor_query_generation() {
+        let proj = SurvivorProjection {
+            subject: "CIA".into(), predicate: "funded".into(), object: "Palantir".into(),
+            mask: CausalMask::SPO, truth_freq: 0.8, truth_conf: 0.6, source_node: 0,
+        };
+        let q = proj.query();
+        assert!(q.contains("CIA"), "SPO counterfactual query: {}", q);
+        assert!(q.contains("funded"));
+        assert!(q.contains("Palantir"));
+    }
+
+    #[test]
+    fn test_projections_route_to_ops() {
+        let survivors = vec![
+            ("NSA".into(), "adopted".into(), "Gotham".into(), 0.8, 0.6, 0usize),
+        ];
+        let projections = decompose_survivors(&survivors, 0.5);
+
+        // Abduction should get S and O projections
+        let abduction_inputs = projections_for_op(&projections, InferenceOp::Abduction);
+        assert!(abduction_inputs.len() >= 2, "abduction needs S+O: got {}", abduction_inputs.len());
+
+        // Deduction should get P projection
+        let deduction_inputs = projections_for_op(&projections, InferenceOp::Deduction);
+        assert!(!deduction_inputs.is_empty(), "deduction needs P projection");
+
+        // Counterfactual gets SPO
+        let cf_inputs = projections_for_op(&projections, InferenceOp::Counterfactual);
+        assert!(!cf_inputs.is_empty(), "counterfactual needs SPO");
+    }
+
+    #[test]
+    fn test_form_hypotheses_from_projections() {
+        let survivors = vec![
+            ("Palantir".into(), "developed".into(), "Gotham".into(), 0.9, 0.7, 0usize),
+        ];
+        let projections = decompose_survivors(&survivors, 0.5);
+        let hypotheses = form_hypotheses(&projections, 5);
+
+        // Should prioritize higher Pearl levels
+        assert!(hypotheses[0].pearl_level >= hypotheses.last().unwrap().pearl_level,
+            "should sort by Pearl level descending");
+        // SPO (level 3) should come first
+        assert_eq!(hypotheses[0].pearl_level, 3);
+    }
+
+    #[test]
+    fn test_hypothesis_evidence_accumulation() {
+        let proj = SurvivorProjection {
+            subject: "Palantir".into(), predicate: "developed".into(), object: "Gotham".into(),
+            mask: CausalMask::SO, truth_freq: 0.5, truth_conf: 0.3, source_node: 0,
+        };
+        let mut h = Hypothesis::from_projection(&proj);
+        assert_eq!(h.status, HypothesisStatus::Pending);
+
+        // Jina cross-model says: high relevance, supports
+        h.add_evidence(0.9, true); // Jina cosine = 0.9, positive
+        h.add_evidence(0.85, true);
+        h.add_evidence(0.8, true);
+        // With strong positive evidence, should be testing or already confirmed
+        assert!(h.status == HypothesisStatus::Testing || h.status == HypothesisStatus::Confirmed,
+            "should be testing or confirmed: {:?}", h.status);
+
+        // More evidence
+        h.add_evidence(0.9, true);
+        h.add_evidence(0.88, true);
+        // Should be confirmed now (high freq, high conf)
+        assert_eq!(h.status, HypothesisStatus::Confirmed, "should confirm after strong evidence");
+        assert!(h.posterior.frequency > 0.6, "freq should be high: {}", h.posterior.frequency);
+        assert!(h.posterior.confidence > 0.5, "conf should be rising: {}", h.posterior.confidence);
+    }
+
+    #[test]
+    fn test_hypothesis_denial() {
+        let proj = SurvivorProjection {
+            subject: "X".into(), predicate: "causes".into(), object: "Y".into(),
+            mask: CausalMask::PO, truth_freq: 0.5, truth_conf: 0.2, source_node: 0,
+        };
+        let mut h = Hypothesis::from_projection(&proj);
+
+        // Jina says: evidence contradicts
+        for _ in 0..8 {
+            h.add_evidence(0.8, false);
+        }
+        assert!(h.posterior.frequency < 0.4,
+            "freq should be low after denial: {}", h.posterior.frequency);
+    }
+
+    #[test]
+    fn test_full_pipeline_survive_decompose_hypothesize() {
+        // Simulate: S0 produces survivors → decompose → form hypotheses → test
+
+        // S0 output: 3 surviving triplets
+        let survivors = vec![
+            ("Palantir".into(), "developed".into(), "Gotham".into(), 0.9, 0.7, 0),
+            ("CIA".into(), "funded".into(), "Palantir".into(), 0.8, 0.6, 1),
+            ("Thiel".into(), "owns".into(), "Palantir".into(), 0.7, 0.5, 1),
+        ];
+
+        // Decompose: 3 survivors × 8 masks = 24 projections
+        let projections = decompose_survivors(&survivors, 0.4);
+        assert_eq!(projections.len(), 24);
+
+        // Route to ops
+        let for_abduction = projections_for_op(&projections, InferenceOp::Abduction);
+        let for_counterfactual = projections_for_op(&projections, InferenceOp::Counterfactual);
+        let for_deduction = projections_for_op(&projections, InferenceOp::Deduction);
+
+        eprintln!("Projections: {} total", projections.len());
+        eprintln!("  → Abduction gets {} inputs", for_abduction.len());
+        eprintln!("  → Counterfactual gets {} inputs", for_counterfactual.len());
+        eprintln!("  → Deduction gets {} inputs", for_deduction.len());
+
+        // Form hypotheses (top 10 by Pearl level)
+        let hypotheses = form_hypotheses(&projections, 10);
+        eprintln!("Hypotheses formed: {}", hypotheses.len());
+        for h in &hypotheses {
+            eprintln!("  [L{}] {}", h.pearl_level, h.claim);
+        }
+
+        assert!(!hypotheses.is_empty());
+        // All should have test queries
+        for h in &hypotheses {
+            let q = h.test_query();
+            assert!(!q.is_empty(), "hypothesis should have test query");
+        }
+
+        // Simulate Jina cross-model testing
+        let mut tested = hypotheses;
+        for h in &mut tested {
+            // Simulate: Jina returns relevance based on Pearl level
+            let mock_relevance = match h.pearl_level {
+                3 => 0.6, // counterfactuals harder to verify
+                2 => 0.75, // causal claims moderate
+                _ => 0.85, // associative claims easy
+            };
+            h.add_evidence(mock_relevance, true);
+            h.add_evidence(mock_relevance * 0.9, true);
+        }
+
+        let confirmed = tested.iter().filter(|h| h.posterior.frequency > 0.6).count();
+        eprintln!("After Jina testing: {}/{} have freq > 0.6", confirmed, tested.len());
+        assert!(confirmed > 0, "at least one hypothesis should have evidence");
+    }
+
+    #[test]
+    fn test_conf_gate_filters_weak() {
+        let survivors = vec![
+            ("strong".into(), "rel".into(), "entity".into(), 0.9, 0.8, 0),
+            ("weak".into(), "rel".into(), "entity".into(), 0.3, 0.1, 1), // below threshold
+        ];
+        let projections = decompose_survivors(&survivors, 0.5);
+        // Only the strong triplet survives
+        assert_eq!(projections.len(), 8); // 1 survivor × 8 masks
+        assert!(projections.iter().all(|p| p.subject == "strong"));
     }
 }
