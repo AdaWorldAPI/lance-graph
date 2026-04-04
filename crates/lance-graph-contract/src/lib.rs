@@ -41,3 +41,4 @@ pub mod nars;
 pub mod sensorium;
 pub mod world_model;
 pub mod a2a_blackboard;
+pub mod high_heel;
