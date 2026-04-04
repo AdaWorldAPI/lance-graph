@@ -229,6 +229,9 @@ pub struct DominoCascade<'a> {
     pub max_stages: usize,
     /// IDF weights per centroid (1/ln(count+1)).
     idf: Vec<f32>,
+    /// Ghost bias: pre-weights from past thoughts (Friston prediction).
+    /// If set, atoms with ghost bias get boosted in the initial query.
+    ghost_bias: Option<Vec<f32>>,
 }
 
 impl<'a> DominoCascade<'a> {
@@ -248,7 +251,15 @@ impl<'a> DominoCascade<'a> {
             contra_freq: 0.3,
             max_stages: 5,
             idf,
+            ghost_bias: None,
         }
+    }
+
+    /// Set ghost bias from a GhostField prediction.
+    /// Atoms with ghost presence get pre-weighted in the cascade.
+    pub fn with_ghost_bias(mut self, bias: Vec<f32>) -> Self {
+        self.ghost_bias = Some(bias);
+        self
     }
 
     /// Run the full domino cascade from initial token centroids.
@@ -268,6 +279,26 @@ impl<'a> DominoCascade<'a> {
             *merged.entry(*idx).or_insert(0.0f32) += w;
         }
         query = merged.into_iter().collect();
+
+        // Apply ghost bias: pre-weight atoms that past thoughts predicted.
+        // This is Friston's free energy minimization — familiar patterns converge faster.
+        if let Some(ref bias) = self.ghost_bias {
+            for (idx, weight) in &mut query {
+                if (*idx as usize) < bias.len() {
+                    let ghost_boost = bias[*idx as usize];
+                    if ghost_boost > 0.01 {
+                        *weight *= 1.0 + ghost_boost; // boost, don't replace
+                    }
+                }
+            }
+            // Also inject ghost-predicted atoms that aren't in the query
+            for (atom, &ghost_w) in bias.iter().enumerate() {
+                if ghost_w > 0.1 && !query.iter().any(|(idx, _)| *idx == atom as u16) {
+                    query.push((atom as u16, ghost_w * 0.5)); // weaker than direct input
+                }
+            }
+        }
+
         query.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
 
         let mut stages: Vec<StageResult> = Vec::new();

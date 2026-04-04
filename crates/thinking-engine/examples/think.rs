@@ -1,305 +1,210 @@
-//! THINK: text → structured thought with verbose per-lens debug.
+//! THINK: full Friston loop — ghost prediction → cascade → free energy → learn
 //!
-//! Shows each lens's individual answer, the ripple convergence,
-//! and the joined multi-lens awareness verdict.
+//! Processes multiple sentences sequentially. Each thought's ghosts
+//! bias the NEXT thought's cascade. Free energy measures surprise.
+//! The system learns across sentences within a session.
 //!
 //! cargo run --release --manifest-path crates/thinking-engine/Cargo.toml \
-//!   --example think -- "Your text here"
+//!   --example think -- "sentence 1" "sentence 2" "sentence 3"
 
 use thinking_engine::engine::ThinkingEngine;
 use thinking_engine::domino::DominoCascade;
-use thinking_engine::qualia::{Qualia17D, DIMS_17D};
+use thinking_engine::qualia::Qualia17D;
+use thinking_engine::superposition;
+use thinking_engine::ghosts::{GhostField, GhostType};
+use thinking_engine::cognitive_trace::CognitiveTrace;
+use thinking_engine::centroid_labels::JINA_CENTROID_LABELS;
 use thinking_engine::jina_lens;
 use thinking_engine::bge_m3_lens;
-use thinking_engine::centroid_labels::JINA_CENTROID_LABELS;
 
-fn label(centroid: u16) -> &'static str {
-    if (centroid as usize) < JINA_CENTROID_LABELS.len() {
-        JINA_CENTROID_LABELS[centroid as usize]
-    } else { "?" }
+fn label(c: u16) -> &'static str {
+    JINA_CENTROID_LABELS.get(c as usize).copied().unwrap_or("?")
 }
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let input = if args.len() > 1 { args[1..].join(" ") }
-    else { "What is the meaning of love?".to_string() };
+    let sentences: Vec<String> = if args.len() > 1 {
+        args[1..].iter().map(|s| s.clone()).collect()
+    } else {
+        vec![
+            "The cat sat on the mat.".into(),
+            "I feel deeply sad about losing someone.".into(),
+            "The wound is where the light enters you.".into(),
+            "Set your life on fire. Seek those who fan your flames.".into(),
+            "What is the meaning of love?".into(),
+        ]
+    };
 
     let tokenizer = match tokenizers::Tokenizer::from_file("/tmp/bge-m3-tokenizer.json") {
         Ok(t) => t,
         Err(_) => { eprintln!("Need /tmp/bge-m3-tokenizer.json"); return; }
     };
 
-    let encoding = tokenizer.encode(input.as_str(), true).expect("tokenize");
-    let token_ids = encoding.get_ids();
-    let tokens: Vec<String> = encoding.get_tokens().iter().map(|s| s.to_string()).collect();
-
     println!("╔══════════════════════════════════════════════════════════════╗");
-    println!("║  \"{}\"", &input[..input.len().min(55)]);
-    println!("╚══════════════════════════════════════════════════════════════╝");
-    println!("  tokens: {}\n", tokens.iter().take(12).map(|s| s.as_str()).collect::<Vec<_>>().join(" "));
+    println!("║  FRISTON LOOP: Ghost Prediction → Cascade → Free Energy    ║");
+    println!("╚══════════════════════════════════════════════════════════════╝\n");
 
-    // ═══ PER-LENS INDIVIDUAL ANSWERS ═══
-    println!("─── LENS 1: Jina v3 (semantic similarity) ───\n");
-    let jina_result = run_lens("Jina", token_ids, |ids| jina_lens::jina_lookup_many(ids), &jina_lens::jina_engine());
+    // Ghost field persists across all sentences
+    let mut ghost_field = GhostField::new();
+    let kg_path = std::path::Path::new("/tmp/codebooks/knowledge_graph.tsv");
 
-    println!("─── LENS 2: BGE-M3 (multilingual retrieval) ───\n");
-    let bge_result = run_lens("BGE", token_ids, |ids| bge_m3_lens::bge_m3_lookup_many(ids), &bge_m3_lens::bge_m3_engine());
+    for (si, text) in sentences.iter().enumerate() {
+        println!("━━━ Thought {} of {} ━━━", si + 1, sentences.len());
+        println!("  \"{}\"", text);
 
-    // ═══ RIPPLE CONVERGENCE ═══
-    println!("─── RIPPLE CONVERGENCE ───\n");
+        let encoding = tokenizer.encode(text.as_str(), true).expect("tokenize");
+        let token_ids = encoding.get_ids();
+        let tokens: Vec<String> = encoding.get_tokens().iter().map(|s| s.to_string()).collect();
 
-    // Show how each lens's cascade ripples through the table
-    println!("  Jina ripple:  {} → {} → {} → {} → {}",
-        label(jina_result.chain[0]), label(jina_result.chain.get(1).copied().unwrap_or(0)),
-        label(jina_result.chain.get(2).copied().unwrap_or(0)),
-        label(jina_result.chain.get(3).copied().unwrap_or(0)),
-        label(jina_result.dominant));
-    println!("  BGE  ripple:  {} → {} → {} → {} → {}",
-        label(bge_result.chain[0]), label(bge_result.chain.get(1).copied().unwrap_or(0)),
-        label(bge_result.chain.get(2).copied().unwrap_or(0)),
-        label(bge_result.chain.get(3).copied().unwrap_or(0)),
-        label(bge_result.dominant));
-
-    // Find where ripples CONVERGE (shared atoms in chains)
-    let jina_set: std::collections::HashSet<u16> = jina_result.chain.iter().cloned().collect();
-    let bge_set: std::collections::HashSet<u16> = bge_result.chain.iter().cloned().collect();
-    let convergent: Vec<u16> = jina_set.intersection(&bge_set).cloned().collect();
-    if !convergent.is_empty() {
-        println!("\n  ✓ Ripples CONVERGE at: {}",
-            convergent.iter().map(|&c| label(c)).collect::<Vec<_>>().join(", "));
-    } else {
-        println!("\n  ✗ Ripples DIVERGE — different semantic territory");
-    }
-
-    // ═══ JOINED AWARENESS ═══
-    println!("\n─── JOINED AWARENESS ───\n");
-
-    let dom_agree = jina_result.dominant == bge_result.dominant;
-    let dis_avg = (jina_result.dissonance + bge_result.dissonance) / 2.0;
-    let confidence = if dom_agree { 0.85 } else if !convergent.is_empty() { 0.6 } else { 0.35 };
-
-    println!("  Consensus:    {}", if dom_agree { "STRONG — both lenses agree" }
-        else if !convergent.is_empty() { "PARTIAL — ripples share territory" }
-        else { "WEAK — lenses see different things" });
-    println!("  Confidence:   {:.0}%", confidence * 100.0);
-    println!("  Dissonance:   {:.2}{}", dis_avg,
-        if dis_avg > 0.3 { " (turbulent)" } else if dis_avg > 0.1 { " (some tension)" } else { " (calm)" });
-    println!("  Feel:         (computed after superposition)");
-
-    // Show which tokens drive the strongest activations
-    println!("\n  Token activations:");
-    let jina_cents = jina_lens::jina_lookup_many(token_ids);
-    for (i, tok) in tokens.iter().enumerate().take(10) {
-        if tok == "<s>" || tok == "</s>" { continue; }
-        let c = jina_cents[i];
-        let tok_clean = tok.replace('▁', "");
-        println!("    {:>12} → c{:>3} [{}]", tok_clean, c, label(c));
-    }
-
-    // ═══ VERBOSE: per-stage ripple detail ═══
-    println!("\n─── RIPPLE DETAIL (Jina) ───\n");
-    for (i, stage) in jina_result.stages.iter().enumerate() {
-        let focus_labels: Vec<String> = stage.focus.iter().take(3)
-            .map(|a| format!("{}({})", label(a.index), a.index))
-            .collect();
-        let m = &stage.markers;
-        let mut flags = String::new();
-        if m.staunen > 0.05 { flags += &format!(" ✨{:.1}", m.staunen); }
-        if m.wisdom > 0.05 { flags += &format!(" 🦉{:.1}", m.wisdom); }
-
-        println!("  stage {}: [{}]  truth({:.1},{:.1}){}",
-            i, focus_labels.join(", "), m.truth_freq, m.truth_conf, flags);
-    }
-
-    // ═══ SUPERPOSITION GATE ═══
-    println!("─── SUPERPOSITION (multi-lens interference) ───\n");
-
-    let (field, style, gated) = thinking_engine::superposition::superposition_cascade(
-        &[&jina_result.stages, &bge_result.stages],
-        256,
-        dis_avg,
-        &thinking_engine::superposition::StyleThresholds::default(),
-    );
-
-    println!("  Resonant atoms: {} / 256 ({:.0}%)",
-        field.n_resonant, field.n_resonant as f64 / 256.0 * 100.0);
-    println!("  Total energy:   {:.1}", field.total_energy);
-    println!("  Thinking style: {}", style);
-
-    // Show top resonant atoms (constructive interference)
-    println!("  Top resonance peaks:");
-    for (atom, amp) in field.resonant_atoms.iter().take(5) {
-        println!("    atom {:>3} [{}] amplitude={:.2}",
-            atom, label(*atom), amp);
-    }
-
-    // Gated survivors (what passes the threshold)
-    if !gated.is_empty() {
-        println!("  Gated survivors ({}):", gated.len());
-        for &a in gated.iter().take(8) {
-            println!("    → {} (c{})", label(a), a);
-        }
-    } else {
-        println!("  No atoms survive the gate — fully destructive interference.");
-    }
-
-    // SPO resonance: each gated atom pair = a potential Subject-Predicate-Object triple
-    if gated.len() >= 2 {
-        println!("\n  SPO resonance (gated atom pairs → potential triples):");
-        for i in 0..gated.len().min(3) {
-            for j in (i+1)..gated.len().min(4) {
-                let a = gated[i];
-                let b = gated[j];
-                let dist_jina = thinking_engine::jina_lens::jina_distance(a, b);
-                let dist_bge = thinking_engine::bge_m3_lens::bge_m3_distance(a, b);
-                let agreement = 1.0 - (dist_jina as f32 - dist_bge as f32).abs() / 255.0;
-                println!("    ({}) —[{:.0}%]→ ({})  jina:{} bge:{}",
-                    label(a), agreement * 100.0, label(b), dist_jina, dist_bge);
+        // ── Ghost prediction (before thinking) ──
+        let ghost_pred = ghost_field.prediction(256);
+        let ghost_count = ghost_field.active_count();
+        if ghost_count > 0 {
+            let top_ghosts = ghost_field.summary();
+            println!("\n  👻 Ghost field: {} active ghosts (prediction from past thoughts)", ghost_count);
+            for (atom, gtype, intensity) in top_ghosts.iter().take(3) {
+                println!("    atom {:>3} [{}] {} intensity={:.2}",
+                    atom, label(*atom), gtype, intensity);
             }
         }
-    }
 
-    // ═══ QUALIA FROM SUPERPOSITION ═══
-    let qualia = Qualia17D::from_superposition(&field, &style, dis_avg, confidence);
-    let (family, _) = qualia.nearest_family();
-    let (primary, overlay, blend_name, (p_int, o_int)) = qualia.emotional_blend();
+        // ── Multi-lens cascade with ghost bias ──
+        let jina_cents = jina_lens::jina_lookup_many(token_ids);
+        let bge_cents = bge_m3_lens::bge_m3_lookup_many(token_ids);
 
-    println!("\n─── EMOTIONAL COLOR (qualia from interference) ───\n");
-    println!("  {}", blend_name);
-    if qualia.is_dissonant() {
-        println!("  ♯ Dissonant — unresolved, like a tritone");
-    }
+        let jina_engine = jina_lens::jina_engine();
+        let bge_engine = bge_m3_lens::bge_m3_engine();
 
-    // ═══ SPO KNOWLEDGE GRAPH ═══
-    let spo_triples = thinking_engine::cognitive_trace::CognitiveTrace::extract_spo(
-        &gated,
-        |a, b| thinking_engine::jina_lens::jina_distance(a, b),
-        |a, b| thinking_engine::bge_m3_lens::bge_m3_distance(a, b),
-        0.6, // 60% agreement threshold
-    );
+        // Jina cascade WITH ghost bias
+        let jina_cascade = DominoCascade::new(&jina_engine, &vec![1u32; 256])
+            .with_ghost_bias(ghost_pred.clone());
+        let (jina_dom, jina_stages, jina_dis) = jina_cascade.think(&jina_cents);
+        let jina_chain: Vec<u16> = jina_stages.iter()
+            .filter_map(|s| s.focus.first().map(|a| a.index)).collect();
 
-    if !spo_triples.is_empty() {
-        println!("\n─── KNOWLEDGE GRAPH (confirmed SPO triples) ───\n");
-        for t in spo_triples.iter().take(8) {
-            println!("  ({}) —[{} f={:.2} c={:.2}]→ ({})",
-                label(t.subject), t.predicate, t.frequency, t.confidence,
-                label(t.object));
+        // BGE cascade WITH ghost bias
+        let bge_cascade = DominoCascade::new(&bge_engine, &vec![1u32; 256])
+            .with_ghost_bias(ghost_pred.clone());
+        let (bge_dom, bge_stages, bge_dis) = bge_cascade.think(&bge_cents);
+        let bge_chain: Vec<u16> = bge_stages.iter()
+            .filter_map(|s| s.focus.first().map(|a| a.index)).collect();
+
+        println!("\n  Jina: {} → {}  BGE: {} → {}",
+            label(jina_chain.first().copied().unwrap_or(0)),
+            label(jina_dom),
+            label(bge_chain.first().copied().unwrap_or(0)),
+            label(bge_dom));
+
+        // ── Superposition ──
+        let dis_avg = (jina_dis.total_dissonance + bge_dis.total_dissonance) / 2.0;
+        let (field, style, gated) = superposition::superposition_cascade(
+            &[&jina_stages, &bge_stages], 256, dis_avg,
+            &superposition::StyleThresholds::default(),
+        );
+        let dom_agree = jina_dom == bge_dom;
+        let confidence = if dom_agree { 0.85 } else if !gated.is_empty() { 0.5 } else { 0.3 };
+
+        // ── Qualia from superposition ──
+        let qualia = Qualia17D::from_superposition(&field, &style, dis_avg, confidence);
+        let (_, _, blend_name, _) = qualia.emotional_blend();
+
+        // ── Free energy: was ghost prediction accurate? ──
+        let actual_energy: Vec<f32> = field.amplitudes.clone();
+        let free_energy = ghost_field.free_energy(&actual_energy);
+
+        // ── Markers ──
+        let staunen_max = jina_stages.iter().chain(bge_stages.iter())
+            .map(|s| s.markers.staunen).fold(0.0f32, f32::max);
+        let wisdom_max = jina_stages.iter().chain(bge_stages.iter())
+            .map(|s| s.markers.wisdom).fold(0.0f32, f32::max);
+
+        println!("  Style: {}  Blend: {}", style, blend_name);
+        println!("  Resonant: {}/256  Gated: {}  Confidence: {:.0}%",
+            field.n_resonant, gated.len(), confidence * 100.0);
+        if ghost_count > 0 {
+            println!("  Free energy: {:.4} {}",
+                free_energy,
+                if free_energy < 0.01 { "(LOW — ghosts predicted well → autocomplete)" }
+                else if free_energy < 0.05 { "(moderate — partial match)" }
+                else { "(HIGH — surprise! ghosts wrong → learning)" });
         }
-        println!("  {} triples extracted (agreement > 60%)", spo_triples.len());
 
-        // Append to knowledge graph file
-        let kg_path = std::path::Path::new("/tmp/codebooks/knowledge_graph.tsv");
-        let trace = thinking_engine::cognitive_trace::CognitiveTrace {
-            input: input.clone(),
+        // ── Markers ──
+        let mut markers = Vec::new();
+        if staunen_max > 0.3 { markers.push(format!("✨ wonder {:.1}", staunen_max)); }
+        if wisdom_max > 0.1 { markers.push(format!("🦉 wisdom {:.1}", wisdom_max)); }
+        if dis_avg > 0.2 { markers.push(format!("⚡ tension {:.2}", dis_avg)); }
+        if dis_avg < 0.05 { markers.push("🕊 calm".into()); }
+        if !markers.is_empty() {
+            println!("  {}", markers.join("  "));
+        }
+
+        // ── SPO triples ──
+        let spo = CognitiveTrace::extract_spo(
+            &gated,
+            |a, b| jina_lens::jina_distance(a, b),
+            |a, b| bge_m3_lens::bge_m3_distance(a, b),
+            0.6,
+        );
+        if !spo.is_empty() {
+            println!("  SPO: {} triples (top: ({}) —[{}]→ ({}) c={:.2})",
+                spo.len(),
+                label(spo[0].subject), spo[0].predicate, label(spo[0].object),
+                spo[0].confidence);
+        }
+
+        // ── Imprint ghosts for NEXT thought ──
+        ghost_field.imprint(
+            &field.resonant_atoms,
+            &style,
+            staunen_max,
+            wisdom_max,
+            dis_avg,
+            text,
+        );
+
+        // ── Knowledge graph append ──
+        let trace = CognitiveTrace {
+            input: text.clone(),
             token_ids: token_ids.to_vec(),
             tokens: tokens.clone(),
             lens_results: vec![],
-            superposition: field.clone(),
+            superposition: field,
             style: style.clone(),
-            gated_atoms: gated.clone(),
+            gated_atoms: gated,
             qualia: qualia.clone(),
             blend: blend_name.clone(),
-            primary_family: primary.to_string(),
-            overlay_family: overlay.to_string(),
-            spo_triples: spo_triples.clone(),
+            primary_family: String::new(),
+            overlay_family: String::new(),
+            spo_triples: spo,
             confidence,
             dissonance: dis_avg,
-            staunen_max: jina_result.max_staunen.max(bge_result.max_staunen),
-            wisdom_max: jina_result.max_wisdom.max(bge_result.max_wisdom),
+            staunen_max,
+            wisdom_max,
         };
-        if let Ok(()) = trace.append_to_knowledge_graph(kg_path) {
-            println!("  → Appended to {}", kg_path.display());
-        }
+        trace.append_to_knowledge_graph(kg_path).ok();
+
+        println!();
     }
 
-    // ═══ COGNITIVE TRACE (full provenance) ═══
-    println!("\n─── COGNITIVE TRACE ───\n");
-    println!("  input → {} tokens → {} centroids (Jina) / {} centroids (BGE)",
-        token_ids.len(), jina_result.chain.len() + 1, bge_result.chain.len() + 1);
-    println!("  → {} resonant atoms (superposition) → {} gated (threshold)",
-        field.n_resonant, gated.len());
-    println!("  → {} SPO triples (confirmed) → {} style",
-        spo_triples.len(), style);
-    println!("  → {} (qualia blend)", blend_name);
-
-    // ═══ FINAL ANSWER ═══
-    println!("\n╔══════════════════════════════════════════════════════════════╗");
-    println!("║  ANSWER                                                      ║");
+    // ── Session summary ──
+    println!("╔══════════════════════════════════════════════════════════════╗");
+    println!("║  SESSION COMPLETE                                           ║");
     println!("╚══════════════════════════════════════════════════════════════╝\n");
 
-    // The "answer" = the convergent meaning from both lenses
-    let jina_meaning = label(jina_result.dominant);
-    let bge_meaning = label(bge_result.dominant);
+    println!("  {} thoughts processed", sentences.len());
+    println!("  {} ghosts accumulated", ghost_field.active_count());
+    ghost_field.prune();
+    println!("  {} ghosts after prune", ghost_field.active_count());
 
-    if dom_agree {
-        println!("  This thought converges to: {}", jina_meaning);
-        println!("  Both lenses see the same territory. Confidence {:.0}%.", confidence * 100.0);
-    } else if !convergent.is_empty() {
-        let shared_meaning: Vec<&str> = convergent.iter().map(|&c| label(c)).collect();
-        println!("  Jina sees: {}", jina_meaning);
-        println!("  BGE sees:  {}", bge_meaning);
-        println!("  They meet at: {}", shared_meaning.join(", "));
-        println!("  The thought HOLDS BOTH perspectives. Confidence {:.0}%.", confidence * 100.0);
-    } else {
-        println!("  Jina interpretation: {}", jina_meaning);
-        println!("  BGE interpretation:  {}", bge_meaning);
-        println!("  These are DIFFERENT readings of the same text.");
-        println!("  The ambiguity is the answer. Confidence {:.0}%.", confidence * 100.0);
-    }
+    let kg_lines = std::fs::read_to_string(kg_path)
+        .map(|s| s.lines().count()).unwrap_or(0);
+    println!("  {} SPO triples in knowledge graph", kg_lines);
 
-    if dis_avg > 0.2 {
-        println!("\n  ⚡ Unresolved tension — this thought hasn't settled.");
+    println!("\n  Ghost field summary:");
+    for (atom, gtype, intensity) in ghost_field.summary().iter().take(10) {
+        println!("    atom {:>3} [{}] {} = {:.3}",
+            atom, label(*atom), gtype, intensity);
     }
-    if jina_result.max_staunen > 0.5 {
-        println!("  ✨ High wonder — novel conceptual territory.");
-    }
-    if jina_result.max_wisdom > 0.3 {
-        println!("  🦉 Wisdom detected — multiple paths confirm this.");
-    }
-
-    println!("\n  {} {:.0}% + {} {:.0}%", primary, p_int * 100.0, overlay, o_int * 100.0);
-    println!("  = {}", blend_name.split(" = ").last().unwrap_or("uncharted"));
-    println!("  Clarity: {:.2}  Tension: {:.2}  Warmth: {:.2}  Depth: {:.2}",
-        qualia.dims[4], qualia.dims[2], qualia.dims[3], qualia.dims[6]);
     println!();
-}
-
-struct LensResult {
-    dominant: u16,
-    chain: Vec<u16>,
-    dissonance: f32,
-    max_staunen: f32,
-    max_wisdom: f32,
-    qualia: Qualia17D,
-    stages: Vec<thinking_engine::domino::StageResult>,
-}
-
-fn run_lens(
-    name: &str,
-    token_ids: &[u32],
-    lookup: impl Fn(&[u32]) -> Vec<u16>,
-    engine: &ThinkingEngine,
-) -> LensResult {
-    let centroids = lookup(token_ids);
-    let unique: std::collections::HashSet<u16> = centroids.iter().cloned().collect();
-
-    let counts = vec![1u32; engine.size];
-    let cascade = DominoCascade::new(engine, &counts);
-    let (dom, stages, dis) = cascade.think(&centroids);
-    let chain: Vec<u16> = stages.iter()
-        .filter_map(|s| s.focus.first().map(|a| a.index)).collect();
-
-    let max_staunen = stages.iter().map(|s| s.markers.staunen).fold(0.0f32, f32::max);
-    let max_wisdom = stages.iter().map(|s| s.markers.wisdom).fold(0.0f32, f32::max);
-
-    let qualia = Qualia17D::from_engine(engine);
-
-    println!("  {} unique centroids from {} tokens", unique.len(), token_ids.len());
-    println!("  Dominant: c{} [{}]", dom, label(dom));
-    println!("  Chain: {}", chain.iter().map(|&c| format!("{}", label(c))).collect::<Vec<_>>().join(" → "));
-    println!("  Dissonance: {:.2}  Staunen: {:.2}  Wisdom: {:.2}\n",
-        dis.total_dissonance, max_staunen, max_wisdom);
-
-    LensResult { dominant: dom, chain, dissonance: dis.total_dissonance,
-        max_staunen, max_wisdom, qualia, stages }
 }
