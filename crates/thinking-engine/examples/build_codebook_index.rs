@@ -82,8 +82,24 @@ fn main() {
     assert_eq!(embd_rows, VOCAB_SIZE, "Expected {} tokens", VOCAB_SIZE);
     assert_eq!(embd_cols, HIDDEN_DIM, "Expected {} hidden_dim", HIDDEN_DIM);
 
-    // If transposed, we read token i's embedding as strided access
+    // If transposed [hidden_dim, vocab_size], transpose in-memory to [vocab_size, hidden_dim]
+    // This is O(N) once and makes the parallel search cache-friendly
     let is_transposed = embd.dims[0] as usize == HIDDEN_DIM;
+    let embd_data = if is_transposed {
+        println!("  Transposing embedding in-memory ({} × {} → {} × {}) ...",
+            HIDDEN_DIM, VOCAB_SIZE, VOCAB_SIZE, HIDDEN_DIM);
+        let start = std::time::Instant::now();
+        let mut transposed = vec![0.0f32; VOCAB_SIZE * HIDDEN_DIM];
+        for d in 0..HIDDEN_DIM {
+            for t in 0..VOCAB_SIZE {
+                transposed[t * HIDDEN_DIM + d] = embd_data[d * VOCAB_SIZE + t];
+            }
+        }
+        println!("  Transposed in {:.1}s", start.elapsed().as_secs_f64());
+        transposed
+    } else {
+        embd_data
+    };
 
     // ── Step 4: Pre-normalize centroid rows (attn_q) ──────────────────────
     println!("\n[4] Pre-normalizing {} centroid rows ...", TABLE_ROWS);
@@ -107,17 +123,8 @@ fn main() {
     let indices: Vec<u16> = (0..embd_rows)
         .into_par_iter()
         .map(|tok_id| {
-            // Handle both layouts: [vocab, hidden] contiguous vs [hidden, vocab] strided
-            let tok_row_owned: Vec<f32>;
-            let tok_row: &[f32] = if !is_transposed {
-                &embd_data[tok_id * embd_cols..(tok_id + 1) * embd_cols]
-            } else {
-                // Transposed: [hidden_dim, vocab_size] — gather column tok_id
-                tok_row_owned = (0..embd_cols)
-                    .map(|dim| embd_data[dim * embd_rows + tok_id])
-                    .collect();
-                &tok_row_owned
-            };
+            // After transpose, data is always [vocab_size, hidden_dim] contiguous
+            let tok_row = &embd_data[tok_id * embd_cols..(tok_id + 1) * embd_cols];
 
             // Pre-normalize token embedding
             let norm = tok_row.iter().map(|v| (*v as f64) * (*v as f64)).sum::<f64>().sqrt();
