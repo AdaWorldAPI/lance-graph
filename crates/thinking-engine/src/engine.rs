@@ -11,10 +11,13 @@
 //! Tier   Instruction      Width   Precision   Throughput      Status
 //! ────   ───────────      ─────   ─────────   ──────────      ──────
 //!  4     AMX TDPBUSD      256     u8×u8→i32   256 MACs/instr  ndarray::simd_amx, needs tiling
-//!  3     AVX512-VNNI      64      u8×i8→i32   64 MACs/instr   ndarray::simd_amx::vnni_dot
-//!  2     F32x16 FMA       16      f32×f32→f32 16 MACs/instr   ← CURRENT (4× per iter = 64)
-//!  1     F64x8 FMA        8       f64×f64→f64 8 MACs/instr    was previous, overkill for u8
-//!  0     Scalar           1       f32         1 MAC/instr      fallback
+//!  3     AVX512-VNNI      64      u8×i8→i32   64 MACs/instr   Cascade Lake+, Zen 4+
+//!  2     VNNI2 (xint8)    32      u8×i8→i32   32 MACs/instr   Arrow Lake, Lunar Lake (NUC 14)
+//!  1     F32x16 FMA       16      f32×f32→f32 16 MACs/instr   ← FLOOR (universal, every x86-64)
+//!
+//! No scalar. F32x16 IS the minimum. avx512vnni and avxvnniint8 are
+//! mutually exclusive by hardware generation — never coexist.
+//! Dispatch: avx512vnni → avxvnniint8 → F32x16. Three tiers, no fallback.
 //! ```
 //!
 //! # MatVec Strategy Options
@@ -390,9 +393,8 @@ impl ThinkingEngine {
 
     /// Auto-dispatching cycle: tries VNNI path first, falls back to F32x16.
     ///
-    /// VNNI is available on: Cascade Lake+ (avx512vnni), Arrow Lake (avxvnniint8),
-    /// and any CPU where `matvec_dispatch` picks a non-scalar path.
-    /// Falls back to the existing F32x16 sweep when no integer SIMD is available.
+    /// Three-tier dispatch: avx512vnni → avxvnniint8 → F32x16.
+    /// No scalar. F32x16 is the floor, not a fallback — it's 16 MACs/instr.
     pub fn cycle_auto(&mut self) {
         #[cfg(target_arch = "x86_64")]
         {
