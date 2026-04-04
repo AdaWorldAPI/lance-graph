@@ -42,6 +42,31 @@ pub struct CascadeAtom {
     pub stage: u8,
 }
 
+/// Cognitive markers detected during cascade traversal.
+#[derive(Clone, Debug, Default)]
+pub struct CognitiveMarkers {
+    /// Staunen (wonder): the cascade reached territory NEVER visited before
+    /// AND the connection is strong. Surprise × relevance.
+    /// "I didn't expect to find this here, but it belongs."
+    pub staunen: f32,
+
+    /// Wisdom: a connection confirmed across multiple independent paths.
+    /// When atom X appears in focus via TWO different query chains,
+    /// it's not an accident — it's structural truth.
+    /// "Multiple roads lead here. This is real."
+    pub wisdom: f32,
+
+    /// Epiphany: a contradiction that RESOLVES in the next stage.
+    /// Stage N has high dissonance, stage N+1 drops to low.
+    /// "The tension broke and now I see it clearly."
+    pub epiphany: f32,
+
+    /// Truth: NARS frequency × confidence accumulated across stages.
+    /// High truth = the cascade found something both strong and reliable.
+    pub truth_freq: f32,
+    pub truth_conf: f32,
+}
+
 /// Result of one cascade stage.
 #[derive(Clone, Debug)]
 pub struct StageResult {
@@ -53,6 +78,8 @@ pub struct StageResult {
     pub contradictions: Vec<CascadeAtom>,
     /// Stage number.
     pub stage: u8,
+    /// Cognitive markers for this stage.
+    pub markers: CognitiveMarkers,
 }
 
 /// A transition between two cascade stages, classified by Bach counterpoint.
@@ -243,7 +270,7 @@ impl<'a> DominoCascade<'a> {
         query = merged.into_iter().collect();
         query.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
 
-        let mut stages = Vec::new();
+        let mut stages: Vec<StageResult> = Vec::new();
         // Visit counter: anti-confirmation-bias gate.
         // Established insights (frequently visited hubs) get suppressed
         // so the cascade explores past familiar territory into the forest.
@@ -332,11 +359,53 @@ impl<'a> DominoCascade<'a> {
                 .cloned()
                 .collect();
 
+            // ── Compute cognitive markers ──
+
+            // Staunen (wonder): focus atoms never visited before + strong connection
+            let staunen = focus.iter()
+                .filter(|a| visit_count.get(&a.index).copied().unwrap_or(0) == 0)
+                .map(|a| a.frequency * a.confidence)
+                .sum::<f32>()
+                / self.top_k as f32;
+
+            // Wisdom: atoms that appear via multiple independent query paths
+            // (appeared in focus of previous stage AND current stage from different queries)
+            let wisdom = if stage > 0 {
+                let prev_focus: std::collections::HashSet<u16> = stages[stage - 1].focus.iter()
+                    .map(|a| a.index).collect();
+                let curr_focus: std::collections::HashSet<u16> = focus.iter()
+                    .map(|a| a.index).collect();
+                let convergent = prev_focus.intersection(&curr_focus).count();
+                convergent as f32 / self.top_k.max(1) as f32
+            } else { 0.0 };
+
+            // Epiphany: previous stage had contradiction, this stage resolves
+            let epiphany = if stage > 0 && !stages[stage - 1].contradictions.is_empty() {
+                let prev_contra = stages[stage - 1].contradictions.len() as f32;
+                let curr_contra = contradictions.len() as f32;
+                if curr_contra < prev_contra * 0.5 {
+                    (prev_contra - curr_contra) / prev_contra.max(1.0)
+                } else { 0.0 }
+            } else { 0.0 };
+
+            // Truth: accumulated NARS across focus atoms
+            let truth_freq = focus.iter().map(|a| a.frequency).sum::<f32>() / focus.len().max(1) as f32;
+            let truth_conf = focus.iter().map(|a| a.confidence).sum::<f32>() / focus.len().max(1) as f32;
+
+            let markers = CognitiveMarkers {
+                staunen,
+                wisdom,
+                epiphany,
+                truth_freq,
+                truth_conf,
+            };
+
             let result = StageResult {
                 focus: focus.clone(),
                 promoted: promoted.clone(),
                 contradictions,
                 stage: stage as u8,
+                markers,
             };
             stages.push(result);
 

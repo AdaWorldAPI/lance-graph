@@ -190,8 +190,18 @@ fn main() {
 
         println!("  S{}: \"{}\"", i + 1, &text[..text.len().min(45)]);
         println!("      dominant: atom {}  chain: {:?}", dominant, chain);
-        println!("      dissonance: {:.3}  per_stage: {:?}  resolved: {}  suspension: {}",
-            dissonance.total_dissonance, dissonance.per_stage, dissonance.resolved, dissonance.suspension);
+        println!("      dissonance: {:.3}  resolved: {}  suspension: {}",
+            dissonance.total_dissonance, dissonance.resolved, dissonance.suspension);
+        for (si, stage) in stages.iter().enumerate() {
+            let m = &stage.markers;
+            let mut flags = Vec::new();
+            if m.staunen > 0.01 { flags.push(format!("✨staunen={:.2}", m.staunen)); }
+            if m.wisdom > 0.01 { flags.push(format!("🦉wisdom={:.2}", m.wisdom)); }
+            if m.epiphany > 0.01 { flags.push(format!("💡epiphany={:.2}", m.epiphany)); }
+            let markers_str = if flags.is_empty() { String::new() } else { format!("  {}", flags.join(" ")) };
+            println!("      stage {}: truth({:.2},{:.2}){}",
+                si, m.truth_freq, m.truth_conf, markers_str);
+        }
         for t in &dissonance.transitions {
             let ch_name = match (0..8u8).max_by_key(|&ch| t.edge.get_channel(ch)).unwrap_or(0) {
                 0 => "BECOMES", 1 => "CAUSES", 2 => "SUPPORTS", 3 => "REFINES",
