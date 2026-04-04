@@ -64,7 +64,7 @@ exclude = [
 - `graph/blasgraph/` — GraphBLAS sparse matrix (~5K LOC: 7 semirings, CSR/CSC/COO/HyperCSR, HHTL, cascade)
 - `graph/neighborhood/` — neighborhood search (CLAM, scope, zeckf64)
 - `graph/metadata.rs` — MetadataStore (Arrow RecordBatch CRUD)
-- `graph/falkor_compat.rs` — FalkorDB compatibility (blasgraph backend)
+- `graph/graph_router.rs` — Three-backend graph router (blasgraph/DataFusion/palette)
 - `nsm/` — DeepNSM DataFusion wiring (tokenizer, parser, encoder, similarity, UDF scaffold)
 - `nsm_bridge.rs` — NSM→SPO mapping with NARS truth values + Arrow export (13 tests)
 
@@ -192,7 +192,7 @@ cd crates/lance-graph-python && maturin develop
 ### What's OPEN (Phase 4+)
 - [ ] Wire planner strategies to lance-graph core (actual parser, not regex)
 - [ ] Wire elevation to execution with timing feedback
-- [ ] FalkorDB 3-backend routing (DataFusion + palette + blasgraph)
+- [ ] GraphRouter 3-backend routing (DataFusion + palette + blasgraph)
 - [ ] n8n-rs OrchestrationBridge implementation
 - [ ] End-to-end integration test (query → thinking → plan → execute → result)
 

@@ -218,7 +218,7 @@ fn build_distance_matrix_from_cam(
 /// Build a synthetic distance matrix from rank proximity (fallback).
 fn build_synthetic_matrix(vocab_size: usize) -> WordDistanceMatrix {
     let n = vocab_size.min(4096);
-    let mut mat = WordDistanceMatrix::new(n);
+    let mat = WordDistanceMatrix::new(n);
 
     let mut state = 0xCAFE_BABE_DEAD_BEEFu64;
     for i in 0..n {

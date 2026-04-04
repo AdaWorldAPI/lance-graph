@@ -3,7 +3,7 @@
 
 //! # Typed Graph: one matrix per relationship type, one mask per label.
 //!
-//! Maps to FalkorDB schema AND to container W16-31 inline edges.
+//! Maps to property graph schema AND to container W16-31 inline edges.
 //! Each relationship type (e.g. "KNOWS") gets its own adjacency matrix.
 //! Each node label (e.g. "Person") gets a boolean mask for filtering.
 
@@ -144,7 +144,7 @@ impl TypedGraph {
     /// uses fingerprint-based keys (not string labels), this creates a single
     /// "SPO" relationship type with all edges. For labeled decomposition,
     /// use `add_relation` manually per relationship type.
-    pub fn from_spo_store(store: &SpoStore, node_count: usize) -> Self {
+    pub fn from_spo_store(_store: &SpoStore, node_count: usize) -> Self {
         let mut graph = TypedGraph::new(node_count);
 
         // SpoStore doesn't expose iteration, but we can build from known edges.

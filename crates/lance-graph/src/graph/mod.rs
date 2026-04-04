@@ -9,8 +9,8 @@
 
 pub mod arigraph;
 pub mod blasgraph;
-pub mod falkor_compat;
-pub mod falkor_semirings;
+pub mod graph_router;
+pub mod semiring_map;
 pub mod fingerprint;
 pub mod hydrate;
 pub mod metadata;
