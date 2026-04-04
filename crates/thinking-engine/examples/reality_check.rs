@@ -185,17 +185,19 @@ fn main() {
         let token_ids = encoding.get_ids();
         let centroids = codebook.lookup_many(token_ids);
 
-        let (dominant, stages) = cascade.think(&centroids);
+        let (dominant, stages, dissonance) = cascade.think(&centroids);
         let chain: Vec<u16> = stages.iter().map(|s| s.focus.first().map(|a| a.index).unwrap_or(0)).collect();
 
         println!("  S{}: \"{}\"", i + 1, &text[..text.len().min(45)]);
         println!("      dominant: atom {}  chain: {:?}", dominant, chain);
-        for (si, stage) in stages.iter().enumerate() {
-            let focus_ids: Vec<u16> = stage.focus.iter().map(|a| a.index).collect();
-            let promoted = stage.promoted.len();
-            let contras = stage.contradictions.len();
-            println!("      stage {}: focus={:?} promoted={} contradictions={}",
-                si, focus_ids, promoted, contras);
+        println!("      dissonance: {:.3}  per_stage: {:?}  resolved: {}  suspension: {}",
+            dissonance.total_dissonance, dissonance.per_stage, dissonance.resolved, dissonance.suspension);
+        for t in &dissonance.transitions {
+            let ch_name = match (0..8u8).max_by_key(|&ch| t.edge.get_channel(ch)).unwrap_or(0) {
+                0 => "BECOMES", 1 => "CAUSES", 2 => "SUPPORTS", 3 => "REFINES",
+                4 => "GROUNDS", 5 => "ABSTRACTS", 6 => "RELATES", 7 => "CONTRADICTS", _ => "?"
+            };
+            println!("        {}→{}: {} (d={:.3})", t.from_atom, t.to_atom, ch_name, t.dissonance);
         }
         domino_results.push((text.to_string(), dominant, chain));
         println!();

@@ -19,6 +19,16 @@
 use crate::engine::ThinkingEngine;
 use crate::layered::CausalEdge64;
 
+// Bach counterpoint channel indices
+pub const CH_BECOMES: u8 = 0;     // voice crossing — identity shifts
+pub const CH_CAUSES: u8 = 1;      // diminution — one causes the other
+pub const CH_SUPPORTS: u8 = 2;    // parallel motion — same direction
+pub const CH_REFINES: u8 = 3;     // contrary motion — opposite, sharpening
+pub const CH_GROUNDS: u8 = 4;     // oblique motion — one stable, other moves
+pub const CH_ABSTRACTS: u8 = 5;   // augmentation — slower, broader
+pub const CH_RELATES: u8 = 6;     // imitation — echo, repetition
+pub const CH_CONTRADICTS: u8 = 7; // dissonance — tritone, unresolved
+
 /// One atom in the cascade with its accumulated truth.
 #[derive(Clone, Debug)]
 pub struct CascadeAtom {
@@ -43,6 +53,140 @@ pub struct StageResult {
     pub contradictions: Vec<CascadeAtom>,
     /// Stage number.
     pub stage: u8,
+}
+
+/// A transition between two cascade stages, classified by Bach counterpoint.
+#[derive(Clone, Debug)]
+pub struct Transition {
+    pub from_atom: u16,
+    pub to_atom: u16,
+    pub edge: CausalEdge64,
+    pub dissonance: f32, // 0.0 = consonant, 1.0 = fully dissonant
+}
+
+/// Dissonance profile across the full cascade chain.
+#[derive(Clone, Debug)]
+pub struct DissonanceProfile {
+    pub transitions: Vec<Transition>,
+    /// Overall dissonance: contradiction / (contradiction + constructive).
+    pub total_dissonance: f32,
+    /// Per-stage dissonance values.
+    pub per_stage: Vec<f32>,
+    /// Is this a resolved progression? (dissonance decreasing over stages)
+    pub resolved: bool,
+    /// Is this a Rachmaninov suspension? (high dissonance sustained, then sudden drop)
+    pub suspension: bool,
+}
+
+/// Classify a stage-to-stage transition using Bach counterpoint rules.
+///
+/// The classification is based on the RELATIONSHIP between the two atoms
+/// in the distance table, not just the distance value.
+pub fn classify_transition(
+    table: &[u8],
+    n: usize,
+    from: u16,
+    to: u16,
+    from_energy: f32,
+    to_energy: f32,
+    floor: u8,
+) -> Transition {
+    let sim = if (from as usize) < n && (to as usize) < n {
+        table[from as usize * n + to as usize]
+    } else { 128 };
+
+    let above_floor = sim.saturating_sub(floor) as f32 / (255.0 - floor as f32).max(1.0);
+    let energy_ratio = if from_energy > 1e-10 { to_energy / from_energy } else { 1.0 };
+
+    let mut edge = CausalEdge64::new();
+
+    if above_floor > 0.8 {
+        // Very similar: parallel motion (SUPPORTS)
+        edge.set_channel(CH_SUPPORTS, (above_floor * 200.0) as u8);
+    } else if above_floor > 0.5 {
+        // Moderately similar
+        if energy_ratio > 1.2 {
+            // Energy increasing: CAUSES (the first drives the second)
+            edge.set_channel(CH_CAUSES, (above_floor * 180.0) as u8);
+        } else if energy_ratio < 0.8 {
+            // Energy decreasing: GROUNDS (stabilizing)
+            edge.set_channel(CH_GROUNDS, (above_floor * 150.0) as u8);
+        } else {
+            // Stable energy: RELATES (imitation/echo)
+            edge.set_channel(CH_RELATES, (above_floor * 160.0) as u8);
+        }
+    } else if above_floor > 0.2 {
+        // Weak similarity: contrary motion (REFINES) or abstraction
+        if energy_ratio > 1.5 {
+            edge.set_channel(CH_ABSTRACTS, (above_floor * 120.0) as u8);
+        } else {
+            edge.set_channel(CH_REFINES, (above_floor * 130.0) as u8);
+        }
+    } else if above_floor > 0.0 {
+        // Very weak: identity shift (BECOMES)
+        edge.set_channel(CH_BECOMES, (above_floor * 100.0) as u8);
+    }
+
+    // Dissonance: low similarity + high confidence = contradiction
+    if sim < floor {
+        let contra_strength = ((floor - sim) as f32 / floor as f32 * 200.0).min(255.0) as u8;
+        edge.set_channel(CH_CONTRADICTS, contra_strength);
+    }
+
+    let constructive = edge.constructive_strength() as f32;
+    let contradiction = edge.get_channel(CH_CONTRADICTS) as f32;
+    let dissonance = if constructive + contradiction > 0.0 {
+        contradiction / (constructive + contradiction)
+    } else {
+        0.5 // neutral
+    };
+
+    Transition { from_atom: from, to_atom: to, edge, dissonance }
+}
+
+/// Compute the full dissonance profile from cascade stages.
+pub fn measure_dissonance(
+    stages: &[StageResult],
+    table: &[u8],
+    n: usize,
+    floor: u8,
+) -> DissonanceProfile {
+    let mut transitions = Vec::new();
+    let mut per_stage = Vec::new();
+
+    for i in 0..stages.len().saturating_sub(1) {
+        let from = &stages[i];
+        let to = &stages[i + 1];
+
+        // Primary transition: dominant focus atom to next dominant
+        let from_atom = from.focus.first().map(|a| (a.index, a.energy)).unwrap_or((0, 0.0));
+        let to_atom = to.focus.first().map(|a| (a.index, a.energy)).unwrap_or((0, 0.0));
+
+        let t = classify_transition(table, n, from_atom.0, to_atom.0, from_atom.1, to_atom.1, floor);
+        per_stage.push(t.dissonance);
+        transitions.push(t);
+    }
+
+    let total_dissonance = if per_stage.is_empty() { 0.0 } else {
+        per_stage.iter().sum::<f32>() / per_stage.len() as f32
+    };
+
+    // Check if resolved: dissonance should decrease over stages
+    let resolved = per_stage.len() >= 2 && {
+        let last = per_stage[per_stage.len() - 1];
+        let first = per_stage[0];
+        last < first * 0.7 // at least 30% drop
+    };
+
+    // Check for Rachmaninov suspension: high sustained then sudden drop
+    let suspension = per_stage.len() >= 3 && {
+        let high_count = per_stage.iter().take(per_stage.len() - 1)
+            .filter(|&&d| d > 0.4).count();
+        let last = *per_stage.last().unwrap_or(&0.0);
+        high_count >= 2 && last < 0.2
+    };
+
+    DissonanceProfile { transitions, total_dissonance, per_stage, resolved, suspension }
 }
 
 /// The domino cascade engine.
@@ -201,14 +345,20 @@ impl<'a> DominoCascade<'a> {
         stages
     }
 
-    /// Run cascade and return the dominant atom + its chain.
-    pub fn think(&self, centroids: &[u16]) -> (u16, Vec<StageResult>) {
+    /// Run cascade and return the dominant atom + its chain + dissonance profile.
+    pub fn think(&self, centroids: &[u16]) -> (u16, Vec<StageResult>, DissonanceProfile) {
         let stages = self.cascade(centroids);
         let dominant = stages.last()
             .and_then(|s| s.focus.first())
             .map(|a| a.index)
             .unwrap_or(0);
-        (dominant, stages)
+        let dissonance = measure_dissonance(
+            &stages,
+            self.engine.distance_table_ref(),
+            self.engine.size,
+            self.engine.floor,
+        );
+        (dominant, stages, dissonance)
     }
 }
 
@@ -236,7 +386,7 @@ mod tests {
         let engine = ThinkingEngine::new(table);
         let counts = vec![100u32; 64];
         let cascade = DominoCascade::new(&engine, &counts);
-        let (dominant, stages) = cascade.think(&[10, 20, 30]);
+        let (dominant, stages, _dis) = cascade.think(&[10, 20, 30]);
         assert!(!stages.is_empty());
         assert!(stages[0].focus.len() <= 5);
         assert!(dominant < 64);
@@ -249,8 +399,8 @@ mod tests {
         let counts = vec![100u32; 64];
         let cascade = DominoCascade::new(&engine, &counts);
 
-        let (d1, _) = cascade.think(&[5, 6, 7]);
-        let (d2, _) = cascade.think(&[50, 51, 52]);
+        let (d1, _, _) = cascade.think(&[5, 6, 7]);
+        let (d2, _, _) = cascade.think(&[50, 51, 52]);
         // Different inputs should (usually) produce different dominants
         // on a table with local structure
         eprintln!("d1={} d2={}", d1, d2);
@@ -265,7 +415,7 @@ mod tests {
         let engine = ThinkingEngine::new(table);
         let counts = vec![100u32; 64];
         let cascade = DominoCascade::new(&engine, &counts);
-        let (_, stages) = cascade.think(&[10]);
+        let (_, stages, dissonance) = cascade.think(&[10]);
         // Should produce multiple stages (domino ripple)
         assert!(stages.len() >= 2, "cascade should ripple at least 2 stages");
         // Focus should shift as the ripple propagates
@@ -276,5 +426,34 @@ mod tests {
         eprintln!("stage0 focus: {:?}, stage1 focus: {:?}, overlap: {}",
             s0_focus, s1_focus, overlap);
         assert!(s1_focus.len() > 0, "stage 1 should have focus atoms");
+        // Dissonance should be computed
+        assert!(!dissonance.transitions.is_empty(), "should have transitions");
+        assert!(dissonance.total_dissonance >= 0.0 && dissonance.total_dissonance <= 1.0);
+        eprintln!("dissonance: total={:.3} per_stage={:?} resolved={} suspension={}",
+            dissonance.total_dissonance, dissonance.per_stage, dissonance.resolved, dissonance.suspension);
+    }
+
+    #[test]
+    fn classify_transition_consonant() {
+        // High similarity → SUPPORTS, low dissonance
+        let mut table = vec![0u8; 16];
+        table[0 * 4 + 1] = 250; // atom 0 → atom 1: very similar
+        table[1 * 4 + 0] = 250;
+        for i in 0..4 { table[i * 4 + i] = 255; }
+        let t = classify_transition(&table, 4, 0, 1, 1.0, 1.0, 0);
+        assert!(t.dissonance < 0.1, "high similarity should be consonant, got {}", t.dissonance);
+        assert!(t.edge.get_channel(CH_SUPPORTS) > 0, "should be SUPPORTS");
+    }
+
+    #[test]
+    fn classify_transition_dissonant() {
+        // Below floor → CONTRADICTS, high dissonance
+        let mut table = vec![128u8; 16];
+        table[0 * 4 + 1] = 50; // atom 0 → atom 1: below floor
+        table[1 * 4 + 0] = 50;
+        for i in 0..4 { table[i * 4 + i] = 255; }
+        let t = classify_transition(&table, 4, 0, 1, 1.0, 1.0, 128);
+        assert!(t.dissonance > 0.5, "below floor should be dissonant, got {}", t.dissonance);
+        assert!(t.edge.get_channel(CH_CONTRADICTS) > 0, "should have CONTRADICTS");
     }
 }
