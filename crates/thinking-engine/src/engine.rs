@@ -7,6 +7,7 @@
 
 use crate::dto::{ResonanceDto, BusDto};
 use ndarray::hpc::heel_f64x8::cosine_f64_simd;
+use ndarray::simd::F64x8;
 
 /// Default codebook size. 4096 entries = 12-bit index.
 pub const CODEBOOK_SIZE: usize = 4096;
@@ -104,47 +105,51 @@ impl ThinkingEngine {
     ///   Similar atoms (high table value) reinforce.
     ///   Dissimilar atoms (low table value) don't contribute.
     ///
-    /// Uses F64x8 for the inner loop: 8 multiply-accumulates per SIMD op.
+    /// SIMD: 8× F64x8 per iteration = 64 elements.
+    /// 4096 / 64 = 64 iterations per row. 4096 active rows = 4096 × 64 = 262K SIMD ops.
     pub fn cycle(&mut self) {
         let k = self.size;
         let mut next = vec![0.0f64; k];
+        let floor = self.floor;
+        let scale = 1.0 / (255.0 - floor as f64);
 
         for i in 0..k {
             let e_i = self.energy[i];
-            if e_i < 1e-15 { continue; } // skip dead atoms
+            if e_i < 1e-15 { continue; }
 
-            let row_offset = i * k;
+            let row = &self.distance_table[i * k..(i + 1) * k];
+            let e_scaled = e_i * scale;
 
-            // Inner loop: spread energy[i] to all j
-            // distance_table[i][j] / 255.0 = similarity strength
-            let floor = self.floor;
-            let scale = 1.0 / (255.0 - floor as f64); // normalize above-floor to [0, 1]
-
+            // 8× F64x8 = 64 elements per iteration
             let mut j = 0;
-            while j + 8 <= k {
-                // Subtract floor, clamp to 0. Only topology above median contributes.
-                let d0 = (self.distance_table[row_offset + j].saturating_sub(floor)) as f64 * scale;
-                let d1 = (self.distance_table[row_offset + j + 1].saturating_sub(floor)) as f64 * scale;
-                let d2 = (self.distance_table[row_offset + j + 2].saturating_sub(floor)) as f64 * scale;
-                let d3 = (self.distance_table[row_offset + j + 3].saturating_sub(floor)) as f64 * scale;
-                let d4 = (self.distance_table[row_offset + j + 4].saturating_sub(floor)) as f64 * scale;
-                let d5 = (self.distance_table[row_offset + j + 5].saturating_sub(floor)) as f64 * scale;
-                let d6 = (self.distance_table[row_offset + j + 6].saturating_sub(floor)) as f64 * scale;
-                let d7 = (self.distance_table[row_offset + j + 7].saturating_sub(floor)) as f64 * scale;
-
-                next[j]     += d0 * e_i;
-                next[j + 1] += d1 * e_i;
-                next[j + 2] += d2 * e_i;
-                next[j + 3] += d3 * e_i;
-                next[j + 4] += d4 * e_i;
-                next[j + 5] += d5 * e_i;
-                next[j + 6] += d6 * e_i;
-                next[j + 7] += d7 * e_i;
-                j += 8;
+            while j + 64 <= k {
+                // Load 64 u8 → 8× f64[8], subtract floor, FMA into accumulators
+                macro_rules! do_lane {
+                    ($off:expr) => {{
+                        let base = j + $off * 8;
+                        let d = F64x8::from_array([
+                            row[base].saturating_sub(floor) as f64,
+                            row[base + 1].saturating_sub(floor) as f64,
+                            row[base + 2].saturating_sub(floor) as f64,
+                            row[base + 3].saturating_sub(floor) as f64,
+                            row[base + 4].saturating_sub(floor) as f64,
+                            row[base + 5].saturating_sub(floor) as f64,
+                            row[base + 6].saturating_sub(floor) as f64,
+                            row[base + 7].saturating_sub(floor) as f64,
+                        ]);
+                        let acc = F64x8::from_slice(&next[base..base + 8]);
+                        let ei = F64x8::splat(e_scaled);
+                        d.mul_add(ei, acc).copy_to_slice(&mut next[base..base + 8]);
+                    }};
+                }
+                do_lane!(0); do_lane!(1); do_lane!(2); do_lane!(3);
+                do_lane!(4); do_lane!(5); do_lane!(6); do_lane!(7);
+                j += 64;
             }
+            // Scalar remainder (for sizes not divisible by 64)
             while j < k {
-                let d = (self.distance_table[row_offset + j].saturating_sub(floor)) as f64 * scale;
-                next[j] += d * e_i;
+                let d = row[j].saturating_sub(floor) as f64;
+                next[j] += d * e_scaled;
                 j += 1;
             }
         }
