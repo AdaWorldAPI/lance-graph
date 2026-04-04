@@ -2,21 +2,23 @@
 //! Every row IS its own centroid. Pearson = 1.000.
 //! Distance table = exact cosine topology.
 //!
+//! **F16/BF16 only** — Q8_0 produces cos[0,0] (useless).
+//! Uses ndarray SIMD cosine (F64x8 mul_add) + rayon parallel pairs.
+//! Pre-normalizes rows so cosine = dot product (saves 2 norms per pair).
+//!
 //! Saves to /tmp/codebooks/<model>/role/<table>.u8
-//! Then uploads to GitHub release via REST API.
 //!
 //! cargo run --release --manifest-path crates/thinking-engine/Cargo.toml --example build_1to1_roles
 
 use std::io::{Read, Seek, SeekFrom};
-use std::collections::HashMap;
+use rayon::prelude::*;
 
 fn main() {
-    println!("=== 1:1 Per-Role Distance Tables ===\n");
+    println!("=== 1:1 Per-Role Distance Tables (F16/BF16 SIMD + Rayon) ===\n");
 
     let gguf_files = find_gguf_files();
     if gguf_files.is_empty() { eprintln!("No GGUF files"); return; }
 
-    // Role patterns: Jina/BERT style + Llama/Qwen style
     let role_patterns: &[(&str, &[&str])] = &[
         ("attn_qkv",    &["attn_qkv"]),
         ("attn_q",      &["attn_q", "q_proj"]),
@@ -39,30 +41,34 @@ fn main() {
             Ok(h) => h, Err(_) => continue,
         };
 
+        let has_fp_weights = header.tensors.iter().any(|t|
+            (t.dtype == 1 || t.dtype == 30) &&
+            t.n_elements >= 1024 &&
+            !t.name.contains("bias") && !t.name.contains("norm") && !t.name.contains("embed")
+        );
+        if !has_fp_weights {
+            println!("SKIP {} — no F16/BF16 weight tensors", model_name);
+            continue;
+        }
+
         let short = model_name.split('/').last().unwrap_or(model_name)
             .replace("-GGUF", "").replace("-gguf", "");
         println!("════════════════════════════════════════");
         println!("Model: {} ({} tensors)", short, header.tensors.len());
         println!("════════════════════════════════════════");
 
-        let out_dir = format!("/tmp/codebooks/{}-roles", short);
+        let out_dir = format!("/tmp/codebooks/{}-roles-f16", short);
         std::fs::create_dir_all(&out_dir).ok();
 
         for (role_name, patterns) in role_patterns {
-            // Find first matching tensor for this role (from a middle layer for representative data)
             let tensor = header.tensors.iter()
                 .filter(|t| {
                     t.n_elements >= 1024 &&
-                    (t.dtype == 8 || t.dtype == 0 || t.dtype == 1 || t.dtype == 30) &&
+                    (t.dtype == 1 || t.dtype == 30) &&
                     patterns.iter().any(|p| t.name.contains(p)) &&
-                    !t.name.contains("bias") &&
-                    !t.name.contains("norm")
+                    !t.name.contains("bias") && !t.name.contains("norm")
                 })
-                // Prefer a middle-layer tensor
-                .max_by_key(|t| {
-                    let layer = extract_layer(&t.name).unwrap_or(0);
-                    if layer > 0 { layer } else { 1 }
-                });
+                .max_by_key(|t| extract_layer(&t.name).unwrap_or(0).max(1));
 
             let tensor = match tensor { Some(t) => t, None => continue };
 
@@ -75,31 +81,52 @@ fn main() {
             } else { (1, data.len()) };
 
             if n_rows < 4 { continue; }
-
-            // Cap at 4096 rows for memory (4096² = 16 MB, fits L3)
             let k = n_rows.min(4096);
 
-            let rows: Vec<&[f32]> = (0..k)
-                .map(|r| &data[r * n_cols..(r * n_cols + n_cols).min(data.len())])
+            // Pre-normalize rows → cosine = dot product (saves 2 norms per pair)
+            let start = std::time::Instant::now();
+            let normalized: Vec<Vec<f32>> = (0..k).map(|r| {
+                let row = &data[r * n_cols..(r * n_cols + n_cols).min(data.len())];
+                let norm = row.iter().map(|v| (*v as f64) * (*v as f64)).sum::<f64>().sqrt();
+                if norm < 1e-12 {
+                    vec![0.0f32; row.len()]
+                } else {
+                    let inv = (1.0 / norm) as f32;
+                    row.iter().map(|v| v * inv).collect()
+                }
+            }).collect();
+
+            let n_pairs = k * (k - 1) / 2;
+            println!("  {:<12} {}×{} ({} cols) → {} pairs...",
+                role_name, k, k, n_cols, n_pairs);
+
+            // Build pair indices for rayon
+            let pairs: Vec<(usize, usize)> = (0..k)
+                .flat_map(|i| ((i + 1)..k).map(move |j| (i, j)))
                 .collect();
 
-            // Build 1:1 distance table
-            let start = std::time::Instant::now();
+            // Parallel cosine computation via dot product on pre-normalized rows
+            let cosines: Vec<(usize, usize, f64)> = pairs.par_iter()
+                .map(|&(i, j)| {
+                    let dot = dot_f32_simd(&normalized[i], &normalized[j]);
+                    (i, j, dot.clamp(-1.0, 1.0))
+                })
+                .collect();
+
             let mut table = vec![128u8; k * k];
             let mut min_c = 1.0f64;
             let mut max_c = -1.0f64;
 
-            // Compute upper triangle
-            for i in 0..k {
-                table[i * k + i] = 255; // self = max
-                for j in (i + 1)..k {
-                    let c = cosine(rows[i], rows[j]);
-                    if c < min_c { min_c = c; }
-                    if c > max_c { max_c = c; }
-                    let u = (((c + 1.0) / 2.0) * 255.0).round().clamp(0.0, 255.0) as u8;
-                    table[i * k + j] = u;
-                    table[j * k + i] = u;
-                }
+            // Set diagonal
+            for i in 0..k { table[i * k + i] = 255; }
+
+            // Fill from parallel results
+            for &(i, j, c) in &cosines {
+                if c < min_c { min_c = c; }
+                if c > max_c { max_c = c; }
+                let u = (((c + 1.0) / 2.0) * 255.0).round().clamp(0.0, 255.0) as u8;
+                table[i * k + j] = u;
+                table[j * k + i] = u;
             }
             let elapsed = start.elapsed();
 
@@ -110,10 +137,10 @@ fn main() {
             let table_path = format!("{}/distance_table_{}x{}.u8", role_dir, k, k);
             std::fs::write(&table_path, &table).ok();
 
-            // Save metadata
+            let dtype_name = if tensor.dtype == 1 { "F16" } else { "BF16" };
             let meta = format!(
-                "{{\"model\":\"{}\",\"role\":\"{}\",\"tensor\":\"{}\",\"rows\":{},\"cols\":{},\"cos_min\":{:.6},\"cos_max\":{:.6},\"table_bytes\":{},\"build_secs\":{:.2}}}",
-                short, role_name, tensor.name, k, n_cols, min_c, max_c, table_bytes, elapsed.as_secs_f64()
+                "{{\"model\":\"{}\",\"role\":\"{}\",\"tensor\":\"{}\",\"dtype\":\"{}\",\"rows\":{},\"cols\":{},\"cos_min\":{:.6},\"cos_max\":{:.6},\"table_bytes\":{},\"build_secs\":{:.2},\"simd\":\"f64x8_fma+rayon\"}}",
+                short, role_name, tensor.name, dtype_name, k, n_cols, min_c, max_c, table_bytes, elapsed.as_secs_f64()
             );
             std::fs::write(format!("{}/meta.json", role_dir), &meta).ok();
 
@@ -126,10 +153,9 @@ fn main() {
                 format!("{:.0} KB", table_bytes as f64 / 1024.0)
             };
 
-            println!("  {:<12} {:>5}×{:<5} = {:>8}  cos[{:.3},{:.3}]  {:.2}s  layer {}",
-                role_name, k, k, size_display,
-                min_c, max_c, elapsed.as_secs_f64(),
-                extract_layer(&tensor.name).unwrap_or(0));
+            println!("    → {:>8}  cos[{:.3},{:.3}]  {:.1}s  {} layer {}",
+                size_display, min_c, max_c, elapsed.as_secs_f64(),
+                dtype_name, extract_layer(&tensor.name).unwrap_or(0));
         }
         println!();
     }
@@ -139,11 +165,11 @@ fn main() {
         total_tables, total_bytes as f64 / 1_000_000.0);
     println!("════════════════════════════════════════");
 
-    // List all saved files
-    println!("\nSaved to /tmp/codebooks/*-roles/:");
+    // List saved files
+    println!("\nSaved to /tmp/codebooks/*-roles-f16/:");
     if let Ok(entries) = std::fs::read_dir("/tmp/codebooks") {
         for e in entries.flatten() {
-            if e.path().to_string_lossy().contains("-roles") {
+            if e.path().to_string_lossy().contains("-roles-f16") {
                 let dir = e.path();
                 if let Ok(roles) = std::fs::read_dir(&dir) {
                     for role in roles.flatten() {
@@ -164,6 +190,12 @@ fn main() {
     }
 }
 
+/// SIMD dot product on f32 slices using F64x8 accumulators.
+/// Pre-normalized rows → this IS cosine.
+fn dot_f32_simd(a: &[f32], b: &[f32]) -> f64 {
+    ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd(a, b)
+}
+
 fn extract_layer(name: &str) -> Option<u32> {
     let n = name.to_lowercase();
     if let Some(pos) = n.find("blk.") {
@@ -171,13 +203,6 @@ fn extract_layer(name: &str) -> Option<u32> {
     } else if let Some(pos) = n.find("layers.") {
         n[pos + 7..].split('.').next().and_then(|s| s.parse().ok())
     } else { None }
-}
-
-fn cosine(a: &[f32], b: &[f32]) -> f64 {
-    let n = a.len().min(b.len());
-    let (mut dot, mut na, mut nb) = (0.0f64, 0.0f64, 0.0f64);
-    for i in 0..n { dot += a[i] as f64 * b[i] as f64; na += (a[i] as f64).powi(2); nb += (b[i] as f64).powi(2); }
-    let d = (na * nb).sqrt(); if d < 1e-12 { 0.0 } else { dot / d }
 }
 
 fn find_gguf_files() -> Vec<(String, String)> {
@@ -192,7 +217,11 @@ fn find_gguf_files() -> Vec<(String, String)> {
                     if let Ok(gfs) = std::fs::read_dir(s.path()) {
                         for gf in gfs.flatten() {
                             let gp = gf.path();
-                            if !gp.to_string_lossy().ends_with(".gguf") || gp.to_string_lossy().contains("mmproj") { continue; }
+                            let name_str = gp.to_string_lossy().to_string();
+                            if !name_str.ends_with(".gguf") || name_str.contains("mmproj") { continue; }
+                            if name_str.contains("Q8_0") || name_str.contains("Q2_K") || name_str.contains("Q4_K") {
+                                continue;
+                            }
                             let real = std::fs::read_link(&gp).map(|r| if r.is_relative() { gp.parent().unwrap().join(r) } else { r }).unwrap_or(gp.clone());
                             if real.exists() && std::fs::metadata(&real).map(|m| m.len() > 1000).unwrap_or(false) {
                                 let name = p.file_name().map(|n| n.to_string_lossy().replace("models--","").replace("--","/")).unwrap_or_default();
@@ -213,4 +242,4 @@ struct TensorMeta { name: String, dims: Vec<u64>, dtype: u32, offset: u64, n_ele
 fn parse_gguf_header<R:Read+Seek>(r:&mut R)->Result<GgufHeader,String>{let mut b4=[0u8;4];let mut b8=[0u8;8];r.read_exact(&mut b4).map_err(|e|e.to_string())?;if u32::from_le_bytes(b4)!=0x46554747{return Err("bad magic".into());}r.read_exact(&mut b4).map_err(|e|e.to_string())?;r.read_exact(&mut b8).map_err(|e|e.to_string())?;let nt=u64::from_le_bytes(b8)as usize;r.read_exact(&mut b8).map_err(|e|e.to_string())?;let nm=u64::from_le_bytes(b8)as usize;for _ in 0..nm{skip_kv(r)?;}let mut tensors=Vec::with_capacity(nt);for _ in 0..nt{r.read_exact(&mut b8).map_err(|e|e.to_string())?;let nl=u64::from_le_bytes(b8)as usize;let mut nb=vec![0u8;nl];r.read_exact(&mut nb).map_err(|e|e.to_string())?;let name=String::from_utf8_lossy(&nb).to_string();r.read_exact(&mut b4).map_err(|e|e.to_string())?;let nd=u32::from_le_bytes(b4)as usize;let mut dims=Vec::with_capacity(nd);for _ in 0..nd{r.read_exact(&mut b8).map_err(|e|e.to_string())?;dims.push(u64::from_le_bytes(b8));}r.read_exact(&mut b4).map_err(|e|e.to_string())?;let dtype=u32::from_le_bytes(b4);r.read_exact(&mut b8).map_err(|e|e.to_string())?;let offset=u64::from_le_bytes(b8);tensors.push(TensorMeta{name,dims:dims.clone(),dtype,offset,n_elements:dims.iter().product()});}let pos=r.stream_position().map_err(|e|e.to_string())?;Ok(GgufHeader{tensors,data_offset:(pos+31)/32*32})}
 fn skip_kv<R:Read+Seek>(r:&mut R)->Result<(),String>{let mut b4=[0u8;4];let mut b8=[0u8;8];r.read_exact(&mut b8).map_err(|e|e.to_string())?;let kl=u64::from_le_bytes(b8)as usize;let mut kb=vec![0u8;kl];r.read_exact(&mut kb).map_err(|e|e.to_string())?;r.read_exact(&mut b4).map_err(|e|e.to_string())?;skip_val(r,u32::from_le_bytes(b4))}
 fn skip_val<R:Read+Seek>(r:&mut R,vt:u32)->Result<(),String>{let mut b4=[0u8;4];let mut b8=[0u8;8];match vt{0|1|7=>{let mut b=[0u8;1];r.read_exact(&mut b).map_err(|e|e.to_string())?;}2|3=>{r.read_exact(&mut[0u8;2]).map_err(|e|e.to_string())?;}4|5|6=>{r.read_exact(&mut b4).map_err(|e|e.to_string())?;}8=>{r.read_exact(&mut b8).map_err(|e|e.to_string())?;let l=u64::from_le_bytes(b8)as usize;let mut s=vec![0u8;l];r.read_exact(&mut s).map_err(|e|e.to_string())?;}9=>{r.read_exact(&mut b4).map_err(|e|e.to_string())?;let et=u32::from_le_bytes(b4);r.read_exact(&mut b8).map_err(|e|e.to_string())?;let c=u64::from_le_bytes(b8)as usize;for _ in 0..c{skip_val(r,et)?;}}10|11|12=>{r.read_exact(&mut b8).map_err(|e|e.to_string())?;}_=>return Err(format!("unknown vtype {}",vt)),}Ok(())}
-fn read_tensor_f32<R:Read+Seek>(r:&mut R,h:&GgufHeader,t:&TensorMeta)->Result<Vec<f32>,String>{r.seek(SeekFrom::Start(h.data_offset+t.offset)).map_err(|e|e.to_string())?;let n=t.n_elements as usize;match t.dtype{0=>{let mut buf=vec![0u8;n*4];r.read_exact(&mut buf).map_err(|e|e.to_string())?;Ok(buf.chunks_exact(4).map(|c|f32::from_le_bytes([c[0],c[1],c[2],c[3]])).collect())}8=>{let nb=(n+31)/32;let bpb=34;let mut buf=vec![0u8;nb*bpb];r.read_exact(&mut buf).map_err(|e|e.to_string())?;let mut res=Vec::with_capacity(n);for b in 0..nb{let o=b*bpb;let sb=u16::from_le_bytes([buf[o],buf[o+1]]);let s=f32::from_bits((sb as u32)<<16);for i in 0..32{if res.len()>=n{break;}res.push(buf[o+2+i]as i8 as f32*s);}}Ok(res)}1=>{let mut buf=vec![0u8;n*2];r.read_exact(&mut buf).map_err(|e|e.to_string())?;Ok(buf.chunks_exact(2).map(|c|{let bits=u16::from_le_bytes([c[0],c[1]]);let s=((bits>>15)&1)as u32;let e=((bits>>10)&0x1F)as u32;let f=(bits&0x3FF)as u32;if e==0{if f==0{f32::from_bits(s<<31)}else{let v=f as f32/1024.0*2.0f32.powi(-14);if s==1{-v}else{v}}}else if e==31{if f==0{if s==1{f32::NEG_INFINITY}else{f32::INFINITY}}else{f32::NAN}}else{f32::from_bits((s<<31)|((e+127-15)<<23)|(f<<13))}}).collect())}30=>{let mut buf=vec![0u8;n*2];r.read_exact(&mut buf).map_err(|e|e.to_string())?;Ok(buf.chunks_exact(2).map(|c|f32::from_bits((u16::from_le_bytes([c[0],c[1]])as u32)<<16)).collect())}_=>Err(format!("unsupported dtype {}",t.dtype)),}}
+fn read_tensor_f32<R:Read+Seek>(r:&mut R,h:&GgufHeader,t:&TensorMeta)->Result<Vec<f32>,String>{r.seek(SeekFrom::Start(h.data_offset+t.offset)).map_err(|e|e.to_string())?;let n=t.n_elements as usize;match t.dtype{0=>{let mut buf=vec![0u8;n*4];r.read_exact(&mut buf).map_err(|e|e.to_string())?;Ok(buf.chunks_exact(4).map(|c|f32::from_le_bytes([c[0],c[1],c[2],c[3]])).collect())}1=>{let mut buf=vec![0u8;n*2];r.read_exact(&mut buf).map_err(|e|e.to_string())?;Ok(buf.chunks_exact(2).map(|c|{let bits=u16::from_le_bytes([c[0],c[1]]);let s=((bits>>15)&1)as u32;let e=((bits>>10)&0x1F)as u32;let f=(bits&0x3FF)as u32;if e==0{if f==0{f32::from_bits(s<<31)}else{let v=f as f32/1024.0*2.0f32.powi(-14);if s==1{-v}else{v}}}else if e==31{if f==0{if s==1{f32::NEG_INFINITY}else{f32::INFINITY}}else{f32::NAN}}else{f32::from_bits((s<<31)|((e+127-15)<<23)|(f<<13))}}).collect())}30=>{let mut buf=vec![0u8;n*2];r.read_exact(&mut buf).map_err(|e|e.to_string())?;Ok(buf.chunks_exact(2).map(|c|f32::from_bits((u16::from_le_bytes([c[0],c[1]])as u32)<<16)).collect())}_=>Err(format!("unsupported dtype {} — only F16(1)/BF16(30)/F32(0)",t.dtype)),}}

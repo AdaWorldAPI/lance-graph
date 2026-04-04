@@ -17,3 +17,4 @@ ndarray = { path = "../../../ndarray", default-features = false, features = ["st
 bgz-tensor = { path = "../bgz-tensor" }
 
 [dev-dependencies]
+rayon = "1.10"
