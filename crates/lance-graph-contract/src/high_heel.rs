@@ -373,6 +373,23 @@ impl BasinAccumulator {
         }
     }
 
+    /// Auto-calibrate threshold from observed pairwise distances.
+    /// Call after ingesting a seed batch (e.g., first 10-20 triplets).
+    /// Sets threshold to the given percentile of pairwise distances.
+    pub fn calibrate(&mut self, percentile: f32) {
+        if self.basins.len() < 2 { return; }
+        let mut dists = Vec::new();
+        for i in 0..self.basins.len() {
+            for j in (i + 1)..self.basins.len() {
+                dists.push(self.basins[i].heel.spo.l1_distance(&self.basins[j].heel.spo));
+            }
+        }
+        if dists.is_empty() { return; }
+        dists.sort_unstable();
+        let idx = ((percentile * dists.len() as f32) as usize).min(dists.len() - 1);
+        self.threshold = dists[idx];
+    }
+
     /// Ingest a triplet. Merges into nearest basin or creates new one.
     /// Returns the basin index.
     pub fn ingest(&mut self, spo: SpoBase17, edge: u64) -> usize {
@@ -390,9 +407,17 @@ impl BasinAccumulator {
         if best_dist < self.threshold {
             let idx = best_idx.unwrap();
             self.basins[idx].add_edge(edge);
+            // Move centroid toward new triplet (exponential moving average)
+            let n = self.basins[idx].edge_count() as i32;
+            let weight = 1.max(n); // weight of existing centroid
+            for d in 0..17 {
+                self.basins[idx].heel.spo.s[d] = ((self.basins[idx].heel.spo.s[d] as i32 * weight + spo.s[d] as i32) / (weight + 1)) as i16;
+                self.basins[idx].heel.spo.p[d] = ((self.basins[idx].heel.spo.p[d] as i32 * weight + spo.p[d] as i32) / (weight + 1)) as i16;
+                self.basins[idx].heel.spo.o[d] = ((self.basins[idx].heel.spo.o[d] as i32 * weight + spo.o[d] as i32) / (weight + 1)) as i16;
+            }
             // Revise truth: more evidence → higher confidence
             let freq = self.basins[idx].heel.frequency();
-            self.basins[idx].revise_truth(freq, 0.3); // each merge adds 0.3 confidence evidence
+            self.basins[idx].revise_truth(freq, 0.3);
             self.merges += 1;
             idx
         } else {
@@ -582,5 +607,184 @@ mod tests {
     #[test]
     fn test_wire_size() {
         assert_eq!(HighHeelBGZ::wire_size(), 2048);
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    // STREAMING EXPERIMENT — increasing complexity, cognitive monitoring
+    // ═════════════════════════════════════════════════════════════════════
+
+    /// Simulate text_to_base17: hash text into SpoBase17 with SPO plane separation.
+    fn text_to_spo(text: &str) -> SpoBase17 {
+        let words: Vec<&str> = text.split_whitespace().collect();
+        let n = words.len().max(1);
+        let mut dims = [0i64; 51]; // 17×3
+        let third = n / 3;
+        for (i, word) in words.iter().enumerate() {
+            let plane = if i < third { 0 } else if i < third * 2 { 17 } else { 34 };
+            for (j, byte) in word.bytes().enumerate() {
+                let dim = plane + ((j * 11) % 17);
+                dims[dim] += byte as i64 * 31;
+            }
+        }
+        let max_abs = dims.iter().map(|d| d.abs()).max().unwrap_or(1).max(1);
+        let scale = 10000.0 / max_abs as f64;
+        let mut spo = SpoBase17::ZERO;
+        for d in 0..17 { spo.s[d] = (dims[d] as f64 * scale).round().clamp(-32768.0, 32767.0) as i16; }
+        for d in 0..17 { spo.p[d] = (dims[17 + d] as f64 * scale).round().clamp(-32768.0, 32767.0) as i16; }
+        for d in 0..17 { spo.o[d] = (dims[34 + d] as f64 * scale).round().clamp(-32768.0, 32767.0) as i16; }
+        spo
+    }
+
+    /// Make a fake CausalEdge64 from S/P/O palette indices + NARS truth.
+    fn make_edge(s: u8, p: u8, o: u8, freq: u8, conf: u8) -> u64 {
+        (s as u64) | ((p as u64) << 8) | ((o as u64) << 16)
+            | ((freq as u64) << 24) | ((conf as u64) << 32)
+    }
+
+    #[test]
+    fn experiment_streaming_increasing_complexity() {
+        // ═══ LEVEL 1: Simple facts (low entropy, should consolidate fast) ═══
+        let simple_facts = [
+            "The cat sits on the mat in the warm kitchen",
+            "The cat sleeps on the mat near the warm fire",
+            "The cat purrs on the mat beside the warm stove",
+            "The dog runs in the park chasing the ball",
+            "The dog plays in the park fetching the stick",
+            "The dog barks in the park at the squirrel",
+        ];
+
+        // Phase 1: Seed with zero threshold (every triplet becomes its own basin)
+        let mut acc = BasinAccumulator::new(0); // no merging during seed phase
+        for (i, text) in simple_facts.iter().enumerate() {
+            let spo = text_to_spo(text);
+            let edge = make_edge(i as u8, 1, 2, 200, 180);
+            acc.ingest(spo, edge);
+        }
+        // Auto-calibrate: set threshold to p40 of pairwise distances (merge similar)
+        acc.calibrate(0.40);
+        eprintln!("  [calibrate] threshold set to {} (p40 of {} basins, {} pairs)",
+            acc.threshold, acc.basins.len(),
+            acc.basins.len() * (acc.basins.len() - 1) / 2);
+        let stats1 = acc.stats();
+        // After seed phase: 6 basins (each fact its own), 0 merges
+        // Calibration set threshold — merging starts with next batch
+
+        // ═══ LEVEL 2: Conceptual statements (moderate entropy) ═══
+        let concepts = [
+            "Love is patient and love is kind it does not envy",
+            "Love bears all things believes all things hopes all things",
+            "Knowledge speaks but wisdom listens to the silence within",
+            "Knowledge is power but wisdom is the light that guides power",
+            "Time heals all wounds but memory preserves the scars forever",
+            "Time flows like a river carrying all things to the sea",
+        ];
+
+        for (i, text) in concepts.iter().enumerate() {
+            let spo = text_to_spo(text);
+            let edge = make_edge(i as u8 + 10, 5, 8, 150, 120);
+            acc.ingest(spo, edge);
+        }
+        let stats2 = acc.stats();
+
+        // ═══ LEVEL 3: Rumi-style poetry (high entropy, metaphor-dense) ═══
+        let rumi = [
+            "Out beyond ideas of wrongdoing and rightdoing there is a field",
+            "I will meet you there when the soul lies down in that grass",
+            "The wound is the place where the light enters you my friend",
+            "What you seek is seeking you in the silence of the heart",
+            "Let yourself be silently drawn by the strange pull of what you love",
+            "Do not be satisfied with the stories that come before you unfold yours",
+            "The garden of the world has no limits except in your mind",
+            "Yesterday I was clever so I wanted to change the world",
+            "Today I am wise so I am changing myself completely",
+            "Sell your cleverness and buy bewilderment instead",
+        ];
+
+        for (i, text) in rumi.iter().enumerate() {
+            let spo = text_to_spo(text);
+            let edge = make_edge(i as u8 + 20, 12, 15, 100, 80);
+            acc.ingest(spo, edge);
+        }
+        let stats3 = acc.stats();
+
+        // ═══ LEVEL 4: Tagore-style (different metaphorical space) ═══
+        let tagore = [
+            "Let my love like sunlight surround you and yet give you illumined freedom",
+            "The butterfly counts not months but moments and has time enough",
+            "Faith is the bird that feels the light and sings when dawn is dark",
+            "You cannot cross the sea by merely standing and staring at water",
+            "Clouds come floating into my life to add color to my sunset",
+        ];
+
+        for (i, text) in tagore.iter().enumerate() {
+            let spo = text_to_spo(text);
+            let edge = make_edge(i as u8 + 30, 18, 20, 120, 90);
+            acc.ingest(spo, edge);
+        }
+        let stats4 = acc.stats();
+
+        // ═══ COGNITIVE DEBUG OUTPUT ═══
+        eprintln!("\n══════════════════════════════════════════════════════════");
+        eprintln!("  HighHeelBGZ Streaming Experiment — Reality Check");
+        eprintln!("══════════════════════════════════════════════════════════");
+        eprintln!("\nL1 Simple facts:    basins={:2}  merges={:2}  merge_ratio={:.2}  edges={}",
+            stats1.basin_count, stats1.total_merges, stats1.merge_ratio, stats1.total_edges);
+        eprintln!("L2 +Concepts:       basins={:2}  merges={:2}  merge_ratio={:.2}  edges={}",
+            stats2.basin_count, stats2.total_merges, stats2.merge_ratio, stats2.total_edges);
+        eprintln!("L3 +Rumi poetry:    basins={:2}  merges={:2}  merge_ratio={:.2}  edges={}",
+            stats3.basin_count, stats3.total_merges, stats3.merge_ratio, stats3.total_edges);
+        eprintln!("L4 +Tagore poetry:  basins={:2}  merges={:2}  merge_ratio={:.2}  edges={}",
+            stats4.basin_count, stats4.total_merges, stats4.merge_ratio, stats4.total_edges);
+
+        // Show basin sizes
+        eprintln!("\nBasin distribution (edges per basin):");
+        let mut sizes: Vec<usize> = acc.basins.iter().map(|b| b.edge_count()).collect();
+        sizes.sort_unstable_by(|a, b| b.cmp(a));
+        for (i, &size) in sizes.iter().enumerate().take(10) {
+            let basin = &acc.basins[i];
+            let state = match basin.heel.plasticity() {
+                0 => "FROZEN", 1 => "cooling", 2 => "warm", 3 => "HOT", _ => "?"
+            };
+            eprintln!("  basin {:2}: {:2} edges  conf={:.2}  plasticity={}",
+                i, size, basin.heel.confidence(), state);
+        }
+
+        // Check L1 distances between basins
+        eprintln!("\nInter-basin L1 distances (first 5×5):");
+        let n = acc.basins.len().min(5);
+        eprint!("       ");
+        for j in 0..n { eprint!("  B{:<4}", j); }
+        eprintln!();
+        for i in 0..n {
+            eprint!("  B{}: ", i);
+            for j in 0..n {
+                let d = acc.basins[i].heel.spo.l1_distance(&acc.basins[j].heel.spo);
+                eprint!("{:6}", d);
+            }
+            eprintln!();
+        }
+
+        // Crystallization check
+        let crystallized = acc.basins.iter().filter(|b| b.is_crystallized()).count();
+        eprintln!("\nCrystallized: {}/{}", crystallized, acc.basins.len());
+
+        // ═══ REALITY CHECK ASSERTIONS ═══
+        // With 27 inputs (6 seed + 21 post-calibration), expect some consolidation
+        assert!(stats4.total_edges == 27,
+            "FAIL: edge count should match input count, got {}", stats4.total_edges);
+
+        // The key insight metric: are similar texts actually merging?
+        eprintln!("\n══════════════════════════════════════════════════════════");
+        eprintln!("  VERDICT: {} basins from 27 inputs (compression: {:.1}x)",
+            stats4.basin_count, 27.0 / stats4.basin_count as f64);
+        if stats4.merge_ratio < 0.2 {
+            eprintln!("  WARNING: Low merge ratio ({:.2}) — threshold may be too tight", stats4.merge_ratio);
+            eprintln!("  SUGGESTION: Increase basin threshold or improve text_to_spo discrimination");
+        }
+        if stats4.basin_count > 20 {
+            eprintln!("  WARNING: Too many basins — texts not clustering meaningfully");
+            eprintln!("  SUGGESTION: Check SPO plane separation quality");
+        }
+        eprintln!("══════════════════════════════════════════════════════════\n");
     }
 }
