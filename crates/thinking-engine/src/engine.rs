@@ -39,23 +39,36 @@ pub struct ThinkingEngine {
 
     /// Convergence threshold.
     pub convergence_threshold: f64,
+
+    /// Sigma floor: median of the distance table.
+    /// Values below this are noise (orthogonal baseline).
+    /// Only values ABOVE floor contribute to energy propagation.
+    pub floor: u8,
 }
 
 impl ThinkingEngine {
     /// Create engine with a precomputed N×N distance table.
     /// Infers N from table length (must be a perfect square).
+    /// Computes median as sigma floor automatically.
     pub fn new(distance_table: Vec<u8>) -> Self {
         let total = distance_table.len();
         let size = (total as f64).sqrt() as usize;
         assert_eq!(size * size, total,
             "distance table length {} is not a perfect square", total);
         assert!(size >= 4, "need at least 4 atoms");
+
+        // Compute median as floor (σ-distribution baseline)
+        let mut sorted = distance_table.clone();
+        sorted.sort_unstable();
+        let floor = sorted[total / 2];
+
         Self {
             distance_table,
             energy: vec![0.0; size],
             size,
             cycles: 0,
             convergence_threshold: 0.001,
+            floor,
         }
     }
 
@@ -104,16 +117,20 @@ impl ThinkingEngine {
 
             // Inner loop: spread energy[i] to all j
             // distance_table[i][j] / 255.0 = similarity strength
+            let floor = self.floor;
+            let scale = 1.0 / (255.0 - floor as f64); // normalize above-floor to [0, 1]
+
             let mut j = 0;
             while j + 8 <= k {
-                let d0 = self.distance_table[row_offset + j] as f64 / 255.0;
-                let d1 = self.distance_table[row_offset + j + 1] as f64 / 255.0;
-                let d2 = self.distance_table[row_offset + j + 2] as f64 / 255.0;
-                let d3 = self.distance_table[row_offset + j + 3] as f64 / 255.0;
-                let d4 = self.distance_table[row_offset + j + 4] as f64 / 255.0;
-                let d5 = self.distance_table[row_offset + j + 5] as f64 / 255.0;
-                let d6 = self.distance_table[row_offset + j + 6] as f64 / 255.0;
-                let d7 = self.distance_table[row_offset + j + 7] as f64 / 255.0;
+                // Subtract floor, clamp to 0. Only topology above median contributes.
+                let d0 = (self.distance_table[row_offset + j].saturating_sub(floor)) as f64 * scale;
+                let d1 = (self.distance_table[row_offset + j + 1].saturating_sub(floor)) as f64 * scale;
+                let d2 = (self.distance_table[row_offset + j + 2].saturating_sub(floor)) as f64 * scale;
+                let d3 = (self.distance_table[row_offset + j + 3].saturating_sub(floor)) as f64 * scale;
+                let d4 = (self.distance_table[row_offset + j + 4].saturating_sub(floor)) as f64 * scale;
+                let d5 = (self.distance_table[row_offset + j + 5].saturating_sub(floor)) as f64 * scale;
+                let d6 = (self.distance_table[row_offset + j + 6].saturating_sub(floor)) as f64 * scale;
+                let d7 = (self.distance_table[row_offset + j + 7].saturating_sub(floor)) as f64 * scale;
 
                 next[j]     += d0 * e_i;
                 next[j + 1] += d1 * e_i;
@@ -126,7 +143,8 @@ impl ThinkingEngine {
                 j += 8;
             }
             while j < k {
-                next[j] += (self.distance_table[row_offset + j] as f64 / 255.0) * e_i;
+                let d = (self.distance_table[row_offset + j].saturating_sub(floor)) as f64 * scale;
+                next[j] += d * e_i;
                 j += 1;
             }
         }
