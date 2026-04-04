@@ -32,3 +32,4 @@ pub mod superposition;
 pub mod cognitive_trace;
 pub mod ghosts;
 pub mod cognitive_stack;
+pub mod meaning_axes;
