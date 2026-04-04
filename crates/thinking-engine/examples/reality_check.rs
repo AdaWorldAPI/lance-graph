@@ -56,14 +56,23 @@ fn main() {
     println!("[engine] values_above_floor={} ({:.1}%)", above_new, above_new as f64 / (engine.size * engine.size) as f64 * 100.0);
     println!();
 
-    // Test sentences
+    // Test sentences: Rumi metaphors (high emotional valence) vs flat
     let sentences = [
+        // Flat, low valence
         "The cat sat on the mat.",
-        "Quantum entanglement enables faster-than-light correlation.",
-        "I feel deeply sad about losing my friend.",
-        "The stock market crashed by 30% today.",
-        "She laughed with pure joy at the surprise.",
-        "Der schnelle braune Fuchs springt über den faulen Hund.",
+        "The stock market opened at nine.",
+        // Rumi — wound and light (high valence, paradox)
+        "The wound is the place where the light enters you.",
+        // Rumi — longing and ocean (depth, yearning)
+        "You are not a drop in the ocean. You are the entire ocean in a drop.",
+        // Rumi — silence and knowing (stillness, clarity)
+        "Silence is the language of God. All else is poor translation.",
+        // Rumi — love and fire (intensity, transformation)
+        "Set your life on fire. Seek those who fan your flames.",
+        // Grief — raw (for comparison with wound metaphor)
+        "I lost someone I love and the world feels empty now.",
+        // Joy — raw (for comparison with fire metaphor)
+        "Pure overwhelming joy flooded through every cell of my being.",
     ];
 
     let mut all_results: Vec<(String, Vec<u16>, Vec<(usize, f32)>, Qualia17D)> = Vec::new();
