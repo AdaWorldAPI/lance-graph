@@ -153,6 +153,11 @@ impl LiteralGraph {
             .unwrap_or_default()
     }
 
+    /// Get all node IDs.
+    pub fn all_node_ids(&self) -> Vec<String> {
+        self.nodes.iter().map(|n| n.id.clone()).collect()
+    }
+
     /// BFS from seed entities, N hops. Returns associated triplet strings.
     /// Faithful to original AriGraph `get_associated_triplets(items, steps=2)`.
     pub fn get_associated(&self, seeds: &[&str], steps: usize) -> Vec<String> {
