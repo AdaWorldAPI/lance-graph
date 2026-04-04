@@ -192,47 +192,29 @@ impl SensorBank {
     /// Duplicate atom indices have their weights summed.
     /// Returns merged `(atom_index, weight)` pairs sorted by index.
     pub fn fire_all(&self) -> Vec<(u16, f64)> {
-        // Use a fixed-size array for merging since CODEBOOK_SIZE is known.
-        let mut merged = [0.0f64; CODEBOOK_SIZE];
-        let mut active = [false; CODEBOOK_SIZE];
-
+        let mut map = std::collections::HashMap::new();
         for sensor in &self.sensors {
-            for &(idx, w) in &sensor.activate() {
-                let i = idx as usize;
-                if i < CODEBOOK_SIZE {
-                    merged[i] += w;
-                    active[i] = true;
-                }
+            for (idx, w) in sensor.activate() {
+                *map.entry(idx).or_insert(0.0f64) += w;
             }
         }
-
-        let mut result = Vec::new();
-        for i in 0..CODEBOOK_SIZE {
-            if active[i] {
-                result.push((i as u16, merged[i]));
-            }
-        }
+        let mut result: Vec<(u16, f64)> = map.into_iter().collect();
+        result.sort_by_key(|&(idx, _)| idx);
         result
     }
 
     /// Fire all sensors and inject directly into engine's energy array.
-    ///
-    /// Each activated atom gets its merged weight added to energy, then
-    /// energy is renormalized to sum to 1.0.
     pub fn fire_into(&self, engine: &mut ThinkingEngine) {
         let activations = self.fire_all();
         for &(idx, weight) in &activations {
             let i = idx as usize;
-            if i < CODEBOOK_SIZE {
+            if i < engine.size {
                 engine.energy[i] += weight;
             }
         }
-        // Renormalize.
         let total: f64 = engine.energy.iter().sum();
         if total > 1e-15 {
-            for e in &mut engine.energy {
-                *e /= total;
-            }
+            for e in &mut engine.energy { *e /= total; }
         }
     }
 }

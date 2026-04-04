@@ -8,27 +8,31 @@
 use crate::dto::{ResonanceDto, BusDto};
 use ndarray::hpc::heel_f64x8::cosine_f64_simd;
 
-/// Codebook size. 4096 entries = 12-bit index.
+/// Default codebook size. 4096 entries = 12-bit index.
 pub const CODEBOOK_SIZE: usize = 4096;
 
-/// Distance table size: CODEBOOK_SIZE².
+/// Default distance table size: CODEBOOK_SIZE².
 pub const TABLE_SIZE: usize = CODEBOOK_SIZE * CODEBOOK_SIZE;
 
 /// The thinking engine. One MatVec per cycle.
 ///
-/// Memory budget:
-///   distance_table: 4096 × 4096 × u8 = 16 MB (L3-resident)
-///   energy: 4096 × f64 = 32 KB (L1-resident, always hot)
+/// Accepts any N×N distance table. Common sizes:
+///   1024×1024 = 1 MB (BGE-M3, Jina)
+///   1536×1536 = 2.4 MB (reader-LM)
+///   4096×4096 = 16 MB (full codebook, L3-resident)
 pub struct ThinkingEngine {
     /// Precomputed similarity between all codebook pairs.
     /// Built ONCE. This IS the brain.
-    /// entry[i * CODEBOOK_SIZE + j] = u8 similarity (0=opposite, 255=identical).
+    /// entry[i * size + j] = u8 similarity (0=opposite, 255=identical).
     distance_table: Vec<u8>,
 
     /// Current energy distribution = which thoughts are alive.
     /// High energy at index i = "thought i resonates."
     /// Zero at index i = "thought i destructively interfered."
-    pub energy: [f64; CODEBOOK_SIZE],
+    pub energy: Vec<f64>,
+
+    /// Number of thought-atoms (table is size×size).
+    pub size: usize,
 
     /// Cycle counter.
     pub cycles: u16,
@@ -38,14 +42,18 @@ pub struct ThinkingEngine {
 }
 
 impl ThinkingEngine {
-    /// Create engine with a precomputed distance table.
+    /// Create engine with a precomputed N×N distance table.
+    /// Infers N from table length (must be a perfect square).
     pub fn new(distance_table: Vec<u8>) -> Self {
-        assert_eq!(distance_table.len(), TABLE_SIZE,
-            "distance table must be {}×{} = {} entries",
-            CODEBOOK_SIZE, CODEBOOK_SIZE, TABLE_SIZE);
+        let total = distance_table.len();
+        let size = (total as f64).sqrt() as usize;
+        assert_eq!(size * size, total,
+            "distance table length {} is not a perfect square", total);
+        assert!(size >= 4, "need at least 4 atoms");
         Self {
             distance_table,
-            energy: [0.0; CODEBOOK_SIZE],
+            energy: vec![0.0; size],
+            size,
             cycles: 0,
             convergence_threshold: 0.001,
         }
@@ -85,8 +93,8 @@ impl ThinkingEngine {
     ///
     /// Uses F64x8 for the inner loop: 8 multiply-accumulates per SIMD op.
     pub fn cycle(&mut self) {
-        let k = CODEBOOK_SIZE;
-        let mut next = [0.0f64; CODEBOOK_SIZE];
+        let k = self.size;
+        let mut next = vec![0.0f64; k];
 
         for i in 0..k {
             let e_i = self.energy[i];
@@ -98,7 +106,6 @@ impl ThinkingEngine {
             // distance_table[i][j] / 255.0 = similarity strength
             let mut j = 0;
             while j + 8 <= k {
-                // Load 8 table entries, convert u8 → f64, multiply by energy[i]
                 let d0 = self.distance_table[row_offset + j] as f64 / 255.0;
                 let d1 = self.distance_table[row_offset + j + 1] as f64 / 255.0;
                 let d2 = self.distance_table[row_offset + j + 2] as f64 / 255.0;
@@ -118,7 +125,6 @@ impl ThinkingEngine {
                 next[j + 7] += d7 * e_i;
                 j += 8;
             }
-            // Scalar remainder
             while j < k {
                 next[j] += (self.distance_table[row_offset + j] as f64 / 255.0) * e_i;
                 j += 1;
@@ -138,26 +144,22 @@ impl ThinkingEngine {
     /// Run until convergence. Returns the resonance state.
     pub fn think(&mut self, max_cycles: usize) -> ResonanceDto {
         for _ in 0..max_cycles {
-            let prev = self.energy;
+            let prev = self.energy.clone();
             self.cycle();
 
-            // Check convergence: total energy delta
             let delta: f64 = self.energy.iter().zip(&prev)
                 .map(|(a, b)| (a - b).abs()).sum();
             if delta < self.convergence_threshold {
                 break;
             }
         }
-        ResonanceDto::from_energy(&self.energy, self.cycles)
+        ResonanceDto::from_energy_vec(&self.energy, self.cycles)
     }
 
     /// Inject perturbation from sensor output.
-    ///
-    /// codebook_indices: which thought-atoms the sensor activated.
-    /// Each activated atom gets +1.0 energy, then renormalize.
     pub fn perturb(&mut self, codebook_indices: &[u16]) {
         for &idx in codebook_indices {
-            if (idx as usize) < CODEBOOK_SIZE {
+            if (idx as usize) < self.size {
                 self.energy[idx as usize] += 1.0;
             }
         }
@@ -169,13 +171,13 @@ impl ThinkingEngine {
 
     /// Reset energy to zero. New thought starts fresh.
     pub fn reset(&mut self) {
-        self.energy = [0.0; CODEBOOK_SIZE];
+        self.energy.fill(0.0);
         self.cycles = 0;
     }
 
     /// Commit: dominant peak → BusDto.
     pub fn commit(&self) -> BusDto {
-        let resonance = ResonanceDto::from_energy(&self.energy, self.cycles);
+        let resonance = ResonanceDto::from_energy_vec(&self.energy, self.cycles);
         BusDto {
             codebook_index: resonance.top_k[0].0,
             energy: resonance.top_k[0].1,
