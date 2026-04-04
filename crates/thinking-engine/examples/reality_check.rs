@@ -104,9 +104,25 @@ fn main() {
                 c, self_val, above.len(), top_above);
         }
 
-        // Perturb and think
+        // Perturb with IDF weighting: rare centroids contribute more
         engine.reset();
-        engine.perturb(&centroids);
+        // Count how many tokens map to each centroid (IDF proxy)
+        let centroid_counts = codebook.centroid_counts();
+        for &c in &centroids {
+            let count = if (c as usize) < centroid_counts.len() {
+                centroid_counts[c as usize].max(1) as f32
+            } else { 1.0 };
+            let idf_weight = 1.0 / (1.0 + count.ln());
+            if (c as usize) < engine.size {
+                engine.energy[c as usize] += idf_weight;
+            }
+        }
+        // Normalize
+        let total: f32 = engine.energy.iter().sum();
+        if total > 1e-10 {
+            let inv = 1.0 / total;
+            for e in &mut engine.energy { *e *= inv; }
+        }
         println!("  energy after perturb (nonzero):");
         for (j, &e) in engine.energy.iter().enumerate() {
             if e > 1e-10 {
