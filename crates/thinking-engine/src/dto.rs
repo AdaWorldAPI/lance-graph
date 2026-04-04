@@ -57,51 +57,50 @@ pub struct StreamDto {
 /// Spike at entry 7 = "thought 7 crystallizing."
 #[derive(Clone, Debug)]
 pub struct ResonanceDto {
-    /// Energy distribution. THIS IS the thought state.
-    pub energy: Vec<f64>,
-    /// How many MatVec cycles ran.
+    /// Energy distribution. f32 — matches u8 distance table precision.
+    pub energy: Vec<f32>,
     pub cycle_count: u16,
-    /// Did the energy converge before max cycles?
     pub converged: bool,
-    /// Top-K dominant peaks (index, energy).
-    pub top_k: [(u16, f64); 8],
+    pub top_k: [(u16, f32); 8],
 }
 
 impl ResonanceDto {
-    /// Build from fixed-size energy array (legacy 4096).
-    pub fn from_energy(energy: &[f64; CODEBOOK_SIZE], cycles: u16) -> Self {
-        Self::from_energy_vec(energy.as_slice(), cycles)
+    /// Build from f32 energy array (fixed-size legacy compat).
+    pub fn from_energy(energy: &[f32; CODEBOOK_SIZE], cycles: u16) -> Self {
+        Self::from_energy_f32(energy.as_slice(), cycles)
     }
 
-    /// Build from any-size energy slice.
-    pub fn from_energy_vec(energy: &[f64], cycles: u16) -> Self {
-        let mut indexed: Vec<(usize, f64)> = energy.iter()
+    /// Build from f32 energy slice.
+    pub fn from_energy_f32(energy: &[f32], cycles: u16) -> Self {
+        let mut indexed: Vec<(usize, f32)> = energy.iter()
             .enumerate()
             .map(|(i, &e)| (i, e))
             .collect();
         indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
-        let mut top_k = [(0u16, 0.0f64); 8];
+        let mut top_k = [(0u16, 0.0f32); 8];
         for (k, &(idx, val)) in indexed.iter().take(8).enumerate() {
             top_k[k] = (idx as u16, val);
         }
 
-        let converged = cycles < 10;
-
-        Self { energy: energy.to_vec(), cycle_count: cycles, converged, top_k }
+        Self { energy: energy.to_vec(), cycle_count: cycles, converged: cycles < 10, top_k }
     }
 
-    /// Entropy of the resonance field.
-    pub fn entropy(&self) -> f64 {
-        let mut h = 0.0f64;
+    /// Legacy: build from f64 slice (converts to f32).
+    pub fn from_energy_vec(energy: &[f64], cycles: u16) -> Self {
+        let f32_energy: Vec<f32> = energy.iter().map(|&e| e as f32).collect();
+        Self::from_energy_f32(&f32_energy, cycles)
+    }
+
+    pub fn entropy(&self) -> f32 {
+        let mut h = 0.0f32;
         for &e in &self.energy {
-            if e > 1e-15 { h -= e * e.ln(); }
+            if e > 1e-10 { h -= e * e.ln(); }
         }
         h
     }
 
-    /// Number of active thought-atoms (energy > threshold).
-    pub fn active_count(&self, threshold: f64) -> usize {
+    pub fn active_count(&self, threshold: f32) -> usize {
         self.energy.iter().filter(|&&e| e > threshold).count()
     }
 }
@@ -114,15 +113,10 @@ impl ResonanceDto {
 /// Dominant peak of the resonance field + provenance.
 #[derive(Clone, Debug)]
 pub struct BusDto {
-    /// Dominant codebook index (argmax of energy).
     pub codebook_index: u16,
-    /// Energy at the dominant peak.
-    pub energy: f64,
-    /// Top-K peaks for context.
-    pub top_k: [(u16, f64); 8],
-    /// Cycles it took.
+    pub energy: f32,
+    pub top_k: [(u16, f32); 8],
     pub cycle_count: u16,
-    /// Did it converge?
     pub converged: bool,
 }
 
@@ -140,7 +134,7 @@ pub struct ThoughtStruct {
     /// Which sensors contributed and what indices they produced.
     pub sensor_contributions: Vec<(SourceType, Vec<u16>)>,
     /// Energy snapshots per cycle (for trajectory analysis).
-    pub tension_history: Vec<[f64; CODEBOOK_SIZE]>,
+    pub tension_history: Vec<Vec<f32>>,
     /// Thinking scale trajectory.
     pub style_trajectory: Vec<ThinkingScale>,
 }
@@ -175,7 +169,7 @@ impl ThoughtStruct {
 /// Same principle as NeuronIndex: AoS for API, SoA for search.
 pub struct ThoughtIndex {
     pub codebook_index: Vec<u16>,
-    pub energy: Vec<f64>,
+    pub energy: Vec<f32>,
     pub style: Vec<ThinkingScale>,
     pub source: Vec<SourceType>,
     pub timestamp: Vec<u64>,
@@ -224,7 +218,7 @@ mod tests {
 
     #[test]
     fn resonance_dto_from_energy() {
-        let mut energy = [0.0f64; CODEBOOK_SIZE];
+        let mut energy = [0.0f32; CODEBOOK_SIZE];
         energy[42] = 0.5;
         energy[100] = 0.3;
         energy[200] = 0.2;

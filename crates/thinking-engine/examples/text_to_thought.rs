@@ -14,6 +14,7 @@
 //!   --example text_to_thought
 
 use thinking_engine::engine::ThinkingEngine;
+use thinking_engine::codebook_index::CodebookIndex;
 use thinking_engine::sensor::{Sensor, SensorBank};
 
 fn main() {
@@ -47,7 +48,19 @@ fn main() {
     // Engine now accepts any N×N table (variable size, no 4096 padding waste)
     println!("[3] Building ThinkingEngine ({0}×{0} = {1} compositions)...", n, n * n);
     let mut engine = ThinkingEngine::new(table_data.clone());
-    let n_raw = n; // alias for token mapping
+
+    // ── Step 3b: Load real codebook index (token_id → centroid row) ────────
+    let index_path = "/tmp/codebooks/bge-m3-roles-f16/codebook_index.u16";
+    let codebook_index = CodebookIndex::load(
+        std::path::Path::new(index_path), n as u16, "bge-m3".into()
+    ).ok();
+    if let Some(ref ci) = codebook_index {
+        println!("  Codebook index: {} tokens → {} centroids (REAL mapping)",
+            ci.len(), ci.unique_centroids());
+    } else {
+        println!("  Codebook index not found — using modulo fallback");
+        println!("  (run build_codebook_index to create real mapping)");
+    }
 
     // ── Step 4: Test sentences ─────────────────────────────────────────────
     let sentences = [
@@ -79,28 +92,17 @@ fn main() {
         // This is the HHTL lookup: token → codebook entry → table row.
         // (Full pipeline would use per-token codebook assignments;
         //  for now, modulo mapping preserves the token→topology connection.)
-        let table_indices: Vec<u16> = token_ids.iter()
-            .map(|&id| (id as usize % n_raw) as u16)
-            .collect();
+        let table_indices: Vec<u16> = if let Some(ref ci) = codebook_index {
+            ci.lookup_many(token_ids)
+        } else {
+            token_ids.iter().map(|&id| (id as usize % n) as u16).collect()
+        };
 
-        // Step 4c: Build sensors from distance table rows
-        let mut bank = SensorBank::new();
-        for &idx in &table_indices {
-            let sensor = Sensor::from_distance_row(
-                "bge-m3",
-                &table_data,
-                idx as usize,
-                n,
-                192, // threshold: activate atoms with cos > 0.5 (u8 192 ≈ cos 0.506)
-            );
-            if !sensor.is_empty() {
-                bank.add(sensor);
-            }
-        }
-
-        // Step 4d: Fire into engine
+        // Step 4c: Perturb engine directly with codebook indices
+        // Each token → its centroid row → +1.0 energy at that atom
+        // This is the HHTL lookup: no distance row scan, just direct perturbation
         engine.reset();
-        bank.fire_into(&mut engine);
+        engine.perturb(&table_indices);
 
         // Step 4e: Think
         let start = std::time::Instant::now();
@@ -114,7 +116,7 @@ fn main() {
         let active = engine.active_count(0.001);
 
         // Top-5 peaks
-        let mut peaks: Vec<(usize, f64)> = engine.energy.iter()
+        let mut peaks: Vec<(usize, f32)> = engine.energy.iter()
             .enumerate()
             .filter(|(_, &e)| e > 0.001)
             .map(|(i, &e)| (i, e))
@@ -122,8 +124,11 @@ fn main() {
         peaks.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
         peaks.truncate(5);
 
-        println!("  Sensors: {} activated, {} atoms above threshold",
-            table_indices.len(), bank.fire_all().len());
+        // Count unique centroids activated
+        let mut unique: Vec<u16> = table_indices.clone();
+        unique.sort(); unique.dedup();
+        println!("  Perturbed: {} tokens → {} unique atoms",
+            table_indices.len(), unique.len());
         println!("  Think: {} cycles, {:.1}μs",
             max_cycles, think_time.as_micros());
         println!("  Dominant: atom {} (energy {:.4})", bus.codebook_index, bus.energy);
@@ -144,18 +149,14 @@ fn main() {
     for text in &sentences {
         let encoding = tokenizer.encode(*text, true).unwrap();
         let token_ids = encoding.get_ids();
-        let table_indices: Vec<u16> = token_ids.iter()
-            .map(|&id| (id as usize % n_raw) as u16)
-            .collect();
-
-        let mut bank = SensorBank::new();
-        for &idx in &table_indices {
-            let sensor = Sensor::from_distance_row("bge-m3", &table_data, idx as usize, n, 192);
-            if !sensor.is_empty() { bank.add(sensor); }
-        }
+        let table_indices: Vec<u16> = if let Some(ref ci) = codebook_index {
+            ci.lookup_many(token_ids)
+        } else {
+            token_ids.iter().map(|&id| (id as usize % n) as u16).collect()
+        };
 
         engine.reset();
-        bank.fire_into(&mut engine);
+        engine.perturb(&table_indices);
         engine.think(10);
         let bus = engine.commit();
         dominant_atoms.push((bus.codebook_index, text.chars().take(40).collect()));
@@ -174,7 +175,7 @@ fn main() {
             let a = dominant_atoms[i].0 as usize;
             let b = dominant_atoms[j].0 as usize;
             let dist = table_data[a * n + b];
-            let cos = (dist as f64 / 255.0) * 2.0 - 1.0;
+            let cos = (dist as f32 / 255.0) * 2.0 - 1.0;
             println!("    S{} ↔ S{}: u8={:>3} cos={:.3}  [{} ↔ {}]",
                 i+1, j+1, dist, cos,
                 &dominant_atoms[i].1,

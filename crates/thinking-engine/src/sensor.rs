@@ -14,7 +14,7 @@ pub struct Sensor {
     /// Which codebook atoms this sensor activates.
     atom_indices: Vec<u16>,
     /// Weight per atom (default 1.0). Same length as `atom_indices`.
-    weights: Vec<f64>,
+    weights: Vec<f32>,
     /// Sensor name for debugging.
     name: String,
 }
@@ -23,7 +23,7 @@ impl Sensor {
     /// Create a sensor with explicit atom indices and weights.
     ///
     /// Panics if `atom_indices` and `weights` have different lengths.
-    pub fn new(name: impl Into<String>, atom_indices: Vec<u16>, weights: Vec<f64>) -> Self {
+    pub fn new(name: impl Into<String>, atom_indices: Vec<u16>, weights: Vec<f32>) -> Self {
         assert_eq!(
             atom_indices.len(),
             weights.len(),
@@ -66,10 +66,10 @@ impl Sensor {
         assert!(top_n <= k, "top_n must be <= k");
 
         // Compute cosine similarity between embedding and each centroid.
-        let mut similarities: Vec<(usize, f64)> = (0..k)
+        let mut similarities: Vec<(usize, f32)> = (0..k)
             .map(|i| {
                 let centroid = &centroids[i * dim..(i + 1) * dim];
-                let cos = cosine_f32_to_f64_simd(embedding, centroid);
+                let cos = cosine_f32_to_f64_simd(embedding, centroid) as f32;
                 (i, cos)
             })
             .collect();
@@ -80,7 +80,7 @@ impl Sensor {
         // Take top_n, clamp weights to non-negative.
         let top = &similarities[..top_n];
         let atom_indices: Vec<u16> = top.iter().map(|&(i, _)| i as u16).collect();
-        let weights: Vec<f64> = top.iter().map(|&(_, cos)| cos.max(0.0)).collect();
+        let weights: Vec<f32> = top.iter().map(|&(_, cos)| cos.max(0.0)).collect();
 
         Self {
             atom_indices,
@@ -122,7 +122,7 @@ impl Sensor {
             let val = distance_table[row_start + j];
             if val > threshold {
                 atom_indices.push(j as u16);
-                weights.push((val - threshold) as f64 / 255.0);
+                weights.push((val - threshold) as f32 / 255.0);
             }
         }
 
@@ -134,7 +134,7 @@ impl Sensor {
     }
 
     /// Return (atom_index, weight) activation pairs.
-    pub fn activate(&self) -> Vec<(u16, f64)> {
+    pub fn activate(&self) -> Vec<(u16, f32)> {
         self.atom_indices
             .iter()
             .zip(&self.weights)
@@ -191,14 +191,14 @@ impl SensorBank {
     ///
     /// Duplicate atom indices have their weights summed.
     /// Returns merged `(atom_index, weight)` pairs sorted by index.
-    pub fn fire_all(&self) -> Vec<(u16, f64)> {
+    pub fn fire_all(&self) -> Vec<(u16, f32)> {
         let mut map = std::collections::HashMap::new();
         for sensor in &self.sensors {
             for (idx, w) in sensor.activate() {
-                *map.entry(idx).or_insert(0.0f64) += w;
+                *map.entry(idx).or_insert(0.0f32) += w;
             }
         }
-        let mut result: Vec<(u16, f64)> = map.into_iter().collect();
+        let mut result: Vec<(u16, f32)> = map.into_iter().collect();
         result.sort_by_key(|&(idx, _)| idx);
         result
     }
@@ -212,8 +212,8 @@ impl SensorBank {
                 engine.energy[i] += weight;
             }
         }
-        let total: f64 = engine.energy.iter().sum();
-        if total > 1e-15 {
+        let total: f32 = engine.energy.iter().sum();
+        if total > 1e-10 {
             for e in &mut engine.energy { *e /= total; }
         }
     }
@@ -316,7 +316,7 @@ mod tests {
 
         let acts = bank.fire_all();
         // Index 10: 1.0, Index 20: 0.5 + 0.3 = 0.8, Index 30: 0.7.
-        let map: std::collections::HashMap<u16, f64> =
+        let map: std::collections::HashMap<u16, f32> =
             acts.into_iter().collect();
         assert!((map[&10] - 1.0).abs() < 1e-10);
         assert!((map[&20] - 0.8).abs() < 1e-10);
@@ -343,7 +343,7 @@ mod tests {
         bank.fire_into(&mut engine);
 
         // Energy should be normalized.
-        let total: f64 = engine.energy.iter().sum();
+        let total: f32 = engine.energy.iter().sum();
         assert!((total - 1.0).abs() < 1e-10);
 
         // Atom 42 should have 2/3 of energy, atom 100 should have 1/3.
@@ -369,7 +369,7 @@ mod tests {
         // Both should have energy now.
         assert!(engine.energy[42] > 0.0);
         assert!(engine.energy[100] > 0.0);
-        let total: f64 = engine.energy.iter().sum();
+        let total: f32 = engine.energy.iter().sum();
         assert!((total - 1.0).abs() < 1e-10);
     }
 
