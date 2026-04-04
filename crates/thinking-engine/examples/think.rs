@@ -170,6 +170,58 @@ fn main() {
         println!("  ♯ Dissonant — unresolved, like a tritone");
     }
 
+    // ═══ SPO KNOWLEDGE GRAPH ═══
+    let spo_triples = thinking_engine::cognitive_trace::CognitiveTrace::extract_spo(
+        &gated,
+        |a, b| thinking_engine::jina_lens::jina_distance(a, b),
+        |a, b| thinking_engine::bge_m3_lens::bge_m3_distance(a, b),
+        0.6, // 60% agreement threshold
+    );
+
+    if !spo_triples.is_empty() {
+        println!("\n─── KNOWLEDGE GRAPH (confirmed SPO triples) ───\n");
+        for t in spo_triples.iter().take(8) {
+            println!("  ({}) —[{} f={:.2} c={:.2}]→ ({})",
+                label(t.subject), t.predicate, t.frequency, t.confidence,
+                label(t.object));
+        }
+        println!("  {} triples extracted (agreement > 60%)", spo_triples.len());
+
+        // Append to knowledge graph file
+        let kg_path = std::path::Path::new("/tmp/codebooks/knowledge_graph.tsv");
+        let trace = thinking_engine::cognitive_trace::CognitiveTrace {
+            input: input.clone(),
+            token_ids: token_ids.to_vec(),
+            tokens: tokens.clone(),
+            lens_results: vec![],
+            superposition: field.clone(),
+            style: style.clone(),
+            gated_atoms: gated.clone(),
+            qualia: qualia.clone(),
+            blend: blend_name.clone(),
+            primary_family: primary.to_string(),
+            overlay_family: overlay.to_string(),
+            spo_triples: spo_triples.clone(),
+            confidence,
+            dissonance: dis_avg,
+            staunen_max: jina_result.max_staunen.max(bge_result.max_staunen),
+            wisdom_max: jina_result.max_wisdom.max(bge_result.max_wisdom),
+        };
+        if let Ok(()) = trace.append_to_knowledge_graph(kg_path) {
+            println!("  → Appended to {}", kg_path.display());
+        }
+    }
+
+    // ═══ COGNITIVE TRACE (full provenance) ═══
+    println!("\n─── COGNITIVE TRACE ───\n");
+    println!("  input → {} tokens → {} centroids (Jina) / {} centroids (BGE)",
+        token_ids.len(), jina_result.chain.len() + 1, bge_result.chain.len() + 1);
+    println!("  → {} resonant atoms (superposition) → {} gated (threshold)",
+        field.n_resonant, gated.len());
+    println!("  → {} SPO triples (confirmed) → {} style",
+        spo_triples.len(), style);
+    println!("  → {} (qualia blend)", blend_name);
+
     // ═══ FINAL ANSWER ═══
     println!("\n╔══════════════════════════════════════════════════════════════╗");
     println!("║  ANSWER                                                      ║");
