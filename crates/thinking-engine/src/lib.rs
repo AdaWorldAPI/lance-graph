@@ -30,3 +30,4 @@ pub mod bge_m3_lens;
 pub mod centroid_labels;
 pub mod superposition;
 pub mod cognitive_trace;
+pub mod ghosts;
