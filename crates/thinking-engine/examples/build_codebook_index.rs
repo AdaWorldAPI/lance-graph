@@ -117,37 +117,48 @@ fn main() {
     println!("  Done in {:.1}ms", start.elapsed().as_secs_f64() * 1000.0);
 
     // ── Step 5: For each token embedding, find nearest centroid ────────────
-    println!("\n[5] Finding nearest centroid for each of {} tokens (rayon parallel) ...", VOCAB_SIZE);
+    println!("\n[5] Finding nearest centroid for each of {} tokens (chunked, 2 threads) ...", VOCAB_SIZE);
     let start = std::time::Instant::now();
 
-    let indices: Vec<u16> = (0..embd_rows)
-        .into_par_iter()
-        .map(|tok_id| {
-            // After transpose, data is always [vocab_size, hidden_dim] contiguous
-            let tok_row = &embd_data[tok_id * embd_cols..(tok_id + 1) * embd_cols];
+    // Process in chunks to show progress and avoid process kill
+    let chunk_size = 25000;
+    let mut indices = vec![0u16; embd_rows];
 
-            // Pre-normalize token embedding
-            let norm = tok_row.iter().map(|v| (*v as f64) * (*v as f64)).sum::<f64>().sqrt();
-            if norm < 1e-12 {
-                // Zero embedding — assign to centroid 0
-                return 0u16;
-            }
-            let inv = (1.0 / norm) as f32;
-            let tok_normed: Vec<f32> = tok_row.iter().map(|v| v * inv).collect();
+    for chunk_start in (0..embd_rows).step_by(chunk_size) {
+        let chunk_end = (chunk_start + chunk_size).min(embd_rows);
+        let chunk_indices: Vec<u16> = (chunk_start..chunk_end)
+            .into_par_iter()
+            .map(|tok_id| {
+                let tok_row = &embd_data[tok_id * embd_cols..(tok_id + 1) * embd_cols];
 
-            // Find nearest centroid by cosine (= dot product on normalized vecs)
-            let mut best_idx = 0u16;
-            let mut best_sim = f64::NEG_INFINITY;
-            for (c_idx, centroid) in centroids.iter().enumerate() {
-                let sim = cosine_f32_to_f64_simd(&tok_normed, centroid);
-                if sim > best_sim {
-                    best_sim = sim;
-                    best_idx = c_idx as u16;
+                // Pre-normalize
+                let norm = tok_row.iter().map(|v| (*v as f64) * (*v as f64)).sum::<f64>().sqrt();
+                if norm < 1e-12 { return 0u16; }
+                let inv = (1.0 / norm) as f32;
+                let tok_normed: Vec<f32> = tok_row.iter().map(|v| v * inv).collect();
+
+                // Find nearest centroid by f32 dot product (both normalized → dot = cosine)
+                let mut best_idx = 0u16;
+                let mut best_dot = f32::NEG_INFINITY;
+                for (c_idx, centroid) in centroids.iter().enumerate() {
+                    let dot: f32 = tok_normed.iter().zip(centroid.iter())
+                        .map(|(a, b)| a * b).sum();
+                    if dot > best_dot {
+                        best_dot = dot;
+                        best_idx = c_idx as u16;
+                    }
                 }
-            }
-            best_idx
-        })
-        .collect();
+                best_idx
+            })
+            .collect();
+
+        for (i, &idx) in chunk_indices.iter().enumerate() {
+            indices[chunk_start + i] = idx;
+        }
+        let elapsed = start.elapsed().as_secs_f64();
+        let pct = (chunk_end as f64 / embd_rows as f64) * 100.0;
+        println!("  [{:>6}/{:>6}] {:.0}%  {:.1}s", chunk_end, embd_rows, pct, elapsed);
+    }
 
     let elapsed = start.elapsed();
     println!("  Done in {:.2}s ({:.0} tokens/sec)",
