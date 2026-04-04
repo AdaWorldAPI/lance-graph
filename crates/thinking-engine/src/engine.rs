@@ -208,11 +208,57 @@ impl ThinkingEngine {
             "distance table length {} is not a perfect square", total);
         assert!(size >= 4, "need at least 4 atoms");
 
-        // Compute median as floor (σ-distribution baseline)
+        // Compute 1σ floor (74th percentile) — kills 74% of noise,
+        // keeps only the top 26% as real topology.
+        // Median (50%) is useless — half the table surviving is not a floor.
         let mut sorted = distance_table.clone();
         sorted.sort_unstable();
-        let floor = sorted[total / 2];
+        let floor = sorted[total * 3 / 4]; // p75 ≈ μ + 0.675σ
 
+        Self {
+            distance_table,
+            energy: vec![0.0f32; size],
+            size,
+            cycles: 0,
+            convergence_threshold: 0.001,
+            floor,
+        }
+    }
+
+    /// Sparsify the distance table: keep only top-K values per row, zero the rest.
+    /// This forces the MatVec to only propagate energy through the K strongest
+    /// connections, preventing global attractor collapse.
+    pub fn sparsify(&mut self, top_k: usize) {
+        let k = self.size;
+        for i in 0..k {
+            let row = &self.distance_table[i * k..(i + 1) * k];
+            // Find the threshold: the K-th highest value
+            let mut sorted_vals: Vec<u8> = row.to_vec();
+            sorted_vals.sort_unstable_by(|a, b| b.cmp(a));
+            let threshold = if top_k < sorted_vals.len() {
+                sorted_vals[top_k]
+            } else {
+                0
+            };
+            // Zero everything below threshold (except self which stays at 255)
+            for j in 0..k {
+                if i != j && self.distance_table[i * k + j] <= threshold {
+                    self.distance_table[i * k + j] = 0;
+                }
+            }
+        }
+        // Recompute floor (should be 0 now since most values are 0)
+        let mut sorted = self.distance_table.clone();
+        sorted.sort_unstable();
+        self.floor = sorted[self.distance_table.len() * 3 / 4];
+    }
+
+    /// Create engine with explicit floor override.
+    pub fn with_floor(distance_table: Vec<u8>, floor: u8) -> Self {
+        let total = distance_table.len();
+        let size = (total as f64).sqrt() as usize;
+        assert_eq!(size * size, total);
+        assert!(size >= 4);
         Self {
             distance_table,
             energy: vec![0.0f32; size],
@@ -439,6 +485,9 @@ impl ThinkingEngine {
             converged: resonance.converged,
         }
     }
+
+    /// Access the distance table.
+    pub fn distance_table_ref(&self) -> &[u8] { &self.distance_table }
 
     /// Entropy of current energy distribution.
     pub fn entropy(&self) -> f32 {
