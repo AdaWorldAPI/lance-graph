@@ -39,3 +39,4 @@ pub mod jit;
 pub mod orchestration;
 pub mod nars;
 pub mod sensorium;
+pub mod world_model;
