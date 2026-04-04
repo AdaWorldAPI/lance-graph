@@ -120,7 +120,7 @@ impl TierEngine {
     /// Create a tier engine from an N×N distance table.
     pub fn new(distance_table: Vec<u8>, name: &str) -> Self {
         let total = distance_table.len();
-        let size = (total as f64).sqrt() as usize;
+        let size = (total as f32).sqrt() as usize;
         assert_eq!(size * size, total,
             "distance table length {} is not a perfect square", total);
         let engine = ThinkingEngine::new(distance_table.clone());
@@ -138,8 +138,8 @@ impl TierEngine {
     }
 
     /// Get top-k peaks from current energy, sorted descending by energy.
-    pub fn top_k(&self, k: usize) -> Vec<(u16, f64)> {
-        let mut indexed: Vec<(usize, f64)> = self.engine.energy.iter()
+    pub fn top_k(&self, k: usize) -> Vec<(u16, f32)> {
+        let mut indexed: Vec<(usize, f32)> = self.engine.energy.iter()
             .enumerate()
             .map(|(i, &e)| (i, e))
             .collect();
@@ -176,7 +176,7 @@ impl TierEngine {
             // Take top 4 neighbors.
             for &(neighbor_idx, sim) in neighbors.iter().take(4) {
                 // Strength proportional to similarity and peak energy.
-                let strength = ((sim as f64 / 255.0) * peak_energy * 255.0)
+                let strength = ((sim as f32 / 255.0) * peak_energy * 255.0)
                     .round()
                     .clamp(0.0, 255.0) as u8;
                 if strength == 0 {
@@ -203,7 +203,7 @@ impl TierEngine {
             }
             let net = edge.net_strength();
             // Scale: divide by 255 to keep in reasonable range.
-            let delta = net as f64 / 255.0;
+            let delta = net as f32 / 255.0;
             self.engine.energy[idx] += delta;
             // Clamp to zero floor.
             if self.engine.energy[idx] < 0.0 {
@@ -211,7 +211,7 @@ impl TierEngine {
             }
         }
         // Re-normalize.
-        let total: f64 = self.engine.energy.iter().sum();
+        let total: f32 = self.engine.energy.iter().sum();
         if total > 1e-15 {
             for e in &mut self.engine.energy {
                 *e /= total;
@@ -530,8 +530,8 @@ mod tests {
         engine.reset();
 
         // After reset, all energy should be zero.
-        assert_eq!(engine.l1().engine().energy.iter().sum::<f64>(), 0.0);
-        assert_eq!(engine.l2().engine().energy.iter().sum::<f64>(), 0.0);
-        assert_eq!(engine.l3().engine().energy.iter().sum::<f64>(), 0.0);
+        assert_eq!(engine.l1().engine().energy.iter().sum::<f32>(), 0.0);
+        assert_eq!(engine.l2().engine().energy.iter().sum::<f32>(), 0.0);
+        assert_eq!(engine.l3().engine().energy.iter().sum::<f32>(), 0.0);
     }
 }

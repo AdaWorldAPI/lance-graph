@@ -116,7 +116,7 @@ fn main() {
         let active = engine.active_count(0.001);
 
         // Top-5 peaks
-        let mut peaks: Vec<(usize, f64)> = engine.energy.iter()
+        let mut peaks: Vec<(usize, f32)> = engine.energy.iter()
             .enumerate()
             .filter(|(_, &e)| e > 0.001)
             .map(|(i, &e)| (i, e))
@@ -175,7 +175,7 @@ fn main() {
             let a = dominant_atoms[i].0 as usize;
             let b = dominant_atoms[j].0 as usize;
             let dist = table_data[a * n + b];
-            let cos = (dist as f64 / 255.0) * 2.0 - 1.0;
+            let cos = (dist as f32 / 255.0) * 2.0 - 1.0;
             println!("    S{} ↔ S{}: u8={:>3} cos={:.3}  [{} ↔ {}]",
                 i+1, j+1, dist, cos,
                 &dominant_atoms[i].1,

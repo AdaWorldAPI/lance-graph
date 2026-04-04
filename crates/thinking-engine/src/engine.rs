@@ -7,7 +7,7 @@
 
 use crate::dto::{ResonanceDto, BusDto};
 use ndarray::hpc::heel_f64x8::cosine_f64_simd;
-use ndarray::simd::F64x8;
+use ndarray::simd::F32x16;
 
 /// Default codebook size. 4096 entries = 12-bit index.
 pub const CODEBOOK_SIZE: usize = 4096;
@@ -28,9 +28,9 @@ pub struct ThinkingEngine {
     distance_table: Vec<u8>,
 
     /// Current energy distribution = which thoughts are alive.
-    /// High energy at index i = "thought i resonates."
-    /// Zero at index i = "thought i destructively interfered."
-    pub energy: Vec<f64>,
+    /// f32 precision — distance table is u8 (8 bits), f32 has 24-bit mantissa.
+    /// More than sufficient. No f64 needed for u8 data.
+    pub energy: Vec<f32>,
 
     /// Number of thought-atoms (table is size×size).
     pub size: usize,
@@ -39,7 +39,7 @@ pub struct ThinkingEngine {
     pub cycles: u16,
 
     /// Convergence threshold.
-    pub convergence_threshold: f64,
+    pub convergence_threshold: f32,
 
     /// Sigma floor: median of the distance table.
     /// Values below this are noise (orthogonal baseline).
@@ -65,7 +65,7 @@ impl ThinkingEngine {
 
         Self {
             distance_table,
-            energy: vec![0.0; size],
+            energy: vec![0.0f32; size],
             size,
             cycles: 0,
             convergence_threshold: 0.001,
@@ -105,59 +105,66 @@ impl ThinkingEngine {
     ///   Similar atoms (high table value) reinforce.
     ///   Dissimilar atoms (low table value) don't contribute.
     ///
-    /// SIMD: 8× F64x8 per iteration = 64 elements.
-    /// 4096 / 64 = 64 iterations per row. 4096 active rows = 4096 × 64 = 262K SIMD ops.
+    /// SIMD: 4× F32x16 per iteration = 64 elements.
+    /// 4096 / 64 = 64 iterations per row. f32 matches u8 precision (24-bit mantissa >> 8-bit data).
+    /// CPU cycles spent on real perturbation math, not artificial f64 precision.
     pub fn cycle(&mut self) {
         let k = self.size;
-        let mut next = vec![0.0f64; k];
+        let mut next = vec![0.0f32; k];
         let floor = self.floor;
-        let scale = 1.0 / (255.0 - floor as f64);
+        let scale = 1.0f32 / (255.0 - floor as f32);
 
         for i in 0..k {
             let e_i = self.energy[i];
-            if e_i < 1e-15 { continue; }
+            if e_i < 1e-10 { continue; }
 
             let row = &self.distance_table[i * k..(i + 1) * k];
             let e_scaled = e_i * scale;
 
-            // 8× F64x8 = 64 elements per iteration
+            // 4× F32x16 = 64 elements per iteration
             let mut j = 0;
             while j + 64 <= k {
-                // Load 64 u8 → 8× f64[8], subtract floor, FMA into accumulators
                 macro_rules! do_lane {
                     ($off:expr) => {{
-                        let base = j + $off * 8;
-                        let d = F64x8::from_array([
-                            row[base].saturating_sub(floor) as f64,
-                            row[base + 1].saturating_sub(floor) as f64,
-                            row[base + 2].saturating_sub(floor) as f64,
-                            row[base + 3].saturating_sub(floor) as f64,
-                            row[base + 4].saturating_sub(floor) as f64,
-                            row[base + 5].saturating_sub(floor) as f64,
-                            row[base + 6].saturating_sub(floor) as f64,
-                            row[base + 7].saturating_sub(floor) as f64,
+                        let base = j + $off * 16;
+                        let d = F32x16::from_array([
+                            row[base].saturating_sub(floor) as f32,
+                            row[base + 1].saturating_sub(floor) as f32,
+                            row[base + 2].saturating_sub(floor) as f32,
+                            row[base + 3].saturating_sub(floor) as f32,
+                            row[base + 4].saturating_sub(floor) as f32,
+                            row[base + 5].saturating_sub(floor) as f32,
+                            row[base + 6].saturating_sub(floor) as f32,
+                            row[base + 7].saturating_sub(floor) as f32,
+                            row[base + 8].saturating_sub(floor) as f32,
+                            row[base + 9].saturating_sub(floor) as f32,
+                            row[base + 10].saturating_sub(floor) as f32,
+                            row[base + 11].saturating_sub(floor) as f32,
+                            row[base + 12].saturating_sub(floor) as f32,
+                            row[base + 13].saturating_sub(floor) as f32,
+                            row[base + 14].saturating_sub(floor) as f32,
+                            row[base + 15].saturating_sub(floor) as f32,
                         ]);
-                        let acc = F64x8::from_slice(&next[base..base + 8]);
-                        let ei = F64x8::splat(e_scaled);
-                        d.mul_add(ei, acc).copy_to_slice(&mut next[base..base + 8]);
+                        let acc = F32x16::from_slice(&next[base..base + 16]);
+                        let ei = F32x16::splat(e_scaled);
+                        d.mul_add(ei, acc).copy_to_slice(&mut next[base..base + 16]);
                     }};
                 }
                 do_lane!(0); do_lane!(1); do_lane!(2); do_lane!(3);
-                do_lane!(4); do_lane!(5); do_lane!(6); do_lane!(7);
                 j += 64;
             }
-            // Scalar remainder (for sizes not divisible by 64)
             while j < k {
-                let d = row[j].saturating_sub(floor) as f64;
+                let d = row[j].saturating_sub(floor) as f32;
                 next[j] += d * e_scaled;
                 j += 1;
             }
         }
 
         // Normalize: total energy = 1.0
-        let total: f64 = next.iter().sum();
-        if total > 1e-15 {
-            for e in &mut next { *e /= total; }
+        let total: f32 = next.iter().sum();
+        if total > 1e-10 {
+            let inv = 1.0 / total;
+            for e in &mut next { *e *= inv; }
         }
 
         self.energy = next;
@@ -170,13 +177,13 @@ impl ThinkingEngine {
             let prev = self.energy.clone();
             self.cycle();
 
-            let delta: f64 = self.energy.iter().zip(&prev)
+            let delta: f32 = self.energy.iter().zip(&prev)
                 .map(|(a, b)| (a - b).abs()).sum();
             if delta < self.convergence_threshold {
                 break;
             }
         }
-        ResonanceDto::from_energy_vec(&self.energy, self.cycles)
+        ResonanceDto::from_energy_f32(&self.energy, self.cycles)
     }
 
     /// Inject perturbation from sensor output.
@@ -186,9 +193,10 @@ impl ThinkingEngine {
                 self.energy[idx as usize] += 1.0;
             }
         }
-        let total: f64 = self.energy.iter().sum();
-        if total > 1e-15 {
-            for e in &mut self.energy { *e /= total; }
+        let total: f32 = self.energy.iter().sum();
+        if total > 1e-10 {
+            let inv = 1.0 / total;
+            for e in &mut self.energy { *e *= inv; }
         }
     }
 
@@ -200,7 +208,7 @@ impl ThinkingEngine {
 
     /// Commit: dominant peak → BusDto.
     pub fn commit(&self) -> BusDto {
-        let resonance = ResonanceDto::from_energy_vec(&self.energy, self.cycles);
+        let resonance = ResonanceDto::from_energy_f32(&self.energy, self.cycles);
         BusDto {
             codebook_index: resonance.top_k[0].0,
             energy: resonance.top_k[0].1,
@@ -211,12 +219,10 @@ impl ThinkingEngine {
     }
 
     /// Entropy of current energy distribution.
-    /// Low entropy = crystallized thought (few dominant peaks).
-    /// High entropy = diffuse resonance (many active atoms).
-    pub fn entropy(&self) -> f64 {
-        let mut h = 0.0f64;
+    pub fn entropy(&self) -> f32 {
+        let mut h = 0.0f32;
         for &e in &self.energy {
-            if e > 1e-15 {
+            if e > 1e-10 {
                 h -= e * e.ln();
             }
         }
@@ -224,7 +230,7 @@ impl ThinkingEngine {
     }
 
     /// Number of active thought-atoms (energy > threshold).
-    pub fn active_count(&self, threshold: f64) -> usize {
+    pub fn active_count(&self, threshold: f32) -> usize {
         self.energy.iter().filter(|&&e| e > threshold).count()
     }
 }
@@ -252,7 +258,7 @@ mod tests {
     fn engine_creates() {
         let table = make_test_table(CODEBOOK_SIZE);
         let engine = ThinkingEngine::new(table);
-        assert_eq!(engine.energy.iter().sum::<f64>(), 0.0);
+        assert_eq!(engine.energy.iter().sum::<f32>(), 0.0);
         assert_eq!(engine.cycles, 0);
     }
 
@@ -267,7 +273,7 @@ mod tests {
         assert!(engine.energy[200] > 0.0);
 
         // Total should be 1.0 (normalized)
-        let total: f64 = engine.energy.iter().sum();
+        let total: f32 = engine.energy.iter().sum();
         assert!((total - 1.0).abs() < 1e-10);
     }
 
@@ -363,7 +369,7 @@ mod tests {
         assert!(engine.energy[42] > 0.0);
 
         engine.reset();
-        assert_eq!(engine.energy.iter().sum::<f64>(), 0.0);
+        assert_eq!(engine.energy.iter().sum::<f32>(), 0.0);
         assert_eq!(engine.cycles, 0);
     }
 
