@@ -21,7 +21,12 @@ fn main() {
     println!("═══ JINA F16 → HDR SEMANTIC TABLE ═══\n");
 
     // ── Step 1: Read Jina token embeddings ──
-    let gguf_path = find_jina_f16_gguf();
+    let args: Vec<String> = std::env::args().collect();
+    let gguf_path = if args.len() > 1 {
+        args[1].clone()
+    } else {
+        find_jina_f16_gguf()
+    };
     println!("[1] Reading Jina F16 GGUF: {}", &gguf_path[gguf_path.len().saturating_sub(40)..]);
     let mut file = std::fs::File::open(&gguf_path).expect("open");
     let header = parse_gguf_header(&mut file).expect("parse");
