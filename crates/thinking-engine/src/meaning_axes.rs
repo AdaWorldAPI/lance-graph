@@ -67,9 +67,20 @@ impl AxisActivation {
     }
 }
 
-/// Thought flow viscosity.
+/// Processing fluidity — how freely computation flows between stages.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Viscosity { Water, Oil, Honey, Tar, Ice }
+pub enum Viscosity {
+    /// Fastest: streaming, no resistance.
+    Water,
+    /// Smooth: slight resistance, deliberate.
+    Oil,
+    /// Slow: significant resistance, iterating.
+    Honey,
+    /// Stalled: high resistance, blocked.
+    Tar,
+    /// Frozen: committed, no further flow.
+    Ice,
+}
 
 impl Viscosity {
     pub fn speed_factor(&self) -> f32 {

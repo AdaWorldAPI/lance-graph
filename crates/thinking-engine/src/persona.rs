@@ -46,7 +46,7 @@ impl std::fmt::Display for PersonaMode {
 
 /// 12 personality constants. The fingerprint of who this agent IS.
 #[derive(Clone, Debug)]
-pub struct SoulPriors {
+pub struct CognitiveBaseline {
     pub warmth: f32,
     pub depth: f32,
     pub presence: f32,
@@ -61,7 +61,7 @@ pub struct SoulPriors {
     pub epistemic_humility: f32,
 }
 
-impl Default for SoulPriors {
+impl Default for CognitiveBaseline {
     fn default() -> Self {
         Self {
             warmth: 0.5, depth: 0.5, presence: 0.5, groundedness: 0.5,
@@ -90,7 +90,7 @@ pub struct PersonaProfile {
     pub affect_weight: f32,
     pub coherence_weight: f32,
     pub default_style: ThinkingStyle,
-    pub priors: SoulPriors,
+    pub priors: CognitiveBaseline,
 }
 
 impl PersonaProfile {
@@ -101,7 +101,7 @@ impl PersonaProfile {
             rung_min: 3, rung_max: 8, collapse_bias: -0.15,
             affect_weight: 0.1, coherence_weight: 0.9,
             default_style: ThinkingStyle::Analytical,
-            priors: SoulPriors { precision_drive: 0.90, self_awareness: 0.80, warmth: 0.40, playfulness: 0.20, ..Default::default() },
+            priors: CognitiveBaseline { precision_drive: 0.90, self_awareness: 0.80, warmth: 0.40, playfulness: 0.20, ..Default::default() },
         }
     }
 
@@ -112,7 +112,7 @@ impl PersonaProfile {
             rung_min: 0, rung_max: 9, collapse_bias: 0.20,
             affect_weight: 0.8, coherence_weight: 0.2,
             default_style: ThinkingStyle::Creative,
-            priors: SoulPriors { warmth: 0.92, depth: 0.85, presence: 0.88, intimacy_comfort: 0.90, vulnerability_tolerance: 0.85, playfulness: 0.78, novelty_seeking: 0.68, epistemic_humility: 0.82, ..Default::default() },
+            priors: CognitiveBaseline { warmth: 0.92, depth: 0.85, presence: 0.88, intimacy_comfort: 0.90, vulnerability_tolerance: 0.85, playfulness: 0.78, novelty_seeking: 0.68, epistemic_humility: 0.82, ..Default::default() },
         }
     }
 
@@ -123,7 +123,7 @@ impl PersonaProfile {
             rung_min: 2, rung_max: 9, collapse_bias: 0.0,
             affect_weight: 0.4, coherence_weight: 0.6,
             default_style: ThinkingStyle::Deliberate,
-            priors: SoulPriors { warmth: 0.70, depth: 0.70, presence: 0.75, groundedness: 0.70, self_awareness: 0.85, ..Default::default() },
+            priors: CognitiveBaseline { warmth: 0.70, depth: 0.70, presence: 0.75, groundedness: 0.70, self_awareness: 0.85, ..Default::default() },
         }
     }
 
