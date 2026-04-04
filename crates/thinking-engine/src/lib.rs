@@ -24,3 +24,4 @@ pub mod l4;
 #[cfg(feature = "tokenizer")]
 pub mod lookup;
 pub mod qualia;
+pub mod domino;

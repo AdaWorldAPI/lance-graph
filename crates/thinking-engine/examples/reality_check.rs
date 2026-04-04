@@ -4,6 +4,7 @@
 //! cargo run --release --manifest-path crates/thinking-engine/Cargo.toml --example reality_check
 
 use thinking_engine::codebook_index::CodebookIndex;
+use thinking_engine::domino::DominoCascade;
 use thinking_engine::engine::ThinkingEngine;
 use thinking_engine::qualia::{Qualia17D, DIMS_17D, FAMILY_CENTROIDS};
 
@@ -170,6 +171,47 @@ fn main() {
         all_results.push((text.to_string(), centroids, top10, qualia));
         println!();
     }
+
+    // ── DOMINO CASCADE (top-K focus + NARS context) ──
+    println!("═══ DOMINO CASCADE (replaces MatVec convergence) ═══\n");
+
+    let centroid_counts = codebook.centroid_counts();
+    let cascade = DominoCascade::new(&engine, &centroid_counts);
+
+    let mut domino_results: Vec<(String, u16, Vec<u16>)> = Vec::new();
+
+    for (i, text) in sentences.iter().enumerate() {
+        let encoding = tokenizer.encode(*text, true).expect("tokenize");
+        let token_ids = encoding.get_ids();
+        let centroids = codebook.lookup_many(token_ids);
+
+        let (dominant, stages) = cascade.think(&centroids);
+        let chain: Vec<u16> = stages.iter().map(|s| s.focus.first().map(|a| a.index).unwrap_or(0)).collect();
+
+        println!("  S{}: \"{}\"", i + 1, &text[..text.len().min(45)]);
+        println!("      dominant: atom {}  chain: {:?}", dominant, chain);
+        for (si, stage) in stages.iter().enumerate() {
+            let focus_ids: Vec<u16> = stage.focus.iter().map(|a| a.index).collect();
+            let promoted = stage.promoted.len();
+            let contras = stage.contradictions.len();
+            println!("      stage {}: focus={:?} promoted={} contradictions={}",
+                si, focus_ids, promoted, contras);
+        }
+        domino_results.push((text.to_string(), dominant, chain));
+        println!();
+    }
+
+    // Check differentiation
+    let domino_peaks: Vec<u16> = domino_results.iter().map(|r| r.1).collect();
+    let unique_domino: std::collections::HashSet<u16> = domino_peaks.iter().cloned().collect();
+    println!("  Domino peaks: {} sentences → {} unique: {:?}",
+        domino_peaks.len(), unique_domino.len(), domino_peaks);
+    if unique_domino.len() > 1 {
+        println!("  ✓ DOMINO CASCADE DIFFERENTIATES!");
+    } else {
+        println!("  ⚠ Still same peak — need DeepNSM COCA table");
+    }
+    println!();
 
     // Cross-sentence comparison
     println!("═══ CROSS-SENTENCE COMPARISON ═══\n");
