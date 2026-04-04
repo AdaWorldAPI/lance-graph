@@ -44,3 +44,4 @@ pub mod a2a_blackboard;
 pub mod high_heel;
 pub mod literal_graph;
 pub mod exploration;
+pub mod orchestration_mode;
