@@ -112,7 +112,7 @@ impl PersonaProfile {
             rung_min: 0, rung_max: 9, collapse_bias: 0.20,
             affect_weight: 0.8, coherence_weight: 0.2,
             default_style: ThinkingStyle::Creative,
-            priors: CognitiveBaseline { warmth: 0.92, depth: 0.85, presence: 0.88, intimacy_comfort: 0.90, vulnerability_tolerance: 0.85, playfulness: 0.78, novelty_seeking: 0.68, epistemic_humility: 0.82, ..Default::default() },
+            priors: CognitiveBaseline { warmth: 0.70, depth: 0.65, presence: 0.70, intimacy_comfort: 0.60, vulnerability_tolerance: 0.55, playfulness: 0.60, novelty_seeking: 0.55, epistemic_humility: 0.65, ..Default::default() },
         }
     }
 
@@ -417,7 +417,7 @@ mod tests {
         let dto = agent.to_dto();
         assert_eq!(dto.id, "a1");
         assert_eq!(dto.mode, PersonaMode::Personal);
-        assert!(dto.warmth > 0.9);
+        assert!(dto.warmth > 0.5); // personal mode has elevated warmth
     }
 
     #[test]
