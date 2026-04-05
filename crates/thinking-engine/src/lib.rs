@@ -52,3 +52,4 @@ pub mod tensor_bridge;
 #[cfg(feature = "tokenizer")]
 pub mod tokenizer_registry;
 pub mod ground_truth;
+pub mod cronbach;
