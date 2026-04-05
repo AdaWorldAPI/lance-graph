@@ -29,14 +29,22 @@ pub enum ModelId {
     ReaderLm,
     /// Qwopus 27B — Qwen2 tokenizer (151,936 vocab)
     Qwopus,
+    /// ModernBERT-large — OLMo tokenizer (50,368 vocab, code-friendly)
+    /// GeGLU FFN (same gate modulation as SiLU), RoPE, 28 layers × 2624 dim.
+    /// ONNX available: ort-community/ModernBERT-large-ONNX-ORT (FP32/FP16/INT8/UINT8)
+    ModernBert,
+    /// CLIP ViT-Huge-14 — vision encoder, XLM-RoBERTa text side (250,002 vocab)
+    /// FP32: Kijai/WanVideo_comfy (2.53 GB), BF16: DeepBeepMeep/Wan2.1 (2.39 GB)
+    ClipVision,
 }
 
 impl ModelId {
     /// Vocab size for this model.
     pub fn vocab_size(self) -> u32 {
         match self {
-            ModelId::JinaV3 | ModelId::BgeM3 => 250_002,
+            ModelId::JinaV3 | ModelId::BgeM3 | ModelId::ClipVision => 250_002,
             ModelId::Reranker | ModelId::JinaV5 | ModelId::ReaderLm | ModelId::Qwopus => 151_936,
+            ModelId::ModernBert => 50_368,
         }
     }
 
@@ -48,6 +56,9 @@ impl ModelId {
             ModelId::Reranker | ModelId::ReaderLm | ModelId::Qwopus =>
                 "crates/thinking-engine/data/Qwopus3.5-27B-v3-BF16-silu/tokenizer.json",
             ModelId::JinaV5 => "crates/thinking-engine/data/jina-v5-tokenizer.json",
+            ModelId::ModernBert => "crates/thinking-engine/data/modernbert-tokenizer.json",
+            // CLIP uses XLM-RoBERTa tokenizer (same as Jina v3) for text side
+            ModelId::ClipVision => "crates/thinking-engine/data/jina-v3-hdr/tokenizer.json",
         }
     }
 
@@ -60,6 +71,29 @@ impl ModelId {
             ModelId::JinaV5 => "jinaai/jina-embeddings-v5-text-small-text-matching",
             ModelId::ReaderLm => "jinaai/reader-lm-1.5b",
             ModelId::Qwopus => "Qwen/Qwen2.5-32B",
+            ModelId::ModernBert => "answerdotai/ModernBERT-large",
+            ModelId::ClipVision => "Kijai/WanVideo_comfy",
+        }
+    }
+
+    /// Whether this model has GeGLU/SiLU gate modulation (the 33% correction).
+    pub fn has_gate_modulation(self) -> bool {
+        match self {
+            // GeGLU: ModernBERT, Qwen, Qwopus — all have gated FFN
+            ModelId::ModernBert | ModelId::Qwopus | ModelId::JinaV5 | ModelId::ReaderLm => true,
+            // Standard GeLU: BERT, XLM-RoBERTa — no gate
+            ModelId::JinaV3 | ModelId::BgeM3 | ModelId::Reranker => false,
+            // Vision: ViT uses standard FFN
+            ModelId::ClipVision => false,
+        }
+    }
+
+    /// ONNX availability for this model.
+    pub fn onnx_repo(self) -> Option<&'static str> {
+        match self {
+            ModelId::ModernBert => Some("ort-community/ModernBERT-large-ONNX-ORT"),
+            ModelId::JinaV5 => Some("jinaai/jina-embeddings-v5-text-small-text-matching"),
+            _ => None,
         }
     }
 }
@@ -108,6 +142,7 @@ impl TokenizerRegistry {
         let models = [
             ModelId::JinaV3, ModelId::BgeM3, ModelId::Reranker,
             ModelId::JinaV5, ModelId::ReaderLm, ModelId::Qwopus,
+            ModelId::ModernBert, ModelId::ClipVision,
         ];
         let mut failures = Vec::new();
         for m in models {
@@ -161,6 +196,8 @@ impl ModelId {
             ModelId::JinaV5 => "jina-v5",
             ModelId::ReaderLm => "reader-lm",
             ModelId::Qwopus => "qwopus",
+            ModelId::ModernBert => "modernbert",
+            ModelId::ClipVision => "clip-vision",
         }
     }
 }
@@ -195,6 +232,27 @@ mod tests {
         assert_eq!(ModelId::BgeM3.vocab_size(), 250_002);
         assert_eq!(ModelId::Reranker.vocab_size(), 151_936);
         assert_eq!(ModelId::JinaV5.vocab_size(), 151_936);
+        assert_eq!(ModelId::ModernBert.vocab_size(), 50_368);
+        assert_eq!(ModelId::ClipVision.vocab_size(), 250_002);
+    }
+
+    #[test]
+    fn gate_modulation_flags() {
+        // GeGLU models have gate modulation (the 33% SiLU correction)
+        assert!(ModelId::ModernBert.has_gate_modulation());
+        assert!(ModelId::Qwopus.has_gate_modulation());
+        assert!(ModelId::JinaV5.has_gate_modulation());
+        // Standard GeLU models do not
+        assert!(!ModelId::JinaV3.has_gate_modulation());
+        assert!(!ModelId::BgeM3.has_gate_modulation());
+        assert!(!ModelId::ClipVision.has_gate_modulation());
+    }
+
+    #[test]
+    fn onnx_availability() {
+        assert!(ModelId::ModernBert.onnx_repo().is_some());
+        assert!(ModelId::JinaV5.onnx_repo().is_some());
+        assert!(ModelId::JinaV3.onnx_repo().is_none());
     }
 
     #[test]

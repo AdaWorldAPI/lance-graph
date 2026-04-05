@@ -57,6 +57,11 @@ pub enum Lens {
     Jina,
     BgeM3,
     Reranker,
+    /// ModernBERT-large — not baked yet, needs stream_signed_lens first.
+    /// GeGLU FFN, 28 layers, OLMo tokenizer (50K vocab).
+    ModernBert,
+    /// CLIP ViT-Huge-14 — vision sensor, not baked yet.
+    ClipVision,
     Custom(Vec<u8>),
 }
 
@@ -183,6 +188,8 @@ impl ThinkingEngineBuilder {
             Some(Lens::Jina) => crate::jina_lens::JINA_HDR_TABLE.to_vec(),
             Some(Lens::BgeM3) => crate::bge_m3_lens::BGE_M3_HDR_TABLE.to_vec(),
             Some(Lens::Reranker) => crate::reranker_lens::RERANKER_HDR_TABLE.to_vec(),
+            Some(Lens::ModernBert) => return Err("ModernBERT lens not baked yet — run stream_signed_lens first".into()),
+            Some(Lens::ClipVision) => return Err("CLIP vision lens not baked yet — needs ViT codebook".into()),
             Some(Lens::Custom(t)) => t,
             None => return Err("no lens specified".into()),
         };

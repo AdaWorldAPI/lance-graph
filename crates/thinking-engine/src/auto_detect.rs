@@ -16,9 +16,12 @@ pub enum Architecture {
     /// Qwen2/Qwen3 (Reranker, Qwopus, Jina v5). Qwen BPE, 151K vocab.
     Qwen,
     /// ModernBERT (OLMo tokenizer, code-friendly). 50K vocab.
+    /// GeGLU FFN = same gate modulation as SiLU. 28 layers deep+thin.
     ModernBert,
     /// BERT base (sentence-transformers, MiniLM). WordPiece, 30K vocab.
     Bert,
+    /// CLIP ViT (vision transformer). Paired with text encoder (XLM-RoBERTa or other).
+    ClipVit,
     /// Unknown architecture.
     Unknown(String),
 }
@@ -58,6 +61,7 @@ pub fn detect_from_config_json(json_str: &str) -> Result<DetectedModel, String> 
         s if s.contains("XLMRoberta") || s.contains("xlm-roberta") => Architecture::XlmRoberta,
         s if s.contains("Qwen") || s.contains("qwen") => Architecture::Qwen,
         s if s.contains("ModernBert") || s.contains("modernbert") => Architecture::ModernBert,
+        s if s.contains("CLIPVision") || s.contains("ViT") || s.contains("clip") => Architecture::ClipVit,
         s if s.contains("Bert") || s.contains("bert") => Architecture::Bert,
         s if s.contains("JinaBert") => Architecture::XlmRoberta, // Jina BERT = modified XLM-RoBERTa
         other => Architecture::Unknown(other.into()),
