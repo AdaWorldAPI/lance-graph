@@ -44,3 +44,5 @@ pub mod dual_engine;
 pub mod l4_bridge;
 pub mod composite_engine;
 pub mod signed_domino;
+pub mod pooling;
+pub mod builder;
