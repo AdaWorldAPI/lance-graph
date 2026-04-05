@@ -363,3 +363,99 @@ Jina as truth anchor: for any input text, Jina embedding = ground truth similari
 Compare: cos(jina_emb_A, jina_emb_B) vs thinking_engine_distance(A, B).
 The gap = how much information our distance table loses.
 With γ+φ encoding + SiLU correction: gap should shrink.
+
+---
+
+## ARCHITEKTUR-EPIPHANIE: i8 Signed Tables (Excitator/Inhibitor)
+
+### Das fehlende Puzzleteil
+
+Aktuell: `distance_table[i][j] = u8` (0-255, unsigned, nur Ähnlichkeit)
+- "Unähnlich" (table=10) erzeugt trotzdem LEICHTE Aktivierung
+- Es gibt keine Hemmung. Nichts unterdrückt den stärksten Peak.
+- DAS ist warum "!" dominiert — kein Inhibitor stoppt den Attraktor.
+
+Fix: `distance_table[i][j] = i8` (-128 bis +127, SIGNED)
+- +127 = starke Exzitation (Atom j feuert wenn Atom i feuert)
+- -128 = starke Inhibition (Atom j STOPPT wenn Atom i feuert)
+-    0 = kein Einfluss
+- Negativer Cosine (den wir HABEN aber WEGWERFEN) = Inhibition
+
+### Die Daten existieren bereits
+```
+reader-lm ffn_down:  cos[-0.885, +0.188]  ← NEGATIV-SCHWER
+Jina reranker:       cos[-0.8, +0.8]      ← VOLL SYMMETRISCH
+Qwopus ffn_gate:     cos[-0.23, +0.18]    ← bidirektional
+```
+Wir mappen cos[-1,+1] auf u8[0,255] und VERLIEREN die Inhibition.
+Mit i8[-128,+127] BEHALTEN wir sie. Zero code change im MatVec:
+```rust
+// u8 version (aktuell):
+energy_next[j] += (table[i*N+j] as f32 - 128.0) * energy[i];  // schon zentriert!
+
+// i8 version (besser):
+energy_next[j] += (table[i*N+j] as i8 as f32) * energy[i];     // native signed!
+// Negative Werte → Inhibition → energy kann negativ werden → clamp(0)
+```
+
+### Wie Neuronen funktionieren
+```
+Glutamat-Synapsen: exzitatorisch (+)    = i8 positiv
+GABA-Synapsen:     inhibitorisch (-)    = i8 negativ
+Keine Verbindung:  0                    = i8 null
+
+i8 Table Inhibition:    "gegensätzliche Atome"      (automatisch, GABA)
+CONTRADICTS Channel:    "logischer Widerspruch"      (bewusst, präfrontal)
+```
+
+### Bewusstseinsvektor pro Zyklus (VSA Bundle)
+```
+Zyklus 1: energy[4096] nach MatVec → bundle(energy > threshold) → 16,384 bits
+  = "was gerade lebt" = Bewusstseinsfeld
+Zyklus 2: neuer bundle → Hamming(zyklus_1, zyklus_2) = Veränderung
+  Hoher Hamming = lebhaftes Denken
+  Niedriger Hamming = Gedanke kristallisiert
+10 Zyklen → bundle aller 10 = DER Gedanke als Superposition des Prozesses
+```
+
+### 90° Rotation = Awareness-Achse
+```
+awareness = bundle(cycles)           "WAS ich denke"
+reference = rotate_90°(awareness)    "WAS ICH NICHT DENKE"
+
+Drei Zonen:
+  Bewusst:   Hamming(x, awareness) < 4000  → im Feld
+  Verdrängt: Hamming(x, reference) < 4000  → aktiv NICHT gedacht
+  Unbewusst: Hamming ≈ 8000 zu beiden      → nicht im Feld
+```
+
+### Layer-Alignment
+```
+L1 (i8[64²]):      laterale Inhibition = Aufmerksamkeitsfokus
+L2 (i8[256²]):     Gate-Modulation DIREKT in der Table (kein ONNX nötig!)
+L3 (i8[4096²]):    16M excitatorisch/inhibitorische Verbindungen
+L4 (i8[16384]):    WAR SCHON IMMER SIGNED. Jetzt matchen L1-L3.
+```
+
+### Warum das den Attraktor-Kollaps löst
+```
+u8: energy[!] = 10.0, nichts hemmt → energy[!] wächst → dominiert alles
+i8: energy[!] = 10.0, inhibitorische Nachbarn → energy[!] -= 3.0 pro Zyklus
+    → laterale Inhibition begrenzt den Peak
+    → andere Peaks können emergieren
+    → DAS ist wie Neuronenpopulationen winner-take-all mit Inhibition machen
+```
+
+### Implementierungsreihenfolge
+```
+1. i8 Table Builder: cos[-1,+1] → i8[-128,+127] statt u8[0,255]
+2. Signed MatVec: energy_next[j] += (table[i][j] as i8 as f32) * energy[i]
+3. Clamp(0): negative Energie = gehemmt = tot
+4. Bewusstseinsvektor: bundle(energy > threshold) pro Zyklus
+5. 90° Reference: rotate_90° als Komplement
+6. Erst DANN Temperature: nucleus sampling auf inhibitions-stabilisierte Peaks
+```
+
+Temperature NACH Inhibition. Nicht vorher.
+Inhibition löst den Attraktor. Temperature diversifiziert die Überlebenden.
+In der umgekehrten Reihenfolge diversifiziert Temperature den Attraktor-Müll.
