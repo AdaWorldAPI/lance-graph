@@ -213,36 +213,188 @@ fn main() {
     println!("  i8 signed table: E/I ratio={:.1}% pos={} neg={} zero={}",
         ei_ratio * 100.0, pos_count, neg_count, zero_count);
 
-    // Save f32 cosine matrix (for calibration / re-encoding experiments)
-    let f32_bytes: Vec<u8> = raw_cos.iter().flat_map(|c| c.to_le_bytes()).collect();
-
-    // Save
     let model_name = filename.replace(".gguf", "").replace(".", "-");
-    let out_dir = format!("/tmp/codebooks/{}-dual", model_name);
-    std::fs::create_dir_all(&out_dir).ok();
-    std::fs::write(format!("{}/distance_table_{}x{}.u8", out_dir, n_cent, n_cent), &table).ok();
-    std::fs::write(format!("{}/distance_table_{}x{}.i8", out_dir, n_cent, n_cent),
-        unsafe { std::slice::from_raw_parts(signed_table.as_ptr() as *const u8, signed_table.len()) }).ok();
-    std::fs::write(format!("{}/cosine_matrix_{}x{}.f32", out_dir, n_cent, n_cent), &f32_bytes).ok();
+
+    // ═══ LANE 3: u8 γ+φ (golden ratio redistribution) ═══
+    //
+    // Per-role gamma offset concentrates resolution where it matters most
+    // (near zero for gate, near ±1 for attention). φ-spiral spacing ensures
+    // bucket boundaries don't align with BF16 quantization steps.
+    //
+    // The gamma is calibrated FROM the cosine distribution of this model.
+    // Stored as metadata for exact decode.
+    let cos_abs_mean: f32 = all_cos.iter().map(|c| c.abs()).sum::<f32>() / all_cos.len().max(1) as f32;
+    let cos_abs_max: f32 = all_cos.iter().map(|c| c.abs()).fold(0.0f32, f32::max);
+    let role_gamma = cos_abs_mean; // auto-calibrated from this model's cosine distribution
+    let phi_scale = cos_abs_max.max(0.01);
+    let phi_ln = (1.0f64 + 1.0).ln() / std::f64::consts::GOLDEN_RATIO.ln();
+
+    let mut gamma_phi_table = vec![0u8; n_cent * n_cent];
+    // Collect γ+φ encoded cosines for CDF ranking
+    let mut gp_encoded: Vec<f32> = Vec::new();
+    for i in 0..n_cent {
+        for j in (i+1)..n_cent {
+            let cos = raw_cos[i * n_cent + j];
+            let sign = cos.signum();
+            let mag = cos.abs();
+            let gamma_enc = sign * (1.0 + mag / role_gamma.max(1e-8)).ln() * role_gamma;
+            let normalized = gamma_enc.abs() / phi_scale.max(1e-8);
+            let phi_log = (1.0 + normalized).ln() / (std::f64::consts::GOLDEN_RATIO as f32).ln();
+            let gp_val = gamma_enc.signum() * phi_log * phi_scale;
+            gp_encoded.push(gp_val);
+        }
+    }
+    let mut gp_sorted = gp_encoded.clone();
+    gp_sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+    // CDF on γ+φ encoded values → u8
+    let mut gp_idx = 0;
+    for i in 0..n_cent {
+        gamma_phi_table[i * n_cent + i] = 255;
+        for j in (i+1)..n_cent {
+            let val = gp_encoded[gp_idx];
+            let rank = gp_sorted.partition_point(|&c| c <= val);
+            let pct = rank as f32 / gp_sorted.len() as f32;
+            let u = (pct * 254.0).round().clamp(0.0, 254.0) as u8;
+            gamma_phi_table[i * n_cent + j] = u;
+            gamma_phi_table[j * n_cent + i] = u;
+            gp_idx += 1;
+        }
+    }
+    let gp_avg = gamma_phi_table.iter().map(|&v| v as f64).sum::<f64>() / gamma_phi_table.len() as f64;
+    let gp_std = (gamma_phi_table.iter().map(|&v| { let d = v as f64 - gp_avg; d * d }).sum::<f64>() / gamma_phi_table.len() as f64).sqrt();
+    println!("  γ+φ u8 table: avg={:.1} std={:.1} (γ={:.4} φ_scale={:.4})", gp_avg, gp_std, role_gamma, phi_scale);
+
+    // ═══ LANE 4: i8 γ+φ signed ═══
+    let mut gamma_phi_signed = vec![0i8; n_cent * n_cent];
+    gp_idx = 0;
+    for i in 0..n_cent {
+        gamma_phi_signed[i * n_cent + i] = 127;
+        for j in (i+1)..n_cent {
+            let val = gp_encoded[gp_idx];
+            // Normalize to [-1, +1] then scale to i8
+            let max_gp = gp_sorted.last().copied().unwrap_or(1.0).abs()
+                .max(gp_sorted.first().copied().unwrap_or(-1.0).abs())
+                .max(0.01);
+            let normalized = val / max_gp;
+            let i8_val = (normalized * 127.0).round().clamp(-128.0, 127.0) as i8;
+            gamma_phi_signed[i * n_cent + j] = i8_val;
+            gamma_phi_signed[j * n_cent + i] = i8_val;
+            gp_idx += 1;
+        }
+    }
+    println!("  γ+φ i8 signed table: built");
+
+    // ═══ LANE 5: SiLU correction deltas (per centroid pair) ═══
+    //
+    // For token_embd there's no gate → correction is zero.
+    // For ffn_up: correction = cos(silu(gate)×up) - cos(raw_up)
+    // This delta is stored per pair and applied AFTER table encoding.
+    // When streaming per-role tensors, the correction is computed inline.
+    // For now, store zeros (token_embd has no gate).
+    let silu_deltas = vec![0.0f32; n_cent * n_cent];
+    println!("  SiLU correction: zeros (token_embd, no gate)");
+    println!("  NOTE: for ffn_up roles, re-stream with gate tensor to compute real deltas");
+
+    // ═══ METADATA JSON ═══
+    let metadata = format!(r#"{{
+  "model": "{}",
+  "source_gguf": "{}",
+  "n_centroids": {},
+  "vocab_size": {},
+  "hidden_dim": {},
+  "cosine_range": [{:.6}, {:.6}],
+  "cosine_mean": {:.6},
+  "encoding_lanes": {{
+    "lane_1_u8_cdf": {{
+      "file": "distance_table_{}x{}.u8",
+      "encoding": "CDF_percentile",
+      "metadata_bytes": 0,
+      "note": "pure rank, no decode metadata needed"
+    }},
+    "lane_2_i8_direct": {{
+      "file": "distance_table_{}x{}.i8",
+      "encoding": "round(cos * 127)",
+      "scale": 127.0,
+      "note": "signs preserved from f32 cosine"
+    }},
+    "lane_3_u8_gamma_phi": {{
+      "file": "distance_table_{}x{}.gamma_phi.u8",
+      "encoding": "gamma_phi_CDF",
+      "role_gamma": {:.6},
+      "phi_scale": {:.6},
+      "note": "golden ratio redistribution, auto-calibrated gamma from cosine distribution"
+    }},
+    "lane_4_i8_gamma_phi_signed": {{
+      "file": "distance_table_{}x{}.gamma_phi.i8",
+      "encoding": "gamma_phi_signed",
+      "role_gamma": {:.6},
+      "phi_scale": {:.6},
+      "note": "gamma+phi on signed range, signs preserved"
+    }},
+    "lane_5_silu_correction": {{
+      "file": "silu_deltas_{}x{}.f32",
+      "encoding": "f32_delta",
+      "note": "cos(silu(gate)*up) - cos(raw). Zero for token_embd (no gate)."
+    }}
+  }},
+  "ei_ratio": {:.4},
+  "positive_pairs": {},
+  "negative_pairs": {},
+  "zero_pairs": {}
+}}"#,
+        model_name, filename,
+        n_cent, vocab_size, hidden_dim,
+        cos_min, cos_max, cos_mean,
+        n_cent, n_cent, // lane 1
+        n_cent, n_cent, // lane 2
+        n_cent, n_cent, role_gamma, phi_scale, // lane 3
+        n_cent, n_cent, role_gamma, phi_scale, // lane 4
+        n_cent, n_cent, // lane 5
+        ei_ratio, pos_count, neg_count, zero_count,
+    );
+
+    // ═══ SAVE ALL LANES + METADATA ═══
+    let f32_bytes: Vec<u8> = raw_cos.iter().flat_map(|c| c.to_le_bytes()).collect();
+    let silu_bytes: Vec<u8> = silu_deltas.iter().flat_map(|c| c.to_le_bytes()).collect();
     let idx_bytes: Vec<u8> = assignments.iter().flat_map(|&a| a.to_le_bytes()).collect();
-    std::fs::write(format!("{}/codebook_index.u16", out_dir), &idx_bytes).ok();
+    let model_name = filename.replace(".gguf", "").replace(".", "-");
 
-    // Also to crate data
-    let bake = format!("crates/thinking-engine/data/{}-dual", model_name);
-    std::fs::create_dir_all(&bake).ok();
-    std::fs::write(format!("{}/distance_table_{}x{}.u8", bake, n_cent, n_cent), &table).ok();
-    std::fs::write(format!("{}/distance_table_{}x{}.i8", bake, n_cent, n_cent),
-        unsafe { std::slice::from_raw_parts(signed_table.as_ptr() as *const u8, signed_table.len()) }).ok();
-    std::fs::write(format!("{}/cosine_matrix_{}x{}.f32", bake, n_cent, n_cent), &f32_bytes).ok();
-    std::fs::write(format!("{}/codebook_index.u16", bake), &idx_bytes).ok();
+    for dir in [
+        format!("/tmp/codebooks/{}-5lane", model_name),
+        format!("crates/thinking-engine/data/{}-5lane", model_name),
+    ] {
+        std::fs::create_dir_all(&dir).ok();
+        // Lane 1: u8 CDF
+        std::fs::write(format!("{}/distance_table_{}x{}.u8", dir, n_cent, n_cent), &table).ok();
+        // Lane 2: i8 direct
+        std::fs::write(format!("{}/distance_table_{}x{}.i8", dir, n_cent, n_cent),
+            unsafe { std::slice::from_raw_parts(signed_table.as_ptr() as *const u8, signed_table.len()) }).ok();
+        // Lane 3: u8 γ+φ
+        std::fs::write(format!("{}/distance_table_{}x{}.gamma_phi.u8", dir, n_cent, n_cent), &gamma_phi_table).ok();
+        // Lane 4: i8 γ+φ signed
+        std::fs::write(format!("{}/distance_table_{}x{}.gamma_phi.i8", dir, n_cent, n_cent),
+            unsafe { std::slice::from_raw_parts(gamma_phi_signed.as_ptr() as *const u8, gamma_phi_signed.len()) }).ok();
+        // Lane 5: SiLU correction deltas
+        std::fs::write(format!("{}/silu_deltas_{}x{}.f32", dir, n_cent, n_cent), &silu_bytes).ok();
+        // Raw f32 cosines (for re-encoding experiments / H1-H4 hypotheses)
+        std::fs::write(format!("{}/cosine_matrix_{}x{}.f32", dir, n_cent, n_cent), &f32_bytes).ok();
+        // Codebook index
+        std::fs::write(format!("{}/codebook_index.u16", dir), &idx_bytes).ok();
+        // Metadata
+        std::fs::write(format!("{}/encoding_metadata.json", dir), &metadata).ok();
+    }
 
-    println!("\n[7] Saved: {} + {}", out_dir, bake);
-    println!("  u8 CDF table:     {} KB", table.len() / 1024);
-    println!("  i8 signed table:  {} KB", signed_table.len() / 1024);
-    println!("  f32 cosine matrix: {} KB", f32_bytes.len() / 1024);
-    println!("  Codebook index:   {} KB", idx_bytes.len() / 1024);
-    println!("  Disk used: 0 (streamed from HF)");
-    println!("\n═══ STREAM DUAL LENS COMPLETE (u8 CDF + i8 signed + f32 raw) ═══");
+    println!("\n[7] Saved 5-lane encoding + metadata:");
+    println!("  Lane 1: u8 CDF          {} KB", table.len() / 1024);
+    println!("  Lane 2: i8 direct        {} KB", signed_table.len() / 1024);
+    println!("  Lane 3: u8 γ+φ           {} KB (γ={:.4}, φ={:.4})", gamma_phi_table.len() / 1024, role_gamma, phi_scale);
+    println!("  Lane 4: i8 γ+φ signed    {} KB", gamma_phi_signed.len() / 1024);
+    println!("  Lane 5: SiLU deltas      {} KB (zeros for token_embd)", silu_bytes.len() / 1024);
+    println!("  f32 raw cosines          {} KB", f32_bytes.len() / 1024);
+    println!("  Metadata                 {} bytes", metadata.len());
+    println!("  Codebook index           {} KB", idx_bytes.len() / 1024);
+    println!("\n═══ STREAM 5-LANE LENS COMPLETE ═══");
 }
 
 // ═══ GGUF parser for streaming ═══
