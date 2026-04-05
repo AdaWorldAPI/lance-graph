@@ -25,3 +25,6 @@ tokenizer = ["dep:tokenizers"]
 [dev-dependencies]
 rayon = "1.10"
 tokenizers = { version = "0.22", features = ["http"] }
+
+[patch.crates-io]
+tokenizers = { path = "../../../tokenizers/tokenizers" }

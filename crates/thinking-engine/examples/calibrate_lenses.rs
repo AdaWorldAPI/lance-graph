@@ -1,26 +1,38 @@
-//! Calibrate baked lenses against live API ground truth.
+//! Calibrate baked lenses against ground truth using REAL tokenizers.
 //!
-//! For each lens (Jina v3, Reranker v3):
-//!   1. Encode N sentence pairs via API (or local rten inference)
-//!   2. Compute API cosines (ground truth)
-//!   3. Compute baked lens distances
-//!   4. Measure Spearman ρ (rank correlation)
-//!   5. Build ICC profile if ρ < 0.998
+//! Uses HuggingFace tokenizers crate for proper BPE tokenization:
+//!   - Jina v3: XLM-RoBERTa tokenizer (250K vocab) via from_pretrained
+//!   - Reranker v3: Qwen2 tokenizer (151K vocab) from local file
+//!
+//! Calibration corpus: Rumi, Tagore, Wittgenstein, STS-B style pairs,
+//! OSINT-relevant text, technical paraphrases. 4 similarity tiers.
 //!
 //! Usage:
-//!   JINA_API_KEY=... cargo run --release --example calibrate_lenses
-//!   Or: with local models via rten (no API key needed)
+//!   cargo run --release --features tokenizer --example calibrate_lenses
+//!
+//! For local-only (no HuggingFace download):
+//!   Place tokenizer.json files in data/ directories and set TOKENIZER_LOCAL=1
 
 use thinking_engine::jina_lens;
 use thinking_engine::reranker_lens;
 
 fn main() {
     eprintln!("═══════════════════════════════════════════════════════════");
-    eprintln!("  Lens Calibration — Baked vs API Ground Truth");
+    eprintln!("  Lens Calibration — Real Tokenizers + Baked Lenses");
     eprintln!("═══════════════════════════════════════════════════════════\n");
 
-    // Calibration pairs: real literary, philosophical, and technical text.
-    // Organized by similarity tier for Spearman rank validation.
+    // ── Load tokenizers ────────────────────────────────────────────
+    let jina_tok = load_jina_tokenizer();
+    let reranker_tok = load_reranker_tokenizer();
+
+    let jina_ok = jina_tok.is_some();
+    let rr_ok = reranker_tok.is_some();
+
+    eprintln!("  Jina v3 tokenizer:   {}", if jina_ok { "LOADED (XLM-RoBERTa 250K)" } else { "FALLBACK (hash)" });
+    eprintln!("  Reranker tokenizer:  {}", if rr_ok { "LOADED (Qwen2 151K)" } else { "FALLBACK (hash)" });
+    eprintln!();
+
+    // ── Calibration corpus: 4 tiers × 4 pairs = 16 pairs ──────────
     //
     // TIER 1 — Near-identical meaning (expected cos > 0.85)
     // TIER 2 — Metaphorical / thematic similarity (expected cos 0.5-0.8)
@@ -28,68 +40,47 @@ fn main() {
     // TIER 4 — Unrelated domains (expected cos < 0.15)
     let pairs = vec![
         // ── TIER 1: paraphrase / near-identical ──
-        // Rumi ↔ Rumi (same image, different translation register)
         ("The wound is the place where the light enters you", "Where there is ruin there is hope for a treasure"),
-        // Tagore ↔ Tagore (same gardener metaphor)
         ("The flower which is single need not envy the thorns that are numerous", "Let your life lightly dance on the edges of time like dew on the tip of a leaf"),
-        // STS-B style: semantic equivalence
         ("A federal judge in New York ruled the surveillance program unconstitutional", "A US court declared the mass surveillance scheme violated the constitution"),
-        // Technical paraphrase
         ("Gradient descent minimizes the loss function by following the negative gradient", "The optimizer reduces error by stepping in the direction of steepest descent"),
 
         // ── TIER 2: metaphorical / thematic resonance ──
-        // Rumi (love) ↔ Tagore (love) — different poets, same theme
         ("Out beyond ideas of wrongdoing and rightdoing there is a field I will meet you there", "Love is not a mere impulse it must contain truth which is law"),
-        // Wittgenstein ↔ Gödel — limits of formal systems
         ("Whereof one cannot speak thereof one must be silent", "Any consistent formal system strong enough to encode arithmetic is incomplete"),
-        // Palantir surveillance ↔ Snowden revelations — same domain
         ("Palantir built Gotham for intelligence agencies to map human networks", "Edward Snowden revealed the NSA collected phone metadata of millions of Americans"),
-        // Medical: same domain, different specifics
         ("Amyloid plaques accumulate in the brains of Alzheimer patients", "Tau protein tangles disrupt neural communication in neurodegenerative disease"),
 
         // ── TIER 3: loosely related domain ──
-        // Both about consciousness but from different angles
         ("Consciousness arises from integrated information across cortical networks", "The hard problem asks why physical processes give rise to subjective experience"),
-        // Both legal but different branches
         ("The Vienna Convention codifies diplomatic immunity for foreign ambassadors", "Maritime law governs salvage rights for vessels in international waters"),
-        // Both physics but different eras
         ("Newton showed that gravity follows an inverse square law", "Quantum entanglement allows particles to share states across arbitrary distances"),
-        // Tagore (nature) ↔ ecology paper
         ("The butterfly counts not months but moments and has time enough", "Monarch butterfly populations declined forty percent due to habitat fragmentation"),
 
         // ── TIER 4: unrelated domains ──
-        // Rumi (mystical) ↔ TCP/IP (technical)
         ("You are not a drop in the ocean you are the entire ocean in a drop", "TCP uses a three-way handshake to establish a reliable connection between hosts"),
-        // Tagore (poetry) ↔ financial
         ("Where the mind is without fear and the head is held high", "The Federal Reserve raised interest rates by twenty-five basis points in March"),
-        // Medical ↔ music
         ("CRISPR-Cas9 enables precise editing of genomic sequences at targeted loci", "Bach composed the Well-Tempered Clavier as an exploration of all major and minor keys"),
-        // Legal ↔ cooking
         ("The International Criminal Court prosecutes genocide and crimes against humanity", "Fermentation converts sugars into alcohol and carbon dioxide through anaerobic respiration"),
     ];
 
-    eprintln!("Test pairs: {}\n", pairs.len());
+    eprintln!("Calibration corpus: {} pairs (4 tiers)\n", pairs.len());
 
-    // ── Baked lens distances ────────────────────────────────────────
-    eprintln!("=== Baked Lens Distances ===\n");
+    // ── Tokenize + baked lens distances ────────────────────────────
+    eprintln!("=== Baked Lens Distances (real tokenization) ===\n");
 
-    // Simulate tokenization (hash-based, same as forward pass test)
-    // In production: use real tokenizer per model
     let mut jina_dists = Vec::new();
     let mut reranker_dists = Vec::new();
 
     for (i, (a, b)) in pairs.iter().enumerate() {
-        // Hash tokens for Jina (250K vocab)
-        let a_ids_jina: Vec<u32> = a.split_whitespace()
-            .map(|w| simple_hash(w) % 250_002).collect();
-        let b_ids_jina: Vec<u32> = b.split_whitespace()
-            .map(|w| simple_hash(w) % 250_002).collect();
-
-        // Hash tokens for Reranker (151K vocab)
-        let a_ids_rr: Vec<u32> = a.split_whitespace()
-            .map(|w| simple_hash(w) % 151_936).collect();
-        let b_ids_rr: Vec<u32> = b.split_whitespace()
-            .map(|w| simple_hash(w) % 151_936).collect();
+        // Jina v3: XLM-RoBERTa tokenizer → 250K vocab → codebook lookup
+        let (a_ids_jina, b_ids_jina) = tokenize_pair(
+            a, b, jina_tok.as_ref(), 250_002,
+        );
+        // Reranker: Qwen2 tokenizer → 151K vocab → codebook lookup
+        let (a_ids_rr, b_ids_rr) = tokenize_pair(
+            a, b, reranker_tok.as_ref(), 151_936,
+        );
 
         // Jina: average pairwise centroid distance
         let a_centroids = jina_lens::jina_lookup_many(&a_ids_jina);
@@ -102,112 +93,168 @@ fn main() {
         let rr_rel = reranker_lens::reranker_relevance(&a_ids_rr, &b_ids_rr);
         reranker_dists.push(rr_rel);
 
-        eprintln!("  [{:2}] jina={:.3} rr={:.3} | \"{}\" ↔ \"{}\"",
-            i, jina_sim, rr_rel, a, b);
+        let tok_type = if jina_ok { "BPE" } else { "hash" };
+        eprintln!("  [{:2}] jina={:.3} rr={:.3} [{}] | \"{}...\" ↔ \"{}...\"",
+            i, jina_sim, rr_rel, tok_type,
+            &a[..a.len().min(40)], &b[..b.len().min(40)]);
     }
 
-    // ── API ground truth (placeholder — needs real API) ──────────
-    eprintln!("\n=== API Ground Truth ===\n");
+    // ── Ground truth (expert-assigned, tiered) ─────────────────────
+    eprintln!("\n=== Ground Truth (expert-assigned, tiered) ===\n");
 
-    let api_key = std::env::var("JINA_API_KEY").ok();
-    if api_key.is_none() {
-        eprintln!("  JINA_API_KEY not set. Using synthetic ground truth.");
-        eprintln!("  Set JINA_API_KEY to calibrate against real Jina API.");
-        eprintln!("  Or use rten + Jina ONNX for local ground truth.\n");
-    }
-
-    // Synthetic ground truth: expert-assigned similarity scores per tier.
-    // Replace with rten ONNX inference (Jina v5) when available.
-    //
-    // Tier 1 (paraphrase):     0.85-0.95
-    // Tier 2 (thematic):       0.50-0.75
-    // Tier 3 (domain-related): 0.20-0.45
-    // Tier 4 (unrelated):      0.02-0.10
     let api_ground_truth: Vec<f32> = vec![
         // TIER 1 — paraphrase / near-identical
-        0.88, // Rumi wound/light ↔ Rumi ruin/treasure (same poet, overlapping image)
-        0.72, // Tagore flower/thorns ↔ Tagore dance/dew (same poet, different image)
-        0.93, // surveillance ruling ↔ court declared unconstitutional (STS-B style)
-        0.95, // gradient descent ↔ steepest descent (technical paraphrase)
-
+        0.88, 0.72, 0.93, 0.95,
         // TIER 2 — metaphorical / thematic resonance
-        0.58, // Rumi field ↔ Tagore love/truth (love theme, different poets)
-        0.52, // Wittgenstein silence ↔ Gödel incompleteness (limits of formalism)
-        0.68, // Palantir Gotham ↔ Snowden NSA (surveillance domain overlap)
-        0.72, // amyloid plaques ↔ tau tangles (neurodegeneration, same domain)
-
+        0.58, 0.52, 0.68, 0.72,
         // TIER 3 — loosely related domain
-        0.42, // integrated information ↔ hard problem (consciousness, different angle)
-        0.25, // Vienna Convention ↔ maritime law (both law, different branches)
-        0.18, // Newton gravity ↔ quantum entanglement (both physics, centuries apart)
-        0.30, // Tagore butterfly/moments ↔ monarch decline (butterfly, literal vs poetic)
-
+        0.42, 0.25, 0.18, 0.30,
         // TIER 4 — unrelated domains
-        0.04, // Rumi ocean/drop ↔ TCP three-way handshake
-        0.03, // Tagore fearless mind ↔ Federal Reserve rates
-        0.05, // CRISPR genomics ↔ Bach Well-Tempered Clavier
-        0.06, // ICC genocide ↔ fermentation sugars
+        0.04, 0.03, 0.05, 0.06,
     ];
+
+    eprintln!("  NOTE: Ground truth is expert-assigned.");
+    eprintln!("  Replace with Jina v5 ONNX (rten) for machine ground truth.\n");
 
     // ── Spearman rank correlation ────────────────────────────────
     eprintln!("=== Spearman Rank Correlation ===\n");
 
     let rho_jina = spearman(&jina_dists, &api_ground_truth);
     let rho_reranker = spearman(&reranker_dists, &api_ground_truth);
-
-    eprintln!("  Jina v3 baked vs API:     ρ = {:.4}", rho_jina);
-    eprintln!("  Reranker v3 baked vs API: ρ = {:.4}", rho_reranker);
-
-    // Cross-model: Jina vs Reranker
     let rho_cross = spearman(&jina_dists, &reranker_dists);
-    eprintln!("  Jina vs Reranker (cross): ρ = {:.4}", rho_cross);
+
+    eprintln!("  Jina v3 baked vs truth:    ρ = {:.4}", rho_jina);
+    eprintln!("  Reranker baked vs truth:   ρ = {:.4}", rho_reranker);
+    eprintln!("  Jina vs Reranker (cross):  ρ = {:.4}", rho_cross);
 
     eprintln!("\n  Thresholds:");
-    eprintln!("    ρ > 0.998: truth-anchor grade (< 2 rank disagreements in 1000)");
+    eprintln!("    ρ > 0.998: truth-anchor grade");
     eprintln!("    ρ > 0.95:  usable with ICC correction");
-    eprintln!("    ρ < 0.95:  broken, needs rebuild");
+    eprintln!("    ρ > 0.80:  weak (needs more centroids or γ+φ)");
+    eprintln!("    ρ < 0.80:  broken");
 
     for (name, rho) in [("Jina", rho_jina), ("Reranker", rho_reranker)] {
-        let status = if rho > 0.998 { "TRUTH ANCHOR ✓" }
+        let status = if rho > 0.998 { "TRUTH ANCHOR" }
             else if rho > 0.95 { "USABLE (needs ICC)" }
-            else if rho > 0.80 { "WEAK (needs rebuild or more centroids)" }
+            else if rho > 0.80 { "WEAK" }
             else { "BROKEN" };
         eprintln!("  {} → {}", name, status);
     }
 
-    // ── ICC Profile (if needed) ──────────────────────────────────
+    // ── ICC Profile ──────────────────────────────────────────────
     if rho_jina < 0.998 || rho_reranker < 0.998 {
-        eprintln!("\n=== ICC Profile Needed ===\n");
-        eprintln!("  Building transfer curves from {} pairs...", pairs.len());
+        eprintln!("\n=== ICC Profile ===\n");
 
-        // Simple linear regression as baseline ICC
         let (jina_slope, jina_intercept) = linear_fit(&jina_dists, &api_ground_truth);
         let (rr_slope, rr_intercept) = linear_fit(&reranker_dists, &api_ground_truth);
 
         eprintln!("  Jina ICC:     corrected = {:.3} × baked + {:.3}", jina_slope, jina_intercept);
         eprintln!("  Reranker ICC: corrected = {:.3} × baked + {:.3}", rr_slope, rr_intercept);
 
-        // Apply correction and re-measure
         let jina_corrected: Vec<f32> = jina_dists.iter()
-            .map(|&d| (d * jina_slope + jina_intercept).clamp(0.0, 1.0))
-            .collect();
+            .map(|&d| (d * jina_slope + jina_intercept).clamp(0.0, 1.0)).collect();
         let rr_corrected: Vec<f32> = reranker_dists.iter()
-            .map(|&d| (d * rr_slope + rr_intercept).clamp(0.0, 1.0))
-            .collect();
+            .map(|&d| (d * rr_slope + rr_intercept).clamp(0.0, 1.0)).collect();
 
-        let rho_jina_corrected = spearman(&jina_corrected, &api_ground_truth);
-        let rho_rr_corrected = spearman(&rr_corrected, &api_ground_truth);
+        let rho_jina_c = spearman(&jina_corrected, &api_ground_truth);
+        let rho_rr_c = spearman(&rr_corrected, &api_ground_truth);
 
-        eprintln!("  After ICC: Jina ρ = {:.4} (was {:.4})", rho_jina_corrected, rho_jina);
-        eprintln!("  After ICC: Reranker ρ = {:.4} (was {:.4})", rho_rr_corrected, rho_reranker);
+        eprintln!("  After ICC: Jina ρ = {:.4} (was {:.4})", rho_jina_c, rho_jina);
+        eprintln!("  After ICC: Reranker ρ = {:.4} (was {:.4})", rho_rr_c, rho_reranker);
     }
 
     eprintln!("\n═══════════════════════════════════════════════════════════");
-    eprintln!("  NOTE: Using hash-based tokenization (not real BPE).");
-    eprintln!("  For production calibration, use real tokenizers per model.");
-    eprintln!("  Set JINA_API_KEY for real API ground truth.");
+    if jina_ok && rr_ok {
+        eprintln!("  Real BPE tokenization used for both lenses.");
+    } else {
+        eprintln!("  Hash fallback used. For real BPE:");
+        eprintln!("    cargo run --features tokenizer --example calibrate_lenses");
+    }
     eprintln!("═══════════════════════════════════════════════════════════\n");
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Tokenizer loading
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Load Jina v3 tokenizer (XLM-RoBERTa, 250K vocab).
+/// Tries from_pretrained first, falls back to local file, then None.
+fn load_jina_tokenizer() -> Option<tokenizers::Tokenizer> {
+    // Try local file first (no network)
+    let local_path = "crates/thinking-engine/data/jina-v3-hdr/tokenizer.json";
+    if let Ok(tok) = tokenizers::Tokenizer::from_file(local_path) {
+        eprintln!("  [jina] Loaded from {}", local_path);
+        return Some(tok);
+    }
+
+    // Try from_pretrained (downloads from HuggingFace)
+    eprintln!("  [jina] Downloading tokenizer from jinaai/jina-embeddings-v3...");
+    match tokenizers::Tokenizer::from_pretrained("jinaai/jina-embeddings-v3", None) {
+        Ok(tok) => {
+            eprintln!("  [jina] Downloaded successfully.");
+            // Save for next time
+            let _ = tok.save(local_path, false);
+            Some(tok)
+        }
+        Err(e) => {
+            eprintln!("  [jina] Failed to download: {}. Using hash fallback.", e);
+            None
+        }
+    }
+}
+
+/// Load Reranker tokenizer (Qwen2, 151K vocab).
+/// Uses the Qwopus tokenizer.json on disk (same Qwen2 BPE).
+fn load_reranker_tokenizer() -> Option<tokenizers::Tokenizer> {
+    // Qwopus uses same Qwen2 tokenizer as Reranker
+    let local_path = "crates/thinking-engine/data/Qwopus3.5-27B-v3-BF16-silu/tokenizer.json";
+    if let Ok(tok) = tokenizers::Tokenizer::from_file(local_path) {
+        eprintln!("  [reranker] Loaded from {}", local_path);
+        return Some(tok);
+    }
+
+    // Try from_pretrained
+    eprintln!("  [reranker] Downloading tokenizer from jinaai/jina-reranker-v2-base-multilingual...");
+    match tokenizers::Tokenizer::from_pretrained("jinaai/jina-reranker-v2-base-multilingual", None) {
+        Ok(tok) => {
+            eprintln!("  [reranker] Downloaded successfully.");
+            Some(tok)
+        }
+        Err(e) => {
+            eprintln!("  [reranker] Failed to download: {}. Using hash fallback.", e);
+            None
+        }
+    }
+}
+
+/// Tokenize a pair of texts. Uses real tokenizer if available, hash fallback otherwise.
+fn tokenize_pair(
+    a: &str,
+    b: &str,
+    tokenizer: Option<&tokenizers::Tokenizer>,
+    vocab_size: u32,
+) -> (Vec<u32>, Vec<u32>) {
+    if let Some(tok) = tokenizer {
+        let enc_a = tok.encode(a, true).expect("tokenize failed");
+        let enc_b = tok.encode(b, true).expect("tokenize failed");
+        let ids_a: Vec<u32> = enc_a.get_ids().iter()
+            .map(|&id| id.min(vocab_size - 1)).collect();
+        let ids_b: Vec<u32> = enc_b.get_ids().iter()
+            .map(|&id| id.min(vocab_size - 1)).collect();
+        (ids_a, ids_b)
+    } else {
+        // Hash fallback (last resort, gives garbage ρ)
+        let ids_a: Vec<u32> = a.split_whitespace()
+            .map(|w| simple_hash(w) % vocab_size).collect();
+        let ids_b: Vec<u32> = b.split_whitespace()
+            .map(|w| simple_hash(w) % vocab_size).collect();
+        (ids_a, ids_b)
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Distance and statistics
+// ═══════════════════════════════════════════════════════════════════════════
 
 fn avg_distance(a: &[u16], b: &[u16], dist_fn: impl Fn(u16, u16) -> f32) -> f32 {
     let mut sum = 0.0f32;
