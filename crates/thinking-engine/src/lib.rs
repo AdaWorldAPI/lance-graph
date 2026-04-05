@@ -37,3 +37,4 @@ pub mod contract_bridge;
 pub mod persona;
 pub mod awareness_dto;
 pub mod world_model;
+pub mod silu_correction;
