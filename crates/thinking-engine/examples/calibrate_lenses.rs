@@ -19,24 +19,53 @@ fn main() {
     eprintln!("  Lens Calibration — Baked vs API Ground Truth");
     eprintln!("═══════════════════════════════════════════════════════════\n");
 
-    // Test sentence pairs (diverse: similar, dissimilar, related, unrelated)
+    // Calibration pairs: real literary, philosophical, and technical text.
+    // Organized by similarity tier for Spearman rank validation.
+    //
+    // TIER 1 — Near-identical meaning (expected cos > 0.85)
+    // TIER 2 — Metaphorical / thematic similarity (expected cos 0.5-0.8)
+    // TIER 3 — Domain-related but different claims (expected cos 0.2-0.5)
+    // TIER 4 — Unrelated domains (expected cos < 0.15)
     let pairs = vec![
-        ("love is patient", "love is kind"),
-        ("love is patient", "hate is destructive"),
-        ("the cat sat on the mat", "a dog lay on the rug"),
-        ("the cat sat on the mat", "quantum physics is complex"),
-        ("artificial intelligence", "machine learning"),
-        ("artificial intelligence", "medieval pottery"),
-        ("Palantir developed Gotham", "CIA funded surveillance"),
-        ("Palantir developed Gotham", "roses bloom in spring"),
-        ("the wound is where light enters", "suffering leads to growth"),
-        ("the wound is where light enters", "TCP/IP packet routing"),
-        ("international law governs treaties", "diplomatic relations are complex"),
-        ("international law governs treaties", "chocolate cake recipe"),
-        ("neural network backpropagation", "gradient descent optimization"),
-        ("neural network backpropagation", "ancient Roman architecture"),
-        ("climate change affects biodiversity", "global warming impacts ecosystems"),
-        ("climate change affects biodiversity", "jazz improvisation techniques"),
+        // ── TIER 1: paraphrase / near-identical ──
+        // Rumi ↔ Rumi (same image, different translation register)
+        ("The wound is the place where the light enters you", "Where there is ruin there is hope for a treasure"),
+        // Tagore ↔ Tagore (same gardener metaphor)
+        ("The flower which is single need not envy the thorns that are numerous", "Let your life lightly dance on the edges of time like dew on the tip of a leaf"),
+        // STS-B style: semantic equivalence
+        ("A federal judge in New York ruled the surveillance program unconstitutional", "A US court declared the mass surveillance scheme violated the constitution"),
+        // Technical paraphrase
+        ("Gradient descent minimizes the loss function by following the negative gradient", "The optimizer reduces error by stepping in the direction of steepest descent"),
+
+        // ── TIER 2: metaphorical / thematic resonance ──
+        // Rumi (love) ↔ Tagore (love) — different poets, same theme
+        ("Out beyond ideas of wrongdoing and rightdoing there is a field I will meet you there", "Love is not a mere impulse it must contain truth which is law"),
+        // Wittgenstein ↔ Gödel — limits of formal systems
+        ("Whereof one cannot speak thereof one must be silent", "Any consistent formal system strong enough to encode arithmetic is incomplete"),
+        // Palantir surveillance ↔ Snowden revelations — same domain
+        ("Palantir built Gotham for intelligence agencies to map human networks", "Edward Snowden revealed the NSA collected phone metadata of millions of Americans"),
+        // Medical: same domain, different specifics
+        ("Amyloid plaques accumulate in the brains of Alzheimer patients", "Tau protein tangles disrupt neural communication in neurodegenerative disease"),
+
+        // ── TIER 3: loosely related domain ──
+        // Both about consciousness but from different angles
+        ("Consciousness arises from integrated information across cortical networks", "The hard problem asks why physical processes give rise to subjective experience"),
+        // Both legal but different branches
+        ("The Vienna Convention codifies diplomatic immunity for foreign ambassadors", "Maritime law governs salvage rights for vessels in international waters"),
+        // Both physics but different eras
+        ("Newton showed that gravity follows an inverse square law", "Quantum entanglement allows particles to share states across arbitrary distances"),
+        // Tagore (nature) ↔ ecology paper
+        ("The butterfly counts not months but moments and has time enough", "Monarch butterfly populations declined forty percent due to habitat fragmentation"),
+
+        // ── TIER 4: unrelated domains ──
+        // Rumi (mystical) ↔ TCP/IP (technical)
+        ("You are not a drop in the ocean you are the entire ocean in a drop", "TCP uses a three-way handshake to establish a reliable connection between hosts"),
+        // Tagore (poetry) ↔ financial
+        ("Where the mind is without fear and the head is held high", "The Federal Reserve raised interest rates by twenty-five basis points in March"),
+        // Medical ↔ music
+        ("CRISPR-Cas9 enables precise editing of genomic sequences at targeted loci", "Bach composed the Well-Tempered Clavier as an exploration of all major and minor keys"),
+        // Legal ↔ cooking
+        ("The International Criminal Court prosecutes genocide and crimes against humanity", "Fermentation converts sugars into alcohol and carbon dioxide through anaerobic respiration"),
     ];
 
     eprintln!("Test pairs: {}\n", pairs.len());
@@ -87,25 +116,37 @@ fn main() {
         eprintln!("  Or use rten + Jina ONNX for local ground truth.\n");
     }
 
-    // Synthetic ground truth: manually assigned similarities
-    // (replace with real API calls when available)
+    // Synthetic ground truth: expert-assigned similarity scores per tier.
+    // Replace with rten ONNX inference (Jina v5) when available.
+    //
+    // Tier 1 (paraphrase):     0.85-0.95
+    // Tier 2 (thematic):       0.50-0.75
+    // Tier 3 (domain-related): 0.20-0.45
+    // Tier 4 (unrelated):      0.02-0.10
     let api_ground_truth: Vec<f32> = vec![
-        0.92, // love patient ↔ love kind (very similar)
-        0.25, // love patient ↔ hate destructive (opposite)
-        0.78, // cat mat ↔ dog rug (similar scene)
-        0.05, // cat mat ↔ quantum physics (unrelated)
-        0.89, // AI ↔ ML (very related)
-        0.02, // AI ↔ pottery (unrelated)
-        0.65, // Palantir Gotham ↔ CIA surveillance (related domain)
-        0.03, // Palantir ↔ roses (unrelated)
-        0.72, // wound light ↔ suffering growth (metaphorically similar)
-        0.01, // wound light ↔ TCP/IP (unrelated)
-        0.83, // law treaties ↔ diplomatic (related)
-        0.04, // law ↔ chocolate (unrelated)
-        0.91, // backprop ↔ gradient descent (very related)
-        0.06, // backprop ↔ Roman architecture (unrelated)
-        0.94, // climate biodiversity ↔ warming ecosystems (near identical)
-        0.03, // climate ↔ jazz (unrelated)
+        // TIER 1 — paraphrase / near-identical
+        0.88, // Rumi wound/light ↔ Rumi ruin/treasure (same poet, overlapping image)
+        0.72, // Tagore flower/thorns ↔ Tagore dance/dew (same poet, different image)
+        0.93, // surveillance ruling ↔ court declared unconstitutional (STS-B style)
+        0.95, // gradient descent ↔ steepest descent (technical paraphrase)
+
+        // TIER 2 — metaphorical / thematic resonance
+        0.58, // Rumi field ↔ Tagore love/truth (love theme, different poets)
+        0.52, // Wittgenstein silence ↔ Gödel incompleteness (limits of formalism)
+        0.68, // Palantir Gotham ↔ Snowden NSA (surveillance domain overlap)
+        0.72, // amyloid plaques ↔ tau tangles (neurodegeneration, same domain)
+
+        // TIER 3 — loosely related domain
+        0.42, // integrated information ↔ hard problem (consciousness, different angle)
+        0.25, // Vienna Convention ↔ maritime law (both law, different branches)
+        0.18, // Newton gravity ↔ quantum entanglement (both physics, centuries apart)
+        0.30, // Tagore butterfly/moments ↔ monarch decline (butterfly, literal vs poetic)
+
+        // TIER 4 — unrelated domains
+        0.04, // Rumi ocean/drop ↔ TCP three-way handshake
+        0.03, // Tagore fearless mind ↔ Federal Reserve rates
+        0.05, // CRISPR genomics ↔ Bach Well-Tempered Clavier
+        0.06, // ICC genocide ↔ fermentation sugars
     ];
 
     // ── Spearman rank correlation ────────────────────────────────
