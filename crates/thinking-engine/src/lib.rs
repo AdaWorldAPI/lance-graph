@@ -49,3 +49,5 @@ pub mod builder;
 pub mod auto_detect;
 pub mod semantic_chunker;
 pub mod tensor_bridge;
+#[cfg(feature = "tokenizer")]
+pub mod tokenizer_registry;
