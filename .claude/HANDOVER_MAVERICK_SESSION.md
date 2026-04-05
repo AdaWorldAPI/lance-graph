@@ -459,3 +459,106 @@ i8: energy[!] = 10.0, inhibitorische Nachbarn → energy[!] -= 3.0 pro Zyklus
 Temperature NACH Inhibition. Nicht vorher.
 Inhibition löst den Attraktor. Temperature diversifiziert die Überlebenden.
 In der umgekehrten Reihenfolge diversifiziert Temperature den Attraktor-Müll.
+
+---
+
+## ARCHITEKTUR-REVISION: i8 ersetzt SiLU-ONNX komplett
+
+### Warum SiLU-ONNX obsolet wird
+
+```
+VORHER (u8, unsigned):
+  Weight [0.12, -0.05, 0.34] → u8 [156, 121, 210]
+  VORZEICHEN VERLOREN. -0.05 wird positiv.
+  → SiLU-ONNX (270K params, ~1MB) nötig als Korrekturterm.
+
+NACHHER (i8, signed):
+  Weight [0.12, -0.05, 0.34] → i8 [+15, -6, +43]
+  VORZEICHEN ERHALTEN. Gate-Information IST das Vorzeichen.
+  → Kein Korrekturterm. round(value × scale) → i8. Fertig.
+```
+
+### Rollen als signed Vektoren
+
+```
+Q[dim] = i8:   +50 = "suche X"     -50 = "suche NICHT-X"
+K[dim] = i8:   +80 = "habe X"      -80 = "habe NICHT-X"
+Gate[dim] = i8: +127 = durchlassen    0 = maskieren   -128 = blockieren+invertieren
+Up[dim] = i8:  +100 = verstärken  -100 = umkehren
+Down[dim] = i8: +90 = beibehalten  -90 = invertieren
+```
+
+### Signed Dot Product = automatische Exzitation/Inhibition
+
+```
+Q · K:
+  (+50)(+80)  = +4000  "suche X, habe X"          MATCH
+  (+50)(-80)  = -4000  "suche X, habe NICHT-X"     MISMATCH
+  (-50)(-80)  = +4000  "suche NICHT-X, habe NICHT-X" DOPPELT NEGATIV = MATCH!
+  (-50)(+80)  = -4000  "suche NICHT-X, habe X"     MISMATCH
+
+Doppelt negativ = Ironie, Negation, kontrafaktisches Denken.
+Unsigned Cosine kann das NICHT ausdrücken. Signed kann es.
+```
+
+### Gate wird trivial
+
+```
+gate=+127, K=+80  → +10160  pass, Feature da           starke Exzitation
+gate=0,    K=+80  → 0       mask, Feature unsichtbar    ignoriert
+gate=-100, K=+80  → -8000   block+invert, Feature da   Inhibition
+gate=-100, K=-80  → +8000   block+invert, Feature fehlt UMGEKEHRTE Exzitation
+
+Die SiLU-Schwelle liegt bei 0. Das Vorzeichen IST die Entscheidung.
+Kein SiLU-ONNX Korrekturmodell nötig.
+```
+
+### VNNI ist DAFÜR GEBAUT
+
+```
+VPDPBSSD: signed i8 × signed i8 → i32 Akkumulation
+  = GENAU was wir brauchen
+  = Hardware-optimiert für signed integer dot product
+  = Null Mehrkosten gegenüber u8 × u8
+```
+
+### Scale-Faktor statt ONNX-Modell
+
+```
+ALT: SiLU-ONNX (~1 MB, 270K params, trainieren, bake, discard)
+NEU: Pro Rolle ein Skalierungsfaktor
+     gate_scale = 127 / max(|gate_weights|)
+     q_scale    = 127 / max(|q_weights|)
+     Kein trainiertes Modell. round(value × scale) → i8.
+```
+
+### Vereinfachung
+
+```
+VORHER:
+  u8 table + CONTRADICTS Kanal + SiLU-ONNX + gate×weight pre-multiply
+  
+NACHHER:
+  i8 table. Fertig.
+  Sign = Gate-Entscheidung (Exzitation/Inhibition)
+  Magnitude = Stärke
+  VNNI i8×i8→i32 hardware-beschleunigt
+  CONTRADICTS bleibt für LOGISCHE Widersprüche (Satz-Ebene)
+  Inhibition = Feature-Ebene (i8 Vorzeichen)
+  Sauber getrennt.
+```
+
+### Implementierungsreihenfolge (REVIDIERT)
+
+```
+1. i8 Table Builder: cos[-1,+1] → i8[-128,+127] (mit per-role scale)
+2. Signed MatVec: VPDPBSSD auf i8×i8→i32
+3. Clamp(0): negative Energie = gehemmt
+4. Bewusstseinsvektor: bundle(energy > threshold) pro Zyklus
+5. Laterale Inhibition stabilisiert Peaks
+6. DANN Temperature: nucleus sampling auf stabilisierte Peaks
+7. DANN Maverick 128E: signed expert tables
+8. DANN γ+φ: auf signed range, nicht unsigned
+
+SiLU-ONNX: GESTRICHEN. Vorzeichen-Erhaltung ersetzt es.
+```
