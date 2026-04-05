@@ -646,3 +646,29 @@ Compute:  rten inference on 1000 texts ≈ 5 min
 Repeat for remaining 5 models: ~2 hours total
 Full calibration matrix: ~2.5 hours
 ```
+
+---
+
+## CRITICAL: Calibrate against ONNX f32, NOT GGUF BF16
+
+```
+ONNX f32 (2.4 GB) = RAW file (full sensor, 24-bit mantissa)
+GGUF BF16 (1.2 GB) = TIFF (7-bit mantissa, legs chopped)
+Our table          = JPEG (8-bit u8/i8, compressed for distribution)
+
+Camera profile calibrates against RAW, never against JPEG.
+Lens ICC calibrates against ONNX f32, never against GGUF BF16.
+
+BF16 truncation flips rank order for cosines within ±0.008:
+  f32: cos(A,B)=0.7234, cos(A,C)=0.7229 → B closer
+  BF16: both round to 0.7226 → TIE or FLIP
+  Spearman drops 5% from BF16 alone, not from our encoding.
+
+Calibration pipeline:
+  ONNX f32 → CLAM → table → compare with ONNX f32 inference → pure encoding error
+  NOT: GGUF BF16 → CLAM → compare with ONNX f32 → mixed error (encoding + truncation)
+
+Production pipeline:
+  GGUF BF16 → CLAM → table + ICC correction (from ONNX calibration) → corrected table
+  The ICC absorbs the BF16 truncation error because it was calibrated against f32.
+```
