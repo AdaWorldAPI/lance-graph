@@ -562,3 +562,22 @@ NACHHER:
 
 SiLU-ONNX: GESTRICHEN. Vorzeichen-Erhaltung ersetzt es.
 ```
+
+---
+
+## Jina v5 — New Truth Anchor (replaces v3)
+
+```
+Repo:  jinaai/jina-embeddings-v5-text-small-text-matching
+GGUF:  v5-small-text-matching-F16.gguf (1,198 MB, GGUF v3, 310 tensors)
+ONNX:  onnx/model.onnx + model.onnx_data (2,384 MB, for rten ground truth)
+Tok:   tokenizer.json (11.4 MB, real BPE)
+
+Calibration pipeline:
+  rten loads ONNX → forward pass → ground truth embeddings
+  Our pipeline: stream F16 GGUF → CLAM → bake HDR table
+  ICC profile: compare → calibrate → truth anchor at ρ > 0.998
+
+Both ONNX and GGUF from SAME model = no API key, no network for calibration.
+Jina v5 replaces v3 as truth anchor (newer, better, has ONNX).
+```
