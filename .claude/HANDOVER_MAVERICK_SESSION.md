@@ -646,3 +646,106 @@ Compute:  rten inference on 1000 texts ≈ 5 min
 Repeat for remaining 5 models: ~2 hours total
 Full calibration matrix: ~2.5 hours
 ```
+
+---
+
+## CRITICAL: Calibrate against ONNX f32, NOT GGUF BF16
+
+```
+ONNX f32 (2.4 GB) = RAW file (full sensor, 24-bit mantissa)
+GGUF BF16 (1.2 GB) = TIFF (7-bit mantissa, legs chopped)
+Our table          = JPEG (8-bit u8/i8, compressed for distribution)
+
+Camera profile calibrates against RAW, never against JPEG.
+Lens ICC calibrates against ONNX f32, never against GGUF BF16.
+
+BF16 truncation flips rank order for cosines within ±0.008:
+  f32: cos(A,B)=0.7234, cos(A,C)=0.7229 → B closer
+  BF16: both round to 0.7226 → TIE or FLIP
+  Spearman drops 5% from BF16 alone, not from our encoding.
+
+Calibration pipeline:
+  ONNX f32 → CLAM → table → compare with ONNX f32 inference → pure encoding error
+  NOT: GGUF BF16 → CLAM → compare with ONNX f32 → mixed error (encoding + truncation)
+
+Production pipeline:
+  GGUF BF16 → CLAM → table + ICC correction (from ONNX calibration) → corrected table
+  The ICC absorbs the BF16 truncation error because it was calibrated against f32.
+```
+
+---
+
+## HHTL Bucket Boundary Awareness (BF16 precision zones)
+
+### The problem
+
+```
+f32 truth:  cos = 0.0034  (barely positive, region A)
+BF16:       cos = -0.0039 (sign flipped, region B)
+
+HEEL assigns region B (WRONG).
+HIP refines within B (precisely wrong).
+TWIG gives exact position in B (exquisitely wrong).
+
+High precision on the wrong answer is worse than
+low precision on the right answer.
+```
+
+### The fix: boundary_risk metadata
+
+```rust
+pub struct HhtlEntry {
+    pub heel: u8,
+    pub hip: [u8; 3],
+    pub twig: [i16; 17],
+    pub boundary_risk: u8,  // 0=safe, 255=on bucket edge
+}
+```
+
+For each centroid pair:
+- Compute distance of raw cosine from nearest HEEL bucket boundary
+- If within BF16 truncation range (±0.008): boundary_risk = HIGH
+- HIGH risk → skip cascade, go straight to LEAF validation
+- LOW risk → cascade is safe, proceed normally
+
+95% of pairs are safely inside their buckets. 5% need validation.
+Pay LEAF cost only for the uncertain 5%.
+
+### γ+φ reduces boundary risk
+
+Golden ratio stride ensures bucket boundaries DON'T align with
+BF16 quantization steps. Irrational boundary positions = fewer
+values landing exactly on edges = fewer LEAF validations.
+
+### Reconstruction awareness per level
+
+```
+HEEL (8 bits):   can reconstruct: which quadrant (reliable if boundary_risk < 128)
+                 cannot reconstruct: precise distance (too coarse)
+                 
+HIP (24 bits):   can reconstruct: cluster membership (reliable within bucket)
+                 cannot reconstruct: sub-cluster ranking if bucket was wrong
+                 
+TWIG (272 bits): can reconstruct: full L1 distance (if bucket was correct)
+                 cannot reconstruct: anything if HEEL bucket flipped
+                 
+LEAF (16K bits): can reconstruct: everything (ground truth at BF16 precision)
+                 cannot reconstruct: f32 precision (BF16 truncation is permanent)
+```
+
+### The chain of trust with boundary awareness
+
+```
+For each centroid pair (i, j):
+  1. Compute raw cosine from BF16 source
+  2. Measure distance to nearest bucket boundary
+  3. If safe (>0.008 from boundary):
+     → HEEL → HIP → TWIG cascade (fast path, 95% of pairs)
+  4. If uncertain (<0.008 from boundary):
+     → Mark boundary_risk = HIGH
+     → Skip HEEL/HIP, compute TWIG directly from raw cosine
+     → Or: validate via LEAF if available
+  5. ICC profile: calibrate the fast-path results against ONNX f32
+     → The 5% uncertain pairs get individual correction
+     → The 95% safe pairs get bulk correction via transfer curve
+```
