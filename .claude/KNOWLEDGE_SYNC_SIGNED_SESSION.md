@@ -231,3 +231,199 @@ HANDOVER DOCS:
   .claude/HANDOVER_MAVERICK_SESSION.md → i8 architecture, Maverick plan, temperature fix
   .claude/HANDOVER_CALIBRATION_SESSION.md → H1-H5 hypotheses, Cronbach α protocol
 ```
+
+---
+
+## SIGNED i8 FORMULAS PER ROLE
+
+### The encoding formula
+
+For each weight row, the signed i8 value preserves the ACTUAL cosine polarity:
+
+```
+scale_factor = 127.0 / max(|cosine_values|)
+i8_value = round(cosine × scale_factor).clamp(-128, +127)
+```
+
+Per-role scale factors (from Qwopus 27B L0 measured cosine ranges):
+
+```
+Role        Cosine Range        max(|cos|)   Scale Factor
+────        ────────────        ──────────   ────────────
+attn_qkv    [-0.62, +0.69]     0.69         184.1
+ffn_gate    [-0.23, +0.18]     0.23         552.2  ← HIGHEST RESOLUTION
+ffn_up      [-0.08, +0.08]     0.08         1587.5 ← (but tiny range)
+ffn_down    [-0.18, +0.10]     0.18         705.6
+ssm_out     [-0.20, +0.28]     0.28         453.6
+```
+
+Gate gets the most resolution because its range is narrow and centered at zero —
+exactly where the SiLU decision boundary lives.
+
+### What each role's sign MEANS
+
+```
+Q (Query) — "what is the world asking?"
+  EXTERN. Input-dependent. The world asks what it asks.
+  i8 encoding: round(cos(Q_row_i, Q_row_j) × scale) → i8
+  
+  +i8: "query i and query j ask SIMILAR things"
+  -i8: "query i and query j ask OPPOSITE things"
+   0:  "unrelated queries"
+
+  NO gate modulation. Q is raw.
+  Formula: table_Q[i][j] = i8(cos(Q_centroid_i, Q_centroid_j) × scale_Q)
+
+
+K (Key) — "what do I know?" (gate-modulated)
+  INTERN. Self-filtered knowledge index.
+  i8 encoding: silu(gate) × K, THEN cosine, THEN i8
+  
+  +i8: "knowledge i and knowledge j are CO-ACCESSIBLE through the gate"
+  -i8: "gate opens i but BLOCKS j (or vice versa)"
+   0:  "no gate relationship"
+
+  Formula: 
+    activated_K_i = silu(gate_centroid_i) ⊙ K_centroid_i   (elementwise)
+    activated_K_j = silu(gate_centroid_j) ⊙ K_centroid_j
+    table_K[i][j] = i8(cos(activated_K_i, activated_K_j) × scale_K)
+
+  WHY silu(gate) × K:
+    gate[d] = +0.3 → silu(0.3) = 0.16 → K[d] × 0.16 → feature d PASSES (reduced)
+    gate[d] = -0.1 → silu(-0.1) = -0.047 → K[d] × -0.047 → feature d INVERTED
+    gate[d] = 0.0  → silu(0.0) = 0.0 → K[d] × 0.0 → feature d MASKED
+    
+    Two keys with SAME gate opening pattern → positive cosine → excitation
+    Two keys where gate opens OPPOSITE features → negative cosine → inhibition
+
+
+V (Value) — "what do I give?" (gate-modulated)
+  Same as K but for content:
+  Formula: 
+    activated_V_i = silu(gate_centroid_i) ⊙ V_centroid_i
+    table_V[i][j] = i8(cos(activated_V_i, activated_V_j) × scale_V)
+
+
+Gate — "what am I ALLOWED to activate?"
+  The gate IS the lens. Not a codebook entry.
+  i8 encoding: raw gate-to-gate cosine (how similar are two gate patterns?)
+  
+  +i8: "same gate opening pattern" (same features allowed)
+  -i8: "OPPOSITE gate patterns" (what one allows, the other blocks)
+   0:  "unrelated gate patterns"
+
+  Formula: table_Gate[i][j] = i8(cos(Gate_centroid_i, Gate_centroid_j) × scale_Gate)
+  
+  NOTE: 68.9% of gate values are near zero.
+  This means most gate dimensions are in the SiLU decision zone.
+  The SIGN of these near-zero values is the entire gate decision.
+  i8 preserves this sign. u8 destroys it.
+
+
+Up — "how do I expand?" (gate × SiLU modulated)
+  INTERN. The FFN expansion. Gate × SiLU × Up is the activation.
+  i8 encoding: silu(gate) × up, THEN cosine, THEN i8
+  
+  Formula:
+    activated_Up_i = silu(gate_centroid_i) ⊙ Up_centroid_i
+    activated_Up_j = silu(gate_centroid_j) ⊙ Up_centroid_j
+    table_Up[i][j] = i8(cos(activated_Up_i, activated_Up_j) × scale_Up)
+
+  This is where the 33% error lives:
+    Raw cos(Up_i, Up_j) std = 0.021
+    cos(silu(gate)×Up_i, silu(gate)×Up_j) std = 0.051  ← 2.4× MORE SPREAD
+    99.2% of table cells change. Mean Δ = 84.2 u8 levels.
+
+  Without gate modulation: Up table is WRONG by 33%.
+  With gate modulation: Up table captures actual FFN activation topology.
+
+
+Down — "how do I compress?"
+  EXTERN (funnel). Receives gate×up result, compresses back.
+  i8 encoding: raw cosine (no gate modulation needed)
+  
+  Formula: table_Down[i][j] = i8(cos(Down_centroid_i, Down_centroid_j) × scale_Down)
+  
+  NO gate modulation. Down receives the already-gated signal.
+  Like Q, it's a raw cosine encoding.
+```
+
+### The MatVec with signed tables
+
+```rust
+/// Signed MatVec: positive entries excite, negative entries inhibit.
+fn signed_matvec(table: &[i8], energy: &[f32], n: usize) -> Vec<f32> {
+    let mut next = vec![0.0f32; n];
+    for i in 0..n {
+        if energy[i].abs() < 1e-8 { continue; }
+        let row = &table[i * n..(i + 1) * n];
+        for j in 0..n {
+            // SIGNED: table[i][j] > 0 = excitation, < 0 = inhibition
+            next[j] += (row[j] as f32 / 127.0) * energy[i];
+        }
+    }
+    // CLAMP: inhibited atoms die (negative energy → 0)
+    for e in &mut next {
+        *e = e.max(0.0);
+    }
+    next
+}
+```
+
+### The complete forward pass per layer
+
+```rust
+fn layer_forward_signed(
+    hidden: &mut [f32],
+    table_q: &[i8],     // raw (extern)
+    table_gate: &[i8],  // raw gate topology
+    table_up: &[i8],    // silu(gate)×up (intern, gate-modulated)
+    table_down: &[i8],  // raw (funnel)
+    residual_scale: f32, // 0.1 typical
+) {
+    let n = hidden.len();
+    
+    // 1. Attention sublayer (Q topology routes)
+    let mut attn = hidden.to_vec();
+    rms_norm(&mut attn);
+    attn = signed_matvec(table_q, &attn, n);
+    
+    // 2. Gate modulates attention via NARS truth
+    //    (gate topology tells us which attention paths to trust)
+    let gate_energy = signed_matvec(table_gate, &hidden, n);
+    for i in 0..n {
+        // Gate as confidence: high gate energy = trust this attention path
+        let gate_trust = gate_energy[i].max(0.0) / (gate_energy[i].abs() + 1.0);
+        attn[i] *= gate_trust;
+    }
+    
+    // 3. Residual connection
+    for i in 0..n { hidden[i] += attn[i] * residual_scale; }
+    
+    // 4. FFN sublayer (up is gate-modulated, down is raw)
+    let mut ffn_in = hidden.to_vec();
+    rms_norm(&mut ffn_in);
+    let up_out = signed_matvec(table_up, &ffn_in, n);  // ALREADY gate-corrected
+    let ffn_out = signed_matvec(table_down, &up_out, n);
+    
+    // 5. Residual connection
+    for i in 0..n { hidden[i] += ffn_out[i] * residual_scale; }
+}
+```
+
+### Summary: which roles get gate × SiLU, which don't
+
+```
+Role     Gate Modulation    Formula for i8 table
+────     ───────────────    ────────────────────
+Q        NONE (extern)      i8(cos(Q_i, Q_j) × scale)
+Gate     NONE (IS the gate) i8(cos(Gate_i, Gate_j) × scale)
+K        silu(gate) × K     i8(cos(silu(g)⊙K_i, silu(g)⊙K_j) × scale)
+V        silu(gate) × V     i8(cos(silu(g)⊙V_i, silu(g)⊙V_j) × scale)
+Up       silu(gate) × Up    i8(cos(silu(g)⊙Up_i, silu(g)⊙Up_j) × scale)
+Down     NONE (funnel)      i8(cos(Down_i, Down_j) × scale)
+
+⊙ = elementwise multiply
+silu(x) = x / (1 + exp(-x))
+scale = 127.0 / max(|cosine_values|)
+```
