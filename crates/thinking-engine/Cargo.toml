@@ -18,10 +18,20 @@ bgz-tensor = { path = "../bgz-tensor" }
 highheelbgz = { path = "../highheelbgz" }
 tokenizers = { version = "0.22", optional = true, features = ["http"] }
 
+# Calibration: candle for forward pass ground truth + SiLU training
+candle-core = { version = "0.9", optional = true }
+candle-nn = { version = "0.9", optional = true }
+candle-transformers = { version = "0.9", optional = true }
+hf-hub = { version = "0.4", optional = true }
+
 [features]
 default = ["tokenizer"]
 tokenizer = ["dep:tokenizers"]
+calibration = ["dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:hf-hub", "tokenizer"]
 
 [dev-dependencies]
 rayon = "1.10"
 tokenizers = { version = "0.22", features = ["http"] }
+
+[patch.crates-io]
+tokenizers = { path = "../../../tokenizers/tokenizers" }
