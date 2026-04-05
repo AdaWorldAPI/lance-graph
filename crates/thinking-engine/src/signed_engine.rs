@@ -103,6 +103,25 @@ impl SignedThinkingEngine {
         Self::new(signed)
     }
 
+    /// Build signed table directly from f32 cosine matrix.
+    ///
+    /// This is the CORRECT i8 path: takes the raw f32 cosines
+    /// (e.g. from silu(gate) × up pairwise cosine) and quantizes
+    /// directly to i8 WITHOUT CDF encoding. The signs are preserved.
+    ///
+    /// WARNING: from_unsigned() and from_gate_corrected() both go
+    /// through CDF u8 → relabel → i8, which DESTROYS sign information.
+    /// Only this method and build_signed_table() produce real signed tables.
+    pub fn from_f32_cosines(cosines: &[f32], size: usize) -> Self {
+        assert_eq!(cosines.len(), size * size,
+            "cosine matrix must be {}×{} = {}, got {}",
+            size, size, size * size, cosines.len());
+        let signed: Vec<i8> = cosines.iter()
+            .map(|&c| (c * 127.0).round().clamp(-128.0, 127.0) as i8)
+            .collect();
+        Self::new(signed)
+    }
+
     /// Build signed distance table directly from centroid vectors.
     /// cosine [-1,+1] -> i8 [-128,+127]. No information lost vs unsigned.
     pub fn build_signed_table(centroids: &[Vec<f64>]) -> Vec<i8> {

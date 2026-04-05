@@ -13,6 +13,44 @@ use crate::engine::ThinkingEngine;
 use crate::signed_engine::SignedThinkingEngine;
 use crate::pooling::Pooling;
 
+/// Thinking style presets — map to temperature + pooling.
+/// From cognitive_stack.rs: 12 styles. Here: the 4 that matter for sampling.
+#[derive(Clone, Copy, Debug)]
+pub enum ThinkingPreset {
+    /// Analytical: low temperature, narrow nucleus. Precise.
+    Analytical,
+    /// Creative: high temperature, wide nucleus. Exploratory.
+    Creative,
+    /// Metacognitive: adaptive, balanced.
+    Balanced,
+    /// Focused: argmax, no randomness. Deterministic.
+    Focused,
+}
+
+impl ThinkingPreset {
+    /// Convert to pooling strategy.
+    pub fn to_pooling(self) -> Pooling {
+        match self {
+            ThinkingPreset::Analytical => Pooling::Nucleus {
+                temperature: 0.3,
+                top_p: 0.3,
+                seed: None,
+            },
+            ThinkingPreset::Creative => Pooling::Nucleus {
+                temperature: 1.2,
+                top_p: 0.95,
+                seed: None,
+            },
+            ThinkingPreset::Balanced => Pooling::Nucleus {
+                temperature: 0.7,
+                top_p: 0.9,
+                seed: None,
+            },
+            ThinkingPreset::Focused => Pooling::ArgMax,
+        }
+    }
+}
+
 /// Which baked lens to use.
 #[derive(Clone, Debug)]
 pub enum Lens {
@@ -117,6 +155,12 @@ impl ThinkingEngineBuilder {
     /// Set pooling strategy.
     pub fn pooling(mut self, p: Pooling) -> Self {
         self.pooling = p;
+        self
+    }
+
+    /// Apply a thinking preset (sets pooling from cognitive style).
+    pub fn thinking_preset(mut self, preset: ThinkingPreset) -> Self {
+        self.pooling = preset.to_pooling();
         self
     }
 
@@ -254,6 +298,19 @@ mod tests {
         engine.process(&[40, 50, 60]);
 
         assert_eq!(counter.load(Ordering::Relaxed), 2);
+    }
+
+    #[test]
+    fn builder_thinking_preset() {
+        let mut engine = ThinkingEngineBuilder::new()
+            .lens(Lens::Jina)
+            .thinking_preset(ThinkingPreset::Creative)
+            .build()
+            .unwrap();
+
+        let bus = engine.process(&[50, 52, 54]);
+        assert!(bus.energy > 0.0);
+        // Creative preset uses Nucleus pooling — may pick non-argmax peak
     }
 
     #[test]
