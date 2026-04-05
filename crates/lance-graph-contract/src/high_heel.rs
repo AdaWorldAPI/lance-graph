@@ -788,3 +788,239 @@ mod tests {
         eprintln!("══════════════════════════════════════════════════════════\n");
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LENS ICC PROFILE — characterize encoding distortion vs ground truth
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Encoding path that produced a distance table.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum EncodingPath {
+    /// burn+GGUF f32 cosine (ground truth, expensive).
+    RawF32,
+    /// HDR CDF u8 (unsigned, loses sign, gains distribution).
+    HdrCdfU8,
+    /// Signed i8 (preserves sign, linear quantization).
+    SignedI8,
+    /// Gamma+phi redistributed (nonlinear, role-aware).
+    GammaPhiU8,
+    /// Gamma+phi signed (best of both).
+    GammaPhiI8,
+}
+
+/// Lens ICC Profile: characterizes the distortion of one encoding path
+/// relative to ground truth (burn+GGUF f32 cosine).
+///
+/// Like a camera lens profile in Lightroom: measures the transfer function
+/// between "what the weights actually say" and "what the table encodes."
+/// The γ offset partially corrects it. The ICC captures the residual.
+///
+/// Size: ~2KB per lens per role. Total for 6 models × 6 roles = ~72KB.
+#[derive(Debug, Clone)]
+pub struct LensProfile {
+    /// Which model this profile describes.
+    pub model_name: String,
+    /// Which role (Q, K, V, Gate, Up, Down).
+    pub role: String,
+    /// Which encoding path.
+    pub encoding: EncodingPath,
+    /// Transfer function: 256 sample points from cos=-1.0 to cos=+1.0.
+    /// Maps ground_truth_cos → encoded_value.
+    pub transfer_curve: Vec<f32>,
+    /// Inverse: encoded_value → estimated_cos.
+    pub inverse_curve: Vec<f32>,
+    /// Per-centroid bias: systematic over/under-estimation per row.
+    pub centroid_bias: Vec<f32>,
+    /// Noise floor: below this absolute cosine, the encoding can't distinguish.
+    pub noise_floor: f32,
+    /// Effective dynamic range in bits (higher = more discrimination).
+    pub effective_bits: f32,
+    /// Signed ratio: fraction of negative entries in the raw cosine matrix.
+    /// ~0.5 = symmetric (reranker), ~0.1 = positive-skewed (Jina v3).
+    pub signed_ratio: f32,
+}
+
+impl LensProfile {
+    /// Build a profile by comparing encoded table against ground truth cosines.
+    ///
+    /// `ground_truth`: f32 cosine matrix (n×n, from burn+GGUF or rten)
+    /// `encoded`: u8 or i8 distance table (n×n, from our encoding pipeline)
+    /// `n`: number of centroids
+    pub fn build(
+        model_name: &str,
+        role: &str,
+        encoding: EncodingPath,
+        ground_truth: &[f32],
+        encoded: &[u8],
+        n: usize,
+    ) -> Self {
+        // Build transfer curve: sample 256 points from cos range
+        let mut transfer_curve = vec![0.0f32; 256];
+        let mut inverse_curve = vec![0.0f32; 256];
+        let mut centroid_bias = vec![0.0f32; n];
+
+        // Collect (cos, encoded) pairs
+        let mut pairs: Vec<(f32, u8)> = Vec::new();
+        let mut negative_count = 0usize;
+        let mut total_count = 0usize;
+
+        for i in 0..n {
+            let mut row_error = 0.0f32;
+            let mut row_count = 0;
+            for j in 0..n {
+                if i == j { continue; }
+                let cos = ground_truth[i * n + j];
+                let enc = encoded[i * n + j];
+                pairs.push((cos, enc));
+                if cos < 0.0 { negative_count += 1; }
+                total_count += 1;
+                // Bias: expected encoded vs actual
+                let expected = ((cos + 1.0) / 2.0 * 255.0) as u8; // linear mapping
+                row_error += (enc as f32 - expected as f32).abs();
+                row_count += 1;
+            }
+            if row_count > 0 {
+                centroid_bias[i] = row_error / row_count as f32;
+            }
+        }
+
+        // Sort pairs by cosine value
+        pairs.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+
+        // Sample transfer curve at 256 equidistant cosine points
+        let n_pairs = pairs.len();
+        for k in 0..256 {
+            let target_cos = -1.0 + k as f32 * 2.0 / 255.0;
+            // Find nearest pair
+            let idx = pairs.partition_point(|p| p.0 < target_cos).min(n_pairs - 1);
+            transfer_curve[k] = pairs[idx].1 as f32;
+            inverse_curve[pairs[idx].1 as usize] = target_cos;
+        }
+
+        // Noise floor: smallest cosine difference that produces different encoded values
+        let mut noise_floor = 2.0f32;
+        for w in pairs.windows(2) {
+            if w[0].1 != w[1].1 {
+                let delta = (w[1].0 - w[0].0).abs();
+                if delta < noise_floor { noise_floor = delta; }
+            }
+        }
+
+        // Effective bits: log2 of distinct encoded values
+        let mut seen = [false; 256];
+        for &(_, e) in &pairs { seen[e as usize] = true; }
+        let distinct = seen.iter().filter(|&&v| v).count();
+        let effective_bits = (distinct as f32).log2();
+
+        let signed_ratio = if total_count > 0 {
+            negative_count as f32 / total_count as f32
+        } else { 0.0 };
+
+        Self {
+            model_name: model_name.to_string(),
+            role: role.to_string(),
+            encoding,
+            transfer_curve,
+            inverse_curve,
+            centroid_bias,
+            noise_floor,
+            effective_bits,
+            signed_ratio,
+        }
+    }
+}
+
+/// Standardized lens configuration for the 6-lane pipeline.
+#[derive(Debug, Clone)]
+pub struct LensConfig {
+    /// Model name (e.g., "jina-v3", "reranker-v3", "qwopus-27b").
+    pub name: &'static str,
+    /// Model family.
+    pub family: LensFamily,
+    /// Vocabulary size.
+    pub vocab_size: usize,
+    /// Number of centroids in the baked table.
+    pub n_centroids: usize,
+    /// Tokenizer family (determines which tokenizer.json to load).
+    pub tokenizer: TokenizerFamily,
+    /// Raw cosine range observed in the weight matrix.
+    pub cos_range: (f32, f32),
+    /// Gamma offset for HDR re-encoding (higher = more resolution near zero).
+    pub gamma_offset: f32,
+    /// Whether this lens uses signed i8 tables.
+    pub is_signed: bool,
+    /// Whether this is a truth anchor for cross-model evaluation.
+    pub is_truth_anchor: bool,
+}
+
+/// Model family.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum LensFamily {
+    /// Embedding model (symmetric similarity).
+    Embedding,
+    /// Reranker (asymmetric relevance scoring).
+    Reranker,
+    /// Reader model (HTML → text).
+    Reader,
+    /// Language model (token generation).
+    LanguageModel,
+    /// Mixture of Experts language model.
+    MoE,
+}
+
+/// Tokenizer family.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum TokenizerFamily {
+    XlmRoberta,
+    Qwen2,
+    Llama,
+    SentencePiece,
+}
+
+/// The 6-lane lens registry.
+pub static LENS_REGISTRY: &[LensConfig] = &[
+    LensConfig {
+        name: "jina-v3", family: LensFamily::Embedding,
+        vocab_size: 250_002, n_centroids: 256,
+        tokenizer: TokenizerFamily::XlmRoberta,
+        cos_range: (-0.067, 0.234), gamma_offset: 0.37,
+        is_signed: false, is_truth_anchor: true,
+    },
+    LensConfig {
+        name: "bge-m3", family: LensFamily::Embedding,
+        vocab_size: 250_002, n_centroids: 256,
+        tokenizer: TokenizerFamily::XlmRoberta,
+        cos_range: (-0.07, 0.23), gamma_offset: 0.40,
+        is_signed: false, is_truth_anchor: false,
+    },
+    LensConfig {
+        name: "reranker-v3", family: LensFamily::Reranker,
+        vocab_size: 151_936, n_centroids: 256,
+        tokenizer: TokenizerFamily::Qwen2,
+        cos_range: (-0.886, 0.826), gamma_offset: 1.50,
+        is_signed: false, // best candidate FOR signed
+        is_truth_anchor: false,
+    },
+    LensConfig {
+        name: "reader-lm-1.5b", family: LensFamily::Reader,
+        vocab_size: 151_936, n_centroids: 256,
+        tokenizer: TokenizerFamily::Qwen2,
+        cos_range: (-0.095, 0.336), gamma_offset: 0.12,
+        is_signed: false, is_truth_anchor: false,
+    },
+    LensConfig {
+        name: "qwopus-27b", family: LensFamily::LanguageModel,
+        vocab_size: 248_320, n_centroids: 4096,
+        tokenizer: TokenizerFamily::Qwen2,
+        cos_range: (-0.23, 0.18), gamma_offset: 1.50,
+        is_signed: false, is_truth_anchor: false,
+    },
+    LensConfig {
+        name: "maverick-128e", family: LensFamily::MoE,
+        vocab_size: 202_048, n_centroids: 256, // TBD: scale to 4096
+        tokenizer: TokenizerFamily::Llama,
+        cos_range: (0.0, 0.0), // TBD: stream and measure
+        gamma_offset: 0.0,     // TBD: calibrate
+        is_signed: false, is_truth_anchor: false,
+    },
+];

@@ -562,3 +562,87 @@ NACHHER:
 
 SiLU-ONNX: GESTRICHEN. Vorzeichen-Erhaltung ersetzt es.
 ```
+
+---
+
+## Jina v5 — New Truth Anchor (replaces v3)
+
+```
+Repo:  jinaai/jina-embeddings-v5-text-small-text-matching
+GGUF:  v5-small-text-matching-F16.gguf (1,198 MB, GGUF v3, 310 tensors)
+ONNX:  onnx/model.onnx + model.onnx_data (2,384 MB, for rten ground truth)
+Tok:   tokenizer.json (11.4 MB, real BPE)
+
+Calibration pipeline:
+  rten loads ONNX → forward pass → ground truth embeddings
+  Our pipeline: stream F16 GGUF → CLAM → bake HDR table
+  ICC profile: compare → calibrate → truth anchor at ρ > 0.998
+
+Both ONNX and GGUF from SAME model = no API key, no network for calibration.
+Jina v5 replaces v3 as truth anchor (newer, better, has ONNX).
+```
+
+---
+
+## CALIBRATION MATRIX — The Definitive Experiment
+
+### Three encoding paths × ONNX ground truth
+
+```
+For each model (Jina v5, BGE-M3, Reranker, Reader-LM, Qwopus, Maverick):
+  For each role (Q, K, V, Gate, Up, Down — or token_embd for embedding models):
+  
+    1. ONNX (rten): load model.onnx → forward pass → f32 embeddings = GROUND TRUTH
+    2. GGUF raw:    stream BF16 → CLAM → cosine → u8 HDR CDF table
+    3. GGUF γ+φ:    stream BF16 → CLAM → cosine → gamma offset → phi redistribute
+    4. GGUF i8:     stream BF16 → CLAM → cosine → signed i8 (preserves inhibition)
+    5. GGUF hhbgz:  stream BF16 → CLAM → highheelbgz spiral → golden ratio stride
+    
+    ICC profile: compare each path (2-5) against ground truth (1)
+    Measure: Spearman ρ, transfer curve, noise floor, effective bits
+    
+    Best path = highest ρ after ICC correction
+    Per-model per-role winner may differ!
+```
+
+### Why this is definitive
+
+```
+Current state: we ASSUME our encoding preserves topology.
+After calibration: we KNOW, quantified to 4 decimal places.
+
+Expected outcomes:
+  - i8 wins for reranker (symmetric cos range, sign matters)
+  - γ+φ wins for gate-heavy roles (concentrates resolution at zero)
+  - raw u8 CDF is surprisingly good for embedding models (positive-skewed)
+  - hhbgz spiral wins for... we don't know yet. That's why we test.
+  
+  ICC correction makes EVERY path usable.
+  But some paths need less correction = more faithful = preferred.
+```
+
+### Tools ready
+
+```
+rten:                 AdaWorldAPI/rten (ONNX runtime, your fork)
+GGUF streaming:       stream_hdr_lens.rs, stream_maverick.rs (HTTP range)
+highheelbgz:          spiral addressing + golden ratio stride
+bgz-tensor:           gamma_phi.rs (GammaProfile, encode/decode)
+LensProfile:          lance-graph-contract/high_heel.rs (ICC DTO)
+LensConfig:           lance-graph-contract/high_heel.rs (6-model registry)
+calibrate_lenses.rs:  Spearman ρ + ICC builder harness
+Jina v5 ONNX:         jinaai/jina-embeddings-v5-text-small-text-matching
+Jina v5 GGUF:         same repo, F16.gguf (1.2 GB, streamable)
+```
+
+### Session estimate
+```
+Download: Jina v5 ONNX (2.4 GB) + GGUF (1.2 GB) = 3.6 GB (fits in 18 GB free)
+Compute:  rten inference on 1000 texts ≈ 5 min
+          CLAM + 5 encoding paths ≈ 10 min
+          ICC profiles ≈ 1 min
+          Total: ~20 min for Jina v5 complete calibration
+          
+Repeat for remaining 5 models: ~2 hours total
+Full calibration matrix: ~2.5 hours
+```
