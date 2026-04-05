@@ -46,3 +46,6 @@ pub mod composite_engine;
 pub mod signed_domino;
 pub mod pooling;
 pub mod builder;
+pub mod auto_detect;
+pub mod semantic_chunker;
+pub mod tensor_bridge;

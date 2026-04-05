@@ -2200,6 +2200,8 @@ dependencies = [
  "highheelbgz",
  "ndarray",
  "rayon",
+ "serde",
+ "serde_json",
  "tokenizers",
 ]
 
