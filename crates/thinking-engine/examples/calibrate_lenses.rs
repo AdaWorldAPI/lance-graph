@@ -66,36 +66,42 @@ fn main() {
 
     eprintln!("Calibration corpus: {} pairs (4 tiers)\n", pairs.len());
 
-    // ── Tokenize + baked lens distances ────────────────────────────
-    eprintln!("=== Baked Lens Distances (real tokenization) ===\n");
+    // ── Think-based similarity: perturb → think → commit → compare ──
+    eprintln!("=== Think-Based Similarity (full engine pipeline) ===\n");
+
+    let mut jina_engine = jina_lens::jina_engine();
+    let mut rr_engine = reranker_lens::reranker_engine();
 
     let mut jina_dists = Vec::new();
     let mut reranker_dists = Vec::new();
 
     for (i, (a, b)) in pairs.iter().enumerate() {
-        // Jina v3: XLM-RoBERTa tokenizer → 250K vocab → codebook lookup
         let (a_ids_jina, b_ids_jina) = tokenize_pair(
             a, b, jina_tok.as_ref(), 250_002,
         );
-        // Reranker: Qwen2 tokenizer → 151K vocab → codebook lookup
         let (a_ids_rr, b_ids_rr) = tokenize_pair(
             a, b, reranker_tok.as_ref(), 151_936,
         );
 
-        // Jina: average pairwise centroid distance
-        let a_centroids = jina_lens::jina_lookup_many(&a_ids_jina);
-        let b_centroids = jina_lens::jina_lookup_many(&b_ids_jina);
-        let jina_sim = avg_distance(&a_centroids, &b_centroids, |a, b|
-            jina_lens::jina_distance(a, b) as f32 / 255.0);
+        // Jina: domino cascade, compare focus atom overlap
+        let jina_sim = think_similarity(
+            &mut jina_engine,
+            &jina_lens::jina_lookup_many(&a_ids_jina),
+            &jina_lens::jina_lookup_many(&b_ids_jina),
+        );
         jina_dists.push(jina_sim);
 
-        // Reranker: relevance score
-        let rr_rel = reranker_lens::reranker_relevance(&a_ids_rr, &b_ids_rr);
-        reranker_dists.push(rr_rel);
+        // Reranker: domino cascade, same metric
+        let rr_sim = think_similarity(
+            &mut rr_engine,
+            &reranker_lens::reranker_lookup_many(&a_ids_rr),
+            &reranker_lens::reranker_lookup_many(&b_ids_rr),
+        );
+        reranker_dists.push(rr_sim);
 
         let tok_type = if jina_ok { "BPE" } else { "hash" };
         eprintln!("  [{:2}] jina={:.3} rr={:.3} [{}] | \"{}...\" ↔ \"{}...\"",
-            i, jina_sim, rr_rel, tok_type,
+            i, jina_sim, rr_sim, tok_type,
             &a[..a.len().min(40)], &b[..b.len().min(40)]);
     }
 
@@ -256,16 +262,35 @@ fn tokenize_pair(
 // Distance and statistics
 // ═══════════════════════════════════════════════════════════════════════════
 
-fn avg_distance(a: &[u16], b: &[u16], dist_fn: impl Fn(u16, u16) -> f32) -> f32 {
-    let mut sum = 0.0f32;
-    let mut count = 0;
-    for &ca in a {
-        for &cb in b {
-            sum += dist_fn(ca, cb);
-            count += 1;
-        }
-    }
-    if count > 0 { sum / count as f32 } else { 0.0 }
+/// Domino cascade similarity: 3σ focus per stage, NARS truth filter.
+///
+/// Avoids the attractor collapse of global MatVec on uniform tables.
+/// Returns Jaccard overlap of focus atoms from the final cascade stage.
+fn think_similarity(
+    engine: &mut thinking_engine::engine::ThinkingEngine,
+    centroids_a: &[u16],
+    centroids_b: &[u16],
+) -> f32 {
+    let counts = vec![100u32; engine.size];
+    let cascade = thinking_engine::domino::DominoCascade::new(engine, &counts);
+
+    let (_, stages_a, _) = cascade.think(centroids_a);
+    let (_, stages_b, _) = cascade.think(centroids_b);
+
+    // Collect all focus atoms across stages
+    let atoms_a: std::collections::HashSet<u16> = stages_a.iter()
+        .flat_map(|s| s.focus.iter().map(|a| a.index))
+        .collect();
+    let atoms_b: std::collections::HashSet<u16> = stages_b.iter()
+        .flat_map(|s| s.focus.iter().map(|a| a.index))
+        .collect();
+
+    if atoms_a.is_empty() || atoms_b.is_empty() { return 0.0; }
+
+    // Jaccard: |A ∩ B| / |A ∪ B|
+    let intersection = atoms_a.intersection(&atoms_b).count() as f32;
+    let union = atoms_a.union(&atoms_b).count() as f32;
+    if union > 0.0 { intersection / union } else { 0.0 }
 }
 
 fn spearman(a: &[f32], b: &[f32]) -> f32 {
