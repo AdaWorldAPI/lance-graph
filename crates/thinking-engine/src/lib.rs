@@ -39,3 +39,5 @@ pub mod persona;
 pub mod awareness_dto;
 pub mod world_model;
 pub mod silu_correction;
+pub mod signed_engine;
+pub mod dual_engine;
