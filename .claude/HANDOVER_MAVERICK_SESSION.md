@@ -288,3 +288,78 @@ SIMD OCR:             ndarray/src/hpc/ocr_simd.rs
 - 235K LOC Rust
 - 500+ tests across 18 crates
 - All PRs merged
+
+---
+
+## γ+φ Golden Ratio HDR Encoding (CRITICAL for gate precision)
+
+### The problem
+Current HDR CDF produces uniform distribution (Mean=127.5 for ALL models).
+But gate weights concentrate at zero (68.9% for Qwopus).
+Uniform encoding wastes resolution on far-from-zero regions where
+the model already knows (strong yes/no). The decision boundary at
+zero gets the SAME 1/256 resolution as obvious regions.
+
+### The fix: γ offset + φ redistribution
+Per-role gamma offsets (from variance audit):
+```
+Q:    γ=0.37  (narrow, less resolution needed)
+K:    γ=0.94  (moderate, gate-filtered)
+V:    γ=1.33  (wide, most information)
+Gate: γ=1.50  (WIDEST — decision boundary needs MAX resolution)
+Up:   γ=0.12  (very narrow after SiLU)
+Down: γ=0.15  (funnel, compressed)
+```
+
+Golden ratio φ=1.618... ensures the redistribution has no periodic aliasing
+(Weyl equidistribution theorem). The spiral stride in highheelbgz already
+uses φ. The γ+φ encoding applies the same principle to u8 quantization.
+
+### Existing code
+- `bgz-tensor/src/gamma_phi.rs`: GammaProfile, gamma_phi_encode/decode
+- `bgz-tensor/src/codebook_calibrated.rs`: two-pass build with γ calibration
+- `highheelbgz/src/`: SpiralAddress with golden ratio stride
+- `thinking-engine/data/codebooks/CODEBOOKS.md`: per-role γ values documented
+
+### Wiring needed
+Pass 1: build CLAM codebook (existing)
+Pass 2: measure cosine distribution → compute γ offset → apply φ redistribution
+Pass 3: re-encode distance table with γ+φ skewed CDF
+Expected: ~4.2 bits → ~5.5 bits entropy (30% more discrimination)
+
+---
+
+## Standardized ModelPipeline DTO (6 models)
+
+```rust
+pub struct ModelPipeline {
+    pub name: String,
+    pub family: ModelFamily,         // Embedding, Reranker, Reader, LLM, MoE
+    pub tokenizer_path: String,
+    pub vocab_size: usize,
+    pub hidden_dim: usize,
+    pub n_layers: usize,
+    pub n_experts: Option<usize>,
+    pub n_centroids: usize,
+    pub gate_policy: GatePolicy,
+    pub gamma_profile: GammaProfile, // per-role γ offsets
+    pub silu_corrected: bool,
+    pub cross_model_anchor: bool,    // Jina = truth anchor
+}
+```
+
+Six pipelines to wire:
+1. Jina v3 (1024-dim, truth anchor, cross-model reference)
+2. BGE-M3 (1024-dim, multilingual, second anchor)
+3. Reader-LM 1.5B (256-dim palette, HTML→text)
+4. Jina Reranker v3 (cross-encoder, relevance scoring)
+5. Qwopus 27B (5120-dim, 64 layers, SSM hybrid)
+6. Maverick 128E (5120-dim, 48 layers, 128 real MoE experts)
+
+Each needs: tokenizer.json + vocab→centroid mapping + γ+φ HDR tables + SiLU correction
+
+### Jina cross-model eval
+Jina as truth anchor: for any input text, Jina embedding = ground truth similarity.
+Compare: cos(jina_emb_A, jina_emb_B) vs thinking_engine_distance(A, B).
+The gap = how much information our distance table loses.
+With γ+φ encoding + SiLU correction: gap should shrink.
