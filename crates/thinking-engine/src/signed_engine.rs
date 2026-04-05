@@ -212,6 +212,103 @@ impl SignedThinkingEngine {
         self.cycles += 1;
     }
 
+    /// ONE cycle with temperature-as-excitation.
+    ///
+    /// After accumulation and inhibition clamping, applies softmax(energy/T):
+    ///   Low T (0.1-0.3): winner-take-all, sharper than argmax
+    ///   T = 1.0: standard normalization (equivalent to cycle())
+    ///   High T (2.0+): uniform, exploratory, all atoms get similar energy
+    ///
+    /// This BREAKS the attractor collapse by exponentiating small differences.
+    /// Without temperature, a 0.001 energy difference stays 0.001 after normalization.
+    /// With T=0.3, exp(0.001/0.3) vs exp(0.0/0.3) = 1.0033 vs 1.0 = 0.3% gap.
+    /// After 10 cycles of compounding: 3% → 30% → dominant peak emerges.
+    pub fn cycle_with_temperature(&mut self, temperature: f32) {
+        let k = self.size;
+        let mut next = vec![0.0f32; k];
+        let inv_127 = 1.0f32 / 127.0;
+
+        for i in 0..k {
+            let e_i = self.energy[i];
+            if e_i < 1e-10 { continue; }
+
+            let row = &self.distance_table[i * k..(i + 1) * k];
+            let e_scaled = e_i * inv_127;
+
+            let mut j = 0;
+            while j + 64 <= k {
+                macro_rules! do_lane {
+                    ($off:expr) => {{
+                        let base = j + $off * 16;
+                        let d = F32x16::from_array([
+                            row[base] as f32,      row[base + 1] as f32,
+                            row[base + 2] as f32,  row[base + 3] as f32,
+                            row[base + 4] as f32,  row[base + 5] as f32,
+                            row[base + 6] as f32,  row[base + 7] as f32,
+                            row[base + 8] as f32,  row[base + 9] as f32,
+                            row[base + 10] as f32, row[base + 11] as f32,
+                            row[base + 12] as f32, row[base + 13] as f32,
+                            row[base + 14] as f32, row[base + 15] as f32,
+                        ]);
+                        let acc = F32x16::from_slice(&next[base..base + 16]);
+                        let ei = F32x16::splat(e_scaled);
+                        d.mul_add(ei, acc).copy_to_slice(&mut next[base..base + 16]);
+                    }};
+                }
+                do_lane!(0); do_lane!(1); do_lane!(2); do_lane!(3);
+                j += 64;
+            }
+            while j < k {
+                next[j] += row[j] as f32 * e_scaled;
+                j += 1;
+            }
+        }
+
+        // CLAMP: inhibited atoms die
+        let mut inhibited = 0usize;
+        for e in &mut next {
+            if *e < 0.0 { *e = 0.0; inhibited += 1; }
+        }
+        self.inhibited_last_cycle = inhibited;
+        self.total_inhibitions += inhibited;
+
+        // TEMPERATURE EXCITATION: softmax(energy / T)
+        // This exponentiates small differences into large ones.
+        let t = temperature.max(0.01);
+        let max_e = next.iter().cloned().fold(0.0f32, f32::max);
+        // Subtract max for numerical stability (log-sum-exp trick)
+        let mut exp_sum = 0.0f32;
+        for e in &mut next {
+            if *e > 0.0 {
+                *e = ((*e - max_e) / t).exp();
+                exp_sum += *e;
+            }
+        }
+        // Normalize
+        if exp_sum > 1e-10 {
+            let inv = 1.0 / exp_sum;
+            for e in &mut next { *e *= inv; }
+        }
+
+        self.energy = next;
+        self.cycles += 1;
+    }
+
+    /// Think with temperature-as-excitation. Lower T = sharper discrimination.
+    pub fn think_with_temperature(&mut self, max_cycles: usize, temperature: f32) -> ResonanceDto {
+        for _ in 0..max_cycles {
+            let prev = self.energy.clone();
+            self.cycle_with_temperature(temperature);
+
+            let delta: f32 = self.energy.iter().zip(&prev)
+                .map(|(a, b)| (a - b).abs()).sum();
+            if delta < self.convergence_threshold {
+                break;
+            }
+        }
+        ResonanceDto::from_energy_f32(&self.energy, self.cycles)
+    }
+
     /// Run until convergence. Returns the resonance state.
     pub fn think(&mut self, max_cycles: usize) -> ResonanceDto {
         for _ in 0..max_cycles {

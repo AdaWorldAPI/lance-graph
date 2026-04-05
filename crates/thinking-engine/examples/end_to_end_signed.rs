@@ -87,10 +87,10 @@ fn main() {
         let centroids_a = jina_lookup_many(&ids_a);
         let centroids_b = jina_lookup_many(&ids_b);
 
-        // Think text A
+        // Think text A — with temperature excitation (T=0.3, sharp discrimination)
         engine.reset();
         engine.perturb(&centroids_a);
-        engine.think(10);
+        engine.think_with_temperature(10, 0.3);
         let energy_a = engine.energy.clone();
         let pooled_a = pooling.pool(&energy_a);
         let inhib_a = engine.total_inhibitions;
@@ -98,7 +98,7 @@ fn main() {
         // Think text B
         engine.reset();
         engine.perturb(&centroids_b);
-        engine.think(10);
+        engine.think_with_temperature(10, 0.3);
         let energy_b = engine.energy.clone();
         let pooled_b = pooling.pool(&energy_b);
         let inhib_b = engine.total_inhibitions;
