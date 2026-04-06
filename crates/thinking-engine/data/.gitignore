@@ -2,3 +2,17 @@
 *.onnx_data
 tokenizer.json
 *-tokenizer.json
+
+# Large model data — use GitHub Releases or stream from HF
+# Only the 3 baked lenses (jina-v3, bge-m3, reranker) stay in git
+Qwopus3.5-27B-v3-BF16-silu/
+Qwen3-5-4B-BF16-hdr/
+Qwen3-5-9B-BF16-hdr/
+Qwen3-5-9B-BF16-sixpack-l20/
+CompendiumLabs_bge-m3-hdr/
+bartowski_reader-lm-1.5b-hdr/
+codebooks/
+f16-role-tables/
+xlm-roberta-de/
+*-5lane/
+*-dual/
