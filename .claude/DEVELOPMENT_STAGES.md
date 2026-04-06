@@ -730,3 +730,35 @@ Popcount random exposure: best topology quality for sparse 4096 graphs.
 Root cause: centroids are AVERAGES of many tokens → smoother than raw weights.
 Belichtungsmesser was designed for raw weight rows, not centroid averages.
 ```
+
+### Family Bucketing: 99-100% on 4096 (BREAKTHROUGH)
+
+```
+Reclassify existing pairs into connected-component families:
+  μ+1.0σ: 9 families  → 100% top-5, 100% top-10, 32 MB
+  μ+1.5σ: 50 families →  99% top-5, 100% top-10, 31 MB
+  μ+2.0σ: 93 families →  99% top-5, 100% top-10, 31 MB
+
+Size dominated by one giant family (4000/4096).
+With balanced families: 64 families × 64 centroids = 512 KB.
+
+Architecture convergence with AutocompleteCache:
+  Family = precomputed autocomplete branch
+  32-step paths precomputed per family
+  Cross-family = family representative routing (50×50 = 2500 pairs)
+  Within-family = dense exact (64×64 = 4096 pairs per family)
+  Total: 2500 + 64×4096 = 264K pairs (vs 16.7M dense)
+  
+  SiLU gates the TASK TYPE per family:
+    Deduction:     family has strong causal chains (high gate, exploit)
+    Extrapolation: family extends beyond known data (medium gate)
+    Synthesis:     cross-family merging (multiple families activate)
+    Inference:     within-family refinement (dense, exact)
+    Association:   nearest neighbor in family (1-hop)
+    Abduction:     reverse reasoning (follow family backward)
+    Fan-out:       expand to neighboring families (cross-family routing)
+    Counterfactual: negate family assignment (which family would ¬S be in?)
+  
+  The gate E/I ratio per layer decides WHICH task type.
+  This IS the SPO 2^3 decomposition applied to the autocomplete order.
+```
