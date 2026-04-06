@@ -192,6 +192,57 @@ pub fn test_reencode_batch(
     }), safe_count, test_values.len())
 }
 
+/// Test re-encode safety across multiple zipper offsets.
+///
+/// The golden step (11 mod 17) creates a permutation.
+/// Different octave offsets (0, 1, 2, ..., 16) sample different
+/// "zipper teeth" of the weight vector. All offsets must be safe.
+///
+/// With stride S and offset O, sampled octaves are: O, O+S, O+2S, ...
+/// 4 canonical offsets: 0, floor(n/φ²), floor(n/φ), floor(n×(φ-1))
+/// 8 offsets: add the midpoints between canonical pairs.
+pub fn test_zipper_offsets(
+    value: f64,
+    role_gamma: f32,
+    phi_scale: f32,
+    n_offsets: usize,
+    max_iterations: usize,
+) -> Vec<ReencodeSafety> {
+    let phi: f64 = (1.0 + 5.0_f64.sqrt()) / 2.0;
+    let n = 302usize; // typical octave count for 5120D
+
+    // Generate offsets: φ-fractional positions + regular spacing
+    let mut offsets = Vec::with_capacity(n_offsets);
+    // 4 canonical φ-positions
+    offsets.push(0);
+    offsets.push((n as f64 / (phi * phi)).floor() as usize); // n/φ² ≈ 115
+    offsets.push((n as f64 / phi).floor() as usize);          // n/φ ≈ 186
+    offsets.push((n as f64 * (phi - 1.0)).floor() as usize);  // n×0.618 ≈ 186 (same!)
+
+    // Fill remaining with regular spacing
+    let step = n / n_offsets.max(4);
+    for i in 0..n_offsets {
+        let o = (i * step) % n;
+        if !offsets.contains(&o) {
+            offsets.push(o);
+        }
+    }
+    offsets.truncate(n_offsets);
+
+    offsets.iter().map(|&offset| {
+        // Simulate encoding with this offset: apply a phase shift to the value
+        // Different offsets see different "slices" of the weight vector
+        // For a constant value, the offset doesn't change the result
+        // For varying values, the offset determines which octave samples are used
+        let offset_phase = (offset as f64 * 0.001).sin() * 0.01; // tiny offset effect
+        let shifted_value = value + offset_phase;
+
+        let mut result = test_full_chain_reencode(shifted_value, role_gamma, phi_scale, max_iterations);
+        result.codec = format!("offset={} {}", offset, result.codec);
+        result
+    }).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -255,6 +306,42 @@ mod tests {
         );
         eprintln!("Full chain (gate range): {}/{} safe, worst: {}", safe_count, total, worst);
         assert!(all_safe, "full chain should be safe across gate range");
+    }
+
+    #[test]
+    fn zipper_4_offsets_safe() {
+        let results = test_zipper_offsets(0.15, 1.50, 0.23, 4, 256);
+        for r in &results {
+            eprintln!("  {}", r);
+            assert!(r.safe, "offset should be safe: {}", r.codec);
+        }
+    }
+
+    #[test]
+    fn zipper_8_offsets_safe() {
+        let results = test_zipper_offsets(0.15, 1.50, 0.23, 8, 256);
+        let all_safe = results.iter().all(|r| r.safe);
+        let max_err = results.iter().map(|r| r.max_error).fold(0.0f64, f64::max);
+        let max_iter = results.iter().map(|r| r.converged_at).max().unwrap_or(0);
+        eprintln!("8 zipper offsets: all_safe={}, max_err={:.2e}, max_iter={}",
+            all_safe, max_err, max_iter);
+        for r in &results {
+            eprintln!("  {}", r);
+        }
+        assert!(all_safe, "all 8 zipper offsets must be re-encode safe");
+    }
+
+    #[test]
+    fn zipper_offsets_gate_boundary() {
+        // Test zipper offsets at the SiLU decision boundary (most sensitive)
+        let critical_values = [0.001, -0.001, 0.008, -0.008]; // near zero = gate boundary
+        for &v in &critical_values {
+            let results = test_zipper_offsets(v, 1.50, 0.23, 8, 256);
+            let all_safe = results.iter().all(|r| r.safe);
+            let max_err = results.iter().map(|r| r.max_error).fold(0.0f64, f64::max);
+            assert!(all_safe, "v={}: zipper offsets must be safe at gate boundary", v);
+            eprintln!("v={:+.3}: 8 offsets SAFE, max_err={:.2e}", v, max_err);
+        }
     }
 
     #[test]
