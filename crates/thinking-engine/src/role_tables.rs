@@ -17,7 +17,7 @@
 //! The 33% correction lives HERE — raw Up vs silu(gate)×Up.
 
 use crate::bf16_engine::BF16ThinkingEngine;
-use bgz_tensor::stacked_n::{StackedN, ClamCodebook, bf16_to_f32, f32_to_bf16};
+use bgz_tensor::stacked_n::{ClamCodebook, bf16_to_f32};
 use ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd;
 
 /// SiLU activation: x / (1 + exp(-x))

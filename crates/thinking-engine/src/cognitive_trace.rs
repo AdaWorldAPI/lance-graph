@@ -3,7 +3,7 @@
 //! Every computation step is recorded. The trace IS the thought.
 //! Reproducible, debuggable, replayable.
 
-use crate::domino::{StageResult, DissonanceProfile};
+use crate::domino::StageResult;
 use crate::superposition::{SuperpositionField, ThinkingStyle};
 use crate::qualia::Qualia17D;
 

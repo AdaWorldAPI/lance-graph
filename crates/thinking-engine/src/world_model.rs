@@ -11,7 +11,7 @@
 //! }
 //! ```
 
-use crate::cognitive_stack::{ThinkingStyle, GateState, RungLevel};
+use crate::cognitive_stack::{ThinkingStyle, GateState};
 use crate::meaning_axes::{HdrResonance, Archetype, Viscosity};
 use crate::ghosts::GhostType;
 
@@ -180,7 +180,7 @@ impl WorldModelDto {
             GestaltState::Dissolving
         };
 
-        let (primary, p_dist) = qualia.nearest_family();
+        let (primary, _p_dist) = qualia.nearest_family();
         let (_, _, blend_name, _) = qualia.emotional_blend();
         let overlay = blend_name.split(" + ").nth(1)
             .and_then(|s| s.split(" = ").next())

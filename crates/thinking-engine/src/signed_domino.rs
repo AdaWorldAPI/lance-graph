@@ -9,10 +9,7 @@
 //! the signed cascade has a NATURAL zero point: the sign IS the gate.
 
 use crate::signed_engine::SignedThinkingEngine;
-use crate::layered::CausalEdge64;
-use crate::domino::{CascadeAtom, StageResult, CognitiveMarkers, DissonanceProfile,
-                     Transition, CH_SUPPORTS, CH_CAUSES, CH_GROUNDS, CH_RELATES,
-                     CH_REFINES, CH_ABSTRACTS, CH_BECOMES, CH_CONTRADICTS};
+use crate::domino::{CascadeAtom, StageResult, CognitiveMarkers};
 
 /// Signed domino cascade engine.
 pub struct SignedDominoCascade<'a> {

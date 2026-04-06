@@ -127,7 +127,7 @@ fn pool_mean(energy: &[f32], threshold: f32) -> PooledResult {
 
     let total: f32 = energy.iter().sum();
     let active_sum: f32 = active.iter().map(|(_, e)| e).sum();
-    let mean_energy = active_sum / active.len() as f32;
+    let _mean_energy = active_sum / active.len() as f32;
 
     // Compute entropy of active atoms
     let mut entropy = 0.0f32;

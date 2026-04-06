@@ -6,7 +6,7 @@
 //! MomentDto     — complete snapshot: resonance + qualia + agent state
 //! ```
 
-use crate::meaning_axes::{HdrResonance, Archetype, AxisActivation, Viscosity, CouncilWeights};
+use crate::meaning_axes::{HdrResonance, Archetype, AxisActivation, Viscosity};
 use crate::cognitive_stack::{ThinkingStyle, GateState, RungLevel};
 use crate::ghosts::GhostType;
 
