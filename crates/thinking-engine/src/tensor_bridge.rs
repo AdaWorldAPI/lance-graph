@@ -88,14 +88,11 @@ impl EmbeddingOutput {
         }
     }
 
-    /// Cosine similarity between two outputs.
+    /// Cosine similarity between two outputs. Uses ndarray SIMD (F64x8 FMA).
     pub fn cosine(&self, other: &EmbeddingOutput) -> f32 {
         let a = self.to_f32();
         let b = other.to_f32();
-        let dot: f32 = a.iter().zip(&b).map(|(x, y)| x * y).sum();
-        let na: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
-        let nb: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
-        if na > 1e-10 && nb > 1e-10 { dot / (na * nb) } else { 0.0 }
+        ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd(&a, &b) as f32
     }
 }
 
