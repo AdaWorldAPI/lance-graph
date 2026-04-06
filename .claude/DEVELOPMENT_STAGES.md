@@ -1013,3 +1013,34 @@ Discrimination:
 Next: convert u8 CDF tables to i16 for Qwopus layers
       (u8 Pearson=0.80 proven, i16=1.000)
 ```
+
+### DeepNSM + Semantic Distance = SPO Grounding (5/7 accuracy)
+
+```
+SEMANTIC TABLE (128 KB, forward-pass derived) AS DeepNSM ORACLE:
+
+True triplets grounded:
+  CRISPR → editing:  sem=0.993 GROUNDED ✓
+  gene → disease:    sem=0.991 GROUNDED ✓
+  quantum → qubit:   sem=1.000 GROUNDED ✓
+  Bach → fugue:      sem=0.988 GROUNDED ✓
+
+False triplets rejected:
+  Bach → quantum:    sem=0.101 REJECTED ✓ (the money result)
+
+Errors (centroid collision at K=256):
+  CRISPR → melody:   sem=0.993 GROUNDED ✗ (share centroid with related words)
+  music → DNA:       sem=0.980 GROUNDED ✗ (same issue)
+
+Accuracy: 5/7 (71%) from 128 KB table, zero LLM inference
+Fix: K=4096 (60 tokens/centroid vs 600) would separate collisions
+Or: contrastive learner pushes gene≠melody apart over time
+
+The semantic table IS the oracle for DeepNSM's SPO extraction:
+  DeepNSM tokenizes (4096 COCA + 20K scientific)
+  → each word → Qwen token → codebook centroid
+  → semantic_table[centroid_S][centroid_O] → grounding score
+  → if score > 0.6: semantically valid triplet
+  → if score < 0.2: reject (false relation)
+  → between: uncertain → need forward pass to decide
+```
