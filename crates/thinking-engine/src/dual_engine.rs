@@ -1,145 +1,143 @@
-//! DualEngine: run unsigned (u8) and signed (i8) engines in parallel.
+//! DualEngine: compare two table encodings on the same input.
 //!
-//! Same input, same perturbation, different table encoding.
-//! Compare: peak agreement, convergence speed, inhibition count.
-//! The disagreement IS the experiment result.
-//!
-//! ```text
-//! If agreement > 90%:  signed adds nothing. Keep unsigned + SiLU-ONNX.
-//! If agreement 50-90%: signed finds different peaks. Run both (Path C).
-//! If agreement < 50%:  fundamentally different topology. Investigate.
-//! ```
+//! The real comparison is u8 CDF vs BF16 direct (or any two BuiltEngine types).
+//! Same input, same perturbation, different encoding → measure disagreement.
 
-use crate::engine::ThinkingEngine;
-use crate::signed_engine::SignedThinkingEngine;
+use crate::builder::BuiltEngine;
+use crate::dto::ResonanceDto;
 
 /// Results from running both engines on the same input.
 pub struct DualResult {
-    /// Top-8 peaks from unsigned engine.
-    pub unsigned_peaks: [(u16, f32); 8],
-    /// Top-8 peaks from signed engine.
-    pub signed_peaks: [(u16, f32); 8],
-    /// Fraction of top-8 peaks that appear in both (0.0 = none, 1.0 = identical).
+    /// Top-8 peaks from engine A.
+    pub peaks_a: [(u16, f32); 8],
+    /// Top-8 peaks from engine B.
+    pub peaks_b: [(u16, f32); 8],
+    /// Fraction of top-8 peaks shared (0.0 = none, 1.0 = identical).
     pub agreement: f32,
-    /// Peak indices found by signed but not unsigned — the inhibition effect.
-    pub signed_unique: Vec<u16>,
-    /// Peak indices found by unsigned but not signed — killed by inhibition.
-    pub unsigned_unique: Vec<u16>,
-    /// Atoms inhibited (clamped to 0) in the last signed cycle.
-    pub inhibition_count: usize,
-    /// Total inhibitions across all signed cycles.
-    pub total_inhibitions: usize,
-    /// Convergence cycles: unsigned.
-    pub convergence_unsigned: u16,
-    /// Convergence cycles: signed.
-    pub convergence_signed: u16,
-    /// Shannon entropy after convergence: unsigned.
-    pub entropy_unsigned: f32,
-    /// Shannon entropy after convergence: signed.
-    pub entropy_signed: f32,
-    /// E/I ratio of the signed table.
-    pub ei_ratio: f32,
+    /// Peaks in A but not B.
+    pub unique_a: Vec<u16>,
+    /// Peaks in B but not A.
+    pub unique_b: Vec<u16>,
+    /// Convergence cycles: A.
+    pub convergence_a: u16,
+    /// Convergence cycles: B.
+    pub convergence_b: u16,
+    /// Entropy: A.
+    pub entropy_a: f32,
+    /// Entropy: B.
+    pub entropy_b: f32,
+    /// Labels for the two engines.
+    pub label_a: String,
+    pub label_b: String,
 }
 
 impl DualResult {
-    /// Summary string for quick comparison.
     pub fn summary(&self) -> String {
         let shared = (self.agreement * 8.0).round() as usize;
         format!(
-            "Agreement: {:.0}% ({}/8 shared)\n\
-             Convergence: unsigned={} signed={} cycles\n\
-             Entropy: unsigned={:.3} signed={:.3}\n\
-             Inhibition: {} last cycle, {} total\n\
-             E/I ratio: {:.1}%\n\
-             Signed-unique peaks: {:?}\n\
-             Unsigned-unique (killed by inhibition): {:?}",
-            self.agreement * 100.0,
-            shared,
-            self.convergence_unsigned,
-            self.convergence_signed,
-            self.entropy_unsigned,
-            self.entropy_signed,
-            self.inhibition_count,
-            self.total_inhibitions,
-            self.ei_ratio * 100.0,
-            self.signed_unique,
-            self.unsigned_unique,
+            "{} vs {}: {:.0}% agreement ({}/8 shared)\n\
+             Convergence: {}={} {}={} cycles\n\
+             Entropy: {}={:.3} {}={:.3}\n\
+             {}-unique: {:?}\n\
+             {}-unique: {:?}",
+            self.label_a, self.label_b, self.agreement * 100.0, shared,
+            self.label_a, self.convergence_a, self.label_b, self.convergence_b,
+            self.label_a, self.entropy_a, self.label_b, self.entropy_b,
+            self.label_a, self.unique_a,
+            self.label_b, self.unique_b,
         )
     }
 }
 
-/// Dual engine: unsigned + signed running on the same distance data.
+/// Compare two engines of any type on the same input.
 pub struct DualEngine {
-    pub unsigned: ThinkingEngine,
-    pub signed: SignedThinkingEngine,
+    pub engine_a: BuiltEngine,
+    pub engine_b: BuiltEngine,
+    pub label_a: String,
+    pub label_b: String,
 }
 
 impl DualEngine {
-    /// Create from an existing u8 table. Signed table derived by subtracting 128.
-    pub fn from_unsigned_table(table: Vec<u8>) -> Self {
-        let signed = SignedThinkingEngine::from_unsigned(&table);
-        let unsigned = ThinkingEngine::new(table);
-        Self { unsigned, signed }
-    }
-
-    /// Create from separate u8 and i8 tables.
-    pub fn from_tables(unsigned_table: Vec<u8>, signed_table: Vec<i8>) -> Self {
+    /// Create from any two BuiltEngines.
+    pub fn new(
+        label_a: &str, engine_a: BuiltEngine,
+        label_b: &str, engine_b: BuiltEngine,
+    ) -> Self {
         Self {
-            unsigned: ThinkingEngine::new(unsigned_table),
-            signed: SignedThinkingEngine::new(signed_table),
+            engine_a, engine_b,
+            label_a: label_a.into(), label_b: label_b.into(),
         }
     }
 
-    /// Perturb both engines identically.
-    pub fn perturb_both(&mut self, codebook_indices: &[u16]) {
-        self.unsigned.perturb(codebook_indices);
-        self.signed.perturb(codebook_indices);
+    /// Compare u8 CDF vs BF16 from the same source table.
+    pub fn u8_vs_bf16(table: Vec<u8>) -> Self {
+        let bf16_cosines: Vec<f32> = table.iter()
+            .map(|&v| (v as f32 - 128.0) / 127.0)
+            .collect();
+        let size = (table.len() as f64).sqrt() as usize;
+        Self {
+            engine_a: BuiltEngine::Unsigned(crate::engine::ThinkingEngine::new(table)),
+            engine_b: BuiltEngine::BF16(
+                crate::bf16_engine::BF16ThinkingEngine::from_f32_cosines(&bf16_cosines, size)
+            ),
+            label_a: "u8-CDF".into(),
+            label_b: "BF16".into(),
+        }
     }
 
-    /// Run both engines to convergence and compare results.
+    /// Perturb both identically.
+    pub fn perturb_both(&mut self, indices: &[u16]) {
+        self.engine_a.perturb(indices);
+        self.engine_b.perturb(indices);
+    }
+
+    /// Think both and compare.
     pub fn think_both(&mut self, max_cycles: usize) -> DualResult {
-        let u_res = self.unsigned.think(max_cycles);
-        let s_res = self.signed.think(max_cycles);
+        self.engine_a.think(max_cycles);
+        self.engine_b.think(max_cycles);
 
-        // Extract top-8 indices for comparison (filter zero-energy entries)
-        let u_indices: Vec<u16> = u_res.top_k.iter()
+        let res_a = ResonanceDto::from_energy_f32(self.engine_a.energy(), self.engine_a.cycles());
+        let res_b = ResonanceDto::from_energy_f32(self.engine_b.energy(), self.engine_b.cycles());
+
+        let a_indices: Vec<u16> = res_a.top_k.iter()
             .filter(|&&(_, e)| e > 1e-10)
-            .map(|&(idx, _)| idx)
-            .collect();
-        let s_indices: Vec<u16> = s_res.top_k.iter()
+            .map(|&(idx, _)| idx).collect();
+        let b_indices: Vec<u16> = res_b.top_k.iter()
             .filter(|&&(_, e)| e > 1e-10)
-            .map(|&(idx, _)| idx)
-            .collect();
+            .map(|&(idx, _)| idx).collect();
 
-        let overlap = u_indices.iter().filter(|p| s_indices.contains(p)).count();
-        let max_len = u_indices.len().max(s_indices.len()).max(1);
-        let agreement = overlap as f32 / max_len as f32;
-
-        let signed_unique = s_indices.iter()
-            .filter(|p| !u_indices.contains(p)).cloned().collect();
-        let unsigned_unique = u_indices.iter()
-            .filter(|p| !s_indices.contains(p)).cloned().collect();
+        let overlap = a_indices.iter().filter(|p| b_indices.contains(p)).count();
+        let max_len = a_indices.len().max(b_indices.len()).max(1);
 
         DualResult {
-            unsigned_peaks: u_res.top_k,
-            signed_peaks: s_res.top_k,
-            agreement,
-            signed_unique,
-            unsigned_unique,
-            inhibition_count: self.signed.inhibited_last_cycle,
-            total_inhibitions: self.signed.total_inhibitions,
-            convergence_unsigned: u_res.cycle_count,
-            convergence_signed: s_res.cycle_count,
-            entropy_unsigned: self.unsigned.entropy(),
-            entropy_signed: self.signed.entropy(),
-            ei_ratio: self.signed.ei_ratio,
+            peaks_a: res_a.top_k,
+            peaks_b: res_b.top_k,
+            agreement: overlap as f32 / max_len as f32,
+            unique_a: a_indices.iter().filter(|p| !b_indices.contains(p)).cloned().collect(),
+            unique_b: b_indices.iter().filter(|p| !a_indices.contains(p)).cloned().collect(),
+            convergence_a: res_a.cycle_count,
+            convergence_b: res_b.cycle_count,
+            entropy_a: {
+                let e = self.engine_a.energy();
+                let mut h = 0.0f32;
+                for &v in e { if v > 1e-10 { h -= v * v.ln(); } }
+                h
+            },
+            entropy_b: {
+                let e = self.engine_b.energy();
+                let mut h = 0.0f32;
+                for &v in e { if v > 1e-10 { h -= v * v.ln(); } }
+                h
+            },
+            label_a: self.label_a.clone(),
+            label_b: self.label_b.clone(),
         }
     }
 
-    /// Reset both engines.
+    /// Reset both.
     pub fn reset_both(&mut self) {
-        self.unsigned.reset();
-        self.signed.reset();
+        self.engine_a.reset();
+        self.engine_b.reset();
     }
 }
 
@@ -162,48 +160,39 @@ mod tests {
     }
 
     #[test]
-    fn dual_engine_creates() {
+    fn dual_u8_vs_bf16() {
         let table = make_test_table(256);
-        let dual = DualEngine::from_unsigned_table(table);
-        assert_eq!(dual.unsigned.size, 256);
-        assert_eq!(dual.signed.size, 256);
-    }
-
-    #[test]
-    fn dual_perturb_symmetric() {
-        let table = make_test_table(256);
-        let mut dual = DualEngine::from_unsigned_table(table);
-        dual.perturb_both(&[42, 100]);
-
-        assert!(dual.unsigned.energy[42] > 0.0);
-        assert!(dual.signed.energy[42] > 0.0);
-        assert!(dual.unsigned.energy[100] > 0.0);
-        assert!(dual.signed.energy[100] > 0.0);
-    }
-
-    #[test]
-    fn dual_think_produces_results() {
-        let table = make_test_table(256);
-        let mut dual = DualEngine::from_unsigned_table(table);
+        let mut dual = DualEngine::u8_vs_bf16(table);
 
         dual.perturb_both(&[50, 55, 60]);
         let result = dual.think_both(20);
 
-        assert!(result.unsigned_peaks[0].1 > 0.0);
-        assert!(result.signed_peaks[0].1 > 0.0);
+        assert!(result.peaks_a[0].1 > 0.0);
+        assert!(result.peaks_b[0].1 > 0.0);
         assert!(result.agreement >= 0.0 && result.agreement <= 1.0);
+        assert_eq!(result.label_a, "u8-CDF");
+        assert_eq!(result.label_b, "BF16");
     }
 
     #[test]
-    fn dual_reset_clears_both() {
-        let table = make_test_table(256);
-        let mut dual = DualEngine::from_unsigned_table(table);
+    fn dual_custom_engines() {
+        let table = make_test_table(64);
+        let dual = DualEngine::new(
+            "unsigned", BuiltEngine::Unsigned(crate::engine::ThinkingEngine::new(table.clone())),
+            "signed", BuiltEngine::Signed(crate::signed_engine::SignedThinkingEngine::from_unsigned(&table)),
+        );
+        assert_eq!(dual.label_a, "unsigned");
+        assert_eq!(dual.label_b, "signed");
+    }
 
+    #[test]
+    fn dual_reset() {
+        let table = make_test_table(256);
+        let mut dual = DualEngine::u8_vs_bf16(table);
         dual.perturb_both(&[42]);
         dual.think_both(5);
         dual.reset_both();
-
-        assert_eq!(dual.unsigned.energy.iter().sum::<f32>(), 0.0);
-        assert_eq!(dual.signed.energy.iter().sum::<f32>(), 0.0);
+        assert_eq!(dual.engine_a.energy().iter().sum::<f32>(), 0.0);
+        assert_eq!(dual.engine_b.energy().iter().sum::<f32>(), 0.0);
     }
 }
