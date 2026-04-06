@@ -574,3 +574,72 @@ Week 4:  Track D (Stage 7) + integration testing
 | 6 | NARS confidence convergence (stabilizes after N observations) | < 50 observations |
 | 7 | OSINT: new text → NARS confidence increase | > 0.1 per document |
 | 8 | 4096-centroid table: Spearman ρ vs 256-centroid | > 0.95 |
+
+---
+
+## EMPIRICAL FINDINGS (April 6 2026, evening session)
+
+### Root Cause: Embedding Model Quality > Encoding Precision
+
+```
+The codebook quality depends on the EMBEDDING MODEL, not the encoding.
+
+Jina v5 token embeddings:       ρ=0.54 max (no semantics, needs forward pass)
+Jina v5 forward pass (28L):     gap=0.128 (semantics CREATED by forward pass)
+Qwen3-Embedding-0.6B tokens:    100% top-5 (semantics ALREADY in embeddings)
+
+HighHeelBGZ encoding (i8, BF16) is LOSSLESS for all models.
+The bottleneck was always: which embeddings go into the codebook.
+```
+
+### i16 is the Sweet Spot
+
+```
+i8  (64 KB):  r=0.9995, top5= 96%  (4% loss)
+i16 (128 KB): r=1.0000, top5=100%  (LOSSLESS at half size of f32)
+i32 (256 KB): r=1.0000, top5=100%  (same as i16, 2× larger)
+```
+
+### Softmax T=0.01 Solves Attractor Collapse
+
+```
+ReLU:            entropy +6-19% (DIFFUSES, broken)
+Softmax T=0.1:   70-77% top-5, entropy -21-31% (FOCUSES)
+Softmax T=0.01:  100% top-5, entropy → 0 (PERFECT convergence)
+```
+
+### 256 > 4096 for Dense MatVec
+
+```
+256 dense:         100% top-5, 368 KB  (3,248× compression)
+4096 sparse K=16:  30-45% top-5 (with tricks), 810 KB
+4096 dense:        6% top-5 (total diffusion)
+
+256 centroids is the sweet spot for dense MatVec.
+4096 needs hierarchical routing or fundamentally different approach.
+```
+
+### 4096 Hierarchy Imbalanced
+
+```
+Coarse 256 → Fine 4096 mapping: one bucket has 3768/4096 (92%)
+CLAM max-min selection creates imbalanced trees.
+Need: balanced hierarchical CLAM (force equal bucket sizes)
+```
+
+### Models That Work (same Qwen3 tokenizer family)
+
+```
+Qwen3-Embedding-0.6B:  100% top-5 (dedicated embedding model)
+Jina v5 0.6B:           100% top-5 at T=0.01 (forward-pass-derived)
+Jina Reranker v3:        77% top-5 (cross-encoder, 50% inhibition)
+Qwen3-VL-Embedding 2B:  70% top-5 (multimodal, larger)
+```
+
+### Models That Don't Share Tokenizer
+
+```
+Gemma 3/4:    256K vocab (Gemini SentencePiece) — needs own codebook
+Llama 4:      202K vocab (Llama BPE) — needs own codebook
+Cross-model quorum only works within same tokenizer family.
+```
