@@ -279,6 +279,28 @@ SIBLING REPOS:
 
 ---
 
+## Knowledge Base (agents read these before working)
+
+```
+.claude/knowledge/signed-session-findings.md     — BF16 tables, gate modulation, quality checks
+.claude/knowledge/phi-spiral-reconstruction.md   — φ-spiral, family zipper, stride/offset, Zeckendorf
+.claude/PLAN_BF16_DISTANCE_TABLES.md             — 5-phase plan for BF16 distance tables
+.claude/TECHNICAL_DEBT_SIGNED_SESSION.md          — 56% useful, 44% bypass (honest review)
+.claude/CODING_PRACTICES.md                       — 6 patterns from EmbedAnything + quality checks
+```
+
+## Thinking Engine (crates/thinking-engine/)
+
+```
+Core:        engine.rs, bf16_engine.rs, signed_engine.rs, role_tables.rs
+Composition: composite_engine.rs, dual_engine.rs, layered.rs, domino.rs
+Calibration: cronbach.rs, ground_truth.rs, reencode_safety.rs (x256 proven)
+Patterns:    pooling.rs, builder.rs, auto_detect.rs, tokenizer_registry.rs
+Sensors:     jina_lens.rs, bge_m3_lens.rs, reranker_lens.rs, sensor.rs
+Cognition:   cognitive_stack.rs, ghosts.rs, persona.rs, qualia.rs, world_model.rs
+Bridge:      l4_bridge.rs, bridge.rs, semantic_chunker.rs, tensor_bridge.rs
+```
+
 ## Documentation Index
 
 ```

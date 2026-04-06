@@ -27,7 +27,77 @@ The golden ratio is the WORST case for rational approximation
 - The spiral fills space MAXIMALLY uniformly (Weyl equidistribution)
 - Fewer points suffice to identify the spiral than any other curve
 
-## 2. STRIDE AND OFFSET SELECTION
+## 2. FAMILY ZIPPER INTERLEAVE (proven, 269 tests)
+
+### The 4 families
+
+```
+Family 0: Q + K        (attention, must match for dot product)
+Family 1: Gate + Up    (FFN, interact via SiLU — the 33% correction)
+Family 2: V + Down     (content + compression)
+Family 3: HEEL + HIP   (coarse routing + fine discrimination)
+
+Each family gets its own octave offset. With stride=4:
+  Family 0 sees octaves: 0, 4, 8, 12, 16, ...
+  Family 1 sees octaves: 1, 5, 9, 13, 17, ...
+  Family 2 sees octaves: 2, 6, 10, 14, 18, ...
+  Family 3 sees octaves: 3, 7, 11, 15, 19, ...
+
+Together: 302/302 octaves covered (100%). Zero overlap. Zero gaps.
+Each octave seen by EXACTLY one family.
+```
+
+### Why explicit offsets, NOT φ-fractional
+
+```
+WRONG: offset = floor(n/φ^k) mod stride
+  n/φ² = 115 mod 4 = 3
+  n/φ³ = 71  mod 4 = 3  ← COLLISION!
+  Result: 74.8% coverage (two families see same octaves)
+
+RIGHT: offset = {0, 1, 2, 3} (explicit assignment)
+  No collision possible. Perfect zipper.
+  
+φ-distribution applies WITHIN each family:
+  golden-step (i×11)%17 maps dimensions to 17 bins = φ-optimal
+  That's the Weyl/Three-Distance level.
+
+Inter-family offset is combinatorial (modular arithmetic):
+  stride=4 → 4 slots → assign families to slots → done.
+  No φ needed here. Just pigeonhole.
+```
+
+### HEEL vs HIP — same stride, different offset
+
+```
+HEEL (coarse): stride=16, offset=0
+  19 of 302 octaves. Broad coverage. For routing ("which cluster?").
+  Error: O(1/19) ≈ 5%. Enough for CoarseBand classification.
+
+HIP (fine): stride=4, offset=3 (within family 3)
+  76 of 302 octaves. Dense sampling. For discrimination ("where in cluster?").
+  Error: O(1/76) ≈ 1.3%. Enough for centroid assignment.
+
+OR: both stride=4, different offset:
+  HEEL offset=0: octaves 0, 4, 8, ...
+  HIP  offset=2: octaves 2, 6, 10, ...
+  Together: 2× coverage, complementary slices of the same vector.
+```
+
+### Re-encode safety (proven)
+
+```
+ALL 4 families re-encode safe after iteration 1:
+  Q+K      (offset=0): err=5.86e-4
+  Gate+Up  (offset=1): err=1.59e-3 (highest — gate near zero)
+  V+Down   (offset=2): err=6.33e-4
+  HEEL/HIP (offset=3): err=6.56e-4
+
+x256 re-encode safety holds for ALL family offsets.
+Codec is idempotent. No drift across families.
+```
+
+## 3. STRIDE AND OFFSET SELECTION
 
 ### Octave stride
 
@@ -216,10 +286,12 @@ Before encoding any distance table:
 [ ] BF16 precision? (not 8-bit bottleneck)
 [ ] All 17 bins sampled? (not halftone 9/17)
 [ ] Stride documented? (octave_stride in metadata)
-[ ] Offset is φ-fractional? (not 0, not arbitrary)
+[ ] Family offset is {0,1,2,3}? (NOT φ-fractional mod stride — collides!)
+[ ] φ distribution within family? (golden-step bin mapping)
 [ ] γ correction applied? (per-role from GammaProfile)
-[ ] φ distribution applied? (irrational bucket boundaries)
 [ ] Gate modulation on Up only? (silu(gate)×up before cosine)
+[ ] Roles grouped correctly? (Q+K, Gate+Up, V+Down, HEEL+HIP)
+[ ] Re-encode safe? (idempotent after iteration 1)
 [ ] Metadata JSON saved alongside table?
 [ ] Reconstruction path documented? (decode = φ_decode(γ_decode(stored)))
 ```
