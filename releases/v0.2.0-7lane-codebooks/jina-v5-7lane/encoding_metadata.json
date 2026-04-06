@@ -1,0 +1,52 @@
+{
+  "cosine_mean": 0.22541339695453644,
+  "cosine_range": [
+    -0.18661053478717804,
+    0.6752529144287109
+  ],
+  "ei_ratio": 0.9928615093231201,
+  "encoding_lanes": {
+    "lane_1_u8_cdf": {
+      "encoding": "CDF_percentile",
+      "file": "distance_table_256x256.u8"
+    },
+    "lane_2_i8_direct": {
+      "encoding": "round(cos*127)",
+      "file": "distance_table_256x256.i8",
+      "scale": 127.0
+    },
+    "lane_3_u8_gamma_phi": {
+      "file": "distance_table_256x256.gamma_phi.u8",
+      "phi_scale": 0.6752529144287109,
+      "role_gamma": 0.22608214616775513
+    },
+    "lane_4_i8_gamma_phi_signed": {
+      "file": "distance_table_256x256.gamma_phi.i8",
+      "phi_scale": 0.6752529144287109,
+      "role_gamma": 0.22608214616775513
+    },
+    "lane_5_silu_correction": {
+      "file": "silu_deltas_256x256.f32",
+      "note": "zeros (token_embd, no gate)"
+    },
+    "lane_6_bf16_direct": {
+      "file": "distance_table_256x256.bf16",
+      "max_roundtrip_error": 0.003862321376800537
+    },
+    "lane_7_spiral_drift": {
+      "avg_drift": 0.0954780241235116,
+      "file": "spiral_drift_256x256.u8",
+      "max_drift": 0.4335881769657135,
+      "stride": 11
+    }
+  },
+  "hidden_dim": 1024,
+  "model": "jina-v5",
+  "n_centroids": 256,
+  "negative_pairs": 222,
+  "positive_pairs": 32407,
+  "source": "safetensors",
+  "source_path": "crates/thinking-engine/data/jina-v5-onnx/model.safetensors",
+  "vocab_size": 151936,
+  "zero_pairs": 11
+}

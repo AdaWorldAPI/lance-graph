@@ -170,7 +170,7 @@ dependencies = [
  "rand",
  "rand_distr",
  "rayon",
- "safetensors",
+ "safetensors 0.7.0",
  "thiserror 2.0.18",
  "yoke",
  "zip",
@@ -187,7 +187,7 @@ dependencies = [
  "libc",
  "num-traits",
  "rayon",
- "safetensors",
+ "safetensors 0.7.0",
  "serde",
  "thiserror 2.0.18",
 ]
@@ -1908,6 +1908,16 @@ checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 
 [[package]]
 name = "safetensors"
+version = "0.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "44560c11236a6130a46ce36c836a62936dc81ebf8c36a37947423571be0e55b6"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "safetensors"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "675656c1eabb620b921efea4f9199f97fc86e36dd6ffd1fbbe48d0f59a4987f5"
@@ -2196,10 +2206,12 @@ dependencies = [
  "candle-core",
  "candle-nn",
  "candle-transformers",
+ "half",
  "hf-hub",
  "highheelbgz",
  "ndarray",
  "rayon",
+ "safetensors 0.4.5",
  "serde",
  "serde_json",
  "tokenizers",
