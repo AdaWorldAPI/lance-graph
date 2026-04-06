@@ -283,10 +283,36 @@ SIBLING REPOS:
 
 ```
 .claude/knowledge/signed-session-findings.md     — BF16 tables, gate modulation, quality checks
-.claude/knowledge/phi-spiral-reconstruction.md   — φ-spiral, family zipper, stride/offset, Zeckendorf
+.claude/knowledge/phi-spiral-reconstruction.md   — φ-spiral, family zipper, stride/offset, Zeckendorf, VSA
+.claude/knowledge/primzahl-encoding-research.md  — prime fingerprint, Zeckendorf vs BF16 vs prime encoding
+.claude/CALIBRATION_STATUS_GROUND_TRUTH.md       — OVERRIDE: read BEFORE any SESSION_*.md
 .claude/PLAN_BF16_DISTANCE_TABLES.md             — 5-phase plan for BF16 distance tables
 .claude/TECHNICAL_DEBT_SIGNED_SESSION.md          — 56% useful, 44% bypass (honest review)
 .claude/CODING_PRACTICES.md                       — 6 patterns from EmbedAnything + quality checks
+```
+
+## Model Registry (Jina v5 is ground truth anchor)
+
+```
+Model            Base       Tokenizer      Vocab    Hidden  Act   Status
+─────            ────       ─────────      ─────    ──────  ───   ──────
+Jina v5 small    Qwen3      Qwen3 BPE      151K    1024    silu  GROUND TRUTH (safetensors + ONNX on disk)
+Reranker v3      Qwen3      Qwen3 BPE      151K    1024    silu  SAME BASE as v5 (listwise, cross-encoder)
+ModernBERT-large OLMo       OLMo BPE       50K     1024    gelu  ONNX on disk (GeGLU, code-friendly)
+BGE-M3           XLM-R      SentencePiece  250K    1024    gelu  baked u8 lens (multilingual)
+Jina v3          XLM-R      SentencePiece  250K    1024    gelu  baked u8 lens (LEGACY, not ground truth)
+Qwopus 27B       Qwen2      Qwen2 BPE      151K    5120    silu  305 tables in Release v0.1.2
+Reader-LM 1.5B   Qwen2      Qwen2 BPE      151K    —       —     in Release, not baked
+
+CRITICAL: Reranker v3 = Qwen3 base (NOT v2 XLM-RoBERTa).
+  Same tokenizer as Jina v5. Same architecture. Same silu gate.
+  Baked reranker lens was built from Qwen2 GGUF → needs rebuild with Qwen3 tokens.
+
+Tokenizer sharing:
+  Qwen3 BPE (151K): Jina v5, Reranker v3
+  Qwen2 BPE (151K): Qwopus, Reader-LM (DIFFERENT from Qwen3!)
+  XLM-RoBERTa (250K): Jina v3, BGE-M3 (LEGACY)
+  OLMo (50K): ModernBERT
 ```
 
 ## Thinking Engine (crates/thinking-engine/)
@@ -295,10 +321,24 @@ SIBLING REPOS:
 Core:        engine.rs, bf16_engine.rs, signed_engine.rs, role_tables.rs
 Composition: composite_engine.rs, dual_engine.rs, layered.rs, domino.rs
 Calibration: cronbach.rs, ground_truth.rs, reencode_safety.rs (x256 proven)
+Encoding:    spiral_segment.rs, prime_fingerprint.rs (VSA bundle perturbation)
 Patterns:    pooling.rs, builder.rs, auto_detect.rs, tokenizer_registry.rs
 Sensors:     jina_lens.rs, bge_m3_lens.rs, reranker_lens.rs, sensor.rs
 Cognition:   cognitive_stack.rs, ghosts.rs, persona.rs, qualia.rs, world_model.rs
 Bridge:      l4_bridge.rs, bridge.rs, semantic_chunker.rs, tensor_bridge.rs
+
+Examples:
+  jina_v5_ground_truth.rs    — end-to-end pipeline (tokenize → ground truth)
+  end_to_end_signed.rs       — BF16/i8 smoke test (CDF collapse confirmed)
+  dual_signed_experiment.rs  — u8 vs BF16 comparison across 3 lenses
+  calibrate_lenses.rs        — Spearman ρ + ICC (real Qwen3 tokenizer)
+  stream_signed_lens.rs      — 5-lane encoder from GGUF (BF16 stream)
+  stream_hdr_lens.rs         — u8 CDF HDR lens from GGUF
+
+Data on disk (gitignored, download from HF or Releases):
+  jina-v5-onnx/              model.safetensors (1.2 GB) + model.onnx (2.3 GB) + tokenizer
+  modernbert-onnx/           model.onnx (1.5 GB) + tokenizer
+  jina-reranker-v3-BF16-5lane/ 5-lane encoding (u8/i8/γ+φ, 1.1 MB)
 ```
 
 ## Documentation Index
