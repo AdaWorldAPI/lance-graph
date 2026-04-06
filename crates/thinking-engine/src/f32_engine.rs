@@ -99,12 +99,14 @@ impl F32ThinkingEngine {
         self.cycles = 0;
     }
 
-    /// ONE signed MatVec cycle:
-    ///   next[j] = sum_i distance_table[i][j] * energy[i]   (FULL signed, no floor, no threshold)
-    ///   normalize: total = sum|next[j]|, next /= total
-    ///   ReLU: next[j] = max(0, next[j])                    (can't have negative probability)
-    ///   re-normalize after ReLU
+    /// ONE signed MatVec cycle with softmax normalization:
+    ///   next[j] = sum_i distance_table[i][j] * energy[i]   (FULL signed)
+    ///   softmax: next[j] = exp(next[j] / T) / Σ exp(next[k] / T)
     ///   returns L1 delta for convergence check
+    ///
+    /// Softmax replaces ReLU — ReLU destroys inhibition information and causes
+    /// attractor collapse. Softmax preserves relative ordering while ensuring
+    /// positive probabilities. Low temperature (T=0.1) concentrates on best matches.
     fn cycle(&mut self) -> f32 {
         let k = self.size;
         let mut next = vec![0.0f32; k];
@@ -121,26 +123,16 @@ impl F32ThinkingEngine {
             }
         }
 
-        // Normalize by sum of absolute values
-        let abs_total: f32 = next.iter().map(|x| x.abs()).sum();
-        if abs_total > 1e-10 {
-            let inv = 1.0 / abs_total;
-            for e in &mut next {
-                *e *= inv;
-            }
-        }
-
-        // ReLU: can't have negative probability
+        // Softmax with temperature (default T=0.1 for sharp focus)
+        let inv_t = 10.0f32; // 1/T where T=0.1
+        let max_e = next.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        let mut exp_sum = 0.0f32;
         for e in &mut next {
-            if *e < 0.0 {
-                *e = 0.0;
-            }
+            *e = ((*e - max_e) * inv_t).exp();
+            exp_sum += *e;
         }
-
-        // Re-normalize after ReLU
-        let total: f32 = next.iter().sum();
-        if total > 1e-10 {
-            let inv = 1.0 / total;
+        if exp_sum > 1e-10 {
+            let inv = 1.0 / exp_sum;
             for e in &mut next {
                 *e *= inv;
             }
@@ -154,8 +146,7 @@ impl F32ThinkingEngine {
         delta
     }
 
-    /// ONE cycle with temperature scaling.
-    /// Scales MatVec output by 1/T before normalization.
+    /// ONE cycle with explicit temperature parameter.
     fn cycle_with_temp(&mut self, temperature: f32) -> f32 {
         let k = self.size;
         let t = temperature.max(0.01);
@@ -174,31 +165,15 @@ impl F32ThinkingEngine {
             }
         }
 
-        // Scale by 1/T before normalization
+        // Softmax with explicit temperature
+        let max_e = next.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        let mut exp_sum = 0.0f32;
         for e in &mut next {
-            *e *= inv_t;
+            *e = ((*e - max_e) * inv_t).exp();
+            exp_sum += *e;
         }
-
-        // Normalize by sum of absolute values
-        let abs_total: f32 = next.iter().map(|x| x.abs()).sum();
-        if abs_total > 1e-10 {
-            let inv = 1.0 / abs_total;
-            for e in &mut next {
-                *e *= inv;
-            }
-        }
-
-        // ReLU
-        for e in &mut next {
-            if *e < 0.0 {
-                *e = 0.0;
-            }
-        }
-
-        // Re-normalize after ReLU
-        let total: f32 = next.iter().sum();
-        if total > 1e-10 {
-            let inv = 1.0 / total;
+        if exp_sum > 1e-10 {
+            let inv = 1.0 / exp_sum;
             for e in &mut next {
                 *e *= inv;
             }
