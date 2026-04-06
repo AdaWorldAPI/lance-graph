@@ -54,8 +54,10 @@ impl ModelId {
         match self {
             ModelId::JinaV3 | ModelId::BgeM3 | ModelId::ClipVision =>
                 "crates/thinking-engine/data/jina-v3-hdr/tokenizer.json",
-            ModelId::Reranker | ModelId::ReaderLm | ModelId::Qwopus =>
-                "crates/thinking-engine/data/Qwopus3.5-27B-v3-BF16-silu/tokenizer.json",
+            ModelId::Reranker =>
+                "crates/thinking-engine/data/jina-v5-onnx/tokenizer.json", // Qwen3 (same as v5)
+            ModelId::ReaderLm | ModelId::Qwopus =>
+                "crates/thinking-engine/data/Qwopus3.5-27B-v3-BF16-silu/tokenizer.json", // Qwen2
             ModelId::JinaV5 =>
                 "crates/thinking-engine/data/jina-v5-onnx/tokenizer.json",
             ModelId::ModernBert =>
@@ -68,7 +70,7 @@ impl ModelId {
         match self {
             ModelId::JinaV3 => "jinaai/jina-embeddings-v3",
             ModelId::BgeM3 => "BAAI/bge-m3",
-            ModelId::Reranker => "jinaai/jina-reranker-v2-base-multilingual",
+            ModelId::Reranker => "jinaai/jina-reranker-v3",
             ModelId::JinaV5 => "jinaai/jina-embeddings-v5-text-small-text-matching",
             ModelId::ReaderLm => "jinaai/reader-lm-1.5b",
             ModelId::Qwopus => "Qwen/Qwen2.5-32B",
@@ -100,8 +102,10 @@ impl ModelId {
         match self {
             // GeGLU: ModernBERT, Qwen, Qwopus — all have gated FFN
             ModelId::ModernBert | ModelId::Qwopus | ModelId::JinaV5 | ModelId::ReaderLm => true,
+            // Reranker v3 = Qwen3 base (silu) — HAS gate modulation
+            ModelId::Reranker => true,
             // Standard GeLU: BERT, XLM-RoBERTa — no gate
-            ModelId::JinaV3 | ModelId::BgeM3 | ModelId::Reranker => false,
+            ModelId::JinaV3 | ModelId::BgeM3 => false,
             // Vision: ViT uses standard FFN
             ModelId::ClipVision => false,
         }
@@ -112,6 +116,7 @@ impl ModelId {
         match self {
             ModelId::ModernBert => Some("ort-community/ModernBERT-large-ONNX-ORT"),
             ModelId::JinaV5 => Some("jinaai/jina-embeddings-v5-text-small-text-matching"),
+            ModelId::Reranker => Some("jinaai/jina-reranker-v3"),
             _ => None,
         }
     }
