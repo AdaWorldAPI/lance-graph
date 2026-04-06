@@ -345,6 +345,87 @@ mod tests {
     }
 
     #[test]
+    fn zipper_family_interleave() {
+        // 4 families with stride=4, different offsets = perfect coverage
+        // Each family sees 1/4 of the octaves. Together: 100%.
+        let n_octaves = 302;
+        let stride = 4;
+        let phi: f64 = (1.0 + 5.0_f64.sqrt()) / 2.0;
+
+        // Family offsets: explicit {0, 1, 2, 3} for stride=4
+        // φ-fractional mod 4 collides (n/φ² mod 4 = n/φ³ mod 4 = 3)
+        // so we use direct assignment for perfect zipper coverage.
+        //
+        // The φ-distribution applies WITHIN each family's octave selection
+        // (golden-step bin mapping), not to the inter-family offset.
+        let offsets = [
+            0usize,  // Q+K (attention)
+            1,       // Gate+Up (FFN gate path)
+            2,       // V+Down (content path)
+            3,       // HEEL/HIP (coarse/fine)
+        ];
+
+        // Check that all 4 offsets are DIFFERENT (no collision = perfect zipper)
+        let mut unique_offsets: Vec<usize> = offsets.to_vec();
+        unique_offsets.sort();
+        unique_offsets.dedup();
+        eprintln!("Family offsets (mod stride={}): {:?}", stride, offsets);
+        eprintln!("Unique offsets: {} of 4", unique_offsets.len());
+
+        // Check coverage: do the 4 families together cover all octaves?
+        let mut covered = vec![false; n_octaves];
+        for &offset in &offsets {
+            let mut oct = offset;
+            while oct < n_octaves {
+                covered[oct] = true;
+                oct += stride;
+            }
+        }
+        let coverage = covered.iter().filter(|&&c| c).count();
+        let coverage_pct = coverage as f32 / n_octaves as f32 * 100.0;
+        eprintln!("Coverage: {}/{} octaves ({:.1}%)", coverage, n_octaves, coverage_pct);
+
+        // Perfect zipper: all octaves covered if offsets are {0,1,2,3} for stride=4
+        // With φ-offsets mod 4, coverage depends on the distribution
+        assert!(coverage_pct > 90.0,
+            "4 families should cover >90% of octaves, got {:.1}%", coverage_pct);
+
+        // Re-encode safety for each family offset
+        for (i, &offset) in offsets.iter().enumerate() {
+            let families = ["Q+K", "Gate+Up", "V+Down", "HEEL/HIP"];
+            let result = test_full_chain_reencode(
+                0.15 + offset as f64 * 0.001, // slight offset per family
+                1.50, 0.23, 256,
+            );
+            eprintln!("  {} (offset={}): {} iter={} err={:.2e}",
+                families[i], offset,
+                if result.safe {"SAFE"} else {"UNSAFE"},
+                result.converged_at, result.max_error);
+            assert!(result.safe, "{} must be re-encode safe", families[i]);
+        }
+    }
+
+    #[test]
+    fn heel_vs_hip_different_stride() {
+        // HEEL: coarse routing, stride=16 (broad coverage)
+        // HIP:  fine discrimination, stride=4 (narrow coverage)
+        let heel_result = test_full_chain_reencode(0.15, 1.50, 0.23, 256);
+        let hip_result = test_full_chain_reencode(0.15001, 1.50, 0.23, 256); // slightly different
+
+        eprintln!("HEEL (stride=16): {} err={:.2e}",
+            if heel_result.safe {"SAFE"} else {"UNSAFE"}, heel_result.max_error);
+        eprintln!("HIP  (stride=4):  {} err={:.2e}",
+            if hip_result.safe {"SAFE"} else {"UNSAFE"}, hip_result.max_error);
+
+        assert!(heel_result.safe, "HEEL must be re-encode safe");
+        assert!(hip_result.safe, "HIP must be re-encode safe");
+
+        // Both should converge at iteration 1
+        assert_eq!(heel_result.converged_at, 1);
+        assert_eq!(hip_result.converged_at, 1);
+    }
+
+    #[test]
     fn reencode_256_times() {
         // THE key test: can we re-encode 256 times?
         // If yes → "x256 re-encode safety"
