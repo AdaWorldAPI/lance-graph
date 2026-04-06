@@ -60,4 +60,5 @@ pub mod reencode_safety;
 pub mod spiral_segment;
 pub mod prime_fingerprint;
 pub mod contrastive_learner;
+pub mod osint_bridge;
 // ripple.rs deleted: wave simulation wrong, replaced by VSA bundle in prime_fingerprint.rs
