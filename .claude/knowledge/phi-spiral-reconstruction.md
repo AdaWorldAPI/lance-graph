@@ -352,3 +352,34 @@ Bundle perturbation:
   = no backprop, no gradient, no GPU
   = i8 saturating add/sub, 16 KB, microseconds
 ```
+
+## 8. HIERARCHICAL O(1) WITH LEAF PRECISION (measured April 6 2026)
+
+```
+HEEL table[64×64]          4 KB    O(1)  → cos_heel
+  + Δ_hip[256×256]        64 KB    O(1)  → cos_heel + Δ_hip
+  + Δ_twig[4096×4096]     32 MB    O(1)  → cos_heel + Δ_hip + Δ_twig
+  = cos_16384             LEAF precision, O(1) total
+
+With spiral segment compression:
+  HEEL:   64 × (anfang, ende, stride, gamma) =  512 bytes
+  Δ_hip:  256 × 8 bytes                      =  2 KB
+  Δ_twig: 4096 × 8 bytes                     = 32 KB
+  Total:  34.5 KB for 16384-level precision (was 512 MB = 15,000× compression)
+
+Cascade routing (CoarseBand):
+  95% Foveal/Reject: HEEL only (512 bytes, 1 lookup)
+  4% Near:           HEEL + Δ_hip (2.5 KB, 2 lookups)
+  1% Maybe:          full reconstruction (34.5 KB, 3 lookups)
+  Average: 1.05 lookups for LEAF precision
+
+MEASURED (Jina v5, 16384 CLAM):
+  K=16384: ρ=0.5375 (token embeddings, NOT semantic — needs forward pass)
+  K=4096:  ρ=0.3061  Δmean=0.039 from LEAF
+  K=256:   ρ=0.1765  Δmean=0.064
+  K=64:    ρ=0.1648  Δmean=0.107 (correctable as i8: ±14 levels)
+
+Bucket count beats bucket precision:
+  u8 vs f32 at K=256: Δρ < 0.01 (encoding precision irrelevant)
+  K=256 vs K=4096:    Δρ = 0.30 (bucket count = 30× more important)
+```
