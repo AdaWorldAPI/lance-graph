@@ -927,3 +927,65 @@ Garbage detection via codebook:
 
 Release: v0.3.0 readerlm-v2-256.tar.gz (500 KB)
 ```
+
+### Spot Reasoning Results (highheelbgz codebook, Qwen tokenizer)
+
+```
+Speed: 5,676 queries/sec (0.2ms each) — 2,500× faster than forward pass
+
+Discrimination (different domains):
+  CRISPR ↔ Quantum:     cos=0.000 ✓ (different peaks: 10 vs 1)
+  CRISPR ↔ Transformer: cos=0.000 ✓
+  CRISPR ↔ Bach:        cos=0.000 ✓
+  
+False triplet detection:
+  "Bach invented quantum computing":    LOW ✓
+  "CRISPR revolutionized music theory": LOW ✓
+
+True triplet detection:
+  "Quantum computing uses qubits":      HIGH (cos=0.5) ✓
+  "Google achieved quantum supremacy":  HIGH (cos=0.7) ✓
+
+Limitation: token embeddings give LEXICAL discrimination, not SEMANTIC.
+  CRISPR ↔ GeneTherapy: cos=0.000 ✗ (should be similar)
+  Fix: contrastive learning from forward pass builds semantic table
+
+The 128 KB table gives LEXICAL spot reasoning at 5,676 queries/sec.
+Forward pass contrastive learning upgrades to SEMANTIC reasoning.
+```
+
+### Wiring: OSINT Crate → HighHeelBGZ → AriGraph
+
+```
+Available components:
+  lance-graph-osint/src/
+    crawler.rs    — spider-rs Google crawl (feature: spider-crawl)
+    reader.rs     — curl fetch + embed (connect: ReaderLM-v2 candle)
+    extractor.rs  — SPO triplet extraction (verb patterns, NARS truth)
+    pipeline.rs   — OsintPipeline.ingest_url() → triplets → revision
+
+  lance-graph/src/graph/arigraph/
+    triplet_graph.rs — TripletGraph: add, retrieve, BFS, deduce, contradict
+    episodic.rs      — episodic memory
+    retrieval.rs     — multi-hop association retrieval
+    orchestrator.rs  — orchestration
+
+  thinking-engine/src/
+    osint_bridge.rs        — OsintThinkingBridge (tokenize → think → learn)
+    f32_engine.rs          — F32ThinkingEngine + SparseBranchGraph
+    contrastive_learner.rs — online table learning
+
+  Codebooks (GitHub Release v0.3.0):
+    readerlm-v2-256.tar.gz  — 500 KB (i16 128 KB + codebook 297 KB)
+    jina-v5-256.tar.gz      — 401 KB
+    jina-v5-4096-sparse.tar.gz — 87 MB (with branch graphs)
+
+Connection flow:
+  spider → HTML → ReaderLM-v2 (candle) → markdown
+    → extractor.rs → SPO triplets → AriGraph.add_triplets()
+    → thinking-engine → codebook → spot reasoning (5,676 q/s)
+    → AriGraph.infer_deductions() → new triplets
+    → AriGraph.detect_contradictions() → resolve
+    → contrastive_learner → table improves
+    → NARS low confidence → new spider queries
+```
