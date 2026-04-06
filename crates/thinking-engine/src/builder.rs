@@ -11,6 +11,7 @@
 
 use crate::engine::ThinkingEngine;
 use crate::signed_engine::SignedThinkingEngine;
+use crate::bf16_engine::BF16ThinkingEngine;
 use crate::pooling::Pooling;
 
 /// Temperature configuration for the thinking cycle.
@@ -108,12 +109,16 @@ pub enum Lens {
 pub enum TableType {
     UnsignedU8,
     SignedI8,
+    /// BF16: from StackedN cosine, sign preserved, full dynamic range.
+    /// 128 KB for 256×256 (2× u8, fits L2 cache).
+    BF16,
 }
 
-/// Built engine: either unsigned or signed.
+/// Built engine: unsigned, signed, or BF16.
 pub enum BuiltEngine {
     Unsigned(ThinkingEngine),
     Signed(SignedThinkingEngine),
+    BF16(BF16ThinkingEngine),
 }
 
 impl BuiltEngine {
@@ -121,6 +126,7 @@ impl BuiltEngine {
         match self {
             BuiltEngine::Unsigned(e) => e.perturb(indices),
             BuiltEngine::Signed(e) => e.perturb(indices),
+            BuiltEngine::BF16(e) => e.perturb(indices),
         }
     }
 
@@ -128,6 +134,7 @@ impl BuiltEngine {
         match self {
             BuiltEngine::Unsigned(e) => e.reset(),
             BuiltEngine::Signed(e) => e.reset(),
+            BuiltEngine::BF16(e) => e.reset(),
         }
     }
 
@@ -135,6 +142,7 @@ impl BuiltEngine {
         match self {
             BuiltEngine::Unsigned(e) => &e.energy,
             BuiltEngine::Signed(e) => &e.energy,
+            BuiltEngine::BF16(e) => &e.energy,
         }
     }
 
@@ -142,6 +150,7 @@ impl BuiltEngine {
         match self {
             BuiltEngine::Unsigned(e) => e.cycles,
             BuiltEngine::Signed(e) => e.cycles,
+            BuiltEngine::BF16(e) => e.cycles,
         }
     }
 
@@ -149,6 +158,7 @@ impl BuiltEngine {
         match self {
             BuiltEngine::Unsigned(e) => e.size,
             BuiltEngine::Signed(e) => e.size,
+            BuiltEngine::BF16(e) => e.size,
         }
     }
 
@@ -156,6 +166,7 @@ impl BuiltEngine {
         match self {
             BuiltEngine::Unsigned(e) => { e.think(max_cycles); }
             BuiltEngine::Signed(e) => { e.think(max_cycles); }
+            BuiltEngine::BF16(e) => { e.think(max_cycles); }
         }
     }
 
@@ -163,6 +174,7 @@ impl BuiltEngine {
         match self {
             BuiltEngine::Unsigned(e) => { e.think_with_temperature(max_cycles, temperature); }
             BuiltEngine::Signed(e) => { e.think_with_temperature(max_cycles, temperature); }
+            BuiltEngine::BF16(e) => { e.think_with_temperature(max_cycles, temperature); }
         }
     }
 }
@@ -242,8 +254,8 @@ impl ThinkingEngineBuilder {
             Some(Lens::Jina) => crate::jina_lens::JINA_HDR_TABLE.to_vec(),
             Some(Lens::BgeM3) => crate::bge_m3_lens::BGE_M3_HDR_TABLE.to_vec(),
             Some(Lens::Reranker) => crate::reranker_lens::RERANKER_HDR_TABLE.to_vec(),
-            Some(Lens::ModernBert) => return Err("ModernBERT lens not baked yet — run stream_signed_lens first".into()),
-            Some(Lens::ClipVision) => return Err("CLIP vision lens not baked yet — needs ViT codebook".into()),
+            Some(Lens::ModernBert) => return Err("ModernBERT lens not baked yet".into()),
+            Some(Lens::ClipVision) => return Err("CLIP vision lens not baked yet".into()),
             Some(Lens::Custom(t)) => t,
             None => return Err("no lens specified".into()),
         };
@@ -253,6 +265,15 @@ impl ThinkingEngineBuilder {
             TableType::SignedI8 => BuiltEngine::Signed(
                 crate::signed_engine::SignedThinkingEngine::from_unsigned(&table)
             ),
+            TableType::BF16 => {
+                // Convert u8 HDR lens to BF16: u8[0,255] → f32[-1,+1] → BF16
+                // This is a TEMPORARY path until BF16 lenses are baked directly.
+                let cosines: Vec<f32> = table.iter()
+                    .map(|&v| (v as f32 - 128.0) / 127.0)
+                    .collect();
+                let size = (table.len() as f64).sqrt() as usize;
+                BuiltEngine::BF16(BF16ThinkingEngine::from_f32_cosines(&cosines, size))
+            }
         };
 
         Ok(ConfiguredEngine {
