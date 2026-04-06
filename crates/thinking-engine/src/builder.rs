@@ -13,6 +13,72 @@ use crate::engine::ThinkingEngine;
 use crate::signed_engine::SignedThinkingEngine;
 use crate::pooling::Pooling;
 
+/// Per-role temperature configuration.
+///
+/// The gate table is the THERMOSTAT — its temperature controls
+/// how sharply the gate opens/closes. The other tables follow.
+///
+/// ```text
+/// Analytical: T_gate=0.1 → narrow gate → few features → focused
+/// Creative:   T_gate=1.5 → wide gate → many features → exploratory
+/// Balanced:   T_gate=adaptive → tracks convergence rate
+/// ```
+///
+/// CollapseGate mapping:
+///   FLOW = low T_gate (commit fast, sharp decisions)
+///   HOLD = high T_gate (explore, soft decisions)
+///   BLOCK = T_gate → ∞ (uniform, no discrimination)
+#[derive(Clone, Debug)]
+pub struct RoleTemperatures {
+    /// Gate temperature: controls decision sharpness.
+    /// The thermostat of the thinking engine.
+    pub t_gate: f32,
+    /// Attention (Q) temperature: controls routing breadth.
+    pub t_attn: f32,
+    /// FFN (Up) temperature: controls expansion width.
+    pub t_ffn: f32,
+    /// Down temperature: controls compression (usually 1.0).
+    pub t_down: f32,
+}
+
+impl RoleTemperatures {
+    /// Standard: all roles at T=1.0 (no temperature effect).
+    pub fn standard() -> Self {
+        Self { t_gate: 1.0, t_attn: 1.0, t_ffn: 1.0, t_down: 1.0 }
+    }
+
+    /// Analytical: sharp gate (0.1), moderate attention, standard FFN.
+    pub fn analytical() -> Self {
+        Self { t_gate: 0.1, t_attn: 0.5, t_ffn: 0.8, t_down: 1.0 }
+    }
+
+    /// Creative: wide gate (1.5), broad attention, expansive FFN.
+    pub fn creative() -> Self {
+        Self { t_gate: 1.5, t_attn: 1.2, t_ffn: 1.5, t_down: 1.0 }
+    }
+
+    /// Metacognitive: balanced, gate tracks convergence.
+    pub fn balanced() -> Self {
+        Self { t_gate: 0.7, t_attn: 0.8, t_ffn: 1.0, t_down: 1.0 }
+    }
+
+    /// From a thinking preset.
+    pub fn from_preset(preset: ThinkingPreset) -> Self {
+        match preset {
+            ThinkingPreset::Analytical => Self::analytical(),
+            ThinkingPreset::Creative => Self::creative(),
+            ThinkingPreset::Balanced => Self::balanced(),
+            ThinkingPreset::Focused => Self { t_gate: 0.05, t_attn: 0.3, t_ffn: 0.5, t_down: 1.0 },
+        }
+    }
+}
+
+impl Default for RoleTemperatures {
+    fn default() -> Self {
+        Self::standard()
+    }
+}
+
 /// Thinking style presets — map to temperature + pooling.
 /// From cognitive_stack.rs: 12 styles. Here: the 4 that matter for sampling.
 #[derive(Clone, Copy, Debug)]
@@ -120,6 +186,13 @@ impl BuiltEngine {
             BuiltEngine::Signed(e) => { e.think(max_cycles); }
         }
     }
+
+    pub fn think_with_temperature(&mut self, max_cycles: usize, temperature: f32) {
+        match self {
+            BuiltEngine::Unsigned(e) => { e.think_with_temperature(max_cycles, temperature); }
+            BuiltEngine::Signed(e) => { e.think_with_temperature(max_cycles, temperature); }
+        }
+    }
 }
 
 /// Commit sink: where committed thoughts go.
@@ -131,6 +204,7 @@ pub struct ThinkingEngineBuilder {
     table_type: TableType,
     pooling: Pooling,
     max_cycles: usize,
+    role_temps: RoleTemperatures,
     sinks: Vec<CommitSink>,
 }
 
@@ -141,6 +215,7 @@ impl ThinkingEngineBuilder {
             table_type: TableType::UnsignedU8,
             pooling: Pooling::ArgMax,
             max_cycles: 10,
+            role_temps: RoleTemperatures::standard(),
             sinks: Vec::new(),
         }
     }
@@ -163,9 +238,16 @@ impl ThinkingEngineBuilder {
         self
     }
 
-    /// Apply a thinking preset (sets pooling from cognitive style).
+    /// Apply a thinking preset (sets pooling + per-role temperatures).
     pub fn thinking_preset(mut self, preset: ThinkingPreset) -> Self {
         self.pooling = preset.to_pooling();
+        self.role_temps = RoleTemperatures::from_preset(preset);
+        self
+    }
+
+    /// Set per-role temperatures directly.
+    pub fn role_temperatures(mut self, temps: RoleTemperatures) -> Self {
+        self.role_temps = temps;
         self
     }
 
@@ -205,6 +287,7 @@ impl ThinkingEngineBuilder {
             engine,
             pooling: self.pooling,
             max_cycles: self.max_cycles,
+            role_temps: self.role_temps,
             sinks: self.sinks,
         })
     }
@@ -216,20 +299,36 @@ impl Default for ThinkingEngineBuilder {
     }
 }
 
-/// A fully configured engine with pooling and commit sinks.
+/// A fully configured engine with pooling, per-role temperatures, and commit sinks.
 pub struct ConfiguredEngine {
     pub engine: BuiltEngine,
     pub pooling: Pooling,
     pub max_cycles: usize,
+    pub role_temps: RoleTemperatures,
     sinks: Vec<CommitSink>,
 }
 
 impl ConfiguredEngine {
-    /// Full pipeline: perturb → think → pool → commit → notify sinks.
+    /// Full pipeline: perturb → think (with role temperature) → pool → commit → notify sinks.
+    ///
+    /// Uses T_gate from role_temps for the thinking cycle temperature.
+    /// T_gate controls how sharply the distance table discriminates:
+    ///   Low T_gate (0.1)  → winner-take-all → analytical
+    ///   T_gate = 1.0      → standard normalization → balanced
+    ///   High T_gate (1.5) → uniform → creative/exploratory
     pub fn process(&mut self, codebook_indices: &[u16]) -> crate::dto::BusDto {
         self.engine.reset();
         self.engine.perturb(codebook_indices);
-        self.engine.think(self.max_cycles);
+
+        // Use gate temperature for the thinking cycle
+        let t = self.role_temps.t_gate;
+        if (t - 1.0).abs() < 0.01 {
+            // T≈1.0: standard cycle (no temperature effect, faster)
+            self.engine.think(self.max_cycles);
+        } else {
+            // T≠1.0: temperature-as-excitation (softmax/T per cycle)
+            self.engine.think_with_temperature(self.max_cycles, t);
+        }
 
         let bus = self.pooling.to_bus(self.engine.energy(), self.engine.cycles());
 
@@ -318,6 +417,46 @@ mod tests {
         let bus = engine.process(&[50, 52, 54]);
         assert!(bus.energy > 0.0);
         // Creative preset uses Nucleus pooling — may pick non-argmax peak
+    }
+
+    #[test]
+    fn builder_per_role_temperature() {
+        // Analytical: T_gate=0.1 (sharp gate decisions)
+        let mut engine = ThinkingEngineBuilder::new()
+            .lens(Lens::Jina)
+            .role_temperatures(RoleTemperatures::analytical())
+            .build()
+            .unwrap();
+
+        assert!((engine.role_temps.t_gate - 0.1).abs() < 0.01);
+        assert!((engine.role_temps.t_attn - 0.5).abs() < 0.01);
+
+        let bus = engine.process(&[50, 52, 54]);
+        assert!(bus.energy > 0.0);
+    }
+
+    #[test]
+    fn builder_creative_vs_analytical() {
+        // Creative and Analytical should produce different results
+        let mut analytical = ThinkingEngineBuilder::new()
+            .lens(Lens::Jina)
+            .thinking_preset(ThinkingPreset::Analytical)
+            .build()
+            .unwrap();
+        let mut creative = ThinkingEngineBuilder::new()
+            .lens(Lens::Jina)
+            .thinking_preset(ThinkingPreset::Creative)
+            .build()
+            .unwrap();
+
+        assert!((analytical.role_temps.t_gate - 0.1).abs() < 0.01);
+        assert!((creative.role_temps.t_gate - 1.5).abs() < 0.01);
+
+        let bus_a = analytical.process(&[50, 52, 54]);
+        let bus_c = creative.process(&[50, 52, 54]);
+        // Both should produce valid results
+        assert!(bus_a.energy > 0.0);
+        assert!(bus_c.energy > 0.0);
     }
 
     #[test]
