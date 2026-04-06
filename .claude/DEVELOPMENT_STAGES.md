@@ -712,3 +712,21 @@ Use case:
   Stride-4 subspace: ROUTING/FILTERING (65% fidelity, cheap first pass)
   This IS the Belichtungsmesser: cheap route, then exact think.
 ```
+
+### Rolling Sigma Floor Results (4096 centroids)
+
+```
+Method                         Edges   Avg/node  Sparse   Top-5  Top-10  Diversity
+GLOBAL sigma                  1,343K    656      84%      32%    32%     12/20
+PER-ROW sigma                 1,929K    942      77%      40%    41%     14/20
+PER-ROW sigma + top-K=32       105K     51      98.7%    12%    14%     20/20
+PER-ROW sigma + bucket shift   203K     99      97.6%    20%    20%     20/20
+POPCOUNT≥5 + residual           18K      9      99.8%    57%    66%     16/20  ← WINNER
+
+Bucket shift (histogram knee): principled but centroids too smooth.
+Belichtungsmesser: 88% early exit speed but Base17 doesn't separate centroids.
+Popcount random exposure: best topology quality for sparse 4096 graphs.
+
+Root cause: centroids are AVERAGES of many tokens → smoother than raw weights.
+Belichtungsmesser was designed for raw weight rows, not centroid averages.
+```
