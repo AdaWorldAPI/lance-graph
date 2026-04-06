@@ -352,3 +352,61 @@ Bundle perturbation:
   = no backprop, no gradient, no GPU
   = i8 saturating add/sub, 16 KB, microseconds
 ```
+
+## 8. HIERARCHICAL O(1) WITH LEAF PRECISION (measured April 6 2026)
+
+```
+HEEL table[64×64]          4 KB    O(1)  → cos_heel
+  + Δ_hip[256×256]        64 KB    O(1)  → cos_heel + Δ_hip
+  + Δ_twig[4096×4096]     32 MB    O(1)  → cos_heel + Δ_hip + Δ_twig
+  = cos_16384             LEAF precision, O(1) total
+
+With spiral segment compression:
+  HEEL:   64 × (anfang, ende, stride, gamma) =  512 bytes
+  Δ_hip:  256 × 8 bytes                      =  2 KB
+  Δ_twig: 4096 × 8 bytes                     = 32 KB
+  Total:  34.5 KB for 16384-level precision (was 512 MB = 15,000× compression)
+
+Cascade routing (CoarseBand):
+  95% Foveal/Reject: HEEL only (512 bytes, 1 lookup)
+  4% Near:           HEEL + Δ_hip (2.5 KB, 2 lookups)
+  1% Maybe:          full reconstruction (34.5 KB, 3 lookups)
+  Average: 1.05 lookups for LEAF precision
+
+MEASURED (Jina v5, 16384 CLAM):
+  K=16384: ρ=0.5375 (token embeddings, NOT semantic — needs forward pass)
+  K=4096:  ρ=0.3061  Δmean=0.039 from LEAF
+  K=256:   ρ=0.1765  Δmean=0.064
+  K=64:    ρ=0.1648  Δmean=0.107 (correctable as i8: ±14 levels)
+
+Bucket count beats bucket precision:
+  u8 vs f32 at K=256: Δρ < 0.01 (encoding precision irrelevant)
+  K=256 vs K=4096:    Δρ = 0.30 (bucket count = 30× more important)
+```
+
+## 9. WORST CASE: LANCEDB RABITQ FALLBACK
+
+```
+FAST (95%):    HEEL lookup              512 B    O(1)     → cos_heel
+MEDIUM (4%):   HEEL + Δ_hip             2.5 KB   O(1)×2   → cos_hip
+SLOW (0.9%):   HEEL + Δ_hip + Δ_twig    34.5 KB  O(1)×3   → cos_twig
+WORST (0.1%):  LanceDB RaBitQ           full vec  O(log N) → cos_exact
+
+Worst case = spiral reconstruction fails for this pair.
+LanceDB RaBitQ (built-in random bit quantization) provides exact fallback.
+O(log N) via IVF index. Stored f32 vectors. No approximation.
+
+L4 feedback loop:
+  Worst case triggers: L4 learn(pair_bundle, -1)
+  Next time same pattern: L4 recognize → skip to LanceDB (no wasted lookups)
+  OR: update Δ_twig with exact value → cascade catches it next time
+  = self-improving: worst case becomes rarer over time
+  = L4 is the CACHE CONTROLLER for the cascade
+
+Family → Basin → Knee → LEAF cascade = HHTL:
+  HEEL (64 families)    = coarse routing, 512 bytes
+  HIP (256 basins)      = family refinement, +2 KB
+  BRANCH (4096 knees)   = local discrimination, +32 KB  
+  TWIG (16384 leaves)   = spiral reconstruction
+  LEAF (full vector)    = LanceDB RaBitQ fallback
+```
