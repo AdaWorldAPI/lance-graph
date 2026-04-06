@@ -267,3 +267,49 @@ TO DOWNLOAD (next session):
 4. l4_bridge.rs uses table rows as centroid proxy (LIMITATION documented)
 5. signed_domino.rs is dead code (never called)
 ```
+
+## 6. OSINT HARVESTING PIPELINE (external branching + internal gating)
+
+```
+External world (branching):
+  Google Search "query"
+    → spider-rs crawls URLs (crates/lance-graph-osint/)
+    → Reader-LM 1.5B BF16 (jinaai/reader-lm-1.5b, candle, HTML→Markdown)
+    → Clean text per page
+    
+Internal reasoning (gating):
+  Clean text → Jina v5 / Qwen3-VL-Embedding → 1024D/2048D embedding
+    → 4096×16 Branch Graph (semantic topology)
+    → NARS truth (freq, conf per branch)
+    → L4 learn(bundle) → holographic memory
+    → CausalEdge64 (7+1 channels)
+    → ThinkingEngine cycle → commit → BusDto
+
+  DeepNSM (crates/deepnsm/):
+    Clean text → SPO extraction (Subject-Predicate-Object)
+    → NARS triplets → Knowledge Graph
+
+The loop:
+  1. User query → Google Search → spider-rs → Reader-LM → clean text
+  2. Clean text → Jina v5 embedding → Branch Graph → NARS reasoning
+  3. NARS identifies GAPS (low confidence topics)
+  4. GAPS → new Google Search queries → back to step 1
+  5. L4 accumulates → Cross-Domain bridges emerge
+  6. When confidence saturates → commit → answer
+
+= EXTERNAL BRANCHING: spider-rs explores the web
+= INTERNAL GATING: L4 + NARS decides what to explore next
+= the engine DRIVES its own research (autopoiesis)
+
+Models needed:
+  Reader-LM 1.5B:          BF16 safetensors (jinaai/reader-lm-1.5b, ~3 GB)
+  Jina v5 Embedding 0.6B:  already on disk ✓
+  Qwen3-VL-Embedding 2B:   for images in search results (4.7 GB)
+  spider-rs:               crate for web crawling
+  DeepNSM:                 crate for SPO extraction (exists)
+  
+Existing code:
+  crates/lance-graph-osint/  crawler.rs, reader.rs, pipeline.rs
+  crates/deepnsm/            parser, encoder, 4096 COCA vocab
+  = the OSINT crate EXISTS, needs wiring to forward pass pipeline
+```
