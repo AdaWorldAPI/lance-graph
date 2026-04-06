@@ -483,3 +483,44 @@ Each E/I JUMP = epiphany moment
   = measurable WITHOUT forward pass (from gate weights alone)
   = the i8 signed representation captures this naturally
 ```
+
+## 12. SIGNED i8 AS COGNITIVE MARKERS: STAUNEN vs WISDOM vs BLOCKED
+
+```
+L4 accum[16384] i8 values ARE cognitive markers:
+
+  POSITIVE (+1 to +127): WISDOM
+    = pattern seen before, positively reinforced
+    = gate_trust HIGH → Engine commits to this path
+    = ThinkingPreset→Analytical (low T, focused)
+    
+  ZERO (0): STAUNEN
+    = pattern NEVER seen before
+    = maximum surprise = maximum free energy
+    = gate_trust NEUTRAL → Engine explores
+    = ThinkingPreset→Creative (high T, broad)
+    = Ghost::Staunen activated
+    
+  NEGATIVE (-1 to -128): BLOCKED
+    = pattern seen before, negatively reinforced OR redundant
+    = "I've thought this already, it leads nowhere"
+    = energy[atom] -= |score| → active suppression
+    = BREAKS attractor collapse: "!" blocked after 10 repetitions
+    = ThinkingPreset→avoid (find something ELSE)
+
+Repetitive thought blocking (anti-collapse):
+  Cycle 1: Engine converges to atom 78 ("!")
+  commit() → L4 learn(bundle_78, -1) → "redundant"
+  Cycle 2: L4 recognize(bundle_78) → negative → energy[78] suppressed
+  → Engine MUST find different peak → collapse broken
+  
+  NOT through temperature (blurs the peak)
+  NOT through encoding (table unchanged)
+  THROUGH L4 EXPERIENCE (what was already thought)
+
+The i8 sign IS the thinking style:
+  Positive = exploit (known good)
+  Zero = explore (unknown)  
+  Negative = avoid (known bad/redundant)
+  = Kahneman System 1 (fast, i8 lookup) guiding System 2 (slow, MatVec)
+```
