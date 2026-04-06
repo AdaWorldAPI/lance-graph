@@ -334,7 +334,7 @@ impl<'a> DominoCascade<'a> {
                     .map(|(_, v)| { let d = *v as f32 - mean; d * d })
                     .sum::<f32>() / above_floor.len() as f32;
                 let std = variance.sqrt().max(0.1);
-                let threshold_3sigma = mean + 3.0 * std;
+                let _threshold_3sigma = mean + 3.0 * std;
 
                 for &(j, val) in &above_floor {
                     let freq = (val as f32 - floor as f32) / (255.0 - floor as f32);

@@ -5,7 +5,7 @@
 //!
 //! No HTTP, no GGUF, no I/O — just activation logic.
 
-use crate::engine::{ThinkingEngine, CODEBOOK_SIZE};
+use crate::engine::ThinkingEngine;
 use ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd;
 
 /// A single sensor that activates specific codebook atoms with weights.

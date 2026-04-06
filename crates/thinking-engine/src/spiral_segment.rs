@@ -120,7 +120,7 @@ impl SpiralRow {
             // Try increasingly large segments from this start
             let mut best_end = start + 1;
             for end in (start + 2)..=values.len() {
-                let (seg, err) = SpiralSegment::fit(&values[start..end]);
+                let (_seg, err) = SpiralSegment::fit(&values[start..end]);
                 if err > max_error {
                     break;
                 }

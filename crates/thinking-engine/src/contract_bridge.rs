@@ -8,7 +8,7 @@
 //! The CollapseGate from the planner controls cascade termination.
 
 use crate::cognitive_stack::{self, GateState, RungLevel};
-use crate::meaning_axes::{Viscosity, CouncilWeights, Archetype, VolitionalAct};
+use crate::meaning_axes::{Viscosity, CouncilWeights, Archetype};
 
 /// Map contract's 36 styles to the engine's 12 styles.
 /// The 36 are grouped into 6 clusters of 6. Each cluster maps to
@@ -68,7 +68,7 @@ impl CascadeConfig {
         style_id: u8,
         rung: RungLevel,
         sd: f32,
-        free_energy: f32,
+        _free_energy: f32,
     ) -> Self {
         let style = contract_style_to_engine(style_id);
         let params = style.params();

@@ -15,7 +15,7 @@
 
 #[cfg(feature = "calibration")]
 pub mod calibration {
-    use crate::tokenizer_registry::{ModelId, TokenizerRegistry};
+    use crate::tokenizer_registry::ModelId;
 
     /// Ground truth embedding for one text.
     #[derive(Clone, Debug)]

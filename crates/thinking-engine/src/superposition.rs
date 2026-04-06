@@ -99,7 +99,7 @@ pub fn compute_superposition(
     // Collect all atoms that appear in ANY lens
     let mut all_atoms: HashMap<u16, Vec<u32>> = HashMap::new();
     for visits in lens_visits {
-        for (&atom, &count) in *visits {
+        for (&atom, &_count) in *visits {
             all_atoms.entry(atom).or_insert_with(|| vec![0; lens_visits.len()]);
         }
     }
@@ -150,7 +150,7 @@ pub fn detect_style(
     avg_dissonance: f32,
     thresholds: &StyleThresholds,
 ) -> ThinkingStyle {
-    let resonant_fraction = field.n_resonant as f32 / n_atoms.max(1) as f32;
+    let _resonant_fraction = field.n_resonant as f32 / n_atoms.max(1) as f32;
 
     // Gate: only count atoms above threshold
     let gated_count = field.resonant_atoms.iter()

@@ -31,7 +31,7 @@ impl EmbeddingOutput {
             EmbeddingOutput::I8(v) => v.iter().map(|&x| x as f32 / 127.0).collect(),
             EmbeddingOutput::U8(v) => v.iter().map(|&x| (x as f32 - 128.0) / 127.0).collect(),
             #[cfg(feature = "calibration")]
-            EmbeddingOutput::Tensor(t) => {
+            EmbeddingOutput::Tensor(_t) => {
                 t.flatten_all()
                     .and_then(|t| t.to_vec1::<f32>())
                     .unwrap_or_default()
@@ -50,7 +50,7 @@ impl EmbeddingOutput {
                 .map(|&x| (x as i16 - 128) as i8)
                 .collect(),
             #[cfg(feature = "calibration")]
-            EmbeddingOutput::Tensor(t) => {
+            EmbeddingOutput::Tensor(_t) => {
                 self.to_f32().iter()
                     .map(|&x| (x * 127.0).round().clamp(-128.0, 127.0) as i8)
                     .collect()
