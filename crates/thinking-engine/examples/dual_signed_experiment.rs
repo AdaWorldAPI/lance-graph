@@ -28,7 +28,7 @@ fn run_lens_experiment(name: &str, table: &[u8], cos_range: &str) {
     println!("{}", stats.sign_stats());
     drop(stats);
 
-    let mut dual = DualEngine::from_unsigned_table(table.to_vec());
+    let mut dual = DualEngine::u8_vs_bf16(table.to_vec());
 
     // Test 1: Clustered input
     println!("\n--- Clustered (centroids 50, 52, 54) ---");
