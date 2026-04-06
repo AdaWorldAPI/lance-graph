@@ -383,3 +383,30 @@ Bucket count beats bucket precision:
   u8 vs f32 at K=256: Δρ < 0.01 (encoding precision irrelevant)
   K=256 vs K=4096:    Δρ = 0.30 (bucket count = 30× more important)
 ```
+
+## 9. WORST CASE: LANCEDB RABITQ FALLBACK
+
+```
+FAST (95%):    HEEL lookup              512 B    O(1)     → cos_heel
+MEDIUM (4%):   HEEL + Δ_hip             2.5 KB   O(1)×2   → cos_hip
+SLOW (0.9%):   HEEL + Δ_hip + Δ_twig    34.5 KB  O(1)×3   → cos_twig
+WORST (0.1%):  LanceDB RaBitQ           full vec  O(log N) → cos_exact
+
+Worst case = spiral reconstruction fails for this pair.
+LanceDB RaBitQ (built-in random bit quantization) provides exact fallback.
+O(log N) via IVF index. Stored f32 vectors. No approximation.
+
+L4 feedback loop:
+  Worst case triggers: L4 learn(pair_bundle, -1)
+  Next time same pattern: L4 recognize → skip to LanceDB (no wasted lookups)
+  OR: update Δ_twig with exact value → cascade catches it next time
+  = self-improving: worst case becomes rarer over time
+  = L4 is the CACHE CONTROLLER for the cascade
+
+Family → Basin → Knee → LEAF cascade = HHTL:
+  HEEL (64 families)    = coarse routing, 512 bytes
+  HIP (256 basins)      = family refinement, +2 KB
+  BRANCH (4096 knees)   = local discrimination, +32 KB  
+  TWIG (16384 leaves)   = spiral reconstruction
+  LEAF (full vector)    = LanceDB RaBitQ fallback
+```
