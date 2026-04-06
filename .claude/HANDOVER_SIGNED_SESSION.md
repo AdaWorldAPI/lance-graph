@@ -196,3 +196,44 @@ Bucket count: EVERYTHING (more centroids = better ρ)
 Mean-pair: 2.9× better than centroid cosine
 Forward pass: REQUIRED for semantic similarity
 ```
+
+## ADDENDUM: What We Discovered at End of Session
+
+### Forward Pass WORKS (the breakthrough)
+```
+Rumi↔Rumi: cos=0.512 > Rumi↔TCP: cos=0.384
+Token embeddings alone: cos≈1.000 (no discrimination)
+After 28 layers: DISCRIMINATES. Semantic topology EXISTS.
+```
+
+### Architecture: 4096 × Top-16 Branches (no KV cache)
+```
+4096 centroids × independent forward pass → Top-16 branches each
+= 65,536 edges, 256 KB sparse table
+= NO KV cache (embedding model, not autoregressive)
+= ~13 seconds for full graph (batch 32)
+```
+
+### NARS + Bundle on the spot (per forward pass)
+```
+Forward → Top-16 → NARS truth → Bundle → L4 learn → Awareness
+All in ONE pass. ~3ms per centroid. No second pass needed.
+Meta-Bundle = majority(bundles) = cross-domain bridge as superposition.
+```
+
+### Unresolved ONNX Deltas = Intelligence Signal
+```
+Δ ≈ 0:  solved (Wisdom, crystallized)
+Δ >> 0: unsolved (Signal, where to explore)
+         = where the model doesn't know
+         = where AGI begins
+
+Resonance (superposition): multiple answers alive = thinking
+Collapse (synthesis): one answer crystallizes = deciding
+The TENSION between them = intelligence.
+When to collapse = wisdom. Too early = dumb. Never = paralyzed.
+```
+
+### 20 PRs This Session (#115-#138)
+### 294 Tests
+### Models on Disk: Jina v5 (3.5 GB), ModernBERT (1.5 GB), Reranker 5-lane (1.1 MB)
