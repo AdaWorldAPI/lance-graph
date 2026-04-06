@@ -23,3 +23,4 @@ jina-v5-codebook/cosine_matrix_*.f32
 jina-v5-codebook/distance_table_4096x4096.u8
 jina-v5-codebook/codebook_index_4096.u16
 jina-v5-codebook/clam_16384_assignments_50000.npy
+qwen3-vl-embedding/
