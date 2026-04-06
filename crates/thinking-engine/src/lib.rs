@@ -42,6 +42,7 @@ pub mod silu_correction;
 pub mod signed_engine;
 pub mod dual_engine;
 pub mod bf16_engine;
+pub mod role_tables;
 pub mod l4_bridge;
 pub mod composite_engine;
 pub mod signed_domino;
