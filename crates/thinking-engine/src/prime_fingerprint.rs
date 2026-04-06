@@ -126,7 +126,91 @@ pub fn prime_cosine(a: &[f32], b: &[f32]) -> f32 {
     if na > 1e-10 && nb > 1e-10 { dot / (na * nb) } else { 0.0 }
 }
 
-/// Build a prime-fingerprint distance table (Hamming-based).
+/// Bundle perturbation: VSA majority-vote over prime fingerprints.
+///
+/// Instead of point perturbation (energy[i] += 1.0), compute
+/// the bundle (superposition) of all source fingerprints.
+/// Then: distance from bundle to each centroid = perturbation strength.
+///
+/// The bundle IS the interference pattern:
+///   Bits where majority agree = constructive (shared prime properties)
+///   Bits where minority = destructive (unique properties, suppressed)
+pub fn bundle_perturb(
+    energy: &mut [f32],
+    source_fingerprints: &[u64],
+    all_fingerprints: &[u64],
+) {
+    let n_sources = source_fingerprints.len();
+    if n_sources == 0 { return; }
+
+    // Majority vote: for each bit, count how many sources have it set
+    let threshold = n_sources / 2;
+    let mut bundle = 0u64;
+    for bit in 0..64 {
+        let count = source_fingerprints.iter()
+            .filter(|&&fp| fp & (1 << bit) != 0)
+            .count();
+        if count > threshold {
+            bundle |= 1 << bit;
+        }
+    }
+
+    // Perturb energy proportional to similarity with bundle
+    let n = all_fingerprints.len().min(energy.len());
+    for j in 0..n {
+        let hamming = prime_hamming(bundle, all_fingerprints[j]);
+        // Low hamming = similar to bundle = high perturbation
+        // Normalize: 0 hamming → 1.0, 64 hamming → -1.0
+        let similarity = 1.0 - 2.0 * hamming as f32 / 64.0;
+        energy[j] += similarity.max(0.0); // only positive perturbation (or clamp later)
+    }
+
+    // Normalize
+    let total: f32 = energy.iter().sum();
+    if total > 1e-10 {
+        let inv = 1.0 / total;
+        for e in energy.iter_mut() { *e *= inv; }
+    }
+}
+
+/// Analyze the bundle: which prime properties are constructive (shared)?
+pub fn bundle_analysis(source_fingerprints: &[u64]) -> BundlePattern {
+    let n = source_fingerprints.len();
+    if n == 0 {
+        return BundlePattern { constructive: vec![], destructive: vec![], bundle: 0 };
+    }
+
+    let threshold = n / 2;
+    let mut bundle = 0u64;
+    let mut constructive = Vec::new();
+    let mut destructive = Vec::new();
+
+    for bit in 0..64u32 {
+        let count = source_fingerprints.iter()
+            .filter(|&&fp| fp & (1 << bit) != 0)
+            .count();
+        if count > threshold {
+            bundle |= 1u64 << bit;
+            constructive.push((PRIMES[bit as usize], count));
+        } else if count > 0 {
+            destructive.push((PRIMES[bit as usize], count));
+        }
+    }
+
+    BundlePattern { constructive, destructive, bundle }
+}
+
+/// Result of bundle analysis.
+#[derive(Debug)]
+pub struct BundlePattern {
+    /// Primes where majority of sources agree (constructive interference).
+    /// (prime, count_of_sources_with_this_prime)
+    pub constructive: Vec<(usize, usize)>,
+    /// Primes where minority of sources have it (destructive, suppressed).
+    pub destructive: Vec<(usize, usize)>,
+    /// The bundle fingerprint (majority vote).
+    pub bundle: u64,
+}
 /// No cosine computation needed. Just XOR + popcount.
 ///
 /// 256 centroids × 8 bytes = 2 KB fingerprints
@@ -256,6 +340,61 @@ mod tests {
         let full_table = 16 * 16 * 4; // 16×16 f32
         eprintln!("Fingerprints: {} bytes vs full table: {} bytes = {:.0}× compression",
             storage, full_table, full_table as f32 / storage as f32);
+    }
+
+    #[test]
+    fn bundle_majority_vote() {
+        let fp1 = 0b1010_1010u64;
+        let fp2 = 0b1010_0110u64;
+        let fp3 = 0b1010_1110u64;
+        // Bit 1: 1+0+1 = 2/3 → set. Bit 2: 0+1+1 = 2/3 → set.
+        let pattern = bundle_analysis(&[fp1, fp2, fp3]);
+        assert!(pattern.bundle & 0b1010_0010 != 0, // bits where all 3 agree
+            "bundle should have majority bits set");
+        assert!(pattern.constructive.len() > 0);
+    }
+
+    #[test]
+    fn bundle_perturb_activates_similar() {
+        // Create fingerprints for 16 "centroids"
+        let fingerprints: Vec<u64> = (0..16).map(|i| {
+            let w: Vec<f32> = (0..256).map(|d| ((i * 7 + d * 3) as f32 * 0.01).sin()).collect();
+            prime_fingerprint_64(&w)
+        }).collect();
+
+        let mut energy = vec![0.0f32; 16];
+        // Perturb with sources 0 and 1 (should be similar)
+        bundle_perturb(&mut energy, &[fingerprints[0], fingerprints[1]], &fingerprints);
+
+        // Atoms similar to the bundle should have more energy
+        assert!(energy.iter().any(|&e| e > 0.0), "some atoms should be activated");
+        let total: f32 = energy.iter().sum();
+        assert!((total - 1.0).abs() < 0.01, "should be normalized");
+    }
+
+    #[test]
+    fn bundle_vs_point_perturbation() {
+        let fingerprints: Vec<u64> = (0..64).map(|i| {
+            let w: Vec<f32> = (0..256).map(|d| ((i * 11 + d * 5) as f32 * 0.01).sin()).collect();
+            prime_fingerprint_64(&w)
+        }).collect();
+
+        // Point perturbation: only 2 atoms active
+        let mut energy_point = vec![0.0f32; 64];
+        energy_point[10] = 0.5;
+        energy_point[50] = 0.5;
+        let point_active = energy_point.iter().filter(|&&e| e > 0.01).count();
+
+        // Bundle perturbation: interference pattern
+        let mut energy_bundle = vec![0.0f32; 64];
+        bundle_perturb(&mut energy_bundle, &[fingerprints[10], fingerprints[50]], &fingerprints);
+        let bundle_active = energy_bundle.iter().filter(|&&e| e > 0.01).count();
+
+        eprintln!("Point: {} active, Bundle: {} active", point_active, bundle_active);
+        // Bundle should activate atoms that share properties with BOTH sources
+        assert!(bundle_active > point_active,
+            "bundle should activate more atoms through interference: {} vs {}",
+            bundle_active, point_active);
     }
 
     #[test]
