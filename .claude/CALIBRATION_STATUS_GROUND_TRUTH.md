@@ -335,3 +335,33 @@ SWEET SPOT ARCHITECTURE:
   3. Combined: ρ ≈ 0.95 (token table + gate correction)
   4. No ONNX needed: corrected = token_cos + 0.5 × gate_delta
 ```
+
+## CROSS-DOMAIN META-AWARENESS (ONNX Meta-ICC)
+
+```
+20 KB ONNX model learns per-pair optimal layer-mix correction:
+  Input:  (centroid_a, centroid_b, basin_a, basin_b)
+  Output: correction delta OR awareness vector [L03, L14, L22, L27]
+  
+  Within-domain pairs: small correction (gate topology similar)
+  Between-domain pairs: large correction (gate topology diverges)  
+  Cross-domain pairs: THE interesting ones — where do domains CONNECT?
+
+The ONNX learns not the domains (that's CLAM/HEEL) but the TRANSITIONS.
+Which layer-combination bridges Domain A to Domain C?
+
+  L03 sees: "different features"
+  L14 sees: "converge on abstraction"
+  L22 sees: "diverge again"
+  Meta-ICC: weight L14 HIGH for this pair (bridge layer)
+
+= Awareness-Layer for the cognitive architecture
+= connects to WorldModel (field = cross-domain bridges)
+= connects to Ghosts (prediction error = surprise = Staunen)
+= connects to Cognitive Stack (L7 Contingency = "why?")
+
+Training: candle autograd, 14K samples, ~5K params, minutes
+Inference: O(1) per pair, 20 KB model
+Improves: when forward pass ground truth becomes available (fine-tune)
+= ONNX = nature (from weights), L4 = nurture (from experience)
+```
