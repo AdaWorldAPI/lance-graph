@@ -365,3 +365,30 @@ Inference: O(1) per pair, 20 KB model
 Improves: when forward pass ground truth becomes available (fine-tune)
 = ONNX = nature (from weights), L4 = nurture (from experience)
 ```
+
+## STACKED SWEET SPOTS (measured April 6 2026)
+
+```
+PAIRWISE (no quantization):
+  Optimal 4-layer blend:    ρ = 0.967  w=(L03:1.0, L14:0.8, L22:0, L25:0.2)
+  Single L03 + 0.5×delta:  ρ = 0.951  (simplest, robust)
+  Dynamic gate-weighted:    ρ = 0.965  (per-pair gate strength)
+
+ACTUAL TABLE LOOKUP (256 centroids):
+  Mean-pair token table:    ρ = 0.607  (4.4× better than u8 CDF centroid)
+  + gate correction:        ρ = 0.594  (WORSE — gate correction needs more centroids)
+  u8 CDF centroid:          ρ = 0.137  (baseline)
+
+Gate correction at K=256: DOES NOT HELP for table lookup.
+  591 tokens/bucket → gate refinement averaged out within bucket.
+  Gate correction becomes effective at K=4096+ (~37 tokens/bucket).
+  At K=16384 (~9 tokens/bucket): gate correction fully effective.
+
+SWEET SPOT FORMULA:
+  Pairwise: corrected = token_cos + 0.5 × (gate_L03_cos - token_cos)
+  Table:    mean-pair from token embeddings (no gate needed at K=256)
+  
+L22 weight = 0: deep layers HURT token topology (divergent).
+L03 dominant: early gate captures relevant structure without diverging.
+ICC overfits (ρ=0.424 < single L03 ρ=0.951): correlated deltas, not independent features.
+```
