@@ -367,6 +367,40 @@ impl ThinkingEngine {
         self.cycles += 1;
     }
 
+    /// Think with temperature-as-excitation. Lower T = sharper peaks.
+    ///
+    /// Applies softmax(energy/T) after each cycle. This exponentiates
+    /// small differences into large ones, breaking the attractor collapse
+    /// on uniform tables. T=1.0 ≈ standard normalization.
+    pub fn think_with_temperature(&mut self, max_cycles: usize, temperature: f32) -> ResonanceDto {
+        for _ in 0..max_cycles {
+            let prev = self.energy.clone();
+            self.cycle();
+
+            // Temperature excitation: softmax(energy / T)
+            let t = temperature.max(0.01);
+            let max_e = self.energy.iter().cloned().fold(0.0f32, f32::max);
+            let mut exp_sum = 0.0f32;
+            for e in &mut self.energy {
+                if *e > 1e-10 {
+                    *e = ((*e - max_e) / t).exp();
+                    exp_sum += *e;
+                }
+            }
+            if exp_sum > 1e-10 {
+                let inv = 1.0 / exp_sum;
+                for e in &mut self.energy { *e *= inv; }
+            }
+
+            let delta: f32 = self.energy.iter().zip(&prev)
+                .map(|(a, b)| (a - b).abs()).sum();
+            if delta < self.convergence_threshold {
+                break;
+            }
+        }
+        ResonanceDto::from_energy_f32(&self.energy, self.cycles)
+    }
+
     /// Run until convergence. Returns the resonance state.
     /// Uses `cycle_auto` which tries VNNI first, falls back to F32x16.
     pub fn think(&mut self, max_cycles: usize) -> ResonanceDto {

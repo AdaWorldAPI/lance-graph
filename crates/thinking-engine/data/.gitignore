@@ -1,2 +1,4 @@
 *.onnx
 *.onnx_data
+tokenizer.json
+*-tokenizer.json
