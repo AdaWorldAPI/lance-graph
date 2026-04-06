@@ -185,3 +185,28 @@ CONFIRMED (architecture):
   L4 is holographic VSA memory (16 KB superposition of all learned bundles)
   Cognitive Shader maps to GPU shared memory (50μs/thought)
 ```
+
+## CRITICAL FIX: Reranker v3 = Qwen3 (discovered April 6 2026)
+
+```
+WRONG (in all previous session docs):
+  Reranker v3 → XLM-RoBERTa (250K vocab, 12 layers, 768 hidden)
+  This was Reranker v2. v3 is completely different.
+
+CORRECT (confirmed from jinaai/jina-reranker-v3/config.json):
+  Reranker v3 → Qwen3 (151K vocab, 28 layers, 1024 hidden, silu)
+  = SAME architecture as Jina v5
+  = SAME tokenizer (Qwen3 BPE)
+  = SAME gate modulation (silu = GeGLU)
+
+Impact:
+  1. Baked reranker lens codebook_index.u16 maps Qwen2 token IDs.
+     Reranker v3 uses Qwen3 tokens. → Needs rebuild.
+
+  2. Reranker v3 and Jina v5 share the same Qwen3 tokenizer.
+     → Cronbach α between them = architecture diff, not tokenizer diff.
+
+  3. has_gate_modulation = true (silu). The 33% SiLU correction applies.
+
+  4. ρ=-0.64 was tokenizer mismatch (Qwen3→Qwen2 codebook). Not real.
+```
