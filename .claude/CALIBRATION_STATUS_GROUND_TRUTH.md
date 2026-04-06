@@ -304,3 +304,91 @@ Pipeline:
   5. CLAM spiral reconstruction on the table → compressed (anfang,ende,stride,gamma)
   6. Runtime: O(1) spiral evaluate for distance, LanceDB for worst-case fallback
 ```
+
+## COMPLETE ROLE COMPARISON (Layer 3, measured April 6 2026)
+
+```
+PAIRWISE COSINE (no quantization):
+  token + 0.5×gate_delta:    ρ = 0.951  ← SWEET SPOT
+  silu(gate) alone:          ρ = 0.845
+  V_proj:                    ρ = 0.818
+  K_proj:                    ρ = 0.779
+  Q_proj:                    ρ = 0.734
+  silu(gate)×up:             ρ = 0.379
+  down(silu(gate)×up):       ρ = 0.220
+
+ACTUAL TABLE LOOKUP (256 centroids, mean-pair):
+  token embeddings:          ρ = 0.616  ← BEST TABLE
+  silu(gate):                ρ = 0.561
+  V_proj:                    ρ = 0.556
+  K_proj:                    ρ = 0.526
+  silu(gate)×up:             ρ = 0.332
+  down output:               ρ = 0.209
+
+TOP-K SPARSE GATE: does NOT help (ρ decreases with sparsity).
+  Gate at layer 3 is too uniform (58% ± 1.1%) for meaningful sparsification.
+  Top-K cuts randomly, doesn't improve signal.
+
+SWEET SPOT ARCHITECTURE:
+  1. CLAM centroids from TOKEN embeddings (best table ρ=0.616)
+  2. Gate-Δ correction from Layer 3: +64 KB i8 delta layer
+  3. Combined: ρ ≈ 0.95 (token table + gate correction)
+  4. No ONNX needed: corrected = token_cos + 0.5 × gate_delta
+```
+
+## CROSS-DOMAIN META-AWARENESS (ONNX Meta-ICC)
+
+```
+20 KB ONNX model learns per-pair optimal layer-mix correction:
+  Input:  (centroid_a, centroid_b, basin_a, basin_b)
+  Output: correction delta OR awareness vector [L03, L14, L22, L27]
+  
+  Within-domain pairs: small correction (gate topology similar)
+  Between-domain pairs: large correction (gate topology diverges)  
+  Cross-domain pairs: THE interesting ones — where do domains CONNECT?
+
+The ONNX learns not the domains (that's CLAM/HEEL) but the TRANSITIONS.
+Which layer-combination bridges Domain A to Domain C?
+
+  L03 sees: "different features"
+  L14 sees: "converge on abstraction"
+  L22 sees: "diverge again"
+  Meta-ICC: weight L14 HIGH for this pair (bridge layer)
+
+= Awareness-Layer for the cognitive architecture
+= connects to WorldModel (field = cross-domain bridges)
+= connects to Ghosts (prediction error = surprise = Staunen)
+= connects to Cognitive Stack (L7 Contingency = "why?")
+
+Training: candle autograd, 14K samples, ~5K params, minutes
+Inference: O(1) per pair, 20 KB model
+Improves: when forward pass ground truth becomes available (fine-tune)
+= ONNX = nature (from weights), L4 = nurture (from experience)
+```
+
+## STACKED SWEET SPOTS (measured April 6 2026)
+
+```
+PAIRWISE (no quantization):
+  Optimal 4-layer blend:    ρ = 0.967  w=(L03:1.0, L14:0.8, L22:0, L25:0.2)
+  Single L03 + 0.5×delta:  ρ = 0.951  (simplest, robust)
+  Dynamic gate-weighted:    ρ = 0.965  (per-pair gate strength)
+
+ACTUAL TABLE LOOKUP (256 centroids):
+  Mean-pair token table:    ρ = 0.607  (4.4× better than u8 CDF centroid)
+  + gate correction:        ρ = 0.594  (WORSE — gate correction needs more centroids)
+  u8 CDF centroid:          ρ = 0.137  (baseline)
+
+Gate correction at K=256: DOES NOT HELP for table lookup.
+  591 tokens/bucket → gate refinement averaged out within bucket.
+  Gate correction becomes effective at K=4096+ (~37 tokens/bucket).
+  At K=16384 (~9 tokens/bucket): gate correction fully effective.
+
+SWEET SPOT FORMULA:
+  Pairwise: corrected = token_cos + 0.5 × (gate_L03_cos - token_cos)
+  Table:    mean-pair from token embeddings (no gate needed at K=256)
+  
+L22 weight = 0: deep layers HURT token topology (divergent).
+L03 dominant: early gate captures relevant structure without diverging.
+ICC overfits (ρ=0.424 < single L03 ρ=0.951): correlated deltas, not independent features.
+```
