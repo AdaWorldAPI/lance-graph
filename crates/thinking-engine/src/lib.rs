@@ -42,6 +42,7 @@ pub mod silu_correction;
 pub mod signed_engine;
 pub mod dual_engine;
 pub mod bf16_engine;
+pub mod f32_engine;
 pub mod role_tables;
 pub mod l4_bridge;
 pub mod composite_engine;
@@ -58,4 +59,5 @@ pub mod cronbach;
 pub mod reencode_safety;
 pub mod spiral_segment;
 pub mod prime_fingerprint;
+pub mod contrastive_learner;
 // ripple.rs deleted: wave simulation wrong, replaced by VSA bundle in prime_fingerprint.rs

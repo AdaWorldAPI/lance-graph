@@ -186,6 +186,7 @@ mod tests {
     use super::*;
 
     fn make_test_codebook(n: usize, spd: usize, seed: u64) -> ClamCodebook {
+        use bgz_tensor::stacked_n::{StackedN, f32_to_bf16};
         let entries: Vec<bgz_tensor::stacked_n::CodebookEntry> = (0..n).map(|i| {
             let data: Vec<u16> = (0..17 * spd).map(|d| {
                 let v = ((i as f64 * 0.1 + d as f64 * 0.03 + seed as f64 * 0.01)

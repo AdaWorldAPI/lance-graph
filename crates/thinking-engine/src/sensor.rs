@@ -222,6 +222,7 @@ impl SensorBank {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::engine::CODEBOOK_SIZE;
 
     #[test]
     fn sensor_new_and_activate() {
@@ -333,7 +334,7 @@ mod tests {
     #[test]
     fn fire_into_engine() {
         // Build a minimal distance table.
-        let table = vec![128u8; CODEBOOK_SIZE * CODEBOOK_SIZE];
+        let table = vec![128u8; 256 * 256];
         let mut engine = ThinkingEngine::new(table);
 
         let s = Sensor::new("inject", vec![42, 100], vec![2.0, 1.0]);
@@ -353,7 +354,7 @@ mod tests {
 
     #[test]
     fn fire_into_adds_to_existing_energy() {
-        let table = vec![128u8; CODEBOOK_SIZE * CODEBOOK_SIZE];
+        let table = vec![128u8; 256 * 256];
         let mut engine = ThinkingEngine::new(table);
 
         // First perturbation via engine.perturb.
