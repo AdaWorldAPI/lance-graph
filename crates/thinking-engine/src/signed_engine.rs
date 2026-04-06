@@ -92,10 +92,17 @@ impl SignedThinkingEngine {
 
     /// Convert an unsigned u8 table to signed i8.
     ///
-    /// Maps u8[0,255] -> i8[-128,+127] by subtracting 128.
-    ///   u8=0   (cos=-1) -> i8=-128 (strong inhibition)
-    ///   u8=128 (cos= 0) -> i8=0    (no influence)
-    ///   u8=255 (cos=+1) -> i8=+127 (strong excitation)
+    /// **WARNING: This relabels CDF percentile RANKS, not cosine values.**
+    /// u8 CDF tables have Mean=127.5, Std=73.6 for ALL models (uniform by design).
+    /// Subtracting 128 produces symmetric i8 values that look signed but carry
+    /// NO gate sign information. The "inhibition" from negative values is an
+    /// artifact of rank shifting, not real cosine negativity.
+    ///
+    /// For REAL signed tables use `from_f32_cosines()` or `build_signed_table()`
+    /// which preserve actual cosine signs from the source weights.
+    ///
+    /// This method exists for quick comparison experiments only.
+    /// DO NOT use for production calibration.
     pub fn from_unsigned(table: &[u8]) -> Self {
         let signed: Vec<i8> = table.iter()
             .map(|&v| (v as i16 - 128) as i8)

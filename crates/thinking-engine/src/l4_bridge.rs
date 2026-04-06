@@ -4,9 +4,12 @@
 //! PARTICLE experience (L4). Every L3 commit becomes a learning
 //! signal for L4 personality.
 //!
-//! The bridge uses distance table rows as centroid proxies:
-//! row[i] = how centroid i relates to all others = its "fingerprint".
-//! XOR-binding two fingerprints = "this relationship" in L4 space.
+//! **LIMITATION**: Uses distance table rows as centroid proxies.
+//! A table row is a list of DISTANCES (how far centroid i is from all others),
+//! NOT the centroid vector itself. This is a lossy approximation.
+//! For accurate L4 learning, use the real centroid vectors (f32, from CLAM).
+//! Real centroids are only available for Qwopus (5120D, 80 MB in Release).
+//! For the 256×256 HDR lenses, centroid vectors are NOT stored.
 //!
 //! ```text
 //! L3 commit (BusDto)
