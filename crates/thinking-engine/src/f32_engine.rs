@@ -123,8 +123,10 @@ impl F32ThinkingEngine {
             }
         }
 
-        // Softmax with temperature (default T=0.1 for sharp focus)
-        let inv_t = 10.0f32; // 1/T where T=0.1
+        // Softmax with temperature (default T=0.01 for maximum focus)
+        // T=0.01 gives 100% top-5 agreement with plain cosine on 256 centroids.
+        // T=0.1 gives 70% on Qwen3-VL. Lower T = sharper = better.
+        let inv_t = 100.0f32; // 1/T where T=0.01
         let max_e = next.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
         let mut exp_sum = 0.0f32;
         for e in &mut next {
@@ -252,6 +254,104 @@ impl F32ThinkingEngine {
             cycle_count: self.cycles,
             converged: resonance.converged,
         }
+    }
+}
+
+/// Sparse branch graph: top-K neighbors per centroid.
+/// 256× sparser than dense, prevents diffusion on large tables.
+///
+/// Use for 4096+ centroids where dense MatVec collapses.
+/// 4096×16 = 65K edges in 512 KB (vs 64 MB dense).
+pub struct SparseBranchGraph {
+    /// Per-centroid: indices of top-K neighbors.
+    /// Shape: [n_centroids][k]
+    pub indices: Vec<Vec<u32>>,
+    /// Per-centroid: cosine values to top-K neighbors.
+    /// Shape: [n_centroids][k]
+    pub values: Vec<Vec<f32>>,
+    /// Number of centroids.
+    pub n: usize,
+    /// Neighbors per centroid.
+    pub k: usize,
+}
+
+impl SparseBranchGraph {
+    /// Build sparse top-K branch graph from dense f32 cosine matrix.
+    pub fn from_dense(cosines: &[f32], n: usize, k: usize) -> Self {
+        assert_eq!(cosines.len(), n * n);
+        let mut indices = Vec::with_capacity(n);
+        let mut values = Vec::with_capacity(n);
+
+        for i in 0..n {
+            let row = &cosines[i * n..(i + 1) * n];
+            // Collect (value, index) pairs, excluding self
+            let mut pairs: Vec<(f32, u32)> = row.iter().enumerate()
+                .filter(|&(j, _)| j != i)
+                .map(|(j, &v)| (v, j as u32))
+                .collect();
+            // Partial sort: top-K by descending cosine
+            pairs.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+            pairs.truncate(k);
+
+            indices.push(pairs.iter().map(|p| p.1).collect());
+            values.push(pairs.iter().map(|p| p.0).collect());
+        }
+
+        Self { indices, values, n, k }
+    }
+
+    /// Sparse softmax thinking on the branch graph.
+    /// Only top-K neighbors contribute per active atom.
+    pub fn think(&self, initial: &[u16], max_cycles: usize, temperature: f32) -> Vec<f32> {
+        let n = self.n;
+        let inv_t = 1.0 / temperature.max(0.001);
+        let mut energy = vec![0.0f32; n];
+
+        // Perturb
+        for &idx in initial {
+            if (idx as usize) < n {
+                energy[idx as usize] += 1.0;
+            }
+        }
+        let total: f32 = energy.iter().sum();
+        if total > 1e-10 {
+            let inv = 1.0 / total;
+            for e in &mut energy { *e *= inv; }
+        }
+
+        // Think
+        for _ in 0..max_cycles {
+            let mut next = vec![0.0f32; n];
+
+            for i in 0..n {
+                if energy[i] < 1e-15 { continue; }
+                for ki in 0..self.k.min(self.indices[i].len()) {
+                    let j = self.indices[i][ki] as usize;
+                    next[j] += self.values[i][ki] * energy[i];
+                }
+            }
+
+            // Softmax
+            let max_e = next.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+            let mut exp_sum = 0.0f32;
+            for e in &mut next {
+                *e = ((*e - max_e) * inv_t).exp();
+                exp_sum += *e;
+            }
+            if exp_sum > 1e-10 {
+                let inv = 1.0 / exp_sum;
+                for e in &mut next { *e *= inv; }
+            }
+
+            energy = next;
+        }
+
+        energy
+    }
+
+    /// Storage size in bytes.
+    pub fn size_bytes(&self) -> usize {
+        self.n * self.k * (4 + 4) // u32 index + f32 value per edge
     }
 }
 
