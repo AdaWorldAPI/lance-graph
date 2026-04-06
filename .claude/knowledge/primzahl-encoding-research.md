@@ -207,3 +207,60 @@ Like: complex numbers have real (additive) + imaginary (multiplicative) part.
    → probably: BF16 for values (hardware) + Zeckendorf for positions (optimal coverage)
    → Primzahl only if inter-dim correlation > threshold (empirical: check on real weights)
 ```
+
+## EMPIRICAL: Information Density per Bit
+
+```
+System          Bits    Range (bits)    Per-bit efficiency    Density in [-1,+1]
+──────          ────    ────────────    ──────────────────    ──────────────────
+Binary          16      16.0            1.00                  65,536 values (100%)
+BF16            16      256 (exp) + 7   ~16.4                 ~256 values in [-1,+1]
+16 Primes 1-bit 16      64.8            4.05                  ~200 smooth values ✗
+32 Primes 1-bit 32      168.5           5.27                  ~2000 smooth values
+64 Primes 1-bit 64      416.2           6.50                  ~5000 smooth values
+
+Paradox:
+  Prime bits carry 4-6× MORE range per bit than binary.
+  BUT: only smooth numbers representable → 94-99% density loss.
+  
+  = Wide-angle lens: sees FAR (huge range) but BLURRY (sparse values)
+  Binary = telephoto: sees NARROW but SHARP (every value representable)
+  BF16 = BOTH: exponent=wide-angle + mantissa=telephoto
+
+For distance tables (cosines in [-1, +1]):
+  We need ~256 distinct values (BF16 mantissa)
+  in range [-1, +1] (tiny range)
+  → binary/BF16 wins (right range, right density)
+  → prime encoding loses (huge range wasted, sparse where we need dense)
+
+For FINGERPRINTING (Hamming distance between centroid properties):
+  We need UNIQUE bit patterns (not specific values)
+  → prime encoding wins (each bit = independent property)
+  → Hamming(prime_fingerprint_A, prime_fingerprint_B) = meaningful distance
+  → THIS IS L4Experience / Fingerprint<256> with prime-semantic bits
+```
+
+## WHERE PRIME ENCODING ACTUALLY WINS
+
+```
+NOT for: storing cosine values (BF16 is better)
+NOT for: arithmetic operations (binary is native)
+
+YES for: FINGERPRINTING centroids
+  Each bit = "does this centroid have property P_i?"
+  P₀ = "divisible by 2" (even symmetry)
+  P₁ = "divisible by 3" (triple symmetry)
+  ...
+  P₆₃ = "divisible by 311" (311-fold structure)
+  
+  Hamming distance = number of unshared properties
+  = natural similarity metric for categorical properties
+  = exactly what Fingerprint<256> does, but with MEANING per bit
+
+YES for: ADDRESSING in the spiral
+  n×p₀ + n×p₁ + ... = linear combination with prime basis
+  Each prime = a basis vector with KNOWN frequency
+  Primes are INDEPENDENT (no prime divides another)
+  = orthogonal basis in number-theoretic sense
+  = better than standard basis for periodic structures (Fourier-like)
+```
