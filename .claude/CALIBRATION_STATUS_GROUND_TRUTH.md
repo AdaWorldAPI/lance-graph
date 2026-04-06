@@ -275,3 +275,32 @@ Combined with hierarchical K=16384 + HEEL diff:
   = near 1:1 token precision
   = 34.5 KB spiral compressed (HEEL + Δ_hip + Δ_twig)
 ```
+
+## LANCEDB RABITQ FOR SORTING, CLAM FOR RECONSTRUCTION
+
+```
+LanceDB:  Sortierung + Indexierung
+  IVF partitions = HEEL (bucket assignment)
+  PQ subspaces = HIP (sub-quantization)
+  RaBitQ = TWIG/LEAF (bit-quantized residuals)
+  mean-pair cosine over partitions = distance table (for free)
+  No CLAM needed for sorting. LanceDB does it at index time.
+
+CLAM:  Spiral Rekonstruktion
+  Golden-step folding (17 bins × SPD)
+  Spiral segment: (anfang, ende, stride, gamma) = 8 bytes/row
+  Δ_hip, Δ_twig corrections
+  Re-encode safe (idempotent, x256 proven)
+  highheelbgz addressing (SpiralAddress, CoarseBand)
+
+LanceDB = WO  (index, search, partition, rank)
+CLAM    = WIE (reconstruct, compress, encode, decode)
+
+Pipeline:
+  1. Embed tokens → LanceDB table (store originals)
+  2. CREATE INDEX IVF_PQ → partitions = buckets (LanceDB does this)
+  3. Extract partition assignments → codebook_index (read from LanceDB)
+  4. For each partition pair: mean-pair cosine → distance table (from LanceDB data)
+  5. CLAM spiral reconstruction on the table → compressed (anfang,ende,stride,gamma)
+  6. Runtime: O(1) spiral evaluate for distance, LanceDB for worst-case fallback
+```
