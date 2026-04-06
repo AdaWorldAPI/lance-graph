@@ -319,3 +319,36 @@ Spiral reconstruction from Zeckendorf:
   Reconstruction = evaluate the spiral BETWEEN Fibonacci positions
   This is optimal because Fibonacci spacing = φ-optimal coverage
 ```
+
+## 7. VSA SUPERPOSITION: L4 AS HOLOGRAPHIC MEMORY
+
+```
+L4 accum[16384] = one high-dimensional vector
+  = superposition of ALL learned bundles
+  = holographic: whole memory in one vector, queries extract their part
+
+learn(bundle, +1): accum += bundle    (expose hologram)
+learn(bundle, -1): accum -= bundle    (negative exposure)
+recognize(bundle): dot(accum, bundle) → retrieval strength
+
+Capacity: ~√16384 ≈ 128 orthogonal bundles
+  After 128: interference noise rises → forgetting (i8 saturation)
+  = biological synaptic plasticity
+
+L3 (4096²) = 16M wave propagation space
+L4 (16384) = holographic interference storage
+L4 × L4    = 256M implicit correlations (not stored, emergent)
+
+Feedback loop:
+  L3 waves → commit → L4 learn (holographic exposure)
+  L4 recognize → bias → L3 perturbation (experience guides waves)
+  = 16M RL in superposition resonance
+
+Bundle perturbation:
+  Point: 2 atoms active
+  VSA bundle: 33 atoms active (16× through interference)
+  L4 recognize decides: fire (reward) or inhibit (punish)
+  = Hebb learning on holographic memory
+  = no backprop, no gradient, no GPU
+  = i8 saturating add/sub, 16 KB, microseconds
+```
