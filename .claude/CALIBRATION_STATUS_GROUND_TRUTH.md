@@ -392,3 +392,26 @@ L22 weight = 0: deep layers HURT token topology (divergent).
 L03 dominant: early gate captures relevant structure without diverging.
 ICC overfits (ρ=0.424 < single L03 ρ=0.951): correlated deltas, not independent features.
 ```
+
+## 8 ISOLATED EXPERIMENTS (measured April 6, fresh, no assumptions)
+
+```
+2000 tokens, 500 random pairs, ground truth = token embedding cosine
+
+  V5: token+0.5×gate_delta    ρ = 0.951  BEST (pairwise, no table)
+  V4: gate L3 cosine alone     ρ = 0.839  gate BEATS all tables!
+  V2: mean-pair table (K=256)  ρ = 0.473  best table method
+  V3: i8 signed mean-pair      ρ = 0.469  i8 ≈ f32 confirmed
+  V1: centroid cosine (K=256)  ρ = 0.320  baseline
+  V6: IDF-weighted mean-pair   ρ = 0.272  IDF HURTS
+  V7: prime fingerprint 32-bit ρ = 0.177  weak at token level
+  V8: bundle Jaccard top-8     ρ = 0.027  random
+
+SURPRISE: gate L3 projection = BETTER representation space.
+  Not a correction to token cosine — a better PRIMARY source.
+  Gate learned topology closer to semantics during SiLU training.
+
+IDF HURTS: frequent centroids NOT less informative at token level.
+Prime fingerprint WEAK: needs output embeddings, not token embeddings.
+i8 ≈ f32: encoding precision irrelevant (confirmed 3rd time).
+```
