@@ -211,28 +211,41 @@ Impact:
   4. ρ=-0.64 was tokenizer mismatch (Qwen3→Qwen2 codebook). Not real.
 ```
 
-## CALIBRATION ERROR BUDGET (measured April 6 2026)
+## CALIBRATION ERROR BUDGET (measured April 6 2026, CORRECTED)
 
 ```
-Jina v5, 256 centroids, pairwise cosine Spearman ρ:
+Jina v5, 256 centroids, pairwise CENTROID cosine Spearman ρ:
 
   Pipeline stage          ρ vs raw 1024D    Δρ         Verdict
   ──────────────          ──────────────    ──         ───────
   Raw 1024D cosine        1.0000            —          ground truth
   u8 CDF encoding         1.0000            0.000      PERFECT
   i8 direct encoding      0.9973            0.003      near-perfect
-  BF16 truncation         (same as StackedN) 0.000     irrelevant
-  StackedN (17×SPD=32)    0.7302            0.270      DOMINANT ERROR
+  BF16 truncation          —                0.000      irrelevant
 
-Error budget:
-  StackedN folding:  27% of rank order lost  ← FIX THIS
-  BF16 truncation:    0% lost                ← irrelevant
-  u8/i8 encoding:     0% lost                ← irrelevant
+CENTROID PAIRS ARE ALWAYS 1:1 FULL RESOLUTION (1024D f32).
+  The centroids are NEVER compressed. Only the TABLE VALUE is quantized.
+  cos(centroid_i, centroid_j) → u8 CDF = ρ=1.000 = PERFECT.
+
+CORRECTION: StackedN ρ=0.73 was a TEST ERROR.
+  StackedN is for WEIGHT ROW streaming, NOT for centroid encoding.
+  Centroids are always full 1024D. Never folded to 544D.
+  The 27% "loss" was from folding centroids through StackedN,
+  which nobody does. The centroids stay 1:1.
+
+The REAL error is CLAM bucket assignment (151K tokens → K buckets):
+  K=256:    ρ=0.14  (~591 tokens/bucket, many collisions)
+  K=4096:   ρ=0.44  (~37 tokens/bucket, fewer collisions)
+  K=16384:  ρ=0.54  (~9 tokens/bucket, near 1:1)
+  
+  Within-bucket: distance=0 (wrong for non-centroid tokens)
+  Between-bucket: distance=cos(c_i, c_j) = EXACT
+  More buckets = fewer within-bucket collisions = better ρ
 
 Conclusions:
-  1. u8 CDF is PERFECT (ρ=1.0). The i8 vs u8 vs BF16 debate was unnecessary.
-  2. StackedN (1024D → 544D golden-step) is the ONLY bottleneck.
-  3. ICC/correction should target StackedN error, not encoding error.
-  4. More SPD (64? 128?) or skip StackedN entirely (use raw centroids).
-  5. For ENCODING-ONLY (no StackedN): u8 CDF is the winner. Simplest, perfect.
+  1. u8 CDF is PERFECT for centroid pair encoding (ρ=1.000).
+  2. i8/BF16/γ+φ debate was unnecessary for encoding precision.
+  3. CLAM bucket count is the ONLY knob that matters.
+  4. Bucket count >> bucket precision (proven: u8≈f32, K=256≠K=4096).
+  5. StackedN is for streaming/compression of weight rows, not for centroids.
 ```
