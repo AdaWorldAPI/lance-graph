@@ -33,11 +33,9 @@ pub mod calibration {
     impl GroundTruthEmbedding {
         /// Cosine similarity with another embedding.
         pub fn cosine(&self, other: &GroundTruthEmbedding) -> f32 {
-            let dot: f32 = self.embedding.iter().zip(&other.embedding)
-                .map(|(a, b)| a * b).sum();
-            let na: f32 = self.embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
-            let nb: f32 = other.embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
-            if na > 1e-10 && nb > 1e-10 { dot / (na * nb) } else { 0.0 }
+            ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd(
+                &self.embedding, &other.embedding
+            ) as f32
         }
     }
 
