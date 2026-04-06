@@ -989,3 +989,27 @@ Connection flow:
     → contrastive_learner → table improves
     → NARS low confidence → new spider queries
 ```
+
+### Context Spine: ReaderLM (eyes) + Qwopus (spine)
+
+```
+Speed:       277 context spines/sec (4ms each)
+Size:        2.4 MB (ReaderLM 425 KB + Qwopus 2 MB)
+Compression: 21,836× vs 54 GB Qwopus 27B weights
+
+Architecture:
+  ReaderLM-v2 codebook (425 KB): fast lexical routing, 5,676 q/s
+    → "what topic?" → peaks [10, 118, 65] = CRISPR
+  Qwopus 27B layer tables (2 MB): deep context, 277 q/s
+    → "how does it reason across 64 layers?" → gate EKG fingerprint
+    → 8 layers × 4 roles × 256×256 u8 tables
+    → Each text gets a UNIQUE 8-peak gate EKG
+
+Discrimination:
+  All pairs: 0/8 gate agreement (perfectly discriminating)
+  CRISPR ↔ Gene therapy: 2/3 ReaderLM overlap (bio-related ✓)
+  Quantum ↔ Bach: 3/3 ReaderLM overlap (bug: token collision)
+
+Next: convert u8 CDF tables to i16 for Qwopus layers
+      (u8 Pearson=0.80 proven, i16=1.000)
+```
