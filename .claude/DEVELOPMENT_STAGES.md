@@ -690,3 +690,25 @@ r=1.000 on surviving edges (perfect fidelity on confident pairs)
 Belichtungsmesser is both BETTER and SMALLER than naive top-K.
 But 256 dense still wins for same-size comparison.
 ```
+
+### Kurvenlineal Reconstruction: Correction of Earlier Analysis
+
+```
+EARLIER CLAIM: stride sampling ρ=0.02 (wrong, different codebook sets)
+ACTUAL RESULT: stride=4 reconstruction ρ=0.64, top-5=64% (Catmull-Rom)
+
+Method                       ρ vs GT    Top-5
+Full 1024D i16               1.0000     100%
+Catmull-Rom stride=4         0.641       64%
+Subspace only stride=4       0.651        —   (subspace > reconstruction!)
+Catmull-Rom stride=11        0.487       46%
+Subspace only stride=11      0.514        —
+
+Subspace cosine WITHOUT reconstruction beats Catmull-Rom WITH reconstruction.
+The reconstruction adds noise — the missing dimensions are essentially random.
+
+Use case:
+  Full 1024D: DISTANCE TABLE (100% fidelity, the brain)
+  Stride-4 subspace: ROUTING/FILTERING (65% fidelity, cheap first pass)
+  This IS the Belichtungsmesser: cheap route, then exact think.
+```
