@@ -304,3 +304,34 @@ Pipeline:
   5. CLAM spiral reconstruction on the table → compressed (anfang,ende,stride,gamma)
   6. Runtime: O(1) spiral evaluate for distance, LanceDB for worst-case fallback
 ```
+
+## COMPLETE ROLE COMPARISON (Layer 3, measured April 6 2026)
+
+```
+PAIRWISE COSINE (no quantization):
+  token + 0.5×gate_delta:    ρ = 0.951  ← SWEET SPOT
+  silu(gate) alone:          ρ = 0.845
+  V_proj:                    ρ = 0.818
+  K_proj:                    ρ = 0.779
+  Q_proj:                    ρ = 0.734
+  silu(gate)×up:             ρ = 0.379
+  down(silu(gate)×up):       ρ = 0.220
+
+ACTUAL TABLE LOOKUP (256 centroids, mean-pair):
+  token embeddings:          ρ = 0.616  ← BEST TABLE
+  silu(gate):                ρ = 0.561
+  V_proj:                    ρ = 0.556
+  K_proj:                    ρ = 0.526
+  silu(gate)×up:             ρ = 0.332
+  down output:               ρ = 0.209
+
+TOP-K SPARSE GATE: does NOT help (ρ decreases with sparsity).
+  Gate at layer 3 is too uniform (58% ± 1.1%) for meaningful sparsification.
+  Top-K cuts randomly, doesn't improve signal.
+
+SWEET SPOT ARCHITECTURE:
+  1. CLAM centroids from TOKEN embeddings (best table ρ=0.616)
+  2. Gate-Δ correction from Layer 3: +64 KB i8 delta layer
+  3. Combined: ρ ≈ 0.95 (token table + gate correction)
+  4. No ONNX needed: corrected = token_cos + 0.5 × gate_delta
+```
