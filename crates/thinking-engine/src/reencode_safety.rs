@@ -406,6 +406,90 @@ mod tests {
     }
 
     #[test]
+    fn prime_strides_coverage() {
+        let n_octaves = 302;
+        let n_families = 4;
+        let primes = [5, 7, 11, 13, 17];
+
+        for &stride in &primes {
+            let samples_per_family = n_octaves / stride;
+            let total_offsets = stride;
+            let validation_slots = total_offsets - n_families;
+
+            // Check coverage with 4 families
+            let mut covered = vec![false; n_octaves];
+            for family in 0..n_families {
+                let mut oct = family;
+                while oct < n_octaves {
+                    covered[oct] = true;
+                    oct += stride;
+                }
+            }
+            let coverage = covered.iter().filter(|&&c| c).count();
+            let pct = coverage as f32 / n_octaves as f32 * 100.0;
+
+            // Check for GOLDEN property: stride=11 = GOLDEN_STEP
+            let is_golden = stride == 11;
+
+            eprintln!("stride={:2} ({}): {}/{} octaves ({:.1}%), {} samples/family, {} validation slots{}",
+                stride,
+                if is_golden { "GOLDEN" } else { "prime " },
+                coverage, n_octaves, pct,
+                samples_per_family,
+                validation_slots,
+                if is_golden { " ← GOLDEN_STEP" } else { "" });
+
+            // All prime strides with 4 offsets give exactly 4/stride coverage
+            let expected_pct = (n_families as f32 / stride as f32) * 100.0;
+            assert!((pct - expected_pct).abs() < 5.0,
+                "stride={}: expected ~{:.0}% coverage, got {:.1}%", stride, expected_pct, pct);
+
+            // Re-encode safety for each family
+            for family in 0..n_families {
+                let r = test_full_chain_reencode(
+                    0.15 + family as f64 * 0.001,
+                    1.50, 0.23, 256,
+                );
+                assert!(r.safe, "stride={} family={} must be safe", stride, family);
+            }
+        }
+    }
+
+    #[test]
+    fn golden_stride_11_vs_stride_4() {
+        // stride=4 (composite): 4 families = 100% coverage, 0 validation
+        // stride=11 (prime, GOLDEN_STEP): 4 families = 36% + 7 validation slots
+        //
+        // stride=11 trades coverage for validation:
+        //   each family sees fewer octaves (27 vs 75)
+        //   but 7 extra slots can cross-check (Cronbach α inline)
+        //
+        // For ENCODING: stride=4 (100% coverage, no waste)
+        // For CALIBRATION: stride=11 (7 validation channels)
+
+        let n = 302;
+
+        // stride=4: families see different octaves, full coverage
+        let stride4_coverage = n; // 4/4 = 100%
+        let stride4_samples = n / 4; // 75 per family
+
+        // stride=11: families see 4/11 of octaves
+        let stride11_coverage = (n as f32 * 4.0 / 11.0).ceil() as usize;
+        let stride11_samples = n / 11; // 27 per family
+        let stride11_validation = 11 - 4; // 7 validation slots
+
+        eprintln!("stride=4:  {} coverage, {} samples/family, 0 validation",
+            stride4_coverage, stride4_samples);
+        eprintln!("stride=11: ~{} coverage, {} samples/family, {} validation (Cronbach α)",
+            stride11_coverage, stride11_samples, stride11_validation);
+        eprintln!();
+        eprintln!("Decision:");
+        eprintln!("  ENCODING:    stride=4  (100% coverage, all data used)");
+        eprintln!("  CALIBRATION: stride=11 (golden step, 7 validation channels)");
+        eprintln!("  PRODUCTION:  stride=4 encode + stride=11 validate");
+    }
+
+    #[test]
     fn heel_vs_hip_different_stride() {
         // HEEL: coarse routing, stride=16 (broad coverage)
         // HIP:  fine discrimination, stride=4 (narrow coverage)
