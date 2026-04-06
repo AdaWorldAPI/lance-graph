@@ -902,3 +902,28 @@ Jina Reranker v3   151936   Qwen3 BPE     YES
 Qwen3-VL-Embed     151936   Qwen3 BPE     YES
 Qwen3.5 models     TBD      Qwen3.5 BPE   LIKELY (same family)
 ```
+
+### ReaderLM-v2 HighHeelBGZ Encoding (MILESTONE)
+
+```
+ReaderLM-v2: 1536D, 151936 vocab, 28 layers (Qwen2.5 base)
+  Cosine: [-0.858, 0.532] mean=0.146
+
+Encoding results:
+  f32:  100% top-5, 256 KB
+  i16:  100% top-5, 128 KB  ← SWEET SPOT (7,127× compression)
+  i8:    94% top-5,  64 KB
+
+Full OSINT pipeline (pure Rust, zero Python):
+  spider-rs → raw HTML → ReaderLM-v2 (candle, BF16) → clean markdown
+  → Qwen tokenizer (151936) → codebook_index.u16 → centroids
+  → F32ThinkingEngine (softmax T=0.01) → peaks
+  → ContrastiveLearner → table improves
+
+Garbage detection via codebook:
+  Good output → 15+ unique centroids → diverse peaks
+  Bad output  → 1-2 centroids → single peak (entropy < 1.0)
+  Use entropy as quality gate: if H < 1.0 → retry/skip
+
+Release: v0.3.0 readerlm-v2-256.tar.gz (500 KB)
+```
