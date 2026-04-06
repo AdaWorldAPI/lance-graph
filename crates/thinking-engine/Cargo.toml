@@ -34,6 +34,8 @@ calibration = ["dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "d
 [dev-dependencies]
 rayon = "1.10"
 tokenizers = { version = "0.22", features = ["http"] }
+safetensors = "0.4"
+half = "2.4"
 
 [patch.crates-io]
 tokenizers = { path = "../../../tokenizers/tokenizers" }
