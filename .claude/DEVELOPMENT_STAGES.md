@@ -1044,3 +1044,46 @@ The semantic table IS the oracle for DeepNSM's SPO extraction:
   → if score < 0.2: reject (false relation)
   → between: uncertain → need forward pass to decide
 ```
+
+### Wikidata Streaming SPO Architecture (Railway 700 MB budget)
+
+```
+Memory budget: 700 MB (Railway Pro)
+
+FIXED (35 MB):
+  COCA 4096² i16:     32 MB
+  Semantic 256² i16:   0.1 MB
+  Qwopus 8L gates:     2 MB
+  ReaderLM codebook:   0.4 MB
+
+ENTITY INDEX (220 MB max):
+  Full Wikidata: 110M entities × u16 = 220 MB
+  English only:  15M entities × u16 = 30 MB
+
+ARIGRAPH WORKING SET (445 MB):
+  ~22M NARS-valued triples (SPO + truth + timestamp)
+  LRU eviction: drop lowest-confidence triples when near limit
+  Scientific 20K routing cache: ~1 MB
+
+STREAMING (not batch):
+  Wikidata SPARQL endpoint → stream 1 triple at a time
+  spider-rs crawled pages → stream SPO from extractor
+  Both feed: AriGraph.revise_with_evidence()
+  NARS truth accumulates over time
+  Low-confidence evicted → high-confidence persists
+
+  Sources:
+    1. Wikidata SPARQL: live, rate-limited, structured
+    2. spider-rs + ReaderLM: web crawl, unstructured → SPO
+    3. User queries: each query is evidence → NARS revision
+    4. Contrastive learning: each lookup teaches the table
+
+  The knowledge base is ALIVE:
+    New evidence → revise → evict stale → grow confident
+    Not a snapshot — a continuously learning system
+
+ReaderLM-v2 (3 GB) runs OFFLINE or on separate worker:
+  Local: candle forward pass, 1.8 tok/s
+  Worker: GPU inference, 100+ tok/s
+  Railway: codebooks only (35 MB), no model weights
+```
