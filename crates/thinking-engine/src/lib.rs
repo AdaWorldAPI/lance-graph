@@ -57,3 +57,4 @@ pub mod ground_truth;
 pub mod cronbach;
 pub mod reencode_safety;
 pub mod spiral_segment;
+pub mod prime_fingerprint;
