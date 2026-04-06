@@ -1,0 +1,61 @@
+{
+  "model": "jina-reranker-v3-BF16",
+  "source_gguf": "jina-reranker-v3-BF16.gguf",
+  "n_centroids": 256,
+  "vocab_size": 151936,
+  "hidden_dim": 1024,
+  "cosine_range": [
+    -0.886179,
+    0.825638
+  ],
+  "cosine_mean": 0.005075,
+  "encoding_lanes": {
+    "lane_1_u8_cdf": {
+      "file": "distance_table_256x256.u8",
+      "encoding": "CDF_percentile",
+      "metadata_bytes": 0,
+      "note": "pure rank, no decode metadata needed"
+    },
+    "lane_2_i8_direct": {
+      "file": "distance_table_256x256.i8",
+      "encoding": "round(cos * 127)",
+      "scale": 127.0,
+      "note": "signs preserved from f32 cosine"
+    },
+    "lane_3_u8_gamma_phi": {
+      "file": "distance_table_256x256.gamma_phi.u8",
+      "encoding": "gamma_phi_CDF",
+      "role_gamma": 0.191019,
+      "phi_scale": 0.886179,
+      "note": "golden ratio redistribution, auto-calibrated gamma from cosine distribution"
+    },
+    "lane_4_i8_gamma_phi_signed": {
+      "file": "distance_table_256x256.gamma_phi.i8",
+      "encoding": "gamma_phi_signed",
+      "role_gamma": 0.191019,
+      "phi_scale": 0.886179,
+      "note": "gamma+phi on signed range, signs preserved"
+    },
+    "lane_5_silu_correction": {
+      "file": "silu_deltas_256x256.f32",
+      "encoding": "f32_delta",
+      "note": "cos(silu(gate)*up) - cos(raw). Zero for token_embd (no gate)."
+    },
+    "lane_6_bf16_direct": {
+      "file": "distance_table_256x256.bf16",
+      "encoding": "f32_to_bf16_truncate",
+      "max_roundtrip_error": 0.0039
+    },
+    "lane_7_spiral_drift": {
+      "file": "spiral_drift_256x256.u8",
+      "encoding": "neighbor_correlation_drift",
+      "stride": 11,
+      "avg_drift": 0.71282,
+      "max_drift": 1.666678
+    }
+  },
+  "ei_ratio": 0.5022,
+  "positive_pairs": 16392,
+  "negative_pairs": 15822,
+  "zero_pairs": 426
+}
