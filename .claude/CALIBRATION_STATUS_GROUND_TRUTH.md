@@ -249,3 +249,29 @@ Conclusions:
   4. Bucket count >> bucket precision (proven: u8≈f32, K=256≠K=4096).
   5. StackedN is for streaming/compression of weight rows, not for centroids.
 ```
+
+## MEAN-PAIR TABLE: 2.9× BETTER (measured April 6 2026)
+
+```
+K=256, same table size, same O(1) lookup:
+
+  Centroid cosine:  ρ = 0.137  (cos of bucket CENTRES)
+  Mean-pair cosine: ρ = 0.391  (average cos of TOKEN PAIRS in bucket)
+  
+  Δρ = +0.254 (2.9× improvement)
+
+The table is a DISTANCE LOOKUP, not a cosine of centroids.
+  WRONG: table[a][b] = cos(centroid_a, centroid_b)
+  RIGHT: table[a][b] = mean(cos(token∈bucket_a, token∈bucket_b))
+
+cos(centroid) ignores within-cluster spread.
+mean(cos(tokens)) measures actual pairwise distances.
+
+Same 128 KB. Same O(1). Just BETTER VALUES in the table.
+
+Combined with hierarchical K=16384 + HEEL diff:
+  table[a][b] at K=16384 with mean-pair values
+  = ~9 tokens/bucket × mean-pair cosine
+  = near 1:1 token precision
+  = 34.5 KB spiral compressed (HEEL + Δ_hip + Δ_twig)
+```
