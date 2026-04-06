@@ -18,3 +18,5 @@ xlm-roberta-de/
 *-dual/
 jina-v5-onnx/
 modernbert-onnx/
+# Keep tables + index, ignore large f32 matrices
+jina-v5-codebook/cosine_matrix_*.f32
