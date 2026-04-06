@@ -16,3 +16,5 @@ f16-role-tables/
 xlm-roberta-de/
 *-5lane/
 *-dual/
+jina-v5-onnx/
+modernbert-onnx/
