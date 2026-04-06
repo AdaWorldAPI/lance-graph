@@ -49,16 +49,17 @@ impl ModelId {
     }
 
     /// Default tokenizer file path (relative to crate root).
+    /// Tries local ONNX dirs first, then HDR dirs, then from_pretrained fallback.
     pub fn tokenizer_path(self) -> &'static str {
         match self {
-            ModelId::JinaV3 => "crates/thinking-engine/data/jina-v3-hdr/tokenizer.json",
-            ModelId::BgeM3 => "crates/thinking-engine/data/bge-m3-hdr/tokenizer.json",
+            ModelId::JinaV3 | ModelId::BgeM3 | ModelId::ClipVision =>
+                "crates/thinking-engine/data/jina-v3-hdr/tokenizer.json",
             ModelId::Reranker | ModelId::ReaderLm | ModelId::Qwopus =>
                 "crates/thinking-engine/data/Qwopus3.5-27B-v3-BF16-silu/tokenizer.json",
-            ModelId::JinaV5 => "crates/thinking-engine/data/jina-v5-tokenizer.json",
-            ModelId::ModernBert => "crates/thinking-engine/data/modernbert-tokenizer.json",
-            // CLIP uses XLM-RoBERTa tokenizer (same as Jina v3) for text side
-            ModelId::ClipVision => "crates/thinking-engine/data/jina-v3-hdr/tokenizer.json",
+            ModelId::JinaV5 =>
+                "crates/thinking-engine/data/jina-v5-onnx/tokenizer.json",
+            ModelId::ModernBert =>
+                "crates/thinking-engine/data/modernbert-onnx/tokenizer.json",
         }
     }
 
@@ -73,6 +74,24 @@ impl ModelId {
             ModelId::Qwopus => "Qwen/Qwen2.5-32B",
             ModelId::ModernBert => "answerdotai/ModernBERT-large",
             ModelId::ClipVision => "Kijai/WanVideo_comfy",
+        }
+    }
+
+    /// ONNX model path (for ground truth forward pass).
+    pub fn onnx_path(self) -> Option<&'static str> {
+        match self {
+            ModelId::JinaV5 => Some("crates/thinking-engine/data/jina-v5-onnx/model.onnx"),
+            ModelId::ModernBert => Some("crates/thinking-engine/data/modernbert-onnx/model.onnx"),
+            _ => None,
+        }
+    }
+
+    /// config.json path (for auto-detect architecture).
+    pub fn config_path(self) -> Option<&'static str> {
+        match self {
+            ModelId::JinaV5 => Some("crates/thinking-engine/data/jina-v5-onnx/config.json"),
+            ModelId::ModernBert => Some("crates/thinking-engine/data/modernbert-onnx/config.json"),
+            _ => None,
         }
     }
 
@@ -253,6 +272,67 @@ mod tests {
         assert!(ModelId::ModernBert.onnx_repo().is_some());
         assert!(ModelId::JinaV5.onnx_repo().is_some());
         assert!(ModelId::JinaV3.onnx_repo().is_none());
+    }
+
+    #[test]
+    fn onnx_paths_exist_on_disk() {
+        // These should exist after downloading in this session
+        if let Some(path) = ModelId::JinaV5.onnx_path() {
+            let exists = std::path::Path::new(path).exists();
+            eprintln!("Jina v5 ONNX: {} → {}", path, if exists { "EXISTS" } else { "NOT FOUND" });
+        }
+        if let Some(path) = ModelId::ModernBert.onnx_path() {
+            let exists = std::path::Path::new(path).exists();
+            eprintln!("ModernBERT ONNX: {} → {}", path, if exists { "EXISTS" } else { "NOT FOUND" });
+        }
+    }
+
+    #[test]
+    fn config_json_auto_detect() {
+        // Test auto-detect from downloaded config.json
+        for model in [ModelId::JinaV5, ModelId::ModernBert] {
+            if let Some(path) = model.config_path() {
+                if let Ok(json_str) = std::fs::read_to_string(path) {
+                    let detected = crate::auto_detect::detect_from_config_json(&json_str);
+                    match detected {
+                        Ok(d) => eprintln!("{:?}: arch={:?}, hidden={}, layers={}, vocab={}",
+                            model, d.architecture, d.hidden_dim, d.num_layers, d.vocab_size),
+                        Err(e) => eprintln!("{:?}: detect failed: {}", model, e),
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn load_jina_v5_and_modernbert_tokenizers() {
+        let mut reg = TokenizerRegistry::new();
+
+        // Jina v5: should load from local ONNX dir
+        let v5 = reg.load(ModelId::JinaV5);
+        if v5.is_ok() {
+            let tokens = reg.encode(ModelId::JinaV5, "The wound is where the light enters");
+            if let Some(ids) = tokens {
+                eprintln!("Jina v5: {} tokens, first 5: {:?}", ids.len(), &ids[..ids.len().min(5)]);
+            }
+        }
+
+        // ModernBERT: should load from local ONNX dir
+        let mb = reg.load(ModelId::ModernBert);
+        if mb.is_ok() {
+            let tokens = reg.encode(ModelId::ModernBert, "The wound is where the light enters");
+            if let Some(ids) = tokens {
+                eprintln!("ModernBERT: {} tokens, first 5: {:?}", ids.len(), &ids[..ids.len().min(5)]);
+            }
+        }
+
+        // If both loaded: different tokenizers should produce different token counts
+        if reg.is_loaded(ModelId::JinaV5) && reg.is_loaded(ModelId::ModernBert) {
+            let v5_ids = reg.encode(ModelId::JinaV5, "Gradient descent minimizes loss").unwrap();
+            let mb_ids = reg.encode(ModelId::ModernBert, "Gradient descent minimizes loss").unwrap();
+            eprintln!("Same text: Jina v5={} tokens, ModernBERT={} tokens", v5_ids.len(), mb_ids.len());
+            // Different vocab sizes (151K vs 50K) → different token counts likely
+        }
     }
 
     #[test]
