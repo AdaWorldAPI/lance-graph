@@ -52,19 +52,19 @@ pub fn cronbach_alpha(items: &[&[f32]]) -> f32 {
     (kf / (kf - 1.0)) * (1.0 - var_sum / var_total)
 }
 
-/// Per-pair quorum score using Cronbach α on a sliding window.
+/// Per-pair variance-based agreement score across lens tables.
 ///
-/// For each centroid pair (i,j), collects the distance values across
-/// all provided lens tables and computes local α.
+/// NOTE: This is NOT Cronbach α per pair. It's a normalized variance
+/// score measuring how much the lenses agree on each centroid pair.
+/// Low variance = high agreement. High variance = disagreement.
 ///
-/// Returns a quorum score per pair:
-///   255 = perfect agreement (α > 0.95)
-///   128 = acceptable (α ~ 0.70)
-///     0 = no agreement (α < 0.50)
+/// Returns a score per pair:
+///   255 = low variance (lenses agree)
+///   128 = moderate variance
+///     0 = high variance (lenses disagree — investigate or LEAF validate)
 ///
-/// This replaces the BF16 ±0.008 boundary heuristic with empirical
-/// cross-model consensus. Stored as `quorum_score` in HHTL metadata.
-pub fn quorum_scores(
+/// For actual Cronbach α use `cronbach_alpha()` on the full corpus.
+pub fn variance_agreement_scores(
     tables: &[&[u8]],  // K tables, each N×N u8
     n: usize,           // table dimension (N)
 ) -> Vec<u8> {
@@ -236,7 +236,7 @@ mod tests {
     fn quorum_scores_diagonal() {
         let t1 = vec![255u8, 100, 100, 255]; // 2×2
         let t2 = vec![255, 100, 100, 255];
-        let scores = quorum_scores(&[&t1, &t2], 2);
+        let scores = variance_agreement_scores(&[&t1, &t2], 2);
         assert_eq!(scores[0], 255); // diagonal
         assert_eq!(scores[3], 255); // diagonal
         assert!(scores[1] > 200); // both agree on 100
@@ -246,7 +246,7 @@ mod tests {
     fn quorum_scores_disagreement() {
         let t1 = vec![255, 200, 200, 255]; // 2×2
         let t2 = vec![255, 50, 50, 255]; // disagrees on off-diagonal
-        let scores = quorum_scores(&[&t1, &t2], 2);
+        let scores = variance_agreement_scores(&[&t1, &t2], 2);
         assert!(scores[1] < 200, "disagreement should lower score: {}", scores[1]);
     }
 
@@ -280,7 +280,7 @@ mod tests {
         use crate::bge_m3_lens::BGE_M3_HDR_TABLE;
         use crate::reranker_lens::RERANKER_HDR_TABLE;
 
-        let scores = quorum_scores(
+        let scores = variance_agreement_scores(
             &[JINA_HDR_TABLE.as_slice(), BGE_M3_HDR_TABLE.as_slice(), RERANKER_HDR_TABLE.as_slice()],
             256,
         );
