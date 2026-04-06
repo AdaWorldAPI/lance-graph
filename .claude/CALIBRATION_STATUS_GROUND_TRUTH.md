@@ -184,6 +184,25 @@ CONFIRMED (architecture):
   Only Up gets silu(gate) modulation (not K, not V — different subspace)
   L4 is holographic VSA memory (16 KB superposition of all learned bundles)
   Cognitive Shader maps to GPU shared memory (50μs/thought)
+
+QWEN3-VL-EMBEDDING-2B FORWARD PASS (April 6 2026, evening):
+  Model: Qwen/Qwen3-VL-Embedding-2B, 4 GB safetensors (BF16 on disk, loaded as F32)
+  Architecture: Qwen3, 28 layers, 2048 hidden, 151936 vocab, head_dim=128
+  VarBuilder rename: model.X → model.language_model.X (VL prefix)
+  Last-token pooling + L2 normalize → 2048D unit embeddings
+
+  DISCRIMINATION:
+    Rumi↔Rumi:           0.4544
+    Rumi↔TCP:            0.3222
+    Gap:                 0.1322 (BETTER than Jina v5 gap 0.1280)
+    Surveillance↔TCP:    0.2023
+    Bach↔CRISPR:         0.2047
+    CRISPR↔Gradient:     0.2773
+
+  VERDICT: 2B > 0.6B confirms larger model = better discrimination.
+  2048D > 1024D = more information per embedding.
+  Same candle Qwen3 code, just different VarBuilder rename.
+  Next: use as primary ground truth anchor + vision test (images).
 ```
 
 ## CRITICAL FIX: Reranker v3 = Qwen3 (discovered April 6 2026)
