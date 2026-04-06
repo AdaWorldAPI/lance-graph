@@ -797,3 +797,108 @@ Speed:
   Effective: current thought at 650μs, next 128 steps at 6.4ms
   That's 128 thoughts precomputed in the time of 10 MatVec cycles.
 ```
+
+---
+
+## OSINT PIPELINE: WORKING END-TO-END (April 6 2026)
+
+### Architecture
+
+```
+DuckDuckGo search → fetch HTML → ReaderLM-v2 (GGUF, 1.5B) → clean markdown
+  → Qwen3 tokenizer (151K BPE) → token IDs
+  → codebook_index.u16 → centroid IDs
+  → F32ThinkingEngine (softmax T=0.01) → peaks + entropy
+  → ContrastiveLearner → table updates from pairwise similarity
+  → NARS truth → confidence tracking → low confidence → new query
+```
+
+### Model Weights
+
+```
+ReaderLM-v2 Q8_0 GGUF:
+  Location: crates/thinking-engine/data/readerlm-v2/readerlm-v2-q8_0.gguf
+  Size:     1.6 GB
+  Source:   matrixportalx/ReaderLM-v2-GGUF on HuggingFace
+  Base:     Qwen2.5-1.5B-Instruct (fine-tuned for HTML→markdown)
+  Vocab:    151936 (SAME as Jina v5, Qwen3-Embedding, Reranker v3)
+  Context:  512K tokens
+  License:  Apache 2.0
+
+Jina v5 safetensors (for forward pass):
+  Location: crates/thinking-engine/data/jina-v5-onnx/model.safetensors
+  Size:     1.2 GB
+  Source:   jinaai/jina-embeddings-v5-text-small-text-matching
+  Vocab:    151936, Hidden: 1024, Layers: 28
+
+Codebook (precomputed):
+  Location: /tmp/codebooks/jina-v5-256/
+  Files:    cosine_matrix_256x256.f32 (256 KB)
+            codebook_index.u16 (297 KB)
+  Also in:  releases/v0.2.0-7lane-codebooks/ (git tracked)
+  Release:  v0.2.0-7lane-codebooks on GitHub
+
+4096 Codebook:
+  Location: /tmp/codebooks/jina-v5-4096/
+  Files:    cosine_matrix_4096x4096.f32 (64 MB)
+            codebook_index.u16 (297 KB)
+            branch_graph_4096x{8,16,32}.{indices.i32,values.f32}
+  Release:  v0.3.0-highheelbgz-256-4096 on GitHub
+```
+
+### Wiring
+
+```
+Python prototype:
+  crates/thinking-engine/examples/osint_pipeline.py
+  Dependencies: requests, beautifulsoup4, lxml, llama-cpp-python, numpy
+
+Rust bridge:
+  crates/thinking-engine/src/osint_bridge.rs
+  API: OsintThinkingBridge::from_files() → .think() → .similarity() → .learner()
+
+Existing OSINT crate:
+  crates/lance-graph-osint/src/
+    crawler.rs  — spider-rs Google crawl (feature: spider-crawl)
+    reader.rs   — curl fetch + HTML strip + DeepNSM embed
+    extractor.rs — SPO triplet extraction from text
+    pipeline.rs  — OsintPipeline.ingest_url()
+
+Connection points:
+  lance-graph-osint → raw text
+  thinking-engine/osint_bridge.rs → tokenize + think + learn
+  thinking-engine/contrastive_learner.rs → table updates
+  thinking-engine/f32_engine.rs → softmax T=0.01 thinking
+```
+
+### Known Issues
+
+```
+1. ReaderLM-v2 Q8_0 outputs ???? on some HTML
+   Fix: use F16 GGUF (3.09 GB) or safetensors
+   
+2. Few centroids per document (1-4)
+   Cause: byte-level tokenization, not Qwen3 BPE
+   Fix: use proper tokenizer (tokenizers crate or llama.cpp's built-in)
+   
+3. Codebook from Jina v5 embeddings, not ReaderLM
+   The token→centroid mapping reflects Jina v5's weight space
+   ReaderLM-v2 has different weights → different optimal codebook
+   Fix: build codebook from ReaderLM-v2 embeddings
+   
+4. Table learning needs more documents
+   6 updates from 4 documents = minimal learning
+   Need 100+ documents for measurable improvement
+```
+
+### Tokenizer Compatibility Matrix
+
+```
+Model              Vocab    Tokenizer     Compatible with codebook?
+ReaderLM-v2        151936   Qwen2.5 BPE   YES (same vocab, different weights)
+Jina v5            151936   Qwen3 BPE     YES (codebook anchor)
+Qwen3-Embedding    151669   Qwen3 BPE     ALMOST (267 token difference)
+Jina Reranker v3   151936   Qwen3 BPE     YES
+Qwen3-VL-Embed     151936   Qwen3 BPE     YES
+Qwen3.5 models     TBD      Qwen3.5 BPE   LIKELY (same family)
+```
