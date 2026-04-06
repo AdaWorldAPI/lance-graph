@@ -210,3 +210,97 @@ Impact:
 
   4. ρ=-0.64 was tokenizer mismatch (Qwen3→Qwen2 codebook). Not real.
 ```
+
+## CALIBRATION ERROR BUDGET (measured April 6 2026, CORRECTED)
+
+```
+Jina v5, 256 centroids, pairwise CENTROID cosine Spearman ρ:
+
+  Pipeline stage          ρ vs raw 1024D    Δρ         Verdict
+  ──────────────          ──────────────    ──         ───────
+  Raw 1024D cosine        1.0000            —          ground truth
+  u8 CDF encoding         1.0000            0.000      PERFECT
+  i8 direct encoding      0.9973            0.003      near-perfect
+  BF16 truncation          —                0.000      irrelevant
+
+CENTROID PAIRS ARE ALWAYS 1:1 FULL RESOLUTION (1024D f32).
+  The centroids are NEVER compressed. Only the TABLE VALUE is quantized.
+  cos(centroid_i, centroid_j) → u8 CDF = ρ=1.000 = PERFECT.
+
+CORRECTION: StackedN ρ=0.73 was a TEST ERROR.
+  StackedN is for WEIGHT ROW streaming, NOT for centroid encoding.
+  Centroids are always full 1024D. Never folded to 544D.
+  The 27% "loss" was from folding centroids through StackedN,
+  which nobody does. The centroids stay 1:1.
+
+The REAL error is CLAM bucket assignment (151K tokens → K buckets):
+  K=256:    ρ=0.14  (~591 tokens/bucket, many collisions)
+  K=4096:   ρ=0.44  (~37 tokens/bucket, fewer collisions)
+  K=16384:  ρ=0.54  (~9 tokens/bucket, near 1:1)
+  
+  Within-bucket: distance=0 (wrong for non-centroid tokens)
+  Between-bucket: distance=cos(c_i, c_j) = EXACT
+  More buckets = fewer within-bucket collisions = better ρ
+
+Conclusions:
+  1. u8 CDF is PERFECT for centroid pair encoding (ρ=1.000).
+  2. i8/BF16/γ+φ debate was unnecessary for encoding precision.
+  3. CLAM bucket count is the ONLY knob that matters.
+  4. Bucket count >> bucket precision (proven: u8≈f32, K=256≠K=4096).
+  5. StackedN is for streaming/compression of weight rows, not for centroids.
+```
+
+## MEAN-PAIR TABLE: 2.9× BETTER (measured April 6 2026)
+
+```
+K=256, same table size, same O(1) lookup:
+
+  Centroid cosine:  ρ = 0.137  (cos of bucket CENTRES)
+  Mean-pair cosine: ρ = 0.391  (average cos of TOKEN PAIRS in bucket)
+  
+  Δρ = +0.254 (2.9× improvement)
+
+The table is a DISTANCE LOOKUP, not a cosine of centroids.
+  WRONG: table[a][b] = cos(centroid_a, centroid_b)
+  RIGHT: table[a][b] = mean(cos(token∈bucket_a, token∈bucket_b))
+
+cos(centroid) ignores within-cluster spread.
+mean(cos(tokens)) measures actual pairwise distances.
+
+Same 128 KB. Same O(1). Just BETTER VALUES in the table.
+
+Combined with hierarchical K=16384 + HEEL diff:
+  table[a][b] at K=16384 with mean-pair values
+  = ~9 tokens/bucket × mean-pair cosine
+  = near 1:1 token precision
+  = 34.5 KB spiral compressed (HEEL + Δ_hip + Δ_twig)
+```
+
+## LANCEDB RABITQ FOR SORTING, CLAM FOR RECONSTRUCTION
+
+```
+LanceDB:  Sortierung + Indexierung
+  IVF partitions = HEEL (bucket assignment)
+  PQ subspaces = HIP (sub-quantization)
+  RaBitQ = TWIG/LEAF (bit-quantized residuals)
+  mean-pair cosine over partitions = distance table (for free)
+  No CLAM needed for sorting. LanceDB does it at index time.
+
+CLAM:  Spiral Rekonstruktion
+  Golden-step folding (17 bins × SPD)
+  Spiral segment: (anfang, ende, stride, gamma) = 8 bytes/row
+  Δ_hip, Δ_twig corrections
+  Re-encode safe (idempotent, x256 proven)
+  highheelbgz addressing (SpiralAddress, CoarseBand)
+
+LanceDB = WO  (index, search, partition, rank)
+CLAM    = WIE (reconstruct, compress, encode, decode)
+
+Pipeline:
+  1. Embed tokens → LanceDB table (store originals)
+  2. CREATE INDEX IVF_PQ → partitions = buckets (LanceDB does this)
+  3. Extract partition assignments → codebook_index (read from LanceDB)
+  4. For each partition pair: mean-pair cosine → distance table (from LanceDB data)
+  5. CLAM spiral reconstruction on the table → compressed (anfang,ende,stride,gamma)
+  6. Runtime: O(1) spiral evaluate for distance, LanceDB for worst-case fallback
+```

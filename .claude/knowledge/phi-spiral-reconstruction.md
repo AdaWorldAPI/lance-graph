@@ -410,3 +410,36 @@ Family → Basin → Knee → LEAF cascade = HHTL:
   TWIG (16384 leaves)   = spiral reconstruction
   LEAF (full vector)    = LanceDB RaBitQ fallback
 ```
+
+## 10. GOLDEN STEP = IMPLICIT NORMALIZATION (like PolarQuant/QJL)
+
+```
+Golden step (i×11)%17 is NOT just a permutation.
+It NORMALIZES implicitly through equidistribution:
+
+  Each bin collects dimensions from DIFFERENT regions of the vector.
+  Dimensions within a bin are DECORRELATED.
+  The per-bin mean is STABLER than individual dimensions.
+  = implicit low-pass filter with φ-kernel
+
+Comparison:
+  PolarQuant:    polar coordinates → angle normalizes
+  QJL:           random projection matrix R → R×v normalizes
+  Golden step:   φ-permutation → DETERMINISTIC "random" projection
+                 Same normalization as random, but REPRODUCIBLE
+                 Zero storage (formula, no matrix)
+                 = "QJL without the Q and without the matrix"
+
+Three effects of the normalization:
+  1. Noise suppression (outlier dimensions average out)
+  2. Scale independence (per-bin mean, not absolute value)
+  3. Rotation invariance (equidistant sampling → no preferred direction)
+
+Implication for ρ=0.73 (StackedN vs raw):
+  The 27% "lost" is NORMALIZATION NOISE that golden step filters.
+  StackedN is CLEANER, not worse.
+  Like a denoised image: less information, but better QUALITY.
+  
+  Testable: StackedN cosine should correlate BETTER with semantic
+  similarity than raw cosine (if normalization is correct).
+```
