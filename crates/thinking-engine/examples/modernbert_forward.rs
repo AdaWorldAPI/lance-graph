@@ -56,7 +56,7 @@ fn main() {
     ];
 
     println!("[5] Computing embeddings for {} texts...\n", texts.len());
-    let mut embeddings: Vec<Vec<f32>> = Vec::new();
+    let mut embeddings: Vec<(Vec<f32>, Vec<f32>)> = Vec::new(); // (cls, mean)
 
     for (i, text) in texts.iter().enumerate() {
         let enc = tokenizer.encode(*text, true).expect("tokenize");
@@ -73,20 +73,22 @@ fn main() {
         // Forward (no KV cache, stateless encoder)
         let hidden = model.forward(&input_ids, &mask).expect("forward");
 
-        // CLS pooling (first token) — ModernBERT convention
-        let cls = hidden.i((0, 0)).expect("cls token");
+        // Try BOTH pooling strategies
+        // CLS: first token (BERT convention)
+        let cls = hidden.i((0, 0)).expect("cls");
+        let cls_norm = cls.sqr().expect("s").sum_all().expect("s").sqrt().expect("s");
+        let cls_emb: Vec<f32> = cls.broadcast_div(&cls_norm).expect("n").to_vec1().expect("v");
 
-        // L2 normalize
-        let norm = cls.sqr().expect("sqr").sum_all().expect("sum").sqrt().expect("sqrt");
-        let embedding = cls.broadcast_div(&norm).expect("normalize");
-        let emb_vec: Vec<f32> = embedding.to_vec1().expect("to_vec");
+        // MEAN: average of ALL tokens (sentence-transformers convention)
+        let mean = hidden.i(0).expect("batch").mean(0).expect("mean");
+        let mean_norm = mean.sqr().expect("s").sum_all().expect("s").sqrt().expect("s");
+        let mean_emb: Vec<f32> = mean.broadcast_div(&mean_norm).expect("n").to_vec1().expect("v");
 
         let label = if text.len() > 50 { &text[..50] } else { text };
-        println!("  [{}/{}] {} tokens → 1024D  |emb|={:.4}  \"{}\"",
-            i+1, texts.len(), n_tokens,
-            emb_vec.iter().map(|x| x*x).sum::<f32>().sqrt(), label);
+        println!("  [{}/{}] {} tokens  \"{}\"",
+            i+1, texts.len(), n_tokens, label);
 
-        embeddings.push(emb_vec);
+        embeddings.push((cls_emb, mean_emb));
     }
 
     // Pairwise cosine
@@ -99,21 +101,24 @@ fn main() {
         (5, 6, "CRISPR↔Gradient"),
     ];
 
+    println!("  {:>20}  {:>8}  {:>8}", "Pair", "CLS", "MEAN");
+    println!("  {:─>20}  {:─>8}  {:─>8}", "", "", "");
     for &(a, b, label) in &pairs {
-        let cos: f32 = embeddings[a].iter().zip(&embeddings[b])
-            .map(|(x, y)| x * y).sum();
-        println!("  {:>20}  {:.4}", label, cos);
+        let cos_cls: f32 = embeddings[a].0.iter().zip(&embeddings[b].0).map(|(x,y)| x*y).sum();
+        let cos_mean: f32 = embeddings[a].1.iter().zip(&embeddings[b].1).map(|(x,y)| x*y).sum();
+        println!("  {:>20}  {:>8.4}  {:>8.4}", label, cos_cls, cos_mean);
     }
 
-    let rumi_rumi: f32 = embeddings[0].iter().zip(&embeddings[1]).map(|(x,y)| x*y).sum();
-    let rumi_tcp: f32 = embeddings[0].iter().zip(&embeddings[3]).map(|(x,y)| x*y).sum();
+    let cls_rr: f32 = embeddings[0].0.iter().zip(&embeddings[1].0).map(|(x,y)| x*y).sum();
+    let cls_rt: f32 = embeddings[0].0.iter().zip(&embeddings[3].0).map(|(x,y)| x*y).sum();
+    let mean_rr: f32 = embeddings[0].1.iter().zip(&embeddings[1].1).map(|(x,y)| x*y).sum();
+    let mean_rt: f32 = embeddings[0].1.iter().zip(&embeddings[3].1).map(|(x,y)| x*y).sum();
 
     println!("\n═══════════════════════════════════════════════════════════");
-    if rumi_rumi > rumi_tcp + 0.05 {
-        println!("  ModernBERT DISCRIMINATES! Rumi↔Rumi ({:.4}) > Rumi↔TCP ({:.4})", rumi_rumi, rumi_tcp);
-    } else {
-        println!("  No discrimination. Rumi↔Rumi ({:.4}) ≈ Rumi↔TCP ({:.4})", rumi_rumi, rumi_tcp);
-    }
+    println!("  CLS pooling:  Rumi↔Rumi={:.4} vs Rumi↔TCP={:.4} → {}",
+        cls_rr, cls_rt, if cls_rr > cls_rt + 0.05 {"DISCRIMINATES"} else {"no"});
+    println!("  MEAN pooling: Rumi↔Rumi={:.4} vs Rumi↔TCP={:.4} → {}",
+        mean_rr, mean_rt, if mean_rr > mean_rt + 0.05 {"DISCRIMINATES"} else {"no"});
     println!("═══════════════════════════════════════════════════════════");
 }
 
