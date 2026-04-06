@@ -210,3 +210,29 @@ Impact:
 
   4. ρ=-0.64 was tokenizer mismatch (Qwen3→Qwen2 codebook). Not real.
 ```
+
+## CALIBRATION ERROR BUDGET (measured April 6 2026)
+
+```
+Jina v5, 256 centroids, pairwise cosine Spearman ρ:
+
+  Pipeline stage          ρ vs raw 1024D    Δρ         Verdict
+  ──────────────          ──────────────    ──         ───────
+  Raw 1024D cosine        1.0000            —          ground truth
+  u8 CDF encoding         1.0000            0.000      PERFECT
+  i8 direct encoding      0.9973            0.003      near-perfect
+  BF16 truncation         (same as StackedN) 0.000     irrelevant
+  StackedN (17×SPD=32)    0.7302            0.270      DOMINANT ERROR
+
+Error budget:
+  StackedN folding:  27% of rank order lost  ← FIX THIS
+  BF16 truncation:    0% lost                ← irrelevant
+  u8/i8 encoding:     0% lost                ← irrelevant
+
+Conclusions:
+  1. u8 CDF is PERFECT (ρ=1.0). The i8 vs u8 vs BF16 debate was unnecessary.
+  2. StackedN (1024D → 544D golden-step) is the ONLY bottleneck.
+  3. ICC/correction should target StackedN error, not encoding error.
+  4. More SPD (64? 128?) or skip StackedN entirely (use raw centroids).
+  5. For ENCODING-ONLY (no StackedN): u8 CDF is the winner. Simplest, perfect.
+```
