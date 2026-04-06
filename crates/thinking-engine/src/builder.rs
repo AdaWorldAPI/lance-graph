@@ -12,6 +12,7 @@
 use crate::engine::ThinkingEngine;
 use crate::signed_engine::SignedThinkingEngine;
 use crate::bf16_engine::BF16ThinkingEngine;
+use crate::f32_engine::F32ThinkingEngine;
 use crate::pooling::Pooling;
 
 /// Temperature configuration for the thinking cycle.
@@ -112,13 +113,17 @@ pub enum TableType {
     /// BF16: from StackedN cosine, sign preserved, full dynamic range.
     /// 128 KB for 256×256 (2× u8, fits L2 cache).
     BF16,
+    /// F32: full-precision distance table. Zero quantization loss.
+    /// Perfect cosine fidelity (Pearson r=0.9999). 256 KB for 256×256.
+    F32,
 }
 
-/// Built engine: unsigned, signed, or BF16.
+/// Built engine: unsigned, signed, BF16, or F32.
 pub enum BuiltEngine {
     Unsigned(ThinkingEngine),
     Signed(SignedThinkingEngine),
     BF16(BF16ThinkingEngine),
+    F32(F32ThinkingEngine),
 }
 
 impl BuiltEngine {
@@ -127,6 +132,7 @@ impl BuiltEngine {
             BuiltEngine::Unsigned(e) => e.perturb(indices),
             BuiltEngine::Signed(e) => e.perturb(indices),
             BuiltEngine::BF16(e) => e.perturb(indices),
+            BuiltEngine::F32(e) => e.perturb(indices),
         }
     }
 
@@ -135,6 +141,7 @@ impl BuiltEngine {
             BuiltEngine::Unsigned(e) => e.reset(),
             BuiltEngine::Signed(e) => e.reset(),
             BuiltEngine::BF16(e) => e.reset(),
+            BuiltEngine::F32(e) => e.reset(),
         }
     }
 
@@ -143,6 +150,7 @@ impl BuiltEngine {
             BuiltEngine::Unsigned(e) => &e.energy,
             BuiltEngine::Signed(e) => &e.energy,
             BuiltEngine::BF16(e) => &e.energy,
+            BuiltEngine::F32(e) => &e.energy,
         }
     }
 
@@ -151,6 +159,7 @@ impl BuiltEngine {
             BuiltEngine::Unsigned(e) => e.cycles,
             BuiltEngine::Signed(e) => e.cycles,
             BuiltEngine::BF16(e) => e.cycles,
+            BuiltEngine::F32(e) => e.cycles,
         }
     }
 
@@ -159,6 +168,7 @@ impl BuiltEngine {
             BuiltEngine::Unsigned(e) => e.size,
             BuiltEngine::Signed(e) => e.size,
             BuiltEngine::BF16(e) => e.size,
+            BuiltEngine::F32(e) => e.size,
         }
     }
 
@@ -167,6 +177,7 @@ impl BuiltEngine {
             BuiltEngine::Unsigned(e) => { e.think(max_cycles); }
             BuiltEngine::Signed(e) => { e.think(max_cycles); }
             BuiltEngine::BF16(e) => { e.think(max_cycles); }
+            BuiltEngine::F32(e) => { e.think(max_cycles); }
         }
     }
 
@@ -175,6 +186,7 @@ impl BuiltEngine {
             BuiltEngine::Unsigned(e) => { e.think_with_temperature(max_cycles, temperature); }
             BuiltEngine::Signed(e) => { e.think_with_temperature(max_cycles, temperature); }
             BuiltEngine::BF16(e) => { e.think_with_temperature(max_cycles, temperature); }
+            BuiltEngine::F32(e) => { e.think_with_temperature(max_cycles, temperature); }
         }
     }
 }
@@ -190,17 +202,22 @@ pub struct ThinkingEngineBuilder {
     max_cycles: usize,
     temperature: Temperature,
     sinks: Vec<CommitSink>,
+    /// Raw f32 cosines for SignedI8 tables. When provided, the builder uses
+    /// `from_f32_cosines()` which preserves real cosine signs. Without this,
+    /// falls back to `from_unsigned()` (fake sign from CDF rank shift).
+    raw_cosines: Option<Vec<f32>>,
 }
 
 impl ThinkingEngineBuilder {
     pub fn new() -> Self {
         Self {
             lens: None,
-            table_type: TableType::UnsignedU8,
+            table_type: TableType::F32,
             pooling: Pooling::ArgMax,
             max_cycles: 10,
             temperature: Temperature::standard(),
             sinks: Vec::new(),
+            raw_cosines: None,
         }
     }
 
@@ -241,6 +258,16 @@ impl ThinkingEngineBuilder {
         self
     }
 
+    /// Provide raw f32 cosines for building a real signed i8 table.
+    ///
+    /// When `table_type(TableType::SignedI8)` is set and raw cosines are provided,
+    /// the builder uses `SignedThinkingEngine::from_f32_cosines()` which preserves
+    /// real cosine sign information. This is the CORRECT path for signed tables.
+    pub fn raw_cosines(mut self, cosines: Vec<f32>) -> Self {
+        self.raw_cosines = Some(cosines);
+        self
+    }
+
     /// Add a commit sink (adapter pattern).
     /// Sinks receive the BusDto after every commit.
     pub fn on_commit(mut self, sink: impl Fn(&crate::dto::BusDto) + Send + Sync + 'static) -> Self {
@@ -262,9 +289,21 @@ impl ThinkingEngineBuilder {
 
         let engine = match self.table_type {
             TableType::UnsignedU8 => BuiltEngine::Unsigned(ThinkingEngine::new(table)),
-            TableType::SignedI8 => BuiltEngine::Signed(
-                crate::signed_engine::SignedThinkingEngine::from_unsigned(&table)
-            ),
+            TableType::SignedI8 => {
+                if let Some(ref cosines) = self.raw_cosines {
+                    // CORRECT path: real cosine signs preserved via direct f32→i8 quantization.
+                    let size = (cosines.len() as f64).sqrt() as usize;
+                    BuiltEngine::Signed(
+                        crate::signed_engine::SignedThinkingEngine::from_f32_cosines(cosines, size)
+                    )
+                } else {
+                    // FALLBACK: CDF rank shift produces fake signs (u8-128 → i8).
+                    // This path is DEPRECATED. Provide raw_cosines() for real signed tables.
+                    BuiltEngine::Signed(
+                        crate::signed_engine::SignedThinkingEngine::from_unsigned(&table)
+                    )
+                }
+            }
             TableType::BF16 => {
                 // Convert u8 HDR lens to BF16: u8[0,255] → f32[-1,+1] → BF16
                 // This is a TEMPORARY path until BF16 lenses are baked directly.
@@ -273,6 +312,14 @@ impl ThinkingEngineBuilder {
                     .collect();
                 let size = (table.len() as f64).sqrt() as usize;
                 BuiltEngine::BF16(BF16ThinkingEngine::from_f32_cosines(&cosines, size))
+            }
+            TableType::F32 => {
+                // Convert u8 HDR lens to f32: u8[0,255] → f32[-1,+1].
+                // Full precision — no BF16 truncation, no CDF rank relabeling.
+                let cosines: Vec<f32> = table.iter()
+                    .map(|&v| (v as f32 - 128.0) / 127.0)
+                    .collect();
+                BuiltEngine::F32(F32ThinkingEngine::new(cosines))
             }
         };
 

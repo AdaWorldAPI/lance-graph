@@ -90,6 +90,9 @@ impl SignedThinkingEngine {
         }
     }
 
+    /// DEPRECATED: CDF rank shift produces fake signs.
+    /// Use `from_f32_cosines()` for real signed tables.
+    ///
     /// Convert an unsigned u8 table to signed i8.
     ///
     /// **WARNING: This relabels CDF percentile RANKS, not cosine values.**
