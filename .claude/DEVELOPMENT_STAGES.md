@@ -1013,3 +1013,77 @@ Discrimination:
 Next: convert u8 CDF tables to i16 for Qwopus layers
       (u8 Pearson=0.80 proven, i16=1.000)
 ```
+
+### DeepNSM + Semantic Distance = SPO Grounding (5/7 accuracy)
+
+```
+SEMANTIC TABLE (128 KB, forward-pass derived) AS DeepNSM ORACLE:
+
+True triplets grounded:
+  CRISPR → editing:  sem=0.993 GROUNDED ✓
+  gene → disease:    sem=0.991 GROUNDED ✓
+  quantum → qubit:   sem=1.000 GROUNDED ✓
+  Bach → fugue:      sem=0.988 GROUNDED ✓
+
+False triplets rejected:
+  Bach → quantum:    sem=0.101 REJECTED ✓ (the money result)
+
+Errors (centroid collision at K=256):
+  CRISPR → melody:   sem=0.993 GROUNDED ✗ (share centroid with related words)
+  music → DNA:       sem=0.980 GROUNDED ✗ (same issue)
+
+Accuracy: 5/7 (71%) from 128 KB table, zero LLM inference
+Fix: K=4096 (60 tokens/centroid vs 600) would separate collisions
+Or: contrastive learner pushes gene≠melody apart over time
+
+The semantic table IS the oracle for DeepNSM's SPO extraction:
+  DeepNSM tokenizes (4096 COCA + 20K scientific)
+  → each word → Qwen token → codebook centroid
+  → semantic_table[centroid_S][centroid_O] → grounding score
+  → if score > 0.6: semantically valid triplet
+  → if score < 0.2: reject (false relation)
+  → between: uncertain → need forward pass to decide
+```
+
+### Wikidata Streaming SPO Architecture (Railway 700 MB budget)
+
+```
+Memory budget: 700 MB (Railway Pro)
+
+FIXED (35 MB):
+  COCA 4096² i16:     32 MB
+  Semantic 256² i16:   0.1 MB
+  Qwopus 8L gates:     2 MB
+  ReaderLM codebook:   0.4 MB
+
+ENTITY INDEX (220 MB max):
+  Full Wikidata: 110M entities × u16 = 220 MB
+  English only:  15M entities × u16 = 30 MB
+
+ARIGRAPH WORKING SET (445 MB):
+  ~22M NARS-valued triples (SPO + truth + timestamp)
+  LRU eviction: drop lowest-confidence triples when near limit
+  Scientific 20K routing cache: ~1 MB
+
+STREAMING (not batch):
+  Wikidata SPARQL endpoint → stream 1 triple at a time
+  spider-rs crawled pages → stream SPO from extractor
+  Both feed: AriGraph.revise_with_evidence()
+  NARS truth accumulates over time
+  Low-confidence evicted → high-confidence persists
+
+  Sources:
+    1. Wikidata SPARQL: live, rate-limited, structured
+    2. spider-rs + ReaderLM: web crawl, unstructured → SPO
+    3. User queries: each query is evidence → NARS revision
+    4. Contrastive learning: each lookup teaches the table
+
+  The knowledge base is ALIVE:
+    New evidence → revise → evict stale → grow confident
+    Not a snapshot — a continuously learning system
+
+ReaderLM-v2 (3 GB) runs OFFLINE or on separate worker:
+  Local: candle forward pass, 1.8 tok/s
+  Worker: GPU inference, 100+ tok/s
+  Railway: codebooks only (35 MB), no model weights
+```
