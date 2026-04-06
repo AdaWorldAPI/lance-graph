@@ -443,3 +443,43 @@ Implication for ρ=0.73 (StackedN vs raw):
   Testable: StackedN cosine should correlate BETTER with semantic
   similarity than raw cosine (if normalization is correct).
 ```
+
+## 11. L1-L27 ACCUMULATION = PERTURBATION GATING, EPIPHANY ACCUMULATED
+
+```
+28-layer gate accumulation IS the cognitive process:
+
+L00-L03: Perturbation enters, gate open (99% positive)
+  = "everything possible" = Recognition (L1 cognitive stack)
+  
+L04-L12: Gate filters (81%→73% positive)
+  = Resonance + Appraisal (L2-L3)
+  
+L13-L19: Gate diverges (ρ drops 0.82→0.70)
+  = Routing + Execution (L4-L5)
+  = AUTOPOIESIS: thought shapes itself
+  
+L20-L22: JUMP (E/I drops 91%→83%)
+  = Contingency (L7): "could be otherwise"
+  = Epiphany: contradictions resolve OR deepen
+  
+L23-L27: Crystallization (97% different from input)
+  = Validation + Crystallization (L9-L10)
+  = accumulated epiphanies ARE the thought
+
+Accumulated: energy_L27 = Π(silu(gate_L)) × energy_L00
+  = PRODUCT of all gate decisions
+  = each layer filtered/amplified/inverted
+  = what survives = the crystallized thought
+
+i8 E/I ratio across layers = EKG of thinking:
+  L00-L12: 99-96% positive (accumulative, inductive, fanout)
+  L13-L19: 95-93% (selective, gate tightening)
+  L20-L22: 91→83% JUMP (epiphany, contingency, the turning point)
+  L23-L27: 78-70% (crystallized, deductive, focused)
+
+Each E/I JUMP = epiphany moment
+  = where the thought "flips" from exploration to commitment
+  = measurable WITHOUT forward pass (from gate weights alone)
+  = the i8 signed representation captures this naturally
+```
