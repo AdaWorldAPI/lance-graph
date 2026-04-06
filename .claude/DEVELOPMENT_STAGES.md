@@ -643,3 +643,50 @@ Gemma 3/4:    256K vocab (Gemini SentencePiece) — needs own codebook
 Llama 4:      202K vocab (Llama BPE) — needs own codebook
 Cross-model quorum only works within same tokenizer family.
 ```
+
+### Why γ+φ Is a No-Op (logical error, not moiré)
+
+```
+γ+φ is a MONOTONIC transform. CDF is ORDER-BASED.
+Monotonic before rank = same rank. QED.
+
+CDF(cos) ≡ CDF(γ+φ(cos)) because γ+φ preserves order.
+
+On i8 direct: γ+φ HURTS (Pearson drops 0.999 → 0.983).
+Log compression distorts VALUE spacing for Gaussian distributions.
+γ+φ was designed for heavy-tailed (gate activations, 57% near zero).
+Pairwise cosines are NOT heavy-tailed. Wrong tool, wrong data.
+```
+
+### Why HEEL Stride Sampling Doesn't Work for Distances
+
+```
+stride=4 (256/1024 dims): ρ=0.017 vs full cosine
+stride=11 (94/1024 dims):  ρ=0.018 vs full cosine
+stride=17 (61/1024 dims):  ρ=0.001 vs full cosine
+
+Root cause: cosine is a GLOBAL metric over ALL dimensions.
+Subsampling gives a PROJECTION, not a subsample.
+Projected cosine ≈ uncorrelated with full cosine.
+This is mathematically expected (Johnson-Lindenstraaten).
+
+HEEL spiral walk is valid for ADDRESSING weight rows.
+HEEL is NOT valid for computing DISTANCES between rows.
+Use full-dimension cosine for the distance table (i16, proven lossless).
+```
+
+### Belichtungsmesser Popcount Stacking (4096 centroids)
+
+```
+8 random exposures × 128D each → popcount per centroid pair
+Pop>=5 = pairs where >=5 of 8 exposures agree "this is top-32"
+r=1.000 on surviving edges (perfect fidelity on confident pairs)
+
+                     Top-5   Top-10   Edges    Size
+4096 top-16 sparse:   30%     36%     65K     425 KB
+4096 pop≥5+residual:  57%     66%     18K     332 KB  ← WINNER
+256 dense (proven):  100%    100%     65K     425 KB
+
+Belichtungsmesser is both BETTER and SMALLER than naive top-K.
+But 256 dense still wins for same-size comparison.
+```
