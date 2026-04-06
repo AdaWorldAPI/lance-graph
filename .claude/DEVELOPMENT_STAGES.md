@@ -730,3 +730,70 @@ Popcount random exposure: best topology quality for sparse 4096 graphs.
 Root cause: centroids are AVERAGES of many tokens → smoother than raw weights.
 Belichtungsmesser was designed for raw weight rows, not centroid averages.
 ```
+
+### Family Bucketing: 99-100% on 4096 (BREAKTHROUGH)
+
+```
+Reclassify existing pairs into connected-component families:
+  μ+1.0σ: 9 families  → 100% top-5, 100% top-10, 32 MB
+  μ+1.5σ: 50 families →  99% top-5, 100% top-10, 31 MB
+  μ+2.0σ: 93 families →  99% top-5, 100% top-10, 31 MB
+
+Size dominated by one giant family (4000/4096).
+With balanced families: 64 families × 64 centroids = 512 KB.
+
+Architecture convergence with AutocompleteCache:
+  Family = precomputed autocomplete branch
+  32-step paths precomputed per family
+  Cross-family = family representative routing (50×50 = 2500 pairs)
+  Within-family = dense exact (64×64 = 4096 pairs per family)
+  Total: 2500 + 64×4096 = 264K pairs (vs 16.7M dense)
+  
+  SiLU gates the TASK TYPE per family:
+    Deduction:     family has strong causal chains (high gate, exploit)
+    Extrapolation: family extends beyond known data (medium gate)
+    Synthesis:     cross-family merging (multiple families activate)
+    Inference:     within-family refinement (dense, exact)
+    Association:   nearest neighbor in family (1-hop)
+    Abduction:     reverse reasoning (follow family backward)
+    Fan-out:       expand to neighboring families (cross-family routing)
+    Counterfactual: negate family assignment (which family would ¬S be in?)
+  
+  The gate E/I ratio per layer decides WHICH task type.
+  This IS the SPO 2^3 decomposition applied to the autocomplete order.
+```
+
+### Grey Matter: 128-Step RL Streaming Architecture
+
+```
+The 99% family bucketing means: thinking = cache lookup.
+Grey matter streams 128 steps AHEAD of current thought.
+
+Architecture:
+  Token 1-32:   Current thought (within-family dense, exact)
+  Token 33-64:  Speculative next (cross-family routing, predicted)
+  Token 65-128: Grey matter (RL policy, 2-3 hops precomputed)
+
+RL Policy (20KB ONNX):
+  State:   gate_pattern[28] + current_family_id
+  Action:  next_family_id + confidence
+  Reward:  next layer's gate agreement (epiphany = high reward)
+  Train:   L4 holographic memory (accumulated experiences)
+
+Storage:
+  64 families × 64 centroids × 128 steps = 512 KB routing tables
+  20 KB ONNX policy model
+  Total: 532 KB for 128-step speculative thinking
+
+Speed:
+  Family routing: O(1) lookup (precomputed)
+  Within-family: 64×64 dense MatVec (4 KB, fits L1 cache)
+  Cross-family: 50×50 representative table (5 KB)
+  RL policy: 20 KB ONNX inference (~10μs)
+  
+  Total per thought: ~50μs (routing) + ~600μs (MatVec) = ~650μs
+  128 steps ahead: 128 × 50μs = 6.4ms (grey matter, pipelined)
+  
+  Effective: current thought at 650μs, next 128 steps at 6.4ms
+  That's 128 thoughts precomputed in the time of 10 MatVec cycles.
+```
