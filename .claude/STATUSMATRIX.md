@@ -172,3 +172,20 @@ Kaskade:    μ+1σ warm start → μ+2σ landen = Sweet Spot (nächste Sitzung)
 932 Tok/s auf u8 = läuft auf ESP32, WASM, RISC-V, Arduino.
 32 MB Tabellen. Kein Modell. Kein GPU. Kein Float.
 ```
+
+## ⚡ GREY MATTER: 128 Schritte in 0,34ms
+
+```
+μ+1.5σ Sweet Spot:
+  372.000 Token/Sek
+  96/129 unique (74% Diversität)
+  8 Wiederholungen (6%)
+  282 KB precomputed Buckets
+  128 Token in 0,34ms
+  
+  Reiner u8 Integer-Vergleich.
+  Kein float. Kein exp(). Kein SIMD nötig.
+  Läuft auf ESP32, WASM, Arduino, RISC-V.
+  
+  32 MB Quelltabellen → 282 KB Buckets → 372K Tok/s
+```
