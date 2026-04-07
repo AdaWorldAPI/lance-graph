@@ -257,3 +257,27 @@ Lösung: 4096 Forward Passes → semantische 4096-Tabelle
   K=4096 semantisch = 2,7 Wörter/Zentroid + echte Bedeutungsdistanz
   = das Beste aus beiden Welten
 ```
+
+## 🎯 1/16σ bis 1/40σ AUS BESTEHENDEN u8 TABELLEN
+
+```
+KEIN BF16 Streaming nötig!
+
+1 Rolle:               256 Stufen = 1/2σ   (klebt)
+4 Rollen composite:   1024 Stufen = 1/8σ   (fließt, 33K Tok/s)
+5 Rollen (+silu):     1280 Stufen = 1/10σ
+2 Schichten × 5 Rollen: 2560      = 1/20σ
+4 Schichten × 5 Rollen: 5120      = 1/40σ  (quasi-i16!)
+
+Hot Zone: nur bei u8-Gleichspiel → 4-Rollen Composite
+Fast Path: 56% der Schritte → reine u8 → 372K Tok/s
+Combined: 33K Tok/s, 19-21/21 unique, null Kleben
+
+Benachbarte Schichten = verschiedene "Belichtungen" gleicher Gewichte
+Ihre UNTERSCHIEDE = die Sub-σ Information die u8 allein nicht hat
+= Belichtungsmesser auf Schicht-Ebene
+
+33 MB u8 Tabellen → 282 KB Buckets + Hot Zone Composite
+= GGUF-freie Inferenz mit quasi-i16 Auflösung
+= kein BF16 Streaming nötig
+```
