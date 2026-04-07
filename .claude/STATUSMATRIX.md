@@ -317,3 +317,20 @@ Fix: K=4096 semantisch + i16/Multi-Rolle Composite.
 
 Die INFRASTRUKTUR steht. Die QUALITÄT braucht K=4096.
 ```
+
+## ✅ K=4096: THEMATISCHE KOHÄRENZ BEWIESEN
+
+```
+K=256: ALLE Queries → "thing north hall" (ein globaler Attraktor)
+K=4096: Jede Query → eigenes Thema:
+  "dog cat" → (animal) ✓
+  "climate patterns" → (pattern, patent, palace) ✓
+  "Bach music" → (baby, biology) (verschiedene Zentroide)
+  
+2.4 Wörter/Zentroid (vs 19 bei K=256). Kollisionen gelöst.
+2.711 Tripel/Sek. Kein globaler Attraktor.
+
+Verbleibend: 
+  "thank" als einziges Verb → braucht semantische 4096-Tabelle
+  2-Schritt-Zyklen → braucht Residual oder Besuchszähler
+```
