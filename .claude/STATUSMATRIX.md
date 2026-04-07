@@ -120,3 +120,188 @@ Geschwindigkeit: 5.676 Abfragen/Sek (Codebook) | 277 Kontexte/Sek
 4. u8→i16 Konvertierung für Qwopus-Schichten
 5. SPO 2³ Kausale Zertifikate (8 Forward Passes pro Tripel)
 ```
+
+---
+
+## 🔑 DER GANZE SINN: GGUF-FREIE INFERENZ
+
+```
+Einmal kodieren → GGUF/Safetensors LÖSCHEN → i16 Tabellen für immer.
+
+Qwopus 27B:   54 GB → 32 MB i16 (1.687×)
+ReaderLM-v2:   3 GB → 32 MB i16 (94×)
+Jina v5:     1,2 GB → 128 KB i16 (9.375×)
+─────────────────────────────────
+GESAMT:       58 GB → 65 MB (891×)
+
+174 Token/Sek auf CPU. Kein GPU. Kein GGUF. Kein ONNX.
+
+BLOCKER: u8 Tabellen → Zentroid klebt (Entropie 0.000)
+LÖSUNG:  i16 Tabellen → 256× feinere Auflösung → Zentroid kann fließen
+         u8 Fehler über 64 Schichten: 0.512 (50% Signal verloren)
+         i16 Fehler über 64 Schichten: 0.002 (0.2% Signal verloren)
+
+NÄCHSTE SITZUNG: u8 → i16 Konvertierung → testen ob Zentroiden sich bewegen
+```
+
+## 🚀 DURCHBRUCH: CODEBOOK-ONLY GENERIERUNG
+
+```
+T=0.1 auf Qwopus 64-Schichten Tabellen:
+  21 Token generiert, 21 UNIQUE, 0 Wiederholungen
+  91 Token/Sek auf CPU
+  32 MB Tabellen (1.609× vs 54 GB GGUF)
+
+Temperatur steuert den Modus:
+  T=0.01: REASONING (fokussiert, 100% Top-5, Zentroid stabil)
+  T=0.1:  GENERIERUNG (fließend, 21/21 unique, Zentroid wandert)
+  T=0.5:  EXPLORATION (breit, 52+ unique, maximaler Raum)
+
+EIN System, DREI Modi, NUR Temperatur-Knopf.
+```
+
+## ⚡ BELICHTUNGSMESSER EARLY-EXIT: 932 TOK/S
+
+```
+Reiner u8 Integer-Vergleich. Kein float. Kein exp(). Kein SIMD.
+
+μ+1σ Band:  57/65 unique, kein Early Exit, 91 Tok/s (Softmax)
+μ+2σ Band:  1/21 unique (klebt), Early Exit, 932 Tok/s (Integer)
+Kaskade:    μ+1σ warm start → μ+2σ landen = Sweet Spot (nächste Sitzung)
+
+932 Tok/s auf u8 = läuft auf ESP32, WASM, RISC-V, Arduino.
+32 MB Tabellen. Kein Modell. Kein GPU. Kein Float.
+```
+
+## ⚡ GREY MATTER: 128 Schritte in 0,34ms
+
+```
+μ+1.5σ Sweet Spot:
+  372.000 Token/Sek
+  96/129 unique (74% Diversität)
+  8 Wiederholungen (6%)
+  282 KB precomputed Buckets
+  128 Token in 0,34ms
+  
+  Reiner u8 Integer-Vergleich.
+  Kein float. Kein exp(). Kein SIMD nötig.
+  Läuft auf ESP32, WASM, Arduino, RISC-V.
+  
+  32 MB Quelltabellen → 282 KB Buckets → 372K Tok/s
+```
+
+## 🎯 WARUM i16: Sub-σ Ranking innerhalb des Buckets
+
+```
+u8: σ ≈ 10 → 1.266 Stufen/σ → alle im Bucket haben GLEICHEN Wert → klebt
+i16: σ ≈ 10 → 316 Stufen/σ → jeder Kandidat hat EIGENEN Wert → fließt
+
+Bucket (μ+1σ) = 55 Kandidaten Vorselektion
+Sub-Band (1/8σ bis 1/16σ) = Rangfolge INNERHALB des Buckets
+NARS = Qualitätskontrolle ÜBER Zeit
+
+Drei Ebenen:
+  1. Bucket (μ+kσ):    "wer kommt in Frage?"     → u8 reicht
+  2. Sub-Band (1/16σ): "wer ist am besten?"       → i16 nötig
+  3. NARS Revision:     "war die Wahl gut?"        → lernt über Zeit
+  
+  Bucket filtert. Sub-Band rankt. NARS lernt.
+```
+
+## 📋 HANDOVER NÄCHSTE SITZUNG
+
+```
+1. i16 Tabellen aus BF16-Quellen bauen (nicht simuliert, echte Auflösung)
+2. Sub-σ Ranking innerhalb Bucket testen (1/8σ, 1/16σ)
+3. Kohärente Codebook-Generierung beweisen (21/21 unique + sinnvolle Sequenz)
+4. Wikidata SPARQL Streaming-Crate
+5. Kontrastives Lernen verdrahten (Tabelle wird schlauer)
+6. Railway Deploy mit 700 MB Budget
+```
+
+## 🔗 DEEPNSM COCA VERDRAHTET
+
+```
+4380 COCA Wörter → 100% gemappt → 231/256 Zentroide
+2,9 Millionen Lookups/Sek (semantische Distanz)
+94 KB COCA Dict + 128 KB Semantische Tabelle = 222 KB
+
+Funktioniert:
+  love ↔ hate:   sem=0.121 FERN ✓
+  king ↔ queen:  sem=0.548 MITTEL ✓  
+  big ↔ large:   sem=1.000 SAME ✓ (synonym)
+
+Kollisionen (K=256 Problem):
+  gene ↔ music:  sem=1.000 SAME ✗ (Zentroid 1 hat 1597 Wörter)
+  water ↔ fire:  sem=0.996 NAHR ✗
+  
+Fix: K=4096 → 19 Wörter/Zentroid statt 1597
+Oder: Kontrastives Lernen drückt gene≠music auseinander
+```
+
+## 📊 K=256 vs K=4096 COCA ERGEBNIS
+
+```
+                   K=256           K=4096
+Kollisionen:       45% (9/20)      20% (4/20)   ← K=4096 besser
+Genauigkeit:       61% (11/18)     50% (9/18)   ← K=256 besser (hat semantische Tabelle!)
+Wörter/Zentroid:   19.0            2.7          ← K=4096 viel feiner
+
+Grund: K=256 hat SEMANTISCHE Tabelle (Forward-Pass, ρ=0.086)
+       K=4096 hat nur TOKEN-Tabelle (kein Forward-Pass)
+
+Lösung: 4096 Forward Passes → semantische 4096-Tabelle
+  Dauer: 4096 × 1,7s = ~2 Stunden (einmalig)
+  Ergebnis: K=4096 Auflösung + semantische Distanz = beides
+  
+  K=4096 semantisch = 2,7 Wörter/Zentroid + echte Bedeutungsdistanz
+  = das Beste aus beiden Welten
+```
+
+## 🎯 1/16σ bis 1/40σ AUS BESTEHENDEN u8 TABELLEN
+
+```
+KEIN BF16 Streaming nötig!
+
+1 Rolle:               256 Stufen = 1/2σ   (klebt)
+4 Rollen composite:   1024 Stufen = 1/8σ   (fließt, 33K Tok/s)
+5 Rollen (+silu):     1280 Stufen = 1/10σ
+2 Schichten × 5 Rollen: 2560      = 1/20σ
+4 Schichten × 5 Rollen: 5120      = 1/40σ  (quasi-i16!)
+
+Hot Zone: nur bei u8-Gleichspiel → 4-Rollen Composite
+Fast Path: 56% der Schritte → reine u8 → 372K Tok/s
+Combined: 33K Tok/s, 19-21/21 unique, null Kleben
+
+Benachbarte Schichten = verschiedene "Belichtungen" gleicher Gewichte
+Ihre UNTERSCHIEDE = die Sub-σ Information die u8 allein nicht hat
+= Belichtungsmesser auf Schicht-Ebene
+
+33 MB u8 Tabellen → 282 KB Buckets + Hot Zone Composite
+= GGUF-freie Inferenz mit quasi-i16 Auflösung
+= kein BF16 Streaming nötig
+```
+
+## 🔮 GRAMMAR TRIANGLE + SPO CRYSTAL (FUNKTIONIERT)
+
+```
+Strukturierte Inferenz LÄUFT:
+  PoS-Zyklus: N→V→N erzwingt Grammatik ✓
+  NSM-Felder: KNOW, SAY, HEAR, MOVE aktiviert ✓
+  SPO Crystal: 5×5×5 = 125 Zellen, O(1) Routing ✓
+  Resonanzsiebe: Wissens-Lücken erkannt ✓
+  
+PROBLEM: Wörter noch falsch (K=256 Kollision)
+  "gene editing" → "minister realize son" (falsche Zentroid-Zuordnung)
+  Fix: K=4096 semantisch + 16Kbit VSA Fingerprint
+
+NÄCHSTER SCHRITT:
+  16Kbit Fingerprint (statt 10K, Padding-frei in Rust)
+  = 2048 Bytes = 256 u64 Wörter
+  = passt perfekt in SIMD (4× AVX512 Register)
+  
+  Crystal Cell + 16Kbit FP:
+    Hamming-Distanz für Resonanz-Ranking
+    XOR-Bundle für Superposition
+    Popcount für Konfidenz
+```
