@@ -218,3 +218,23 @@ Drei Ebenen:
 5. Kontrastives Lernen verdrahten (Tabelle wird schlauer)
 6. Railway Deploy mit 700 MB Budget
 ```
+
+## 🔗 DEEPNSM COCA VERDRAHTET
+
+```
+4380 COCA Wörter → 100% gemappt → 231/256 Zentroide
+2,9 Millionen Lookups/Sek (semantische Distanz)
+94 KB COCA Dict + 128 KB Semantische Tabelle = 222 KB
+
+Funktioniert:
+  love ↔ hate:   sem=0.121 FERN ✓
+  king ↔ queen:  sem=0.548 MITTEL ✓  
+  big ↔ large:   sem=1.000 SAME ✓ (synonym)
+
+Kollisionen (K=256 Problem):
+  gene ↔ music:  sem=1.000 SAME ✗ (Zentroid 1 hat 1597 Wörter)
+  water ↔ fire:  sem=0.996 NAHR ✗
+  
+Fix: K=4096 → 19 Wörter/Zentroid statt 1597
+Oder: Kontrastives Lernen drückt gene≠music auseinander
+```
