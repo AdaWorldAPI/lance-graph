@@ -305,3 +305,15 @@ NÄCHSTER SCHRITT:
     XOR-Bundle für Superposition
     Popcount für Konfidenz
 ```
+
+## 🔬 COCA INFERENZ: Echte Wörter, aber Attraktor bei K=256
+
+```
+9.664 Tripel/Sek. Echte COCA Wörter. Grammatik (N→V→N).
+Aber: alle Queries → "thing north hall plot empire" (Attraktor).
+
+Ursache: K=256, Zentroid 1 = 1597 Wörter, dominiert.
+Fix: K=4096 semantisch + i16/Multi-Rolle Composite.
+
+Die INFRASTRUKTUR steht. Die QUALITÄT braucht K=4096.
+```
