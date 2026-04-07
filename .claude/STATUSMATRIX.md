@@ -143,3 +143,19 @@ LÖSUNG:  i16 Tabellen → 256× feinere Auflösung → Zentroid kann fließen
 
 NÄCHSTE SITZUNG: u8 → i16 Konvertierung → testen ob Zentroiden sich bewegen
 ```
+
+## 🚀 DURCHBRUCH: CODEBOOK-ONLY GENERIERUNG
+
+```
+T=0.1 auf Qwopus 64-Schichten Tabellen:
+  21 Token generiert, 21 UNIQUE, 0 Wiederholungen
+  91 Token/Sek auf CPU
+  32 MB Tabellen (1.609× vs 54 GB GGUF)
+
+Temperatur steuert den Modus:
+  T=0.01: REASONING (fokussiert, 100% Top-5, Zentroid stabil)
+  T=0.1:  GENERIERUNG (fließend, 21/21 unique, Zentroid wandert)
+  T=0.5:  EXPLORATION (breit, 52+ unique, maximaler Raum)
+
+EIN System, DREI Modi, NUR Temperatur-Knopf.
+```
