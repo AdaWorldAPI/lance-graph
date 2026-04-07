@@ -238,3 +238,22 @@ Kollisionen (K=256 Problem):
 Fix: K=4096 → 19 Wörter/Zentroid statt 1597
 Oder: Kontrastives Lernen drückt gene≠music auseinander
 ```
+
+## 📊 K=256 vs K=4096 COCA ERGEBNIS
+
+```
+                   K=256           K=4096
+Kollisionen:       45% (9/20)      20% (4/20)   ← K=4096 besser
+Genauigkeit:       61% (11/18)     50% (9/18)   ← K=256 besser (hat semantische Tabelle!)
+Wörter/Zentroid:   19.0            2.7          ← K=4096 viel feiner
+
+Grund: K=256 hat SEMANTISCHE Tabelle (Forward-Pass, ρ=0.086)
+       K=4096 hat nur TOKEN-Tabelle (kein Forward-Pass)
+
+Lösung: 4096 Forward Passes → semantische 4096-Tabelle
+  Dauer: 4096 × 1,7s = ~2 Stunden (einmalig)
+  Ergebnis: K=4096 Auflösung + semantische Distanz = beides
+  
+  K=4096 semantisch = 2,7 Wörter/Zentroid + echte Bedeutungsdistanz
+  = das Beste aus beiden Welten
+```
