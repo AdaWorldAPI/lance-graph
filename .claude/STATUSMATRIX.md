@@ -281,3 +281,27 @@ Ihre UNTERSCHIEDE = die Sub-σ Information die u8 allein nicht hat
 = GGUF-freie Inferenz mit quasi-i16 Auflösung
 = kein BF16 Streaming nötig
 ```
+
+## 🔮 GRAMMAR TRIANGLE + SPO CRYSTAL (FUNKTIONIERT)
+
+```
+Strukturierte Inferenz LÄUFT:
+  PoS-Zyklus: N→V→N erzwingt Grammatik ✓
+  NSM-Felder: KNOW, SAY, HEAR, MOVE aktiviert ✓
+  SPO Crystal: 5×5×5 = 125 Zellen, O(1) Routing ✓
+  Resonanzsiebe: Wissens-Lücken erkannt ✓
+  
+PROBLEM: Wörter noch falsch (K=256 Kollision)
+  "gene editing" → "minister realize son" (falsche Zentroid-Zuordnung)
+  Fix: K=4096 semantisch + 16Kbit VSA Fingerprint
+
+NÄCHSTER SCHRITT:
+  16Kbit Fingerprint (statt 10K, Padding-frei in Rust)
+  = 2048 Bytes = 256 u64 Wörter
+  = passt perfekt in SIMD (4× AVX512 Register)
+  
+  Crystal Cell + 16Kbit FP:
+    Hamming-Distanz für Resonanz-Ranking
+    XOR-Bundle für Superposition
+    Popcount für Konfidenz
+```
