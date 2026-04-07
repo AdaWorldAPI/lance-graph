@@ -70,3 +70,4 @@ pub use vocabulary::Vocabulary;
 pub use similarity::SimilarityTable;
 pub use encoder::{VsaVec, RoleVectors};
 pub use context::ContextWindow;
+pub mod fingerprint16k;
