@@ -189,3 +189,32 @@ Kaskade:    μ+1σ warm start → μ+2σ landen = Sweet Spot (nächste Sitzung)
   
   32 MB Quelltabellen → 282 KB Buckets → 372K Tok/s
 ```
+
+## 🎯 WARUM i16: Sub-σ Ranking innerhalb des Buckets
+
+```
+u8: σ ≈ 10 → 1.266 Stufen/σ → alle im Bucket haben GLEICHEN Wert → klebt
+i16: σ ≈ 10 → 316 Stufen/σ → jeder Kandidat hat EIGENEN Wert → fließt
+
+Bucket (μ+1σ) = 55 Kandidaten Vorselektion
+Sub-Band (1/8σ bis 1/16σ) = Rangfolge INNERHALB des Buckets
+NARS = Qualitätskontrolle ÜBER Zeit
+
+Drei Ebenen:
+  1. Bucket (μ+kσ):    "wer kommt in Frage?"     → u8 reicht
+  2. Sub-Band (1/16σ): "wer ist am besten?"       → i16 nötig
+  3. NARS Revision:     "war die Wahl gut?"        → lernt über Zeit
+  
+  Bucket filtert. Sub-Band rankt. NARS lernt.
+```
+
+## 📋 HANDOVER NÄCHSTE SITZUNG
+
+```
+1. i16 Tabellen aus BF16-Quellen bauen (nicht simuliert, echte Auflösung)
+2. Sub-σ Ranking innerhalb Bucket testen (1/8σ, 1/16σ)
+3. Kohärente Codebook-Generierung beweisen (21/21 unique + sinnvolle Sequenz)
+4. Wikidata SPARQL Streaming-Crate
+5. Kontrastives Lernen verdrahten (Tabelle wird schlauer)
+6. Railway Deploy mit 700 MB Budget
+```
