@@ -159,3 +159,16 @@ Temperatur steuert den Modus:
 
 EIN System, DREI Modi, NUR Temperatur-Knopf.
 ```
+
+## ⚡ BELICHTUNGSMESSER EARLY-EXIT: 932 TOK/S
+
+```
+Reiner u8 Integer-Vergleich. Kein float. Kein exp(). Kein SIMD.
+
+μ+1σ Band:  57/65 unique, kein Early Exit, 91 Tok/s (Softmax)
+μ+2σ Band:  1/21 unique (klebt), Early Exit, 932 Tok/s (Integer)
+Kaskade:    μ+1σ warm start → μ+2σ landen = Sweet Spot (nächste Sitzung)
+
+932 Tok/s auf u8 = läuft auf ESP32, WASM, RISC-V, Arduino.
+32 MB Tabellen. Kein Modell. Kein GPU. Kein Float.
+```
