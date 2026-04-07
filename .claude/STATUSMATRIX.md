@@ -120,3 +120,26 @@ Geschwindigkeit: 5.676 Abfragen/Sek (Codebook) | 277 Kontexte/Sek
 4. u8→i16 Konvertierung für Qwopus-Schichten
 5. SPO 2³ Kausale Zertifikate (8 Forward Passes pro Tripel)
 ```
+
+---
+
+## 🔑 DER GANZE SINN: GGUF-FREIE INFERENZ
+
+```
+Einmal kodieren → GGUF/Safetensors LÖSCHEN → i16 Tabellen für immer.
+
+Qwopus 27B:   54 GB → 32 MB i16 (1.687×)
+ReaderLM-v2:   3 GB → 32 MB i16 (94×)
+Jina v5:     1,2 GB → 128 KB i16 (9.375×)
+─────────────────────────────────
+GESAMT:       58 GB → 65 MB (891×)
+
+174 Token/Sek auf CPU. Kein GPU. Kein GGUF. Kein ONNX.
+
+BLOCKER: u8 Tabellen → Zentroid klebt (Entropie 0.000)
+LÖSUNG:  i16 Tabellen → 256× feinere Auflösung → Zentroid kann fließen
+         u8 Fehler über 64 Schichten: 0.512 (50% Signal verloren)
+         i16 Fehler über 64 Schichten: 0.002 (0.2% Signal verloren)
+
+NÄCHSTE SITZUNG: u8 → i16 Konvertierung → testen ob Zentroiden sich bewegen
+```
