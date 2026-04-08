@@ -84,7 +84,7 @@
 **Gate criteria (all must pass before Phase 4):**
 
 ```
-[x] bgz17-codec feature flag added to lance-graph Cargo.toml (DONE — optional dep, default-enabled)
+[x] bgz17-codec feature flag added to lance-graph Cargo.toml (DONE — mandatory, default-enabled)
 [x] bgz17 stays in workspace exclude (standalone by design, path dep works)
 [ ] NdarrayFingerprint::plane_to_base17() encodes from flat PLANE (not container)
 [ ] build_palette_distance_fn reads W125 palette indices from containers
