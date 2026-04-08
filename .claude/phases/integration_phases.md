@@ -31,9 +31,9 @@
 
 ## Phase 2: Session B — bgz17 Container Annex + Semiring ✅ DONE
 
-**Phase 2 Completion Note:** Updated 2026-03-22: All bgz17 items verified complete (121 tests). Phase 3 gates remain OPEN.
+**Phase 2 Completion Note:** Verified 2026-04-08: All 7 deliverables implemented, 126 tests passing.
 
-**Done (PR #28, container.rs 728 lines, 15 tests):**
+**Container (PR #28, 728 lines, 15 tests):**
 
 ```
 [x] container.rs: pack_annex / unpack_annex roundtrip
@@ -44,35 +44,39 @@
 [x] seal_wide_meta, has_bgz17_annex
 ```
 
-**Remaining items — ALL DONE in bgz17 crate (121 tests passing):**
+**Deliverables 2-7 (all implemented, 126 tests total):**
 
 ```
-[x] PaletteSemiring + compose_table — DONE (5 tests)
-[x] PaletteMatrix mxm — DONE (3 tests)
-[x] PaletteCsr::from_scope_with_edges — DONE (4 tests)
-[x] Base17 VSA ops (xor_bind/bundle/permute) — DONE (14 tests)
-[x] SIMD batch_palette_distance — DONE (5 tests)
-[x] PaletteResolution::auto_select — DONE
-[x] TypedPaletteGraph — DONE (7 tests)
-[x] `cd crates/bgz17 && cargo test` passes with new modules
+[x] PaletteSemiring + compose_table (palette_semiring.rs)
+[x] PaletteMatrix mxm (palette_matrix.rs)
+[x] PaletteCsr::from_scope_with_edges (palette_csr.rs)
+[x] Base17 VSA ops: xor_bind, bundle, permute (base17.rs)
+[x] SIMD batch_palette_distance: AVX-512/AVX2/scalar (simd.rs)
+[x] PaletteResolution::auto_select (palette.rs)
+[x] TypedPaletteGraph (typed_palette_graph.rs)
+[x] `cd crates/bgz17 && cargo test` — 126 tests passing
 ```
 
-**Phase 3 gate items remain OPEN:**
+**Infra for Phase 3 already wired:**
 
 ```
-[ ] bgz17-codec feature flag in lance-graph — NOT STARTED
+[x] bgz17-codec feature flag in lance-graph Cargo.toml (optional dep, default-enabled)
+```
+
+**Phase 3 gate items (Session C scope):**
+
+```
 [ ] NdarrayFingerprint::plane_to_base17() — NOT STARTED
 [ ] parallel_search() dual-path — NOT STARTED
 ```
 
-**Phase 4 gate items remain OPEN:**
+**Phase 4 gate items (Session D scope):**
 
 ```
 [ ] FalkorCompat 3-backend routing — PARTIAL (only blasgraph wired, DataFusion + palette missing)
 ```
 
-**Branch:** `feat/bgz17-palette-semiring`
-**Prompt:** `.claude/prompts/session_B_v3_bgz17_container_semiring.md`
+**Prompt:** `.claude/prompts/session_B_v3_bgz17_container_semiring.md` (COMPLETED)
 **Agents:** palette-engineer, container-architect
 
 ## Phase 3: Session C — Dual-Path Integration
@@ -80,8 +84,8 @@
 **Gate criteria (all must pass before Phase 4):**
 
 ```
-[ ] bgz17-codec feature flag added to lance-graph Cargo.toml
-[ ] bgz17 moved from workspace exclude to members
+[x] bgz17-codec feature flag added to lance-graph Cargo.toml (DONE — optional dep, default-enabled)
+[x] bgz17 stays in workspace exclude (standalone by design, path dep works)
 [ ] NdarrayFingerprint::plane_to_base17() encodes from flat PLANE (not container)
 [ ] build_palette_distance_fn reads W125 palette indices from containers
 [ ] ClamTree::build_from_containers works with palette distance
