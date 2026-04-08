@@ -19,14 +19,14 @@ SESSION A: blasgraph CSC/Hypersparse + Cypher→Semiring Planner
   Prompt:  .claude/prompts/session_A_v3_blasgraph_csc_planner.md (COMPLETED)
 
 SESSION B: bgz17 Container Annex + Palette Semiring + SIMD
-  Status:  ⚡ PARTIAL — container.rs DONE (PR #28), semiring/VSA/SIMD remaining
+  Status:  ✅ DONE — 126 tests, all 7 deliverables implemented
   Deps:    Session A ✅
   Agents:  palette-engineer, container-architect
   Prompt:  .claude/prompts/session_B_v3_bgz17_container_semiring.md
 
 SESSION C: ndarray ← bgz17 Dual-Path + TruthGate
-  Status:  PENDING (blocked on Session B remaining)
-  Deps:    Sessions A ✅ + B ⚡
+  Status:  PENDING (unblocked — Sessions A + B both ✅)
+  Deps:    Sessions A ✅ + B ✅
   Agents:  palette-engineer, container-architect + ndarray:cascade-architect
   Prompt:  .claude/prompts/session_C_v3_ndarray_bgz17_dualpath.md
 

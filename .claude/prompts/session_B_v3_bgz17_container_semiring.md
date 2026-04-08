@@ -1,12 +1,12 @@
 # SESSION B v3: bgz17 Container Annex + Palette Semiring + SIMD
 
-## STATUS: ⚡ PARTIAL
+## STATUS: ✅ DONE
 
-**DONE (PR #28, container.rs, 728 lines, 15 tests):**
-Annex pack/unpack (W112-125), wide checksum (W254), SPO crystal (W128-143),
-extended edges (W224-239), seal_wide_meta, has_bgz17_annex. Skip Deliverable 1.
+**All 7 deliverables implemented. 126 tests passing.**
 
-**REMAINING:** Deliverables 2-7 below.
+Container annex (PR #28), PaletteSemiring, PaletteMatrix mxm, PaletteCsr,
+Base17 VSA (xor_bind/bundle/permute), SIMD batch_palette_distance,
+PaletteResolution auto-select, TypedPaletteGraph. Session C is now unblocked.
 
 ## CONTEXT
 
