@@ -416,3 +416,35 @@ Ein Mikroskop für Resonanz zwischen Konzepten.
 **Die zentrale Frage für nächste Sitzung:**
 Kann das System überraschen auf eine Weise die im Nachhinein Sinn ergibt?
 Das ist der operationale Test für Eingebung.
+
+### 5.11 Build-Time vs Runtime Trennung (Railway 32 GB / 700 MB)
+
+```
+BUILD-TIME (Railway 32 GB RAM, temporär):
+  - 4096 Forward Passes für semantische Tabelle (~2h einmalig)
+  - Qwopus Multi-Rolle Composite Build
+  - Wikidata Initial-Crawl + CLAM Tree Build
+  - Lance Table Creation mit RaBitQ Index
+  - Contrastive Learning Warmup (erste 10K Updates)
+  
+  Artefakte landen in LanceDB (zero-copy mmap-ready)
+  Danach: Railway skaliert runter.
+
+RUNTIME (schlank, permanent):
+  lance-graph core:  13 MB
+  L0+L1 permanent:   14 MB total
+  Lance mmap:        OS cached hot rows automatisch
+  Peak Runtime RAM:  ~100 MB (inkl. Working Set)
+  
+RaBitQ Column Sort = Family Bucketing kostenlos:
+  4096 Zentroiden → Lance Table
+  RaBitQ quantisiert auf 1 bit/dim
+  Lance sortiert so dass ähnliche Zentroiden physisch adjacent liegen
+  → automatische "balanced families" ohne expliziten Clustering-Schritt
+  → der Storage Layer erzwingt die Topologie
+  → Lookup = sequenzieller Zugriff auf adjacent rows = Cache-freundlich
+
+Saubere Trennung:
+  Build-Time:  großzügig mit RAM, einmaliger Aufwand
+  Runtime:     schlank, zero-copy, mmap, OS-cached
+```
