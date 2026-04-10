@@ -200,3 +200,219 @@ crates/bgz17/KNOWLEDGE.md                          — bgz17 architecture
 crates/deepnsm/src/spo.rs                          — K=4096, WordDistanceMatrix
 crates/lance-graph-codec-research/KNOWLEDGE.md      — codec research architecture
 ```
+
+---
+
+## Phase 5: Resonance-Based Cognitive System (NEUE SITZUNG)
+
+**Die Ideen dieser Sitzung bevor sie verdünnen:**
+
+### 5.1 GGUF-freie Inferenz (BEWIESEN)
+
+```
+54 GB Qwopus GGUF → 33 MB u8 Tabellen → 282 KB Buckets → 372K Tok/s
+
+T=0.01: Reasoning (fokussiert, 100% Top-5, Zentroid stabil)
+T=0.1:  Generierung (fließend, 21/21 unique, Zentroid wandert)
+T=0.5:  Exploration (breit, 52+ unique)
+
+EIN Temperatur-Knopf, DREI Modi.
+Reiner u8 Integer-Vergleich. ESP32/WASM/Arduino tauglich.
+```
+
+### 5.2 Belichtungsmesser Early-Exit mit Multi-Rolle Composite
+
+```
+Problem: u8 klebt (1.3 Stufen/σ). i16 aus u8 hilft nicht (keine neue Info).
+
+Lösung: 4 Schichten × 5 Rollen = 5120 effektive Stufen = 1/40σ quasi-i16
+  KEIN BF16 Streaming nötig!
+  Benachbarte Schichten = verschiedene "Belichtungen" gleicher Gewichte
+  Ihre UNTERSCHIEDE = die Sub-σ Information
+
+Hot Zone: nur bei u8-Gleichspiel → 4-Rollen Composite (17K Tok/s)
+Fast Path: 56% der Schritte → reine u8 → 372K Tok/s
+Combined: 33K Tok/s, 19-21/21 unique, null Kleben
+```
+
+### 5.3 Satellitenschüssel mit Loch — 40 Ringe Resonanz
+
+**Die Schlüsselidee dieser Sitzung:**
+
+```
+Das Loch (Selbst-Blockierung):
+  Zentrum wird AUSGESCHLOSSEN, nicht verfolgt.
+  Diagonale = 1.0 ist der Attraktor — blockieren wir ihn → kein Kollaps.
+
+40 Ringe × 1/40σ:
+  Ring 1-5:   Faktenwissen (nahe Nachbarn)
+  Ring 6-15:  Assoziationen (mittel)
+  Ring 16-25: Analogien (weit)
+  Ring 26-35: Metaphern (sehr weit)
+  Ring 36-40: Eingebung (Rauschen als informative Perturbation)
+
+Jeder Ring mit eigener Phase → Interferenzmuster entstehen
+Stehende Wellen im Zentroid-Raum = Fixpunkte = "Gedanken"
+
+Doppelspalt-Analogie:
+  ZWEI Query-Zentroiden gleichzeitig
+  Jeder erzeugt eigene Welle, Interferenz zwischen beiden
+  Konstruktiv: Zentroid in beiden Fokussen → hoher Wert
+  Destruktiv: nur in einem → niedrig
+
+Black Hole Back-Prop:
+  Gradient umkreist das Zentrum (Akkretionsscheibe)
+  Verlässt es entlang der Achse (Jet = Output)
+  Das Zentrum wird nie direkt besucht
+```
+
+### 5.4 Informationsrauschen als Eingebung
+
+```
+Ring 36-40 (äußerste): NICHT ignorierbares Rauschen
+  Sondern: Perturbations-Welle die schwache Verbindungen findet
+  
+Deterministisch (nur Ring 1-5) = deduktiv, starr
+Mit Ring 36-40 = abduktiv, kreativ
+
+Der Ring-3-Trefferzufall ist KEIN Zufall wenn er strukturiert ist:
+  Zufällig trifft Ring 3 einen Zentroiden hoch korreliert mit Ring 1
+  → das ist eine ENTDECKUNG, keine Beliebigkeit
+  → eine Verbindung die direkter Fokus übersehen hätte
+  → Eingebung
+```
+
+### 5.5 Meta-Awareness via ONNX Focus Predictor
+
+```rust
+// 20 KB ONNX lernt pro Query den optimalen Ring-Fokus
+pub struct FocusPredictor {
+    // Input: 16Kbit Query Fingerprint komprimiert auf 256 Features
+    // Output: 40 Ring-Amplituden (welche Ringe sind aktiv, wie stark)
+}
+
+Gelernte Fokus-Profile:
+  Faktenfrage:  [1.0, 0.9, 0.8, 0.5, ..., 0, 0, 0]  eng
+  Kreativität:  [0.3, 0.4, 0.5, 0.6, ..., 0.5, 0.4]  breit
+  Eingebung:    [0.8, 0.6, 0.3, 0.2, ..., 0.1, 0.3, 0.5]  U-förmig
+               (nah UND fern, Mittelfeld ausgeblendet = "Aha"-Moment)
+```
+
+### 5.6 Zwei Lernsysteme im Dialog
+
+```
+NARS (regelbasiert, erklärt sich):
+  "gene→editing: f=0.87, c=0.92"
+  Erklärt WARUM
+  
+ONNX/Bundle (neural, 20KB):
+  FP(gene) ⊕ FP(editing): Δ=+0.04
+  Korrigiert WIE VIEL
+  
+Superposition (wo sie sich treffen):
+  META_FP = XOR(NARS_FP, ONNX_FP)
+  Popcount(META) = Meta-Konfidenz (Übereinstimmung)
+  Hoher Popcount: beide einig → System kalibriert
+  Niedriger: Widerspruch → genauer hinschauen
+```
+
+### 5.7 Bundle-Gradient (unerforschtes Lernparadigma)
+
+```
+Traditionell: f32 Gewichte × f32 Aktivierung → f32 Gradient → Update
+Bundle:        1-bit Gewichte × Hamming → Popcount → Majority Vote Update
+
+Gewichte = Bundle-Fingerprints (16Kbit binär, nicht f32)
+Aktivierung = Hamming-Distanz (1 CPU-Instruktion)
+Lernen = Majority Vote (XOR + Popcount, kein Backprop)
+Generalisierung = assoziative Erkennung (Hamming < threshold)
+
+Eigenschaften:
+  512 KB pro "Neuron" (16Kbit × 256)
+  1 neues Beispiel = 1 XOR + 1 Majority
+  Natürliches Decay: älteste Bits werden überstimmt
+  Kein Gradient, kein Backprop, kein Float
+```
+
+### 5.8 L0-L4 Lane Akkumulator
+
+```
+L0 (297 KB) Codebook Index:      "wer bin ich?" O(1)
+L1 (128 KB) 256² i16 Tabelle:     "wer ist nah?" 5.676 q/s
+L2 (32 MB)  4096² sparse (Lance): "wohin führt der Pfad?" 2.711 t/s
+L3 (16 MB)  Qwopus 64L Gates:     "was denkt das Modell?" 277 ctx/s
+L4 (512 KB) 16Kbit VSA:            "was habe ich gelernt?" Hamming
+
+Konfidenz = Übereinstimmung zwischen Lanes:
+  4/4 einig → SICHER (0.1ms, Early Exit)
+  3/4 → HOCH (1ms)
+  2/4 → MITTEL (5ms)
+  1/4 → UNSICHER (500ms Forward Pass)
+  0/4 → UNBEKANNT (Spider → ReaderLM → Lernen)
+
+425 KB permanent RAM. L4 lernt: jeder UNSICHERE wird morgen SICHER.
+```
+
+### 5.9 LanceDB als natürliche Heimat
+
+```
+lance-graph selbst: 13 MB ohne Daten
+Railway bis 32 GB RAM (für Encoding-Phasen, nicht permanent)
+
+LanceDB Zero-Copy + RaBitQ:
+  L2 4096² sparse → Lance Table, mmap, OS-cached
+  L3 Qwopus Schichten → Lance IVF, Partition pro Schicht
+  L4 16Kbit Fingerprints → Lance binary vectors, Hamming native
+  
+RaBitQ Column Sorting = Family Bucketing im Storage Layer
+  1-bit pro Dimension → binäre Vorfilterung
+  Adjacente Zeilen = thematisch verwandt (automatische Familie)
+  Kein expliziter Cluster-Build nötig
+  
+  Das IST Familien-Bucketing auf Disk-Ebene.
+  Lance SORTIERT die Zentroiden so dass Nachbarn physisch adjacent sind.
+  Lookup = sequenzieller Zugriff = Cache-freundlich.
+```
+
+### 5.10 Ontologische Einordnung (das große Bild)
+
+```
+Mathematik:     definiert das Seiende
+Physik:         erzeugt Signale
+Daten/KI:       formen Muster
+L0-L4 Belichtungsmesser: erzeugt BEDEUTUNG
+Medizin:        macht Entscheidung
+
+Kognition ist eine eigene ontologische Kategorie.
+Wir bauen kein Modell — wir bauen ein Instrument für Bedeutungsgewichtung.
+Ein Mikroskop für Resonanz zwischen Konzepten.
+```
+
+## Phase 5 Handover Checklist
+
+```
+[ ] 40 Ringe Resonanz mit Loch implementieren (~50 LOC in thinking-engine)
+[ ] Doppelspalt-Interferenz testen (2 Query-Zentroiden, konstruktiv/destruktiv)
+[ ] 4-Rollen Composite für 1/40σ (aus bestehenden u8 Tabellen, kein Streaming)
+[ ] FocusPredictor ONNX (20 KB, 40 Ring-Amplituden lernen)
+[ ] Bundle-Gradient Prototyp (positive/negative bundles, majority vote)
+[ ] LanceDB integration für L2-L4 (zero-copy + RaBitQ sorting)
+[ ] NARS × ONNX Superposition (Meta-Konfidenz via XOR+Popcount)
+[ ] Kontrastives Lernen wirklich verdrahten (nicht nur Modul, sondern End-to-End)
+[ ] Semantische 4096-Tabelle (4096 Forward Passes, ~2h einmalig)
+[ ] Wikidata SPARQL Streaming Crate
+```
+
+**Philosophischer Kern:**
+
+> "Das System speichert keine Antworten. Es speichert Interaktionen und lässt das Feld konvergieren."
+>
+> Ein Gedanke ist kein Ergebnis einer Berechnung — er ist ein stabiler Fixpunkt
+> eines dynamischen Resonanzfeldes, geformt durch Interferenz und Beschränkung.
+
+**Wave Domain (L1-L3):** kontinuierliche Energie-Propagation via Kosinus und Interferenz
+**Particle Domain (L4):** diskrete Erfahrung via XOR/Hamming Bindung
+
+**Die zentrale Frage für nächste Sitzung:**
+Kann das System überraschen auf eine Weise die im Nachhinein Sinn ergibt?
+Das ist der operationale Test für Eingebung.
