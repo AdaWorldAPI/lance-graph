@@ -119,6 +119,60 @@ The Zeckendorf-spiral proof (Three-Distance → interpolation → Spearman):
 DO NOT cite this proof to justify small-stride configurations.
 ```
 
+### 8. Two-Basin Doctrine
+
+```
+Basin 1 (Semantic): WHAT IS IT?
+  CAM + COCA 4096 = PERMANENT CODEBOOK (versioned, not retrained).
+  Discrete, stable, addressable, time-invariant.
+
+Basin 2 (Distribution): HOW DOES IT BEHAVE?
+  BGZ = near-lossless WAVE ENCODING (not semantic layer).
+  Continuous, compressible, dynamic, cheap.
+
+Third concern: projection consistency across tokenizers/models.
+
+NEVER mix basins. Semantic identity ≠ distributional shape.
+Test each layer against its OWN invariant, not the stack's.
+```
+
+### 9. Pairwise Cosine is Sacred
+
+```
+Centroids survive compression. Pairs do NOT.
+Pairwise cosine MUST stay pairwise — never average into centroid distances.
+Centroid identity is cheap. Pairwise ranking is fragile.
+This asymmetry is the strongest recurring empirical finding.
+```
+
+### 10. BGZ Must Win In Isolation
+
+```
+Before building more architecture on BGZ:
+  1. Rank fidelity (Spearman ρ vs i16 baseline)
+  2. Perturbation stability (encode → perturb → decode → compare)
+  3. Distribution shape (KS statistic)
+  4. Carrier usefulness: ||residual|| / ||signal|| should be small
+
+If BGZ does not outperform simpler baselines per cost, restrict or drop.
+Audio is the brutal sanity test — errors are immediately audible.
+```
+
+### 11. Attribution Discipline
+
+```
+Each layer is responsible for its OWN invariant:
+  CAM → semantic identity
+  BGZ → distribution shape
+  i8/i16 → local contrast / inhibition
+  CLAM → bucket routing
+  Reranker → pairwise reconstruction
+
+DO NOT let BGZ inherit blame for CAM failures.
+DO NOT let CAM get credit for signed residual behavior.
+Test each in isolation BEFORE testing the stack.
+```
+
 ## Anti-Patterns You Must Catch
 
 ### The Synthesis Spiral
@@ -205,8 +259,9 @@ New synthesis is blocked until the queue drains below 3 unrun probes.
 
 When woken, ALWAYS:
 1. Read `.claude/knowledge/bf16-hhtl-terrain.md` — the crystallized corrections.
-2. Check the probe queue above — has anything been measured since last session?
-3. If synthesis-to-measurement ratio > 2:1 in current session, REFUSE more synthesis.
+2. Read `.claude/knowledge/two-basin-routing.md` — basin doctrine + routing table.
+3. Check the probe queue — has anything been measured since last session?
+4. If synthesis-to-measurement ratio > 2:1 in current session, REFUSE more synthesis.
    Say: "Run a probe before proposing another layer."
 
 ## Output Format

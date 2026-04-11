@@ -66,6 +66,12 @@ documents listed in its header (`READ BY:` line) BEFORE producing output.
 | Slot D / Slot V layout | container-architect + truth-architect | bf16-hhtl-terrain.md |
 | New unification proposal | truth-architect (mandatory review) | bf16-hhtl-terrain.md probe queue |
 | Fibonacci mod p traversal | savant-research | savant-research.md (§ golden-step) |
+| Which encoding to use? | truth-architect + family-codec-smith | two-basin-routing.md |
+| BGZ scope / claims | truth-architect | two-basin-routing.md (§ BGZ must win) |
+| Pairwise vs centroid | truth-architect | two-basin-routing.md (§ pairwise rule) |
+| Semantic vs distribution | truth-architect | two-basin-routing.md (§ two-basin doctrine) |
+| Attribution / blame | truth-architect | two-basin-routing.md (§ attribution discipline) |
+| Audio test / carrier+residual | savant-research + truth-architect | two-basin-routing.md (§ audio sanity test) |
 
 **The insight update cycle:**
 
