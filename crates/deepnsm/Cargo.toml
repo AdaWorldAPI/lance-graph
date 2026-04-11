@@ -11,8 +11,14 @@ O(1) per word, O(n) per sentence, deterministic, bit-reproducible.
 No GPU. No learned weights. Same decision boundaries as cosine.
 """
 
-# Zero dependencies — compiles standalone.
-# lance-graph integration added when wired into production.
+# Zero EXTERNAL (crates.io) dependencies — for supply-chain cleanness.
+# AdaWorldAPI path deps are mandatory and compile into the same binary.
+# ndarray is the canonical SIMD/BLAS/CLAM provider: ndarray::simd is a
+# LazyLock CPU detect that dispatches to simd_avx512.rs / simd_avx2.rs /
+# simd_amx.rs based on hardware. This crate USES exported types like
+# F32x16 via their public Add/Sub/Mul impls and mul_add primitive; it
+# never touches backend optimization files.
 [dependencies]
+ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
 
 [dev-dependencies]

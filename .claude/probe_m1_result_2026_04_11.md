@@ -151,3 +151,97 @@ into the architecture.
    (ripple-architect's 5-sieve version with the 40-ring 1/40σ lens as sieve #5)
    to test whether the multi-resolution manifold claim holds at the right altitude.
 5. If math savant finds bugs, fix and re-run BEFORE touching canonical knowledge.
+
+---
+
+## Follow-up: Isotropy correction probe (item 13, 2026-04-11)
+
+Probe `probe_isotropy_correction.rs` in `crates/deepnsm/examples/` applied
+per-row mean centering (the simplest γ+φ Regime A operation) to the 4096²
+DeepNSM distance matrix and re-measured the eigenspectrum.
+
+Implementation uses `ndarray::simd::F32x16` via explicit `mul_add` (the
+fused multiply-add primitive preferred across the workspace over plain
+Sub). The identity `v - m = v * 1 + (-m)` maps directly to VFMADD213PS
+on AVX-FMA or VDPBF16PS equivalent via the LazyLock CPU dispatch in
+`ndarray/src/simd.rs` (routes to `simd_avx512.rs` / `simd_avx2.rs` /
+`simd_amx.rs` based on hardware). No SIMD optimization code touched —
+only the exported `F32x16::mul_add` primitive used.
+
+### Results
+
+| metric | baseline (raw u8 matrix) | corrected (per-row mean-centered) | delta |
+|---|---|---|---|
+| Participation ratio | 1.53 / 4096 | **9.56 / 4096** | **+8.03 (6.2×)** |
+| Top-1 eigenvalue share | 80.66% | **28.12%** | **−52.54 pp** |
+| Row-sum CV | 0.3087 | ≈0 (genuine centering) | — |
+| Top-5 eigenvalues (raw)  | [3348.6, 229.9, 75.4, 46.2, 21.4] | — | — |
+| Top-5 eigenvalues (ctr)  | — | [65001.7, 29759.5, 19122.2, 5675.0, 4389.2] | — |
+
+### Verdict (per probe's own criteria): split — FAIL on PR, PASS on top-1 share
+
+- PR 9.56 < 10 (probe's MARGINAL floor) → FAIL on the PR axis
+- Top-1 share 28.12% < 30% (probe's PASS threshold) → PASS on the dominance axis
+- **Dominant-axis problem is substantially fixed, but the underlying manifold
+  has a long-tail spectrum** that keeps effective rank low even after the
+  dominant axis is removed.
+
+### What this means for the architecture
+
+**γ+φ Regime A direction is validated empirically** (first positive signal
+this session on the architectural question):
+- Removing the dominant axis with the simplest possible Regime A op
+  (per-row mean centering) drops top-1 share by 52 percentage points.
+- This is the HDR-TV-style normalization that `bf16-hhtl-terrain.md § C3`
+  (corrected to three regimes in commit f0429e5) describes, now measured
+  as genuinely effective on real data.
+
+**BUT the DeepNSM codebook is long-tail, not clustered**:
+- Even after the dominant axis is removed, the eigenspectrum decays slowly
+- Top-2 is 12.87% of the new variance — no clean break into "16 clusters"
+- The codebook is a continuous distribution with a long tail of weak
+  signal modes, not a collection of discrete clusters that could be
+  labeled HEEL/HIP/TWIG
+
+**Implication for Slot D**: the earlier probe `probe_m1_bucket_fit` was
+measuring the wrong question. With isotropy correction applied, the right
+question is NOT "does 16-way clustering fit?" but "is a **rank-based**
+encoding (e.g., direct 4096-state Jina centroid ID with no hierarchy)
+the natural match for this long-tail spectrum?" A flat 12-bit or 13-bit
+direct centroid ID without hierarchical structure may be the correct
+Slot D shape, not 4-bit nibbles.
+
+### What to do next (pending user go)
+
+1. **Run the full γ+φ Regime A pipeline** (`gamma_encode` + `phi_encode`
+   in `bgz-tensor/src/gamma_phi.rs`) instead of just mean centering.
+   Follow-up probe should live in `bgz-tensor/examples/` where gamma_phi
+   is native. Measure whether PR improves from 9.56 further (e.g., to
+   the 20-50 range).
+
+2. **Update `bf16-hhtl-terrain.md § C2`** (bucketing > resolution) with a
+   caveat: if the source codebook is long-tail after isotropy correction,
+   direct rank encoding may beat bucket encoding. Canonical knowledge
+   update pending user authorization.
+
+3. **Revisit Slot D layout in `bf16-hhtl-terrain.md`** with the long-tail
+   finding: 4-bit HEEL / 4-bit HIP / 4-bit TWIG may be the wrong structure
+   for this data. A flat direct centroid ID might be the natural match.
+   Also pending user authorization.
+
+4. **DeepNSM 4096 codebook generation pipeline** (item 10): once Jina v5
+   / Reader-LM v3 is added to the release manifest, the bake pipeline
+   should apply γ+φ Regime A calibration BEFORE palette construction.
+   The long-tail nature means we should NOT expect 16-way clustering to
+   emerge from better isotropy correction alone — the palette should be
+   sized and shaped to match long-tail structure.
+
+### Files / runs
+
+- Probe file: `crates/deepnsm/examples/probe_isotropy_correction.rs` (new, uses F32x16::mul_add)
+- Cargo.toml: `crates/deepnsm/Cargo.toml` — ndarray moved to `[dependencies]` as mandatory per workspace rule ("zero external deps" preserved — ndarray is a path dep to the AdaWorldAPI fork, same-binary compile)
+- Output dump: `/tmp/deepnsm_distance_4096x4096_centered.f32` (67 MB, transient)
+- Python follow-up: eigenspectrum compared via numpy.linalg.eigvalsh — numbers already verified (see table above)
+
+No canonical knowledge files modified in this commit. The C2/C3 proposals
+above need explicit authorization before they ship.
