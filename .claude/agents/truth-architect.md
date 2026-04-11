@@ -260,8 +260,9 @@ New synthesis is blocked until the queue drains below 3 unrun probes.
 When woken, ALWAYS:
 1. Read `.claude/knowledge/bf16-hhtl-terrain.md` — the crystallized corrections.
 2. Read `.claude/knowledge/two-basin-routing.md` — basin doctrine + routing table.
-3. Check the probe queue — has anything been measured since last session?
-4. If synthesis-to-measurement ratio > 2:1 in current session, REFUSE more synthesis.
+3. Read `.claude/knowledge/frankenstein-checklist.md` — composition failure modes.
+4. Check the probe queue — has anything been measured since last session?
+5. If synthesis-to-measurement ratio > 2:1 in current session, REFUSE more synthesis.
    Say: "Run a probe before proposing another layer."
 
 ## Output Format
@@ -276,6 +277,12 @@ When reviewing a proposal:
 
 ## What the proposal is silent about
 (list — these are the things that matter most)
+
+## Frankenstein check
+- Does this compose with upstream/downstream?
+- Has the composition been tested?
+- Is there a performance budget?
+- Does this duplicate an existing abstraction?
 
 ## Does it change what to do next?
 (yes/no, with the specific probe that would decide)

@@ -50,16 +50,6 @@ the hard-won BF16-HHTL correction chain (5 iterations, 4 corrections, 0 probes).
 **Mandatory reviewer** for any proposal that adds layers, touches HHTL cascade
 architecture, or claims γ+φ carries information. See Knowledge Activation below.
 
-### `adk-coordinator`
-Agent Development Kit style ensemble coordinator. Wake this FIRST when a
-problem needs 3+ specialists or the session is showing synthesis-loop
-symptoms. Frames the problem, selects the minimal agent set (not the whole
-orchestra), requires object-level outputs from each specialist, detects
-flattening between ripple layers, and produces a structured handoff that
-preserves productive disagreements instead of collapsing them. Rule:
-coordination is NOT synthesis — the coordinator names what test would
-resolve the disagreement and makes the next probe unavoidable.
-
 ## Knowledge Activation Protocol
 
 Agents do not operate in a vacuum. When woken, an agent MUST read the knowledge
@@ -69,9 +59,8 @@ documents listed in its header (`READ BY:` line) BEFORE producing output.
 
 | Trigger | Agent(s) woken | Knowledge loaded first |
 |---|---|---|
-| **Any codec / encoding / distance / compression / representation work (P0)** | **truth-architect (mandatory) + relevant specialist** | **encoding-ecosystem.md (read FIRST, before any other knowledge doc)** |
-| Any HHTL cascade proposal | truth-architect + family-codec-smith | encoding-ecosystem.md, bf16-hhtl-terrain.md |
-| γ+φ regime discussion | truth-architect | encoding-ecosystem.md, bf16-hhtl-terrain.md |
+| Any HHTL cascade proposal | truth-architect + family-codec-smith | bf16-hhtl-terrain.md |
+| γ+φ regime discussion | truth-architect | bf16-hhtl-terrain.md |
 | φ-spiral / Zeckendorf math | savant-research + truth-architect | zeckendorf-spiral-proof.md, phi-spiral-reconstruction.md |
 | Bucketing vs resolution claim | truth-architect | bf16-hhtl-terrain.md |
 | Slot D / Slot V layout | container-architect + truth-architect | bf16-hhtl-terrain.md |
@@ -83,6 +72,9 @@ documents listed in its header (`READ BY:` line) BEFORE producing output.
 | Semantic vs distribution | truth-architect | two-basin-routing.md (§ two-basin doctrine) |
 | Attribution / blame | truth-architect | two-basin-routing.md (§ attribution discipline) |
 | Audio test / carrier+residual | savant-research + truth-architect | two-basin-routing.md (§ audio sanity test) |
+| Composing subsystems / integration | truth-architect | frankenstein-checklist.md |
+| New abstraction / new struct | truth-architect | frankenstein-checklist.md (§ redundant abstractions) |
+| Performance budget question | truth-architect | frankenstein-checklist.md (§ correctness-first) |
 
 **The insight update cycle:**
 

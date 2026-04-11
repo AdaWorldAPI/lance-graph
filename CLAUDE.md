@@ -282,14 +282,14 @@ SIBLING REPOS:
 ## Knowledge Base (agents read these before working)
 
 ```
-.claude/agents/workspace-primer.md               — ONBOARDING FIRST: 20 canonical rules + mandatory reading list for any new session touching lance-graph / ndarray / reader-lm. Wake this agent BEFORE truth-architect or adk-coordinator so the session is oriented before specialist work begins.
 .claude/knowledge/signed-session-findings.md     — BF16 tables, gate modulation, quality checks
 .claude/knowledge/phi-spiral-reconstruction.md   — φ-spiral, family zipper, stride/offset, Zeckendorf, VSA
 .claude/knowledge/primzahl-encoding-research.md  — prime fingerprint, Zeckendorf vs BF16 vs prime encoding
-.claude/knowledge/bf16-hhtl-terrain.md           — BF16-HHTL correction chain, 5 hard constraints (§ C3 three-regime γ+φ rule), probe queue
+.claude/knowledge/bf16-hhtl-terrain.md           — BF16-HHTL correction chain, 5 hard constraints, probe queue
 .claude/knowledge/zeckendorf-spiral-proof.md     — φ-spiral proof (scope-limited, see header before citing)
 .claude/knowledge/two-basin-routing.md           — Two-basin doctrine, representation routing, pairwise rule, attribution
 .claude/knowledge/encoding-ecosystem.md          — MANDATORY: full encoding map, synergies, read-before-write checklist
+.claude/knowledge/frankenstein-checklist.md       — Composition failure modes (VibeTensor §7), boundary test matrix
 .claude/CALIBRATION_STATUS_GROUND_TRUTH.md       — OVERRIDE: read BEFORE any SESSION_*.md
 .claude/PLAN_BF16_DISTANCE_TABLES.md             — 5-phase plan for BF16 distance tables
 .claude/TECHNICAL_DEBT_SIGNED_SESSION.md          — 56% useful, 44% bypass (honest review)
@@ -323,310 +323,27 @@ No knowledge doc should contain unmarked conjectures. Label everything.
 
 ## Model Registry (Jina v5 is ground truth anchor)
 
-### Production models (use these)
-
 ```
-Model            Base       Tokenizer       Vocab   Hidden  Act   Status
-─────            ────       ─────────       ─────   ──────  ───   ──────
-Jina v5 small    Qwen3      Qwen 3.x BPE    151K    1024    silu  GROUND TRUTH (safetensors + ONNX on disk)
-Reader-LM v3     = Jina v5  (same model, alternate name — BERT 3.x architecture lineage; NOT the older
-                             Qwen2-based Reader-LM 1.5B/v1/v2. Use the Jina v5 entry above.)
-Reranker v3      Qwen3      Qwen 3.x BPE    151K    1024    silu  SAME BASE as Jina v5 (listwise, cross-encoder)
-Qwopus 27B       Qwen 3.5   Qwen 3.x BPE    151K    5120    silu  305 tables in Release v0.1.2
-ModernBERT-large OLMo       OLMo BPE        50K     1024    gelu  ONNX on disk (GeGLU, code-friendly)
+Model            Base       Tokenizer      Vocab    Hidden  Act   Status
+─────            ────       ─────────      ─────    ──────  ───   ──────
+Jina v5 small    Qwen3      Qwen3 BPE      151K    1024    silu  GROUND TRUTH (safetensors + ONNX on disk)
+Reranker v3      Qwen3      Qwen3 BPE      151K    1024    silu  SAME BASE as v5 (listwise, cross-encoder)
+ModernBERT-large OLMo       OLMo BPE       50K     1024    gelu  ONNX on disk (GeGLU, code-friendly)
+BGE-M3           XLM-R      SentencePiece  250K    1024    gelu  baked u8 lens (multilingual)
+Jina v3          XLM-R      SentencePiece  250K    1024    gelu  baked u8 lens (LEGACY, not ground truth)
+Qwopus 27B       Qwen2      Qwen2 BPE      151K    5120    silu  305 tables in Release v0.1.2
+Reader-LM 1.5B   Qwen2      Qwen2 BPE      151K    —       —     in Release, not baked
 
-Tokenizer sharing (production):
-  Qwen 3.x BPE (151K): Jina v5, Reader-LM v3, Reranker v3, Qwopus
-  OLMo        (50K):   ModernBERT
+CRITICAL: Reranker v3 = Qwen3 base (NOT v2 XLM-RoBERTa).
+  Same tokenizer as Jina v5. Same architecture. Same silu gate.
+  Baked reranker lens was built from Qwen2 GGUF → needs rebuild with Qwen3 tokens.
+
+Tokenizer sharing:
+  Qwen3 BPE (151K): Jina v5, Reranker v3
+  Qwen2 BPE (151K): Qwopus, Reader-LM (DIFFERENT from Qwen3!)
+  XLM-RoBERTa (250K): Jina v3, BGE-M3 (LEGACY)
+  OLMo (50K): ModernBERT
 ```
-
-**CRITICAL**:
-- Reader-LM v3 and Jina v5 are the **same model** (Jina v5 BERT 3.x).
-  Use either name; expect the same weights and tokenizer.
-  Reader-LM 1.5B / v1 / v2 are DIFFERENT older models — see Research-only section.
-- Reranker v3 = Qwen3 base (NOT XLM-RoBERTa). Same tokenizer as Jina v5.
-  Baked reranker lens was built from an older Qwen2 GGUF → needs rebuild with Qwen 3.x tokens.
-- Qwopus is Qwen 3.5 (NOT Qwen 2). Confirmed by `bgz-tensor` feature flags `qwen35-*`.
-
-### Research-only / diagnostic fallback
-
-These models are kept for v5-vs-older **behavioral diffing**. Do NOT use for
-production work. Do reach for them when a Jina v5 result is surprising and
-you need to isolate what architectural change between the pre-v5 era and now
-produced the current behavior.
-
-```
-Model            Base       Tokenizer       Vocab   Hidden  Act   Status
-─────            ────       ─────────       ─────   ──────  ───   ──────
-Jina v3 small    XLM-R      SentencePiece   250K    1024    gelu  RESEARCH-ONLY — pre-v5 reference lens
-BGE-M3           XLM-R      SentencePiece   250K    1024    gelu  RESEARCH-ONLY — multilingual reference
-Reader-LM 1.5B   Qwen2      Qwen2 BPE       151K    —       —     RESEARCH-ONLY — v1/v2 Qwen2 lineage
-                                                                  (NOT v3 = Jina v5)
-
-Tokenizer sharing (research-only):
-  XLM-RoBERTa (250K): Jina v3, BGE-M3
-  Qwen2 BPE   (151K): Reader-LM 1.5B (v1/v2 only — v3 uses Qwen 3.x BPE)
-```
-
-### Precision hierarchy (workspace-wide rule)
-
-```
-Ground truth:    The source file on disk, byte-exact, SHA-pinned. For
-                 Jina v5 this is `data/jina-v5-onnx/model.safetensors`
-                 (verified BF16 by `examples/probe_jina_v5_safetensors.rs`,
-                 NOT F16 as earlier notes claimed). For other models:
-                 the GGUF / safetensors / ONNX bytes as downloaded.
-                 Never duplicated, never re-baked, never "upscaled to
-                 F32 and stored" — the F32 view is a method, not a buffer.
-
-Compute:         BF16 with fused `mul_add` (hardware FMA: AVX-512
-                 VDPBF16PS, ARM SVE BFMMLA, Apple AMX). Use
-                 `ndarray::hpc::quantized::bf16_gemm_f32` (or
-                 `mixed_precision_gemm`) and the BF16 lane conversions in
-                 the same module. F32-precision accumulation happens in
-                 hardware registers, invisible to the caller. BF16 memory
-                 bandwidth.
-
-Method F32:      F32 is a *method*, not a storage format. It may appear in
-                 a stack window, a SIMD register, or the F32-accumulate
-                 pipe of a hardware FMA instruction. It never persists as
-                 a `Vec<f32>` buffer in the certification or bake pipelines.
-                 If you find yourself allocating `Vec<f32>` for upscaled
-                 temp data, stop — the source bytes plus the upcast method
-                 already give you every F32 value you need on demand.
-
-Source F16:      F16 → F32 is a deterministic bit-expansion with zero
-                 information loss (F32 is a strict superset). The method
-                 `ndarray::hpc::gguf::f16_to_f32` is proven lossless over
-                 all 65,536 F16 bit patterns (±0, subnormals, normals, ±∞,
-                 IEEE-correct QNaN payload preservation) by
-                 `crates/thinking-engine/examples/probe_jina_v5_safetensors.rs`.
-                 The Jina v5 *safetensors* on disk is BF16 not F16, but
-                 other code paths (GGUF, reranker, some exports) still read
-                 F16 so the primitive must be atomic-clock correct.
-
-F16 → BF16:      Mantissa truncation 10 → 7 bits, NOT an exponent-range
-                 issue. BF16 has MORE exponent bits than F16 (8 vs 5) and
-                 covers ~33 orders of magnitude more range than F16's
-                 ~65 504 maximum — every F16 value fits inside BF16 range
-                 with room to spare. Earlier notes that said "F16 max
-                 ~65 504 overflows before reaching BF16 range" were
-                 backwards. The 3 lost mantissa bits round-to-nearest-even
-                 (RNE) under hardware `_mm512_cvtneps_pbh`. The scalar
-                 fallback `f32_to_bf16_scalar` in `src/simd_avx512.rs`
-                 is plain truncation (not RNE) and therefore drifts by
-                 ~1 ULP on ~50% of values from the hardware path —
-                 pending replacement with a SIMD RNE routine for
-                 certification reproducibility.
-
-F64 constants:   π, e, φ, Euler-γ live as `std::f64::consts` 52-bit
-                 mantissas. Used for calibration math (GammaProfile log /
-                 exp, Dupain-Sós pre-rank selection). Applied to BF16
-                 tensors by splatting a BF16-converted constant into a
-                 lane and running the FMA — never by upscaling the tensor
-                 to F32 and round-tripping.
-
-Storage:         BF16 on disk for full-resolution weights; Base17 i16
-                 fixed-point (×256 via GammaProfile-calibrated
-                 quantization) for palette planes; u8 palette index for
-                 HHTL HEEL/HIP; u8 distance matrix for DeepNSM 4096².
-
-Discouraged:     8-bit quantization as a COMPUTE precision (Q4/Q5/Q8/INT8).
-                 Fine only as a calibrated STORAGE format after the above
-                 normalization chain. Never the precision of forward
-                 passes.
-
-Certification:   Every derived format (lab BF16, Base17, palette, bgz-hhtl-d)
-                 is verified against the ground-truth source by Pearson,
-                 Spearman, and Cronbach α reported to 4 decimal places.
-                 Target: lab BF16 at ≥ 0.9999 (effectively lossless), bgz-
-                 hhtl-d at ≥ 0.9980 after the inherent cascade entry tax.
-                 The harness uses the deterministic SplitMix64 pair sampler
-                 seeded 0x9E3779B97F4A7C15 so any two runs produce
-                 bit-identical metrics.
-```
-
-## Certification Process
-
-Every derived format in the workspace (lab BF16, Base17 i16 fixed-point,
-γ+φ-calibrated `i8`/`u8`, Codebook4096 palette, bgz-hhtl-d cascade) must
-be numerically certified against its source file before the derivation
-is trusted as a runtime format. Certification answers the single
-question **"does format X preserve the semantic properties of format Y
-to target T?"** with a reproducible 4-decimal Pearson / Spearman /
-Cronbach α report.
-
-### Canonical artifacts
-
-- **Process doctrine**: `.claude/knowledge/certification-harness.md`
-- **Scoped agent**: `.claude/agents/certification-officer.md`
-  (wake with "certify X against Y" for any lane × source pair)
-- **Lane derivation**: `crates/thinking-engine/examples/seven_lane_encoder.rs`
-  — the existing 7-lane encoder is the canonical bake tool. Do not
-  rewrite it. The certification layer reuses its lane-derivation logic
-  and adds an independent validation pass on top.
-- **Metric primitives**:
-  - `bgz_tensor::quality::pearson(x, y) -> f64` at `crates/bgz-tensor/src/quality.rs:13`
-  - `bgz_tensor::quality::spearman(x, y) -> f64` at `crates/bgz-tensor/src/quality.rs:47`
-  - `thinking_engine::cronbach::cronbach_alpha(items) -> f32` at `crates/thinking-engine/src/cronbach.rs:27`
-- **Upcast primitives** (atomic-clock lossless):
-  - `ndarray::hpc::gguf::f16_to_f32` (proven over all 65,536 F16 patterns)
-  - `ndarray::hpc::quantized::BF16::to_f32` (trivial shift, lossless)
-  - `ndarray::simd::f32_to_bf16_batch_rne` at `ndarray/src/simd_avx512.rs:1913`
-    (pure AVX-512-F RNE, byte-exact vs hardware `_mm512_cvtneps_pbh` on 1M inputs)
-- **Source access**:
-  - Local mmap for files ≤ ~12 GB (Jina v5, BGE-M3, Reader-LM 1.5B)
-  - `ndarray::hpc::safetensors::stream_index_safetensors_bf16` +
-    `HttpRangeReader::with_chunk_size(url, size, 256 * 1024 * 1024)`
-    for remote sources (Qwen 3.5 9B/27B/..., up to ~800 GB for 397B variants)
-- **Pair sampler**: SplitMix64 with pinned seed `0x9E3779B97F4A7C15`
-  (Knuth φ-fraction multiplicative hash constant), range
-  `[0, min(tokenizer_vocab, embed_rows))`
-- **Real-life corpus**: tier-1/2/3/4 calibration sentences from
-  `crates/thinking-engine/examples/jina_v5_ground_truth.rs`
-
-### The 7 channels and their targets
-
-| Lane | Format          | Primary metric             | Target     |
-|------|-----------------|----------------------------|------------|
-| 1    | `u8` CDF        | Spearman ρ                 | ≥ 0.9990   |
-| 2    | `i8` direct     | Pearson r                  | ≥ 0.9980   |
-| 3    | `u8` γ+φ        | Spearman ρ                 | ≥ 0.9990   |
-| 4    | `i8` γ+φ signed | Pearson r                  | ≥ 0.9980   |
-| 5    | `f32` SiLU delta| ‖delta‖ reported           | no threshold |
-| 6    | `bf16` RNE      | **Pearson + Spearman + Cronbach α** | **≥ 0.9999** (atomic clock) |
-| 7    | `u8` drift      | mean / max drift reported  | no threshold |
-
-Lane 6 is the atomic-clock lab BF16 lane — the only one certified
-against all three metrics simultaneously at 0.9999 or better. Lanes
-1-4 are compressed derivations with the single most-appropriate
-metric; Lanes 5 and 7 are informational signals.
-
-### Non-negotiable rules
-
-1. **F32 is a method, not a buffer.** Never allocate `Vec<f32>` for
-   upcast temp data. Stream from mmap or HTTP range, upcast in a
-   stack window, discard. See workspace-primer Rules 6-7.
-2. **Real-life corpus only.** No synthetic test inputs. Every
-   certification samples via the deterministic SplitMix64 pair
-   sampler + tier-1..4 text corpus. Rule 23.
-3. **NaN scan at every stage.** Source → upcast → cosine → metrics.
-   A single NaN halts the run with a diagnostic JSON. The Apr 11
-   2026 `f16_to_f32` quiet-bit glitch (fixed in ndarray `17bfde3`)
-   is the precedent. Rule 22.
-4. **Reference is ALWAYS re-derived from source.** Never trust an
-   on-disk `cosine_matrix_*.f32` file as the reference. The reference
-   column is computed fresh on every run via the proven-lossless
-   upcast method.
-5. **Lab BF16 derivation uses RNE, not truncation.** Call
-   `f32_to_bf16_batch_rne` or `f32_to_bf16_scalar_rne` — not the
-   legacy `f32_to_bf16` truncation path, which drifts ~1 ULP from
-   hardware RNE on ~50 % of values and cannot hit 0.9999.
-6. **Two-universes firewall.** Basin 1 (continuous neural embeddings)
-   and Basin 2 (discrete distributional codebooks / DeepNSM CAM-PQ)
-   cannot be certified across each other as if they were the same
-   format. Rule 21. Cross-basin measurements are valid only as
-   explicit multi-lens Cronbach α runs, not as "does X preserve Y".
-
-### Statistical confidence intervals (v2.5)
-
-The harness produces two confidence intervals per lane, side by side, so
-the certification report carries its own internal consistency check:
-
-| Tool | Kind | Role | Citation |
-|------|------|------|----------|
-| **Fisher z** | closed-form parametric (arctanh, SE = 1/√(n−3)) | **3σ authority** — published 4-decimal CI. Zero sampling noise, unlimited z-space resolution, but assumes bivariate normality. | Fisher (1915, 1921) |
-| **BCa bootstrap** | distribution-free (bias z₀ + accel a) | **2σ cross-check** — nonparametric consistency test. At B=2000 resolves 2σ tails to ~45 samples per endpoint. | Efron (1987) JASA 82(397); Efron & Tibshirani (1994) Ch. 14 |
-| **Jackknife SE** | grouped leave-one-centroid-out | provides the acceleration `a` for BCa and a separate 3σ envelope estimator. Delete-255 group jackknife on 256 balanced groups. | Efron & Tibshirani (1994) §11.5 |
-
-BCa is the literature standard for correlation metrics on embedding
-distributions per Deutsch 2021 (arXiv:2104.00054), because the normality
-assumption Fisher z requires does **not** hold for cosine-similarity
-distributions on text embeddings (Mu & Viswanath 2018 "All-but-the-Top";
-Ethayarajh 2019 "How Contextual are Contextualized Word Representations?").
-The harness therefore publishes Fisher z as the 3σ authority but cross-
-checks it against BCa at 2σ. Agreement within the BCa/Fisher width ratio
-~1.0 confirms both methods; material disagreement is a doctrine-level
-failure because it means the Fisher z assumption has broken down and the
-distribution-free BCa is the correct published CI.
-
-3σ BCa requires B ≥ 5000 to resolve the 0.135% tail to ≥ 6 samples per
-endpoint; the default B=2000 is a 2σ configuration and the reported 3σ
-BCa bounds are informational only.
-
-### CHAODA outlier protection (v2.5)
-
-The harness runs a CHAODA sanity pass using `ndarray::hpc::clam::ClamTree::
-anomaly_scores` (Ishaq et al. 2021 "Clustered Hierarchical Anomaly and
-Outlier Detection Algorithms", arXiv:2103.11774; Phase 4 of
-`ndarray/.claude/prompts/01_clam_qualiacam.md`). Top-10% most-anomalous
-centroids by LFD-normalized score are removed and the primary metric is
-recomputed on the filtered pair set. Three verdicts:
-
-- `clean` (|Δ| < 1e-4): distribution is CHAODA-clean, certification
-  stands as published.
-- `filtering_helps` (Δ > 1e-4): outliers were depressing the metric —
-  flag for operator review, filtered metric is the more honest number.
-- `filter_removed_easy_pairs` (Δ < −1e-4): the flagged points were
-  actually the high-correlation ones — LFD-based CHAODA is not
-  capturing true outliers in this lane and the verdict is advisory.
-
-The point of CHAODA is to distinguish BGZ-class compression error
-(structural) from contamination error (contingent on specific outlier
-pairs). If a certification shows `clean` across all lanes, the error
-the lanes hit is pure compression cost and that defines the floor the
-endgame `bgz-hhtl-d` format must approach.
-
-### BGZ distribution floor (v2.5)
-
-The harness reports a naive uniform-u8 quantizer baseline over
-`[min, max]` of the reference cosine distribution. This is the
-simplest compressed representation that fits in one byte per pair
-(max |err| = (max−min)/512) and defines the information-theoretic
-floor that any real u8 lane must beat to justify its complexity.
-γ+φ+CDF (Lane 3) should deliver Δρ > 0 over this floor or the
-projection adds no value and should be dropped.
-
-**Endgame framing.** `bgz-hhtl-d` (the obligatory runtime cascade
-format) is gated at ≥ 0.9980 Pearson after its inherent cascade entry
-tax. The "cascade entry tax" is the delta between bgz-hhtl-d's measured
-Pearson and this naive u8 floor; the delta between γ+φ+CDF and the
-naive floor is the budget the HHTL cascade has left to spend before
-hitting the 0.9980 target. Every future certification of a compressed
-lane ends by quoting (Pearson − naive_u8_pearson) so the cascade-tax
-budget is visible at a glance.
-
-### How to certify a new model
-
-1. Wake `certification-officer` with the source path, the tensor
-   name (e.g. `embed_tokens.weight`), and the target lane(s).
-2. The agent reads this section, the knowledge doc, and the source
-   header. Identifies dtype, vocab, and whether the tokenizer vocab
-   matches the embed rows.
-3. The agent runs `seven_lane_encoder.rs` to produce (or re-use) the
-   7-lane tables. Applies the Lane 6 RNE swap if not yet applied to
-   the encoder.
-4. The agent samples 1000 random pairs via SplitMix64 + corpus pairs,
-   runs them through the lane-derivation logic as an independent
-   validation set, computes per-lane × per-sample-set metrics.
-5. The agent writes JSON to
-   `.claude/knowledge/certification/{model_slug}_{derivation_slug}.json`
-   and returns a one-line summary.
-6. If `PASS`, the derivation is certified and can be used as a
-   runtime format. If `FAIL`, the agent returns the top-5 worst
-   pairs by error magnitude for diagnosis.
-
-### Retest policy
-
-Any certification result where the source or derivation touched
-`ndarray::hpc::gguf::f16_to_f32` **before Apr 11 2026** is a
-retest candidate per workspace-primer Rule 22 (the NaN quiet-bit
-glitch fix in `17bfde3`). Known-stale artifacts include
-`jina-v5-7lane/`, `jina-v5-codebook/`, `jina-reranker-v3-BF16-5lane/`,
-`jina-reranker-v3-BF16-7lane/`. Retest by re-running the encoder
-under the fixed primitives and comparing new metrics against old
-byte-for-byte; zero-or-within-f32-rounding delta exonerates, material
-delta invalidates.
 
 ## Thinking Engine (crates/thinking-engine/)
 
