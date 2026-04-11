@@ -81,6 +81,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "bgz17"
+version = "0.1.0"
+
+[[package]]
 name = "bit-set"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2203,6 +2207,7 @@ name = "thinking-engine"
 version = "0.1.0"
 dependencies = [
  "bgz-tensor",
+ "bgz17",
  "candle-core",
  "candle-nn",
  "candle-transformers",
