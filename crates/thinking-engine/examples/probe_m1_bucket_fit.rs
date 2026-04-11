@@ -1,5 +1,36 @@
 //! Probe M1 (REFRAMED + EXTENDED): Natural Clustering Shape of 256 Jina Centroids
 //!
+//! ## ⚠ RETEST REQUIRED (added 2026-04-11)
+//!
+//! All numerical results produced by this probe BEFORE 2026-04-11 are
+//! potentially instrument-drift-limited. The `ndarray::hpc::gguf::f16_to_f32`
+//! upcast primitive that feeds the input pair matrix had an IEEE-incorrect
+//! NaN handling path (produced signaling NaN instead of quiet NaN), fixed
+//! in ndarray commit `17bfde3` on the same branch. If any NaN values appear
+//! in the source safetensors or any intermediate buffer used to derive the
+//! 256×256 cosine matrix on disk, the old silhouette / balance / gap
+//! numbers may have been computed against a reference that drifted.
+//!
+//! The 4-method panel (k-medoids PAM, agglomerative, binary CLAM at depth 4,
+//! random baseline) and the 5-seed median silhouette methodology are
+//! unchanged and correct — only the specific numerical outputs need
+//! re-verification under the fixed upcast method.
+//!
+//! Retest procedure when ready:
+//!   1. Re-run this probe against the existing `jina-v5-7lane/` cosine
+//!      matrix (which was produced Apr 6 in commit `cbaca83`, before the
+//!      fix).
+//!   2. If the silhouette / balance / gap numbers shift, regenerate the
+//!      cosine matrix from safetensors under the fixed `f16_to_f32` +
+//!      (eventually) SIMD-RNE BF16 pipeline, and re-run again.
+//!   3. Record the delta between the old and new numbers in
+//!      `.claude/probe_m1_result_2026_04_11.md` as evidence either that
+//!      the glitch was benign (no NaN ever touched this path) or that
+//!      it was consequential (clustering shape changed).
+//!
+//! See `.claude/agents/workspace-primer.md` Rule 22 (calibration
+//! instrument discipline / retest candidates) for the broader context.
+//!
 //! ## Why this is reframed from the original M1
 //!
 //! Original M1 (from `.claude/knowledge/bf16-hhtl-terrain.md § Probe Queue`)
