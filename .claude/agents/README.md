@@ -59,8 +59,9 @@ documents listed in its header (`READ BY:` line) BEFORE producing output.
 
 | Trigger | Agent(s) woken | Knowledge loaded first |
 |---|---|---|
-| Any HHTL cascade proposal | truth-architect + family-codec-smith | bf16-hhtl-terrain.md |
-| γ+φ regime discussion | truth-architect | bf16-hhtl-terrain.md |
+| **Any codec / encoding / distance / compression / representation work (P0)** | **truth-architect (mandatory) + relevant specialist** | **encoding-ecosystem.md (read FIRST, before any other knowledge doc)** |
+| Any HHTL cascade proposal | truth-architect + family-codec-smith | encoding-ecosystem.md, bf16-hhtl-terrain.md |
+| γ+φ regime discussion | truth-architect | encoding-ecosystem.md, bf16-hhtl-terrain.md |
 | φ-spiral / Zeckendorf math | savant-research + truth-architect | zeckendorf-spiral-proof.md, phi-spiral-reconstruction.md |
 | Bucketing vs resolution claim | truth-architect | bf16-hhtl-terrain.md |
 | Slot D / Slot V layout | container-architect + truth-architect | bf16-hhtl-terrain.md |
