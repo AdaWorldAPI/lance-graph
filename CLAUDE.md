@@ -528,6 +528,74 @@ metric; Lanes 5 and 7 are informational signals.
    format. Rule 21. Cross-basin measurements are valid only as
    explicit multi-lens Cronbach α runs, not as "does X preserve Y".
 
+### Statistical confidence intervals (v2.5)
+
+The harness produces two confidence intervals per lane, side by side, so
+the certification report carries its own internal consistency check:
+
+| Tool | Kind | Role | Citation |
+|------|------|------|----------|
+| **Fisher z** | closed-form parametric (arctanh, SE = 1/√(n−3)) | **3σ authority** — published 4-decimal CI. Zero sampling noise, unlimited z-space resolution, but assumes bivariate normality. | Fisher (1915, 1921) |
+| **BCa bootstrap** | distribution-free (bias z₀ + accel a) | **2σ cross-check** — nonparametric consistency test. At B=2000 resolves 2σ tails to ~45 samples per endpoint. | Efron (1987) JASA 82(397); Efron & Tibshirani (1994) Ch. 14 |
+| **Jackknife SE** | grouped leave-one-centroid-out | provides the acceleration `a` for BCa and a separate 3σ envelope estimator. Delete-255 group jackknife on 256 balanced groups. | Efron & Tibshirani (1994) §11.5 |
+
+BCa is the literature standard for correlation metrics on embedding
+distributions per Deutsch 2021 (arXiv:2104.00054), because the normality
+assumption Fisher z requires does **not** hold for cosine-similarity
+distributions on text embeddings (Mu & Viswanath 2018 "All-but-the-Top";
+Ethayarajh 2019 "How Contextual are Contextualized Word Representations?").
+The harness therefore publishes Fisher z as the 3σ authority but cross-
+checks it against BCa at 2σ. Agreement within the BCa/Fisher width ratio
+~1.0 confirms both methods; material disagreement is a doctrine-level
+failure because it means the Fisher z assumption has broken down and the
+distribution-free BCa is the correct published CI.
+
+3σ BCa requires B ≥ 5000 to resolve the 0.135% tail to ≥ 6 samples per
+endpoint; the default B=2000 is a 2σ configuration and the reported 3σ
+BCa bounds are informational only.
+
+### CHAODA outlier protection (v2.5)
+
+The harness runs a CHAODA sanity pass using `ndarray::hpc::clam::ClamTree::
+anomaly_scores` (Ishaq et al. 2021 "Clustered Hierarchical Anomaly and
+Outlier Detection Algorithms", arXiv:2103.11774; Phase 4 of
+`ndarray/.claude/prompts/01_clam_qualiacam.md`). Top-10% most-anomalous
+centroids by LFD-normalized score are removed and the primary metric is
+recomputed on the filtered pair set. Three verdicts:
+
+- `clean` (|Δ| < 1e-4): distribution is CHAODA-clean, certification
+  stands as published.
+- `filtering_helps` (Δ > 1e-4): outliers were depressing the metric —
+  flag for operator review, filtered metric is the more honest number.
+- `filter_removed_easy_pairs` (Δ < −1e-4): the flagged points were
+  actually the high-correlation ones — LFD-based CHAODA is not
+  capturing true outliers in this lane and the verdict is advisory.
+
+The point of CHAODA is to distinguish BGZ-class compression error
+(structural) from contamination error (contingent on specific outlier
+pairs). If a certification shows `clean` across all lanes, the error
+the lanes hit is pure compression cost and that defines the floor the
+endgame `bgz-hhtl-d` format must approach.
+
+### BGZ distribution floor (v2.5)
+
+The harness reports a naive uniform-u8 quantizer baseline over
+`[min, max]` of the reference cosine distribution. This is the
+simplest compressed representation that fits in one byte per pair
+(max |err| = (max−min)/512) and defines the information-theoretic
+floor that any real u8 lane must beat to justify its complexity.
+γ+φ+CDF (Lane 3) should deliver Δρ > 0 over this floor or the
+projection adds no value and should be dropped.
+
+**Endgame framing.** `bgz-hhtl-d` (the obligatory runtime cascade
+format) is gated at ≥ 0.9980 Pearson after its inherent cascade entry
+tax. The "cascade entry tax" is the delta between bgz-hhtl-d's measured
+Pearson and this naive u8 floor; the delta between γ+φ+CDF and the
+naive floor is the budget the HHTL cascade has left to spend before
+hitting the 0.9980 target. Every future certification of a compressed
+lane ends by quoting (Pearson − naive_u8_pearson) so the cascade-tax
+budget is visible at a glance.
+
 ### How to certify a new model
 
 1. Wake `certification-officer` with the source path, the tensor
