@@ -245,3 +245,109 @@ Slot D shape, not 4-bit nibbles.
 
 No canonical knowledge files modified in this commit. The C2/C3 proposals
 above need explicit authorization before they ship.
+
+---
+
+## Critical correction to item 13 interpretation: COCA is already real-life calibrated
+
+**User clarification (2026-04-11)**: "Real-life word distribution in COCA
+already implies that the occurrence is already calibrated but you need
+real-life texts to benefit from it and the occurrence rates are part of
+the data so you don't need funny artificial calibration."
+
+Also: "When calibrating like just now, use real-life tests on actual
+texts, not just clinical cat/dog lab tests."
+
+### What this means for the item 13 finding
+
+The DeepNSM 4096² distance matrix is built from COCA (Corpus of
+Contemporary American English), a 1-billion-word real-world corpus.
+**The word frequency distribution IS the real-life signal** — the CAM-PQ
+codebook captures occurrence rates from actual texts, and the top-1
+eigenvalue at 80.66% is NOT an isotropy bias to remove. It is the
+**frequency axis of English**, which is a genuine, empirical, and
+correctly-calibrated property of the data.
+
+Mean-centering the matrix per-row (what probe_isotropy_correction did)
+**removed the real-life frequency structure**, not an artifact. The
+resulting "improved" eigenspectrum is artificially uniform — it would
+perform worse on real queries, not better.
+
+### What the probe ACTUALLY measured
+
+Per-row mean centering gave:
+- Top-1 share 80.66% → 28.12% (−52.54 pp)
+- PR 1.53 → 9.56 (+8.03)
+
+Reinterpreted: this is the answer to "what does the eigenspectrum look
+like with the COCA frequency signal removed?" — a legitimate diagnostic
+question. But the answer is NOT "the matrix is better now." It is
+"without the frequency axis, the residual has a long-tail shape."
+
+The top-1 eigenvalue at 80.66% in the raw matrix is:
+- **Not** an artifact to correct
+- **Not** an isotropy bias
+- **The genuine frequency distribution of English**, inherited from
+  COCA's empirical word-occurrence counts
+- **Exactly what downstream tasks rely on** when users search with
+  real-world text queries (where frequent words naturally dominate)
+
+### The right test methodology
+
+**Real-life texts, not clinical lab inputs.** The user called out the
+probe methodology explicitly: using synthetic inputs like "cat / dog /
+fish / bird" or the null-context Jina v5 codebook generator cannot
+reveal how the system behaves on actual English. The correct tests use:
+
+1. **Real sentences** from a held-out text corpus (not synthetic)
+2. **Natural query distributions** (frequent words + content words +
+   function words mixed as they appear in real texts)
+3. **End-to-end retrieval quality** metrics, not eigenspectrum numbers
+   on the raw matrix
+
+For DeepNSM specifically, the right probe is:
+- Tokenize a set of real English sentences (10-100 sentences)
+- For each sentence, compute its semantic representation via
+  the DeepNSM pipeline (tokens → SPO triples → VSA vector → similarity
+  to other sentences)
+- Measure retrieval quality: do semantically related sentences have
+  higher similarity than unrelated ones?
+- Compare against a baseline (e.g., simple token-overlap or TF-IDF)
+
+This is a **behavioral** test, not a **structural** test. The matrix's
+eigenspectrum is irrelevant if real-query retrieval works.
+
+### Action items from this correction
+
+1. **`.claude/knowledge/bf16-hhtl-terrain.md § C3`** still correctly
+   describes γ+φ Regime A as valid for distribution normalization of
+   EMBEDDINGS / WEIGHTS before distance computation. This is different
+   from applying Regime A to an already-empirically-calibrated distance
+   matrix. The distinction:
+   - **Valid**: γ+φ on raw BF16 weights from a new safetensors file
+     where the value distribution needs normalization for quantization.
+   - **Inappropriate**: γ+φ on the COCA 4096² distance matrix where
+     the frequency signal IS the real-life calibration.
+
+2. **Item 13's finding should NOT be used** to justify applying γ+φ
+   pre-processing to the DeepNSM distance matrix in the 4096 codebook
+   generation pipeline. The matrix is fine as-is. What needs testing
+   is whether real-life text queries retrieve correctly.
+
+3. **The probe result committed in 1dff196 stands as a correct
+   measurement of "what happens if you remove the frequency axis"** —
+   that's a valid diagnostic to know. But the INTERPRETATION sections
+   of that commit message that treat the 80% top-1 share as "isotropy
+   bias to fix" are wrong-headed and should be considered superseded
+   by this correction note.
+
+4. **A future probe should test DeepNSM with real sentences** as
+   inputs, measure retrieval quality, and compare against the baked
+   semantic pipeline. That is the real validity test — not the
+   eigenspectrum of the matrix in isolation.
+
+No canonical knowledge files modified by this correction note. The
+bf16-hhtl-terrain.md § C3 three-regime rule is unaffected; what changes
+is only the interpretation of whether the item 13 probe's finding
+supports applying Regime A to an already-calibrated distance matrix
+(it does not).

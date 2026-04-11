@@ -282,10 +282,11 @@ SIBLING REPOS:
 ## Knowledge Base (agents read these before working)
 
 ```
+.claude/agents/workspace-primer.md               — ONBOARDING FIRST: 20 canonical rules + mandatory reading list for any new session touching lance-graph / ndarray / reader-lm. Wake this agent BEFORE truth-architect or adk-coordinator so the session is oriented before specialist work begins.
 .claude/knowledge/signed-session-findings.md     — BF16 tables, gate modulation, quality checks
 .claude/knowledge/phi-spiral-reconstruction.md   — φ-spiral, family zipper, stride/offset, Zeckendorf, VSA
 .claude/knowledge/primzahl-encoding-research.md  — prime fingerprint, Zeckendorf vs BF16 vs prime encoding
-.claude/knowledge/bf16-hhtl-terrain.md           — BF16-HHTL correction chain, 5 hard constraints, probe queue
+.claude/knowledge/bf16-hhtl-terrain.md           — BF16-HHTL correction chain, 5 hard constraints (§ C3 three-regime γ+φ rule), probe queue
 .claude/knowledge/zeckendorf-spiral-proof.md     — φ-spiral proof (scope-limited, see header before citing)
 .claude/knowledge/two-basin-routing.md           — Two-basin doctrine, representation routing, pairwise rule, attribution
 .claude/knowledge/encoding-ecosystem.md          — MANDATORY: full encoding map, synergies, read-before-write checklist
