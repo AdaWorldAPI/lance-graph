@@ -37,6 +37,16 @@ Provides:   field shape, activation mass, ranking tendency, perturbation dynamic
 **BGZ is near-lossless WAVE ENCODING** for distribution-shaped data.
 It is not a semantic layer. It does not carry meaning. It carries shape.
 
+**Codebook-cache-only design:** under hard constraints (battery, memory,
+bandwidth), you don't store full embeddings — you store codebook indices
+and reconstruct from cache-resident palettes. Base17 palette (256 atoms
+× 34 bytes = 8.5KB, fits L1 cache) + NeuronPrint (6 bytes per neuron
+instead of 204) IS this pattern. Validated at hardware level by
+NANOMIND (Li et al. 2025, arXiv:2510.05109): modular LMM inference on
+battery-powered SoCs, 42.3% energy reduction via accelerator-mapped
+bricks. Same principle: the codebook is cache-resident and tiny, the
+indices are the payload, reconstruction is O(1) lookup.
+
 ### Possible Third Concern: Projection Consistency
 
 Even if both basins are sound, the architecture fails if projection into
