@@ -528,6 +528,121 @@ fn main() {
         });
     }
 
+    // ─── Step 11c: γ+φ (gamma-Euler) projection round-trip certification ───
+    //
+    // Certifies the γ+φ encoding as an isolated lossless-up-to-float-
+    // precision projection, independent of the u8/i8 quantization Lane
+    // 3 and Lane 4 pile on top. The original design intent of γ+φ was
+    // to project the cosine distribution onto a golden-ratio grid and
+    // store the 28-byte ICC profile (role_gamma + phi_scale) as metadata
+    // alongside the encoded values, so the projection is reversible via
+    // `gamma_phi_decode` using just those 28 bytes.
+    //
+    // This step verifies that design intent empirically: round-trip the
+    // reference cosines through encode → decode and measure how much
+    // precision is lost. The expected floor is ~1e-4 per the existing
+    // `gamma_phi_roundtrip_exact` test tolerance, dominated by the
+    // float precision of ln()/exp() in gamma_encode / gamma_decode.
+    //
+    // Decomposition implied by the full report:
+    //   γ+φ alone (this step)          ≈ float precision floor (~1e-4)
+    //   Lane 3 = γ+φ + u8 CDF (Step 2)  ≈ 1/256 u8 quantization cost
+    //   Lane 4 = γ+φ + i8 signed (Step 5) ≈ 1/127 i8 quantization cost
+    //
+    // Fisher z and γ+φ are separate tools: Fisher z is a zero-parameter
+    // closed-form CI calculator, γ+φ is a 28-byte-profile-stored
+    // distribution-dependent compression projection. They do not
+    // compose and serve different purposes.
+    println!("\n[11c] γ+φ (gamma-Euler) projection round-trip floor (ICC profile verification)");
+    // Reproduce the encoder's Lane 3/4 calibration formula on ref_upper.
+    // This matches seven_lane_encoder.rs lines 226-229 exactly so the
+    // profile we test against is the same one the encoder uses.
+    let cos_abs_mean: f64 = ref_upper.iter().map(|c| c.abs()).sum::<f64>()
+        / ref_upper.len() as f64;
+    let cos_abs_max: f64 = ref_upper.iter().map(|c| c.abs()).fold(0.0_f64, f64::max);
+    let role_gamma_f32 = cos_abs_mean as f32;
+    let phi_scale_f32 = (cos_abs_max as f32).max(0.01);
+    println!(
+        "  ICC profile: role_gamma = {:.6}, phi_scale = {:.6}, bytes = 28 (6 × f32 + 4)",
+        role_gamma_f32, phi_scale_f32
+    );
+
+    // Round-trip every reference cosine through the γ+φ projection.
+    let gp_roundtrip: Vec<f64> = ref_upper
+        .iter()
+        .map(|&c| {
+            let encoded = bgz_tensor::gamma_phi::gamma_phi_encode(
+                c as f32, role_gamma_f32, phi_scale_f32
+            );
+            let decoded = bgz_tensor::gamma_phi::gamma_phi_decode(
+                encoded, role_gamma_f32, phi_scale_f32
+            );
+            decoded as f64
+        })
+        .collect();
+
+    // Round-trip error statistics on the full 32640-pair reference.
+    let gp_pearson = quality::pearson(&ref_upper, &gp_roundtrip);
+    let gp_spearman = quality::spearman(&ref_upper, &gp_roundtrip);
+    let gp_abs_errors: Vec<f64> = ref_upper
+        .iter()
+        .zip(gp_roundtrip.iter())
+        .map(|(&r, &d)| (r - d).abs())
+        .collect();
+    let gp_max_abs_err = gp_abs_errors.iter().copied().fold(0.0_f64, f64::max);
+    let gp_mean_abs_err = gp_abs_errors.iter().sum::<f64>()
+        / gp_abs_errors.len().max(1) as f64;
+    let gp_rms_err = (gp_abs_errors.iter().map(|&e| e * e).sum::<f64>()
+        / gp_abs_errors.len().max(1) as f64).sqrt();
+
+    // Fisher z 3σ CI on the γ+φ round-trip Pearson, same method as Step 11b.
+    let gp_r_clamped = gp_pearson.clamp(-0.999999, 0.999999);
+    let gp_z = gp_r_clamped.atanh();
+    let gp_fisher_3sigma_lo = (gp_z - k_3sigma * z_se).tanh();
+    let gp_fisher_3sigma_hi = (gp_z + k_3sigma * z_se).tanh();
+
+    println!(
+        "  γ+φ round-trip: Pearson {:.6}  Spearman {:.6}",
+        gp_pearson, gp_spearman
+    );
+    println!(
+        "     mean |err| = {:.2e}   max |err| = {:.2e}   RMS err = {:.2e}",
+        gp_mean_abs_err, gp_max_abs_err, gp_rms_err
+    );
+    println!(
+        "     Fisher 3σ CI [{:.6}, {:.6}]  (pure γ+φ floor)",
+        gp_fisher_3sigma_lo, gp_fisher_3sigma_hi
+    );
+
+    // Decomposition diagnostic: compare the γ+φ floor to the Lane 3/4
+    // totals so the caller can see how much of the lane error comes
+    // from the projection vs from the post-projection quantization.
+    let lane3_spearman = lanes.iter()
+        .find(|l| l.name == "lane_3_u8_gamma_phi")
+        .map(|l| l.spearman)
+        .unwrap_or(f64::NAN);
+    let lane4_spearman = lanes.iter()
+        .find(|l| l.name == "lane_4_i8_gamma_phi_signed")
+        .map(|l| l.spearman)
+        .unwrap_or(f64::NAN);
+    let lane3_quantize_cost = gp_spearman - lane3_spearman;
+    let lane4_quantize_cost = gp_spearman - lane4_spearman;
+    println!(
+        "  decomposition:"
+    );
+    println!(
+        "     γ+φ alone Spearman         = {:.6}  (lossless floor)",
+        gp_spearman
+    );
+    println!(
+        "     Lane 3 (γ+φ + u8 CDF) ρ    = {:.6}  → u8 quantize cost = {:+.2e}",
+        lane3_spearman, -lane3_quantize_cost
+    );
+    println!(
+        "     Lane 4 (γ+φ + i8 signed) ρ = {:.6}  → i8 quantize cost = {:+.2e}",
+        lane4_spearman, -lane4_quantize_cost
+    );
+
     // ─── Step 12: Belichtungsmesser ¼σ band calibration + per-band metrics ───
     //
     // Calibrate bgz_tensor::Belichtungsmesser from the reference
@@ -1014,6 +1129,33 @@ fn main() {
                     "jackknife_n_successful": row.jk_n,
                 })
             }).collect::<Vec<_>>(),
+        },
+
+        "icc_profile_gamma_phi": {
+            "design_intent": "The original plan of γ+φ was to project the cosine distribution onto a golden-ratio grid and store a 28-byte ICC-profile-style metadata block (role_gamma + phi_scale) so the projection is reversible via gamma_phi_decode with only those 28 bytes. This block certifies the projection empirically.",
+            "profile_bytes": 28,
+            "profile_layout": "role_gamma[6] × f32 + phi_scale × f32",
+            "role_gamma": role_gamma_f32,
+            "phi_scale": phi_scale_f32,
+            "calibration_source": "mean(|cos|) and max(|cos|) on ref_upper, matching seven_lane_encoder.rs:226-229",
+            "round_trip_floor": {
+                "pearson": gp_pearson,
+                "spearman": gp_spearman,
+                "max_abs_error": gp_max_abs_err,
+                "mean_abs_error": gp_mean_abs_err,
+                "rms_error": gp_rms_err,
+                "fisher_3sigma_lo": gp_fisher_3sigma_lo,
+                "fisher_3sigma_hi": gp_fisher_3sigma_hi,
+                "note": "Pure γ+φ encode-decode round-trip error on the 32640 reference cosines. The error floor is dominated by the float precision of ln()/exp() in gamma_encode / gamma_decode (expected ~1e-4 per the gamma_phi_roundtrip_exact unit test tolerance in bgz-tensor/src/gamma_phi.rs).",
+            },
+            "decomposition": {
+                "note": "Splits Lane 3 and Lane 4 error into γ+φ projection cost vs post-projection quantization cost. The projection is near-free (float precision); the quantization is the dominant cost.",
+                "gamma_phi_alone_spearman": gp_spearman,
+                "lane_3_total_spearman": lane3_spearman,
+                "lane_4_total_spearman": lane4_spearman,
+                "lane_3_u8_quantize_cost": -lane3_quantize_cost,
+                "lane_4_i8_quantize_cost": -lane4_quantize_cost,
+            },
         },
 
         "belichtungsmesser_quarter_sigma_bands": {

@@ -691,6 +691,32 @@
     ],
     "population_n": 32640
   },
+  "icc_profile_gamma_phi": {
+    "calibration_source": "mean(|cos|) and max(|cos|) on ref_upper, matching seven_lane_encoder.rs:226-229",
+    "decomposition": {
+      "gamma_phi_alone_spearman": 0.9999999999571227,
+      "lane_3_total_spearman": 0.9999922730928695,
+      "lane_3_u8_quantize_cost": -7.72686425321023e-6,
+      "lane_4_i8_quantize_cost": -0.000537344850258803,
+      "lane_4_total_spearman": 0.9994626551068639,
+      "note": "Splits Lane 3 and Lane 4 error into γ+φ projection cost vs post-projection quantization cost. The projection is near-free (float precision); the quantization is the dominant cost."
+    },
+    "design_intent": "The original plan of γ+φ was to project the cosine distribution onto a golden-ratio grid and store a 28-byte ICC-profile-style metadata block (role_gamma + phi_scale) so the projection is reversible via gamma_phi_decode with only those 28 bytes. This block certifies the projection empirically.",
+    "phi_scale": 0.6752529144287109,
+    "profile_bytes": 28,
+    "profile_layout": "role_gamma[6] × f32 + phi_scale × f32",
+    "role_gamma": 0.22608213126659393,
+    "round_trip_floor": {
+      "fisher_3sigma_hi": 0.9999990323210244,
+      "fisher_3sigma_lo": 0.9999989665994357,
+      "max_abs_error": 2.384185791015625e-7,
+      "mean_abs_error": 4.54482032557066e-8,
+      "note": "Pure γ+φ encode-decode round-trip error on the 32640 reference cosines. The error floor is dominated by the float precision of ln()/exp() in gamma_encode / gamma_decode (expected ~1e-4 per the gamma_phi_roundtrip_exact unit test tolerance in bgz-tensor/src/gamma_phi.rs).",
+      "pearson": 0.9999999999995333,
+      "rms_error": 5.612822810984804e-8,
+      "spearman": 0.9999999999571227
+    }
+  },
   "lane_5_silu_delta": {
     "l2_norm": 0.0,
     "max_abs": 0.0,
