@@ -11,23 +11,49 @@
 //!   - The Zeckendorf representation of the offset gives exact rehydration
 //!
 //! Per-model metadata for rehydration:
-//!   - γ_offset: one f32 per role per model (6 roles × 4 bytes = 24 bytes)
+//!   - γ_offset: one f32 per role per model (8 roles × 4 bytes = 32 bytes)
 //!   - φ_scale: one f32 per model (global dynamic range, 4 bytes)
-//!   - Total: 28 bytes of metadata → exact decode of any encoded value
+//!   - Total: 36 bytes of metadata → exact decode of any encoded value
+//!
+//! **Role extension (Apr 11 2026)**: layout extended from 6 to 8 roles to
+//! cover the full Jina v5 / Qwen 3.5 matmul inventory. Legacy indices
+//! 0..=5 (Q, K, V, Gate, Up, Down) are unchanged; new indices 6 (O,
+//! attention output projection) and 7 (Embed, token embedding matrix)
+//! are appended at the tail for additive coverage. Any serialized
+//! profile from a pre-extension bake is wire-incompatible and must be
+//! rebuilt under the 36-byte format.
 
 use std::f64::consts::GOLDEN_RATIO;
 
 /// Per-role gamma offsets, calibrated from a model's weight distribution.
 ///
-/// Stored as metadata with the encoded weights (28 bytes total).
-/// Enables exact rehydration: gamma_decode(encoded, offset) → original.
+/// Stored as metadata with the encoded weights (36 bytes total after the
+/// Apr 11 2026 role extension). Enables exact rehydration:
+/// `gamma_decode(encoded, offset) → original`.
+///
+/// **Layout**:
+/// ```text
+///   role_gamma[0] = Q       (q_proj.weight)
+///   role_gamma[1] = K       (k_proj.weight)
+///   role_gamma[2] = V       (v_proj.weight)
+///   role_gamma[3] = Gate    (gate_proj.weight)
+///   role_gamma[4] = Up      (up_proj.weight)
+///   role_gamma[5] = Down    (down_proj.weight)
+///   role_gamma[6] = O       (o_proj.weight)        ← added for Jina v5
+///   role_gamma[7] = Embed   (embed_tokens.weight)  ← added for Jina v5
+/// ```
+///
+/// RMSNorm scale vectors (q_norm, k_norm, input_layernorm,
+/// post_attention_layernorm, final norm) are NOT represented here —
+/// they are not matmul weights and use a separate `NormScale` class
+/// (to be added when the full-model calibration lands).
 #[derive(Clone, Debug)]
 pub struct GammaProfile {
     /// Model identifier.
     pub model_name: String,
-    /// Per-role gamma offsets: [Q, K, V, Gate, Up, Down].
+    /// Per-role gamma offsets: [Q, K, V, Gate, Up, Down, O, Embed].
     /// Each offset = the distribution's center of mass for that role.
-    pub role_gamma: [f32; 6],
+    pub role_gamma: [f32; 8],
     /// Global φ-scale: maps the full dynamic range to [0, 1] in φ-space.
     pub phi_scale: f32,
     /// Number of weight rows used for calibration.
@@ -36,22 +62,54 @@ pub struct GammaProfile {
 
 impl GammaProfile {
     /// Byte size of the metadata (for storage alongside encoded weights).
-    pub const METADATA_BYTES: usize = 6 * 4 + 4; // 28 bytes
+    /// 8 × f32 gamma offsets + 1 × f32 phi_scale = 36 bytes.
+    /// Was 28 bytes before the Apr 11 2026 role extension.
+    pub const METADATA_BYTES: usize = 8 * 4 + 4; // 36 bytes
+
+    /// Role-index constants for named access.
+    pub const Q: usize = 0;
+    pub const K: usize = 1;
+    pub const V: usize = 2;
+    pub const GATE: usize = 3;
+    pub const UP: usize = 4;
+    pub const DOWN: usize = 5;
+    pub const O: usize = 6;
+    pub const EMBED: usize = 7;
 }
 
 /// Calibrate gamma profile from raw f32 weight rows per role.
 ///
-/// Measures the magnitude distribution per role and computes the optimal
-/// gamma offset that maps each role's range to maximum resolution.
+/// Measures the mean absolute magnitude distribution per role and stores
+/// it as the γ offset used by `gamma_encode` downstream. Each role's
+/// weight rows are scanned in a single pass; unknown role names are
+/// silently skipped.
+///
+/// Recognized role names (case-sensitive, matched against
+/// the short canonical labels used internally):
+/// - `"Q"`, `"K"`, `"V"`, `"Gate"`, `"Up"`, `"Down"` (legacy 6-role layout)
+/// - `"O"` (attention output projection)      — added for Jina v5
+/// - `"Embed"` (token embedding matrix)        — added for Jina v5
+///
+/// If you are reading role names from a safetensors header, use the
+/// `RoleGamma::calibrate` function in `gamma_calibration.rs` instead;
+/// it matches the full set of canonical tensor-name prefixes (`q_proj`,
+/// `o_proj`, `embed_tokens`, `tok_embd`, etc.).
 pub fn calibrate_gamma(
     model_name: &str,
     role_rows: &[(&str, &[&[f32]])], // (role_name, rows)
 ) -> GammaProfile {
-    let mut role_gamma = [0.0f32; 6];
+    let mut role_gamma = [0.0f32; 8];
 
     for (role_name, rows) in role_rows {
         let role_idx = match *role_name {
-            "Q" => 0, "K" => 1, "V" => 2, "Gate" => 3, "Up" => 4, "Down" => 5,
+            "Q" => GammaProfile::Q,
+            "K" => GammaProfile::K,
+            "V" => GammaProfile::V,
+            "Gate" => GammaProfile::GATE,
+            "Up" => GammaProfile::UP,
+            "Down" => GammaProfile::DOWN,
+            "O" => GammaProfile::O,
+            "Embed" => GammaProfile::EMBED,
             _ => continue,
         };
 

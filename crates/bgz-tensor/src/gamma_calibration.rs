@@ -20,30 +20,80 @@ const EULER_GAMMA: f64 = std::f64::consts::EULER_GAMMA;
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Per-role gamma offsets calibrated from weight magnitude distribution.
-/// 6 roles × f32 + 1 global phi_scale = 28 bytes.
+///
+/// **Layout (append-at-tail for backward compatibility)**:
+/// ```text
+///   [0] Q     — attention query projection    (q_proj.weight)
+///   [1] K     — attention key projection      (k_proj.weight)
+///   [2] V     — attention value projection    (v_proj.weight)
+///   [3] Gate  — MLP gate projection            (gate_proj.weight)
+///   [4] Up    — MLP up projection              (up_proj.weight)
+///   [5] Down  — MLP down projection            (down_proj.weight)
+///   [6] O     — attention output projection    (o_proj.weight)       ← ADDED for Jina v5 coverage
+///   [7] Embed — token embedding matrix         (embed_tokens.weight) ← ADDED for Jina v5 coverage
+/// ```
+///
+/// Indices 0..=5 unchanged from the legacy 6-role layout; any caller that
+/// reads those indices directly keeps working. Indices 6 and 7 are
+/// additive for code that needs full Jina v5 / Qwen 3.5 matmul-role
+/// coverage. Layernorm scale vectors (q_norm, k_norm, input_layernorm,
+/// post_attention_layernorm, final norm) are a separate `NormScale`
+/// class and NOT represented here.
+///
+/// 8 roles × f32 + 1 global phi_scale = **36 bytes** (was 28 bytes
+/// before the Jina v5 role extension). Any serialized profile from a
+/// pre-extension bake is wire-incompatible; re-bake under the 36-byte
+/// format for anything certification-targeting.
 #[derive(Clone, Debug)]
 pub struct RoleGamma {
-    /// Per-role: [Q, K, V, Gate, Up, Down].
-    pub gamma: [f32; 6],
-    /// Global φ-scale (max gamma across roles).
+    /// Per-role: [Q, K, V, Gate, Up, Down, O, Embed].
+    pub gamma: [f32; 8],
+    /// Global φ-scale (max gamma across all 8 roles).
     pub phi_scale: f32,
 }
 
 impl RoleGamma {
-    pub const BYTE_SIZE: usize = 28;
+    pub const BYTE_SIZE: usize = 8 * 4 + 4; // 36
+
+    /// Role-index constants for callers that want named access instead
+    /// of magic numbers. Prefer these over literal indices.
+    pub const Q: usize = 0;
+    pub const K: usize = 1;
+    pub const V: usize = 2;
+    pub const GATE: usize = 3;
+    pub const UP: usize = 4;
+    pub const DOWN: usize = 5;
+    pub const O: usize = 6;
+    pub const EMBED: usize = 7;
 
     /// Calibrate from per-role weight rows.
-    /// roles: &[("Q", &[row_slices]), ("K", ...), ...]
+    ///
+    /// `roles: &[("Q", &[row_slices]), ("K", ...), ...]`
+    ///
+    /// Recognized role names (case-sensitive match, extend freely):
+    /// - `"Q"`, `"q_proj"`, `"attn_q"`, `"attn_qkv"`
+    /// - `"K"`, `"k_proj"`, `"attn_k"`
+    /// - `"V"`, `"v_proj"`, `"attn_v"`
+    /// - `"Gate"`, `"gate_proj"`, `"ffn_gate"`
+    /// - `"Up"`, `"up_proj"`, `"ffn_up"`
+    /// - `"Down"`, `"down_proj"`, `"ffn_down"`
+    /// - `"O"`, `"o_proj"`, `"attn_o"`, `"attn_output"`
+    /// - `"Embed"`, `"embed_tokens"`, `"tok_embd"`, `"wte"`
+    ///
+    /// Unknown role names are silently skipped (the resulting γ stays
+    /// at the default 0.01 seed for that slot).
     pub fn calibrate(roles: &[(&str, &[&[f32]])]) -> Self {
-        let mut gamma = [0.01f32; 6];
+        let mut gamma = [0.01f32; 8];
         for (name, rows) in roles {
             let idx = match *name {
-                "Q" | "q_proj" | "attn_q" | "attn_qkv" => 0,
-                "K" | "k_proj" | "attn_k" => 1,
-                "V" | "v_proj" | "attn_v" => 2,
-                "Gate" | "gate_proj" | "ffn_gate" => 3,
-                "Up" | "up_proj" | "ffn_up" => 4,
-                "Down" | "down_proj" | "ffn_down" => 5,
+                "Q" | "q_proj" | "attn_q" | "attn_qkv" => Self::Q,
+                "K" | "k_proj" | "attn_k" => Self::K,
+                "V" | "v_proj" | "attn_v" => Self::V,
+                "Gate" | "gate_proj" | "ffn_gate" => Self::GATE,
+                "Up" | "up_proj" | "ffn_up" => Self::UP,
+                "Down" | "down_proj" | "ffn_down" => Self::DOWN,
+                "O" | "o_proj" | "attn_o" | "attn_output" => Self::O,
+                "Embed" | "embed_tokens" | "tok_embd" | "wte" => Self::EMBED,
                 _ => continue,
             };
             if rows.is_empty() { continue; }
