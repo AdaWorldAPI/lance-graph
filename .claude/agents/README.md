@@ -50,6 +50,16 @@ the hard-won BF16-HHTL correction chain (5 iterations, 4 corrections, 0 probes).
 **Mandatory reviewer** for any proposal that adds layers, touches HHTL cascade
 architecture, or claims γ+φ carries information. See Knowledge Activation below.
 
+### `adk-coordinator`
+Agent Development Kit style ensemble coordinator. Wake this FIRST when a
+problem needs 3+ specialists or the session is showing synthesis-loop
+symptoms. Frames the problem, selects the minimal agent set (not the whole
+orchestra), requires object-level outputs from each specialist, detects
+flattening between ripple layers, and produces a structured handoff that
+preserves productive disagreements instead of collapsing them. Rule:
+coordination is NOT synthesis — the coordinator names what test would
+resolve the disagreement and makes the next probe unavoidable.
+
 ## Knowledge Activation Protocol
 
 Agents do not operate in a vacuum. When woken, an agent MUST read the knowledge
