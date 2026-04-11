@@ -113,6 +113,55 @@
       "sha256": {
         "bge-m3-f16.bgz7": "970daa4d248df76f7d28cf830158ea1261cbb8a2066ffb9cff53e84704a6a50b"
       }
+    },
+    "jina-v5-small": {
+      "source": "jinaai/jina-embeddings-v5 (safetensors export, candle-compatible)",
+      "format": "safetensors",
+      "shards": 1,
+      "dtype": "BF16",
+      "file_bytes": 1192133232,
+      "file_sha256": "030f08ea0e2be8a58eb549a9daa90e9ed3b5db3f562df2625eee26b3ef1c5baf",
+      "n_tensors": 310,
+      "hidden_size": 1024,
+      "num_hidden_layers": 28,
+      "num_attention_heads": 16,
+      "num_key_value_heads": 8,
+      "head_dim": 128,
+      "vocab_size_embed": 151936,
+      "vocab_size_tokenizer": 151669,
+      "tie_word_embeddings": true,
+      "hidden_act": "silu",
+      "release_tag": "v0.1.1-bgz-data-jina-v5-PENDING",
+      "release_upload_note": "Upload is a user-action step. Local path: crates/thinking-engine/data/jina-v5-onnx/model.safetensors. Verify SHA256 above before uploading. Tokenizer is at crates/thinking-engine/data/jina-v5-tokenizer.json (NOT under jina-v5-onnx/). Downloaded ONNX was tagged in commit 5847fd6 but is no longer on disk (gitignored, never persisted).",
+      "role_inventory": {
+        "embed_tokens": "embed_tokens.weight [151936, 1024] — shared with lm_head via tie_word_embeddings. Calibration target for lab-BF16 and bgz-hhtl-d certification harnesses.",
+        "attention_q": "layers.N.self_attn.q_proj.weight [2048, 1024] × 28",
+        "attention_k": "layers.N.self_attn.k_proj.weight [1024, 1024] × 28",
+        "attention_v": "layers.N.self_attn.v_proj.weight [1024, 1024] × 28",
+        "attention_o": "layers.N.self_attn.o_proj.weight [1024, 2048] × 28 — NOT currently in the 6-role GammaProfile, needs role 'O' for full coverage",
+        "attention_q_norm": "layers.N.self_attn.q_norm.weight [128] × 28 — per-head RMSNorm scale, NOT a matmul weight, calibration via NormScale class not γ+φ",
+        "attention_k_norm": "layers.N.self_attn.k_norm.weight [128] × 28 — per-head RMSNorm scale, same as q_norm",
+        "mlp_gate": "layers.N.mlp.gate_proj.weight [3072, 1024] × 28",
+        "mlp_up": "layers.N.mlp.up_proj.weight [3072, 1024] × 28",
+        "mlp_down": "layers.N.mlp.down_proj.weight [1024, 3072] × 28",
+        "layer_norms": "layers.N.input_layernorm.weight [1024] × 28 + layers.N.post_attention_layernorm.weight [1024] × 28 + norm.weight [1024] — RMSNorm scale vectors, NormScale class"
+      },
+      "certification_status": {
+        "f16_to_f32_upcast_proven_lossless": true,
+        "lab_bf16_certified": false,
+        "bgz_hhtl_d_certified": false,
+        "onnx_second_anchor_present": false,
+        "gguf_third_anchor_present": false,
+        "probe_file": "crates/thinking-engine/examples/probe_jina_v5_safetensors.rs",
+        "probe_last_run_sha256_verified": "030f08ea0e2be8a58eb549a9daa90e9ed3b5db3f562df2625eee26b3ef1c5baf"
+      },
+      "pair_sampler": {
+        "algorithm": "SplitMix64",
+        "seed": "0x9E3779B97F4A7C15",
+        "range_lo": 0,
+        "range_hi": 151669,
+        "note": "Range is min(tokenizer_vocab, embed_rows) to avoid 267 ghost rows [151669, 151936) left by fine-tune-trimmed vocabulary."
+      }
     }
   },
   "savants": {

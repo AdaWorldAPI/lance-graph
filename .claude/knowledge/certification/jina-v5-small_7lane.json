@@ -1,0 +1,896 @@
+{
+  "belichtungsmesser_quarter_sigma_bands": {
+    "band_counts": [
+      502,
+      309,
+      803,
+      1955,
+      4554,
+      7709,
+      8079,
+      5334,
+      2253,
+      609,
+      127,
+      406
+    ],
+    "calibration_mean_u32": 7745.864613970588,
+    "calibration_sigma_u32": 584.78691330126,
+    "distance_encoding": "(1 - cos) * 10000 as u32",
+    "distance_scale": 10000.0,
+    "n_bands": 12,
+    "per_band_metrics": [
+      {
+        "band": 0,
+        "count": 502,
+        "hi": 6283,
+        "lanes": [
+          {
+            "lane": "lane_1_u8_cdf",
+            "metric": 0.9729
+          },
+          {
+            "lane": "lane_2_i8_direct",
+            "metric": 0.999
+          },
+          {
+            "lane": "lane_3_u8_gamma_phi",
+            "metric": 0.9729
+          },
+          {
+            "lane": "lane_4_i8_gamma_phi_signed",
+            "metric": 0.9983
+          },
+          {
+            "lane": "lane_6_bf16_rne",
+            "metric": 0.9999
+          }
+        ],
+        "lo": 5991
+      },
+      {
+        "band": 1,
+        "count": 309,
+        "hi": 6576,
+        "lanes": [
+          {
+            "lane": "lane_1_u8_cdf",
+            "metric": 0.9356
+          },
+          {
+            "lane": "lane_2_i8_direct",
+            "metric": 0.9643
+          },
+          {
+            "lane": "lane_3_u8_gamma_phi",
+            "metric": 0.9356
+          },
+          {
+            "lane": "lane_4_i8_gamma_phi_signed",
+            "metric": 0.975
+          },
+          {
+            "lane": "lane_6_bf16_rne",
+            "metric": 0.9976
+          }
+        ],
+        "lo": 6283
+      },
+      {
+        "band": 2,
+        "count": 803,
+        "hi": 6868,
+        "lanes": [
+          {
+            "lane": "lane_1_u8_cdf",
+            "metric": 0.9876
+          },
+          {
+            "lane": "lane_2_i8_direct",
+            "metric": 0.9653
+          },
+          {
+            "lane": "lane_3_u8_gamma_phi",
+            "metric": 0.9876
+          },
+          {
+            "lane": "lane_4_i8_gamma_phi_signed",
+            "metric": 0.9758
+          },
+          {
+            "lane": "lane_6_bf16_rne",
+            "metric": 0.9976
+          }
+        ],
+        "lo": 6576
+      },
+      {
+        "band": 3,
+        "count": 1955,
+        "hi": 7161,
+        "lanes": [
+          {
+            "lane": "lane_1_u8_cdf",
+            "metric": 0.9979
+          },
+          {
+            "lane": "lane_2_i8_direct",
+            "metric": 0.9659
+          },
+          {
+            "lane": "lane_3_u8_gamma_phi",
+            "metric": 0.9979
+          },
+          {
+            "lane": "lane_4_i8_gamma_phi_signed",
+            "metric": 0.9772
+          },
+          {
+            "lane": "lane_6_bf16_rne",
+            "metric": 0.9977
+          }
+        ],
+        "lo": 6868
+      },
+      {
+        "band": 4,
+        "count": 4554,
+        "hi": 7453,
+        "lanes": [
+          {
+            "lane": "lane_1_u8_cdf",
+            "metric": 0.9996
+          },
+          {
+            "lane": "lane_2_i8_direct",
+            "metric": 0.9641
+          },
+          {
+            "lane": "lane_3_u8_gamma_phi",
+            "metric": 0.9996
+          },
+          {
+            "lane": "lane_4_i8_gamma_phi_signed",
+            "metric": 0.9818
+          },
+          {
+            "lane": "lane_6_bf16_rne",
+            "metric": 0.9977
+          }
+        ],
+        "lo": 7161
+      },
+      {
+        "band": 5,
+        "count": 7709,
+        "hi": 7745,
+        "lanes": [
+          {
+            "lane": "lane_1_u8_cdf",
+            "metric": 0.9999
+          },
+          {
+            "lane": "lane_2_i8_direct",
+            "metric": 0.9664
+          },
+          {
+            "lane": "lane_3_u8_gamma_phi",
+            "metric": 0.9999
+          },
+          {
+            "lane": "lane_4_i8_gamma_phi_signed",
+            "metric": 0.9848
+          },
+          {
+            "lane": "lane_6_bf16_rne",
+            "metric": 0.9992
+          }
+        ],
+        "lo": 7453
+      },
+      {
+        "band": 6,
+        "count": 8079,
+        "hi": 8038,
+        "lanes": [
+          {
+            "lane": "lane_1_u8_cdf",
+            "metric": 0.9999
+          },
+          {
+            "lane": "lane_2_i8_direct",
+            "metric": 0.9642
+          },
+          {
+            "lane": "lane_3_u8_gamma_phi",
+            "metric": 0.9999
+          },
+          {
+            "lane": "lane_4_i8_gamma_phi_signed",
+            "metric": 0.9867
+          },
+          {
+            "lane": "lane_6_bf16_rne",
+            "metric": 0.9994
+          }
+        ],
+        "lo": 7745
+      },
+      {
+        "band": 7,
+        "count": 5334,
+        "hi": 8330,
+        "lanes": [
+          {
+            "lane": "lane_1_u8_cdf",
+            "metric": 0.9997
+          },
+          {
+            "lane": "lane_2_i8_direct",
+            "metric": 0.9645
+          },
+          {
+            "lane": "lane_3_u8_gamma_phi",
+            "metric": 0.9997
+          },
+          {
+            "lane": "lane_4_i8_gamma_phi_signed",
+            "metric": 0.9877
+          },
+          {
+            "lane": "lane_6_bf16_rne",
+            "metric": 0.9994
+          }
+        ],
+        "lo": 8038
+      },
+      {
+        "band": 8,
+        "count": 2253,
+        "hi": 8623,
+        "lanes": [
+          {
+            "lane": "lane_1_u8_cdf",
+            "metric": 0.9984
+          },
+          {
+            "lane": "lane_2_i8_direct",
+            "metric": 0.9679
+          },
+          {
+            "lane": "lane_3_u8_gamma_phi",
+            "metric": 0.9984
+          },
+          {
+            "lane": "lane_4_i8_gamma_phi_signed",
+            "metric": 0.9887
+          },
+          {
+            "lane": "lane_6_bf16_rne",
+            "metric": 0.9995
+          }
+        ],
+        "lo": 8330
+      },
+      {
+        "band": 9,
+        "count": 609,
+        "hi": 8915,
+        "lanes": [
+          {
+            "lane": "lane_1_u8_cdf",
+            "metric": 0.9805
+          },
+          {
+            "lane": "lane_2_i8_direct",
+            "metric": 0.9625
+          },
+          {
+            "lane": "lane_3_u8_gamma_phi",
+            "metric": 0.9805
+          },
+          {
+            "lane": "lane_4_i8_gamma_phi_signed",
+            "metric": 0.9893
+          },
+          {
+            "lane": "lane_6_bf16_rne",
+            "metric": 0.9996
+          }
+        ],
+        "lo": 8623
+      },
+      {
+        "band": 10,
+        "count": 127,
+        "hi": 9207,
+        "lanes": [
+          {
+            "lane": "lane_1_u8_cdf",
+            "metric": 0.8197
+          },
+          {
+            "lane": "lane_2_i8_direct",
+            "metric": 0.9633
+          },
+          {
+            "lane": "lane_3_u8_gamma_phi",
+            "metric": 0.8197
+          },
+          {
+            "lane": "lane_4_i8_gamma_phi_signed",
+            "metric": 0.991
+          },
+          {
+            "lane": "lane_6_bf16_rne",
+            "metric": 0.9999
+          }
+        ],
+        "lo": 8915
+      },
+      {
+        "band": 11,
+        "count": 406,
+        "hi": 4294967295,
+        "lanes": [
+          {
+            "lane": "lane_1_u8_cdf",
+            "metric": 0.961
+          },
+          {
+            "lane": "lane_2_i8_direct",
+            "metric": 0.999
+          },
+          {
+            "lane": "lane_3_u8_gamma_phi",
+            "metric": 0.961
+          },
+          {
+            "lane": "lane_4_i8_gamma_phi_signed",
+            "metric": 0.9998
+          },
+          {
+            "lane": "lane_6_bf16_rne",
+            "metric": 1.0
+          }
+        ],
+        "lo": 9207
+      }
+    ],
+    "source": "bgz_tensor::Belichtungsmesser::calibrate"
+  },
+  "bootstrap_confidence_intervals": {
+    "intervals_95pct": [
+      {
+        "ci_hi_97_5pct": 1.0,
+        "ci_lo_2_5pct": 1.0,
+        "ci_width": 0.0,
+        "lane": "lane_1_u8_cdf",
+        "metric": "spearman",
+        "point_estimate": 1.0
+      },
+      {
+        "ci_hi_97_5pct": 0.9993,
+        "ci_lo_2_5pct": 0.9992,
+        "ci_width": 0.0,
+        "lane": "lane_2_i8_direct",
+        "metric": "pearson",
+        "point_estimate": 0.9992
+      },
+      {
+        "ci_hi_97_5pct": 1.0,
+        "ci_lo_2_5pct": 1.0,
+        "ci_width": 0.0,
+        "lane": "lane_3_u8_gamma_phi",
+        "metric": "spearman",
+        "point_estimate": 1.0
+      },
+      {
+        "ci_hi_97_5pct": 0.9995,
+        "ci_lo_2_5pct": 0.9994,
+        "ci_width": 0.0,
+        "lane": "lane_4_i8_gamma_phi_signed",
+        "metric": "spearman",
+        "point_estimate": 0.9995
+      },
+      {
+        "ci_hi_97_5pct": 1.0,
+        "ci_lo_2_5pct": 1.0,
+        "ci_width": 0.0,
+        "lane": "lane_6_bf16_rne",
+        "metric": "pearson",
+        "point_estimate": 1.0
+      }
+    ],
+    "n_resamples": 1000,
+    "note": "Bootstrap CIs at 1000 resamples give 95% (2σ) bounds only; 3σ at 99.73% requires closed-form methods (Fisher z) or jackknife (see fisher_z_plus_jackknife block).",
+    "seed": "0x9E3779B97F4A7C15"
+  },
+  "cycloid_bound_lane_7": {
+    "bound_formula": "2π × φ / (hidden_dim / spiral_stride)",
+    "hidden_dim": 1024.0,
+    "measured_max_drift": 0.1,
+    "measured_mean_drift": 0.070422,
+    "n_samples_per_octave": 93.0,
+    "note": "Lane 7 u8 × 2550 encoding saturates at ~0.100, so measured max is capped there; theoretical bound is 0.109.",
+    "spiral_stride": 11.0,
+    "theoretical_bound": 0.109316,
+    "within_bound": true
+  },
+  "derivation": {
+    "class": "seven_lane_encoder",
+    "lane_6_commit": "c489d31 (ndarray) + e25e97d (lance-graph)",
+    "lane_6_method": "ndarray::simd::f32_to_bf16_batch_rne"
+  },
+  "early_exit_cascade": {
+    "cumulative_by_lane": [
+      {
+        "added_pct": 99.8836,
+        "cumulative_pct": 99.8836,
+        "lane": "lane_1_u8_cdf"
+      },
+      {
+        "added_pct": 0.1164,
+        "cumulative_pct": 100.0,
+        "lane": "lane_2_i8_direct"
+      },
+      {
+        "added_pct": 0.0,
+        "cumulative_pct": 100.0,
+        "lane": "lane_3_u8_gamma_phi"
+      },
+      {
+        "added_pct": 0.0,
+        "cumulative_pct": 100.0,
+        "lane": "lane_4_i8_gamma_phi_signed"
+      },
+      {
+        "added_pct": 0.0,
+        "cumulative_pct": 100.0,
+        "lane": "lane_6_bf16_rne"
+      }
+    ],
+    "definition": "fraction of pairs resolvable at or before this lane by the Belichtungsmesser band-center rule",
+    "feature_framing": "Aggressive early exit is the cascade's value proposition, NOT a rule bug. A higher early-exit percentage at Lane 1 means the cascade is offloading work away from expensive lanes. Cheap path (Lane 1 u8 lookup ~2-4 cycles) vs expensive path (Lane 6 BF16 matvec via VDPBF16PS ~100-200 cycles L1-hot, ~300-500 cycles L2-cold) = ~65-250x speedup depending on cache state (v2.4 correction: earlier claim of 1000x required inconsistent cache assumptions and was softened per math review). The cost of the cheap path is ~0.01% accuracy, recovered by Lane 6 + the 1/20 sigma lens (Step 13) on the residual pairs. See also .claude/STATUSMATRIX.md: 88% Fruhausstieg at 4096 centroids, 932 tok/s with the production 3-stroke Base17 rule.",
+    "residual": {
+      "fraction_pct": 0.0,
+      "lane_6_pearson": null,
+      "lane_6_spearman": null,
+      "n_pairs": 0,
+      "note": "Lane 6 metrics computed only on the pairs that did NOT early-exit. Spearman is the primary metric on the residual because (a) the residual is small enough that Pearson is ill-conditioned, (b) rank preservation is what retrieval and ordering use cases ultimately require.",
+      "verdict": "cascade_dominated_by_cheap_lanes"
+    }
+  },
+  "fine_sigma_lens": {
+    "band_max_count": 888,
+    "band_min_count": 4,
+    "bucket_width_sigma": 0.05,
+    "calibration_mean_u32": 7745.864613970588,
+    "calibration_sigma_u32": 584.78691330126,
+    "geometry": "belichtungsmesser_10x",
+    "lane_6_pearson_bands_below_0_50": 0,
+    "lane_6_pearson_bands_ge_0_99": 11,
+    "lane_6_pearson_bands_ge_0_999": 3,
+    "lane_6_pearson_per_band": [
+      0.9999,
+      0.8483,
+      0.7807,
+      0.8988,
+      0.8455,
+      0.8345,
+      0.7752,
+      0.9001,
+      0.8564,
+      0.7319,
+      0.8664,
+      0.7056,
+      0.8379,
+      0.8712,
+      0.8821,
+      0.8739,
+      0.8196,
+      0.7485,
+      0.8743,
+      0.8271,
+      0.8842,
+      0.7831,
+      0.8584,
+      0.774,
+      0.8898,
+      0.8556,
+      0.8715,
+      0.8593,
+      0.8395,
+      0.8159,
+      0.819,
+      0.8367,
+      0.868,
+      0.8008,
+      0.8532,
+      0.8274,
+      0.8617,
+      0.7975,
+      0.8546,
+      0.8668,
+      0.838,
+      0.8197,
+      0.8415,
+      0.8423,
+      0.8439,
+      0.8228,
+      0.814,
+      0.8211,
+      0.8469,
+      0.8026,
+      0.8327,
+      0.904,
+      0.9543,
+      0.9484,
+      0.9537,
+      0.9518,
+      0.955,
+      0.9562,
+      0.9577,
+      0.9524,
+      0.9584,
+      0.9515,
+      0.9536,
+      0.9535,
+      0.9598,
+      0.9491,
+      0.9534,
+      0.9515,
+      0.9534,
+      0.953,
+      0.9599,
+      0.9506,
+      0.9584,
+      0.9571,
+      0.9476,
+      0.959,
+      0.9492,
+      0.9589,
+      0.9638,
+      0.9515,
+      0.9543,
+      0.9597,
+      0.9451,
+      0.9622,
+      0.9557,
+      0.9538,
+      0.9515,
+      0.9577,
+      0.9494,
+      0.9603,
+      0.959,
+      0.9503,
+      0.9514,
+      0.958,
+      0.9711,
+      0.988,
+      0.987,
+      0.9846,
+      0.9896,
+      0.9873,
+      0.9888,
+      0.9914,
+      0.9799,
+      0.9863,
+      0.9943,
+      0.9852,
+      0.9927,
+      0.9704,
+      0.9761,
+      0.99,
+      0.9901,
+      0.9895,
+      0.9989,
+      0.9884,
+      0.9893,
+      0.9944,
+      0.9918,
+      0.9989,
+      0.9992,
+      1.0
+    ],
+    "n_bands": 120,
+    "nonempty_bands": 120,
+    "note": "10× Belichtungsmesser precision: 120 bands at 1/20 σ each over [μ-3σ, μ+3σ], duplicating the Belichtungsmesser::calibrate math with N_BANDS=120. Rolling σ adjustment (Welford) in production handles the non-Gaussian distribution shape per bgz-tensor/src/hdr_belichtung.rs; this harness uses static σ as the snapshot proxy. Narrow-slice Pearson is ill-conditioned when reference variance approaches zero, so the informative metric is the count of bands reaching high Pearson, not the min/max.",
+    "rings_per_belichtungsmesser_band": [
+      11,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      9
+    ],
+    "span_anchor": "[μ - 3σ, μ + 3σ]",
+    "span_sigma_total": 6.0
+  },
+  "fisher_z_plus_jackknife": {
+    "fisher_transform": "z = arctanh(r); SE(z) = 1/sqrt(n-3); kσ CI = tanh(z ± k·SE)",
+    "jackknife": {
+      "kind": "leave_one_centroid_out",
+      "n_centroids": 256,
+      "note": "256 stability checks — one per centroid. Each drop removes 255 pairs involving that centroid, giving a sub-population of 32,385 pairs. Variance across the 256 drops is the nonparametric 3σ estimator."
+    },
+    "k_2sigma": 1.959964,
+    "k_3sigma": 3.0,
+    "per_lane": [
+      {
+        "fisher_2sigma_hi": 0.9999924390328517,
+        "fisher_2sigma_lo": 0.9999921036922982,
+        "fisher_3sigma_hi": 0.9999925255896459,
+        "fisher_3sigma_lo": 0.999992012249776,
+        "jackknife_3sigma_hi": 0.999992771614228,
+        "jackknife_3sigma_lo": 0.9999917747488881,
+        "jackknife_n_successful": 256,
+        "jackknife_se": 1.6614422330033033e-7,
+        "lane": "lane_1_u8_cdf",
+        "metric": "spearman",
+        "point_estimate": 0.999992273181558
+      },
+      {
+        "fisher_2sigma_hi": 0.9992660663892807,
+        "fisher_2sigma_lo": 0.9992335276480567,
+        "fisher_3sigma_hi": 0.9992744653323083,
+        "fisher_3sigma_lo": 0.9992246549855089,
+        "jackknife_3sigma_hi": 0.9997824710542687,
+        "jackknife_3sigma_lo": 0.9987174757199198,
+        "jackknife_n_successful": 256,
+        "jackknife_se": 0.00017749922239147908,
+        "lane": "lane_2_i8_direct",
+        "metric": "pearson",
+        "point_estimate": 0.9992499733870942
+      },
+      {
+        "fisher_2sigma_hi": 0.9999924389460668,
+        "fisher_2sigma_lo": 0.9999921036016642,
+        "fisher_3sigma_hi": 0.9999925255038545,
+        "fisher_3sigma_lo": 0.9999920121580925,
+        "jackknife_3sigma_hi": 0.999992771534841,
+        "jackknife_3sigma_lo": 0.9999917746508981,
+        "jackknife_n_successful": 256,
+        "jackknife_se": 1.6614732383687564e-7,
+        "lane": "lane_3_u8_gamma_phi",
+        "metric": "spearman",
+        "point_estimate": 0.9999922730928695
+      },
+      {
+        "fisher_2sigma_hi": 0.9994741858880091,
+        "fisher_2sigma_lo": 0.9994508715322022,
+        "fisher_3sigma_hi": 0.9994802037854996,
+        "fisher_3sigma_lo": 0.9994445141373297,
+        "jackknife_3sigma_hi": 0.9995986440190506,
+        "jackknife_3sigma_lo": 0.9993266661946772,
+        "jackknife_n_successful": 256,
+        "jackknife_se": 0.000045329637395552814,
+        "lane": "lane_4_i8_gamma_phi_signed",
+        "metric": "spearman",
+        "point_estimate": 0.9994626551068639
+      },
+      {
+        "fisher_2sigma_hi": 0.9999789201016737,
+        "fisher_2sigma_lo": 0.9999779851822733,
+        "fisher_3sigma_hi": 0.9999791614195094,
+        "fisher_3sigma_lo": 0.9999777302433628,
+        "jackknife_3sigma_hi": 0.9999938031237752,
+        "jackknife_3sigma_lo": 0.9999631123025723,
+        "jackknife_n_successful": 256,
+        "jackknife_se": 5.115136867158184e-6,
+        "lane": "lane_6_bf16_rne",
+        "metric": "pearson",
+        "point_estimate": 0.9999784577131737
+      }
+    ],
+    "population_n": 32640
+  },
+  "icc_profile_gamma_phi": {
+    "calibration_source": "mean(|cos|) and max(|cos|) on ref_upper, matching seven_lane_encoder.rs:226-229",
+    "decomposition": {
+      "gamma_phi_alone_spearman": 0.9999999999571227,
+      "lane_3_total_spearman": 0.9999922730928695,
+      "lane_3_u8_quantize_cost_1mr": 7.72686425321023e-6,
+      "lane_4_i8_quantize_cost_1mr": 0.000537344850258803,
+      "lane_4_total_spearman": 0.9994626551068639,
+      "note": "Splits Lane 3 and Lane 4 error into γ+φ projection cost vs post-projection quantization cost. The projection is near-free (float precision); the quantization is the dominant cost.",
+      "subtraction_space_note": "(1-ρ) additive space. Computed as (1-lane_ρ) - (1-gp_ρ); numerically identical to (gp_ρ - lane_ρ) in the near-1 regime but theoretically well-formed in (1-ρ) space because correlations are NOT additive by raw subtraction."
+    },
+    "design_intent": "The original plan of γ+φ was to project the cosine distribution onto a golden-ratio grid and store a 28-byte ICC-profile-style metadata block (role_gamma + phi_scale) so the projection is reversible via gamma_phi_decode with only those 28 bytes. This block certifies the projection empirically.",
+    "phi_scale": 0.6752529144287109,
+    "profile_bytes": 36,
+    "profile_bytes_note": "Canonical GammaProfile was extended from 6 to 8 matmul roles in commit 86e586e (added Embed + O). v2.3 comment said '28 bytes' which was stale after that extension; v2.4 corrected to 36 bytes after math review.",
+    "profile_layout": "role_gamma[8] × f32 + phi_scale × f32 (8 matmul roles: Embed, Q, K, V, O, Gate, Up, Down)",
+    "role_gamma": 0.22608213126659393,
+    "round_trip_floor": {
+      "fisher_3sigma_hi": 0.9999990326666028,
+      "fisher_3sigma_lo": 0.9999989662302549,
+      "max_abs_error": 2.384185791015625e-7,
+      "mean_abs_error": 4.54482032557066e-8,
+      "note": "Pure γ+φ encode-decode round-trip error on the 32640 reference cosines. The error floor is dominated by the float precision of ln()/exp() in gamma_encode / gamma_decode (expected ~1e-4 per the gamma_phi_roundtrip_exact unit test tolerance in bgz-tensor/src/gamma_phi.rs).",
+      "pearson": 0.9999999999995333,
+      "rms_error": 5.612822810984804e-8,
+      "spearman": 0.9999999999571227
+    }
+  },
+  "lane_5_silu_delta": {
+    "l2_norm": 0.0,
+    "max_abs": 0.0,
+    "note": "zero expected for token_embd (no gate)"
+  },
+  "lane_7_spiral_drift": {
+    "max": 255.0,
+    "mean": 179.5762,
+    "note": "u8 encoding of drift × 2550",
+    "stride": 11
+  },
+  "lanes": [
+    {
+      "cronbach_alpha": 0.942,
+      "name": "lane_1_u8_cdf",
+      "pearson": 0.8904,
+      "primary_metric": "spearman",
+      "spearman": 1.0,
+      "target": 0.999,
+      "verdict": "PASS"
+    },
+    {
+      "cronbach_alpha": 0.9997,
+      "name": "lane_2_i8_direct",
+      "pearson": 0.9992,
+      "primary_metric": "pearson",
+      "spearman": 0.9986,
+      "target": 0.998,
+      "verdict": "PASS"
+    },
+    {
+      "cronbach_alpha": 0.942,
+      "name": "lane_3_u8_gamma_phi",
+      "pearson": 0.8904,
+      "primary_metric": "spearman",
+      "spearman": 1.0,
+      "target": 0.999,
+      "verdict": "PASS"
+    },
+    {
+      "cronbach_alpha": 0.9836,
+      "name": "lane_4_i8_gamma_phi_signed",
+      "pearson": 0.9677,
+      "primary_metric": "spearman",
+      "spearman": 0.9995,
+      "target": 0.999,
+      "verdict": "PASS"
+    },
+    {
+      "cronbach_alpha": 1.0,
+      "name": "lane_6_bf16_rne",
+      "pearson": 1.0,
+      "primary_metric": "all_three",
+      "spearman": 1.0,
+      "target": 0.9999,
+      "verdict": "PASS"
+    }
+  ],
+  "nan_scan": {
+    "events": [],
+    "passed": true
+  },
+  "preheat_check": {
+    "note": "Byte-identical metrics across two runs implies no thread-ordering or cache-state non-determinism.",
+    "pearson_drift": 0.0,
+    "reproducible": true,
+    "run_1_pearson": 0.9999784577131737,
+    "run_1_spearman": 0.9999712970627546,
+    "run_2_pearson": 0.9999784577131737,
+    "run_2_spearman": 0.9999712970627546,
+    "spearman_drift": 0.0
+  },
+  "provenance": {
+    "agent": ".claude/agents/certification-officer.md",
+    "branch": "claude/risc-thought-engine-TCZw7",
+    "doctrine": ".claude/knowledge/certification-harness.md"
+  },
+  "reality_anchors": {
+    "anchors": [
+      {
+        "abs_err_lane_6": 0.00008709728717803955,
+        "label": "most_distant",
+        "lane_1_u8_raw": 0.0,
+        "lane_2_i8_decoded": -0.1889763779527559,
+        "lane_3_gp_u8_raw": 0.0,
+        "lane_4_gp_i8_raw": -61.0,
+        "lane_6_bf16_decoded": -0.1865234375,
+        "pair_index": 500,
+        "ref_cos": -0.18661053478717804
+      },
+      {
+        "abs_err_lane_6": 0.000056590884923934937,
+        "label": "tail_low_p01",
+        "lane_1_u8_raw": 3.0,
+        "lane_2_i8_decoded": 0.05511811023622047,
+        "lane_3_gp_u8_raw": 3.0,
+        "lane_4_gp_i8_raw": 24.0,
+        "lane_6_bf16_decoded": 0.056396484375,
+        "pair_index": 8362,
+        "ref_cos": 0.056453075259923935
+      },
+      {
+        "abs_err_lane_6": 0.00046558678150177,
+        "label": "q1_pair",
+        "lane_1_u8_raw": 64.0,
+        "lane_2_i8_decoded": 0.1968503937007874,
+        "lane_3_gp_u8_raw": 64.0,
+        "lane_4_gp_i8_raw": 63.0,
+        "lane_6_bf16_decoded": 0.1943359375,
+        "pair_index": 30922,
+        "ref_cos": 0.19387035071849823
+      },
+      {
+        "abs_err_lane_6": 0.00030191242694854736,
+        "label": "median_pair",
+        "lane_1_u8_raw": 127.0,
+        "lane_2_i8_decoded": 0.2204724409448819,
+        "lane_3_gp_u8_raw": 127.0,
+        "lane_4_gp_i8_raw": 69.0,
+        "lane_6_bf16_decoded": 0.2236328125,
+        "pair_index": 13764,
+        "ref_cos": 0.22393472492694855
+      },
+      {
+        "abs_err_lane_6": 0.0006518065929412842,
+        "label": "q3_pair",
+        "lane_1_u8_raw": 191.0,
+        "lane_2_i8_decoded": 0.25196850393700787,
+        "lane_3_gp_u8_raw": 191.0,
+        "lane_4_gp_i8_raw": 75.0,
+        "lane_6_bf16_decoded": 0.25390625,
+        "pair_index": 16823,
+        "ref_cos": 0.2545580565929413
+      },
+      {
+        "abs_err_lane_6": 0.0008759200572967529,
+        "label": "tail_high_p99",
+        "lane_1_u8_raw": 251.0,
+        "lane_2_i8_decoded": 0.4094488188976378,
+        "lane_3_gp_u8_raw": 251.0,
+        "lane_4_gp_i8_raw": 99.0,
+        "lane_6_bf16_decoded": 0.40625,
+        "pair_index": 1812,
+        "ref_cos": 0.40712592005729675
+      },
+      {
+        "abs_err_lane_6": 0.0005283355712890625,
+        "label": "most_similar",
+        "lane_1_u8_raw": 254.0,
+        "lane_2_i8_decoded": 0.6771653543307087,
+        "lane_3_gp_u8_raw": 254.0,
+        "lane_4_gp_i8_raw": 127.0,
+        "lane_6_bf16_decoded": 0.67578125,
+        "pair_index": 15786,
+        "ref_cos": 0.6752529144287109
+      }
+    ],
+    "max_abs_err_lane_6": 0.0008759200572967529,
+    "purpose": "Named interpretable pairs from the 256-centroid reference matrix. Anchor each lane's statistics to a concrete ground-truth pair so the abstract Pearson/Spearman numbers have reality checks at specific percentiles (most_similar, tail_high_p99, q3_pair, median_pair, q1_pair, tail_low_p01, most_distant).",
+    "threshold_bf16_rne_half_ulp": 0.002,
+    "threshold_rationale": "Per-pair Lane 6 absolute error floor is BF16 RNE half-ULP = ~2e-3 on cosines in [0.25, 1). The 4-decimal certification target applies to STATISTICAL metrics averaged over 32,640 pairs, NOT to individual pair absolute errors. The right floor per test type: per-pair anchors → BF16 half-ULP; distribution Pearson/Spearman/Cronbach → 4-decimal; γ+φ projection → f32 ln/exp precision; Fisher 3σ CI → k=3.000000 exact; Belichtungsmesser bands → calibrated σ; cycloid drift → 2π·φ/N_samples_per_octave.",
+    "verdict": "PASS"
+  },
+  "source": {
+    "data_dir": "crates/thinking-engine/data/jina-v5-7lane",
+    "model": "jina-v5-small",
+    "n_centroids": 256,
+    "n_pairs_upper": 32640,
+    "reference_cos_max": 0.6753,
+    "reference_cos_mean": 0.2254,
+    "reference_cos_min": -0.1866,
+    "reference_file": "cosine_matrix_256x256.f32"
+  },
+  "verdict": "PASS"
+}

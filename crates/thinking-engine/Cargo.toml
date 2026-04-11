@@ -36,6 +36,11 @@ rayon = "1.10"
 tokenizers = { version = "0.22", features = ["http"] }
 safetensors = "0.4"
 half = "2.4"
+# bgz17 is the local workspace crate that holds the RaBitQ-compat
+# binary quantization used by the family-codebook bake examples.
+# Path dep per the workspace "Zero EXTERNAL (crates.io) dependencies"
+# rule — internal crates are free to cross-link.
+bgz17 = { path = "../bgz17" }
 
 [patch.crates-io]
 tokenizers = { path = "../../../tokenizers/tokenizers" }

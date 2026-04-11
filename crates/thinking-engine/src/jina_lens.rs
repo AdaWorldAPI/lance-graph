@@ -1,4 +1,19 @@
-//! Jina v3 Semantic Precision Lens
+//! Jina v3 Semantic Precision Lens — RESEARCH-ONLY (pre-v5 XLM-R legacy)
+//!
+//! ## RESEARCH-ONLY — do not use for production
+//!
+//! This lens targets **Jina v3 (XLM-RoBERTa architecture)** — the PRE-v5-era
+//! reference. The current production semantic precision target is the
+//! **Jina v5 codebook** (see `ndarray::hpc::jina::runtime::ModelSource::JinaV5`
+//! for the runtime scaffolding and `crates/deepnsm/word_frequency/` for the
+//! CAM-PQ canonical path). Kept for v5-vs-v3 behavioral diffing when a Jina
+//! v5 result needs isolation against the older XLM-R pipeline. Do NOT reach
+//! for this lens when building new production wiring.
+//!
+//! See `lance-graph/CLAUDE.md` → `Model Registry` → `Research-only /
+//! diagnostic fallback` for the canonical policy.
+//!
+//! ## Original design notes (valid for the Jina v3 XLM-R target)
 //!
 //! Baked-in 256×256 HDR distance table + 250K codebook index from
 //! Jina v3 F16 GGUF token embeddings, CLAM sampled, CDF-percentile encoded.

@@ -280,23 +280,34 @@ fn main() {
     // ═══ LANE 5: SiLU correction deltas (zeros for token_embd) ═══
     let lane5_silu = vec![0.0f32; n_cent * n_cent];
 
-    // ═══ LANE 6: BF16 direct (raw cosines stored as BF16) ═══
-    // This is the StackedN source precision — lossless f32→BF16→f32 roundtrip
+    // ═══ LANE 6: BF16 direct (raw cosines stored as BF16, RNE) ═══
+    //
+    // RNE (round-to-nearest-even) via `ndarray::simd::f32_to_bf16_batch_rne`
+    // from the pure AVX-512-F routine in commit c489d31 (byte-exact vs
+    // hardware `_mm512_cvtneps_pbh` on 1M inputs). This replaces the older
+    // per-element truncation shift (`(bits >> 16) as u16`) that drifts
+    // ~1 ULP from the hardware path on ~50% of values and cannot serve as
+    // the atomic-clock lab-BF16 lane.
+    //
+    // Structural change: the previous loop converted cosines one at a time
+    // in a scalar hot loop. The new code passes the full `raw_cos` F32
+    // matrix to a single batch call — the workspace-wide "never scalar
+    // ever" rule for F32→BF16 mandates SIMD/AMX throughput (500-20000×
+    // faster). See lance-graph/CLAUDE.md § Certification Process.
     let mut lane6_bf16 = vec![0u16; n_cent * n_cent];
-    let mut bf16_max_err: f32 = 0.0;
-    for i in 0..n_cent {
-        lane6_bf16[i * n_cent + i] = f32_to_bf16(1.0);
-        for j in (i+1)..n_cent {
-            let cos = raw_cos[i * n_cent + j];
-            let bf = f32_to_bf16(cos);
-            lane6_bf16[i * n_cent + j] = bf;
-            lane6_bf16[j * n_cent + i] = bf;
-            // Measure roundtrip error
-            let rt = bf16_to_f32(bf);
-            let err = (cos - rt).abs();
-            if err > bf16_max_err { bf16_max_err = err; }
-        }
-    }
+    ndarray::simd::f32_to_bf16_batch_rne(&raw_cos, &mut lane6_bf16);
+
+    // Roundtrip error measurement also runs via the batch primitive so the
+    // whole lane stays SIMD-only. bf16_to_f32 is a trivial lossless shift,
+    // so this is for reporting only (it is always zero ± 1 ULP from the
+    // RNE truncation, which is the lane's defining loss).
+    let mut lane6_roundtrip = vec![0.0f32; n_cent * n_cent];
+    ndarray::simd::bf16_to_f32_batch(&lane6_bf16, &mut lane6_roundtrip);
+    let bf16_max_err: f32 = raw_cos
+        .iter()
+        .zip(lane6_roundtrip.iter())
+        .map(|(&a, &b)| (a - b).abs())
+        .fold(0.0f32, f32::max);
 
     // ═══ LANE 7: Spiral reconstruction error ═══
     // Encode each centroid average vector as a spiral walk, reconstruct, measure drift.
@@ -428,13 +439,11 @@ fn main() {
     println!("═══════════════════════════════════════════════════════════");
 }
 
-fn f32_to_bf16(v: f32) -> u16 {
-    (v.to_bits() >> 16) as u16
-}
-
-fn bf16_to_f32(v: u16) -> f32 {
-    f32::from_bits((v as u32) << 16)
-}
+// Local scalar `f32_to_bf16` and `bf16_to_f32` functions removed — the
+// Lane 6 BF16 derivation now uses the batch RNE primitives from
+// `ndarray::simd::{f32_to_bf16_batch_rne, bf16_to_f32_batch}` (c489d31)
+// per the workspace-wide "never scalar ever" rule for F32→BF16.
+// See lance-graph/CLAUDE.md § Certification Process.
 
 #[cfg(not(feature = "calibration"))]
 fn main() { eprintln!("Requires --features calibration"); }

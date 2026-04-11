@@ -1,4 +1,19 @@
-//! ReaderLM-v2 forward pass via candle: HTML → markdown (pure Rust).
+//! ReaderLM-v2 forward pass via candle — RESEARCH-ONLY (Qwen2 legacy lineage)
+//!
+//! ## RESEARCH-ONLY — do not use for production
+//!
+//! This example targets **Reader-LM v2 (Qwen2 architecture)** — the
+//! PRE-v5-era lineage. The current production Reader-LM target is
+//! **Reader-LM v3 = Jina v5** (BERT 3.x architecture, see
+//! `ndarray::hpc::jina::runtime::ModelSource::JinaV5`). Kept for v5-vs-v2
+//! behavioral diffing when a Jina v5 result needs isolation against the
+//! older Qwen2 pipeline. Do NOT reach for this example when building new
+//! production wiring.
+//!
+//! See `lance-graph/CLAUDE.md` → `Model Registry` → `Research-only /
+//! diagnostic fallback` for the canonical policy.
+//!
+//! ## Original design notes (valid for the Qwen2 v2 target)
 //!
 //! Loads ReaderLM-v2 BF16 safetensors (Qwen2 architecture),
 //! runs autoregressive generation on HTML input,

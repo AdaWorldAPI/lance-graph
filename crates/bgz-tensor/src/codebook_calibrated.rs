@@ -49,7 +49,7 @@ impl CalibratedCodebook {
         if k == 0 || dim == 0 {
             return Self {
                 centroids_f32: Vec::new(), distance_table: Vec::new(),
-                gamma: GammaProfile { model_name: String::new(), role_gamma: [0.01; 6],
+                gamma: GammaProfile { model_name: String::new(), role_gamma: [0.01; 8],
                     phi_scale: 0.01, n_calibration: 0 },
                 k: 0, dim: 0, raw_cosine_range: (0.0, 0.0), calibrated_entropy: 0.0,
             };
