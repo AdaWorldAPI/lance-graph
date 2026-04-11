@@ -280,11 +280,257 @@ fn main() {
     );
     println!();
 
-    // -------- 5. Verdict (softened wording per family-codec-smith) --------
+    // -------- 5. Validity / reliability across methods (verify creative agent) --------
+    println!("## Multi-method validity / reliability");
+    println!();
+    println!("Cronbach's alpha over per-point silhouette vectors (4 methods × 256 points).");
+    println!("Tests whether the 4 methods RELIABLY agree on which points are well-clustered.");
+    println!("This is the empirical test of ripple-architect's multi-sieve claim.");
+    println!();
+
+    // Per-point silhouette vectors, one per method
+    let mut per_point_vectors: Vec<(&str, Vec<f32>)> = Vec::new();
+    for (name, labels) in &results {
+        let v = silhouette_per_point(&dist, N, labels, K);
+        per_point_vectors.push((name, v));
+    }
+
+    // Cronbach's alpha
+    let vectors_only: Vec<&Vec<f32>> = per_point_vectors.iter().map(|(_, v)| v).collect();
+    let alpha_all = cronbach_alpha(&vectors_only);
+    let vectors_no_random: Vec<&Vec<f32>> = per_point_vectors
+        .iter()
+        .filter(|(name, _)| *name != "random baseline")
+        .map(|(_, v)| v)
+        .collect();
+    let alpha_no_random = cronbach_alpha(&vectors_no_random);
+
+    println!("### Cronbach's α (internal consistency of silhouette assessment)");
+    println!();
+    println!("- α over all 4 methods (incl. random baseline): **{:.4}**", alpha_all);
+    println!("- α over 3 real methods (excluding random): **{:.4}**", alpha_no_random);
+    println!();
+    println!("Interpretation thresholds:");
+    println!("  α > 0.9  — excellent inter-method reliability (structure is robust)");
+    println!("  α > 0.7  — acceptable (standard social-science threshold)");
+    println!("  α > 0.5  — questionable (some agreement, weak signal)");
+    println!("  α ≤ 0.5  — unacceptable (methods disagree, no robust structure)");
+    println!();
+
+    // Pairwise Adjusted Rand Index (convergent validity)
+    println!("### Pairwise Adjusted Rand Index (convergent validity)");
+    println!();
+    println!("ARI measures partition agreement corrected for chance.");
+    println!("  ARI = 1.0   identical partitions");
+    println!("  ARI ≈ 0.5   moderate agreement");
+    println!("  ARI ≈ 0.0   chance-level agreement (random)");
+    println!("  ARI < 0.0   anti-correlated");
+    println!();
+    println!("| method A | method B | ARI |");
+    println!("|---|---|---|");
+    let mut ari_values: Vec<f32> = Vec::new();
+    let mut ari_non_random: Vec<f32> = Vec::new();
+    for i in 0..results.len() {
+        for j in (i + 1)..results.len() {
+            let ari = adjusted_rand_index(&results[i].1, &results[j].1);
+            println!("| {} | {} | {:.4} |", results[i].0, results[j].0, ari);
+            ari_values.push(ari);
+            if results[i].0 != "random baseline" && results[j].0 != "random baseline" {
+                ari_non_random.push(ari);
+            }
+        }
+    }
+    let ari_mean_all = ari_values.iter().sum::<f32>() / ari_values.len() as f32;
+    let ari_mean_real = if !ari_non_random.is_empty() {
+        ari_non_random.iter().sum::<f32>() / ari_non_random.len() as f32
+    } else {
+        0.0
+    };
+    let ari_var_real = if ari_non_random.len() > 1 {
+        let m = ari_mean_real;
+        ari_non_random.iter().map(|&v| (v - m).powi(2)).sum::<f32>()
+            / (ari_non_random.len() - 1) as f32
+    } else {
+        0.0
+    };
+    println!();
+    println!("- Mean ARI over all pairs: {:.4}", ari_mean_all);
+    println!("- Mean ARI over real-method pairs only: **{:.4}**", ari_mean_real);
+    println!("- Variance of real-method ARI: {:.4}", ari_var_real);
+    println!();
+
+    // Ripple-architect creative-agent verification
+    println!("### Creative agent verification (ripple-architect's multi-sieve claim)");
+    println!();
+    println!("ripple-architect proposed that different clustering methods should produce");
+    println!("PARTIALLY correlated partitions: not redundant (ARI → 1, one method is enough)");
+    println!("and not independent (ARI → 0, one method is noise). The band [0.3, 0.7] was");
+    println!("proposed as the signature of a real multi-resolution manifold.");
+    println!();
+    let creative_supported = alpha_no_random > 0.5
+        && ari_mean_real > 0.2
+        && ari_mean_real < 0.85;
+    if creative_supported {
+        println!("**Creative agent claim: SUPPORTED**");
+        println!("- α over real methods {:.4} > 0.5 ✓", alpha_no_random);
+        println!("- Mean ARI {:.4} in partial-agreement band [0.2, 0.85] ✓", ari_mean_real);
+        println!();
+        println!("Methods give overlapping-but-not-identical views → multi-sieve stacking");
+        println!("is empirically justified. Probe M1-multi (5-sieve version with ring lens)");
+        println!("is the correct follow-on.");
+    } else {
+        println!("**Creative agent claim: NOT SUPPORTED (by this probe)**");
+        println!("- α over real methods {:.4} (threshold 0.5)", alpha_no_random);
+        println!("- Mean ARI {:.4} (band [0.2, 0.85])", ari_mean_real);
+        println!();
+        if alpha_no_random <= 0.5 {
+            println!("Low α: methods disagree on which points are well-clustered.");
+            println!("The clustering structure is either noise or heavily method-dependent.");
+        }
+        if ari_mean_real > 0.85 {
+            println!("High ARI: methods produce nearly identical partitions.");
+            println!("Multi-sieve stacking is redundant on this data — one method suffices.");
+        }
+        if ari_mean_real < 0.2 {
+            println!("Low ARI: methods produce chance-level agreement.");
+            println!("No reliable cluster structure across methods — falls back to identity.");
+        }
+    }
+    println!();
+
+    // -------- 6. Conflict detection across lenses --------
+    // Per user: "In case of conflict use all available lenses for evaluation,
+    // not just blind hierarchical autopilot."
+    //
+    // Collect per-method verdict signals; if they don't converge on the same
+    // direction we report CONFLICT-DETECTED with all lens values, not a
+    // hierarchical "best wins" call.
+    println!("## Conflict detection across lenses");
+    println!();
+    let mut method_verdicts: Vec<(&str, f32, f32, f32, &'static str)> = Vec::new();
+    for (name, labels) in &results {
+        if *name == "random baseline" {
+            continue;
+        }
+        let s = silhouette(&dist, N, labels, K);
+        let b = cluster_balance(labels, K);
+        let w = within_between_ratio(&dist, N, labels, K);
+        let g = s - random_silhouette;
+        let v = if s > 0.2 && b < 3.0 && g > 0.15 {
+            "PASS"
+        } else if s < 0.1 || b > 5.0 || g < 0.05 {
+            "FAIL"
+        } else {
+            "UNCERTAIN"
+        };
+        method_verdicts.push((name, s, b, w, v));
+        println!(
+            "- **{}**: silhouette={:.4}, balance={:.2}, wb={:.4}, gap={:.4} → {}",
+            name, s, b, w, g, v
+        );
+    }
+    let pass_count = method_verdicts.iter().filter(|(.., v)| *v == "PASS").count();
+    let fail_count = method_verdicts.iter().filter(|(.., v)| *v == "FAIL").count();
+    let uncertain_count = method_verdicts
+        .iter()
+        .filter(|(.., v)| *v == "UNCERTAIN")
+        .count();
+    let all_agree = (pass_count == method_verdicts.len())
+        || (fail_count == method_verdicts.len())
+        || (uncertain_count == method_verdicts.len());
+    println!();
+    println!(
+        "Per-method verdicts: {} PASS, {} FAIL, {} UNCERTAIN (of {} real methods)",
+        pass_count,
+        fail_count,
+        uncertain_count,
+        method_verdicts.len()
+    );
+    println!("All methods agree on direction: {}", all_agree);
+    println!();
+
+    // Cross-lens consensus (all 6 lenses: silhouette, balance, wb, gap,
+    // k-sweep peak band, Cronbach's alpha, pairwise ARI range).
+    let lens_count = 7;
+    let mut lens_pass = 0_usize;
+    let mut lens_flags: Vec<(&'static str, bool, String)> = Vec::new();
+    let best_sil = method_verdicts.iter().map(|(_, s, ..)| *s).fold(f32::NEG_INFINITY, f32::max);
+    let best_bal = method_verdicts.iter().map(|(_, _, b, ..)| *b).fold(f32::INFINITY, f32::min);
+    let best_gap = best_sil - random_silhouette;
+    let lens1 = best_sil > 0.2;
+    lens_flags.push(("silhouette > 0.2", lens1, format!("{:.4}", best_sil)));
+    if lens1 { lens_pass += 1; }
+    let lens2 = best_bal < 3.0;
+    lens_flags.push(("balance < 3.0", lens2, format!("{:.2}", best_bal)));
+    if lens2 { lens_pass += 1; }
+    let lens3 = best_gap > 0.15;
+    lens_flags.push(("absolute gap > 0.15", lens3, format!("{:.4}", best_gap)));
+    if lens3 { lens_pass += 1; }
+    let lens4 = k16_in_peak_band;
+    lens_flags.push(("k=16 in k-sweep peak band", lens4, format!("peak={}", peak_k)));
+    if lens4 { lens_pass += 1; }
+    let lens5 = alpha_no_random > 0.5;
+    lens_flags.push(("Cronbach α (real methods) > 0.5", lens5, format!("{:.4}", alpha_no_random)));
+    if lens5 { lens_pass += 1; }
+    let lens6 = ari_mean_real > 0.2 && ari_mean_real < 0.85;
+    lens_flags.push(("Mean ARI in partial-agreement band", lens6, format!("{:.4}", ari_mean_real)));
+    if lens6 { lens_pass += 1; }
+    let lens7 = all_agree;
+    lens_flags.push(("All real methods agree on direction", lens7, format!("{}", all_agree)));
+    if lens7 { lens_pass += 1; }
+
+    println!("### Cross-lens consensus matrix");
+    println!();
+    println!("| lens | value | pass? |");
+    println!("|---|---|---|");
+    for (name, ok, val) in &lens_flags {
+        println!("| {} | {} | {} |", name, val, if *ok { "✓" } else { "✗" });
+    }
+    println!();
+    println!("Consensus: **{}/{} lenses pass**", lens_pass, lens_count);
+    println!();
+
+    // -------- 7. Verdict (multi-lens, not hierarchical-autopilot) --------
     println!("## Verdict");
     println!();
 
-    if let Some((name, sil, balance, wb)) = best_method {
+    // When conflict is high (methods disagree AND consensus is mid-range),
+    // report CONFLICT-DETECTED with full lens values instead of "best-method wins."
+    let conflict = !all_agree && lens_pass >= 3 && lens_pass <= 5;
+    if conflict {
+        println!("## RESULT: CONFLICT-DETECTED");
+        println!();
+        println!("Per-method verdicts disagree ({} PASS, {} FAIL, {} UNCERTAIN).",
+                 pass_count, fail_count, uncertain_count);
+        println!("Cross-lens consensus is mid-range ({}/{}).", lens_pass, lens_count);
+        println!();
+        println!("### All-lens values (use all, not hierarchical autopilot)");
+        println!();
+        for (name, ok, val) in &lens_flags {
+            println!("- {}: {} ({})", name, val, if *ok { "pass" } else { "fail" });
+        }
+        println!();
+        println!("### Per-method details");
+        println!();
+        for (name, s, b, w, v) in &method_verdicts {
+            println!("- **{}**: silhouette={:.4}, balance={:.2}, wb={:.4} → {}", name, s, b, w, v);
+        }
+        println!();
+        println!("### Interpretation");
+        println!();
+        println!("Methods disagree but consensus across orthogonal lenses is not decisive.");
+        println!("This is a legitimate UNCERTAIN at the multi-method level. Do NOT pick");
+        println!("the winning method by silhouette alone — multiple lenses say different things.");
+        println!();
+        println!("Next action: run Probe M1-multi (ripple-architect's 5-sieve version)");
+        println!("with the 40-ring 1/40σ lens as sieve #5. The ring lens is the one object");
+        println!("in the architecture that measures resonance rather than partition, and it's");
+        println!("the missing lens that could break the tie.");
+        println!();
+        println!("Do NOT promote Slot D conjecture to FINDING on this result.");
+        println!("Do NOT trigger the canonical fallback to direct-256-state either.");
+        println!("The architecturally correct response to multi-lens conflict is MORE LENSES.");
+    } else if let Some((name, sil, balance, wb)) = best_method {
         // ABSOLUTE gap (truth-architect replaced 3x ratio)
         let sil_gap = sil - random_silhouette;
         let wb_improvement = if random_within_between < 1e-6 {
@@ -758,4 +1004,148 @@ fn recurse_pole_split(
 fn random_partition(n: usize, k: usize, seed: u64) -> Vec<usize> {
     let mut rng = Rng(seed);
     (0..n).map(|_| rng.range(k)).collect()
+}
+
+// ============================================================================
+// Multi-method validity / reliability (verify creative agent)
+// ============================================================================
+
+/// Per-point silhouette: returns a vector of n silhouette scores, one per point.
+/// Points in singleton clusters get s=0.
+fn silhouette_per_point(dist: &[f32], n: usize, labels: &[usize], k: usize) -> Vec<f32> {
+    let mut out = vec![0.0_f32; n];
+    for i in 0..n {
+        let li = labels[i];
+        let mut a_sum = 0.0_f32;
+        let mut a_count = 0_usize;
+        let mut b_per: Vec<(f32, usize)> = vec![(0.0, 0); k];
+        for j in 0..n {
+            if i == j {
+                continue;
+            }
+            let d = dist[i * n + j];
+            let lj = labels[j];
+            if lj == li {
+                a_sum += d;
+                a_count += 1;
+            } else if lj < k {
+                b_per[lj].0 += d;
+                b_per[lj].1 += 1;
+            }
+        }
+        if a_count == 0 {
+            out[i] = 0.0;
+            continue;
+        }
+        let a = a_sum / a_count as f32;
+        let mut b = f32::INFINITY;
+        for (bs, bc) in &b_per {
+            if *bc > 0 {
+                let m = bs / *bc as f32;
+                if m < b {
+                    b = m;
+                }
+            }
+        }
+        out[i] = if b.is_finite() {
+            (b - a) / a.max(b)
+        } else {
+            0.0
+        };
+    }
+    out
+}
+
+/// Cronbach's α: internal consistency of k measurement vectors (methods)
+/// over n items (points). Returns a score in [−∞, 1]; α > 0.7 is "acceptable".
+///
+/// α = (k / (k − 1)) × (1 − Σ σ²ᵢ / σ²_T)
+/// where σ²ᵢ is the variance of method i's scores across n points,
+/// and σ²_T is the variance of the SUM of scores across methods for each point.
+fn cronbach_alpha(vectors: &[&Vec<f32>]) -> f32 {
+    let k = vectors.len();
+    if k < 2 {
+        return 0.0;
+    }
+    let n = vectors[0].len();
+    if n < 2 {
+        return 0.0;
+    }
+
+    // Per-method variance
+    let mut sum_var_i = 0.0_f32;
+    for v in vectors {
+        let mean: f32 = v.iter().sum::<f32>() / n as f32;
+        let var: f32 = v.iter().map(|&x| (x - mean).powi(2)).sum::<f32>() / (n - 1) as f32;
+        sum_var_i += var;
+    }
+
+    // Variance of the per-point sum across methods
+    let mut sums: Vec<f32> = vec![0.0; n];
+    for v in vectors {
+        for (i, &x) in v.iter().enumerate() {
+            sums[i] += x;
+        }
+    }
+    let mean_t: f32 = sums.iter().sum::<f32>() / n as f32;
+    let var_t: f32 = sums.iter().map(|&x| (x - mean_t).powi(2)).sum::<f32>() / (n - 1) as f32;
+
+    if var_t < 1e-9 {
+        return 0.0;
+    }
+
+    let k_f = k as f32;
+    (k_f / (k_f - 1.0)) * (1.0 - sum_var_i / var_t)
+}
+
+/// Adjusted Rand Index between two cluster label vectors.
+/// Returns [-1, 1]. 1 = identical partition, 0 = chance agreement, negative = worse than chance.
+fn adjusted_rand_index(a: &[usize], b: &[usize]) -> f32 {
+    assert_eq!(a.len(), b.len());
+    let n = a.len();
+    if n < 2 {
+        return 0.0;
+    }
+
+    let max_a = *a.iter().max().unwrap_or(&0) + 1;
+    let max_b = *b.iter().max().unwrap_or(&0) + 1;
+
+    // Contingency table
+    let mut ct = vec![vec![0_usize; max_b]; max_a];
+    let mut row_sum = vec![0_usize; max_a];
+    let mut col_sum = vec![0_usize; max_b];
+    for i in 0..n {
+        ct[a[i]][b[i]] += 1;
+        row_sum[a[i]] += 1;
+        col_sum[b[i]] += 1;
+    }
+
+    let c2 = |x: usize| -> f64 {
+        if x < 2 {
+            0.0
+        } else {
+            (x as f64) * ((x - 1) as f64) / 2.0
+        }
+    };
+
+    let mut sum_c_ij = 0.0_f64;
+    for row in &ct {
+        for &x in row {
+            sum_c_ij += c2(x);
+        }
+    }
+    let sum_c_a: f64 = row_sum.iter().map(|&x| c2(x)).sum();
+    let sum_c_b: f64 = col_sum.iter().map(|&x| c2(x)).sum();
+    let c_total = c2(n);
+    if c_total < 1e-9 {
+        return 0.0;
+    }
+
+    let expected = sum_c_a * sum_c_b / c_total;
+    let max_index = 0.5 * (sum_c_a + sum_c_b);
+    let denom = max_index - expected;
+    if denom.abs() < 1e-9 {
+        return 0.0;
+    }
+    ((sum_c_ij - expected) / denom) as f32
 }
