@@ -1,0 +1,85 @@
+{
+  "derivation": {
+    "class": "seven_lane_encoder",
+    "lane_6_commit": "c489d31 (ndarray) + e25e97d (lance-graph)",
+    "lane_6_method": "ndarray::simd::f32_to_bf16_batch_rne"
+  },
+  "lane_5_silu_delta": {
+    "l2_norm": 0.0,
+    "max_abs": 0.0,
+    "note": "zero expected for token_embd (no gate)"
+  },
+  "lane_7_spiral_drift": {
+    "max": 255.0,
+    "mean": 179.5762,
+    "note": "u8 encoding of drift × 2550",
+    "stride": 11
+  },
+  "lanes": [
+    {
+      "cronbach_alpha": 0.942,
+      "name": "lane_1_u8_cdf",
+      "pearson": 0.8904,
+      "primary_metric": "spearman",
+      "spearman": 1.0,
+      "target": 0.999,
+      "verdict": "PASS"
+    },
+    {
+      "cronbach_alpha": 0.9997,
+      "name": "lane_2_i8_direct",
+      "pearson": 0.9992,
+      "primary_metric": "pearson",
+      "spearman": 0.9986,
+      "target": 0.998,
+      "verdict": "PASS"
+    },
+    {
+      "cronbach_alpha": 0.942,
+      "name": "lane_3_u8_gamma_phi",
+      "pearson": 0.8904,
+      "primary_metric": "spearman",
+      "spearman": 1.0,
+      "target": 0.999,
+      "verdict": "PASS"
+    },
+    {
+      "cronbach_alpha": 0.9836,
+      "name": "lane_4_i8_gamma_phi_signed",
+      "pearson": 0.9677,
+      "primary_metric": "spearman",
+      "spearman": 0.9995,
+      "target": 0.999,
+      "verdict": "PASS"
+    },
+    {
+      "cronbach_alpha": 1.0,
+      "name": "lane_6_bf16_rne",
+      "pearson": 1.0,
+      "primary_metric": "all_three",
+      "spearman": 1.0,
+      "target": 0.9999,
+      "verdict": "PASS"
+    }
+  ],
+  "nan_scan": {
+    "events": [],
+    "passed": true
+  },
+  "provenance": {
+    "agent": ".claude/agents/certification-officer.md",
+    "branch": "claude/risc-thought-engine-TCZw7",
+    "doctrine": ".claude/knowledge/certification-harness.md"
+  },
+  "source": {
+    "data_dir": "crates/thinking-engine/data/jina-v5-7lane",
+    "model": "jina-v5-small",
+    "n_centroids": 256,
+    "n_pairs_upper": 32640,
+    "reference_cos_max": 0.6753,
+    "reference_cos_mean": 0.2254,
+    "reference_cos_min": -0.1866,
+    "reference_file": "cosine_matrix_256x256.f32"
+  },
+  "verdict": "PASS"
+}
