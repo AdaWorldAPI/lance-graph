@@ -127,6 +127,32 @@ Probe I (4 γ-phase offsets → different ranked output) NOT RUN.
 DO NOT move or modify until Probe I runs.
 ```
 
+### Certified Lane Verdicts (v2.4, 256-centroid Jina v5) — FINDING
+```
+Source: bgz-tensor/examples/calibrate_from_jina.rs (certify v2.4)
+Data: 256 Jina v5 centroids, 32,640 pairwise cosines, Fisher 3σ CIs
+
+Lane 1 u8 CDF:              ρ = 0.999992  [0.999992, 0.999993]  PASS
+Lane 2 i8 direct:            r = 0.999250  [0.999225, 0.999274]  PASS
+Lane 3 u8 γ+φ:              ρ = 0.999992  [0.999992, 0.999993]  PASS
+Lane 4 i8 γ+φ signed:       ρ = 0.999463  [0.999445, 0.999480]  PASS
+Lane 6 BF16 RNE:             r = 0.999978  [0.999978, 0.999979]  PASS
+
+Reality anchors (7 named pairs at p0–p100):
+  max |Lane 6 − ref| = 8.76e-4 (~0.44 BF16 ULPs). 7/7 PASS.
+
+Corrections locked in (v2.4, non-negotiable):
+  k_3sigma = 3.000000 exactly (not 2.967736)
+  Lane 2 jackknife 21× wider than Fisher (not "~3×")
+  GammaProfile: 36 bytes, role_gamma[8] (Embed/Q/K/V/O/Gate/Up/Down)
+  u8→BF16 speedup: ~100-300× cache-dependent (not "1000×")
+  Spearman Fisher SE underestimates by sqrt(1.06) ≈ 3% (acceptable at 4-dec)
+
+CRITICAL: Lane 3 (γ+φ u8) = Lane 1 (u8 CDF) at ρ=0.999992.
+  γ+φ as post-rank monotone is a PERFECT NO-OP on rank.
+  γ+φ can ONLY carry information as PRE-RANK selector.
+```
+
 ### NeuronPrint 6D — FINDING (compression), CONJECTURE (fidelity)
 ```
 Source: bgz-tensor/src/euler_fold.rs, neuron_hetero.rs
