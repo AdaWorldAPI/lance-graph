@@ -173,6 +173,39 @@ for editing unless you are a specialist. The correct pattern is to USE
 your operation via the exported types, stop and consult the user —
 don't reach for `unsafe` intrinsics.
 
+**Concrete idiom — 16-wide fused multiply-add over a row** (salvaged from
+`deepnsm/examples/probe_isotropy_correction.rs` which has since been
+removed; the CODE pattern is correct, only the APPLICATION to DeepNSM
+was a category error):
+
+```rust
+use ndarray::simd::F32x16;
+
+// Apply `result[i] = a[i] * scalar_m + scalar_b` over K elements via 16-wide FMA.
+// The scalars are splatted into lanes once, the hot loop does one `mul_add`
+// per 16-element block, no heap allocation, no runtime feature check —
+// `simd.rs`'s LazyLock dispatch picks the backend (AVX-512 / AVX2 / AMX /
+// scalar) at process startup.
+
+let m_splat = F32x16::splat(scalar_m);
+let b_splat = F32x16::splat(scalar_b);
+
+let mut j = 0;
+while j + 16 <= K {
+    let v = F32x16::from_slice(&a[j..j + 16]);
+    let r = v.mul_add(m_splat, b_splat);  // 16-wide fused multiply-add
+    r.copy_to_slice(&mut a[j..j + 16]);
+    j += 16;
+}
+// Scalar tail for K % 16 elements...
+```
+
+This is the canonical pattern for any row-level numerical transform
+(centering, scaling, gamma encode, residual subtraction). `F32x16::mul_add`
+compiles to `VFMADD213PS` on AVX-FMA hardware or `VDPBF16PS` for the BF16
+flavor. No `#[target_feature]` needed at the consumer level — the dispatch
+is already in `simd.rs`.
+
 ### Codebook policy (releases, gitignored weights)
 
 **Rule 15**: **Codebooks and weights live in GitHub Releases.** Never
