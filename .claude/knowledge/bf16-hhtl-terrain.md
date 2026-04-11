@@ -59,106 +59,14 @@ which bucket a value lands in dominates how precisely it is encoded.
 Slot D (bucket address) is the primary carrier. Slot V (exact value)
 is refinement, loaded only when within-bucket precision matters.
 
-### C3: γ+φ has THREE regimes (previous two-regime rule was incomplete)
+### C3: γ+φ has exactly one valid regime
 
-**Correction from the earlier two-regime rule**: an earlier version of C3
-listed only "pre-rank discrete selector (VALID)" and "post-rank monotone
-transform (DEAD)." That framing missed the third regime, which is where
-γ+φ actually earns its keep in this workspace. The ρ=1.000 no-op
-measurement was CORRECT for its scope (post-rank monotone) but was
-misclassified as "γ+φ is dead" when the production code uses γ+φ in a
-different regime entirely. This correction is what the user clarified in
-the session with the statement *"Gamma Euler works like HDR TV, normalize
-distribution, save icc profile and then skew the distribution so that it
-matches the visual restoration."*
+Pre-rank discrete selector (codebook offset, start position on spiral):
+  VALID — Dupain-Sós discrepancy property applies.
+  Different offsets → different subsets of spiral → different ranked output.
 
-The three regimes, in priority order of how often they appear in production:
-
-**Regime A — Distribution normalizer on embeddings/weights BEFORE distance computation:**
-```
-VALID — this is the primary production use. HDR-TV-style tone mapping
-applied per distribution (or per item) to reshape the value distribution
-for efficient downstream quantization. Lossless via saved "ICC profile"
-(GammaProfile metadata, 28 bytes). Rank preservation is the CORRECT
-behavior of a normalizer — the SHAPE change is the point, not a rank
-change. Downstream distance computations see a flatter distribution with
-better palette coverage.
-
-Canonical primitives (all in lance-graph/crates/bgz-tensor/src/gamma_phi.rs):
-  calibrate_gamma(roles)                    → GammaProfile { 28 bytes, per-role offsets }
-  gamma_encode(value, gamma)                → log-gamma compress highlights, expand shadows
-  gamma_decode(encoded, gamma)              → exact inverse
-  phi_encode(value, phi_scale)              → map to golden-ratio quasi-uniform spacing
-  phi_decode(encoded, phi_scale)            → exact inverse
-
-Canonical per-role calibration also in:
-  lance-graph/crates/bgz-tensor/src/gamma_calibration.rs::RoleGamma
-  lance-graph/crates/bgz-tensor/src/gamma_calibration.rs::CosineGamma
-  lance-graph/crates/bgz-tensor/src/gamma_calibration.rs::MetaGamma (cross-model)
-
-Why rank is preserved and that is CORRECT, not a bug:
-  gamma_encode is monotone on its input range. Applying it to weights
-  (or cosines) before palette quantization does not reorder them — it
-  spreads them into a more uniform distribution so the i16 Base17 or u8
-  palette buckets carry comparable mass. Without γ+φ, 80%+ of values
-  pile into a narrow band near the mean and the palette is mostly wasted.
-  With γ+φ, the bands are balanced and the palette is used efficiently.
-
-This is ALSO the same class of function that the Jina v5 / DeepNSM
-isotropy correction needs: both the Jina v5 embedding space and the COCA
-CAM-PQ 4096² distance matrix have dominant-first-eigenvalue structure
-(top-1 ~73% / ~81% of variance), and applying per-distribution γ+φ
-calibration before palette construction would flatten the top eigenvalue.
-This is what Probe M1 on DeepNSM (cc42127) is measuring — whether the
-existing γ+φ normalization primitive fixes the participation ratio 1.53
-finding. See `.claude/probe_m1_result_2026_04_11.md` for the underlying
-numbers and the per-row-gamma probe for the follow-up measurement.
-```
-
-**Regime B — Pre-rank discrete selector (codebook offset, start position on spiral):**
-```
-VALID — Dupain-Sós discrepancy property applies.
-Different offsets → different subsets of spiral → different ranked output.
-The choice of start offset is irrational (φ-derived) but the selection
-itself is discrete; each offset picks a unique subset of sample points on
-the continuous φ-spiral. Used in the bgz17 family-zipper layout for
-picking which octaves each family reads from.
-```
-
-**Regime C — Post-rank monotone transform (applied inside a rank operation):**
-```
-DEAD — monotone transform before rank = identity on rank. Proven ρ=1.000
-vs CDF in earlier measurement. This is the "γ+φ is dead" framing from
-the old two-regime rule. It is only dead in THIS specific regime — as a
-post-rank transformer, where it cannot change the sort order of its
-input. The ρ=1.000 measurement is a NORMAL BEHAVIOR of a monotone
-transform, not a failure of γ+φ itself.
-
-Do NOT propose γ+φ as a final post-rank correction layer. The rank order
-is what the sort produced; γ+φ cannot change it. But this does NOT mean
-γ+φ is dead in general — see Regime A for the production use.
-```
-
-**Identification rule** (to tell which regime you are in):
-
-```
-Question: "Where in the pipeline is γ+φ being applied?"
-
-→ BEFORE computing distances, on the raw values (embeddings, weights,
-  cosines, activations) → Regime A (VALID, the production use).
-  The transform reshapes the input distribution for downstream efficiency.
-
-→ As a choice of START POSITION on a discrete grid or spiral, before
-  any ranking → Regime B (VALID, the family-zipper use).
-  The transform picks which sample points to read, not what they contain.
-
-→ AFTER computing distances, as a transform applied to the distance
-  vector BEFORE sorting → Regime C (DEAD, no-op on rank).
-  Rank-preserving transform produces identical sort order. Do not do this.
-
-ALWAYS ask WHICH REGIME when γ+φ comes up. Never flatten to "γ+φ works"
-or "γ+φ is dead" without naming the regime.
-```
+Post-rank monotone transform (applied inside a rank operation):
+  DEAD — monotone transform before rank = identity on rank. Proven ρ=1.000.
 
 ### C4: Family offsets are explicit integers, not φ-derived
 
@@ -229,8 +137,14 @@ All operations: bitmask + popcount on Slot D. No float decode.
 ```
 ID   Priority  Question                                    Pass             Fail              Status
 ──   ────────  ──────────────────────────────────────────  ───────────────  ────────────────  ──────
-M1   P0        CLAM 3-level 16-way tree on 256 Jina       Clean tree,      Degenerate tree,  NOT RUN
-                centroids? Knees at L1/L2?                 16-way natural   wrong depth
+M1   P0        CLAM 3-level 16-way tree on 256 Jina       Clean tree,      Degenerate tree,  PARTIAL
+                centroids? Knees at L1/L2?                 16-way natural   wrong depth       (v2.5 11f:
+                                                                                              CHAODA on 256
+                                                                                              rows works,
+                                                                                              26/256 flagged.
+                                                                                              Tree shape
+                                                                                              NOT YET tested
+                                                                                              for 16-way.)
 I    P1        4 γ-phase offsets → different ranked        ρ differs by     ρ identical        NOT RUN
                 output from same base codebook?            >0.01 across     across offsets
                                                            offsets
@@ -239,6 +153,19 @@ M3   P2        Bucket-only retrieval (no Slot V) ≥90%     ≥90% quality     <
 M2   P3        4096 terminal buckets correlate with       MI > 0.6         MI < 0.3          NOT RUN
                 COCA vocabulary?
 M4   P4        HHTL termination: what % at each level?    >60% HEEL        >60% LEAF         NOT RUN
+```
+
+## Endgame Gate (v2.5, FINDING)
+
+```
+Naive u8 ULP floor: Pearson 0.999860, Spearman 0.999749.
+Any encoding that scores BELOW this floor is WORSE THAN DOING NOTHING.
+
+bgz-hhtl-d entry gate: Pearson ≥ 0.9980 to justify cascade overhead.
+Budget = (lane_pearson − naive_u8_pearson) = the tax a cascade can spend.
+
+γ+φ+CDF benefit over naive u8: +0.000244 Spearman. Real but small.
+This is the ENTIRE value of the CDF transform — 2.4 × 10⁻⁴.
 ```
 
 ## Process Rule

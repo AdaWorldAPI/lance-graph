@@ -153,6 +153,33 @@ CRITICAL: Lane 3 (γ+φ u8) = Lane 1 (u8 CDF) at ρ=0.999992.
   γ+φ can ONLY carry information as PRE-RANK selector.
 ```
 
+### Certified v2.5 Additions (PR #158) — FINDING
+```
+Source: bgz-tensor/examples/calibrate_from_jina.rs (certify v2.5)
+
+Step 11e — Efron BCa bootstrap (B=2000, Efron 1987):
+  L2 Pearson: BCa 60% wider than Fisher (ratio 1.616) — expected,
+    confirms Lane 2 pair residuals are non-Gaussian.
+  L4 Spearman: BCa/Fisher ratio 1.050 — agreement.
+  L1/L3 Spearman: BCa saturated (ρ too close to 1.0 for B=2000).
+  Fisher z remains 3σ authority (B=2000 undersamples 0.135% tail).
+
+Step 11f — CHAODA outlier filter (Ishaq et al. 2021):
+  ndarray::hpc::clam::ClamTree::anomaly_scores on 256 Lane-1 rows.
+  Top-10% count-based flagging: 26 of 256 centroids flagged.
+  26,335 of 32,640 pairs kept after filtering.
+  L1/L3/L4/L6: |Δ| < 1e-4 (clean — outlier removal doesn't change ρ).
+  L2 Pearson: filter_removed_easy_pairs (Pearson tail sensitivity).
+  THIS IS THE FIRST MEASURED CLAM/CHAODA PROBE ON REAL DATA.
+
+Step 11g — Naive u8 ULP floor (BGZ-adjacent baseline):
+  Naive u8 quantize: Pearson 0.999860, Spearman 0.999749.
+  γ+φ+CDF benefit over naive: +0.000244 Spearman (real but small).
+  ENDGAME: (lane_pearson − naive_u8_pearson) = cascade entry tax budget.
+  bgz-hhtl-d gate threshold: ≥ 0.9980 Pearson to justify existence.
+  Any encoding below naive u8 floor is WORSE THAN DOING NOTHING.
+```
+
 ### NeuronPrint 6D — FINDING (compression), CONJECTURE (fidelity)
 ```
 Source: bgz-tensor/src/euler_fold.rs, neuron_hetero.rs
