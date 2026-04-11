@@ -3,7 +3,7 @@ name = "reader-lm"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.94"
-description = "Reader LM 1.5B: HTML→Markdown via Qwen2 inference. Transcoded from jinaai/reader-lm-1.5b."
+description = "Reader LM 1.5B — RESEARCH-ONLY (Qwen2 legacy lineage). HTML→Markdown via Qwen2 inference, transcoded from jinaai/reader-lm-1.5b. Kept for v5-vs-v2 behavioral diffing; production Reader-LM target is v3 = Jina v5 (BERT 3.x) — see ndarray::hpc::jina::runtime::ModelSource::JinaV5."
 license = "Apache-2.0"
 
 [dependencies]

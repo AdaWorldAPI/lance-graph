@@ -322,26 +322,77 @@ No knowledge doc should contain unmarked conjectures. Label everything.
 
 ## Model Registry (Jina v5 is ground truth anchor)
 
+### Production models (use these)
+
 ```
-Model            Base       Tokenizer      Vocab    Hidden  Act   Status
-─────            ────       ─────────      ─────    ──────  ───   ──────
-Jina v5 small    Qwen3      Qwen3 BPE      151K    1024    silu  GROUND TRUTH (safetensors + ONNX on disk)
-Reranker v3      Qwen3      Qwen3 BPE      151K    1024    silu  SAME BASE as v5 (listwise, cross-encoder)
-ModernBERT-large OLMo       OLMo BPE       50K     1024    gelu  ONNX on disk (GeGLU, code-friendly)
-BGE-M3           XLM-R      SentencePiece  250K    1024    gelu  baked u8 lens (multilingual)
-Jina v3          XLM-R      SentencePiece  250K    1024    gelu  baked u8 lens (LEGACY, not ground truth)
-Qwopus 27B       Qwen2      Qwen2 BPE      151K    5120    silu  305 tables in Release v0.1.2
-Reader-LM 1.5B   Qwen2      Qwen2 BPE      151K    —       —     in Release, not baked
+Model            Base       Tokenizer       Vocab   Hidden  Act   Status
+─────            ────       ─────────       ─────   ──────  ───   ──────
+Jina v5 small    Qwen3      Qwen 3.x BPE    151K    1024    silu  GROUND TRUTH (safetensors + ONNX on disk)
+Reader-LM v3     = Jina v5  (same model, alternate name — BERT 3.x architecture lineage; NOT the older
+                             Qwen2-based Reader-LM 1.5B/v1/v2. Use the Jina v5 entry above.)
+Reranker v3      Qwen3      Qwen 3.x BPE    151K    1024    silu  SAME BASE as Jina v5 (listwise, cross-encoder)
+Qwopus 27B       Qwen 3.5   Qwen 3.x BPE    151K    5120    silu  305 tables in Release v0.1.2
+ModernBERT-large OLMo       OLMo BPE        50K     1024    gelu  ONNX on disk (GeGLU, code-friendly)
 
-CRITICAL: Reranker v3 = Qwen3 base (NOT v2 XLM-RoBERTa).
-  Same tokenizer as Jina v5. Same architecture. Same silu gate.
-  Baked reranker lens was built from Qwen2 GGUF → needs rebuild with Qwen3 tokens.
+Tokenizer sharing (production):
+  Qwen 3.x BPE (151K): Jina v5, Reader-LM v3, Reranker v3, Qwopus
+  OLMo        (50K):   ModernBERT
+```
 
-Tokenizer sharing:
-  Qwen3 BPE (151K): Jina v5, Reranker v3
-  Qwen2 BPE (151K): Qwopus, Reader-LM (DIFFERENT from Qwen3!)
-  XLM-RoBERTa (250K): Jina v3, BGE-M3 (LEGACY)
-  OLMo (50K): ModernBERT
+**CRITICAL**:
+- Reader-LM v3 and Jina v5 are the **same model** (Jina v5 BERT 3.x).
+  Use either name; expect the same weights and tokenizer.
+  Reader-LM 1.5B / v1 / v2 are DIFFERENT older models — see Research-only section.
+- Reranker v3 = Qwen3 base (NOT XLM-RoBERTa). Same tokenizer as Jina v5.
+  Baked reranker lens was built from an older Qwen2 GGUF → needs rebuild with Qwen 3.x tokens.
+- Qwopus is Qwen 3.5 (NOT Qwen 2). Confirmed by `bgz-tensor` feature flags `qwen35-*`.
+
+### Research-only / diagnostic fallback
+
+These models are kept for v5-vs-older **behavioral diffing**. Do NOT use for
+production work. Do reach for them when a Jina v5 result is surprising and
+you need to isolate what architectural change between the pre-v5 era and now
+produced the current behavior.
+
+```
+Model            Base       Tokenizer       Vocab   Hidden  Act   Status
+─────            ────       ─────────       ─────   ──────  ───   ──────
+Jina v3 small    XLM-R      SentencePiece   250K    1024    gelu  RESEARCH-ONLY — pre-v5 reference lens
+BGE-M3           XLM-R      SentencePiece   250K    1024    gelu  RESEARCH-ONLY — multilingual reference
+Reader-LM 1.5B   Qwen2      Qwen2 BPE       151K    —       —     RESEARCH-ONLY — v1/v2 Qwen2 lineage
+                                                                  (NOT v3 = Jina v5)
+
+Tokenizer sharing (research-only):
+  XLM-RoBERTa (250K): Jina v3, BGE-M3
+  Qwen2 BPE   (151K): Reader-LM 1.5B (v1/v2 only — v3 uses Qwen 3.x BPE)
+```
+
+### Precision hierarchy (workspace-wide rule)
+
+```
+Preferred:   BF16 with fused add_mul (hardware FMA: AVX-512 VDPBF16PS, ARM SVE BFMMLA).
+             Use ndarray::hpc::quantized::bf16_gemm_f32 (or mixed_precision_gemm)
+             and the BF16 lane conversions in the same module
+             (f32_to_bf16_rounded, bf16_to_f32_slice). F32-precision accumulate
+             under the hood; BF16 memory bandwidth.
+
+Transient:   F32 appears ONLY as a momentary upcast step during ingestion
+             (F16 source → F32 pipe → BF16 working format). Never persists
+             past the conversion call. No F32 in hot loops.
+
+Fallback:    F16 only when the source is F16-only. Jina v5 is published
+             as F16 on HuggingFace, so Jina v5 ingestion MUST go via the
+             F16 → transient F32 → BF16 path. Never F16 → BF16 direct
+             (would lose 3 exponent bits; F16 max ~65504 can overflow).
+
+Storage:     BF16 for full-resolution weights; Base17 i16 fixed-point (×256
+             via GammaProfile-calibrated quantization) for palette planes;
+             u8 palette index for HHTL HEEL/HIP; u8 distance matrix for
+             DeepNSM 4096².
+
+Discouraged: 8-bit quantization as a COMPUTE precision (Q4/Q5/Q8/INT8).
+             Fine only as a calibrated STORAGE format after the above
+             normalization chain. Never the precision of forward passes.
 ```
 
 ## Thinking Engine (crates/thinking-engine/)
