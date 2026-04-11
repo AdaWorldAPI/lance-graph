@@ -446,6 +446,120 @@ Certification:   Every derived format (lab BF16, Base17, palette, bgz-hhtl-d)
                  bit-identical metrics.
 ```
 
+## Certification Process
+
+Every derived format in the workspace (lab BF16, Base17 i16 fixed-point,
+γ+φ-calibrated `i8`/`u8`, Codebook4096 palette, bgz-hhtl-d cascade) must
+be numerically certified against its source file before the derivation
+is trusted as a runtime format. Certification answers the single
+question **"does format X preserve the semantic properties of format Y
+to target T?"** with a reproducible 4-decimal Pearson / Spearman /
+Cronbach α report.
+
+### Canonical artifacts
+
+- **Process doctrine**: `.claude/knowledge/certification-harness.md`
+- **Scoped agent**: `.claude/agents/certification-officer.md`
+  (wake with "certify X against Y" for any lane × source pair)
+- **Lane derivation**: `crates/thinking-engine/examples/seven_lane_encoder.rs`
+  — the existing 7-lane encoder is the canonical bake tool. Do not
+  rewrite it. The certification layer reuses its lane-derivation logic
+  and adds an independent validation pass on top.
+- **Metric primitives**:
+  - `bgz_tensor::quality::pearson(x, y) -> f64` at `crates/bgz-tensor/src/quality.rs:13`
+  - `bgz_tensor::quality::spearman(x, y) -> f64` at `crates/bgz-tensor/src/quality.rs:47`
+  - `thinking_engine::cronbach::cronbach_alpha(items) -> f32` at `crates/thinking-engine/src/cronbach.rs:27`
+- **Upcast primitives** (atomic-clock lossless):
+  - `ndarray::hpc::gguf::f16_to_f32` (proven over all 65,536 F16 patterns)
+  - `ndarray::hpc::quantized::BF16::to_f32` (trivial shift, lossless)
+  - `ndarray::simd::f32_to_bf16_batch_rne` at `ndarray/src/simd_avx512.rs:1913`
+    (pure AVX-512-F RNE, byte-exact vs hardware `_mm512_cvtneps_pbh` on 1M inputs)
+- **Source access**:
+  - Local mmap for files ≤ ~12 GB (Jina v5, BGE-M3, Reader-LM 1.5B)
+  - `ndarray::hpc::safetensors::stream_index_safetensors_bf16` +
+    `HttpRangeReader::with_chunk_size(url, size, 256 * 1024 * 1024)`
+    for remote sources (Qwen 3.5 9B/27B/..., up to ~800 GB for 397B variants)
+- **Pair sampler**: SplitMix64 with pinned seed `0x9E3779B97F4A7C15`
+  (Knuth φ-fraction multiplicative hash constant), range
+  `[0, min(tokenizer_vocab, embed_rows))`
+- **Real-life corpus**: tier-1/2/3/4 calibration sentences from
+  `crates/thinking-engine/examples/jina_v5_ground_truth.rs`
+
+### The 7 channels and their targets
+
+| Lane | Format          | Primary metric             | Target     |
+|------|-----------------|----------------------------|------------|
+| 1    | `u8` CDF        | Spearman ρ                 | ≥ 0.9990   |
+| 2    | `i8` direct     | Pearson r                  | ≥ 0.9980   |
+| 3    | `u8` γ+φ        | Spearman ρ                 | ≥ 0.9990   |
+| 4    | `i8` γ+φ signed | Pearson r                  | ≥ 0.9980   |
+| 5    | `f32` SiLU delta| ‖delta‖ reported           | no threshold |
+| 6    | `bf16` RNE      | **Pearson + Spearman + Cronbach α** | **≥ 0.9999** (atomic clock) |
+| 7    | `u8` drift      | mean / max drift reported  | no threshold |
+
+Lane 6 is the atomic-clock lab BF16 lane — the only one certified
+against all three metrics simultaneously at 0.9999 or better. Lanes
+1-4 are compressed derivations with the single most-appropriate
+metric; Lanes 5 and 7 are informational signals.
+
+### Non-negotiable rules
+
+1. **F32 is a method, not a buffer.** Never allocate `Vec<f32>` for
+   upcast temp data. Stream from mmap or HTTP range, upcast in a
+   stack window, discard. See workspace-primer Rules 6-7.
+2. **Real-life corpus only.** No synthetic test inputs. Every
+   certification samples via the deterministic SplitMix64 pair
+   sampler + tier-1..4 text corpus. Rule 23.
+3. **NaN scan at every stage.** Source → upcast → cosine → metrics.
+   A single NaN halts the run with a diagnostic JSON. The Apr 11
+   2026 `f16_to_f32` quiet-bit glitch (fixed in ndarray `17bfde3`)
+   is the precedent. Rule 22.
+4. **Reference is ALWAYS re-derived from source.** Never trust an
+   on-disk `cosine_matrix_*.f32` file as the reference. The reference
+   column is computed fresh on every run via the proven-lossless
+   upcast method.
+5. **Lab BF16 derivation uses RNE, not truncation.** Call
+   `f32_to_bf16_batch_rne` or `f32_to_bf16_scalar_rne` — not the
+   legacy `f32_to_bf16` truncation path, which drifts ~1 ULP from
+   hardware RNE on ~50 % of values and cannot hit 0.9999.
+6. **Two-universes firewall.** Basin 1 (continuous neural embeddings)
+   and Basin 2 (discrete distributional codebooks / DeepNSM CAM-PQ)
+   cannot be certified across each other as if they were the same
+   format. Rule 21. Cross-basin measurements are valid only as
+   explicit multi-lens Cronbach α runs, not as "does X preserve Y".
+
+### How to certify a new model
+
+1. Wake `certification-officer` with the source path, the tensor
+   name (e.g. `embed_tokens.weight`), and the target lane(s).
+2. The agent reads this section, the knowledge doc, and the source
+   header. Identifies dtype, vocab, and whether the tokenizer vocab
+   matches the embed rows.
+3. The agent runs `seven_lane_encoder.rs` to produce (or re-use) the
+   7-lane tables. Applies the Lane 6 RNE swap if not yet applied to
+   the encoder.
+4. The agent samples 1000 random pairs via SplitMix64 + corpus pairs,
+   runs them through the lane-derivation logic as an independent
+   validation set, computes per-lane × per-sample-set metrics.
+5. The agent writes JSON to
+   `.claude/knowledge/certification/{model_slug}_{derivation_slug}.json`
+   and returns a one-line summary.
+6. If `PASS`, the derivation is certified and can be used as a
+   runtime format. If `FAIL`, the agent returns the top-5 worst
+   pairs by error magnitude for diagnosis.
+
+### Retest policy
+
+Any certification result where the source or derivation touched
+`ndarray::hpc::gguf::f16_to_f32` **before Apr 11 2026** is a
+retest candidate per workspace-primer Rule 22 (the NaN quiet-bit
+glitch fix in `17bfde3`). Known-stale artifacts include
+`jina-v5-7lane/`, `jina-v5-codebook/`, `jina-reranker-v3-BF16-5lane/`,
+`jina-reranker-v3-BF16-7lane/`. Retest by re-running the encoder
+under the fixed primitives and comparing new metrics against old
+byte-for-byte; zero-or-within-f32-rounding delta exonerates, material
+delta invalidates.
+
 ## Thinking Engine (crates/thinking-engine/)
 
 ```
