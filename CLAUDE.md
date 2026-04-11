@@ -285,11 +285,33 @@ SIBLING REPOS:
 .claude/knowledge/signed-session-findings.md     — BF16 tables, gate modulation, quality checks
 .claude/knowledge/phi-spiral-reconstruction.md   — φ-spiral, family zipper, stride/offset, Zeckendorf, VSA
 .claude/knowledge/primzahl-encoding-research.md  — prime fingerprint, Zeckendorf vs BF16 vs prime encoding
+.claude/knowledge/bf16-hhtl-terrain.md           — BF16-HHTL correction chain, 5 hard constraints, probe queue
+.claude/knowledge/zeckendorf-spiral-proof.md     — φ-spiral proof (scope-limited, see header before citing)
 .claude/CALIBRATION_STATUS_GROUND_TRUTH.md       — OVERRIDE: read BEFORE any SESSION_*.md
 .claude/PLAN_BF16_DISTANCE_TABLES.md             — 5-phase plan for BF16 distance tables
 .claude/TECHNICAL_DEBT_SIGNED_SESSION.md          — 56% useful, 44% bypass (honest review)
 .claude/CODING_PRACTICES.md                       — 6 patterns from EmbedAnything + quality checks
 ```
+
+## Knowledge Activation (MANDATORY)
+
+Every `.claude/knowledge/` document has a `READ BY:` header listing which agents
+MUST load it before producing output in that domain. When a knowledge trigger fires
+(see `.claude/agents/README.md § Knowledge Activation Protocol`), the relevant
+knowledge docs are loaded BEFORE the agent responds.
+
+**Critical process rule:** `.claude/knowledge/bf16-hhtl-terrain.md` contains a
+probe queue with CONJECTURE/FINDING status for each architectural claim. Any agent
+proposing changes to HHTL cascade, γ+φ placement, Slot D/V layout, or bucketing
+strategy MUST check the probe queue first. If the relevant probe is NOT RUN, the
+next deliverable is the probe, not more synthesis.
+
+**Insight update cycle:**
+```
+Claim → Probe defined (pass/fail criteria) → Probe written (example file)
+→ Probe run → Result recorded in knowledge doc → CONJECTURE promoted to FINDING or corrected
+```
+No knowledge doc should contain unmarked conjectures. Label everything.
 
 ## Model Registry (Jina v5 is ground truth anchor)
 

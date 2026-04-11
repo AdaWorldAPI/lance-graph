@@ -39,6 +39,50 @@ Use for HEEL/HIP/BRANCH/TWIG/LEAF encodings, codebooks, palettes, and residual s
 Protects the interface from explicit thought objects into the host model.
 Use for prompt-side, side-channel, adapter-like, or hybrid glove designs.
 
+### `savant-research`
+ZeckBF17 compression, golden-step traversal, octave encoding, distance
+metric design. Carries the codec-research domain knowledge and Pareto frontier.
+
+### `truth-architect`
+Guards measurement-before-synthesis discipline and architectural ground truth.
+Detects synthesis spirals (elaborate proposals with 0 measurements). Carries
+the hard-won BF16-HHTL correction chain (5 iterations, 4 corrections, 0 probes).
+**Mandatory reviewer** for any proposal that adds layers, touches HHTL cascade
+architecture, or claims γ+φ carries information. See Knowledge Activation below.
+
+## Knowledge Activation Protocol
+
+Agents do not operate in a vacuum. When woken, an agent MUST read the knowledge
+documents listed in its header (`READ BY:` line) BEFORE producing output.
+
+**Mandatory knowledge activation triggers:**
+
+| Trigger | Agent(s) woken | Knowledge loaded first |
+|---|---|---|
+| Any HHTL cascade proposal | truth-architect + family-codec-smith | bf16-hhtl-terrain.md |
+| γ+φ regime discussion | truth-architect | bf16-hhtl-terrain.md |
+| φ-spiral / Zeckendorf math | savant-research + truth-architect | zeckendorf-spiral-proof.md, phi-spiral-reconstruction.md |
+| Bucketing vs resolution claim | truth-architect | bf16-hhtl-terrain.md |
+| Slot D / Slot V layout | container-architect + truth-architect | bf16-hhtl-terrain.md |
+| New unification proposal | truth-architect (mandatory review) | bf16-hhtl-terrain.md probe queue |
+| Fibonacci mod p traversal | savant-research | savant-research.md (§ golden-step) |
+
+**The insight update cycle:**
+
+```
+1. Agent proposes a claim
+2. truth-architect checks: is there a probe for this? Has it run?
+3. If NOT RUN → probe is the next deliverable, not more synthesis
+4. If RUN + PASS → update .claude/knowledge/ with FINDING (not CONJECTURE)
+5. If RUN + FAIL → update .claude/knowledge/ with correction
+6. Commit knowledge update: docs(knowledge): probe [ID] — [result]
+```
+
+This cycle is MANDATORY. Knowledge docs are living documents that track
+the frontier between conjecture and measurement. An insight that hasn't
+been probed is labeled CONJECTURE. An insight that has been probed and
+passed is labeled FINDING. The distinction must be visible in the doc.
+
 ## Orchestration
 
 Primary orchestration prompt:
