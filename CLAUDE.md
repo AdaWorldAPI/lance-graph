@@ -288,6 +288,7 @@ SIBLING REPOS:
 .claude/knowledge/bf16-hhtl-terrain.md           — BF16-HHTL correction chain, 5 hard constraints, probe queue
 .claude/knowledge/zeckendorf-spiral-proof.md     — φ-spiral proof (scope-limited, see header before citing)
 .claude/knowledge/two-basin-routing.md           — Two-basin doctrine, representation routing, pairwise rule, attribution
+.claude/knowledge/encoding-ecosystem.md          — MANDATORY: full encoding map, synergies, read-before-write checklist
 .claude/CALIBRATION_STATUS_GROUND_TRUTH.md       — OVERRIDE: read BEFORE any SESSION_*.md
 .claude/PLAN_BF16_DISTANCE_TABLES.md             — 5-phase plan for BF16 distance tables
 .claude/TECHNICAL_DEBT_SIGNED_SESSION.md          — 56% useful, 44% bypass (honest review)
@@ -295,6 +296,11 @@ SIBLING REPOS:
 ```
 
 ## Knowledge Activation (MANDATORY)
+
+**P0 Rule: `.claude/knowledge/encoding-ecosystem.md` must be read BEFORE any
+codec, encoding, distance, compression, or representation work.** This is the
+map of all 8+ encoding representations, their crate locations, their invariants,
+their synergies, and their FINDING/CONJECTURE status. Never guess architecture.
 
 Every `.claude/knowledge/` document has a `READ BY:` header listing which agents
 MUST load it before producing output in that domain. When a knowledge trigger fires
