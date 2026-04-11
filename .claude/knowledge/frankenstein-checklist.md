@@ -1,229 +1,171 @@
-# KNOWLEDGE: Frankenstein Composition Checklist
+# KNOWLEDGE: Composition Discipline — Mathematical Frankenstein
 
 ## READ BY: ALL AGENTS. truth-architect enforces.
-## SOURCE: Xu et al. 2026, "VibeTensor" (arXiv:2601.16238), §7
-## APPLIES TO: any multi-encoding stack, any agent-generated architecture
+## INSPIRED BY: Xu et al. 2026 "VibeTensor" (arXiv:2601.16238) §7
+## ADAPTED: their runtime composition failures (mutexes, uninitialized buffers,
+##          batch alignment) are Python/C++ problems that Rust prevents at
+##          compile time. Our Frankenstein risk is MATHEMATICAL: encodings that
+##          each preserve their own invariant but lose information silently at
+##          representation boundaries.
 
 ---
 
-## The Frankenstein Effect (definition)
+## Our Frankenstein: Invariant Leakage at Representation Boundaries
 
-> Individually reasonable components compose into a globally suboptimal design.
-> Locally correct subsystems interact to yield emergent failure modes that
-> no single subsystem's tests can catch.
-
-VibeTensor demonstrated this with a correctness-first autograd gate that
-serialized concurrent backward passes — each subsystem was correct in
-isolation, but the composition starved efficient GPU kernels.
-
-**This is the exact risk for the lance-graph codec stack.** Each encoding
-passes its own lane certification (v2.4/v2.5), but the full pipeline
-(Base17 → BGZ17 palette → HighHeelBGZ → ZeckF64 → CLAM → pairwise cosine)
-has never been tested end-to-end for composed fidelity.
-
----
-
-## Meta-Checklist: Before Composing Subsystems
-
-### 1. Single-shot correctness ≠ composed stability
+The lance-graph codec stack chains multiple representations:
 
 ```
-RULE: A subsystem that passes unit tests in isolation may fail
-      under repeated composition (multi-step, multi-layer, multi-query).
-
-TEST: Run the full pipeline (encode → store → retrieve → decode → compare)
-      at least 100× in a loop. Check for:
-      - Drift (does ρ degrade over iterations?)
-      - State leaks (does one query's state affect the next?)
-      - Accumulation (do rounding errors compound?)
-
-LANCE-GRAPH INSTANCE:
-  Base17 encode → palette lookup → HEEL scan → HIP refine → LEAF decode
-  → pairwise cosine → compare to f32 reference.
-  Has this chain been run 100× on held-out data? NO.
+f32 → BF16 → i16[17] → palette index → scent byte → pairwise cosine
 ```
 
-### 2. Serialization bottlenecks hide in correctness gates
+Each step preserves ONE invariant (rank, magnitude, basin, sign).
+The composition risk: **information dies at the boundary between two
+representations, and neither representation's tests detect it** because
+each tests its own invariant in isolation.
 
+### Example (real, measured):
 ```
-RULE: Safety mechanisms (mutexes, global locks, sequential validation)
-      that make a subsystem correct can serialize the pipeline and
-      starve downstream components.
-
-TEST: Profile the full pipeline for serialization points.
-      Measure wall-clock time per stage. If any stage is >10× slower
-      than the theoretical minimum, check for correctness gates.
-
-LANCE-GRAPH INSTANCE:
-  Does the HHTL cascade have a sequential gate between levels?
-  Does the CLAM tree lock during descent?
-  Does palette lookup serialize on the codebook?
-  UNKNOWN — not profiled.
+γ+φ as post-rank monotone: ρ = 0.999992 vs 0.999992 (Lane 3 = Lane 1).
+The transform PRESERVES rank (its own invariant) but ADDS NOTHING.
+It composes correctly but wastes a pipeline stage.
+The Frankenstein here isn't a crash — it's a zombie: alive, correct,
+contributing zero.
 ```
 
-### 3. Validation gaps multiply at boundaries
-
+### Example (real, measured):
 ```
-RULE: Agent-generated code passes LOCAL tests while failing at
-      BOUNDARIES between subsystems. The gap is at the handoff:
-      - type mismatches (i16 vs i8 vs BF16 vs f32 at interfaces)
-      - convention mismatches (row-major vs column-major, endianness)
-      - precision mismatches (one stage rounds, the next assumes exact)
-      - semantic mismatches (one stage uses rank, the next uses value)
-
-TEST: At every boundary between two encodings, insert a round-trip
-      assertion: encode in system A → decode → re-encode in system B
-      → compare to original. If |Δ| > expected precision, the boundary
-      is lossy.
-
-LANCE-GRAPH INSTANCE:
-  Base17 i16 → ZeckF64 u64 boundary: zeckf64_from_base() — tested?
-  StackedN BF16 → Base17 i16 boundary: precision loss? — tested?
-  NeuronPrint palette index → Base17 atom: round-trip fidelity? — CONJECTURE
-```
-
-### 4. "Works once" ≠ "works under load"
-
-```
-RULE: A pipeline that produces correct output for one query may fail
-      under concurrent or batched load due to:
-      - shared mutable state (global codebooks, cached palettes)
-      - memory allocation patterns (fragmentation under batch)
-      - SIMD alignment assumptions (broken by odd batch sizes)
-
-TEST: Run the pipeline with batch sizes 1, 17, 256, 1024, 10000.
-      Check that output is identical regardless of batch size.
-      Check that throughput scales linearly (or explain why not).
-
-LANCE-GRAPH INSTANCE:
-  Does Base17 golden-step traversal depend on batch alignment?
-  Does the palette semiring cache invalidate correctly under batch?
-  UNKNOWN.
-```
-
-### 5. Correctness-first generation misses performance objectives
-
-```
-RULE: When agents build subsystems one at a time (correctness-first),
-      global performance objectives are not encoded early. The result
-      is a system that is correct but slow because performance-critical
-      paths were never designed — they emerged from the composition.
-
-TEST: Define the end-to-end performance budget BEFORE building subsystems.
-      Each subsystem gets a time/space budget. If it exceeds budget,
-      it must be redesigned, not worked around.
-
-LANCE-GRAPH INSTANCE:
-  What is the target latency for a single pairwise cosine lookup
-  through the full HHTL cascade?
-  What is the target throughput (pairs/second)?
-  UNDEFINED — no performance budget exists.
-```
-
-### 6. Redundant abstractions accumulate silently
-
-```
-RULE: Agent-generated code creates new abstractions for each problem
-      rather than reusing existing ones. Over time, this produces
-      multiple overlapping representations of the same concept.
-
-TEST: Search for type duplication. If two structs represent the same
-      concept with different field names, one must be eliminated.
-      See: docs/TYPE_DUPLICATION_MAP.md
-
-LANCE-GRAPH INSTANCE:
-  Base17 (bgz17) vs BasePattern (codec-research) — same concept?
-  SpoBase17 (contract) vs ZeckBF17Edge (codec-research) — overlap?
-  HighHeelBGZ (contract) vs HHTL cascade (bgz-tensor) — boundary?
-  ThinkingStyleFingerprint (neuron_hetero) vs ThinkingStyleVector (planner)?
-```
-
-### 7. Test what you compose, not just what you build
-
-```
-RULE: Integration tests must exercise the ACTUAL composition path,
-      not a simplified version. If the production path is
-      A → B → C → D, the integration test must run A → B → C → D,
-      not A → D with B and C mocked.
-
-TEST: Write at least one integration test per critical path:
-  - Encode path: raw weights → Base17 → palette → ZeckF64
-  - Search path: query → HEEL → HIP → TWIG → LEAF → pairwise cosine
-  - Causal path: SPO triple → CausalEdge64 → NARS truth propagation
-  - Full loop: encode → store → search → decode → compare to reference
-
-LANCE-GRAPH INSTANCE:
-  Does any test in the repo exercise the full encode→search→decode loop?
-  UNKNOWN — check with: grep -rn "end_to_end\|integration\|full_pipeline"
+Naive u8 floor: Spearman 0.999749.
+Full γ+φ+CDF: Spearman 0.999992. Benefit: +0.000244.
+If the next stage quantizes to scent bytes (ρ=0.937), that 0.02%
+improvement is destroyed at the boundary. Wasted work.
 ```
 
 ---
 
-## The Composition Test Matrix
+## The Three Composition Failures That Matter
 
-For any two subsystems A and B that connect in the pipeline, verify:
-
-```
-[ ] A's output type matches B's input type exactly (not "close enough")
-[ ] A's output precision is sufficient for B's input requirements
-[ ] A's output semantics (rank vs value vs bucket) match B's expectation
-[ ] Round-trip A→B→A preserves the invariant A is supposed to protect
-[ ] The A→B boundary has a test that runs on real data (not synthetic)
-[ ] The A→B boundary has been profiled for serialization
-[ ] The A→B boundary works at batch sizes 1, 256, and 10000
-```
-
-### Critical boundaries in lance-graph:
+### 1. Precision Cliff at Representation Boundary
 
 ```
-Boundary                          Tested?  Profiled?  Batch-tested?
-─────────────────────────────────  ───────  ─────────  ─────────────
-StackedN BF16 → Base17 i16         ?        ?          ?
-Base17 i16 → BGZ17 palette         ?        ?          ?
-BGZ17 palette → HighHeelBGZ        ?        ?          ?
-HighHeelBGZ → ZeckF64 u64          partial  ?          ?
-ZeckF64 → CLAM tree                v2.5     ?          ?
-CLAM → pairwise cosine             ?        ?          ?
-Base17 → NeuronPrint 6D            ?        ?          ?
-CausalEdge64 → SPO graph           ?        ?          ?
-Thinking engine → codec selection  ?        ?          ?
+Stage A outputs at fidelity ρ_A. Stage B outputs at fidelity ρ_B.
+If ρ_B << ρ_A, everything A does above ρ_B is wasted work.
+The pipeline's fidelity = min(ρ) across all stages, not max.
+
+Example: BF16 (ρ=0.999978) → scent byte (ρ=0.937).
+         The 0.062 gap is information destroyed at the boundary.
+
+Test: For every A→B boundary, measure ρ_A and ρ_B.
+      If ρ_A − ρ_B > 0.01, the boundary is a precision cliff.
+      Optimizing A above ρ_B is pointless.
+
+RULE: THE WEAKEST LINK SETS THE CEILING.
 ```
 
-Fill these in as probes run. Every "?" is a potential Frankenstein boundary.
+### 2. Semantic Basin Mismatch
+
+```
+Stage A operates in the distribution basin (rank, shape, wave).
+Stage B operates in the semantic basin (identity, address, concept).
+The boundary conflates the two and neither notices.
+
+Example: BGZ17 palette index (distribution: which wave shape) fed
+         into a COCA lookup (semantic: which concept).
+         Palette index ≠ semantic address. If code treats one as
+         the other, the composition is silently wrong.
+
+Test: At every boundary, label the semantic type:
+      rank → rank: OK (monotone transforms preserve)
+      value → value: OK (precision bounded)
+      rank → address: WRONG (rank order ≠ identity)
+      address → rank: WRONG (identity ≠ distributional order)
+      bucket → address: ONLY IF bucket = CLAM path AND address = centroid ID
+                         AND the mapping is 1:1 (Probe M1 validates this)
+
+RULE: LABEL EVERY BOUNDARY with its semantic type.
+```
+
+### 3. The Zombie Stage
+
+```
+A pipeline stage is correct, passes its own tests, contributes
+measurably in isolation — but its contribution is destroyed by
+the next stage, making it zero-value overhead.
+
+Test: For every stage S, measure:
+      ρ(pipeline_with_S) vs ρ(pipeline_without_S).
+      If |Δ| < measurement noise, S is a zombie. Remove it.
+
+RULE: EVERY STAGE MUST PAY RENT.
+      "Pays rent" = measurable improvement in END-TO-END fidelity,
+      not just the stage's own metric.
+```
 
 ---
 
-## Process Integration
+## The Pipeline Fidelity Chain
 
-### When the truth-architect reviews a proposal:
-
-Add this question to the review checklist:
-
-```
-## Frankenstein check
-- Does this proposal compose with its upstream producer?
-- Does this proposal compose with its downstream consumer?
-- Has the composition been tested (not just the component)?
-- Is there a performance budget for this component?
-- Does this introduce a new abstraction that overlaps an existing one?
-```
-
-### When any agent proposes a new encoding or layer:
+The ONLY number that matters is end-to-end Spearman ρ between the
+pipeline's output distances and the f32 reference distances.
+Individual stage ρ values are diagnostics, not verdicts.
 
 ```
-BEFORE implementing:
-1. Name the upstream producer and downstream consumer
-2. Define the boundary contract (type, precision, semantics)
-3. Write the boundary round-trip test FIRST
-4. Set a performance budget (time, space)
-5. Only THEN implement the component
+Boundary                        ρ vs f32      Status
+──────────────────────────────  ────────────  ──────────────
+f32 → BF16 RNE                 0.999978      FINDING (v2.4)
+f32 → u8 CDF                   0.999992      FINDING (v2.4)
+f32 → naive u8                 0.999749      FINDING (v2.5)
+f32 → scent byte (ZeckF64[0])  0.937         FINDING
+f32 → i16[17] Base17           ?             NOT MEASURED
+f32 → ZeckF64 full (8 bytes)   ?             NOT MEASURED
+f32 → palette index            ?             NOT MEASURED
+f32 → NeuronPrint 6D           ?             NOT MEASURED
+f32 → BGZ-HHTL-D Slot D only   ?             NOT MEASURED
 ```
 
-### Citation
+The "?" rows are where Frankenstein hides.
+
+**Endgame gate (v2.5):** naive u8 Pearson = 0.999860. Any encoding
+below this floor is worse than doing nothing. bgz-hhtl-d needs
+Pearson ≥ 0.9980 to justify cascade overhead.
+
+---
+
+## Mandatory Process
+
+### Before adding a new pipeline stage:
 
 ```
+1. Measure end-to-end ρ WITHOUT the stage.
+2. Measure end-to-end ρ WITH the stage.
+3. Is (2) > (1) by more than measurement noise?
+4. If yes: stage pays rent. Proceed.
+5. If no: zombie. Do not add.
+```
+
+### Before optimizing an existing stage:
+
+```
+1. What is the NEXT stage's input fidelity floor?
+2. Is this stage already above that floor?
+3. If yes: optimization wasted (precision cliff). Stop.
+4. If no: optimize, then re-measure end-to-end.
+```
+
+### Before connecting two subsystems:
+
+```
+1. What semantic type does upstream output? (rank / value / bucket / address)
+2. What does downstream expect?
+3. Match? → proceed.
+4. Mismatch? → insert explicit conversion, test round-trip.
+```
+
+---
+
+## Citation
+
 Xu et al., "VibeTensor: System Software for Deep Learning, Fully Generated
-by AI Agents," arXiv:2601.16238, Jan 2026. §7: "The Frankenstein composition
-effect — locally correct subsystems interact to yield globally suboptimal
-performance."
-```
+by AI Agents," arXiv:2601.16238, Jan 2026. §7: Frankenstein composition effect.
+Adapted: their failure modes (runtime, memory, concurrency) are prevented by
+Rust's type system. Ours are mathematical: invariant leakage, precision cliffs,
+basin mismatches, zombie stages.
