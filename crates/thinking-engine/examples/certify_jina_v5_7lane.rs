@@ -404,6 +404,130 @@ fn main() {
         );
     }
 
+    // ─── Step 11b: 3σ CI (Fisher z-transform) + 256-centroid jackknife ───
+    //
+    // Two complementary statistical tests for the reported metrics:
+    //
+    //   Fisher z-transform (closed form, parametric):
+    //     For Pearson / Spearman r at sample size n:
+    //       z = arctanh(r)
+    //       SE(z) = 1 / sqrt(n − 3)
+    //       kσ CI on z = z ± k × SE(z)
+    //       kσ CI on r = tanh(z ± k × SE(z))
+    //     Reports both 2σ (95%) and 3σ (99.73%) bounds. Uses the full
+    //     32,640-pair population directly — no sub-sampling. The 3σ
+    //     bound is what "4-decimal certification" actually requires,
+    //     and earlier bootstrap percentile CIs at k=1000 resamples
+    //     cannot supply it because they are under-sampled for the
+    //     99.73% tail (1000 × 0.0027 = 2.7 observations in the tail).
+    //
+    //   256-centroid jackknife (nonparametric stability check):
+    //     For each centroid c ∈ 0..256, drop the 255 pairs involving c,
+    //     recompute the metric on the remaining 32,385 pairs. The 256
+    //     leave-one-centroid-out metric values have jackknife standard
+    //     error:
+    //       SE_jk = sqrt( ((n − 1) / n) × Σ(m_i − mean)² )
+    //     where n = 256 (the centroid count). 3σ half-width = 3 × SE_jk.
+    //     This is the "256 stability checks" and it is genuinely
+    //     Stichproben-based: each drop-one is a sub-sample of the
+    //     centroid-level population.
+    //
+    // The two tests should agree to first order. Fisher's formula
+    // is parametric (assumes bivariate normal r-distribution), the
+    // jackknife is nonparametric. Divergence between the two signals
+    // distribution-shape issues (non-Gaussian residual, etc.).
+    println!("\n[11b] Fisher z 3σ CI + 256-centroid jackknife stability");
+    let n_full = N_PAIRS_UPPER;
+    let z_se = 1.0 / ((n_full as f64 - 3.0).sqrt());
+    let k_2sigma = 1.959964; // 95% two-sided (standard)
+    let k_3sigma = 2.967736; // 99.73% two-sided (the 3σ rule)
+    let mut fisher_and_jackknife: Vec<FisherJackknifeRow> =
+        Vec::with_capacity(lane_primary_data.len());
+    for (name, lane_data, primary) in &lane_primary_data {
+        // Point estimate on full population.
+        let point = match *primary {
+            "pearson" => quality::pearson(&ref_upper, lane_data),
+            "spearman" => quality::spearman(&ref_upper, lane_data),
+            _ => f64::NAN,
+        };
+        // Fisher z CI at 2σ and 3σ.
+        let r_clamped = point.clamp(-0.999999, 0.999999);
+        let z = r_clamped.atanh();
+        let (lo_2, hi_2) = ((z - k_2sigma * z_se).tanh(), (z + k_2sigma * z_se).tanh());
+        let (lo_3, hi_3) = ((z - k_3sigma * z_se).tanh(), (z + k_3sigma * z_se).tanh());
+
+        // 256-centroid jackknife. For each centroid c, drop all pairs
+        // (i, j) with i == c or j == c and recompute the metric.
+        let mut jk_vals: Vec<f64> = Vec::with_capacity(N_CENT);
+        for c in 0..N_CENT {
+            // Build the mask of pair indices to keep: every upper-
+            // triangular pair (i, j) where i != c and j != c.
+            // The pair at linear index p corresponds to (i, j) with
+            //   i = row index from upper_triangular_f32 construction
+            //   j = col index
+            // We recompute (i, j) from p via the triangular inversion.
+            let mut ref_sub: Vec<f64> = Vec::with_capacity(N_PAIRS_UPPER - (N_CENT - 1));
+            let mut lane_sub: Vec<f64> = Vec::with_capacity(N_PAIRS_UPPER - (N_CENT - 1));
+            let mut p = 0usize;
+            for i in 0..N_CENT {
+                for j in (i + 1)..N_CENT {
+                    if i != c && j != c {
+                        ref_sub.push(ref_upper[p]);
+                        lane_sub.push(lane_data[p]);
+                    }
+                    p += 1;
+                }
+            }
+            let v = match *primary {
+                "pearson" => quality::pearson(&ref_sub, &lane_sub),
+                "spearman" => quality::spearman(&ref_sub, &lane_sub),
+                _ => f64::NAN,
+            };
+            if !v.is_nan() { jk_vals.push(v); }
+        }
+        let jk_n = jk_vals.len() as f64;
+        let jk_mean = jk_vals.iter().sum::<f64>() / jk_n.max(1.0);
+        let jk_var = jk_vals
+            .iter()
+            .map(|&v| (v - jk_mean).powi(2))
+            .sum::<f64>()
+            * ((jk_n - 1.0) / jk_n.max(1.0));
+        let jk_se = jk_var.sqrt();
+        let jk_lo_3 = point - k_3sigma * jk_se;
+        let jk_hi_3 = point + k_3sigma * jk_se;
+
+        println!(
+            "  {:30} {} point={:.6}",
+            name, primary, point
+        );
+        println!(
+            "      Fisher 2σ CI  [{:.6}, {:.6}]  (half-width {:.2e})",
+            lo_2, hi_2, (hi_2 - lo_2) / 2.0
+        );
+        println!(
+            "      Fisher 3σ CI  [{:.6}, {:.6}]  (half-width {:.2e})",
+            lo_3, hi_3, (hi_3 - lo_3) / 2.0
+        );
+        println!(
+            "      Jackknife 3σ  [{:.6}, {:.6}]  SE_jk={:.2e}  {} centroids",
+            jk_lo_3, jk_hi_3, jk_se, jk_vals.len()
+        );
+
+        fisher_and_jackknife.push(FisherJackknifeRow {
+            name: name.to_string(),
+            primary: primary.to_string(),
+            point,
+            fisher_2sigma_lo: lo_2,
+            fisher_2sigma_hi: hi_2,
+            fisher_3sigma_lo: lo_3,
+            fisher_3sigma_hi: hi_3,
+            jk_se,
+            jk_3sigma_lo: jk_lo_3,
+            jk_3sigma_hi: jk_hi_3,
+            jk_n: jk_vals.len(),
+        });
+    }
+
     // ─── Step 12: Belichtungsmesser ¼σ band calibration + per-band metrics ───
     //
     // Calibrate bgz_tensor::Belichtungsmesser from the reference
@@ -852,6 +976,7 @@ fn main() {
         "bootstrap_confidence_intervals": {
             "n_resamples": N_BOOTSTRAP,
             "seed": format!("0x{:016X}", bootstrap_seed),
+            "note": "Bootstrap CIs at 1000 resamples give 95% (2σ) bounds only; 3σ at 99.73% requires closed-form methods (Fisher z) or jackknife (see fisher_z_plus_jackknife block).",
             "intervals_95pct": bootstrap_cis.iter().map(|(name, primary, point, lo, hi)| {
                 serde_json::json!({
                     "lane": name,
@@ -860,6 +985,33 @@ fn main() {
                     "ci_lo_2_5pct": round4(*lo),
                     "ci_hi_97_5pct": round4(*hi),
                     "ci_width": round4(hi - lo),
+                })
+            }).collect::<Vec<_>>(),
+        },
+
+        "fisher_z_plus_jackknife": {
+            "population_n": N_PAIRS_UPPER,
+            "fisher_transform": "z = arctanh(r); SE(z) = 1/sqrt(n-3); kσ CI = tanh(z ± k·SE)",
+            "k_2sigma": k_2sigma,
+            "k_3sigma": k_3sigma,
+            "jackknife": {
+                "kind": "leave_one_centroid_out",
+                "n_centroids": N_CENT,
+                "note": "256 stability checks — one per centroid. Each drop removes 255 pairs involving that centroid, giving a sub-population of 32,385 pairs. Variance across the 256 drops is the nonparametric 3σ estimator.",
+            },
+            "per_lane": fisher_and_jackknife.iter().map(|row| {
+                serde_json::json!({
+                    "lane": row.name,
+                    "metric": row.primary,
+                    "point_estimate": row.point,
+                    "fisher_2sigma_lo": row.fisher_2sigma_lo,
+                    "fisher_2sigma_hi": row.fisher_2sigma_hi,
+                    "fisher_3sigma_lo": row.fisher_3sigma_lo,
+                    "fisher_3sigma_hi": row.fisher_3sigma_hi,
+                    "jackknife_se": row.jk_se,
+                    "jackknife_3sigma_lo": row.jk_3sigma_lo,
+                    "jackknife_3sigma_hi": row.jk_3sigma_hi,
+                    "jackknife_n_successful": row.jk_n,
                 })
             }).collect::<Vec<_>>(),
         },
@@ -1082,6 +1234,25 @@ fn measure_lane(
         cronbach_alpha: cronbach_a,
         verdict: verdict.to_string(),
     }
+}
+
+/// Fisher z-transform CI + 256-centroid jackknife stability row —
+/// one entry per lane's primary metric, covering parametric 2σ/3σ
+/// confidence intervals on the full population plus a nonparametric
+/// jackknife standard error from 256 leave-one-centroid-out resamples.
+#[cfg(feature = "calibration")]
+struct FisherJackknifeRow {
+    name: String,
+    primary: String,
+    point: f64,
+    fisher_2sigma_lo: f64,
+    fisher_2sigma_hi: f64,
+    fisher_3sigma_lo: f64,
+    fisher_3sigma_hi: f64,
+    jk_se: f64,
+    jk_3sigma_lo: f64,
+    jk_3sigma_hi: f64,
+    jk_n: usize,
 }
 
 /// Per-band breakdown row — one entry per Belichtungsmesser ¼σ band.

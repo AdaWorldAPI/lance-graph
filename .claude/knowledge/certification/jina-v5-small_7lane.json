@@ -403,6 +403,7 @@
       }
     ],
     "n_resamples": 1000,
+    "note": "Bootstrap CIs at 1000 resamples give 95% (2σ) bounds only; 3σ at 99.73% requires closed-form methods (Fisher z) or jackknife (see fisher_z_plus_jackknife block).",
     "seed": "0x9E3779B97F4A7C15"
   },
   "cycloid_bound_lane_7": {
@@ -611,6 +612,84 @@
     ],
     "span_anchor": "[μ - 3σ, μ + 3σ]",
     "span_sigma_total": 6.0
+  },
+  "fisher_z_plus_jackknife": {
+    "fisher_transform": "z = arctanh(r); SE(z) = 1/sqrt(n-3); kσ CI = tanh(z ± k·SE)",
+    "jackknife": {
+      "kind": "leave_one_centroid_out",
+      "n_centroids": 256,
+      "note": "256 stability checks — one per centroid. Each drop removes 255 pairs involving that centroid, giving a sub-population of 32,385 pairs. Variance across the 256 drops is the nonparametric 3σ estimator."
+    },
+    "k_2sigma": 1.959964,
+    "k_3sigma": 2.967736,
+    "per_lane": [
+      {
+        "fisher_2sigma_hi": 0.9999924390328517,
+        "fisher_2sigma_lo": 0.9999921036922982,
+        "fisher_3sigma_hi": 0.9999925229194325,
+        "fisher_3sigma_lo": 0.9999920151023588,
+        "jackknife_3sigma_hi": 0.9999927662537507,
+        "jackknife_3sigma_lo": 0.9999917801093654,
+        "jackknife_n_successful": 256,
+        "jackknife_se": 1.6614422330033033e-7,
+        "lane": "lane_1_u8_cdf",
+        "metric": "spearman",
+        "point_estimate": 0.999992273181558
+      },
+      {
+        "fisher_2sigma_hi": 0.9992660663892807,
+        "fisher_2sigma_lo": 0.9992335276480567,
+        "fisher_3sigma_hi": 0.9992742062300556,
+        "fisher_3sigma_lo": 0.9992249317702804,
+        "jackknife_3sigma_hi": 0.9997767442193574,
+        "jackknife_3sigma_lo": 0.998723202554831,
+        "jackknife_n_successful": 256,
+        "jackknife_se": 0.00017749922239147908,
+        "lane": "lane_2_i8_direct",
+        "metric": "pearson",
+        "point_estimate": 0.9992499733870942
+      },
+      {
+        "fisher_2sigma_hi": 0.9999924389460668,
+        "fisher_2sigma_lo": 0.9999921036016642,
+        "fisher_3sigma_hi": 0.9999925228336105,
+        "fisher_3sigma_lo": 0.9999920150107081,
+        "jackknife_3sigma_hi": 0.9999927661742638,
+        "jackknife_3sigma_lo": 0.9999917800114753,
+        "jackknife_n_successful": 256,
+        "jackknife_se": 1.6614732383687564e-7,
+        "lane": "lane_3_u8_gamma_phi",
+        "metric": "spearman",
+        "point_estimate": 0.9999922730928695
+      },
+      {
+        "fisher_2sigma_hi": 0.9994741858880091,
+        "fisher_2sigma_lo": 0.9994508715322022,
+        "fisher_3sigma_hi": 0.9994800181372588,
+        "fisher_3sigma_lo": 0.9994447124579828,
+        "jackknife_3sigma_hi": 0.9995971815036296,
+        "jackknife_3sigma_lo": 0.9993281287100982,
+        "jackknife_n_successful": 256,
+        "jackknife_se": 0.000045329637395552814,
+        "lane": "lane_4_i8_gamma_phi_signed",
+        "metric": "spearman",
+        "point_estimate": 0.9994626551068639
+      },
+      {
+        "fisher_2sigma_hi": 0.9999789201016737,
+        "fisher_2sigma_lo": 0.9999779851822733,
+        "fisher_3sigma_hi": 0.9999791539750313,
+        "fisher_3sigma_lo": 0.9999777381962746,
+        "jackknife_3sigma_hi": 0.9999936380889993,
+        "jackknife_3sigma_lo": 0.9999632773373481,
+        "jackknife_n_successful": 256,
+        "jackknife_se": 5.115136867158184e-6,
+        "lane": "lane_6_bf16_rne",
+        "metric": "pearson",
+        "point_estimate": 0.9999784577131737
+      }
+    ],
+    "population_n": 32640
   },
   "lane_5_silu_delta": {
     "l2_norm": 0.0,
