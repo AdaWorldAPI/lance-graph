@@ -371,29 +371,79 @@ Tokenizer sharing (research-only):
 ### Precision hierarchy (workspace-wide rule)
 
 ```
-Preferred:   BF16 with fused add_mul (hardware FMA: AVX-512 VDPBF16PS, ARM SVE BFMMLA).
-             Use ndarray::hpc::quantized::bf16_gemm_f32 (or mixed_precision_gemm)
-             and the BF16 lane conversions in the same module
-             (f32_to_bf16_rounded, bf16_to_f32_slice). F32-precision accumulate
-             under the hood; BF16 memory bandwidth.
+Ground truth:    The source file on disk, byte-exact, SHA-pinned. For
+                 Jina v5 this is `data/jina-v5-onnx/model.safetensors`
+                 (verified BF16 by `examples/probe_jina_v5_safetensors.rs`,
+                 NOT F16 as earlier notes claimed). For other models:
+                 the GGUF / safetensors / ONNX bytes as downloaded.
+                 Never duplicated, never re-baked, never "upscaled to
+                 F32 and stored" — the F32 view is a method, not a buffer.
 
-Transient:   F32 appears ONLY as a momentary upcast step during ingestion
-             (F16 source → F32 pipe → BF16 working format). Never persists
-             past the conversion call. No F32 in hot loops.
+Compute:         BF16 with fused `mul_add` (hardware FMA: AVX-512
+                 VDPBF16PS, ARM SVE BFMMLA, Apple AMX). Use
+                 `ndarray::hpc::quantized::bf16_gemm_f32` (or
+                 `mixed_precision_gemm`) and the BF16 lane conversions in
+                 the same module. F32-precision accumulation happens in
+                 hardware registers, invisible to the caller. BF16 memory
+                 bandwidth.
 
-Fallback:    F16 only when the source is F16-only. Jina v5 is published
-             as F16 on HuggingFace, so Jina v5 ingestion MUST go via the
-             F16 → transient F32 → BF16 path. Never F16 → BF16 direct
-             (would lose 3 exponent bits; F16 max ~65504 can overflow).
+Method F32:      F32 is a *method*, not a storage format. It may appear in
+                 a stack window, a SIMD register, or the F32-accumulate
+                 pipe of a hardware FMA instruction. It never persists as
+                 a `Vec<f32>` buffer in the certification or bake pipelines.
+                 If you find yourself allocating `Vec<f32>` for upscaled
+                 temp data, stop — the source bytes plus the upcast method
+                 already give you every F32 value you need on demand.
 
-Storage:     BF16 for full-resolution weights; Base17 i16 fixed-point (×256
-             via GammaProfile-calibrated quantization) for palette planes;
-             u8 palette index for HHTL HEEL/HIP; u8 distance matrix for
-             DeepNSM 4096².
+Source F16:      F16 → F32 is a deterministic bit-expansion with zero
+                 information loss (F32 is a strict superset). The method
+                 `ndarray::hpc::gguf::f16_to_f32` is proven lossless over
+                 all 65,536 F16 bit patterns (±0, subnormals, normals, ±∞,
+                 IEEE-correct QNaN payload preservation) by
+                 `crates/thinking-engine/examples/probe_jina_v5_safetensors.rs`.
+                 The Jina v5 *safetensors* on disk is BF16 not F16, but
+                 other code paths (GGUF, reranker, some exports) still read
+                 F16 so the primitive must be atomic-clock correct.
 
-Discouraged: 8-bit quantization as a COMPUTE precision (Q4/Q5/Q8/INT8).
-             Fine only as a calibrated STORAGE format after the above
-             normalization chain. Never the precision of forward passes.
+F16 → BF16:      Mantissa truncation 10 → 7 bits, NOT an exponent-range
+                 issue. BF16 has MORE exponent bits than F16 (8 vs 5) and
+                 covers ~33 orders of magnitude more range than F16's
+                 ~65 504 maximum — every F16 value fits inside BF16 range
+                 with room to spare. Earlier notes that said "F16 max
+                 ~65 504 overflows before reaching BF16 range" were
+                 backwards. The 3 lost mantissa bits round-to-nearest-even
+                 (RNE) under hardware `_mm512_cvtneps_pbh`. The scalar
+                 fallback `f32_to_bf16_scalar` in `src/simd_avx512.rs`
+                 is plain truncation (not RNE) and therefore drifts by
+                 ~1 ULP on ~50% of values from the hardware path —
+                 pending replacement with a SIMD RNE routine for
+                 certification reproducibility.
+
+F64 constants:   π, e, φ, Euler-γ live as `std::f64::consts` 52-bit
+                 mantissas. Used for calibration math (GammaProfile log /
+                 exp, Dupain-Sós pre-rank selection). Applied to BF16
+                 tensors by splatting a BF16-converted constant into a
+                 lane and running the FMA — never by upscaling the tensor
+                 to F32 and round-tripping.
+
+Storage:         BF16 on disk for full-resolution weights; Base17 i16
+                 fixed-point (×256 via GammaProfile-calibrated
+                 quantization) for palette planes; u8 palette index for
+                 HHTL HEEL/HIP; u8 distance matrix for DeepNSM 4096².
+
+Discouraged:     8-bit quantization as a COMPUTE precision (Q4/Q5/Q8/INT8).
+                 Fine only as a calibrated STORAGE format after the above
+                 normalization chain. Never the precision of forward
+                 passes.
+
+Certification:   Every derived format (lab BF16, Base17, palette, bgz-hhtl-d)
+                 is verified against the ground-truth source by Pearson,
+                 Spearman, and Cronbach α reported to 4 decimal places.
+                 Target: lab BF16 at ≥ 0.9999 (effectively lossless), bgz-
+                 hhtl-d at ≥ 0.9980 after the inherent cascade entry tax.
+                 The harness uses the deterministic SplitMix64 pair sampler
+                 seeded 0x9E3779B97F4A7C15 so any two runs produce
+                 bit-identical metrics.
 ```
 
 ## Thinking Engine (crates/thinking-engine/)

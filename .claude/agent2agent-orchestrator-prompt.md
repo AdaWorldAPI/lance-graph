@@ -151,6 +151,54 @@ Every returning specialist result is classified into exactly one of:
 Classification happens BEFORE the orchestrator writes any prose synthesis.
 Prose synthesis is only appropriate for class 1.
 
+## A2A communication channel (blackboard or silence)
+
+Agent-to-agent coordination in this session is **blackboard-mediated shared
+state**, not direct chatter. This is the ADK (Agent Development Kit) pattern
+Anthropic invented for in-session pseudo-MCP orchestration: specialists do
+not message each other directly — they read and write the same blackboard
+files, and the orchestrator is the only actor that interprets their joint
+state.
+
+Concrete rule: **if a specialist cannot express a finding as a blackboard
+write, a contract edit, a changelog entry, or a probe result, it does not
+belong in the session.** Conversational chatter between agents is not a
+coordination mechanism; it is noise.
+
+Canonical blackboard surfaces (in priority order):
+
+1. `.claude/blackboard-ripple-architecture-20260402-01.MD` — live session state
+2. `.claude/blackboard-ripple-architecture-changelog.md` — append-only log of
+   what changed, when, and why
+3. `.claude/contracts/ripple-dto-contracts.md` — hard schema boundaries
+4. `.claude/contracts/ripple-representation-contract.md` — representation rules
+5. `.claude/knowledge/*.md` — canonical rules (read-mostly; writes require
+   explicit user authorization)
+
+Channel discipline:
+
+- **Writes**: one specialist, one blackboard section, one commit. No
+  concurrent writes to the same section — if two specialists need to update
+  the same block, serialize the wave.
+- **Reads**: every specialist reads the blackboard + relevant contract files
+  FIRST, in its "mandatory reading" handover-in block. A specialist that
+  did not read the current blackboard state is running on stale context
+  and should be re-spawned.
+- **Silence is valid output**: a specialist that finds "nothing to add, the
+  existing blackboard is correct" is a class-1 on-topic finding. Do not
+  reward noise over silence.
+- **No cross-agent direct messages**: if specialist A needs something from
+  specialist B, the orchestrator writes the requirement to the blackboard
+  and B reads it there on its next spawn. There is no message-passing
+  side channel.
+
+Anti-pattern to catch: the orchestrator stitches together conversational
+fragments from multiple specialists as if they were collaborating in real
+time. They are not. Each specialist saw only its handover-in block and the
+blackboard state at the moment it was spawned. Treating their outputs as
+dialogue is a flattening error — relabel as independent blackboard
+contributions and integrate via Step 5.
+
 ## Stale-context protocol (mid-flight corrections)
 
 When the user provides a clarification, correction, or rule tightening
