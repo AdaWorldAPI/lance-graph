@@ -158,7 +158,11 @@ fn main() {
     println!("### Angular distance (primary, acos(cos)/π)");
     let (dmin, dmax, dmean) = matrix_stats(&dist);
     println!("- min: {:.4}, max: {:.4}, mean: {:.4}", dmin, dmax, dmean);
-    println!("- diagonal (should be 0): {:.6}", dist[0]);
+    // Math-savant fix: check ALL diagonal entries, not just dist[0]
+    let diag_all_zero = (0..N).all(|i| dist[i * N + i].abs() < 1e-5);
+    println!("- diagonal all zero (all 256 entries): {}", diag_all_zero);
+    let (cmin, cmax, cmean) = matrix_stats(&cos);
+    println!("- cosine off-diag mean (density indicator): {:.4}", cmean);
     println!("### 1-cos legacy");
     let (ldmin, ldmax, ldmean) = matrix_stats(&dist_legacy);
     println!("- min: {:.4}, max: {:.4}, mean: {:.4}", ldmin, ldmax, ldmean);
