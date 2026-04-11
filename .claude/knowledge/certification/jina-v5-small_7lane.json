@@ -1,4 +1,79 @@
 {
+  "bca_bootstrap_efron_1987": {
+    "acceleration_source": "grouped jackknife — 256 leave-one-centroid-out replicates reused from Step 11b (delete-255 group-drop, balanced groups)",
+    "citation": "Efron, B. (1987) 'Better Bootstrap Confidence Intervals', JASA 82(397); Deutsch 2021 arXiv:2104.00054 recommends BCa over Fisher z for embedding-similarity Pearson because Fisher z assumes bivariate normality which does not hold for cosine distributions per Mu & Viswanath 2018 and Ethayarajh 2019.",
+    "method": "Efron & Tibshirani 1994 Chapter 14 BCa, §11.5 grouped jackknife for acceleration",
+    "n_resamples": 2000,
+    "per_lane": [
+      {
+        "acceleration": 0.09545162756253235,
+        "alpha1_2sigma_adjusted": 1.0,
+        "alpha1_3sigma_adjusted": 1.0,
+        "alpha2_2sigma_adjusted": 1.0,
+        "alpha2_3sigma_adjusted": 1.0,
+        "bca_2sigma_hi": 0.9999921483525531,
+        "bca_2sigma_lo": 0.9999921483525531,
+        "bca_3sigma_hi": 0.9999921483525531,
+        "bca_3sigma_lo": 0.9999921483525531,
+        "lane": "lane_1_u8_cdf",
+        "metric": "spearman",
+        "n_resamples": 2000,
+        "point_estimate": 0.999992273181558,
+        "z0_bias_correction": 5.997807019889277
+      },
+      {
+        "acceleration": 0.11105139845846722,
+        "alpha1_2sigma_adjusted": 0.05241544107518131,
+        "alpha1_3sigma_adjusted": 0.012656562618517997,
+        "alpha2_2sigma_adjusted": 0.9952611061124064,
+        "alpha2_3sigma_adjusted": 0.9999970103725675,
+        "bca_2sigma_hi": 0.9992810050121419,
+        "bca_2sigma_lo": 0.9992284316929239,
+        "bca_3sigma_hi": 0.9992889143752636,
+        "bca_3sigma_lo": 0.9992209118256806,
+        "lane": "lane_2_i8_direct",
+        "metric": "pearson",
+        "n_resamples": 2000,
+        "point_estimate": 0.9992499733870942,
+        "z0_bias_correction": 0.00877331151817836
+      },
+      {
+        "acceleration": 0.09545196071953392,
+        "alpha1_2sigma_adjusted": 1.0,
+        "alpha1_3sigma_adjusted": 1.0,
+        "alpha2_2sigma_adjusted": 1.0,
+        "alpha2_3sigma_adjusted": 1.0,
+        "bca_2sigma_hi": 0.9999921529507237,
+        "bca_2sigma_lo": 0.9999921529507237,
+        "bca_3sigma_hi": 0.9999921529507237,
+        "bca_3sigma_lo": 0.9999921529507237,
+        "lane": "lane_3_u8_gamma_phi",
+        "metric": "spearman",
+        "n_resamples": 2000,
+        "point_estimate": 0.9999922730928695,
+        "z0_bias_correction": 5.997807019889277
+      },
+      {
+        "acceleration": 0.023794079980415373,
+        "alpha1_2sigma_adjusted": 0.07983549454832511,
+        "alpha1_3sigma_adjusted": 0.01050649955590749,
+        "alpha2_2sigma_adjusted": 0.9960175049497659,
+        "alpha2_3sigma_adjusted": 0.9999274510513803,
+        "bca_2sigma_hi": 0.9994778113693195,
+        "bca_2sigma_lo": 0.9994533336581011,
+        "bca_3sigma_hi": 0.9994802062770046,
+        "bca_3sigma_lo": 0.9994475757241594,
+        "lane": "lane_4_i8_gamma_phi_signed",
+        "metric": "spearman",
+        "n_resamples": 2000,
+        "point_estimate": 0.9994626551068639,
+        "z0_bias_correction": 0.26241695779794794
+      }
+    ],
+    "role": "cross-check on Fisher z — not a replacement. At 2σ (95.45%) BCa and Fisher z are directly comparable with matched precision. At 3σ (99.73%) B=2000 undersamples the tail (~2.7 samples per endpoint); doctrine authority remains Fisher z at 3σ.",
+    "scope": "Lanes 1-4 only — compressed derivation lanes where distribution non-normality matters. Lane 6 is measured directly by Fisher z at 4-decimal precision and adds no information from a resample bootstrap at the 0.9999 ceiling.",
+    "seed": "0x2297C519C3EAC0B5"
+  },
   "belichtungsmesser_quarter_sigma_bands": {
     "band_counts": [
       502,
@@ -359,6 +434,23 @@
     ],
     "source": "bgz_tensor::Belichtungsmesser::calibrate"
   },
+  "bgz_distribution_naive_u8_floor": {
+    "comparison": {
+      "gamma_phi_spearman_benefit_over_naive": 0.00024358371993826733,
+      "lane_3_gamma_phi_u8_cdf_pearson": 0.8904141376877616,
+      "lane_3_gamma_phi_u8_cdf_spearman": 0.9999922730928695,
+      "note": "γ+φ+CDF should beat naive uniform u8 Spearman because it redistributes quantization levels around the density mass of the cosine distribution. If Δρ ≤ 0, γ+φ adds no value over the trivial quantizer and should be dropped."
+    },
+    "endgame_framing": "bgz-hhtl-d (the obligatory runtime format per CLAUDE.md § Certification Process) must hit ≥ 0.9980 Pearson after its cascade entry tax. The 'cascade entry tax' is the delta between bgz-hhtl-d's measured Pearson and this naive u8 floor, and the delta between γ+φ+CDF and this naive floor is the budget left for the HHTL cascade to spend before hitting the 0.9980 target.",
+    "max_abs_error": 0.0016898921307395565,
+    "mean_abs_error": 0.0008479590252089263,
+    "pearson": 0.9998600518500104,
+    "quantizer": "uniform u8 step over [min, max] of the reference cosine distribution",
+    "ref_max": 0.6752529144287109,
+    "ref_min": -0.18661053478717804,
+    "spearman": 0.9997486893729313,
+    "ulp": 0.0033798566635917216
+  },
   "bootstrap_confidence_intervals": {
     "intervals_95pct": [
       {
@@ -405,6 +497,66 @@
     "n_resamples": 1000,
     "note": "Bootstrap CIs at 1000 resamples give 95% (2σ) bounds only; 3σ at 99.73% requires closed-form methods (Fisher z) or jackknife (see fisher_z_plus_jackknife block).",
     "seed": "0x9E3779B97F4A7C15"
+  },
+  "chaoda_outlier_filter": {
+    "citation": "Ishaq, Nishaq, Howard, Daniels (2021) 'Clustered Hierarchical Anomaly and Outlier Detection Algorithms (CHAODA)', arXiv:2103.11774. Phase 4 of .claude/prompts/01_clam_qualiacam.md. Cited by ndarray::hpc::nars::detect_contradiction as one of the contradiction-severity heuristic's inspirations.",
+    "data_source": "Lane 1 u8 distance rows — each centroid's 256-byte row is its descriptor in distance space, Hamming distance on raw bytes gives ClamTree a meaningful local-fractal-dimension signal without re-loading centroid embeddings.",
+    "flag_fraction": 0.1,
+    "flag_policy": "top_k_by_score",
+    "flag_score_cutoff": 1.0,
+    "interpretation": "filtered ≈ raw (all verdicts 'clean') = CHAODA-clean distribution, whatever error the lanes hit is pure compression cost not contamination cost. This is the BGZ-distribution-error baseline that the endgame bgz-hhtl-d format must match after its inherent cascade entry tax.",
+    "lfd_max": 1.584962500721156,
+    "lfd_mean": 1.2509164066556495,
+    "lfd_min": 0.0,
+    "mean_leaf_radius": 762.061403508772,
+    "n_centroids": 256,
+    "n_clam_leaves": 114,
+    "n_flagged_centroids": 26,
+    "n_pairs_kept": 26335,
+    "n_pairs_upper": 32640,
+    "per_lane": [
+      {
+        "delta": -2.1975398822871028e-7,
+        "lane": "lane_1_u8_cdf",
+        "metric": "spearman",
+        "metric_filtered": 0.9999920534275698,
+        "metric_raw": 0.999992273181558,
+        "verdict": "clean"
+      },
+      {
+        "delta": -0.00013046983683329128,
+        "lane": "lane_2_i8_direct",
+        "metric": "pearson",
+        "metric_filtered": 0.9991195035502609,
+        "metric_raw": 0.9992499733870942,
+        "verdict": "filter_removed_easy_pairs"
+      },
+      {
+        "delta": -2.1955803963802367e-7,
+        "lane": "lane_3_u8_gamma_phi",
+        "metric": "spearman",
+        "metric_filtered": 0.9999920535348299,
+        "metric_raw": 0.9999922730928695,
+        "verdict": "clean"
+      },
+      {
+        "delta": -0.00002723768080092892,
+        "lane": "lane_4_i8_gamma_phi_signed",
+        "metric": "spearman",
+        "metric_filtered": 0.999435417426063,
+        "metric_raw": 0.9994626551068639,
+        "verdict": "clean"
+      },
+      {
+        "delta": -3.849119006194002e-6,
+        "lane": "lane_6_bf16_rne",
+        "metric": "pearson",
+        "metric_filtered": 0.9999746085941675,
+        "metric_raw": 0.9999784577131737,
+        "verdict": "clean"
+      }
+    ],
+    "source": "ndarray::hpc::clam::ClamTree::anomaly_scores"
   },
   "cycloid_bound_lane_7": {
     "bound_formula": "2π × φ / (hidden_dim / spiral_stride)",

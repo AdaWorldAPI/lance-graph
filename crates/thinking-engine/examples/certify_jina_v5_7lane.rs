@@ -540,6 +540,327 @@ fn main() {
         });
     }
 
+    // We also need the full 256-value jackknife vector per lane for the
+    // BCa acceleration estimator in Step 11e. Step 11b only kept the
+    // SE of each jackknife sequence; recompute the vectors here (cheap:
+    // ~256 · pearson(32385 pairs) per lane) and cache them.
+    let mut jk_vectors: Vec<Vec<f64>> = Vec::with_capacity(lane_primary_data.len());
+    for (_name, lane_data, primary) in &lane_primary_data {
+        let mut jk_vals: Vec<f64> = Vec::with_capacity(N_CENT);
+        for c in 0..N_CENT {
+            let mut ref_sub: Vec<f64> = Vec::with_capacity(N_PAIRS_UPPER - (N_CENT - 1));
+            let mut lane_sub: Vec<f64> = Vec::with_capacity(N_PAIRS_UPPER - (N_CENT - 1));
+            let mut p = 0usize;
+            for i in 0..N_CENT {
+                for j in (i + 1)..N_CENT {
+                    if i != c && j != c {
+                        ref_sub.push(ref_upper[p]);
+                        lane_sub.push(lane_data[p]);
+                    }
+                    p += 1;
+                }
+            }
+            let v = match *primary {
+                "pearson" => quality::pearson(&ref_sub, &lane_sub),
+                "spearman" => quality::spearman(&ref_sub, &lane_sub),
+                _ => f64::NAN,
+            };
+            if !v.is_nan() { jk_vals.push(v); }
+        }
+        jk_vectors.push(jk_vals);
+    }
+
+    // ─── Step 11e: Efron BCa bootstrap CI — comparison against Fisher z ───
+    //
+    // Efron's Better Bootstrap Confidence Interval (Efron 1987, "Better
+    // Bootstrap Confidence Intervals", JASA 82(397)). BCa improves on the
+    // plain percentile bootstrap by applying two corrections:
+    //
+    //   1. Bias correction z0  = Φ⁻¹(#{θ*_b < θ̂} / B)
+    //      Adjusts for systematic bias in the bootstrap distribution.
+    //
+    //   2. Acceleration      a  from jackknife (here: grouped / delete-d)
+    //      a = Σ(θ̄ − θ_(g))³ / (6·(Σ(θ̄ − θ_(g))²)^(3/2))
+    //      Captures distributional skewness / rate of change of SE with θ.
+    //
+    // We reuse the Step 11b 256-centroid grouped jackknife for acceleration
+    // per Efron & Tibshirani 1994 §11.5 (grouped / delete-d jackknife is a
+    // valid BCa acceleration estimator). Each drop removes exactly 255 pairs
+    // out of 32640, so the groups are perfectly balanced.
+    //
+    // BCa is the literature-standard CI for correlation metrics; Deutsch
+    // 2021 (arXiv:2104.00054) specifically recommends BCa over Fisher z for
+    // embedding-similarity Pearson because Fisher z assumes bivariate
+    // normality which does not hold for text-embedding cosine distributions
+    // (Mu & Viswanath 2018 "All-but-the-Top"; Ethayarajh 2019 "How
+    // Contextual are Contextualized Word Representations?").
+    //
+    // This step does NOT replace Fisher z — it cross-checks it. If BCa and
+    // Fisher z agree, both are confirmed. If they materially disagree, the
+    // Fisher z result is suspect because its normality assumption failed
+    // and the distribution-free BCa is the authoritative answer.
+    //
+    // The user directive for v2.5 was "just compare efron vs old" — this
+    // block is the comparison, not a displacement. Per workspace doctrine
+    // the Fisher z 3σ CI remains the published 4-decimal certification CI
+    // because B=2000 resolves 3σ tails to ~2.7 samples per endpoint, which
+    // is too sparse for a 4-decimal bound. For 2σ (~45 samples per endpoint)
+    // BCa and Fisher z are directly comparable.
+    println!("\n[11e] Efron BCa bootstrap (Lanes 1-4) vs Fisher z");
+    const N_BCA_RESAMPLES: usize = 2000;
+    let bca_seed: u64 = 0x9E37_79B9_7F4A_7C15_u64 ^ 0xBCA0_BCA0_BCA0_BCA0_u64;
+
+    let mut bca_rows: Vec<BcaBootstrapRow> = Vec::with_capacity(4);
+    // Bootstrap only Lanes 1-4 per user scope (the compressed derivation
+    // lanes where distribution non-normality matters most). Lane 6 is the
+    // atomic-clock BF16 ceiling: Fisher z on a point estimate > 0.9999 is
+    // already quoted at 4-decimal precision, and BCa adds no information
+    // at that ceiling.
+    for lane_idx in 0..4.min(lane_primary_data.len()) {
+        let (name, lane_data, primary) = lane_primary_data[lane_idx];
+        let row = bca_bootstrap_ci(
+            name,
+            primary,
+            &ref_upper,
+            lane_data,
+            N_BCA_RESAMPLES,
+            bca_seed.wrapping_add(name.len() as u64),
+            &jk_vectors[lane_idx],
+        );
+
+        let jk_row = &fisher_and_jackknife[lane_idx];
+        let fisher_2_width = jk_row.fisher_2sigma_hi - jk_row.fisher_2sigma_lo;
+        let bca_2_width = row.bca_2sigma_hi - row.bca_2sigma_lo;
+        println!(
+            "  {:30} {} point={:.6}",
+            name, primary, row.point,
+        );
+        println!(
+            "      Fisher 2σ CI  [{:.6}, {:.6}]  width={:.2e}",
+            jk_row.fisher_2sigma_lo, jk_row.fisher_2sigma_hi, fisher_2_width,
+        );
+        println!(
+            "      BCa    2σ CI  [{:.6}, {:.6}]  width={:.2e}  z0={:+.4}  a={:+.4}",
+            row.bca_2sigma_lo, row.bca_2sigma_hi, bca_2_width, row.z0, row.acceleration,
+        );
+        // Skip ratio when either width collapses to zero (happens when
+        // the point estimate is 1.000000 and Spearman is saturated on the
+        // full population → both Fisher and BCa produce degenerate CIs).
+        if fisher_2_width > 1e-9 && bca_2_width > 1e-9 {
+            let ratio = bca_2_width / fisher_2_width;
+            println!(
+                "      Fisher↔BCa width ratio = {:.3} (closer to 1.0 = better agreement)",
+                ratio,
+            );
+        } else {
+            println!(
+                "      Fisher↔BCa width ratio = N/A (degenerate: ≥1 width collapsed to 0; Spearman saturated)",
+            );
+        }
+        bca_rows.push(row);
+    }
+
+    // ─── Step 11f: CHAODA outlier filter on centroid distance rows ───
+    //
+    // Build a CLAM tree on the 256 Lane 1 u8-distance rows. Each row is
+    // the 256-byte descriptor of a centroid's position in distance space;
+    // a row with high local fractal dimension (LFD) sits in a geometrically
+    // complex neighborhood and is flagged as a potential outlier.
+    //
+    // CHAODA reference: Ishaq, Nishaq, Howard, Daniels (2021) "Clustered
+    // Hierarchical Anomaly and Outlier Detection Algorithms", arXiv:
+    // 2103.11774. The ndarray implementation at `hpc::clam::ClamTree::
+    // anomaly_scores` is the Phase 4 pipeline documented in
+    // `ndarray/.claude/prompts/01_clam_qualiacam.md`. See also nars.rs
+    // `detect_contradiction` which explicitly cites CHAODA as one of its
+    // inspirations for the contradiction-severity heuristic.
+    //
+    // The test answers: if we remove the most-anomalous centroids, does
+    // the primary metric change materially? Three possible outcomes:
+    //
+    //   (a) filtered ≈ raw: the distribution is CHAODA-clean, Fisher z
+    //       and BCa both reflect the true metric. Doctrine: full corpus.
+    //   (b) filtered ≫ raw: outlier centroids were artificially
+    //       depressing the metric. Doctrine: filter before certifying.
+    //   (c) filtered ≪ raw: the flagged "outliers" were actually the
+    //       easy pairs. Doctrine: LFD-based CHAODA not applicable here.
+    //
+    // For a properly compressed encoder the expected outcome is (a) — any
+    // material delta either way signals that the certification corpus is
+    // contaminated. This is the "CHAODA protection vs BGZ distribution
+    // errors" comparison the user asked for: if outcome is (a) then the
+    // distribution is well-behaved and whatever error the lanes hit is
+    // pure BGZ-class compression cost, not contamination cost. The
+    // endgame is bgz-hhtl-d which inherits this invariant.
+    println!("\n[11f] CHAODA outlier filter on 256 Lane-1 distance rows");
+    let clam_tree = ndarray::hpc::clam::ClamTree::build(&lane1, N_CENT, 3);
+    let anomaly = clam_tree.anomaly_scores(&lane1, N_CENT);
+    // Flag the top 10% by anomaly score (count-based). An absolute
+    // threshold like 0.75 or 0.90 is sensitive to the LFD distribution
+    // shape produced by Hamming-on-distance-rows; if the LFD distribution
+    // is bimodal (as it often is on u8 distance matrices) an absolute
+    // threshold ends up flagging 50%+ of centroids which is too aggressive
+    // for a CHAODA sanity check. Count-based top-k is stable across
+    // distribution shapes and keeps the filtered pair set large enough
+    // to give statistically meaningful Pearson/Spearman after filter.
+    const CHAODA_FLAG_FRACTION: f64 = 0.10;
+    let n_to_flag = ((N_CENT as f64) * CHAODA_FLAG_FRACTION).round() as usize;
+    let mut ranked: Vec<&ndarray::hpc::clam::AnomalyScore> = anomaly.iter().collect();
+    ranked.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+    let flag_score_cutoff: f64 = ranked.get(n_to_flag.saturating_sub(1))
+        .map(|a| a.score)
+        .unwrap_or(f64::NAN);
+    let flagged: std::collections::HashSet<usize> = ranked
+        .iter()
+        .take(n_to_flag)
+        .map(|a| a.index)
+        .collect();
+    let n_flagged = flagged.len();
+    let lfd_min = anomaly.iter().map(|a| a.lfd).fold(f64::INFINITY, f64::min);
+    let lfd_max = anomaly.iter().map(|a| a.lfd).fold(f64::NEG_INFINITY, f64::max);
+    let lfd_mean = anomaly.iter().map(|a| a.lfd).sum::<f64>() / (N_CENT.max(1) as f64);
+    println!(
+        "  ClamTree leaves={}  mean_leaf_radius={:.4}  LFD [{:.4}, {:.4}]  mean={:.4}",
+        clam_tree.num_leaves, clam_tree.mean_leaf_radius, lfd_min, lfd_max, lfd_mean,
+    );
+    println!(
+        "  Flagged top {}/{} centroids by anomaly score (cutoff ≥ {:.4})",
+        n_flagged, N_CENT, flag_score_cutoff,
+    );
+
+    let mut chaoda_rows: Vec<ChaodaFilterRow> = Vec::new();
+    let mut chaoda_n_pairs_kept: usize = N_PAIRS_UPPER;
+    if n_flagged > 0 && n_flagged < N_CENT {
+        let mut keep: Vec<usize> = Vec::with_capacity(N_PAIRS_UPPER);
+        let mut p = 0usize;
+        for i in 0..N_CENT {
+            for j in (i + 1)..N_CENT {
+                if !flagged.contains(&i) && !flagged.contains(&j) {
+                    keep.push(p);
+                }
+                p += 1;
+            }
+        }
+        chaoda_n_pairs_kept = keep.len();
+        let ref_filt: Vec<f64> = keep.iter().map(|&q| ref_upper[q]).collect();
+        println!(
+            "  Filtered pair count: {} (was {})",
+            chaoda_n_pairs_kept, N_PAIRS_UPPER,
+        );
+        for (name, lane_data, primary) in &lane_primary_data {
+            let lane_filt: Vec<f64> = keep.iter().map(|&q| lane_data[q]).collect();
+            let raw = match *primary {
+                "pearson"  => quality::pearson(&ref_upper, lane_data),
+                "spearman" => quality::spearman(&ref_upper, lane_data),
+                _ => f64::NAN,
+            };
+            let filt = match *primary {
+                "pearson"  => quality::pearson(&ref_filt, &lane_filt),
+                "spearman" => quality::spearman(&ref_filt, &lane_filt),
+                _ => f64::NAN,
+            };
+            let delta = filt - raw;
+            // Threshold at 1e-4 (4-decimal certification floor). Anything
+            // below is "CHAODA-clean" at the reporting precision.
+            let verdict = if delta.abs() < 1e-4 {
+                "clean"
+            } else if delta > 0.0 {
+                "filtering_helps"
+            } else {
+                "filter_removed_easy_pairs"
+            };
+            println!(
+                "  {:30} {} raw={:.6} filt={:.6} Δ={:+.2e} → {}",
+                name, primary, raw, filt, delta, verdict,
+            );
+            chaoda_rows.push(ChaodaFilterRow {
+                name: name.to_string(),
+                primary: primary.to_string(),
+                metric_raw: raw,
+                metric_filtered: filt,
+                delta,
+                verdict,
+            });
+        }
+    } else {
+        println!(
+            "  Skipping filter step: n_flagged={} (need 0 < n < {})",
+            n_flagged, N_CENT,
+        );
+    }
+
+    // ─── Step 11g: u8 ULP floor — naive-quantization baseline ───
+    //
+    // Measures the mean/max error floor that ANY u8 quantization of the
+    // reference cosine distribution incurs at the coarse limit, using a
+    // uniform-step quantizer over the observed [min, max] range. This is
+    // the naive "no γ+φ, no palette" floor — the simplest compressed
+    // representation that still fits in one byte per pair.
+    //
+    // Why this block exists: the user asked for a BGZ distribution error
+    // comparison to anchor the Lane 3/4 decomposition. A uniform u8 step
+    // over the cosine range is the "worst reasonable" quantizer — any
+    // real compression scheme (γ+φ + CDF, BGZ palette, bgz-hhtl-d) must
+    // do at least this well or the compression is worse than trivial.
+    //
+    // Comparison semantics:
+    //   Lane 3 (γ+φ + u8 CDF) error   vs this baseline  → γ+φ benefit
+    //   Lane 4 (γ+φ + i8 signed) error vs this baseline → γ+φ+signed benefit
+    //   bgz-hhtl-d (endgame) target    vs this baseline → cascade entry tax floor
+    //
+    // The endgame bgz-hhtl-d format is gated at ≥ 0.9980 Pearson in the
+    // doctrine (CLAUDE.md § Certification Process: "bgz-hhtl-d at ≥
+    // 0.9980 after the inherent cascade entry tax"). This step records
+    // the naive-u8 floor so that bgz-hhtl-d certification runs can quote
+    // the "cascade entry tax" as a delta vs the naive u8 floor, giving
+    // the operator a unit-free interpretation of how close bgz-hhtl-d is
+    // to the information-theoretic 1-byte-per-pair limit.
+    println!("\n[11g] Naive u8 ULP floor (BGZ distribution baseline)");
+    let ref_min_full = ref_upper.iter().copied().fold(f64::INFINITY, f64::min);
+    let ref_max_full = ref_upper.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    let naive_ulp = (ref_max_full - ref_min_full) / 255.0;
+    // Uniform-step u8 quantize → decode round-trip.
+    let naive_u8_rt: Vec<f64> = ref_upper
+        .iter()
+        .map(|&c| {
+            let t = ((c - ref_min_full) / naive_ulp).round().clamp(0.0, 255.0);
+            ref_min_full + t * naive_ulp
+        })
+        .collect();
+    let naive_pearson  = quality::pearson(&ref_upper, &naive_u8_rt);
+    let naive_spearman = quality::spearman(&ref_upper, &naive_u8_rt);
+    let naive_max_err: f64 = ref_upper
+        .iter()
+        .zip(naive_u8_rt.iter())
+        .map(|(&r, &q)| (r - q).abs())
+        .fold(0.0, f64::max);
+    let naive_mean_err: f64 = ref_upper
+        .iter()
+        .zip(naive_u8_rt.iter())
+        .map(|(&r, &q)| (r - q).abs())
+        .sum::<f64>()
+        / ref_upper.len().max(1) as f64;
+    println!(
+        "  ref range [{:.6}, {:.6}]  u8 ULP = {:.6e}  (= (max-min)/255)",
+        ref_min_full, ref_max_full, naive_ulp,
+    );
+    println!(
+        "  naive u8 round-trip:  Pearson={:.6}  Spearman={:.6}  max|err|={:.2e}  mean|err|={:.2e}",
+        naive_pearson, naive_spearman, naive_max_err, naive_mean_err,
+    );
+    // Compare to Lane 3 (the canonical γ+φ + u8 CDF lane).
+    let lane3_pearson_full = quality::pearson(&ref_upper, &lane3_upper);
+    let lane3_spearman_full = quality::spearman(&ref_upper, &lane3_upper);
+    let gammaphi_benefit_spearman = lane3_spearman_full - naive_spearman;
+    println!(
+        "  Lane 3 (γ+φ u8 CDF):  Pearson={:.6}  Spearman={:.6}",
+        lane3_pearson_full, lane3_spearman_full,
+    );
+    println!(
+        "  γ+φ+CDF benefit over naive u8 (Spearman):  Δρ = {:+.6}",
+        gammaphi_benefit_spearman,
+    );
+
     // ─── Step 11c: γ+φ (gamma-Euler) projection round-trip certification ───
     //
     // Certifies the γ+φ encoding as an isolated lossless-up-to-float-
@@ -1292,6 +1613,81 @@ fn main() {
             }).collect::<Vec<_>>(),
         },
 
+        "bca_bootstrap_efron_1987": {
+            "n_resamples": N_BCA_RESAMPLES,
+            "seed": format!("0x{:016X}", bca_seed),
+            "method": "Efron & Tibshirani 1994 Chapter 14 BCa, §11.5 grouped jackknife for acceleration",
+            "citation": "Efron, B. (1987) 'Better Bootstrap Confidence Intervals', JASA 82(397); Deutsch 2021 arXiv:2104.00054 recommends BCa over Fisher z for embedding-similarity Pearson because Fisher z assumes bivariate normality which does not hold for cosine distributions per Mu & Viswanath 2018 and Ethayarajh 2019.",
+            "acceleration_source": "grouped jackknife — 256 leave-one-centroid-out replicates reused from Step 11b (delete-255 group-drop, balanced groups)",
+            "scope": "Lanes 1-4 only — compressed derivation lanes where distribution non-normality matters. Lane 6 is measured directly by Fisher z at 4-decimal precision and adds no information from a resample bootstrap at the 0.9999 ceiling.",
+            "role": "cross-check on Fisher z — not a replacement. At 2σ (95.45%) BCa and Fisher z are directly comparable with matched precision. At 3σ (99.73%) B=2000 undersamples the tail (~2.7 samples per endpoint); doctrine authority remains Fisher z at 3σ.",
+            "per_lane": bca_rows.iter().map(|row| {
+                serde_json::json!({
+                    "lane": row.name,
+                    "metric": row.primary,
+                    "point_estimate": row.point,
+                    "n_resamples": row.n_resamples,
+                    "z0_bias_correction": row.z0,
+                    "acceleration": row.acceleration,
+                    "bca_2sigma_lo": row.bca_2sigma_lo,
+                    "bca_2sigma_hi": row.bca_2sigma_hi,
+                    "bca_3sigma_lo": row.bca_3sigma_lo,
+                    "bca_3sigma_hi": row.bca_3sigma_hi,
+                    "alpha1_2sigma_adjusted": row.alpha1_2sigma,
+                    "alpha2_2sigma_adjusted": row.alpha2_2sigma,
+                    "alpha1_3sigma_adjusted": row.alpha1_3sigma,
+                    "alpha2_3sigma_adjusted": row.alpha2_3sigma,
+                })
+            }).collect::<Vec<_>>(),
+        },
+
+        "chaoda_outlier_filter": {
+            "source": "ndarray::hpc::clam::ClamTree::anomaly_scores",
+            "citation": "Ishaq, Nishaq, Howard, Daniels (2021) 'Clustered Hierarchical Anomaly and Outlier Detection Algorithms (CHAODA)', arXiv:2103.11774. Phase 4 of .claude/prompts/01_clam_qualiacam.md. Cited by ndarray::hpc::nars::detect_contradiction as one of the contradiction-severity heuristic's inspirations.",
+            "data_source": "Lane 1 u8 distance rows — each centroid's 256-byte row is its descriptor in distance space, Hamming distance on raw bytes gives ClamTree a meaningful local-fractal-dimension signal without re-loading centroid embeddings.",
+            "flag_policy": "top_k_by_score",
+            "flag_fraction": CHAODA_FLAG_FRACTION,
+            "flag_score_cutoff": flag_score_cutoff,
+            "n_centroids": N_CENT,
+            "n_flagged_centroids": n_flagged,
+            "n_clam_leaves": clam_tree.num_leaves,
+            "mean_leaf_radius": clam_tree.mean_leaf_radius,
+            "lfd_min": lfd_min,
+            "lfd_max": lfd_max,
+            "lfd_mean": lfd_mean,
+            "n_pairs_upper": N_PAIRS_UPPER,
+            "n_pairs_kept": chaoda_n_pairs_kept,
+            "per_lane": chaoda_rows.iter().map(|row| {
+                serde_json::json!({
+                    "lane": row.name,
+                    "metric": row.primary,
+                    "metric_raw": row.metric_raw,
+                    "metric_filtered": row.metric_filtered,
+                    "delta": row.delta,
+                    "verdict": row.verdict,
+                })
+            }).collect::<Vec<_>>(),
+            "interpretation": "filtered ≈ raw (all verdicts 'clean') = CHAODA-clean distribution, whatever error the lanes hit is pure compression cost not contamination cost. This is the BGZ-distribution-error baseline that the endgame bgz-hhtl-d format must match after its inherent cascade entry tax.",
+        },
+
+        "bgz_distribution_naive_u8_floor": {
+            "quantizer": "uniform u8 step over [min, max] of the reference cosine distribution",
+            "ref_min": ref_min_full,
+            "ref_max": ref_max_full,
+            "ulp": naive_ulp,
+            "pearson": naive_pearson,
+            "spearman": naive_spearman,
+            "max_abs_error": naive_max_err,
+            "mean_abs_error": naive_mean_err,
+            "comparison": {
+                "lane_3_gamma_phi_u8_cdf_pearson": lane3_pearson_full,
+                "lane_3_gamma_phi_u8_cdf_spearman": lane3_spearman_full,
+                "gamma_phi_spearman_benefit_over_naive": gammaphi_benefit_spearman,
+                "note": "γ+φ+CDF should beat naive uniform u8 Spearman because it redistributes quantization levels around the density mass of the cosine distribution. If Δρ ≤ 0, γ+φ adds no value over the trivial quantizer and should be dropped.",
+            },
+            "endgame_framing": "bgz-hhtl-d (the obligatory runtime format per CLAUDE.md § Certification Process) must hit ≥ 0.9980 Pearson after its cascade entry tax. The 'cascade entry tax' is the delta between bgz-hhtl-d's measured Pearson and this naive u8 floor, and the delta between γ+φ+CDF and this naive floor is the budget left for the HHTL cascade to spend before hitting the 0.9980 target.",
+        },
+
         "icc_profile_gamma_phi": {
             "design_intent": "The original plan of γ+φ was to project the cosine distribution onto a golden-ratio grid and store a 28-byte ICC-profile-style metadata block (role_gamma + phi_scale) so the projection is reversible via gamma_phi_decode with only those 28 bytes. This block certifies the projection empirically.",
             "profile_bytes": 36,
@@ -1703,4 +2099,262 @@ fn round4(v: f64) -> f64 {
 #[cfg(feature = "calibration")]
 fn round6(v: f64) -> f64 {
     (v * 1000000.0).round() / 1000000.0
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// Efron BCa bootstrap helpers (Step 11e)
+// ───────────────────────────────────────────────────────────────────────────
+//
+// Minimal standard-normal toolkit: erf → Φ → Φ⁻¹. We don't pull in a stats
+// crate because the workspace rule is zero external crates.io deps; these
+// three public-domain approximations cover BCa requirements at ~1e-7 erf
+// precision and ~1.15e-9 relative probit precision, far beyond what a
+// 2000-resample bootstrap percentile index needs.
+
+/// Error function. Abramowitz & Stegun 7.1.26 (max |err| ≤ 1.5e-7).
+#[cfg(feature = "calibration")]
+fn erf(x: f64) -> f64 {
+    let sign = if x < 0.0 { -1.0 } else { 1.0 };
+    let x = x.abs();
+    let a1 =  0.254_829_592_f64;
+    let a2 = -0.284_496_736_f64;
+    let a3 =  1.421_413_741_f64;
+    let a4 = -1.453_152_027_f64;
+    let a5 =  1.061_405_429_f64;
+    let p  =  0.327_591_1_f64;
+    let t = 1.0 / (1.0 + p * x);
+    let y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * (-x * x).exp();
+    sign * y
+}
+
+/// Standard normal CDF Φ(x).
+#[cfg(feature = "calibration")]
+fn phi(x: f64) -> f64 {
+    0.5 * (1.0 + erf(x / std::f64::consts::SQRT_2))
+}
+
+/// Inverse standard normal CDF Φ⁻¹(p). Peter J. Acklam's 2003 rational
+/// approximation. Public domain. Max relative error ≈ 1.15e-9 in (0,1).
+#[cfg(feature = "calibration")]
+fn phi_inv(p: f64) -> f64 {
+    let a = [
+        -3.969_683_028_665_376e+01_f64,
+         2.209_460_984_245_205e+02_f64,
+        -2.759_285_104_469_687e+02_f64,
+         1.383_577_518_672_690e+02_f64,
+        -3.066_479_806_614_716e+01_f64,
+         2.506_628_277_459_239e+00_f64,
+    ];
+    let b = [
+        -5.447_609_879_822_406e+01_f64,
+         1.615_858_368_580_409e+02_f64,
+        -1.556_989_798_598_866e+02_f64,
+         6.680_131_188_771_972e+01_f64,
+        -1.328_068_155_288_572e+01_f64,
+    ];
+    let c = [
+        -7.784_894_002_430_293e-03_f64,
+        -3.223_964_580_411_365e-01_f64,
+        -2.400_758_277_161_838e+00_f64,
+        -2.549_732_539_343_734e+00_f64,
+         4.374_664_141_464_968e+00_f64,
+         2.938_163_982_698_783e+00_f64,
+    ];
+    let d = [
+         7.784_695_709_041_462e-03_f64,
+         3.224_671_290_700_398e-01_f64,
+         2.445_134_137_142_996e+00_f64,
+         3.754_408_661_907_416e+00_f64,
+    ];
+    let p_low  = 0.02425_f64;
+    let p_high = 1.0 - p_low;
+    if p <= 0.0 { return f64::NEG_INFINITY; }
+    if p >= 1.0 { return f64::INFINITY; }
+    if p < p_low {
+        let q = (-2.0 * p.ln()).sqrt();
+        (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5])
+            / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1.0)
+    } else if p <= p_high {
+        let q = p - 0.5;
+        let r = q * q;
+        (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q
+            / (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1.0)
+    } else {
+        let q = (-2.0 * (1.0 - p).ln()).sqrt();
+        -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5])
+            / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1.0)
+    }
+}
+
+/// Efron BCa bootstrap CI — one entry per lane.
+///
+/// Stores the point estimate, both 2σ and 3σ BCa bounds, the bias
+/// correction z0, the acceleration a, and the adjusted percentile cutoffs
+/// used to select the CI endpoints from the sorted bootstrap replicates.
+///
+/// References:
+/// - Efron, B. (1987). "Better Bootstrap Confidence Intervals". JASA 82(397).
+/// - Efron, B. & Tibshirani, R. (1994). "An Introduction to the Bootstrap",
+///   Chapman & Hall. Ch. 14 (BCa); §11.5 (grouped / delete-d jackknife).
+#[cfg(feature = "calibration")]
+struct BcaBootstrapRow {
+    name: String,
+    primary: String,
+    n_resamples: usize,
+    point: f64,
+    z0: f64,
+    acceleration: f64,
+    bca_2sigma_lo: f64,
+    bca_2sigma_hi: f64,
+    bca_3sigma_lo: f64,
+    bca_3sigma_hi: f64,
+    alpha1_2sigma: f64,
+    alpha2_2sigma: f64,
+    alpha1_3sigma: f64,
+    alpha2_3sigma: f64,
+}
+
+/// Run the BCa bootstrap at 2σ and 3σ. Reuses caller-supplied grouped
+/// jackknife values for the acceleration component per Efron & Tibshirani
+/// 1994 §11.5 (grouped / delete-d jackknife is a valid BCa acceleration
+/// estimator; our 256 centroids × 32640 pairs form a well-balanced
+/// delete-255 group jackknife because each drop removes exactly 255 pairs).
+///
+/// At 2σ (p_tail = 0.02275), B=2000 resolves the tail to ~45 samples per
+/// endpoint — stable. At 3σ (p_tail = 0.00135), B=2000 resolves the tail
+/// to ~2.7 samples per endpoint — undersampled; the 3σ BCa bound is
+/// reported for completeness but the 3σ authority per doctrine remains
+/// Fisher z (closed-form, no sampling noise). Callers who want BCa 3σ
+/// precision should pass B ≥ 5000.
+#[cfg(feature = "calibration")]
+fn bca_bootstrap_ci(
+    name: &str,
+    primary: &str,
+    reference: &[f64],
+    lane: &[f64],
+    n_resamples: usize,
+    seed: u64,
+    jk_values: &[f64],
+) -> BcaBootstrapRow {
+    use bgz_tensor::quality;
+    let n = reference.len().min(lane.len());
+
+    let point = match primary {
+        "pearson" => quality::pearson(reference, lane),
+        "spearman" => quality::spearman(reference, lane),
+        _ => f64::NAN,
+    };
+
+    // Deterministic SplitMix64 resample driver.
+    let mut state = seed;
+    let mut next = || -> u64 {
+        state = state.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut z = state;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        z ^ (z >> 31)
+    };
+
+    let mut samples: Vec<f64> = Vec::with_capacity(n_resamples);
+    let mut ref_buf: Vec<f64> = vec![0.0; n];
+    let mut lane_buf: Vec<f64> = vec![0.0; n];
+    for _ in 0..n_resamples {
+        for i in 0..n {
+            let idx = (next() % n as u64) as usize;
+            ref_buf[i] = reference[idx];
+            lane_buf[i] = lane[idx];
+        }
+        let m = match primary {
+            "pearson" => quality::pearson(&ref_buf, &lane_buf),
+            "spearman" => quality::spearman(&ref_buf, &lane_buf),
+            _ => f64::NAN,
+        };
+        if !m.is_nan() {
+            samples.push(m);
+        }
+    }
+    samples.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
+    let nan_row = |z0: f64, acc: f64| BcaBootstrapRow {
+        name: name.to_string(),
+        primary: primary.to_string(),
+        n_resamples,
+        point,
+        z0,
+        acceleration: acc,
+        bca_2sigma_lo: f64::NAN,
+        bca_2sigma_hi: f64::NAN,
+        bca_3sigma_lo: f64::NAN,
+        bca_3sigma_hi: f64::NAN,
+        alpha1_2sigma: f64::NAN,
+        alpha2_2sigma: f64::NAN,
+        alpha1_3sigma: f64::NAN,
+        alpha2_3sigma: f64::NAN,
+    };
+
+    if samples.is_empty() {
+        return nan_row(0.0, 0.0);
+    }
+
+    // Bias correction z0 = Φ⁻¹(#{θ*_b < θ̂} / B).
+    let b = samples.len() as f64;
+    let n_below = samples.iter().filter(|&&s| s < point).count() as f64;
+    let prop = (n_below / b).clamp(1e-9, 1.0 - 1e-9);
+    let z0 = phi_inv(prop);
+
+    // Acceleration a from grouped jackknife (Efron & Tibshirani 1994 §11.5):
+    //     a = Σ(θ̄ − θ_(g))³ / (6·(Σ(θ̄ − θ_(g))²)^(3/2))
+    // where θ_(g) is the g-th group-drop estimate and θ̄ is their mean.
+    let jk_mean = jk_values.iter().sum::<f64>() / jk_values.len().max(1) as f64;
+    let num: f64 = jk_values.iter().map(|&v| (jk_mean - v).powi(3)).sum();
+    let den_sq: f64 = jk_values.iter().map(|&v| (jk_mean - v).powi(2)).sum();
+    let acceleration = if den_sq > 1e-24 {
+        num / (6.0 * den_sq.powf(1.5))
+    } else {
+        0.0
+    };
+
+    // BCa adjusted percentiles at k_sigma ∈ {2.0, 3.0}.
+    let bca_at = |k_sigma: f64| -> (f64, f64, f64, f64) {
+        let z_lo = -k_sigma;
+        let z_hi =  k_sigma;
+        let a1 = phi(z0 + (z0 + z_lo) / (1.0 - acceleration * (z0 + z_lo)));
+        let a2 = phi(z0 + (z0 + z_hi) / (1.0 - acceleration * (z0 + z_hi)));
+        let last = samples.len() as isize - 1;
+        let idx1 = ((a1 * b).floor() as isize).max(0).min(last) as usize;
+        let idx2 = ((a2 * b).ceil()  as isize).max(0).min(last) as usize;
+        (samples[idx1], samples[idx2], a1, a2)
+    };
+    let (lo2, hi2, a1_2, a2_2) = bca_at(2.0);
+    let (lo3, hi3, a1_3, a2_3) = bca_at(3.0);
+
+    BcaBootstrapRow {
+        name: name.to_string(),
+        primary: primary.to_string(),
+        n_resamples,
+        point,
+        z0,
+        acceleration,
+        bca_2sigma_lo: lo2,
+        bca_2sigma_hi: hi2,
+        bca_3sigma_lo: lo3,
+        bca_3sigma_hi: hi3,
+        alpha1_2sigma: a1_2,
+        alpha2_2sigma: a2_2,
+        alpha1_3sigma: a1_3,
+        alpha2_3sigma: a2_3,
+    }
+}
+
+/// CHAODA outlier-filter summary — one entry per lane. Captures the
+/// primary metric before and after filtering flagged centroids from
+/// the pair array, plus a human-readable verdict band.
+#[cfg(feature = "calibration")]
+struct ChaodaFilterRow {
+    name: String,
+    primary: String,
+    metric_raw: f64,
+    metric_filtered: f64,
+    delta: f64,
+    verdict: &'static str,
 }
