@@ -321,6 +321,38 @@ Claim → Probe defined (pass/fail criteria) → Probe written (example file)
 ```
 No knowledge doc should contain unmarked conjectures. Label everything.
 
+## In-Session Orchestration Discipline
+
+**P0 Rule: Read before Write, always.** Before calling `Write` on any path
+that may already exist, run `Read` (or `git status` for committed files).
+The `Edit` tool is the default for modifying existing files; `Write` is only
+for new files or genuine full rewrites the user explicitly asked for. This
+rule applies to the model's own prior commits in the same session — "I just
+wrote this" is not a license to overwrite it without checking state.
+
+**Diagnostic signature of the failure mode:** a `git diff` showing `~N
+insertions / ~N deletions` on a file of size N — same magnitude, same shape,
+virtually every line different — means the file was *regenerated from prompt*
+instead of *built from state*. If you see this on your own commit, you just
+overwrote committed work. Revert with `git restore <path>` and use `Edit`
+for any genuine refinement.
+
+**Tool-reach reminder for deferred tools.** `AskUserQuestion`, `TodoWrite`,
+`WebSearch`, `WebFetch` are namechecked in the Claude Code system prompt but
+sit behind `ToolSearch` in Opus 4.6 — their schemas are not loaded by default.
+Do not treat "not in the current schema list" as "not available." Reach for
+`ToolSearch` with `select:<name>` when the situation calls for them
+(multi-step tracking, user clarification on ambiguous denials, web lookups).
+
+**Upstream regression filed:**
+[anthropics/claude-code#46861](https://github.com/anthropics/claude-code/issues/46861)
+documents the pattern observed in this workspace (Opus 4.6 reproducer: post-
+commit `Write`-over-self without `Read`; deferred-tool reach failure for the
+tools listed above). Treat that issue as the canonical reference if a future
+session asks why this section exists. The 172/171 diff that triggered the
+filing was on `.claude/prompts/arxiv.md` in this repo, branch
+`claude/risc-thought-engine-TCZw7`.
+
 ## Model Registry (Jina v5 is ground truth anchor)
 
 ```
