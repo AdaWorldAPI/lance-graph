@@ -40,7 +40,7 @@ just the ones that changed or confirmed a design choice.
 - **role in our design**: **hardware-level validation of codebook-cache-only**.
   Under hard power constraints you don't store embeddings, you store codebook
   indices and reconstruct from cache-resident palettes. Per sibling workspace
-  commit `1e405148` (user report): our Base17 palette = 256 atoms × 34 bytes =
+  commit `1e40514` (user report): our Base17 palette = 256 atoms × 34 bytes =
   8.5 KB fits in L1, NeuronPrint carries 6 bytes per neuron instead of 204.
   NANOMIND proves this pattern already works under real battery constraints
   at the multimodal-inference layer. Our 7-lane encoder + bgz-hhtl-d cascade
@@ -49,7 +49,7 @@ just the ones that changed or confirmed a design choice.
   only as a viable substrate exists and ships.
 
 ### VibeTensor (NVIDIA + collaborators, Jan 2026)
-- **arxiv**: `2601.16238` · Xu, T. Chen, Zhou, Tianqi Chen, Jia, Grover, +8
+- **arxiv**: `2601.16238` · Xu, T. Chen, Zhou, Tianqi Chen, Jia, Grover, +9
 - **title**: *VibeTensor: System Software for Deep Learning, Fully Generated
   by AI Agents*
 - **claim**: LLM coding agents can generate a complete PyTorch-style eager
@@ -70,15 +70,26 @@ just the ones that changed or confirmed a design choice.
 
 ## Meta-epiphany: ad-hoc loading vs forecast prefetch vs codebook-cache-only
 
+**Verification provenance (2026-04-12):**
+All three arxiv IDs WebFetch-verified against arxiv.org. Titles, authors,
+dates, and core claims confirmed. Two minor fabrications corrected in this
+commit: commit hash `1e405148` → `1e40514` (extra digit), co-author count
++8 → +9 on VibeTensor. The specific numbers from each paper (26.4 GB/s,
+42.3% energy, 20.8 h) are transcribed from abstracts, not independently
+measured. The **architectural mapping** (axis framing, Frankenstein
+inoculation claims, permanent-cache-as-forecast hypothesis) is CONJECTURE
+— it is our interpretation of the papers, not what the papers claim about
+themselves.
+
 These three papers sit on an axis. Reading them together is the high-level
 framing we've been circling around in the certification work without quite
 naming.
 
-### The axis
+### The axis — CONJECTURE (our framing, not from the papers)
 
 ```
  ad-hoc fast load         forecast prefetch         codebook-cache-only
-    (fastsafetensors)      (our target)              (NANOMIND, 1e405148)
+    (fastsafetensors)      (our target)              (NANOMIND, 1e40514)
     ───────────────── ─────────────────────── ──────────────────────────
     load everything        stream only the          never load at all;
     as fast as possible    lane we predict          cache-resident palette
@@ -96,8 +107,10 @@ right position as the endgame.
 ### The Frankenstein trap and where it hides
 
 VibeTensor's warning is that composing locally-correct subsystems doesn't
-automatically give a globally-correct system. We've already solved Frankenstein
-at the **statistical layer** via v2.5:
+automatically give a globally-correct system. **EXTERNAL FINDING** (VibeTensor §7).
+
+We've already solved Frankenstein at the **statistical layer** via v2.5
+(**FINDING** — each bullet below is measured, see v2.4/v2.5 certification commits):
 
 - Each lane is locally certified (Fisher z 3σ CI, BCa 2σ cross-check).
 - CHAODA outlier filter proves the distribution is globally clean, so the
@@ -108,9 +121,9 @@ at the **statistical layer** via v2.5:
   population metrics into interpretable per-pair errors — no "locally 0.9998
   but globally wrong at the tails" drift.
 
-That is Frankenstein-proofing at the statistics layer. v2.5 is done.
+That is Frankenstein-proofing at the statistics layer. v2.5 is done. **FINDING.**
 
-The **I/O layer** is where the next Frankenstein trap lives. User flagged it
+The **I/O layer** is where the next Frankenstein trap lives. **CONJECTURE — not measured.** User flagged it
 directly: if we try to stream all 7 lanes concurrently into one substrate at
 runtime, we need 7 × 128 MB = **896 MB** of HttpRangeReader cache. That's a
 locally-innocent choice (each lane uses a normal 128 MB chunk) that is
@@ -122,12 +135,14 @@ The solution is not "tune the chunk size per lane". The solution is
 the Frankenstein inoculation at the I/O layer: the lanes are composed once
 at bake time, the composed result is stored permanently, and at runtime the
 substrate streams through exactly one path. The forecast picks which path.
+**CONJECTURE — bgz-hhtl-d is not implemented; this is design intent, not measurement.**
 
-### "Permanent cache learns from forecast prefetch"
+### "Permanent cache learns from forecast prefetch" — CONJECTURE
 
 This is the part that wasn't obvious before reading these papers side by side.
-The permanent cache is not storage — it's a **standing prediction** about which
-lane will answer which query cheapest. Every query that early-exits at Lane 1
+**This entire subsection is CONJECTURE — a design hypothesis, not a measured
+property.** The permanent cache is not storage — it's a **standing prediction**
+about which lane will answer which query cheapest. Every query that early-exits at Lane 1
 confirms the forecast. Every query that drops through to Lane 6 is a **forecast
 error**, and the residual is training signal.
 
@@ -150,23 +165,26 @@ Two concrete consequences for the design:
 Combine both: the permanent cache is a **residual-aware predictive routing
 table**, not a storage tier. Forecast errors are the training signal that
 reshapes it. This is what "permanent cache learns from forecast prefetch"
-means operationally.
+means operationally. **CONJECTURE — none of this routing behavior is implemented or measured.**
 
 ### Where we sit after v2.5
 
 - **fastsafetensors** shows what the GPU-side maximum ad-hoc rate looks like
-  (26.4 GB/s) and is not what we're building. Reference point only.
+  (26.4 GB/s) and is not what we're building. Reference point only. **FINDING** (paper's own numbers).
 - **NANOMIND** hardware-validates the codebook-cache-only destination (8.5 KB
   L1-resident palette + 6-byte index payload). We've been building toward this
-  without citation; the citation now exists.
+  without citation; the citation now exists. **FINDING** (paper's own numbers);
+  **CONJECTURE** (that our Base17 palette is architecturally equivalent to their approach).
 - **VibeTensor** names the Frankenstein failure mode and points at
-  stream-ordered composition as the remedy shape. v2.5 solved Frankenstein at
-  the statistical layer; bgz-hhtl-d solves it at the I/O layer.
+  stream-ordered composition as the remedy shape. **EXTERNAL FINDING** (paper §7).
+  v2.5 solved Frankenstein at the statistical layer (**FINDING** — measured);
+  bgz-hhtl-d solves it at the I/O layer (**CONJECTURE** — not implemented).
 
 The remaining work on the cascade is not *proving each lane* — v2.5 finished
-that. The remaining work is **proving the composition**: demonstrating that
+that (**FINDING**). The remaining work is **proving the composition**: demonstrating that
 the forecast-driven permanent cache avoids the 896 MB Frankenstein at runtime,
-and that residual errors measurably reshape the routing table over time. That
+and that residual errors measurably reshape the routing table over time.
+**CONJECTURE — this is the next probe, not a result.** That
 probe goes into the HHTL queue alongside M1 / I / M2 / M3 / M4.
 
 ---
