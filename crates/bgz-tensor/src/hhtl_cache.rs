@@ -69,6 +69,11 @@ pub struct HhtlCache {
     pub distances: AttentionTable,
     /// k × k precomputed routing decisions. Same layout as distances.
     pub routes: Vec<RouteAction>,
+    /// Per-basin gamma correction factors for exact cosine restore.
+    /// Basin lo gamma + basin hi gamma + phi_scale + role index.
+    /// 16 bytes. Stored as [f32; 4] = [lo_gamma, hi_gamma, phi_scale, role_id].
+    /// If absent (legacy files): all zeros → no gamma correction.
+    pub gamma_meta: [f32; 4],
 }
 
 impl HhtlCache {
@@ -81,7 +86,7 @@ impl HhtlCache {
     pub fn from_palette_with_config(palette: WeightPalette, config: &CascadeConfig) -> Self {
         let distances = AttentionTable::build(&palette);
         let routes = build_route_table(&palette, &distances, config);
-        Self { palette, distances, routes }
+        Self { palette, distances, routes, gamma_meta: [0.0; 4] }
     }
 
     /// Build from raw Base17 rows (e.g., read from bgz7 shards).
@@ -102,6 +107,7 @@ impl HhtlCache {
                     k: 0,
                 },
                 routes: Vec::new(),
+                gamma_meta: [0.0; 4],
             };
         }
 
@@ -158,7 +164,7 @@ impl HhtlCache {
         let config = CascadeConfig::default();
         let routes = build_route_table(&palette, &distances, &config);
 
-        Self { palette, distances, routes }
+        Self { palette, distances, routes, gamma_meta: [0.0; 4] }
     }
 
     /// Palette size (number of archetypes).
@@ -229,6 +235,11 @@ impl HhtlCache {
             f.write_all(&r.to_le_bytes()).map_err(|e| e.to_string())?;
         }
 
+        // Gamma metadata: [lo_gamma, hi_gamma, phi_scale, role_id] = 16 bytes
+        for &g in &self.gamma_meta {
+            f.write_all(&g.to_le_bytes()).map_err(|e| e.to_string())?;
+        }
+
         Ok(())
     }
 
@@ -291,10 +302,22 @@ impl HhtlCache {
 
         let counts = vec![0u32; k];
 
+        // Try reading gamma metadata (16 bytes). Missing = legacy file, default to zeros.
+        let mut gamma_meta = [0.0f32; 4];
+        let mut gamma_buf = [0u8; 16];
+        if f.read_exact(&mut gamma_buf).is_ok() {
+            for i in 0..4 {
+                gamma_meta[i] = f32::from_le_bytes([
+                    gamma_buf[i*4], gamma_buf[i*4+1], gamma_buf[i*4+2], gamma_buf[i*4+3],
+                ]);
+            }
+        }
+
         Ok(Self {
             palette: WeightPalette { entries, radii, counts },
             distances: AttentionTable { distances, k },
             routes,
+            gamma_meta,
         })
     }
 
@@ -325,9 +348,34 @@ impl HhtlCache {
     }
 }
 
-/// Build the route table: precompute cascade decisions for all archetype pairs.
+/// Perceptual weight for a Base17 archetype entry.
 ///
-/// For each (a, b) pair, runs the HEEL + HIP check to decide the action.
+/// Base17 dims 0-16 map to golden-step positions in the weight vector.
+/// For audio: low dims ≈ low-frequency structure, mid dims ≈ formant region,
+/// high dims ≈ fine detail/noise. The formant region (2-5 kHz, dims ~5-10)
+/// is where the ear is most sensitive — skip threshold must be tighter there.
+///
+/// Returns: weight in [0.5, 2.0]. >1.0 = formant-sensitive (tighter threshold).
+fn perceptual_weight(entry: &Base17) -> f32 {
+    let dims = &entry.dims;
+    // Energy in formant-sensitive band (dims 5-10, golden-step mapped)
+    let formant_energy: i64 = dims[5..11].iter().map(|&d| (d as i64).abs()).sum();
+    // Total energy across all dims
+    let total_energy: i64 = dims.iter().map(|&d| (d as i64).abs()).sum();
+    if total_energy < 1 { return 1.0; }
+    // Formant fraction: how much of this entry's energy is in the sensitive band
+    let formant_frac = formant_energy as f32 / total_energy as f32;
+    // Map: 0% formant → weight 0.5 (can skip aggressively)
+    //      50%+ formant → weight 2.0 (must attend, no crackling)
+    (0.5 + formant_frac * 3.0).min(2.0)
+}
+
+/// Build the route table with perceptual weighting.
+///
+/// For each (a, b) pair, applies perceptual weight to the skip threshold:
+/// formant-heavy pairs get tighter thresholds (more Attend, less crackling).
+/// Noise-heavy pairs get looser thresholds (more Skip, free bandwidth).
+///
 /// This is O(k²) at build time, O(1) at inference time.
 fn build_route_table(
     palette: &WeightPalette,
@@ -337,8 +385,10 @@ fn build_route_table(
     let k = palette.len();
     let mut routes = vec![RouteAction::Skip; k * k];
 
-    // Derive thresholds from the actual distance distribution (not fixed constants).
-    // Collect all non-diagonal distances, sort, use percentiles.
+    // Precompute perceptual weights for each palette entry
+    let pw: Vec<f32> = palette.entries.iter().map(|e| perceptual_weight(e)).collect();
+
+    // Derive base thresholds from actual distance distribution
     let mut all_dists: Vec<u16> = Vec::with_capacity(k * k);
     for a in 0..k {
         for b in 0..k {
@@ -355,9 +405,13 @@ fn build_route_table(
     for a in 0..k {
         for b in 0..k {
             let dist = distances.distance(a as u8, b as u8);
+            // Perceptual-weighted skip threshold: formant pairs harder to skip
+            let pair_weight = (pw.get(a).copied().unwrap_or(1.0)
+                             + pw.get(b).copied().unwrap_or(1.0)) / 2.0;
+            let weighted_p75 = (p75 as f32 * pair_weight) as u16;
 
-            // Skip: distance above 75th percentile — too far, no interaction
-            if dist > p75 {
+            // Skip: distance above perceptual-weighted 75th percentile
+            if dist > weighted_p75 {
                 routes[a * k + b] = RouteAction::Skip;
                 continue;
             }
@@ -378,10 +432,13 @@ fn build_route_table(
                 }
             }
 
+            // Perceptual-weighted attend threshold: formant pairs attend at wider range
+            let weighted_p25 = (p25 as f32 * pair_weight) as u16;
+
             if has_shortcut {
                 routes[a * k + b] = RouteAction::Compose;
-            } else if dist <= p25 {
-                // Strong signal (bottom 25%) — attend directly
+            } else if dist <= weighted_p25 {
+                // Strong signal — attend directly (formant pairs: wider attend range)
                 routes[a * k + b] = RouteAction::Attend;
             } else {
                 // Middle 50% — needs TWIG to decide
