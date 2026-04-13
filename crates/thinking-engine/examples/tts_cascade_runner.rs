@@ -122,41 +122,110 @@ fn main() {
     }
     let elapsed = t0.elapsed();
 
-    println!("[3] Cascade results ({:?}):", elapsed);
+    println!("[3] Talker cascade results ({:?}):", elapsed);
     println!("    Attend:   {} ({:.1}%)", attend_count,
-        attend_count as f64 / (attend_count + skip_count + compose_count + escalate_count) as f64 * 100.0);
+        attend_count as f64 / (attend_count + skip_count + compose_count + escalate_count).max(1) as f64 * 100.0);
     println!("    Skip:     {} ({:.1}%)", skip_count,
-        skip_count as f64 / (attend_count + skip_count + compose_count + escalate_count) as f64 * 100.0);
-    println!("    Compose:  {} ({:.1}%)", compose_count,
-        compose_count as f64 / (attend_count + skip_count + compose_count + escalate_count) as f64 * 100.0);
-    println!("    Escalate: {} ({:.1}%)", escalate_count,
-        escalate_count as f64 / (attend_count + skip_count + compose_count + escalate_count) as f64 * 100.0);
+        skip_count as f64 / (attend_count + skip_count + compose_count + escalate_count).max(1) as f64 * 100.0);
+    println!("    Compose:  {}", compose_count);
+    println!("    Escalate: {}", escalate_count);
 
-    // Step 3: Analyze output archetype sequence
-    let unique: std::collections::HashSet<u8> = output_archetypes.iter().copied().collect();
-    println!("\n[4] Output archetype sequence:");
-    println!("    Length: {}", output_archetypes.len());
-    println!("    Unique archetypes: {}", unique.len());
-    println!("    First 20: {:?}", &output_archetypes[..20.min(output_archetypes.len())]);
+    // Step 3b: Code predictor cascade (5 layers → 16 codebook indices)
+    println!("\n[4] Code predictor cascade → audio codes...");
+    let cp_roles = ["code_predictor_q_proj", "code_predictor_k_proj", "code_predictor_v_proj",
+                    "code_predictor_gate_proj", "code_predictor_up_proj", "code_predictor_down_proj"];
+    let cp_embed_assign = assignments.get("code_predictor_embedding").cloned().unwrap_or_default();
 
-    // Check: is the sequence structured (not random)?
-    // Adjacent archetypes should be correlated (speech is smooth)
+    let t0 = Instant::now();
+    let mut audio_codes: Vec<[u8; 16]> = Vec::with_capacity(n_tokens);
+
+    for token_idx in 0..n_tokens {
+        // Map talker output archetype → code predictor embedding archetype
+        let talker_arch = output_archetypes[token_idx] as usize;
+        let cp_arch = if talker_arch < cp_embed_assign.len() {
+            cp_embed_assign[talker_arch]
+        } else {
+            0
+        };
+
+        // Route through code predictor layers
+        let mut current = cp_arch;
+        for role_name in &cp_roles {
+            if let Some(cache) = caches.get(*role_name) {
+                let next_idx = (token_idx + 1).min(n_tokens - 1);
+                let next_talker = output_archetypes[next_idx] as usize;
+                let next_cp = if next_talker < cp_embed_assign.len() {
+                    cp_embed_assign[next_talker]
+                } else { 0 };
+
+                match cache.route(current, next_cp) {
+                    RouteAction::Attend => {
+                        let dist = cache.distance(current, next_cp);
+                        if dist < 50 { current = next_cp; }
+                    }
+                    RouteAction::Compose => {
+                        current = ((current as u16 + next_cp as u16) / 2) as u8;
+                    }
+                    _ => {} // Skip or Escalate: keep current
+                }
+            }
+        }
+
+        // Map code predictor output archetype → 16 codebook indices
+        // Each of the 16 code groups gets an index derived from the archetype.
+        // The archetype (0-255) maps into codebook space (0-2047) via:
+        //   code_group[g] = (archetype * (g+1) * 8) % 2048
+        // This is a deterministic hash — the real mapping would come from lm_head weights.
+        let mut codes = [0u8; 16];
+        for g in 0..16 {
+            codes[g] = ((current as u32 * (g as u32 + 1) * 8) % 256) as u8;
+        }
+        audio_codes.push(codes);
+    }
+    let cp_elapsed = t0.elapsed();
+
+    println!("    {} frames of 16 codes in {:?}", audio_codes.len(), cp_elapsed);
+    println!("    First 5 frames:");
+    for (i, codes) in audio_codes.iter().take(5).enumerate() {
+        println!("      frame {}: {:?}", i, codes);
+    }
+
+    // Step 4: Analyze output
+    let unique_arches: std::collections::HashSet<u8> = output_archetypes.iter().copied().collect();
+    println!("\n[5] Output analysis:");
+    println!("    Talker archetypes: {} unique out of {}", unique_arches.len(), n_tokens);
+
+    // Check code diversity per group
+    for g in 0..16 {
+        let unique_codes: std::collections::HashSet<u8> = audio_codes.iter().map(|c| c[g]).collect();
+        if g < 4 { // only print first 4 groups
+            println!("    Code group {}: {} unique values", g, unique_codes.len());
+        }
+    }
+
+    // Transition rate
     let mut transitions = 0u64;
     for w in output_archetypes.windows(2) {
         if w[0] != w[1] { transitions += 1; }
     }
     let transition_rate = transitions as f64 / (output_archetypes.len() - 1).max(1) as f64;
-    println!("    Transition rate: {:.1}% (lower = smoother = more speech-like)",
-        transition_rate * 100.0);
+    println!("    Transition rate: {:.1}%", transition_rate * 100.0);
 
-    // Throughput
-    let tokens_per_sec = n_tokens as f64 / elapsed.as_secs_f64();
-    println!("\n[5] Throughput: {:.0} tokens/sec ({:.1}µs/token)",
-        tokens_per_sec, elapsed.as_micros() as f64 / n_tokens as f64);
+    // Total throughput
+    let total_elapsed = elapsed + cp_elapsed;
+    let tokens_per_sec = n_tokens as f64 / total_elapsed.as_secs_f64();
+    println!("\n[6] Throughput: {:.0} tokens/sec ({:.1}µs/token, talker+cp)",
+        tokens_per_sec, total_elapsed.as_micros() as f64 / n_tokens as f64);
 
-    // The output archetypes would feed into the code_predictor cascade
-    // which maps them to 16 codebook indices for the speech tokenizer decoder.
-    // For the POC: the cascade runs, produces coherent archetypes, and is fast.
+    // Write audio codes to binary file for potential decoder input
+    let codes_path = format!("{}/cascade_audio_codes.bin", CODEBOOK_DIR);
+    let mut code_bytes: Vec<u8> = Vec::with_capacity(audio_codes.len() * 16);
+    for frame in &audio_codes {
+        code_bytes.extend_from_slice(frame);
+    }
+    std::fs::write(&codes_path, &code_bytes).unwrap();
+    println!("    Audio codes saved: {} ({} frames × 16 groups = {} bytes)",
+        codes_path, audio_codes.len(), code_bytes.len());
 
     println!("\n═══ DONE ═══");
 }
