@@ -85,19 +85,32 @@ fn main() {
     let n_frames = code_bytes.len() / 16;
     println!("[2] {} frames of cascade codes", n_frames);
 
-    // Load codec_embedding for the first code group (semantic)
+    // Load ALL 15 codec_embeddings and sum them into hidden state per frame
     let t0 = Instant::now();
-    let ce0 = read_tensor(&mut reader, &header, "talker.code_predictor.model.codec_embedding.0.weight");
-    println!("[3] Loaded codec_embedding.0 [{}, {}] in {:?}", CODEBOOK_SIZE, HIDDEN, t0.elapsed());
+    let mut codec_embeds: Vec<Vec<f32>> = Vec::new();
+    for g in 0..15 {
+        let ce = read_tensor(&mut reader, &header,
+            &format!("talker.code_predictor.model.codec_embedding.{}.weight", g));
+        codec_embeds.push(ce);
+    }
+    println!("[3] Loaded 15 codec_embeddings in {:?}", t0.elapsed());
 
-    // Build initial hidden states: cascade code → embedding lookup
+    // Build hidden states: sum embeddings from ALL 16 cascade code groups
+    // Each frame's hidden = sum of codec_embedding[g][code[g]] for g in 0..15
     let mut hidden = vec![0.0f32; n_frames * HIDDEN];
     for f in 0..n_frames {
-        let code = code_bytes[f * 16] as usize;
-        let code = code.min(CODEBOOK_SIZE - 1);
-        hidden[f * HIDDEN..(f + 1) * HIDDEN].copy_from_slice(&ce0[code * HIDDEN..(code + 1) * HIDDEN]);
+        for g in 0..15.min(codec_embeds.len()) {
+            let code = code_bytes[f * 16 + g] as usize;
+            let code = code.min(CODEBOOK_SIZE - 1);
+            let ce = &codec_embeds[g];
+            if ce.len() >= (code + 1) * HIDDEN {
+                for d in 0..HIDDEN {
+                    hidden[f * HIDDEN + d] += ce[code * HIDDEN + d];
+                }
+            }
+        }
     }
-    println!("    Initial hidden RMS: {:.4}",
+    println!("    Initial hidden RMS: {:.4} (sum of 15 embeddings)",
         (hidden.iter().map(|v| v * v).sum::<f32>() / hidden.len() as f32).sqrt());
 
     // Run 5 transformer layers
