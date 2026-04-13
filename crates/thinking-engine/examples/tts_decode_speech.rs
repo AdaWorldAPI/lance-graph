@@ -170,53 +170,99 @@ fn main() {
     }
     println!("[4] Projected 256→512 in {:?}", t0.elapsed());
 
-    // Step 5: Run decoder conv stack
-    // decoder.decoder.0: conv1d [1536, 1024, 7] — but our input is 512-dim
-    // The decoder expects 1024-dim (codebook_dim=512 from rvq_first + rvq_rest output_projs)
-    // For now: duplicate the 512 to fill 1024 input
-    let decoder_input_dim = 1024;
-    let mut decoder_input = vec![0.0f32; n_frames * decoder_input_dim];
-    for frame in 0..n_frames {
+    // Step 5: Full decoder conv stack
+    // Block 0: conv1d [1536, 1024, 7] — input projection
+    // Input is 512-dim, decoder expects 1024. Duplicate channels.
+    let t0 = Instant::now();
+    let din = 1024;
+    let mut decoder_in = vec![0.0f32; n_frames * din];
+    for f in 0..n_frames {
         for d in 0..proj_out_ch {
-            decoder_input[frame * decoder_input_dim + d] = projected[frame * proj_out_ch + d];
-            decoder_input[frame * decoder_input_dim + proj_out_ch + d] = projected[frame * proj_out_ch + d];
+            decoder_in[f * din + d] = projected[f * proj_out_ch + d];
+            decoder_in[f * din + proj_out_ch + d] = projected[f * proj_out_ch + d];
         }
     }
 
-    let t0 = Instant::now();
-    // decoder.decoder.0: conv1d [1536, 1024, 7], padding=3
-    let w0 = read_tensor(&mut reader, &header, "decoder.decoder.0.conv.weight").expect("decoder.0 weight");
-    let b0 = read_tensor(&mut reader, &header, "decoder.decoder.0.conv.bias").expect("decoder.0 bias");
-    let mut x = conv1d(&decoder_input, decoder_input_dim, 1536, 7, &w0, &b0, 1, 3);
-    println!("[5] decoder.0 conv: {} → {} samples in {:?}", n_frames, x.len() / 1536, t0.elapsed());
+    let w = read_tensor(&mut reader, &header, "decoder.decoder.0.conv.weight").expect("d0.w");
+    let b = read_tensor(&mut reader, &header, "decoder.decoder.0.conv.bias").expect("d0.b");
+    let mut x = conv1d(&decoder_in, din, 1536, 7, &w, &b, 1, 3);
+    let mut ch = 1536usize;
+    let mut len = x.len() / ch;
+    println!("[5] Block 0: {}→{} ch, {} frames ({:?})", din, ch, len, t0.elapsed());
 
-    // decoder.decoder.1: first upsample block
-    // block.1.conv: transposed conv [1536, 768, 16], stride=8 → upsample 8×
-    // For simplicity: just repeat each frame 8× (nearest-neighbor upsample)
-    let current_len = x.len() / 1536;
-    let upsampled_len = current_len * 8;
-    let mut upsampled = vec![0.0f32; upsampled_len * 768];
-    for n in 0..current_len {
-        for rep in 0..8 {
-            let out_n = n * 8 + rep;
-            for c in 0..768 {
-                // Simple: take first 768 channels, scaled
-                upsampled[out_n * 768 + c] = x[n * 1536 + c] * 0.125; // scale by 1/upsample
+    // Blocks 1-4: snake → transposed_conv (upsample) → 3 residual blocks
+    let upsample_config: [(usize, usize, usize, usize); 4] = [
+        // (block_idx, out_ch, kernel_size, stride)
+        (1, 768, 16, 8),
+        (2, 384, 10, 5),
+        (3, 192, 8, 4),
+        (4, 96, 6, 3),
+    ];
+
+    for &(blk, out_ch, kern, stride) in &upsample_config {
+        let t0 = Instant::now();
+        // Snake activation
+        let alpha = read_tensor(&mut reader, &header, &format!("decoder.decoder.{}.block.0.alpha", blk)).unwrap_or_else(|| vec![1.0; ch]);
+        let beta = read_tensor(&mut reader, &header, &format!("decoder.decoder.{}.block.0.beta", blk)).unwrap_or_else(|| vec![1.0; ch]);
+        snake_activation(&mut x, &alpha, &beta, ch);
+
+        // Transposed conv (upsample): nearest-neighbor + conv
+        // Real transposed conv inserts stride-1 zeros between samples then convolves.
+        // Approximation: repeat each frame stride× then apply regular conv.
+        let up_len = len * stride;
+        let mut upsampled = vec![0.0f32; up_len * ch];
+        for n in 0..len {
+            for s in 0..stride {
+                for c in 0..ch {
+                    upsampled[(n * stride + s) * ch + c] = x[n * ch + c];
+                }
             }
         }
-    }
-    println!("    Upsample 8×: {} → {} frames", current_len, upsampled_len);
 
-    // Skip remaining conv blocks — just use the upsampled result as PCM proxy
-    // Take channel 0 as the mono audio signal
-    let pcm: Vec<f32> = (0..upsampled_len).map(|n| {
-        // Sum first few channels as crude mono mix
-        let mut sum = 0.0f32;
-        for c in 0..8.min(768) {
-            sum += upsampled[n * 768 + c];
+        // Apply the transposed conv weight as regular conv on upsampled data
+        let tw = read_tensor(&mut reader, &header, &format!("decoder.decoder.{}.block.1.conv.weight", blk)).expect("upsample weight");
+        let tb = read_tensor(&mut reader, &header, &format!("decoder.decoder.{}.block.1.conv.bias", blk)).expect("upsample bias");
+        x = conv1d(&upsampled, ch, out_ch, kern, &tw, &tb, 1, kern / 2);
+        ch = out_ch;
+        len = x.len() / ch;
+
+        // 3 residual blocks: each has conv1(7) + conv2(1)
+        for res in 2..=4 {
+            let a1 = read_tensor(&mut reader, &header, &format!("decoder.decoder.{}.block.{}.act1.alpha", blk, res)).unwrap_or_else(|| vec![1.0; ch]);
+            let b1 = read_tensor(&mut reader, &header, &format!("decoder.decoder.{}.block.{}.act1.beta", blk, res)).unwrap_or_else(|| vec![1.0; ch]);
+            let mut residual = x.clone();
+            snake_activation(&mut residual, &a1, &b1, ch);
+
+            let rw1 = read_tensor(&mut reader, &header, &format!("decoder.decoder.{}.block.{}.conv1.conv.weight", blk, res)).expect("res conv1 w");
+            let rb1 = read_tensor(&mut reader, &header, &format!("decoder.decoder.{}.block.{}.conv1.conv.bias", blk, res)).expect("res conv1 b");
+            residual = conv1d(&residual, ch, ch, 7, &rw1, &rb1, 1, 3);
+
+            let a2 = read_tensor(&mut reader, &header, &format!("decoder.decoder.{}.block.{}.act2.alpha", blk, res)).unwrap_or_else(|| vec![1.0; ch]);
+            let b2 = read_tensor(&mut reader, &header, &format!("decoder.decoder.{}.block.{}.act2.beta", blk, res)).unwrap_or_else(|| vec![1.0; ch]);
+            snake_activation(&mut residual, &a2, &b2, ch);
+
+            let rw2 = read_tensor(&mut reader, &header, &format!("decoder.decoder.{}.block.{}.conv2.conv.weight", blk, res)).expect("res conv2 w");
+            let rb2 = read_tensor(&mut reader, &header, &format!("decoder.decoder.{}.block.{}.conv2.conv.bias", blk, res)).expect("res conv2 b");
+            residual = conv1d(&residual, ch, ch, 1, &rw2, &rb2, 1, 0);
+
+            // Add residual
+            let rlen = x.len().min(residual.len());
+            for i in 0..rlen { x[i] += residual[i]; }
         }
-        sum / 8.0
-    }).collect();
+
+        println!("    Block {}: {}ch, {} frames, upsample {}× ({:?})", blk, ch, len, stride, t0.elapsed());
+    }
+
+    // Block 5: final snake activation
+    let a5 = read_tensor(&mut reader, &header, "decoder.decoder.5.alpha").unwrap_or_else(|| vec![1.0; ch]);
+    let b5 = read_tensor(&mut reader, &header, "decoder.decoder.5.beta").unwrap_or_else(|| vec![1.0; ch]);
+    snake_activation(&mut x, &a5, &b5, ch);
+
+    // Block 6: output conv [1, 96, 7] → mono PCM
+    let w6 = read_tensor(&mut reader, &header, "decoder.decoder.6.conv.weight").expect("output weight");
+    let b6 = read_tensor(&mut reader, &header, "decoder.decoder.6.conv.bias").expect("output bias");
+    let pcm_raw = conv1d(&x, ch, 1, 7, &w6, &b6, 1, 3);
+    let pcm: Vec<f32> = pcm_raw.iter().map(|&v| v.tanh()).collect(); // tanh output activation
 
     let pcm_rms = (pcm.iter().map(|v| v * v).sum::<f32>() / pcm.len() as f32).sqrt();
     println!("[6] PCM: {} samples ({:.2}s at {}Hz), RMS={:.4}",
