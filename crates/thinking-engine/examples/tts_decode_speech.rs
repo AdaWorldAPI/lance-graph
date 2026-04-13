@@ -20,7 +20,8 @@ use std::time::Instant;
 
 const ST_PATH: &str = "/home/user/models/qwen3-tts-0.6b/speech_tokenizer/model.safetensors";
 const MODEL_PATH: &str = "/home/user/models/qwen3-tts-0.6b/model.safetensors";
-const CODES_PATH: &str = "/home/user/models/qwen3-tts-0.6b/codebooks/cascade_audio_codes.bin";
+// Use real codec tokens from code_predictor forward pass (not cascade archetypes)
+const CODES_PATH: &str = "/home/user/models/qwen3-tts-0.6b/codebooks/real_codec_tokens.bin";
 const WAV_PATH: &str = "/home/user/models/cascade_speech.wav";
 const SAMPLE_RATE: u32 = 24000;
 const HIDDEN_DIM: usize = 1024;
@@ -180,96 +181,29 @@ fn main() {
     let n_frames = code_bytes.len() / 16;
     println!("[2] {} frames of cascade codes", n_frames);
 
-    // Step 3: Load lm_heads + codec_embeddings from main model → proper codec tokens
-    let t0 = Instant::now();
-    let mut model_reader = BufReader::new(File::open(MODEL_PATH).expect("open main model"));
-    let model_header = read_safetensors_header(&mut model_reader).expect("parse main model header");
-
-    // Load 15 codec_embeddings [2048, 1024] and 15 lm_heads [2048, 1024]
-    let mut codec_embeds: Vec<Vec<f32>> = Vec::new();
-    let mut lm_heads: Vec<Vec<f32>> = Vec::new();
-    for g in 0..15 {
-        let ce = read_tensor(&mut model_reader, &model_header,
-            &format!("talker.code_predictor.model.codec_embedding.{}.weight", g));
-        let lm = read_tensor(&mut model_reader, &model_header,
-            &format!("talker.code_predictor.lm_head.{}.weight", g));
-        codec_embeds.push(ce.unwrap_or_default());
-        lm_heads.push(lm.unwrap_or_default());
-    }
-    println!("[3] Loaded 15 codec_embeddings + 15 lm_heads in {:?}", t0.elapsed());
-
-    // Step 4: Cascade archetype → codec_embedding lookup → lm_head projection → argmax → real codec token
-    let t0 = Instant::now();
-    let mut real_codes = vec![0u16; n_frames * 16];
-    for frame in 0..n_frames {
-        for g in 0..15.min(n_frames * 16 / n_frames) {
-            let arch = code_bytes[frame * 16 + g] as usize;
-            // Look up archetype in codec_embedding → 1024-dim hidden state
-            if g < codec_embeds.len() && !codec_embeds[g].is_empty() {
-                let ce = &codec_embeds[g];
-                let arch_clamped = arch.min(codebook_size - 1);
-                let hidden: Vec<f32> = (0..HIDDEN_DIM)
-                    .map(|d| ce.get(arch_clamped * HIDDEN_DIM + d).copied().unwrap_or(0.0))
-                    .collect();
-
-                // Multiply by lm_head → 2048 logits → argmax
-                if g < lm_heads.len() && !lm_heads[g].is_empty() {
-                    let lm = &lm_heads[g];
-                    let mut best_logit = f32::NEG_INFINITY;
-                    let mut best_idx = 0u16;
-                    for tok in 0..codebook_size {
-                        let mut logit = 0.0f32;
-                        for d in 0..HIDDEN_DIM {
-                            logit += hidden[d] * lm.get(tok * HIDDEN_DIM + d).copied().unwrap_or(0.0);
-                        }
-                        if logit > best_logit {
-                            best_logit = logit;
-                            best_idx = tok as u16;
-                        }
-                    }
-                    real_codes[frame * 16 + g] = best_idx;
-                }
-            }
-        }
-        // Last code group: use raw cascade code scaled
-        if n_frames * 16 > frame * 16 + 15 {
-            real_codes[frame * 16 + 15] = (code_bytes[frame * 16 + 15] as u16 * 8).min(2047);
-        }
-    }
-    println!("[4] lm_head projection: {} frames → real codec tokens in {:?}", n_frames, t0.elapsed());
-    // Show first frame's real codes
+    // Step 3: Tokens are real (from tts_code_predictor forward pass).
+    // Use them directly as RVQ codebook indices.
+    println!("[3] Using real codec tokens from code_predictor forward pass");
     if n_frames > 0 {
-        let codes: Vec<u16> = (0..16).map(|g| real_codes[g]).collect();
-        println!("    Frame 0 codec tokens: {:?}", codes);
+        let f0: Vec<u8> = code_bytes[..16.min(code_bytes.len())].to_vec();
+        println!("    Frame 0 tokens: {:?}", f0);
     }
 
-    // Step 5: RVQ residual lookup → proper residual accumulation
-    // RVQ: each layer encodes the residual of the sum of all previous layers.
-    // Layer 0 (semantic): coarsest representation
-    // Layers 1-15 (acoustic): progressively finer residuals
-    // Reconstruction: sum all layers (residuals add up to full signal)
+    // Step 4: RVQ residual lookup with real codec tokens
     let t0 = Instant::now();
     let n_cb = codebooks.len().min(16);
     let mut latent = vec![0.0f32; n_frames * codebook_dim];
 
     for frame in 0..n_frames {
-        // First quantizer (semantic): base signal
-        if n_cb > 0 {
-            let code = (real_codes[frame * 16] as usize).min(codebook_size - 1);
-            for d in 0..codebook_dim {
-                latent[frame * codebook_dim + d] = codebooks[0][code * codebook_dim + d];
-            }
-        }
-        // Remaining quantizers (acoustic): add residuals with decreasing weight
-        // Each layer contributes less as it encodes finer detail
-        for g in 1..n_cb {
-            let code = (real_codes[frame * 16 + g] as usize).min(codebook_size - 1);
+        for g in 0..n_cb {
+            let code = code_bytes[frame * 16 + g] as usize;
+            let code = code.min(codebook_size - 1);
             for d in 0..codebook_dim {
                 latent[frame * codebook_dim + d] += codebooks[g][code * codebook_dim + d];
             }
         }
     }
-    println!("[5] RVQ residual lookup: {} frames × {} dim latent in {:?}",
+    println!("[4] RVQ lookup: {} frames × {} dim latent in {:?}",
         n_frames, codebook_dim, t0.elapsed());
 
     // Check latent is non-trivial
