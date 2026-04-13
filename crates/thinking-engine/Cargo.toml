@@ -42,5 +42,6 @@ half = "2.4"
 # rule — internal crates are free to cross-link.
 bgz17 = { path = "../bgz17" }
 
-[patch.crates-io]
-tokenizers = { path = "../../../tokenizers/tokenizers" }
+# [patch.crates-io]
+# tokenizers = { path = "../../../tokenizers/tokenizers" }
+# NOTE: commented out — requires local tokenizers clone. Uncomment when available.

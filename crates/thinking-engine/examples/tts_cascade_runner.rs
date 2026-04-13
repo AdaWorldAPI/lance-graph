@@ -1,11 +1,14 @@
 //! TTS cascade runner: HHTL cache → archetype sequence → audio code indices.
 //!
 //! Loads the 18 HHTL caches built by tts_bgz_codebook.rs and runs a
-//! cascade forward pass on a token sequence. Produces archetype indices
-//! that represent the compressed model output.
+//! cascade forward pass on a token sequence. Uses AttentionSemiring
+//! (distance + compose tables) for O(1) multi-hop attention composition.
 //!
-//! This is the reality check: does the cascade produce coherent archetype
-//! sequences that could plausibly decode to speech?
+//! Correct pipeline (per the handover):
+//!   HHTL caches (from highheelbgz → bgz-tensor pipeline)
+//!     → RouteAction dispatch (Skip/Attend/Compose/Escalate)
+//!       → ComposeTable for multi-hop composition (NOT midpoint averaging)
+//!         → archetype sequence → audio code indices
 //!
 //! ```sh
 //! cargo run --release --example tts_cascade_runner \
@@ -13,7 +16,7 @@
 //! ```
 
 use bgz_tensor::hhtl_cache::{HhtlCache, RouteAction};
-use bgz_tensor::projection::Base17;
+use bgz_tensor::attention::ComposeTable;
 use std::collections::HashMap;
 use std::time::Instant;
 
@@ -25,6 +28,7 @@ fn main() {
     // Step 1: Load all HHTL caches
     let t0 = Instant::now();
     let mut caches: HashMap<String, HhtlCache> = HashMap::new();
+    let mut compose_tables: HashMap<String, ComposeTable> = HashMap::new();
     let mut assignments: HashMap<String, Vec<u8>> = HashMap::new();
 
     let roles = [
@@ -45,8 +49,11 @@ fn main() {
                 let assign = std::fs::read(&assign_path).unwrap_or_default();
                 let k = cache.k();
                 let gamma = cache.gamma_meta;
-                println!("    {}: k={}, gamma=[{:.4},{:.4},{:.4}], {} assigns",
-                    role, k, gamma[0], gamma[1], gamma[2], assign.len());
+                // Build ComposeTable from palette for O(1) multi-hop composition
+                let ct = ComposeTable::build(&cache.palette);
+                println!("    {}: k={}, gamma=[{:.4},{:.4},{:.4}], {} assigns, compose={}B",
+                    role, k, gamma[0], gamma[1], gamma[2], assign.len(), ct.byte_size());
+                compose_tables.insert(role.to_string(), ct);
                 caches.insert(role.to_string(), cache);
                 assignments.insert(role.to_string(), assign);
             }
@@ -55,7 +62,7 @@ fn main() {
             }
         }
     }
-    println!("[1] Loaded {} caches in {:?}\n", caches.len(), t0.elapsed());
+    println!("[1] Loaded {} caches + compose tables in {:?}\n", caches.len(), t0.elapsed());
 
     // Step 2: Simulate token sequence (use embedding assignments as token→archetype map)
     let embed_assign = assignments.get("talker_embedding").cloned().unwrap_or_default();
@@ -106,9 +113,11 @@ fn main() {
                     }
                     RouteAction::Compose => {
                         compose_count += 1;
-                        // Multi-hop: find intermediate archetype
-                        // For now: just use the midpoint
-                        current_arch = ((current_arch as u16 + next_arch as u16) / 2) as u8;
+                        // Multi-hop via ComposeTable: O(1) XOR bind lookup
+                        // compose(a, b) = nearest_palette(palette[a] XOR palette[b])
+                        if let Some(ct) = compose_tables.get(*role_name) {
+                            current_arch = ct.compose(current_arch, next_arch);
+                        }
                     }
                     RouteAction::Escalate => {
                         escalate_count += 1;
@@ -164,7 +173,10 @@ fn main() {
                         if dist < 50 { current = next_cp; }
                     }
                     RouteAction::Compose => {
-                        current = ((current as u16 + next_cp as u16) / 2) as u8;
+                        // O(1) multi-hop via ComposeTable (XOR bind lookup)
+                        if let Some(ct) = compose_tables.get(*role_name) {
+                            current = ct.compose(current, next_cp);
+                        }
                     }
                     _ => {} // Skip or Escalate: keep current
                 }
