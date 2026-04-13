@@ -202,7 +202,8 @@ fn main() {
         if !tensor.name.ends_with("weight") { continue; }
         let role = detect_role(&tensor.name).to_string();
         let comp = detect_component(&tensor.name).to_string();
-        if ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+        if ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj",
+            "embedding", "norm"]
             .contains(&role.as_str())
         {
             role_groups.entry((comp, role)).or_default().push(tensor);
@@ -303,6 +304,59 @@ fn main() {
         let rho = spearman_rho(&exact, &quant);
         println!("    {}/{}: Spearman ρ = {:.4}", key.0, key.1, rho);
     }
+
+    // Step 6: Save codebooks to disk
+    let out_dir = std::path::Path::new(st_path).parent().unwrap().join("codebooks");
+    std::fs::create_dir_all(&out_dir).ok();
+    println!("\n[6] Saving codebooks to {}...", out_dir.display());
+
+    let mut total_bytes = 0usize;
+    for (key, palette) in &role_palettes {
+        let table = &role_tables[key];
+        let rows = &role_base17[key];
+
+        // Compute assignments
+        let assignments: Vec<u8> = rows.iter().map(|row| {
+            (0..N_CENTROIDS).min_by_key(|&c| row.l1(&palette[c])).unwrap() as u8
+        }).collect();
+
+        let fname = format!("{}_{}.bgz7", key.0, key.1);
+        let fpath = out_dir.join(&fname);
+        let mut f = std::fs::File::create(&fpath).unwrap();
+
+        // Header: magic + k + n_rows + n_cols_orig
+        use std::io::Write;
+        f.write_all(b"BGZ7").unwrap();
+        f.write_all(&(N_CENTROIDS as u32).to_le_bytes()).unwrap();
+        f.write_all(&(rows.len() as u32).to_le_bytes()).unwrap();
+
+        // Palette centroids: k × 17 × i16
+        for c in 0..N_CENTROIDS {
+            for d in 0..17 {
+                f.write_all(&palette[c].dims[d].to_le_bytes()).unwrap();
+            }
+        }
+
+        // Distance table: k × k × u16
+        f.write_all(unsafe {
+            std::slice::from_raw_parts(table.as_ptr() as *const u8, table.len() * 2)
+        }).unwrap();
+
+        // Row assignments: n_rows × u8
+        f.write_all(&assignments).unwrap();
+
+        let file_bytes = 4 + 4 + 4 + N_CENTROIDS * 17 * 2 + N_CENTROIDS * N_CENTROIDS * 2 + rows.len();
+        total_bytes += file_bytes;
+        println!("    {}: {} bytes ({} rows)", fname, file_bytes, rows.len());
+    }
+    println!("    Total codebook: {} bytes ({:.1} KB)", total_bytes, total_bytes as f64 / 1024.0);
+
+    // Summary
+    let st_size = std::fs::metadata(st_path).map(|m| m.len()).unwrap_or(0);
+    println!("\n[7] Compression summary:");
+    println!("    Original safetensors: {} bytes ({:.1} MB)", st_size, st_size as f64 / 1e6);
+    println!("    Codebook total:       {} bytes ({:.1} KB)", total_bytes, total_bytes as f64 / 1024.0);
+    println!("    Ratio:                {:.0}:1", st_size as f64 / total_bytes as f64);
 
     println!("\n═══ DONE ═══");
 }
