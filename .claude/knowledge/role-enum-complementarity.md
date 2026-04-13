@@ -85,6 +85,26 @@ of merging.
 - Breaking the clean 6-role symmetry (3 attention + 3 FFN) that maps to
   NeuronPrint's attention()/retrieval()/mlp() decomposition
 
+### Data requirement: safetensors, not GGUF
+
+OProj and Embedding are only cleanly separable in **safetensors** format.
+GGUF quantizes all tensors into block format (Q4_K_M, Q8_0, etc.) and
+flattens role metadata — you can recover role from tensor name but the
+values are quantization-degraded. The probes below require safetensors
+variants (BF16 or F16) to measure actual role distance structure, not
+quantization artifacts. This is why the project obtained safetensors
+variants (Jina v5 safetensors on disk at `jina-v5-onnx/model.safetensors`).
+
+**Not all models ship safetensors.** Some only distribute GGUF (community
+quants) or gated weights (Llama, Gemma). The role separation pipeline must
+degrade gracefully: when safetensors are available, build all 10 role tables
+including OProj/Embedding/Norm at native precision. When only GGUF is
+available, build the 6 core tables (Q/K/V/Gate/Up/Down) from dequantized
+blocks and mark OProj/Embedding/Norm as UNAVAILABLE rather than guessing.
+The `TensorRole` enum already handles this — `from_name()` parses both
+HF and GGUF naming conventions, and roles that can't be extracted cleanly
+fall through to `Other`.
+
 ### Probes to run (in priority order):
 
 1. **PROBE: OProj distance structure** — Build `build_raw_table(o_codebook)`,
