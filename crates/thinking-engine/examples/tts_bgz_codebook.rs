@@ -321,9 +321,26 @@ fn main() {
     for (key, wp) in &role_wp {
         let rows = &role_base17[key];
 
-        // Build HhtlCache: palette + distance table + route table (cascade decisions)
+        // Build HhtlCache: palette + distance table + route table + gamma metadata
         let t0 = Instant::now();
-        let cache = HhtlCache::from_palette(wp.clone());
+        let mut cache = HhtlCache::from_palette(wp.clone());
+
+        // Populate gamma metadata from per-row gammas
+        let gammas = &role_gammas[key];
+        if !gammas.is_empty() {
+            let mut gs = gammas.clone();
+            gs.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            let median = gs[gs.len() / 2];
+            let lo_mean = gs[..gs.len() / 2].iter().sum::<f32>() / (gs.len() / 2).max(1) as f32;
+            let hi_mean = gs[gs.len() / 2..].iter().sum::<f32>() / (gs.len() - gs.len() / 2).max(1) as f32;
+            let role_id = match key.1.as_str() {
+                "q_proj" => 0.0, "k_proj" => 1.0, "v_proj" => 2.0,
+                "gate_proj" => 3.0, "up_proj" => 4.0, "down_proj" => 5.0,
+                "o_proj" => 6.0, "embedding" => 7.0, "norm" => 8.0,
+                _ => 9.0,
+            };
+            cache.gamma_meta = [lo_mean, hi_mean, median, role_id];
+        }
 
         let fname = format!("{}_{}_hhtl.bgz", key.0, key.1);
         let fpath = out_dir.join(&fname);

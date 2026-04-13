@@ -69,6 +69,11 @@ pub struct HhtlCache {
     pub distances: AttentionTable,
     /// k × k precomputed routing decisions. Same layout as distances.
     pub routes: Vec<RouteAction>,
+    /// Per-basin gamma correction factors for exact cosine restore.
+    /// Basin lo gamma + basin hi gamma + phi_scale + role index.
+    /// 16 bytes. Stored as [f32; 4] = [lo_gamma, hi_gamma, phi_scale, role_id].
+    /// If absent (legacy files): all zeros → no gamma correction.
+    pub gamma_meta: [f32; 4],
 }
 
 impl HhtlCache {
@@ -81,7 +86,7 @@ impl HhtlCache {
     pub fn from_palette_with_config(palette: WeightPalette, config: &CascadeConfig) -> Self {
         let distances = AttentionTable::build(&palette);
         let routes = build_route_table(&palette, &distances, config);
-        Self { palette, distances, routes }
+        Self { palette, distances, routes, gamma_meta: [0.0; 4] }
     }
 
     /// Build from raw Base17 rows (e.g., read from bgz7 shards).
@@ -102,6 +107,7 @@ impl HhtlCache {
                     k: 0,
                 },
                 routes: Vec::new(),
+                gamma_meta: [0.0; 4],
             };
         }
 
@@ -158,7 +164,7 @@ impl HhtlCache {
         let config = CascadeConfig::default();
         let routes = build_route_table(&palette, &distances, &config);
 
-        Self { palette, distances, routes }
+        Self { palette, distances, routes, gamma_meta: [0.0; 4] }
     }
 
     /// Palette size (number of archetypes).
@@ -229,6 +235,11 @@ impl HhtlCache {
             f.write_all(&r.to_le_bytes()).map_err(|e| e.to_string())?;
         }
 
+        // Gamma metadata: [lo_gamma, hi_gamma, phi_scale, role_id] = 16 bytes
+        for &g in &self.gamma_meta {
+            f.write_all(&g.to_le_bytes()).map_err(|e| e.to_string())?;
+        }
+
         Ok(())
     }
 
@@ -291,10 +302,22 @@ impl HhtlCache {
 
         let counts = vec![0u32; k];
 
+        // Try reading gamma metadata (16 bytes). Missing = legacy file, default to zeros.
+        let mut gamma_meta = [0.0f32; 4];
+        let mut gamma_buf = [0u8; 16];
+        if f.read_exact(&mut gamma_buf).is_ok() {
+            for i in 0..4 {
+                gamma_meta[i] = f32::from_le_bytes([
+                    gamma_buf[i*4], gamma_buf[i*4+1], gamma_buf[i*4+2], gamma_buf[i*4+3],
+                ]);
+            }
+        }
+
         Ok(Self {
             palette: WeightPalette { entries, radii, counts },
             distances: AttentionTable { distances, k },
             routes,
+            gamma_meta,
         })
     }
 
