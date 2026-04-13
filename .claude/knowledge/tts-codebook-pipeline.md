@@ -158,6 +158,28 @@ the stored gamma to recover original magnitude dynamics.
 | `Qualia17D::from_band_energies()` | Audio → Qualia | 21 band energies → 17D qualia state |
 | `Qualia17D::family_band_weights()` | Qualia → Audio | QPL family → 21-band spectral EQ weights |
 
+## Vector → Encoding Mapping (from encoding-ecosystem.md)
+
+Each vector type uses the encoding that protects its invariant:
+
+| Vector | Encoding | Lane | Why |
+|--------|----------|------|-----|
+| Attention Q/K pairwise | **bgz-hhtl-d** (2×BF16) | — | Branching cascade, Slot D = CLAM path |
+| Attention O_proj | **bgz-hhtl-d** | — | Safetensors-only, same cascade |
+| Gate/Up/Down (MLP) | **i8 signed** | Lane 2 | Sign-sensitive: `silu(gate) × Up`. ρ=0.999250 |
+| Embedding | **BGZ17 palette** | — | 151K rows → 256 palette indices, semiring algebra |
+| Norm | **BF16 direct** | Lane 6 | 1D scale vectors, max_err=0.002 |
+| Band energies (gain) | **BF16** | — | 21 × 2B = 42B in AudioFrame |
+| PVQ shape | **Base17** | — | L1 hypersphere = Base17 projection |
+| Pairwise cosine table | **u8 CDF** | Lane 1 | ρ=0.999992 for ranking |
+| VoiceArchetype | **i8 signed** | Lane 2 | 16 channels, sign = formant direction |
+| CausalEdge | **CausalEdge64** | — | Orthogonal: SPO + NARS truth |
+
+**Rule**: Don't mix encodings. Gate/Up/Down use i8 signed (Lane 2),
+NOT Base17 palette. Norm uses BF16 direct (Lane 6), NOT palette.
+Band energies are BF16, NOT palette-indexed. Only embeddings and
+pairwise distances use palette.
+
 ## AMX / SIMD Hot Path Requirements
 
 The following operations MUST use AMX/AVX-512, never scalar:
