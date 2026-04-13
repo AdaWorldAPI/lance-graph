@@ -52,39 +52,83 @@ fn detect_component(name: &str) -> &'static str {
     else { "other" }
 }
 
-/// Stream BF16 tensor rows and project to Base17 via SIMD.
-fn stream_project_tensor(
+/// Per-row gamma deviation: mean absolute magnitude.
+/// Rows with similar gamma belong to the same basin.
+fn row_gamma(bf16_row: &[u16]) -> f32 {
+    let mut sum = 0.0f64;
+    for &bits in bf16_row {
+        let v = f32::from_bits((bits as u32) << 16);
+        sum += v.abs() as f64;
+    }
+    (sum / bf16_row.len().max(1) as f64) as f32
+}
+
+/// Stream BF16 tensor, compute per-row gamma, correct per-basin, project to Base17.
+fn stream_project_with_gamma(
     reader: &mut BufReader<File>,
     tensor: &TensorInfo,
     data_offset: u64,
     octave_stride: usize,
-) -> Vec<ndarray::hpc::bgz17_bridge::Base17> {
+) -> (Vec<ndarray::hpc::bgz17_bridge::Base17>, Vec<f32>) {
+    // Returns (base17_rows, per_row_gamma)
     let n_rows = tensor.dimensions[0] as usize;
     let n_cols = if tensor.dimensions.len() > 1 { tensor.dimensions[1] as usize } else { 1 };
 
-    // Seek to tensor data
     let tensor_start = data_offset + tensor.offset;
     reader.seek(SeekFrom::Start(tensor_start)).unwrap();
 
     match tensor.dtype {
         GgmlType::BF16 => {
-            // Read entire tensor as u16 BF16 buffer
             let n_elements = n_rows * n_cols;
-            let mut buf = vec![0u16; n_elements];
             let mut raw = vec![0u8; n_elements * 2];
             reader.read_exact(&mut raw).unwrap();
+
+            // Pass 1: compute per-row gamma
+            let mut gammas = Vec::with_capacity(n_rows);
+            let mut bf16_buf = vec![0u16; n_elements];
             for i in 0..n_elements {
-                buf[i] = u16::from_le_bytes([raw[i * 2], raw[i * 2 + 1]]);
+                bf16_buf[i] = u16::from_le_bytes([raw[i * 2], raw[i * 2 + 1]]);
             }
-            // SIMD projection: 8 rows at a time
-            project_tensor_bf16_simd(&buf, n_rows, n_cols, octave_stride)
+            for r in 0..n_rows {
+                gammas.push(row_gamma(&bf16_buf[r * n_cols..(r + 1) * n_cols]));
+            }
+
+            // Find basin boundaries from gamma histogram (simple: split at median)
+            let mut sorted_g = gammas.clone();
+            sorted_g.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            let median_g = sorted_g[sorted_g.len() / 2];
+            let lo_mean = sorted_g[..sorted_g.len() / 2].iter().sum::<f32>()
+                / (sorted_g.len() / 2).max(1) as f32;
+            let hi_mean = sorted_g[sorted_g.len() / 2..].iter().sum::<f32>()
+                / (sorted_g.len() - sorted_g.len() / 2).max(1) as f32;
+
+            // Pass 2: gamma-correct each row, then project
+            // Correction: divide by basin gamma → normalize to ~1.0 range
+            // This spreads tight distributions so Base17 i16 scaling has resolution
+            let mut corrected = vec![0u16; n_elements];
+            for r in 0..n_rows {
+                let basin_gamma = if gammas[r] < median_g { lo_mean } else { hi_mean };
+                let scale = if basin_gamma > 1e-8 { 1.0 / basin_gamma } else { 1.0 };
+                for c in 0..n_cols {
+                    let v = f32::from_bits((bf16_buf[r * n_cols + c] as u32) << 16);
+                    let corrected_v = v * scale;
+                    // BF16 RNE encode
+                    let bits = corrected_v.to_bits();
+                    let lsb = (bits >> 16) & 1;
+                    let biased = bits.wrapping_add(0x7FFF).wrapping_add(lsb);
+                    corrected[r * n_cols + c] = (biased >> 16) as u16;
+                }
+            }
+
+            let projected = project_tensor_bf16_simd(&corrected, n_rows, n_cols, octave_stride);
+            (projected, gammas)
         }
         GgmlType::F16 => {
-            // F16 → f32 → Base17 (no SIMD shortcut for F16 currently)
             let n_elements = n_rows * n_cols;
             let mut raw = vec![0u8; n_elements * 2];
             reader.read_exact(&mut raw).unwrap();
             let mut result = Vec::with_capacity(n_rows);
+            let mut gammas = Vec::with_capacity(n_rows);
             for row_idx in 0..n_rows {
                 let start = row_idx * n_cols;
                 let mut f32_row = vec![0.0f32; n_cols];
@@ -92,13 +136,19 @@ fn stream_project_tensor(
                     let bits = u16::from_le_bytes([raw[(start + c) * 2], raw[(start + c) * 2 + 1]]);
                     f32_row[c] = ndarray::hpc::gguf::f16_to_f32(bits);
                 }
+                let g: f32 = f32_row.iter().map(|v| v.abs()).sum::<f32>() / n_cols as f32;
+                gammas.push(g);
+                // Gamma correct: normalize by row magnitude
+                if g > 1e-8 {
+                    for v in &mut f32_row { *v /= g; }
+                }
                 result.push(project_row_to_base17(&f32_row));
             }
-            result
+            (result, gammas)
         }
         _ => {
             eprintln!("  Skipping {} (dtype {:?})", tensor.name, tensor.dtype);
-            Vec::new()
+            (Vec::new(), Vec::new())
         }
     }
 }
@@ -152,23 +202,34 @@ fn main() {
         println!("      {}/{}: {} tensors, {} rows", comp, role, tensors.len(), total);
     }
 
-    // Step 2: Stream → SIMD Base17 projection per role
-    println!("\n[2] Streaming → AVX-512 Base17 projection...");
+    // Step 2: Stream → gamma-correct per basin → AVX-512 Base17 projection
+    println!("\n[2] Streaming → gamma correction → AVX-512 Base17 projection...");
     let mut role_base17: HashMap<(String, String), Vec<Base17>> = HashMap::new();
-    let octave_stride = 1; // full resolution for first pass
+    let mut role_gammas: HashMap<(String, String), Vec<f32>> = HashMap::new();
+    let octave_stride = 1;
 
     for ((comp, role), tensors) in role_groups.iter() {
         let t0 = Instant::now();
         let mut all_rows = Vec::new();
+        let mut all_gammas = Vec::new();
         for tensor in tensors {
-            let rows = stream_project_tensor(
+            let (rows, gammas) = stream_project_with_gamma(
                 &mut reader, tensor, header.tensor_data_offset, octave_stride,
             );
             all_rows.extend(rows.into_iter().map(|r| convert_base17(&r)));
+            all_gammas.extend(gammas);
         }
         let n = all_rows.len();
+        // Report gamma basin stats
+        let mut gs = all_gammas.clone();
+        gs.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let g_min = gs.first().copied().unwrap_or(0.0);
+        let g_med = gs.get(gs.len() / 2).copied().unwrap_or(0.0);
+        let g_max = gs.last().copied().unwrap_or(0.0);
+        role_gammas.insert((comp.clone(), role.clone()), all_gammas);
         role_base17.insert((comp.clone(), role.clone()), all_rows);
-        println!("    {}/{}: {} rows → Base17 ({:?})", comp, role, n, t0.elapsed());
+        println!("    {}/{}: {} rows, gamma[min={:.4} med={:.4} max={:.4}] ({:?})",
+            comp, role, n, g_min, g_med, g_max, t0.elapsed());
     }
 
     // Step 3: Build WeightPalette per role (CLAM furthest-point sampling)
