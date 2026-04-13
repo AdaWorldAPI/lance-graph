@@ -16,7 +16,7 @@ use crate::stacked_n::{StackedN, bf16_to_f32, f32_to_bf16, cosine_f32_slice};
 
 /// Euler-Mascheroni constant γ ≈ 0.5772156649...
 /// Irrational + transcendental → ergodic on torus → no aliasing between members.
-const EULER_GAMMA: f64 = 0.5772156649015329;
+const EULER_GAMMA: f64 = std::f64::consts::EULER_GAMMA;
 
 /// Golden step for dim coupling: 11 mod 17 visits all residues.
 const GOLDEN_STEP: usize = 11;

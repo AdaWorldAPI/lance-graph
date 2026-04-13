@@ -10,8 +10,8 @@ use super::kv_bundle::{HeadPrint, AttentionMatrix};
 use super::candidate_pool::{Candidate, HeadAddress};
 use super::triple_model::{TripleModel, DkPosition};
 
-/// Euler-Mascheroni constant.
-const EULER_GAMMA: f64 = 0.5772156649015329;
+/// Euler-Mascheroni constant (Rust 1.94+).
+const EULER_GAMMA: f64 = std::f64::consts::EULER_GAMMA;
 
 /// Noise floor for Base17 dimensions (d=17).
 /// Precomputed: γ/(γ+1)/√17 = 0.5772156649/(1.5772156649)/4.123105625 ≈ 0.08874
