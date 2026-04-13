@@ -121,6 +121,96 @@ fall through to `Other`.
 
 ---
 
+## Holy Grail Hypothesis: safetensors → O(1) with preserved dynamics
+
+### The claim
+
+If safetensors original properties (F16/BF16 at native precision, with OProj
+and Embedding intact) preserve distinct thinking patterns through the palette
+quantization, then the O(1) lookup (`table[a][b]` → u16 distance) retains
+the same discriminative power as full forward computation. If true: we've
+collapsed inference into addressing.
+
+### The validation chain
+
+```
+safetensors (native F16/BF16)
+  → 256 palette archetypes (k-means on Base17 projections)
+    → 128KB distance table (256² × u16, L1 cache)
+      → O(1) lookup per pair
+        ↕ compare against
+      → 128-step forward lookahead (full compose chain)
+```
+
+**Step 1: 128-step compose compression.**
+The ComposeTable (`attention.rs:41`) gives multi-hop in O(1):
+`compose[a][b]` → archetype c, then `compose[c][d]` → archetype e, etc.
+128 hops = 128 table lookups = 128 × ~2ns = ~256ns total.
+The question: does the 128th lookup still carry signal, or has quantization
+noise accumulated to make it meaningless? If compose is **lossless** (the
+palette nearest-neighbor step doesn't drift), then 128 hops ≈ 1 hop in cost.
+If it drifts, we need to find the maximum reliable depth.
+
+**Step 2: Safetensors vs GGUF at the compose boundary.**
+Build the same palette from:
+  A) safetensors BF16 weights (native precision, OProj/Embedding present)
+  B) GGUF Q4_K_M dequantized (quantization noise, OProj approximate)
+
+Run 128-step compose on both. Measure: at what depth do they diverge?
+If safetensors compose stays coherent to depth 128 but GGUF diverges at
+depth 30, then safetensors properties are **recovering gating dynamics**
+that quantization destroys. The gate modulation (`silu(gate) × Up` in
+`role_tables.rs`) is where this signal lives — it's a nonlinear function
+that amplifies small precision differences.
+
+**Step 3: Cronbach α as the diff probe.**
+Use `cronbach_alpha()` (thinking-engine/src/cronbach.rs) to measure
+internal consistency across validation sources:
+
+```
+Lens 1: safetensors palette O(1) lookup
+Lens 2: ONNX forward pass (model.onnx ground truth)
+Lens 3: Reranker v3 cross-encoder score
+Lens 4: GGUF palette O(1) lookup
+```
+
+If α > 0.90 for Lenses 1+2+3: safetensors O(1) agrees with ONNX and
+reranker → the palette preserves the dynamics. Holy grail confirmed.
+
+If α > 0.90 for Lenses 1+2+3 but < 0.70 when Lens 4 is added:
+safetensors preserves what GGUF destroys. Gate modulation signal is
+the casualty of quantization.
+
+If α < 0.70 even for Lens 1+2: the palette loses too much.
+Not holy grail. Need higher k (512? 1024?) or role-specific palettes.
+
+**Step 4: 128-step compression.**
+If Step 1 shows the compose chain is stable, precompute the 128-step
+compose table: `compose128[a][b]` = result of composing a→b 128 times.
+This is still 256² × u8 = 64KB. If it compresses well (LZ4, zstd),
+the compose chain has structure. If it doesn't compress, each step
+adds entropy and the chain is effectively random after N hops.
+
+Safetensors helps here because the gating dynamics determine which
+compose paths are "real" (high gate activation → the model actually
+uses this path) vs "noise" (low gate → the model suppresses this).
+With safetensors precision, the gate threshold is sharp. With GGUF,
+the gate threshold is fuzzy, which means more paths look "real" when
+they're actually quantization artifacts.
+
+### Concrete probe sequence
+
+1. Build palette A (safetensors BF16) and palette B (GGUF Q4_K_M dequant)
+2. Build ComposeTable for both
+3. Run 128-step compose chains on 1000 random (a,b) pairs for both
+4. Measure: divergence depth (where A and B first disagree)
+5. Run ONNX forward on same pairs → ground truth attention scores
+6. Cronbach α across [safetensors O(1), ONNX, reranker, GGUF O(1)]
+7. If α(1,2,3) > 0.90: compress compose128 table, measure compression ratio
+8. Report: depth limit, α, compression ratio, safetensors advantage
+
+---
+
 ## Cross-references
 
 - `TensorRole::from_name()` — hydrate.rs:36 (GGUF + HF name parsing)
