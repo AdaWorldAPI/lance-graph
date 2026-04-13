@@ -51,6 +51,40 @@ fn conv1d(input: &[f32], in_ch: usize, out_ch: usize, kernel_size: usize,
     output
 }
 
+/// Transposed 1D convolution (upsample): stride inserts zeros, then convolves.
+/// weight: [in_ch, out_ch, kernel_size] (note: transposed layout)
+fn conv1d_transpose(input: &[f32], in_ch: usize, out_ch: usize, kernel_size: usize,
+                     weight: &[f32], bias: &[f32], stride: usize) -> Vec<f32> {
+    let in_len = input.len() / in_ch;
+    let out_len = (in_len - 1) * stride + kernel_size;
+    let mut output = vec![0.0f32; out_len * out_ch];
+
+    // Initialize with bias
+    for n in 0..out_len {
+        for oc in 0..out_ch {
+            output[n * out_ch + oc] = bias.get(oc).copied().unwrap_or(0.0);
+        }
+    }
+
+    // Scatter: for each input sample, distribute through kernel
+    for n in 0..in_len {
+        for ic in 0..in_ch {
+            let input_val = input[n * in_ch + ic];
+            if input_val.abs() < 1e-10 { continue; }
+            for k in 0..kernel_size {
+                let out_pos = n * stride + k;
+                if out_pos >= out_len { continue; }
+                for oc in 0..out_ch {
+                    // weight layout: [in_ch, out_ch, kernel_size]
+                    let w_idx = ic * out_ch * kernel_size + oc * kernel_size + k;
+                    output[out_pos * out_ch + oc] += input_val * weight.get(w_idx).copied().unwrap_or(0.0);
+                }
+            }
+        }
+    }
+    output
+}
+
 /// Snake activation: x + (1/alpha) * sin²(alpha * x)
 fn snake_activation(x: &mut [f32], alpha: &[f32], beta: &[f32], channels: usize) {
     let len = x.len() / channels;
@@ -136,8 +170,10 @@ fn main() {
 
     for frame in 0..n_frames {
         for g in 0..n_cb {
-            let code = code_bytes[frame * 16 + g] as usize;
-            let code = code.min(codebook_size - 1);
+            // Scale cascade u8 codes (0-255) into codebook range (0-2047)
+            // The cascade archetype maps to a region of the codebook
+            let raw_code = code_bytes[frame * 16 + g] as usize;
+            let code = (raw_code * codebook_size / 256).min(codebook_size - 1);
             for d in 0..codebook_dim {
                 latent[frame * codebook_dim + d] += codebooks[g][code * codebook_dim + d];
             }
@@ -206,23 +242,10 @@ fn main() {
         let beta = read_tensor(&mut reader, &header, &format!("decoder.decoder.{}.block.0.beta", blk)).unwrap_or_else(|| vec![1.0; ch]);
         snake_activation(&mut x, &alpha, &beta, ch);
 
-        // Transposed conv (upsample): nearest-neighbor + conv
-        // Real transposed conv inserts stride-1 zeros between samples then convolves.
-        // Approximation: repeat each frame stride× then apply regular conv.
-        let up_len = len * stride;
-        let mut upsampled = vec![0.0f32; up_len * ch];
-        for n in 0..len {
-            for s in 0..stride {
-                for c in 0..ch {
-                    upsampled[(n * stride + s) * ch + c] = x[n * ch + c];
-                }
-            }
-        }
-
-        // Apply the transposed conv weight as regular conv on upsampled data
+        // Transposed conv (upsample): proper stride insertion
         let tw = read_tensor(&mut reader, &header, &format!("decoder.decoder.{}.block.1.conv.weight", blk)).expect("upsample weight");
         let tb = read_tensor(&mut reader, &header, &format!("decoder.decoder.{}.block.1.conv.bias", blk)).expect("upsample bias");
-        x = conv1d(&upsampled, ch, out_ch, kern, &tw, &tb, 1, kern / 2);
+        x = conv1d_transpose(&x, ch, out_ch, kern, &tw, &tb, stride);
         ch = out_ch;
         len = x.len() / ch;
 
@@ -262,7 +285,7 @@ fn main() {
     let w6 = read_tensor(&mut reader, &header, "decoder.decoder.6.conv.weight").expect("output weight");
     let b6 = read_tensor(&mut reader, &header, "decoder.decoder.6.conv.bias").expect("output bias");
     let pcm_raw = conv1d(&x, ch, 1, 7, &w6, &b6, 1, 3);
-    let pcm: Vec<f32> = pcm_raw.iter().map(|&v| v.tanh()).collect(); // tanh output activation
+    let pcm: Vec<f32> = pcm_raw.iter().map(|&v| v.tanh()).collect();
 
     let pcm_rms = (pcm.iter().map(|v| v * v).sum::<f32>() / pcm.len() as f32).sqrt();
     println!("[6] PCM: {} samples ({:.2}s at {}Hz), RMS={:.4}",
