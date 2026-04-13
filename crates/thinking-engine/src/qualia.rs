@@ -635,7 +635,6 @@ fn shannon_entropy(energy: &[f32]) -> f32 {
 }
 
 /// 10 QPL family centroids (17D each).
-/// 10 QPL family centroids (17D each).
 pub const FAMILY_CENTROIDS: [(&str, [f32; 17]); 10] = [
     ("emberglow",  [0.5, 0.8, 0.2, 0.9, 0.5, 0.3, 0.6, 0.2, 0.3, 0.7, 0.7, 0.8, 0.3, 0.7, 0.6, 0.5, 0.6]),
     ("woodwarm",   [0.4, 0.7, 0.2, 0.7, 0.6, 0.4, 0.5, 0.1, 0.2, 0.8, 0.5, 0.9, 0.4, 0.6, 0.9, 0.3, 0.7]),
