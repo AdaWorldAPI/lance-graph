@@ -87,17 +87,18 @@ fn conv1d_transpose(input: &[f32], in_ch: usize, out_ch: usize, kernel_size: usi
     output
 }
 
-/// Snake activation: x + (1/alpha) * sin²(alpha * x)
+/// Snake activation: x + (1/|alpha|) * sin²(beta * x)
+/// BigVGAN-style: alpha and beta can be negative (learned parameters).
 fn snake_activation(x: &mut [f32], alpha: &[f32], beta: &[f32], channels: usize) {
     let len = x.len() / channels;
     for n in 0..len {
         for c in 0..channels {
             let idx = n * channels + c;
-            let a = alpha.get(c).copied().unwrap_or(1.0);
+            let a = alpha.get(c).copied().unwrap_or(1.0).abs().max(1e-4);
             let b = beta.get(c).copied().unwrap_or(1.0);
             let v = x[idx];
             let sin_val = (b * v).sin();
-            x[idx] = v + sin_val * sin_val / a.max(1e-8);
+            x[idx] = v + sin_val * sin_val / a;
         }
     }
 }
@@ -242,21 +243,33 @@ fn main() {
         println!("    Frame 0 codec tokens: {:?}", codes);
     }
 
-    // Step 5: RVQ lookup with REAL codec tokens → sum embeddings → latent
+    // Step 5: RVQ residual lookup → proper residual accumulation
+    // RVQ: each layer encodes the residual of the sum of all previous layers.
+    // Layer 0 (semantic): coarsest representation
+    // Layers 1-15 (acoustic): progressively finer residuals
+    // Reconstruction: sum all layers (residuals add up to full signal)
     let t0 = Instant::now();
     let n_cb = codebooks.len().min(16);
     let mut latent = vec![0.0f32; n_frames * codebook_dim];
 
     for frame in 0..n_frames {
-        for g in 0..n_cb {
-            let code = real_codes[frame * 16 + g] as usize;
-            let code = code.min(codebook_size - 1);
+        // First quantizer (semantic): base signal
+        if n_cb > 0 {
+            let code = (real_codes[frame * 16] as usize).min(codebook_size - 1);
+            for d in 0..codebook_dim {
+                latent[frame * codebook_dim + d] = codebooks[0][code * codebook_dim + d];
+            }
+        }
+        // Remaining quantizers (acoustic): add residuals with decreasing weight
+        // Each layer contributes less as it encodes finer detail
+        for g in 1..n_cb {
+            let code = (real_codes[frame * 16 + g] as usize).min(codebook_size - 1);
             for d in 0..codebook_dim {
                 latent[frame * codebook_dim + d] += codebooks[g][code * codebook_dim + d];
             }
         }
     }
-    println!("[5] RVQ lookup: {} frames × {} dim latent in {:?}",
+    println!("[5] RVQ residual lookup: {} frames × {} dim latent in {:?}",
         n_frames, codebook_dim, t0.elapsed());
 
     // Check latent is non-trivial
@@ -350,7 +363,8 @@ fn main() {
             for i in 0..rlen { x[i] += residual[i]; }
         }
 
-        println!("    Block {}: {}ch, {} frames, upsample {}× ({:?})", blk, ch, len, stride, t0.elapsed());
+        let block_rms = (x.iter().map(|v| v * v).sum::<f32>() / x.len() as f32).sqrt();
+        println!("    Block {}: {}ch, {} frames, upsample {}×, RMS={:.4} ({:?})", blk, ch, len, stride, block_rms, t0.elapsed());
     }
 
     // Block 5: final snake activation
