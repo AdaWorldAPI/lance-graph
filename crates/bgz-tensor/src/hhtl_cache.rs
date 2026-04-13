@@ -332,28 +332,32 @@ impl HhtlCache {
 fn build_route_table(
     palette: &WeightPalette,
     distances: &AttentionTable,
-    config: &CascadeConfig,
+    _config: &CascadeConfig,
 ) -> Vec<RouteAction> {
     let k = palette.len();
     let mut routes = vec![RouteAction::Skip; k * k];
-    let scent_threshold = 1500u32;
+
+    // Derive thresholds from the actual distance distribution (not fixed constants).
+    // Collect all non-diagonal distances, sort, use percentiles.
+    let mut all_dists: Vec<u16> = Vec::with_capacity(k * k);
+    for a in 0..k {
+        for b in 0..k {
+            if a != b {
+                all_dists.push(distances.distance(a as u8, b as u8));
+            }
+        }
+    }
+    all_dists.sort_unstable();
+    let n = all_dists.len();
+    let p25 = if n > 0 { all_dists[n / 4] } else { 0 };
+    let p75 = if n > 0 { all_dists[3 * n / 4] } else { u16::MAX };
 
     for a in 0..k {
         for b in 0..k {
-            // HEEL: scent byte check
-            let scent = ScentByte::compute(
-                &palette.entries[a],
-                &palette.entries[b],
-                scent_threshold,
-            );
-            if scent.agreement_count() < config.heel_min_agreement {
-                routes[a * k + b] = RouteAction::Skip;
-                continue;
-            }
-
-            // HIP: distance check
             let dist = distances.distance(a as u8, b as u8);
-            if dist > config.hip_max_distance {
+
+            // Skip: distance above 75th percentile — too far, no interaction
+            if dist > p75 {
                 routes[a * k + b] = RouteAction::Skip;
                 continue;
             }
@@ -376,11 +380,11 @@ fn build_route_table(
 
             if has_shortcut {
                 routes[a * k + b] = RouteAction::Compose;
-            } else if dist < config.hip_max_distance / 2 {
-                // Strong signal — attend directly
+            } else if dist <= p25 {
+                // Strong signal (bottom 25%) — attend directly
                 routes[a * k + b] = RouteAction::Attend;
             } else {
-                // Borderline — needs TWIG to decide
+                // Middle 50% — needs TWIG to decide
                 routes[a * k + b] = RouteAction::Escalate;
             }
         }
