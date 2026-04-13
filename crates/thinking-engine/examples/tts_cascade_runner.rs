@@ -64,15 +64,25 @@ fn main() {
     }
     println!("[1] Loaded {} caches + compose tables in {:?}\n", caches.len(), t0.elapsed());
 
-    // Step 2: Simulate token sequence (use embedding assignments as token→archetype map)
+    // Step 2: Tokenize real text → token IDs → embedding archetype lookup
     let embed_assign = assignments.get("talker_embedding").cloned().unwrap_or_default();
-    let n_tokens = embed_assign.len().min(100); // simulate 100 tokens
-    if n_tokens == 0 {
+    if embed_assign.is_empty() {
         println!("ERROR: no embedding assignments");
         return;
     }
 
-    println!("[2] Running cascade on {} tokens...", n_tokens);
+    // Tokenize "Hello world, this is a test of text to speech."
+    // Qwen3 BPE: use the tokenizers crate
+    let tokenizer_path = "/home/user/models/qwen3-tts-0.6b/tokenizer.json";
+    let tokenizer = tokenizers::Tokenizer::from_file(tokenizer_path).unwrap_or_else(|e| {
+        eprintln!("Cannot load tokenizer {}: {}", tokenizer_path, e);
+        std::process::exit(1);
+    });
+    let text = "Hello world, this is a test of text to speech.";
+    let encoding = tokenizer.encode(text, false).unwrap();
+    let token_ids: Vec<u32> = encoding.get_ids().to_vec();
+    let n_tokens = token_ids.len();
+    println!("[2] Tokenized {:?} → {} tokens: {:?}", text, n_tokens, &token_ids[..n_tokens.min(20)]);
 
     // For each token: get its embedding archetype, then route through layers
     let talker_roles = ["talker_q_proj", "talker_k_proj", "talker_v_proj",
@@ -86,7 +96,8 @@ fn main() {
 
     let t0 = Instant::now();
     for token_idx in 0..n_tokens {
-        let embed_arch = embed_assign[token_idx];
+        let tid = token_ids[token_idx] as usize;
+        let embed_arch = if tid < embed_assign.len() { embed_assign[tid] } else { 0 };
         let mut current_arch = embed_arch;
 
         // Route through talker layers (simulate by routing through each role's cache)
@@ -94,7 +105,8 @@ fn main() {
             if let Some(cache) = caches.get(*role_name) {
                 // Route: how does this token's archetype interact with adjacent?
                 let next_idx = (token_idx + 1).min(n_tokens - 1);
-                let next_arch = embed_assign[next_idx];
+                let next_tid = token_ids[next_idx] as usize;
+                let next_arch = if next_tid < embed_assign.len() { embed_assign[next_tid] } else { 0 };
 
                 match cache.route(current_arch, next_arch) {
                     RouteAction::Skip => {
