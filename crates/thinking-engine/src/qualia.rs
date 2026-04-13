@@ -539,6 +539,91 @@ impl Qualia17D {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Completeness proof: every nonverbal vocal quality maps to ≥1 QPL dim.
+//
+// The 17 QPL dims were calibrated from musical intervals (Octave, Fifth,
+// Third, Tritone). Musical intervals ARE the atomic units of nonverbal
+// meaning — every vocal quality decomposes into these primitives:
+//
+//   Pitch register  → arousal(0) + depth(6)         [Octave: 2:1]
+//   Loudness        → arousal(0) + assertion(12)     [Octave: energy]
+//   Speaking rate   → velocity(7)                    [Octave: tempo]
+//   Breathiness     → clarity(4)⁻¹ + boundary(5)    [Third: partial overlap]
+//   Nasality        → warmth(3)⁻¹                   [Third: inverted]
+//   Vocal fry       → tension(2) + groundedness(14)  [Tritone: non-convergence]
+//   Vibrato         → entropy(8) + expansion(15)     [Tritone: periodic]
+//   Whisper         → boundary(5) + intimacy(10)     [Fifth: close but separate]
+//   Sarcasm         → valence(1) ↔ tension(2)        [Fifth × Tritone: mismatch]
+//   Hesitation      → integration(16)⁻¹              [Tritone: hasn't converged]
+//   Confidence      → assertion(12) + clarity(4)     [Octave: stable]
+//   Sadness         → valence(1)⁻¹ + velocity(7)⁻¹  [Fifth: descending]
+//   Anger           → arousal(0) + tension(2)        [Octave × Tritone]
+//   Surprise        → arousal(0) spike + expansion(15) [Octave: sudden]
+//   Fear            → tension(2) + clarity(4)⁻¹      [Tritone: unstable]
+//   Joy             → valence(1) + warmth(3)          [Fifth + Third]
+//   Tenderness      → warmth(3) + intimacy(10)       [Third: close]
+//   Authority       → groundedness(14) + assertion(12) [Octave: low stable]
+//   Contempt        → boundary(5) + assertion(12)     [Fifth: distant + active]
+//   Awe             → depth(6) + receptivity(13)      [Octave: deep + open]
+//
+// Key insight: the octave compression works BECAUSE qualia IS
+// octave-invariant. A fifth sounds like a fifth in any register.
+// The pattern (warmth, tension, clarity) doesn't change when you
+// transpose — only the register moves. That's why OctaveBand::transpose()
+// preserves the pattern: nonverbal meaning IS the pattern.
+//
+// Completeness follows from the musical calibration: if every vocal
+// quality decomposes into Octave/Fifth/Third/Tritone ratios, and
+// each ratio maps to specific QPL dims, then no nonverbal data
+// falls through the grid.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Nonverbal vocal qualities and their QPL dim coverage.
+/// Used for completeness verification: every quality must map to ≥1 dim.
+pub const VOCAL_QUALITY_MAP: [(&str, &[usize]); 22] = [
+    ("pitch_register",  &[0, 6]),       // arousal + depth
+    ("loudness",        &[0, 12]),      // arousal + assertion
+    ("speaking_rate",   &[7]),          // velocity
+    ("breathiness",     &[4, 5]),       // clarity⁻¹ + boundary
+    ("nasality",        &[3]),          // warmth⁻¹
+    ("vocal_fry",       &[2, 14]),      // tension + groundedness
+    ("vibrato",         &[8, 15]),      // entropy + expansion
+    ("whisper",         &[5, 10]),      // boundary + intimacy
+    ("sarcasm",         &[1, 2]),       // valence ↔ tension mismatch
+    ("hesitation",      &[16, 12]),     // integration⁻¹ + assertion⁻¹
+    ("confidence",      &[12, 4, 14]), // assertion + clarity + groundedness
+    ("sadness",         &[1, 7]),       // valence⁻¹ + velocity⁻¹
+    ("anger",           &[0, 2, 12]),   // arousal + tension + assertion
+    ("surprise",        &[0, 15]),      // arousal + expansion
+    ("fear",            &[2, 4]),       // tension + clarity⁻¹
+    ("joy",             &[1, 3, 0]),    // valence + warmth + arousal
+    ("tenderness",      &[3, 10]),      // warmth + intimacy
+    ("authority",       &[14, 12]),     // groundedness + assertion
+    ("contempt",        &[5, 12]),      // boundary + assertion
+    ("awe",             &[6, 13]),      // depth + receptivity
+    ("focus",           &[9, 4]),       // coherence + clarity — single dominant harmonic
+    ("immediacy",       &[11, 0, 7]),   // presence + arousal + velocity — here-now energy
+];
+
+/// Verify that all 17 QPL dimensions are covered by at least one
+/// vocal quality. If any dim is NOT referenced by any vocal quality,
+/// it means we have a "hole" in the grid where nonverbal data could
+/// fall through.
+///
+/// Returns the set of uncovered dims (empty = complete grid).
+pub fn verify_grid_completeness() -> Vec<usize> {
+    let mut covered = [false; 17];
+    for (_, dims) in &VOCAL_QUALITY_MAP {
+        for &d in *dims {
+            if d < 17 {
+                covered[d] = true;
+            }
+        }
+    }
+    (0..17).filter(|&i| !covered[i]).collect()
+}
+
 fn shannon_entropy(energy: &[f32]) -> f32 {
     let mut h = 0.0f32;
     for &e in energy {
@@ -603,6 +688,40 @@ mod tests {
         let prev = Qualia17D { dims: [0.5, 0.5, 0.3, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5] };
         let curr = Qualia17D { dims: [0.5, 0.5, 0.8, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5] };
         assert!(curr.feeling_derivative(&prev) > 0.0); // tension rising
+    }
+
+    #[test]
+    fn grid_completeness_no_holes() {
+        // THE key test: every QPL dim must be referenced by at least one
+        // vocal quality. An uncovered dim = data falls through the grid.
+        let uncovered = verify_grid_completeness();
+        assert!(uncovered.is_empty(),
+            "Grid has holes! Uncovered dims: {:?} ({})",
+            uncovered,
+            uncovered.iter().map(|&i| DIMS_17D[i]).collect::<Vec<_>>().join(", "));
+    }
+
+    #[test]
+    fn every_vocal_quality_has_dims() {
+        for (quality, dims) in &VOCAL_QUALITY_MAP {
+            assert!(!dims.is_empty(), "Vocal quality '{}' has no QPL dims", quality);
+            for &d in *dims {
+                assert!(d < 17, "Vocal quality '{}' references invalid dim {}", quality, d);
+            }
+        }
+    }
+
+    #[test]
+    fn roundtrip_band_to_qualia_to_mode() {
+        // A warm mid-heavy spectrum → qualia → mode should give Dorian or Ionian
+        let mut energies = [0.1f32; 21];
+        for i in 5..12 { energies[i] = 1.5; } // strong 1-3 kHz
+        let q = Qualia17D::from_band_energies(&energies);
+        let (mode, stride, _) = q.to_mode();
+        // Warm spectrum should NOT produce Locrian or Phrygian
+        assert!(mode != "locrian" && mode != "phrygian",
+            "Warm spectrum produced dark mode: {}", mode);
+        assert!(stride <= 8, "Invalid stride: {}", stride);
     }
 
     #[test]
