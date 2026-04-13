@@ -191,22 +191,76 @@ fn main() {
         println!("[4] CP layer {}: RMS={:.4} ({:?})", layer, rms, t0.elapsed());
     }
 
-    // lm_head → codec tokens
-    let mut codec_tokens = vec![0u8; n * 16];
+    // Autoregressive generation: 128 steps
+    // Each step: run code_predictor on current hidden → lm_head → codec token → re-embed → repeat
+    let n_gen_steps = 128;
+    println!("[5] Autoregressive generation: {} steps...", n_gen_steps);
+
+    // Load all lm_heads and codec_embeddings upfront
+    let mut lm_heads: Vec<Vec<f32>> = Vec::new();
+    let mut cp_embeds: Vec<Vec<f32>> = Vec::new();
     for g in 0..15 {
-        let lm = read_tensor(&mut reader, &header,
-            &format!("talker.code_predictor.lm_head.{}.weight", g));
-        if lm.is_empty() { continue; }
-        for f in 0..n {
-            let h = &hidden[f*HIDDEN..(f+1)*HIDDEN];
+        lm_heads.push(read_tensor(&mut reader, &header,
+            &format!("talker.code_predictor.lm_head.{}.weight", g)));
+        cp_embeds.push(read_tensor(&mut reader, &header,
+            &format!("talker.code_predictor.model.codec_embedding.{}.weight", g)));
+    }
+
+    // Start from last token's hidden state
+    let mut gen_hidden = vec![0.0f32; HIDDEN];
+    gen_hidden.copy_from_slice(&hidden[(n-1)*HIDDEN..n*HIDDEN]);
+
+    let mut all_codec_tokens: Vec<[u8; 16]> = Vec::new();
+    let t0 = Instant::now();
+
+    for step in 0..n_gen_steps {
+        // Run 5 code_predictor layers on single token
+        let mut h = vec![0.0f32; HIDDEN]; // single frame
+        h.copy_from_slice(&gen_hidden);
+
+        for layer in 0..5 {
+            let prefix = format!("talker.code_predictor.model.layers.{}", layer);
+            transformer_layer(&mut h, 1, HIDDEN, &mut reader, &header, &prefix);
+        }
+
+        // lm_head argmax for each of 15 code groups
+        let mut frame_tokens = [0u8; 16];
+        for g in 0..15 {
+            let lm = &lm_heads[g];
+            if lm.is_empty() { continue; }
             let mut best = 0u16; let mut best_l = f32::NEG_INFINITY;
             for t in 0..CODEBOOK_SIZE {
                 let mut l = 0.0f32;
                 for d in 0..HIDDEN { l += h[d] * lm[t*HIDDEN+d]; }
                 if l > best_l { best_l = l; best = t as u16; }
             }
-            codec_tokens[f * 16 + g] = (best % 256) as u8;
+            frame_tokens[g] = (best % 256) as u8;
         }
+        all_codec_tokens.push(frame_tokens);
+
+        // Re-embed: sum all 15 codec_embedding lookups → next hidden
+        gen_hidden = vec![0.0f32; HIDDEN];
+        for g in 0..15 {
+            let ce = &cp_embeds[g];
+            let code = frame_tokens[g] as usize;
+            let code = code.min(CODEBOOK_SIZE - 1);
+            if ce.len() >= (code + 1) * HIDDEN {
+                for d in 0..HIDDEN { gen_hidden[d] += ce[code * HIDDEN + d]; }
+            }
+        }
+
+        if step % 32 == 0 || step == n_gen_steps - 1 {
+            let rms = (h.iter().map(|v| v*v).sum::<f32>() / h.len() as f32).sqrt();
+            println!("    Step {}: tokens={:?} RMS={:.4}", step, &frame_tokens[..4], rms);
+        }
+    }
+    println!("    Generated {} frames in {:?}", all_codec_tokens.len(), t0.elapsed());
+
+    // Flatten codec tokens
+    let n_frames = all_codec_tokens.len();
+    let mut codec_tokens = vec![0u8; n_frames * 16];
+    for (i, frame) in all_codec_tokens.iter().enumerate() {
+        codec_tokens[i*16..(i+1)*16].copy_from_slice(frame);
     }
     println!("[5] Codec tokens frame 0: {:?}", &codec_tokens[..16]);
 
@@ -257,8 +311,8 @@ fn main() {
 
     // RVQ lookup
     let n_cb = codebooks.len().min(16);
-    let mut latent = vec![0.0f32; n * cb_dim];
-    for f in 0..n {
+    let mut latent = vec![0.0f32; n_frames * cb_dim];
+    for f in 0..n_frames {
         for g in 0..n_cb {
             let code = (codec_tokens[f*16+g] as usize).min(cb_size-1);
             for d in 0..cb_dim { latent[f*cb_dim+d] += codebooks[g][code*cb_dim+d]; }
@@ -270,7 +324,7 @@ fn main() {
     // Simple output: write latent directly as PCM (each frame → 256 samples)
     // This skips the conv decoder but gives us latent-space audio
     let mut pcm = Vec::new();
-    for f in 0..n {
+    for f in 0..n_frames {
         for d in 0..cb_dim {
             pcm.push(latent[f * cb_dim + d] * 0.1); // scale down
         }
