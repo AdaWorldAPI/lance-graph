@@ -104,83 +104,12 @@ fn stream_project_tensor(
 }
 
 /// Build k-means palette from Base17 rows (L1 distance, deterministic init).
-fn build_palette(rows: &[Base17], k: usize, max_iter: usize) -> Vec<Base17> {
-    let n = rows.len();
-    if n <= k {
-        let mut result = rows.to_vec();
-        result.resize(k, Base17::zero());
-        return result;
-    }
-
-    // Deterministic init: evenly-spaced indices
-    let mut centroids: Vec<[f64; 17]> = (0..k)
-        .map(|i| {
-            let idx = i * n / k;
-            let mut c = [0.0f64; 17];
-            for d in 0..17 { c[d] = rows[idx].dims[d] as f64; }
-            c
-        })
-        .collect();
-
-    for _iter in 0..max_iter {
-        // Assign
-        let mut sums = vec![[0.0f64; 17]; k];
-        let mut counts = vec![0usize; k];
-
-        for row in rows {
-            let mut best = 0usize;
-            let mut best_d = i64::MAX;
-            for c in 0..k {
-                let d: i64 = (0..17).map(|d| {
-                    (row.dims[d] as i64 - centroids[c][d] as i64).abs()
-                }).sum();
-                if d < best_d { best_d = d; best = c; }
-            }
-            for d in 0..17 { sums[best][d] += row.dims[d] as f64; }
-            counts[best] += 1;
-        }
-
-        // Update
-        let mut delta = 0.0f64;
-        for c in 0..k {
-            if counts[c] > 0 {
-                for d in 0..17 {
-                    let new_val = sums[c][d] / counts[c] as f64;
-                    delta += (new_val - centroids[c][d]).abs();
-                    centroids[c][d] = new_val;
-                }
-            }
-        }
-        if delta < 1.0 { break; }
-    }
-
-    centroids.iter().map(|c| {
-        let mut dims = [0i16; 17];
-        for d in 0..17 { dims[d] = c[d].clamp(-32768.0, 32767.0) as i16; }
-        Base17 { dims }
-    }).collect()
-}
-
-/// Build L1 distance table (k × k, u16).
-fn build_distance_table(palette: &[Base17]) -> Vec<u16> {
-    let k = palette.len();
-    let mut table = vec![0u16; k * k];
-    for i in 0..k {
-        for j in (i + 1)..k {
-            let d = palette[i].l1(&palette[j]);
-            let d16 = (d as u64).min(65535) as u16;
-            table[i * k + j] = d16;
-            table[j * k + i] = d16;
-        }
-    }
-    table
-}
-
-/// Shannon entropy of distance table values.
-fn table_entropy(table: &[u16]) -> f64 {
+/// Shannon entropy of a u16 distance set.
+fn table_entropy_u16(dists: &[u16]) -> f64 {
     let mut counts: HashMap<u16, usize> = HashMap::new();
-    for &v in table { *counts.entry(v).or_insert(0) += 1; }
-    let total = table.len() as f64;
+    for &v in dists { *counts.entry(v).or_insert(0) += 1; }
+    let total = dists.len() as f64;
+    if total < 1.0 { return 0.0; }
     counts.values()
         .map(|&c| { let p = c as f64 / total; -p * p.log2() })
         .sum()
@@ -242,41 +171,51 @@ fn main() {
         println!("    {}/{}: {} rows → Base17 ({:?})", comp, role, n, t0.elapsed());
     }
 
-    // Step 3: Build palette per role (use first 4096 rows for speed)
-    println!("\n[3] Building {}-entry palette per role...", N_CENTROIDS);
-    let mut role_palettes: HashMap<(String, String), Vec<Base17>> = HashMap::new();
+    // Step 3: Build WeightPalette per role (CLAM furthest-point sampling)
+    println!("\n[3] Building CLAM {}-entry palette per role...", N_CENTROIDS);
+    let mut role_wp: HashMap<(String, String), WeightPalette> = HashMap::new();
     for (key, rows) in &role_base17 {
         let t0 = Instant::now();
         let sample = if rows.len() > 4096 { &rows[..4096] } else { &rows[..] };
-        let palette = build_palette(sample, N_CENTROIDS, 15);
-        let nonzero = palette.iter().filter(|c| *c != &Base17::zero()).count();
-        role_palettes.insert(key.clone(), palette);
-        println!("    {}/{}: {}/{} active centroids ({:?})",
-            key.0, key.1, nonzero, N_CENTROIDS, t0.elapsed());
+        let wp = WeightPalette::build(sample, N_CENTROIDS);
+        let active = wp.counts.iter().filter(|&&c| c > 0).count();
+        let max_radius = wp.radii.iter().copied().max().unwrap_or(0);
+        println!("    {}/{}: {}/{} active, max_radius={} ({:?})",
+            key.0, key.1, active, wp.entries.len(), max_radius, t0.elapsed());
+        role_wp.insert(key.clone(), wp);
     }
 
-    // Step 4: Build distance tables
+    // Step 4: Build AttentionTable (distance tables) from palettes
     println!("\n[4] Building L1 distance tables ({}×{})...", N_CENTROIDS, N_CENTROIDS);
-    let mut role_tables: HashMap<(String, String), Vec<u16>> = HashMap::new();
-    for (key, palette) in &role_palettes {
+    use bgz_tensor::attention::AttentionTable;
+    let mut role_tables_at: HashMap<(String, String), AttentionTable> = HashMap::new();
+    for (key, wp) in &role_wp {
         let t0 = Instant::now();
-        let table = build_distance_table(palette);
-        let entropy = table_entropy(&table);
-        let nonzero: Vec<&u16> = table.iter().filter(|&&v| v > 0).collect();
-        let mean_d = if nonzero.is_empty() { 0.0 }
-            else { nonzero.iter().map(|&&v| v as f64).sum::<f64>() / nonzero.len() as f64 };
-        let max_d = table.iter().copied().max().unwrap_or(0);
-        role_tables.insert(key.clone(), table);
+        let at = AttentionTable::build(wp);
+        // Compute stats from the table
+        let k = wp.entries.len();
+        let mut dists: Vec<u16> = Vec::new();
+        for a in 0..k {
+            for b in (a+1)..k {
+                dists.push(at.distance(a as u8, b as u8));
+            }
+        }
+        let mean_d = if dists.is_empty() { 0.0 }
+            else { dists.iter().map(|&d| d as f64).sum::<f64>() / dists.len() as f64 };
+        let max_d = dists.iter().copied().max().unwrap_or(0);
+        let entropy = table_entropy_u16(&dists);
         println!("    {}/{}: entropy={:.1} bits, mean_d={:.0}, max_d={}, ({:?})",
             key.0, key.1, entropy, mean_d, max_d, t0.elapsed());
+        role_tables_at.insert(key.clone(), at);
     }
 
     // Step 5: Pairwise preservation (50 pairs, Spearman ρ)
     println!("\n[5] Pairwise L1 preservation (50 pairs per role)...");
     let seed = 0x9E3779B97F4A7C15u64;
     for (key, rows) in &role_base17 {
-        let palette = &role_palettes[key];
-        let table = &role_tables[key];
+        let wp = &role_wp[key];
+        let at = &role_tables_at[key];
+        let palette = &wp.entries;
         let n = rows.len();
         if n < 50 { continue; }
 
@@ -302,7 +241,7 @@ fn main() {
             // Find nearest centroids
             let ca = (0..N_CENTROIDS).min_by_key(|&c| rows[a].l1(&palette[c])).unwrap();
             let cb = (0..N_CENTROIDS).min_by_key(|&c| rows[b].l1(&palette[c])).unwrap();
-            let quant_d = table[ca * N_CENTROIDS + cb] as u32;
+            let quant_d = at.distance(ca as u8, cb as u8) as u32;
             exact.push(exact_d as f64);
             quant.push(quant_d as f64);
         }
@@ -318,25 +257,12 @@ fn main() {
     println!("\n[6] Building HhtlCache per role + saving HHTL...");
 
     let mut total_bytes = 0usize;
-    for (key, palette) in &role_palettes {
+    for (key, wp) in &role_wp {
         let rows = &role_base17[key];
-
-        // Build WeightPalette from our Base17 centroids
-        // Compute counts and radii from row assignments
-        let mut counts = vec![0u32; N_CENTROIDS];
-        let mut radii = vec![0u32; N_CENTROIDS];
-        for row in rows.iter() {
-            let (best, best_d) = (0..N_CENTROIDS)
-                .map(|c| (c, row.l1(&palette[c])))
-                .min_by_key(|&(_, d)| d).unwrap();
-            counts[best] += 1;
-            if best_d > radii[best] { radii[best] = best_d; }
-        }
-        let wp = WeightPalette { entries: palette.clone(), radii, counts };
 
         // Build HhtlCache: palette + distance table + route table (cascade decisions)
         let t0 = Instant::now();
-        let cache = HhtlCache::from_palette(wp);
+        let cache = HhtlCache::from_palette(wp.clone());
 
         let fname = format!("{}_{}_hhtl.bgz", key.0, key.1);
         let fpath = out_dir.join(&fname);
