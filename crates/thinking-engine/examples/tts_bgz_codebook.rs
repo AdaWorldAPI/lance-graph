@@ -12,10 +12,17 @@
 //!     -- /home/user/models/qwen3-tts-0.6b/model.safetensors
 //! ```
 
-use ndarray::hpc::bgz17_bridge::Base17;
 use ndarray::hpc::gguf::{GgmlType, TensorInfo};
 use ndarray::hpc::gguf_indexer::{project_tensor_bf16_simd, project_row_to_base17};
 use ndarray::hpc::safetensors::read_safetensors_header;
+use bgz_tensor::projection::Base17;
+use bgz_tensor::palette::WeightPalette;
+use bgz_tensor::hhtl_cache::HhtlCache;
+
+/// Convert ndarray Base17 to bgz-tensor Base17 (identical layout: [i16; 17]).
+fn convert_base17(nd: &ndarray::hpc::bgz17_bridge::Base17) -> Base17 {
+    Base17 { dims: nd.dims }
+}
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
@@ -51,7 +58,7 @@ fn stream_project_tensor(
     tensor: &TensorInfo,
     data_offset: u64,
     octave_stride: usize,
-) -> Vec<Base17> {
+) -> Vec<ndarray::hpc::bgz17_bridge::Base17> {
     let n_rows = tensor.dimensions[0] as usize;
     let n_cols = if tensor.dimensions.len() > 1 { tensor.dimensions[1] as usize } else { 1 };
 
@@ -228,7 +235,7 @@ fn main() {
             let rows = stream_project_tensor(
                 &mut reader, tensor, header.tensor_data_offset, octave_stride,
             );
-            all_rows.extend(rows);
+            all_rows.extend(rows.into_iter().map(|r| convert_base17(&r)));
         }
         let n = all_rows.len();
         role_base17.insert((comp.clone(), role.clone()), all_rows);
@@ -305,51 +312,58 @@ fn main() {
         println!("    {}/{}: Spearman ρ = {:.4}", key.0, key.1, rho);
     }
 
-    // Step 6: Save codebooks to disk
+    // Step 6: Build HhtlCache per role and save as HHTL format
     let out_dir = std::path::Path::new(st_path).parent().unwrap().join("codebooks");
     std::fs::create_dir_all(&out_dir).ok();
-    println!("\n[6] Saving codebooks to {}...", out_dir.display());
+    println!("\n[6] Building HhtlCache per role + saving HHTL...");
 
     let mut total_bytes = 0usize;
     for (key, palette) in &role_palettes {
-        let table = &role_tables[key];
         let rows = &role_base17[key];
 
-        // Compute assignments
-        let assignments: Vec<u8> = rows.iter().map(|row| {
-            (0..N_CENTROIDS).min_by_key(|&c| row.l1(&palette[c])).unwrap() as u8
-        }).collect();
-
-        let fname = format!("{}_{}.bgz7", key.0, key.1);
-        let fpath = out_dir.join(&fname);
-        let mut f = std::fs::File::create(&fpath).unwrap();
-
-        // Header: magic + k + n_rows + n_cols_orig
-        use std::io::Write;
-        f.write_all(b"BGZ7").unwrap();
-        f.write_all(&(N_CENTROIDS as u32).to_le_bytes()).unwrap();
-        f.write_all(&(rows.len() as u32).to_le_bytes()).unwrap();
-
-        // Palette centroids: k × 17 × i16
-        for c in 0..N_CENTROIDS {
-            for d in 0..17 {
-                f.write_all(&palette[c].dims[d].to_le_bytes()).unwrap();
-            }
+        // Build WeightPalette from our Base17 centroids
+        // Compute counts and radii from row assignments
+        let mut counts = vec![0u32; N_CENTROIDS];
+        let mut radii = vec![0u32; N_CENTROIDS];
+        for row in rows.iter() {
+            let (best, best_d) = (0..N_CENTROIDS)
+                .map(|c| (c, row.l1(&palette[c])))
+                .min_by_key(|&(_, d)| d).unwrap();
+            counts[best] += 1;
+            if best_d > radii[best] { radii[best] = best_d; }
         }
+        let wp = WeightPalette { entries: palette.clone(), radii, counts };
 
-        // Distance table: k × k × u16
-        f.write_all(unsafe {
-            std::slice::from_raw_parts(table.as_ptr() as *const u8, table.len() * 2)
-        }).unwrap();
+        // Build HhtlCache: palette + distance table + route table (cascade decisions)
+        let t0 = Instant::now();
+        let cache = HhtlCache::from_palette(wp);
 
-        // Row assignments: n_rows × u8
-        f.write_all(&assignments).unwrap();
+        let fname = format!("{}_{}_hhtl.bgz", key.0, key.1);
+        let fpath = out_dir.join(&fname);
+        cache.serialize(fpath.to_str().unwrap()).expect("serialize HHTL");
 
-        let file_bytes = 4 + 4 + 4 + N_CENTROIDS * 17 * 2 + N_CENTROIDS * N_CENTROIDS * 2 + rows.len();
-        total_bytes += file_bytes;
-        println!("    {}: {} bytes ({} rows)", fname, file_bytes, rows.len());
+        // Also save row assignments (not part of HHTL, needed for token→archetype)
+        let assignments: Vec<u8> = rows.iter().map(|row| {
+            cache.nearest(row).0
+        }).collect();
+        let assign_path = out_dir.join(format!("{}_{}_assign.bin", key.0, key.1));
+        std::fs::write(&assign_path, &assignments).unwrap();
+
+        let hhtl_bytes = std::fs::metadata(&fpath).map(|m| m.len() as usize).unwrap_or(0);
+        let assign_bytes = assignments.len();
+        total_bytes += hhtl_bytes + assign_bytes;
+
+        // Count route actions
+        let k = cache.palette.entries.len();
+        let n_skip = (0..k).flat_map(|a| (0..k).map(move |b| (a, b)))
+            .filter(|&(a, b)| cache.route(a as u8, b as u8) == bgz_tensor::hhtl_cache::RouteAction::Skip)
+            .count();
+        let skip_pct = n_skip as f64 / (k * k) as f64 * 100.0;
+
+        println!("    {}: {} bytes HHTL + {} bytes assign, skip={:.0}% ({:?})",
+            fname, hhtl_bytes, assign_bytes, skip_pct, t0.elapsed());
     }
-    println!("    Total codebook: {} bytes ({:.1} KB)", total_bytes, total_bytes as f64 / 1024.0);
+    println!("    Total: {} bytes ({:.1} KB)", total_bytes, total_bytes as f64 / 1024.0);
 
     // Summary
     let st_size = std::fs::metadata(st_path).map(|m| m.len()).unwrap_or(0);
