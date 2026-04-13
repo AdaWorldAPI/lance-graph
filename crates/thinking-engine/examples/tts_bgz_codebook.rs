@@ -1,10 +1,17 @@
-//! Qwen3-TTS → BGZ speech codebook: hard reality check.
+//! Qwen3-TTS → BGZ speech codebook via highheelbgz spiral pipeline.
 //!
-//! Streams the Qwen3-TTS 0.6B safetensors through the existing ndarray
-//! BF16→Base17 SIMD projection pipeline, then builds per-role palettes
-//! and distance tables. Compares against text-model structure.
+//! Correct pipeline:
+//!   safetensors → highheelbgz::SpiralEncoding (BF16 anchors, stride=role)
+//!     → highheelbgz::GammaProfile (exact restore metadata)
+//!       → bgz-tensor::WeightPalette (CLAM from spiral-encoded rows)
+//!         → bgz-tensor::HhtlCache (route table + distance table)
 //!
-//! Uses AVX-512 SIMD via `project_tensor_bf16_simd()` — no scalar.
+//! The spiral encoding uses stride to encode tensor role:
+//!   stride=3 → QK (attention query/key)
+//!   stride=5 → V  (content retrieval)
+//!   stride=8 → Gate (coarse routing)
+//!   stride=2 → Up (fine expansion)
+//!   stride=4 → Down (compression)
 //!
 //! ```sh
 //! cargo run --release --example tts_bgz_codebook \
@@ -13,11 +20,12 @@
 //! ```
 
 use ndarray::hpc::gguf::{GgmlType, TensorInfo};
-use ndarray::hpc::gguf_indexer::{project_tensor_bf16_simd, project_row_to_base17};
+use ndarray::hpc::gguf_indexer::project_row_to_base17;
 use ndarray::hpc::safetensors::read_safetensors_header;
 use bgz_tensor::projection::Base17;
 use bgz_tensor::palette::WeightPalette;
 use bgz_tensor::hhtl_cache::HhtlCache;
+use highheelbgz::rehydrate::{SpiralEncoding, GammaProfile};
 
 /// Convert ndarray Base17 to bgz-tensor Base17 (identical layout: [i16; 17]).
 fn convert_base17(nd: &ndarray::hpc::bgz17_bridge::Base17) -> Base17 {
@@ -29,8 +37,24 @@ use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::time::Instant;
 
 const N_CENTROIDS: usize = 256;
+/// Anchors per spiral dimension (K=8 gives 278 bytes per encoding,
+/// good balance between fidelity and size).
+const SPIRAL_K: usize = 8;
+/// Target samples-per-dim for γ+φ interpolation when rehydrating.
+const REHYDRATE_SPD: usize = 32;
 
-/// TensorRole from name (matches hydrate.rs)
+/// TensorRole from name → highheelbgz stride.
+/// stride IS the role — no separate field needed.
+fn role_stride(name: &str) -> u32 {
+    let n = name.to_lowercase();
+    if n.contains("q_proj") || n.contains("k_proj") || n.contains("o_proj") { 3 }  // QK
+    else if n.contains("v_proj") { 5 }   // V: content retrieval
+    else if n.contains("gate_proj") { 8 } // Gate: coarse routing
+    else if n.contains("up_proj") { 2 }   // Up: fine expansion
+    else if n.contains("down_proj") { 4 } // Down: compression
+    else { 3 } // default to QK stride
+}
+
 fn detect_role(name: &str) -> &'static str {
     let n = name.to_lowercase();
     if n.contains("q_proj") { "q_proj" }
@@ -52,105 +76,78 @@ fn detect_component(name: &str) -> &'static str {
     else { "other" }
 }
 
-/// Per-row gamma deviation: mean absolute magnitude.
-/// Rows with similar gamma belong to the same basin.
-fn row_gamma(bf16_row: &[u16]) -> f32 {
-    let mut sum = 0.0f64;
-    for &bits in bf16_row {
-        let v = f32::from_bits((bits as u32) << 16);
-        sum += v.abs() as f64;
-    }
-    (sum / bf16_row.len().max(1) as f64) as f32
-}
-
-/// Stream BF16 tensor, compute per-row gamma, correct per-basin, project to Base17.
-fn stream_project_with_gamma(
+/// Stream tensor rows, spiral-encode each via highheelbgz, then rehydrate+project to Base17.
+///
+/// Pipeline per row:
+///   BF16/F16 → f32 → SpiralEncoding::encode(f32, start, stride, k)
+///     → rehydrate_interpolated(target_spd, gamma) → project_row_to_base17(f32)
+///
+/// Returns (base17_rows, spiral_encodings, gamma_profile).
+fn stream_spiral_encode(
     reader: &mut BufReader<File>,
     tensor: &TensorInfo,
     data_offset: u64,
-    octave_stride: usize,
-) -> (Vec<ndarray::hpc::bgz17_bridge::Base17>, Vec<f32>) {
-    // Returns (base17_rows, per_row_gamma)
+    role_name: &str,
+) -> (Vec<ndarray::hpc::bgz17_bridge::Base17>, Vec<SpiralEncoding>, GammaProfile) {
     let n_rows = tensor.dimensions[0] as usize;
     let n_cols = if tensor.dimensions.len() > 1 { tensor.dimensions[1] as usize } else { 1 };
+    let stride = role_stride(role_name);
+    // Start offset: skip degenerate region at beginning of weight vector
+    let start = 20u32;
 
     let tensor_start = data_offset + tensor.offset;
     reader.seek(SeekFrom::Start(tensor_start)).unwrap();
 
-    match tensor.dtype {
+    // Read all rows as f32
+    let f32_rows: Vec<Vec<f32>> = match tensor.dtype {
         GgmlType::BF16 => {
             let n_elements = n_rows * n_cols;
             let mut raw = vec![0u8; n_elements * 2];
             reader.read_exact(&mut raw).unwrap();
-
-            // Pass 1: compute per-row gamma
-            let mut gammas = Vec::with_capacity(n_rows);
-            let mut bf16_buf = vec![0u16; n_elements];
-            for i in 0..n_elements {
-                bf16_buf[i] = u16::from_le_bytes([raw[i * 2], raw[i * 2 + 1]]);
-            }
-            for r in 0..n_rows {
-                gammas.push(row_gamma(&bf16_buf[r * n_cols..(r + 1) * n_cols]));
-            }
-
-            // Find basin boundaries from gamma histogram (simple: split at median)
-            let mut sorted_g = gammas.clone();
-            sorted_g.sort_by(|a, b| a.partial_cmp(b).unwrap());
-            let median_g = sorted_g[sorted_g.len() / 2];
-            let lo_mean = sorted_g[..sorted_g.len() / 2].iter().sum::<f32>()
-                / (sorted_g.len() / 2).max(1) as f32;
-            let hi_mean = sorted_g[sorted_g.len() / 2..].iter().sum::<f32>()
-                / (sorted_g.len() - sorted_g.len() / 2).max(1) as f32;
-
-            // Pass 2: gamma-correct each row, then project
-            // Correction: divide by basin gamma → normalize to ~1.0 range
-            // This spreads tight distributions so Base17 i16 scaling has resolution
-            let mut corrected = vec![0u16; n_elements];
-            for r in 0..n_rows {
-                let basin_gamma = if gammas[r] < median_g { lo_mean } else { hi_mean };
-                let scale = if basin_gamma > 1e-8 { 1.0 / basin_gamma } else { 1.0 };
-                for c in 0..n_cols {
-                    let v = f32::from_bits((bf16_buf[r * n_cols + c] as u32) << 16);
-                    let corrected_v = v * scale;
-                    // BF16 RNE encode
-                    let bits = corrected_v.to_bits();
-                    let lsb = (bits >> 16) & 1;
-                    let biased = bits.wrapping_add(0x7FFF).wrapping_add(lsb);
-                    corrected[r * n_cols + c] = (biased >> 16) as u16;
-                }
-            }
-
-            let projected = project_tensor_bf16_simd(&corrected, n_rows, n_cols, octave_stride);
-            (projected, gammas)
+            (0..n_rows).map(|r| {
+                (0..n_cols).map(|c| {
+                    let idx = r * n_cols + c;
+                    let bits = u16::from_le_bytes([raw[idx * 2], raw[idx * 2 + 1]]);
+                    f32::from_bits((bits as u32) << 16)
+                }).collect()
+            }).collect()
         }
         GgmlType::F16 => {
             let n_elements = n_rows * n_cols;
             let mut raw = vec![0u8; n_elements * 2];
             reader.read_exact(&mut raw).unwrap();
-            let mut result = Vec::with_capacity(n_rows);
-            let mut gammas = Vec::with_capacity(n_rows);
-            for row_idx in 0..n_rows {
-                let start = row_idx * n_cols;
-                let mut f32_row = vec![0.0f32; n_cols];
-                for c in 0..n_cols {
-                    let bits = u16::from_le_bytes([raw[(start + c) * 2], raw[(start + c) * 2 + 1]]);
-                    f32_row[c] = ndarray::hpc::gguf::f16_to_f32(bits);
-                }
-                let g: f32 = f32_row.iter().map(|v| v.abs()).sum::<f32>() / n_cols as f32;
-                gammas.push(g);
-                // Gamma correct: normalize by row magnitude
-                if g > 1e-8 {
-                    for v in &mut f32_row { *v /= g; }
-                }
-                result.push(project_row_to_base17(&f32_row));
-            }
-            (result, gammas)
+            (0..n_rows).map(|r| {
+                (0..n_cols).map(|c| {
+                    let idx = r * n_cols + c;
+                    let bits = u16::from_le_bytes([raw[idx * 2], raw[idx * 2 + 1]]);
+                    ndarray::hpc::gguf::f16_to_f32(bits)
+                }).collect()
+            }).collect()
         }
         _ => {
             eprintln!("  Skipping {} (dtype {:?})", tensor.name, tensor.dtype);
-            (Vec::new(), Vec::new())
+            return (Vec::new(), Vec::new(), GammaProfile { role_gamma: [0.01; 6], phi_scale: 0.01 });
         }
-    }
+    };
+
+    // Step 1: Calibrate GammaProfile from raw rows (highheelbgz canonical)
+    let row_refs: Vec<&[f32]> = f32_rows.iter().map(|r| r.as_slice()).collect();
+    let gamma = GammaProfile::calibrate(&row_refs);
+
+    // Step 2: Spiral-encode each row (BF16 anchors at role stride)
+    let encodings: Vec<SpiralEncoding> = f32_rows.iter()
+        .map(|row| SpiralEncoding::encode(row, start, stride, SPIRAL_K))
+        .collect();
+
+    // Step 3: Rehydrate with γ+φ interpolation → project to Base17
+    let base17_rows: Vec<ndarray::hpc::bgz17_bridge::Base17> = encodings.iter()
+        .map(|enc| {
+            let rehydrated = enc.rehydrate_interpolated(REHYDRATE_SPD, &gamma);
+            project_row_to_base17(&rehydrated)
+        })
+        .collect();
+
+    (base17_rows, encodings, gamma)
 }
 
 /// Build k-means palette from Base17 rows (L1 distance, deterministic init).
@@ -202,34 +199,34 @@ fn main() {
         println!("      {}/{}: {} tensors, {} rows", comp, role, tensors.len(), total);
     }
 
-    // Step 2: Stream → gamma-correct per basin → AVX-512 Base17 projection
-    println!("\n[2] Streaming → gamma correction → AVX-512 Base17 projection...");
+    // Step 2: Stream → highheelbgz SpiralEncoding → GammaProfile → rehydrate → Base17
+    println!("\n[2] Streaming → SpiralEncoding (stride=role) → γ+φ rehydrate → Base17...");
     let mut role_base17: HashMap<(String, String), Vec<Base17>> = HashMap::new();
-    let mut role_gammas: HashMap<(String, String), Vec<f32>> = HashMap::new();
-    let octave_stride = 1;
+    let mut role_gammas: HashMap<(String, String), GammaProfile> = HashMap::new();
+    let mut role_spirals: HashMap<(String, String), Vec<SpiralEncoding>> = HashMap::new();
 
     for ((comp, role), tensors) in role_groups.iter() {
         let t0 = Instant::now();
         let mut all_rows = Vec::new();
-        let mut all_gammas = Vec::new();
+        let mut all_encodings = Vec::new();
+        let mut last_gamma = GammaProfile { role_gamma: [0.01; 6], phi_scale: 0.01 };
+        let stride = role_stride(role);
         for tensor in tensors {
-            let (rows, gammas) = stream_project_with_gamma(
-                &mut reader, tensor, header.tensor_data_offset, octave_stride,
+            let (rows, encodings, gamma) = stream_spiral_encode(
+                &mut reader, tensor, header.tensor_data_offset, role,
             );
             all_rows.extend(rows.into_iter().map(|r| convert_base17(&r)));
-            all_gammas.extend(gammas);
+            all_encodings.extend(encodings);
+            last_gamma = gamma;
         }
         let n = all_rows.len();
-        // Report gamma basin stats
-        let mut gs = all_gammas.clone();
-        gs.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        let g_min = gs.first().copied().unwrap_or(0.0);
-        let g_med = gs.get(gs.len() / 2).copied().unwrap_or(0.0);
-        let g_max = gs.last().copied().unwrap_or(0.0);
-        role_gammas.insert((comp.clone(), role.clone()), all_gammas);
+        let phi = last_gamma.phi_scale;
+        let g0 = last_gamma.role_gamma[0];
+        println!("    {}/{}: {} rows, stride={}, gamma={:.4}, φ_scale={:.4}, K={} ({:?})",
+            comp, role, n, stride, g0, phi, SPIRAL_K, t0.elapsed());
+        role_gammas.insert((comp.clone(), role.clone()), last_gamma);
+        role_spirals.insert((comp.clone(), role.clone()), all_encodings);
         role_base17.insert((comp.clone(), role.clone()), all_rows);
-        println!("    {}/{}: {} rows, gamma[min={:.4} med={:.4} max={:.4}] ({:?})",
-            comp, role, n, g_min, g_med, g_max, t0.elapsed());
     }
 
     // Step 3: Build WeightPalette per role (CLAM furthest-point sampling)
@@ -325,22 +322,17 @@ fn main() {
         let t0 = Instant::now();
         let mut cache = HhtlCache::from_palette(wp.clone());
 
-        // Populate gamma metadata from per-row gammas
-        let gammas = &role_gammas[key];
-        if !gammas.is_empty() {
-            let mut gs = gammas.clone();
-            gs.sort_by(|a, b| a.partial_cmp(b).unwrap());
-            let median = gs[gs.len() / 2];
-            let lo_mean = gs[..gs.len() / 2].iter().sum::<f32>() / (gs.len() / 2).max(1) as f32;
-            let hi_mean = gs[gs.len() / 2..].iter().sum::<f32>() / (gs.len() - gs.len() / 2).max(1) as f32;
-            let role_id = match key.1.as_str() {
-                "q_proj" => 0.0, "k_proj" => 1.0, "v_proj" => 2.0,
-                "gate_proj" => 3.0, "up_proj" => 4.0, "down_proj" => 5.0,
-                "o_proj" => 6.0, "embedding" => 7.0, "norm" => 8.0,
-                _ => 9.0,
-            };
-            cache.gamma_meta = [lo_mean, hi_mean, median, role_id];
-        }
+        // Populate gamma metadata from highheelbgz GammaProfile (canonical source)
+        let gamma_profile = &role_gammas[key];
+        let role_id = match key.1.as_str() {
+            "q_proj" => 0.0, "k_proj" => 1.0, "v_proj" => 2.0,
+            "gate_proj" => 3.0, "up_proj" => 4.0, "down_proj" => 5.0,
+            "o_proj" => 6.0, "embedding" => 7.0, "norm" => 8.0,
+            _ => 9.0,
+        };
+        // Store: [role_gamma_mean, phi_scale, stride_as_float, role_id]
+        let stride_f = role_stride(&key.1) as f32;
+        cache.gamma_meta = [gamma_profile.role_gamma[0], gamma_profile.phi_scale, stride_f, role_id];
 
         let fname = format!("{}_{}_hhtl.bgz", key.0, key.1);
         let fpath = out_dir.join(&fname);

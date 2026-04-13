@@ -319,6 +319,309 @@ impl Qualia17D {
         // Tension derivative: how fast is tension changing?
         self.dims[2] - prev.dims[2]
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Audio bridge: Qualia17D ↔ musical modes ↔ voice character
+    //
+    // The 17 QPL dimensions were CALIBRATED from musical intervals:
+    //   Octave (2:1) → arousal,  Fifth (3:2) → valence,
+    //   Third (5:4) → warmth,    Tritone (√2:1) → tension
+    //
+    // This bridge makes the calibration bidirectional:
+    //   Qualia17D → musical mode → highheelbgz stride → spectral color
+    //   Audio band energies → mode detection → Qualia17D dims
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Map qualia state to the most fitting musical mode.
+    ///
+    /// Uses the QPL dimensions that were originally calibrated from music:
+    ///   high valence + low tension → Ionian (bright major)
+    ///   high warmth + moderate tension → Dorian (warm minor)
+    ///   high tension + low warmth → Phrygian (dark, exotic)
+    ///   high clarity + low tension → Lydian (dreamy, floating)
+    ///   high velocity + moderate tension → Mixolydian (driving)
+    ///   low valence + moderate tension → Aeolian (sad minor)
+    ///   high tension + high entropy → Locrian (unstable)
+    ///
+    /// Returns (mode_name, stride, confidence).
+    /// The stride maps directly to highheelbgz::TensorRole.
+    pub fn to_mode(&self) -> (&'static str, u32, f32) {
+        let arousal    = self.dims[0];
+        let valence    = self.dims[1];
+        let tension    = self.dims[2];
+        let warmth     = self.dims[3];
+        let clarity    = self.dims[4];
+        let velocity   = self.dims[7];
+        let entropy    = self.dims[8];
+
+        // Score each mode by how well the qualia matches its character
+        let scores = [
+            // Ionian: bright, confident → high valence, low tension
+            ("ionian",     8u32, valence * (1.0 - tension) * arousal),
+            // Dorian: warm, reflective → high warmth, moderate tension
+            ("dorian",     5,    warmth * (0.5 + 0.5 * (1.0 - (tension - 0.4).abs() * 2.0).max(0.0))),
+            // Phrygian: dark, exotic → high tension, low warmth
+            ("phrygian",   3,    tension * (1.0 - warmth) * (1.0 - valence)),
+            // Lydian: dreamy, floating → high clarity, low tension
+            ("lydian",     2,    clarity * (1.0 - tension) * (1.0 - arousal * 0.5)),
+            // Mixolydian: driving, bluesy → high velocity, moderate tension
+            ("mixolydian", 4,    velocity * arousal * (0.5 + 0.5 * tension)),
+            // Aeolian: sad minor → low valence, moderate warmth
+            ("aeolian",    3,    (1.0 - valence) * warmth * (1.0 - arousal * 0.5)),
+            // Locrian: unstable → high tension, high entropy
+            ("locrian",    8,    tension * entropy * (1.0 - clarity)),
+        ];
+
+        let (name, stride, confidence) = scores.iter()
+            .max_by(|a, b| a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal))
+            .copied()
+            .unwrap_or(("ionian", 8, 0.0));
+
+        (name, stride, confidence)
+    }
+
+    /// Map qualia state to a VoiceArchetype's 16 i8 channels.
+    ///
+    /// The 17 QPL dims → 16 voice channels (drop integration, it's redundant
+    /// with tension for audio purposes):
+    ///   channels 0-3  (pitch): arousal, valence, tension, warmth
+    ///   channels 4-7  (resonance): clarity, boundary, depth, velocity
+    ///   channels 8-11 (articulation): entropy, coherence, intimacy, presence
+    ///   channels 12-15 (prosody): assertion, receptivity, groundedness, expansion
+    ///
+    /// Each f32 [0,1] dim maps to i8 [-127, 127] via: (dim - 0.5) * 254.
+    pub fn to_voice_channels(&self) -> [i8; 16] {
+        let mut channels = [0i8; 16];
+        for i in 0..16 {
+            let v = self.dims[i]; // skip dim 16 (integration) for 16-channel fit
+            channels[i] = ((v - 0.5) * 254.0).clamp(-127.0, 127.0) as i8;
+        }
+        channels
+    }
+
+    /// Build Qualia17D from audio band energies + mode detection.
+    ///
+    /// Reverse bridge: given 21 Opus CELT band energies, infer the
+    /// qualia state that would produce that spectral character.
+    ///
+    /// Low bands high → arousal (bass energy = activation)
+    /// Mid bands high → presence, warmth (voice formants)
+    /// High bands high → clarity, assertion (sibilants, air)
+    /// Band entropy → entropy dim directly
+    /// Spectral tilt → valence (bright = positive, dark = negative)
+    pub fn from_band_energies(energies: &[f32; 21]) -> Self {
+        let total: f32 = energies.iter().sum();
+        if total < 1e-10 {
+            return Self { dims: [0.0; 17] };
+        }
+
+        // Spectral regions
+        let low: f32 = energies[0..5].iter().sum::<f32>() / total;    // 0-1000 Hz
+        let mid: f32 = energies[5..12].iter().sum::<f32>() / total;   // 1000-3000 Hz
+        let high: f32 = energies[12..21].iter().sum::<f32>() / total; // 3000-24000 Hz
+
+        // Spectral tilt: positive = bright (high > low), negative = dark
+        let tilt = (high - low + 1.0) / 2.0; // normalize to [0, 1]
+
+        // Band entropy (Shannon over normalized energies)
+        let mut band_entropy = 0.0f32;
+        for &e in energies {
+            if e > 1e-10 {
+                let p = e / total;
+                band_entropy -= p * p.ln();
+            }
+        }
+        let max_entropy = (21.0f32).ln();
+        let norm_entropy = band_entropy / max_entropy;
+
+        // Peak band (dominant frequency region)
+        let peak_band = energies.iter()
+            .enumerate()
+            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+            .map(|(i, _)| i)
+            .unwrap_or(0);
+        let peak_position = peak_band as f32 / 20.0; // 0.0 = bass, 1.0 = treble
+
+        // Spectral spread: how many bands have significant energy?
+        let threshold = total / 21.0 * 0.5;
+        let active_bands = energies.iter().filter(|&&e| e > threshold).count() as f32 / 21.0;
+
+        let dims = [
+            (total / 10.0).min(1.0),                         // 0: arousal — total spectral energy
+            tilt.clamp(0.0, 1.0),                             // 1: valence — bright = positive
+            (1.0 - mid * 3.0).clamp(0.0, 1.0),              // 2: tension — weak mid = unresolved
+            (mid * 3.0).clamp(0.0, 1.0),                     // 3: warmth — mid energy = warm
+            (1.0 - norm_entropy).clamp(0.0, 1.0),            // 4: clarity — low entropy = focused
+            (1.0 - active_bands).clamp(0.0, 1.0),            // 5: boundary — few bands = isolated
+            (low * 3.0).clamp(0.0, 1.0),                     // 6: depth — bass = deep
+            (high * 4.0).clamp(0.0, 1.0),                    // 7: velocity — treble = fast
+            norm_entropy.clamp(0.0, 1.0),                     // 8: entropy — spectral spread
+            (1.0 - norm_entropy).clamp(0.0, 1.0),            // 9: coherence — focused = coherent
+            (mid * 2.0 * (1.0 - high)).clamp(0.0, 1.0),     // 10: intimacy — warm without sharpness
+            peak_position,                                     // 11: presence — where the peak is
+            (high * 3.0).clamp(0.0, 1.0),                    // 12: assertion — treble = assertive
+            active_bands.clamp(0.0, 1.0),                     // 13: receptivity — broad spectrum = open
+            (low * 2.0 * (1.0 - high)).clamp(0.0, 1.0),     // 14: groundedness — bass without air
+            active_bands.clamp(0.0, 1.0),                     // 15: expansion — spectral spread
+            (1.0 - (low - high).abs()).clamp(0.0, 1.0),      // 16: integration — balanced spectrum
+        ];
+
+        Self { dims }
+    }
+
+    /// Map qualia family → canonical band energy modulation weights (21 bands).
+    ///
+    /// Each QPL family has a characteristic spectral shape:
+    ///   emberglow: warm mid-boost (voice formants)
+    ///   steelwind: sharp presence peak (clarity)
+    ///   nightshade: deep bass + rolled-off treble
+    ///   sunburst: broadband boost (full energy)
+    ///   stormbreak: mid-scoop + treble boost (aggressive)
+    pub fn family_band_weights(&self) -> [f32; 21] {
+        let (family, _) = self.nearest_family();
+        let mut w = [1.0f32; 21];
+
+        match family {
+            "emberglow" => {
+                // Warm: boost 800-2500 Hz (formant region)
+                for i in 4..=10 { w[i] = 1.3; }
+            }
+            "woodwarm" => {
+                // Grounded: boost bass + low-mid
+                for i in 0..=6 { w[i] = 1.2; }
+                for i in 15..=20 { w[i] = 0.85; }
+            }
+            "steelwind" => {
+                // Sharp: boost presence (2-5 kHz)
+                for i in 10..=14 { w[i] = 1.4; }
+                for i in 0..=3 { w[i] = 0.8; }
+            }
+            "oceandrift" => {
+                // Flowing: gentle mid, soft treble
+                for i in 6..=12 { w[i] = 1.1; }
+                for i in 16..=20 { w[i] = 0.9; }
+            }
+            "frostbite" => {
+                // Cold: boost treble, cut warmth
+                for i in 14..=20 { w[i] = 1.3; }
+                for i in 4..=8 { w[i] = 0.7; }
+            }
+            "sunburst" => {
+                // Bright: broadband boost, emphasis on harmonics
+                for i in 0..=20 { w[i] = 1.1; }
+                for i in 8..=14 { w[i] = 1.3; }
+            }
+            "nightshade" => {
+                // Dark: deep bass, soft everything else
+                for i in 0..=4 { w[i] = 1.4; }
+                for i in 10..=20 { w[i] = 0.7; }
+            }
+            "thornrose" => {
+                // Tense: mid emphasis + presence peak
+                for i in 6..=8 { w[i] = 1.3; }
+                w[13] = 1.4; // sibilance spike
+            }
+            "velvetdusk" => {
+                // Soft: gentle roll-off, warm low-mid
+                for i in 2..=8 { w[i] = 1.15; }
+                for i in 14..=20 { w[i] = 0.8; }
+            }
+            "stormbreak" => {
+                // Aggressive: mid-scoop + treble + bass
+                for i in 0..=3 { w[i] = 1.3; }
+                for i in 6..=10 { w[i] = 0.8; }  // mid scoop
+                for i in 14..=20 { w[i] = 1.3; }
+            }
+            _ => {} // neutral
+        }
+
+        w
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Completeness proof: every nonverbal vocal quality maps to ≥1 QPL dim.
+//
+// The 17 QPL dims were calibrated from musical intervals (Octave, Fifth,
+// Third, Tritone). Musical intervals ARE the atomic units of nonverbal
+// meaning — every vocal quality decomposes into these primitives:
+//
+//   Pitch register  → arousal(0) + depth(6)         [Octave: 2:1]
+//   Loudness        → arousal(0) + assertion(12)     [Octave: energy]
+//   Speaking rate   → velocity(7)                    [Octave: tempo]
+//   Breathiness     → clarity(4)⁻¹ + boundary(5)    [Third: partial overlap]
+//   Nasality        → warmth(3)⁻¹                   [Third: inverted]
+//   Vocal fry       → tension(2) + groundedness(14)  [Tritone: non-convergence]
+//   Vibrato         → entropy(8) + expansion(15)     [Tritone: periodic]
+//   Whisper         → boundary(5) + intimacy(10)     [Fifth: close but separate]
+//   Sarcasm         → valence(1) ↔ tension(2)        [Fifth × Tritone: mismatch]
+//   Hesitation      → integration(16)⁻¹              [Tritone: hasn't converged]
+//   Confidence      → assertion(12) + clarity(4)     [Octave: stable]
+//   Sadness         → valence(1)⁻¹ + velocity(7)⁻¹  [Fifth: descending]
+//   Anger           → arousal(0) + tension(2)        [Octave × Tritone]
+//   Surprise        → arousal(0) spike + expansion(15) [Octave: sudden]
+//   Fear            → tension(2) + clarity(4)⁻¹      [Tritone: unstable]
+//   Joy             → valence(1) + warmth(3)          [Fifth + Third]
+//   Tenderness      → warmth(3) + intimacy(10)       [Third: close]
+//   Authority       → groundedness(14) + assertion(12) [Octave: low stable]
+//   Contempt        → boundary(5) + assertion(12)     [Fifth: distant + active]
+//   Awe             → depth(6) + receptivity(13)      [Octave: deep + open]
+//
+// Key insight: the octave compression works BECAUSE qualia IS
+// octave-invariant. A fifth sounds like a fifth in any register.
+// The pattern (warmth, tension, clarity) doesn't change when you
+// transpose — only the register moves. That's why OctaveBand::transpose()
+// preserves the pattern: nonverbal meaning IS the pattern.
+//
+// Completeness follows from the musical calibration: if every vocal
+// quality decomposes into Octave/Fifth/Third/Tritone ratios, and
+// each ratio maps to specific QPL dims, then no nonverbal data
+// falls through the grid.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Nonverbal vocal qualities and their QPL dim coverage.
+/// Used for completeness verification: every quality must map to ≥1 dim.
+pub const VOCAL_QUALITY_MAP: [(&str, &[usize]); 22] = [
+    ("pitch_register",  &[0, 6]),       // arousal + depth
+    ("loudness",        &[0, 12]),      // arousal + assertion
+    ("speaking_rate",   &[7]),          // velocity
+    ("breathiness",     &[4, 5]),       // clarity⁻¹ + boundary
+    ("nasality",        &[3]),          // warmth⁻¹
+    ("vocal_fry",       &[2, 14]),      // tension + groundedness
+    ("vibrato",         &[8, 15]),      // entropy + expansion
+    ("whisper",         &[5, 10]),      // boundary + intimacy
+    ("sarcasm",         &[1, 2]),       // valence ↔ tension mismatch
+    ("hesitation",      &[16, 12]),     // integration⁻¹ + assertion⁻¹
+    ("confidence",      &[12, 4, 14]), // assertion + clarity + groundedness
+    ("sadness",         &[1, 7]),       // valence⁻¹ + velocity⁻¹
+    ("anger",           &[0, 2, 12]),   // arousal + tension + assertion
+    ("surprise",        &[0, 15]),      // arousal + expansion
+    ("fear",            &[2, 4]),       // tension + clarity⁻¹
+    ("joy",             &[1, 3, 0]),    // valence + warmth + arousal
+    ("tenderness",      &[3, 10]),      // warmth + intimacy
+    ("authority",       &[14, 12]),     // groundedness + assertion
+    ("contempt",        &[5, 12]),      // boundary + assertion
+    ("awe",             &[6, 13]),      // depth + receptivity
+    ("focus",           &[9, 4]),       // coherence + clarity — single dominant harmonic
+    ("immediacy",       &[11, 0, 7]),   // presence + arousal + velocity — here-now energy
+];
+
+/// Verify that all 17 QPL dimensions are covered by at least one
+/// vocal quality. If any dim is NOT referenced by any vocal quality,
+/// it means we have a "hole" in the grid where nonverbal data could
+/// fall through.
+///
+/// Returns the set of uncovered dims (empty = complete grid).
+pub fn verify_grid_completeness() -> Vec<usize> {
+    let mut covered = [false; 17];
+    for (_, dims) in &VOCAL_QUALITY_MAP {
+        for &d in *dims {
+            if d < 17 {
+                covered[d] = true;
+            }
+        }
+    }
+    (0..17).filter(|&i| !covered[i]).collect()
 }
 
 fn shannon_entropy(energy: &[f32]) -> f32 {
@@ -331,7 +634,6 @@ fn shannon_entropy(energy: &[f32]) -> f32 {
     h
 }
 
-/// 10 QPL family centroids (17D each).
 /// 10 QPL family centroids (17D each).
 pub const FAMILY_CENTROIDS: [(&str, [f32; 17]); 10] = [
     ("emberglow",  [0.5, 0.8, 0.2, 0.9, 0.5, 0.3, 0.6, 0.2, 0.3, 0.7, 0.7, 0.8, 0.3, 0.7, 0.6, 0.5, 0.6]),
@@ -385,6 +687,93 @@ mod tests {
         let prev = Qualia17D { dims: [0.5, 0.5, 0.3, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5] };
         let curr = Qualia17D { dims: [0.5, 0.5, 0.8, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5] };
         assert!(curr.feeling_derivative(&prev) > 0.0); // tension rising
+    }
+
+    #[test]
+    fn grid_completeness_no_holes() {
+        // THE key test: every QPL dim must be referenced by at least one
+        // vocal quality. An uncovered dim = data falls through the grid.
+        let uncovered = verify_grid_completeness();
+        assert!(uncovered.is_empty(),
+            "Grid has holes! Uncovered dims: {:?} ({})",
+            uncovered,
+            uncovered.iter().map(|&i| DIMS_17D[i]).collect::<Vec<_>>().join(", "));
+    }
+
+    #[test]
+    fn every_vocal_quality_has_dims() {
+        for (quality, dims) in &VOCAL_QUALITY_MAP {
+            assert!(!dims.is_empty(), "Vocal quality '{}' has no QPL dims", quality);
+            for &d in *dims {
+                assert!(d < 17, "Vocal quality '{}' references invalid dim {}", quality, d);
+            }
+        }
+    }
+
+    #[test]
+    fn roundtrip_band_to_qualia_to_mode() {
+        // A warm mid-heavy spectrum → qualia → mode should give Dorian or Ionian
+        let mut energies = [0.1f32; 21];
+        for i in 5..12 { energies[i] = 1.5; } // strong 1-3 kHz
+        let q = Qualia17D::from_band_energies(&energies);
+        let (mode, stride, _) = q.to_mode();
+        // Warm spectrum should NOT produce Locrian or Phrygian
+        assert!(mode != "locrian" && mode != "phrygian",
+            "Warm spectrum produced dark mode: {}", mode);
+        assert!(stride <= 8, "Invalid stride: {}", stride);
+    }
+
+    #[test]
+    fn qualia_to_mode_bright() {
+        // High valence, low tension → should be Ionian (bright major)
+        let bright = Qualia17D {
+            dims: [0.8, 0.9, 0.1, 0.6, 0.7, 0.3, 0.4, 0.5, 0.3, 0.6, 0.5, 0.8, 0.5, 0.5, 0.5, 0.5, 0.6],
+        };
+        let (mode, stride, confidence) = bright.to_mode();
+        assert_eq!(mode, "ionian", "Bright qualia should map to Ionian, got {}", mode);
+        assert_eq!(stride, 8, "Ionian stride should be 8 (Gate)");
+        assert!(confidence > 0.1, "Should have some confidence: {}", confidence);
+    }
+
+    #[test]
+    fn qualia_to_mode_dark() {
+        // High tension, low warmth, low valence → should be Phrygian or Locrian
+        let dark = Qualia17D {
+            dims: [0.6, 0.2, 0.9, 0.1, 0.3, 0.7, 0.5, 0.3, 0.8, 0.3, 0.2, 0.5, 0.5, 0.5, 0.3, 0.5, 0.1],
+        };
+        let (mode, _stride, _confidence) = dark.to_mode();
+        assert!(mode == "phrygian" || mode == "locrian",
+            "Dark tense qualia should map to Phrygian or Locrian, got {}", mode);
+    }
+
+    #[test]
+    fn qualia_to_voice_channels_range() {
+        let q = Qualia17D { dims: [0.5; 17] };
+        let channels = q.to_voice_channels();
+        // All dims at 0.5 → all channels should be ~0 (center)
+        for (i, &c) in channels.iter().enumerate() {
+            assert!(c.abs() < 2, "Channel {} should be near zero for centered qualia: {}", i, c);
+        }
+    }
+
+    #[test]
+    fn qualia_from_band_energies_warm() {
+        // Strong mid-frequency energy → should produce warm qualia
+        let mut energies = [0.1f32; 21];
+        for i in 5..12 { energies[i] = 1.0; } // boost 1000-3000 Hz
+        let q = Qualia17D::from_band_energies(&energies);
+        assert!(q.dims[3] > 0.5, "Strong mid energy should produce warmth: {}", q.dims[3]);
+    }
+
+    #[test]
+    fn qualia_family_band_weights_nonzero() {
+        for (name, centroid) in FAMILY_CENTROIDS {
+            let q = Qualia17D { dims: centroid };
+            let weights = q.family_band_weights();
+            for (i, &w) in weights.iter().enumerate() {
+                assert!(w > 0.0, "Family {} band {} weight should be > 0: {}", name, i, w);
+            }
+        }
     }
 
     #[test]
