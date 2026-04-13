@@ -52,39 +52,83 @@ fn detect_component(name: &str) -> &'static str {
     else { "other" }
 }
 
-/// Stream BF16 tensor rows and project to Base17 via SIMD.
-fn stream_project_tensor(
+/// Per-row gamma deviation: mean absolute magnitude.
+/// Rows with similar gamma belong to the same basin.
+fn row_gamma(bf16_row: &[u16]) -> f32 {
+    let mut sum = 0.0f64;
+    for &bits in bf16_row {
+        let v = f32::from_bits((bits as u32) << 16);
+        sum += v.abs() as f64;
+    }
+    (sum / bf16_row.len().max(1) as f64) as f32
+}
+
+/// Stream BF16 tensor, compute per-row gamma, correct per-basin, project to Base17.
+fn stream_project_with_gamma(
     reader: &mut BufReader<File>,
     tensor: &TensorInfo,
     data_offset: u64,
     octave_stride: usize,
-) -> Vec<ndarray::hpc::bgz17_bridge::Base17> {
+) -> (Vec<ndarray::hpc::bgz17_bridge::Base17>, Vec<f32>) {
+    // Returns (base17_rows, per_row_gamma)
     let n_rows = tensor.dimensions[0] as usize;
     let n_cols = if tensor.dimensions.len() > 1 { tensor.dimensions[1] as usize } else { 1 };
 
-    // Seek to tensor data
     let tensor_start = data_offset + tensor.offset;
     reader.seek(SeekFrom::Start(tensor_start)).unwrap();
 
     match tensor.dtype {
         GgmlType::BF16 => {
-            // Read entire tensor as u16 BF16 buffer
             let n_elements = n_rows * n_cols;
-            let mut buf = vec![0u16; n_elements];
             let mut raw = vec![0u8; n_elements * 2];
             reader.read_exact(&mut raw).unwrap();
+
+            // Pass 1: compute per-row gamma
+            let mut gammas = Vec::with_capacity(n_rows);
+            let mut bf16_buf = vec![0u16; n_elements];
             for i in 0..n_elements {
-                buf[i] = u16::from_le_bytes([raw[i * 2], raw[i * 2 + 1]]);
+                bf16_buf[i] = u16::from_le_bytes([raw[i * 2], raw[i * 2 + 1]]);
             }
-            // SIMD projection: 8 rows at a time
-            project_tensor_bf16_simd(&buf, n_rows, n_cols, octave_stride)
+            for r in 0..n_rows {
+                gammas.push(row_gamma(&bf16_buf[r * n_cols..(r + 1) * n_cols]));
+            }
+
+            // Find basin boundaries from gamma histogram (simple: split at median)
+            let mut sorted_g = gammas.clone();
+            sorted_g.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            let median_g = sorted_g[sorted_g.len() / 2];
+            let lo_mean = sorted_g[..sorted_g.len() / 2].iter().sum::<f32>()
+                / (sorted_g.len() / 2).max(1) as f32;
+            let hi_mean = sorted_g[sorted_g.len() / 2..].iter().sum::<f32>()
+                / (sorted_g.len() - sorted_g.len() / 2).max(1) as f32;
+
+            // Pass 2: gamma-correct each row, then project
+            // Correction: divide by basin gamma → normalize to ~1.0 range
+            // This spreads tight distributions so Base17 i16 scaling has resolution
+            let mut corrected = vec![0u16; n_elements];
+            for r in 0..n_rows {
+                let basin_gamma = if gammas[r] < median_g { lo_mean } else { hi_mean };
+                let scale = if basin_gamma > 1e-8 { 1.0 / basin_gamma } else { 1.0 };
+                for c in 0..n_cols {
+                    let v = f32::from_bits((bf16_buf[r * n_cols + c] as u32) << 16);
+                    let corrected_v = v * scale;
+                    // BF16 RNE encode
+                    let bits = corrected_v.to_bits();
+                    let lsb = (bits >> 16) & 1;
+                    let biased = bits.wrapping_add(0x7FFF).wrapping_add(lsb);
+                    corrected[r * n_cols + c] = (biased >> 16) as u16;
+                }
+            }
+
+            let projected = project_tensor_bf16_simd(&corrected, n_rows, n_cols, octave_stride);
+            (projected, gammas)
         }
         GgmlType::F16 => {
-            // F16 → f32 → Base17 (no SIMD shortcut for F16 currently)
             let n_elements = n_rows * n_cols;
             let mut raw = vec![0u8; n_elements * 2];
             reader.read_exact(&mut raw).unwrap();
             let mut result = Vec::with_capacity(n_rows);
+            let mut gammas = Vec::with_capacity(n_rows);
             for row_idx in 0..n_rows {
                 let start = row_idx * n_cols;
                 let mut f32_row = vec![0.0f32; n_cols];
@@ -92,95 +136,30 @@ fn stream_project_tensor(
                     let bits = u16::from_le_bytes([raw[(start + c) * 2], raw[(start + c) * 2 + 1]]);
                     f32_row[c] = ndarray::hpc::gguf::f16_to_f32(bits);
                 }
+                let g: f32 = f32_row.iter().map(|v| v.abs()).sum::<f32>() / n_cols as f32;
+                gammas.push(g);
+                // Gamma correct: normalize by row magnitude
+                if g > 1e-8 {
+                    for v in &mut f32_row { *v /= g; }
+                }
                 result.push(project_row_to_base17(&f32_row));
             }
-            result
+            (result, gammas)
         }
         _ => {
             eprintln!("  Skipping {} (dtype {:?})", tensor.name, tensor.dtype);
-            Vec::new()
+            (Vec::new(), Vec::new())
         }
     }
 }
 
 /// Build k-means palette from Base17 rows (L1 distance, deterministic init).
-fn build_palette(rows: &[Base17], k: usize, max_iter: usize) -> Vec<Base17> {
-    let n = rows.len();
-    if n <= k {
-        let mut result = rows.to_vec();
-        result.resize(k, Base17::zero());
-        return result;
-    }
-
-    // Deterministic init: evenly-spaced indices
-    let mut centroids: Vec<[f64; 17]> = (0..k)
-        .map(|i| {
-            let idx = i * n / k;
-            let mut c = [0.0f64; 17];
-            for d in 0..17 { c[d] = rows[idx].dims[d] as f64; }
-            c
-        })
-        .collect();
-
-    for _iter in 0..max_iter {
-        // Assign
-        let mut sums = vec![[0.0f64; 17]; k];
-        let mut counts = vec![0usize; k];
-
-        for row in rows {
-            let mut best = 0usize;
-            let mut best_d = i64::MAX;
-            for c in 0..k {
-                let d: i64 = (0..17).map(|d| {
-                    (row.dims[d] as i64 - centroids[c][d] as i64).abs()
-                }).sum();
-                if d < best_d { best_d = d; best = c; }
-            }
-            for d in 0..17 { sums[best][d] += row.dims[d] as f64; }
-            counts[best] += 1;
-        }
-
-        // Update
-        let mut delta = 0.0f64;
-        for c in 0..k {
-            if counts[c] > 0 {
-                for d in 0..17 {
-                    let new_val = sums[c][d] / counts[c] as f64;
-                    delta += (new_val - centroids[c][d]).abs();
-                    centroids[c][d] = new_val;
-                }
-            }
-        }
-        if delta < 1.0 { break; }
-    }
-
-    centroids.iter().map(|c| {
-        let mut dims = [0i16; 17];
-        for d in 0..17 { dims[d] = c[d].clamp(-32768.0, 32767.0) as i16; }
-        Base17 { dims }
-    }).collect()
-}
-
-/// Build L1 distance table (k × k, u16).
-fn build_distance_table(palette: &[Base17]) -> Vec<u16> {
-    let k = palette.len();
-    let mut table = vec![0u16; k * k];
-    for i in 0..k {
-        for j in (i + 1)..k {
-            let d = palette[i].l1(&palette[j]);
-            let d16 = (d as u64).min(65535) as u16;
-            table[i * k + j] = d16;
-            table[j * k + i] = d16;
-        }
-    }
-    table
-}
-
-/// Shannon entropy of distance table values.
-fn table_entropy(table: &[u16]) -> f64 {
+/// Shannon entropy of a u16 distance set.
+fn table_entropy_u16(dists: &[u16]) -> f64 {
     let mut counts: HashMap<u16, usize> = HashMap::new();
-    for &v in table { *counts.entry(v).or_insert(0) += 1; }
-    let total = table.len() as f64;
+    for &v in dists { *counts.entry(v).or_insert(0) += 1; }
+    let total = dists.len() as f64;
+    if total < 1.0 { return 0.0; }
     counts.values()
         .map(|&c| { let p = c as f64 / total; -p * p.log2() })
         .sum()
@@ -223,60 +202,81 @@ fn main() {
         println!("      {}/{}: {} tensors, {} rows", comp, role, tensors.len(), total);
     }
 
-    // Step 2: Stream → SIMD Base17 projection per role
-    println!("\n[2] Streaming → AVX-512 Base17 projection...");
+    // Step 2: Stream → gamma-correct per basin → AVX-512 Base17 projection
+    println!("\n[2] Streaming → gamma correction → AVX-512 Base17 projection...");
     let mut role_base17: HashMap<(String, String), Vec<Base17>> = HashMap::new();
-    let octave_stride = 1; // full resolution for first pass
+    let mut role_gammas: HashMap<(String, String), Vec<f32>> = HashMap::new();
+    let octave_stride = 1;
 
     for ((comp, role), tensors) in role_groups.iter() {
         let t0 = Instant::now();
         let mut all_rows = Vec::new();
+        let mut all_gammas = Vec::new();
         for tensor in tensors {
-            let rows = stream_project_tensor(
+            let (rows, gammas) = stream_project_with_gamma(
                 &mut reader, tensor, header.tensor_data_offset, octave_stride,
             );
             all_rows.extend(rows.into_iter().map(|r| convert_base17(&r)));
+            all_gammas.extend(gammas);
         }
         let n = all_rows.len();
+        // Report gamma basin stats
+        let mut gs = all_gammas.clone();
+        gs.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let g_min = gs.first().copied().unwrap_or(0.0);
+        let g_med = gs.get(gs.len() / 2).copied().unwrap_or(0.0);
+        let g_max = gs.last().copied().unwrap_or(0.0);
+        role_gammas.insert((comp.clone(), role.clone()), all_gammas);
         role_base17.insert((comp.clone(), role.clone()), all_rows);
-        println!("    {}/{}: {} rows → Base17 ({:?})", comp, role, n, t0.elapsed());
+        println!("    {}/{}: {} rows, gamma[min={:.4} med={:.4} max={:.4}] ({:?})",
+            comp, role, n, g_min, g_med, g_max, t0.elapsed());
     }
 
-    // Step 3: Build palette per role (use first 4096 rows for speed)
-    println!("\n[3] Building {}-entry palette per role...", N_CENTROIDS);
-    let mut role_palettes: HashMap<(String, String), Vec<Base17>> = HashMap::new();
+    // Step 3: Build WeightPalette per role (CLAM furthest-point sampling)
+    println!("\n[3] Building CLAM {}-entry palette per role...", N_CENTROIDS);
+    let mut role_wp: HashMap<(String, String), WeightPalette> = HashMap::new();
     for (key, rows) in &role_base17 {
         let t0 = Instant::now();
         let sample = if rows.len() > 4096 { &rows[..4096] } else { &rows[..] };
-        let palette = build_palette(sample, N_CENTROIDS, 15);
-        let nonzero = palette.iter().filter(|c| *c != &Base17::zero()).count();
-        role_palettes.insert(key.clone(), palette);
-        println!("    {}/{}: {}/{} active centroids ({:?})",
-            key.0, key.1, nonzero, N_CENTROIDS, t0.elapsed());
+        let wp = WeightPalette::build(sample, N_CENTROIDS);
+        let active = wp.counts.iter().filter(|&&c| c > 0).count();
+        let max_radius = wp.radii.iter().copied().max().unwrap_or(0);
+        println!("    {}/{}: {}/{} active, max_radius={} ({:?})",
+            key.0, key.1, active, wp.entries.len(), max_radius, t0.elapsed());
+        role_wp.insert(key.clone(), wp);
     }
 
-    // Step 4: Build distance tables
+    // Step 4: Build AttentionTable (distance tables) from palettes
     println!("\n[4] Building L1 distance tables ({}×{})...", N_CENTROIDS, N_CENTROIDS);
-    let mut role_tables: HashMap<(String, String), Vec<u16>> = HashMap::new();
-    for (key, palette) in &role_palettes {
+    use bgz_tensor::attention::AttentionTable;
+    let mut role_tables_at: HashMap<(String, String), AttentionTable> = HashMap::new();
+    for (key, wp) in &role_wp {
         let t0 = Instant::now();
-        let table = build_distance_table(palette);
-        let entropy = table_entropy(&table);
-        let nonzero: Vec<&u16> = table.iter().filter(|&&v| v > 0).collect();
-        let mean_d = if nonzero.is_empty() { 0.0 }
-            else { nonzero.iter().map(|&&v| v as f64).sum::<f64>() / nonzero.len() as f64 };
-        let max_d = table.iter().copied().max().unwrap_or(0);
-        role_tables.insert(key.clone(), table);
+        let at = AttentionTable::build(wp);
+        // Compute stats from the table
+        let k = wp.entries.len();
+        let mut dists: Vec<u16> = Vec::new();
+        for a in 0..k {
+            for b in (a+1)..k {
+                dists.push(at.distance(a as u8, b as u8));
+            }
+        }
+        let mean_d = if dists.is_empty() { 0.0 }
+            else { dists.iter().map(|&d| d as f64).sum::<f64>() / dists.len() as f64 };
+        let max_d = dists.iter().copied().max().unwrap_or(0);
+        let entropy = table_entropy_u16(&dists);
         println!("    {}/{}: entropy={:.1} bits, mean_d={:.0}, max_d={}, ({:?})",
             key.0, key.1, entropy, mean_d, max_d, t0.elapsed());
+        role_tables_at.insert(key.clone(), at);
     }
 
     // Step 5: Pairwise preservation (50 pairs, Spearman ρ)
     println!("\n[5] Pairwise L1 preservation (50 pairs per role)...");
     let seed = 0x9E3779B97F4A7C15u64;
     for (key, rows) in &role_base17 {
-        let palette = &role_palettes[key];
-        let table = &role_tables[key];
+        let wp = &role_wp[key];
+        let at = &role_tables_at[key];
+        let palette = &wp.entries;
         let n = rows.len();
         if n < 50 { continue; }
 
@@ -302,7 +302,7 @@ fn main() {
             // Find nearest centroids
             let ca = (0..N_CENTROIDS).min_by_key(|&c| rows[a].l1(&palette[c])).unwrap();
             let cb = (0..N_CENTROIDS).min_by_key(|&c| rows[b].l1(&palette[c])).unwrap();
-            let quant_d = table[ca * N_CENTROIDS + cb] as u32;
+            let quant_d = at.distance(ca as u8, cb as u8) as u32;
             exact.push(exact_d as f64);
             quant.push(quant_d as f64);
         }
@@ -318,25 +318,12 @@ fn main() {
     println!("\n[6] Building HhtlCache per role + saving HHTL...");
 
     let mut total_bytes = 0usize;
-    for (key, palette) in &role_palettes {
+    for (key, wp) in &role_wp {
         let rows = &role_base17[key];
-
-        // Build WeightPalette from our Base17 centroids
-        // Compute counts and radii from row assignments
-        let mut counts = vec![0u32; N_CENTROIDS];
-        let mut radii = vec![0u32; N_CENTROIDS];
-        for row in rows.iter() {
-            let (best, best_d) = (0..N_CENTROIDS)
-                .map(|c| (c, row.l1(&palette[c])))
-                .min_by_key(|&(_, d)| d).unwrap();
-            counts[best] += 1;
-            if best_d > radii[best] { radii[best] = best_d; }
-        }
-        let wp = WeightPalette { entries: palette.clone(), radii, counts };
 
         // Build HhtlCache: palette + distance table + route table (cascade decisions)
         let t0 = Instant::now();
-        let cache = HhtlCache::from_palette(wp);
+        let cache = HhtlCache::from_palette(wp.clone());
 
         let fname = format!("{}_{}_hhtl.bgz", key.0, key.1);
         let fpath = out_dir.join(&fname);
