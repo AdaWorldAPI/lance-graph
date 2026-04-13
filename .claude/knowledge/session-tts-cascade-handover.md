@@ -1,8 +1,94 @@
 # Session Handover: TTS Cascade Reality Check
 
-> **Date**: 2026-04-13
+> **Date**: 2026-04-13 (updated after parallel session merged PRs #102, #169)
 > **Branch**: `claude/risc-thought-engine-TCZw7` (both repos)
 > **READ FIRST**: `.claude/prompts/audio_session1_opus_celt.md`, `audio_session3_bark_voice.md`, `session_bgz_tensor.md`
+
+---
+
+## Current State (post-merge)
+
+### What's working end-to-end
+- 55 audio tests passing (ndarray `cargo test --lib -- audio`)
+- 3 thinking-engine examples build clean: `tts_bgz_codebook`, `tts_cascade_runner`, `tts_wav_synth`
+- Cascade runs at 1.08M tok/s with ComposeTable (was 1.2M without)
+- 18 HHTL caches + assignments + audio codes on disk
+- AMX SIGILL fixed (`_xgetbv(0)` + `prctl(ARCH_REQ_XCOMP_PERM)`)
+- Qualia17D ↔ audio bridge wired (modes, band weights, voice channels)
+
+### What the parallel session (PRs #102, #169) fixed
+1. ✅ `tts_bgz_codebook.rs` — now uses `highheelbgz::SpiralEncoding` + `GammaProfile::calibrate()`
+2. ✅ `tts_cascade_runner.rs` — now uses `ComposeTable::build()` + `ct.compose(a, b)`
+3. ✅ `tts_wav_synth.rs` — now uses `AudioFrame::decode_coarse()` via band energies + iMDCT
+4. ✅ 6 new ndarray audio modules: mel, voice, modes, phase, codec_map, synth
+5. ✅ AMX SIGILL: proper `_xgetbv` + `prctl` instead of CPUID-only
+
+### What still needs doing (lance-graph side)
+See "Summary" in the user's audit: 55 of ~85 deliverables done.
+The main gaps are ALL on the lance-graph side:
+
+---
+
+## Hints for Next Session: Lance-Graph Side
+
+### 1. Phoneme graph (Session 2 gap)
+- File: `lance-graph/crates/lance-graph/src/graph/audio/phoneme.rs`
+- Needs: `PhonemeNode` struct, `PhonemeCodebook`, SPO traversal for phoneme sequences
+- **Watch out**: the mel module in ndarray outputs 80-channel features per frame. The phoneme graph needs to classify these into phoneme nodes. Use `mel::mel_spectrogram()` → `PhonemeCodebook::classify()` → `PhonemeNode`.
+- **Don't reimplement mel** — it's in `ndarray::hpc::audio::mel` already (5 tests passing).
+
+### 2. Synthesis graph traversal (Session 3 gap)
+- File: `lance-graph/crates/lance-graph/src/graph/audio/synthesis.rs`
+- Needs: `synthesize_coarse()` and `synthesize_fine()` as graph traversals
+- **Watch out**: the VoiceArchetype (16B) is in `ndarray::hpc::audio::voice`. Don't create a second one in lance-graph. Import it.
+- `synthesize_coarse()` = SPO graph traversal: (archetype, phoneme) → band energies per frame
+- `synthesize_fine()` = PVQ from `ndarray::hpc::audio::pvq` applied per band
+
+### 3. CalibratedCodebook wiring
+- `bgz_tensor::codebook_calibrated::CalibratedCodebook` has `centroids_f32` + γ+φ calibrated u8 distance table
+- **Never instantiated in any example yet**. The codebook builder uses `WeightPalette::build()` directly.
+- For better quality: use `CalibratedCodebook::build()` which does CLAM + γ+φ automatically.
+- **Watch out**: CalibratedCodebook operates on `Vec<Vec<f32>>` (full-dim rows), not Base17. It's for the distance table quality, not the palette structure.
+
+### 4. highheelbgz SpiralEncoding details
+- `SpiralEncoding::encode(weights, start, stride, k)` — the start=20 (skip degenerate region) is hardcoded in the example. Real value should come from the model's weight distribution.
+- `GammaProfile::calibrate()` takes `&[&[f32]]` row refs. The current implementation samples first tensor only — should sample across all tensors for a role.
+- `GammaProfile` stores `role_gamma: [f32; 6]` (Q/K/V/Gate/Up/Down) but the TTS model has 8 roles (+ O + Embed). The 6-slot array was extended to 8 in `gamma_phi.rs` but `rehydrate.rs` still uses 6. Check for mismatch.
+
+### 5. ComposeTable correctness
+- `ComposeTable::build(&palette)` computes `compose[a][b] = nearest(palette[a].xor_bind(palette[b]))`.
+- `xor_bind` on Base17 is element-wise XOR of i16 values. This is the VSA binding operation.
+- **Watch out**: XOR on i16 produces valid Base17 only if the dims are in the right range. Large values can overflow. The current implementation clamps but doesn't check — verify with `assert!(result.l1(&Base17::zero()) < 100000)` or similar.
+
+### 6. Disk space: 5.4 GB free
+- Models: 1.83 GB safetensors + 682 MB speech tokenizer = 2.5 GB
+- Build targets can eat space fast. `rm -rf crates/*/target` in lance-graph if needed.
+- ndarray target: ~3 GB after full build.
+
+### 7. The codebook files need regenerating
+- The HHTL caches on disk were built with the OLD pipeline (before highheelbgz wiring).
+- After the parallel session fixed `tts_bgz_codebook.rs` to use SpiralEncoding, the caches need to be rebuilt:
+  ```sh
+  cargo run --release --example tts_bgz_codebook \
+      --manifest-path crates/thinking-engine/Cargo.toml \
+      -- /home/user/models/qwen3-tts-0.6b/model.safetensors
+  ```
+- Then regenerate cascade audio codes:
+  ```sh
+  cargo run --release --example tts_cascade_runner \
+      --manifest-path crates/thinking-engine/Cargo.toml
+  ```
+- Then regenerate WAV:
+  ```sh
+  cargo run --release --example tts_wav_synth \
+      --manifest-path crates/thinking-engine/Cargo.toml
+  ```
+
+### 8. The round-trip demo is the goal
+- Encode: WAV → mel spectrogram → AudioFrame (48B) → HHTL graph node
+- Search: query graph for "similar sounding frames"
+- Decode: AudioFrame → VoiceFrame (21B) → iMDCT overlap-add → PCM → WAV
+- This uses `ndarray::hpc::audio::synth::synthesize_to_wav()` which already works (7 tests)
 
 ---
 

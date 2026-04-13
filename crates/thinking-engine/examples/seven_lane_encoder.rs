@@ -38,8 +38,13 @@ fn main() {
             "embed_tokens.weight",
             1024usize,
         ),
+        "qwen3-tts" => (
+            "/home/user/models/qwen3-tts-0.6b/model.safetensors",
+            "talker.model.layers.0.self_attn.q_proj.weight",
+            1024usize, // talker hidden_size (rows=2048 × cols=1024)
+        ),
         other => {
-            eprintln!("Unknown model: {}. Use: qwen3-vl-embedding | jina-v5", other);
+            eprintln!("Unknown model: {}. Use: qwen3-vl-embedding | jina-v5 | qwen3-tts", other);
             return;
         }
     };
