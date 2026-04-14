@@ -443,15 +443,27 @@ fn rms_norm(x: &mut [f32], w: &[f32], dim: usize) {
         // dot_f32 for sum of squares (SIMD)
         let ss = dot_f32(row, row);
         let inv = 1.0 / (ss / dim as f32 + 1e-6).sqrt();
-        // F32x8 multiply for element-wise scale
-        let chunks = dim / 8;
+        // F32x16 multiply (AVX-512 lane width) via mul_add FMA:
+        // (inv*vx)*vw + 0  compiles to VFMADD231PS on __m512.
+        let inv_v = F32x16::splat(inv);
+        let zero_v = F32x16::splat(0.0);
+        let chunks = dim / 16;
         for c in 0..chunks {
-            let base = i * dim + c * 8;
-            let vx = F32x8::from_slice(&x[base..]);
-            let vw = F32x8::from_slice(&w[c*8..]);
-            (vx * F32x8::splat(inv) * vw).copy_to_slice(&mut x[base..base+8]);
+            let base = i * dim + c * 16;
+            let vx = F32x16::from_slice(&x[base..]);
+            let vw = F32x16::from_slice(&w[c*16..]);
+            (vx * inv_v).mul_add(vw, zero_v).copy_to_slice(&mut x[base..base+16]);
         }
-        for d in chunks*8..dim {
+        // 8-wide tail
+        let mut d8_start = chunks * 16;
+        if d8_start + 8 <= dim {
+            let base = i * dim + d8_start;
+            let vx = F32x8::from_slice(&x[base..]);
+            let vw = F32x8::from_slice(&w[d8_start..]);
+            (vx * F32x8::splat(inv) * vw).copy_to_slice(&mut x[base..base+8]);
+            d8_start += 8;
+        }
+        for d in d8_start..dim {
             x[i*dim+d] *= inv * w.get(d).copied().unwrap_or(1.0);
         }
     }
