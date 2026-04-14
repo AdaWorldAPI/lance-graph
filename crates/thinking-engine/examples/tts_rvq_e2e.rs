@@ -153,10 +153,11 @@ fn assign_nearest(rows: &[Vec<f32>], centroids: &[Vec<f32>]) -> Vec<usize> {
 }
 
 fn l2_dist(a: &[f32], b: &[f32]) -> f64 {
-    a.iter().zip(b.iter())
-        .map(|(&x, &y)| ((x - y) as f64).powi(2))
-        .sum::<f64>()
-        .sqrt()
+    // Use SIMD subtract + dot for L2 distance
+    let n = a.len().min(b.len());
+    let mut diff = vec![0.0f32; n];
+    for i in 0..n { diff[i] = a[i] - b[i]; }
+    (ndarray::simd_avx2::dot_f32(&diff, &diff) as f64).sqrt()
 }
 
 fn cosine_f32(a: &[f32], b: &[f32]) -> f64 {
@@ -292,15 +293,33 @@ fn rms_norm(x: &mut [f32], w: &[f32], dim: usize) {
 
 fn silu(x: f32) -> f32 { x / (1.0 + (-x).exp()) }
 
+/// SIMD-accelerated matrix multiply: A [m×k] × B^T [n×k] → C [m×n].
+///
+/// Uses matrixmultiply::sgemm with transposed B strides.
+/// This is the hot path — AVX2/AVX-512 with cache blocking.
 fn matmul(a: &[f32], b: &[f32], m: usize, k: usize, n: usize) -> Vec<f32> {
     let mut c = vec![0.0f32; m * n];
-    for i in 0..m {
-        for j in 0..n {
-            let mut s = 0.0f32;
-            for p in 0..k { s += a[i*k+p] * b[j*k+p]; }
-            c[i*n+j] = s;
+    if m == 0 || n == 0 || k == 0 { return c; }
+    // A is [m, k] row-major: row stride = k, col stride = 1
+    // B is [n, k] row-major (stored transposed): we need B^T = [k, n]
+    //   B^T row stride = 1, col stride = k
+    // C is [m, n] row-major: row stride = n, col stride = 1
+    // Use ndarray's SIMD-optimized GEMM wrapper (matrixmultiply under the hood).
+    // But ndarray::backend::native::gemm_f32 expects A[m,k] * B[k,n] with row-major B.
+    // Our B is transposed [n, k]. We need to transpose it or use raw strides.
+    // Simplest: transpose B to [k, n] then call gemm.
+    let mut bt = vec![0.0f32; k * n];
+    for i in 0..n {
+        for j in 0..k {
+            bt[j * n + i] = b[i * k + j];
         }
     }
+    ndarray::backend::gemm_f32(
+        m, n, k,
+        1.0, a, k,
+        &bt, n,
+        0.0, &mut c, n,
+    );
     c
 }
 
