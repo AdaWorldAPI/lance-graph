@@ -246,6 +246,19 @@ fn main() {
         if mismatches > 0 {
             println!("      ⚠ {} / 100 centroid mismatches after rehydration", mismatches);
         }
+
+        // Load Fisher z table (v2 encoding)
+        let fz_key = format!("{}.fisher_z", role_name);
+        if let Some(fz_bytes) = read_tensor_bytes(&mut reader, &header, data_offset, &fz_key) {
+            let k = palette.len();
+            let fz = bgz_tensor::fisher_z::FisherZTable::from_bytes(&fz_bytes, k);
+            // Spot check: self-similarity should be highest
+            let self_cos = fz.lookup_f32(0, 0);
+            // Cross-centroid: sample a few
+            let cross_cos = if k > 1 { fz.lookup_f32(0, 1) } else { 0.0 };
+            println!("      Fisher z: {} entries, gamma=[{:.4}, {:.4}], self_cos={:.4}, cross_cos={:.4}",
+                k * k, fz.gamma.z_min, fz.gamma.z_range, self_cos, cross_cos);
+        }
     }
 
     // ─── Step 4: Check passthrough tensors ─────────────────────────────

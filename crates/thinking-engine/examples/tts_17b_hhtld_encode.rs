@@ -516,6 +516,18 @@ fn main() {
         shape_bytes.extend_from_slice(&(shape[0] as u32).to_le_bytes());
         shape_bytes.extend_from_slice(&(shape[1] as u32).to_le_bytes());
         tensor_data.insert(format!("{}.original_shape", role_name), shape_bytes);
+
+        // Fisher z i8 pairwise cosine table: k×k i8 + 8 bytes gamma
+        // Built from centroid-nearest representative f32 rows
+        let n_cols = shape[1];
+        let reps: Vec<Vec<f32>> = cache.palette.entries.iter()
+            .map(|b| b.to_f32(n_cols))
+            .collect();
+        let fz = bgz_tensor::fisher_z::FisherZTable::build(&reps, k);
+        let fz_bytes = fz.to_bytes();
+        tensor_data.insert(format!("{}.fisher_z", role_name), fz_bytes);
+        let fz_gamma_bytes = fz.gamma.to_le_bytes().to_vec();
+        tensor_data.insert(format!("{}.fisher_z_gamma", role_name), fz_gamma_bytes);
     }
 
     // Also pass through skipped tensors (norms, embeddings) at original precision
@@ -544,8 +556,8 @@ fn main() {
 
     // Build metadata
     let mut metadata: HashMap<String, String> = HashMap::new();
-    metadata.insert("encoding".into(), "bgz-hhtl-d".into());
-    metadata.insert("version".into(), "1".into());
+    metadata.insert("encoding".into(), "bgz-hhtl-d+fisher-z".into());
+    metadata.insert("version".into(), "2".into());
     metadata.insert("original_model".into(), "Qwen3-TTS-12Hz-1.7B-Base".into());
     metadata.insert("palette_k".into(), N_CENTROIDS.to_string());
     metadata.insert("spiral_k".into(), SPIRAL_K.to_string());
