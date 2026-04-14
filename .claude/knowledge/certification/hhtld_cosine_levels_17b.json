@@ -1,143 +1,115 @@
 {
   "model": "Qwen3-TTS-12Hz-1.7B-Base",
-  "metric": "pairwise cosine quantized to 256 levels (1 byte per pair)",
-  "n_pairs_per_role": 5000,
-  "method": {
-    "u8_cdf": "percentile rank \u2192 u8 [0,255]",
-    "i8_direct": "round(cosine \u00d7 127) \u2192 i8 [-128,127]",
-    "gamma_phi_u8": "\u03b3 expansion (log1p) + \u03c6 distribution \u2192 u8 [0,255]"
-  },
-  "thresholds": {
-    "u8_cdf_spearman": 0.999,
-    "i8_direct_spearman": 0.99,
-    "gamma_phi_u8_spearman": 0.995
-  },
-  "summary": {
-    "total_roles": 21,
-    "pass_cdf": 21,
-    "pass_i8": 20,
-    "pass_gphi": 21,
-    "worst_i8": {
-      "role": "code_predictor/projection",
-      "rho": 0.9861,
-      "cos_std": 0.0146
-    },
-    "worst_gphi": {
-      "role": "talker/up_proj",
-      "rho": 0.9974,
-      "cos_std": 0.0384
-    }
-  },
+  "probe": "Fisher z x family gamma \u2014 pairwise cosine as i8 signed",
+  "date": "2026-04-14",
+  "total_roles": 21,
+  "pass_count": 21,
+  "threshold": "Spearman rho >= 0.995",
+  "worst_rho": 0.999,
+  "worst_err": 0.00155,
+  "encoding": "arctanh(cosine) scaled to i8 via (z_min, z_range) per family",
+  "restore": "tanh((i8 + 127) / 254 * z_range + z_min)",
+  "metadata": "8 bytes per family (z_min f32 + z_range f32)",
   "roles": [
     {
-      "role": "code_predictor/codec_embed",
+      "role": "cp/codec_embed",
       "shape": [
         2048,
         2048
       ],
-      "cos_std": 0.2196,
-      "cdf": 1.0,
-      "i8": 0.9999,
-      "gphi": 1.0
+      "std": 0.2196,
+      "fz_rho": 1.0,
+      "fz_err": 0.00155
     },
     {
-      "role": "code_predictor/down_proj",
+      "role": "cp/down_proj",
       "shape": [
         1024,
         3072
       ],
-      "cos_std": 0.0304,
-      "cdf": 1.0,
-      "i8": 0.9968,
-      "gphi": 0.9999
+      "std": 0.0304,
+      "fz_rho": 0.9999,
+      "fz_err": 0.00026
     },
     {
-      "role": "code_predictor/gate_proj",
+      "role": "cp/gate_proj",
       "shape": [
         3072,
         1024
       ],
-      "cos_std": 0.0593,
-      "cdf": 1.0,
-      "i8": 0.9985,
-      "gphi": 0.9996
+      "std": 0.0593,
+      "fz_rho": 0.9994,
+      "fz_err": 0.00125
     },
     {
-      "role": "code_predictor/k_proj",
+      "role": "cp/k_proj",
       "shape": [
         1024,
         1024
       ],
-      "cos_std": 0.1034,
-      "cdf": 1.0,
-      "i8": 0.9996,
-      "gphi": 0.9998
+      "std": 0.1034,
+      "fz_rho": 0.9998,
+      "fz_err": 0.00128
     },
     {
-      "role": "code_predictor/lm_head",
+      "role": "cp/lm_head",
       "shape": [
         2048,
         1024
       ],
-      "cos_std": 0.0997,
-      "cdf": 1.0,
-      "i8": 0.999,
-      "gphi": 0.9999
+      "std": 0.0997,
+      "fz_rho": 0.9997,
+      "fz_err": 0.00111
     },
     {
-      "role": "code_predictor/o_proj",
+      "role": "cp/o_proj",
       "shape": [
         1024,
         2048
       ],
-      "cos_std": 0.0236,
-      "cdf": 1.0,
-      "i8": 0.9946,
-      "gphi": 0.9993
+      "std": 0.0236,
+      "fz_rho": 0.9998,
+      "fz_err": 0.0004
     },
     {
-      "role": "code_predictor/projection",
+      "role": "cp/projection",
       "shape": [
         1024,
         2048
       ],
-      "cos_std": 0.0146,
-      "cdf": 1.0,
-      "i8": 0.9861,
-      "gphi": 0.9994
+      "std": 0.0146,
+      "fz_rho": 0.9999,
+      "fz_err": 0.00016
     },
     {
-      "role": "code_predictor/q_proj",
+      "role": "cp/q_proj",
       "shape": [
         2048,
         1024
       ],
-      "cos_std": 0.0464,
-      "cdf": 1.0,
-      "i8": 0.9982,
-      "gphi": 0.9984
+      "std": 0.0464,
+      "fz_rho": 0.9991,
+      "fz_err": 0.00141
     },
     {
-      "role": "code_predictor/up_proj",
+      "role": "cp/up_proj",
       "shape": [
         3072,
         1024
       ],
-      "cos_std": 0.0432,
-      "cdf": 1.0,
-      "i8": 0.9978,
-      "gphi": 0.9987
+      "std": 0.0432,
+      "fz_rho": 0.9993,
+      "fz_err": 0.00109
     },
     {
-      "role": "code_predictor/v_proj",
+      "role": "cp/v_proj",
       "shape": [
         1024,
         1024
       ],
-      "cos_std": 0.0361,
-      "cdf": 1.0,
-      "i8": 0.9976,
-      "gphi": 0.9998
+      "std": 0.0361,
+      "fz_rho": 0.9999,
+      "fz_err": 0.00035
     },
     {
       "role": "talker/codec_embed",
@@ -145,10 +117,9 @@
         3072,
         2048
       ],
-      "cos_std": 0.0884,
-      "cdf": 1.0,
-      "i8": 0.9993,
-      "gphi": 1.0
+      "std": 0.0884,
+      "fz_rho": 0.9999,
+      "fz_err": 0.00092
     },
     {
       "role": "talker/codec_head",
@@ -156,10 +127,9 @@
         3072,
         2048
       ],
-      "cos_std": 0.0837,
-      "cdf": 1.0,
-      "i8": 0.9991,
-      "gphi": 0.9999
+      "std": 0.0837,
+      "fz_rho": 0.9998,
+      "fz_err": 0.0009
     },
     {
       "role": "talker/down_proj",
@@ -167,10 +137,9 @@
         2048,
         6144
       ],
-      "cos_std": 0.0274,
-      "cdf": 1.0,
-      "i8": 0.9945,
-      "gphi": 0.9995
+      "std": 0.0274,
+      "fz_rho": 0.9994,
+      "fz_err": 0.00066
     },
     {
       "role": "talker/gate_proj",
@@ -178,10 +147,9 @@
         6144,
         2048
       ],
-      "cos_std": 0.0466,
-      "cdf": 1.0,
-      "i8": 0.997,
-      "gphi": 0.9992
+      "std": 0.0466,
+      "fz_rho": 0.9994,
+      "fz_err": 0.00088
     },
     {
       "role": "talker/k_proj",
@@ -189,10 +157,9 @@
         1024,
         2048
       ],
-      "cos_std": 0.0887,
-      "cdf": 1.0,
-      "i8": 0.9993,
-      "gphi": 0.9995
+      "std": 0.0887,
+      "fz_rho": 0.9996,
+      "fz_err": 0.00145
     },
     {
       "role": "talker/o_proj",
@@ -200,10 +167,9 @@
         2048,
         2048
       ],
-      "cos_std": 0.0379,
-      "cdf": 1.0,
-      "i8": 0.9977,
-      "gphi": 0.9998
+      "std": 0.0379,
+      "fz_rho": 0.9996,
+      "fz_err": 0.00077
     },
     {
       "role": "talker/q_proj",
@@ -211,10 +177,9 @@
         2048,
         2048
       ],
-      "cos_std": 0.0648,
-      "cdf": 1.0,
-      "i8": 0.9987,
-      "gphi": 0.9992
+      "std": 0.0648,
+      "fz_rho": 0.9993,
+      "fz_err": 0.0014
     },
     {
       "role": "talker/text_embed",
@@ -222,10 +187,9 @@
         151936,
         2048
       ],
-      "cos_std": 0.0895,
-      "cdf": 1.0,
-      "i8": 0.999,
-      "gphi": 0.9999
+      "std": 0.0895,
+      "fz_rho": 0.9997,
+      "fz_err": 0.00112
     },
     {
       "role": "talker/text_projection",
@@ -233,10 +197,9 @@
         2048,
         2048
       ],
-      "cos_std": 0.0517,
-      "cdf": 1.0,
-      "i8": 0.9989,
-      "gphi": 0.9999
+      "std": 0.0517,
+      "fz_rho": 1.0,
+      "fz_err": 0.00038
     },
     {
       "role": "talker/up_proj",
@@ -244,10 +207,9 @@
         6144,
         2048
       ],
-      "cos_std": 0.0384,
-      "cdf": 1.0,
-      "i8": 0.9957,
-      "gphi": 0.9974
+      "std": 0.0384,
+      "fz_rho": 0.999,
+      "fz_err": 0.00094
     },
     {
       "role": "talker/v_proj",
@@ -255,48 +217,9 @@
         1024,
         2048
       ],
-      "cos_std": 0.0337,
-      "cdf": 1.0,
-      "i8": 0.9971,
-      "gphi": 0.9999
+      "std": 0.0337,
+      "fz_rho": 0.9999,
+      "fz_err": 0.00029
     }
-  ],
-  "fisher_z_family_gamma": {
-    "description": "arctanh(cosine) scaled to i8 via per-family (z_min, z_range)",
-    "metadata_per_family": "8 bytes (z_min f32 + z_range f32)",
-    "restore": "tanh((i8 + 127) / 254 * z_range + z_min)",
-    "results": {
-      "codec_embed": {
-        "rho": 1.0,
-        "err": 0.00155
-      },
-      "down_proj": {
-        "rho": 0.9999,
-        "err": 0.00026
-      },
-      "embed": {
-        "rho": 0.9997,
-        "err": 0.00112
-      },
-      "gate_proj": {
-        "rho": 0.9994,
-        "err": 0.00125
-      },
-      "o_proj": {
-        "rho": 0.9998,
-        "err": 0.0004
-      },
-      "q_proj": {
-        "rho": 0.9991,
-        "err": 0.00141
-      },
-      "v_proj": {
-        "rho": 0.9999,
-        "err": 0.00035
-      }
-    },
-    "worst_rho": 0.9991,
-    "worst_err": 0.00155,
-    "pass_all": true
-  }
+  ]
 }
