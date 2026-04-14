@@ -18,6 +18,8 @@
 
 use ndarray::hpc::safetensors::read_safetensors_header;
 use ndarray::hpc::gguf::{GgmlType, TensorInfo};
+use ndarray::simd::{f32x8, F32x8, bf16_to_f32_batch};  // SIMD dispatch (AVX-512→AVX2→scalar)
+use ndarray::backend::{dot_f32, gemm_f32};  // BLAS L1 dot + L3 gemm (matrixmultiply)
 
 use std::collections::HashMap;
 use std::fs::File;
@@ -153,11 +155,17 @@ fn assign_nearest(rows: &[Vec<f32>], centroids: &[Vec<f32>]) -> Vec<usize> {
 }
 
 fn l2_dist(a: &[f32], b: &[f32]) -> f64 {
-    // Use SIMD subtract + dot for L2 distance
     let n = a.len().min(b.len());
     let mut diff = vec![0.0f32; n];
-    for i in 0..n { diff[i] = a[i] - b[i]; }
-    (ndarray::simd_avx2::dot_f32(&diff, &diff) as f64).sqrt()
+    // F32x8 subtract via array_windows pattern
+    let chunks = n / 8;
+    for i in 0..chunks {
+        let va = F32x8::from_slice(&a[i*8..]);
+        let vb = F32x8::from_slice(&b[i*8..]);
+        (va - vb).copy_to_slice(&mut diff[i*8..i*8+8]);
+    }
+    for i in chunks*8..n { diff[i] = a[i] - b[i]; }
+    (dot_f32(&diff, &diff) as f64).sqrt()
 }
 
 fn cosine_f32(a: &[f32], b: &[f32]) -> f64 {
@@ -205,9 +213,14 @@ fn load_weights(
         if reader.read_exact(&mut raw).is_err() { continue; }
 
         let f32_data: Vec<f32> = match tensor.dtype {
-            GgmlType::BF16 => raw.chunks_exact(2)
-                .map(|c| f32::from_bits((u16::from_le_bytes([c[0], c[1]]) as u32) << 16))
-                .collect(),
+            GgmlType::BF16 => {
+                let u16s: Vec<u16> = raw.chunks_exact(2)
+                    .map(|c| u16::from_le_bytes([c[0], c[1]]))
+                    .collect();
+                let mut f32s = vec![0.0f32; u16s.len()];
+                bf16_to_f32_batch(&u16s, &mut f32s);
+                f32s
+            },
             GgmlType::F16 => raw.chunks_exact(2)
                 .map(|c| ndarray::hpc::gguf::f16_to_f32(u16::from_le_bytes([c[0], c[1]])))
                 .collect(),
@@ -282,10 +295,19 @@ fn get_weight<'a>(w: &'a HashMap<String, Vec<f32>>, name: &str) -> &'a [f32] {
 fn rms_norm(x: &mut [f32], w: &[f32], dim: usize) {
     let len = x.len() / dim;
     for i in 0..len {
-        let s = &x[i*dim..(i+1)*dim];
-        let rms = (s.iter().map(|v| v*v).sum::<f32>() / dim as f32 + 1e-6).sqrt();
-        let inv = 1.0 / rms;
-        for d in 0..dim {
+        let row = &x[i*dim..(i+1)*dim];
+        // dot_f32 for sum of squares (SIMD)
+        let ss = dot_f32(row, row);
+        let inv = 1.0 / (ss / dim as f32 + 1e-6).sqrt();
+        // F32x8 multiply for element-wise scale
+        let chunks = dim / 8;
+        for c in 0..chunks {
+            let base = i * dim + c * 8;
+            let vx = F32x8::from_slice(&x[base..]);
+            let vw = F32x8::from_slice(&w[c*8..]);
+            (vx * F32x8::splat(inv) * vw).copy_to_slice(&mut x[base..base+8]);
+        }
+        for d in chunks*8..dim {
             x[i*dim+d] *= inv * w.get(d).copied().unwrap_or(1.0);
         }
     }
@@ -314,7 +336,7 @@ fn matmul(a: &[f32], b: &[f32], m: usize, k: usize, n: usize) -> Vec<f32> {
             bt[j * n + i] = b[i * k + j];
         }
     }
-    ndarray::backend::gemm_f32(
+    gemm_f32(
         m, n, k,
         1.0, a, k,
         &bt, n,
