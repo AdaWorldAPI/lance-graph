@@ -84,6 +84,7 @@ pub mod variance;
 
 #[cfg(feature = "hydrate")]
 pub mod manifest;
+pub mod matryoshka;
 
 // ─── Re-exports ──────────────────────────────────────────────────────────────
 
@@ -101,3 +102,4 @@ pub use projection::Base17;
 pub use quality::QualityReport;
 pub use similarity::SimilarityTable;
 pub use variance::RoleVarianceReport;
+pub use matryoshka::{MatryoshkaRow, SvdBasis, BandProfile, BandPrecision};
