@@ -363,31 +363,28 @@ fn load_weights(
                 .map(|r| f32_data[r * n_cols..(r + 1) * n_cols].to_vec())
                 .collect();
 
-            // Shape-dispatch: vocab-sized tensors (n_rows > 8192) go through
-            // hierarchical CLAM 256×256 — progressive residual RVQ at k=4096
-            // can't reach cos ≈ 1 when k_final < n_rows / 4.
+            // Shape-dispatch: vocab-sized tensors (n_rows > 8192) are passed
+            // through unchanged (BF16 → f32, no compression). Progressive
+            // residual RVQ fails (k_final < n_rows / 4 → cos collapse) and
+            // hierarchical CLAM 256×256 ALSO fails for this shape because
+            // vocab rows are near-orthogonal in 2048-d — single-centroid
+            // reconstruction picks a random-direction row. See PR #177 comment.
+            //
+            // Proper remediation is bgz-tensor::HhtlDTensor + shared palettes
+            // (343:1 lookup-grade), which requires switching inference from
+            // f32 GEMM to HHTL cascade. Out of scope for this pipeline.
             let short = tensor.name.rsplit('.').take(3).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join(".");
             use std::io::Write as _;
 
             let (reconstructed, cos, tag): (Vec<Vec<f32>>, f64, String) = if n_rows > 8192 {
-                // Hierarchical CLAM 256×256 path
-                let t0 = Instant::now();
-                let (l1_centroids, l2_codebooks, indices) = build_hclam_256x256(&rows);
-                let rec = reconstruct_hclam(&l2_codebooks, &indices, n_cols);
-                let el = t0.elapsed();
-
-                // Storage: L1 + sum of L2 + indices
-                codebook_bytes += l1_centroids.len() * n_cols * 4;
-                for cb in &l2_codebooks {
-                    codebook_bytes += cb.len() * n_cols * 4;
-                }
-                index_bytes += indices.len() * 2; // (u8, u8) per row
-
-                let c = cosine_f32(&rows[0], &rec[0]);
-                println!("    [{:>3}] {:<60} [{}x{}] cos={:.4} hclam=256x256 {:?}",
-                    weights.len() + 1, short, n_rows, n_cols, c, el);
+                // Passthrough: keep BF16-precision f32 rows as-is, no codebook.
+                // Cos = 1 trivially. Ship cost is BF16 (2 bytes per element).
+                codebook_bytes += n_rows * n_cols * 2; // BF16 shipping footprint
+                println!("    [{:>3}] {:<60} [{}x{}] cos=1.0000 passthrough (n_rows>8192, BF16 {:.1}MB)",
+                    weights.len() + 1, short, n_rows, n_cols,
+                    (n_rows * n_cols * 2) as f64 / 1e6);
                 std::io::stdout().flush().ok();
-                (rec, c, "hclam".into())
+                (rows.clone(), 1.0, "passthrough".into())
             } else {
                 // K levels based on role
                 let role = tensor.name.to_lowercase();

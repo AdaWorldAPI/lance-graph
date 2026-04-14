@@ -266,6 +266,9 @@ fn main() {
 
     // Save tokens
     let tok_path = "/home/user/models/qwen3-tts-0.6b/codebooks/real_codec_tokens.bin";
+    if let Some(parent) = std::path::Path::new(tok_path).parent() {
+        std::fs::create_dir_all(parent).expect("create codebooks dir");
+    }
     std::fs::write(tok_path, &codec_tokens).expect("write tokens");
 
     // Decode via speech tokenizer
