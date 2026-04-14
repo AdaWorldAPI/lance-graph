@@ -8,6 +8,7 @@
 //! via DataFusion, this layer provides direct fingerprint-based graph operations.
 
 pub mod arigraph;
+pub mod audio;
 pub mod blasgraph;
 pub mod graph_router;
 pub mod semiring_map;

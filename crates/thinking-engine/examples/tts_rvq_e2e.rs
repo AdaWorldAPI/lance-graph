@@ -18,7 +18,7 @@
 
 use ndarray::hpc::safetensors::read_safetensors_header;
 use ndarray::hpc::gguf::{GgmlType, TensorInfo};
-use ndarray::simd::{f32x8, F32x8, bf16_to_f32_batch};  // SIMD dispatch (AVX-512→AVX2→scalar)
+use ndarray::simd::{f32x8, F32x8, F32x16, bf16_to_f32_batch, PREFERRED_F32_LANES};  // AVX-512 dispatch
 use ndarray::backend::{dot_f32, gemm_f32};  // BLAS L1 dot + L3 gemm (matrixmultiply)
 
 use std::collections::HashMap;
@@ -123,20 +123,24 @@ fn clam_sample(rows: &[Vec<f32>], k: usize) -> Vec<Vec<f32>> {
 
     centroids.push(rows[first].clone());
     used[first] = true;
-    let mut min_dist = vec![f64::MAX; n];
+    // Squared distances — same ordering as euclidean, no per-call sqrt
+    let mut min_dist = vec![f32::MAX; n];
     for i in 0..n {
-        min_dist[i] = l2_dist(&rows[i], &rows[first]);
+        min_dist[i] = l2_dist_sq(&rows[i], &rows[first]);
     }
 
     for _ in 1..k {
-        let next = (0..n).filter(|&i| !used[i])
-            .max_by(|&a, &b| min_dist[a].partial_cmp(&min_dist[b]).unwrap())
-            .unwrap_or(0);
+        let mut next = 0usize;
+        let mut best = f32::MIN;
+        for i in 0..n {
+            if !used[i] && min_dist[i] > best { best = min_dist[i]; next = i; }
+        }
         centroids.push(rows[next].clone());
         used[next] = true;
+        let c = &rows[next];
         for i in 0..n {
             if !used[i] {
-                let d = l2_dist(&rows[i], &rows[next]);
+                let d = l2_dist_sq(&rows[i], c);
                 if d < min_dist[i] { min_dist[i] = d; }
             }
         }
@@ -145,27 +149,63 @@ fn clam_sample(rows: &[Vec<f32>], k: usize) -> Vec<Vec<f32>> {
 }
 
 fn assign_nearest(rows: &[Vec<f32>], centroids: &[Vec<f32>]) -> Vec<usize> {
+    // Fix: compute each distance ONCE per (row, centroid), not twice via nested min_by closure.
     rows.iter().map(|row| {
-        (0..centroids.len())
-            .min_by(|&a, &b| {
-                l2_dist(row, &centroids[a]).partial_cmp(&l2_dist(row, &centroids[b])).unwrap()
-            })
-            .unwrap_or(0)
+        let mut best_idx = 0usize;
+        let mut best = f32::MAX;
+        for (ci, c) in centroids.iter().enumerate() {
+            let d = l2_dist_sq(row, c);  // squared — same ordering, no sqrt needed
+            if d < best { best = d; best_idx = ci; }
+        }
+        best_idx
     }).collect()
 }
 
-fn l2_dist(a: &[f32], b: &[f32]) -> f64 {
+/// Fused squared-L2 distance — zero allocation, 4× unrolled F32x16 FMA.
+/// Returns squared distance (sqrt unnecessary for comparisons).
+///
+/// Uses ndarray's canonical "array_window" idiom (chunks_exact(16) = AVX-512
+/// lane width) + mul_add FMA. On `target-cpu=x86-64-v4` this compiles to
+/// native VFMADD231PS on __m512.
+#[inline(always)]
+fn l2_dist_sq(a: &[f32], b: &[f32]) -> f32 {
+    const LANES: usize = 16;  // PREFERRED_F32_LANES on AVX-512
     let n = a.len().min(b.len());
-    let mut diff = vec![0.0f32; n];
-    // F32x8 subtract via array_windows pattern
-    let chunks = n / 8;
+    // 4× unrolled FMA pipes: 64 floats per iteration
+    let chunks = n / 64;
+    let mut acc0 = F32x16::splat(0.0);
+    let mut acc1 = F32x16::splat(0.0);
+    let mut acc2 = F32x16::splat(0.0);
+    let mut acc3 = F32x16::splat(0.0);
     for i in 0..chunks {
-        let va = F32x8::from_slice(&a[i*8..]);
-        let vb = F32x8::from_slice(&b[i*8..]);
-        (va - vb).copy_to_slice(&mut diff[i*8..i*8+8]);
+        let base = i * 64;
+        let d0 = F32x16::from_slice(&a[base..])      - F32x16::from_slice(&b[base..]);
+        let d1 = F32x16::from_slice(&a[base + 16..]) - F32x16::from_slice(&b[base + 16..]);
+        let d2 = F32x16::from_slice(&a[base + 32..]) - F32x16::from_slice(&b[base + 32..]);
+        let d3 = F32x16::from_slice(&a[base + 48..]) - F32x16::from_slice(&b[base + 48..]);
+        // FMA: acc = d * d + acc  (VFMADD231PS)
+        acc0 = d0.mul_add(d0, acc0);
+        acc1 = d1.mul_add(d1, acc1);
+        acc2 = d2.mul_add(d2, acc2);
+        acc3 = d3.mul_add(d3, acc3);
     }
-    for i in chunks*8..n { diff[i] = a[i] - b[i]; }
-    (dot_f32(&diff, &diff) as f64).sqrt()
+    let mut s = (acc0 + acc1 + acc2 + acc3).reduce_sum();
+    // 16-wide tail (chunks_exact-style leftover)
+    let mut i = chunks * 64;
+    while i + LANES <= n {
+        let d = F32x16::from_slice(&a[i..]) - F32x16::from_slice(&b[i..]);
+        s += d.mul_add(d, F32x16::splat(0.0)).reduce_sum();
+        i += LANES;
+    }
+    // scalar tail
+    while i < n { let d = a[i] - b[i]; s += d * d; i += 1; }
+    s
+}
+
+/// sqrt wrapper for legacy call sites (rarely needed — use squared directly when possible).
+#[inline(always)]
+fn l2_dist(a: &[f32], b: &[f32]) -> f64 {
+    (l2_dist_sq(a, b) as f64).sqrt()
 }
 
 fn cosine_f32(a: &[f32], b: &[f32]) -> f64 {
@@ -249,7 +289,9 @@ fn load_weights(
                 vec![256, 512, 1024, 4096]
             };
 
+            let t_rvq = Instant::now();
             let (codebooks, assignments) = build_rvq(&rows, &k_levels);
+            let rvq_elapsed = t_rvq.elapsed();
 
             // Storage accounting
             for cb in &codebooks {
@@ -263,15 +305,13 @@ fn load_weights(
             // Reconstruct
             let reconstructed = reconstruct_rvq(&codebooks, &assignments, n_rows, n_cols);
 
-            // Quality check (first tensor only)
-            if weights.is_empty() {
-                let cos = cosine_f32(&rows[0], &reconstructed[0]);
-                let role_short = if role.contains("q_proj") { "q" }
-                    else if role.contains("k_proj") { "k" }
-                    else if role.contains("gate") { "gate" }
-                    else { "?" };
-                println!("    RVQ {}: cos={:.6}, k={:?}", role_short, cos, k_levels);
-            }
+            // Per-tensor progress + quality
+            let cos = cosine_f32(&rows[0], &reconstructed[0]);
+            let short = tensor.name.rsplit('.').take(3).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join(".");
+            println!("    [{:>3}] {:<60} [{}x{}] cos={:.4} k={:?} {:?}",
+                weights.len() + 1, short, n_rows, n_cols, cos, k_levels, rvq_elapsed);
+            use std::io::Write as _;
+            std::io::stdout().flush().ok();
 
             // Flatten back
             let flat: Vec<f32> = reconstructed.into_iter().flatten().collect();
