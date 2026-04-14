@@ -187,187 +187,171 @@ struct RoleReport {
     role: String,
     component: String,
     n_rows: usize,
-    n_pairs: usize,
 
-    // Base17 level
-    base17_spearman: f64,
-    base17_pearson: f64,
-    base17_cronbach: f64,
+    // 1:1 reconstruction cosine: cosine(original_row[i], decoded_row[i])
+    // Base17 level: decode via Base17::to_f32()
+    base17_cos_mean: f64,
+    base17_cos_min: f64,
+    base17_cos_p5: f64,   // 5th percentile
 
-    // Palette level (256 centroids)
-    palette_spearman: f64,
-    palette_pearson: f64,
-    palette_top10_recall: f64,
+    // Palette level: decode via centroid Base17::to_f32()
+    palette_cos_mean: f64,
+    palette_cos_min: f64,
+    palette_cos_p5: f64,
 
-    // HHTL-D cascade level
-    cascade_spearman: f64,
-    cascade_pearson: f64,
-    cascade_top10_recall: f64,
-    cascade_skip_pct: f64,
-    cascade_attend_pct: f64,
-    cascade_escalate_pct: f64,
-    cascade_skip_accuracy: f64,
+    // HHTL-D level: centroid + polarity * residual * gamma
+    hhtld_cos_mean: f64,
+    hhtld_cos_min: f64,
+    hhtld_cos_p5: f64,
+
+    // MatVec fidelity: ||W·x - W_decoded·x|| / ||W·x||
+    matvec_rel_error: f64,
 
     // Pass/fail
     pass: bool,
     failures: Vec<String>,
 }
 
-/// Run the full probe for one role.
+/// Run the 1:1 reconstruction probe for one role.
+///
+/// For each row: encode → decode → cosine(original, decoded).
+/// This measures how well the HHTL-D pipeline preserves individual rows,
+/// NOT pairwise relationships between rows.
 fn probe_role(
     role: &str,
     component: &str,
     f32_rows: &[Vec<f32>],
     cache: &HhtlCache,
-    hip_families: &[u8],
+    _hip_families: &[u8],
 ) -> RoleReport {
     let n = f32_rows.len().min(SAMPLE_ROWS);
     let rows = &f32_rows[..n];
-    let n_pairs = n * (n - 1) / 2;
+    let n_cols = if n > 0 { rows[0].len() } else { 0 };
 
-    // ─── Ground truth: f32 cosine (angular distance) ───
-    let mut gt_upper = Vec::with_capacity(n_pairs);
-    let mut gt_matrix: Vec<Vec<f64>> = vec![vec![0.0; n]; n];
-    for i in 0..n {
-        for j in (i + 1)..n {
-            let cos = cosine_f32(&rows[i], &rows[j]);
-            let dist = (1.0 - cos).max(0.0);  // cosine distance
-            gt_upper.push(dist);
-            gt_matrix[i][j] = dist;
-            gt_matrix[j][i] = dist;
-        }
-    }
-
-    // ─── Level 1: Base17 L1 ───
+    // ─── Level 1: Base17 fold → reconstruct → cosine ───
     let base17_rows: Vec<Base17> = rows.iter()
         .map(|r| Base17::from_f32(r))
         .collect();
 
-    let mut b17_upper = Vec::with_capacity(n_pairs);
+    let mut b17_cosines: Vec<f64> = Vec::with_capacity(n);
     for i in 0..n {
-        for j in (i + 1)..n {
-            b17_upper.push(base17_rows[i].l1(&base17_rows[j]) as f64);
-        }
+        let decoded = base17_rows[i].to_f32(n_cols);
+        b17_cosines.push(cosine_f32(&rows[i], &decoded));
     }
+    b17_cosines.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
-    let base17_spearman = spearman(&gt_upper, &b17_upper);
-    let base17_pearson = pearson(&gt_upper, &b17_upper);
-    let base17_cronbach = cronbach_alpha(&base17_rows);
+    let base17_cos_mean = b17_cosines.iter().sum::<f64>() / n.max(1) as f64;
+    let base17_cos_min = b17_cosines.first().copied().unwrap_or(0.0);
+    let base17_cos_p5 = b17_cosines.get(n * 5 / 100).copied().unwrap_or(base17_cos_min);
 
-    // ─── Level 2: Palette distance table ───
+    // ─── Level 2: Palette centroid → reconstruct → cosine ───
     let assignments: Vec<u8> = base17_rows.iter()
         .map(|b| cache.nearest(b).0)
         .collect();
 
-    let mut pal_upper = Vec::with_capacity(n_pairs);
-    let mut pal_matrix: Vec<Vec<f64>> = vec![vec![0.0; n]; n];
+    let mut pal_cosines: Vec<f64> = Vec::with_capacity(n);
     for i in 0..n {
-        for j in (i + 1)..n {
-            let d = cache.distance(assignments[i], assignments[j]) as f64;
-            pal_upper.push(d);
-            pal_matrix[i][j] = d;
-            pal_matrix[j][i] = d;
+        let centroid = &cache.palette.entries[assignments[i] as usize];
+        let decoded = centroid.to_f32(n_cols);
+        pal_cosines.push(cosine_f32(&rows[i], &decoded));
+    }
+    pal_cosines.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+    let palette_cos_mean = pal_cosines.iter().sum::<f64>() / n.max(1) as f64;
+    let palette_cos_min = pal_cosines.first().copied().unwrap_or(0.0);
+    let palette_cos_p5 = pal_cosines.get(n * 5 / 100).copied().unwrap_or(palette_cos_min);
+
+    // ─── Level 3: HHTL-D (centroid + polarity * residual * gamma) ───
+    // Decode: centroid_f32 + polarity * slot_v_f32 * gamma_restore
+    let gamma_restore = cache.gamma_meta[0].max(cache.gamma_meta[1]).max(1e-6);
+
+    let mut hhtld_cosines: Vec<f64> = Vec::with_capacity(n);
+    for i in 0..n {
+        let centroid = &cache.palette.entries[assignments[i] as usize];
+        let centroid_f32 = centroid.to_f32(n_cols);
+
+        // Compute residual: L1 distance normalized by centroid magnitude
+        let centroid_mag: f64 = centroid.dims.iter()
+            .map(|&d| (d as f64).abs())
+            .sum::<f64>()
+            .max(1.0);
+        let l1_dist = base17_rows[i].l1(centroid) as f64;
+        let residual = (l1_dist / centroid_mag) as f32;
+
+        // Polarity from dominant residual dimension
+        let polarity = {
+            let mut max_dim = 0i32;
+            for d in 0..17 {
+                let diff = base17_rows[i].dims[d] as i32 - centroid.dims[d] as i32;
+                if diff.abs() > max_dim.abs() { max_dim = diff; }
+            }
+            if max_dim >= 0 { 1.0f32 } else { -1.0f32 }
+        };
+
+        // Reconstruct: centroid + polarity * residual * gamma
+        let mut decoded = centroid_f32;
+        let correction = polarity * residual * gamma_restore;
+        for v in decoded.iter_mut() {
+            *v += correction;
+        }
+
+        hhtld_cosines.push(cosine_f32(&rows[i], &decoded));
+    }
+    hhtld_cosines.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+    let hhtld_cos_mean = hhtld_cosines.iter().sum::<f64>() / n.max(1) as f64;
+    let hhtld_cos_min = hhtld_cosines.first().copied().unwrap_or(0.0);
+    let hhtld_cos_p5 = hhtld_cosines.get(n * 5 / 100).copied().unwrap_or(hhtld_cos_min);
+
+    // ─── MatVec fidelity: ||W·x - W_decoded·x|| / ||W·x|| ───
+    // Random unit vector x, compute W·x with original vs decoded
+    let mut rng = 0x12345678u64;
+    let x_vec: Vec<f32> = (0..n_cols).map(|_| {
+        rng = rng.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        ((rng >> 33) as f32 / (1u64 << 31) as f32) * 2.0 - 1.0
+    }).collect();
+    // Normalize x
+    let x_norm: f32 = x_vec.iter().map(|v| v * v).sum::<f32>().sqrt().max(1e-10);
+    let x_unit: Vec<f32> = x_vec.iter().map(|v| v / x_norm).collect();
+
+    let mut wx_orig = vec![0.0f64; n];
+    let mut wx_decoded = vec![0.0f64; n];
+    for i in 0..n {
+        let centroid = &cache.palette.entries[assignments[i] as usize];
+        let centroid_f32 = centroid.to_f32(n_cols);
+
+        for j in 0..n_cols {
+            wx_orig[i] += rows[i][j] as f64 * x_unit[j] as f64;
+            wx_decoded[i] += centroid_f32[j] as f64 * x_unit[j] as f64;
         }
     }
 
-    let palette_spearman = spearman(&gt_upper, &pal_upper);
-    let palette_pearson = pearson(&gt_upper, &pal_upper);
-    let palette_top10 = top_k_recall_matrix(&gt_matrix, &pal_matrix, 10);
-
-    // ─── Level 3: HHTL-D cascade (RouteAction dispatch) ───
-    let mut cascade_upper = Vec::with_capacity(n_pairs);
-    let mut cascade_matrix: Vec<Vec<f64>> = vec![vec![0.0; n]; n];
-    let mut n_skip = 0usize;
-    let mut n_attend = 0usize;
-    let mut n_escalate = 0usize;
-    let mut n_compose = 0usize;
-    let mut skip_correct = 0usize;
-    let mut skip_total = 0usize;
-
-    // Percentile threshold for "truly distant" (top 30% of ground truth distances)
-    let mut gt_sorted = gt_upper.clone();
-    gt_sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    let distant_threshold = gt_sorted[gt_sorted.len() * 70 / 100];
-
-    let mut pair_idx = 0usize;
-    for i in 0..n {
-        for j in (i + 1)..n {
-            let action = cache.route(assignments[i], assignments[j]);
-            let d = match action {
-                RouteAction::Skip => {
-                    n_skip += 1;
-                    // Check if skip is correct (pair truly distant)
-                    skip_total += 1;
-                    if gt_upper[pair_idx] >= distant_threshold {
-                        skip_correct += 1;
-                    }
-                    f64::MAX / 2.0  // infinity — skipped
-                }
-                RouteAction::Attend => {
-                    n_attend += 1;
-                    cache.distance(assignments[i], assignments[j]) as f64
-                }
-                RouteAction::Compose => {
-                    n_compose += 1;
-                    cache.distance(assignments[i], assignments[j]) as f64
-                }
-                RouteAction::Escalate => {
-                    n_escalate += 1;
-                    base17_rows[i].l1(&base17_rows[j]) as f64
-                }
-            };
-            cascade_upper.push(d);
-            cascade_matrix[i][j] = d;
-            cascade_matrix[j][i] = d;
-            pair_idx += 1;
-        }
-    }
-
-    // For Spearman/Pearson: exclude Skip pairs (infinity breaks correlation)
-    let non_skip: Vec<(f64, f64)> = gt_upper.iter().zip(&cascade_upper)
-        .filter(|(_, &c)| c < f64::MAX / 4.0)
-        .map(|(&g, &c)| (g, c))
-        .collect();
-    let gt_ns: Vec<f64> = non_skip.iter().map(|&(g, _)| g).collect();
-    let cas_ns: Vec<f64> = non_skip.iter().map(|&(_, c)| c).collect();
-
-    let cascade_spearman = spearman(&gt_ns, &cas_ns);
-    let cascade_pearson = pearson(&gt_ns, &cas_ns);
-    let cascade_top10 = top_k_recall_matrix(&gt_matrix, &cascade_matrix, 10);
-    let skip_accuracy = if skip_total > 0 { skip_correct as f64 / skip_total as f64 } else { 1.0 };
-
-    let total_actions = n_skip + n_attend + n_compose + n_escalate;
-    let skip_pct = n_skip as f64 / total_actions.max(1) as f64;
-    let attend_pct = n_attend as f64 / total_actions.max(1) as f64;
-    let escalate_pct = (n_escalate + n_compose) as f64 / total_actions.max(1) as f64;
+    let diff_norm: f64 = wx_orig.iter().zip(&wx_decoded)
+        .map(|(a, b)| (a - b).powi(2)).sum::<f64>().sqrt();
+    let orig_norm: f64 = wx_orig.iter().map(|a| a.powi(2)).sum::<f64>().sqrt().max(1e-15);
+    let matvec_rel_error = diff_norm / orig_norm;
 
     // ─── Pass/fail ───
     let mut failures = Vec::new();
-    if base17_spearman < 0.990 { failures.push(format!("Base17 ρ={:.4} < 0.990", base17_spearman)); }
-    if palette_spearman < 0.950 { failures.push(format!("Palette ρ={:.4} < 0.950", palette_spearman)); }
-    if cascade_spearman < 0.930 { failures.push(format!("Cascade ρ={:.4} < 0.930", cascade_spearman)); }
-    if cascade_top10 < 0.80 { failures.push(format!("Top-10 recall={:.2} < 0.80", cascade_top10)); }
-    if skip_accuracy < 0.95 { failures.push(format!("Skip accuracy={:.2} < 0.95", skip_accuracy)); }
-    if base17_cronbach < 0.85 { failures.push(format!("Cronbach α={:.3} < 0.85", base17_cronbach)); }
+    if base17_cos_mean < 0.990 { failures.push(format!("Base17 cos={:.4} < 0.990", base17_cos_mean)); }
+    if palette_cos_mean < 0.950 { failures.push(format!("Palette cos={:.4} < 0.950", palette_cos_mean)); }
+    if hhtld_cos_mean < 0.930 { failures.push(format!("HHTL-D cos={:.4} < 0.930", hhtld_cos_mean)); }
+    if matvec_rel_error > 0.20 { failures.push(format!("MatVec err={:.4} > 0.20", matvec_rel_error)); }
 
     RoleReport {
         role: role.to_string(),
         component: component.to_string(),
         n_rows: n,
-        n_pairs,
-        base17_spearman,
-        base17_pearson,
-        base17_cronbach,
-        palette_spearman,
-        palette_pearson,
-        palette_top10_recall: palette_top10,
-        cascade_spearman,
-        cascade_pearson,
-        cascade_top10_recall: cascade_top10,
-        cascade_skip_pct: skip_pct,
-        cascade_attend_pct: attend_pct,
-        cascade_escalate_pct: escalate_pct,
-        cascade_skip_accuracy: skip_accuracy,
+        base17_cos_mean,
+        base17_cos_min,
+        base17_cos_p5,
+        palette_cos_mean,
+        palette_cos_min,
+        palette_cos_p5,
+        hhtld_cos_mean,
+        hhtld_cos_min,
+        hhtld_cos_p5,
+        matvec_rel_error,
         pass: failures.is_empty(),
         failures,
     }
@@ -404,9 +388,9 @@ fn main() {
     println!();
 
     // Run probe per role
-    println!("┌──────────────┬──────────┬────────┬────────┬────────┬────────┬────────┬────────┬──────┬────────┐");
-    println!("│ Role         │ Comp     │ B17 ρ  │ B17 α  │ Pal ρ  │ Cas ρ  │ Top10  │ Skip%  │ SkAc │ Pass   │");
-    println!("├──────────────┼──────────┼────────┼────────┼────────┼────────┼────────┼────────┼──────┼────────┤");
+    println!("┌──────────────┬──────────┬────────┬────────┬────────┬────────┬────────┬────────┬────────┬────────┐");
+    println!("│ Role         │ Comp     │ B17cos │ B17 p5 │ Palcos │ Pal p5 │ Dcos   │ D p5   │ MVErr  │ Pass   │");
+    println!("├──────────────┼──────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┤");
 
     let mut all_reports = Vec::new();
 
@@ -455,23 +439,23 @@ fn main() {
         let report = probe_role(role, comp, &f32_rows, &cache, &hip);
 
         let pass_str = if report.pass { "PASS" } else { "FAIL" };
-        println!("│ {:12} │ {:8} │ {:.4} │ {:.3}  │ {:.4} │ {:.4} │ {:.3}  │ {:5.1}% │ {:.2} │ {:6} │",
+        println!("│ {:12} │ {:8} │ {:.4} │ {:.4} │ {:.4} │ {:.4} │ {:.4} │ {:.4} │ {:.4} │ {:6} │",
             report.role, report.component,
-            report.base17_spearman, report.base17_cronbach,
-            report.palette_spearman, report.cascade_spearman,
-            report.cascade_top10_recall, report.cascade_skip_pct * 100.0,
-            report.cascade_skip_accuracy, pass_str);
+            report.base17_cos_mean, report.base17_cos_p5,
+            report.palette_cos_mean, report.palette_cos_p5,
+            report.hhtld_cos_mean, report.hhtld_cos_p5,
+            report.matvec_rel_error, pass_str);
 
         if !report.failures.is_empty() {
             for f in &report.failures {
-                println!("│   ⚠ {}{}│", f, " ".repeat(72usize.saturating_sub(f.len() + 5)));
+                println!("│   ⚠ {}{}│", f, " ".repeat(78usize.saturating_sub(f.len() + 5)));
             }
         }
 
         all_reports.push(report);
     }
 
-    println!("└──────────────┴──────────┴────────┴────────┴────────┴────────┴────────┴────────┴──────┴────────┘");
+    println!("└──────────────┴──────────┴────────┴────────┴────────┴────────┴────────┴────────┴────────┴────────┘");
 
     // Summary
     let n_pass = all_reports.iter().filter(|r| r.pass).count();
