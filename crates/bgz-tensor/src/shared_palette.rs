@@ -33,6 +33,7 @@
 //! TOTAL: 11.2 MB
 //! ```
 
+use crate::fisher_z::FisherZTable;
 use crate::hhtl_d::{HhtlDTensor, HhtlDEntry, HeelBasin, build_hip_families};
 use crate::hhtl_cache::HhtlCache;
 use crate::palette::WeightPalette;
@@ -62,6 +63,9 @@ pub struct SharedPaletteGroup {
     pub hip_families: Vec<u8>,
     /// Per-tensor HHTL-D entries.
     pub tensor_entries: Vec<(String, Vec<HhtlDEntry>)>,
+    /// Fisher z i8 pairwise cosine table for this group.
+    /// k×k i8 values + 8 bytes family gamma. Shared across all tensors in group.
+    pub fisher_z: Option<FisherZTable>,
 }
 
 /// Classify a tensor name into a palette group role.
@@ -147,6 +151,60 @@ pub fn encode_group(
     }
 
     results
+}
+
+/// Build a complete shared palette group with Fisher z table.
+///
+/// This is the main entry point for encoding a group of tensors.
+/// Collects representative f32 rows from the FIRST tensor's centroid
+/// assignments and builds the Fisher z table from those representatives.
+pub fn build_group_with_fisher_z(
+    key: &PaletteGroupKey,
+    tensor_names: &[String],
+    tensor_rows_f32: &[Vec<Vec<f32>>],
+    k: usize,
+) -> SharedPaletteGroup {
+    // Build Base17 projections from first tensor for palette
+    let first_rows = &tensor_rows_f32[0];
+    let base17_rows: Vec<Base17> = first_rows.iter()
+        .map(|r| Base17::from_f32(r))
+        .collect();
+    let palette = WeightPalette::build(&base17_rows, k);
+    let cache = HhtlCache::from_palette(palette.clone());
+    let hip_families = build_hip_families(&palette.entries);
+
+    // Collect representative f32 rows: one per centroid (nearest to centroid)
+    let n_centroids = palette.entries.len();
+    let mut reps: Vec<Vec<f32>> = vec![Vec::new(); n_centroids];
+    let mut rep_dists: Vec<u32> = vec![u32::MAX; n_centroids];
+    for (i, row) in first_rows.iter().enumerate() {
+        if i >= base17_rows.len() { break; }
+        let (ci, dist) = cache.nearest(&base17_rows[i]);
+        let ci = ci as usize;
+        if ci < n_centroids && dist < rep_dists[ci] {
+            reps[ci] = row.clone();
+            rep_dists[ci] = dist;
+        }
+    }
+    for ci in 0..n_centroids {
+        if reps[ci].is_empty() {
+            reps[ci] = palette.entries[ci].to_f32(key.shape.1);
+        }
+    }
+
+    let fisher_z = Some(FisherZTable::build(&reps, n_centroids));
+
+    // Encode all tensors
+    let entries = encode_group(key, tensor_names, tensor_rows_f32, &cache, &hip_families);
+
+    SharedPaletteGroup {
+        key: key.clone(),
+        tensor_names: tensor_names.to_vec(),
+        cache,
+        hip_families,
+        tensor_entries: entries,
+        fisher_z,
+    }
 }
 
 /// Compression statistics for a shared palette encoding.
