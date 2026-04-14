@@ -304,8 +304,8 @@ mod tests {
 
     #[test]
     fn role_gamma_roundtrip() {
-        let rg = RoleGamma { gamma: [0.37, 0.94, 1.33, 1.50, 0.12, 0.15], phi_scale: 1.50 };
-        for role in 0..6 {
+        let rg = RoleGamma { gamma: [0.37, 0.94, 1.33, 1.50, 0.12, 0.15, 0.80, 0.45], phi_scale: 1.50 };
+        for role in 0..8 {
             for &v in &[0.001f32, 0.1, 0.5, 1.0, 2.0] {
                 let encoded = rg.encode(v, role);
                 let decoded = rg.decode(encoded, role);
