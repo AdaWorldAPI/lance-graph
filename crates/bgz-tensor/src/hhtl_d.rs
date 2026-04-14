@@ -143,6 +143,10 @@ pub struct HhtlDTensor {
     pub original_shape: [usize; 2],
     /// Gamma profile for rehydration.
     pub gamma_meta: [f32; 4],
+    /// Fisher z i8 pairwise cosine table (k×k + 8 bytes gamma).
+    /// The centroid routes into this table. The table IS the cosine value.
+    /// None for legacy files without Fisher z.
+    pub fisher_z: Option<crate::fisher_z::FisherZTable>,
 }
 
 impl HhtlDTensor {
@@ -211,6 +215,31 @@ impl HhtlDTensor {
             ));
         }
 
+        // Build Fisher z table from representative rows (centroid-nearest)
+        let fisher_z = if !rows_f32.is_empty() {
+            let k = cache.palette.entries.len();
+            let mut reps: Vec<Vec<f32>> = vec![Vec::new(); k];
+            let mut rep_dists: Vec<u32> = vec![u32::MAX; k];
+            for (i, row) in rows_f32.iter().enumerate() {
+                let b17 = Base17::from_f32(row);
+                let (ci, dist) = cache.nearest(&b17);
+                let ci = ci as usize;
+                if ci < k && dist < rep_dists[ci] {
+                    reps[ci] = row.clone();
+                    rep_dists[ci] = dist;
+                }
+            }
+            // Fill empty centroids with palette to_f32
+            for ci in 0..k {
+                if reps[ci].is_empty() {
+                    reps[ci] = cache.palette.entries[ci].to_f32(n_cols);
+                }
+            }
+            Some(crate::fisher_z::FisherZTable::build(&reps, k))
+        } else {
+            None
+        };
+
         HhtlDTensor {
             role: role.to_string(),
             basin,
@@ -218,6 +247,7 @@ impl HhtlDTensor {
             entries,
             original_shape: [n_rows, n_cols],
             gamma_meta: cache.gamma_meta,
+            fisher_z,
         }
     }
 
@@ -256,6 +286,25 @@ impl HhtlDTensor {
         let original_bytes = self.original_shape[0] * self.original_shape[1] * 2; // BF16
         let encoded_bytes = self.entries_byte_size(); // 4 bytes per row (NOT per element)
         original_bytes as f64 / encoded_bytes as f64
+    }
+
+    /// Pairwise cosine between two rows via Fisher z table lookup.
+    ///
+    /// O(1): one i8 read + one tanh decode.
+    /// Returns None if Fisher z table is not available.
+    #[inline]
+    pub fn cosine_lookup(&self, row_a: usize, row_b: usize) -> Option<f32> {
+        let fz = self.fisher_z.as_ref()?;
+        let ca = self.entries.get(row_a)?.twig_centroid();
+        let cb = self.entries.get(row_b)?.twig_centroid();
+        Some(fz.lookup_f32(ca, cb))
+    }
+
+    /// Total byte size including Fisher z table.
+    pub fn total_byte_size(&self) -> usize {
+        let entries = self.entries_byte_size();
+        let fz = self.fisher_z.as_ref().map(|t| t.byte_size()).unwrap_or(0);
+        entries + fz
     }
 }
 
