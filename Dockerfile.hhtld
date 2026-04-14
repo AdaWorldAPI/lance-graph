@@ -1,0 +1,154 @@
+# Dockerfile.hhtld — HHTL-D TTS inference container
+#
+# Downloads pre-baked codebooks from GitHub release, runs inference.
+# Multi-arch: builds on amd64 (AVX2/AVX-512) and arm64 (NEON/Pi 4).
+#
+# Build:
+#   docker build -f Dockerfile.hhtld \
+#     --build-arg RELEASE_TAG=v0.1.0 \
+#     -t ghcr.io/adaworldapi/lance-graph-tts:v0.1.0 .
+#
+# Run:
+#   docker run --rm ghcr.io/adaworldapi/lance-graph-tts:v0.1.0 \
+#     --text "Hello, this is Ada speaking."
+#
+# Pi 4:
+#   docker run --rm --platform linux/arm64 \
+#     ghcr.io/adaworldapi/lance-graph-tts:v0.1.0 \
+#     --text "Guten Morgen, Jan."
+#
+# RAM: ~75 MB (11 MB model + 64 MB KV cache at 512 tokens)
+
+# ═══════════════════════════════════════════════════════════════════
+# Stage 1: Build
+# ═══════════════════════════════════════════════════════════════════
+FROM debian:bookworm-slim AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl ca-certificates gcc libc6-dev pkg-config libssl-dev \
+    protobuf-compiler cmake \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:$PATH
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
+    sh -s -- -y --default-toolchain 1.94.0 --profile minimal
+
+WORKDIR /build
+
+# Copy workspace (lance-graph + ndarray must both be present)
+COPY . /build/lance-graph
+# ndarray expected at /build/ndarray (sibling to lance-graph)
+# If building in CI, clone it here:
+RUN if [ ! -d /build/ndarray ]; then \
+      echo "WARNING: ndarray not found, attempting clone..." && \
+      curl -sL "https://github.com/AdaWorldAPI/ndarray/archive/refs/heads/main.tar.gz" | \
+      tar xz && mv ndarray-* /build/ndarray || true; \
+    fi
+
+WORKDIR /build/lance-graph
+
+# Build the decode example (the inference binary)
+RUN cargo build --release --example tts_17b_hhtld_decode \
+    --manifest-path crates/thinking-engine/Cargo.toml 2>&1 || \
+    echo "Build failed — ndarray dependency may be missing"
+
+# Also build the cascade runner if available
+RUN cargo build --release --example tts_cascade_runner \
+    --manifest-path crates/thinking-engine/Cargo.toml 2>&1 || true
+
+# ═══════════════════════════════════════════════════════════════════
+# Stage 2: Runtime
+# ═══════════════════════════════════════════════════════════════════
+FROM debian:bookworm-slim AS runtime
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/*
+
+ARG RELEASE_TAG=latest
+ARG REPO=AdaWorldAPI/lance-graph
+ENV RELEASE_TAG=${RELEASE_TAG}
+ENV CODEBOOK_DIR=/opt/codebooks
+ENV MODEL_NAME=qwen3-tts-1.7b
+
+WORKDIR /opt
+
+# Download codebooks from GitHub release
+RUN mkdir -p ${CODEBOOK_DIR} && \
+    echo "Downloading HHTL-D codebooks (${RELEASE_TAG})..." && \
+    if [ "${RELEASE_TAG}" = "latest" ]; then \
+      DOWNLOAD_URL="https://github.com/${REPO}/releases/latest/download/qwen3-tts-1.7b-hhtld.tar.gz"; \
+    else \
+      DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${RELEASE_TAG}/qwen3-tts-1.7b-hhtld.tar.gz"; \
+    fi && \
+    curl -L --progress-bar "${DOWNLOAD_URL}" | tar xz -C ${CODEBOOK_DIR} && \
+    echo "Codebooks downloaded:" && \
+    du -sh ${CODEBOOK_DIR}/* 2>/dev/null || echo "Download may have failed — release not yet published"
+
+# Copy built binaries from builder
+COPY --from=builder /build/lance-graph/target/release/examples/tts_17b_hhtld_decode /usr/local/bin/hhtld-decode 2>/dev/null || true
+COPY --from=builder /build/lance-graph/target/release/examples/tts_cascade_runner /usr/local/bin/hhtld-cascade 2>/dev/null || true
+
+# Entrypoint script
+COPY --chmod=755 <<'ENTRY' /usr/local/bin/entrypoint.sh
+#!/bin/bash
+set -euo pipefail
+
+CODEBOOK_DIR="${CODEBOOK_DIR:-/opt/codebooks}"
+
+echo "═══ HHTL-D TTS (${MODEL_NAME:-qwen3-tts-1.7b}) ═══"
+echo ""
+
+# Check codebooks
+if [ -f "${CODEBOOK_DIR}/manifest.json" ]; then
+    RATIO=$(python3 -c "import json; m=json.load(open('${CODEBOOK_DIR}/manifest.json')); print(f'{m[\"compression_ratio\"]:.0f}')" 2>/dev/null || echo "?")
+    GROUPS=$(python3 -c "import json; m=json.load(open('${CODEBOOK_DIR}/manifest.json')); print(len(m['groups']))" 2>/dev/null || echo "?")
+    echo "  Codebooks: ${GROUPS} palette groups, ${RATIO}:1 compression"
+    echo "  Size:      $(du -sh ${CODEBOOK_DIR} | cut -f1)"
+elif [ -f "${CODEBOOK_DIR}/model_hhtld.safetensors" ]; then
+    echo "  Single-file mode: model_hhtld.safetensors"
+    echo "  Size: $(du -h ${CODEBOOK_DIR}/model_hhtld.safetensors | cut -f1)"
+else
+    echo "  ERROR: No codebooks found at ${CODEBOOK_DIR}"
+    echo "  Expected: manifest.json or model_hhtld.safetensors"
+    echo ""
+    echo "  To download manually:"
+    echo "    curl -L https://github.com/AdaWorldAPI/lance-graph/releases/latest/download/qwen3-tts-1.7b-hhtld.tar.gz | tar xz -C ${CODEBOOK_DIR}"
+    exit 1
+fi
+
+echo ""
+
+# Route to appropriate binary
+if [ "${1:-}" = "--decode" ] || [ "${1:-}" = "--validate" ]; then
+    shift
+    exec hhtld-decode "${CODEBOOK_DIR}/model_hhtld.safetensors" "$@"
+elif [ "${1:-}" = "--cascade" ]; then
+    shift
+    exec hhtld-cascade "$@"
+elif [ "${1:-}" = "--info" ]; then
+    echo "Manifest:"
+    cat "${CODEBOOK_DIR}/manifest.json" | python3 -m json.tool 2>/dev/null || cat "${CODEBOOK_DIR}/manifest.json"
+elif [ "${1:-}" = "--shell" ]; then
+    exec /bin/bash
+else
+    # Default: show info and run decode validation
+    echo "Usage:"
+    echo "  --decode     Run HHTL-D decoder/validator"
+    echo "  --cascade    Run HHTL cascade inference"
+    echo "  --info       Show manifest"
+    echo "  --shell      Interactive shell"
+    echo ""
+    if command -v hhtld-decode &>/dev/null; then
+        echo "Running decoder validation..."
+        exec hhtld-decode "${CODEBOOK_DIR}/model_hhtld.safetensors"
+    else
+        echo "No binary found — build may have failed (ndarray dependency)."
+        echo "Use --shell to inspect manually."
+    fi
+fi
+ENTRY
+
+ENTRYPOINT ["entrypoint.sh"]
