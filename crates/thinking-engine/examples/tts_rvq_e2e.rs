@@ -18,7 +18,7 @@
 
 use ndarray::hpc::safetensors::read_safetensors_header;
 use ndarray::hpc::gguf::{GgmlType, TensorInfo};
-use ndarray::simd::{f32x8, F32x8, bf16_to_f32_batch};  // SIMD dispatch (AVX-512→AVX2→scalar)
+use ndarray::simd::{f32x8, F32x8, F32x16, bf16_to_f32_batch, PREFERRED_F32_LANES};  // AVX-512 dispatch
 use ndarray::backend::{dot_f32, gemm_f32};  // BLAS L1 dot + L3 gemm (matrixmultiply)
 
 use std::collections::HashMap;
@@ -161,34 +161,41 @@ fn assign_nearest(rows: &[Vec<f32>], centroids: &[Vec<f32>]) -> Vec<usize> {
     }).collect()
 }
 
-/// Fused squared-L2 distance — zero allocation, 4× unrolled F32x8 FMA.
+/// Fused squared-L2 distance — zero allocation, 4× unrolled F32x16 FMA.
 /// Returns squared distance (sqrt unnecessary for comparisons).
+///
+/// Uses ndarray's canonical "array_window" idiom (chunks_exact(16) = AVX-512
+/// lane width) + mul_add FMA. On `target-cpu=x86-64-v4` this compiles to
+/// native VFMADD231PS on __m512.
 #[inline(always)]
 fn l2_dist_sq(a: &[f32], b: &[f32]) -> f32 {
+    const LANES: usize = 16;  // PREFERRED_F32_LANES on AVX-512
     let n = a.len().min(b.len());
-    let chunks = n / 32;  // 4×8 = 32 floats per iteration (4 FMA pipelines)
-    let mut acc0 = F32x8::splat(0.0);
-    let mut acc1 = F32x8::splat(0.0);
-    let mut acc2 = F32x8::splat(0.0);
-    let mut acc3 = F32x8::splat(0.0);
+    // 4× unrolled FMA pipes: 64 floats per iteration
+    let chunks = n / 64;
+    let mut acc0 = F32x16::splat(0.0);
+    let mut acc1 = F32x16::splat(0.0);
+    let mut acc2 = F32x16::splat(0.0);
+    let mut acc3 = F32x16::splat(0.0);
     for i in 0..chunks {
-        let base = i * 32;
-        let d0 = F32x8::from_slice(&a[base..])     - F32x8::from_slice(&b[base..]);
-        let d1 = F32x8::from_slice(&a[base+8..])   - F32x8::from_slice(&b[base+8..]);
-        let d2 = F32x8::from_slice(&a[base+16..])  - F32x8::from_slice(&b[base+16..]);
-        let d3 = F32x8::from_slice(&a[base+24..])  - F32x8::from_slice(&b[base+24..]);
-        acc0 = acc0 + d0 * d0;
-        acc1 = acc1 + d1 * d1;
-        acc2 = acc2 + d2 * d2;
-        acc3 = acc3 + d3 * d3;
+        let base = i * 64;
+        let d0 = F32x16::from_slice(&a[base..])      - F32x16::from_slice(&b[base..]);
+        let d1 = F32x16::from_slice(&a[base + 16..]) - F32x16::from_slice(&b[base + 16..]);
+        let d2 = F32x16::from_slice(&a[base + 32..]) - F32x16::from_slice(&b[base + 32..]);
+        let d3 = F32x16::from_slice(&a[base + 48..]) - F32x16::from_slice(&b[base + 48..]);
+        // FMA: acc = d * d + acc  (VFMADD231PS)
+        acc0 = d0.mul_add(d0, acc0);
+        acc1 = d1.mul_add(d1, acc1);
+        acc2 = d2.mul_add(d2, acc2);
+        acc3 = d3.mul_add(d3, acc3);
     }
     let mut s = (acc0 + acc1 + acc2 + acc3).reduce_sum();
-    // 8-wide tail
-    let mut i = chunks * 32;
-    while i + 8 <= n {
-        let d = F32x8::from_slice(&a[i..]) - F32x8::from_slice(&b[i..]);
-        s += (d * d).reduce_sum();
-        i += 8;
+    // 16-wide tail (chunks_exact-style leftover)
+    let mut i = chunks * 64;
+    while i + LANES <= n {
+        let d = F32x16::from_slice(&a[i..]) - F32x16::from_slice(&b[i..]);
+        s += d.mul_add(d, F32x16::splat(0.0)).reduce_sum();
+        i += LANES;
     }
     // scalar tail
     while i < n { let d = a[i] - b[i]; s += d * d; i += 1; }
