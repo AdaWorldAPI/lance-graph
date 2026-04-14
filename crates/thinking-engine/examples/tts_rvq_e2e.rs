@@ -601,16 +601,34 @@ fn main() {
     println!("  Model: {}", model_path);
     println!();
 
-    // ─── Load raw weights ──────────────────────────────────────────
-    println!("[1] Loading raw weights...");
+    // ─── Load raw weights (first pass: get raw codes) ────────────
+    println!("[1] Loading raw weights (pass 1: raw inference)...");
     let t0 = Instant::now();
     let mut reader = BufReader::new(File::open(model_path).expect("open model"));
     let header = read_safetensors_header(&mut reader).expect("parse header");
     let (w_raw, shapes_raw, _, _) = load_weights(&mut reader, &header, false);
     println!("  {} tensors loaded in {:?}", w_raw.len(), t0.elapsed());
 
-    // ─── Load + RVQ compress ───────────────────────────────────────
-    println!("\n[2] Loading + RVQ compressing...");
+    // Run raw inference
+    let text = "Hello, world.";
+    let tokens: Vec<usize> = std::iter::once(151672)
+        .chain(text.bytes().map(|b| b as usize))
+        .chain(std::iter::once(151673))
+        .collect();
+
+    println!("\n[2] Running TTS (raw weights)...");
+    let t0 = Instant::now();
+    let raw_codes = run_tts(&w_raw, &shapes_raw, &tokens);
+    println!("  {:?}, {} tokens × 15 codebooks", t0.elapsed(), tokens.len());
+
+    // Save raw codes and free raw weights (keep shapes for comparison)
+    let raw_codes_copy = raw_codes.clone();
+    let shapes_keep = shapes_raw.clone();
+    drop(w_raw);
+    drop(shapes_raw);
+
+    // ─── Load + RVQ compress (second pass) ─────────────────────────
+    println!("\n[3] Loading + RVQ compressing (pass 2)...");
     let t0 = Instant::now();
     reader.seek(SeekFrom::Start(0)).unwrap();
     let header2 = read_safetensors_header(&mut reader).expect("parse header");
@@ -620,22 +638,12 @@ fn main() {
         cb_bytes as f64 / 1e6, idx_bytes as f64 / 1e6,
         (cb_bytes + idx_bytes) as f64 / 1e6);
 
-    // ─── Run TTS: raw ──────────────────────────────────────────────
-    let text = "Hello, world.";
-    let tokens: Vec<usize> = std::iter::once(151672)
-        .chain(text.bytes().map(|b| b as usize))
-        .chain(std::iter::once(151673))
-        .collect();
-
-    println!("\n[3] Running TTS (raw weights)...");
-    let t0 = Instant::now();
-    let raw_codes = run_tts(&w_raw, &shapes_raw, &tokens);
-    println!("  {:?}, {} tokens × 15 codebooks", t0.elapsed(), tokens.len());
-
     println!("\n[4] Running TTS (RVQ weights)...");
     let t0 = Instant::now();
     let rvq_codes = run_tts(&w_rvq, &shapes_rvq, &tokens);
     println!("  {:?}, {} tokens × 15 codebooks", t0.elapsed(), tokens.len());
+
+    let raw_codes = raw_codes_copy;
 
     // ─── Compare ───────────────────────────────────────────────────
     println!("\n[5] Comparison:");
@@ -652,7 +660,7 @@ fn main() {
     println!("  Codec token match: {}/{} ({:.1}%)", matching_tokens, total_tokens, match_pct);
 
     // Storage comparison
-    let orig_bytes: usize = w_raw.values()
+    let orig_bytes: usize = w_rvq.values()
         .filter(|v| v.len() >= 128 * 128)
         .map(|v| v.len() * 4)
         .sum();
