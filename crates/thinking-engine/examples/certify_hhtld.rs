@@ -63,8 +63,9 @@ use bgz_tensor::hhtl_d::HhtlDTensor;
 use bgz_tensor::quality::{pearson, spearman};
 use bgz_tensor::shared_palette::{
     PaletteGroupKey, classify_role, classify_component,
-    is_encodable, effective_shape, build_hip_families,
+    is_encodable, effective_shape,
 };
+use bgz_tensor::hhtl_d::build_hip_families;
 
 use std::collections::HashMap;
 use std::fs::File;
