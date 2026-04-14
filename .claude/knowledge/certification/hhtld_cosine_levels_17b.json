@@ -260,5 +260,43 @@
       "i8": 0.9971,
       "gphi": 0.9999
     }
-  ]
+  ],
+  "fisher_z_family_gamma": {
+    "description": "arctanh(cosine) scaled to i8 via per-family (z_min, z_range)",
+    "metadata_per_family": "8 bytes (z_min f32 + z_range f32)",
+    "restore": "tanh((i8 + 127) / 254 * z_range + z_min)",
+    "results": {
+      "codec_embed": {
+        "rho": 1.0,
+        "err": 0.00155
+      },
+      "down_proj": {
+        "rho": 0.9999,
+        "err": 0.00026
+      },
+      "embed": {
+        "rho": 0.9997,
+        "err": 0.00112
+      },
+      "gate_proj": {
+        "rho": 0.9994,
+        "err": 0.00125
+      },
+      "o_proj": {
+        "rho": 0.9998,
+        "err": 0.0004
+      },
+      "q_proj": {
+        "rho": 0.9991,
+        "err": 0.00141
+      },
+      "v_proj": {
+        "rho": 0.9999,
+        "err": 0.00035
+      }
+    },
+    "worst_rho": 0.9991,
+    "worst_err": 0.00155,
+    "pass_all": true
+  }
 }
