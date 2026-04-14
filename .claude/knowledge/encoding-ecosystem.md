@@ -50,9 +50,10 @@ NeuronPrint 6D   bgz-tensor/src/euler_fold.rs         6       Distribution  6 ro
                                                               (no-op)      ALIVE only as pre-rank
                                                                            discrete selector.
 
-BGZ-HHTL-D       PROPOSED (not implemented)           32      Distribution  Slot D (CLAM tree path)
-2×BF16                                                                     + Slot V (BF16 value),
-                                                                           branching cascade
+BGZ-HHTL-D       bgz-tensor/src/hhtl_d.rs              4       Distribution  Slot D (u16 tree address:
+2×u16                                                                      basin|HIP|centroid|polarity)
+                                                                           + Slot V (BF16 residual).
+                                                                           IMPLEMENTED. Tests pass.
 
 Thinking Engine  lance-graph-planner/src/thinking/    —       Meta          12 styles, NARS dispatch,
                                                                            sigma chain (Ω→Δ→Φ→Θ→Λ)
@@ -75,7 +76,9 @@ Raw weights (BF16/f32 from ONNX/GGUF safetensors)
   │       │       │
   │       │       └──→ NeuronPrint 6D (6 roles → 6 palette indices)
   │       │
-  │       └──→ BGZ-HHTL-D 2×BF16 (PROPOSED: Slot D + Slot V, branching)
+  │       └──→ BGZ-HHTL-D 2×u16 (IMPLEMENTED: Slot D + Slot V, 4 bytes/row)
+  │             bgz-tensor/src/hhtl_d.rs
+  │             Examples: tts_17b_hhtld_encode.rs, tts_17b_hhtld_decode.rs
   │
   └──→ CausalEdge64 (SPO triples with NARS truth, orthogonal to above)
 
