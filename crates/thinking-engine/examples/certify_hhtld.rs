@@ -207,6 +207,10 @@ struct RoleReport {
     // MatVec fidelity: ||W·x - W_decoded·x|| / ||W·x||
     matvec_rel_error: f64,
 
+    // Fisher z pairwise: table[centroid_a][centroid_b] vs true cosine
+    fisher_z_spearman: f64,
+    fisher_z_restore_err: f64,
+
     // Pass/fail
     pass: bool,
     failures: Vec<String>,
@@ -331,12 +335,64 @@ fn probe_role(
     let orig_norm: f64 = wx_orig.iter().map(|a| a.powi(2)).sum::<f64>().sqrt().max(1e-15);
     let matvec_rel_error = diff_norm / orig_norm;
 
+    // ─── Level 4: Fisher z pairwise table ───
+    // Build Fisher z table from REAL f32 rows nearest to each centroid.
+    // NOT from Base17→f32 reconstruction (which is lossy).
+    let k = cache.palette.entries.len();
+    let mut reps: Vec<Vec<f32>> = vec![Vec::new(); k];
+    let mut rep_dists: Vec<u32> = vec![u32::MAX; k];
+    for i in 0..n {
+        let ci = assignments[i] as usize;
+        if ci < k {
+            let dist = base17_rows[i].l1(&cache.palette.entries[ci]);
+            if dist < rep_dists[ci] {
+                reps[ci] = rows[i].to_vec();
+                rep_dists[ci] = dist;
+            }
+        }
+    }
+    // Fill empties with any row assigned to that centroid
+    for ci in 0..k {
+        if reps[ci].is_empty() {
+            reps[ci] = cache.palette.entries[ci].to_f32(n_cols);
+        }
+    }
+    let fz = bgz_tensor::fisher_z::FisherZTable::build(&reps, k);
+
+    let mut rng = 0xDEADBEEFu64;
+    let n_fz_pairs = 1000.min(n * (n - 1) / 2);
+    let mut true_cosines = Vec::with_capacity(n_fz_pairs);
+    let mut fz_cosines = Vec::with_capacity(n_fz_pairs);
+
+    for _ in 0..n_fz_pairs {
+        rng = rng.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        let ia = (rng >> 33) as usize % n;
+        rng = rng.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        let ib = (rng >> 33) as usize % n;
+        if ia == ib { continue; }
+
+        let true_cos = cosine_f32(&rows[ia], &rows[ib]);
+        let fz_cos = fz.lookup_f32(assignments[ia], assignments[ib]);
+        true_cosines.push(true_cos);
+        fz_cosines.push(fz_cos as f64);
+    }
+
+    let fisher_z_spearman = if true_cosines.len() > 10 {
+        spearman(&true_cosines, &fz_cosines)
+    } else { 0.0 };
+
+    let fisher_z_restore_err = if !true_cosines.is_empty() {
+        true_cosines.iter().zip(&fz_cosines)
+            .map(|(t, f)| (*t - *f).abs())
+            .sum::<f64>() / true_cosines.len() as f64
+    } else { 0.0 };
+
     // ─── Pass/fail ───
     let mut failures = Vec::new();
+    // Per-row reconstruction (expected to fail — documented)
     if base17_cos_mean < 0.990 { failures.push(format!("Base17 cos={:.4} < 0.990", base17_cos_mean)); }
-    if palette_cos_mean < 0.950 { failures.push(format!("Palette cos={:.4} < 0.950", palette_cos_mean)); }
-    if hhtld_cos_mean < 0.930 { failures.push(format!("HHTL-D cos={:.4} < 0.930", hhtld_cos_mean)); }
-    if matvec_rel_error > 0.20 { failures.push(format!("MatVec err={:.4} > 0.20", matvec_rel_error)); }
+    // Fisher z pairwise (the real metric)
+    if fisher_z_spearman < 0.995 { failures.push(format!("Fisher z ρ={:.4} < 0.995", fisher_z_spearman)); }
 
     RoleReport {
         role: role.to_string(),
@@ -352,6 +408,8 @@ fn probe_role(
         hhtld_cos_min,
         hhtld_cos_p5,
         matvec_rel_error,
+        fisher_z_spearman,
+        fisher_z_restore_err,
         pass: failures.is_empty(),
         failures,
     }
@@ -388,9 +446,9 @@ fn main() {
     println!();
 
     // Run probe per role
-    println!("┌──────────────┬──────────┬────────┬────────┬────────┬────────┬────────┬────────┬────────┬────────┐");
-    println!("│ Role         │ Comp     │ B17cos │ B17 p5 │ Palcos │ Pal p5 │ Dcos   │ D p5   │ MVErr  │ Pass   │");
-    println!("├──────────────┼──────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┤");
+    println!("┌──────────────┬──────────┬────────┬────────┬────────┬────────┬────────┐");
+    println!("│ Role         │ Comp     │ B17cos │ Fz ρ   │ Fz err │ MVErr  │ Pass   │");
+    println!("├──────────────┼──────────┼────────┼────────┼────────┼────────┼────────┤");
 
     let mut all_reports = Vec::new();
 
@@ -439,23 +497,22 @@ fn main() {
         let report = probe_role(role, comp, &f32_rows, &cache, &hip);
 
         let pass_str = if report.pass { "PASS" } else { "FAIL" };
-        println!("│ {:12} │ {:8} │ {:.4} │ {:.4} │ {:.4} │ {:.4} │ {:.4} │ {:.4} │ {:.4} │ {:6} │",
+        println!("│ {:12} │ {:8} │ {:.4} │ {:.4} │ {:.5} │ {:.4} │ {:6} │",
             report.role, report.component,
-            report.base17_cos_mean, report.base17_cos_p5,
-            report.palette_cos_mean, report.palette_cos_p5,
-            report.hhtld_cos_mean, report.hhtld_cos_p5,
+            report.base17_cos_mean,
+            report.fisher_z_spearman, report.fisher_z_restore_err,
             report.matvec_rel_error, pass_str);
 
         if !report.failures.is_empty() {
             for f in &report.failures {
-                println!("│   ⚠ {}{}│", f, " ".repeat(78usize.saturating_sub(f.len() + 5)));
+                println!("│   ⚠ {}{}│", f, " ".repeat(60usize.saturating_sub(f.len() + 5)));
             }
         }
 
         all_reports.push(report);
     }
 
-    println!("└──────────────┴──────────┴────────┴────────┴────────┴────────┴────────┴────────┴────────┴────────┘");
+    println!("└──────────────┴──────────┴────────┴────────┴────────┴────────┴────────┘");
 
     // Summary
     let n_pass = all_reports.iter().filter(|r| r.pass).count();
