@@ -51,9 +51,14 @@ NeuronPrint 6D   bgz-tensor/src/euler_fold.rs         6       Distribution  6 ro
                                                                            discrete selector.
 
 BGZ-HHTL-D       bgz-tensor/src/hhtl_d.rs              4       Distribution  Slot D (u16 tree address:
-2×u16                                                                      basin|HIP|centroid|polarity)
-                                                                           + Slot V (BF16 residual).
-                                                                           IMPLEMENTED. Tests pass.
+2×u16 + Fz       bgz-tensor/src/fisher_z.rs                               basin|HIP|centroid|polarity)
+                 bgz-tensor/src/shared_palette.rs                          + Slot V (BF16 residual).
+                                                                           + Fisher z i8 pairwise table
+                                                                             (64 KB/group, 1.6 MB total).
+                                                                           IMPLEMENTED + CERTIFIED.
+                                                                           ρ≥0.999 all 21 roles (1.7B).
+                                                                           Restore: tanh((i8+127)/254
+                                                                             × z_range + z_min).
 
 Thinking Engine  lance-graph-planner/src/thinking/    —       Meta          12 styles, NARS dispatch,
                                                                            sigma chain (Ω→Δ→Φ→Θ→Λ)

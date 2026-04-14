@@ -208,3 +208,26 @@ The encoder prints ρ per role. The 0.6B model achieves ρ > 0.93 on all roles. 
 **Why not just use GGUF Q4?** GGUF quantization preserves individual weight values at reduced precision. BGZ-HHTL-D preserves *distance relationships* between weight rows. The cascade doesn't need individual values — it needs to know which pairs interact (RouteAction) and how strongly (distance table). This is a fundamentally different compression target, which is why the ratios are orders of magnitude higher.
 
 **Why safetensors output format?** Compatibility. Any tool that reads safetensors can inspect the compressed model. The tensors are stored as U8 blobs with shape metadata — standard safetensors, just with HHTL-D-specific tensor naming conventions.
+
+## Pairwise Cosine Table (Fisher z)
+
+Each shared palette group includes a k×k i8 cosine table encoded via Fisher z transform.
+
+**Encoding:** `arctanh(clamp(cosine, ±0.9999))` → scale to i8 via per-family `(z_min, z_range)`  
+**Decoding:** `tanh((i8 + 127) / 254 × z_range + z_min)` → restored cosine  
+
+Fisher z stretches the tails (near cos=±1) where attention scores are most sensitive. Per-family gamma maps each role's cosine distribution to fill the full i8 [-128, 127] range.
+
+**Storage:** 256×256 = 64 KB per group + 8 bytes family gamma. 26 groups = **1.6 MB** total.
+
+**Certified:** Spearman ρ ≥ 0.999 on all 21 tensor roles of Qwen3-TTS-1.7B (5000 pairs per role). Mean absolute restore error ≤ 0.0016.
+
+**Implementation:** `bgz-tensor/src/fisher_z.rs` — `FisherZTable`, `FamilyGamma`, 7 tests.
+
+**Lookup at inference:**
+```rust
+// O(1): one i8 read + one tanh call
+let cosine = fisher_z_table.lookup_f32(centroid_a, centroid_b);
+```
+
+The HHTL-D entry's `twig_centroid` (8 bits) is the index into this table. The cascade decides WHETHER to look up (Skip/Attend). The table provides WHAT the value is.
