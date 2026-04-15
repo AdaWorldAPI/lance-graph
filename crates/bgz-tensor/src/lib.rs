@@ -71,6 +71,7 @@ pub mod gamma_phi;
 pub mod hdr_belichtung;
 pub mod hhtl_cache;
 pub mod hhtl_d;
+pub mod hhtl_f32;
 pub mod jina;
 pub mod neuron_hetero;
 pub mod palette;
