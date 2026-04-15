@@ -191,6 +191,25 @@ pub fn build_group_with_fisher_z(
     tensor_rows_f32: &[Vec<Vec<f32>>],
     k: usize,
 ) -> SharedPaletteGroup {
+    // Empty-input guard: construct a safe empty group instead of panicking
+    // on `tensor_rows_f32[0]`. Callers (including `build_group_with_leaf`'s
+    // fallback path) may dispatch here with an empty slice after upstream
+    // filtering — return the same shape they would get from a no-op build.
+    if tensor_rows_f32.is_empty() {
+        let empty_palette = WeightPalette::build(&[], k);
+        let cache = HhtlCache::from_palette(empty_palette);
+        return SharedPaletteGroup {
+            key: key.clone(),
+            tensor_names: tensor_names.to_vec(),
+            cache,
+            hip_families: Vec::new(),
+            tensor_entries: Vec::new(),
+            fisher_z: None,
+            tensor_slot_l: Vec::new(),
+            svd_basis: None,
+        };
+    }
+
     // Build Base17 projections from first tensor for palette
     let first_rows = &tensor_rows_f32[0];
     let base17_rows: Vec<Base17> = first_rows.iter()
@@ -517,6 +536,40 @@ mod tests {
         assert_eq!(slot_l_a.len(), 64);
         assert!(scale_a > 0.0);
         assert!(group.slot_l_for("nonexistent").is_none());
+    }
+
+    #[test]
+    fn empty_input_returns_safe_empty_group_not_panic() {
+        // Regression test for codex P2 on #182: empty-input guard must not
+        // dispatch into a function that indexes tensor_rows_f32[0].
+        let key = PaletteGroupKey {
+            component: "talker".into(),
+            role: "embed".into(),  // index-regime path
+            shape: (64, 128),
+        };
+        let empty_names: Vec<String> = vec![];
+        let empty_rows: Vec<Vec<Vec<f32>>> = vec![];
+
+        // Path 1: via build_group_with_leaf (index regime)
+        let leaf_group = build_group_with_leaf(&key, &empty_names, &empty_rows, 16);
+        assert!(leaf_group.tensor_entries.is_empty());
+        assert!(leaf_group.tensor_slot_l.is_empty());
+        assert!(leaf_group.svd_basis.is_none());
+        assert!(leaf_group.fisher_z.is_none());
+
+        // Path 2: direct call to build_group_with_fisher_z
+        let fz_group = build_group_with_fisher_z(&key, &empty_names, &empty_rows, 16);
+        assert!(fz_group.tensor_entries.is_empty());
+        assert!(fz_group.fisher_z.is_none());
+
+        // Path 3: argmax-regime key (build_group_with_leaf falls back to Fisher-z path)
+        let key_argmax = PaletteGroupKey {
+            component: "talker".into(),
+            role: "qko".into(),
+            shape: (64, 128),
+        };
+        let ax_group = build_group_with_leaf(&key_argmax, &empty_names, &empty_rows, 16);
+        assert!(ax_group.tensor_entries.is_empty());
     }
 
     #[test]
