@@ -40,6 +40,15 @@ impl HhtlF32Entry {
     pub fn from_le_bytes(b: &[u8; 1]) -> Self { Self { twig: b[0] } }
 }
 
+/// Maximum palette size supported by HhtlF32Tensor (constrained by u8 twig index).
+///
+/// `HhtlF32Entry.twig` is u8, so palette centroid IDs above 255 would silently
+/// wrap at encode time (e.g. 300 → 44) and map rows to the wrong centroid.
+/// `encode` / `encode_with_leaf` enforce `0 < k <= MAX_PALETTE_K`; callers that
+/// need a larger palette must use a codec with a wider twig index (future work,
+/// separate wire format).
+pub const MAX_PALETTE_K: usize = 256;
+
 /// Reconstruction-grade HHTL-like tensor: f32 palette + SlotL residual.
 #[derive(Clone, Debug)]
 pub struct HhtlF32Tensor {
@@ -120,7 +129,16 @@ fn assign_nearest_f32(rows: &[Vec<f32>], centroids: &[Vec<f32>]) -> Vec<u8> {
 
 impl HhtlF32Tensor {
     /// Encode without SlotL (argmax-regime path, 1 byte/row + palette).
+    ///
+    /// # Panics
+    /// `k` must satisfy `0 < k <= MAX_PALETTE_K` (256). Larger palettes need
+    /// a codec with a wider twig-index; using `k > 256` here would silently
+    /// wrap indices via `as u8` and corrupt row assignments.
     pub fn encode(role: &str, rows_f32: &[Vec<f32>], k: usize) -> Self {
+        assert!(k > 0, "HhtlF32Tensor::encode requires k > 0, got {}", k);
+        assert!(k <= MAX_PALETTE_K,
+            "HhtlF32Tensor::encode requires k <= {} (u8 twig limit), got {}",
+            MAX_PALETTE_K, k);
         let n_rows = rows_f32.len();
         let n_cols = if n_rows > 0 { rows_f32[0].len() } else { 0 };
 
@@ -143,12 +161,19 @@ impl HhtlF32Tensor {
     /// Encode with SlotL leaf residual (index-regime path, 9 bytes/row).
     /// `svd_basis` should have `SLOT_L_LANES` components built from
     /// representative rows of the group (via `SvdBasis::build`).
+    ///
+    /// # Panics
+    /// Same `k` bounds as [`encode`]: `0 < k <= MAX_PALETTE_K` (256).
     pub fn encode_with_leaf(
         role: &str,
         rows_f32: &[Vec<f32>],
         k: usize,
         svd_basis: &SvdBasis,
     ) -> Self {
+        assert!(k > 0, "HhtlF32Tensor::encode_with_leaf requires k > 0, got {}", k);
+        assert!(k <= MAX_PALETTE_K,
+            "HhtlF32Tensor::encode_with_leaf requires k <= {} (u8 twig limit), got {}",
+            MAX_PALETTE_K, k);
         let mut t = Self::encode(role, rows_f32, k);
         if rows_f32.is_empty() { return t; }
 
@@ -328,6 +353,40 @@ mod tests {
         let e = HhtlF32Entry { twig: 42 };
         let b = e.to_le_bytes();
         assert_eq!(HhtlF32Entry::from_le_bytes(&b), e);
+    }
+
+    #[test]
+    #[should_panic(expected = "k > 0")]
+    fn encode_rejects_zero_k() {
+        let rows = low_rank_rows(4, 8, 0);
+        let _ = HhtlF32Tensor::encode("zero_k", &rows, 0);
+    }
+
+    #[test]
+    #[should_panic(expected = "u8 twig limit")]
+    fn encode_rejects_k_above_256() {
+        // Codex P1 regression: u8 twig index can only represent 0..=255,
+        // so k > 256 would silently wrap `ci as u8`. Must panic loudly instead.
+        // Use a bigger row set so clam_furthest_point_f32 doesn't cap k first.
+        let rows = low_rank_rows(512, 16, 0);
+        let _ = HhtlF32Tensor::encode("oversize", &rows, 300);
+    }
+
+    #[test]
+    #[should_panic(expected = "u8 twig limit")]
+    fn encode_with_leaf_rejects_k_above_256() {
+        let rows = low_rank_rows(512, 16, 0);
+        let basis = SvdBasis::build("oversize", &rows, SLOT_L_LANES);
+        let _ = HhtlF32Tensor::encode_with_leaf("oversize_leaf", &rows, 300, &basis);
+    }
+
+    #[test]
+    fn encode_accepts_k_at_max_palette() {
+        // k == MAX_PALETTE_K (256) is the largest legal value and must succeed.
+        let rows = low_rank_rows(300, 16, 0);  // Need > 256 rows so all 256 centroid slots fill
+        let t = HhtlF32Tensor::encode("max_k", &rows, MAX_PALETTE_K);
+        assert!(t.palette_f32.len() <= MAX_PALETTE_K);
+        assert_eq!(t.entries.len(), 300);
     }
 
     #[test]
