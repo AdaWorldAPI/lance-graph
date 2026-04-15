@@ -76,6 +76,7 @@ pub mod neuron_hetero;
 pub mod palette;
 pub mod projection;
 pub mod shared_palette;
+pub mod slot_l;
 pub mod quality;
 pub mod similarity;
 pub mod stacked;
