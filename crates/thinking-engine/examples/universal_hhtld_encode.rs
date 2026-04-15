@@ -255,6 +255,7 @@ fn main() {
     let mut total_slot_l_bytes = 0usize;
     let mut total_svd_basis_bytes = 0usize;
     let mut total_palette_bytes = 0usize;
+    let mut total_fisher_z_bytes = 0usize;
 
     let n_buckets = buckets.len();
     for (i, bucket) in buckets.into_iter().enumerate() {
@@ -293,10 +294,12 @@ fn main() {
         let slot_l_b = group.slot_l_byte_size();
         let svd_b = group.svd_basis_byte_size();
         let palette_b = group.cache.palette.entries.len() * 34;  // Base17 = 34 bytes
+        let fisher_z_b = group.fisher_z.as_ref().map(|f| f.byte_size()).unwrap_or(0);
         total_entries_bytes += entries_b;
         total_slot_l_bytes += slot_l_b;
         total_svd_basis_bytes += svd_b;
         total_palette_bytes += palette_b;
+        total_fisher_z_bytes += fisher_z_b;
 
         println!("  [{:>2}/{:<2}] {:<6} {}/{:<9} [{}×{}] × {:<2}  ρ̄={:.4}  {:>6.1}ms",
             i + 1, n_buckets, regime, bucket.key.component, bucket.key.role,
@@ -309,7 +312,7 @@ fn main() {
     let passthrough_bytes: usize = passthrough.iter().map(|t| t.f32_data.len() * 2).sum();
 
     let total_output = total_entries_bytes + total_slot_l_bytes + total_svd_basis_bytes
-                     + total_palette_bytes + passthrough_bytes;
+                     + total_palette_bytes + total_fisher_z_bytes + passthrough_bytes;
 
     // ─── Report ─────────────────────────────────────────────────────
     println!("\n═══ GATE 1 — per-row ρ by regime ═══");
@@ -328,6 +331,7 @@ fn main() {
     println!("  Slot L (8 × i8 per row):    {:>10.2} MB", total_slot_l_bytes as f64 / 1e6);
     println!("  SVD bases (shared):         {:>10.2} MB", total_svd_basis_bytes as f64 / 1e6);
     println!("  Palettes (Base17 × 256):    {:>10.2} MB", total_palette_bytes as f64 / 1e6);
+    println!("  Fisher-Z tables:            {:>10.2} MB", total_fisher_z_bytes as f64 / 1e6);
     println!("  Passthrough (BF16):         {:>10.2} MB  ({} tensors)",
         passthrough_bytes as f64 / 1e6, passthrough.len());
     println!("  ─────────────────────────────────────");
