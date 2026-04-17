@@ -498,3 +498,49 @@ This connects I9 (BF17 shapeshifting): the optimal encoding per level
 might be BF17-like mixed precision — high-energy dims get i16 mantissa,
 low-energy dims get i2. Same total wire budget, but information-weighted
 allocation across the Matryoshka bands.
+
+### I10. Embeddings are DTOs — extract addresses, don't compress
+
+The text embedding IS the encoding. Compressing it = lossy lemma reencoding.
+Every session attempt to compress the embedding table failed (RVQ cos=0.054,
+HCLAM cos=0.004, HhtlDTensor cos=0.04, HhtlF32+SlotL ICC=0.05, I8-Hybrid
+ICC=0.05). This is the correct result: embedding tables are DTOs.
+
+The right pattern: DUAL REPRESENTATION.
+  - BF16 DTO (exact, for GEMM) — stays intact, 620 MB
+  - Extracted address (compact, for routing) — CAM-PQ 6 bytes per token
+  - HHTL cascade routes on the address; only 1-5% of pairs touch the DTO
+
+Tokens are a low-level CAM. The whole stack is a hierarchy of CAMs:
+  Level 0: BPE tokens (bytes → token_id, frequency-optimal addressing)
+  Level 1: Embedding table (token_id → f32 vector, the DTO bridge)
+  Level 2: CAM-PQ (f32 vector → 6-byte address, semantic cascade)
+  Level 3: HHTL cascade (address → route action, computation gating)
+  Level 4: DeepNSM (word → 4096² cell, distributional lookup)
+
+Data flow rule: DTOs flow intact through the spine. Only weight matrices
+get codec-compressed. Embeddings get ADDRESSED (CAM-PQ), not compressed.
+
+### P10. CAM-PQ as extracted address for embeddings
+
+Our `ndarray::hpc::cam_pq` already implements this:
+  6 subspaces × 256 centroids = 48 bits per vector
+  HEEL/BRANCH/TWIG_A/TWIG_B/LEAF/GAMMA hierarchy
+  3-stroke cascade: 99% rejection before full ADC
+  500M candidates/sec via AVX-512 VPGATHERDD
+
+Compare to Jina v5's 512-codebook PQ at ~1152 bits — our CAM-PQ is 24×
+more compact with semantic cascade routing they don't have.
+
+Pipeline: Jina v5 → 1024-d DTO + CAM-PQ 6-byte address → HHTL cascade
+Skip/Attend on address → full cosine only on 1% Escalate cases.
+
+Wiring exists but is not connected end-to-end:
+  ndarray::hpc::cam_pq         → the codec (encode, decode, distance)
+  lance-graph::cam_pq::udf     → DataFusion UDF scaffold
+  lance-graph::cam_pq::storage → Lance table schema
+  lance-graph::cam_pq::ivf     → IVF coarse partitioning
+  lance-graph-planner::physical::cam_pq_scan → scan operator
+
+Probe: encode Jina v5 output embeddings via CAM-PQ, measure cascade
+Skip/Attend/Escalate ratio + ICC on the Attend decisions vs ground truth.
