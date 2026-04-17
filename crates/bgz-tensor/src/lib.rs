@@ -68,6 +68,7 @@ pub mod euler_fold;
 pub mod fisher_z;
 pub mod gamma_calibration;
 pub mod gamma_phi;
+pub mod had_cascade;
 pub mod hdr_belichtung;
 pub mod hhtl_cache;
 pub mod hhtl_d;
@@ -99,6 +100,7 @@ pub use hdr_belichtung::{PaletteCascade, NdarrayCascade, NdarrayBand, ShiftAlert
 pub use hhtl_d::{HhtlDEntry, HhtlDTensor, HeelBasin, HhtlDMeta};
 pub use cascade::{CascadeConfig, CascadeLevel, CascadeStats};
 pub use fisher_z::{FisherZTable, FamilyGamma};
+pub use had_cascade::{HadCascadeTensor, HadCascadeRow, TensorRegime};
 pub use palette::WeightPalette;
 pub use projection::{Base17, Base17Fz};
 pub use quality::QualityReport;
