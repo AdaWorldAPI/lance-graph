@@ -1,4 +1,15 @@
 #!/bin/bash
+# ═══════════════════════════════════════════════════════════════
+# DATA PREP SCRIPT — HF download requires Python; bake logic
+# is moving to Rust (crates/thinking-engine/examples/).
+#
+# This script is legitimate for:
+#   - Downloading model weights from HuggingFace (auth token flow)
+#   - One-shot codebook baking before Rust inference
+#
+# NOT for: runtime inference, repeated execution, benchmarking.
+# The Rust stack handles all of those natively.
+# ═══════════════════════════════════════════════════════════════
 # bake_hhtld_codebooks.sh — Bake HHTL-D codebooks from Qwen3-TTS-1.7B
 #
 # Downloads the safetensors from HuggingFace, runs the encoder,

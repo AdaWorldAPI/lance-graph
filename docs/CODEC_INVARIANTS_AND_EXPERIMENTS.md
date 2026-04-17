@@ -383,3 +383,118 @@ This means the session's forward menu narrows to:
 Next session starts here.
 
 https://claude.ai/code/session_01NYGrxVopyszZYgLBxe4hgj
+
+## I9. BF17 shapeshifting — same bits, different semantics per hierarchy level
+
+The same 17-bit (or 16-bit) wire width carries different constructs at
+different HHTL levels:
+
+| Level | Bit interpretation | Construct measured |
+|---|---|---|
+| HEEL (coarse) | BF17 float → golden-step fold → Base17 address | Joint direction+magnitude opinion (P7 confirmed: don't split) |
+| HIP (family) | 4-bit sub-cluster within basin | Partition of opinion space (Base17 L1 > PolarQuant-only per P7) |
+| LEAF (fine) | 8 × i8 signed = PolarQuant coefficients on JLQ basis | Residual direction in orthogonal space |
+
+The "shapeshifting" is: exponent bits at HEEL become direction bits at
+LEAF; mantissa bits at HEEL become magnitude bits at LEAF. Same wire
+budget, different semantic load. This is why separating direction from
+magnitude before clustering (PolarQuant-only) HURTS — the coupling IS
+the information at the HEEL/HIP level.
+
+## P8. Cronbach's α codec bench — psychometric measurement model
+
+### Framing
+
+Codec candidates are NOT alternatives to eliminate. They are **test items
+on a psychometric instrument**. We measure internal consistency (α) to
+discover which items measure the SAME construct and which measure
+DIFFERENT constructs.
+
+### Decision logic
+
+| α result | Interpretation | Action |
+|---|---|---|
+| α ≥ 0.85 within a codec subset | Those codecs are REDUNDANT (measure same construct) | Keep the cheapest |
+| α < 0.70 between two codecs | They measure DIFFERENT constructs | Both informative, keep for different regimes |
+| Removing one item RAISES α | That item is NOISY | Investigate WHY before discarding |
+
+### Epiphany × population correlation matrix
+
+Each epiphany (E/I) predicts a specific pattern across data populations.
+The bench validates whether the prediction holds:
+
+| Epiphany | Prediction | Attention k_proj | MLP gate | Vocab embed | Jina v5 | Audio codec |
+|---|---|---|---|---|---|---|
+| I1 (two regimes) | argmax vs index regimes need different codecs | argmax ✓ | argmax ✓ | INDEX ✗ | argmax ✓ | index? |
+| I2 (near-orthogonal) | single-centroid fails on high-dim rows | ✗ (1024-d) | ✗ (1024-d) | ✗✗ (2048-d) | ?(1024-d) | ?(1024-d) |
+| I3 (direction ≠ magnitude) | scalar residual can't fix direction | ✗ | ✗ | ✗ | ? | ? |
+| I7 (location vs sparse-signal) | two-factor structure in codec α | location factor | location factor | index factor | ? | ? |
+| I8 (layered HEEL+HIP+LEAF) | location + JLQ beats either alone | probe needed | probe needed | passthrough wins | probe needed | probe needed |
+| I9 (BF17 shapeshifting) | joint dir+mag > separated at HEEL/HIP | P7 confirmed | probe needed | N/A (index) | probe needed | probe needed |
+| P5 (chain collapse) | single-layer OK, 33-layer chain ρ→0 | ✓ measured | extrapolated | N/A | ? | ? |
+| P7 (PolarQuant HIP) | direction-only families worse than joint | ✓ measured (-9%) | ? | N/A | ? | ? |
+
+### Populations (data types for cross-validation)
+
+| Population | Regime | Dim | Source | Distribution signature |
+|---|---|---|---|---|
+| Attention k_proj | argmax | 1024 | Qwen3-TTS-0.6B | near-orthogonal, small magnitude range |
+| MLP gate_proj | argmax | 1024 | Qwen3-TTS-0.6B | SiLU-gated, bimodal |
+| Text embedding | index | 2048 | Qwen3-TTS-0.6B | vocab-sized, sparse usage |
+| Jina v5 output | argmax | 1024 | jina-v5-onnx/ on disk | semantic similarity, unit-normalized |
+| Audio codec emb | index | 1024 | Qwen3-TTS-0.6B (×15) | RVQ codebook, discrete latent |
+| BGE-M3 output | argmax | 1024 | bge-m3 crate | multilingual, SentencePiece |
+
+### Metrics per (codec × population) cell
+
+| Metric | What it measures | Tool |
+|---|---|---|
+| Pearson r | linear score correlation vs ground truth | `bgz_tensor::quality::pearson` |
+| Spearman ρ | rank correlation | `bgz_tensor::quality::spearman` |
+| Top-1/5/10 NN recall | argmax preservation | `bgz_tensor::quality::top_k_recall` |
+| MAE / RMSE | score estimate error | `bgz_tensor::quality::mae/rmse` |
+| Cronbach's α (inter-codec) | internal consistency across codec "items" | NEW — implement |
+| Cohen's κ (top-1 agreement) | agreement above chance for argmax | NEW — implement |
+| Bias (mean signed error) | systematic over/under-estimation | NEW — implement |
+| ICC(3,1) | intraclass correlation, consistency | NEW — implement |
+
+### Deliverable
+
+One table per population, all codecs as rows, all metrics as columns.
+Cross-population α matrix showing which codecs generalize vs which are
+population-specific. Factor analysis identifying the location/sparse-signal
+two-factor structure (or refuting it).
+
+This is P6 from earlier, now with the psychometric measurement model and
+the epiphany × population correlation matrix that ties it back to every
+lesson this session learned.
+
+### P9. Resolution as a variable — mixed bit-width per HHTL level
+
+The bit width per level is NOT fixed. The bench should test whether
+wider HIP address (finer opinion bins → tighter compartments) reduces
+residual variance enough that the LEAF can be shorter. Total bits/row
+could DROP despite wider address.
+
+Variants to test (same tensor, same population matrix):
+
+| Variant | Address | Leaf | Total bits/row |
+|---|---|---|---|
+| I8-baseline | 2+4=6b | 8×i8=64b | 70 |
+| Wide-HIP | 2+8=10b | 8×i8=64b | 74 |
+| Mixed-leaf | 2+4=6b | 4×i16+4×i8=96b | 102 |
+| Compact-leaf | 2+4=6b | 4×i8=32b | 38 |
+| BF16-leaf | 2+4=6b | 2×BF16=32b | 38 |
+| Stacked-Matryoshka | 2+4=6b | 2×i16+2×i8+2×i4+2×i2=52b | 58 |
+
+Key question: does wider HIP × shorter leaf beat narrow HIP × longer
+leaf at the SAME total bit budget?
+
+The Matryoshka module (bgz-tensor/src/matryoshka.rs) already has the
+4-band design (BandPrecision::I16/I8/I4/I2 per SVD energy ordering).
+Wiring it into the leaf encoding is a composition, not a new primitive.
+
+This connects I9 (BF17 shapeshifting): the optimal encoding per level
+might be BF17-like mixed precision — high-energy dims get i16 mantissa,
+low-energy dims get i2. Same total wire budget, but information-weighted
+allocation across the Matryoshka bands.
