@@ -48,6 +48,7 @@ pub mod parameter_substitution;
 pub mod parser;
 pub mod query;
 pub mod semantic;
+pub mod spark_dialect;
 pub mod sql_catalog;
 pub mod sql_query;
 pub mod table_readers;
