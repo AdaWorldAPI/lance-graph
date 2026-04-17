@@ -94,16 +94,25 @@ fn probe_population(name: &str, rows: &[Vec<f32>], tensor_desc: &str) {
         }
     }
 
-    // CAM-PQ pairwise distances (using first row as query template for distance tables)
-    // For proper pairwise: precompute distance table per query, then scan all others
+    // CAM-PQ pairwise distances → calibrated cosine estimates
+    // CAM-PQ returns L2² (lower = more similar). Convert to cosine scale:
+    // cos(a,b) ≈ 1 - d²/(2 × ||a|| × ||b||)
+    // Precompute row norms for the conversion.
+    let norms: Vec<f64> = rows.iter().map(|r| {
+        r.iter().map(|x| (*x as f64) * (*x as f64)).sum::<f64>().sqrt()
+    }).collect();
+
     let mut cam_scores = Vec::with_capacity(n * (n - 1) / 2);
     for i in 0..n {
         let dt = codebook.precompute_distances(&padded_rows[i]);
         for j in (i + 1)..n {
-            // CAM distance is L2²-like (lower = more similar)
-            // Negate for correlation with cosine (higher = more similar)
-            let d = dt.distance(&fingerprints[j]);
-            cam_scores.push(-(d as f64));
+            let d_sq = dt.distance(&fingerprints[j]) as f64;
+            // Convert L2² to cosine: cos ≈ 1 - d²/(2·||a||·||b||)
+            let denom = 2.0 * norms[i] * norms[j];
+            let cos_est = if denom > 1e-12 {
+                (1.0 - d_sq / denom).clamp(-1.0, 1.0)
+            } else { 0.0 };
+            cam_scores.push(cos_est);
         }
     }
 
