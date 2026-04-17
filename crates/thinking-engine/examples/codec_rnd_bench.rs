@@ -37,8 +37,10 @@ fn load_rows(path: &str, tensor_substr: &str, max_rows: usize) -> (Vec<Vec<f32>>
     let file = File::open(path).expect("open");
     let mut reader = BufReader::new(file);
     let header = read_safetensors_header(&mut reader).expect("parse");
-    let t = header.tensors.iter().find(|t| t.name.contains(tensor_substr))
-        .expect(&format!("tensor '{}' not found", tensor_substr));
+    let t = match header.tensors.iter().find(|t| t.name.contains(tensor_substr)) {
+        Some(t) => t,
+        None => return (vec![], format!("(not found: {})", tensor_substr)),
+    };
     let n: usize = t.dimensions.iter().map(|&d| d as usize).product();
     let n_rows = t.dimensions[0] as usize;
     let n_cols: usize = t.dimensions.iter().skip(1).map(|&d| d as usize).product();
@@ -482,14 +484,20 @@ fn main() {
         ("text_embedding.weight", "Text embedding (index regime)"),
         ("code_predictor.model.codec_embedding.0.weight", "Audio codec emb (index)"),
         ("self_attn.q_proj.weight", "Attention q_proj (argmax, must match k)"),
+        // Gemma 4 PLE: 256-d per-layer projection — the dimensional threshold test
+        ("per_layer_projection.weight", "PLE projection (256-d, Gemma4 low-dim)"),
+        ("per_layer_input_gate.weight", "PLE gate (256-d, Gemma4 low-dim)"),
     ];
 
     let t0 = Instant::now();
 
     for (tensor_substr, pop_name) in &populations {
-        let (rows, tensor_name) = match load_rows(&model_path, tensor_substr, N_SAMPLE) {
-            r => r,
-        };
+        let (rows, tensor_name) = load_rows(&model_path, tensor_substr, N_SAMPLE);
+        if rows.is_empty() {
+            println!("\n---");
+            println!("**Population: {}** — `{}` (skipped)", pop_name, tensor_name);
+            continue;
+        }
         let n_cols = if rows.is_empty() { 0 } else { rows[0].len() };
         println!("\n---");
         println!("**Population: {}** — `{}`", pop_name, tensor_name);
