@@ -100,7 +100,9 @@ fn main() {
         }
 
         let t0 = Instant::now();
-        let k = 256.min(n);
+        // Production k: 64 centroids shared across rows.
+        // Lloyd refinement in clam_sample tightens from greedy init.
+        let k = 64;
         let tensor = HadCascadeTensor::encode(&tensor_name, &rows, k);
         let encode_ms = t0.elapsed().as_secs_f32() * 1000.0;
 

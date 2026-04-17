@@ -261,7 +261,30 @@ fn clam_sample(rows: &[Vec<f32>], k: usize) -> Vec<Vec<f32>> {
             if d < min_dist[i] { min_dist[i] = d; }
         }
     }
-    selected.iter().map(|&i| rows[i].clone()).collect()
+    let mut centroids: Vec<Vec<f32>> = selected.iter().map(|&i| rows[i].clone()).collect();
+
+    // Lloyd refinement: 5 iterations of k-means to tighten centroids
+    let n_cols = if rows.is_empty() { 0 } else { rows[0].len() };
+    for _ in 0..5 {
+        let mut sums = vec![vec![0.0f64; n_cols]; centroids.len()];
+        let mut counts = vec![0usize; centroids.len()];
+        for row in rows {
+            let (ci, _) = nearest_centroid(row, &centroids);
+            for (j, &v) in row.iter().enumerate() {
+                sums[ci][j] += v as f64;
+            }
+            counts[ci] += 1;
+        }
+        for ci in 0..centroids.len() {
+            if counts[ci] > 0 {
+                for j in 0..n_cols {
+                    centroids[ci][j] = (sums[ci][j] / counts[ci] as f64) as f32;
+                }
+            }
+        }
+    }
+
+    centroids
 }
 
 fn nearest_centroid(row: &[f32], centroids: &[Vec<f32>]) -> (usize, f32) {
