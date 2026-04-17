@@ -155,10 +155,23 @@ RouteAction { Skip, Attend, Compose, Escalate }. `HhtlDTensor` + `FisherZTable` 
 
 Claim: `SpiralEncoding::rehydrate_interpolated` hits ρ ≥ 0.95 on real Qwen3-TTS-0.6B weight rows at reasonable K (say K=4–16).
 
-Probe: `spiral_reconstruction_probe.rs` (this PR).
+**Probe RUN (PR #186, `spiral_reconstruction_probe.rs`).** Clarification: `SpiralEncoding` is a SIGNATURE codec (17 Base17 dims × K anchor samples per row) not a dense reconstructor, so the probe measures neighborhood preservation instead of per-element ρ.
 
-Pass → wire SpiralEncoding into `universal_hhtld_encode`-style pipeline, retire the Base17 reconstruction path.
-Fail → the curve family is mis-fit; need to calibrate anchors differently, or a different curve equation.
+Measured on `talker.model.layers.0.self_attn.k_proj.weight [1024×1024]`, 256 stride-sampled rows, spiral stride=3:
+
+| K | Top-1 NN | Top-5 NN | Pairwise rank-agree | Bytes/row | Self-cos |
+|---|---|---|---|---|---|
+| 4 | 18.4% | 39.8% | 0.663 | 142 | 1.000000 |
+| 8 | 31.6% | 59.8% | 0.747 | 278 | 1.000000 |
+| 16 | **44.9%** | **78.9%** | **0.803** | 550 | 1.000000 |
+
+**Status: PARTIAL — monotonic with K, ~12× better than Base17 palette (#184's 3.71% top-1), but does NOT clear the 90% top-1 / 0.85 rank-agree thresholds at K=16.** Codec is directionally right; quality is K-bound.
+
+Mutation hooks for future probe:
+- Larger K (K=32 gives ~1 KB/row — ratio degrades but may cross G2/G3)
+- Per-role stride sweep (tested stride=3 for k_proj; other roles have 2/4/5/8)
+- Signature + small BF16 residual correction on top (hybrid)
+- Different spiral parameter (start ≠ 0) — rows may align better at non-zero start offset
 
 ### P2. Shared anchors + i8 position per row
 
@@ -224,7 +237,18 @@ read the referenced PR first:
 | #183 | Universal encoder with Base17 centroid reconstruction | ✗ ρ ≈ 0.04 on real Qwen3 |
 | #184 | HhtlF32Tensor + Path A/B probes | ◐ Path A ρ̄ 0.2–0.5 (improves on Base17, short of target); Path B 3.71% (fails) |
 | #185 | `HhtlF32Tensor` palette bounds (codex P1) | ✓ safety fix |
-| #186 | This doc + SpiralEncoding reconstruction probe | — (probe) |
+| #186 | This doc + SpiralEncoding reconstruction probe | ◐ P1 PARTIAL — K=16 hits 45%/79%/0.80 (top-1/top-5/rank-agree), misses 90%/0.85 gate |
+
+## Session finding: SpiralEncoding is directionally right, K-bound
+
+`SpiralEncoding` at K=16 preserves ~12× more neighborhood structure than the Base17 palette tested in #184, but on Qwen3 k_proj weights it tops out at 45% top-1 NN agreement — short of the 90% threshold for cascade-inference viability.
+
+The monotonic K trend (K=4 → K=8 → K=16 gains 18% → 32% → 45% top-1) suggests K=32 or K=64 could cross the threshold but at 1–2 KB/row — no longer competitive on ratio.
+
+This means the session's forward menu narrows to:
+1. **Hybrid codec**: SpiralEncoding signature at small K + a compact residual correction (BF16 scalar or 4-component i8 vector) to lift the NN-top-1 threshold without blowing up per-row bytes.
+2. **Per-role stride optimisation**: the probe used stride=3 for k_proj (matches NeuronPrint design); other roles use 2/4/5/8. Sweep.
+3. **Accept signature-grade cascade ≠ f32 GEMM reconstruction**: wire SpiralEncoding as the palette substrate for the already-failed `cascade_attention_probe` in #184 and measure there directly. The "45% top-1" result is ON a signature distance, but actual attention scoring might still converge when the cascade routes Skip/Attend/Compose with richer rules than raw argmax.
 
 Next session starts here.
 
