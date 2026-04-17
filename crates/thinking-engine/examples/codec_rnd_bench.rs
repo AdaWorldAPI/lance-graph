@@ -157,15 +157,28 @@ impl CodecCandidate for SpiralK8 {
 
 /// RaBitQ — sign-quantized JL + Hamming + dot_correction.
 struct RaBitQCodec { dim: usize }
+impl RaBitQCodec {
+    fn next_pow2(n: usize) -> usize {
+        let mut p = 1;
+        while p < n { p *= 2; }
+        p
+    }
+}
 impl CodecCandidate for RaBitQCodec {
     fn name(&self) -> &str { "RaBitQ" }
-    fn bytes_per_row(&self) -> usize { (self.dim + 63) / 64 * 8 + 8 } // binary + norm + corr
+    fn bytes_per_row(&self) -> usize { (self.dim + 63) / 64 * 8 + 8 }
     fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
         use bgz17::rabitq_compat::{OrthogonalMatrix, RaBitQEncoding};
         use bgz17::palette::Palette;
-        let rot = OrthogonalMatrix::hadamard(self.dim);
+        let padded_dim = Self::next_pow2(self.dim);
+        let rot = OrthogonalMatrix::hadamard(padded_dim);
         let empty_palette = Palette::build(&[], 0, 0);
-        let encs: Vec<RaBitQEncoding> = rows.iter()
+        let padded_rows: Vec<Vec<f32>> = rows.iter().map(|r| {
+            let mut p = r.clone();
+            p.resize(padded_dim, 0.0);
+            p
+        }).collect();
+        let encs: Vec<RaBitQEncoding> = padded_rows.iter()
             .map(|r| RaBitQEncoding::encode(r, &rot, &empty_palette))
             .collect();
         let n = rows.len();
@@ -329,7 +342,8 @@ impl CodecCandidate for I8HybridCodec {
         use bgz17::rabitq_compat::OrthogonalMatrix;
         let n_cols = if rows.is_empty() { 0 } else { rows[0].len() };
         let centroids = F32ClamCentroid::clam_sample(rows, 64);
-        let rotation = OrthogonalMatrix::hadamard(n_cols);
+        let padded_dim = RaBitQCodec::next_pow2(n_cols);
+        let rotation = OrthogonalMatrix::hadamard(padded_dim);
         // Assign + encode residual via Hadamard
         let encoded: Vec<(usize, [i8; 8], f32)> = rows.iter().map(|row| {
             let mut best = 0; let mut best_d = f32::MAX;
@@ -337,8 +351,9 @@ impl CodecCandidate for I8HybridCodec {
                 let d: f32 = row.iter().zip(c.iter()).map(|(a, b)| (a - b) * (a - b)).sum();
                 if d < best_d { best_d = d; best = ci; }
             }
-            let residual: Vec<f32> = row.iter().zip(centroids[best].iter())
+            let mut residual: Vec<f32> = row.iter().zip(centroids[best].iter())
                 .map(|(a, b)| a - b).collect();
+            residual.resize(padded_dim, 0.0);
             let (leaf, scale) = Self::hadamard_encode_residual(&residual, &rotation);
             (best, leaf, scale)
         }).collect();
@@ -347,11 +362,11 @@ impl CodecCandidate for I8HybridCodec {
         let mut scores = Vec::with_capacity(n * (n - 1) / 2);
         for i in 0..n {
             let (ci, ref li, si) = encoded[i];
-            let res_i = Self::hadamard_decode_residual(li, si, &rotation, n_cols);
+            let res_i = Self::hadamard_decode_residual(li, si, &rotation, padded_dim);
             let ri: Vec<f32> = centroids[ci].iter().zip(res_i.iter()).map(|(c, r)| c + r).collect();
             for j in (i + 1)..n {
                 let (cj, ref lj, sj) = encoded[j];
-                let res_j = Self::hadamard_decode_residual(lj, sj, &rotation, n_cols);
+                let res_j = Self::hadamard_decode_residual(lj, sj, &rotation, padded_dim);
                 let rj: Vec<f32> = centroids[cj].iter().zip(res_j.iter()).map(|(c, r)| c + r).collect();
                 scores.push(cosine(&ri, &rj));
             }
