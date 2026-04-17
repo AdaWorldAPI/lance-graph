@@ -119,6 +119,25 @@ impl CodecCandidate for Base17Sig {
     }
 }
 
+/// Base17Fz — Fisher z warped golden fold. Same 34 bytes, non-linear quantization.
+struct Base17FzSig;
+impl CodecCandidate for Base17FzSig {
+    fn name(&self) -> &str { "Base17Fz" }
+    fn bytes_per_row(&self) -> usize { 34 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::projection::Base17Fz;
+        let fzs: Vec<Base17Fz> = rows.iter().map(|r| Base17Fz::from_f32(r)).collect();
+        let n = rows.len();
+        let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+        for i in 0..n {
+            for j in (i + 1)..n {
+                scores.push(fzs[i].cosine(&fzs[j]));
+            }
+        }
+        scores
+    }
+}
+
 /// Direct i8 quantization of pairwise cosines.
 struct DirectI8;
 impl CodecCandidate for DirectI8 {
@@ -987,7 +1006,7 @@ fn main() {
     println!();
     println!("Model: `{}`", model_path);
     println!("Sample: {} rows per population, {} metrics per codec", N_SAMPLE, 10);
-    println!("Grid: 13 named + 48 parametric (2 bases × 6 quants × 2 modes × 2 ranks) = 61 codecs");
+    println!("Grid: 14 named + 48 parametric (2 bases × 6 quants × 2 modes × 2 ranks) = 62 codecs");
 
     // Populations from the model
     let populations: Vec<(&str, &str)> = vec![
@@ -1019,6 +1038,7 @@ fn main() {
         let mut codecs: Vec<Box<dyn CodecCandidate>> = vec![
             Box::new(Passthrough),
             Box::new(Base17Sig),
+            Box::new(Base17FzSig),
             Box::new(DirectI8),
             Box::new(SpiralK8),
             Box::new(RaBitQCodec { dim: n_cols }),

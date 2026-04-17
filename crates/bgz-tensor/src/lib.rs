@@ -100,7 +100,7 @@ pub use hhtl_d::{HhtlDEntry, HhtlDTensor, HeelBasin, HhtlDMeta};
 pub use cascade::{CascadeConfig, CascadeLevel, CascadeStats};
 pub use fisher_z::{FisherZTable, FamilyGamma};
 pub use palette::WeightPalette;
-pub use projection::Base17;
+pub use projection::{Base17, Base17Fz};
 pub use quality::QualityReport;
 pub use similarity::SimilarityTable;
 pub use variance::RoleVarianceReport;
