@@ -25,6 +25,13 @@
 //!   Structured embeddings (audio codec): HadCascade (ICC 1.000)
 
 use crate::stacked_n::{bf16_to_f32, f32_to_bf16};
+use ndarray::hpc::fft::wht_f32;
+use ndarray::hpc::quantized::{
+    quantize_f32_to_i4, dequantize_i4_to_f32,
+    quantize_f32_to_i2, dequantize_i2_to_f32,
+};
+use ndarray::hpc::cam_pq::{kmeans, squared_l2};
+use ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd;
 
 fn next_pow2(n: usize) -> usize {
     let mut p = 1;
@@ -35,20 +42,7 @@ fn next_pow2(n: usize) -> usize {
 fn hadamard_rotate(v: &[f32], dim: usize) -> Vec<f32> {
     let mut out = v.to_vec();
     out.resize(dim, 0.0);
-    let mut h = 1;
-    while h < dim {
-        for i in (0..dim).step_by(h * 2) {
-            for j in i..i + h {
-                let x = out[j];
-                let y = out[j + h];
-                out[j] = x + y;
-                out[j + h] = x - y;
-            }
-        }
-        h *= 2;
-    }
-    let norm = 1.0 / (dim as f32).sqrt();
-    for x in &mut out { *x *= norm; }
+    wht_f32(&mut out);
     out
 }
 
@@ -107,43 +101,35 @@ impl HadCascadeTensor {
         let regime = TensorRegime::from_role(role);
         let k = k.min(n).min(256);
 
-        let centroids = clam_sample(data, k);
+        let centroids = build_centroids(data, k);
 
         let rows: Vec<HadCascadeRow> = data.iter().map(|row| {
             let (ci, _) = nearest_centroid(row, &centroids);
 
-            // Residual from centroid
             let residual: Vec<f32> = row.iter().zip(centroids[ci].iter())
                 .map(|(a, b)| a - b).collect();
 
-            // Pass 1: Hadamard rotate → i4 full-rank
+            // Pass 1: WHT → i4 full-rank (ndarray quantized)
             let rotated1 = hadamard_rotate(&residual, padded);
-            let max1 = rotated1.iter().take(n_cols).map(|x| x.abs()).fold(0.0f32, f32::max);
-            let s1 = if max1 > 1e-12 { 7.0 / max1 } else { 0.0 };
-
-            let i4_codes = pack_i4(&rotated1[..n_cols], s1);
-            let ds1 = if s1 > 0.0 { max1 / 7.0 } else { 0.0 };
+            let (i4_codes, i4_params) = quantize_f32_to_i4(&rotated1[..n_cols]);
 
             // Reconstruct pass 1 to compute residue
-            let dequant1 = unpack_i4(&i4_codes, n_cols, ds1);
+            let dequant1 = dequantize_i4_to_f32(&i4_codes, &i4_params, n_cols);
             let mut full1 = vec![0.0f32; padded];
-            for (k, &v) in dequant1.iter().enumerate() { full1[k] = v; }
+            full1[..n_cols].copy_from_slice(&dequant1);
             let recon1 = hadamard_rotate(&full1, padded);
 
-            // Pass 2: i2 on residue from pass 1
+            // Pass 2: WHT → i2 on residue (ndarray quantized)
             let residual2: Vec<f32> = residual.iter().zip(recon1.iter().take(n_cols))
                 .map(|(orig, r1)| orig - r1).collect();
             let rotated2 = hadamard_rotate(&residual2, padded);
-            let max2 = rotated2.iter().take(n_cols).map(|x| x.abs()).fold(0.0f32, f32::max);
-            let s2 = if max2 > 1e-12 { 1.0 / max2 } else { 0.0 };
-
-            let i2_codes = pack_i2(&rotated2[..n_cols], s2);
+            let (i2_codes, i2_params) = quantize_f32_to_i2(&rotated2[..n_cols]);
 
             HadCascadeRow {
                 twig: ci as u8,
-                scale1_bf16: f32_to_bf16(max1),
+                scale1_bf16: f32_to_bf16(i4_params.scale),
                 i4_codes,
-                scale2_bf16: f32_to_bf16(max2),
+                scale2_bf16: f32_to_bf16(i2_params.scale),
                 i2_codes,
             }
         }).collect();
@@ -160,19 +146,20 @@ impl HadCascadeTensor {
     }
 
     pub fn reconstruct_row(&self, i: usize) -> Vec<f32> {
+        use ndarray::hpc::quantized::QuantParams;
         let row = &self.rows[i];
         let ci = row.twig as usize;
 
-        let ds1 = bf16_to_f32(row.scale1_bf16);
-        let dequant1 = unpack_i4(&row.i4_codes, self.n_cols, ds1);
+        let p1 = QuantParams { scale: bf16_to_f32(row.scale1_bf16), zero_point: 0, min_val: 0.0, max_val: 0.0 };
+        let dequant1 = dequantize_i4_to_f32(&row.i4_codes, &p1, self.n_cols);
         let mut full1 = vec![0.0f32; self.padded_dim];
-        for (k, &v) in dequant1.iter().enumerate() { full1[k] = v; }
+        full1[..self.n_cols].copy_from_slice(&dequant1);
         let recon1 = hadamard_rotate(&full1, self.padded_dim);
 
-        let ds2 = bf16_to_f32(row.scale2_bf16);
-        let dequant2 = unpack_i2(&row.i2_codes, self.n_cols, ds2);
+        let p2 = QuantParams { scale: bf16_to_f32(row.scale2_bf16), zero_point: 0, min_val: 0.0, max_val: 0.0 };
+        let dequant2 = dequantize_i2_to_f32(&row.i2_codes, &p2, self.n_cols);
         let mut full2 = vec![0.0f32; self.padded_dim];
-        for (k, &v) in dequant2.iter().enumerate() { full2[k] = v; }
+        full2[..self.n_cols].copy_from_slice(&dequant2);
         let recon2 = hadamard_rotate(&full2, self.padded_dim);
 
         self.centroids[ci].iter()
@@ -232,158 +219,28 @@ impl HadCascadeTensor {
 // CLAM furthest-point sampling
 // ═══════════════════════════════════════════════════════════════════
 
-fn clam_sample(rows: &[Vec<f32>], k: usize) -> Vec<Vec<f32>> {
+fn build_centroids(rows: &[Vec<f32>], k: usize) -> Vec<Vec<f32>> {
     let n = rows.len();
     if n == 0 || k == 0 { return vec![]; }
-    let k = k.min(n);
-    let mut first = 0;
-    let mut first_norm = 0.0f32;
-    for (i, r) in rows.iter().enumerate() {
-        let ns: f32 = r.iter().map(|x| x * x).sum();
-        if ns > first_norm { first_norm = ns; first = i; }
-    }
-    let mut selected = vec![first];
-    let mut min_dist = vec![f32::MAX; n];
-    for i in 0..n {
-        min_dist[i] = l2_sq(&rows[i], &rows[first]);
-    }
-    min_dist[first] = 0.0;
-    for _ in 1..k {
-        let mut next = 0;
-        let mut best = f32::MIN;
-        for i in 0..n {
-            if min_dist[i] > best { best = min_dist[i]; next = i; }
-        }
-        if best <= 0.0 { break; }
-        selected.push(next);
-        for i in 0..n {
-            let d = l2_sq(&rows[i], &rows[next]);
-            if d < min_dist[i] { min_dist[i] = d; }
-        }
-    }
-    let mut centroids: Vec<Vec<f32>> = selected.iter().map(|&i| rows[i].clone()).collect();
-
-    // Lloyd refinement: 5 iterations of k-means to tighten centroids
-    let n_cols = if rows.is_empty() { 0 } else { rows[0].len() };
-    for _ in 0..5 {
-        let mut sums = vec![vec![0.0f64; n_cols]; centroids.len()];
-        let mut counts = vec![0usize; centroids.len()];
-        for row in rows {
-            let (ci, _) = nearest_centroid(row, &centroids);
-            for (j, &v) in row.iter().enumerate() {
-                sums[ci][j] += v as f64;
-            }
-            counts[ci] += 1;
-        }
-        for ci in 0..centroids.len() {
-            if counts[ci] > 0 {
-                for j in 0..n_cols {
-                    centroids[ci][j] = (sums[ci][j] / counts[ci] as f64) as f32;
-                }
-            }
-        }
-    }
-
-    centroids
+    let dim = rows[0].len();
+    kmeans(rows, k.min(n), dim, 10)
 }
 
 fn nearest_centroid(row: &[f32], centroids: &[Vec<f32>]) -> (usize, f32) {
     let mut best = 0;
     let mut best_d = f32::MAX;
     for (ci, c) in centroids.iter().enumerate() {
-        let d = l2_sq(row, c);
+        let d = squared_l2(row, c);
         if d < best_d { best_d = d; best = ci; }
     }
     (best, best_d)
-}
-
-#[inline]
-fn l2_sq(a: &[f32], b: &[f32]) -> f32 {
-    a.iter().zip(b.iter()).map(|(x, y)| (x - y) * (x - y)).sum()
 }
 
 // ═══════════════════════════════════════════════════════════════════
 // i4 packing: 2 nibbles per byte, signed ±7
 // ═══════════════════════════════════════════════════════════════════
 
-fn pack_i4(coeffs: &[f32], scale: f32) -> Vec<u8> {
-    let mut out = Vec::with_capacity((coeffs.len() + 1) / 2);
-    let mut i = 0;
-    while i < coeffs.len() {
-        let a = (coeffs[i] * scale).round().clamp(-7.0, 7.0) as i8;
-        let b = if i + 1 < coeffs.len() {
-            (coeffs[i + 1] * scale).round().clamp(-7.0, 7.0) as i8
-        } else { 0 };
-        out.push(((a + 8) as u8) | (((b + 8) as u8) << 4));
-        i += 2;
-    }
-    out
-}
-
-fn unpack_i4(packed: &[u8], n: usize, scale: f32) -> Vec<f32> {
-    let mut out = Vec::with_capacity(n);
-    for &byte in packed {
-        let a = (byte & 0x0F) as i8 - 8;
-        out.push(a as f32 * scale);
-        if out.len() < n {
-            let b = (byte >> 4) as i8 - 8;
-            out.push(b as f32 * scale);
-        }
-    }
-    out.truncate(n);
-    out
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// i2 packing: 4 crumbs per byte, signed ±1
-// ═══════════════════════════════════════════════════════════════════
-
-fn pack_i2(coeffs: &[f32], scale: f32) -> Vec<u8> {
-    let mut out = Vec::with_capacity((coeffs.len() + 3) / 4);
-    let mut i = 0;
-    while i < coeffs.len() {
-        let mut byte = 0u8;
-        for bit in 0..4 {
-            if i + bit < coeffs.len() {
-                let q = (coeffs[i + bit] * scale).round().clamp(-1.0, 1.0) as i8;
-                let u = (q + 1) as u8; // 0, 1, 2
-                byte |= (u & 0x03) << (bit * 2);
-            }
-        }
-        out.push(byte);
-        i += 4;
-    }
-    out
-}
-
-fn unpack_i2(packed: &[u8], n: usize, scale: f32) -> Vec<f32> {
-    let mut out = Vec::with_capacity(n);
-    for &byte in packed {
-        for bit in 0..4 {
-            if out.len() >= n { break; }
-            let u = (byte >> (bit * 2)) & 0x03;
-            let q = u as i8 - 1; // -1, 0, 1
-            out.push(q as f32 * scale);
-        }
-    }
-    out.truncate(n);
-    out
-}
-
-fn cosine_f64(a: &[f32], b: &[f32]) -> f64 {
-    let mut dot = 0.0f64;
-    let mut na = 0.0f64;
-    let mut nb = 0.0f64;
-    for i in 0..a.len().min(b.len()) {
-        let x = a[i] as f64;
-        let y = b[i] as f64;
-        dot += x * y;
-        na += x * x;
-        nb += y * y;
-    }
-    let d = (na * nb).sqrt();
-    if d < 1e-15 { 0.0 } else { dot / d }
-}
+// All i4/i2 packing, cosine, kmeans, and WHT delegated to ndarray::hpc
 
 pub fn measure_quality(original: &[Vec<f32>], reconstructed: &[Vec<f32>]) -> (f64, f64) {
     let n = original.len().min(reconstructed.len());
@@ -391,16 +248,16 @@ pub fn measure_quality(original: &[Vec<f32>], reconstructed: &[Vec<f32>]) -> (f6
 
     let mut cos_sum = 0.0f64;
     for i in 0..n {
-        cos_sum += cosine_f64(&original[i], &reconstructed[i]);
+        cos_sum += cosine_f32_to_f64_simd(&original[i], &reconstructed[i]);
     }
     let avg_cos = cos_sum / n as f64;
 
     let icc = crate::quality::icc_3_1(
         &original.iter().enumerate()
-            .flat_map(|(i, _)| (i + 1..n).map(move |j| cosine_f64(&original[i], &original[j])))
+            .flat_map(|(i, _)| (i + 1..n).map(move |j| cosine_f32_to_f64_simd(&original[i], &original[j])))
             .collect::<Vec<_>>(),
         &reconstructed.iter().enumerate()
-            .flat_map(|(i, _)| (i + 1..n).map(move |j| cosine_f64(&reconstructed[i], &reconstructed[j])))
+            .flat_map(|(i, _)| (i + 1..n).map(move |j| cosine_f32_to_f64_simd(&reconstructed[i], &reconstructed[j])))
             .collect::<Vec<_>>(),
     );
 
@@ -453,24 +310,22 @@ mod tests {
     }
 
     #[test]
-    fn i4_pack_unpack() {
+    fn i4_ndarray_roundtrip() {
         let vals = vec![0.7, -0.3, 0.95, -0.1, 0.6];
-        let scale = 7.0 / 0.95;
-        let packed = pack_i4(&vals, scale);
-        let unpacked = unpack_i4(&packed, 5, 0.95 / 7.0);
+        let (packed, params) = quantize_f32_to_i4(&vals);
+        let unpacked = dequantize_i4_to_f32(&packed, &params, 5);
         for (orig, recon) in vals.iter().zip(unpacked.iter()) {
             assert!((orig - recon).abs() < 0.2, "i4 roundtrip: {} vs {}", orig, recon);
         }
     }
 
     #[test]
-    fn i2_pack_unpack() {
+    fn i2_ndarray_roundtrip() {
         let vals = vec![0.8, -0.5, 0.1, -0.9, 0.3];
-        let scale = 1.0 / 0.9;
-        let packed = pack_i2(&vals, scale);
-        let unpacked = unpack_i2(&packed, 5, 0.9);
+        let (packed, params) = quantize_f32_to_i2(&vals);
+        let unpacked = dequantize_i2_to_f32(&packed, &params, 5);
         for &v in &unpacked {
-            assert!(v.abs() <= 0.9 + 0.01, "i2 value out of range: {}", v);
+            assert!(v.abs() <= params.scale + 0.01, "i2 value out of range: {}", v);
         }
     }
 
