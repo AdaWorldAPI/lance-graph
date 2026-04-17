@@ -296,6 +296,102 @@ impl CodecCandidate for F32ClamSlotL {
     }
 }
 
+/// i4 leaf: 16 directions × 4-bit precision in same 8 bytes as SlotL.
+/// Wider directional coverage at coarser per-direction precision.
+struct F32ClamLeafI4;
+impl CodecCandidate for F32ClamLeafI4 {
+    fn name(&self) -> &str { "CLAM+Leaf-i4×16" }
+    fn bytes_per_row(&self) -> usize { 9 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::matryoshka::SvdBasis;
+        let n_cols = if rows.is_empty() { 0 } else { rows[0].len() };
+        let k = 64.min(rows.len());
+        let n_components = 16; // 16 directions at i4
+        let basis = SvdBasis::build("i4leaf", rows, n_components);
+        let centroids = F32ClamCentroid::clam_sample(rows, k);
+        let n = rows.len();
+        // Encode: project residual onto 16-dim SVD, quantize to i4 (±7)
+        let encoded: Vec<(usize, Vec<i8>, f32)> = rows.iter().map(|row| {
+            let mut best = 0; let mut best_d = f32::MAX;
+            for (ci, c) in centroids.iter().enumerate() {
+                let d: f32 = row.iter().zip(c.iter()).map(|(a, b)| (a - b) * (a - b)).sum();
+                if d < best_d { best_d = d; best = ci; }
+            }
+            let residual: Vec<f32> = row.iter().zip(centroids[best].iter()).map(|(a, b)| a - b).collect();
+            let coeffs = basis.project(&residual);
+            let max_abs = coeffs.iter().take(n_components).map(|x| x.abs()).fold(0.0f32, f32::max);
+            let scale = if max_abs > 1e-12 { 7.0 / max_abs } else { 0.0 };
+            let q: Vec<i8> = coeffs.iter().take(n_components)
+                .map(|c| (c * scale).round().clamp(-7.0, 7.0) as i8).collect();
+            (best, q, if scale > 0.0 { max_abs / 7.0 } else { 0.0 })
+        }).collect();
+        // Reconstruct + pairwise
+        let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+        for i in 0..n {
+            let (ci, ref qi, si) = encoded[i];
+            let coeffs_i: Vec<f32> = qi.iter().map(|&v| v as f32 * si).collect();
+            let res_i = basis.reconstruct(&coeffs_i);
+            let ri: Vec<f32> = centroids[ci].iter().zip(res_i.iter()).map(|(c, r)| c + r).collect();
+            for j in (i + 1)..n {
+                let (cj, ref qj, sj) = encoded[j];
+                let coeffs_j: Vec<f32> = qj.iter().map(|&v| v as f32 * sj).collect();
+                let res_j = basis.reconstruct(&coeffs_j);
+                let rj: Vec<f32> = centroids[cj].iter().zip(res_j.iter()).map(|(c, r)| c + r).collect();
+                scores.push(cosine(&ri, &rj));
+            }
+        }
+        scores
+    }
+}
+
+/// Mixed Matryoshka leaf: 4×i8 (top SVD) + 8×i4 (next SVD) = 64 bits.
+/// Best of both: high precision on energy-dense dims + wide coverage.
+struct F32ClamLeafMixed;
+impl CodecCandidate for F32ClamLeafMixed {
+    fn name(&self) -> &str { "CLAM+Mixed-4i8+8i4" }
+    fn bytes_per_row(&self) -> usize { 9 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::matryoshka::SvdBasis;
+        let n_cols = if rows.is_empty() { 0 } else { rows[0].len() };
+        let k = 64.min(rows.len());
+        let n_components = 12; // 4 at i8 + 8 at i4
+        let basis = SvdBasis::build("mixed", rows, n_components);
+        let centroids = F32ClamCentroid::clam_sample(rows, k);
+        let n = rows.len();
+        let encoded: Vec<(usize, Vec<f32>, f32, f32)> = rows.iter().map(|row| {
+            let mut best = 0; let mut best_d = f32::MAX;
+            for (ci, c) in centroids.iter().enumerate() {
+                let d: f32 = row.iter().zip(c.iter()).map(|(a, b)| (a - b) * (a - b)).sum();
+                if d < best_d { best_d = d; best = ci; }
+            }
+            let residual: Vec<f32> = row.iter().zip(centroids[best].iter()).map(|(a, b)| a - b).collect();
+            let coeffs = basis.project(&residual);
+            // i8 scale for first 4, i4 scale for next 8
+            let max8 = coeffs.iter().take(4).map(|x| x.abs()).fold(0.0f32, f32::max);
+            let max4 = coeffs.iter().skip(4).take(8).map(|x| x.abs()).fold(0.0f32, f32::max);
+            let s8 = if max8 > 1e-12 { max8 / 127.0 } else { 0.0 };
+            let s4 = if max4 > 1e-12 { max4 / 7.0 } else { 0.0 };
+            let mut q = Vec::with_capacity(12);
+            for i in 0..4 { q.push(if s8 > 0.0 { (coeffs[i] / s8).round().clamp(-127.0, 127.0) * s8 } else { 0.0 }); }
+            for i in 4..12.min(coeffs.len()) { q.push(if s4 > 0.0 { (coeffs[i] / s4).round().clamp(-7.0, 7.0) * s4 } else { 0.0 }); }
+            (best, q, s8, s4)
+        }).collect();
+        let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+        for i in 0..n {
+            let (ci, ref qi, _, _) = encoded[i];
+            let res_i = basis.reconstruct(qi);
+            let ri: Vec<f32> = centroids[ci].iter().zip(res_i.iter()).map(|(c, r)| c + r).collect();
+            for j in (i + 1)..n {
+                let (cj, ref qj, _, _) = encoded[j];
+                let res_j = basis.reconstruct(qj);
+                let rj: Vec<f32> = centroids[cj].iter().zip(res_j.iter()).map(|(c, r)| c + r).collect();
+                scores.push(cosine(&ri, &rj));
+            }
+        }
+        scores
+    }
+}
+
 /// I8 Hybrid — HEEL+HIP location (6 bits) + JLQ i8 leaf (8 bytes).
 /// Uses proper Hadamard rotation from bgz17::rabitq_compat, not hash-based
 /// Rademacher signs. The Hadamard matrix is orthogonal (preserves norms)
@@ -513,6 +609,8 @@ fn main() {
             // Row-level codecs (reconstruct ROWS, then score from reconstruction)
             Box::new(F32ClamCentroid),
             Box::new(F32ClamSlotL),
+            Box::new(F32ClamLeafI4),
+            Box::new(F32ClamLeafMixed),
             Box::new(I8HybridCodec),
         ];
 
