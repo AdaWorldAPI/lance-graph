@@ -11,17 +11,13 @@
 
 use bgz_tensor::quality::{
     pearson, spearman, kendall_tau, mae, rmse, top_k_recall,
-    cronbach_alpha, cohens_kappa, bias_variance, icc_3_1,
+    cronbach_alpha, bias_variance, icc_3_1,
 };
 use bgz_tensor::projection::Base17;
-use bgz_tensor::hhtl_cache::HhtlCache;
-use bgz_tensor::hhtl_d::build_hip_families;
 use highheelbgz::rehydrate::SpiralEncoding;
 use ndarray::hpc::safetensors::read_safetensors_header;
-use ndarray::hpc::gguf::GgmlType;
 use ndarray::simd::bf16_to_f32_batch;
 
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::time::Instant;
@@ -304,7 +300,6 @@ impl CodecCandidate for F32ClamLeafI4 {
     fn bytes_per_row(&self) -> usize { 9 }
     fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
         use bgz_tensor::matryoshka::SvdBasis;
-        let n_cols = if rows.is_empty() { 0 } else { rows[0].len() };
         let k = 64.min(rows.len());
         let n_components = 16; // 16 directions at i4
         let basis = SvdBasis::build("i4leaf", rows, n_components);
@@ -352,7 +347,6 @@ impl CodecCandidate for F32ClamLeafMixed {
     fn bytes_per_row(&self) -> usize { 9 }
     fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
         use bgz_tensor::matryoshka::SvdBasis;
-        let n_cols = if rows.is_empty() { 0 } else { rows[0].len() };
         let k = 64.min(rows.len());
         let n_components = 12; // 4 at i8 + 8 at i4
         let basis = SvdBasis::build("mixed", rows, n_components);
@@ -386,6 +380,122 @@ impl CodecCandidate for F32ClamLeafMixed {
                 let res_j = basis.reconstruct(qj);
                 let rj: Vec<f32> = centroids[cj].iter().zip(res_j.iter()).map(|(c, r)| c + r).collect();
                 scores.push(cosine(&ri, &rj));
+            }
+        }
+        scores
+    }
+}
+
+/// Full-rank i4 leaf: n_components = min(16384, n_cols) at i4 precision.
+/// At 256-d this means ALL 256 SVD directions at 4-bit = 128 bytes/row.
+/// Tests whether full-rank i4 reaches product ICC (≥0.85).
+struct F32ClamFullI4;
+impl CodecCandidate for F32ClamFullI4 {
+    fn name(&self) -> &str { "CLAM+i4×D" }
+    fn bytes_per_row(&self) -> usize { 0 } // computed dynamically, shown in output
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::matryoshka::SvdBasis;
+        let n_cols = if rows.is_empty() { 0 } else { rows[0].len() };
+        let k = 64.min(rows.len());
+        let n_components = 16384.min(n_cols); // full rank at 256-d
+        let basis = SvdBasis::build("fullI4", rows, n_components);
+        let centroids = F32ClamCentroid::clam_sample(rows, k);
+        let actual_d = basis.n_components;
+        let bpr = 1 + (actual_d + 1) / 2 + 4; // twig + nibbles + scale
+        eprintln!("    [CLAM+i4×D] n_components={}, bytes/row={}", actual_d, bpr);
+        let n = rows.len();
+        let encoded: Vec<(usize, Vec<i8>, f32)> = rows.iter().map(|row| {
+            let mut best = 0; let mut best_d = f32::MAX;
+            for (ci, c) in centroids.iter().enumerate() {
+                let d: f32 = row.iter().zip(c.iter()).map(|(a, b)| (a - b) * (a - b)).sum();
+                if d < best_d { best_d = d; best = ci; }
+            }
+            let residual: Vec<f32> = row.iter().zip(centroids[best].iter()).map(|(a, b)| a - b).collect();
+            let coeffs = basis.project(&residual);
+            let max_abs = coeffs.iter().take(actual_d).map(|x| x.abs()).fold(0.0f32, f32::max);
+            let scale = if max_abs > 1e-12 { 7.0 / max_abs } else { 0.0 };
+            let q: Vec<i8> = coeffs.iter().take(actual_d)
+                .map(|c| (c * scale).round().clamp(-7.0, 7.0) as i8).collect();
+            (best, q, if scale > 0.0 { max_abs / 7.0 } else { 0.0 })
+        }).collect();
+        let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+        for i in 0..n {
+            let (ci, ref qi, si) = encoded[i];
+            let coeffs_i: Vec<f32> = qi.iter().map(|&v| v as f32 * si).collect();
+            let res_i = basis.reconstruct(&coeffs_i);
+            let ri: Vec<f32> = centroids[ci].iter().zip(res_i.iter()).map(|(c, r)| c + r).collect();
+            for j in (i + 1)..n {
+                let (cj, ref qj, sj) = encoded[j];
+                let coeffs_j: Vec<f32> = qj.iter().map(|&v| v as f32 * sj).collect();
+                let res_j = basis.reconstruct(&coeffs_j);
+                let rj: Vec<f32> = centroids[cj].iter().zip(res_j.iter()).map(|(c, r)| c + r).collect();
+                scores.push(cosine(&ri, &rj));
+            }
+        }
+        scores
+    }
+}
+
+/// Bitpacked-as-CAM: full-rank i4 codes used directly as addresses.
+/// Instead of reconstructing → cosine, compute Manhattan distance on
+/// quantized i4 codes. The bitpacked representation IS the address —
+/// same principle as HHTL-D Slot D but at full dimensionality.
+struct BitpackedCamI4;
+impl CodecCandidate for BitpackedCamI4 {
+    fn name(&self) -> &str { "i4-CAM" }
+    fn bytes_per_row(&self) -> usize { 0 } // dynamic
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::matryoshka::SvdBasis;
+        let n_cols = if rows.is_empty() { 0 } else { rows[0].len() };
+        let n_components = 16384.min(n_cols);
+        let basis = SvdBasis::build("cam4", rows, n_components);
+        let actual_d = basis.n_components;
+        eprintln!("    [i4-CAM] n_components={}, {} bits/address", actual_d, actual_d * 4);
+        let n = rows.len();
+        // Encode: project full row (not residual) onto SVD, quantize to i4
+        let codes: Vec<Vec<i8>> = rows.iter().map(|row| {
+            let coeffs = basis.project(row);
+            let max_abs = coeffs.iter().take(actual_d).map(|x| x.abs()).fold(0.0f32, f32::max);
+            let scale = if max_abs > 1e-12 { 7.0 / max_abs } else { 0.0 };
+            coeffs.iter().take(actual_d)
+                .map(|c| (c * scale).round().clamp(-7.0, 7.0) as i8).collect()
+        }).collect();
+        // Pairwise: 1 - normalized Manhattan distance → cosine-like score
+        let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+        let max_manhattan = (actual_d * 14) as f64; // max Manhattan on ±7 codes
+        for i in 0..n {
+            for j in (i + 1)..n {
+                let manhattan: i32 = codes[i].iter().zip(codes[j].iter())
+                    .map(|(a, b)| (*a as i32 - *b as i32).abs())
+                    .sum();
+                // Convert Manhattan distance to cosine-like similarity
+                scores.push(1.0 - manhattan as f64 / max_manhattan);
+            }
+        }
+        scores
+    }
+}
+
+/// Matryoshka variable-precision: i16/i8/i4/i2 bands from bgz-tensor.
+/// Uses the actual production codec path (encode_row/decode_row).
+struct MatryoshkaCodec;
+impl CodecCandidate for MatryoshkaCodec {
+    fn name(&self) -> &str { "Matryoshka-std" }
+    fn bytes_per_row(&self) -> usize { 0 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::matryoshka::{SvdBasis, BandProfile, encode_matrix, decode_matrix};
+        let n_cols = if rows.is_empty() { 0 } else { rows[0].len() };
+        let n_components = n_cols.min(512); // standard profile caps at 512
+        let basis = SvdBasis::build("matryoshka", rows, n_components);
+        let profile = BandProfile::standard(basis.n_components, n_cols);
+        eprintln!("    [Matryoshka] n_components={}, bytes/row={}", basis.n_components, profile.bytes_per_row());
+        let encoded = encode_matrix(rows, &basis, &profile);
+        let decoded = decode_matrix(&encoded, &basis, &profile);
+        let n = rows.len();
+        let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+        for i in 0..n {
+            for j in (i + 1)..n {
+                scores.push(cosine(&decoded[i], &decoded[j]));
             }
         }
         scores
@@ -611,6 +721,9 @@ fn main() {
             Box::new(F32ClamSlotL),
             Box::new(F32ClamLeafI4),
             Box::new(F32ClamLeafMixed),
+            Box::new(F32ClamFullI4),
+            Box::new(BitpackedCamI4),
+            Box::new(MatryoshkaCodec),
             Box::new(I8HybridCodec),
         ];
 
