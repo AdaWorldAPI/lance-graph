@@ -584,6 +584,285 @@ impl CodecCandidate for I8HybridCodec {
 }
 
 // ═════════════════════════════════════════════════════════════════════
+// Parametric codec grid — all combinations of basis × quant × mode × rank
+// ═════════════════════════════════════════════════════════════════════
+
+const EULER_GAMMA: f64 = 0.5772156649015329;
+const _PHI: f64 = 1.618033988749895;
+
+#[derive(Clone, Copy, PartialEq)]
+enum PBasis { Svd, Had }
+#[derive(Clone, Copy, PartialEq)]
+enum PQuant { I2, I4, I8, GammaPhase, CircleOfFifths }
+#[derive(Clone, Copy, PartialEq)]
+enum PMode { Recon, Cam }
+#[derive(Clone, Copy, PartialEq)]
+enum PRank { N16, Full }
+
+struct ParametricCodec {
+    basis: PBasis,
+    quant: PQuant,
+    mode: PMode,
+    rank: PRank,
+    name_buf: String,
+}
+
+impl ParametricCodec {
+    fn new(basis: PBasis, quant: PQuant, mode: PMode, rank: PRank) -> Self {
+        let b = match basis { PBasis::Svd => "SVD", PBasis::Had => "Had" };
+        let q = match quant {
+            PQuant::I2 => "i2", PQuant::I4 => "i4", PQuant::I8 => "i8",
+            PQuant::GammaPhase => "γφ", PQuant::CircleOfFifths => "Q5",
+        };
+        let m = match mode { PMode::Recon => "R", PMode::Cam => "C" };
+        let r = match rank { PRank::N16 => "16", PRank::Full => "D" };
+        ParametricCodec {
+            basis, quant, mode, rank,
+            name_buf: format!("{}-{}×{}-{}", b, q, r, m),
+        }
+    }
+
+    fn max_val(&self) -> i32 {
+        match self.quant {
+            PQuant::I2 => 1,
+            PQuant::I4 | PQuant::GammaPhase | PQuant::CircleOfFifths => 7,
+            PQuant::I8 => 127,
+        }
+    }
+
+    fn all_variants() -> Vec<ParametricCodec> {
+        let bases = [PBasis::Svd, PBasis::Had];
+        let quants = [PQuant::I2, PQuant::I4, PQuant::I8, PQuant::GammaPhase, PQuant::CircleOfFifths];
+        let modes = [PMode::Recon, PMode::Cam];
+        let ranks = [PRank::N16, PRank::Full];
+        let mut out = Vec::new();
+        for &b in &bases {
+            for &q in &quants {
+                for &m in &modes {
+                    for &r in &ranks {
+                        out.push(ParametricCodec::new(b, q, m, r));
+                    }
+                }
+            }
+        }
+        out
+    }
+}
+
+impl CodecCandidate for ParametricCodec {
+    fn name(&self) -> &str { &self.name_buf }
+    fn bytes_per_row(&self) -> usize { 0 }
+
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::matryoshka::SvdBasis;
+        use bgz17::rabitq_compat::OrthogonalMatrix;
+
+        let n = rows.len();
+        if n == 0 { return vec![]; }
+        let n_cols = rows[0].len();
+        let max_val = self.max_val();
+
+        let n_comp = match self.rank {
+            PRank::N16 => 16.min(n_cols),
+            PRank::Full => n_cols,
+        };
+
+        let svd_basis = if self.basis == PBasis::Svd {
+            Some(SvdBasis::build("p", rows, n_comp))
+        } else { None };
+
+        let padded_dim = RaBitQCodec::next_pow2(n_cols);
+        let had_matrix = if self.basis == PBasis::Had {
+            Some(OrthogonalMatrix::hadamard(padded_dim))
+        } else { None };
+
+        let actual_d = match &svd_basis {
+            Some(b) => b.n_components,
+            None => n_comp.min(padded_dim),
+        };
+
+        // γ-pressure table: pressure[k] = γ^(k/D), decays from 1.0 to γ
+        let pressures: Vec<f32> = if self.quant == PQuant::GammaPhase {
+            let d = actual_d.max(1) as f64;
+            (0..actual_d).map(|k| EULER_GAMMA.powf(k as f64 / d) as f32).collect()
+        } else { vec![] };
+
+        // Circle-of-fifths: 12 semitone bins with φ-spaced phase progression.
+        // Quintenzirkel maps coefficient index to a position on the circle of
+        // fifths (interval of 7 semitones mod 12). The phase accumulates as
+        // k*7 mod 12, creating a non-sequential but musically coherent ordering.
+        // Magnitude is quantized to i4, phase bin encodes relative position.
+        let q5_phases: Vec<f32> = if self.quant == PQuant::CircleOfFifths {
+            (0..actual_d).map(|k| {
+                let semitone = (k * 7) % 12;
+                let phase = semitone as f64 * std::f64::consts::TAU / 12.0;
+                phase.cos() as f32
+            }).collect()
+        } else { vec![] };
+
+
+        let use_centroid = self.mode == PMode::Recon;
+        let centroids = if use_centroid {
+            F32ClamCentroid::clam_sample(rows, 64.min(n))
+        } else { vec![] };
+
+        // Encode: project + quantize
+        let encoded: Vec<(usize, Vec<i8>, f32)> = rows.iter().map(|row| {
+            let (ci, to_project) = if use_centroid {
+                let mut best = 0; let mut best_d = f32::MAX;
+                for (ci, c) in centroids.iter().enumerate() {
+                    let d: f32 = row.iter().zip(c.iter()).map(|(a, b)| (a - b) * (a - b)).sum();
+                    if d < best_d { best_d = d; best = ci; }
+                }
+                let res: Vec<f32> = row.iter().zip(centroids[best].iter()).map(|(a, b)| a - b).collect();
+                (best, res)
+            } else {
+                (0, row.clone())
+            };
+
+            let coeffs: Vec<f32> = match self.basis {
+                PBasis::Svd => {
+                    let c = svd_basis.as_ref().unwrap().project(&to_project);
+                    c[..actual_d.min(c.len())].to_vec()
+                }
+                PBasis::Had => {
+                    let mut padded = to_project.clone();
+                    padded.resize(padded_dim, 0.0);
+                    let rotated = had_matrix.as_ref().unwrap().rotate(&padded);
+                    rotated[..actual_d].to_vec()
+                }
+            };
+
+            match self.quant {
+                PQuant::GammaPhase => {
+                    let scaled: Vec<f32> = coeffs.iter().zip(pressures.iter())
+                        .map(|(c, p)| if *p > 1e-12 { c / p } else { 0.0 }).collect();
+                    let max_abs = scaled.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
+                    let inv = if max_abs > 1e-12 { 7.0 / max_abs } else { 0.0 };
+                    let codes: Vec<i8> = scaled.iter()
+                        .map(|c| (c * inv).round().clamp(-7.0, 7.0) as i8).collect();
+                    (ci, codes, if inv > 0.0 { max_abs / 7.0 } else { 0.0 })
+                }
+                PQuant::CircleOfFifths => {
+                    // Decompose each coefficient into magnitude × phase-alignment.
+                    // The circle-of-fifths phase modulates the quantization:
+                    // coefficients aligned with their Quintenzirkel position get
+                    // boosted precision, misaligned ones get attenuated.
+                    let modulated: Vec<f32> = coeffs.iter().enumerate().map(|(k, c)| {
+                        if k < q5_phases.len() {
+                            let phase_weight = (1.0 + q5_phases[k].abs()) * 0.5 + 0.5;
+                            c / phase_weight
+                        } else { *c }
+                    }).collect();
+                    let max_abs = modulated.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
+                    let inv = if max_abs > 1e-12 { 7.0 / max_abs } else { 0.0 };
+                    let codes: Vec<i8> = modulated.iter()
+                        .map(|c| (c * inv).round().clamp(-7.0, 7.0) as i8).collect();
+                    (ci, codes, if inv > 0.0 { max_abs / 7.0 } else { 0.0 })
+                }
+                _ => {
+                    let max_abs = coeffs.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
+                    let mv = max_val as f32;
+                    let inv = if max_abs > 1e-12 { mv / max_abs } else { 0.0 };
+                    let codes: Vec<i8> = coeffs.iter()
+                        .map(|c| (c * inv).round().clamp(-mv, mv) as i8).collect();
+                    (ci, codes, if inv > 0.0 { max_abs / mv } else { 0.0 })
+                }
+            }
+        }).collect();
+
+        match self.mode {
+            PMode::Recon => {
+                let recon_rows: Vec<Vec<f32>> = (0..n).map(|i| {
+                    let (ci, ref codes, scale) = encoded[i];
+                    let dequant: Vec<f32> = match self.quant {
+                        PQuant::GammaPhase => {
+                            codes.iter().zip(pressures.iter())
+                                .map(|(&q, &p)| q as f32 * scale * p).collect()
+                        }
+                        PQuant::CircleOfFifths => {
+                            codes.iter().enumerate().map(|(k, &q)| {
+                                let phase_weight = if k < q5_phases.len() {
+                                    (1.0 + q5_phases[k].abs()) * 0.5 + 0.5
+                                } else { 1.0 };
+                                q as f32 * scale * phase_weight
+                            }).collect()
+                        }
+                        _ => codes.iter().map(|&q| q as f32 * scale).collect(),
+                    };
+                    let res = match self.basis {
+                        PBasis::Svd => svd_basis.as_ref().unwrap().reconstruct(&dequant),
+                        PBasis::Had => {
+                            let mut full = vec![0.0f32; padded_dim];
+                            for (k, &v) in dequant.iter().enumerate() { full[k] = v; }
+                            let row = had_matrix.as_ref().unwrap().rotate(&full);
+                            row[..n_cols].to_vec()
+                        }
+                    };
+                    if use_centroid {
+                        centroids[ci].iter().zip(res.iter()).map(|(c, r)| c + r).collect()
+                    } else { res }
+                }).collect();
+
+                let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+                for i in 0..n {
+                    for j in (i + 1)..n {
+                        scores.push(cosine(&recon_rows[i], &recon_rows[j]));
+                    }
+                }
+                scores
+            }
+            PMode::Cam => {
+                let max_dist: f64 = match self.quant {
+                    PQuant::GammaPhase => {
+                        pressures.iter().map(|p| 14.0 * *p as f64).sum()
+                    }
+                    PQuant::CircleOfFifths => {
+                        (0..actual_d).map(|k| {
+                            let pw = if k < q5_phases.len() {
+                                (1.0 + q5_phases[k].abs() as f64) * 0.5 + 0.5
+                            } else { 1.0 };
+                            14.0 * pw
+                        }).sum()
+                    }
+                    _ => (actual_d as f64) * (2 * max_val) as f64,
+                };
+
+                let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+                for i in 0..n {
+                    for j in (i + 1)..n {
+                        let dist: f64 = match self.quant {
+                            PQuant::GammaPhase => {
+                                encoded[i].1.iter().zip(encoded[j].1.iter())
+                                    .zip(pressures.iter())
+                                    .map(|((a, b), p)| (*a as f64 - *b as f64).abs() * *p as f64)
+                                    .sum()
+                            }
+                            PQuant::CircleOfFifths => {
+                                encoded[i].1.iter().zip(encoded[j].1.iter()).enumerate()
+                                    .map(|(k, (a, b))| {
+                                        let pw = if k < q5_phases.len() {
+                                            (1.0 + q5_phases[k].abs() as f64) * 0.5 + 0.5
+                                        } else { 1.0 };
+                                        (*a as f64 - *b as f64).abs() * pw
+                                    }).sum()
+                            }
+                            _ => {
+                                encoded[i].1.iter().zip(encoded[j].1.iter())
+                                    .map(|(a, b)| (*a as i32 - *b as i32).abs() as f64)
+                                    .sum()
+                            }
+                        };
+                        scores.push(1.0 - dist / max_dist.max(1e-12));
+                    }
+                }
+                scores
+            }
+        }
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════════
 // Bench runner
 // ═════════════════════════════════════════════════════════════════════
 
@@ -682,6 +961,7 @@ fn main() {
     println!();
     println!("Model: `{}`", model_path);
     println!("Sample: {} rows per population, {} metrics per codec", N_SAMPLE, 10);
+    println!("Grid: 13 named + 40 parametric (2 bases × 5 quants × 2 modes × 2 ranks) = 53 codecs");
 
     // Populations from the model
     let populations: Vec<(&str, &str)> = vec![
@@ -710,13 +990,12 @@ fn main() {
 
         let gt = pairwise_cosines(&rows);
 
-        let codecs: Vec<Box<dyn CodecCandidate>> = vec![
+        let mut codecs: Vec<Box<dyn CodecCandidate>> = vec![
             Box::new(Passthrough),
             Box::new(Base17Sig),
             Box::new(DirectI8),
             Box::new(SpiralK8),
             Box::new(RaBitQCodec { dim: n_cols }),
-            // Row-level codecs (reconstruct ROWS, then score from reconstruction)
             Box::new(F32ClamCentroid),
             Box::new(F32ClamSlotL),
             Box::new(F32ClamLeafI4),
@@ -726,6 +1005,10 @@ fn main() {
             Box::new(MatryoshkaCodec),
             Box::new(I8HybridCodec),
         ];
+        // Parametric grid: 2 bases × 5 quants × 2 modes × 2 ranks = 40 variants
+        for p in ParametricCodec::all_variants() {
+            codecs.push(Box::new(p));
+        }
 
         let results = run_bench(&codecs, &rows, &gt);
         print_table(pop_name, &results);
