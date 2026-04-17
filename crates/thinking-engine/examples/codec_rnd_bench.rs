@@ -187,6 +187,174 @@ impl CodecCandidate for RaBitQCodec {
 }
 
 // ═════════════════════════════════════════════════════════════════════
+// ROW-LEVEL codecs — reconstruct rows, THEN compute pairwise cosines
+// from the reconstructed rows. Harder test than score-level codecs.
+// ═════════════════════════════════════════════════════════════════════
+
+/// f32-CLAM centroid only — nearest centroid from k=64 CLAM palette.
+/// No residual correction. Tests pure clustering quality.
+struct F32ClamCentroid;
+impl F32ClamCentroid {
+    fn clam_sample(rows: &[Vec<f32>], k: usize) -> Vec<Vec<f32>> {
+        let n = rows.len();
+        if n == 0 || k == 0 { return vec![]; }
+        let k = k.min(n);
+        let mut first = 0;
+        let mut first_norm = 0.0f32;
+        for (i, r) in rows.iter().enumerate() {
+            let ns: f32 = r.iter().map(|x| x * x).sum();
+            if ns > first_norm { first_norm = ns; first = i; }
+        }
+        let mut selected = vec![first];
+        let mut min_dist = vec![f32::MAX; n];
+        for i in 0..n {
+            min_dist[i] = rows[i].iter().zip(rows[first].iter())
+                .map(|(a, b)| (a - b) * (a - b)).sum();
+        }
+        min_dist[first] = 0.0;
+        for _ in 1..k {
+            let mut next = 0; let mut best = f32::MIN;
+            for i in 0..n { if min_dist[i] > best { best = min_dist[i]; next = i; } }
+            if best <= 0.0 { break; }
+            selected.push(next);
+            for i in 0..n {
+                let d: f32 = rows[i].iter().zip(rows[next].iter())
+                    .map(|(a, b)| (a - b) * (a - b)).sum();
+                if d < min_dist[i] { min_dist[i] = d; }
+            }
+        }
+        selected.iter().map(|&i| rows[i].clone()).collect()
+    }
+}
+impl CodecCandidate for F32ClamCentroid {
+    fn name(&self) -> &str { "F32-CLAM-64" }
+    fn bytes_per_row(&self) -> usize { 1 } // twig index
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        let centroids = Self::clam_sample(rows, 64);
+        // Assign each row → nearest centroid
+        let assignments: Vec<usize> = rows.iter().map(|row| {
+            let mut best = 0; let mut best_d = f32::MAX;
+            for (ci, c) in centroids.iter().enumerate() {
+                let d: f32 = row.iter().zip(c.iter()).map(|(a, b)| (a - b) * (a - b)).sum();
+                if d < best_d { best_d = d; best = ci; }
+            }
+            best
+        }).collect();
+        // Reconstruct: each row → its centroid
+        let reconstructed: Vec<&Vec<f32>> = assignments.iter().map(|&ci| &centroids[ci]).collect();
+        // Pairwise cosines on reconstructed rows
+        let n = rows.len();
+        let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+        for i in 0..n {
+            for j in (i + 1)..n {
+                scores.push(cosine(reconstructed[i], reconstructed[j]));
+            }
+        }
+        scores
+    }
+}
+
+/// f32-CLAM + SlotL — centroid + 8×i8 SVD residual correction.
+/// This is the Path A codec from PR #184, measured at the row level.
+struct F32ClamSlotL;
+impl CodecCandidate for F32ClamSlotL {
+    fn name(&self) -> &str { "F32-CLAM+SlotL" }
+    fn bytes_per_row(&self) -> usize { 9 } // 1 twig + 8 leaf
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::hhtl_f32::HhtlF32Tensor;
+        use bgz_tensor::matryoshka::SvdBasis;
+        use bgz_tensor::slot_l::SLOT_L_LANES;
+        let n_cols = if rows.is_empty() { 0 } else { rows[0].len() };
+        let k = 64.min(rows.len());
+        let basis = SvdBasis::build("bench", rows, SLOT_L_LANES);
+        let tensor = HhtlF32Tensor::encode_with_leaf("bench", rows, k, &basis);
+        let n = rows.len();
+        let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+        for i in 0..n {
+            let ri = tensor.reconstruct_row(i, n_cols);
+            for j in (i + 1)..n {
+                let rj = tensor.reconstruct_row(j, n_cols);
+                scores.push(cosine(&ri, &rj));
+            }
+        }
+        scores
+    }
+}
+
+/// I8 Hybrid — HEEL+HIP location (6 bits) + JLQ i8 leaf (8 bytes).
+/// Uses Hadamard rotation + sign-quantize on the centroid residual.
+/// This is invariant I8 from the doc.
+struct I8HybridCodec;
+impl I8HybridCodec {
+    fn jlq_encode_residual(residual: &[f32], dim: usize) -> ([i8; 8], f32) {
+        // Simple Rademacher JL: use deterministic ±1 signs from hash
+        let proj_dim = 8;
+        let mut proj = [0.0f32; 8];
+        let scale = 1.0 / (dim as f32).sqrt();
+        for d in 0..dim.min(residual.len()) {
+            let sign = if (d * 0x9E3779B9) & 1 == 0 { 1.0 } else { -1.0 };
+            let lane = d % proj_dim;
+            proj[lane] += residual[d] * sign * scale;
+        }
+        let max_abs = proj.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
+        let inv = if max_abs > 1e-12 { 127.0 / max_abs } else { 0.0 };
+        let mut leaf = [0i8; 8];
+        for i in 0..8 { leaf[i] = (proj[i] * inv).round().clamp(-127.0, 127.0) as i8; }
+        (leaf, max_abs / 127.0)
+    }
+
+    fn jlq_decode_residual(leaf: &[i8; 8], scale: f32, dim: usize) -> Vec<f32> {
+        let proj_dim = 8;
+        let mut coeffs = [0.0f32; 8];
+        for i in 0..8 { coeffs[i] = leaf[i] as f32 * scale; }
+        // Inverse JL: spread coefficients back via transpose of Rademacher
+        let mut out = vec![0.0f32; dim];
+        let s = 1.0 / (dim as f32).sqrt();
+        for d in 0..dim {
+            let sign = if (d * 0x9E3779B9) & 1 == 0 { 1.0 } else { -1.0 };
+            let lane = d % proj_dim;
+            out[d] = coeffs[lane] * sign * s;
+        }
+        out
+    }
+}
+impl CodecCandidate for I8HybridCodec {
+    fn name(&self) -> &str { "I8-Hybrid" }
+    fn bytes_per_row(&self) -> usize { 9 } // 1 address + 8 leaf
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        let n_cols = if rows.is_empty() { 0 } else { rows[0].len() };
+        let centroids = F32ClamCentroid::clam_sample(rows, 64);
+        // Assign + encode residual
+        let encoded: Vec<(usize, [i8; 8], f32)> = rows.iter().map(|row| {
+            let mut best = 0; let mut best_d = f32::MAX;
+            for (ci, c) in centroids.iter().enumerate() {
+                let d: f32 = row.iter().zip(c.iter()).map(|(a, b)| (a - b) * (a - b)).sum();
+                if d < best_d { best_d = d; best = ci; }
+            }
+            let residual: Vec<f32> = row.iter().zip(centroids[best].iter())
+                .map(|(a, b)| a - b).collect();
+            let (leaf, scale) = Self::jlq_encode_residual(&residual, n_cols);
+            (best, leaf, scale)
+        }).collect();
+        // Reconstruct: centroid + JLQ-decoded residual
+        let n = rows.len();
+        let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+        for i in 0..n {
+            let (ci, ref li, si) = encoded[i];
+            let res_i = Self::jlq_decode_residual(li, si, n_cols);
+            let ri: Vec<f32> = centroids[ci].iter().zip(res_i.iter()).map(|(c, r)| c + r).collect();
+            for j in (i + 1)..n {
+                let (cj, ref lj, sj) = encoded[j];
+                let res_j = Self::jlq_decode_residual(lj, sj, n_cols);
+                let rj: Vec<f32> = centroids[cj].iter().zip(res_j.iter()).map(|(c, r)| c + r).collect();
+                scores.push(cosine(&ri, &rj));
+            }
+        }
+        scores
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════════
 // Bench runner
 // ═════════════════════════════════════════════════════════════════════
 
@@ -313,6 +481,10 @@ fn main() {
             Box::new(DirectI8),
             Box::new(SpiralK8),
             Box::new(RaBitQCodec { dim: n_cols }),
+            // Row-level codecs (reconstruct ROWS, then score from reconstruction)
+            Box::new(F32ClamCentroid),
+            Box::new(F32ClamSlotL),
+            Box::new(I8HybridCodec),
         ];
 
         let results = run_bench(&codecs, &rows, &gt);
