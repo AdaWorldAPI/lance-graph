@@ -544,3 +544,61 @@ Wiring exists but is not connected end-to-end:
 
 Probe: encode Jina v5 output embeddings via CAM-PQ, measure cascade
 Skip/Attend/Escalate ratio + ICC on the Attend decisions vs ground truth.
+
+### I11. Bitpacked quantized codes ARE content-addressable addresses
+
+Full-rank i4 quantization produces a code vector that is simultaneously:
+1. A reconstruction key (centroid + dequant(i4_codes) × SVD_basis)
+2. A content-addressable address (Manhattan distance on i4 codes ≈ cosine on original)
+
+This generalises HHTL-D Slot D (16-bit tree address) to full dimensionality:
+- Slot D: 16 bits → basin/family/twig/polarity (coarse address)
+- i4×D: D×4 bits → per-SVD-component quantized value (fine address)
+
+The bitpacked codes inherit the SVD ordering: top components carry more
+discriminative energy. Truncating the address (first K of D codes) gives
+a natural multi-resolution CAM hierarchy — like CAM-PQ's 3-stroke cascade
+but data-adaptive rather than fixed-subspace.
+
+Status: CONJECTURE. `codec_rnd_bench.rs` has the `i4-CAM` codec candidate
+measuring Manhattan-distance ICC vs ground-truth cosine.
+
+### P11. Full-rank i4 leaf (256×i4 at 256-d)
+
+At 256-d, n_components = n_cols = 256. Each row gets:
+  - 1 byte centroid index (CLAM k=64)
+  - 128 bytes i4 coefficients (256 × 4 bits)
+  - 4 bytes scale
+  = 133 bytes/row (vs 512 bytes BF16 = 3.85:1 compression)
+
+This captures the ENTIRE SVD subspace at 4-bit precision. No lost
+directions. The only error source is quantization noise per coefficient
+(±0.5/7 ≈ 7% max relative error per dimension).
+
+Hypothesis: ICC ≥ 0.85 at 256-d populations where previous narrow codecs
+(i4×16, i8×8) scored ICC ≈ 0.4-0.5 — because the residual energy was
+spread across ALL 256 dimensions, not concentrated in the first 16.
+
+### P12. Matryoshka variable-precision (production codec path)
+
+Tests the actual bgz_tensor::matryoshka encode/decode pipeline:
+  - Band 0 (0..64): i16 (high-energy SVD components)
+  - Band 1 (64..192): i8
+  - Band 2 (192..384): i4
+  - Band 3 (384..D): i2
+
+This is the Opus-inspired variable bit allocation. At 256-d, only bands
+0-2 are populated (no i2 band). bytes/row ≈ 200-350 depending on dim.
+
+### P13. i4 residue after full-rank quantization
+
+After full-rank i4, the quantization residue per coefficient is at most
+0.5 × scale / 7. This residue is:
+- NOT reconstructible from the i4 codes alone
+- Systematic: always rounds toward zero (bias toward centroid)
+- Small if SVD singular values decay fast (low energy in tail = small scale)
+
+Options for the residue:
+1. Accept it (if ICC ≥ 0.85, the 4-bit floor is sufficient)
+2. Second-pass i2 on the residue (adds 64 bytes at 256-d)
+3. Use the residue magnitude as a confidence bit (large residue = uncertain address)

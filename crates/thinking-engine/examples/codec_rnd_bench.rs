@@ -11,17 +11,13 @@
 
 use bgz_tensor::quality::{
     pearson, spearman, kendall_tau, mae, rmse, top_k_recall,
-    cronbach_alpha, cohens_kappa, bias_variance, icc_3_1,
+    cronbach_alpha, bias_variance, icc_3_1,
 };
 use bgz_tensor::projection::Base17;
-use bgz_tensor::hhtl_cache::HhtlCache;
-use bgz_tensor::hhtl_d::build_hip_families;
 use highheelbgz::rehydrate::SpiralEncoding;
 use ndarray::hpc::safetensors::read_safetensors_header;
-use ndarray::hpc::gguf::GgmlType;
 use ndarray::simd::bf16_to_f32_batch;
 
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::time::Instant;
@@ -117,6 +113,25 @@ impl CodecCandidate for Base17Sig {
         for i in 0..n {
             for j in (i + 1)..n {
                 scores.push(b17s[i].cosine(&b17s[j]));
+            }
+        }
+        scores
+    }
+}
+
+/// Base17Fz — Fisher z warped golden fold. Same 34 bytes, non-linear quantization.
+struct Base17FzSig;
+impl CodecCandidate for Base17FzSig {
+    fn name(&self) -> &str { "Base17Fz" }
+    fn bytes_per_row(&self) -> usize { 34 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::projection::Base17Fz;
+        let fzs: Vec<Base17Fz> = rows.iter().map(|r| Base17Fz::from_f32(r)).collect();
+        let n = rows.len();
+        let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+        for i in 0..n {
+            for j in (i + 1)..n {
+                scores.push(fzs[i].cosine(&fzs[j]));
             }
         }
         scores
@@ -304,7 +319,6 @@ impl CodecCandidate for F32ClamLeafI4 {
     fn bytes_per_row(&self) -> usize { 9 }
     fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
         use bgz_tensor::matryoshka::SvdBasis;
-        let n_cols = if rows.is_empty() { 0 } else { rows[0].len() };
         let k = 64.min(rows.len());
         let n_components = 16; // 16 directions at i4
         let basis = SvdBasis::build("i4leaf", rows, n_components);
@@ -352,7 +366,6 @@ impl CodecCandidate for F32ClamLeafMixed {
     fn bytes_per_row(&self) -> usize { 9 }
     fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
         use bgz_tensor::matryoshka::SvdBasis;
-        let n_cols = if rows.is_empty() { 0 } else { rows[0].len() };
         let k = 64.min(rows.len());
         let n_components = 12; // 4 at i8 + 8 at i4
         let basis = SvdBasis::build("mixed", rows, n_components);
@@ -386,6 +399,462 @@ impl CodecCandidate for F32ClamLeafMixed {
                 let res_j = basis.reconstruct(qj);
                 let rj: Vec<f32> = centroids[cj].iter().zip(res_j.iter()).map(|(c, r)| c + r).collect();
                 scores.push(cosine(&ri, &rj));
+            }
+        }
+        scores
+    }
+}
+
+/// Full-rank i4 leaf: n_components = min(16384, n_cols) at i4 precision.
+/// At 256-d this means ALL 256 SVD directions at 4-bit = 128 bytes/row.
+/// Tests whether full-rank i4 reaches product ICC (≥0.85).
+struct F32ClamFullI4;
+impl CodecCandidate for F32ClamFullI4 {
+    fn name(&self) -> &str { "CLAM+i4×D" }
+    fn bytes_per_row(&self) -> usize { 0 } // computed dynamically, shown in output
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::matryoshka::SvdBasis;
+        let n_cols = if rows.is_empty() { 0 } else { rows[0].len() };
+        let k = 64.min(rows.len());
+        let n_components = 16384.min(n_cols); // full rank at 256-d
+        let basis = SvdBasis::build("fullI4", rows, n_components);
+        let centroids = F32ClamCentroid::clam_sample(rows, k);
+        let actual_d = basis.n_components;
+        let bpr = 1 + (actual_d + 1) / 2 + 4; // twig + nibbles + scale
+        eprintln!("    [CLAM+i4×D] n_components={}, bytes/row={}", actual_d, bpr);
+        let n = rows.len();
+        let encoded: Vec<(usize, Vec<i8>, f32)> = rows.iter().map(|row| {
+            let mut best = 0; let mut best_d = f32::MAX;
+            for (ci, c) in centroids.iter().enumerate() {
+                let d: f32 = row.iter().zip(c.iter()).map(|(a, b)| (a - b) * (a - b)).sum();
+                if d < best_d { best_d = d; best = ci; }
+            }
+            let residual: Vec<f32> = row.iter().zip(centroids[best].iter()).map(|(a, b)| a - b).collect();
+            let coeffs = basis.project(&residual);
+            let max_abs = coeffs.iter().take(actual_d).map(|x| x.abs()).fold(0.0f32, f32::max);
+            let scale = if max_abs > 1e-12 { 7.0 / max_abs } else { 0.0 };
+            let q: Vec<i8> = coeffs.iter().take(actual_d)
+                .map(|c| (c * scale).round().clamp(-7.0, 7.0) as i8).collect();
+            (best, q, if scale > 0.0 { max_abs / 7.0 } else { 0.0 })
+        }).collect();
+        let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+        for i in 0..n {
+            let (ci, ref qi, si) = encoded[i];
+            let coeffs_i: Vec<f32> = qi.iter().map(|&v| v as f32 * si).collect();
+            let res_i = basis.reconstruct(&coeffs_i);
+            let ri: Vec<f32> = centroids[ci].iter().zip(res_i.iter()).map(|(c, r)| c + r).collect();
+            for j in (i + 1)..n {
+                let (cj, ref qj, sj) = encoded[j];
+                let coeffs_j: Vec<f32> = qj.iter().map(|&v| v as f32 * sj).collect();
+                let res_j = basis.reconstruct(&coeffs_j);
+                let rj: Vec<f32> = centroids[cj].iter().zip(res_j.iter()).map(|(c, r)| c + r).collect();
+                scores.push(cosine(&ri, &rj));
+            }
+        }
+        scores
+    }
+}
+
+/// Bitpacked-as-CAM: full-rank i4 codes used directly as addresses.
+/// Instead of reconstructing → cosine, compute Manhattan distance on
+/// quantized i4 codes. The bitpacked representation IS the address —
+/// same principle as HHTL-D Slot D but at full dimensionality.
+struct BitpackedCamI4;
+impl CodecCandidate for BitpackedCamI4 {
+    fn name(&self) -> &str { "i4-CAM" }
+    fn bytes_per_row(&self) -> usize { 0 } // dynamic
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::matryoshka::SvdBasis;
+        let n_cols = if rows.is_empty() { 0 } else { rows[0].len() };
+        let n_components = 16384.min(n_cols);
+        let basis = SvdBasis::build("cam4", rows, n_components);
+        let actual_d = basis.n_components;
+        eprintln!("    [i4-CAM] n_components={}, {} bits/address", actual_d, actual_d * 4);
+        let n = rows.len();
+        // Encode: project full row (not residual) onto SVD, quantize to i4
+        let codes: Vec<Vec<i8>> = rows.iter().map(|row| {
+            let coeffs = basis.project(row);
+            let max_abs = coeffs.iter().take(actual_d).map(|x| x.abs()).fold(0.0f32, f32::max);
+            let scale = if max_abs > 1e-12 { 7.0 / max_abs } else { 0.0 };
+            coeffs.iter().take(actual_d)
+                .map(|c| (c * scale).round().clamp(-7.0, 7.0) as i8).collect()
+        }).collect();
+        // Pairwise: 1 - normalized Manhattan distance → cosine-like score
+        let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+        let max_manhattan = (actual_d * 14) as f64; // max Manhattan on ±7 codes
+        for i in 0..n {
+            for j in (i + 1)..n {
+                let manhattan: i32 = codes[i].iter().zip(codes[j].iter())
+                    .map(|(a, b)| (*a as i32 - *b as i32).abs())
+                    .sum();
+                // Convert Manhattan distance to cosine-like similarity
+                scores.push(1.0 - manhattan as f64 / max_manhattan);
+            }
+        }
+        scores
+    }
+}
+
+/// Matryoshka variable-precision: i16/i8/i4/i2 bands from bgz-tensor.
+/// Uses the actual production codec path (encode_row/decode_row).
+struct MatryoshkaCodec;
+impl CodecCandidate for MatryoshkaCodec {
+    fn name(&self) -> &str { "Matryoshka-std" }
+    fn bytes_per_row(&self) -> usize { 0 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::matryoshka::{SvdBasis, BandProfile, encode_matrix, decode_matrix};
+        let n_cols = if rows.is_empty() { 0 } else { rows[0].len() };
+        let n_components = n_cols.min(512); // standard profile caps at 512
+        let basis = SvdBasis::build("matryoshka", rows, n_components);
+        let profile = BandProfile::standard(basis.n_components, n_cols);
+        eprintln!("    [Matryoshka] n_components={}, bytes/row={}", basis.n_components, profile.bytes_per_row());
+        let encoded = encode_matrix(rows, &basis, &profile);
+        let decoded = decode_matrix(&encoded, &basis, &profile);
+        let n = rows.len();
+        let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+        for i in 0..n {
+            for j in (i + 1)..n {
+                scores.push(cosine(&decoded[i], &decoded[j]));
+            }
+        }
+        scores
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// EPIPHANY CODECS — derived from the 62-codec sweep findings
+// ═════════════════════════════════════════════════════════════════════
+
+/// E1: Gain-shape Hadamard i4 CAM.
+/// Normalize to unit norm BEFORE Hadamard rotation, store gain separately.
+/// All codes now live on the same unit sphere → Manhattan ≈ angular distance.
+struct GainShapeHadCam;
+impl CodecCandidate for GainShapeHadCam {
+    fn name(&self) -> &str { "GS-Had-i4-CAM" }
+    fn bytes_per_row(&self) -> usize { 0 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz17::rabitq_compat::OrthogonalMatrix;
+        let n = rows.len();
+        if n == 0 { return vec![]; }
+        let n_cols = rows[0].len();
+        let padded = RaBitQCodec::next_pow2(n_cols);
+        let rot = OrthogonalMatrix::hadamard(padded);
+
+        let encoded: Vec<Vec<i8>> = rows.iter().map(|row| {
+            let norm: f64 = row.iter().map(|x| (*x as f64) * (*x as f64)).sum::<f64>().sqrt();
+            let inv_norm = if norm > 1e-15 { 1.0 / norm } else { 0.0 };
+            let mut unit: Vec<f32> = row.iter().map(|x| *x * inv_norm as f32).collect();
+            unit.resize(padded, 0.0);
+            let rotated = rot.rotate(&unit);
+            let max_abs = rotated.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
+            let scale = if max_abs > 1e-12 { 7.0 / max_abs } else { 0.0 };
+            rotated.iter().take(n_cols)
+                .map(|c| (c * scale).round().clamp(-7.0, 7.0) as i8).collect()
+        }).collect();
+
+        let max_manhattan = (n_cols * 14) as f64;
+        let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+        for i in 0..n {
+            for j in (i + 1)..n {
+                let manhattan: i32 = encoded[i].iter().zip(encoded[j].iter())
+                    .map(|(a, b)| (*a as i32 - *b as i32).abs()).sum();
+                scores.push(1.0 - manhattan as f64 / max_manhattan);
+            }
+        }
+        scores
+    }
+}
+
+/// E1b: Gain-shape Hadamard i4 CAM with shared global scale.
+/// One scale for all rows (the global max), not per-row.
+/// Codes are directly comparable — same scale everywhere.
+struct SharedScaleHadCam;
+impl CodecCandidate for SharedScaleHadCam {
+    fn name(&self) -> &str { "SS-Had-i4-CAM" }
+    fn bytes_per_row(&self) -> usize { 0 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz17::rabitq_compat::OrthogonalMatrix;
+        let n = rows.len();
+        if n == 0 { return vec![]; }
+        let n_cols = rows[0].len();
+        let padded = RaBitQCodec::next_pow2(n_cols);
+        let rot = OrthogonalMatrix::hadamard(padded);
+
+        // First pass: rotate all, find global max
+        let rotated_rows: Vec<Vec<f32>> = rows.iter().map(|row| {
+            let mut padded_row = row.to_vec();
+            padded_row.resize(padded, 0.0);
+            let r = rot.rotate(&padded_row);
+            r[..n_cols].to_vec()
+        }).collect();
+
+        let global_max = rotated_rows.iter()
+            .flat_map(|r| r.iter())
+            .map(|x| x.abs())
+            .fold(0.0f32, f32::max);
+        let scale = if global_max > 1e-12 { 7.0 / global_max } else { 0.0 };
+
+        let codes: Vec<Vec<i8>> = rotated_rows.iter().map(|r| {
+            r.iter().map(|c| (c * scale).round().clamp(-7.0, 7.0) as i8).collect()
+        }).collect();
+
+        let max_manhattan = (n_cols * 14) as f64;
+        let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+        for i in 0..n {
+            for j in (i + 1)..n {
+                let manhattan: i32 = codes[i].iter().zip(codes[j].iter())
+                    .map(|(a, b)| (*a as i32 - *b as i32).abs()).sum();
+                scores.push(1.0 - manhattan as f64 / max_manhattan);
+            }
+        }
+        scores
+    }
+}
+
+/// E2: Hadamard i4 + i2 residue cascade.
+/// First pass: Had-i4×D reconstruction (ICC 0.993).
+/// Second pass: residual from i4 → Had rotate again → i2 full-rank.
+/// Tests whether the last 0.7% gap is closeable.
+struct HadI4PlusI2Residue;
+impl CodecCandidate for HadI4PlusI2Residue {
+    fn name(&self) -> &str { "Had-i4+i2res" }
+    fn bytes_per_row(&self) -> usize { 0 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz17::rabitq_compat::OrthogonalMatrix;
+        let n = rows.len();
+        if n == 0 { return vec![]; }
+        let n_cols = rows[0].len();
+        let padded = RaBitQCodec::next_pow2(n_cols);
+        let rot = OrthogonalMatrix::hadamard(padded);
+
+        // CLAM centroids
+        let centroids = F32ClamCentroid::clam_sample(rows, 64.min(n));
+
+        let recon_rows: Vec<Vec<f32>> = rows.iter().map(|row| {
+            // Centroid assignment
+            let mut best = 0; let mut best_d = f32::MAX;
+            for (ci, c) in centroids.iter().enumerate() {
+                let d: f32 = row.iter().zip(c.iter()).map(|(a, b)| (a - b) * (a - b)).sum();
+                if d < best_d { best_d = d; best = ci; }
+            }
+
+            // Pass 1: i4 on residual from centroid
+            let residual: Vec<f32> = row.iter().zip(centroids[best].iter()).map(|(a, b)| a - b).collect();
+            let mut pad_res = residual.clone();
+            pad_res.resize(padded, 0.0);
+            let rotated = rot.rotate(&pad_res);
+            let max1 = rotated.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
+            let s1 = if max1 > 1e-12 { 7.0 / max1 } else { 0.0 };
+            let q1: Vec<i8> = rotated.iter().take(n_cols)
+                .map(|c| (c * s1).round().clamp(-7.0, 7.0) as i8).collect();
+            let ds1 = if s1 > 0.0 { max1 / 7.0 } else { 0.0 };
+
+            // Reconstruct pass 1
+            let mut full1 = vec![0.0f32; padded];
+            for (k, &q) in q1.iter().enumerate() { full1[k] = q as f32 * ds1; }
+            let recon1 = rot.rotate(&full1);
+
+            // Pass 2: i2 on residual from pass 1
+            let residual2: Vec<f32> = residual.iter().zip(recon1.iter().take(n_cols))
+                .map(|(orig, r1)| orig - r1).collect();
+            let mut pad_res2 = residual2;
+            pad_res2.resize(padded, 0.0);
+            let rotated2 = rot.rotate(&pad_res2);
+            let max2 = rotated2.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
+            let s2 = if max2 > 1e-12 { 1.0 / max2 } else { 0.0 };
+            let q2: Vec<i8> = rotated2.iter().take(n_cols)
+                .map(|c| (c * s2).round().clamp(-1.0, 1.0) as i8).collect();
+            let ds2 = if s2 > 0.0 { max2 / 1.0 } else { 0.0 };
+
+            // Reconstruct pass 2
+            let mut full2 = vec![0.0f32; padded];
+            for (k, &q) in q2.iter().enumerate() { full2[k] = q as f32 * ds2; }
+            let recon2 = rot.rotate(&full2);
+
+            // Final: centroid + pass1 + pass2
+            centroids[best].iter()
+                .zip(recon1.iter())
+                .zip(recon2.iter())
+                .map(|((c, r1), r2)| c + r1 + r2)
+                .collect()
+        }).collect();
+
+        let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+        for i in 0..n {
+            for j in (i + 1)..n {
+                scores.push(cosine(&recon_rows[i], &recon_rows[j]));
+            }
+        }
+        scores
+    }
+}
+
+/// E3: Fisher z on DISTANCE, not coefficients.
+/// Encode with Had-i4×D (linear). Reconstruct rows. Compute pairwise cosine.
+/// Apply Fisher z: z = arctanh(cos) to the cosine scores.
+/// This tests perceptually uniform distance scaling.
+struct FisherZOnDistance;
+impl CodecCandidate for FisherZOnDistance {
+    fn name(&self) -> &str { "Had-i4+FzDist" }
+    fn bytes_per_row(&self) -> usize { 0 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz17::rabitq_compat::OrthogonalMatrix;
+        let n = rows.len();
+        if n == 0 { return vec![]; }
+        let n_cols = rows[0].len();
+        let padded = RaBitQCodec::next_pow2(n_cols);
+        let rot = OrthogonalMatrix::hadamard(padded);
+        let centroids = F32ClamCentroid::clam_sample(rows, 64.min(n));
+
+        // Had-i4 reconstruction (same as Had-i4×D-R)
+        let recon_rows: Vec<Vec<f32>> = rows.iter().map(|row| {
+            let mut best = 0; let mut best_d = f32::MAX;
+            for (ci, c) in centroids.iter().enumerate() {
+                let d: f32 = row.iter().zip(c.iter()).map(|(a, b)| (a - b) * (a - b)).sum();
+                if d < best_d { best_d = d; best = ci; }
+            }
+            let residual: Vec<f32> = row.iter().zip(centroids[best].iter()).map(|(a, b)| a - b).collect();
+            let mut pad_res = residual;
+            pad_res.resize(padded, 0.0);
+            let rotated = rot.rotate(&pad_res);
+            let max_abs = rotated.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
+            let scale = if max_abs > 1e-12 { 7.0 / max_abs } else { 0.0 };
+            let codes: Vec<i8> = rotated.iter().take(n_cols)
+                .map(|c| (c * scale).round().clamp(-7.0, 7.0) as i8).collect();
+            let ds = if scale > 0.0 { max_abs / 7.0 } else { 0.0 };
+            let mut full = vec![0.0f32; padded];
+            for (k, &q) in codes.iter().enumerate() { full[k] = q as f32 * ds; }
+            let recon = rot.rotate(&full);
+            centroids[best].iter().zip(recon.iter()).map(|(c, r)| c + r).collect()
+        }).collect();
+
+        // Pairwise cosine → Fisher z transform
+        let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+        for i in 0..n {
+            for j in (i + 1)..n {
+                let cos = cosine(&recon_rows[i], &recon_rows[j]);
+                let clamped = cos.clamp(-0.999, 0.999);
+                let z = 0.5 * ((1.0 + clamped) / (1.0 - clamped)).ln();
+                scores.push(z);
+            }
+        }
+        // Also transform ground truth the same way for fair comparison
+        // (the bench compares against raw cosine GT, so we return z-scores
+        // and the bench will compare z(codec) vs cosine(GT) — the ICC will
+        // tell us if z-transform preserves the VALUE agreement)
+        scores
+    }
+}
+
+/// E5: Hadamard-sorted Matryoshka.
+/// Hadamard rotate training rows, measure variance per coefficient,
+/// sort by descending variance, allocate i16/i8/i4/i2 bands.
+/// Matryoshka quality with Hadamard determinism.
+struct HadSortedMatryoshka;
+impl CodecCandidate for HadSortedMatryoshka {
+    fn name(&self) -> &str { "Had-Matryoshka" }
+    fn bytes_per_row(&self) -> usize { 0 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz17::rabitq_compat::OrthogonalMatrix;
+        let n = rows.len();
+        if n == 0 { return vec![]; }
+        let n_cols = rows[0].len();
+        let padded = RaBitQCodec::next_pow2(n_cols);
+        let rot = OrthogonalMatrix::hadamard(padded);
+        let centroids = F32ClamCentroid::clam_sample(rows, 64.min(n));
+
+        // Rotate all residuals, measure variance per coefficient index
+        let residuals: Vec<Vec<f32>> = rows.iter().map(|row| {
+            let mut best = 0; let mut best_d = f32::MAX;
+            for (ci, c) in centroids.iter().enumerate() {
+                let d: f32 = row.iter().zip(c.iter()).map(|(a, b)| (a - b) * (a - b)).sum();
+                if d < best_d { best_d = d; best = ci; }
+            }
+            let residual: Vec<f32> = row.iter().zip(centroids[best].iter()).map(|(a, b)| a - b).collect();
+            let mut pad = residual;
+            pad.resize(padded, 0.0);
+            rot.rotate(&pad)
+        }).collect();
+
+        // Variance per coefficient (across all rows)
+        let mut variances = vec![0.0f64; padded];
+        for k in 0..padded {
+            let mean: f64 = residuals.iter().map(|r| r[k] as f64).sum::<f64>() / n as f64;
+            variances[k] = residuals.iter()
+                .map(|r| { let d = r[k] as f64 - mean; d * d })
+                .sum::<f64>() / n as f64;
+        }
+
+        // Sort indices by descending variance
+        let mut sorted_idx: Vec<usize> = (0..padded).collect();
+        sorted_idx.sort_by(|a, b| variances[*b].partial_cmp(&variances[*a]).unwrap());
+
+        // Matryoshka bands on variance-sorted indices
+        let d = n_cols.min(padded);
+        let band_i16 = 64.min(d);
+        let band_i8 = 192.min(d);
+        let band_i4 = 384.min(d);
+
+        let recon_rows: Vec<Vec<f32>> = rows.iter().enumerate().map(|(ri, row)| {
+            let ref rotated = residuals[ri];
+            let mut best = 0; let mut best_d = f32::MAX;
+            for (ci, c) in centroids.iter().enumerate() {
+                let d: f32 = row.iter().zip(c.iter()).map(|(a, b)| (a - b) * (a - b)).sum();
+                if d < best_d { best_d = d; best = ci; }
+            }
+
+            // Quantize per band (on sorted indices)
+            let mut recon_rotated = vec![0.0f32; padded];
+            for (band_pos, &orig_idx) in sorted_idx.iter().take(d).enumerate() {
+                let val = rotated[orig_idx];
+                let (max_q, _bits): (f32, u8) = if band_pos < band_i16 {
+                    (32767.0, 16)
+                } else if band_pos < band_i8 {
+                    (127.0, 8)
+                } else if band_pos < band_i4 {
+                    (7.0, 4)
+                } else {
+                    (1.0, 2)
+                };
+                // Per-coefficient quantize (simplified: use global scale per band)
+                let q = val.clamp(-max_q, max_q).round();
+                recon_rotated[orig_idx] = q;
+            }
+
+            // Need per-band scales for proper quantization
+            // Compute band-wise max for scaling
+            let mut band_maxes = [0.0f32; 4];
+            for (band_pos, &orig_idx) in sorted_idx.iter().take(d).enumerate() {
+                let abs_val = rotated[orig_idx].abs();
+                let band = if band_pos < band_i16 { 0 }
+                    else if band_pos < band_i8 { 1 }
+                    else if band_pos < band_i4 { 2 }
+                    else { 3 };
+                if abs_val > band_maxes[band] { band_maxes[band] = abs_val; }
+            }
+
+            let mut recon_rot = vec![0.0f32; padded];
+            for (band_pos, &orig_idx) in sorted_idx.iter().take(d).enumerate() {
+                let val = rotated[orig_idx];
+                let (max_q, band): (f32, usize) = if band_pos < band_i16 { (32767.0, 0) }
+                    else if band_pos < band_i8 { (127.0, 1) }
+                    else if band_pos < band_i4 { (7.0, 2) }
+                    else { (1.0, 3) };
+                let bmax = band_maxes[band];
+                let scale = if bmax > 1e-12 { max_q / bmax } else { 0.0 };
+                let q = (val * scale).round().clamp(-max_q, max_q);
+                let dscale = if scale > 0.0 { bmax / max_q } else { 0.0 };
+                recon_rot[orig_idx] = q * dscale;
+            }
+
+            let recon = rot.rotate(&recon_rot);
+            centroids[best].iter().zip(recon.iter()).map(|(c, r)| c + r).collect()
+        }).collect();
+
+        let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+        for i in 0..n {
+            for j in (i + 1)..n {
+                scores.push(cosine(&recon_rows[i], &recon_rows[j]));
             }
         }
         scores
@@ -470,6 +939,311 @@ impl CodecCandidate for I8HybridCodec {
             }
         }
         scores
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// Parametric codec grid — all combinations of basis × quant × mode × rank
+// ═════════════════════════════════════════════════════════════════════
+
+const EULER_GAMMA: f64 = 0.5772156649015329;
+const _PHI: f64 = 1.618033988749895;
+
+#[derive(Clone, Copy, PartialEq)]
+enum PBasis { Svd, Had }
+#[derive(Clone, Copy, PartialEq)]
+enum PQuant { I2, I4, I8, GammaPhase, CircleOfFifths, FisherZ }
+#[derive(Clone, Copy, PartialEq)]
+enum PMode { Recon, Cam }
+#[derive(Clone, Copy, PartialEq)]
+enum PRank { N16, Full }
+
+struct ParametricCodec {
+    basis: PBasis,
+    quant: PQuant,
+    mode: PMode,
+    rank: PRank,
+    name_buf: String,
+}
+
+impl ParametricCodec {
+    fn new(basis: PBasis, quant: PQuant, mode: PMode, rank: PRank) -> Self {
+        let b = match basis { PBasis::Svd => "SVD", PBasis::Had => "Had" };
+        let q = match quant {
+            PQuant::I2 => "i2", PQuant::I4 => "i4", PQuant::I8 => "i8",
+            PQuant::GammaPhase => "γφ", PQuant::CircleOfFifths => "Q5",
+            PQuant::FisherZ => "Fz",
+        };
+        let m = match mode { PMode::Recon => "R", PMode::Cam => "C" };
+        let r = match rank { PRank::N16 => "16", PRank::Full => "D" };
+        ParametricCodec {
+            basis, quant, mode, rank,
+            name_buf: format!("{}-{}×{}-{}", b, q, r, m),
+        }
+    }
+
+    fn max_val(&self) -> i32 {
+        match self.quant {
+            PQuant::I2 => 1,
+            PQuant::I4 | PQuant::GammaPhase | PQuant::CircleOfFifths | PQuant::FisherZ => 7,
+            PQuant::I8 => 127,
+        }
+    }
+
+    fn all_variants() -> Vec<ParametricCodec> {
+        let bases = [PBasis::Svd, PBasis::Had];
+        let quants = [PQuant::I2, PQuant::I4, PQuant::I8, PQuant::GammaPhase, PQuant::CircleOfFifths, PQuant::FisherZ];
+        let modes = [PMode::Recon, PMode::Cam];
+        let ranks = [PRank::N16, PRank::Full];
+        let mut out = Vec::new();
+        for &b in &bases {
+            for &q in &quants {
+                for &m in &modes {
+                    for &r in &ranks {
+                        out.push(ParametricCodec::new(b, q, m, r));
+                    }
+                }
+            }
+        }
+        out
+    }
+}
+
+impl CodecCandidate for ParametricCodec {
+    fn name(&self) -> &str { &self.name_buf }
+    fn bytes_per_row(&self) -> usize { 0 }
+
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::matryoshka::SvdBasis;
+        use bgz17::rabitq_compat::OrthogonalMatrix;
+
+        let n = rows.len();
+        if n == 0 { return vec![]; }
+        let n_cols = rows[0].len();
+        let max_val = self.max_val();
+
+        let n_comp = match self.rank {
+            PRank::N16 => 16.min(n_cols),
+            PRank::Full => n_cols,
+        };
+
+        let svd_basis = if self.basis == PBasis::Svd {
+            Some(SvdBasis::build("p", rows, n_comp))
+        } else { None };
+
+        let padded_dim = RaBitQCodec::next_pow2(n_cols);
+        let had_matrix = if self.basis == PBasis::Had {
+            Some(OrthogonalMatrix::hadamard(padded_dim))
+        } else { None };
+
+        let actual_d = match &svd_basis {
+            Some(b) => b.n_components,
+            None => n_comp.min(padded_dim),
+        };
+
+        // γ-pressure table: pressure[k] = γ^(k/D), decays from 1.0 to γ
+        let pressures: Vec<f32> = if self.quant == PQuant::GammaPhase {
+            let d = actual_d.max(1) as f64;
+            (0..actual_d).map(|k| EULER_GAMMA.powf(k as f64 / d) as f32).collect()
+        } else { vec![] };
+
+        // Circle-of-fifths: 12 semitone bins with φ-spaced phase progression.
+        // Quintenzirkel maps coefficient index to a position on the circle of
+        // fifths (interval of 7 semitones mod 12). The phase accumulates as
+        // k*7 mod 12, creating a non-sequential but musically coherent ordering.
+        // Magnitude is quantized to i4, phase bin encodes relative position.
+        let q5_phases: Vec<f32> = if self.quant == PQuant::CircleOfFifths {
+            (0..actual_d).map(|k| {
+                let semitone = (k * 7) % 12;
+                let phase = semitone as f64 * std::f64::consts::TAU / 12.0;
+                phase.cos() as f32
+            }).collect()
+        } else { vec![] };
+
+
+        let use_centroid = self.mode == PMode::Recon;
+        let centroids = if use_centroid {
+            F32ClamCentroid::clam_sample(rows, 64.min(n))
+        } else { vec![] };
+
+        // Encode: project + quantize
+        // Tuple: (centroid_idx, codes, scale1, scale2)
+        // scale2 only used by FisherZ (z_max)
+        let encoded: Vec<(usize, Vec<i8>, f32, f32)> = rows.iter().map(|row| {
+            let (ci, to_project) = if use_centroid {
+                let mut best = 0; let mut best_d = f32::MAX;
+                for (ci, c) in centroids.iter().enumerate() {
+                    let d: f32 = row.iter().zip(c.iter()).map(|(a, b)| (a - b) * (a - b)).sum();
+                    if d < best_d { best_d = d; best = ci; }
+                }
+                let res: Vec<f32> = row.iter().zip(centroids[best].iter()).map(|(a, b)| a - b).collect();
+                (best, res)
+            } else {
+                (0, row.clone())
+            };
+
+            let coeffs: Vec<f32> = match self.basis {
+                PBasis::Svd => {
+                    let c = svd_basis.as_ref().unwrap().project(&to_project);
+                    c[..actual_d.min(c.len())].to_vec()
+                }
+                PBasis::Had => {
+                    let mut padded = to_project.clone();
+                    padded.resize(padded_dim, 0.0);
+                    let rotated = had_matrix.as_ref().unwrap().rotate(&padded);
+                    rotated[..actual_d].to_vec()
+                }
+            };
+
+            match self.quant {
+                PQuant::GammaPhase => {
+                    let scaled: Vec<f32> = coeffs.iter().zip(pressures.iter())
+                        .map(|(c, p)| if *p > 1e-12 { c / p } else { 0.0 }).collect();
+                    let max_abs = scaled.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
+                    let inv = if max_abs > 1e-12 { 7.0 / max_abs } else { 0.0 };
+                    let codes: Vec<i8> = scaled.iter()
+                        .map(|c| (c * inv).round().clamp(-7.0, 7.0) as i8).collect();
+                    (ci, codes, if inv > 0.0 { max_abs / 7.0 } else { 0.0 }, 0.0)
+                }
+                PQuant::CircleOfFifths => {
+                    let modulated: Vec<f32> = coeffs.iter().enumerate().map(|(k, c)| {
+                        if k < q5_phases.len() {
+                            let phase_weight = (1.0 + q5_phases[k].abs()) * 0.5 + 0.5;
+                            c / phase_weight
+                        } else { *c }
+                    }).collect();
+                    let max_abs = modulated.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
+                    let inv = if max_abs > 1e-12 { 7.0 / max_abs } else { 0.0 };
+                    let codes: Vec<i8> = modulated.iter()
+                        .map(|c| (c * inv).round().clamp(-7.0, 7.0) as i8).collect();
+                    (ci, codes, if inv > 0.0 { max_abs / 7.0 } else { 0.0 }, 0.0)
+                }
+                PQuant::FisherZ => {
+                    // Normalize to [-1,1], arctanh to z-space, quantize there.
+                    // arctanh stretches tails → more i4 levels near ±1.
+                    // tanh on decode guarantees valid range.
+                    let max_abs = coeffs.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
+                    let norm = if max_abs > 1e-12 { 1.0 / max_abs } else { 0.0 };
+                    let z_vals: Vec<f64> = coeffs.iter().map(|c| {
+                        let r = (*c * norm) as f64;
+                        let clamped = r.clamp(-0.999, 0.999);
+                        0.5 * ((1.0 + clamped) / (1.0 - clamped)).ln() // arctanh
+                    }).collect();
+                    let z_max = z_vals.iter().map(|z| z.abs()).fold(0.0f64, f64::max);
+                    let z_inv = if z_max > 1e-12 { 7.0 / z_max } else { 0.0 };
+                    let codes: Vec<i8> = z_vals.iter()
+                        .map(|z| (z * z_inv).round().clamp(-7.0, 7.0) as i8).collect();
+                    (ci, codes, max_abs, z_max as f32)
+                }
+                _ => {
+                    let max_abs = coeffs.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
+                    let mv = max_val as f32;
+                    let inv = if max_abs > 1e-12 { mv / max_abs } else { 0.0 };
+                    let codes: Vec<i8> = coeffs.iter()
+                        .map(|c| (c * inv).round().clamp(-mv, mv) as i8).collect();
+                    (ci, codes, if inv > 0.0 { max_abs / mv } else { 0.0 }, 0.0)
+                }
+            }
+        }).collect();
+
+        match self.mode {
+            PMode::Recon => {
+                let recon_rows: Vec<Vec<f32>> = (0..n).map(|i| {
+                    let (ci, ref codes, scale, scale2) = encoded[i];
+                    let dequant: Vec<f32> = match self.quant {
+                        PQuant::GammaPhase => {
+                            codes.iter().zip(pressures.iter())
+                                .map(|(&q, &p)| q as f32 * scale * p).collect()
+                        }
+                        PQuant::CircleOfFifths => {
+                            codes.iter().enumerate().map(|(k, &q)| {
+                                let phase_weight = if k < q5_phases.len() {
+                                    (1.0 + q5_phases[k].abs()) * 0.5 + 0.5
+                                } else { 1.0 };
+                                q as f32 * scale * phase_weight
+                            }).collect()
+                        }
+                        PQuant::FisherZ => {
+                            // Reverse: i4 → z-space → tanh → [-1,1] → denormalize
+                            let z_max = scale2 as f64;
+                            let z_scale = if z_max > 1e-12 { z_max / 7.0 } else { 0.0 };
+                            codes.iter().map(|&q| {
+                                let z = q as f64 * z_scale;
+                                let r = z.tanh(); // back to [-1,1]
+                                (r as f32) * scale // denormalize
+                            }).collect()
+                        }
+                        _ => codes.iter().map(|&q| q as f32 * scale).collect(),
+                    };
+                    let res = match self.basis {
+                        PBasis::Svd => svd_basis.as_ref().unwrap().reconstruct(&dequant),
+                        PBasis::Had => {
+                            let mut full = vec![0.0f32; padded_dim];
+                            for (k, &v) in dequant.iter().enumerate() { full[k] = v; }
+                            let row = had_matrix.as_ref().unwrap().rotate(&full);
+                            row[..n_cols].to_vec()
+                        }
+                    };
+                    if use_centroid {
+                        centroids[ci].iter().zip(res.iter()).map(|(c, r)| c + r).collect()
+                    } else { res }
+                }).collect();
+
+                let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+                for i in 0..n {
+                    for j in (i + 1)..n {
+                        scores.push(cosine(&recon_rows[i], &recon_rows[j]));
+                    }
+                }
+                scores
+            }
+            PMode::Cam => {
+                let max_dist: f64 = match self.quant {
+                    PQuant::GammaPhase => {
+                        pressures.iter().map(|p| 14.0 * *p as f64).sum()
+                    }
+                    PQuant::CircleOfFifths => {
+                        (0..actual_d).map(|k| {
+                            let pw = if k < q5_phases.len() {
+                                (1.0 + q5_phases[k].abs() as f64) * 0.5 + 0.5
+                            } else { 1.0 };
+                            14.0 * pw
+                        }).sum()
+                    }
+                    _ => (actual_d as f64) * (2 * max_val) as f64,
+                };
+
+                let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+                for i in 0..n {
+                    for j in (i + 1)..n {
+                        let dist: f64 = match self.quant {
+                            PQuant::GammaPhase => {
+                                encoded[i].1.iter().zip(encoded[j].1.iter())
+                                    .zip(pressures.iter())
+                                    .map(|((a, b), p)| (*a as f64 - *b as f64).abs() * *p as f64)
+                                    .sum()
+                            }
+                            PQuant::CircleOfFifths => {
+                                encoded[i].1.iter().zip(encoded[j].1.iter()).enumerate()
+                                    .map(|(k, (a, b))| {
+                                        let pw = if k < q5_phases.len() {
+                                            (1.0 + q5_phases[k].abs() as f64) * 0.5 + 0.5
+                                        } else { 1.0 };
+                                        (*a as f64 - *b as f64).abs() * pw
+                                    }).sum()
+                            }
+                            _ => {
+                                encoded[i].1.iter().zip(encoded[j].1.iter())
+                                    .map(|(a, b)| (*a as i32 - *b as i32).abs() as f64)
+                                    .sum()
+                            }
+                        };
+                        scores.push(1.0 - dist / max_dist.max(1e-12));
+                    }
+                }
+                scores
+            }
+        }
     }
 }
 
@@ -572,6 +1346,7 @@ fn main() {
     println!();
     println!("Model: `{}`", model_path);
     println!("Sample: {} rows per population, {} metrics per codec", N_SAMPLE, 10);
+    println!("Grid: 19 named + 48 parametric = 67 codecs");
 
     // Populations from the model
     let populations: Vec<(&str, &str)> = vec![
@@ -600,19 +1375,31 @@ fn main() {
 
         let gt = pairwise_cosines(&rows);
 
-        let codecs: Vec<Box<dyn CodecCandidate>> = vec![
+        let mut codecs: Vec<Box<dyn CodecCandidate>> = vec![
             Box::new(Passthrough),
             Box::new(Base17Sig),
+            Box::new(Base17FzSig),
             Box::new(DirectI8),
             Box::new(SpiralK8),
             Box::new(RaBitQCodec { dim: n_cols }),
-            // Row-level codecs (reconstruct ROWS, then score from reconstruction)
             Box::new(F32ClamCentroid),
             Box::new(F32ClamSlotL),
             Box::new(F32ClamLeafI4),
             Box::new(F32ClamLeafMixed),
+            Box::new(F32ClamFullI4),
+            Box::new(BitpackedCamI4),
+            Box::new(MatryoshkaCodec),
+            Box::new(GainShapeHadCam),
+            Box::new(SharedScaleHadCam),
+            Box::new(HadI4PlusI2Residue),
+            Box::new(FisherZOnDistance),
+            Box::new(HadSortedMatryoshka),
             Box::new(I8HybridCodec),
         ];
+        // Parametric grid: 2 bases × 5 quants × 2 modes × 2 ranks = 40 variants
+        for p in ParametricCodec::all_variants() {
+            codecs.push(Box::new(p));
+        }
 
         let results = run_bench(&codecs, &rows, &gt);
         print_table(pop_name, &results);

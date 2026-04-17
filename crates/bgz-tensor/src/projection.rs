@@ -197,6 +197,144 @@ impl Base17 {
     }
 }
 
+// ─── Fisher z warped Base17 ──────────────────────────────────────────────────
+
+/// Base17 with Fisher z (arctanh/tanh) non-linear warp on each dimension.
+///
+/// Same golden-step folding as Base17, but the per-dimension mean is passed
+/// through arctanh before i16 quantization. This stretches the tails (values
+/// near ±1) and compresses the middle — allocating more quantization levels
+/// where cosine discrimination matters most.
+///
+/// Decode: i16 → dequant → tanh → original-scale mean.
+/// The tanh guarantees reconstructed values stay in valid range.
+///
+/// 34 bytes, same wire format as Base17.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Base17Fz {
+    pub dims: [i16; BASE_DIM],
+}
+
+/// Scale for Fisher z: arctanh maps [-1,1) to (-∞,+∞).
+/// We clamp input to [-0.999, 0.999] → arctanh range ≈ [-3.8, 3.8].
+/// FZ_SCALE maps this to i16 range.
+const FZ_SCALE: f64 = 8000.0;
+
+#[inline]
+fn arctanh_clamp(x: f64) -> f64 {
+    let c = x.clamp(-0.999, 0.999);
+    0.5 * ((1.0 + c) / (1.0 - c)).ln()
+}
+
+impl Base17Fz {
+    pub const BYTE_SIZE: usize = BASE_DIM * 2;
+
+    /// Project f32 weights with Fisher z warp.
+    ///
+    /// Pipeline: golden-fold mean → normalize → arctanh → i16 quantize.
+    pub fn from_f32(weights: &[f32]) -> Self {
+        let n = weights.len();
+        let n_octaves = (n + BASE_DIM - 1) / BASE_DIM;
+        let mut sum = [0f64; BASE_DIM];
+        let mut count = [0u32; BASE_DIM];
+
+        for octave in 0..n_octaves {
+            for bi in 0..BASE_DIM {
+                let dim = octave * BASE_DIM + GOLDEN_POS[bi] as usize;
+                if dim < n {
+                    sum[bi] += weights[dim] as f64;
+                    count[bi] += 1;
+                }
+            }
+        }
+
+        // Compute means, find max for normalization
+        let mut means = [0.0f64; BASE_DIM];
+        for d in 0..BASE_DIM {
+            if count[d] > 0 {
+                means[d] = sum[d] / count[d] as f64;
+            }
+        }
+        let max_abs = means.iter().map(|m| m.abs()).fold(0.0f64, f64::max);
+        let norm = if max_abs > 1e-15 { 1.0 / max_abs } else { 0.0 };
+
+        let mut dims = [0i16; BASE_DIM];
+        for d in 0..BASE_DIM {
+            let normalized = means[d] * norm; // [-1, 1]
+            let z = arctanh_clamp(normalized);
+            dims[d] = (z * FZ_SCALE).round().clamp(-32768.0, 32767.0) as i16;
+        }
+        Base17Fz { dims }
+    }
+
+    /// Decode: i16 → z-space → tanh → normalized mean.
+    /// Returns values in approximately [-1, 1] (tanh output).
+    /// Caller must denormalize if original scale is needed.
+    pub fn to_f32(&self, n_dims: usize) -> Vec<f32> {
+        let n_octaves = (n_dims + BASE_DIM - 1) / BASE_DIM;
+        let mut output = vec![0.0f32; n_dims];
+        for octave in 0..n_octaves {
+            for bi in 0..BASE_DIM {
+                let dim = octave * BASE_DIM + GOLDEN_POS[bi] as usize;
+                if dim < n_dims {
+                    let z = self.dims[bi] as f64 / FZ_SCALE;
+                    output[dim] = z.tanh() as f32;
+                }
+            }
+        }
+        output
+    }
+
+    /// Cosine similarity between two Base17Fz vectors.
+    /// Operates directly on z-space codes (i16 values).
+    /// Since arctanh is monotonic, cosine on z-codes preserves the ordering
+    /// from original space — and z-space distances are perceptually uniform.
+    pub fn cosine(&self, other: &Base17Fz) -> f64 {
+        let mut dot = 0.0f64;
+        let mut norm_a = 0.0f64;
+        let mut norm_b = 0.0f64;
+        for i in 0..BASE_DIM {
+            let a = self.dims[i] as f64;
+            let b = other.dims[i] as f64;
+            dot += a * b;
+            norm_a += a * a;
+            norm_b += b * b;
+        }
+        let denom = (norm_a * norm_b).sqrt();
+        if denom < 1e-12 { 0.0 } else { dot / denom }
+    }
+
+    /// L1 distance in z-space.
+    /// Equal z-differences = equal discriminability (Fisher's insight).
+    #[inline]
+    pub fn l1(&self, other: &Base17Fz) -> u32 {
+        let mut d = 0u32;
+        for i in 0..BASE_DIM {
+            d += (self.dims[i] as i32 - other.dims[i] as i32).unsigned_abs();
+        }
+        d
+    }
+
+    pub fn to_bytes(&self) -> [u8; Self::BYTE_SIZE] {
+        let mut buf = [0u8; Self::BYTE_SIZE];
+        for i in 0..BASE_DIM {
+            let b = self.dims[i].to_le_bytes();
+            buf[i * 2] = b[0];
+            buf[i * 2 + 1] = b[1];
+        }
+        buf
+    }
+
+    pub fn from_bytes(buf: &[u8]) -> Self {
+        assert!(buf.len() >= Self::BYTE_SIZE);
+        let mut dims = [0i16; BASE_DIM];
+        for i in 0..BASE_DIM {
+            dims[i] = i16::from_le_bytes([buf[i * 2], buf[i * 2 + 1]]);
+        }
+        Base17Fz { dims }
+    }
+}
+
 // ─── Weight Matrix Projection ────────────────────────────────────────────────
 
 /// Project an entire weight matrix (rows × cols) into Base17 space.
@@ -428,6 +566,36 @@ mod tests {
         }
         let c = a.cosine(&b);
         assert!(c < -0.99, "opposite vectors should have cosine near -1: {}", c);
+    }
+
+    #[test]
+    fn base17fz_self_cosine_one() {
+        let a = Base17Fz::from_f32(&[1.0, -2.0, 3.0, 0.5, -0.8, 1.2]);
+        let c = a.cosine(&a);
+        assert!((c - 1.0).abs() < 1e-10, "self-cosine = {}", c);
+    }
+
+    #[test]
+    fn base17fz_preserves_ranking() {
+        let a = Base17Fz::from_f32(&[1.0, 2.0, 3.0, -1.0, -2.0]);
+        let b = Base17Fz::from_f32(&[1.1, 2.1, 3.1, -0.9, -1.9]); // similar to a
+        let c = Base17Fz::from_f32(&[-5.0, -5.0, -5.0, 5.0, 5.0]); // far from a
+        assert!(a.l1(&b) < a.l1(&c), "closer vector should have smaller L1");
+    }
+
+    #[test]
+    fn base17fz_nonlinear_quantization() {
+        // Verify arctanh warp produces different codes than linear Base17
+        // for the same input — confirming the non-linear path is active.
+        let weights = vec![0.8, -0.3, 0.95, -0.1, 0.6, -0.7, 0.2, 0.4, -0.9];
+        let b17 = Base17::from_f32(&weights);
+        let fz = Base17Fz::from_f32(&weights);
+        // Dims should differ (arctanh warps the values)
+        let differ = (0..BASE_DIM).any(|i| b17.dims[i] != fz.dims[i]);
+        assert!(differ, "Fz encoding should differ from linear Base17");
+        // Both should be nonzero
+        let fz_norm: i64 = fz.dims.iter().map(|d| (*d as i64).abs()).sum();
+        assert!(fz_norm > 0, "Fz should produce nonzero codes");
     }
 
     #[test]
