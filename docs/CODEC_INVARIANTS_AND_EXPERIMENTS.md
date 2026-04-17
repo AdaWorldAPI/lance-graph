@@ -60,7 +60,67 @@ Shared per group:  curve anchors (K × 17 × 2 B BF16), gamma profile (28 B)
 
 Reconstruction = curve evaluation at the ticket's parameters. Not
 `centroid + residual`. Not tile-and-average. Not tree quantisation.
-**`highheelbgz::rehydrate::SpiralEncoding` implements this.**
+**`highheelbgz::rehydrate::SpiralEncoding` implements this — useful for
+token signature retrieval, but signature-only (not dense reconstruction).**
+
+### I8. Location + orthogonal LEAF hybrid — the layered synthesis
+
+The two framings from I7 don't compete — they layer at **different scales**
+of the same row:
+
+```
+HEEL (2 bit)    BASIN        coarse location (Q/K, V, Gate, FFN)
+HIP  (4 bit)    FAMILY        fine location within basin (16 sub-clusters)
+LEAF (8 × i8)   JL-projected residual on shared random Rademacher basis
+                = PolarQuant on (row − centroid[HEEL, HIP])
+```
+
+**Per-row cost: 1 B address + 8 B leaf = 9 B/row.**
+
+Why this works where flat single-centroid failed (#183, #184 A3/A6):
+
+- Within any one (HEEL × HIP) bin, residuals are **small-magnitude
+  corrections** to a bin-local centroid.
+- Small residuals are NOT near-orthogonal the way raw weight rows are —
+  they live in a narrower cone around zero.
+- **That's exactly the regime where JL + PolarQuant preserves inner
+  products** (I7 / Lindenstrauss concentration-of-measure).
+
+The location framing does coarse directory lookup (what tree quantization
+is good at). The sparse-signal framing handles fine-grained inner-product
+preservation of the residual (what JL is good at). Neither on its own
+solves the argmax-regime problem; together they might.
+
+**Structural status**: HhtlDTensor's HEEL + HIP already exist; TWIG (8 bit
+of flat palette index) and Slot V (scalar magnitude residual) would be
+replaced by the 8 × i8 LEAF.
+
+**This is a candidate codec in the R&D bench (P6 below).**
+
+### I7. Vector-as-location vs vector-as-sparse-signal — the regime split again
+
+The session's hardest lesson: two different framings of "compress a vector"
+exist and can't share primitives.
+
+**Vector-as-location** (Cartesian coordinates, L2 distance):
+- Raw f32 weight rows, each dim independent.
+- Codecs: centroid + residual, tree quantization, palette lookup.
+- **On near-orthogonal high-dim rows these ALL fail** (see A3, A6, #183, #184).
+
+**Vector-as-sparse-signal** (Phase + magnitude on an orthogonal basis):
+- Project onto orthogonal basis (JL = random ±1 signed, SVD = data-fit, Hadamard = structured JL).
+- Encode as (sign, log-magnitude) per projected coefficient = **PolarQuant**.
+- Inner products preserved by Lindenstrauss concentration-of-measure.
+- No centroid, no palette, no SVD needed — **the orthogonal leaf IS the representation.**
+
+**If the leaf is orthogonal (JL/Hadamard/PolarQuant), you do NOT need the other (centroid + residual).** They solve different problems. The centroid framework was wrong for argmax-regime tensors because argmax needs inner-product preservation, which JL gives directly.
+
+Already in the repo:
+- `crates/bgz17/src/rabitq_compat.rs` — JL + dot_correction (structured JL via Hadamard rotation)
+- `crates/bgz-tensor/src/matryoshka.rs` — PolarQuant gain-shape split
+- `crates/thinking-engine/examples/turboquant_correction_probe.rs` — 466-line probe comparing 4 correction methods across 33-layer chain simulation
+
+**`TurboQuant = PolarQuant + JLQ + correction`** is the canonical argmax-regime codec. This session's centroid+residual work (A5, A6, A7) was solving the wrong problem.
 
 ## Approaches tried, what each one was, where it fits
 
@@ -155,10 +215,23 @@ RouteAction { Skip, Attend, Compose, Escalate }. `HhtlDTensor` + `FisherZTable` 
 
 Claim: `SpiralEncoding::rehydrate_interpolated` hits ρ ≥ 0.95 on real Qwen3-TTS-0.6B weight rows at reasonable K (say K=4–16).
 
-Probe: `spiral_reconstruction_probe.rs` (this PR).
+**Probe RUN (PR #186, `spiral_reconstruction_probe.rs`).** Clarification: `SpiralEncoding` is a SIGNATURE codec (17 Base17 dims × K anchor samples per row) not a dense reconstructor, so the probe measures neighborhood preservation instead of per-element ρ.
 
-Pass → wire SpiralEncoding into `universal_hhtld_encode`-style pipeline, retire the Base17 reconstruction path.
-Fail → the curve family is mis-fit; need to calibrate anchors differently, or a different curve equation.
+Measured on `talker.model.layers.0.self_attn.k_proj.weight [1024×1024]`, 256 stride-sampled rows, spiral stride=3:
+
+| K | Top-1 NN | Top-5 NN | Pairwise rank-agree | Bytes/row | Self-cos |
+|---|---|---|---|---|---|
+| 4 | 18.4% | 39.8% | 0.663 | 142 | 1.000000 |
+| 8 | 31.6% | 59.8% | 0.747 | 278 | 1.000000 |
+| 16 | **44.9%** | **78.9%** | **0.803** | 550 | 1.000000 |
+
+**Status: PARTIAL — monotonic with K, ~12× better than Base17 palette (#184's 3.71% top-1), but does NOT clear the 90% top-1 / 0.85 rank-agree thresholds at K=16.** Codec is directionally right; quality is K-bound.
+
+Mutation hooks for future probe:
+- Larger K (K=32 gives ~1 KB/row — ratio degrades but may cross G2/G3)
+- Per-role stride sweep (tested stride=3 for k_proj; other roles have 2/4/5/8)
+- Signature + small BF16 residual correction on top (hybrid)
+- Different spiral parameter (start ≠ 0) — rows may align better at non-zero start offset
 
 ### P2. Shared anchors + i8 position per row
 
@@ -177,6 +250,76 @@ Probe: NOT YET WRITTEN. Successor to `cascade_attention_probe.rs` with f32 palet
 
 Pass → cascade inference is viable, proceed to pipeline rewire.
 Fail → codec-space inference needs richer routing (per-family tables, hierarchical route indices).
+
+### P6. Competitive codec R&D bench — psychometric metrics, all candidates
+
+Not "which one wins, retire the others." **"Which approach fits which
+(regime × budget × quality) cell in the codec landscape."**
+
+Bench structure: one example (`codec_rnd_bench.rs`), one tensor per regime,
+all candidate codecs encode the same rows, all metrics computed against
+ground-truth pairwise raw-cosine. Output: markdown table.
+
+**Candidate codecs (argmax-regime bench):**
+
+| Candidate | Framing | Bytes/row | Shared overhead |
+|---|---|---|---|
+| PassthroughBF16 | location, no compression | 2 × n_cols | 0 |
+| Base17Signature | location signature (17-dim projection) | 34 | 0 |
+| SpiralK8 | location signature (17 × 8 anchors) | 278 | 0 |
+| RaBitQ | sparse-signal (JL + binary) | ~4 | Hadamard matrix (tiny) |
+| PolarQuantGain | sparse-signal (magnitude + unit direction) | 2 + 2·n_cols | 0 |
+| HEEL+HIP+LEAF (I8 hybrid) | layered: location + JL orthogonal residual | 9 | 64 centroids × n_cols × 2 B |
+| HhtlF32Tensor + SlotL | location + SVD residual | 9 + palette | ~256 × n_cols × 2 B |
+
+**Candidate codecs (index-regime bench):**
+
+| Candidate | Bytes/row | When to use |
+|---|---|---|
+| PassthroughBF16 | 2 × n_cols | Baseline (what #178 ships) |
+| HhtlF32Tensor (k=256 palette only) | 1 | If NN-preservation is sufficient for lookup |
+| LEAF-only (no centroid) | 8 | JL residual without address, see P5 |
+
+**Psychometric metric suite:**
+
+| Metric | What it measures |
+|---|---|
+| Pearson r | linear correlation of codec score vs raw cosine |
+| Spearman ρ | rank correlation (monotonic fit) |
+| Kendall τ | concordant-pair proportion |
+| MAE / RMSE | score-estimate error magnitude |
+| Top-1 / 5 / 10 NN recall | argmax preservation at top of ranking |
+| Cohen's κ | top-1 agreement above chance baseline |
+| Bias | mean signed error (positive = overestimate) |
+| Variance of signed error | random vs systematic |
+| ICC(3,1) | intraclass correlation, consistency form |
+
+**Pass/fail reading** (per regime, per candidate):
+- argmax regime viable: Top-1 ≥ 0.90, Spearman ≥ 0.85, Cohen's κ ≥ 0.80
+- product-quality: add bytes/row ≤ 32 (competitive with BF16 baseline)
+
+**Deliverable**: one table per regime, sorted by quality-at-budget Pareto
+frontier. Each cell marks which candidate is best for that use.
+
+### P5. TurboQuant (PolarQuant + JLQ + QJL correction) on real Qwen3 — THE HIGH-PRIORITY PROBE
+
+Claim: per I7, argmax-regime tensors compress correctly via
+`TurboQuant = PolarQuant + JLQ + correction` at ~20 B/row with
+argmax-parity ≥ 90% over 33-layer chain.
+
+**Probe already written**: `crates/thinking-engine/examples/turboquant_correction_probe.rs`
+(466 L). Compares:
+  a. Direct i8 (no correction)
+  b. Fisher z (arctanh + family gamma — scale correction)
+  c. QJL corrected (i8 + bias removal)
+  d. RaBitQ corrected (binary + dot_correction)
+
+Across 200-row sample, 33-layer chain simulation, measures Spearman
+ranking preservation on final layer output.
+
+**Not yet run on Qwen3-TTS** to the best of this session's knowledge.
+That's the single probe that decides whether the whole centroid stack
+(A5, A6, A7) is obsolete vs worth keeping.
 
 ### P4. Log-radial CLAM with magnitude split
 
@@ -224,7 +367,18 @@ read the referenced PR first:
 | #183 | Universal encoder with Base17 centroid reconstruction | ✗ ρ ≈ 0.04 on real Qwen3 |
 | #184 | HhtlF32Tensor + Path A/B probes | ◐ Path A ρ̄ 0.2–0.5 (improves on Base17, short of target); Path B 3.71% (fails) |
 | #185 | `HhtlF32Tensor` palette bounds (codex P1) | ✓ safety fix |
-| #186 | This doc + SpiralEncoding reconstruction probe | — (probe) |
+| #186 | This doc + SpiralEncoding reconstruction probe | ◐ P1 PARTIAL — K=16 hits 45%/79%/0.80 (top-1/top-5/rank-agree), misses 90%/0.85 gate |
+
+## Session finding: SpiralEncoding is directionally right, K-bound
+
+`SpiralEncoding` at K=16 preserves ~12× more neighborhood structure than the Base17 palette tested in #184, but on Qwen3 k_proj weights it tops out at 45% top-1 NN agreement — short of the 90% threshold for cascade-inference viability.
+
+The monotonic K trend (K=4 → K=8 → K=16 gains 18% → 32% → 45% top-1) suggests K=32 or K=64 could cross the threshold but at 1–2 KB/row — no longer competitive on ratio.
+
+This means the session's forward menu narrows to:
+1. **Hybrid codec**: SpiralEncoding signature at small K + a compact residual correction (BF16 scalar or 4-component i8 vector) to lift the NN-top-1 threshold without blowing up per-row bytes.
+2. **Per-role stride optimisation**: the probe used stride=3 for k_proj (matches NeuronPrint design); other roles use 2/4/5/8. Sweep.
+3. **Accept signature-grade cascade ≠ f32 GEMM reconstruction**: wire SpiralEncoding as the palette substrate for the already-failed `cascade_attention_probe` in #184 and measure there directly. The "45% top-1" result is ON a signature distance, but actual attention scoring might still converge when the cascade routes Skip/Attend/Compose with richer rules than raw argmax.
 
 Next session starts here.
 
