@@ -593,7 +593,7 @@ const _PHI: f64 = 1.618033988749895;
 #[derive(Clone, Copy, PartialEq)]
 enum PBasis { Svd, Had }
 #[derive(Clone, Copy, PartialEq)]
-enum PQuant { I2, I4, I8, GammaPhase, CircleOfFifths }
+enum PQuant { I2, I4, I8, GammaPhase, CircleOfFifths, FisherZ }
 #[derive(Clone, Copy, PartialEq)]
 enum PMode { Recon, Cam }
 #[derive(Clone, Copy, PartialEq)]
@@ -613,6 +613,7 @@ impl ParametricCodec {
         let q = match quant {
             PQuant::I2 => "i2", PQuant::I4 => "i4", PQuant::I8 => "i8",
             PQuant::GammaPhase => "γφ", PQuant::CircleOfFifths => "Q5",
+            PQuant::FisherZ => "Fz",
         };
         let m = match mode { PMode::Recon => "R", PMode::Cam => "C" };
         let r = match rank { PRank::N16 => "16", PRank::Full => "D" };
@@ -625,14 +626,14 @@ impl ParametricCodec {
     fn max_val(&self) -> i32 {
         match self.quant {
             PQuant::I2 => 1,
-            PQuant::I4 | PQuant::GammaPhase | PQuant::CircleOfFifths => 7,
+            PQuant::I4 | PQuant::GammaPhase | PQuant::CircleOfFifths | PQuant::FisherZ => 7,
             PQuant::I8 => 127,
         }
     }
 
     fn all_variants() -> Vec<ParametricCodec> {
         let bases = [PBasis::Svd, PBasis::Had];
-        let quants = [PQuant::I2, PQuant::I4, PQuant::I8, PQuant::GammaPhase, PQuant::CircleOfFifths];
+        let quants = [PQuant::I2, PQuant::I4, PQuant::I8, PQuant::GammaPhase, PQuant::CircleOfFifths, PQuant::FisherZ];
         let modes = [PMode::Recon, PMode::Cam];
         let ranks = [PRank::N16, PRank::Full];
         let mut out = Vec::new();
@@ -707,7 +708,9 @@ impl CodecCandidate for ParametricCodec {
         } else { vec![] };
 
         // Encode: project + quantize
-        let encoded: Vec<(usize, Vec<i8>, f32)> = rows.iter().map(|row| {
+        // Tuple: (centroid_idx, codes, scale1, scale2)
+        // scale2 only used by FisherZ (z_max)
+        let encoded: Vec<(usize, Vec<i8>, f32, f32)> = rows.iter().map(|row| {
             let (ci, to_project) = if use_centroid {
                 let mut best = 0; let mut best_d = f32::MAX;
                 for (ci, c) in centroids.iter().enumerate() {
@@ -741,13 +744,9 @@ impl CodecCandidate for ParametricCodec {
                     let inv = if max_abs > 1e-12 { 7.0 / max_abs } else { 0.0 };
                     let codes: Vec<i8> = scaled.iter()
                         .map(|c| (c * inv).round().clamp(-7.0, 7.0) as i8).collect();
-                    (ci, codes, if inv > 0.0 { max_abs / 7.0 } else { 0.0 })
+                    (ci, codes, if inv > 0.0 { max_abs / 7.0 } else { 0.0 }, 0.0)
                 }
                 PQuant::CircleOfFifths => {
-                    // Decompose each coefficient into magnitude × phase-alignment.
-                    // The circle-of-fifths phase modulates the quantization:
-                    // coefficients aligned with their Quintenzirkel position get
-                    // boosted precision, misaligned ones get attenuated.
                     let modulated: Vec<f32> = coeffs.iter().enumerate().map(|(k, c)| {
                         if k < q5_phases.len() {
                             let phase_weight = (1.0 + q5_phases[k].abs()) * 0.5 + 0.5;
@@ -758,7 +757,24 @@ impl CodecCandidate for ParametricCodec {
                     let inv = if max_abs > 1e-12 { 7.0 / max_abs } else { 0.0 };
                     let codes: Vec<i8> = modulated.iter()
                         .map(|c| (c * inv).round().clamp(-7.0, 7.0) as i8).collect();
-                    (ci, codes, if inv > 0.0 { max_abs / 7.0 } else { 0.0 })
+                    (ci, codes, if inv > 0.0 { max_abs / 7.0 } else { 0.0 }, 0.0)
+                }
+                PQuant::FisherZ => {
+                    // Normalize to [-1,1], arctanh to z-space, quantize there.
+                    // arctanh stretches tails → more i4 levels near ±1.
+                    // tanh on decode guarantees valid range.
+                    let max_abs = coeffs.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
+                    let norm = if max_abs > 1e-12 { 1.0 / max_abs } else { 0.0 };
+                    let z_vals: Vec<f64> = coeffs.iter().map(|c| {
+                        let r = (*c * norm) as f64;
+                        let clamped = r.clamp(-0.999, 0.999);
+                        0.5 * ((1.0 + clamped) / (1.0 - clamped)).ln() // arctanh
+                    }).collect();
+                    let z_max = z_vals.iter().map(|z| z.abs()).fold(0.0f64, f64::max);
+                    let z_inv = if z_max > 1e-12 { 7.0 / z_max } else { 0.0 };
+                    let codes: Vec<i8> = z_vals.iter()
+                        .map(|z| (z * z_inv).round().clamp(-7.0, 7.0) as i8).collect();
+                    (ci, codes, max_abs, z_max as f32)
                 }
                 _ => {
                     let max_abs = coeffs.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
@@ -766,7 +782,7 @@ impl CodecCandidate for ParametricCodec {
                     let inv = if max_abs > 1e-12 { mv / max_abs } else { 0.0 };
                     let codes: Vec<i8> = coeffs.iter()
                         .map(|c| (c * inv).round().clamp(-mv, mv) as i8).collect();
-                    (ci, codes, if inv > 0.0 { max_abs / mv } else { 0.0 })
+                    (ci, codes, if inv > 0.0 { max_abs / mv } else { 0.0 }, 0.0)
                 }
             }
         }).collect();
@@ -774,7 +790,7 @@ impl CodecCandidate for ParametricCodec {
         match self.mode {
             PMode::Recon => {
                 let recon_rows: Vec<Vec<f32>> = (0..n).map(|i| {
-                    let (ci, ref codes, scale) = encoded[i];
+                    let (ci, ref codes, scale, scale2) = encoded[i];
                     let dequant: Vec<f32> = match self.quant {
                         PQuant::GammaPhase => {
                             codes.iter().zip(pressures.iter())
@@ -786,6 +802,16 @@ impl CodecCandidate for ParametricCodec {
                                     (1.0 + q5_phases[k].abs()) * 0.5 + 0.5
                                 } else { 1.0 };
                                 q as f32 * scale * phase_weight
+                            }).collect()
+                        }
+                        PQuant::FisherZ => {
+                            // Reverse: i4 → z-space → tanh → [-1,1] → denormalize
+                            let z_max = scale2 as f64;
+                            let z_scale = if z_max > 1e-12 { z_max / 7.0 } else { 0.0 };
+                            codes.iter().map(|&q| {
+                                let z = q as f64 * z_scale;
+                                let r = z.tanh(); // back to [-1,1]
+                                (r as f32) * scale // denormalize
                             }).collect()
                         }
                         _ => codes.iter().map(|&q| q as f32 * scale).collect(),
@@ -961,7 +987,7 @@ fn main() {
     println!();
     println!("Model: `{}`", model_path);
     println!("Sample: {} rows per population, {} metrics per codec", N_SAMPLE, 10);
-    println!("Grid: 13 named + 40 parametric (2 bases × 5 quants × 2 modes × 2 ranks) = 53 codecs");
+    println!("Grid: 13 named + 48 parametric (2 bases × 6 quants × 2 modes × 2 ranks) = 61 codecs");
 
     // Populations from the model
     let populations: Vec<(&str, &str)> = vec![
