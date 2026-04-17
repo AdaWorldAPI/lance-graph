@@ -60,7 +60,33 @@ Shared per group:  curve anchors (K × 17 × 2 B BF16), gamma profile (28 B)
 
 Reconstruction = curve evaluation at the ticket's parameters. Not
 `centroid + residual`. Not tile-and-average. Not tree quantisation.
-**`highheelbgz::rehydrate::SpiralEncoding` implements this.**
+**`highheelbgz::rehydrate::SpiralEncoding` implements this — useful for
+token signature retrieval, but signature-only (not dense reconstruction).**
+
+### I7. Vector-as-location vs vector-as-sparse-signal — the regime split again
+
+The session's hardest lesson: two different framings of "compress a vector"
+exist and can't share primitives.
+
+**Vector-as-location** (Cartesian coordinates, L2 distance):
+- Raw f32 weight rows, each dim independent.
+- Codecs: centroid + residual, tree quantization, palette lookup.
+- **On near-orthogonal high-dim rows these ALL fail** (see A3, A6, #183, #184).
+
+**Vector-as-sparse-signal** (Phase + magnitude on an orthogonal basis):
+- Project onto orthogonal basis (JL = random ±1 signed, SVD = data-fit, Hadamard = structured JL).
+- Encode as (sign, log-magnitude) per projected coefficient = **PolarQuant**.
+- Inner products preserved by Lindenstrauss concentration-of-measure.
+- No centroid, no palette, no SVD needed — **the orthogonal leaf IS the representation.**
+
+**If the leaf is orthogonal (JL/Hadamard/PolarQuant), you do NOT need the other (centroid + residual).** They solve different problems. The centroid framework was wrong for argmax-regime tensors because argmax needs inner-product preservation, which JL gives directly.
+
+Already in the repo:
+- `crates/bgz17/src/rabitq_compat.rs` — JL + dot_correction (structured JL via Hadamard rotation)
+- `crates/bgz-tensor/src/matryoshka.rs` — PolarQuant gain-shape split
+- `crates/thinking-engine/examples/turboquant_correction_probe.rs` — 466-line probe comparing 4 correction methods across 33-layer chain simulation
+
+**`TurboQuant = PolarQuant + JLQ + correction`** is the canonical argmax-regime codec. This session's centroid+residual work (A5, A6, A7) was solving the wrong problem.
 
 ## Approaches tried, what each one was, where it fits
 
@@ -190,6 +216,26 @@ Probe: NOT YET WRITTEN. Successor to `cascade_attention_probe.rs` with f32 palet
 
 Pass → cascade inference is viable, proceed to pipeline rewire.
 Fail → codec-space inference needs richer routing (per-family tables, hierarchical route indices).
+
+### P5. TurboQuant (PolarQuant + JLQ + QJL correction) on real Qwen3 — THE HIGH-PRIORITY PROBE
+
+Claim: per I7, argmax-regime tensors compress correctly via
+`TurboQuant = PolarQuant + JLQ + correction` at ~20 B/row with
+argmax-parity ≥ 90% over 33-layer chain.
+
+**Probe already written**: `crates/thinking-engine/examples/turboquant_correction_probe.rs`
+(466 L). Compares:
+  a. Direct i8 (no correction)
+  b. Fisher z (arctanh + family gamma — scale correction)
+  c. QJL corrected (i8 + bias removal)
+  d. RaBitQ corrected (binary + dot_correction)
+
+Across 200-row sample, 33-layer chain simulation, measures Spearman
+ranking preservation on final layer output.
+
+**Not yet run on Qwen3-TTS** to the best of this session's knowledge.
+That's the single probe that decides whether the whole centroid stack
+(A5, A6, A7) is obsolete vs worth keeping.
 
 ### P4. Log-radial CLAM with magnitude split
 
