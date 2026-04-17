@@ -521,6 +521,346 @@ impl CodecCandidate for MatryoshkaCodec {
     }
 }
 
+// ═════════════════════════════════════════════════════════════════════
+// EPIPHANY CODECS — derived from the 62-codec sweep findings
+// ═════════════════════════════════════════════════════════════════════
+
+/// E1: Gain-shape Hadamard i4 CAM.
+/// Normalize to unit norm BEFORE Hadamard rotation, store gain separately.
+/// All codes now live on the same unit sphere → Manhattan ≈ angular distance.
+struct GainShapeHadCam;
+impl CodecCandidate for GainShapeHadCam {
+    fn name(&self) -> &str { "GS-Had-i4-CAM" }
+    fn bytes_per_row(&self) -> usize { 0 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz17::rabitq_compat::OrthogonalMatrix;
+        let n = rows.len();
+        if n == 0 { return vec![]; }
+        let n_cols = rows[0].len();
+        let padded = RaBitQCodec::next_pow2(n_cols);
+        let rot = OrthogonalMatrix::hadamard(padded);
+
+        let encoded: Vec<Vec<i8>> = rows.iter().map(|row| {
+            let norm: f64 = row.iter().map(|x| (*x as f64) * (*x as f64)).sum::<f64>().sqrt();
+            let inv_norm = if norm > 1e-15 { 1.0 / norm } else { 0.0 };
+            let mut unit: Vec<f32> = row.iter().map(|x| *x * inv_norm as f32).collect();
+            unit.resize(padded, 0.0);
+            let rotated = rot.rotate(&unit);
+            let max_abs = rotated.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
+            let scale = if max_abs > 1e-12 { 7.0 / max_abs } else { 0.0 };
+            rotated.iter().take(n_cols)
+                .map(|c| (c * scale).round().clamp(-7.0, 7.0) as i8).collect()
+        }).collect();
+
+        let max_manhattan = (n_cols * 14) as f64;
+        let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+        for i in 0..n {
+            for j in (i + 1)..n {
+                let manhattan: i32 = encoded[i].iter().zip(encoded[j].iter())
+                    .map(|(a, b)| (*a as i32 - *b as i32).abs()).sum();
+                scores.push(1.0 - manhattan as f64 / max_manhattan);
+            }
+        }
+        scores
+    }
+}
+
+/// E1b: Gain-shape Hadamard i4 CAM with shared global scale.
+/// One scale for all rows (the global max), not per-row.
+/// Codes are directly comparable — same scale everywhere.
+struct SharedScaleHadCam;
+impl CodecCandidate for SharedScaleHadCam {
+    fn name(&self) -> &str { "SS-Had-i4-CAM" }
+    fn bytes_per_row(&self) -> usize { 0 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz17::rabitq_compat::OrthogonalMatrix;
+        let n = rows.len();
+        if n == 0 { return vec![]; }
+        let n_cols = rows[0].len();
+        let padded = RaBitQCodec::next_pow2(n_cols);
+        let rot = OrthogonalMatrix::hadamard(padded);
+
+        // First pass: rotate all, find global max
+        let rotated_rows: Vec<Vec<f32>> = rows.iter().map(|row| {
+            let mut padded_row = row.to_vec();
+            padded_row.resize(padded, 0.0);
+            let r = rot.rotate(&padded_row);
+            r[..n_cols].to_vec()
+        }).collect();
+
+        let global_max = rotated_rows.iter()
+            .flat_map(|r| r.iter())
+            .map(|x| x.abs())
+            .fold(0.0f32, f32::max);
+        let scale = if global_max > 1e-12 { 7.0 / global_max } else { 0.0 };
+
+        let codes: Vec<Vec<i8>> = rotated_rows.iter().map(|r| {
+            r.iter().map(|c| (c * scale).round().clamp(-7.0, 7.0) as i8).collect()
+        }).collect();
+
+        let max_manhattan = (n_cols * 14) as f64;
+        let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+        for i in 0..n {
+            for j in (i + 1)..n {
+                let manhattan: i32 = codes[i].iter().zip(codes[j].iter())
+                    .map(|(a, b)| (*a as i32 - *b as i32).abs()).sum();
+                scores.push(1.0 - manhattan as f64 / max_manhattan);
+            }
+        }
+        scores
+    }
+}
+
+/// E2: Hadamard i4 + i2 residue cascade.
+/// First pass: Had-i4×D reconstruction (ICC 0.993).
+/// Second pass: residual from i4 → Had rotate again → i2 full-rank.
+/// Tests whether the last 0.7% gap is closeable.
+struct HadI4PlusI2Residue;
+impl CodecCandidate for HadI4PlusI2Residue {
+    fn name(&self) -> &str { "Had-i4+i2res" }
+    fn bytes_per_row(&self) -> usize { 0 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz17::rabitq_compat::OrthogonalMatrix;
+        let n = rows.len();
+        if n == 0 { return vec![]; }
+        let n_cols = rows[0].len();
+        let padded = RaBitQCodec::next_pow2(n_cols);
+        let rot = OrthogonalMatrix::hadamard(padded);
+
+        // CLAM centroids
+        let centroids = F32ClamCentroid::clam_sample(rows, 64.min(n));
+
+        let recon_rows: Vec<Vec<f32>> = rows.iter().map(|row| {
+            // Centroid assignment
+            let mut best = 0; let mut best_d = f32::MAX;
+            for (ci, c) in centroids.iter().enumerate() {
+                let d: f32 = row.iter().zip(c.iter()).map(|(a, b)| (a - b) * (a - b)).sum();
+                if d < best_d { best_d = d; best = ci; }
+            }
+
+            // Pass 1: i4 on residual from centroid
+            let residual: Vec<f32> = row.iter().zip(centroids[best].iter()).map(|(a, b)| a - b).collect();
+            let mut pad_res = residual.clone();
+            pad_res.resize(padded, 0.0);
+            let rotated = rot.rotate(&pad_res);
+            let max1 = rotated.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
+            let s1 = if max1 > 1e-12 { 7.0 / max1 } else { 0.0 };
+            let q1: Vec<i8> = rotated.iter().take(n_cols)
+                .map(|c| (c * s1).round().clamp(-7.0, 7.0) as i8).collect();
+            let ds1 = if s1 > 0.0 { max1 / 7.0 } else { 0.0 };
+
+            // Reconstruct pass 1
+            let mut full1 = vec![0.0f32; padded];
+            for (k, &q) in q1.iter().enumerate() { full1[k] = q as f32 * ds1; }
+            let recon1 = rot.rotate(&full1);
+
+            // Pass 2: i2 on residual from pass 1
+            let residual2: Vec<f32> = residual.iter().zip(recon1.iter().take(n_cols))
+                .map(|(orig, r1)| orig - r1).collect();
+            let mut pad_res2 = residual2;
+            pad_res2.resize(padded, 0.0);
+            let rotated2 = rot.rotate(&pad_res2);
+            let max2 = rotated2.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
+            let s2 = if max2 > 1e-12 { 1.0 / max2 } else { 0.0 };
+            let q2: Vec<i8> = rotated2.iter().take(n_cols)
+                .map(|c| (c * s2).round().clamp(-1.0, 1.0) as i8).collect();
+            let ds2 = if s2 > 0.0 { max2 / 1.0 } else { 0.0 };
+
+            // Reconstruct pass 2
+            let mut full2 = vec![0.0f32; padded];
+            for (k, &q) in q2.iter().enumerate() { full2[k] = q as f32 * ds2; }
+            let recon2 = rot.rotate(&full2);
+
+            // Final: centroid + pass1 + pass2
+            centroids[best].iter()
+                .zip(recon1.iter())
+                .zip(recon2.iter())
+                .map(|((c, r1), r2)| c + r1 + r2)
+                .collect()
+        }).collect();
+
+        let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+        for i in 0..n {
+            for j in (i + 1)..n {
+                scores.push(cosine(&recon_rows[i], &recon_rows[j]));
+            }
+        }
+        scores
+    }
+}
+
+/// E3: Fisher z on DISTANCE, not coefficients.
+/// Encode with Had-i4×D (linear). Reconstruct rows. Compute pairwise cosine.
+/// Apply Fisher z: z = arctanh(cos) to the cosine scores.
+/// This tests perceptually uniform distance scaling.
+struct FisherZOnDistance;
+impl CodecCandidate for FisherZOnDistance {
+    fn name(&self) -> &str { "Had-i4+FzDist" }
+    fn bytes_per_row(&self) -> usize { 0 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz17::rabitq_compat::OrthogonalMatrix;
+        let n = rows.len();
+        if n == 0 { return vec![]; }
+        let n_cols = rows[0].len();
+        let padded = RaBitQCodec::next_pow2(n_cols);
+        let rot = OrthogonalMatrix::hadamard(padded);
+        let centroids = F32ClamCentroid::clam_sample(rows, 64.min(n));
+
+        // Had-i4 reconstruction (same as Had-i4×D-R)
+        let recon_rows: Vec<Vec<f32>> = rows.iter().map(|row| {
+            let mut best = 0; let mut best_d = f32::MAX;
+            for (ci, c) in centroids.iter().enumerate() {
+                let d: f32 = row.iter().zip(c.iter()).map(|(a, b)| (a - b) * (a - b)).sum();
+                if d < best_d { best_d = d; best = ci; }
+            }
+            let residual: Vec<f32> = row.iter().zip(centroids[best].iter()).map(|(a, b)| a - b).collect();
+            let mut pad_res = residual;
+            pad_res.resize(padded, 0.0);
+            let rotated = rot.rotate(&pad_res);
+            let max_abs = rotated.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
+            let scale = if max_abs > 1e-12 { 7.0 / max_abs } else { 0.0 };
+            let codes: Vec<i8> = rotated.iter().take(n_cols)
+                .map(|c| (c * scale).round().clamp(-7.0, 7.0) as i8).collect();
+            let ds = if scale > 0.0 { max_abs / 7.0 } else { 0.0 };
+            let mut full = vec![0.0f32; padded];
+            for (k, &q) in codes.iter().enumerate() { full[k] = q as f32 * ds; }
+            let recon = rot.rotate(&full);
+            centroids[best].iter().zip(recon.iter()).map(|(c, r)| c + r).collect()
+        }).collect();
+
+        // Pairwise cosine → Fisher z transform
+        let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+        for i in 0..n {
+            for j in (i + 1)..n {
+                let cos = cosine(&recon_rows[i], &recon_rows[j]);
+                let clamped = cos.clamp(-0.999, 0.999);
+                let z = 0.5 * ((1.0 + clamped) / (1.0 - clamped)).ln();
+                scores.push(z);
+            }
+        }
+        // Also transform ground truth the same way for fair comparison
+        // (the bench compares against raw cosine GT, so we return z-scores
+        // and the bench will compare z(codec) vs cosine(GT) — the ICC will
+        // tell us if z-transform preserves the VALUE agreement)
+        scores
+    }
+}
+
+/// E5: Hadamard-sorted Matryoshka.
+/// Hadamard rotate training rows, measure variance per coefficient,
+/// sort by descending variance, allocate i16/i8/i4/i2 bands.
+/// Matryoshka quality with Hadamard determinism.
+struct HadSortedMatryoshka;
+impl CodecCandidate for HadSortedMatryoshka {
+    fn name(&self) -> &str { "Had-Matryoshka" }
+    fn bytes_per_row(&self) -> usize { 0 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz17::rabitq_compat::OrthogonalMatrix;
+        let n = rows.len();
+        if n == 0 { return vec![]; }
+        let n_cols = rows[0].len();
+        let padded = RaBitQCodec::next_pow2(n_cols);
+        let rot = OrthogonalMatrix::hadamard(padded);
+        let centroids = F32ClamCentroid::clam_sample(rows, 64.min(n));
+
+        // Rotate all residuals, measure variance per coefficient index
+        let residuals: Vec<Vec<f32>> = rows.iter().map(|row| {
+            let mut best = 0; let mut best_d = f32::MAX;
+            for (ci, c) in centroids.iter().enumerate() {
+                let d: f32 = row.iter().zip(c.iter()).map(|(a, b)| (a - b) * (a - b)).sum();
+                if d < best_d { best_d = d; best = ci; }
+            }
+            let residual: Vec<f32> = row.iter().zip(centroids[best].iter()).map(|(a, b)| a - b).collect();
+            let mut pad = residual;
+            pad.resize(padded, 0.0);
+            rot.rotate(&pad)
+        }).collect();
+
+        // Variance per coefficient (across all rows)
+        let mut variances = vec![0.0f64; padded];
+        for k in 0..padded {
+            let mean: f64 = residuals.iter().map(|r| r[k] as f64).sum::<f64>() / n as f64;
+            variances[k] = residuals.iter()
+                .map(|r| { let d = r[k] as f64 - mean; d * d })
+                .sum::<f64>() / n as f64;
+        }
+
+        // Sort indices by descending variance
+        let mut sorted_idx: Vec<usize> = (0..padded).collect();
+        sorted_idx.sort_by(|a, b| variances[*b].partial_cmp(&variances[*a]).unwrap());
+
+        // Matryoshka bands on variance-sorted indices
+        let d = n_cols.min(padded);
+        let band_i16 = 64.min(d);
+        let band_i8 = 192.min(d);
+        let band_i4 = 384.min(d);
+
+        let recon_rows: Vec<Vec<f32>> = rows.iter().enumerate().map(|(ri, row)| {
+            let ref rotated = residuals[ri];
+            let mut best = 0; let mut best_d = f32::MAX;
+            for (ci, c) in centroids.iter().enumerate() {
+                let d: f32 = row.iter().zip(c.iter()).map(|(a, b)| (a - b) * (a - b)).sum();
+                if d < best_d { best_d = d; best = ci; }
+            }
+
+            // Quantize per band (on sorted indices)
+            let mut recon_rotated = vec![0.0f32; padded];
+            for (band_pos, &orig_idx) in sorted_idx.iter().take(d).enumerate() {
+                let val = rotated[orig_idx];
+                let (max_q, _bits): (f32, u8) = if band_pos < band_i16 {
+                    (32767.0, 16)
+                } else if band_pos < band_i8 {
+                    (127.0, 8)
+                } else if band_pos < band_i4 {
+                    (7.0, 4)
+                } else {
+                    (1.0, 2)
+                };
+                // Per-coefficient quantize (simplified: use global scale per band)
+                let q = val.clamp(-max_q, max_q).round();
+                recon_rotated[orig_idx] = q;
+            }
+
+            // Need per-band scales for proper quantization
+            // Compute band-wise max for scaling
+            let mut band_maxes = [0.0f32; 4];
+            for (band_pos, &orig_idx) in sorted_idx.iter().take(d).enumerate() {
+                let abs_val = rotated[orig_idx].abs();
+                let band = if band_pos < band_i16 { 0 }
+                    else if band_pos < band_i8 { 1 }
+                    else if band_pos < band_i4 { 2 }
+                    else { 3 };
+                if abs_val > band_maxes[band] { band_maxes[band] = abs_val; }
+            }
+
+            let mut recon_rot = vec![0.0f32; padded];
+            for (band_pos, &orig_idx) in sorted_idx.iter().take(d).enumerate() {
+                let val = rotated[orig_idx];
+                let (max_q, band): (f32, usize) = if band_pos < band_i16 { (32767.0, 0) }
+                    else if band_pos < band_i8 { (127.0, 1) }
+                    else if band_pos < band_i4 { (7.0, 2) }
+                    else { (1.0, 3) };
+                let bmax = band_maxes[band];
+                let scale = if bmax > 1e-12 { max_q / bmax } else { 0.0 };
+                let q = (val * scale).round().clamp(-max_q, max_q);
+                let dscale = if scale > 0.0 { bmax / max_q } else { 0.0 };
+                recon_rot[orig_idx] = q * dscale;
+            }
+
+            let recon = rot.rotate(&recon_rot);
+            centroids[best].iter().zip(recon.iter()).map(|(c, r)| c + r).collect()
+        }).collect();
+
+        let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+        for i in 0..n {
+            for j in (i + 1)..n {
+                scores.push(cosine(&recon_rows[i], &recon_rows[j]));
+            }
+        }
+        scores
+    }
+}
+
 /// I8 Hybrid — HEEL+HIP location (6 bits) + JLQ i8 leaf (8 bytes).
 /// Uses proper Hadamard rotation from bgz17::rabitq_compat, not hash-based
 /// Rademacher signs. The Hadamard matrix is orthogonal (preserves norms)
@@ -1006,7 +1346,7 @@ fn main() {
     println!();
     println!("Model: `{}`", model_path);
     println!("Sample: {} rows per population, {} metrics per codec", N_SAMPLE, 10);
-    println!("Grid: 14 named + 48 parametric (2 bases × 6 quants × 2 modes × 2 ranks) = 62 codecs");
+    println!("Grid: 19 named + 48 parametric = 67 codecs");
 
     // Populations from the model
     let populations: Vec<(&str, &str)> = vec![
@@ -1049,6 +1389,11 @@ fn main() {
             Box::new(F32ClamFullI4),
             Box::new(BitpackedCamI4),
             Box::new(MatryoshkaCodec),
+            Box::new(GainShapeHadCam),
+            Box::new(SharedScaleHadCam),
+            Box::new(HadI4PlusI2Residue),
+            Box::new(FisherZOnDistance),
+            Box::new(HadSortedMatryoshka),
             Box::new(I8HybridCodec),
         ];
         // Parametric grid: 2 bases × 5 quants × 2 modes × 2 ranks = 40 variants
