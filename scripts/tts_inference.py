@@ -1,3 +1,21 @@
+# ═══════════════════════════════════════════════════════════════
+# REFERENCE IMPLEMENTATION — NOT THE PRODUCTION PATH
+#
+# The canonical Rust equivalent is:
+#   cargo run --release --example tts_full_inference \
+#     --manifest-path crates/thinking-engine/Cargo.toml
+#
+# That example runs the full 33-layer transformer + 128-step
+# autoregressive + conv decoder → 24kHz WAV in pure Rust with
+# AVX-512 F32x16 FMA + AMX polyfill. No Python runtime needed.
+#
+# This script exists for:
+#   - Cross-checking Rust output against HuggingFace reference
+#   - Quick prototyping before porting to Rust
+#   - HF model download (huggingface_hub auth flow)
+#
+# See also: docs/CODEC_INVARIANTS_AND_EXPERIMENTS.md
+# ═══════════════════════════════════════════════════════════════
 #!/usr/bin/env python3
 """Qwen3-TTS-12Hz-0.6B full inference: text → speech WAV.
 
