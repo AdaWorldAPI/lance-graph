@@ -262,6 +262,165 @@ pub fn ground_truth_dots(
     dots
 }
 
+// ═════════════════════════════════════════════════════════════════════
+// Psychometric metrics for codec R&D bench (P8)
+// ═════════════════════════════════════════════════════════════════════
+
+/// Cronbach's alpha — internal consistency of k "items" (codec score vectors)
+/// measured on the same n observations.
+///
+/// `items` is k columns × n rows: items[codec_idx][observation_idx].
+/// Each "item" is one codec's pairwise score vector on the same row pairs.
+///
+/// α = (k / (k-1)) × (1 - Σ var(item_i) / var(total))
+///
+/// α ≥ 0.85 → codecs measure the same construct (redundant, keep cheapest)
+/// α < 0.70 → codecs measure different constructs (both informative)
+pub fn cronbach_alpha(items: &[Vec<f64>]) -> f64 {
+    let k = items.len();
+    if k < 2 { return 0.0; }
+    let n = items[0].len();
+    if n < 2 { return 0.0; }
+
+    // Item variances
+    let mut sum_item_var = 0.0f64;
+    for item in items {
+        let mean: f64 = item.iter().sum::<f64>() / n as f64;
+        let var: f64 = item.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (n - 1) as f64;
+        sum_item_var += var;
+    }
+
+    // Total score variance (sum across items per observation)
+    let totals: Vec<f64> = (0..n).map(|obs| {
+        items.iter().map(|item| item[obs]).sum::<f64>()
+    }).collect();
+    let total_mean: f64 = totals.iter().sum::<f64>() / n as f64;
+    let total_var: f64 = totals.iter().map(|x| (x - total_mean).powi(2)).sum::<f64>() / (n - 1) as f64;
+
+    if total_var < 1e-15 { return 0.0; }
+    (k as f64 / (k - 1) as f64) * (1.0 - sum_item_var / total_var)
+}
+
+/// Cohen's kappa — agreement between two raters beyond chance.
+///
+/// `a` and `b` are categorical labels (e.g., argmax indices) for n items.
+/// κ = (p_o - p_e) / (1 - p_e)
+///   where p_o = observed agreement, p_e = expected agreement by chance.
+///
+/// κ ≥ 0.80 → almost perfect agreement
+/// κ 0.60–0.80 → substantial
+/// κ < 0.40 → fair or poor
+pub fn cohens_kappa(a: &[usize], b: &[usize]) -> f64 {
+    let n = a.len().min(b.len());
+    if n == 0 { return 0.0; }
+
+    // Count categories
+    let max_cat = a.iter().chain(b.iter()).copied().max().unwrap_or(0) + 1;
+
+    // Confusion matrix
+    let mut conf = vec![vec![0usize; max_cat]; max_cat];
+    for i in 0..n { conf[a[i].min(max_cat - 1)][b[i].min(max_cat - 1)] += 1; }
+
+    // Observed agreement
+    let p_o: f64 = (0..max_cat).map(|c| conf[c][c] as f64).sum::<f64>() / n as f64;
+
+    // Expected agreement by chance (marginal products)
+    let row_sums: Vec<f64> = (0..max_cat).map(|r| conf[r].iter().sum::<usize>() as f64).collect();
+    let col_sums: Vec<f64> = (0..max_cat).map(|c| (0..max_cat).map(|r| conf[r][c]).sum::<usize>() as f64).collect();
+    let p_e: f64 = (0..max_cat).map(|c| row_sums[c] * col_sums[c]).sum::<f64>() / (n as f64 * n as f64);
+
+    if (1.0 - p_e).abs() < 1e-15 { return 1.0; } // perfect marginal agreement
+    (p_o - p_e) / (1.0 - p_e)
+}
+
+/// Bias and variance decomposition of signed errors.
+///
+/// `errors` = predicted - ground_truth (signed).
+/// Returns (bias, variance) where:
+///   bias = mean(errors) — systematic over/under-estimation
+///   variance = var(errors) — random scatter
+///
+/// If |bias| >> sqrt(variance): systematic problem (correction helps)
+/// If |bias| << sqrt(variance): random noise (correction doesn't help, P5 finding)
+pub fn bias_variance(errors: &[f64]) -> (f64, f64) {
+    let n = errors.len();
+    if n == 0 { return (0.0, 0.0); }
+    let mean = errors.iter().sum::<f64>() / n as f64;
+    let var = if n > 1 {
+        errors.iter().map(|e| (e - mean).powi(2)).sum::<f64>() / (n - 1) as f64
+    } else { 0.0 };
+    (mean, var)
+}
+
+/// ICC(3,1) — intraclass correlation, consistency form.
+///
+/// Two "raters" (ground truth and codec) rate the same n targets.
+/// ICC(3,1) = (MS_targets - MS_error) / (MS_targets + MS_error)
+///
+/// Equivalent to a two-way mixed model where raters are fixed.
+/// Ranges [-1, 1]; ≥ 0.75 = good, ≥ 0.90 = excellent.
+pub fn icc_3_1(ground_truth: &[f64], codec: &[f64]) -> f64 {
+    let n = ground_truth.len().min(codec.len());
+    if n < 2 { return 0.0; }
+
+    // Two-way ANOVA decomposition (2 raters, n targets)
+    let grand_mean = (ground_truth[..n].iter().sum::<f64>() + codec[..n].iter().sum::<f64>())
+        / (2 * n) as f64;
+
+    // Target means (average of GT and codec per target)
+    let target_means: Vec<f64> = (0..n).map(|i| {
+        (ground_truth[i] + codec[i]) / 2.0
+    }).collect();
+
+    // MS_targets = 2 × Σ (target_mean - grand_mean)² / (n-1)
+    let ss_targets: f64 = target_means.iter()
+        .map(|&m| (m - grand_mean).powi(2))
+        .sum::<f64>();
+    let ms_targets = 2.0 * ss_targets / (n - 1) as f64;
+
+    // MS_error = Σ (x_ij - target_mean_i)² / n  (for 2 raters)
+    let ss_error: f64 = (0..n).map(|i| {
+        (ground_truth[i] - target_means[i]).powi(2)
+        + (codec[i] - target_means[i]).powi(2)
+    }).sum::<f64>();
+    let ms_error = ss_error / n as f64;
+
+    if (ms_targets + ms_error).abs() < 1e-15 { return 0.0; }
+    (ms_targets - ms_error) / (ms_targets + ms_error)
+}
+
+/// Kendall's tau-b — concordance-based rank correlation.
+///
+/// Counts concordant vs discordant pairs. More robust than Spearman
+/// for tied ranks (common with quantized scores).
+pub fn kendall_tau(x: &[f64], y: &[f64]) -> f64 {
+    let n = x.len().min(y.len());
+    if n < 2 { return 0.0; }
+    let mut concordant = 0i64;
+    let mut discordant = 0i64;
+    let mut ties_x = 0i64;
+    let mut ties_y = 0i64;
+    for i in 0..n {
+        for j in (i + 1)..n {
+            let dx = x[i] - x[j];
+            let dy = y[i] - y[j];
+            let product = dx * dy;
+            if product > 0.0 {
+                concordant += 1;
+            } else if product < 0.0 {
+                discordant += 1;
+            } else {
+                if dx.abs() < 1e-15 { ties_x += 1; }
+                if dy.abs() < 1e-15 { ties_y += 1; }
+            }
+        }
+    }
+    let n0 = (n * (n - 1) / 2) as f64;
+    let denom = ((n0 - ties_x as f64) * (n0 - ties_y as f64)).sqrt();
+    if denom < 1e-15 { return 0.0; }
+    (concordant - discordant) as f64 / denom
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -312,5 +471,97 @@ mod tests {
         let report = QualityReport::compute(&gt, &distances, 1000, 100);
         assert!(report.pearson_rho > 0.99);
         assert!(report.compression_ratio > 9.0);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // Psychometric metrics tests
+    // ═══════════════════════════════════════════════════════════════
+
+    #[test]
+    fn cronbach_identical_items() {
+        // k identical items → α = 1
+        let item = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let items = vec![item.clone(), item.clone(), item.clone()];
+        let a = cronbach_alpha(&items);
+        assert!((a - 1.0).abs() < 1e-6, "identical items → α≈1, got {}", a);
+    }
+
+    #[test]
+    fn cronbach_uncorrelated_items() {
+        // k items that are uncorrelated → α near 0
+        let items = vec![
+            vec![1.0, 2.0, 3.0, 4.0, 5.0],
+            vec![5.0, 1.0, 4.0, 2.0, 3.0],
+            vec![3.0, 5.0, 1.0, 3.0, 2.0],
+        ];
+        let a = cronbach_alpha(&items);
+        assert!(a < 0.5, "uncorrelated items → α<0.5, got {}", a);
+    }
+
+    #[test]
+    fn cohens_kappa_perfect_agreement() {
+        let a = vec![0, 1, 2, 0, 1, 2];
+        let b = vec![0, 1, 2, 0, 1, 2];
+        let k = cohens_kappa(&a, &b);
+        assert!((k - 1.0).abs() < 1e-6, "perfect agreement → κ=1, got {}", k);
+    }
+
+    #[test]
+    fn cohens_kappa_low_agreement() {
+        // Raters disagree more than agree → κ should be low (possibly negative)
+        let a = vec![0, 1, 0, 1, 0, 1, 0, 1];
+        let b = vec![1, 0, 1, 0, 0, 1, 1, 0];
+        let k = cohens_kappa(&a, &b);
+        // With balanced 50/50 marginals, chance agreement p_e = 0.5.
+        // Observed agreement = 2/8 = 0.25, so κ = (0.25-0.5)/(1-0.5) = -0.5
+        assert!(k < 0.0, "mostly disagreement → κ<0, got {}", k);
+    }
+
+    #[test]
+    fn bias_variance_zero_errors() {
+        let errors = vec![0.0; 10];
+        let (bias, var) = bias_variance(&errors);
+        assert!(bias.abs() < 1e-12);
+        assert!(var.abs() < 1e-12);
+    }
+
+    #[test]
+    fn bias_variance_systematic_overestimate() {
+        let errors = vec![0.5, 0.5, 0.5, 0.5]; // constant bias
+        let (bias, var) = bias_variance(&errors);
+        assert!((bias - 0.5).abs() < 1e-6);
+        assert!(var < 1e-6, "constant errors → var≈0, got {}", var);
+    }
+
+    #[test]
+    fn icc_perfect_agreement() {
+        let gt = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let codec = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let icc = icc_3_1(&gt, &codec);
+        assert!((icc - 1.0).abs() < 1e-6, "perfect → ICC=1, got {}", icc);
+    }
+
+    #[test]
+    fn icc_poor_agreement() {
+        let gt = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let codec = vec![5.0, 4.0, 3.0, 2.0, 1.0]; // reversed
+        let icc = icc_3_1(&gt, &codec);
+        assert!(icc < 0.0, "reversed → ICC<0, got {}", icc);
+    }
+
+    #[test]
+    fn kendall_tau_perfect_concordance() {
+        let x = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let y = vec![10.0, 20.0, 30.0, 40.0, 50.0];
+        let tau = kendall_tau(&x, &y);
+        assert!((tau - 1.0).abs() < 1e-6, "perfect concordance → τ=1, got {}", tau);
+    }
+
+    #[test]
+    fn kendall_tau_perfect_discordance() {
+        let x = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let y = vec![50.0, 40.0, 30.0, 20.0, 10.0];
+        let tau = kendall_tau(&x, &y);
+        assert!((tau - (-1.0)).abs() < 1e-6, "perfect discordance → τ=-1, got {}", tau);
     }
 }
