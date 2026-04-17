@@ -63,6 +63,40 @@ Reconstruction = curve evaluation at the ticket's parameters. Not
 **`highheelbgz::rehydrate::SpiralEncoding` implements this — useful for
 token signature retrieval, but signature-only (not dense reconstruction).**
 
+### I8. Location + orthogonal LEAF hybrid — the layered synthesis
+
+The two framings from I7 don't compete — they layer at **different scales**
+of the same row:
+
+```
+HEEL (2 bit)    BASIN        coarse location (Q/K, V, Gate, FFN)
+HIP  (4 bit)    FAMILY        fine location within basin (16 sub-clusters)
+LEAF (8 × i8)   JL-projected residual on shared random Rademacher basis
+                = PolarQuant on (row − centroid[HEEL, HIP])
+```
+
+**Per-row cost: 1 B address + 8 B leaf = 9 B/row.**
+
+Why this works where flat single-centroid failed (#183, #184 A3/A6):
+
+- Within any one (HEEL × HIP) bin, residuals are **small-magnitude
+  corrections** to a bin-local centroid.
+- Small residuals are NOT near-orthogonal the way raw weight rows are —
+  they live in a narrower cone around zero.
+- **That's exactly the regime where JL + PolarQuant preserves inner
+  products** (I7 / Lindenstrauss concentration-of-measure).
+
+The location framing does coarse directory lookup (what tree quantization
+is good at). The sparse-signal framing handles fine-grained inner-product
+preservation of the residual (what JL is good at). Neither on its own
+solves the argmax-regime problem; together they might.
+
+**Structural status**: HhtlDTensor's HEEL + HIP already exist; TWIG (8 bit
+of flat palette index) and Slot V (scalar magnitude residual) would be
+replaced by the 8 × i8 LEAF.
+
+**This is a candidate codec in the R&D bench (P6 below).**
+
 ### I7. Vector-as-location vs vector-as-sparse-signal — the regime split again
 
 The session's hardest lesson: two different framings of "compress a vector"
@@ -216,6 +250,56 @@ Probe: NOT YET WRITTEN. Successor to `cascade_attention_probe.rs` with f32 palet
 
 Pass → cascade inference is viable, proceed to pipeline rewire.
 Fail → codec-space inference needs richer routing (per-family tables, hierarchical route indices).
+
+### P6. Competitive codec R&D bench — psychometric metrics, all candidates
+
+Not "which one wins, retire the others." **"Which approach fits which
+(regime × budget × quality) cell in the codec landscape."**
+
+Bench structure: one example (`codec_rnd_bench.rs`), one tensor per regime,
+all candidate codecs encode the same rows, all metrics computed against
+ground-truth pairwise raw-cosine. Output: markdown table.
+
+**Candidate codecs (argmax-regime bench):**
+
+| Candidate | Framing | Bytes/row | Shared overhead |
+|---|---|---|---|
+| PassthroughBF16 | location, no compression | 2 × n_cols | 0 |
+| Base17Signature | location signature (17-dim projection) | 34 | 0 |
+| SpiralK8 | location signature (17 × 8 anchors) | 278 | 0 |
+| RaBitQ | sparse-signal (JL + binary) | ~4 | Hadamard matrix (tiny) |
+| PolarQuantGain | sparse-signal (magnitude + unit direction) | 2 + 2·n_cols | 0 |
+| HEEL+HIP+LEAF (I8 hybrid) | layered: location + JL orthogonal residual | 9 | 64 centroids × n_cols × 2 B |
+| HhtlF32Tensor + SlotL | location + SVD residual | 9 + palette | ~256 × n_cols × 2 B |
+
+**Candidate codecs (index-regime bench):**
+
+| Candidate | Bytes/row | When to use |
+|---|---|---|
+| PassthroughBF16 | 2 × n_cols | Baseline (what #178 ships) |
+| HhtlF32Tensor (k=256 palette only) | 1 | If NN-preservation is sufficient for lookup |
+| LEAF-only (no centroid) | 8 | JL residual without address, see P5 |
+
+**Psychometric metric suite:**
+
+| Metric | What it measures |
+|---|---|
+| Pearson r | linear correlation of codec score vs raw cosine |
+| Spearman ρ | rank correlation (monotonic fit) |
+| Kendall τ | concordant-pair proportion |
+| MAE / RMSE | score-estimate error magnitude |
+| Top-1 / 5 / 10 NN recall | argmax preservation at top of ranking |
+| Cohen's κ | top-1 agreement above chance baseline |
+| Bias | mean signed error (positive = overestimate) |
+| Variance of signed error | random vs systematic |
+| ICC(3,1) | intraclass correlation, consistency form |
+
+**Pass/fail reading** (per regime, per candidate):
+- argmax regime viable: Top-1 ≥ 0.90, Spearman ≥ 0.85, Cohen's κ ≥ 0.80
+- product-quality: add bytes/row ≤ 32 (competitive with BF16 baseline)
+
+**Deliverable**: one table per regime, sorted by quality-at-budget Pareto
+frontier. Each cell marks which candidate is best for that use.
 
 ### P5. TurboQuant (PolarQuant + JLQ + QJL correction) on real Qwen3 — THE HIGH-PRIORITY PROBE
 
