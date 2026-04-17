@@ -468,3 +468,33 @@ two-factor structure (or refuting it).
 This is P6 from earlier, now with the psychometric measurement model and
 the epiphany × population correlation matrix that ties it back to every
 lesson this session learned.
+
+### P9. Resolution as a variable — mixed bit-width per HHTL level
+
+The bit width per level is NOT fixed. The bench should test whether
+wider HIP address (finer opinion bins → tighter compartments) reduces
+residual variance enough that the LEAF can be shorter. Total bits/row
+could DROP despite wider address.
+
+Variants to test (same tensor, same population matrix):
+
+| Variant | Address | Leaf | Total bits/row |
+|---|---|---|---|
+| I8-baseline | 2+4=6b | 8×i8=64b | 70 |
+| Wide-HIP | 2+8=10b | 8×i8=64b | 74 |
+| Mixed-leaf | 2+4=6b | 4×i16+4×i8=96b | 102 |
+| Compact-leaf | 2+4=6b | 4×i8=32b | 38 |
+| BF16-leaf | 2+4=6b | 2×BF16=32b | 38 |
+| Stacked-Matryoshka | 2+4=6b | 2×i16+2×i8+2×i4+2×i2=52b | 58 |
+
+Key question: does wider HIP × shorter leaf beat narrow HIP × longer
+leaf at the SAME total bit budget?
+
+The Matryoshka module (bgz-tensor/src/matryoshka.rs) already has the
+4-band design (BandPrecision::I16/I8/I4/I2 per SVD energy ordering).
+Wiring it into the leaf encoding is a composition, not a new primitive.
+
+This connects I9 (BF17 shapeshifting): the optimal encoding per level
+might be BF17-like mixed precision — high-energy dims get i16 mantissa,
+low-energy dims get i2. Same total wire budget, but information-weighted
+allocation across the Matryoshka bands.
