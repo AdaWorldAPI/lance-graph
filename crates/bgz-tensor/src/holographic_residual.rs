@@ -5,6 +5,13 @@
 //! superposition. XOR-query with the row's fingerprint retrieves the
 //! specific correction.
 //!
+//! Phase 2 (holograph crate): uses slot encoding from
+//! AdaWorldAPI/RedisGraph/holograph to bind phase AND magnitude
+//! into separate recoverable slots:
+//!   Memory = Base ⊕ (SlotPhase ⊕ sign_pattern) ⊕ (SlotMag ⊕ quant_magnitude)
+//!   Retrieve phase: XOR out SlotPhase key → get sign correction
+//!   Retrieve magnitude: XOR out SlotMag key → get scale correction
+//!
 //! Storage: centroid (D×2B) + holographic memory (D/8 B) + index (1B/row)
 //! For k=64, D=1024, n=1024: ~140 KB vs 2 MB original = 14:1 compression
 //!
@@ -228,5 +235,31 @@ mod tests {
         let bound = xor_bind(&key, &val);
         let retrieved = xor_bind(&key, &bound);
         assert_eq!(retrieved, val, "XOR bind should be self-inverse");
+    }
+
+    #[test]
+    fn holograph_slot_binding() {
+        use holograph::bitpack::BitpackedVector;
+
+        // Verify XOR slot binding works for phase+magnitude recovery
+        let phase_slot = BitpackedVector::random(0x1111);
+        let mag_slot = BitpackedVector::random(0x2222);
+        let row_key = BitpackedVector::random(0x4242);
+        let phase_val = BitpackedVector::random(0xAAAA);
+        let mag_val = BitpackedVector::random(0xBBBB);
+
+        // Bind: memory = row_key ⊕ (phase_slot ⊕ phase_val) ⊕ (mag_slot ⊕ mag_val)
+        let phase_bound = phase_slot.xor(&phase_val);
+        let mag_bound = mag_slot.xor(&mag_val);
+        let combined = row_key.xor(&phase_bound.xor(&mag_bound));
+
+        // Retrieve phase: combined ⊕ row_key ⊕ mag_bound ⊕ phase_slot → phase_val
+        let step1 = combined.xor(&row_key);
+        let step2 = step1.xor(&mag_bound);
+        let retrieved_phase = step2.xor(&phase_slot);
+
+        // XOR is exact (no bundling noise in single-entry case)
+        let diff = phase_val.xor(&retrieved_phase);
+        assert_eq!(diff.popcount(), 0, "slot retrieval should be exact without bundling");
     }
 }
