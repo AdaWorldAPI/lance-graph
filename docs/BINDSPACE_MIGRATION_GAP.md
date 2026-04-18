@@ -133,6 +133,29 @@ lance-graph: NO EQUIVALENT
 | Scent index | Scale | Medium | ndarray or lance-graph |
 | cam_ops (4096) | Vocabulary | Large | lance-graph-cognitive |
 
+## Two-Temperature Architecture
+
+Lance-graph runs two data models in parallel — by design, not by accident:
+
+| | Hot path (BindSpace) | Cold path (DataFusion) |
+|---|---|---|
+| Record | Container 16K + polymorphic content | Arrow RecordBatch |
+| Query | XOR probe + Hamming cascade | SQL/Cypher → plan |
+| Storage | Fingerprint-addressed, SIMD-aligned | Lance columnar |
+| Speed | O(1) XOR, 2400M/s popcount | O(n) scan, parallel |
+| When | Real-time attention, inference | Analytics, batch, joins |
+
+The Container 0 (16K metadata) is always fixed shape. Content rides on top:
+- 16K bitpacked fingerprint (standard holographic)
+- Jina 1024-d f32 dense embedding (DTO, 4 KB)
+- 3×16K SPO (subject + predicate + object, 6 KB)
+- 204 × 6B packed edges (SPO + causality adjacency)
+
+The `graph_router.rs` bridges hot and cold: routes to blasgraph (hot),
+DataFusion (cold), or palette (mid) based on query characteristics.
+The Container port completes the hot side. DataFusion columns already
+work on the cold side.
+
 ## Recommendation
 
 Container and CogRecord should go in `lance-graph-contract` (the zero-dep
