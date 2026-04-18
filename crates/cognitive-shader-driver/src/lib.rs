@@ -42,6 +42,13 @@ pub mod driver;
 pub mod auto_style;
 pub mod engine_bridge;
 
+// Debug-only: REST server + wire types. NEVER in production binary.
+// serde is a debugging tool, not a runtime dependency.
+#[cfg(feature = "serve")]
+pub mod wire;
+#[cfg(feature = "serve")]
+pub mod serve;
+
 pub use lance_graph_contract::cognitive_shader::{
     CognitiveShaderDriver, ColumnWindow, EmitMode, MetaFilter, MetaSummary, MetaWord,
     NullSink, RungLevel, ShaderBus, ShaderCrystal, ShaderDispatch, ShaderHit,
