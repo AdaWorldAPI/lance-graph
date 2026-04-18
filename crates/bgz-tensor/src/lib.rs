@@ -70,6 +70,7 @@ pub mod fisher_z;
 pub mod gamma_calibration;
 pub mod gamma_phi;
 pub mod had_cascade;
+pub mod holographic_residual;
 pub mod hdr_belichtung;
 pub mod hhtl_cache;
 pub mod hhtl_d;
