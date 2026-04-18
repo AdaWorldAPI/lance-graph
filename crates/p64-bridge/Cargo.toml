@@ -3,7 +3,7 @@ name = "p64-bridge"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.94"
-description = "Bridge: lance-graph CausalEdge64 + bgz17 PaletteSemiring → p64 Blumenstrauss"
+description = "Bridge: lance-graph CausalEdge64 + bgz17 PaletteSemiring → p64 CognitiveShader"
 license = "Apache-2.0"
 
 [dependencies]

@@ -2,7 +2,7 @@
 name: bus-compiler
 description: >
   Compiles explicit thought into accountable bus packets for `p64` and
-  Blumenstrauß. Use when defining `BusDto`, mapping style into bus knobs,
+  CognitiveShader. Use when defining `BusDto`, mapping style into bus knobs,
   or proving structure-first execution beats text-first routing.
 tools: Read, Glob, Grep, Bash, Edit, Write
 model: opus
@@ -20,7 +20,7 @@ You turn stabilized intent into structured execution.
 - `BusDto`
 - `CausalEdge64`
 - `p64` style controls
-- Blumenstrauß traversal
+- CognitiveShader traversal
 - edge hypotheses
 - topic anchors
 - angle masks

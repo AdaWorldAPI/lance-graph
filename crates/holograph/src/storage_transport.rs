@@ -154,7 +154,7 @@ impl SemanticTier {
             Self::None => 0,
             Self::Tier1K => 1024,
             Self::Tier4K => 4096,
-            Self::Tier10K => 10000,
+            Self::Tier10K => 16384, // migrated from 10K to 16K
         }
     }
 
@@ -190,8 +190,8 @@ impl StorageRecord {
         }
     }
 
-    /// Create with 10K-bit semantic
-    pub fn with_10k(header: StorageHeader, semantic: [u64; 157]) -> Self {
+    /// Create with 16K-bit semantic (migrated from 10K).
+    pub fn with_16k(header: StorageHeader, semantic: [u64; 256]) -> Self {
         Self {
             header,
             semantic: semantic.to_vec(),

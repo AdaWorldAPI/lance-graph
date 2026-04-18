@@ -98,7 +98,7 @@ pub const NEON_REMAINDER: usize = VECTOR_WORDS - NEON_ITERATIONS * 2; // 1
 // ============================================================================
 
 /// Strategic 7-point sample indices for quick distance estimation.
-/// Prime-spaced across 157 words.
+/// Prime-spaced across 256 words.
 pub const SAMPLE_POINTS: [usize; 7] = [0, 23, 47, 78, 101, 131, 155];
 
 #[cfg(test)]

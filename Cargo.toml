@@ -20,5 +20,8 @@ exclude = [
     "crates/causal-edge",
     "crates/highheelbgz",
     "crates/thinking-engine",
+    "crates/holograph",
+    "crates/lance-graph-cognitive",
+    "crates/learning",
 ]
 resolver = "2"

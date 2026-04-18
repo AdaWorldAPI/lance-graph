@@ -427,7 +427,7 @@ docs/CONSUMER_WIRING_INSTRUCTIONS.md   — How to consume lance-graph-contract
   - `triple_model.rs`: self/user/impact × 4096 heads, DK, Plasticity, Truth=NarsTruth
   - `lane_eval.rs`: Euler-gamma tension, DK-adaptive, 4096-head evaluation
   - `nars_engine.rs`: SpoHead, Pearl 2³, NarsTables (causal-edge hot path), StyleVectors
-  - `convergence.rs`: AriGraph triplets → p64 Palette layers → Blumenstrauss
+  - `convergence.rs`: AriGraph triplets → p64 Palette layers → CognitiveShader
   - `kv_bundle.rs`: VSA superposition store
 - `src/strategy/chat_bundle.rs`: AutocompleteCacheStrategy (Strategy #17)
 - `src/serve.rs`: Axum REST server, OpenAI-compatible /v1/chat/completions

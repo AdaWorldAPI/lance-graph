@@ -118,7 +118,7 @@ Edge stored: SpoHead { s_idx: 42, p_idx: 17, o_idx: 88, freq, conf, pearl, ... }
 Edge derived: NeuronTrace::from_neuron(weight_store.lookup(layer, feature))
 ```
 
-#### 2.3 MetaCognition64 — Community Blumenstrauss
+#### 2.3 MetaCognition64 — Community CognitiveShader
 **What**: 64 community experts in a `Palette64`, connected by 8-layer causal topology.
 **Struct** (new, verified against p64 types):
 ```rust

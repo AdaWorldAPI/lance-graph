@@ -2,7 +2,7 @@
 //!
 //! Provides conversions between all three vector widths:
 //!
-//! - **10K → 32K**: Zero-extend 157 words into X dimension (words 0-127),
+//! - **10K → 32K**: Zero-extend 256 words into X dimension (words 0-127),
 //!   remaining 29 words spill into Y (words 128-156). Z and metadata are zero.
 //!
 //! - **16K → 32K**: Map 256 words into X+Y (words 0-255). Z and metadata zero.
@@ -10,12 +10,12 @@
 //!
 //! - **32K → 16K**: Truncate or XOR-fold to 256 words.
 //!
-//! - **32K → 10K**: Truncate to 157 words (drops all but first 157 words of X).
+//! - **32K → 10K**: Truncate to 256 words (drops all but first 256 words of X).
 //!
 //! # Dimension Mapping
 //!
 //! ```text
-//! 10K (157 words)  →  32K X[0..127] + Y[0..28]  (zero-padded)
+//! 10K (256 words)  →  32K X[0..127] + Y[0..28]  (zero-padded)
 //! 16K (256 words)  →  32K X[0..127] + Y[0..127]  (exact 2-dim fill)
 //! 32K → 16K        →  X[0..127] + Y[0..127] = words 0..255
 //! 32K → 10K        →  X[0..127] + Y[0..28]  = words 0..156
@@ -37,15 +37,15 @@ use crate::width_16k::{VECTOR_WORDS as WORDS_16K};
 // 10K → 32K: Zero-extend into X + Y[0..28]
 // ============================================================================
 
-/// Zero-extend a 10K vector (157 words) into a 32K HoloVector.
+/// Zero-extend a 10K vector (256 words) into a 32K HoloVector.
 ///
 /// Words 0..127 go into X dimension, words 128..156 spill into Y.
 /// Z dimension and metadata block are zero. The semantic content
-/// is preserved in the first 157 words.
+/// is preserved in the first 256 words.
 pub fn from_10k(v10k: &BitpackedVector) -> HoloVector {
     let mut holo = HoloVector::zero();
     let src = v10k.words();
-    // Copy all 157 words starting at word 0.
+    // Copy all 256 words starting at word 0.
     // Words 0..127 land in X, words 128..156 land in Y[0..28].
     let copy_len = WORDS_10K.min(WORDS_32K);
     holo.words[..copy_len].copy_from_slice(&src[..copy_len]);
@@ -140,10 +140,10 @@ pub fn xor_fold_to_16k(holo: &HoloVector) -> [u64; WORDS_16K] {
 }
 
 // ============================================================================
-// 32K → 10K: Truncate to 157 words
+// 32K → 10K: Truncate to 256 words
 // ============================================================================
 
-/// Truncate a 32K HoloVector to 10K (157 words).
+/// Truncate a 32K HoloVector to 10K (256 words).
 ///
 /// Returns words 0..156 (X[0..127] + Y[0..28]).
 /// Everything else is discarded.
@@ -173,7 +173,7 @@ pub fn xor_fold_to_10k(holo: &HoloVector) -> BitpackedVector {
 
 /// Distance between a 10K vector and a 32K HoloVector.
 ///
-/// Compares only the first 157 words (the 10K content region).
+/// Compares only the first 256 words (the 10K content region).
 pub fn distance_10k_32k(v10k: &BitpackedVector, holo: &HoloVector) -> u32 {
     let src = v10k.words();
     let mut total = 0u32;
@@ -234,7 +234,7 @@ mod tests {
         let v = BitpackedVector::random(42);
         let holo = from_10k(&v);
 
-        // First 157 words should match
+        // First 256 words should match
         for w in 0..WORDS_10K {
             assert_eq!(v.words()[w], holo.words[w],
                 "Word {} mismatch after 10K→32K", w);

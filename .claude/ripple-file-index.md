@@ -128,7 +128,7 @@ What they do:
    - contradiction preservation
    - shared gestalt overlap/tension
 3. Smallest benchmarkable host-model glove.
-4. Reinforcement targets for `p64 + Blumenstrauß` traversal quality.
+4. Reinforcement targets for `p64 + CognitiveShader` traversal quality.
 5. Whether perspective-aware traversal materially beats topic-only traversal.
 
 ## Additive collaboration rule

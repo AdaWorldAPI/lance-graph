@@ -198,7 +198,7 @@ A semantic kernel here can be treated as a compact mediation layer that:
 
 A useful framing is:
 
-- p64 + Blumenstrauß = explicit traversal and composition substrate
+- p64 + CognitiveShader = explicit traversal and composition substrate
 - reinforcement = path preference shaping over traversals and collapse policies
 - BNN-like dynamics = sparse or bounded state updates over structured topology
 

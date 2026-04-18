@@ -1,41 +1,36 @@
-//! Bitpacked 10Kbit Vector Implementation
+//! Bitpacked 16Kbit Vector Implementation
 //!
 //! Core data structure for hyperdimensional computing:
-//! - 10,000 bits packed into 157 × u64 words (10,048 bits with 48 padding)
-//! - 64-byte aligned for SIMD operations
+//! - 16,384 bits packed into 256 × u64 words (exact alignment, no padding)
+//! - 64-byte aligned for SIMD operations (256 words = 32 cache lines)
 //! - Efficient bit manipulation primitives
+//!
+//! Migrated from 10,000 bits (legacy). 16K = 2^14 = exact power of 2.
 
 use std::fmt;
 use std::ops::{BitAnd, BitOr, BitXor, Not};
 use crate::{HdrError, Result};
 
-/// Number of bits in the logical vector (10,000)
-pub const VECTOR_BITS: usize = 10_000;
+/// Number of bits in the logical vector (16,384 = 2^14, production).
+pub const VECTOR_BITS: usize = 16_384;
 
-/// Number of u64 words needed: ceil(10000/64) = 157
-pub const VECTOR_WORDS: usize = (VECTOR_BITS + 63) / 64;
+/// Number of u64 words: 16384/64 = 256 (exact, no partial word).
+pub const VECTOR_WORDS: usize = VECTOR_BITS / 64;
 
-/// Bytes per vector: 157 × 8 = 1,256 bytes
+/// Bytes per vector: 256 × 8 = 2,048 bytes = 2 KB.
 pub const VECTOR_BYTES: usize = VECTOR_WORDS * 8;
 
-/// Padded words for 64-byte (cache-line) alignment: ceil(157/8)*8 = 160
-///
-/// In Arrow `FixedSizeBinary(PADDED_VECTOR_BYTES)`, every vector starts at
-/// a 64-byte boundary (since 1280 = 20 × 64), enabling zero-copy SIMD loads
-/// directly on the Arrow buffer without materializing BitpackedVector.
-pub const PADDED_VECTOR_WORDS: usize = (VECTOR_WORDS + 7) & !7; // 160
+/// Padded words for 64-byte (cache-line) alignment: 256 already aligned.
+pub const PADDED_VECTOR_WORDS: usize = VECTOR_WORDS; // 256 = 32 × 8, already aligned
 
-/// Padded bytes per vector: 160 × 8 = 1,280 bytes = 20 × 64 bytes
-///
-/// Use this (not VECTOR_BYTES) for Arrow FixedSizeBinary column width.
-/// The 3 padding words (157..160) are always zero.
-pub const PADDED_VECTOR_BYTES: usize = PADDED_VECTOR_WORDS * 8; // 1280
+/// Padded bytes per vector: 2,048 bytes = 32 × 64-byte cache lines.
+pub const PADDED_VECTOR_BYTES: usize = PADDED_VECTOR_WORDS * 8;
 
-/// Mask for the last word (only 16 bits used: 10000 - 156×64 = 16)
-const LAST_WORD_BITS: usize = VECTOR_BITS - (VECTOR_WORDS - 1) * 64;
-const LAST_WORD_MASK: u64 = (1u64 << LAST_WORD_BITS) - 1;
+/// Mask for the last word. 16384 is exact multiple of 64 → all bits valid.
+const LAST_WORD_BITS: usize = 64; // full word
+const LAST_WORD_MASK: u64 = u64::MAX;
 
-/// A 10,000-bit vector stored as 157 packed u64 words.
+/// A 16,384-bit vector stored as 256 packed u64 words.
 ///
 /// This is the fundamental unit for hyperdimensional computing:
 /// - XOR binding for concept composition
@@ -45,12 +40,12 @@ const LAST_WORD_MASK: u64 = (1u64 << LAST_WORD_BITS) - 1;
 /// # Memory Layout
 ///
 /// ```text
-/// ┌────────────────────────────────────────────────────┐
-/// │ word[0]   │ word[1]   │ ... │ word[155] │ word[156]│
-/// │ bits 0-63 │ bits 64-127│    │           │bits 9984-│
-/// │           │           │     │           │    9999  │
-/// └────────────────────────────────────────────────────┘
-///   64 bits     64 bits          64 bits     16 bits used
+/// ┌────────────────────────────────────────────────────────┐
+/// │ word[0]   │ word[1]   │ ... │ word[254] │ word[255]   │
+/// │ bits 0-63 │ bits 64-127│    │           │bits 16320-  │
+/// │           │           │     │           │      16383  │
+/// └────────────────────────────────────────────────────────┘
+///   64 bits     64 bits          64 bits     64 bits (full)
 /// ```
 #[derive(Clone, PartialEq, Eq)]
 #[repr(C, align(64))]  // Cache-line aligned for SIMD
@@ -667,7 +662,7 @@ impl BitpackedVector {
                 got: bytes.len(),
             });
         }
-        // Only read the first 157 words, ignore padding
+        // Only read the first 256 words, ignore padding
         let mut words = [0u64; VECTOR_WORDS];
         for (i, word) in words.iter_mut().enumerate() {
             let start = i * 8;

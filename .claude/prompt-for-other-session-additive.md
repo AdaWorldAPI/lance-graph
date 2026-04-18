@@ -47,7 +47,7 @@ Key objects and layers currently in play:
 - `PerspectiveFrame`
 - `SharedGestalt`
 - `TrajectoryArc`
-- `p64 + Blumenstrauß` as explicit traversal substrate
+- `p64 + CognitiveShader` as explicit traversal substrate
 
 Key distinctions to preserve:
 
@@ -102,7 +102,7 @@ Explore episodic memory as causality trajectories.
 Map how AriGraph, graph revision, persona, and thought stabilization could all be represented as path-shaped memory.
 
 ### 6. Explore reinforcement over traversal quality
-Treat `p64 + Blumenstrauß` as a possible substrate for structured traversal reinforcement.
+Treat `p64 + CognitiveShader` as a possible substrate for structured traversal reinforcement.
 Consider reward signals such as:
 - contradiction handling
 - trajectory coherence

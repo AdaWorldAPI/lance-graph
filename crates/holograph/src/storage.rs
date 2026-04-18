@@ -54,7 +54,7 @@ use arrow::ipc::writer::FileWriter;
 
 use crate::bitpack::{
     BitpackedVector, VectorRef, VectorSlice,
-    VECTOR_BYTES, VECTOR_WORDS, PADDED_VECTOR_BYTES,
+    VECTOR_BITS, VECTOR_BYTES, VECTOR_WORDS, PADDED_VECTOR_BYTES,
 };
 use crate::hamming::{
     Belichtung, StackedPopcount, hamming_distance_ref,

@@ -1,4 +1,4 @@
-//! p64 convergence: AriGraph triplets → Palette64 → Blumenstrauss → AutocompleteCache.
+//! p64 convergence: AriGraph triplets → Palette64 → CognitiveShader → AutocompleteCache.
 //!
 //! p64 is the convergence point where both hardware (ndarray) and thinking (lance-graph) meet.
 //!
@@ -7,7 +7,7 @@
 //!   AriGraph TripletGraph → SPO strings → DataFusion → Arrow
 //!
 //! Hot path (p64 palette):
-//!   AriGraph Triplets → Base17 fingerprints → Palette → Blumenstrauss
+//!   AriGraph Triplets → Base17 fingerprints → Palette → CognitiveShader
 //!     → 8 predicate layers × 64×64 attention = 4096 heads
 //!     → CausalEdge64 forward/learn = O(1) per head
 //!     → NarsTables revision = O(1) per truth update
@@ -79,7 +79,7 @@ pub fn headprint_to_spo(fp: &HeadPrint, truth_f: f32, truth_c: f32) -> SpoHead {
 ///   Layer 6 GROUNDS:     triplets with grounding evidence
 ///   Layer 7 BECOMES:     triplets with transformation relations
 ///
-/// Returns [[u64; 64]; 8] ready for Blumenstrauss::new().
+/// Returns [[u64; 64]; 8] ready for CognitiveShader::new().
 pub fn triplets_to_palette_layers(
     triplets: &[(String, String, String, f32)], // (subject, predicate, object, truth_freq)
 ) -> [[u64; 64]; 8] {
@@ -115,7 +115,7 @@ fn classify_relation(relation: &str) -> usize {
     else { 0 } // default: CAUSES
 }
 
-/// Build a Blumenstrauss-ready structure from AriGraph episodic memory.
+/// Build a CognitiveShader-ready structure from AriGraph episodic memory.
 ///
 /// Takes a list of episodes (observation text) and extracts SPO triplets,
 /// converts them to palette layers, ready for hot-path routing.
@@ -196,12 +196,12 @@ mod tests {
     }
 
     #[test]
-    fn test_palette_layers_ready_for_blumenstrauss() {
+    fn test_palette_layers_ready_for_cognitive_shader() {
         let triplets = vec![
             ("A".into(), "causes".into(), "B".into(), 0.9),
         ];
         let layers = triplets_to_palette_layers(&triplets);
-        // layers is [[u64; 64]; 8] — exactly what Blumenstrauss::new() expects
+        // layers is [[u64; 64]; 8] — exactly what CognitiveShader::new() expects
         assert_eq!(layers.len(), 8);
         assert_eq!(layers[0].len(), 64);
     }

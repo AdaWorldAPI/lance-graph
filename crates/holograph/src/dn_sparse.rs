@@ -85,7 +85,7 @@ use std::sync::Arc;
 /// When calculating thresholds for `max_differing_words`:
 /// - 156 "full" words × 64 bits = 9984 bits
 /// - 1 "partial" word × 16 bits = 16 bits
-/// - Total: 10000 bits across 157 words
+/// - Total: 10000 bits across 256 words
 ///
 /// At radius R, the MINIMUM differing words = ceil(R / 64) (best case:
 /// all differing bits concentrated in fewest words). The MAXIMUM is R
@@ -507,7 +507,7 @@ pub fn xor_bind_fingerprint(dn: PackedDn) -> BitpackedVector {
 ///
 /// If you need the edge's semantic fingerprint, COMPUTE it on demand:
 /// `edge_fp = src_fp XOR verb_fp XOR dst_fp`
-/// That's 3 XORs over 157 words = ~5ns. Cheaper than a cache miss on a stored vector.
+/// That's 3 XORs over 256 words = ~5ns. Cheaper than a cache miss on a stored vector.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[repr(transparent)]
 pub struct EdgeDescriptor(u64);
@@ -1184,7 +1184,7 @@ impl DnSemiring for ResonanceMax {
 // 157-word popcount on every edge. That's correct but wasteful: the
 // Belichtungsmesser's 7-point sample rejects 90% of candidates in ~14 cycles,
 // and StackedPopcount's per-word accumulation with early exit rejects most
-// of the rest before touching all 157 words.
+// of the rest before touching all 256 words.
 //
 // These cascaded variants wire the light meter directly into multiply():
 //

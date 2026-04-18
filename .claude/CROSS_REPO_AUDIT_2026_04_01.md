@@ -112,7 +112,7 @@
 | Item | Category | Evidence | Action |
 |------|----------|----------|--------|
 | p64 Palette64 + SIMD kernels | **DONE** | ndarray crate, AVX-512/AVX2/scalar, attend/nearest/moe_gate | None |
-| p64-bridge (CausalEdge64 -> Palette) | **DONE** | lance-graph crate, Blumenstrauss cascade+deduce | None |
+| p64-bridge (CausalEdge64 -> Palette) | **DONE** | lance-graph crate, CognitiveShader cascade+deduce | None |
 | lance-graph-contract | **DONE** | Zero-dep, 15 tests, ThinkingStyle/PlannerContract/etc. | None |
 | Convergence (episodes -> palette layers) | **DONE** | lance-graph-planner, triplet_to_headprint, classify_relation | None |
 | Contract adoption by ladybug/crewai/n8n | **OPEN TASK** | Phase 3, not started | See Integrationsplan |

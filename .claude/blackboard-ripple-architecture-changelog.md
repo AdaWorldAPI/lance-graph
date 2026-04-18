@@ -21,7 +21,7 @@ Created:
   - `ResonanceDto`
   - `BusDto`
   - `ThoughtStruct` above them as accountable thought object
-- `p64 + Blumenstrauß` should be treated as the explicit reasoning bus.
+- `p64 + CognitiveShader` should be treated as the explicit reasoning bus.
 - Thinking style should be treated as collapse policy, not metadata.
 
 ### Most important distinctions locked in

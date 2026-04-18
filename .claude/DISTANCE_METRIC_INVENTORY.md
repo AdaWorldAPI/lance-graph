@@ -104,7 +104,7 @@
 | `p64-bridge/lib.rs:420` | Plane density count | **Popcount** | u64[64] palette rows | ✓ Binary topology density |
 | `p64-bridge/lib.rs:505` | NNZ count | **Popcount** | u64[64] palette rows | ✓ Sparsity measurement |
 | `p64-bridge/lib.rs:511` | Per-layer density | **Popcount** | u64[64] per layer | ✓ Binary topology |
-| `p64-bridge/lib.rs` | `Blumenstrauss::cascade` | **Palette L1** | bgz17 PaletteSemiring | ✓ Delegates to bgz17 |
+| `p64-bridge/lib.rs` | `CognitiveShader::cascade` | **Palette L1** | bgz17 PaletteSemiring | ✓ Delegates to bgz17 |
 
 ### lance-graph / blasgraph (graph algebra)
 
