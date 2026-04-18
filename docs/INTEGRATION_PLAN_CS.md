@@ -174,6 +174,10 @@ Layer 4: Planner strategies (16-19 in lance-graph-planner)
            ├── TruthPropagation, CollapseGateStrategy
            ├── StreamPipeline, JitCompile, WorkflowDAG
            ├── ExtensionPlanner, AutocompleteCache
+           ├── ThinkingStyleStrategy (reads grammar triangle + spectroscopy)
+           │     ↑ inputs: NSM primes, causality flow, 18D qualia,
+           │              IIC texture from spectroscopy
+           │     ↓ output: which CognitiveShader (analytical / creative / ...)
            └── [2-3 more]
          → Decides WHICH shader/gate combination runs per cycle
 
