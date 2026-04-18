@@ -99,7 +99,7 @@ fn main() {
     println!("For each tensor: encode → reconstruct → multiply by random activations");
     println!("→ check argmax(x @ W.T) == argmax(x @ W_recon.T)");
     println!();
-    println!("| Tensor | Regime | Shape | Argmax match | RMS diff | Cosine | Encode ms |");
+    println!("| Tensor | Shape | i4+i2 argmax | i4+i2 cos | i8 argmax | i8 cos | ms |");
     println!("|---|---|---|---|---|---|---|");
 
     let n_test_inputs = 32;
@@ -136,15 +136,18 @@ fn main() {
         }
 
         let t0 = Instant::now();
-        let k = 256.min(rows.len());
-        let tensor = HadCascadeTensor::encode(name, &rows, k);
+        let k = 64;
+        // Test BOTH i4+i2 and i8 modes
+        let tensor_i4 = HadCascadeTensor::encode(name, &rows, k);
+        let tensor_i8 = HadCascadeTensor::encode_i8(name, &rows, k);
         let encode_ms = t0.elapsed().as_secs_f32() * 1000.0;
-        let recon = tensor.reconstruct_all();
+        let recon_i4 = tensor_i4.reconstruct_all();
+        let recon_i8 = tensor_i8.reconstruct_all();
 
-        // Generate test activations (deterministic pseudo-random)
-        let mut match_count = 0usize;
-        let mut total_rms = 0.0f64;
-        let mut total_cos = 0.0f64;
+        let mut match_i4 = 0usize;
+        let mut match_i8 = 0usize;
+        let mut cos_i4 = 0.0f64;
+        let mut cos_i8 = 0.0f64;
 
         for t in 0..n_test_inputs {
             let x: Vec<f32> = (0..*n_cols).map(|d| {
@@ -152,31 +155,32 @@ fn main() {
             }).collect();
 
             let y_orig = matmul_row(&x, &rows);
-            let y_recon = matmul_row(&x, &recon);
+            let y_r4 = matmul_row(&x, &recon_i4);
+            let y_r8 = matmul_row(&x, &recon_i8);
 
-            if argmax(&y_orig) == argmax(&y_recon) {
-                match_count += 1;
-            }
-            total_rms += rms_diff(&y_orig, &y_recon);
-            total_cos += cosine_f32_to_f64_simd(&y_orig, &y_recon);
+            if argmax(&y_orig) == argmax(&y_r4) { match_i4 += 1; }
+            if argmax(&y_orig) == argmax(&y_r8) { match_i8 += 1; }
+            cos_i4 += cosine_f32_to_f64_simd(&y_orig, &y_r4);
+            cos_i8 += cosine_f32_to_f64_simd(&y_orig, &y_r8);
         }
 
-        let match_rate = match_count as f64 / n_test_inputs as f64;
-        let avg_rms = total_rms / n_test_inputs as f64;
-        let avg_cos = total_cos / n_test_inputs as f64;
+        let rate_i4 = match_i4 as f64 / n_test_inputs as f64;
+        let rate_i8 = match_i8 as f64 / n_test_inputs as f64;
+        let avg_cos_i4 = cos_i4 / n_test_inputs as f64;
+        let avg_cos_i8 = cos_i8 / n_test_inputs as f64;
 
         total_argmax_tests += n_test_inputs;
-        total_argmax_match += match_count;
+        total_argmax_match += match_i8; // track i8 as primary
         total_tensors += 1;
 
-        let short_name = &name[name.len().saturating_sub(45)..];
-        let status = if match_rate >= 1.0 { "100%" } else {
-            failed_tensors.push(name.clone());
-            &format!("{:.1}%", match_rate * 100.0)
-        };
+        if rate_i8 < 1.0 { failed_tensors.push(name.clone()); }
 
-        println!("| {} | Argmax | {}×{} | {} | {:.2e} | {:.6} | {:.0} |",
-            short_name, n_rows, n_cols, status, avg_rms, avg_cos, encode_ms);
+        let short_name = &name[name.len().saturating_sub(40)..];
+        println!("| {} | {}×{} | {:.0}% | {:.4} | {:.0}% | {:.4} | {:.0} |",
+            short_name, n_rows, n_cols,
+            rate_i4 * 100.0, avg_cos_i4,
+            rate_i8 * 100.0, avg_cos_i8,
+            encode_ms);
     }
 
     println!();

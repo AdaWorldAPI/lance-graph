@@ -95,6 +95,14 @@ pub struct HadCascadeTensor {
 
 impl HadCascadeTensor {
     pub fn encode(role: &str, data: &[Vec<f32>], k: usize) -> Self {
+        Self::encode_with_precision(role, data, k, false)
+    }
+
+    pub fn encode_i8(role: &str, data: &[Vec<f32>], k: usize) -> Self {
+        Self::encode_with_precision(role, data, k, true)
+    }
+
+    fn encode_with_precision(role: &str, data: &[Vec<f32>], k: usize, use_i8: bool) -> Self {
         let n = data.len();
         let n_cols = if n > 0 { data[0].len() } else { 0 };
         let padded = next_pow2(n_cols);
@@ -109,28 +117,40 @@ impl HadCascadeTensor {
             let residual: Vec<f32> = row.iter().zip(centroids[ci].iter())
                 .map(|(a, b)| a - b).collect();
 
-            // Pass 1: WHT → i4 full-rank (ndarray quantized)
             let rotated1 = hadamard_rotate(&residual, padded);
-            let (i4_codes, i4_params) = quantize_f32_to_i4(&rotated1[..n_cols]);
 
-            // Reconstruct pass 1 to compute residue
-            let dequant1 = dequantize_i4_to_f32(&i4_codes, &i4_params, n_cols);
-            let mut full1 = vec![0.0f32; padded];
-            full1[..n_cols].copy_from_slice(&dequant1);
-            let recon1 = hadamard_rotate(&full1, padded);
+            if use_i8 {
+                // i8-only mode: 2:1 compression, higher fidelity
+                use ndarray::hpc::quantized::{quantize_f32_to_i8, dequantize_i8_to_f32};
+                let (i8_codes_raw, i8_params) = quantize_f32_to_i8(&rotated1[..n_cols]);
+                let i8_as_u8: Vec<u8> = i8_codes_raw.iter().map(|&v| v as u8).collect();
+                HadCascadeRow {
+                    twig: ci as u8,
+                    scale1_bf16: f32_to_bf16(i8_params.scale),
+                    i4_codes: i8_as_u8,
+                    scale2_bf16: 0,
+                    i2_codes: vec![],
+                }
+            } else {
+                // i4+i2 cascade: 2.65:1 compression
+                let (i4_codes, i4_params) = quantize_f32_to_i4(&rotated1[..n_cols]);
+                let dequant1 = dequantize_i4_to_f32(&i4_codes, &i4_params, n_cols);
+                let mut full1 = vec![0.0f32; padded];
+                full1[..n_cols].copy_from_slice(&dequant1);
+                let recon1 = hadamard_rotate(&full1, padded);
 
-            // Pass 2: WHT → i2 on residue (ndarray quantized)
-            let residual2: Vec<f32> = residual.iter().zip(recon1.iter().take(n_cols))
-                .map(|(orig, r1)| orig - r1).collect();
-            let rotated2 = hadamard_rotate(&residual2, padded);
-            let (i2_codes, i2_params) = quantize_f32_to_i2(&rotated2[..n_cols]);
+                let residual2: Vec<f32> = residual.iter().zip(recon1.iter().take(n_cols))
+                    .map(|(orig, r1)| orig - r1).collect();
+                let rotated2 = hadamard_rotate(&residual2, padded);
+                let (i2_codes, i2_params) = quantize_f32_to_i2(&rotated2[..n_cols]);
 
-            HadCascadeRow {
-                twig: ci as u8,
-                scale1_bf16: f32_to_bf16(i4_params.scale),
-                i4_codes,
-                scale2_bf16: f32_to_bf16(i2_params.scale),
-                i2_codes,
+                HadCascadeRow {
+                    twig: ci as u8,
+                    scale1_bf16: f32_to_bf16(i4_params.scale),
+                    i4_codes,
+                    scale2_bf16: f32_to_bf16(i2_params.scale),
+                    i2_codes,
+                }
             }
         }).collect();
 
@@ -149,24 +169,36 @@ impl HadCascadeTensor {
         use ndarray::hpc::quantized::QuantParams;
         let row = &self.rows[i];
         let ci = row.twig as usize;
-
         let p1 = QuantParams { scale: bf16_to_f32(row.scale1_bf16), zero_point: 0, min_val: 0.0, max_val: 0.0 };
-        let dequant1 = dequantize_i4_to_f32(&row.i4_codes, &p1, self.n_cols);
-        let mut full1 = vec![0.0f32; self.padded_dim];
-        full1[..self.n_cols].copy_from_slice(&dequant1);
-        let recon1 = hadamard_rotate(&full1, self.padded_dim);
 
-        let p2 = QuantParams { scale: bf16_to_f32(row.scale2_bf16), zero_point: 0, min_val: 0.0, max_val: 0.0 };
-        let dequant2 = dequantize_i2_to_f32(&row.i2_codes, &p2, self.n_cols);
-        let mut full2 = vec![0.0f32; self.padded_dim];
-        full2[..self.n_cols].copy_from_slice(&dequant2);
-        let recon2 = hadamard_rotate(&full2, self.padded_dim);
+        if row.i2_codes.is_empty() {
+            // i8-only mode
+            use ndarray::hpc::quantized::dequantize_i8_to_f32;
+            let i8_codes: Vec<i8> = row.i4_codes.iter().map(|&v| v as i8).collect();
+            let dequant = dequantize_i8_to_f32(&i8_codes, &p1, self.n_cols);
+            let mut full = vec![0.0f32; self.padded_dim];
+            full[..self.n_cols].copy_from_slice(&dequant);
+            let recon = hadamard_rotate(&full, self.padded_dim);
+            self.centroids[ci].iter().zip(recon.iter()).map(|(c, r)| c + r).collect()
+        } else {
+            // i4+i2 cascade mode
+            let dequant1 = dequantize_i4_to_f32(&row.i4_codes, &p1, self.n_cols);
+            let mut full1 = vec![0.0f32; self.padded_dim];
+            full1[..self.n_cols].copy_from_slice(&dequant1);
+            let recon1 = hadamard_rotate(&full1, self.padded_dim);
 
-        self.centroids[ci].iter()
-            .zip(recon1.iter())
-            .zip(recon2.iter())
-            .map(|((c, r1), r2)| c + r1 + r2)
-            .collect()
+            let p2 = QuantParams { scale: bf16_to_f32(row.scale2_bf16), zero_point: 0, min_val: 0.0, max_val: 0.0 };
+            let dequant2 = dequantize_i2_to_f32(&row.i2_codes, &p2, self.n_cols);
+            let mut full2 = vec![0.0f32; self.padded_dim];
+            full2[..self.n_cols].copy_from_slice(&dequant2);
+            let recon2 = hadamard_rotate(&full2, self.padded_dim);
+
+            self.centroids[ci].iter()
+                .zip(recon1.iter())
+                .zip(recon2.iter())
+                .map(|((c, r1), r2)| c + r1 + r2)
+                .collect()
+        }
     }
 
     pub fn reconstruct_all(&self) -> Vec<Vec<f32>> {
