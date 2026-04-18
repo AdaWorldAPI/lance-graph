@@ -164,6 +164,44 @@ Multi-target Bundle merge: new = majority_vote([old, value_A, value_B])
 
 No locks. No races. XOR is its own inverse — you can always back out.
 
+## The 5-Layer Stack
+
+```
+Layer 4: Planner strategies (16-19 in lance-graph-planner)
+           ├── CypherParse, GqlParse, GremlinParse, SparqlParse
+           ├── DPJoinEnum, RuleOptimizer, HistogramCost
+           ├── SigmaBandScan, MorselExec
+           ├── TruthPropagation, CollapseGateStrategy
+           ├── StreamPipeline, JitCompile, WorkflowDAG
+           ├── ExtensionPlanner, AutocompleteCache
+           └── [2-3 more]
+         → Decides WHICH shader/gate combination runs per cycle
+
+Layer 3: CollapseGate (enum Flow/Block/Hold)
+         → Decides SHOULD this delta land?
+
+Layer 2: CognitiveShader (layer_mask + combine + contra)
+         → Decides HOW to dispatch across 8 predicate planes
+
+Layer 1: BindSpace columns (read-only, multi-lane views)
+         → The WHAT (content + topic + angle + causality + qualia + ...)
+
+Layer 0: ndarray SIMD (F32x16, U8x64, F16x32, F64x8)
+         → The hardware (popcount, gather, FMA, compare)
+```
+
+Each layer has a different temporal scope:
+- **L4** plans once per query (milliseconds)
+- **L3** gates per commit cycle (microseconds)
+- **L2** dispatches per step (nanoseconds)
+- **L1** reads per lane (nanoseconds, zero-copy)
+- **L0** executes per instruction (sub-nanosecond)
+
+The planner strategies compile the 5D stream execution plan. The
+CognitiveShader runs it. The CollapseGate decides what commits.
+The BindSpace stores the committed generation. The SIMD executes
+each primitive. All in one binary, one address space, one pipeline.
+
 ## Integration Plan (prioritized by era)
 
 ### Phase 1 — Harden Foundation (Era 6 + 7)
