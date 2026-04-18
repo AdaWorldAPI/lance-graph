@@ -7,9 +7,25 @@
 
 ---
 
-## The 5-Layer Stack
+## The 7-Layer Stack (5 core + 2 boundary)
 
 ```
+Layer 6: Cold persistence (LanceDB — thought stream buffer)
+         → Per-thought stream: every emitted CausalEdge64 / CognitiveRecord
+         → Feedback into thinking (RAG from past thoughts)
+         → Replay (dream consolidation, counterfactual simulation)
+         → Cross-session continuity + long-term memory
+         → Temporal scope: seconds-to-months, columnar
+
+Layer 5: GPU/APU meta operations (OPTIONAL, shared memory)
+         → APU / iGPU / Apple unified memory: no PCIe copy overhead
+         → Handles ops CPU can't: large tensor contractions, parallel
+           rollouts, meta-learning across millions of thoughts
+         → Complementary to CPU cascade, not replacement:
+           - CPU cascade: 2400M lookups/sec, no batching, natural fit
+           - GPU meta: batched workloads CPU can't match
+         → Temporal scope: microseconds for batch, overlaps L1-L3
+
 Layer 4: Planner strategies (16-19 in lance-graph-planner)
            ├── Parse: Cypher/GQL/Gremlin/SPARQL
            ├── Optimize: DPJoin, Rule, Histogram, SigmaBand, Morsel
@@ -18,8 +34,12 @@ Layer 4: Planner strategies (16-19 in lance-graph-planner)
            ├── ThinkingStyleStrategy (grammar triangle + spectroscopy in)
            │     ↑ reads: NSM primes, causality flow, 18D qualia, IIC texture
            │     ↓ picks: one of 36 ThinkingStyles → shader config
+           │     ↓ EMITS: cycle_fingerprint = Fingerprint<256>
+           │            bind(triangle, spectroscopy, style, shader_mask, causal_state)
+           │            → cache key, retrieval key, replay seed, upstream cursor
            └── [2-3 more]
          → Decides WHICH shader/gate combination runs per cycle
+         → Per cycle: one cycle_fingerprint captures entire decision
          → Temporal scope: milliseconds per query
 
 Layer 3: CollapseGate (enum Flow/Block/Hold)
@@ -43,6 +63,63 @@ Layer 0: ndarray SIMD (F32x16, U8x64, F16x32, F64x8)
          → Hardware primitives (popcount, gather, FMA, compare)
          → Temporal scope: sub-nanosecond per instruction
 ```
+
+## The Feedback Loop (sense → plan → act → persist → retrieve)
+
+```
+Text in
+  ↓
+Layer 4 ThinkingStyleStrategy (grammar + spectroscopy)
+  ↓ style selected
+Layer 2 CognitiveShader dispatched
+  ↓ layer_mask + combine + contra
+Layer 1 BindSpace columns cascaded (L0 SIMD)
+  ↓ survivors
+Layer 3 CollapseGate decides Flow/Block/Hold
+  ↓ committed CausalEdge64
+Layer 5 GPU meta ops (if batch available — replay, consolidation)
+  ↓
+Layer 6 LanceDB persists thought stream
+  ↓ available for retrieval
+Next cycle reads past thoughts via RAG → feeds back into L4 planner
+```
+
+The loop closes through LanceDB. Every thought persists. Past thoughts
+retrievable via Cypher/SQL on the cold path. Current thoughts computed
+on the hot path. GPU meta fills the gap for batch workloads the CPU
+cascade can't handle naturally.
+
+## Cycle Fingerprint (Layer 4 output)
+
+Each cycle, Layer 4 emits a `Fingerprint<256>` that captures the full
+execution context — not just which style was picked, but a reproducible
+hash of the entire decision:
+
+```rust
+cycle_fingerprint = bind(
+    triangle_fp,         // NSM + causality + qualia from grammar
+    spectroscopy_fp,     // IIC texture from text
+    style_fp,            // which of 36 ThinkingStyles
+    shader_mask,         // which 8 predicate planes active
+    causal_state_fp,     // current CausalEdge64 branch cursor
+    retrieval_context_fp // what was retrieved from LanceDB this cycle
+)
+```
+
+This one fingerprint serves four purposes:
+
+1. **Cache key** — AutocompleteCacheStrategy: same fingerprint = same
+   result → skip the cycle entirely
+2. **Retrieval key** — LanceDB lookup: "find similar past cycles"
+   (Hamming sweep on the cycle fingerprint column)
+3. **Replay seed** — dream consolidation: reconstruct what the agent
+   was thinking from the fingerprint
+4. **Upstream cursor** — CausalEdge64 branching: mark where this
+   cycle's outputs fit in the causal trajectory
+
+The cycle fingerprint is the unit of thought. One per cycle. Persisted
+to LanceDB. Queryable across sessions. Bindable back into the current
+cycle as "I've been here before."
 
 ---
 
