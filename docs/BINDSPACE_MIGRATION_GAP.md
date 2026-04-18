@@ -28,11 +28,14 @@ CAM-PQ) but lacks the **record structure** that ties it all together.
 
 ## What Did NOT Migrate (7 Critical Gaps)
 
-### 1. Container (1KB aligned record)
+### 1. Container (2KB aligned record)
 ```
-ladybug-rs: Container = [u64; 128] = 8,192 bits = 1 KB
+ladybug-rs: Container = [u64; 256] = 16,384 bits = 2 KB (production)
+  - NOTE: ladybug-rs still has 8K (128 words) references = technical debt
+  - holograph has 10K (157 words) references = dead legacy
+  - Production is 16K everywhere. Port uses Fingerprint<256>.
   - 64-byte aligned for AVX-512
-  - Self-describing (metadata in words 0-15)
+  - Self-describing (metadata in words 0-31)
   - SIMD-scannable (16 AVX-512 iterations for full Hamming)
 
 lance-graph: NO EQUIVALENT
