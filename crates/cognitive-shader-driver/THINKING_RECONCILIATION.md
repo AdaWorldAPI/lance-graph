@@ -96,6 +96,55 @@ RI-P Play       RI-S Stability     RI-A Abstraction
 
 Each thinking style emits resonance on a subset of these channels. Our `QualiaColumn` (18D) subsumes them (tension=2, novelty≈expansion=15, intimacy=10, clarity=4, urgency=5, depth=6, play=12_assertion, stability=14_groundedness, abstraction=3_dominance).
 
+## Thinking LAYERS (different axis from styles)
+
+Layers are **processing depth**, not style or operation. Already canonical
+in `thinking-engine::cognitive_stack::LayerId` (matches `ladybug-rs`):
+
+```
+L1  Recognition     ─┐
+L2  Resonance        │
+L3  Appraisal        │ single agent
+L4  Routing          │ (one mind thinking)
+L5  Execution       ─┘
+L6  Delegation      ─┐
+L7  Contingency      │
+L8  Integration      │ multi-agent
+L9  Validation       │ (minds refining)
+L10 Crystallization ─┘
+```
+
+**agi-chat's 6-layer stack is a condensed view:**
+
+```
+agi-chat L1 Deduction        ≈ ladybug L1 Recognition + L2 Resonance
+agi-chat L2 Procedural       ≈ ladybug L3 Appraisal + L4 Routing
+agi-chat L3 Counterfactual   ≈ ladybug L7 Contingency
+agi-chat L4 Crystallization  ≈ ladybug L10 Crystallization
+agi-chat L5 Commitment       ≈ ladybug L5 Execution (explicit collapse gate)
+agi-chat L6 Observer         ≈ cross-cutting (not a layer per se)
+```
+
+Our architecture already has the fine-grained 10-layer version.
+**No harvest needed** — agi-chat's 6-layer is a subset with different
+naming. The 6→10 mapping above is the translation.
+
+## 3/4 Triangle Distinction
+
+agi-chat has **4 triangles** (Quad-Triangle). Our old single `TriangleGestalt`
+was **1 triangle** (agi-chat's Triangle C = Gestalt). After this harvest,
+we now have **4 triangles** matching agi-chat.
+
+The "3" in "3/4 triangle" likely refers to:
+- **3 corners per triangle** (Triangle has 3 vertices always — that's its
+  definition). Each byte0/byte1/byte2 is a corner.
+- OR: if the user meant 3 vs 4, it's the difference between: (a) agi-chat's
+  3 default cognitive profiles (analytical/creative/procedural) mapped onto
+  1 triangle, vs (b) the full 4-triangle quad-model.
+
+We harvested both: `processing_analytical/intuitive/procedural` presets for
+Triangle A AND the full `QuadTriangleGestalt` struct.
+
 ## Recommendation for Future Refactor
 
 **Keep 12 as the driver's public ordinal.** Don't expand to 36 — the extra variants don't change shader parameters, only narrative framing.
