@@ -83,6 +83,7 @@ pub mod quality;
 pub mod similarity;
 pub mod stacked;
 pub mod stacked_n;
+pub mod turboquant_kv;
 pub mod variance;
 
 #[cfg(feature = "hydrate")]
@@ -107,3 +108,4 @@ pub use quality::QualityReport;
 pub use similarity::SimilarityTable;
 pub use variance::RoleVarianceReport;
 pub use matryoshka::{MatryoshkaRow, SvdBasis, BandProfile, BandPrecision};
+pub use turboquant_kv::{TurboQuantKvCache, TurboQuantEntry, KvCacheStats};
