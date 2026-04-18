@@ -26,12 +26,18 @@ where writers hold owned microcopies and merge back via gated protocols.
 
 **The same object, sliced at multiple SIMD widths** — the 256×256 palette
 semiring is ONE table (65,536 entries, 64-byte aligned) but must be
-addressable at the three native SIMD widths simultaneously:
+addressable at the three native SIMD widths simultaneously.
+
+**This pattern lives in ndarray** (not lance-graph). The SIMD types
+(F32x16, F16x32, U8x64, F64x8) already live there; the multi-lane
+column just adds the Arc-backed container with zero-copy views:
 
 ```rust
-pub struct PaletteTable {
+// ndarray::hpc::column — the canonical multi-lane column type
+pub struct MultiLaneColumn<T> {
     // One backing store, 64-byte aligned for AVX-512
-    data: Arc<[u64; 8192]>,  // 65,536 bytes = 256×256 u8 distances
+    data: Arc<[u8]>,  // raw bytes, generic over lane width
+    _phantom: PhantomData<T>,
 }
 
 impl PaletteTable {
@@ -52,18 +58,43 @@ width per op:
 - Exact dot → F32x16 (single-precision final, 16 at a time)
 - Calibration → F64x8 (drift detection, 8 at a time)
 
-The `Fingerprint<256>` column works the same way:
+The `Fingerprint<256>` in ndarray works the same way:
 ```rust
-impl Fingerprint<256> {
-    pub fn as_bytes(&self)    -> &[u8; 2048]   // Hamming popcount
-    pub fn as_u64(&self)      -> &[u64; 256]   // XOR bind
-    pub fn as_u8x64(&self)    -> &[U8x64; 32]  // SIMD popcount batch
+impl<const N: usize> Fingerprint<N> {
+    pub fn as_bytes(&self)    -> &[u8]         // Hamming popcount (already exists)
+    pub fn as_u64(&self)      -> &[u64; N]     // XOR bind
+    pub fn as_u8x64(&self)    -> &[U8x64]      // SIMD popcount batch (to add)
 }
 ```
 
 This is the fourth data pattern: **same object, multiple SIMD lane views.**
-The BindSpace address points to ONE Arc'd byte region. The consumer
-chooses the lane width based on the operation. Zero-copy, zero branch.
+The BindSpace address (from contract) points to a `MultiLaneColumn` in
+ndarray. The consumer chooses the lane width based on the operation.
+Zero-copy, zero branch.
+
+**Architecture separation:**
+- ndarray: SIMD types + MultiLaneColumn + Fingerprint<N> + array_window
+- lance-graph-contract: BindSpace address types + Luftschleuse trait
+- lance-graph: CognitiveShader dispatch + gate implementations
+
+**Canonical import surface**: lance-graph code uses `ndarray::simd::*`
+as the ONLY SIMD namespace. The internal `ndarray::hpc::*` paths are
+private implementation detail — consumers never touch them.
+
+```rust
+// In lance-graph (correct):
+use ndarray::simd::{F32x16, U8x64, F16x32, Fingerprint, MultiLaneColumn, array_window};
+
+// NOT this (reaches into ndarray internals):
+// use ndarray::hpc::fingerprint::Fingerprint;
+// use ndarray::hpc::simd_avx512::F32x16;
+```
+
+ndarray's `simd.rs` re-exports everything consumers need. If a type
+isn't in `ndarray::simd::*`, it means ndarray considers it internal
+and the consumer shouldn't use it. This makes the foundation API
+surface small and stable — changes inside `ndarray::hpc::*` never
+break lance-graph consumers.
 
 ```
 BindSpace column (read-only, Arc<[u64; 256 * N]>)
