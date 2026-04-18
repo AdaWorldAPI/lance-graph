@@ -10,7 +10,7 @@
 //! - Lewis (1973): Counterfactual conditionals
 
 use crate::FINGERPRINT_BITS as TOTAL_BITS;
-use crate::core::Fingerprint;
+use crate::Fingerprint;
 
 /// A counterfactual world is a BindSpace state where one or more
 /// fingerprints have been replaced with intervened values.

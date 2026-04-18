@@ -11,7 +11,7 @@
 //! Total vocabulary: ~1000 built-in concepts + unlimited learned
 //! Storage: ~13 KB for complete cognitive model (vs 4GB for DeepNSM-1B)
 
-use crate::core::Fingerprint;
+use crate::Fingerprint;
 use std::collections::{BTreeMap, HashMap};
 
 // =============================================================================

@@ -28,7 +28,7 @@
 //!
 //! This is much richer than just comparing fingerprints.
 
-use crate::core::Fingerprint;
+use crate::Fingerprint;
 
 // =============================================================================
 // Flow Vector: The derivative of meaning over time

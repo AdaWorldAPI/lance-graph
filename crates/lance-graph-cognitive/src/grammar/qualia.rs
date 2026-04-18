@@ -6,7 +6,7 @@
 //! Based on experiential qualities relevant to meaning:
 //! valence, activation, dominance, depth, etc.
 
-use crate::core::Fingerprint;
+use crate::Fingerprint;
 
 /// The 18 qualia dimensions
 pub const QUALIA_DIMENSIONS: [&str; 18] = [

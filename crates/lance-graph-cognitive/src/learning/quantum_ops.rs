@@ -8,7 +8,7 @@
 //! Key insight: Fingerprints ARE wave functions (superposition of basis states).
 //! Operators transform them, measurements collapse them.
 
-use crate::core::Fingerprint;
+use crate::Fingerprint;
 
 // =============================================================================
 // TREE ADDRESSING (256-way branching)

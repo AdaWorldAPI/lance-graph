@@ -3,7 +3,7 @@
 //! The second vertex of the Grammar Triangle.
 //! Captures WHO → DID → WHAT → WHY structure.
 
-use crate::core::Fingerprint;
+use crate::Fingerprint;
 
 /// Causality flow structure
 #[derive(Clone, Debug, Default)]

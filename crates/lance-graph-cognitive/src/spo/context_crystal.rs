@@ -30,7 +30,7 @@
 //! - Grammar Triangle: NSM + Causality + Qualia → single fingerprint
 //! - Context Crystal: (SPO + Qualia) × 5 sentences → resonance field
 
-use crate::core::Fingerprint;
+use crate::Fingerprint;
 
 // =============================================================================
 // Constants

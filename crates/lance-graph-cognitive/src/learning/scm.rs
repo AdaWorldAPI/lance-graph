@@ -25,9 +25,12 @@
 //! ```
 
 use std::collections::HashMap;
-use crate::core::Fingerprint;
+use crate::Fingerprint;
 use crate::storage::bind_space::{Addr, BindSpace};
-use ladybug_contract::nars::TruthValue;
+// ladybug_contract::nars::TruthValue replaced with local type
+#[derive(Debug, Clone, Copy)]
+pub struct TruthValue { pub frequency: f32, pub confidence: f32 }
+impl TruthValue { pub fn new(f: f32, c: f32) -> Self { Self { frequency: f, confidence: c } } }
 
 // =============================================================================
 // CAUSAL VARIABLE
@@ -815,7 +818,7 @@ impl StructuralCausalModel {
             if predicted_correctly { 1.0 } else { 0.0 },
             0.9,
         );
-        self.model_truth = ladybug_contract::nars::TruthValue::new(
+        self.model_truth = TruthValue::new(
             self.model_truth.frequency,
             self.model_truth.confidence,
         )

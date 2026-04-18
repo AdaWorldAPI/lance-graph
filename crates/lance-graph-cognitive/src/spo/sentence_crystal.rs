@@ -65,7 +65,7 @@
 
 use super::context_crystal::QualiaVector;
 use super::nsm_substrate::NsmCodebook;
-use crate::core::Fingerprint;
+use crate::Fingerprint;
 use crate::storage::bind_space::{Addr, BindSpace, dn_path_to_addr};
 use std::collections::HashMap;
 

@@ -5,7 +5,7 @@
 //!
 //! These 65 primitives are the foundation of the Grammar Triangle.
 
-use crate::core::Fingerprint;
+use crate::Fingerprint;
 
 /// The 65 NSM semantic primitives
 pub const NSM_PRIMITIVES: [&str; 65] = [

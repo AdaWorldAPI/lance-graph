@@ -21,7 +21,7 @@
 use super::causality::CausalityFlow;
 use super::nsm::NSMField;
 use super::qualia::QualiaField;
-use crate::core::Fingerprint;
+use crate::Fingerprint;
 
 /// The complete Grammar Triangle
 #[derive(Clone, Debug)]
@@ -105,7 +105,7 @@ impl GrammarTriangle {
     pub fn similarity(&self, other: &Self) -> f32 {
         let fp1 = self.to_fingerprint();
         let fp2 = other.to_fingerprint();
-        fp1.similarity(&fp2)
+        fp1.similarity(&fp2).unwrap_or(0.0)
     }
 
     /// Compute weighted similarity with explicit vertex weights

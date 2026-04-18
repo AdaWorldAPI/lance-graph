@@ -34,16 +34,91 @@ pub const FINGERPRINT_BYTES: usize = 2_048;
 /// Re-export ndarray's const-generic Fingerprint as the canonical type.
 pub type Fingerprint = ndarray::hpc::fingerprint::Fingerprint<256>;
 
+/// Dense embedding vector (ladybug-rs compat).
+pub type Embedding = Vec<f32>;
+
+/// Error type (ladybug-rs compat).
+#[derive(Debug)]
+pub enum Error {
+    InvalidFingerprint { expected: usize, got: usize },
+    DimensionMismatch { expected: usize, got: usize },
+    Other(String),
+}
+pub type Result<T> = std::result::Result<T, Error>;
+
+/// Stub for Container (not yet ported — see BINDSPACE_MIGRATION_GAP.md).
+pub mod container {
+    pub type Container = crate::Fingerprint;
+    pub mod record {
+        #[derive(Clone, Debug)]
+        pub struct CogRecord {
+            pub content: super::Container,
+            pub meta: super::Container,
+        }
+        impl CogRecord {
+            pub fn new(content: super::Container, meta: super::Container) -> Self {
+                Self { content, meta }
+            }
+        }
+    }
+}
+
+/// Stub for storage/BindSpace (not yet ported).
+pub mod storage {
+    pub mod bind_space {
+        pub type Addr = u64;
+        pub struct BindSpace;
+    }
+}
+
+/// Compatibility module mirroring ladybug-rs `crate::core::*`.
+/// Modules reference `crate::core::Fingerprint`, `crate::core::rustynum_accel::*`, etc.
+pub mod core {
+    pub use super::Fingerprint;
+    pub use super::Embedding;
+    pub const DIM: usize = super::FINGERPRINT_BITS;
+    pub const DIM_U64: usize = super::FINGERPRINT_U64;
+
+    /// Compatibility shim for rustynum SIMD acceleration.
+    /// Maps to ndarray::hpc::bitwise.
+    pub mod rustynum_accel {
+        pub fn hamming_distance(a: &[u8], b: &[u8]) -> u64 {
+            ndarray::hpc::bitwise::hamming_distance_raw(a, b)
+        }
+        pub fn slice_hamming(a: &[u64], b: &[u64]) -> u64 {
+            let a_bytes: Vec<u8> = a.iter().flat_map(|w| w.to_le_bytes()).collect();
+            let b_bytes: Vec<u8> = b.iter().flat_map(|w| w.to_le_bytes()).collect();
+            ndarray::hpc::bitwise::hamming_distance_raw(&a_bytes, &b_bytes)
+        }
+        pub fn batch_hamming(query: &[u8], database: &[u8], vec_len: usize) -> Vec<u64> {
+            let n = database.len() / vec_len;
+            (0..n).map(|i| {
+                let start = i * vec_len;
+                ndarray::hpc::bitwise::hamming_distance_raw(query, &database[start..start + vec_len])
+            }).collect()
+        }
+        pub fn simd_level() -> &'static str { "ndarray" }
+    }
+
+    /// VSA operations trait (ladybug-rs compat).
+    pub trait VsaOps: Sized {
+        fn bind(&self, other: &Self) -> Self;
+        fn unbind(&self, other: &Self) -> Self;
+        fn bundle(items: &[Self]) -> Self;
+        fn permute(&self, positions: i32) -> Self;
+    }
+}
+
 // Modules imported from ladybug-rs (adaptation needed)
 // These are source-imported, not yet fully wired to ndarray/holograph.
 // Compile-gating happens at the module level — each mod.rs controls
 // what's publicly exposed.
 
 // Grammar triangle: SPO × causality × qualia
-#[cfg(feature = "wip")]
 pub mod grammar;
 
-// Learning: quantum ops, SCM, dream consolidation
+// Learning: full 16-module suite (158K LOC cam_ops + 12 others)
+// 124 errors remaining from rustynum→ndarray migration
 #[cfg(feature = "wip")]
 pub mod learning;
 
@@ -52,5 +127,4 @@ pub mod learning;
 pub mod spo;
 
 // World model: counterfactual reasoning
-#[cfg(feature = "wip")]
 pub mod world;
