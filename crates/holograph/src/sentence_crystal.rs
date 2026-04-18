@@ -43,7 +43,7 @@
 //! We use:
 //! - Character n-gram hashing: O(n) integer operations
 //! - Bit rotation: O(1) per position
-//! - Majority bundling: O(n × 157 words)
+//! - Majority bundling: O(n × 256 words)
 //! - Crystal projection: O(157) additions
 //! - XOR bind: O(157) operations
 //!

@@ -113,7 +113,7 @@ pub fn xor_fold(words_16k: &[u64; WORDS_16K]) -> BitpackedVector {
 
 /// Compute semantic distance between a 10K and a 16K vector.
 ///
-/// Only compares the first 157 words (10K bits). The extra 16K words
+/// Only compares the first 256 words (10K bits). The extra 16K words
 /// are ignored, so this gives the same result as if both were 10K.
 pub fn cross_width_distance(v10k: &BitpackedVector, words_16k: &[u64]) -> u32 {
     let words_a = v10k.words();
@@ -171,7 +171,7 @@ mod tests {
         let v = BitpackedVector::random(42);
         let extended = zero_extend(&v);
 
-        // First 157 words match
+        // First 256 words match
         for w in 0..WORDS_10K {
             assert_eq!(v.words()[w], extended[w]);
         }

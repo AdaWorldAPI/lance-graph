@@ -3,7 +3,7 @@
 //! The insight: each of the 157 u64 words in a BitpackedVector is a **neuron**.
 //! XOR is the synaptic input. Popcount is the integration function. Threshold
 //! is the firing decision. Early termination is pruning. The cumulative sum
-//! across words is a forward pass through a 157-layer neural network.
+//! across words is a forward pass through a 256-layer neural network.
 //!
 //! Combined with the 5D crystal lattice, DN tree addressing, and epiphany zones,
 //! this creates a hierarchical neural architecture that enables:
@@ -17,7 +17,7 @@
 //! # The Neural Tree Architecture
 //!
 //! ```text
-//! Vector A:  [word0][word1][word2]...[word156]    (10K bits in 157 words)
+//! Vector A:  [word0][word1][word2]...[word156]    (10K bits in 256 words)
 //! Vector B:  [word0][word1][word2]...[word156]
 //!                |      |      |          |
 //!                v      v      v          v
@@ -398,7 +398,7 @@ impl Default for NeuralTreeConfig {
 /// The Hierarchical Neural Tree
 ///
 /// Combines:
-/// - **Stacked popcount** as 157-layer neural forward pass
+/// - **Stacked popcount** as 256-layer neural forward pass
 /// - **Multi-resolution blocks** (10 blocks of 1024 bits) for coarse routing
 /// - **Crystal coordinates** for spatial attention masks
 /// - **DN tree addressing** for O(1) hierarchical node lookup
