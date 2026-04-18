@@ -1,19 +1,31 @@
-//! WorldModelDto — the agent's complete situational awareness.
+//! WorldModelDto — agent situational-awareness contract.
 //!
-//! This is a CONSUMER CONTRACT: any downstream crate (ladybug-rs, crewai-rust,
-//! n8n-rs, thinking-engine) can depend on these types without pulling in
-//! implementation details.
+//! This is world modeling in the sense used by game engines, chess
+//! engines, and state-estimation in robotics: a structured snapshot
+//! of self, opponent, board, and context, good enough for one cycle
+//! of decision-making. Nothing in this module concerns embodiment.
+//!
+//! CONSUMER CONTRACT: any downstream crate (crewai-rust, n8n-rs,
+//! thinking-engine, ada-rs) can depend on these types without
+//! pulling in implementation details.
 //!
 //! ```text
 //! WorldModelDto {
-//!   self_state:    agent's internal awareness
-//!   user_state:    inferred state of the other party (empathy)
+//!   self_state:    agent's internal awareness + classifier report
+//!   user_state:    inferred state of the other party (empathy / theory of mind)
 //!   field_state:   relational dynamics between self and user (gestalt)
 //!   context_state: semantic profile of the current content
+//!   qualia:        optional 17D observation vector from this cycle
+//!   proprioception: optional state-classifier report (what the agent is)
+//!   cycle_fingerprint: optional 256-u64 cycle signature for provenance
+//!   timestamp:     monotonic cycle timestamp
 //! }
 //! ```
 //!
-//! Zero dependencies. Pure data types.
+//! Zero dependencies on implementation crates. Pure data types.
+
+use crate::proprioception::StateReport;
+use crate::qualia::QualiaVector;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SELF STATE
@@ -45,10 +57,11 @@ pub struct SelfState {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// USER STATE (empathy model)
+// USER STATE (opponent / other-party model — theory of mind)
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// How the agent reads the other party. Inferred, not measured.
+/// Inferred state of the other party — the equivalent of an opponent
+/// model in a game-engine or chess-engine. Inferred, not measured.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct UserState {
     /// Inferred cognitive style (0–35).
@@ -64,10 +77,12 @@ pub struct UserState {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// FIELD STATE (gestalt)
+// FIELD STATE (board-dynamics / gestalt)
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// The relational dynamics between agent and context.
+/// Board-level dynamics between agent, other party, and context —
+/// the multi-perspective resonance field analogous to evaluating
+/// material, position, and tempo in a chess engine.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct FieldState {
     /// Agreement field state.
@@ -140,8 +155,15 @@ pub struct ContextState {
 /// This is the canonical output of the thinking engine.
 /// Any consumer can use this DTO to understand the agent's state
 /// without depending on the thinking engine implementation.
+///
+/// The four core fields (`self_state`, `user_state`, `field_state`,
+/// `context_state`) have been stable across releases; the remaining
+/// fields expose the newer contract pillars (qualia, proprioception)
+/// and cycle provenance. They are `Option<_>` so implementors that
+/// don't produce them can leave them as `None`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct WorldModelDto {
+    // ── Core quadrants (stable) ──
     /// How the agent sees itself.
     pub self_state: SelfState,
     /// How the agent reads the other party.
@@ -150,15 +172,52 @@ pub struct WorldModelDto {
     pub field_state: FieldState,
     /// Semantic profile of the current content.
     pub context_state: ContextState,
+
+    // ── Integration with other contract pillars ──
+    /// Full 17D qualia observation from this cycle (`qualia::QualiaVector`).
+    /// `None` if the consumer only carries the compressed `self_state.qualia_state`.
+    pub qualia: Option<QualiaVector>,
+    /// State classifier report (`proprioception::StateReport`).
+    /// Produced by an implementor of `proprioception::StateClassifier`.
+    pub proprioception: Option<StateReport>,
+
+    // ── Provenance ──
+    /// 2 KB cycle signature (`[u64; 256]`) — the unit of thought that
+    /// produced this world model. Enables retrieval / replay / cursoring.
+    /// Stored as `Option<Box<_>>` to keep the DTO small when unused.
+    pub cycle_fingerprint: Option<Box<[u64; 256]>>,
+    /// Monotonic cycle timestamp (ms since epoch, or agent-local counter).
+    pub timestamp: u64,
+    /// Cycle index within the session.
+    pub cycle_index: u64,
+}
+
+impl WorldModelDto {
+    /// Returns true if proprioception was produced and the agent
+    /// recognises its current state.
+    pub fn is_self_recognised(&self) -> bool {
+        self.proprioception
+            .as_ref()
+            .map(|p| p.is_recognised())
+            .unwrap_or(false)
+    }
+
+    /// Returns true if the agent is in a transitional state (high
+    /// distance from all calibration anchors).
+    pub fn is_liminal(&self) -> bool {
+        self.proprioception
+            .as_ref()
+            .map(|p| p.is_liminal())
+            .unwrap_or(false)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn world_model_is_clone() {
-        let wm = WorldModelDto {
+    fn sample_world_model() -> WorldModelDto {
+        WorldModelDto {
             self_state: SelfState {
                 style_id: 1, rung: 3, gate: 0, qualia_state: 3,
                 confidence: 0.8, calibration_error: 0.1,
@@ -180,9 +239,61 @@ mod tests {
                 arousal: 0.6, tension: 0.2, warmth: 0.8, clarity: 0.7,
                 spo_count: 15, has_conflict: false,
             },
-        };
+            qualia: None,
+            proprioception: None,
+            cycle_fingerprint: None,
+            timestamp: 0,
+            cycle_index: 0,
+        }
+    }
+
+    #[test]
+    fn world_model_is_clone() {
+        let wm = sample_world_model();
         let wm2 = wm.clone();
         assert_eq!(wm, wm2);
+    }
+
+    #[test]
+    fn world_model_carries_proprioception() {
+        use crate::proprioception::{DriveMode, StateAnchor, StateReport};
+        let mut wm = sample_world_model();
+        wm.proprioception = Some(StateReport {
+            anchor: StateAnchor::Balanced,
+            distance: 0.2,
+            rung: 6,
+            drive_mode: DriveMode::Exploit,
+        });
+        assert!(wm.is_self_recognised());
+        assert!(!wm.is_liminal());
+    }
+
+    #[test]
+    fn world_model_liminal_when_distance_high() {
+        use crate::proprioception::{DriveMode, StateAnchor, StateReport};
+        let mut wm = sample_world_model();
+        wm.proprioception = Some(StateReport {
+            anchor: StateAnchor::Flow,
+            distance: 0.9,
+            rung: 5,
+            drive_mode: DriveMode::Explore,
+        });
+        assert!(!wm.is_self_recognised());
+        assert!(wm.is_liminal());
+    }
+
+    #[test]
+    fn world_model_carries_qualia_and_cycle_fingerprint() {
+        let mut wm = sample_world_model();
+        wm.qualia = Some([0.5; 17]);
+        wm.cycle_fingerprint = Some(Box::new([0xDEADBEEFu64; 256]));
+        wm.timestamp = 12345;
+        wm.cycle_index = 7;
+
+        let wm2 = wm.clone();
+        assert_eq!(wm, wm2);
+        assert_eq!(wm.timestamp, 12345);
+        assert_eq!(wm.cycle_index, 7);
     }
 
     #[test]
