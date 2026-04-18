@@ -74,7 +74,7 @@ Zero-copy, zero branch.
 
 **Architecture separation:**
 - ndarray: SIMD types + MultiLaneColumn + Fingerprint<N> + array_window
-- lance-graph-contract: BindSpace address types + Luftschleuse trait
+- lance-graph-contract: BindSpace address types + CollapseGate trait
 - lance-graph: CognitiveShader dispatch + gate implementations
 
 **Canonical import surface**: lance-graph code uses `ndarray::simd::*`
@@ -105,11 +105,11 @@ BindSpace column (read-only, Arc<[u64; 256 * N]>)
   ▼ SIMD op (popcount / AND / gather)
 Microcopy result     ← stack-allocated Band / u32 distance
   │
-  ▼ through Luftschleuse
+  ▼ through CollapseGate
 BindSpace commit     ← XOR or Bundle merge
 ```
 
-### The Luftschleuse (Airgap) Protocol
+### The CollapseGate (Airgap) Protocol
 
 Writers never mutate BindSpace directly. They:
 
@@ -133,7 +133,7 @@ Writers never mutate BindSpace directly. They:
               │ delta + gate            │ delta + gate
               ▼                         ▼
          ┌─────────────────────────────────────────┐
-         │      Luftschleuse (write airlock)       │
+         │      CollapseGate (write collapse)       │
          │  Single writer: XOR commit              │
          │  Multi writer: Bundle (majority vote)   │
          │  Superposition: ALL deltas sum          │
@@ -184,12 +184,20 @@ No locks. No races. XOR is its own inverse — you can always back out.
 
 5. **Port Container/CogRecord** to `lance-graph-contract` (16K width).
    Read-only. `Arc<[u64; 256]>` columns. No mutation APIs.
-6. **Define Luftschleuse trait** in contract:
+6. **CollapseGate already exists** — reuse the existing types, don't
+   redefine. Found in:
+   - `ndarray::hpc::bnn_cross_plane::CollapseGate` — enum with
+     `Flow` / `Block` / `Hold` states
+   - `lance-graph-planner::strategy::collapse_gate::CollapseGateStrategy`
+   - `lance-graph-planner::physical::collapse::CollapseOp`
+
+   Extend the existing gate semantics with write protocol:
    ```rust
-   pub trait Luftschleuse {
-       type Delta: Copy;
-       fn submit(&self, delta: Self::Delta);  // non-blocking
-       fn commit(&mut self) -> Generation;    // merge all pending
+   // CollapseGate (existing enum): Flow = apply, Block = reject, Hold = queue.
+   // New microcopy struct for delta routing:
+   pub struct GateDecision {
+       pub gate: CollapseGate,  // existing ndarray enum
+       pub merge: MergeMode,    // Xor (single) | Bundle (majority) | Superposition
    }
    ```
 7. **Microcopy types**: confirm CausalEdge64, Band, TruthValue,
@@ -232,11 +240,11 @@ No locks. No races. XOR is its own inverse — you can always back out.
         // Exact step on survivors
         for idx in survivors.iter() {
             let edge = shader.compute(content_col[idx], ...);
-            airlock.submit(edge);
+            gate.submit(edge);
         }
         
         // Commit deltas
-        next_gen = airlock.commit();
+        next_gen = gate.commit();
     ```
 
 13. **CognitiveShader dispatch**: per cycle, the shader selects which
@@ -283,7 +291,7 @@ No locks. No races. XOR is its own inverse — you can always back out.
 
 1. **P0** — Unify Fingerprint type (ndarray canonical)
 2. **P0** — Port Container/CogRecord (read-only addressing)
-3. **P1** — Luftschleuse trait + XOR/Bundle gates
+3. **P1** — CollapseGate trait + XOR/Bundle gates
 4. **P1** — CognitiveShader → thinking-engine wire-through
 5. **P2** — Column types in contract (AGI dimensions)
 6. **P2** — Cascade per column implementation
@@ -294,7 +302,7 @@ No locks. No races. XOR is its own inverse — you can always back out.
 
 - All programs (codecs, shaders, learning, grammar, search) emit
   and consume the same 64-bit BindSpace addresses
-- No locks. No `&mut` during computation. Only Luftschleuse commits.
+- No locks. No `&mut` during computation. Only CollapseGate commits.
 - Hot path: 0.3ns per XOR, 2400M lookups/sec, zero FP.
 - Cold path: DataFusion SQL/Cypher on Lance columnar.
 - Inference: 5 cascades per cycle × ~2ms each = ~10ms per token
