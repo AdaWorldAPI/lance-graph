@@ -3,6 +3,7 @@
 //! Tests the CHAODA-driven codec on the tensors that failed uniform k=64.
 
 use bgz_tensor::adaptive_codec::AdaptiveCodecTensor;
+use bgz_tensor::xor_adaptive::XorAdaptiveTensor;
 use ndarray::hpc::safetensors::read_safetensors_header;
 use ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd;
 use ndarray::simd::bf16_to_f32_batch;
@@ -62,8 +63,8 @@ fn main() {
         ("mlp.gate_proj.weight", false, "MLP gate_proj"),
     ];
 
-    println!("| Tensor | Adaptive | Passthrough | i8 | i4+i2 | Argmax match | Cosine | ms |");
-    println!("|---|---|---|---|---|---|---|---|");
+    println!("| Tensor | CLAM-adaptive | XOR-adaptive |");
+    println!("|---|---|---|");
 
     let n_test = 32;
 
@@ -77,11 +78,18 @@ fn main() {
         let t0 = Instant::now();
         let tensor = AdaptiveCodecTensor::encode(&name, &rows, 64, *is_kv, None);
         let encode_ms = t0.elapsed().as_secs_f32() * 1000.0;
-
         let recon = tensor.reconstruct_all();
 
+        // Also test XOR-adaptive
+        let t1 = Instant::now();
+        let xor_tensor = XorAdaptiveTensor::encode(&name, &rows, 64);
+        let xor_ms = t1.elapsed().as_secs_f32() * 1000.0;
+        let xor_recon = xor_tensor.reconstruct_all();
+
         let mut match_count = 0usize;
+        let mut xor_match = 0usize;
         let mut cos_sum = 0.0f64;
+        let mut xor_cos = 0.0f64;
         for t in 0..n_test {
             let x: Vec<f32> = (0..n_cols).map(|d| {
                 ((d * 97 + t * 31 + 17) as f64 * 0.618).sin() as f32 * 0.1
@@ -90,17 +98,19 @@ fn main() {
             let y_recon = matmul_row(&x, &recon);
             if argmax(&y_orig) == argmax(&y_recon) { match_count += 1; }
             cos_sum += cosine_f32_to_f64_simd(&y_orig, &y_recon);
+            let y_xor = matmul_row(&x, &xor_recon);
+            if argmax(&y_orig) == argmax(&y_xor) { xor_match += 1; }
+            xor_cos += cosine_f32_to_f64_simd(&y_orig, &y_xor);
         }
 
         let match_pct = match_count as f64 / n_test as f64 * 100.0;
         let avg_cos = cos_sum / n_test as f64;
 
-        println!("| {} | {} | {} | {} | {} | {:.0}% | {:.4} | {:.0} |",
-            label,
-            tensor.compression_summary(),
-            tensor.stats.n_passthrough,
-            tensor.stats.n_i8,
-            tensor.stats.n_i4i2,
-            match_pct, avg_cos, encode_ms);
+        let xor_pct = xor_match as f64 / n_test as f64 * 100.0;
+        let xor_avg = xor_cos / n_test as f64;
+        println!("| {} | CLAM: {:.0}% cos={:.4} | XOR: {:.0}% cos={:.4} flip={:.1}% bpr={:.0} |",
+            label, match_pct, avg_cos, xor_pct, xor_avg,
+            xor_tensor.avg_flipped_ratio() * 100.0,
+            xor_tensor.bytes_per_row_avg());
     }
 }
