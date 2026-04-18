@@ -121,26 +121,62 @@ Session N+3:
 
 ## Type System for AGI Endgame
 
+The struct-of-arrays is NOT a data structure — it's the BindSpace
+ADDRESS SPACE DIMENSIONS. Each dimension is a separate Hamming-sweepable
+fingerprint column. The AGI query is an AND across independent cascades.
+
 ```rust
-// The unified record: identity × encoding × cognition × perspective
-pub struct CognitiveRecord {
-    // Identity
-    pub fingerprint: Fingerprint<256>,     // 16K bits canonical
-    pub cam_address: [u8; 6],              // CAM-PQ 6-byte address
+// Each column: one fingerprint array, independently sweepable
+pub struct BindSpaceColumns {
+    // Content identity — WHAT
+    pub content: Vec<Fingerprint<256>>,     // Hamming sweep: "find similar"
+    pub cam_address: Vec<[u8; 6]>,          // CAM-PQ 3-stroke cascade
 
-    // Encoding (bgz side)
-    pub hhtl_entry: HhtlDEntry,            // 4B tree address
-    pub palette_idx: u8,                    // bgz17 archetype
+    // Topic — ABOUT WHAT (sweep: "everything about cats")
+    pub topic: Vec<Fingerprint<256>>,
 
-    // Cognition (thinking side)
-    pub edge: CausalEdge64,                // u64 SPO+NARS packed
-    pub shader_mask: u8,                   // active CognitiveShader layers
-    pub coca_idx: u16,                     // 4096 COCA position
+    // Angle — FROM WHERE (sweep: "from a vet's perspective")
+    pub angle: Vec<Fingerprint<256>>,
 
-    // Perspective (AGI)
-    pub topic: Fingerprint<256>,           // what this is about
-    pub angle: Fingerprint<256>,           // from whose viewpoint
-    pub qualia: [f32; 18],                 // 18D phenomenal coordinates
-    pub rung: u8,                          // Pearl's causal level
+    // Causality — WHY/HOW (sweep: "interventional only")
+    pub causality: Vec<CausalEdge64>,       // rung level filter
+
+    // Qualia — FEELS LIKE (sweep: "high urgency")
+    pub qualia: Vec<[f32; 18]>,             // 18D phenomenal coordinates
+
+    // Temporal — WHEN (sweep: "last 5 minutes")
+    pub temporal: Vec<u64>,                 // timestamp index
+
+    // Shader state — WHO PRODUCED THIS
+    pub shader: Vec<u8>,                    // which CognitiveShader output
 }
 ```
+
+Why struct-of-arrays, not array-of-structs:
+- You NEVER read all 7 dimensions for one record
+- You sweep ONE dimension across ALL records (one popcount cascade)
+- Then intersect survivors across dimensions
+- The CognitiveShader per-cycle stream IS this: 5 cascades, intersect, emit
+
+```
+Per cycle:
+  sweep topic[]      → 50K survivors (2ms, Hamming)
+  sweep angle[]      → narrow to 5K (0.2ms, Hamming)
+  sweep causality[]  → narrow to 500 (0.05ms, CausalEdge64 filter)
+  sweep qualia[]     → narrow to 50 (scalar, 18D range check)
+  exact on 50        → palette lookup → CausalEdge64 output
+  
+  Total: ~2.3ms for 1M records across 5 dimensions
+```
+
+The BindSpace 64-bit address (16-bit type + 48-bit hash) means ALL
+content — weight archetypes, inference outputs, COCA verbs, grammar
+triangles, dream consolidations, user queries — lives in the SAME
+address space. One XOR. One sweep. One lookup. Regardless of origin.
+
+The gazillions of programs (codecs, shaders, learning, grammar, search,
+spectroscopy) compile into the same binary because they all emit and
+consume the same 64-bit addresses into the same fingerprint columns.
+
+The weights are seeds. The columns are the memory. The shader is the
+program. The cascade is the CPU. The edges are the output.
