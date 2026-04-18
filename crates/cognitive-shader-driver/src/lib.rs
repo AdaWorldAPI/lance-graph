@@ -40,6 +40,7 @@
 pub mod bindspace;
 pub mod driver;
 pub mod auto_style;
+pub mod engine_bridge;
 
 pub use lance_graph_contract::cognitive_shader::{
     CognitiveShaderDriver, ColumnWindow, EmitMode, MetaFilter, MetaSummary, MetaWord,
@@ -52,3 +53,8 @@ pub use lance_graph_contract::collapse_gate::{GateDecision, MergeMode};
 pub use bindspace::{BindSpace, BindSpaceBuilder, EdgeColumn, FingerprintColumns,
                      MetaColumn, QualiaColumn};
 pub use driver::{CognitiveShaderBuilder, ShaderDriver};
+pub use engine_bridge::{
+    EngineBusBridge, UnifiedStyle, UNIFIED_STYLES, unified_style,
+    ingest_codebook_indices, dispatch_from_top_k,
+    write_qualia_17d, read_qualia_17d, persist_cycle,
+};
