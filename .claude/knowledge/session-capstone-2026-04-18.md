@@ -142,7 +142,7 @@ name on both sides). The asymmetry is small, documented, and tested.
 | # | What | Notes |
 |---|------|-------|
 | DD1 | Multi-party empathy | `WorldModelDto::user_state` is single-party; multi-agent needs `Vec<UserState>` or a map |
-| DD2 | Episodic memory retrieval policy | Temporal? Similarity? Resonance? The data model exists; policy does not |
+| DD2 | ~~Episodic memory retrieval policy~~ | **CORRECTED (see §7 addendum)** — AriGraph already ships this |
 | DD3 | Autopoietic style generation | Layer 4 should spawn new thinking styles from experience; currently static 12 |
 | DD4 | Friston free-energy homeostasis loop | `self_state.free_energy` is stored but not used for regulation |
 | DD5 | GGUF hydration pipeline | Weights → palette + fingerprints + holographic. Research-phase |
@@ -163,7 +163,7 @@ name on both sides). The asymmetry is small, documented, and tested.
 |---|------|--------|
 | MB1 | Ada-rs `Cargo.toml` pin | Needs to point at lance-graph-contract commit `5aeb464+` for proprioception/qualia/world_map |
 | MB2 | `StateClassifier` impl in ada-rs | `yoga_calibration.rs` has the logic but doesn't impl the trait yet |
-| MB3 | Real `cycle_fingerprint` consumer | Nothing in the codebase actually stores or retrieves by fingerprint yet |
+| MB3 | ~~Real `cycle_fingerprint` consumer~~ | **CORRECTED (see §7)** — `arigraph::EpisodicMemory` is the consumer; needs only the wiring from `WorldModelDto::cycle_fingerprint` into `EpisodicMemory::add()` |
 | MB4 | Pumpkin fork integration | The example is standalone; actual pumpkin-mc crate dep not wired |
 | MB5 | QPL qualia producer | `qualia::qualia_to_state()` needs a caller — thinking-engine's `Qualia17D` output needs to feed it |
 
@@ -266,3 +266,107 @@ Crates touched:         lance-graph-contract, cognitive-shader-driver, ada-rs
 Repos researched (read): adarail_mcp, ada-consciousness, ada-rs, ada-unified,
                          agi-chat, bighorn, ladybug-rs
 ```
+
+---
+
+## 7. Addendum — 2026-04-18, post-capstone audit
+
+After writing the capstone, an audit of sibling repos turned up
+substrate that was already shipped and which the capstone had treated
+as deferred. Corrections:
+
+### C1: AriGraph already ships episodic memory
+
+Located at `crates/lance-graph/src/graph/arigraph/` — **4,696 lines
+across 7 modules, in main, tested.**
+
+| Module | Lines | Role |
+|--------|-------|------|
+| `episodic.rs` | 210 | `Episode` + `EpisodicMemory` with capacity-bounded Hamming retrieval |
+| `triplet_graph.rs` | 1064 | SPO knowledge graph, NARS truth, BFS association, spatial paths |
+| `retrieval.rs` | 447 | Fingerprint-based retrieval policies |
+| `sensorium.rs` | 539 | Observation → triplets extractor |
+| `orchestrator.rs` | 1562 | AriGraph coordinator |
+| `xai_client.rs` | 521 | xAI API enrichment client |
+| `language.rs` | 339 | Language-model bridge |
+
+**Invalidates DD2** ("Episodic memory retrieval policy — the data model
+exists; policy does not"). The policy exists: Hamming-distance on
+`Fingerprint` fields over the `EpisodicMemory` buffer. What was actually
+missing is only the **wiring** from `WorldModelDto::cycle_fingerprint`
+into `EpisodicMemory::add()`.
+
+**Invalidates MB3** ("Real `cycle_fingerprint` consumer — nothing stores
+or retrieves by fingerprint yet"). `EpisodicMemory::Episode::fingerprint`
+IS the consumer. Per-cycle we need: `episodic.add(&observation,
+&triplets, step)`, then `episodic.retrieve_similar(query_fp, k)`.
+
+**Moves Tier 1's T1.3** ("this feels like that game" retrieval) into the
+Tier 0 vertical slice — it's now a 10-line integration, not a subsystem.
+
+### C2: lance-graph-osint already ships
+
+Located at `crates/lance-graph-osint/` (workspace-excluded standalone):
+
+- `crawler.rs` — HTTP ingestion pipeline
+- `extractor.rs` — entity / relation extraction
+- `pipeline.rs` — orchestration
+- `reader.rs` — source adapter
+- `lib.rs` — crate root
+
+**Role in the chess-NARS vertical:** swap the chess sensorium for the
+OSINT sensorium and the same cockpit pipeline handles airwar.cloud-style
+intelligence streams. This was Tier 1.5 in the chess plan; it's already
+implemented on the ingest side. Only the sensor swap is new work.
+
+### C3: ruci + lichess-bot are both AdaWorldAPI forks
+
+- `AdaWorldAPI/ruci` — UCI Engine ↔ GUI crate with bundled Stockfish. One-line workspace dep pin.
+- `AdaWorldAPI/lichess-bot` — Python Lichess bridge with existing custom strategy hook (`strategies/stonksfish_crew.py`). One-line HTTP POST change to delegate move computation to our cockpit.
+
+**Impact on chess vertical:** the UCI bridge and Lichess adapter are
+both existing forks. The vertical reduces to: pin + 1 new Axum endpoint
++ 1 small Python patch + 1 React 3D view. ~2-3 days of focused work,
+not 3-5.
+
+### C4: Revised Tier 0 for next session
+
+```
+T0.1  Pin q2 Cargo.toml to lance-graph main + ruci               (30 min)
+T0.2  cockpit-server /api/bot/move endpoint                      (4-6 hrs)
+      - FEN → arigraph::sensorium → Episode
+      - retrieve similar via EpisodicMemory
+      - cognitive-shader-driver dispatch
+      - ruci UCI ground-truth eval
+      - build WorldModelDto
+T0.3  lichess-bot strategies/stonksfish_crew.py → POST to cockpit (1-2 hrs)
+T0.4  React 3D /chess view                                        (1-2 days)
+```
+
+Total: **2-3 days** for a live Lichess bot with live 3D cognitive
+telemetry, exercising NARS + thinking + qualia + proprioception +
+AriGraph + OSINT-crate-ready pipeline, all behind a
+"Cypher-compatible fast graph notebook" public positioning (see
+`AdaWorldAPI/q2/.claude/knowledge/positioning-quarto-4d.md`).
+
+### C5: Updated priority map
+
+Tier 0 from §4 stands — MB1 (pin), MB2 (StateClassifier impl in ada-rs),
+MB5 (QPL → qualia_to_state) are all still accurate. Add:
+
+- **T0.3a: Wire `WorldModelDto::cycle_fingerprint` → `arigraph::EpisodicMemory::add()`** (~5 lines, makes episodic memory live).
+- **T0.3b: `arigraph::EpisodicMemory::retrieve_similar(fp, k)` exposed on cockpit `/api/episodic/similar/:fen`** (~10 lines, enables the "felt like that game" view).
+
+Tier 1 from §4 shifts: T1.3 drops (already done); T1.5 (OSINT swap) is
+smaller than expected since lance-graph-osint already has the crawler
+and pipeline.
+
+### C6: What this means for the epiphanies
+
+E7 ("BindSpace + cycle_fingerprint + WorldModelDto = latent episodic
+memory") is **not latent** — it's live. The episodic memory layer is
+AriGraph, not a future BindSpace extension. The chess vertical will
+demonstrate this concretely within 2-3 days of execution.
+
+The capstone under-estimated how much of the substrate was already
+shipped. Future corrections go in this addendum section.
