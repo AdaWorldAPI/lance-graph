@@ -158,24 +158,92 @@ impl EngineBusBridge {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Qualia17D → BindSpace QualiaColumn (17D → 18D, pad dim 17 = 0)
+// Qualia: 17D experienced (CMYK) vs 18D observed (RGB)
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Write a 17D qualia vector into a BindSpace row's 18D qualia column.
-/// Dimension 17 is reserved (integration/padding) and set to 0.
-pub fn write_qualia_17d(bs: &mut BindSpace, row: usize, q17: &[f32; 17]) {
+/// The 17D/18D split is CMYK vs RGB — not padding.
+///
+/// 17D (thinking-engine `Qualia17D`): the EXPERIENCED qualia.
+///   Convergence speed IS clarity. Non-convergence IS tension.
+///   These are the raw QPL observables. "Steelwind" lives here —
+///   the felt quality that has no name yet.
+///   This is CMYK: subtractive, production-side, how the ink hits paper.
+///
+/// 18D (BindSpace `QualiaColumn`): the OBSERVED qualia.
+///   Dim 17 = `classification_distance`: how far the experienced qualia
+///   is from its nearest named emotion. Low = "fear" (named, classified).
+///   High = "steelwind" (unnamed, raw, novel).
+///   This is RGB: additive, display-side, how the observer perceives it.
+///
+/// The transform from 17→18 IS the act of observation. Dim 17 measures
+/// the gap between what the system FEELS and what it can NAME.
+pub const DIM_CLASSIFICATION_DISTANCE: usize = 17;
+
+/// Write 17D experienced qualia + classification distance into 18D observed.
+pub fn write_qualia_observed(
+    bs: &mut BindSpace,
+    row: usize,
+    experienced: &[f32; 17],
+    classification_distance: f32,
+) {
     let mut q18 = [0.0f32; QUALIA_DIMS];
-    q18[..17].copy_from_slice(q17);
+    q18[..17].copy_from_slice(experienced);
+    q18[DIM_CLASSIFICATION_DISTANCE] = classification_distance;
     bs.qualia.set(row, &q18);
 }
 
-/// Read a BindSpace row's 18D qualia and truncate to 17D.
-pub fn read_qualia_17d(bs: &BindSpace, row: usize) -> [f32; 17] {
+/// Read observed qualia and decompose into experienced (17D) + classification distance.
+pub fn read_qualia_decomposed(bs: &BindSpace, row: usize) -> ([f32; 17], f32) {
     let q18 = bs.qualia.row(row);
-    let mut q17 = [0.0f32; 17];
+    let mut experienced = [0.0f32; 17];
     let n = q18.len().min(17);
-    q17[..n].copy_from_slice(&q18[..n]);
-    q17
+    experienced[..n].copy_from_slice(&q18[..n]);
+    let cd = if q18.len() > DIM_CLASSIFICATION_DISTANCE {
+        q18[DIM_CLASSIFICATION_DISTANCE]
+    } else {
+        1.0 // max distance = fully unnamed
+    };
+    (experienced, cd)
+}
+
+/// Compute classification distance: how close the experienced qualia is to
+/// a known emotion archetype. 0.0 = exact match ("fear"), 1.0 = novel ("steelwind").
+///
+/// Uses a simple nearest-archetype heuristic over the 17D QPL space.
+/// The archetypes are the 6 basic emotions mapped to QPL coordinates.
+pub fn classification_distance(experienced: &[f32; 17]) -> f32 {
+    // Basic emotion archetypes in QPL space (arousal, valence, tension, warmth, clarity, ...)
+    const ARCHETYPES: [[f32; 6]; 6] = [
+        // arousal, valence, tension, warmth, clarity, boundary
+        [0.9, -0.8, 0.9, 0.1, 0.3, 0.8],  // fear
+        [0.8, -0.6, 0.7, 0.2, 0.4, 0.6],  // anger
+        [0.2, -0.7, 0.3, 0.6, 0.2, 0.3],  // sadness
+        [0.7,  0.8, 0.1, 0.9, 0.8, 0.2],  // joy
+        [0.3,  0.1, 0.5, 0.3, 0.1, 0.9],  // surprise
+        [0.1, -0.2, 0.1, 0.2, 0.6, 0.4],  // disgust
+    ];
+
+    let mut min_dist = f32::MAX;
+    for archetype in &ARCHETYPES {
+        let mut d = 0.0f32;
+        for (i, &a) in archetype.iter().enumerate() {
+            let diff = experienced[i] - a;
+            d += diff * diff;
+        }
+        min_dist = min_dist.min(d.sqrt());
+    }
+    // Normalize: typical max L2 across 6 dims ≈ 3.0
+    (min_dist / 3.0).clamp(0.0, 1.0)
+}
+
+/// Legacy compat: write 17D with zero classification distance (fully named).
+pub fn write_qualia_17d(bs: &mut BindSpace, row: usize, q17: &[f32; 17]) {
+    write_qualia_observed(bs, row, q17, classification_distance(q17));
+}
+
+/// Legacy compat: read experienced 17D only (drops observer frame).
+pub fn read_qualia_17d(bs: &BindSpace, row: usize) -> [f32; 17] {
+    read_qualia_decomposed(bs, row).0
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -355,6 +423,45 @@ mod tests {
         assert!((back[0] - 0.8).abs() < 1e-6);
         assert!((back[4] - 0.6).abs() < 1e-6);
         assert!((back[14] - (-0.3)).abs() < 1e-6);
+    }
+
+    #[test]
+    fn cmyk_rgb_fear_is_near_zero_distance() {
+        // "Fear" archetype: high arousal, negative valence, high tension
+        let mut fear = [0.0f32; 17];
+        fear[0] = 0.9;  // arousal
+        fear[1] = -0.8; // valence
+        fear[2] = 0.9;  // tension
+        fear[3] = 0.1;  // warmth
+        fear[4] = 0.3;  // clarity
+        fear[5] = 0.8;  // boundary
+        let cd = classification_distance(&fear);
+        assert!(cd < 0.15, "Fear should be near-zero distance (named), got {cd}");
+    }
+
+    #[test]
+    fn cmyk_rgb_steelwind_is_far() {
+        // "Steelwind" — a novel qualia with no archetype match
+        let mut steelwind = [0.0f32; 17];
+        steelwind[0] = 0.5;  // moderate arousal
+        steelwind[1] = 0.5;  // positive valence
+        steelwind[2] = 0.8;  // high tension (unusual with positive valence)
+        steelwind[3] = 0.0;  // no warmth
+        steelwind[4] = 0.9;  // very clear
+        steelwind[5] = 0.0;  // no boundary
+        let cd = classification_distance(&steelwind);
+        assert!(cd > 0.3, "Steelwind should be far from named emotions, got {cd}");
+    }
+
+    #[test]
+    fn observed_qualia_preserves_classification_distance() {
+        let mut bs = BindSpace::zeros(2);
+        let mut experienced = [0.0f32; 17];
+        experienced[0] = 0.5;
+        write_qualia_observed(&mut bs, 0, &experienced, 0.75);
+        let (back_exp, back_cd) = read_qualia_decomposed(&bs, 0);
+        assert!((back_exp[0] - 0.5).abs() < 1e-6);
+        assert!((back_cd - 0.75).abs() < 1e-6);
     }
 
     #[test]

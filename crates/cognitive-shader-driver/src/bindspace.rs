@@ -79,8 +79,12 @@ impl EdgeColumn {
     #[inline] pub fn set(&mut self, row: usize, edge: u64) { self.0[row] = edge; }
 }
 
-/// 18 × f32 per row (valence, activation, dominance, depth, certainty,
-/// urgency, arousal, valence-high, …). Contiguous `len * 18` f32.
+/// 18 × f32 per row. Dims 0..16 = EXPERIENCED (CMYK, the QPL convergence
+/// observables: arousal, valence, tension, warmth, clarity, boundary, depth,
+/// velocity, entropy, coherence, intimacy, presence, assertion, receptivity,
+/// groundedness, expansion, integration). Dim 17 = OBSERVED: classification
+/// distance (0 = named emotion like "fear", 1 = raw unnamed like "steelwind").
+/// Contiguous `len * 18` f32.
 #[derive(Debug)]
 pub struct QualiaColumn(pub Box<[f32]>);
 
