@@ -49,7 +49,7 @@ Add "COMPLETED" header matching Session A's format.
 Current state is from Mar 23. Update with:
 - NeuronPrint shipped (neuron.rs, 9 tests)
 - reader-lm + bge-m3 crates created (forward passes, blocked on weight bridge)
-- p64-bridge + Blumenstrauss shipped
+- p64-bridge + CognitiveShader shipped
 - OSINT pipeline skeleton working
 - Session B fully done, C ready to start
 
@@ -248,7 +248,7 @@ pub async fn harvest_loop(pipeline: &mut OsintPipeline, urls: &[String]) {
         // 4. Construct 6D NeuronPrint per triplet
         // 5. NARS revision against existing knowledge
         // 6. Store in TripletGraph + Lance
-        // 7. Update Blumenstrauss topology (p64 palette layers)
+        // 7. Update CognitiveShader topology (p64 palette layers)
         pipeline.ingest_triplets(&triplets)?;
     }
 }
@@ -354,7 +354,7 @@ should handle this query?" via L1 distance.
 
 ### 3.4 p64 highway for episodic + persona
 
-The p64-bridge `Blumenstrauss` already binds p64 topology with bgz17 distance.
+The p64-bridge `CognitiveShader` already binds p64 topology with bgz17 distance.
 Extend it to support persona routing:
 
 ```rust
@@ -510,8 +510,8 @@ to validate the full stack end-to-end.
 | **15** | `cargo test -p lance-graph-osint -- --ignored` | CLI | OSINT fetch + triplet extraction |
 | **16** | `curl localhost:2718/api/debug/strategies` | HTTP | 16 strategies with call counts |
 | **17** | `curl localhost:2718/mri` | HTTP | Plasticity, activation, NARS chains |
-| **18** | `cargo test -p lance-graph-planner --lib -- cache::convergence` | CLI | Episodes -> palette -> Blumenstrauss |
-| **19** | Blumenstrauss cascade test | Unit | HEEL->HIP->TWIG->LEAF 4-stage completes |
+| **18** | `cargo test -p lance-graph-planner --lib -- cache::convergence` | CLI | Episodes -> palette -> CognitiveShader |
+| **19** | CognitiveShader cascade test | Unit | HEEL->HIP->TWIG->LEAF 4-stage completes |
 | **20** | Full round-trip: chat -> triplets -> NeuronPrint -> palette -> store -> retrieve -> NL | Integration | End-to-end knowledge cycle |
 
 ### Consumer contract expansion via p64 highway
@@ -618,7 +618,7 @@ openclaw run --card agent.yaml
                     +------+--+  +----+--------+
                            |          |
                     +------v----------v-------------+
-                    |   p64 Highway (Blumenstrauss)  |
+                    |   p64 Highway (CognitiveShader)  |
                     |  attend / cascade / deduce     |
                     +------+----------+-------------+
                            |          |

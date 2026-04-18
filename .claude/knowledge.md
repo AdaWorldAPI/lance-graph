@@ -9,7 +9,7 @@ The strongest current framing is:
 - cold anatomy exists in hydrated GGUF/bgz7 rows
 - behavioral roles already exist in `NeuronPrint`
 - coarse basin logic already exists as HEEL
-- an explicit reasoning bus already exists in `p64 + Blumenstrauß`
+- an explicit reasoning bus already exists in `p64 + CognitiveShader`
 - blackboard cognition already exists in skeletal form
 - semantic ingestion and revision already exist in rough form
 

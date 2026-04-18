@@ -35,7 +35,7 @@ The energy flows DOWN from coarse to fine, spawning children.
 ### Synergy with p64
 
 - L1 64×64 = same scale as Palette64 / CausalEdge64 addressing
-- 8 predicate layers in Blumenstrauß = 8 parallel L1 tables
+- 8 predicate layers in CognitiveShader = 8 parallel L1 tables
 - Subject(8) + Object(8) of CausalEdge64 = L1 row × column
 
 ### Synergy with NARS

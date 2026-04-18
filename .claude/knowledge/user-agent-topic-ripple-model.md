@@ -121,7 +121,7 @@ It can reward:
 - appropriate novelty
 - perspective alignment without collapse into mimicry
 
-This creates a more structural learning target for `p64 + Blumenstrauß` traversal and collapse policy.
+This creates a more structural learning target for `p64 + CognitiveShader` traversal and collapse policy.
 
 ## Immediate implementation implications
 

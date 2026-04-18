@@ -223,10 +223,10 @@ pub fn semiring_to_modes(semiring_name: &str) -> (u8, u8) {
 }
 
 // ============================================================================
-// Blumenstrauß: 8 planes bundled — topology × metric × algebra
+// CognitiveShader: 8 planes bundled — topology × metric × algebra
 // ============================================================================
 
-/// Blumenstrauß: binds p64 topology with bgz17 O(1) distance.
+/// CognitiveShader: binds p64 topology with bgz17 O(1) distance.
 ///
 /// ```text
 /// Mask (p64):     [u64; 64]       WHICH pairs interact (topology)
@@ -236,7 +236,7 @@ pub fn semiring_to_modes(semiring_name: &str) -> (u8, u8) {
 ///
 /// No POPCNT. No Hamming. Distance is PRECOMPUTED in the codebook.
 /// The mask gates access. The table provides the answer. O(1).
-pub mod blumenstrauss {
+pub mod cognitive_shader {
     use bgz17::distance_matrix::DistanceMatrix;
     use bgz17::palette::Palette;
     use bgz17::palette_semiring::PaletteSemiring;
@@ -249,7 +249,7 @@ pub mod blumenstrauss {
     /// Distance between any two archetype indices = `semiring.distance(a, b)`.
     /// Path composition = `semiring.compose(a, b)`.
     /// Both O(1). The mask just says WHERE to look.
-    pub struct Blumenstrauss<'a> {
+    pub struct CognitiveShader<'a> {
         /// 8 predicate planes (topology).
         pub planes: [[u64; 64]; 8],
         /// bgz17 semiring: distance + compose + identity.
@@ -269,7 +269,7 @@ pub mod blumenstrauss {
         pub predicates: u8,
     }
 
-    impl<'a> Blumenstrauss<'a> {
+    impl<'a> CognitiveShader<'a> {
         /// Construct from layered rows (output of `edges_to_layered_rows`) + bgz17 semiring.
         pub fn new(planes: [[u64; 64]; 8], semiring: &'a PaletteSemiring) -> Self {
             Self {
@@ -544,8 +544,8 @@ mod tests {
     }
 
     #[test]
-    fn blumenstrauss_cascade() {
-        use super::blumenstrauss::Blumenstrauss;
+    fn cognitive_shader_cascade() {
+        use super::cognitive_shader::CognitiveShader;
         use bgz17::base17::Base17;
         use bgz17::palette::Palette;
         use bgz17::palette_semiring::PaletteSemiring;
@@ -575,12 +575,12 @@ mod tests {
             planes[SUPPORTS][i] |= 1u64 << i;
         }
 
-        let b = Blumenstrauss::new(planes, &semiring);
+        let b = CognitiveShader::new(planes, &semiring);
 
         // Cascade from entry 0, radius = 5000 (wide), all layers
         let hits = b.cascade(0, 5000, 0xFF);
 
-        eprintln!("\n=== Blumenstrauß Cascade ===");
+        eprintln!("\n=== CognitiveShader Cascade ===");
         eprintln!("Query: archetype 0, radius=5000, all layers");
         eprintln!("Hits: {}", hits.len());
         for hit in &hits {
@@ -604,8 +604,8 @@ mod tests {
     }
 
     #[test]
-    fn blumenstrauss_deduction() {
-        use super::blumenstrauss::Blumenstrauss;
+    fn cognitive_shader_deduction() {
+        use super::cognitive_shader::CognitiveShader;
         use bgz17::base17::Base17;
         use bgz17::palette::Palette;
         use bgz17::palette_semiring::PaletteSemiring;
@@ -625,11 +625,11 @@ mod tests {
         planes[ENABLES][0] = 0b0100;  // block 0 → block 2
         planes[ENABLES][0] |= 0b1000; // block 0 → block 3
 
-        let b = Blumenstrauss::new(planes, &semiring);
+        let b = CognitiveShader::new(planes, &semiring);
 
         let paths = b.deduce_path(0, CAUSES, ENABLES, 2);
 
-        eprintln!("\n=== Blumenstrauß Deduction ===");
+        eprintln!("\n=== CognitiveShader Deduction ===");
         eprintln!("Query: 0, CAUSES→ENABLES, max 2 hops");
         for (composed, dist, path) in &paths {
             eprintln!("  composed={composed} dist={dist} path={path:?}");

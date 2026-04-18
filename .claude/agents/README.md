@@ -21,7 +21,7 @@ Use for `ResonanceDto`, searchable field design, HHTL, CLAM, and sweep semantics
 
 ### `bus-compiler`
 Protects explicit structured execution.
-Use for `BusDto`, `CausalEdge64`, p64 style mapping, and Blumenstrauß compilation.
+Use for `BusDto`, `CausalEdge64`, p64 style mapping, and CognitiveShader compilation.
 
 ### `contradiction-cartographer`
 Protects contradiction as first-class structure.

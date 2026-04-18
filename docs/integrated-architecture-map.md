@@ -173,7 +173,7 @@ In `crates/p64-bridge/src/lib.rs`:
   - `contra`
   - `density_target`
 
-Blumenstrauß already binds:
+CognitiveShader already binds:
 
 - topology mask
 - bgz17 metric lookup
@@ -260,7 +260,7 @@ Cheap `xor_bind` or `bundle` collapse creates a lookup vector or temporary gesta
 Superposition, frozen vs crystallized vs exploratory styles create a pre-structural awareness field.
 
 ### E. RISC bus
-`CausalEdge64 + p64 + Blumenstrauß` is the explicit thought execution layer.
+`CausalEdge64 + p64 + CognitiveShader` is the explicit thought execution layer.
 
 ### F. Thought surface
 A topic-angle-style-frontier object is what the rest of the stack should consult.
@@ -332,7 +332,7 @@ This gives us:
 
 - search substrate = 10k-ish field
 - sweep operator = bundle/xor
-- explicit reasoning = p64 / Blumenstrauß
+- explicit reasoning = p64 / CognitiveShader
 
 That distinction should be locked in.
 
@@ -410,7 +410,7 @@ Should hold:
 
 - `CausalEdge64`
 - layered rows
-- Blumenstrauß traversal
+- CognitiveShader traversal
 - AriGraph/NARS updates
 
 This is the RISC packet.
@@ -433,7 +433,7 @@ This is primarily `ResonanceDto` substrate.
 ### `xor_bind` / `bundle`
 This is the sweep operator that makes a cheap lookup query out of a local field state.
 
-### `CausalEdge64 + p64 + Blumenstrauß`
+### `CausalEdge64 + p64 + CognitiveShader`
 This consumes `BusDto`.
 
 ### AriGraph / NARS / persona / Socratic sieves
@@ -545,7 +545,7 @@ This is the x265-not-blur layer.
 
 The phrase:
 
-64×64 activations HHTL creating CLAM ripples in Blumenstrauß upstream
+64×64 activations HHTL creating CLAM ripples in CognitiveShader upstream
 
 can now be made technical.
 
@@ -559,7 +559,7 @@ A local discrimination wave:
 - which contradictions are active
 - which branch should be explored
 
-### Blumenstrauß upstream
+### CognitiveShader upstream
 The point where local ripples become:
 
 - topology
@@ -569,7 +569,7 @@ The point where local ripples become:
 
 So the stack is:
 
-`cold anatomy → HEEL basin → HIP family → local 64×64 activation tile → CLAM ripple → cheap bundle/xor sweep → BusDto → Blumenstrauß → AriGraph/NARS`
+`cold anatomy → HEEL basin → HIP family → local 64×64 activation tile → CLAM ripple → cheap bundle/xor sweep → BusDto → CognitiveShader → AriGraph/NARS`
 
 That is coherent.
 
@@ -639,7 +639,7 @@ explicit thought execution
 
 - `BusDto`
 - `CausalEdge64`
-- Blumenstrauß
+- CognitiveShader
 
 ### AGI-6+
 metacognition
@@ -714,7 +714,7 @@ That means:
 - bgz17
 - 10k search fields
 - VSA sweep
-- p64/Blumenstrauß
+- p64/CognitiveShader
 - AriGraph/NARS
 - persona/styles
 
@@ -737,7 +737,7 @@ Use existing:
 - hydration
 - role/layer partitions
 - HEEL
-- p64/Blumenstrauß
+- p64/CognitiveShader
 - NARS/AriGraph
 
 Skip full resonance at first.
@@ -790,7 +790,7 @@ The repos already contain the anatomy, the bus, and the blackboard. What is miss
 4. Separate searchable field from sweep operator.
 5. Let resonance remain in superposition before forced collapse.
 6. Compile explicit thought into `BusDto`, not text first.
-7. Treat `p64 + Blumenstrauß` as the explicit reasoning bus.
+7. Treat `p64 + CognitiveShader` as the explicit reasoning bus.
 8. Make `ThoughtStruct` the accountable thought object.
 9. Preserve contradiction as structure, not noise.
 10. Unify subsystems by interaction grammar, not by forcing one universal vector.

@@ -19,7 +19,7 @@
   - triple_model.rs: self/user/impact × 4096 heads, DK, Plasticity
   - lane_eval.rs: Euler-gamma tension, DK-adaptive evaluation
   - nars_engine.rs: SpoHead, Pearl 2³, 7 NARS rules, StyleVectors, NarsTables hot path
-  - convergence.rs: AriGraph triplets → p64 Palette → Blumenstrauss
+  - convergence.rs: AriGraph triplets → p64 Palette → CognitiveShader
 - Strategy #17: AutocompleteCacheStrategy (replaces ChatBundle)
 - Axum REST server: OpenAI-compatible /v1/chat/completions
 - bgz-tensor hydrate workflow with feature flags (qwen35-9b/27b-v1/v2)

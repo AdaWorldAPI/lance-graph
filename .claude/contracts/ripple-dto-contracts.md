@@ -83,7 +83,7 @@ pub struct ResonanceDto {
 ## `BusDto`
 
 ### Role
-Explicit thought packet compiled enough for `p64` and Blumenstrauß.
+Explicit thought packet compiled enough for `p64` and CognitiveShader.
 
 ### Proposed fields
 
@@ -148,7 +148,7 @@ pub struct ThoughtStruct {
 1. `StreamDto` enters.
 2. Multiple `StreamDto`s feed or perturb `ResonanceDto`.
 3. `ResonanceDto` collapses into `BusDto` when traversal becomes accountable.
-4. `BusDto` executes through `p64 + Blumenstrauß`.
+4. `BusDto` executes through `p64 + CognitiveShader`.
 5. Resulting explicit state stabilizes as `ThoughtStruct`.
 6. `ThoughtStruct` may later seed new resonance.
 

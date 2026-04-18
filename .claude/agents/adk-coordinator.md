@@ -60,7 +60,7 @@ State the problem in ONE sentence. Then state which layer it belongs to:
 - anatomy (container words, field ranges)
 - HEEL / HIP / BRANCH / TWIG / LEAF (ripple hierarchy)
 - resonance (field state, superposition)
-- bus (explicit execution, p64 / Blumenstrauß)
+- bus (explicit execution, p64 / CognitiveShader)
 - thought object (durable, accountable)
 - host-model glove (prompt-side, adapter-side, hybrid)
 
