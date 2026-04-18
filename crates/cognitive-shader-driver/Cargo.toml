@@ -13,6 +13,16 @@ cycle_fingerprint + CausalEdge64 through EmbedAnything-style commit sinks.
 Wires lance-graph-contract DTOs ⟷ p64-bridge::CognitiveShader ⟷ thinking-engine.
 """
 
+[[bin]]
+name = "shader-serve"
+path = "src/bin/serve.rs"
+required-features = ["serve"]
+
+[[bin]]
+name = "shader-grpc"
+path = "src/bin/grpc.rs"
+required-features = ["grpc"]
+
 [dependencies]
 lance-graph-contract = { path = "../lance-graph-contract" }
 p64-bridge            = { path = "../p64-bridge" }

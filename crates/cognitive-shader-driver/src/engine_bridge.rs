@@ -368,6 +368,7 @@ pub fn persist_cycle(
 mod tests {
     use super::*;
     use crate::auto_style;
+    use lance_graph_contract::cognitive_shader::ShaderHit;
     use lance_graph_contract::collapse_gate::GateDecision;
 
     #[test]

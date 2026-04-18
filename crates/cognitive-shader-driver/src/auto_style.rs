@@ -36,7 +36,7 @@ pub const METACOGNITIVE: u8 = 11;
 
 /// Qualia → style ordinal.
 pub fn style_from_qualia(q: &[f32]) -> u8 {
-    if q.len() < QUALIA_DIMS {
+    if q.len() < 7 {
         return DELIBERATE;
     }
     let valence = q[0];

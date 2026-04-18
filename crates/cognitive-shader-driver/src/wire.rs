@@ -180,10 +180,7 @@ impl WireDispatch {
             WireStyleSelector::Auto => StyleSelector::Auto,
             WireStyleSelector::Ordinal(n) => StyleSelector::Ordinal(*n),
             WireStyleSelector::Named(s) => {
-                StyleSelector::Ordinal(crate::auto_style::resolve(
-                    StyleSelector::Named(leak_str(s)),
-                    &[0.0; 18],
-                ))
+                StyleSelector::Ordinal(named_to_ordinal(s))
             }
         };
         let rung = match self.rung {
@@ -293,11 +290,24 @@ impl From<&ShaderCrystal> for WireCrystal {
     }
 }
 
-/// Leak a String into a &'static str for StyleSelector::Named.
-/// Only used during wire→internal conversion; the server lives for the
-/// process lifetime so this is fine.
-fn leak_str(s: &str) -> &'static str {
-    Box::leak(s.to_lowercase().into_boxed_str())
+/// Resolve a named style to an ordinal without leaking memory.
+/// The 12 known names are matched; unknown falls back to Deliberate (0).
+fn named_to_ordinal(s: &str) -> u8 {
+    match s.to_lowercase().as_str() {
+        "deliberate" => 0,
+        "analytical" => 1,
+        "convergent" => 2,
+        "systematic" => 3,
+        "creative" => 4,
+        "divergent" => 5,
+        "exploratory" => 6,
+        "focused" => 7,
+        "diffuse" => 8,
+        "peripheral" => 9,
+        "intuitive" => 10,
+        "metacognitive" => 11,
+        _ => 0,
+    }
 }
 
 #[cfg(test)]
