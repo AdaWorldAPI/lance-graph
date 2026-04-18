@@ -49,6 +49,10 @@ pub mod wire;
 #[cfg(feature = "serve")]
 pub mod serve;
 
+// gRPC: protobuf + tonic. Also debug-only.
+#[cfg(feature = "grpc")]
+pub mod grpc;
+
 pub use lance_graph_contract::cognitive_shader::{
     CognitiveShaderDriver, ColumnWindow, EmitMode, MetaFilter, MetaSummary, MetaWord,
     NullSink, RungLevel, ShaderBus, ShaderCrystal, ShaderDispatch, ShaderHit,

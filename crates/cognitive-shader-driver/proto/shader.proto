@@ -1,0 +1,192 @@
+syntax = "proto3";
+
+package cognitive_shader;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Service — live debug interface (never production)
+// ═══════════════════════════════════════════════════════════════════════════
+
+service CognitiveShaderService {
+  // Run one shader cycle → returns crystal.
+  rpc Dispatch (DispatchRequest) returns (CrystalResponse);
+
+  // Push codebook indices into BindSpace.
+  rpc Ingest (IngestRequest) returns (IngestResponse);
+
+  // Health + diagnostics.
+  rpc Health (HealthRequest) returns (HealthResponse);
+
+  // Read qualia (CMYK → RGB decomposition).
+  rpc Qualia (QualiaRequest) returns (QualiaResponse);
+
+  // List all 12 unified styles.
+  rpc Styles (StylesRequest) returns (StylesResponse);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Dispatch — Φ ShaderDispatch
+// ═══════════════════════════════════════════════════════════════════════════
+
+message DispatchRequest {
+  uint32 row_start = 1;
+  uint32 row_end = 2;
+  uint32 layer_mask = 3;     // u8 as u32 (proto has no u8)
+  uint32 radius = 4;         // u16 as u32
+  StyleSelector style = 5;
+  uint32 rung = 6;           // 0..9
+  uint32 max_cycles = 7;
+  float entropy_floor = 8;
+  EmitMode emit = 9;
+  MetaFilter meta_filter = 10;
+}
+
+message StyleSelector {
+  oneof selector {
+    bool auto = 1;           // true = auto-detect from qualia
+    uint32 ordinal = 2;     // 0..11
+    string named = 3;       // "analytical", "creative", etc.
+  }
+}
+
+enum EmitMode {
+  CYCLE = 0;
+  BUNDLE = 1;
+  PERSIST = 2;
+}
+
+message MetaFilter {
+  uint64 thinking_mask = 1;
+  uint32 awareness_min = 2;
+  uint32 nars_f_min = 3;
+  uint32 nars_c_min = 4;
+  uint32 free_e_max = 5;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Crystal — Γ ShaderCrystal
+// ═══════════════════════════════════════════════════════════════════════════
+
+message CrystalResponse {
+  BusMessage bus = 1;
+  optional uint32 persisted_row = 2;
+  MetaSummary meta = 3;
+}
+
+message BusMessage {
+  // 256 × u64 = cycle_fingerprint. Sent as raw bytes (2048 bytes).
+  bytes cycle_fingerprint = 1;
+  repeated uint64 emitted_edges = 2;
+  GateState gate = 3;
+  ResonanceMessage resonance = 4;
+}
+
+enum GateState {
+  FLOW = 0;
+  BLOCK = 1;
+  HOLD = 2;
+}
+
+message ResonanceMessage {
+  repeated HitMessage top_k = 1;
+  uint32 hit_count = 2;
+  uint32 cycles_used = 3;
+  float entropy = 4;
+  float std_dev = 5;
+  uint32 style_ord = 6;
+}
+
+message HitMessage {
+  uint32 row = 1;
+  uint32 distance = 2;     // u16 as u32
+  uint32 predicates = 3;   // u8 as u32
+  float resonance = 4;
+  uint32 cycle_index = 5;
+}
+
+message MetaSummary {
+  float confidence = 1;
+  float meta_confidence = 2;
+  float brier = 3;
+  bool should_admit_ignorance = 4;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Ingest — sensor data into BindSpace
+// ═══════════════════════════════════════════════════════════════════════════
+
+message IngestRequest {
+  repeated uint32 codebook_indices = 1;  // u16 as u32
+  uint32 source_ordinal = 2;
+  uint64 timestamp = 3;
+}
+
+message IngestResponse {
+  uint32 ingested = 1;
+  uint32 row_start = 2;
+  uint32 row_end = 3;
+  uint32 write_cursor = 4;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Health
+// ═══════════════════════════════════════════════════════════════════════════
+
+message HealthRequest {}
+
+message HealthResponse {
+  uint32 row_count = 1;
+  uint64 byte_footprint = 2;
+  repeated StyleInfo styles = 3;
+  optional NeuralDiag neural_debug = 4;
+}
+
+message NeuralDiag {
+  uint32 total_functions = 1;
+  uint32 total_dead = 2;
+  uint32 total_stub = 3;
+  float health_pct = 4;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Qualia — CMYK (experienced) → RGB (observed)
+// ═══════════════════════════════════════════════════════════════════════════
+
+message QualiaRequest {
+  uint32 row = 1;
+}
+
+message QualiaResponse {
+  uint32 row = 1;
+  // 17D experienced qualia (CMYK: arousal, valence, tension, warmth, ...)
+  repeated float experienced = 2;
+  // Dim 17: classification distance (0 = named "fear", 1 = unnamed "steelwind")
+  float classification_distance = 3;
+  string style_name = 4;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Styles — 12 unified thinking styles
+// ═══════════════════════════════════════════════════════════════════════════
+
+message StylesRequest {}
+
+message StylesResponse {
+  repeated StyleInfo styles = 1;
+}
+
+message StyleInfo {
+  uint32 ordinal = 1;
+  string name = 2;
+  uint32 layer_mask = 3;
+  float density_target = 4;
+  float resonance_threshold = 5;
+  uint32 fan_out = 6;
+  // p64-bridge parameters
+  uint32 combine = 7;
+  uint32 contra = 8;
+  // thinking-engine parameters
+  float exploration = 9;
+  float speed = 10;
+  float collapse_bias = 11;
+  float butterfly_sensitivity = 12;
+}
