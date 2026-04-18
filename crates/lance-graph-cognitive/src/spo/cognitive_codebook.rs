@@ -1091,7 +1091,7 @@ mod tests {
         let expanded = expand_from_48(hash);
 
         // Similarity should be preserved somewhat
-        let sim = original.similarity(&expanded);
+        let sim = original.similarity(&expanded).unwrap_or(0.0);
         println!("Fold/unfold similarity: {:.3}", sim);
         assert!(sim > 0.3); // At least some correlation
     }
@@ -1146,8 +1146,8 @@ mod tests {
         let cleaned = codebook.clean(&noisy, 0.2);
 
         // Should be more similar to original than noisy
-        let sim_think = cleaned.similarity(&think);
-        let sim_know = cleaned.similarity(&know);
+        let sim_think = cleaned.similarity(&think).unwrap_or(0.0);
+        let sim_know = cleaned.similarity(&know).unwrap_or(0.0);
 
         println!("Cleaned similarity to THINK: {:.3}", sim_think);
         println!("Cleaned similarity to KNOW: {:.3}", sim_know);
@@ -1170,6 +1170,6 @@ mod tests {
 
         // Can retrieve it
         let retrieved = codebook.get_by_name("CONSCIOUSNESS").unwrap();
-        assert_eq!(retrieved.similarity(&new_fp), 1.0);
+        assert_eq!(retrieved.similarity(&new_fp).unwrap_or(0.0), 1.0);
     }
 }

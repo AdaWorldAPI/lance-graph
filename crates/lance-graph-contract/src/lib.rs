@@ -47,3 +47,4 @@ pub mod exploration;
 pub mod orchestration_mode;
 pub mod collapse_gate;
 pub mod container;
+pub mod cognitive_shader;

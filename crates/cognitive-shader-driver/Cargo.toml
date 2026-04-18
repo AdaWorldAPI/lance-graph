@@ -1,0 +1,31 @@
+[package]
+name = "cognitive-shader-driver"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.94"
+license = "Apache-2.0"
+publish = false
+description = """
+CognitiveShader driver — the shader IS the driver. Holds BindSpace columns
+(struct-of-arrays), dispatches cycles through thinking-engine, and emits
+cycle_fingerprint + CausalEdge64 through EmbedAnything-style commit sinks.
+
+Wires lance-graph-contract DTOs ⟷ p64-bridge::CognitiveShader ⟷ thinking-engine.
+"""
+
+[dependencies]
+lance-graph-contract = { path = "../lance-graph-contract" }
+p64-bridge            = { path = "../p64-bridge" }
+bgz17                 = { path = "../bgz17" }
+causal-edge           = { path = "../causal-edge" }
+ndarray               = { path = "../../../ndarray", default-features = false, features = ["std"] }
+
+# Optional: real thinking-engine wiring behind a feature gate, matching
+# the EmbedAnything "default = runtime only; heavy deps behind features" rule.
+thinking-engine = { path = "../thinking-engine", optional = true, default-features = false }
+
+[features]
+default = []
+with-engine = ["dep:thinking-engine"]
+
+[dev-dependencies]
