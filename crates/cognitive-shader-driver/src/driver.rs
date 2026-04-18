@@ -48,6 +48,7 @@ pub struct ShaderDriver {
     pub(crate) bindspace: Arc<BindSpace>,
     pub(crate) semiring: Arc<PaletteSemiring>,
     pub(crate) planes: [[u64; 64]; 8],
+    #[allow(dead_code)]
     pub(crate) default_style: u8,
 }
 
@@ -86,6 +87,7 @@ impl ShaderDriver {
 
         // [3] Shader cascade — bgz17 O(1) per probed block.
         let shader = CognitiveShader::new(self.planes, &self.semiring);
+        let max_dist = (self.semiring.k as f32) * (self.semiring.k as f32);
         let mut hits = Vec::<ShaderHit>::with_capacity(passed_rows.len().min(64));
 
         for (cycle_idx, &row) in passed_rows.iter().enumerate() {
@@ -96,8 +98,7 @@ impl ShaderDriver {
             let query = edge.s_idx();
             let raw = shader.cascade(query, req.radius, req.layer_mask);
             for hit in raw.into_iter().take(4) {
-                // Row-level resonance = 1 / (1 + distance_normalised).
-                let resonance = 1.0 / (1.0 + (hit.distance as f32 / 4096.0));
+                let resonance = 1.0 / (1.0 + (hit.distance as f32 / max_dist));
                 hits.push(ShaderHit {
                     row,
                     distance: hit.distance,
@@ -133,10 +134,12 @@ impl ShaderDriver {
             if h.resonance < 0.2 { continue; }
             let f = (h.resonance.clamp(0.0, 1.0) * 255.0) as u8;
             let c = (h.resonance.clamp(0.0, 1.0) * 255.0) as u8;
+            let s_palette = (h.row % 256) as u8;
+            let o_palette = ((h.row / 4) % 256) as u8;
             let edge = CausalEdge64::pack(
-                h.row as u8,
+                s_palette,
                 0,
-                h.row as u8,
+                o_palette,
                 f,
                 c,
                 CausalMask::from_bits(h.predicates & 0x07),

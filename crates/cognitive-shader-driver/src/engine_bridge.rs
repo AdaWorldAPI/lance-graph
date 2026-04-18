@@ -27,13 +27,11 @@
 //! ```
 
 use lance_graph_contract::cognitive_shader::{
-    ColumnWindow, MetaFilter, MetaWord, ShaderBus, ShaderCrystal,
-    ShaderDispatch, ShaderHit, StyleSelector, EmitMode,
+    ColumnWindow, MetaFilter, MetaWord, ShaderBus, ShaderDispatch,
+    StyleSelector, EmitMode,
 };
-use lance_graph_contract::collapse_gate::GateDecision;
 
 use crate::bindspace::{BindSpace, QUALIA_DIMS, WORDS_PER_FP};
-use crate::auto_style;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // StreamDto → BindSpace (sensor output populates content fingerprints)
@@ -369,6 +367,9 @@ pub fn persist_cycle(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::auto_style;
+    use lance_graph_contract::cognitive_shader::ShaderHit;
+    use lance_graph_contract::collapse_gate::GateDecision;
 
     #[test]
     fn ingest_sets_bits() {

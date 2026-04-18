@@ -13,6 +13,16 @@ cycle_fingerprint + CausalEdge64 through EmbedAnything-style commit sinks.
 Wires lance-graph-contract DTOs ⟷ p64-bridge::CognitiveShader ⟷ thinking-engine.
 """
 
+[[bin]]
+name = "shader-serve"
+path = "src/bin/serve.rs"
+required-features = ["serve"]
+
+[[bin]]
+name = "shader-grpc"
+path = "src/bin/grpc.rs"
+required-features = ["grpc"]
+
 [dependencies]
 lance-graph-contract = { path = "../lance-graph-contract" }
 p64-bridge            = { path = "../p64-bridge" }
@@ -24,8 +34,21 @@ ndarray               = { path = "../../../ndarray", default-features = false, f
 # the EmbedAnything "default = runtime only; heavy deps behind features" rule.
 thinking-engine = { path = "../thinking-engine", optional = true, default-features = false }
 
+# Debug/serve: serde + axum + tonic for live testing (NEVER in production binary)
+serde = { version = "1", features = ["derive"], optional = true }
+serde_json = { version = "1", optional = true }
+axum = { version = "0.8", optional = true }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"], optional = true }
+prost = { version = "0.13", optional = true }
+tonic = { version = "0.12", optional = true }
+
+[build-dependencies]
+tonic-build = { version = "0.12", optional = true }
+
 [features]
 default = []
 with-engine = ["dep:thinking-engine"]
+serve = ["dep:serde", "dep:serde_json", "dep:axum", "dep:tokio"]
+grpc = ["dep:prost", "dep:tonic", "dep:tonic-build", "dep:tokio"]
 
 [dev-dependencies]

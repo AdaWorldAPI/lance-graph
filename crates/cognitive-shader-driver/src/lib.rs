@@ -41,6 +41,18 @@ pub mod bindspace;
 pub mod driver;
 pub mod auto_style;
 pub mod engine_bridge;
+pub mod sigma_rosetta;
+
+// Debug-only: REST server + wire types. NEVER in production binary.
+// serde is a debugging tool, not a runtime dependency.
+#[cfg(feature = "serve")]
+pub mod wire;
+#[cfg(feature = "serve")]
+pub mod serve;
+
+// gRPC: protobuf + tonic. Also debug-only.
+#[cfg(feature = "grpc")]
+pub mod grpc;
 
 pub use lance_graph_contract::cognitive_shader::{
     CognitiveShaderDriver, ColumnWindow, EmitMode, MetaFilter, MetaSummary, MetaWord,
