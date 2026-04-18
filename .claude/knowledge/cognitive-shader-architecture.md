@@ -212,12 +212,55 @@ pub struct BindSpaceColumns {
     pub causality: Vec<CausalEdge64>,      // WHY/HOW
     pub qualia: Vec<[f32; 18]>,            // FEELS LIKE
     pub temporal: Vec<u64>,                // WHEN
-    pub shader: Vec<u8>,                   // WHO produced this
+    pub shader: Vec<u8>,                   // WHICH shader
+    pub expert: Vec<ExpertId>,             // WHICH agent posted (A2A)
+    pub cycle: Vec<Fingerprint<256>>,      // cycle_fingerprint from Layer 4
 }
 ```
 
 Per cycle: cascade each column independently, intersect survivors,
 exact step on the final ~50 candidates. ~2.3ms for 1M records × 5 dims.
+
+## Blackboard: A2A Protocol via BindSpace
+
+**Already exists**: `lance-graph-contract::a2a_blackboard` with
+`ExpertId`, `ExpertCapability`, post/read/route pattern.
+
+The blackboard IS a BindSpace column (the `expert` dimension). Agent A
+posts a cycle_fingerprint + CausalEdge64 → Agent B finds it via Hamming
+sweep on the expert+topic columns → retrieves relevant history via
+LanceDB RAG (Layer 6) → responds with its own cycle_fingerprint.
+
+```
+Agent A:
+  cycle → shader → CausalEdge64 → write to blackboard
+                                    ↓
+                            (expert=A, topic=X, cycle_fp=...)
+                                    ↓
+                               BindSpace column
+                                    ↓
+Agent B:
+  sweep expert column: "find things A posted"
+  sweep topic column: "filter to topic X"
+  RAG from LanceDB (Layer 6): "retrieve past exchanges"
+  → planner produces own cycle_fp
+  → shader → edge → write to blackboard
+```
+
+The entire cognitive shader stack IS a **semantic kernel** for RAG:
+- The hot path (Layers 0-3) = the kernel compute engine
+- The cold path (Layer 6 LanceDB) = the RAG retrieval store
+- The blackboard column = the A2A coordination channel
+- The cycle_fingerprint = the cross-agent identity
+
+Multiple agents share ONE BindSpace address space. No message queues.
+No serialization. XOR/popcount on shared fingerprint columns IS the
+message bus. Consensus via CollapseGate Bundle (majority vote).
+Each agent's cycle_fingerprint is both its identity and its payload.
+
+This is the sem-kernel RAG realization: agents don't "call" each other,
+they sweep each other's fingerprints. The blackboard is where thought
+streams cross.
 
 ---
 
