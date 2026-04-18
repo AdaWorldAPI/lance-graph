@@ -345,6 +345,68 @@ pub fn sigma_to_qpl(sigma: &[f32; 16]) -> [f32; 17] {
     qpl
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Quad-Triangle Gestalt — harvested from agi-chat/thinking/quad-triangle.ts
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Thinking has SHAPE, not just style. Four triangles carry orthogonal
+// texture. Each drives a different shader layer:
+//   A: Processing     → Layer 3 Appraisal
+//   B: Content        → Layer 4 Routing
+//   C: Gestalt        → Layer 5 Execution (our single TriangleGestalt)
+//   D: Crystallization → Layer 9 Validation
+
+/// 4 triangles × 3 corners = 12 cognitive shape dimensions.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct QuadTriangleGestalt {
+    /// Triangle A — Processing style: { analytical, intuitive, procedural }
+    pub processing: TriangleGestalt,
+    /// Triangle B — Content mode: { abstract_, concrete, relational }
+    pub content: TriangleGestalt,
+    /// Triangle C — Gestalt: { coherence, novelty, resonance }
+    /// (This is the one we had as standalone `TriangleGestalt`.)
+    pub gestalt: TriangleGestalt,
+    /// Triangle D — Crystallization state: { immutable, hot, experimental }
+    pub crystallization: TriangleGestalt,
+}
+
+impl QuadTriangleGestalt {
+    pub fn neutral() -> Self {
+        let n = TriangleGestalt::new(0.5, 0.5, 0.5);
+        Self { processing: n, content: n, gestalt: n, crystallization: n }
+    }
+
+    /// Maximum SD across all four triangles.
+    /// Determines the "worst" axis — drives the overall gate decision.
+    pub fn max_std_dev(&self) -> f32 {
+        self.processing.std_dev()
+            .max(self.content.std_dev())
+            .max(self.gestalt.std_dev())
+            .max(self.crystallization.std_dev())
+    }
+
+    /// Conservative gate: any triangle in Block → Block, any in Hold → Hold, else Flow.
+    pub fn gate(&self) -> GestaltGate {
+        let worst = self.max_std_dev();
+        if worst > 0.35 { GestaltGate::Block }
+        else if worst > 0.15 { GestaltGate::Hold }
+        else { GestaltGate::Flow }
+    }
+
+    /// Mean balance across all four triangles.
+    pub fn balance(&self) -> f32 {
+        (self.processing.balance()
+            + self.content.balance()
+            + self.gestalt.balance()
+            + self.crystallization.balance()) / 4.0
+    }
+}
+
+/// Triangle-A presets from agi-chat's COGNITIVE_PROFILES (the 3 anchor styles).
+pub fn processing_analytical() -> TriangleGestalt { TriangleGestalt::new(0.9, 0.1, 0.5) }
+pub fn processing_intuitive()  -> TriangleGestalt { TriangleGestalt::new(0.1, 0.9, 0.3) }
+pub fn processing_procedural() -> TriangleGestalt { TriangleGestalt::new(0.3, 0.1, 0.9) }
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -385,6 +447,36 @@ mod tests {
     fn triangle_unbalanced_blocks() {
         let t = TriangleGestalt::new(1.0, 0.0, 0.5);
         assert_eq!(t.gate(), GestaltGate::Block, "sd = {}", t.std_dev());
+    }
+
+    #[test]
+    fn quad_triangle_neutral_flows() {
+        let q = QuadTriangleGestalt::neutral();
+        assert_eq!(q.gate(), GestaltGate::Flow);
+        assert!(q.balance() > 0.99);
+    }
+
+    #[test]
+    fn quad_triangle_worst_triangle_dominates() {
+        let mut q = QuadTriangleGestalt::neutral();
+        q.processing = TriangleGestalt::new(1.0, 0.0, 0.5); // Block
+        // Other triangles neutral, but processing blocks → overall Block
+        assert_eq!(q.gate(), GestaltGate::Block);
+    }
+
+    #[test]
+    fn processing_presets_match_agi_chat_profiles() {
+        // Anchor preset: analytical = high clarity, low warmth, mid presence
+        let a = processing_analytical();
+        assert!(a.clarity > 0.8);
+        assert!(a.warmth < 0.2);
+
+        let i = processing_intuitive();
+        assert!(i.warmth > 0.8);  // intuitive = high feeling
+        assert!(i.clarity < 0.2);
+
+        let p = processing_procedural();
+        assert!(p.presence > 0.8); // procedural = high somatic/embodied
     }
 
     #[test]
