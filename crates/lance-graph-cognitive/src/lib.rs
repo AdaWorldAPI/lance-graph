@@ -117,10 +117,8 @@ pub mod core {
 // Grammar triangle: SPO × causality × qualia
 pub mod grammar;
 
-// Learning: full 16-module suite (158K LOC cam_ops + 12 others)
-// 124 errors remaining from rustynum→ndarray migration
-#[cfg(feature = "wip")]
-pub mod learning;
+// Learning: moved to standalone crate `crates/learning/` (optional dep)
+// 16 modules, 300K+ LOC. Use: `learning = { path = "../learning" }`
 
 // SPO extensions: cognitive codebook, crystals, gestalt
 #[cfg(feature = "wip")]
