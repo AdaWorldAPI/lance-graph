@@ -23,7 +23,7 @@ manifold clustering, then replaces matmul with precomputed distance table lookup
 # NOT optional — both live in same binary.
 [dependencies]
 ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
-holograph = { git = "https://github.com/AdaWorldAPI/RedisGraph.git", default-features = false }
+holograph = { path = "../holograph", default-features = false }
 serde = { version = "1", features = ["derive"], optional = true }
 serde_json = { version = "1", optional = true }
 sha2 = { version = "0.10", optional = true }
