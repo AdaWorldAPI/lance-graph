@@ -39,6 +39,71 @@ pub const AXIS_LABELS: [&str; 11] = [
     "tension", "novelty", "wonder", "attunement",
 ];
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Axes struct — named scalars parallel to the raw vector
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// 11D state axes with named fields for direct query.
+///
+/// Same numeric content as `[f32; 11]` — exposed as individually
+/// addressable scalars so consumers never need to remember axis
+/// indices. Fields are index-aligned with `AXIS_LABELS`.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct ProprioceptionAxes {
+    // Core 7
+    pub warmth: f32,
+    pub clarity: f32,
+    pub depth: f32,
+    pub safety: f32,
+    pub vitality: f32,
+    pub insight: f32,
+    pub contact: f32,
+    // Drive 4
+    pub tension: f32,
+    pub novelty: f32,
+    pub wonder: f32,
+    pub attunement: f32,
+}
+
+impl ProprioceptionAxes {
+    pub const fn zero() -> Self {
+        Self {
+            warmth: 0.0, clarity: 0.0, depth: 0.0, safety: 0.0,
+            vitality: 0.0, insight: 0.0, contact: 0.0,
+            tension: 0.0, novelty: 0.0, wonder: 0.0, attunement: 0.0,
+        }
+    }
+
+    /// Pack into the raw state vector used by classifiers.
+    pub fn to_vector(&self) -> [f32; STATE_DIMS] {
+        [
+            self.warmth, self.clarity, self.depth, self.safety,
+            self.vitality, self.insight, self.contact,
+            self.tension, self.novelty, self.wonder, self.attunement,
+        ]
+    }
+
+    pub fn from_vector(v: &[f32; STATE_DIMS]) -> Self {
+        Self {
+            warmth: v[0], clarity: v[1], depth: v[2], safety: v[3],
+            vitality: v[4], insight: v[5], contact: v[6],
+            tension: v[7], novelty: v[8], wonder: v[9], attunement: v[10],
+        }
+    }
+
+    /// Drive ratio = tension / novelty, floor-protected.
+    pub fn drive_ratio(&self) -> f32 {
+        self.tension / self.novelty.max(1e-6)
+    }
+
+    pub fn drive_mode(&self) -> DriveMode {
+        let phi = self.drive_ratio();
+        if phi < 1.0 { DriveMode::Explore }
+        else if phi < 1.8 { DriveMode::Exploit }
+        else { DriveMode::Reflect }
+    }
+}
+
 /// Number of core axes (positions 0..=6 in the state vector).
 pub const CORE_AXES: usize = 7;
 /// Number of drive axes (positions 7..=10 in the state vector).
@@ -180,7 +245,7 @@ pub const ANCHOR_REGISTRY: [AnchorState; 7] = [
         coords: [0.6, 0.2, 0.8, 0.9, 0.3, 0.4, 0.8,   0.6, 0.2, 0.3, 0.8],
         rung: 3,
     },
-    // Flow — high vitality and novelty, embodied engagement
+    // Flow — high vitality and novelty, active engagement
     AnchorState {
         anchor: StateAnchor::Flow,
         coords: [0.7, 0.5, 0.3, 0.6, 0.9, 0.6, 0.7,   0.2, 0.8, 0.7, 0.7],
@@ -429,5 +494,32 @@ mod tests {
         let anchor = anchor_state(StateAnchor::Flow);
         assert_eq!(anchor.core().len(), CORE_AXES);
         assert_eq!(anchor.drive().len(), DRIVE_AXES);
+    }
+
+    #[test]
+    fn axes_roundtrip_through_vector() {
+        let axes = ProprioceptionAxes {
+            warmth: 0.1, clarity: 0.2, depth: 0.3, safety: 0.4,
+            vitality: 0.5, insight: 0.6, contact: 0.7,
+            tension: 0.8, novelty: 0.9, wonder: 0.15, attunement: 0.25,
+        };
+        let v = axes.to_vector();
+        let back = ProprioceptionAxes::from_vector(&v);
+        assert_eq!(axes, back);
+    }
+
+    #[test]
+    fn axes_drive_mode_matches_anchor_behaviour() {
+        let rest = anchor_state(StateAnchor::Rest);
+        let axes = ProprioceptionAxes::from_vector(&rest.coords);
+        assert_eq!(axes.drive_mode(), rest.drive_mode());
+    }
+
+    #[test]
+    fn axes_zero_is_zero() {
+        let z = ProprioceptionAxes::zero();
+        assert_eq!(z.warmth, 0.0);
+        assert_eq!(z.attunement, 0.0);
+        assert_eq!(z.to_vector(), [0.0; STATE_DIMS]);
     }
 }

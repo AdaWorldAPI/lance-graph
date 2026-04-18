@@ -3,7 +3,7 @@
 //! This is world modeling in the sense used by game engines, chess
 //! engines, and state-estimation in robotics: a structured snapshot
 //! of self, opponent, board, and context, good enough for one cycle
-//! of decision-making. Nothing in this module concerns embodiment.
+//! of decision-making.
 //!
 //! CONSUMER CONTRACT: any downstream crate (crewai-rust, n8n-rs,
 //! thinking-engine, ada-rs) can depend on these types without
@@ -24,7 +24,7 @@
 //!
 //! Zero dependencies on implementation crates. Pure data types.
 
-use crate::proprioception::StateReport;
+use crate::proprioception::{ProprioceptionAxes, StateReport};
 use crate::qualia::QualiaVector;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -177,6 +177,9 @@ pub struct WorldModelDto {
     /// Full 17D qualia observation from this cycle (`qualia::QualiaVector`).
     /// `None` if the consumer only carries the compressed `self_state.qualia_state`.
     pub qualia: Option<QualiaVector>,
+    /// Named 11D proprioception axes — first-class fields for direct query.
+    /// Identical numeric content to what the classifier consumes.
+    pub axes: Option<ProprioceptionAxes>,
     /// State classifier report (`proprioception::StateReport`).
     /// Produced by an implementor of `proprioception::StateClassifier`.
     pub proprioception: Option<StateReport>,
@@ -240,6 +243,7 @@ mod tests {
                 spo_count: 15, has_conflict: false,
             },
             qualia: None,
+            axes: None,
             proprioception: None,
             cycle_fingerprint: None,
             timestamp: 0,
@@ -294,6 +298,23 @@ mod tests {
         assert_eq!(wm, wm2);
         assert_eq!(wm.timestamp, 12345);
         assert_eq!(wm.cycle_index, 7);
+    }
+
+    #[test]
+    fn world_model_carries_named_axes() {
+        use crate::proprioception::ProprioceptionAxes;
+        let mut wm = sample_world_model();
+        wm.axes = Some(ProprioceptionAxes {
+            warmth: 0.9, clarity: 0.7, depth: 0.5, safety: 0.8,
+            vitality: 0.6, insight: 0.4, contact: 0.5,
+            tension: 0.2, novelty: 0.6, wonder: 0.5, attunement: 0.7,
+        });
+        let axes = wm.axes.unwrap();
+        assert!((axes.warmth - 0.9).abs() < 1e-6);
+        assert!((axes.clarity - 0.7).abs() < 1e-6);
+        let vec = axes.to_vector();
+        assert_eq!(vec.len(), 11);
+        assert!((vec[0] - 0.9).abs() < 1e-6);
     }
 
     #[test]

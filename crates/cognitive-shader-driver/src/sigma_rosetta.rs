@@ -476,7 +476,7 @@ mod tests {
         assert!(i.clarity < 0.2);
 
         let p = processing_procedural();
-        assert!(p.presence > 0.8); // procedural = high somatic/embodied
+        assert!(p.presence > 0.8); // procedural = high presence-axis
     }
 
     #[test]
