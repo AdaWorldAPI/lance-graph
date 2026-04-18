@@ -59,6 +59,7 @@
 //! The question is whether attention-specific distance (dot product similarity)
 //! preserves as well as generic L1 distance.
 
+pub mod adaptive_codec;
 pub mod attention;
 pub mod belichtungsmesser;
 pub mod cascade;
@@ -69,6 +70,7 @@ pub mod fisher_z;
 pub mod gamma_calibration;
 pub mod gamma_phi;
 pub mod had_cascade;
+pub mod holographic_residual;
 pub mod hdr_belichtung;
 pub mod hhtl_cache;
 pub mod hhtl_d;
@@ -85,6 +87,7 @@ pub mod stacked;
 pub mod stacked_n;
 pub mod turboquant_kv;
 pub mod variance;
+pub mod xor_adaptive;
 
 #[cfg(feature = "hydrate")]
 pub mod manifest;
