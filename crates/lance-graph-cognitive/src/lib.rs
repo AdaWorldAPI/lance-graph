@@ -34,6 +34,20 @@ pub const FINGERPRINT_BYTES: usize = 2_048;
 /// Re-export ndarray's const-generic Fingerprint as the canonical type.
 pub type Fingerprint = ndarray::hpc::fingerprint::Fingerprint<256>;
 
+/// Bridge: convert holograph BitpackedVector → ndarray Fingerprint<256>.
+pub fn bitpacked_to_fingerprint(bv: &holograph::bitpack::BitpackedVector) -> Fingerprint {
+    let words = bv.words();
+    let mut fp_words = [0u64; 256];
+    let n = words.len().min(256);
+    fp_words[..n].copy_from_slice(&words[..n]);
+    Fingerprint::from_words(fp_words)
+}
+
+/// Bridge: convert ndarray Fingerprint<256> → holograph BitpackedVector.
+pub fn fingerprint_to_bitpacked(fp: &Fingerprint) -> holograph::bitpack::BitpackedVector {
+    holograph::bitpack::BitpackedVector::from_words(*fp.as_raw())
+}
+
 /// Dense embedding vector (ladybug-rs compat).
 pub type Embedding = Vec<f32>;
 
