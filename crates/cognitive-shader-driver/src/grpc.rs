@@ -15,7 +15,6 @@
 use std::sync::{Arc, Mutex};
 use tonic::{Request, Response, Status};
 
-use crate::bindspace::BindSpace;
 use crate::driver::ShaderDriver;
 use crate::engine_bridge::{self, unified_style, UNIFIED_STYLES};
 use lance_graph_contract::cognitive_shader::{

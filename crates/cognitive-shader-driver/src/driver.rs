@@ -48,6 +48,7 @@ pub struct ShaderDriver {
     pub(crate) bindspace: Arc<BindSpace>,
     pub(crate) semiring: Arc<PaletteSemiring>,
     pub(crate) planes: [[u64; 64]; 8],
+    #[allow(dead_code)]
     pub(crate) default_style: u8,
 }
 
@@ -133,10 +134,12 @@ impl ShaderDriver {
             if h.resonance < 0.2 { continue; }
             let f = (h.resonance.clamp(0.0, 1.0) * 255.0) as u8;
             let c = (h.resonance.clamp(0.0, 1.0) * 255.0) as u8;
+            let s_palette = (h.row % 256) as u8;
+            let o_palette = ((h.row / 4) % 256) as u8;
             let edge = CausalEdge64::pack(
-                h.row as u8,
+                s_palette,
                 0,
-                h.row as u8,
+                o_palette,
                 f,
                 c,
                 CausalMask::from_bits(h.predicates & 0x07),

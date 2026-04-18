@@ -34,12 +34,10 @@ use axum::{
 };
 use serde_json::{json, Value};
 
-use crate::bindspace::BindSpace;
 use crate::driver::ShaderDriver;
 use crate::engine_bridge::{self, unified_style, UNIFIED_STYLES};
 use crate::wire::{
-    WireCrystal, WireDispatch, WireHealth, WireIngest, WireNeuralDiag, WireQualia,
-    WireStyleInfo,
+    WireCrystal, WireDispatch, WireHealth, WireIngest, WireQualia, WireStyleInfo,
 };
 use lance_graph_contract::cognitive_shader::CognitiveShaderDriver;
 
