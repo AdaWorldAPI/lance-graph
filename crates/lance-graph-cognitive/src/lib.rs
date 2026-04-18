@@ -124,5 +124,29 @@ pub mod grammar;
 #[cfg(feature = "wip")]
 pub mod spo;
 
-// World model: counterfactual reasoning
+// World model: counterfactual reasoning (COMPILING)
 pub mod world;
+
+// Search: cognitive + causal + HDR cascade + temporal + scientific
+#[cfg(feature = "wip")]
+pub mod search;
+
+// Fabric: GEL language + FireflyFrame executor + scheduler + zero-copy
+#[cfg(feature = "wip")]
+pub mod fabric;
+
+// Spectroscopy: detector + features (related to gestalt, texture, fabric)
+#[cfg(feature = "wip")]
+pub mod spectroscopy;
+
+// BindSpace container substrate (the 7 critical missing pieces)
+#[cfg(feature = "wip")]
+pub mod container_bs;
+
+// Core types (full ladybug-rs core, for reference/migration)
+#[cfg(feature = "wip")]
+pub mod core_full;
+
+// Cypher bridge
+#[cfg(feature = "wip")]
+mod cypher_bridge;
