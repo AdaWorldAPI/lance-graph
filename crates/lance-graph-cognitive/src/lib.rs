@@ -134,7 +134,7 @@ pub mod grammar;
 // Learning: moved to standalone crate `crates/learning/` (optional dep)
 // 16 modules, 300K+ LOC. Use: `learning = { path = "../learning" }`
 
-// SPO extensions: cognitive codebook, crystals, gestalt
+// SPO extensions: 26 errors remain (BindSpace stub methods, spo_harvest import, type mismatches)
 #[cfg(feature = "wip")]
 pub mod spo;
 

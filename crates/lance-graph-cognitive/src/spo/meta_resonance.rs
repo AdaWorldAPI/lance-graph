@@ -105,7 +105,7 @@ impl FlowVector {
     /// Are they changing in the same way?
     pub fn similarity(&self, other: &Self) -> f32 {
         // Transition similarity: are the changes themselves similar?
-        let transition_sim = self.transition.similarity(&other.transition);
+        let transition_sim = self.transition.similarity(&other.transition).unwrap_or(0.0);
 
         // Magnitude similarity: are they changing by similar amounts?
         let mag_diff = (self.magnitude - other.magnitude).abs();
@@ -116,7 +116,7 @@ impl FlowVector {
         let divergence_sim = 1.0 - (div_diff / 4.0).min(1.0);
 
         // Qualia similarity: are emotional arcs similar?
-        let qualia_sim = self.qualia_delta.similarity(&other.qualia_delta);
+        let qualia_sim = self.qualia_delta.similarity(&other.qualia_delta).unwrap_or(0.0);
 
         // Weighted combination
         0.4 * transition_sim + 0.2 * magnitude_sim + 0.2 * divergence_sim + 0.2 * qualia_sim
@@ -172,7 +172,7 @@ impl FlowTrajectory {
         let mut total_bend = 0.0f32;
         for window in self.flows.windows(2) {
             // Curvature = 1 - similarity between consecutive flows
-            let bend = 1.0 - window[0].similarity(&window[1]);
+            let bend = 1.0 - window[0].similarity(&window[1]).unwrap_or(0.0);
             total_bend += bend;
         }
 

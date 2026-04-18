@@ -584,7 +584,7 @@ impl SentenceCrystal {
                 let cell = &self.cells[c.to_index()];
                 QueryResult {
                     coords: *c,
-                    similarity: cell.similarity(&query_fp),
+                    similarity: cell.similarity(&query_fp).unwrap_or(0.0),
                     count: cell.count,
                     texts: cell.texts.clone(),
                     qualia: cell.qualia.clone(),
@@ -655,7 +655,7 @@ impl SentenceCrystal {
                 let cell = &self.cells[c.to_index()];
                 QueryResult {
                     coords: *c,
-                    similarity: cell.similarity(&query_fp),
+                    similarity: cell.similarity(&query_fp).unwrap_or(0.0),
                     count: cell.count,
                     texts: cell.texts.clone(),
                     qualia: cell.qualia.clone(),
@@ -832,7 +832,7 @@ impl SentenceCrystal {
         let fp_a = self.codebook.encode(text_a);
         let fp_b = self.codebook.encode(text_b);
 
-        fp_a.similarity(&fp_b)
+        fp_a.similarity(&fp_b).unwrap_or(0.0)
     }
 
     /// Get crystal statistics

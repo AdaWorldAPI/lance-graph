@@ -309,7 +309,7 @@ impl ContextCrystal {
             let self_flow = self_t.bind(&self_t1);
             let query_flow = query_t.bind(&query_t1);
 
-            flow_sim += self_flow.similarity(&query_flow);
+            flow_sim += self_flow.similarity(&query_flow).unwrap_or(0.0);
             comparisons += 1;
         }
 
