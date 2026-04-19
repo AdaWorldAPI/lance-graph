@@ -88,6 +88,7 @@ pub mod stacked_n;
 pub mod turboquant_kv;
 pub mod variance;
 pub mod xor_adaptive;
+pub mod fractal_descriptor;
 
 #[cfg(feature = "hydrate")]
 pub mod manifest;
