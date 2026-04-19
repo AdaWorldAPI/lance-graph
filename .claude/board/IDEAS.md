@@ -171,3 +171,34 @@ citing the deferred one; flip the deferred entry's Status to
 
 Nothing is lost. Every idea has a trail from speculation to
 disposition.
+
+## 2026-04-19 — FP_WORDS = 256 (supersede the 160 plan)
+**Status:** Open
+**Priority:** P1
+**Scope:** @container-architect @truth-architect ndarray domain:vsa domain:codec
+
+Current: `FP_WORDS = 157`  (10,048 bits, 5-word remainder on AVX-512)
+Planned (H6 harvest): `FP_WORDS = 160`  (10,240 bits, SIMD-clean)
+**Proposed: `FP_WORDS = 256`**  (16,384 bits, cache-line-perfect, matches `Container<[u64; 256]>`)
+
+**Why 256 over 160:**
+
+- LanceDB `FixedSizeList<UInt8, 2048>` = 2 KB per row = 16,384 bits already.
+  Padding 157 → 256 in Container currently wastes 99 u64 per fingerprint (62%).
+- Container primitive is already `[u64; 256]`; unifying `FP_WORDS` with it
+  means zero padding, zero remainder loops at any SIMD level, cache-line
+  alignment guaranteed (2 KB / 64 B = 32 cache lines, every level clean).
+- VSA capacity: Plate's bound rises ~1.6× (bundled-items-per-fingerprint
+  capacity ~1,500 → ~2,400 at error < 1%).
+- No rebake of stored fingerprints needed — Container was already 256 wide.
+
+**Cost:** ~30 LOC in `ndarray::hpc::vsa` constants + test updates;
+docs shift "10k VSA" language → "16k VSA". Plate's capacity math re-tune.
+
+**Supersedes:** TECH_DEBT entry "FP_WORDS = 157 (not 160); SIMD remainder
+loops remain" — the 160 plan was the right direction, 256 is the correct
+destination.
+
+**Cross-ref:** `.claude/knowledge/cross-repo-harvest-2026-04-19.md` H6,
+`.claude/board/TECH_DEBT.md` FP_WORDS entry. Container layout in
+`lance-graph-contract::cam::Container`.
