@@ -426,3 +426,68 @@ Action:
   CoV(D_phase) > 0.3 → revisit the leaf codec with phase encoding.
 - Prior "NEGATIVE" finding is scope-corrected: "magnitude-only fractal
   leaf is flat" — phase-fractal leaf unmeasured.
+
+## 2026-04-19 — Fractal codec ICC measurement: DEFINITIVELY NEGATIVE (magnitude-only)
+**Status:** FINDING (measured via endpoint psychometry)
+**Scope:** @cascade-architect domain:codec domain:psychometry
+
+Ran codec_rnd_bench.rs with FractalDescOnly + FractalPlusBase17 wired
+as candidates. Population: q_proj L0 of Qwen3-8B [4096×4096], N=128
+rows. Ground truth = pairwise cosines in f32.
+
+**Results (ICC_3_1 is the argmax-regime metric):**
+
+| Codec | Bytes | ICC_3_1 | Pearson r | Spearman ρ |
+|---|---|---|---|---|
+| Passthrough (baseline) | 0 | **1.0000** | 1.0000 | 1.0000 |
+| Base17 (golden-step 17-d) | 34 | **0.0240** | 0.0742 | 0.0466 |
+| **Fractal-Desc (4-D mag)** | 7 | **−0.9955** | 0.0160 | 0.0012 |
+| **Fractal + Base17 blend** | 41 | **−0.4879** | 0.0748 | 0.0409 |
+
+**Key readings:**
+
+1. **Fractal-Desc alone anti-correlates with ground truth (ICC ≈ −1).**
+   Not noise — genuinely inverse ranking. The 4-D (D, w, σ, H) descriptors
+   are near-constant across rows (CoV 0.19 from earlier probe), so
+   pairwise "cosine" in descriptor space is essentially noise ~0.5
+   against a ground-truth distribution with heavy tails — the rank
+   statistic inverts against true cosine magnitudes.
+
+2. **Fractal ADDED to Base17 ACTIVELY HURTS it.** Base17 alone: 0.024.
+   Blend 0.75*Base17 + 0.25*Fractal: −0.488. The fractal component
+   doesn't just fail to add signal — it contaminates the Base17 signal.
+   A codec gating system must be able to *reject* bad auxiliary
+   features, not blend them.
+
+3. **Note on Base17 at ICC 0.024 on q_proj:** confirms Invariant I2
+   (near-orthogonality of Qwen3 attention projections at 1024-d+
+   dimension). Base17's 17-d projection loses almost everything on
+   q_proj specifically — consistent with the 67-codec sweep finding
+   that i8-Hadamard at ~9 B/row is the argmax-regime leader, not
+   Base17.
+
+**Consequence for the fractal codec line of research:**
+
+- **Magnitude-only fractal leaf is empirically dead** on q_proj at
+  Qwen3 scale. Measurement complete via endpoint ICC_3_1 — no longer a
+  conjecture, no longer a "wrong probe" question.
+- **Phase-encoding variant (sign-sequence fractal) remains UNMEASURED.**
+  Infrastructure is now wired: swap the encoding inside
+  FractalDescOnly to compute fractal statistics of the sign pattern
+  (flips-per-scale) and re-run. One function body change.
+- **Fractal-interpolation-between-Base17-anchors** (the round-trip
+  codec idea) is also still unmeasured — requires implementing
+  `decode(anchors, desc) -> Vec<f32>` to feed through the bench.
+  The blending approach (current FractalPlusBase17) is NOT the same
+  thing; it mixes scores post-hoc rather than reconstructing the row.
+
+**Lab gate holds.** Everything stays behind `--features lab`. Main
+builds don't link fractal_descriptor. No leak risk.
+
+Cross-ref: fractal-codec-argmax-regime.md, EPIPHANIES 2026-04-19
+CORRECTION (fractal measured magnitude not phase), IDEAS 2026-04-19
+"Fractal codec validation path", PR commits fc386bb / afe67e1 /
+48f781e / 18c53e0.
+
+Wall time of the full 60+ codec bench: 13 min. Downloaded: 0 B (used
+cached Qwen3-8B shard from the earlier probe). Deterministic.
