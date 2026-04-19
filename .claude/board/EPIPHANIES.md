@@ -325,3 +325,30 @@ The 10K × 10K glitch matrix violates this at the root.
 Cross-ref: EPIPHANIES "Vector (10⁴ cells) vs Matrix (10⁸ cells)"
 (2026-04-19). TECH_DEBT "Ladybug 10k × 10k GLITCH MATRIX" (2026-04-19).
 docs/CODEC_COMPRESSION_ATLAS.md is the chain spec.
+
+## 2026-04-19 — SUPERSEDES 2026-04-19 "Vector vs Matrix" + "L3 working-set invariant"
+**Status:** SUPERSEDED (downgrade both)
+
+Both prior entries restate invariants the workspace has known for months:
+
+- L3 working-set cap → already the design principle behind the full
+  codec chain (full planes → ZeckBF17 → Base17 → Palette → CAM-PQ → Scent).
+  See `docs/CODEC_COMPRESSION_ATLAS.md`, not an EPIPHANIES entry.
+- Vector-vs-matrix category distinction → trivially true, never a
+  point of ambiguity in the workspace proper.
+
+**What's actually true:**
+
+The 10k × 10k glitch matrix exists because nobody touched the
+stone-age ladybug-rs / bighorn code after it was imported. The import
+itself was migration desperation — closing loose ends on the cognitive
+stack before a release, not a considered architectural choice. No
+one re-validated the imports against the L3 invariant because the
+imports were expected to be rewritten or deleted later.
+
+The correct framing is **legacy-hygiene debt**, not new knowledge.
+Action: delete-on-touch when someone has bandwidth, not a design
+principle waiting to be learned.
+
+Downgrading both prior entries to SUPERSEDED to keep the FINDING log
+clean for actual findings.
