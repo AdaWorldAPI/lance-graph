@@ -1,8 +1,8 @@
 # CLAUDE.md — lance-graph
 
-> **Updated**: 2026-04-19 (post PR #210)
+> **Updated**: 2026-04-19 (post PR #214)
 > **Role**: The obligatory spine — query engine, codec stack, semantic transformer, and orchestration contract
-> **Status**: 11 crates, 5 in workspace, 4 excluded (standalone), Phases 1-2 DONE, Phase 3 IN PROGRESS
+> **Status**: 22 crates, 7 in workspace, 15 excluded (standalone/DTO), Phases 1-2 DONE, Phases 6-7 DONE (grammar + governance), Phase 3 IN PROGRESS
 
 ---
 
@@ -268,16 +268,13 @@ CAM-PQ compressed search, distributional semantics (DeepNSM), attention-as-table
 (bgz-tensor), thinking orchestration, and the contract crate that unifies all consumers.
 
 ```
-Architecture (post-expansion):
+Architecture:
   ndarray            = The Foundation  (SIMD, GEMM, HPC, Fingerprint<256>, CAM-PQ codec)
   lance-graph        = The Spine       (query + codec + semantics + contracts)  <-- THIS REPO
-  ladybug-rs         = The Brain       (BindSpace, SPO server, 4096 surface)
   crewai-rust        = The Agents      (agent orchestration, thinking styles)
   n8n-rs             = The Orchestrator (workflow DAG, step routing)
 
 Dependency chain:
-  ladybug-rs ──► ndarray (path dep, direct)
-  ladybug-rs ──► lance-graph-contract (traits)
   n8n-rs     ──► lance-graph-contract (traits)
   crewai-rust──► lance-graph-contract (traits)
   lance-graph──► ndarray (default dep, with fallback)
@@ -509,12 +506,8 @@ YAML card → 23D vector → ThinkingStyle(36) → FieldModulation(7D) → ScanP
 
 ```
 WHO DEPENDS ON lance-graph-contract:
-  ladybug-rs     — PlannerContract, OrchestrationBridge
   crewai-rust    — ThinkingStyleProvider, MulProvider
   n8n-rs         — JitCompiler, StyleRegistry, OrchestrationBridge
-
-WHO DEPENDS ON lance-graph:
-  ladybug-rs     — "stolen" parser copy (to be replaced with dep)
 
 WHO WE DEPEND ON:
   ndarray        — Fingerprint, CAM-PQ, CLAM, BLAS, ZeckF64, HDR cascade, JIT
@@ -524,7 +517,6 @@ WHO WE DEPEND ON:
 
 SIBLING REPOS:
   /home/user/ndarray/       — The Foundation (BLAS, Fingerprint, CAM-PQ, CLAM, jitson)
-  /home/user/ladybug-rs/    — The Brain (BindSpace, 4096 surface, SPO server)
   /home/user/crewai-rust/   — The Agents (agent cards, thinking styles, YAML templates)
   /home/user/n8n-rs/        — The Orchestrator (workflow DAG, step routing, compiled styles)
   /home/user/kuzudb/        — Reference (column-grouped CSR adjacency model)
