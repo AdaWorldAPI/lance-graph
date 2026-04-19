@@ -21,18 +21,27 @@ grok it once instead of the user re-deriving it for 30 turns.
 - `.claude/BOOT.md` — session entry point (one page).
 - `CLAUDE.md` — workspace spec, links to all of the below.
 
-**Four bookkeeping files (rows are history; specific fields are
-state; never delete a row):**
+**Eight bookkeeping files** (rows are history; specific fields are
+state; never delete a row; method hierarchy: APPEND preferred →
+Edit-field after prior Read → Write prompts for confirmation):
+
+_History / dashboards:_
 - `.claude/knowledge/LATEST_STATE.md` — current contract inventory.
-  Mutable: Current Inventory / Active Branches / Queued / Deferred
-  snapshots.
 - `.claude/knowledge/PR_ARC_INVENTORY.md` — APPEND-ONLY per-PR arc.
-  Mutable: Confidence line per entry; corrections APPEND as dated
-  lines.
-- `.claude/knowledge/STATUS_BOARD.md` — deliverable-level dashboard
-  across all plans. Mutable: Status + PR / Evidence columns per row.
-- `.claude/knowledge/INTEGRATION_PLANS.md` — APPEND-ONLY versioned
-  plan index. Mutable: Status + Confidence per entry.
+- `.claude/knowledge/STATUS_BOARD.md` — deliverable-level dashboard.
+- `.claude/knowledge/INTEGRATION_PLANS.md` — versioned plan index.
+
+_Kanban / audit (priority + scope tags on every entry):_
+- `.claude/knowledge/EPIPHANIES.md` — date-prefixed insight log.
+  Status: FINDING / CONJECTURE / SUPERSEDED.
+- `.claude/knowledge/ISSUES.md` — Open + Resolved bugs / regressions.
+  Double-entry: issue captured on discovery; Resolution appends on
+  close. Priority P0-P3, Scope @agent D<N> domain:<tag>.
+- `.claude/knowledge/IDEAS.md` — Open + Implemented + Rejected
+  speculation. Triple-entry: idea captured, shipped appended,
+  plan-update logged. Priority + Scope.
+- `.claude/knowledge/TECH_DEBT.md` — Open + Paid knowingly-deferred
+  work. Priority + Scope + Introduced-by-PR + Payoff-estimate.
 
 **Agent ensemble + orchestration:**
 - `.claude/agents/BOOT.md` — orchestration spec + Knowledge
