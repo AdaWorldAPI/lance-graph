@@ -10,11 +10,14 @@
 
 - **Main thread:** `claude-opus-4-7[1m]` (or current Opus) with deep
   thinking. Synthesis, architecture, review, decisions.
-- **Subagent drafting / search / file ops:** `sonnet` minimum. Pass
-  `model: "sonnet"` explicitly when spawning `Agent` tools for
-  mechanical work.
-- **NEVER `haiku` for subagents in this workspace.** Quality floor is
-  Sonnet regardless of task simplicity.
+- **`Plan` / code-review / architecture subagents:** Opus. The model
+  must match the judgment the agent is making.
+- **`general-purpose` drafting / file-writing subagents:** Sonnet.
+  Pass `model: "sonnet"` explicitly when spawning.
+- **`Explore` (read-only search) subagents:** Sonnet. Cheaper tier is
+  fine here — the work is pattern matching, not reasoning.
+- **NEVER `haiku` for any subagent in this workspace.** Quality floor
+  is Sonnet regardless of task simplicity.
 - **Writing cheap, thinking deep:** delegate draft-from-spec, grep,
   file survey work to Sonnet-backed subagents; keep the main thread
   on Opus + `effortLevel: high` (`.claude/settings.local.json`).
