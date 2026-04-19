@@ -93,6 +93,99 @@ trait CodecCandidate {
     fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64>;
 }
 
+// ── Lab / R&D: fractal descriptor codec ──
+
+/// Fractal descriptor alone (7 B): encode each row by its MFDFA
+/// parameters (D, w, σ, H) on the Hadamard-rotated coefficient
+/// sequence. Pairwise "cosine" = similarity in descriptor space.
+///
+/// Expected to be weak: probe showed fractal magnitude statistics
+/// are near-constant across Qwen3 rows (CoV(w) ≈ 0.19). This codec
+/// measures that empirically via ICC_3_1.
+#[cfg(feature = "lab")]
+struct FractalDescOnly;
+
+#[cfg(feature = "lab")]
+impl CodecCandidate for FractalDescOnly {
+    fn name(&self) -> &str { "Fractal-Desc(7B)" }
+    fn bytes_per_row(&self) -> usize { 7 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::fractal_descriptor::compute_mfdfa_descriptor;
+        // Pad each row to a power-of-2, compute descriptor.
+        let descs: Vec<[f32; 4]> = rows.iter().map(|r| {
+            let n = r.len();
+            let mut p = 1usize;
+            while p < n { p <<= 1; }
+            let mut buf = vec![0.0f32; p];
+            buf[..n].copy_from_slice(r);
+            let d = compute_mfdfa_descriptor(&buf);
+            [d.d_local_f32(), d.w_mfs_f32(), d.sigma_energy_f32(), d.h_hurst_f32()]
+        }).collect();
+        let n = rows.len();
+        let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+        for i in 0..n {
+            for j in (i + 1)..n {
+                // Normalized cosine between 4-D descriptors.
+                let a = &descs[i];
+                let b = &descs[j];
+                let mut dot = 0.0f64;
+                let mut na = 0.0f64;
+                let mut nb = 0.0f64;
+                for k in 0..4 {
+                    dot += a[k] as f64 * b[k] as f64;
+                    na += (a[k] as f64).powi(2);
+                    nb += (b[k] as f64).powi(2);
+                }
+                let d = (na * nb).sqrt();
+                scores.push(if d < 1e-15 { 0.0 } else { dot / d });
+            }
+        }
+        scores
+    }
+}
+
+/// Base17 (34 B anchors, phase signal) + FractalDescriptor (7 B shape).
+/// = 41 B/row. Pairwise score blends Base17 cosine with descriptor
+/// similarity weighted by complementary correlation. This is the
+/// operational form of the "fractal leaf on golden-step anchors" concept.
+#[cfg(feature = "lab")]
+struct FractalPlusBase17;
+
+#[cfg(feature = "lab")]
+impl CodecCandidate for FractalPlusBase17 {
+    fn name(&self) -> &str { "Fractal+Base17(41B)" }
+    fn bytes_per_row(&self) -> usize { 41 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::fractal_descriptor::compute_mfdfa_descriptor;
+        let b17s: Vec<Base17> = rows.iter().map(|r| Base17::from_f32(r)).collect();
+        let descs: Vec<[f32; 4]> = rows.iter().map(|r| {
+            let n = r.len();
+            let mut p = 1usize;
+            while p < n { p <<= 1; }
+            let mut buf = vec![0.0f32; p];
+            buf[..n].copy_from_slice(r);
+            let d = compute_mfdfa_descriptor(&buf);
+            [d.d_local_f32(), d.w_mfs_f32(), d.sigma_energy_f32(), d.h_hurst_f32()]
+        }).collect();
+        let n = rows.len();
+        let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+        for i in 0..n {
+            for j in (i + 1)..n {
+                let c_b17 = b17s[i].cosine(&b17s[j]);
+                // Descriptor similarity (L2-normalized).
+                let a = &descs[i]; let b = &descs[j];
+                let mut dot = 0.0f64; let mut na = 0.0f64; let mut nb = 0.0f64;
+                for k in 0..4 { dot += a[k] as f64 * b[k] as f64; na += (a[k] as f64).powi(2); nb += (b[k] as f64).powi(2); }
+                let d_norm = (na * nb).sqrt();
+                let c_desc = if d_norm < 1e-15 { 0.0 } else { dot / d_norm };
+                // Simple blend: 0.75 anchors + 0.25 shape.
+                scores.push(0.75 * c_b17 + 0.25 * c_desc);
+            }
+        }
+        scores
+    }
+}
+
 /// Passthrough — raw cosine (baseline, exact).
 struct Passthrough;
 impl CodecCandidate for Passthrough {
@@ -1399,6 +1492,13 @@ fn main() {
         // Parametric grid: 2 bases × 5 quants × 2 modes × 2 ranks = 40 variants
         for p in ParametricCodec::all_variants() {
             codecs.push(Box::new(p));
+        }
+
+        // Lab / R&D candidates — fractal descriptor variants.
+        #[cfg(feature = "lab")]
+        {
+            codecs.push(Box::new(FractalDescOnly));
+            codecs.push(Box::new(FractalPlusBase17));
         }
 
         let results = run_bench(&codecs, &rows, &gt);

@@ -30,6 +30,8 @@ hf-hub = { version = "0.4", optional = true }
 default = ["tokenizer"]
 tokenizer = ["dep:tokenizers"]
 calibration = ["dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:hf-hub", "tokenizer"]
+# Lab / R&D probes — experimental codec candidates. Must not ship in main.
+lab = ["bgz-tensor/lab"]
 
 [dev-dependencies]
 rayon = "1.10"
