@@ -283,3 +283,45 @@ semantics, cost, and lifecycle are completely unrelated.
 
 Cross-ref: TECH_DEBT "CORRECTION-OF ... 10k × 10k GLITCH MATRIX"
 (2026-04-19). IDEAS REFINEMENT-2 (HDC = FP16/BF16, not FP32).
+
+## 2026-04-19 — Working-set invariant: hot structures must fit in L3
+**Status:** FINDING
+**Scope:** @container-architect @cascade-architect @truth-architect domain:memory domain:codec domain:performance
+
+Typical server L3 cache = 32-96 MB (AMD EPYC, Intel Xeon). Any hot-path
+structure exceeding this size incurs DRAM latency (~100 ns) on every
+miss vs L3's ~12 ns — an 8× penalty per access that compounds in
+inner loops. **This is true regardless of storage capacity** — LanceDB
+can hold terabytes, but what the CPU touches per cycle must fit L3.
+
+The codec stack is architected around this invariant:
+
+| Working structure | Size | L3 verdict | Role |
+|---|---|---|---|
+| Container `[u64; 256]` Hamming | 2 KB | ✓ 16,000× | Popcount fingerprint |
+| 16K-D BF16 wire vector | 32 KB | ✓ 1,000× | HDC point, Markov bundle |
+| 256 × 256 u8 distance table (bgz-tensor) | 64 KB | ✓ L1 | Archetype attention |
+| 1024 × 1024 f32 | 4 MB | ✓ | Per-role slot |
+| 4096 × 4096 u8 CAM-PQ palette | 16 MB | ✓ upper edge | Centroid distance |
+| **10,000 × 10,000 f32 glitch matrix** | **400 MB** | **✗ 12× over** | **None — delete** |
+| 16K × 16K BF16 | 512 MB | ✗ | Never build |
+| 100K × 100K anything | ≥10 GB | ✗ | Sparse-only or CAM-PQ |
+
+**Rule for hot tables:**
+
+- Dense square matrices: cap at `sqrt(L3_BUDGET / cell_size)` on a side.
+  At 32 MB budget, f32 cells → ~2,900 × 2,900; BF16 → ~4,000 × 4,000;
+  u8 → ~5,700 × 5,700.
+- Wider-than-L3 tables must be projected, quantized, or made sparse
+  (CSR / HyperCSR / palette-indexed) before entering a hot path.
+- 1-D vectors are cheap — a 16K-D BF16 row is 32 KB, thousands
+  cache-resident simultaneously. The limit binds on 2-D dense, not 1-D.
+
+The codec compression chain (full planes 16 KB → ZeckBF17 48 B →
+Base17 34 B → PaletteEdge 3 B → CAM-PQ 6 B → Scent 1 B) exists so that
+any intermediate table stays L3-resident regardless of population size.
+The 10K × 10K glitch matrix violates this at the root.
+
+Cross-ref: EPIPHANIES "Vector (10⁴ cells) vs Matrix (10⁸ cells)"
+(2026-04-19). TECH_DEBT "Ladybug 10k × 10k GLITCH MATRIX" (2026-04-19).
+docs/CODEC_COMPRESSION_ATLAS.md is the chain spec.
