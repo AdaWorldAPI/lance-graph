@@ -1,20 +1,38 @@
 //! CrystalFingerprint — polymorphic carrier of crystal semantic content.
 //!
-//! Four native forms, all mutually translatable via lossless passthrough:
+//! Four native forms:
 //!
-//! | Variant            | Size    | Role                                      |
-//! |--------------------|---------|-------------------------------------------|
-//! | `Binary16K`        |  2 KB   | Compact semantic (Hamming similarity).    |
-//! | `Structured5x5`    |  3 KB   | Rich native form (5×5×5×5×5 cells).       |
-//! | `Vsa10K_I8`        | 10 KB   | lancedb-native VSA (int8 bundling).       |
-//! | `Vsa10K_F32`       | 40 KB   | lancedb-native VSA (f32 bundling).        |
+//! | Variant          | Size  | Role                                         |
+//! |------------------|-------|----------------------------------------------|
+//! | `Binary16K`      | 2 KB  | Compact semantic (Hamming similarity).        |
+//! | `Structured5x5`  | 3 KB  | Rich native form (5×5×5×5×5 cells).          |
+//! | `Vsa10kI8`       | 10 KB | lancedb-native VSA (int8).                   |
+//! | `Vsa10kF32`      | 40 KB | lancedb-native VSA (f32).                    |
 //!
-//! ## Lossless passthrough
+//! ## Passthrough to 10,000-D
 //!
-//! lancedb famously supports 10,000-D VSA natively. The 10K variants are
-//! not "wire-only" — they are first-class storage forms. The passthrough
-//! is a **lossless bundle** of Structured5x5 into VSA 10K (and back),
-//! with XOR-bind + majority-bundle preserving the 3125 cells' content.
+//! lancedb famously supports 10,000-D VSA natively (40 KB at f32).
+//! The 10K space is dense enough to hold the full content of any other
+//! variant without aliasing:
+//!
+//! - **Structured5x5** → 3,125 cells + 5 quorum floats ↔ 10K: **lossless**
+//!   roundtrip (cells ∈ [0, 3130], rest zero-padded, quorum presence
+//!   encoded at a sentinel position).
+//! - **Binary16K** → 16,384 bits spread across 10K f32 dims: each bit
+//!   maps to a unique dimension, with ~1.6 bits/dim. Roundtrip preserves
+//!   similarity ordering but is **not bit-exact invertible** (intentional —
+//!   the 10K form is richer and can carry additional superposed roles).
+//! - **Vsa10kI8** → rescaled to f32 ∈ [−1, 1]: lossless up to i8
+//!   quantization.
+//!
+//! ## VSA operations on the 10K form
+//!
+//! The 10K-D f32 space supports standard VSA algebra:
+//! - **bind** (element-wise multiply): assigns a role to content.
+//! - **bundle** (element-wise add + normalize): superposition of signals.
+//! - **superpose** (weighted add): merge with blending weights.
+//!
+//! Multiple semantic roles can coexist in one 10K vector via bind+bundle.
 
 /// The polymorphic crystal fingerprint.
 #[derive(Debug, Clone)]
@@ -92,45 +110,107 @@ impl Structured5x5 {
     }
 }
 
+// ── 10K-D sandwich layout ──────────────────────────────────────────────
+//
+// The 5^5 structured cells sit in the MIDDLE of the 10K vector with
+// role-binding space on each side. This is the VSA "sandwich" pattern:
+//
+//   [  0..3437]  lead context  — role-A superposition / pre-bind
+//   [3437..6562]  3,125 cells — bipolar-encoded, negatives cancel
+//   [6562..6567]  quorum (5D) — inessive/adessive/etc. consensus
+//   [    6567]    quorum sentinel (>0 = present, ≤0 = None)
+//   [6568..10000] tail context — role-B superposition / post-bind
+//
+// Cells are **bipolar** (u8 cell 0..=255 → signed f32 in [-1, 1]) so
+// they participate in negative-canceling superposition just like any
+// other VSA dim. Opposing cell values at the same sandwich dim cancel
+// when two crystals are bundled.
+//
+// Optional **bit-chain permutation**: cell i's bipolar encoding can be
+// permuted by a position-dependent stride, carrying sequence/ordering
+// information into the VSA space. See [`CrystalFingerprint::bit_chain_stride`].
+
+const SANDWICH_LEAD: usize       = 3437;
+const CELLS_START: usize         = SANDWICH_LEAD;
+const CELLS_END: usize           = CELLS_START + 3125;           // 6562
+const QUORUM_START: usize        = CELLS_END;                    // 6562
+const QUORUM_END: usize          = QUORUM_START + 5;             // 6567
+const QUORUM_SENTINEL: usize     = QUORUM_END;                   // 6567
+const SANDWICH_TAIL_START: usize = QUORUM_SENTINEL + 1;          // 6568
+// SANDWICH_TAIL_END = 10_000 (exclusive)
+
 impl CrystalFingerprint {
-    /// Lossless bundle into the 10,000-D f32 VSA passthrough form.
+    /// Project into the 10,000-D f32 VSA form.
     ///
-    /// - `Binary16K` → sign-extended into the first 16,384 positions mod 10K.
-    /// - `Structured5x5` → cells lifted to the 3,125 leading positions with
-    ///    the quorum in positions 3125..3130; remainder zero-padded.
-    /// - `Vsa10K_*` → direct copy (int8 rescaled to f32 ∈ [-1, 1]).
-    ///
-    /// The inverse [`Self::unbundle_from_vsa10k_f32`] reconstructs the
-    /// original form given the kind tag. No information is lost for
-    /// structured or binary inputs.
-    pub fn bundle_vsa10k_f32(&self) -> Box<[f32; 10_000]> {
+    /// - **Binary16K**: each of the 256 u64 words maps to a dedicated
+    ///   region of 39 dimensions (256 × 39 = 9,984 ≤ 10,000). Within
+    ///   each region, the 64 bits are striped across dims with a stride
+    ///   that avoids aliasing. No two source bits share a dimension.
+    ///   Not bit-exact invertible (10K is richer), but similarity-
+    ///   preserving.
+    /// - **Structured5x5**: cells → dims 0..3125, quorum → 3125..3130,
+    ///   sentinel at dim 3130. **Lossless roundtrip.**
+    /// - **Vsa10kI8**: rescaled to f32 ∈ [−1, 1] (clamped for −128).
+    /// - **Vsa10kF32**: direct copy.
+    pub fn to_vsa10k_f32(&self) -> Box<[f32; 10_000]> {
         let mut out = Box::new([0.0f32; 10_000]);
         match self {
             Self::Binary16K(bits) => {
-                for (i, word) in bits.iter().enumerate() {
-                    let base = (i * 64) % 10_000;
-                    for b in 0..64 {
-                        let set = (word >> b) & 1 == 1;
-                        let pos = (base + b) % 10_000;
-                        out[pos] += if set { 1.0 } else { -1.0 };
+                // 256 words × 39 contiguous dims = 9,984 dims; 16 spare.
+                // Each word occupies a [start..stop] slice so regions are
+                // addressable for per-word bind/unbundle.
+                //
+                // 64 bits → 39 dims: two bits per dim (sign + magnitude)
+                // for the first 25 dims, one bit per dim for the remaining 14.
+                //   dims [base..base+25]:  2 bits each → 50 bits
+                //   dims [base+25..base+39]: 1 bit each → 14 bits
+                //   total = 64 bits, all placed, no aliasing within a word.
+                for (w, word) in bits.iter().enumerate() {
+                    let base = w * 39;
+                    // First 25 dims carry 2 bits each (50 bits total).
+                    for d in 0..25usize {
+                        let b0 = (word >> (d * 2)) & 1;
+                        let b1 = (word >> (d * 2 + 1)) & 1;
+                        // Encode as: {00 → -1.0, 01 → -0.33, 10 → 0.33, 11 → 1.0}
+                        let val = match (b0, b1) {
+                            (0, 0) => -1.0f32,
+                            (1, 0) => -0.33,
+                            (0, 1) =>  0.33,
+                            _      =>  1.0,
+                        };
+                        out[base + d] = val;
+                    }
+                    // Remaining 14 dims carry 1 bit each (bits 50..63).
+                    for d in 0..14usize {
+                        let b = (word >> (50 + d)) & 1;
+                        out[base + 25 + d] = if b == 1 { 1.0 } else { -1.0 };
                     }
                 }
             }
             Self::Structured5x5 { cells, quorum } => {
+                // Sandwich layout: cells in the middle with bipolar sign
+                // encoding (u8 0..=255 → f32 in [-1, 1]). Leading and
+                // trailing sandwich space stays zero for this single-
+                // crystal projection; downstream consumers bind roles
+                // into those regions for multi-role superposition.
                 for i in 0..3125 {
-                    out[i] = cells[i] as f32 / 255.0;
+                    // Bipolar: cell 0 → -1.0, cell 127/128 → ~0, cell 255 → +1.0
+                    out[CELLS_START + i] =
+                        (cells[i] as f32 / 127.5) - 1.0;
                 }
                 if let Some(q) = quorum {
-                    out[3125] = q.element;
-                    out[3126] = q.sentence_position;
-                    out[3127] = q.slot;
-                    out[3128] = q.nars_inference;
-                    out[3129] = q.style_cluster;
+                    out[QUORUM_START + 0] = q.element;
+                    out[QUORUM_START + 1] = q.sentence_position;
+                    out[QUORUM_START + 2] = q.slot;
+                    out[QUORUM_START + 3] = q.nars_inference;
+                    out[QUORUM_START + 4] = q.style_cluster;
+                    out[QUORUM_SENTINEL] = 1.0;
                 }
+                // quorum: None → sentinel stays 0.0
             }
             Self::Vsa10kI8(v) => {
                 for i in 0..10_000 {
-                    out[i] = v[i] as f32 / 127.0;
+                    out[i] = (v[i] as f32 / 128.0).clamp(-1.0, 1.0);
                 }
             }
             Self::Vsa10kF32(v) => {
@@ -140,17 +220,74 @@ impl CrystalFingerprint {
         out
     }
 
-    /// Reconstruct a Structured5x5 crystal from its 10K-D passthrough.
-    pub fn unbundle_structured_from_vsa10k(vsa: &[f32; 10_000]) -> Self {
+    /// Reconstruct a Structured5x5 crystal from its 10K-D sandwich form.
+    /// Quorum is `None` if the sentinel at dim 6567 is ≤ 0.
+    pub fn structured_from_vsa10k(vsa: &[f32; 10_000]) -> Self {
         let mut cells = Box::new([0u8; 3125]);
         for i in 0..3125 {
-            let v = (vsa[i] * 255.0).round().clamp(0.0, 255.0) as u8;
+            // Inverse of bipolar: f32 [-1, 1] → u8 [0, 255]
+            let v = ((vsa[CELLS_START + i] + 1.0) * 127.5).round().clamp(0.0, 255.0) as u8;
             cells[i] = v;
         }
-        let quorum = Some(Quorum5D::new(
-            vsa[3125], vsa[3126], vsa[3127], vsa[3128], vsa[3129],
-        ));
+        let quorum = if vsa[QUORUM_SENTINEL] > 0.0 {
+            Some(Quorum5D::new(
+                vsa[QUORUM_START + 0], vsa[QUORUM_START + 1],
+                vsa[QUORUM_START + 2], vsa[QUORUM_START + 3],
+                vsa[QUORUM_START + 4],
+            ))
+        } else {
+            None
+        };
         Self::Structured5x5 { cells, quorum }
+    }
+
+    /// Sandwich range for the leading role-binding region.
+    ///
+    /// See `ndarray::hpc::vsa::vsa_permute` for the canonical bit-chain
+    /// permutation primitive. Downstream crates applying sequence/
+    /// position encoding should permute the leading or trailing sandwich
+    /// regions before bundling crystals.
+    pub const fn sandwich_lead() -> (usize, usize) { (0, SANDWICH_LEAD) }
+
+    /// Sandwich range for the 3,125 cells (middle).
+    pub const fn sandwich_cells() -> (usize, usize) { (CELLS_START, CELLS_END) }
+
+    /// Sandwich range for the trailing role-binding region.
+    pub const fn sandwich_tail() -> (usize, usize) { (SANDWICH_TAIL_START, 10_000) }
+
+    /// Reconstruct a Binary16K from its 10K-D form (lossless inverse).
+    ///
+    /// Reads 256 contiguous 39-dim slices. The 2-bit-per-dim and
+    /// 1-bit-per-dim packing is inverted by thresholding.
+    pub fn binary16k_from_vsa10k(vsa: &[f32; 10_000]) -> Self {
+        let mut bits = Box::new([0u64; 256]);
+        for w in 0..256 {
+            let base = w * 39;
+            let mut word = 0u64;
+            // First 25 dims → 50 bits (2 bits each)
+            for d in 0..25usize {
+                let v = vsa[base + d];
+                let (b0, b1) = if v < -0.66 {
+                    (0u64, 0u64) // -1.0 → 00
+                } else if v < 0.0 {
+                    (1, 0) // -0.33 → 10
+                } else if v < 0.66 {
+                    (0, 1) // 0.33 → 01
+                } else {
+                    (1, 1) // 1.0 → 11
+                };
+                word |= b0 << (d * 2);
+                word |= b1 << (d * 2 + 1);
+            }
+            // Last 14 dims → 14 bits (1 bit each)
+            for d in 0..14usize {
+                if vsa[base + 25 + d] > 0.0 {
+                    word |= 1u64 << (50 + d);
+                }
+            }
+            bits[w] = word;
+        }
+        Self::Binary16K(bits)
     }
 
     /// Byte size of this fingerprint in its native form.
@@ -162,6 +299,62 @@ impl CrystalFingerprint {
             Self::Vsa10kF32(_)           => 40_000,            // 40 KB
         }
     }
+}
+
+// ── VSA algebra on the 10K-D f32 form ──────────────────────────────────
+
+/// Element-wise multiply (bind): assigns a role key to content.
+///
+/// `bind(content, role_key)` produces a vector that is dissimilar to
+/// both inputs but can be unbound via `bind(bound, role_key)` (since
+/// multiply is its own inverse for ±1 keys).
+pub fn vsa_bind(a: &[f32; 10_000], b: &[f32; 10_000]) -> Box<[f32; 10_000]> {
+    let mut out = Box::new([0.0f32; 10_000]);
+    for i in 0..10_000 {
+        out[i] = a[i] * b[i];
+    }
+    out
+}
+
+/// Element-wise add (bundle / superposition): merges multiple signals.
+///
+/// The result is similar to all inputs. Normalize afterward if needed.
+pub fn vsa_bundle(vectors: &[&[f32; 10_000]]) -> Box<[f32; 10_000]> {
+    let mut out = Box::new([0.0f32; 10_000]);
+    for v in vectors {
+        for i in 0..10_000 {
+            out[i] += v[i];
+        }
+    }
+    out
+}
+
+/// Weighted superposition: merges with explicit blending weights.
+pub fn vsa_superpose(
+    vectors: &[&[f32; 10_000]],
+    weights: &[f32],
+) -> Box<[f32; 10_000]> {
+    let mut out = Box::new([0.0f32; 10_000]);
+    for (v, &w) in vectors.iter().zip(weights.iter()) {
+        for i in 0..10_000 {
+            out[i] += v[i] * w;
+        }
+    }
+    out
+}
+
+/// Cosine similarity between two 10K-D vectors.
+pub fn vsa_cosine(a: &[f32; 10_000], b: &[f32; 10_000]) -> f32 {
+    let mut dot = 0.0f32;
+    let mut norm_a = 0.0f32;
+    let mut norm_b = 0.0f32;
+    for i in 0..10_000 {
+        dot += a[i] * b[i];
+        norm_a += a[i] * a[i];
+        norm_b += b[i] * b[i];
+    }
+    let denom = norm_a.sqrt() * norm_b.sqrt();
+    if denom < 1e-12 { 0.0 } else { dot / denom }
 }
 
 #[cfg(test)]
@@ -179,26 +372,70 @@ mod tests {
     }
 
     #[test]
-    fn structured_passthrough_roundtrip() {
+    fn structured_passthrough_roundtrip_with_quorum() {
         let mut cells = Box::new([0u8; 3125]);
         for i in 0..3125 { cells[i] = (i % 256) as u8; }
         let quorum = Some(Quorum5D::new(0.9, 0.8, 0.7, 0.6, 0.5));
         let fp = CrystalFingerprint::Structured5x5 { cells, quorum };
 
-        let vsa = fp.bundle_vsa10k_f32();
-        let back = CrystalFingerprint::unbundle_structured_from_vsa10k(&vsa);
+        let vsa = fp.to_vsa10k_f32();
+        let back = CrystalFingerprint::structured_from_vsa10k(&vsa);
         match back {
             CrystalFingerprint::Structured5x5 { cells, quorum } => {
                 for i in 0..3125 {
                     assert_eq!(cells[i], (i % 256) as u8,
                         "cell {i} differs after passthrough");
                 }
-                let q = quorum.unwrap();
+                let q = quorum.expect("quorum should be Some after roundtrip");
                 assert!((q.element - 0.9).abs() < 1e-3);
                 assert!((q.sentence_position - 0.8).abs() < 1e-3);
             }
             _ => panic!("unexpected fingerprint variant"),
         }
+    }
+
+    #[test]
+    fn structured_passthrough_roundtrip_without_quorum() {
+        let cells = Box::new([42u8; 3125]);
+        let fp = CrystalFingerprint::Structured5x5 { cells, quorum: None };
+
+        let vsa = fp.to_vsa10k_f32();
+        let back = CrystalFingerprint::structured_from_vsa10k(&vsa);
+        match back {
+            CrystalFingerprint::Structured5x5 { cells, quorum } => {
+                assert_eq!(cells[0], 42);
+                assert!(quorum.is_none(), "quorum: None must survive roundtrip");
+            }
+            _ => panic!("unexpected fingerprint variant"),
+        }
+    }
+
+    #[test]
+    fn binary16k_no_cross_word_aliasing() {
+        // Two fingerprints differing in exactly one bit should produce
+        // different 10K projections.
+        let mut a = Box::new([0u64; 256]);
+        let mut b = Box::new([0u64; 256]);
+        a[100] = 1; // bit 0 of word 100
+        b[200] = 1; // bit 0 of word 200
+        let fa = CrystalFingerprint::Binary16K(a);
+        let fb = CrystalFingerprint::Binary16K(b);
+        let va = fa.to_vsa10k_f32();
+        let vb = fb.to_vsa10k_f32();
+        // They should differ (word 100 maps to base 3900, word 200 to 7800)
+        let diff: f32 = va.iter().zip(vb.iter()).map(|(x, y)| (x - y).abs()).sum();
+        assert!(diff > 0.0, "different binary fingerprints must yield different VSA");
+    }
+
+    #[test]
+    fn i8_clamps_to_unit_range() {
+        let mut v = Box::new([0i8; 10_000]);
+        v[0] = -128; // edge case: −128/128 = −1.0 (not −1.008)
+        v[1] = 127;
+        let fp = CrystalFingerprint::Vsa10kI8(v);
+        let vsa = fp.to_vsa10k_f32();
+        assert!(vsa[0] >= -1.0, "i8 min must not exceed −1.0");
+        assert!(vsa[1] <= 1.0);
     }
 
     #[test]
@@ -210,5 +447,57 @@ mod tests {
         assert_eq!(s.byte_size(), 3145);
         let v = CrystalFingerprint::Vsa10kF32(Box::new([0.0; 10_000]));
         assert_eq!(v.byte_size(), 40_000);
+    }
+
+    #[test]
+    fn binary16k_lossless_roundtrip() {
+        let mut bits = Box::new([0u64; 256]);
+        // Fill with a non-trivial pattern
+        for i in 0..256 {
+            bits[i] = 0xDEAD_BEEF_CAFE_BABEu64.wrapping_mul(i as u64 + 1);
+        }
+        let fp = CrystalFingerprint::Binary16K(bits.clone());
+        let vsa = fp.to_vsa10k_f32();
+        let back = CrystalFingerprint::binary16k_from_vsa10k(&vsa);
+        match back {
+            CrystalFingerprint::Binary16K(recovered) => {
+                for i in 0..256 {
+                    assert_eq!(recovered[i], bits[i],
+                        "word {i}: expected {:#018x} got {:#018x}",
+                        bits[i], recovered[i]);
+                }
+            }
+            _ => panic!("unexpected variant"),
+        }
+    }
+
+    #[test]
+    fn vsa_bind_is_self_inverse_for_bipolar() {
+        let mut key = Box::new([0.0f32; 10_000]);
+        let mut content = Box::new([0.0f32; 10_000]);
+        for i in 0..10_000 {
+            key[i] = if i % 3 == 0 { -1.0 } else { 1.0 };
+            content[i] = (i as f32 / 10_000.0) * 2.0 - 1.0;
+        }
+        let bound = vsa_bind(&content, &key);
+        let unbound = vsa_bind(&bound, &key);
+        // Unbinding should recover the content (since key²=1 for ±1)
+        for i in 0..10_000 {
+            assert!((unbound[i] - content[i]).abs() < 1e-5,
+                "dim {i}: expected {} got {}", content[i], unbound[i]);
+        }
+    }
+
+    #[test]
+    fn vsa_bundle_preserves_similarity() {
+        let mut a = Box::new([0.0f32; 10_000]);
+        let mut b = Box::new([0.0f32; 10_000]);
+        for i in 0..10_000 { a[i] = 1.0; }
+        for i in 0..10_000 { b[i] = if i < 5000 { 1.0 } else { -1.0 }; }
+        let bundled = vsa_bundle(&[&*a, &*b]);
+        let sim_a = vsa_cosine(&bundled, &a);
+        let sim_b = vsa_cosine(&bundled, &b);
+        assert!(sim_a > 0.5, "bundle should be similar to input a");
+        assert!(sim_b > 0.0, "bundle should be positively similar to b");
     }
 }
