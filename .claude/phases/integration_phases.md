@@ -1,8 +1,13 @@
 # Integration Phases: bgz17 Full-Stack Wiring
 
-> **Last updated**: 2026-04-08
-> **Key change**: K=4096 is now standard. L0-L4 Lane Akkumulator proven.
-> DeepNSM COCA 5K wired (9,664 triplets/s). 16Kbit VSA Fingerprint implemented.
+> **Last updated**: 2026-04-19 (post PR #213)
+> **Key change**: Grammar Phase 1 (PR #208-210), CCA2A governance (#211-213)
+> shipped. Active work tracked by elegant-herding-rocket-v1.md. Open-prompt
+> adjacency map added (§ Open Prompts Adjacency) so the next session can pick
+> an open brief aligned to a live phase without re-reading all 45 open briefs.
+>
+> Prior: K=4096 standard, L0-L4 Akkumulator proven, DeepNSM COCA 5K wired
+> (9,664 triplets/s), 16Kbit VSA Fingerprint.
 
 ## Phase 0: Prerequisites (DONE)
 
@@ -416,6 +421,172 @@ Ein Mikroskop für Resonanz zwischen Konzepten.
 **Die zentrale Frage für nächste Sitzung:**
 Kann das System überraschen auf eine Weise die im Nachhinein Sinn ergibt?
 Das ist der operationale Test für Eingebung.
+
+### 5.11 Build-Time vs Runtime Trennung (Railway 32 GB / 700 MB) — KEEP AS-IS BELOW
+
+---
+
+## Phase 6: Grammar Phase 1 ✅ DONE (PRs #208-210, 2026-04-18/19)
+
+**Shipped without waiting for Phase 3 to clear — additive, contract-zero-dep preserved.**
+
+```
+[x] #208  grammar/ + crystal/ contract modules + AriGraph episodic unbundling
+         — FailureTicket, FinnishCase 15-case, NarsInference 7-mode, ContextChain ±5
+         — SentenceCrystal / ContextCrystal / DocumentCrystal polymorphic CrystalFingerprint
+         — unbundle_hardened on EpisodicMemory (SIMD dispatch via ndarray::hpc::bitwise)
+
+[x] #209  sandwich layout + bipolar cells + 14-epiphany cross-repo harvest
+         — Structured5x5 middle-cells bipolar cancellation
+         — Binary16K per-word regions, Quorum sentinel dim
+         — knowledge/crystal-quantum-blueprints.md + cross-repo-harvest-2026-04-19.md
+
+[x] #210  ContextChain reasoning + role-key catalogue + grammar-landscape doc
+         — coherence_at / total_coherence / replay_with_alternative / disambiguate
+         — 47 role keys: SPO (5) + TEKAMOLO (5) + thematic (3) + Finnish (15) + tense (12) + NARS (7)
+         — knowledge/grammar-landscape.md (429 LOC) + linguistic-epiphanies-2026-04-19.md
+         — contract tests: 112 → 125 (+13)
+```
+
+**Active plan:** `.claude/plans/elegant-herding-rocket-v1.md` — Phases 2-4 queued:
+- Phase 2: D2 FailureTicket emit + D3 Triangle bridge + D5 Markov bundler + D7 styles
+- Phase 3: D8 story-context/contradictions + D10 Animal-Farm validation harness
+- Phase 4: D9 ONNX arc export + D11 bundle-perturb emergence
+
+---
+
+## Phase 7: CCA2A Governance + Bookkeeping ✅ DONE (PRs #211-213, 2026-04-19)
+
+**Infrastructure to cut 30-turn cold-start tax → 3-5 turns.**
+
+```
+[x] #211  CCA2A bootstrap — BOOT.md, LATEST_STATE.md, PR_ARC_INVENTORY.md,
+         agents/BOOT.md (renamed from README), cca2a skill, SessionStart +
+         PostCompact hooks, team-shared settings.json governance, model policy
+         (grindwork/accumulation split, never Haiku), GitHub zipball-for-reads.
+
+[x] #212  .claude/knowledge/ → .claude/board/ split. 8 bookkeeping files moved,
+         cat-append-only enforced (Edit+Write denied on all 8), `cat >> file <<
+         'EOF'` the only method. Rows immutable, specific fields mutable.
+
+[x] #213  PROMPTS_VS_PRS.md ledger — 41 scoped briefs paired with merged PRs
+         (lance-graph) + 25 on ndarray (PR #110). Shipped in 90 seconds on a
+         dumb enumerate+match+append Haiku job. No code reads, no MCP.
+         Foundation for the 10⁷× "find code" savings (see EPIPHANIES.md).
+```
+
+---
+
+## Open Prompts Adjacency (2026-04-19)
+
+**45 open prompts across both repos.** Adjacent = prompt aligns with a live
+phase, so spending context on it is cheap. Stale = no adjacency; archive or defer.
+
+### Live — Phase 8 (elegant-herding-rocket Phase 2: D2/D3/D5/D7)
+
+**lance-graph open → load when picking up Phase 8:**
+- `.claude/prompts/P18_INTERNAL_LLM_LANGUAGE_SURFACE.md` — LLM escalation surface for D2 FailureTicket.
+- `.claude/prompts/session_epiphany_integration.md` — E1-E27 epiphany synthesis, feeds D2 routing.
+- `.claude/prompts/research_quantized_graph_algebra.md` — quantized algebra for D5 Markov bundler.
+- `.claude/prompts/session_bgz17_similarity.md` — palette semiring inputs for D3 Triangle bridge.
+
+**ndarray open → load when picking up Phase 8 cross-repo:**
+- `.claude/prompts/session_unified_vector_search.md` — unified search, adjacent to D6 role-key catalogue (already shipped) + D5 Markov bundler VSA ops.
+
+### Live — Phase 3 Lane A (ndarray ↔ bgz17 dual-path, still OPEN)
+
+**lance-graph open:**
+- `.claude/prompts/session_C_v3_ndarray_bgz17_dualpath.md` — the driving prompt.
+- `.claude/prompts/session_A_v3_blasgraph_csc_planner.md` — Phase 1 already done; prompt stale but adjacent as reference.
+- `.claude/prompts/session_B_v3_bgz17_container_semiring.md` — Phase 2 done; prompt stale but adjacent as reference.
+- `.claude/prompts/session_D_v3_falkordb_retrofit.md` — Phase 4 gate, blocked on Lane A.
+- `.claude/prompts/session_MASTER_map_v3.md` — master architecture overview.
+
+**ndarray open (all five directly adjacent to Lane A cross-repo):**
+- `.claude/prompts/01_clam_qualiacam.md` — CLAM + qualia, ndarray codec surface.
+- `.claude/prompts/02_crystal_encoder.md` — crystal encoder, shares substrate with lance-graph #208 crystal module.
+- `.claude/prompts/03_lance_schema.md` — lance schema for cross-repo persistence.
+- `.claude/prompts/04_lance_graph_integration.md` — direct cross-repo wiring.
+- `.claude/prompts/05_cross_repo_map.md` — adjacency map itself.
+- `.claude/prompts/session_ndarray_migration_inventory.md` — consolidate ndarray canonical types (Fingerprint<256>, ZeckF64 dedup).
+- `.claude/prompts/SESSION_PALETTE3D_STRUCTURAL_RESTORATION.md` — palette3d, adjacent to Base17 ecosystem.
+
+### Live — Phase 6.1 follow-on (grammar harvest, post PR #209)
+
+**lance-graph open:**
+- `.claude/prompts/session_unified_26_epiphanies.md` — earlier epiphany set; reconcile with E1-E27 from linguistic-epiphanies-2026-04-19.md.
+- `.claude/prompts/FINAL_MAP.md` — 27 epiphanies × 17 paths synergy matrix; cross-ref with today's E13-E27.
+
+### Live — Phase 7 follow-on (governance / bookkeeping)
+
+**lance-graph open:**
+- `.claude/prompts/SCOPED_PROMPTS.md` — prompt index; needs refresh now that PROMPTS_VS_PRS ledger exists.
+- `.claude/prompts/arxiv.md` — research-surface prompt; governed by the Write-over-self rule (CLAUDE.md § In-Session Orchestration Discipline, issue #46861 on this file).
+
+### Implicitly resolved / superseded (Haiku missed these — filename didn't match PR title)
+
+These read as "open" in PROMPTS_VS_PRS.md but shipped under an overlapping PR. A
+Tier-2 meta-agent pass should append `— superseded by #N` annotations to each.
+
+**lance-graph:**
+- `session_A_v3_blasgraph_csc_planner.md` — superseded by **Phase 1 / PR #29** (Session A blasgraph, 7 deliverables done).
+- `session_B_v3_bgz17_container_semiring.md` — superseded by **Phase 2 / PRs #23-28** (126 tests, Session B done).
+- `session_MASTER_map_v3.md` — superseded by Phases 1+2 completion + this file.
+- `session_6d_neuronprint_handover.md` — superseded by **PR #78** (docs: session handover — 6D NeuronPrint).
+- `session_bgz17_similarity.md` — superseded by **PR #40** (add SimilarityTable — distribution-free cosine replacement).
+- `session_unified_26_epiphanies.md` — superseded by **PR #60** (UNIFIED 26 epiphanies → 11 paths → 5 agents).
+- `FINAL_MAP.md` — superseded by **PR #65** (FINAL MAP — 27 epiphanies × 17 paths × synergy matrix).
+- `session_integration_plan.md` + `session_master_integration.md` + `session_model_integration_plans.md` — superseded by `INTEGRATIONSPLAN_2026_04_01.md` + `.claude/plans/elegant-herding-rocket-v1.md`.
+- `session_ontology_layer_audit.md` — superseded by **PR #155** (docs: add ontology layer audit prompt).
+- `research_quantized_graph_algebra.md` — **implicitly resolved** by the argmax-regime codec R&D thread: **PRs #186 / #193 / #197 / #198** (codec invariants + Hadamard leaf bench + i4×16 + Mixed + 67-codec R&D sweep). Knowledge doc: `.claude/knowledge/fractal-codec-argmax-regime.md`.
+- `archetype-codebook-probe.md` — **implicitly resolved** by **PR #186** (codec invariants + experiment catalogue) and the codec R&D sweep above.
+- **This session's own Haiku-bookkeeping prompt** (authored in-session, never committed as `.claude/prompts/*.md`) — **tested and proven** by **PR #213** (lance-graph, 90 seconds, 41 prompts mapped) + **PR #110** (ndarray, 25 prompts mapped). The prompt is meta-infrastructure; its deliverable is the ledger itself.
+
+**ndarray:**
+- `session_ndarray_migration_inventory.md` — superseded by **PR #31** (migration inventory rustynum → ndarray/hpc).
+- `SESSION_BGZ_TENSOR_HYDRATE.md` — superseded by **PR #72** (bgz-tensor hydrate workflow).
+- `VERIFY_COMPRESSION_REVOLUTION.md` — superseded by **PRs #82-85** (variable-resolution stacked encoding + BF16 loss attribution).
+- `PUMPKIN_ACTIONS.md` — superseded by **PR #206** (Pumpkin NPC example shipped in lance-graph, cross-repo delivery).
+- `session_unified_vector_search.md` — covered by **PRs #17/#18/#45** (ZeckF64 neighborhood search + dynamic elevation).
+
+### Genuinely stale / deferred — no active adjacency, no overlap
+
+**lance-graph:**
+- `.claude/prompts/audio_session{1,2,3}_*.md` + `audio_codec_meta_codex.md` — audio stream not on the critical path.
+- `.claude/prompts/archetype-codebook-probe.md` — experimental probe.
+- `.claude/prompts/fisher-z-wiring` — malformed filename (no .md extension).
+
+**ndarray:**
+- `.claude/prompts/JITENGINE_LAZYLOCK.md` + `JITSON_IMPL_PLAN.md` + `JITSON_MIGRATION.md` — JIT thread not active.
+- `.claude/prompts/SESSION_HIDREAM_DIFFUSION.md` + `SESSION_WIRE_SYNAPSES.md` — experimental.
+- `.claude/prompts/SCOPED_PROMPTS.md` (both repos) — prompt indexes, refresh candidate post-ledger.
+
+### Tier-2 meta-pass queued
+
+Separate Opus run should read ONLY `.claude/board/PROMPTS_VS_PRS.md` +
+`.claude/board/PR_ARC_INVENTORY.md` and append a `supersede_of` column (or
+a new line with a correction) per pair where the Haiku's literal match
+missed the semantic overlap. No code reads. No session replay.
+
+---
+
+## Execution Summary (2026-04-19)
+
+```
+Phase 0-2:     ✅ DONE (PR #29, #126-tests, #149-#153)
+Phase 3:       Lane A (Session C) + Lane B (K=4096) — PARALLEL, OPEN
+Phase 4:       Session D (FalkorDB reality check) — BLOCKED on Lane A
+Phase 5:       Resonance — parked (NEUE SITZUNG notes)
+Phase 6:       ✅ DONE Grammar Phase 1 (PR #208-210)
+Phase 7:       ✅ DONE CCA2A Governance (PR #211-213)
+Phase 8:       elegant-herding-rocket Phase 2 (D2/D3/D5/D7) — NEXT
+Phase 9:       elegant-herding-rocket Phase 3-4 (D8/D9/D10/D11) — QUEUED
+Cross-Repo:    ndarray alignment — pending PRs for cognitive-architect brief
+```
+
+---
+
+## Phase 5 — KEEP AS-IS BELOW (original 2026-04-08 notes)
 
 ### 5.11 Build-Time vs Runtime Trennung (Railway 32 GB / 700 MB)
 
