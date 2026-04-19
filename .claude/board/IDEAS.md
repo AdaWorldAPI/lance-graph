@@ -311,3 +311,60 @@ only 16,384-D is relevant.
 **Acknowledges:** the prior CORRECTION-OF entry framed the ban as
 workspace-wide; it is not. Three scopes preserve 10,000-D legitimately
 until the coordinated rename PR lands.
+
+## 2026-04-19 — REFINEMENT-2 HDC substrate is FP16 / BF16, not FP32
+**Status:** Open
+**Priority:** P1
+**Scope:** @container-architect @truth-architect domain:vsa domain:codec domain:memory
+
+The prior CORRECTION-OF + REFINEMENT-OF entries assumed f32 as the
+HDC baseline. Correction: **HDC superposition substrate is FP16 (or
+BF16), not FP32.** Bundle-accumulation magnitudes stay in half-precision
+range; f32 only buys ceremony.
+
+**Size table (corrected):**
+
+| Substrate | Per-row bytes |
+|---|---|
+| 1,024-D Jina v3 (FP16) | 2 KB |
+| 1,536-D OpenAI text-embedding-3-small (FP16) | 3 KB |
+| 3,072-D Upstash Vector cap (FP16) | 6 KB |
+| **10,000-D HDC (current, FP16)** | **20 KB** |
+| 10,000-D HDC (legacy f32 naming) | 40 KB ← `Vsa10kF32` today |
+| **16,384-D HDC target (FP16)** | **32 KB** |
+| 16,384-D HDC × u8 5-lane | 80 KB |
+| 16,384-D HDC × BF16 5-lane | 160 KB |
+
+**Revised memory math for the ladybug 700-1100 MB blowup:**
+
+- At f32 (40 KB/row): observed 700-1,100 MB = ~17-27 K live rows.
+- **Had it been FP16 (20 KB/row): same population = 350-550 MB.**
+- 16k × FP16 (32 KB/row): same population = 560-880 MB — **cheaper
+  than the current f32 state**, not worse.
+
+The 16k rename is memory-positive IF paired with f32 → FP16 migration.
+Without the precision drop, 16k × f32 (64 KB/row) does inflate the
+problem. The coupled change is the right design.
+
+**Architectural constraint (why LanceDB, not a vector-db SaaS):**
+
+Commercial managed vector DBs cap at ≤ 3072 dimensions (Upstash).
+Pinecone, Weaviate, Qdrant — all optimize for 768-3072 dense
+embeddings. HDC substrate at 16,384-D is an order-of-magnitude wider
+and cannot live in those systems. LanceDB's `FixedSizeList<BFloat16,
+16384>` is the only viable column type across OSS + managed
+offerings. **This is why lance-graph is The Spine, not a plug-in.**
+
+**Updated rename scope for the follow-up PR:**
+
+1. Type rename: `CrystalFingerprint::Vsa10kF32` → `Vsa16kBF16`
+   (not `Vsa16kF32`). f32 variant retires.
+2. Role-key slices re-address `[0..10000)` → `[0..16384)`.
+3. Storage contract: `FixedSizeList<BFloat16, 16384>` as the canonical
+   HDC column; 5-lane struct for multi-representation workloads.
+4. Compute: preserve f32 accumulation internally where numerical
+   stability matters (unbundle / unbind hot path), round-trip via BF16
+   for storage.
+
+**Supersedes:** prior CORRECTION-OF entry's "Vsa16kF32 (lossless
+baseline): 64 KB" line. The lossless baseline is BF16 at 32 KB.
