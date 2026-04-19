@@ -10,10 +10,10 @@
 
 Read these in order before proposing anything:
 
-1. **`.claude/knowledge/LATEST_STATE.md`** — current contract
+1. **`.claude/board/LATEST_STATE.md`** — current contract
    inventory, recently shipped PRs, active branches, queued work,
    explicit deferrals. Tells you **what exists**.
-2. **`.claude/knowledge/PR_ARC_INVENTORY.md`** — per-PR Added /
+2. **`.claude/board/PR_ARC_INVENTORY.md`** — per-PR Added /
    Locked / Deferred / Docs / Confidence, reverse-chronological.
    APPEND-ONLY (only Confidence is mutable; corrections append as
    new dated lines; reversals get their own PR entry). Tells you
@@ -29,12 +29,12 @@ re-proposing what's shipped or violating a locked convention.
 Two companion dashboards (consult when deliverable status or plan
 version matters — typically mid-session, not at cold start):
 
-- **`.claude/knowledge/STATUS_BOARD.md`** — deliverable-level
+- **`.claude/board/STATUS_BOARD.md`** — deliverable-level
   dashboard. All D-ids across every active plan with Status
   (Shipped / In PR / In progress / Queued / Backlog / Deferred /
   Abandoned). Plus infrastructure status, research threads, and
   the 102-file prior-art audit.
-- **`.claude/knowledge/INTEGRATION_PLANS.md`** — versioned plan
+- **`.claude/board/INTEGRATION_PLANS.md`** — versioned plan
   index, APPEND-ONLY. New plan versions prepend; prior versions
   stay with Status annotation. Active plan lives at
   `.claude/plans/<name>-v<N>.md`.
@@ -47,29 +47,35 @@ version matters — typically mid-session, not at cold start):
    workspace's historical record; rows / sections inside them are
    immutable, with a short list of mutable fields per file.
 
-   **Method hierarchy (preferred → discouraged):**
+   **Bookkeeping updates use `cat >> file << 'EOF'` only.**
 
-   1. **APPEND** (the method of choice) — add a NEW dated row to
-      an existing section. Either via Edit (prepend inside a `---`
-      bounded section) or Bash `cat >> file << EOF`. No prompt.
-      The old row stays untouched. This is the double-bookkeeping
-      pattern — new state enters as a new entry, not by mutating
-      the old.
-   2. **Edit field with prior Read** — flip a mutable field
-      (Status / Confidence / Resolution / Payoff) on an existing
-      row after reading the file. No prompt. Use for clarifications,
-      status transitions, and minor updates. Prior Read is the
-      workspace discipline (already in `CLAUDE.md`).
-   3. **Write (full overwrite)** — prompts for approval on every
-      bookkeeping file via `.claude/settings.json::permissions.ask`.
-      Discouraged; only for wholesale replacement of a file that's
-      been through explicit review. Never the default answer.
+   No `Edit`. No `Write`. No `>`. Every state change — Status
+   transitions, Confidence updates, Resolution notes, Corrections,
+   Payoff records — is a NEW dated row appended at the end of
+   the file. Old rows NEVER mutate, including their Status fields.
 
-   Rule: **when in doubt, append**. The double-bookkeeping habit
-   (new row rather than edited old row) preserves the full arc and
-   keeps the audit trail legible. Edit-a-field is acceptable when
-   the change is clearly a status transition on an existing entry;
-   Write is the escape hatch that costs a confirmation.
+   ```bash
+   cat >> .claude/board/EPIPHANIES.md << 'EOF'
+
+   ## 2026-04-19 — <title>
+   **Status:** FINDING
+
+   <one paragraph>
+
+   Cross-ref: <pointer>
+   EOF
+   ```
+
+   This is true ledger accounting. The file is a pure log. Nothing
+   in it ever changes after it's written. `.claude/settings.json`
+   enforces this: both `Edit` and `Write` on all 8 bookkeeping
+   files are DENIED. Only `Bash(cat >> ...)` is allowed.
+
+   If you genuinely need to correct a historical entry (not update
+   its status — CORRECT a factual error), append a new entry:
+   `## YYYY-MM-DD — CORRECTION-OF <original-date> <original-title>`
+   with the corrected claim. The old entry stays unchanged. Both
+   are visible in the log.
 
    | File | Immutable | Mutable fields |
    |---|---|---|
@@ -168,7 +174,7 @@ should reference these, not recreate them:
   self-contained task brief. See `.claude/prompts/SCOPED_PROMPTS.md`
   as the natural index.
 - **`.claude/plans/`** — versioned integration plans. Index at
-  `.claude/knowledge/INTEGRATION_PLANS.md` (APPEND-ONLY — new
+  `.claude/board/INTEGRATION_PLANS.md` (APPEND-ONLY — new
   versions prepend; prior plans stay with Status annotation).
   Active: `.claude/plans/elegant-herding-rocket-v1.md`.
 - **`.claude/*.md`** (top-level, 61 docs) — calibration reports,

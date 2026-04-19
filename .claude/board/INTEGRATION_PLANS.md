@@ -70,7 +70,7 @@ Phases 2–4 queued.
 2. **Proposing a new plan:** prepend a new v entry; move prior
    plan's Status to Superseded.
 3. **Tracking deliverable progress:** use
-   `.claude/knowledge/STATUS_BOARD.md` for the cross-deliverable
+   `.claude/board/STATUS_BOARD.md` for the cross-deliverable
    view (which D-ids are in which phase / PR).
 4. **User requests / open threads** that aren't yet a plan: capture
    in `.claude/knowledge/OPEN_PROMPTS.md`.

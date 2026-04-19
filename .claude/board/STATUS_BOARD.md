@@ -91,10 +91,10 @@ because it's process, not architecture.
 | `.claude/BOOT.md` session entry + prior-art links | **Shipped** | #211 |
 | `.claude/agents/BOOT.md` orchestration spec (renamed from README) | **Shipped** | #211 |
 | `.claude/agents/README.md` function inventory | **Shipped** | #211 |
-| `.claude/knowledge/LATEST_STATE.md` current-state snapshot | **Shipped** | #211 |
-| `.claude/knowledge/PR_ARC_INVENTORY.md` append-only decision arc | **Shipped** | #211 |
-| `.claude/knowledge/INTEGRATION_PLANS.md` versioned plan index | **Shipped** | #211 |
-| `.claude/knowledge/STATUS_BOARD.md` this file | **Shipped** | #211 |
+| `.claude/board/LATEST_STATE.md` current-state snapshot | **Shipped** | #211 |
+| `.claude/board/PR_ARC_INVENTORY.md` append-only decision arc | **Shipped** | #211 |
+| `.claude/board/INTEGRATION_PLANS.md` versioned plan index | **Shipped** | #211 |
+| `.claude/board/STATUS_BOARD.md` this file | **Shipped** | #211 |
 | `.claude/settings.json` team-shared governance (ask/deny + hooks) | **Shipped** | #211 |
 | `.claude/hooks/session-start.sh` + `post-compact.sh` | **Shipped** | #211 |
 | `.claude/skills/cca2a/` pattern-explanation skill | **Shipped** | #211 |

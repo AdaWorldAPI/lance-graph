@@ -21,8 +21,8 @@ conventions prescribe. Per the 2026-04-19 audit of
 | Feature | What it adds | Why |
 |---|---|---|
 | `.claude/BOOT.md` | Single page entry point referenced from CLAUDE.md | Explicit bootstrap contract; official doesn't have this concept |
-| `.claude/knowledge/LATEST_STATE.md` | Current-state snapshot, updated after every PR | Prevents re-proposing shipped work |
-| `.claude/knowledge/PR_ARC_INVENTORY.md` | APPEND-ONLY decision history per PR | Locks architectural history against rewrite-drift |
+| `.claude/board/LATEST_STATE.md` | Current-state snapshot, updated after every PR | Prevents re-proposing shipped work |
+| `.claude/board/PR_ARC_INVENTORY.md` | APPEND-ONLY decision history per PR | Locks architectural history against rewrite-drift |
 | `.claude/handovers/*.md` | Agent-to-agent state transfer files | Official has subagents but no multi-step chain handover protocol |
 | Knowledge Activation trigger table | Domain → agent → knowledge docs mapping | Extends `READ BY:` headers into an orchestration table |
 | Grindwork vs accumulation model split | Per-task model selection rule | Official allows `model: sonnet` but doesn't codify the grindwork/accumulation split |
@@ -95,8 +95,8 @@ history files:
 
 ```json
 "ask": [
-  "Edit(.claude/knowledge/PR_ARC_INVENTORY.md)",
-  "Edit(.claude/knowledge/LATEST_STATE.md)"
+  "Edit(.claude/board/PR_ARC_INVENTORY.md)",
+  "Edit(.claude/board/LATEST_STATE.md)"
 ]
 ```
 

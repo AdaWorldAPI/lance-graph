@@ -114,9 +114,9 @@ Never Haiku. See `../CLAUDE.md § Model Policy`.
 Every subagent spawned on this workspace loads these in order:
 
 1. **Tier-0 (MANDATORY, all agents):**
-   - `.claude/knowledge/LATEST_STATE.md` — current contract inventory,
+   - `.claude/board/LATEST_STATE.md` — current contract inventory,
      what's shipped, what's queued, what's explicitly deferred.
-   - `.claude/knowledge/PR_ARC_INVENTORY.md` — per-PR Added / Locked /
+   - `.claude/board/PR_ARC_INVENTORY.md` — per-PR Added / Locked /
      Deferred / Docs / Confidence. APPEND-ONLY.
 
 2. **Tier-1 (domain-triggered):** load matching docs per the
@@ -238,8 +238,8 @@ Primary orchestration prompt:
 - `.claude/agent2agent-orchestrator-prompt.md`
 
 Core knowledge (workspace-wide):
-- `.claude/knowledge/LATEST_STATE.md` (Tier-0, mandatory)
-- `.claude/knowledge/PR_ARC_INVENTORY.md` (Tier-0, mandatory)
+- `.claude/board/LATEST_STATE.md` (Tier-0, mandatory)
+- `.claude/board/PR_ARC_INVENTORY.md` (Tier-0, mandatory)
 - `.claude/knowledge/*.md` (Tier-1, trigger-activated — see table above)
 - `docs/integrated-architecture-map.md`
 

@@ -12,10 +12,10 @@
 It names the three files below as mandatory reads, so load them
 whether you went through BOOT.md or landed here directly.
 
-1. **`.claude/knowledge/LATEST_STATE.md`** — current contract
+1. **`.claude/board/LATEST_STATE.md`** — current contract
    inventory, recently shipped PRs, active branches, queued work,
    explicit deferrals. **What exists.**
-2. **`.claude/knowledge/PR_ARC_INVENTORY.md`** — per-PR Added /
+2. **`.claude/board/PR_ARC_INVENTORY.md`** — per-PR Added /
    Locked / Deferred / Docs / Confidence, reverse chronological.
    **APPEND-ONLY**; only the Confidence line is updatable;
    corrections append as new dated lines; reversals get their own
@@ -33,10 +33,10 @@ triggered by the user's request.
 **Companion dashboards (mid-session references, not cold-start
 mandatory):**
 
-- **`.claude/knowledge/STATUS_BOARD.md`** — deliverable-level
+- **`.claude/board/STATUS_BOARD.md`** — deliverable-level
   dashboard. All D-ids across every active plan with Status.
   Consult when asking "where is D5" or "is this shipped yet."
-- **`.claude/knowledge/INTEGRATION_PLANS.md`** — versioned plan
+- **`.claude/board/INTEGRATION_PLANS.md`** — versioned plan
   index (APPEND-ONLY). Active plan lives at
   `.claude/plans/<name>-v<N>.md`. Consult before proposing a new
   plan.
@@ -55,7 +55,7 @@ a new architectural direction, grep these:
 
 - **`.claude/prompts/`** (41 files) — scoped session / probe /
   handover / research prompts. See `SCOPED_PROMPTS.md` as index.
-- **`.claude/plans/`** + **`.claude/knowledge/INTEGRATION_PLANS.md`**
+- **`.claude/plans/`** + **`.claude/board/INTEGRATION_PLANS.md`**
   — versioned integration plans (APPEND-ONLY index; prior versions
   retained with Status annotation).
 - **`.claude/*.md`** (61 top-level docs) — calibration reports,
