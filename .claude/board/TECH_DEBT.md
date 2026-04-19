@@ -186,3 +186,27 @@ abandoned) — flip Open Status to `Moot YYYY-MM-DD`. Keep the row.
 
 Nothing is lost. Every shortcut has a trail from introduction to
 payoff (or abandonment).
+
+## 2026-04-19 — VSA substrate renaming: Vsa10k* → Vsa16k* + float framing
+**Status:** Open
+**Priority:** P1
+**Scope:** @container-architect @truth-architect D6 D0 domain:vsa domain:codec
+**Introduced by:** architectural choice (all PRs referring to "10K VSA")
+**Payoff estimate:** 1 contract-crate PR + 1 audit-sweep PR across
+~28 `.claude/*.md` files (21 lance-graph + 7 ndarray).
+
+The VSA substrate is misnamed and mis-scaled throughout the workspace:
+
+1. **Naming:** `Vsa10kF32`, `Vsa10kI8` in
+   `lance-graph-contract::crystal::CrystalFingerprint` should be
+   `Vsa16kF32`, `Vsa16kI8`.
+2. **Scale:** 10,000-D is a legacy narrower width; move to 16,384-D
+   (64 KB lossless f32, 32 KB BF16, 80 KB u8-5-lane, 160 KB BF16-5-lane).
+3. **Role-key slices:** `grammar::role_keys` addresses `[0..10000)`;
+   re-scale to `[0..16384)` proportionally, keeping slices disjoint.
+4. **Framing:** eliminate every occurrence of "10,000 binary VSA" — it
+   collapses the 2 KB Hamming fingerprint (Container) with the
+   ≥64 KB float VSA substrate. They are different objects.
+
+Cross-ref: `.claude/board/IDEAS.md` CORRECTION-OF entry (2026-04-19).
+Audit list of 28 files affected: `grep -rn "10000\|10,000\|Vsa10k\|10 000-D" .claude/`.

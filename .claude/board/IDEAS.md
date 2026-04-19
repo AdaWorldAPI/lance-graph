@@ -202,3 +202,61 @@ destination.
 **Cross-ref:** `.claude/knowledge/cross-repo-harvest-2026-04-19.md` H6,
 `.claude/board/TECH_DEBT.md` FP_WORDS entry. Container layout in
 `lance-graph-contract::cam::Container`.
+
+## 2026-04-19 — CORRECTION-OF 2026-04-19 FP_WORDS = 256 (supersede the 160 plan)
+**Status:** Open
+**Priority:** P1
+**Scope:** @container-architect @truth-architect ndarray domain:vsa domain:codec
+
+The prior entry conflated **two distinct substrates** and used
+"10,000-D binary VSA" framing that must be eliminated from the workspace.
+
+### Two substrates (never collapse them again)
+
+1. **Hamming binary fingerprint** — `Container<[u64; 256]>` = 16,384
+   BITS = **2 KB**. For popcount-Hamming queries. **Not VSA.** FP_WORDS
+   going from 157 → 256 applies here.
+
+2. **VSA superposition substrate** — 16,384 DIMENSIONS × float.
+   For bind / bundle / permute / unbind. **Never binary.**
+
+   | Encoding | Bytes / fingerprint | LanceDB column |
+   |---|---|---|
+   | `Vsa16kF32` (lossless baseline) | **64 KB** | `FixedSizeList<Float32, 16384>` |
+   | `Vsa16kBF16` | **32 KB** | `FixedSizeList<BFloat16, 16384>` |
+   | `Vsa16k` u8 × 5-lane | **80 KB** | struct of 5 × `FixedSizeList<UInt8, 16384>` |
+   | `Vsa16k` BF16 × 5-lane | **160 KB** | struct of 5 × `FixedSizeList<BFloat16, 16384>` |
+
+   Current `Vsa10kF32` = 10,000 × f32 = 40 KB is the legacy narrower
+   size. Move to 16,384-D.
+
+### Governance: ban "10,000 binary" framing
+
+**There shall be zero occurrences of "10,000-D binary VSA" / "10,000-bit
+VSA" in any `.claude/*`, knowledge doc, skill doc, or board file.**
+Those phrases collapse two distinct objects. When writing about:
+
+- Binary fingerprint: say "16,384-bit Hamming fingerprint" / "2 KB
+  Container" — never "VSA".
+- VSA substrate: say "16,384-D float VSA (64 KB lossless / 80 KB u8-5-lane
+  / 160 KB BF16-5-lane)" — never "binary", never "10k".
+
+### Tasks (follow-up PR, not this one)
+
+1. Rename `CrystalFingerprint::Vsa10kF32` → `Vsa16kF32` and
+   `Vsa10kI8` → `Vsa16kI8` in `lance-graph-contract::crystal`.
+2. Re-address role-key slices from [0..10000) → [0..16384) in
+   `lance-graph-contract::grammar::role_keys`. Maintain disjoint
+   slices; scale each segment proportionally (e.g., SUBJECT 2000 → 3200).
+3. Update storage contracts to `FixedSizeList<Float32, 16384>` and
+   the 5-lane struct variant. LanceDB needs no patching — both are
+   native.
+4. Sweep 21 lance-graph + 7 ndarray files for "10,000" / "Vsa10k*"
+   / "10 000-D" / "10K VSA" → rename or reclassify. Exclude
+   legitimate uses (query limits, sample counts, dollar amounts,
+   speedup ratios, scale factors).
+
+**Supersedes:** 2026-04-19 IDEAS entry "FP_WORDS = 256 (supersede the
+160 plan)" — that entry was correct for the binary Hamming substrate
+but mislabeled the VSA as "16,384 bits". The VSA dimension is 16,384
+FLOAT, not bits.
