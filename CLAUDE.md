@@ -6,6 +6,21 @@
 
 ---
 
+## Model Policy (P0 — never violate)
+
+- **Main thread:** `claude-opus-4-7[1m]` (or current Opus) with deep
+  thinking. Synthesis, architecture, review, decisions.
+- **Subagent drafting / search / file ops:** `sonnet` minimum. Pass
+  `model: "sonnet"` explicitly when spawning `Agent` tools for
+  mechanical work.
+- **NEVER `haiku` for subagents in this workspace.** Quality floor is
+  Sonnet regardless of task simplicity.
+- **Writing cheap, thinking deep:** delegate draft-from-spec, grep,
+  file survey work to Sonnet-backed subagents; keep the main thread
+  on Opus + `effortLevel: high` (`.claude/settings.local.json`).
+
+---
+
 ## What This Is
 
 Graph query engine AND cognitive codec stack for the Ada architecture. lance-graph is no longer
