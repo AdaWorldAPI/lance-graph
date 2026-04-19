@@ -36,6 +36,34 @@ covering the A2A two-layer model, governance rules, and how this
 workspace's conventions diverge from official Claude Code docs.
 Read once to grok; then stop re-deriving across sessions.
 
+### Prior art — reference before writing new docs
+
+This workspace accumulated substantial curated content across
+prior sessions. Before drafting a new `.claude/*.md` or proposing
+a new architectural direction, grep these:
+
+- **`.claude/prompts/`** (41 files) — scoped session / probe /
+  handover / research prompts. See `SCOPED_PROMPTS.md` as index.
+- **`.claude/plans/`** + **`.claude/knowledge/INTEGRATION_PLANS.md`**
+  — versioned integration plans (APPEND-ONLY index; prior versions
+  retained with Status annotation).
+- **`.claude/*.md`** (61 top-level docs) — calibration reports,
+  session handovers, epiphanies, integration-plan snapshots,
+  audits, inventory maps, invariant matrices. Examples:
+  `SESSION_CAPSTONE.md`, `INTEGRATIONSPLAN_2026_04_01.md`,
+  `INTEGRATION_SESSIONS.md`, `INVENTORY_MAP.md`,
+  `HANDOVER_NEXT_SESSION.md`, `KNOWLEDGE_SYNC_SIGNED_SESSION.md`.
+- **`.claude/knowledge/*.md`** (newer, structured) — with
+  `READ BY:` headers + Knowledge Activation triggers.
+- **`.claude/agents/*.md`** (19 specialists + 5 meta-agents) — see
+  `README.md` for function inventory, `BOOT.md` for orchestration.
+- **`.claude/hooks/*.sh`** — SessionStart + PostCompact context
+  injectors.
+- **`.claude/skills/cca2a/`** — the pattern explanation skill.
+
+**Rule:** grep the existing ~100 files before writing a new one.
+Most architectural concerns have prior art in this workspace.
+
 ---
 
 ## Agent-to-Agent (A2A) Orchestration — Two Layers

@@ -100,6 +100,40 @@ is a 5–10× cost reduction on every session start.
 
 ---
 
+## Existing content — don't duplicate, link
+
+This workspace already has substantial curated content. New work
+should reference these, not recreate them:
+
+- **`.claude/prompts/`** — 41 scoped prompts (sessions,
+  certifications, probes, handovers, research surfaces). Each is a
+  self-contained task brief. See `.claude/prompts/SCOPED_PROMPTS.md`
+  as the natural index.
+- **`.claude/plans/`** — versioned integration plans. Index at
+  `.claude/knowledge/INTEGRATION_PLANS.md` (APPEND-ONLY — new
+  versions prepend; prior plans stay with Status annotation).
+  Active: `.claude/plans/elegant-herding-rocket-v1.md`.
+- **`.claude/*.md`** (top-level, 61 docs) — calibration reports,
+  handover logs, epiphanies compressed, integration-plan snapshots,
+  cross-repo audits, invariant matrices. Browse before writing new
+  reference docs. Examples: `EPIPHANIES_COMPRESSED.md` in prompts/,
+  `SESSION_CAPSTONE.md`, `INTEGRATIONSPLAN_2026_04_01.md`,
+  `INTEGRATION_SESSIONS.md`, `INVENTORY_MAP.md`.
+- **`.claude/knowledge/*.md`** (newer, structured) — the knowledge
+  base proper with `READ BY:` headers + Knowledge Activation
+  triggers. See `.claude/agents/BOOT.md` § Knowledge Activation for
+  the trigger table.
+- **`.claude/agents/*.md`** (19 specialists + 5 meta-agents) —
+  ensemble cards. See `.claude/agents/README.md` for the function
+  inventory or `BOOT.md` (sibling) for the orchestration spec.
+- **`.claude/hooks/*.sh`** — SessionStart and PostCompact hooks
+  wired via `.claude/settings.json`.
+- **`.claude/skills/cca2a/`** — the A2A pattern explanation skill.
+
+Before creating a new `.claude/*.md` file, grep the existing 61
+docs and 41 prompts for the topic. Most architectural concerns have
+prior art.
+
 ## Fallback — CLAUDE.md is the source of truth for everything else
 
 If this file doesn't answer your question, CLAUDE.md does. Tables
