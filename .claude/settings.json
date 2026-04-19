@@ -2,8 +2,14 @@
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "ask": [
-      "Edit(.claude/knowledge/PR_ARC_INVENTORY.md)",
-      "Edit(.claude/knowledge/LATEST_STATE.md)"
+      "Write(.claude/knowledge/PR_ARC_INVENTORY.md)",
+      "Write(.claude/knowledge/LATEST_STATE.md)",
+      "Write(.claude/knowledge/STATUS_BOARD.md)",
+      "Write(.claude/knowledge/INTEGRATION_PLANS.md)",
+      "Write(.claude/knowledge/EPIPHANIES.md)",
+      "Write(.claude/knowledge/ISSUES.md)",
+      "Write(.claude/knowledge/IDEAS.md)",
+      "Write(.claude/knowledge/TECH_DEBT.md)"
     ],
     "deny": [
       "Bash(git push --force:*)",

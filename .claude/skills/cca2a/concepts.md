@@ -58,27 +58,56 @@ scales. Don't entangle them.
 
 ## Governance Rules
 
-### Append-only history (four bookkeeping files, unified rule)
+### Append-only history (eight bookkeeping files, unified rule)
 
-The workspace carries four bookkeeping files. Rows / entries inside
-them are immutable historical record; specific fields per file are
-mutable state. Never delete a row. Supersedure is a new row that
-cites the old; the old row's Status updates to "Superseded by
-<new>".
+The workspace carries eight bookkeeping files. Rows / entries
+inside them are immutable historical record; specific fields per
+file are mutable state. Never delete a row. Supersedure is a new
+row that cites the old; the old row's Status updates to
+"Superseded by <new>".
 
-| File | Immutable (rows) | Mutable (state fields) |
-|---|---|---|
-| `PR_ARC_INVENTORY.md` | PR rows (Added / Locked / Deferred / Docs) | Confidence line per entry; Corrections APPEND as dated lines |
-| `LATEST_STATE.md` | Recently-shipped PR table | Current Inventory / Active Branches / Queued / Deferred snapshots (updated by replacement) |
-| `STATUS_BOARD.md` | Deliverable rows (D-id / title / plan-version / scope) | Status column + PR / Evidence column per row |
-| `INTEGRATION_PLANS.md` | Plan entries (scope / path / deliverables) | Status + Confidence lines per entry |
+| File | Role | Immutable (rows) | Mutable (state fields) |
+|---|---|---|---|
+| `PR_ARC_INVENTORY.md` | Per-PR decision arc | PR rows (Added / Locked / Deferred / Docs) | Confidence + Corrections APPEND |
+| `LATEST_STATE.md` | Current-state snapshot | Recently-shipped PR table | Snapshot sections updated by replacement |
+| `STATUS_BOARD.md` | Deliverable-level dashboard | Rows (D-id / title / plan / scope) | Status, PR/Evidence per row |
+| `INTEGRATION_PLANS.md` | Versioned plan index | Entries (scope / path / deliverables) | Status + Confidence per entry |
+| `EPIPHANIES.md` | Dated insight log | Entry bodies | Status line (FINDING/CONJECTURE/SUPERSEDED) |
+| `ISSUES.md` | Open + Resolved bugs | Entry bodies | Status + Resolution line (append on close) |
+| `IDEAS.md` | Open + Implemented + Rejected speculation | Entry bodies | Status + Rationale line (append) |
+| `TECH_DEBT.md` | Open + Paid debt | Entry bodies | Status + Payoff line (append) |
 
-Governance enforcement: `.claude/settings.json::permissions.ask` on
-Edit of `PR_ARC_INVENTORY.md` and `LATEST_STATE.md` surfaces any
-edit as an approval prompt. Write for appends stays unprompted.
-`STATUS_BOARD.md` and `INTEGRATION_PLANS.md` are less strict (Edit
-is allowed without prompt since their Status fields move often) but
-the same immutable-rows discipline applies by convention.
+**Method hierarchy (preferred → discouraged):**
+
+1. **APPEND** (the method of choice) — add a NEW dated row. Either
+   Edit-to-prepend inside a bounded section, or `Bash cat >>
+   file << EOF`. No prompt. Old rows stay untouched. This is the
+   double-bookkeeping pattern: new state = new row, not mutation.
+2. **Edit field with prior Read** — flip a mutable field
+   (Status / Confidence / Resolution / Payoff) on an existing row
+   after reading the file. No prompt. Use for clarifications and
+   status transitions on already-captured entries.
+3. **Write (full overwrite)** — prompts via
+   `.claude/settings.json::permissions.ask`. Discouraged; only for
+   wholesale replacement after explicit review.
+
+**Rule:** when in doubt, APPEND. Double-bookkeeping keeps the
+arc intact and makes the audit trail legible. Edit-a-field is the
+lighter touch for clear status transitions. Write is the escape
+hatch that costs a confirmation because it can destroy history.
+
+**Kanban discipline** — three files track work items that must
+not get buried: `ISSUES.md`, `IDEAS.md`, `TECH_DEBT.md`. Every
+entry carries:
+
+- **Priority** — P0 blocker / P1 high / P2 medium / P3 low.
+- **Scope** — `@<agent-name>`, `D<N>` (plan D-id),
+  `domain:<grammar|codec|arigraph|infra|...>`.
+
+Agents filter by their own `@`-mention or their domain. Status
+moves through Open → In Progress → Resolved / Implemented / Paid.
+Nothing falls through the cracks because every ticket has an owner
+named by `@`.
 
 Core invariant: **the arc is the record; rewriting it destroys the
 "why was this decided that way" context that prevents future

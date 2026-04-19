@@ -43,12 +43,33 @@ version matters — typically mid-session, not at cold start):
 
 ## The Governance Rules (never violate)
 
-1. **Append-only on bookkeeping files.** Four files carry the
+1. **Append-only on bookkeeping files.** Eight files carry the
    workspace's historical record; rows / sections inside them are
    immutable, with a short list of mutable fields per file.
-   `permissions.ask` in `.claude/settings.json` surfaces Edit
-   attempts on the two strictest files as approval prompts; Write
-   for append stays unprompted.
+
+   **Method hierarchy (preferred → discouraged):**
+
+   1. **APPEND** (the method of choice) — add a NEW dated row to
+      an existing section. Either via Edit (prepend inside a `---`
+      bounded section) or Bash `cat >> file << EOF`. No prompt.
+      The old row stays untouched. This is the double-bookkeeping
+      pattern — new state enters as a new entry, not by mutating
+      the old.
+   2. **Edit field with prior Read** — flip a mutable field
+      (Status / Confidence / Resolution / Payoff) on an existing
+      row after reading the file. No prompt. Use for clarifications,
+      status transitions, and minor updates. Prior Read is the
+      workspace discipline (already in `CLAUDE.md`).
+   3. **Write (full overwrite)** — prompts for approval on every
+      bookkeeping file via `.claude/settings.json::permissions.ask`.
+      Discouraged; only for wholesale replacement of a file that's
+      been through explicit review. Never the default answer.
+
+   Rule: **when in doubt, append**. The double-bookkeeping habit
+   (new row rather than edited old row) preserves the full arc and
+   keeps the audit trail legible. Edit-a-field is acceptable when
+   the change is clearly a status transition on an existing entry;
+   Write is the escape hatch that costs a confirmation.
 
    | File | Immutable | Mutable fields |
    |---|---|---|
@@ -56,10 +77,22 @@ version matters — typically mid-session, not at cold start):
    | `LATEST_STATE.md` | Recently-shipped PR table rows | Snapshot sections (Current Inventory / Active Branches / Queued / Deferred) are updated by replacement, not history |
    | `STATUS_BOARD.md` | Deliverable rows (D-id / title / plan-version / scope) | Status column, PR / Evidence column per row |
    | `INTEGRATION_PLANS.md` | Plan entries (scope / path / deliverables) | Status and Confidence lines per entry |
+   | `EPIPHANIES.md` | Dated entry bodies | Status line (FINDING / CONJECTURE / SUPERSEDED) |
+   | `ISSUES.md` | Dated entry bodies | Status line (Open / Resolved / Wontfix / Superseded) + Resolution line (append on close) |
+   | `IDEAS.md` | Dated entry bodies | Status line (Open / Implemented / Rejected / Deferred / Reactivated) + Rationale (append) |
+   | `TECH_DEBT.md` | Dated entry bodies | Status line (Open / Paid / Moot) + Payoff line (append) + Priority / Scope (filled at creation, stable) |
 
    Core invariant: **rows are history; specific fields are state;
    never delete a row.** Supersedure is a new row that cites the
    old; the old row's Status updates to "Superseded by <new>".
+
+   **Kanban discipline** — every entry in `ISSUES.md`, `IDEAS.md`,
+   `TECH_DEBT.md` carries `**Priority:**` (P0-P3) and
+   `**Scope:**` (@agent D<N> domain:<tag>) fields. Agents filter
+   the board by their own `@`-mention or domain. Status moves
+   through Open → In Progress → Resolved/Implemented/Paid. Nothing
+   falls through the cracks because every ticket has an owner
+   mentioned by `@`.
 2. **Model policy.** Main thread on Opus with deep thinking.
    Subagents: Sonnet for grindwork (single-source mechanical),
    Opus for accumulation (multi-source synthesis). **Never Haiku**,
