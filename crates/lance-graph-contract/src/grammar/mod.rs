@@ -20,6 +20,7 @@ pub mod wechsel;
 pub mod finnish;
 pub mod inference;
 pub mod context_chain;
+pub mod role_keys;
 
 pub use ticket::{FailureTicket, PartialParse, CausalAmbiguity};
 pub use tekamolo::{TekamoloSlots, TekamoloSlot};
@@ -27,6 +28,7 @@ pub use wechsel::{WechselAmbiguity, WechselRole};
 pub use finnish::{FinnishCase, finnish_case_for_suffix};
 pub use inference::{NarsInference, inference_to_style_cluster};
 pub use context_chain::{ContextChain, ReplayRequest};
+pub use role_keys::*;
 
 /// Coverage of a local parse — if below [`LOCAL_COVERAGE_THRESHOLD`],
 /// the ticket is emitted for LLM fallback.
