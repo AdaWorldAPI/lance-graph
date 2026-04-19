@@ -352,3 +352,37 @@ principle waiting to be learned.
 
 Downgrading both prior entries to SUPERSEDED to keep the FINDING log
 clean for actual findings.
+
+## 2026-04-19 — Fractal leaf probe NEGATIVE: w_mfs is per-tensor, not per-row
+**Status:** FINDING (valid negative)
+**Scope:** @cascade-architect @container-architect domain:codec domain:fractal
+
+Probe ran on Qwen3-8B (safetensors BF16, shard 1, layer 0):
+
+| Tensor | Rows probed | w_mfs mean | w_mfs CoV | H mean | Verdict |
+|---|---|---|---|---|---|
+| gate_proj | 100 of 12288 | 0.504 | **0.190** | 0.519 | ✗ flat |
+| k_proj | 100 of 1024 | 0.506 | **0.197** | 0.514 | ✗ flat |
+
+Gate was CoV(w_mfs) > 0.3. Both tensors at ~0.19 — below threshold.
+
+**Interpretation:** after Hadamard rotation, Qwen3 weight rows are
+near-white-noise (H ≈ 0.5). All rows share the same multifractal
+shape; the discriminating signal is amplitude (σ) and sign pattern,
+not fractal structure. Fractal descriptor per-row reduces to σ_energy
+alone = 2 bytes BF16, already captured by TurboQuant's log-magnitude.
+
+**Consequence:** 7-byte FractalDescriptor per-row doesn't crack the
+argmax wall. TurboQuant/PolarQuant (per-coordinate sign + log-mag)
+remains the correct argmax-regime codec. The `compute_mfdfa_descriptor`
+module (PR #216) stays useful as an analysis tool and per-TENSOR
+characterisation metric — but not as a per-row compression codec.
+
+**Roadmap update:** Steps 3-6 from fractal-codec-argmax-regime.md
+are gated-out by this negative. Step 2 (the module) is shipped and
+valid. The FractalDescriptor leaf concept retires as a per-row codec
+candidate; the 7-byte budget goes back to I8-Hadamard or PolarQuant.
+
+Cross-ref: `.claude/knowledge/fractal-codec-argmax-regime.md`
+§ Honest Uncertainty (predicted this outcome). PR #216 (module +
+probe shipped).
