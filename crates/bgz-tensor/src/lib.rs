@@ -88,6 +88,10 @@ pub mod stacked_n;
 pub mod turboquant_kv;
 pub mod variance;
 pub mod xor_adaptive;
+
+/// Lab / R&D modules — analysis tools, NOT production codecs.
+/// Gated behind `lab` feature so main builds don't link them.
+#[cfg(feature = "lab")]
 pub mod fractal_descriptor;
 
 #[cfg(feature = "hydrate")]

@@ -443,3 +443,105 @@ existing contract from PR #206". Replace "move to contract" in
 fabric/world/container_bs bullets → "check if PR #206 contract already
 covers it; if yes, delete the import; if no, extend contract via Pumpkin
 framing".
+
+## 2026-04-19 — Fractal round-trip codec: phase+magnitude preservation
+**Status:** Open (research)
+**Priority:** P3
+**Scope:** @cascade-architect domain:codec domain:fractal
+
+Follow-on to the fractal-leaf CORRECTION (EPIPHANIES 2026-04-19).
+The unsolved codec problem:
+
+**Encode both phase and magnitude in fractal form so that decode is
+a usable round-trip (not just a statistical twin).**
+
+Pure fractal parameters (D, w, H, σ) reconstruct a *statistical twin* —
+same shape, different bits. That's argmax-usable for random queries
+(Meyer cardiac-FD analogy), but loses exact inner products. Two rows
+with same (D, w, H) produce indistinguishable argmax rankings, which
+is a feature for compression but means per-row identity is gone.
+
+Round-trip requires pinning enough reference points that fractal
+interpolation fills between them faithfully. Candidate recipe:
+
+1. Hadamard-rotate row → coefficients c[0..n).
+2. Sample at 17 golden-step positions → Base17 anchors (34 bytes).
+3. Compute fractal params of the full sequence → Descriptor (7 bytes).
+4. Decode: generate fractal interpolation that matches (D, w, H) AND
+   passes through the Base17 anchor points with correct signs +
+   magnitudes. Fractal-interpolation-between-samples.
+5. Inverse Hadamard → reconstructed row.
+
+This binds the existing workspace primitives (Base17 golden-step,
+Stacked samples, fractal descriptor) into a single round-trip codec
+where:
+- Base17 carries the PHASE ANCHORS (sign + coarse magnitude at 17
+  golden positions).
+- FractalDescriptor carries the SHAPE (D, w, σ, H) for interpolation.
+- Combined: 34 + 7 = 41 bytes/row, self-similar reconstruction between
+  anchors, exact at anchors.
+
+Open research questions:
+- Does fractal interpolation actually converge to something close to
+  the original between anchor points? Iterated Function System theory
+  says yes for self-similar sequences; empirical for Qwen3 unknown.
+- Phase half (sign-sequence fractal) still needs its own probe.
+- How to parameterize the sign flips between anchors without storing
+  them bit-by-bit? Barnsley fern-style IFS over sign space?
+
+All gated behind `lab` feature until the round-trip math works.
+Not a production codec priority until the two unmeasured probes
+(sign-sequence fractal CoV, fractal-interp-between-samples fidelity)
+return positive.
+
+Cross-ref: fractal-codec-argmax-regime.md, EPIPHANIES 2026-04-19
+CORRECTION, PR #216 magnitude-only half.
+
+## 2026-04-19 — Fractal codec validation path: use codec_rnd_bench + ICC_3_1
+**Status:** Open (operational)
+**Priority:** P2
+**Scope:** @cascade-architect domain:codec domain:psychometry
+
+Existing infrastructure (no new tooling needed):
+
+**`crates/bgz-tensor/src/quality.rs`** (shipped):
+- `spearman` · `pearson` · `kendall_tau` · `icc_3_1` · `cronbach_alpha`
+- `mae` · `rmse` · `top_k_recall` · `bias_variance`
+
+**`crates/thinking-engine/examples/codec_rnd_bench.rs`** (shipped):
+- Loads 128 rows from safetensors
+- Computes ground-truth pairwise cosines
+- Runs each registered codec through the 10-metric suite
+- Outputs markdown table (see `bench_qwen3_tts_62codecs.md` / `bench_gemma4_e2b_62codecs.md`)
+
+**Correct fractal validation** (replaces the hand-rolled CoV probe):
+
+1. Implement `FractalCodec::decode(anchors: Base17, desc: FractalDescriptor) -> Vec<f32>`
+   - Fractal interpolation between 17 golden-step anchor points
+   - Shape constrained by (D_mag, w, H_mag, D_phase, σ)
+   - IFS / wavelet-interp / similar — this is the "genius" piece
+2. Register as `FractalCodec(41 B)` candidate in codec_rnd_bench.rs
+3. Run:
+   ```
+   cargo run --release --features lab \
+     --manifest-path crates/thinking-engine/Cargo.toml \
+     --example codec_rnd_bench -- /path/to/Qwen3-8B/shard.safetensors
+   ```
+
+Output: markdown row with ICC_3_1 + Cronbach's α + Spearman ρ + Pearson r
++ top-5 recall vs ground truth. Direct comparison against the existing
+67-codec sweep (I8-Hadamard leader at 9 B, adaptive codec, etc.).
+
+**Gates:**
+- ICC_3_1 ≥ 0.95 on k_proj @ 41 B/row → fractal codec beats I8-Hadamard on
+  argmax-rank reliability (real argmax-wall crack, measurable).
+- ICC ∈ [0.85, 0.95] → useful hybrid layer, not standalone winner.
+- ICC < 0.85 → fractal codec inferior; the unpublished negative.
+
+All gated behind `lab` feature. Bench-only, never main. Endpoint already
+has ICC / Cronbach / Spearman — no new dependencies. The only missing
+code is the decode function.
+
+Cross-ref: EPIPHANIES 2026-04-19 fractal-leaf CORRECTION.
+`crates/bgz-tensor/src/quality.rs` lines 47/279/362. `codec_rnd_bench.rs`
+for the bench structure + existing codec registration pattern.
