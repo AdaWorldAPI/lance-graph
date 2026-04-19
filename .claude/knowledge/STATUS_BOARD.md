@@ -145,8 +145,8 @@ history):
 
 | Bucket | Count | Status | Notes |
 |---|---|---|---|
-| `.claude/*.md` top-level calibration reports / handovers / audits / snapshots | 61 | **Indexed** | Pointed at from BOOT.md + CLAUDE.md. Per-file active/superseded status: **Backlog** (needs one-pass audit). |
-| `.claude/prompts/*.md` scoped session / probe / handover prompts | 41 | **Indexed** | Pointed at from BOOT.md via `SCOPED_PROMPTS.md` index. Per-file status: **Backlog**. |
+| `.claude/*.md` top-level calibration reports / handovers / audits / snapshots | 61 | **Audited** | PR #211 baseline; per-file vicinity classification in `ARCHIVE_INDEX.md`. |
+| `.claude/prompts/*.md` scoped session / probe / handover prompts (incl. 12 in `fisher-z-wiring/`) | 41 (52 w/ subdir) | **Audited** | PR #211 baseline; per-file vicinity classification in `ARCHIVE_INDEX.md`. |
 | `.claude/knowledge/*.md` structured knowledge | 12 | **Active** | Current; each has `READ BY:` header; used by Knowledge Activation triggers. |
 | `.claude/agents/*.md` specialist + meta-agent cards | 24 | **Active** | Current; used by spawning + Knowledge Activation. |
 | `.claude/hooks/*.sh` | 2 | **Active** | Wired via settings.json. |
