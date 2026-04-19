@@ -8,19 +8,42 @@
 
 ## Model Policy (P0 — never violate)
 
+**The split that matters: grindwork vs accumulation.**
+
+- **Grindwork** (single-task mechanical): write-this-file-from-spec,
+  grep-this-pattern, list-these-paths, run-these-tests, draft-this-
+  section — **Sonnet**. Bounded input, known output shape, no
+  synthesis across sources.
+- **Accumulation** (multi-source synthesis): harvest-across-repos,
+  combine-N-docs-into-insights, trace-architecture-across-files,
+  cross-reference and integrate, judgment calls that depend on
+  seeing several inputs at once — **Opus**. Cheaper tiers produce
+  shallow outputs when asked to accumulate; quality drop is visible
+  and costly.
+
+**By subagent type:**
 - **Main thread:** `claude-opus-4-7[1m]` (or current Opus) with deep
-  thinking. Synthesis, architecture, review, decisions.
-- **`Plan` / code-review / architecture subagents:** Opus. The model
-  must match the judgment the agent is making.
-- **`general-purpose` drafting / file-writing subagents:** Sonnet.
-  Pass `model: "sonnet"` explicitly when spawning.
-- **`Explore` (read-only search) subagents:** Sonnet. Cheaper tier is
-  fine here — the work is pattern matching, not reasoning.
+  thinking. Synthesis, architecture, review, decisions — all
+  accumulation.
+- **`Plan` subagent:** Opus. Planning is accumulation by definition.
+- **Code-review subagent:** Opus. Review is multi-file judgment.
+- **`general-purpose` subagent:** depends on task. Pure grindwork →
+  Sonnet. Anything accumulating → Opus. When in doubt: Opus.
+- **`Explore` subagent:** Sonnet default. Search is pattern matching.
+  If the explore requires synthesis across many files (mapping an
+  architecture), escalate to Opus.
 - **NEVER `haiku` for any subagent in this workspace.** Quality floor
   is Sonnet regardless of task simplicity.
-- **Writing cheap, thinking deep:** delegate draft-from-spec, grep,
-  file survey work to Sonnet-backed subagents; keep the main thread
-  on Opus + `effortLevel: high` (`.claude/settings.local.json`).
+
+**Concrete test before spawning a subagent:**
+> "Does this agent have to read N sources and produce something that
+> only makes sense when those sources are held in mind together?"
+>
+> **Yes → Opus.** No (one source in, one shape out) → Sonnet.
+
+**Settings baseline** (`.claude/settings.local.json`, gitignored):
+`alwaysThinkingEnabled: true`, `effortLevel: high`,
+`fastModePerSessionOptIn: true`. Main thread stays at full depth.
 
 ---
 
