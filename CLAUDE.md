@@ -8,7 +8,7 @@
 
 ## Session Start — MANDATORY READS (in this order)
 
-A new session on this workspace MUST load these two files before
+A new session on this workspace MUST load these three files before
 proposing anything, to avoid the 30-turn rediscovery tax:
 
 1. **`.claude/knowledge/LATEST_STATE.md`** — current contract
@@ -19,10 +19,16 @@ proposing anything, to avoid the 30-turn rediscovery tax:
    Confidence annotation. **APPEND-ONLY** — old entries are immutable
    historical record; only the Confidence line is updatable. Adding
    a new PR prepends; rewriting history is gated via permission.
+3. **`.claude/agents/README.md`** — the agent ensemble meta-card.
+   Lists 19 specialist agents + 5 meta-agents (`workspace-primer`,
+   `integration-lead`, `adk-coordinator`, `adk-behavior-monitor`,
+   `truth-architect`), the Knowledge Activation trigger table
+   (what subagent + what docs load for which domain), and the
+   Handover Protocol spec. **This is the A2A orchestration
+   specification for this workspace** — see Layer 2 below.
 
-After those two, load domain-specific knowledge docs (see
-`.claude/knowledge/*.md` index below) only as triggered by the
-user's request.
+After these three, load domain-specific knowledge docs only as
+triggered by the user's request.
 
 ---
 
