@@ -26,15 +26,40 @@ Read these in order before proposing anything:
 These three files give you ~90 % of the context you need to avoid
 re-proposing what's shipped or violating a locked convention.
 
+Two companion dashboards (consult when deliverable status or plan
+version matters — typically mid-session, not at cold start):
+
+- **`.claude/knowledge/STATUS_BOARD.md`** — deliverable-level
+  dashboard. All D-ids across every active plan with Status
+  (Shipped / In PR / In progress / Queued / Backlog / Deferred /
+  Abandoned). Plus infrastructure status, research threads, and
+  the 102-file prior-art audit.
+- **`.claude/knowledge/INTEGRATION_PLANS.md`** — versioned plan
+  index, APPEND-ONLY. New plan versions prepend; prior versions
+  stay with Status annotation. Active plan lives at
+  `.claude/plans/<name>-v<N>.md`.
+
 ---
 
 ## The Governance Rules (never violate)
 
-1. **Append-only architectural history.** `PR_ARC_INVENTORY.md` and
-   `LATEST_STATE.md` are governed by the append-only rule — Edit
-   prompts for explicit approval, Write for appends is allowed.
-   Old PR entries are immutable historical record; only the
-   Confidence line per entry is updatable.
+1. **Append-only on bookkeeping files.** Four files carry the
+   workspace's historical record; rows / sections inside them are
+   immutable, with a short list of mutable fields per file.
+   `permissions.ask` in `.claude/settings.json` surfaces Edit
+   attempts on the two strictest files as approval prompts; Write
+   for append stays unprompted.
+
+   | File | Immutable | Mutable fields |
+   |---|---|---|
+   | `PR_ARC_INVENTORY.md` | PR rows (Added / Locked / Deferred / Docs) | Confidence line per entry. Corrections APPEND as dated lines. |
+   | `LATEST_STATE.md` | Recently-shipped PR table rows | Snapshot sections (Current Inventory / Active Branches / Queued / Deferred) are updated by replacement, not history |
+   | `STATUS_BOARD.md` | Deliverable rows (D-id / title / plan-version / scope) | Status column, PR / Evidence column per row |
+   | `INTEGRATION_PLANS.md` | Plan entries (scope / path / deliverables) | Status and Confidence lines per entry |
+
+   Core invariant: **rows are history; specific fields are state;
+   never delete a row.** Supersedure is a new row that cites the
+   old; the old row's Status updates to "Superseded by <new>".
 2. **Model policy.** Main thread on Opus with deep thinking.
    Subagents: Sonnet for grindwork (single-source mechanical),
    Opus for accumulation (multi-source synthesis). **Never Haiku**,

@@ -17,14 +17,39 @@ grok it once instead of the user re-deriving it for 30 turns.
 
 **Canonical files** (read these, not template copies):
 
-- `.claude/BOOT.md` — session entry point.
+**Entry points:**
+- `.claude/BOOT.md` — session entry point (one page).
+- `CLAUDE.md` — workspace spec, links to all of the below.
+
+**Four bookkeeping files (rows are history; specific fields are
+state; never delete a row):**
 - `.claude/knowledge/LATEST_STATE.md` — current contract inventory.
-- `.claude/knowledge/PR_ARC_INVENTORY.md` — APPEND-ONLY decision arc.
-- `.claude/agents/BOOT.md` — agent ensemble + Knowledge Activation +
-  Handover Protocol.
+  Mutable: Current Inventory / Active Branches / Queued / Deferred
+  snapshots.
+- `.claude/knowledge/PR_ARC_INVENTORY.md` — APPEND-ONLY per-PR arc.
+  Mutable: Confidence line per entry; corrections APPEND as dated
+  lines.
+- `.claude/knowledge/STATUS_BOARD.md` — deliverable-level dashboard
+  across all plans. Mutable: Status + PR / Evidence columns per row.
+- `.claude/knowledge/INTEGRATION_PLANS.md` — APPEND-ONLY versioned
+  plan index. Mutable: Status + Confidence per entry.
+
+**Agent ensemble + orchestration:**
+- `.claude/agents/BOOT.md` — orchestration spec + Knowledge
+  Activation + Handover Protocol.
 - `.claude/agents/README.md` — function inventory of all agents.
-- `.claude/settings.json` — team-shared governance permissions.
-- `CLAUDE.md` — workspace spec, links to all of the above.
+
+**Governance + hooks:**
+- `.claude/settings.json` — team-shared governance (ask-on-Edit for
+  the two strictest bookkeeping files, deny on destructive ops,
+  SessionStart + PostCompact hooks).
+- `.claude/hooks/session-start.sh` / `post-compact.sh` — inject
+  bootload context at turn 0 / after compaction.
+
+**Active plans:**
+- `.claude/plans/<name>-v<N>.md` — indexed via
+  `INTEGRATION_PLANS.md`. Old versions stay with Status annotation;
+  new versions prepend.
 
 ## What to read when
 

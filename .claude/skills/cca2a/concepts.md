@@ -58,17 +58,31 @@ scales. Don't entangle them.
 
 ## Governance Rules
 
-### Append-only history
+### Append-only history (four bookkeeping files, unified rule)
 
-`PR_ARC_INVENTORY.md` and `LATEST_STATE.md` are immutable historical
-record except for one mutable field per entry: `Confidence`.
-Corrections append as `**Correction (YYYY-MM-DD from PR #N):**`
-lines. Reversals get their own new PR entry; both remain in the arc.
+The workspace carries four bookkeeping files. Rows / entries inside
+them are immutable historical record; specific fields per file are
+mutable state. Never delete a row. Supersedure is a new row that
+cites the old; the old row's Status updates to "Superseded by
+<new>".
 
-Enforced via `.claude/settings.json::permissions.ask` on
-`Edit(.claude/knowledge/PR_ARC_INVENTORY.md)` and
-`Edit(.claude/knowledge/LATEST_STATE.md)` — surfaces as approval
-prompt. Write for appends stays unprompted.
+| File | Immutable (rows) | Mutable (state fields) |
+|---|---|---|
+| `PR_ARC_INVENTORY.md` | PR rows (Added / Locked / Deferred / Docs) | Confidence line per entry; Corrections APPEND as dated lines |
+| `LATEST_STATE.md` | Recently-shipped PR table | Current Inventory / Active Branches / Queued / Deferred snapshots (updated by replacement) |
+| `STATUS_BOARD.md` | Deliverable rows (D-id / title / plan-version / scope) | Status column + PR / Evidence column per row |
+| `INTEGRATION_PLANS.md` | Plan entries (scope / path / deliverables) | Status + Confidence lines per entry |
+
+Governance enforcement: `.claude/settings.json::permissions.ask` on
+Edit of `PR_ARC_INVENTORY.md` and `LATEST_STATE.md` surfaces any
+edit as an approval prompt. Write for appends stays unprompted.
+`STATUS_BOARD.md` and `INTEGRATION_PLANS.md` are less strict (Edit
+is allowed without prompt since their Status fields move often) but
+the same immutable-rows discipline applies by convention.
+
+Core invariant: **the arc is the record; rewriting it destroys the
+"why was this decided that way" context that prevents future
+rediscovery.**
 
 ### Model policy
 

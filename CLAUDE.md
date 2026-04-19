@@ -30,6 +30,17 @@ whether you went through BOOT.md or landed here directly.
 After these three, load domain-specific knowledge docs only as
 triggered by the user's request.
 
+**Companion dashboards (mid-session references, not cold-start
+mandatory):**
+
+- **`.claude/knowledge/STATUS_BOARD.md`** — deliverable-level
+  dashboard. All D-ids across every active plan with Status.
+  Consult when asking "where is D5" or "is this shipped yet."
+- **`.claude/knowledge/INTEGRATION_PLANS.md`** — versioned plan
+  index (APPEND-ONLY). Active plan lives at
+  `.claude/plans/<name>-v<N>.md`. Consult before proposing a new
+  plan.
+
 **If you want the pattern explained rather than the specifics:**
 see **`.claude/skills/cca2a/SKILL.md`** — explanation-only skill
 covering the A2A two-layer model, governance rules, and how this
