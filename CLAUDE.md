@@ -1,8 +1,28 @@
 # CLAUDE.md — lance-graph
 
-> **Updated**: 2026-03-28
+> **Updated**: 2026-04-19 (post PR #210)
 > **Role**: The obligatory spine — query engine, codec stack, semantic transformer, and orchestration contract
 > **Status**: 11 crates, 5 in workspace, 4 excluded (standalone), Phases 1-2 DONE, Phase 3 IN PROGRESS
+
+---
+
+## Session Start — MANDATORY READS (in this order)
+
+A new session on this workspace MUST load these two files before
+proposing anything, to avoid the 30-turn rediscovery tax:
+
+1. **`.claude/knowledge/LATEST_STATE.md`** — current contract
+   inventory, recently shipped PRs, active branches, queued work,
+   explicit deferrals. Prevents re-proposing what already exists.
+2. **`.claude/knowledge/PR_ARC_INVENTORY.md`** — chronological
+   decision history. Each PR's Added / Locked / Deferred / Docs +
+   Confidence annotation. **APPEND-ONLY** — old entries are immutable
+   historical record; only the Confidence line is updatable. Adding
+   a new PR prepends; rewriting history is gated via permission.
+
+After those two, load domain-specific knowledge docs (see
+`.claude/knowledge/*.md` index below) only as triggered by the
+user's request.
 
 ---
 
