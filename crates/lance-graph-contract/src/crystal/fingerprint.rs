@@ -110,9 +110,34 @@ impl Structured5x5 {
     }
 }
 
-/// Sentinel position marking whether quorum metadata is present.
-/// If `vsa[QUORUM_SENTINEL] > 0.0`, quorum at positions 3125..3130 is valid.
-const QUORUM_SENTINEL: usize = 3130;
+// ── 10K-D sandwich layout ──────────────────────────────────────────────
+//
+// The 5^5 structured cells sit in the MIDDLE of the 10K vector with
+// role-binding space on each side. This is the VSA "sandwich" pattern:
+//
+//   [  0..3437]  lead context  — role-A superposition / pre-bind
+//   [3437..6562]  3,125 cells — bipolar-encoded, negatives cancel
+//   [6562..6567]  quorum (5D) — inessive/adessive/etc. consensus
+//   [    6567]    quorum sentinel (>0 = present, ≤0 = None)
+//   [6568..10000] tail context — role-B superposition / post-bind
+//
+// Cells are **bipolar** (u8 cell 0..=255 → signed f32 in [-1, 1]) so
+// they participate in negative-canceling superposition just like any
+// other VSA dim. Opposing cell values at the same sandwich dim cancel
+// when two crystals are bundled.
+//
+// Optional **bit-chain permutation**: cell i's bipolar encoding can be
+// permuted by a position-dependent stride, carrying sequence/ordering
+// information into the VSA space. See [`CrystalFingerprint::bit_chain_stride`].
+
+const SANDWICH_LEAD: usize       = 3437;
+const CELLS_START: usize         = SANDWICH_LEAD;
+const CELLS_END: usize           = CELLS_START + 3125;           // 6562
+const QUORUM_START: usize        = CELLS_END;                    // 6562
+const QUORUM_END: usize          = QUORUM_START + 5;             // 6567
+const QUORUM_SENTINEL: usize     = QUORUM_END;                   // 6567
+const SANDWICH_TAIL_START: usize = QUORUM_SENTINEL + 1;          // 6568
+// SANDWICH_TAIL_END = 10_000 (exclusive)
 
 impl CrystalFingerprint {
     /// Project into the 10,000-D f32 VSA form.
@@ -163,15 +188,22 @@ impl CrystalFingerprint {
                 }
             }
             Self::Structured5x5 { cells, quorum } => {
+                // Sandwich layout: cells in the middle with bipolar sign
+                // encoding (u8 0..=255 → f32 in [-1, 1]). Leading and
+                // trailing sandwich space stays zero for this single-
+                // crystal projection; downstream consumers bind roles
+                // into those regions for multi-role superposition.
                 for i in 0..3125 {
-                    out[i] = cells[i] as f32 / 255.0;
+                    // Bipolar: cell 0 → -1.0, cell 127/128 → ~0, cell 255 → +1.0
+                    out[CELLS_START + i] =
+                        (cells[i] as f32 / 127.5) - 1.0;
                 }
                 if let Some(q) = quorum {
-                    out[3125] = q.element;
-                    out[3126] = q.sentence_position;
-                    out[3127] = q.slot;
-                    out[3128] = q.nars_inference;
-                    out[3129] = q.style_cluster;
+                    out[QUORUM_START + 0] = q.element;
+                    out[QUORUM_START + 1] = q.sentence_position;
+                    out[QUORUM_START + 2] = q.slot;
+                    out[QUORUM_START + 3] = q.nars_inference;
+                    out[QUORUM_START + 4] = q.style_cluster;
                     out[QUORUM_SENTINEL] = 1.0;
                 }
                 // quorum: None → sentinel stays 0.0
@@ -188,22 +220,40 @@ impl CrystalFingerprint {
         out
     }
 
-    /// Reconstruct a Structured5x5 crystal from its 10K-D form.
-    /// Quorum is `None` if the sentinel at dim 3130 is ≤ 0.
+    /// Reconstruct a Structured5x5 crystal from its 10K-D sandwich form.
+    /// Quorum is `None` if the sentinel at dim 6567 is ≤ 0.
     pub fn structured_from_vsa10k(vsa: &[f32; 10_000]) -> Self {
         let mut cells = Box::new([0u8; 3125]);
         for i in 0..3125 {
-            cells[i] = (vsa[i] * 255.0).round().clamp(0.0, 255.0) as u8;
+            // Inverse of bipolar: f32 [-1, 1] → u8 [0, 255]
+            let v = ((vsa[CELLS_START + i] + 1.0) * 127.5).round().clamp(0.0, 255.0) as u8;
+            cells[i] = v;
         }
         let quorum = if vsa[QUORUM_SENTINEL] > 0.0 {
             Some(Quorum5D::new(
-                vsa[3125], vsa[3126], vsa[3127], vsa[3128], vsa[3129],
+                vsa[QUORUM_START + 0], vsa[QUORUM_START + 1],
+                vsa[QUORUM_START + 2], vsa[QUORUM_START + 3],
+                vsa[QUORUM_START + 4],
             ))
         } else {
             None
         };
         Self::Structured5x5 { cells, quorum }
     }
+
+    /// Sandwich range for the leading role-binding region.
+    ///
+    /// See `ndarray::hpc::vsa::vsa_permute` for the canonical bit-chain
+    /// permutation primitive. Downstream crates applying sequence/
+    /// position encoding should permute the leading or trailing sandwich
+    /// regions before bundling crystals.
+    pub const fn sandwich_lead() -> (usize, usize) { (0, SANDWICH_LEAD) }
+
+    /// Sandwich range for the 3,125 cells (middle).
+    pub const fn sandwich_cells() -> (usize, usize) { (CELLS_START, CELLS_END) }
+
+    /// Sandwich range for the trailing role-binding region.
+    pub const fn sandwich_tail() -> (usize, usize) { (SANDWICH_TAIL_START, 10_000) }
 
     /// Reconstruct a Binary16K from its 10K-D form (lossless inverse).
     ///

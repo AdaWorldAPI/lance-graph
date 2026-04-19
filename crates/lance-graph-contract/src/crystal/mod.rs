@@ -1,7 +1,20 @@
-//! Crystal — polymorphic semantic crystallizations.
+//! Crystal — polymorphic semantic crystallizations (shared interface).
 //!
 //! A Crystal is a structured semantic object that accumulates truth (NARS
 //! revision), hardens over time, and supports bundle/unbundle operations.
+//!
+//! ## Relationship to existing crystal/quantum crates
+//!
+//! Implementations live in the siblings: `ladybug-rs`,
+//! `ada-consciousness`, and `bighorn` already ship crystal/quantum
+//! crates. This module is the **contract surface** — the trait and
+//! layout they all implement against. No logic lives here; only shared
+//! types, sandwich-layout constants, and the [`Crystal`] trait.
+//!
+//! Downstream VSA algebra (bind / bundle / permute / similarity) is
+//! the canonical `ndarray::hpc::vsa` module on binary 10K vectors.
+//! Contract-level types ([`CrystalFingerprint`]) carry the storage
+//! format; the consumer crate picks the VSA operator.
 //!
 //! ## Crystal hierarchy
 //!
