@@ -171,3 +171,275 @@ citing the deferred one; flip the deferred entry's Status to
 
 Nothing is lost. Every idea has a trail from speculation to
 disposition.
+
+## 2026-04-19 — FP_WORDS = 256 (supersede the 160 plan)
+**Status:** Open
+**Priority:** P1
+**Scope:** @container-architect @truth-architect ndarray domain:vsa domain:codec
+
+Current: `FP_WORDS = 157`  (10,048 bits, 5-word remainder on AVX-512)
+Planned (H6 harvest): `FP_WORDS = 160`  (10,240 bits, SIMD-clean)
+**Proposed: `FP_WORDS = 256`**  (16,384 bits, cache-line-perfect, matches `Container<[u64; 256]>`)
+
+**Why 256 over 160:**
+
+- LanceDB `FixedSizeList<UInt8, 2048>` = 2 KB per row = 16,384 bits already.
+  Padding 157 → 256 in Container currently wastes 99 u64 per fingerprint (62%).
+- Container primitive is already `[u64; 256]`; unifying `FP_WORDS` with it
+  means zero padding, zero remainder loops at any SIMD level, cache-line
+  alignment guaranteed (2 KB / 64 B = 32 cache lines, every level clean).
+- VSA capacity: Plate's bound rises ~1.6× (bundled-items-per-fingerprint
+  capacity ~1,500 → ~2,400 at error < 1%).
+- No rebake of stored fingerprints needed — Container was already 256 wide.
+
+**Cost:** ~30 LOC in `ndarray::hpc::vsa` constants + test updates;
+docs shift "10k VSA" language → "16k VSA". Plate's capacity math re-tune.
+
+**Supersedes:** TECH_DEBT entry "FP_WORDS = 157 (not 160); SIMD remainder
+loops remain" — the 160 plan was the right direction, 256 is the correct
+destination.
+
+**Cross-ref:** `.claude/knowledge/cross-repo-harvest-2026-04-19.md` H6,
+`.claude/board/TECH_DEBT.md` FP_WORDS entry. Container layout in
+`lance-graph-contract::cam::Container`.
+
+## 2026-04-19 — CORRECTION-OF 2026-04-19 FP_WORDS = 256 (supersede the 160 plan)
+**Status:** Open
+**Priority:** P1
+**Scope:** @container-architect @truth-architect ndarray domain:vsa domain:codec
+
+The prior entry conflated **two distinct substrates** and used
+"10,000-D binary VSA" framing that must be eliminated from the workspace.
+
+### Two substrates (never collapse them again)
+
+1. **Hamming binary fingerprint** — `Container<[u64; 256]>` = 16,384
+   BITS = **2 KB**. For popcount-Hamming queries. **Not VSA.** FP_WORDS
+   going from 157 → 256 applies here.
+
+2. **VSA superposition substrate** — 16,384 DIMENSIONS × float.
+   For bind / bundle / permute / unbind. **Never binary.**
+
+   | Encoding | Bytes / fingerprint | LanceDB column |
+   |---|---|---|
+   | `Vsa16kF32` (lossless baseline) | **64 KB** | `FixedSizeList<Float32, 16384>` |
+   | `Vsa16kBF16` | **32 KB** | `FixedSizeList<BFloat16, 16384>` |
+   | `Vsa16k` u8 × 5-lane | **80 KB** | struct of 5 × `FixedSizeList<UInt8, 16384>` |
+   | `Vsa16k` BF16 × 5-lane | **160 KB** | struct of 5 × `FixedSizeList<BFloat16, 16384>` |
+
+   Current `Vsa10kF32` = 10,000 × f32 = 40 KB is the legacy narrower
+   size. Move to 16,384-D.
+
+### Governance: ban "10,000 binary" framing
+
+**There shall be zero occurrences of "10,000-D binary VSA" / "10,000-bit
+VSA" in any `.claude/*`, knowledge doc, skill doc, or board file.**
+Those phrases collapse two distinct objects. When writing about:
+
+- Binary fingerprint: say "16,384-bit Hamming fingerprint" / "2 KB
+  Container" — never "VSA".
+- VSA substrate: say "16,384-D float VSA (64 KB lossless / 80 KB u8-5-lane
+  / 160 KB BF16-5-lane)" — never "binary", never "10k".
+
+### Tasks (follow-up PR, not this one)
+
+1. Rename `CrystalFingerprint::Vsa10kF32` → `Vsa16kF32` and
+   `Vsa10kI8` → `Vsa16kI8` in `lance-graph-contract::crystal`.
+2. Re-address role-key slices from [0..10000) → [0..16384) in
+   `lance-graph-contract::grammar::role_keys`. Maintain disjoint
+   slices; scale each segment proportionally (e.g., SUBJECT 2000 → 3200).
+3. Update storage contracts to `FixedSizeList<Float32, 16384>` and
+   the 5-lane struct variant. LanceDB needs no patching — both are
+   native.
+4. Sweep 21 lance-graph + 7 ndarray files for "10,000" / "Vsa10k*"
+   / "10 000-D" / "10K VSA" → rename or reclassify. Exclude
+   legitimate uses (query limits, sample counts, dollar amounts,
+   speedup ratios, scale factors).
+
+**Supersedes:** 2026-04-19 IDEAS entry "FP_WORDS = 256 (supersede the
+160 plan)" — that entry was correct for the binary Hamming substrate
+but mislabeled the VSA as "16,384 bits". The VSA dimension is 16,384
+FLOAT, not bits.
+
+## 2026-04-19 — REFINEMENT-OF 2026-04-19 CORRECTION-OF FP_WORDS scope
+**Status:** Open
+**Priority:** P2
+**Scope:** @integration-lead domain:vsa
+
+Scope the "no 10000-D VSA" ban to the three contexts where it is
+LEGITIMATELY in use and must be preserved:
+
+1. **Grammar prototype** — `lance-graph-contract::grammar::{role_keys,
+   context_chain}`. Role-key slices `[0..10000)` are shipped in PR #210.
+   Rename to 16384-D is a follow-up that must re-scale all slice
+   boundaries proportionally; until that PR lands, 10,000-D addressing
+   stays in grammar docs.
+2. **Quantum prototype** — `CrystalFingerprint::Vsa10kF32` holographic
+   residual mode (`crystal-quantum-blueprints.md`). Quantum-mode docs
+   keep 10,000-D naming until the rename PR.
+3. **Ladybug-rs / bighorn fresh imports** — PRs #200-203 brought the
+   cognitive stack + CognitiveShader + BindSpace at 10,000-D. Known
+   memory cost (see TECH_DEBT "Ladybug 10000-D memory blowup"). Do not
+   rewrite these imports; migrate as part of the ladybug → contract
+   consolidation PR.
+
+**Elsewhere** (epiphanies, session handovers, OSINT plans, calibration
+docs, prompts not in the above scopes): strip 10,000-D / Vsa10k*
+references — they propagate the legacy substrate into contexts where
+only 16,384-D is relevant.
+
+**Files in-scope (keep as-is):**
+- `.claude/plans/elegant-herding-rocket-v1.md` (grammar + quantum)
+- `.claude/knowledge/crystal-quantum-blueprints.md` (quantum)
+- `.claude/knowledge/integration-plan-grammar-crystal-arigraph.md` (grammar)
+- `.claude/knowledge/linguistic-epiphanies-2026-04-19.md` (grammar)
+- `.claude/knowledge/endgame-holographic-agi.md` (quantum / holographic)
+- `.claude/prompts/session_ndarray_migration_inventory.md` (i8 10000D
+  transient accumulation layer is the ladybug-import artifact)
+- `.claude/board/PR_ARC_INVENTORY.md` (historical record of #208-#210)
+
+**Files out-of-scope (sweep-candidate for rename / restatement):**
+- `.claude/board/LATEST_STATE.md` — snapshot says `Vsa10kI8/F32` in
+  CrystalFingerprint; append correction row naming the target
+  (`Vsa16kI8/F32`) when rename PR lands.
+- `.claude/prompts/session_deepnsm_cam.md` — "10,000 bits each
+  (= Base17 compatible)" is a binary-VSA confusion; correct.
+- `.claude/board/EPIPHANIES.md` — "10,000-D f32 VSA is lossless under
+  linear sum" entry from another session — keep as historical record;
+  append correction that the target is 16,384-D.
+
+**Acknowledges:** the prior CORRECTION-OF entry framed the ban as
+workspace-wide; it is not. Three scopes preserve 10,000-D legitimately
+until the coordinated rename PR lands.
+
+## 2026-04-19 — REFINEMENT-2 HDC substrate is FP16 / BF16, not FP32
+**Status:** Open
+**Priority:** P1
+**Scope:** @container-architect @truth-architect domain:vsa domain:codec domain:memory
+
+The prior CORRECTION-OF + REFINEMENT-OF entries assumed f32 as the
+HDC baseline. Correction: **HDC superposition substrate is FP16 (or
+BF16), not FP32.** Bundle-accumulation magnitudes stay in half-precision
+range; f32 only buys ceremony.
+
+**Size table (corrected):**
+
+| Substrate | Per-row bytes |
+|---|---|
+| 1,024-D Jina v3 (FP16) | 2 KB |
+| 1,536-D OpenAI text-embedding-3-small (FP16) | 3 KB |
+| 3,072-D Upstash Vector cap (FP16) | 6 KB |
+| **10,000-D HDC (current, FP16)** | **20 KB** |
+| 10,000-D HDC (legacy f32 naming) | 40 KB ← `Vsa10kF32` today |
+| **16,384-D HDC target (FP16)** | **32 KB** |
+| 16,384-D HDC × u8 5-lane | 80 KB |
+| 16,384-D HDC × BF16 5-lane | 160 KB |
+
+**Revised memory math for the ladybug 700-1100 MB blowup:**
+
+- At f32 (40 KB/row): observed 700-1,100 MB = ~17-27 K live rows.
+- **Had it been FP16 (20 KB/row): same population = 350-550 MB.**
+- 16k × FP16 (32 KB/row): same population = 560-880 MB — **cheaper
+  than the current f32 state**, not worse.
+
+The 16k rename is memory-positive IF paired with f32 → FP16 migration.
+Without the precision drop, 16k × f32 (64 KB/row) does inflate the
+problem. The coupled change is the right design.
+
+**Architectural constraint (why LanceDB, not a vector-db SaaS):**
+
+Commercial managed vector DBs cap at ≤ 3072 dimensions (Upstash).
+Pinecone, Weaviate, Qdrant — all optimize for 768-3072 dense
+embeddings. HDC substrate at 16,384-D is an order-of-magnitude wider
+and cannot live in those systems. LanceDB's `FixedSizeList<BFloat16,
+16384>` is the only viable column type across OSS + managed
+offerings. **This is why lance-graph is The Spine, not a plug-in.**
+
+**Updated rename scope for the follow-up PR:**
+
+1. Type rename: `CrystalFingerprint::Vsa10kF32` → `Vsa16kBF16`
+   (not `Vsa16kF32`). f32 variant retires.
+2. Role-key slices re-address `[0..10000)` → `[0..16384)`.
+3. Storage contract: `FixedSizeList<BFloat16, 16384>` as the canonical
+   HDC column; 5-lane struct for multi-representation workloads.
+4. Compute: preserve f32 accumulation internally where numerical
+   stability matters (unbundle / unbind hot path), round-trip via BF16
+   for storage.
+
+**Supersedes:** prior CORRECTION-OF entry's "Vsa16kF32 (lossless
+baseline): 64 KB" line. The lossless baseline is BF16 at 32 KB.
+
+## 2026-04-19 — lance-graph-cognitive refactor: dedup + merge + excise
+**Status:** Open
+**Priority:** P2
+**Scope:** @integration-lead @container-architect domain:cognitive domain:refactor
+
+26,240 LOC across 11 modules, yesterday's ladybug-rs harvest staged
+here. Not wholesale duplicate of other crates — it's the complementary
+cognitive layer sitting above `lance-graph::graph::spo` (store) and
+`lance-graph-contract::{grammar,crystal}` (primitives). Needs targeted
+cleanup, not deletion.
+
+**Keep in place (canonical cognitive-layer impl):**
+
+- `grammar/` — `GrammarTriangle` (NSM × Causality × Qualia); plan D3
+  explicitly calls it (`.claude/plans/elegant-herding-rocket-v1.md`).
+- `spo/` — Crystal layer: `sentence_crystal`, `context_crystal`,
+  `gestalt`, `meta_resonance`, `cognitive_codebook`. Sits on top of
+  the SPO store + contract's `CrystalFingerprint` enum.
+- `spectroscopy/` — detector 511 + features 408 LOC, standalone
+  unique cognitive-spectroscopy work.
+
+**Merge into active crates (if feasible):**
+
+- `search/temporal.rs` (187 LOC) → `lance-graph-planner::strategy`
+  (temporal search as a strategy, not a separate module).
+- `cypher_bridge.rs` → check overlap with `lance-graph::parser`;
+  merge or retire.
+
+**Inspect and decide DTO vs excise:**
+
+- `fabric/` — protocol surface? If yes → move to contract. If no →
+  keep or excise.
+- `world/` — world model, likely DTO. If yes → move to contract
+  (parallel to `state_classification_pillars` already there).
+- `container_bs/` — BindSpace container. If DTO → move to contract
+  OR let ada-rs consume through contract. If stub → excise.
+
+**Excise:**
+
+- `learning/` — empty stub inside lance-graph-cognitive (distinct
+  from the standalone `crates/learning/` DTO crate which is a
+  different thing). Delete.
+- `wip` feature-flagged modules — finish or excise, not both.
+- `core_full/` — catch-all; decompose into themed modules or
+  migrate contents into the modules above.
+
+**Cost:** ~1 week refactor PR. Zero functional change; contract
+compliance improves, dependency graph tightens. Contract-adoption
+rule from CLAUDE.md (§Current Status In-Progress) is the governing
+principle: public surface through contract, implementations behind
+traits.
+
+**Cross-ref:** TECH_DEBT "ladybug-rs retired — ada-rs + lance-graph
+exclusively" (2026-04-19). Active plan:
+`.claude/plans/elegant-herding-rocket-v1.md` D3 depends on
+lance-graph-cognitive's grammar module staying put.
+
+## 2026-04-19 — CORRECTION-OF 2026-04-19 lance-graph-cognitive refactor
+**Status:** Open
+
+Remove all ada-rs mentions from the prior entry — ada-rs is documented
+only in ada-rs, not here.
+
+Correction: the contract surface for cognitive DTOs **already exists** —
+it shipped in PR #206 (Pumpkin NPC framed: state classification pillars
++ shader-driver endpoints). The lance-graph-cognitive refactor is about
+cleaning up yesterday's messy imports against that EXISTING contract, not
+creating new traits.
+
+Replace "let ada-rs consume through contract" → "exposed through
+existing contract from PR #206". Replace "move to contract" in
+fabric/world/container_bs bullets → "check if PR #206 contract already
+covers it; if yes, delete the import; if no, extend contract via Pumpkin
+framing".

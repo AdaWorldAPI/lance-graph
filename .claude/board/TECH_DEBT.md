@@ -186,3 +186,162 @@ abandoned) — flip Open Status to `Moot YYYY-MM-DD`. Keep the row.
 
 Nothing is lost. Every shortcut has a trail from introduction to
 payoff (or abandonment).
+
+## 2026-04-19 — VSA substrate renaming: Vsa10k* → Vsa16k* + float framing
+**Status:** Open
+**Priority:** P1
+**Scope:** @container-architect @truth-architect D6 D0 domain:vsa domain:codec
+**Introduced by:** architectural choice (all PRs referring to "10K VSA")
+**Payoff estimate:** 1 contract-crate PR + 1 audit-sweep PR across
+~28 `.claude/*.md` files (21 lance-graph + 7 ndarray).
+
+The VSA substrate is misnamed and mis-scaled throughout the workspace:
+
+1. **Naming:** `Vsa10kF32`, `Vsa10kI8` in
+   `lance-graph-contract::crystal::CrystalFingerprint` should be
+   `Vsa16kF32`, `Vsa16kI8`.
+2. **Scale:** 10,000-D is a legacy narrower width; move to 16,384-D
+   (64 KB lossless f32, 32 KB BF16, 80 KB u8-5-lane, 160 KB BF16-5-lane).
+3. **Role-key slices:** `grammar::role_keys` addresses `[0..10000)`;
+   re-scale to `[0..16384)` proportionally, keeping slices disjoint.
+4. **Framing:** eliminate every occurrence of "10,000 binary VSA" — it
+   collapses the 2 KB Hamming fingerprint (Container) with the
+   ≥64 KB float VSA substrate. They are different objects.
+
+Cross-ref: `.claude/board/IDEAS.md` CORRECTION-OF entry (2026-04-19).
+Audit list of 28 files affected: `grep -rn "10000\|10,000\|Vsa10k\|10 000-D" .claude/`.
+
+## 2026-04-19 — Ladybug 10000-D VSA import caused 700-1100 MB memory blowup
+**Status:** Open
+**Priority:** P1
+**Scope:** @container-architect @integration-lead domain:vsa domain:memory
+**Introduced by:** PRs #200-#203 (ladybug-rs / bighorn imports —
+cognitive crate + CognitiveShader + BindSpace + adaptive codecs)
+**Payoff estimate:** LanceDB zero-copy mmap migration + sparse/lazy
+materialization audit + VSA scale decision (10k → 16k adds ~60% per
+row: 40 KB → 64 KB at f32, worse memory not better).
+
+Observed (per user, 2026-04-19): importing ladybug-rs at 10,000-D VSA
+pushed runtime memory to **700-1,100 MB**. Arithmetic: at 40 KB/row
+(Vsa10kF32), this is ~17-27 K live fingerprints in RAM
+simultaneously. Pathologies:
+
+1. **Migrating to 16,384-D makes it worse** — 64 KB/row × same
+   population = 1.1-1.8 GB. 5-lane encoding (80 KB u8, 160 KB BF16) is
+   worse still. Wider substrate without a storage-layer fix inflates
+   the problem.
+
+2. **Storage-layer fix is mandatory** — LanceDB `FixedSizeList<Float32,
+   N>` natively supports mmap zero-copy. Hot rows stay OS-cached; cold
+   rows pay page-fault but not RAM. Target runtime memory: ≤ 100 MB
+   working set regardless of row count.
+
+3. **Population audit** — before the 16k rename, audit which consumers
+   keep VSA fingerprints live in RAM vs fetch-on-demand. Working set
+   should be bounded by cache policy, not row count. Candidates for
+   fetch-on-demand: Markov ±5 trajectory (rarely revisited), AriGraph
+   episodic (LRU-evictable), VSA table snapshots.
+
+4. **Sparse representation gap** — most VSA role-bundles have a few
+   active slices at a time. A sparse encoding (indices-of-nonzero or
+   Structured5x5 middle cells only) could drop per-row to a few KB for
+   the common case. Only the "full field" queries need the dense
+   f32 representation.
+
+**Gate before 16k rename PR:** measure peak RAM on a representative
+workload (Animal Farm D10 corpus when it lands) with the current 10k
+substrate. If the fix is "mmap only hot rows", the substrate switch
+is safe. If the fix requires sparse representation, the rename needs
+to redesign the storage contract.
+
+**Cross-ref:** IDEAS CORRECTION-OF + REFINEMENT-OF entries
+(2026-04-19). PRs #200-#203 introduced the memory footprint.
+
+## 2026-04-19 — CORRECTION-OF 2026-04-19 Ladybug 700-1100 MB blowup — it's a 10k × 10k GLITCH MATRIX, not HDC population
+**Status:** Open
+**Priority:** P0
+**Scope:** @container-architect @integration-lead domain:memory domain:cleanup
+**Introduced by:** PRs #200-#203 (ladybug-rs / bighorn imports — carried
+over code that allocates a dense 10,000 × 10,000 structure)
+**Payoff estimate:** identify + delete the single glitch allocation.
+No migration, no redesign, no substrate change.
+
+The prior entry framed the 700-1,100 MB blowup as a per-row HDC
+population cost (17-27 K live fingerprints at 40 KB/row). **This was
+wrong.** Per user (2026-04-19):
+
+**There is no 10,000 × 10,000 matrix we actually want.** The memory
+blowup came from a dense 10k × 10k structure imported as a glitch
+from outdated ladybug-rs / bighorn code. Arithmetic:
+
+- 10,000 × 10,000 × f32 = **400 MB** (single allocation)
+- Plus cognitive-stack state + other working memory → 700-1,100 MB.
+
+**Revised fix:**
+
+1. **Identify the glitch** — grep ladybug-imported modules (cognitive
+   crate, CognitiveShader, BindSpace, CollapseGate, adaptive codecs)
+   for any dense `[[T; 10000]; 10000]`, `Vec<Vec<T>>` of that shape,
+   `FixedSizeList<T, 100000000>`, or 400 MB-scale buffer. High-probability
+   candidates: a token-token distance matrix, co-occurrence matrix, dense
+   attention matrix, or K=10000 CLAM centroid distance table that was
+   imported intact without trimming to the workspace's actual scale.
+2. **Delete it.** It has no consumer in lance-graph proper (grammar /
+   crystal / quantum use 1-D 10k-width HDC vectors, never square
+   matrices).
+3. **Verify** with peak-RAM measurement on a minimal workload.
+
+**Invalidates:**
+
+- Prior "16k rename makes memory worse" analysis — the per-row HDC
+  math was sound but irrelevant to this specific blowup.
+- Mmap zero-copy requirement for HDC population — still good hygiene
+  but not the fix for the 700-1,100 MB observation.
+- Sparse encoding as a Structured5x5-alternative — still architecturally
+  useful but unrelated to the glitch.
+
+The 16k rename + f32 → BF16 migration proceed independently of this
+debt item. This one is a one-shot deletion.
+
+## 2026-04-19 — SUPERSEDES all "stoneage import" / ladybug-refactor entries — retire ladybug-rs entirely
+**Status:** CLOSED (via architectural decision)
+**Scope:** @integration-lead @workspace-primer domain:architecture
+**Decision:** per user (2026-04-19), ladybug-rs is retired. Migration
+target is **ada-rs + lance-graph exclusively**. Ladybug-rs becomes
+read-only historical reference; no maintenance, no refactor, no
+integration obligation. Harvest-only.
+
+**Consequences (ledger cleanup):**
+
+- "Ladybug 700-1100 MB memory blowup" (glitch matrix): the matrix
+  lives in ladybug-import code that is itself scheduled for removal.
+  Deletion still P0 **only if** it ends up compiled into the current
+  ada-rs / lance-graph binaries; otherwise it goes away with the
+  import archival. Downgrade to P2, gate on "does cargo tree show the
+  ladybug dep?"
+- "Vsa10k → Vsa16k rename sweep" (2026-04-19): scope tightens to
+  **ada-rs + lance-graph only**. Ladybug's internal types don't get
+  renamed — they get left alone in the archive.
+- "Ladybug import refactor resistance" table: obsolete. Don't refactor
+  ladybug code; if a pattern is useful (PhaseTag, BindSpace,
+  CognitiveShader, adaptive codec), reimplement cleanly in the target
+  repo against canonical `Fingerprint<256>`.
+- `CLAUDE.md` architecture diagram: "ladybug-rs = The Brain" line is
+  stale; ada-rs + lance-graph now carry both the Brain and the Spine.
+  Update in a follow-up PR.
+
+**Repos in the canonical stack (post-retirement):**
+
+```
+ndarray            = The Foundation  (SIMD, GEMM, HPC, Fingerprint<256>, CAM-PQ)
+lance-graph        = The Spine       (query + codec + semantics + contracts)
+ada-rs             = The Brain       (BindSpace, SPO server, 4096 surface, cognitive shader)
+crewai-rust        = The Agents      (agent orchestration, thinking styles)
+n8n-rs             = The Orchestrator (workflow DAG, step routing)
+```
+
+(Was 5 repos; still 5, with ada-rs taking ladybug-rs's Brain slot.)
+
+**Cross-ref:** prior entries "Ladybug 700-1100 MB memory blowup",
+"Vsa10k* → Vsa16k* rename sweep", "CORRECTION-OF ... 10k × 10k GLITCH
+MATRIX" — all carry this decision as their closing context.

@@ -207,3 +207,148 @@ Cross-ref: `CLAUDE.md §GitHub Access Policy`.
 ---
 
 (append new epiphanies above this marker; format: `## YYYY-MM-DD — <title>`)
+
+## 2026-04-19 — Prompt↔PR ledger is 10⁷× cheaper than code grep
+**Status:** FINDING
+**Scope:** @workspace-primer domain:bookkeeping
+
+To answer "what did we ship for topic X":
+
+- **Grep across code:** ~100 MB of Rust across N crates, ~25M tokens of context, minutes of agent turns.
+- **Grep the ledger:** one `grep X .claude/board/PROMPTS_VS_PRS.md` returns `<prompt file> | #N <title>`. ~25 tokens, sub-second.
+
+Seven orders of magnitude cheaper. The pairing **prompt-file ↔ PR** is the
+minimum addressable record of "this artifact was built to answer this
+brief" — the hyperlink that replaces re-discovery by full-text scan.
+
+The line is mechanical bookkeeping (Haiku-level, no synthesis). The
+value accumulates on every subsequent "what about X" query thereafter:
+ledger-first, code-never-unless-necessary.
+
+Cross-ref: PR #213 (lance-graph, 41 prompts × merged PRs), PR #110
+(ndarray, 25 prompts × merged PRs). Both shipped in ~90s on a dumb
+enumerate+match+append loop. No code reads, no MCP, no synthesis.
+
+## 2026-04-19 — Code-arc knowledge loss is 30-50% of session tokens (ambient)
+**Status:** FINDING
+**Scope:** @workspace-primer domain:bookkeeping
+
+Empirical (per user, 2026-04-19): **30-50% of session tokens** burn on
+rediscovering what code paths exist, what was tried, what got reverted,
+what decisions led to the current shape. This is **orthogonal** to the
+20-30-turn cold-start tax — it's the *ambient* loss across every query,
+every subagent spawn, every refactor.
+
+The ledger closes three channels at once:
+
+| Channel | Before | After | Discount |
+|---|---|---|---|
+| Cold-start (once per session) | 20-30 turns | 3-5 turns | ~6× |
+| Find-code (per query) | ~25M tokens (grep codebase) | ~25 tokens (grep ledger) | 10⁷× |
+| **Ambient arc knowledge (every turn)** | **30-50% of session budget** | **~0%** | **2×-eternal** |
+
+All three channels collapse to two text-file reads: PROMPTS_VS_PRS.md +
+PR_ARC_INVENTORY.md. The second file is read only when arc detail is
+needed (Knowledge Activation trigger), so the routine cost is 0.
+
+Cross-ref: PRs #211-213 (CCA2A + board split + ledger). `.claude/BOOT.md`
+cold-start tax. `EPIPHANIES.md` 10⁷× finding above.
+
+## 2026-04-19 — Vector (10⁴ cells) vs Matrix (10⁸ cells): don't conflate
+**Status:** FINDING
+**Scope:** @workspace-primer @container-architect domain:vsa domain:memory
+
+Entirely different objects, four orders of magnitude apart. Calling them
+both "10,000 VSA" was category error.
+
+| Object | Shape | Cells | Bytes (BF16) | Purpose |
+|---|---|---|---|---|
+| **16K-D wire vector** (intentional) | 1 × 16,384 | **10⁴** | 32 KB | one lossless fingerprint for wire / Markov bundle / crystal / holographic |
+| **10K × 10K glitch matrix** (unintentional) | 10,000 × 10,000 | **10⁸** | 200 MB | nothing — imported debris from outdated ladybug-rs / bighorn |
+
+The 100-million-cell matrix is ~10,000× bigger than the 10,000-cell
+vector. They share only a numeric coincidence in one dimension; the
+semantics, cost, and lifecycle are completely unrelated.
+
+**Consequence for the rename PR:**
+
+- `Vsa10kF32` → `Vsa16kBF16` migration is about the VECTOR (cheap,
+  per-row, ≤32 KB).
+- The 10k × 10k MATRIX deletion is a separate P0 cleanup independent
+  of the substrate rename.
+- Any future ledger / knowledge-doc / plan entry describing 10k-D
+  HDC must specify VECTOR explicitly. "10,000-D HDC" alone is
+  ambiguous — spell out "16,384-cell wire fingerprint" or "10,000-cell
+  lossless wire vector" to preclude the matrix reading.
+
+Cross-ref: TECH_DEBT "CORRECTION-OF ... 10k × 10k GLITCH MATRIX"
+(2026-04-19). IDEAS REFINEMENT-2 (HDC = FP16/BF16, not FP32).
+
+## 2026-04-19 — Working-set invariant: hot structures must fit in L3
+**Status:** FINDING
+**Scope:** @container-architect @cascade-architect @truth-architect domain:memory domain:codec domain:performance
+
+Typical server L3 cache = 32-96 MB (AMD EPYC, Intel Xeon). Any hot-path
+structure exceeding this size incurs DRAM latency (~100 ns) on every
+miss vs L3's ~12 ns — an 8× penalty per access that compounds in
+inner loops. **This is true regardless of storage capacity** — LanceDB
+can hold terabytes, but what the CPU touches per cycle must fit L3.
+
+The codec stack is architected around this invariant:
+
+| Working structure | Size | L3 verdict | Role |
+|---|---|---|---|
+| Container `[u64; 256]` Hamming | 2 KB | ✓ 16,000× | Popcount fingerprint |
+| 16K-D BF16 wire vector | 32 KB | ✓ 1,000× | HDC point, Markov bundle |
+| 256 × 256 u8 distance table (bgz-tensor) | 64 KB | ✓ L1 | Archetype attention |
+| 1024 × 1024 f32 | 4 MB | ✓ | Per-role slot |
+| 4096 × 4096 u8 CAM-PQ palette | 16 MB | ✓ upper edge | Centroid distance |
+| **10,000 × 10,000 f32 glitch matrix** | **400 MB** | **✗ 12× over** | **None — delete** |
+| 16K × 16K BF16 | 512 MB | ✗ | Never build |
+| 100K × 100K anything | ≥10 GB | ✗ | Sparse-only or CAM-PQ |
+
+**Rule for hot tables:**
+
+- Dense square matrices: cap at `sqrt(L3_BUDGET / cell_size)` on a side.
+  At 32 MB budget, f32 cells → ~2,900 × 2,900; BF16 → ~4,000 × 4,000;
+  u8 → ~5,700 × 5,700.
+- Wider-than-L3 tables must be projected, quantized, or made sparse
+  (CSR / HyperCSR / palette-indexed) before entering a hot path.
+- 1-D vectors are cheap — a 16K-D BF16 row is 32 KB, thousands
+  cache-resident simultaneously. The limit binds on 2-D dense, not 1-D.
+
+The codec compression chain (full planes 16 KB → ZeckBF17 48 B →
+Base17 34 B → PaletteEdge 3 B → CAM-PQ 6 B → Scent 1 B) exists so that
+any intermediate table stays L3-resident regardless of population size.
+The 10K × 10K glitch matrix violates this at the root.
+
+Cross-ref: EPIPHANIES "Vector (10⁴ cells) vs Matrix (10⁸ cells)"
+(2026-04-19). TECH_DEBT "Ladybug 10k × 10k GLITCH MATRIX" (2026-04-19).
+docs/CODEC_COMPRESSION_ATLAS.md is the chain spec.
+
+## 2026-04-19 — SUPERSEDES 2026-04-19 "Vector vs Matrix" + "L3 working-set invariant"
+**Status:** SUPERSEDED (downgrade both)
+
+Both prior entries restate invariants the workspace has known for months:
+
+- L3 working-set cap → already the design principle behind the full
+  codec chain (full planes → ZeckBF17 → Base17 → Palette → CAM-PQ → Scent).
+  See `docs/CODEC_COMPRESSION_ATLAS.md`, not an EPIPHANIES entry.
+- Vector-vs-matrix category distinction → trivially true, never a
+  point of ambiguity in the workspace proper.
+
+**What's actually true:**
+
+The 10k × 10k glitch matrix exists because nobody touched the
+stone-age ladybug-rs / bighorn code after it was imported. The import
+itself was migration desperation — closing loose ends on the cognitive
+stack before a release, not a considered architectural choice. No
+one re-validated the imports against the L3 invariant because the
+imports were expected to be rewritten or deleted later.
+
+The correct framing is **legacy-hygiene debt**, not new knowledge.
+Action: delete-on-touch when someone has bandwidth, not a design
+principle waiting to be learned.
+
+Downgrading both prior entries to SUPERSEDED to keep the FINDING log
+clean for actual findings.
