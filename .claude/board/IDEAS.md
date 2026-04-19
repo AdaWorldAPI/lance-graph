@@ -545,3 +545,83 @@ code is the decode function.
 Cross-ref: EPIPHANIES 2026-04-19 fractal-leaf CORRECTION.
 `crates/bgz-tensor/src/quality.rs` lines 47/279/362. `codec_rnd_bench.rs`
 for the bench structure + existing codec registration pattern.
+
+## 2026-04-19 — Zipper codec: phase + magnitude multiplexed in single bgz17 container
+**Status:** Open (architecture correction)
+**Priority:** P2
+**Scope:** @container-architect @cascade-architect domain:codec domain:phi
+
+Supersedes prior "triple-channel matryoshka" proposal. Per user +
+existing `.claude/knowledge/phi-spiral-reconstruction.md` § "family
+zipper" concept: the bgz17 container was always designed to carry
+phase-only in ~48-64 active bits of 16384. The "halo" (~16,320 bits)
+is not waste — it's available storage for a MAGNITUDE stream
+interleaved at a different φ-stride.
+
+**Corrected architecture — single-container zipper:**
+
+| Stream | Stride | Positions carried | Role |
+|---|---|---|---|
+| Phase | round(N / φ) ≈ N·0.618 | ~48-64 | bgz17 container active bits |
+| Magnitude | round(N / φ²) ≈ N·0.382 | ~48-64 | magnitude samples in the halo |
+| Halo-remainder | unused positions | ~16,200 | structural / ECC / future |
+
+Both strides are maximally-irrational → neither locks into Hadamard
+butterfly frequencies → both get the anti-moiré ("X-Trans sensor")
+property. Their coincidences are themselves at φ-ratios so mutual
+aliasing is "hidden moiré" — dispersed below visibility.
+
+**Zeckendorf property:** every integer has a unique non-adjacent
+Fibonacci decomposition. Two non-adjacent Fibonacci indices give
+naturally-non-colliding strides — the zipper is not hand-tuned, it's
+mathematical.
+
+**Truncation hierarchy (matryoshka property preserved):**
+
+- Read phase stride only → Base17-level coarse codec (34 B signal)
+- Read phase + magnitude strides → dual-stream decoder (~70 B signal)
+- Read halo remainder for ECC → error-corrected reconstruction
+
+Each level is a valid decode — no separate encoder/decoder pair, just
+different depths of the stride-aware reader on the same container.
+
+**Consequences (advantages over 3-channel):**
+
+- Storage: 1 container (16384 bits / 2 KB), not 3 separate fields.
+- Halo density: ~0.3% → ~0.6% signal (2× utilization).
+- Decoder: one stride-aware reader, not 3 parallel readers.
+- Matches existing bgz17 workspace design (family-zipper was the
+  intended completion).
+
+**Implementation path:**
+
+1. `bgz17::zipper_encode(row)` — extract phase stream (existing)
+   + magnitude stream (new, at φ² stride) → pack into 16384-bit
+   container.
+2. `bgz17::zipper_decode(container, level)` — stride-aware reader;
+   `level` = {Phase, PhaseAndMag, Full}.
+3. Wire `ZipperCodec` as `CodecCandidate` in `codec_rnd_bench.rs`.
+   Measure ICC_3_1 at each truncation level against Qwen3 q_proj.
+4. Gate behind `lab` feature until ICC gates pass.
+
+**Predicted gate:**
+
+- Zipper phase-only (Base17 equivalent): ~same as current Base17
+  ICC 0.024 on q_proj (it's the same encoding, just re-addressed).
+- Zipper phase+mag: hopefully > 0.3 — if magnitude stream carries
+  independent discriminative info vs phase alone, the blend doesn't
+  destroy signal (unlike the fractal-magnitude blend that produced
+  ICC −0.49). Key test: magnitude stream bits must correlate with
+  ground truth differences, not halo noise.
+
+If zipper phase+mag achieves ICC ≥ 0.8 on q_proj at 2 KB/row → near-
+lossless codec. If ~0.3-0.5 → useful hybrid. If ≤ 0.1 → the halo
+positions also lack per-row discrimination and the "magnitude in halo"
+hypothesis fails empirically (which would be a third negative,
+narrowing the codec design space further).
+
+Cross-ref: `.claude/knowledge/phi-spiral-reconstruction.md`
+§ "family zipper". EPIPHANIES 2026-04-19 fractal-leaf NEGATIVE
+entries. IDEAS 2026-04-19 "Fractal round-trip codec" (superseded by
+this — single-container zipper is cheaper than triple-channel).
+bgz17 crate as the substrate.
