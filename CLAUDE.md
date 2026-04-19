@@ -30,6 +30,12 @@ whether you went through BOOT.md or landed here directly.
 After these three, load domain-specific knowledge docs only as
 triggered by the user's request.
 
+**If you want the pattern explained rather than the specifics:**
+see **`.claude/skills/cca2a/SKILL.md`** — explanation-only skill
+covering the A2A two-layer model, governance rules, and how this
+workspace's conventions diverge from official Claude Code docs.
+Read once to grok; then stop re-deriving across sessions.
+
 ---
 
 ## Agent-to-Agent (A2A) Orchestration — Two Layers
