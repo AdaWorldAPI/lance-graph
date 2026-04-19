@@ -68,6 +68,11 @@ _Kanban / audit (priority + scope tags on every entry):_
   [concepts.md](concepts.md).
 - **Comparing to official Claude Code conventions:**
   [divergence.md](divergence.md).
+- **Concrete recipe: code awareness in ~90 s via prompt↔PR ledger:**
+  [procedure-bookkeeping.md](procedure-bookkeeping.md). Three-pass
+  Haiku→Opus→main-thread pipeline. First deployment: PR #213
+  (lance-graph, 41 prompts) + PR #110 (ndarray, 25 prompts) on
+  2026-04-19, both ~90 s wall clock.
 
 ## The idea in one paragraph
 
