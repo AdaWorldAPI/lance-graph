@@ -425,3 +425,21 @@ traits.
 exclusively" (2026-04-19). Active plan:
 `.claude/plans/elegant-herding-rocket-v1.md` D3 depends on
 lance-graph-cognitive's grammar module staying put.
+
+## 2026-04-19 — CORRECTION-OF 2026-04-19 lance-graph-cognitive refactor
+**Status:** Open
+
+Remove all ada-rs mentions from the prior entry — ada-rs is documented
+only in ada-rs, not here.
+
+Correction: the contract surface for cognitive DTOs **already exists** —
+it shipped in PR #206 (Pumpkin NPC framed: state classification pillars
++ shader-driver endpoints). The lance-graph-cognitive refactor is about
+cleaning up yesterday's messy imports against that EXISTING contract, not
+creating new traits.
+
+Replace "let ada-rs consume through contract" → "exposed through
+existing contract from PR #206". Replace "move to contract" in
+fabric/world/container_bs bullets → "check if PR #206 contract already
+covers it; if yes, delete the import; if no, extend contract via Pumpkin
+framing".
