@@ -260,3 +260,54 @@ Those phrases collapse two distinct objects. When writing about:
 160 plan)" — that entry was correct for the binary Hamming substrate
 but mislabeled the VSA as "16,384 bits". The VSA dimension is 16,384
 FLOAT, not bits.
+
+## 2026-04-19 — REFINEMENT-OF 2026-04-19 CORRECTION-OF FP_WORDS scope
+**Status:** Open
+**Priority:** P2
+**Scope:** @integration-lead domain:vsa
+
+Scope the "no 10000-D VSA" ban to the three contexts where it is
+LEGITIMATELY in use and must be preserved:
+
+1. **Grammar prototype** — `lance-graph-contract::grammar::{role_keys,
+   context_chain}`. Role-key slices `[0..10000)` are shipped in PR #210.
+   Rename to 16384-D is a follow-up that must re-scale all slice
+   boundaries proportionally; until that PR lands, 10,000-D addressing
+   stays in grammar docs.
+2. **Quantum prototype** — `CrystalFingerprint::Vsa10kF32` holographic
+   residual mode (`crystal-quantum-blueprints.md`). Quantum-mode docs
+   keep 10,000-D naming until the rename PR.
+3. **Ladybug-rs / bighorn fresh imports** — PRs #200-203 brought the
+   cognitive stack + CognitiveShader + BindSpace at 10,000-D. Known
+   memory cost (see TECH_DEBT "Ladybug 10000-D memory blowup"). Do not
+   rewrite these imports; migrate as part of the ladybug → contract
+   consolidation PR.
+
+**Elsewhere** (epiphanies, session handovers, OSINT plans, calibration
+docs, prompts not in the above scopes): strip 10,000-D / Vsa10k*
+references — they propagate the legacy substrate into contexts where
+only 16,384-D is relevant.
+
+**Files in-scope (keep as-is):**
+- `.claude/plans/elegant-herding-rocket-v1.md` (grammar + quantum)
+- `.claude/knowledge/crystal-quantum-blueprints.md` (quantum)
+- `.claude/knowledge/integration-plan-grammar-crystal-arigraph.md` (grammar)
+- `.claude/knowledge/linguistic-epiphanies-2026-04-19.md` (grammar)
+- `.claude/knowledge/endgame-holographic-agi.md` (quantum / holographic)
+- `.claude/prompts/session_ndarray_migration_inventory.md` (i8 10000D
+  transient accumulation layer is the ladybug-import artifact)
+- `.claude/board/PR_ARC_INVENTORY.md` (historical record of #208-#210)
+
+**Files out-of-scope (sweep-candidate for rename / restatement):**
+- `.claude/board/LATEST_STATE.md` — snapshot says `Vsa10kI8/F32` in
+  CrystalFingerprint; append correction row naming the target
+  (`Vsa16kI8/F32`) when rename PR lands.
+- `.claude/prompts/session_deepnsm_cam.md` — "10,000 bits each
+  (= Base17 compatible)" is a binary-VSA confusion; correct.
+- `.claude/board/EPIPHANIES.md` — "10,000-D f32 VSA is lossless under
+  linear sum" entry from another session — keep as historical record;
+  append correction that the target is 16,384-D.
+
+**Acknowledges:** the prior CORRECTION-OF entry framed the ban as
+workspace-wide; it is not. Three scopes preserve 10,000-D legitimately
+until the coordinated rename PR lands.

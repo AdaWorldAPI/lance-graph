@@ -210,3 +210,49 @@ The VSA substrate is misnamed and mis-scaled throughout the workspace:
 
 Cross-ref: `.claude/board/IDEAS.md` CORRECTION-OF entry (2026-04-19).
 Audit list of 28 files affected: `grep -rn "10000\|10,000\|Vsa10k\|10 000-D" .claude/`.
+
+## 2026-04-19 — Ladybug 10000-D VSA import caused 700-1100 MB memory blowup
+**Status:** Open
+**Priority:** P1
+**Scope:** @container-architect @integration-lead domain:vsa domain:memory
+**Introduced by:** PRs #200-#203 (ladybug-rs / bighorn imports —
+cognitive crate + CognitiveShader + BindSpace + adaptive codecs)
+**Payoff estimate:** LanceDB zero-copy mmap migration + sparse/lazy
+materialization audit + VSA scale decision (10k → 16k adds ~60% per
+row: 40 KB → 64 KB at f32, worse memory not better).
+
+Observed (per user, 2026-04-19): importing ladybug-rs at 10,000-D VSA
+pushed runtime memory to **700-1,100 MB**. Arithmetic: at 40 KB/row
+(Vsa10kF32), this is ~17-27 K live fingerprints in RAM
+simultaneously. Pathologies:
+
+1. **Migrating to 16,384-D makes it worse** — 64 KB/row × same
+   population = 1.1-1.8 GB. 5-lane encoding (80 KB u8, 160 KB BF16) is
+   worse still. Wider substrate without a storage-layer fix inflates
+   the problem.
+
+2. **Storage-layer fix is mandatory** — LanceDB `FixedSizeList<Float32,
+   N>` natively supports mmap zero-copy. Hot rows stay OS-cached; cold
+   rows pay page-fault but not RAM. Target runtime memory: ≤ 100 MB
+   working set regardless of row count.
+
+3. **Population audit** — before the 16k rename, audit which consumers
+   keep VSA fingerprints live in RAM vs fetch-on-demand. Working set
+   should be bounded by cache policy, not row count. Candidates for
+   fetch-on-demand: Markov ±5 trajectory (rarely revisited), AriGraph
+   episodic (LRU-evictable), VSA table snapshots.
+
+4. **Sparse representation gap** — most VSA role-bundles have a few
+   active slices at a time. A sparse encoding (indices-of-nonzero or
+   Structured5x5 middle cells only) could drop per-row to a few KB for
+   the common case. Only the "full field" queries need the dense
+   f32 representation.
+
+**Gate before 16k rename PR:** measure peak RAM on a representative
+workload (Animal Farm D10 corpus when it lands) with the current 10k
+substrate. If the fix is "mmap only hot rows", the substrate switch
+is safe. If the fix requires sparse representation, the rename needs
+to redesign the storage contract.
+
+**Cross-ref:** IDEAS CORRECTION-OF + REFINEMENT-OF entries
+(2026-04-19). PRs #200-#203 introduced the memory footprint.
