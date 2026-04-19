@@ -253,3 +253,33 @@ needed (Knowledge Activation trigger), so the routine cost is 0.
 
 Cross-ref: PRs #211-213 (CCA2A + board split + ledger). `.claude/BOOT.md`
 cold-start tax. `EPIPHANIES.md` 10⁷× finding above.
+
+## 2026-04-19 — Vector (10⁴ cells) vs Matrix (10⁸ cells): don't conflate
+**Status:** FINDING
+**Scope:** @workspace-primer @container-architect domain:vsa domain:memory
+
+Entirely different objects, four orders of magnitude apart. Calling them
+both "10,000 VSA" was category error.
+
+| Object | Shape | Cells | Bytes (BF16) | Purpose |
+|---|---|---|---|---|
+| **16K-D wire vector** (intentional) | 1 × 16,384 | **10⁴** | 32 KB | one lossless fingerprint for wire / Markov bundle / crystal / holographic |
+| **10K × 10K glitch matrix** (unintentional) | 10,000 × 10,000 | **10⁸** | 200 MB | nothing — imported debris from outdated ladybug-rs / bighorn |
+
+The 100-million-cell matrix is ~10,000× bigger than the 10,000-cell
+vector. They share only a numeric coincidence in one dimension; the
+semantics, cost, and lifecycle are completely unrelated.
+
+**Consequence for the rename PR:**
+
+- `Vsa10kF32` → `Vsa16kBF16` migration is about the VECTOR (cheap,
+  per-row, ≤32 KB).
+- The 10k × 10k MATRIX deletion is a separate P0 cleanup independent
+  of the substrate rename.
+- Any future ledger / knowledge-doc / plan entry describing 10k-D
+  HDC must specify VECTOR explicitly. "10,000-D HDC" alone is
+  ambiguous — spell out "16,384-cell wire fingerprint" or "10,000-cell
+  lossless wire vector" to preclude the matrix reading.
+
+Cross-ref: TECH_DEBT "CORRECTION-OF ... 10k × 10k GLITCH MATRIX"
+(2026-04-19). IDEAS REFINEMENT-2 (HDC = FP16/BF16, not FP32).
