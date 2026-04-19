@@ -3,6 +3,38 @@
 //! A Crystal is a structured semantic object that accumulates truth (NARS
 //! revision), hardens over time, and supports bundle/unbundle operations.
 //!
+//! ## Relationship to the cognitive shader pipeline
+//!
+//! The existing [`crate::cognitive_shader`] module carries the
+//! **execution-time** cycle DTOs:
+//!
+//! ```text
+//! Φ ShaderDispatch   — request
+//! Ψ ShaderResonance  — ripple field + top-k hits
+//! B ShaderBus        — committed cycle (cycle_fingerprint: [u64; 256])
+//! Γ ShaderCrystal    — stabilized outcome (bus + persisted_row + meta)
+//! ```
+//!
+//! `ShaderBus::cycle_fingerprint` is `[u64; 256]` = 2 KB = same backing as
+//! [`crate::container::Container`] and [`CrystalFingerprint::Binary16K`].
+//! A [`CycleCrystal`] is the **persistence-time** view of a
+//! [`crate::cognitive_shader::ShaderCrystal`]:
+//!
+//! ```text
+//! ShaderCrystal            CycleCrystal
+//!   bus                      fingerprint: CrystalFingerprint (== cycle_fingerprint)
+//!     cycle_fingerprint       cycle_index
+//!     emitted_edges           anchor (StateAnchor)
+//!     gate, resonance         truth, hardness, revision_count
+//!   persisted_row            crystallized_at
+//!   meta (Brier, …)
+//! ```
+//!
+//! Zero-copy discipline: `CrystalFingerprint::Binary16K(Box<[u64; 256]>)`
+//! is the heap-owning form; borrowed views go through
+//! [`crate::cognitive_shader::ColumnWindow`] for struct-of-arrays
+//! access into BindSpace.
+//!
 //! ## Relationship to existing crystal/quantum crates
 //!
 //! Implementations live in the siblings: `ladybug-rs`,
@@ -22,8 +54,8 @@
 //! SentenceCrystal   — one parsed sentence, triples + tekamolo slots
 //! ContextCrystal    — Markov ±5 window around a sentence
 //! DocumentCrystal   — full document, composed of sentence crystals
-//! CycleCrystal     — one cognitive cycle (observe → act → feedback)
-//! SessionCrystal   — full conversation / agent session
+//! CycleCrystal      — one cognitive cycle (persistence view of ShaderCrystal)
+//! SessionCrystal    — full conversation / agent session
 //! ```
 //!
 //! All crystals share the [`Crystal`] trait: hardness, revision count,
