@@ -8,24 +8,24 @@
 
 ## Session Start — MANDATORY READS (in this order)
 
-A new session on this workspace MUST load these three files before
-proposing anything, to avoid the 30-turn rediscovery tax:
+**Start here:** `.claude/BOOT.md` — the one-page session entry point.
+It names the three files below as mandatory reads, so load them
+whether you went through BOOT.md or landed here directly.
 
 1. **`.claude/knowledge/LATEST_STATE.md`** — current contract
    inventory, recently shipped PRs, active branches, queued work,
-   explicit deferrals. Prevents re-proposing what already exists.
-2. **`.claude/knowledge/PR_ARC_INVENTORY.md`** — chronological
-   decision history. Each PR's Added / Locked / Deferred / Docs +
-   Confidence annotation. **APPEND-ONLY** — old entries are immutable
-   historical record; only the Confidence line is updatable. Adding
-   a new PR prepends; rewriting history is gated via permission.
-3. **`.claude/agents/README.md`** — the agent ensemble meta-card.
-   Lists 19 specialist agents + 5 meta-agents (`workspace-primer`,
-   `integration-lead`, `adk-coordinator`, `adk-behavior-monitor`,
-   `truth-architect`), the Knowledge Activation trigger table
-   (what subagent + what docs load for which domain), and the
-   Handover Protocol spec. **This is the A2A orchestration
-   specification for this workspace** — see Layer 2 below.
+   explicit deferrals. **What exists.**
+2. **`.claude/knowledge/PR_ARC_INVENTORY.md`** — per-PR Added /
+   Locked / Deferred / Docs / Confidence, reverse chronological.
+   **APPEND-ONLY**; only the Confidence line is updatable;
+   corrections append as new dated lines; reversals get their own
+   PR entry. **Why it exists.**
+3. **`.claude/agents/BOOT.md`** — the 19 specialist + 5 meta-agent
+   ensemble (`workspace-primer`, `integration-lead`,
+   `adk-coordinator`, `adk-behavior-monitor`, `truth-architect`),
+   the Knowledge Activation trigger table (domain → agent → docs),
+   and the Handover Protocol spec. **This is the A2A orchestration
+   specification for this workspace.** **How to coordinate.**
 
 After these three, load domain-specific knowledge docs only as
 triggered by the user's request.
@@ -90,7 +90,7 @@ without burning main-thread turns re-reading the same state."
 
 ### Agent ensemble, knowledge bootload, handover protocol
 
-See **`.claude/agents/README.md`** — it's the meta-card for the 19
+See **`.claude/agents/BOOT.md`** — it's the meta-card for the 19
 specialist agents + 5 meta-agents in this workspace. It covers:
 
 - **Meta-agent scopes** (`workspace-primer`, `integration-lead`,
@@ -513,7 +513,7 @@ their synergies, and their FINDING/CONJECTURE status. Never guess architecture.
 
 Every `.claude/knowledge/` document has a `READ BY:` header listing which agents
 MUST load it before producing output in that domain. When a knowledge trigger fires
-(see `.claude/agents/README.md § Knowledge Activation Protocol`), the relevant
+(see `.claude/agents/BOOT.md § Knowledge Activation Protocol`), the relevant
 knowledge docs are loaded BEFORE the agent responds.
 
 **Critical process rule:** `.claude/knowledge/bf16-hhtl-terrain.md` contains a
