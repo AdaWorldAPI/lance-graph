@@ -251,6 +251,66 @@ impl CodecCandidate for FractalPhasePlusBase17 {
     }
 }
 
+/// Zipper codec — phase + magnitude φ-multiplexed in single container.
+/// Phase stream: 64 sign bits at round(N/φ) stride.
+/// Magnitude stream: 56 i8 samples at round(N/φ²) stride.
+/// Total: 64 B. Matryoshka: phase-only (8 B level) + full (64 B level).
+#[cfg(feature = "lab")]
+struct ZipperPhaseOnly;
+
+#[cfg(feature = "lab")]
+impl CodecCandidate for ZipperPhaseOnly {
+    fn name(&self) -> &str { "Zipper-Phase(8B)" }
+    fn bytes_per_row(&self) -> usize { 8 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::zipper::ZipperDescriptor;
+        let zs: Vec<ZipperDescriptor> = rows.iter().map(|r| {
+            let n = r.len();
+            let mut p = 1usize;
+            while p < n { p <<= 1; }
+            let mut buf = vec![0.0f32; p];
+            buf[..n].copy_from_slice(r);
+            ZipperDescriptor::encode(&buf)
+        }).collect();
+        let n = rows.len();
+        let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+        for i in 0..n {
+            for j in (i + 1)..n {
+                scores.push(zs[i].cosine_phase_only(&zs[j]) as f64);
+            }
+        }
+        scores
+    }
+}
+
+#[cfg(feature = "lab")]
+struct ZipperFull;
+
+#[cfg(feature = "lab")]
+impl CodecCandidate for ZipperFull {
+    fn name(&self) -> &str { "Zipper-Full(64B)" }
+    fn bytes_per_row(&self) -> usize { 64 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::zipper::ZipperDescriptor;
+        let zs: Vec<ZipperDescriptor> = rows.iter().map(|r| {
+            let n = r.len();
+            let mut p = 1usize;
+            while p < n { p <<= 1; }
+            let mut buf = vec![0.0f32; p];
+            buf[..n].copy_from_slice(r);
+            ZipperDescriptor::encode(&buf)
+        }).collect();
+        let n = rows.len();
+        let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+        for i in 0..n {
+            for j in (i + 1)..n {
+                scores.push(zs[i].cosine_zipper_full(&zs[j]) as f64);
+            }
+        }
+        scores
+    }
+}
+
 /// Passthrough — raw cosine (baseline, exact).
 struct Passthrough;
 impl CodecCandidate for Passthrough {
@@ -1566,6 +1626,8 @@ fn main() {
             codecs.push(Box::new(FractalPlusBase17));
             codecs.push(Box::new(FractalPhaseOnly));
             codecs.push(Box::new(FractalPhasePlusBase17));
+            codecs.push(Box::new(ZipperPhaseOnly));
+            codecs.push(Box::new(ZipperFull));
         }
 
         let results = run_bench(&codecs, &rows, &gt);
