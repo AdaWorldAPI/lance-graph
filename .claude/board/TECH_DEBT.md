@@ -256,3 +256,49 @@ to redesign the storage contract.
 
 **Cross-ref:** IDEAS CORRECTION-OF + REFINEMENT-OF entries
 (2026-04-19). PRs #200-#203 introduced the memory footprint.
+
+## 2026-04-19 — CORRECTION-OF 2026-04-19 Ladybug 700-1100 MB blowup — it's a 10k × 10k GLITCH MATRIX, not HDC population
+**Status:** Open
+**Priority:** P0
+**Scope:** @container-architect @integration-lead domain:memory domain:cleanup
+**Introduced by:** PRs #200-#203 (ladybug-rs / bighorn imports — carried
+over code that allocates a dense 10,000 × 10,000 structure)
+**Payoff estimate:** identify + delete the single glitch allocation.
+No migration, no redesign, no substrate change.
+
+The prior entry framed the 700-1,100 MB blowup as a per-row HDC
+population cost (17-27 K live fingerprints at 40 KB/row). **This was
+wrong.** Per user (2026-04-19):
+
+**There is no 10,000 × 10,000 matrix we actually want.** The memory
+blowup came from a dense 10k × 10k structure imported as a glitch
+from outdated ladybug-rs / bighorn code. Arithmetic:
+
+- 10,000 × 10,000 × f32 = **400 MB** (single allocation)
+- Plus cognitive-stack state + other working memory → 700-1,100 MB.
+
+**Revised fix:**
+
+1. **Identify the glitch** — grep ladybug-imported modules (cognitive
+   crate, CognitiveShader, BindSpace, CollapseGate, adaptive codecs)
+   for any dense `[[T; 10000]; 10000]`, `Vec<Vec<T>>` of that shape,
+   `FixedSizeList<T, 100000000>`, or 400 MB-scale buffer. High-probability
+   candidates: a token-token distance matrix, co-occurrence matrix, dense
+   attention matrix, or K=10000 CLAM centroid distance table that was
+   imported intact without trimming to the workspace's actual scale.
+2. **Delete it.** It has no consumer in lance-graph proper (grammar /
+   crystal / quantum use 1-D 10k-width HDC vectors, never square
+   matrices).
+3. **Verify** with peak-RAM measurement on a minimal workload.
+
+**Invalidates:**
+
+- Prior "16k rename makes memory worse" analysis — the per-row HDC
+  math was sound but irrelevant to this specific blowup.
+- Mmap zero-copy requirement for HDC population — still good hygiene
+  but not the fix for the 700-1,100 MB observation.
+- Sparse encoding as a Structured5x5-alternative — still architecturally
+  useful but unrelated to the glitch.
+
+The 16k rename + f32 → BF16 migration proceed independently of this
+debt item. This one is a one-shot deletion.
