@@ -42,9 +42,20 @@ qwen35-full = ["qwen35-9b", "qwen35-27b-v1", "qwen35-27b-v2"]  # 430 MB — all 
 # Hydrate binary deps (serde + sha2). Only needed for the CLI tool.
 hydrate = ["dep:serde", "dep:serde_json", "dep:sha2"]
 
+# Lab / R&D modules — analysis tools and experimental codec candidates
+# that must NOT leak into production builds. Gate for the MFDFA fractal
+# descriptor (probe showed per-row fractal structure is flat on Qwen3
+# — analysis-only, not a production codec) and future experimental
+# semiring / codec probes. Main binary MUST NOT enable this.
+lab = []
+
 [[bin]]
 name = "hydrate"
 path = "src/hydrate.rs"
 required-features = ["hydrate"]
+
+[[example]]
+name = "fractal_probe"
+required-features = ["lab"]
 
 [dev-dependencies]
