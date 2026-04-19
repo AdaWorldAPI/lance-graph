@@ -26,6 +26,100 @@ user's request.
 
 ---
 
+## Agent-to-Agent (A2A) Orchestration — Two Layers
+
+Orchestration in this workspace runs at two distinct layers. Each
+layer uses a different "blackboard" substrate; both must be respected
+when spawning subagents or composing cognitive cycles.
+
+### Layer 1 — Runtime A2A (code-level, in the contract)
+
+For cognitive-cycle orchestration *inside* the running system:
+
+- **`lance_graph_contract::a2a_blackboard`** — `Blackboard` with
+  `entries: Vec<BlackboardEntry>` + `round: u32`. Each entry carries
+  `expert_id`, `capability`, `result`, `confidence`, `support [u16; 4]`,
+  `dissonance`, `cost_us`. Experts write; later rounds read prior
+  entries and build on them. This IS the A2A bus for multi-expert
+  inference.
+- **`lance_graph_contract::orchestration::OrchestrationBridge`** —
+  trait bridging `StepDomain` (Codec / Thinking / Query / Semantic /
+  Persistence / Inference / Learning) into `UnifiedStep`. Each domain
+  contributes a `BridgeSlot`; orchestration routes steps across
+  domains without duplicating state.
+- **`lance_graph_contract::orchestration_mode`** — explicit modes for
+  how a cycle composes (linear, parallel, blackboard-broadcast, etc.).
+- **`ExpertCapability`** enum — the capability taxonomy experts
+  declare. Do NOT invent new capabilities ad-hoc; grep
+  `a2a_blackboard.rs` first.
+- **Reference doc:** `docs/ORCHESTRATION_IS_GRAPH.md` — capstone
+  treating orchestration AS graph traversal (the runtime A2A is a
+  directed blackboard-graph).
+
+Use Layer 1 when the question is "how do two cognitive experts
+compose their outputs at runtime."
+
+### Layer 2 — Session A2A (Claude-code-level, between subagents)
+
+For subagent coordination *during* this session:
+
+- **The mandatory-read files above (`LATEST_STATE.md` +
+  `PR_ARC_INVENTORY.md`) are the shared blackboard.** Every subagent
+  I spawn reads them to know the current state, same as a Layer-1
+  expert reads prior blackboard entries to know current round state.
+- **Knowledge docs in `.claude/knowledge/`** are the extended
+  blackboard — cross-session persistent entries. Each doc has a
+  `READ BY:` header declaring which subagent types load it (the
+  equivalent of `ExpertCapability` matchers).
+- **`/root/.claude/plans/*.md`** — plan files authored via `Plan`
+  agents; session-scoped blackboard for multi-turn work. Other
+  agents reference the active plan for context.
+- **Parallel subagent spawns** in one main-thread turn are the
+  cheapest Layer-2 A2A pattern. Independent work fans out; results
+  aggregate back to the main thread, which does the cross-source
+  synthesis (accumulation → main thread on Opus per policy above).
+
+Use Layer 2 when the question is "how do I coordinate N subagents
+without burning main-thread turns re-reading the same state."
+
+### Agent ensemble, knowledge bootload, handover protocol
+
+See **`.claude/agents/README.md`** — it's the meta-card for the 19
+specialist agents + 5 meta-agents in this workspace. It covers:
+
+- **Meta-agent scopes** (`workspace-primer`, `integration-lead`,
+  `adk-coordinator`, `adk-behavior-monitor`, `truth-architect`).
+- **Session-start knowledge bootload** — every subagent loads Tier-0
+  (`LATEST_STATE.md` + `PR_ARC_INVENTORY.md`) unconditionally, then
+  Tier-1 knowledge docs by trigger table.
+- **Knowledge Activation Protocol** — the trigger → agent → doc
+  mapping (updated 2026-04-19 with grammar / crystal / NARS /
+  coreference / AriGraph / codec rows).
+- **Handover Protocol** — `.claude/handovers/YYYY-MM-DD-HHMM-<from>-
+  to-<to>.md` files carry What-I-did / FINDING / CONJECTURE /
+  Blockers / Open-questions. APPEND-ONLY.
+
+A new session doesn't reinvent the ensemble — it reads this README,
+picks the agents whose objects are being touched, and lets them
+bootload their own Tier-0 + Tier-1 docs.
+
+### Rule of thumb
+
+| Question | Layer | Primary substrate |
+|---|---|---|
+| "What expert capabilities compose this cycle?" | 1 | `contract::a2a_blackboard::Blackboard` |
+| "How do cross-domain steps compose?" | 1 | `OrchestrationBridge` + `UnifiedStep` |
+| "What does subagent A need to know before drafting?" | 2 | Mandatory reads + domain knowledge docs |
+| "How do I not re-read the same context on every turn?" | 2 | Knowledge doc with `READ BY:` header |
+| "How do I coordinate 3 subagents in parallel?" | 2 | Single main-thread turn with parallel `Agent` spawns |
+
+Layer 1 and Layer 2 do NOT conflict — they operate at different time
+scales. A runtime A2A cycle inside a running shader does not involve
+Claude subagents; a Claude-session subagent spawn does not write to
+the runtime Blackboard. Keep them architecturally distinct.
+
+---
+
 ## Model Policy (P0 — never violate)
 
 **The split that matters: grindwork vs accumulation.**
