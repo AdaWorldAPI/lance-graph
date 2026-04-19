@@ -77,24 +77,23 @@ row that cites the old; the old row's Status updates to
 | `IDEAS.md` | Open + Implemented + Rejected speculation | Entry bodies | Status + Rationale line (append) |
 | `TECH_DEBT.md` | Open + Paid debt | Entry bodies | Status + Payoff line (append) |
 
-**Method hierarchy (preferred → discouraged):**
+**Bookkeeping updates use `cat >> file << 'EOF'` only.**
 
-1. **APPEND** (the method of choice) — add a NEW dated row. Either
-   Edit-to-prepend inside a bounded section, or `Bash cat >>
-   file << EOF`. No prompt. Old rows stay untouched. This is the
-   double-bookkeeping pattern: new state = new row, not mutation.
-2. **Edit field with prior Read** — flip a mutable field
-   (Status / Confidence / Resolution / Payoff) on an existing row
-   after reading the file. No prompt. Use for clarifications and
-   status transitions on already-captured entries.
-3. **Write (full overwrite)** — prompts via
-   `.claude/settings.json::permissions.ask`. Discouraged; only for
-   wholesale replacement after explicit review.
+No `Edit` tool. No `Write` tool. No `>` overwrite. Every state
+change — Status transitions, Confidence updates, Resolution notes,
+Corrections, Payoff records — is a NEW dated row appended at the
+end. Old rows never mutate, including their Status fields.
 
-**Rule:** when in doubt, APPEND. Double-bookkeeping keeps the
-arc intact and makes the audit trail legible. Edit-a-field is the
-lighter touch for clear status transitions. Write is the escape
-hatch that costs a confirmation because it can destroy history.
+This is true ledger accounting. The file is a pure log. Nothing
+in it ever changes after it's written.
+
+Enforcement: `.claude/settings.json` denies both `Edit(...)` and
+`Write(...)` on all 8 bookkeeping files. Only
+`Bash(cat >> .claude/knowledge/... << 'EOF')` is allowed.
+
+Corrections to historical entries: append a new entry
+`## YYYY-MM-DD — CORRECTION-OF <original-date> <original-title>`
+with the corrected claim. The old entry stays unchanged.
 
 **Kanban discipline** — three files track work items that must
 not get buried: `ISSUES.md`, `IDEAS.md`, `TECH_DEBT.md`. Every

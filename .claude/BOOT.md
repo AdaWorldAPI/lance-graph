@@ -47,29 +47,35 @@ version matters — typically mid-session, not at cold start):
    workspace's historical record; rows / sections inside them are
    immutable, with a short list of mutable fields per file.
 
-   **Method hierarchy (preferred → discouraged):**
+   **Bookkeeping updates use `cat >> file << 'EOF'` only.**
 
-   1. **APPEND** (the method of choice) — add a NEW dated row to
-      an existing section. Either via Edit (prepend inside a `---`
-      bounded section) or Bash `cat >> file << EOF`. No prompt.
-      The old row stays untouched. This is the double-bookkeeping
-      pattern — new state enters as a new entry, not by mutating
-      the old.
-   2. **Edit field with prior Read** — flip a mutable field
-      (Status / Confidence / Resolution / Payoff) on an existing
-      row after reading the file. No prompt. Use for clarifications,
-      status transitions, and minor updates. Prior Read is the
-      workspace discipline (already in `CLAUDE.md`).
-   3. **Write (full overwrite)** — prompts for approval on every
-      bookkeeping file via `.claude/settings.json::permissions.ask`.
-      Discouraged; only for wholesale replacement of a file that's
-      been through explicit review. Never the default answer.
+   No `Edit`. No `Write`. No `>`. Every state change — Status
+   transitions, Confidence updates, Resolution notes, Corrections,
+   Payoff records — is a NEW dated row appended at the end of
+   the file. Old rows NEVER mutate, including their Status fields.
 
-   Rule: **when in doubt, append**. The double-bookkeeping habit
-   (new row rather than edited old row) preserves the full arc and
-   keeps the audit trail legible. Edit-a-field is acceptable when
-   the change is clearly a status transition on an existing entry;
-   Write is the escape hatch that costs a confirmation.
+   ```bash
+   cat >> .claude/knowledge/EPIPHANIES.md << 'EOF'
+
+   ## 2026-04-19 — <title>
+   **Status:** FINDING
+
+   <one paragraph>
+
+   Cross-ref: <pointer>
+   EOF
+   ```
+
+   This is true ledger accounting. The file is a pure log. Nothing
+   in it ever changes after it's written. `.claude/settings.json`
+   enforces this: both `Edit` and `Write` on all 8 bookkeeping
+   files are DENIED. Only `Bash(cat >> ...)` is allowed.
+
+   If you genuinely need to correct a historical entry (not update
+   its status — CORRECT a factual error), append a new entry:
+   `## YYYY-MM-DD — CORRECTION-OF <original-date> <original-title>`
+   with the corrected claim. The old entry stays unchanged. Both
+   are visible in the log.
 
    | File | Immutable | Mutable fields |
    |---|---|---|
