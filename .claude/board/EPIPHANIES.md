@@ -491,3 +491,68 @@ CORRECTION (fractal measured magnitude not phase), IDEAS 2026-04-19
 
 Wall time of the full 60+ codec bench: 13 min. Downloaded: 0 B (used
 cached Qwen3-8B shard from the earlier probe). Deterministic.
+
+## 2026-04-19 — Phase-fractal codec also NEGATIVE — row-level fractal discrimination dead
+**Status:** FINDING (measured via endpoint psychometry)
+**Scope:** @cascade-architect domain:codec domain:psychometry
+
+Ran codec_rnd_bench.rs with both magnitude-fractal AND phase-fractal
+candidates. Same population (Qwen3-8B q_proj L0, N=128, pairwise cosines).
+
+**Measurements (ICC_3_1 is the argmax-regime metric):**
+
+| Codec | Bytes | ICC_3_1 | Pearson r |
+|---|---|---|---|
+| Passthrough baseline | 0 | **1.0000** | 1.0000 |
+| Base17 (34 B anchors) | 34 | 0.0240 | 0.0742 |
+| Fractal-Desc (4-D magnitude) | 7 | **−0.9955** | 0.0160 |
+| **Fractal-Phase (5-D flip density)** | 5 | **−0.9972** | −0.0074 |
+| Fractal + Base17 blend | 41 | −0.4879 | 0.0748 |
+| Phase + Base17 blend | 39 | −0.4982 | 0.0742 |
+
+**Key finding:** BOTH orthogonal axes of row-level fractal statistics
+are flat across Qwen3 q_proj rows after Hadamard rotation.
+
+- Magnitude envelope (D, w, σ, H): near-constant — confirmed by
+  ICC ≈ −1.
+- Sign-flip density profile at 5 scales: ALSO near-constant — ICC
+  slightly worse at −0.9972.
+
+**Implication:** Invariant I2 (near-orthogonality of Qwen3 rows at
+1024/4096-d) means once rows are Gaussian-ish post-Hadamard, every
+row-level summary statistic looks identical. Only the SPECIFIC
+coordinate-by-coordinate sign/magnitude assignment discriminates, and
+that cannot compress below ~full sign pattern (~1 bit/coord, ~512 B
+for a 4096-d row).
+
+**Fractal-leaf line of research is closed** for row-level-statistic
+compression. Three probes completed, all negative:
+  1. CoV(w_mfs) ≈ 0.19 (first cheap probe, 100 rows)
+  2. ICC_3_1(Fractal-Desc) = −0.9955 (magnitude, 4-D, 128 rows)
+  3. ICC_3_1(Fractal-Phase) = −0.9972 (phase, 5-D, 128 rows)
+
+**Still-open variant (unmeasured):** fractal-interpolation-between-
+Base17-anchors for ROUND-TRIP codec. That approach stores full
+Base17 (17 golden-step anchors = near-full phase signature at those
+points) + fractal shape params to guide interpolation BETWEEN
+anchors. Doesn't rely on row-level fractal statistic discrimination.
+Requires implementing `FractalCodec::decode(Base17, Descriptor)` via
+IFS and registering as candidate. Unbuilt.
+
+**Wall times:**
+- First bench (2 fractal candidates): 782 s (13 min)
+- Second bench (4 fractal candidates): 1354 s (22.5 min)
+- Delta: ~9.5 min for 2 more candidates on 128 rows × 60+ codec sweep.
+
+**Codec R&D sweep state post-finding:** I8-Hadamard at ~9 B/row
+remains the argmax-regime leader. Fractal leaf is not on the
+Pareto frontier; do not pursue row-level-statistic compression
+further. Focus codec research on either:
+  - Full sign-pattern preservation schemes (~512 B/row minimum).
+  - Round-trip IFS from Base17 anchors (unmeasured, novel).
+  - Different underlying orthogonal bases (SVD-per-group instead of
+    shared Hadamard) — different basis might give different
+    row-level statistics, but I2 says near-orthogonality is generic.
+
+Cross-ref: commits 0f635e6 (phase variant), 18c53e0 (first ICC run),
+fractal-codec-argmax-regime.md, EPIPHANIES 2026-04-19 prior entries.
