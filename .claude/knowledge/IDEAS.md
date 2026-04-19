@@ -171,3 +171,34 @@ citing the deferred one; flip the deferred entry's Status to
 
 Nothing is lost. Every idea has a trail from speculation to
 disposition.
+
+## 2026-04-19 — insight-accumulator meta-agent for end-of-session epiphany harvest
+**Status:** Implemented 2026-04-19
+**Priority:** P1
+**Scope:** @insight-accumulator @workspace-primer @truth-architect domain:infra
+
+Sessions accumulate distilled insights across specialist handovers that
+never reach the append-only ledgers because main-thread context drops at
+compaction. A new meta-agent, woken pre-compaction / post-merge /
+on-handover-close, reads handovers + last-merged PR body and APPENDS
+dated FINDING / CONJECTURE entries to EPIPHANIES / IDEAS / TECH_DEBT /
+ISSUES, plus Confidence-line flips on PR_ARC_INVENTORY. Never rewrites
+history. Hands off to truth-architect when a CONJECTURE looks
+FINDING-grade and needs a probe.
+
+Cross-ref: `.claude/agents/insight-accumulator.md`, STATUS_BOARD infra row.
+
+## 2026-04-19 — prior-art audit: one-pass status classification of 102+ existing docs
+**Status:** Implemented 2026-04-19
+**Priority:** P2
+**Scope:** @integration-lead domain:infra
+
+The 61 .claude/*.md + 52 .claude/prompts/*.md accumulated across prior
+sessions have no per-file status. A new session can't tell which
+describe current architecture vs. historical reasoning trails.
+Deliverable: ARCHIVE_INDEX.md classifying each file into Active /
+Recent / Dormant / Stale / Archival buckets by vicinity to its
+last-touching PR. Method is data-driven (git log --follow + SHA to PR
+mapping), so regeneration against a future HEAD is deterministic.
+
+Cross-ref: `.claude/knowledge/ARCHIVE_INDEX.md`, STATUS_BOARD prior-art audit bucket rows.
