@@ -368,3 +368,60 @@ offerings. **This is why lance-graph is The Spine, not a plug-in.**
 
 **Supersedes:** prior CORRECTION-OF entry's "Vsa16kF32 (lossless
 baseline): 64 KB" line. The lossless baseline is BF16 at 32 KB.
+
+## 2026-04-19 — lance-graph-cognitive refactor: dedup + merge + excise
+**Status:** Open
+**Priority:** P2
+**Scope:** @integration-lead @container-architect domain:cognitive domain:refactor
+
+26,240 LOC across 11 modules, yesterday's ladybug-rs harvest staged
+here. Not wholesale duplicate of other crates — it's the complementary
+cognitive layer sitting above `lance-graph::graph::spo` (store) and
+`lance-graph-contract::{grammar,crystal}` (primitives). Needs targeted
+cleanup, not deletion.
+
+**Keep in place (canonical cognitive-layer impl):**
+
+- `grammar/` — `GrammarTriangle` (NSM × Causality × Qualia); plan D3
+  explicitly calls it (`.claude/plans/elegant-herding-rocket-v1.md`).
+- `spo/` — Crystal layer: `sentence_crystal`, `context_crystal`,
+  `gestalt`, `meta_resonance`, `cognitive_codebook`. Sits on top of
+  the SPO store + contract's `CrystalFingerprint` enum.
+- `spectroscopy/` — detector 511 + features 408 LOC, standalone
+  unique cognitive-spectroscopy work.
+
+**Merge into active crates (if feasible):**
+
+- `search/temporal.rs` (187 LOC) → `lance-graph-planner::strategy`
+  (temporal search as a strategy, not a separate module).
+- `cypher_bridge.rs` → check overlap with `lance-graph::parser`;
+  merge or retire.
+
+**Inspect and decide DTO vs excise:**
+
+- `fabric/` — protocol surface? If yes → move to contract. If no →
+  keep or excise.
+- `world/` — world model, likely DTO. If yes → move to contract
+  (parallel to `state_classification_pillars` already there).
+- `container_bs/` — BindSpace container. If DTO → move to contract
+  OR let ada-rs consume through contract. If stub → excise.
+
+**Excise:**
+
+- `learning/` — empty stub inside lance-graph-cognitive (distinct
+  from the standalone `crates/learning/` DTO crate which is a
+  different thing). Delete.
+- `wip` feature-flagged modules — finish or excise, not both.
+- `core_full/` — catch-all; decompose into themed modules or
+  migrate contents into the modules above.
+
+**Cost:** ~1 week refactor PR. Zero functional change; contract
+compliance improves, dependency graph tightens. Contract-adoption
+rule from CLAUDE.md (§Current Status In-Progress) is the governing
+principle: public surface through contract, implementations behind
+traits.
+
+**Cross-ref:** TECH_DEBT "ladybug-rs retired — ada-rs + lance-graph
+exclusively" (2026-04-19). Active plan:
+`.claude/plans/elegant-herding-rocket-v1.md` D3 depends on
+lance-graph-cognitive's grammar module staying put.
