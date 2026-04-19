@@ -1,0 +1,209 @@
+# Epiphanies — Append-Only Log (date-prefixed)
+
+> **APPEND-ONLY.** Every epiphany, realization, correction, or
+> "aha" moment gets a dated entry here so nothing gets lost between
+> sessions. Reverse chronological (newest first). Never delete an
+> entry; correct via a new entry that cites the old one.
+>
+> **Format invariant:** every entry begins with a `## YYYY-MM-DD —`
+> header. A CONJECTURE / FINDING / CORRECTION-OF label is optional
+> but encouraged. Body is short: one paragraph + optional
+> cross-reference. Long material goes in a dedicated knowledge
+> doc; the epiphany here is the **pointer + one-line claim**.
+>
+> Mutable field: `**Status:**` line (FINDING / CONJECTURE /
+> SUPERSEDED) is the only thing in an entry that can be updated.
+> Everything else is immutable.
+
+---
+
+## How to use
+
+**When a new insight surfaces** — stop, prepend an entry with today's
+date at the top of the "Entries" section below. One paragraph. If
+the full idea needs more room, create a dedicated knowledge doc
+and reference it from the epiphany entry.
+
+**When an old epiphany is wrong** — prepend a new entry labeled
+`CORRECTION-OF YYYY-MM-DD <title>` and update the old entry's
+`**Status:**` line to `SUPERSEDED by <new-entry>`. Never edit the
+old body.
+
+**When reading the log** — top N entries are the recent thinking;
+deeper entries are the accumulated substrate. Everything is there.
+
+---
+
+## Prior art (pre-existing epiphany collections — do not duplicate)
+
+These files already hold numbered epiphany sets from earlier work.
+New epiphanies go in **this file** with date prefix; the files below
+stay as historical references.
+
+| File | Contents |
+|---|---|
+| `linguistic-epiphanies-2026-04-19.md` | E13–E27 (Chomsky hierarchy, Σ10 Rubicon, sigma_rosetta, Markov living frame, resonanzsiebe, method grammar, 4D hashtag glyph, membrane, verbs as productions) |
+| `cross-repo-harvest-2026-04-19.md` | H1–H14 (Born rule, phase-tag threshold, interference truth, Grammar Triangle ≡ ContextCrystal(w=1), NSM ≡ SPO axes, FP_WORDS=160, Mexican-hat, Int4State, Glyph5B, Crystal4K, teleport F=1, 144-verb, Three Mountains) |
+| `integration-plan-grammar-crystal-arigraph.md` | E1–E12 (grammar-tiered, morphology-easier, FailureTicket, cross-lingual superposition, Markov ±5, NARS-about-grammar, crystal hierarchy, sandwich, 5D quorum, episodic unbundle, AriGraph substrate, demo matrix) |
+| `session-capstone-2026-04-18.md` | 8 epiphanies from 2026-04-18 session (four-pillar inheritance, CMYK/RGB qualia, vocabulary IS semantics, WorldMapRenderer, Σ hierarchy maps to crate boundaries, proprioception as ontological self-recognition, BindSpace+cycle_fingerprint as latent episodic, two-frame DTO) |
+| `crystal-quantum-blueprints.md` | Crystal mode vs Quantum mode split (bundled Markov SPO chain vs holographic residual) |
+| `endgame-holographic-agi.md` | 5-layer stack, 12-step holographic memory loop, three-demo matrix |
+| `fractal-codec-argmax-regime.md` | Orthogonal research thread — MFDFA on Hadamard-rotated coefficients as fractal-descriptor leaf |
+
+## Governance
+
+- **APPEND-ONLY.** Immutable body per entry.
+- **Mutable:** `**Status:**` line only (FINDING / CONJECTURE /
+  SUPERSEDED by <date-title>).
+- **Corrections APPEND as new dated entries.** The old entry's
+  Status changes to SUPERSEDED.
+- **`permissions.ask` on Edit** (same rule as `PR_ARC_INVENTORY.md`
+  / `LATEST_STATE.md` — rewriting history prompts for approval;
+  Write for append stays unprompted).
+
+---
+
+## Entries (reverse chronological)
+
+## 2026-04-19 — Mandatory epiphanies log (this file)
+
+**Status:** FINDING
+
+Every epiphany from prior sessions lived in separate doc (E1–E12
+here, H1–H14 there, E13–E27 somewhere else). No single place to
+append a new one. This file is the unified target going forward.
+Old files stay as historical substrate; new insights land here with
+date prefix. Cross-reference: `BOOT.md`, `CLAUDE.md`, `cca2a/
+concepts.md` — all four bookkeeping files now plus this one.
+
+## 2026-04-19 — Cold-start tax is solvable with three mandatory reads
+
+**Status:** FINDING
+
+A new session on non-trivial workspace burns 20–30 turns rediscovering
+what's shipped. Three files (`LATEST_STATE.md`, `PR_ARC_INVENTORY.md`,
+`.claude/agents/BOOT.md`) + SessionStart hook closes the gap to
+3–5 turns. Proven by PR #211. Savings per cold-start: ~$15–35 of
+Opus. See `.claude/skills/cca2a/SKILL.md` for the full pattern.
+
+## 2026-04-19 — 10,000-D f32 VSA is lossless under linear sum
+
+**Status:** FINDING
+
+Earlier framing of "Vsa10kF32 is wire-only passthrough" was wrong.
+10K × 32 = 320 K bits of capacity ≫ any single signal; orthogonal
+role keys give exact unbundle. **10K f32 is native storage**, not
+passthrough. lancedb famously supports 10K-D VSA natively. Cross-ref:
+PR #209 refactor.
+
+## 2026-04-19 — Signed 5^5 bipolar is lossless; unsigned / bitpacked is lossy
+
+**Status:** FINDING
+
+Negative cancellation on bipolar cells is VSA-native; opposing cells
+at the same sandwich dim cancel on bundling. Unsigned 5^5 saturates
+under accumulation (lossy). Binary bitpacked commits to 0/1 via
+majority vote (lossy). CAM-PQ projection is distance-preserving
+(lossless cross-form). Cross-ref: PR #209 sandwich layout.
+
+## 2026-04-19 — VSA convention is `[start:stop]` contiguous slices, not scattered bits
+
+**Status:** FINDING
+
+Role keys own disjoint contiguous slices of the 10K VSA space —
+SUBJECT=[0..2000), PREDICATE=[2000..4000), etc. Binding into one
+slice does not contaminate another. Scattered-bit role encoding
+(early draft) was the wrong pattern. Cross-ref: PR #210 D6
+role_keys.rs.
+
+## 2026-04-19 — Finnish object marking is Nominative/Genitive/Partitive, NOT Accusative
+
+**Status:** FINDING (CORRECTION-OF an earlier Latinate transplant)
+
+Prior draft wrote Finnish "Accusative `-n/-t` → Object" which is
+a Latinate transplant. Finnish object marking actually uses:
+Nominative (plural), Genitive `-n` (total singular), Partitive
+`-a/-ä` (partial / negated). True Accusative is only for personal
+pronouns (`minut`, `sinut`, `hänet`, `meidät`, `teidät`, `heidät`).
+Each language gets its native case terminology.
+Cross-ref: `grammar-landscape.md` §4.1.
+
+## 2026-04-19 — Morphology-rich languages are easier, not harder
+
+**Status:** FINDING
+
+Finnish 15 cases → 98%+ local coverage. English (word order only) →
+85% (WORST case). Case endings directly encode TEKAMOLO slots;
+morphology commits grammatical role at the morpheme level,
+eliminating the inference English needs. Cross-ref:
+`grammar-tiered-routing.md` §Morphology Coverage Table.
+
+## 2026-04-19 — Markov ±5 is the context upgrade to NARS+SPO 2³+TEKAMOLO
+
+**Status:** FINDING
+
+Pre-Markov reasoning unit = sentence. Post-Markov = trajectory.
+NARS doesn't reason about "this sentence"; it reasons about "this
+sentence in this flow." The context dimension is the whole point.
+Cross-ref: `integration-plan-grammar-crystal-arigraph.md` E5.
+
+## 2026-04-19 — Grammar Triangle IS ContextCrystal at window=1
+
+**Status:** FINDING
+
+Two parallel architectures turn out to be the same thing at
+different window sizes. Triangle emits `Structured5x5` with S/O
+collapsed + only t=2 populated; ContextCrystal populates all 5
+axes. Unification. Cross-ref:
+`cross-repo-harvest-2026-04-19.md` H4,
+`ladybug-rs/docs/GRAMMAR_VS_CRYSTAL.md`.
+
+## 2026-04-19 — NSM primes map directly to SPO + Qualia + Temporal axes
+
+**Status:** FINDING
+
+The 65 Wierzbicka primes aren't orthogonal to SPO — they ARE an
+SPO encoding. I/YOU/SOMEONE → Subject; THINK/WANT/FEEL →
+Predicate; SOMETHING/BODY → Object; GOOD/BAD → Qualia.valence;
+BEFORE/AFTER → Temporal; BECAUSE/IF → Causality via Markov flow.
+DeepNSM + Structured5x5 already speak NSM's vocabulary.
+Cross-ref: `cross-repo-harvest-2026-04-19.md` H5.
+
+## 2026-04-19 — Chomsky hierarchy isomorphism with Pearl rungs and Σ tiers
+
+**Status:** FINDING
+
+Type-3 Regular = Pearl rung 1 = Σ1–Σ2 = DeepNSM FSM (LLM token
+prediction lives here). Type-2 CF = rung 2 = Σ3–Σ5 = SPO 2³. Type-1
+CS = rung 3–4 = Σ6–Σ8 = Markov ±5 + coref + counterfactual. Type-0
+TM = rung 5 = Σ9–Σ10 = LLM escalation only. The 90–99% local /
+1–10% LLM split is the Chomsky-hierarchy boundary between
+context-sensitive-decidable and Turing-complete-undecidable. The
+split is mathematically principled, not arbitrary.
+Cross-ref: `linguistic-epiphanies-2026-04-19.md` E13, E26.
+
+## 2026-04-19 — Grindwork vs accumulation is the subagent model split
+
+**Status:** FINDING
+
+Grindwork (single-source mechanical: write-file-from-spec, grep,
+list paths) → Sonnet. Accumulation (multi-source synthesis:
+harvest across repos, combine N docs, trace architecture) → Opus.
+Cheaper tiers produce shallow outputs under accumulation; quality
+drop is visible. Never Haiku.
+Cross-ref: `CLAUDE.md §Model Policy`.
+
+## 2026-04-19 — Zipball-for-reads is ~20× cheaper than MCP-per-file
+
+**Status:** FINDING
+
+`mcp__github__get_file_contents` drops the full file into context
+and recharges on every subsequent turn. Zipball to `/tmp/sources/`
++ local grep lands only the grep output (typically 2–10 KB) vs
+50 KB per file per turn. 95% savings on cross-repo harvest turns.
+MCP stays for writes (PR creation, comments).
+Cross-ref: `CLAUDE.md §GitHub Access Policy`.
+
+---
+
+(append new epiphanies above this marker; format: `## YYYY-MM-DD — <title>`)

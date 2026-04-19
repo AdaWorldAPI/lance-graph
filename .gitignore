@@ -58,3 +58,6 @@ knowledge_graph_data/
 # Large model data (use GitHub Releases)
 crates/thinking-engine/data/Qwopus3.5-27B-v3-BF16-silu/token_embd_centroids_4096x5120.f32
 crates/thinking-engine/data/Qwopus3.5-27B-v3-BF16-silu/token_embd_4096x4096.u8
+
+# Claude Code personal overrides (per-project)
+.claude/settings.local.json

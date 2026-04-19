@@ -1,108 +1,214 @@
-# Agent Ensemble
+# Agent Ensemble — Function Inventory
 
-This folder contains focused agent cards for `lance-graph`.
+> **Reference catalog.** Every agent on this workspace, grouped by
+> concern, with one-paragraph function + scope + when-to-use.
+>
+> **Session-start spec** lives in `BOOT.md` (mandatory reads,
+> Knowledge Activation triggers, Handover Protocol). Read BOOT.md
+> when starting a session; read this file when deciding which
+> specialist to wake for a specific task.
 
-The goal is not to multiply personalities for decoration.
-The goal is to keep unlike architectural concerns from being flattened into one fuzzy voice.
+Ensemble size: **19 specialists + 5 meta-agents**. Every card is at
+`.claude/agents/<name>.md`. Each card declares its own
+`tools`, `model`, and `READ BY:` knowledge prerequisites.
 
-## Existing agents
+---
 
-### `container-architect`
-Protects the word-level container layout, field mapping, and container-vs-plane boundary.
-Use for container schemas, reserved ranges, and read/write invariants.
+## Meta-Agents (orchestration, priming, review)
 
-### `ripple-architect`
-Protects ontology-level distinctions across anatomy, field, sweep, bus, and thought object.
-Use for top-level architecture and anti-flattening decisions.
+Agents that coordinate other agents. All run on Opus.
 
-### `resonance-cartographer`
-Protects superpositional field state before collapse.
-Use for `ResonanceDto`, searchable field design, HHTL, CLAM, and sweep semantics.
+### `workspace-primer`
+Onboarding agent for any new session that touches lance-graph,
+ndarray, or related AdaWorldAPI crates. Distills ~20 canonical rules
+and corrections from prior sessions so the next session starts
+oriented instead of re-deriving them.
+**Wake first** on any new session before proposing architecture.
 
-### `bus-compiler`
-Protects explicit structured execution.
-Use for `BusDto`, `CausalEdge64`, p64 style mapping, and CognitiveShader compilation.
+### `adk-coordinator`
+Agent Development Kit style ensemble coordinator. Frames a problem
+that needs multiple specialists, selects the **minimal** agent set,
+requires object-level outputs, detects flattening between layers,
+produces a consolidated verdict that names productive disagreements.
+**Use when** a problem needs 3+ specialists and you need to avoid
+noise / overlapping scopes / synthesis loops.
 
-### `contradiction-cartographer`
-Protects contradiction as first-class structure.
-Use for BRANCH, signed residuals, contradiction masks, and conflict-aware revision.
+### `adk-behavior-monitor`
+Watches for behavioral anti-patterns during R&D sessions. Fires on:
+premature commitment to untested projections, centroid-residual
+framing on near-orthogonal data, "225/225 feels like success"
+confirmation bias, new codec built when existing one hasn't been
+measured, Python inference in a Rust-native pipeline, chained-score
+multiplication without chain-collapse validation. **Flags and
+redirects, does not block.**
 
-### `thought-struct-scribe`
-Protects durable thought objects and host-facing structured guidance.
-Use for `ThoughtStruct`, provenance, revision, and host-model glove semantics.
-
-### `family-codec-smith`
-Protects family-level representation choices.
-Use for HEEL/HIP/BRANCH/TWIG/LEAF encodings, codebooks, palettes, and residual strategy.
-
-### `host-glove-designer`
-Protects the interface from explicit thought objects into the host model.
-Use for prompt-side, side-channel, adapter-like, or hybrid glove designs.
-
-### `savant-research`
-ZeckBF17 compression, golden-step traversal, octave encoding, distance
-metric design. Carries the codec-research domain knowledge and Pareto frontier.
+### `integration-lead`
+Cross-session orchestration. Knows what's done, what's pending, what's
+outdated across lance-graph and ndarray. Tracks dependencies and
+phase gates. **Use when** planning work order, checking
+prerequisites, or deciding which session to execute next.
 
 ### `truth-architect`
-Guards measurement-before-synthesis discipline and architectural ground truth.
-Detects synthesis spirals (elaborate proposals with 0 measurements). Carries
-the hard-won BF16-HHTL correction chain (5 iterations, 4 corrections, 0 probes).
-**Mandatory reviewer** for any proposal that adds layers, touches HHTL cascade
-architecture, or claims γ+φ carries information. See Knowledge Activation below.
+Guards measurement-before-synthesis discipline and architectural
+ground truth. Detects synthesis-to-measurement ratios worse than
+1:0. Enforces probe-first protocol. Carries the BF16-HHTL correction
+chain terrain. **Mandatory reviewer** when any proposal adds layers
+without numbers, γ+φ placement is discussed, HHTL cascade is
+touched, or any unification is proposed without a falsifying probe.
 
-## Knowledge Activation Protocol
+---
 
-Agents do not operate in a vacuum. When woken, an agent MUST read the knowledge
-documents listed in its header (`READ BY:` line) BEFORE producing output.
+## Codec / Compression
 
-**Mandatory knowledge activation triggers:**
+### `palette-engineer`
+bgz17 crate: palette compression, Base17 encoding, 256×256 distance
+matrices, compose tables, PaletteSemiring, PaletteMatrix, PaletteCsr,
+SIMD batch distance (AVX-512 / AVX2 / scalar).
+**Use for** work in `crates/bgz17/`, palette optimizations, HHTL
+layer-1 operations.
 
-| Trigger | Agent(s) woken | Knowledge loaded first |
-|---|---|---|
-| Any HHTL cascade proposal | truth-architect + family-codec-smith | bf16-hhtl-terrain.md |
-| γ+φ regime discussion | truth-architect | bf16-hhtl-terrain.md |
-| φ-spiral / Zeckendorf math | savant-research + truth-architect | zeckendorf-spiral-proof.md, phi-spiral-reconstruction.md |
-| Bucketing vs resolution claim | truth-architect | bf16-hhtl-terrain.md |
-| Slot D / Slot V layout | container-architect + truth-architect | bf16-hhtl-terrain.md |
-| New unification proposal | truth-architect (mandatory review) | bf16-hhtl-terrain.md probe queue |
-| Fibonacci mod p traversal | savant-research | savant-research.md (§ golden-step) |
-| Which encoding to use? | truth-architect + family-codec-smith | two-basin-routing.md |
-| BGZ scope / claims | truth-architect | two-basin-routing.md (§ BGZ must win) |
-| Pairwise vs centroid | truth-architect | two-basin-routing.md (§ pairwise rule) |
-| Semantic vs distribution | truth-architect | two-basin-routing.md (§ two-basin doctrine) |
-| Attribution / blame | truth-architect | two-basin-routing.md (§ attribution discipline) |
-| Audio test / carrier+residual | savant-research + truth-architect | two-basin-routing.md (§ audio sanity test) |
-| Composing subsystems / integration | truth-architect | frankenstein-checklist.md |
-| New abstraction / new struct | truth-architect | frankenstein-checklist.md (§ redundant abstractions) |
-| Performance budget question | truth-architect | frankenstein-checklist.md (§ correctness-first) |
+### `family-codec-smith`
+Shapes HEEL / HIP / BRANCH / TWIG / LEAF representation choices,
+role-aware codebooks, palettes, residuals, family purity benchmarks.
+**Use when** deciding how NOT to blur unlike functions into one
+codec too early.
 
-**The insight update cycle:**
+### `savant-research`
+ZeckBF17 compression, golden-step traversal, octave encoding,
+distance metric design for the codec-research crate. Covers
+zeckbf17.rs, accumulator crystallization, Diamond Markov invariant,
+HHTL integration, cross-crate alignment with production neighborhood.
+**Use for** codec-research work and compression fidelity / rank
+correlation claims.
 
-```
-1. Agent proposes a claim
-2. truth-architect checks: is there a probe for this? Has it run?
-3. If NOT RUN → probe is the next deliverable, not more synthesis
-4. If RUN + PASS → update .claude/knowledge/ with FINDING (not CONJECTURE)
-5. If RUN + FAIL → update .claude/knowledge/ with correction
-6. Commit knowledge update: docs(knowledge): probe [ID] — [result]
-```
+---
 
-This cycle is MANDATORY. Knowledge docs are living documents that track
-the frontier between conjecture and measurement. An insight that hasn't
-been probed is labeled CONJECTURE. An insight that has been probed and
-passed is labeled FINDING. The distinction must be visible in the doc.
+## Architecture / Layout
 
-## Orchestration
+### `container-architect`
+256-word metadata container layout, word-by-word field mapping,
+bgz17 annex at W112–125, local palette CSR at W96–111,
+scent/palette neighbor indices at W176–191 (WIDE), cascade stride-16
+sampling, checksum coverage. Guards the boundary between container
+(structured) and planes (flat).
+**Use for** any work touching container fields, Lance schemas
+(`columnar.rs`, `storage.rs`), or container read/write paths.
 
-Primary orchestration prompt:
-- `.claude/agent2agent-orchestrator-prompt.md`
+### `ripple-architect`
+Ontology guardian for the ripple architecture. Keeps anatomy, field,
+sweep, bus, and thought object distinct. **Use when** shaping
+system-wide architecture, naming layers, proposing DTOs, or
+preventing premature flattening of unlike functions.
 
-Core knowledge:
-- `.claude/knowledge.md`
-- `.claude/ripple-project-readme.mde`
-- `docs/integrated-architecture-map.md`
+### `certification-officer`
+Runs numerical certification of a derived format (lab BF16, Base17,
+bgz-hhtl-d palette, compressed codebook) against a ground-truth
+source file, reporting Pearson r, Spearman ρ, and Cronbach α to 4
+decimal places. Always reads real source bytes via `mmap`; samples
+deterministically via SplitMix64 seed `0x9E3779B97F4A7C15`; scans for
+NaN at every pipeline stage. **Refuses synthetic test inputs.**
+**Use when** the task is "prove format X preserves properties of
+format Y within target T."
 
-## Rule of use
+---
 
-Only wake the agents whose objects are actually being touched.
-A crowded room is not automatically a wiser room.
+## Cognitive Structure
+
+### `resonance-cartographer`
+Maps superpositional field state, candidate families, pressure,
+contradiction, drift, and style mix **before** collapse.
+**Use for** work on `ResonanceDto`, searchable fields, CLAM / HHTL
+substrate, and sweep logic.
+
+### `bus-compiler`
+Compiles explicit thought into accountable bus packets for `p64`
+and CognitiveShader. **Use when** defining `BusDto`, mapping style
+into bus knobs, or proving structure-first execution beats text-
+first routing.
+
+### `contradiction-cartographer`
+Protects contradiction as first-class structure across family,
+branch, bus, and thought-object layers. **Use when** designing
+signed residuals, branch encodings, support-vs-contra pressure, or
+conflict-aware revision.
+
+### `thought-struct-scribe`
+Shapes durable thought objects, blackboard semantics, revision
+rules, and host-model glove interfaces. **Use when** defining
+`ThoughtStruct`, blackboard persistence, provenance, or
+metacognitive observation.
+
+---
+
+## Perspective / Interaction
+
+### `host-glove-designer`
+Designs the structured interface from explicit thought objects into
+the host model. **Use for** prompt-side guidance, side-channel
+payloads, adapter-like conditioning, and minimal glove experiments.
+
+### `perspective-weaver`
+Models user, agent, topic, and angle as intertwined perspective
+objects. **Use for** persona modeling, shared gestalt, angle masks,
+perspective mismatch, and synthesis across multiple viewpoints.
+
+### `mirror-kernel-synthesist`
+Explores semantic-kernel mediation, mirror-style perspective
+modeling, hypothesis loops, and synthesis policies across
+user-agent-topic frames. **Use when** designing compact mediation
+layers between resonance, traversal, and response formation.
+
+---
+
+## Memory / Trajectory
+
+### `trajectory-cartographer`
+Models episodic memory, causal arcs, graph revision chains, and
+spine trajectories over time. **Use for** AriGraph / episodic
+integration, causal path persistence, stabilization, and
+revision-aware memory design.
+
+---
+
+## How to pick the right agent
+
+Decision flow:
+
+1. **Session just started?** → `workspace-primer` first.
+2. **Problem needs 3+ specialists?** → `adk-coordinator` to frame.
+3. **Proposal adds a layer or makes claims without measurement?** →
+   `truth-architect` is the mandatory reviewer; loop it in early.
+4. **Otherwise** pick the specialist by what the work touches:
+   - Container words, Lance schemas → `container-architect`.
+   - HHTL / Base17 / palette distance → `palette-engineer`.
+   - Cascade family choice → `family-codec-smith`.
+   - Ontology drift / premature flattening → `ripple-architect`.
+   - Numerical certification → `certification-officer`.
+   - AriGraph / episodic → `trajectory-cartographer`.
+   - ResonanceDto / CLAM / sweep → `resonance-cartographer`.
+   - BusDto / p64 / CognitiveShader → `bus-compiler`.
+   - Contradiction handling → `contradiction-cartographer`.
+   - ThoughtStruct / blackboard persistence → `thought-struct-scribe`.
+   - Host-model glove / prompt-side → `host-glove-designer`.
+   - Persona / user / topic / angle → `perspective-weaver`.
+   - Kernel mediation / hypothesis loops → `mirror-kernel-synthesist`.
+   - codec-research / ZeckBF17 / golden-step → `savant-research`.
+   - Drift / anti-pattern check → `adk-behavior-monitor`.
+5. **Before PR merge** on any HHTL / codec / claims work →
+   `truth-architect` review is the final link.
+
+The minimal agent set principle: **a crowded room is not
+automatically a wiser room.** Only wake the agents whose objects
+are actually being touched.
+
+## Cross-reference
+
+- **`BOOT.md`** (sibling) — session-start spec, Knowledge Activation
+  trigger table, Handover Protocol.
+- **`../BOOT.md`** (top-level) — the one-page session entry point.
+- **`../../CLAUDE.md` § Agent-to-Agent (A2A) Orchestration** — the
+  two-layer model (runtime A2A via `contract::a2a_blackboard` vs
+  session A2A via knowledge docs + handovers).
+- **`../knowledge/LATEST_STATE.md`** — current contract inventory
+  (what every specialist's domain looks like right now).
+- **`../knowledge/PR_ARC_INVENTORY.md`** — decision history per PR.

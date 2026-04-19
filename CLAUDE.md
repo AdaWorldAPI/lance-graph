@@ -1,8 +1,261 @@
 # CLAUDE.md — lance-graph
 
-> **Updated**: 2026-03-28
+> **Updated**: 2026-04-19 (post PR #210)
 > **Role**: The obligatory spine — query engine, codec stack, semantic transformer, and orchestration contract
 > **Status**: 11 crates, 5 in workspace, 4 excluded (standalone), Phases 1-2 DONE, Phase 3 IN PROGRESS
+
+---
+
+## Session Start — MANDATORY READS (in this order)
+
+**Start here:** `.claude/BOOT.md` — the one-page session entry point.
+It names the three files below as mandatory reads, so load them
+whether you went through BOOT.md or landed here directly.
+
+1. **`.claude/knowledge/LATEST_STATE.md`** — current contract
+   inventory, recently shipped PRs, active branches, queued work,
+   explicit deferrals. **What exists.**
+2. **`.claude/knowledge/PR_ARC_INVENTORY.md`** — per-PR Added /
+   Locked / Deferred / Docs / Confidence, reverse chronological.
+   **APPEND-ONLY**; only the Confidence line is updatable;
+   corrections append as new dated lines; reversals get their own
+   PR entry. **Why it exists.**
+3. **`.claude/agents/BOOT.md`** — the 19 specialist + 5 meta-agent
+   ensemble (`workspace-primer`, `integration-lead`,
+   `adk-coordinator`, `adk-behavior-monitor`, `truth-architect`),
+   the Knowledge Activation trigger table (domain → agent → docs),
+   and the Handover Protocol spec. **This is the A2A orchestration
+   specification for this workspace.** **How to coordinate.**
+
+After these three, load domain-specific knowledge docs only as
+triggered by the user's request.
+
+**Companion dashboards (mid-session references, not cold-start
+mandatory):**
+
+- **`.claude/knowledge/STATUS_BOARD.md`** — deliverable-level
+  dashboard. All D-ids across every active plan with Status.
+  Consult when asking "where is D5" or "is this shipped yet."
+- **`.claude/knowledge/INTEGRATION_PLANS.md`** — versioned plan
+  index (APPEND-ONLY). Active plan lives at
+  `.claude/plans/<name>-v<N>.md`. Consult before proposing a new
+  plan.
+
+**If you want the pattern explained rather than the specifics:**
+see **`.claude/skills/cca2a/SKILL.md`** — explanation-only skill
+covering the A2A two-layer model, governance rules, and how this
+workspace's conventions diverge from official Claude Code docs.
+Read once to grok; then stop re-deriving across sessions.
+
+### Prior art — reference before writing new docs
+
+This workspace accumulated substantial curated content across
+prior sessions. Before drafting a new `.claude/*.md` or proposing
+a new architectural direction, grep these:
+
+- **`.claude/prompts/`** (41 files) — scoped session / probe /
+  handover / research prompts. See `SCOPED_PROMPTS.md` as index.
+- **`.claude/plans/`** + **`.claude/knowledge/INTEGRATION_PLANS.md`**
+  — versioned integration plans (APPEND-ONLY index; prior versions
+  retained with Status annotation).
+- **`.claude/*.md`** (61 top-level docs) — calibration reports,
+  session handovers, epiphanies, integration-plan snapshots,
+  audits, inventory maps, invariant matrices. Examples:
+  `SESSION_CAPSTONE.md`, `INTEGRATIONSPLAN_2026_04_01.md`,
+  `INTEGRATION_SESSIONS.md`, `INVENTORY_MAP.md`,
+  `HANDOVER_NEXT_SESSION.md`, `KNOWLEDGE_SYNC_SIGNED_SESSION.md`.
+- **`.claude/knowledge/*.md`** (newer, structured) — with
+  `READ BY:` headers + Knowledge Activation triggers.
+- **`.claude/agents/*.md`** (19 specialists + 5 meta-agents) — see
+  `README.md` for function inventory, `BOOT.md` for orchestration.
+- **`.claude/hooks/*.sh`** — SessionStart + PostCompact context
+  injectors.
+- **`.claude/skills/cca2a/`** — the pattern explanation skill.
+
+**Rule:** grep the existing ~100 files before writing a new one.
+Most architectural concerns have prior art in this workspace.
+
+---
+
+## Agent-to-Agent (A2A) Orchestration — Two Layers
+
+Orchestration in this workspace runs at two distinct layers. Each
+layer uses a different "blackboard" substrate; both must be respected
+when spawning subagents or composing cognitive cycles.
+
+### Layer 1 — Runtime A2A (code-level, in the contract)
+
+For cognitive-cycle orchestration *inside* the running system:
+
+- **`lance_graph_contract::a2a_blackboard`** — `Blackboard` with
+  `entries: Vec<BlackboardEntry>` + `round: u32`. Each entry carries
+  `expert_id`, `capability`, `result`, `confidence`, `support [u16; 4]`,
+  `dissonance`, `cost_us`. Experts write; later rounds read prior
+  entries and build on them. This IS the A2A bus for multi-expert
+  inference.
+- **`lance_graph_contract::orchestration::OrchestrationBridge`** —
+  trait bridging `StepDomain` (Codec / Thinking / Query / Semantic /
+  Persistence / Inference / Learning) into `UnifiedStep`. Each domain
+  contributes a `BridgeSlot`; orchestration routes steps across
+  domains without duplicating state.
+- **`lance_graph_contract::orchestration_mode`** — explicit modes for
+  how a cycle composes (linear, parallel, blackboard-broadcast, etc.).
+- **`ExpertCapability`** enum — the capability taxonomy experts
+  declare. Do NOT invent new capabilities ad-hoc; grep
+  `a2a_blackboard.rs` first.
+- **Reference doc:** `docs/ORCHESTRATION_IS_GRAPH.md` — capstone
+  treating orchestration AS graph traversal (the runtime A2A is a
+  directed blackboard-graph).
+
+Use Layer 1 when the question is "how do two cognitive experts
+compose their outputs at runtime."
+
+### Layer 2 — Session A2A (Claude-code-level, between subagents)
+
+For subagent coordination *during* this session:
+
+- **The mandatory-read files above (`LATEST_STATE.md` +
+  `PR_ARC_INVENTORY.md`) are the shared blackboard.** Every subagent
+  I spawn reads them to know the current state, same as a Layer-1
+  expert reads prior blackboard entries to know current round state.
+- **Knowledge docs in `.claude/knowledge/`** are the extended
+  blackboard — cross-session persistent entries. Each doc has a
+  `READ BY:` header declaring which subagent types load it (the
+  equivalent of `ExpertCapability` matchers).
+- **`/root/.claude/plans/*.md`** — plan files authored via `Plan`
+  agents; session-scoped blackboard for multi-turn work. Other
+  agents reference the active plan for context.
+- **Parallel subagent spawns** in one main-thread turn are the
+  cheapest Layer-2 A2A pattern. Independent work fans out; results
+  aggregate back to the main thread, which does the cross-source
+  synthesis (accumulation → main thread on Opus per policy above).
+
+Use Layer 2 when the question is "how do I coordinate N subagents
+without burning main-thread turns re-reading the same state."
+
+### Agent ensemble, knowledge bootload, handover protocol
+
+See **`.claude/agents/BOOT.md`** — it's the meta-card for the 19
+specialist agents + 5 meta-agents in this workspace. It covers:
+
+- **Meta-agent scopes** (`workspace-primer`, `integration-lead`,
+  `adk-coordinator`, `adk-behavior-monitor`, `truth-architect`).
+- **Session-start knowledge bootload** — every subagent loads Tier-0
+  (`LATEST_STATE.md` + `PR_ARC_INVENTORY.md`) unconditionally, then
+  Tier-1 knowledge docs by trigger table.
+- **Knowledge Activation Protocol** — the trigger → agent → doc
+  mapping (updated 2026-04-19 with grammar / crystal / NARS /
+  coreference / AriGraph / codec rows).
+- **Handover Protocol** — `.claude/handovers/YYYY-MM-DD-HHMM-<from>-
+  to-<to>.md` files carry What-I-did / FINDING / CONJECTURE /
+  Blockers / Open-questions. APPEND-ONLY.
+
+A new session doesn't reinvent the ensemble — it reads this README,
+picks the agents whose objects are being touched, and lets them
+bootload their own Tier-0 + Tier-1 docs.
+
+### Rule of thumb
+
+| Question | Layer | Primary substrate |
+|---|---|---|
+| "What expert capabilities compose this cycle?" | 1 | `contract::a2a_blackboard::Blackboard` |
+| "How do cross-domain steps compose?" | 1 | `OrchestrationBridge` + `UnifiedStep` |
+| "What does subagent A need to know before drafting?" | 2 | Mandatory reads + domain knowledge docs |
+| "How do I not re-read the same context on every turn?" | 2 | Knowledge doc with `READ BY:` header |
+| "How do I coordinate 3 subagents in parallel?" | 2 | Single main-thread turn with parallel `Agent` spawns |
+
+Layer 1 and Layer 2 do NOT conflict — they operate at different time
+scales. A runtime A2A cycle inside a running shader does not involve
+Claude subagents; a Claude-session subagent spawn does not write to
+the runtime Blackboard. Keep them architecturally distinct.
+
+---
+
+## Model Policy (P0 — never violate)
+
+**The split that matters: grindwork vs accumulation.**
+
+- **Grindwork** (single-task mechanical): write-this-file-from-spec,
+  grep-this-pattern, list-these-paths, run-these-tests, draft-this-
+  section — **Sonnet**. Bounded input, known output shape, no
+  synthesis across sources.
+- **Accumulation** (multi-source synthesis): harvest-across-repos,
+  combine-N-docs-into-insights, trace-architecture-across-files,
+  cross-reference and integrate, judgment calls that depend on
+  seeing several inputs at once — **Opus**. Cheaper tiers produce
+  shallow outputs when asked to accumulate; quality drop is visible
+  and costly.
+
+**By subagent type:**
+- **Main thread:** `claude-opus-4-7[1m]` (or current Opus) with deep
+  thinking. Synthesis, architecture, review, decisions — all
+  accumulation.
+- **`Plan` subagent:** Opus. Planning is accumulation by definition.
+- **Code-review subagent:** Opus. Review is multi-file judgment.
+- **`general-purpose` subagent:** depends on task. Pure grindwork →
+  Sonnet. Anything accumulating → Opus. When in doubt: Opus.
+- **`Explore` subagent:** Sonnet default. Search is pattern matching.
+  If the explore requires synthesis across many files (mapping an
+  architecture), escalate to Opus.
+- **NEVER `haiku` for any subagent in this workspace.** Quality floor
+  is Sonnet regardless of task simplicity.
+
+**Concrete test before spawning a subagent:**
+> "Does this agent have to read N sources and produce something that
+> only makes sense when those sources are held in mind together?"
+>
+> **Yes → Opus.** No (one source in, one shape out) → Sonnet.
+
+**Settings baseline** (`.claude/settings.local.json`, gitignored):
+`alwaysThinkingEnabled: true`, `effortLevel: high`,
+`fastModePerSessionOptIn: true`. Main thread stays at full depth.
+
+---
+
+## GitHub Access Policy — Zipball for Reads, MCP for Writes
+
+Every `mcp__github__get_file_contents` call drops the full file into
+session context and recharges on every subsequent turn. A 50 KB doc
+read three times in a session = 150 KB of replayed context, not 50 KB.
+This is the second-biggest cost lever after model choice.
+
+**Preferred pattern for cross-repo reads:**
+
+```bash
+# One zipball per repo per session, stored under /tmp/sources/:
+curl -H "Authorization: Bearer $GITHUB_TOKEN" \
+     -L https://api.github.com/repos/AdaWorldAPI/<repo>/zipball/HEAD \
+     -o /tmp/<repo>.zip
+unzip -q /tmp/<repo>.zip -d /tmp/sources/
+# Then use local Read, Grep, Glob — zero context cost until output.
+```
+
+Or via `pygithub`'s `repo.get_archive_link('zipball')` when Python
+is already the path.
+
+**Use MCP github ONLY for:**
+
+- `create_pull_request` — can't be done via zipball.
+- `add_issue_comment` / `add_reply_to_pull_request_comment` / review
+  thread writes — writes to GitHub state.
+- `pull_request_read` on our own PRs to check reviews / comments —
+  tiny JSON, not worth zipball overhead.
+- `get_me`, `subscribe_pr_activity` — session setup.
+
+**Do NOT use MCP github for:**
+
+- Cross-repo file exploration — zipball + local grep is 95 % cheaper.
+- Surveying many files from the same repo — same reason.
+- Directory listings — extracted tree is free to traverse locally.
+
+**Edge case:** single targeted read when the exact path is known and
+you'll read once → `mcp__github__get_file_contents` is fine. Zipball
+overhead (download + extract) only pays off at 3+ reads per repo.
+
+**This maps to the grindwork/accumulation split too:**
+zipball-then-grep-then-synthesize is accumulation, and the synthesis
+step (main thread or Opus subagent) reads just the relevant greps,
+not whole files.
 
 ---
 
@@ -305,7 +558,7 @@ their synergies, and their FINDING/CONJECTURE status. Never guess architecture.
 
 Every `.claude/knowledge/` document has a `READ BY:` header listing which agents
 MUST load it before producing output in that domain. When a knowledge trigger fires
-(see `.claude/agents/README.md § Knowledge Activation Protocol`), the relevant
+(see `.claude/agents/BOOT.md § Knowledge Activation Protocol`), the relevant
 knowledge docs are loaded BEFORE the agent responds.
 
 **Critical process rule:** `.claude/knowledge/bf16-hhtl-terrain.md` contains a
