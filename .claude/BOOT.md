@@ -10,10 +10,10 @@
 
 Read these in order before proposing anything:
 
-1. **`.claude/knowledge/LATEST_STATE.md`** — current contract
+1. **`.claude/board/LATEST_STATE.md`** — current contract
    inventory, recently shipped PRs, active branches, queued work,
    explicit deferrals. Tells you **what exists**.
-2. **`.claude/knowledge/PR_ARC_INVENTORY.md`** — per-PR Added /
+2. **`.claude/board/PR_ARC_INVENTORY.md`** — per-PR Added /
    Locked / Deferred / Docs / Confidence, reverse-chronological.
    APPEND-ONLY (only Confidence is mutable; corrections append as
    new dated lines; reversals get their own PR entry). Tells you
@@ -29,12 +29,12 @@ re-proposing what's shipped or violating a locked convention.
 Two companion dashboards (consult when deliverable status or plan
 version matters — typically mid-session, not at cold start):
 
-- **`.claude/knowledge/STATUS_BOARD.md`** — deliverable-level
+- **`.claude/board/STATUS_BOARD.md`** — deliverable-level
   dashboard. All D-ids across every active plan with Status
   (Shipped / In PR / In progress / Queued / Backlog / Deferred /
   Abandoned). Plus infrastructure status, research threads, and
   the 102-file prior-art audit.
-- **`.claude/knowledge/INTEGRATION_PLANS.md`** — versioned plan
+- **`.claude/board/INTEGRATION_PLANS.md`** — versioned plan
   index, APPEND-ONLY. New plan versions prepend; prior versions
   stay with Status annotation. Active plan lives at
   `.claude/plans/<name>-v<N>.md`.
@@ -55,7 +55,7 @@ version matters — typically mid-session, not at cold start):
    the file. Old rows NEVER mutate, including their Status fields.
 
    ```bash
-   cat >> .claude/knowledge/EPIPHANIES.md << 'EOF'
+   cat >> .claude/board/EPIPHANIES.md << 'EOF'
 
    ## 2026-04-19 — <title>
    **Status:** FINDING
@@ -174,7 +174,7 @@ should reference these, not recreate them:
   self-contained task brief. See `.claude/prompts/SCOPED_PROMPTS.md`
   as the natural index.
 - **`.claude/plans/`** — versioned integration plans. Index at
-  `.claude/knowledge/INTEGRATION_PLANS.md` (APPEND-ONLY — new
+  `.claude/board/INTEGRATION_PLANS.md` (APPEND-ONLY — new
   versions prepend; prior plans stay with Status annotation).
   Active: `.claude/plans/elegant-herding-rocket-v1.md`.
 - **`.claude/*.md`** (top-level, 61 docs) — calibration reports,

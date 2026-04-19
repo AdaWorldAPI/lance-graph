@@ -26,21 +26,21 @@ state; never delete a row; method hierarchy: APPEND preferred →
 Edit-field after prior Read → Write prompts for confirmation):
 
 _History / dashboards:_
-- `.claude/knowledge/LATEST_STATE.md` — current contract inventory.
-- `.claude/knowledge/PR_ARC_INVENTORY.md` — APPEND-ONLY per-PR arc.
-- `.claude/knowledge/STATUS_BOARD.md` — deliverable-level dashboard.
-- `.claude/knowledge/INTEGRATION_PLANS.md` — versioned plan index.
+- `.claude/board/LATEST_STATE.md` — current contract inventory.
+- `.claude/board/PR_ARC_INVENTORY.md` — APPEND-ONLY per-PR arc.
+- `.claude/board/STATUS_BOARD.md` — deliverable-level dashboard.
+- `.claude/board/INTEGRATION_PLANS.md` — versioned plan index.
 
 _Kanban / audit (priority + scope tags on every entry):_
-- `.claude/knowledge/EPIPHANIES.md` — date-prefixed insight log.
+- `.claude/board/EPIPHANIES.md` — date-prefixed insight log.
   Status: FINDING / CONJECTURE / SUPERSEDED.
-- `.claude/knowledge/ISSUES.md` — Open + Resolved bugs / regressions.
+- `.claude/board/ISSUES.md` — Open + Resolved bugs / regressions.
   Double-entry: issue captured on discovery; Resolution appends on
   close. Priority P0-P3, Scope @agent D<N> domain:<tag>.
-- `.claude/knowledge/IDEAS.md` — Open + Implemented + Rejected
+- `.claude/board/IDEAS.md` — Open + Implemented + Rejected
   speculation. Triple-entry: idea captured, shipped appended,
   plan-update logged. Priority + Scope.
-- `.claude/knowledge/TECH_DEBT.md` — Open + Paid knowingly-deferred
+- `.claude/board/TECH_DEBT.md` — Open + Paid knowingly-deferred
   work. Priority + Scope + Introduced-by-PR + Payoff-estimate.
 
 **Agent ensemble + orchestration:**
