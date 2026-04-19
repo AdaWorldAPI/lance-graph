@@ -496,3 +496,52 @@ return positive.
 
 Cross-ref: fractal-codec-argmax-regime.md, EPIPHANIES 2026-04-19
 CORRECTION, PR #216 magnitude-only half.
+
+## 2026-04-19 — Fractal codec validation path: use codec_rnd_bench + ICC_3_1
+**Status:** Open (operational)
+**Priority:** P2
+**Scope:** @cascade-architect domain:codec domain:psychometry
+
+Existing infrastructure (no new tooling needed):
+
+**`crates/bgz-tensor/src/quality.rs`** (shipped):
+- `spearman` · `pearson` · `kendall_tau` · `icc_3_1` · `cronbach_alpha`
+- `mae` · `rmse` · `top_k_recall` · `bias_variance`
+
+**`crates/thinking-engine/examples/codec_rnd_bench.rs`** (shipped):
+- Loads 128 rows from safetensors
+- Computes ground-truth pairwise cosines
+- Runs each registered codec through the 10-metric suite
+- Outputs markdown table (see `bench_qwen3_tts_62codecs.md` / `bench_gemma4_e2b_62codecs.md`)
+
+**Correct fractal validation** (replaces the hand-rolled CoV probe):
+
+1. Implement `FractalCodec::decode(anchors: Base17, desc: FractalDescriptor) -> Vec<f32>`
+   - Fractal interpolation between 17 golden-step anchor points
+   - Shape constrained by (D_mag, w, H_mag, D_phase, σ)
+   - IFS / wavelet-interp / similar — this is the "genius" piece
+2. Register as `FractalCodec(41 B)` candidate in codec_rnd_bench.rs
+3. Run:
+   ```
+   cargo run --release --features lab \
+     --manifest-path crates/thinking-engine/Cargo.toml \
+     --example codec_rnd_bench -- /path/to/Qwen3-8B/shard.safetensors
+   ```
+
+Output: markdown row with ICC_3_1 + Cronbach's α + Spearman ρ + Pearson r
++ top-5 recall vs ground truth. Direct comparison against the existing
+67-codec sweep (I8-Hadamard leader at 9 B, adaptive codec, etc.).
+
+**Gates:**
+- ICC_3_1 ≥ 0.95 on k_proj @ 41 B/row → fractal codec beats I8-Hadamard on
+  argmax-rank reliability (real argmax-wall crack, measurable).
+- ICC ∈ [0.85, 0.95] → useful hybrid layer, not standalone winner.
+- ICC < 0.85 → fractal codec inferior; the unpublished negative.
+
+All gated behind `lab` feature. Bench-only, never main. Endpoint already
+has ICC / Cronbach / Spearman — no new dependencies. The only missing
+code is the decode function.
+
+Cross-ref: EPIPHANIES 2026-04-19 fractal-leaf CORRECTION.
+`crates/bgz-tensor/src/quality.rs` lines 47/279/362. `codec_rnd_bench.rs`
+for the bench structure + existing codec registration pattern.
