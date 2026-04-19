@@ -186,6 +186,71 @@ impl CodecCandidate for FractalPlusBase17 {
     }
 }
 
+/// Phase-only (5 B): fractal statistics of the SIGN SEQUENCE
+/// post-Hadamard. 5-D sign-flip density profile at scales 4/8/16/32/64.
+/// Tests whether phase structure (not magnitude) distinguishes rows.
+#[cfg(feature = "lab")]
+struct FractalPhaseOnly;
+
+#[cfg(feature = "lab")]
+impl CodecCandidate for FractalPhaseOnly {
+    fn name(&self) -> &str { "Fractal-Phase(5B)" }
+    fn bytes_per_row(&self) -> usize { 5 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::fractal_descriptor::PhaseDescriptor;
+        let phases: Vec<PhaseDescriptor> = rows.iter().map(|r| {
+            let n = r.len();
+            let mut p = 1usize;
+            while p < n { p <<= 1; }
+            let mut buf = vec![0.0f32; p];
+            buf[..n].copy_from_slice(r);
+            PhaseDescriptor::from_row(&buf)
+        }).collect();
+        let n = rows.len();
+        let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+        for i in 0..n {
+            for j in (i + 1)..n {
+                scores.push(phases[i].cosine(&phases[j]) as f64);
+            }
+        }
+        scores
+    }
+}
+
+/// Phase + Base17 (39 B): golden-step anchors + sign-sequence fractal.
+/// Anchors carry partial phase (signs at 17 positions); fractal carries
+/// multi-scale phase density. Tests whether combined beats Base17 alone.
+#[cfg(feature = "lab")]
+struct FractalPhasePlusBase17;
+
+#[cfg(feature = "lab")]
+impl CodecCandidate for FractalPhasePlusBase17 {
+    fn name(&self) -> &str { "Phase+Base17(39B)" }
+    fn bytes_per_row(&self) -> usize { 39 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::fractal_descriptor::PhaseDescriptor;
+        let b17s: Vec<Base17> = rows.iter().map(|r| Base17::from_f32(r)).collect();
+        let phases: Vec<PhaseDescriptor> = rows.iter().map(|r| {
+            let n = r.len();
+            let mut p = 1usize;
+            while p < n { p <<= 1; }
+            let mut buf = vec![0.0f32; p];
+            buf[..n].copy_from_slice(r);
+            PhaseDescriptor::from_row(&buf)
+        }).collect();
+        let n = rows.len();
+        let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+        for i in 0..n {
+            for j in (i + 1)..n {
+                let c_b17 = b17s[i].cosine(&b17s[j]);
+                let c_phase = phases[i].cosine(&phases[j]) as f64;
+                scores.push(0.75 * c_b17 + 0.25 * c_phase);
+            }
+        }
+        scores
+    }
+}
+
 /// Passthrough — raw cosine (baseline, exact).
 struct Passthrough;
 impl CodecCandidate for Passthrough {
@@ -1499,6 +1564,8 @@ fn main() {
         {
             codecs.push(Box::new(FractalDescOnly));
             codecs.push(Box::new(FractalPlusBase17));
+            codecs.push(Box::new(FractalPhaseOnly));
+            codecs.push(Box::new(FractalPhasePlusBase17));
         }
 
         let results = run_bench(&codecs, &rows, &gt);
