@@ -86,6 +86,39 @@ auto memory could be an unstructured addition for personal notes.
 - **Skill max frontmatter size.** 1024 chars. Keep `description`
   short; offload detail to subpages referenced by the skill.
 
+## Audit note 5 — `permissions.ask` is intentional, not a typo
+
+The official settings schema supports three permission rule arrays:
+`permissions.allow`, `permissions.deny`, and `permissions.ask`.
+CCA2A uses `permissions.ask` deliberately on the two append-only
+history files:
+
+```json
+"ask": [
+  "Edit(.claude/knowledge/PR_ARC_INVENTORY.md)",
+  "Edit(.claude/knowledge/LATEST_STATE.md)"
+]
+```
+
+The semantics are:
+- **`allow`**: tool runs without prompting.
+- **`deny`**: tool is blocked completely.
+- **`ask`**: tool runs only after an explicit user-approval prompt,
+  even if it would otherwise be auto-allowed (e.g. via a broader
+  `Edit` allow rule in personal `settings.local.json`).
+
+The goal for append-only files is **surface the edit attempt**, not
+block it. `deny` would make legitimate Confidence updates or
+Correction appends impossible. `allow` (or absence from the lists)
+would silently permit history rewrites. `ask` is the correct middle
+ground — rewrites surface as a prompt the human can approve or
+refuse.
+
+`Write` on the same paths stays in the personal `allow` list so that
+appending a new PR entry at the top of the file doesn't trigger the
+prompt. Append = Write; rewrite = Edit. This split is why both keys
+show up together in the governance stack.
+
 ## Compatibility
 
 CCA2A installs work alongside any existing `.claude/` setup:
