@@ -302,3 +302,46 @@ from outdated ladybug-rs / bighorn code. Arithmetic:
 
 The 16k rename + f32 → BF16 migration proceed independently of this
 debt item. This one is a one-shot deletion.
+
+## 2026-04-19 — SUPERSEDES all "stoneage import" / ladybug-refactor entries — retire ladybug-rs entirely
+**Status:** CLOSED (via architectural decision)
+**Scope:** @integration-lead @workspace-primer domain:architecture
+**Decision:** per user (2026-04-19), ladybug-rs is retired. Migration
+target is **ada-rs + lance-graph exclusively**. Ladybug-rs becomes
+read-only historical reference; no maintenance, no refactor, no
+integration obligation. Harvest-only.
+
+**Consequences (ledger cleanup):**
+
+- "Ladybug 700-1100 MB memory blowup" (glitch matrix): the matrix
+  lives in ladybug-import code that is itself scheduled for removal.
+  Deletion still P0 **only if** it ends up compiled into the current
+  ada-rs / lance-graph binaries; otherwise it goes away with the
+  import archival. Downgrade to P2, gate on "does cargo tree show the
+  ladybug dep?"
+- "Vsa10k → Vsa16k rename sweep" (2026-04-19): scope tightens to
+  **ada-rs + lance-graph only**. Ladybug's internal types don't get
+  renamed — they get left alone in the archive.
+- "Ladybug import refactor resistance" table: obsolete. Don't refactor
+  ladybug code; if a pattern is useful (PhaseTag, BindSpace,
+  CognitiveShader, adaptive codec), reimplement cleanly in the target
+  repo against canonical `Fingerprint<256>`.
+- `CLAUDE.md` architecture diagram: "ladybug-rs = The Brain" line is
+  stale; ada-rs + lance-graph now carry both the Brain and the Spine.
+  Update in a follow-up PR.
+
+**Repos in the canonical stack (post-retirement):**
+
+```
+ndarray            = The Foundation  (SIMD, GEMM, HPC, Fingerprint<256>, CAM-PQ)
+lance-graph        = The Spine       (query + codec + semantics + contracts)
+ada-rs             = The Brain       (BindSpace, SPO server, 4096 surface, cognitive shader)
+crewai-rust        = The Agents      (agent orchestration, thinking styles)
+n8n-rs             = The Orchestrator (workflow DAG, step routing)
+```
+
+(Was 5 repos; still 5, with ada-rs taking ladybug-rs's Brain slot.)
+
+**Cross-ref:** prior entries "Ladybug 700-1100 MB memory blowup",
+"Vsa10k* → Vsa16k* rename sweep", "CORRECTION-OF ... 10k × 10k GLITCH
+MATRIX" — all carry this decision as their closing context.
