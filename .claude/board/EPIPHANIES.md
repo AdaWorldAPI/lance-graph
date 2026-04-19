@@ -386,3 +386,43 @@ candidate; the 7-byte budget goes back to I8-Hadamard or PolarQuant.
 Cross-ref: `.claude/knowledge/fractal-codec-argmax-regime.md`
 § Honest Uncertainty (predicted this outcome). PR #216 (module +
 probe shipped).
+
+## 2026-04-19 — CORRECTION-OF fractal leaf probe: measured magnitude, missed phase
+**Status:** CORRECTION
+
+Prior entry reported the probe as a valid negative. **That was the wrong
+probe.** Per user (2026-04-19): "The point is to encode phase by doing
+fractal encoding."
+
+What MFDFA-on-coefficients measures:
+- Multifractal width w, Hurst H, fractal dimension D of the |coefficient|
+  magnitude distribution across scales. These are envelope statistics.
+
+What this MISSED:
+- **The sign pattern S** of Hadamard-rotated coefficients is the phase.
+- Two rows with identical |c_i| distribution can have completely different
+  sign patterns → completely different inner products against queries.
+- Magnitude statistics are flat across rows (CoV 0.19) because trained
+  weights share the envelope; what differs per-row is the phase sequence.
+
+Correct probe: **fractal structure of the sign sequence** post-Hadamard.
+- Count sign-flips per window at scales s ∈ {4, 8, 16, …, n/4}.
+- Measure scaling of flip density: D_phase = log(flips) / log(scale).
+- Per-row CoV(D_phase) is the real gate. Expected to be LARGE because
+  sign patterns encode distinct interference directions per row.
+
+Original prompt (fractal-codec-argmax-regime.md) DID include "sign
+pattern S" as a LEAF component. The MFDFA module (PR #216) covers only
+(D_mag, w, σ, H_mag) — it's half the descriptor. The other half
+(phase fractal / sign-flip scaling) is still unshipped.
+
+**Gate still open.** Fractal leaf as argmax codec is not proven wrong;
+only the magnitude-only variant is. A sign-sequence fractal probe is
+the actual test.
+
+Action:
+- `fractal_descriptor` stays `lab`-gated (correct call — unproven).
+- Next probe: sign-sequence multifractal on same Qwen3 rows. If
+  CoV(D_phase) > 0.3 → revisit the leaf codec with phase encoding.
+- Prior "NEGATIVE" finding is scope-corrected: "magnitude-only fractal
+  leaf is flat" — phase-fractal leaf unmeasured.
