@@ -47,6 +47,53 @@
 
 ---
 
+## GitHub Access Policy — Zipball for Reads, MCP for Writes
+
+Every `mcp__github__get_file_contents` call drops the full file into
+session context and recharges on every subsequent turn. A 50 KB doc
+read three times in a session = 150 KB of replayed context, not 50 KB.
+This is the second-biggest cost lever after model choice.
+
+**Preferred pattern for cross-repo reads:**
+
+```bash
+# One zipball per repo per session, stored under /tmp/sources/:
+curl -H "Authorization: Bearer $GITHUB_TOKEN" \
+     -L https://api.github.com/repos/AdaWorldAPI/<repo>/zipball/HEAD \
+     -o /tmp/<repo>.zip
+unzip -q /tmp/<repo>.zip -d /tmp/sources/
+# Then use local Read, Grep, Glob — zero context cost until output.
+```
+
+Or via `pygithub`'s `repo.get_archive_link('zipball')` when Python
+is already the path.
+
+**Use MCP github ONLY for:**
+
+- `create_pull_request` — can't be done via zipball.
+- `add_issue_comment` / `add_reply_to_pull_request_comment` / review
+  thread writes — writes to GitHub state.
+- `pull_request_read` on our own PRs to check reviews / comments —
+  tiny JSON, not worth zipball overhead.
+- `get_me`, `subscribe_pr_activity` — session setup.
+
+**Do NOT use MCP github for:**
+
+- Cross-repo file exploration — zipball + local grep is 95 % cheaper.
+- Surveying many files from the same repo — same reason.
+- Directory listings — extracted tree is free to traverse locally.
+
+**Edge case:** single targeted read when the exact path is known and
+you'll read once → `mcp__github__get_file_contents` is fine. Zipball
+overhead (download + extract) only pays off at 3+ reads per repo.
+
+**This maps to the grindwork/accumulation split too:**
+zipball-then-grep-then-synthesize is accumulation, and the synthesis
+step (main thread or Opus subagent) reads just the relevant greps,
+not whole files.
+
+---
+
 ## What This Is
 
 Graph query engine AND cognitive codec stack for the Ada architecture. lance-graph is no longer
