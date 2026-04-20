@@ -101,6 +101,71 @@ new column, not a new layer. See `.claude/knowledge/lab-vs-canonical-surface.md`
 § "AGI IS the struct-of-arrays (per Era 8)" for the full doctrine
 and the Invariants I1-I11 that bind it.
 
+### Substrate-level iron rules (added 2026-04-20 per [FORMAL-SCAFFOLD] reclassification)
+
+#### I-SUBSTRATE-MARKOV (iron rule)
+
+VSA-bundling in d=10000 **guarantees** the Chapman-Kolmogorov
+semigroup property **by construction** (see `EPIPHANIES.md`
+E-SUBSTRATE-1). Saturating bundle is associative and commutative
+in expectation; Johnson-Lindenstrauss + concentration-of-measure
+suppress deviations from associativity at rate ~e^(-d). This is
+the fundament on which the four [FORMAL-SCAFFOLD] pillars
+(Cartan-Kuranishi + φ-Weyl + γ+φ + Jirak 2016) stand.
+
+Consequences:
+
+- **Do NOT replace bundle with XOR or non-commutative binding** for
+  state-transition paths without reviewing [FORMAL-SCAFFOLD] in
+  EPIPHANIES.md. `MergeMode::Xor` breaks the Markov guarantee — it
+  is a legitimate merge mode for single-writer deltas (see I1), but
+  it is NOT a Markov-respecting transition kernel.
+- **D7's implicit Markov reliance is grounded, not silent.** The
+  Chapman-Kolmogorov consistency test is therefore an implementation
+  sanity check (regression against implementation bugs), not a
+  falsification gate for the theoretical property.
+- Any substrate-level change that weakens associativity (binding
+  operator swap, dimension reduction below 10000, removal of
+  concentration-of-measure assumption) MUST consult [FORMAL-SCAFFOLD]
+  and document the trade-off explicitly.
+
+Cross-ref: I1 (BindSpace read-only, CollapseGate bundles);
+`contract::collapse_gate::MergeMode::{Bundle, Xor}`.
+
+#### I-NOISE-FLOOR-JIRAK (iron rule)
+
+Bits in the workspace's 16384-bit fingerprints are **weakly
+dependent by construction**: (a) correlated projections of
+embeddings, (b) overlapping role-key-indexed slices
+(Finnish [9840..9910) ∩ TEKAMOLO [9000..9900); NSM primes
+distribute non-disjointly over S/P/O), (c) palette codebook
+quantization shares a 4096-centroid codebook, (d) XOR bundle
+accumulation induces weak dependence as an operational consequence.
+
+**Classical IID Berry-Esseen is WRONG for this system.** Use
+**Jirak 2016** (arxiv 1606.01617, Annals of Probability 44(3)
+2024–2063, "Berry-Esseen theorems under weak dependence") for any
+noise-floor or statistical-significance claim. Rate: `n^(p/2-1)`
+for `p ∈ (2,3]`, `n^(-1/2)` in L^q for `p ≥ 4`.
+
+Consequences:
+
+- ICC, Spearman ρ, and similar significance metrics must cite
+  Jirak's rate, not classical Berry-Esseen, when claiming
+  "observed value is N σ above noise floor."
+- σ-threshold calibration (UNBUNDLE_HARDNESS_THRESHOLD,
+  ABDUCTION_THRESHOLD, …) should cite Jirak-derived bounds when
+  a principled threshold is needed; hand-tuned values are
+  acceptable but must say so.
+- The three revival candidates in [FORMAL-SCAFFOLD]'s *Coupled
+  revival track* deposit the mechanism for deriving Jirak-derived
+  thresholds when they activate (VAMPE + Jirak pair replaces
+  hand-tuned σ thresholds with bound-derived ones).
+
+Cross-ref: `EPIPHANIES.md` [FORMAL-SCAFFOLD] five-pillar entry;
+E-ORIG-7 (the earlier statement of this finding before it became
+an iron rule); Jirak 2016.
+
 ---
 
 ## Session Start — MANDATORY READS (in this order)
