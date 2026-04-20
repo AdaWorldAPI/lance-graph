@@ -165,6 +165,165 @@ projection. This is a deliberate distillation, not a loss:
   cycles against them." No gradient-descent training loop lives on
   the canonical surface.
 
+## Architecture Invariants (cross-cutting; cite these, do not drift)
+
+The AGI-as-SoA identity above doesn't stand alone. A small set of
+load-bearing invariants from the wider architecture docs compose
+with it. Treat these as non-negotiable; cite the ref when extending.
+
+### I1. BindSpace is read-only; writes cross the `CollapseGate` airgap
+
+Ref: `docs/INTEGRATION_PLAN_CS.md`.
+
+- BindSpace columns are `Arc<[u64; 256 * N]>` — shared, read-only,
+  mmap-friendly. Shader kernels never hold `&mut` into a column.
+- Writers hold owned `Copy` microcopies (`CausalEdge64`, `Band`,
+  `TruthValue`, `ThinkingStyle` — all ≤ 16 B, stack-only).
+- Deltas cross the airgap through `contract::collapse_gate::{GateDecision,
+  MergeMode}`. `MergeMode::Xor` = single-writer (XOR self-inverse);
+  `MergeMode::Bundle` = multi-writer majority; superposition =
+  preserve ambiguity for next cycle.
+- No locks, no `&mut` during compute. Ordering doesn't matter (XOR
+  commutative + associative); rollback is free.
+
+If a session proposes "let the shader mutate a column in place" or
+"let the REST handler write directly," stop — handlers construct a
+`UnifiedStep`, the bridge yields a delta, the gate commits.
+
+### I2. Canonical SIMD import surface: `ndarray::simd::*`
+
+Ref: `docs/INTEGRATION_PLAN_CS.md` §"Architecture separation".
+
+```rust
+// Correct — stable public surface:
+use ndarray::simd::{F32x16, U8x64, F16x32, Fingerprint, MultiLaneColumn, array_window};
+
+// Wrong — reaches into private implementation:
+use ndarray::hpc::fingerprint::Fingerprint;
+use ndarray::hpc::simd_avx512::F32x16;
+```
+
+Anything not re-exported from `ndarray::simd::*` is internal. The
+`hpc::*` path is free to refactor; consumers never reach it.
+
+### I3. Layer temporal budgets
+
+Ref: `docs/INTEGRATION_PLAN_CS.md` §"5-Layer Stack".
+
+| Layer | Scope | Budget |
+|---|---|---|
+| L4 Planner | per query | milliseconds |
+| L3 CollapseGate | per commit cycle | microseconds |
+| L2 CognitiveShader | per step | nanoseconds |
+| L1 BindSpace | per lane read | nanoseconds, zero-copy |
+| L0 ndarray SIMD | per instruction | sub-nanosecond |
+
+L0/L1 kernels never allocate. "Push fingerprint similarity into the
+planner" violates the budget and is rejected.
+
+### I4. Temperature hierarchy — cold narrows, then algebra fires
+
+Ref: `docs/SEMIRING_ALGEBRA_SURFACE.md` §3 "Cold Path Numbing Effect".
+
+| Path | Substrate | Semiring | Role |
+|---|---|---|---|
+| Hot | BindSpace HDR sweep | XorBundle / HammingMin / Resonance | full 16 Kbit, SIMD popcount |
+| Warm | CAM-PQ cascade | CamPqAdc | 6-byte codes, 500 M candidates/s |
+| Cold | DataFusion columnar joins | Boolean | scalar columns only — no fingerprint data |
+| Frozen | `metadata.rs` | none | pure CRUD skeleton |
+
+Cold joins narrow the candidate set first on scalar columns; HDR
+semirings fire only on the narrow survivors. A full HDR semiring over
+all rows is what the cold/warm pre-filters exist to prevent.
+
+### I5. Thinking IS an `AdjacencyStore` — one engine, two graphs
+
+Ref: `docs/THINKING_PIPELINE.md` §"Layer 3: ThinkingGraph".
+
+- 36 thinking styles are nodes in a real `AdjacencyStore` (CSR/CSC +
+  NARS-weighted edges). Styles live at τ-prefix `0x0D` in the
+  `Addr(u16)` space (`docs/METADATA_SCHEMA_INVENTORY.md` §1E).
+- Cognitive verbs (`EXPLORE` / `FANOUT` / `HYPOTHESIS` / …) call the
+  same `batch_adjacent()` / `adjacent_truth_propagate()` /
+  `adjacent_incoming()` the data queries use.
+- **One engine, two graphs** — thinking is another client of the
+  planner's adjacency substrate, not a meta-layer above it.
+
+"Add a thinking engine that lives outside the planner" is wrong;
+extend the topology, the verbs, or the NARS edge set.
+
+### I6. Weights are seeds — hydrate-then-cascade, not matmul
+
+Ref: `docs/COGNITIVE_SHADER_HYDRATION.md`, Era 8.
+
+Each GGUF weight matrix hydrates (build-time) into:
+1. 256 archetypes (bgz17 palette) + `Fingerprint<256>` per archetype.
+2. 256×256 FisherZTable (64 KB, L1-resident).
+3. Holographic residual (phase + magnitude slots).
+4. `CausalEdge64` wiring (`S(row) × P(role) × O(col)`).
+
+After bake, inference = Hamming cascade + palette lookup + XOR
+compose. No matmul, no FP inner loop. "Training a model" on the
+canonical surface means hydrating new BindSpace rows; no
+gradient-descent loop lives on the canonical surface.
+
+### I7. Per-cycle cascade budget (monotone narrowing)
+
+Ref: `docs/COGNITIVE_SHADER_HYDRATION.md` §"Why struct-of-arrays".
+
+```
+sweep topic[]     → 50 000 survivors   (~2 ms    Hamming)
+sweep angle[]     →  5 000 survivors   (~0.2 ms  Hamming)
+sweep causality[] →    500 survivors   (~0.05 ms CausalEdge64 filter)
+sweep qualia[]    →     50 survivors   (scalar, 18-D range)
+exact on 50 → palette lookup → CausalEdge64 output
+```
+
+Intersect = bitmap AND over per-column hit masks. A proposed dispatch
+order that breaks monotone narrowing (scoring qualia before Hamming,
+for instance) loses the 99 % reject gate — reject the proposal.
+
+### I8. 4096 address surface = 16 prefix × 256 slots
+
+Ref: `docs/METADATA_SCHEMA_INVENTORY.md` §1A.
+
+- `Addr(u16)` = 8-bit prefix : 8-bit slot.
+- Prefix `0x0D` = thinking style templates (τ addresses).
+- Each slot holds one `[u64; 256]` = 16 384-bit fingerprint.
+- This IS the BindSpace substrate before column extension.
+
+### I9. Three DTO families above SoA (doctrinal — not yet shipped)
+
+Ref: `docs/integrated-architecture-map.md` §5.
+
+| DTO | Holds | Stage |
+|---|---|---|
+| `StreamDto` | arrival-order inputs (text, SPO seeds, anchors) | pre-parse |
+| `ResonanceDto` | superposition field (topic / angle / hypothesis) | active sweep |
+| `BusDto` | explicit thought (anchor + mask + edges + style) | post-collapse → CognitiveShader |
+
+**Field ≠ sweep ≠ bus.** The field is searchable terrain (10 K
+`[i8/i16]`); the sweep is the cheap XOR/bundle collapse into a
+lookup vector; the bus is explicit execution through p64 /
+CognitiveShader. Do not conflate them.
+
+### I10. HEEL / HIP / BRANCH / TWIG / LEAF — progressive precision
+
+Ref: `docs/integrated-architecture-map.md` §3.
+
+| Level | Role | Maps to |
+|---|---|---|
+| HEEL | coarse basin routing | bgz17, Base17 |
+| HIP | family sharpening | 16 384 palette, i16 |
+| BRANCH | contradiction / signed split | polarity residuals |
+| TWIG | local prototype neighborhood | CLAM ripple |
+| LEAF | exact member | full fingerprint |
+
+Each level narrows; never skip levels. bgz17 IS HEEL — do not ask
+it to also be LEAF identity.
+
+---
+
 ## The Failure Mode This Doc Prevents
 
 Future sessions reading this crate see `/v1/shader/dispatch`,
@@ -268,155 +427,3 @@ the lab umbrella. Neither is a subset of the other.
 - `.claude/knowledge/cam-pq-unified-pipeline.md` — the pipeline doc that produced this invariant.
 - `.claude/knowledge/cognitive-shader-architecture.md` — the broader shader-as-driver architecture.
 
----
-
-## Architecture Invariants (from `docs/` — non-negotiable)
-
-The AGI-as-SoA identity above does NOT stand alone. It composes with
-these load-bearing invariants. Violating any one of them breaks the
-contract.
-
-### 1. BindSpace is read-only; writes go through CollapseGate (airgap)
-
-Per `docs/INTEGRATION_PLAN_CS.md`:
-
-- Columns are `Arc<[u64; 256 * N]>` — shared, read-only, mmap-friendly.
-- Writers hold **owned `Copy` microcopies** (CausalEdge64, Band,
-  TruthValue, ThinkingStyle — all ≤16 bytes, stack-only).
-- Deltas cross the airgap via `GateDecision` + `MergeMode`:
-  - `Xor` — single-writer commit (self-inverse, rollback is free).
-  - `Bundle` — multi-writer majority vote.
-  - Superposition — ambiguity preserved for next cycle.
-- **No locks. No `&mut` during compute.** XOR is commutative +
-  associative → ordering irrelevant.
-
-If proposing "mutate column in place" → stop. Use
-`gate.submit(delta)` → `gate.commit()` → next-generation column.
-
-### 2. Canonical import surface: `ndarray::simd::*` only
-
-Per `docs/INTEGRATION_PLAN_CS.md`:
-
-```rust
-// Correct (stable public surface):
-use ndarray::simd::{F32x16, U8x64, F16x32, Fingerprint, MultiLaneColumn, array_window};
-
-// Wrong (reaches into private internals):
-use ndarray::hpc::fingerprint::Fingerprint;
-```
-
-If a type isn't in `ndarray::simd::*`, it's internal. lance-graph
-consumers must not use it.
-
-### 3. Layer temporal scopes (budget discipline)
-
-| Layer | Scope | Budget |
-|---|---|---|
-| L4 Planner | per query | milliseconds |
-| L3 CollapseGate | per commit cycle | microseconds |
-| L2 CognitiveShader | per step | nanoseconds |
-| L1 BindSpace | per lane read | nanoseconds (zero-copy) |
-| L0 ndarray SIMD | per instruction | sub-nanosecond |
-
-Pushing L2/L1 work up to L3 or L4 breaks the budget. L0/L1 kernels
-never allocate.
-
-### 4. Temperature hierarchy — cold path numbs thinking
-
-Per `docs/SEMIRING_ALGEBRA_SURFACE.md` §3:
-
-| Path | Semiring | Purpose |
-|---|---|---|
-| **Hot** — BindSpace sweep | XorBundle / HammingMin / Resonance | full 16Kbit HDR, SIMD popcount |
-| **Warm** — CAM-PQ cascade | CamPqAdc | 6-byte codes, 500M candidates/s |
-| **Cold** — DataFusion joins | Boolean | Arrow RecordBatch, standard SQL |
-| **Frozen** — metadata skeleton | none | Pure CRUD, no semiring |
-
-**Rule:** cold joins narrow on scalars FIRST; semiring algebra fires
-only on narrow survivors. Never run a full HDR semiring over all rows.
-
-### 5. Thinking is an `AdjacencyStore`, not a separate system
-
-Per `docs/THINKING_PIPELINE.md`:
-
-- 36 styles = nodes in a real `AdjacencyStore` (CSR/CSC + NARS edges).
-- Cognitive verbs call the **same** `batch_adjacent()` as data queries.
-- **One engine, two graphs.** Styles live at τ-prefix `0x0D` in the
-  `Addr(u16)` space (per `METADATA_SCHEMA_INVENTORY.md` §1E).
-- "Add a thinking engine outside the planner" is wrong. Extend the
-  topology, extend the cognitive verbs — same substrate.
-
-### 6. Weights are seeds — not runtime parameters
-
-Per `docs/COGNITIVE_SHADER_HYDRATION.md`:
-
-GGUF weights are hydrated once into BindSpace as holographic memory:
-1. 256 archetypes (palette) + Fingerprint<256> per archetype.
-2. 256×256 FisherZTable (64 KB, L1-resident).
-3. Holographic residual (phase + magnitude slots).
-4. CausalEdge64 wiring (S(row) × P(role) × O(col)).
-
-After bake: inference = Hamming cascade + palette lookup + XOR
-compose. No `matmul`, no FP inner loop. "Training" = hydrating new
-BindSpace rows from seed weights, not gradient descent.
-
-### 7. Per-cycle cascade ∼2.3 ms / 1M rows (monotone narrowing)
-
-Per `docs/COGNITIVE_SHADER_HYDRATION.md`:
-
-```
-sweep topic[]     → 50K survivors   (~2 ms Hamming)
-sweep angle[]     → 5K survivors    (~0.2 ms Hamming)
-sweep causality[] → 500 survivors   (~0.05 ms CausalEdge64 filter)
-sweep qualia[]    → 50 survivors    (scalar 18D range)
-exact on 50       → palette lookup  → CausalEdge64 output
-```
-
-Intersect is bitmap AND across per-column hit masks. Monotone
-narrowing must hold (each stage shrinks the set by ≥10×). Breaking
-the order (e.g. qualia before Hamming) loses the 99% reject gate.
-
-### 8. 4096 address surface = 16 prefix × 256 slots
-
-Per `docs/METADATA_SCHEMA_INVENTORY.md`:
-
-- `Addr(u16)` = 8-bit prefix : 8-bit slot.
-- Prefix 0x0D = thinking style templates (τ addresses).
-- Each slot holds one `[u64; 256]` = 16,384-bit fingerprint.
-- This IS the BindSpace substrate before column extension.
-
-### 9. Three DTO families above SoA (doctrinal, not yet shipped)
-
-Per `docs/integrated-architecture-map.md` §5:
-
-| DTO | Holds | Stage |
-|---|---|---|
-| `StreamDto` | arrival-order inputs (text, SPO seeds, anchor hints) | pre-parse |
-| `ResonanceDto` | superposition field (topic/angle/hypothesis, pre-collapse) | active sweep |
-| `BusDto` | explicit thought (topic anchor + angle mask + edges + style ordinal) | post-collapse → CognitiveShader |
-
-**Field ≠ sweep ≠ bus.** The field is searchable terrain (10K [i8/i16]);
-the sweep is the cheap XOR/bundle collapse into a lookup vector; the
-bus is explicit execution through p64 / CognitiveShader. Do not
-conflate them.
-
-### 10. HEEL/HIP/BRANCH/TWIG/LEAF = progressive precision hierarchy
-
-Per `docs/integrated-architecture-map.md` §3:
-
-| Level | Role | Maps to |
-|---|---|---|
-| HEEL | coarse basin routing | bgz17, Base17 |
-| HIP | family sharpening | 16384 palette, i16 |
-| BRANCH | contradiction / signed split | polarity residuals |
-| TWIG | local prototype neighborhood | CLAM ripple |
-| LEAF | exact member | full fingerprint |
-
-Each level narrows; never skip levels. bgz17 IS HEEL — do not
-ask it to also be LEAF identity.
-
----
-
-**If you are a future session and this doc is loaded, you are on the
-correct path. If you are about to add a REST handler without having
-read this section, stop and re-read the Decision Procedure above.**
