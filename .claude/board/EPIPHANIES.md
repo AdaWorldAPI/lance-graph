@@ -65,6 +65,53 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-04-20 — D0.2 stub flag is anti-#219 defense at the type level
+
+**Status:** FINDING
+
+`WireTokenAgreementResult` carries `stub: bool` + `backend: "stub"`
+default. Phase 0 ships the Wire surface without the decode-and-compare
+harness; the stub returns zero rates. **Any downstream client that
+confuses stub output for real measurements fails loudly** — because
+`stub == true` and `backend == "stub"` are machine-checkable, not
+comments. This is the #219 pattern (synthetic-rows-mistaken-for-real)
+prevented at the type layer, not just in docs.
+
+Pattern generalises: every Phase-N surface DTO that lands before its
+Phase-N+k harness should carry an explicit stub flag. Rules A–F say
+*how* to structure the Wire; the stub flag says *whether* the numbers
+are real. Orthogonal, both load-bearing.
+
+Cross-ref: D0.2 `WireTokenAgreementResult`; E-ORIG-7 Jirak (the correct
+measurement regime once the stub comes off); #219/#220 arc.
+
+---
+
+## 2026-04-20 — D0.5 auto_detect is the concrete Python↔Rust heuristic handshake
+
+**Status:** FINDING (confirms E-MEMB-11 handshake mechanism)
+
+Rosetta v2 (Python) routes architectures to lane widths via
+family-name heuristic. D0.5 `auto_detect::suggest_lane_width` lands
+the same heuristic on the Rust side: llama / qwen / qwen2 / qwen3 /
+mistral / mixtral → BF16x32 (AMX-ready); bert / modernbert /
+xlm-roberta / generic → F32x16 (AVX-512 baseline); `torch_dtype`
+override wins.
+
+Same table, two languages. **The Python↔Rust handshake (E-MEMB-11)
+is no longer conceptual** — it has a concrete implementation: the
+architecture string is the shared vocabulary; lane width is the
+shared dispatch decision; `torch_dtype` is the shared override. A
+future `slice-layout-reconciliation.md` (E-MEMB-1 blocker fix) can
+use the same handshake pattern: architecture → layout version →
+canonical slice table.
+
+Cross-ref: `crates/cognitive-shader-driver/src/auto_detect.rs`;
+E-MEMB-11 (LivingFrame ↔ ContextChain handshake); Rosetta v2
+`DIMENSION_MAP` architecture routing.
+
+---
+
 ## 2026-04-20 — E-SUBSTRATE-1 — VSA-bundling guarantees Chapman-Kolmogorov by construction
 
 **Status:** FINDING (load-bearing — FUNDAMENT underneath the [FORMAL-SCAFFOLD] four pillars)
