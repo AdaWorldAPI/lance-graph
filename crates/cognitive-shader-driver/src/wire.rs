@@ -916,6 +916,96 @@ fn named_to_ordinal(s: &str) -> u8 {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// D0.2 — WireTokenAgreement: the I11 cert gate surface (Phase 0 stub)
+//
+// Per .claude/plans/codec-sweep-via-lab-infra-v1.md § D0.2:
+// the Wire surface lands NOW; the actual decode-and-compare harness lands
+// in Phase 2 D2.1–D2.3. Until then the handler returns NotImplementedYet
+// with a deterministic zero-result the kernel_contract_test can detect.
+//
+// Purpose: codec cert is token agreement, not synthetic ICC (the #219 →
+// #220 lesson). A codec passes when decoded weights produce the same
+// top-k tokens as Passthrough on a real prompt set. Reconstruction ICC
+// is necessary-but-not-sufficient; token agreement is the actual gate.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Reference baseline for token-agreement comparison. Extensible enum —
+/// `Passthrough` is the only variant today; future baselines (half-precision
+/// reference, previous codec generation) plug in as variants.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum WireBaseline {
+    /// Passthrough = untouched weights, F32 decode. The canonical
+    /// reference every codec candidate is measured against.
+    Passthrough,
+}
+
+impl Default for WireBaseline {
+    fn default() -> Self { Self::Passthrough }
+}
+
+/// `POST /v1/shader/token-agreement` request.
+///
+/// Client provides the model + a `CodecParams` candidate + a prompt-set
+/// blob id + number of tokens to decode. Handler loads the ref model,
+/// decodes N tokens through both the reference baseline and the candidate
+/// codec, compares top-1 / top-5 per position, returns aggregate rates
+/// and per-layer MSE.
+///
+/// **Phase 0 status:** handler returns a stub result with
+/// `top1_rate = 0.0` and `candidate_latency_us = 0`. D2.1–D2.3 land the
+/// real decode-and-compare loop.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireTokenAgreement {
+    /// Model root directory (safetensors + config.json). Passed to
+    /// `auto_detect::detect` to infer lane width + architecture defaults
+    /// when `candidate.lane_width` is the builder default.
+    pub model_path: String,
+    /// Reference baseline. Defaults to Passthrough.
+    #[serde(default)]
+    pub reference: WireBaseline,
+    /// Candidate codec params to measure against the reference.
+    pub candidate: WireCodecParams,
+    /// Opaque blob id for the pre-uploaded prompt set. The harness resolves
+    /// it against the blob store; the blob format is Phase 2 D2.1 scope.
+    pub prompt_set_blob_id: u64,
+    /// Number of tokens to decode per prompt.
+    pub n_tokens: u32,
+}
+
+/// `POST /v1/shader/token-agreement` response.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireTokenAgreementResult {
+    /// Top-1 token-match rate across the full prompt set. Pass gate: ≥ 0.99.
+    pub top1_rate: f32,
+    /// Top-5 token-match rate. Pass gate: ≥ 0.999.
+    pub top5_rate: f32,
+    /// Token indices where candidate decoder disagreed with reference.
+    /// Useful for failure-mode analysis ("late-sequence drift vs random").
+    #[serde(default)]
+    pub divergence_positions: Vec<u32>,
+    /// Per-layer MSE between candidate and reference hidden states.
+    /// Identifies where in the transformer stack the error compounds.
+    #[serde(default)]
+    pub per_layer_mse: Vec<f32>,
+    /// Candidate decode latency in microseconds (wall clock).
+    pub candidate_latency_us: u64,
+    /// Reference (Passthrough) decode latency in microseconds.
+    pub reference_latency_us: u64,
+    /// Phase 0 stub marker — `false` once D2.1–D2.3 land and real
+    /// decode-and-compare is wired. Clients can assert `!stub` to fail
+    /// loudly if they accidentally rely on Phase 0 stub numbers.
+    #[serde(default)]
+    pub stub: bool,
+    /// SIMD tier the candidate kernel ran on: "amx" | "vnni" | "avx512"
+    /// | "avx2" | "legacy" | "stub". Never "scalar" on the SoA path.
+    #[serde(default = "default_ta_backend")]
+    pub backend: String,
+}
+
+fn default_ta_backend() -> String { "stub".to_string() }
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1175,6 +1265,51 @@ mod tests {
         assert!(req.params.is_some());
         let p = req.params.unwrap();
         assert_eq!(p.centroids, 1024);
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    // D0.2 — WireTokenAgreement stub tests (serde round-trip only; full
+    // decode-and-compare harness is Phase 2 D2.1–D2.3)
+    // ═════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn wire_token_agreement_round_trips_json() {
+        let req = WireTokenAgreement {
+            model_path: "models/qwen3-tts-0.6b".to_string(),
+            reference: WireBaseline::Passthrough,
+            candidate: WireCodecParams {
+                subspaces: 6,
+                centroids: 1024,
+                residual: WireResidualSpec { depth: 1, centroids: 256 },
+                lane_width: WireLaneWidth::BF16x32,
+                pre_rotation: WireRotation::Opq { matrix_blob_id: 0x42, dim: 4096 },
+                distance: WireDistance::AdcU8,
+                calibration_rows: 2048,
+                measurement_rows: 512,
+                seed: 42,
+            },
+            prompt_set_blob_id: 0xCAFE_BABE,
+            n_tokens: 128,
+        };
+        let json = serde_json::to_string(&req).unwrap();
+        let decoded: WireTokenAgreement = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded.model_path, "models/qwen3-tts-0.6b");
+        assert_eq!(decoded.n_tokens, 128);
+        assert_eq!(decoded.prompt_set_blob_id, 0xCAFE_BABE);
+    }
+
+    #[test]
+    fn wire_token_agreement_result_defaults_to_stub_backend() {
+        let json = r#"{"top1_rate":0.0,"top5_rate":0.0,"candidate_latency_us":0,"reference_latency_us":0}"#;
+        let res: WireTokenAgreementResult = serde_json::from_str(json).unwrap();
+        assert_eq!(res.backend, "stub");
+        assert!(!res.stub); // serde default = false; tests clients can assert on it
+    }
+
+    #[test]
+    fn wire_baseline_passthrough_is_default() {
+        let b: WireBaseline = Default::default();
+        assert_eq!(b, WireBaseline::Passthrough);
     }
 
     #[test]

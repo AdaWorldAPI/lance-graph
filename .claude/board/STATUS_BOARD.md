@@ -49,11 +49,11 @@ afterwards is a JIT kernel, not a rebuild. Plan path:
 
 | D-id | Title | Status | PR / Evidence |
 |---|---|---|---|
-| D0.1 | Extend `WireCalibrate` + `WireTensorView` (64-byte-aligned decode, object-oriented methods) | **In PR** | branch `claude/teleport-session-setup-wMZfb` — +360 LOC (serde mirrors for CodecParams/LaneWidth/Distance/Rotation/ResidualSpec + TryFrom conversions + `WireTensorView` with `AlignedBytes` 64-byte-aligned decode + `row()` / `subspace()` / `lanes_f32x16()` methods + 8 tests; response extended with `kernel_hash` / `compile_time_us` / `backend` fields). 55/55 cognitive-shader-driver tests pass under `--features serve`. |
-| D0.2 | `WireTokenAgreement` endpoint stub — I11 cert gate | **Queued** | target ~160 LOC |
+| D0.1 | Extend `WireCalibrate` + `WireTensorView` (64-byte-aligned decode, object-oriented methods) | **Shipped** | #227 — 55/55 tests passing |
+| D0.2 | `WireTokenAgreement` endpoint stub — I11 cert gate (Phase 0 surface, Phase 2 harness) | **In PR** | branch — `WireTokenAgreement` + `WireTokenAgreementResult` + `WireBaseline` DTOs + 3 round-trip tests. Stub handler returns `stub:true` / `backend:"stub"` until D2.1–D2.3 wire real decode-and-compare. |
 | D0.3 | `WireSweep` streaming endpoint + Lance append stub | **Queued** | target ~200 LOC |
 | D0.4 | Surface freeze (commit + rebuild) | **Queued** | gates D0.1–D0.3 + D0.5–D0.7 |
-| D0.5 | `auto_detect.rs` — `ModelFingerprint` from `config.json` | **Queued** | target ~140 LOC (CODING_PRACTICES gap 1) |
+| D0.5 | `auto_detect.rs` — `ModelFingerprint` from `config.json` | **In PR** | branch — `auto_detect::{detect, ModelFingerprint, DetectError}` + HF config.json parser + per-architecture lane/distance heuristics (llama/qwen3/bert/modernbert/xlm-roberta/generic) + 8 tests. CODING_PRACTICES gap 1 remediated. |
 | D0.6 | `CodecParamsBuilder` fluent API | **Shipped** | #225 — `contract::cam` +290 LOC of codec-params types, 14 tests (CODING_PRACTICES gap 3) |
 | D0.7 | Precision-ladder validation (OPQ↔BF16x32, Hadamard pow2, overfit guard) | **Shipped** | #225 — `CodecParamsError` at `.build()` BEFORE JIT compile |
 

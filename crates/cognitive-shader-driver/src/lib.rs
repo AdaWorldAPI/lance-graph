@@ -115,6 +115,11 @@ pub mod sigma_rosetta;
 #[cfg(feature = "serve")]
 pub mod wire;
 
+// D0.5 — model architecture auto-detection from config.json.
+// CODING_PRACTICES.md gap 1 remediation. LAB-ONLY.
+#[cfg(feature = "serve")]
+pub mod auto_detect;
+
 // Axum REST server. LAB-ONLY.
 #[cfg(feature = "serve")]
 pub mod serve;
