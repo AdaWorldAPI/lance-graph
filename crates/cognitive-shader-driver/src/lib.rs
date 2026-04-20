@@ -131,6 +131,13 @@ pub mod codec_kernel_cache;
 #[cfg(feature = "serve")]
 pub mod rotation_kernel;
 
+// D1.3 — decode-kernel trait + residual composition.
+// Hydration/calibration path (NOT cascade inference — that uses
+// p64_bridge::CognitiveShader per cognitive-shader-architecture.md
+// line 582). LAB-ONLY.
+#[cfg(feature = "serve")]
+pub mod decode_kernel;
+
 // Axum REST server. LAB-ONLY.
 #[cfg(feature = "serve")]
 pub mod serve;
