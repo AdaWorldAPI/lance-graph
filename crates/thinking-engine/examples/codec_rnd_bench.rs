@@ -584,11 +584,13 @@ impl CodecCandidate for CamPqPhase {
             wht_f32(&mut buf);
             buf.truncate(n);
             let fp = self.codebook.encode(&buf);
-            // Decode in Hadamard basis then inverse-rotate back.
+            // Decode in Hadamard basis. CAM-PQ truncates to multiple
+            // of NUM_SUBSPACES=6, so decoded.len() may be < n.
             let decoded = self.codebook.decode(&fp);
             let mut full = vec![0.0f32; p];
-            full[..n].copy_from_slice(&decoded);
-            wht_f32(&mut full); // WHT is self-inverse up to scale; double-apply returns to original basis
+            let copy_len = decoded.len().min(n);
+            full[..copy_len].copy_from_slice(&decoded[..copy_len]);
+            wht_f32(&mut full); // WHT is self-inverse up to scale
             full.truncate(n);
             full
         }).collect();
