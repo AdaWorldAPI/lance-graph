@@ -54,6 +54,13 @@ pub mod serve;
 #[cfg(feature = "grpc")]
 pub mod grpc;
 
+// Codec research (calibrate / tensors / probe) — same debug quarantine
+// as serve. Rides on the unified shader-driver API surface; no new feature
+// gate. Runs the production CAM-PQ codec from ndarray against safetensors
+// tensors selected via route_tensor from lance-graph-contract.
+#[cfg(any(feature = "serve", feature = "grpc"))]
+pub mod codec_research;
+
 pub use lance_graph_contract::cognitive_shader::{
     CognitiveShaderDriver, ColumnWindow, EmitMode, MetaFilter, MetaSummary, MetaWord,
     NullSink, RungLevel, ShaderBus, ShaderCrystal, ShaderDispatch, ShaderHit,

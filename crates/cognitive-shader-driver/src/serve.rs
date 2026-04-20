@@ -34,10 +34,13 @@ use axum::{
 };
 use serde_json::{json, Value};
 
+use crate::codec_research;
 use crate::driver::ShaderDriver;
 use crate::engine_bridge::{self, unified_style, UNIFIED_STYLES};
 use crate::wire::{
-    WireCrystal, WireDispatch, WireHealth, WireIngest, WireQualia, WireStyleInfo,
+    WireCalibrateRequest, WireCalibrateResponse, WireCrystal, WireDispatch, WireHealth,
+    WireIngest, WireProbeRequest, WireProbeResponse, WireQualia, WireStyleInfo,
+    WireTensorsRequest, WireTensorsResponse,
 };
 use lance_graph_contract::cognitive_shader::CognitiveShaderDriver;
 
@@ -60,6 +63,14 @@ pub fn router(driver: ShaderDriver) -> Router {
         .route("/v1/shader/health", get(health_handler))
         .route("/v1/shader/qualia/{row}", get(qualia_handler))
         .route("/v1/shader/styles", get(styles_handler))
+        // Codec research operations — same DTO surface, no separate endpoint.
+        // Lets clients encode / measure / probe without recompiling; the
+        // codec parameters (num_subspaces, num_centroids, kmeans_iterations,
+        // max_rows) are DTO fields, so one running server drives every
+        // codec-calibration experiment.
+        .route("/v1/shader/tensors", post(tensors_handler))
+        .route("/v1/shader/calibrate", post(calibrate_handler))
+        .route("/v1/shader/probe", post(probe_handler))
         .with_state(state)
 }
 
@@ -152,4 +163,30 @@ async fn styles_handler() -> Json<Vec<WireStyleInfo>> {
         resonance_threshold: s.resonance_threshold,
         fan_out: s.fan_out,
     }).collect())
+}
+
+// ─── Codec research handlers ────────────────────────────────────────────────
+
+async fn tensors_handler(
+    Json(req): Json<WireTensorsRequest>,
+) -> Result<Json<WireTensorsResponse>, (StatusCode, Json<Value>)> {
+    codec_research::list_tensors(&req)
+        .map(Json)
+        .map_err(|e| (StatusCode::BAD_REQUEST, Json(json!({"error": e}))))
+}
+
+async fn calibrate_handler(
+    Json(req): Json<WireCalibrateRequest>,
+) -> Result<Json<WireCalibrateResponse>, (StatusCode, Json<Value>)> {
+    codec_research::calibrate_tensor(&req)
+        .map(Json)
+        .map_err(|e| (StatusCode::BAD_REQUEST, Json(json!({"error": e}))))
+}
+
+async fn probe_handler(
+    Json(req): Json<WireProbeRequest>,
+) -> Result<Json<WireProbeResponse>, (StatusCode, Json<Value>)> {
+    codec_research::row_count_probe(&req)
+        .map(Json)
+        .map_err(|e| (StatusCode::BAD_REQUEST, Json(json!({"error": e}))))
 }
