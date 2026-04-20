@@ -698,3 +698,53 @@ Same population: Qwen3-8B q_proj L0, N=128 rows, 1400 s wall.
   3 bits middle-48, sign-only bottom).
 
 Cross-ref: commits d172aa3 (I8+Quint), f004d82 (5^5+7^7 + global scale).
+
+## 2026-04-20 — CORRECTION: "Had-Q5×D-R at 0 B/row ICC 0.989" was a misread
+**Status:** CORRECTION
+
+Earlier entry claimed Had-Q5×D-R achieves ICC 0.989 at 0 bytes per row
+→ "the argmax wall is cracked." This was WRONG.
+
+`ParametricCodec::bytes_per_row()` in codec_rnd_bench.rs returns a
+hardcoded `0` for the entire parametric family (Had-Q5×D-R, SVD-Q5×D-R,
+all D-rank variants). This is an instrumentation placeholder, NOT the
+actual storage cost. Actual storage for a full-dim 4-bit Hadamard-
+quantized codec = 4 bits × n_cols = ~2 KB/row for q_proj (4096 cols),
+~1 KB/row for k_proj (1024 cols), ~6 KB/row for gate_proj (12288 cols).
+
+**Corrected compact-byte-honest hierarchy (q_proj ICC, honest bytes):**
+
+| Codec | Bytes/row | ICC |
+|---|---|---|
+| Zipper-5^5 | 2 | 0.021 |
+| Zipper-7^7 | 3 | 0.028 |
+| Zipper-Phase (sign) | 8 | 0.097 |
+| Zipper-I8-φ | 8 | 0.025 |
+| Zipper-7^7×7 | 18 | **0.144** |
+| Base17 | 34 | 0.024 |
+| Zipper-Full | 64 | **0.204** |
+| Spiral-K8 | 278 | 0.281 |
+| RaBitQ | 520 | 0.504 |
+| Had-Q5×D-R | ~2 KB | 0.989 |
+
+**No compact codec (≤ 100 B/row) in this bench reaches ICC > 0.3.**
+
+**What IS true:**
+- Zipper-Full at 64 B is the compact argmax Pareto leader (ICC 0.204)
+- Zipper-7^7×7 at 18 B is the compact-compact Pareto leader (ICC 0.144)
+- Had-Q5×D-R at ~2 KB is near-Passthrough reference, NOT a compression win
+
+**What IS FALSE (that I claimed earlier):**
+- "Argmax blind spot is already solved by Had-Q5×D-R at 0 B/row" —
+  it's solved at full-dim ~KB/row, not at compact bytes.
+- "Use Had-Q5×D-R for production argmax" — it's a fidelity reference,
+  not a deployment codec.
+
+**What's still unknown:**
+- Whether CAM-PQ (product quantization with shared codebook) can hit
+  ICC > 0.5 at ~9 B/row on q_proj. CAM-PQ is already production in
+  `ndarray::hpc::cam_pq` but not wired into codec_rnd_bench.rs.
+- Whether TurboQuant at its paper-claimed 9 B/row actually achieves
+  ICC > 0.9 on q_proj — no implementation in this bench.
+
+Correction needed in codec-findings-2026-04-20.md decision tree.
