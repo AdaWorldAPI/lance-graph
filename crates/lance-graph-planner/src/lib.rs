@@ -72,6 +72,12 @@ pub mod cache;
 // === Internal API (same-binary, zero-serde) ===
 pub mod api;
 
+// === Canonical OrchestrationBridge impl (dedup per contract) ===
+// Implements `lance_graph_contract::orchestration::OrchestrationBridge`
+// for `PlannerAwareness`. Replaces per-consumer bridge modules. See
+// `docs/CONSUMER_WIRING_INSTRUCTIONS.md` for the integration pattern.
+mod orchestration_impl;
+
 use ir::LogicalPlan;
 use mul::{MulAssessment, GateDecision};
 use thinking::ThinkingContext;

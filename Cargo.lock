@@ -5432,6 +5432,7 @@ dependencies = [
  "axum",
  "bgz17",
  "causal-edge",
+ "lance-graph-contract",
  "ndarray 0.17.2",
  "p64",
  "p64-bridge",
