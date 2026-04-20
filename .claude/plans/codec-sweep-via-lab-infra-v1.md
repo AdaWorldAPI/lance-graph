@@ -866,6 +866,65 @@ a clean verification step.
 
 ---
 
+## Audit against `.claude/CODING_PRACTICES.md` (EmbedAnything patterns)
+
+Gaps found; remediations folded into the phase deliverables so
+Phase 0 ships them from the start — not as follow-up.
+
+### Checklist results
+
+| # | Checklist item | Status | Remediation |
+|---|---|---|---|
+| 1 | Auto-detect model type, not hardcode names | **GAP** | `WireTokenAgreement` loader reads the model's `config.json` and infers (architecture, hidden_size, lane_width default, tokenizer) automatically. Caller does not supply `lane_width` for the tensor_view if `config.json` resolves it. Pattern: `auto_detect.rs` (6 tests). |
+| 2 | commit() uses sink pattern | **OK** | `ShaderSink` trait already carries per-cycle emission; Lance append is a sink. |
+| 3 | Builder, not raw struct assembly | **GAP** | Add `CodecParamsBuilder` with fluent API in `lance-graph-contract::cam`. Pattern: `builder.rs` (7 tests). YAML serde still produces the raw `CodecParams`; the builder is the **programmatic** entry point (sweep driver, tests). |
+| 4 | Heavy deps behind feature gates | **OK** | `--features lab` / `serve` / `grpc` / `with-planner` already declared in Phase 0 D0.x. |
+| 5 | Works with BOTH u8 and i8 tables | **GAP** | Split `distance: adc` into `distance: adc_u8` / `distance: adc_i8` at the YAML level. Sign-handling affects bipolar cancellation (per `codec-findings-2026-04-20.md` §I1 sign-flip). JIT is generic over the accumulator primitive. |
+| 6 | Per-role scale factors preserved | **OK** (structurally) | Each YAML names a single `tensor_path` (one role per run: Q / K / V / Gate / Up / Down). Per-role z-scale survives by virtue of one-role-per-config. D2 token-agreement loader iterates roles separately, never mixing z-scales. |
+| 7 | Calibration ↔ runtime boundary clean | **OK** | `calibration_rows` vs `measurement_rows` already separated; `02_pr219_overfit_reproducer` is the explicit test that the pipeline rejects `calibration_rows == measurement_rows`. |
+| 8 | No forward passes at runtime | **OK** | The whole design is `tile_dpbusd` / `tile_dpbf16ps` lookup, no matmul inner loop (Invariant I6 — weights are seeds). |
+
+### Anti-patterns (none triggered)
+
+| # | Anti-pattern | Plan's position |
+|---|---|---|
+| 1 | 48KB lib.rs | `cognitive-shader-driver::lib.rs` stays module declarations only. D0 additions land in `wire.rs`, `serve.rs`, `codec_research.rs`, `token_agreement.rs`. |
+| 2 | Clone-heavy structs | Hot path: `&[u8]` zero-copy into SoA columns; `WireTensorView` decoded once into aligned buffer; `KernelHandle` is `Arc`-wrapped so clones are refcount bumps (Rule F forbids re-serialise). |
+| 3 | Python-first API | Rust-first. PyO3 via `lance-graph-python` is out-of-scope for this plan. |
+| 4 | Forward pass at every query | Codebook / tile lookup only. |
+| 5 | f32 everywhere | **Precision ladder** enforced: BF16 for calibration input to `tile_dpbf16ps` (OPQ); u8/i8 for palette-index runtime via `tile_dpbusd`; f32 only as the accumulator reduction width before producing a distance scalar. Enforced by `LaneWidth` on the Wire DTO (Rule E) matching the JIT kernel's input format. |
+
+### Added deliverables (fold into Phase 0 so they ship from day one)
+
+- **D0.5 — `auto_detect` module.** New file
+  `crates/cognitive-shader-driver/src/auto_detect.rs` (~140 LOC).
+  Reads `config.json` next to the safetensors; returns
+  `ModelFingerprint { architecture, hidden_size, n_layers,
+  tokenizer_class, vocab_size, default_lane_width, default_distance }`.
+  6 tests mirroring EmbedAnything's pattern. Consumed by the
+  `WireTokenAgreement` handler when `tensor_view.lane_width` is
+  omitted on ingress.
+- **D0.6 — `CodecParamsBuilder`.** Add to
+  `lance-graph-contract/src/cam.rs`. Fluent API:
+  `CodecParamsBuilder::new().subspaces(6).centroids(1024)
+  .residual(ResidualSpec::depth(1)).rotation(Rotation::hadamard(4096))
+  .build() -> Result<CodecParams>`. 7 tests mirroring
+  EmbedAnything's `builder.rs` (Lens/TableType/Pooling/Sinks →
+  Codec/Rotation/Residual/Distance). The sweep driver, tests,
+  and frontier analysis all use the builder; YAML ingress still
+  produces `CodecParams` via serde.
+- **D0.7 — precision-ladder contract.** `CodecParams` validation
+  refuses `{ lane_width: F32x16, rotation: Opq(…) }` — OPQ must
+  use `BF16x32` to match `tile_dpbf16ps`. Validation error lands
+  at ingress (Rule F); impossible shapes are rejected before any
+  JIT compile.
+
+Phase 0 total bumps: ~480 + 140 (auto_detect) + 60 (builder) +
+20 (precision validation) = **~700 LOC**. Still one upfront
+rebuild.
+
+---
+
 ## Appendix A — Starter YAML configs (one per #220 fix + controls)
 
 These are the concrete inputs Phase 0 consumes once the Wire
