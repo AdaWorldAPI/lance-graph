@@ -1,0 +1,13 @@
+[package]
+name = "jc"
+version = "0.1.0"
+edition = "2021"
+description = "Jirak-Cartan: five-pillar proof-in-code for binary-Hamming causal field computation"
+license = "Apache-2.0"
+
+# Zero deps — standalone, like deepnsm and bgz17.
+# The proof is the proof regardless of SIMD path.
+# ndarray can be added later for acceleration; the core math is pure Rust.
+
+[[example]]
+name = "prove_it"
