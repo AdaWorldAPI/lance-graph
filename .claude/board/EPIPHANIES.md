@@ -65,6 +65,36 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-04-20 — D0.3 sweep grid IS the JIT cache warmer
+
+**Status:** FINDING
+
+`WireSweepGrid::enumerate()` materializes the Cartesian product as a
+`Vec<WireCodecParams>`. Each unique `(subspaces, centroids,
+residual_depth, rotation_kind, distance, lane_width)` tuple maps to
+exactly one `CodecParams::kernel_signature()`. The grid IS the JIT
+cache warm-up plan: first traversal compiles N kernels; every
+subsequent sweep with overlapping tuples hits cache at ~0 ms
+compile cost.
+
+This operationalises Rule C's polyfill hierarchy + Rule E's
+kernel-signature-as-cache-key into a single client-facing verb:
+*submit a grid, the server warms the cache while streaming results*.
+The 54-candidate example grid from plan Appendix A §30 compiles
+~54 × 15 ms = ~800 ms once; every re-run is free. That's the
+operational loop the sweep infrastructure buys.
+
+Generalises: any cross-product DTO in this workspace should treat
+its grid as a cache-warmer, not just a test matrix. The cache
+signature and the grid axis are the same object viewed from two
+sides.
+
+Cross-ref: D0.3 `WireSweepGrid::enumerate`; PR #225
+`CodecParams::kernel_signature()`; plan Appendix A §30
+`30_cross_product_sweep.yaml`; Rule C (polyfill hierarchy).
+
+---
+
 ## 2026-04-20 — D0.2 stub flag is anti-#219 defense at the type level
 
 **Status:** FINDING

@@ -1006,6 +1006,191 @@ pub struct WireTokenAgreementResult {
 
 fn default_ta_backend() -> String { "stub".to_string() }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// D0.3 — WireSweep: the streaming cross-product sweep surface (Phase 0 stub)
+//
+// Per .claude/plans/codec-sweep-via-lab-infra-v1.md § D0.3:
+// client POSTs a single `WireSweepRequest` containing a `WireSweepGrid`
+// (cross-product of codec-params axes). Server enumerates the grid,
+// calls D0.1 (calibrate) + D0.2 (token-agreement) per grid point, streams
+// each pair as a `WireSweepResult` via SSE / gRPC stream, and optionally
+// appends each row to a Lance fragment.
+//
+// Phase 0: DTOs + grid enumerator + in-memory result vector land NOW.
+// Phase 3 D3.1: SSE streaming handler + Lance fragment writer land.
+//
+// The enumerator is the load-bearing piece: it turns a sweep YAML file
+// into N `WireCodecParams` candidates, each hashed to a JIT kernel via
+// `CodecParams::kernel_signature()`. First hit compiles (~5–20 ms); all
+// subsequent candidates with the same signature hit the cache. The grid
+// is the input surface; kernel_signature is the cache key. That's the
+// full operational loop.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Which measurements the sweep should request per grid point.
+/// Serialized as lowercase snake_case strings in the YAML / JSON request.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WireMeasure {
+    /// Held-out reconstruction error (L2 relative).
+    ReconstructionErrorHeldOut,
+    /// Held-out reconstruction ICC (Spearman rho against F32 ground truth).
+    ReconstructionIccHeldOut,
+    /// Top-1 token agreement vs Passthrough baseline (I11 cert gate, D0.2).
+    TokenAgreementTop1,
+    /// Top-5 token agreement vs Passthrough baseline.
+    TokenAgreementTop5,
+    /// Per-layer MSE between candidate and reference hidden states.
+    PerLayerMse,
+}
+
+/// The cross-product sweep grid. Each field is a vec; the enumerated grid
+/// is the Cartesian product.
+///
+/// Cardinality = |subspaces| × |centroids| × |residual_depths| × |rotations|
+/// × |distances| × |lane_widths|. Clients SHOULD keep the product ≤ a few
+/// hundred to fit in one JIT kernel cache warm-up round.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireSweepGrid {
+    #[serde(default = "default_subspaces_axis")]
+    pub subspaces: Vec<u32>,
+    #[serde(default = "default_centroids_axis")]
+    pub centroids: Vec<u32>,
+    #[serde(default = "default_residual_depths_axis")]
+    pub residual_depths: Vec<u8>,
+    #[serde(default = "default_rotations_axis")]
+    pub rotations: Vec<WireRotation>,
+    #[serde(default = "default_distances_axis")]
+    pub distances: Vec<WireDistance>,
+    #[serde(default = "default_lane_widths_axis")]
+    pub lane_widths: Vec<WireLaneWidth>,
+    #[serde(default = "default_residual_centroids")]
+    pub residual_centroids: u32,
+    #[serde(default = "default_calibration_rows")]
+    pub calibration_rows: u32,
+    #[serde(default)]
+    pub measurement_rows: u32,
+    #[serde(default = "default_seed")]
+    pub seed: u64,
+}
+
+fn default_subspaces_axis() -> Vec<u32> { vec![6] }
+fn default_centroids_axis() -> Vec<u32> { vec![256] }
+fn default_residual_depths_axis() -> Vec<u8> { vec![0] }
+fn default_rotations_axis() -> Vec<WireRotation> { vec![WireRotation::Identity] }
+fn default_distances_axis() -> Vec<WireDistance> { vec![WireDistance::AdcU8] }
+fn default_lane_widths_axis() -> Vec<WireLaneWidth> { vec![WireLaneWidth::F32x16] }
+fn default_residual_centroids() -> u32 { 256 }
+
+impl WireSweepGrid {
+    /// Product of all axis lengths.
+    pub fn cardinality(&self) -> usize {
+        self.subspaces.len()
+            * self.centroids.len()
+            * self.residual_depths.len()
+            * self.rotations.len()
+            * self.distances.len()
+            * self.lane_widths.len()
+    }
+
+    /// Materialize the full Cartesian product as a vec of `WireCodecParams`.
+    ///
+    /// Materialized (not lazy) because typical sweeps are ≤ ~200 candidates
+    /// and the client wants to validate the whole grid before streaming.
+    /// Phase 3 D3.1 streams the RESULTS; the grid itself is always upfront.
+    pub fn enumerate(&self) -> Vec<WireCodecParams> {
+        let mut out = Vec::with_capacity(self.cardinality());
+        for &subs in &self.subspaces {
+            for &cent in &self.centroids {
+                for &depth in &self.residual_depths {
+                    for rot in &self.rotations {
+                        for &dist in &self.distances {
+                            for &lw in &self.lane_widths {
+                                out.push(WireCodecParams {
+                                    subspaces: subs,
+                                    centroids: cent,
+                                    residual: WireResidualSpec {
+                                        depth,
+                                        centroids: self.residual_centroids,
+                                    },
+                                    lane_width: lw,
+                                    pre_rotation: rot.clone(),
+                                    distance: dist,
+                                    calibration_rows: self.calibration_rows,
+                                    measurement_rows: self.measurement_rows,
+                                    seed: self.seed,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        out
+    }
+}
+
+/// `POST /v1/shader/sweep` request. Client submits one grid + a measure
+/// set; server enumerates + calibrates + token-agreements each grid point.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireSweepRequest {
+    pub tensor_path: String,
+    pub grid: WireSweepGrid,
+    #[serde(default = "default_measure_set")]
+    pub measure: Vec<WireMeasure>,
+    /// Optional Lance fragment path to append each result row to. None =
+    /// stream-only (no persistent log).
+    #[serde(default)]
+    pub log_to_lance: Option<String>,
+    /// Human-readable label for this sweep run (ends up in the Lance row
+    /// metadata + the SSE stream header).
+    #[serde(default)]
+    pub label: String,
+}
+
+fn default_measure_set() -> Vec<WireMeasure> {
+    vec![
+        WireMeasure::ReconstructionIccHeldOut,
+        WireMeasure::TokenAgreementTop1,
+    ]
+}
+
+/// One grid-point result, streamed by the sweep handler. Carries the
+/// candidate that produced it + optional per-measure payloads.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireSweepResult {
+    /// Zero-based grid index (0 .. grid.cardinality()).
+    pub grid_index: u32,
+    /// The candidate codec params this row measured.
+    pub candidate: WireCodecParams,
+    /// `CodecParams::kernel_signature()` of the kernel that was executed.
+    /// Multiple grid points may share a signature (JIT cache hit).
+    pub kernel_hash: u64,
+    /// Populated when the measure set contained Reconstruction* variants.
+    #[serde(default)]
+    pub calibrate: Option<WireCalibrateResponse>,
+    /// Populated when the measure set contained TokenAgreement* / PerLayerMse.
+    #[serde(default)]
+    pub token_agreement: Option<WireTokenAgreementResult>,
+    /// Phase 0 honesty flag — mirrors WireTokenAgreementResult.stub.
+    /// `true` means this row carries stub numbers, not real measurements.
+    #[serde(default)]
+    pub stub: bool,
+}
+
+/// `POST /v1/shader/sweep` response for batch (non-streaming) clients.
+/// Streaming clients receive one `WireSweepResult` per SSE event instead.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireSweepResponse {
+    pub label: String,
+    pub cardinality: u32,
+    pub results: Vec<WireSweepResult>,
+    pub elapsed_ms: u64,
+    /// Path the results were appended to, if `log_to_lance` was set.
+    #[serde(default)]
+    pub lance_fragment_path: Option<String>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1310,6 +1495,103 @@ mod tests {
     fn wire_baseline_passthrough_is_default() {
         let b: WireBaseline = Default::default();
         assert_eq!(b, WireBaseline::Passthrough);
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    // D0.3 — WireSweep tests (grid cardinality + enumerate + serde)
+    // ═════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn sweep_grid_cardinality_is_product_of_axes() {
+        let grid = WireSweepGrid {
+            subspaces: vec![6],
+            centroids: vec![256, 512, 1024],
+            residual_depths: vec![0, 1, 2],
+            rotations: vec![WireRotation::Identity, WireRotation::Hadamard { dim: 4096 }],
+            distances: vec![WireDistance::AdcU8],
+            lane_widths: vec![WireLaneWidth::F32x16, WireLaneWidth::BF16x32],
+            residual_centroids: 256,
+            calibration_rows: 2048,
+            measurement_rows: 0,
+            seed: 42,
+        };
+        // 1 × 3 × 3 × 2 × 1 × 2 = 36
+        assert_eq!(grid.cardinality(), 36);
+        let params = grid.enumerate();
+        assert_eq!(params.len(), 36);
+    }
+
+    #[test]
+    fn sweep_grid_enumerate_produces_all_unique_signatures() {
+        let grid = WireSweepGrid {
+            subspaces: vec![6],
+            centroids: vec![256, 1024],
+            residual_depths: vec![0, 1],
+            rotations: vec![WireRotation::Identity],
+            distances: vec![WireDistance::AdcU8],
+            lane_widths: vec![WireLaneWidth::F32x16],
+            residual_centroids: 256,
+            calibration_rows: 2048,
+            measurement_rows: 0,
+            seed: 42,
+        };
+        let params = grid.enumerate();
+        let mut sigs: std::collections::HashSet<u64> = std::collections::HashSet::new();
+        for p in &params {
+            let cp: CodecParams = p.clone().try_into().expect("valid codec params");
+            sigs.insert(cp.kernel_signature());
+        }
+        // 4 candidates, all with distinct (centroids × residual_depth) combos →
+        // 4 distinct kernel signatures (kernel_signature hashes IR-shaping fields)
+        assert_eq!(sigs.len(), 4);
+    }
+
+    #[test]
+    fn sweep_grid_defaults_produce_single_candidate() {
+        // All axes default to single-element vecs → cardinality 1.
+        let json = r#"{}"#;
+        let grid: WireSweepGrid = serde_json::from_str(json).unwrap();
+        assert_eq!(grid.cardinality(), 1);
+        assert_eq!(grid.subspaces, vec![6]);
+        assert_eq!(grid.centroids, vec![256]);
+    }
+
+    #[test]
+    fn sweep_request_round_trips_json() {
+        let req = WireSweepRequest {
+            tensor_path: "models/qwen3-tts-0.6b/q_proj.safetensors".to_string(),
+            grid: WireSweepGrid {
+                subspaces: vec![6],
+                centroids: vec![256, 1024],
+                residual_depths: vec![0],
+                rotations: vec![WireRotation::Identity],
+                distances: vec![WireDistance::AdcU8],
+                lane_widths: vec![WireLaneWidth::F32x16],
+                residual_centroids: 256,
+                calibration_rows: 2048,
+                measurement_rows: 0,
+                seed: 42,
+            },
+            measure: vec![
+                WireMeasure::ReconstructionIccHeldOut,
+                WireMeasure::TokenAgreementTop1,
+            ],
+            log_to_lance: Some("logs/sweep_phase1.lance".to_string()),
+            label: "phase1_initial_cross_product".to_string(),
+        };
+        let json = serde_json::to_string(&req).unwrap();
+        let decoded: WireSweepRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded.grid.cardinality(), 2);
+        assert_eq!(decoded.measure.len(), 2);
+        assert_eq!(decoded.label, "phase1_initial_cross_product");
+    }
+
+    #[test]
+    fn sweep_measure_serializes_snake_case() {
+        let m = WireMeasure::ReconstructionIccHeldOut;
+        assert_eq!(serde_json::to_string(&m).unwrap(), "\"reconstruction_icc_held_out\"");
+        let m: WireMeasure = serde_json::from_str("\"token_agreement_top1\"").unwrap();
+        assert_eq!(m, WireMeasure::TokenAgreementTop1);
     }
 
     #[test]
