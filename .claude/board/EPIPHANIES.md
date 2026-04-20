@@ -65,6 +65,41 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-04-20 — D1.1 scaffold-before-codegen: cache semantics testable without Cranelift
+
+**Status:** FINDING
+
+`CodecKernelCache<H>` is generic over the kernel-handle type. The same
+cache hosts `StubKernel` (deterministic fake, no compilation) for tests
+AND `KernelHandle` (real Cranelift function pointer) for production.
+
+This separates TWO concerns that are usually tangled:
+
+1. **Cache semantics** — signature-keyed insertion, double-checked
+   locking under concurrent miss, counters for hit-ratio measurement.
+   Testable in microseconds without a JIT engine.
+2. **IR emission** — the actual Cranelift / jitson code generation
+   that takes `CodecParams` and produces a callable function pointer.
+   Heavy; takes minutes per build; requires ndarray's jitson surface
+   to be finalized.
+
+By shipping the cache layer with `StubKernel` NOW, Phase 1's cache
+semantics are verified + CI-gated before the Cranelift work starts.
+When D1.1b lands, the only change is `H = KernelHandle`; all 9 cache
+tests remain valid. This is the **scaffold-before-codegen** pattern:
+test the hard-to-change contract first, defer the hard-to-build
+implementation.
+
+Generalises: any JIT pipeline should separate cache-keying from IR
+emission at the type level. Generic over handle type is the wedge
+that makes this possible.
+
+Cross-ref: D1.1 `crates/cognitive-shader-driver/src/codec_kernel_cache.rs`;
+D0.3 sweep-grid-IS-cache-warmer epiphany (same signature-as-identity
+insight); PR #225 `CodecParams::kernel_signature()`.
+
+---
+
 ## 2026-04-20 — D0.3 sweep grid IS the JIT cache warmer
 
 **Status:** FINDING

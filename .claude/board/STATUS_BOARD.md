@@ -57,11 +57,12 @@ afterwards is a JIT kernel, not a rebuild. Plan path:
 | D0.6 | `CodecParamsBuilder` fluent API | **Shipped** | #225 — `contract::cam` +290 LOC of codec-params types, 14 tests (CODING_PRACTICES gap 3) |
 | D0.7 | Precision-ladder validation (OPQ↔BF16x32, Hadamard pow2, overfit guard) | **Shipped** | #225 — `CodecParamsError` at `.build()` BEFORE JIT compile |
 
-### Phase 1 — JIT codec kernels — Queued
+### Phase 1 — JIT codec kernels
 
 | D-id | Title | Status | PR / Evidence |
 |---|---|---|---|
-| D1.1 | `CodecKernelCache` via `JitCompiler` (Cranelift) | **Queued** | target ~180 LOC |
+| D1.1 | `CodecKernelCache` — structural cache layer (generic over handle) | **In PR** | branch — `CodecKernelCache<H>` + `StubKernel` + `get_or_compile` / `try_get_or_compile` with RwLock concurrent-safe double-check + compile/hit/ratio counters + 9 tests. Scaffold ships NOW; D1.1b Cranelift IR emission follows. |
+| D1.1b | Cranelift IR emission (plugs the real `KernelHandle` into the cache from D1.1) | **Queued** | target ~180 LOC once ndarray's jitson engine exposes the compile entry |
 | D1.2 | Rotation primitives: Identity / Hadamard / OPQ as JIT kernels | **Queued** | target ~190 LOC |
 | D1.3 | Residual PQ via JIT composition | **Queued** | target ~150 LOC |
 

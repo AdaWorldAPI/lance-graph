@@ -120,6 +120,11 @@ pub mod wire;
 #[cfg(feature = "serve")]
 pub mod auto_detect;
 
+// D1.1 — JIT kernel cache keyed by CodecParams::kernel_signature().
+// Structural layer; actual Cranelift IR emission defers to D1.1b. LAB-ONLY.
+#[cfg(feature = "serve")]
+pub mod codec_kernel_cache;
+
 // Axum REST server. LAB-ONLY.
 #[cfg(feature = "serve")]
 pub mod serve;
