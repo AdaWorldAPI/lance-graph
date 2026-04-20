@@ -159,6 +159,9 @@ documents listed in its trigger row BEFORE producing output.
 | **Story arc / ONNX emergence** | ripple-architect + contradiction-cartographer | crystal-quantum-blueprints.md (§Quantum mode), endgame-holographic-agi.md |
 | **Argmax / codec / PolarQuant** | truth-architect + family-codec-smith | fractal-codec-argmax-regime.md (ORTHOGONAL to grammar work) |
 | **Cross-repo harvest** | savant-research | cross-repo-harvest-2026-04-19.md, linguistic-epiphanies-2026-04-19.md |
+| **REST / gRPC / Wire DTO / endpoint / serve / shader-lab / external API** | integration-lead + truth-architect | **lab-vs-canonical-surface.md (MANDATORY — prevents System-1 "add another REST endpoint" hallucination)** |
+| **OrchestrationBridge / UnifiedStep / StepDomain / BridgeSlot** | integration-lead | lab-vs-canonical-surface.md, cam-pq-unified-pipeline.md |
+| **codec research / calibrate / probe / tensors op** | integration-lead + truth-architect | lab-vs-canonical-surface.md (research is just a consumer, not the canonical) |
 
 **The insight update cycle:**
 

@@ -1,4 +1,12 @@
-//! Axum REST server — external API for live testing cognitive shader cycles.
+//! **LAB-ONLY.** Axum REST server for live testing cognitive shader cycles
+//! in the Claude Code backend. Not shipped to consumers.
+//!
+//! Canonical consumer surface is `UnifiedStep` + `OrchestrationBridge` in
+//! the library. This server just exposes that bridge over HTTP for test
+//! convenience. Per-op endpoints (`/v1/shader/{calibrate,probe,tensors,
+//! dispatch,plan}`) are thin adapters that build a `UnifiedStep` and
+//! dispatch through the same bridge; the canonical endpoint is
+//! `/v1/shader/route`.
 //!
 //! ```bash
 //! cargo run -p cognitive-shader-driver --features serve --bin shader-serve

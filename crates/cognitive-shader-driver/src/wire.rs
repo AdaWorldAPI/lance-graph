@@ -1,4 +1,13 @@
-//! Wire types for the external REST + protobuf API.
+//! **LAB-ONLY.** Wire types for the REST + protobuf transports used by the
+//! shader-lab binary. Not part of the canonical consumer surface.
+//!
+//! The canonical consumer surface is `UnifiedStep` + `OrchestrationBridge`
+//! from `lance-graph-contract`. Everything in this file — per-op DTOs
+//! (`WireDispatch`, `WireCalibrateRequest`, `WireProbeRequest`,
+//! `WireTensorsRequest`, `WirePlanRequest`, `WireRunbookRequest`) — is
+//! test-convenience scaffolding that ultimately dispatches through the
+//! same bridge. Consumers (including the research consumer) speak
+//! `UnifiedStep`, not these per-op shortcuts.
 //!
 //! These are the EXTERNAL types — serde + prost, owned strings, no lifetimes.
 //! Internal types in lance-graph-contract stay zero-dep and zero-copy.

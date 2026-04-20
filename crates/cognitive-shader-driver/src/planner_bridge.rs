@@ -1,12 +1,16 @@
-//! Planner bridge — delegates `WirePlan*` DTOs to `lance-graph-planner`.
-//!
-//! Behind `--features with-planner`. Same pattern as `with-engine`:
-//! heavy dep is optional; absence returns a clear runtime error.
+//! **LAB-ONLY adapter.** Planner bridge — delegates `WirePlan*` DTOs to
+//! `lance-graph-planner`.
 //!
 //! Per INTEGRATION_PLAN_CS.md §5-layer-stack, Layer 4 is the planner.
-//! The shader-driver (Layer 2) exposes plan operations through the same
-//! unified REST/gRPC endpoint and delegates execution here. Nothing
-//! below Layer 4 reimplements planning.
+//! `PlannerAwareness` already implements `OrchestrationBridge` directly
+//! (see `lance-graph-planner/src/orchestration_impl.rs`); that's the
+//! canonical consumer surface. This module only exists as a test shortcut
+//! that converts the per-op `WirePlan*` DTOs into direct calls for the
+//! lab REST/gRPC transports.
+//!
+//! Behind `--features with-planner` (or the umbrella `--features lab`).
+//! Same pattern as `with-engine`: heavy dep is optional; absence returns
+//! a clear runtime error.
 
 use std::time::Instant;
 

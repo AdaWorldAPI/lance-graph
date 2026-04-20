@@ -23,6 +23,15 @@ name = "shader-grpc"
 path = "src/bin/grpc.rs"
 required-features = ["grpc"]
 
+# shader-lab — the ONE lab binary. Compiles every endpoint behind the
+# unified DTO (UnifiedStep via OrchestrationBridge). Per-op endpoints
+# inside are lab-test shortcuts that dispatch through the same bridge
+# and are NEVER the canonical consumer surface.
+[[bin]]
+name = "shader-lab"
+path = "src/bin/serve.rs"
+required-features = ["lab"]
+
 [dependencies]
 lance-graph-contract = { path = "../lance-graph-contract" }
 p64-bridge            = { path = "../p64-bridge" }
@@ -57,5 +66,16 @@ with-engine = ["dep:thinking-engine"]
 with-planner = ["dep:lance-graph-planner"]
 serve = ["dep:serde", "dep:serde_json", "dep:axum", "dep:tokio"]
 grpc = ["dep:prost", "dep:tonic", "dep:tonic-build", "dep:tokio"]
+
+# `lab` — umbrella switch for the single shader-lab binary. Enables every
+# endpoint (REST + gRPC), the planner bridge, the thinking-engine bridge,
+# and the research consumer (codec_research + CodecResearchBridge).
+#
+# Architecture note: the canonical surface is `UnifiedStep` via
+# `OrchestrationBridge` from lance-graph-contract. The `lab` feature only
+# adds test-convenience wrappers (per-op Wire DTOs, HTTP/gRPC transports)
+# on top of that canonical trait. Research is just one consumer of the
+# unified DTO, not the reason the DTO exists.
+lab = ["serve", "grpc", "with-engine", "with-planner"]
 
 [dev-dependencies]

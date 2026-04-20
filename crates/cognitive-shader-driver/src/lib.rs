@@ -34,45 +34,110 @@
 //! - **Commit sinks** (`ShaderSink` trait; `NullSink` as zero-cost default)
 //! - **Feature gates** (`with-engine` pulls thinking-engine; core stays lean)
 //! - **No forward pass at runtime** — bgz17 distance is precomputed
+//!
+//! ---
+//!
+//! ## STOP — Canonical vs LAB-ONLY (read before touching this crate)
+//!
+//! **Do NOT add new REST endpoints, new per-op Wire DTOs, or new
+//! HTTP/gRPC handlers without reading
+//! `.claude/knowledge/lab-vs-canonical-surface.md` first.**
+//!
+//! **`cognitive-shader-driver` IS the unified API.** Its public
+//! re-exports form the super DTO family that every consumer speaks:
+//!
+//! - **Per-cycle hot path:** `ShaderDispatch` → `ShaderDriver` →
+//!   `ShaderHit` + `MetaWord` via `ShaderSink`. `BindSpace*` columns
+//!   are the substrate.
+//! - **Cross-domain composition:** `UnifiedStep` routed via
+//!   `OrchestrationBridge` by `StepDomain`. Every consumer
+//!   (thinking-engine, planner, codec research) plugs in through this
+//!   trait.
+//!
+//! Both layers are zero-dep, always compiled, and consumer-facing.
+//! That is the stable downstream-visible API.
+//!
+//! Everything else in this crate — `wire.rs`, `serve.rs`, `grpc.rs`,
+//! `codec_research.rs`, `codec_bridge.rs`, `planner_bridge.rs`, and the
+//! per-op `Wire*` DTOs — is **LAB-ONLY** scaffolding. It exists so the
+//! Claude Code backend can test the canonical bridge over HTTP/gRPC.
+//! It is **not** part of the consumer API. Future sessions must not
+//! "extend the REST API" with new per-op endpoints; they must extend the
+//! canonical bridge and let the lab transport follow automatically.
+//!
+//! Feature layout:
+//!
+//! ```text
+//! default       = canonical library surface only (no HTTP, no gRPC, no wire DTOs)
+//! serve         = lab REST transport
+//! grpc          = lab gRPC transport
+//! with-engine   = thinking-engine consumer wired in
+//! with-planner  = planner consumer wired in
+//! lab           = umbrella: all of the above → the shader-lab binary
+//! ```
+//!
+//! Research (codec_research, codec_bridge) is gated under serve/grpc
+//! because it only exists to be tested through the lab transport. It is
+//! one consumer of the unified DTO — not the reason the DTO exists.
 
 #![warn(rust_2018_idioms)]
 
+// ──────────────────────────────────────────────────────────────────────
+// Canonical surface — always compiled. Consumers depend on exactly this.
+// ──────────────────────────────────────────────────────────────────────
+//
+// The canonical consumer-facing DTO is `UnifiedStep` + `OrchestrationBridge`
+// re-exported from `lance-graph-contract` (see the `pub use` block below).
+// Everything below dispatches through that trait; research, planner, and
+// engine are just consumers that plug in via the bridge.
 pub mod bindspace;
 pub mod driver;
 pub mod auto_style;
 pub mod engine_bridge;
 pub mod sigma_rosetta;
 
-// Debug-only: REST server + wire types. NEVER in production binary.
-// serde is a debugging tool, not a runtime dependency.
+// ──────────────────────────────────────────────────────────────────────
+// LAB-ONLY modules — compiled only into the shader-lab binary. Never
+// shipped to downstream consumers; never part of the canonical API.
+// ──────────────────────────────────────────────────────────────────────
+//
+// Umbrella switch: `--features lab` turns on everything here at once.
+// Individual features (`serve`, `grpc`, `with-planner`, `with-engine`)
+// remain selectable for narrower lab builds.
+//
+// Architecture rule: these modules expose per-op Wire DTOs and REST/gRPC
+// transports for test convenience in the Claude Code backend. They all
+// ultimately route through `OrchestrationBridge` + `UnifiedStep` — the
+// canonical surface. No business logic lives here that isn't also
+// reachable through the canonical bridge.
+
+// Per-op Wire DTOs (REST + protobuf). LAB-ONLY.
 #[cfg(feature = "serve")]
 pub mod wire;
+
+// Axum REST server. LAB-ONLY.
 #[cfg(feature = "serve")]
 pub mod serve;
 
-// gRPC: protobuf + tonic. Also debug-only.
+// tonic gRPC server. LAB-ONLY.
 #[cfg(feature = "grpc")]
 pub mod grpc;
 
-// Codec research (calibrate / tensors / probe) — same debug quarantine
-// as serve. Rides on the unified shader-driver API surface; no new feature
-// gate. Runs the production CAM-PQ codec from ndarray against safetensors
-// tensors selected via route_tensor from lance-graph-contract.
+// Codec research consumer — backing logic for the research Wire DTOs.
+// LAB-ONLY. Research is one consumer of the unified DTO, not its reason.
 #[cfg(any(feature = "serve", feature = "grpc"))]
 pub mod codec_research;
 
-// Planner bridge — delegates WirePlan DTOs to lance-graph-planner's
-// PlannerAwareness. Optional, gated on `with-planner`. Same EmbedAnything
-// pattern as `with-engine`. Without this feature the shader-driver REST
-// server still works; /v1/shader/plan returns 503.
-#[cfg(feature = "with-planner")]
-pub mod planner_bridge;
-
-// OrchestrationBridge impl for codec research — owns StepDomain::Ndarray.
-// Dispatches nd.calibrate / nd.probe / nd.tensors through codec_research.
-// Complement to planner's LanceGraph bridge.
+// OrchestrationBridge impl for the codec research consumer — owns
+// StepDomain::Ndarray. LAB-ONLY (sits next to its backing logic).
 #[cfg(any(feature = "serve", feature = "grpc"))]
 pub mod codec_bridge;
+
+// Planner bridge — lab test-shortcut for the per-op WirePlan DTOs.
+// PlannerAwareness implements OrchestrationBridge directly in the
+// planner crate; that's the canonical path. LAB-ONLY.
+#[cfg(feature = "with-planner")]
+pub mod planner_bridge;
 
 pub use lance_graph_contract::cognitive_shader::{
     CognitiveShaderDriver, ColumnWindow, EmitMode, MetaFilter, MetaSummary, MetaWord,

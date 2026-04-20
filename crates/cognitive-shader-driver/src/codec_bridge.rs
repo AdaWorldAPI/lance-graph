@@ -1,8 +1,16 @@
-//! OrchestrationBridge impl for codec research — owns `StepDomain::Ndarray`.
+//! **LAB-ONLY consumer.** `OrchestrationBridge` impl for codec research —
+//! owns `StepDomain::Ndarray`.
+//!
+//! The canonical architecture is `OrchestrationBridge` + `UnifiedStep` in
+//! the contract. Research is just one consumer plugged into that trait;
+//! production consumers plug in the same way under different `StepDomain`
+//! values (Crew / Ladybug / N8n / LanceGraph / Thinking / Query / Semantic
+//! / Persistence / Inference / Learning). The architecture does not
+//! revolve around this consumer.
 //!
 //! Dispatches `nd.calibrate`, `nd.probe`, `nd.tensors` step-types through
-//! the codec_research module. This complements the LanceGraph bridge on
-//! the planner — together they cover `lg.*` + `nd.*` domains.
+//! the codec_research module. Combined with the LanceGraph bridge on the
+//! planner, together they cover `lg.*` + `nd.*` domains.
 //!
 //! Consumers combine bridges: `Vec<Box<dyn OrchestrationBridge>>` and route
 //! each step to whichever bridge reports `domain_available() = true`.
