@@ -61,6 +61,13 @@ pub mod grpc;
 #[cfg(any(feature = "serve", feature = "grpc"))]
 pub mod codec_research;
 
+// Planner bridge — delegates WirePlan DTOs to lance-graph-planner's
+// PlannerAwareness. Optional, gated on `with-planner`. Same EmbedAnything
+// pattern as `with-engine`. Without this feature the shader-driver REST
+// server still works; /v1/shader/plan returns 503.
+#[cfg(feature = "with-planner")]
+pub mod planner_bridge;
+
 pub use lance_graph_contract::cognitive_shader::{
     CognitiveShaderDriver, ColumnWindow, EmitMode, MetaFilter, MetaSummary, MetaWord,
     NullSink, RungLevel, ShaderBus, ShaderCrystal, ShaderDispatch, ShaderHit,
