@@ -65,6 +65,82 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-04-20 — Thinking styles ARE codecs over the semantic field (north star)
+
+**Status:** FINDING (forward-looking deposit — not a current work item; reference when Phase 5+ generalises)
+
+A codec compresses tensor content into fingerprints; a thinking style
+compresses reasoning trajectories into NARS-revised beliefs. Same
+underlying operation — structure-preserving compression on a binary
+Hamming substrate. Different input/output domains, same substrate
+guarantees (E-SUBSTRATE-1, I-SUBSTRATE-MARKOV), same compile-and-swap
+machinery.
+
+**The codec infrastructure IS the template for production-grade
+thinking tissue.** When Phase 5+ activates:
+
+| Codec (shipped D0.1–D1.2, D1.1b queued) | Thinking-style analog |
+|---|---|
+| `CodecParams` | `ThinkingStyleParams { style, modulation_7d, nars_priors, fallback_chain, sigma_priority, semiring_choice }` |
+| `kernel_signature()` — excludes runtime drift | `style_signature()` — excludes per-cycle modulation drift |
+| `CodecKernelCache<H>` | `ThinkingStyleKernelCache<H>` — same generic scaffold |
+| JIT kernel = Cranelift-compiled decode | JIT kernel = compiled scan-walk on 36-node topology (already shipped ndarray-side via `scan_jit.rs` + `ScanParams`) |
+| **Token agreement** (I11 cert gate) | **Conclusion agreement** — same NARS-revised conclusions as reference style? |
+| Sweep grid = N codec candidates | Sweep grid = N (style × modulation × NARS fallback) candidates |
+| `/v1/shader/calibrate` | `/v1/shader/think-calibrate` |
+| `[FORMAL-SCAFFOLD]` 5 pillars | **Same scaffold** — E-SUBSTRATE-1 covers any transition under bundle |
+
+**Generalisation isn't "port codec pattern to thinking"** — it's
+recognising thinking styles as a SPECIAL CASE of the codec pattern we
+just built. When Phase 5+ lands, `WireThinkCalibrate` +
+`ThinkingStyleKernelCache` + `conclusion_agreement` metric drop in
+alongside the codec versions. Same JIT engine, same tests, same
+board-hygiene discipline.
+
+**The phrase "production-grade thinking tissue"** names the telos
+cleanly: once codec infra is at Phase 3 token-agreement pass rates,
+cloning to thinking styles yields production-grade swappable
+reasoning — YAML-configured, JIT-compiled, sweep-certified. No
+rebuild per new style, no black box, signature-keyed reproducibility.
+
+**Cross-ref:** D0.6 `CodecParams` (the parameter-shape template);
+D1.1 `CodecKernelCache<H>` (the cache pattern — generic-over-H is the
+wedge for reuse); I5 (thinking IS an AdjacencyStore — already
+topologically unified with data graph); codec-sweep-via-lab-infra-v1.
+
+---
+
+## 2026-04-20 — D1.2 Hadamard is pure-Rust, not a JIT-necessary primitive
+
+**Status:** FINDING
+
+D1.2's HadamardRotation is implemented as a plain Rust in-place
+Sylvester butterfly (O(N log N) add/sub, no allocations). It does NOT
+need JIT compilation or Cranelift code emission because:
+
+1. **Fixed shape** — the butterfly structure is identical across all
+   power-of-two dims. Rust's compiler (under `target-cpu=x86-64-v4`)
+   already emits AVX-512 add/sub from the straight-line loop.
+2. **Not matmul** — Hadamard is a pattern of adds and subtracts,
+   never a dot product. Per Rule C polyfill hierarchy, matmul-heavy
+   paths benefit from AMX (Tier 1); add/sub stays at Tier 3 F32x16.
+   AMX gives no speedup here — confirmed in plan Appendix §12 C.
+
+**Consequence for D1.1b (Cranelift wiring):** only OPQ rotation needs
+the JIT path — it's the one that's actually a learned matmul. The
+Cranelift integration scope narrows: we don't need to JIT-compile
+Identity (no-op) or Hadamard (butterfly); just OPQ (matmul) and the
+main codec decode loop (ADC distance with palette lookup).
+
+This reduces D1.1b scope by maybe 30-40% — fewer kernel shapes to
+emit, only the ones that actually benefit.
+
+Cross-ref: D1.2 `rotation_kernel.rs::HadamardRotation`; Rule C
+(polyfill hierarchy); plan Appendix B (CartanCascade harmonic
+compression ratios rely on real Hadamard, so this matters).
+
+---
+
 ## 2026-04-20 — CORRECTION to D1.1 scaffold: ndarray::hpc::jitson_cranelift already ships JitEngine
 
 **Status:** FINDING / CORRECTION
