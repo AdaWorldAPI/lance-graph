@@ -24,5 +24,6 @@ exclude = [
     "crates/lance-graph-cognitive",
     "crates/learning",
     "crates/cognitive-shader-driver",
+    "crates/jc",
 ]
 resolver = "2"
