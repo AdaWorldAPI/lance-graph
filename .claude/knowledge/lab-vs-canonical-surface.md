@@ -58,63 +58,151 @@ the canonical library surface:
 
 ### Why the Lab Surface Exists (positive purpose — not just quarantine)
 
-The lab API is not tech debt tolerated until it can be deleted. It is
-the **codec-research iteration testbed**. Its reason for existing is
-the cost of the alternative: every codec candidate re-measured through
-a `cargo build` cycle burns minutes per iteration. Over dozens of
-candidates (Fractal, Zipper, 5^5, 7^7, I8-μ-law, CamPqRaw, CamPqPhase,
-residual PQ, Hadamard pre-rotation, OPQ…) that compounds into hours of
-waiting between measurements — which is what kills research velocity.
+The lab API is not tech debt tolerated until it can be deleted. It
+is the **codec-certification loop** for real tokens. Two facts drive
+its existence:
 
-With the lab surface:
+1. **Synthetic ICC lies.** PR #219's 0.9998 ICC was measured on
+   random / artificial vectors and on 128 rows trained+tested on
+   the same 128 rows — trivially overfit. PR #220's reconstruction
+   ICC on real safetensors was 0.195 / 0-of-234. **Neither number
+   touched tokens.** The only measurement that certifies a codec
+   is: "does the decoded weight produce the same top-k tokens as
+   Passthrough?" Getting there means running the full decode
+   through the real dispatch path.
+2. **Rebuild economics break iteration.** Each `cargo build` of
+   the full stack takes 8–17 minutes. Codec space under exploration
+   has ~200 invariants to tune (subspace count, centroid count,
+   residual depth, rotation, μ-law shaping, sign handling,
+   Hadamard pre-rotation, OPQ, per-tensor calibration priors, …).
+   At rebuild-per-tweak this is hundreds of hours. At endpoint-per-
+   tweak it's seconds.
 
-```
-HTTP POST /v1/shader/calibrate  { tensor_path, codec, params }
-        ↓ (no recompile)
-codec_research::calibrate_tensor(...)
-        ↓
-ICC / reconstruction / SHA256 in manifest.json
-```
+Hence the three-part lab stack — **API + Planner + JIT**:
 
-Same binary serves dozens of candidates against the same safetensors,
-in seconds per call. This is how PR #220 falsified PR #219's ICC-0.9998
-claim: the calibration CLI + REST endpoint exercised CAM-PQ on full
-Qwen3-TTS-0.6B tensors and surfaced mean ICC 0.195 / 0/234 pass rate
-before any production consumer linked the codec.
+| Part | Role |
+|---|---|
+| **REST/gRPC API** (`src/serve.rs`, `src/grpc.rs`, `src/wire.rs`) | Curl-friendly entry points. `/v1/shader/{dispatch,calibrate,probe,tensors,plan}`. Sends params in, gets measurements out. **No rebuild per candidate.** |
+| **Planner** (`lance-graph-planner` behind `--features with-planner`) | The actual dispatch path under test. Token decode runs the real `ShaderDriver` + real `UnifiedStep` routing, not a toy bench. What production will run, minus the production consumer. |
+| **JIT** (`lance-graph-contract::jit::JitCompiler` + Cranelift via `jitson`) | Swap codec kernels at runtime without relinking. New `PaletteSemiring` variant, new PQ rotation, new residual depth — compile a new kernel handle in milliseconds, keep the same server process, re-measure. |
 
-**Two purposes held together — neither dominates the other:**
+All three together = one running binary (`shader-lab`) that ingests
+a new codec candidate via the API, compiles it via the JIT, routes
+it through the planner, and reports token-agreement vs
+reconstruction-ICC vs reconstruction-error side-by-side — all in
+seconds per candidate.
 
-1. **Iteration velocity** (positive). The lab surface lets research
-   measure N codec candidates against real tensors without
-   recompiling. `/v1/shader/{dispatch,calibrate,probe,tensors,plan}`
-   are the curl-friendly entry points for that loop.
-2. **Canonical firewall** (guard). The lab surface MUST NOT become
-   what production consumes. Consumers walk `UnifiedStep` via
-   `OrchestrationBridge`; they never see `WireCalibrate` /
-   `WireProbe` / `WireTensors`.
+**Worked example — the #219 → #220 falsification arc (what actually
+happened, and what's still missing):**
 
-**Worked example — the #219 → #220 falsification arc:**
-
-| PR | Role | Velocity enabled by |
+| PR | Measurement | What it was |
 |---|---|---|
-| #219 | Claimed ICC 0.9998 at 6 B/row on 128 training rows; lab-gated CAM-PQ candidates behind `--features lab` | Research iteration inside the lab surface; no production wiring yet |
-| #220 | D5 full-size validation via `cam_pq_calibrate` CLI on real safetensors; mean ICC **0.195**, 0/234 tensors ≥ 0.99; EPIPHANIES marks prior entry SUPERSEDED | Same lab surface exercised on full tensors — negative result surfaced **before** the codec linked into any canonical consumer |
+| #219 | ICC 0.9998 on 128 rows, trained+measured on same 128 rows | Synthetic / overfit — not even reconstruction on real weights, let alone tokens |
+| #220 | Reconstruction ICC 0.195 mean, 0/234 ≥ 0.99 on Qwen3-TTS-0.6B safetensors | Real weights, reconstruction only. Still not token-level. |
+| **Next** | Token agreement vs Passthrough on full decode | **The actual cert gate.** Needs API + Planner + JIT loaded together. |
 
-The gate did its job twice: (a) the iteration loop was fast enough to
-falsify the claim in a day, (b) nothing production-facing depended on
-the falsified codec when the result came back. That is exactly what
-the LAB / canonical split exists to buy.
+The gate did its job: nothing production-facing depended on the
+falsified codec when #220 came back, and the falsification arrived
+in a day instead of a week. What it has NOT yet done is run the
+token-agreement measurement — that requires the three-part stack
+wired end-to-end, which is the next load-bearing work.
+
+### The third purpose — thinking harvest (the AGI magic bullet)
+
+The same three-part stack (API + Planner + JIT) that certifies
+codecs is also the **thinking-observability port**. Tensor path and
+Cypher path share the binary; only the payload changes:
+
+```
+POST /v1/planner/query          { cypher: "MATCH (n:Topic) …" }
+        ↓ (no recompile; JIT-hot planner)
+lance-graph-planner dispatch
+        ↓
+  · 36 thinking styles (AdjacencyStore at τ=0x0D) activate
+  · 13 cognitive verbs traverse (EXPLORE / FANOUT / HYPOTHESIS / …)
+  · NARS truth propagates on edges
+  · MUL assessment / CollapseGate decision
+        ↓
+response: { rows, thinking_trace: { active_styles, modulation,
+             beliefs, tensions, entropy, verb_trail } }
+```
+
+The trace that comes back is not a debug artefact — it is the
+**planner's thinking made observable outside the binary**. That
+externalisation is the load-bearing move because it turns the
+planner from a closed dispatcher into a reflectable, loggable,
+replayable, trainable system:
+
+- **Log** every cycle's `(active_styles, modulation, entropy,
+  verb_trail)` to Lance. Offline, mine for which style-cluster
+  patterns produce which collapse outcomes.
+- **Replay** a prior trace with one parameter changed (different
+  kernel, different NARS revision rule, different modulation
+  constants) via the JIT swap, compare outcomes.
+- **Feed back** — harvested thinking traces seed NARS edge
+  revisions (empirical layer in D7), so the topology
+  self-organises from its own externalised history.
+
+**Why this is the AGI magic bullet, concretely.** An AGI that
+cannot observe its own reasoning cannot revise it. Closing the
+feedback loop — planner thinks → REST emits the trace → external
+harvester folds the trace back into the topology — is the
+architectural shape of a system that learns its own
+meta-inference. The REST/Cypher path makes that loop observable
+and mechanisable without rebuilds; the JIT makes revisions cheap;
+the planner is where the thinking actually happens. Remove any
+one leg and the loop closes with production data only (slow,
+opaque) or with toy data only (fast, unreal). Keep all three and
+the harvest runs at research velocity on real cognition.
+
+This is **not** a new architecture. It's the same three-part lab
+stack read in a second direction:
+
+| Input | What the stack measures | Gate |
+|---|---|---|
+| Safetensor tensor row | codec reconstruction + token agreement | ICC ≥ 0.99 held-out + token-agreement vs Passthrough |
+| Cypher query | thinking trace + collapse outcome + NARS truth | replayability + trace-driven revision convergence |
+
+One binary, two harvests: **codec certification** (tensor side) and
+**thinking observability** (Cypher side). Same API, same planner,
+same JIT — which is why reviving the REST/Cypher injection path
+costs almost nothing now that PR #221 landed the REST/gRPC
+scaffolding.
+
+### Three purposes held together — none dominates the others
+
+1. **Iteration velocity** (positive, codec side). API + Planner +
+   JIT lets research measure N codec candidates against real
+   tokens via real dispatch without recompiling.
+2. **Thinking harvest** (positive, Cypher side). The same stack
+   externalises the planner's 36-style / 13-verb / NARS trace so
+   it can be logged, replayed, and folded back into edge
+   revisions. This is the AGI magic bullet — closing the
+   observe-own-reasoning loop outside the binary.
+3. **Canonical firewall** (guard). The lab surface MUST NOT
+   become what production consumes. Consumers walk `UnifiedStep`
+   via `OrchestrationBridge`; they never see `WireCalibrate` /
+   `WireProbe` / `WireTensors` / `WirePlan` /
+   `WirePlannerAwareness`.
 
 **Rule of thumb for a new codec / research op:**
 
-- Add it under `codec_research.rs` + a `Wire*` DTO + a handler under
-  `/v1/shader/<op>`. Measure against real tensors via curl / CLI.
+- Add it under `codec_research.rs` + a `Wire*` DTO + a handler
+  under `/v1/shader/<op>`. Expose it as a JIT kernel if the kernel
+  logic is parameterised.
+- Measure in this order:
+  1. Reconstruction error on real safetensors (held-out rows, not
+     training rows).
+  2. Reconstruction ICC ≥ 0.99 on held-out.
+  3. **Token agreement** with Passthrough baseline on full
+     generation (top-1 / top-5). This is the cert gate.
 - Land findings as `.claude/knowledge/codec-findings-*.md` with
-  measured ICC / error / SHA256 + EPIPHANIES entry.
-- Only after full-size validation passes the gate (e.g. ≥ 0.99 ICC
-  on held-out rows for argmax-regime tensors) does the op graduate
-  — and even then it graduates as a new `StepDomain` variant behind
-  `OrchestrationBridge`, not as a permanent `/v1/<op>` endpoint.
+  measured reconstruction + token-agreement numbers + EPIPHANIES
+  entry.
+- Only after the token-agreement gate passes does the op graduate
+  — and even then it graduates as a new `StepDomain` variant
+  behind `OrchestrationBridge`, not as a permanent `/v1/<op>`
+  endpoint. The lab endpoint stays live for continued tuning.
 
 The canonical surface — all of it re-exported from
 `cognitive-shader-driver` so consumers depend on one crate:
@@ -381,6 +469,36 @@ Ref: `docs/integrated-architecture-map.md` §3.
 
 Each level narrows; never skip levels. bgz17 IS HEEL — do not ask
 it to also be LEAF identity.
+
+### I11. Measurable stack, not a black box — every layer emits trace
+
+Ref: "Why the Lab Surface Exists (positive purpose)" above;
+`docs/THINKING_PIPELINE.md` §"VerbTrace".
+
+No layer in the stack is opaque. Each emits a harvest-ready trace
+through the lab surface so the system is reflectable from outside
+the binary:
+
+| Layer | Trace emitted | Harvested via |
+|---|---|---|
+| L0 ndarray SIMD | pattern counters, instruction mix | `/v1/shader/probe` (perf counters on hot kernels) |
+| L1 BindSpace | column hit masks, survivor counts after each monotone-narrowing sweep | `/v1/shader/dispatch` response |
+| L2 CognitiveShader | `MetaWord` packed state (style, awareness bits, rung, emit mode) + `ShaderHit` stream | `ShaderSink` → REST / gRPC stream |
+| L3 CollapseGate | `GateDecision` + merge mode + delta fingerprint | `/v1/shader/plan` response |
+| L4 Planner | `VerbTrace` per cycle step: `active_styles`, `modulation`, `beliefs`, `tensions`, `entropy`, `verb_trail` | `/v1/planner/query` + `thinking_trace` response field |
+
+**Rule:** a proposed change that hides state from this trace
+contract — "for perf" or "to simplify the DTO" — is rejected. The
+lab surface is the observation port; shrinking it to a bool-out
+turns the stack back into a black box and kills the feedback loop
+that makes the system learn its own reasoning (the AGI magic
+bullet in "Why the Lab Surface Exists").
+
+Corollary: the canonical consumer surface (`UnifiedStep` via
+`OrchestrationBridge`) is compact, but the lab surface is wide on
+purpose — it carries the full trace. Consumers that need a trace
+field promote it through the bridge, not by scraping the lab
+endpoint.
 
 ---
 
