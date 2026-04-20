@@ -368,22 +368,120 @@ constructing a JSON body. **Zero Rust changes. Zero rebuilds.**
 The JIT kernel cache hashes `CodecParams` and compiles once per
 unique shape; everything after is cache hits.
 
-### Rule enforcement — test gate in Phase 0
+### Rule E — Wire surface IS the SIMD surface (object-oriented, not scalar bags)
 
-Phase 0's verification gate adds:
+The REST/gRPC/Wire DTOs do not package "convenience" scalars that
+internally reassemble into SIMD structures. The Wire types ARE
+the SIMD surface, serialised. Four consequences:
+
+**(i) Lane-shaped aggregates.** Every tensor-carrying DTO names
+its lane width explicitly via an enum that mirrors the
+`ndarray::simd::*` lane types it will feed:
+
+```rust
+pub enum LaneWidth {
+    F32x16,    // AVX-512 f32 lane — default for codec decode
+    U8x64,     // AVX-512 u8 lane  — palette index reads
+    F64x8,     // AVX-512 f64 lane — high-precision calibration
+    BF16x32,   // AVX-512 bf16 lane — tile_dpbf16ps input
+}
+
+pub struct WireTensorView {
+    pub shape: [u32; 2],       // rows × cols
+    pub lane_width: LaneWidth,
+    pub bytes_base64: String,  // decode target is 64-byte aligned
+}
+```
+
+**(ii) Methods, not bags.** Every DTO exposes methods that mirror
+the SoA + SIMD operations the JIT kernel will perform. Consumers
+never reassemble a tensor from a `Vec<f32>`:
+
+```rust
+impl WireTensorView {
+    pub fn row(&self, idx: usize) -> &[u8]; // zero-copy slice after decode
+    pub fn row_count(&self) -> u32 { self.shape[0] }
+    pub fn lanes_f32x16(&self, row: usize) -> impl Iterator<Item = F32x16> + '_;
+    pub fn subspace(&self, row: usize, k: u32, sub_bytes: usize) -> &[u8];
+}
+
+impl CodecParams {
+    /// Object-computed signature; JIT cache key.
+    pub fn kernel_signature(&self) -> u64;
+    /// Expected lane width of the decode kernel this params produces.
+    pub fn lane_width(&self) -> LaneWidth;
+    /// True if this kernel benefits from Tier-1 AMX dispatch.
+    pub fn is_matmul_heavy(&self) -> bool;
+}
+```
+
+**(iii) Kernel signature keying.** `CodecParams::kernel_signature`
+is the JIT cache key; adding an unrelated config field does not
+invalidate existing kernel entries because the method returns a
+stable hash only over the fields that actually shape the emitted
+IR.
+
+**(iv) Serialisation preserves alignment.** When the REST handler
+decodes `WireTensorView.bytes_base64`, the output lands in a
+64-byte-aligned buffer (via the existing `ndarray::hpc`
+alignment utilities). Consumers can
+`slice::array_windows::<64>()` over the decoded buffer and feed
+the result directly to `F32x16::from_slice` — no re-align, no
+copy, no adapter.
+
+**Example — JSON body for `/v1/shader/calibrate` (SIMD-shaped):**
+
+```json
+{
+  "candidate": {
+    "subspaces": 6,
+    "centroids": 1024,
+    "residual_depth": 1,
+    "lane_width": "F32x16",
+    "pre_rotation": { "kind": "hadamard", "dim": 4096 },
+    "distance": "adc",
+    "calibration_rows": 2048,
+    "seed": 42
+  },
+  "tensor_view": {
+    "shape": [3072, 1024],
+    "lane_width": "F32x16",
+    "bytes_base64": "<…>"
+  }
+}
+```
+
+`lane_width` on both sides is a contract: the JIT kernel compiled
+for `F32x16` reads a `WireTensorView` aligned for `F32x16`. No
+adapter layer between the DTO and the `ndarray::simd::*` call
+site.
+
+### Rule enforcement — test gates in Phase 0
+
+Phase 0's verification adds:
 
 - `kernel_contract_test` — iterates a list of `CodecParams` (from
-  `configs/codec/*.yaml`), compiles each, scans emitted IR for
-  uses of `ndarray::simd::array_window` and `ndarray::simd::*`
-  symbols, fails if any kernel reaches `std::arch::*` or
-  `ndarray::hpc::*`.
-- `amx_dispatch_test` (aarch64-apple-darwin only, gated with
-  `#[cfg(all(target_arch = "aarch64", target_os = "macos"))]`) —
-  verifies `simd_caps().has_amx() == true` on M-series and that a
-  rotation kernel's trace records `backend = "amx"` for that
-  call.
+  `configs/codec/*.yaml`), compiles each, scans the emitted IR
+  for banned symbols (`std::arch::*`,
+  `ndarray::hpc::simd_avx{2,512}::*` reach-through) and required
+  callsites (`ndarray::simd::*`, `ndarray::simd_amx::*`, or
+  `ndarray::hpc::amx_matmul::*`). Fails if any kernel reaches
+  around the canonical surface or hand-rolls a scalar loop.
+- `amx_dispatch_test` — gated with
+  `#[cfg(target_arch = "x86_64")]`; calls
+  `ndarray::simd_amx::amx_available()`, and when `true` on the
+  runner (Sapphire Rapids+ with OS tile state enabled), verifies
+  a matmul-heavy candidate's emitted kernel's trace records
+  `backend = "amx"`. When `false`, verifies Tier-2 VNNI or
+  Tier-3 F32x16 selection, never scalar.
+- `wire_object_surface_test` — round-trips `WireCalibrate` +
+  `WireTensorView` through JSON and gRPC, asserts decoded bytes
+  land in a 64-byte-aligned buffer, and calls
+  `slice::array_windows::<64>()` + `F32x16::from_slice` on the
+  result to prove the surface is consumable with zero adapter
+  code.
 
-These tests fire as part of `cargo test -p cognitive-shader-driver
+All three fire under `cargo test -p cognitive-shader-driver
 --features lab` in Phase 0 CI; any Phase 1+ commit that breaks
 them is rejected.
 
@@ -394,35 +492,45 @@ them is rejected.
 `crates/cognitive-shader-driver/src/codec_research.rs` — add:
 
 ```rust
-use ndarray::simd::{array_window, simd_caps, F32x16, U8x64};
+use ndarray::simd::{F32x16, U8x64};
+use ndarray::hpc::simd_caps::{simd_caps, SimdCaps};
+use ndarray::simd_amx::amx_available;
+use std::sync::RwLock;
 
+// Per ndarray/.claude/rules/data-flow.md: "No &mut self during
+// computation." Cache uses interior mutability.
 struct CodecKernelCache {
-    handles: HashMap<u64 /* CodecParams hash */, KernelHandle>,
-    compiler: JitCompiler,   // Cranelift via jitson
-    caps: SimdCaps,          // from ndarray::simd::simd_caps()
+    handles: RwLock<HashMap<u64 /* kernel_signature */, KernelHandle>>,
+    compiler: JitCompiler,        // Cranelift via jitson
+    caps: SimdCaps,               // from ndarray::hpc::simd_caps::simd_caps()
 }
 
 impl CodecKernelCache {
-    fn kernel_for(&mut self, params: &CodecParams) -> &KernelHandle {
-        let key = hash_codec_params(params);
-        self.handles.entry(key).or_insert_with(|| {
-            // codec_ir emits calls to ndarray::simd::* only:
-            //   - array_window(tensor, row, cnt) for tensor access
-            //   - U8x64::from_lanes(...) for centroid index reads
-            //   - F32x16 arithmetic for ADC distance accumulation
-            // Zero std::arch, zero ndarray::hpc reach.
-            self.compiler.compile(codec_ir(params, &self.caps))
-        })
+    fn kernel_for(&self, params: &CodecParams) -> KernelHandle {
+        let key = params.kernel_signature();   // object-computed, per Rule E
+        if let Some(h) = self.handles.read().unwrap().get(&key) { return h.clone(); }
+        let handle = self.compiler.compile(codec_ir(params, &self.caps));
+        self.handles.write().unwrap().insert(key, handle.clone());
+        handle
     }
 }
 
 fn codec_ir(params: &CodecParams, caps: &SimdCaps) -> KernelIr {
     // Emits IR that:
-    //   for each subspace s:
-    //     let w = array_window(input, s * sub_dim, sub_dim);
-    //     let d = adc_distances_simd::<F32x16>(w, codebook[s]);
-    //     accumulate into row_distance via caps-aware reduction
-    //   if params.residual_depth > 0: recurse on residual
+    //   * Iterates rows via stdlib slice::array_windows::<64>() over
+    //     the 64-byte-aligned WireTensorView buffer (per Rule A).
+    //   * For matmul-heavy rotations with amx_available() && caps:
+    //       ndarray::hpc::amx_matmul::{tile_dpbusd, tile_dpbf16ps}
+    //       (Tier 1, 256 MACs/instr).
+    //   * Otherwise:
+    //       ndarray::simd_amx::{vnni_dot_u8_i8, vnni_matvec} (Tier 2, 64)
+    //       or ndarray::simd::F32x16 / U8x64 (Tier 3, 16 — mandatory floor).
+    //   * Accumulates ADC distances via F32x16 adds and F32x16::reduce_sum.
+    //   * If params.residual_depth > 0: compose a second IR block over
+    //     (input − first_pass_decoded) at recursive lane width.
+    //
+    // Zero std::arch::*, zero ndarray::hpc::simd_avx{2,512}::* reach,
+    // zero scalar loops.
     ...
 }
 ```
