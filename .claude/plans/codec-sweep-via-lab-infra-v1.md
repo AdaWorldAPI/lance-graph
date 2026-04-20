@@ -227,13 +227,26 @@ The SIMD tier each JIT-emitted kernel lands on follows this
 strict polyfill chain — tier 1 is tried first, each tier falls
 through to the next when unavailable:
 
-| Tier | Primitive | Source | When available | MACs / instr |
+**Iron rule — SoA never scalarises without ndarray.** If a kernel
+runs scalar, the SoA invariant is broken. Every tier in the chain
+below calls `ndarray::simd::*` or `ndarray::simd_amx::*` or
+`ndarray::hpc::amx_matmul::*` — these modules handle their own
+internal scalar fallback for exotic targets; the consumer never
+hand-rolls a scalar loop.
+
+| Tier | Primitive | Source | When selected | MACs / instr |
 |---|---|---|---|---|
 | **1 — Intel AMX tiles** (preferred for matmul-heavy paths: OPQ, distance-table build) | `tile_dpbusd` (u8×i8→i32) / `tile_dpbf16ps` (bf16×bf16→f32) | `ndarray::hpc::amx_matmul::*` | `ndarray::simd_amx::amx_available() == true` (Sapphire Rapids+, OS has enabled XCR0 tile bits 17/18, Linux `prctl(ARCH_REQ_XCOMP_PERM, XFEATURE_XTILEDATA)` succeeded) | **256** |
 | 2 — AVX-512 VNNI | `vnni_dot_u8_i8`, `vnni_matvec`, `matvec_dispatch` | `ndarray::simd_amx::*` (VNNI lives one tier down from AMX, stable intrinsics) | AVX-512 VNNI subset | 64 |
 | 3 — AVX-512 baseline | `F32x16`, `U8x64`, `F64x8` | `ndarray::simd::*` (mandatory default: ndarray's `.cargo/config.toml` sets `target-cpu=x86-64-v4`) | Always on canonical build targets | 16 |
-| 4 — AVX-2 fallback | `F32x8`, `F64x4` | `ndarray::simd::*` (cfg-gated; triggers when build drops to `x86-64-v3`) | Compile-time cfg | 8 |
-| 5 — Scalar | pure Rust loops | `ndarray::simd::scalar::*` | non-x86 / short slices / correctness reference | 1 |
+| 4 — AVX-2 fallback | `F32x8`, `F64x4` | `ndarray::simd::*` (cfg-gated; triggers only when build cfg drops to `x86-64-v3`) | Compile-time cfg | 8 |
+
+Note the absence of a consumer-visible "scalar" tier. Scalar
+fallback — when it exists at all — lives inside `ndarray::simd`
+for non-x86 correctness; the codec JIT never emits it directly
+and never short-circuits out of an ndarray call into a hand-
+written loop. Any such short-circuit on a SoA path is a contract
+violation.
 
 **Dispatch shape the JIT emits (real primitive names only):**
 
@@ -244,14 +257,17 @@ use ndarray::simd::F32x16;
 
 if amx_available() && kernel_params.is_matmul_heavy() {
     // Tier 1: Intel AMX tile matmul. Codebook distance-table build
-    // drops from 24-48h (scalar/VNNI) to ~1:20h at this tier per
+    // drops from 24-48h (non-AMX) to ~1:20h at this tier per
     // simd_amx.rs top-of-module measurement.
     unsafe { tile_dpbf16ps(); }    // or tile_dpbusd for u8×i8 accumulators
 } else {
-    // Tiers 2-5: target-cpu=x86-64-v4 keeps Tier 3 as the always-
-    // available floor; cfg resolves the specific lane type.
-    let lane = F32x16::from_slice(…);
-    /* …accumulate… */
+    // Tiers 2-4 via ndarray::simd::* — target-cpu=x86-64-v4 keeps
+    // Tier 3 (F32x16) as the always-available floor on canonical
+    // builds. cfg resolves the specific lane type at compile time.
+    // No hand-rolled scalar "else" branch — if ndarray::simd were
+    // unavailable the SoA path itself would not be the right one.
+    let lane = F32x16::from_slice(bytemuck::cast_slice(window));
+    /* …accumulate via F32x16 ops… */
 }
 ```
 
