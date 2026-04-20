@@ -1167,3 +1167,185 @@ F); everything after is in-memory `CodecParams` objects, JIT
 kernel cache hits, SoA column sweeps, and SIMD lane ops — none
 of which touch serialisation again until the sweep logger
 appends the result row to Lance (the one allowed egress).
+
+---
+
+## Appendix B — CartanCascade: the bgz-hhtl-d × Cartan-character child
+
+> Born: 2026-04-20 session. Parents: bgz-hhtl-d (progressive-precision
+> HHTL cascade, Fisher-z ρ≥0.999 certified, i8+BF16 restore) ×
+> Cartan-Kuranishi (role_keys slice widths as intrinsic Cartan characters).
+
+### What the child inherits
+
+| From bgz-hhtl-d | From Cartan widths |
+|---|---|
+| HHTL progressive levels (HEEL→HIP→BRANCH→TWIG→LEAF) | 2000/2000/2000/1500/1500/900/70/60/30 = per-role intrinsic bit budget |
+| Fisher-z per-group tables (64 KB each, ρ≥0.999) | Just-intonation ratios: 4:3 (Subject↔Modifier), 5:3 (Modifier↔TEKAMOLO) |
+| i8 + BF16 residual, lossless restore `tanh((i8+127)/254 × z_range + z_min)` | Per-role decomposition, zero cross-contamination |
+
+### Shape (Rust sketch — not shipped; spec only)
+
+```rust
+pub struct CartanCascade {
+    // Full 5-level HHTL per main SPO role (2000 dim each):
+    subject:   HhtlCascade<2000>,    // ~15 B, full precision
+    predicate: HhtlCascade<2000>,    // ~15 B
+    object:    HhtlCascade<2000>,    // ~15 B
+    // Compressed 4-level (perfect-fourth 3/4 ratio vs subject):
+    modifier:  HhtlCascade<1500>,    // ~11 B
+    context:   HhtlCascade<1500>,    // ~11 B
+    // Further compressed 3-level (major-sixth 5/3 ratio vs modifier):
+    tekamolo:  HhtlCascade<900>,     // ~7 B
+    // Degenerate HEEL-only (manifold at native resolution already):
+    finnish:   Heel<70>,             // ~1 B
+    tense:     Heel<60>,             // ~1 B
+    nars:      Heel<30>,             // ~1 B
+}
+// Per-bundle total: ~77 bytes. Compression: ~520× from Vsa10kF32 (40 KB).
+```
+
+### YAML spec for the codec-sweep candidate
+
+```yaml
+# configs/codec/40_cartan_cascade_subject.yaml
+name: cartan_cascade_subject_slice
+codec: cartan_cascade
+role: subject
+slice: [0, 2000]
+hhtl_levels: 5
+fisher_z_group_kb: 64
+lane_width: F32x16
+pre_rotation:
+  kind: identity
+distance: adc_u8
+calibration_rows: 2048
+seed: 42
+notes: |
+  CartanCascade: per-role HHTL with Cartan-character-sized bit budget.
+  Subject slice [0..2000) gets full 5-level HHTL cascade (~15 B).
+  Measures token agreement PER ROLE — Subject independently, then
+  compose. If per-role reconstruction ICC ≥ 0.999 (Fisher-z certified)
+  AND composed token agreement ≥ 0.99, CartanCascade passes the gate.
+  77 bytes per bundle = 520× compression vs Vsa10kF32.
+```
+
+```yaml
+# configs/codec/41_cartan_cascade_tekamolo.yaml
+name: cartan_cascade_tekamolo_slice
+codec: cartan_cascade
+role: tekamolo
+slice: [9000, 9900]
+hhtl_levels: 3
+fisher_z_group_kb: 32
+lane_width: F32x16
+pre_rotation:
+  kind: identity
+distance: adc_u8
+calibration_rows: 2048
+seed: 42
+notes: |
+  TEKAMOLO slice [9000..9900) gets compressed 3-level HHTL (~7 B).
+  Major-sixth ratio (5:3) vs Modifier — not arbitrary, derived from
+  Cartan-character spectrum. If ρ < 0.999 at this compression, the
+  Cartan-character hypothesis fails for this role.
+```
+
+```yaml
+# configs/codec/42_cartan_cascade_degenerate.yaml
+name: cartan_cascade_nars_heel_only
+codec: cartan_cascade
+role: nars
+slice: [9970, 10000]
+hhtl_levels: 1
+fisher_z_group_kb: 4
+lane_width: F32x16
+pre_rotation:
+  kind: identity
+distance: adc_u8
+calibration_rows: 2048
+seed: 42
+notes: |
+  NARS slice [9970..10000) gets degenerate HEEL-only (~1 B). The
+  30-dim manifold is at native resolution — no hierarchy needed.
+  Fisher-z table shrinks to 4 KB. This is the NULL test: if even
+  HEEL-only fails for 30 dims, the codec is broken at a level
+  unrelated to Cartan characters.
+```
+
+```yaml
+# configs/codec/43_cartan_cascade_full_compose.yaml
+name: cartan_cascade_full_composed
+codec: cartan_cascade
+role: all
+slices:
+  - { role: subject,   start: 0,    end: 2000,  levels: 5, fisher_z_kb: 64 }
+  - { role: predicate, start: 2000, end: 4000,  levels: 5, fisher_z_kb: 64 }
+  - { role: object,    start: 4000, end: 6000,  levels: 5, fisher_z_kb: 64 }
+  - { role: modifier,  start: 6000, end: 7500,  levels: 4, fisher_z_kb: 48 }
+  - { role: context,   start: 7500, end: 9000,  levels: 4, fisher_z_kb: 48 }
+  - { role: tekamolo,  start: 9000, end: 9900,  levels: 3, fisher_z_kb: 32 }
+  - { role: finnish,   start: 9840, end: 9910,  levels: 1, fisher_z_kb: 4 }
+  - { role: tense,     start: 9910, end: 9970,  levels: 1, fisher_z_kb: 4 }
+  - { role: nars,      start: 9970, end: 10000, levels: 1, fisher_z_kb: 4 }
+lane_width: F32x16
+pre_rotation:
+  kind: identity
+distance: adc_u8
+calibration_rows: 2048
+seed: 42
+notes: |
+  Full CartanCascade composition test: all 9 roles decoded independently,
+  then composed into one 10kD vector. Token agreement measured on the
+  composed output vs Passthrough. If passes: 520× compression is
+  role-lossless. If fails: identify which role's HHTL level is
+  under-specified — Cartan characters need adjustment.
+  
+  Total bytes: 3×15 + 2×11 + 7 + 3×1 = ~77 bytes per bundle.
+  
+  Critical overlap test: Finnish [9840..9910) overlaps TEKAMOLO
+  [9000..9900) by 60 dims — the overlap region gets BOTH the tekamolo
+  3-level encoding AND the finnish 1-level encoding. Verify that the
+  overlap doesn't degrade: if both agree, the overlap IS the
+  morphology-to-slot commitment (E-MEMB-2). If they disagree, the
+  overlap is a layout bug, not a feature.
+```
+
+### Why this belongs in the sweep (not as a standalone research crate)
+
+CartanCascade is NOT a new crate. It's a **codec candidate** that
+runs through the same `CodecParams` → JIT kernel → token-agreement
+pipeline as every other sweep candidate. The `codec: cartan_cascade`
+value is a new enum variant on `WireCodecParams` (D0.1 surface)
+that routes to a per-role HHTL JIT kernel (D1.1 + D1.3 composition).
+
+The sweep infrastructure (Phase 0 hardened, Phase 1 JIT kernels,
+Phase 2 token-agreement) is what makes it testable WITHOUT a
+dedicated crate. The `prove_it.rs` binary (JC crate) is the
+substrate proof; the codec-sweep is the rate-distortion proof.
+Two measurements, one architecture.
+
+### Acceptance gate (dual)
+
+1. **Per-role Fisher-z fidelity:** each role slice independently
+   hits ρ ≥ 0.999 on its reconstruction (inherited from bgz-hhtl-d
+   certification standard).
+2. **Composed token agreement:** the reassembled 10kD vector (all 9
+   roles composed) achieves top-1 token agreement ≥ 0.99 vs
+   Passthrough (inherited from codec-sweep D0.2 gate).
+
+If both pass: CartanCascade is **the** 520× bundle codec, and the
+Cartan-character widths are proven intrinsic in the same measurement.
+Two-for-one proof.
+
+### JC pillar connection
+
+`jc::cartan` (currently deferred) activates when CartanCascade
+succeeds:
+- If per-role HHTL levels inversely correlate with Cartan-character
+  widths (bigger roles need more levels, smaller roles need fewer
+  or none), that's the empirical Cartan-character discovery.
+- If the harmonic ratios (4:3, 5:3) appear in the per-role
+  compression ratios, the just-intonation structure is confirmed.
+- The `jc::cartan::prove()` function extends to report these
+  correlations alongside the prove_it binary output.
