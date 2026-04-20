@@ -205,6 +205,389 @@ pub trait IvfContract: Send + Sync {
     fn probe(&self, query: &[f32], num_probes: usize) -> Vec<(u32, f32)>;
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// Codec sweep parameters (plan: .claude/plans/codec-sweep-via-lab-infra-v1.md)
+//
+// CodecParams is the sweep-tunable shape the lab API passes to the JIT
+// compiler. Consumers (cognitive-shader-driver) serde this from JSON /
+// YAML at ingress; everything after ingress is in-memory Rust objects
+// (Rule F — serialisation at the edge only).
+//
+// Zero-dep: no serde derives here. YAML/JSON shape lives in the consumer.
+// ─────────────────────────────────────────────────────────────────────
+
+/// SIMD lane width the codec kernel will run on. Mirrors `ndarray::simd::*`
+/// lane types; lab Wire DTOs carry this enum verbatim so the JIT compiles
+/// against the width the REST handler decoded for (Rule E —
+/// Wire surface IS the SIMD surface).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum LaneWidth {
+    /// AVX-512 f32 lane — default codec decode / ADC accumulator.
+    F32x16,
+    /// AVX-512 u8 lane — palette index reads (`tile_dpbusd` input).
+    U8x64,
+    /// AVX-512 f64 lane — high-precision calibration.
+    F64x8,
+    /// AVX-512 bf16 lane — required for OPQ rotation (`tile_dpbf16ps`).
+    BF16x32,
+}
+
+impl Default for LaneWidth {
+    fn default() -> Self { Self::F32x16 }
+}
+
+/// Distance metric variant. Per CODING_PRACTICES gap 5: split u8/i8
+/// because sign-handling affects bipolar cancellation (codec-findings-
+/// 2026-04-20.md §I1 sign-flip).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Distance {
+    /// Asymmetric distance computation, unsigned palette indices.
+    AdcU8,
+    /// Asymmetric distance, signed palette indices (bipolar cancellation).
+    AdcI8,
+}
+
+impl Default for Distance {
+    fn default() -> Self { Self::AdcU8 }
+}
+
+/// Pre-rotation applied before PQ encoding. Each variant maps to a
+/// specific SIMD tier (Rule C — polyfill hierarchy):
+///
+/// - `Identity` — no-op.
+/// - `Hadamard { dim }` — Sylvester butterfly; stays on Tier-3 F32x16.
+/// - `Opq { matrix_blob_id, dim }` — learned rotation matmul; Tier-1
+///   AMX (`tile_dpbf16ps`) when `ndarray::simd_amx::amx_available()`.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Rotation {
+    Identity,
+    Hadamard { dim: u32 },
+    Opq { matrix_blob_id: u64, dim: u32 },
+}
+
+impl Default for Rotation {
+    fn default() -> Self { Self::Identity }
+}
+
+impl Rotation {
+    /// True when the rotation is a matmul (OPQ) and therefore
+    /// benefits from Tier-1 AMX dispatch. Hadamard is add/sub
+    /// butterfly — no matmul, no AMX speedup.
+    pub fn is_matmul(&self) -> bool {
+        matches!(self, Self::Opq { .. })
+    }
+}
+
+/// Residual PQ refinement pass. `depth = 0` disables residual;
+/// `depth > 0` encodes residuals after first-pass decode through
+/// another PQ stage (Rule A — composition via JIT; Rule B — stages
+/// themselves are `ndarray::simd::*`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ResidualSpec {
+    pub depth: u8,
+    pub centroids: u32,
+}
+
+impl Default for ResidualSpec {
+    fn default() -> Self { Self { depth: 0, centroids: NUM_CENTROIDS as u32 } }
+}
+
+impl ResidualSpec {
+    pub fn none() -> Self { Self { depth: 0, centroids: 0 } }
+    pub fn depth(d: u8, centroids: u32) -> Self { Self { depth: d, centroids } }
+}
+
+/// Full codec parameter shape consumed by the JIT compiler.
+///
+/// One `CodecParams` per candidate. The `kernel_signature()` method
+/// returns a stable hash keyed over the IR-shaping fields; the
+/// JIT kernel cache keys on this hash.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct CodecParams {
+    pub subspaces: u32,
+    pub centroids: u32,
+    pub residual: ResidualSpec,
+    pub lane_width: LaneWidth,
+    pub pre_rotation: Rotation,
+    pub distance: Distance,
+    pub calibration_rows: u32,
+    pub measurement_rows: u32,
+    pub seed: u64,
+}
+
+/// Errors returned by `CodecParamsBuilder::build()` when validation fails.
+/// Precision-ladder rejection fires before any JIT compile (D0.7).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CodecParamsError {
+    /// `subspaces = 0` or `centroids = 0` — sweep would divide by zero.
+    ZeroDimension { field: &'static str },
+    /// OPQ requires BF16x32 lane to match `tile_dpbf16ps` tile format
+    /// (Rule C Tier 1; D0.7 precision ladder).
+    OpqRequiresBf16 { got: LaneWidth },
+    /// Hadamard dim must be a power of two (Sylvester construction).
+    HadamardDimNotPow2 { dim: u32 },
+    /// Overfit guard: pipeline refuses to emit ICC when
+    /// `calibration_rows == measurement_rows` (the PR #219 artifact).
+    CalibrationEqualsMeasurement { rows: u32 },
+}
+
+impl core::fmt::Display for CodecParamsError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::ZeroDimension { field } => write!(f, "codec param `{}` must be non-zero", field),
+            Self::OpqRequiresBf16 { got } => write!(f, "OPQ rotation requires LaneWidth::BF16x32 (tile_dpbf16ps), got {:?}", got),
+            Self::HadamardDimNotPow2 { dim } => write!(f, "Hadamard dim must be a power of two (Sylvester), got {}", dim),
+            Self::CalibrationEqualsMeasurement { rows } => write!(
+                f,
+                "calibration_rows ({}) must differ from measurement_rows \
+                 (would silently reproduce PR #219 overfit)",
+                rows
+            ),
+        }
+    }
+}
+
+impl core::error::Error for CodecParamsError {}
+
+impl CodecParams {
+    /// Stable hash over the IR-shaping fields. JIT kernel cache key.
+    ///
+    /// Adding an unrelated field (e.g. seed) does NOT invalidate
+    /// existing kernel entries — seed is excluded because it does
+    /// not shape the emitted IR (only the calibration sample).
+    pub fn kernel_signature(&self) -> u64 {
+        use core::hash::{Hash, Hasher};
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        self.subspaces.hash(&mut h);
+        self.centroids.hash(&mut h);
+        self.residual.hash(&mut h);
+        self.lane_width.hash(&mut h);
+        self.pre_rotation.hash(&mut h);
+        self.distance.hash(&mut h);
+        // calibration_rows / measurement_rows / seed intentionally excluded.
+        h.finish()
+    }
+
+    /// True when the kernel will benefit from Tier-1 AMX dispatch
+    /// (matmul-heavy: OPQ pre-rotation, or wide codebook > 512).
+    pub fn is_matmul_heavy(&self) -> bool {
+        self.pre_rotation.is_matmul() || self.centroids > 512
+    }
+}
+
+/// Fluent builder for `CodecParams`. CODING_PRACTICES gap 3 remediation.
+///
+/// Programmatic entry point used by sweep driver, tests, and frontier
+/// analysis. YAML ingress produces `CodecParams` via serde (in the
+/// consumer crate, not here) and does NOT need the builder.
+#[derive(Debug, Clone)]
+pub struct CodecParamsBuilder {
+    subspaces: u32,
+    centroids: u32,
+    residual: ResidualSpec,
+    lane_width: LaneWidth,
+    pre_rotation: Rotation,
+    distance: Distance,
+    calibration_rows: u32,
+    measurement_rows: u32,
+    seed: u64,
+}
+
+impl Default for CodecParamsBuilder {
+    fn default() -> Self { Self::new() }
+}
+
+impl CodecParamsBuilder {
+    pub fn new() -> Self {
+        Self {
+            subspaces: NUM_SUBSPACES as u32,
+            centroids: NUM_CENTROIDS as u32,
+            residual: ResidualSpec::default(),
+            lane_width: LaneWidth::default(),
+            pre_rotation: Rotation::default(),
+            distance: Distance::default(),
+            calibration_rows: 2048,
+            measurement_rows: 0, // 0 means "use held-out complement"
+            seed: 42,
+        }
+    }
+    pub fn subspaces(mut self, n: u32) -> Self { self.subspaces = n; self }
+    pub fn centroids(mut self, n: u32) -> Self { self.centroids = n; self }
+    pub fn residual(mut self, spec: ResidualSpec) -> Self { self.residual = spec; self }
+    pub fn lane_width(mut self, lw: LaneWidth) -> Self { self.lane_width = lw; self }
+    pub fn rotation(mut self, r: Rotation) -> Self { self.pre_rotation = r; self }
+    pub fn distance(mut self, d: Distance) -> Self { self.distance = d; self }
+    pub fn calibration_rows(mut self, n: u32) -> Self { self.calibration_rows = n; self }
+    pub fn measurement_rows(mut self, n: u32) -> Self { self.measurement_rows = n; self }
+    pub fn seed(mut self, s: u64) -> Self { self.seed = s; self }
+
+    /// Build with precision-ladder validation (D0.7).
+    pub fn build(self) -> Result<CodecParams, CodecParamsError> {
+        if self.subspaces == 0 { return Err(CodecParamsError::ZeroDimension { field: "subspaces" }); }
+        if self.centroids == 0 { return Err(CodecParamsError::ZeroDimension { field: "centroids" }); }
+        // Precision ladder: OPQ routes through tile_dpbf16ps → BF16x32 only.
+        if matches!(self.pre_rotation, Rotation::Opq { .. }) && self.lane_width != LaneWidth::BF16x32 {
+            return Err(CodecParamsError::OpqRequiresBf16 { got: self.lane_width });
+        }
+        // Hadamard Sylvester construction needs dim = 2^k.
+        if let Rotation::Hadamard { dim } = &self.pre_rotation {
+            if *dim == 0 || !dim.is_power_of_two() {
+                return Err(CodecParamsError::HadamardDimNotPow2 { dim: *dim });
+            }
+        }
+        // Overfit guard: reject calibration_rows == measurement_rows (PR #219 pattern).
+        if self.measurement_rows != 0 && self.calibration_rows == self.measurement_rows {
+            return Err(CodecParamsError::CalibrationEqualsMeasurement { rows: self.calibration_rows });
+        }
+        Ok(CodecParams {
+            subspaces: self.subspaces,
+            centroids: self.centroids,
+            residual: self.residual,
+            lane_width: self.lane_width,
+            pre_rotation: self.pre_rotation,
+            distance: self.distance,
+            calibration_rows: self.calibration_rows,
+            measurement_rows: self.measurement_rows,
+            seed: self.seed,
+        })
+    }
+}
+
+#[cfg(test)]
+mod codec_params_tests {
+    use super::*;
+
+    #[test]
+    fn builder_default_matches_pr220_baseline_shape() {
+        let p = CodecParamsBuilder::new().build().unwrap();
+        assert_eq!(p.subspaces, 6);
+        assert_eq!(p.centroids, 256);
+        assert_eq!(p.residual.depth, 0);
+        assert_eq!(p.pre_rotation, Rotation::Identity);
+        assert_eq!(p.distance, Distance::AdcU8);
+        assert_eq!(p.lane_width, LaneWidth::F32x16);
+    }
+
+    #[test]
+    fn builder_zero_subspaces_rejected() {
+        let err = CodecParamsBuilder::new().subspaces(0).build().unwrap_err();
+        assert!(matches!(err, CodecParamsError::ZeroDimension { field: "subspaces" }));
+    }
+
+    #[test]
+    fn builder_zero_centroids_rejected() {
+        let err = CodecParamsBuilder::new().centroids(0).build().unwrap_err();
+        assert!(matches!(err, CodecParamsError::ZeroDimension { field: "centroids" }));
+    }
+
+    #[test]
+    fn opq_with_f32x16_rejected_precision_ladder() {
+        // OPQ routes through tile_dpbf16ps — BF16x32 is the only allowed lane.
+        let err = CodecParamsBuilder::new()
+            .lane_width(LaneWidth::F32x16)
+            .rotation(Rotation::Opq { matrix_blob_id: 0xDEAD, dim: 4096 })
+            .build()
+            .unwrap_err();
+        assert!(matches!(err, CodecParamsError::OpqRequiresBf16 { got: LaneWidth::F32x16 }));
+    }
+
+    #[test]
+    fn opq_with_bf16x32_accepted() {
+        let p = CodecParamsBuilder::new()
+            .lane_width(LaneWidth::BF16x32)
+            .rotation(Rotation::Opq { matrix_blob_id: 0xDEAD, dim: 4096 })
+            .build()
+            .unwrap();
+        assert!(p.is_matmul_heavy());
+    }
+
+    #[test]
+    fn hadamard_non_pow2_rejected() {
+        let err = CodecParamsBuilder::new()
+            .rotation(Rotation::Hadamard { dim: 3000 })
+            .build()
+            .unwrap_err();
+        assert!(matches!(err, CodecParamsError::HadamardDimNotPow2 { dim: 3000 }));
+    }
+
+    #[test]
+    fn hadamard_pow2_accepted_stays_on_tier3() {
+        let p = CodecParamsBuilder::new()
+            .rotation(Rotation::Hadamard { dim: 4096 })
+            .build()
+            .unwrap();
+        // Hadamard is add/sub butterfly — no matmul → no AMX benefit.
+        assert!(!p.pre_rotation.is_matmul());
+    }
+
+    #[test]
+    fn overfit_guard_rejects_calibration_equal_measurement() {
+        // Reproduces the PR #219 pattern: trained and tested on same rows.
+        // The pipeline must refuse to emit ICC on that configuration.
+        let err = CodecParamsBuilder::new()
+            .calibration_rows(128)
+            .measurement_rows(128)
+            .build()
+            .unwrap_err();
+        assert!(matches!(err, CodecParamsError::CalibrationEqualsMeasurement { rows: 128 }));
+    }
+
+    #[test]
+    fn overfit_guard_allows_distinct_row_sets() {
+        let p = CodecParamsBuilder::new()
+            .calibration_rows(2048)
+            .measurement_rows(512)
+            .build()
+            .unwrap();
+        assert_ne!(p.calibration_rows, p.measurement_rows);
+    }
+
+    #[test]
+    fn kernel_signature_stable_within_process() {
+        let a = CodecParamsBuilder::new().centroids(1024).build().unwrap();
+        let b = CodecParamsBuilder::new().centroids(1024).build().unwrap();
+        assert_eq!(a.kernel_signature(), b.kernel_signature());
+    }
+
+    #[test]
+    fn kernel_signature_excludes_seed() {
+        // Seed changes calibration sample but NOT emitted IR — cache must hit.
+        let a = CodecParamsBuilder::new().seed(1).build().unwrap();
+        let b = CodecParamsBuilder::new().seed(2).build().unwrap();
+        assert_eq!(a.kernel_signature(), b.kernel_signature());
+    }
+
+    #[test]
+    fn kernel_signature_changes_with_centroids() {
+        let a = CodecParamsBuilder::new().centroids(256).build().unwrap();
+        let b = CodecParamsBuilder::new().centroids(1024).build().unwrap();
+        assert_ne!(a.kernel_signature(), b.kernel_signature());
+    }
+
+    #[test]
+    fn kernel_signature_changes_with_rotation_kind() {
+        let a = CodecParamsBuilder::new().rotation(Rotation::Identity).build().unwrap();
+        let b = CodecParamsBuilder::new().rotation(Rotation::Hadamard { dim: 4096 }).build().unwrap();
+        assert_ne!(a.kernel_signature(), b.kernel_signature());
+    }
+
+    #[test]
+    fn matmul_heavy_detects_opq_and_wide_codebook() {
+        let opq = CodecParamsBuilder::new()
+            .lane_width(LaneWidth::BF16x32)
+            .rotation(Rotation::Opq { matrix_blob_id: 1, dim: 4096 })
+            .build()
+            .unwrap();
+        assert!(opq.is_matmul_heavy(), "OPQ is matmul-heavy");
+
+        let wide = CodecParamsBuilder::new().centroids(1024).build().unwrap();
+        assert!(wide.is_matmul_heavy(), "centroids=1024 is matmul-heavy");
+
+        let narrow = CodecParamsBuilder::new().centroids(256).build().unwrap();
+        assert!(!narrow.is_matmul_heavy(), "narrow codebook + identity is not matmul-heavy");
+    }
+}
+
 #[cfg(test)]
 mod route_tests {
     use super::*;
