@@ -110,6 +110,12 @@ pub fn calibrate_tensor(req: &WireCalibrateRequest) -> Result<WireCalibrateRespo
         codebook_bytes,
         fingerprints_bytes: fp_bytes,
         elapsed_ms: elapsed.as_millis() as u64,
+        // D0.1 SIMD-observability fields — the legacy scalar path hasn't
+        // compiled a JIT kernel, so kernel_hash = 0, compile_time_us = 0,
+        // backend = "legacy". D1.1 populates these meaningfully.
+        kernel_hash: 0,
+        compile_time_us: 0,
+        backend: "legacy".to_string(),
     })
 }
 

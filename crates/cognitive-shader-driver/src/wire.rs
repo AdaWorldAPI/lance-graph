@@ -136,10 +136,35 @@ pub struct WireTensorsResponse {
 }
 
 /// Calibrate CAM-PQ codebook on a single tensor and measure ICC.
+///
+/// D0.1 extension: `params` and `tensor_view` fields carry the codec-sweep
+/// shape introduced in PR #225 (`CodecParams` via `WireCodecParams` mirror).
+/// When `params` is None, the legacy `num_subspaces` / `num_centroids` /
+/// `kmeans_iterations` / `max_rows` fields construct a default `CodecParams`
+/// for backward compatibility. Either path lands in a single `CodecParams`
+/// object after ingress — per Rule F, there is no second deserialise anywhere
+/// in the pipeline after the handler consumes the request.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WireCalibrateRequest {
     pub model_path: String,
     pub tensor_name: String,
+
+    /// New (D0.1): the full codec-sweep parameter shape. When present, takes
+    /// precedence over the legacy num_* fields. Per Rule E, this mirrors
+    /// `lance_graph_contract::cam::CodecParams` one-for-one; the handler
+    /// converts via `TryFrom<WireCodecParams> for CodecParams`.
+    #[serde(default)]
+    pub params: Option<WireCodecParams>,
+
+    /// New (D0.1): inline tensor payload for test harnesses and synthetic
+    /// injection. When `None`, the handler mmaps from `model_path` +
+    /// `tensor_name` as before. When `Some`, the base64 bytes decode **once**
+    /// at ingress (Rule F) into a 64-byte-aligned buffer consumable directly
+    /// by `F32x16::from_slice` via `slice::array_windows::<64>()` (Rule A).
+    #[serde(default)]
+    pub tensor_view: Option<WireTensorView>,
+
+    // Legacy fields (used only when params is None).
     #[serde(default = "default_cal_subspaces")]
     pub num_subspaces: usize,
     #[serde(default = "default_cal_centroids")]
@@ -173,6 +198,325 @@ pub struct WireCalibrateResponse {
     pub codebook_bytes: usize,
     pub fingerprints_bytes: usize,
     pub elapsed_ms: u64,
+
+    // D0.1 additions — SIMD-observability fields populated when JIT lands
+    // (D1.1). Default values (0 / "none") are emitted by the legacy path
+    // so existing clients keep parsing.
+    /// `CodecParams::kernel_signature()` for the kernel actually executed.
+    #[serde(default)]
+    pub kernel_hash: u64,
+    /// Cranelift compile time in microseconds. 0 = legacy non-JIT path or cache hit.
+    #[serde(default)]
+    pub compile_time_us: u64,
+    /// SIMD tier the kernel ran on: "amx" | "vnni" | "avx512" | "avx2" | "legacy".
+    /// Never "scalar" on a SoA path — iron rule.
+    #[serde(default = "default_backend")]
+    pub backend: String,
+}
+
+fn default_backend() -> String { "legacy".to_string() }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// D0.1 — CodecParams serde mirrors (Rule F: serialise at edges only)
+//
+// lance-graph-contract is zero-dep; the contract types (CodecParams et al.)
+// don't carry serde derives. The `Wire*` mirrors below hold the JSON/YAML
+// shape and convert to the contract types via TryFrom. After ingress the
+// contract types own the lifetime — no serde between layers.
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum WireLaneWidth { F32x16, U8x64, F64x8, BF16x32 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum WireDistance { AdcU8, AdcI8 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "lowercase")]
+pub enum WireRotation {
+    Identity,
+    Hadamard { dim: u32 },
+    Opq { matrix_blob_id: u64, dim: u32 },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WireResidualSpec {
+    pub depth: u8,
+    pub centroids: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WireCodecParams {
+    pub subspaces: u32,
+    pub centroids: u32,
+    #[serde(default = "default_wire_residual")]
+    pub residual: WireResidualSpec,
+    #[serde(default = "default_wire_lane")]
+    pub lane_width: WireLaneWidth,
+    #[serde(default = "default_wire_rotation")]
+    pub pre_rotation: WireRotation,
+    #[serde(default = "default_wire_distance")]
+    pub distance: WireDistance,
+    #[serde(default = "default_calibration_rows")]
+    pub calibration_rows: u32,
+    #[serde(default)]
+    pub measurement_rows: u32,
+    #[serde(default = "default_seed")]
+    pub seed: u64,
+}
+
+fn default_wire_residual() -> WireResidualSpec { WireResidualSpec { depth: 0, centroids: 256 } }
+fn default_wire_lane() -> WireLaneWidth { WireLaneWidth::F32x16 }
+fn default_wire_rotation() -> WireRotation { WireRotation::Identity }
+fn default_wire_distance() -> WireDistance { WireDistance::AdcU8 }
+fn default_calibration_rows() -> u32 { 2048 }
+fn default_seed() -> u64 { 42 }
+
+// ─────── TryFrom conversions — one decode at ingress (Rule F) ───────
+
+use lance_graph_contract::cam::{
+    CodecParams, CodecParamsBuilder, CodecParamsError, Distance as CamDistance,
+    LaneWidth as CamLaneWidth, ResidualSpec as CamResidualSpec, Rotation as CamRotation,
+};
+
+impl From<WireLaneWidth> for CamLaneWidth {
+    fn from(w: WireLaneWidth) -> Self {
+        match w {
+            WireLaneWidth::F32x16 => CamLaneWidth::F32x16,
+            WireLaneWidth::U8x64 => CamLaneWidth::U8x64,
+            WireLaneWidth::F64x8 => CamLaneWidth::F64x8,
+            WireLaneWidth::BF16x32 => CamLaneWidth::BF16x32,
+        }
+    }
+}
+
+impl From<WireDistance> for CamDistance {
+    fn from(d: WireDistance) -> Self {
+        match d {
+            WireDistance::AdcU8 => CamDistance::AdcU8,
+            WireDistance::AdcI8 => CamDistance::AdcI8,
+        }
+    }
+}
+
+impl From<WireRotation> for CamRotation {
+    fn from(r: WireRotation) -> Self {
+        match r {
+            WireRotation::Identity => CamRotation::Identity,
+            WireRotation::Hadamard { dim } => CamRotation::Hadamard { dim },
+            WireRotation::Opq { matrix_blob_id, dim } => CamRotation::Opq { matrix_blob_id, dim },
+        }
+    }
+}
+
+impl From<WireResidualSpec> for CamResidualSpec {
+    fn from(r: WireResidualSpec) -> Self {
+        CamResidualSpec { depth: r.depth, centroids: r.centroids }
+    }
+}
+
+impl TryFrom<WireCodecParams> for CodecParams {
+    type Error = CodecParamsError;
+    fn try_from(w: WireCodecParams) -> Result<Self, Self::Error> {
+        CodecParamsBuilder::new()
+            .subspaces(w.subspaces)
+            .centroids(w.centroids)
+            .residual(w.residual.into())
+            .lane_width(w.lane_width.into())
+            .rotation(w.pre_rotation.into())
+            .distance(w.distance.into())
+            .calibration_rows(w.calibration_rows)
+            .measurement_rows(w.measurement_rows)
+            .seed(w.seed)
+            .build()
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// D0.1 — WireTensorView: the tensor payload object per Rule E
+//
+// Wire surface IS the SIMD surface. WireTensorView:
+//   - names its lane_width explicitly (not inferred later)
+//   - base64-decodes ONCE at ingress (Rule F)
+//   - lands the bytes in a 64-byte-aligned buffer ready for F32x16::from_slice
+//   - exposes methods (row(), row_count(), lanes_f32x16(), subspace())
+//     that mirror the SoA + SIMD operations the JIT kernel will perform
+//
+// Consumers never reassemble a tensor from a Vec<f32>. They hold a
+// WireTensorView, call .row(i), call .array_windows::<64>() on that,
+// call F32x16::from_slice — zero adapter layer.
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireTensorView {
+    /// [rows, cols] in elements (not bytes). Actual byte size inferred from lane_width.
+    pub shape: [u32; 2],
+    /// SIMD lane width the codec kernel is expected to consume.
+    pub lane_width: WireLaneWidth,
+    /// Base64-encoded raw bytes in row-major order. Decoded ONCE at
+    /// `WireTensorView::decode` (Rule F). Kept as owned `String` on the
+    /// wire; the decoded `AlignedBytes` is produced once at ingress.
+    pub bytes_base64: String,
+}
+
+/// 64-byte-aligned owned buffer produced by `WireTensorView::decode`.
+/// Used directly as the input to `slice::array_windows::<64>()` +
+/// `F32x16::from_slice` — zero copy, zero re-align after this point.
+#[derive(Debug)]
+pub struct AlignedBytes {
+    ptr: *mut u8,
+    len: usize,
+    cap: usize,
+}
+
+// SAFETY: `AlignedBytes` owns a heap buffer allocated via `alloc::alloc` with
+// a 64-byte-aligned `Layout`. The raw pointer is never shared; Drop frees it
+// exactly once with the matching layout. No interior mutability — all access
+// goes through `&self` or `&mut self`. Send + Sync are safe.
+unsafe impl Send for AlignedBytes {}
+unsafe impl Sync for AlignedBytes {}
+
+impl AlignedBytes {
+    /// Allocate a zero-initialised 64-byte-aligned buffer of `len` bytes.
+    pub fn alloc_zeroed(len: usize) -> Self {
+        use std::alloc::{alloc_zeroed, Layout};
+        let cap = (len + 63) & !63; // round up to 64
+        let layout = Layout::from_size_align(cap.max(64), 64)
+            .expect("AlignedBytes layout must be valid (len + 64 alignment)");
+        // SAFETY: layout has non-zero size (we took max(64)) and 64-byte alignment;
+        // `alloc_zeroed` is defined for this layout and returns a zero-initialised
+        // buffer. Null return handled explicitly.
+        let ptr = unsafe { alloc_zeroed(layout) };
+        if ptr.is_null() {
+            std::alloc::handle_alloc_error(layout);
+        }
+        Self { ptr, len, cap }
+    }
+
+    pub fn as_slice(&self) -> &[u8] {
+        // SAFETY: self.ptr was allocated for at least self.cap bytes; self.len <= self.cap;
+        // the buffer is exclusively owned (no aliased &mut elsewhere given &self).
+        unsafe { std::slice::from_raw_parts(self.ptr, self.len) }
+    }
+
+    pub fn as_mut_slice(&mut self) -> &mut [u8] {
+        // SAFETY: same as as_slice but &mut self guarantees exclusive access.
+        unsafe { std::slice::from_raw_parts_mut(self.ptr, self.len) }
+    }
+
+    pub fn is_aligned_64(&self) -> bool {
+        (self.ptr as usize) % 64 == 0
+    }
+
+    pub fn len(&self) -> usize { self.len }
+    pub fn is_empty(&self) -> bool { self.len == 0 }
+}
+
+impl Drop for AlignedBytes {
+    fn drop(&mut self) {
+        use std::alloc::{dealloc, Layout};
+        // SAFETY: matches the alloc_zeroed layout in alloc_zeroed above.
+        let layout = Layout::from_size_align(self.cap.max(64), 64).expect("layout");
+        unsafe { dealloc(self.ptr, layout) };
+    }
+}
+
+/// Error returned by `WireTensorView::decode` when the wire bytes are
+/// malformed. Base64 decode error, lane-size/shape mismatch, or short buffer.
+#[derive(Debug)]
+pub enum WireTensorViewError {
+    Base64(base64::DecodeError),
+    SizeMismatch { expected: usize, actual: usize },
+    ZeroShape,
+}
+
+impl std::fmt::Display for WireTensorViewError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Base64(e) => write!(f, "base64 decode: {}", e),
+            Self::SizeMismatch { expected, actual } => {
+                write!(f, "byte size mismatch: expected {} got {}", expected, actual)
+            }
+            Self::ZeroShape => write!(f, "tensor view shape contains zero dimension"),
+        }
+    }
+}
+
+impl std::error::Error for WireTensorViewError {}
+
+impl WireTensorView {
+    /// Bytes per element for the declared `lane_width`.
+    pub fn element_bytes(&self) -> usize {
+        match self.lane_width {
+            WireLaneWidth::F32x16 => 4,
+            WireLaneWidth::U8x64 => 1,
+            WireLaneWidth::F64x8 => 8,
+            WireLaneWidth::BF16x32 => 2,
+        }
+    }
+
+    /// Expected total bytes: `rows × cols × element_bytes`.
+    pub fn expected_bytes(&self) -> usize {
+        self.shape[0] as usize * self.shape[1] as usize * self.element_bytes()
+    }
+
+    /// Row count.
+    pub fn row_count(&self) -> u32 { self.shape[0] }
+
+    /// Column count (elements per row).
+    pub fn col_count(&self) -> u32 { self.shape[1] }
+
+    /// Row stride in bytes.
+    pub fn row_bytes(&self) -> usize {
+        self.shape[1] as usize * self.element_bytes()
+    }
+
+    /// Decode the base64 payload ONCE into a 64-byte-aligned buffer (Rule F).
+    /// The returned `AlignedBytes` is consumed directly by
+    /// `slice::array_windows::<64>()` + `F32x16::from_slice` — no adapter.
+    #[cfg(feature = "serve")]
+    pub fn decode(&self) -> Result<AlignedBytes, WireTensorViewError> {
+        use base64::{engine::general_purpose::STANDARD, Engine};
+        if self.shape[0] == 0 || self.shape[1] == 0 {
+            return Err(WireTensorViewError::ZeroShape);
+        }
+        let raw = STANDARD
+            .decode(&self.bytes_base64)
+            .map_err(WireTensorViewError::Base64)?;
+        let expected = self.expected_bytes();
+        if raw.len() != expected {
+            return Err(WireTensorViewError::SizeMismatch { expected, actual: raw.len() });
+        }
+        let mut aligned = AlignedBytes::alloc_zeroed(expected);
+        aligned.as_mut_slice().copy_from_slice(&raw);
+        debug_assert!(aligned.is_aligned_64());
+        Ok(aligned)
+    }
+
+    /// View of a single row's bytes inside a decoded buffer. Consumer calls
+    /// `slice::array_windows::<64>()` on the returned slice (Rule A).
+    pub fn row<'a>(&self, decoded: &'a AlignedBytes, idx: usize) -> Option<&'a [u8]> {
+        let rb = self.row_bytes();
+        let start = idx.checked_mul(rb)?;
+        let end = start.checked_add(rb)?;
+        decoded.as_slice().get(start..end)
+    }
+
+    /// View of one subspace slice within a row. The JIT decode kernel reads
+    /// (subspace_count × subspace_bytes) contiguous bytes per row; this method
+    /// returns subspace `k`. `sub_bytes` = ceil(col_bytes / subspaces).
+    pub fn subspace<'a>(
+        &self,
+        decoded: &'a AlignedBytes,
+        row_idx: usize,
+        k: u32,
+        sub_bytes: usize,
+    ) -> Option<&'a [u8]> {
+        let row = self.row(decoded, row_idx)?;
+        let start = (k as usize).checked_mul(sub_bytes)?;
+        let end = start.checked_add(sub_bytes)?;
+        row.get(start..end)
+    }
 }
 
 /// ICC vs calibration-row-count diagnostic probe.
@@ -687,5 +1031,163 @@ mod tests {
         let json = serde_json::to_string(&wire).unwrap();
         assert!(json.contains("\"confidence\":0.9"));
         assert!(json.contains("\"persisted_row\":42"));
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    // D0.1 — WireCodecParams / WireTensorView tests (Rules A, E, F)
+    // ═════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn wire_codec_params_round_trip_to_contract() {
+        let wire = WireCodecParams {
+            subspaces: 6,
+            centroids: 1024,
+            residual: WireResidualSpec { depth: 1, centroids: 256 },
+            lane_width: WireLaneWidth::BF16x32,
+            pre_rotation: WireRotation::Opq { matrix_blob_id: 0xDEADBEEF, dim: 4096 },
+            distance: WireDistance::AdcU8,
+            calibration_rows: 2048,
+            measurement_rows: 512,
+            seed: 42,
+        };
+        let params: CodecParams = wire.try_into().expect("OPQ + BF16x32 is precision-ladder valid");
+        assert_eq!(params.subspaces, 6);
+        assert_eq!(params.centroids, 1024);
+        assert!(params.is_matmul_heavy(), "OPQ + wide codebook must be matmul-heavy");
+    }
+
+    #[test]
+    fn wire_codec_params_rejects_opq_with_f32x16() {
+        // Rule E precision ladder: OPQ requires BF16x32.
+        let wire = WireCodecParams {
+            subspaces: 6,
+            centroids: 256,
+            residual: WireResidualSpec { depth: 0, centroids: 256 },
+            lane_width: WireLaneWidth::F32x16,
+            pre_rotation: WireRotation::Opq { matrix_blob_id: 1, dim: 4096 },
+            distance: WireDistance::AdcU8,
+            calibration_rows: 2048,
+            measurement_rows: 0,
+            seed: 42,
+        };
+        let err = CodecParams::try_from(wire).unwrap_err();
+        assert!(matches!(err, CodecParamsError::OpqRequiresBf16 { .. }));
+    }
+
+    #[test]
+    fn wire_codec_params_rejects_calibration_equals_measurement() {
+        // Overfit guard from PR #225 — the PR #219 pattern.
+        let wire = WireCodecParams {
+            subspaces: 6,
+            centroids: 256,
+            residual: WireResidualSpec { depth: 0, centroids: 256 },
+            lane_width: WireLaneWidth::F32x16,
+            pre_rotation: WireRotation::Identity,
+            distance: WireDistance::AdcU8,
+            calibration_rows: 128,
+            measurement_rows: 128,
+            seed: 42,
+        };
+        let err = CodecParams::try_from(wire).unwrap_err();
+        assert!(matches!(err, CodecParamsError::CalibrationEqualsMeasurement { rows: 128 }));
+    }
+
+    #[test]
+    fn wire_codec_params_deserializes_from_minimal_json() {
+        let json = r#"{"subspaces":6,"centroids":256}"#;
+        let wire: WireCodecParams = serde_json::from_str(json).unwrap();
+        assert_eq!(wire.lane_width, WireLaneWidth::F32x16);       // default
+        assert_eq!(wire.distance, WireDistance::AdcU8);           // default
+        assert_eq!(wire.pre_rotation, WireRotation::Identity);    // default
+        assert_eq!(wire.calibration_rows, 2048);                  // default
+        assert_eq!(wire.seed, 42);                                // default
+    }
+
+    #[cfg(feature = "serve")]
+    #[test]
+    fn wire_tensor_view_decode_lands_in_64byte_aligned_buffer() {
+        use base64::{engine::general_purpose::STANDARD, Engine};
+        // A 4-row × 16-col F32 tensor = 4 × 16 × 4 = 256 bytes, exactly
+        // 4 × F32x16 lanes worth, cleanly aligned.
+        let bytes: Vec<u8> = (0..256u32).map(|i| i as u8).collect();
+        let view = WireTensorView {
+            shape: [4, 16],
+            lane_width: WireLaneWidth::F32x16,
+            bytes_base64: STANDARD.encode(&bytes),
+        };
+        assert_eq!(view.expected_bytes(), 256);
+        assert_eq!(view.row_bytes(), 64);
+        let decoded = view.decode().expect("valid base64 + matching size");
+        assert!(decoded.is_aligned_64(), "Rule A: decoded buffer MUST be 64-byte aligned");
+        assert_eq!(decoded.len(), 256);
+
+        // Rule A: slice::array_windows::<64>() must consume the row directly.
+        let row0 = view.row(&decoded, 0).expect("row 0 exists");
+        assert_eq!(row0.len(), 64);
+        let mut windows = 0;
+        for _w in row0.array_windows::<64>() {
+            windows += 1;
+        }
+        assert_eq!(windows, 1, "exactly one 64-byte window per row at this size");
+    }
+
+    #[cfg(feature = "serve")]
+    #[test]
+    fn wire_tensor_view_rejects_size_mismatch() {
+        use base64::{engine::general_purpose::STANDARD, Engine};
+        let wrong_bytes = vec![0u8; 100]; // expected 256
+        let view = WireTensorView {
+            shape: [4, 16],
+            lane_width: WireLaneWidth::F32x16,
+            bytes_base64: STANDARD.encode(&wrong_bytes),
+        };
+        let err = view.decode().unwrap_err();
+        assert!(matches!(err, WireTensorViewError::SizeMismatch { expected: 256, actual: 100 }));
+    }
+
+    #[cfg(feature = "serve")]
+    #[test]
+    fn wire_tensor_view_subspace_slicing() {
+        use base64::{engine::general_purpose::STANDARD, Engine};
+        // 2 rows × 24 cols F32 = 2 × 24 × 4 = 192 bytes; 6 subspaces → 16 bytes each.
+        let bytes: Vec<u8> = (0..192u32).map(|i| i as u8).collect();
+        let view = WireTensorView {
+            shape: [2, 24],
+            lane_width: WireLaneWidth::F32x16,
+            bytes_base64: STANDARD.encode(&bytes),
+        };
+        let decoded = view.decode().unwrap();
+        let sub = view.subspace(&decoded, 0, 2, 16).expect("subspace 2 of row 0");
+        assert_eq!(sub.len(), 16);
+        // subspace 2 of row 0 starts at byte 32 (0 × 96 + 2 × 16) — value = 32.
+        assert_eq!(sub[0], 32);
+        assert_eq!(sub[15], 47);
+    }
+
+    #[test]
+    fn wire_calibrate_request_accepts_new_params_field() {
+        let json = r#"{
+            "model_path": "m.safetensors",
+            "tensor_name": "w",
+            "params": { "subspaces": 6, "centroids": 1024, "calibration_rows": 2048, "measurement_rows": 512 }
+        }"#;
+        let req: WireCalibrateRequest = serde_json::from_str(json).unwrap();
+        assert!(req.params.is_some());
+        let p = req.params.unwrap();
+        assert_eq!(p.centroids, 1024);
+    }
+
+    #[test]
+    fn wire_calibrate_request_back_compat_legacy_fields() {
+        // Legacy payload (no `params`) still parses; defaults preserved.
+        let json = r#"{
+            "model_path": "m.safetensors",
+            "tensor_name": "w",
+            "num_subspaces": 6,
+            "num_centroids": 256
+        }"#;
+        let req: WireCalibrateRequest = serde_json::from_str(json).unwrap();
+        assert!(req.params.is_none());
+        assert_eq!(req.num_centroids, 256);
     }
 }
