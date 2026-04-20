@@ -820,6 +820,7 @@ version = "0.1.0"
 dependencies = [
  "bgz17",
  "causal-edge",
+ "lance-graph-contract",
  "ndarray",
  "p64",
  "p64-bridge",

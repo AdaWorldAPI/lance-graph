@@ -72,6 +72,9 @@ pub struct CypherQuery {
     config: Option<GraphConfig>,
     /// Query parameters
     parameters: HashMap<String, serde_json::Value>,
+    /// Optional CAM-PQ codebook — when set, `cam_distance` and `cam_heel_distance`
+    /// UDFs are registered on the SessionContext before execution.
+    cam_codebook: Option<Arc<Vec<Vec<Vec<f32>>>>>,
 }
 impl CypherQuery {
     /// Create a new Cypher query from a query string
@@ -83,12 +86,20 @@ impl CypherQuery {
             ast,
             config: None,
             parameters: HashMap::new(),
+            cam_codebook: None,
         })
     }
 
     /// Set the graph configuration for this query
     pub fn with_config(mut self, config: GraphConfig) -> Self {
         self.config = Some(config);
+        self
+    }
+
+    /// Set a CAM-PQ codebook — enables `cam_distance()` and `cam_heel_distance()`
+    /// scalar UDFs on the SessionContext during `execute_with_context`.
+    pub fn with_cam_codebook(mut self, codebook: Arc<Vec<Vec<Vec<f32>>>>) -> Self {
+        self.cam_codebook = Some(codebook);
         self
     }
 
@@ -391,6 +402,10 @@ impl CypherQuery {
         use datafusion::datasource::DefaultTableSource;
         use lance_graph_catalog::InMemoryCatalog;
         use std::sync::Arc;
+
+        if let Some(codebook) = &self.cam_codebook {
+            crate::cam_pq::udf::register_cam_udfs(&ctx, codebook.clone());
+        }
 
         let config = self.require_config()?;
 
@@ -1269,6 +1284,7 @@ impl CypherQueryBuilder {
             ast,
             config: self.config,
             parameters: self.parameters,
+            cam_codebook: None,
         };
 
         Ok(query)

@@ -41,7 +41,8 @@ use crate::wire::{
     WireCalibrateRequest, WireCalibrateResponse, WireCrystal, WireDispatch, WireHealth,
     WireIngest, WirePlanRequest, WirePlanResponse, WireProbeRequest, WireProbeResponse,
     WireQualia, WireRunbookRequest, WireRunbookResponse, WireRunbookStep,
-    WireRunbookStepResult, WireStyleInfo, WireTensorsRequest, WireTensorsResponse,
+    WireRunbookStepResult, WireStepResult, WireStyleInfo, WireTensorsRequest,
+    WireTensorsResponse, WireUnifiedStep,
 };
 use lance_graph_contract::cognitive_shader::CognitiveShaderDriver;
 
@@ -87,6 +88,9 @@ pub fn router(driver: ShaderDriver) -> Router {
         // `with-planner` the handler returns 503 so the unified endpoint
         // URL shape stays stable whether or not planner is compiled in.
         .route("/v1/shader/plan", post(plan_handler))
+        // Generic OrchestrationBridge gateway — route any UnifiedStep by step_type.
+        // Composed bridges cover lg.* (planner) + nd.* (codec research).
+        .route("/v1/shader/route", post(route_handler))
         .with_state(state)
 }
 
@@ -205,6 +209,59 @@ async fn probe_handler(
     codec_research::row_count_probe(&req)
         .map(Json)
         .map_err(|e| (StatusCode::BAD_REQUEST, Json(json!({"error": e}))))
+}
+
+async fn route_handler(
+    State(_state): State<AppState>,
+    Json(wire): Json<WireUnifiedStep>,
+) -> Result<Json<WireStepResult>, (StatusCode, Json<Value>)> {
+    use lance_graph_contract::orchestration::{
+        OrchestrationBridge, StepStatus, UnifiedStep,
+    };
+
+    let mut step = UnifiedStep {
+        step_id: wire.step_id.clone(),
+        step_type: wire.step_type.clone(),
+        status: StepStatus::Pending,
+        thinking: None,
+        reasoning: wire.reasoning,
+        confidence: None,
+    };
+
+    // Try codec research bridge first (nd.*)
+    let codec_bridge = crate::codec_bridge::CodecResearchBridge;
+    let result = codec_bridge.route(&mut step);
+
+    // If codec bridge rejected with DomainUnavailable, try planner bridge (lg.*)
+    if matches!(result, Err(lance_graph_contract::orchestration::OrchestrationError::DomainUnavailable(_))) {
+        #[cfg(feature = "with-planner")]
+        {
+            let st = _state.lock().map_err(|_| {
+                (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": "lock poisoned"})))
+            })?;
+            let _ = OrchestrationBridge::route(&st.planner, &mut step);
+        }
+        #[cfg(not(feature = "with-planner"))]
+        {
+            step.status = StepStatus::Failed;
+            step.reasoning = Some("domain unavailable and planner not compiled in".to_string());
+        }
+    }
+
+    let status_str = match step.status {
+        StepStatus::Completed => "completed",
+        StepStatus::Failed => "failed",
+        StepStatus::Running => "running",
+        StepStatus::Pending => "pending",
+        StepStatus::Skipped => "skipped",
+    };
+    Ok(Json(WireStepResult {
+        step_id: step.step_id,
+        step_type: step.step_type,
+        status: status_str.to_string(),
+        reasoning: step.reasoning,
+        confidence: step.confidence,
+    }))
 }
 
 async fn plan_handler(
