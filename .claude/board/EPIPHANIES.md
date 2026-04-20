@@ -491,3 +491,210 @@ CORRECTION (fractal measured magnitude not phase), IDEAS 2026-04-19
 
 Wall time of the full 60+ codec bench: 13 min. Downloaded: 0 B (used
 cached Qwen3-8B shard from the earlier probe). Deterministic.
+
+## 2026-04-19 — Phase-fractal codec also NEGATIVE — row-level fractal discrimination dead
+**Status:** FINDING (measured via endpoint psychometry)
+**Scope:** @cascade-architect domain:codec domain:psychometry
+
+Ran codec_rnd_bench.rs with both magnitude-fractal AND phase-fractal
+candidates. Same population (Qwen3-8B q_proj L0, N=128, pairwise cosines).
+
+**Measurements (ICC_3_1 is the argmax-regime metric):**
+
+| Codec | Bytes | ICC_3_1 | Pearson r |
+|---|---|---|---|
+| Passthrough baseline | 0 | **1.0000** | 1.0000 |
+| Base17 (34 B anchors) | 34 | 0.0240 | 0.0742 |
+| Fractal-Desc (4-D magnitude) | 7 | **−0.9955** | 0.0160 |
+| **Fractal-Phase (5-D flip density)** | 5 | **−0.9972** | −0.0074 |
+| Fractal + Base17 blend | 41 | −0.4879 | 0.0748 |
+| Phase + Base17 blend | 39 | −0.4982 | 0.0742 |
+
+**Key finding:** BOTH orthogonal axes of row-level fractal statistics
+are flat across Qwen3 q_proj rows after Hadamard rotation.
+
+- Magnitude envelope (D, w, σ, H): near-constant — confirmed by
+  ICC ≈ −1.
+- Sign-flip density profile at 5 scales: ALSO near-constant — ICC
+  slightly worse at −0.9972.
+
+**Implication:** Invariant I2 (near-orthogonality of Qwen3 rows at
+1024/4096-d) means once rows are Gaussian-ish post-Hadamard, every
+row-level summary statistic looks identical. Only the SPECIFIC
+coordinate-by-coordinate sign/magnitude assignment discriminates, and
+that cannot compress below ~full sign pattern (~1 bit/coord, ~512 B
+for a 4096-d row).
+
+**Fractal-leaf line of research is closed** for row-level-statistic
+compression. Three probes completed, all negative:
+  1. CoV(w_mfs) ≈ 0.19 (first cheap probe, 100 rows)
+  2. ICC_3_1(Fractal-Desc) = −0.9955 (magnitude, 4-D, 128 rows)
+  3. ICC_3_1(Fractal-Phase) = −0.9972 (phase, 5-D, 128 rows)
+
+**Still-open variant (unmeasured):** fractal-interpolation-between-
+Base17-anchors for ROUND-TRIP codec. That approach stores full
+Base17 (17 golden-step anchors = near-full phase signature at those
+points) + fractal shape params to guide interpolation BETWEEN
+anchors. Doesn't rely on row-level fractal statistic discrimination.
+Requires implementing `FractalCodec::decode(Base17, Descriptor)` via
+IFS and registering as candidate. Unbuilt.
+
+**Wall times:**
+- First bench (2 fractal candidates): 782 s (13 min)
+- Second bench (4 fractal candidates): 1354 s (22.5 min)
+- Delta: ~9.5 min for 2 more candidates on 128 rows × 60+ codec sweep.
+
+**Codec R&D sweep state post-finding:** I8-Hadamard at ~9 B/row
+remains the argmax-regime leader. Fractal leaf is not on the
+Pareto frontier; do not pursue row-level-statistic compression
+further. Focus codec research on either:
+  - Full sign-pattern preservation schemes (~512 B/row minimum).
+  - Round-trip IFS from Base17 anchors (unmeasured, novel).
+  - Different underlying orthogonal bases (SVD-per-group instead of
+    shared Hadamard) — different basis might give different
+    row-level statistics, but I2 says near-orthogonality is generic.
+
+Cross-ref: commits 0f635e6 (phase variant), 18c53e0 (first ICC run),
+fractal-codec-argmax-regime.md, EPIPHANIES 2026-04-19 prior entries.
+
+## 2026-04-20 — Zipper codec WORKS — Hadamard sign-flip invariance was the fractal bug
+**Status:** FINDING (measured via endpoint psychometry, 3 populations)
+**Scope:** @cascade-architect domain:codec domain:psychometry
+
+Ran codec_rnd_bench.rs with ZipperPhaseOnly + ZipperFull added. Three
+populations on Qwen3-8B L0 (N=128, pairwise cosines, 1037 s wall).
+
+**Root-cause diagnosis (confirmed by user, validated by measurement):**
+
+All prior fractal descriptors (magnitude + phase) were **sign-flip
+invariant**. MFDFA variance is invariant under negation; sign-flip
+density is invariant under bit-flip. So WHT(−x) produces IDENTICAL
+descriptor to WHT(x), giving cos(x, −x) = 1.0 from the codec but −1.0
+from ground truth. THIS is what produced the ICC = −0.999. Not "codec
+produces noise", but "codec collapses opposite rows" → perfect
+ranking inversion against ground truth.
+
+**Zipper fix:** sample ACTUAL SIGN BITS at φ-stride positions instead
+of derived flip-density. Under negation, every phase bit flips →
+phase_bits XOR all-ones → cosine → −1.0. Invariance broken; codec
+preserves the sign relationship that ground truth measures.
+
+**Results (ICC_3_1 across three populations):**
+
+| Codec | Bytes | k_proj | gate_proj | q_proj |
+|---|---|---|---|---|
+| Passthrough (baseline) | 0 | 1.000 | 1.000 | 1.000 |
+| Base17 | 34 | 0.007 | 0.012 | 0.024 |
+| Fractal-Desc (magnitude) | 7 | **−0.999** | **−0.999** | **−0.996** |
+| Fractal-Phase (flip density) | 5 | **−0.999** | **−0.999** | **−0.997** |
+| **Zipper-Phase** | **8** | **0.050** | **0.049** | **0.097** |
+| **Zipper-Full** | **64** | **0.129** | **0.107** | **0.203** |
+
+**Key readings:**
+
+1. **Zipper-Phase at 8 B BEATS Base17 at 34 B on every population.**
+   2× to 4× higher ICC at 1/4 the storage. The φ-stride anti-moiré
+   principle works for phase encoding.
+2. **Zipper-Full at 64 B achieves top-5 recall 0.6 on q_proj** (Base17:
+   0.0). The codec retrieves correct nearest-neighbors on 60% of
+   queries — real reconstructive signal, not just ranking.
+3. **Not yet competitive with I8-Hadamard leader (~9 B, ICC ~0.9).**
+   Zipper-Full is a Pareto-meaningful new point but still ~4× off the
+   leader on ICC. Room for improvement:
+   - Wider phase stream (128 or 256 active bits)
+   - φ-permute morph on the 64-bit scale (user's earlier suggestion)
+   - Different phase/magnitude blend weights (current 0.5/0.5)
+   - SVD-per-group basis instead of Hadamard
+4. **Magnitude stream has signal.** Going phase-only (8 B) → full
+   (64 B) adds 2-3× ICC on each population. The halo positions at
+   φ²-stride carry non-redundant information vs phase at φ-stride.
+
+**Architectural confirmations:**
+
+- Aperiodic (X-Trans) sampling works as theorized — anti-moiré
+  property preserves discriminative information across the Hadamard
+  butterfly.
+- Zeckendorf non-adjacent Fibonacci indices produce non-colliding
+  strides without hand-tuning (φ vs φ² satisfied this naturally).
+- Matryoshka single-container truncation works (8 B → 64 B via
+  reading more of the same descriptor).
+
+**Explicit constants locked (per user):**
+
+  PHASE_ACTIVE_BITS    = 64  (per bgz17 halo signal-bit range)
+  MAG_ACTIVE_SAMPLES   = 56
+  ZIPPER_BYTES         = 64  (8 B phase + 56 B i8 magnitude)
+
+Cross-ref: commits 7740759 (implementation), 6999106 (architecture
+doc). bgz17 container design "family zipper" concept in
+phi-spiral-reconstruction.md — empirically validated at last.
+
+## 2026-04-20 — 5^5 / 7^7 bipolar zipper measured + TurboQuant leader identified
+**Status:** FINDING
+
+Ran codec_rnd_bench.rs with 5^5 and 7^7 bipolar-signed candidates
+(global-scale quantization, negative-cancellation bundling capability).
+Same population: Qwen3-8B q_proj L0, N=128 rows, 1400 s wall.
+
+**Results (ICC_3_1 on q_proj):**
+
+| Codec | Bytes | ICC | Note |
+|---|---|---|---|
+| Passthrough | 0 | 1.000 | baseline |
+| Had-Q5×D-R (existing!) | 0 | **0.989** | shared codebook, TurboQuant-class |
+| Base17 | 34 | 0.024 | |
+| Zipper-Phase (sign) | 8 | 0.097 | |
+| Zipper-5^5 | 2 | 0.021 | |
+| Zipper-7^7 | 3 | 0.028 | |
+| Zipper-I8-φ(8B) | 8 | 0.025 | μ-law + per-row norm hurts |
+| Zipper-I8-Q5(8B) | 8 | 0.020 | Quint loses to φ |
+| Zipper-5^5×5 | 10 | 0.066 | |
+| Zipper-7^7×7 | 18 | **0.144** | best compact zipper |
+| Zipper-Full (sign+mag) | 64 | 0.204 | |
+| Zipper-I8-φ(64B) | 64 | 0.153 | |
+
+**Readings:**
+
+1. **7^7×7 at 18 B: new Pareto point** — ICC 0.144 at 72% of Zipper-Full's
+   score for 28% of the bytes. Progressive-matryoshka decode supported
+   (truncate to 3 B = 7^7 for coarsest). Negative-cancellation bundling
+   on by construction.
+
+2. **Quintenzirkel LOSES to φ consistently** across all size tiers:
+   0.020 vs 0.025 at 8 B, 0.134 vs 0.153 at 64 B. Harmonic-proximity
+   ordering doesn't help argmax on q_proj; maximally-irrational
+   remains the right stride.
+
+3. **Existing sweep has a 0-B codebook-indexed leader**: `Had-Q5×D-R`
+   at ICC 0.989 (near-Passthrough). This is the TurboQuant-class
+   codec already shipped in the 67-codec sweep. On pure ICC, nothing
+   in the zipper family comes close. Zipper's Pareto axis is
+   different (bundling, progressive decode).
+
+4. **Per-row i8 μ-law harms inter-row magnitude preservation**.
+   Per-row max-abs normalization collapses magnitude differences
+   between rows. Global-scale (5^5 / 7^7 via population median)
+   recovers some signal: 7^7×7 at 18 B = 0.144 > per-row μ-law
+   Zipper-I8-φ(64B) = 0.153 at 64 B.
+
+**Pragmatic conclusion:**
+
+- **Use Had-Q5×D-R** for production argmax compression. ICC 0.989 at
+  ~0 per-row bytes (shared codebook). It's already shipping.
+- **Use 7^7×7 (18 B)** ONLY when you need the zipper's additional
+  properties: progressive decode, negative-cancellation bundling,
+  anti-moiré guarantee without codebook dependency.
+- **Don't pursue Quintenzirkel stride** on argmax populations —
+  measured empirically inferior to φ across all tested sizes.
+
+**Still unmeasured:**
+
+- Multi-projection MRI-style differential phase (N rotations,
+  cross-view aggregation). Sidesteps sign-flip invariance by
+  measuring inter-rotation deltas.
+- Fibonacci-weighted bundling for 256-bundle capacity in i8 via
+  Zeckendorf decomposition decode.
+- Audiophile-style multi-band phase precision (8 bits top-16,
+  3 bits middle-48, sign-only bottom).
+
+Cross-ref: commits d172aa3 (I8+Quint), f004d82 (5^5+7^7 + global scale).

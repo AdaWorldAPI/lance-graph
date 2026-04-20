@@ -255,6 +255,97 @@ fn bf16_to_f32(b: u16) -> f32 {
     f32::from_bits((b as u32) << 16)
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// Phase descriptor — fractal statistics of the SIGN sequence post-Hadamard.
+//
+// The MFDFA descriptor above measures |coefficient| magnitude statistics.
+// Those are near-constant across Qwen3 rows (CoV 0.19, measured PR #216).
+// What varies per-row is the SIGN PATTERN of rotated coefficients — that
+// IS the phase. Two rows with identical magnitude envelopes can have
+// completely different inner products via their sign patterns alone.
+//
+// This descriptor measures fractal structure of the sign sequence itself:
+// density of sign-flips at multiple scales → 5-D signature per row.
+// Pairwise cosine between phase signatures asks "do two rows share phase
+// structure?" — orthogonal to magnitude similarity.
+// ─────────────────────────────────────────────────────────────────────────
+
+/// 5-D fractal phase signature: normalized sign-flip density at scales
+/// s ∈ {4, 8, 16, 32, 64}.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PhaseDescriptor {
+    /// Flip density per window of size s ∈ {4, 8, 16, 32, 64}.
+    /// Values in [0, 0.5] (max 1 flip per step after binning).
+    pub flip_density: [f32; 5],
+}
+
+impl PhaseDescriptor {
+    pub const SCALES: [usize; 5] = [4, 8, 16, 32, 64];
+
+    /// Compute the fractal phase signature for a row:
+    /// 1. Hadamard-rotate (uses existing wht_f32 SIMD butterfly).
+    /// 2. Extract sign sequence (1 bit per coefficient).
+    /// 3. Count sign flips per non-overlapping window at 5 scales.
+    /// 4. Normalize by window size → flip density.
+    pub fn from_row(row: &[f32]) -> Self {
+        let n = row.len();
+        assert!(n.is_power_of_two() && n >= 64, "row length must be power of 2 ≥ 64");
+
+        // Rotate into orthogonal basis.
+        let mut rotated = row.to_vec();
+        wht_f32(&mut rotated);
+
+        // Sign sequence: +1 for non-negative, −1 otherwise.
+        let signs: Vec<i8> = rotated.iter().map(|&x| if x >= 0.0 { 1 } else { -1 }).collect();
+
+        // Flip density at each scale.
+        let mut flip_density = [0.0_f32; 5];
+        for (i, &s) in Self::SCALES.iter().enumerate() {
+            if s > n {
+                flip_density[i] = 0.0;
+                continue;
+            }
+            let n_windows = n / s;
+            if n_windows == 0 {
+                flip_density[i] = 0.0;
+                continue;
+            }
+            let mut total_flips: u32 = 0;
+            for w in 0..n_windows {
+                let start = w * s;
+                for k in 0..(s - 1) {
+                    if signs[start + k] != signs[start + k + 1] {
+                        total_flips += 1;
+                    }
+                }
+            }
+            // Max possible flips = n_windows * (s - 1); normalize to [0, 1].
+            let max_flips = (n_windows * (s - 1)) as f32;
+            flip_density[i] = total_flips as f32 / max_flips.max(1.0);
+        }
+
+        Self { flip_density }
+    }
+
+    /// Normalized cosine similarity between two phase signatures.
+    pub fn cosine(&self, other: &Self) -> f32 {
+        let mut dot = 0.0_f32;
+        let mut na = 0.0_f32;
+        let mut nb = 0.0_f32;
+        for i in 0..5 {
+            dot += self.flip_density[i] * other.flip_density[i];
+            na += self.flip_density[i] * self.flip_density[i];
+            nb += other.flip_density[i] * other.flip_density[i];
+        }
+        let denom = (na * nb).sqrt();
+        if denom < 1e-15 {
+            0.0
+        } else {
+            dot / denom
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

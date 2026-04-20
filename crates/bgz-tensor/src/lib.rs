@@ -93,6 +93,8 @@ pub mod xor_adaptive;
 /// Gated behind `lab` feature so main builds don't link them.
 #[cfg(feature = "lab")]
 pub mod fractal_descriptor;
+#[cfg(feature = "lab")]
+pub mod zipper;
 
 #[cfg(feature = "hydrate")]
 pub mod manifest;

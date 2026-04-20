@@ -186,6 +186,324 @@ impl CodecCandidate for FractalPlusBase17 {
     }
 }
 
+/// Phase-only (5 B): fractal statistics of the SIGN SEQUENCE
+/// post-Hadamard. 5-D sign-flip density profile at scales 4/8/16/32/64.
+/// Tests whether phase structure (not magnitude) distinguishes rows.
+#[cfg(feature = "lab")]
+struct FractalPhaseOnly;
+
+#[cfg(feature = "lab")]
+impl CodecCandidate for FractalPhaseOnly {
+    fn name(&self) -> &str { "Fractal-Phase(5B)" }
+    fn bytes_per_row(&self) -> usize { 5 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::fractal_descriptor::PhaseDescriptor;
+        let phases: Vec<PhaseDescriptor> = rows.iter().map(|r| {
+            let n = r.len();
+            let mut p = 1usize;
+            while p < n { p <<= 1; }
+            let mut buf = vec![0.0f32; p];
+            buf[..n].copy_from_slice(r);
+            PhaseDescriptor::from_row(&buf)
+        }).collect();
+        let n = rows.len();
+        let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+        for i in 0..n {
+            for j in (i + 1)..n {
+                scores.push(phases[i].cosine(&phases[j]) as f64);
+            }
+        }
+        scores
+    }
+}
+
+/// Phase + Base17 (39 B): golden-step anchors + sign-sequence fractal.
+/// Anchors carry partial phase (signs at 17 positions); fractal carries
+/// multi-scale phase density. Tests whether combined beats Base17 alone.
+#[cfg(feature = "lab")]
+struct FractalPhasePlusBase17;
+
+#[cfg(feature = "lab")]
+impl CodecCandidate for FractalPhasePlusBase17 {
+    fn name(&self) -> &str { "Phase+Base17(39B)" }
+    fn bytes_per_row(&self) -> usize { 39 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::fractal_descriptor::PhaseDescriptor;
+        let b17s: Vec<Base17> = rows.iter().map(|r| Base17::from_f32(r)).collect();
+        let phases: Vec<PhaseDescriptor> = rows.iter().map(|r| {
+            let n = r.len();
+            let mut p = 1usize;
+            while p < n { p <<= 1; }
+            let mut buf = vec![0.0f32; p];
+            buf[..n].copy_from_slice(r);
+            PhaseDescriptor::from_row(&buf)
+        }).collect();
+        let n = rows.len();
+        let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+        for i in 0..n {
+            for j in (i + 1)..n {
+                let c_b17 = b17s[i].cosine(&b17s[j]);
+                let c_phase = phases[i].cosine(&phases[j]) as f64;
+                scores.push(0.75 * c_b17 + 0.25 * c_phase);
+            }
+        }
+        scores
+    }
+}
+
+/// Zipper codec — phase + magnitude φ-multiplexed in single container.
+/// Phase stream: 64 sign bits at round(N/φ) stride.
+/// Magnitude stream: 56 i8 samples at round(N/φ²) stride.
+/// Total: 64 B. Matryoshka: phase-only (8 B level) + full (64 B level).
+#[cfg(feature = "lab")]
+struct ZipperPhaseOnly;
+
+#[cfg(feature = "lab")]
+impl CodecCandidate for ZipperPhaseOnly {
+    fn name(&self) -> &str { "Zipper-Phase(8B)" }
+    fn bytes_per_row(&self) -> usize { 8 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::zipper::ZipperDescriptor;
+        let zs: Vec<ZipperDescriptor> = rows.iter().map(|r| {
+            let n = r.len();
+            let mut p = 1usize;
+            while p < n { p <<= 1; }
+            let mut buf = vec![0.0f32; p];
+            buf[..n].copy_from_slice(r);
+            ZipperDescriptor::encode(&buf)
+        }).collect();
+        let n = rows.len();
+        let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+        for i in 0..n {
+            for j in (i + 1)..n {
+                scores.push(zs[i].cosine_phase_only(&zs[j]) as f64);
+            }
+        }
+        scores
+    }
+}
+
+#[cfg(feature = "lab")]
+struct ZipperFull;
+
+#[cfg(feature = "lab")]
+impl CodecCandidate for ZipperFull {
+    fn name(&self) -> &str { "Zipper-Full(64B)" }
+    fn bytes_per_row(&self) -> usize { 64 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::zipper::ZipperDescriptor;
+        let zs: Vec<ZipperDescriptor> = rows.iter().map(|r| {
+            let n = r.len();
+            let mut p = 1usize;
+            while p < n { p <<= 1; }
+            let mut buf = vec![0.0f32; p];
+            buf[..n].copy_from_slice(r);
+            ZipperDescriptor::encode(&buf)
+        }).collect();
+        let n = rows.len();
+        let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+        for i in 0..n {
+            for j in (i + 1)..n {
+                scores.push(zs[i].cosine_zipper_full(&zs[j]) as f64);
+            }
+        }
+        scores
+    }
+}
+
+/// I8 φ-stride (8 B): 8 i8 gamma-compressed samples at φ-stride.
+/// Same budget as Zipper-Phase but 8× info density per byte.
+#[cfg(feature = "lab")]
+struct ZipperI8Phi8;
+
+#[cfg(feature = "lab")]
+impl CodecCandidate for ZipperI8Phi8 {
+    fn name(&self) -> &str { "Zipper-I8-φ(8B)" }
+    fn bytes_per_row(&self) -> usize { 8 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::zipper::{ZipperI8Descriptor, StrideKind};
+        let zs: Vec<ZipperI8Descriptor> = rows.iter().map(|r| {
+            let n = r.len(); let mut p = 1; while p < n { p <<= 1; }
+            let mut buf = vec![0.0f32; p]; buf[..n].copy_from_slice(r);
+            ZipperI8Descriptor::encode(&buf, 8, StrideKind::Phi)
+        }).collect();
+        pairwise_codec_scores(&zs)
+    }
+}
+
+/// I8 Quintenzirkel-stride (8 B): 8 i8 samples at log₂(3/2) stride.
+/// Tests harmonic-proximity ordering vs φ's maximal-irrationality.
+#[cfg(feature = "lab")]
+struct ZipperI8Quint8;
+
+#[cfg(feature = "lab")]
+impl CodecCandidate for ZipperI8Quint8 {
+    fn name(&self) -> &str { "Zipper-I8-Q5(8B)" }
+    fn bytes_per_row(&self) -> usize { 8 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::zipper::{ZipperI8Descriptor, StrideKind};
+        let zs: Vec<ZipperI8Descriptor> = rows.iter().map(|r| {
+            let n = r.len(); let mut p = 1; while p < n { p <<= 1; }
+            let mut buf = vec![0.0f32; p]; buf[..n].copy_from_slice(r);
+            ZipperI8Descriptor::encode(&buf, 8, StrideKind::Quintenzirkel)
+        }).collect();
+        pairwise_codec_scores(&zs)
+    }
+}
+
+/// I8 φ-stride full (64 B): 64 i8 gamma-compressed samples.
+/// Unified phase+magnitude — each sample carries sign AND magnitude.
+#[cfg(feature = "lab")]
+struct ZipperI8PhiFull;
+
+#[cfg(feature = "lab")]
+impl CodecCandidate for ZipperI8PhiFull {
+    fn name(&self) -> &str { "Zipper-I8-φ(64B)" }
+    fn bytes_per_row(&self) -> usize { 64 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::zipper::{ZipperI8Descriptor, StrideKind};
+        let zs: Vec<ZipperI8Descriptor> = rows.iter().map(|r| {
+            let n = r.len(); let mut p = 1; while p < n { p <<= 1; }
+            let mut buf = vec![0.0f32; p]; buf[..n].copy_from_slice(r);
+            ZipperI8Descriptor::encode(&buf, 64, StrideKind::Phi)
+        }).collect();
+        pairwise_codec_scores(&zs)
+    }
+}
+
+/// I8 Quintenzirkel-stride full (64 B): harmonic-ordered 64 i8 samples.
+#[cfg(feature = "lab")]
+struct ZipperI8QuintFull;
+
+#[cfg(feature = "lab")]
+impl CodecCandidate for ZipperI8QuintFull {
+    fn name(&self) -> &str { "Zipper-I8-Q5(64B)" }
+    fn bytes_per_row(&self) -> usize { 64 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::zipper::{ZipperI8Descriptor, StrideKind};
+        let zs: Vec<ZipperI8Descriptor> = rows.iter().map(|r| {
+            let n = r.len(); let mut p = 1; while p < n { p <<= 1; }
+            let mut buf = vec![0.0f32; p]; buf[..n].copy_from_slice(r);
+            ZipperI8Descriptor::encode(&buf, 64, StrideKind::Quintenzirkel)
+        }).collect();
+        pairwise_codec_scores(&zs)
+    }
+}
+
+/// Helper: pairwise cosine from ZipperI8Descriptor vec.
+#[cfg(feature = "lab")]
+fn pairwise_codec_scores(zs: &[bgz_tensor::zipper::ZipperI8Descriptor]) -> Vec<f64> {
+    let n = zs.len();
+    let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+    for i in 0..n {
+        for j in (i + 1)..n {
+            scores.push(zs[i].cosine(&zs[j]) as f64);
+        }
+    }
+    scores
+}
+
+/// 5^5 signed (≈2 B): 5 samples × 5 levels, global-scale quantization.
+/// Bipolar cells enable negative-cancellation bundling (Structured5x5 ethos).
+#[cfg(feature = "lab")]
+struct Zipper5pow5 { pub scale: f32 }
+
+#[cfg(feature = "lab")]
+impl CodecCandidate for Zipper5pow5 {
+    fn name(&self) -> &str { "Zipper-5^5(2B)" }
+    fn bytes_per_row(&self) -> usize { 2 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::zipper::{Zipper5LevelDescriptor, StrideKind};
+        let zs: Vec<Zipper5LevelDescriptor> = rows.iter().map(|r| {
+            let n = r.len(); let mut p = 1; while p < n { p <<= 1; }
+            let mut buf = vec![0.0f32; p]; buf[..n].copy_from_slice(r);
+            Zipper5LevelDescriptor::encode(&buf, 5, StrideKind::Phi, self.scale)
+        }).collect();
+        pairwise_5lvl_scores(&zs)
+    }
+}
+
+/// 5^5 × 5 (wider, ~10 B): 25 samples at 5-level.
+#[cfg(feature = "lab")]
+struct Zipper5Wide { pub scale: f32 }
+
+#[cfg(feature = "lab")]
+impl CodecCandidate for Zipper5Wide {
+    fn name(&self) -> &str { "Zipper-5^5×5(10B)" }
+    fn bytes_per_row(&self) -> usize { 10 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::zipper::{Zipper5LevelDescriptor, StrideKind};
+        let zs: Vec<Zipper5LevelDescriptor> = rows.iter().map(|r| {
+            let n = r.len(); let mut p = 1; while p < n { p <<= 1; }
+            let mut buf = vec![0.0f32; p]; buf[..n].copy_from_slice(r);
+            Zipper5LevelDescriptor::encode(&buf, 25, StrideKind::Phi, self.scale)
+        }).collect();
+        pairwise_5lvl_scores(&zs)
+    }
+}
+
+/// 7^7 signed (≈3 B): 7 samples × 7 levels.
+#[cfg(feature = "lab")]
+struct Zipper7pow7 { pub scale: f32 }
+
+#[cfg(feature = "lab")]
+impl CodecCandidate for Zipper7pow7 {
+    fn name(&self) -> &str { "Zipper-7^7(3B)" }
+    fn bytes_per_row(&self) -> usize { 3 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::zipper::{Zipper7LevelDescriptor, StrideKind};
+        let zs: Vec<Zipper7LevelDescriptor> = rows.iter().map(|r| {
+            let n = r.len(); let mut p = 1; while p < n { p <<= 1; }
+            let mut buf = vec![0.0f32; p]; buf[..n].copy_from_slice(r);
+            Zipper7LevelDescriptor::encode(&buf, 7, StrideKind::Phi, self.scale)
+        }).collect();
+        pairwise_7lvl_scores(&zs)
+    }
+}
+
+/// 7^7 × 7 (wider, ~18 B): 49 samples at 7-level.
+#[cfg(feature = "lab")]
+struct Zipper7Wide { pub scale: f32 }
+
+#[cfg(feature = "lab")]
+impl CodecCandidate for Zipper7Wide {
+    fn name(&self) -> &str { "Zipper-7^7×7(18B)" }
+    fn bytes_per_row(&self) -> usize { 18 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::zipper::{Zipper7LevelDescriptor, StrideKind};
+        let zs: Vec<Zipper7LevelDescriptor> = rows.iter().map(|r| {
+            let n = r.len(); let mut p = 1; while p < n { p <<= 1; }
+            let mut buf = vec![0.0f32; p]; buf[..n].copy_from_slice(r);
+            Zipper7LevelDescriptor::encode(&buf, 49, StrideKind::Phi, self.scale)
+        }).collect();
+        pairwise_7lvl_scores(&zs)
+    }
+}
+
+#[cfg(feature = "lab")]
+fn pairwise_5lvl_scores(zs: &[bgz_tensor::zipper::Zipper5LevelDescriptor]) -> Vec<f64> {
+    let n = zs.len();
+    let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+    for i in 0..n {
+        for j in (i + 1)..n {
+            scores.push(zs[i].cosine(&zs[j]) as f64);
+        }
+    }
+    scores
+}
+
+#[cfg(feature = "lab")]
+fn pairwise_7lvl_scores(zs: &[bgz_tensor::zipper::Zipper7LevelDescriptor]) -> Vec<f64> {
+    let n = zs.len();
+    let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+    for i in 0..n {
+        for j in (i + 1)..n {
+            scores.push(zs[i].cosine(&zs[j]) as f64);
+        }
+    }
+    scores
+}
+
 /// Passthrough — raw cosine (baseline, exact).
 struct Passthrough;
 impl CodecCandidate for Passthrough {
@@ -1499,6 +1817,22 @@ fn main() {
         {
             codecs.push(Box::new(FractalDescOnly));
             codecs.push(Box::new(FractalPlusBase17));
+            codecs.push(Box::new(FractalPhaseOnly));
+            codecs.push(Box::new(FractalPhasePlusBase17));
+            codecs.push(Box::new(ZipperPhaseOnly));
+            codecs.push(Box::new(ZipperFull));
+            codecs.push(Box::new(ZipperI8Phi8));
+            codecs.push(Box::new(ZipperI8Quint8));
+            codecs.push(Box::new(ZipperI8PhiFull));
+            codecs.push(Box::new(ZipperI8QuintFull));
+
+            // 5^5 and 7^7 signed-bipolar with global-scale quantization.
+            let gscale5 = bgz_tensor::zipper::Zipper5LevelDescriptor::compute_global_scale(&rows);
+            let gscale7 = gscale5; // same scale; 7-level just uses finer thresholds
+            codecs.push(Box::new(Zipper5pow5 { scale: gscale5 }));
+            codecs.push(Box::new(Zipper5Wide { scale: gscale5 }));
+            codecs.push(Box::new(Zipper7pow7 { scale: gscale7 }));
+            codecs.push(Box::new(Zipper7Wide { scale: gscale7 }));
         }
 
         let results = run_bench(&codecs, &rows, &gt);
