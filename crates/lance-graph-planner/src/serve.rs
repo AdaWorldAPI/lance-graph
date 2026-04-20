@@ -383,12 +383,18 @@ mod server {
 
         let state: AppState = std::sync::Arc::new(Mutex::new(server));
 
-        let app = Router::new()
+        let mut app = Router::new()
             .route("/health", get(health))
             .route("/v1/models", get(list_models))
             .route("/v1/chat/completions", post(chat_completions))
             .route("/v1/embeddings", post(embeddings))
             .with_state(state);
+
+        #[cfg(feature = "lab")]
+        {
+            app = app.nest("/v1/research", lance_graph_planner::research::router());
+            eprintln!("Research endpoints enabled: /v1/research/{{tensors,calibrate,probe,stats}}");
+        }
 
         let addr = format!("0.0.0.0:{port}");
         eprintln!("Listening on {addr}");

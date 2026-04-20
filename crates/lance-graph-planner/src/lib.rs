@@ -72,6 +72,10 @@ pub mod cache;
 // === Internal API (same-binary, zero-serde) ===
 pub mod api;
 
+// === Research endpoints (feature-gated, not in production builds) ===
+#[cfg(feature = "lab")]
+pub mod research;
+
 use ir::LogicalPlan;
 use mul::{MulAssessment, GateDecision};
 use thinking::ThinkingContext;

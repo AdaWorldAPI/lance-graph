@@ -38,6 +38,11 @@ bgz17 = { path = "../bgz17" }
 # HTTP server (optional, behind "serve" feature)
 axum = { version = "0.8", optional = true }
 
+# Contract crate (route_tensor, CodecRoute) — always available
+lance-graph-contract = { path = "../lance-graph-contract" }
+
+# SHA256 for manifest checksums (research feature only)
+sha2 = { version = "0.10", optional = true }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
@@ -47,6 +52,10 @@ default = []
 jit = []
 datafusion = []
 serve = ["dep:axum", "tokio/rt-multi-thread", "tokio/macros"]
+# Lab feature: enables /v1/research/* endpoints for remote-controlled
+# codec benchmarking, tensor statistics, and ICC measurement. Same gate
+# name as bgz-tensor's `lab` — one flag controls the whole research surface.
+lab = ["serve", "dep:sha2"]
 
 [[bin]]
 name = "serve"
