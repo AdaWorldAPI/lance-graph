@@ -65,409 +65,83 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
-## 2026-04-20 — AGI Grundlagenforschung: four-pillar formal foundation
+## 2026-04-20 — [FORMAL-SCAFFOLD] Four-pillar Phase-5 reference
 
-**Status:** FINDING (synthesis — see `agi-grundlagenforschung-2026-04-20.md`)
+**Status:** DEPOSIT — reference only, not a paper track. **Consult before inventing new calibration heuristics.**
 
-The workspace's empirical architecture — lance-graph + ndarray +
-cognitive-shader-driver — admits a complete four-pillar formal
-foundation as a discrete binary PINN on Hamming space. Each pillar
-answers a distinct "what must be true for this to work?" question:
-
-1. **Cartan-Kuranishi** (involutivity / existence) — the SPO+NARS+
-   TEKAMOLO prolongation terminates after finite steps; local
-   solutions exist; Cartan characters count degrees of freedom.
-2. **Golden-angle φ-stride** (collocation / sampling) — 144 verb
-   cells distribute quasi-Chebyshev on the semantic manifold;
-   maximally-irrational stride prevents aliasing.
-3. **Euler γ + φ transform** (coordinate regularization) — log-
-   gamma preconditions the prolongation; well-chosen coordinates
-   terminate integrability check in fewer steps.
-4. **Jirak Berry-Esseen under weak dependence** (noise floor) —
-   workspace bits are NOT IID (VSA bundle, palette quantization,
-   role-slice overlap all induce weak dependence); Jirak's 2016
-   theorem gives the correct rate bound at d=16384.
-
-Together the four elevate "works on Animal Farm" → "provably
-integrable system with bounded residual, calibrated noise floor,
-and quasi-optimal collocation." This is the complete Phase-5
-theorem scaffolding from the 2025 PINN Rosetta Stone doc, now
-closeable as a paper thread.
-
-Cross-ref: `.claude/knowledge/agi-grundlagenforschung-2026-04-20.md`;
-`.claude/knowledge/codec-findings-2026-04-20.md` §I3;
-`.claude/knowledge/cross-repo-harvest-2026-04-19.md` §H5, §H12;
-PINN Rosetta Stone historical reference (Phase 5).
+Formal-foundation scaffolding for the discrete binary PINN interpretation of the workspace (ladybug → lance-graph): **Jirak 2016** Berry-Esseen under weak dependence (arxiv 1606.01617) + **Cartan-Kuranishi** involutive prolongation + **φ-Weyl** equidistribution for golden-angle collocation + **γ+φ** preconditioner for prolongation regularization. These are the four citations that would elevate empirical ICC 0.99 → provably-bounded residual if a theorem track were opened; it is not. The tag `[FORMAL-SCAFFOLD]` exists so a future session tempted to roll its own threshold-calibration / sampling-stride / coordinate-transform / noise-floor heuristic grep'es this entry first and either (a) uses the referenced lemmas or (b) writes down explicitly why they don't apply.
 
 ---
 
-## 2026-04-20 — E-ORIG-7 Jirak Berry-Esseen under weak dependence IS the Phase-5 noise-floor lemma
+## 2026-04-20 — E-MEMB-1 (ISSUE) — Python↔Rust slice layouts are incompatible at the 10 kD membrane
 
-**Status:** FINDING
+**Status:** OPEN ISSUE (promoted from FINDING per 2026-04-20 "load-bearing five" triage)
 
-Jirak (2016, Annals of Probability, "Berry-Esseen theorems under
-weak dependence") gives optimal CLT convergence rates for
-stationary sequences with weak dependence: rate n^(p/2-1) for
-p ∈ (2,3] moments, n^(-1/2) in L^q for p ≥ 4.
+PR #210's `role_keys.rs` locks 47 keys into disjoint contiguous slices: Subject [0..2000), Predicate [2000..4000), Object [4000..6000), Modifier [6000..7500), Context [7500..9000), TEKAMOLO [9000..9900), Finnish [9840..9910), tenses [9910..9970), NARS [9970..10000). The Python `adarail_mcp/membrane.py` `DIMENSION_MAP` uses a completely different layout: [0..500) "Soul Space" (qualia_16 / stances_16 / verbs_32 / tau_macros / tsv), dim 285 = hot_level, [2000..2018) = qualia_pcs_18. **The two systems speak incompatible 10 kD.** Ada↔lance-graph integration is blocked on a slice-layout reconciliation doc.
 
-This is THE correct Berry-Esseen citation for the workspace
-because bits in the 16384-bit fingerprint are NOT independent:
-VSA bundle induces correlation by construction, palette
-quantization shares a 4096-centroid codebook, and role-slice
-layouts overlap (Finnish cases [9840..9910) ∩ TEKAMOLO
-[9000..9900)). Classical (IID) Berry-Esseen under-bounds the
-error for this setting. Jirak's weak-dependence rate is the
-load-bearing citation.
-
-Concretely: the codec-findings-2026-04-20.md ICC ≈ 0.99 vs ≈ 0.2
-gap between winners and losers is only calibrated if the noise
-floor is characterized — Jirak's bound gives that floor
-explicitly for the workspace's dependence structure.
-
-Cross-ref: arxiv 1606.01617; PINN Rosetta Phase 5 § "Supporting
-lemmas" ("Berry-Esseen: normal approximation error < 0.004 at
-d=16384"); `agi-grundlagenforschung-2026-04-20.md` § Pillar IV.
-
----
-
-## 2026-04-20 — E-ORIG-6 NSM is the 4096→65→Structured5x5 compression ladder middle rung
-
-**Status:** FINDING
-
-Per cross-repo-harvest H5, COCA 4096 words (DeepNSM vocabulary)
-reduce to 65 NSM primes reduce to Structured5x5 (3125 cells,
-PR #209). The Grammar Triangle IS the membrane between rungs.
-NSM is the **bottleneck compression layer** — the middle of a
-three-tier semantic hierarchy (surface words → primes → structured
-crystal cells). The contested-linguistic-status debate is
-orthogonal to NSM's operational role as the compression middle.
-
-Cross-ref: `grammar-landscape.md` §2, §7; harvest H5.
-
----
-
-## 2026-04-20 — E-ORIG-5 NSM is pre-sliced for the role_keys 10K layout
-
-**Status:** FINDING
-
-Harvest H5 (cross-repo-harvest-2026-04-19.md) maps NSM 65 primes
-onto SPO + Qualia + Temporal axes. This distributes the primes
-across the role_keys slice geometry: subject-primes (I, YOU,
-SOMEONE, PEOPLE) → Subject [0..2000); action-primes (DO,
-HAPPEN, BE) → Predicate [2000..4000); qualia-primes (FEEL,
-GOOD, BAD) → QualiaColumn (18D). The 65 NSM primes aren't a
-flat vocabulary — they're a pre-distributed encoding across
-the 10K VSA slice structure. PR #210's role_keys layout is
-the SLICE GEOMETRY NSM already anticipated.
-
-Cross-ref: `grammar-landscape.md` §2; harvest H5; PR #210.
-
----
-
-## 2026-04-20 — E-ORIG-4 The 12 semantic families are a project-specific synthesis, not a standard inventory
-
-**Status:** FINDING
-
-BECOMES / CAUSES / SUPPORTS / CONTRADICTS / REFINES / GROUNDS /
-ABSTRACTS / ENABLES / PREVENTS / TRANSFORMS / MIRRORS / DISSOLVES
-is not a standard linguistic inventory. Closest antecedents:
-Talmy's force dynamics + Jackendoff conceptual structure + Lakoff
-conceptual metaphors. Rosetta v2 ships the first 7 (BECOMES
-through ABSTRACTS) — MVP subset. Rust's elegant-herding plan
-ships all 12. The last 5 (ENABLES / PREVENTS / TRANSFORMS /
-MIRRORS / DISSOLVES) are a deliberate extension Python hasn't
-followed yet. Subsetting asymmetry is itself a project
-documentation artifact.
-
-Cross-ref: harvest H12; Rosetta v2 DN_RELATIONS; elegant-herding
-Appendix §verb families.
-
----
-
-## 2026-04-20 — E-ORIG-3 The 144 was chosen for tractable factorable table size, not theoretical derivation
-
-**Status:** FINDING
-
-Per harvest H12: "Not 65 NSM, not 256 domain archetypes — a
-compact 144 usable as crystal facet edge labels." 144 = 12² is
-highly factorable (divisors 1,2,3,4,6,8,9,12,16,18,24,36,48,72,144).
-The structure is 12 semantic families × 12 tense/aspect/mood
-variants, and the number IS LITERAL TABLE SIZE for the TEKAMOLO
-× verb parse dispatcher (grammar-landscape §6). Parse becomes
-cell-lookup + morphology slot fill + NARS truth-merge. Gross
-(=144) is a convenient cultural fit; the engineering reason is
-table factorability for SIMD-friendly indexing.
-
-Cross-ref: harvest H12; `grammar-landscape.md` §6.
-
----
-
-## 2026-04-20 — E-ORIG-2 The 144-verb taxonomy came from ada-consciousness, NOT from NSM
-
-**Status:** FINDING
-
-Per harvest H12 (`cross-repo-harvest-2026-04-19.md`): the 144
-verbs originated in `ada-consciousness/crystal/markov_crystal.py::Verb`
-as predicate-edge-labels for SPO Markov chains. The NSM 65-prime
-framework and the 144-verb taxonomy entered the workspace via
-INDEPENDENT upstream crates and serve INDEPENDENT axes. Confusing
-them is the error this epiphany exists to correct.
-
-Cross-ref: harvest H12; `grammar-landscape.md` §1 module inventory.
+Tracked in `ISSUES.md` (same date). Cross-ref: PR #210 role_keys.rs; `adarail_mcp/membrane.py::DIMENSION_MAP`; E-MEMB-7 (Ada-internal incoherence, additional layer).
 
 ---
 
 ## 2026-04-20 — E-ORIG-1 NSM and 144 verbs are orthogonal composition axes, not competing encodings
 
-**Status:** FINDING
+**Status:** FINDING (load-bearing)
 
-NSM (65 primes) = semantic atoms for subjects / objects / states.
-144 verbs = predicate edge labels for SPO Markov chains. They
-compose: `triple = (NSM-composed subject, 144-verb edge, NSM-composed
-object)`. Treating them as rival vocabularies hides this
-composition. The workspace uses BOTH simultaneously in the
-Grammar Triangle (NSM × Causality × Qualia → fingerprint) with
-144 verbs as the predicate axis of the SPO triples that Triangle
-emits. This is the primary clarification downstream of PR #210's
-role_keys.
+NSM (65 primes) = semantic atoms for subjects / objects / states. 144 verbs = predicate edge labels for SPO Markov chains. They compose: `triple = (NSM-composed subject, 144-verb edge, NSM-composed object)`. Treating them as rival vocabularies hides this composition; the workspace uses BOTH simultaneously in the Grammar Triangle (NSM × Causality × Qualia → fingerprint) with 144 verbs as the predicate axis of the SPO triples.
 
-Cross-ref: E-ORIG-2, E-ORIG-5, E-ORIG-6; harvest H5, H12;
-`grammar-landscape.md` §2.
+Cross-ref: harvest H5, H12; `grammar-landscape.md` §2.
 
 ---
 
-## 2026-04-20 — E-MEMB-13 Rosetta v2 ships core 7 of Rust's 12-family DN relations
+## 2026-04-20 — E-ORIG-5 NSM is pre-sliced for the role_keys 10K layout
 
-**Status:** FINDING
+**Status:** FINDING (load-bearing — this is *why* the role_keys slice widths work)
 
-Rosetta v2 (Ada `codec/sigma12_rosetta_v2.py`) ships 7 DN relations:
-BECOMES, CAUSES, SUPPORTS, CONTRADICTS, REFINES, GROUNDS, ABSTRACTS.
-Rust's elegant-herding plan ships 12 families: the first 7 plus
-ENABLES, PREVENTS, TRANSFORMS, MIRRORS, DISSOLVES. Python is the
-MVP core; Rust is the full taxonomy. Any Python↔Rust bundle
-binding must declare which relation set is authoritative.
+Harvest H5 (cross-repo-harvest-2026-04-19.md) maps NSM 65 primes onto SPO + Qualia + Temporal axes. This distributes primes across the `role_keys` slice geometry: subject-primes (I, YOU, SOMEONE, PEOPLE) → Subject [0..2000); action-primes (DO, HAPPEN, BE) → Predicate [2000..4000); qualia-primes (FEEL, GOOD, BAD) → QualiaColumn (18D). **The 65 NSM primes aren't a flat vocabulary — they're a pre-distributed encoding across the 10K VSA slice structure.** PR #210's role_keys layout is the SLICE GEOMETRY NSM already anticipated.
 
-Cross-ref: Rosetta v2 `DN_RELATIONS`; harvest H12; elegant-herding-
-rocket-v1.md §verb families; E-ORIG-4.
-
----
-
-## 2026-04-20 — E-MEMB-12 Glyph→color mapping is the missing modality-translation primitive in Rust
-
-**Status:** FINDING
-
-Rosetta v2 binds each sigma glyph to a visual color: Ω=gold,
-Δ=silver, Φ=blue, Θ=green, Λ=rose, Ψ=amber, Ξ=violet, Σ=white.
-Used in `to_aurora_prompt()` for cross-modal image generation.
-Rust's sigma_rosetta has 64 glyphs but no color mapping in the
-contract. Missing: a `Glyph → VisualToken` table that lets the
-planner emit image prompts from its cognitive trace. After I11
-(trace is measurable), the next step is "trace is renderable" —
-thinking harvest (PR #224) → visual thinking harvest.
-
-Cross-ref: Rosetta v2 `SIGMA_GLYPHS` color fields; PR #224 I11;
-codec-sweep D0.1 WireTensorView methods.
-
----
-
-## 2026-04-20 — E-MEMB-11 LivingFrame keyframes + ContextChain windows are the Python↔Rust handshake
-
-**Status:** FINDING
-
-Rosetta v2 `LivingFrame` uses x265-style keyframes (every 10
-frames) + delta frames. Rust `ContextChain` (PR #208) uses a
-±5 ring buffer. Compatible: a Python keyframe closes a Rust
-ContextChain window and commits a CycleCrystal. **This is the
-concrete integration point between the two reasoning-unit
-structures** — Rust becomes the persistent-memory half (AriGraph +
-triplet_graph), Python becomes the streaming-interface half
-(REST-facing LivingFrame), with keyframe boundaries as the
-cycle-commit handshake.
-
-Cross-ref: Rosetta v2 `LivingFrame.keyframe_interval`;
-PR #208 `ContextChain`; AriGraph `CycleCrystal`.
-
----
-
-## 2026-04-20 — E-MEMB-10 Cost-tracking is a first-class trace field in Ada, missing in Rust's Wire surface
-
-**Status:** FINDING / ISSUE
-
-Rosetta v2 returns `cost_usd: float` on every `RosettaResult`.
-Aurora calls cost $0.07 each; Grok Vision $0.01; Grok Chat $0.005;
-Jina $0.0001. Rust's `WireCalibrateResponse` (post D0.1) returns
-`elapsed_ms` + `compile_time_us` + `backend` but no cost field.
-For a production research platform, cost is a first-class trace
-field — missing from Rust. Proposed extension: add
-`cost_usd: Option<f32>` to `MeasureSet` in the codec-sweep plan.
-
-Cross-ref: Rosetta v2 `RATE_LIMITS` + `RosettaResult.cost_usd`;
-D0.1 WireCalibrateResponse.
-
----
-
-## 2026-04-20 — E-MEMB-9 to_aurora_prompt() IS a BusDto — Rust's three-DTO doctrine already operational in Python
-
-**Status:** FINDING
-
-Rosetta v2 emits `{sparse_signature, qualia_signature,
-visual_qualities, frequency_feel}` for image prompting. This is
-exactly the shape of a cross-modal BusDto (explicit thought →
-external consumer). Rust's Invariant I9 (`lab-vs-canonical-surface.md`)
-defines three DTO families — StreamDto / ResonanceDto / **BusDto** —
-as *doctrinal, not yet shipped*. Python proves the shape works
-empirically; Rust should ship the same structure in the canonical
-contract when BusDto lands.
-
-Cross-ref: Rosetta v2 `SparseFrame.to_aurora_prompt()`;
-Invariant I9; `lab-vs-canonical-surface.md`.
-
----
-
-## 2026-04-20 — E-MEMB-8 Sigma's 16-band architecture is a palindrome/octave pairing
-
-**Status:** FINDING
-
-Rosetta v2 binds each of 8 sigma glyphs to TWO bands out of 16:
-Ω→[0,8]=(warmth, coherence); Λ→[4,12]=(tenderness, awakening);
-Ψ→[5,13]=(groundedness, bond). Every glyph owns a low-octave
-phenomenology and a high-octave integration. **The sigma grammar
-structurally binds felt qualia to integrated qualia through the
-16-band architecture.** Rust's role_keys has one contiguous slice
-per role — no octave structure. Merging means either (a) Rust
-gains an octave inside each 2000-dim role slice, or (b) Rosetta
-projects into Rust role slices as a secondary bind
-`glyph_key ⊗ octave_key`.
-
-Cross-ref: Rosetta v2 `SIGMA_GLYPHS` band pairs; `QUALIA_BANDS`
-16-dim map; role_keys.rs.
-
----
-
-## 2026-04-20 — E-MEMB-7 Three semantic spaces coexist in Ada — internal incoherence before Python↔Rust
-
-**Status:** FINDING / ISSUE
-
-Jina 1024-D (Rosetta codec), 10kD VSA (membrane.py), Fingerprint<256>
-= 16K bits (Hamming sweep) — three distinct semantic spaces used
-in parallel. `membrane.py` and `rosetta_v2.py` **already disagree**
-on which is canonical (membrane uses 10k, Rosetta uses 1024 Jina).
-This is INDEPENDENT of the Python↔Rust slice mismatch from E-MEMB-1.
-Ada has its own internal slice-layout incoherence before lance-graph
-integration is even attempted. FP_WORDS=160 migration (deferred
-per LATEST_STATE) would address the 10K-vs-16K arm.
-
-Cross-ref: membrane.py DIMENSION_MAP; Rosetta v2 `JINA_DIM = 1024`;
-PR #209 Vsa10kF32 40KB.
-
----
-
-## 2026-04-20 — E-MEMB-6 CausalityFlow 3→9 slot extension is a lagging type-system gap
-
-**Status:** FINDING
-
-`role_keys` [9000..9900) already carries all 9 TEKAMOLO slots as
-100-dim sub-blocks (since PR #210). The deferred `CausalityFlow`
-struct extension (modal/local/instrument + beneficiary/goal/source)
-just catches up the contract types to what the membrane already
-encoded in the slice layout. **Membrane is ahead of type system.**
-Ship the type extension when the lab work hits it.
-
-Cross-ref: role_keys.rs [9000..9900); LATEST_STATE "CausalityFlow
-TEKAMOLO extension — deferred"; elegant-herding-rocket-v1 § D0 scope.
+Cross-ref: `grammar-landscape.md` §2; harvest H5; PR #210.
 
 ---
 
 ## 2026-04-20 — E-MEMB-5 18D QualiaColumn = sigma_rosetta projected onto the SoA
 
-**Status:** FINDING
+**Status:** FINDING (load-bearing — explains QualiaColumn's physical interpretation)
 
-The 18D QualiaColumn carries Staunen (phase) + Wisdom (magnitude)
-projections per PR #208. Every triple (Predicate-slice content,
-Qualia phase, Qualia magnitude) IS sigma_rosetta's 64-glyph
-coordinates projected onto the SoA. **Qualia isn't a separate
-layer — it's the second lane through the membrane.** Every triple
-carries both role-slice content AND the 18D projection of its
-sigma-glyph neighborhood.
+The 18D QualiaColumn carries Staunen (phase) + Wisdom (magnitude) projections per PR #208. Every triple (Predicate-slice content, Qualia phase, Qualia magnitude) IS sigma_rosetta's 64-glyph coordinates projected onto the SoA. **Qualia isn't a separate layer — it's the second lane through the membrane.** Every triple carries both role-slice content AND the 18D projection of its sigma-glyph neighborhood.
 
-Cross-ref: PR #206 sigma_rosetta 64 glyphs; PR #208 Staunen/Wisdom
-subspaces; QualiaColumn 18D per PR #204.
+Cross-ref: PR #206 sigma_rosetta 64 glyphs; PR #208 Staunen/Wisdom subspaces; QualiaColumn 18D per PR #204.
 
 ---
 
-## 2026-04-20 — E-MEMB-4 10K ≠ 16K — two substrates, one membrane bridge
+## 2026-04-20 — E-MEMB-9 to_aurora_prompt() IS a BusDto — three-DTO doctrine already operational in Python
 
-**Status:** FINDING
+**Status:** FINDING (load-bearing — empirical proof Rust's I9 shape works)
 
-Fingerprint<256> = 16384 bits (Hamming sweep substrate for
-BindSpace); 10K f32 VSA (role-indexed bundling substrate). They
-connect via CAM-PQ projection (distance-preserving per PR #209).
-**Two substrates, one membrane layer — and the membrane is the
-codec that preserves semantic distance across them.**
-**FP_WORDS=160 migration** (deferred in LATEST_STATE) would widen
-the 16K to 10K and collapse two substrates into one continuum.
-The membrane simplifies from projection to slice layout.
+Rosetta v2 emits `{sparse_signature, qualia_signature, visual_qualities, frequency_feel}` for image prompting. This is exactly the shape of a cross-modal BusDto (explicit thought → external consumer). Rust's Invariant I9 (`lab-vs-canonical-surface.md`) defines three DTO families — StreamDto / ResonanceDto / **BusDto** — as *doctrinal, not yet shipped*. Python proves the shape works empirically; Rust should ship the same structure in the canonical contract when BusDto lands.
 
-Cross-ref: PR #209 Vsa10kF32; LATEST_STATE "FP_WORDS = 160
-migration"; ndarray::simd::Fingerprint.
+Cross-ref: Rosetta v2 `SparseFrame.to_aurora_prompt()`; Invariant I9; `lab-vs-canonical-surface.md`.
 
 ---
 
-## 2026-04-20 — E-MEMB-3 Sigma chain is orthogonal to role axis
+## 2026-04-20 — Deposit log (one-line findings, retained but not load-bearing)
 
-**Status:** FINDING
+Per 2026-04-20 "im Log, nicht an die Wand" triage: these surfaced during the membrane + NSM-origin + PINN-Rosetta + Jirak thread but are secondary to the load-bearing five above. Retained here as addressable anchors; full body is NOT repeated on the wall. Cross-ref pointers remain valid from elsewhere.
 
-Sigma chain Ω→Δ→Φ→Θ→Λ is 5 NARS-inference maturation stages
-(when). Role_keys defines 9 role domains (where). 5 × 9 = 45
-membrane cells. **Sigma is not a dim axis; it's a maturation
-progression over bound content at any role.** The membrane
-decouples WHERE content lives (role slice) from WHEN it matures
-(sigma stage). Same bundle traverses sigma without changing slice.
-
-Cross-ref: sigma chain per PR #204; role_keys slice layout per
-PR #210.
-
----
-
-## 2026-04-20 — E-MEMB-2 Finnish cases overlap TEKAMOLO slots by 60 dims — slice sharing IS morphology-to-slot commitment
-
-**Status:** FINDING
-
-Per PR #210's role_keys layout: Finnish cases [9840..9910) and
-TEKAMOLO slots [9000..9900) overlap by 60 dims (9840..9900).
-**Deliberate, not a bug:** Finnish morphology COMMITS TEKAMOLO
-roles — Finnish adessive `-llä` at dim 9850 simultaneously
-populates TEKAMOLO-Lokal. The membrane encodes morphology→slot
-as SLICE GEOMETRY, not as runtime inference. This is the concrete
-mechanism behind grammar-landscape's "heavy morphology commits
-TEKAMOLO slots" claim.
-
-Cross-ref: role_keys.rs; grammar-landscape.md § morphology;
-PR #210 slice table.
-
----
-
-## 2026-04-20 — E-MEMB-1 The membrane IS the role-slice layout, not a translation table
-
-**Status:** FINDING / ISSUE (integration blocker)
-
-PR #210's `role_keys.rs` locks 47 keys into disjoint contiguous
-slices of 10K VSA: Subject [0..2000), Predicate [2000..4000),
-Object [4000..6000), Modifier [6000..7500), Context [7500..9000),
-TEKAMOLO [9000..9900), Finnish cases [9840..9910), tenses
-[9910..9970), NARS [9970..10000). **The membrane is this layout
-— no dictionary lookup, the binding target IS the coordinate.**
-
-Python `membrane.py` `DIMENSION_MAP` uses INCOMPATIBLE layout:
-[0..500) "Soul Space" (qualia_16 / stances_16 / verbs_32 /
-tau_macros / tsv), dim 285 = hot_level, [2000..2018) = qualia_pcs_18.
-Rust parses [0..2000) as Subject content; Python uses it for
-soul atoms. **The two systems speak incompatible 10kD.**
-Ada↔lance-graph integration needs a slice-layout reconciliation
-doc before anything else. ISSUE ledger candidate.
-
-Cross-ref: PR #210 role_keys.rs; adarail_mcp membrane.py
-DIMENSION_MAP; E-MEMB-7.
+- **E-ORIG-2** — 144-verb taxonomy originated in `ada-consciousness/crystal/markov_crystal.py::Verb`, not from NSM. Harvest H12.
+- **E-ORIG-3** — 144 chosen for tractable factorable table size (12²), not theoretical derivation. grammar-landscape §6.
+- **E-ORIG-4** — 12 semantic families are project-specific synthesis (Talmy + Jackendoff + Lakoff roots); Python ships core 7.
+- **E-ORIG-6** — NSM is the middle rung of `4096 COCA → 65 NSM → 3125 Structured5x5` compression ladder. Harvest H5.
+- **E-ORIG-7** — Jirak Berry-Esseen under weak dep IS the Phase-5 noise-floor lemma → folded into the four-pillar metadata entry above.
+- **E-MEMB-2** — Finnish cases overlap TEKAMOLO slots [9840..9900); slice sharing IS the morphology→slot commitment.
+- **E-MEMB-3** — Sigma chain orthogonal to role axis (5 stages × 9 domains = 45 cells).
+- **E-MEMB-4** — 10K ≠ 16K; FP_WORDS=160 migration would collapse the two substrates.
+- **E-MEMB-6** — CausalityFlow 3→9 slot extension is a lagging type-system gap; membrane ahead of types.
+- **E-MEMB-7** — Three semantic spaces coexist in Ada (Jina 1024D / 10kD VSA / 16K Fingerprint); see E-MEMB-1 ISSUE for the downstream Python↔Rust consequence.
+- **E-MEMB-8** — Sigma's 16-band architecture = palindrome/octave pairing; every glyph owns a felt-octave + integrated-octave pair.
+- **E-MEMB-10** — Cost-tracking is first-class in Ada (`RosettaResult.cost_usd`), missing in Rust Wire surface (deposit as future `MeasureSet` extension candidate).
+- **E-MEMB-11** — LivingFrame keyframes ≈ ContextChain windows — the Python↔Rust cycle-commit handshake point.
+- **E-MEMB-12** — Glyph→color mapping (Ω=gold, Λ=rose, Σ=white…) is the missing modality-translation primitive for Rust thinking-harvest → visual-harvest.
+- **E-MEMB-13** — Rosetta v2 ships core 7 of Rust's 12-family DN relations; Python ⊂ Rust subsetting asymmetry.
 
 ---
 
