@@ -169,6 +169,97 @@ impl CognitiveShaderService for ShaderGrpcService {
             styles: unified_styles_proto(),
         }))
     }
+
+    async fn tensors(
+        &self,
+        request: Request<pb::TensorsRequest>,
+    ) -> Result<Response<pb::TensorsResponse>, Status> {
+        let req = request.into_inner();
+        let wire_req = crate::wire::WireTensorsRequest {
+            model_path: req.model_path,
+            route_filter: if req.route_filter.is_empty() { None } else { Some(req.route_filter) },
+        };
+        let r = crate::codec_research::list_tensors(&wire_req)
+            .map_err(|e| Status::invalid_argument(e))?;
+        Ok(Response::new(pb::TensorsResponse {
+            total: r.total as u32,
+            shown: r.shown as u32,
+            cam_pq: r.cam_pq as u32,
+            passthrough: r.passthrough as u32,
+            skip: r.skip as u32,
+            tensors: r.tensors.iter().map(|t| pb::TensorEntry {
+                name: t.name.clone(),
+                dims: t.dims.clone(),
+                dtype: t.dtype.clone(),
+                route: t.route.clone(),
+                n_elements: t.n_elements,
+            }).collect(),
+        }))
+    }
+
+    async fn calibrate(
+        &self,
+        request: Request<pb::CalibrateRequest>,
+    ) -> Result<Response<pb::CalibrateResponse>, Status> {
+        let req = request.into_inner();
+        let wire_req = crate::wire::WireCalibrateRequest {
+            model_path: req.model_path,
+            tensor_name: req.tensor_name,
+            num_subspaces: if req.num_subspaces == 0 { 6 } else { req.num_subspaces as usize },
+            num_centroids: if req.num_centroids == 0 { 256 } else { req.num_centroids as usize },
+            kmeans_iterations: if req.kmeans_iterations == 0 { 20 } else { req.kmeans_iterations as usize },
+            max_rows: if req.max_rows == 0 { None } else { Some(req.max_rows as usize) },
+            icc_samples: if req.icc_samples == 0 { 512 } else { req.icc_samples as usize },
+        };
+        let r = crate::codec_research::calibrate_tensor(&wire_req)
+            .map_err(|e| Status::invalid_argument(e))?;
+        Ok(Response::new(pb::CalibrateResponse {
+            tensor_name: r.tensor_name,
+            dims: r.dims,
+            n_rows: r.n_rows as u32,
+            row_dim: r.row_dim as u32,
+            adjusted_dim: r.adjusted_dim as u32,
+            num_subspaces: r.num_subspaces as u32,
+            num_centroids: r.num_centroids as u32,
+            calibration_rows: r.calibration_rows as u32,
+            icc_3_1: r.icc_3_1,
+            mean_reconstruction_error: r.mean_reconstruction_error,
+            relative_l2_error: r.relative_l2_error,
+            codebook_bytes: r.codebook_bytes as u64,
+            fingerprints_bytes: r.fingerprints_bytes as u64,
+            elapsed_ms: r.elapsed_ms,
+        }))
+    }
+
+    async fn probe(
+        &self,
+        request: Request<pb::ProbeRequest>,
+    ) -> Result<Response<pb::ProbeResponse>, Status> {
+        let req = request.into_inner();
+        let wire_req = crate::wire::WireProbeRequest {
+            model_path: req.model_path,
+            tensor_name: req.tensor_name,
+            row_counts: req.row_counts.iter().map(|&n| n as usize).collect(),
+            icc_samples: if req.icc_samples == 0 { 512 } else { req.icc_samples as usize },
+        };
+        let r = crate::codec_research::row_count_probe(&wire_req)
+            .map_err(|e| Status::invalid_argument(e))?;
+        Ok(Response::new(pb::ProbeResponse {
+            tensor_name: r.tensor_name,
+            n_rows: r.n_rows as u32,
+            row_dim: r.row_dim as u32,
+            adjusted_dim: r.adjusted_dim as u32,
+            num_subspaces: r.num_subspaces as u32,
+            num_centroids: r.num_centroids as u32,
+            entries: r.entries.iter().map(|e| pb::ProbeEntry {
+                n_train: e.n_train as u32,
+                icc_train: e.icc_train,
+                icc_all_rows: e.icc_all_rows,
+                relative_l2_error: e.relative_l2_error,
+                elapsed_ms: e.elapsed_ms,
+            }).collect(),
+        }))
+    }
 }
 
 fn proto_to_dispatch(req: &pb::DispatchRequest) -> ShaderDispatch {

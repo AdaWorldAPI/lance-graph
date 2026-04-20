@@ -35,6 +35,10 @@ p64-bridge = { path = "../p64-bridge" }
 # bgz17: palette semiring codec (Base17 VSA, 121 tests)
 bgz17 = { path = "../bgz17" }
 
+# Contract: canonical trait surface (OrchestrationBridge, PlannerContract,
+# thinking/nars/plan types). Zero-dep. Implemented in orchestration_impl.rs.
+lance-graph-contract = { path = "../lance-graph-contract" }
+
 # HTTP server (optional, behind "serve" feature)
 axum = { version = "0.8", optional = true }
 

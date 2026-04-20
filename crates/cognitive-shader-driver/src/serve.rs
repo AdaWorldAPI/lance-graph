@@ -34,16 +34,24 @@ use axum::{
 };
 use serde_json::{json, Value};
 
+use crate::codec_research;
 use crate::driver::ShaderDriver;
 use crate::engine_bridge::{self, unified_style, UNIFIED_STYLES};
 use crate::wire::{
-    WireCrystal, WireDispatch, WireHealth, WireIngest, WireQualia, WireStyleInfo,
+    WireCalibrateRequest, WireCalibrateResponse, WireCrystal, WireDispatch, WireHealth,
+    WireIngest, WirePlanRequest, WirePlanResponse, WireProbeRequest, WireProbeResponse,
+    WireQualia, WireRunbookRequest, WireRunbookResponse, WireRunbookStep,
+    WireRunbookStepResult, WireStyleInfo, WireTensorsRequest, WireTensorsResponse,
 };
 use lance_graph_contract::cognitive_shader::CognitiveShaderDriver;
 
 struct ServerState {
     driver: ShaderDriver,
     write_cursor: usize,
+    /// Planner instance (shared across requests). Only present when the
+    /// shader-driver was compiled with `--features with-planner`.
+    #[cfg(feature = "with-planner")]
+    planner: lance_graph_planner::PlannerAwareness,
 }
 
 type AppState = Arc<Mutex<ServerState>>;
@@ -52,6 +60,8 @@ pub fn router(driver: ShaderDriver) -> Router {
     let state: AppState = Arc::new(Mutex::new(ServerState {
         driver,
         write_cursor: 0,
+        #[cfg(feature = "with-planner")]
+        planner: crate::planner_bridge::build_planner(&[]),
     }));
 
     Router::new()
@@ -60,6 +70,23 @@ pub fn router(driver: ShaderDriver) -> Router {
         .route("/v1/shader/health", get(health_handler))
         .route("/v1/shader/qualia/{row}", get(qualia_handler))
         .route("/v1/shader/styles", get(styles_handler))
+        // Codec research operations — same DTO surface, no separate endpoint.
+        // Lets clients encode / measure / probe without recompiling; the
+        // codec parameters (num_subspaces, num_centroids, kmeans_iterations,
+        // max_rows) are DTO fields, so one running server drives every
+        // codec-calibration experiment.
+        .route("/v1/shader/tensors", post(tensors_handler))
+        .route("/v1/shader/calibrate", post(calibrate_handler))
+        .route("/v1/shader/probe", post(probe_handler))
+        // Scheduled runbook: one POST runs a list of steps. Test injection
+        // lands here — a client script submits its full codec-research
+        // protocol as a single DTO, the server executes and returns all
+        // results correlated by per-step label.
+        .route("/v1/shader/runbook", post(runbook_handler))
+        // Planner delegation (Layer 4 per INTEGRATION_PLAN_CS.md). Without
+        // `with-planner` the handler returns 503 so the unified endpoint
+        // URL shape stays stable whether or not planner is compiled in.
+        .route("/v1/shader/plan", post(plan_handler))
         .with_state(state)
 }
 
@@ -152,4 +179,170 @@ async fn styles_handler() -> Json<Vec<WireStyleInfo>> {
         resonance_threshold: s.resonance_threshold,
         fan_out: s.fan_out,
     }).collect())
+}
+
+// ─── Codec research handlers ────────────────────────────────────────────────
+
+async fn tensors_handler(
+    Json(req): Json<WireTensorsRequest>,
+) -> Result<Json<WireTensorsResponse>, (StatusCode, Json<Value>)> {
+    codec_research::list_tensors(&req)
+        .map(Json)
+        .map_err(|e| (StatusCode::BAD_REQUEST, Json(json!({"error": e}))))
+}
+
+async fn calibrate_handler(
+    Json(req): Json<WireCalibrateRequest>,
+) -> Result<Json<WireCalibrateResponse>, (StatusCode, Json<Value>)> {
+    codec_research::calibrate_tensor(&req)
+        .map(Json)
+        .map_err(|e| (StatusCode::BAD_REQUEST, Json(json!({"error": e}))))
+}
+
+async fn probe_handler(
+    Json(req): Json<WireProbeRequest>,
+) -> Result<Json<WireProbeResponse>, (StatusCode, Json<Value>)> {
+    codec_research::row_count_probe(&req)
+        .map(Json)
+        .map_err(|e| (StatusCode::BAD_REQUEST, Json(json!({"error": e}))))
+}
+
+async fn plan_handler(
+    State(state): State<AppState>,
+    Json(req): Json<WirePlanRequest>,
+) -> Result<Json<WirePlanResponse>, (StatusCode, Json<Value>)> {
+    run_plan(&state, &req)
+        .map(Json)
+        .map_err(|(code, msg)| (code, Json(json!({"error": msg}))))
+}
+
+#[cfg(feature = "with-planner")]
+fn run_plan(
+    state: &AppState,
+    req: &WirePlanRequest,
+) -> Result<WirePlanResponse, (StatusCode, String)> {
+    let st = state
+        .lock()
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "lock poisoned".to_string()))?;
+    crate::planner_bridge::plan(&st.planner, req)
+        .map_err(|e| (StatusCode::BAD_REQUEST, e))
+}
+
+#[cfg(not(feature = "with-planner"))]
+fn run_plan(
+    _state: &AppState,
+    _req: &WirePlanRequest,
+) -> Result<WirePlanResponse, (StatusCode, String)> {
+    Err((
+        StatusCode::SERVICE_UNAVAILABLE,
+        "planner not compiled in — rebuild with --features with-planner".to_string(),
+    ))
+}
+
+/// Runbook-step dispatcher for Plan. Maps the shared planner state +
+/// request into a runbook step result, yielding an error string on the
+/// with-planner=off build to flow through the runbook's error channel.
+fn plan_runbook_step(
+    state: &AppState,
+    req: &WirePlanRequest,
+    label: &str,
+) -> Result<WireRunbookStepResult, String> {
+    match run_plan(state, req) {
+        Ok(response) => Ok(WireRunbookStepResult::Plan {
+            label: label.to_string(),
+            response,
+        }),
+        Err((_code, msg)) => Err(msg),
+    }
+}
+
+async fn runbook_handler(
+    State(state): State<AppState>,
+    Json(req): Json<WireRunbookRequest>,
+) -> Result<Json<WireRunbookResponse>, (StatusCode, Json<Value>)> {
+    let total = req.steps.len();
+    let t0 = std::time::Instant::now();
+    let mut results: Vec<WireRunbookStepResult> = Vec::with_capacity(total);
+    let mut errors = 0usize;
+    let mut completed = 0usize;
+
+    for s in req.steps.into_iter() {
+        let label = s.label.clone();
+        let step_name = match &s.step {
+            WireRunbookStep::Tensors(_) => "tensors",
+            WireRunbookStep::Calibrate(_) => "calibrate",
+            WireRunbookStep::Probe(_) => "probe",
+            WireRunbookStep::Dispatch(_) => "dispatch",
+            WireRunbookStep::Ingest(_) => "ingest",
+            WireRunbookStep::Plan(_) => "plan",
+        };
+        let outcome: Result<WireRunbookStepResult, String> = match s.step {
+            WireRunbookStep::Tensors(r) => codec_research::list_tensors(&r)
+                .map(|response| WireRunbookStepResult::Tensors { label: label.clone(), response }),
+            WireRunbookStep::Calibrate(r) => codec_research::calibrate_tensor(&r)
+                .map(|response| WireRunbookStepResult::Calibrate { label: label.clone(), response }),
+            WireRunbookStep::Probe(r) => codec_research::row_count_probe(&r)
+                .map(|response| WireRunbookStepResult::Probe { label: label.clone(), response }),
+            WireRunbookStep::Dispatch(wd) => match state.lock() {
+                Err(_) => Err("lock poisoned".to_string()),
+                Ok(st) => {
+                    let crystal = st.driver.dispatch(&wd.to_internal());
+                    Ok(WireRunbookStepResult::Dispatch {
+                        label: label.clone(),
+                        response: WireCrystal::from(&crystal),
+                    })
+                }
+            },
+            WireRunbookStep::Ingest(wi) => match state.lock() {
+                Err(_) => Err("lock poisoned".to_string()),
+                Ok(mut st) => {
+                    let cursor = st.write_cursor;
+                    match Arc::get_mut(&mut st.driver.bindspace) {
+                        None => Err("bindspace has multiple references".to_string()),
+                        Some(bs) => {
+                            let (start, end) = engine_bridge::ingest_codebook_indices(
+                                bs, &wi.codebook_indices, wi.source_ordinal, wi.timestamp, cursor,
+                            );
+                            st.write_cursor = end as usize;
+                            Ok(WireRunbookStepResult::Ingest {
+                                label: label.clone(),
+                                ingested: end - start,
+                                row_start: start,
+                                row_end: end,
+                                write_cursor: st.write_cursor as u32,
+                            })
+                        }
+                    }
+                }
+            },
+            WireRunbookStep::Plan(wp) => plan_runbook_step(&state, &wp, &label),
+        };
+
+        match outcome {
+            Ok(r) => {
+                completed += 1;
+                results.push(r);
+            }
+            Err(e) => {
+                errors += 1;
+                results.push(WireRunbookStepResult::Error {
+                    label,
+                    step: step_name.to_string(),
+                    error: e,
+                });
+                if req.stop_on_error {
+                    break;
+                }
+            }
+        }
+    }
+
+    Ok(Json(WireRunbookResponse {
+        label: req.label,
+        total_steps: total,
+        completed,
+        errors,
+        total_elapsed_ms: t0.elapsed().as_millis() as u64,
+        results,
+    }))
 }

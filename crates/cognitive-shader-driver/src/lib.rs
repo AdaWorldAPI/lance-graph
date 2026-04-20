@@ -54,6 +54,20 @@ pub mod serve;
 #[cfg(feature = "grpc")]
 pub mod grpc;
 
+// Codec research (calibrate / tensors / probe) — same debug quarantine
+// as serve. Rides on the unified shader-driver API surface; no new feature
+// gate. Runs the production CAM-PQ codec from ndarray against safetensors
+// tensors selected via route_tensor from lance-graph-contract.
+#[cfg(any(feature = "serve", feature = "grpc"))]
+pub mod codec_research;
+
+// Planner bridge — delegates WirePlan DTOs to lance-graph-planner's
+// PlannerAwareness. Optional, gated on `with-planner`. Same EmbedAnything
+// pattern as `with-engine`. Without this feature the shader-driver REST
+// server still works; /v1/shader/plan returns 503.
+#[cfg(feature = "with-planner")]
+pub mod planner_bridge;
+
 pub use lance_graph_contract::cognitive_shader::{
     CognitiveShaderDriver, ColumnWindow, EmitMode, MetaFilter, MetaSummary, MetaWord,
     NullSink, RungLevel, ShaderBus, ShaderCrystal, ShaderDispatch, ShaderHit,

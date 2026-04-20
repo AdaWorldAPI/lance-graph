@@ -91,6 +91,238 @@ pub struct WireIngest {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Codec research DTOs (for remote-controlled codec benchmarking)
+//
+// These extend the canonical shader-driver API with codec-experimentation
+// operations. No new feature gate — they ride on the existing `serve`/`grpc`
+// features. EmbedAnything-style: one DTO surface for all shader operations.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// List tensors in a safetensors file with routing classification.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireTensorsRequest {
+    pub model_path: String,
+    /// Optional filter: "CamPq" | "Passthrough" | "Skip". None = all.
+    #[serde(default)]
+    pub route_filter: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireTensorEntry {
+    pub name: String,
+    pub dims: Vec<u64>,
+    pub dtype: String,
+    pub route: String,
+    pub n_elements: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireTensorsResponse {
+    pub total: usize,
+    pub shown: usize,
+    pub cam_pq: usize,
+    pub passthrough: usize,
+    pub skip: usize,
+    pub tensors: Vec<WireTensorEntry>,
+}
+
+/// Calibrate CAM-PQ codebook on a single tensor and measure ICC.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireCalibrateRequest {
+    pub model_path: String,
+    pub tensor_name: String,
+    #[serde(default = "default_cal_subspaces")]
+    pub num_subspaces: usize,
+    #[serde(default = "default_cal_centroids")]
+    pub num_centroids: usize,
+    #[serde(default = "default_cal_iters")]
+    pub kmeans_iterations: usize,
+    #[serde(default)]
+    pub max_rows: Option<usize>,
+    #[serde(default = "default_icc_samples")]
+    pub icc_samples: usize,
+}
+
+fn default_cal_subspaces() -> usize { 6 }
+fn default_cal_centroids() -> usize { 256 }
+fn default_cal_iters() -> usize { 20 }
+fn default_icc_samples() -> usize { 512 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireCalibrateResponse {
+    pub tensor_name: String,
+    pub dims: Vec<u64>,
+    pub n_rows: usize,
+    pub row_dim: usize,
+    pub adjusted_dim: usize,
+    pub num_subspaces: usize,
+    pub num_centroids: usize,
+    pub calibration_rows: usize,
+    pub icc_3_1: f32,
+    pub mean_reconstruction_error: f32,
+    pub relative_l2_error: f32,
+    pub codebook_bytes: usize,
+    pub fingerprints_bytes: usize,
+    pub elapsed_ms: u64,
+}
+
+/// ICC vs calibration-row-count diagnostic probe.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireProbeRequest {
+    pub model_path: String,
+    pub tensor_name: String,
+    #[serde(default = "default_probe_counts")]
+    pub row_counts: Vec<usize>,
+    #[serde(default = "default_icc_samples")]
+    pub icc_samples: usize,
+}
+
+fn default_probe_counts() -> Vec<usize> { vec![128, 256, 512, 1024] }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireProbeEntry {
+    pub n_train: usize,
+    pub icc_train: f32,
+    pub icc_all_rows: f32,
+    pub relative_l2_error: f32,
+    pub elapsed_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireProbeResponse {
+    pub tensor_name: String,
+    pub n_rows: usize,
+    pub row_dim: usize,
+    pub adjusted_dim: usize,
+    pub num_subspaces: usize,
+    pub num_centroids: usize,
+    pub entries: Vec<WireProbeEntry>,
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Plan — delegate to lance-graph-planner (Layer 4 per INTEGRATION_PLAN_CS.md)
+//
+// Exposes the PlannerAwareness entry points (plan_auto, plan_full) through
+// the same Wire DTO surface. Behind `with-planner` feature; when disabled
+// the handler returns 503. Keeps the unified endpoint as the only REST
+// surface even as planning-layer capabilities land.
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WirePlanRequest {
+    pub query: String,
+    /// "auto" (no MUL) or "full" (MUL + compass + thinking orchestration).
+    #[serde(default = "default_plan_mode")]
+    pub mode: String,
+    /// Named strategies to use explicitly (overrides auto-selection).
+    /// Empty = auto.
+    #[serde(default)]
+    pub strategies: Vec<String>,
+    /// Optional situation input for plan_full (ignored when mode="auto").
+    #[serde(default)]
+    pub situation: Option<WireSituation>,
+}
+
+fn default_plan_mode() -> String { "auto".to_string() }
+
+/// Mirror of lance_graph_contract::mul::SituationInput for JSON transport.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct WireSituation {
+    #[serde(default = "half")]  pub felt_competence: f64,
+    #[serde(default = "half")]  pub demonstrated_competence: f64,
+    #[serde(default = "half")]  pub source_reliability: f64,
+    #[serde(default = "half")]  pub environment_stability: f64,
+    #[serde(default = "half")]  pub calibration_accuracy: f64,
+    #[serde(default = "half")]  pub complexity_ratio: f64,
+}
+
+fn half() -> f64 { 0.5 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WirePlanResponse {
+    pub mode: String,
+    pub strategies_used: Vec<String>,
+    pub free_will_modifier: f64,
+    pub compass_score: Option<f64>,
+    /// Populated when plan_full was invoked and MUL returned a decision.
+    pub mul_gate: Option<String>,
+    /// Populated when thinking orchestration was run.
+    pub thinking_style_name: Option<String>,
+    pub nars_type: Option<String>,
+    pub elapsed_ms: u64,
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Runbook — scheduled sequence of operations for REST/gRPC test injection
+//
+// One POST submits a list of steps; the server executes them in order and
+// returns a matching list of results. Each step reuses an existing Wire*
+// request type — no new operation surface. The only new concepts are
+// (a) the step enum, (b) the label field per step (for result tracking).
+//
+// Use cases:
+//   - Inject a codec test suite from a script / notebook / CI
+//   - Replay a calibration protocol across many tensors
+//   - Seed BindSpace with ingests then dispatch queries in one round-trip
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "op", content = "args")]
+pub enum WireRunbookStep {
+    Tensors(WireTensorsRequest),
+    Calibrate(WireCalibrateRequest),
+    Probe(WireProbeRequest),
+    Dispatch(WireDispatch),
+    Ingest(WireIngest),
+    /// Planner delegation — plan_auto / plan_full via PlannerAwareness.
+    /// Requires shader-driver compiled with `--features with-planner`.
+    Plan(WirePlanRequest),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireRunbookRequest {
+    /// Human label for the whole runbook (e.g. "qwen3-tts full-size ICC sweep").
+    #[serde(default)]
+    pub label: String,
+    pub steps: Vec<WireRunbookStepLabeled>,
+    /// If true, abort remaining steps on the first error. If false, continue
+    /// and report each step's outcome individually.
+    #[serde(default)]
+    pub stop_on_error: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireRunbookStepLabeled {
+    /// Per-step label, surfaces in the result so callers can correlate.
+    #[serde(default)]
+    pub label: String,
+    #[serde(flatten)]
+    pub step: WireRunbookStep,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind")]
+pub enum WireRunbookStepResult {
+    Tensors { label: String, response: WireTensorsResponse },
+    Calibrate { label: String, response: WireCalibrateResponse },
+    Probe { label: String, response: WireProbeResponse },
+    Dispatch { label: String, response: WireCrystal },
+    Ingest { label: String, ingested: u32, row_start: u32, row_end: u32, write_cursor: u32 },
+    Plan { label: String, response: WirePlanResponse },
+    Error { label: String, step: String, error: String },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireRunbookResponse {
+    pub label: String,
+    pub total_steps: usize,
+    pub completed: usize,
+    pub errors: usize,
+    pub total_elapsed_ms: u64,
+    pub results: Vec<WireRunbookStepResult>,
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Response types (server → client)
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -331,6 +563,87 @@ mod tests {
         let wd: WireDispatch = serde_json::from_str(json).unwrap();
         let internal = wd.to_internal();
         matches!(internal.style, StyleSelector::Ordinal(1));
+    }
+
+    #[test]
+    fn wire_plan_request_defaults() {
+        let json = r#"{"query": "MATCH (n) RETURN n"}"#;
+        let p: WirePlanRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(p.query, "MATCH (n) RETURN n");
+        assert_eq!(p.mode, "auto");
+        assert!(p.strategies.is_empty());
+        assert!(p.situation.is_none());
+    }
+
+    #[test]
+    fn wire_plan_request_full_mode() {
+        let json = r#"{"query": "MATCH (n)-[:KNOWS]->(m)", "mode": "full",
+                       "strategies": ["cypher_parse", "dp_join"],
+                       "situation": {"felt_competence": 0.8}}"#;
+        let p: WirePlanRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(p.mode, "full");
+        assert_eq!(p.strategies.len(), 2);
+        assert_eq!(p.situation.as_ref().unwrap().felt_competence, 0.8);
+        // Other situation fields default to 0.5
+        assert_eq!(p.situation.as_ref().unwrap().source_reliability, 0.5);
+    }
+
+    #[test]
+    fn wire_runbook_accepts_plan_step() {
+        let json = r#"{
+          "label": "plan then calibrate",
+          "steps": [
+            {"label": "parse", "op": "Plan",
+             "args": {"query": "MATCH (n) RETURN n", "mode": "auto"}},
+            {"label": "calibrate", "op": "Calibrate",
+             "args": {"model_path": "/m.st", "tensor_name": "q_proj"}}
+          ]
+        }"#;
+        let rb: WireRunbookRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(rb.steps.len(), 2);
+        match &rb.steps[0].step {
+            WireRunbookStep::Plan(p) => assert_eq!(p.mode, "auto"),
+            _ => panic!("expected Plan step"),
+        }
+    }
+
+    #[test]
+    fn wire_runbook_parses_mixed_steps() {
+        // Test injection payload: list tensors, calibrate one, then probe it.
+        let json = r#"{
+          "label": "qwen3-tts full-size ICC sweep",
+          "stop_on_error": false,
+          "steps": [
+            {"label": "inventory", "op": "Tensors",
+             "args": {"model_path": "/m.safetensors", "route_filter": "CamPq"}},
+            {"label": "gate_proj full", "op": "Calibrate",
+             "args": {"model_path": "/m.safetensors",
+                      "tensor_name": "layers.5.mlp.gate_proj"}},
+            {"label": "gate_proj probe", "op": "Probe",
+             "args": {"model_path": "/m.safetensors",
+                      "tensor_name": "layers.5.mlp.gate_proj",
+                      "row_counts": [128, 256, 512, 1024]}}
+          ]
+        }"#;
+        let rb: WireRunbookRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(rb.steps.len(), 3);
+        assert_eq!(rb.label, "qwen3-tts full-size ICC sweep");
+        assert!(!rb.stop_on_error);
+        match &rb.steps[0].step {
+            WireRunbookStep::Tensors(r) => assert_eq!(r.route_filter.as_deref(), Some("CamPq")),
+            _ => panic!("expected Tensors step"),
+        }
+        match &rb.steps[1].step {
+            WireRunbookStep::Calibrate(r) => {
+                assert_eq!(r.num_subspaces, 6);
+                assert_eq!(r.num_centroids, 256);
+            }
+            _ => panic!("expected Calibrate step"),
+        }
+        match &rb.steps[2].step {
+            WireRunbookStep::Probe(r) => assert_eq!(r.row_counts, vec![128, 256, 512, 1024]),
+            _ => panic!("expected Probe step"),
+        }
     }
 
     #[test]
