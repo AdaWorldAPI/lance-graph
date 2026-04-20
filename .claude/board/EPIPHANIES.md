@@ -65,6 +65,47 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-04-20 — CORRECTION-OF 2026-04-20 "CAM-PQ at 6 B/row solves the argmax blind spot"
+
+**Status:** FINDING
+
+The PR #218 bench measured ICC 0.9998 on **128 rows** trained and
+measured on the same 128 rows. This is a trivially-correct fit:
+128 rows ≤ 256 centroids per subspace → every row gets its own
+centroid → perfect reconstruction → perfect ICC. It does NOT
+generalize to production-size tensors.
+
+Full-size validation on Qwen3-TTS-0.6B (234 CamPq tensors, 478
+total, production-size rows 1024–3072 per tensor):
+
+| Metric | Value |
+|---|---|
+| Mean ICC across 234 argmax tensors | **0.195** |
+| Max ICC | 0.957 |
+| Tensors meeting D5 gate (ICC ≥ 0.99) | **0 of 234** |
+| Tensors with ICC ≥ 0.5 | 8 of 234 |
+| Typical relative L2 reconstruction error | 0.70–0.90 |
+
+Diagnostic probe on gate_proj [3072, 1024] (`cam_pq_row_count_probe`):
+
+| n_train | icc_train | icc_all_rows |
+|---|---|---|
+| 128 | **1.000** | −0.304 |
+| 256 | **1.000** | −0.130 |
+| 512 | 0.531 | 0.015 |
+| 3072 | −0.079 | −0.079 |
+
+**Root cause:** 6×256 PQ is centroid-starved for tensors with >256
+rows. The "128× compression at ICC 0.9999" claim was extrapolated
+from a trivial 128-row in-training fit.
+
+**Infrastructure is sound** — `cam_pq_calibrate` CLI, `route_tensor`
+classifier, serialization, ICC harness all work correctly. The
+negative result is the codec's capacity vs tensor sizes.
+
+Cross-ref: `crates/bgz-tensor/examples/cam_pq_row_count_probe.rs`,
+`crates/bgz-tensor/src/bin/cam_pq_calibrate.rs`.
+
 ## 2026-04-19 — Mandatory epiphanies log (this file)
 
 **Status:** FINDING
@@ -750,7 +791,7 @@ quantized codec = 4 bits × n_cols = ~2 KB/row for q_proj (4096 cols),
 Correction needed in codec-findings-2026-04-20.md decision tree.
 
 ## 2026-04-20 — THE ANSWER: CAM-PQ at 6 B/row solves the argmax blind spot
-**Status:** FINDING (measured, definitive)
+**Status:** SUPERSEDED by 2026-04-20 CORRECTION (128-row trivial fit)
 
 Wired `ndarray::hpc::cam_pq::CamCodebook` as `CamPqRaw` + `CamPqPhase`
 candidates in codec_rnd_bench.rs. Same bench, same populations,

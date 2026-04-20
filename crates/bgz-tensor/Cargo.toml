@@ -24,6 +24,7 @@ manifold clustering, then replaces matmul with precomputed distance table lookup
 [dependencies]
 ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
 holograph = { path = "../holograph", default-features = false }
+lance-graph-contract = { path = "../lance-graph-contract", optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
 serde_json = { version = "1", optional = true }
 sha2 = { version = "0.10", optional = true }
@@ -42,6 +43,12 @@ qwen35-full = ["qwen35-9b", "qwen35-27b-v1", "qwen35-27b-v2"]  # 430 MB — all 
 # Hydrate binary deps (serde + sha2). Only needed for the CLI tool.
 hydrate = ["dep:serde", "dep:serde_json", "dep:sha2"]
 
+# CAM-PQ calibration binary deps. Reads safetensors/GGUF, classifies tensors
+# via route_tensor, trains a CamCodebook per argmax-regime tensor via
+# cam_pq::train_geometric, serializes codebooks + fingerprints. sha2 for
+# per-artifact manifest checksums.
+calibrate = ["dep:serde", "dep:serde_json", "dep:sha2", "dep:lance-graph-contract"]
+
 # Lab / R&D modules — analysis tools and experimental codec candidates
 # that must NOT leak into production builds. Gate for the MFDFA fractal
 # descriptor (probe showed per-row fractal structure is flat on Qwen3
@@ -54,8 +61,17 @@ name = "hydrate"
 path = "src/hydrate.rs"
 required-features = ["hydrate"]
 
+[[bin]]
+name = "cam_pq_calibrate"
+path = "src/bin/cam_pq_calibrate.rs"
+required-features = ["calibrate"]
+
 [[example]]
 name = "fractal_probe"
 required-features = ["lab"]
+
+[[example]]
+name = "cam_pq_row_count_probe"
+required-features = ["calibrate"]
 
 [dev-dependencies]
