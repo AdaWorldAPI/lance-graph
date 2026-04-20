@@ -39,15 +39,19 @@ use crate::driver::ShaderDriver;
 use crate::engine_bridge::{self, unified_style, UNIFIED_STYLES};
 use crate::wire::{
     WireCalibrateRequest, WireCalibrateResponse, WireCrystal, WireDispatch, WireHealth,
-    WireIngest, WireProbeRequest, WireProbeResponse, WireQualia, WireRunbookRequest,
-    WireRunbookResponse, WireRunbookStep, WireRunbookStepResult, WireStyleInfo,
-    WireTensorsRequest, WireTensorsResponse,
+    WireIngest, WirePlanRequest, WirePlanResponse, WireProbeRequest, WireProbeResponse,
+    WireQualia, WireRunbookRequest, WireRunbookResponse, WireRunbookStep,
+    WireRunbookStepResult, WireStyleInfo, WireTensorsRequest, WireTensorsResponse,
 };
 use lance_graph_contract::cognitive_shader::CognitiveShaderDriver;
 
 struct ServerState {
     driver: ShaderDriver,
     write_cursor: usize,
+    /// Planner instance (shared across requests). Only present when the
+    /// shader-driver was compiled with `--features with-planner`.
+    #[cfg(feature = "with-planner")]
+    planner: lance_graph_planner::PlannerAwareness,
 }
 
 type AppState = Arc<Mutex<ServerState>>;
@@ -56,6 +60,8 @@ pub fn router(driver: ShaderDriver) -> Router {
     let state: AppState = Arc::new(Mutex::new(ServerState {
         driver,
         write_cursor: 0,
+        #[cfg(feature = "with-planner")]
+        planner: crate::planner_bridge::build_planner(&[]),
     }));
 
     Router::new()
@@ -77,6 +83,10 @@ pub fn router(driver: ShaderDriver) -> Router {
         // protocol as a single DTO, the server executes and returns all
         // results correlated by per-step label.
         .route("/v1/shader/runbook", post(runbook_handler))
+        // Planner delegation (Layer 4 per INTEGRATION_PLAN_CS.md). Without
+        // `with-planner` the handler returns 503 so the unified endpoint
+        // URL shape stays stable whether or not planner is compiled in.
+        .route("/v1/shader/plan", post(plan_handler))
         .with_state(state)
 }
 
@@ -197,6 +207,55 @@ async fn probe_handler(
         .map_err(|e| (StatusCode::BAD_REQUEST, Json(json!({"error": e}))))
 }
 
+async fn plan_handler(
+    State(state): State<AppState>,
+    Json(req): Json<WirePlanRequest>,
+) -> Result<Json<WirePlanResponse>, (StatusCode, Json<Value>)> {
+    run_plan(&state, &req)
+        .map(Json)
+        .map_err(|(code, msg)| (code, Json(json!({"error": msg}))))
+}
+
+#[cfg(feature = "with-planner")]
+fn run_plan(
+    state: &AppState,
+    req: &WirePlanRequest,
+) -> Result<WirePlanResponse, (StatusCode, String)> {
+    let st = state
+        .lock()
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "lock poisoned".to_string()))?;
+    crate::planner_bridge::plan(&st.planner, req)
+        .map_err(|e| (StatusCode::BAD_REQUEST, e))
+}
+
+#[cfg(not(feature = "with-planner"))]
+fn run_plan(
+    _state: &AppState,
+    _req: &WirePlanRequest,
+) -> Result<WirePlanResponse, (StatusCode, String)> {
+    Err((
+        StatusCode::SERVICE_UNAVAILABLE,
+        "planner not compiled in — rebuild with --features with-planner".to_string(),
+    ))
+}
+
+/// Runbook-step dispatcher for Plan. Maps the shared planner state +
+/// request into a runbook step result, yielding an error string on the
+/// with-planner=off build to flow through the runbook's error channel.
+fn plan_runbook_step(
+    state: &AppState,
+    req: &WirePlanRequest,
+    label: &str,
+) -> Result<WireRunbookStepResult, String> {
+    match run_plan(state, req) {
+        Ok(response) => Ok(WireRunbookStepResult::Plan {
+            label: label.to_string(),
+            response,
+        }),
+        Err((_code, msg)) => Err(msg),
+    }
+}
+
 async fn runbook_handler(
     State(state): State<AppState>,
     Json(req): Json<WireRunbookRequest>,
@@ -215,6 +274,7 @@ async fn runbook_handler(
             WireRunbookStep::Probe(_) => "probe",
             WireRunbookStep::Dispatch(_) => "dispatch",
             WireRunbookStep::Ingest(_) => "ingest",
+            WireRunbookStep::Plan(_) => "plan",
         };
         let outcome: Result<WireRunbookStepResult, String> = match s.step {
             WireRunbookStep::Tensors(r) => codec_research::list_tensors(&r)
@@ -255,6 +315,7 @@ async fn runbook_handler(
                     }
                 }
             },
+            WireRunbookStep::Plan(wp) => plan_runbook_step(&state, &wp, &label),
         };
 
         match outcome {

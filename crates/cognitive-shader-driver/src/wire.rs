@@ -200,6 +200,59 @@ pub struct WireProbeResponse {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Plan — delegate to lance-graph-planner (Layer 4 per INTEGRATION_PLAN_CS.md)
+//
+// Exposes the PlannerAwareness entry points (plan_auto, plan_full) through
+// the same Wire DTO surface. Behind `with-planner` feature; when disabled
+// the handler returns 503. Keeps the unified endpoint as the only REST
+// surface even as planning-layer capabilities land.
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WirePlanRequest {
+    pub query: String,
+    /// "auto" (no MUL) or "full" (MUL + compass + thinking orchestration).
+    #[serde(default = "default_plan_mode")]
+    pub mode: String,
+    /// Named strategies to use explicitly (overrides auto-selection).
+    /// Empty = auto.
+    #[serde(default)]
+    pub strategies: Vec<String>,
+    /// Optional situation input for plan_full (ignored when mode="auto").
+    #[serde(default)]
+    pub situation: Option<WireSituation>,
+}
+
+fn default_plan_mode() -> String { "auto".to_string() }
+
+/// Mirror of lance_graph_contract::mul::SituationInput for JSON transport.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct WireSituation {
+    #[serde(default = "half")]  pub felt_competence: f64,
+    #[serde(default = "half")]  pub demonstrated_competence: f64,
+    #[serde(default = "half")]  pub source_reliability: f64,
+    #[serde(default = "half")]  pub environment_stability: f64,
+    #[serde(default = "half")]  pub calibration_accuracy: f64,
+    #[serde(default = "half")]  pub complexity_ratio: f64,
+}
+
+fn half() -> f64 { 0.5 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WirePlanResponse {
+    pub mode: String,
+    pub strategies_used: Vec<String>,
+    pub free_will_modifier: f64,
+    pub compass_score: Option<f64>,
+    /// Populated when plan_full was invoked and MUL returned a decision.
+    pub mul_gate: Option<String>,
+    /// Populated when thinking orchestration was run.
+    pub thinking_style_name: Option<String>,
+    pub nars_type: Option<String>,
+    pub elapsed_ms: u64,
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Runbook — scheduled sequence of operations for REST/gRPC test injection
 //
 // One POST submits a list of steps; the server executes them in order and
@@ -221,6 +274,9 @@ pub enum WireRunbookStep {
     Probe(WireProbeRequest),
     Dispatch(WireDispatch),
     Ingest(WireIngest),
+    /// Planner delegation — plan_auto / plan_full via PlannerAwareness.
+    /// Requires shader-driver compiled with `--features with-planner`.
+    Plan(WirePlanRequest),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -252,6 +308,7 @@ pub enum WireRunbookStepResult {
     Probe { label: String, response: WireProbeResponse },
     Dispatch { label: String, response: WireCrystal },
     Ingest { label: String, ingested: u32, row_start: u32, row_end: u32, write_cursor: u32 },
+    Plan { label: String, response: WirePlanResponse },
     Error { label: String, step: String, error: String },
 }
 
@@ -506,6 +563,48 @@ mod tests {
         let wd: WireDispatch = serde_json::from_str(json).unwrap();
         let internal = wd.to_internal();
         matches!(internal.style, StyleSelector::Ordinal(1));
+    }
+
+    #[test]
+    fn wire_plan_request_defaults() {
+        let json = r#"{"query": "MATCH (n) RETURN n"}"#;
+        let p: WirePlanRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(p.query, "MATCH (n) RETURN n");
+        assert_eq!(p.mode, "auto");
+        assert!(p.strategies.is_empty());
+        assert!(p.situation.is_none());
+    }
+
+    #[test]
+    fn wire_plan_request_full_mode() {
+        let json = r#"{"query": "MATCH (n)-[:KNOWS]->(m)", "mode": "full",
+                       "strategies": ["cypher_parse", "dp_join"],
+                       "situation": {"felt_competence": 0.8}}"#;
+        let p: WirePlanRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(p.mode, "full");
+        assert_eq!(p.strategies.len(), 2);
+        assert_eq!(p.situation.as_ref().unwrap().felt_competence, 0.8);
+        // Other situation fields default to 0.5
+        assert_eq!(p.situation.as_ref().unwrap().source_reliability, 0.5);
+    }
+
+    #[test]
+    fn wire_runbook_accepts_plan_step() {
+        let json = r#"{
+          "label": "plan then calibrate",
+          "steps": [
+            {"label": "parse", "op": "Plan",
+             "args": {"query": "MATCH (n) RETURN n", "mode": "auto"}},
+            {"label": "calibrate", "op": "Calibrate",
+             "args": {"model_path": "/m.st", "tensor_name": "q_proj"}}
+          ]
+        }"#;
+        let rb: WireRunbookRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(rb.steps.len(), 2);
+        match &rb.steps[0].step {
+            WireRunbookStep::Plan(p) => assert_eq!(p.mode, "auto"),
+            _ => panic!("expected Plan step"),
+        }
     }
 
     #[test]

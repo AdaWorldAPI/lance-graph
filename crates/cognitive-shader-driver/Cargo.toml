@@ -34,6 +34,12 @@ ndarray               = { path = "../../../ndarray", default-features = false, f
 # the EmbedAnything "default = runtime only; heavy deps behind features" rule.
 thinking-engine = { path = "../thinking-engine", optional = true, default-features = false }
 
+# Optional: planner integration. Same EmbedAnything pattern — debug/serve
+# only. When enabled, /v1/shader/plan and the Plan runbook step route
+# through PlannerAwareness (lance-graph-planner). Without it, those DTOs
+# return a 503 at runtime.
+lance-graph-planner = { path = "../lance-graph-planner", optional = true }
+
 # Debug/serve: serde + axum + tonic for live testing (NEVER in production binary)
 serde = { version = "1", features = ["derive"], optional = true }
 serde_json = { version = "1", optional = true }
@@ -48,6 +54,7 @@ tonic-build = { version = "0.12", optional = true }
 [features]
 default = []
 with-engine = ["dep:thinking-engine"]
+with-planner = ["dep:lance-graph-planner"]
 serve = ["dep:serde", "dep:serde_json", "dep:axum", "dep:tokio"]
 grpc = ["dep:prost", "dep:tonic", "dep:tonic-build", "dep:tokio"]
 
