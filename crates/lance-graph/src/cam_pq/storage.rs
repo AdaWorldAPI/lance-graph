@@ -201,6 +201,29 @@ pub fn extract_codebook(batch: &RecordBatch, num_subspaces: usize) -> Vec<Vec<Ve
     codebook
 }
 
+/// Convert a trained codebook + encoded fingerprints into Arrow RecordBatches
+/// ready for Lance persistence.
+///
+/// This is the canonical bridge from ndarray's `CamCodebook` training output
+/// to the lance-graph storage layer. Use this instead of the raw CMPQ/CMFP
+/// binary format (`bgz-tensor/src/bin/cam_pq_calibrate.rs`).
+///
+/// Returns `(vectors_batch, codebook_batch)`.
+pub fn codebook_to_lance(
+    codebook: &[Vec<Vec<f32>>],
+    fingerprints: &[[u8; CAM_SIZE]],
+) -> Result<(RecordBatch, RecordBatch), arrow::error::ArrowError> {
+    let ids: Vec<i64> = (0..fingerprints.len() as i64).collect();
+    let vectors = build_cam_batch(&ids, fingerprints)?;
+    let subspace_dim = if codebook.is_empty() || codebook[0].is_empty() {
+        0
+    } else {
+        codebook[0][0].len()
+    };
+    let cb = build_codebook_batch(codebook, subspace_dim)?;
+    Ok((vectors, cb))
+}
+
 /// Storage statistics for a CAM-PQ dataset.
 #[derive(Debug, Clone)]
 pub struct CamStorageStats {

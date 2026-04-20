@@ -68,6 +68,12 @@ pub mod codec_research;
 #[cfg(feature = "with-planner")]
 pub mod planner_bridge;
 
+// OrchestrationBridge impl for codec research — owns StepDomain::Ndarray.
+// Dispatches nd.calibrate / nd.probe / nd.tensors through codec_research.
+// Complement to planner's LanceGraph bridge.
+#[cfg(any(feature = "serve", feature = "grpc"))]
+pub mod codec_bridge;
+
 pub use lance_graph_contract::cognitive_shader::{
     CognitiveShaderDriver, ColumnWindow, EmitMode, MetaFilter, MetaSummary, MetaWord,
     NullSink, RungLevel, ShaderBus, ShaderCrystal, ShaderDispatch, ShaderHit,

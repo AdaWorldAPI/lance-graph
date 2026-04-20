@@ -225,6 +225,27 @@ pub struct WirePlanRequest {
 
 fn default_plan_mode() -> String { "auto".to_string() }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Generic OrchestrationBridge routing — UnifiedStep as JSON
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireUnifiedStep {
+    pub step_id: String,
+    pub step_type: String,
+    #[serde(default)]
+    pub reasoning: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireStepResult {
+    pub step_id: String,
+    pub step_type: String,
+    pub status: String,
+    pub reasoning: Option<String>,
+    pub confidence: Option<f64>,
+}
+
 /// Mirror of lance_graph_contract::mul::SituationInput for JSON transport.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct WireSituation {
