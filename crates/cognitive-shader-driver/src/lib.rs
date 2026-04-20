@@ -125,6 +125,12 @@ pub mod auto_detect;
 #[cfg(feature = "serve")]
 pub mod codec_kernel_cache;
 
+// D1.2 — rotation primitives (Identity / Hadamard / OPQ-stub). LAB-ONLY.
+// Hadamard is real (in-place butterfly); OPQ is stub pending D1.1b's
+// ndarray::hpc::jitson_cranelift::JitEngine adapter + matrix-blob loader.
+#[cfg(feature = "serve")]
+pub mod rotation_kernel;
+
 // Axum REST server. LAB-ONLY.
 #[cfg(feature = "serve")]
 pub mod serve;

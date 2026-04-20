@@ -63,7 +63,7 @@ afterwards is a JIT kernel, not a rebuild. Plan path:
 |---|---|---|---|
 | D1.1 | `CodecKernelCache` — structural cache layer (generic over handle) | **In PR** | branch — `CodecKernelCache<H>` + `StubKernel` + `get_or_compile` / `try_get_or_compile` with RwLock concurrent-safe double-check + compile/hit/ratio counters + 9 tests. Scaffold ships NOW; D1.1b Cranelift IR emission follows. |
 | D1.1b | Adapter: `CodecKernelEngine` wrapping `ndarray::hpc::jitson_cranelift::JitEngine` with two-phase BUILD/RUN lifecycle (Arc-freeze). CodecParams → CodecScanParams adapter + codec-specific IR emission in jitson_cranelift/scan_jit analog | **Queued** | target ~250 LOC; `JitEngine` already ships (`/home/user/ndarray/src/hpc/jitson_cranelift/engine.rs`); the work is the CodecParams adapter + codec-specific JITSON template |
-| D1.2 | Rotation primitives: Identity / Hadamard / OPQ as JIT kernels | **Queued** | target ~190 LOC |
+| D1.2 | Rotation primitives: Identity / Hadamard / OPQ as `RotationKernel` impls | **In PR** | branch — `RotationKernel` trait (Send+Sync+Debug, object-safe) + `IdentityRotation` (no-op) + `HadamardRotation` (real Sylvester butterfly, O(N log N) in-place, norm²-scaling verified) + `OpqRotationStub` (matrix-blob-id placeholder for D1.1b) + `build(&Rotation, dim)` factory + `RotationError` typed errors + 15 tests. Hadamard stays at Tier-3 F32x16 (add/sub, not matmul → no AMX benefit per Rule C). |
 | D1.3 | Residual PQ via JIT composition | **Queued** | target ~150 LOC |
 
 ### Phase 2 — Token-agreement harness (I11 cert gate) — Queued
