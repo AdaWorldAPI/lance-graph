@@ -863,3 +863,248 @@ a clean verification step.
   lattice quantization, residual vector quantization, neural
   codecs — any codec where decoding is parameterised by a small
   struct fits the sweep driver unchanged.
+
+---
+
+## Appendix A — Starter YAML configs (one per #220 fix + controls)
+
+These are the concrete inputs Phase 0 consumes once the Wire
+surface is hardened. Living at `configs/codec/*.yaml`; new
+candidates are YAML edits, not Rust changes (Rule D). Each
+explicitly names its `lane_width` per Rule E so the JIT compiles
+the right SIMD tier.
+
+### `configs/codec/00_baseline_passthrough.yaml` — regression anchor
+
+The null codec: no compression, no rotation. Token-agreement vs
+itself must be 1.0 exactly — any drift means the harness is
+non-deterministic.
+
+```yaml
+name: baseline_passthrough
+codec: passthrough
+lane_width: F32x16
+calibration_rows: 0
+seed: 42
+notes: |
+  Token-agreement gate self-test. top1_rate must be 1.000 exactly.
+```
+
+### `configs/codec/01_pr220_baseline.yaml` — negative control
+
+Reproduces PR #220's measured result (reconstruction ICC ≈ 0.195,
+0/234 tensors ≥ 0.99) so the sweep pipeline demonstrably doesn't
+silently "fix" prior measurements. If this config produces any
+number other than ≈ 0.195, the pipeline is broken, not the codec.
+
+```yaml
+name: pr220_baseline
+codec: cam_pq
+subspaces: 6
+centroids: 256
+residual_depth: 0
+lane_width: F32x16
+pre_rotation:
+  kind: identity
+distance: adc
+calibration_rows: 2048   # held-out, NOT training rows
+seed: 42
+notes: |
+  Reproduces PR #220 D5 full-size validation. Expected: mean
+  reconstruction ICC ≈ 0.195 across Qwen3-TTS-0.6B argmax tensors.
+  If > 0.2 or < 0.17, the pipeline is broken.
+```
+
+### `configs/codec/02_pr219_overfit_reproducer.yaml` — negative control
+
+Reproduces PR #219's trained-and-tested-on-same-128-rows artifact
+(ICC 0.9998). Sweep-report must flag this as "training-set fit,
+not generalising" via a split-test gate that refuses to report ICC
+unless `calibration_rows != measurement_rows`.
+
+```yaml
+name: pr219_overfit_reproducer
+codec: cam_pq
+subspaces: 6
+centroids: 256
+residual_depth: 0
+lane_width: F32x16
+pre_rotation:
+  kind: identity
+distance: adc
+calibration_rows: 128
+measurement_rows: 128           # SAME rows → split-test must FAIL
+overfit_probe: true             # flag for the pipeline
+seed: 42
+notes: |
+  Reproduces PR #219 D1 128-row benchmark. Expected: ICC ≈ 0.9998
+  on the 128-row fit (meaningless) + split-test FAILS (since
+  calibration_rows == measurement_rows). Demonstrates the pipeline
+  refuses to report ICC on overlapping training/measurement sets.
+```
+
+### `configs/codec/10_fix_a_wider_codebook.yaml` — #220 fix (a)
+
+1024 centroids per subspace (10-bit palette index, 7.5 B/row).
+Tier-1 AMX helps: bigger distance-table build benefits most from
+`tile_dpbf16ps`.
+
+```yaml
+name: fix_a_wider_codebook_1024
+codec: cam_pq
+subspaces: 6
+centroids: 1024          # was 256
+residual_depth: 0
+lane_width: F32x16
+pre_rotation:
+  kind: identity
+distance: adc
+calibration_rows: 2048
+seed: 42
+notes: |
+  PR #220 (a): wider codebook. Expected: reconstruction ICC rises
+  meaningfully vs 01_pr220_baseline; token-agreement the open
+  question this sweep exists to answer.
+```
+
+### `configs/codec/11_fix_b_residual_pq.yaml` — #220 fix (b)
+
+Residual PQ with one refinement pass. First-pass decode uses
+256 centroids; residual encoded with a second 256-centroid pass.
+
+```yaml
+name: fix_b_residual_pq_depth1
+codec: cam_pq
+subspaces: 6
+centroids: 256
+residual_depth: 1        # second pass over the residual
+residual_centroids: 256
+lane_width: F32x16
+pre_rotation:
+  kind: identity
+distance: adc
+calibration_rows: 2048
+seed: 42
+notes: |
+  PR #220 (b): residual PQ. JIT composes two decode kernels per
+  Rule A (array_windows stage 1 → subtract → stage 2 → add).
+  Total bytes: 2 × 6 × (log2 256)/8 = 1.5 B/row — compact.
+```
+
+### `configs/codec/12_fix_c_hadamard_rotation.yaml` — #220 fix (c)
+
+Hadamard pre-rotation decorrelates subspaces before PQ. The
+rotation is add/sub butterfly — stays on Tier-3 F32x16 (AVX-512
+already fast enough; AMX adds no value for pure add/sub).
+
+```yaml
+name: fix_c_hadamard_pre_rotation
+codec: cam_pq
+subspaces: 6
+centroids: 256
+residual_depth: 0
+lane_width: F32x16
+pre_rotation:
+  kind: hadamard
+  dim: 4096              # must be 2^k for Sylvester construction
+distance: adc
+calibration_rows: 2048
+seed: 42
+notes: |
+  PR #220 (c): Hadamard pre-rotation. Rotation is F32x16 butterfly
+  (Tier 3); decode remains centroids=256. Tests whether
+  decorrelating subspaces closes the 0.195 → 0.99 gap alone.
+```
+
+### `configs/codec/13_fix_d_opq_rotation.yaml` — #220 fix (d)
+
+OPQ learned rotation. Matrix trained offline, stored as a Lance
+blob referenced by `matrix_blob_id`. Applied as matmul → Tier-1
+AMX is the dominant speedup path (~44 μs vs ~400 μs F32x16 per
+cycle on Sapphire Rapids per `simd_amx.rs`).
+
+```yaml
+name: fix_d_opq_rotation
+codec: cam_pq
+subspaces: 6
+centroids: 256
+residual_depth: 0
+lane_width: BF16x32      # bf16 is the natural AMX tile format
+pre_rotation:
+  kind: opq
+  matrix_blob_id: 0xDEADBEEF     # trained in a separate PR; blob points to weights
+  dim: 4096
+distance: adc
+calibration_rows: 2048
+seed: 42
+notes: |
+  PR #220 (d): OPQ learned rotation. Matrix baked offline;
+  applied as tile_dpbf16ps matmul when amx_available(). This is
+  the config where the AMX polyfill pays off most.
+```
+
+### `configs/codec/20_composite_a_plus_b.yaml` — combined fixes
+
+Wider codebook + residual PQ together. If either (a) or (b) alone
+fails the token-agreement gate but their composition passes, the
+sweep has found the combinatorial lift the #220 author list
+implicitly hopes for.
+
+```yaml
+name: composite_wider_plus_residual
+codec: cam_pq
+subspaces: 6
+centroids: 1024          # from (a)
+residual_depth: 1        # from (b)
+residual_centroids: 1024 # wider residual too
+lane_width: F32x16
+pre_rotation:
+  kind: identity
+distance: adc
+calibration_rows: 2048
+seed: 42
+notes: |
+  Composition test. If this passes and (a), (b) individually fail,
+  the fix is synergistic — report prominently in D4 frontier.
+```
+
+### `configs/codec/30_cross_product_sweep.yaml` — the actual grid
+
+The sweep driver (D3.1) consumes a single `SweepGrid` YAML that
+enumerates the cross product explicitly. Phase 0 commits this
+file so the first sweep has a known input.
+
+```yaml
+name: phase1_initial_cross_product
+tensor_path: models/qwen3-tts-0.6b/q_proj.safetensors
+grid:
+  subspaces: [6]
+  centroids: [256, 512, 1024]
+  residual_depths: [0, 1, 2]
+  rotations:
+    - { kind: identity }
+    - { kind: hadamard, dim: 4096 }
+    - { kind: opq, matrix_blob_id: 0xDEADBEEF, dim: 4096 }
+  distances: [adc]
+  lane_widths: [F32x16, BF16x32]    # F32x16 for standard, BF16x32 for AMX path
+measure:
+  - reconstruction_error_held_out
+  - reconstruction_icc_held_out
+  - token_agreement_top1
+  - token_agreement_top5
+  - per_layer_mse
+log_to_lance: logs/sweep_phase1.lance
+notes: |
+  Phase 1 initial grid: 1 × 3 × 3 × 3 × 1 × 2 = 54 candidates.
+  Expected JIT compile time: 54 × ~15 ms = ~800 ms total (one-time).
+  Expected token-agreement runtime: 54 × N_prompts × T_decode.
+```
+
+**Operating principle for this appendix:** adding a new codec
+candidate is authoring a YAML file in this directory. Changing
+parameters is editing the YAML. The Rust code in
+`cognitive-shader-driver` reads the YAML once at ingress (Rule
+F); everything after is in-memory `CodecParams` objects, JIT
+kernel cache hits, SoA column sweeps, and SIMD lane ops — none
+of which touch serialisation again until the sweep logger
+appends the result row to Lance (the one allowed egress).
