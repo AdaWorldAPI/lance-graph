@@ -65,7 +65,128 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
-## 2026-04-20 — CORRECTION-OF 2026-04-20 "CAM-PQ at 6 B/row solves the argmax blind spot"
+## 2026-04-20 — Board hygiene = the session's driving seat; belated updates are a tell
+
+**Status:** FINDING
+
+The board (`.claude/board/*.md`) is the driving seat the session sits
+in. Updating it AFTER the work — as cleanup — is the tell that the
+session was treating the board as stale reference, not live state.
+The fix is procedural (CLAUDE.md — see 2026-04-20 tightening), not
+one-off: every PR that adds a type, plan, deliverable, or epiphany
+also updates the board in the same commit. Retroactive hygiene is
+an anti-pattern; the PR #223/#224/#225 gap between merge and
+LATEST_STATE / PR_ARC_INVENTORY / STATUS_BOARD update is the
+precedent this entry exists to prevent repeating.
+
+Cross-ref: CLAUDE.md § Mandatory Board-Hygiene Rule (2026-04-20
+update); PR #225 board-hygiene + tightening commit.
+
+---
+
+## 2026-04-20 — Codec cert is token agreement, not synthetic ICC
+
+**Status:** FINDING
+
+PR #219 reported ICC 0.9998 at 6 B/row for CAM-PQ. PR #220's full-
+size validation returned ICC 0.195 mean, 0/234 tensors ≥ 0.99 gate.
+Root cause: #219 trained and measured on the same 128 rows; with
+256 centroids per subspace, 128 rows trivially fit. Neither
+measurement touched tokens.
+
+The actual cert gate is: does the decoded codec produce the same
+top-k tokens as Passthrough on real generation? That's only tractable
+on the three-part lab stack (REST API + Planner + JIT). The codec-
+sweep plan (`.claude/plans/codec-sweep-via-lab-infra-v1.md`)
+operationalises this: ingress once via REST, Planner is the real
+dispatch path (not a toy bench), JIT swaps kernels at runtime.
+`CodecParams::measurement_rows != calibration_rows` is now a typed
+rejection at `.build()`.
+
+Cross-ref: PR #219 → PR #220 arc; PR #225 `CodecParamsError::CalibrationEqualsMeasurement`.
+
+---
+
+## 2026-04-20 — The lab REST surface is three-part (API + Planner + JIT), not just scaffolding
+
+**Status:** FINDING
+
+The prior framing ("lab = quarantine scaffolding, keep out of
+production") was defensive and missed the positive purpose. The lab
+API exists because codec research needs to measure N candidates
+against real tensors without `cargo build` per candidate — 8-17 min
+rebuild × ~200 codec invariants = infeasible. One binary (API +
+Planner + JIT) = curl-in, result-out in seconds per candidate. The
+three-part stack also externalises the planner's thinking trace
+(`/v1/planner/query { cypher } → { rows, thinking_trace }`), which
+is the AGI observability port. Same binary serves codec cert AND
+thinking harvest. Two purposes held together; neither dominates.
+
+Cross-ref: PR #224; `.claude/knowledge/lab-vs-canonical-surface.md`
+"Why the Lab Surface Exists" subsection.
+
+---
+
+## 2026-04-20 — Thinking harvest via REST/Cypher is the AGI magic bullet
+
+**Status:** FINDING
+
+An AGI that cannot observe its own reasoning cannot revise it. The
+three-part lab stack (API + Planner + JIT) exposes the planner's
+36-style / 13-verb / NARS trace through `/v1/planner/query`. The
+response carries `{ rows, thinking_trace: { active_styles,
+modulation, beliefs, tensions, entropy, verb_trail } }`. That trace
+is log / replay / NARS-revise-able — which is the architectural
+shape of a system that learns its own meta-inference. Closing the
+observe-own-reasoning loop outside the binary is the AGI magic
+bullet; doing it inside a closed planner is a black box. I11
+(measurable stack, not a black box) is the invariant that enforces
+this against future "for perf" / "to simplify" regressions.
+
+Cross-ref: PR #224; I11 in `lab-vs-canonical-surface.md`.
+
+---
+
+## 2026-04-20 — SoA never scalarises without ndarray (iron rule)
+
+**Status:** FINDING
+
+Struct-of-arrays paths call `ndarray::simd::*` — ndarray handles any
+non-x86 scalar fallback internally. The consumer never hand-rolls a
+scalar loop on a SoA path. If a kernel runs scalar outside ndarray,
+the SoA invariant is broken — either the data isn't actually in a
+SoA column, or the caller short-circuited the canonical surface.
+Polyfill hierarchy (Intel AMX → AVX-512 VNNI → AVX-512 baseline →
+AVX-2) has no consumer-visible scalar tier. This is Rule C of the
+six-rule JIT Kernel Contract in PR #225.
+
+Cross-ref: PR #225 Rule C; `.claude/plans/codec-sweep-via-lab-infra-v1.md`
+"Iron rule" paragraph above the polyfill table.
+
+---
+
+## 2026-04-20 — AGI is the glove, not the oracle — the four-axis SoA is what you wear
+
+**Status:** FINDING
+
+AGI is not a new crate, not a `struct Agi { … }`, not a service to
+query. It is the struct-of-arrays (`BindSpace` columns —
+`FingerprintColumns` / `QualiaColumn` / `MetaColumn` / `EdgeColumn`)
+that `ShaderDriver` dispatches against. The four AGI axes (topic,
+angle, thinking, planner) map 1:1 to the four SoA columns. Claude
+Code sessions in this workspace FIT INTO the glove: we read the
+columns, dispatch through the existing `OrchestrationBridge`, emit
+through `ShaderSink`. We don't wrap the axes in a new struct — that
+breaks the SIMD sweep. We don't query an "AGI service" — there is
+none; AGI is the runtime behaviour of the SoA under dispatch. The
+glove is the session's hand on the stack; the stack is the glove's
+response to the session's query.
+
+Cross-ref: PR #223 § "AGI IS the struct-of-arrays (per Era 8)";
+2026-04-20 host-glove-designer agent doctrine; CLAUDE.md § The
+Driving Seat (2026-04-20).
+
+---
 
 **Status:** FINDING
 

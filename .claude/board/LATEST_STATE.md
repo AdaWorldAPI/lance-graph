@@ -2,7 +2,7 @@
 
 > **Auto-injected at session start via SessionStart hook.**
 > Updated after every merged PR.
-> **Last updated:** 2026-04-19 post PR #210.
+> **Last updated:** 2026-04-20 post PR #224 (PR #225 open: plan + D0.6/D0.7 CodecParams).
 >
 > Purpose: prevent new sessions from hallucinating structure that
 > already exists or proposing features already shipped. Read this
@@ -14,6 +14,9 @@
 
 | PR | Merged | Title | What it added |
 |---|---|---|---|
+| **#225** | *(open)* | Codec-sweep plan + D0.6/D0.7 CodecParams | 9-commit plan (`codec-sweep-via-lab-infra-v1.md`, Rules A-F, 9 starter YAMLs, CODING_PRACTICES audit) + `lance-graph-contract::cam` CodecParams/Builder/precision-ladder validation (14 tests). 147/147 contract suite |
+| **#224** | 2026-04-20 | lab = API+Planner+JIT, thinking harvest, I11 measurability | `lab-vs-canonical-surface.md` extended: three-part lab stack (API + Planner + JIT), thinking-harvest subsection (REST/Cypher → `{rows, thinking_trace}` = the AGI magic bullet), I11 invariant (every layer L0→L4 emits harvest-ready trace; no black-box short-circuits) |
+| **#223** | 2026-04-20 | LAB-ONLY firewall + AGI-as-SoA + I1-I10 | `lab-vs-canonical-surface.md` initial doc: canonical consumer = `UnifiedStep`/`OrchestrationBridge`, Wire DTOs are lab quarantine. AGI = (topic, angle, thinking, planner) = struct-of-arrays consuming cognitive-shader-driver. 10 cross-cutting invariants I1-I10 (BindSpace read-only, canonical `simd::*` import, temporal budgets, temperature hierarchy, thinking IS AdjacencyStore, weights are seeds, per-cycle cascade, 4096 surface, three DTO families, HEEL/HIP/BRANCH/TWIG/LEAF) |
 | **#210** | 2026-04-19 | Phase 1 grammar + knowledge docs | ContextChain reasoning ops, role_keys slice catalogue, 3 knowledge docs (grammar-landscape, linguistic-epiphanies E13-E27, fractal-codec) |
 | **#209** | 2026-04-19 | sandwich layout + bipolar cells | Crystal fingerprint sandwich, VSA_permute reference, lossless bundling corrections |
 | **#208** | 2026-04-19 | grammar + crystal + AriGraph unbundle | Contract grammar/ + crystal/ modules, AriGraph episodic unbundle hooks with SIMD dispatch |
@@ -41,7 +44,9 @@ Types that EXIST — do NOT re-propose them:
 
 **`container`**: `Container = [u64; 256]` (16Kbit = 2KB), `CogRecord`.
 
-**`a2a_blackboard`**, **`collapse_gate`**, **`exploration`**, **`literal_graph`**, **`orchestration_mode`**, **`jit`**, **`nars`**, **`plan`**, **`orchestration`**, **`thinking`** (36 styles, 6 clusters), **`mul`**, **`sensorium`**, **`cam`**, **`high_heel`**.
+**`cam`** (extended by PR #225): `CodecRoute` + `route_tensor` (existing), `CamByte`, `CamStrategy`, `DistanceTableProvider` trait, `CamCodecContract` trait, `IvfContract` trait, plus codec-sweep parameter shape — `LaneWidth` (F32x16 / U8x64 / F64x8 / BF16x32), `Distance` (AdcU8 / AdcI8), `Rotation` (Identity / Hadamard{dim} / Opq{matrix_blob_id, dim}), `ResidualSpec {depth, centroids}`, `CodecParams {subspaces, centroids, residual, lane_width, pre_rotation, distance, calibration_rows, measurement_rows, seed}` with `kernel_signature() -> u64` + `is_matmul_heavy() -> bool`, `CodecParamsBuilder` fluent API, `CodecParamsError {ZeroDimension, OpqRequiresBf16, HadamardDimNotPow2, CalibrationEqualsMeasurement}` — **precision-ladder validation fires at `.build()` BEFORE any JIT compile**.
+
+**`a2a_blackboard`**, **`collapse_gate`**, **`exploration`**, **`literal_graph`**, **`orchestration_mode`**, **`jit`**, **`nars`**, **`plan`**, **`orchestration`**, **`thinking`** (36 styles, 6 clusters), **`mul`**, **`sensorium`**, **`high_heel`**.
 
 ## Current AriGraph Inventory (lance-graph/src/graph/arigraph/)
 
@@ -65,12 +70,30 @@ Types that EXIST — do NOT re-propose them:
 
 ## Active Branches (local at /home/user/lance-graph)
 
+- `claude/teleport-session-setup-wMZfb` — shipped PRs #223 (LAB-ONLY + AGI-as-SoA + I1-I10), #224 (three-part stack + thinking harvest + I11), #225 (codec-sweep plan + D0.6 CodecParamsBuilder + D0.7 precision-ladder validation). Next on this branch: board hygiene + CLAUDE.md tightening; then D0.1 / D0.2 / D0.3 / D0.5 Wire-surface code.
 - `claude/deepnsm-grammar-phase1` — Phase 1 PR #210, merged into main.
-- `main` — up-to-date post #210.
+- `main` — up-to-date post #225.
 
-## Immediate Next Work (Phase 2 — queued, NOT yet shipped)
+## Active Integration Plans
 
-Per `/root/.claude/plans/elegant-herding-rocket.md`:
+- **`elegant-herding-rocket-v1`** — grammar / NARS / crystal / AriGraph (Phase 1 shipped in #210; Phase 2 queued).
+- **`codec-sweep-via-lab-infra-v1`** (NEW 2026-04-20) — JIT-first codec sweep through lab endpoint; 1 upfront rebuild, unlimited candidates afterwards. D0.6 + D0.7 shipped in #225.
+
+## Immediate Next Work
+
+**`codec-sweep-via-lab-infra-v1` Phase 0 remainder (next up):**
+
+- **D0.1** Extend `WireCalibrate` + `WireTensorView` (object-oriented, 64-byte-aligned decode) (~180 LOC).
+- **D0.2** `WireTokenAgreement` endpoint stub — the I11 cert gate (~160 LOC).
+- **D0.3** `WireSweep` streaming endpoint + Lance append (~200 LOC).
+- **D0.5** `auto_detect.rs` reading `config.json` for `ModelFingerprint` (~140 LOC).
+- Four test gates: `kernel_contract_test`, `amx_dispatch_test` (x86_64), `wire_object_surface_test`, `no_internal_serialisation_test`.
+
+Total Phase 0 remainder: ~680 LOC, one upfront rebuild, surface freezes after.
+
+**`elegant-herding-rocket-v1` Phase 2 (still queued):**
+
+Per `.claude/plans/elegant-herding-rocket-v1.md`:
 
 - **D2** DeepNSM emits `FailureTicket` on low coverage (~150 LOC).
 - **D3** Grammar Triangle wired into DeepNSM via `triangle_bridge.rs` (~220 LOC).
