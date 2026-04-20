@@ -56,6 +56,10 @@ axum = { version = "0.8", optional = true }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"], optional = true }
 prost = { version = "0.13", optional = true }
 tonic = { version = "0.12", optional = true }
+# D0.1 — base64 decode for WireTensorView.bytes_base64 (Rule F: once, at ingress).
+base64 = { version = "0.22", optional = true }
+# D0.1 — bytemuck for the 64-byte-aligned decode target consumed by F32x16::from_slice.
+bytemuck = { version = "1", optional = true, features = ["derive"] }
 
 [build-dependencies]
 tonic-build = { version = "0.12", optional = true }
@@ -64,7 +68,7 @@ tonic-build = { version = "0.12", optional = true }
 default = []
 with-engine = ["dep:thinking-engine"]
 with-planner = ["dep:lance-graph-planner"]
-serve = ["dep:serde", "dep:serde_json", "dep:axum", "dep:tokio"]
+serve = ["dep:serde", "dep:serde_json", "dep:axum", "dep:tokio", "dep:base64", "dep:bytemuck"]
 grpc = ["dep:prost", "dep:tonic", "dep:tonic-build", "dep:tokio"]
 
 # `lab` — umbrella switch for the single shader-lab binary. Enables every

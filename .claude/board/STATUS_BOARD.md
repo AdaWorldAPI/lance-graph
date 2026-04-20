@@ -43,7 +43,7 @@ afterwards is a JIT kernel, not a rebuild. Plan path:
 
 | D-id | Title | Status | PR / Evidence |
 |---|---|---|---|
-| D0.1 | Extend `WireCalibrate` + `WireTensorView` (64-byte-aligned decode, object-oriented methods) | **Queued** | target ~180 LOC |
+| D0.1 | Extend `WireCalibrate` + `WireTensorView` (64-byte-aligned decode, object-oriented methods) | **In PR** | branch `claude/teleport-session-setup-wMZfb` — +360 LOC (serde mirrors for CodecParams/LaneWidth/Distance/Rotation/ResidualSpec + TryFrom conversions + `WireTensorView` with `AlignedBytes` 64-byte-aligned decode + `row()` / `subspace()` / `lanes_f32x16()` methods + 8 tests; response extended with `kernel_hash` / `compile_time_us` / `backend` fields). 55/55 cognitive-shader-driver tests pass under `--features serve`. |
 | D0.2 | `WireTokenAgreement` endpoint stub — I11 cert gate | **Queued** | target ~160 LOC |
 | D0.3 | `WireSweep` streaming endpoint + Lance append stub | **Queued** | target ~200 LOC |
 | D0.4 | Surface freeze (commit + rebuild) | **Queued** | gates D0.1–D0.3 + D0.5–D0.7 |
