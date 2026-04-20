@@ -138,65 +138,169 @@ holds the shader-lab process; no per-candidate curl spin-up.
 Every JIT-emitted kernel in this plan obeys four hard rules. Any
 kernel that violates one is rejected.
 
-### Rule A — Tensor access via `array_window` only
+### Rule A — Tensor access via stdlib `slice::array_windows::<N>()` + `ndarray::simd::*` loaders
 
-No kernel writes manual index math, no kernel reaches into a
-column's backing storage by raw pointer, no kernel recomputes
-slice offsets. Every read is:
+Per `ndarray/.claude/rules/data-flow.md` Pattern 1: SIMD reads are
+zero-copy `&[u8]` borrows from the backing store (PackedDatabase
+/ Arrow buffer / BindSpace column). Fixed-size windowing uses
+the **stdlib** const-generic primitive `slice::array_windows::<N>()`
+(stable since Rust 1.77), which yields `&[T; N]` tuples with
+bounds handled by the compiler. No manual index math, no raw
+pointer reach, no per-kernel slicing arithmetic.
 
 ```rust
-use ndarray::simd::{array_window, F32x16, U8x64, F16x32};
+use ndarray::simd::F32x16;
 
-// Windowed read, lane-aligned, SIMD-ready:
-let window = array_window(tensor, row_start, row_count);
-for lane in window.lanes::<F32x16>() { … }
+let row_bytes: &[u8] = column.row_slice(row_idx);        // zero-copy borrow, 64-byte aligned
+
+// Stdlib array_windows (const generic, stable 1.77) — one F32x16 lane per window:
+for w in row_bytes.array_windows::<64>() {
+    // w: &[u8; 64] — bounds guaranteed by the type
+    let lane = F32x16::from_slice(bytemuck::cast_slice(w));
+    // …SIMD accumulate via ndarray::simd::* ops…
+}
+
+// For non-overlapping subspace reads use slice::array_chunks::<N>() (stable 1.88):
+for chunk in row_bytes.array_chunks::<SUBSPACE_BYTES>() {
+    // chunk: &[u8; SUBSPACE_BYTES]
+    …
+}
 ```
 
-`array_window` handles stride, alignment, bounds, and lane
-padding uniformly. Deviations mean the kernel is re-implementing
-what the canonical surface already did correctly.
+Why `array_windows` specifically: the const-generic type
+guarantees each window has exactly the lane width the SIMD type
+expects, so `from_slice` on it never panics and LLVM can elide
+the bounds check. Hand-rolled windowing is rejected.
 
-### Rule B — SIMD exclusively via `ndarray::simd::*`
+**SoA source of the `&[u8]` slice.** The row bytes come from a
+`BindSpace` column — `FingerprintColumns`, `QualiaColumn`,
+`MetaColumn`, or `EdgeColumn` per the struct-of-arrays identity in
+`lab-vs-canonical-surface.md`. The codec JIT reads from the same
+columns the shader sweeps:
 
 ```rust
-// Correct:
-use ndarray::simd::{simd_caps, F32x16, U8x64, F16x32, MultiLaneColumn};
+use cognitive_shader_driver::{BindSpace, FingerprintColumns};
+
+let fp_col: &FingerprintColumns = bindspace.fingerprints();
+let row_bytes: &[u8] = fp_col.row_bytes(row_idx);   // zero-copy into SoA column
+for w in row_bytes.array_windows::<64>() { /* …SIMD accumulate… */ }
+```
+
+No new data structures. The SoA column IS the input surface.
+
+### Rule B — SIMD exclusively via `ndarray::simd::*` and its AMX sibling modules
+
+All primitives already exist in ndarray. The codec JIT consumes
+them as-is; **no ndarray changes**:
+
+```rust
+// Canonical lane types (ndarray::simd re-exports):
+use ndarray::simd::{F32x16, U8x64, Fingerprint, hamming_distance_raw, popcount_raw};
+
+// AMX + VNNI (sibling top-level module, canonical AMX surface):
+use ndarray::simd_amx::{amx_available, vnni_dot_u8_i8, vnni_matvec, matvec_dispatch};
+
+// AMX tile primitives (inline-asm stable path; Rust-lang #126622 keeps
+// intrinsics nightly, so ndarray ships stable inline asm):
+use ndarray::hpc::amx_matmul::{
+    tile_loadconfig, tile_zero, tile_load, tile_store, tile_release,
+    tile_dpbusd, tile_dpbf16ps, vnni_pack_bf16,
+};
+
+// Runtime caps (at hpc::simd_caps — use the existing path, do not propose
+// a re-export; "don't touch ndarray"):
+use ndarray::hpc::simd_caps::{simd_caps, SimdCaps};
 
 // Wrong (violates I2):
-use ndarray::hpc::simd_avx512::F32x16;        // rejected
-use std::arch::x86_64::_mm512_loadu_ps;        // rejected
+use ndarray::hpc::simd_avx512::F32x16;        // private backend reach
+use std::arch::x86_64::_mm512_loadu_ps;        // hand-rolled intrinsic
 ```
 
-No `std::arch::*`, no `ndarray::hpc::*`, no hand-rolled intrinsics.
-If a primitive is missing from `ndarray::simd::*`, the plan to
-add it lands in **ndarray** first; the codec JIT never bypasses
-the canonical surface to chase a fast path.
+Everything the sweep needs is already in ndarray. This plan wires
+the existing surface into the lab infra (REST handlers +
+`CodecKernelCache` + `CodecResearchBridge`); it adds nothing to
+ndarray.
 
-### Rule C — SIMD backend dispatch via `simd_caps()` (AMX-ready)
+### Rule C — Polyfill hierarchy: Intel AMX → AVX-512 VNNI → AVX-512 baseline → AVX-2 → scalar
 
-`ndarray::simd::simd_caps()` returns the singleton capability
-vector at process start. The JIT emits generic IR; the underlying
-`ndarray::simd::*` primitives resolve to the concrete backend:
+The SIMD tier each JIT-emitted kernel lands on follows this
+strict polyfill chain — tier 1 is tried first, each tier falls
+through to the next when unavailable:
 
-| Platform | Backend resolved |
-|---|---|
-| `x86_64` + AVX-512 | AVX-512 zmm registers |
-| `x86_64` + AVX-2 | AVX-2 ymm registers |
-| `aarch64-linux` | NEON |
-| **`aarch64-apple-darwin` + AMX** | **Apple AMX tiles** (matmul, rotation, Hadamard butterfly) |
-| `aarch64-apple-darwin` without AMX | NEON |
-| anything else | scalar fallback |
+| Tier | Primitive | Source | When available | MACs / instr |
+|---|---|---|---|---|
+| **1 — Intel AMX tiles** (preferred for matmul-heavy paths: OPQ, distance-table build) | `tile_dpbusd` (u8×i8→i32) / `tile_dpbf16ps` (bf16×bf16→f32) | `ndarray::hpc::amx_matmul::*` | `ndarray::simd_amx::amx_available() == true` (Sapphire Rapids+, OS has enabled XCR0 tile bits 17/18, Linux `prctl(ARCH_REQ_XCOMP_PERM, XFEATURE_XTILEDATA)` succeeded) | **256** |
+| 2 — AVX-512 VNNI | `vnni_dot_u8_i8`, `vnni_matvec`, `matvec_dispatch` | `ndarray::simd_amx::*` (VNNI lives one tier down from AMX, stable intrinsics) | AVX-512 VNNI subset | 64 |
+| 3 — AVX-512 baseline | `F32x16`, `U8x64`, `F64x8` | `ndarray::simd::*` (mandatory default: ndarray's `.cargo/config.toml` sets `target-cpu=x86-64-v4`) | Always on canonical build targets | 16 |
+| 4 — AVX-2 fallback | `F32x8`, `F64x4` | `ndarray::simd::*` (cfg-gated; triggers when build drops to `x86-64-v3`) | Compile-time cfg | 8 |
+| 5 — Scalar | pure Rust loops | `ndarray::simd::scalar::*` | non-x86 / short slices / correctness reference | 1 |
 
-Rotation kernels (D1.2) and distance-table lookups (D1.1) map to
-AMX tile operations when `simd_caps().has_amx()` on Apple silicon
-— that's the matmul-heavy path that most wants AMX. The JIT does
-not emit AMX intrinsics directly; it calls
-`ndarray::simd::matmul_tiled` (or its rotation / butterfly
-equivalents), which internally dispatch to AMX when present.
+**Dispatch shape the JIT emits (real primitive names only):**
 
-If `ndarray::simd` lacks an AMX-backed primitive the kernel
-needs, the fix is to add it in ndarray, not to emit raw AMX from
-the codec JIT.
+```rust
+use ndarray::simd_amx::amx_available;
+use ndarray::hpc::amx_matmul::{tile_dpbusd, tile_dpbf16ps};
+use ndarray::simd::F32x16;
+
+if amx_available() && kernel_params.is_matmul_heavy() {
+    // Tier 1: Intel AMX tile matmul. Codebook distance-table build
+    // drops from 24-48h (scalar/VNNI) to ~1:20h at this tier per
+    // simd_amx.rs top-of-module measurement.
+    unsafe { tile_dpbf16ps(); }    // or tile_dpbusd for u8×i8 accumulators
+} else {
+    // Tiers 2-5: target-cpu=x86-64-v4 keeps Tier 3 as the always-
+    // available floor; cfg resolves the specific lane type.
+    let lane = F32x16::from_slice(…);
+    /* …accumulate… */
+}
+```
+
+**Why Tier 1 matters for this sweep specifically.** The plan
+exercises ~200 codec candidates across (centroids × subspaces
+× residual depth × rotation × distance). On Sapphire Rapids
+hardware, AMX drops codebook distance-table build from 24-48 h
+to ~1 h 20 min (measured; cited in `simd_amx.rs` header). For
+the four #220 fixes in particular:
+
+- (a) **wider codebook (1024+ centroids)** — bigger distance
+  table, so AMX matters more.
+- (b) **residual PQ** — two distance-table lookups per row, AMX
+  helps both.
+- (c) **Hadamard pre-rotation** — add/sub butterfly, NOT matmul:
+  stays at Tier 3 F32x16 (already fast; AMX adds no value here).
+- (d) **OPQ** — learned rotation matrix applied as matmul → Tier 1
+  AMX is the dominant speedup path.
+
+**The JIT does NOT emit AMX inline assembly.** It emits IR that
+calls `ndarray::hpc::amx_matmul::tile_*` primitives, which are
+themselves stable-Rust-1.94 inline asm (verified on real
+Sapphire Rapids hardware per the `simd_amx.rs` module header:
+LDTILECFG / TILEZERO / TDPBUSD / TDPBF16PS / TILERELEASE all
+tested on kernel 6.18.5 with XCR0 bits 17+18 set). Rust-lang
+issue #126622 tracks AMX intrinsic stabilization; until it
+lands, inline asm is the canonical stable path and the codec
+JIT consumes it through `ndarray::hpc::amx_matmul::*`, never
+directly.
+
+### Reality-check against existing codec-findings (do NOT re-derive)
+
+Per `.claude/knowledge/codec-findings-2026-04-20.md`:
+
+- **Had-Q5×D-R** (shared codebook) — already ICC ≈ 0.99 at
+  ~0 per-row bytes on q_proj / k_proj / gate_proj. **Argmax
+  compression with shared codebook is solved.**
+- **I8-Hadamard** (per-row only) — ICC ≈ 0.9 at 9 B/row. Leader
+  for no-shared-codebook constraint.
+- **Zipper family** — tops at ICC ≈ 0.2, serves bundling /
+  progressive / anti-moiré axis, NOT argmax ICC.
+- **Fractal leaf descriptors** — sign-flip invariant (ICC
+  ≈ −0.999); **DEAD** without breaking the invariance.
+
+The sweep here does NOT re-explore what's measured. It focuses
+on the #220 candidates (wider codebook, residual PQ, Hadamard
+pre-rotation with trained codebook, OPQ) and measures their
+**token agreement** — the missing axis that reconstruction ICC
+alone doesn't close.
 
 ### Rule D — Configuration is JSON / YAML / REST only
 
