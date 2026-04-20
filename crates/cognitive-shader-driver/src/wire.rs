@@ -200,6 +200,72 @@ pub struct WireProbeResponse {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Runbook — scheduled sequence of operations for REST/gRPC test injection
+//
+// One POST submits a list of steps; the server executes them in order and
+// returns a matching list of results. Each step reuses an existing Wire*
+// request type — no new operation surface. The only new concepts are
+// (a) the step enum, (b) the label field per step (for result tracking).
+//
+// Use cases:
+//   - Inject a codec test suite from a script / notebook / CI
+//   - Replay a calibration protocol across many tensors
+//   - Seed BindSpace with ingests then dispatch queries in one round-trip
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "op", content = "args")]
+pub enum WireRunbookStep {
+    Tensors(WireTensorsRequest),
+    Calibrate(WireCalibrateRequest),
+    Probe(WireProbeRequest),
+    Dispatch(WireDispatch),
+    Ingest(WireIngest),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireRunbookRequest {
+    /// Human label for the whole runbook (e.g. "qwen3-tts full-size ICC sweep").
+    #[serde(default)]
+    pub label: String,
+    pub steps: Vec<WireRunbookStepLabeled>,
+    /// If true, abort remaining steps on the first error. If false, continue
+    /// and report each step's outcome individually.
+    #[serde(default)]
+    pub stop_on_error: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireRunbookStepLabeled {
+    /// Per-step label, surfaces in the result so callers can correlate.
+    #[serde(default)]
+    pub label: String,
+    #[serde(flatten)]
+    pub step: WireRunbookStep,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind")]
+pub enum WireRunbookStepResult {
+    Tensors { label: String, response: WireTensorsResponse },
+    Calibrate { label: String, response: WireCalibrateResponse },
+    Probe { label: String, response: WireProbeResponse },
+    Dispatch { label: String, response: WireCrystal },
+    Ingest { label: String, ingested: u32, row_start: u32, row_end: u32, write_cursor: u32 },
+    Error { label: String, step: String, error: String },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireRunbookResponse {
+    pub label: String,
+    pub total_steps: usize,
+    pub completed: usize,
+    pub errors: usize,
+    pub total_elapsed_ms: u64,
+    pub results: Vec<WireRunbookStepResult>,
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Response types (server → client)
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -440,6 +506,45 @@ mod tests {
         let wd: WireDispatch = serde_json::from_str(json).unwrap();
         let internal = wd.to_internal();
         matches!(internal.style, StyleSelector::Ordinal(1));
+    }
+
+    #[test]
+    fn wire_runbook_parses_mixed_steps() {
+        // Test injection payload: list tensors, calibrate one, then probe it.
+        let json = r#"{
+          "label": "qwen3-tts full-size ICC sweep",
+          "stop_on_error": false,
+          "steps": [
+            {"label": "inventory", "op": "Tensors",
+             "args": {"model_path": "/m.safetensors", "route_filter": "CamPq"}},
+            {"label": "gate_proj full", "op": "Calibrate",
+             "args": {"model_path": "/m.safetensors",
+                      "tensor_name": "layers.5.mlp.gate_proj"}},
+            {"label": "gate_proj probe", "op": "Probe",
+             "args": {"model_path": "/m.safetensors",
+                      "tensor_name": "layers.5.mlp.gate_proj",
+                      "row_counts": [128, 256, 512, 1024]}}
+          ]
+        }"#;
+        let rb: WireRunbookRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(rb.steps.len(), 3);
+        assert_eq!(rb.label, "qwen3-tts full-size ICC sweep");
+        assert!(!rb.stop_on_error);
+        match &rb.steps[0].step {
+            WireRunbookStep::Tensors(r) => assert_eq!(r.route_filter.as_deref(), Some("CamPq")),
+            _ => panic!("expected Tensors step"),
+        }
+        match &rb.steps[1].step {
+            WireRunbookStep::Calibrate(r) => {
+                assert_eq!(r.num_subspaces, 6);
+                assert_eq!(r.num_centroids, 256);
+            }
+            _ => panic!("expected Calibrate step"),
+        }
+        match &rb.steps[2].step {
+            WireRunbookStep::Probe(r) => assert_eq!(r.row_counts, vec![128, 256, 512, 1024]),
+            _ => panic!("expected Probe step"),
+        }
     }
 
     #[test]
