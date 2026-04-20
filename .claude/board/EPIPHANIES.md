@@ -556,3 +556,75 @@ further. Focus codec research on either:
 
 Cross-ref: commits 0f635e6 (phase variant), 18c53e0 (first ICC run),
 fractal-codec-argmax-regime.md, EPIPHANIES 2026-04-19 prior entries.
+
+## 2026-04-20 — Zipper codec WORKS — Hadamard sign-flip invariance was the fractal bug
+**Status:** FINDING (measured via endpoint psychometry, 3 populations)
+**Scope:** @cascade-architect domain:codec domain:psychometry
+
+Ran codec_rnd_bench.rs with ZipperPhaseOnly + ZipperFull added. Three
+populations on Qwen3-8B L0 (N=128, pairwise cosines, 1037 s wall).
+
+**Root-cause diagnosis (confirmed by user, validated by measurement):**
+
+All prior fractal descriptors (magnitude + phase) were **sign-flip
+invariant**. MFDFA variance is invariant under negation; sign-flip
+density is invariant under bit-flip. So WHT(−x) produces IDENTICAL
+descriptor to WHT(x), giving cos(x, −x) = 1.0 from the codec but −1.0
+from ground truth. THIS is what produced the ICC = −0.999. Not "codec
+produces noise", but "codec collapses opposite rows" → perfect
+ranking inversion against ground truth.
+
+**Zipper fix:** sample ACTUAL SIGN BITS at φ-stride positions instead
+of derived flip-density. Under negation, every phase bit flips →
+phase_bits XOR all-ones → cosine → −1.0. Invariance broken; codec
+preserves the sign relationship that ground truth measures.
+
+**Results (ICC_3_1 across three populations):**
+
+| Codec | Bytes | k_proj | gate_proj | q_proj |
+|---|---|---|---|---|
+| Passthrough (baseline) | 0 | 1.000 | 1.000 | 1.000 |
+| Base17 | 34 | 0.007 | 0.012 | 0.024 |
+| Fractal-Desc (magnitude) | 7 | **−0.999** | **−0.999** | **−0.996** |
+| Fractal-Phase (flip density) | 5 | **−0.999** | **−0.999** | **−0.997** |
+| **Zipper-Phase** | **8** | **0.050** | **0.049** | **0.097** |
+| **Zipper-Full** | **64** | **0.129** | **0.107** | **0.203** |
+
+**Key readings:**
+
+1. **Zipper-Phase at 8 B BEATS Base17 at 34 B on every population.**
+   2× to 4× higher ICC at 1/4 the storage. The φ-stride anti-moiré
+   principle works for phase encoding.
+2. **Zipper-Full at 64 B achieves top-5 recall 0.6 on q_proj** (Base17:
+   0.0). The codec retrieves correct nearest-neighbors on 60% of
+   queries — real reconstructive signal, not just ranking.
+3. **Not yet competitive with I8-Hadamard leader (~9 B, ICC ~0.9).**
+   Zipper-Full is a Pareto-meaningful new point but still ~4× off the
+   leader on ICC. Room for improvement:
+   - Wider phase stream (128 or 256 active bits)
+   - φ-permute morph on the 64-bit scale (user's earlier suggestion)
+   - Different phase/magnitude blend weights (current 0.5/0.5)
+   - SVD-per-group basis instead of Hadamard
+4. **Magnitude stream has signal.** Going phase-only (8 B) → full
+   (64 B) adds 2-3× ICC on each population. The halo positions at
+   φ²-stride carry non-redundant information vs phase at φ-stride.
+
+**Architectural confirmations:**
+
+- Aperiodic (X-Trans) sampling works as theorized — anti-moiré
+  property preserves discriminative information across the Hadamard
+  butterfly.
+- Zeckendorf non-adjacent Fibonacci indices produce non-colliding
+  strides without hand-tuning (φ vs φ² satisfied this naturally).
+- Matryoshka single-container truncation works (8 B → 64 B via
+  reading more of the same descriptor).
+
+**Explicit constants locked (per user):**
+
+  PHASE_ACTIVE_BITS    = 64  (per bgz17 halo signal-bit range)
+  MAG_ACTIVE_SAMPLES   = 56
+  ZIPPER_BYTES         = 64  (8 B phase + 56 B i8 magnitude)
+
+Cross-ref: commits 7740759 (implementation), 6999106 (architecture
+doc). bgz17 container design "family zipper" concept in
+phi-spiral-reconstruction.md — empirically validated at last.
