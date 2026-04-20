@@ -74,6 +74,9 @@ pub fn route_tensor(name: &str, dims: &[u64]) -> CodecRoute {
         || n_lower.contains(".wpe.");
     if n_lower.contains("token_embd")
         || n_lower.contains("embed_tokens")
+        || n_lower.contains("embedding")
+        || n_lower.ends_with(".embed.weight")
+        || n_lower.contains(".embed.")
         || n_lower.contains("lm_head")
         || is_wte_wpe
     {
@@ -260,6 +263,15 @@ mod route_tests {
         // GPT-2 naming
         assert_eq!(
             route_tensor("wte.weight", &[50257, 768]),
+            CodecRoute::Passthrough,
+        );
+        // Generic embedding tables (e.g. Qwen3-TTS codec_embedding)
+        assert_eq!(
+            route_tensor("talker.code_predictor.model.codec_embedding.0.weight", &[2048, 1024]),
+            CodecRoute::Passthrough,
+        );
+        assert_eq!(
+            route_tensor("speaker.embedding.weight", &[1000, 256]),
             CodecRoute::Passthrough,
         );
     }
