@@ -403,6 +403,107 @@ fn pairwise_codec_scores(zs: &[bgz_tensor::zipper::ZipperI8Descriptor]) -> Vec<f
     scores
 }
 
+/// 5^5 signed (≈2 B): 5 samples × 5 levels, global-scale quantization.
+/// Bipolar cells enable negative-cancellation bundling (Structured5x5 ethos).
+#[cfg(feature = "lab")]
+struct Zipper5pow5 { pub scale: f32 }
+
+#[cfg(feature = "lab")]
+impl CodecCandidate for Zipper5pow5 {
+    fn name(&self) -> &str { "Zipper-5^5(2B)" }
+    fn bytes_per_row(&self) -> usize { 2 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::zipper::{Zipper5LevelDescriptor, StrideKind};
+        let zs: Vec<Zipper5LevelDescriptor> = rows.iter().map(|r| {
+            let n = r.len(); let mut p = 1; while p < n { p <<= 1; }
+            let mut buf = vec![0.0f32; p]; buf[..n].copy_from_slice(r);
+            Zipper5LevelDescriptor::encode(&buf, 5, StrideKind::Phi, self.scale)
+        }).collect();
+        pairwise_5lvl_scores(&zs)
+    }
+}
+
+/// 5^5 × 5 (wider, ~10 B): 25 samples at 5-level.
+#[cfg(feature = "lab")]
+struct Zipper5Wide { pub scale: f32 }
+
+#[cfg(feature = "lab")]
+impl CodecCandidate for Zipper5Wide {
+    fn name(&self) -> &str { "Zipper-5^5×5(10B)" }
+    fn bytes_per_row(&self) -> usize { 10 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::zipper::{Zipper5LevelDescriptor, StrideKind};
+        let zs: Vec<Zipper5LevelDescriptor> = rows.iter().map(|r| {
+            let n = r.len(); let mut p = 1; while p < n { p <<= 1; }
+            let mut buf = vec![0.0f32; p]; buf[..n].copy_from_slice(r);
+            Zipper5LevelDescriptor::encode(&buf, 25, StrideKind::Phi, self.scale)
+        }).collect();
+        pairwise_5lvl_scores(&zs)
+    }
+}
+
+/// 7^7 signed (≈3 B): 7 samples × 7 levels.
+#[cfg(feature = "lab")]
+struct Zipper7pow7 { pub scale: f32 }
+
+#[cfg(feature = "lab")]
+impl CodecCandidate for Zipper7pow7 {
+    fn name(&self) -> &str { "Zipper-7^7(3B)" }
+    fn bytes_per_row(&self) -> usize { 3 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::zipper::{Zipper7LevelDescriptor, StrideKind};
+        let zs: Vec<Zipper7LevelDescriptor> = rows.iter().map(|r| {
+            let n = r.len(); let mut p = 1; while p < n { p <<= 1; }
+            let mut buf = vec![0.0f32; p]; buf[..n].copy_from_slice(r);
+            Zipper7LevelDescriptor::encode(&buf, 7, StrideKind::Phi, self.scale)
+        }).collect();
+        pairwise_7lvl_scores(&zs)
+    }
+}
+
+/// 7^7 × 7 (wider, ~18 B): 49 samples at 7-level.
+#[cfg(feature = "lab")]
+struct Zipper7Wide { pub scale: f32 }
+
+#[cfg(feature = "lab")]
+impl CodecCandidate for Zipper7Wide {
+    fn name(&self) -> &str { "Zipper-7^7×7(18B)" }
+    fn bytes_per_row(&self) -> usize { 18 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::zipper::{Zipper7LevelDescriptor, StrideKind};
+        let zs: Vec<Zipper7LevelDescriptor> = rows.iter().map(|r| {
+            let n = r.len(); let mut p = 1; while p < n { p <<= 1; }
+            let mut buf = vec![0.0f32; p]; buf[..n].copy_from_slice(r);
+            Zipper7LevelDescriptor::encode(&buf, 49, StrideKind::Phi, self.scale)
+        }).collect();
+        pairwise_7lvl_scores(&zs)
+    }
+}
+
+#[cfg(feature = "lab")]
+fn pairwise_5lvl_scores(zs: &[bgz_tensor::zipper::Zipper5LevelDescriptor]) -> Vec<f64> {
+    let n = zs.len();
+    let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+    for i in 0..n {
+        for j in (i + 1)..n {
+            scores.push(zs[i].cosine(&zs[j]) as f64);
+        }
+    }
+    scores
+}
+
+#[cfg(feature = "lab")]
+fn pairwise_7lvl_scores(zs: &[bgz_tensor::zipper::Zipper7LevelDescriptor]) -> Vec<f64> {
+    let n = zs.len();
+    let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+    for i in 0..n {
+        for j in (i + 1)..n {
+            scores.push(zs[i].cosine(&zs[j]) as f64);
+        }
+    }
+    scores
+}
+
 /// Passthrough — raw cosine (baseline, exact).
 struct Passthrough;
 impl CodecCandidate for Passthrough {
@@ -1724,6 +1825,14 @@ fn main() {
             codecs.push(Box::new(ZipperI8Quint8));
             codecs.push(Box::new(ZipperI8PhiFull));
             codecs.push(Box::new(ZipperI8QuintFull));
+
+            // 5^5 and 7^7 signed-bipolar with global-scale quantization.
+            let gscale5 = bgz_tensor::zipper::Zipper5LevelDescriptor::compute_global_scale(&rows);
+            let gscale7 = gscale5; // same scale; 7-level just uses finer thresholds
+            codecs.push(Box::new(Zipper5pow5 { scale: gscale5 }));
+            codecs.push(Box::new(Zipper5Wide { scale: gscale5 }));
+            codecs.push(Box::new(Zipper7pow7 { scale: gscale7 }));
+            codecs.push(Box::new(Zipper7Wide { scale: gscale7 }));
         }
 
         let results = run_bench(&codecs, &rows, &gt);

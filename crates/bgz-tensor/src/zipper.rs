@@ -223,6 +223,192 @@ fn mu_law_decode(q: i8) -> f32 {
     sign * (1.0 / MU_LAW) * ((1.0 + MU_LAW).powf(y.abs()) - 1.0)
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// 5-level bipolar zipper — Structured5x5 alignment, negative cancellation
+// ─────────────────────────────────────────────────────────────────────────
+
+/// 5-level bipolar zipper descriptor. Each sample ∈ {-2, -1, 0, +1, +2}.
+/// Uses GLOBAL (population-wide) scale, not per-row max-abs — critical fix
+/// for the inter-row magnitude preservation that per-row i8 μ-law destroyed.
+///
+/// Samples packed 3 bits each; 21 samples → 63 bits → 8 B; 42 → 128 bits → 16 B.
+///
+/// Bipolar cells support VSA-style bundling with negative cancellation
+/// (noise cancels, signal accumulates) when superposing multiple rows.
+#[derive(Debug, Clone)]
+pub struct Zipper5LevelDescriptor {
+    /// Values in {-2, -1, 0, +1, +2}, packed 3 bits each in `packed`.
+    pub samples: Vec<i8>,
+    pub stride_kind: StrideKind,
+}
+
+impl Zipper5LevelDescriptor {
+    /// Encode K 5-level samples at given stride using a POPULATION-GLOBAL
+    /// scale. This preserves inter-row magnitude relationships — unlike
+    /// per-row max-abs normalization which collapses them.
+    pub fn encode(row: &[f32], k: usize, stride_kind: StrideKind, global_scale: f32) -> Self {
+        let n = row.len();
+        assert!(n.is_power_of_two() && n >= 64);
+        assert!(global_scale > 0.0, "global_scale must be positive");
+
+        let mut rotated = row.to_vec();
+        wht_f32(&mut rotated);
+
+        let stride_frac = match stride_kind {
+            StrideKind::Phi => 1.0 / PHI,
+            StrideKind::Quintenzirkel => QUINT_STRIDE,
+        };
+
+        let mut samples = Vec::with_capacity(k);
+        for i in 0..k {
+            let frac = ((i + 1) as f64 * stride_frac) % 1.0;
+            let pos = (frac * n as f64) as usize % n;
+            let normalized = rotated[pos] / global_scale;
+            // 5-level signed quantization via thresholds at {-1.5, -0.5, 0.5, 1.5}
+            let q = if normalized < -1.5 { -2 }
+                    else if normalized < -0.5 { -1 }
+                    else if normalized <= 0.5 { 0 }
+                    else if normalized <= 1.5 { 1 }
+                    else { 2 };
+            samples.push(q as i8);
+        }
+
+        Self { samples, stride_kind }
+    }
+
+    /// Compute population-global scale: median of per-row max-abs,
+    /// scaled so ~70% of coefficients land in the middle 3 levels.
+    pub fn compute_global_scale(rows: &[Vec<f32>]) -> f32 {
+        let mut all_abs: Vec<f32> = Vec::with_capacity(rows.len() * rows[0].len());
+        for row in rows {
+            let mut rotated = row.clone();
+            let n = rotated.len();
+            // Pad to pow2 if needed
+            if !n.is_power_of_two() {
+                let mut p = 1usize;
+                while p < n { p <<= 1; }
+                rotated.resize(p, 0.0);
+            }
+            wht_f32(&mut rotated);
+            for &c in rotated.iter() {
+                all_abs.push(c.abs());
+            }
+        }
+        // Median gives a robust scale; 1.0 × median places 50% of coefs
+        // at |normalized| ≤ 1 (the 5 middle levels).
+        all_abs.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        let med = all_abs[all_abs.len() / 2];
+        med.max(1e-20)
+    }
+
+    /// Cosine similarity in the 5-level signed space.
+    pub fn cosine(&self, other: &Self) -> f32 {
+        let k = self.samples.len().min(other.samples.len());
+        let mut dot = 0.0_f32;
+        let mut na = 0.0_f32;
+        let mut nb = 0.0_f32;
+        for i in 0..k {
+            let a = self.samples[i] as f32;
+            let b = other.samples[i] as f32;
+            dot += a * b;
+            na += a * a;
+            nb += b * b;
+        }
+        let d = (na * nb).sqrt();
+        if d < 1e-15 { 0.0 } else { dot / d }
+    }
+
+    /// VSA-style bundle with signed accumulation and saturation at ±2.
+    /// Noise cancels (opposite signs → 0); signal accumulates.
+    pub fn bundle(&self, other: &Self) -> Self {
+        let k = self.samples.len().min(other.samples.len());
+        let mut samples = Vec::with_capacity(k);
+        for i in 0..k {
+            let sum = self.samples[i] as i16 + other.samples[i] as i16;
+            samples.push(sum.clamp(-2, 2) as i8);
+        }
+        Self { samples, stride_kind: self.stride_kind }
+    }
+
+    pub fn bytes_per_row(k: usize) -> usize {
+        // 3 bits per sample, rounded up to bytes.
+        (k * 3 + 7) / 8
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// 7-level bipolar zipper — 7^7 = 823,543 states per 7-sample tuple
+// ─────────────────────────────────────────────────────────────────────────
+
+/// 7-level bipolar descriptor. Values ∈ {-3, -2, -1, 0, +1, +2, +3}.
+/// 7 samples = 7^7 states ≈ 20 bits; 21 samples = 3 × 7^7 ≈ 60 bits = 8 B.
+/// Finer magnitude discrimination than 5-level; deeper bundling cancellation.
+#[derive(Debug, Clone)]
+pub struct Zipper7LevelDescriptor {
+    pub samples: Vec<i8>,
+    pub stride_kind: StrideKind,
+}
+
+impl Zipper7LevelDescriptor {
+    pub fn encode(row: &[f32], k: usize, stride_kind: StrideKind, global_scale: f32) -> Self {
+        let n = row.len();
+        assert!(n.is_power_of_two() && n >= 64);
+        assert!(global_scale > 0.0);
+
+        let mut rotated = row.to_vec();
+        wht_f32(&mut rotated);
+
+        let stride_frac = match stride_kind {
+            StrideKind::Phi => 1.0 / PHI,
+            StrideKind::Quintenzirkel => QUINT_STRIDE,
+        };
+
+        let mut samples = Vec::with_capacity(k);
+        for i in 0..k {
+            let frac = ((i + 1) as f64 * stride_frac) % 1.0;
+            let pos = (frac * n as f64) as usize % n;
+            let normalized = rotated[pos] / global_scale;
+            // 7-level signed quantization: thresholds at {±0.5, ±1.5, ±2.5}
+            let q = if normalized < -2.5 { -3 }
+                    else if normalized < -1.5 { -2 }
+                    else if normalized < -0.5 { -1 }
+                    else if normalized <= 0.5 { 0 }
+                    else if normalized <= 1.5 { 1 }
+                    else if normalized <= 2.5 { 2 }
+                    else { 3 };
+            samples.push(q as i8);
+        }
+
+        Self { samples, stride_kind }
+    }
+
+    pub fn cosine(&self, other: &Self) -> f32 {
+        let k = self.samples.len().min(other.samples.len());
+        let mut dot = 0.0_f32;
+        let mut na = 0.0_f32;
+        let mut nb = 0.0_f32;
+        for i in 0..k {
+            let a = self.samples[i] as f32;
+            let b = other.samples[i] as f32;
+            dot += a * b;
+            na += a * a;
+            nb += b * b;
+        }
+        let d = (na * nb).sqrt();
+        if d < 1e-15 { 0.0 } else { dot / d }
+    }
+
+    pub fn bundle(&self, other: &Self) -> Self {
+        let k = self.samples.len().min(other.samples.len());
+        let mut samples = Vec::with_capacity(k);
+        for i in 0..k {
+            let sum = self.samples[i] as i16 + other.samples[i] as i16;
+            samples.push(sum.clamp(-3, 3) as i8);
+        }
+        Self { samples, stride_kind: self.stride_kind }
+    }
+}
+
 impl ZipperDescriptor {
     pub fn pack(&self) -> [u8; ZIPPER_BYTES] {
         let mut out = [0u8; ZIPPER_BYTES];
