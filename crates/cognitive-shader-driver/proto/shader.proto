@@ -21,6 +21,16 @@ service CognitiveShaderService {
 
   // List all 12 unified styles.
   rpc Styles (StylesRequest) returns (StylesResponse);
+
+  // ─── Codec research (same DTO surface, no extra endpoint) ─────────────
+  // List tensors in a safetensors file with routing classification.
+  rpc Tensors (TensorsRequest) returns (TensorsResponse);
+
+  // Calibrate CAM-PQ codebook on one tensor, measure ICC + reconstruction.
+  rpc Calibrate (CalibrateRequest) returns (CalibrateResponse);
+
+  // ICC-vs-row-count degradation probe (proves/refutes the 128-row claim).
+  rpc Probe (ProbeRequest) returns (ProbeResponse);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -189,4 +199,83 @@ message StyleInfo {
   float speed = 10;
   float collapse_bias = 11;
   float butterfly_sensitivity = 12;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Codec research — list tensors, calibrate codebook, probe row counts
+// ═══════════════════════════════════════════════════════════════════════════
+
+message TensorsRequest {
+  string model_path = 1;
+  // Optional: "CamPq" | "Passthrough" | "Skip". Empty = all.
+  string route_filter = 2;
+}
+
+message TensorsResponse {
+  uint32 total = 1;
+  uint32 shown = 2;
+  uint32 cam_pq = 3;
+  uint32 passthrough = 4;
+  uint32 skip = 5;
+  repeated TensorEntry tensors = 6;
+}
+
+message TensorEntry {
+  string name = 1;
+  repeated uint64 dims = 2;
+  string dtype = 3;
+  string route = 4;
+  uint64 n_elements = 5;
+}
+
+message CalibrateRequest {
+  string model_path = 1;
+  string tensor_name = 2;
+  uint32 num_subspaces = 3;       // 0 = default 6
+  uint32 num_centroids = 4;       // 0 = default 256
+  uint32 kmeans_iterations = 5;   // 0 = default 20
+  uint32 max_rows = 6;            // 0 = all rows
+  uint32 icc_samples = 7;         // 0 = default 512
+}
+
+message CalibrateResponse {
+  string tensor_name = 1;
+  repeated uint64 dims = 2;
+  uint32 n_rows = 3;
+  uint32 row_dim = 4;
+  uint32 adjusted_dim = 5;
+  uint32 num_subspaces = 6;
+  uint32 num_centroids = 7;
+  uint32 calibration_rows = 8;
+  float icc_3_1 = 9;
+  float mean_reconstruction_error = 10;
+  float relative_l2_error = 11;
+  uint64 codebook_bytes = 12;
+  uint64 fingerprints_bytes = 13;
+  uint64 elapsed_ms = 14;
+}
+
+message ProbeRequest {
+  string model_path = 1;
+  string tensor_name = 2;
+  repeated uint32 row_counts = 3;
+  uint32 icc_samples = 4;
+}
+
+message ProbeResponse {
+  string tensor_name = 1;
+  uint32 n_rows = 2;
+  uint32 row_dim = 3;
+  uint32 adjusted_dim = 4;
+  uint32 num_subspaces = 5;
+  uint32 num_centroids = 6;
+  repeated ProbeEntry entries = 7;
+}
+
+message ProbeEntry {
+  uint32 n_train = 1;
+  float icc_train = 2;
+  float icc_all_rows = 3;
+  float relative_l2_error = 4;
+  uint64 elapsed_ms = 5;
 }

@@ -91,6 +91,115 @@ pub struct WireIngest {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Codec research DTOs (for remote-controlled codec benchmarking)
+//
+// These extend the canonical shader-driver API with codec-experimentation
+// operations. No new feature gate — they ride on the existing `serve`/`grpc`
+// features. EmbedAnything-style: one DTO surface for all shader operations.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// List tensors in a safetensors file with routing classification.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireTensorsRequest {
+    pub model_path: String,
+    /// Optional filter: "CamPq" | "Passthrough" | "Skip". None = all.
+    #[serde(default)]
+    pub route_filter: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireTensorEntry {
+    pub name: String,
+    pub dims: Vec<u64>,
+    pub dtype: String,
+    pub route: String,
+    pub n_elements: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireTensorsResponse {
+    pub total: usize,
+    pub shown: usize,
+    pub cam_pq: usize,
+    pub passthrough: usize,
+    pub skip: usize,
+    pub tensors: Vec<WireTensorEntry>,
+}
+
+/// Calibrate CAM-PQ codebook on a single tensor and measure ICC.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireCalibrateRequest {
+    pub model_path: String,
+    pub tensor_name: String,
+    #[serde(default = "default_cal_subspaces")]
+    pub num_subspaces: usize,
+    #[serde(default = "default_cal_centroids")]
+    pub num_centroids: usize,
+    #[serde(default = "default_cal_iters")]
+    pub kmeans_iterations: usize,
+    #[serde(default)]
+    pub max_rows: Option<usize>,
+    #[serde(default = "default_icc_samples")]
+    pub icc_samples: usize,
+}
+
+fn default_cal_subspaces() -> usize { 6 }
+fn default_cal_centroids() -> usize { 256 }
+fn default_cal_iters() -> usize { 20 }
+fn default_icc_samples() -> usize { 512 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireCalibrateResponse {
+    pub tensor_name: String,
+    pub dims: Vec<u64>,
+    pub n_rows: usize,
+    pub row_dim: usize,
+    pub adjusted_dim: usize,
+    pub num_subspaces: usize,
+    pub num_centroids: usize,
+    pub calibration_rows: usize,
+    pub icc_3_1: f32,
+    pub mean_reconstruction_error: f32,
+    pub relative_l2_error: f32,
+    pub codebook_bytes: usize,
+    pub fingerprints_bytes: usize,
+    pub elapsed_ms: u64,
+}
+
+/// ICC vs calibration-row-count diagnostic probe.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireProbeRequest {
+    pub model_path: String,
+    pub tensor_name: String,
+    #[serde(default = "default_probe_counts")]
+    pub row_counts: Vec<usize>,
+    #[serde(default = "default_icc_samples")]
+    pub icc_samples: usize,
+}
+
+fn default_probe_counts() -> Vec<usize> { vec![128, 256, 512, 1024] }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireProbeEntry {
+    pub n_train: usize,
+    pub icc_train: f32,
+    pub icc_all_rows: f32,
+    pub relative_l2_error: f32,
+    pub elapsed_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireProbeResponse {
+    pub tensor_name: String,
+    pub n_rows: usize,
+    pub row_dim: usize,
+    pub adjusted_dim: usize,
+    pub num_subspaces: usize,
+    pub num_centroids: usize,
+    pub entries: Vec<WireProbeEntry>,
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Response types (server → client)
 // ═══════════════════════════════════════════════════════════════════════════
 
