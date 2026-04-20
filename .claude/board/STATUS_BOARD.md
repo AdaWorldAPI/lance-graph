@@ -32,6 +32,63 @@ Rules:
 
 ---
 
+## codec-sweep-via-lab-infra-v1 — JIT-first codec sweep
+
+Active integration plan. 7 Phase 0 deliverables (D0.1–D0.7) + Phases
+1–5 queued. One upfront Wire-surface rebuild; every candidate
+afterwards is a JIT kernel, not a rebuild. Plan path:
+`.claude/plans/codec-sweep-via-lab-infra-v1.md`.
+
+### Phase 0 — API hardening (partial in PR #225; remainder queued)
+
+| D-id | Title | Status | PR / Evidence |
+|---|---|---|---|
+| D0.1 | Extend `WireCalibrate` + `WireTensorView` (64-byte-aligned decode, object-oriented methods) | **Queued** | target ~180 LOC |
+| D0.2 | `WireTokenAgreement` endpoint stub — I11 cert gate | **Queued** | target ~160 LOC |
+| D0.3 | `WireSweep` streaming endpoint + Lance append stub | **Queued** | target ~200 LOC |
+| D0.4 | Surface freeze (commit + rebuild) | **Queued** | gates D0.1–D0.3 + D0.5–D0.7 |
+| D0.5 | `auto_detect.rs` — `ModelFingerprint` from `config.json` | **Queued** | target ~140 LOC (CODING_PRACTICES gap 1) |
+| D0.6 | `CodecParamsBuilder` fluent API | **Shipped** | #225 — `contract::cam` +290 LOC of codec-params types, 14 tests (CODING_PRACTICES gap 3) |
+| D0.7 | Precision-ladder validation (OPQ↔BF16x32, Hadamard pow2, overfit guard) | **Shipped** | #225 — `CodecParamsError` at `.build()` BEFORE JIT compile |
+
+### Phase 1 — JIT codec kernels — Queued
+
+| D-id | Title | Status | PR / Evidence |
+|---|---|---|---|
+| D1.1 | `CodecKernelCache` via `JitCompiler` (Cranelift) | **Queued** | target ~180 LOC |
+| D1.2 | Rotation primitives: Identity / Hadamard / OPQ as JIT kernels | **Queued** | target ~190 LOC |
+| D1.3 | Residual PQ via JIT composition | **Queued** | target ~150 LOC |
+
+### Phase 2 — Token-agreement harness (I11 cert gate) — Queued
+
+| D-id | Title | Status | PR / Evidence |
+|---|---|---|---|
+| D2.1 | Reference-model loader (ndarray safetensors) | **Queued** | target ~180 LOC |
+| D2.2 | Decode-and-compare loop (top-k, per-layer MSE) | **Queued** | target ~220 LOC |
+| D2.3 | Handler wiring for `/v1/shader/token-agreement` | **Queued** | target ~60 LOC |
+
+### Phase 3 — Sweep driver + Lance logger — Queued
+
+| D-id | Title | Status | PR / Evidence |
+|---|---|---|---|
+| D3.1 | Server-side sweep handler + Lance fragment append | **Queued** | target ~200 LOC |
+| D3.2 | Client-side driver + config files | **Queued** | target ~20 LOC + YAML configs |
+
+### Phase 4 — Frontier analysis — Queued
+
+| D-id | Title | Status | PR / Evidence |
+|---|---|---|---|
+| D4.1 | DataFusion SQL over `sweep_results` Lance | **Queued** | target ~80 LOC |
+| D4.2 | Pareto frontier notebook | **Queued** | target ~120 LOC |
+
+### Phase 5 — Graduation — Fires per-candidate
+
+| D-id | Title | Status | PR / Evidence |
+|---|---|---|---|
+| D5  | Graduation to canonical `OrchestrationBridge` (per winner) | **Queued** | target ~120 LOC per graduation; gate: ICC ≥ 0.99 held-out + token-agreement top1 ≥ 0.99 |
+
+---
+
 ## elegant-herding-rocket-v1 — Phase-structured
 
 Active integration plan, 12 deliverables D0 + D2–D11 (D1 dropped

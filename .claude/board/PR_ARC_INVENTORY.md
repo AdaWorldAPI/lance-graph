@@ -35,6 +35,121 @@
 
 ---
 
+## #225 — Codec-sweep plan + D0.6/D0.7 CodecParams types (merged 2026-04-20)
+
+**Confidence (2026-04-20):** Working. 147/147 contract suite passing (133 prior + 14 new).
+
+**Added:**
+- `.claude/plans/codec-sweep-via-lab-infra-v1.md` (~1,800 lines) — JIT-first codec sweep plan operationalising PR #220's "What's Needed to Fix" list through the lab endpoint. One upfront Wire-surface rebuild, unlimited JIT-kernel candidates afterwards.
+- 9 starter YAML configs under Appendix A (controls + four #220 fixes + composite + cross-product grid).
+- `.claude/board/INTEGRATION_PLANS.md` — prepended `codec-sweep-via-lab-infra-v1` entry per APPEND-ONLY rule.
+- `contract::cam::LaneWidth` {F32x16, U8x64, F64x8, BF16x32} — mirrors `ndarray::simd::*` lane types.
+- `contract::cam::Distance` {AdcU8, AdcI8} — split per CODING_PRACTICES gap 5 (sign-handling / bipolar cancellation).
+- `contract::cam::Rotation` {Identity, Hadamard{dim}, Opq{matrix_blob_id, dim}} + `is_matmul()`.
+- `contract::cam::ResidualSpec` {depth, centroids}.
+- `contract::cam::CodecParams` + `kernel_signature() -> u64` + `is_matmul_heavy() -> bool`.
+- `contract::cam::CodecParamsBuilder` — fluent API (CODING_PRACTICES gap 3 remediation).
+- `contract::cam::CodecParamsError` {ZeroDimension, OpqRequiresBf16, HadamardDimNotPow2, CalibrationEqualsMeasurement}.
+- 14 new `codec_params_tests` covering builder defaults + each validation + kernel_signature stability + matmul-heavy detection.
+
+**Locked:**
+- **Six rules A-F bind every JIT-emitted kernel in the codec sweep:**
+  - Rule A: tensor access via stdlib `slice::array_windows::<N>()` + `ndarray::simd::*` loaders
+  - Rule B: SIMD exclusively via `ndarray::simd::*` / `simd_amx::*` / `hpc::amx_matmul::*` / `hpc::simd_caps::*`
+  - Rule C: polyfill hierarchy AMX → AVX-512 VNNI → AVX-512 baseline → AVX-2, **no consumer-visible scalar tier**
+  - Rule D: JSON / YAML / REST configuration only
+  - Rule E: Wire surface IS the SIMD surface (object-oriented, `LaneWidth` explicit, methods not scalar bags, 64-byte-aligned decode)
+  - Rule F: **Serialisation at REST edge only; never inside**
+- **Iron rule:** SoA never scalarises without ndarray. If a kernel runs scalar on the SoA path, the SoA invariant is broken.
+- **Intel AMX** (not Apple) — `ndarray::simd_amx::amx_available()` + `ndarray::hpc::amx_matmul::{tile_dpbusd, tile_dpbf16ps, vnni_pack_bf16}` on Sapphire Rapids+ via stable inline asm (rust-lang #126622 keeps AMX intrinsics nightly).
+- **Precision-ladder validation fires BEFORE JIT compile.** OPQ rotation requires BF16x32 lane. Hadamard dim must be 2^k.
+- **Overfit guard typed-error-rejects the PR #219 pattern.** `CalibrationEqualsMeasurement` refuses to emit ICC when `calibration_rows == measurement_rows`.
+- **Kernel signature excludes seed.** Seed changes calibration sample but not IR — cached kernels stay hot across seeds.
+- **Zero ndarray changes.** "Everything the sweep needs is already in ndarray" — user directive, enforced.
+- **Zero serde in the contract.** YAML/JSON deserialisation belongs to the consumer crate.
+
+**Deferred:**
+- D0.1 (`WireCalibrate` extension), D0.2 (`WireTokenAgreement`), D0.3 (`WireSweep`), D0.5 (`auto_detect`) — next PR.
+- D1.1-D1.3 (JIT codec kernels), D2.1-D2.3 (token-agreement harness), D3.1-D3.2 (sweep driver + Lance logger), D4.1-D4.2 (frontier analysis), D5 (graduation bridge) — later PRs.
+
+**Docs:**
+- Plan references: `.claude/knowledge/lab-vs-canonical-surface.md`, `cam-pq-unified-pipeline.md`, `codec-findings-2026-04-20.md`, `rotation_vs_error_correction.md`, `encoding-ecosystem.md`.
+
+**Decisions for future PRs to respect:**
+- When testing a codec candidate: reconstruction error → reconstruction ICC on held-out rows → **token agreement**. The cert gate is token agreement, not synthetic ICC (PR #219 lesson).
+- Adding a new codec candidate is authoring a YAML file. Zero Rust changes. Zero rebuilds.
+- `CodecParams::kernel_signature` is the JIT cache key. Adding unrelated fields to `CodecParams` must NOT change what goes into the signature.
+
+---
+
+## #224 — Lab = API+Planner+JIT, thinking harvest, I11 measurability (merged 2026-04-20)
+
+**Confidence (2026-04-20):** Working. Docs-only PR, no build impact.
+
+**Added:**
+- `.claude/knowledge/lab-vs-canonical-surface.md` extended with three load-bearing sections:
+  - "Why the Lab Surface Exists (positive purpose)" — three-part stack (API + Planner + JIT), not just quarantine scaffolding.
+  - "The third purpose — thinking harvest (the AGI magic bullet)" — REST/Cypher → `{rows, thinking_trace}` externalises planner's 36-style / 13-verb / NARS trace for log/replay/revision.
+  - I11 invariant: measurable stack, not a black box. Every layer L0→L4 emits harvest-ready trace.
+
+**Locked:**
+- **Codec cert is token agreement, not synthetic ICC.** PR #219's 0.9998 was overfit-on-training; PR #220's 0.195 was reconstruction-only. Real cert gate is decoded codec's top-k tokens matching Passthrough.
+- **Three-part lab stack:** REST/gRPC API (curl entry, no rebuild) × Planner (real dispatch path, not toy bench) × JIT (runtime kernel swap, no relink). All three together = unlimited candidates measured via real dispatch.
+- **Thinking harvest = AGI magic bullet.** An AGI that cannot observe its own reasoning cannot revise it. REST/Cypher injection + JIT + planner closes that loop outside the binary.
+- **I11 — measurable stack.** Every layer's trace is harvest-ready through the lab surface. Proposed changes that shrink trace for perf/simplicity are rejected.
+- **Two allowed edges** for serialisation: REST/gRPC ingress (JSON/protobuf in, once per request), REST/gRPC response (JSON/protobuf out, once per response). **No internal serde between layers.** Lance append is the one persistent egress.
+
+**Deferred:** Actual ONNX story-arc training, actual token-agreement harness implementation — all after Phase 0 Wire surface hardens.
+
+**Docs:**
+- `lab-vs-canonical-surface.md` — now the canonical cross-cutting invariant doc (I1-I11 + six rules A-F in PR #225).
+
+**Decisions for future PRs to respect:**
+- Never propose a codec cert claim based on reconstruction ICC alone. Always measure token agreement.
+- The three-part stack is the iteration testbed AND the observability port — both uses share the same binary.
+
+---
+
+## #223 — LAB-ONLY firewall + AGI-as-SoA + I1-I10 (merged 2026-04-20)
+
+**Confidence (2026-04-20):** Working. Docs-only PR, no build impact.
+
+**Added:**
+- `.claude/knowledge/lab-vs-canonical-surface.md` (NEW) — MANDATORY pre-read for REST/gRPC/Wire DTO/OrchestrationBridge/codec-research work. Three sections:
+  - The One-Line Rule: `cognitive-shader-driver` IS the unified API; Wire DTOs are lab quarantine.
+  - AGI = (topic, angle, thinking, planner) = struct-of-arrays consuming `cognitive-shader-driver`. The four AGI axes map to the four BindSpace SoA columns.
+  - 10 cross-cutting architecture invariants I1-I10 (below).
+- `CLAUDE.md` P0 rule: read this doc BEFORE any REST/gRPC/Wire DTO/endpoint/shader-lab work.
+
+**Locked (Invariants I1-I10):**
+- **I1** — BindSpace read-only `Arc<[u64; 256 * N]>`; writes cross the CollapseGate airgap via `MergeMode::{Xor, Bundle}`.
+- **I2** — Canonical SIMD import is `ndarray::simd::*`. Never `ndarray::hpc::simd_avxNNN::*` reach-through.
+- **I3** — Layer temporal budgets: L0 sub-ns, L1 ns zero-copy, L2 ns, L3 µs, L4 ms.
+- **I4** — Temperature hierarchy Hot (BindSpace HDR) → Warm (CAM-PQ) → Cold (DataFusion scalar joins) → Frozen (metadata). Cold narrows first; HDR semirings fire only on survivors.
+- **I5** — Thinking IS an `AdjacencyStore`. 36 styles at τ-prefix 0x0D. One engine, two graphs.
+- **I6** — Weights are seeds. GGUF hydrates into palette + `Fingerprint<256>` + FisherZTable + holographic residual + `CausalEdge64`. Inference = Hamming cascade + palette lookup, no matmul.
+- **I7** — Per-cycle cascade budget ~2.3ms/1M rows with monotone narrowing (topic → angle → causality → qualia → exact).
+- **I8** — 4096 address surface = 16 prefix × 256 slots. `Addr(u16)`. Prefix `0x0D` is thinking styles.
+- **I9** — Three DTO families (doctrinal, not yet shipped): StreamDto (pre-parse) / ResonanceDto (active sweep) / BusDto (post-collapse). Field ≠ sweep ≠ bus.
+- **I10** — HEEL / HIP / BRANCH / TWIG / LEAF progressive precision hierarchy. bgz17 IS HEEL — not LEAF identity.
+
+**Locked (framing):**
+- Claude Code sessions in this workspace **never** write a parallel `struct Agi { topic, angle, thinking, planner }`. Those ARE the BindSpace SoA columns. Wrapping them in a new struct breaks SIMD sweep.
+- Extend by **column**, not by layer. New AGI capability = new BindSpace column, not a new trait / endpoint / DTO family.
+- REST endpoints (`/v1/shader/*`) are LAB-ONLY. Adding `/v1/shader/<new>` is the Kahneman-Tversky System-1 easy path; extending `OrchestrationBridge` / adding a `StepDomain` variant is the System-2 correct move.
+
+**Deferred:** Thinking harvest subsection, I11 measurability invariant, codec-sweep plan — PR #224 / #225.
+
+**Docs:**
+- `lab-vs-canonical-surface.md` (NEW, 429 lines).
+
+**Decisions for future PRs to respect:**
+- Never add a per-op REST endpoint as "the API." The canonical consumer surface is `UnifiedStep` via `OrchestrationBridge`.
+- Never bypass `ndarray::simd::*` to reach `hpc::simd_avxNNN::*`. That's a private backend, not a consumer surface.
+- AGI is NOT a new crate. AGI is the already-shipped BindSpace + ShaderDriver + OrchestrationBridge interpreted through the four-axis lens.
+
+---
+
 ## #210 — Phase 1 grammar + knowledge docs (merged 2026-04-19)
 
 **Confidence (2026-04-19):** Working. All tests green at merge time.

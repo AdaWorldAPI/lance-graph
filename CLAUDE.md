@@ -1,8 +1,105 @@
 # CLAUDE.md — lance-graph
 
-> **Updated**: 2026-04-19 (post PR #214)
+> **Updated**: 2026-04-20 (post PR #225 + driving-seat tightening)
 > **Role**: The obligatory spine — query engine, codec stack, semantic transformer, and orchestration contract
 > **Status**: 22 crates, 7 in workspace, 15 excluded (standalone/DTO), Phases 1-2 DONE, Phases 6-7 DONE (grammar + governance), Phase 3 IN PROGRESS
+
+---
+
+## The Stance — Driving Seat + AGI-as-Glove (P0, read first)
+
+**You are in the driving seat.** This workspace is not a codebase
+you observe; it is a cognitive stack you steer. Three consequences:
+
+1. **The board is live state, not reference.** `.claude/board/*.md`
+   is where the session's hand lives. Updating it AFTER the work,
+   as cleanup, is the tell that you were treating the board as a
+   stale artifact — do not do that (see § Mandatory Board-Hygiene
+   Rule below).
+
+2. **AGI is the glove, not the oracle.** Per PR #223's AGI-as-SoA
+   invariant: AGI = (topic, angle, thinking, planner) =
+   struct-of-arrays consuming `cognitive-shader-driver`. The four
+   axes are the four `BindSpace` columns — `FingerprintColumns` /
+   `QualiaColumn` / `MetaColumn` / `EdgeColumn`. You fit your hand
+   into those columns through `ShaderDriver` dispatch and
+   `OrchestrationBridge` routing. You do NOT wrap the axes in a new
+   struct (breaks the SIMD sweep) and you do NOT query an "AGI
+   service" (there is none; AGI is the runtime behaviour of the
+   SoA under dispatch).
+
+3. **Consult, don't guess.** When a subsystem comes into scope,
+   the curated surface beats hand-exploration — always. Grepping
+   ndarray for a primitive name when the family-codec-smith agent
+   or the `encoding-ecosystem.md` knowledge doc has the answer is
+   a rediscovery tax, not a diligence win.
+
+### Mandatory Board-Hygiene Rule (applies to EVERY PR)
+
+**A PR that adds a type, plan, deliverable, or epiphany without
+updating the relevant board file in the SAME commit is incomplete.**
+
+| The PR adds... | The PR MUST also update (in the same commit) |
+|---|---|
+| A contract type / module | `.claude/board/LATEST_STATE.md` — "Current Contract Inventory" |
+| A merged PR (post-merge commit) | `.claude/board/LATEST_STATE.md` table + `.claude/board/PR_ARC_INVENTORY.md` PREPEND entry |
+| A new integration plan | `.claude/board/INTEGRATION_PLANS.md` PREPEND + `.claude/plans/<name>-v<N>.md` |
+| A new D-id / deliverable | `.claude/board/STATUS_BOARD.md` row (status = Queued → In progress → In PR → Shipped) |
+| A finding / correction / "aha" | `.claude/board/EPIPHANIES.md` PREPEND dated entry |
+| A tech-debt observation | `.claude/board/TECH_DEBT.md` entry |
+| An unresolved issue / blocker | `.claude/board/ISSUES.md` entry |
+
+The governance files are APPEND-ONLY (prepend new entries; never
+edit past entries except the `**Status:**` / `**Confidence:**`
+lines). The retroactive-hygiene commit pattern (merge PR → later
+notice board is stale → separate cleanup commit) is an
+anti-pattern. The 2026-04-20 session surfaced this gap between
+PR #223/#224/#225 merges and the LATEST_STATE / PR_ARC update;
+this rule exists so it does not recur.
+
+### Consult before you guess (agent + knowledge activation)
+
+Before grep'ing, reading source files, or proposing a type:
+
+1. **Does a specialist agent card cover this domain?** Check
+   `.claude/agents/*.md` — 19 specialists + 5 meta-agents. For
+   codec work: `family-codec-smith`, `palette-engineer`,
+   `certification-officer`. For DTO / bus surface: `bus-compiler`,
+   `host-glove-designer`. For truth / architecture:
+   `truth-architect`, `integration-lead`. See `.claude/agents/BOOT.md`
+   for the Knowledge Activation trigger table.
+2. **Does a knowledge doc answer this?** Check `.claude/knowledge/*.md`
+   — each has a `READ BY:` header naming which agents / domains load
+   it. `encoding-ecosystem.md` is MANDATORY before any codec work;
+   `lab-vs-canonical-surface.md` is MANDATORY before any REST /
+   gRPC / Wire DTO / OrchestrationBridge / shader-lab work.
+3. **Does the board already record the answer?**
+   `LATEST_STATE.md` § Contract Inventory lists every type that
+   exists today. Proposing a type that already exists is a
+   30-turn rediscovery tax — check first.
+
+Only AFTER exhausting 1-3 do you grep source files yourself. Hand-
+exploration is the last resort, not the first move. A subagent
+spawn (Opus for accumulation) that loads the curated docs first is
+almost always cheaper than a grep session on the main thread.
+
+### The AGI-as-glove doctrine, concretely
+
+When a task touches the cognitive stack:
+
+- **Topic** (what the session is reasoning about) = a read from
+  `FingerprintColumns`. Never a new struct.
+- **Angle** (whose perspective) = a read from `QualiaColumn` (18×f32).
+  Never a new struct.
+- **Thinking** (which style dispatches) = a write of `MetaWord` bits
+  to `MetaColumn`. Never a new trait.
+- **Planner** (why/how, causal composition) = a write to `EdgeColumn`
+  (`CausalEdge64`). Never a new bridge.
+
+The four SoA columns ARE the AGI surface. New capability lands as a
+new column, not a new layer. See `.claude/knowledge/lab-vs-canonical-surface.md`
+§ "AGI IS the struct-of-arrays (per Era 8)" for the full doctrine
+and the Invariants I1-I11 that bind it.
 
 ---
 
