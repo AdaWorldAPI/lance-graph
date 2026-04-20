@@ -1,13 +1,17 @@
-//! Codec research — backing logic for the `/v1/shader/{tensors,calibrate,probe}`
-//! DTO operations on the unified shader-driver API.
+//! **LAB-ONLY.** Codec research — one consumer of the unified DTO.
+//!
+//! Research is not the canonical architecture; it's a consumer like any
+//! other domain. It plugs into `OrchestrationBridge` via
+//! `CodecResearchBridge` (see `codec_bridge.rs`) under `StepDomain::Ndarray`.
+//! The functions below are the lab-convenience backing logic for the per-op
+//! Wire DTOs; the canonical dispatch path is `UnifiedStep` through the
+//! bridge.
 //!
 //! Reuses:
 //! - `ndarray::hpc::cam_pq::{train_geometric, CamCodebook}` — production codec
 //! - `ndarray::hpc::safetensors::read_safetensors_header` — tensor directory
 //! - `ndarray::hpc::gguf::read_tensor_f32` — BF16/F16/F32 dequant
 //! - `lance_graph_contract::cam::route_tensor` — CamPq / Passthrough / Skip
-//!
-//! Zero new feature gates — rides on the existing `serve` / `grpc`.
 
 use std::fs::File;
 use std::io::BufReader;

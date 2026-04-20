@@ -1,7 +1,12 @@
-//! gRPC service — protobuf interface for live shader testing.
+//! **LAB-ONLY.** gRPC service — protobuf interface for live shader testing
+//! in the Claude Code backend. Not shipped to consumers.
 //!
-//! Behind `--features grpc`. Uses tonic + prost. Same quarantine as REST:
-//! debug-only, never in production binary.
+//! Same story as `serve.rs`: the canonical consumer surface is
+//! `UnifiedStep` + `OrchestrationBridge` in the library; this module just
+//! exposes that bridge over tonic/prost for test convenience.
+//!
+//! Behind `--features grpc` (or the umbrella `--features lab`). Uses
+//! tonic + prost. Never in any production binary.
 //!
 //! ```bash
 //! # Start gRPC server:

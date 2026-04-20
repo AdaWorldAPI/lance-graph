@@ -535,6 +535,7 @@ SIBLING REPOS:
 .claude/knowledge/two-basin-routing.md           — Two-basin doctrine, representation routing, pairwise rule, attribution
 .claude/knowledge/encoding-ecosystem.md          — MANDATORY: full encoding map, synergies, read-before-write checklist
 .claude/knowledge/frankenstein-checklist.md       — Composition failure modes (VibeTensor §7), boundary test matrix
+.claude/knowledge/lab-vs-canonical-surface.md     — MANDATORY before touching REST/gRPC/Wire DTO/endpoint/shader-lab (prevents "add another REST endpoint" hallucination)
 .claude/CALIBRATION_STATUS_GROUND_TRUTH.md       — OVERRIDE: read BEFORE any SESSION_*.md
 .claude/PLAN_BF16_DISTANCE_TABLES.md             — 5-phase plan for BF16 distance tables
 .claude/TECHNICAL_DEBT_SIGNED_SESSION.md          — 56% useful, 44% bypass (honest review)
@@ -547,6 +548,16 @@ SIBLING REPOS:
 codec, encoding, distance, compression, or representation work.** This is the
 map of all 8+ encoding representations, their crate locations, their invariants,
 their synergies, and their FINDING/CONJECTURE status. Never guess architecture.
+
+**P0 Rule: `.claude/knowledge/lab-vs-canonical-surface.md` must be read BEFORE
+any work that mentions REST, gRPC, Wire DTOs, `/v1/shader/*` endpoints, the
+shader-lab binary, `OrchestrationBridge`, `UnifiedStep`, codec research ops,
+or "external API".** The canonical consumer surface is `UnifiedStep` via
+`OrchestrationBridge` — the REST/gRPC server and per-op Wire DTOs are
+LAB-ONLY scaffolding. Adding another `/v1/<thing>` endpoint is the
+Kahneman-Tversky System-1 easy path and is nearly always wrong; extending
+the canonical bridge is the System-2 correct move. See the Decision
+Procedure in that doc before writing a single new handler.
 
 Every `.claude/knowledge/` document has a `READ BY:` header listing which agents
 MUST load it before producing output in that domain. When a knowledge trigger fires
