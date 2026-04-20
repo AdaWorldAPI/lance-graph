@@ -83,6 +83,88 @@ Every layer has its canonical surface in a zero-dep or feature-free
 module. The lab transport (REST/gRPC) is **orthogonal to the stack** —
 it's a debug probe, not a layer.
 
+## AGI IS the struct-of-arrays (per `docs/HISTORICAL_CONTEXT.md` Era 8)
+
+**The structural identity** — commit this to muscle memory:
+
+```
+struct-of-arrays  ⇄  cognitive-shader-driver  ⇄  UnifiedStep + OrchestrationBridge
+   (BindSpace)         (per-cycle dispatch)        (cross-cycle composition)
+
+AGI = (topic, angle, thinking, planner)
+    = struct-of-arrays consuming cognitive-shader-driver
+```
+
+AGI is **not a new crate**, not a new `struct Agi`, not a new API. AGI
+is the semantic interpretation of the already-shipped `BindSpace`
+columns, driven by the already-shipped `ShaderDriver`, composed across
+cycles by the already-shipped `OrchestrationBridge`.
+
+### The four AGI axes = four SoA columns
+
+Era 8's `CognitiveRecord` (HISTORICAL_CONTEXT.md lines 176-198) lists
+11 fields in 4 semantic groups. The four AGI-perspective axes are the
+consumer-visible distillation:
+
+| AGI axis | BindSpace column (shipped) | Era 8 `CognitiveRecord` field(s) | 5D-stream dimension |
+|---|---|---|---|
+| **topic** — "what about" | `fingerprints: FingerprintColumns` | `topic: Fingerprint<256>` (+ `fingerprint` for content identity) | D2: Context |
+| **angle** — "from whose view" | `qualia: QualiaColumn` (18×f32) | `angle: Fingerprint<256>` + `qualia: [f32; 18]` | D3: Perspective |
+| **thinking** — dispatch + modulation | `meta: MetaColumn` (packed u32 MetaWord) | `shader_mask: u8` (active layers) + style bits | dispatch gate |
+| **planner** — "why/how", causal composition | `edges: EdgeColumn` (CausalEdge64) | `edge: CausalEdge64` + `rung: u8` | D4: Causality |
+
+D1 (Content = raw Fingerprint) and D5 (Time = temporal index) are
+carried inside the `meta` column's packed bits and the per-row
+position index respectively — so the 5D stream still walks through
+the same 4 SoA columns.
+
+### The per-cycle contract (what ShaderDriver actually does)
+
+`ShaderDriver::dispatch(ShaderDispatch)` reads the row-window from
+`BindSpace`, processes the 5D stream, and emits `ShaderHit` + `MetaWord`
+through the sink:
+
+```
+per cycle:   CognitiveShader processes 5D stream over a row window
+per branch:  independent causal trajectory (CausalEdge64 on edges column)
+per merge:   NARS evidence accumulation via CausalEdge64 revision
+per dream:   offline consolidation (prune / merge / permute-XOR-bind)
+```
+
+### Migration status (per `docs/BINDSPACE_MIGRATION_GAP.md`)
+
+The shipped BindSpace is a 4-column SoA that **compresses** the Era 8
+11-field CognitiveRecord into the 4 AGI axes. Era 8's distinct
+`topic` + `angle` + `fingerprint` (three Fingerprint<256> columns) are
+currently folded into a single `fingerprints` column + the 18D qualia
+projection. This is a deliberate distillation, not a loss:
+
+- `fingerprints` carries row identity (content = topic-fingerprint).
+- `qualia` carries the perspective (angle = 18D phenomenal coords).
+- The full Era-8 schema lands if/when the migration in
+  `BINDSPACE_MIGRATION_GAP.md` ships (Container/CogRecord canonicalisation
+  in `lance-graph-contract`). That extension **adds columns to the same
+  SoA**; it does not add a new crate or a new dispatch API.
+
+### Consequences for future sessions
+
+- **Never** write a parallel `struct Agi { topic, angle, thinking, planner }`.
+  Those ARE the BindSpace columns. Wrapping them in a new struct
+  breaks the SoA layout and the SIMD sweep.
+- **Never** introduce an `agi` or `cognitive_record` crate that re-
+  exports the axes. `cognitive-shader-driver` already IS the unified
+  API; extend it by adding columns, not by wrapping it.
+- **Extend by column, not by layer.** New AGI capability = new
+  BindSpace column (with its SoA allocation + meta-prefilter + sink
+  emission) consumed by the existing `ShaderDriver`. Not a new trait,
+  not a new endpoint, not a new DTO family.
+- **Era 8's "weights are seeds" doctrine**: weights don't compress
+  into parameters; they seed the holographic BindSpace. If a future
+  session proposes "train an AGI model," the correct framing is "hydrate
+  new BindSpace rows from seed weights and let ShaderDriver dispatch
+  cycles against them." No gradient-descent training loop lives on
+  the canonical surface.
+
 ## The Failure Mode This Doc Prevents
 
 Future sessions reading this crate see `/v1/shader/dispatch`,
@@ -185,6 +267,153 @@ the lab umbrella. Neither is a subset of the other.
 - `crates/cognitive-shader-driver/src/codec_bridge.rs` — the lab-only consumer impl for research.
 - `.claude/knowledge/cam-pq-unified-pipeline.md` — the pipeline doc that produced this invariant.
 - `.claude/knowledge/cognitive-shader-architecture.md` — the broader shader-as-driver architecture.
+
+---
+
+## Architecture Invariants (from `docs/` — non-negotiable)
+
+The AGI-as-SoA identity above does NOT stand alone. It composes with
+these load-bearing invariants. Violating any one of them breaks the
+contract.
+
+### 1. BindSpace is read-only; writes go through CollapseGate (airgap)
+
+Per `docs/INTEGRATION_PLAN_CS.md`:
+
+- Columns are `Arc<[u64; 256 * N]>` — shared, read-only, mmap-friendly.
+- Writers hold **owned `Copy` microcopies** (CausalEdge64, Band,
+  TruthValue, ThinkingStyle — all ≤16 bytes, stack-only).
+- Deltas cross the airgap via `GateDecision` + `MergeMode`:
+  - `Xor` — single-writer commit (self-inverse, rollback is free).
+  - `Bundle` — multi-writer majority vote.
+  - Superposition — ambiguity preserved for next cycle.
+- **No locks. No `&mut` during compute.** XOR is commutative +
+  associative → ordering irrelevant.
+
+If proposing "mutate column in place" → stop. Use
+`gate.submit(delta)` → `gate.commit()` → next-generation column.
+
+### 2. Canonical import surface: `ndarray::simd::*` only
+
+Per `docs/INTEGRATION_PLAN_CS.md`:
+
+```rust
+// Correct (stable public surface):
+use ndarray::simd::{F32x16, U8x64, F16x32, Fingerprint, MultiLaneColumn, array_window};
+
+// Wrong (reaches into private internals):
+use ndarray::hpc::fingerprint::Fingerprint;
+```
+
+If a type isn't in `ndarray::simd::*`, it's internal. lance-graph
+consumers must not use it.
+
+### 3. Layer temporal scopes (budget discipline)
+
+| Layer | Scope | Budget |
+|---|---|---|
+| L4 Planner | per query | milliseconds |
+| L3 CollapseGate | per commit cycle | microseconds |
+| L2 CognitiveShader | per step | nanoseconds |
+| L1 BindSpace | per lane read | nanoseconds (zero-copy) |
+| L0 ndarray SIMD | per instruction | sub-nanosecond |
+
+Pushing L2/L1 work up to L3 or L4 breaks the budget. L0/L1 kernels
+never allocate.
+
+### 4. Temperature hierarchy — cold path numbs thinking
+
+Per `docs/SEMIRING_ALGEBRA_SURFACE.md` §3:
+
+| Path | Semiring | Purpose |
+|---|---|---|
+| **Hot** — BindSpace sweep | XorBundle / HammingMin / Resonance | full 16Kbit HDR, SIMD popcount |
+| **Warm** — CAM-PQ cascade | CamPqAdc | 6-byte codes, 500M candidates/s |
+| **Cold** — DataFusion joins | Boolean | Arrow RecordBatch, standard SQL |
+| **Frozen** — metadata skeleton | none | Pure CRUD, no semiring |
+
+**Rule:** cold joins narrow on scalars FIRST; semiring algebra fires
+only on narrow survivors. Never run a full HDR semiring over all rows.
+
+### 5. Thinking is an `AdjacencyStore`, not a separate system
+
+Per `docs/THINKING_PIPELINE.md`:
+
+- 36 styles = nodes in a real `AdjacencyStore` (CSR/CSC + NARS edges).
+- Cognitive verbs call the **same** `batch_adjacent()` as data queries.
+- **One engine, two graphs.** Styles live at τ-prefix `0x0D` in the
+  `Addr(u16)` space (per `METADATA_SCHEMA_INVENTORY.md` §1E).
+- "Add a thinking engine outside the planner" is wrong. Extend the
+  topology, extend the cognitive verbs — same substrate.
+
+### 6. Weights are seeds — not runtime parameters
+
+Per `docs/COGNITIVE_SHADER_HYDRATION.md`:
+
+GGUF weights are hydrated once into BindSpace as holographic memory:
+1. 256 archetypes (palette) + Fingerprint<256> per archetype.
+2. 256×256 FisherZTable (64 KB, L1-resident).
+3. Holographic residual (phase + magnitude slots).
+4. CausalEdge64 wiring (S(row) × P(role) × O(col)).
+
+After bake: inference = Hamming cascade + palette lookup + XOR
+compose. No `matmul`, no FP inner loop. "Training" = hydrating new
+BindSpace rows from seed weights, not gradient descent.
+
+### 7. Per-cycle cascade ∼2.3 ms / 1M rows (monotone narrowing)
+
+Per `docs/COGNITIVE_SHADER_HYDRATION.md`:
+
+```
+sweep topic[]     → 50K survivors   (~2 ms Hamming)
+sweep angle[]     → 5K survivors    (~0.2 ms Hamming)
+sweep causality[] → 500 survivors   (~0.05 ms CausalEdge64 filter)
+sweep qualia[]    → 50 survivors    (scalar 18D range)
+exact on 50       → palette lookup  → CausalEdge64 output
+```
+
+Intersect is bitmap AND across per-column hit masks. Monotone
+narrowing must hold (each stage shrinks the set by ≥10×). Breaking
+the order (e.g. qualia before Hamming) loses the 99% reject gate.
+
+### 8. 4096 address surface = 16 prefix × 256 slots
+
+Per `docs/METADATA_SCHEMA_INVENTORY.md`:
+
+- `Addr(u16)` = 8-bit prefix : 8-bit slot.
+- Prefix 0x0D = thinking style templates (τ addresses).
+- Each slot holds one `[u64; 256]` = 16,384-bit fingerprint.
+- This IS the BindSpace substrate before column extension.
+
+### 9. Three DTO families above SoA (doctrinal, not yet shipped)
+
+Per `docs/integrated-architecture-map.md` §5:
+
+| DTO | Holds | Stage |
+|---|---|---|
+| `StreamDto` | arrival-order inputs (text, SPO seeds, anchor hints) | pre-parse |
+| `ResonanceDto` | superposition field (topic/angle/hypothesis, pre-collapse) | active sweep |
+| `BusDto` | explicit thought (topic anchor + angle mask + edges + style ordinal) | post-collapse → CognitiveShader |
+
+**Field ≠ sweep ≠ bus.** The field is searchable terrain (10K [i8/i16]);
+the sweep is the cheap XOR/bundle collapse into a lookup vector; the
+bus is explicit execution through p64 / CognitiveShader. Do not
+conflate them.
+
+### 10. HEEL/HIP/BRANCH/TWIG/LEAF = progressive precision hierarchy
+
+Per `docs/integrated-architecture-map.md` §3:
+
+| Level | Role | Maps to |
+|---|---|---|
+| HEEL | coarse basin routing | bgz17, Base17 |
+| HIP | family sharpening | 16384 palette, i16 |
+| BRANCH | contradiction / signed split | polarity residuals |
+| TWIG | local prototype neighborhood | CLAM ripple |
+| LEAF | exact member | full fingerprint |
+
+Each level narrows; never skip levels. bgz17 IS HEEL — do not
+ask it to also be LEAF identity.
 
 ---
 
