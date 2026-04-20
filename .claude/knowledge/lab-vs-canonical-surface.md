@@ -56,6 +56,66 @@ the canonical library surface:
 | `cognitive-shader-driver/src/codec_bridge.rs` | `CodecResearchBridge: OrchestrationBridge` for StepDomain::Ndarray | The research consumer's bridge impl — canonical trait, lab-only consumer |
 | `cognitive-shader-driver/src/planner_bridge.rs` | Per-op WirePlan shortcut → PlannerAwareness | `PlannerAwareness` already impls OrchestrationBridge directly; this is a lab test adapter only |
 
+### Why the Lab Surface Exists (positive purpose — not just quarantine)
+
+The lab API is not tech debt tolerated until it can be deleted. It is
+the **codec-research iteration testbed**. Its reason for existing is
+the cost of the alternative: every codec candidate re-measured through
+a `cargo build` cycle burns minutes per iteration. Over dozens of
+candidates (Fractal, Zipper, 5^5, 7^7, I8-μ-law, CamPqRaw, CamPqPhase,
+residual PQ, Hadamard pre-rotation, OPQ…) that compounds into hours of
+waiting between measurements — which is what kills research velocity.
+
+With the lab surface:
+
+```
+HTTP POST /v1/shader/calibrate  { tensor_path, codec, params }
+        ↓ (no recompile)
+codec_research::calibrate_tensor(...)
+        ↓
+ICC / reconstruction / SHA256 in manifest.json
+```
+
+Same binary serves dozens of candidates against the same safetensors,
+in seconds per call. This is how PR #220 falsified PR #219's ICC-0.9998
+claim: the calibration CLI + REST endpoint exercised CAM-PQ on full
+Qwen3-TTS-0.6B tensors and surfaced mean ICC 0.195 / 0/234 pass rate
+before any production consumer linked the codec.
+
+**Two purposes held together — neither dominates the other:**
+
+1. **Iteration velocity** (positive). The lab surface lets research
+   measure N codec candidates against real tensors without
+   recompiling. `/v1/shader/{dispatch,calibrate,probe,tensors,plan}`
+   are the curl-friendly entry points for that loop.
+2. **Canonical firewall** (guard). The lab surface MUST NOT become
+   what production consumes. Consumers walk `UnifiedStep` via
+   `OrchestrationBridge`; they never see `WireCalibrate` /
+   `WireProbe` / `WireTensors`.
+
+**Worked example — the #219 → #220 falsification arc:**
+
+| PR | Role | Velocity enabled by |
+|---|---|---|
+| #219 | Claimed ICC 0.9998 at 6 B/row on 128 training rows; lab-gated CAM-PQ candidates behind `--features lab` | Research iteration inside the lab surface; no production wiring yet |
+| #220 | D5 full-size validation via `cam_pq_calibrate` CLI on real safetensors; mean ICC **0.195**, 0/234 tensors ≥ 0.99; EPIPHANIES marks prior entry SUPERSEDED | Same lab surface exercised on full tensors — negative result surfaced **before** the codec linked into any canonical consumer |
+
+The gate did its job twice: (a) the iteration loop was fast enough to
+falsify the claim in a day, (b) nothing production-facing depended on
+the falsified codec when the result came back. That is exactly what
+the LAB / canonical split exists to buy.
+
+**Rule of thumb for a new codec / research op:**
+
+- Add it under `codec_research.rs` + a `Wire*` DTO + a handler under
+  `/v1/shader/<op>`. Measure against real tensors via curl / CLI.
+- Land findings as `.claude/knowledge/codec-findings-*.md` with
+  measured ICC / error / SHA256 + EPIPHANIES entry.
+- Only after full-size validation passes the gate (e.g. ≥ 0.99 ICC
+  on held-out rows for argmax-regime tensors) does the op graduate
+  — and even then it graduates as a new `StepDomain` variant behind
+  `OrchestrationBridge`, not as a permanent `/v1/<op>` endpoint.
+
 The canonical surface — all of it re-exported from
 `cognitive-shader-driver` so consumers depend on one crate:
 
@@ -372,12 +432,19 @@ Before adding ANY new endpoint, handler, or Wire DTO, answer in order:
    `lance-graph-planner/src/orchestration_impl.rs`). **Do not add a
    new `/v1/<new>` endpoint.**
 
-3. **Is this purely a lab test convenience?** If and only if the
-   answer is unambiguously yes (e.g., "I want a curl-friendly
-   per-op shortcut for debugging"), add it under `src/wire.rs` +
-   `src/serve.rs` or `src/grpc.rs` and document that it routes
-   through the canonical bridge internally. Mark it `LAB-ONLY` in
-   the module doc.
+3. **Is this codec-research iteration or lab debugging?** This is a
+   legitimate positive use of the lab surface — it's *why* the lab
+   surface exists. Research ops (calibrate / probe / tensors /
+   bench) and curl-friendly debugging shortcuts belong under
+   `src/wire.rs` + `src/serve.rs` or `src/grpc.rs`. Mark the module
+   `LAB-ONLY` in its doc and ensure the handler either (a) stays
+   inside `codec_research.rs` for research, or (b) constructs a
+   `UnifiedStep` and delegates to the canonical bridge. When a
+   research op graduates (passes full-size validation — e.g. ICC
+   ≥ 0.99 on held-out rows), it migrates to a new or existing
+   `StepDomain` variant behind `OrchestrationBridge`; the lab
+   endpoint stays for continued iteration but is no longer the
+   path production consumes.
 
 4. **Never**:
    - Publish a per-op endpoint as "the API" in PR descriptions or
