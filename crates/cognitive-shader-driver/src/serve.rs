@@ -39,7 +39,8 @@ use crate::driver::ShaderDriver;
 use crate::engine_bridge::{self, unified_style, UNIFIED_STYLES};
 use crate::wire::{
     WireCalibrateRequest, WireCalibrateResponse, WireCrystal, WireDispatch, WireHealth,
-    WireIngest, WireProbeRequest, WireProbeResponse, WireQualia, WireStyleInfo,
+    WireIngest, WireProbeRequest, WireProbeResponse, WireQualia, WireRunbookRequest,
+    WireRunbookResponse, WireRunbookStep, WireRunbookStepResult, WireStyleInfo,
     WireTensorsRequest, WireTensorsResponse,
 };
 use lance_graph_contract::cognitive_shader::CognitiveShaderDriver;
@@ -71,6 +72,11 @@ pub fn router(driver: ShaderDriver) -> Router {
         .route("/v1/shader/tensors", post(tensors_handler))
         .route("/v1/shader/calibrate", post(calibrate_handler))
         .route("/v1/shader/probe", post(probe_handler))
+        // Scheduled runbook: one POST runs a list of steps. Test injection
+        // lands here — a client script submits its full codec-research
+        // protocol as a single DTO, the server executes and returns all
+        // results correlated by per-step label.
+        .route("/v1/shader/runbook", post(runbook_handler))
         .with_state(state)
 }
 
@@ -189,4 +195,93 @@ async fn probe_handler(
     codec_research::row_count_probe(&req)
         .map(Json)
         .map_err(|e| (StatusCode::BAD_REQUEST, Json(json!({"error": e}))))
+}
+
+async fn runbook_handler(
+    State(state): State<AppState>,
+    Json(req): Json<WireRunbookRequest>,
+) -> Result<Json<WireRunbookResponse>, (StatusCode, Json<Value>)> {
+    let total = req.steps.len();
+    let t0 = std::time::Instant::now();
+    let mut results: Vec<WireRunbookStepResult> = Vec::with_capacity(total);
+    let mut errors = 0usize;
+    let mut completed = 0usize;
+
+    for s in req.steps.into_iter() {
+        let label = s.label.clone();
+        let step_name = match &s.step {
+            WireRunbookStep::Tensors(_) => "tensors",
+            WireRunbookStep::Calibrate(_) => "calibrate",
+            WireRunbookStep::Probe(_) => "probe",
+            WireRunbookStep::Dispatch(_) => "dispatch",
+            WireRunbookStep::Ingest(_) => "ingest",
+        };
+        let outcome: Result<WireRunbookStepResult, String> = match s.step {
+            WireRunbookStep::Tensors(r) => codec_research::list_tensors(&r)
+                .map(|response| WireRunbookStepResult::Tensors { label: label.clone(), response }),
+            WireRunbookStep::Calibrate(r) => codec_research::calibrate_tensor(&r)
+                .map(|response| WireRunbookStepResult::Calibrate { label: label.clone(), response }),
+            WireRunbookStep::Probe(r) => codec_research::row_count_probe(&r)
+                .map(|response| WireRunbookStepResult::Probe { label: label.clone(), response }),
+            WireRunbookStep::Dispatch(wd) => match state.lock() {
+                Err(_) => Err("lock poisoned".to_string()),
+                Ok(st) => {
+                    let crystal = st.driver.dispatch(&wd.to_internal());
+                    Ok(WireRunbookStepResult::Dispatch {
+                        label: label.clone(),
+                        response: WireCrystal::from(&crystal),
+                    })
+                }
+            },
+            WireRunbookStep::Ingest(wi) => match state.lock() {
+                Err(_) => Err("lock poisoned".to_string()),
+                Ok(mut st) => {
+                    let cursor = st.write_cursor;
+                    match Arc::get_mut(&mut st.driver.bindspace) {
+                        None => Err("bindspace has multiple references".to_string()),
+                        Some(bs) => {
+                            let (start, end) = engine_bridge::ingest_codebook_indices(
+                                bs, &wi.codebook_indices, wi.source_ordinal, wi.timestamp, cursor,
+                            );
+                            st.write_cursor = end as usize;
+                            Ok(WireRunbookStepResult::Ingest {
+                                label: label.clone(),
+                                ingested: end - start,
+                                row_start: start,
+                                row_end: end,
+                                write_cursor: st.write_cursor as u32,
+                            })
+                        }
+                    }
+                }
+            },
+        };
+
+        match outcome {
+            Ok(r) => {
+                completed += 1;
+                results.push(r);
+            }
+            Err(e) => {
+                errors += 1;
+                results.push(WireRunbookStepResult::Error {
+                    label,
+                    step: step_name.to_string(),
+                    error: e,
+                });
+                if req.stop_on_error {
+                    break;
+                }
+            }
+        }
+    }
+
+    Ok(Json(WireRunbookResponse {
+        label: req.label,
+        total_steps: total,
+        completed,
+        errors,
+        total_elapsed_ms: t0.elapsed().as_millis() as u64,
+        results,
+    }))
 }
