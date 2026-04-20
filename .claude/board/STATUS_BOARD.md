@@ -39,6 +39,12 @@ Active integration plan. 7 Phase 0 deliverables (D0.1–D0.7) + Phases
 afterwards is a JIT kernel, not a rebuild. Plan path:
 `.claude/plans/codec-sweep-via-lab-infra-v1.md`.
 
+### CI Gate — JC Substrate Proof
+
+| D-id | Title | Status | PR / Evidence |
+|---|---|---|---|
+| CI-JC | `.github/workflows/jc-proof.yml` — runs prove_it on every PR touching `crates/jc/` or `cam.rs` | **In PR** | 5-min timeout, exits 0 = substrate sound |
+
 ### Phase 0 — API hardening (partial in PR #225; remainder queued)
 
 | D-id | Title | Status | PR / Evidence |
