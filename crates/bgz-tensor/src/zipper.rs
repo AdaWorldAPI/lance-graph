@@ -37,6 +37,14 @@ pub const ZIPPER_BYTES: usize = (PHASE_ACTIVE_BITS / 8) + MAG_ACTIVE_SAMPLES;
 const PHI: f64 = 1.618_033_988_749_895;
 /// φ² = φ + 1 = 2.618...
 const PHI_SQ: f64 = 2.618_033_988_749_895;
+/// Circle of Fifths stride: log₂(3/2) ≈ 0.58496...
+/// Irrational rotation giving harmonic-proximity ordering.
+const QUINT_STRIDE: f64 = 0.584_962_500_721_156;
+
+/// μ-law companding parameter (same as telephony/audio μ-law).
+/// μ=255 concentrates quantization levels near zero where argmax
+/// decisions happen; coarsens at extremes where the answer is obvious.
+const MU_LAW: f32 = 255.0;
 
 /// Zipper descriptor: single-container phase + magnitude encoding.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -126,6 +134,96 @@ impl ZipperDescriptor {
         0.5 * self.cosine_phase_only(other) + 0.5 * self.cosine_magnitude_only(other)
     }
 
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// I8 zipper — magnitude+sign per sample instead of sign-only
+// ─────────────────────────────────────────────────────────────────────────
+
+/// I8 zipper descriptor: K i8 samples at φ-stride positions.
+/// Each sample carries sign AND magnitude → 8× info density vs sign-only.
+/// Supports both φ-stride (anti-moiré) and Quintenzirkel-stride (harmonic).
+#[derive(Debug, Clone)]
+pub struct ZipperI8Descriptor {
+    pub samples: Vec<i8>,
+    pub stride_kind: StrideKind,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StrideKind {
+    Phi,
+    Quintenzirkel,
+}
+
+impl ZipperI8Descriptor {
+    /// Encode K i8 samples from a row at the given stride.
+    /// Applies μ-law companding for gamma-corrected quantization:
+    /// concentrates precision near zero where argmax discrimination happens.
+    pub fn encode(row: &[f32], k: usize, stride_kind: StrideKind) -> Self {
+        let n = row.len();
+        assert!(n.is_power_of_two() && n >= 64);
+
+        let mut rotated = row.to_vec();
+        wht_f32(&mut rotated);
+
+        let stride_frac = match stride_kind {
+            StrideKind::Phi => 1.0 / PHI,
+            StrideKind::Quintenzirkel => QUINT_STRIDE,
+        };
+
+        // Per-row max-abs for normalization to [-1, 1].
+        let max_abs = rotated.iter().fold(0.0_f32, |m, &x| m.max(x.abs())).max(1e-20);
+
+        let mut samples = Vec::with_capacity(k);
+        for i in 0..k {
+            let frac = ((i + 1) as f64 * stride_frac) % 1.0;
+            let pos = (frac * n as f64) as usize % n;
+            let x = rotated[pos] / max_abs; // normalized to [-1, 1]
+            // μ-law companding (gamma correction).
+            let compressed = mu_law_encode(x);
+            samples.push(compressed);
+        }
+
+        Self { samples, stride_kind }
+    }
+
+    /// Cosine similarity between two I8 descriptors.
+    pub fn cosine(&self, other: &Self) -> f32 {
+        let k = self.samples.len().min(other.samples.len());
+        let mut dot = 0.0_f32;
+        let mut na = 0.0_f32;
+        let mut nb = 0.0_f32;
+        for i in 0..k {
+            let a = self.samples[i] as f32;
+            let b = other.samples[i] as f32;
+            dot += a * b;
+            na += a * a;
+            nb += b * b;
+        }
+        let d = (na * nb).sqrt();
+        if d < 1e-15 { 0.0 } else { dot / d }
+    }
+
+    pub fn bytes_per_row(&self) -> usize { self.samples.len() }
+}
+
+/// μ-law encode: x ∈ [-1, 1] → i8 with gamma-concentrated precision.
+/// sign(x) * log(1 + μ|x|) / log(1 + μ) → scale to [-127, 127].
+fn mu_law_encode(x: f32) -> i8 {
+    let sign = if x >= 0.0 { 1.0_f32 } else { -1.0 };
+    let compressed = sign * (1.0 + MU_LAW * x.abs()).ln() / (1.0 + MU_LAW).ln();
+    (compressed * 127.0).round().clamp(-127.0, 127.0) as i8
+}
+
+/// μ-law decode: i8 → f32 ∈ [-1, 1], inverse of mu_law_encode.
+#[allow(dead_code)]
+fn mu_law_decode(q: i8) -> f32 {
+    let y = q as f32 / 127.0;
+    let sign = if y >= 0.0 { 1.0_f32 } else { -1.0 };
+    sign * (1.0 / MU_LAW) * ((1.0 + MU_LAW).powf(y.abs()) - 1.0)
+}
+
+impl ZipperDescriptor {
     pub fn pack(&self) -> [u8; ZIPPER_BYTES] {
         let mut out = [0u8; ZIPPER_BYTES];
         out[0..8].copy_from_slice(&self.phase_bits.to_le_bytes());

@@ -311,6 +311,98 @@ impl CodecCandidate for ZipperFull {
     }
 }
 
+/// I8 φ-stride (8 B): 8 i8 gamma-compressed samples at φ-stride.
+/// Same budget as Zipper-Phase but 8× info density per byte.
+#[cfg(feature = "lab")]
+struct ZipperI8Phi8;
+
+#[cfg(feature = "lab")]
+impl CodecCandidate for ZipperI8Phi8 {
+    fn name(&self) -> &str { "Zipper-I8-φ(8B)" }
+    fn bytes_per_row(&self) -> usize { 8 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::zipper::{ZipperI8Descriptor, StrideKind};
+        let zs: Vec<ZipperI8Descriptor> = rows.iter().map(|r| {
+            let n = r.len(); let mut p = 1; while p < n { p <<= 1; }
+            let mut buf = vec![0.0f32; p]; buf[..n].copy_from_slice(r);
+            ZipperI8Descriptor::encode(&buf, 8, StrideKind::Phi)
+        }).collect();
+        pairwise_codec_scores(&zs)
+    }
+}
+
+/// I8 Quintenzirkel-stride (8 B): 8 i8 samples at log₂(3/2) stride.
+/// Tests harmonic-proximity ordering vs φ's maximal-irrationality.
+#[cfg(feature = "lab")]
+struct ZipperI8Quint8;
+
+#[cfg(feature = "lab")]
+impl CodecCandidate for ZipperI8Quint8 {
+    fn name(&self) -> &str { "Zipper-I8-Q5(8B)" }
+    fn bytes_per_row(&self) -> usize { 8 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::zipper::{ZipperI8Descriptor, StrideKind};
+        let zs: Vec<ZipperI8Descriptor> = rows.iter().map(|r| {
+            let n = r.len(); let mut p = 1; while p < n { p <<= 1; }
+            let mut buf = vec![0.0f32; p]; buf[..n].copy_from_slice(r);
+            ZipperI8Descriptor::encode(&buf, 8, StrideKind::Quintenzirkel)
+        }).collect();
+        pairwise_codec_scores(&zs)
+    }
+}
+
+/// I8 φ-stride full (64 B): 64 i8 gamma-compressed samples.
+/// Unified phase+magnitude — each sample carries sign AND magnitude.
+#[cfg(feature = "lab")]
+struct ZipperI8PhiFull;
+
+#[cfg(feature = "lab")]
+impl CodecCandidate for ZipperI8PhiFull {
+    fn name(&self) -> &str { "Zipper-I8-φ(64B)" }
+    fn bytes_per_row(&self) -> usize { 64 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::zipper::{ZipperI8Descriptor, StrideKind};
+        let zs: Vec<ZipperI8Descriptor> = rows.iter().map(|r| {
+            let n = r.len(); let mut p = 1; while p < n { p <<= 1; }
+            let mut buf = vec![0.0f32; p]; buf[..n].copy_from_slice(r);
+            ZipperI8Descriptor::encode(&buf, 64, StrideKind::Phi)
+        }).collect();
+        pairwise_codec_scores(&zs)
+    }
+}
+
+/// I8 Quintenzirkel-stride full (64 B): harmonic-ordered 64 i8 samples.
+#[cfg(feature = "lab")]
+struct ZipperI8QuintFull;
+
+#[cfg(feature = "lab")]
+impl CodecCandidate for ZipperI8QuintFull {
+    fn name(&self) -> &str { "Zipper-I8-Q5(64B)" }
+    fn bytes_per_row(&self) -> usize { 64 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use bgz_tensor::zipper::{ZipperI8Descriptor, StrideKind};
+        let zs: Vec<ZipperI8Descriptor> = rows.iter().map(|r| {
+            let n = r.len(); let mut p = 1; while p < n { p <<= 1; }
+            let mut buf = vec![0.0f32; p]; buf[..n].copy_from_slice(r);
+            ZipperI8Descriptor::encode(&buf, 64, StrideKind::Quintenzirkel)
+        }).collect();
+        pairwise_codec_scores(&zs)
+    }
+}
+
+/// Helper: pairwise cosine from ZipperI8Descriptor vec.
+#[cfg(feature = "lab")]
+fn pairwise_codec_scores(zs: &[bgz_tensor::zipper::ZipperI8Descriptor]) -> Vec<f64> {
+    let n = zs.len();
+    let mut scores = Vec::with_capacity(n * (n - 1) / 2);
+    for i in 0..n {
+        for j in (i + 1)..n {
+            scores.push(zs[i].cosine(&zs[j]) as f64);
+        }
+    }
+    scores
+}
+
 /// Passthrough — raw cosine (baseline, exact).
 struct Passthrough;
 impl CodecCandidate for Passthrough {
@@ -1628,6 +1720,10 @@ fn main() {
             codecs.push(Box::new(FractalPhasePlusBase17));
             codecs.push(Box::new(ZipperPhaseOnly));
             codecs.push(Box::new(ZipperFull));
+            codecs.push(Box::new(ZipperI8Phi8));
+            codecs.push(Box::new(ZipperI8Quint8));
+            codecs.push(Box::new(ZipperI8PhiFull));
+            codecs.push(Box::new(ZipperI8QuintFull));
         }
 
         let results = run_bench(&codecs, &rows, &gt);
