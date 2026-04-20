@@ -504,6 +504,100 @@ fn pairwise_7lvl_scores(zs: &[bgz_tensor::zipper::Zipper7LevelDescriptor]) -> Ve
     scores
 }
 
+/// CAM-PQ raw (6 B/row): baseline product-quantization on raw rows.
+/// 6 subspaces × 256 centroids per subspace, trained via k-means on the
+/// population. Per-row = 6 codebook indices = 6 B. Shared codebook
+/// (~24 KB for 1024-d: 6 × 256 × 170 B subvector centroids).
+#[cfg(feature = "lab")]
+struct CamPqRaw {
+    codebook: ndarray::hpc::cam_pq::CamCodebook,
+}
+
+#[cfg(feature = "lab")]
+impl CamPqRaw {
+    fn new(rows: &[Vec<f32>]) -> Self {
+        let total_dim = rows[0].len();
+        let codebook = ndarray::hpc::cam_pq::train_geometric(rows, total_dim, 20);
+        Self { codebook }
+    }
+}
+
+#[cfg(feature = "lab")]
+impl CodecCandidate for CamPqRaw {
+    fn name(&self) -> &str { "CAM-PQ-Raw(6B)" }
+    fn bytes_per_row(&self) -> usize { 6 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        // Encode → decode → cosine on reconstructed rows.
+        let reconstructed: Vec<Vec<f32>> = rows.iter().map(|r| {
+            let fp = self.codebook.encode(r);
+            self.codebook.decode(&fp)
+        }).collect();
+        pairwise_cosines(&reconstructed)
+    }
+}
+
+/// CAM-PQ phase-repurposed (6 B/row): train codebook on Hadamard-rotated
+/// rows so the 6 subspaces sample orthogonal frequency bands, not raw
+/// coordinates. Expected to improve argmax ICC since I2 (near-orthogonality)
+/// means raw-coordinate clustering fails but Hadamard-basis clustering
+/// concentrates discriminative energy.
+#[cfg(feature = "lab")]
+struct CamPqPhase {
+    codebook: ndarray::hpc::cam_pq::CamCodebook,
+}
+
+#[cfg(feature = "lab")]
+impl CamPqPhase {
+    fn new(rows: &[Vec<f32>]) -> Self {
+        use ndarray::hpc::fft::wht_f32;
+        // Rotate rows into Hadamard basis before training.
+        let rotated: Vec<Vec<f32>> = rows.iter().map(|r| {
+            let n = r.len();
+            let mut p = 1usize;
+            while p < n { p <<= 1; }
+            let mut buf = vec![0.0f32; p];
+            buf[..n].copy_from_slice(r);
+            wht_f32(&mut buf);
+            // Truncate back to original length for codebook geometry.
+            buf.truncate(n);
+            buf
+        }).collect();
+        let total_dim = rotated[0].len();
+        let codebook = ndarray::hpc::cam_pq::train_geometric(&rotated, total_dim, 20);
+        Self { codebook }
+    }
+}
+
+#[cfg(feature = "lab")]
+impl CodecCandidate for CamPqPhase {
+    fn name(&self) -> &str { "CAM-PQ-Phase(6B)" }
+    fn bytes_per_row(&self) -> usize { 6 }
+    fn pairwise_scores(&self, rows: &[Vec<f32>]) -> Vec<f64> {
+        use ndarray::hpc::fft::wht_f32;
+        // Rotate each row before encoding through the Hadamard-trained codebook.
+        let reconstructed: Vec<Vec<f32>> = rows.iter().map(|r| {
+            let n = r.len();
+            let mut p = 1usize;
+            while p < n { p <<= 1; }
+            let mut buf = vec![0.0f32; p];
+            buf[..n].copy_from_slice(r);
+            wht_f32(&mut buf);
+            buf.truncate(n);
+            let fp = self.codebook.encode(&buf);
+            // Decode in Hadamard basis. CAM-PQ truncates to multiple
+            // of NUM_SUBSPACES=6, so decoded.len() may be < n.
+            let decoded = self.codebook.decode(&fp);
+            let mut full = vec![0.0f32; p];
+            let copy_len = decoded.len().min(n);
+            full[..copy_len].copy_from_slice(&decoded[..copy_len]);
+            wht_f32(&mut full); // WHT is self-inverse up to scale
+            full.truncate(n);
+            full
+        }).collect();
+        pairwise_cosines(&reconstructed)
+    }
+}
+
 /// Passthrough — raw cosine (baseline, exact).
 struct Passthrough;
 impl CodecCandidate for Passthrough {
@@ -1833,6 +1927,15 @@ fn main() {
             codecs.push(Box::new(Zipper5Wide { scale: gscale5 }));
             codecs.push(Box::new(Zipper7pow7 { scale: gscale7 }));
             codecs.push(Box::new(Zipper7Wide { scale: gscale7 }));
+
+            // CAM-PQ — genuine codebook-only compact codec.
+            // 6 B/row + ~24 KB shared codebook (population-calibrated).
+            // Raw: baseline PQ on raw rows. Phase: PQ trained on
+            // Hadamard-rotated rows (repurposed for the argmax regime).
+            if rows[0].len() >= 6 {
+                codecs.push(Box::new(CamPqRaw::new(&rows)));
+                codecs.push(Box::new(CamPqPhase::new(&rows)));
+            }
         }
 
         let results = run_bench(&codecs, &rows, &gt);

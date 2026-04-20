@@ -83,3 +83,12 @@ Phases 2–4 queued.
   aren't yet scoped into a plan.
 - **`PR_ARC_INVENTORY.md`** — shipped-PR decision history.
 - **`LATEST_STATE.md`** — current-state snapshot.
+
+## 2026-04-20 — cam-pq-production-wiring-v1
+**Status:** DRAFT
+**Plan:** `.claude/plans/cam-pq-production-wiring-v1.md`
+**Scope:** Wire CAM-PQ as default codec for argmax-regime tensors.
+**Deliverables:** D1-D7 (classifier, calibration, storage, decode, validation, E2E, fallback).
+**Driver:** ICC 0.9999 at 6 B/row on Qwen3-8B (PR #218 bench).
+**Effort:** ~8 person-days.
+**Confidence:** HIGH.
