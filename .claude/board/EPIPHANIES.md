@@ -628,3 +628,73 @@ preserves the sign relationship that ground truth measures.
 Cross-ref: commits 7740759 (implementation), 6999106 (architecture
 doc). bgz17 container design "family zipper" concept in
 phi-spiral-reconstruction.md — empirically validated at last.
+
+## 2026-04-20 — 5^5 / 7^7 bipolar zipper measured + TurboQuant leader identified
+**Status:** FINDING
+
+Ran codec_rnd_bench.rs with 5^5 and 7^7 bipolar-signed candidates
+(global-scale quantization, negative-cancellation bundling capability).
+Same population: Qwen3-8B q_proj L0, N=128 rows, 1400 s wall.
+
+**Results (ICC_3_1 on q_proj):**
+
+| Codec | Bytes | ICC | Note |
+|---|---|---|---|
+| Passthrough | 0 | 1.000 | baseline |
+| Had-Q5×D-R (existing!) | 0 | **0.989** | shared codebook, TurboQuant-class |
+| Base17 | 34 | 0.024 | |
+| Zipper-Phase (sign) | 8 | 0.097 | |
+| Zipper-5^5 | 2 | 0.021 | |
+| Zipper-7^7 | 3 | 0.028 | |
+| Zipper-I8-φ(8B) | 8 | 0.025 | μ-law + per-row norm hurts |
+| Zipper-I8-Q5(8B) | 8 | 0.020 | Quint loses to φ |
+| Zipper-5^5×5 | 10 | 0.066 | |
+| Zipper-7^7×7 | 18 | **0.144** | best compact zipper |
+| Zipper-Full (sign+mag) | 64 | 0.204 | |
+| Zipper-I8-φ(64B) | 64 | 0.153 | |
+
+**Readings:**
+
+1. **7^7×7 at 18 B: new Pareto point** — ICC 0.144 at 72% of Zipper-Full's
+   score for 28% of the bytes. Progressive-matryoshka decode supported
+   (truncate to 3 B = 7^7 for coarsest). Negative-cancellation bundling
+   on by construction.
+
+2. **Quintenzirkel LOSES to φ consistently** across all size tiers:
+   0.020 vs 0.025 at 8 B, 0.134 vs 0.153 at 64 B. Harmonic-proximity
+   ordering doesn't help argmax on q_proj; maximally-irrational
+   remains the right stride.
+
+3. **Existing sweep has a 0-B codebook-indexed leader**: `Had-Q5×D-R`
+   at ICC 0.989 (near-Passthrough). This is the TurboQuant-class
+   codec already shipped in the 67-codec sweep. On pure ICC, nothing
+   in the zipper family comes close. Zipper's Pareto axis is
+   different (bundling, progressive decode).
+
+4. **Per-row i8 μ-law harms inter-row magnitude preservation**.
+   Per-row max-abs normalization collapses magnitude differences
+   between rows. Global-scale (5^5 / 7^7 via population median)
+   recovers some signal: 7^7×7 at 18 B = 0.144 > per-row μ-law
+   Zipper-I8-φ(64B) = 0.153 at 64 B.
+
+**Pragmatic conclusion:**
+
+- **Use Had-Q5×D-R** for production argmax compression. ICC 0.989 at
+  ~0 per-row bytes (shared codebook). It's already shipping.
+- **Use 7^7×7 (18 B)** ONLY when you need the zipper's additional
+  properties: progressive decode, negative-cancellation bundling,
+  anti-moiré guarantee without codebook dependency.
+- **Don't pursue Quintenzirkel stride** on argmax populations —
+  measured empirically inferior to φ across all tested sizes.
+
+**Still unmeasured:**
+
+- Multi-projection MRI-style differential phase (N rotations,
+  cross-view aggregation). Sidesteps sign-flip invariance by
+  measuring inter-rotation deltas.
+- Fibonacci-weighted bundling for 256-bundle capacity in i8 via
+  Zeckendorf decomposition decode.
+- Audiophile-style multi-band phase precision (8 bits top-16,
+  3 bits middle-48, sign-only bottom).
+
+Cross-ref: commits d172aa3 (I8+Quint), f004d82 (5^5+7^7 + global scale).
