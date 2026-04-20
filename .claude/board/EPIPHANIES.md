@@ -65,11 +65,110 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
-## 2026-04-20 — [FORMAL-SCAFFOLD] Four-pillar Phase-5 reference
+## 2026-04-20 — E-SUBSTRATE-1 — VSA-bundling guarantees Chapman-Kolmogorov by construction
 
-**Status:** DEPOSIT — reference only, not a paper track. **Consult before inventing new calibration heuristics.**
+**Status:** FINDING (load-bearing — FUNDAMENT underneath the [FORMAL-SCAFFOLD] four pillars)
 
-Formal-foundation scaffolding for the discrete binary PINN interpretation of the workspace (ladybug → lance-graph): **Jirak 2016** Berry-Esseen under weak dependence (arxiv 1606.01617) + **Cartan-Kuranishi** involutive prolongation + **φ-Weyl** equidistribution for golden-angle collocation + **γ+φ** preconditioner for prolongation regularization. These are the four citations that would elevate empirical ICC 0.99 → provably-bounded residual if a theorem track were opened; it is not. The tag `[FORMAL-SCAFFOLD]` exists so a future session tempted to roll its own threshold-calibration / sampling-stride / coordinate-transform / noise-floor heuristic grep'es this entry first and either (a) uses the referenced lemmas or (b) writes down explicitly why they don't apply.
+Saturating bundle addition in d=10000 is associative and commutative in
+expectation: `a ⊞ (b ⊞ c) = (a ⊞ b) ⊞ c`. Johnson-Lindenstrauss +
+concentration-of-measure in 10000 dimensions suppress deviations from
+associativity at rate `~e^(-d)`. States-as-VSA-bundles + transitions-as-
+bundle-operation ⇒ `(Hamming-space, Bundle)` is an **abelian semigroup**
+⇒ Chapman-Kolmogorov `K(2τ) = K(τ)²` holds **by construction**.
+
+**Consequence.** The Markov property is not a testable assumption in this
+substrate — it is a geometric consequence of the substrate choice.
+D7's "implicit Markov reliance" is grounded, not silent. The
+Chapman-Kolmogorov consistency test therefore reclassifies from
+*falsification gate* (Popperian) to *implementation sanity check*
+(regression — can only fail from implementation bugs, not from theoretical
+violations).
+
+**Load-bearing constraint (substrate-bound).** `MergeMode::Xor` BREAKS
+this guarantee. Non-commutative binding operations BREAK it. Any move
+away from saturating bundle in high dimension destroys the foundation on
+which the four [FORMAL-SCAFFOLD] pillars stand. See I-SUBSTRATE-MARKOV
+in CLAUDE.md for the iron-rule form.
+
+Cross-ref: I1 BindSpace read-only + CollapseGate bundles;
+[FORMAL-SCAFFOLD] below; D7 meta-inference duality;
+`contract::collapse_gate::MergeMode::Bundle`.
+
+---
+
+## 2026-04-20 — [FORMAL-SCAFFOLD] Five-pillar Phase-5 reference (dormant, not parked)
+
+**Status:** DORMANT (not parked; five pillars cited; paper track not active but citations are available when calibration choices become load-bearing). **Consult before inventing new significance claims, thresholds, or substrate changes.**
+
+Formal-foundation scaffolding for the discrete binary PINN interpretation of the workspace (ladybug → lance-graph). Five pillars — **E-SUBSTRATE-1** as fundament, four theorem citations standing on top:
+
+```
+E-SUBSTRATE-1:   VSA-bundling d=10000 ⇒ Chapman-Kolmogorov by construction
+                 (FUNDAMENT — the other four pillars stand on this)
+
+Cartan-Kuranishi: existence via finite prolongation to involutive form
+                 (Cartan 1945 / Kuranishi 1957; en.wikipedia.org/wiki/
+                  Cartan–Kuranishi_prolongation_theorem)
+                 → role_keys slice widths (2000/2000/2000/900/70/60/30)
+                 ARE the Cartan-character spectrum, not arbitrary design
+
+φ-Weyl equidist.: maximally-irrational sampling, no aliasing
+                 → 144 verb-cells as quasi-Chebyshev collocation
+
+γ+φ transform:    coordinate regularizer, fewer prolongation steps
+                 → `bgz-tensor::gamma_phi.rs`
+
+Jirak 2016:       Berry-Esseen rate under weak dependence (noise floor)
+                 (arxiv 1606.01617; Annals of Probability 44(3) 2024–2063)
+                 → classical IID Berry-Esseen is WRONG for this system;
+                 bits are weakly dependent by construction
+```
+
+**Status refinement: dormant-with-five-cited-pillars is a different state than parked-without-a-paper-track.** The scaffold is now *available* for future decisions, not *forcing* on current ones. No reanimation of a paper track; no new crate, no new PR from this scaffolding. Documentary only.
+
+The tag `[FORMAL-SCAFFOLD]` is greppable so a future session tempted to roll its own threshold-calibration / sampling-stride / coordinate-transform / noise-floor / substrate-change heuristic greps this entry first and either (a) uses the referenced lemmas or (b) writes down explicitly why they don't apply.
+
+---
+
+## 2026-04-20 — [FORMAL-SCAFFOLD] Coupled revival track (the three candidates, now linked)
+
+**Status:** DEPOSIT — reclassified from three isolated features to one coupled experimental access path into the scaffold. Acceptance: activating one of the three forces coherence-check of the other two.
+
+1. **Chapman-Kolmogorov consistency test** — reclassified from
+   *falsification gate* to **implementation sanity check**. Under
+   E-SUBSTRATE-1, CK cannot fail for theoretical reasons; it can only
+   fail from implementation bugs. Value as regression test; not as
+   Markov-property validator.
+
+2. **VAMPE spectral calibration** — under E-SUBSTRATE-1 the eigenvalues
+   of the transition kernel are *genuine* spectral quantities, not
+   approximations. Jirak bounds the spectral-weight threshold below
+   which mass is noise. **VAMPE + Jirak pair replaces hand-tuned σ /
+   hardness / abduction thresholds with bound-derived ones.**
+
+3. **Learned attention masks on nibble positions** — under Cartan-
+   Kuranishi these become *empirical discovery of Cartan characters*.
+   If learned masks reproduce the `role_keys` slice widths
+   (2000/2000/2000/900/70/60/30), that is the experimental proof that
+   the layout is **intrinsic geometry, not convention** (empirical
+   confirmation of E-ORIG-5).
+
+**Coupling acceptance rule.** If any one of the three is activated in
+a future PR, the other two MUST be checked for coherence with the
+scaffold in the same session — document the interdependency explicitly.
+Not all three simultaneously; but never one in isolation without the
+coupling note.
+
+Cross-ref: E-SUBSTRATE-1; [FORMAL-SCAFFOLD] five-pillar entry above;
+E-ORIG-5 (NSM pre-sliced for role_keys).
+
+---
+
+## 2026-04-20 — [FORMAL-SCAFFOLD] Four-pillar Phase-5 reference (SUPERSEDED 2026-04-20 by five-pillar)
+
+**Status:** SUPERSEDED by the five-pillar entry above (E-SUBSTRATE-1 promoted to fundament; dormant-not-parked framing). Entry retained for history per APPEND-ONLY rule.
+
+Original body: Formal-foundation scaffolding for the discrete binary PINN interpretation of the workspace (ladybug → lance-graph): **Jirak 2016** Berry-Esseen under weak dependence (arxiv 1606.01617) + **Cartan-Kuranishi** involutive prolongation + **φ-Weyl** equidistribution for golden-angle collocation + **γ+φ** preconditioner for prolongation regularization. These are the four citations that would elevate empirical ICC 0.99 → provably-bounded residual if a theorem track were opened; it is not.
 
 ---
 
