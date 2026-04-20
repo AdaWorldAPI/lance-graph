@@ -65,6 +65,104 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-04-20 — Shader vs engine: statelessness is the boundary
+
+**Status:** FINDING (sharpens the three-level taxonomy)
+
+**Cognitive shader** = stateless atomic compute. Given `ShaderDispatch`
++ `BindSpace` columns, returns `ShaderHit`s + `MetaWord`. Knows nothing
+of why it fires. Output is one-cycle-wide, no history.
+
+**Thinking engine** = stateful orchestrator. Calls `shader.dispatch()`
+many times per cognitive cycle; composes per-lens hits into
+persona/qualia/world_model/ghost state; revises beliefs for the next
+cycle. The cognitive stack IS the state.
+
+**The engine_bridge is where they meet** —
+`cognitive-shader-driver/src/engine_bridge.rs` is the seam. Shader
+side: `ShaderDriver::dispatch` stateless. Engine side:
+`cognitive_stack::cycle` accumulates dispatches through
+`bf16_engine` / `signed_engine` / `composite_engine` / `dual_engine` /
+`layered` / `domino`, folds into persona/qualia, emits state for next
+cycle.
+
+**Analogy:** shader = eye (no memory, reports the current frame);
+engine = mind (memory, assembles frames into narrative, counterfactually
+imagines alternatives).
+
+**Where codec-flexibility-as-thinking lands:** the **engine** level,
+not the shader level. A "new thinking style" = a new engine
+configuration (lens composition, persona, qualia-update rule) that
+picks DIFFERENT shader configs per cycle. Shader stays the same; the
+engine's orchestration changes. That's why Phase 5+ "production-grade
+thinking tissue" drops into mid (engine), not L2 (shader).
+
+**Concrete Phase 1-5 shipping:** codec-sweep D1.x work = shader layer
+(tensor decode primitives). Engine-level codec-flexibility (swap
+lenses via YAML) = D5 / Phase 5+, plugging INTO the codec infrastructure.
+
+Cross-ref: three-level taxonomy above; resolution-ladder entry
+`64×64 > 256×257 >> 4096×4096 > 16k`; `engine_bridge.rs` seam.
+
+---
+
+## 2026-04-20 — Resolution hierarchy: `64×64 > 256×257 >> 4096×4096 > 16k` (user-named)
+
+**Status:** FINDING (capstone of the three-level taxonomy from earlier this session)
+
+The 5-layer stack is a **resolution ladder**, not a layer cake. Each
+level operates at its own granularity and has its own "shader" /
+"kernel cache" / "distance table" at that scale:
+
+| Size | Role | Where | HHTL stage (I10) |
+|---|---|---|---|
+| **64×64** | p64 topology mask — 8 predicate planes × 64 rows × u64 — "which archetype blocks relate via predicate z" | `p64_bridge::cognitive_shader::CognitiveShader` | HEEL (coarse basin) |
+| **256×257** | bgz17 palette distance table — 256 archetypes × 256 + 1 sentinel — O(1) lookup `semiring.distance(a, b)` | `bgz17::PaletteSemiring` | HIP (family sharpen) |
+| **4096×4096** | Cross-vocabulary / cross-context correlation — COCA × COCA, or 4096 τ-prefix × 4096 slot space | ndarray `ScanParams` JIT (`jitson_cranelift`) | BRANCH / TWIG |
+| **16 K** | Individual fingerprint bit identity — 16384-bit `Fingerprint<256>` | `ndarray::simd::Fingerprint<256>` + codec decoder (D1.x) | LEAF (exact member) |
+
+**The `>>` between 256×257 and 4096×4096 is the big jump** (~64×)
+matching HIP → BRANCH refinement. That's where palette-level (one
+row of the codebook) meets vocabulary-level (COCA 4096). Below that
+jump, everything is O(1) table lookup; above it, JIT kernels become
+worth the compile cost.
+
+**Each JIT targets its own resolution — no overlap:**
+
+- p64 cascade: 64×64 bitmask ops. Not JIT'd (bit tricks in hot loop
+  already optimal under AVX-512).
+- bgz17 palette: 256×256 precomputed. Not JIT'd (memory-bound).
+- ndarray ScanParams: 4096×4096 scan kernels. **JIT'd via
+  `jitson_cranelift::JitEngine`** — shipped.
+- Codec kernels (D1.x): 16k bit-level tensor decode. **Will be JIT'd
+  via D1.1b `CodecKernelEngine` adapter**. Scaffold (D1.1) + rotation
+  primitives (D1.2) landed; Cranelift IR emission deferred to D1.1b.
+
+**Three-level taxonomy (from earlier this session) maps onto the
+resolution ladder:**
+
+- **L2 small-precision cognitive shaders** (ns budget) →
+  64×64 + 256×257 (p64 + bgz17 palette). Pure table lookups.
+- **mid thinking-engine layers** (µs-ms) →
+  4096×4096 (cross-vocab, persona-aware lens composition). JIT'd
+  scan kernels.
+- **L4 thinking styles / NARS / JIT** (ms) →
+  orchestrates traversal ACROSS resolutions (starts at 64×64 cascade
+  to find candidates, narrows to 256×257 for family, drops to
+  4096×4096 for context, verifies at 16k fingerprint identity).
+
+**p64::CognitiveShader double-check conclusion:** architecturally
+clean. Operates at the coarsest (64×64) level; codec-sweep work at
+finest (16k); they compose in `cognitive_shader_driver::ShaderDriver`
+without overlap. Different layers of the ladder, different
+operations, different JIT targets (if any).
+
+Cross-ref: I10 (HEEL/HIP/BRANCH/TWIG/LEAF); three-level taxonomy entry
+above; `p64_bridge::cognitive_shader::CognitiveShader::cascade`;
+D1.1 `CodecKernelCache`; D1.2 `RotationKernel`; bgz17 `PaletteSemiring`.
+
+---
+
 ## 2026-04-20 — Thinking styles ARE codecs over the semantic field (north star)
 
 **Status:** FINDING (forward-looking deposit — not a current work item; reference when Phase 5+ generalises)
