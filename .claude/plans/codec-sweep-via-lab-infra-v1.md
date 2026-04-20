@@ -456,6 +456,75 @@ for `F32x16` reads a `WireTensorView` aligned for `F32x16`. No
 adapter layer between the DTO and the `ndarray::simd::*` call
 site.
 
+### Rule F — Serialisation at the edge only; never inside
+
+Serialisation (JSON / YAML / protobuf / bincode / anything that
+turns structured bytes into more bytes) happens at exactly two
+points per request:
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│  REST / gRPC ingress                                            │
+│    Wire bytes  ──decode ONCE──▶  Rust objects                   │
+│      JSON body → WireCalibrate + WireTensorView                  │
+│      bytes_base64 → 64-byte-aligned [u8] buffer                  │
+│                                                                 │
+│  ═══════ EVERYTHING BELOW IS IN-MEMORY RUST OR &[u8] SoA ═══════│
+│                                                                 │
+│  CodecKernelCache.kernel_for(params)  — operates on Rust object │
+│  codec_ir(params, caps)               — emits IR from object    │
+│  JIT kernel.call(row_bytes)           — reads &[u8], writes &mut│
+│  F32x16::from_slice / tile_dpbusd     — SIMD ops on raw bytes   │
+│  SoA column reads / writes            — Copy microcopies        │
+│  ShaderDriver.dispatch(...)           — Rust object flow        │
+│                                                                 │
+│  ═══════ NO JSON, NO YAML, NO PROTOBUF, NO BINCODE HERE ═══════ │
+│                                                                 │
+│  Lance append (egress — one serialisation to columnar disk)     │
+│  REST / gRPC response (egress — one encode of WireResult out)   │
+└────────────────────────────────────────────────────────────────┘
+```
+
+**Hard prohibitions inside the pipeline:**
+
+- No `serde_json::to_string(&params)` between layers.
+- No `bincode::serialize(&state)` for L1↔L2↔L3 handoffs.
+- No `prost::Message::encode(&cell)` inside the JIT loop.
+- No re-parsing a YAML file per candidate (parse once at load,
+  cache the Rust object).
+- No "debug JSON dump" inside hot paths (traces flow as Rust
+  objects through `ShaderSink`; only the final sink at the
+  egress boundary may serialise).
+
+**Why this is load-bearing:**
+
+1. **Alignment survives.** Decoded `WireTensorView` bytes land
+   once in a 64-byte-aligned buffer; no intermediate step
+   re-packs them. `array_windows::<64>()` + `F32x16::from_slice`
+   see the original decode target.
+2. **JIT cache keys are stable.** `CodecParams::kernel_signature`
+   hashes the Rust object directly; avoids the "same config,
+   different JSON whitespace → different hash → cache miss"
+   trap.
+3. **Token-agreement comparisons stay honest.** Both
+   `Passthrough` and `candidate` paths consume the same decoded
+   tensor buffer. Any internal re-encode would introduce
+   precision drift that mimics (or masks) codec error.
+4. **Sweep throughput.** Ingest at 2-10 GB/s decode is fine
+   once; repeated re-serialisation would turn a JIT-fast sweep
+   into a serde-bound one.
+
+**The two allowed edges:**
+
+| Edge | Format | Direction | Frequency |
+|---|---|---|---|
+| REST/gRPC ingress | JSON / protobuf | in | once per request |
+| REST/gRPC response | JSON / protobuf | out | once per response |
+| Lance append | Arrow columnar | out (egress) | once per candidate (sweep logger) |
+| YAML config load | YAML | in | once per config file at load |
+
+Anything else — reject the proposal.
+
 ### Rule enforcement — test gates in Phase 0
 
 Phase 0's verification adds:
@@ -480,8 +549,18 @@ Phase 0's verification adds:
   `slice::array_windows::<64>()` + `F32x16::from_slice` on the
   result to prove the surface is consumable with zero adapter
   code.
+- `no_internal_serialisation_test` — scans the
+  `codec_research.rs` / `codec_bridge.rs` / `token_agreement.rs`
+  / `markov_bundle.rs` / any JIT-adjacent module for forbidden
+  symbols (`serde_json::to_*`, `serde_json::from_*`,
+  `bincode::*`, `prost::Message::encode`, `prost::Message::decode`
+  outside ingress/egress handlers). Enforces Rule F: these calls
+  may appear ONLY in `src/serve.rs::handler_*` and
+  `src/grpc.rs::*_service` (ingress), the final response write
+  (egress), and the Lance append writer (egress to disk). Any
+  other callsite fails the test.
 
-All three fire under `cargo test -p cognitive-shader-driver
+All four fire under `cargo test -p cognitive-shader-driver
 --features lab` in Phase 0 CI; any Phase 1+ commit that breaks
 them is rejected.
 
