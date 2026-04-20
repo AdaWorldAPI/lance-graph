@@ -133,6 +133,140 @@ holds the shader-lab process; no per-candidate curl spin-up.
 
 **Total Phase 0: ~480 LOC, one rebuild, one PR.**
 
+## JIT Kernel Contract (non-negotiable; binds every kernel in Phases 1-3)
+
+Every JIT-emitted kernel in this plan obeys four hard rules. Any
+kernel that violates one is rejected.
+
+### Rule A — Tensor access via `array_window` only
+
+No kernel writes manual index math, no kernel reaches into a
+column's backing storage by raw pointer, no kernel recomputes
+slice offsets. Every read is:
+
+```rust
+use ndarray::simd::{array_window, F32x16, U8x64, F16x32};
+
+// Windowed read, lane-aligned, SIMD-ready:
+let window = array_window(tensor, row_start, row_count);
+for lane in window.lanes::<F32x16>() { … }
+```
+
+`array_window` handles stride, alignment, bounds, and lane
+padding uniformly. Deviations mean the kernel is re-implementing
+what the canonical surface already did correctly.
+
+### Rule B — SIMD exclusively via `ndarray::simd::*`
+
+```rust
+// Correct:
+use ndarray::simd::{simd_caps, F32x16, U8x64, F16x32, MultiLaneColumn};
+
+// Wrong (violates I2):
+use ndarray::hpc::simd_avx512::F32x16;        // rejected
+use std::arch::x86_64::_mm512_loadu_ps;        // rejected
+```
+
+No `std::arch::*`, no `ndarray::hpc::*`, no hand-rolled intrinsics.
+If a primitive is missing from `ndarray::simd::*`, the plan to
+add it lands in **ndarray** first; the codec JIT never bypasses
+the canonical surface to chase a fast path.
+
+### Rule C — SIMD backend dispatch via `simd_caps()` (AMX-ready)
+
+`ndarray::simd::simd_caps()` returns the singleton capability
+vector at process start. The JIT emits generic IR; the underlying
+`ndarray::simd::*` primitives resolve to the concrete backend:
+
+| Platform | Backend resolved |
+|---|---|
+| `x86_64` + AVX-512 | AVX-512 zmm registers |
+| `x86_64` + AVX-2 | AVX-2 ymm registers |
+| `aarch64-linux` | NEON |
+| **`aarch64-apple-darwin` + AMX** | **Apple AMX tiles** (matmul, rotation, Hadamard butterfly) |
+| `aarch64-apple-darwin` without AMX | NEON |
+| anything else | scalar fallback |
+
+Rotation kernels (D1.2) and distance-table lookups (D1.1) map to
+AMX tile operations when `simd_caps().has_amx()` on Apple silicon
+— that's the matmul-heavy path that most wants AMX. The JIT does
+not emit AMX intrinsics directly; it calls
+`ndarray::simd::matmul_tiled` (or its rotation / butterfly
+equivalents), which internally dispatch to AMX when present.
+
+If `ndarray::simd` lacks an AMX-backed primitive the kernel
+needs, the fix is to add it in ndarray, not to emit raw AMX from
+the codec JIT.
+
+### Rule D — Configuration is JSON / YAML / REST only
+
+No codec candidate is defined in Rust. Every kernel shape is
+fully expressed as declarative config. Three equivalent surfaces,
+one schema (`CodecParams`):
+
+**YAML** (human-authored sweeps, under `configs/codec/*.yaml`):
+
+```yaml
+# configs/codec/cam_pq_wide_residual_hadamard.yaml
+name: cam_pq_wide_residual_hadamard
+subspaces: 6
+centroids: 1024
+residual_depth: 1
+pre_rotation:
+  kind: hadamard
+  dim: 4096
+distance: adc
+calibration_rows: 2048
+seed: 42
+```
+
+**JSON** (REST payload for sweeps, e.g. `curl -d @file.json`):
+
+```json
+{
+  "name": "cam_pq_wide_residual_hadamard",
+  "subspaces": 6,
+  "centroids": 1024,
+  "residual_depth": 1,
+  "pre_rotation": { "kind": "hadamard", "dim": 4096 },
+  "distance": "adc",
+  "calibration_rows": 2048,
+  "seed": 42
+}
+```
+
+**REST endpoint** (identical schema, SSE-streamed results):
+
+```
+POST /v1/shader/calibrate
+Content-Type: application/json
+Body: <the JSON above>
+```
+
+Adding a new codec candidate means authoring a YAML file or
+constructing a JSON body. **Zero Rust changes. Zero rebuilds.**
+The JIT kernel cache hashes `CodecParams` and compiles once per
+unique shape; everything after is cache hits.
+
+### Rule enforcement — test gate in Phase 0
+
+Phase 0's verification gate adds:
+
+- `kernel_contract_test` — iterates a list of `CodecParams` (from
+  `configs/codec/*.yaml`), compiles each, scans emitted IR for
+  uses of `ndarray::simd::array_window` and `ndarray::simd::*`
+  symbols, fails if any kernel reaches `std::arch::*` or
+  `ndarray::hpc::*`.
+- `amx_dispatch_test` (aarch64-apple-darwin only, gated with
+  `#[cfg(all(target_arch = "aarch64", target_os = "macos"))]`) —
+  verifies `simd_caps().has_amx() == true` on M-series and that a
+  rotation kernel's trace records `backend = "amx"` for that
+  call.
+
+These tests fire as part of `cargo test -p cognitive-shader-driver
+--features lab` in Phase 0 CI; any Phase 1+ commit that breaks
+them is rejected.
+
 ## Phase 1 — JIT codec kernels (rebuild-free from here on)
 
 ### D1.1 — `CodecParams → KernelHandle` via `JitCompiler`
@@ -140,56 +274,84 @@ holds the shader-lab process; no per-candidate curl spin-up.
 `crates/cognitive-shader-driver/src/codec_research.rs` — add:
 
 ```rust
+use ndarray::simd::{array_window, simd_caps, F32x16, U8x64};
+
 struct CodecKernelCache {
     handles: HashMap<u64 /* CodecParams hash */, KernelHandle>,
     compiler: JitCompiler,   // Cranelift via jitson
+    caps: SimdCaps,          // from ndarray::simd::simd_caps()
 }
 
 impl CodecKernelCache {
     fn kernel_for(&mut self, params: &CodecParams) -> &KernelHandle {
         let key = hash_codec_params(params);
         self.handles.entry(key).or_insert_with(|| {
-            self.compiler.compile(codec_ir(params))
+            // codec_ir emits calls to ndarray::simd::* only:
+            //   - array_window(tensor, row, cnt) for tensor access
+            //   - U8x64::from_lanes(...) for centroid index reads
+            //   - F32x16 arithmetic for ADC distance accumulation
+            // Zero std::arch, zero ndarray::hpc reach.
+            self.compiler.compile(codec_ir(params, &self.caps))
         })
     }
 }
+
+fn codec_ir(params: &CodecParams, caps: &SimdCaps) -> KernelIr {
+    // Emits IR that:
+    //   for each subspace s:
+    //     let w = array_window(input, s * sub_dim, sub_dim);
+    //     let d = adc_distances_simd::<F32x16>(w, codebook[s]);
+    //     accumulate into row_distance via caps-aware reduction
+    //   if params.residual_depth > 0: recurse on residual
+    ...
+}
 ```
 
-Cranelift emits a decode function specialised to
-`(subspaces, centroids, residual_depth, distance)`. Typical
-compile time on our hardware: ~5–20 ms per unique shape; cached
-forever after. ~180 LOC.
+The JIT never emits raw intrinsics; it emits IR calls to
+`ndarray::simd::*`. Those resolve to AMX / AVX-512 / NEON /
+scalar at link time via `simd_caps()`. Compile time: ~5–20 ms
+per unique `CodecParams` shape; cached forever after. ~180 LOC.
 
-### D1.2 — Rotation primitives as JIT kernels
+### D1.2 — Rotation primitives as JIT kernels (AMX-backed on Apple)
 
-- **Identity** — no-op, 0 LOC runtime.
-- **Hadamard** — Sylvester construction at dim = 2^k. JIT emits
-  XOR / add-subtract butterfly with SIMD vector width
-  specialisation. ~90 LOC.
-- **Opq(matrix_blob_id)** — load learned rotation matrix from
-  blob store (Lance column), JIT emits unrolled matmul over the
-  matrix. Matrix is learned offline; blob ID points to it.
-  ~100 LOC.
+- **Identity** — no-op. Kernel returns the input window
+  unchanged. 0 LOC runtime.
+- **Hadamard** — Sylvester construction at dim = 2^k. The JIT
+  emits calls to `ndarray::simd::hadamard_butterfly(window,
+  caps)`; that primitive dispatches to AMX tile butterflies when
+  `caps.has_amx()`, AVX-512 permute-add on x86_64+AVX512, NEON
+  SWAR otherwise. Window iteration uses `array_window` over the
+  row. ~90 LOC.
+- **Opq(matrix_blob_id)** — load the learned rotation matrix from
+  a Lance blob column (one-time per matrix_blob_id). JIT emits
+  calls to `ndarray::simd::matmul_tiled(window, rot_matrix,
+  caps)`; that primitive dispatches to **AMX tile-matmul when
+  available** (best path on M-series), AVX-512 VNNI / FMA
+  otherwise. Matrix is learned offline via a separate training
+  pipeline; blob ID is part of the YAML/JSON config. ~100 LOC.
 
-Rotation is a separate KernelHandle composed with the decode
-kernel at call time. ~190 LOC total.
+Rotation is a separate `KernelHandle` composed with the decode
+kernel at call time (see D1.3 for composition). ~190 LOC total.
 
 ### D1.3 — Residual PQ via JIT composition
 
 Encode residuals after first-pass decode; second-pass PQ on the
-residual. In JIT terms:
+residual. All three stages (first-decode, subtract, second-decode,
+add) are `array_window`-driven and SIMD via `ndarray::simd::*`:
 
 ```
-candidate_kernel = compose(
+candidate_kernel = jit.compose(&[
     first_pass_decode(CodecParams { residual_depth: 0, .. }),
-    subtract,
+    //   reads via array_window, accumulates via F32x16
+    ndarray::simd::sub_tiled,     // SIMD subtract, AMX-backed on Apple
     second_pass_decode(CodecParams::residual_shape(params)),
-    add,
-)
+    ndarray::simd::add_tiled,     // SIMD add
+]);
 ```
 
-`compose` is a Cranelift function that emits the straight-line
-sequence — no runtime function-call overhead. ~150 LOC.
+`jit.compose` emits a straight-line Cranelift function, inlining
+each stage; no runtime function-call overhead. Every stage still
+obeys Rules A-D of the kernel contract. ~150 LOC.
 
 **Total Phase 1: ~520 LOC; no canonical-surface changes; all
 behind `--features lab`.**
