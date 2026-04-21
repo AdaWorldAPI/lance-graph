@@ -30,6 +30,11 @@ jobs:
           - stable
     steps:
       - uses: actions/checkout@v4
+      - name: Checkout AdaWorldAPI/ndarray (sibling dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: AdaWorldAPI/ndarray
+          path: ../ndarray
       - name: Setup rust toolchain
         run: |
           rustup toolchain install ${{ matrix.toolchain }}
