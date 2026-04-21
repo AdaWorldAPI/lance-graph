@@ -65,6 +65,64 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-04-21 — Markov IS simple XOR of sentence VSAs; roles ARE spine coordinates; AriGraph facts + resonance find meaning
+
+**Status:** FINDING (the simplest correct statement of the architecture)
+
+**Do not over-engineer this.** The entire architecture is three
+sentences:
+
+1. **Markov trajectory = XOR of per-sentence Vsa10k vectors with
+   braiding per position.** Each sentence goes through the FSM,
+   gets role-key bound (slice-masked XOR per token), bundled into
+   one Vsa10k per sentence, then the ±5 window is XOR-superposed
+   with braiding ρ^d per offset d. That's it. No HMM. No
+   transition matrix. No learned weights. Just XOR with position
+   shifts.
+
+2. **Role-key slices ARE the coordinate axes of the trajectory
+   space.** SUBJECT[0..2K) is the "who" axis. PREDICATE[2K..4K)
+   is the "what" axis. OBJECT[4K..6K) is the "whom" axis.
+   TEMPORAL/KAUSAL/MODAL/LOKAL are the adverbial axes. When you
+   superpose 11 braided sentence vectors, the result is a point
+   in this coordinate system. Unbinding = reading a coordinate.
+   The trajectory IS a point in role-space × time-space. Temporal
+   causality is visible because braiding encodes position and
+   role slices encode grammar — the combination can't NOT carry
+   temporal-causal structure.
+
+3. **AriGraph facts + resonance/magnitude = where meaning lives.**
+   The trajectory tells you WHAT was parsed. AriGraph tells you
+   what it MEANS — because meaning is the relationship between new
+   observations and committed beliefs:
+   - **Resonance** (recovery_margin between new parse and global_context)
+     = how well this sentence fits the story so far.
+   - **Magnitude** (Contradiction.magnitude from Wisdom qualia projection)
+     = how DEEP the agreement or disagreement is.
+   - High resonance + low magnitude = routine confirmation.
+   - Low resonance + high magnitude = the sentence contradicts what
+     we believed AND the contradiction is profound → Staunen fires
+     → Epiphany committed → THAT is meaning.
+   - Opinions = committed facts with non-trivial Contradiction
+     markers. "All animals are equal" and "some are more equal
+     than others" both live in the graph with opposite phase and
+     high magnitude. The system doesn't resolve the contradiction
+     — it preserves it, because the contradiction IS the meaning
+     of Animal Farm.
+
+**Why this dilutes:** future sessions will build Markov chains with
+transition probabilities, add embedding layers to the role keys,
+compute resonance with cosine similarity on f32 projections, and
+treat opinions as something requiring a sentiment classifier. All
+of that is wrong. Markov = XOR. Roles = slices. Resonance = Hamming
+recovery within slices. Meaning = pattern of committed facts in the
+graph with their contradiction markers. The simplicity is the point.
+
+Cross-ref: `categorical-algebraic-inference-v1.md` §1 (substrate),
+§3 (closed loop), §5.2 (object-does-the-work test).
+
+---
+
 ## 2026-04-21 — 14-paper synthesis: what dilutes first (undiluted capture)
 
 **Status:** FINDING (per-paper grounding in paper-landscape-grammar-parsing.md)
