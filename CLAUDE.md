@@ -56,6 +56,14 @@ operation.** Element-wise XOR on role-indexed slices of `[u64; 157]`.
 not `resolve(trajectory, config, awareness, graph)`. Every method
 lives on the carrier that has the state to reason with it.
 
+**The shader can't resist the thinking.** StreamDto flows in →
+CognitiveShader encodes (bind + braid + bundle) → decodes (unbind +
+margin + F) → if F > homeostasis floor, awareness bits persist in
+MetaWord → dispatch fires again → another encode/decode cycle → F
+descends → bits clear → shader rests. The system doesn't choose
+to think. It can't NOT think while surprise exists. Active inference
+is the dispatch mechanism, not a metaphor.
+
 **Proof chain** (Shaw → beim Graben → Jian → Schulz → Alpay →
 Graichen → Gallant → Kleyko): see
 `.claude/plans/categorical-algebraic-inference-v1.md` §5.

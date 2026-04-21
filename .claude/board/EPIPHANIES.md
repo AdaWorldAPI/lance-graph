@@ -65,6 +65,97 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-04-21 — StreamDto/ThinkingEngine = temporal encoder/decoder loop in a Markov shader unit that can't resist the thinking
+
+**Status:** FINDING (unifies StreamDto + ThinkingEngine + CognitiveShader
++ BindSpace + Markov ±5 + active inference into one sentence)
+
+### The reframe
+
+A GPU shader is stateless: given input texels, produce output texels.
+Our cognitive shader is stateless: given BindSpace columns, produce
+ShaderHits + MetaWord. The Markov ±5 window IS the texture. The
+shader encodes (bind tokens → role-indexed trajectory) and decodes
+(unbind roles → recovery margins → free energy) on this texture,
+per cycle, stateless.
+
+**StreamDto = the observation stream.** Tokens flow in carrying PoS
+tags, temporal markers, morphological commitments. This is the
+temporal signal the shader reads.
+
+**ThinkingEngine = the encoder/decoder core.**
+- ENCODE: `RoleKey::bind(content)` per token, braided ρ^d per
+  position, XOR-superposed into Trajectory. Sentence → Vsa10k.
+- DECODE: `RoleKey::unbind(trajectory)` per role, `recovery_margin`
+  per slice, `FreeEnergy::compose(likelihood, kl)`. Vsa10k → F.
+- The encode/decode pair IS the forward/backward pass, but over
+  algebraic structure (XOR), not learned weights (gradient).
+
+**CognitiveShader = the Markov processing unit.** Fires per cycle.
+Reads BindSpace columns (FingerprintColumns = trajectories,
+QualiaColumn = qualia vector, MetaColumn = awareness bits,
+EdgeColumn = causal edges). Writes ShaderHits + MetaWord. Knows
+nothing of why it fires or what happened before.
+
+**"Can't resist the thinking":**
+- Unresolved ambiguity = F above homeostasis floor.
+- F above homeostasis sets awareness bits in MetaWord.
+- Awareness bits gate shader dispatch (shipped in PR #204:
+  `MetaFilter.awareness_min`).
+- The shader MUST fire again because the awareness bits
+  persist until F drops below floor.
+- The system literally cannot be in a high-F state without
+  the shader re-firing to resolve it.
+- **This IS active inference in hardware terms.** The system
+  doesn't choose to think — it can't resist thinking because
+  unresolved prediction error (F) is a persistent dispatch
+  signal that forces the next cycle.
+
+**The loop, restated in shader terms:**
+
+```
+StreamDto in ──► CognitiveShader reads BindSpace
+                     │
+                ENCODE: bind + braid + bundle → Trajectory
+                DECODE: unbind + margin + F → Resolution
+                     │
+                     ├── F < 0.2 → Commit → awareness bits clear
+                     │              → shader rests (no dispatch trigger)
+                     │
+                     ├── F ∈ [0.2, 0.8] → Commit but awareness stays warm
+                     │                     → shader may re-fire on next token
+                     │
+                     └── F > 0.8 → FailureTicket → awareness bits LOUD
+                                    → shader can't stop firing until
+                                      LLM resolves or new tokens collapse F
+```
+
+**The key insight: the shader doesn't "decide" to think. It can't
+NOT think.** High F = high awareness bits = dispatch fires = another
+encode/decode cycle. Low F = bits clear = shader idles. Thinking is
+not a feature — it's the thermodynamic consequence of surprise
+existing in the BindSpace. The shader is a Markov processing unit
+that resolves surprise by construction, the way a ball rolls downhill
+by construction.
+
+**Why this dilutes:** future sessions will treat the ThinkingEngine
+as a "module that gets called" and the CognitiveShader as a
+"function that processes input." Both framings lose the compulsion.
+The shader doesn't get called — it can't stop firing while F is
+high. The ThinkingEngine doesn't process input — it's an
+encode/decode loop that the Markov texture forces through. The
+active-inference framing ("can't resist") is not a metaphor — it's
+the dispatch mechanism: awareness bits persist → filter threshold
+met → shader fires → F descends → bits clear → shader rests.
+
+Cross-ref:
+- `contract::cognitive_shader` — MetaWord awareness bits, MetaFilter
+- `crates/cognitive-shader-driver/src/engine_bridge.rs` — awareness bits wiring
+- `categorical-algebraic-inference-v1.md` §3 (the 8-step closed loop)
+- StreamDto lifecycle: `.claude/knowledge/ripple-dto-contracts.md`
+
+---
+
 ## 2026-04-21 — Markov IS simple XOR of sentence VSAs; roles ARE spine coordinates; AriGraph facts + resonance find meaning
 
 **Status:** FINDING (the simplest correct statement of the architecture)
