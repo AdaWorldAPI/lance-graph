@@ -138,6 +138,13 @@ pub mod rotation_kernel;
 #[cfg(feature = "serve")]
 pub mod decode_kernel;
 
+// D2.1 — token-agreement harness scaffold (I11 cert gate infra).
+// Reference model loader stub + top-k comparator + stub result with
+// machine-checkable `stub:true` flag. D2.2 adds real safetensors decode.
+// LAB-ONLY.
+#[cfg(feature = "serve")]
+pub mod token_agreement;
+
 // Axum REST server. LAB-ONLY.
 #[cfg(feature = "serve")]
 pub mod serve;
