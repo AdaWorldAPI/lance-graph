@@ -45,13 +45,16 @@ use serde_json::{json, Value};
 use crate::codec_research;
 use crate::driver::ShaderDriver;
 use crate::engine_bridge::{self, unified_style, UNIFIED_STYLES};
+use crate::token_agreement::{ReferenceModel, TokenAgreementHarness};
 use crate::wire::{
     WireCalibrateRequest, WireCalibrateResponse, WireCrystal, WireDispatch, WireHealth,
     WireIngest, WirePlanRequest, WirePlanResponse, WireProbeRequest, WireProbeResponse,
     WireQualia, WireRunbookRequest, WireRunbookResponse, WireRunbookStep,
     WireRunbookStepResult, WireStepResult, WireStyleInfo, WireTensorsRequest,
-    WireTensorsResponse, WireUnifiedStep,
+    WireTensorsResponse, WireTokenAgreement, WireTokenAgreementResult, WireUnifiedStep,
 };
+use lance_graph_contract::cam::CodecParams;
+use std::path::Path as StdPath;
 use lance_graph_contract::cognitive_shader::CognitiveShaderDriver;
 
 struct ServerState {
@@ -87,6 +90,12 @@ pub fn router(driver: ShaderDriver) -> Router {
         .route("/v1/shader/tensors", post(tensors_handler))
         .route("/v1/shader/calibrate", post(calibrate_handler))
         .route("/v1/shader/probe", post(probe_handler))
+        // D2.3 — I11 cert gate endpoint. Handler routes to
+        // TokenAgreementHarness::measure_stub() until D2.2 lands the real
+        // decode-and-compare loop. Stub result carries `stub:true` +
+        // `backend:"stub"` so clients cannot confuse Phase 0 stub output
+        // for a real measurement (anti-#219 defense, type-level).
+        .route("/v1/shader/token-agreement", post(token_agreement_handler))
         // Scheduled runbook: one POST runs a list of steps. Test injection
         // lands here — a client script submits its full codec-research
         // protocol as a single DTO, the server executes and returns all
@@ -217,6 +226,62 @@ async fn probe_handler(
     codec_research::row_count_probe(&req)
         .map(Json)
         .map_err(|e| (StatusCode::BAD_REQUEST, Json(json!({"error": e}))))
+}
+
+/// D2.3 — `POST /v1/shader/token-agreement` handler.
+///
+/// Routes `WireTokenAgreement` through the Phase-0-honest stub path:
+///
+/// 1. Validates `candidate: WireCodecParams → CodecParams` via TryFrom,
+///    surfacing typed errors (precision-ladder, overfit guard) as HTTP 400.
+/// 2. Loads reference model via `ReferenceModel::load` when `model_path`
+///    points to a real directory; otherwise falls back to
+///    `ReferenceModel::stub` so tests can drive the handler without a
+///    filesystem.
+/// 3. Builds `TokenAgreementHarness` + calls `measure_stub()` (D2.1 stub).
+/// 4. Returns `WireTokenAgreementResult { stub:true, backend:"stub", … }`.
+///
+/// Real decode-and-compare lands at D2.2; the Wire surface + routing are
+/// frozen now so client integration work can proceed against the stub.
+async fn token_agreement_handler(
+    Json(req): Json<WireTokenAgreement>,
+) -> Result<Json<WireTokenAgreementResult>, (StatusCode, Json<Value>)> {
+    // Validate CodecParams at ingress (precision-ladder / overfit guard
+    // fire here, not inside the harness).
+    let _params: CodecParams = req
+        .candidate
+        .clone()
+        .try_into()
+        .map_err(|e: lance_graph_contract::cam::CodecParamsError| {
+            (StatusCode::BAD_REQUEST, Json(json!({"error": format!("invalid CodecParams: {e}")})))
+        })?;
+
+    // Reference model — real path if it exists, stub otherwise. D2.2
+    // replaces with a strict path check once the safetensors loader lands.
+    let model_path = StdPath::new(&req.model_path);
+    let reference = if model_path.exists() {
+        ReferenceModel::load(model_path).map_err(|e| {
+            (StatusCode::BAD_REQUEST, Json(json!({"error": format!("model load: {e}")})))
+        })?
+    } else {
+        // Deterministic stub keyed on the path string so repeated calls
+        // return the same stub fingerprint (useful for cache/regression
+        // tests that POST synthetic model_path values).
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        std::hash::Hash::hash(&req.model_path, &mut h);
+        ReferenceModel::stub(std::hash::Hasher::finish(&h), 0)
+    };
+
+    let harness = TokenAgreementHarness::new(
+        reference,
+        req.reference,
+        req.candidate,
+        req.n_tokens,
+    );
+    harness
+        .measure_stub()
+        .map(Json)
+        .map_err(|e| (StatusCode::BAD_REQUEST, Json(json!({"error": format!("{e}")}))))
 }
 
 async fn route_handler(
