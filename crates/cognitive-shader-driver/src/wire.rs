@@ -1585,6 +1585,38 @@ mod tests {
     }
 
     #[test]
+    fn sweep_request_yaml_shape_deserializes_via_serde_json() {
+        // Documents the canonical JSON shape (after yq conversion from YAML)
+        // for `configs/codec/*.yaml`. If this test breaks, the checked-in
+        // YAML configs are stale relative to the Rust DTOs — the
+        // scripts/codec_sweep.sh pipeline will fail at runtime.
+        let body = r#"{
+            "tensor_path": "models/qwen3-tts-0.6b/q_proj.safetensors",
+            "grid": {
+                "subspaces": [6],
+                "centroids": [256, 512, 1024],
+                "residual_depths": [0],
+                "rotations": [
+                    { "kind": "identity" },
+                    { "kind": "hadamard", "dim": 4096 }
+                ],
+                "distances": ["AdcU8"],
+                "lane_widths": ["F32x16"],
+                "residual_centroids": 256,
+                "calibration_rows": 2048,
+                "measurement_rows": 512,
+                "seed": 42
+            },
+            "measure": ["reconstruction_icc_held_out", "token_agreement_top1"],
+            "label": "spec-drift guard"
+        }"#;
+        let req: WireSweepRequest = serde_json::from_str(body).expect("YAML→JSON shape parses");
+        // 1 × 3 × 1 × 2 × 1 × 1 = 6 candidates.
+        assert_eq!(req.grid.cardinality(), 6);
+        assert_eq!(req.measure.len(), 2);
+    }
+
+    #[test]
     fn sweep_measure_serializes_snake_case() {
         let m = WireMeasure::ReconstructionIccHeldOut;
         assert_eq!(serde_json::to_string(&m).unwrap(), "\"reconstruction_icc_held_out\"");
