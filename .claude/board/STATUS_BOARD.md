@@ -72,7 +72,7 @@ afterwards is a JIT kernel, not a rebuild. Plan path:
 |---|---|---|---|
 | D2.1 | Token-agreement harness scaffold (reference model stub + top-k comparator + stub result) | **In PR** | branch — `ReferenceModel::{load, stub}` + `TokenAgreementError` + `TopKAgreement::{compare, top1_rate, top5_rate, meets_cert_gate, aggregate}` + `TokenAgreementHarness::{measure_stub, measure_full}` + 13 tests. Real safetensors load + decode loop defer to D2.2. |
 | D2.2 | Decode-and-compare loop (top-k, per-layer MSE) | **Queued** | target ~220 LOC |
-| D2.3 | Handler wiring for `/v1/shader/token-agreement` | **Queued** | target ~60 LOC |
+| D2.3 | Handler wiring for `/v1/shader/token-agreement` | **In PR** | branch — `token_agreement_handler` routes `WireTokenAgreement` → TryFrom(CodecParams) at ingress (precision-ladder + overfit guard fire here) → `ReferenceModel::load` or stub fallback on nonexistent paths → `TokenAgreementHarness::measure_stub()` → `WireTokenAgreementResult { stub:true }`. Route added: `POST /v1/shader/token-agreement`. Phase 0 Wire + Phase 2 harness now round-trip end-to-end. |
 
 ### Phase 3 — Sweep driver + Lance logger — Queued
 
