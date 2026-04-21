@@ -64,6 +64,25 @@ descends → bits clear → shader rests. The system doesn't choose
 to think. It can't NOT think while surprise exists. Active inference
 is the dispatch mechanism, not a metaphor.
 
+**Thinking is a struct.** The universal DTO makes the object do the
+work:
+
+```rust
+struct Think {
+    trajectory: Vsa10k,       // the Markov-braided role-indexed bundle
+    awareness: ParamTruths,   // NARS-revised per-key epistemic state
+    free_energy: FreeEnergy,  // (1 - likelihood) + kl
+    resolution: Resolution,   // Commit / Epiphany / FailureTicket
+}
+```
+
+Not a function. Not a pipeline. Not a service. A **struct** whose
+fields ARE the cognitive state and whose methods ARE the inference.
+`think.resolve()` reads its own `trajectory`, computes its own `F`,
+updates its own `awareness`, returns its own `Resolution`. The DTO
+carries cognition the way a photon carries electromagnetism — not
+as payload, as identity.
+
 **Proof chain** (Shaw → beim Graben → Jian → Schulz → Alpay →
 Graichen → Gallant → Kleyko): see
 `.claude/plans/categorical-algebraic-inference-v1.md` §5.

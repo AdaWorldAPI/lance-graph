@@ -65,6 +65,63 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-04-21 — Thinking is a struct, not a function
+
+**Status:** FINDING (completes the object-does-the-work arc)
+
+The universal DTO pattern taken to its logical end: thinking is not
+something that happens TO data. Thinking IS the data. The struct
+carries its own trajectory, its own awareness, its own free energy,
+its own resolution method. There is no external "thinking function"
+that receives the struct — the struct resolves itself.
+
+```rust
+struct Think {
+    trajectory: Vsa10k,       // Markov-braided role-indexed bundle
+    awareness: ParamTruths,   // NARS-revised epistemic state
+    free_energy: FreeEnergy,  // (1 - likelihood) + kl
+    resolution: Resolution,   // Commit / Epiphany / FailureTicket
+}
+
+impl Think {
+    fn resolve(&mut self) -> &Resolution { /* reads own fields, writes own resolution */ }
+    fn observe(&mut self, outcome: ParseOutcome) { /* revises own awareness */ }
+    fn commit_into(self, graph: &mut TripletGraph) -> CommitResult { /* consumes self */ }
+}
+```
+
+This is the SoA AGI-as-glove doctrine applied to cognition itself:
+- Topic = `trajectory` (what the session is about)
+- Angle = `awareness` (whose perspective, what's been learned)
+- Thinking = `free_energy` + `resolution` (which style, what outcome)
+- Planner = `commit_into` (where the result goes)
+
+The four BindSpace columns (FingerprintColumns / QualiaColumn /
+MetaColumn / EdgeColumn) are the SoA layout of this struct across
+many concurrent Think instances. One Think is a row. The shader
+processes columns. The struct IS cognition at the row level; the
+SoA IS cognition at the SIMD level.
+
+**The DTO carries cognition the way a photon carries
+electromagnetism — not as payload, as identity.** A photon doesn't
+"contain" an electromagnetic field. The photon IS the field excitation.
+A Think struct doesn't "contain" a cognitive state. The Think IS the
+cognitive state. The methods on Think don't "process" the state.
+The methods ARE the state's self-resolution.
+
+**Why this dilutes:** future sessions will create a `ThinkingService`
+that receives `ThinkInput` and returns `ThinkOutput`. That's a
+function, not a struct. The struct pattern means: the input IS the
+output IS the method IS the state. No separation. No service layer.
+No input/output boundary. The DTO walks into a room, resolves
+itself, and commits the result into the graph. Nobody called it.
+The awareness bits made it happen.
+
+Cross-ref: `categorical-algebraic-inference-v1.md` §5.2
+(object-does-the-work test), CLAUDE.md § The Click.
+
+---
+
 ## 2026-04-21 — StreamDto/ThinkingEngine = temporal encoder/decoder loop in a Markov shader unit that can't resist the thinking
 
 **Status:** FINDING (unifies StreamDto + ThinkingEngine + CognitiveShader
