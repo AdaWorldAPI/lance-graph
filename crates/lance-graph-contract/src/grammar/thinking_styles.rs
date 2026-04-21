@@ -231,6 +231,34 @@ impl GrammarStyleAwareness {
         ranked.first().map(|(inf, _)| *inf).unwrap_or(prior.nars.fallback)
     }
 
+    /// KL-style divergence of this awareness's accumulated beliefs from
+    /// a prior config. Used as the KL term in free-energy composition.
+    ///
+    /// Decomposition:
+    /// - Primary NARS-inference disagreement: `(1 - f_primary) × c_primary`.
+    ///   High-confidence low-frequency on the prior's primary inference
+    ///   is the strongest signal that the prior is wrong for this style.
+    /// - Recent-success disagreement: `(1 - f_recent) × c_recent`.
+    ///   The style's overall track record diverging from neutral (0.5)
+    ///   also contributes.
+    ///
+    /// Bounded in `[0, 2]` — two contributors each in `[0, 1]`.
+    pub fn divergence_from(&self, prior: &GrammarStyleConfig) -> f32 {
+        let primary_key = ParamKey::NarsPrimary(prior.nars.primary);
+        let primary_truth = self
+            .param_truths
+            .get(&primary_key)
+            .copied()
+            .unwrap_or(TruthValue::new(0.5, 0.01));
+        let primary_drift = (1.0 - primary_truth.frequency) * primary_truth.confidence;
+        // Recent-success drift: how far the running track record has moved
+        // away from its starting neutral (0.5). Absolute distance so both
+        // over- and under-performance count as evidence against the prior.
+        let recent_drift =
+            (self.recent_success.frequency - 0.5).abs() * self.recent_success.confidence;
+        (primary_drift + recent_drift).clamp(0.0, 2.0)
+    }
+
     /// Derive a runtime config from the prior + accumulated awareness.
     /// Mutations are small (we don't rebuild tables); the effective
     /// primary NARS inference is swapped when awareness has pulled
@@ -474,6 +502,55 @@ mod tests {
         // Strong negatives and confirmations carry double weight.
         assert_eq!(ParseOutcome::LocalSuccessConfirmedByLLM.observation().1, 2.0);
         assert_eq!(ParseOutcome::LocalFailureLLMSucceeded.observation().1, 2.0);
+    }
+
+    #[test]
+    fn divergence_from_is_zero_at_bootstrap() {
+        // Fresh awareness: no observations → neutral truth → no drift
+        // from any prior → divergence is ~0 (scaled by c_init = 0.01).
+        let prior = base_prior();
+        let a = GrammarStyleAwareness::bootstrap(prior.style);
+        let d = a.divergence_from(&prior);
+        assert!(
+            d < 0.01,
+            "bootstrap awareness should have near-zero divergence, got {d}"
+        );
+    }
+
+    #[test]
+    fn divergence_rises_when_prior_contradicted() {
+        let prior = base_prior();
+        let mut a = GrammarStyleAwareness::bootstrap(prior.style);
+        // 50 strong contradictions of the prior's primary inference.
+        for _ in 0..50 {
+            a.revise(
+                ParamKey::NarsPrimary(prior.nars.primary),
+                ParseOutcome::LocalFailureLLMSucceeded,
+            );
+        }
+        let d = a.divergence_from(&prior);
+        // Primary-drift term: (1 - f) * c where f is near 0 and c is near φ-1.
+        // Recent-success drift: |f - 0.5| * c on the same direction.
+        // Combined should exceed 0.5.
+        assert!(
+            d > 0.5,
+            "50 contradicting revisions should produce significant divergence, got {d}"
+        );
+    }
+
+    #[test]
+    fn divergence_bounded() {
+        // Any awareness state must produce a divergence in [0, 2].
+        let prior = base_prior();
+        let mut a = GrammarStyleAwareness::bootstrap(prior.style);
+        for _ in 0..200 {
+            a.revise(
+                ParamKey::NarsPrimary(prior.nars.primary),
+                ParseOutcome::LocalFailureLLMSucceeded,
+            );
+        }
+        let d = a.divergence_from(&prior);
+        assert!((0.0..=2.0).contains(&d), "divergence out of bounds: {d}");
     }
 
     #[test]

@@ -43,6 +43,16 @@ pub const VSA_WORDS: usize = 157;
 /// VSA vector width in dimensions (bits actually used).
 pub const VSA_DIMS: usize = 10_000;
 
+/// 10K-dim VSA vector carrier, bit-packed in 157 × u64 words.
+///
+/// Chosen as `[u64; VSA_WORDS]` (not `Box<[...]>`) so it stays stack-friendly
+/// for XOR binding in the hot path. Matches the layout consumed by
+/// `ndarray::hpc::vsa::*` without requiring an ndarray import here.
+pub type Vsa10k = [u64; VSA_WORDS];
+
+/// Zero vector — identity element for XOR bundling.
+pub const VSA_ZERO: Vsa10k = [0u64; VSA_WORDS];
+
 /// A role key owns a contiguous slice of the VSA space.
 /// Outside the slice, **all bits are zero**.
 pub struct RoleKey {
@@ -63,6 +73,71 @@ impl RoleKey {
         self.slice_end - self.slice_start
     }
 
+    /// Bind `content` into this role's slice via slice-masked XOR.
+    ///
+    /// `bind` returns a vector that is **zero outside** `[slice_start..slice_end)`
+    /// and equals `(content ^ role_key)` inside the slice. Slice-masking is
+    /// enforced at bind time (not left as caller discipline) so XOR
+    /// superposition of multiple bindings is lossless per role:
+    ///
+    /// ```text
+    /// let bundle = xor(SUBJECT.bind(s_content), OBJECT.bind(o_content));
+    /// SUBJECT.unbind(&bundle) == SUBJECT.bind(s_content) (content inside SUBJECT slice)
+    /// OBJECT.unbind(&bundle)  == OBJECT.bind(o_content)  (content inside OBJECT slice)
+    /// ```
+    ///
+    /// Self-inverse within the slice: unbinding twice recovers the
+    /// slice-masked content.
+    pub fn bind(&self, content: &Vsa10k) -> Vsa10k {
+        let mut out = [0u64; VSA_WORDS];
+        let first_word = self.slice_start / 64;
+        let last_word = match self.slice_end {
+            0 => 0,
+            e => (e - 1) / 64,
+        };
+        for w in first_word..=last_word {
+            let mask = word_slice_mask(w, self.slice_start, self.slice_end);
+            out[w] = (content[w] & mask) ^ self.words[w];
+        }
+        out
+    }
+
+    /// Unbind: slice-masked XOR with this role key.
+    ///
+    /// Given a bundle produced by XOR-superposing slice-masked bindings
+    /// for multiple roles, `unbind` recovers this role's slice-masked
+    /// content: `key.unbind(&bundle) == content & slice_mask`.
+    pub fn unbind(&self, bundle: &Vsa10k) -> Vsa10k {
+        let mut out = [0u64; VSA_WORDS];
+        let first_word = self.slice_start / 64;
+        let last_word = match self.slice_end {
+            0 => 0,
+            e => (e - 1) / 64,
+        };
+        for w in first_word..=last_word {
+            let mask = word_slice_mask(w, self.slice_start, self.slice_end);
+            out[w] = (bundle[w] & mask) ^ self.words[w];
+        }
+        out
+    }
+
+    /// Hamming similarity between two vectors restricted to this role's
+    /// slice. Returns the fraction of matching bits in `[0, 1]`.
+    ///
+    /// Used after `unbind` to measure how cleanly the expected content
+    /// was recovered from the bundle — the per-role likelihood term in
+    /// the active-inference free-energy computation.
+    pub fn recovery_margin(&self, unbound: &Vsa10k, expected: &Vsa10k) -> f32 {
+        let width = self.slice_width();
+        if width == 0 {
+            return 0.0;
+        }
+        let matches = slice_matching_bits(
+            unbound, expected, self.slice_start, self.slice_end,
+        );
+        matches as f32 / width as f32
+    }
+
     /// Generate a deterministic role key: pseudo-random bits in `[start..end)`,
     /// zeros everywhere else. Seeded from FNV-64 of the label.
     fn generate(label: &'static str, start: usize, end: usize) -> Self {
@@ -81,6 +156,69 @@ impl RoleKey {
         }
         Self { words, slice_start: start, slice_end: end, label }
     }
+}
+
+/// Bundle two VSA vectors via XOR superposition. Commutative, associative,
+/// self-inverse — the free algebraic structure on which role binding sits.
+///
+/// For majority-vote bundling (statistical superposition preserving ratios),
+/// callers use `ndarray::hpc::vsa::vsa_bundle` directly; this zero-dep
+/// contract carries only the XOR form.
+pub fn vsa_xor(a: &Vsa10k, b: &Vsa10k) -> Vsa10k {
+    let mut out = [0u64; VSA_WORDS];
+    for w in 0..VSA_WORDS {
+        out[w] = a[w] ^ b[w];
+    }
+    out
+}
+
+/// Hamming similarity on the full vector in `[0, 1]` (matching bits / 10_000).
+pub fn vsa_similarity(a: &Vsa10k, b: &Vsa10k) -> f32 {
+    let matches = slice_matching_bits(a, b, 0, VSA_DIMS);
+    matches as f32 / VSA_DIMS as f32
+}
+
+/// Bitmask selecting the bits of word `w` that lie in `[start..end)`.
+/// Returns 0 if the word is entirely outside the slice.
+#[inline]
+fn word_slice_mask(w: usize, start: usize, end: usize) -> u64 {
+    let lo = (w * 64).max(start);
+    let hi = ((w + 1) * 64).min(end);
+    if hi <= lo {
+        return 0;
+    }
+    let lo_bit = lo - w * 64;
+    let hi_bit = hi - w * 64;
+    if hi_bit == 64 {
+        !0u64 << lo_bit
+    } else {
+        ((1u64 << hi_bit) - 1) & !((1u64 << lo_bit) - 1)
+    }
+}
+
+#[inline]
+fn slice_matching_bits(
+    a: &Vsa10k,
+    b: &Vsa10k,
+    start: usize,
+    end: usize,
+) -> u32 {
+    if start >= end {
+        return 0;
+    }
+    let first_word = start / 64;
+    let last_word = (end - 1) / 64;
+    let mut matches: u32 = 0;
+    for w in first_word..=last_word {
+        let mask = word_slice_mask(w, start, end);
+        if mask == 0 {
+            continue;
+        }
+        let differing = ((a[w] ^ b[w]) & mask).count_ones();
+        let width = mask.count_ones();
+        matches += width - differing;
+    }
+    matches
 }
 
 fn fnv64(s: &str) -> u64 {
@@ -384,6 +522,163 @@ mod tests {
             assert!(k.slice_end <= NARS_END);
             assert!(k.slice_width() >= 4);
         }
+    }
+
+    // ── RoleKey-as-operator tests ──────────────────────────────────────
+
+    fn mk_content(seed: u64) -> Vsa10k {
+        let mut v = [0u64; VSA_WORDS];
+        let mut s = seed.max(1);
+        for w in 0..VSA_WORDS {
+            s = s.wrapping_mul(0x5851f42d4c957f2d).wrapping_add(w as u64 + 1);
+            v[w] = s;
+        }
+        v
+    }
+
+    #[test]
+    fn bind_unbind_is_self_inverse_within_slice() {
+        // bind slice-masks content to [0..2000). unbind returns the
+        // slice-masked content. The recovery margin inside the slice
+        // must be exactly 1.0.
+        let content = mk_content(0xDEAD_BEEF);
+        let bound = SUBJECT_KEY.bind(&content);
+        let recovered = SUBJECT_KEY.unbind(&bound);
+        let m = SUBJECT_KEY.recovery_margin(&recovered, &content);
+        assert!(
+            (m - 1.0).abs() < 1e-6,
+            "bind→unbind inside SUBJECT slice must recover, got margin {m}"
+        );
+    }
+
+    #[test]
+    fn bind_zero_outside_slice() {
+        // bind's output is zero outside the slice regardless of content.
+        let content = mk_content(0xFFFF_FFFF_FFFF_FFFF);
+        let bound = OBJECT_KEY.bind(&content);
+        for dim in 0..(VSA_WORDS * 64) {
+            let in_slice = dim >= OBJECT_KEY.slice_start && dim < OBJECT_KEY.slice_end;
+            let word = dim / 64;
+            let offset = dim % 64;
+            let bit = (bound[word] >> offset) & 1;
+            if !in_slice {
+                assert_eq!(
+                    bit, 0,
+                    "bind output nonzero outside OBJECT slice at dim {dim}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn different_role_keys_do_not_contaminate_each_other() {
+        // Bind S-content into SUBJECT slice, bind O-content into OBJECT slice,
+        // XOR-superpose. Unbinding with SUBJECT_KEY recovers S-content
+        // within the SUBJECT slice; unbinding with OBJECT_KEY recovers
+        // O-content within the OBJECT slice. Slice-masking guarantees
+        // disjoint superposition at the substrate level.
+        let s_content = mk_content(0x1111);
+        let o_content = mk_content(0x2222);
+
+        let s_bound = SUBJECT_KEY.bind(&s_content);
+        let o_bound = OBJECT_KEY.bind(&o_content);
+        let superposed = vsa_xor(&s_bound, &o_bound);
+
+        let s_recovered = SUBJECT_KEY.unbind(&superposed);
+        let s_margin = SUBJECT_KEY.recovery_margin(&s_recovered, &s_content);
+        assert!(
+            (s_margin - 1.0).abs() < 1e-6,
+            "SUBJECT recovery after XOR-superposed OBJECT must be exact, got {s_margin}"
+        );
+
+        let o_recovered = OBJECT_KEY.unbind(&superposed);
+        let o_margin = OBJECT_KEY.recovery_margin(&o_recovered, &o_content);
+        assert!(
+            (o_margin - 1.0).abs() < 1e-6,
+            "OBJECT recovery after XOR-superposed SUBJECT must be exact, got {o_margin}"
+        );
+    }
+
+    #[test]
+    fn recovery_margin_is_one_for_identical_content_within_slice() {
+        let content = mk_content(0xABCD);
+        let m = SUBJECT_KEY.recovery_margin(&content, &content);
+        assert!((m - 1.0).abs() < 1e-6, "identical content must yield margin 1.0, got {m}");
+    }
+
+    #[test]
+    fn cross_role_superposition_of_five_roles_all_recover() {
+        // The real use case: bind content per role for S/P/O + TEMPORAL + LOKAL,
+        // XOR-superpose into one trajectory. Each role recovers its own
+        // content losslessly.
+        let s = mk_content(0x1111);
+        let p = mk_content(0x2222);
+        let o = mk_content(0x3333);
+        let t = mk_content(0x4444);
+        let l = mk_content(0x5555);
+
+        let bundle = [
+            SUBJECT_KEY.bind(&s),
+            PREDICATE_KEY.bind(&p),
+            OBJECT_KEY.bind(&o),
+            TEMPORAL_KEY.bind(&t),
+            LOKAL_KEY.bind(&l),
+        ]
+        .into_iter()
+        .fold([0u64; VSA_WORDS], |acc, b| vsa_xor(&acc, &b));
+
+        for (key, original) in [
+            (&*SUBJECT_KEY, s),
+            (&*PREDICATE_KEY, p),
+            (&*OBJECT_KEY, o),
+            (&*TEMPORAL_KEY, t),
+            (&*LOKAL_KEY, l),
+        ] {
+            let recovered = key.unbind(&bundle);
+            let m = key.recovery_margin(&recovered, &original);
+            assert!(
+                (m - 1.0).abs() < 1e-6,
+                "{} recovery from 5-role bundle must be exact, got {m}",
+                key.label
+            );
+        }
+    }
+
+    #[test]
+    fn recovery_margin_in_unit_interval() {
+        let a = mk_content(0xAAAA_AAAA_AAAA_AAAA);
+        let b = mk_content(0x5555_5555_5555_5555);
+        for key in [&*SUBJECT_KEY, &*PREDICATE_KEY, &*OBJECT_KEY, &*LOKAL_KEY] {
+            let m = key.recovery_margin(&a, &b);
+            assert!(
+                (0.0..=1.0).contains(&m),
+                "recovery_margin for {} must be in [0, 1], got {m}",
+                key.label
+            );
+        }
+    }
+
+    #[test]
+    fn vsa_similarity_range() {
+        let a = mk_content(0xF00D);
+        let b = a;
+        assert!((vsa_similarity(&a, &b) - 1.0).abs() < 1e-6);
+        let c = [!0u64; VSA_WORDS];
+        let zero = [0u64; VSA_WORDS];
+        // Full-inverse similarity: 48 slack bits are 1 vs 0 on mismatch,
+        // plus the 10_000 real dims are all-1 vs all-0. Sim over first 10_000
+        // bits is 0.
+        let sim = vsa_similarity(&c, &zero);
+        assert!(sim < 0.01, "all-ones vs all-zeros similarity should be ~0, got {sim}");
+    }
+
+    #[test]
+    fn vsa_xor_is_self_inverse() {
+        let a = mk_content(0x1234);
+        let b = mk_content(0x5678);
+        let ab = vsa_xor(&a, &b);
+        let recovered = vsa_xor(&ab, &b);
+        assert_eq!(recovered, a, "XOR twice must recover original");
     }
 
     #[test]

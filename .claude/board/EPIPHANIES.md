@@ -65,6 +65,63 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-04-21 — RoleKey bind/unbind slice-masking = lossless role-indexed superposition
+
+**Status:** FINDING (verified by 5-role simultaneous recovery test)
+
+Slice-masked bind is the crucial design choice that makes role-indexed
+VSA bundling lossless. `RoleKey::bind(content)` zeroes content outside
+`[start..end)` before XOR with the key. This means XOR-superposition
+of N role bindings keeps each role's slice completely disjoint — unbind
+with any role key recovers that role's content at margin 1.0, regardless
+of what other roles contributed.
+
+Without slice-masking (raw full-vector XOR), the 5035-recovery-margin
+on the SUBJECT slice demonstrates the cross-contamination: every role
+leaks content into every other role's slice. The audit agent (2026-04-21
+session) flagged this as the "three-silo disconnection" — role_keys.rs
+was data without operator semantics.
+
+The fix: `bind` enforces the invariant at the method level (not caller
+discipline). `unbind` is the same masked-XOR. `recovery_margin` measures
+per-slice Hamming similarity after unbind. Test: 5 roles (S/P/O +
+TEMPORAL + LOKAL) bound, XOR-superposed, each recovers at margin 1.0.
+
+This is THE operation that makes "the object speaks for itself" literal:
+a Trajectory carrying a 5-role-superposed VSA vector can answer
+`trajectory.role_bundle(SUBJECT)` without external orchestration —
+just unbind the SUBJECT slice, and the content is there.
+
+Cross-ref: `contract::grammar::role_keys::{RoleKey::bind, unbind, recovery_margin}`.
+
+---
+
+## 2026-04-21 — Free energy as active-inference formulation of grammar parsing
+
+**Status:** FINDING (types shipped; thresholds uncalibrated until Animal Farm)
+
+Ambiguity resolution is Friston free-energy minimization over the
+hypothesis space. `F = (1 - likelihood) + KL(awareness || prior)`.
+Likelihood = mean role-recovery margin after unbind; KL =
+`GrammarStyleAwareness::divergence_from(prior)`. Three branches:
+
+- `F < HOMEOSTASIS_FLOOR (0.2)` → Commit (single triple to AriGraph)
+- Top-2 F within `EPIPHANY_MARGIN (0.05)` → Epiphany (both commit
+  with Contradiction marker)
+- `F > FAILURE_CEILING (0.8)` → FailureTicket (escalate)
+
+Morphology collapses the hypothesis space via the Pearl 2³ causal
+mask: each case ending commits bits, narrowing the basin. Two
+independent commitments: 8 → 2 branches. Three: 8 → 1 (direct
+Deduction, no counterfactual needed). This is the "2³ → 2^N" extension
+to other morphologies (Russian Instrumental, Finnish Elative, Arabic
+pattern فاعل / مفعول, Mandarin bǎ, Turkish -yle).
+
+Cross-ref: `contract::grammar::free_energy::{FreeEnergy, Hypothesis,
+Resolution, HOMEOSTASIS_FLOOR, EPIPHANY_MARGIN, FAILURE_CEILING}`.
+
+---
+
 ## 2026-04-21 — D7 GrammarStyleAwareness IS the "weights-as-seed" epistemic layer
 
 **Status:** FINDING (replaces the "langextract is boring because LLM-dep"

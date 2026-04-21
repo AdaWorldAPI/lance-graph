@@ -117,7 +117,7 @@ early — CausalityFlow extension deferred). Plan path:
 | D2  | DeepNSM emits `FailureTicket` on low coverage | **Queued** | — |
 | D3  | Grammar Triangle wired into DeepNSM via `triangle_bridge.rs` | **Queued** | — |
 | D5  | Markov ±5 SPO+TEKAMOLO bundler with role-indexed VSA | **Queued** | — |
-| D7  | NARS-tested grammar thinking styles (`GrammarStyleConfig` + `GrammarStyleAwareness` + `revise_truth`) | **In progress** | branch `claude/teleport-session-setup-wMZfb` — 449 LOC, 9 tests + Finnish case correction in `grammar-tiered-routing.md` |
+| D7  | NARS-tested grammar thinking styles + active-inference free-energy + RoleKey-as-operator | **In progress** | branch `claude/teleport-session-setup-wMZfb` — `thinking_styles.rs` (12 tests), `free_energy.rs` (7 tests), `role_keys.rs` bind/unbind/recovery_margin (12 tests incl 5-role lossless superposition), `divergence_from(prior)`, Finnish case patch |
 
 ### Phase 3 — Queued
 

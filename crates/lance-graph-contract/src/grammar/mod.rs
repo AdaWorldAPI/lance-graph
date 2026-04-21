@@ -22,6 +22,7 @@ pub mod inference;
 pub mod context_chain;
 pub mod role_keys;
 pub mod thinking_styles;
+pub mod free_energy;
 
 pub use ticket::{FailureTicket, PartialParse, CausalAmbiguity};
 pub use tekamolo::{TekamoloSlots, TekamoloSlot};
@@ -37,6 +38,10 @@ pub use thinking_styles::{
     CoveragePolicy, GrammarStyleAwareness, GrammarStyleConfig, MarkovPolicy,
     MorphologyPolicy, MorphologyTableId, NarsPriorityChain, ParamKey,
     ParseOutcome, ReplayStrategy, SpoCausalPolicy, TekamoloPolicy, revise_truth,
+};
+pub use free_energy::{
+    FreeEnergy, Hypothesis, Resolution,
+    EPIPHANY_MARGIN, FAILURE_CEILING, HOMEOSTASIS_FLOOR,
 };
 
 /// Coverage of a local parse — if below [`LOCAL_COVERAGE_THRESHOLD`],
