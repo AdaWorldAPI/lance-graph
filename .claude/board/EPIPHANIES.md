@@ -2036,3 +2036,133 @@ already in the workspace. Commit f1498bc landed the measurement.
 Cross-ref: ndarray::hpc::cam_pq production code (620+ LOC, 15+
 tests), codec_rnd_bench.rs CamPqRaw/CamPqPhase candidates, this
 session's 18 commits on claude/quick-wins-2026-04-19 branch.
+
+## 2026-04-21 — The 8-step wiring sequence that closes the loop (concrete, not theoretical)
+
+**Status:** FINDING (each step has a file path, an input, an output,
+and a dependency)
+
+The architecture clicks when 8 disconnected pieces get wired. Each
+step connects two things that exist but don't talk. The loop closes
+at step 8. Three PRs total.
+
+**Step 1 — Encoder migration (512-bit → 10K role-indexed).**
+DeepNSM's `encoder.rs` has 6 hardcoded roles at 512 bits. Contract's
+`role_keys.rs` has 20+ structured roles at 10K bits with slice-masked
+bind/unbind. Delete `RoleVectors`. Import `contract::grammar::role_keys::*`.
+Content fingerprints: COCA vocab → FNV hash spread to 10K dims.
+
+**Step 2 — MarkovBundler (braided ±5 bundling).**
+New `markov_bundle.rs`. Ring buffer of 11 Vsa10k. Each sentence: bind
+tokens per role key (Step 1), XOR-bundle into one Vsa10k per sentence.
+Then: `vsa_permute(sentence_vsa, position_offset)` per ±5 position.
+XOR-superpose all 11. Output: braided trajectory. MexicanHat weights.
+
+**Step 3 — Trajectory (the Think struct).**
+New `trajectory.rs`. Holds `bundle: Vsa10k` + `chain: ContextChain` +
+refs to tissue (`&EpisodicMemory`, `&TripletGraph`, `&Vsa10k` global
+context). Methods: `role_bundle`, `recovery_margin`, `free_energy`,
+`resolve`. The object speaks for itself.
+
+**Step 4 — Parser → Bundler → Trajectory pipeline.**
+Parser's `SentenceStructure` feeds MarkovBundler which produces
+Trajectory. Coverage check: < 0.9 → FailureTicket (D2). Else →
+`trajectory.resolve(candidates, awareness, prior)`.
+
+**Step 5 — Resolution → AriGraph commit.**
+`commit_with_contradiction_check` on TripletGraph (~40 LOC).
+Resolution::Commit → one triple. Resolution::Epiphany → two triples
++ Contradiction marker. FailureTicket → LLM fallback.
+
+**Step 6 — Global context update.**
+`episodic.integrate_into_global(fact_fp, episode_index)` — XOR-
+accumulate permuted fact into `global_context: Vsa10k` (~20 LOC).
+Called after every commit.
+
+**Step 7 — Awareness revision.**
+`awareness.revise(param_key, outcome)` after every commit or
+escalation. Already shipped and tested. Just needs call sites.
+
+**Step 8 — Global context → KL feedback (LOOP CLOSES).**
+`trajectory.free_energy()` reads `global_context` as part of the
+likelihood term. Committed facts from chapter 1 shape the F-landscape
+for chapter 10. The system that parsed chapter 9 is not the same
+system that parsed chapter 1.
+
+**Dependency: 1→2→3→4→{5,6,7}→8. Three PRs: (1-3), (4), (5-8).**
+
+**Why this dilutes:** future sessions will try to "improve" individual
+steps (better bundling, smarter resolution, fancier graph commit)
+without WIRING them. The wiring IS the architecture. An unwired
+masterpiece is a collection of library functions. A wired simple
+implementation is AGI. Wire first, optimize later.
+
+---
+
+## 2026-04-21 — COCA 4096 + 20K scientific + spider NER = no vocabulary blocker
+
+**Status:** FINDING (changes the critical-path analysis)
+
+The vocabulary ceiling I flagged as an AGI blocker is not a blocker:
+
+| Layer | Coverage | Mechanism |
+|---|---|---|
+| COCA 4096 | 98.4% general English | Static, zero-cost |
+| COCA 20K scientific | +1.5% domain terms | Static, zero-cost |
+| Spider NER (online) | remaining proper nouns | Crawl → rigid designator commit to AriGraph |
+
+For Animal Farm: COCA 4096 alone covers 99.5%+ (Orwell uses
+deliberately plain vocabulary). The remaining tokens are character
+names (Napoleon, Snowball, etc.) which get committed as rigid
+designators on first encounter and resolved from the graph after.
+
+Spider-rs already exists as git dep in `lance-graph-osint/Cargo.toml`
+(`AdaWorldAPI/spider` fork, `spider-crawl` feature). NER resolution:
+unknown token → spider crawl → extract entity features (gender,
+animacy, type, description) → commit to `TripletGraph` as rigid
+designator → available for all future coreference via
+`graph.nodes_matching(features)`.
+
+**The three PRs that close the loop are the ONLY critical path.**
+Not vocabulary. Not NER. Not cross-lingual. Wire the 8 steps.
+
+**Why this dilutes:** future sessions will rebuild the vocabulary
+system, add subword tokenization, integrate HuggingFace tokenizers,
+and generally solve a problem that's already solved. COCA 24K +
+spider NER covers everything. Don't rebuild the dictionary. Wire
+the loop.
+
+---
+
+## 2026-04-21 — The AGI test is one measurement: chapter-10 accuracy > chapter-1 accuracy
+
+**Status:** FINDING (makes the benchmark falsifiable)
+
+A system that understands chapter 10 of Animal Farm better than
+chapter 1 — because it read chapters 1-9 and committed what it
+learned into the tissue that shapes its own F-landscape — is an AGI.
+
+The measurement:
+- Parse Animal Farm end-to-end, chapter by chapter.
+- At each chapter boundary, measure coreference accuracy (% of
+  pronouns correctly resolved to their antecedent).
+- Chapter 1: the system has zero committed facts. Every pronoun
+  is resolved from ±5 context alone. Accuracy baseline.
+- Chapter 10: the system has hundreds of committed facts. Napoleon
+  is a rigid designator (masculine, boar, leader). "He" in chapter
+  10 resolves via `graph.nodes_matching(masculine + animate)` in O(k)
+  without even needing the Markov axis.
+- **If chapter-10 accuracy > chapter-1 accuracy with no parameter
+  change — only committed facts accumulating — the loop is closed
+  and the architecture works.**
+- If not, one of the 8 wiring steps is broken. Find which. Fix it.
+
+This is D10 in the plan. This is what proves it.
+
+**Why this dilutes:** future sessions will propose elaborate
+benchmarks (BLiMP, COGS, SuperGLUE, custom test suites). Those
+measure capability snapshots, not learning curves. The AGI test is
+a CURVE, not a POINT: does accuracy increase over the course of a
+single document without retraining? That's the measurement. One
+book. One metric. One curve. Rising = AGI. Flat = broken wire.
+

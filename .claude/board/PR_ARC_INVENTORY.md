@@ -35,6 +35,44 @@
 
 ---
 
+## #243 — D5+D7 categorical-algebraic inference architecture (2026-04-21)
+
+**Confidence (2026-04-21):** Working. 175/175 contract, 63/63 deepnsm (grammar-10k).
+
+**Added:**
+- `contract::grammar::thinking_styles` — `GrammarStyleConfig`, `GrammarStyleAwareness` (NARS-revised `HashMap<ParamKey, TruthValue>`), `revise_truth`, `ParseOutcome` (5 polarities), `divergence_from(prior)` (KL term). 490 LOC, 12 tests.
+- `contract::grammar::free_energy` — `FreeEnergy` (likelihood + KL → total), `Hypothesis` (role fillers + Pearl 2³ mask), `Resolution` (Commit / Epiphany / FailureTicket), `from_ranked` classifier, `HOMEOSTASIS_FLOOR` / `EPIPHANY_MARGIN` / `FAILURE_CEILING`. 347 LOC, 7 tests.
+- `contract::grammar::role_keys` — `RoleKey::bind/unbind/recovery_margin` (slice-masked XOR), `Vsa10k` type alias, `VSA_ZERO`, `vsa_xor`, `vsa_similarity`, `word_slice_mask` helper. +295 LOC, +14 tests (5-role lossless superposition verified).
+- `deepnsm::content_fp` — 10K-dim content fingerprints from COCA vocab ranks (SplitMix64). 98 LOC, 5 tests. Feature-gated: `grammar-10k`.
+- `deepnsm::markov_bundle` — `MarkovBundler` (±5 ring buffer, role-key bind, braiding via `vsa_permute`, XOR-superpose, `WeightingKernel`). 250 LOC, 8 tests.
+- `deepnsm::trajectory` — `Trajectory` (Think carrier): `role_bundle`, `mean_recovery_margin`, `ambient_similarity`, `free_energy`, `resolve`. 298 LOC, 4 tests.
+- `CLAUDE.md` § The Click (P-1): top-of-file architecture diagram + 3 simplicity invariants + shader-cant-resist + thinking-is-a-struct + tissue-not-storage + grammar-of-awareness + 2 litmus tests.
+- `.claude/plans/categorical-algebraic-inference-v1.md` (496 lines): meta-architecture proving 5 operations are 1 algebraic substrate, grounded in 8-paper proof chain.
+
+**Locked:**
+- `RoleKey::bind` is slice-masked XOR (categorically optimal per Shaw 2501.05368 Kan extension theorem). Not a design choice — a theorem consequence.
+- `FreeEnergy = (1 - likelihood) + KL` where likelihood = mean role recovery margin, KL = `awareness.divergence_from(prior)`. Three thresholds: F<0.2 commit, ΔF<0.05 epiphany, F>0.8 escalate.
+- NARS revision asymptotes at φ-1 ≈ 0.618 (golden ratio confidence ceiling). Feature, not bug. Permanent epistemic humility.
+- Markov = XOR of braided sentence VSAs. No HMM. No transition matrix. No weights.
+- Thinking is a struct (not a service, not a function). The DTO carries cognition as identity.
+- AriGraph/episodic/CAM-PQ are thinking tissue (organs of Think), not storage services.
+- Object-does-the-work test: free function on carrier's state = reject. Method on carrier = accept.
+- Five-lens test: every new type serves Parsing / Free-Energy / NARS / Memory / Awareness or is drift.
+
+**Deferred:**
+- Steps 4-8 of the 8-step wiring sequence (pipeline, AriGraph commit, global context, awareness revision, KL feedback). Three PRs to close the loop.
+- D10 Animal Farm benchmark (the AGI test: chapter-10 accuracy > chapter-1 accuracy).
+- Cross-lingual bundling (needs parallel corpora).
+- ONNX arc model (D9, D11).
+
+**Docs:**
+- `.claude/knowledge/paper-landscape-grammar-parsing.md` — 14 papers in 3 tiers.
+- `.claude/knowledge/session-2026-04-21-categorical-click.md` — session handover with 12 critical insights + 7 anti-patterns.
+- `.claude/board/EPIPHANIES.md` — 12 new epiphanies with "why this dilutes" warnings.
+- `.claude/board/INTEGRATION_PLANS.md` — `categorical-algebraic-inference-v1` entry prepended.
+
+---
+
 ## #225 — Codec-sweep plan + D0.6/D0.7 CodecParams types (merged 2026-04-20)
 
 **Confidence (2026-04-20):** Working. 147/147 contract suite passing (133 prior + 14 new).

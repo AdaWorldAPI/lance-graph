@@ -114,17 +114,17 @@ early — CausalityFlow extension deferred). Plan path:
 
 | D-id | Title | Status | PR / Evidence |
 |---|---|---|---|
-| D2  | DeepNSM emits `FailureTicket` on low coverage | **Queued** | — |
+| D2  | DeepNSM emits `FailureTicket` on low coverage (wiring step 4) | **Queued** | — |
 | D3  | Grammar Triangle wired into DeepNSM via `triangle_bridge.rs` | **Queued** | — |
-| D5  | Markov ±5 SPO+TEKAMOLO bundler with role-indexed VSA | **Queued** | — |
-| D7  | NARS-tested grammar thinking styles + active-inference free-energy + RoleKey-as-operator | **In progress** | branch `claude/teleport-session-setup-wMZfb` — `thinking_styles.rs` (12 tests), `free_energy.rs` (7 tests), `role_keys.rs` bind/unbind/recovery_margin (12 tests incl 5-role lossless superposition), `divergence_from(prior)`, Finnish case patch |
+| D5  | Markov ±5 bundler + Trajectory + content_fp (wiring steps 1-3) | **Shipped** | PR #243 — `content_fp.rs` (98 LOC, 5 tests), `markov_bundle.rs` (250 LOC, 8 tests), `trajectory.rs` (298 LOC, 4 tests). 63 deepnsm tests pass. |
+| D7  | Thinking styles + free-energy + RoleKey-as-operator | **Shipped** | PR #243 — `thinking_styles.rs` (490 LOC, 12 tests), `free_energy.rs` (347 LOC, 7 tests), `role_keys.rs` bind/unbind/recovery_margin (295 LOC added, 14 tests). 175 contract tests pass. |
 
 ### Phase 3 — Queued
 
 | D-id | Title | Status | PR / Evidence |
 |---|---|---|---|
-| D8  | Story-context bridge (AriGraph episodic + triplet-graph + orthogonal global-context) | **Queued** | — |
-| D10 | Forward-validation harness (Animal Farm benchmark) | **Queued** | — |
+| D8  | Story-context bridge: AriGraph commit + global_context + contradiction (wiring steps 5-6) | **Queued** | — |
+| D10 | Forward-validation harness (Animal Farm: chapter-10 > chapter-1 accuracy = AGI test) | **Queued** | — |
 
 ### Phase 4 — Backlog
 
