@@ -1,0 +1,23 @@
+# PR #220 fix (a) — wider codebook (1024+ centroids per subspace).
+# Tests the first remedy from the PR #220 "What's Needed to Fix" list.
+# The JIT cache warms once per unique (subspaces, centroids, …) tuple;
+# this grid generates 1 × 3 × 1 × 1 × 1 × 1 = 3 distinct signatures.
+name: wider_codebook_sweep
+tensor_path: models/qwen3-tts-0.6b/gate_proj.safetensors
+grid:
+  subspaces: [6]
+  centroids: [256, 512, 1024]
+  residual_depths: [0]
+  rotations:
+    - { kind: identity }
+  distances: [AdcU8]
+  lane_widths: [F32x16]
+  residual_centroids: 256
+  calibration_rows: 2048
+  measurement_rows: 512
+  seed: 42
+measure:
+  - reconstruction_icc_held_out
+  - token_agreement_top1
+  - token_agreement_top5
+label: "PR #220 fix (a): wider codebook"
