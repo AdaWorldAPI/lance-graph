@@ -46,7 +46,7 @@ impl OrchestrationBridge for CodecResearchBridge {
                 let req: WireTensorsRequest = serde_json::from_str(args)
                     .map_err(|e| OrchestrationError::ExecutionFailed(e.to_string()))?;
                 let r = codec_research::list_tensors(&req)
-                    .map_err(|e| OrchestrationError::ExecutionFailed(e))?;
+                    .map_err(OrchestrationError::ExecutionFailed)?;
                 step.status = StepStatus::Completed;
                 step.reasoning = Some(format!(
                     "tensors total={} cam_pq={} passthrough={} skip={}",
@@ -58,7 +58,7 @@ impl OrchestrationBridge for CodecResearchBridge {
                 let req: WireCalibrateRequest = serde_json::from_str(args)
                     .map_err(|e| OrchestrationError::ExecutionFailed(e.to_string()))?;
                 let r = codec_research::calibrate_tensor(&req)
-                    .map_err(|e| OrchestrationError::ExecutionFailed(e))?;
+                    .map_err(OrchestrationError::ExecutionFailed)?;
                 step.status = StepStatus::Completed;
                 step.confidence = Some(r.icc_3_1 as f64);
                 step.reasoning = Some(format!(
@@ -71,7 +71,7 @@ impl OrchestrationBridge for CodecResearchBridge {
                 let req: WireProbeRequest = serde_json::from_str(args)
                     .map_err(|e| OrchestrationError::ExecutionFailed(e.to_string()))?;
                 let r = codec_research::row_count_probe(&req)
-                    .map_err(|e| OrchestrationError::ExecutionFailed(e))?;
+                    .map_err(OrchestrationError::ExecutionFailed)?;
                 step.status = StepStatus::Completed;
                 step.reasoning = Some(format!(
                     "probe tensor={} n_rows={} entries={}",

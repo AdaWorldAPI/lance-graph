@@ -16,8 +16,8 @@
 //!   round-trip, no quantization loss, matches Rule F "serialise once at
 //!   edge" — the decode/encode IS the edge).
 //! - [`ResidualComposer`] — composes two decoders with subtract/add:
-//!     `decode(enc) = base.decode(enc[..k]) + residual.decode(enc[k..])`
-//!   `encode(v)    = [base.encode(v); residual.encode(v - base.decode(base.encode(v)))]`
+//!   `decode(enc) = base.decode(enc[..k]) + residual.decode(enc[k..])`
+//!   `encode(v) = [base.encode(v); residual.encode(v - base.decode(base.encode(v)))]`
 //!   Depth `d > 1` recurses: the residual field itself is a `ResidualComposer`.
 
 use std::collections::hash_map::DefaultHasher;

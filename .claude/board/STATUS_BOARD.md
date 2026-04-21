@@ -78,7 +78,7 @@ afterwards is a JIT kernel, not a rebuild. Plan path:
 
 | D-id | Title | Status | PR / Evidence |
 |---|---|---|---|
-| D3.1 | Server-side sweep handler + Lance fragment append | **Queued** | target ~200 LOC |
+| D3.1 | Server-side sweep handler + Lance fragment append | **In PR** | branch — `sweep_handler` batch mode: enumerates `WireSweepGrid::enumerate()`, validates each via TryFrom(CodecParams) at ingress, returns `WireSweepResponse { results: [WireSweepResult { kernel_hash, stub:true }], cardinality, elapsed_ms }`. SSE streaming + real calibrate/token-agreement per point deferred to D3.1b. Route: `POST /v1/shader/sweep`. |
 | D3.2 | Client-side driver + config files | **Queued** | target ~20 LOC + YAML configs |
 
 ### Phase 4 — Frontier analysis — Queued

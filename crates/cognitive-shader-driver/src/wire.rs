@@ -405,7 +405,7 @@ impl AlignedBytes {
     }
 
     pub fn is_aligned_64(&self) -> bool {
-        (self.ptr as usize) % 64 == 0
+        (self.ptr as usize).is_multiple_of(64)
     }
 
     pub fn len(&self) -> usize { self.len }
@@ -933,17 +933,15 @@ fn named_to_ordinal(s: &str) -> u8 {
 /// Reference baseline for token-agreement comparison. Extensible enum —
 /// `Passthrough` is the only variant today; future baselines (half-precision
 /// reference, previous codec generation) plug in as variants.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum WireBaseline {
     /// Passthrough = untouched weights, F32 decode. The canonical
     /// reference every codec candidate is measured against.
+    #[default]
     Passthrough,
 }
 
-impl Default for WireBaseline {
-    fn default() -> Self { Self::Passthrough }
-}
 
 /// `POST /v1/shader/token-agreement` request.
 ///
