@@ -185,7 +185,7 @@ impl CognitiveShaderService for ShaderGrpcService {
             route_filter: if req.route_filter.is_empty() { None } else { Some(req.route_filter) },
         };
         let r = crate::codec_research::list_tensors(&wire_req)
-            .map_err(|e| Status::invalid_argument(e))?;
+            .map_err(Status::invalid_argument)?;
         Ok(Response::new(pb::TensorsResponse {
             total: r.total as u32,
             shown: r.shown as u32,
@@ -210,6 +210,11 @@ impl CognitiveShaderService for ShaderGrpcService {
         let wire_req = crate::wire::WireCalibrateRequest {
             model_path: req.model_path,
             tensor_name: req.tensor_name,
+            // D0.1 extension fields — gRPC path uses legacy num_*
+            // fields only; the richer CodecParams + TensorView path is
+            // REST-only until the proto schema catches up (D0.3b).
+            params: None,
+            tensor_view: None,
             num_subspaces: if req.num_subspaces == 0 { 6 } else { req.num_subspaces as usize },
             num_centroids: if req.num_centroids == 0 { 256 } else { req.num_centroids as usize },
             kmeans_iterations: if req.kmeans_iterations == 0 { 20 } else { req.kmeans_iterations as usize },
@@ -217,7 +222,7 @@ impl CognitiveShaderService for ShaderGrpcService {
             icc_samples: if req.icc_samples == 0 { 512 } else { req.icc_samples as usize },
         };
         let r = crate::codec_research::calibrate_tensor(&wire_req)
-            .map_err(|e| Status::invalid_argument(e))?;
+            .map_err(Status::invalid_argument)?;
         Ok(Response::new(pb::CalibrateResponse {
             tensor_name: r.tensor_name,
             dims: r.dims,
@@ -248,7 +253,7 @@ impl CognitiveShaderService for ShaderGrpcService {
             icc_samples: if req.icc_samples == 0 { 512 } else { req.icc_samples as usize },
         };
         let r = crate::codec_research::row_count_probe(&wire_req)
-            .map_err(|e| Status::invalid_argument(e))?;
+            .map_err(Status::invalid_argument)?;
         Ok(Response::new(pb::ProbeResponse {
             tensor_name: r.tensor_name,
             n_rows: r.n_rows as u32,

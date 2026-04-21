@@ -68,8 +68,12 @@ tonic-build = { version = "0.12", optional = true }
 default = []
 with-engine = ["dep:thinking-engine"]
 with-planner = ["dep:lance-graph-planner"]
-serve = ["dep:serde", "dep:serde_json", "dep:axum", "dep:tokio", "dep:base64", "dep:bytemuck"]
-grpc = ["dep:prost", "dep:tonic", "dep:tonic-build", "dep:tokio"]
+# Shared LAB DTOs — `wire.rs` + `auto_detect.rs` + codec kernel scaffolds
+# + token_agreement use these regardless of whether the transport is REST
+# (serve) or gRPC (grpc). Both features pull this set.
+_lab-dtos = ["dep:serde", "dep:serde_json", "dep:base64", "dep:bytemuck"]
+serve = ["_lab-dtos", "dep:axum", "dep:tokio"]
+grpc = ["_lab-dtos", "dep:prost", "dep:tonic", "dep:tonic-build", "dep:tokio"]
 
 # `lab` — umbrella switch for the single shader-lab binary. Enables every
 # endpoint (REST + gRPC), the planner bridge, the thinking-engine bridge,
