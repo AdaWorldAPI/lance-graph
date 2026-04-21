@@ -175,6 +175,7 @@ fn route_str(r: CodecRoute) -> &'static str {
     }
 }
 
+#[allow(clippy::type_complexity)]
 fn load_tensor_rows(
     model_path: &str,
     tensor_pattern: &str,

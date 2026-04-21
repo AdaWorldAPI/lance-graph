@@ -17,7 +17,7 @@
 //! If nothing dominates (`max < threshold`), fall back to Deliberate.
 
 use lance_graph_contract::cognitive_shader::StyleSelector;
-use crate::bindspace::QUALIA_DIMS;
+
 
 /// Mapping from qualia shape to a style ordinal (0..11 matches
 /// `thinking_engine::cognitive_stack::ThinkingStyle::all()`).
@@ -104,6 +104,7 @@ pub fn resolve(sel: StyleSelector, qualia_row: &[f32]) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::bindspace::QUALIA_DIMS;
 
     fn q(vals: &[(usize, f32)]) -> [f32; QUALIA_DIMS] {
         let mut out = [0.0f32; QUALIA_DIMS];

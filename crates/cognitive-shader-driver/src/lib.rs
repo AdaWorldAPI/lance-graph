@@ -112,37 +112,40 @@ pub mod sigma_rosetta;
 // reachable through the canonical bridge.
 
 // Per-op Wire DTOs (REST + protobuf). LAB-ONLY.
-#[cfg(feature = "serve")]
+// Gated on `any(serve, grpc)` because both transports share the same
+// DTOs; gRPC consumers (grpc.rs) and REST consumers (serve.rs) both
+// convert to/from the `Wire*` types in wire.rs.
+#[cfg(any(feature = "serve", feature = "grpc"))]
 pub mod wire;
 
 // D0.5 — model architecture auto-detection from config.json.
 // CODING_PRACTICES.md gap 1 remediation. LAB-ONLY.
-#[cfg(feature = "serve")]
+#[cfg(any(feature = "serve", feature = "grpc"))]
 pub mod auto_detect;
 
 // D1.1 — JIT kernel cache keyed by CodecParams::kernel_signature().
 // Structural layer; actual Cranelift IR emission defers to D1.1b. LAB-ONLY.
-#[cfg(feature = "serve")]
+#[cfg(any(feature = "serve", feature = "grpc"))]
 pub mod codec_kernel_cache;
 
 // D1.2 — rotation primitives (Identity / Hadamard / OPQ-stub). LAB-ONLY.
 // Hadamard is real (in-place butterfly); OPQ is stub pending D1.1b's
 // ndarray::hpc::jitson_cranelift::JitEngine adapter + matrix-blob loader.
-#[cfg(feature = "serve")]
+#[cfg(any(feature = "serve", feature = "grpc"))]
 pub mod rotation_kernel;
 
 // D1.3 — decode-kernel trait + residual composition.
 // Hydration/calibration path (NOT cascade inference — that uses
 // p64_bridge::CognitiveShader per cognitive-shader-architecture.md
 // line 582). LAB-ONLY.
-#[cfg(feature = "serve")]
+#[cfg(any(feature = "serve", feature = "grpc"))]
 pub mod decode_kernel;
 
 // D2.1 — token-agreement harness scaffold (I11 cert gate infra).
 // Reference model loader stub + top-k comparator + stub result with
 // machine-checkable `stub:true` flag. D2.2 adds real safetensors decode.
 // LAB-ONLY.
-#[cfg(feature = "serve")]
+#[cfg(any(feature = "serve", feature = "grpc"))]
 pub mod token_agreement;
 
 // Axum REST server. LAB-ONLY.

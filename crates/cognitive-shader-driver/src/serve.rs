@@ -50,8 +50,9 @@ use crate::wire::{
     WireCalibrateRequest, WireCalibrateResponse, WireCrystal, WireDispatch, WireHealth,
     WireIngest, WirePlanRequest, WirePlanResponse, WireProbeRequest, WireProbeResponse,
     WireQualia, WireRunbookRequest, WireRunbookResponse, WireRunbookStep,
-    WireRunbookStepResult, WireStepResult, WireStyleInfo, WireTensorsRequest,
-    WireTensorsResponse, WireTokenAgreement, WireTokenAgreementResult, WireUnifiedStep,
+    WireRunbookStepResult, WireStepResult, WireStyleInfo, WireSweepRequest,
+    WireSweepResponse, WireSweepResult, WireTensorsRequest, WireTensorsResponse,
+    WireTokenAgreement, WireTokenAgreementResult, WireUnifiedStep,
 };
 use lance_graph_contract::cam::CodecParams;
 use std::path::Path as StdPath;
@@ -96,6 +97,13 @@ pub fn router(driver: ShaderDriver) -> Router {
         // `backend:"stub"` so clients cannot confuse Phase 0 stub output
         // for a real measurement (anti-#219 defense, type-level).
         .route("/v1/shader/token-agreement", post(token_agreement_handler))
+        // D3.1 — codec sweep endpoint (batch mode). Client POSTs a
+        // WireSweepRequest containing a cross-product grid; handler
+        // enumerates grid, validates each candidate, builds stub results,
+        // returns WireSweepResponse. SSE streaming + Lance append land in
+        // D3.1b; this batch path stays for clients that want all results
+        // in one response without streaming.
+        .route("/v1/shader/sweep", post(sweep_handler))
         // Scheduled runbook: one POST runs a list of steps. Test injection
         // lands here — a client script submits its full codec-research
         // protocol as a single DTO, the server executes and returns all
@@ -282,6 +290,76 @@ async fn token_agreement_handler(
         .measure_stub()
         .map(Json)
         .map_err(|e| (StatusCode::BAD_REQUEST, Json(json!({"error": format!("{e}")}))))
+}
+
+/// D3.1 — `POST /v1/shader/sweep` handler (batch mode).
+///
+/// Enumerates the cross-product grid from `WireSweepRequest`, validates
+/// each candidate via TryFrom(CodecParams), computes kernel_signature +
+/// backend per point, and returns all results in one `WireSweepResponse`.
+///
+/// Stub: per-point calibrate/token_agreement are `None`; Phase 3 real
+/// handler invokes the actual codec_research + token_agreement harness.
+/// SSE streaming variant (D3.1b) replaces the batch return with per-point
+/// Server-Sent Events.
+async fn sweep_handler(
+    Json(req): Json<WireSweepRequest>,
+) -> Result<Json<WireSweepResponse>, (StatusCode, Json<Value>)> {
+    let start = std::time::Instant::now();
+
+    // P1 — reject oversized grids before materialization. A small JSON
+    // payload with moderately-sized axes can explode into a huge Cartesian
+    // product; bound it so the endpoint isn't a DoS vector.
+    const MAX_GRID_CARDINALITY: usize = 10_000;
+    let cardinality = req.grid.cardinality();
+    if cardinality > MAX_GRID_CARDINALITY {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": format!(
+                    "sweep grid cardinality {cardinality} exceeds max {MAX_GRID_CARDINALITY}; \
+                     reduce axis dimensions"
+                )
+            })),
+        ));
+    }
+
+    let candidates = req.grid.enumerate();
+
+    let mut results = Vec::with_capacity(candidates.len());
+    for (idx, wire_params) in candidates.into_iter().enumerate() {
+        // Validate each grid point at ingress — surface typed errors early.
+        let params: CodecParams = wire_params
+            .clone()
+            .try_into()
+            .map_err(|e: lance_graph_contract::cam::CodecParamsError| {
+                (StatusCode::BAD_REQUEST, Json(json!({
+                    "error": format!("grid point {idx}: invalid CodecParams: {e}")
+                })))
+            })?;
+
+        results.push(WireSweepResult {
+            grid_index: idx as u32,
+            candidate: wire_params,
+            kernel_hash: params.kernel_signature(),
+            calibrate: None,
+            token_agreement: None,
+            stub: true,
+        });
+    }
+
+    Ok(Json(WireSweepResponse {
+        label: req.label,
+        cardinality: cardinality as u32,
+        results,
+        elapsed_ms: start.elapsed().as_millis() as u64,
+        // P2 — do NOT echo req.log_to_lance into the response when no rows
+        // were actually written. Clients that treat lance_fragment_path as
+        // evidence of successful logging would silently skip retries and
+        // lose experiment results. Set to None until the real Lance append
+        // writer lands (Phase 3 D3.1b).
+        lance_fragment_path: None,
+    }))
 }
 
 async fn route_handler(

@@ -333,9 +333,9 @@ fn style_ord_to_inference(ord: u8) -> InferenceType {
     // intuitive/deliberate             → Revision
     // metacognitive                    → Synthesis
     match ord {
-        1 | 2 | 3 => InferenceType::Deduction,
-        4 | 5 | 6 => InferenceType::Induction,
-        7 | 8 | 9 => InferenceType::Abduction,
+        1..=3 => InferenceType::Deduction,
+        4..=6 => InferenceType::Induction,
+        7..=9 => InferenceType::Abduction,
         0 | 10    => InferenceType::Revision,
         _         => InferenceType::Synthesis,
     }
