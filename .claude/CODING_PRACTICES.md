@@ -258,6 +258,137 @@ scalar fallback INTERNALLY; the consumer never hand-rolls.
 hot path → reject + cite this section. Exception: the ndarray
 crate itself implements backends, not a violation.
 
+### How `ndarray::simd::*` resolves to backends (polyfill chain)
+
+The `simd.rs` module in ndarray is the **single public surface**; it
+re-exports concrete types from backend files based on `cfg` target
+features. Consumers never reach around it. The chain:
+
+```
+  ┌─────────────────────────────────────────────────────────────────┐
+  │ ndarray::simd (src/simd.rs)     ← the ONLY consumer surface     │
+  │                                                                  │
+  │  Re-exports F32x16 / U8x64 / F16x32 / F64x8 / BF16x32 etc. from  │
+  │  the right backend, chosen by cfg(target_feature):               │
+  │                                                                  │
+  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐           │
+  │  │ simd_amx.rs  │  │simd_avx512.rs│  │ simd_avx2.rs │           │
+  │  │ Intel AMX    │  │ AVX-512 base │  │ AVX-2 fallbk │           │
+  │  │ tiles +      │  │ F32x16 /     │  │ F32x8 /      │           │
+  │  │ VNNI +       │  │ U8x64 / ...  │  │ F64x4        │           │
+  │  │ TDPBUSD /    │  │ (mandatory   │  │ (cfg-gated   │           │
+  │  │ TDPBF16PS    │  │ floor at     │  │ when build   │           │
+  │  │ via inline   │  │ target-cpu=  │  │ drops to     │           │
+  │  │ asm (stable) │  │ x86-64-v4)   │  │ x86-64-v3)   │           │
+  │  └──────────────┘  └──────────────┘  └──────────────┘           │
+  │         │                │                │                      │
+  │         ├─ runtime-opt ──┤                │                      │
+  │         │  (amx_available)                │                      │
+  │                          │   compile-time │                      │
+  │                          │   cfg(avx2)    │                      │
+  │                                                                  │
+  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐           │
+  │  │ simd_neon.rs │  │ simd_wasm.rs │  │  (scalar)    │           │
+  │  │ aarch64      │  │ wasm32-simd  │  │  last resort │           │
+  │  │              │  │              │  │  INTERNAL to │           │
+  │  │              │  │              │  │  each backend│           │
+  │  └──────────────┘  └──────────────┘  └──────────────┘           │
+  │                                                                  │
+  │  hpc/simd_caps.rs  — runtime capability struct                   │
+  │  hpc/amx_matmul.rs — Intel AMX tile primitives (tile_dpbusd /    │
+  │                      tile_dpbf16ps etc.) surfaced for callers    │
+  │                      that want explicit matmul routing           │
+  └─────────────────────────────────────────────────────────────────┘
+```
+
+**Mandatory consumer rule:** only ever write `use ndarray::simd::…`.
+The backend files are private implementation detail — they can be
+reshuffled at any time (new `simd_avx512fp16.rs` shipped in a point
+release, backends split per architecture, etc.) without breaking
+consumers.
+
+**Explicit AMX routing** (when the caller wants to force the tile
+path rather than let `simd::*` infer it): the AMX sibling modules
+(`ndarray::simd_amx::*` and `ndarray::hpc::amx_matmul::*`) are
+**first-class canonical surfaces**, not backend reach. They're
+named at the top level because Intel AMX needs explicit OS
+enablement + XCR0 prctl on Linux + runtime `amx_available()`
+gating that's orthogonal to compile-time cfg.
+
+---
+
+## MANDATORY `cargo clippy` + feature-matrix discipline
+
+Every PR that touches `crates/*/src/` runs this full matrix before
+being declared complete. `--features serve` alone is NOT enough
+(learned the hard way at PR #238 when `--features grpc` and
+`--features lab` silently broke after months of feature-drift).
+
+```bash
+# All four compile-and-warning-clean before commit:
+cargo check                                                       # default
+cargo check --manifest-path crates/<name>/Cargo.toml --features serve
+cargo check --manifest-path crates/<name>/Cargo.toml --features grpc
+cargo check --manifest-path crates/<name>/Cargo.toml --features lab
+
+# Clippy WITH -D warnings (not just --no-deps); catches redundant
+# closures, needless collects, manual Default impls, hidden type
+# complexity, etc.:
+cargo clippy --manifest-path crates/<name>/Cargo.toml --features lab -- -D warnings
+cargo clippy --manifest-path crates/<name>/Cargo.toml --features serve -- -D warnings
+
+# Full test under the widest feature set:
+cargo test --manifest-path crates/<name>/Cargo.toml --features lab --lib
+
+# Doc-tests (separate target; --lib skips them):
+cargo test --manifest-path crates/<name>/Cargo.toml --features lab --doc
+```
+
+**Why `--lib` is not enough.** `cargo test` without `--lib` also runs
+integration tests in `tests/` and the doc-tests embedded in `///`
+comments. A doc comment that compiles as prose but fails as code
+is a latent failure; doc-tests catch it. The `--doc` run is cheap
+(seconds) and mandatory.
+
+**Why `--features lab` is not enough.** The `lab` umbrella pulls in
+everything but only exercises the union. `cargo check --features grpc`
+ALONE still needs to work — downstream consumers that only want gRPC
+(not REST) compile grpc-only; if wire.rs is `serve`-gated but grpc.rs
+references it, the grpc-only build breaks silently.
+
+**Fix pattern** (applied in PR #238 `_lab-dtos` internal feature):
+when two features share a dep (serde / serde_json / base64 / bytemuck
+used by both `serve` and `grpc`), factor into an internal feature:
+
+```toml
+[features]
+_lab-dtos = ["dep:serde", "dep:serde_json", "dep:base64", "dep:bytemuck"]
+serve     = ["_lab-dtos", "dep:axum", "dep:tokio"]
+grpc      = ["_lab-dtos", "dep:prost", "dep:tonic", "dep:tonic-build", "dep:tokio"]
+lab       = ["serve", "grpc", "with-engine", "with-planner"]
+```
+
+And widen `pub mod wire` from `#[cfg(feature = "serve")]` to
+`#[cfg(any(feature = "serve", feature = "grpc"))]` so both transports
+see the shared DTOs.
+
+**Reviewer trigger:** a PR whose description cites only
+`--features serve` test results → request re-run across the full
+matrix before approval. The matrix is a first-class part of the
+contract, not an afterthought.
+
+**Rust 1.95 transition note:** `mut ref` / `ref mut` in struct
+pattern field shorthand are now feature-gated (were accidentally
+stable through 1.94). When the toolchain pin bumps, grep both
+`src/` trees:
+
+```bash
+grep -rn "mut ref\b\|ref mut\b" crates/*/src/
+```
+
+Zero hits today across `lance-graph/crates/` + `ndarray/src/`.
+Stay that way.
+
 ---
 
 ## The 3-Way BindSpace Mutation Scheme

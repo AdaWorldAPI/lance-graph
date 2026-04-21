@@ -56,6 +56,33 @@ echo "$response" | jq '.'
 
 echo
 echo "=== Stub honesty check ==="
-stub_flag=$(echo "$response" | jq '.results[0].stub // "no results"')
+# Per EPIPHANIES.md 2026-04-20 "D0.2 stub flag is anti-#219 defense at
+# the type level" — the check MUST fail the script (not just log) when
+# the flag is absent or false. Until D2.2 lands real decode-and-compare,
+# Phase 0/2 runs return stub:true. A non-stub response here means
+# either the wrong endpoint was hit, the response was malformed, or
+# (worst case) the server silently shipped non-stub code and this
+# script is now pretending synthetic numbers are real.
+
+stub_flag=$(echo "$response" | jq -r '.results[0].stub // "missing"')
 echo "results[0].stub = $stub_flag"
-echo "Expected: true (Phase 0 stub; D2.2 flips to false when real decode lands)."
+
+case "$stub_flag" in
+    true)
+        echo "OK — Phase 0 stub honored. (D2.2 will flip this to false when real decode lands;"
+        echo "     at that point, flip this check too.)"
+        ;;
+    false)
+        echo "FAIL — results[0].stub is false but D2.2 has not landed." >&2
+        echo "        This script refuses to treat non-stub output as real during Phase 0." >&2
+        echo "        Either the server is running non-scaffold code (update this check)," >&2
+        echo "        or the request hit the wrong endpoint / unexpected handler." >&2
+        exit 3
+        ;;
+    *)
+        echo "FAIL — results[0].stub missing or unparseable (got: $stub_flag)." >&2
+        echo "        Response may be malformed or an error payload." >&2
+        echo "        Inspect the --- response --- section above." >&2
+        exit 3
+        ;;
+esac

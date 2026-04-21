@@ -145,6 +145,7 @@ pub struct WireTensorsResponse {
 /// object after ingress — per Rule F, there is no second deserialise anywhere
 /// in the pipeline after the handler consumes the request.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct WireCalibrateRequest {
     pub model_path: String,
     pub tensor_name: String,
@@ -183,6 +184,7 @@ fn default_cal_iters() -> usize { 20 }
 fn default_icc_samples() -> usize { 512 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct WireCalibrateResponse {
     pub tensor_name: String,
     pub dims: Vec<u64>,
@@ -246,6 +248,7 @@ pub struct WireResidualSpec {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct WireCodecParams {
     pub subspaces: u32,
     pub centroids: u32,
@@ -348,6 +351,7 @@ impl TryFrom<WireCodecParams> for CodecParams {
 // ═══════════════════════════════════════════════════════════════════════════
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct WireTensorView {
     /// [rows, cols] in elements (not bytes). Actual byte size inferred from lane_width.
     pub shape: [u32; 2],
@@ -955,6 +959,7 @@ pub enum WireBaseline {
 /// `top1_rate = 0.0` and `candidate_latency_us = 0`. D2.1–D2.3 land the
 /// real decode-and-compare loop.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct WireTokenAgreement {
     /// Model root directory (safetensors + config.json). Passed to
     /// `auto_detect::detect` to infer lane width + architecture defaults
@@ -974,6 +979,7 @@ pub struct WireTokenAgreement {
 
 /// `POST /v1/shader/token-agreement` response.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct WireTokenAgreementResult {
     /// Top-1 token-match rate across the full prompt set. Pass gate: ≥ 0.99.
     pub top1_rate: f32,
@@ -1049,6 +1055,7 @@ pub enum WireMeasure {
 /// × |distances| × |lane_widths|. Clients SHOULD keep the product ≤ a few
 /// hundred to fit in one JIT kernel cache warm-up round.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct WireSweepGrid {
     #[serde(default = "default_subspaces_axis")]
     pub subspaces: Vec<u32>,
@@ -1131,6 +1138,7 @@ impl WireSweepGrid {
 /// `POST /v1/shader/sweep` request. Client submits one grid + a measure
 /// set; server enumerates + calibrates + token-agreements each grid point.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct WireSweepRequest {
     pub tensor_path: String,
     pub grid: WireSweepGrid,
@@ -1156,6 +1164,7 @@ fn default_measure_set() -> Vec<WireMeasure> {
 /// One grid-point result, streamed by the sweep handler. Carries the
 /// candidate that produced it + optional per-measure payloads.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct WireSweepResult {
     /// Zero-based grid index (0 .. grid.cardinality()).
     pub grid_index: u32,
@@ -1179,6 +1188,7 @@ pub struct WireSweepResult {
 /// `POST /v1/shader/sweep` response for batch (non-streaming) clients.
 /// Streaming clients receive one `WireSweepResult` per SSE event instead.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct WireSweepResponse {
     pub label: String,
     pub cardinality: u32,
