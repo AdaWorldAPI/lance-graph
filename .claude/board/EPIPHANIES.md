@@ -65,6 +65,51 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-04-21 — The Kan extension IS the free-energy minimizer (holy-grail unification)
+
+**Status:** CONJECTURE (grounded in Shaw 2501.05368 + Alpay 2603.05540
++ shipped code; not yet formally proven as categorical equivalence)
+
+Shaw et al. proved via right Kan extensions that dimension-preserving
+VSA binding MUST be element-wise (the Yoneda lemma collapses the
+integral to pointwise multiplication). Active inference says minimize
+`F = -likelihood + KL`. These are the SAME operation at different
+levels of abstraction:
+
+- Kan extension = optimal projection of external tensor product into
+  fixed-dim space under structural constraints (monoidal category).
+- Free-energy minimization = optimal approximation of observations
+  under a generative model (variational inference).
+- NARS revision = optimal truth update under new evidence (Bayesian
+  with bounded confidence).
+- AriGraph commit = optimal fact storage under contradiction detection
+  (graph-structured belief revision).
+
+All four are "find the best approximation under constraints." The
+constraints differ (categorical, information-theoretic, logical,
+graph-structural), but the algebraic substrate is the same: element-
+wise XOR on role-indexed slices of a 10K binary VSA vector.
+
+**What clicks:**
+1. bind/unbind IS Kan extension (categorically optimal)
+2. recovery_margin IS likelihood (information-theoretic)
+3. awareness.divergence_from(prior) IS KL (variational)
+4. Resolution::from_ranked IS argmin_F (active inference)
+5. AriGraph commit IS belief revision (graph + NARS)
+6. The Trajectory's own methods ARE the inference engine — the object
+   doesn't get passed to reasoning; the object speaks for itself.
+
+Not neural (no weights). Not symbolic (no search). Not hybrid
+(not bolted together). A categorical-algebraic inference engine where
+parsing, disambiguation, learning, memory, and awareness are the SAME
+algebraic structure viewed through different lenses.
+
+Cross-ref: `.claude/knowledge/paper-landscape-grammar-parsing.md`,
+Shaw 2501.05368 §4.3 (Kan extensions), Alpay 2603.05540 §Theorem 5
+(Doob h-transform), `contract::grammar::free_energy`, `role_keys`.
+
+---
+
 ## 2026-04-21 — RoleKey bind/unbind slice-masking = lossless role-indexed superposition
 
 **Status:** FINDING (verified by 5-role simultaneous recovery test)
