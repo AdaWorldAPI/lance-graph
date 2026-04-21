@@ -20,5 +20,11 @@ No GPU. No learned weights. Same decision boundaries as cosine.
 # never touches backend optimization files.
 [dependencies]
 ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
+lance-graph-contract = { path = "../lance-graph-contract", optional = true }
+
+[features]
+default = []
+grammar-10k = ["dep:lance-graph-contract"]
 
 [dev-dependencies]
+lance-graph-contract = { path = "../lance-graph-contract" }

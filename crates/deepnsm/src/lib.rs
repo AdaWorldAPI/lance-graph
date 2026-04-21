@@ -71,3 +71,10 @@ pub use similarity::SimilarityTable;
 pub use encoder::{VsaVec, RoleVectors};
 pub use context::ContextWindow;
 pub mod fingerprint16k;
+
+#[cfg(feature = "grammar-10k")]
+pub mod content_fp;
+#[cfg(feature = "grammar-10k")]
+pub mod markov_bundle;
+#[cfg(feature = "grammar-10k")]
+pub mod trajectory;
