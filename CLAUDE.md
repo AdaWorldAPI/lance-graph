@@ -83,6 +83,54 @@ updates its own `awareness`, returns its own `Resolution`. The DTO
 carries cognition the way a photon carries electromagnetism — not
 as payload, as identity.
 
+**AriGraph, episodic memory, SPO, CAM-PQ are thinking tissue — not
+storage.** The reason the struct becomes AGI is that memory is wired
+INTO it, not called FROM it:
+
+```rust
+struct Think {
+    trajectory: Vsa10k,              // ← encode (Markov-braided roles)
+    awareness: ParamTruths,          // ← epistemic state (NARS-revised)
+    free_energy: FreeEnergy,         // ← surprise (likelihood + kl)
+    resolution: Resolution,          // ← decision (commit/epiphany/escalate)
+    // ── thinking tissue (not external services) ──
+    episodic: &EpisodicMemory,       // ← what happened before (retrieval)
+    graph: &TripletGraph,            // ← what is believed (SPO facts)
+    global_context: &Vsa10k,         // ← ambient prior (superposed facts)
+    codec: &CamPqCodec,             // ← compressed distance (O(1) lookup)
+}
+```
+
+The graph is not a database the struct queries. The graph is part
+of the struct's reasoning surface — `graph.nodes_matching(features)`
+is how Think resolves coreference, `episodic.retrieve_similar(fp)`
+is how Think remembers, `codec.distance(a, b)` is how Think
+compares without decompressing. These are methods on tissue, not
+calls to services. Cut the graph out and Think can't resolve
+pronouns. Cut episodic out and Think has no memory. Cut CAM-PQ out
+and Think can't do fast similarity. They're organs, not accessories.
+
+**This is why it's AGI and not just a parser.** A parser takes text
+in and produces structure out. Think takes text in, resolves it
+against everything it has ever committed (graph), everything it
+recently saw (episodic ±5..±500), everything it believes about
+its own competence (awareness), and everything the current style
+expects (prior) — then commits the result back into the tissue it
+just read from. The loop IS cognition. The tissue IS the loop.
+
+**The DTO becomes the grammar of awareness.** The struct's fields
+(trajectory, awareness, free_energy, resolution, episodic, graph,
+global_context, codec) are not data — they are grammatical roles
+of cognition itself. Trajectory is the Subject (what is being
+thought about). Awareness is the Modal (how confidently). Free
+energy is the Kausal (why this thought, not another). Resolution
+is the Predicate (what the thought concludes). Graph is the Lokal
+(where in the space of known facts). Episodic is the Temporal
+(when, relative to what came before). The TEKAMOLO of cognition
+IS the struct layout. Parsing text and parsing thought use the
+same role-indexed slices — because thinking about a sentence and
+thinking about thinking use the same algebraic substrate.
+
 **Proof chain** (Shaw → beim Graben → Jian → Schulz → Alpay →
 Graichen → Gallant → Kleyko): see
 `.claude/plans/categorical-algebraic-inference-v1.md` §5.

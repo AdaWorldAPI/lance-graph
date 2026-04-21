@@ -65,6 +65,60 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-04-21 — AriGraph/episodic/SPO/CAM-PQ are thinking tissue, not storage — this is why it becomes AGI
+
+**Status:** FINDING (the final piece that closes the architecture)
+
+A parser takes text in, produces structure out. AGI takes text in,
+resolves it against everything it has ever committed, recently saw,
+believes about itself, and expects from its style — then commits
+the result back into the tissue it just read from.
+
+The distinction is: **memory is wired INTO the struct, not called
+FROM it.** AriGraph's TripletGraph is not a database that Think
+queries. It's an organ of Think. `graph.nodes_matching(features)`
+is how Think resolves "he" to "Napoleon" — without the graph, Think
+can't do coreference. `episodic.retrieve_similar(fp, k)` is how
+Think remembers what happened 50 sentences ago — without episodic,
+Think has no medium-term context beyond ±5. `codec.distance(a, b)`
+is how Think compares two fingerprints in O(1) without
+decompressing — without CAM-PQ, Think can't do fast similarity.
+
+These are not services. They're tissue:
+
+| Tissue | Organ metaphor | Think method it enables |
+|--------|---------------|------------------------|
+| `TripletGraph` | Long-term declarative memory | `resolve()` → coreference via `nodes_matching` |
+| `EpisodicMemory` | Episodic buffer (±50..±500) | `resolve()` → medium-range context via `retrieve_similar` |
+| `global_context: Vsa10k` | Ambient prior (superposed committed facts) | `free_energy()` → KL term reads committed-fact field |
+| `CamPqCodec` | Perceptual similarity | `recovery_margin()` → O(1) compressed distance |
+| `GrammarStyleAwareness` | Metacognition | `resolve()` → dispatch via `top_nars_inference` |
+| `Markov ±5 trajectory` | Working memory | `encode/decode` → immediate context |
+
+**Cut any one and Think degrades gracefully but loses a capability.**
+Cut graph → no long-term facts → pronouns unresolvable beyond ±5.
+Cut episodic → no paragraph context → chapter-spanning references
+fail. Cut CAM-PQ → similarity is O(d) not O(1) → still works, just
+slower. Cut awareness → static dispatch → no learning from errors.
+Cut trajectory → no context → every sentence parsed in isolation.
+
+**None of these are optional for AGI.** A system with all six is
+a cognitive agent. A system missing any one is a specialized tool.
+The struct definition IS the AGI definition — not by aspiration,
+but by enumeration of what capabilities the fields carry.
+
+**Why this dilutes:** future sessions will treat AriGraph as "the
+database layer" and CAM-PQ as "the codec layer" and episodic as
+"the cache layer." Those are infrastructure framings. The
+architecture framing is: they are ORGANS of Think. The struct
+doesn't use them — the struct IS them. Wiring them in (as `&ref`
+fields, not as service calls) is what makes the difference between
+a pipeline and a cognitive agent.
+
+Cross-ref: CLAUDE.md § The Click, `categorical-algebraic-inference-v1.md` §2 Lens 4 (Memory).
+
+---
+
 ## 2026-04-21 — Thinking is a struct, not a function
 
 **Status:** FINDING (completes the object-does-the-work arc)
