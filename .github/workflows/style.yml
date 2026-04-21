@@ -30,25 +30,12 @@ jobs:
       - name: Check formatting
         run: cargo fmt --manifest-path crates/lance-graph/Cargo.toml -- --check
 
-  clippy:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: "lance-graph-deps"
-          workspaces: |
-            crates/lance-graph
-            crates/lance-graph-python
-      - name: Install dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y protobuf-compiler
-      - name: Clippy lance-graph
-        run: cargo clippy --manifest-path crates/lance-graph/Cargo.toml --all-targets -- -D warnings
-      - name: Clippy lance-graph-python
-        run: cargo clippy --manifest-path crates/lance-graph-python/Cargo.toml --all-targets -- -D warnings
+  # clippy: runs LOCALLY as our internal pre-check, not on GitHub CI.
+  # GitHub CI focuses on compile + test + format + typos.
+  # Clippy discipline documented in CODING_PRACTICES.md:
+  #
+  #   cargo clippy --features lab -- -D warnings
+  #   cargo clippy --features serve -- -D warnings
 
   typos:
     name: Spell Check
