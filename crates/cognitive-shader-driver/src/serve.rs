@@ -306,8 +306,25 @@ async fn sweep_handler(
     Json(req): Json<WireSweepRequest>,
 ) -> Result<Json<WireSweepResponse>, (StatusCode, Json<Value>)> {
     let start = std::time::Instant::now();
+
+    // P1 — reject oversized grids before materialization. A small JSON
+    // payload with moderately-sized axes can explode into a huge Cartesian
+    // product; bound it so the endpoint isn't a DoS vector.
+    const MAX_GRID_CARDINALITY: usize = 10_000;
+    let cardinality = req.grid.cardinality();
+    if cardinality > MAX_GRID_CARDINALITY {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": format!(
+                    "sweep grid cardinality {cardinality} exceeds max {MAX_GRID_CARDINALITY}; \
+                     reduce axis dimensions"
+                )
+            })),
+        ));
+    }
+
     let candidates = req.grid.enumerate();
-    let cardinality = candidates.len() as u32;
 
     let mut results = Vec::with_capacity(candidates.len());
     for (idx, wire_params) in candidates.into_iter().enumerate() {
@@ -333,10 +350,15 @@ async fn sweep_handler(
 
     Ok(Json(WireSweepResponse {
         label: req.label,
-        cardinality,
+        cardinality: cardinality as u32,
         results,
         elapsed_ms: start.elapsed().as_millis() as u64,
-        lance_fragment_path: req.log_to_lance,
+        // P2 — do NOT echo req.log_to_lance into the response when no rows
+        // were actually written. Clients that treat lance_fragment_path as
+        // evidence of successful logging would silently skip retries and
+        // lose experiment results. Set to None until the real Lance append
+        // writer lands (Phase 3 D3.1b).
+        lance_fragment_path: None,
     }))
 }
 
