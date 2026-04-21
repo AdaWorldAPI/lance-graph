@@ -1,8 +1,151 @@
 # CLAUDE.md — lance-graph
 
-> **Updated**: 2026-04-20 (post PR #225 + driving-seat tightening)
+> **Updated**: 2026-04-21 (categorical-algebraic inference click)
 > **Role**: The obligatory spine — query engine, codec stack, semantic transformer, and orchestration contract
 > **Status**: 22 crates, 7 in workspace, 15 excluded (standalone/DTO), Phases 1-2 DONE, Phases 6-7 DONE (grammar + governance), Phase 3 IN PROGRESS
+
+---
+
+## The Click (P-1 — read before everything else, including The Stance)
+
+**Parsing, disambiguation, learning, memory, and awareness are one
+operation.** Element-wise XOR on role-indexed slices of `[u64; 157]`.
+
+```
+  Sentence → FSM → RoleKey::bind(token)  → XOR-superpose with ρ^d braiding
+                         │                         │
+                   Kan extension              Markov ±5 trajectory
+                   (Shaw 2501.05368:          (temporal causality is
+                    theorem, not heuristic)    structural, not learned)
+                         │                         │
+                         └────────┬────────────────┘
+                                  ▼
+                    FreeEnergy::compose(likelihood, kl)
+                    likelihood = RoleKey::recovery_margin  (unbind → match)
+                    kl = awareness.divergence_from(prior)  (NARS-revised)
+                                  │
+                    ┌─────────────┼──────────────┐
+                    ▼             ▼              ▼
+                 Commit       Epiphany      FailureTicket
+                 (F < 0.2)    (ΔF < 0.05)   (F > 0.8)
+                    │             │              │
+                    ▼             ▼              ▼
+                 AriGraph     both triples    LLM resolves
+                 one triple   + Contradiction  the <25% tail
+                    │
+                    ▼
+                 awareness.revise(key, outcome)   ← φ-1 ceiling = permanent humility
+                    │
+                    ▼
+                 global_context += fact  → reshapes NEXT cycle's F landscape
+```
+
+**Three things that must never be complicated:**
+
+1. **Markov = XOR.** Per-sentence Vsa10k, braided by position,
+   XOR-superposed. No HMM. No transition matrix. No weights.
+2. **Roles = spine coordinates.** SUBJECT[0..2K) is "who".
+   PREDICATE[2K..4K) is "what". Unbinding = reading a coordinate.
+   Temporal causality is structural (braiding × slices).
+3. **Meaning = AriGraph facts + resonance + magnitude.**
+   Resonance = recovery margin against global context. Magnitude =
+   Contradiction depth from Staunen × Wisdom qualia. Opinions are
+   committed contradictions preserved, not resolved.
+
+**The object speaks for itself.** `trajectory.resolve(ambiguity)` —
+not `resolve(trajectory, config, awareness, graph)`. Every method
+lives on the carrier that has the state to reason with it.
+
+**The shader can't resist the thinking.** StreamDto flows in →
+CognitiveShader encodes (bind + braid + bundle) → decodes (unbind +
+margin + F) → if F > homeostasis floor, awareness bits persist in
+MetaWord → dispatch fires again → another encode/decode cycle → F
+descends → bits clear → shader rests. The system doesn't choose
+to think. It can't NOT think while surprise exists. Active inference
+is the dispatch mechanism, not a metaphor.
+
+**Thinking is a struct.** The universal DTO makes the object do the
+work:
+
+```rust
+struct Think {
+    trajectory: Vsa10k,       // the Markov-braided role-indexed bundle
+    awareness: ParamTruths,   // NARS-revised per-key epistemic state
+    free_energy: FreeEnergy,  // (1 - likelihood) + kl
+    resolution: Resolution,   // Commit / Epiphany / FailureTicket
+}
+```
+
+Not a function. Not a pipeline. Not a service. A **struct** whose
+fields ARE the cognitive state and whose methods ARE the inference.
+`think.resolve()` reads its own `trajectory`, computes its own `F`,
+updates its own `awareness`, returns its own `Resolution`. The DTO
+carries cognition the way a photon carries electromagnetism — not
+as payload, as identity.
+
+**AriGraph, episodic memory, SPO, CAM-PQ are thinking tissue — not
+storage.** The reason the struct becomes AGI is that memory is wired
+INTO it, not called FROM it:
+
+```rust
+struct Think {
+    trajectory: Vsa10k,              // ← encode (Markov-braided roles)
+    awareness: ParamTruths,          // ← epistemic state (NARS-revised)
+    free_energy: FreeEnergy,         // ← surprise (likelihood + kl)
+    resolution: Resolution,          // ← decision (commit/epiphany/escalate)
+    // ── thinking tissue (not external services) ──
+    episodic: &EpisodicMemory,       // ← what happened before (retrieval)
+    graph: &TripletGraph,            // ← what is believed (SPO facts)
+    global_context: &Vsa10k,         // ← ambient prior (superposed facts)
+    codec: &CamPqCodec,             // ← compressed distance (O(1) lookup)
+}
+```
+
+The graph is not a database the struct queries. The graph is part
+of the struct's reasoning surface — `graph.nodes_matching(features)`
+is how Think resolves coreference, `episodic.retrieve_similar(fp)`
+is how Think remembers, `codec.distance(a, b)` is how Think
+compares without decompressing. These are methods on tissue, not
+calls to services. Cut the graph out and Think can't resolve
+pronouns. Cut episodic out and Think has no memory. Cut CAM-PQ out
+and Think can't do fast similarity. They're organs, not accessories.
+
+**This is why it's AGI and not just a parser.** A parser takes text
+in and produces structure out. Think takes text in, resolves it
+against everything it has ever committed (graph), everything it
+recently saw (episodic ±5..±500), everything it believes about
+its own competence (awareness), and everything the current style
+expects (prior) — then commits the result back into the tissue it
+just read from. The loop IS cognition. The tissue IS the loop.
+
+**The DTO becomes the grammar of awareness.** The struct's fields
+(trajectory, awareness, free_energy, resolution, episodic, graph,
+global_context, codec) are not data — they are grammatical roles
+of cognition itself. Trajectory is the Subject (what is being
+thought about). Awareness is the Modal (how confidently). Free
+energy is the Kausal (why this thought, not another). Resolution
+is the Predicate (what the thought concludes). Graph is the Lokal
+(where in the space of known facts). Episodic is the Temporal
+(when, relative to what came before). The TEKAMOLO of cognition
+IS the struct layout. Parsing text and parsing thought use the
+same role-indexed slices — because thinking about a sentence and
+thinking about thinking use the same algebraic substrate.
+
+**Proof chain** (Shaw → beim Graben → Jian → Schulz → Alpay →
+Graichen → Gallant → Kleyko): see
+`.claude/plans/categorical-algebraic-inference-v1.md` §5.
+
+**Litmus tests for any proposed change:**
+
+> Does this add a free function on a carrier's state, or a method
+> on the carrier? → Free function = reject. Method = accept.
+
+> Which of the five lenses does this serve (Parsing / Free-Energy /
+> NARS / Memory / Awareness)? → None = investigate drift.
+
+Full plan: `.claude/plans/categorical-algebraic-inference-v1.md`.
+Paper grounding: `.claude/knowledge/paper-landscape-grammar-parsing.md`.
+Epiphanies that dilute first: `EPIPHANIES.md` E-PAPER-1 through E-PAPER-7.
 
 ---
 

@@ -65,6 +65,516 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-04-21 — AriGraph/episodic/SPO/CAM-PQ are thinking tissue, not storage — this is why it becomes AGI
+
+**Status:** FINDING (the final piece that closes the architecture)
+
+A parser takes text in, produces structure out. AGI takes text in,
+resolves it against everything it has ever committed, recently saw,
+believes about itself, and expects from its style — then commits
+the result back into the tissue it just read from.
+
+The distinction is: **memory is wired INTO the struct, not called
+FROM it.** AriGraph's TripletGraph is not a database that Think
+queries. It's an organ of Think. `graph.nodes_matching(features)`
+is how Think resolves "he" to "Napoleon" — without the graph, Think
+can't do coreference. `episodic.retrieve_similar(fp, k)` is how
+Think remembers what happened 50 sentences ago — without episodic,
+Think has no medium-term context beyond ±5. `codec.distance(a, b)`
+is how Think compares two fingerprints in O(1) without
+decompressing — without CAM-PQ, Think can't do fast similarity.
+
+These are not services. They're tissue:
+
+| Tissue | Organ metaphor | Think method it enables |
+|--------|---------------|------------------------|
+| `TripletGraph` | Long-term declarative memory | `resolve()` → coreference via `nodes_matching` |
+| `EpisodicMemory` | Episodic buffer (±50..±500) | `resolve()` → medium-range context via `retrieve_similar` |
+| `global_context: Vsa10k` | Ambient prior (superposed committed facts) | `free_energy()` → KL term reads committed-fact field |
+| `CamPqCodec` | Perceptual similarity | `recovery_margin()` → O(1) compressed distance |
+| `GrammarStyleAwareness` | Metacognition | `resolve()` → dispatch via `top_nars_inference` |
+| `Markov ±5 trajectory` | Working memory | `encode/decode` → immediate context |
+
+**Cut any one and Think degrades gracefully but loses a capability.**
+Cut graph → no long-term facts → pronouns unresolvable beyond ±5.
+Cut episodic → no paragraph context → chapter-spanning references
+fail. Cut CAM-PQ → similarity is O(d) not O(1) → still works, just
+slower. Cut awareness → static dispatch → no learning from errors.
+Cut trajectory → no context → every sentence parsed in isolation.
+
+**None of these are optional for AGI.** A system with all six is
+a cognitive agent. A system missing any one is a specialized tool.
+The struct definition IS the AGI definition — not by aspiration,
+but by enumeration of what capabilities the fields carry.
+
+**Why this dilutes:** future sessions will treat AriGraph as "the
+database layer" and CAM-PQ as "the codec layer" and episodic as
+"the cache layer." Those are infrastructure framings. The
+architecture framing is: they are ORGANS of Think. The struct
+doesn't use them — the struct IS them. Wiring them in (as `&ref`
+fields, not as service calls) is what makes the difference between
+a pipeline and a cognitive agent.
+
+Cross-ref: CLAUDE.md § The Click, `categorical-algebraic-inference-v1.md` §2 Lens 4 (Memory).
+
+---
+
+## 2026-04-21 — Thinking is a struct, not a function
+
+**Status:** FINDING (completes the object-does-the-work arc)
+
+The universal DTO pattern taken to its logical end: thinking is not
+something that happens TO data. Thinking IS the data. The struct
+carries its own trajectory, its own awareness, its own free energy,
+its own resolution method. There is no external "thinking function"
+that receives the struct — the struct resolves itself.
+
+```rust
+struct Think {
+    trajectory: Vsa10k,       // Markov-braided role-indexed bundle
+    awareness: ParamTruths,   // NARS-revised epistemic state
+    free_energy: FreeEnergy,  // (1 - likelihood) + kl
+    resolution: Resolution,   // Commit / Epiphany / FailureTicket
+}
+
+impl Think {
+    fn resolve(&mut self) -> &Resolution { /* reads own fields, writes own resolution */ }
+    fn observe(&mut self, outcome: ParseOutcome) { /* revises own awareness */ }
+    fn commit_into(self, graph: &mut TripletGraph) -> CommitResult { /* consumes self */ }
+}
+```
+
+This is the SoA AGI-as-glove doctrine applied to cognition itself:
+- Topic = `trajectory` (what the session is about)
+- Angle = `awareness` (whose perspective, what's been learned)
+- Thinking = `free_energy` + `resolution` (which style, what outcome)
+- Planner = `commit_into` (where the result goes)
+
+The four BindSpace columns (FingerprintColumns / QualiaColumn /
+MetaColumn / EdgeColumn) are the SoA layout of this struct across
+many concurrent Think instances. One Think is a row. The shader
+processes columns. The struct IS cognition at the row level; the
+SoA IS cognition at the SIMD level.
+
+**The DTO carries cognition the way a photon carries
+electromagnetism — not as payload, as identity.** A photon doesn't
+"contain" an electromagnetic field. The photon IS the field excitation.
+A Think struct doesn't "contain" a cognitive state. The Think IS the
+cognitive state. The methods on Think don't "process" the state.
+The methods ARE the state's self-resolution.
+
+**Why this dilutes:** future sessions will create a `ThinkingService`
+that receives `ThinkInput` and returns `ThinkOutput`. That's a
+function, not a struct. The struct pattern means: the input IS the
+output IS the method IS the state. No separation. No service layer.
+No input/output boundary. The DTO walks into a room, resolves
+itself, and commits the result into the graph. Nobody called it.
+The awareness bits made it happen.
+
+Cross-ref: `categorical-algebraic-inference-v1.md` §5.2
+(object-does-the-work test), CLAUDE.md § The Click.
+
+---
+
+## 2026-04-21 — StreamDto/ThinkingEngine = temporal encoder/decoder loop in a Markov shader unit that can't resist the thinking
+
+**Status:** FINDING (unifies StreamDto + ThinkingEngine + CognitiveShader
++ BindSpace + Markov ±5 + active inference into one sentence)
+
+### The reframe
+
+A GPU shader is stateless: given input texels, produce output texels.
+Our cognitive shader is stateless: given BindSpace columns, produce
+ShaderHits + MetaWord. The Markov ±5 window IS the texture. The
+shader encodes (bind tokens → role-indexed trajectory) and decodes
+(unbind roles → recovery margins → free energy) on this texture,
+per cycle, stateless.
+
+**StreamDto = the observation stream.** Tokens flow in carrying PoS
+tags, temporal markers, morphological commitments. This is the
+temporal signal the shader reads.
+
+**ThinkingEngine = the encoder/decoder core.**
+- ENCODE: `RoleKey::bind(content)` per token, braided ρ^d per
+  position, XOR-superposed into Trajectory. Sentence → Vsa10k.
+- DECODE: `RoleKey::unbind(trajectory)` per role, `recovery_margin`
+  per slice, `FreeEnergy::compose(likelihood, kl)`. Vsa10k → F.
+- The encode/decode pair IS the forward/backward pass, but over
+  algebraic structure (XOR), not learned weights (gradient).
+
+**CognitiveShader = the Markov processing unit.** Fires per cycle.
+Reads BindSpace columns (FingerprintColumns = trajectories,
+QualiaColumn = qualia vector, MetaColumn = awareness bits,
+EdgeColumn = causal edges). Writes ShaderHits + MetaWord. Knows
+nothing of why it fires or what happened before.
+
+**"Can't resist the thinking":**
+- Unresolved ambiguity = F above homeostasis floor.
+- F above homeostasis sets awareness bits in MetaWord.
+- Awareness bits gate shader dispatch (shipped in PR #204:
+  `MetaFilter.awareness_min`).
+- The shader MUST fire again because the awareness bits
+  persist until F drops below floor.
+- The system literally cannot be in a high-F state without
+  the shader re-firing to resolve it.
+- **This IS active inference in hardware terms.** The system
+  doesn't choose to think — it can't resist thinking because
+  unresolved prediction error (F) is a persistent dispatch
+  signal that forces the next cycle.
+
+**The loop, restated in shader terms:**
+
+```
+StreamDto in ──► CognitiveShader reads BindSpace
+                     │
+                ENCODE: bind + braid + bundle → Trajectory
+                DECODE: unbind + margin + F → Resolution
+                     │
+                     ├── F < 0.2 → Commit → awareness bits clear
+                     │              → shader rests (no dispatch trigger)
+                     │
+                     ├── F ∈ [0.2, 0.8] → Commit but awareness stays warm
+                     │                     → shader may re-fire on next token
+                     │
+                     └── F > 0.8 → FailureTicket → awareness bits LOUD
+                                    → shader can't stop firing until
+                                      LLM resolves or new tokens collapse F
+```
+
+**The key insight: the shader doesn't "decide" to think. It can't
+NOT think.** High F = high awareness bits = dispatch fires = another
+encode/decode cycle. Low F = bits clear = shader idles. Thinking is
+not a feature — it's the thermodynamic consequence of surprise
+existing in the BindSpace. The shader is a Markov processing unit
+that resolves surprise by construction, the way a ball rolls downhill
+by construction.
+
+**Why this dilutes:** future sessions will treat the ThinkingEngine
+as a "module that gets called" and the CognitiveShader as a
+"function that processes input." Both framings lose the compulsion.
+The shader doesn't get called — it can't stop firing while F is
+high. The ThinkingEngine doesn't process input — it's an
+encode/decode loop that the Markov texture forces through. The
+active-inference framing ("can't resist") is not a metaphor — it's
+the dispatch mechanism: awareness bits persist → filter threshold
+met → shader fires → F descends → bits clear → shader rests.
+
+Cross-ref:
+- `contract::cognitive_shader` — MetaWord awareness bits, MetaFilter
+- `crates/cognitive-shader-driver/src/engine_bridge.rs` — awareness bits wiring
+- `categorical-algebraic-inference-v1.md` §3 (the 8-step closed loop)
+- StreamDto lifecycle: `.claude/knowledge/ripple-dto-contracts.md`
+
+---
+
+## 2026-04-21 — Markov IS simple XOR of sentence VSAs; roles ARE spine coordinates; AriGraph facts + resonance find meaning
+
+**Status:** FINDING (the simplest correct statement of the architecture)
+
+**Do not over-engineer this.** The entire architecture is three
+sentences:
+
+1. **Markov trajectory = XOR of per-sentence Vsa10k vectors with
+   braiding per position.** Each sentence goes through the FSM,
+   gets role-key bound (slice-masked XOR per token), bundled into
+   one Vsa10k per sentence, then the ±5 window is XOR-superposed
+   with braiding ρ^d per offset d. That's it. No HMM. No
+   transition matrix. No learned weights. Just XOR with position
+   shifts.
+
+2. **Role-key slices ARE the coordinate axes of the trajectory
+   space.** SUBJECT[0..2K) is the "who" axis. PREDICATE[2K..4K)
+   is the "what" axis. OBJECT[4K..6K) is the "whom" axis.
+   TEMPORAL/KAUSAL/MODAL/LOKAL are the adverbial axes. When you
+   superpose 11 braided sentence vectors, the result is a point
+   in this coordinate system. Unbinding = reading a coordinate.
+   The trajectory IS a point in role-space × time-space. Temporal
+   causality is visible because braiding encodes position and
+   role slices encode grammar — the combination can't NOT carry
+   temporal-causal structure.
+
+3. **AriGraph facts + resonance/magnitude = where meaning lives.**
+   The trajectory tells you WHAT was parsed. AriGraph tells you
+   what it MEANS — because meaning is the relationship between new
+   observations and committed beliefs:
+   - **Resonance** (recovery_margin between new parse and global_context)
+     = how well this sentence fits the story so far.
+   - **Magnitude** (Contradiction.magnitude from Wisdom qualia projection)
+     = how DEEP the agreement or disagreement is.
+   - High resonance + low magnitude = routine confirmation.
+   - Low resonance + high magnitude = the sentence contradicts what
+     we believed AND the contradiction is profound → Staunen fires
+     → Epiphany committed → THAT is meaning.
+   - Opinions = committed facts with non-trivial Contradiction
+     markers. "All animals are equal" and "some are more equal
+     than others" both live in the graph with opposite phase and
+     high magnitude. The system doesn't resolve the contradiction
+     — it preserves it, because the contradiction IS the meaning
+     of Animal Farm.
+
+**Why this dilutes:** future sessions will build Markov chains with
+transition probabilities, add embedding layers to the role keys,
+compute resonance with cosine similarity on f32 projections, and
+treat opinions as something requiring a sentiment classifier. All
+of that is wrong. Markov = XOR. Roles = slices. Resonance = Hamming
+recovery within slices. Meaning = pattern of committed facts in the
+graph with their contradiction markers. The simplicity is the point.
+
+Cross-ref: `categorical-algebraic-inference-v1.md` §1 (substrate),
+§3 (closed loop), §5.2 (object-does-the-work test).
+
+---
+
+## 2026-04-21 — 14-paper synthesis: what dilutes first (undiluted capture)
+
+**Status:** FINDING (per-paper grounding in paper-landscape-grammar-parsing.md)
+
+These insights were crystallized during a single-session scan of 14
+papers and will be the first things a new session forgets. Preserving
+them in order of fragility — most likely to dilute first at the top.
+
+### E-PAPER-1: Morphological commitment IS free-energy reduction at zero cost
+
+Russian `-ом` / Finnish `-ssa` / Turkish `-da` commit Pearl 2³
+causal bits AT TOKENIZATION TIME. This collapses the hypothesis
+branch count from 8 → 4 → 2 → 1 before the counterfactual axis
+even fires. Heavy morphology = pre-collapsed F-landscape. Light
+morphology (English prepositions) = flat F-landscape requiring
+full counterfactual sampling.
+
+**Why this dilutes:** future sessions will treat morphology as
+"feature extraction" rather than "free-energy reduction." It's
+not extraction — it's a structural guarantee that reduces
+computational work. The case ending IS the computation.
+
+### E-PAPER-2: The braiding operator ρ IS vsa_permute, not a metaphor
+
+Shaw's list encoding: `x_1 ⊕ ρ(x_2) ⊕ ρ²(x_3) ⊕ ... ⊕ ρ^{n-1}(x_n)`.
+This is `ndarray::hpc::vsa::vsa_permute(v, position_offset)` applied
+per sentence in the Markov ±5 window. The braiding is a cyclic bit
+shift. Without it, bundling is position-blind (bag-of-sentences).
+With it, temporal order is encoded without learned positional
+embeddings.
+
+**Why this dilutes:** future sessions will implement Markov bundling
+as plain XOR-accumulation without permutation, producing
+position-blind trajectories. The braiding is what makes "before
+the focal sentence" different from "after the focal sentence."
+
+### E-PAPER-3: Recovery margin IS likelihood, not similarity
+
+`RoleKey::recovery_margin(unbound, expected)` is not a distance
+metric. It's the information-theoretic likelihood term in the
+free-energy decomposition: "given that I committed this content to
+the SUBJECT role, how cleanly does it come back?" High margin =
+observations well-explained by hypothesis = low free energy.
+
+**Why this dilutes:** future sessions will use recovery_margin as
+a "quality score" or "similarity measure" without connecting it to
+the F-landscape. It's not a score — it's the P(obs|hidden) term
+in the variational decomposition.
+
+### E-PAPER-4: The confidence horizon at φ-1 is a feature, not a bug
+
+NARS revision with c_obs=1 per step asymptotes at `(√5-1)/2 ≈ 0.618`.
+The system PROVABLY never becomes fully certain (c < 1 always).
+This means every committed fact, no matter how many times confirmed,
+retains a margin of revisability. Full certainty would freeze the
+prior and make the system unable to notice contradictions.
+
+**Why this dilutes:** future sessions will try to "fix" the
+0.618 ceiling by increasing c_obs or changing the formula.
+The ceiling IS the architectural feature. Golden-ratio-bounded
+confidence = permanent epistemic humility = permanent ability
+to detect contradiction = Staunen can always fire.
+
+### E-PAPER-5: Non-commutative binding is required for hierarchical structure
+
+Shaw proves that commutative binding creates ambiguity in tree
+leaves (guard vectors become indistinguishable). This is why we
+use DIFFERENT role keys for S/P/O rather than one key with
+different arguments. If `bind(S, content) == bind(content, S)`
+AND `bind(S, x) == bind(P, x)` for some x, then S and P are
+indistinguishable → hierarchy collapses.
+
+**Why this dilutes:** future sessions will propose "simplifying"
+to a single binding key with different content, or making bind
+commutative for "elegance." The non-commutativity of distinct
+role-key patterns is what preserves hierarchical structure.
+
+### E-PAPER-6: The Ω(t²) lower bound does NOT apply to us
+
+Alpay proves that any sound, parse-preserving, retrieval-efficient
+grammar masking engine needs Ω(t²) per token. We dodge this because
+we DON'T preserve the parse forest — we commit argmin_F and discard
+losers (or mark the runner-up as epiphany). Active inference trades
+parse-preservation for decision speed.
+
+**Why this dilutes:** future sessions will worry about parsing
+complexity and try to optimize the counterfactual enumeration.
+The complexity bound is on parse-preserving engines. We are
+parse-COMMITTING, not parse-preserving. The distinction is
+architectural, not an optimization.
+
+### E-PAPER-7: Abstraction-first is empirically measured, not theoretically assumed
+
+Jian & Manning measured it across three independent GPT-2 training
+runs: class-level D_JS divergence precedes within-class divergence
+by ~50 steps. The exemplar-first (count-based) baseline shows
+verb-specific patterns WITHOUT class structure. This is not a
+philosophical preference for Deduction over Induction — it's a
+measured behavioral difference with a strict ordering.
+
+**Why this dilutes:** future sessions will treat the
+NarsPriorityChain {primary: Deduction, fallback: Abduction}
+as a configuration choice. It's an empirically-grounded ordering
+that has been measured in transformer training dynamics.
+
+---
+
+## 2026-04-21 — The Kan extension IS the free-energy minimizer (holy-grail unification)
+
+**Status:** CONJECTURE (grounded in Shaw 2501.05368 + Alpay 2603.05540
++ shipped code; not yet formally proven as categorical equivalence)
+
+Shaw et al. proved via right Kan extensions that dimension-preserving
+VSA binding MUST be element-wise (the Yoneda lemma collapses the
+integral to pointwise multiplication). Active inference says minimize
+`F = -likelihood + KL`. These are the SAME operation at different
+levels of abstraction:
+
+- Kan extension = optimal projection of external tensor product into
+  fixed-dim space under structural constraints (monoidal category).
+- Free-energy minimization = optimal approximation of observations
+  under a generative model (variational inference).
+- NARS revision = optimal truth update under new evidence (Bayesian
+  with bounded confidence).
+- AriGraph commit = optimal fact storage under contradiction detection
+  (graph-structured belief revision).
+
+All four are "find the best approximation under constraints." The
+constraints differ (categorical, information-theoretic, logical,
+graph-structural), but the algebraic substrate is the same: element-
+wise XOR on role-indexed slices of a 10K binary VSA vector.
+
+**What clicks:**
+1. bind/unbind IS Kan extension (categorically optimal)
+2. recovery_margin IS likelihood (information-theoretic)
+3. awareness.divergence_from(prior) IS KL (variational)
+4. Resolution::from_ranked IS argmin_F (active inference)
+5. AriGraph commit IS belief revision (graph + NARS)
+6. The Trajectory's own methods ARE the inference engine — the object
+   doesn't get passed to reasoning; the object speaks for itself.
+
+Not neural (no weights). Not symbolic (no search). Not hybrid
+(not bolted together). A categorical-algebraic inference engine where
+parsing, disambiguation, learning, memory, and awareness are the SAME
+algebraic structure viewed through different lenses.
+
+Cross-ref: `.claude/knowledge/paper-landscape-grammar-parsing.md`,
+Shaw 2501.05368 §4.3 (Kan extensions), Alpay 2603.05540 §Theorem 5
+(Doob h-transform), `contract::grammar::free_energy`, `role_keys`.
+
+---
+
+## 2026-04-21 — RoleKey bind/unbind slice-masking = lossless role-indexed superposition
+
+**Status:** FINDING (verified by 5-role simultaneous recovery test)
+
+Slice-masked bind is the crucial design choice that makes role-indexed
+VSA bundling lossless. `RoleKey::bind(content)` zeroes content outside
+`[start..end)` before XOR with the key. This means XOR-superposition
+of N role bindings keeps each role's slice completely disjoint — unbind
+with any role key recovers that role's content at margin 1.0, regardless
+of what other roles contributed.
+
+Without slice-masking (raw full-vector XOR), the 5035-recovery-margin
+on the SUBJECT slice demonstrates the cross-contamination: every role
+leaks content into every other role's slice. The audit agent (2026-04-21
+session) flagged this as the "three-silo disconnection" — role_keys.rs
+was data without operator semantics.
+
+The fix: `bind` enforces the invariant at the method level (not caller
+discipline). `unbind` is the same masked-XOR. `recovery_margin` measures
+per-slice Hamming similarity after unbind. Test: 5 roles (S/P/O +
+TEMPORAL + LOKAL) bound, XOR-superposed, each recovers at margin 1.0.
+
+This is THE operation that makes "the object speaks for itself" literal:
+a Trajectory carrying a 5-role-superposed VSA vector can answer
+`trajectory.role_bundle(SUBJECT)` without external orchestration —
+just unbind the SUBJECT slice, and the content is there.
+
+Cross-ref: `contract::grammar::role_keys::{RoleKey::bind, unbind, recovery_margin}`.
+
+---
+
+## 2026-04-21 — Free energy as active-inference formulation of grammar parsing
+
+**Status:** FINDING (types shipped; thresholds uncalibrated until Animal Farm)
+
+Ambiguity resolution is Friston free-energy minimization over the
+hypothesis space. `F = (1 - likelihood) + KL(awareness || prior)`.
+Likelihood = mean role-recovery margin after unbind; KL =
+`GrammarStyleAwareness::divergence_from(prior)`. Three branches:
+
+- `F < HOMEOSTASIS_FLOOR (0.2)` → Commit (single triple to AriGraph)
+- Top-2 F within `EPIPHANY_MARGIN (0.05)` → Epiphany (both commit
+  with Contradiction marker)
+- `F > FAILURE_CEILING (0.8)` → FailureTicket (escalate)
+
+Morphology collapses the hypothesis space via the Pearl 2³ causal
+mask: each case ending commits bits, narrowing the basin. Two
+independent commitments: 8 → 2 branches. Three: 8 → 1 (direct
+Deduction, no counterfactual needed). This is the "2³ → 2^N" extension
+to other morphologies (Russian Instrumental, Finnish Elative, Arabic
+pattern فاعل / مفعول, Mandarin bǎ, Turkish -yle).
+
+Cross-ref: `contract::grammar::free_energy::{FreeEnergy, Hypothesis,
+Resolution, HOMEOSTASIS_FLOOR, EPIPHANY_MARGIN, FAILURE_CEILING}`.
+
+---
+
+## 2026-04-21 — D7 GrammarStyleAwareness IS the "weights-as-seed" epistemic layer
+
+**Status:** FINDING (replaces the "langextract is boring because LLM-dep"
+observation with a concrete zero-LLM realization).
+
+The D7 deliverable `contract::grammar::thinking_styles::GrammarStyleAwareness`
+shipped today is literally the epistemic-awareness surface the user
+described: weights become a seed, NARS-revised per parse outcome, drifting
+the `effective_config.nars.primary` away from the YAML-prior inference when
+accumulated evidence contradicts it. No external LLM in the loop; awareness
+is O(1) per parse (one HashMap insert + one `revise_truth` fold). The
+style's track record IS the seed for Markov dispatch: `top_nars_inference`
+reads from `param_truths`, not from a network call.
+
+Concretely the closed loop is:
+
+```
+parse attempt (DeepNSM FSM + Grammar Triangle)
+    → ParseOutcome  (local success / LLM-agreed / LLM-disagreed / ...)
+    → GrammarStyleAwareness::revise(ParamKey, outcome)
+        (standard NARS revision: f_new = (f·c + f_obs·c_obs)/(c+c_obs);
+         c_new = (c+c_obs)/(c+c_obs+1) — asymptotes at φ-1 ≈ 0.618
+         under c_obs=1, which is the sharp confidence horizon we test against)
+    → next parse uses GrammarStyleAwareness::effective_config(prior)
+        (prior NARS primary is kept if its f > 0.5; else drifts to the
+         highest-ranked NARS param from accumulated evidence)
+```
+
+Replaces langextract's external-LLM step with role-indexed VSA bundling
+(D5, coming) + SPO 2³ × TEKAMOLO decomposition (D3 triangle bridge) +
+NARS-on-grammar (shipped D7). Together that's O(1) causality-learning per
+sentence. When D2 ticket_emit + D3 triangle_bridge land, the DeepNSM
+parser will close this loop end-to-end.
+
+Cross-ref:
+- Plan `/root/.claude/plans/elegant-herding-rocket.md` D7.
+- `.claude/knowledge/grammar-landscape.md` §6–§7.
+- `crates/lance-graph-contract/src/grammar/thinking_styles.rs` (shipped).
+
+---
+
 ## 2026-04-20 — Shader vs engine: statelessness is the boundary
 
 **Status:** FINDING (sharpens the three-level taxonomy)

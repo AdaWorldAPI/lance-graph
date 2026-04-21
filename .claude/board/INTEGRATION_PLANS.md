@@ -36,6 +36,19 @@
 
 ---
 
+## v1 — Categorical-Algebraic Inference (authored 2026-04-21)
+
+**Author:** main-thread session 2026-04-21
+**Scope:** Meta-architecture document proving that parsing (Kan extension), disambiguation (free-energy minimization), learning (NARS revision), memory (AriGraph commit), and awareness (method-call history) are one algebraic operation — element-wise XOR on role-indexed slices of a 10K binary VSA vector — viewed through five lenses. Grounded in Shaw 2501.05368 (category theory) + 13 supporting papers. Does not replace elegant-herding-rocket — extends it with the categorical foundation.
+**Path:** `.claude/plans/categorical-algebraic-inference-v1.md` (496 lines)
+**Deliverables:** This plan produces no NEW D-ids. It grounds the existing D2/D3/D5/D7/D8/D10 deliverables from elegant-herding-rocket in the categorical-algebraic framework and establishes the five-lens litmus + object-does-the-work test as architectural invariants.
+
+**Status (2026-04-21):** Active. Companion to elegant-herding-rocket-v1, not a replacement.
+
+**Confidence (2026-04-21):** CONJECTURE on the Kan-extension-IS-free-energy equivalence. FINDING on all other claims (grounded in shipped code + paper proofs).
+
+---
+
 ## v1 — Codec Sweep via Lab Infra, JIT-first (authored 2026-04-20)
 
 **Author:** main-thread session 2026-04-20
