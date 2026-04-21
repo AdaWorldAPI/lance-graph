@@ -65,6 +65,113 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-04-21 — 14-paper synthesis: what dilutes first (undiluted capture)
+
+**Status:** FINDING (per-paper grounding in paper-landscape-grammar-parsing.md)
+
+These insights were crystallized during a single-session scan of 14
+papers and will be the first things a new session forgets. Preserving
+them in order of fragility — most likely to dilute first at the top.
+
+### E-PAPER-1: Morphological commitment IS free-energy reduction at zero cost
+
+Russian `-ом` / Finnish `-ssa` / Turkish `-da` commit Pearl 2³
+causal bits AT TOKENIZATION TIME. This collapses the hypothesis
+branch count from 8 → 4 → 2 → 1 before the counterfactual axis
+even fires. Heavy morphology = pre-collapsed F-landscape. Light
+morphology (English prepositions) = flat F-landscape requiring
+full counterfactual sampling.
+
+**Why this dilutes:** future sessions will treat morphology as
+"feature extraction" rather than "free-energy reduction." It's
+not extraction — it's a structural guarantee that reduces
+computational work. The case ending IS the computation.
+
+### E-PAPER-2: The braiding operator ρ IS vsa_permute, not a metaphor
+
+Shaw's list encoding: `x_1 ⊕ ρ(x_2) ⊕ ρ²(x_3) ⊕ ... ⊕ ρ^{n-1}(x_n)`.
+This is `ndarray::hpc::vsa::vsa_permute(v, position_offset)` applied
+per sentence in the Markov ±5 window. The braiding is a cyclic bit
+shift. Without it, bundling is position-blind (bag-of-sentences).
+With it, temporal order is encoded without learned positional
+embeddings.
+
+**Why this dilutes:** future sessions will implement Markov bundling
+as plain XOR-accumulation without permutation, producing
+position-blind trajectories. The braiding is what makes "before
+the focal sentence" different from "after the focal sentence."
+
+### E-PAPER-3: Recovery margin IS likelihood, not similarity
+
+`RoleKey::recovery_margin(unbound, expected)` is not a distance
+metric. It's the information-theoretic likelihood term in the
+free-energy decomposition: "given that I committed this content to
+the SUBJECT role, how cleanly does it come back?" High margin =
+observations well-explained by hypothesis = low free energy.
+
+**Why this dilutes:** future sessions will use recovery_margin as
+a "quality score" or "similarity measure" without connecting it to
+the F-landscape. It's not a score — it's the P(obs|hidden) term
+in the variational decomposition.
+
+### E-PAPER-4: The confidence horizon at φ-1 is a feature, not a bug
+
+NARS revision with c_obs=1 per step asymptotes at `(√5-1)/2 ≈ 0.618`.
+The system PROVABLY never becomes fully certain (c < 1 always).
+This means every committed fact, no matter how many times confirmed,
+retains a margin of revisability. Full certainty would freeze the
+prior and make the system unable to notice contradictions.
+
+**Why this dilutes:** future sessions will try to "fix" the
+0.618 ceiling by increasing c_obs or changing the formula.
+The ceiling IS the architectural feature. Golden-ratio-bounded
+confidence = permanent epistemic humility = permanent ability
+to detect contradiction = Staunen can always fire.
+
+### E-PAPER-5: Non-commutative binding is required for hierarchical structure
+
+Shaw proves that commutative binding creates ambiguity in tree
+leaves (guard vectors become indistinguishable). This is why we
+use DIFFERENT role keys for S/P/O rather than one key with
+different arguments. If `bind(S, content) == bind(content, S)`
+AND `bind(S, x) == bind(P, x)` for some x, then S and P are
+indistinguishable → hierarchy collapses.
+
+**Why this dilutes:** future sessions will propose "simplifying"
+to a single binding key with different content, or making bind
+commutative for "elegance." The non-commutativity of distinct
+role-key patterns is what preserves hierarchical structure.
+
+### E-PAPER-6: The Ω(t²) lower bound does NOT apply to us
+
+Alpay proves that any sound, parse-preserving, retrieval-efficient
+grammar masking engine needs Ω(t²) per token. We dodge this because
+we DON'T preserve the parse forest — we commit argmin_F and discard
+losers (or mark the runner-up as epiphany). Active inference trades
+parse-preservation for decision speed.
+
+**Why this dilutes:** future sessions will worry about parsing
+complexity and try to optimize the counterfactual enumeration.
+The complexity bound is on parse-preserving engines. We are
+parse-COMMITTING, not parse-preserving. The distinction is
+architectural, not an optimization.
+
+### E-PAPER-7: Abstraction-first is empirically measured, not theoretically assumed
+
+Jian & Manning measured it across three independent GPT-2 training
+runs: class-level D_JS divergence precedes within-class divergence
+by ~50 steps. The exemplar-first (count-based) baseline shows
+verb-specific patterns WITHOUT class structure. This is not a
+philosophical preference for Deduction over Induction — it's a
+measured behavioral difference with a strict ordering.
+
+**Why this dilutes:** future sessions will treat the
+NarsPriorityChain {primary: Deduction, fallback: Abduction}
+as a configuration choice. It's an empirically-grounded ordering
+that has been measured in transformer training dynamics.
+
+---
+
 ## 2026-04-21 — The Kan extension IS the free-energy minimizer (holy-grail unification)
 
 **Status:** CONJECTURE (grounded in Shaw 2501.05368 + Alpay 2603.05540
