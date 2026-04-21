@@ -1,8 +1,76 @@
 # CLAUDE.md — lance-graph
 
-> **Updated**: 2026-04-20 (post PR #225 + driving-seat tightening)
+> **Updated**: 2026-04-21 (categorical-algebraic inference click)
 > **Role**: The obligatory spine — query engine, codec stack, semantic transformer, and orchestration contract
 > **Status**: 22 crates, 7 in workspace, 15 excluded (standalone/DTO), Phases 1-2 DONE, Phases 6-7 DONE (grammar + governance), Phase 3 IN PROGRESS
+
+---
+
+## The Click (P-1 — read before everything else, including The Stance)
+
+**Parsing, disambiguation, learning, memory, and awareness are one
+operation.** Element-wise XOR on role-indexed slices of `[u64; 157]`.
+
+```
+  Sentence → FSM → RoleKey::bind(token)  → XOR-superpose with ρ^d braiding
+                         │                         │
+                   Kan extension              Markov ±5 trajectory
+                   (Shaw 2501.05368:          (temporal causality is
+                    theorem, not heuristic)    structural, not learned)
+                         │                         │
+                         └────────┬────────────────┘
+                                  ▼
+                    FreeEnergy::compose(likelihood, kl)
+                    likelihood = RoleKey::recovery_margin  (unbind → match)
+                    kl = awareness.divergence_from(prior)  (NARS-revised)
+                                  │
+                    ┌─────────────┼──────────────┐
+                    ▼             ▼              ▼
+                 Commit       Epiphany      FailureTicket
+                 (F < 0.2)    (ΔF < 0.05)   (F > 0.8)
+                    │             │              │
+                    ▼             ▼              ▼
+                 AriGraph     both triples    LLM resolves
+                 one triple   + Contradiction  the <25% tail
+                    │
+                    ▼
+                 awareness.revise(key, outcome)   ← φ-1 ceiling = permanent humility
+                    │
+                    ▼
+                 global_context += fact  → reshapes NEXT cycle's F landscape
+```
+
+**Three things that must never be complicated:**
+
+1. **Markov = XOR.** Per-sentence Vsa10k, braided by position,
+   XOR-superposed. No HMM. No transition matrix. No weights.
+2. **Roles = spine coordinates.** SUBJECT[0..2K) is "who".
+   PREDICATE[2K..4K) is "what". Unbinding = reading a coordinate.
+   Temporal causality is structural (braiding × slices).
+3. **Meaning = AriGraph facts + resonance + magnitude.**
+   Resonance = recovery margin against global context. Magnitude =
+   Contradiction depth from Staunen × Wisdom qualia. Opinions are
+   committed contradictions preserved, not resolved.
+
+**The object speaks for itself.** `trajectory.resolve(ambiguity)` —
+not `resolve(trajectory, config, awareness, graph)`. Every method
+lives on the carrier that has the state to reason with it.
+
+**Proof chain** (Shaw → beim Graben → Jian → Schulz → Alpay →
+Graichen → Gallant → Kleyko): see
+`.claude/plans/categorical-algebraic-inference-v1.md` §5.
+
+**Litmus tests for any proposed change:**
+
+> Does this add a free function on a carrier's state, or a method
+> on the carrier? → Free function = reject. Method = accept.
+
+> Which of the five lenses does this serve (Parsing / Free-Energy /
+> NARS / Memory / Awareness)? → None = investigate drift.
+
+Full plan: `.claude/plans/categorical-algebraic-inference-v1.md`.
+Paper grounding: `.claude/knowledge/paper-landscape-grammar-parsing.md`.
+Epiphanies that dilute first: `EPIPHANIES.md` E-PAPER-1 through E-PAPER-7.
 
 ---
 
