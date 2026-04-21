@@ -59,7 +59,7 @@ pub struct DisambiguationResult {
 
 /// Weighting kernel for temporal position in the Markov chain.
 /// Mexican-hat emphasizes focal, de-emphasizes distant positions.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum WeightingKernel {
     Uniform,
     MexicanHat,

@@ -65,6 +65,47 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-04-21 — D7 GrammarStyleAwareness IS the "weights-as-seed" epistemic layer
+
+**Status:** FINDING (replaces the "langextract is boring because LLM-dep"
+observation with a concrete zero-LLM realization).
+
+The D7 deliverable `contract::grammar::thinking_styles::GrammarStyleAwareness`
+shipped today is literally the epistemic-awareness surface the user
+described: weights become a seed, NARS-revised per parse outcome, drifting
+the `effective_config.nars.primary` away from the YAML-prior inference when
+accumulated evidence contradicts it. No external LLM in the loop; awareness
+is O(1) per parse (one HashMap insert + one `revise_truth` fold). The
+style's track record IS the seed for Markov dispatch: `top_nars_inference`
+reads from `param_truths`, not from a network call.
+
+Concretely the closed loop is:
+
+```
+parse attempt (DeepNSM FSM + Grammar Triangle)
+    → ParseOutcome  (local success / LLM-agreed / LLM-disagreed / ...)
+    → GrammarStyleAwareness::revise(ParamKey, outcome)
+        (standard NARS revision: f_new = (f·c + f_obs·c_obs)/(c+c_obs);
+         c_new = (c+c_obs)/(c+c_obs+1) — asymptotes at φ-1 ≈ 0.618
+         under c_obs=1, which is the sharp confidence horizon we test against)
+    → next parse uses GrammarStyleAwareness::effective_config(prior)
+        (prior NARS primary is kept if its f > 0.5; else drifts to the
+         highest-ranked NARS param from accumulated evidence)
+```
+
+Replaces langextract's external-LLM step with role-indexed VSA bundling
+(D5, coming) + SPO 2³ × TEKAMOLO decomposition (D3 triangle bridge) +
+NARS-on-grammar (shipped D7). Together that's O(1) causality-learning per
+sentence. When D2 ticket_emit + D3 triangle_bridge land, the DeepNSM
+parser will close this loop end-to-end.
+
+Cross-ref:
+- Plan `/root/.claude/plans/elegant-herding-rocket.md` D7.
+- `.claude/knowledge/grammar-landscape.md` §6–§7.
+- `crates/lance-graph-contract/src/grammar/thinking_styles.rs` (shipped).
+
+---
+
 ## 2026-04-20 — Shader vs engine: statelessness is the boundary
 
 **Status:** FINDING (sharpens the three-level taxonomy)

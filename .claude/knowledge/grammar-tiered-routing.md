@@ -364,10 +364,13 @@ patterns. Each case maps directly to a TEKAMOLO slot or an SPO role:
 ```
 Case          Ending     TEKAMOLO slot / Role
 ─────         ──────     ────────────────────
-Nominative    -∅         → Subject (S)
-Genitive      -n         → Possessor / Object of some verbs
-Accusative    -n/-t      → Object (O)
-Partitive     -a/-ä      → Partial object / negated object
+Nominative    -∅         → Subject (S) / Total object (plural)
+Genitive      -n         → Possessor / Total object (singular)
+Partitive     -a/-ä      → Partial / negated object
+Accusative    -n/-t      → Object — PERSONAL PRONOUNS ONLY
+                            (minut / sinut / hänet / meidät /
+                             teidät / heidät). NOT a general
+                             object marker (Latinate transplant).
 
 Inessive      -ssa/-ssä  → LO (in, inside)
 Elative       -sta/-stä  → LO (from inside)
