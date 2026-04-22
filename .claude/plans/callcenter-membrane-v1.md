@@ -372,3 +372,121 @@ just unbind at different mask depths.
 primary capability; `base_confidence` from its trust prior. After registration
 the card participates in blackboard routing (`next_round_experts`) exactly like
 any hand-coded expert.
+
+### 10.7 — Consumers address roles: explicit OR implicit
+
+External consumers (`crewai-rust`, `n8n-rs`, `openclaw`, …) don't just deposit
+seeds — they can *address* specific roles through the same blackboard, two ways:
+
+**Explicit routing** via `RoutingHint` on the seed:
+
+| `target_role` | `target_card` | Router behaviour |
+|---|---|---|
+| `Some(r)` | `Some(c)` | Activate exactly card `c` in family `r` (full address). |
+| `Some(r)` | `None` | Activate the best card in family `r` (family route; AriGraph-resonance tiebreak). |
+| `None` | `Some(c)` | Activate card `c` regardless of family. |
+| `None` | `None` | Implicit — AriGraph-resonance matching against seed payload. |
+
+**Implicit routing** (no hint): the router matches the seed's context fingerprint
+against each registered persona's AriGraph subgraph resonance. Top-k personas
+activate for the next round. This is the same `next_round_experts` mechanism the
+blackboard already runs — the new input is "persona resonance score" alongside
+the existing `base_confidence × weight` term.
+
+**Consequence:** a crewai-rust agent can say *"route this to the palette-engineer
+card explicitly"* OR *"find whoever resonates with this codec question"* through
+the exact same seed shape. The two modes are not separate APIs — they're the
+presence/absence of the hint on the same entry.
+
+### 10.8 — AriGraph integration: the persona IS its subgraph
+
+Per CLAUDE.md's AGI-as-glove doctrine, AriGraph is thinking tissue — not a
+service the struct queries, but part of its reasoning surface. Extending this:
+**each persona's AriGraph subgraph IS its memory.**
+
+A persona's full reasoning surface:
+
+```
+PersonaCard (in contract, identity only)
+    ├── role: ExternalRole              — family at the gate
+    └── entry: ExpertEntry              — id, capability, trust, weight
+         │
+         │  resolved at lance-graph boundary:
+         ▼
+    AriGraph::subgraph_for(entry.id)    — in crates/lance-graph/src/graph/arigraph/
+         ├── committed SPO triples      — what this persona has "said" or "believed"
+         ├── reversal history           — NARS-revised truth values
+         ├── episodic trace             — ±5..±500 round window of participation
+         └── resonance index            — for implicit routing matching
+```
+
+**AriGraph module layout (in lance-graph core, not contract):**
+- `graph/arigraph/triplet_graph.rs` — already the SPO backbone
+- `graph/arigraph/episodic.rs` — already the ±5..±500 window
+- `graph/arigraph/retrieval.rs` — the resonance-match surface the router reads
+- `graph/arigraph/orchestrator.rs` — already coordinates multi-expert cycles
+
+**New wiring (future DM):** `AriGraph::subgraph_for(ExpertId) → PersonaSubgraph`,
+a filtered view over the shared graph keyed by the persona's id. When the router
+does implicit resonance matching, it iterates registered personas and calls
+`persona_subgraph.resonance_against(seed_fingerprint)`. No new data structure,
+no new research — just a view projection over the existing AriGraph.
+
+**What this unlocks:** personas that LEARN. When card X handles a seed and the
+resulting cycle commits, the SPO triple lands in X's subgraph. Next time a
+semantically similar seed arrives, X's resonance is higher — it has memory.
+This is the same Commit/Epiphany/FailureTicket loop from CLAUDE.md's P-1 Click,
+now applied per-persona. Each agent card is its own cognitive loop on a
+subgraph; the blackboard composes across them.
+
+### 10.9 — The "Membrane · Role · Place · Translation" contract (iron rule from the prior stack)
+
+Every piece of data crossing the gate MUST satisfy FOUR conditions. This is
+older doctrine from the prior stack, now explicit and enforced here:
+
+**1. Pass the membrane.** No direct writes to BindSpace SoA. The only
+BindSpace-adjacent write site is `CollapseGate::merge()` with
+`MergeMode::Bundle` (Markov-respecting) or `MergeMode::Xor` (single-writer
+delta). A payload that bypasses the gate is rejected at the type system —
+Arrow's column types cannot hold `Vsa10k`, `RoleKey`, `SemiringChoice`, etc.
+
+**2. Get a role.** The payload is bound with a `RoleKey` keyed on
+`ExternalRole × ExpertId`. No role = no binding = the payload cannot enter.
+*Who said this* is a required field of entry, not metadata.
+
+**3. Get a place.** The payload lands at a specific trajectory position
+(blackboard `round`) and a specific VSA slot (role-indexed slice within
+the `[u64; 157]` substrate). Every byte has coordinates. No roving.
+
+**4. Translate into internal reasoning.** The external payload is not
+*stored* as bytes — it is *transcribed* into the substrate's grammar:
+
+| Event kind | Translation at the gate |
+|---|---|
+| `Seed` | `Vsa10k` trajectory token (RoleKey::bind + ρ^d braid into next round's bundle) |
+| `Context` | XOR-superposed into the current context bundle (no new cycle) |
+| `Commit` | Already internal; project-only path, no translation needed (it's leaving) |
+
+The translation is **not reversible**. The substrate does not keep external
+bytes "just in case". It only speaks its own language. If a consumer needs
+their original bytes back, that's their persistence concern — the gate does
+not cache pre-translation payloads.
+
+**Compile-time enforcement points:**
+
+| Contract rule | Where it's enforced |
+|---|---|
+| (1) Membrane | Arrow column types reject VSA/semiring (§ 3 BBB invariant) |
+| (2) Role | `ExternalMembrane::ingest(Self::Intent) → UnifiedStep` — the impl must role-bind |
+| (3) Place | `BlackboardEntry` always carries `expert_id`; `Blackboard.round: u32` |
+| (4) Translation | `ingest()` return type is `UnifiedStep`, not a raw payload — translation is forced at the trait boundary |
+
+**Consequence:** there is no "untagged external state" anywhere in the
+system. Every piece of memory the substrate holds was, at some point in
+its history, role-bound, place-addressed, and translated. If you cannot
+answer *who said it, when, and in what VSA grammar form* for a piece of
+data, it does not belong in the substrate.
+
+This is the test to apply before merging any new code path that touches
+the gate: can I name the role, the place, and the translation? If not,
+the code is leaking external ontology inward — reject.
