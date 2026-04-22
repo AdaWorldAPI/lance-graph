@@ -40,6 +40,12 @@ pub enum ExpertCapability {
     StyleModulation = 6,
     /// Qualia classification (semantic family assignment).
     QualiaClassification = 7,
+    /// External inbound seed — consumer event that triggers a blackboard reasoning cycle.
+    /// The entry's `result` field carries an opaque seed handle; the DrainTask resolves it.
+    ExternalSeed = 8,
+    /// External inbound context — passive consumer event XOR'd into the trajectory bundle
+    /// without activating a new reasoning cycle. Same Markov ±5 braiding as grammar tokens.
+    ExternalContext = 9,
 }
 
 /// Expert registration entry.

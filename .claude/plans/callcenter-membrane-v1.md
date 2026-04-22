@@ -251,3 +251,86 @@ pg-embed    — same
 - **UNKNOWN-5**: Lance dataset path / object-store URL configuration.
   Single env var `LANCE_URI` is proposed but not yet defined anywhere in
   the repo.
+
+---
+
+## § 10 — Markov XOR Gate + Blackboard Mediation Refinement (2026-04-22)
+
+> **Status:** FINDING — replaces § 2's "dual Lance datasets" as the live mechanism.
+> Lance persistence is still correct for durability; but the LIVE mediator is the
+> existing A2A `Blackboard`, not two row-appended datasets.
+
+### 10.1 — The blackboard is the explicit firewall
+
+External events do NOT go directly into the BindSpace SoA or the Markov trajectory.
+They land on `a2a_blackboard::Blackboard` first:
+
+```
+Consumer sends seed
+  → BlackboardEntry { capability: ExpertCapability::ExternalSeed, ... }
+  → A2A experts run N rounds (30–300 ns/round)
+  → CollapseGate fires, project() → scalar commit
+  → External channel receives event (30–300 ms later)
+```
+
+This is explicit, not conflated. The blackboard round boundary IS the anti-corruption
+boundary. Internal experts never see raw external payloads — they see blackboard entries
+with confidence scores, dissonance fields, and capability tags, same as any other expert.
+
+### 10.2 — The Markov ±5 reuse (no new research)
+
+The grammar parser uses Markov ±5 XOR braiding:
+
+```
+token at position d  →  XOR-superpose with ρ^d braiding into trajectory
+```
+
+The callcenter membrane uses the SAME mechanism across blackboard rounds:
+
+```
+Blackboard.round  =  trajectory position
+ExternalSeed entry at round N  →  XOR-braided at ρ^d into the next context bundle
+```
+
+The `Blackboard.round: u32` counter already exists. The ±5 window means: when
+computing the next context bundle, look at entries from `[round - 5, round]`.
+No new data structure. No new research. Same ρ^d decay. Same XOR-bundle accumulation.
+
+For fast agents (LLM round-trips ~10ms): `context_band = (-5, 0)` — 5 rounds back.
+For human-in-the-loop: `context_band = (-500, 0)` — 500 rounds back via episodic.
+The seed carries this as an explicit parameter; the blackboard honours it.
+
+### 10.3 — Role taxonomy (`ExternalRole`, now in contract crate)
+
+Every event crossing the gate is role-tagged before XOR-braiding:
+
+| Direction | Role variant | Meaning |
+|---|---|---|
+| Inbound | `User` | direct human input |
+| Inbound | `Consumer` | generic API caller |
+| Inbound | `N8n` | n8n-rs workflow step |
+| Inbound | `OpenClaw` | openclaw agent |
+| Inbound | `CrewaiUser` | crewai-rust user role |
+| Inbound | `CrewaiAgent` | crewai-rust agent role |
+| Outbound | `Rag` | shader presenting as RAG retriever |
+| Outbound | `Agent` | specific cognitive agent result |
+
+Role binding at the gate: `RoleKey::bind(payload, role as u16)` — same slot
+addressing as SUBJECT/PREDICATE/OBJECT in the grammar. "Who said this" becomes
+a readable coordinate in the trajectory; unbinding recovers it.
+
+### 10.4 — `ExternalEventKind` (now in contract crate)
+
+| Kind | Behaviour |
+|---|---|
+| `Seed` | Deposits `BlackboardEntry(ExternalSeed)`. DrainTask picks it up, routes to `OrchestrationBridge`. |
+| `Context` | Deposits `BlackboardEntry(ExternalContext)`. XOR'd into trajectory on next bundle pass; no active cycle triggered. |
+| `Commit` | Projected scalar leaving the substrate toward an external subscriber. Never enters the blackboard. |
+
+### 10.5 — Speed gap absorbed here, not elsewhere
+
+The substrate runs continuously at 30–300 ns/op. The external consumer pulls at
+30–300 ms. The substrate does NOT wait. CollapseGate fires on its own Markov schedule;
+the current bundle is whatever is latest. External channels receive the projection
+when the consumer is ready — pull-whenever, push-when-committed. The 10⁵–10⁷× gap
+is structural, not a problem to solve. The gate just keeps bundling.

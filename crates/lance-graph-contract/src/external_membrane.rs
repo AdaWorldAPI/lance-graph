@@ -23,6 +23,50 @@
 use crate::cognitive_shader::{ShaderBus, MetaWord};
 use crate::orchestration::UnifiedStep;
 
+// ═══════════════════════════════════════════════════════════════════════════
+// EXTERNAL ROLE TAXONOMY
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Who sent or received an external event.
+///
+/// Used as the role-bind key when XOR-braiding external events into the
+/// Markov trajectory. Same ±5 braiding mechanism as the grammar parser —
+/// `RoleKey::bind(payload, role as u16)` at the callcenter impl site.
+///
+/// Inbound roles (consumer → substrate): 0–5.
+/// Outbound roles (substrate → consumer): 6–7.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[repr(u8)]
+pub enum ExternalRole {
+    // ── Inbound (consumer identity) ──
+    User        = 0,
+    Consumer    = 1,
+    N8n         = 2,
+    OpenClaw    = 3,
+    CrewaiUser  = 4,
+    CrewaiAgent = 5,
+    // ── Outbound (substrate identity as seen externally) ──
+    Rag         = 6,  // cognitive shader acting as knowledge retriever
+    Agent       = 7,  // specific cognitive agent that handled this step
+}
+
+/// Whether an external crossing is a seed, passive context, or outbound commit.
+///
+/// - `Seed`: triggers a blackboard reasoning cycle (DrainTask routes to OrchestrationBridge).
+/// - `Context`: passive — role-bound and XOR'd into the trajectory bundle without
+///   starting a new cycle. The Markov ±5 window absorbs it into the next natural cycle.
+/// - `Commit`: projected scalar row leaving the substrate toward an external subscriber.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ExternalEventKind {
+    Seed,
+    Context,
+    Commit,
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// COMMIT FILTER
+// ═══════════════════════════════════════════════════════════════════════════
+
 /// Scalar-only predicate for filtering projected commits.
 ///
 /// All fields are Arrow-scalar-compatible (`u64`, `u8`, `bool`).
