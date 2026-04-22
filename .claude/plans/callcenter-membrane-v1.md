@@ -334,3 +334,41 @@ The substrate runs continuously at 30–300 ns/op. The external consumer pulls a
 the current bundle is whatever is latest. External channels receive the projection
 when the consumer is ready — pull-whenever, push-when-committed. The 10⁵–10⁷× gap
 is structural, not a problem to solve. The gate just keeps bundling.
+
+### 10.6 — Agent cards as A2A experts (one identity space)
+
+The three identity spaces we had —
+  (a) internal A2A experts (`ExpertId` + `ExpertCapability`),
+  (b) external roles (`ExternalRole`),
+  (c) YAML agent cards (`crewai-rust/*`, `.claude/agents/*.md`) —
+collapse into one system by convention:
+
+| Layer | Carries | Granularity |
+|---|---|---|
+| `ExternalRole` (at the gate) | Family — who invoked this | 8 variants |
+| `ExpertId` (on the entry) | Specific card / expert | u16 (65k) |
+
+**Convention:** for agent cards, `ExpertId = stable_hash_u16(card_yaml)`.
+A `crewai-rust` agent or a `.claude/agents/family-codec-smith.md` card
+both produce the same kind of `ExpertEntry` and post to the same blackboard
+as any internal A2A expert. No distinction in the bus.
+
+**Combined braid key at the gate:** `(role as u16) << 16 | expert_id` — 32 bits.
+The shader can unbind along either coordinate:
+
+- *"All `Rag`-family cards collectively"* — unbind with role mask, drop expert_id
+- *"Just card `0x7F3A`"* — unbind with expert_id, drop role
+- *"family-codec-smith speaking as CrewaiAgent at round N"* — full 32-bit key
+
+**Meta-awareness consequence:** `QualiaClassification` and `StyleModulation`
+experts can fire on features like *"current context is RAG-heavy but
+card-diverse"* or *"family-codec-smith resonance falling while palette-engineer
+rising"*. The texture and resonance across both family AND card coordinates
+become observables in the same SoA sweep — no new column, no new lookup,
+just unbind at different mask depths.
+
+**Registration:** an agent card YAML gets hashed at load time into an
+`ExpertEntry`. The `capability` field is read from the card's declared
+primary capability; `base_confidence` from its trust prior. After registration
+the card participates in blackboard routing (`next_round_experts`) exactly like
+any hand-coded expert.

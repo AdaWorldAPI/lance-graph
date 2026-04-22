@@ -18,6 +18,15 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Expert identifier. Opaque to the blackboard.
+///
+/// **Convention:** for agent cards (crewai-rust agents, `.claude/agents/`
+/// specialists), `ExpertId = stable_hash_u16(card_yaml)`. This collapses
+/// internal A2A experts, external agents, and YAML-defined cards into one
+/// identity space. `ExternalRole` carries the family (Rag / CrewaiAgent /
+/// N8n / …) at the gate; `ExpertId` carries the specific card on the entry.
+/// Combined braid key: `(role as u16) << 16 | expert_id` — 32 bits, 65k
+/// cards per family. The shader can then reason at both coordinates:
+/// family-level texture AND card-level resonance across the Markov ±5 window.
 pub type ExpertId = u16;
 
 /// What an expert can do.
