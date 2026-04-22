@@ -24,7 +24,7 @@ serde            = { version = "1", features = ["derive"], optional = true }
 serde_json       = { version = "1", optional = true }
 
 # [serve] — axum WS server (implies realtime + query)
-axum        = { version = "0.7", features = ["ws"], optional = true }
+axum        = { version = "0.8", features = ["ws"], optional = true }
 tower-http  = { version = "0.5", features = ["cors"], optional = true }
 
 [features]
