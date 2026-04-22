@@ -24,17 +24,22 @@ jobs:
   test:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: lance-graph
     strategy:
       matrix:
         toolchain:
           - stable
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: lance-graph
       - name: Checkout AdaWorldAPI/ndarray (sibling dependency)
         uses: actions/checkout@v4
         with:
           repository: AdaWorldAPI/ndarray
-          path: ../ndarray
+          path: ndarray
       - name: Setup rust toolchain
         run: |
           rustup toolchain install ${{ matrix.toolchain }}
@@ -43,8 +48,8 @@ jobs:
         with:
           shared-key: "lance-graph-deps"
           workspaces: |
-            crates/lance-graph
-            crates/lance-graph-python
+            lance-graph/crates/lance-graph
+            lance-graph/crates/lance-graph-python
       - name: Install dependencies
         run: |
           sudo apt update
@@ -59,13 +64,18 @@ jobs:
   test-with-coverage:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: lance-graph
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: lance-graph
       - name: Checkout AdaWorldAPI/ndarray (sibling dependency)
         uses: actions/checkout@v4
         with:
           repository: AdaWorldAPI/ndarray
-          path: ../ndarray
+          path: ndarray
       - name: Setup rust toolchain
         run: |
           rustup toolchain install stable
@@ -74,8 +84,8 @@ jobs:
         with:
           shared-key: "lance-graph-deps"
           workspaces: |
-            crates/lance-graph
-            crates/lance-graph-python
+            lance-graph/crates/lance-graph
+            lance-graph/crates/lance-graph-python
       - name: Install dependencies
         run: |
           sudo apt update

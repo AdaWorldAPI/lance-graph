@@ -587,12 +587,19 @@ impl CypherQuery {
         let mut logical_planner = LogicalPlanner::new(config);
         let logical_plan = logical_planner.plan(&semantic.ast)?;
 
-        // Phase 3: BlasGraph compilation
-        // Create an empty TypedGraph — the caller must provide a populated graph
-        // for real execution. This wiring proves the pipeline compiles end-to-end.
-        let node_count = 0;
-        let graph = TypedGraph::new(node_count);
+        // Phase 3: BlasGraph compilation (not yet wired to input data)
+        // Return an explicit error rather than silently producing empty results
+        // from an unpopulated graph. Remove this guard when dataset loading is wired.
+        return Err(GraphError::PlanError {
+            message: "ExecutionStrategy::BlasGraph is not yet wired to input datasets; \
+                      use ExecutionStrategy::DataFusion for queries against loaded data"
+                .to_string(),
+            location: snafu::Location::new(file!(), line!(), column!()),
+        });
+
+        #[allow(unreachable_code)]
         let semiring = HdrSemiring::XorBundle;
+        let graph = TypedGraph::new(0);
 
         match compile_to_blasgraph(&logical_plan, &graph, &semiring) {
             Ok(matrix) => {
