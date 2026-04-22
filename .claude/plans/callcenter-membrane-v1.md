@@ -106,6 +106,11 @@ cognitive_event:
   timestamp:        Timestamp(Microsecond, UTC)
   actor_id:         UInt64
   session_id:       UInt64
+  external_role:    UInt8             ← ExternalRole (0..7: User..Agent)
+  faculty_role:     UInt8             ← FacultyRole (0..15: ReadingComp..Empathy..)
+  expert_id:        UInt16            ← ExpertId / card hash (stable hash of card YAML)
+  dialect:          UInt8             ← query dialect tag (Cypher/GQL/NARS/Redis/Spark/SQL)
+  scent:            UInt8             ← 1-byte compressed address scent (see § 10.13)
   free_energy:      Float32           ← MetaWord::free_e() as f32
   resonance:        Float32           ← ShaderResonance::entropy
   recovery_margin:  Float32           ← top-1 ShaderHit::resonance
@@ -121,7 +126,11 @@ cognitive_event:
   is_failure:       Boolean
 ```
 
-No Vsa10k. No semiring. No RoleKey. These are numbers and bytes.
+No Vsa10k. No semiring. No RoleKey. These are numbers and bytes. The five
+new identity/scent columns (`external_role`, `faculty_role`, `expert_id`,
+`dialect`, `scent`) are the metadata address bus coordinates (§ 10.11); they
+are queryable via SQL / Cypher / GQL / NARS / qualia without ever exposing
+the internal RoleKey slot mapping.
 
 ---
 
@@ -353,12 +362,25 @@ A `crewai-rust` agent or a `.claude/agents/family-codec-smith.md` card
 both produce the same kind of `ExpertEntry` and post to the same blackboard
 as any internal A2A expert. No distinction in the bus.
 
-**Combined braid key at the gate:** `(role as u16) << 16 | expert_id` — 32 bits.
-The shader can unbind along either coordinate:
+**Addressability** (corrected 2026-04-22 — see erratum below):
 
-- *"All `Rag`-family cards collectively"* — unbind with role mask, drop expert_id
-- *"Just card `0x7F3A`"* — unbind with expert_id, drop role
-- *"family-codec-smith speaking as CrewaiAgent at round N"* — full 32-bit key
+Role and card are SEPARATE typed metadata columns on `cognitive_event` rows
+(`external_role: UInt8`, `expert_id: UInt16`). They are addressable independently
+via the five query dialects on the metadata bus:
+
+- *"All `Rag`-family cards"* — `WHERE external_role = 6`
+- *"Just card `0x7F3A`"* — `WHERE expert_id = 0x7F3A`
+- *"family-codec-smith as CrewaiAgent at round N"* — `WHERE external_role = 5 AND expert_id = 0x7F3A AND round = N`
+
+Stack-side VSA binding of these identities happens through a deterministic
+metadata→RoleKey slot mapping; the mapping never crosses the BBB.
+
+> **Erratum (2026-04-22):** earlier drafts of this section proposed a packed
+> 32-bit braid key `(role << 16) | expert_id` as a VSA slot address. That was
+> wrong — it would have carved a parallel address space incompatible with the
+> existing 4096 COCA / CAM-PQ / NARS-head vocabulary. Identity lives in
+> metadata; VSA binding is a stack-side internal concern. See § 10.11 for the
+> metadata address bus doctrine.
 
 **Meta-awareness consequence:** `QualiaClassification` and `StyleModulation`
 experts can fire on features like *"current context is RAG-heavy but

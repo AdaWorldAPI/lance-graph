@@ -10,6 +10,22 @@
 //!   reversal history — lives in `lance-graph::graph::arigraph`, referenced by
 //!   handle, NOT carried in this zero-dep crate.
 //!
+//! ## Identity lives in metadata; VSA binding is stack-side (BBB invariant)
+//!
+//! `PersonaCard` fields are METADATA — typed scalars safely crossing the BBB
+//! as Arrow columns on `cognitive_event` rows. They are:
+//!
+//! - SQL-queryable (`WHERE external_role = X AND expert_id = Y`)
+//! - Cypher / GQL matchable (`MATCH (e:Event {external_role: ...})`)
+//! - NARS-truth-taggable (attach f,c to persona metadata facts)
+//! - Qualia-classifiable (map metadata rows to qualia signatures)
+//!
+//! VSA binding of these identities happens STACK-SIDE only — when a blackboard
+//! entry is processed, the stack deterministically maps metadata values
+//! (`external_role: u8`, `expert_id: u16`) to `RoleKey` slot addresses in the
+//! 10k-dim VSA substrate. The external surface never sees those slots.
+//! The metadata → slot mapping is internal and never crosses the gate.
+//!
 //! ## Why the AriGraph reference is consumer-side
 //!
 //! The contract crate stays zero-dep — no Arrow, no Lance, no SPO store. The
@@ -55,16 +71,11 @@ pub struct PersonaCard {
     pub entry: ExpertEntry,
 }
 
-impl PersonaCard {
-    /// Combined 32-bit braid key: `(role as u16) << 16 | expert_id`.
-    ///
-    /// Unbindable at either mask depth — drop the high 16 bits to get the
-    /// card coordinate alone, drop the low 16 bits to get the family alone.
-    #[inline]
-    pub fn braid_key(&self) -> u32 {
-        ((self.role as u32) << 16) | (self.entry.id as u32)
-    }
-}
+// NOTE: identity is not packed into a single braid key. Role and card are
+// separate typed metadata columns; they are addressable independently via
+// SQL/Cypher/GQL/NARS/qualia. VSA binding of these identities happens
+// stack-side only, via a deterministic metadata→RoleKey slot mapping that
+// never crosses the BBB. See module-level docs.
 
 /// Optional routing hint carried on `ExpertCapability::ExternalSeed` entries.
 ///
