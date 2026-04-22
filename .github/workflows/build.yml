@@ -49,15 +49,12 @@ jobs:
           shared-key: "lance-graph-deps"
           workspaces: |
             lance-graph/crates/lance-graph
-            lance-graph/crates/lance-graph-python
       - name: Install dependencies
         run: |
           sudo apt update
           sudo apt install -y protobuf-compiler
       - name: Build lance-graph
         run: cargo build --manifest-path crates/lance-graph/Cargo.toml
-      - name: Build lance-graph-python
-        run: cargo check --manifest-path crates/lance-graph-python/Cargo.toml
       - name: Build tests
         run: cargo test --manifest-path crates/lance-graph/Cargo.toml --no-run
       - name: Run tests

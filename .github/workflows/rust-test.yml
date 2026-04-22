@@ -49,7 +49,6 @@ jobs:
           shared-key: "lance-graph-deps"
           workspaces: |
             lance-graph/crates/lance-graph
-            lance-graph/crates/lance-graph-python
       - name: Install dependencies
         run: |
           sudo apt update
@@ -85,7 +84,6 @@ jobs:
           shared-key: "lance-graph-deps"
           workspaces: |
             lance-graph/crates/lance-graph
-            lance-graph/crates/lance-graph-python
       - name: Install dependencies
         run: |
           sudo apt update
