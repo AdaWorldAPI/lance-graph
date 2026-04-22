@@ -1,0 +1,37 @@
+[package]
+name = "lance-graph-callcenter"
+version = "0.1.0"
+edition = "2021"
+description = "External callcenter membrane over Lance + DataFusion (Supabase-shape API)"
+
+# NEVER add: reqwest (client HTTP; we are the server), postgres, sqlx, pg-embed.
+# All external HTTP/WS/SQL is replaced by Lance + DataFusion + axum.
+
+[dependencies]
+lance-graph-contract = { path = "../lance-graph-contract" }
+
+# [persist] — Arrow RecordBatch + Lance dataset ops
+arrow       = { version = "57", optional = true }
+lance       = { version = "2",  optional = true }
+
+# [query] — CommitFilter → DataFusion Expr translator
+datafusion  = { version = "51", optional = true }
+
+# [realtime] — version watcher, Phoenix channel shapes, WebSocket
+tokio            = { version = "1", features = ["sync"], optional = true }
+tokio-tungstenite = { version = "0.24", optional = true }
+serde            = { version = "1", features = ["derive"], optional = true }
+serde_json       = { version = "1", optional = true }
+
+# [serve] — axum WS server (implies realtime + query)
+axum        = { version = "0.7", features = ["ws"], optional = true }
+tower-http  = { version = "0.5", features = ["cors"], optional = true }
+
+[features]
+default  = []
+persist  = ["dep:arrow", "dep:lance"]
+query    = ["dep:datafusion", "dep:arrow"]
+realtime = ["dep:tokio", "dep:tokio-tungstenite", "dep:serde", "dep:serde_json"]
+serve    = ["realtime", "query", "dep:axum", "dep:tower-http"]
+auth     = ["dep:serde", "dep:serde_json"]
+full     = ["persist", "query", "realtime", "serve", "auth"]

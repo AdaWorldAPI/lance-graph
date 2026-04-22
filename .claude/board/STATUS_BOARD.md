@@ -225,6 +225,35 @@ superseded files into an `archive/` subdirectory. Estimate ~200
 LOC of meta work, ~2 hours of reading. **Not urgent**; useful
 before the next major planning session.
 
+---
+
+## callcenter-membrane-v1 — Supabase-shape over Lance + DataFusion
+
+External callcenter membrane crate. BBB enforced by Arrow type system at
+compile time. Plan: `.claude/plans/callcenter-membrane-v1.md`.
+
+### DM-0 / DM-1 — Shipped in this session
+
+| D-id | Title | Status | PR / Evidence |
+|---|---|---|---|
+| DM-0 | `ExternalMembrane` trait + `CommitFilter` in `lance-graph-contract/src/external_membrane.rs` | **Shipped** | session 2026-04-22 — `pub mod external_membrane` added to contract lib.rs |
+| DM-1 | `lance-graph-callcenter` crate skeleton: `Cargo.toml` (feature gates) + `src/lib.rs` (stub + UNKNOWN markers) | **Shipped** | session 2026-04-22 — added to workspace members |
+
+### DM-2 through DM-9 — Queued
+
+| D-id | Title | Status | PR / Evidence |
+|---|---|---|---|
+| DM-2 | `LanceMembrane: ExternalMembrane` impl with `project()` + compile-time BBB leak test | **Queued** | Resolve UNKNOWN-1 (ShaderSink overlap?) first |
+| DM-3 | `CommitFilter` → DataFusion `Expr` translator (`[query]` feature) | **Queued** | — |
+| DM-4 | `LanceVersionWatcher` — tails Lance version counter, emits Phoenix `postgres_changes` (`[realtime]`) | **Queued** | — |
+| DM-5 | `PhoenixServer` — minimal WS server, Phoenix channel subset (`[realtime]`) | **Queued** | Resolve UNKNOWN-2 (which consumers need Phoenix wire?) first |
+| DM-6 | `DrainTask` — `steering_intent` Lance read → `UnifiedStep` → `OrchestrationBridge::route()` | **Queued** | — |
+| DM-7 | `JwtMiddleware` + `ActorContext` → `LogicalPlan` RLS rewriter (`[auth]`) | **Queued** | Resolve UNKNOWN-3 (pgwire?) + UNKNOWN-4 (actor_id type) first |
+| DM-8 | `PostgRestHandler` — query-string → DataFusion SQL → Lance scan → Arrow response (`[serve]`) | **Queued** | Confirm PostgREST compat needed (§ 8 stop point 4) before building |
+| DM-9 | End-to-end test: shader fires → `LanceMembrane::project()` → Lance append → Phoenix subscriber receives event | **Queued** | Depends on DM-2 through DM-6 |
+
+---
+
 ## Update protocol
 
 When a deliverable ships:
