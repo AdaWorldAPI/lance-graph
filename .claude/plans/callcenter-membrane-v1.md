@@ -819,7 +819,7 @@ git verb.
 | Dataset class | Content | Crossing BBB? | Queryable? |
 |---|---|---|---|
 | **External / scalar** | Arrow RecordBatch rows from `project()` | Yes (IS the BBB output) | Yes — DataFusion, Supabase FDW, n8n subscribe |
-| **Internal / VSA** | Raw `[u64; 256]` cycle fingerprints, NARS truth vectors, braid offsets | No — never crosses BBB | Yes — DataFusion + VSA UDFs (see § 15) |
+| **Internal / VSA** | `Fingerprint<256>` = `[u64;256]` cycle fingerprints (L4/L5 speed tier, 2 KB/row); NARS truth vectors, braid offsets. L3 cold tier can promote to Vsa10k BF16 (20 KB, lossless) or RaBitQ-quantized Lance columns (zero-copy ANN). | No — never crosses BBB | Yes — DataFusion + VSA UDFs (see § 15) |
 
 ### Parallels with git cold storage
 
@@ -1055,7 +1055,7 @@ are dropped by the CollapseGate predicate; no explicit selection needed.
 **Architecture:**
 ```
 Input:
-  recent_fingerprints: Tensor[N, 256×64]  // N recent cycle fingerprints as f32 bits
+  recent_fingerprints: Tensor[N, 16384]   // N cycle fingerprints [u64;256] as f32 bits (L4/L5 speed tier)
   current_meta: Tensor[4]                  // MetaWord fields unpacked
 
 Hidden:
@@ -1135,3 +1135,89 @@ Runtime lookup:
   signature.template_id → JIT compile YAML runbook → KernelHandle
   PersonaId + KernelHandle → cognitive configuration for this turn
 ```
+
+---
+
+## § 18 — VSA Precision Tiers + Generational Compression (Father-Grandfather)
+
+**Trigger:** 2026-04-23 — clarification that L4/L5 is the speed lane and must stay
+at fingerprint resolution; L3 is where precision lives; VSA is the wire format.
+
+### Three precision tiers
+
+| Tier | Format | Size | Properties | Where |
+|---|---|---|---|---|
+| **Fingerprint** | `[u64;256]` = `Fingerprint<256>` | 2 KB (16 Kbit) | Hash-quantized. One-way (no unbind). SIMD-fast Hamming. | L4/L5 substrate (30 ns/bind) |
+| **Vsa10k BF16** | `[bf16; 10000]` | 20 KB | Effectively lossless (Jirak noise floor not crossed). Supports `unbind(role)`. | L3 memory / cold storage |
+| **Vsa10k f32** | `[f32; 10000]` | 40 KB | Fully lossless. Full bind/unbind algebra. | Offline training / precision UDFs |
+
+**L4/L5 is the speed lane (motion, learning, fast dispatch).** The 16Kbit
+fingerprint is the right format there — shrinking it would leave the speed
+lane; inflating it to Vsa10k would blow the L3 memory budget at 30 ns/bind.
+This boundary is a hardware-budget invariant, not a design choice.
+
+**L3 is where precision is affordable.** The callcenter operates at human-turn
+rate (seconds between commits), not substrate rate. Full Vsa10k BF16 at L3
+costs 20 KB/row — trivial at that cadence. Alternatively: **RaBitQ**-quantized
+columns in Lance provide zero-copy ANN search at < Vsa10k RAM cost while
+preserving approximate unbind accuracy.
+
+### VSA as the wire format
+
+VSA IS the wire format — the medium through which cognitive content travels
+between layers:
+
+```
+Wire format:   bundle(SPO triples) → trajectory [Vsa10k or Fingerprint<256>]
+               Markov ±5 window  → bundle last 5 trajectories → episodic context
+               Markov ±500 window → bundle last 500 cycles → long-range context
+               SPO role bind     → bind(role_key, payload) → superposed into trajectory
+```
+
+`CognitiveEventRow` is NOT the wire format — it is the BBB-safe SCALAR
+projection of the wire state. The wire (VSA trajectory) stays inside. The
+projection (Arrow scalars) crosses the gate.
+
+### Father-Grandfather generational compression
+
+**Motivation:** Per-cycle fingerprints accumulate at 2 KB/cycle. 10K cycles
+= 20 MB (manageable in hot tier). 10M cycles = 20 GB (cold storage, still
+feasible). But for full-precision Vsa10k cold storage at 20 KB/cycle,
+generational compression prevents unbounded RAM growth during replay.
+
+**Hierarchy:**
+
+```
+"Son" (hot tier, L4/L5):
+  Per-cycle Fingerprint<256> rows — 2 KB each — fast, hash-quantized
+  Lance version-tagged; last M rows in hot dataset
+
+"Father" (~100-cycle bundle, L3):
+  MergeMode::Bundle over last ~100 per-cycle fingerprints
+  → single Vsa10k BF16 (20 KB) representing 100 cycles
+  → CK-safe (I-SUBSTRATE-MARKOV); saturating bundle preserves Markov property
+  → 100 × 2 KB → 20 KB: 10:1 compression; unbind survives at full L3 precision
+
+"Grandfather" (~1000-cycle bundle, cold tier):
+  MergeMode::Bundle over last ~1000 cycles (or over 10 Father vectors)
+  → single Vsa10k BF16 (20 KB) representing 1000 cycles
+  → 1000 × 2 KB → 20 KB: 100:1 compression; Markov property preserved
+  → unbind(role, grandfather) = approximate role trajectory over 1000 turns
+```
+
+**Relationship to existing Markov windows:**
+- ±5 window → per-cycle fingerprint braid (existing, L4/L5)
+- ±500 window → episodic memory (existing, L3)
+- ±1000 window → grandfather bundle (new, L3/cold storage)
+
+**CK safety proof (informal):** `MergeMode::Bundle` is commutative and
+associative in expectation (Johnson-Lindenstrauss + concentration-of-measure
+at rate ~e^(−d), I-SUBSTRATE-MARKOV). Bundling 100 fingerprints into one
+Vsa10k is a saturating bundle; the Chapman-Kolmogorov property holds for the
+bundle as a whole — the state transition from "Son" to "Father" is a valid
+Markov step.
+
+**Implementation note:** deferred. Current hot dataset stores fingerprints
+only. Father/Grandfather columns are Phase B additions when cold dataset
+accumulates > 10K cycles. No schema change to `CognitiveEventRow` required —
+generational bundles live in a separate Lance dataset (compression tier).

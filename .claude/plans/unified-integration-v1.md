@@ -1,4 +1,4 @@
-# Plan — Unified Integration: PersonaHub × Chronos × Archetype × MM-CoT × RoleDB
+# Plan — Unified Integration: PersonaHub × ONNX × Archetype × MM-CoT × RoleDB
 
 > **Version:** v1
 > **Author:** main-thread session 2026-04-23
@@ -82,7 +82,9 @@ ONNX classifier that predicts the full `(ExternalRole, ThinkingStyle)` product.
 **Input/Output:**
 ```
 Input:
-  recent_fingerprints: Tensor[N, 16384]  // N recent cycle fingerprints, [u64;256] as f32 bits
+  recent_fingerprints: Tensor[N, 16384]  // N cycle fingerprints [u64;256] as f32 bits
+                                          // L4/L5 speed-lane format — fingerprint, NOT Vsa10k
+                                          // (L4/L5 is motion/learning/fast dispatch; stays at 2KB/row)
   current_meta: Tensor[4]                // MetaWord: thinking, awareness, nars_f, nars_c unpacked
 
 Output:
@@ -191,6 +193,13 @@ ORDER BY dispatch_score DESC
 LIMIT 10;
 ```
 
+**Precision note:** The UDF signatures above use `[u64;256]` (fingerprint, L4/L5 tier)
+for dispatch scoring — fast Hamming distance, approximate role overlap. This is correct
+for the dispatch path (30 ns/bind speed lane). For deep role recovery via `unbind()`
+at full precision (RoleDB Phase B), the UDF input should be Vsa10k BF16 from the L3
+cold dataset — deferred until the L3 Vsa10k or RaBitQ cold columns exist. See §18
+of `callcenter-membrane-v1.md` for the precision tier architecture.
+
 **BBB compliance:** UDFs operate on internal_dataset only. Results are scalar
 (f32 dispatch scores, u32 Hamming distances). VSA types never cross to external_dataset.
 
@@ -218,8 +227,9 @@ pub rationale_phase: bool,  // true = Stage 1 rationale, false = Stage 2 answer
 This field surfaces in the projected RecordBatch so external subscribers can filter
 to either stage. No new trait, no new struct.
 
-**Status:** Queued  
-**Effort:** ~0.5 days (one field addition + Arrow schema update)
+**Status:** Shipped (2026-04-23) — `rationale_phase: bool` added to `CognitiveEventRow`
+in `external_intent.rs`; `project()` in `lance_membrane.rs` populates `rationale_phase: false`
+(Phase A stub). Commit `a05979e`.
 
 ---
 
@@ -228,8 +238,8 @@ to either stage. No new trait, no new struct.
 **Scope:** Register DU-0 through DU-4 in STATUS_BOARD.md, update INTEGRATION_PLANS.md,
 update LATEST_STATE.md contract inventory with new plan sections.
 
-**Status:** Queued  
-**Effort:** ~0.5 days (board file updates, no code)
+**Status:** Shipped (2026-04-23) — `unified-integration-v1` entry prepended to
+`INTEGRATION_PLANS.md`; DU-* rows appended to `STATUS_BOARD.md`. Commit `a05979e`.
 
 ---
 
