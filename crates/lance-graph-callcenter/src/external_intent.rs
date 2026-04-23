@@ -99,8 +99,14 @@ impl ExternalIntent {
 /// | free_e        | UInt8      | MetaWord::free_e()              |
 /// | cycle_fp_hi   | UInt64     | fingerprint[0]                  |
 /// | cycle_fp_lo   | UInt64     | fingerprint[255]                |
-/// | gate_commit   | Boolean    | GateDecision::is_flow()         |
-/// | gate_f        | UInt8      | free_e (redundant, for queries) |
+/// | gate_commit    | Boolean    | GateDecision::is_flow()                                |
+/// | gate_f         | UInt8      | free_e (redundant, for queries)                        |
+/// | rationale_phase| Boolean    | true = Stage 1 rationale; false = Stage 2 answer       |
+///
+/// `rationale_phase` surfaces the MM-CoT stage split:
+/// `FacultyDescriptor.inbound_style` (Stage 1) vs `outbound_style` (Stage 2).
+/// Phase A: always false (single-stage emission). Phase B: wired from the
+/// faculty dispatcher when `FacultyDescriptor::is_asymmetric()` is true.
 #[derive(Clone, Debug, Default)]
 pub struct CognitiveEventRow {
     // ── Identity columns (§ 4 schema, § 10.11 metadata address bus) ──
@@ -121,4 +127,6 @@ pub struct CognitiveEventRow {
     // ── Gate outcome ──
     pub gate_commit: bool, // true = F < 0.2 (Flow); false = Hold or Block
     pub gate_f:      u8,   // free_e at gate time (for SQL filter `WHERE gate_f < 50`)
+    // ── MM-CoT stage (DU-4, plan unified-integration-v1.md § DU-4) ──
+    pub rationale_phase: bool, // Phase B: true = inbound_style stage (rationale)
 }

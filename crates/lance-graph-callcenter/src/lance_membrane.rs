@@ -125,8 +125,9 @@ impl ExternalMembrane for LanceMembrane {
             // the full 2 KB VSA tensor. The tensor lives only in ShaderBus.
             cycle_fp_hi: bus.cycle_fingerprint[0],
             cycle_fp_lo: bus.cycle_fingerprint[255],
-            gate_commit: bus.gate.is_flow(),
-            gate_f:      meta.free_e(),
+            gate_commit:     bus.gate.is_flow(),
+            gate_f:          meta.free_e(),
+            rationale_phase: false, // Phase B: wired from FacultyDescriptor::is_asymmetric()
         }
     }
 

@@ -254,6 +254,21 @@ compile time. Plan: `.claude/plans/callcenter-membrane-v1.md`.
 
 ---
 
+## unified-integration-v1 — PersonaHub × ONNX × Archetype × MM-CoT × RoleDB
+
+Plan: `.claude/plans/unified-integration-v1.md`. Session 2026-04-23.
+
+| D-id | Title | Status | Notes |
+|---|---|---|---|
+| DU-0 | PersonaHub 56-bit compression: `(atom_bitset: u32, palette_weight: u8, template_id: u16)` offline extraction from 370M HF parquet rows | **Queued** | Runs offline; no code deps. Output: `personas.bin` + `sigs_dedup.bin` + `templates/*.yaml` |
+| DU-1 | ONNX persona classifier @ L4/L5 — 288-class `(ExternalRole × ThinkingStyle)` product prediction; `style_oracle: Option<&OnnxPersonaClassifier>` in Think struct | **Queued** | Needs ~10K labeled cycles from Lance internal_cold (DM-2 must ship first); replaces Chronos proposal |
+| DU-2 | Archetype ECS bridge crate `lance-graph-archetype-bridge` — `ArchetypeWorld → Blackboard`, `ArchetypeTick → UnifiedStep`, `project() → DataFrame component` adapters | **Queued** | Needs DM-2 (ExternalMembrane impl) before adapter can be built |
+| DU-3 | RoleDB DataFusion VSA UDFs: `unbind`, `bundle`, `hamming_dist`, `braid_at`, `top_k` — registers in DataFusion session | **Queued** | Fingerprint column type decision needed first (FixedSizeBinary vs FixedSizeList); see open question in plan § 5 |
+| DU-4 | MM-CoT stage split: add `rationale_phase: bool` to `CognitiveEventRow`; surface `FacultyDescriptor.is_asymmetric()` in projected RecordBatch | **Queued** | Trivial; no blocking deps |
+| DU-5 | Board hygiene: DU-0 through DU-4 registered; INTEGRATION_PLANS.md + LATEST_STATE.md updated | **In progress** | This entry IS DU-5 in progress |
+
+---
+
 ## Update protocol
 
 When a deliverable ships:
