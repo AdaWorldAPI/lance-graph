@@ -4140,7 +4140,7 @@ dependencies = [
 
 [[package]]
 name = "lance-graph"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "arrow",
  "arrow-array",
@@ -4205,7 +4205,7 @@ dependencies = [
 
 [[package]]
 name = "lance-graph-catalog"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "arrow-schema",
  "async-trait",

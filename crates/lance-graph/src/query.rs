@@ -9,12 +9,67 @@ use crate::config::GraphConfig;
 use crate::error::{GraphError, Result};
 use crate::logical_plan::LogicalPlanner;
 use crate::parser::parse_cypher_query;
+use crate::spark_dialect::build_spark_dialect;
 use arrow_array::RecordBatch;
 use arrow_schema::{Field, Schema, SchemaRef};
+use datafusion_sql::unparser::dialect::{
+    CustomDialect, DefaultDialect, MySqlDialect, PostgreSqlDialect, SqliteDialect,
+};
+use datafusion_sql::unparser::Unparser;
 use lance_graph_catalog::DirNamespace;
 use lance_namespace::models::DescribeTableRequest;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+
+/// SQL dialect to use when generating SQL from Cypher queries.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SqlDialect {
+    /// Generic SQL (DataFusion default dialect)
+    #[default]
+    Default,
+    /// Spark SQL dialect (backtick quoting, STRING type, EXTRACT, etc.)
+    Spark,
+    /// PostgreSQL dialect
+    PostgreSql,
+    /// MySQL dialect
+    MySql,
+    /// SQLite dialect
+    Sqlite,
+}
+
+/// Wrapper to hold the concrete dialect type and provide an `Unparser` reference.
+pub enum DialectUnparser {
+    Default(DefaultDialect),
+    Spark(Box<CustomDialect>),
+    PostgreSql(PostgreSqlDialect),
+    MySql(MySqlDialect),
+    Sqlite(SqliteDialect),
+}
+
+impl DialectUnparser {
+    pub fn as_unparser(&self) -> Unparser<'_> {
+        match self {
+            DialectUnparser::Default(d) => Unparser::new(d),
+            DialectUnparser::Spark(d) => Unparser::new(d.as_ref()),
+            DialectUnparser::PostgreSql(d) => Unparser::new(d),
+            DialectUnparser::MySql(d) => Unparser::new(d),
+            DialectUnparser::Sqlite(d) => Unparser::new(d),
+        }
+    }
+}
+
+impl SqlDialect {
+    /// Create a `DialectUnparser` configured for this dialect.
+    pub fn unparser(&self) -> DialectUnparser {
+        match self {
+            SqlDialect::Default => DialectUnparser::Default(DefaultDialect {}),
+            SqlDialect::Spark => DialectUnparser::Spark(Box::new(build_spark_dialect())),
+            SqlDialect::PostgreSql => DialectUnparser::PostgreSql(PostgreSqlDialect {}),
+            SqlDialect::MySql => DialectUnparser::MySql(MySqlDialect {}),
+            SqlDialect::Sqlite => DialectUnparser::Sqlite(SqliteDialect {}),
+        }
+    }
+}
 
 /// Normalize an Arrow schema to have lowercase field names.
 ///
@@ -295,10 +350,10 @@ impl CypherQuery {
         self.explain_internal(Arc::new(catalog), ctx).await
     }
 
-    /// Convert the Cypher query to a DataFusion SQL string
+    /// Convert the Cypher query to a SQL string in the specified dialect.
     ///
     /// This method generates a SQL string that corresponds to the DataFusion logical plan
-    /// derived from the Cypher query. It uses the `datafusion-sql` unparser.
+    /// derived from the Cypher query, using the specified SQL dialect for unparsing.
     ///
     /// **WARNING**: This method is experimental and the generated SQL dialect may change.
     ///
@@ -308,16 +363,20 @@ impl CypherQuery {
     ///
     /// # Arguments
     /// * `datasets` - HashMap of table name to RecordBatch (nodes and relationships)
+    /// * `dialect` - The SQL dialect to use for generating the output SQL.
+    ///   Defaults to `SqlDialect::Default` (generic DataFusion SQL).
+    ///   Use `SqlDialect::Spark` for Spark SQL, `SqlDialect::PostgreSql`, etc.
     ///
     /// # Returns
-    /// A SQL string representing the query
+    /// A SQL string representing the query in the specified dialect
     pub async fn to_sql(
         &self,
         datasets: HashMap<String, arrow::record_batch::RecordBatch>,
+        dialect: Option<SqlDialect>,
     ) -> Result<String> {
-        use datafusion_sql::unparser::plan_to_sql;
         use std::sync::Arc;
 
+        let dialect = dialect.unwrap_or_default();
         let _config = self.require_config()?;
 
         // Build catalog and context from datasets using the helper
@@ -338,11 +397,15 @@ impl CypherQuery {
                 location: snafu::Location::new(file!(), line!(), column!()),
             })?;
 
-        // Unparse to SQL
-        let sql_ast = plan_to_sql(&optimized_plan).map_err(|e| GraphError::PlanError {
-            message: format!("Failed to unparse plan to SQL: {}", e),
-            location: snafu::Location::new(file!(), line!(), column!()),
-        })?;
+        // Unparse to SQL using the specified dialect
+        let dialect_unparser = dialect.unparser();
+        let unparser = dialect_unparser.as_unparser();
+        let sql_ast = unparser
+            .plan_to_sql(&optimized_plan)
+            .map_err(|e| GraphError::PlanError {
+                message: format!("Failed to unparse plan to SQL: {}", e),
+                location: snafu::Location::new(file!(), line!(), column!()),
+            })?;
 
         Ok(sql_ast.to_string())
     }
@@ -1951,7 +2014,7 @@ mod tests {
             .unwrap()
             .with_config(cfg);
 
-        let sql = query.to_sql(datasets).await.unwrap();
+        let sql = query.to_sql(datasets, None).await.unwrap();
         println!("Generated SQL: {}", sql);
 
         assert!(sql.contains("SELECT"));
