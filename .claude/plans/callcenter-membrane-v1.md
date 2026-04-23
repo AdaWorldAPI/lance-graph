@@ -694,3 +694,116 @@ inside the existing plan:
 
 Each phase is independently testable and reversible. Litmus test
 (§ 10.9 + E-DEPLOY-1 footer) applies at every merge.
+
+---
+
+## § 13 — "Git for Cognition" — the unified mental model
+
+**Brainstorm origin:** 2026-04-23 — the observation that callcenter needs
+git-like access to internal state. Not a metaphor: the shared algebraic
+foundation is a commutative monoid on blobs. Git approximates it (and
+patches around conflicts). VSA d=10000 saturating bundle IS it —
+lossless, by CK construction (E-SUBSTRATE-1). Jirak bounds exactly
+where the approximation becomes noise.
+
+### Primitive mapping (one-to-one)
+
+| Git primitive | Callcenter primitive | Existing machinery |
+|---|---|---|
+| `commit` | CollapseGate fire → Lance version N | `GateDecision::COMMIT` + `project()` |
+| `branch` | Speculative blackboard round (not yet fired) | `Blackboard.round` before CollapseGate |
+| `merge` | Bundle two trajectories | `MergeMode::Bundle` (CK-safe) |
+| `rebase` | Replay trajectory against different NARS prior | Markov ±5 replay + `awareness.revise()` |
+| `checkout HEAD~5` | Markov position −5 in the braid window | Braid offset, already exists |
+| `checkout <version>` | Lance time-travel | `dataset.checkout(version=N)` |
+| `diff V1..V2` | Projected RecordBatch row comparison | Two Lance versions, subtract |
+| `blame` | `unbind(role)` at trajectory position → metadata column | VSA unbind, map slot → scalar |
+| `cherry-pick` | Inject one BlackboardEntry into another round | Router decision |
+| `stash` | Speculative bundle without Persist emit | `EmitMode::Bundle` (not `Persist`) |
+| `pull` | `subscribe(filter)` | `ExternalMembrane::subscribe` |
+| `push` | `ingest(ExternalIntent)` | `ExternalMembrane::ingest` |
+| `log --max-count=500` | Markov ±500 episodic window query | Existing episodic memory |
+| `tag` | Named persona checkpoint | `PersonaCard` + Lance tag |
+| `.gitignore` | `CommitFilter` | Already in contract |
+| `pre-commit hook` | NARS check before `EmitMode::Persist` | CollapseGate predicate |
+
+### Why the callcenter is stronger than git
+
+Git merge commutativity is approximate — conflicts require human
+resolution. VSA d=10000 bundle commutativity is exact (concentration-of-
+measure at rate ~e^(−d)). Git blobs are opaque bytes; blame is textual
+search. Callcenter blobs are VSA bundles with semantic coordinates;
+`blame` is `unbind(role)` — a structured algebraic query. Git rebase can
+corrupt history; Markov replay is provably lossless.
+
+**The scalar-vs-VSA distinction is the blob boundary:**
+- Git: blob = file bytes (opaque to git itself)
+- Callcenter: blob = VSA bundle (unbind-able by role, Cartan-character-
+  indexed slots — see [FORMAL-SCAFFOLD])
+
+### Chat rounds as commits (§§ 10–13 synthesis)
+
+A chat turn is a commit. The blackboard round between turns is the
+staging area. CollapseGate fire = `git commit`. Lance version bump =
+the append to the object store. The ±5/±500 Markov window is `HEAD~5`
+and `HEAD~500`. The 10⁵–10⁷× speed gap is absorbed exactly at the
+turn boundary — substrate runs at 30 ns/bind internally; external
+subscribers see one tick per committed turn.
+
+**Jirak** (I-NOISE-FLOOR-JIRAK) bounds the turn-update density: too
+sparse → consumer context diverges; too dense → weak-dependence breaks.
+The ±5 window is the implicit rate limit.
+
+**Cartan-Kuranishi** governs which columns get projected outward — not
+arbitrary, but the intrinsic fiber geometry of the external signal.
+`dialect: u8` and `scent: u8` are the Cartan-intrinsic columns;
+their slot widths in the 10k substrate should not be chosen by
+convention. [FORMAL-SCAFFOLD] revival candidate 3 (learned attention
+masks) applies for empirical confirmation.
+
+### Porcelain vs plumbing (BBB as the split)
+
+| | Git | Callcenter |
+|---|---|---|
+| **Porcelain** | `git add`, `git commit`, `git log` | Supabase-shape REST, DN paths, JSON |
+| **Plumbing** | `git hash-object`, `git cat-file` | VSA bind/unbind, Markov braid, AriGraph |
+| **The line** | `git` CLI | `ExternalMembrane` trait |
+
+Consumers use porcelain only. Internal faculties use plumbing.
+`ExternalMembrane::ingest()` and `project()` are the translators.
+
+### Consumer mental model (adoption surface)
+
+**The pitch:** "git for thoughts."
+
+- n8n-rs / crewai-rust author who knows git → zero onboarding friction
+- Human via q2 → Neo4j browser ≈ `gitk` / `git log --graph`
+- Curl consumer → `git show <refspec>` shape over REST
+
+DN URL path (`/tree/ns/heel/h/hip/x/branch/b/twig/t/leaf/l`) IS a
+refspec. PersonaCard is the author. FacultyDescriptor is the committer.
+RoutingHint is the refspec target.
+
+### Three primitives to name explicitly
+
+1. **`Speculative`** — blackboard round that exists but has not yet
+   fired CollapseGate. Equivalent to git's staged-but-not-committed.
+   Already implicit; needs a first-class name in the callcenter API.
+2. **`Rebase` verb** — replay Markov trajectory against a different
+   NARS prior. Mechanics exist; needs an `ExternalMembrane` method or
+   REST endpoint in Phase B.
+3. **`Blame` projection** — `unbind(role)` internally, project to
+   metadata-column answer externally. VSA slots never cross the BBB;
+   the response is always `external_role: u8`, `faculty_role: u8`,
+   `expert_id: u16`.
+
+### BBB invariant holds through the git metaphor
+
+None of the git-shaped primitives requires VSA types to cross the gate:
+- `commit` result → Arrow scalars only
+- `blame` result → metadata columns only
+- `checkout` result → projected RecordBatch
+- `branch` / `merge` → internal only (MergeMode::Bundle)
+
+§ 10.9 iron rule (membrane → role → place → translate) holds at every
+git verb.
