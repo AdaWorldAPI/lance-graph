@@ -225,6 +225,50 @@ superseded files into an `archive/` subdirectory. Estimate ~200
 LOC of meta work, ~2 hours of reading. **Not urgent**; useful
 before the next major planning session.
 
+---
+
+## callcenter-membrane-v1 — Supabase-shape over Lance + DataFusion
+
+External callcenter membrane crate. BBB enforced by Arrow type system at
+compile time. Plan: `.claude/plans/callcenter-membrane-v1.md`.
+
+### DM-0 / DM-1 — Shipped in this session
+
+| D-id | Title | Status | PR / Evidence |
+|---|---|---|---|
+| DM-0 | `ExternalMembrane` trait + `CommitFilter` in `lance-graph-contract/src/external_membrane.rs` | **Shipped** | session 2026-04-22 — `pub mod external_membrane` added to contract lib.rs |
+| DM-1 | `lance-graph-callcenter` crate skeleton: `Cargo.toml` (feature gates) + `src/lib.rs` (stub + UNKNOWN markers) | **Shipped** | session 2026-04-22 — added to workspace members |
+
+### DM-2 through DM-9 — Queued
+
+| D-id | Title | Status | PR / Evidence |
+|---|---|---|---|
+| DM-2 | `LanceMembrane: ExternalMembrane` impl with `project()` + compile-time BBB leak test | **Queued** | Resolve UNKNOWN-1 (ShaderSink overlap?) first |
+| DM-3 | `CommitFilter` → DataFusion `Expr` translator (`[query]` feature) | **Queued** | — |
+| DM-4 | `LanceVersionWatcher` — tails Lance version counter, emits Phoenix `postgres_changes` (`[realtime]`) | **Queued** | — |
+| DM-5 | `PhoenixServer` — minimal WS server, Phoenix channel subset (`[realtime]`) | **Queued** | Resolve UNKNOWN-2 (which consumers need Phoenix wire?) first |
+| DM-6 | `DrainTask` — `steering_intent` Lance read → `UnifiedStep` → `OrchestrationBridge::route()` | **Queued** | — |
+| DM-7 | `JwtMiddleware` + `ActorContext` → `LogicalPlan` RLS rewriter (`[auth]`) | **Queued** | Resolve UNKNOWN-3 (pgwire?) + UNKNOWN-4 (actor_id type) first |
+| DM-8 | `PostgRestHandler` — query-string → DataFusion SQL → Lance scan → Arrow response (`[serve]`) | **Queued** | Confirm PostgREST compat needed (§ 8 stop point 4) before building |
+| DM-9 | End-to-end test: shader fires → `LanceMembrane::project()` → Lance append → Phoenix subscriber receives event | **Queued** | Depends on DM-2 through DM-6 |
+
+---
+
+## unified-integration-v1 — PersonaHub × ONNX × Archetype × MM-CoT × RoleDB
+
+Plan: `.claude/plans/unified-integration-v1.md`. Session 2026-04-23.
+
+| D-id | Title | Status | Notes |
+|---|---|---|---|
+| DU-0 | PersonaHub 56-bit compression: `(atom_bitset: u32, palette_weight: u8, template_id: u16)` offline extraction from 370M HF parquet rows | **Queued** | Runs offline; no code deps. Output: `personas.bin` + `sigs_dedup.bin` + `templates/*.yaml` |
+| DU-1 | ONNX persona classifier @ L4/L5 — 288-class `(ExternalRole × ThinkingStyle)` product prediction; `style_oracle: Option<&OnnxPersonaClassifier>` in Think struct | **Queued** | Needs ~10K labeled cycles from Lance internal_cold (DM-2 must ship first); replaces Chronos proposal |
+| DU-2 | Archetype ECS bridge crate `lance-graph-archetype-bridge` — `ArchetypeWorld → Blackboard`, `ArchetypeTick → UnifiedStep`, `project() → DataFrame component` adapters | **Queued** | Needs DM-2 (ExternalMembrane impl) before adapter can be built |
+| DU-3 | RoleDB DataFusion VSA UDFs: `unbind`, `bundle`, `hamming_dist`, `braid_at`, `top_k` — registers in DataFusion session | **Queued** | Fingerprint column type decision needed first (FixedSizeBinary vs FixedSizeList); see open question in plan § 5 |
+| DU-4 | MM-CoT stage split: add `rationale_phase: bool` to `CognitiveEventRow`; surface `FacultyDescriptor.is_asymmetric()` in projected RecordBatch | **Shipped** (2026-04-23, commit `a05979e`) | Phase A stub: `rationale_phase: false` in `project()`. Phase B: wire from `FacultyDescriptor::is_asymmetric()`. |
+| DU-5 | Board hygiene: DU-0 through DU-4 registered; INTEGRATION_PLANS.md + LATEST_STATE.md updated | **Shipped** (2026-04-23, commit `a05979e`) | Plan corrections + precision-tier §18 + father-grandfather concept committed in follow-up. |
+
+---
+
 ## Update protocol
 
 When a deliverable ships:

@@ -1,6 +1,6 @@
 [package]
 name = "lance-graph"
-version = "0.5.3"
+version = "0.5.4"
 edition = "2021"
 license = "Apache-2.0"
 authors = ["Lance Devs <dev@lancedb.com>"]
@@ -31,7 +31,7 @@ datafusion-expr = "51"
 datafusion-sql = "51"
 datafusion-functions-aggregate = "51"
 futures = "0.3"
-lance-graph-catalog = { path = "../lance-graph-catalog", version = "0.5.3" }
+lance-graph-catalog = { path = "../lance-graph-catalog", version = "0.5.4" }
 lance = "2"
 lance-linalg = "2"
 lance-namespace = "2"

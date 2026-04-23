@@ -18,6 +18,18 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Expert identifier. Opaque to the blackboard.
+///
+/// **Convention:** for agent cards (crewai-rust agents, `.claude/agents/`
+/// specialists), `ExpertId = stable_hash_u16(card_yaml)`. This collapses
+/// internal A2A experts, external agents, and YAML-defined cards into one
+/// identity space. `ExternalRole` carries the family (Rag / CrewaiAgent /
+/// N8n / …) at the gate; `ExpertId` carries the specific card on the entry.
+///
+/// Identity lives in metadata columns (`external_role: UInt8`, `expert_id:
+/// UInt16`), not in a packed braid key. Queries over these columns ARE
+/// dispatch. VSA binding happens stack-side only — a deterministic metadata →
+/// RoleKey slot mapping that never crosses the BBB. See `persona.rs` module
+/// docs and plan § 10.6 erratum.
 pub type ExpertId = u16;
 
 /// What an expert can do.
@@ -40,6 +52,12 @@ pub enum ExpertCapability {
     StyleModulation = 6,
     /// Qualia classification (semantic family assignment).
     QualiaClassification = 7,
+    /// External inbound seed — consumer event that triggers a blackboard reasoning cycle.
+    /// The entry's `result` field carries an opaque seed handle; the DrainTask resolves it.
+    ExternalSeed = 8,
+    /// External inbound context — passive consumer event XOR'd into the trajectory bundle
+    /// without activating a new reasoning cycle. Same Markov ±5 braiding as grammar tokens.
+    ExternalContext = 9,
 }
 
 /// Expert registration entry.

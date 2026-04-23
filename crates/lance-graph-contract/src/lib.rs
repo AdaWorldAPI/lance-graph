@@ -53,3 +53,6 @@ pub mod qualia;
 pub mod world_map;
 pub mod grammar;
 pub mod crystal;
+pub mod external_membrane;
+pub mod persona;
+pub mod faculty;

@@ -27,7 +27,8 @@ use lance_graph::{
     ast::{DistanceMetric as RustDistanceMetric, GraphPattern, ReadingClause},
     CypherQuery as RustCypherQuery, ExecutionStrategy as RustExecutionStrategy,
     GraphConfig as RustGraphConfig, GraphError as RustGraphError, InMemoryCatalog,
-    SqlQuery as RustSqlQuery, VectorSearch as RustVectorSearch,
+    SqlDialect as RustSqlDialect, SqlQuery as RustSqlQuery,
+    VectorSearch as RustVectorSearch,
 };
 use pyo3::{
     exceptions::{PyNotImplementedError, PyRuntimeError, PyValueError},
@@ -55,6 +56,34 @@ impl From<ExecutionStrategy> for RustExecutionStrategy {
         match strategy {
             ExecutionStrategy::DataFusion => RustExecutionStrategy::DataFusion,
             ExecutionStrategy::LanceNative => RustExecutionStrategy::LanceNative,
+        }
+    }
+}
+
+/// SQL dialect for generating SQL from Cypher queries
+#[pyclass(name = "SqlDialect", module = "lance.graph")]
+#[derive(Clone, Copy)]
+pub enum SqlDialect {
+    /// Generic SQL (DataFusion default dialect)
+    Default,
+    /// Spark SQL dialect
+    Spark,
+    /// PostgreSQL dialect
+    PostgreSql,
+    /// MySQL dialect
+    MySql,
+    /// SQLite dialect
+    Sqlite,
+}
+
+impl From<SqlDialect> for RustSqlDialect {
+    fn from(dialect: SqlDialect) -> Self {
+        match dialect {
+            SqlDialect::Default => RustSqlDialect::Default,
+            SqlDialect::Spark => RustSqlDialect::Spark,
+            SqlDialect::PostgreSql => RustSqlDialect::PostgreSql,
+            SqlDialect::MySql => RustSqlDialect::MySql,
+            SqlDialect::Sqlite => RustSqlDialect::Sqlite,
         }
     }
 }
@@ -494,6 +523,8 @@ impl CypherQuery {
     /// ----------
     /// datasets : dict
     ///     Dictionary mapping table names to Lance datasets
+    /// dialect : SqlDialect, optional
+    ///     SQL dialect to use. Defaults to SqlDialect.Default (generic DataFusion SQL).
     ///
     /// Returns
     /// -------
@@ -504,7 +535,15 @@ impl CypherQuery {
     /// ------
     /// RuntimeError
     ///     If SQL generation fails
-    fn to_sql(&self, py: Python, datasets: &Bound<'_, PyDict>) -> PyResult<String> {
+    #[pyo3(signature = (datasets, dialect=None))]
+    fn to_sql(
+        &self,
+        py: Python,
+        datasets: &Bound<'_, PyDict>,
+        dialect: Option<SqlDialect>,
+    ) -> PyResult<String> {
+        let sql_dialect = dialect.map(|d| d.into());
+
         // Convert datasets to Arrow RecordBatch map
         let arrow_datasets = python_datasets_to_batches(datasets)?;
 
@@ -513,7 +552,7 @@ impl CypherQuery {
 
         // Execute via runtime
         let sql = RT
-            .block_on(Some(py), inner_query.to_sql(arrow_datasets))?
+            .block_on(Some(py), inner_query.to_sql(arrow_datasets, sql_dialect))?
             .map_err(graph_error_to_pyerr)?;
 
         Ok(sql)
@@ -1548,6 +1587,7 @@ pub fn register_graph_module(py: Python, parent_module: &Bound<'_, PyModule>) ->
     let graph_module = PyModule::new(py, "graph")?;
 
     graph_module.add_class::<ExecutionStrategy>()?;
+    graph_module.add_class::<SqlDialect>()?;
     graph_module.add_class::<DistanceMetric>()?;
     graph_module.add_class::<GraphConfig>()?;
     graph_module.add_class::<GraphConfigBuilder>()?;
