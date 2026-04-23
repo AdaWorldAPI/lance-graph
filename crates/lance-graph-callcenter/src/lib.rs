@@ -56,9 +56,16 @@ pub use dn_path::DnPath;
 pub use external_intent::{CognitiveEventRow, ExternalIntent};
 pub use lance_membrane::LanceMembrane;
 
+// DU-3 — RoleDB DataFusion VSA UDFs ([query] feature)
+#[cfg(feature = "query")]
+pub mod vsa_udfs;
+
+#[cfg(feature = "query")]
+pub use vsa_udfs::register_vsa_udfs;
+
 // DM-3 — CommitFilter → DataFusion Expr translator ([query] feature)
-// #[cfg(feature = "query")]
-// pub mod filter;
+#[cfg(feature = "query")]
+pub mod filter_expr;
 
 // DM-4 — LanceVersionWatcher: tail version counter → Phoenix events ([realtime])
 // #[cfg(feature = "realtime")]
