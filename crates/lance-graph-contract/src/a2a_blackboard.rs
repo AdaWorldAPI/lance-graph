@@ -24,9 +24,12 @@
 /// internal A2A experts, external agents, and YAML-defined cards into one
 /// identity space. `ExternalRole` carries the family (Rag / CrewaiAgent /
 /// N8n / …) at the gate; `ExpertId` carries the specific card on the entry.
-/// Combined braid key: `(role as u16) << 16 | expert_id` — 32 bits, 65k
-/// cards per family. The shader can then reason at both coordinates:
-/// family-level texture AND card-level resonance across the Markov ±5 window.
+///
+/// Identity lives in metadata columns (`external_role: UInt8`, `expert_id:
+/// UInt16`), not in a packed braid key. Queries over these columns ARE
+/// dispatch. VSA binding happens stack-side only — a deterministic metadata →
+/// RoleKey slot mapping that never crosses the BBB. See `persona.rs` module
+/// docs and plan § 10.6 erratum.
 pub type ExpertId = u16;
 
 /// What an expert can do.

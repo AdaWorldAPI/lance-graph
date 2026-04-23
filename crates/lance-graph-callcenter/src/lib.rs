@@ -45,10 +45,16 @@
 
 pub use lance_graph_contract::external_membrane::{CommitFilter, ExternalMembrane};
 
-// DM-2 — LanceMembrane: ExternalMembrane impl + compile-time BBB leak test
-//         Resolve UNKNOWN-1 before uncommenting.
-// mod lance_membrane;
-// pub use lance_membrane::LanceMembrane;
+// ── Phase A: BBB spine (DM-2) ────────────────────────────────────────────────
+// UNKNOWN-1 resolved: ShaderSink is internal BindSpace ingestion; no overlap
+// with ExternalMembrane. See lance_membrane.rs module doc for details.
+pub mod dn_path;
+pub mod external_intent;
+pub mod lance_membrane;
+
+pub use dn_path::DnPath;
+pub use external_intent::{CognitiveEventRow, ExternalIntent};
+pub use lance_membrane::LanceMembrane;
 
 // DM-3 — CommitFilter → DataFusion Expr translator ([query] feature)
 // #[cfg(feature = "query")]
