@@ -807,3 +807,331 @@ None of the git-shaped primitives requires VSA types to cross the gate:
 
 § 10.9 iron rule (membrane → role → place → translate) holds at every
 git verb.
+
+---
+
+## § 14 — Cold Storage = Git Cold Storage (Two Dataset Classes)
+
+**Epiphany trigger:** "lance-graph/lancedb + S3 cold storage becomes a git cold storage."
+
+### Two dataset classes
+
+| Dataset class | Content | Crossing BBB? | Queryable? |
+|---|---|---|---|
+| **External / scalar** | Arrow RecordBatch rows from `project()` | Yes (IS the BBB output) | Yes — DataFusion, Supabase FDW, n8n subscribe |
+| **Internal / VSA** | Raw `[u64; 256]` cycle fingerprints, NARS truth vectors, braid offsets | No — never crosses BBB | Yes — DataFusion + VSA UDFs (see § 15) |
+
+### Parallels with git cold storage
+
+```
+git object store  ≈ Lance + S3 (append-only, content-addressed by version)
+git blob          ≈ internal VSA fingerprint bundle (opaque to external consumers)
+git tree          ≈ Blackboard round snapshot (expert entries + round number)
+git commit object ≈ external scalar RecordBatch row (the `project()` output)
+git pack file     ≈ Lance fragment files (batched, compressed, indexed)
+git remote        ≈ S3 bucket (cold tier, queryable in-place via DataFusion S3 scan)
+```
+
+### Why Lance is stronger than git cold storage
+
+- Git blobs are opaque bytes, indexed only by SHA1. Lance fragments carry Arrow
+  schema; every column is queryable in-place without extracting.
+- Git time-travel is commit-hash lookup. Lance time-travel is `dataset.checkout(version=N)`,
+  which DataFusion can scan directly across versions (temporal join).
+- Git has no query engine. Lance has DataFusion — the internal VSA dataset IS
+  a queryable database via the VSA UDFs in § 15.
+
+### Training corpus path (E-DEPLOY-1)
+
+Internal VSA dataset is pre-labeled by F outcome per epiphany E-DEPLOY-1:
+- Each row: `{ fingerprint: [u64; 256], meta: MetaWord, f_outcome: f32, role: u8, style: u8 }`
+- Rows where F < 0.2 are positive training examples (committed cycle = "good commit")
+- Rows where F > 0.8 are negative examples (failed cycle = "bad commit")
+- This dataset trains the ONNX persona classifier in § 17 with zero labeling effort
+
+### Two-tier storage topology
+
+```
+Hot tier  (Lance in-process):
+  external_dataset  — last N committed RecordBatch rows (Supabase-facing)
+  internal_dataset  — last M cycle fingerprints (VSA UDF-facing)
+
+Cold tier (S3):
+  external_cold/   — full projection history (audit log, training data)
+  internal_cold/   — full fingerprint history (ONNX training corpus)
+```
+
+`ExternalMembrane::subscribe()` wires to a `tokio::sync::watch` on the
+Lance version counter of `external_dataset`. External consumers never
+touch `internal_dataset`.
+
+---
+
+## § 15 — VSA Dispatch: role × thinking = persona (RoleDB)
+
+**Core insight:** routing IS a VSA query. `unbind(target_role, trajectory)` returns
+the overlap between the trajectory's role-indexed region and the query role —
+locality-sensitive, not exact hash. This means dispatch is approximate-nearest-neighbor
+over the role-key space, not an if/else over role enums.
+
+### The product identity
+
+```
+persona ≡ ExternalRole × ThinkingStyle
+```
+
+- `ExternalRole` (8 variants) — the "who" coordinate
+- `ThinkingStyle` (36 variants) — the "how" coordinate
+- Product space: 8 × 36 = **288 canonical personas**
+- `PersonaCard` IS this product pair: `(role: ExternalRole, style: ThinkingStyle)`
+- AriGraph subgraph keyed on `(ExternalRole, ThinkingStyle)` — one subgraph per persona
+
+### VSA dispatch mechanics
+
+```
+route(step):
+  role_hint   = step.thinking.map(|ctx| ctx.style) or RoutingHint.target_role
+  trajectory  = current ShaderBus.cycle_fingerprint
+  overlap     = unbind(role_key[role_hint], trajectory)   // VSA inner product
+  best_match  = argmax(overlap over all registered personas)
+  → dispatch to best_match's FacultyDescriptor
+```
+
+This replaces exact-match routing in `OrchestrationBridge::route()` with VSA
+locality-sensitive routing. A `CrewaiUser` step with `Reasoning` style routes to
+the persona `(CrewaiUser, Reasoning)` — the subgraph whose VSA fingerprint has the
+highest overlap with the current trajectory state.
+
+### RoleDB — DataFusion + VSA UDFs
+
+Five UDFs registered in DataFusion that make the internal VSA dataset queryable
+as a "DuckDB over roles":
+
+| UDF | Signature | Purpose |
+|---|---|---|
+| `unbind(role, trajectory)` | `(u8, [u64;256]) → f32` | Role overlap (dispatch score) |
+| `bundle(cols...)` | `([u64;256]...) → [u64;256]` | Bundle multiple fingerprints |
+| `hamming_dist(a, b)` | `([u64;256], [u64;256]) → u32` | Fingerprint distance |
+| `braid_at(pos, traj)` | `(i32, [u64;256]) → [u64;256]` | Markov position lookup |
+| `top_k(bundle, k)` | `([u64;256], u32) → [u16]` | Top-K persona candidates |
+
+SQL example:
+```sql
+SELECT expert_id, unbind(2, fingerprint) AS n8n_overlap
+FROM internal_dataset
+WHERE round = (SELECT max(round) FROM internal_dataset)
+ORDER BY n8n_overlap DESC
+LIMIT 5;
+```
+
+This is "DuckDB emulation based on roles" — DataFusion with VSA semantics
+replacing exact predicate matching.
+
+### n8n-rs + Supabase Realtime wiring
+
+```
+Lance external_dataset
+  → PostgreSQL FDW (read-only view over Lance S3 parquet)
+  → Supabase Realtime
+  → n8n-rs WebSocket subscription (filter: external_role = N8n)
+```
+
+No polling. No webhook. Pure subscribe-on-row-insert. Each `project()` call that
+produces a row with `external_role = N8n` notifies n8n-rs WebSocket subscriber
+within one Lance version tick.
+
+---
+
+## § 16 — Persona as Function: 32 Atoms × 16 Weightings + YAML Runbooks
+
+**Three layers of persona representation (not three different definitions — one identity, three representations):**
+
+### Layer 1 — Identity (product type, 9 bits)
+```rust
+struct PersonaId {
+    role:  ExternalRole,   // 3 bits (8 variants)
+    style: ThinkingStyle,  // 6 bits (36 variants → 64 slots)
+}
+// 288 canonical personas; AriGraph keyed on this pair
+```
+
+### Layer 2 — Signature (56 bits, compressed PersonaHub)
+```rust
+struct PersonaSignature {
+    atom_bitset:   u32,  // which of 32 named cognitive atoms are active
+    palette_weight: u8,  // 16 weight levels packed as 4-bit × 2 atoms (or 8-bit coarse)
+    template_id:   u16,  // which YAML runbook template handles this signature
+}
+// Total: 7 bytes = 56 bits per persona signature
+```
+
+The 32 named cognitive atoms (semantic operations, not styles):
+```
+deduction, induction, abduction, analogy, counterfactual,
+causal, temporal, spatial, modal, deontic,
+metaphor, narrative, hypothesis, contradiction, revision,
+retrieval, synthesis, compression, expansion, clarification,
+empathy, perspective, intention, belief, desire,
+uncertainty, confidence, negation, quantification, comparison,
+classification, decomposition
+```
+
+**Addressing space:**
+- Each of 32 atoms takes one of 16 weight levels (0–15)
+- Configurations: 16^32 ≈ 3.4×10^38
+- PersonaHub's 370M personas are samples in this space
+- 56-bit signature reduces 370M rows to a lookup table + 370M×7 bytes ≈ 2.6 GB flat file
+
+### Layer 3 — Runbook (YAML template, macro scaffolding)
+
+YAML runbooks are NOT persona identity. They are behavioral scripts for
+specific context-loop shapes — multi-turn recovery, escalation, handoff:
+
+```yaml
+# template_0042.yaml — deduction + counterfactual heavy, reasoning style
+name: deep_deduction_loop
+atoms_required: [deduction, counterfactual, hypothesis, contradiction]
+min_weight: 8
+loop:
+  - step: establish_premises     # braid_at(-1, trajectory) → premise bundle
+  - step: generate_counterfactual
+  - step: test_contradiction
+  - step: revise_if_dissonance   # awareness.revise() if F > 0.4
+  - step: commit_if_stable       # CollapseGate if F < 0.2
+fallback: escalate_to_llm
+```
+
+**Why YAML and not inline prompts:**
+- Deterministic, versioned, Git-trackable (can `git diff` across persona generations)
+- Composable — templates can `include` sub-templates (context-loop macros)
+- More precise than prompt templates for multi-step reasoning scaffolding
+- Separate from the persona's identity and separate from per-cycle VSA reasoning
+- JIT-compilable: `JitCompiler::compile(template_id)` → `KernelHandle` at dispatch time
+
+### Storage arithmetic
+```
+PersonaHub 370M rows:
+  Original:    370M × ~2KB/row = ~740 GB
+  Signatures:  370M × 7 bytes  =  2.6 GB  (285× reduction)
+  + template library: 10K × ~200 bytes YAML = 2 MB
+  Total: ~2.6 GB vs ~740 GB  (46,000× total reduction)
+```
+
+---
+
+## § 17 — The Four-Way Multiply + Style Oracle (ONNX@L4/L5)
+
+### The four multiplicands
+
+```
+Persona × Style × Stage × Learned-dynamics = cognitive configuration space
+```
+
+| Axis | Cardinality | Representation | Implementation |
+|---|---|---|---|
+| **Persona** | 288 (8 × 36) | `PersonaId: (ExternalRole, ThinkingStyle)` | Identity type, AriGraph keyed |
+| **Style** | 36 ThinkingStyles | `ThinkingStyle` enum + `FieldModulation(7D)` | Already in contract |
+| **Stage** | 2 (rationale/answer) | `rationale_phase: bool` in `CognitiveEventRow` | MM-CoT stage split = FacultyDescriptor.inbound_style/outbound_style asymmetry |
+| **Learned-dynamics** | continuous | `style_oracle: &OnnxPersonaClassifier` | ONNX classifier at L4/L5 |
+
+Total configurations: 288 × 36 × 2 × (oracle prediction space) ≈ **20,736 × oracle**
+
+F-descent = automatic architecture search over this space. Misaligned configurations
+are dropped by the CollapseGate predicate; no explicit selection needed.
+
+### ONNX persona classifier (replaces Chronos proposal)
+
+**Why ONNX over Chronos:**
+
+| Criterion | Chronos | ONNX classifier |
+|---|---|---|
+| Output | 1D scalar (style ordinal) | 288 logits (full persona product) |
+| Task type | Time-series forecasting | Classification |
+| Training | Pre-trained (zero shots) | Trains from Lance E-DEPLOY-1 corpus |
+| Precision | Style axis only | Full `(role, style)` product axis |
+| Infra | Separate model download | `ort` crate — already justified by Jina v5 |
+| Fit | Partial fit (style only) | Full fit (role × thinking = persona) |
+
+**Architecture:**
+```
+Input:
+  recent_fingerprints: Tensor[N, 256×64]  // N recent cycle fingerprints as f32 bits
+  current_meta: Tensor[4]                  // MetaWord fields unpacked
+
+Hidden:
+  Linear(N×16384 → 512) + ReLU
+  Linear(512 → 288)
+
+Output:
+  logits: Tensor[288]  // log-softmax over all (ExternalRole, ThinkingStyle) pairs
+  → argmax → PersonaId { role, style }
+```
+
+**Integration into Think struct:**
+```rust
+struct Think {
+    trajectory:     Vsa10k,
+    awareness:      ParamTruths,
+    free_energy:    FreeEnergy,
+    resolution:     Resolution,
+    episodic:       &EpisodicMemory,
+    graph:          &TripletGraph,
+    global_context: &Vsa10k,
+    codec:          &CamPqCodec,
+    // ── § 17 addition ──
+    style_oracle:   Option<&OnnxPersonaClassifier>,  // None = StyleSelector::Auto fallback
+}
+```
+
+`StyleSelector::Auto` remains the fallback when no oracle is loaded (cold start,
+no training corpus yet). ONNX oracle augments, does not replace, the static
+qualia→style rule.
+
+**Training pipeline:**
+1. Lance internal_cold dataset accumulates: `{ fingerprint[u64;256], meta: MetaWord, f_outcome: f32, role: u8, style: u8 }`
+2. Rows labeled by F: `f_outcome < 0.2` → committed persona, `f_outcome > 0.8` → failed persona
+3. Export to ONNX-format Parquet tensors
+4. Train small classifier (< 2MB ONNX, fits in process memory)
+5. Hot-reload via `ort::Session::new()` at version boundary
+
+**Layer placement:** L4/L5 (internal, before CollapseGate). Never exposed externally.
+ONNX model file is internal asset, not an external API concern.
+
+### MM-CoT stage split (zero new architecture)
+
+The two-stage CoT structure (rationale → answer) from MM-CoT maps exactly to
+`FacultyDescriptor.inbound_style` / `outbound_style` asymmetry:
+
+```
+inbound_style  = ThinkingStyle for rationale generation (Stage 1, "thinking")
+outbound_style = ThinkingStyle for answer emission     (Stage 2, "answer")
+is_asymmetric() returns true iff these differ — exactly the MM-CoT condition
+```
+
+`CognitiveEventRow` gains one column:
+```rust
+pub rationale_phase: bool,  // true = Stage 1 (rationale), false = Stage 2 (answer)
+```
+
+No new trait, no new struct. The stage is already intrinsic to `FacultyDescriptor`;
+`rationale_phase` surfaces it in the projected scalar row for external subscribers.
+
+### PersonaHub compression summary
+
+```
+370M personas → extract:
+  atom_bitset:   u32   (which of 32 named atoms are active)
+  palette_weight: u8   (16 weight levels, coarse encoding)
+  template_id:   u16   (which YAML runbook handles this signature)
+               = 56 bits = 7 bytes per persona
+
+Offline extraction:
+  For each PersonaHub row → parse YAML → map to atom presence → pack 56-bit signature
+  Output: 2.6 GB flat binary + 10K YAML templates (~2 MB)
+  Hash-deduplicate → ~1–5M unique signatures in practice (PersonaHub has high redundancy)
+
+Runtime lookup:
+  PersonaId → signature (56-bit lookup table, negligible memory)
+  signature.template_id → JIT compile YAML runbook → KernelHandle
+  PersonaId + KernelHandle → cognitive configuration for this turn
+```
