@@ -7,23 +7,27 @@
 //!
 //! Address width for named fingerprints is fixed at 256 × u64 = 16,384 bits
 //! = `ndarray::hpc::fingerprint::Fingerprint<256>`.
+//! The `cycle` column uses `Vsa16kF32` carrier (16,384 × f32 = 64 KB per row)
+//! for algebraic operations; other planes remain `u64 × 256`.
 
 use lance_graph_contract::cognitive_shader::{ColumnWindow, MetaFilter, MetaWord};
 
 pub const WORDS_PER_FP: usize = 256;
 pub const WIDTH_BITS: usize = WORDS_PER_FP * 64;
 pub const QUALIA_DIMS: usize = 18;
+pub const FLOATS_PER_VSA: usize = 16_384;  // Vsa16kF32 carrier width
 
 /// Named fingerprint planes (content / cycle / topic / angle).
-/// Flat `Box<[u64]>` of length `len * 256`. Each row starts at
+/// Flat `Box<[u64]>` of length `len * 256` for content/topic/angle. Each row starts at
 /// `row * 256` words and spans 256 consecutive u64.
+/// The `cycle` plane uses `Vsa16kF32` carrier: `Box<[f32]>` of length `len * 16_384`.
 ///
 /// Why not `[[u64; 256]]`? Because row-major Box<[u64]> gives us O(1)
 /// `chunks_exact(256)` iteration which LLVM autovectorises cleanly.
 #[derive(Debug)]
 pub struct FingerprintColumns {
     pub content: Box<[u64]>,
-    pub cycle: Box<[u64]>,
+    pub cycle: Box<[f32]>,    // was Box<[u64]>, now Vsa16kF32 carrier (16_384 f32 per row)
     pub topic: Box<[u64]>,
     pub angle: Box<[u64]>,
 }
@@ -31,7 +35,12 @@ pub struct FingerprintColumns {
 impl FingerprintColumns {
     pub fn zeros(len: usize) -> Self {
         let mk = || vec![0u64; len * WORDS_PER_FP].into_boxed_slice();
-        Self { content: mk(), cycle: mk(), topic: mk(), angle: mk() }
+        Self {
+            content: mk(),
+            cycle: vec![0.0f32; len * FLOATS_PER_VSA].into_boxed_slice(),
+            topic: mk(),
+            angle: mk(),
+        }
     }
 
     /// Zero-copy view of a row's content fingerprint words (len = 256).
@@ -41,8 +50,8 @@ impl FingerprintColumns {
     }
 
     #[inline]
-    pub fn cycle_row(&self, row: usize) -> &[u64] {
-        &self.cycle[row * WORDS_PER_FP..(row + 1) * WORDS_PER_FP]
+    pub fn cycle_row(&self, row: usize) -> &[f32] {
+        &self.cycle[row * FLOATS_PER_VSA..(row + 1) * FLOATS_PER_VSA]
     }
 
     #[inline]
@@ -62,10 +71,19 @@ impl FingerprintColumns {
             .copy_from_slice(words);
     }
 
-    pub fn set_cycle(&mut self, row: usize, words: &[u64]) {
-        assert_eq!(words.len(), WORDS_PER_FP);
-        self.cycle[row * WORDS_PER_FP..(row + 1) * WORDS_PER_FP]
-            .copy_from_slice(words);
+    pub fn set_cycle(&mut self, row: usize, vsa: &[f32]) {
+        assert_eq!(vsa.len(), FLOATS_PER_VSA);
+        self.cycle[row * FLOATS_PER_VSA..(row + 1) * FLOATS_PER_VSA]
+            .copy_from_slice(vsa);
+    }
+
+    /// Write a cycle fingerprint from Binary16K (u64×256) by projecting to Vsa16kF32 bipolar.
+    /// This is the adapter for upstream producers (ShaderBus) that still emit u64.
+    pub fn set_cycle_from_bits(&mut self, row: usize, bits: &[u64; WORDS_PER_FP]) {
+        use lance_graph_contract::crystal::binary16k_to_vsa16k_bipolar;
+        let vsa = binary16k_to_vsa16k_bipolar(bits);
+        self.cycle[row * FLOATS_PER_VSA..(row + 1) * FLOATS_PER_VSA]
+            .copy_from_slice(&*vsa);
     }
 }
 
@@ -144,13 +162,14 @@ impl BindSpace {
 
     /// Total byte footprint (sum across all columns).
     pub fn byte_footprint(&self) -> usize {
-        let fp_bytes = 4 * self.len * WORDS_PER_FP * 8; // 4 planes × len × 256 × 8
+        let content_topic_angle = 3 * self.len * WORDS_PER_FP * 8;
+        let cycle_bytes = self.len * FLOATS_PER_VSA * 4; // f32 carrier
         let edge_bytes = self.len * 8;
         let qualia_bytes = self.len * QUALIA_DIMS * 4;
         let meta_bytes = self.len * 4;
         let temporal_bytes = self.len * 8;
         let expert_bytes = self.len * 2;
-        fp_bytes + edge_bytes + qualia_bytes + meta_bytes + temporal_bytes + expert_bytes
+        content_topic_angle + cycle_bytes + edge_bytes + qualia_bytes + meta_bytes + temporal_bytes + expert_bytes
     }
 
     /// Apply MetaFilter across a row window. Returns a dense Vec of row
@@ -173,7 +192,7 @@ impl BindSpace {
     /// Layer 4 (cognitive_stack) persists its per-cycle signature into
     /// BindSpace so future cycles can retrieve/replay it.
     pub fn write_cycle_fingerprint(&mut self, row: usize, cycle_fp: &[u64; WORDS_PER_FP]) {
-        self.fingerprints.set_cycle(row, cycle_fp);
+        self.fingerprints.set_cycle_from_bits(row, cycle_fp);
     }
 }
 
@@ -227,6 +246,7 @@ mod tests {
         let bs = BindSpace::zeros(10);
         assert_eq!(bs.len, 10);
         assert_eq!(bs.fingerprints.content.len(), 10 * WORDS_PER_FP);
+        assert_eq!(bs.fingerprints.cycle.len(), 10 * FLOATS_PER_VSA);
         assert_eq!(bs.qualia.0.len(), 10 * QUALIA_DIMS);
         assert_eq!(bs.meta.0.len(), 10);
     }
@@ -234,9 +254,9 @@ mod tests {
     #[test]
     fn bindspace_footprint_adds_columns() {
         let bs = BindSpace::zeros(1);
-        // 4 × 2048 (fp) + 8 (edge) + 72 (qualia 18×4) + 4 (meta) + 8 (temporal) + 2 (expert)
-        // = 8192 + 8 + 72 + 4 + 8 + 2 = 8286
-        assert_eq!(bs.byte_footprint(), 8286);
+        // 3 × 2048 (content/topic/angle) + 65536 (cycle f32) + 8 (edge) + 72 (qualia 18×4) + 4 (meta) + 8 (temporal) + 2 (expert)
+        // = 6144 + 65536 + 8 + 72 + 4 + 8 + 2 = 71774
+        assert_eq!(bs.byte_footprint(), 71774);
     }
 
     #[test]
@@ -268,9 +288,25 @@ mod tests {
     fn write_cycle_fingerprint_persists() {
         let mut bs = BindSpace::zeros(2);
         let mut fp = [0u64; WORDS_PER_FP];
-        fp[42] = 0xDEADBEEF;
+        fp[0] = 1; // bit 0 set
         bs.write_cycle_fingerprint(1, &fp);
-        assert_eq!(bs.fingerprints.cycle_row(1)[42], 0xDEADBEEF);
-        assert_eq!(bs.fingerprints.cycle_row(0)[42], 0);
+        // After bipolar projection: bit 0 set → dim 0 = +1.0, bit 1 unset → dim 1 = -1.0
+        let row = bs.fingerprints.cycle_row(1);
+        assert_eq!(row[0], 1.0);   // bit 0 was set
+        assert_eq!(row[1], -1.0);  // bit 1 was not set
+        // Row 0 should still be all zeros (not projected)
+        assert!(bs.fingerprints.cycle_row(0).iter().all(|&v| v == 0.0));
+    }
+
+    #[test]
+    fn set_cycle_direct_f32() {
+        let mut bs = BindSpace::zeros(2);
+        let mut vsa = vec![0.0f32; FLOATS_PER_VSA];
+        vsa[42] = 0.75;
+        vsa[16383] = -0.5;
+        bs.fingerprints.set_cycle(0, &vsa);
+        assert_eq!(bs.fingerprints.cycle_row(0)[42], 0.75);
+        assert_eq!(bs.fingerprints.cycle_row(0)[16383], -0.5);
+        assert!(bs.fingerprints.cycle_row(1).iter().all(|&v| v == 0.0));
     }
 }

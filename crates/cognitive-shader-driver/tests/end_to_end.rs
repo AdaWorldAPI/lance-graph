@@ -6,7 +6,7 @@ use bgz17::base17::Base17;
 use bgz17::palette::Palette;
 use bgz17::palette_semiring::PaletteSemiring;
 
-use cognitive_shader_driver::bindspace::{BindSpace, WORDS_PER_FP};
+use cognitive_shader_driver::bindspace::{BindSpace, WORDS_PER_FP, FLOATS_PER_VSA};
 use cognitive_shader_driver::driver::CognitiveShaderBuilder;
 use cognitive_shader_driver::engine_bridge::{
     ingest_codebook_indices, persist_cycle, read_qualia_17d, write_qualia_17d,
@@ -111,9 +111,18 @@ fn full_pipeline_ingest_dispatch_persist_read() {
     let mut persist_bs = BindSpace::zeros(4);
     persist_cycle(&mut persist_bs, 0, &crystal.bus, style_ord);
 
-    // Verify cycle fingerprint was written.
-    let persisted_fp = persist_bs.fingerprints.cycle_row(0);
-    assert_eq!(persisted_fp, &crystal.bus.cycle_fingerprint[..]);
+    // Verify cycle fingerprint was written (now stored as f32 bipolar).
+    let persisted_vsa = persist_bs.fingerprints.cycle_row(0);
+    // Verify it's not all zeros (the bus had bits set via XOR fold).
+    let nonzero_count = persisted_vsa.iter().filter(|&&v| v != 0.0).count();
+    assert_eq!(nonzero_count, FLOATS_PER_VSA, "bipolar projection should have no zeros — every dim is ±1");
+    // Verify round-trip: threshold back to bits, compare.
+    use lance_graph_contract::crystal::vsa16k_to_binary16k_threshold;
+    let round_tripped = vsa16k_to_binary16k_threshold(
+        persisted_vsa.try_into().expect("cycle_row len must be 16384")
+    );
+    assert_eq!(&round_tripped[..], &crystal.bus.cycle_fingerprint[..],
+        "bipolar projection must be lossless round-trip");
 
     // Verify meta was packed.
     let meta = persist_bs.meta.get(0);
