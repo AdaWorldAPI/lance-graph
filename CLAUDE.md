@@ -384,14 +384,18 @@ Consequences:
   fingerprint. Content (slots, rules, prompts) lives in YAML.
   Resonance (cosine vs codebook) dispatches to content.
 
-Cross-ref: `.claude/knowledge/vsa-switchboard-architecture.md` (the
-full three-layer architecture with decision matrix), `I-SUBSTRATE-MARKOV`
-(Chapman-Kolmogorov semigroup), `I-NOISE-FLOOR-JIRAK` (weak
-dependence from CAM-PQ contamination). Together these three iron
-rules bound the substrate: (1) VSA bundling guarantees the Markov
-property; (2) classical Berry-Esseen is wrong under CAM-PQ-induced
-weak dependence; (3) CAM-PQ and VSA are separate tools for separate
-operations — bundle identities, not content.
+Cross-ref: `FormatBestPractices.md` (Jirak-grounded per-workload
+decision matrix — which format to use when, with SNR/capacity/cache/
+precision analysis), `.claude/knowledge/vsa-switchboard-architecture.md`
+(the full three-layer architecture with decision matrix), `CHANGELOG.md`
+(format-switch history — when each variant was introduced, when
+renames/reverts happened, why), `I-SUBSTRATE-MARKOV` (Chapman-Kolmogorov
+semigroup), `I-NOISE-FLOOR-JIRAK` (weak dependence from CAM-PQ
+contamination). Together these three iron rules bound the substrate:
+(1) VSA bundling guarantees the Markov property; (2) classical
+Berry-Esseen is wrong under CAM-PQ-induced weak dependence; (3)
+CAM-PQ and VSA are separate tools for separate operations — bundle
+identities, not content.
 
 ---
 

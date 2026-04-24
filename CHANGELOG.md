@@ -235,6 +235,10 @@ workloads.
 
 ## References
 
+- **`FormatBestPractices.md`** — Jirak-grounded per-workload decision
+  matrix. What format to use when, with SNR / capacity / cache /
+  precision analysis. The scientific grounding for every choice this
+  file records.
 - `CLAUDE.md` — iron rules (I-SUBSTRATE-MARKOV, I-NOISE-FLOOR-JIRAK,
   I-VSA-IDENTITIES)
 - `.claude/knowledge/vsa-switchboard-architecture.md` — three-layer

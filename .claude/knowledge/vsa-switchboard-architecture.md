@@ -445,6 +445,10 @@ awareness) while correcting the concrete format choice.
 - `CHANGELOG.md` — **the format-switch history** (when each VSA
   variant was introduced, when renames/reverts happened, what the
   reasoning was). Canonical "when did format X change and why?" doc.
+- **`FormatBestPractices.md`** — Jirak-grounded per-workload decision
+  matrix. Every format choice with SNR / capacity / cache / precision
+  analysis. The scientific grounding for the decision matrices in
+  this doc.
 - `EPIPHANIES.md` — see CORRECTION-OF entries dated 2026-04-21 cleanup
 - `.claude/board/TECH_DEBT.md` — VSA substrate rename debt, D5 revert debt
 - `CLAUDE.md § The Click (P-1)` — meta-architecture (correct), updated to reflect FP32 multiply/add
