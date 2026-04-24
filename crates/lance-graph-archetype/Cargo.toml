@@ -1,0 +1,19 @@
+[package]
+name = "lance-graph-archetype"
+version = "0.1.0"
+edition = "2021"
+description = "Archetype transcode scaffold (ECS-style types transcoded to Arrow/Lance). Per ADR-0001 Decision 1: defines its OWN Rust interface (not a mirror of upstream Python). Inside-BBB only — types in this crate never cross the CognitiveEventRow membrane."
+license = "Apache-2.0"
+keywords = ["lance", "graph", "archetype", "ecs", "transcode"]
+
+[dependencies]
+lance-graph-contract = { path = "../lance-graph-contract" }
+# NOTE: plan specified { workspace = true } for arrow/thiserror, but this
+# workspace has no shared [workspace.dependencies] table today; using
+# explicit versions consistent with the rest of the codebase (arrow 57,
+# thiserror 2). See PR description for the single-line deviation.
+arrow = "57"
+thiserror = "2"
+
+[dev-dependencies]
+# nothing initially

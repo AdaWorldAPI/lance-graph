@@ -250,3 +250,18 @@ newest-first.** A `BlackboardEntry` by any other transport.
 **Commits:** `5e00049` (AGENT_LOG created) → `c0eda21` (blackboard protocol) → `13c1f19` (three-layer docs) → current
 **Tests:** 209 contract + 14 RBAC = 223 pass
 **Outcome:** Documented three coordination layers (Teleport / File Blackboard / Branch Pub-Sub). Added `cat >>` heredoc as canonical append pattern. Permissions opened for `cat >> AGENT_LOG.md`, `git push/fetch/pull`, `cargo test/check`. RBAC crate shipped (permission × role × policy × access). Ontology layer shipped (LinkSpec, PrefetchDepth, ActionSpec, ModelBinding, ModelHealth, SimulationSpec).
+
+
+## 2026-04-24T16:30 — Supabase subscriber v2 (sonnet, claude/supabase-subscriber-wire-up)
+
+**D-ids:** DM-4a/b/c, DM-6a/b
+**Commit:** `ec3b5c7`
+**Tests:** 17 pass with realtime feature (13 without); 5 new tests total
+**Outcome:** Wired LanceMembrane::subscribe() from Phase-A disconnected mpsc stub to live tokio::sync::watch::Receiver<CognitiveEventRow> under [realtime] feature. PR #255 merged.
+
+## 2026-04-24T16:30 — Archetype scaffold v2 (sonnet, claude/archetype-crate-scaffold)
+
+**D-ids:** DU-2.1..2.6
+**Commit:** `816a7c0`
+**Tests:** 12 pass
+**Outcome:** Shipped `lance-graph-archetype` crate scaffold: Component + Processor traits, World meta-state with tick/fork/at_tick stubs, CommandBroker FIFO queue, ArchetypeError. PR #254 merged.
