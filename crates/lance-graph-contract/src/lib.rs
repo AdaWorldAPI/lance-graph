@@ -56,3 +56,8 @@ pub mod crystal;
 pub mod external_membrane;
 pub mod persona;
 pub mod faculty;
+pub mod repository;
+pub mod mail;
+pub mod ocr;
+pub mod tax;
+pub mod reasoning;
