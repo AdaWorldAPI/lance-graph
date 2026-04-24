@@ -205,6 +205,7 @@ updating the relevant board file in the SAME commit is incomplete.**
 | A finding / correction / "aha" | `.claude/board/EPIPHANIES.md` PREPEND dated entry |
 | A tech-debt observation | `.claude/board/TECH_DEBT.md` entry |
 | An unresolved issue / blocker | `.claude/board/ISSUES.md` entry |
+| A completed agent run | `.claude/board/AGENT_LOG.md` PREPEND entry (D-ids, commit, tests, outcome) |
 
 The governance files are APPEND-ONLY (prepend new entries; never
 edit past entries except the `**Status:**` / `**Confidence:**`
