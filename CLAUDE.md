@@ -9,19 +9,29 @@
 ## The Click (P-1 — read before everything else, including The Stance)
 
 **Parsing, disambiguation, learning, memory, and awareness are one
-operation.** Element-wise XOR on role-indexed slices of `[u64; 157]`.
+operation.** Element-wise multiply + add on role-indexed identity
+fingerprints in `Vsa16kF32 = Box<[f32; 16_384]>` (64 KB lossless
+VSA carrier).
+
+> **Correction of initial 2026-04-21 framing:** earlier this session
+> posted a version claiming "XOR on `[u64; 157]`" — that was a
+> Frankenstein confusion between Binary16K (Hamming-compare format,
+> `[u64; 256]`) and the actual VSA carrier (real-valued multiply+add).
+> See `.claude/knowledge/vsa-switchboard-architecture.md` for the
+> corrected three-layer framing.
 
 ```
-  Sentence → FSM → RoleKey::bind(token)  → XOR-superpose with ρ^d braiding
+  Sentence → FSM → RoleKey_fp × content_fp   → vsa_bundle (Σ) with ρ^d braiding
                          │                         │
-                   Kan extension              Markov ±5 trajectory
-                   (Shaw 2501.05368:          (temporal causality is
-                    theorem, not heuristic)    structural, not learned)
+                   Kan extension                Markov ±5 trajectory
+                   (Shaw 2501.05368:            (temporal causality is
+                    element-wise optimal         structural, not learned)
+                    in ℝ value category)
                          │                         │
                          └────────┬────────────────┘
                                   ▼
                     FreeEnergy::compose(likelihood, kl)
-                    likelihood = RoleKey::recovery_margin  (unbind → match)
+                    likelihood = vsa_cosine(unbind(bundle), codebook_fp)
                     kl = awareness.divergence_from(prior)  (NARS-revised)
                                   │
                     ┌─────────────┼──────────────┐
@@ -42,15 +52,18 @@ operation.** Element-wise XOR on role-indexed slices of `[u64; 157]`.
 
 **Three things that must never be complicated:**
 
-1. **Markov = XOR.** Per-sentence Vsa10k, braided by position,
-   XOR-superposed. No HMM. No transition matrix. No weights.
-2. **Roles = spine coordinates.** SUBJECT[0..2K) is "who".
-   PREDICATE[2K..4K) is "what". Unbinding = reading a coordinate.
-   Temporal causality is structural (braiding × slices).
+1. **Markov = f32 multiply + add of identity fingerprints.** Per-sentence
+   Vsa16kF32, braided by position (vsa_permute), superposed via
+   element-wise add. No HMM. No transition matrix. No weights. Lossless
+   up to N ≤ √d / 4 ≈ 32 bundled items (f32 dynamic range).
+2. **Roles = spine coordinates.** SUBJECT[0..4K) is "who".
+   PREDICATE[4K..8K) is "what". Unbinding = multiply by role key =
+   reading a coordinate. Temporal causality is structural
+   (braiding × slices).
 3. **Meaning = AriGraph facts + resonance + magnitude.**
-   Resonance = recovery margin against global context. Magnitude =
-   Contradiction depth from Staunen × Wisdom qualia. Opinions are
-   committed contradictions preserved, not resolved.
+   Resonance = cosine similarity against global context or codebook.
+   Magnitude = Contradiction depth from Staunen × Wisdom qualia.
+   Opinions are committed contradictions preserved, not resolved.
 
 **The object speaks for itself.** `trajectory.resolve(ambiguity)` —
 not `resolve(trajectory, config, awareness, graph)`. Every method
@@ -308,6 +321,76 @@ Consequences:
 Cross-ref: `EPIPHANIES.md` [FORMAL-SCAFFOLD] five-pillar entry;
 E-ORIG-7 (the earlier statement of this finding before it became
 an iron rule); Jirak 2016.
+
+#### I-VSA-IDENTITIES (iron rule, added 2026-04-21)
+
+**VSA operates on IDENTITY fingerprints that POINT TO content.
+Never on content's bitpacked/quantized register itself.**
+
+The register-loss problem: XOR-bundling (or any superposition) of
+CAM-PQ codes, quantized indices, or sign-binarized fingerprints
+destroys the mapping from bits back to their codebook entries. The
+register is destroyed — you can't recover which codebook centroids
+contributed.
+
+The right pattern, three layers:
+
+1. **Switchboard carrier** (in `crystal/fingerprint.rs`) — one set
+   of types + one algebra, domain-agnostic: `Vsa16kF32` (64 KB hot
+   path), `Vsa16kBF16` (32 KB AMX-accelerated), `Vsa16kF16`
+   (32 KB Apple/ARM), `Vsa16kI8` (16 KB quantized), `Binary16K`
+   (2 KB Hamming compare). Algebra: `vsa_bind` (multiply),
+   `vsa_bundle` (add), `vsa_cosine` (similarity).
+
+2. **Domain role catalogues** (per-domain) — `grammar/role_keys.rs`,
+   future `persona/role_keys.rs`, `callcenter/role_keys.rs`. Each
+   provides its own set of role IDENTITY fingerprints in Vsa16kF32
+   with disjoint `[start:end)` slice allocations. Role keys are
+   bipolar ±1 in their slice, zero elsewhere. Catalogue, not algebra.
+
+3. **Content stores** — YAML registries, TripletGraph, EpisodicMemory.
+   Actual content lives here, O(1) retrieval by identity (name /
+   enum / fingerprint). Never bundled, never superposed.
+
+The four tests before reaching for VSA (in order):
+
+- **Test 0 — register laziness:** Does this thing have a natural
+  name / ID / enum variant? If yes, use the register. `HashMap`,
+  `enum`, `graph.nodes_matching(id)` beat VSA at exact-match tasks.
+- **Test 1 — bundle size:** Is N ≤ √d / 4 ≈ 32 at 16K dim? If not,
+  superposition SNR drops below threshold. Use direct lookup instead.
+- **Test 2 — role orthogonality:** Are the role keys mutually
+  orthogonal (disjoint slice, or orthogonal bipolar)? If not,
+  unbind doesn't recover cleanly.
+- **Test 3 — cleanup codebook:** Is there a known codebook to
+  match against after unbind? Without it, raw bundle inspection
+  is unreliable.
+
+Any "no" short-circuits — it's not a VSA workload, use the right
+tool instead.
+
+Consequences:
+
+- **CAM-PQ vs VSA:** Never superpose CAM-PQ codes directly. CAM-PQ
+  is for *search* (compressed nearest-neighbor); VSA is for
+  *bundling* (lossless role superposition). Switching between them
+  requires decompression, not mixing.
+- **Lazy VSA check:** If Vsa16kF32 is being reached for as a fancy
+  lookup when a HashMap would do, stop. That's register laziness,
+  not VSA usage.
+- **Archetype / persona / thinking-style unification:** All four
+  are Layer-2 role catalogues. Each entry gets ONE identity
+  fingerprint. Content (slots, rules, prompts) lives in YAML.
+  Resonance (cosine vs codebook) dispatches to content.
+
+Cross-ref: `.claude/knowledge/vsa-switchboard-architecture.md` (the
+full three-layer architecture with decision matrix), `I-SUBSTRATE-MARKOV`
+(Chapman-Kolmogorov semigroup), `I-NOISE-FLOOR-JIRAK` (weak
+dependence from CAM-PQ contamination). Together these three iron
+rules bound the substrate: (1) VSA bundling guarantees the Markov
+property; (2) classical Berry-Esseen is wrong under CAM-PQ-induced
+weak dependence; (3) CAM-PQ and VSA are separate tools for separate
+operations — bundle identities, not content.
 
 ---
 

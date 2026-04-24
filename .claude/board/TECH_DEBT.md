@@ -377,3 +377,159 @@ n8n-rs             = The Orchestrator (workflow DAG, step routing)
 **Cross-ref:** prior entries "Ladybug 700-1100 MB memory blowup",
 "Vsa10k* → Vsa16k* rename sweep", "CORRECTION-OF ... 10k × 10k GLITCH
 MATRIX" — all carry this decision as their closing context.
+
+## 2026-04-21 — D5 deepnsm files built on wrong VSA substrate (Frankenstein revert needed)
+**Status:** Open
+**Priority:** P0
+**Scope:** @truth-architect @container-architect D5 domain:vsa domain:grammar
+**Introduced by:** PR #243 (this session)
+**Payoff estimate:** ~200 LOC rewrite — revert four files + reimplement on Vsa16kF32
+
+Three deepnsm files and one contract addition built on `Vsa10k = [u64; 157]`
+bitpacked binary + XOR algebra. Correct substrate is `Vsa16kF32 = Box<[f32;
+16_384]>` (pending Vsa10k→Vsa16k coordinated rescale) with element-wise
+multiply/add (`vsa_bind`/`vsa_bundle`/`vsa_cosine` that already exist in
+`crystal/fingerprint.rs`).
+
+Files to rewrite:
+
+1. `crates/deepnsm/src/content_fp.rs` — produce `Box<[f32; 16_384]>`
+   bipolar fingerprints (sign bit from SplitMix64), not `[u64; 157]`.
+2. `crates/deepnsm/src/markov_bundle.rs` — use `vsa_bundle` (add) not
+   `vsa_xor`. Braiding via `vsa_permute` on f32 indices, not bit rotation.
+3. `crates/deepnsm/src/trajectory.rs` — `free_energy` likelihood term uses
+   `vsa_cosine(unbind, expected)` per role, not Hamming recovery margin.
+4. `crates/lance-graph-contract/src/grammar/role_keys.rs` — DELETE
+   `RoleKey::bind/unbind/recovery_margin` (algebra belongs on carrier).
+   DELETE `vsa_xor`, `vsa_similarity`. DELETE `Vsa10k` type alias.
+   Keep role key static definitions but retype as `Box<[f32; 16_384]>`
+   bipolar values (sign bit from FNV-seeded SplitMix64, ±1 in slice,
+   zero elsewhere).
+
+Dependency: blocks on the Vsa10k→Vsa16k coordinated rescale PR (ndarray
++ contract). Until that lands, interim fix is to use existing `Vsa10kF32`
+(10,000 dims) without renaming.
+
+Cross-ref: `.claude/knowledge/vsa-switchboard-architecture.md` (full
+three-layer architecture), `EPIPHANIES.md` 2026-04-21 CORRECTION-OF entry,
+audit agent report 2026-04-21.
+
+## 2026-04-21 — Vsa10k→Vsa16k coordinated rescale (ndarray + lance-graph-contract)
+**Status:** Open
+**Priority:** P1
+**Scope:** @container-architect @truth-architect D6 D0 domain:vsa domain:codec cross-repo:ndarray
+**Introduced by:** architectural choice (originally flagged 2026-04-19 P1 debt, now coordinated two-repo scope)
+**Payoff estimate:** 2 coordinated PRs (ndarray + contract) — ~40 LOC ndarray,
+~200 LOC contract (rename + rescale + sandwich constants + passthrough funcs)
+
+Rescale the float VSA carrier from 10,000 dims to 16,384 dims. This:
+- Makes Binary16K ↔ Vsa16kF32 passthrough 1:1 (currently 16K bits vs 10K dims)
+- Gives +60% capacity for orthogonal role superposition (Johnson-Lindenstrauss)
+- Allows power-of-2 role slice boundaries (SUBJECT[0..4096), etc.)
+- Aligns float VSA dim with Binary16K bit width
+
+NOT a SIMD alignment issue for floats — both 10,000 and 16,384 f32 are
+AVX-512-clean. The 157→160 u64 alignment issue was a BINARY-format-only
+concern.
+
+ndarray side: `VSA_DIMS = 16_384`, `VSA_WORDS = 256`, rescale VsaVector,
+vsa_permute, vsa_bundle, VsaAccumulator.
+
+contract side: rename `Vsa10kF32/I8` → `Vsa16kF32/I8`, rescale Box array
+sizes, update sandwich constants (SANDWICH_TAIL_END = 16_384), update
+passthrough funcs (to_vsa10k_f32 → to_vsa16k_f32, etc.), update role-key
+slice boundaries proportionally.
+
+Cross-ref: `cross-repo-harvest-2026-04-19.md` H6, prior tech debt entry
+from 2026-04-19.
+
+## 2026-04-21 — Jirak-derived thresholds probe (replace hand-tuned σ constants)
+**Status:** Open
+**Priority:** P1
+**Scope:** @truth-architect @probe-runner D7 D10 domain:vsa domain:stats
+**Introduced by:** CLAUDE.md `I-NOISE-FLOOR-JIRAK` iron rule
+**Payoff estimate:** ~100 LOC in contract crate (jirak_threshold function)
++ one-shot calibration probe on Animal Farm to measure ρ
+
+Hand-picked constants:
+- `UNBUNDLE_HARDNESS_THRESHOLD = 0.8` (PR #208)
+- `UNBUNDLE_ABDUCTION_THRESHOLD = 0.88` (this session, D7)
+- `HOMEOSTASIS_FLOOR = 0.2`, `EPIPHANY_MARGIN = 0.05`, `FAILURE_CEILING = 0.8`
+  (this session, free_energy.rs)
+
+All hand-tuned. Should become functions of measured bit-level weak
+dependence ρ per Jirak 2016 (arxiv 1606.01617).
+
+Probe:
+1. Measure ρ on actual Binary16K fingerprint distribution (autocorrelation
+   of bit i with bit j across a representative corpus).
+2. Implement `jirak_threshold(n: usize, rho: f32, confidence: f32) -> f32`.
+3. Replace hand-picked constants with calls to this function.
+4. First-run calibration: Animal Farm corpus for the grammar/coref pipeline.
+
+Ship this BEFORE claiming the stack is "grounded." Currently it's
+"tuned," which is defensible but must be documented honestly.
+
+Cross-ref: CLAUDE.md `I-NOISE-FLOOR-JIRAK`, `.claude/jc/examples/prove_it.rs`
+(3/5 pillars already run in 5s).
+
+## 2026-04-21 — ONNX 16kbit story-arc learning (D9 deferred)
+**Status:** Open
+**Priority:** P2
+**Scope:** @truth-architect @onnx-bridge D9 domain:arc domain:learning
+**Introduced by:** `categorical-algebraic-inference-v1.md` D9 architectural
+placeholder
+**Payoff estimate:** new crate or bridge module (~300 LOC) + ONNX model
+training pipeline (out of scope for lance-graph; upstream in thinking-engine)
+
+The 3x16kbit Plane accumulator (ndarray `plane.rs`, shipped in
+CROSS_REPO_AUDIT_2026_04_01.md) is the write-path for AriGraph edge
+learning. It is NOT a VSA carrier — it's a saturating i8 accumulator.
+
+D9 ONNX arc export should consume Vsa16kF32 trajectory fingerprints
+(identity layer) and predict state transitions. The model is trained
+on (state, arc_pressure, arc_derivative) tuples emitted per cycle.
+
+Deferred until:
+1. D5 rewrite (correct VSA substrate)
+2. D8 AriGraph commit bridge
+3. D10 Animal Farm benchmark running
+
+Then ONNX training has a corpus to consume.
+
+Cross-ref: `categorical-algebraic-inference-v1.md` §4 Next deferred,
+ndarray `plane.rs`.
+
+## 2026-04-21 — Callcenter / persona / archetype catalogues (speculative intent preservation)
+**Status:** Open
+**Priority:** P3 (tracked but low)
+**Scope:** @host-glove-designer @truth-architect domain:persona domain:callcenter
+**Introduced by:** architectural discussion 2026-04-21
+**Payoff estimate:** deferred — not yet greenlit as deliverables
+
+The three-layer VSA architecture explicitly supports callcenter intent
+classification, persona-agent routing, and archetype-based character
+inference. None of these are shipped features; they are SPECULATIVE
+applications of the switchboard pattern.
+
+Intent preservation (for future planning sessions):
+1. Callcenter agents as persona-registry consumers (each agent role =
+   one persona identity fingerprint).
+2. Intent classification via VSA resonance (caller turn → role bundle
+   → cosine-rank against intent codebook → dispatch).
+3. Supabase as content layer (NOT VSA layer) — stores persona YAML,
+   intent definitions, call transcripts, cumulative awareness. Supabase
+   never stores VSA bundles (those are ephemeral compute state).
+4. "BBB" references in prior conversations = speculative benchmarks
+   (Better Business Bureau complaint handling), not shipped features.
+5. Archetype catalogue unification with existing palette archetypes
+   (256 per plane in bgz17), VoiceArchetype (16 channels in ndarray::
+   hpc::audio), Glyph5B (5-byte archetype addressing).
+
+Do NOT ship without explicit green-light. The architecture supports it;
+the current scope doesn't include it. Preserve the framing for when
+these become tracked deliverables.
+
+Cross-ref: `.claude/knowledge/vsa-switchboard-architecture.md` § The
+Archetype ↔ AriGraph ↔ Persona ↔ ThinkingStyle Unification.
+
