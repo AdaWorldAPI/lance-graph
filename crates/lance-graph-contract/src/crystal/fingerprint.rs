@@ -1,6 +1,6 @@
 //! CrystalFingerprint — polymorphic carrier of crystal semantic content.
 //!
-//! Four native forms:
+//! Five native forms:
 //!
 //! | Variant          | Size  | Role                                         |
 //! |------------------|-------|----------------------------------------------|
@@ -8,6 +8,23 @@
 //! | `Structured5x5`  | 3 KB  | Rich native form (5×5×5×5×5 cells).          |
 //! | `Vsa10kI8`       | 10 KB | lancedb-native VSA (int8).                   |
 //! | `Vsa10kF32`      | 40 KB | lancedb-native VSA (f32).                    |
+//! | `Vsa16kF32`      | 64 KB | Click-native switchboard carrier (f32, 16_384-D).|
+//!
+//! ## Vsa16kF32 — the inside-BBB switchboard carrier
+//!
+//! Per CLAUDE.md §The Click and the I-VSA-IDENTITIES iron rule, the
+//! 16,384-dimensional f32 VSA is the **switchboard carrier** for
+//! role-indexed bundle (Markov) and role-key bind/unbind on the
+//! semantic kernel. It is 1:1 bit-addressable with `Binary16K`
+//! (dimension i corresponds to bit i) and supports lossless bipolar
+//! projection in both directions via [`binary16k_to_vsa16k_bipolar`]
+//! and [`vsa16k_to_binary16k_threshold`].
+//!
+//! **BBB membrane status:** `Vsa16kF32` is INSIDE-BBB only. It does
+//! NOT cross the `ExternalMembrane` — the Arrow-scalar commit tier
+//! uses the 2 KB `Binary16K` projection (Index regime) or the 6 B
+//! CAM-PQ scent (Argmax regime). See I1 codec regime split
+//! (ADR-0002).
 //!
 //! ## Passthrough to 10,000-D
 //!
@@ -52,6 +69,11 @@ pub enum CrystalFingerprint {
 
     /// 10,000-D VSA, f32 components (lancedb-native, 40 KB).
     Vsa10kF32(Box<[f32; 10_000]>),
+
+    /// 16,384-D VSA, f32 components — the Click switchboard carrier (64 KB).
+    /// One-to-one with `Binary16K` dimensions via bipolar projection.
+    /// Inside-BBB only; never crosses `ExternalMembrane`.
+    Vsa16kF32(Box<[f32; 16_384]>),
 }
 
 /// Five-dimensional quorum: consensus along each of the 5^5 axes.
@@ -216,6 +238,20 @@ impl CrystalFingerprint {
             Self::Vsa10kF32(v) => {
                 out.copy_from_slice(&v[..]);
             }
+            Self::Vsa16kF32(v) => {
+                // 16_384 → 10_000 downcast: similarity-preserving stride copy
+                // with interleaved averaging of the surplus 6_384 dims into
+                // the base 10_000. Not lossless — reserved for cases where a
+                // 10K-surface consumer needs the 16K carrier's content. For
+                // lossless projection, stay on the 16K carrier.
+                for i in 0..10_000 {
+                    out[i] = v[i];
+                }
+                for j in 10_000..16_384 {
+                    let i = j - 10_000;
+                    out[i] = (out[i] + v[j]) * 0.5;
+                }
+            }
         }
         out
     }
@@ -297,6 +333,7 @@ impl CrystalFingerprint {
             Self::Structured5x5 { .. }    => 3125 + 5 * 4,      // ~3 KB
             Self::Vsa10kI8(_)            => 10_000,            // 10 KB
             Self::Vsa10kF32(_)           => 40_000,            // 40 KB
+            Self::Vsa16kF32(_)           => 65_536,            // 64 KB
         }
     }
 }
@@ -349,6 +386,93 @@ pub fn vsa_cosine(a: &[f32; 10_000], b: &[f32; 10_000]) -> f32 {
     let mut norm_a = 0.0f32;
     let mut norm_b = 0.0f32;
     for i in 0..10_000 {
+        dot += a[i] * b[i];
+        norm_a += a[i] * a[i];
+        norm_b += b[i] * b[i];
+    }
+    let denom = norm_a.sqrt() * norm_b.sqrt();
+    if denom < 1e-12 { 0.0 } else { dot / denom }
+}
+
+// ── Vsa16kF32 — the Click switchboard carrier ──────────────────────────
+//
+// One-to-one bit-addressable with Binary16K (dim i ↔ bit i). Bipolar
+// ±1 projection is lossless in both directions under strict-threshold
+// inverse. Supports the semantic-kernel algebra (role-indexed bundle
+// for Markov, element-wise bind for role-key slice assignment) on the
+// f32 carrier. 64 KB per vector; inside-BBB only.
+
+/// Allocate a zero-valued Vsa16kF32 carrier.
+#[inline]
+pub fn vsa16k_zero() -> Box<[f32; 16_384]> {
+    Box::new([0.0f32; 16_384])
+}
+
+/// Project a `Binary16K` (256 × u64 = 16_384 bits) into a bipolar
+/// `Vsa16kF32`: bit i set → +1.0 at dim i; bit i clear → -1.0.
+///
+/// Lossless under the inverse [`vsa16k_to_binary16k_threshold`].
+pub fn binary16k_to_vsa16k_bipolar(bits: &[u64; 256]) -> Box<[f32; 16_384]> {
+    let mut out = Box::new([0.0f32; 16_384]);
+    for w in 0..256 {
+        let word = bits[w];
+        for b in 0..64 {
+            let dim = w * 64 + b;
+            out[dim] = if (word >> b) & 1 == 1 { 1.0 } else { -1.0 };
+        }
+    }
+    out
+}
+
+/// Threshold a `Vsa16kF32` carrier back to a `Binary16K`: dim > 0.0 → bit set.
+///
+/// Inverse of [`binary16k_to_vsa16k_bipolar`] for any vector whose signs
+/// survived bundling / binding (does not require strict ±1 values —
+/// any positive value decodes to 1, any non-positive to 0).
+pub fn vsa16k_to_binary16k_threshold(v: &[f32; 16_384]) -> Box<[u64; 256]> {
+    let mut bits = Box::new([0u64; 256]);
+    for w in 0..256 {
+        let mut word = 0u64;
+        for b in 0..64 {
+            let dim = w * 64 + b;
+            if v[dim] > 0.0 {
+                word |= 1u64 << b;
+            }
+        }
+        bits[w] = word;
+    }
+    bits
+}
+
+/// Element-wise multiply (bind) on the 16K carrier: assigns a role key
+/// to content. Self-inverse for ±1 bipolar keys (key² = 1 elementwise).
+pub fn vsa16k_bind(a: &[f32; 16_384], b: &[f32; 16_384]) -> Box<[f32; 16_384]> {
+    let mut out = Box::new([0.0f32; 16_384]);
+    for i in 0..16_384 {
+        out[i] = a[i] * b[i];
+    }
+    out
+}
+
+/// Element-wise add (bundle / superposition) on the 16K carrier.
+/// Per I-SUBSTRATE-MARKOV, this is the Chapman-Kolmogorov-safe
+/// merge mode for state-transition paths. Do NOT substitute XOR.
+pub fn vsa16k_bundle(vectors: &[&[f32; 16_384]]) -> Box<[f32; 16_384]> {
+    let mut out = Box::new([0.0f32; 16_384]);
+    for v in vectors {
+        for i in 0..16_384 {
+            out[i] += v[i];
+        }
+    }
+    out
+}
+
+/// Cosine similarity between two 16K carriers.
+pub fn vsa16k_cosine(a: &[f32; 16_384], b: &[f32; 16_384]) -> f32 {
+    let mut dot = 0.0f32;
+    let mut norm_a = 0.0f32;
+    let mut norm_b = 0.0f32;
+    for i in 0..16_384 {
         dot += a[i] * b[i];
         norm_a += a[i] * a[i];
         norm_b += b[i] * b[i];
@@ -499,5 +623,108 @@ mod tests {
         let sim_b = vsa_cosine(&bundled, &b);
         assert!(sim_a > 0.5, "bundle should be similar to input a");
         assert!(sim_b > 0.0, "bundle should be positively similar to b");
+    }
+
+    #[test]
+    fn vsa16k_byte_size_is_64k() {
+        let fp = CrystalFingerprint::Vsa16kF32(Box::new([0.0f32; 16_384]));
+        assert_eq!(fp.byte_size(), 65_536);
+    }
+
+    #[test]
+    fn binary16k_to_vsa16k_bipolar_roundtrip_is_lossless() {
+        let mut bits = Box::new([0u64; 256]);
+        for i in 0..256 {
+            bits[i] = 0xDEAD_BEEF_CAFE_BABEu64.wrapping_mul(i as u64 + 1);
+        }
+        let v = binary16k_to_vsa16k_bipolar(&bits);
+        let back = vsa16k_to_binary16k_threshold(&v);
+        for i in 0..256 {
+            assert_eq!(back[i], bits[i],
+                "word {i}: expected {:#018x} got {:#018x}", bits[i], back[i]);
+        }
+    }
+
+    #[test]
+    fn vsa16k_bipolar_values_are_unit() {
+        let bits = Box::new([0xAAAA_AAAA_AAAA_AAAAu64; 256]);
+        let v = binary16k_to_vsa16k_bipolar(&bits);
+        for i in 0..16_384 {
+            assert!(v[i] == 1.0 || v[i] == -1.0,
+                "dim {i} is {} — must be strict ±1", v[i]);
+        }
+    }
+
+    #[test]
+    fn vsa16k_bind_is_self_inverse_for_bipolar() {
+        let key = {
+            let mut k = Box::new([0.0f32; 16_384]);
+            for i in 0..16_384 {
+                k[i] = if i % 3 == 0 { -1.0 } else { 1.0 };
+            }
+            k
+        };
+        let content = {
+            let mut c = Box::new([0.0f32; 16_384]);
+            for i in 0..16_384 {
+                c[i] = (i as f32 / 16_384.0) * 2.0 - 1.0;
+            }
+            c
+        };
+        let bound = vsa16k_bind(&content, &key);
+        let unbound = vsa16k_bind(&bound, &key);
+        for i in 0..16_384 {
+            assert!((unbound[i] - content[i]).abs() < 1e-5,
+                "dim {i}: expected {} got {}", content[i], unbound[i]);
+        }
+    }
+
+    #[test]
+    fn vsa16k_bundle_preserves_similarity_to_inputs() {
+        let a = {
+            let mut v = Box::new([0.0f32; 16_384]);
+            for i in 0..16_384 { v[i] = 1.0; }
+            v
+        };
+        let b = {
+            let mut v = Box::new([0.0f32; 16_384]);
+            for i in 0..16_384 { v[i] = if i < 8_192 { 1.0 } else { -1.0 }; }
+            v
+        };
+        let bundled = vsa16k_bundle(&[&*a, &*b]);
+        assert!(vsa16k_cosine(&bundled, &a) > 0.5);
+        assert!(vsa16k_cosine(&bundled, &b) > 0.0);
+    }
+
+    #[test]
+    fn vsa16k_bundle_then_unbind_recovers_role_content() {
+        // Two role slots, each with its own bipolar key; content bound to
+        // each; bundled; unbind by multiplying with the role key recovers
+        // the matching content above the noise floor.
+        let role_a = binary16k_to_vsa16k_bipolar(&Box::new([0xF0F0_F0F0_F0F0_F0F0u64; 256]));
+        let role_b = binary16k_to_vsa16k_bipolar(&Box::new([0x0F0F_0F0F_0F0F_0F0Fu64; 256]));
+        let content_a = binary16k_to_vsa16k_bipolar(&Box::new([0xAAAA_AAAA_AAAA_AAAAu64; 256]));
+        let content_b = binary16k_to_vsa16k_bipolar(&Box::new([0x5555_5555_5555_5555u64; 256]));
+        let bound_a = vsa16k_bind(&content_a, &role_a);
+        let bound_b = vsa16k_bind(&content_b, &role_b);
+        let bundled = vsa16k_bundle(&[&*bound_a, &*bound_b]);
+        let recovered_a = vsa16k_bind(&bundled, &role_a);
+        let recovered_b = vsa16k_bind(&bundled, &role_b);
+        assert!(vsa16k_cosine(&recovered_a, &content_a)
+              > vsa16k_cosine(&recovered_a, &content_b),
+            "unbind(role_a) must favour content_a over content_b");
+        assert!(vsa16k_cosine(&recovered_b, &content_b)
+              > vsa16k_cosine(&recovered_b, &content_a),
+            "unbind(role_b) must favour content_b over content_a");
+    }
+
+    #[test]
+    fn vsa16k_to_vsa10k_projection_is_finite() {
+        let fp = CrystalFingerprint::Vsa16kF32(Box::new([1.0f32; 16_384]));
+        let v10 = fp.to_vsa10k_f32();
+        for i in 0..10_000 {
+            assert!(v10[i].is_finite(),
+                "vsa16k→vsa10k must produce finite values; dim {i} is {}", v10[i]);
+        }
     }
 }

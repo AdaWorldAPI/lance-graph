@@ -68,7 +68,11 @@ pub mod document;
 pub mod cycle;
 pub mod session;
 
-pub use fingerprint::{CrystalFingerprint, Structured5x5, Quorum5D};
+pub use fingerprint::{
+    CrystalFingerprint, Structured5x5, Quorum5D,
+    vsa16k_zero, binary16k_to_vsa16k_bipolar, vsa16k_to_binary16k_threshold,
+    vsa16k_bind, vsa16k_bundle, vsa16k_cosine,
+};
 pub use sentence::SentenceCrystal;
 pub use context::ContextCrystal;
 pub use document::DocumentCrystal;
