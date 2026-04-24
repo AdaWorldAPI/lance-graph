@@ -4174,6 +4174,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "lance-graph-archetype"
+version = "0.1.0"
+dependencies = [
+ "arrow",
+ "lance-graph-contract",
+ "thiserror 2.0.17",
+]
+
+[[package]]
 name = "lance-graph-benches"
 version = "0.1.0"
 dependencies = [
