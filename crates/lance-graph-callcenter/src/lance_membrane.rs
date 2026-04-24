@@ -25,7 +25,7 @@
 //! Plan: `.claude/plans/callcenter-membrane-v1.md` § 10.9 – § 11
 
 use std::sync::{
-    atomic::{AtomicU64, Ordering},
+    atomic::{AtomicBool, AtomicU64, Ordering},
     mpsc, RwLock,
 };
 
@@ -52,6 +52,7 @@ pub struct LanceMembrane {
     current_faculty: RwLock<u8>,      // FacultyRole discriminant
     current_expert:  RwLock<ExpertId>,
     current_scent:   AtomicU64,
+    current_rationale_phase: AtomicBool, // MM-CoT stage: true = Stage 1 rationale
     version:         AtomicU64,
 }
 
@@ -62,6 +63,7 @@ impl LanceMembrane {
             current_faculty: RwLock::new(FacultyRole::ReadingComprehension as u8),
             current_expert:  RwLock::new(0),
             current_scent:   AtomicU64::new(0),
+            current_rationale_phase: AtomicBool::new(false),
             version:         AtomicU64::new(0),
         }
     }
@@ -70,6 +72,20 @@ impl LanceMembrane {
     /// Persist). Phase D wires this to the Lance dataset version.
     pub fn version(&self) -> u64 {
         self.version.load(Ordering::Acquire)
+    }
+
+    /// Set the faculty context for the current cycle.
+    ///
+    /// Called by the orchestration layer (not by `ingest`) when
+    /// the faculty dispatcher resolves which `FacultyDescriptor`
+    /// handles the current cycle. The `rationale_phase` argument
+    /// surfaces MM-CoT Stage 1 (true) vs Stage 2 (false); the
+    /// dispatcher derives it from `FacultyDescriptor::is_asymmetric()`
+    /// plus the current dispatch stage.
+    pub fn set_faculty_context(&self, faculty: u8, expert: ExpertId, rationale_phase: bool) {
+        *self.current_faculty.write().expect("faculty poisoned") = faculty;
+        *self.current_expert.write().expect("expert poisoned") = expert;
+        self.current_rationale_phase.store(rationale_phase, Ordering::Relaxed);
     }
 }
 
@@ -127,7 +143,7 @@ impl ExternalMembrane for LanceMembrane {
             cycle_fp_lo: bus.cycle_fingerprint[255],
             gate_commit:     bus.gate.is_flow(),
             gate_f:          meta.free_e(),
-            rationale_phase: false, // Phase B: wired from FacultyDescriptor::is_asymmetric()
+            rationale_phase: self.current_rationale_phase.load(Ordering::Relaxed),
         }
     }
 
@@ -253,6 +269,32 @@ mod tests {
         let rx = m.subscribe(CommitFilter::default());
         // Phase A: disconnected — no sender kept, recv errors immediately
         assert!(rx.try_recv().is_err());
+    }
+
+    #[test]
+    fn set_faculty_context_wires_rationale_phase() {
+        let m = LanceMembrane::new();
+        // Before wiring: rationale_phase defaults to false
+        let bus = ShaderBus::empty();
+        let meta = MetaWord::new(0, 0, 128, 128, 20);
+        let row = m.project(&bus, meta);
+        assert!(!row.rationale_phase, "default should be Stage 2 (false)");
+
+        // Wire Stage 1 (rationale) via set_faculty_context
+        m.set_faculty_context(
+            FacultyRole::ReadingComprehension as u8,
+            42, // expert_id
+            true, // rationale phase = Stage 1
+        );
+        let row = m.project(&bus, meta);
+        assert!(row.rationale_phase, "after set_faculty_context(true), should be Stage 1");
+        assert_eq!(row.faculty_role, FacultyRole::ReadingComprehension as u8);
+        assert_eq!(row.expert_id, 42);
+
+        // Wire Stage 2 (answer)
+        m.set_faculty_context(FacultyRole::ReadingComprehension as u8, 42, false);
+        let row = m.project(&bus, meta);
+        assert!(!row.rationale_phase, "after set_faculty_context(false), should be Stage 2");
     }
 
     #[test]
