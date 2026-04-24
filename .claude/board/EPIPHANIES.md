@@ -66,6 +66,16 @@ stay as historical references.
 ## Entries (reverse chronological)
 
 
+## 2026-04-24 — SMB as cognitive-stack testbed: PropertyKind + Schema builder + 6 trait files
+
+**Status:** FINDING
+**Owner scope:** @truth-architect, @family-codec-smith
+
+The bardioc Required/Optional/Free property concept maps 1:1 to the I1 Codec Regime Split (ADR-0002): Required = Passthrough (Index), Optional = configurable, Free = CamPq (Argmax). The `Schema` builder wraps this so SMB tenants define entity schemas in 10 lines — `.required("tax_id").searchable("industry").free("note")` — and the codec routing, NARS truth floors, and FailureTicket escalation happen automatically. Missing Required properties don't fail validation — they generate free energy, which the active-inference loop resolves. This makes the SMB domain a free testbed for the entire cognitive stack: SPO triples, episodic memory, CAM-PQ similarity, NARS truth, and FreeEnergy → Resolution pipeline, all exercised on real messy Steuerberater data.
+
+Cross-ref: `contract::property` (PropertyKind, PropertySpec, Schema, SchemaBuilder), `contract::cam::CodecRoute`, smb-office-rs `lance-graph-contract-proposal.md`.
+
+
 ## 2026-04-24 — Vsa16kF32 switchboard carrier shipped (CrystalFingerprint::Vsa16kF32 + 16K algebra)
 
 **Status:** FINDING

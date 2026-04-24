@@ -56,6 +56,18 @@ Types live in `crates/cognitive-shader-driver/src/wire.rs` behind `--features se
 
 **`container`**: `Container = [u64; 256]` (16Kbit = 2KB), `CogRecord`.
 
+**`property`** (new, SMB domain): `PropertyKind` (Required / Optional / Free), `PropertySpec` (predicate + kind + `CodecRoute` + NARS floor), `PropertySchema` (`&'static`-based, const schemas), `Schema` + `SchemaBuilder` (runtime builder: `.required()` / `.optional()` / `.searchable()` / `.free()` / `.validate()`), `CUSTOMER_SCHEMA`, `INVOICE_SCHEMA`. Maps bardioc Required/Optional/Free to I1 Codec Regime Split (ADR-0002).
+
+**`repository`** (new, SMB domain): `EntityStore` + `EntityWriter` + `Batch` + `EntityKey` — Arrow-agnostic row store contract.
+
+**`mail`** (new, SMB domain): `MailParser` + `ThreadLinker` + `ParseHints` + `AttachmentRef` + `PartRef`.
+
+**`ocr`** (new, SMB domain): `OcrProvider` + `PageImage` + `OcrOpts` + `Bbox` + `BlockKind` + `LayoutBlock`.
+
+**`tax`** (new, SMB domain): `TaxEngine` + `TaxPeriod` + `PeriodKind` + `Jurisdiction` + `PostingBatchRef` + `RuleBundle`.
+
+**`reasoning`** (new, SMB domain): `Reasoner` + `ReasoningKind` + `ReasoningContext` + `EvidenceRef` + `Budget`.
+
 **`cam`** (extended by PR #225): `CodecRoute` + `route_tensor` (existing), `CamByte`, `CamStrategy`, `DistanceTableProvider` trait, `CamCodecContract` trait, `IvfContract` trait, plus codec-sweep parameter shape — `LaneWidth` (F32x16 / U8x64 / F64x8 / BF16x32), `Distance` (AdcU8 / AdcI8), `Rotation` (Identity / Hadamard{dim} / Opq{matrix_blob_id, dim}), `ResidualSpec {depth, centroids}`, `CodecParams {subspaces, centroids, residual, lane_width, pre_rotation, distance, calibration_rows, measurement_rows, seed}` with `kernel_signature() -> u64` + `is_matmul_heavy() -> bool`, `CodecParamsBuilder` fluent API, `CodecParamsError {ZeroDimension, OpqRequiresBf16, HadamardDimNotPow2, CalibrationEqualsMeasurement}` — **precision-ladder validation fires at `.build()` BEFORE any JIT compile**.
 
 **`a2a_blackboard`**, **`collapse_gate`**, **`exploration`**, **`literal_graph`**, **`orchestration_mode`**, **`jit`**, **`nars`**, **`plan`**, **`orchestration`**, **`thinking`** (36 styles, 6 clusters), **`mul`**, **`sensorium`**, **`high_heel`**.

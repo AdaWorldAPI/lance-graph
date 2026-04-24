@@ -150,7 +150,92 @@ impl PropertySchema {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Example schemas — SMB domain
+// Schema builder — declarative API for SMB tenants
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Owned property schema built at runtime via the builder API.
+/// Complement to `PropertySchema` (which is `&'static`-only for const schemas).
+#[derive(Clone, Debug)]
+pub struct Schema {
+    pub name: &'static str,
+    pub properties: Vec<PropertySpec>,
+}
+
+impl Schema {
+    pub fn builder(name: &'static str) -> SchemaBuilder {
+        SchemaBuilder { name, properties: Vec::new() }
+    }
+
+    pub fn get(&self, predicate: &str) -> Option<&PropertySpec> {
+        self.properties.iter().find(|p| p.predicate == predicate)
+    }
+
+    pub fn required_props(&self) -> impl Iterator<Item = &PropertySpec> {
+        self.properties.iter().filter(|p| p.kind == PropertyKind::Required)
+    }
+
+    pub fn missing_required<'a>(&'a self, present: &'a [&str]) -> impl Iterator<Item = &'static str> + 'a {
+        self.required_props()
+            .filter(move |p| !present.contains(&p.predicate))
+            .map(|p| p.predicate)
+    }
+
+    pub fn codec_route_for(&self, predicate: &str) -> CodecRoute {
+        self.get(predicate)
+            .map(|p| p.codec_route)
+            .unwrap_or(CodecRoute::CamPq)
+    }
+
+    /// Validate a set of present predicates. Returns a list of missing
+    /// Required predicate names. Empty = valid.
+    pub fn validate(&self, present: &[&str]) -> Vec<&'static str> {
+        self.missing_required(present).collect()
+    }
+}
+
+pub struct SchemaBuilder {
+    name: &'static str,
+    properties: Vec<PropertySpec>,
+}
+
+impl SchemaBuilder {
+    /// Add a Required property (Passthrough codec, NARS floor 128/128).
+    pub fn required(mut self, predicate: &'static str) -> Self {
+        self.properties.push(PropertySpec::required(predicate));
+        self
+    }
+
+    /// Add an Optional property with Passthrough (exact match) codec.
+    pub fn optional(mut self, predicate: &'static str) -> Self {
+        self.properties.push(PropertySpec::optional(predicate, CodecRoute::Passthrough));
+        self
+    }
+
+    /// Add an Optional property with CamPq (similarity search) codec.
+    pub fn searchable(mut self, predicate: &'static str) -> Self {
+        self.properties.push(PropertySpec::optional(predicate, CodecRoute::CamPq));
+        self
+    }
+
+    /// Add a Free property (CamPq codec, no NARS floor).
+    pub fn free(mut self, predicate: &'static str) -> Self {
+        self.properties.push(PropertySpec::free(predicate));
+        self
+    }
+
+    /// Add a custom PropertySpec directly.
+    pub fn property(mut self, spec: PropertySpec) -> Self {
+        self.properties.push(spec);
+        self
+    }
+
+    pub fn build(self) -> Schema {
+        Schema { name: self.name, properties: self.properties }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Example schemas — SMB domain (const)
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Customer entity property schema.
@@ -264,5 +349,63 @@ mod tests {
         let p = PropertySpec::free("note").with_nars_floor(50, 50);
         assert!(p.below_floor(40, 60));
         assert!(!p.below_floor(60, 60));
+    }
+
+    // ── Schema builder tests ──
+
+    #[test]
+    fn schema_builder_declarative() {
+        let s = Schema::builder("Customer")
+            .required("customer_name")
+            .required("tax_id")
+            .optional("address")
+            .searchable("industry")
+            .free("note")
+            .build();
+        assert_eq!(s.name, "Customer");
+        assert_eq!(s.properties.len(), 5);
+    }
+
+    #[test]
+    fn schema_validate_missing_required() {
+        let s = Schema::builder("Customer")
+            .required("customer_name")
+            .required("tax_id")
+            .optional("address")
+            .build();
+        let missing = s.validate(&["customer_name", "address"]);
+        assert_eq!(missing, vec!["tax_id"]);
+    }
+
+    #[test]
+    fn schema_validate_all_present() {
+        let s = Schema::builder("Customer")
+            .required("customer_name")
+            .required("tax_id")
+            .build();
+        let missing = s.validate(&["customer_name", "tax_id"]);
+        assert!(missing.is_empty());
+    }
+
+    #[test]
+    fn schema_searchable_is_campq() {
+        let s = Schema::builder("Test")
+            .searchable("description")
+            .build();
+        assert_eq!(s.codec_route_for("description"), CodecRoute::CamPq);
+    }
+
+    #[test]
+    fn schema_unknown_predicate_defaults_campq() {
+        let s = Schema::builder("Test").build();
+        assert_eq!(s.codec_route_for("anything"), CodecRoute::CamPq);
+    }
+
+    #[test]
+    fn schema_optional_is_passthrough() {
+        let s = Schema::builder("Test")
+            .optional("address")
+            .build();
+        assert_eq!(s.codec_route_for("address"), CodecRoute::Passthrough);
     }
 }
