@@ -227,10 +227,37 @@ before the next major planning session.
 
 ---
 
+## ADR 0001 — Archetype transcode + Lance/DataFusion stack + Persona 16^32
+
+Three-decision architectural lock, accepted 2026-04-24. First ADR in the
+workspace. Path: `.claude/adr/0001-archetype-transcode-stack.md`.
+
+| Decision | Status | Mutability |
+|---|---|---|
+| **D1 — Archetype is TRANSCODED, not bridged** | **Accepted** | Immutable (unlocking requires new ADR) |
+| **D2 — Stack lock** (Lance + DataFusion + Supabase-shape scheduler + Arrow temporal; Polars rejected; Ballista deferred to 1s-P99) | **Accepted** | Ballista threshold mutable; rest immutable |
+| **D3 — Persona 16^32 is THE identity space** (56-bit PersonaSignature; atom vector BBB-banned) | **Accepted** | Immutable; shared-DTO unification OPEN for future ADRs |
+
+**Follow-up items tracked** (per ADR implications):
+
+| Item | Priority | Location |
+|---|---|---|
+| DU-2 clarification (rename "bridge" → "transcode") | P2 | `unified-integration-v1.md` DU-2 |
+| First `lance-graph-archetype` skeleton crate | P1 (when deliverable lands) | — |
+| Grok gRPC A2A expert adapter | P2 | `TECH_DEBT.md` 2026-04-24 |
+| Enrichment-shape follow-up ADR | P2 | `TECH_DEBT.md` 2026-04-24 |
+| Ballista threshold tuning (post-benchmark amend) | P3 | `TECH_DEBT.md` 2026-04-24 |
+
+Merged via PR #249 (2026-04-24).
+
+---
+
 ## callcenter-membrane-v1 — Supabase-shape over Lance + DataFusion
 
 External callcenter membrane crate. BBB enforced by Arrow type system at
-compile time. Plan: `.claude/plans/callcenter-membrane-v1.md`.
+compile time. Plan: `.claude/plans/callcenter-membrane-v1.md`. **Validated
+by ADR 0001 Decision 2** (DM-4 `LanceVersionWatcher` + DM-6 `DrainTask`
+pattern IS the Supabase-shape transcode approach).
 
 ### DM-0 / DM-1 — Shipped in this session
 
