@@ -66,6 +66,18 @@ stay as historical references.
 ## Entries (reverse chronological)
 
 
+## 2026-04-24 — Vsa16kF32 switchboard carrier shipped (CrystalFingerprint::Vsa16kF32 + 16K algebra)
+
+**Status:** FINDING
+**Owner scope:** @family-codec-smith, @truth-architect
+
+`CrystalFingerprint::Vsa16kF32(Box<[f32; 16_384]>)` (64 KB) is now a first-class enum variant in `crystal/fingerprint.rs`, together with six algebra primitives: `vsa16k_zero`, `binary16k_to_vsa16k_bipolar`, `vsa16k_to_binary16k_threshold`, `vsa16k_bind`, `vsa16k_bundle`, `vsa16k_cosine`. 7 new tests (16 total in module). This is the Click switchboard carrier per CLAUDE.md §The Click: inside-BBB only, 1:1 bit-addressable with Binary16K (dim i = bit i), bipolar projection lossless under threshold inverse. The 10K-D `to_vsa10k_f32()` downcast is also wired (similarity-preserving, stride copy with surplus-dim averaging into base 10K).
+
+**Why it matters:** This is expansion-list item #1 from the first SoAReview sweep (PR #252 §6). The carrier type must exist before `FingerprintColumns.cycle` can migrate from `Box<[u64]>` (Binary16K) to the f32 carrier. Next step: PR B migrates the `cognitive-shader-driver::bindspace::FingerprintColumns.cycle` field + `engine_bridge.rs` write path to use this carrier.
+
+Cross-ref: TECH_DEBT 2026-04-24 ghost-columns entry, unified-integration-v1 §6 ranked expansion list, `.claude/agents/soa-review.md` reference run #4 (Grammar-Markov: SCATTERED-NOT-UNIFIED).
+
+
 ## 2026-04-24 — I1 Codec Regime Split is the unified answer to Pearl 2³ + CAM-PQ across SPO / AriGraph / archetype
 
 **Status:** FINDING
