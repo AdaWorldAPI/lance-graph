@@ -385,19 +385,31 @@ async fn route_handler(
     let codec_bridge = crate::codec_bridge::CodecResearchBridge;
     let result = codec_bridge.route(&mut step);
 
-    // If codec bridge rejected with DomainUnavailable, try planner bridge (lg.*)
+    // If codec bridge rejected with DomainUnavailable, try CypherBridge
+    // (lg.cypher). This keeps the nd.* hot path unchanged while adding
+    // `lg.cypher` routing ahead of the planner fallthrough.
     if matches!(result, Err(lance_graph_contract::orchestration::OrchestrationError::DomainUnavailable(_))) {
-        #[cfg(feature = "with-planner")]
-        {
-            let st = _state.lock().map_err(|_| {
-                (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": "lock poisoned"})))
-            })?;
-            let _ = OrchestrationBridge::route(&st.planner, &mut step);
-        }
-        #[cfg(not(feature = "with-planner"))]
-        {
-            step.status = StepStatus::Failed;
-            step.reasoning = Some("domain unavailable and planner not compiled in".to_string());
+        let cypher_bridge = crate::cypher_bridge::CypherBridge;
+        let cypher_result = cypher_bridge.route(&mut step);
+
+        // If CypherBridge also rejected with DomainUnavailable, fall
+        // through to the planner bridge for the remaining `lg.*` space.
+        if matches!(
+            cypher_result,
+            Err(lance_graph_contract::orchestration::OrchestrationError::DomainUnavailable(_))
+        ) {
+            #[cfg(feature = "with-planner")]
+            {
+                let st = _state.lock().map_err(|_| {
+                    (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": "lock poisoned"})))
+                })?;
+                let _ = OrchestrationBridge::route(&st.planner, &mut step);
+            }
+            #[cfg(not(feature = "with-planner"))]
+            {
+                step.status = StepStatus::Failed;
+                step.reasoning = Some("domain unavailable and planner not compiled in".to_string());
+            }
         }
     }
 

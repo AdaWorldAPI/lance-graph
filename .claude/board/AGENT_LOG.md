@@ -265,3 +265,10 @@ newest-first.** A `BlackboardEntry` by any other transport.
 **Commit:** `816a7c0`
 **Tests:** 12 pass
 **Outcome:** Shipped `lance-graph-archetype` crate scaffold: Component + Processor traits, World meta-state with tick/fork/at_tick stubs, CommandBroker FIFO queue, ArchetypeError. PR #254 merged.
+
+## 2026-04-24T17:30 — Cypher → AriGraph bridge (opus, claude/cypher-to-arigraph-wire)
+
+**D-ids:** CypherBridge, /v1/shader/route lg.cypher handling
+**Commit:** `45fc3a4`
+**Tests:** 7 pass (create, match, unsupported, non-cypher, missing-reasoning, lowercase, nd-reject)
+**Outcome:** Phase 1 stub landed — prefix classifier over step_type="lg.cypher". CREATE and MATCH → Completed (confidence 0.5), other cypher constructs → Skipped with "unsupported cypher construct, stub in place", non-`lg.cypher` → `Err(DomainUnavailable)` so route_handler falls through to planner. Phase 2 (real `lance_graph::parser::parse_cypher_query` + SPO commit + BindSpace label search) deferred: pulling lance-graph core (arrow + datafusion + lance) into cognitive-shader-driver would balloon build time for what today is a test-path transport. route_handler is now a three-stage chain: CodecResearchBridge (nd.*) → CypherBridge (lg.cypher) → planner_bridge. Live curl against localhost:3001/v1/shader/route verified all four paths: CREATE→completed+0.5, MATCH→completed+0.5, DROP INDEX→skipped, lg.plan→failed (planner not compiled in, unchanged from pre-PR).
