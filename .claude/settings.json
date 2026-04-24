@@ -3,13 +3,31 @@
   "permissions": {
     "allow": [
       "Edit(**/*.md)",
+      "Edit(**/*.rs)",
+      "Edit(**/*.toml)",
       "Write(**/*.md)",
+      "Write(**/*.rs)",
+      "Write(**/*.toml)",
       "Bash(cat >> .claude/board/AGENT_LOG.md:*)",
       "Bash(git push -u origin:*)",
       "Bash(git fetch origin:*)",
       "Bash(git pull origin:*)",
+      "Bash(git checkout:*)",
+      "Bash(git checkout -b:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git status:*)",
+      "Bash(git branch:*)",
       "Bash(cargo test:*)",
-      "Bash(cargo check:*)"
+      "Bash(cargo check:*)",
+      "Bash(cargo run:*)",
+      "Bash(ls:*)",
+      "Bash(wc:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "mcp__github__create_pull_request"
     ],
     "ask": [],
     "deny": [
