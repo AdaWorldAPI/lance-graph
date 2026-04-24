@@ -155,13 +155,25 @@ per tick.
 - Archetype belongs in q2's simulation layer; callcenter belongs at wire level
 - Keeping them separate preserves the q2=GUI / callcenter=headless boundary
 
-**Integration deliverable:** thin adapter crate `lance-graph-archetype-bridge`
-- `ArchetypeWorld → Blackboard` adapter (World snapshot → Blackboard round)
-- `ArchetypeTick → UnifiedStep` adapter (tick event → step for OrchestrationBridge)
-- `project() result → Archetype DataFrame component update`
+**Integration deliverable (per ADR 0001 Decision 1 — TRANSCODE, not bridge):**
+native Rust crate `lance-graph-archetype` that assimilates the Archetype
+ECS contracts against Lance + DataFusion + Arrow. Python upstream is
+design spec, not runtime dependency.
 
-**Status:** Queued  
-**Effort:** ~3 days (adapter crate; no changes to callcenter or lance-graph core)
+- `Component` trait maps to Arrow field
+- `Processor` trait = stateless `RecordBatch → RecordBatch` transform
+- `World` = Lance versioned dataset + tick counter + `CommandBroker`
+- `ArchetypeWorld.tick()` = drain commands → run processors → append snapshot
+- `ArchetypeWorld.fork()` = Lance version branch (free time-travel / counterfactual)
+- `project()` emits Arrow `RecordBatch` consumed by `ExternalMembrane`
+
+**Not "bridge":** the crate does not FFI into Python Archetype at
+runtime. It transcodes the contracts natively. The upstream Python
+package is the DESIGN reference, not a live dependency. See
+`.claude/adr/0001-archetype-transcode-stack.md` Decision 1.
+
+**Status:** Queued (naming + scope updated post-ADR 0001)
+**Effort:** ~3 days (native crate; no changes to callcenter or lance-graph core)
 
 ---
 
@@ -255,7 +267,7 @@ DU-2 (Archetype)    ──► needs DM-2 (ExternalMembrane impl to adapt against
 3. DU-0 (offline extraction, runs async)
 4. DM-2 (LanceMembrane impl — unlocks DU-1, DU-2)
 5. DU-1 (ONNX oracle, depends on DM-2 corpus)
-6. DU-2 (Archetype bridge, depends on DM-2)
+6. DU-2 (Archetype transcode crate, depends on DM-2)
 7. DU-5 (board hygiene, last)
 
 ---
@@ -268,9 +280,11 @@ DU-2 (Archetype)    ──► needs DM-2 (ExternalMembrane impl to adapt against
 2. **I-SUBSTRATE-MARKOV:** `bundle_udf` in DU-3 MUST use `MergeMode::Bundle`, not `MergeMode::Xor`.
    XOR breaks the CK guarantee for state-transition paths.
 
-3. **q2=GUI / callcenter=headless:** DU-2 Archetype bridge does NOT put ECS logic inside
-   `lance-graph-callcenter`. The bridge is a thin adapter crate that Archetype calls INTO
-   the callcenter. Callcenter has zero knowledge of Archetype.
+3. **q2=GUI / callcenter=headless:** DU-2 `lance-graph-archetype` (the native
+   transcode crate per ADR 0001) does NOT put ECS logic inside
+   `lance-graph-callcenter`. The transcode crate sits alongside, calling INTO
+   the callcenter via `ExternalMembrane::ingest()`. Callcenter has zero
+   knowledge of Archetype.
 
 4. **Jirak-derived thresholds (I-NOISE-FLOOR-JIRAK):** `unbind_udf` dispatch scores are
    probabilistic, not exact. Any significance threshold for dispatch scoring must cite
@@ -292,9 +306,12 @@ DU-2 (Archetype)    ──► needs DM-2 (ExternalMembrane impl to adapt against
   depends on class balance across 288 persona classes. Some personas may be rare in
   practice (e.g., `(OpenClaw, Koan)`) — rare class handling may be needed.
 
-- **DU-2 Archetype API stability:** `VangelisTech/archetype` is an active repo. Adapter
-  crate should define its OWN interface (not directly call Archetype internals) so that
-  Archetype version changes don't break the bridge.
+- **DU-2 Archetype API stability:** `VangelisTech/archetype` is an active Python repo,
+  which is the DESIGN spec (not a runtime dependency). The `lance-graph-archetype`
+  transcode crate defines its OWN Rust interface based on the conceptual contracts
+  (`Component`, `Processor`, `World`, `CommandBroker`) rather than mirroring Python
+  signatures. Upstream API changes inform future transcodes; they don't break running
+  code. See ADR 0001 Decision 1.
 
 - **DU-3 fingerprint column type in DataFusion:** `[u64; 256]` is not a native Arrow type.
   Representation options: `FixedSizeBinary(2048)`, `FixedSizeList<u64>(256)`, or custom
