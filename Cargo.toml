@@ -7,6 +7,7 @@ members = [
     "crates/lance-graph-contract",
     "crates/neural-debug",
     "crates/lance-graph-callcenter",
+    "crates/lance-graph-rbac",
 ]
 exclude = [
     # Python bindings (upstream-inherited, opt-in via --manifest-path)
