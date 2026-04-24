@@ -80,6 +80,34 @@ looks like, any blocking dependencies>
 Cross-ref: <file:line / deliverable D-id / epiphany entry>
 ```
 
+## 2026-04-24 — jc Pillar 5b: direct Pearl 2³ mask-accuracy measurement (three-plane vs CAM-PQ-bundled)
+
+**Status:** Open
+**Priority:** P1
+**Scope:** @savant-research @family-codec-smith domain:jirak domain:codec
+**Introduced by:** this session's Pearl 2³ + CAM-PQ analysis
+**Payoff estimate:** ~80 LOC addition to `crates/jc/src/jirak.rs` + test; ≤ 1 day
+
+Today's jc pillar 5 measures *sup-error inflation* under weak dependence (dep 0.013287 vs IID 0.011671 at d=16384, N=5000) — a proxy for the CAM-PQ-contamination penalty. What it does NOT yet measure is the **direct Pearl 2³ mask-classification error**: given ground-truth Pearl masks (e.g. 110 = S✓, P✓, O✗), how often does three-independent-popcount + truth-table disagree with CAM-PQ-unbind + distance? Adding a `pub fn prove_pearl_mask()` arm to `jirak.rs` turns the 14 % sup-error finding into a direct "X % mask-misclassification rate" number that ADR-0002 Spine-Freeze can cite as the quantitative gate for the I1 Codec Regime Split.
+
+Proper fix: extend `jirak.rs` with three disjoint-seed planes (S/P/O) + a bundled CAM-PQ-shaped code over the same content; run N ground-truth mask evaluations; report three-plane accuracy vs CAM-PQ accuracy. Keep the "10-minute proof" runtime promise. Blocks the ADR-0002 citation chain (see 2026-04-24 EPIPHANIES entry "I1 Codec Regime Split").
+
+Cross-ref: `crates/jc/src/jirak.rs:124` (current `prove` function); `crates/lance-graph-contract/src/cam.rs` `CodecRoute::{CamPq, Passthrough}`; EPIPHANIES 2026-04-24 "I1 Codec Regime Split"; CLAUDE.md I-NOISE-FLOOR-JIRAK.
+
+## 2026-04-24 — AriGraph episodic fingerprint as CAM-PQ first-tier cascade filter
+
+**Status:** Open
+**Priority:** P3
+**Scope:** @family-codec-smith @truth-architect domain:arigraph domain:codec
+**Introduced by:** this session's CAM-PQ-vs-AriGraph analysis
+**Payoff estimate:** ~60 LOC in `episodic.rs` + CAM-PQ codec integration from `cam.rs` contract + test
+
+`arigraph::episodic::Episode.fingerprint: Fingerprint = [u64; 256]` (2 KB per episode) is an argmax-regime structure per the I1 Codec Regime Split — retrieval is Hamming similarity, not exact identity lookup. It is a legitimate CAM-PQ-compression target (6 B per episode = 340× smaller), usable as a first-tier cascade filter: CAM-PQ ADC narrows N → k ≈ 64 candidates, then exact Hamming on the surviving [u64; 256] fingerprints. Triplets stay string-keyed (index regime, unchanged); only the similarity-retrieval index gets compressed.
+
+Not urgent — current `retrieve_similar(fp, k)` is already O(n) Hamming and not a bottleneck at demo scale. Becomes relevant when episodic capacity grows past ~1M episodes (cascade saves memory + time). Until then, flagged for the future cascade-optimization pass. Must NOT touch triplet strings or archetype `ExpertId` — those are index regime.
+
+Cross-ref: `crates/lance-graph/src/graph/arigraph/episodic.rs:104` (retrieve_similar); `crates/lance-graph-contract/src/cam.rs` `CodecRoute::CamPq` + `CAM_SIZE = 6`; EPIPHANIES 2026-04-24 "I1 Codec Regime Split" argmax-regime row for episodic.
+
 ## 2026-04-24 — Frankenstein blast radius on branch `claude/read-claude-md-jh51O` (Vsa10k / L3 / 157 confusion)
 
 **Status:** Open

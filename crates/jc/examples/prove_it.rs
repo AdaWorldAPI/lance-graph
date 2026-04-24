@@ -7,7 +7,7 @@
 //! Exit code 0 = all implemented pillars pass. Exit code 1 = at least one fails.
 
 fn main() {
-    println!("═══ JC — Jirak-Cartan: Five-Pillar Proof-in-Code ═══");
+    println!("═══ JC — Jirak-Cartan: Five-Pillar (+Pearl 5b) Proof-in-Code ═══");
     println!("Binary-Hamming causal field computation on d=10000/16384\n");
 
     let results = jc::run_all_pillars();

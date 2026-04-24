@@ -66,6 +66,46 @@ stay as historical references.
 ## Entries (reverse chronological)
 
 
+## 2026-04-24 — I1 Codec Regime Split is the unified answer to Pearl 2³ + CAM-PQ across SPO / AriGraph / archetype
+
+**Status:** FINDING
+**Owner scope:** @truth-architect, @family-codec-smith
+
+The question "does CAM-PQ replace the 3 lossless S/P/O planes?" is really the question "which fields in the stack are identity-bearing (lossless-required) vs similarity-searchable (compressible)?" — and the contract **already answers it** at `crates/lance-graph-contract/src/cam.rs`. The `CodecRoute` enum encodes a two-regime invariant:
+
+- **Index regime → `Passthrough`** (lossless required): embedding tables, lm_head, anything where row identity must round-trip exactly. Shipped comment: *"Identity lookup must be exact — no codec can survive Invariant I1."*
+- **Argmax regime → `CamPq`** (compression OK): attention Q/K/V/O, MLP gate/up/down, anything where nearest-neighbor/search is the operation.
+- **Skip → `Passthrough` trivially**: norms, biases, small tensors.
+
+Applying this across SPO / AriGraph / archetype:
+
+| Structure | Operation | Regime | Codec (current) | Codec (correct) |
+|---|---|---|---|---|
+| Pearl 2³ S/P/O planes (`cognitive_nodes.lance`) | Independent mask addressability | **Index** | Lossless 16Kbit planes | **Stay lossless** — CAM-PQ violates I1 |
+| `integrated_16k` cascade L1 | Fast HHTL filter | Argmax | Lossless 16Kbit | Eligible for CAM-PQ as first-tier scent |
+| AriGraph `Triplet.{subject, object, relation}` | Primary-key lookup | **Index** | `String` + `HashMap<String, Vec<usize>>` | Already Passthrough by construction (strings are identity) |
+| AriGraph `Episode.fingerprint` ([u64; 256]) | Hamming similarity retrieval | Argmax | Lossless 2 KB | Eligible for CAM-PQ as cascade filter (legitimate future optimization) |
+| `PersonaCard.entry.id` (ExpertId u16) | Catalogue dispatch | **Index** | `u16` enum | Already Passthrough (enum IS identity) |
+| Per-persona resonance against codebook | Implicit routing ("which persona fits this seed?") | Argmax | *(consumer-side)* | CAM-PQ-eligible at the persona's AriGraph subgraph boundary |
+| Role keys (`grammar/role_keys.rs`) | VSA bind/unbind identity | **Index** | Bipolar slices in Vsa16kF32 | Passthrough — per I-VSA-IDENTITIES |
+| NARS truth (f, c) | Belief state | Skip | 2×BF16 in 32 bits | Passthrough trivially |
+
+**One invariant covers all three domains.** The Pearl 2³ decomposition is the index-regime instance at the SPO level; AriGraph triplets/archetype IDs are index-regime at the catalogue level; role keys are index-regime at the bundling-algebra level. In every case, identity-bearing fields MUST be lossless; CAM-PQ is legitimate only on the argmax-regime overlays (cascade filters, resonance codebooks).
+
+**Quantitative grounding — jc pillar 5 measured it.** `cargo run --manifest-path crates/jc/Cargo.toml --release --example prove_it` ran 2026-04-24: weak-dependent data (25 % shared-codebook prefix + 10 % overlapping role-slice XOR) showed sup-error **0.013287** at d=16384, N=5000 — vs IID baseline **0.011671** and classical Shevtsova bound 0.006715. Dependent > IID by 14 %, confirming Jirak 2016 as the correct rate citation (not classical Berry-Esseen). This IS the cost of collapsing lossless identity fields into CAM-PQ.
+
+**What this retires (conceptually):**
+
+- "Should we CAM-PQ the three S/P/O planes?" → No; they are Pearl 2³ index-regime. Add CAM-PQ codes as a *separate* first-tier cascade scent alongside the planes.
+- "Does AriGraph need to adopt CAM-PQ?" → Triplets already index-regime via strings; episodic fingerprints optionally argmax-eligible (follow-up optimization).
+- "Does archetype need a new codec?" → No; `ExpertId` is index-regime; VSA binding is stack-side with lossless role keys.
+
+**Proposed ADR-0002 candidate invariant** (locks the above): *"I1 Codec Regime Split — every field added to the BindSpace SoA, Lance persistence schema, or AriGraph/archetype surface must be classified into {Index, Argmax, Skip}. Index-regime fields use `Passthrough`; argmax-regime fields may use CAM-PQ. The jc pillar-5 measurement is the quantitative gate; `CodecRoute` in `cam.rs` is the compile-time enforcement."*
+
+Cross-ref: `crates/lance-graph-contract/src/cam.rs` `CodecRoute` + matching rules; `crates/jc/src/jirak.rs` pillar 5 measurement; CLAUDE.md I-VSA-IDENTITIES + I-NOISE-FLOOR-JIRAK; `crates/lance-graph/src/graph/arigraph/{episodic,triplet_graph}.rs`; `crates/lance-graph-contract/src/persona.rs` lines 13-27 (identity as metadata, VSA binding stack-side).
+
+---
+
 ## 2026-04-24 — Pyramid L4 (16K × 16K) is a fourth layer beyond the existing 3-layer thought-engine doc
 
 **Status:** FINDING
