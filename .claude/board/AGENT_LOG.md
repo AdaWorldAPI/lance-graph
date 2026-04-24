@@ -266,9 +266,35 @@ newest-first.** A `BlackboardEntry` by any other transport.
 **Tests:** 12 pass
 **Outcome:** Shipped `lance-graph-archetype` crate scaffold: Component + Processor traits, World meta-state with tick/fork/at_tick stubs, CommandBroker FIFO queue, ArchetypeError. PR #254 merged.
 
+## 2026-04-24T17:20 — Content Hamming cascade wire (opus, claude/hamming-content-cascade)
+
+**D-ids:** Content-plane similarity pre-pass in ShaderDriver::run()
+**Commit:** `2cf36ad`
+**Tests:** 45 pass (43 lib + 2 e2e, 3 new: content_hamming_finds_similar_rows / _skips_dissimilar / _respects_style_threshold)
+**Outcome:** The glove is flying. Before: dispatch() on 3 encoded rows returned `hit_count:0, confidence:0.0, admit_ignorance:true` across every style — the PaletteSemiring cascade probed a synthetic Base17 table unrelated to the encoded text, and the content plane was only read for the cycle_fp XOR fold, never compared. After: content-plane Hamming pre-pass runs BEFORE the palette cascade. For each pair in `passed_rows`, popcount XOR of `content_row(i)` vs `content_row(j)`; if `resonance = 1 - Hamming/16384 >= style.resonance_threshold`, emit `ShaderHit{predicates:0x01}`. Guard: N² sweep skipped when `passed_rows.len() > 256`.
+
+**Live verification (encode 3 rows, dispatch 0..3):**
+- "Palantir develops surveillance systems"     (row 0)
+- "Palantir Gotham is a surveillance platform" (row 1)
+- "Israel deploys military AI"                 (row 2)
+
+| Style              | Threshold | hit_count | top-1 row pair | resonance | confidence |
+|--------------------|-----------|-----------|----------------|-----------|------------|
+| Analytical (1)     | 0.85      | 0         | —              | —         | 0.0 (admit_ignorance) |
+| Creative (4)       | 0.35      | 6         | row 0 ↔ row 1  | 0.598     | 0.598                 |
+| Peripheral (9)     | 0.20      | 6         | row 0 ↔ row 1  | 0.598     | 0.598                 |
+
+The strongest signal (rows 0↔1, both Palantir) correctly ranks first. Rows 0↔2 (Palantir vs Israel AI) lands lowest at 0.496. Analytical's 0.85 threshold rejects all pairs — style semantics preserved.
+
+**Key insight:** The Jirak 454-Hamming threshold calibrated in the 2026-04-24 EPIPHANY was for UNTILED DeepNSM encodes at density ≈ 0.016. The live encode path 32×-tiles 512-bit VSA → 16K content plane, pushing density to ≈ 0.48 and expected-random Hamming to ≈ 8000. Using an absolute bit threshold would have required per-density calibration; using `resonance >= style.resonance_threshold` is density-agnostic and reuses the existing style semantics. Style config IS the content-similarity threshold.
+
+**Remaining gap:** palette cascade hits (synthetic Base17) still exist and can flood top-k when their resonance exceeds content-match resonance; see driver.rs:180 `hits.truncate(8)`. The test `content_hamming_respects_style_threshold` uses empty planes to isolate the content cascade; in production with meaningful planes, content hits will intermix with palette hits via the shared resonance sort. Option: promote content hits with a small resonance bonus if future tuning shows palette drowning content too aggressively.
+
+Cross-ref: EPIPHANIES 2026-04-24 "Jirak noise floor" + "dispatch wiring audit", I-NOISE-FLOOR-JIRAK iron rule, driver.rs:93-156.
+
 ## 2026-04-24T17:30 — Cypher → AriGraph bridge (opus, claude/cypher-to-arigraph-wire)
 
 **D-ids:** CypherBridge, /v1/shader/route lg.cypher handling
 **Commit:** `45fc3a4`
 **Tests:** 7 pass (create, match, unsupported, non-cypher, missing-reasoning, lowercase, nd-reject)
-**Outcome:** Phase 1 stub landed — prefix classifier over step_type="lg.cypher". CREATE and MATCH → Completed (confidence 0.5), other cypher constructs → Skipped with "unsupported cypher construct, stub in place", non-`lg.cypher` → `Err(DomainUnavailable)` so route_handler falls through to planner. Phase 2 (real `lance_graph::parser::parse_cypher_query` + SPO commit + BindSpace label search) deferred: pulling lance-graph core (arrow + datafusion + lance) into cognitive-shader-driver would balloon build time for what today is a test-path transport. route_handler is now a three-stage chain: CodecResearchBridge (nd.*) → CypherBridge (lg.cypher) → planner_bridge. Live curl against localhost:3001/v1/shader/route verified all four paths: CREATE→completed+0.5, MATCH→completed+0.5, DROP INDEX→skipped, lg.plan→failed (planner not compiled in, unchanged from pre-PR).
+**Outcome:** Phase 1 stub landed — prefix classifier over step_type="lg.cypher". CREATE and MATCH → Completed (confidence 0.5), other cypher constructs → Skipped with "unsupported cypher construct, stub in place", non-`lg.cypher` → `Err(DomainUnavailable)` so route_handler falls through to planner. Phase 2 (real `lance_graph::parser::parse_cypher_query` + SPO commit + BindSpace label search) deferred: pulling lance-graph core (arrow + datafusion + lance) into cognitive-shader-driver would balloon build time for what today is a test-path transport. route_handler is now a three-stage chain: CodecResearchBridge (nd.*) → CypherBridge (lg.cypher) → planner_bridge. Live curl against localhost:3001/v1/shader/route verified all four paths: CREATE→completed+0.5, MATCH→completed+0.5, DROP INDEX→skipped, lg.plan→failed (planner not compiled in, unchanged from pre-PR). PR #258 merged.

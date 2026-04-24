@@ -90,6 +90,70 @@ impl ShaderDriver {
         let max_dist = (self.semiring.k as f32) * (self.semiring.k as f32);
         let mut hits = Vec::<ShaderHit>::with_capacity(passed_rows.len().min(64));
 
+        // ═══════════════════════════════════════════════════════════════
+        // Content-plane Hamming pre-pass (PR: hamming-content-cascade).
+        // Compare content fingerprint of each passed row against every
+        // other passed row. If Hamming-resonance exceeds the style's
+        // resonance_threshold, emit a content-match hit. This is the
+        // wire that lets dispatch() see real text similarity, not just
+        // edge palette distance.
+        //
+        // Resonance model: resonance = 1 - Hamming/16384. Rows that
+        // share content words land at higher resonance; fully disjoint
+        // rows land near 0.5 (density ≈ 0.48 after 32× DeepNSM tiling).
+        // Style thresholds (UNIFIED_STYLES):
+        //   analytical 0.85 (strict)   focused 0.90 (strictest)
+        //   creative   0.35 (loose)    peripheral 0.20 (loosest)
+        // Jirak-calibrated 3σ reference: Hamming < 454 at density 0.016
+        // (untiled). For tiled encodings (current DeepNSM path) the
+        // density-dependent baseline shifts; resonance-over-threshold
+        // is the density-agnostic reading. See EPIPHANIES 2026-04-24
+        // "Jirak noise floor calibrated for DeepNSM-tiled 16K-bit
+        // fingerprints".
+        //
+        // Guard: skip the N² sweep if passed_rows.len() > 256 — at
+        // 4096 rows that is 16M popcount × 256 comparisons.
+        // ═══════════════════════════════════════════════════════════════
+        const CONTENT_MATCH_PREDICATE: u8 = 0x01;
+        const MAX_CONTENT_PREPASS_ROWS: usize = 256;
+        const FP_BITS: f32 = (WORDS_PER_FP * 64) as f32;
+        if passed_rows.len() <= MAX_CONTENT_PREPASS_ROWS {
+            let style_cfg = &crate::engine_bridge::UNIFIED_STYLES[(style_ord % 12) as usize];
+            let min_resonance = style_cfg.resonance_threshold;
+
+            for (i, &row_i) in passed_rows.iter().enumerate() {
+                let fp_i = self.bindspace.fingerprints.content_row(row_i as usize);
+                for (j_off, &row_j) in passed_rows.iter().enumerate().skip(i + 1) {
+                    let fp_j = self.bindspace.fingerprints.content_row(row_j as usize);
+                    // Hamming = popcount of XOR across all 256 u64 words.
+                    let hamming: u32 = fp_i.iter().zip(fp_j.iter())
+                        .map(|(a, b)| (a ^ b).count_ones())
+                        .sum();
+                    // Resonance: normalized to full bit-width; higher = more similar.
+                    let resonance = 1.0 - (hamming as f32 / FP_BITS);
+                    if resonance >= min_resonance {
+                        // Record both directions so either row can surface via top-k.
+                        hits.push(ShaderHit {
+                            row: row_i,
+                            distance: hamming.min(u16::MAX as u32) as u16,
+                            predicates: CONTENT_MATCH_PREDICATE,
+                            _pad: 0,
+                            resonance,
+                            cycle_index: i as u32,
+                        });
+                        hits.push(ShaderHit {
+                            row: row_j,
+                            distance: hamming.min(u16::MAX as u32) as u16,
+                            predicates: CONTENT_MATCH_PREDICATE,
+                            _pad: 0,
+                            resonance,
+                            cycle_index: j_off as u32,
+                        });
+                    }
+                }
+            }
+        }
+
         for (cycle_idx, &row) in passed_rows.iter().enumerate() {
             if cycle_idx as u16 >= req.max_cycles.saturating_mul(4) { break; }
             // Use the SPO `s_idx` of the row's edge as the query palette index.
@@ -442,6 +506,136 @@ mod tests {
         let crystal = driver.dispatch(&req);
         // Only row 0 passes (c=200). It produces at most a few hits.
         assert!(crystal.bus.resonance.cycles_used <= 1);
+    }
+
+    /// Build a BindSpace of `n` rows with caller-supplied content fingerprints.
+    /// Meta confidence set to (200, 200) so everything passes the prefilter.
+    fn bindspace_with_content(rows: &[[u64; WORDS_PER_FP]]) -> BindSpace {
+        let q = [0.0f32; QUALIA_DIMS];
+        let mut builder = BindSpaceBuilder::new(rows.len());
+        for (idx, content) in rows.iter().enumerate() {
+            let meta = MetaWord::new((idx as u8).wrapping_add(1), (idx as u8).wrapping_add(1), 200, 200, 5);
+            builder = builder.push(content, meta, 0, &q, 0, 0);
+        }
+        builder.build()
+    }
+
+    #[test]
+    fn content_hamming_finds_similar_rows() {
+        // Two rows with near-identical content (differ in only 4 bits)
+        // → resonance ≈ 0.9998, well above any style threshold.
+        let mut a = [0u64; WORDS_PER_FP];
+        for i in 0..250 { a[i / 64] |= 1u64 << (i % 64); }
+        let mut b = a;
+        b[0] ^= 0xF; // 4-bit difference → Hamming = 4
+        // A third row with substantially different content.
+        let mut c = [0u64; WORDS_PER_FP];
+        for i in 8000..8250 { c[i / 64] |= 1u64 << (i % 64); }
+
+        let bs = Arc::new(bindspace_with_content(&[a, b, c]));
+        let sr = Arc::new(demo_semiring());
+        let driver = CognitiveShaderBuilder::new()
+            .bindspace(bs).semiring(sr).planes(demo_planes()).build();
+
+        let req = ShaderDispatch {
+            rows: ColumnWindow::new(0, 3),
+            meta_prefilter: MetaFilter::ALL,
+            layer_mask: 0xFF,
+            radius: u16::MAX,
+            style: StyleSelector::Ordinal(auto_style::ANALYTICAL),
+            ..Default::default()
+        };
+        let crystal = driver.dispatch(&req);
+        // Top-k must contain at least one content-match hit (predicates=0x01).
+        let content_hits: Vec<_> = crystal.bus.resonance.top_k.iter()
+            .filter(|h| h.predicates & 0x01 != 0 && h.resonance > 0.0)
+            .collect();
+        assert!(!content_hits.is_empty(),
+            "expected at least one content-match hit, got top_k={:?}",
+            crystal.bus.resonance.top_k);
+        // Similarity should be very high (differ in only 4/16384 bits).
+        assert!(content_hits.iter().any(|h| h.resonance > 0.5),
+            "content-match resonance should be > 0.5 for near-identical rows");
+    }
+
+    #[test]
+    fn content_hamming_skips_dissimilar() {
+        // Two rows with ~10000 Hamming distance → resonance ≈ 0.39, which
+        // is BELOW analytical threshold (0.85). Analytical must not emit
+        // a content-match hit.
+        let mut a = [0u64; WORDS_PER_FP];
+        for i in 0..5000 { a[i / 64] |= 1u64 << (i % 64); }
+        let mut b = [0u64; WORDS_PER_FP];
+        for i in 8000..13000 { b[i / 64] |= 1u64 << (i % 64); }
+        // Disjoint ranges → Hamming ≈ 10000.
+
+        let bs = Arc::new(bindspace_with_content(&[a, b]));
+        let sr = Arc::new(demo_semiring());
+        let driver = CognitiveShaderBuilder::new()
+            .bindspace(bs).semiring(sr).planes(demo_planes()).build();
+
+        let req = ShaderDispatch {
+            rows: ColumnWindow::new(0, 2),
+            meta_prefilter: MetaFilter::ALL,
+            layer_mask: 0xFF,
+            radius: u16::MAX,
+            style: StyleSelector::Ordinal(auto_style::ANALYTICAL),
+            ..Default::default()
+        };
+        let crystal = driver.dispatch(&req);
+        let content_hits: Vec<_> = crystal.bus.resonance.top_k.iter()
+            .filter(|h| h.predicates & 0x01 != 0 && h.resonance > 0.0)
+            .collect();
+        assert!(content_hits.is_empty(),
+            "analytical style should not emit content hits when resonance < 0.85; got {:?}",
+            content_hits);
+    }
+
+    #[test]
+    fn content_hamming_respects_style_threshold() {
+        // Design Hamming ≈ 5000 so resonance ≈ 0.695:
+        //   * below analytical  (0.85) → 0 content hits
+        //   * above creative    (0.35) → ≥ 1 content hits
+        // a = bits [0..5000), b = bits [2500..7500) → overlap 2500 bits,
+        // disjoint 2500+2500 = 5000, Hamming ≈ 5000.
+        let mut a = [0u64; WORDS_PER_FP];
+        for i in 0..5000 { a[i / 64] |= 1u64 << (i % 64); }
+        let mut b = [0u64; WORDS_PER_FP];
+        for i in 2500..7500 { b[i / 64] |= 1u64 << (i % 64); }
+
+        // Use empty planes so the palette cascade produces no hits —
+        // isolates the content pre-pass so it cannot be drowned out by
+        // synthetic palette matches that dominate top-k truncate(8).
+        let empty_planes = [[0u64; 64]; 8];
+        let mk_driver = || {
+            let bs = Arc::new(bindspace_with_content(&[a, b]));
+            let sr = Arc::new(demo_semiring());
+            CognitiveShaderBuilder::new()
+                .bindspace(bs).semiring(sr).planes(empty_planes).build()
+        };
+        let mk_req = |style_ord: u8| ShaderDispatch {
+            rows: ColumnWindow::new(0, 2),
+            meta_prefilter: MetaFilter::ALL,
+            layer_mask: 0xFF,
+            radius: u16::MAX,
+            style: StyleSelector::Ordinal(style_ord),
+            ..Default::default()
+        };
+
+        let strict = mk_driver().dispatch(&mk_req(auto_style::ANALYTICAL));
+        let loose  = mk_driver().dispatch(&mk_req(auto_style::CREATIVE));
+        let strict_hits = strict.bus.resonance.top_k.iter()
+            .filter(|h| h.predicates & 0x01 != 0 && h.resonance > 0.0).count();
+        let loose_hits  = loose.bus.resonance.top_k.iter()
+            .filter(|h| h.predicates & 0x01 != 0 && h.resonance > 0.0).count();
+        // Monotonicity: loosening the style cannot reduce the set of
+        // content-match hits. This is the load-bearing invariant.
+        assert!(strict_hits <= loose_hits,
+            "creative (loose) should emit >= analytical (strict) content hits: strict={} loose={}",
+            strict_hits, loose_hits);
+        assert!(loose_hits > 0,
+            "creative (threshold 0.35) should emit content hits for resonance ≈ 0.695\nloose top_k: {:?}",
+            loose.bus.resonance.top_k);
     }
 
     #[test]
