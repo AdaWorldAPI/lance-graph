@@ -82,6 +82,38 @@ Cross-ref: <file:line / deliverable D-id / epiphany entry>
 
 ### Seeded from PRs #204–#211
 
+## 2026-04-21 — Vsa10k = [u64; 157] is a fifth representation format (Frankenstein effect)
+**Status:** Open
+**Priority:** P0
+**Scope:** @truth-architect @container-architect D5 D7 domain:vsa domain:grammar
+**Introduced by:** PR #242 / #243 (session 2026-04-21)
+**Payoff estimate:** ~200 LOC refactor across role_keys.rs + content_fp.rs + markov_bundle.rs + trajectory.rs
+
+`Vsa10k = [u64; 157]` introduced in `role_keys.rs` is a standalone
+type alias that doesn't interoperate with the four existing vector
+representations (`Binary16K [u64; 256]`, `Vsa10kI8 [i8; 10_000]`,
+`Vsa10kF32 [f32; 10_000]`, DeepNSM `VsaVec [u64; 8]`).
+
+**Blast radius (5 disconnection points):**
+1. ContextChain operates on Binary16K (256 words). Trajectory uses
+   Vsa10k (157 words). Step 8 KL-feedback blocked by type mismatch.
+2. EpisodicMemory stores CrystalFingerprint. No Vsa10k conversion.
+3. crystal::fingerprint has f32 VSA algebra. role_keys has bitpacked
+   VSA algebra. Two parallel surfaces, incompatible types.
+4. 157 words not SIMD-aligned (debt entry says 160).
+5. Prior debt says rename to 16K + re-scale slices to [0..16384).
+   This session went opposite (kept 10K).
+
+**Resolution recommendation:** Option (A) — adopt Binary16K (256
+words) as THE bitpacked carrier. Re-scale role-key slices to
+[0..16384) proportionally. Eliminates the type mismatch, aligns
+with existing debt entry, ContextChain/EpisodicMemory interop free.
+
+Cross-ref: debt "FP_WORDS = 157 (not 160)", debt "VSA substrate
+renaming: Vsa10k* → Vsa16k*", `role_keys.rs:41`.
+
+---
+
 ## 2026-04-19 — Contract `ContextChain::coherence_at` returns 0 for non-Binary16K variants
 **Status:** Open
 **Priority:** P2
