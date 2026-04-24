@@ -819,7 +819,7 @@ git verb.
 | Dataset class | Content | Crossing BBB? | Queryable? |
 |---|---|---|---|
 | **External / scalar** | Arrow RecordBatch rows from `project()` | Yes (IS the BBB output) | Yes — DataFusion, Supabase FDW, n8n subscribe |
-| **Internal / VSA** | `Fingerprint<256>` = `[u64;256]` cycle fingerprints (L4/L5 speed tier, 2 KB/row); NARS truth vectors, braid offsets. L3 cold tier can promote to Vsa10k BF16 (20 KB, lossless) or RaBitQ-quantized Lance columns (zero-copy ANN). | No — never crosses BBB | Yes — DataFusion + VSA UDFs (see § 15) |
+| **Internal / VSA** | `Fingerprint<256>` = `[u64;256]` cycle fingerprints (2 KB/row); NARS truth vectors; braid offsets. | No — never crosses BBB | Yes — DataFusion + VSA UDFs (see § 15) |
 
 ### Parallels with git cold storage
 
