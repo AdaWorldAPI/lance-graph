@@ -100,6 +100,29 @@ pub struct WireIngest {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Encode endpoint DTOs — text → fingerprint → BindSpace
+//
+// POST /v1/shader/encode: accepts raw text, tokenises via DeepNSM COCA
+// vocabulary, encodes to a 512-bit VSA fingerprint, expands to a 16Kbit
+// content row, ingests into BindSpace at the current write cursor, and
+// returns the hex fingerprint + row index.
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireEncode {
+    pub text: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireEncodeResponse {
+    pub text: String,
+    pub token_count: usize,
+    pub fingerprint_hex: String,
+    pub bits_set: usize,
+    pub row_written: Option<u32>,
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Codec research DTOs (for remote-controlled codec benchmarking)
 //
 // These extend the canonical shader-driver API with codec-experimentation

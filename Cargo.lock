@@ -4252,6 +4252,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "lance-graph-rbac"
+version = "0.1.0"
+dependencies = [
+ "lance-graph-contract",
+]
+
+[[package]]
 name = "lance-index"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
