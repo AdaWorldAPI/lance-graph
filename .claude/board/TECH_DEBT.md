@@ -818,3 +818,62 @@ Cross-ref: `.claude/adr/0001-archetype-transcode-stack.md` § Grok
 gRPC addendum, `crates/cognitive-shader-driver/src/grpc.rs`,
 `a2a_blackboard::BlackboardEntry`.
 
+
+## 2026-04-24 — Context-syntax contract for cross-language queries (spine gap)
+**Status:** Open
+**Priority:** P1
+**Scope:** @bus-compiler @integration-lead domain:planner domain:external-surface
+**Introduced by:** architectural audit 2026-04-24 (two-SoA framing)
+**Payoff estimate:** ~40 LOC contract type + documentation sweep across 16 planner strategies
+
+Cypher / SQL / Gremlin / SPARQL / Redis-DN all parse into DataFusion LogicalPlan, but there is no first-class contract type declaring the SHARED COLUMN SURFACE that external query languages must reference through. Currently the marriage is implicit across the 16 strategies in `lance-graph-planner`.
+
+Proposal: add a `SharedExternalSchema` type to `lance-graph-contract` that enumerates projected column names available to all external query languages, with enforcement at `PlannerContract` planning step. Without it, cross-language queries work by coincidence and each parser can drift into its own naming.
+
+Blocks: parallel transcodes (callcenter + archetype) that open external query surfaces. Both would need to know the shared column names.
+
+Cross-ref: `lance-graph-planner::strategy::*`; `lance-graph-contract/src/plan.rs`; epiphany 2026-04-24 "Context-syntax marriage."
+
+## 2026-04-24 — External boundary as staging + projection columns (formalize into the global SoA)
+**Status:** Open
+**Priority:** P1
+**Scope:** @host-glove-designer @truth-architect domain:bbb domain:soa
+**Introduced by:** two-SoA architectural audit 2026-04-24
+**Payoff estimate:** ~100 LOC contract types + BindSpace column additions + migration of existing ExternalMembrane impls
+
+Today `ExternalMembrane` is a trait with method-based `ingest()` + `project()`. Architectural direction from 2026-04-24 audit: both crossings become explicit BindSpace columns (`StagingColumn`, `ProjectedRow`) so the data path is columnar and subject to the dual-ledger write discipline (CollapseGate).
+
+BBB stays enforced by type system (staging column accepts only `ExternalEvent` shapes with no VSA / RoleKey / NarsTruth fields; projection exposes only scalar `CognitiveEventRow`). The BOUNDARY becomes visible in the SoA schema.
+
+Cross-ref: `lance-graph-contract/src/external_membrane.rs`; I1 invariant; epiphany 2026-04-24 "External boundary formalized INTO the global SoA."
+
+## 2026-04-24 — Grammar Markov ±5 / ±500 kernel as first-class BindSpace column layout
+**Status:** Open
+**Priority:** P1
+**Scope:** @bus-compiler @ripple-architect domain:markov domain:soa
+**Introduced by:** two-SoA audit + pyramid architecture session 2026-04-24
+**Payoff estimate:** ~60 LOC column schema + documentation
+
+Grammar Markov kernel (±5 local, ±500 paragraph, ±500000+ document-level per `elegant-herding-rocket-v1.md`) needs a documented first-class column layout in BindSpace. Candidates:
+- Ring buffer column: `MarkovRingColumn<Binary16K, RING_SIZE>`
+- Paired preceding/following: `fingerprints.preceding[]` + `fingerprints.focal[]` + `fingerprints.following[]`
+- Positional offset per row: `fingerprints[row].markov_offset: i16`
+
+Choose ONE, document byte-level, make it the canonical surface for all Markov-window operations. Without this, each shader worker (deepnsm grammar, coref resolution, NARS dispatch) reconstructs the window ad-hoc.
+
+Cross-ref: `elegant-herding-rocket-v1.md` D5 markov_bundle (deferred as LAZY); `cognitive-shader-architecture.md` BindSpace columns; epiphany 2026-04-24 "TWO SoAs."
+
+## 2026-04-24 — dn_redis unification via DataFusion streaming
+**Status:** Open
+**Priority:** P2
+**Scope:** @host-glove-designer domain:external-surface domain:datafusion
+**Introduced by:** two-SoA audit 2026-04-24
+**Payoff estimate:** ~120 LOC adapter + Redis cache layer + deprecation of flat-KV surface
+
+Current `crates/lance-graph-cognitive/src/container_bs/dn_redis.rs` uses flat `ada:dn:{hex}` Redis keys with subtree-scan operations. Per the two-SoA framing (external query SoA on DataFusion), this should be recast as DataFusion-served queries over Lance with Redis as an optional write-through cache.
+
+The hierarchical DN path from `callcenter-membrane-v1.md` §595 (`/tree/ns/heel/h/hip/x/branch/b/twig/t/leaf/l`) is the natural DataFusion query shape: each path segment is a predicate on a Lance column. heel/hip/branch/twig/leaf are existing cascade-tree levels in `crates/lance-graph/src/graph/blasgraph/heel_hip_twig_leaf.rs`.
+
+Deprecate the flat-key protocol over one migration cycle; retain Redis caching as acceleration layer on top of DataFusion queries.
+
+Cross-ref: `container_bs/dn_redis.rs`; `callcenter-membrane-v1.md` §§595–803; `heel_hip_twig_leaf.rs`; epiphany 2026-04-24 "dn_redis is external."

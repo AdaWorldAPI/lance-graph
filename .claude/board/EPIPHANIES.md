@@ -65,6 +65,267 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+
+## 2026-04-24 — Pyramid L4 (16K × 16K) is a fourth layer beyond the existing 3-layer thought-engine doc
+
+**Status:** FINDING
+**Owner scope:** @container-architect
+
+`ARCHITECTURE_THOUGHT_ENGINE.md` documents a 3-layer branching engine with L1(64²)/L2(256²)/L3(4K²) and memory budget ~20 MB fitting CPU L3. This session established that L4(16,384 × 16,384) extends the pyramid as a fourth widening step. Row widths follow a 4× multiplier per layer: 64 → 256 → 4K → 16K. The existing doc's Memory Budget table captures L1–L3 accurately; L4 is an extension, not a replacement, and inherits the same branching semantics.
+
+L4 is where "everything activates" at scale — 268M cells per activation — and is therefore the layer that needs bit-packed fingerprint format (see separate entry) rather than the per-cell byte codes used at L3.
+
+Cross-ref: `.claude/ARCHITECTURE_THOUGHT_ENGINE.md` §Memory Budget; `.claude/knowledge/cognitive-shader-architecture.md` BindSpace column layout.
+
+---
+
+## 2026-04-24 — L4 uses bit-packed fingerprints, not BF16 — forced by CPU L3 cache fit
+
+**Status:** FINDING
+**Owner scope:** @container-architect
+
+16,384 × 16,384 × 2 bytes (BF16) = 512 MB per L4 activation — blows L3 cache (~16–48 MB typical), forces main-memory traffic, breaks streaming. 16,384 × 16,384 / 8 (1 bit/cell) = ~16–32 MB — fits L3, stays resident across cycles. This is not a precision-vs-throughput trade-off at L4; it's the only format that keeps the widest layer on-die.
+
+Consequence: L4's native algebra is popcount-XOR / Hamming / majority-vote bundle (BSC — Binary Spatter Code). The VDPBF16PS path (pair of BF16 NARS revision per `BF16_SEMIRING_EPIPHANIES.md` EPIPHANY 8) lives at narrower layers where the total cell count makes BF16 affordable.
+
+Cross-ref: `.claude/BF16_SEMIRING_EPIPHANIES.md` EPIPHANY 8; `ARCHITECTURE_THOUGHT_ENGINE.md` §Memory Budget.
+
+---
+
+## 2026-04-24 — Each pyramid layer fits exactly one CPU cache level up — tight nesting, never hits main memory
+
+**Status:** FINDING
+**Owner scope:** @container-architect
+
+Mapping from pyramid-layer to CPU-cache-level:
+
+| Pyramid layer | Size (bit-packed) | Fits CPU cache |
+|---|---|---|
+| L1 (64²) | 4 KB | registers / L0 |
+| L2 (256²) | 8–64 KB | L1 data cache |
+| L3 (4K²) | 2 MB (bit) / 16 MB (byte) | L2 cache |
+| L4 (16K²) | 16–32 MB | L3 cache |
+
+The 4× row-width multiplier between pyramid layers matches the ~4–16× capacity ratio between CPU cache levels. Consequence: streaming pipeline physically never leaves the die between layer transitions. The pyramid shape **IS** the cache hierarchy shape; it wasn't optimized for cache — the architecture chose widths that ARE the cache ratios.
+
+Cross-ref: `ARCHITECTURE_THOUGHT_ENGINE.md` §Memory Budget; CPU cache sizes on Sapphire Rapids / Zen 4 / M-series.
+
+---
+
+## 2026-04-24 — SIMD lane alignment: 64-element rows match register widths at all three precision tiers
+
+**Status:** FINDING
+**Owner scope:** @container-architect
+
+Each 64-element row of the pyramid is processed in a fixed number of SIMD instructions regardless of precision tier:
+
+| Precision | Per-register elements | Registers per 64-row |
+|---|---|---|
+| FP16x32 | 32 | 2 |
+| FP32x16 | 16 | 4 |
+| F64x8 | 8 | 8 |
+
+Zero remainder loops at any precision. The 64-element granularity is the CPU's native SIMD width (AVX-512 for register widths; equivalent on ARM SVE). The pyramid doesn't impose 64 as a convention — it matches a hardware invariant. Every row width up the pyramid (64, 256, 4K, 16K) is a multiple of 64 by construction.
+
+Cross-ref: `ndarray::simd::*` LazyLock CPU-dispatch; `CLAUDE.md` § ndarray Integration Policy.
+
+---
+
+## 2026-04-24 — Vsa10k = [u64; 157] was a SIMD-alignment sin — retroactively
+
+**Status:** FINDING (explains the cleanup commit `0ae9f90`)
+**Owner scope:** @container-architect
+
+157 × 64 = 10,048 bits (10,000 real + 48 slack). Doesn't match any SIMD register width at any precision tier: FP16x32 wants multiples of 32 elements, FP32x16 wants multiples of 16, F64x8 wants multiples of 8. 157 u64 words leaves a scalar tail every SIMD pass.
+
+Canonical widths land cleanly:
+- `Vsa10kF32 = [f32; 10_000]` → 625 AVX-512 loads, zero tail
+- `Vsa16kF32 = [f32; 16_384]` → 1,024 AVX-512 loads, zero tail
+- `Binary16K = [u64; 256]` → 32 AVX-512 loads, zero tail
+
+The 2026-04-21 cleanup (commit `0ae9f90`) removing the 157-word carrier was correct not just because the algebra was misplaced, but because the width could never align with the hardware. This retroactive grounding justifies the revert and should inform any future rescale (e.g., Vsa10k → Vsa16k) — pick widths that are multiples of 64 elements at every precision.
+
+Cross-ref: `CHANGELOG.md` 2026-04-21 correction; `TECH_DEBT.md` 2026-04-19 FP_WORDS=157 entry.
+
+
+---
+
+## 2026-04-24 — Streaming is LITERAL — CPU register data flow, zero memory intermediaries, no halt state
+
+**Status:** FINDING (not metaphor)
+**Owner scope:** @bus-compiler
+
+"Streaming" in this architecture is not a design metaphor for flow semantics. It's the physical behavior of CPU pipelines fed continuous SIMD-aligned input: data lives in SIMD registers, moves at clock speed, passes between pyramid layers through cache, never stops to be collected in main memory.
+
+Consequences:
+- "Shader can't resist thinking" = the CPU pipeline has no pause state; fetch-decode-execute runs continuously while there's work
+- Free-energy thermodynamics is the variational description of what an unstoppable SIMD pipeline behaves like when fed continuous input; "F descends" = pipeline throughput converging; "homeostasis" = ripple amplitude below SIMD register noise
+- Active inference isn't a theoretical overlay; it's literally what unstoppable shader pipelines do
+
+Cross-ref: existing "shader can't resist thinking" language in `CLAUDE.md` § The Click; `ARCHITECTURE_THOUGHT_ENGINE.md` §DTOs as Cognitive Laws.
+
+---
+
+## 2026-04-24 — Context-syntax marriage: Cypher / SQL / Gremlin / SPARQL share one DataFusion LogicalPlan surface
+
+**Status:** FINDING (identifies a spine gap to formalize)
+**Owner scope:** @bus-compiler
+
+All external query languages parse into the same DataFusion LogicalPlan; shared column names on the external_dataset Lance schema are the marriage point. Today this marriage is implicit across the 16 strategies in `lance-graph-planner` (CypherParse, GqlParse, GremlinParse, SparqlParse, ArenaIR, etc.).
+
+The spine gap: `lance-graph-contract` has a `PlannerContract` trait in `plan.rs`, but no first-class type declaring the SHARED COLUMN SURFACE that every language must reference through. Without that, each parser bodges its own naming, and cross-language queries (e.g., SQL filter on top of a Cypher MATCH) only work by coincidence.
+
+Proposal: add a `SharedSchema` contract type that enumerates projected column names available to all external query languages, with enforcement at PlannerContract's planning step. This should land as a tech-debt-driven follow-up before the parallel transcodes open external query surfaces.
+
+Cross-ref: `lance-graph-planner::strategy::*` 16 strategies; `lance-graph-contract/src/plan.rs` PlannerContract; `.claude/board/TECH_DEBT.md` 2026-04-24 context-syntax-contract entry.
+
+---
+
+## 2026-04-24 — blasgraph is an INTERNAL shader worker, not an external query component
+
+**Status:** FINDING
+**Owner scope:** @bus-compiler / @resonance-cartographer
+
+blasgraph enrichment (semiring ops on edges — XorBundle, BindFirst, HammingMin, SimilarityMax, Resonance, Boolean, XorField) is internal cognitive compute dispatched per cognitive tick:
+
+1. Reads `EdgeColumn<Box<[u64]>>` (CausalEdge64: SPO + NARS + Pearl + plasticity + temporal)
+2. Applies semiring on adjacency structure
+3. Writes enriched edges back via CollapseGate (Flow/Block/Hold gate)
+
+External Cypher queries see the RESULT of enrichment through the projected edge columns. They do NOT trigger enrichment — enrichment runs per tick as part of the internal cognitive SoA. This keeps the BBB clean: external queries read committed post-tick state only.
+
+Orchestration: explicit dispatch from cognitive-shader-driver per cognitive cycle, same as other shader workers (deepnsm grammar, bgz-tensor attention, ONNX classifier).
+
+Cross-ref: `crates/lance-graph/src/graph/blasgraph/` 7 semirings; `cognitive-shader-architecture.md` I1 BindSpace-read-only + CollapseGate invariant.
+
+
+---
+
+## 2026-04-24 — GPU shader pipeline is the architectural analogue, not a metaphor
+
+**Status:** FINDING
+**Owner scope:** @ripple-architect
+
+Mapping:
+
+| GPU shader | cognitive-shader-driver |
+|---|---|
+| Vertex buffer | StreamDto input (narrow top) |
+| Rasterization | Activation spreading at each pyramid layer |
+| Fragment blending | Interference between activations |
+| SIMT (Single Instruction Multiple Thread) | ndarray SIMD + columnar batch per row |
+| Uniform buffer | BindSpace columns |
+| Framebuffer | Lance persisted surface |
+| Fixed + programmable stages | Driver orchestration (fixed) + thinking-engine / codec workers (programmable) |
+| Pipeline can't stall | "Shader can't resist thinking" |
+| Mesh geometry → pixel pattern | Shape of Object → what thinking happens |
+
+ONNX benefits at implementation-stack L4/L5 because GPUs already run shader pipelines; the `ort` crate's GPU execution provider is a natural citizen of that layer.
+
+Cross-ref: `ARCHITECTURE_THOUGHT_ENGINE.md` §DTOs; `cognitive-shader-architecture.md` § BindSpace columns; GPU shader pipeline stage docs (vertex → tessellation → geometry → fragment).
+
+---
+
+## 2026-04-24 — Two SoAs (internal cognitive + external query), one BBB gate, one DataFusion unified surface
+
+**Status:** FINDING
+**Owner scope:** @ripple-architect / @host-glove-designer
+
+The architecture has TWO SoAs at different time scales:
+
+- **Internal cognitive SoA** — BindSpace + shader pipeline. Nanosecond per cycle. Pyramid L1→L4 streaming at hardware speed. Never stops.
+- **External query SoA** — DataFusion-planned reads across all external protocols (Cypher, SQL, Gremlin, SPARQL, Redis-DN, PostgREST, Arrow Flight, Supabase WebSocket). Millisecond per query.
+
+Connection: `ExternalMembrane` BBB gate + Lance committed projections. External SoA reads committed state; never triggers internal compute.
+
+This reframes ADR 0001 Decision 2: DataFusion was chosen as the UNIFIED EXTERNAL QUERY SURFACE, not just an internal DataFrame engine. Polars rejection and Ballista deferral both fit this framing — one DataFusion surface externally, possibly distributed via Ballista when the latency trigger fires.
+
+Cross-ref: `.claude/adr/0001-archetype-transcode-stack.md` Decision 2; `lance-graph-contract::external_membrane`; `callcenter-membrane-v1.md` external query paths.
+
+---
+
+## 2026-04-24 — Reverse stufenpyramide: cognition widens as it descends, 4× per layer
+
+**Status:** FINDING
+**Owner scope:** @ripple-architect
+
+Narrow top (L1 = 64²), wide base (L4 = 16K²). One perturbation enters at L1; activation widens through each stepped layer (4× per step: 64 → 256 → 4K → 16K); L4's output compresses via ONNX and closes the loop back to L1.
+
+The pyramid matches the `p64` topology proposal (64²/256²/4K²/16K²) that predates this session. "Reverse stufenpyramide" is a useful geometric label for the inverted stepped-pyramid shape: wider at the base, narrower at the top — divergent activation, not convergent compression.
+
+Consequence: thinking is divergent, not convergent. Unlike classical search (many options narrowing to one answer), here one perturbation widens to affect many cognitive cells simultaneously. Staunen, contradiction preservation, and epiphany all happen at the wide base because the base holds many concurrent activations that can interfere.
+
+Cross-ref: `p64` topology references in `ARCHITECTURE_THOUGHT_ENGINE.md`; `cognitive-shader-architecture.md` pyramid diagrams.
+
+
+---
+
+## 2026-04-24 — L4 → ONNX → L1 feedback loop is the closed cognitive cycle
+
+**Status:** FINDING
+**Owner scope:** @trajectory-cartographer
+
+ONNX at implementation-stack L4/L5 reads the 16–32 MB bit-packed L4 fingerprint (L3-cache-resident), classifies into a compact decision signal (kilobytes — PersonaId, style decision, top-K ranking), and perturbs L1 (registers/L0 cache). The pipeline physically stays on-die through the entire feedback cycle; main memory is never touched during active cognition.
+
+"Never halts" is mechanical, not metaphorical: ingress streams new perturbations into L1 continuously while L4 output simultaneously loops back. Like a GPU shader writing to its own input texture in a ping-pong render target. The ONNX model is the ONLY point where learned weights enter the otherwise-algebraic pipeline — it acts as a compressor from fingerprint space to decision space.
+
+Cross-ref: `callcenter-membrane-v1.md` DU-1 ONNX classifier; `CLAUDE.md` §The Click "shader can't resist thinking".
+
+---
+
+## 2026-04-24 — ONNX benefits at implementation-stack L4/L5 via the `ort` crate + GPU execution providers
+
+**Status:** FINDING
+**Owner scope:** @trajectory-cartographer
+
+Multiple L4/L5 ONNX workers (classifier + forecaster + ...) compose via INTERFERENCE in BindSpace — not via orchestration of separate outputs. Each worker's activation writes to BindSpace columns; their combined pattern is the composite dispatch signal. Constructive interference = high-confidence commit; destructive = ambiguity → FailureTicket; saddle-point = Epiphany.
+
+This justifies the ADR 0001 Decision 2 Grok-gRPC addendum and the Chronos-as-temporal-forecaster observation: they're additional L4/L5 shader workers, not alternatives to the classifier. The lab `grpc` feature gate hosts both external LLM A2A experts AND Ballista distribution — same transport, same interference semantics.
+
+Cross-ref: `adr/0001-archetype-transcode-stack.md` §Ballista + Grok addenda; `cognitive-shader-architecture.md` BindSpace interference model.
+
+---
+
+## 2026-04-24 — `dn_redis.rs` is external; needs streaming DataFusion access, not parallel flat-KV protocol
+
+**Status:** FINDING
+**Owner scope:** @host-glove-designer
+
+Current state: `crates/lance-graph-cognitive/src/container_bs/dn_redis.rs` uses flat `ada:dn:{hex}` Redis keys with subtree-scan operations (SCAN ada:dn:{prefix}*). Per the two-SoA picture (external query SoA on DataFusion), this should be recast as DataFusion-served queries over Lance with Redis as an optional write-through cache layer — NOT a parallel KV protocol.
+
+The hierarchical DN path from `callcenter-membrane-v1.md` §595 (`/tree/{ns}/heel/{h}/hip/{h}/branch/{b}/twig/{t}/leaf/{l}`) is the natural DataFusion query shape: each path segment is a predicate on a Lance column. heel/hip/branch/twig/leaf are existing cascade-tree levels (`crates/lance-graph/src/graph/blasgraph/heel_hip_twig_leaf.rs`); they become projected columns on the external_dataset schema. Redis caching stays as an acceleration layer over DataFusion, not a separate API.
+
+Cross-ref: `callcenter-membrane-v1.md` §§595–803; `heel_hip_twig_leaf.rs` cascade tree; `container_bs/dn_redis.rs` current protocol.
+
+---
+
+## 2026-04-24 — External boundary formalized INTO the global SoA (staging + projection columns), not adjacent to it
+
+**Status:** FINDING (design response to the two-SoA observation)
+**Owner scope:** @host-glove-designer
+
+Today `ExternalMembrane` is a trait in `lance-graph-contract/src/external_membrane.rs` with method-based `ingest()` + `project()` semantics. Proposed formalization: both crossings become EXPLICIT BindSpace columns.
+
+- `ExternalMembrane::ingest(event)` → appends to a staging column (e.g., `StagingColumn<ExternalEvent>`) that the driver drains per cognitive tick via CollapseGate
+- `ExternalMembrane::project(row)` → reads from a projection column (e.g., `ProjectedRow<CognitiveEventRow>`) built by the commit path
+
+The BBB remains enforced by the type system (staging column accepts only events matching the `ExternalEvent` shape with no VSA/RoleKey/NarsTruth fields; projection column exposes only scalar CognitiveEventRow). The DATA PATH becomes columnar — visible in the SoA schema, sweeplable like any other column, subject to the same dual-ledger write discipline (CollapseGate).
+
+Cross-ref: `lance-graph-contract/src/external_membrane.rs`; I1 invariant (BindSpace read-only, CollapseGate writes); `callcenter-membrane-v1.md` DM-2..DM-9.
+
+---
+
+## 2026-04-24 — Epiphanies = persistent interference patterns in BindSpace, not tied rankings
+
+**Status:** FINDING
+**Owner scope:** @thought-struct-scribe
+
+The `FreeEnergy::Resolution::Epiphany` case (top-2 ΔF < 0.05) is not a tie in hypothesis ranking — it's a physical interference pattern at the pyramid's wide base (L4). Two activation waves propagate through BindSpace from different sources (parser vs context memory; two competing personas; classifier vs resonance prediction). Constructive interference → reinforce → Commit. Destructive interference → cancel → Commit with loser-decrement. Saddle-point interference → persistent standing pattern → Epiphany with both readings preserved.
+
+`Contradiction { phase, magnitude }` records the interference signature: phase = angle in BindSpace where the two waves stand relative to each other; magnitude = standing-wave amplitude. Both readings commit as separate triples with separate NARS truths — you cannot collapse a persistent interference pattern into one reading without destroying information. The pattern IS the meaning.
+
+Cross-ref: `free_energy.rs::Resolution::Epiphany`; D8 Contradiction from `elegant-herding-rocket-v1.md`; `CLAUDE.md` §The Click epiphany description.
+
 ## 2026-04-24 — ADR 0001 locks: Archetype transcode + Lance/DataFusion/Supabase-shape + Persona 16^32
 
 **Status:** FINDING (formal architectural lock via ADR 0001)
