@@ -508,15 +508,22 @@ compose their outputs at runtime."
 
 For subagent coordination *during* this session:
 
-- **The mandatory-read files above (`LATEST_STATE.md` +
-  `PR_ARC_INVENTORY.md`) are the shared blackboard.** Every subagent
-  I spawn reads them to know the current state, same as a Layer-1
-  expert reads prior blackboard entries to know current round state.
+- **`.claude/board/AGENT_LOG.md` is the Layer-2 blackboard.**
+  Every agent run gets one append-only entry (D-ids, commit, tests,
+  outcome). Later agents read prior entries to see what was already
+  shipped, found, or is in flight — same as Layer-1 experts reading
+  prior `BlackboardEntry` rounds. This replaces explicit message
+  passing between agents: no backend coordination, just file reads.
+  **Every agent prompt MUST include:** "Read `.claude/board/AGENT_LOG.md`
+  before starting. After committing, prepend your own entry."
+- **`LATEST_STATE.md` + `PR_ARC_INVENTORY.md`** are the structural
+  blackboard — what types exist, which PRs shipped. Every subagent
+  reads them for current state.
 - **Knowledge docs in `.claude/knowledge/`** are the extended
   blackboard — cross-session persistent entries. Each doc has a
   `READ BY:` header declaring which subagent types load it (the
   equivalent of `ExpertCapability` matchers).
-- **`/root/.claude/plans/*.md`** — plan files authored via `Plan`
+- **`.claude/plans/*.md`** — plan files authored via `Plan`
   agents; session-scoped blackboard for multi-turn work. Other
   agents reference the active plan for context.
 - **Parallel subagent spawns** in one main-thread turn are the

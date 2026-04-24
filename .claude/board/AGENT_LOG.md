@@ -17,6 +17,16 @@
 > Agents themselves should also append if they run long enough to
 > risk context compaction (write progress incrementally, not just
 > at the end).
+>
+> **Cross-agent blackboard.** This file IS the Layer 2 A2A blackboard.
+> Agents MUST read this file before starting work — it tells them
+> what other agents already shipped, found, or are working on.
+> This replaces explicit message passing between agents: no backend
+> coordination needed, just file reads. The pattern mirrors the
+> runtime `Blackboard` (Layer 1, `a2a_blackboard.rs`) — each entry
+> is a `BlackboardEntry` with expert_id (agent name), capability
+> (D-ids), result (commit), confidence (test count). Later agents
+> read prior entries and build on them, same as Layer 1 experts do.
 
 ---
 
