@@ -533,3 +533,36 @@ these become tracked deliverables.
 Cross-ref: `.claude/knowledge/vsa-switchboard-architecture.md` § The
 Archetype ↔ AriGraph ↔ Persona ↔ ThinkingStyle Unification.
 
+
+## 2026-04-21 — L3 naming collision: CPU cache L3 vs cognitive-shader Layer 3
+**Status:** Open
+**Priority:** P2
+**Scope:** @truth-architect @integration-lead domain:docs domain:cognitive-shader
+**Introduced by:** architectural naming (pre-existing, flagged 2026-04-21)
+**Payoff estimate:** ~40 LOC docs cleanup + grep pass over `.claude/*.md`
+
+The 7-layer cognitive stack uses L0..L6 labels (L0 ndarray SIMD, L1
+BindSpace, L2 CognitiveShader, L3 CollapseGate, L4 Planner, L5 GPU
+meta, L6 LanceDB). This NAMING COLLIDES with CPU cache levels (L1/L2/
+L3 caches).
+
+The confusion point: when memory analysis says "Vsa16kF32 (64 KB)
+fits in L3 cache" — does L3 mean cache level 3 (typical 8-32 MB, plenty
+of room) or cognitive-shader Layer 3 (CollapseGate, a logical dispatch
+layer unrelated to physical memory)?
+
+The poisoning risk: documentation or session handovers that casually
+reference "L3" may be read by a future session as either (a) CPU
+cache level or (b) cognitive-shader layer, and the wrong reading can
+lead to wrong design decisions (e.g., sizing the trajectory bundle to
+"fit in L3" when "L3" was actually referring to the collapse gate).
+
+**Fix:** Disambiguate in all future writing:
+- CPU cache → "CPU-L3" or "L3-cache"
+- Cognitive stack layer → "cog-L3" or "Layer 3 (CollapseGate)"
+- Grep pass over existing `.claude/*.md` for "L3" with implicit
+  context; annotate each occurrence.
+
+Cross-ref: `CLAUDE.md § What This Is` (7-layer stack diagram),
+this session's memory analysis discussion of Vsa16kF32 cache fit.
+

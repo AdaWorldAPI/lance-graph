@@ -442,11 +442,14 @@ awareness) while correcting the concrete format choice.
 
 ## Cross-References
 
+- `CHANGELOG.md` — **the format-switch history** (when each VSA
+  variant was introduced, when renames/reverts happened, what the
+  reasoning was). Canonical "when did format X change and why?" doc.
 - `EPIPHANIES.md` — see CORRECTION-OF entries dated 2026-04-21 cleanup
 - `.claude/board/TECH_DEBT.md` — VSA substrate rename debt, D5 revert debt
 - `CLAUDE.md § The Click (P-1)` — meta-architecture (correct), updated to reflect FP32 multiply/add
-- `CLAUDE.md § I-CAMPQ-VS-VSA iron rule` — refined to "VSA operates on identities"
+- `CLAUDE.md § I-VSA-IDENTITIES iron rule` — VSA operates on identities, not content
 - `.claude/plans/categorical-algebraic-inference-v1.md` — Five Lenses plan (correct)
 - `.claude/knowledge/paper-landscape-grammar-parsing.md` — 14-paper landscape (correct)
-- `.claude/knowledge/session-2026-04-21-categorical-click.md` — session handover (needs correction annotation)
+- `.claude/knowledge/session-2026-04-21-categorical-click.md` — session handover (with correction banner)
 

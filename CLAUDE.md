@@ -18,7 +18,8 @@ VSA carrier).
 > Frankenstein confusion between Binary16K (Hamming-compare format,
 > `[u64; 256]`) and the actual VSA carrier (real-valued multiply+add).
 > See `.claude/knowledge/vsa-switchboard-architecture.md` for the
-> corrected three-layer framing.
+> corrected three-layer framing and `CHANGELOG.md` for the format-
+> switch history.
 
 ```
   Sentence → FSM → RoleKey_fp × content_fp   → vsa_bundle (Σ) with ρ^d braiding
