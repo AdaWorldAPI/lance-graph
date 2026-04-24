@@ -65,6 +65,59 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-04-24 — ADR 0001 locks: Archetype transcode + Lance/DataFusion/Supabase-shape + Persona 16^32
+
+**Status:** FINDING (formal architectural lock via ADR 0001)
+
+Three coupled decisions locked as one ADR (`.claude/adr/0001-archetype-transcode-stack.md`):
+
+1. **Archetype is TRANSCODED, not bridged.** Native Rust crate
+   `lance-graph-archetype` (not `-bridge`, not `-adapter`) assimilates
+   the ECS contracts — `Component`, `Processor`, `World`, `CommandBroker`
+   — against Lance + DataFusion + Arrow. Python upstream is DESIGN
+   SPEC, not runtime dependency. Zero FFI.
+
+2. **Stack lock.** Storage = Lance (versioned append-only, matches
+   Archetype tick snapshots by construction). Query = DataFusion
+   (UDFs + window functions for VSA + Markov ±5). Scheduler =
+   Supabase-shape tick loop transcoded to Rust channels (DM-4
+   `LanceVersionWatcher` + DM-6 `DrainTask`, no PostgreSQL).
+   Temporal = Arrow types + DataFusion window functions. Ballista
+   DEFERRED to 1s-P99 trigger; upgrade path is ~230 LOC because the
+   lab `grpc` feature already serves Arrow Flight's gRPC transport.
+   **Polars REJECTED** in production code (no crate deps, no UDFs);
+   benchmark-only use is orthogonal.
+
+3. **Persona 16^32 is THE identity space.** 32 atoms × 16 weights =
+   16^32 coordinates → 56-bit `PersonaSignature`. Only the signature
+   crosses BBB; the atom-weighting vector stays internal. Blackboard
+   / Persona / Markov ±5 / ±500 share algebraic substrate (role-
+   indexed VSA identity superposition); shared-DTO unification is
+   an OPEN question for future ADRs. BBB enforcement extends to
+   ban atom-weighting vectors and Markov trajectory bundles; permits
+   PersonaSignature + scalar `CognitiveEventRow` projections.
+
+**Unlocking requires a new ADR** citing this one by number. Individual
+sessions cannot unlock by reinterpretation. Ballista trigger threshold
+(1s P99) is the only mutable field.
+
+**Implications:**
+- `unified-integration-v1.md` DU-2 needs clarification commit (rename
+  bridge → transcode, crate `lance-graph-archetype-bridge` →
+  `lance-graph-archetype`)
+- `callcenter-membrane-v1.md` DM-4/DM-6 validated by this ADR
+- `categorical-algebraic-inference-v1.md` unchanged (Five Lenses sit
+  above storage/query layer)
+- `cognitive-shader-driver` `grpc` feature gate becomes load-bearing
+  for Ballista readiness — must not be removed without amending ADR 0001
+
+Cross-ref: `.claude/adr/0001-archetype-transcode-stack.md` (443 lines,
+three-decisions + addendum + summary + lock statement),
+`unified-integration-v1.md` DU-2, `callcenter-membrane-v1.md` DM-4/DM-6,
+`I-VSA-IDENTITIES` iron rule, `external_membrane.rs`.
+
+---
+
 ## 2026-04-22 — E-DEPLOY-1 — Supabase-shape thinking extension: trojan-horse A2A training surface over DN-addressed metadata bus, backed by lance-graph, BBB-preserved by blackboard mediation
 
 **Status:** FINDING (deployment doctrine — the nine-dimension shape that makes everything we've built earn its own product)

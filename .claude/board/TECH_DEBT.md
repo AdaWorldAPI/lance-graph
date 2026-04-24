@@ -732,3 +732,89 @@ catalogue. Etc.
 Cross-ref: `FormatBestPractices.md` § 0 (the 5-question checklist
 before picking a format), CHANGELOG.md 2026-04-21 entries.
 
+
+## 2026-04-24 — Ballista trigger threshold tuning (ADR 0001 mutable)
+
+**Status:** Open
+**Priority:** P3 (tracked, tuned post-benchmark)
+**Scope:** @truth-architect @host-glove-designer ADR-0001 domain:stack
+**Introduced by:** ADR 0001 Decision 2 (the only mutable lock)
+**Payoff estimate:** 1 benchmark run + 1 ADR-amend commit
+
+ADR 0001 locks Ballista activation to: "single-node query P99 latency
+on Animal Farm OR callcenter hot path exceeds 1 second after reasonable
+DataFusion optimization." The "1 second" threshold is a placeholder —
+empirically tune after first benchmark runs. If 500ms is the right
+number, amend ADR 0001's mutable section. If 2s is the right number,
+same process.
+
+Threshold amendment does NOT require a new ADR — it is the one field
+Decision 2 explicitly leaves mutable.
+
+Cross-ref: `.claude/adr/0001-archetype-transcode-stack.md` § Ballista
+activation trigger.
+
+## 2026-04-24 — Context enrichment API for external BBB consumers (ADR 0001 open question)
+
+**Status:** Open
+**Priority:** P2
+**Scope:** @host-glove-designer @truth-architect domain:bbb domain:external
+**Introduced by:** ADR 0001 Decision 3 addendum (OPEN question, not locked)
+**Payoff estimate:** Future ADR + ~80 LOC types + BBB deny-list review
+
+External consumers (dashboards, LLM routers, simulation monitors) may
+need more than `CognitiveEventRow` scalar projection, but less than
+full internal state (which is BBB-banned per `I-VSA-IDENTITIES` +
+`external_membrane.rs`).
+
+Candidate enrichment shapes (NOT decided):
+
+- `EnrichedCognitiveRow` — `CognitiveEventRow` + Staunen magnitude +
+  arc pressure + recent commit digest as `Fingerprint<256>`
+- `TrajectorySummary` — hashed identities (no unbindable VSA) + scalar
+  coherence metrics
+- `BlackboardRoundDigest` — round ID + expert count + aggregate
+  confidence, no per-expert detail
+
+Governance: ANY enrichment must pass the BBB type-system gate in
+`external_membrane.rs`. Additions to the `permit` list are ADR-worthy
+changes, not ad-hoc edits. The BBB is the most load-bearing invariant
+in the workspace.
+
+Next step: identify first concrete external consumer, scope enrichment
+shape for that consumer's needs, author ADR that extends `permit`
+list and justifies each field.
+
+Cross-ref: `.claude/adr/0001-archetype-transcode-stack.md` § Context
+enrichment, `external_membrane.rs:10`, `CognitiveEventRow`.
+
+## 2026-04-24 — Grok gRPC as first external-LLM A2A expert (observation, not locked)
+
+**Status:** Open
+**Priority:** P2
+**Scope:** @host-glove-designer @adk-coordinator domain:a2a domain:external
+**Introduced by:** ADR 0001 Decision 2 addendum (observation)
+**Payoff estimate:** ~100 LOC Grok client + Blackboard entry mapping
+
+xAI Grok exposes a gRPC API. The lab `grpc` feature gate on
+`cognitive-shader-driver` already serves the transport layer Ballista
+needs AND the transport layer Grok speaks. Grok-as-expert could be
+deployed pre-Ballista:
+
+```
+Grok gRPC response → lab grpc handler → Blackboard expert entry
+    (expert_id = "grok", capability = ..., result = ..., confidence, ...)
+```
+
+BBB rule holds: Grok receives scalar `CognitiveEventRow` projections
+on outbound; the `BlackboardEntry` it fills is internal-only, never
+exposed as external content. Grok becomes an EXPERT in the A2A sense,
+not a FRONTEND consumer.
+
+Not a commitment — recording that the wire is already shaped for it.
+Deliverable trigger: when multi-LLM A2A becomes a tracked requirement.
+
+Cross-ref: `.claude/adr/0001-archetype-transcode-stack.md` § Grok
+gRPC addendum, `crates/cognitive-shader-driver/src/grpc.rs`,
+`a2a_blackboard::BlackboardEntry`.
+
