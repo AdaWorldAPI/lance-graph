@@ -2,13 +2,15 @@
 members = [
     "crates/lance-graph",
     "crates/lance-graph-catalog",
-    "crates/lance-graph-python",
     "crates/lance-graph-benches",
     "crates/lance-graph-planner",
     "crates/lance-graph-contract",
     "crates/neural-debug",
+    "crates/lance-graph-callcenter",
 ]
 exclude = [
+    # Python bindings (upstream-inherited, opt-in via --manifest-path)
+    "crates/lance-graph-python",
     "crates/lance-graph-codec-research",
     "crates/bgz17",
     "crates/deepnsm",

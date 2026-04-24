@@ -65,6 +65,67 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-04-22 — E-DEPLOY-1 — Supabase-shape thinking extension: trojan-horse A2A training surface over DN-addressed metadata bus, backed by lance-graph, BBB-preserved by blackboard mediation
+
+**Status:** FINDING (deployment doctrine — the nine-dimension shape that makes everything we've built earn its own product)
+
+**One line:** the callcenter crate is not a Supabase clone; it is a Supabase-dialect thinking extension that trains itself on A2A agent traffic while the BBB holds at the blackboard.
+
+**Nine compounding dimensions, one coherent deployment:**
+
+1. **A2A agents ARE the training surface.** crewai-rust / n8n-rs / openclaw / LangGraph / AutoGen all generate traffic autonomously. Every seed lands with an `ExternalRole` tag; every commit (F<0.2) or FailureTicket (F>0.8) is a labeled training example — no human-in-the-loop, no labeling budget, no cold-start data problem. Per-ecosystem specialization emerges because persona AriGraph subgraphs diverge per family (`CrewaiAgent`-flavored codec cards differ from `N8n`-flavored codec cards after enough traffic).
+
+2. **Supabase shape = adoption surface.** Any A2A consumer already knows PostgREST filter DSL, Realtime channels, JWT auth. They write a standard RAG integration. They never know there is a cognitive substrate behind it.
+
+3. **Metadata IS the address bus.** `cognitive_event` Arrow rows carry `(external_role, faculty_role, expert_id, dialect, scent)` as typed columns. Queries against this metadata ARE dispatch — there is no separate "router." `SELECT … WHERE external_role=3` returns rows whose identity tuple is the execution target. Five dialects view the same bus: SQL tabular / Cypher graph-path / GQL / NARS truth-filter / qualia fuzzy-family.
+
+4. **REST + DataFusion backs it** (ladybug-rs prior art). DataFusion 51 is the query engine for every dialect; Arrow 57 is the wire format; Lance 2 is the durable store. No PostgREST. No Postgres wire protocol in the hot path.
+
+5. **DN-addressed URL hierarchy** replaces Redis flat keys: `/tree/{ns}/heel/{h}/hip/{h}/branch/{b}/twig/{t}/leaf/{l}` parses deterministically into a metadata predicate. URL path = routing predicate; body content = seed.
+
+6. **Address = scent (1 byte via codec chain)**. Full path 16Kbit → ZeckBF17 48B → Base17 34B → CAM-PQ 6B → Scent 1B, ρ=0.937. One compressed object serves four uses: route / retrieve / similar / frame. Scent pulls context (AriGraph triples, episodic ±5..±500 window, persona trust, qualia signature) BEFORE the shader reads the body. The answer is grounded in cognitive-substrate state, not in lexical document vectors.
+
+7. **Body content = external seed** enters the blackboard as `BlackboardEntry { capability: ExternalSeed }`. Never touches BindSpace directly. The round boundary on the blackboard IS the anti-corruption boundary.
+
+8. **Polyglot front end, one IR, many tongues.** Cypher / GQL / Gremlin / SPARQL already shipped in lance-graph-planner. Adding NARS (native typed cognitive queries with f,c constraints), Redis (flat KV that auto-hydrates to DN), and Spark (bulk analytics + structured streaming) extends the existing `PolyglotDetect` pattern. Dialect-as-signal: the dialect itself is a feature on the seed's metadata row (tells the router which cognitive faculty the consumer is exercising).
+
+9. **Agent cards + faculties + external roles = one identity space.** `ExpertId = stable_hash_u16(card_yaml)` collapses internal A2A experts, external agents, YAML cards into one register. Faculties (`ReadingComprehension`, `Voice`, `Reasoning`, `Empathy`) carry asymmetric inbound/outbound `ThinkingStyle` and `ToolAbility` sets. Full three-coordinate provenance: `(ExternalRole family, FacultyRole function, ExpertId card)` on every metadata row.
+
+**BBB invariant — the iron rule that makes the whole thing safe:**
+
+Every dimension lives in BOTH representations:
+- **External (metadata columns)** — Arrow scalars, safely cross the BBB, queryable by the five dialects, projected via `CollapseGate` on every commit.
+- **Internal (VSA role-bindings)** — `RoleKey` slot addresses for Markov ±5 braiding, never cross the BBB, produced stack-side via deterministic metadata → slot mapping.
+
+Same identity, two faces, one direction of flow: metadata IN (translate via RoleKey at the stack side) → VSA braiding (the substrate reasons) → metadata OUT (project back via `CollapseGate`). Supabase refactor only ever sees Arrow columns; the blackboard only ever sees role-tagged entries. No path exists where an external payload touches `Vsa10k`, `RoleKey`, `SemiringChoice`, or `NarsTruth` as a type — the compiler rejects it (Arrow's type system enforces it at `RecordBatch` column level).
+
+**What the consumer experiences vs. what actually happens:**
+
+| Consumer sees | Substrate does |
+|---|---|
+| POST /tree/.../leaf/utterance with Cypher body | URL → DN → 1-byte scent → pulls AriGraph subgraphs + episodic ±5..±500 + persona trust |
+| Response JSON with matched rows | Shader cycle ran: bind → braid with pulled context → unbind against AriGraph prior → F descent → Commit writes new SPO triple keyed on scent |
+| "This RAG is weirdly good" | The next query at nearby scent pulls richer context because the last query trained this persona's subgraph |
+
+**Cross-refs:**
+- `.claude/plans/callcenter-membrane-v1.md` §§ 10.1 – 10.13 (full architectural spec)
+- `contract::external_membrane` — `ExternalRole`, `ExternalEventKind`, `CommitFilter`, `ExternalMembrane` trait
+- `contract::a2a_blackboard` — `ExpertCapability::{ExternalSeed, ExternalContext}` (the inbound BB entry types)
+- `contract::persona` — `PersonaCard`, `RoutingHint` (identity-as-metadata + four routing modes)
+- `contract::faculty` — `FacultyRole`, `FacultyDescriptor`, `ToolAbility` (internal cognitive-function identity)
+- `crates/lance-graph-planner/src/serve.rs` — Axum REST + OpenAI-compatible (extend here for DN + polyglot)
+- `crates/lance-graph/src/graph/arigraph/` — persona memory home (consumer-side AriGraph subgraph integration)
+
+**Litmus test** (from plan § 10.9 iron rule, restated for this deployment):
+
+Before any PR touches the callcenter crate or the metadata bus, answer three questions:
+1. Can I name the role, the place, and the translation for every byte crossing the gate?
+2. Does the external surface only see Arrow-scalar columns (no Vsa10k/RoleKey/semiring)?
+3. Does the internal substrate only see role-tagged blackboard entries (no raw external payload)?
+
+If any answer is no, the code is leaking external ontology inward (or internal ontology outward) — reject.
+---
+
 ## 2026-04-21 — CORRECTION-OF 2026-04-21 D5 Frankenstein: VSA must be FP32 multiply/add on identities, not XOR on bitpacked content
 
 **Status:** FINDING (supersedes multiple session entries)
