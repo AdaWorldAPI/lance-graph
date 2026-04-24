@@ -47,10 +47,10 @@ use crate::driver::ShaderDriver;
 use crate::engine_bridge::{self, unified_style, UNIFIED_STYLES};
 use crate::token_agreement::{ReferenceModel, TokenAgreementHarness};
 use crate::wire::{
-    WireCalibrateRequest, WireCalibrateResponse, WireCrystal, WireDispatch, WireHealth,
-    WireIngest, WirePlanRequest, WirePlanResponse, WireProbeRequest, WireProbeResponse,
-    WireQualia, WireRunbookRequest, WireRunbookResponse, WireRunbookStep,
-    WireRunbookStepResult, WireStepResult, WireStyleInfo, WireSweepRequest,
+    WireCalibrateRequest, WireCalibrateResponse, WireCrystal, WireDispatch, WireEncode,
+    WireEncodeResponse, WireHealth, WireIngest, WirePlanRequest, WirePlanResponse,
+    WireProbeRequest, WireProbeResponse, WireQualia, WireRunbookRequest, WireRunbookResponse,
+    WireRunbookStep, WireRunbookStepResult, WireStepResult, WireStyleInfo, WireSweepRequest,
     WireSweepResponse, WireSweepResult, WireTensorsRequest, WireTensorsResponse,
     WireTokenAgreement, WireTokenAgreementResult, WireUnifiedStep,
 };
@@ -116,6 +116,8 @@ pub fn router(driver: ShaderDriver) -> Router {
         // Generic OrchestrationBridge gateway — route any UnifiedStep by step_type.
         // Composed bridges cover lg.* (planner) + nd.* (codec research).
         .route("/v1/shader/route", post(route_handler))
+        // JIT lens encode pipeline — text → DeepNSM → 512-bit VSA → 16Kbit BindSpace row.
+        .route("/v1/shader/encode", post(encode_handler))
         .with_state(state)
 }
 
@@ -445,6 +447,130 @@ fn run_plan(
         StatusCode::SERVICE_UNAVAILABLE,
         "planner not compiled in — rebuild with --features with-planner".to_string(),
     ))
+}
+
+// ─── Encode handler ─────────────────────────────────────────────────────────
+
+/// `POST /v1/shader/encode` — text → DeepNSM → 512-bit VSA → 16Kbit BindSpace row.
+///
+/// Pipeline:
+/// 1. Split text into words (whitespace + punctuation).
+/// 2. Hash each word to a 12-bit vocabulary rank via SplitMix64-style mixing
+///    (deterministic; no data files required — DeepNsm's `VsaVec::from_rank`
+///    accepts any u16 rank and produces a stable pseudo-random 512-bit vector).
+/// 3. XOR-bind each word vector with a position vector so word order matters:
+///    `word_fp = VsaVec::from_rank(hash(word)) XOR VsaVec::random(pos * PHI)`.
+/// 4. Majority-bundle all word-position vectors → 512-bit sentence fingerprint.
+/// 5. Expand 8 × u64 (512-bit) → 256 × u64 (16 Kbit) by tiling: each source
+///    u64 occupies a 32-word run in the content plane.
+/// 6. Write the content row into BindSpace at write_cursor, advance cursor.
+/// 7. Return hex fingerprint + token_count + bits_set + row_written.
+///
+/// Why hash-based ranks instead of Vocabulary::load?
+/// The vocabulary requires CSV data files on disk; the encode endpoint is
+/// intended to be stateless and zero-I/O. `VsaVec::from_rank` is pure and
+/// deterministic — hashing word strings to u16 rank seeds gives the same
+/// VSA vectors on every call without loading any external table. When the
+/// data files are available, upgrade to Vocabulary::load + parser::parse for
+/// full SPO triple extraction.
+async fn encode_handler(
+    State(state): State<AppState>,
+    Json(req): Json<WireEncode>,
+) -> Result<Json<WireEncodeResponse>, (StatusCode, Json<Value>)> {
+    use deepnsm::encoder::{bundle, VsaVec, VSA_WORDS};
+
+    // ── 1. Word tokenisation (zero-I/O, no CSV needed) ───────────────────
+    let words: Vec<&str> = req
+        .text
+        .split(|c: char| c.is_whitespace() || (c.is_ascii_punctuation() && c != '\''))
+        .filter(|s| !s.is_empty())
+        .collect();
+    let token_count = words.len();
+
+    // ── 2 + 3. Hash word → rank, XOR-bind with position vector ───────────
+    //
+    // Rank derivation: FNV-1a-style fold into 12 bits.
+    //   hash = words[i].bytes().fold(2166136261u32, |h, b| {
+    //       (h ^ b as u32).wrapping_mul(16777619)
+    //   }) & 0x0FFF
+    //
+    // Position braid: XOR with VsaVec::random(pos * PHI) so
+    // "dog bites man" ≠ "man bites dog".
+    const PHI: u64 = 0x9E3779B97F4A7C15; // golden-ratio multiplier
+
+    let word_vecs: Vec<VsaVec> = words
+        .iter()
+        .enumerate()
+        .map(|(pos, word)| {
+            // FNV-1a → 12-bit rank
+            let hash = word
+                .bytes()
+                .fold(2166136261u32, |h, b| (h ^ b as u32).wrapping_mul(16777619));
+            let rank = (hash & 0x0FFF) as u16;
+
+            // Position seed: unique per (pos, golden-ratio)
+            let pos_seed = (pos as u64).wrapping_mul(PHI);
+            let pos_vec = VsaVec::random(pos_seed);
+
+            // word_fp = from_rank(rank) XOR pos_vec
+            VsaVec::from_rank(rank).bind(&pos_vec)
+        })
+        .collect();
+
+    // ── 4. Bundle → 512-bit sentence fingerprint ─────────────────────────
+    let sentence_vec = if word_vecs.is_empty() {
+        VsaVec::ZERO
+    } else {
+        bundle(&word_vecs)
+    };
+
+    // ── 4b. Build fingerprint hex and popcount ────────────────────────────
+    let vsa_words = sentence_vec.as_words(); // &[u64; VSA_WORDS] (VSA_WORDS = 8)
+    let fingerprint_hex: String = vsa_words
+        .iter()
+        .map(|w| format!("{:016x}", w))
+        .collect();
+    let bits_set = sentence_vec.popcount() as usize;
+
+    // ── 5. Expand 8 × u64 → 256 × u64 (16 Kbit) ─────────────────────────
+    //
+    // Tiling strategy: content_fp[i] = vsa_words[i / TILE_FACTOR]
+    // TILE_FACTOR = CONTENT_WORDS / VSA_WORDS = 256 / 8 = 32.
+    // Every source u64 occupies 32 consecutive words in the content plane.
+    // This preserves all 512 VSA bits at stable positions; the dispatch
+    // sweep correlates against them via Hamming distance.
+    const CONTENT_WORDS: usize = 256; // WORDS_PER_FP in bindspace.rs
+    const TILE_FACTOR: usize = CONTENT_WORDS / VSA_WORDS; // = 32
+    let mut content_fp = [0u64; CONTENT_WORDS];
+    for (i, w) in content_fp.iter_mut().enumerate() {
+        *w = vsa_words[i / TILE_FACTOR];
+    }
+
+    // ── 6. Write to BindSpace, advance write_cursor ───────────────────────
+    let row_written = {
+        let mut st = state.lock().map_err(|_| {
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": "lock poisoned"})))
+        })?;
+        let cursor = st.write_cursor;
+        if cursor >= st.driver.bindspace.len {
+            None
+        } else {
+            let bs = Arc::get_mut(&mut st.driver.bindspace).ok_or_else(|| {
+                (StatusCode::CONFLICT, Json(json!({"error": "bindspace has multiple references"})))
+            })?;
+            bs.fingerprints.set_content(cursor, &content_fp);
+            st.write_cursor = cursor + 1;
+            Some(cursor as u32)
+        }
+    };
+
+    Ok(Json(WireEncodeResponse {
+        text: req.text,
+        token_count,
+        fingerprint_hex,
+        bits_set,
+        row_written,
+    }))
 }
 
 /// Runbook-step dispatcher for Plan. Maps the shared planner state +
