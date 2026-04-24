@@ -30,6 +30,29 @@
 
 ---
 
+## Canonical Append Pattern
+
+Agents append to this file via `cat >>` heredoc — no Read required,
+no overwrite risk, permission pre-allowed in `.claude/settings.json`:
+
+```bash
+cat >> .claude/board/AGENT_LOG.md <<'EOF'
+
+## YYYY-MM-DDTHH:MM — description (model, branch)
+
+**D-ids:** ...
+**Commit:** `abc1234`
+**Tests:** N pass (M new)
+**Outcome:** One-line summary.
+EOF
+```
+
+This is the ONLY sanctioned write pattern for this file. Do not use
+`Edit` or `Write` tools — they risk overwriting prior entries.
+`cat >>` is append-only by construction.
+
+---
+
 ## Three Coordination Layers
 
 All three layers use the **same entry format** and the **same
@@ -220,3 +243,10 @@ newest-first.** A `BlackboardEntry` by any other transport.
 **Plan:** `.claude/plans/archetype-scaffold-v1.md`
 **Status:** In flight. New crate + Component/Processor traits + World/CommandBroker stubs.
 **Target verdict:** LOCKED-MAPPING-INCOMPLETE → LOCKED-AND-SCAFFOLDED
+
+## 2026-04-24T15:45 — Three-layer coordination + RBAC + AGENT_LOG governance (main thread, claude/smb-contract-traits)
+
+**D-ids:** AGENT_LOG.md, CLAUDE.md governance, lance-graph-rbac, ontology.rs, settings.json permissions
+**Commits:** `5e00049` (AGENT_LOG created) → `c0eda21` (blackboard protocol) → `13c1f19` (three-layer docs) → current
+**Tests:** 209 contract + 14 RBAC = 223 pass
+**Outcome:** Documented three coordination layers (Teleport / File Blackboard / Branch Pub-Sub). Added `cat >>` heredoc as canonical append pattern. Permissions opened for `cat >> AGENT_LOG.md`, `git push/fetch/pull`, `cargo test/check`. RBAC crate shipped (permission × role × policy × access). Ontology layer shipped (LinkSpec, PrefetchDepth, ActionSpec, ModelBinding, ModelHealth, SimulationSpec).

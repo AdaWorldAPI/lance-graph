@@ -3,7 +3,13 @@
   "permissions": {
     "allow": [
       "Edit(**/*.md)",
-      "Write(**/*.md)"
+      "Write(**/*.md)",
+      "Bash(cat >> .claude/board/AGENT_LOG.md:*)",
+      "Bash(git push -u origin:*)",
+      "Bash(git fetch origin:*)",
+      "Bash(git pull origin:*)",
+      "Bash(cargo test:*)",
+      "Bash(cargo check:*)"
     ],
     "ask": [],
     "deny": [
