@@ -36,6 +36,19 @@
 
 ---
 
+## v1 — Supabase Subscriber Wire-up (authored 2026-04-24)
+
+**Author:** sonnet agent, session 2026-04-24 (branch claude/supabase-subscriber-wire-up)
+**Scope:** Flip `LanceMembrane::subscribe()` from Phase-A stub to a live `tokio::sync::watch::Receiver<CognitiveEventRow>` wired to `LanceVersionWatcher`; ship `DrainTask` scaffold.
+**Path:** `.claude/plans/supabase-subscriber-v1.md`
+**Deliverables:** DM-4a swap Subscription type, DM-4b `version_watcher.rs`, DM-4c uncomment `pub mod version_watcher`, DM-6a `drain.rs` scaffold, DM-6b uncomment `pub mod drain`.
+
+**Status (2026-04-24):** In PR. All deliverables in branch `claude/supabase-subscriber-wire-up`.
+
+**Confidence (2026-04-24):** FINDING — 17 tests pass (13 without realtime, 17 with; 4 new tests in `version_watcher.rs`, 1 new `subscribe_receives_on_project` in `lance_membrane.rs`). Zero regressions.
+
+---
+
 ## v1 — Unified Integration: PersonaHub × ONNX × Archetype × MM-CoT × RoleDB (authored 2026-04-23)
 
 **Author:** main-thread session 2026-04-23

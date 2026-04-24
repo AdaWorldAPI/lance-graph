@@ -66,6 +66,12 @@ stay as historical references.
 ## Entries (reverse chronological)
 
 
+## 2026-04-24 — FINDING: subscribe() wired; LanceVersionWatcher delivers always-latest CognitiveEventRow to subscribers (DM-4/6)
+
+`LanceMembrane::subscribe()` now returns a `tokio::sync::watch::Receiver<CognitiveEventRow>` under the `[realtime]` feature gate — supabase-shape always-latest semantics. `project()` calls `watcher.bump(row)` after building the scalar row; subscribers observe the latest committed event without polling. `DrainTask` scaffold ships unconditionally (no feature gate) as a `Future` shell for the follow-up `steering_intent` drain loop. Tokio was already an optional dep in `lance-graph-callcenter/Cargo.toml` under `[realtime]` — no new deps required.
+
+**Status:** FINDING
+
 ## 2026-04-24 — Vsa16kF32 switchboard carrier shipped (CrystalFingerprint::Vsa16kF32 + 16K algebra)
 
 **Status:** FINDING
