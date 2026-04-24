@@ -30,6 +30,114 @@
 
 ---
 
+## Three Coordination Layers
+
+All three layers use the **same entry format** and the **same
+append-only semantics**. Only the transport differs.
+
+### Layer A — Teleportation (in-context role switch)
+
+**Transport:** None (same context window).
+**Latency:** Instant. **Context loss:** Zero.
+
+The model loads an agent card (`.claude/agents/*.md`), adopts its
+role and knowledge, does the work, and switches back. No process
+boundary, no serialization. The 19 specialist + 5 meta-agent cards
+in this workspace are **teleportation roles**, not delegation
+targets. The agent IS the main thread wearing a different hat.
+
+```
+[main thread] → load @family-codec-smith card → do codec work
+             → load @truth-architect card → review with full context
+             → back to main thread (nothing lost)
+```
+
+### Layer B — File Blackboard (in-session, between agents)
+
+**Transport:** `AGENT_LOG.md` commit + git stage.
+**Latency:** Seconds. **Context loss:** Commit-level summary.
+
+Agents spawned via `Agent()` are isolated processes. They read this
+file before starting to see what others shipped. They append their
+own entry after committing. The main thread appends for agents that
+don't write the log themselves.
+
+```
+Agent A commits → appends to AGENT_LOG.md
+Agent B reads AGENT_LOG.md → sees A's findings → builds on them
+```
+
+### Layer C — Cross-Session Branch Pub/Sub (between sessions)
+
+**Transport:** `git push` + `subscribe_pr_activity` webhook.
+**Latency:** Minutes. **Context loss:** Entry-level summary.
+
+Two concurrent Claude Code sessions coordinate through a shared
+branch. One pushes an `AGENT_LOG.md` append, the other gets a
+GitHub webhook notification via `subscribe_pr_activity`. No polling,
+no MCP server, no infrastructure — just git + GitHub webhooks.
+
+**Setup:**
+
+```
+# Session A (first):
+git checkout -b claude/blackboard
+# create or update AGENT_LOG.md
+git push -u origin claude/blackboard
+gh pr create --title "coordination blackboard" --body "A2A bus"
+# → PR #NNN created
+subscribe_pr_activity(pr=NNN)
+
+# Session B (joins):
+subscribe_pr_activity(pr=NNN)
+git fetch origin claude/blackboard
+git checkout claude/blackboard
+# read AGENT_LOG.md — see what A did
+```
+
+**Coordination loop:**
+
+```
+Session A:                              Session B:
+  [does work]
+  appends to AGENT_LOG.md
+  git commit && git push
+                                        ← webhook: push event on PR #NNN
+                                        git pull origin claude/blackboard
+                                        reads A's AGENT_LOG.md entries
+                                        [does work building on A's findings]
+                                        appends to AGENT_LOG.md
+                                        git commit && git push
+  ← webhook: push event on PR #NNN
+  git pull
+  reads B's entries
+  [continues with full picture]
+```
+
+**Why this works:**
+
+- `subscribe_pr_activity` is already in the MCP toolkit — zero setup.
+- GitHub doesn't care what's in the push — an `AGENT_LOG.md` append
+  is just a commit. The webhook fires. The subscriber reads.
+- Git handles append-only merge cleanly — prepend-to-top means the
+  merge base is always the old top, never a collision.
+- The PR is the pub/sub channel. The entry format is the message.
+  The transport is `git push`. The notification is a webhook.
+  All existing primitives, composed sideways.
+
+### Summary
+
+| Layer | Scope | Transport | Latency | Loss |
+|---|---|---|---|---|
+| **A: Teleport** | In-context | None | Instant | Zero |
+| **B: File** | In-session | `AGENT_LOG.md` | Seconds | Commit |
+| **C: Branch** | Cross-session | `git push` + webhook | Minutes | Entry |
+
+All three share one invariant: **append-only, structured entries,
+newest-first.** A `BlackboardEntry` by any other transport.
+
+---
+
 ## Entries (reverse chronological)
 
 
