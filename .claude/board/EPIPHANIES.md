@@ -2840,3 +2840,18 @@ Option C: Add a second dispatch mode (content-mode vs edge-mode) that uses Hammi
   instead of PaletteSemiring for the distance function.
 
 Cross-ref: driver.rs:75-212, Jirak calibration (this session), I-NOISE-FLOOR-JIRAK.
+
+## 2026-04-24 — Session capstone: GEL + Firefly + Pearl 2³ = what Foundry can't do
+
+**Status:** FINDING
+**Owner scope:** @truth-architect, @integration-lead
+
+Three-layer epiphany from the Palantir FfB Technical Overview read:
+
+**1. Code IS Graph IS Executable.** Foundry says "treat data like code" (versioning, branching). Our 4096-row BindSpace goes further: the surface IS executable. GQL (query) → GEL (graph execution language, any program AS a graph) → ArenaIR (OOP → graph-executable transform) → JIT (Cranelift native). A class = node + typed edges. A method call = graph traversal. An if/else = conditional edge predicate. Code and data share one address space: 0x000..0xFFF.
+
+**2. Firefly Repository = Ballista + Dragonfly + GEL.** Foundry bundles Spark + Flink. We'd bundle Ballista (distributed DataFusion) + Dragonfly (fast-path CPU lane for BindSpace sweep / Hamming / palette cascade) + GEL (the ArenaIR the 16 strategies already produce). Lance versioned dataset with CausalEdge64-annotated SPO = the Firefly Repository.
+
+**3. NARS SPO × Pearl 2³ × CausalEdge64 — what Vertex can't do.** Foundry Vertex explores graphs but has NO causal typing on edges. Our CausalEdge64 packs Pearl 2³ = 8 causal masks (correlation / direct cause / confounder / mediator / collider / instrument / front-door / counterfactual) + NARS truth (frequency, confidence) + inference type + plasticity + temporal position into 64 bits per edge. Every SPO triple carries its own causal ontology and epistemology. This is irreducible — Vertex would need a fundamental redesign to match.
+
+Cross-ref: FfB_Technical_Overview_v4.pdf (Palantir), CausalEdge64 (causal-edge crate), I-SUBSTRATE-MARKOV, driver.rs content Hamming cascade (PR #259), CypherBridge (PR #258).
