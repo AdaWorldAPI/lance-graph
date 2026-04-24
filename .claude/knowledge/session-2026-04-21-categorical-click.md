@@ -94,3 +94,35 @@ accuracy per chapter. Chapter-10 > chapter-1 with no parameter change
 | "Fix" the 0.618 confidence ceiling | It's the golden-ratio fixed point of NARS revision. Permanent revisability IS the feature | Leave the formula alone |
 | Propose elaborate benchmarks | The AGI test is one curve: accuracy per chapter of Animal Farm. Rising = works. Flat = broken wire | Measure one curve |
 | Rebuild the vocabulary system | COCA 24K + spider NER covers everything | Wire the loop |
+
+---
+
+## CORRECTION (2026-04-21 cleanup, later same day)
+
+The D5 files (`content_fp.rs`, `markov_bundle.rs`, `trajectory.rs`) and
+the `RoleKey::bind/unbind/recovery_margin` additions in `role_keys.rs`
+are built on the **wrong VSA substrate**. They use `Vsa10k = [u64; 157]`
+bitpacked with XOR algebra. Correct substrate is `Vsa16kF32` (or the
+interim `Vsa10kF32 = Box<[f32; 10_000]>`) with element-wise multiply/add
+via existing `vsa_bind`/`vsa_bundle`/`vsa_cosine`.
+
+**What remains correct:** Five Lenses meta-architecture, NARS revision
+with φ-1 ceiling, 8-step wiring plan (but steps 1-3 need rewrite),
+tissue-not-storage framing, 14-paper landscape, AGI test.
+
+**What needs rewrite:** the concrete type + algebra. Blocked on
+Vsa10k→Vsa16k coordinated rescale PR (ndarray + contract) per 2026-04-21
+tech debt entry.
+
+**The switchboard correction:** carrier types + algebra live in
+`crystal/` (domain-agnostic). Per-domain role catalogues
+(`grammar/role_keys.rs`, future `persona/`, `callcenter/`) only
+provide static role IDENTITY fingerprints + slice boundaries — no
+methods, no algebra. See `.claude/knowledge/vsa-switchboard-architecture.md`
+for the full three-layer framing + decision matrices.
+
+**Refined iron rule:** `I-VSA-IDENTITIES` — VSA bundles identities
+that point to content. Never bundles the content itself. CAM-PQ is
+for search; VSA is for bundling; they combine only with decompression
+at the boundary.
+

@@ -124,6 +124,121 @@ Before any PR touches the callcenter crate or the metadata bus, answer three que
 3. Does the internal substrate only see role-tagged blackboard entries (no raw external payload)?
 
 If any answer is no, the code is leaking external ontology inward (or internal ontology outward) — reject.
+---
+
+## 2026-04-21 — CORRECTION-OF 2026-04-21 D5 Frankenstein: VSA must be FP32 multiply/add on identities, not XOR on bitpacked content
+
+**Status:** FINDING (supersedes multiple session entries)
+
+**What was wrong in this session's shipped D5+D7 work:**
+
+1. `Vsa10k = [u64; 157]` — hallucinated bitpacked format. Defined
+   in ndarray but NEVER consumed by lance-graph before this session.
+   Should have used existing `Vsa10kF32 = Box<[f32; 10_000]>` (40 KB)
+   or the queued rescale target `Vsa16kF32 = Box<[f32; 16_384]>` (64 KB).
+
+2. `RoleKey::bind/unbind` with slice-masked XOR — wrong algebra.
+   VSA for lossless role bundling uses element-wise multiply +
+   element-wise add on f32. Existing `vsa_bind`/`vsa_bundle`/
+   `vsa_cosine` in `crystal/fingerprint.rs` already implement this.
+   XOR on bitpacked is the Hamming-comparison format, not the
+   bundling format.
+
+3. `vsa_xor` / `vsa_similarity` (Hamming-based) — reinvented what
+   already exists on the correct substrate.
+
+4. Three deepnsm files (`content_fp.rs`, `markov_bundle.rs`,
+   `trajectory.rs`) — need reimplementation on `Vsa16kF32` carrier
+   after coordinated rescale PR lands.
+
+5. 5-role "lossless superposition" test — the lossless property came
+   from SLICE ISOLATION (content zeroed outside each role's slice),
+   not from XOR bundling itself. With shared-space f32 multiply/add,
+   losslessness comes from f32 dynamic range — completely different
+   mechanism. The test passed for the WRONG reason.
+
+**What remains correct (preserve these):**
+
+- Five Lenses meta-architecture (CLAUDE.md P-1, categorical-algebraic-
+  inference-v1.md)
+- GrammarStyleConfig + GrammarStyleAwareness + NARS revision (φ-1
+  confidence ceiling)
+- FreeEnergy / Hypothesis / Resolution types (but likelihood term
+  must be cosine, not Hamming)
+- 8-step wiring sequence (but steps 1-3 need rewrite on correct carrier)
+- Shader-cant-resist / thinking-is-a-struct / tissue-not-storage /
+  grammar-of-awareness (algebra structure, not byte layout)
+- 14-paper landscape
+- AGI test = Animal Farm chapter-10 > chapter-1 accuracy
+
+**Superseded session entries (bodies preserved below, Status flipped):**
+
+- `Markov IS simple XOR of sentence VSAs...` → SUPERSEDED. Replace
+  with: Markov IS element-wise multiply+add superposition of
+  Vsa16kF32 trajectories with position-permuted braiding. Simplicity
+  claim still holds; algebra choice was wrong.
+- `RoleKey bind/unbind slice-masking = lossless...` → SUPERSEDED.
+  True lossless bundling requires f32 multiply+add, not
+  slice-isolation XOR.
+- `8-step wiring sequence...` → Steps 1-3 need rewrite on Vsa16kF32.
+  Steps 4-8 unchanged in logic.
+
+Cross-ref: `.claude/knowledge/vsa-switchboard-architecture.md`
+(created this cleanup), CLAUDE.md updated I-CAMPQ-VS-VSA iron rule.
+
+---
+
+## 2026-04-21 — Sometimes Vsa16kF32 is just laziness to define a register
+
+**Status:** FINDING (Test 0 of the four-test VSA decision framework)
+
+If an item has a natural name, ID, or enum variant — that's the
+register. `HashMap<&str, PersonaDef>` or `enum ThinkingStyle` beats
+VSA bundle+cosine at exact-match tasks. VSA earns its 64 KB only
+when the answer requires resonance across concurrent items or
+partial-match reasoning from uncertain input.
+
+Anti-patterns:
+- "Find persona Alice" → HashMap, not VSA resonance
+- "Session is in analytical mode" → enum variant
+- "Character is Napoleon" → graph node by ID
+
+Pro-patterns (VSA legitimately earns complexity):
+- "Which persona fits this caller's vibe?" (inferred, not named)
+- "Which thinking style best matches signal profile?" (dispatched)
+- "Which archetype is this character behaving as?" (inferred)
+
+Cross-ref: `vsa-switchboard-architecture.md § Test 0`.
+
+---
+
+## 2026-04-21 — VSA operates on identities, not content — the refined iron rule
+
+**Status:** FINDING (refines the blunt "CAM-PQ + VSA incompatible" framing)
+
+Initial framing was too blunt. Refined:
+
+**VSA operates on IDENTITY fingerprints that POINT TO content.
+Never on content's bitpacked/quantized register itself.**
+
+Register-loss problem: XOR-bundling 5 CAM-PQ codes makes the bit
+patterns of codebook indices XOR together. You can't recover WHICH
+centroids contributed. Register destroyed.
+
+Right pattern: resonance layer (VSA Vsa16kF32 identity fingerprints,
+bundleable, cosine-retrievable) + content layer (YAML/TripletGraph,
+O(1) hash lookup). Winning fingerprint from resonance IS the lookup
+key for content.
+
+- Persona: one FP32 identity per named persona in YAML registry.
+  Bundle for multi-persona context. Cosine-rank. Winner name → YAML.
+- Thinking styles: one FP32 identity per style. Resonance from signal
+  profile. Winner enum variant → YAML config.
+- Archetype: existing 12 voice archetypes + palette 256 archetypes
+  each get an identity fingerprint. Resonance for inferred assignment.
+
+Cross-ref: `vsa-switchboard-architecture.md § Identity vs Content`,
+CLAUDE.md `I-VSA-IDENTITIES` iron rule (proposed).
 
 ---
 
