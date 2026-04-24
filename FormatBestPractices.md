@@ -69,6 +69,14 @@ the f-precision floor. This is the workable regime.
 
 ### Jirak 2016 — Berry-Esseen under weak dependence
 
+**Jirak's role right now is the ACTIVE DECISION FRAMEWORK for CAM-PQ
+vs Vsa10k choices, not a deferred calibration probe.** The ρ values
+below quantify WHY CAM-PQ bitpacked codes are poor candidates for VSA
+bundling vs why role-key-generated bits retain full capacity for
+Vsa10kF32 bundling. Future Jirak-derived threshold calibration (Probe
+B in § 7) is the RECEIPT-stamping phase; the rule-of-thumb usage here
+is already applicable.
+
 Classical Berry-Esseen assumes IID. Our bits aren't IID — they have
 weak dependence from:
 - CAM-PQ codebook quantization (multiple bits per centroid, coupled)

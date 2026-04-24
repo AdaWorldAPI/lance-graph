@@ -566,3 +566,61 @@ lead to wrong design decisions (e.g., sizing the trajectory bundle to
 Cross-ref: `CLAUDE.md § What This Is` (7-layer stack diagram),
 this session's memory analysis discussion of Vsa16kF32 cache fit.
 
+
+## 2026-04-21 — Lazy-VSA principle (reclassification of queued VSA work)
+
+**Status:** Open (architectural guidance, applies to all VSA items below)
+**Priority:** P1 (guidance)
+**Scope:** @integration-lead all domain:vsa entries
+**Introduced by:** user direction 2026-04-21 post-cleanup
+
+**Principle:** VSA substrate work is PULLED IN by downstream deliverables,
+not PUSHED OUT speculatively. Specifically:
+
+1. **Vsa10k→Vsa16k coordinated rescale** — POSTPONED. Deserves its own
+   dedicated test session. Cross-repo (ndarray + contract), non-trivial
+   calibration impact, merits focused planning. Do NOT bundle with D5
+   rewrite or any other in-flight work.
+
+2. **D5 rewrite on Vsa10kF32 (current 10K)** — pull in ONLY IF a
+   downstream deliverable (steps 4–8 wiring, D8 AriGraph bridge, D10
+   Animal Farm benchmark) concretely needs the VSA trajectory and the
+   Vsa16k rescale hasn't landed yet. Until that trigger fires,
+   `Vsa10kF32` stays unused by the grammar/persona/callcenter
+   consumers. The cleanup has reverted to pre-D5 state — that's the
+   terminal state for this session.
+
+3. **Jirak-derived thresholds probe** — pull in ONLY IF a downstream
+   deliverable uses the thresholds (currently only `UNBUNDLE_HARDNESS`
+   and `ABDUCTION_THRESHOLD` in shipped code; both hand-tuned are
+   defensible). First consumer to need calibrated thresholds triggers
+   the probe.
+
+   **HOWEVER:** Jirak's ACTIVE role right now (NOT deferred) is the
+   scientific framework for **CAM-PQ vs Vsa10k format decisions**.
+   `FormatBestPractices.md § 1` quantifies the weak-dependence ρ that
+   makes CAM-PQ bitpacked codes POOR candidates for VSA bundling
+   (ρ ≈ 0.3–0.5 after centroid quantization; effective capacity drops
+   proportionally) vs near-IID role-key-generated bits (ρ ≈ 0.01)
+   where `Vsa10kF32` bundling retains full capacity. This is Jirak
+   as **DECISION FRAMEWORK**, not Jirak as CALIBRATION PROBE. The
+   decision framework is already shipped in the cleanup docs; the
+   probe is what measures specific ρ per corpus to replace the
+   hand-tuned thresholds when a downstream consumer demands it.
+
+**Why lazy:** every VSA substrate touch has calibration ripple effects.
+Doing them in the order "substrate first, then consumers" means calibrating
+substrate changes without a real consumer to test against — which is how
+the D5 Frankenstein happened. Inverting to "consumer first, pull substrate
+when needed" grounds every substrate change in a concrete benchmark.
+
+**Action implication:** next session doesn't start with "rewrite D5 on
+Vsa10kF32." Next session starts with "what's the FIRST downstream
+deliverable that forces a VSA substrate decision, and what does that
+decision need?" If the answer is D10 Animal Farm, then D5+D8+D10 plan
+together. If the answer is persona bank for callcenter, D5+persona
+catalogue. Etc.
+
+Cross-ref: `FormatBestPractices.md` § 0 (the 5-question checklist
+before picking a format), CHANGELOG.md 2026-04-21 entries.
+
