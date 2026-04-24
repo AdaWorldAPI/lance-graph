@@ -26,8 +26,17 @@
 
 use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
-    mpsc, RwLock,
+    RwLock,
 };
+
+#[cfg(not(feature = "realtime"))]
+use std::sync::mpsc;
+
+#[cfg(feature = "realtime")]
+use tokio::sync::watch;
+
+#[cfg(feature = "realtime")]
+use crate::version_watcher::LanceVersionWatcher;
 
 use lance_graph_contract::{
     a2a_blackboard::ExpertId,
@@ -54,6 +63,9 @@ pub struct LanceMembrane {
     current_scent:   AtomicU64,
     current_rationale_phase: AtomicBool, // MM-CoT stage: true = Stage 1 rationale
     version:         AtomicU64,
+    /// Fan-out watcher for projected cognitive events ([realtime] feature only).
+    #[cfg(feature = "realtime")]
+    watcher:         LanceVersionWatcher,
 }
 
 impl LanceMembrane {
@@ -65,6 +77,8 @@ impl LanceMembrane {
             current_scent:   AtomicU64::new(0),
             current_rationale_phase: AtomicBool::new(false),
             version:         AtomicU64::new(0),
+            #[cfg(feature = "realtime")]
+            watcher:         LanceVersionWatcher::default(),
         }
     }
 
@@ -109,12 +123,15 @@ impl ExternalMembrane for LanceMembrane {
     /// External consumer intent entering through the gate.
     type Intent = ExternalIntent;
 
-    /// Phase-A subscription stub: a disconnected `mpsc::Receiver<u64>`.
+    /// Subscription handle for projected cognitive events.
     ///
-    /// Callers that `recv()` on this immediately get `Err(RecvError)`.
-    /// Phase D replaces this with a `tokio::sync::watch::Receiver<u64>`
-    /// wired to the Lance version counter, filtered by `CommitFilter`.
+    /// With `[realtime]` feature: a `tokio::sync::watch::Receiver<CognitiveEventRow>`
+    /// wired to `LanceVersionWatcher` — always-latest semantics, supabase-shape.
+    /// Without `[realtime]`: a disconnected `mpsc::Receiver<u64>` stub (Phase A).
+    #[cfg(not(feature = "realtime"))]
     type Subscription = mpsc::Receiver<u64>;
+    #[cfg(feature = "realtime")]
+    type Subscription = watch::Receiver<CognitiveEventRow>;
 
     /// Project a committed ShaderBus cycle to a scalar row.
     ///
@@ -126,7 +143,7 @@ impl ExternalMembrane for LanceMembrane {
         let expert  = *self.current_expert.read().expect("expert poisoned");
         let scent   = self.current_scent.load(Ordering::Relaxed) as u8;
 
-        CognitiveEventRow {
+        let row = CognitiveEventRow {
             external_role: role,
             faculty_role:  faculty,
             expert_id:     expert,
@@ -144,7 +161,13 @@ impl ExternalMembrane for LanceMembrane {
             gate_commit:     bus.gate.is_flow(),
             gate_f:          meta.free_e(),
             rationale_phase: self.current_rationale_phase.load(Ordering::Relaxed),
-        }
+        };
+
+        // DM-4: fan out to all current subscribers (supabase-shape realtime).
+        #[cfg(feature = "realtime")]
+        self.watcher.bump(row.clone());
+
+        row
     }
 
     /// Translate external intent to canonical dispatch.
@@ -181,11 +204,18 @@ impl ExternalMembrane for LanceMembrane {
 
     /// Subscribe to projected commits matching the filter.
     ///
-    /// Phase A: returns a disconnected channel (recv immediately errors).
-    /// Phase D: wires to `tokio::sync::watch` + `CommitFilter` predicate.
+    /// With `[realtime]`: returns a `watch::Receiver<CognitiveEventRow>` seeded
+    /// with the latest committed row.  Always-latest semantics (supabase-shape).
+    /// Without `[realtime]`: returns a disconnected `mpsc::Receiver<u64>` stub.
+    #[cfg(not(feature = "realtime"))]
     fn subscribe(&self, _filter: CommitFilter) -> mpsc::Receiver<u64> {
         let (_tx, rx) = mpsc::channel();
         rx
+    }
+
+    #[cfg(feature = "realtime")]
+    fn subscribe(&self, _filter: CommitFilter) -> watch::Receiver<CognitiveEventRow> {
+        self.watcher.subscribe()
     }
 }
 
@@ -263,12 +293,35 @@ mod tests {
         assert_eq!(step.step_type, "lg.blackboard.context");
     }
 
+    /// Phase A (no realtime feature): subscription is a disconnected stub.
+    #[cfg(not(feature = "realtime"))]
     #[test]
     fn subscribe_returns_disconnected_receiver() {
         let m = LanceMembrane::new();
         let rx = m.subscribe(CommitFilter::default());
         // Phase A: disconnected — no sender kept, recv errors immediately
         assert!(rx.try_recv().is_err());
+    }
+
+    /// Phase D (realtime feature): subscribe() → project() → rx.borrow() sees the row.
+    #[cfg(feature = "realtime")]
+    #[test]
+    fn subscribe_receives_on_project() {
+        let m = LanceMembrane::new();
+        let rx = m.subscribe(CommitFilter::default());
+
+        // Prime role context and call project()
+        let intent = ExternalIntent::seed(ExternalRole::CrewaiAgent, make_dn(), vec![]);
+        m.ingest(intent);
+
+        let bus = ShaderBus::empty();
+        let meta = MetaWord::new(7, 3, 200, 150, 10);
+        m.project(&bus, meta);
+
+        // The watcher should have delivered the row
+        let snapshot = rx.borrow();
+        assert_eq!(snapshot.thinking, 7, "subscriber should see the projected row");
+        assert_eq!(snapshot.external_role, ExternalRole::CrewaiAgent as u8);
     }
 
     #[test]
