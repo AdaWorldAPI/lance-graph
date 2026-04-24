@@ -235,6 +235,140 @@ impl SchemaBuilder {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Link types — typed edges between ontology objects (Foundry Stage 1)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Typed edge between two ontology object types. An SPO triple
+/// `(Customer:123, issued, Invoice:456)` is governed by a LinkSpec
+/// that constrains subject_type, predicate, and object_type.
+#[derive(Clone, Debug)]
+pub struct LinkSpec {
+    pub subject_type: &'static str,
+    pub predicate: &'static str,
+    pub object_type: &'static str,
+    pub cardinality: Cardinality,
+    pub codec_route: CodecRoute,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Cardinality {
+    OneToOne,
+    OneToMany,
+    ManyToMany,
+}
+
+impl LinkSpec {
+    pub const fn one_to_many(
+        subject_type: &'static str,
+        predicate: &'static str,
+        object_type: &'static str,
+    ) -> Self {
+        Self {
+            subject_type, predicate, object_type,
+            cardinality: Cardinality::OneToMany,
+            codec_route: CodecRoute::Passthrough,
+        }
+    }
+
+    pub const fn many_to_many(
+        subject_type: &'static str,
+        predicate: &'static str,
+        object_type: &'static str,
+    ) -> Self {
+        Self {
+            subject_type, predicate, object_type,
+            cardinality: Cardinality::ManyToMany,
+            codec_route: CodecRoute::Passthrough,
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Prefetch depth — Object Explorer property loading tiers (Foundry Stage 5)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Graph prefetch depth for progressive property loading.
+/// Maps to PropertyKind + CodecRoute: the ontology metadata
+/// determines what loads at each scroll/expansion level.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum PrefetchDepth {
+    /// Node visible — Required properties only (identity).
+    /// All Passthrough (Index regime), instant lookup.
+    Identity = 0,
+    /// Node selected — + Optional/Passthrough (exact-match fields).
+    Detail = 1,
+    /// Node expanded — + Optional/CamPq (similarity-searchable).
+    /// CAM-PQ distance queries fire at this level.
+    Similar = 2,
+    /// Node deep-dived — + Free properties + episodic memory.
+    /// Full CamPq sweep + Markov ±5 temporal window.
+    Full = 3,
+}
+
+impl Schema {
+    /// Return properties visible at a given prefetch depth.
+    pub fn properties_at_depth(&self, depth: PrefetchDepth) -> Vec<&PropertySpec> {
+        self.properties.iter().filter(|p| {
+            match depth {
+                PrefetchDepth::Identity => p.kind == PropertyKind::Required,
+                PrefetchDepth::Detail => {
+                    p.kind == PropertyKind::Required
+                    || (p.kind == PropertyKind::Optional && p.codec_route == CodecRoute::Passthrough)
+                }
+                PrefetchDepth::Similar => {
+                    p.kind == PropertyKind::Required || p.kind == PropertyKind::Optional
+                }
+                PrefetchDepth::Full => true,
+            }
+        }).collect()
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Action specs — Application Builder actions on objects (Foundry Stage 5)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// An action that can be taken on an ontology object. Maps a user
+/// gesture (approve invoice, flag customer, submit declaration) to
+/// a predicate change routed through OrchestrationBridge.
+///
+/// In active-inference terms: an Action IS a Commit with side effects.
+/// The action fires when FreeEnergy drops below threshold (auto) or
+/// when a human explicitly triggers it (manual).
+#[derive(Clone, Debug)]
+pub struct ActionSpec {
+    pub name: &'static str,
+    pub entity_type: &'static str,
+    /// The predicate this action modifies (e.g. "status", "approved_by").
+    pub target_predicate: &'static str,
+    pub trigger: ActionTrigger,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ActionTrigger {
+    /// User must explicitly trigger (button click, approval).
+    Manual,
+    /// System triggers when FreeEnergy < threshold (auto-commit).
+    Auto,
+    /// System suggests, user confirms (semi-auto).
+    Suggested,
+}
+
+impl ActionSpec {
+    pub const fn manual(name: &'static str, entity_type: &'static str, target: &'static str) -> Self {
+        Self { name, entity_type, target_predicate: target, trigger: ActionTrigger::Manual }
+    }
+
+    pub const fn auto(name: &'static str, entity_type: &'static str, target: &'static str) -> Self {
+        Self { name, entity_type, target_predicate: target, trigger: ActionTrigger::Auto }
+    }
+
+    pub const fn suggested(name: &'static str, entity_type: &'static str, target: &'static str) -> Self {
+        Self { name, entity_type, target_predicate: target, trigger: ActionTrigger::Suggested }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Example schemas — SMB domain (const)
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -407,5 +541,95 @@ mod tests {
             .optional("address")
             .build();
         assert_eq!(s.codec_route_for("address"), CodecRoute::Passthrough);
+    }
+
+    // ── Prefetch depth tests ──
+
+    #[test]
+    fn prefetch_identity_only_required() {
+        let s = Schema::builder("Customer")
+            .required("name")
+            .required("tax_id")
+            .optional("address")
+            .searchable("industry")
+            .free("note")
+            .build();
+        let props = s.properties_at_depth(PrefetchDepth::Identity);
+        assert_eq!(props.len(), 2);
+        assert!(props.iter().all(|p| p.kind == PropertyKind::Required));
+    }
+
+    #[test]
+    fn prefetch_detail_adds_optional_passthrough() {
+        let s = Schema::builder("Customer")
+            .required("name")
+            .optional("address")
+            .searchable("industry")
+            .free("note")
+            .build();
+        let props = s.properties_at_depth(PrefetchDepth::Detail);
+        assert_eq!(props.len(), 2); // name + address
+    }
+
+    #[test]
+    fn prefetch_similar_adds_campq_optional() {
+        let s = Schema::builder("Customer")
+            .required("name")
+            .optional("address")
+            .searchable("industry")
+            .free("note")
+            .build();
+        let props = s.properties_at_depth(PrefetchDepth::Similar);
+        assert_eq!(props.len(), 3); // name + address + industry
+    }
+
+    #[test]
+    fn prefetch_full_includes_everything() {
+        let s = Schema::builder("Customer")
+            .required("name")
+            .optional("address")
+            .searchable("industry")
+            .free("note")
+            .build();
+        let props = s.properties_at_depth(PrefetchDepth::Full);
+        assert_eq!(props.len(), 4);
+    }
+
+    // ── Link spec tests ──
+
+    #[test]
+    fn link_one_to_many_defaults() {
+        let link = LinkSpec::one_to_many("Customer", "issued", "Invoice");
+        assert_eq!(link.subject_type, "Customer");
+        assert_eq!(link.object_type, "Invoice");
+        assert_eq!(link.cardinality, Cardinality::OneToMany);
+        assert_eq!(link.codec_route, CodecRoute::Passthrough);
+    }
+
+    #[test]
+    fn link_many_to_many() {
+        let link = LinkSpec::many_to_many("Tag", "applied_to", "Customer");
+        assert_eq!(link.cardinality, Cardinality::ManyToMany);
+    }
+
+    // ── Action spec tests ──
+
+    #[test]
+    fn action_manual() {
+        let a = ActionSpec::manual("approve", "Invoice", "status");
+        assert_eq!(a.trigger, ActionTrigger::Manual);
+        assert_eq!(a.target_predicate, "status");
+    }
+
+    #[test]
+    fn action_auto() {
+        let a = ActionSpec::auto("classify", "Customer", "industry");
+        assert_eq!(a.trigger, ActionTrigger::Auto);
+    }
+
+    #[test]
+    fn action_suggested() {
+        let a = ActionSpec::suggested("flag", "Invoice", "flagged");
+        assert_eq!(a.trigger, ActionTrigger::Suggested);
     }
 }

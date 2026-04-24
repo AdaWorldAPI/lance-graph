@@ -62,3 +62,4 @@ pub mod ocr;
 pub mod tax;
 pub mod reasoning;
 pub mod property;
+pub mod ontology;

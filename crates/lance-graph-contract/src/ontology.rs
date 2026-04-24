@@ -1,0 +1,370 @@
+//! Ontology contract — the unifying layer that composes PropertySchema,
+//! LinkSpec, ActionSpec, and model integration into a Foundry-equivalent
+//! typed object model.
+//!
+//! Covers Palantir Foundry stages 3-5:
+//! - Stage 3 (Model Integration): ModelBinding connects external model
+//!   I/O to ontology properties via PropertySpec.
+//! - Stage 4 (Model Ops): ModelHealth tracks prediction quality via
+//!   NARS truth values per model-property pair.
+//! - Stage 5 (Decisions / Learning): SimulationSpec parameterises
+//!   World::fork() what-if scenarios.
+//!
+//! Zero-dep. All types are trait-shape or plain structs.
+
+use crate::property::{
+    ActionSpec, LinkSpec, PrefetchDepth, PropertyKind, Schema,
+};
+use crate::cam::CodecRoute;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Ontology — the composed object model
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// A complete ontology definition: schemas + links + actions.
+/// This is the Foundry Ontology equivalent — the "semantic model
+/// representing the enterprise as business objects."
+#[derive(Clone, Debug)]
+pub struct Ontology {
+    pub name: &'static str,
+    pub schemas: Vec<Schema>,
+    pub links: Vec<LinkSpec>,
+    pub actions: Vec<ActionSpec>,
+}
+
+impl Ontology {
+    pub fn builder(name: &'static str) -> OntologyBuilder {
+        OntologyBuilder {
+            name,
+            schemas: Vec::new(),
+            links: Vec::new(),
+            actions: Vec::new(),
+        }
+    }
+
+    pub fn schema(&self, entity_type: &str) -> Option<&Schema> {
+        self.schemas.iter().find(|s| s.name == entity_type)
+    }
+
+    pub fn links_from(&self, subject_type: &str) -> Vec<&LinkSpec> {
+        self.links.iter().filter(|l| l.subject_type == subject_type).collect()
+    }
+
+    pub fn links_to(&self, object_type: &str) -> Vec<&LinkSpec> {
+        self.links.iter().filter(|l| l.object_type == object_type).collect()
+    }
+
+    pub fn actions_for(&self, entity_type: &str) -> Vec<&ActionSpec> {
+        self.actions.iter().filter(|a| a.entity_type == entity_type).collect()
+    }
+}
+
+pub struct OntologyBuilder {
+    name: &'static str,
+    schemas: Vec<Schema>,
+    links: Vec<LinkSpec>,
+    actions: Vec<ActionSpec>,
+}
+
+impl OntologyBuilder {
+    pub fn schema(mut self, schema: Schema) -> Self {
+        self.schemas.push(schema);
+        self
+    }
+
+    pub fn link(mut self, link: LinkSpec) -> Self {
+        self.links.push(link);
+        self
+    }
+
+    pub fn action(mut self, action: ActionSpec) -> Self {
+        self.actions.push(action);
+        self
+    }
+
+    pub fn build(self) -> Ontology {
+        Ontology {
+            name: self.name,
+            schemas: self.schemas,
+            links: self.links,
+            actions: self.actions,
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Model Binding — Foundry Stage 3 (connect model I/O to ontology)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Binds an external model's input/output to ontology properties.
+/// When a model predicts "industry" for a customer, the binding
+/// tells the system: read these input properties, write to this
+/// output property, track quality via NARS truth on the output.
+#[derive(Clone, Debug)]
+pub struct ModelBinding {
+    pub model_id: &'static str,
+    pub entity_type: &'static str,
+    /// Properties read as model input features.
+    pub input_properties: &'static [&'static str],
+    /// Property written with model output.
+    pub output_property: &'static str,
+    /// Expected codec route for the output (CamPq for embeddings,
+    /// Passthrough for classifications).
+    pub output_codec: CodecRoute,
+}
+
+impl ModelBinding {
+    pub const fn new(
+        model_id: &'static str,
+        entity_type: &'static str,
+        inputs: &'static [&'static str],
+        output: &'static str,
+        codec: CodecRoute,
+    ) -> Self {
+        Self {
+            model_id,
+            entity_type,
+            input_properties: inputs,
+            output_property: output,
+            output_codec: codec,
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Model Health — Foundry Stage 4 (NARS-based monitoring)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Per-model, per-property health tracking via NARS truth values.
+/// frequency = prediction accuracy (how often the model is right).
+/// confidence = sample size (how many predictions have been evaluated).
+///
+/// When frequency drops below the PropertySpec's nars_floor, the
+/// system generates a FailureTicket — same as a missing Required
+/// property, but caused by model drift rather than absence.
+#[derive(Clone, Copy, Debug)]
+pub struct ModelHealth {
+    pub model_id_hash: u64,
+    pub property_hash: u64,
+    pub frequency: u8,
+    pub confidence: u8,
+    pub predictions_total: u32,
+    pub predictions_correct: u32,
+}
+
+impl ModelHealth {
+    pub const fn new(model_id_hash: u64, property_hash: u64) -> Self {
+        Self {
+            model_id_hash,
+            property_hash,
+            frequency: 0,
+            confidence: 0,
+            predictions_total: 0,
+            predictions_correct: 0,
+        }
+    }
+
+    /// Update health after a prediction is evaluated.
+    pub fn record(&mut self, correct: bool) {
+        self.predictions_total = self.predictions_total.saturating_add(1);
+        if correct {
+            self.predictions_correct = self.predictions_correct.saturating_add(1);
+        }
+        if self.predictions_total > 0 {
+            self.frequency = ((self.predictions_correct as u64 * 255)
+                / self.predictions_total as u64) as u8;
+        }
+        self.confidence = match self.predictions_total {
+            0..=9 => (self.predictions_total as u8) * 25,
+            10..=99 => 250,
+            _ => 255,
+        };
+    }
+
+    pub const fn is_healthy(&self, min_frequency: u8, min_confidence: u8) -> bool {
+        self.frequency >= min_frequency && self.confidence >= min_confidence
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Simulation — Foundry Stage 5 (what-if via World::fork())
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Parameters for a what-if simulation. Feeds into World::fork()
+/// to create a branched dataset where hypothetical changes are
+/// applied, models re-run, and outcomes compared.
+#[derive(Clone, Debug)]
+pub struct SimulationSpec {
+    pub name: &'static str,
+    /// Entity type being simulated.
+    pub entity_type: &'static str,
+    /// Hypothetical property overrides: (predicate, new_value_hash).
+    /// The actual values live in the forked dataset; the spec only
+    /// names which properties change.
+    pub overrides: Vec<(&'static str, u64)>,
+    /// Maximum simulation ticks before termination.
+    pub max_ticks: u32,
+    /// Properties to compare between base and fork.
+    pub outcome_properties: &'static [&'static str],
+}
+
+impl SimulationSpec {
+    pub fn new(name: &'static str, entity_type: &'static str) -> Self {
+        Self {
+            name,
+            entity_type,
+            overrides: Vec::new(),
+            max_ticks: 100,
+            outcome_properties: &[],
+        }
+    }
+
+    pub fn with_override(mut self, predicate: &'static str, value_hash: u64) -> Self {
+        self.overrides.push((predicate, value_hash));
+        self
+    }
+
+    pub fn with_max_ticks(mut self, ticks: u32) -> Self {
+        self.max_ticks = ticks;
+        self
+    }
+
+    pub fn with_outcomes(mut self, properties: &'static [&'static str]) -> Self {
+        self.outcome_properties = properties;
+        self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::property::{ActionTrigger, Cardinality, PropertySpec};
+
+    #[test]
+    fn ontology_builder_composes() {
+        let customer = Schema::builder("Customer")
+            .required("customer_name")
+            .required("tax_id")
+            .searchable("industry")
+            .free("note")
+            .build();
+
+        let invoice = Schema::builder("Invoice")
+            .required("invoice_number")
+            .required("customer_ref")
+            .optional("due_date")
+            .build();
+
+        let ontology = Ontology::builder("SMB")
+            .schema(customer)
+            .schema(invoice)
+            .link(LinkSpec::one_to_many("Customer", "issued", "Invoice"))
+            .action(ActionSpec::manual("approve", "Invoice", "status"))
+            .action(ActionSpec::auto("classify", "Customer", "industry"))
+            .build();
+
+        assert_eq!(ontology.name, "SMB");
+        assert_eq!(ontology.schemas.len(), 2);
+        assert_eq!(ontology.links.len(), 1);
+        assert_eq!(ontology.actions.len(), 2);
+    }
+
+    #[test]
+    fn ontology_schema_lookup() {
+        let ontology = Ontology::builder("Test")
+            .schema(Schema::builder("Customer").required("name").build())
+            .build();
+        assert!(ontology.schema("Customer").is_some());
+        assert!(ontology.schema("Unknown").is_none());
+    }
+
+    #[test]
+    fn ontology_links_from() {
+        let ontology = Ontology::builder("Test")
+            .link(LinkSpec::one_to_many("Customer", "issued", "Invoice"))
+            .link(LinkSpec::one_to_many("Customer", "filed", "TaxDeclaration"))
+            .link(LinkSpec::many_to_many("Invoice", "references", "Invoice"))
+            .build();
+        assert_eq!(ontology.links_from("Customer").len(), 2);
+        assert_eq!(ontology.links_to("Invoice").len(), 2);
+    }
+
+    #[test]
+    fn ontology_actions_for() {
+        let ontology = Ontology::builder("Test")
+            .action(ActionSpec::manual("approve", "Invoice", "status"))
+            .action(ActionSpec::suggested("flag", "Invoice", "flagged"))
+            .action(ActionSpec::auto("classify", "Customer", "industry"))
+            .build();
+        assert_eq!(ontology.actions_for("Invoice").len(), 2);
+        assert_eq!(ontology.actions_for("Customer").len(), 1);
+    }
+
+    #[test]
+    fn link_spec_cardinality() {
+        let link = LinkSpec::one_to_many("Customer", "issued", "Invoice");
+        assert_eq!(link.cardinality, Cardinality::OneToMany);
+        assert_eq!(link.codec_route, CodecRoute::Passthrough);
+    }
+
+    #[test]
+    fn model_binding_fields() {
+        let binding = ModelBinding::new(
+            "industry_classifier",
+            "Customer",
+            &["customer_name", "description"],
+            "industry",
+            CodecRoute::CamPq,
+        );
+        assert_eq!(binding.input_properties.len(), 2);
+        assert_eq!(binding.output_property, "industry");
+        assert_eq!(binding.output_codec, CodecRoute::CamPq);
+    }
+
+    #[test]
+    fn model_health_tracking() {
+        let mut health = ModelHealth::new(0xABCD, 0x1234);
+        assert_eq!(health.frequency, 0);
+        assert_eq!(health.confidence, 0);
+
+        health.record(true);
+        health.record(true);
+        health.record(false);
+        // 2/3 correct ≈ 170/255
+        assert!(health.frequency > 150);
+        assert_eq!(health.predictions_total, 3);
+        assert_eq!(health.predictions_correct, 2);
+    }
+
+    #[test]
+    fn model_health_confidence_ramps() {
+        let mut health = ModelHealth::new(0, 0);
+        for _ in 0..10 {
+            health.record(true);
+        }
+        assert_eq!(health.confidence, 250); // 10-99 range
+        for _ in 0..90 {
+            health.record(true);
+        }
+        assert_eq!(health.confidence, 255); // 100+ range
+    }
+
+    #[test]
+    fn simulation_spec_builder() {
+        let sim = SimulationSpec::new("price_increase", "Invoice")
+            .with_override("total_amount", 0xDEAD)
+            .with_override("currency", 0xBEEF)
+            .with_max_ticks(50)
+            .with_outcomes(&["payment_status", "days_to_pay"]);
+        assert_eq!(sim.overrides.len(), 2);
+        assert_eq!(sim.max_ticks, 50);
+        assert_eq!(sim.outcome_properties.len(), 2);
+    }
+
+    #[test]
+    fn prefetch_depth_ordering() {
+        assert!(PrefetchDepth::Identity < PrefetchDepth::Detail);
+        assert!(PrefetchDepth::Detail < PrefetchDepth::Similar);
+        assert!(PrefetchDepth::Similar < PrefetchDepth::Full);
+    }
+}
