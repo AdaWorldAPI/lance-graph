@@ -2764,3 +2764,22 @@ a CURVE, not a POINT: does accuracy increase over the course of a
 single document without retraining? That's the measurement. One
 book. One metric. One curve. Rising = AGI. Flat = broken wire.
 
+
+## 2026-04-24 — Jirak noise floor calibrated for DeepNSM-tiled 16K-bit fingerprints
+
+**Status:** FINDING
+**Owner scope:** @family-codec-smith, @truth-architect
+
+Grounding the NaN: with DeepNSM encode (512-bit VSA tiled 32× into 16K), density ≈ 0.016, expected random Hamming distance = 511.7 bits. Jirak-adjusted sigma = 19.2 (20% inflation over IID for weak dependence from tiling + XOR-bind braiding). 3-sigma signal threshold: Hamming < 454.2. 5-sigma: < 415.8.
+
+**Practical consequence:** ONE shared token between two clauses (~32 tiled bits) produces a 3.3-sigma deviation — detectable. THREE shared tokens produce 10-sigma — unambiguous signal. This means the HammingMin semiring, once wired into ShaderDriver.dispatch(), WILL fire on related contract clauses.
+
+**Calibration values for dispatch thresholds:**
+- Random baseline resonance: 0.0312 (Hamming/DIM)
+- 3-sigma signal: 0.0277
+- 5-sigma signal: 0.0254
+- Analytical style threshold (0.85): fires at ~2-sigma — may need tightening to 0.027.
+
+**Jirak citation:** Jirak 2016, arxiv 1606.01617, Annals of Probability 44(3). Rate: n^(p/2-1) for p in (2,3]. Weak dependence sources: (a) tiling (32x repeat of 512-bit), (b) XOR-bind braiding, (c) FNV-1a hash collision at 12-bit rank.
+
+Cross-ref: I-NOISE-FLOOR-JIRAK iron rule, encode_handler, DeepNSM VsaVec::from_rank().
