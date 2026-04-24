@@ -316,3 +316,114 @@ DU-2 (Archetype)    ──► needs DM-2 (ExternalMembrane impl to adapt against
 - **DU-3 fingerprint column type in DataFusion:** `[u64; 256]` is not a native Arrow type.
   Representation options: `FixedSizeBinary(2048)`, `FixedSizeList<u64>(256)`, or custom
   extension type. Choose before writing UDFs — type determines UDF signature.
+
+---
+
+## § 6 — SoAReview Sweep Findings (2026-04-24)
+
+**Added 2026-04-24** by the first run of the new `@soa-review` agent
+(`.claude/agents/soa-review.md`). Four parallel Opus-level angle
+reviews: callcenter / archetype / persona / grammar-Markov column layout.
+
+### Cross-cutting verdict
+
+The biggest workspace-level DRIFT surfaced by the sweep:
+
+> **`FingerprintColumns.cycle` in `bindspace.rs` is `Box<[u64]>`
+> (Binary16K), not `Box<[f32; 16_384]>` (Vsa16kF32) as CLAUDE.md §The
+> Click mandates.**
+
+This single DRIFT blocks DU-3 (RoleDB VSA UDFs cannot bind-unbind
+cleanly on a binary carrier), blocks the semantic-kernel (Markov +
+CAM-PQ) integration, and leaves `MarkovBundler` / `Trajectory` /
+`vsa_permute` as doc-referenced-but-unimplemented types. It is the
+substrate precondition for most remaining deliverables.
+
+### Angle-by-angle verdict
+
+| Angle | Verdict | One-sentence reason |
+|---|---|---|
+| Callcenter | **PARTIAL** | BBB spine LIVE post-commit `564aac4`; `dialect` + `scent` + `subscribe()` remain ghosts; three `vsa_udfs.rs` ops broken. |
+| Archetype | **LOCKED-MAPPING-INCOMPLETE** | ADR-0001 locks the transcode; `lance-graph-archetype` crate not yet created; AsyncProcessor / CommandBroker / Component Rust types undefined. |
+| Persona | **DRIFTING-BUT-MANAGEABLE** | Contract-side `PersonaCard` BBB-clean; `thinking-engine::persona::PersonaProfile` carries 12 f32 soul priors as struct content; `persona/role_keys.rs` catalogue missing. |
+| Grammar-Markov | **SCATTERED-NOT-UNIFIED** | FingerprintColumns drift above; `global_context` absent; son/father/grandfather permutation-offset retrieval has no method and no named epiphany entry. |
+
+### Three-role-taxonomy check
+
+| Role taxonomy | Catalogue | Status |
+|---|---|---|
+| Grammatical (SUBJECT/PRED/OBJ/TEKAMOLO/Finnish cases/tense) | `contract::grammar::role_keys` | **LIVE** |
+| User / Agent / Persona (ExternalRole + ExpertId) | `contract::persona::role_keys` | **MISSING** (file does not exist) |
+| Thinking-style (36 ThinkingStyles + faculty asymmetric styles) | `contract::thinking_styles::role_keys` | **MISSING** (file does not exist) |
+
+The three taxonomies must coexist via disjoint slice allocations on
+the same Vsa16kF32 carrier. Today only one of three is shipped. The
+missing two are prerequisites for the semantic-kernel (= Markov +
+CAM-PQ) to superpose all three role bindings into one trajectory row.
+
+### Ranked expansion list (smallest wire first)
+
+1. **Vsa16kF32 substrate migration** — change `FingerprintColumns.cycle`
+   from `Box<[u64]>` (Binary16K) to `Box<[f32; 16_384]>` (Vsa16kF32).
+   Blocks every downstream role-key bind/unbind. Touches `bindspace.rs`
+   + `vsa_udfs.rs` + `crystal/fingerprint.rs`. Estimated ~200 LOC +
+   rebuild test suite.
+2. **`persona/role_keys.rs`** — disjoint slice catalogue for the
+   User/Agent/Persona role taxonomy. Mirror `grammar/role_keys.rs`
+   shape. ~160 LOC. Unblocks persona DRIFT.
+3. **`thinking_styles/role_keys.rs`** — same pattern for the
+   36-style taxonomy. ~120 LOC. Unblocks semantic-kernel bundle
+   completeness.
+4. **Slice allocation map** — `contract/src/vsa_layout.rs` listing
+   every `[start:end)` across all three taxonomies; `const_assert`
+   on non-overlap. ~80 LOC. Compile-time proof of the three-role
+   invariant.
+5. **`MarkovBundler` + `Trajectory` + `vsa_permute`** —
+   implementation of the doc-referenced types on the new Vsa16kF32
+   carrier. Blocks the semantic-kernel commit tier. ~300 LOC in
+   deepnsm.
+6. **`global_context: Box<[f32; 16_384]>`** field on `BindSpace` +
+   `accumulate_fact()` method. Per CLAUDE.md `Think { global_context:
+   &Vsa10k }`. ~40 LOC.
+7. **`persona/content_store.rs` + YAML migration** — move 12 f32 soul
+   priors out of `PersonaProfile` (DRIFT) into YAML under ExpertId.
+   ~150 LOC + YAML files.
+8. **`dialect` + `scent` ghost-column wiring** — the smallest remaining
+   callcenter wiring. See TECH_DEBT 2026-04-24 ghost-columns entry.
+9. **`lance-graph-archetype` crate scaffold** — DU-2 Queued; Agent B
+   work. Creates the crate; defines AsyncProcessor / CommandBroker /
+   Component traits per ADR-0001.
+10. **`subscribe()` live implementation** — DM-4 LanceVersionWatcher +
+    DM-6 DrainTask in lance_membrane.
+
+Items 1-4 are the substrate-level unification. Items 5-7 are the
+semantic-kernel itself. Items 8-10 are the surface-level ghosts that
+become tractable once the substrate is in place.
+
+### Semantic-kernel definition (new framing, 2026-04-24)
+
+```
+Markov + CAM-PQ = semantic kernel
+```
+
+Markov (VSA bundle on Vsa16kF32) produces a lossless commit tier
+(Index regime). CAM-PQ compressed code produces an argmax search
+tier. Cascade: CAM-PQ ADC narrows candidates → exact Vsa16kF32 unbind
+on survivors. All three role taxonomies (grammar × persona × thinking)
+superpose losslessly into one trajectory row. Content (200-500 grammar
+templates, soul priors, style definitions) stays in content stores;
+never enters the VSA register.
+
+### Reusability inside / outside BBB
+
+SoA + DTO enforce the discipline: `BindSpace` four columns on the
+inside; `CognitiveEventRow` Arrow-scalar on the outside. Same algebra,
+different codec regime per side. Markov and Supabase-shape patterns
+reuse across the gate precisely because the compile-time deny-list
+on `ExternalMembrane::Commit` stops VSA / RoleKey / NarsTruth from
+leaking through.
+
+Cross-ref: `.claude/agents/soa-review.md` (the agent card with full
+process + reference run notes); EPIPHANIES 2026-04-24 "I1 Codec
+Regime Split" + "SoAReview sweep"; TECH_DEBT 2026-04-24 ghost-columns
++ pillar 5b + AriGraph episodic CAM-PQ cascade.

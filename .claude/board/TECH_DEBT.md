@@ -80,6 +80,33 @@ looks like, any blocking dependencies>
 Cross-ref: <file:line / deliverable D-id / epiphany entry>
 ```
 
+## 2026-04-24 — CognitiveEventRow ghost columns (`rationale_phase`, `dialect`) need live wiring (MM-CoT Phase B + polyglot Phase B)
+
+**Status:** Open
+**Priority:** P1
+**Scope:** @host-glove-designer @bus-compiler DU-4 domain:mm-cot domain:callcenter
+**Introduced by:** plan `unified-integration-v1.md` DU-4 (Phase A shipped in commit `a05979e`, 2026-04-23)
+**Payoff estimate:** Phase B rationale_phase ~60 LOC on `lance_membrane.rs` (add `current_rationale_phase: AtomicBool` + setter + derive call in project); polyglot dialect ~80 LOC front-end parser hook. Total ≤ 1 day.
+
+Per the user framing 2026-04-24 — *"make sure the SoA is not a Coast/Cost of a ghost"* — a column on `CognitiveEventRow` that is always set to the stub default (Phase A) is a ghost column: it exists in the schema but carries no cognitive signal. The SoA classification work (ADR-0002 I1 Codec Regime Split) classifies every column as Index / Argmax / Skip, but a column can be correctly classified as Index yet still be a ghost if nothing fills it.
+
+Ghost columns shipped today:
+
+| Column | Schema status | Current value | Phase B source |
+|---|---|---|---|
+| `rationale_phase` | bool, Phase A stub | always `false` | `FacultyDescriptor::is_asymmetric()` + explicit Stage-1/Stage-2 tracking (MM-CoT DU-4) |
+| `dialect` | u8, Phase A stub | always `0` | polyglot front-end parser (SPARQL / SQL / Cypher / GQL / NARS) |
+
+Proper fix for `rationale_phase`:
+1. Add `current_rationale_phase: AtomicBool` to `LanceMembrane` state alongside the existing `current_role` / `current_faculty` / `current_expert` pattern.
+2. Expose `set_rationale_phase(bool)` on the membrane.
+3. Dispatcher sets it to `true` when entering Stage-1 rationale emission of an asymmetric faculty; `false` otherwise.
+4. `project()` reads the atomic into the row.
+
+Acceptance: every column on `CognitiveEventRow` must be either (a) live (changes across cycles based on actual state) or (b) explicitly marked with a phase label in the schema doc-comment. No silent Phase-A stubs.
+
+Cross-ref: `crates/lance-graph-callcenter/src/external_intent.rs:131` (schema); `crates/lance-graph-callcenter/src/lance_membrane.rs:130` (current stub); `crates/lance-graph-contract/src/faculty.rs:98` (`is_asymmetric`); EPIPHANIES 2026-04-24 "I1 Codec Regime Split" + caveat note; STATUS_BOARD.md DU-4 row (Phase A shipped, Phase B pending).
+
 ## 2026-04-24 — jc Pillar 5b: direct Pearl 2³ mask-accuracy measurement (three-plane vs CAM-PQ-bundled)
 
 **Status:** Open
