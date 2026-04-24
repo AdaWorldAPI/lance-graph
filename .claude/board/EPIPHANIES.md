@@ -2783,3 +2783,54 @@ Grounding the NaN: with DeepNSM encode (512-bit VSA tiled 32× into 16K), densit
 **Jirak citation:** Jirak 2016, arxiv 1606.01617, Annals of Probability 44(3). Rate: n^(p/2-1) for p in (2,3]. Weak dependence sources: (a) tiling (32x repeat of 512-bit), (b) XOR-bind braiding, (c) FNV-1a hash collision at 12-bit rank.
 
 Cross-ref: I-NOISE-FLOOR-JIRAK iron rule, encode_handler, DeepNSM VsaVec::from_rank().
+
+## 2026-04-24 — Ground truth: ShaderDriver dispatch wiring audit (what IS vs ISN'T connected)
+
+**Status:** FINDING
+**Owner scope:** @truth-architect, @bus-compiler
+
+Honest audit of what dispatch() actually does vs what the DTO surface promises:
+
+**WIRED (working end-to-end):**
+- [1] Meta prefilter: u32 column sweep on MetaColumn → passed_rows ✓
+- [2] Style resolution: Auto reads QualiaColumn of first row → style_ord ✓
+- [3] Shader cascade: CognitiveShader::new(planes, semiring).cascade(query, radius, layer_mask) ✓
+  BUT: query comes from CausalEdge64.s_idx() of the ROW'S EDGE, not from content fingerprint.
+  The cascade probes the PaletteSemiring distance table, not the content plane.
+- [4] Cycle fingerprint: XOR fold of content_row(hit.row) for each hit ✓
+  BUT: hits come from step [3] which probes edges, not content similarity.
+- [5] Entropy + std_dev + CollapseGate: computed from top-k resonances ✓
+- [6] Edge emission: CausalEdge64::pack per strong hit ✓
+- [7] Sink callbacks: on_resonance → on_bus → on_crystal ✓
+- Meta summary: confidence = top-1 resonance, admit_ignorance = confidence < 0.2 ✓
+
+**NOT WIRED (the gap):**
+- Content fingerprint similarity: dispatch does NOT compare content_row(A) vs content_row(B).
+  The cascade uses PaletteSemiring on edge palette indices, not Hamming on content bits.
+  The content plane is READ (for cycle_fp XOR fold) but never COMPARED.
+- NARS reasoning: no InferenceType dispatch. style_ord maps to inference type via
+  style_ord_to_inference() but it's only used for CausalEdge64 packing, not actual NARS.
+- FreeEnergy: not computed. The contract type exists (grammar/free_energy.rs) but
+  dispatch() never calls FreeEnergy::compose(). The 'should_admit_ignorance' is a
+  simple threshold (confidence < 0.2), not a real F computation.
+- AriGraph/SPO: no graph. dispatch() operates purely on BindSpace columns.
+  The SPO triple store exists in lance-graph core but isn't wired to the driver.
+- PropertySchema validation: not connected. The types exist in contract::property
+  but dispatch() doesn't check Required/Optional/Free.
+
+**What the zeros meant:** resonance=0 wasn't "missing semiring wire" — the cascade
+DID run (3 cascade calls from step [3]). But the demo palette has synthetic Base17
+entries with no relationship to the encoded text. The PaletteSemiring distance table
+is 256x256 pre-computed from those synthetic entries. Text fingerprints in the content
+plane are INVISIBLE to the cascade — they're read only for the XOR fold in step [4].
+
+**To make content fingerprints visible to dispatch:**
+Option A: Add a HammingMin pre-pass before the palette cascade. Compare content_row(i) vs
+  content_row(j) via popcount on XOR. If Hamming < Jirak threshold (454), promote to hit.
+Option B: Build the PaletteSemiring FROM the content fingerprints (quantize content into
+  256 palette entries, compute distance table from those). Content similarity then flows
+  through the existing cascade.
+Option C: Add a second dispatch mode (content-mode vs edge-mode) that uses HammingMin
+  instead of PaletteSemiring for the distance function.
+
+Cross-ref: driver.rs:75-212, Jirak calibration (this session), I-NOISE-FLOOR-JIRAK.
