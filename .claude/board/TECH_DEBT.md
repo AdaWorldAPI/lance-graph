@@ -140,6 +140,23 @@ Verbatim user framings from this session, recorded so they don't get lost:
 - `.claude/board/TECH_DEBT.md` 2026-04-19 `FP_WORDS = 157 (not 160)` entry (exists above this row once this appends).
 - `.claude/board/TECH_DEBT.md` 2026-04-19 `VSA substrate renaming: Vsa10k* → Vsa16k* + float framing` entry.
 
+### Archetype / Chronos — breadcrumbs the plan docs do NOT yet carry
+
+Flagging here what's in this session's conversation context but not in `unified-integration-v1.md` or `callcenter-membrane-v1.md`. Budget honesty: recording only what I can attribute to this session's conversation — not reconstructing.
+
+**Archetype — name collision is undocumented.** "Archetype" in DU-2 refers exclusively to the external `VangelisTech/archetype` Rust ECS crate (simulation layer above callcenter). But the user explicitly noted mid-session: *"What is internal is the person archetypes"* — pointing at `crates/thinking-engine/src/persona.rs` (internal VSA-bound cognitive archetypes). These are two distinct objects sharing the word "archetype":
+
+| Sense | Lives in | Role | Covered in plans? |
+|---|---|---|---|
+| External ECS Archetype | `VangelisTech/archetype` crate | Simulation tick layer ABOVE callcenter | Yes — DU-2 |
+| Internal persona-archetype | `thinking-engine/src/persona.rs` | VSA-bound cognitive identity INSIDE substrate | **No** — only contract-side `PersonaCard` (metadata routing) is named, not the internal archetype |
+
+Next session: add an explicit disambiguation paragraph to DU-2 and to `callcenter-membrane-v1.md` § 16 ("Persona as function") noting that `PersonaCard` (contract, metadata) and `thinking-engine::persona::*` (internal, VSA-bound archetype) are different objects; the callcenter sees the former, never the latter. The "32 atoms × 16 weights" formulation in § 16 sits at the metadata/compression layer — whether it corresponds to or is distinct from the internal archetype is an **open question** (I don't have confident attribution for this from this session's conversation).
+
+**Chronos — what's captured vs what's missing.** Replacement rationale ("1D scalar → 288-class `(ExternalRole × ThinkingStyle)` product"; "ONNX infra already justified by Jina v5 ONNX on disk"; "task = classification, not time-series forecasting") is captured in § 17 of callcenter-membrane-v1.md and DU-1 of unified-integration-v1.md. I do NOT hold confident additional Chronos-specific content from this session's brainstorming that could be added without fabrication. Flagging so the next session knows: if the $200 session's memory of the brainstorm contains richer Chronos material, that's new information to add, not something this session held and failed to record.
+
+**Archetype × Chronos interplay — NOT captured anywhere.** The user grouped "archetype and chronos" together as joint brainstorming content. The plans treat them as independent deliverables (DU-1 Chronos-replacement, DU-2 Archetype-bridge). Whether they compose (e.g. Archetype tick driving ONNX-classifier-as-style-oracle at each tick, feeding Blackboard rounds) is **not documented**. Candidate composition: `ArchetypeTick → UnifiedStep → CollapseGate fire → ONNX classifier predicts next (role, style) → next tick's PersonaCard` — but this is my conjecture, not session-attributable, so flagging as an **open design question** for the next session rather than writing it into a plan.
+
 ### Correction plan for next session (P0 order)
 
 1. **Delete** `callcenter-membrane-v1.md` § 18 (lines 1139-1224).
