@@ -118,6 +118,51 @@ three-decisions + addendum + summary + lock statement),
 
 ---
 
+## 2026-04-24 — Four-way multiply = architecture search without an outer optimiser
+
+**Status:** FINDING (framing inherited from parallel session commit `88e5f5a` on PR #245; prepended per hand-off instruction)
+
+The four axes of the cognitive stack — `persona × style × stage × learned-dynamics` — form a product space of approximately `288 × 36 × 2 × oracle ≈ 20,736 × oracle` configurations.
+
+**F-descent IS the automatic architecture search over this space.** Each parse cycle's free-energy minimization tries a configuration (the currently-dispatched persona + thinking style + rationale/answer stage + oracle prediction); misaligned configurations are dropped by the CollapseGate predicate; surviving configurations compose into the committed fact + reshape the next cycle's F-landscape.
+
+**No outer optimiser is needed.** A standard NAS approach would wrap this in gradient descent over architecture hyperparameters. Here the gradient IS the F-landscape itself — the system descends by acting, not by meta-optimising. NAS collapses into inference.
+
+Cross-ref: `callcenter-membrane-v1.md` § 17, tech debt 2026-04-24 "Archetype / persona / thinking-style modeling — epiphany candidates not yet in EPIPHANIES.md" (commit `88e5f5a`).
+
+---
+
+## 2026-04-24 — Persona identity IS a coordinate in atom-space, not a YAML artefact
+
+**Status:** FINDING (framing inherited from parallel session commit `88e5f5a` on PR #245; prepended per hand-off instruction)
+
+32 cognitive atoms × 16 weightings per atom = `16^32` addressable persona space, compressed to a 56-bit `PersonaSignature`. The persona's identity is the specific point in this atom-space — not the YAML file that happens to script its behavior.
+
+**YAML runbooks are macro scaffolding** for the context loop (which questions the persona asks, which responses it emits, which escalation paths it routes to). They are PROGRAMS running on the context loop, not persona identity. Two personas with different atom-space coordinates running the same YAML produce different behaviors; two personas with the same coordinate running different YAMLs produce the same identity expressing through different scripts.
+
+**Consequence for the `Think` struct and the Layer-2 persona catalogue:** the catalogue stores atom-space COORDINATES (56-bit signatures or the full 16^32 address decomposed into 32 atom indices). YAML definitions are Layer-3 content retrieved O(1) by signature. This respects the `I-VSA-IDENTITIES` iron rule — VSA bundles identities (atom-space coordinates), not content (YAML bodies).
+
+Cross-ref: `callcenter-membrane-v1.md` § 16, `CLAUDE.md § I-VSA-IDENTITIES`, `FormatBestPractices.md § 5` (persona bank workload row), commit `88e5f5a`.
+
+---
+
+## 2026-04-24 — MM-CoT stage split is NOT a new axis — it reuses existing `FacultyDescriptor::is_asymmetric()`
+
+**Status:** FINDING (framing inherited from parallel session commit `88e5f5a` on PR #245; prepended per hand-off instruction)
+
+The MM-CoT (Multimodal Chain-of-Thought) `rationale_phase: bool` field on `CognitiveEventRow` (shipped in commit `a05979e`) distinguishes rationale-generation phase from answer-emission phase. This looks like a new architectural axis. It isn't.
+
+**The asymmetry already exists** in `FacultyDescriptor::is_asymmetric()` — when a faculty's `inbound_style ≠ outbound_style`, it's intrinsically asymmetric (input processed one way, output produced another). Rationale→answer is the canonical example: inbound style processes the input to produce rationale; outbound style uses rationale to produce the answer. Same faculty, two styles.
+
+**MM-CoT reuses this existing asymmetry** rather than introducing a new one. The `rationale_phase` bool marks WHICH side of the asymmetry is active, not that a new architectural dimension exists.
+
+**Consequence:** don't add "stage" as a fourth independent axis to the four-way multiply epiphany above. The four axes are `persona × style × stage × learned-dynamics`, but `stage` is an intra-style partitioning (inbound vs outbound), not an orthogonal dimension. True cardinality is closer to `persona × asymmetric_style × learned-dynamics` where asymmetric_style carries the inbound/outbound pair.
+
+Cross-ref: `callcenter-membrane-v1.md` § 17 row, `CognitiveEventRow` commit `a05979e`, commit `88e5f5a`, `FacultyDescriptor::is_asymmetric()` in contract.
+
+
+---
+
 ## 2026-04-22 — E-DEPLOY-1 — Supabase-shape thinking extension: trojan-horse A2A training surface over DN-addressed metadata bus, backed by lance-graph, BBB-preserved by blackboard mediation
 
 **Status:** FINDING (deployment doctrine — the nine-dimension shape that makes everything we've built earn its own product)
