@@ -68,15 +68,15 @@ pub use vsa_udfs::register_vsa_udfs;
 pub mod filter_expr;
 
 // DM-4 — LanceVersionWatcher: tail version counter → Phoenix events ([realtime])
-// #[cfg(feature = "realtime")]
-// pub mod version_watcher;
+#[cfg(feature = "realtime")]
+pub mod version_watcher;
 
 // DM-5 — PhoenixServer: minimal WS server, Phoenix channel subset ([realtime])
 // #[cfg(feature = "realtime")]
 // pub mod phoenix;
 
 // DM-6 — DrainTask: steering_intent → UnifiedStep → OrchestrationBridge
-// pub mod drain;
+pub mod drain;
 
 // DM-7 — JwtMiddleware + ActorContext → LogicalPlan RLS rewriter ([auth])
 //         Resolve UNKNOWN-3 (pgwire?) and UNKNOWN-4 (actor_id type) first.
