@@ -2855,3 +2855,16 @@ Three-layer epiphany from the Palantir FfB Technical Overview read:
 **3. NARS SPO × Pearl 2³ × CausalEdge64 — what Vertex can't do.** Foundry Vertex explores graphs but has NO causal typing on edges. Our CausalEdge64 packs Pearl 2³ = 8 causal masks (correlation / direct cause / confounder / mediator / collider / instrument / front-door / counterfactual) + NARS truth (frequency, confidence) + inference type + plasticity + temporal position into 64 bits per edge. Every SPO triple carries its own causal ontology and epistemology. This is irreducible — Vertex would need a fundamental redesign to match.
 
 Cross-ref: FfB_Technical_Overview_v4.pdf (Palantir), CausalEdge64 (causal-edge crate), I-SUBSTRATE-MARKOV, driver.rs content Hamming cascade (PR #259), CypherBridge (PR #258).
+
+## 2026-04-24 — CORRECTION: supabase-shape is the protocol, not a Postgres dependency
+
+**Status:** CORRECTION
+**Owner scope:** @truth-architect
+
+Mid-session DTO audit hallucination: claimed "Postgres/Supabase via PostgREST" was a third cold-path sink alongside Lance and Arrow Flight. WRONG. PR #255 (LanceMembrane + LanceVersionWatcher + DM-4) explicitly transcoded the supabase-shape INTO native Rust: `subscribe()` returns `tokio::sync::watch::Receiver<CognitiveEventRow>` with always-latest semantics, backed by Lance versioned dataset. NO Postgres. NO JDBC. The supabase-shape is the PROTOCOL (subscribe-on-changes, BBB-scalar events), not the database.
+
+**Corrected cold-path architecture:** Lance dataset = single source of truth. Two read interfaces, both hitting the same Lance: (1) `LanceVersionWatcher.subscribe()` for realtime push (supabase-shape semantics in pure Rust), (2) Arrow Flight SQL for bulk external clients. RLS-equivalent via `CommitFilter` + `Policy.evaluate()`, both already shipped, both pure Rust.
+
+**Why the slip happened:** "supabase" in normal usage = Postgres + Realtime + Auth. In OUR stack, "supabase" is the API shape only. Mid-flow architectural tiredness; the brutal DTO audit's complexity briefly drowned out PR #255's actual scope.
+
+Cross-ref: PR #255 (Supabase subscriber wire-up), `LanceMembrane`, `CognitiveEventRow`, `lab-vs-canonical-surface.md`.
