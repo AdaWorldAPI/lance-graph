@@ -80,6 +80,79 @@ looks like, any blocking dependencies>
 Cross-ref: <file:line / deliverable D-id / epiphany entry>
 ```
 
+## 2026-04-24 — Frankenstein blast radius on branch `claude/read-claude-md-jh51O` (Vsa10k / L3 / 157 confusion)
+
+**Status:** Open
+**Priority:** P0
+**Scope:** @integration-lead @truth-architect domain:vsa domain:plans
+**Introduced by:** this branch, commits `468357d`, `7a60c42`, `585f8b0`, `489911b` (plus inherited from earlier `dfcf246` / PR #210 / PR #242-#243)
+**Payoff estimate:** plan-doc surgery (1 day) + contract rename already scoped in IDEAS.md (see 2026-04-19 entries)
+
+Session on `claude/read-claude-md-jh51O` ran out of context before cleanup. Next session needs these breadcrumbs.
+
+### Root errors (three clustered, one session)
+
+1. **"L3" misread.** User said "L3" = CPU cache hardware budget (~16 MB). Session interpreted as cognitive-stack Layer 3 and built a fabricated precision-tier architecture on top.
+2. **`Vsa10k BF16` fabrication.** No such type exists. The real types are `CrystalFingerprint::Vsa10kI8` (10 KB) and `Vsa10kF32` (40 KB legacy) — variants of `CrystalFingerprint`, not precision tiers of `Vsa10k`.
+3. **`Vsa10k = [u64; 157]` inherited confusion.** 157-word bit-packed labelled "10K VSA" is the pre-existing error (source: `dfcf246`). Bit-packed never uses 10,000 — uses 16,384 (powers of 2). Only the high-dim numeric 40 KB / 80 KB forms legitimately carry 10K-D framing, and only for grammar ±5 wire bundling. Workspace already filed the rename in `IDEAS.md` 2026-04-19 entries (157 → 256 for binary; Vsa10k* → Vsa16k* for VSA floats); this session ignored the filed correction.
+
+### Blast radius — plans written this session (needs surgery)
+
+| File | Sections | Verdict |
+|---|---|---|
+| `.claude/plans/callcenter-membrane-v1.md` | §§ 14-17 (commit `468357d`) | Mixed. §14 cold-storage + §15 VSA-UDF-dispatch concept good; concrete sizes/type names poisoned. §16 persona-as-function (32 atoms × 16 weights, PersonaSignature 56-bit) good. §17 four-way multiply + ONNX-replaces-Chronos good; tensor-shape annotations poisoned. |
+| `.claude/plans/callcenter-membrane-v1.md` | § 18 (commit `7a60c42`, lines 1139-1224) | **Delete whole section.** Three-tier precision table, father-grandfather compression, CK-safety proof — all built on fabricated `Vsa10k BF16` and L3-as-cognitive-layer. |
+| `.claude/plans/callcenter-membrane-v1.md` | line 822 (edited `489911b`) | Already partially fixed. Still references "Fingerprint<256>" as if distinct from Vsa10k — verify correctness after rename. |
+| `.claude/plans/unified-integration-v1.md` | DU-3 precision-note (lines 196-201, commit `7a60c42`) | **Delete paragraph.** References §18 that must go. DU-3 body (5 UDFs signature) kept but delegates must use canonical `RoleKey::bind/unbind` from PR #243. |
+| `.claude/plans/unified-integration-v1.md` | DU-1 ONNX classifier (`468357d`) | Good core idea. `recent_fingerprints: Tensor[N, 16384]` tensor-shape comment at line 86 needs review against the 16K binary vs 16K-D float substrate split (see IDEAS.md 2026-04-19 CORRECTION). |
+| `.claude/plans/unified-integration-v1.md` | DU-2 Archetype ECS bridge | Good. Mapping table (Entity=PersonaCard / World=Blackboard / Tick=CollapseGate fire) is sound. |
+| `.claude/plans/unified-integration-v1.md` | DU-4 `rationale_phase: bool` (commit `a05979e`) | Shipped correctly to `CognitiveEventRow`. No change needed. |
+
+### Blast radius — source (this session did NOT modify these; flagging for rename sweep)
+
+- `crates/lance-graph-contract/src/grammar/role_keys.rs` — `VSA_WORDS = 157`, `Vsa10k = [u64; 157]`. Originates `dfcf246` (pre-PR #210). Already in rename sweep per IDEAS.md `CORRECTION-OF 2026-04-19 FP_WORDS`.
+- `crates/deepnsm/src/{content_fp,markov_bundle,trajectory,context,encoder}.rs` — all consume `Vsa10k` / `VSA_WORDS = 157`. Added in PR #243 (`c6e69c4`). Follows whichever direction the rename goes.
+- `CLAUDE.md` P-1 section — references `[u64; 157]` and `trajectory: Vsa10k`. Prose; updates after source rename.
+
+### Blast radius — vsa_udfs.rs (commit `585f8b0`)
+
+`crates/lance-graph-callcenter/src/vsa_udfs.rs` (628 lines) has three wrong operations — flagged separately for the canonical-delegation pass:
+
+- `unbind_op`: set-bit-counting on role-indexed slice → returns fraction. WRONG — should delegate to `RoleKey::unbind` + `recovery_margin` (shipped in `79ac8f6` / PR #242).
+- `bundle_op`: implements XOR, named "vsa_bundle". WRONG NAME — XOR is `MergeMode::Xor` (single-writer delta); violates **I-SUBSTRATE-MARKOV** iron rule if used on state-transition paths. Rename to `vsa_xor` (honest) or implement true CK-safe bundle.
+- `braid_at_op`: cyclic word rotation. WRONG — should use `vsa_permute` (PR #209 reference braid).
+
+### Good ideas salvageable (architectural, not in poisoned sections)
+
+Verbatim user framings from this session, recorded so they don't get lost:
+
+1. **Two callcenter modes coexist.** (a) DataFusion polyglot query mode — addresses the 4096 / 0xFFF command space (SPARQL / SQL / Cypher / GQL / NARS); Redis-like UDF access. (b) VSA blackboard orchestration — roles bind work orders into accumulator; CollapseGate XOR flushes into Markov trajectory; new empty ledger starts.
+2. **VSA lazy-buffer pattern.** Bind events → accumulate in VSA → CollapseGate XOR flush → Markov trajectory → scalar `CognitiveEventRow` projection → external consumer. The accumulator is the lazy buffer; CollapseGate is the bell.
+3. **Kitchen analogy.** Work orders bind into VSA (order sheet) → CollapseGate = bell → callcenter/waiter picks up scalar `CognitiveEventRow` → external consumer gets ticket.
+4. **BBB iron rule already in contract source** (`external_membrane.rs:10`): `Self::Commit` MUST NOT contain `Vsa10k`, `RoleKey`, `SemiringChoice`, `NarsTruth`. Any plan proposing these cross the gate is invalid by construction.
+5. **Grammar ±5 wire format is the ONLY legitimate 10,000-D / 10K-D / 16K-D float carrier.** 40 KB (f32) / 80 KB (u8 5-lane) per the IDEAS.md rename plan. Bit-packed fingerprint substrate is separate: `Container<[u64; 256]>` = 16,384 bits = 2 KB, Hamming-only, NOT VSA.
+6. **Chronos → ONNX replacement** (DU-1): full 288-class `(ExternalRole × ThinkingStyle)` product prediction vs Chronos 1D scalar. Grounding sound; tensor-shape details need re-verification post-rename.
+7. **Archetype ECS bridge** (DU-2): `VangelisTech/archetype` sits ABOVE callcenter; Entity = PersonaCard, World = Blackboard, Tick = CollapseGate fire. Thin adapter crate `lance-graph-archetype-bridge`. Mapping table intact.
+
+### Prior art this session ignored
+
+- `.claude/board/IDEAS.md` 2026-04-19 entries: "FP_WORDS = 256 (supersede the 160 plan)" + "CORRECTION-OF 2026-04-19 FP_WORDS = 256" + "REFINEMENT-OF 2026-04-19 CORRECTION-OF FP_WORDS scope". Explicit governance ban: *"There shall be zero occurrences of '10,000-D binary VSA' / '10,000-bit VSA' in any workspace file."* This session wrote multiple such occurrences.
+- `.claude/board/TECH_DEBT.md` 2026-04-19 `FP_WORDS = 157 (not 160)` entry (exists above this row once this appends).
+- `.claude/board/TECH_DEBT.md` 2026-04-19 `VSA substrate renaming: Vsa10k* → Vsa16k* + float framing` entry.
+
+### Correction plan for next session (P0 order)
+
+1. **Delete** `callcenter-membrane-v1.md` § 18 (lines 1139-1224).
+2. **Delete** `unified-integration-v1.md` DU-3 precision-note (lines 196-201).
+3. **Append** EPIPHANIES.md entry with the three-cluster root-error summary (L3 / Vsa10k-BF16 fabrication / 157 inheritance), referencing this TECH_DEBT row.
+4. **Fix** `vsa_udfs.rs` three operations to delegate to canonical `RoleKey::bind/unbind`, `vsa_permute`, and an honest XOR name.
+5. **Update** `LATEST_STATE.md` § Current Contract Inventory to include `FacultyRole` + `FacultyDescriptor` (added this session in `2a4a245`, never board-logged — same-commit hygiene rule violation).
+6. **Proceed with** the IDEAS.md Vsa10k* → Vsa16k* rename sweep OR scope-limit it per the REFINEMENT entry (grammar / quantum / ladybug allow-list) — that is its own PR, not a cleanup prerequisite.
+
+Cross-ref: EPIPHANIES.md entries needed; IDEAS.md 2026-04-19 rename-sweep entries; PR #242 (`defe928`) The Click categorical-algebraic click; PR #243 (`c6e69c4`) D5 Trajectory; this branch commits `468357d` / `7a60c42` / `585f8b0` / `489911b` / `a05979e` / `2a4a245`.
+
+---
+
 ### Seeded from PRs #204–#211
 
 ## 2026-04-19 — Contract `ContextChain::coherence_at` returns 0 for non-Binary16K variants
