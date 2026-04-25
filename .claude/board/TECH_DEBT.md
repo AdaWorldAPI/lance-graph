@@ -351,6 +351,20 @@ Cross-ref: `integration-plan-grammar-crystal-arigraph.md` E8,
 
 ## Paid Debt
 
+## 2026-04-25 — TD-INT-3/10/14 paid: MUL gate veto, NarsTables lookup, convergence highway (from 2026-04-24)
+**Status:** Paid 2026-04-25
+**Payoff:** Commit `0f9dcbb` on `claude/teleport-session-setup-wMZfb`
+
+The three P1 wiring gaps that bring the second metacognitive layer online — meta-uncertainty veto, precomputed NARS truth lookup, and the cold→hot knowledge highway — are now wired.
+
+- **TD-INT-3 (MUL gate veto):** `MulAssessment::compute(&SituationInput)` is a carrier method on the contract type (per "object speaks for itself" doctrine). In `driver.rs`, the gate decision builds a SituationInput from current dispatch state (felt_competence ← top_resonance, demonstrated ← `1 - F.total`, skill ← `awareness.recent_success.frequency`, challenge ← std_dev, environment_stability ← `1 - std_dev`), computes MulAssessment, then vetoes homeostatic Flow → Hold whenever MUL flags Mount-Stupid or Overconfident-trust-texture. The system can no longer commit confidently while metacognitively flagging the gap.
+- **TD-INT-10 (NarsTables in cascade):** `causal_edge::tables::NarsTables` is a zero-dep crate `cognitive-shader-driver` already depends on, so no circular dep. ShaderDriver gains `nars_tables: Option<Arc<NarsTables>>` + a `with_nars_tables(Arc)` builder. Per cascade hit, when tables are attached, the system revises `(edge.frequency, edge.confidence)` against `(resonance, half_confidence)` via `tables.revise(...)`. Result currently observed only — tuning into the resonance formula is deferred. Call site established; the wiring debt is paid.
+- **TD-INT-14 (convergence highway):** ShaderDriver.planes moved into `RwLock<Box<[[u64; 64]; 8]>>` so newly-committed AriGraph SPO knowledge can swap into the live cascade without restart. New `update_planes(&self, [[u64; 64]; 8])` takes the write lock and replaces in place. `dispatch()` reads under the read lock and snapshots so concurrent writes can't tear the topology mid-cycle. Planner-side `run_convergence(triplets, apply: impl FnOnce([[u64; 64]; 8]))` packages the conversion + closure handoff so `cognitive-shader-driver` doesn't need to depend on `lance-graph-planner` (would be circular). Call site: `run_convergence(&triplets, |p| driver.update_planes(p))`.
+
+The cognitive loop now has every metacognitive layer wired: F drives the gate (TD-INT-1), NARS revises every cycle (TD-INT-2), MUL vetoes overconfidence (TD-INT-3), Markov braiding preserves order (TD-INT-4), NarsTables truth-revises per hit (TD-INT-10), and AriGraph commits flow into the cascade via convergence (TD-INT-14). Six P0/P1 dormant intelligence features paid in two days.
+
+Cross-ref: TD-INT-3 / TD-INT-10 / TD-INT-14 original entries in the 2026-04-24 systemic-wiring-gaps log; commit 0f9dcbb.
+
 ## 2026-04-25 — TD-INT-1/2/4 paid: cognitive loop closes structurally every dispatch (from 2026-04-24)
 **Status:** Paid 2026-04-25
 **Payoff:** Commit `474d3eb` (TD-INT-1) + `b7787cf` (TD-INT-2 + TD-INT-4) on `claude/teleport-session-setup-wMZfb`
