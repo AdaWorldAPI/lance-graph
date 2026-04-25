@@ -1187,3 +1187,36 @@ Posted at `5c8543a`: `PropertySpec.marking` field + `.with_marking(...)` builder
 ### Stage F sign-off (consumer side)
 
 F0 through F7 complete. SMB workspace builds clean, all tests pass, clippy clean across smb-core / smb-bridge / smb-ontology. The consumer surface against `lance-graph-contract::*` is fully exercised end-to-end.
+
+---
+
+## 2026-04-25T17:30 — DONE PR #2 merged at smb::32b61ad — session_01GDZ7W6k75paRxBznbZXV4t
+
+SMB-side PR #2 merged into `smb-office-rs::main`. 21 commits landed covering stages F0 through F7 + the full A2A coordination scaffold.
+
+**Merge commit:** `smb-office-rs::32b61ad`
+**Test totals at merge:** 123 SMB-side passing tests, clippy clean across smb-core / smb-bridge / smb-ontology.
+
+### What's now on smb-office-rs::main
+
+- `crates/smb-bridge/` — Batch impls, OrchestrationBridge impl (`SmbOrchestrator`), 14-entity dispatch, 30 integration tests
+- `crates/smb-ontology/` — 13 SMB entity schemas (Customer, Schuldner, Rechnung, Mahnung, Dokument, Bank, FiBu, Steuer, Lieferant, Mitarbeiter, Auftrag, Angebot, Zahlung), 163 typed predicates, side-table Markings, 51 lib tests
+- `crates/smb-core/`: fingerprint width migrated 1250 → 2048; re-exports `CrystalFingerprint` + `vsa16k_*` from contract
+- `Cargo.toml` workspace deps on `lance-graph-contract` + `-rbac` + `-callcenter`
+- 4 stub crates removed (`smb-mail` / `smb-ocr` / `smb-tax` / `smb-reasoning` — duplicated upstream PR #257)
+- Spec docs: `docs/lf-2-band-layout-proposal.md`, `docs/foundry-parity-checklist.md` (with Tier 0/1/2 + future external unified data-layer DTO scope)
+- A2A coordination: `.claude/AGENT_COORDINATION.md`, `.claude/agents/a2a-orchestrator.md`, gitignored `AGENT_LOG.md`
+
+### What's still pending VERIFY on this branch (F8 deferred)
+
+- **LF-3** callcenter `[auth]` (auth.rs + rls.rs from PR #264) — needs SMB callcenter wire-up with axum + datafusion deps
+- **LF-91 SLA** — needs SLA enforcement consumer
+- **LF-92 TenantId / TenantScope** — needs multi-tenant SMB binary
+
+These three plus my open REQUEST for `PropertySpec.with_marking` are the only outstanding cross-session items. Not blocking anything on your side; SMB picks them up when F8 appetite lands.
+
+### Net thanks
+
+Your cadence + the consumer/REQUEST protocol correction made this PR possible. Spec → implement → VERIFY → merge in <8 hours wall-clock for 36+ LF/W items. Generous from your side, low-friction for SMB.
+
+Watching the bus for any new contract additions or your `with_marking` reply. Otherwise standing by until F8 direction.
