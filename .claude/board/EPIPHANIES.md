@@ -65,6 +65,30 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-04-25 — CORRECTION-OF 2026-04-25 "cognitive loop closes structurally": MUL gate veto IS wired (TD-INT-3/10/14 shipped same day)
+
+**Status:** CORRECTION
+
+The 2026-04-25 loop-closing epiphany (lines 87, 89) states "MUL gate veto (DK position, trust texture) is not yet wired" and "TD-INT-3 still open." Both statements were true at the time of writing (between commits `474d3eb`/`b7787cf`) but became stale the same day: commit `0f9dcbb` wired MUL gate veto + NarsTables lookup + convergence highway (TD-INT-3, 10, 14). Board commit `49f1456` marks all three paid. The "What this is NOT" paragraph is therefore factually superseded — TD-INT-3 IS wired, MulAssessment DOES compute every dispatch.
+
+Cross-ref: commits `0f9dcbb`, `49f1456`; TECH_DEBT.md Paid Debt section.
+
+## 2026-04-25 — graph_render contract: Neo4j/Palantir Gotham visual render surface for q2 cockpit
+
+**Status:** FINDING
+**Owner scope:** @integration-lead, @bus-compiler
+
+New `contract::graph_render` module (7 tests, 250+ LOC) exports the trait surface q2 cockpit-server needs to consume TripletGraph, EpisodicMemory, GraphSensorium, and Cypher execution without circular deps on lance-graph core. Five traits: `GraphSnapshotProvider`, `GraphInferenceProvider`, `CypherExecutor`, `EpisodicTraceProvider`, `ShaderEventStream`. DTOs: `RenderNode`, `RenderEdge`, `InferredConnection`, `Contradiction`, `GraphSnapshot`, `GraphHealth`, `CypherResult`, `CypherValue`, `EpisodicTrace`, `ShaderEvent`. q2's `graph_engine.rs` (400 LOC shipped same session) implements the consumer side; lance-graph arigraph will implement the producer side.
+
+Cross-ref: q2 cockpit `graph_engine.rs`; contract `sensorium.rs` (existing signals); `literal_graph.rs` (existing LiteralGraph); arigraph `triplet_graph.rs` + `episodic.rs` + `sensorium.rs` (producer-side).
+
+## 2026-04-25 — CLAUDE.md Think struct corrected: Vsa10k → Vsa16kF32
+
+**Status:** CORRECTION
+
+CLAUDE.md §The Click had `trajectory: Vsa10k` and `global_context: &Vsa10k` in both Think struct examples (lines 86, 106) while the header (line 13) said `Vsa16kF32`. Fresh sessions hit a contradiction on the first P-1 read. Corrected both structs to `Vsa16kF32` / `&Vsa16kF32`.
+
+Cross-ref: 2026-04-21 CORRECTION-OF D5 Frankenstein (the original VSA format switch).
 
 ## 2026-04-25 — FINDING: cognitive loop closes structurally — TD-INT-1, 2, 4 wired into ShaderDriver dispatch
 

@@ -83,7 +83,7 @@ work:
 
 ```rust
 struct Think {
-    trajectory: Vsa10k,       // the Markov-braided role-indexed bundle
+    trajectory: Vsa16kF32,    // the Markov-braided role-indexed bundle
     awareness: ParamTruths,   // NARS-revised per-key epistemic state
     free_energy: FreeEnergy,  // (1 - likelihood) + kl
     resolution: Resolution,   // Commit / Epiphany / FailureTicket
@@ -103,14 +103,14 @@ INTO it, not called FROM it:
 
 ```rust
 struct Think {
-    trajectory: Vsa10k,              // ← encode (Markov-braided roles)
+    trajectory: Vsa16kF32,           // ← encode (Markov-braided roles)
     awareness: ParamTruths,          // ← epistemic state (NARS-revised)
     free_energy: FreeEnergy,         // ← surprise (likelihood + kl)
     resolution: Resolution,          // ← decision (commit/epiphany/escalate)
     // ── thinking tissue (not external services) ──
     episodic: &EpisodicMemory,       // ← what happened before (retrieval)
     graph: &TripletGraph,            // ← what is believed (SPO facts)
-    global_context: &Vsa10k,         // ← ambient prior (superposed facts)
+    global_context: &Vsa16kF32,      // ← ambient prior (superposed facts)
     codec: &CamPqCodec,             // ← compressed distance (O(1) lookup)
 }
 ```
