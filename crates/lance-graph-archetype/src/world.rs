@@ -64,24 +64,51 @@ impl World {
     }
 
     /// Fork this world onto a new dataset branch. Per ADR-0001 §61-72,
-    /// this will call `lance::checkout(branch)` and return a fresh
-    /// `World` pinned to the branch HEAD.
+    /// the substrate call is `lance::checkout(branch)` followed by
+    /// writing to a new dataset path.
     ///
-    /// **Not implemented yet.** DU-2.8 will wire the Lance call; today
-    /// returns `ArchetypeError::Unimplemented { method: "World::fork" }`.
-    pub fn fork(&self, _branch: &str) -> Result<World, ArchetypeError> {
-        Err(ArchetypeError::Unimplemented { method: "World::fork" })
+    /// This crate intentionally does NOT depend on `lance` directly
+    /// (would force every archetype consumer to pull arrow + lance +
+    /// datafusion). Instead, we return a descriptor of the fork
+    /// (new dataset URI = parent URI + `?branch=<name>`) plus a
+    /// reset tick counter. The downstream consumer (typically
+    /// `lance-graph-cognitive::world::ScenarioWorldImpl`) is
+    /// responsible for invoking `VersionedGraph::tag_version(name, ...)`
+    /// against Lance to materialize the branch.
+    ///
+    /// The naming convention `<uri>?branch=<name>` is opaque to this
+    /// crate and only meaningful to the downstream resolver. This keeps
+    /// the archetype crate a thin meta-state carrier per ADR-0001.
+    pub fn fork(&self, branch: &str) -> Result<World, ArchetypeError> {
+        if branch.is_empty() {
+            return Err(ArchetypeError::InvalidBranch);
+        }
+        let separator = if self.dataset_uri.contains('?') { "&" } else { "?" };
+        Ok(World {
+            tick: 0,
+            dataset_uri: format!("{}{}branch={}", self.dataset_uri, separator, branch),
+        })
     }
 
     /// Rewind (or fast-forward) this world to a specific tick. Per
-    /// ADR-0001 §95, this will pin the Lance dataset version that
-    /// corresponds to `tick`.
+    /// ADR-0001 §95, the substrate call is
+    /// `Dataset::checkout_version(tick)`.
     ///
-    /// **Not implemented yet.** DU-2.8 will wire the dataset-version
-    /// lookup; today returns
-    /// `ArchetypeError::Unimplemented { method: "World::at_tick" }`.
-    pub fn at_tick(&self, _tick: u64) -> Result<World, ArchetypeError> {
-        Err(ArchetypeError::Unimplemented { method: "World::at_tick" })
+    /// Same dependency-decoupling argument as `fork`: this crate stays
+    /// lance-free. Returns a new `World` with the tick set; the
+    /// downstream resolver translates `tick → Lance version` via
+    /// `VersionedGraph::at_version`.
+    ///
+    /// Returns `InvalidTick` if `tick > self.tick` (cannot fast-forward
+    /// past the current observation).
+    pub fn at_tick(&self, tick: u64) -> Result<World, ArchetypeError> {
+        if tick > self.tick {
+            return Err(ArchetypeError::InvalidTick { requested: tick, current: self.tick });
+        }
+        Ok(World {
+            tick,
+            dataset_uri: self.dataset_uri.clone(),
+        })
     }
 }
 
@@ -105,26 +132,61 @@ mod tests {
     }
 
     #[test]
-    fn fork_returns_unimplemented() {
+    fn fork_appends_branch_query() {
         let w = World::new("lance://tmp/archetype");
-        let err = w.fork("experiment").unwrap_err();
-        match err {
-            ArchetypeError::Unimplemented { method } => {
-                assert_eq!(method, "World::fork");
-            }
-            other => panic!("expected Unimplemented, got {other:?}"),
-        }
+        let forked = w.fork("experiment").expect("fork should succeed");
+        assert_eq!(forked.dataset_uri(), "lance://tmp/archetype?branch=experiment");
+        assert_eq!(forked.current_tick(), 0);
     }
 
     #[test]
-    fn at_tick_returns_unimplemented() {
+    fn fork_uses_ampersand_when_query_already_present() {
+        let w = World::new("lance://tmp/archetype?tenant=acme");
+        let forked = w.fork("scenario_a").expect("fork should succeed");
+        assert_eq!(
+            forked.dataset_uri(),
+            "lance://tmp/archetype?tenant=acme&branch=scenario_a"
+        );
+    }
+
+    #[test]
+    fn fork_rejects_empty_branch_name() {
+        let w = World::new("lance://tmp/archetype");
+        let err = w.fork("").unwrap_err();
+        assert!(matches!(err, ArchetypeError::InvalidBranch));
+    }
+
+    #[test]
+    fn at_tick_rewinds_within_range() {
+        let mut w = World::new("lance://tmp/archetype");
+        w.tick();
+        w.tick();
+        w.tick(); // tick = 3
+        let past = w.at_tick(1).expect("at_tick should succeed");
+        assert_eq!(past.current_tick(), 1);
+        assert_eq!(past.dataset_uri(), "lance://tmp/archetype");
+        // Original is untouched.
+        assert_eq!(w.current_tick(), 3);
+    }
+
+    #[test]
+    fn at_tick_at_current_is_identity() {
+        let mut w = World::new("lance://tmp/archetype");
+        w.tick();
+        let same = w.at_tick(1).expect("at_tick(current) should succeed");
+        assert_eq!(same.current_tick(), 1);
+    }
+
+    #[test]
+    fn at_tick_rejects_future() {
         let w = World::new("lance://tmp/archetype");
         let err = w.at_tick(42).unwrap_err();
         match err {
-            ArchetypeError::Unimplemented { method } => {
-                assert_eq!(method, "World::at_tick");
+            ArchetypeError::InvalidTick { requested, current } => {
+                assert_eq!(requested, 42);
+                assert_eq!(current, 0);
             }
-            other => panic!("expected Unimplemented, got {other:?}"),
+            other => panic!("expected InvalidTick, got {other:?}"),
         }
     }
 }

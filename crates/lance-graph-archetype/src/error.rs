@@ -45,6 +45,22 @@ pub enum ArchetypeError {
     /// Non-goals section.
     #[error("lance I/O error: {0}")]
     LanceIo(String),
+
+    /// Branch name supplied to `World::fork` is empty or otherwise
+    /// not a valid branch identifier.
+    #[error("invalid branch name (must be non-empty)")]
+    InvalidBranch,
+
+    /// `World::at_tick` was asked for a tick beyond the current
+    /// observation. Time-travel is read-only — you cannot fast-forward
+    /// past `current_tick()`.
+    #[error("invalid tick: requested {requested} > current {current}")]
+    InvalidTick {
+        /// The tick that was requested.
+        requested: u64,
+        /// The current tick at the time of the request.
+        current: u64,
+    },
 }
 
 #[cfg(test)]
