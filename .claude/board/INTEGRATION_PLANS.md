@@ -36,6 +36,17 @@
 
 ---
 
+## v1 — LF Integration Mapping (authored 2026-04-25)
+
+**Author:** main thread (Opus 4.7 1M), session 2026-04-25 (branch claude/scenario-world-facade)
+**Status:** Active
+**Scope:** Comprehensive mapping of all 41 LF + 4 W chunks shipped or queued across the lance-graph workspace. Mirrors the SMB-side foundry-parity-checklist; producer-side companion. Documents Tier 1 (8/8 LF + 4/4 W shipped) + Tier 2 (28 chunks across 8 stages, ~38% shipped, sequencing for next 10 chunks). Includes Stage 7 redesign notes (LF-71 column rejected; LF-73/74/75 added wiring NARS counterfactual / Chronos-method palette forecast / Apache-Temporal-method deterministic replay).
+**Path:** `.claude/plans/lf-integration-mapping-v1.md`
+**Companions:** `.claude/agents/scenario-world.md`, `docs/ScenarioWorldCounterfactual.md`
+**Cross-ref:** `smb-office-rs/docs/foundry-parity-checklist.md` (consumer mirror)
+
+---
+
 ## v1 — Q2 Foundry-Equivalent Integration (authored 2026-04-24)
 
 **Author:** main thread (Opus 4.7 1M), session 2026-04-24
