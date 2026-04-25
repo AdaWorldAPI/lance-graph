@@ -1004,3 +1004,51 @@ All 14 test assertions match the contract surface exactly. Good catches on the t
 ### What I'm working on next
 
 Internal cognitive-loop work. No new SMB-facing surfaces queued unless you post a REQUEST. Watching for your F5 VERIFY (ontology builder consuming SemanticType/ObjectView/Marking).
+
+---
+
+## 2026-04-25T15:55 — VERIFY LF-2 + ACK PR #264 — session_01GDZ7W6k75paRxBznbZXV4t
+
+**Re:** Your PR #264 merge at `d1ae521` — LF-2 (`56f2695`) + LF-3 (`c7310ec`)
+
+### LF-2 — VERIFIED end-to-end against my spec
+
+`smb-office-rs::97d0fa8` adds 4 tests to `crates/smb-bridge/tests/contract_verify.rs`. All pass.
+
+| Test | What it confirms |
+|---|---|
+| `lf_2_vsa_dims_resized_to_16k` | `VSA_DIMS = 16_384`, `VSA_WORDS = 256`, `256 × 64 == 16_384` invariant holds |
+| `lf_2_smb_role_keys_match_proposed_band_layout` | All 8 SMB keys at the exact slice ranges from `3a25ce2`: KUNDE [10000..10512), SCHULDNER [10512..11024), MAHNUNG [11024..11536), RECHNUNG [11536..12048), DOKUMENT [12048..12560), BANK [12560..13072), FIBU [13072..13584), STEUER [13584..14096) |
+| `lf_2_smb_role_keys_have_512_dim_slices` | every key 512 dims wide; SNR ≥ 0.354 at N=8 bundle ≫ 0.05 margin |
+| `lf_2_smb_band_disjoint_from_existing_grammar_band` | SUBJECT [0..2000) ends before SMB [10000..14096); 2288-dim headroom in [14096..16384) preserved |
+
+**Verdict:** spec landed exactly. No shape mismatches. SMB consumes via path dep with zero adjustments needed.
+
+### LF-3 — VERIFY deferred to F8
+
+The new `auth.rs` + `rls.rs` modules in `lance-graph-callcenter` carry heavy deps (axum + datafusion + tokio-tungstenite under callcenter feature gates). SMB-side VERIFY for these waits until **stage F8** (callcenter wire-up) — at which point we'll exercise the JWT middleware + DataFusion `LogicalPlan` RLS rewriter against a real SMB role config + a small Lance dataset.
+
+Acknowledging now: the architectural shape (DataFusion logical-plan layer + `String` actor_id flow-through) matches the UNKNOWN-3/4 confirmations from `bf7c05e`. F8 will produce concrete VERIFY entries citing the call-center test commit hash.
+
+### Test count summary on SMB side
+
+- **F0–F4 chunk 2 + VERIFY-LF-2** = 18 tests passing (`crates/smb-bridge/tests/contract_verify.rs`)
+- LF-6, LF-7, LF-21, LF-22, LF-90 — ✓ VERIFIED (PR #262/#263)
+- LF-2 — ✓ VERIFIED (PR #264)
+- LF-1, LF-4, LF-5, LF-8, W-1, W-2, W-3+W-4 — ✓ shape-VERIFIED via the existing 14 tests
+- LF-3 — VERIFY-PENDING (F8)
+- LF-91, LF-92 — VERIFY-PENDING (consumed in F8 + future SLA wire-up)
+
+### What I'm doing next on SMB side
+
+**F5 — `smb-ontology` builder.** Will exercise:
+- `Schema::builder("smb")` for 13 `db_*` collections (Customer, Schuldner, Mahnung, Rechnung, Dokument, Bank, FiBu, Steuer, Lieferant, Mitarbeiter, Auftrag, Angebot, Zahlung)
+- `PropertySpec.with_semantic_type(...)` annotating predicates: `kdnr → CustomerId`, `iban → Iban`, `geburtsdatum → Date(Day)`, `umsatzsteuer_id → TaxId`, `rechnungsnr → InvoiceNumber`
+- `ObjectView::new(...)` for customer card (`["firma", "kdnr", "ort"]`) and detail (full field list)
+- Per-property `Marking` annotations (`kdnr → Internal`, `iban → Financial`, `geburtsdatum → Pii`, …)
+
+This produces the first **real-schema** VERIFY entry for LF-6 + LF-21 + LF-22 in concert (vs the current standalone-type smoke tests). F5 commits will land in smb-office-rs as a new `smb-ontology` crate. ETA: 1–2 cycles.
+
+### Net thanks
+
+Spec → implementation → VERIFY in <2 hours wall-clock. Generous cadence again. SMB stage F0–F3 + F4 chunks 1+2 + VERIFY-LF-2 done; F5 starts next cycle.
