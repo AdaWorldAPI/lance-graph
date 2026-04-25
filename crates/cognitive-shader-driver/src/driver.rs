@@ -23,6 +23,7 @@
 //! No forward pass, no JSON, no allocations beyond top-k + edges.
 
 use std::sync::Arc;
+use std::sync::RwLock;
 
 use bgz17::palette_semiring::PaletteSemiring;
 use causal_edge::edge::{CausalEdge64, InferenceType};
@@ -34,6 +35,9 @@ use lance_graph_contract::cognitive_shader::{
 };
 use lance_graph_contract::collapse_gate::{GateDecision, MergeMode};
 use lance_graph_contract::grammar::free_energy::{FreeEnergy, EPIPHANY_MARGIN};
+use lance_graph_contract::grammar::inference::NarsInference;
+use lance_graph_contract::grammar::thinking_styles::{GrammarStyleAwareness, ParamKey, ParseOutcome};
+use lance_graph_contract::thinking::ThinkingStyle;
 use p64_bridge::cognitive_shader::CognitiveShader;
 
 use crate::auto_style;
@@ -51,6 +55,9 @@ pub struct ShaderDriver {
     pub(crate) planes: [[u64; 64]; 8],
     #[allow(dead_code)]
     pub(crate) default_style: u8,
+    /// Per-style (12 ord) NARS-revised awareness — phi-1 humility ceiling.
+    /// Updated at end of every cycle based on FreeEnergy outcome.
+    pub(crate) awareness: RwLock<Vec<GrammarStyleAwareness>>,
 }
 
 impl ShaderDriver {
@@ -61,7 +68,10 @@ impl ShaderDriver {
         planes: [[u64; 64]; 8],
         default_style: u8,
     ) -> Self {
-        Self { bindspace, semiring, planes, default_style }
+        let awareness = (0..12)
+            .map(|ord| GrammarStyleAwareness::bootstrap(ord_to_thinking_style(ord)))
+            .collect::<Vec<_>>();
+        Self { bindspace, semiring, planes, default_style, awareness: RwLock::new(awareness) }
     }
 
     /// Borrow the underlying BindSpace (read-only).
@@ -115,12 +125,17 @@ impl ShaderDriver {
         hits.sort_by(|a, b| b.resonance.partial_cmp(&a.resonance).unwrap_or(std::cmp::Ordering::Equal));
         hits.truncate(8);
 
-        // [4] Build the cycle_fingerprint by folding content rows of hits.
+        // [4] Build the cycle_fingerprint with positional Markov braiding.
+        //     Each row is rotated by its cycle_index before XOR — preserves
+        //     position information structurally (binary-space vsa_permute analogue).
+        //     Per I-SUBSTRATE-MARKOV: this activates the Markov ±5 property
+        //     even in binary space; full f32 VSA bundle is the next step.
         let mut cycle_fp = [0u64; WORDS_PER_FP];
         for h in &hits {
             let row_words = self.bindspace.fingerprints.content_row(h.row as usize);
+            let pos = (h.cycle_index as usize) % WORDS_PER_FP;
             for (i, w) in row_words.iter().enumerate() {
-                cycle_fp[i] ^= *w;
+                cycle_fp[(i + pos) % WORDS_PER_FP] ^= *w;
             }
         }
 
@@ -226,6 +241,29 @@ impl ShaderDriver {
             _ => None,
         };
 
+        // [8] NARS revision — phi-1 humility ceiling.
+        //     System observes its own outcome and revises per-style awareness.
+        //     This is what makes the cognitive loop close: every cycle updates
+        //     the next cycle's F landscape via accumulated belief.
+        let outcome = free_energy_to_outcome(&free_energy, is_epiphany);
+        let inference = style_ord_to_inference(style_ord);
+        let nars_inference = match inference {
+            InferenceType::Deduction => NarsInference::Deduction,
+            InferenceType::Induction => NarsInference::Induction,
+            InferenceType::Abduction => NarsInference::Abduction,
+            InferenceType::Revision => NarsInference::Revision,
+            InferenceType::Synthesis => NarsInference::Synthesis,
+            // style_ord_to_inference never returns Reserved5/6/7;
+            // fall back to Revision so reserved variants map cleanly.
+            _ => NarsInference::Revision,
+        };
+        let key = ParamKey::NarsPrimary(nars_inference);
+        if let Ok(mut aw) = self.awareness.write() {
+            if let Some(style_aw) = aw.get_mut(style_ord as usize) {
+                style_aw.revise(key, outcome);
+            }
+        }
+
         let crystal = ShaderCrystal { bus, persisted_row, meta };
         sink.on_crystal(&crystal);
         crystal
@@ -304,11 +342,15 @@ impl CognitiveShaderBuilder {
     }
 
     pub fn build(self) -> ShaderDriver {
+        let awareness = (0..12)
+            .map(|ord| GrammarStyleAwareness::bootstrap(ord_to_thinking_style(ord)))
+            .collect::<Vec<_>>();
         ShaderDriver {
             bindspace: self.bindspace.expect("bindspace required"),
             semiring: self.semiring.expect("semiring required"),
             planes: self.planes.unwrap_or([[0u64; 64]; 8]),
             default_style: self.default_style,
+            awareness: RwLock::new(awareness),
         }
     }
 }
@@ -359,6 +401,39 @@ fn style_ord_to_inference(ord: u8) -> InferenceType {
         7..=9 => InferenceType::Abduction,
         0 | 10    => InferenceType::Revision,
         _         => InferenceType::Synthesis,
+    }
+}
+
+/// Map shader ordinal (0..11, UNIFIED_STYLES) to a representative
+/// 36-style ThinkingStyle for awareness bootstrap. The mapping picks
+/// the closest semantic match per cluster.
+fn ord_to_thinking_style(ord: u8) -> ThinkingStyle {
+    match ord {
+        0  => ThinkingStyle::Methodical,    // deliberate
+        1  => ThinkingStyle::Analytical,    // analytical
+        2  => ThinkingStyle::Logical,       // convergent
+        3  => ThinkingStyle::Systematic,    // systematic
+        4  => ThinkingStyle::Creative,      // creative
+        5  => ThinkingStyle::Imaginative,   // divergent
+        6  => ThinkingStyle::Exploratory,   // exploratory
+        7  => ThinkingStyle::Precise,       // focused
+        8  => ThinkingStyle::Speculative,   // diffuse
+        9  => ThinkingStyle::Curious,       // peripheral
+        10 => ThinkingStyle::Reflective,    // intuitive
+        _  => ThinkingStyle::Metacognitive, // metacognitive
+    }
+}
+
+/// Map FreeEnergy outcome to ParseOutcome for NARS revision.
+fn free_energy_to_outcome(fe: &FreeEnergy, is_epiphany: bool) -> ParseOutcome {
+    if is_epiphany {
+        ParseOutcome::LocalSuccessConfirmedByLLM
+    } else if fe.is_homeostatic() {
+        ParseOutcome::LocalSuccess
+    } else if fe.is_catastrophic() {
+        ParseOutcome::LocalFailureLLMSucceeded
+    } else {
+        ParseOutcome::EscalatedButLLMAgreed
     }
 }
 
