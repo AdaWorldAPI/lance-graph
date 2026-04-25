@@ -52,11 +52,16 @@ pub struct PropertySpec {
     pub nars_floor: Option<(u8, u8)>,
     /// What kind of value this property holds (LF-21).
     pub semantic_type: SemanticType,
+    /// GDPR / data-protection classification (LF-6 marking).
+    /// Default = `Marking::Internal` (GDPR-safe baseline).
+    /// Override per-predicate via `.with_marking(...)`.
+    pub marking: Marking,
 }
 
 impl PropertySpec {
     /// Create a Required property spec. Default codec: Passthrough (Index).
     /// Default NARS floor: (128, 128) — moderate confidence required.
+    /// Default marking: `Marking::Internal` (GDPR-safe).
     pub const fn required(predicate: &'static str) -> Self {
         Self {
             predicate,
@@ -64,11 +69,13 @@ impl PropertySpec {
             codec_route: CodecRoute::Passthrough,
             nars_floor: Some((128, 128)),
             semantic_type: SemanticType::PlainText,
+            marking: Marking::Internal,
         }
     }
 
     /// Create an Optional property spec. Caller must specify codec route.
     /// No NARS floor by default (absence doesn't escalate).
+    /// Default marking: `Marking::Internal` (GDPR-safe).
     pub const fn optional(predicate: &'static str, codec_route: CodecRoute) -> Self {
         Self {
             predicate,
@@ -76,11 +83,13 @@ impl PropertySpec {
             codec_route,
             nars_floor: None,
             semantic_type: SemanticType::PlainText,
+            marking: Marking::Internal,
         }
     }
 
     /// Create a Free property spec. Default codec: CamPq (Argmax).
     /// No NARS floor (schema-free, always accepted).
+    /// Default marking: `Marking::Internal` (GDPR-safe).
     pub const fn free(predicate: &'static str) -> Self {
         Self {
             predicate,
@@ -88,11 +97,20 @@ impl PropertySpec {
             codec_route: CodecRoute::CamPq,
             nars_floor: None,
             semantic_type: SemanticType::PlainText,
+            marking: Marking::Internal,
         }
     }
 
     pub const fn with_semantic_type(mut self, st: SemanticType) -> Self {
         self.semantic_type = st;
+        self
+    }
+
+    /// Override the GDPR / data-protection marking for this predicate (LF-6).
+    /// Default is `Marking::Internal`. SMB customer schema overrides:
+    /// `iban` → Financial, `geburtsdatum` → Pii, etc.
+    pub const fn with_marking(mut self, marking: Marking) -> Self {
+        self.marking = marking;
         self
     }
 
@@ -454,6 +472,41 @@ mod tests {
         assert_eq!(p.kind, PropertyKind::Free);
         assert_eq!(p.codec_route, CodecRoute::CamPq);
         assert!(p.nars_floor.is_none());
+    }
+
+    /// LF-6: every PropertySpec defaults to `Marking::Internal` (GDPR-safe).
+    #[test]
+    fn property_spec_marking_defaults_to_internal() {
+        assert_eq!(PropertySpec::required("kdnr").marking, Marking::Internal);
+        assert_eq!(PropertySpec::optional("note", CodecRoute::CamPq).marking, Marking::Internal);
+        assert_eq!(PropertySpec::free("free").marking, Marking::Internal);
+    }
+
+    /// SMB schema marking pattern: chain `with_marking` per predicate.
+    #[test]
+    fn property_spec_with_marking_overrides() {
+        let iban = PropertySpec::required("iban").with_marking(Marking::Financial);
+        let dob = PropertySpec::required("geburtsdatum").with_marking(Marking::Pii);
+        let note = PropertySpec::free("note"); // stays Internal
+
+        assert_eq!(iban.marking, Marking::Financial);
+        assert_eq!(dob.marking, Marking::Pii);
+        assert_eq!(note.marking, Marking::Internal);
+
+        // Per-row fold (W-2): `most_restrictive` over a row's markings.
+        let row_markings = [iban.marking, dob.marking, note.marking];
+        assert_eq!(Marking::most_restrictive(&row_markings), Marking::Financial);
+    }
+
+    /// `with_marking` is const and chains with `with_semantic_type` (LF-21).
+    #[test]
+    fn property_spec_with_marking_chains_with_semantic_type() {
+        const SPEC: PropertySpec = PropertySpec::required("iban")
+            .with_semantic_type(SemanticType::Iban)
+            .with_marking(Marking::Financial);
+        assert_eq!(SPEC.predicate, "iban");
+        assert_eq!(SPEC.semantic_type, SemanticType::Iban);
+        assert_eq!(SPEC.marking, Marking::Financial);
     }
 
     #[test]
