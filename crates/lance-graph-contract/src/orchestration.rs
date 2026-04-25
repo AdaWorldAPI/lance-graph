@@ -45,6 +45,8 @@ pub enum StepDomain {
     LanceGraph,
     /// Direct ndarray SIMD operation.
     Ndarray,
+    /// SMB entity operations (outside BBB — boringly agnostic).
+    Smb,
 }
 
 impl StepDomain {
@@ -65,6 +67,7 @@ impl StepDomain {
             "n8n"  => Some(Self::N8n),
             "lg"   => Some(Self::LanceGraph),
             "nd"   => Some(Self::Ndarray),
+            "smb"  => Some(Self::Smb),
             _      => None,
         }
     }

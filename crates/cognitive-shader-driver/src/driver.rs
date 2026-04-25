@@ -13,7 +13,7 @@
 //!  [3] shader cascade  (p64 CognitiveShader + bgz17 distance)
 //!  [4] cycle signature (Hamming-folded fingerprint of the top-k)
 //!  [5] edge emission   (CausalEdge64 per strong hit)
-//!  [6] CollapseGate    (Flow/Hold/Block from std-dev)
+//!  [6] FreeEnergy gate (Flow/Hold/Block from active-inference F)
 //!  [7] sink            (on_resonance → on_bus → on_crystal)
 //!         │
 //!         ▼
@@ -33,6 +33,7 @@ use lance_graph_contract::cognitive_shader::{
     ShaderDispatch, ShaderHit, ShaderResonance, ShaderSink,
 };
 use lance_graph_contract::collapse_gate::{GateDecision, MergeMode};
+use lance_graph_contract::grammar::free_energy::{FreeEnergy, EPIPHANY_MARGIN};
 use p64_bridge::cognitive_shader::CognitiveShader;
 
 use crate::auto_style;
@@ -123,11 +124,30 @@ impl ShaderDriver {
             }
         }
 
-        // [5] Entropy + std-dev of top-k resonances → CollapseGate.
+        // [5] Entropy + std-dev of top-k resonances.
         let (entropy, std_dev) = entropy_std(&hits);
-        let gate = collapse_gate(std_dev);
 
-        // [6] Emit one CausalEdge64 per strong hit (up to 8).
+        // [6] FreeEnergy gate (principled F from resonance + KL surrogate).
+        let top_resonance = hits.first().map(|h| h.resonance).unwrap_or(0.0);
+        let free_energy = FreeEnergy::compose(top_resonance, std_dev);
+
+        // Epiphany check: top-2 hypotheses within margin, both non-catastrophic
+        let is_epiphany = hits.len() >= 2 && {
+            let fe2 = FreeEnergy::compose(hits[1].resonance, std_dev);
+            (fe2.total - free_energy.total).abs() < EPIPHANY_MARGIN && !fe2.is_catastrophic()
+        };
+
+        let gate = if free_energy.is_catastrophic() {
+            GateDecision::BLOCK
+        } else if is_epiphany {
+            GateDecision::HOLD
+        } else if free_energy.is_homeostatic() {
+            GateDecision { gate: 0, merge: MergeMode::Bundle }
+        } else {
+            GateDecision::HOLD
+        };
+
+        // [5] Emit one CausalEdge64 per strong hit (up to 8).
         let mut emitted = [0u64; 8];
         let mut emitted_n = 0u8;
         for h in hits.iter().take(8) {
@@ -192,13 +212,13 @@ impl ShaderDriver {
             return ShaderCrystal { bus, persisted_row: None, meta: MetaSummary::default() };
         }
 
-        // Meta summary (confidence from top-1 resonance, simple surrogate).
+        // Meta summary (confidence from top-1 resonance, FreeEnergy-derived).
         let confidence = resonance_dto.top_k[0].resonance;
         let meta = MetaSummary {
             confidence,
-            meta_confidence: (1.0 - std_dev).clamp(0.0, 1.0),
+            meta_confidence: (1.0 - free_energy.total).clamp(0.0, 1.0),
             brier: 0.0,
-            should_admit_ignorance: confidence < 0.2,
+            should_admit_ignorance: free_energy.is_catastrophic(),
         };
 
         let persisted_row = match req.emit {
@@ -317,6 +337,7 @@ fn entropy_std(hits: &[ShaderHit]) -> (f32, f32) {
     (ent, var.sqrt())
 }
 
+#[allow(dead_code)]
 fn collapse_gate(sd: f32) -> GateDecision {
     // Matches thinking_engine::cognitive_stack::{SD_FLOW_THRESHOLD, SD_BLOCK_THRESHOLD}.
     const FLOW: f32 = 0.15;

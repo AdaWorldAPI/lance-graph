@@ -56,3 +56,4 @@ pub mod crystal;
 pub mod external_membrane;
 pub mod persona;
 pub mod faculty;
+pub mod property;
