@@ -77,7 +77,7 @@ row that cites the old; the old row's Status updates to
 | `IDEAS.md` | Open + Implemented + Rejected speculation | Entry bodies | Status + Rationale line (append) |
 | `TECH_DEBT.md` | Open + Paid debt | Entry bodies | Status + Payoff line (append) |
 
-**Bookkeeping updates use `cat >> file << 'EOF'` only.**
+**Bookkeeping updates use `tee -a file > /dev/null <<'EOF'` only.**
 
 No `Edit` tool. No `Write` tool. No `>` overwrite. Every state
 change — Status transitions, Confidence updates, Resolution notes,
@@ -89,7 +89,7 @@ in it ever changes after it's written.
 
 Enforcement: `.claude/settings.json` denies both `Edit(...)` and
 `Write(...)` on all 8 bookkeeping files. Only
-`Bash(cat >> .claude/knowledge/... << 'EOF')` is allowed.
+`Bash(tee -a .claude/knowledge/... > /dev/null <<'EOF')` is allowed.
 
 Corrections to historical entries: append a new entry
 `## YYYY-MM-DD — CORRECTION-OF <original-date> <original-title>`

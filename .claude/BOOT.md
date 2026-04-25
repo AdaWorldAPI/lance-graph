@@ -47,7 +47,7 @@ version matters — typically mid-session, not at cold start):
    workspace's historical record; rows / sections inside them are
    immutable, with a short list of mutable fields per file.
 
-   **Bookkeeping updates use `cat >> file << 'EOF'` only.**
+   **Bookkeeping updates use `tee -a file > /dev/null <<'EOF'` only.**
 
    No `Edit`. No `Write`. No `>`. Every state change — Status
    transitions, Confidence updates, Resolution notes, Corrections,
@@ -55,7 +55,7 @@ version matters — typically mid-session, not at cold start):
    the file. Old rows NEVER mutate, including their Status fields.
 
    ```bash
-   cat >> .claude/board/EPIPHANIES.md << 'EOF'
+   tee -a .claude/board/EPIPHANIES.md > /dev/null <<'EOF'
 
    ## 2026-04-19 — <title>
    **Status:** FINDING
@@ -69,7 +69,7 @@ version matters — typically mid-session, not at cold start):
    This is true ledger accounting. The file is a pure log. Nothing
    in it ever changes after it's written. `.claude/settings.json`
    enforces this: both `Edit` and `Write` on all 8 bookkeeping
-   files are DENIED. Only `Bash(cat >> ...)` is allowed.
+   files are DENIED. Only `Bash(tee -a ...)` is allowed.
 
    If you genuinely need to correct a historical entry (not update
    its status — CORRECT a factual error), append a new entry:

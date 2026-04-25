@@ -35,7 +35,7 @@ Already live at `.claude/board/AGENT_LOG.md`. Permission pre-allowed
 in `.claude/settings.json`:
 
 ```json
-"Bash(cat >> .claude/board/AGENT_LOG.md:*)"
+"Bash(tee -a .claude/board/AGENT_LOG.md:*)"
 ```
 
 ### Agent prompt template (include in every spawn)
@@ -46,7 +46,7 @@ other agents already shipped or found.
 
 After committing, append your entry:
 
-cat >> .claude/board/AGENT_LOG.md <<'EOF'
+tee -a .claude/board/AGENT_LOG.md > /dev/null <<'EOF'
 
 ## YYYY-MM-DDTHH:MM — description (model, branch)
 
@@ -64,7 +64,7 @@ EOF
 - Git staging: if agent A and B both append without committing,
   only the last `git add` wins. Mitigation: commit immediately
   after append.
-- Ordering: entries are appended at bottom (cat >>), but convention
+- Ordering: entries are appended at bottom (tee -a), but convention
   is newest-first. Main thread can reorder during board-hygiene.
 
 ---
@@ -107,7 +107,7 @@ git checkout claude/blackboard
 ```
 Session A:                              Session B:
   [does work]
-  cat >> AGENT_LOG.md <<'EOF'
+  tee -a AGENT_LOG.md > /dev/null <<'EOF'
   ...entry...
   EOF
   git add && git commit && git push
@@ -115,7 +115,7 @@ Session A:                              Session B:
                                         git pull origin claude/blackboard
                                         cat AGENT_LOG.md  # read A's entry
                                         [builds on A's findings]
-                                        cat >> AGENT_LOG.md <<'EOF'
+                                        tee -a AGENT_LOG.md > /dev/null <<'EOF'
                                         ...entry...
                                         EOF
                                         git add && git commit && git push
@@ -225,7 +225,7 @@ extended to cat the latest handover file into the session context.
 
 | Need | Workaround | Cost |
 |---|---|---|
-| Agent A's findings feed agent B (same session) | File Blackboard (#1) | Low: cat >> + git add |
+| Agent A's findings feed agent B (same session) | File Blackboard (#1) | Low: tee -a + git add |
 | Session A's work feeds session B (real-time) | Branch Pub/Sub (#2) | Medium: PR + subscribe |
 | Full-context role switch (no loss) | Teleportation (#3) | Zero: just read the card |
 | Session-to-session knowledge transfer | Handover Files (#4) | Low: write once, read at startup |
@@ -263,4 +263,4 @@ workarounds can be replaced. The contract types already exist
 (`BlackboardEntry`, `ExpertCapability`, `Blackboard`). The MCP
 server is a thin serde layer over them.
 
-Until then: `cat >> AGENT_LOG.md <<'EOF'`.
+Until then: `tee -a AGENT_LOG.md > /dev/null <<'EOF'`.

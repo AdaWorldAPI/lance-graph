@@ -28,7 +28,7 @@ one PR**. Zero shipping of code.
   handover logs, integration-plan snapshots
 - Working git history (`git log --oneline` reveals PR-merge commits by
   title pattern `Merge pull request #N`)
-- `.claude/board/` folder exists with `cat >> file << 'EOF'` append-only
+- `.claude/board/` folder exists with `tee -a file > /dev/null <<'EOF'` append-only
   governance (via `.claude/settings.json` deny rules on Edit/Write)
 
 If any of these are missing, see `concepts.md` § Governance Rules for
@@ -51,13 +51,13 @@ Bookkeeping only. No shipping. No synthesis. No reads beyond:
 For each prompt file not yet logged, find the matching PR in git log
 by filename keyword or date proximity, and append one line:
 
-  cat >> .claude/board/PROMPTS_VS_PRS.md << 'EOF'
+  tee -a .claude/board/PROMPTS_VS_PRS.md > /dev/null <<'EOF'
   | YYYY-MM-DD | <prompt file path> | #N <PR title> | merged|none |
   EOF
 
 If no PR matches: `| ... | — | none |`.
 
-`cat >> file << 'EOF'` only. No Edit. No Write. No `>`. No MCP.
+`tee -a file > /dev/null <<'EOF'` only. No Edit. No Write. No `>`. No MCP.
 Exit when every prompt file has exactly one ledger line.
 ```
 
@@ -86,7 +86,7 @@ subsystem-keyword match in PR titles + arc entries — no semantic
 re-derivation from source code.
 
 Append classifications to .claude/board/META_SYNTHESIS.md using
-`cat >> file << 'EOF'` only:
+`tee -a file > /dev/null <<'EOF'` only:
 
   | <prompt file> | superseded by #N[,#M] | <subsystem keyword> |
   | <prompt file> | still open, adjacent to phase <P> | — |
@@ -125,7 +125,7 @@ No code reads. ~25 tokens per answer.
 
 ## Invariants (never violate)
 
-- **Append-only.** `cat >> file << 'EOF'` is the only write method.
+- **Append-only.** `tee -a file > /dev/null <<'EOF'` is the only write method.
   No `Edit`, no `Write`, no `>` overwrite. Rows are historical record.
 - **Ledger-only inputs in Passes 2 and 3.** Never grep code, never
   load prompt-file bodies beyond the filename, never re-read session
