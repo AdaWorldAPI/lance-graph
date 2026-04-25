@@ -414,8 +414,7 @@ pub fn vsa16k_zero() -> Box<[f32; 16_384]> {
 /// Lossless under the inverse [`vsa16k_to_binary16k_threshold`].
 pub fn binary16k_to_vsa16k_bipolar(bits: &[u64; 256]) -> Box<[f32; 16_384]> {
     let mut out = Box::new([0.0f32; 16_384]);
-    for w in 0..256 {
-        let word = bits[w];
+    for (w, &word) in bits.iter().enumerate() {
         for b in 0..64 {
             let dim = w * 64 + b;
             out[dim] = if (word >> b) & 1 == 1 { 1.0 } else { -1.0 };

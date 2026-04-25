@@ -103,8 +103,8 @@ pub fn build_codebook_batch(
     let mut centroid_ids = Vec::with_capacity(total_rows);
     let mut float_builder = Float32Builder::with_capacity(total_rows * subspace_dim);
 
-    for s in 0..num_subspaces {
-        for (c, centroid) in codebook[s].iter().enumerate() {
+    for (s, subspace) in codebook.iter().enumerate() {
+        for (c, centroid) in subspace.iter().enumerate() {
             subspace_ids.push(s as u8);
             centroid_ids.push(c as u8);
             for &val in centroid {

@@ -344,8 +344,8 @@ impl StateClassifier for DefaultClassifier {
 /// L2 distance between a state observation and an anchor.
 fn distance(state: &[f32; STATE_DIMS], anchor: &AnchorState) -> f32 {
     let mut sum = 0.0f32;
-    for i in 0..STATE_DIMS {
-        let d = state[i] - anchor.coords[i];
+    for (i, &s) in state.iter().enumerate() {
+        let d = s - anchor.coords[i];
         sum += d * d;
     }
     sum.sqrt()

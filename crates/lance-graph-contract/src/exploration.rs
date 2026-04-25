@@ -275,7 +275,7 @@ impl MassExplorer {
         let mut confirmed = Vec::new();
 
         // Simple verb-based extraction (same as OSINT extractor)
-        for sentence in text.split(|c: char| c == '.' || c == '!' || c == '?') {
+        for sentence in text.split(['.', '!', '?']) {
             let sentence = sentence.trim();
             if sentence.split_whitespace().count() < 3 { continue; }
 

@@ -224,7 +224,7 @@ pub fn analyze_pareto_convergence(
         near_8bit_level: near_level1,
         near_57bit_level: near_level2,
         near_exact_level: near_exact,
-        other: other,
+        other,
         convergence_ratio: if observations.is_empty() {
             0.0
         } else {

@@ -6,6 +6,7 @@
 //!   - 6B SpiralAddress (start, stride, length as u16)
 //!   - 1B palette index (VoiceCodebook archetype)
 //!   - 1B route hint (RouteAction for HHTL cascade skip)
+//!
 //!   ─────────────────────────────────────────────────────
 //!   Total: 60 bytes per node. Fits in one cache line.
 //!

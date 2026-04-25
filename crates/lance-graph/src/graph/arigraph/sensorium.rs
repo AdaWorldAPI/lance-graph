@@ -198,7 +198,7 @@ impl GraphSensorium {
             plasticity_flux,
             deduction_yield,
             episodic_saturation,
-            active_triplets: active_triplets,
+            active_triplets,
             total_entities,
             contradictions,
         }

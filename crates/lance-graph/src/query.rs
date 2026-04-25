@@ -673,7 +673,7 @@ impl CypherQuery {
                 for (r, c, v) in matrix.iter() {
                     sources.push(r as u64);
                     targets.push(c as u64);
-                    distances.push(v.popcount() as u32);
+                    distances.push(v.popcount());
                 }
 
                 let schema = arrow::datatypes::Schema::new(vec![

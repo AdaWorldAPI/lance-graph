@@ -168,7 +168,7 @@ impl GraphRouter {
             .map(|h| GraphHit {
                 source: h.source,
                 target: h.target,
-                distance: h.value.popcount() as u32,
+                distance: h.value.popcount(),
                 truth: h.truth,
                 backend: Backend::Blasgraph,
             })
@@ -204,7 +204,7 @@ impl GraphRouter {
                 hits.push(GraphHit {
                     source: r,
                     target: c,
-                    distance: v.popcount() as u32,
+                    distance: v.popcount(),
                     truth,
                     backend: Backend::Blasgraph,
                 });

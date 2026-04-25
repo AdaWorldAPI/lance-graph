@@ -279,9 +279,9 @@ impl HighHeelBGZ {
         let truth_meta = buf[15];
         // Unpack edges (non-zero entries in W16-W255)
         let mut edges = Vec::new();
-        for i in 16..256 {
-            if buf[i] != 0 {
-                edges.push(buf[i]);
+        for &word in &buf[16..256] {
+            if word != 0 {
+                edges.push(word);
             }
         }
         Self {
@@ -889,11 +889,11 @@ impl LensProfile {
 
         // Sample transfer curve at 256 equidistant cosine points
         let n_pairs = pairs.len();
-        for k in 0..256 {
+        for (k, slot) in transfer_curve.iter_mut().enumerate() {
             let target_cos = -1.0 + k as f32 * 2.0 / 255.0;
             // Find nearest pair
             let idx = pairs.partition_point(|p| p.0 < target_cos).min(n_pairs - 1);
-            transfer_curve[k] = pairs[idx].1 as f32;
+            *slot = pairs[idx].1 as f32;
             inverse_curve[pairs[idx].1 as usize] = target_cos;
         }
 

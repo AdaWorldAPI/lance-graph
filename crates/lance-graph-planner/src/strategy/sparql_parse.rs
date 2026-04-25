@@ -614,8 +614,9 @@ fn extract_braced(s: &str, brace_start: usize) -> String {
     let mut depth = 0;
     let mut start = brace_start + 1;
     let mut end = start;
-    for i in brace_start..bytes.len() {
-        match bytes[i] {
+    for (offset, &byte) in bytes[brace_start..].iter().enumerate() {
+        let i = brace_start + offset;
+        match byte {
             b'{' => depth += 1,
             b'}' => {
                 depth -= 1;

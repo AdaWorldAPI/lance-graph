@@ -346,8 +346,8 @@ impl CscStorage {
 
         // Build col_ptrs via prefix sum
         csc.col_ptrs = vec![0usize; csr.ncols + 1];
-        for j in 0..csr.ncols {
-            csc.col_ptrs[j + 1] = csc.col_ptrs[j] + col_counts[j];
+        for (j, &count) in col_counts.iter().enumerate() {
+            csc.col_ptrs[j + 1] = csc.col_ptrs[j] + count;
         }
 
         let nnz = csr.nnz();
@@ -388,8 +388,8 @@ impl CscStorage {
         }
 
         csr.row_ptrs = vec![0usize; self.nrows + 1];
-        for i in 0..self.nrows {
-            csr.row_ptrs[i + 1] = csr.row_ptrs[i] + row_counts[i];
+        for (i, &count) in row_counts.iter().enumerate() {
+            csr.row_ptrs[i + 1] = csr.row_ptrs[i] + count;
         }
 
         let nnz = self.nnz();

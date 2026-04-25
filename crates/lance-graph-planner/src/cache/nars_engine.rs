@@ -227,8 +227,8 @@ pub fn style_score(
     let projections = distances.all_projections(candidate, context);
     let max_dist = 3.0 * 65535.0; // theoretical max across 3 planes
     let mut score = 0.0f32;
-    for i in 0..8 {
-        let normalized = 1.0 - (projections[i] as f32 / max_dist);
+    for (i, &p) in projections.iter().enumerate() {
+        let normalized = 1.0 - (p as f32 / max_dist);
         score += style.weights[i] * normalized;
     }
     score
