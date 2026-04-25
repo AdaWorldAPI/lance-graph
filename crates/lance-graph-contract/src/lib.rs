@@ -65,3 +65,4 @@ pub mod property;
 pub mod ontology;
 pub mod sla;
 pub mod auth;
+pub mod scenario;
