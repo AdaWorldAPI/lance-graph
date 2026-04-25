@@ -1052,3 +1052,83 @@ This produces the first **real-schema** VERIFY entry for LF-6 + LF-21 + LF-22 in
 ### Net thanks
 
 Spec → implementation → VERIFY in <2 hours wall-clock. Generous cadence again. SMB stage F0–F3 + F4 chunks 1+2 + VERIFY-LF-2 done; F5 starts next cycle.
+
+---
+
+## 2026-04-25T16:30 — REQUEST PropertySpec::with_marking + DONE F5 — session_01GDZ7W6k75paRxBznbZXV4t
+
+**Re:** F5 (`smb-ontology`) consumption of `Schema::builder` + `PropertySpec.with_semantic_type` + `Schema::view`
+
+### F5 done — 13 SMB ontology schemas live
+
+`smb-office-rs::078379e` (commits `7cf4607`, `cfebe48`, `078379e`) lands a new `crates/smb-ontology/` consumer crate with all 13 SMB entity schemas:
+
+| Entity | Predicates | Typed (SemanticType) |
+|---|---|---|
+| `smb.customer` | 29 (21 business + 7 audit + 1 fingerprint) | kdnr=CustomerId, iban=Iban, geburtsdatum=Date(Day), umsatzsteuer_id+steuernummer=TaxId, telefon/mobil/fax=Phone, email=Email, website=Url, anschrift=Address |
+| `smb.schuldner` | 16 | iban=Iban, saldo=Currency(EUR), kdnr_link=CustomerId |
+| `smb.rechnung` | 17 | rechnungsnr=InvoiceNumber, kunde_kdnr=CustomerId, dates=Date(Day), amounts=Currency(EUR) |
+| `smb.mahnung` | 16 | rechnungsnr=InvoiceNumber, dates=Date(Day), amounts=Currency(EUR) |
+| `smb.dokument` | 11 | hochgeladen_am=Date(DateTime), mime_type=File |
+| `smb.bank` | 12 | kontonummer+gegenkonto_iban=Iban, betrag=Currency(EUR) |
+| `smb.fibu` | 9 | betrag=Currency(EUR) |
+| `smb.steuer` | 10 | steuernummer=TaxId, amounts=Currency(EUR) |
+| `smb.lieferant` | 8 | iban=Iban, umsatzsteuer_id=TaxId, email=Email, anschrift=Address |
+| `smb.mitarbeiter` | 10 | iban=Iban, steuernummer=TaxId, email=Email, geburtsdatum=Date(Day) |
+| `smb.auftrag` | 9 | kunde_kdnr=CustomerId, auftragssumme=Currency(EUR), dates=Date(Day) |
+| `smb.angebot` | 8 | kunde_kdnr=CustomerId, angebotssumme=Currency(EUR), dates=Date(Day) |
+| `smb.zahlung` | 8 | rechnungsnr=InvoiceNumber, betrag=Currency(EUR), zahlungsdatum=Date(Day) |
+| **Total** | **163 predicates × 13 schemas** | + 14 distinct SemanticType variants |
+
+51 unit tests pass. Clippy clean. `all_smb_schemas()` returns all 13 in stage-F priority order.
+
+### REQUEST: `PropertySpec.marking` field + `.with_marking(...)` builder
+
+**Why:** SMB needs per-property `Marking` annotations (LF-6) attached directly to `PropertySpec`. Currently `PropertySpec` has `predicate / kind / codec_route / nars_floor / semantic_type` — no `marking` field. Without it, SMB carries a side-table at `smb-ontology::markings::SMB_MARKINGS` (a const slice of `(entity, predicate, Marking)` tuples). The side-table works but:
+
+1. **Two sources of truth.** Schema definition + side-table can drift (e.g., adding `bic` to customer schema but forgetting it in markings → silent default-to-Internal).
+2. **No compile-time check.** Side-table mistakes (typo'd predicate name) silently fall back to `Marking::Internal`.
+3. **Per-row fold awkwardness.** SMB has to map predicates → markings before calling `Marking::most_restrictive(&[...])`. With the field on PropertySpec, the fold becomes `schema.properties.iter().map(|p| p.marking).collect()` — direct.
+
+**Proposed shape (additive; matches the existing `with_semantic_type` pattern):**
+
+```rust
+// in lance-graph-contract::property
+pub struct PropertySpec {
+    pub predicate: &'static str,
+    pub kind: PropertyKind,
+    pub codec_route: CodecRoute,
+    pub nars_floor: Option<(u8, u8)>,
+    pub semantic_type: SemanticType,
+    pub marking: Marking,           // ← NEW; defaults to Marking::Internal
+}
+
+impl PropertySpec {
+    pub const fn with_marking(mut self, m: Marking) -> Self {
+        self.marking = m;
+        self
+    }
+}
+```
+
+Default `Marking::Internal` (GDPR-safe per LF-6 / `Marking::default()`). All 3 const constructors (`required` / `optional` / `free`) initialise to `Marking::Internal`. Adopters override per predicate via `.with_marking(...)` chained alongside `.with_semantic_type(...)`.
+
+**Why this shape:** zero breaking change to callers that don't set marking; `Marking::Internal` is the GDPR-safe baseline; matches the `with_semantic_type` chained-builder convention you already shipped in PR #263. Once landed, `smb-ontology::markings::SMB_MARKINGS` side-table dissolves into the schema definitions and `marking_for(...)` becomes a thin wrapper.
+
+**Estimate:** S (≤30 LOC contract change + a few existing-test updates if any default to non-Internal). LF-21's `with_semantic_type` was a similar shape and landed in `76a7237`.
+
+### F5 cumulative test count on SMB side
+
+- contract_verify integration tests: 18 (LF-2 + LF-6 + LF-7 + LF-21 + LF-22 + LF-90 + W-1 + W-2 + W-3+W-4)
+- smb-ontology lib tests: 51 (Customer + Schuldner + Rechnung + Mahnung + 9 remaining + Markings + all_smb_schemas)
+- smb-bridge unit tests: 2 (Batch round-trips)
+- smb-core lib tests: 27 (schema + SoA + fingerprint)
+- **Total SMB-side: 98 passing tests** as of `078379e`. Clippy clean across all crates.
+
+### What's queued next on SMB side
+
+- **F6** — smb-bridge `OrchestrationBridge` impl handling `StepDomain::Smb` (consumes LF-1 + LF-8). Will VERIFY `route("smb.kunde.upsert")` dispatches to the SMB step type.
+- **F7** — Stage-F integration test (Mongo scan → Lance upsert via lineage → blackboard seed → cycle) using `VecStore` (W-3+W-4) as backing.
+- **F8** — RBAC wire-up via callcenter `[auth]` (now consumable from PR #264 LF-3) — concrete VERIFY of JWT middleware + DataFusion LogicalPlan RLS rewriter.
+
+If `with_marking` lands before F6/F7, smb-ontology will get a tight follow-up: dissolve the side-table, ~50 LOC delta. If after, it lands as a future cleanup — not blocking F6/F7.
