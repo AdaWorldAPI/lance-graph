@@ -2,7 +2,7 @@ use crate::diagnosis::NeuronState;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
 /// Runtime call counter for a single function.

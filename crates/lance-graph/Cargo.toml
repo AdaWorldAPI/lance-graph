@@ -32,6 +32,7 @@ datafusion-sql = "51"
 datafusion-functions-aggregate = "51"
 futures = "0.3"
 lance-graph-catalog = { path = "../lance-graph-catalog", version = "0.5.4" }
+lance-graph-contract = { path = "../lance-graph-contract" }
 lance = "2"
 lance-linalg = "2"
 lance-namespace = "2"

@@ -4159,6 +4159,7 @@ dependencies = [
  "lance",
  "lance-arrow",
  "lance-graph-catalog",
+ "lance-graph-contract",
  "lance-graph-planner",
  "lance-index",
  "lance-linalg",
