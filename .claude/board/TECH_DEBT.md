@@ -351,7 +351,23 @@ Cross-ref: `integration-plan-grammar-crystal-arigraph.md` E8,
 
 ## Paid Debt
 
-(No debt paid at initial commit. When an Open entry is retired,
+## 2026-04-25 — TD-INT-1/2/4 paid: cognitive loop closes structurally every dispatch (from 2026-04-24)
+**Status:** Paid 2026-04-25
+**Payoff:** Commit `474d3eb` (TD-INT-1) + `b7787cf` (TD-INT-2 + TD-INT-4) on `claude/teleport-session-setup-wMZfb`
+
+The three P0 wiring gaps (FreeEnergy compose, NARS revision per cycle, Markov trajectory braiding) are now wired into `cognitive-shader-driver/src/driver.rs`. Every dispatch cycle now executes: encode → Markov braid (positional XOR) → FreeEnergy::compose → Resolution gate → NARS revise → next cycle's F landscape changes accordingly.
+
+- **TD-INT-1 (FreeEnergy gate):** Replaced `collapse_gate(std_dev)` heuristic with principled `FreeEnergy::compose(top_resonance, std_dev)`. Homeostatic F → Flow with `MergeMode::Bundle` (Markov-respecting per I-SUBSTRATE-MARKOV); catastrophic F → Block; epiphany (top-2 within EPIPHANY_MARGIN) → Hold; mid-band → Hold. `MetaSummary.meta_confidence = 1 - F.total` (principled) and `should_admit_ignorance = F.is_catastrophic()` replace the `1 - std_dev` and `confidence < 0.2` surrogates.
+- **TD-INT-2 (NARS revision):** Added `awareness: RwLock<Vec<GrammarStyleAwareness>>` to ShaderDriver (12 entries indexed by shader ord). At end of `run()`, `free_energy_to_outcome(F, is_epiphany)` produces a ParseOutcome (LocalSuccess / LocalSuccessConfirmedByLLM / EscalatedButLLMAgreed / LocalFailureLLMSucceeded), which is then folded into `awareness[style_ord]` via `style_aw.revise(ParamKey::NarsPrimary(inference), outcome)`. Hot path stays zero-allocation; lock is brief (write only at end of cycle).
+- **TD-INT-4 (Markov braiding, binary-space first step):** Replaced unordered XOR fold of content rows with positional XOR fold — each row's fingerprint is rotated by `cycle_index % WORDS_PER_FP` before XOR. Two cycles with identical hits in different order now produce different `cycle_fp`. This is the binary-space analogue of `vsa_permute + vsa_bundle`. **Deferred:** full f32 VSA bundle requires a Vsa16kF32 trajectory carrier alongside Binary16K — separate tracked debt.
+
+What this means in the larger frame: the system no longer just describes cognition through types; it performs cognition every cycle. The `Think` struct from CLAUDE.md §The Click is now operationally instantiated by `ShaderDriver` — the awareness field is mutated, the F landscape changes, the next dispatch differs from the last. Concrete-operational → formal-operational, in Piaget's terms.
+
+Cross-ref: original entries TD-INT-1 / TD-INT-2 / TD-INT-4 in the 2026-04-24 systemic-wiring-gaps log; CLAUDE.md §The Click; I-SUBSTRATE-MARKOV (Bundle merge mode); commits 474d3eb + b7787cf.
+
+---
+
+(No further debt paid at initial commit. When an Open entry is retired,
 APPEND here with same title + PR anchor.)
 
 ```

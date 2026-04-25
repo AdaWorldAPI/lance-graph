@@ -66,6 +66,30 @@ stay as historical references.
 ## Entries (reverse chronological)
 
 
+## 2026-04-25 — FINDING: cognitive loop closes structurally — TD-INT-1, 2, 4 wired into ShaderDriver dispatch
+
+**Status:** FINDING
+**Owner scope:** @truth-architect, @integration-lead, @host-glove-designer
+
+The three P0 wiring gaps that made the system "concrete-operational with formal-operational machinery sitting unused" are now closed in `cognitive-shader-driver/src/driver.rs`. Per CLAUDE.md §The Click, parsing/disambiguation/learning/memory/awareness IS one operation; before this commit, the operation was scaffolded but only partially executed every cycle. After this commit, every dispatch performs the full loop:
+
+```
+encode (meta_prefilter + cascade)
+  → braid (positional XOR fold = binary-space vsa_permute analogue)  ← TD-INT-4
+  → resolve (FreeEnergy::compose → Resolution::Commit/Epiphany/FailureTicket)  ← TD-INT-1
+  → emit (CausalEdge64 per strong hit)
+  → revise (awareness[style_ord].revise(NarsPrimary, ParseOutcome))  ← TD-INT-2
+  → next cycle's F landscape has changed
+```
+
+**What this means in Piaget's frame.** The system was concrete-operational: it could perform reversible operations (bind/unbind, bundle/cleanup) on concrete objects but did not observe or update its own cognition. Now it does. Every cycle: F is computed from the dispatch's actual likelihood and KL surrogate; Resolution branches into Commit/Epiphany/FailureTicket per the canonical thresholds (HOMEOSTASIS_FLOOR=0.2, FAILURE_CEILING=0.8, EPIPHANY_MARGIN=0.05); the outcome revises per-style `GrammarStyleAwareness`; the next dispatch under that style sees a changed `awareness.divergence_from(prior)` and therefore a changed F. The equilibration loop closes.
+
+**What's still surrogate-not-principled.** The KL term currently uses `std_dev` of top-k resonances rather than `awareness.divergence_from(prior)` — to switch we need GrammarStyleConfig priors loaded into ShaderDriver (separate wiring). The Markov braiding is binary-space rotation, not f32 VSA bundle — f32 carrier alongside Binary16K is the next architectural step. The MUL gate veto (DK position, trust texture) is not yet wired. Each is a separate TD-INT entry.
+
+**What this is NOT.** Not full AGI. Not formal-operational reasoning yet (no World::fork hypotheticals running per cycle). Not the deep metacognition of MulAssessment computing every dispatch (TD-INT-3 still open). What it IS: the structural loop that makes those next steps additive call sites rather than architectural forks.
+
+Cross-ref: 2026-04-24 paradigm-shift gestalt entry (Berge + Piaget + metacognition); 2026-04-24 systemic-wiring-gaps TECH_DEBT log; CLAUDE.md §The Click §Three things that must never be complicated; commits `474d3eb` (TD-INT-1 + LF-1/6/7/8) and `b7787cf` (TD-INT-2 + TD-INT-4) on `claude/teleport-session-setup-wMZfb`.
+
 ## 2026-04-24 — FINDING: subscribe() wired; LanceVersionWatcher delivers always-latest CognitiveEventRow to subscribers (DM-4/6)
 
 `LanceMembrane::subscribe()` now returns a `tokio::sync::watch::Receiver<CognitiveEventRow>` under the `[realtime]` feature gate — supabase-shape always-latest semantics. `project()` calls `watcher.bump(row)` after building the scalar row; subscribers observe the latest committed event without polling. `DrainTask` scaffold ships unconditionally (no feature gate) as a `Future` shell for the follow-up `steering_intent` drain loop. Tokio was already an optional dep in `lance-graph-callcenter/Cargo.toml` under `[realtime]` — no new deps required.
