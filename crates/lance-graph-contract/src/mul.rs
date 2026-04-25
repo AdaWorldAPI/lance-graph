@@ -159,3 +159,173 @@ pub trait MulProvider: Send + Sync {
     /// Compass check: should we go meta?
     fn compass(&self, assessment: &MulAssessment) -> CompassResult;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Carrier-method MUL assessment (TD-INT-3 wiring)
+//
+// Per CLAUDE.md doctrine ("methods on the carrier, not free functions on
+// state"), MulAssessment carries its own compute() call. This is the
+// shader-driver entry point: dispatch hands a SituationInput, gets back
+// a MulAssessment, and uses dk_position + flow_state + trust.texture to
+// modulate the gate decision.
+//
+// The planner has its own richer MulAssessment in lance-graph-planner::mul;
+// this contract method is the zero-dep version that shader-driver and any
+// other consumer can call without reaching into the planner.
+// ═══════════════════════════════════════════════════════════════════════════
+
+impl MulAssessment {
+    /// Compute a MUL assessment directly from a SituationInput.
+    ///
+    /// Mirrors the planner's `mul::assess()` shape but lives on the carrier
+    /// per the carrier-method doctrine. Pure, deterministic, zero-dep.
+    ///
+    /// Use this from any consumer that has a `SituationInput` and needs
+    /// dk_position / trust.texture / homeostasis.flow_state to refine a
+    /// downstream decision (the shader-driver collapse_gate is the
+    /// canonical first consumer — see TD-INT-3).
+    pub fn compute(input: &SituationInput) -> Self {
+        // Phase 1: Trust qualia (geometric mean of 4 dimensions).
+        let composite_trust = (input.demonstrated_competence
+            * input.source_reliability
+            * input.environment_stability
+            * input.calibration_accuracy)
+            .max(0.0)
+            .powf(0.25);
+        let trust_texture = trust_texture_from(
+            input.felt_competence,
+            input.demonstrated_competence,
+            composite_trust,
+        );
+        let trust = TrustQualia { value: composite_trust, texture: trust_texture };
+
+        // Phase 1: Dunning-Kruger position (felt vs demonstrated competence).
+        let dk_position = dk_from(input.felt_competence, input.demonstrated_competence);
+
+        // Phase 2: Complexity mapping (≥30% of dimensions known).
+        let complexity_mapped = input.complexity_ratio > 0.3;
+
+        // Phase 3: Homeostasis (flow state + allostatic load).
+        let flow_state = flow_state_from(input.challenge_level, input.skill_level);
+        let homeostasis = Homeostasis {
+            flow_state,
+            allostatic_load: input.allostatic_load,
+        };
+
+        // Phase 4: Free-will modifier (multiplicative humility chain).
+        let dk_factor = match dk_position {
+            DkPosition::MountStupid          => 0.3,
+            DkPosition::ValleyOfDespair      => 0.7,
+            DkPosition::SlopeOfEnlightenment => 0.85,
+            DkPosition::Plateau              => 1.0,
+        };
+        let trust_factor = composite_trust;
+        let complexity_factor = if complexity_mapped {
+            0.8 + 0.2 * input.complexity_ratio
+        } else {
+            0.4
+        };
+        let load_penalty = if input.allostatic_load > 0.7 { 0.3 } else { 1.0 };
+        let flow_factor = match flow_state {
+            FlowState::Flow       => 1.0,
+            FlowState::Anxiety    => 0.6,
+            FlowState::Boredom    => 0.8,
+            FlowState::Transition => 0.7,
+        } * load_penalty;
+
+        let free_will_modifier =
+            (dk_factor * trust_factor * complexity_factor * flow_factor).clamp(0.0, 1.0);
+
+        Self { trust, dk_position, homeostasis, complexity_mapped, free_will_modifier }
+    }
+
+    /// Whether the meta-uncertainty layer is signalling unskilled-overconfident:
+    /// the system "feels confident" while DK and trust both flag the gap.
+    /// Used by the shader-driver gate as a veto hint.
+    #[inline]
+    pub fn is_unskilled_overconfident(&self) -> bool {
+        self.dk_position == DkPosition::MountStupid
+            || self.trust.texture == TrustTexture::Overconfident
+    }
+}
+
+fn trust_texture_from(felt: f64, demonstrated: f64, composite: f64) -> TrustTexture {
+    let gap = felt - demonstrated;
+    if composite < 0.25 {
+        TrustTexture::Uncertain
+    } else if gap > 0.25 {
+        TrustTexture::Overconfident
+    } else if gap < -0.25 {
+        TrustTexture::Underconfident
+    } else {
+        TrustTexture::Calibrated
+    }
+}
+
+fn dk_from(felt: f64, demonstrated: f64) -> DkPosition {
+    let gap = felt - demonstrated;
+    if gap > 0.3 && demonstrated < 0.4 {
+        DkPosition::MountStupid
+    } else if felt < 0.4 && demonstrated < 0.5 {
+        DkPosition::ValleyOfDespair
+    } else if demonstrated > 0.7 && gap.abs() < 0.15 {
+        DkPosition::Plateau
+    } else {
+        DkPosition::SlopeOfEnlightenment
+    }
+}
+
+fn flow_state_from(challenge: f64, skill: f64) -> FlowState {
+    let delta = challenge - skill;
+    if delta.abs() < 0.15 && challenge > 0.3 {
+        FlowState::Flow
+    } else if delta > 0.2 {
+        FlowState::Anxiety
+    } else if delta < -0.2 {
+        FlowState::Boredom
+    } else {
+        FlowState::Transition
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn compute_default_input_is_calibratedish() {
+        let mul = MulAssessment::compute(&SituationInput::default());
+        assert!(mul.free_will_modifier >= 0.0 && mul.free_will_modifier <= 1.0);
+        // Default is moderate competence; should NOT be Mount Stupid.
+        assert_ne!(mul.dk_position, DkPosition::MountStupid);
+    }
+
+    #[test]
+    fn compute_detects_mount_stupid() {
+        let input = SituationInput {
+            felt_competence: 0.95,
+            demonstrated_competence: 0.10,
+            ..SituationInput::default()
+        };
+        let mul = MulAssessment::compute(&input);
+        assert_eq!(mul.dk_position, DkPosition::MountStupid);
+        assert!(mul.is_unskilled_overconfident());
+    }
+
+    #[test]
+    fn compute_detects_plateau() {
+        let input = SituationInput {
+            felt_competence: 0.85,
+            demonstrated_competence: 0.85,
+            source_reliability: 0.9,
+            environment_stability: 0.9,
+            calibration_accuracy: 0.9,
+            challenge_level: 0.6,
+            skill_level: 0.6,
+            ..SituationInput::default()
+        };
+        let mul = MulAssessment::compute(&input);
+        assert_eq!(mul.dk_position, DkPosition::Plateau);
+        assert!(!mul.is_unskilled_overconfident());
+    }
+}

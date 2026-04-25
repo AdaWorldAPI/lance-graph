@@ -115,6 +115,36 @@ fn classify_relation(relation: &str) -> usize {
     else { 0 } // default: CAUSES
 }
 
+/// Run the convergence highway: AriGraph triplets → palette planes → caller.
+///
+/// This is the TD-INT-14 closure: newly committed SPO knowledge goes from
+/// the cold-path AriGraph (where the LLM commits triples) to the hot-path
+/// `[[u64; 64]; 8]` topology that `CognitiveShader` cascades over. Without
+/// this function the shader keeps the construction-time demo planes forever.
+///
+/// The shader-driver crate cannot depend on the planner (would create a
+/// dependency cycle), so the convergence call lives here and the caller
+/// passes a closure that knows how to apply the new planes — typically
+/// `|p| driver.update_planes(p)`.
+///
+/// # Example
+///
+/// ```ignore
+/// use lance_graph_planner::cache::convergence::run_convergence;
+///
+/// let triplets = vec![
+///     ("Claude".into(), "reasons_about".into(), "physics".into(), 0.9),
+/// ];
+/// run_convergence(&triplets, |planes| driver.update_planes(planes));
+/// ```
+pub fn run_convergence(
+    triplets: &[(String, String, String, f32)],
+    apply: impl FnOnce([[u64; 64]; 8]),
+) {
+    let planes = triplets_to_palette_layers(triplets);
+    apply(planes);
+}
+
 /// Build a CognitiveShader-ready structure from AriGraph episodic memory.
 ///
 /// Takes a list of episodes (observation text) and extracts SPO triplets,
@@ -204,5 +234,72 @@ mod tests {
         // layers is [[u64; 64]; 8] — exactly what CognitiveShader::new() expects
         assert_eq!(layers.len(), 8);
         assert_eq!(layers[0].len(), 64);
+    }
+
+    #[test]
+    fn test_run_convergence_delivers_planes_to_callback() {
+        // TD-INT-14 closure: triplets in → palette planes out via the
+        // callback. The callback IS the convergence highway terminus —
+        // in production it wraps `ShaderDriver::update_planes`. Here we
+        // capture the planes in a Cell so we can prove they reached the
+        // far side and carry the AriGraph knowledge.
+        use std::cell::Cell;
+
+        let triplets = vec![
+            ("Claude".into(), "causes".into(), "reasoning".into(), 0.9),
+            ("NARS".into(), "enables".into(), "inference".into(), 0.8),
+            ("Pearl".into(), "supports".into(), "causality".into(), 0.85),
+            ("v1".into(), "contradicts".into(), "v2".into(), 0.7),
+            ("draft".into(), "refines".into(), "outline".into(), 0.6),
+            ("dog".into(), "is type of".into(), "animal".into(), 0.95),
+            ("data".into(), "grounds with evidence".into(), "claim".into(), 0.75),
+            ("ice".into(), "becomes".into(), "water".into(), 0.99),
+        ];
+
+        let captured: Cell<Option<[[u64; 64]; 8]>> = Cell::new(None);
+        run_convergence(&triplets, |planes| {
+            captured.set(Some(planes));
+        });
+
+        let planes = captured.into_inner().expect("callback was invoked");
+
+        // Knowledge must have reached the cascade: at least one bit set
+        // somewhere in the 8 × 64 × 64 palette (i.e. the planes are not
+        // the zero topology the driver was constructed with).
+        let any_bit_set = planes.iter()
+            .any(|layer| layer.iter().any(|row| *row != 0));
+        assert!(any_bit_set, "convergence produced an all-zero topology — knowledge never reached the cascade");
+
+        // Every relation we fed should have lit up its predicate layer.
+        // Layers 0..7 cover CAUSES/ENABLES/SUPPORTS/CONTRADICTS/REFINES/
+        // ABSTRACTS/GROUNDS/BECOMES.
+        for (idx, layer) in planes.iter().enumerate() {
+            assert!(
+                layer.iter().any(|row| *row != 0),
+                "predicate layer {idx} stayed empty after convergence"
+            );
+        }
+    }
+
+    #[test]
+    fn test_run_convergence_zero_in_zero_out() {
+        // Empty input must still produce a [[u64; 64]; 8] (the cascade
+        // expects that exact shape) and the callback must run exactly
+        // once. The planes are all zero — the all-zero topology is a
+        // legitimate "no knowledge committed yet" state.
+        let triplets: Vec<(String, String, String, f32)> = vec![];
+        let mut call_count = 0;
+        let mut captured = [[1u64; 64]; 8]; // sentinel non-zero
+
+        run_convergence(&triplets, |planes| {
+            call_count += 1;
+            captured = planes;
+        });
+
+        assert_eq!(call_count, 1, "callback must run exactly once");
+        assert!(
+            captured.iter().all(|layer| layer.iter().all(|row| *row == 0)),
+            "no triplets means zero topology"
+        );
     }
 }
