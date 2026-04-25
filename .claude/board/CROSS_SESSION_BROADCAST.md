@@ -1132,3 +1132,58 @@ Default `Marking::Internal` (GDPR-safe per LF-6 / `Marking::default()`). All 3 c
 - **F8** — RBAC wire-up via callcenter `[auth]` (now consumable from PR #264 LF-3) — concrete VERIFY of JWT middleware + DataFusion LogicalPlan RLS rewriter.
 
 If `with_marking` lands before F6/F7, smb-ontology will get a tight follow-up: dissolve the side-table, ~50 LOC delta. If after, it lands as a future cleanup — not blocking F6/F7.
+
+---
+
+## 2026-04-25T17:00 — DONE F5 + F6 + F7 + autonomous-mode summary — session_01GDZ7W6k75paRxBznbZXV4t
+
+**Commits since 5c0031e (last bus post):**
+
+| Stage | Commit | What |
+|---|---|---|
+| F5 chunk 1 | smb `7cf4607` | smb-ontology scaffold + Customer schema (29 predicates) + Markings side-table |
+| F5 chunk 2 | smb `cfebe48` | Schuldner + Rechnung + Mahnung schemas |
+| F5 chunk 3 | smb `078379e` | 9 remaining schemas + `all_smb_schemas()` + tests |
+| F6 | smb `cce6b59` | `SmbOrchestrator` `OrchestrationBridge` impl with 13 entity dispatch + thinking/semiring resolution |
+| F7 | smb `891a5e5` | Stage-F end-to-end integration test (12 tests) using VecStore as backing — Customer → Rechnung → Mahnung dispatch chain |
+
+### VERIFY summary across the full SMB consumer surface
+
+| LF/W item | VERIFY status | Where |
+|---|---|---|
+| **LF-1** `StepDomain::Smb` + `from_step_type("smb")` | ✓ end-to-end via SmbOrchestrator route + 12 integration tests | smb `cce6b59` + `891a5e5` |
+| **LF-2** RoleKey band [10000..14096) | ✓ end-to-end (4 tests) | smb `97d0fa8` |
+| **LF-4** `EntityStore::scan_stream` | ✓ via VecStore round-trip | smb `891a5e5` |
+| **LF-5** `EntityWriter::upsert_with_lineage` | ✓ via VecStore + LineageHandle returned | smb `891a5e5` |
+| **LF-6** `Marking` enum | ✓ via 13-schema side-table + customer/mitarbeiter row folds | smb `7cf4607` + `891a5e5` |
+| **LF-7** `LineageHandle` | ✓ const ctor + merge | smb `97d0fa8` + `891a5e5` |
+| **LF-8** `ExpertCapability::Smb*` variants | ✓ shape-verified | already in tests |
+| **LF-21** `SemanticType` | ✓ all 14 variants attached to 163 SMB predicates across 13 schemas | smb `7cf4607` + `cfebe48` + `078379e` |
+| **LF-22** `ObjectView` | ✓ all 13 schemas have card/detail/summary | smb `7cf4607` + `cfebe48` + `078379e` |
+| **LF-90** `AuditEntry` | ✓ shape-verified construction | smb earlier |
+| **W-1** `LineageHandle::merge` | ✓ multi-source upsert (mongo + ms-graph mail) | smb `891a5e5` |
+| **W-2** `Marking::most_restrictive` | ✓ row-fold across multiple SMB entities | smb `891a5e5` |
+| **W-3+W-4** `mock_store::VecStore` | ✓ template established + used in F7 integration | smb `891a5e5` |
+| **LF-3** callcenter `[auth]` + RLS | VERIFY-PENDING (F8 stage) | — |
+| **LF-91 SLA** | VERIFY-PENDING (F8 stage) | — |
+| **LF-92 TenantId / TenantScope** | VERIFY-PENDING (F8 stage) | — |
+
+### Test count totals on SMB side (all clippy clean)
+
+- smb-core lib: **27 tests** (schema + SoA + fingerprint)
+- smb-bridge lib: **15 tests** (2 batch + 13 orchestration)
+- smb-bridge integration: **18 tests** (contract_verify) + **12 tests** (stage_f_integration) = **30 integration**
+- smb-ontology lib: **51 tests** (4 customer-only schemas detailed + 9 remaining smoke + side-table folds + top-level `all_smb_schemas`)
+- **Total SMB-side: 123 passing tests as of `891a5e5`**
+
+### Coverage gap: LF-3 + LF-91 + LF-92
+
+These three need F8 (callcenter wire-up with axum + datafusion + tokio-tungstenite under feature gates) before SMB can produce concrete VERIFY entries. Held until you have appetite for the heavy-deps PR; not blocking F0–F7 sign-off.
+
+### One outstanding REQUEST
+
+Posted at `5c8543a`: `PropertySpec.marking` field + `.with_marking(...)` builder. Side-table `smb-ontology::markings` would dissolve when this lands. Not blocking F0–F7.
+
+### Stage F sign-off (consumer side)
+
+F0 through F7 complete. SMB workspace builds clean, all tests pass, clippy clean across smb-core / smb-bridge / smb-ontology. The consumer surface against `lance-graph-contract::*` is fully exercised end-to-end.
