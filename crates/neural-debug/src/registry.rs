@@ -2,7 +2,7 @@ use crate::diagnosis::NeuronState;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
 /// Runtime call counter for a single function.
@@ -57,16 +57,109 @@ impl CounterSnapshot {
     }
 }
 
-/// Runtime registry: collects call counters from all instrumented functions.
-/// Thread-safe via interior mutability.
+/// Per-row state recorded by the runtime dispatch path (e.g. cognitive-
+/// shader-driver). Maps a BindSpace row to its observed `NeuronState`
+/// for the most recent cycle that touched it.
+pub struct RowStateMap {
+    states: Mutex<HashMap<u32, NeuronState>>,
+}
+
+impl RowStateMap {
+    pub fn new() -> Self {
+        Self { states: Mutex::new(HashMap::new()) }
+    }
+
+    pub fn record(&self, row: u32, state: NeuronState) {
+        let mut map = self.states.lock().unwrap();
+        map.insert(row, state);
+    }
+
+    pub fn snapshot(&self) -> HashMap<u32, NeuronState> {
+        self.states.lock().unwrap().clone()
+    }
+
+    pub fn reset(&self) {
+        self.states.lock().unwrap().clear();
+    }
+
+    /// Aggregate counts the WireHealth.neural_debug overlay needs.
+    pub fn diag(&self) -> RuntimeDiag {
+        let map = self.states.lock().unwrap();
+        let mut alive = 0usize;
+        let mut stat = 0usize;
+        let mut dead = 0usize;
+        let mut nan = 0usize;
+        let mut stub = 0usize;
+        let mut wired_unused = 0usize;
+        for state in map.values() {
+            match state {
+                NeuronState::Alive => alive += 1,
+                NeuronState::Static => stat += 1,
+                NeuronState::Dead => dead += 1,
+                NeuronState::Nan => nan += 1,
+                NeuronState::Stub => stub += 1,
+                NeuronState::WiredUnused => wired_unused += 1,
+            }
+        }
+        let total = map.len();
+        let operational = alive + stat;
+        let health_pct = if total == 0 {
+            0.0
+        } else {
+            (operational as f32 / total as f32) * 100.0
+        };
+        RuntimeDiag {
+            total_functions: total,
+            total_dead: dead,
+            total_stub: stub,
+            total_nan: nan,
+            total_alive: alive,
+            total_static: stat,
+            total_wired_unused: wired_unused,
+            health_pct,
+        }
+    }
+}
+
+impl Default for RowStateMap {
+    fn default() -> Self { Self::new() }
+}
+
+/// Aggregate runtime diagnostic produced from a `RowStateMap` snapshot —
+/// shaped to match the `WireHealth.neural_debug` overlay so consumers can
+/// drop it straight into the response.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RuntimeDiag {
+    pub total_functions: usize,
+    pub total_dead: usize,
+    pub total_stub: usize,
+    pub total_nan: usize,
+    pub total_alive: usize,
+    pub total_static: usize,
+    pub total_wired_unused: usize,
+    pub health_pct: f32,
+}
+
+/// Runtime registry: collects call counters from all instrumented functions
+/// AND the per-row `NeuronState` feed from the dispatch hot path.
+///
+/// Thread-safe via interior mutability — `&RuntimeRegistry` is enough for
+/// both the shader's `dispatch()` (writer) and the health handler (reader).
+/// No `&mut self` anywhere on the hot path.
 pub struct RuntimeRegistry {
     counters: Mutex<HashMap<String, CounterSnapshot>>,
+    rows: RowStateMap,
+}
+
+impl Default for RuntimeRegistry {
+    fn default() -> Self { Self::new() }
 }
 
 impl RuntimeRegistry {
     pub fn new() -> Self {
         Self {
             counters: Mutex::new(HashMap::new()),
+            rows: RowStateMap::new(),
         }
     }
 
@@ -84,13 +177,44 @@ impl RuntimeRegistry {
         }
     }
 
+    /// Record a row's most recent `NeuronState`. Constant-time per call,
+    /// no allocations beyond the (one-time) HashMap entry insertion.
+    #[inline]
+    pub fn record_row(&self, row: u32, state: NeuronState) {
+        self.rows.record(row, state);
+    }
+
     pub fn snapshot(&self) -> HashMap<String, CounterSnapshot> {
         self.counters.lock().unwrap().clone()
     }
 
+    /// Snapshot every row's currently recorded state.
+    pub fn snapshot_rows(&self) -> HashMap<u32, NeuronState> {
+        self.rows.snapshot()
+    }
+
+    /// Aggregate runtime diagnostic from the current row-state map.
+    pub fn diag(&self) -> RuntimeDiag {
+        self.rows.diag()
+    }
+
     pub fn reset(&self) {
         self.counters.lock().unwrap().clear();
+        self.rows.reset();
     }
+}
+
+/// Process-wide global runtime registry.
+///
+/// Lazy-initialized via `OnceLock`. Producers (e.g. the shader dispatch
+/// hot path) call `registry()` once per cycle to record row states;
+/// consumers (e.g. the WireHealth handler) call `registry().diag()` to
+/// snapshot the aggregate counts. No allocation outside the first call.
+static GLOBAL_REGISTRY: OnceLock<RuntimeRegistry> = OnceLock::new();
+
+/// Access the process-wide runtime registry, initializing it on first use.
+pub fn registry() -> &'static RuntimeRegistry {
+    GLOBAL_REGISTRY.get_or_init(RuntimeRegistry::new)
 }
 
 /// Dependency probe result — what happened when we tried to call a dependency.
@@ -183,4 +307,84 @@ pub struct ImpactFix {
     pub blocks_features: Vec<String>,
     pub fix_complexity: String,
     pub impact_score: f32,
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// Tests — TD-INT-11 row-state runtime registry
+// ═════════════════════════════════════════════════════════════════════
+
+#[cfg(test)]
+mod row_state_tests {
+    use super::*;
+
+    #[test]
+    fn row_state_map_records_and_diags() {
+        let map = RowStateMap::new();
+        map.record(0, NeuronState::Alive);
+        map.record(1, NeuronState::Alive);
+        map.record(2, NeuronState::Static);
+        map.record(3, NeuronState::Nan);
+
+        let diag = map.diag();
+        assert_eq!(diag.total_functions, 4);
+        assert_eq!(diag.total_alive, 2);
+        assert_eq!(diag.total_static, 1);
+        assert_eq!(diag.total_nan, 1);
+        assert_eq!(diag.total_dead, 0);
+        assert_eq!(diag.total_stub, 0);
+        // 3 of 4 are operational (alive + static); NaN is not
+        // operational. health = 75%.
+        assert!((diag.health_pct - 75.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn row_state_map_overwrites_per_row() {
+        let map = RowStateMap::new();
+        map.record(7, NeuronState::Static);
+        map.record(7, NeuronState::Alive);
+        let snap = map.snapshot();
+        assert_eq!(snap.len(), 1);
+        assert_eq!(snap[&7], NeuronState::Alive);
+    }
+
+    #[test]
+    fn empty_registry_diag_is_zeroed() {
+        let map = RowStateMap::new();
+        let diag = map.diag();
+        assert_eq!(diag.total_functions, 0);
+        assert_eq!(diag.health_pct, 0.0);
+    }
+
+    #[test]
+    fn runtime_registry_record_row_round_trips() {
+        let reg = RuntimeRegistry::new();
+        reg.record_row(42, NeuronState::Alive);
+        reg.record_row(43, NeuronState::Static);
+        let snap = reg.snapshot_rows();
+        assert_eq!(snap[&42], NeuronState::Alive);
+        assert_eq!(snap[&43], NeuronState::Static);
+        let diag = reg.diag();
+        assert_eq!(diag.total_functions, 2);
+        assert_eq!(diag.total_alive, 1);
+        assert_eq!(diag.total_static, 1);
+        assert!((diag.health_pct - 100.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn global_registry_is_a_single_oncelock() {
+        // Two calls to `registry()` must return the same address —
+        // producers and consumers in different modules MUST see the
+        // same map.
+        let a = registry() as *const RuntimeRegistry as usize;
+        let b = registry() as *const RuntimeRegistry as usize;
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn runtime_registry_reset_clears_rows() {
+        let reg = RuntimeRegistry::new();
+        reg.record_row(1, NeuronState::Alive);
+        reg.reset();
+        assert_eq!(reg.diag().total_functions, 0);
+    }
 }

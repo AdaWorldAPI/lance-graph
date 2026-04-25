@@ -50,6 +50,8 @@ pub struct PropertySpec {
     /// Below this floor, Required properties trigger FailureTicket.
     /// None = no floor check (typical for Free properties).
     pub nars_floor: Option<(u8, u8)>,
+    /// What kind of value this property holds (LF-21).
+    pub semantic_type: SemanticType,
 }
 
 impl PropertySpec {
@@ -61,6 +63,7 @@ impl PropertySpec {
             kind: PropertyKind::Required,
             codec_route: CodecRoute::Passthrough,
             nars_floor: Some((128, 128)),
+            semantic_type: SemanticType::PlainText,
         }
     }
 
@@ -72,6 +75,7 @@ impl PropertySpec {
             kind: PropertyKind::Optional,
             codec_route,
             nars_floor: None,
+            semantic_type: SemanticType::PlainText,
         }
     }
 
@@ -83,7 +87,13 @@ impl PropertySpec {
             kind: PropertyKind::Free,
             codec_route: CodecRoute::CamPq,
             nars_floor: None,
+            semantic_type: SemanticType::PlainText,
         }
+    }
+
+    pub const fn with_semantic_type(mut self, st: SemanticType) -> Self {
+        self.semantic_type = st;
+        self
     }
 
     /// Override the NARS truth floor.
@@ -159,11 +169,12 @@ impl PropertySchema {
 pub struct Schema {
     pub name: &'static str,
     pub properties: Vec<PropertySpec>,
+    pub view: Option<ObjectView>,
 }
 
 impl Schema {
     pub fn builder(name: &'static str) -> SchemaBuilder {
-        SchemaBuilder { name, properties: Vec::new() }
+        SchemaBuilder { name, properties: Vec::new(), view: None }
     }
 
     pub fn get(&self, predicate: &str) -> Option<&PropertySpec> {
@@ -196,6 +207,7 @@ impl Schema {
 pub struct SchemaBuilder {
     name: &'static str,
     properties: Vec<PropertySpec>,
+    view: Option<ObjectView>,
 }
 
 impl SchemaBuilder {
@@ -229,8 +241,14 @@ impl SchemaBuilder {
         self
     }
 
+    /// Attach an ObjectView for outside-BBB rendering (LF-22).
+    pub fn view(mut self, view: ObjectView) -> Self {
+        self.view = Some(view);
+        self
+    }
+
     pub fn build(self) -> Schema {
-        Schema { name: self.name, properties: self.properties }
+        Schema { name: self.name, properties: self.properties, view: self.view }
     }
 }
 
@@ -650,6 +668,128 @@ pub enum Marking {
 
 impl Default for Marking {
     fn default() -> Self { Marking::Internal }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SEMANTIC TYPE (LF-21 — SMB REQUEST)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Semantic type annotation on a property. Tells the outside-BBB surface
+/// what kind of value this property holds, enabling format-aware validation,
+/// display formatting, and search indexing without inspecting the raw bytes.
+///
+/// SMB use cases: `iban` (DE89370400440532013000), `currency` (EUR 1234.56),
+/// `email`, `phone`, `date` (geburtsdatum), `address`, `tax_id` (umsatzsteuer-id).
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum SemanticType {
+    PlainText,
+    Iban,
+    Currency(&'static str),
+    Email,
+    Phone,
+    Date(DatePrecision),
+    Geo(GeoFormat),
+    Address,
+    File(&'static str),
+    Image,
+    Url,
+    TaxId,
+    CustomerId,
+    InvoiceNumber,
+}
+
+impl Default for SemanticType {
+    fn default() -> Self { SemanticType::PlainText }
+}
+
+/// Date granularity for `SemanticType::Date`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum DatePrecision {
+    Day,
+    Month,
+    Year,
+    DateTime,
+}
+
+/// Geo coordinate format for `SemanticType::Geo`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum GeoFormat {
+    LatLon,
+    Wgs84,
+    PlusCode,
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// OBJECT VIEW (LF-22 — SMB REQUEST)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Rendering descriptor for entity views outside the BBB.
+/// Tells a UI which properties to show at each zoom level
+/// without bespoke per-entity-type rendering code.
+#[derive(Clone, Debug)]
+pub struct ObjectView {
+    pub card: &'static [&'static str],
+    pub detail: &'static [&'static str],
+    pub summary_template: &'static str,
+}
+
+impl ObjectView {
+    pub const fn new(
+        card: &'static [&'static str],
+        detail: &'static [&'static str],
+        summary_template: &'static str,
+    ) -> Self {
+        Self { card, detail, summary_template }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AUDIT ENTRY (LF-90 — SMB REQUEST)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Append-only audit trail entry. Outside the BBB this is a compliance
+/// record; inside it feeds CausalEdge64 provenance bits.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AuditEntry {
+    pub actor: u64,
+    pub action_id: u64,
+    pub action_kind: AuditAction,
+    pub timestamp_ms: u64,
+    pub predicate_target: &'static str,
+    pub signature: [u8; 64],
+}
+
+/// What kind of mutation the audit entry records.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum AuditAction {
+    Create,
+    Update,
+    Delete,
+    Read,
+    Export,
+    Import,
+    Approve,
+    Reject,
+}
+
+/// Trait for an append-only audit log. Implementations back this with
+/// Lance versioned dataset, Arrow Flight, or any persistent store.
+pub trait AuditLog: Send + Sync {
+    type Error: Send + 'static;
+
+    fn append(&self, entry: AuditEntry) -> Result<(), Self::Error>;
+
+    fn entries_for_entity(
+        &self,
+        entity_type: &str,
+        entity_id: u64,
+    ) -> Result<Vec<AuditEntry>, Self::Error>;
+
+    fn entries_by_actor(
+        &self,
+        actor: u64,
+        since_ms: u64,
+    ) -> Result<Vec<AuditEntry>, Self::Error>;
 }
 
 impl Marking {

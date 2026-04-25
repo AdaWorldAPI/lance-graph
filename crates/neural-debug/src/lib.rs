@@ -9,3 +9,9 @@
 pub mod scanner;
 pub mod diagnosis;
 pub mod registry;
+
+// Producer / consumer convenience: `neural_debug::registry()` returns the
+// process-wide `RuntimeRegistry`. Producers call `record_row(row, state)`;
+// consumers call `diag()` or `snapshot_rows()` to surface state.
+pub use registry::{registry, RuntimeDiag, RuntimeRegistry};
+pub use diagnosis::NeuronState;

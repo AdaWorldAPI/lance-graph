@@ -65,6 +65,10 @@ pub struct FailureTicket {
     pub tekamolo: TekamoloSlots,
     pub wechsel: Vec<WechselAmbiguity>,
     pub coverage: f32,
+    /// Required predicates that were absent at commit time. Empty for
+    /// grammar-parse failures; populated for schema-validation failures
+    /// (TD-INT-8). See [`Self::missing_required`].
+    pub missing_required: Vec<&'static str>,
 }
 
 impl FailureTicket {
@@ -77,6 +81,35 @@ impl FailureTicket {
                    .as_ref()
                    .map(|c| !c.is_resolved(0.75))
                    .unwrap_or(false)
+    }
+
+    /// Construct a FailureTicket for a schema-validation miss: one or
+    /// more Required predicates are absent from a triple set being
+    /// committed (TD-INT-8). The list of missing predicate names is
+    /// preserved verbatim so the LLM/operator can address each one.
+    /// `recommended_next` is `Abduction` — the system is asking
+    /// "what value should fill this slot?", which is the abductive case.
+    pub fn missing_required(missing: Vec<&'static str>) -> Self {
+        Self {
+            partial_parse: PartialParse {
+                resolved_tokens: Vec::new(),
+                unresolved_tokens: Vec::new(),
+                coverage: 0.0,
+            },
+            attempted_inference: NarsInference::Deduction,
+            recommended_next: NarsInference::Abduction,
+            causal_ambiguity: None,
+            tekamolo: TekamoloSlots::default(),
+            wechsel: Vec::new(),
+            coverage: 0.0,
+            missing_required: missing,
+        }
+    }
+
+    /// Iterator over predicate names that triggered a missing-required
+    /// FailureTicket. Empty when the ticket comes from grammar parsing.
+    pub fn missing_predicates(&self) -> impl Iterator<Item = &'static str> + '_ {
+        self.missing_required.iter().copied()
     }
 }
 
@@ -98,6 +131,7 @@ mod tests {
             tekamolo: TekamoloSlots::default(),
             wechsel: vec![],
             coverage: 1.0,
+            missing_required: vec![],
         };
         assert!(!t.needs_llm(0.9));
     }
@@ -116,6 +150,7 @@ mod tests {
             tekamolo: TekamoloSlots::default(),
             wechsel: vec![],
             coverage: 0.33,
+            missing_required: vec![],
         };
         assert!(t.needs_llm(0.9));
     }
@@ -125,5 +160,21 @@ mod tests {
         let c = CausalAmbiguity { plausible_mask: 0b0000_0101, leading_confidence: 0.5 };
         assert_eq!(c.plausible_count(), 2);
         assert!(!c.is_resolved(0.75));
+    }
+
+    #[test]
+    fn missing_required_constructor_preserves_predicate_names() {
+        let t = FailureTicket::missing_required(vec!["customer_name", "tax_id"]);
+        let m: Vec<&'static str> = t.missing_predicates().collect();
+        assert_eq!(m, vec!["customer_name", "tax_id"]);
+        assert_eq!(t.recommended_next, NarsInference::Abduction);
+        assert_eq!(t.coverage, 0.0);
+        assert!(t.needs_llm(0.9), "schema miss must escalate");
+    }
+
+    #[test]
+    fn missing_required_constructor_empty_for_no_misses() {
+        let t = FailureTicket::missing_required(vec![]);
+        assert_eq!(t.missing_predicates().count(), 0);
     }
 }

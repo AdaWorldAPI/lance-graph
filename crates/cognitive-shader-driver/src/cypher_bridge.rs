@@ -23,12 +23,34 @@
 //! - Anything else — `StepStatus::Skipped` with "unsupported cypher
 //!   construct" reasoning. No failure: the downstream can plan around it.
 
+use lance_graph_contract::crystal::fingerprint::CrystalFingerprint;
+use lance_graph_contract::grammar::context_chain::{ContextChain, DisambiguationResult};
 use lance_graph_contract::nars::InferenceType;
 use lance_graph_contract::orchestration::{
     OrchestrationBridge, OrchestrationError, StepDomain, StepStatus, UnifiedStep,
 };
 use lance_graph_contract::plan::ThinkingContext;
 use lance_graph_contract::thinking::ThinkingStyle;
+
+/// TD-INT-6 — disambiguation hook for multi-candidate Cypher parses.
+///
+/// When a real parser returns N candidate parse trees for an ambiguous
+/// query, this helper consults the live `ContextChain` to pick the
+/// candidate whose insertion-coherence at position `i` is highest.
+/// Today's regex stub returns a single candidate, so this is a dormant
+/// call site — wire in place; activation lives at parser commit time.
+pub fn disambiguate_parse_candidates(
+    chain: &ContextChain,
+    position: usize,
+    candidates: Vec<CrystalFingerprint>,
+) -> Result<CrystalFingerprint, DisambiguationResult> {
+    let result = chain.disambiguate(position, candidates);
+    if result.escalate_to_llm {
+        Err(result)
+    } else {
+        Ok(result.chosen.clone())
+    }
+}
 
 /// Bridge for `lg.cypher` step_types. Stateless in Phase 1; an SPO store
 /// handle slots in here when Phase 2 wires the real parser + BindSpace.
@@ -218,5 +240,22 @@ mod tests {
             Err(OrchestrationError::DomainUnavailable(_)) => {}
             other => panic!("expected DomainUnavailable, got {:?}", other),
         }
+    }
+
+    /// TD-INT-6 — empty candidate list escalates.
+    #[test]
+    fn disambiguate_empty_candidates_escalates() {
+        let chain = ContextChain::new(8);
+        let result = disambiguate_parse_candidates(&chain, 0, Vec::new());
+        assert!(result.is_err(), "empty candidates must escalate");
+    }
+
+    /// TD-INT-6 — single candidate escalates (margin = 0).
+    #[test]
+    fn disambiguate_single_candidate_escalates() {
+        let chain = ContextChain::new(8);
+        let cand = CrystalFingerprint::Binary16K(Box::new([0u64; 256]));
+        let result = disambiguate_parse_candidates(&chain, 0, vec![cand]);
+        assert!(result.is_err(), "single candidate must escalate");
     }
 }

@@ -227,6 +227,7 @@ mod tests {
             tekamolo: TekamoloSlots::default(),
             wechsel: vec![],
             coverage: 0.0,
+            missing_required: vec![],
         }
     }
 

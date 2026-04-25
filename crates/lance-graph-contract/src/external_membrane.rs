@@ -83,6 +83,53 @@ pub struct CommitFilter {
     pub is_commit: Option<bool>,
 }
 
+impl CommitFilter {
+    /// Server-side predicate match. Returns true if the row's scalars
+    /// satisfy every set predicate. Unset fields don't filter.
+    /// Used by `LanceMembrane::project` to gate fan-out before
+    /// `LanceVersionWatcher::bump`, so subscribers only see rows
+    /// they care about (TD-INT-13).
+    pub fn matches(
+        &self,
+        actor_id: u64,
+        free_energy: u8,
+        style_ordinal: u8,
+        is_commit: bool,
+    ) -> bool {
+        if let Some(want) = self.actor_id { if actor_id != want { return false; } }
+        if let Some(max) = self.max_free_energy { if free_energy > max { return false; } }
+        if let Some(want) = self.style_ordinal { if style_ordinal != want { return false; } }
+        if let Some(want) = self.is_commit { if is_commit != want { return false; } }
+        true
+    }
+}
+
+/// Optional gate that the membrane consults before fanning a projection
+/// out to subscribers. RBAC, custom policies, multi-tenant scope filters
+/// — all impl this trait. The contract crate stays zero-dep; concrete
+/// implementations live in `lance-graph-rbac`, SMB-side custom code, etc.
+///
+/// `should_emit` returns `true` to let the projection through, `false`
+/// to suppress. The underlying `project()` call still returns the row
+/// (callers may want it for metrics) — only the fan-out is gated.
+pub trait MembraneGate: Send + Sync {
+    fn should_emit(
+        &self,
+        external_role: u8,
+        faculty_role: u8,
+        expert_id: u16,
+        gate_commit: bool,
+    ) -> bool;
+}
+
+/// No-op gate that always allows. Default.
+pub struct AllowAllGate;
+
+impl MembraneGate for AllowAllGate {
+    #[inline]
+    fn should_emit(&self, _: u8, _: u8, _: u16, _: bool) -> bool { true }
+}
+
 /// The typed boundary between the canonical cognitive substrate and
 /// the external callcenter surface.
 ///

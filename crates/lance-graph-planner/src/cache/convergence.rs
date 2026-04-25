@@ -20,6 +20,52 @@
 
 use super::kv_bundle::HeadPrint;
 use super::nars_engine::{SpoHead, MASK_SPO, CausalEdge64};
+use ndarray::hpc::palette_distance::{Palette, DistanceMatrix, SpoDistanceMatrices};
+use ndarray::hpc::bgz17_bridge::SpoBase17;
+
+/// Per-plane palette distance context (TD-INT-5).
+///
+/// Wraps ndarray's `SpoDistanceMatrices` (pre-computed 256×256 per-plane
+/// L1 distance tables). All comparison algebra lives in ndarray; this
+/// struct is a session-scoped handle that the planner cache and cascade
+/// use to compare triplets on individual role planes (subject-only,
+/// predicate-only, etc.) without doing bit ops in lance-graph.
+///
+/// Build once from the palette codebooks; compare in O(1) per pair.
+pub struct PlaneDistance {
+    matrices: SpoDistanceMatrices,
+}
+
+impl PlaneDistance {
+    /// Build from three palettes (one per S/P/O plane).
+    pub fn build(s_pal: &Palette, p_pal: &Palette, o_pal: &Palette) -> Self {
+        Self { matrices: SpoDistanceMatrices::build(s_pal, p_pal, o_pal) }
+    }
+
+    /// Combined S+P+O distance. O(1): three table lookups.
+    #[inline]
+    pub fn spo_distance(&self, a: &SpoHead, b: &SpoHead) -> u32 {
+        self.matrices.spo_distance(a.s_idx, a.p_idx, a.o_idx, b.s_idx, b.p_idx, b.o_idx)
+    }
+
+    /// Subject-plane only distance. O(1): one table lookup.
+    #[inline]
+    pub fn subject_distance(&self, a: &SpoHead, b: &SpoHead) -> u16 {
+        self.matrices.subject.distance(a.s_idx, b.s_idx)
+    }
+
+    /// Predicate-plane only distance. O(1): one table lookup.
+    #[inline]
+    pub fn predicate_distance(&self, a: &SpoHead, b: &SpoHead) -> u16 {
+        self.matrices.predicate.distance(a.p_idx, b.p_idx)
+    }
+
+    /// Object-plane only distance. O(1): one table lookup.
+    #[inline]
+    pub fn object_distance(&self, a: &SpoHead, b: &SpoHead) -> u16 {
+        self.matrices.object.distance(a.o_idx, b.o_idx)
+    }
+}
 
 /// Convert an SPO triplet (as strings) into a HeadPrint fingerprint.
 ///
@@ -164,6 +210,34 @@ pub fn episodes_to_palette_layers(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_plane_distance_subject_only() {
+        // Build a 256-entry palette (production size) from spread Base17 patterns
+        let patterns: Vec<ndarray::hpc::bgz17_bridge::Base17> = (0..256)
+            .map(|i| {
+                let mut b = ndarray::hpc::bgz17_bridge::Base17::zero();
+                b.dims[0] = (i as i16).wrapping_mul(127);
+                b.dims[1] = (i as i16).wrapping_mul(31);
+                b
+            })
+            .collect();
+        let pal = Palette::build(&patterns, 256, 1);
+        let pd = PlaneDistance::build(&pal, &pal, &pal);
+
+        // Same palette index → zero distance
+        let a = headprint_to_spo(&triplet_to_headprint("Alice", "knows", "Bob"), 0.9, 0.8);
+        assert_eq!(pd.subject_distance(&a, &a), 0);
+        assert_eq!(pd.spo_distance(&a, &a), 0);
+
+        // Different triplets → likely nonzero distance
+        let b = headprint_to_spo(&triplet_to_headprint("Zephyr", "loves", "Qux"), 0.9, 0.8);
+        let combined = pd.spo_distance(&a, &b);
+        let sub_only = pd.subject_distance(&a, &b);
+        // Subject-only ≤ combined (since combined adds P + O)
+        assert!(sub_only as u32 <= combined,
+            "subject-only {} should be <= combined {}", sub_only, combined);
+    }
 
     #[test]
     fn test_triplet_to_headprint() {
