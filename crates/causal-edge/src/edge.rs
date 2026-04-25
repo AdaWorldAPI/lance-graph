@@ -225,6 +225,37 @@ impl CausalEdge64 {
             | (((m as u8 as u64) & BITS3_MASK) << CAUSAL_SHIFT);
     }
 
+    /// Match if this edge's causal mask contains AT LEAST the bits in `query_mask`.
+    ///
+    /// `query_mask` is interpreted as the low 3 bits of the Pearl 2³ packing
+    /// (S=0b100, P=0b010, O=0b001 — see [`CausalMask`]). Higher bits are ignored.
+    ///
+    /// This is the query-side predicate used by graph WHERE clauses to filter
+    /// edges by causal type. For example, `query_mask = CausalMask::PO as u8`
+    /// (`0b011`) matches every edge whose causal mask has at least the P and O
+    /// planes active — i.e. interventional edges (`PO`) and counterfactual
+    /// edges (`SPO`), but not pure association (`SO`).
+    ///
+    /// Semantics:
+    /// - `query_mask == edge_mask`: full match
+    /// - `query_mask` is a subset of `edge_mask`: subset match
+    /// - `query_mask` and `edge_mask` are disjoint (sharing no required bits):
+    ///   no match
+    /// - `query_mask == 0` (`CausalMask::None`): matches every edge — there
+    ///   are no required bits, so the predicate is vacuously satisfied.
+    #[inline(always)]
+    pub const fn matches_causal(&self, query_mask: u8) -> bool {
+        let q = query_mask & 0b111;
+        let edge_mask = ((self.0 >> CAUSAL_SHIFT) & BITS3_MASK) as u8;
+        (edge_mask & q) == q
+    }
+
+    /// Type-safe variant of [`Self::matches_causal`] taking a [`CausalMask`].
+    #[inline(always)]
+    pub fn matches_causal_mask(&self, query_mask: CausalMask) -> bool {
+        self.matches_causal(query_mask as u8)
+    }
+
     /// Is the S-plane active in the current causal projection?
     #[inline(always)]
     pub fn s_active(self) -> bool { (self.0 >> CAUSAL_SHIFT) & 0b100 != 0 }
@@ -634,5 +665,92 @@ mod tests {
     fn test_size() {
         assert_eq!(std::mem::size_of::<CausalEdge64>(), 8,
             "CausalEdge64 must be exactly 8 bytes");
+    }
+
+    // ─── matches_causal: query-side Pearl 2³ predicate (TD-INT-7) ────
+
+    fn make_edge(mask: CausalMask) -> CausalEdge64 {
+        CausalEdge64::pack(
+            10, 20, 30, 200, 200,
+            mask, 0, InferenceType::Deduction,
+            PlasticityState::ALL_FROZEN, 0,
+        )
+    }
+
+    #[test]
+    fn test_matches_causal_full_match() {
+        // query_mask == edge_mask: must match.
+        let edge = make_edge(CausalMask::PO);
+        assert!(edge.matches_causal(CausalMask::PO as u8));
+        assert!(edge.matches_causal_mask(CausalMask::PO));
+
+        let edge_spo = make_edge(CausalMask::SPO);
+        assert!(edge_spo.matches_causal(CausalMask::SPO as u8));
+    }
+
+    #[test]
+    fn test_matches_causal_subset_match() {
+        // query_mask is a strict subset of edge_mask: must match.
+        // SPO (0b111) contains PO (0b011), SO (0b101), SP (0b110), S, P, O.
+        let edge = make_edge(CausalMask::SPO);
+        assert!(edge.matches_causal(CausalMask::PO as u8),
+            "SPO edge should match PO query (PO bits are subset of SPO)");
+        assert!(edge.matches_causal(CausalMask::SO as u8),
+            "SPO edge should match SO query");
+        assert!(edge.matches_causal(CausalMask::P as u8),
+            "SPO edge should match single-plane P query");
+        assert!(edge.matches_causal_mask(CausalMask::S));
+
+        // PO (0b011) contains O (0b001) and P (0b010), but NOT S (0b100).
+        let edge_po = make_edge(CausalMask::PO);
+        assert!(edge_po.matches_causal(CausalMask::O as u8));
+        assert!(edge_po.matches_causal(CausalMask::P as u8));
+    }
+
+    #[test]
+    fn test_matches_causal_non_match() {
+        // query_mask requires bits the edge does not have: must NOT match.
+        // SO edge (0b101) does NOT have the P plane (0b010).
+        let edge_so = make_edge(CausalMask::SO);
+        assert!(!edge_so.matches_causal(CausalMask::P as u8));
+        assert!(!edge_so.matches_causal(CausalMask::PO as u8),
+            "SO edge must not match PO query — P bit is missing");
+        assert!(!edge_so.matches_causal_mask(CausalMask::SPO),
+            "SO edge must not match SPO query — P bit is missing");
+
+        // P-only edge (0b010) does NOT match SO query (0b101).
+        let edge_p = make_edge(CausalMask::P);
+        assert!(!edge_p.matches_causal(CausalMask::SO as u8));
+        assert!(!edge_p.matches_causal(CausalMask::S as u8));
+        assert!(!edge_p.matches_causal(CausalMask::O as u8));
+    }
+
+    #[test]
+    fn test_matches_causal_zero_mask_matches_anything() {
+        // query_mask == 0 has no required bits → vacuously matches every edge.
+        // This is the documented semantics: zero is the predicate-true element
+        // of the bit lattice (no requirements means nothing to fail).
+        for variant in [
+            CausalMask::None, CausalMask::O, CausalMask::P, CausalMask::PO,
+            CausalMask::S, CausalMask::SO, CausalMask::SP, CausalMask::SPO,
+        ] {
+            let edge = make_edge(variant);
+            assert!(edge.matches_causal(0),
+                "zero query_mask must match edge with mask {variant:?}");
+            assert!(edge.matches_causal_mask(CausalMask::None),
+                "CausalMask::None query must match edge with mask {variant:?}");
+        }
+    }
+
+    #[test]
+    fn test_matches_causal_high_bits_ignored() {
+        // matches_causal must mask query down to the low 3 bits, so callers
+        // passing a u8 with stray high bits get the same result as passing
+        // the cleaned value.
+        let edge = make_edge(CausalMask::PO);
+        // 0b1111_0011 → low 3 bits = 0b011 = PO.
+        assert!(edge.matches_causal(0b1111_0011));
+        // 0b1111_0100 → low 3 bits = 0b100 = S — not present in PO edge.
+        assert!(!edge.matches_causal(0b1111_0100));
     }
 }

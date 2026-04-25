@@ -63,3 +63,4 @@ pub mod tax;
 pub mod reasoning;
 pub mod property;
 pub mod ontology;
+pub mod sla;

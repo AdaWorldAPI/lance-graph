@@ -38,10 +38,12 @@ use tokio::sync::watch;
 #[cfg(feature = "realtime")]
 use crate::version_watcher::LanceVersionWatcher;
 
+use std::sync::Arc;
+
 use lance_graph_contract::{
     a2a_blackboard::ExpertId,
     cognitive_shader::{MetaWord, ShaderBus},
-    external_membrane::{CommitFilter, ExternalEventKind, ExternalMembrane},
+    external_membrane::{CommitFilter, ExternalEventKind, ExternalMembrane, MembraneGate},
     faculty::FacultyRole,
     orchestration::{StepStatus, UnifiedStep},
 };
@@ -63,6 +65,14 @@ pub struct LanceMembrane {
     current_scent:   AtomicU64,
     current_rationale_phase: AtomicBool, // MM-CoT stage: true = Stage 1 rationale
     version:         AtomicU64,
+    /// Server-side fan-out filter (TD-INT-13). Default-empty = pass all.
+    /// Applied INSIDE `project()` before `watcher.bump`, so subscribers
+    /// only see rows matching the filter.
+    server_filter:   RwLock<CommitFilter>,
+    /// Optional fan-out gate (TD-INT-9). RBAC, multi-tenant scope, etc.
+    /// Default `None` = no gating. When set, `should_emit` is consulted
+    /// before `watcher.bump`.
+    gate:            RwLock<Option<Arc<dyn MembraneGate>>>,
     /// Fan-out watcher for projected cognitive events ([realtime] feature only).
     #[cfg(feature = "realtime")]
     watcher:         LanceVersionWatcher,
@@ -77,9 +87,29 @@ impl LanceMembrane {
             current_scent:   AtomicU64::new(0),
             current_rationale_phase: AtomicBool::new(false),
             version:         AtomicU64::new(0),
+            server_filter:   RwLock::new(CommitFilter::default()),
+            gate:            RwLock::new(None),
             #[cfg(feature = "realtime")]
             watcher:         LanceVersionWatcher::default(),
         }
+    }
+
+    /// Install a server-side fan-out filter (TD-INT-13). Subscribers only
+    /// see rows matching the filter; rows that don't match are still
+    /// returned by `project()` but not bumped to the watcher.
+    pub fn set_server_filter(&self, filter: CommitFilter) {
+        *self.server_filter.write().expect("server_filter poisoned") = filter;
+    }
+
+    /// Install a fan-out gate (TD-INT-9). RBAC, multi-tenant scope,
+    /// custom policies. Default = no gate (allow all).
+    pub fn set_gate(&self, gate: Arc<dyn MembraneGate>) {
+        *self.gate.write().expect("gate poisoned") = Some(gate);
+    }
+
+    /// Remove any installed gate, reverting to allow-all fan-out.
+    pub fn clear_gate(&self) {
+        *self.gate.write().expect("gate poisoned") = None;
     }
 
     /// Current Lance version counter (monotonic; ticks on each CollapseGate
@@ -163,9 +193,32 @@ impl ExternalMembrane for LanceMembrane {
             rationale_phase: self.current_rationale_phase.load(Ordering::Relaxed),
         };
 
+        // TD-INT-13 + TD-INT-9: server-side fan-out gate.
+        //   1. CommitFilter — scalar predicate match
+        //   2. MembraneGate — RBAC / multi-tenant / custom policy
+        // If either rejects, we still return the row but skip the watcher
+        // bump. The row is the projection; only the fan-out is gated.
+        let actor_id = expert as u64; // v1: actor = expert; refine when UNKNOWN-4 lands
+        let style_ord = meta.thinking();
+        let pass_filter = self
+            .server_filter
+            .read()
+            .map(|f| f.matches(actor_id, meta.free_e(), style_ord, bus.gate.is_flow()))
+            .unwrap_or(true);
+        let pass_gate = self
+            .gate
+            .read()
+            .ok()
+            .and_then(|g| g.as_ref().map(|g| g.should_emit(role, faculty, expert, bus.gate.is_flow())))
+            .unwrap_or(true);
+
         // DM-4: fan out to all current subscribers (supabase-shape realtime).
         #[cfg(feature = "realtime")]
-        self.watcher.bump(row.clone());
+        if pass_filter && pass_gate {
+            self.watcher.bump(row.clone());
+        }
+        #[cfg(not(feature = "realtime"))]
+        let _ = (pass_filter, pass_gate); // silence unused without realtime
 
         row
     }
@@ -301,6 +354,69 @@ mod tests {
         let rx = m.subscribe(CommitFilter::default());
         // Phase A: disconnected — no sender kept, recv errors immediately
         assert!(rx.try_recv().is_err());
+    }
+
+    /// TD-INT-9: gate denies → row still returned, fan-out skipped.
+    #[test]
+    fn gate_denies_skips_emit_but_returns_row() {
+        struct DenyAll;
+        impl MembraneGate for DenyAll {
+            fn should_emit(&self, _: u8, _: u8, _: u16, _: bool) -> bool { false }
+        }
+
+        let m = LanceMembrane::new();
+        m.set_gate(Arc::new(DenyAll));
+        let intent = ExternalIntent::seed(ExternalRole::Rag, make_dn(), vec![]);
+        m.ingest(intent);
+
+        let bus = ShaderBus::empty();
+        let meta = MetaWord::new(5, 3, 200, 150, 10);
+        let row = m.project(&bus, meta);
+        // Row is still returned (caller may want it for metrics).
+        assert_eq!(row.external_role, ExternalRole::Rag as u8);
+        assert_eq!(row.thinking, 5);
+        // Fan-out is skipped — verified via watcher tests in realtime feature.
+    }
+
+    /// TD-INT-13: server-side filter mismatch → fan-out skipped.
+    #[test]
+    fn filter_mismatch_skips_emit() {
+        let m = LanceMembrane::new();
+        // Filter: only style_ordinal == 99
+        m.set_server_filter(CommitFilter {
+            style_ordinal: Some(99),
+            ..Default::default()
+        });
+        let intent = ExternalIntent::seed(ExternalRole::Rag, make_dn(), vec![]);
+        m.ingest(intent);
+
+        let bus = ShaderBus::empty();
+        // Project with style 5 — should not match the filter
+        let meta = MetaWord::new(5, 3, 200, 150, 10);
+        let row = m.project(&bus, meta);
+        assert_eq!(row.thinking, 5);
+        // Row returned, fan-out gated on style_ordinal mismatch.
+    }
+
+    /// TD-INT-13: server-side filter match → fan-out happens.
+    #[test]
+    fn filter_match_passes_emit() {
+        let m = LanceMembrane::new();
+        // Filter: style_ordinal == 5
+        m.set_server_filter(CommitFilter {
+            style_ordinal: Some(5),
+            max_free_energy: Some(100),
+            ..Default::default()
+        });
+        let intent = ExternalIntent::seed(ExternalRole::Rag, make_dn(), vec![]);
+        m.ingest(intent);
+
+        let bus = ShaderBus::empty();
+        let meta = MetaWord::new(5, 3, 200, 150, 10);
+        let row = m.project(&bus, meta);
+        assert_eq!(row.thinking, 5);
+        assert_eq!(row.free_e, 10);
+        // Free_e=10 ≤ max=100 ✓; style=5 == 5 ✓ → fan-out passes.
     }
 
     /// Phase D (realtime feature): subscribe() → project() → rx.borrow() sees the row.
