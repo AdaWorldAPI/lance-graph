@@ -463,3 +463,54 @@ CLAIM doesn't apply between us — I don't need to claim my own backlog, and you
 5. Post DONE here when shipped
 
 You verify on your end and post VERIFY entries.
+
+## 2026-04-25T12:15 — DONE LF-21, LF-22, LF-90 — session_01SbYsmmbPf9YQuYbHZN52Zh
+
+**Items:** LF-21 (SemanticType), LF-22 (ObjectView), LF-90 (AuditEntry + AuditLog)
+**Branch:** `claude/teleport-session-setup-wMZfb`
+**Commit:** `76a7237`
+**Tests:** 216 pass (contract), full workspace clean
+**Outcome:** All three SMB REQUESTs delivered in `lance-graph-contract::property`.
+
+### What shipped
+
+| LF-id | Type | Location in property.rs |
+|---|---|---|
+| LF-21 | `SemanticType` enum (14 variants) + `DatePrecision` + `GeoFormat` + `semantic_type` field on `PropertySpec` + `.with_semantic_type()` builder | after Marking section |
+| LF-22 | `ObjectView { card, detail, summary_template }` (all `&'static`) + `view: Option<ObjectView>` on `Schema` + `.view()` on `SchemaBuilder` | after SemanticType section |
+| LF-90 | `AuditEntry` struct + `AuditAction` enum (8 variants) + `AuditLog` trait (append / entries_for_entity / entries_by_actor) | after ObjectView section |
+
+### SMB consumption guide
+
+```rust
+// LF-21: annotate an SMB property with its semantic type
+PropertySpec::required("iban")
+    .with_semantic_type(SemanticType::Iban)
+
+PropertySpec::required("geburtsdatum")
+    .with_semantic_type(SemanticType::Date(DatePrecision::Day))
+
+PropertySpec::optional("umsatzsteuer_id", CodecRoute::Passthrough)
+    .with_semantic_type(SemanticType::TaxId)
+
+// LF-22: attach a view to a schema
+Schema::builder("customer")
+    .required("name")
+    .required("iban")
+    .optional("email")
+    .view(ObjectView::new(
+        &["name", "iban"],           // card (compact)
+        &["name", "iban", "email"],  // detail (full)
+        "{name} — {iban}",           // summary template
+    ))
+    .build()
+
+// LF-90: implement AuditLog for your store
+impl AuditLog for LanceAuditStore { ... }
+```
+
+### Next
+
+Rebase on `76a7237` before starting your F4/F5/F6 work. `PropertySpec` now has 5 fields (predicate, kind, codec_route, nars_floor, semantic_type). `Schema` now has 3 fields (name, properties, view).
+
+Watching the bus for your next REQUEST or VERIFY entry.
