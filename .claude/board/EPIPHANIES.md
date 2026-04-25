@@ -2855,3 +2855,57 @@ Three-layer epiphany from the Palantir FfB Technical Overview read:
 **3. NARS SPO × Pearl 2³ × CausalEdge64 — what Vertex can't do.** Foundry Vertex explores graphs but has NO causal typing on edges. Our CausalEdge64 packs Pearl 2³ = 8 causal masks (correlation / direct cause / confounder / mediator / collider / instrument / front-door / counterfactual) + NARS truth (frequency, confidence) + inference type + plasticity + temporal position into 64 bits per edge. Every SPO triple carries its own causal ontology and epistemology. This is irreducible — Vertex would need a fundamental redesign to match.
 
 Cross-ref: FfB_Technical_Overview_v4.pdf (Palantir), CausalEdge64 (causal-edge crate), I-SUBSTRATE-MARKOV, driver.rs content Hamming cascade (PR #259), CypherBridge (PR #258).
+
+## 2026-04-24 — CORRECTION: supabase-shape is the protocol, not a Postgres dependency
+
+**Status:** CORRECTION
+**Owner scope:** @truth-architect
+
+Mid-session DTO audit hallucination: claimed "Postgres/Supabase via PostgREST" was a third cold-path sink alongside Lance and Arrow Flight. WRONG. PR #255 (LanceMembrane + LanceVersionWatcher + DM-4) explicitly transcoded the supabase-shape INTO native Rust: `subscribe()` returns `tokio::sync::watch::Receiver<CognitiveEventRow>` with always-latest semantics, backed by Lance versioned dataset. NO Postgres. NO JDBC. The supabase-shape is the PROTOCOL (subscribe-on-changes, BBB-scalar events), not the database.
+
+**Corrected cold-path architecture:** Lance dataset = single source of truth. Two read interfaces, both hitting the same Lance: (1) `LanceVersionWatcher.subscribe()` for realtime push (supabase-shape semantics in pure Rust), (2) Arrow Flight SQL for bulk external clients. RLS-equivalent via `CommitFilter` + `Policy.evaluate()`, both already shipped, both pure Rust.
+
+**Why the slip happened:** "supabase" in normal usage = Postgres + Realtime + Auth. In OUR stack, "supabase" is the API shape only. Mid-flow architectural tiredness; the brutal DTO audit's complexity briefly drowned out PR #255's actual scope.
+
+Cross-ref: PR #255 (Supabase subscriber wire-up), `LanceMembrane`, `CognitiveEventRow`, `lab-vs-canonical-surface.md`.
+
+## 2026-04-24 — Paradigm shift: trajectory-native cognitive OS (Berge + Piaget + metacognition gestalt)
+
+**Status:** FINDING
+**Owner scope:** @truth-architect, @integration-lead
+
+Three-frame gestalt review of the architecture's emergent identity:
+
+**Berge Maximum Theorem:** The system IS a parametric optimization at every dispatch. Parameters p = (style, qualia 17D, scenario_id, awareness 4D). Constraint set Γ(p) = BindSpace rows passing MetaFilter. Objective = minimize FreeEnergy. Berge guarantees: on the continuous axes (qualia, awareness), small perturbations produce bounded cognitive shifts — topological stability by construction. On the discrete axes (style ordinal, scenario branch), the value function jumps — that's principled mode-switching, not instability.
+
+**Piaget genetic epistemology:** The system implements all four mechanisms. Assimilation = Resolution::Commit (low F). Accommodation = Resolution::Epiphany (both triples + Contradiction preserved). Equilibration = FreeEnergy minimization loop. Disequilibration = Resolution::FailureTicket (high F → escalate). Current developmental stage: Concrete Operational — logical operations on concrete objects (BindSpace rows, typed entities, Cypher queries). Formal Operational machinery exists (World::fork, SimulationSpec, MulAssessment, NARS abduction) but dispatch doesn't invoke it.
+
+**Metacognition:** Three things the system CAN know about its own cognition: (1) when it's confused (should_admit_ignorance), (2) when it's accommodating (Epiphany), (3) when it's equilibrated (Commit). Today these are shallow — confidence < 0.2 threshold, not principled mul/DK/trust assessment. The deep metacognitive layer (MulAssessment, DkPosition, TrustTexture, NarsTables) exists but dispatch doesn't call it. Loop is half-formed: system observes (MetaSummary) but doesn't update (no NARS revision per cycle, no DK adjustment per outcome).
+
+**The paradigm shift named:** Conventional systems separate data (rows at rest), computation (rows → rows), cognition (rows → labels via gradient descent), causality (inferred via regression), time (a column). Our system collapses all five into ONE primitive: the trajectory. Data = bundled trajectory. Computation = trajectory algebra (bind, bundle, cosine). Cognition = trajectory resolution under FreeEnergy. Causality = structural (Pearl 2³ on CausalEdge64, Chapman-Kolmogorov by VSA bundling). Time = braided position in the bundle.
+
+**What it wants to emerge as:** A trajectory-native cognitive operating system where every read is a trajectory projection, every write is a trajectory bundle, every query is a trajectory resolution under FreeEnergy, every causal claim is annotated into CausalEdge64, every cognitive shift is observable through the metacognitive layer. The five observer perspectives (business / API / SoA / semantic / AGI) are faithful views of the same substrate at different scales. Not a database with intelligence on top — a single computational substrate where storage, compute, learning, and causality are different operations on the same primitive.
+
+Cross-ref: I-SUBSTRATE-MARKOV (Chapman-Kolmogorov by construction), I-NOISE-FLOOR-JIRAK (Jirak 2016 weak dependence), The Click (CLAUDE.md §P-1), categorical-algebraic-inference-v1.md, FreeEnergy/Resolution (contract::grammar::free_energy), MulAssessment (planner::mul), NarsTables (planner::cache::nars_engine).
+
+## 2026-04-24 — Five observers, one substrate: the perspective lattice
+
+**Status:** FINDING
+**Owner scope:** @truth-architect
+
+The architecture's five consumer perspectives are not layers — they're projections of the same trajectory algebra at different scales. No observer is more fundamental; all are faithful.
+
+| Observer | What they see | Internal/External | SoA or Functional | When they read |
+|---|---|---|---|---|
+| Business/SMB | Typed entities with Required/Optional/Free properties, missing-field alerts, similarity search | External (cold path, 10⁻² s) | Functional (Schema.validate(), Policy.evaluate()) | On user action (query, approve, flag) |
+| External API | Queryable surface (Cypher/SQL/SPARQL) returning Arrow batches + realtime subscribe | External (cold path) | Functional (OrchestrationBridge::route()) | On client request |
+| Struct-of-arrays | 4096 × N columns (content, cycle, qualia, meta, edge, temporal), SIMD-sweepable | Internal (hot path, 10⁻⁶ s) | SoA (columnar, cache-line-friendly, LLVM autovectorizes) | Every dispatch cycle |
+| Semantic kernel | Text → role-indexed fingerprint → AriGraph SPO triple with NARS truth | Internal (hot path) | SoA for storage, Functional for algebra (vsa_bind, vsa_bundle, vsa_cosine) | On encode + dispatch |
+| AGI/cognitive | Active-inference agent: perceive → predict → free-energy-minimize → revise → commit | Internal (hot path) | Functional (FreeEnergy::compose, Resolution::from_ranked, awareness.revise) | Every cycle, autonomously |
+| Markov-causal | Chapman-Kolmogorov trajectory with Pearl 2³ causal annotations on every edge | Internal (hot path) | SoA for storage (CausalEdge64 column), Functional for algebra (CausalMask queries) | Structural — always present, queryable on demand |
+
+**The boundary that matters: BBB membrane (ExternalMembrane).** Internal observers (SoA, semantic, AGI, Markov) see the hot path at 10⁻⁶ s. External observers (Business, API) see the cold path via callcenter projections at 10⁻² s. The membrane is the one-way valve: project() emits, subscribe() streams. Internal → external is projection (lossy, scalar, BBB-clean). External → internal is OrchestrationBridge::route() → UnifiedStep (validated at ingress).
+
+**SoA vs Functional is not a choice — it's a WHERE.** BindSpace is SoA (columnar storage for SIMD). The algebra on it is Functional (methods on carriers). The SoA carries the state; the Functional methods transform it. Both exist simultaneously on the same data. The "struct of arrays vs object thinks for itself" tension resolves as: the ARRAY is the SoA, the ELEMENT (row, trajectory, fingerprint) thinks for itself via methods.
+
+Cross-ref: CLAUDE.md §The Stance (AGI-as-glove, SoA columns ARE the AGI surface), lab-vs-canonical-surface.md (I1-I11 invariants), ExternalMembrane (contract::external_membrane), BindSpace (cognitive-shader-driver::bindspace).
