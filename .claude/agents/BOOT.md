@@ -176,6 +176,25 @@ documents listed in its trigger row BEFORE producing output.
 
 This cycle is MANDATORY.
 
+## Agent Tool Discipline (all agents)
+
+1. **Write large files via `tee -a path > /dev/null <<'EOF' ... EOF`.**
+   Never use the `Write` tool for files over ~100 lines — the streaming
+   response idle-timeouts. Chunk into 50-100 line `tee -a` calls.
+
+2. **Never run `cargo clippy --fix`.** All clippy fixes must be manual
+   `Edit` calls after reading context. Unused imports/variables/fields
+   are **wiring signals** for future code, not cleanup targets.
+
+3. **Never remove `use`, `let`, `fn`, `pub`, struct fields, or `mut`
+   qualifiers** even if clippy flags them as unused/dead. These are
+   intentional placeholders for in-progress wiring.
+
+4. **Always add `--timeout 300000` (or higher) to `cargo` commands.**
+   Compilation can take minutes on this workspace.
+
+---
+
 ## Handover Protocol (agent A → agent B)
 
 When an agent completes work that feeds another agent's scope, the

@@ -980,6 +980,28 @@ No knowledge doc should contain unmarked conjectures. Label everything.
 
 ## In-Session Orchestration Discipline
 
+**P0 Rule: Write large files in chunks via `tee -a`.** Never use the
+`Write` tool for files over ~100 lines — the streaming response can
+idle-timeout on long payloads. Instead, write in 50-100 line chunks:
+
+```bash
+tee -a path/to/file.md > /dev/null <<'EOF'
+... chunk content ...
+EOF
+```
+
+The `> /dev/null` keeps tool output small. Multiple `tee -a` calls
+in sequence build the file incrementally without risking a timeout.
+Same applies inside agent prompts — instruct agents to use `tee -a`
+for plan documents, knowledge docs, and any file > 100 lines.
+
+**Never use `cargo clippy --fix`.** Automated clippy resolution
+silently removes file-scope imports used by test modules and renames
+fields with `_` prefixes, destroying unwired code. All clippy fixes
+must be manual `Edit` calls after reading the warning + surrounding
+context. Unused imports/variables/fields are **wiring signals**, not
+cleanup targets.
+
 **P0 Rule: Read before Write, always.** Before calling `Write` on any path
 that may already exist, run `Read` (or `git status` for committed files).
 The `Edit` tool is the default for modifying existing files; `Write` is only
