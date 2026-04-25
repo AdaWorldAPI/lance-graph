@@ -65,6 +65,22 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-04-25 — FINDING: ndarray VSA migrated to 16384-bit — SIMD-clean at every precision tier
+
+**Status:** FINDING
+**Owner scope:** @container-architect, @host-glove-designer
+
+ndarray `src/hpc/vsa.rs` was the last holdout of the deprecated `[u64; 157]` / 10000-bit format. Migrated to `[u64; 256]` / 16384-bit in commit `7041ea11` on ndarray `claude/teleport-session-setup-wMZfb`. With this, the entire workspace operates on a single canonical format: 16384 bits = 256 u64 = 2048 bytes, divisible by every SIMD register width (FP16x32, FP32x16, F64x8, U8x64) — zero scalar tail at any precision. The 2026-04-24 SIMD-alignment-sin epiphany no longer applies anywhere.
+
+Constants migrated in three modules:
+- `vsa.rs`: VSA_DIMS, VSA_WORDS, VSA_BYTES, TAIL_BITS, TAIL_MASK
+- `arrow_bridge.rs`: SOAKING_DIMS, SIGMA_MASK_BYTES, DEFAULT_SOAKING_DIM, plus 9 test assertions
+- `deepnsm.rs`: `nsm_to_fingerprint` return type `[u8; 1250]` → `[u8; 2048]`, XOR loop now 32×U8x64 chunks (no scalar remainder)
+
+1619 ndarray lib tests pass after migration. Audited 23 candidate files; 22 had only incidental uses of "10000" or "157" (RoPE θ, seed offsets, distance thresholds, unrelated array sizes). Only 3 files (vsa.rs, arrow_bridge.rs, deepnsm.rs) had real VSA-format references — all three now migrated.
+
+Cross-ref: 2026-04-24 "Vsa10k = [u64; 157] was a SIMD-alignment sin"; ndarray commit `7041ea11`; lance-graph contract `crystal::fingerprint::Binary16K` (the producer side); CROSS_SESSION_BROADCAST.md 2026-04-25 entry.
+
 ## 2026-04-25 — CORRECTION-OF 2026-04-25 "cognitive loop closes structurally": MUL gate veto IS wired (TD-INT-3/10/14 shipped same day)
 
 **Status:** CORRECTION
