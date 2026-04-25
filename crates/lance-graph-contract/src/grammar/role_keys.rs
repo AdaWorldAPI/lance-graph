@@ -78,47 +78,6 @@ impl RoleKey {
         self.slice_end - self.slice_start
     }
 
-    /// Hamming distance between two `Binary16K`-shaped fingerprints,
-    /// restricted to this role's slice `[slice_start..slice_end)`.
-    /// Bits outside the slice contribute zero. Used by the content
-    /// cascade for role-indexed similarity (TD-INT-5): "compare two
-    /// triples on the SUBJECT plane only" rather than over all 16384
-    /// bits. Binary-space analogue of unbind+cosine on a role.
-    pub fn hamming_in_slice(&self, fp_a: &[u64], fp_b: &[u64]) -> u32 {
-        debug_assert!(fp_a.len() == fp_b.len(), "fingerprint widths differ");
-        let mut total = 0u32;
-        let start_word = self.slice_start / 64;
-        let end_word = (self.slice_end + 63) / 64;
-        for w in start_word..end_word.min(fp_a.len()) {
-            let mut diff = fp_a[w] ^ fp_b[w];
-            if w == start_word {
-                let lo = self.slice_start % 64;
-                if lo > 0 {
-                    diff &= !((1u64 << lo) - 1);
-                }
-            }
-            if w + 1 == end_word {
-                let hi = self.slice_end % 64;
-                if hi > 0 {
-                    diff &= (1u64 << hi) - 1;
-                }
-            }
-            total += diff.count_ones();
-        }
-        total
-    }
-
-    /// Resonance score in `[0, 1]` for this role's slice. Higher = more similar.
-    /// `1 - hamming / slice_width`, density-agnostic.
-    pub fn resonance_in_slice(&self, fp_a: &[u64], fp_b: &[u64]) -> f32 {
-        let width = self.slice_width() as f32;
-        if width <= 0.0 {
-            return 1.0;
-        }
-        let h = self.hamming_in_slice(fp_a, fp_b) as f32;
-        (1.0 - h / width).clamp(0.0, 1.0)
-    }
-
     // NOTE: `bind/unbind/recovery_margin` methods removed in cleanup commit
     // `cd5c049...` (see CHANGELOG.md). Those operated on a hallucinated
     // `Vsa10k = [u64; 157]` bitpacked carrier with GF(2)/XOR algebra —
@@ -349,29 +308,6 @@ pub fn nars_inference_key(inf: NarsInference) -> &'static RoleKey {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn hamming_in_slice_zero_for_identical() {
-        let fp = vec![0xDEAD_BEEFu64; 256];
-        assert_eq!(SUBJECT_KEY.hamming_in_slice(&fp, &fp), 0);
-    }
-
-    #[test]
-    fn hamming_in_slice_only_counts_within_slice() {
-        let mut fp_a = vec![0u64; 256];
-        let mut fp_b = vec![0u64; 256];
-        fp_b[50] = 1u64 << 5; // outside SUBJECT slice — must not count
-        assert_eq!(SUBJECT_KEY.hamming_in_slice(&fp_a, &fp_b), 0);
-        fp_a[5] = 1u64 << 3;  // inside SUBJECT slice — must count
-        assert_eq!(SUBJECT_KEY.hamming_in_slice(&fp_a, &fp_b), 1);
-    }
-
-    #[test]
-    fn resonance_in_slice_full_match_is_one() {
-        let fp = vec![0xAAAA_5555u64; 256];
-        let r = SUBJECT_KEY.resonance_in_slice(&fp, &fp);
-        assert!((r - 1.0).abs() < 1e-6);
-    }
 
     /// Collect every (start, end, label) from every defined role key.
     fn all_slices() -> Vec<(usize, usize, &'static str)> {

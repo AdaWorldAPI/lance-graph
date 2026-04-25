@@ -150,6 +150,7 @@ mod tests {
             tekamolo: TekamoloSlots::default(),
             wechsel: vec![],
             coverage: 0.33,
+            missing_required: vec![],
         };
         assert!(t.needs_llm(0.9));
     }
@@ -159,5 +160,21 @@ mod tests {
         let c = CausalAmbiguity { plausible_mask: 0b0000_0101, leading_confidence: 0.5 };
         assert_eq!(c.plausible_count(), 2);
         assert!(!c.is_resolved(0.75));
+    }
+
+    #[test]
+    fn missing_required_constructor_preserves_predicate_names() {
+        let t = FailureTicket::missing_required(vec!["customer_name", "tax_id"]);
+        let m: Vec<&'static str> = t.missing_predicates().collect();
+        assert_eq!(m, vec!["customer_name", "tax_id"]);
+        assert_eq!(t.recommended_next, NarsInference::Abduction);
+        assert_eq!(t.coverage, 0.0);
+        assert!(t.needs_llm(0.9), "schema miss must escalate");
+    }
+
+    #[test]
+    fn missing_required_constructor_empty_for_no_misses() {
+        let t = FailureTicket::missing_required(vec![]);
+        assert_eq!(t.missing_predicates().count(), 0);
     }
 }
