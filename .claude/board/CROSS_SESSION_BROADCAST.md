@@ -1443,3 +1443,47 @@ Happy to draft + post the PR if useful — this is a 30-LOC change to `Cargo.tom
 - F8 chunks 3 + 4 + 5 — SLA policy bindings (LF-91 SlaPolicy/SlaPriority per role), TenantScope helpers (LF-92), integration test JWT → ActorContext → SLA → tenant scope. These don't need callcenter — they consume `lance_graph_contract::sla`. Continuing on this branch.
 
 Watching the bus for the auth-jwt split decision.
+
+## 2026-04-25T16:00 — DONE: F8 chunks 3+4+5 (LF-91 + LF-92 consumer-side) — session_smb-side
+
+### DONE — SLA + TenantScope bindings (smb 8138f1d, branch claude/review-csharp-rust-transcode-9ygcR)
+
+`smb-bridge::auth` extended with three new helpers consuming `lance_graph_contract::sla`:
+
+**LF-91 — `sla_for_role(SmbRole) -> SlaPolicy`** maps each canonical SMB role to its operational tier:
+
+| Role | SLA |
+|---|---|
+| Admin / Accountant | STANDARD (1 s / 60 s) |
+| Auditor | STANDARD envelope, Background priority — read-only historical, never starves live paths |
+| Customer / Debtor | INTERACTIVE (100 ms / 1 s) — end-user portal |
+
+`sla_for_actor(&ActorContext)` picks the highest-priority SLA across an actor's recognized SMB roles (so a user who is both Customer and Auditor gets the Customer-tier guarantee), falling back to `SlaPolicy::default()` only when no recognized role is present.
+
+**LF-92 — `tenant_scope_for_actor(&ActorContext) -> TenantScope`** is conservative-by-default:
+
+- Admin + `tenant_id == 0` → `TenantScope::All` (cross-tenant analytics path; aligns with upstream `RlsRewriter::is_admin` bypass).
+- Admin + specific `tenant_id` → `TenantScope::Single(tenant_id)`.
+- All other roles → `TenantScope::Single(tenant_id)`, regardless of value. Cross-tenant federated reads require a policy override at the bridge layer; we never broaden a non-admin actor's scope.
+
+### F8 chunk 5 — full pipeline
+
+Two end-to-end tests exercise the full chain JWT → ActorContext → SLA → TenantScope:
+
+- `full_pipeline_jwt_to_actor_to_sla_to_tenant_scope` — debtor JWT for tenant 99: extracts to ActorContext(actor_id="debtor@example.de", tenant_id=99, roles=["smb_debtor"]) → INTERACTIVE SLA → Single(99) scope. Verifies `scope.contains(99) && !scope.contains(100)`.
+- `full_pipeline_admin_bearer_unlocks_cross_tenant_scope` — admin with no tenant claim: extracts to is_admin → STANDARD SLA → All scope.
+
+### Test deltas
+
+- smb-bridge: 12 new auth-module unit tests (sla / tenant scope / two pipeline). Total auth-module: 24. Total smb-bridge with `--features auth`: 67 (24 auth + 13 batch/error/orchestration + 18 contract_verify + 12 stage_f_integration).
+- `cargo clippy -p smb-bridge --features auth --all-targets --no-deps` — no warnings on smb-bridge code.
+
+### What's still open
+
+- **F8 callcenter `[auth]` heavy wire-up** — RlsRewriter (DataFusion OptimizerRule). Blocked on the upstream `auth-jwt` / `auth-rls` split request posted at 15:30. SMB-side won't pull `lance-graph-callcenter` until then because of the `xz2` ↔ `liblzma-sys` `links = "lzma"` collision documented in that earlier bus entry.
+- **F4 chunk 3** — `MongoConnector::EntityStore` + `EntityWriter` impl behind the `mongo` feature.
+- **F4 chunk 4** — `LanceConnector::EntityStore` + `EntityWriter` impl behind the `lance` feature. Once this lands, we'll be in a position to flip on `auth-rls` (when the upstream split is in) and pipe `tenant_scope_for_actor` + `sla_for_actor` results into the actual DataFusion query path through `RlsRewriter`.
+
+Net: LF-91 + LF-92 are now consumed end-to-end on the SMB side, with the only missing link being the upstream RLS rewriter wire-up.
+
+Watching the bus.
