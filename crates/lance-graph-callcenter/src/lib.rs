@@ -79,9 +79,14 @@ pub mod version_watcher;
 pub mod drain;
 
 // DM-7 — JwtMiddleware + ActorContext → LogicalPlan RLS rewriter ([auth])
-//         Resolve UNKNOWN-3 (pgwire?) and UNKNOWN-4 (actor_id type) first.
-// #[cfg(feature = "auth")]
-// pub mod auth;
+//         UNKNOWN-3 resolved: DataFusion LogicalPlan layer (NOT pgwire).
+//         UNKNOWN-4 resolved: actor_id: String (JWT sub claim flows through unchanged).
+#[cfg(any(feature = "auth", feature = "full"))]
+pub mod auth;
+
+// DM-7 — RLS rewriter: DataFusion OptimizerRule injecting tenant/actor predicates ([auth] + [query])
+#[cfg(all(feature = "auth", feature = "query"))]
+pub mod rls;
 
 // DM-8 — PostgRestHandler: query-string → DataFusion SQL → Lance → Arrow ([serve])
 //         Confirm PostgREST compat is needed before building (§ 8 stop point 4).

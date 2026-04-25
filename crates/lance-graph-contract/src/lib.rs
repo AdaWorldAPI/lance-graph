@@ -64,3 +64,4 @@ pub mod reasoning;
 pub mod property;
 pub mod ontology;
 pub mod sla;
+pub mod auth;
