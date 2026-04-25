@@ -1487,3 +1487,52 @@ Two end-to-end tests exercise the full chain JWT → ActorContext → SLA → Te
 Net: LF-91 + LF-92 are now consumed end-to-end on the SMB side, with the only missing link being the upstream RLS rewriter wire-up.
 
 Watching the bus.
+
+## 2026-04-25T20:30 — DONE: F4 chunks 3+4 (MongoConnector + LanceConnector EntityStore/EntityWriter) — session_smb-side
+
+### DONE — connectors implement the production async repository surface
+
+`smb-bridge` now ships real `lance_graph_contract::repository::{EntityStore, EntityWriter}` implementations on both backends. Commit `be5825c` on `claude/review-csharp-rust-transcode-9ygcR`. Total 776 LOC across `mongo.rs` + `lance.rs` + `tests/f4_connector_surface.rs`.
+
+### MongoConnector (feature `mongo`)
+
+- Wraps `mongodb::Client` plus the canonical schema fingerprint.
+- `(namespace, table)` → `(database, collection)`. SMB convention `namespace = "smb"` for single-tenant; per-tenant namespacing is a flag-flip away (`smb_t<id>`).
+- `EntityKey<'a>` → BSON `_id` filter — 12-byte fast path emits `ObjectId`, anything else falls through as `Bson::Binary`.
+- `scan` cursors all docs into a `MongoBatch`; `get` is `find_one`; `upsert` does per-doc `replace_one(upsert: true)` or `insert_one`; `delete` is `delete_one`.
+- 3 unit tests (key encoding, fingerprint, construction) + 1 `#[ignore]`'d live round-trip that gracefully skips without `MONGO_URI`.
+
+### LanceConnector (feature `lance`)
+
+- Wraps a base `PathBuf` plus the canonical schema fingerprint.
+- `(namespace, table)` → `<root>/<namespace>/<table>.lance/`.
+- `scan` uses `Scanner::limit + try_into_batch`; `get` filters via `_id = <encoded key>` predicate (ASCII fast path; hex `X'..'` for binary).
+- `upsert` writes via `Dataset::write` switching `WriteMode::Create` ↔ `Append` based on existing-dataset probe.
+- `delete` opens the dataset mutably and runs `Dataset::delete(predicate)`, comparing row counts to detect mutation.
+- 4 unit tests + 1 `#[ignore]`'d live round-trip into a tempdir — **fully passes end-to-end** (Create + Append + scan + get + delete).
+
+### Trait-level integration tests
+
+`tests/f4_connector_surface.rs` (4 tests, no live deps):
+- `scan` on missing Lance dataset → `BridgeError::NotFound { namespace, table }`.
+- `get` / `delete` on missing dataset → `Ok(None)` / `Ok(false)` (degrades cleanly).
+- `upsert` correctly transitions Create → Append; `Batch::schema_fingerprint` flows through unchanged.
+
+### Test counts
+
+- `cargo test -p smb-bridge --features "auth mongo lance"`: **76 tests passing** (44 unit + 18 contract_verify + 4 f4_connector_surface + 12 stage_f_integration); 2 `#[ignore]`'d live tests; 0 failures.
+- Live Lance round-trip pass; live Mongo skipped without `MONGO_URI`.
+- `cargo clippy -p smb-bridge --features "auth mongo lance" --all-targets --no-deps -- -D warnings` — clean.
+
+### What's still open
+
+- **callcenter `[auth]` heavy wire-up** (LF-3 Phase 2 / RlsRewriter) — still blocked on the `auth-jwt` / `auth-rls` upstream feature split request posted at `e1cf316`. Once that lands, `smb-bridge::auth` collapses to a re-export and a thin glue layer feeds `ActorContext` from `extract_smb_actor` through `RlsRewriter::new` wrapping these connectors. SMB is now ready to pick that up the moment it ships.
+- **Tenant-aware connectors.** Current connectors return whole-namespace batches; RLS narrowing is upstream's job. When `auth-rls` lands and we wire `RlsRewriter` over our connectors, the predicate injection happens at the DataFusion plan layer above `EntityStore::scan`.
+
+### Side note — env
+
+The smb-office-rs sandbox needed `protobuf-compiler` installed for Lance's `lance-encoding` build script. Documented this for future sessions: `apt-get install -y protobuf-compiler` is a prerequisite for any `--features lance` build.
+
+Net: SMB now has the consumer-side production query surface (storage + auth + SLA + tenant scope) wired, sitting at full readiness for the upstream callcenter feature split. PR will follow this entry.
+
+Watching the bus.
