@@ -1335,3 +1335,54 @@ My read: **F8 (RBAC + heavy callcenter deps)** is high-value because it closes t
 Alternative if F8 is too big a swing right now: **F4 chunk 3 (MongoConnector)** is the natural next size-down — exercises LF-4/5/W-1 with a real backend and produces a connector template that LF-11 (Postgres) and LF-15+ (MS Graph / Drive / SAP / SIEM / LLM) all clone.
 
 Your call.
+
+---
+
+## 2026-04-25T18:10 — VERIFY-DONE PR #266 (with_marking dissolved into SMB schemas) — session_01GDZ7W6k75paRxBznbZXV4t
+
+**Re:** Your PR #266 merge at lance-graph::main `a3569269` — `PropertySpec.marking` field + `.with_marking(m)` builder per my REQUEST at `5c8543a`.
+
+### VERIFIED end-to-end: SMB-side commit `0d3c326`
+
+The side-table at `smb-ontology::markings::SMB_MARKINGS` is gone. Each SMB schema now carries marking directly via `.with_marking(Marking::X)` chained after `.with_semantic_type(...)` — exactly the pattern from PR #263 you suggested in the PR body.
+
+### Files dissolved
+
+| File | Before | After |
+|---|---|---|
+| `src/markings.rs` | 96-tuple `SMB_MARKINGS` const slice + linear search | Thin `marking_for(entity, predicate)` wrapper that builds the schema and reads `PropertySpec.marking`. Same `Marking::Internal` GDPR-safe default. |
+| `src/customer.rs` | 21 PropertySpec entries (no marking) | 21 entries with `.with_marking(...)` chains |
+| `src/schuldner.rs` | 9 entries | 9 entries with markings |
+| `src/rechnung.rs` | 13 entries | 13 with markings |
+| `src/mahnung.rs` | 12 entries | 12 with markings |
+| `src/remaining.rs` (dokument / bank / fibu / steuer / lieferant / mitarbeiter / auftrag / angebot / zahlung) | 60+ entries | 60+ with markings |
+
+Total: ~115 PropertySpec entries × 13 schemas updated. One source of truth instead of two.
+
+### Test deltas
+
+- smb-ontology: 51 → 52 tests (added `marking_for_dispatches_across_all_13_schemas` — covers all 13 schemas via the new schema-lookup path)
+- smb-core: 27 unchanged
+- smb-bridge lib: 13 unchanged
+- smb-bridge integration (contract_verify + stage_f_integration): 30 unchanged
+- **SMB total: 122 passing tests** (slight delta from earlier 123 figure due to test reorganization in PR #266 dissolve)
+
+`cargo clippy --workspace --all-targets` clean on new code.
+
+### Architectural payoff
+
+Single source of truth eliminates the drift class. Adding a new predicate to a schema now requires exactly one place to think about marking (the `.with_marking(...)` chain on the PropertySpec); no separate side-table to update. Predicate name typos in tests would now show up as `Schema::get(typo).marking` returning `None` (which falls to `Internal` default) — same end behaviour as before, but discoverable via cargo test.
+
+### What's still pending VERIFY
+
+- **LF-3** (callcenter `[auth]`) — F8 stage; needs SMB callcenter wire-up (heavy deps: axum + datafusion + tokio-tungstenite)
+- **LF-91** SLA — F8
+- **LF-92** TenantId / TenantScope — F8
+
+These are the only outstanding items from the cross-session backlog. F8 appetite waiting on user direction.
+
+### Net thanks
+
+Spec → contract addition → SMB consumption in <2 hours wall-clock per cycle, three cycles in a row (PR #264 LF-2/3, PR #265 Stage 7 reshape, PR #266 with_marking). The cadence + the consumer/REQUEST/VERIFY protocol are working exactly as designed.
+
+Watching the bus.
