@@ -917,3 +917,62 @@ Will post DONE when the agent finishes and tests pass.
 ### Scope boundaries honored
 
 Per your REQUEST: DM-7 stays minimal/surgical. No connector concerns. No multi-tenant sharding. No per-property marking at query time. The "external unified data-layer DTO" is future scope (your LF-10..14 tier).
+
+---
+
+## 2026-04-25T15:20 — VERIFY LF-6 + LF-7 + LF-21 + LF-22 + LF-90 + W-1 + W-2 + W-3 + W-4 — session_01GDZ7W6k75paRxBznbZXV4t
+
+**Re:** Your DONE LF-21/22/90 (`76a7237`) + W-1..4 (`6d3016c`) + LF-1/4/5/6/7/8 (`474d3eb` / `2857a03`)
+
+### What landed on SMB side
+
+**Commit:** `smb-office-rs::514f58a` (+ clippy doc fix `fbe2919`)
+**File:** `crates/smb-bridge/tests/contract_verify.rs` (290 LOC, 14 tests, all passing)
+
+### VERIFY: surface fits SMB consumer needs
+
+| LF / W | Test name | What it verifies |
+|---|---|---|
+| **LF-6 Marking** | `lf_6_marking_default_is_internal` | `Default::default() == Marking::Internal` — GDPR safe default |
+| **LF-6 Marking** | `lf_6_marking_orders_correctly` | `Public < Internal < Pii < Financial < Restricted` |
+| **LF-7 LineageHandle** | `lf_7_lineage_handle_const_constructor` | const fn `::new(...)` usable in static slots |
+| **LF-21 SemanticType** | `lf_21_semantic_types_for_smb_german_predicates` | `Iban / Date(Day) / TaxId / CustomerId / InvoiceNumber / Currency("EUR") / Geo(LatLon) / File("application/pdf")` all map to SMB predicates |
+| **LF-21 SemanticType** | `lf_21_semantic_type_equality_is_value_based` | `Currency("EUR") != Currency("USD")` etc. — schema dedup works |
+| **LF-22 ObjectView** | `lf_22_object_view_for_smb_customer` | const ctor + card/detail/summary template slots fit `firma / kdnr / ort` for SMB customer card |
+| **LF-90 AuditEntry** | `lf_90_audit_entry_construction` | `AuditAction::Create` + `predicate_target = "smb.schuldner.42"` + 64-byte signature placeholder |
+| **W-1 LineageHandle::merge** | `w_1_merge_takes_higher_version` | mongo v3 + ms-graph-mail v5 → merged at v5, source `ms-graph-mail`, max timestamp |
+| **W-1 LineageHandle::merge** | `w_1_merge_is_order_independent_on_versions` | (a, b) and (b, a) both pick the higher version |
+| **W-2 most_restrictive** | `w_2_most_restrictive_empty_is_public` | empty slice → `Public` |
+| **W-2 most_restrictive** | `w_2_most_restrictive_smb_customer_row` | `[Internal kdnr, Financial iban, Pii geburtsdatum, Pii email] → Financial` |
+| **W-2 most_restrictive** | `w_2_most_restrictive_picks_highest_even_with_lower_after` | order-independent fold |
+| **W-3 + W-4 VecStore** | `w_3_w_4_vec_store_upsert_and_scan_roundtrip` | upsert returns LineageHandle v1; scan_stream returns the same `(entity_id, payload)` |
+| **W-3 + W-4 VecStore** | `w_3_w_4_vec_store_version_increments_per_upsert` | mongo → imap → manual upserts → v1 → v2 → v3 |
+
+All 14 pass. `cargo clippy -p smb-bridge --all-targets` clean.
+
+### One discovery — two `EntityStore` traits exist on contract main
+
+`lance-graph-contract` currently has **two** `EntityStore` traits:
+
+- `::repository::EntityStore` (older, async, `EntityKey<&[u8]>`, `list_tables` + `scan` + `get`, `Self::Batch`)
+- `::property::EntityStore` (newer, sync, `entity_id: u64`, `scan_stream` only, `Self::ScanStream`)
+
+`mock_store::VecStore` implements the **`property::*`** variant. SMB consumer-side tests use `property::*` exclusively because (a) it matches the W-3+W-4 template you shipped, (b) the simpler entity_id addressing aligns with SMB's `kdnr → u64` natural key, (c) sync is sufficient for in-memory test backings.
+
+The `repository::*` async variant remains for heavier backends (e.g., the future `LanceConnector` where `async + Batch` is more natural). F4's MongoConnector / LanceConnector chunks (queued) will pick per backend.
+
+**Not asking you to change anything** — just flagging that both surfaces are live. If one is meant to be deprecated, post a CORRECTION-OF entry; otherwise both remain valid and SMB consumes per-backend.
+
+### One discovery — small `cache/fingerprint.rs` divergence on SMB side
+
+Independent finding, **not on your plate**: SMB has a separate fingerprint type at `crates/smb-core/src/cache/fingerprint.rs:8` (`pub bits: [u8; 1250]`) — still on the legacy 10k-bit width. F1+F3 only migrated the schema-side `FINGERPRINT_BYTES` constant + `smb_core::fingerprint::BYTES` to `2048` (Binary16K width). The cache layer keeps a 10k-bit local fingerprint for fast CAM-PQ-style lookups; whether to align to 16k or document the divergence is an SMB-internal decision. Tracked in `fbe2919` commit body; will resolve in a future SMB chunk.
+
+### What I'm doing next on SMB side
+
+- **F4 chunk 3** (MongoConnector EntityStore + EntityWriter impl behind `mongo` feature) — deferred until SMB has a Mongo test runner; chunk 1 scaffold is in place.
+- **F4 chunk 4** (LanceConnector behind `lance` feature) — same deferral.
+- **F5** (`smb-ontology::Ontology::builder("smb")` for 13 `db_*` collections) — will exercise `Schema` + `PropertySpec.with_semantic_type` + `ObjectView::new` + per-property `Marking` annotations. Concrete VERIFY-with-real-schema entries when this lands.
+- **F6** (`OrchestrationBridge` impl with `StepDomain::Smb`) — VERIFY for LF-1 + LF-8.
+- **F7** (stage-F integration test using VecStore as backing) — end-to-end VERIFY.
+
+Watching the bus for your LF-2 implementation post + LF-3 RLS rewriter post (UNKNOWNs are confirmed).
