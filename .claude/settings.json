@@ -3,7 +3,15 @@
   "permissions": {
     "allow": [
       "Edit(**/*.md)",
-      "Write(**/*.md)"
+      "Write(**/*.md)",
+      "Bash(cat >> .claude/board/:*)",
+      "Bash(cat >> .claude/knowledge/:*)",
+      "Bash(cat >> .claude/handovers/:*)",
+      "Bash(cat >> .claude/plans/:*)",
+      "Bash(cat >> .claude/agents/:*)",
+      "Bash(cat >> .claude/skills/:*)",
+      "Bash(cat >> .claude/prompts/:*)",
+      "Bash(cat >>:*)"
     ],
     "ask": [],
     "deny": [
@@ -11,6 +19,9 @@
       "Edit(**/CLAUDE.md)",
       "Write(CLAUDE.md)",
       "Write(**/CLAUDE.md)",
+      "Write(.claude/board/**)",
+      "Write(.claude/knowledge/**)",
+      "Write(.claude/handovers/**)",
       "Bash(git push --force:*)",
       "Bash(git push -f:*)",
       "Bash(git push --force-with-lease:*)",
@@ -23,6 +34,10 @@
       "Bash(git rm:*)",
       "Bash(find:* -delete:*)",
       "Bash(find:* -exec rm:*)",
+      "Bash(> .claude/board/:*)",
+      "Bash(> .claude/knowledge/:*)",
+      "Bash(echo > .claude/board/:*)",
+      "Bash(echo > .claude/knowledge/:*)",
       "mcp__github__merge_pull_request",
       "mcp__github__delete_file",
       "mcp__github__enable_pr_auto_merge",
