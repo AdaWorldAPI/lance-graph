@@ -27,8 +27,9 @@ use std::sync::Arc;
 
 use arrow::array::{
     Array, ArrayRef, FixedSizeBinaryArray, FixedSizeBinaryBuilder, Float32Array,
-    ListArray, ListBuilder, UInt16Array, UInt16Builder, UInt32Array,
+    ListArray, UInt16Array, UInt32Array,
 };
+use arrow::buffer::{Buffer, OffsetBuffer};
 use arrow::datatypes::{DataType, Field};
 use datafusion::error::{DataFusionError, Result as DfResult};
 use datafusion::execution::context::SessionContext;
