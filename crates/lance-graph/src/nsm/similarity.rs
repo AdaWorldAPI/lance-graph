@@ -77,8 +77,8 @@ impl SimilarityTable {
     /// similarity(d) = 1.0 - d/255.0
     pub fn linear() -> Self {
         let mut table = [0.0f32; TABLE_SIZE];
-        for i in 0..TABLE_SIZE {
-            table[i] = 1.0 - (i as f32 / 255.0);
+        for (i, slot) in table.iter_mut().enumerate() {
+            *slot = 1.0 - (i as f32 / 255.0);
         }
         SimilarityTable { table }
     }

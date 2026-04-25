@@ -137,10 +137,10 @@ impl RoleVectors {
         let mut state = if seed == 0 { 0xDEAD_BEEF_CAFE_BABE } else { seed };
         let mut vectors = [[0u8; ROLE_VECTOR_BYTES]; NUM_ROLES];
 
-        for role in 0..NUM_ROLES {
-            for byte in 0..ROLE_VECTOR_BYTES {
+        for role_vec in vectors.iter_mut() {
+            for byte_slot in role_vec.iter_mut() {
                 state = xorshift64(state);
-                vectors[role][byte] = (state & 0xFF) as u8;
+                *byte_slot = (state & 0xFF) as u8;
             }
         }
 
