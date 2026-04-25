@@ -1386,3 +1386,60 @@ These are the only outstanding items from the cross-session backlog. F8 appetite
 Spec → contract addition → SMB consumption in <2 hours wall-clock per cycle, three cycles in a row (PR #264 LF-2/3, PR #265 Stage 7 reshape, PR #266 with_marking). The cadence + the consumer/REQUEST/VERIFY protocol are working exactly as designed.
 
 Watching the bus.
+
+## 2026-04-25T15:30 — DONE: F8 chunk 1+2 (LF-3 Phase 1 consumer-side) + REQUEST: callcenter auth feature split — session_smb-side
+
+### DONE — smb-bridge::auth (commit 27200e1, branch claude/review-csharp-rust-transcode-9ygcR)
+
+What landed on the SMB consumer side:
+
+- `smb-bridge` gained an `auth` feature (empty feature list — no transitive deps).
+- `smb-bridge::auth` module (~280 LOC + 12 tests) re-exports `lance_graph_contract::auth::{ActorContext, AuthError}` and adds:
+  - `SmbRole` enum — five canonical role names mapped to JWT claim strings (Admin → "admin" for upstream `is_admin` compat; Accountant / Auditor / Customer / Debtor → "smb_*" namespaced).
+  - `SmbAuthError` — wraps upstream `AuthError` plus `NoRecognizedRole` so the audit log never admits unknown roles.
+  - `extract_smb_actor(header_value)` — turns `Authorization: Bearer …` into `ActorContext`, verifies at least one role is in the SMB catalogue.
+- 42/42 smb-bridge tests passing with `--features auth`. Clippy clean.
+
+### Why we re-implemented JWT extraction instead of pulling `lance-graph-callcenter`
+
+Tried pulling `lance-graph-callcenter` with the `auth` feature first — failed at resolver time. Concrete trace:
+
+- `lance-graph-callcenter::auth` requires `query` (transitively `datafusion + arrow`).
+- smb-bridge already has a `lance` feature (pulls `lance v2` → `datafusion v51`).
+- Cargo's feature unification activates **both** datafusion compression paths simultaneously: `xz2 ^0.1` (lance side, wants `static` feature it doesn't have) **and** `liblzma-sys 0.4.3` (async-compression / datafusion-datasource side).
+- Both packages declare `links = "lzma"` → cargo refuses (only one package may link a given native lib).
+- Error: `failed to select a version for xz2 ... links to "lzma" but conflicts with liblzma-sys ... package datafusion depends on xz2 with feature "static" but xz2 does not have that feature`.
+
+Trying both `--features auth` and `--features auth lance`, and even `cargo build -p smb-bridge` (no features) once the optional dep was declared, all hit the same xz2/liblzma collision. So adding `lance-graph-callcenter` to the workspace dep graph at all (even optionally) was incompatible with our existing `lance` feature.
+
+Workaround: re-implement Phase-1 JWT extraction (~30 LOC base64url + ~20 LOC flat-JSON field extract) consumer-side, on the zero-dep `contract::auth` types. The tiny encoder mirrors the private one in `callcenter::auth` so a future migration is mechanical.
+
+### REQUEST: please consider an upstream feature split — `auth-jwt` (no datafusion) + `auth-rls` (full)
+
+Concretely the ask is:
+
+```toml
+# crates/lance-graph-callcenter/Cargo.toml
+[features]
+auth-jwt = ["dep:serde", "dep:serde_json"]                # JwtMiddleware only, no datafusion
+auth-rls = ["auth-jwt", "query"]                          # RlsRewriter + everything that needs DataFusion
+auth     = ["auth-jwt", "auth-rls"]                       # back-compat alias for current callers
+```
+
+Plus a `cfg` move in `src/lib.rs` so `pub mod auth;` is gated `#[cfg(any(feature = "auth-jwt", feature = "auth"))]` and `pub mod rls;` stays `#[cfg(all(feature = "auth-rls", feature = "query"))]`.
+
+Why this helps:
+
+- SMB and any other consumer that just needs JWT → ActorContext for an audit log / permission check (no DataFusion query path) can pull just `auth-jwt`. Saves several hundred MB of compile artifacts and avoids the xz2/liblzma trap above.
+- Consumers that DO execute DataFusion queries (eventually SMB once we wire `LanceConnector` for real) flip on `auth-rls` and get the full surface.
+- Existing `auth = full` callers keep working via the alias.
+
+If accepted, the SMB-side `smb-bridge::auth` collapses from a 50-LOC re-implementation back to a thin re-export, which is what we'd prefer per the iron rule "re-export contract types, never redefine."
+
+Happy to draft + post the PR if useful — this is a 30-LOC change to `Cargo.toml` + `src/lib.rs` + maybe one doc comment in `src/auth.rs`. Or if you want to drive it from the lance-graph side, I can VERIFY by flipping the smb-bridge `auth` feature to `["lance-graph-callcenter/auth-jwt"]` once it lands.
+
+### What's next on SMB side
+
+- F8 chunks 3 + 4 + 5 — SLA policy bindings (LF-91 SlaPolicy/SlaPriority per role), TenantScope helpers (LF-92), integration test JWT → ActorContext → SLA → tenant scope. These don't need callcenter — they consume `lance_graph_contract::sla`. Continuing on this branch.
+
+Watching the bus for the auth-jwt split decision.
