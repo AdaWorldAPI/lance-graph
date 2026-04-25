@@ -25,7 +25,7 @@ pub enum PropertyKind {
 /// Data classification marking for GDPR compliance.
 /// Determines retention policy, access audit requirements, and
 /// cross-border transfer restrictions.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Marking {
     Public,
     Internal,
@@ -36,6 +36,17 @@ pub enum Marking {
 
 impl Default for Marking {
     fn default() -> Self { Marking::Internal }
+}
+
+impl Marking {
+    /// Returns the most restrictive marking from the slice.
+    ///
+    /// GDPR precedence: Public < Internal < Pii < Financial < Restricted.
+    /// If any property on a row is `Pii`, the row inherits `Pii` (or higher).
+    /// Empty slice returns `Public` (least restrictive).
+    pub fn most_restrictive(markings: &[Marking]) -> Marking {
+        markings.iter().copied().max().unwrap_or(Marking::Public)
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -120,6 +131,36 @@ impl LineageHandle {
     ) -> Self {
         Self { entity_type, entity_id, version, source_system, timestamp_ms }
     }
+
+    /// Merge two lineage handles for the same entity.
+    ///
+    /// Takes the higher version, the later timestamp, and the newer
+    /// handle's `source_system`. Because `source_system` is `&'static str`,
+    /// we cannot dynamically concatenate two values (e.g. `"mongo+imap"`).
+    /// The caller can use a pre-interned combined string if a merged
+    /// source label is required.
+    ///
+    /// # Panics (debug only)
+    ///
+    /// Debug-asserts that `entity_type` and `entity_id` match between
+    /// the two handles. Merging handles for different entities is a
+    /// logic error.
+    pub fn merge(self, other: Self) -> Self {
+        debug_assert_eq!(self.entity_type, other.entity_type);
+        debug_assert_eq!(self.entity_id, other.entity_id);
+        let (newer, older) = if self.version >= other.version {
+            (self, other)
+        } else {
+            (other, self)
+        };
+        Self {
+            entity_type: newer.entity_type,
+            entity_id: newer.entity_id,
+            version: newer.version,
+            source_system: newer.source_system,
+            timestamp_ms: newer.timestamp_ms.max(older.timestamp_ms),
+        }
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -195,6 +236,76 @@ pub trait EntityWriter: Send + Sync {
         row: Self::Row,
         source_system: &'static str,
     ) -> Result<LineageHandle, Self::Error>;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MOCK STORE — IN-MEMORY ENTITYSTORE + ENTITYWRITER FOR TESTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Test-only in-memory store implementing both [`EntityStore`] and
+/// [`EntityWriter`].
+///
+/// **Not for production use.** This module exists as a copy-paste template
+/// for SMB integration tests. It uses `RefCell` for interior mutability so
+/// it satisfies the `&self` signature of `EntityWriter::upsert_with_lineage`.
+/// A production implementation would use `RwLock` or take `&mut self`.
+pub mod mock_store {
+    use super::*;
+    use std::sync::RwLock;
+
+    /// In-memory test store implementing both [`EntityStore`] and
+    /// [`EntityWriter`].
+    ///
+    /// Rows are stored as `(entity_id, payload)` pairs. The version counter
+    /// auto-increments on each upsert. Uses `RwLock` for interior mutability
+    /// so the `Send + Sync` bounds on `EntityStore` / `EntityWriter` are
+    /// satisfied.
+    ///
+    /// **Not for production use.** This is a copy-paste template for SMB
+    /// integration tests.
+    pub struct VecStore {
+        pub rows: RwLock<Vec<(u64, Vec<u8>)>>,
+        version_counter: RwLock<u64>,
+    }
+
+    impl VecStore {
+        pub fn new() -> Self {
+            Self {
+                rows: RwLock::new(Vec::new()),
+                version_counter: RwLock::new(0),
+            }
+        }
+    }
+
+    impl EntityStore for VecStore {
+        type RowBatch = Vec<(u64, Vec<u8>)>;
+        type Error = &'static str;
+        type ScanStream = std::vec::IntoIter<Result<Self::RowBatch, Self::Error>>;
+
+        fn scan_stream(&self, _entity_type: &str) -> Result<Self::ScanStream, Self::Error> {
+            let batch = self.rows.read().map_err(|_| "lock poisoned")?.clone();
+            Ok(vec![Ok(batch)].into_iter())
+        }
+    }
+
+    impl EntityWriter for VecStore {
+        type Error = &'static str;
+        type Row = Vec<u8>;
+
+        fn upsert_with_lineage(
+            &self,
+            entity_type: &'static str,
+            entity_id: u64,
+            row: Self::Row,
+            source_system: &'static str,
+        ) -> Result<LineageHandle, Self::Error> {
+            let mut ver = self.version_counter.write().map_err(|_| "lock poisoned")?;
+            *ver += 1;
+            let version = *ver;
+            self.rows.write().map_err(|_| "lock poisoned")?.push((entity_id, row));
+            Ok(LineageHandle::new(entity_type, entity_id, version, source_system, 0))
+        }
+    }
 }
 
 #[cfg(test)]
@@ -325,5 +436,126 @@ mod tests {
     fn store_and_writer_compose_on_one_type() {
         fn assert_both<T: EntityStore + EntityWriter>(_: &T) {}
         assert_both(&DummyStore);
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // W-1 — LineageHandle::merge
+    // ─────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn merge_takes_higher_version() {
+        let v1 = LineageHandle::new("customer", 42, 1, "mongo", 1000);
+        let v3 = LineageHandle::new("customer", 42, 3, "imap", 900);
+        let merged = v1.merge(v3);
+        assert_eq!(merged.version, 3);
+        assert_eq!(merged.source_system, "imap"); // newer handle's source
+    }
+
+    #[test]
+    fn merge_takes_later_timestamp() {
+        let a = LineageHandle::new("order", 7, 2, "crm", 5000);
+        let b = LineageHandle::new("order", 7, 1, "erp", 9000);
+        let merged = a.merge(b);
+        // a has higher version (2), b has later timestamp (9000)
+        assert_eq!(merged.version, 2);
+        assert_eq!(merged.source_system, "crm");
+        assert_eq!(merged.timestamp_ms, 9000);
+    }
+
+    #[test]
+    fn merge_equal_versions_keeps_self() {
+        let a = LineageHandle::new("ticket", 1, 5, "src_a", 100);
+        let b = LineageHandle::new("ticket", 1, 5, "src_b", 200);
+        let merged = a.merge(b);
+        // self.version >= other.version, so self is "newer"
+        assert_eq!(merged.source_system, "src_a");
+        assert_eq!(merged.timestamp_ms, 200);
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // W-2 — Marking::most_restrictive
+    // ─────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn most_restrictive_empty_is_public() {
+        assert_eq!(Marking::most_restrictive(&[]), Marking::Public);
+    }
+
+    #[test]
+    fn most_restrictive_single() {
+        assert_eq!(Marking::most_restrictive(&[Marking::Pii]), Marking::Pii);
+    }
+
+    #[test]
+    fn most_restrictive_mixed() {
+        let markings = [
+            Marking::Public,
+            Marking::Internal,
+            Marking::Pii,
+            Marking::Financial,
+            Marking::Internal,
+        ];
+        assert_eq!(Marking::most_restrictive(&markings), Marking::Financial);
+    }
+
+    #[test]
+    fn most_restrictive_all_public() {
+        let markings = [Marking::Public, Marking::Public, Marking::Public];
+        assert_eq!(Marking::most_restrictive(&markings), Marking::Public);
+    }
+
+    #[test]
+    fn most_restrictive_restricted_wins() {
+        let markings = [Marking::Pii, Marking::Restricted, Marking::Financial];
+        assert_eq!(Marking::most_restrictive(&markings), Marking::Restricted);
+    }
+
+    #[test]
+    fn marking_ord_matches_gdpr_precedence() {
+        assert!(Marking::Public < Marking::Internal);
+        assert!(Marking::Internal < Marking::Pii);
+        assert!(Marking::Pii < Marking::Financial);
+        assert!(Marking::Financial < Marking::Restricted);
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // W-3 + W-4 — VecStore mock
+    // ─────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn vec_store_scan_empty() {
+        let store = mock_store::VecStore::new();
+        let mut stream = store.scan_stream("any").expect("scan");
+        let batch = stream.next().expect("one batch").expect("ok");
+        assert!(batch.is_empty());
+        assert!(stream.next().is_none());
+    }
+
+    #[test]
+    fn vec_store_upsert_and_scan() {
+        let store = mock_store::VecStore::new();
+        let h1 = store
+            .upsert_with_lineage("customer", 1, vec![0xAA], "crm")
+            .expect("upsert 1");
+        let h2 = store
+            .upsert_with_lineage("customer", 2, vec![0xBB], "crm")
+            .expect("upsert 2");
+
+        assert_eq!(h1.version, 1);
+        assert_eq!(h2.version, 2);
+        assert_eq!(h1.entity_id, 1);
+        assert_eq!(h2.entity_id, 2);
+
+        let mut stream = store.scan_stream("customer").expect("scan");
+        let batch = stream.next().expect("one batch").expect("ok");
+        assert_eq!(batch.len(), 2);
+        assert_eq!(batch[0], (1, vec![0xAA]));
+        assert_eq!(batch[1], (2, vec![0xBB]));
+    }
+
+    #[test]
+    fn vec_store_implements_both_traits() {
+        fn assert_both<T: EntityStore + EntityWriter>(_: &T) {}
+        assert_both(&mock_store::VecStore::new());
     }
 }
