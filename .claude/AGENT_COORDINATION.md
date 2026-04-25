@@ -95,11 +95,11 @@ newest-first.** A `BlackboardEntry` by any other transport.
 ## Canonical Append Pattern
 
 For AGENT_LOG.md (local, gitignored) and CROSS_SESSION_BROADCAST.md
-(committed), use the `cat >>` heredoc — no Read required, no overwrite
+(committed), use the `tee -a` heredoc — no Read required, no overwrite
 risk, pre-allowed in `.claude/settings.json`:
 
 ```bash
-cat >> .claude/board/AGENT_LOG.md <<'EOF'
+tee -a .claude/board/AGENT_LOG.md > /dev/null <<'EOF'
 
 ## YYYY-MM-DDTHH:MM — description (model, branch)
 
@@ -112,7 +112,7 @@ EOF
 
 This is the ONLY sanctioned write pattern for both logs. Do not use
 `Edit` or `Write` tools on them — they risk overwriting prior entries.
-`cat >>` is append-only by construction.
+`tee -a` is append-only by construction.
 
 ---
 

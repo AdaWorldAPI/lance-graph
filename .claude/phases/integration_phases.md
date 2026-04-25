@@ -466,8 +466,7 @@ Das ist der operationale Test für Eingebung.
          (grindwork/accumulation split, never Haiku), GitHub zipball-for-reads.
 
 [x] #212  .claude/knowledge/ → .claude/board/ split. 8 bookkeeping files moved,
-         cat-append-only enforced (Edit+Write denied on all 8), `cat >> file <<
-         'EOF'` the only method. Rows immutable, specific fields mutable.
+         cat-append-only enforced (Edit+Write denied on all 8), `tee -a file > /dev/null <<'EOF'` the only method. Rows immutable, specific fields mutable.
 
 [x] #213  PROMPTS_VS_PRS.md ledger — 41 scoped briefs paired with merged PRs
          (lance-graph) + 25 on ndarray (PR #110). Shipped in 90 seconds on a
