@@ -81,11 +81,12 @@ pub mod drain;
 // DM-7 — JwtMiddleware + ActorContext → LogicalPlan RLS rewriter ([auth])
 //         UNKNOWN-3 resolved: DataFusion LogicalPlan layer (NOT pgwire).
 //         UNKNOWN-4 resolved: actor_id: String (JWT sub claim flows through unchanged).
-#[cfg(any(feature = "auth", feature = "full"))]
+// DM-7 JWT extraction: ActorContext from JWT token (auth-jwt — no datafusion dep)
+#[cfg(any(feature = "auth-jwt", feature = "auth", feature = "full"))]
 pub mod auth;
 
-// DM-7 — RLS rewriter: DataFusion OptimizerRule injecting tenant/actor predicates ([auth] + [query])
-#[cfg(all(feature = "auth", feature = "query"))]
+// DM-7 RLS rewriter: DataFusion OptimizerRule injecting tenant/actor predicates (auth-rls — pulls datafusion)
+#[cfg(any(feature = "auth-rls", feature = "auth", feature = "full"))]
 pub mod rls;
 
 // DM-8 — PostgRestHandler: query-string → DataFusion SQL → Lance → Arrow ([serve])
