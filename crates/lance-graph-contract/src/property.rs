@@ -122,6 +122,81 @@ impl LineageHandle {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ENTITY STORE — STREAMING SCAN (LF-4)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Streaming-capable entity scan API for tables that exceed the
+/// in-memory capacity (~50K rows).
+///
+/// Implementations (in `lance-graph-callcenter` and friends) use Arrow
+/// `RecordBatch` chunks rather than collected `Vec<Row>` so that very
+/// large entity tables (call logs, conversation transcripts, audit
+/// trails) can be processed without materializing the whole result set.
+///
+/// The contract crate is zero-dep, so the row batch and error types are
+/// associated types — the caller binds them to concrete Arrow / Lance
+/// types at the impl site.
+pub trait EntityStore: Send + Sync {
+    /// One streamed batch of rows. The implementor picks the concrete
+    /// shape (typically `arrow::record_batch::RecordBatch` or a typed
+    /// row vector); the contract surface stays Arrow-free.
+    type RowBatch: Send;
+
+    /// Error produced by stream setup or per-batch reads.
+    type Error: Send + 'static;
+
+    /// Iterator returned by `scan_stream`. Each call to `next()` yields
+    /// one batch or a per-batch error. The implementor chooses the
+    /// batch size based on backend characteristics (Lance fragments,
+    /// DataFusion partitions, etc).
+    type ScanStream: Iterator<Item = Result<Self::RowBatch, Self::Error>> + Send;
+
+    /// Stream rows for an entity type.
+    ///
+    /// The `entity_type` argument matches `LineageHandle::entity_type`
+    /// — e.g. `"customer"`, `"call_event"`, `"steering_intent"`.
+    /// Implementations should prefer streaming over `Vec` collection
+    /// once the row count exceeds ~50K, where holding the whole result
+    /// in memory becomes wasteful.
+    fn scan_stream(&self, entity_type: &str) -> Result<Self::ScanStream, Self::Error>;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ENTITY WRITER — UPSERT WITH LINEAGE (LF-5)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Writer trait for entities with provenance tracking.
+///
+/// Every upsert produces a [`LineageHandle`] the caller can persist
+/// alongside the data for audit purposes — who created/modified what,
+/// when, and from which source system.
+///
+/// Like [`EntityStore`], the row payload is an associated type so the
+/// contract crate can stay zero-dep; concrete impls in
+/// `lance-graph-callcenter` bind it to `arrow::record_batch::RecordBatch`
+/// or a typed row struct.
+pub trait EntityWriter: Send + Sync {
+    /// Error produced by the upsert operation.
+    type Error: Send + 'static;
+
+    /// One row's worth of data the implementation knows how to encode.
+    type Row: Send;
+
+    /// Upsert a row and emit a [`LineageHandle`] for the version produced.
+    ///
+    /// The handle is the audit-trail record — persist it next to the
+    /// row in a sidecar lineage table or feed it into a `CausalEdge64`
+    /// provenance bit stream.
+    fn upsert_with_lineage(
+        &self,
+        entity_type: &'static str,
+        entity_id: u64,
+        row: Self::Row,
+        source_system: &'static str,
+    ) -> Result<LineageHandle, Self::Error>;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -168,5 +243,87 @@ mod tests {
         assert_eq!(h.version, 1);
         assert_eq!(h.source_system, "crm");
         assert_eq!(h.timestamp_ms, 1700000000000);
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // LF-4 / LF-5 — trait surface compile checks
+    //
+    // These tests don't exercise behaviour; they prove that the trait
+    // surface is sound — an implementor can satisfy both `EntityStore`
+    // and `EntityWriter` simultaneously with reasonable associated
+    // types. If the trait bounds drift in a way that breaks
+    // implementability, this test stops compiling.
+    // ─────────────────────────────────────────────────────────────────
+
+    /// Trivial in-memory backing struct used only by the trait-surface
+    /// compile tests below. Holds nothing — the goal is to prove the
+    /// `impl` blocks type-check, not to exercise behaviour.
+    struct DummyStore;
+
+    /// Row payload for `DummyStore`'s `EntityStore` and `EntityWriter`
+    /// impls — a single tagged tuple stand-in for an Arrow batch.
+    #[derive(Debug, PartialEq, Eq)]
+    struct DummyBatch(u64);
+
+    /// Empty error type — the dummy impls never fail.
+    #[derive(Debug)]
+    struct DummyError;
+
+    impl EntityStore for DummyStore {
+        type RowBatch = DummyBatch;
+        type Error = DummyError;
+        type ScanStream = std::vec::IntoIter<Result<DummyBatch, DummyError>>;
+
+        fn scan_stream(&self, entity_type: &str) -> Result<Self::ScanStream, Self::Error> {
+            // One batch tagged with the entity_type's length so the
+            // argument is observably consumed.
+            let batch = DummyBatch(entity_type.len() as u64);
+            Ok(vec![Ok(batch)].into_iter())
+        }
+    }
+
+    impl EntityWriter for DummyStore {
+        type Error = DummyError;
+        type Row = DummyBatch;
+
+        fn upsert_with_lineage(
+            &self,
+            entity_type: &'static str,
+            entity_id: u64,
+            _row: Self::Row,
+            source_system: &'static str,
+        ) -> Result<LineageHandle, Self::Error> {
+            Ok(LineageHandle::new(entity_type, entity_id, 1, source_system, 0))
+        }
+    }
+
+    #[test]
+    fn entity_store_scan_stream_compiles_and_yields() {
+        let store = DummyStore;
+        let mut stream = store.scan_stream("customer").expect("scan_stream");
+        let first = stream.next().expect("one batch").expect("ok batch");
+        // "customer" has 8 bytes.
+        assert_eq!(first, DummyBatch(8));
+        assert!(stream.next().is_none());
+    }
+
+    #[test]
+    fn entity_writer_upsert_with_lineage_emits_handle() {
+        let store = DummyStore;
+        let handle = store
+            .upsert_with_lineage("call_event", 7, DummyBatch(0), "asterisk")
+            .expect("upsert");
+        assert_eq!(handle.entity_type, "call_event");
+        assert_eq!(handle.entity_id, 7);
+        assert_eq!(handle.version, 1);
+        assert_eq!(handle.source_system, "asterisk");
+    }
+
+    /// Compile-time check: a single struct can implement both traits
+    /// at once. If the bounds ever conflict, this stops compiling.
+    #[test]
+    fn store_and_writer_compose_on_one_type() {
+        fn assert_both<T: EntityStore + EntityWriter>(_: &T) {}
+        assert_both(&DummyStore);
     }
 }
