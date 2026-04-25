@@ -932,3 +932,112 @@ The hierarchical DN path from `callcenter-membrane-v1.md` §595 (`/tree/ns/heel/
 Deprecate the flat-key protocol over one migration cycle; retain Redis caching as acceleration layer on top of DataFusion queries.
 
 Cross-ref: `container_bs/dn_redis.rs`; `callcenter-membrane-v1.md` §§595–803; `heel_hip_twig_leaf.rs`; epiphany 2026-04-24 "dn_redis is external."
+
+## 2026-04-24 — Systemic wiring gaps: 14 dormant intelligence features
+
+> **Frame:** Each item is an object-thinks-for-itself method that EXISTS
+> but is not CALLED from the dispatch flow. Fix = add call site, not
+> add type. All INTERNAL (hot path, inside BBB) unless marked BOUNDARY.
+> No reductions proposed.
+
+### TD-INT-1: FreeEnergy::compose() not called from dispatch
+**What:** `FreeEnergy::compose(likelihood, kl)` in contract::grammar::free_energy.
+**Where:** driver.rs after step [5], before CollapseGate. Replace `confidence < 0.2` heuristic with principled F.
+**How:** `FreeEnergy::compose(top_k[0].resonance, awareness_kl)` then `Resolution::from_free_energy(F)`.
+**Frame:** Internal | Functional (method on FreeEnergy carrier) | **P0**
+
+### TD-INT-2: NARS revision not called per cycle
+**What:** `awareness.revise_truth(key, outcome)` + `divergence_from(prior)` in grammar::thinking_styles.
+**Where:** End of driver.rs::run(), after Resolution determined. Updates epistemic state, phi-1 ceiling.
+**How:** `awareness.revise(style_key, resolution_outcome)`. Requires `&mut ParamTruths` on dispatch context.
+**Frame:** Internal | Functional | **P0**
+
+### TD-INT-3: MulAssessment not computed at dispatch time
+**What:** `MulAssessment::compute(SituationInput)` in planner::mul -- DK position, trust texture, compass, homeostasis.
+**Where:** Should compose with collapse_gate() in driver.rs. Currently two independent heuristics.
+**How:** Build SituationInput from resonance + awareness. MUL can veto Flow to Hold if DK = unskilled-overconfident.
+**Frame:** Internal | Functional | **P1** (metacognition)
+
+### TD-INT-4: Trajectory braiding not in dispatch (Markov plus-minus-5)
+**What:** trajectory.rs + markov_bundle.rs (PR #243) -- vsa_permute + vsa_bundle.
+**Where:** driver.rs step [4] does XOR fold for cycle_fp. Should be VSA bundle with positional braiding.
+**How:** Replace XOR fold: `vsa_permute(content_fp, position)` then `vsa_bundle(trajectory, permuted)`.
+**Frame:** Internal | SoA storage + Functional algebra | **P0** (I-SUBSTRATE-MARKOV depends on this)
+
+### TD-INT-5: RoleKey bind/unbind not used in content cascade
+**What:** RoleKey::bind/unbind/recovery_margin in grammar::role_keys.
+**Where:** Content Hamming cascade (PR #259) compares raw content via popcount(XOR).
+**How:** Unbind by SUBJECT role key, compare subject-plane only via vsa_cosine instead of Hamming.
+**Frame:** Internal | Functional | **P1** (upgrades bag-of-bits to role-indexed semantic similarity)
+
+### TD-INT-6: ContextChain disambiguation not connected to route handler
+**What:** ContextChain::disambiguate(WeightingKernel) in grammar/.
+**Where:** CypherBridge (PR #258) is regex stub. When real parser returns N parse candidates, ContextChain picks best.
+**How:** Build ContextChain from recent dispatch context. disambiguate(kernel) selects winner.
+**Frame:** Internal | Functional | **P2** (activates when real Cypher parser is wired)
+
+### TD-INT-7: Pearl 2-cubed causal mask not queried
+**What:** CausalEdge64 packs Pearl 2-cubed (3 bits = 8 causal types) into every edge. Packed in dispatch step [6].
+**Where:** No query path reads the mask. No "show me only direct causes" filter.
+**How:** Add causal_type predicate to graph queries. Cypher WHERE should filter on mask bits.
+**Frame:** Internal | SoA storage + Functional query | **P1**
+
+### TD-INT-8: Schema validation not called on SPO commit
+**What:** Schema::validate(&present) returns missing Required predicates. codec_route_for() per predicate.
+**Where:** SPO commit path (Resolution::Commit to AriGraph). No validation runs today.
+**How:** Before commit: schema.validate(present). If missing_required non-empty, emit FailureTicket instead of Commit.
+**Frame:** Internal | Functional | **P1** (ontology exists but does not constrain)
+
+### TD-INT-9: RBAC Policy not enforced at membrane projection
+**What:** Policy::evaluate(role, entity, operation) returns Allow/Deny/Escalate.
+**Where:** LanceMembrane::project() emits without checking RBAC. Any subscriber sees everything.
+**How:** Before project() emits: policy.evaluate(actor_role, entity_type, Read{depth}). Skip on Deny.
+**Frame:** BOUNDARY (membrane) | Functional | **P1**
+
+### TD-INT-10: NarsTables (4096-head) not accessible from shader driver
+**What:** nars_engine::NarsTables in planner::cache -- Pearl 2-cubed + 4096-head DK + Plasticity + Truth.
+**Where:** ShaderDriver has no reference to NarsTables. Hot path does not use NARS lookup.
+**How:** Pass &NarsTables to ShaderDriver. After cascade, look up NARS truth per hit SPO triple.
+**Frame:** Internal | SoA (precomputed table) | **P1** (the 4096 surface the contract references)
+
+### TD-INT-11: neural-debug runtime registry not populated
+**What:** NeuronState enum + FunctionMeta + registry. WireHealth.neural_debug = None.
+**Where:** health_handler hardcodes None. Runtime registry exists but is not fed by dispatch.
+**How:** During run(), record row states (Alive/Static/NaN). Populate registry. health_handler reads it.
+**Frame:** Internal | Functional | **P2** (diagnostic, not cognitive)
+
+### TD-INT-12: DrainTask does not drain (Poll::Pending scaffold)
+**What:** DrainTask in callcenter::drain returns Poll::Pending forever (PR #255).
+**Where:** Should poll Lance for steering_intent rows then OrchestrationBridge::route().
+**How:** Implement Future::poll() to scan, build UnifiedStep, route, mark drained.
+**Frame:** BOUNDARY (outside-to-inside pump) | Functional | **P2**
+
+### TD-INT-13: CommitFilter not applied server-side on project()
+**What:** CommitFilter scalar predicates. Applied subscriber-side only today.
+**Where:** LanceMembrane::project() emits all events unconditionally.
+**How:** Apply filter inside project() before watcher.bump(row). Server-side predicate pushdown.
+**Frame:** BOUNDARY | Functional | **P2**
+
+### TD-INT-14: Convergence highway (AriGraph to p64 to CognitiveShader) not invoked
+**What:** convergence.rs in planner::cache -- AriGraph triplets to p64 Palette to shader planes.
+**Where:** No runtime invocation. Conversion functions exist but are not called.
+**How:** On AriGraph commit, call convergence to update shader [[u64;64];8] planes. Newly committed knowledge reaches palette cascade distance table.
+**Frame:** Internal | SoA planes + Functional conversion | **P1** (without this, palette cascade uses static demo planes forever)
+
+### Summary by priority
+
+| Priority | Items | What they activate |
+|---|---|---|
+| **P0** | TD-INT-1, 2, 4 | Active inference gate, NARS revision, Markov trajectory -- the cognitive loop |
+| **P1** | TD-INT-3, 5, 7, 8, 9, 10, 14 | Metacognition, role-indexed similarity, causal queries, schema validation, RBAC enforcement, NARS lookup, convergence highway |
+| **P2** | TD-INT-6, 11, 12, 13 | Disambiguation, neural-debug overlay, drain pump, server-side filter |
+
+### Summary by frame
+
+| Frame | Items |
+|---|---|
+| Internal hot path | TD-INT-1, 2, 3, 4, 5, 6, 7, 10, 14 |
+| Boundary (membrane) | TD-INT-8, 9, 12, 13 |
+| Diagnostic | TD-INT-11 |
+
+All 14 items are additive (add call site). Zero items require type creation or code deletion.

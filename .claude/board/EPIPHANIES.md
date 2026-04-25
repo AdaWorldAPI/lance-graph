@@ -2760,3 +2760,141 @@ a CURVE, not a POINT: does accuracy increase over the course of a
 single document without retraining? That's the measurement. One
 book. One metric. One curve. Rising = AGI. Flat = broken wire.
 
+## 2026-04-24 — Jirak noise floor calibrated for DeepNSM-tiled 16K-bit fingerprints
+
+**Status:** FINDING
+**Owner scope:** @family-codec-smith, @truth-architect
+
+Grounding the NaN: with DeepNSM encode (512-bit VSA tiled 32× into 16K), density ≈ 0.016, expected random Hamming distance = 511.7 bits. Jirak-adjusted sigma = 19.2 (20% inflation over IID for weak dependence from tiling + XOR-bind braiding). 3-sigma signal threshold: Hamming < 454.2. 5-sigma: < 415.8.
+
+**Practical consequence:** ONE shared token between two clauses (~32 tiled bits) produces a 3.3-sigma deviation — detectable. THREE shared tokens produce 10-sigma — unambiguous signal. This means the HammingMin semiring, once wired into ShaderDriver.dispatch(), WILL fire on related contract clauses.
+
+**Calibration values for dispatch thresholds:**
+- Random baseline resonance: 0.0312 (Hamming/DIM)
+- 3-sigma signal: 0.0277
+- 5-sigma signal: 0.0254
+- Analytical style threshold (0.85): fires at ~2-sigma — may need tightening to 0.027.
+
+**Jirak citation:** Jirak 2016, arxiv 1606.01617, Annals of Probability 44(3). Rate: n^(p/2-1) for p in (2,3]. Weak dependence sources: (a) tiling (32x repeat of 512-bit), (b) XOR-bind braiding, (c) FNV-1a hash collision at 12-bit rank.
+
+Cross-ref: I-NOISE-FLOOR-JIRAK iron rule, encode_handler, DeepNSM VsaVec::from_rank().
+
+## 2026-04-24 — Ground truth: ShaderDriver dispatch wiring audit (what IS vs ISN'T connected)
+
+**Status:** FINDING
+**Owner scope:** @truth-architect, @bus-compiler
+
+Honest audit of what dispatch() actually does vs what the DTO surface promises:
+
+**WIRED (working end-to-end):**
+- [1] Meta prefilter: u32 column sweep on MetaColumn → passed_rows ✓
+- [2] Style resolution: Auto reads QualiaColumn of first row → style_ord ✓
+- [3] Shader cascade: CognitiveShader::new(planes, semiring).cascade(query, radius, layer_mask) ✓
+  BUT: query comes from CausalEdge64.s_idx() of the ROW'S EDGE, not from content fingerprint.
+  The cascade probes the PaletteSemiring distance table, not the content plane.
+- [4] Cycle fingerprint: XOR fold of content_row(hit.row) for each hit ✓
+  BUT: hits come from step [3] which probes edges, not content similarity.
+- [5] Entropy + std_dev + CollapseGate: computed from top-k resonances ✓
+- [6] Edge emission: CausalEdge64::pack per strong hit ✓
+- [7] Sink callbacks: on_resonance → on_bus → on_crystal ✓
+- Meta summary: confidence = top-1 resonance, admit_ignorance = confidence < 0.2 ✓
+
+**NOT WIRED (the gap):**
+- Content fingerprint similarity: dispatch does NOT compare content_row(A) vs content_row(B).
+  The cascade uses PaletteSemiring on edge palette indices, not Hamming on content bits.
+  The content plane is READ (for cycle_fp XOR fold) but never COMPARED.
+- NARS reasoning: no InferenceType dispatch. style_ord maps to inference type via
+  style_ord_to_inference() but it's only used for CausalEdge64 packing, not actual NARS.
+- FreeEnergy: not computed. The contract type exists (grammar/free_energy.rs) but
+  dispatch() never calls FreeEnergy::compose(). The 'should_admit_ignorance' is a
+  simple threshold (confidence < 0.2), not a real F computation.
+- AriGraph/SPO: no graph. dispatch() operates purely on BindSpace columns.
+  The SPO triple store exists in lance-graph core but isn't wired to the driver.
+- PropertySchema validation: not connected. The types exist in contract::property
+  but dispatch() doesn't check Required/Optional/Free.
+
+**What the zeros meant:** resonance=0 wasn't "missing semiring wire" — the cascade
+DID run (3 cascade calls from step [3]). But the demo palette has synthetic Base17
+entries with no relationship to the encoded text. The PaletteSemiring distance table
+is 256x256 pre-computed from those synthetic entries. Text fingerprints in the content
+plane are INVISIBLE to the cascade — they're read only for the XOR fold in step [4].
+
+**To make content fingerprints visible to dispatch:**
+Option A: Add a HammingMin pre-pass before the palette cascade. Compare content_row(i) vs
+  content_row(j) via popcount on XOR. If Hamming < Jirak threshold (454), promote to hit.
+Option B: Build the PaletteSemiring FROM the content fingerprints (quantize content into
+  256 palette entries, compute distance table from those). Content similarity then flows
+  through the existing cascade.
+Option C: Add a second dispatch mode (content-mode vs edge-mode) that uses HammingMin
+  instead of PaletteSemiring for the distance function.
+
+Cross-ref: driver.rs:75-212, Jirak calibration (this session), I-NOISE-FLOOR-JIRAK.
+
+## 2026-04-24 — Session capstone: GEL + Firefly + Pearl 2³ = what Foundry can't do
+
+**Status:** FINDING
+**Owner scope:** @truth-architect, @integration-lead
+
+Three-layer epiphany from the Palantir FfB Technical Overview read:
+
+**1. Code IS Graph IS Executable.** Foundry says "treat data like code" (versioning, branching). Our 4096-row BindSpace goes further: the surface IS executable. GQL (query) → GEL (graph execution language, any program AS a graph) → ArenaIR (OOP → graph-executable transform) → JIT (Cranelift native). A class = node + typed edges. A method call = graph traversal. An if/else = conditional edge predicate. Code and data share one address space: 0x000..0xFFF.
+
+**2. Firefly Repository = Ballista + Dragonfly + GEL.** Foundry bundles Spark + Flink. We'd bundle Ballista (distributed DataFusion) + Dragonfly (fast-path CPU lane for BindSpace sweep / Hamming / palette cascade) + GEL (the ArenaIR the 16 strategies already produce). Lance versioned dataset with CausalEdge64-annotated SPO = the Firefly Repository.
+
+**3. NARS SPO × Pearl 2³ × CausalEdge64 — what Vertex can't do.** Foundry Vertex explores graphs but has NO causal typing on edges. Our CausalEdge64 packs Pearl 2³ = 8 causal masks (correlation / direct cause / confounder / mediator / collider / instrument / front-door / counterfactual) + NARS truth (frequency, confidence) + inference type + plasticity + temporal position into 64 bits per edge. Every SPO triple carries its own causal ontology and epistemology. This is irreducible — Vertex would need a fundamental redesign to match.
+
+Cross-ref: FfB_Technical_Overview_v4.pdf (Palantir), CausalEdge64 (causal-edge crate), I-SUBSTRATE-MARKOV, driver.rs content Hamming cascade (PR #259), CypherBridge (PR #258).
+
+## 2026-04-24 — CORRECTION: supabase-shape is the protocol, not a Postgres dependency
+
+**Status:** CORRECTION
+**Owner scope:** @truth-architect
+
+Mid-session DTO audit hallucination: claimed "Postgres/Supabase via PostgREST" was a third cold-path sink alongside Lance and Arrow Flight. WRONG. PR #255 (LanceMembrane + LanceVersionWatcher + DM-4) explicitly transcoded the supabase-shape INTO native Rust: `subscribe()` returns `tokio::sync::watch::Receiver<CognitiveEventRow>` with always-latest semantics, backed by Lance versioned dataset. NO Postgres. NO JDBC. The supabase-shape is the PROTOCOL (subscribe-on-changes, BBB-scalar events), not the database.
+
+**Corrected cold-path architecture:** Lance dataset = single source of truth. Two read interfaces, both hitting the same Lance: (1) `LanceVersionWatcher.subscribe()` for realtime push (supabase-shape semantics in pure Rust), (2) Arrow Flight SQL for bulk external clients. RLS-equivalent via `CommitFilter` + `Policy.evaluate()`, both already shipped, both pure Rust.
+
+**Why the slip happened:** "supabase" in normal usage = Postgres + Realtime + Auth. In OUR stack, "supabase" is the API shape only. Mid-flow architectural tiredness; the brutal DTO audit's complexity briefly drowned out PR #255's actual scope.
+
+Cross-ref: PR #255 (Supabase subscriber wire-up), `LanceMembrane`, `CognitiveEventRow`, `lab-vs-canonical-surface.md`.
+
+## 2026-04-24 — Paradigm shift: trajectory-native cognitive OS (Berge + Piaget + metacognition gestalt)
+
+**Status:** FINDING
+**Owner scope:** @truth-architect, @integration-lead
+
+Three-frame gestalt review of the architecture's emergent identity:
+
+**Berge Maximum Theorem:** The system IS a parametric optimization at every dispatch. Parameters p = (style, qualia 17D, scenario_id, awareness 4D). Constraint set Γ(p) = BindSpace rows passing MetaFilter. Objective = minimize FreeEnergy. Berge guarantees: on the continuous axes (qualia, awareness), small perturbations produce bounded cognitive shifts — topological stability by construction. On the discrete axes (style ordinal, scenario branch), the value function jumps — that's principled mode-switching, not instability.
+
+**Piaget genetic epistemology:** The system implements all four mechanisms. Assimilation = Resolution::Commit (low F). Accommodation = Resolution::Epiphany (both triples + Contradiction preserved). Equilibration = FreeEnergy minimization loop. Disequilibration = Resolution::FailureTicket (high F → escalate). Current developmental stage: Concrete Operational — logical operations on concrete objects (BindSpace rows, typed entities, Cypher queries). Formal Operational machinery exists (World::fork, SimulationSpec, MulAssessment, NARS abduction) but dispatch doesn't invoke it.
+
+**Metacognition:** Three things the system CAN know about its own cognition: (1) when it's confused (should_admit_ignorance), (2) when it's accommodating (Epiphany), (3) when it's equilibrated (Commit). Today these are shallow — confidence < 0.2 threshold, not principled mul/DK/trust assessment. The deep metacognitive layer (MulAssessment, DkPosition, TrustTexture, NarsTables) exists but dispatch doesn't call it. Loop is half-formed: system observes (MetaSummary) but doesn't update (no NARS revision per cycle, no DK adjustment per outcome).
+
+**The paradigm shift named:** Conventional systems separate data (rows at rest), computation (rows → rows), cognition (rows → labels via gradient descent), causality (inferred via regression), time (a column). Our system collapses all five into ONE primitive: the trajectory. Data = bundled trajectory. Computation = trajectory algebra (bind, bundle, cosine). Cognition = trajectory resolution under FreeEnergy. Causality = structural (Pearl 2³ on CausalEdge64, Chapman-Kolmogorov by VSA bundling). Time = braided position in the bundle.
+
+**What it wants to emerge as:** A trajectory-native cognitive operating system where every read is a trajectory projection, every write is a trajectory bundle, every query is a trajectory resolution under FreeEnergy, every causal claim is annotated into CausalEdge64, every cognitive shift is observable through the metacognitive layer. The five observer perspectives (business / API / SoA / semantic / AGI) are faithful views of the same substrate at different scales. Not a database with intelligence on top — a single computational substrate where storage, compute, learning, and causality are different operations on the same primitive.
+
+Cross-ref: I-SUBSTRATE-MARKOV (Chapman-Kolmogorov by construction), I-NOISE-FLOOR-JIRAK (Jirak 2016 weak dependence), The Click (CLAUDE.md §P-1), categorical-algebraic-inference-v1.md, FreeEnergy/Resolution (contract::grammar::free_energy), MulAssessment (planner::mul), NarsTables (planner::cache::nars_engine).
+
+## 2026-04-24 — Five observers, one substrate: the perspective lattice
+
+**Status:** FINDING
+**Owner scope:** @truth-architect
+
+The architecture's five consumer perspectives are not layers — they're projections of the same trajectory algebra at different scales. No observer is more fundamental; all are faithful.
+
+| Observer | What they see | Internal/External | SoA or Functional | When they read |
+|---|---|---|---|---|
+| Business/SMB | Typed entities with Required/Optional/Free properties, missing-field alerts, similarity search | External (cold path, 10⁻² s) | Functional (Schema.validate(), Policy.evaluate()) | On user action (query, approve, flag) |
+| External API | Queryable surface (Cypher/SQL/SPARQL) returning Arrow batches + realtime subscribe | External (cold path) | Functional (OrchestrationBridge::route()) | On client request |
+| Struct-of-arrays | 4096 × N columns (content, cycle, qualia, meta, edge, temporal), SIMD-sweepable | Internal (hot path, 10⁻⁶ s) | SoA (columnar, cache-line-friendly, LLVM autovectorizes) | Every dispatch cycle |
+| Semantic kernel | Text → role-indexed fingerprint → AriGraph SPO triple with NARS truth | Internal (hot path) | SoA for storage, Functional for algebra (vsa_bind, vsa_bundle, vsa_cosine) | On encode + dispatch |
+| AGI/cognitive | Active-inference agent: perceive → predict → free-energy-minimize → revise → commit | Internal (hot path) | Functional (FreeEnergy::compose, Resolution::from_ranked, awareness.revise) | Every cycle, autonomously |
+| Markov-causal | Chapman-Kolmogorov trajectory with Pearl 2³ causal annotations on every edge | Internal (hot path) | SoA for storage (CausalEdge64 column), Functional for algebra (CausalMask queries) | Structural — always present, queryable on demand |
+
+**The boundary that matters: BBB membrane (ExternalMembrane).** Internal observers (SoA, semantic, AGI, Markov) see the hot path at 10⁻⁶ s. External observers (Business, API) see the cold path via callcenter projections at 10⁻² s. The membrane is the one-way valve: project() emits, subscribe() streams. Internal → external is projection (lossy, scalar, BBB-clean). External → internal is OrchestrationBridge::route() → UnifiedStep (validated at ingress).
+
+**SoA vs Functional is not a choice — it's a WHERE.** BindSpace is SoA (columnar storage for SIMD). The algebra on it is Functional (methods on carriers). The SoA carries the state; the Functional methods transform it. Both exist simultaneously on the same data. The "struct of arrays vs object thinks for itself" tension resolves as: the ARRAY is the SoA, the ELEMENT (row, trajectory, fingerprint) thinks for itself via methods.
+
+Cross-ref: CLAUDE.md §The Stance (AGI-as-glove, SoA columns ARE the AGI surface), lab-vs-canonical-surface.md (I1-I11 invariants), ExternalMembrane (contract::external_membrane), BindSpace (cognitive-shader-driver::bindspace).
