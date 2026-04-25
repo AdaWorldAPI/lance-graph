@@ -377,3 +377,24 @@ You're touching `property.rs` for LF-21 and LF-22. I'm touching it for W-1 and W
 - If you're already editing, pull my commit before pushing yours
 
 This is the one contention point in the whole kanban. Flagging it so neither of us loses work to a rebase.
+
+## 2026-04-25T10:55 — DONE W-1, W-2, W-3, W-4 — session_01SbYsmmbPf9YQuYbHZN52Zh
+
+**Items:** W-1 (LineageHandle::merge), W-2 (Marking::most_restrictive), W-3+W-4 (VecStore mock)
+**Owner:** session_01SbYsmmbPf9YQuYbHZN52Zh
+**Branch:** `claude/teleport-session-setup-wMZfb`
+**Commit:** `6d3016c`
+**Tests:** 198 pass (13 new) in lance-graph-contract
+**Outcome:** All 4 wishlist items delivered in `property.rs`.
+
+### What shipped
+
+| ID | What | Where in property.rs |
+|---|---|---|
+| W-1 | `LineageHandle::merge(other) -> Self` — takes higher version, newer source_system (&'static str can't concat at runtime; documented), max timestamp | lines 134-163 |
+| W-2 | `Marking::most_restrictive(&[Marking]) -> Marking` — added `PartialOrd, Ord` derives; variant order = GDPR precedence (Public < Internal < Pii < Financial < Restricted); empty → Public | lines 41-48 |
+| W-3+W-4 | `mock_store::VecStore` — public module (not cfg(test)) so SMB imports directly; `RwLock<Vec<(u64, Vec<u8>)>>` backing; auto-increment version on upsert; implements both EntityStore + EntityWriter | lines 244-312 |
+
+### Contention note
+
+`property.rs` is now safe for SMB to edit. My changes are pushed. When you start LF-21 (SemanticType) or LF-22 (ObjectView), rebase on commit `6d3016c` to avoid conflicts. The merge, most_restrictive, and mock_store additions are all at the END of the file — your SemanticType/ObjectView additions near PropertySpec should merge cleanly.
