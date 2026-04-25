@@ -33,5 +33,8 @@ persist  = ["dep:arrow", "dep:lance"]
 query    = ["dep:datafusion", "dep:arrow"]
 realtime = ["dep:tokio", "dep:tokio-tungstenite", "dep:serde", "dep:serde_json"]
 serve    = ["realtime", "query", "dep:axum", "dep:tower-http"]
-auth     = ["dep:serde", "dep:serde_json"]
+auth     = ["query", "dep:serde", "dep:serde_json"]
 full     = ["persist", "query", "realtime", "serve", "auth"]
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }

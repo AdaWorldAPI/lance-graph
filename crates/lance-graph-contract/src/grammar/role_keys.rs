@@ -1,6 +1,6 @@
 //! Role keys — canonical deterministic `[start:stop]`-slice VSA role bindings.
 //!
-//! Each role owns a **disjoint contiguous slice** of the 10,000-dim VSA
+//! Each role owns a **disjoint contiguous slice** of the 16,384-dim VSA
 //! space (compatible with `CrystalFingerprint::Binary16K`). Only the bits
 //! in that slice are set to a deterministic pseudo-random pattern seeded
 //! from FNV-64 of the label; all other bits are zero. This is the
@@ -10,25 +10,34 @@
 //! only affects that role's slice, and bundles of different role-bindings
 //! don't contaminate each other.
 //!
-//! ## Space layout (10,000 total dims)
+//! ## Space layout (16,384 total dims — LF-2 resize from 10,000)
 //!
 //! ```text
-//! [    0 .. 2000)   SUBJECT_KEY
-//! [ 2000 .. 4000)   PREDICATE_KEY
-//! [ 4000 .. 6000)   OBJECT_KEY
-//! [ 6000 .. 7500)   MODIFIER_KEY
-//! [ 7500 .. 9000)   CONTEXT_KEY
-//! [ 9000 .. 9200)   TEMPORAL_KEY
-//! [ 9200 .. 9400)   KAUSAL_KEY
-//! [ 9400 .. 9500)   MODAL_KEY
-//! [ 9500 .. 9650)   LOKAL_KEY
-//! [ 9650 .. 9750)   INSTRUMENT_KEY
-//! [ 9750 .. 9780)   BENEFICIARY_KEY
-//! [ 9780 .. 9810)   GOAL_KEY
-//! [ 9810 .. 9840)   SOURCE_KEY
-//! [ 9840 .. 9910)   Finnish 15 cases — ~4-5 dims each
-//! [ 9910 .. 9970)   12 tense keys — 5 dims each
-//! [ 9970 .. 10000)  7 NARS inference keys — ~4 dims each
+//! [    0 ..  2000)   SUBJECT_KEY
+//! [ 2000 ..  4000)   PREDICATE_KEY
+//! [ 4000 ..  6000)   OBJECT_KEY
+//! [ 6000 ..  7500)   MODIFIER_KEY
+//! [ 7500 ..  9000)   CONTEXT_KEY
+//! [ 9000 ..  9200)   TEMPORAL_KEY
+//! [ 9200 ..  9400)   KAUSAL_KEY
+//! [ 9400 ..  9500)   MODAL_KEY
+//! [ 9500 ..  9650)   LOKAL_KEY
+//! [ 9650 ..  9750)   INSTRUMENT_KEY
+//! [ 9750 ..  9780)   BENEFICIARY_KEY
+//! [ 9780 ..  9810)   GOAL_KEY
+//! [ 9810 ..  9840)   SOURCE_KEY
+//! [ 9840 ..  9910)   Finnish 15 cases — ~4-5 dims each
+//! [ 9910 ..  9970)   12 tense keys — 5 dims each
+//! [ 9970 .. 10000)   7 NARS inference keys — ~4 dims each
+//! [10000 .. 10512)   SMB KUNDE_KEY (customer)
+//! [10512 .. 11024)   SMB SCHULDNER_KEY (debtor)
+//! [11024 .. 11536)   SMB MAHNUNG_KEY (dunning)
+//! [11536 .. 12048)   SMB RECHNUNG_KEY (invoice)
+//! [12048 .. 12560)   SMB DOKUMENT_KEY (document)
+//! [12560 .. 13072)   SMB BANK_KEY (banking)
+//! [13072 .. 13584)   SMB FIBU_KEY (financial accounting)
+//! [13584 .. 14096)   SMB STEUER_KEY (tax)
+//! [14096 .. 16384)   headroom (reserved for future SMB keys)
 //! ```
 
 use std::sync::LazyLock;
@@ -36,27 +45,18 @@ use std::sync::LazyLock;
 use super::finnish::FinnishCase;
 use super::inference::NarsInference;
 
-/// VSA vector width in `u64` words. Matches `ndarray::hpc::vsa::VSA_WORDS`.
-/// 157 × 64 = 10,048 bits, covering the 10,000 VSA dims with 48 slack bits.
-pub const VSA_WORDS: usize = 157;
+/// VSA vector width in `u64` words. 256 × 64 = 16,384 bits.
+/// Matches `CrystalFingerprint::Binary16K` and `ndarray::hpc::vsa::VSA_WORDS`.
+pub const VSA_WORDS: usize = 256;
 
 /// VSA vector width in dimensions (bits actually used).
-pub const VSA_DIMS: usize = 10_000;
+/// Resized from 10,000 → 16,384 (LF-2) to accommodate SMB domain
+/// role keys in [10000..14096) with 2,288 dims headroom.
+pub const VSA_DIMS: usize = 16_384;
 
-// NOTE: The `Vsa10k = [u64; 157]` bitpacked type alias, `VSA_ZERO` constant,
-// and `RoleKey::{bind, unbind, recovery_margin}` methods that existed in
-// early 2026-04-21 session work were REMOVED in the cleanup commit
-// `cd5c049...`. That code used GF(2)/XOR algebra which is the
-// Binary16K Hamming-comparison format, not the real-valued VSA bundling
-// format. Correct VSA substrate is `Vsa10kF32 = Box<[f32; 10_000]>`
-// (existing) or `Vsa16kF32 = Box<[f32; 16_384]>` (pending rescale), with
-// element-wise multiply/add via existing `crystal::fingerprint::{vsa_bind,
-// vsa_bundle, vsa_cosine}`.
-//
-// See `CHANGELOG.md` § VSA format switches and
-// `.claude/knowledge/vsa-switchboard-architecture.md` for the full
-// three-layer architecture. Role keys (this module) are Layer-2 catalogue
-// ONLY — identity slice boundaries. Algebra lives in Layer-1 `crystal/`.
+// NOTE: bind/unbind/recovery_margin methods removed (see CHANGELOG.md).
+// Role keys are Layer-2 catalogue ONLY — identity slice boundaries.
+// Algebra lives in Layer-1 `crystal/` and in ndarray.
 
 /// A role key owns a contiguous slice of the VSA space.
 /// Outside the slice, **all bits are zero**.
@@ -302,6 +302,19 @@ pub fn nars_inference_key(inf: NarsInference) -> &'static RoleKey {
 }
 
 // ---------------------------------------------------------------------------
+// SMB domain role keys — [10000 .. 14096), 512 dims each (LF-2)
+// ---------------------------------------------------------------------------
+
+pub static KUNDE_KEY:     LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("smb.kunde",     10_000, 10_512));
+pub static SCHULDNER_KEY: LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("smb.schuldner", 10_512, 11_024));
+pub static MAHNUNG_KEY:   LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("smb.mahnung",   11_024, 11_536));
+pub static RECHNUNG_KEY:  LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("smb.rechnung",  11_536, 12_048));
+pub static DOKUMENT_KEY:  LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("smb.dokument",  12_048, 12_560));
+pub static BANK_KEY:      LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("smb.bank",      12_560, 13_072));
+pub static FIBU_KEY:      LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("smb.fibu",      13_072, 13_584));
+pub static STEUER_KEY:    LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("smb.steuer",    13_584, 14_096));
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -323,6 +336,12 @@ mod tests {
         for k in FINNISH_KEYS.iter() { v.push((k.slice_start, k.slice_end, k.label)); }
         for k in TENSE_KEYS.iter()   { v.push((k.slice_start, k.slice_end, k.label)); }
         for k in NARS_KEYS.iter()    { v.push((k.slice_start, k.slice_end, k.label)); }
+        for k in [
+            &*KUNDE_KEY, &*SCHULDNER_KEY, &*MAHNUNG_KEY, &*RECHNUNG_KEY,
+            &*DOKUMENT_KEY, &*BANK_KEY, &*FIBU_KEY, &*STEUER_KEY,
+        ] {
+            v.push((k.slice_start, k.slice_end, k.label));
+        }
         v
     }
 
