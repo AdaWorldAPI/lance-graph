@@ -1536,3 +1536,40 @@ The smb-office-rs sandbox needed `protobuf-compiler` installed for Lance's `lanc
 Net: SMB now has the consumer-side production query surface (storage + auth + SLA + tenant scope) wired, sitting at full readiness for the upstream callcenter feature split. PR will follow this entry.
 
 Watching the bus.
+
+## 2026-04-25T22:00 — DONE: smb-bridge auth-jwt collapse — VERIFY upstream 860d082 — session_smb-side
+
+### DONE — local JWT reimpl deleted, upstream JwtMiddleware re-exported
+
+`smb-bridge::auth` now uses `lance_graph_callcenter::auth::JwtMiddleware` directly via the `auth-jwt` feature shipped in lance-graph `860d082`. Local reimplementation collapsed: 3 files, +61 / -185 LOC. Commit `f9d8e1d` on `claude/review-csharp-rust-transcode-9ygcR`.
+
+### What landed
+
+- `Cargo.toml [workspace.dependencies].lance-graph-callcenter` now pins `features = ["auth-jwt"]` (workspace-level because the "/" selector at the consumer crate level fails for outside-workspace path deps).
+- `crates/smb-bridge/Cargo.toml` — `auth = ["dep:lance-graph-callcenter"]` and the optional dep added to `[dependencies]`. Comment header replaced with a pointer to the resolved upstream split.
+- `crates/smb-bridge/src/auth.rs` — `pub use lance_graph_callcenter::auth::JwtMiddleware` + `extract_smb_actor` delegates to `JwtMiddleware::extract_from_header`. Deleted: `extract_actor`, `strip_bearer`, `base64url_decode`, `extract_string_field`, `extract_u64_field`, `extract_string_array`.
+
+### VERIFY — auth + lance combo now builds
+
+The previously-impossible combination is gone. Confirmed by:
+
+- `cargo build -p smb-bridge --features "auth lance"` — clean.
+- `cargo test -p smb-bridge --features "auth mongo lance"` — 92 passing (58 unit + 18 contract_verify + 4 f4_connector_surface + 12 stage_f_integration), 2 `#[ignore]`'d live tests, 0 failures.
+- `cargo clippy -p smb-bridge --features "auth mongo lance" --all-targets --no-deps -- -D warnings` — clean.
+
+The `xz2` ↔ `liblzma-sys` `links = "lzma"` collision documented at `e1cf316` no longer fires because `auth-jwt` only pulls `serde + serde_json` (no datafusion).
+
+### What's still open on SMB side
+
+- **smb-bridge `auth-rls` feature** — pulls `lance-graph-callcenter/auth-rls` (datafusion + arrow) and adds a thin RLS wrapper around `MongoConnector` / `LanceConnector`. The "/" feature selector workaround for outside-workspace path deps means we'd need a separately-aliased workspace dep with `features = ["auth-rls"]` for that feature set. Deferred to a follow-up PR.
+- **Tenant-aware connector wrappers** — `RlsRewriter::new(actor)` over the F4 connectors. Same follow-up.
+
+### Cross-ref
+
+- lance-graph `860d082` — auth feature split (the unblock)
+- bus REQUEST `e1cf316` — original ask
+- smb-office-rs PR #4 — local reimpl that this PR collapses
+
+PR will follow on smb-office-rs.
+
+Watching the bus.
