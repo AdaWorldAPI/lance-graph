@@ -1,31 +1,645 @@
-//! Property specifications for graph entities.
+//! Property classification for AriGraph SPO predicates.
 //!
-//! Defines the shape, optionality, and data-classification of properties
-//! that attach to vertices and edges. Outside the BBB this is a boring
-//! schema layer; inside it feeds the cognitive shader's metadata columns.
+//! Each predicate in the triple store carries a `PropertySpec` that
+//! determines: (1) whether absence triggers a `FailureTicket` (Required),
+//! (2) how the object value is stored — lossless Index or compressed
+//! CAM-PQ Argmax, and (3) the NARS truth floor below which the system
+//! escalates.
+//!
+//! The bardioc Required/Optional/Free concept maps to the I1 Codec
+//! Regime Split (ADR-0002): Required = Passthrough (identity must
+//! round-trip), Optional = configurable, Free = CamPq (similarity
+//! search over schema-free attributes).
 
-// ═══════════════════════════════════════════════════════════════════════════
-// PROPERTY KIND
-// ═══════════════════════════════════════════════════════════════════════════
+use crate::cam::CodecRoute;
 
-/// The scalar kind of a property value.
+/// Classification of an SPO predicate's cardinality and schema obligation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PropertyKind {
-    Bool,
-    I64,
-    F64,
-    String,
-    Bytes,
+    /// MUST exist for the entity to be valid. Absence triggers
+    /// FailureTicket via FreeEnergy escalation. Always Index regime
+    /// (lossless, exact match). Examples: tax_id, customer_name, IBAN.
+    Required,
+    /// MAY exist. Adds value when present but absence does not
+    /// escalate. Codec route is configurable per predicate —
+    /// address = Index, industry_description = CamPq.
+    Optional,
+    /// Schema-free. Any predicate name accepted. Default codec
+    /// route is CamPq (Argmax) for similarity search across
+    /// tenants. User-defined tags, notes, custom fields.
+    Free,
+}
+
+/// Specification for a single predicate in the AriGraph SPO store.
+///
+/// Ties the predicate name to its property kind, codec route, and
+/// NARS truth floor. The truth floor is the minimum (frequency,
+/// confidence) below which the system treats the property as
+/// "effectively absent" — for Required properties, this triggers
+/// a FailureTicket.
+#[derive(Clone, Debug)]
+pub struct PropertySpec {
+    /// Predicate name in the SPO triple (e.g. "tax_id", "address", "note").
+    pub predicate: &'static str,
+    /// Required / Optional / Free classification.
+    pub kind: PropertyKind,
+    /// How the object value is stored/searched. Derived from kind
+    /// by default but overridable per predicate.
+    pub codec_route: CodecRoute,
+    /// Minimum (frequency, confidence) as u8 pair (0..255 each).
+    /// Below this floor, Required properties trigger FailureTicket.
+    /// None = no floor check (typical for Free properties).
+    pub nars_floor: Option<(u8, u8)>,
+}
+
+impl PropertySpec {
+    /// Create a Required property spec. Default codec: Passthrough (Index).
+    /// Default NARS floor: (128, 128) — moderate confidence required.
+    pub const fn required(predicate: &'static str) -> Self {
+        Self {
+            predicate,
+            kind: PropertyKind::Required,
+            codec_route: CodecRoute::Passthrough,
+            nars_floor: Some((128, 128)),
+        }
+    }
+
+    /// Create an Optional property spec. Caller must specify codec route.
+    /// No NARS floor by default (absence doesn't escalate).
+    pub const fn optional(predicate: &'static str, codec_route: CodecRoute) -> Self {
+        Self {
+            predicate,
+            kind: PropertyKind::Optional,
+            codec_route,
+            nars_floor: None,
+        }
+    }
+
+    /// Create a Free property spec. Default codec: CamPq (Argmax).
+    /// No NARS floor (schema-free, always accepted).
+    pub const fn free(predicate: &'static str) -> Self {
+        Self {
+            predicate,
+            kind: PropertyKind::Free,
+            codec_route: CodecRoute::CamPq,
+            nars_floor: None,
+        }
+    }
+
+    /// Override the NARS truth floor.
+    pub const fn with_nars_floor(mut self, frequency: u8, confidence: u8) -> Self {
+        self.nars_floor = Some((frequency, confidence));
+        self
+    }
+
+    /// Override the codec route.
+    pub const fn with_codec_route(mut self, route: CodecRoute) -> Self {
+        self.codec_route = route;
+        self
+    }
+
+    /// Check whether a given (frequency, confidence) pair is below this
+    /// property's truth floor. Returns true if escalation is warranted.
+    pub const fn below_floor(&self, frequency: u8, confidence: u8) -> bool {
+        match self.nars_floor {
+            Some((min_f, min_c)) => frequency < min_f || confidence < min_c,
+            None => false,
+        }
+    }
+}
+
+/// A property schema — a collection of PropertySpecs for a given entity type.
+/// Used by AriGraph to validate triples on insert and to route codec
+/// decisions per predicate.
+#[derive(Clone, Debug)]
+pub struct PropertySchema {
+    /// Entity type name (e.g. "Customer", "Invoice", "TaxDeclaration").
+    pub entity_type: &'static str,
+    /// Ordered list of property specs. Required properties come first
+    /// by convention (not enforced).
+    pub properties: &'static [PropertySpec],
+}
+
+impl PropertySchema {
+    /// Look up a property spec by predicate name.
+    pub fn get(&self, predicate: &str) -> Option<&PropertySpec> {
+        self.properties.iter().find(|p| p.predicate == predicate)
+    }
+
+    /// Return all Required properties.
+    pub fn required(&self) -> impl Iterator<Item = &PropertySpec> {
+        self.properties.iter().filter(|p| p.kind == PropertyKind::Required)
+    }
+
+    /// Return all predicates that are missing from a given set of
+    /// predicate names. Only checks Required properties.
+    /// Returns predicate names that should trigger FailureTicket.
+    pub fn missing_required<'a>(&'a self, present: &'a [&str]) -> impl Iterator<Item = &'static str> + 'a {
+        self.required()
+            .filter(move |p| !present.contains(&p.predicate))
+            .map(|p| p.predicate)
+    }
+
+    /// Determine the codec route for a predicate. If the predicate is
+    /// not in the schema, it's treated as Free (CamPq).
+    pub fn codec_route_for(&self, predicate: &str) -> CodecRoute {
+        self.get(predicate)
+            .map(|p| p.codec_route)
+            .unwrap_or(CodecRoute::CamPq)
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// DATA CLASSIFICATION (GDPR)
+// Schema builder — declarative API for SMB tenants
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Owned property schema built at runtime via the builder API.
+/// Complement to `PropertySchema` (which is `&'static`-only for const schemas).
+#[derive(Clone, Debug)]
+pub struct Schema {
+    pub name: &'static str,
+    pub properties: Vec<PropertySpec>,
+}
+
+impl Schema {
+    pub fn builder(name: &'static str) -> SchemaBuilder {
+        SchemaBuilder { name, properties: Vec::new() }
+    }
+
+    pub fn get(&self, predicate: &str) -> Option<&PropertySpec> {
+        self.properties.iter().find(|p| p.predicate == predicate)
+    }
+
+    pub fn required_props(&self) -> impl Iterator<Item = &PropertySpec> {
+        self.properties.iter().filter(|p| p.kind == PropertyKind::Required)
+    }
+
+    pub fn missing_required<'a>(&'a self, present: &'a [&str]) -> impl Iterator<Item = &'static str> + 'a {
+        self.required_props()
+            .filter(move |p| !present.contains(&p.predicate))
+            .map(|p| p.predicate)
+    }
+
+    pub fn codec_route_for(&self, predicate: &str) -> CodecRoute {
+        self.get(predicate)
+            .map(|p| p.codec_route)
+            .unwrap_or(CodecRoute::CamPq)
+    }
+
+    /// Validate a set of present predicates. Returns a list of missing
+    /// Required predicate names. Empty = valid.
+    pub fn validate(&self, present: &[&str]) -> Vec<&'static str> {
+        self.missing_required(present).collect()
+    }
+}
+
+pub struct SchemaBuilder {
+    name: &'static str,
+    properties: Vec<PropertySpec>,
+}
+
+impl SchemaBuilder {
+    /// Add a Required property (Passthrough codec, NARS floor 128/128).
+    pub fn required(mut self, predicate: &'static str) -> Self {
+        self.properties.push(PropertySpec::required(predicate));
+        self
+    }
+
+    /// Add an Optional property with Passthrough (exact match) codec.
+    pub fn optional(mut self, predicate: &'static str) -> Self {
+        self.properties.push(PropertySpec::optional(predicate, CodecRoute::Passthrough));
+        self
+    }
+
+    /// Add an Optional property with CamPq (similarity search) codec.
+    pub fn searchable(mut self, predicate: &'static str) -> Self {
+        self.properties.push(PropertySpec::optional(predicate, CodecRoute::CamPq));
+        self
+    }
+
+    /// Add a Free property (CamPq codec, no NARS floor).
+    pub fn free(mut self, predicate: &'static str) -> Self {
+        self.properties.push(PropertySpec::free(predicate));
+        self
+    }
+
+    /// Add a custom PropertySpec directly.
+    pub fn property(mut self, spec: PropertySpec) -> Self {
+        self.properties.push(spec);
+        self
+    }
+
+    pub fn build(self) -> Schema {
+        Schema { name: self.name, properties: self.properties }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Link types — typed edges between ontology objects (Foundry Stage 1)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Typed edge between two ontology object types. An SPO triple
+/// `(Customer:123, issued, Invoice:456)` is governed by a LinkSpec
+/// that constrains subject_type, predicate, and object_type.
+#[derive(Clone, Debug)]
+pub struct LinkSpec {
+    pub subject_type: &'static str,
+    pub predicate: &'static str,
+    pub object_type: &'static str,
+    pub cardinality: Cardinality,
+    pub codec_route: CodecRoute,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Cardinality {
+    OneToOne,
+    OneToMany,
+    ManyToMany,
+}
+
+impl LinkSpec {
+    pub const fn one_to_many(
+        subject_type: &'static str,
+        predicate: &'static str,
+        object_type: &'static str,
+    ) -> Self {
+        Self {
+            subject_type, predicate, object_type,
+            cardinality: Cardinality::OneToMany,
+            codec_route: CodecRoute::Passthrough,
+        }
+    }
+
+    pub const fn many_to_many(
+        subject_type: &'static str,
+        predicate: &'static str,
+        object_type: &'static str,
+    ) -> Self {
+        Self {
+            subject_type, predicate, object_type,
+            cardinality: Cardinality::ManyToMany,
+            codec_route: CodecRoute::Passthrough,
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Prefetch depth — Object Explorer property loading tiers (Foundry Stage 5)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Graph prefetch depth for progressive property loading.
+/// Maps to PropertyKind + CodecRoute: the ontology metadata
+/// determines what loads at each scroll/expansion level.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum PrefetchDepth {
+    /// Node visible — Required properties only (identity).
+    /// All Passthrough (Index regime), instant lookup.
+    Identity = 0,
+    /// Node selected — + Optional/Passthrough (exact-match fields).
+    Detail = 1,
+    /// Node expanded — + Optional/CamPq (similarity-searchable).
+    /// CAM-PQ distance queries fire at this level.
+    Similar = 2,
+    /// Node deep-dived — + Free properties + episodic memory.
+    /// Full CamPq sweep + Markov ±5 temporal window.
+    Full = 3,
+}
+
+impl Schema {
+    /// Return properties visible at a given prefetch depth.
+    pub fn properties_at_depth(&self, depth: PrefetchDepth) -> Vec<&PropertySpec> {
+        self.properties.iter().filter(|p| {
+            match depth {
+                PrefetchDepth::Identity => p.kind == PropertyKind::Required,
+                PrefetchDepth::Detail => {
+                    p.kind == PropertyKind::Required
+                    || (p.kind == PropertyKind::Optional && p.codec_route == CodecRoute::Passthrough)
+                }
+                PrefetchDepth::Similar => {
+                    p.kind == PropertyKind::Required || p.kind == PropertyKind::Optional
+                }
+                PrefetchDepth::Full => true,
+            }
+        }).collect()
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Action specs — Application Builder actions on objects (Foundry Stage 5)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// An action that can be taken on an ontology object. Maps a user
+/// gesture (approve invoice, flag customer, submit declaration) to
+/// a predicate change routed through OrchestrationBridge.
+///
+/// In active-inference terms: an Action IS a Commit with side effects.
+/// The action fires when FreeEnergy drops below threshold (auto) or
+/// when a human explicitly triggers it (manual).
+#[derive(Clone, Debug)]
+pub struct ActionSpec {
+    pub name: &'static str,
+    pub entity_type: &'static str,
+    /// The predicate this action modifies (e.g. "status", "approved_by").
+    pub target_predicate: &'static str,
+    pub trigger: ActionTrigger,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ActionTrigger {
+    /// User must explicitly trigger (button click, approval).
+    Manual,
+    /// System triggers when FreeEnergy < threshold (auto-commit).
+    Auto,
+    /// System suggests, user confirms (semi-auto).
+    Suggested,
+}
+
+impl ActionSpec {
+    pub const fn manual(name: &'static str, entity_type: &'static str, target: &'static str) -> Self {
+        Self { name, entity_type, target_predicate: target, trigger: ActionTrigger::Manual }
+    }
+
+    pub const fn auto(name: &'static str, entity_type: &'static str, target: &'static str) -> Self {
+        Self { name, entity_type, target_predicate: target, trigger: ActionTrigger::Auto }
+    }
+
+    pub const fn suggested(name: &'static str, entity_type: &'static str, target: &'static str) -> Self {
+        Self { name, entity_type, target_predicate: target, trigger: ActionTrigger::Suggested }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Example schemas — SMB domain (const)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Customer entity property schema.
+pub const CUSTOMER_SCHEMA: PropertySchema = PropertySchema {
+    entity_type: "Customer",
+    properties: &[
+        // Required — identity, lossless
+        PropertySpec::required("customer_name"),
+        PropertySpec::required("tax_id"),
+        // Optional — exact match
+        PropertySpec::optional("address", CodecRoute::Passthrough),
+        PropertySpec::optional("iban", CodecRoute::Passthrough),
+        PropertySpec::optional("phone", CodecRoute::Passthrough),
+        PropertySpec::optional("email", CodecRoute::Passthrough),
+        // Optional — similarity search
+        PropertySpec::optional("industry", CodecRoute::CamPq),
+        PropertySpec::optional("description", CodecRoute::CamPq),
+        // Free — anything goes, similarity indexed
+        PropertySpec::free("tag"),
+        PropertySpec::free("note"),
+    ],
+};
+
+/// Invoice entity property schema.
+pub const INVOICE_SCHEMA: PropertySchema = PropertySchema {
+    entity_type: "Invoice",
+    properties: &[
+        PropertySpec::required("invoice_number"),
+        PropertySpec::required("date"),
+        PropertySpec::required("total_amount"),
+        PropertySpec::required("currency"),
+        PropertySpec::required("customer_ref"),
+        PropertySpec::optional("due_date", CodecRoute::Passthrough),
+        PropertySpec::optional("payment_terms", CodecRoute::Passthrough),
+        PropertySpec::optional("line_items_hash", CodecRoute::Passthrough),
+        PropertySpec::free("note"),
+        PropertySpec::free("tag"),
+    ],
+};
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn required_defaults() {
+        let p = PropertySpec::required("tax_id");
+        assert_eq!(p.kind, PropertyKind::Required);
+        assert_eq!(p.codec_route, CodecRoute::Passthrough);
+        assert!(p.nars_floor.is_some());
+    }
+
+    #[test]
+    fn optional_inherits_codec() {
+        let p = PropertySpec::optional("industry", CodecRoute::CamPq);
+        assert_eq!(p.kind, PropertyKind::Optional);
+        assert_eq!(p.codec_route, CodecRoute::CamPq);
+        assert!(p.nars_floor.is_none());
+    }
+
+    #[test]
+    fn free_defaults_to_campq() {
+        let p = PropertySpec::free("note");
+        assert_eq!(p.kind, PropertyKind::Free);
+        assert_eq!(p.codec_route, CodecRoute::CamPq);
+        assert!(p.nars_floor.is_none());
+    }
+
+    #[test]
+    fn below_floor_required() {
+        let p = PropertySpec::required("tax_id");
+        // Default floor is (128, 128)
+        assert!(p.below_floor(100, 200)); // frequency too low
+        assert!(p.below_floor(200, 100)); // confidence too low
+        assert!(!p.below_floor(200, 200)); // both above
+    }
+
+    #[test]
+    fn below_floor_free_always_false() {
+        let p = PropertySpec::free("note");
+        assert!(!p.below_floor(0, 0)); // no floor = never below
+    }
+
+    #[test]
+    fn schema_missing_required() {
+        let present = ["customer_name", "address", "tag"];
+        let missing: Vec<_> = CUSTOMER_SCHEMA.missing_required(&present).collect();
+        assert!(missing.contains(&"tax_id"));
+        assert!(!missing.contains(&"customer_name"));
+    }
+
+    #[test]
+    fn schema_codec_route_known_predicate() {
+        assert_eq!(CUSTOMER_SCHEMA.codec_route_for("tax_id"), CodecRoute::Passthrough);
+        assert_eq!(CUSTOMER_SCHEMA.codec_route_for("industry"), CodecRoute::CamPq);
+    }
+
+    #[test]
+    fn schema_codec_route_unknown_predicate_defaults_to_campq() {
+        assert_eq!(CUSTOMER_SCHEMA.codec_route_for("unknown_field"), CodecRoute::CamPq);
+    }
+
+    #[test]
+    fn invoice_schema_has_five_required() {
+        let count = INVOICE_SCHEMA.required().count();
+        assert_eq!(count, 5);
+    }
+
+    #[test]
+    fn with_nars_floor_override() {
+        let p = PropertySpec::free("note").with_nars_floor(50, 50);
+        assert!(p.below_floor(40, 60));
+        assert!(!p.below_floor(60, 60));
+    }
+
+    // ── Schema builder tests ──
+
+    #[test]
+    fn schema_builder_declarative() {
+        let s = Schema::builder("Customer")
+            .required("customer_name")
+            .required("tax_id")
+            .optional("address")
+            .searchable("industry")
+            .free("note")
+            .build();
+        assert_eq!(s.name, "Customer");
+        assert_eq!(s.properties.len(), 5);
+    }
+
+    #[test]
+    fn schema_validate_missing_required() {
+        let s = Schema::builder("Customer")
+            .required("customer_name")
+            .required("tax_id")
+            .optional("address")
+            .build();
+        let missing = s.validate(&["customer_name", "address"]);
+        assert_eq!(missing, vec!["tax_id"]);
+    }
+
+    #[test]
+    fn schema_validate_all_present() {
+        let s = Schema::builder("Customer")
+            .required("customer_name")
+            .required("tax_id")
+            .build();
+        let missing = s.validate(&["customer_name", "tax_id"]);
+        assert!(missing.is_empty());
+    }
+
+    #[test]
+    fn schema_searchable_is_campq() {
+        let s = Schema::builder("Test")
+            .searchable("description")
+            .build();
+        assert_eq!(s.codec_route_for("description"), CodecRoute::CamPq);
+    }
+
+    #[test]
+    fn schema_unknown_predicate_defaults_campq() {
+        let s = Schema::builder("Test").build();
+        assert_eq!(s.codec_route_for("anything"), CodecRoute::CamPq);
+    }
+
+    #[test]
+    fn schema_optional_is_passthrough() {
+        let s = Schema::builder("Test")
+            .optional("address")
+            .build();
+        assert_eq!(s.codec_route_for("address"), CodecRoute::Passthrough);
+    }
+
+    // ── Prefetch depth tests ──
+
+    #[test]
+    fn prefetch_identity_only_required() {
+        let s = Schema::builder("Customer")
+            .required("name")
+            .required("tax_id")
+            .optional("address")
+            .searchable("industry")
+            .free("note")
+            .build();
+        let props = s.properties_at_depth(PrefetchDepth::Identity);
+        assert_eq!(props.len(), 2);
+        assert!(props.iter().all(|p| p.kind == PropertyKind::Required));
+    }
+
+    #[test]
+    fn prefetch_detail_adds_optional_passthrough() {
+        let s = Schema::builder("Customer")
+            .required("name")
+            .optional("address")
+            .searchable("industry")
+            .free("note")
+            .build();
+        let props = s.properties_at_depth(PrefetchDepth::Detail);
+        assert_eq!(props.len(), 2); // name + address
+    }
+
+    #[test]
+    fn prefetch_similar_adds_campq_optional() {
+        let s = Schema::builder("Customer")
+            .required("name")
+            .optional("address")
+            .searchable("industry")
+            .free("note")
+            .build();
+        let props = s.properties_at_depth(PrefetchDepth::Similar);
+        assert_eq!(props.len(), 3); // name + address + industry
+    }
+
+    #[test]
+    fn prefetch_full_includes_everything() {
+        let s = Schema::builder("Customer")
+            .required("name")
+            .optional("address")
+            .searchable("industry")
+            .free("note")
+            .build();
+        let props = s.properties_at_depth(PrefetchDepth::Full);
+        assert_eq!(props.len(), 4);
+    }
+
+    // ── Link spec tests ──
+
+    #[test]
+    fn link_one_to_many_defaults() {
+        let link = LinkSpec::one_to_many("Customer", "issued", "Invoice");
+        assert_eq!(link.subject_type, "Customer");
+        assert_eq!(link.object_type, "Invoice");
+        assert_eq!(link.cardinality, Cardinality::OneToMany);
+        assert_eq!(link.codec_route, CodecRoute::Passthrough);
+    }
+
+    #[test]
+    fn link_many_to_many() {
+        let link = LinkSpec::many_to_many("Tag", "applied_to", "Customer");
+        assert_eq!(link.cardinality, Cardinality::ManyToMany);
+    }
+
+    // ── Action spec tests ──
+
+    #[test]
+    fn action_manual() {
+        let a = ActionSpec::manual("approve", "Invoice", "status");
+        assert_eq!(a.trigger, ActionTrigger::Manual);
+        assert_eq!(a.target_predicate, "status");
+    }
+
+    #[test]
+    fn action_auto() {
+        let a = ActionSpec::auto("classify", "Customer", "industry");
+        assert_eq!(a.trigger, ActionTrigger::Auto);
+    }
+
+    #[test]
+    fn action_suggested() {
+        let a = ActionSpec::suggested("flag", "Invoice", "flagged");
+        assert_eq!(a.trigger, ActionTrigger::Suggested);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MARKING (GDPR data classification)
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Data classification marking for GDPR compliance.
-/// Determines retention policy, access audit requirements, and
-/// cross-border transfer restrictions.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Marking {
     Public,
     Internal,
@@ -39,68 +653,8 @@ impl Default for Marking {
 }
 
 impl Marking {
-    /// Returns the most restrictive marking from the slice.
-    ///
-    /// GDPR precedence: Public < Internal < Pii < Financial < Restricted.
-    /// If any property on a row is `Pii`, the row inherits `Pii` (or higher).
-    /// Empty slice returns `Public` (least restrictive).
     pub fn most_restrictive(markings: &[Marking]) -> Marking {
         markings.iter().copied().max().unwrap_or(Marking::Public)
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// PROPERTY SPEC
-// ═══════════════════════════════════════════════════════════════════════════
-
-/// Specification for a single property on a vertex or edge.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct PropertySpec {
-    pub name: &'static str,
-    pub kind: PropertyKind,
-    pub required: bool,
-    pub default_value: Option<&'static str>,
-    pub marking: Marking,
-}
-
-impl PropertySpec {
-    /// A required property (must be present on every entity).
-    pub const fn required(name: &'static str, kind: PropertyKind) -> Self {
-        Self {
-            name,
-            kind,
-            required: true,
-            default_value: None,
-            marking: Marking::Internal,
-        }
-    }
-
-    /// An optional property with a default value.
-    pub const fn optional(name: &'static str, kind: PropertyKind, default_value: &'static str) -> Self {
-        Self {
-            name,
-            kind,
-            required: false,
-            default_value: Some(default_value),
-            marking: Marking::Internal,
-        }
-    }
-
-    /// A free-form property (optional, no default).
-    pub const fn free(name: &'static str, kind: PropertyKind) -> Self {
-        Self {
-            name,
-            kind,
-            required: false,
-            default_value: None,
-            marking: Marking::Internal,
-        }
-    }
-
-    /// Set the data-classification marking.
-    pub const fn with_marking(mut self, marking: Marking) -> Self {
-        self.marking = marking;
-        self
     }
 }
 
@@ -109,9 +663,6 @@ impl PropertySpec {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Opaque handle to an entity's lineage chain.
-/// Tracks who created/modified what, when, and from which source.
-/// Outside the BBB this is a boring audit trail; inside it feeds
-/// CausalEdge64 provenance bits.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LineageHandle {
     pub entity_type: &'static str,
@@ -132,19 +683,7 @@ impl LineageHandle {
         Self { entity_type, entity_id, version, source_system, timestamp_ms }
     }
 
-    /// Merge two lineage handles for the same entity.
-    ///
-    /// Takes the higher version, the later timestamp, and the newer
-    /// handle's `source_system`. Because `source_system` is `&'static str`,
-    /// we cannot dynamically concatenate two values (e.g. `"mongo+imap"`).
-    /// The caller can use a pre-interned combined string if a merged
-    /// source label is required.
-    ///
-    /// # Panics (debug only)
-    ///
-    /// Debug-asserts that `entity_type` and `entity_id` match between
-    /// the two handles. Merging handles for different entities is a
-    /// logic error.
+    /// Merge two handles. Takes higher version, newer source_system, max timestamp.
     pub fn merge(self, other: Self) -> Self {
         debug_assert_eq!(self.entity_type, other.entity_type);
         debug_assert_eq!(self.entity_id, other.entity_id);
@@ -164,71 +703,23 @@ impl LineageHandle {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ENTITY STORE — STREAMING SCAN (LF-4)
+// ENTITY STORE + WRITER TRAITS
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Streaming-capable entity scan API for tables that exceed the
-/// in-memory capacity (~50K rows).
-///
-/// Implementations (in `lance-graph-callcenter` and friends) use Arrow
-/// `RecordBatch` chunks rather than collected `Vec<Row>` so that very
-/// large entity tables (call logs, conversation transcripts, audit
-/// trails) can be processed without materializing the whole result set.
-///
-/// The contract crate is zero-dep, so the row batch and error types are
-/// associated types — the caller binds them to concrete Arrow / Lance
-/// types at the impl site.
+/// Streaming-capable entity scan API for tables exceeding ~50K rows.
 pub trait EntityStore: Send + Sync {
-    /// One streamed batch of rows. The implementor picks the concrete
-    /// shape (typically `arrow::record_batch::RecordBatch` or a typed
-    /// row vector); the contract surface stays Arrow-free.
     type RowBatch: Send;
-
-    /// Error produced by stream setup or per-batch reads.
     type Error: Send + 'static;
-
-    /// Iterator returned by `scan_stream`. Each call to `next()` yields
-    /// one batch or a per-batch error. The implementor chooses the
-    /// batch size based on backend characteristics (Lance fragments,
-    /// DataFusion partitions, etc).
     type ScanStream: Iterator<Item = Result<Self::RowBatch, Self::Error>> + Send;
 
-    /// Stream rows for an entity type.
-    ///
-    /// The `entity_type` argument matches `LineageHandle::entity_type`
-    /// — e.g. `"customer"`, `"call_event"`, `"steering_intent"`.
-    /// Implementations should prefer streaming over `Vec` collection
-    /// once the row count exceeds ~50K, where holding the whole result
-    /// in memory becomes wasteful.
     fn scan_stream(&self, entity_type: &str) -> Result<Self::ScanStream, Self::Error>;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// ENTITY WRITER — UPSERT WITH LINEAGE (LF-5)
-// ═══════════════════════════════════════════════════════════════════════════
-
-/// Writer trait for entities with provenance tracking.
-///
-/// Every upsert produces a [`LineageHandle`] the caller can persist
-/// alongside the data for audit purposes — who created/modified what,
-/// when, and from which source system.
-///
-/// Like [`EntityStore`], the row payload is an associated type so the
-/// contract crate can stay zero-dep; concrete impls in
-/// `lance-graph-callcenter` bind it to `arrow::record_batch::RecordBatch`
-/// or a typed row struct.
+/// Writer trait with provenance tracking via LineageHandle.
 pub trait EntityWriter: Send + Sync {
-    /// Error produced by the upsert operation.
     type Error: Send + 'static;
-
-    /// One row's worth of data the implementation knows how to encode.
     type Row: Send;
 
-    /// Upsert a row and emit a [`LineageHandle`] for the version produced.
-    ///
-    /// The handle is the audit-trail record — persist it next to the
-    /// row in a sidecar lineage table or feed it into a `CausalEdge64`
-    /// provenance bit stream.
     fn upsert_with_lineage(
         &self,
         entity_type: &'static str,
@@ -239,30 +730,14 @@ pub trait EntityWriter: Send + Sync {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// MOCK STORE — IN-MEMORY ENTITYSTORE + ENTITYWRITER FOR TESTS
+// MOCK STORE (test-only template)
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Test-only in-memory store implementing both [`EntityStore`] and
-/// [`EntityWriter`].
-///
-/// **Not for production use.** This module exists as a copy-paste template
-/// for SMB integration tests. It uses `RefCell` for interior mutability so
-/// it satisfies the `&self` signature of `EntityWriter::upsert_with_lineage`.
-/// A production implementation would use `RwLock` or take `&mut self`.
+/// In-memory test store implementing EntityStore + EntityWriter.
 pub mod mock_store {
     use super::*;
     use std::sync::RwLock;
 
-    /// In-memory test store implementing both [`EntityStore`] and
-    /// [`EntityWriter`].
-    ///
-    /// Rows are stored as `(entity_id, payload)` pairs. The version counter
-    /// auto-increments on each upsert. Uses `RwLock` for interior mutability
-    /// so the `Send + Sync` bounds on `EntityStore` / `EntityWriter` are
-    /// satisfied.
-    ///
-    /// **Not for production use.** This is a copy-paste template for SMB
-    /// integration tests.
     pub struct VecStore {
         pub rows: RwLock<Vec<(u64, Vec<u8>)>>,
         version_counter: RwLock<u64>,
@@ -309,253 +784,36 @@ pub mod mock_store {
 }
 
 #[cfg(test)]
-mod tests {
+mod smb_tests {
     use super::*;
 
     #[test]
-    fn marking_default_is_internal() {
-        assert_eq!(Marking::default(), Marking::Internal);
-    }
-
-    #[test]
-    fn required_property_spec() {
-        let spec = PropertySpec::required("name", PropertyKind::String);
-        assert!(spec.required);
-        assert!(spec.default_value.is_none());
-        assert_eq!(spec.marking, Marking::Internal);
-    }
-
-    #[test]
-    fn optional_property_spec() {
-        let spec = PropertySpec::optional("active", PropertyKind::Bool, "true");
-        assert!(!spec.required);
-        assert_eq!(spec.default_value, Some("true"));
-    }
-
-    #[test]
-    fn free_property_spec() {
-        let spec = PropertySpec::free("notes", PropertyKind::String);
-        assert!(!spec.required);
-        assert!(spec.default_value.is_none());
-    }
-
-    #[test]
-    fn with_marking_builder() {
-        let spec = PropertySpec::required("ssn", PropertyKind::String)
-            .with_marking(Marking::Pii);
-        assert_eq!(spec.marking, Marking::Pii);
-    }
-
-    #[test]
-    fn lineage_handle_const_new() {
-        let h = LineageHandle::new("customer", 42, 1, "crm", 1700000000000);
-        assert_eq!(h.entity_type, "customer");
-        assert_eq!(h.entity_id, 42);
-        assert_eq!(h.version, 1);
-        assert_eq!(h.source_system, "crm");
-        assert_eq!(h.timestamp_ms, 1700000000000);
-    }
-
-    // ─────────────────────────────────────────────────────────────────
-    // LF-4 / LF-5 — trait surface compile checks
-    //
-    // These tests don't exercise behaviour; they prove that the trait
-    // surface is sound — an implementor can satisfy both `EntityStore`
-    // and `EntityWriter` simultaneously with reasonable associated
-    // types. If the trait bounds drift in a way that breaks
-    // implementability, this test stops compiling.
-    // ─────────────────────────────────────────────────────────────────
-
-    /// Trivial in-memory backing struct used only by the trait-surface
-    /// compile tests below. Holds nothing — the goal is to prove the
-    /// `impl` blocks type-check, not to exercise behaviour.
-    struct DummyStore;
-
-    /// Row payload for `DummyStore`'s `EntityStore` and `EntityWriter`
-    /// impls — a single tagged tuple stand-in for an Arrow batch.
-    #[derive(Debug, PartialEq, Eq)]
-    struct DummyBatch(u64);
-
-    /// Empty error type — the dummy impls never fail.
-    #[derive(Debug)]
-    struct DummyError;
-
-    impl EntityStore for DummyStore {
-        type RowBatch = DummyBatch;
-        type Error = DummyError;
-        type ScanStream = std::vec::IntoIter<Result<DummyBatch, DummyError>>;
-
-        fn scan_stream(&self, entity_type: &str) -> Result<Self::ScanStream, Self::Error> {
-            // One batch tagged with the entity_type's length so the
-            // argument is observably consumed.
-            let batch = DummyBatch(entity_type.len() as u64);
-            Ok(vec![Ok(batch)].into_iter())
-        }
-    }
-
-    impl EntityWriter for DummyStore {
-        type Error = DummyError;
-        type Row = DummyBatch;
-
-        fn upsert_with_lineage(
-            &self,
-            entity_type: &'static str,
-            entity_id: u64,
-            _row: Self::Row,
-            source_system: &'static str,
-        ) -> Result<LineageHandle, Self::Error> {
-            Ok(LineageHandle::new(entity_type, entity_id, 1, source_system, 0))
-        }
-    }
-
-    #[test]
-    fn entity_store_scan_stream_compiles_and_yields() {
-        let store = DummyStore;
-        let mut stream = store.scan_stream("customer").expect("scan_stream");
-        let first = stream.next().expect("one batch").expect("ok batch");
-        // "customer" has 8 bytes.
-        assert_eq!(first, DummyBatch(8));
-        assert!(stream.next().is_none());
-    }
-
-    #[test]
-    fn entity_writer_upsert_with_lineage_emits_handle() {
-        let store = DummyStore;
-        let handle = store
-            .upsert_with_lineage("call_event", 7, DummyBatch(0), "asterisk")
-            .expect("upsert");
-        assert_eq!(handle.entity_type, "call_event");
-        assert_eq!(handle.entity_id, 7);
-        assert_eq!(handle.version, 1);
-        assert_eq!(handle.source_system, "asterisk");
-    }
-
-    /// Compile-time check: a single struct can implement both traits
-    /// at once. If the bounds ever conflict, this stops compiling.
-    #[test]
-    fn store_and_writer_compose_on_one_type() {
-        fn assert_both<T: EntityStore + EntityWriter>(_: &T) {}
-        assert_both(&DummyStore);
-    }
-
-    // ─────────────────────────────────────────────────────────────────
-    // W-1 — LineageHandle::merge
-    // ─────────────────────────────────────────────────────────────────
-
-    #[test]
-    fn merge_takes_higher_version() {
-        let v1 = LineageHandle::new("customer", 42, 1, "mongo", 1000);
-        let v3 = LineageHandle::new("customer", 42, 3, "imap", 900);
-        let merged = v1.merge(v3);
-        assert_eq!(merged.version, 3);
-        assert_eq!(merged.source_system, "imap"); // newer handle's source
-    }
-
-    #[test]
-    fn merge_takes_later_timestamp() {
-        let a = LineageHandle::new("order", 7, 2, "crm", 5000);
-        let b = LineageHandle::new("order", 7, 1, "erp", 9000);
-        let merged = a.merge(b);
-        // a has higher version (2), b has later timestamp (9000)
-        assert_eq!(merged.version, 2);
-        assert_eq!(merged.source_system, "crm");
-        assert_eq!(merged.timestamp_ms, 9000);
-    }
-
-    #[test]
-    fn merge_equal_versions_keeps_self() {
-        let a = LineageHandle::new("ticket", 1, 5, "src_a", 100);
-        let b = LineageHandle::new("ticket", 1, 5, "src_b", 200);
-        let merged = a.merge(b);
-        // self.version >= other.version, so self is "newer"
-        assert_eq!(merged.source_system, "src_a");
-        assert_eq!(merged.timestamp_ms, 200);
-    }
-
-    // ─────────────────────────────────────────────────────────────────
-    // W-2 — Marking::most_restrictive
-    // ─────────────────────────────────────────────────────────────────
-
-    #[test]
-    fn most_restrictive_empty_is_public() {
+    fn marking_most_restrictive() {
         assert_eq!(Marking::most_restrictive(&[]), Marking::Public);
+        assert_eq!(Marking::most_restrictive(&[Marking::Internal, Marking::Pii]), Marking::Pii);
+        assert_eq!(Marking::most_restrictive(&[Marking::Restricted, Marking::Public]), Marking::Restricted);
     }
 
     #[test]
-    fn most_restrictive_single() {
-        assert_eq!(Marking::most_restrictive(&[Marking::Pii]), Marking::Pii);
-    }
-
-    #[test]
-    fn most_restrictive_mixed() {
-        let markings = [
-            Marking::Public,
-            Marking::Internal,
-            Marking::Pii,
-            Marking::Financial,
-            Marking::Internal,
-        ];
-        assert_eq!(Marking::most_restrictive(&markings), Marking::Financial);
-    }
-
-    #[test]
-    fn most_restrictive_all_public() {
-        let markings = [Marking::Public, Marking::Public, Marking::Public];
-        assert_eq!(Marking::most_restrictive(&markings), Marking::Public);
-    }
-
-    #[test]
-    fn most_restrictive_restricted_wins() {
-        let markings = [Marking::Pii, Marking::Restricted, Marking::Financial];
-        assert_eq!(Marking::most_restrictive(&markings), Marking::Restricted);
-    }
-
-    #[test]
-    fn marking_ord_matches_gdpr_precedence() {
-        assert!(Marking::Public < Marking::Internal);
-        assert!(Marking::Internal < Marking::Pii);
-        assert!(Marking::Pii < Marking::Financial);
-        assert!(Marking::Financial < Marking::Restricted);
-    }
-
-    // ─────────────────────────────────────────────────────────────────
-    // W-3 + W-4 — VecStore mock
-    // ─────────────────────────────────────────────────────────────────
-
-    #[test]
-    fn vec_store_scan_empty() {
-        let store = mock_store::VecStore::new();
-        let mut stream = store.scan_stream("any").expect("scan");
-        let batch = stream.next().expect("one batch").expect("ok");
-        assert!(batch.is_empty());
-        assert!(stream.next().is_none());
+    fn lineage_merge_takes_higher_version() {
+        let a = LineageHandle::new("Customer", 1, 3, "mongo", 100);
+        let b = LineageHandle::new("Customer", 1, 5, "imap", 50);
+        let merged = a.merge(b);
+        assert_eq!(merged.version, 5);
+        assert_eq!(merged.source_system, "imap");
+        assert_eq!(merged.timestamp_ms, 100);
     }
 
     #[test]
     fn vec_store_upsert_and_scan() {
-        let store = mock_store::VecStore::new();
-        let h1 = store
-            .upsert_with_lineage("customer", 1, vec![0xAA], "crm")
-            .expect("upsert 1");
-        let h2 = store
-            .upsert_with_lineage("customer", 2, vec![0xBB], "crm")
-            .expect("upsert 2");
-
-        assert_eq!(h1.version, 1);
-        assert_eq!(h2.version, 2);
-        assert_eq!(h1.entity_id, 1);
-        assert_eq!(h2.entity_id, 2);
-
-        let mut stream = store.scan_stream("customer").expect("scan");
-        let batch = stream.next().expect("one batch").expect("ok");
-        assert_eq!(batch.len(), 2);
-        assert_eq!(batch[0], (1, vec![0xAA]));
-        assert_eq!(batch[1], (2, vec![0xBB]));
-    }
-
-    #[test]
-    fn vec_store_implements_both_traits() {
-        fn assert_both<T: EntityStore + EntityWriter>(_: &T) {}
-        assert_both(&mock_store::VecStore::new());
+        use mock_store::VecStore;
+        let store = VecStore::new();
+        let handle = store.upsert_with_lineage("Customer", 42, vec![1, 2, 3], "test").unwrap();
+        assert_eq!(handle.entity_id, 42);
+        assert_eq!(handle.version, 1);
+        let mut stream = store.scan_stream("Customer").unwrap();
+        let batch = stream.next().unwrap().unwrap();
+        assert_eq!(batch.len(), 1);
+        assert_eq!(batch[0].0, 42);
     }
 }

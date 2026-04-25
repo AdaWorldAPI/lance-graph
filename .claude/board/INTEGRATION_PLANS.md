@@ -36,6 +36,18 @@
 
 ---
 
+## v1 — Q2 Foundry-Equivalent Integration (authored 2026-04-24)
+
+**Author:** main thread (Opus 4.7 1M), session 2026-04-24
+**Status:** Proposed
+**Scope:** Q2 = user interface (Gotham/Workshop/Vertex equivalent) + SMB = first tenant testbed. 4 phases: demo-able → operational → intelligent → fly. Firefly stack: Ballista + Dragonfly + GEL.
+**Path:** `.claude/plans/q2-foundry-integration-v1.md`
+**Deliverables:** Q2-1.1..1.7 (Phase 1 MVP), Q2-2.1..2.7 (Phase 2 workflows), Q2-3.1..3.7 (Phase 3 reasoning), Q2-4.1..4.7 (Phase 4 scale). 28 deliverables total.
+**Foundation:** 8 PRs merged this session (#253-#260) provide substrate.
+**Key differentiators vs Palantir Foundry:** active inference as dispatch, NARS truth as primary data, CausalEdge64 Pearl 2³ masks, JIT-compiled lenses, zero-dep contract crate.
+
+---
+
 ## v1 — Supabase Subscriber Wire-up (authored 2026-04-24)
 
 **Author:** sonnet agent, session 2026-04-24 (branch claude/supabase-subscriber-wire-up)

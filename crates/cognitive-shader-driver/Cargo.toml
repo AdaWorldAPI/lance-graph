@@ -60,6 +60,8 @@ tonic = { version = "0.12", optional = true }
 base64 = { version = "0.22", optional = true }
 # D0.1 — bytemuck for the 64-byte-aligned decode target consumed by F32x16::from_slice.
 bytemuck = { version = "1", optional = true, features = ["derive"] }
+# Encode endpoint — DeepNSM (zero-dep, 4096-word COCA vocabulary, 512-bit VSA).
+deepnsm = { path = "../deepnsm", optional = true }
 
 [build-dependencies]
 tonic-build = { version = "0.12", optional = true }
@@ -72,7 +74,7 @@ with-planner = ["dep:lance-graph-planner"]
 # + token_agreement use these regardless of whether the transport is REST
 # (serve) or gRPC (grpc). Both features pull this set.
 _lab-dtos = ["dep:serde", "dep:serde_json", "dep:base64", "dep:bytemuck"]
-serve = ["_lab-dtos", "dep:axum", "dep:tokio"]
+serve = ["_lab-dtos", "dep:axum", "dep:tokio", "dep:deepnsm"]
 grpc = ["_lab-dtos", "dep:prost", "dep:tonic", "dep:tonic-build", "dep:tokio"]
 
 # `lab` — umbrella switch for the single shader-lab binary. Enables every

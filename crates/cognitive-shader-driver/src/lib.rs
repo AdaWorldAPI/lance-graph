@@ -166,6 +166,13 @@ pub mod codec_research;
 #[cfg(any(feature = "serve", feature = "grpc"))]
 pub mod codec_bridge;
 
+// OrchestrationBridge impl for Cypher queries (lg.cypher step_type) —
+// routes to AriGraph SPO / BindSpace. Phase 1 stub classifier; Phase 2
+// will pull the real `lance_graph::parser::parse_cypher_query` once the
+// core crate dep is worth its build-time cost. LAB-ONLY.
+#[cfg(any(feature = "serve", feature = "grpc"))]
+pub mod cypher_bridge;
+
 // Planner bridge — lab test-shortcut for the per-op WirePlan DTOs.
 // PlannerAwareness implements OrchestrationBridge directly in the
 // planner crate; that's the canonical path. LAB-ONLY.

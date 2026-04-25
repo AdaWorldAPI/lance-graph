@@ -90,6 +90,15 @@ encode (meta_prefilter + cascade)
 
 Cross-ref: 2026-04-24 paradigm-shift gestalt entry (Berge + Piaget + metacognition); 2026-04-24 systemic-wiring-gaps TECH_DEBT log; CLAUDE.md §The Click §Three things that must never be complicated; commits `474d3eb` (TD-INT-1 + LF-1/6/7/8) and `b7787cf` (TD-INT-2 + TD-INT-4) on `claude/teleport-session-setup-wMZfb`.
 
+## 2026-04-24 — SMB as cognitive-stack testbed: PropertyKind + Schema builder + 6 trait files
+
+**Status:** FINDING
+**Owner scope:** @truth-architect, @family-codec-smith
+
+The bardioc Required/Optional/Free property concept maps 1:1 to the I1 Codec Regime Split (ADR-0002): Required = Passthrough (Index), Optional = configurable, Free = CamPq (Argmax). The `Schema` builder wraps this so SMB tenants define entity schemas in 10 lines — `.required("tax_id").searchable("industry").free("note")` — and the codec routing, NARS truth floors, and FailureTicket escalation happen automatically. Missing Required properties don't fail validation — they generate free energy, which the active-inference loop resolves. This makes the SMB domain a free testbed for the entire cognitive stack: SPO triples, episodic memory, CAM-PQ similarity, NARS truth, and FreeEnergy → Resolution pipeline, all exercised on real messy Steuerberater data.
+
+Cross-ref: `contract::property` (PropertyKind, PropertySpec, Schema, SchemaBuilder), `contract::cam::CodecRoute`, smb-office-rs `lance-graph-contract-proposal.md`.
+
 ## 2026-04-24 — FINDING: subscribe() wired; LanceVersionWatcher delivers always-latest CognitiveEventRow to subscribers (DM-4/6)
 
 `LanceMembrane::subscribe()` now returns a `tokio::sync::watch::Receiver<CognitiveEventRow>` under the `[realtime]` feature gate — supabase-shape always-latest semantics. `project()` calls `watcher.bump(row)` after building the scalar row; subscribers observe the latest committed event without polling. `DrainTask` scaffold ships unconditionally (no feature gate) as a `Future` shell for the follow-up `steering_intent` drain loop. Tokio was already an optional dep in `lance-graph-callcenter/Cargo.toml` under `[realtime]` — no new deps required.
@@ -2783,6 +2792,8 @@ measure capability snapshots, not learning curves. The AGI test is
 a CURVE, not a POINT: does accuracy increase over the course of a
 single document without retraining? That's the measurement. One
 book. One metric. One curve. Rising = AGI. Flat = broken wire.
+
+
 
 ## 2026-04-24 — Jirak noise floor calibrated for DeepNSM-tiled 16K-bit fingerprints
 
