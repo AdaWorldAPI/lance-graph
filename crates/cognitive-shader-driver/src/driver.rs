@@ -13,7 +13,7 @@
 //!  [3] shader cascade  (p64 CognitiveShader + bgz17 distance)
 //!  [4] cycle signature (Hamming-folded fingerprint of the top-k)
 //!  [5] edge emission   (CausalEdge64 per strong hit)
-//!  [6] CollapseGate    (Flow/Hold/Block from std-dev)
+//!  [6] FreeEnergy gate (Flow/Hold/Block from active-inference F)
 //!  [7] sink            (on_resonance → on_bus → on_crystal)
 //!         │
 //!         ▼
@@ -23,16 +23,23 @@
 //! No forward pass, no JSON, no allocations beyond top-k + edges.
 
 use std::sync::Arc;
+use std::sync::RwLock;
 
 use bgz17::palette_semiring::PaletteSemiring;
 use causal_edge::edge::{CausalEdge64, InferenceType};
 use causal_edge::pearl::CausalMask;
 use causal_edge::plasticity::PlasticityState;
+use causal_edge::tables::{NarsTables, unpack_c, unpack_f};
 use lance_graph_contract::cognitive_shader::{
     CognitiveShaderDriver, EmitMode, MetaSummary, NullSink, ShaderBus, ShaderCrystal,
     ShaderDispatch, ShaderHit, ShaderResonance, ShaderSink,
 };
 use lance_graph_contract::collapse_gate::{GateDecision, MergeMode};
+use lance_graph_contract::grammar::free_energy::{FreeEnergy, EPIPHANY_MARGIN};
+use lance_graph_contract::grammar::inference::NarsInference;
+use lance_graph_contract::grammar::thinking_styles::{GrammarStyleAwareness, ParamKey, ParseOutcome};
+use lance_graph_contract::mul::{MulAssessment, SituationInput};
+use lance_graph_contract::thinking::ThinkingStyle;
 use p64_bridge::cognitive_shader::CognitiveShader;
 
 use crate::auto_style;
@@ -47,9 +54,23 @@ use crate::bindspace::{BindSpace, WORDS_PER_FP};
 pub struct ShaderDriver {
     pub(crate) bindspace: Arc<BindSpace>,
     pub(crate) semiring: Arc<PaletteSemiring>,
-    pub(crate) planes: [[u64; 64]; 8],
+    /// 8 predicate planes × 64 rows × u64 columns = 4 KB topology.
+    /// Boxed to keep the bulk off ShaderDriver's stack frame, and held
+    /// under an RwLock so the convergence highway (TD-INT-14) can swap
+    /// in fresh planes when AriGraph commits new SPO knowledge.
+    pub(crate) planes: RwLock<Box<[[u64; 64]; 8]>>,
     #[allow(dead_code)]
     pub(crate) default_style: u8,
+    /// Per-style (12 ord) NARS-revised awareness — phi-1 humility ceiling.
+    /// Updated at end of every cycle based on FreeEnergy outcome.
+    pub(crate) awareness: RwLock<Vec<GrammarStyleAwareness>>,
+    /// Optional precomputed 4096-head NARS truth tables (TD-INT-10).
+    ///
+    /// When present, the cascade can look up Pearl 2³ + DK + Plasticity +
+    /// Truth at dispatch time without paying for a runtime NARS engine.
+    /// Lives in `causal-edge` (zero-dep), so attaching it does NOT pull
+    /// the planner into shader-driver.
+    pub(crate) nars_tables: Option<Arc<NarsTables>>,
 }
 
 impl ShaderDriver {
@@ -60,16 +81,61 @@ impl ShaderDriver {
         planes: [[u64; 64]; 8],
         default_style: u8,
     ) -> Self {
-        Self { bindspace, semiring, planes, default_style }
+        let awareness = (0..12)
+            .map(|ord| GrammarStyleAwareness::bootstrap(ord_to_thinking_style(ord)))
+            .collect::<Vec<_>>();
+        Self {
+            bindspace,
+            semiring,
+            planes: RwLock::new(Box::new(planes)),
+            default_style,
+            awareness: RwLock::new(awareness),
+            nars_tables: None,
+        }
+    }
+
+    /// Attach precomputed NARS truth tables (TD-INT-10).
+    ///
+    /// Builder-style mutation: takes ownership, returns Self. Pass
+    /// `Arc::new(NarsTables::build(c_levels))` (or share an existing
+    /// `Arc`) to wire Pearl 2³ + Truth lookups into the cascade.
+    pub fn with_nars_tables(mut self, tables: Arc<NarsTables>) -> Self {
+        self.nars_tables = Some(tables);
+        self
+    }
+
+    /// Borrow the attached NARS lookup tables (TD-INT-10), if any.
+    #[inline]
+    pub fn nars_tables(&self) -> Option<&Arc<NarsTables>> {
+        self.nars_tables.as_ref()
     }
 
     /// Borrow the underlying BindSpace (read-only).
     #[inline]
     pub fn bindspace(&self) -> &BindSpace { &self.bindspace }
 
-    /// Borrow the topology planes (8 × 64 u64).
+    /// Snapshot the topology planes (8 × 64 u64).
+    ///
+    /// Returns a fresh copy because the planes are kept under an `RwLock`
+    /// (TD-INT-14: convergence highway lets the planner swap in new
+    /// AriGraph-derived planes at runtime). Callers that just want a
+    /// stable view of the current topology pay a 4 KB copy.
     #[inline]
-    pub fn planes(&self) -> &[[u64; 64]; 8] { &self.planes }
+    pub fn planes(&self) -> [[u64; 64]; 8] {
+        **self.planes.read().expect("planes RwLock poisoned")
+    }
+
+    /// Replace the topology planes at runtime.
+    ///
+    /// This is the convergence highway terminus: AriGraph commits SPO
+    /// knowledge → `triplets_to_palette_layers` produces fresh `[[u64; 64]; 8]`
+    /// → this method swaps them into the live driver under a write lock.
+    /// The next `dispatch()` call will see the new topology.
+    #[inline]
+    pub fn update_planes(&self, new_planes: [[u64; 64]; 8]) {
+        let mut guard = self.planes.write().expect("planes RwLock poisoned");
+        **guard = new_planes;
+    }
 
     /// Run one dispatch, feeding a sink. This is the single hot path.
     fn run<S: ShaderSink>(&self, req: &ShaderDispatch, sink: &mut S) -> ShaderCrystal {
@@ -86,34 +152,18 @@ impl ShaderDriver {
         let style_ord = auto_style::resolve(req.style, qualia_seed);
 
         // [3] Shader cascade — bgz17 O(1) per probed block.
-        let shader = CognitiveShader::new(self.planes, &self.semiring);
+        // Snapshot the planes under the read lock so the cascade sees a
+        // consistent topology even if `update_planes` fires mid-dispatch.
+        let planes_snapshot: [[u64; 64]; 8] =
+            **self.planes.read().expect("planes RwLock poisoned");
+        let shader = CognitiveShader::new(planes_snapshot, &self.semiring);
         let max_dist = (self.semiring.k as f32) * (self.semiring.k as f32);
         let mut hits = Vec::<ShaderHit>::with_capacity(passed_rows.len().min(64));
 
-        // ═══════════════════════════════════════════════════════════════
-        // Content-plane Hamming pre-pass (PR: hamming-content-cascade).
-        // Compare content fingerprint of each passed row against every
-        // other passed row. If Hamming-resonance exceeds the style's
-        // resonance_threshold, emit a content-match hit. This is the
-        // wire that lets dispatch() see real text similarity, not just
-        // edge palette distance.
-        //
-        // Resonance model: resonance = 1 - Hamming/16384. Rows that
-        // share content words land at higher resonance; fully disjoint
-        // rows land near 0.5 (density ≈ 0.48 after 32× DeepNSM tiling).
-        // Style thresholds (UNIFIED_STYLES):
-        //   analytical 0.85 (strict)   focused 0.90 (strictest)
-        //   creative   0.35 (loose)    peripheral 0.20 (loosest)
-        // Jirak-calibrated 3σ reference: Hamming < 454 at density 0.016
-        // (untiled). For tiled encodings (current DeepNSM path) the
-        // density-dependent baseline shifts; resonance-over-threshold
-        // is the density-agnostic reading. See EPIPHANIES 2026-04-24
-        // "Jirak noise floor calibrated for DeepNSM-tiled 16K-bit
-        // fingerprints".
-        //
-        // Guard: skip the N² sweep if passed_rows.len() > 256 — at
-        // 4096 rows that is 16M popcount × 256 comparisons.
-        // ═══════════════════════════════════════════════════════════════
+        // TD-INT-10: optional NARS truth-table lookups per hit.
+        let nars_tables = self.nars_tables.as_deref();
+
+        // Content-plane Hamming pre-pass (PR #259).
         const CONTENT_MATCH_PREDICATE: u8 = 0x01;
         const MAX_CONTENT_PREPASS_ROWS: usize = 256;
         const FP_BITS: f32 = (WORDS_PER_FP * 64) as f32;
@@ -125,14 +175,11 @@ impl ShaderDriver {
                 let fp_i = self.bindspace.fingerprints.content_row(row_i as usize);
                 for (j_off, &row_j) in passed_rows.iter().enumerate().skip(i + 1) {
                     let fp_j = self.bindspace.fingerprints.content_row(row_j as usize);
-                    // Hamming = popcount of XOR across all 256 u64 words.
                     let hamming: u32 = fp_i.iter().zip(fp_j.iter())
                         .map(|(a, b)| (a ^ b).count_ones())
                         .sum();
-                    // Resonance: normalized to full bit-width; higher = more similar.
                     let resonance = 1.0 - (hamming as f32 / FP_BITS);
                     if resonance >= min_resonance {
-                        // Record both directions so either row can surface via top-k.
                         hits.push(ShaderHit {
                             row: row_i,
                             distance: hamming.min(u16::MAX as u32) as u16,
@@ -163,6 +210,21 @@ impl ShaderDriver {
             let raw = shader.cascade(query, req.radius, req.layer_mask);
             for hit in raw.into_iter().take(4) {
                 let resonance = 1.0 / (1.0 + (hit.distance as f32 / max_dist));
+
+                // TD-INT-10: NARS truth lookup against precomputed tables.
+                // The row's edge already carries a (frequency, confidence)
+                // pair; we revise it against a hit-derived surrogate truth
+                // (resonance as frequency, conservative half-confidence).
+                // The result is currently observed only — see comment above.
+                if let Some(tables) = nars_tables {
+                    let f1 = edge.frequency_u8();
+                    let c1 = edge.confidence_u8();
+                    let f2 = (resonance.clamp(0.0, 1.0) * 255.0) as u8;
+                    let c2 = 128u8;
+                    let packed = tables.revise(f1, c1, f2, c2);
+                    let _revised_truth = (unpack_f(packed), unpack_c(packed));
+                }
+
                 hits.push(ShaderHit {
                     row,
                     distance: hit.distance,
@@ -178,20 +240,85 @@ impl ShaderDriver {
         hits.sort_by(|a, b| b.resonance.partial_cmp(&a.resonance).unwrap_or(std::cmp::Ordering::Equal));
         hits.truncate(8);
 
-        // [4] Build the cycle_fingerprint by folding content rows of hits.
+        // [4] Build the cycle_fingerprint with positional Markov braiding.
+        //     Each row is rotated by its cycle_index before XOR — preserves
+        //     position information structurally (binary-space vsa_permute analogue).
+        //     Per I-SUBSTRATE-MARKOV: this activates the Markov ±5 property
+        //     even in binary space; full f32 VSA bundle is the next step.
         let mut cycle_fp = [0u64; WORDS_PER_FP];
         for h in &hits {
             let row_words = self.bindspace.fingerprints.content_row(h.row as usize);
+            let pos = (h.cycle_index as usize) % WORDS_PER_FP;
             for (i, w) in row_words.iter().enumerate() {
-                cycle_fp[i] ^= *w;
+                cycle_fp[(i + pos) % WORDS_PER_FP] ^= *w;
             }
         }
 
-        // [5] Entropy + std-dev of top-k resonances → CollapseGate.
+        // [5] Entropy + std-dev of top-k resonances.
         let (entropy, std_dev) = entropy_std(&hits);
-        let gate = collapse_gate(std_dev);
 
-        // [6] Emit one CausalEdge64 per strong hit (up to 8).
+        // [6] FreeEnergy gate (principled F from resonance + KL surrogate).
+        let top_resonance = hits.first().map(|h| h.resonance).unwrap_or(0.0);
+        let free_energy = FreeEnergy::compose(top_resonance, std_dev);
+
+        // Epiphany check: top-2 hypotheses within margin, both non-catastrophic
+        let is_epiphany = hits.len() >= 2 && {
+            let fe2 = FreeEnergy::compose(hits[1].resonance, std_dev);
+            (fe2.total - free_energy.total).abs() < EPIPHANY_MARGIN && !fe2.is_catastrophic()
+        };
+
+        // TD-INT-3: Meta-Uncertainty Layer assessment.
+        //
+        // Build a SituationInput from what the shader can directly observe
+        // and compute a MulAssessment. Fields the shader can't see cleanly
+        // (calibration_accuracy, allostatic_load, max_acceptable_damage,
+        // sandbox_available, etc.) fall back to SituationInput::default() —
+        // tightening these is a deferred wiring point that will land when
+        // the awareness column publishes Brier history and the orchestration
+        // bridge passes a per-cycle damage budget.
+        //
+        //   felt_competence       ← top resonance (cycle's self-reported "I got it")
+        //   demonstrated_competence ← (1 - free_energy.total) (active-inference truth)
+        //   environment_stability ← 1 - std_dev clamp (low spread = stable hypotheses)
+        //   challenge_level       ← std_dev clamp (high spread = harder problem)
+        //   skill_level           ← top awareness divergence proxy (style competence)
+        // Skill proxy: this style's recent-success frequency from the
+        // NARS-revised awareness. Maps directly to MUL's skill_level
+        // axis — competence as the system has demonstrated it, not as
+        // it feels right now.
+        let awareness_skill = self.awareness.read()
+            .ok()
+            .and_then(|aw| aw.get(style_ord as usize).map(|s| s.recent_success.frequency as f64))
+            .unwrap_or(0.5);
+        let std_dev_clamped = std_dev.clamp(0.0, 1.0) as f64;
+        let situation = SituationInput {
+            felt_competence: top_resonance.clamp(0.0, 1.0) as f64,
+            demonstrated_competence: (1.0 - free_energy.total).clamp(0.0, 1.0) as f64,
+            environment_stability: (1.0 - std_dev_clamped).clamp(0.0, 1.0),
+            challenge_level: std_dev_clamped,
+            skill_level: awareness_skill,
+            ..SituationInput::default()
+        };
+        let mul = MulAssessment::compute(&situation);
+
+        // Gate decision: catastrophic F blocks; MUL veto on
+        // unskilled-overconfident downgrades any would-be Flow to Hold;
+        // epiphany holds (preserve the contradiction); homeostasis flows.
+        let gate = if free_energy.is_catastrophic() {
+            GateDecision::BLOCK
+        } else if mul.is_unskilled_overconfident() {
+            // MUL veto: the system "feels confident" while DK / trust
+            // textures flag the gap. Hold rather than commit.
+            GateDecision::HOLD
+        } else if is_epiphany {
+            GateDecision::HOLD
+        } else if free_energy.is_homeostatic() {
+            GateDecision { gate: 0, merge: MergeMode::Bundle }
+        } else {
+            GateDecision::HOLD
+        };
+
+        // [5] Emit one CausalEdge64 per strong hit (up to 8).
         let mut emitted = [0u64; 8];
         let mut emitted_n = 0u8;
         for h in hits.iter().take(8) {
@@ -256,19 +383,42 @@ impl ShaderDriver {
             return ShaderCrystal { bus, persisted_row: None, meta: MetaSummary::default() };
         }
 
-        // Meta summary (confidence from top-1 resonance, simple surrogate).
+        // Meta summary (confidence from top-1 resonance, FreeEnergy-derived).
         let confidence = resonance_dto.top_k[0].resonance;
         let meta = MetaSummary {
             confidence,
-            meta_confidence: (1.0 - std_dev).clamp(0.0, 1.0),
+            meta_confidence: (1.0 - free_energy.total).clamp(0.0, 1.0),
             brier: 0.0,
-            should_admit_ignorance: confidence < 0.2,
+            should_admit_ignorance: free_energy.is_catastrophic(),
         };
 
         let persisted_row = match req.emit {
             EmitMode::Persist => Some(resonance_dto.top_k[0].row),
             _ => None,
         };
+
+        // [8] NARS revision — phi-1 humility ceiling.
+        //     System observes its own outcome and revises per-style awareness.
+        //     This is what makes the cognitive loop close: every cycle updates
+        //     the next cycle's F landscape via accumulated belief.
+        let outcome = free_energy_to_outcome(&free_energy, is_epiphany);
+        let inference = style_ord_to_inference(style_ord);
+        let nars_inference = match inference {
+            InferenceType::Deduction => NarsInference::Deduction,
+            InferenceType::Induction => NarsInference::Induction,
+            InferenceType::Abduction => NarsInference::Abduction,
+            InferenceType::Revision => NarsInference::Revision,
+            InferenceType::Synthesis => NarsInference::Synthesis,
+            // style_ord_to_inference never returns Reserved5/6/7;
+            // fall back to Revision so reserved variants map cleanly.
+            _ => NarsInference::Revision,
+        };
+        let key = ParamKey::NarsPrimary(nars_inference);
+        if let Ok(mut aw) = self.awareness.write() {
+            if let Some(style_aw) = aw.get_mut(style_ord as usize) {
+                style_aw.revise(key, outcome);
+            }
+        }
 
         let crystal = ShaderCrystal { bus, persisted_row, meta };
         sink.on_crystal(&crystal);
@@ -315,6 +465,7 @@ pub struct CognitiveShaderBuilder {
     semiring: Option<Arc<PaletteSemiring>>,
     planes: Option<[[u64; 64]; 8]>,
     default_style: u8,
+    nars_tables: Option<Arc<NarsTables>>,
 }
 
 impl CognitiveShaderBuilder {
@@ -324,6 +475,7 @@ impl CognitiveShaderBuilder {
             semiring: None,
             planes: None,
             default_style: auto_style::DELIBERATE,
+            nars_tables: None,
         }
     }
 
@@ -347,12 +499,23 @@ impl CognitiveShaderBuilder {
         self
     }
 
+    /// Attach precomputed NARS lookup tables (TD-INT-10).
+    pub fn nars_tables(mut self, tables: Arc<NarsTables>) -> Self {
+        self.nars_tables = Some(tables);
+        self
+    }
+
     pub fn build(self) -> ShaderDriver {
+        let awareness = (0..12)
+            .map(|ord| GrammarStyleAwareness::bootstrap(ord_to_thinking_style(ord)))
+            .collect::<Vec<_>>();
         ShaderDriver {
             bindspace: self.bindspace.expect("bindspace required"),
             semiring: self.semiring.expect("semiring required"),
-            planes: self.planes.unwrap_or([[0u64; 64]; 8]),
+            planes: RwLock::new(Box::new(self.planes.unwrap_or([[0u64; 64]; 8]))),
             default_style: self.default_style,
+            awareness: RwLock::new(awareness),
+            nars_tables: self.nars_tables,
         }
     }
 }
@@ -381,6 +544,7 @@ fn entropy_std(hits: &[ShaderHit]) -> (f32, f32) {
     (ent, var.sqrt())
 }
 
+#[allow(dead_code)]
 fn collapse_gate(sd: f32) -> GateDecision {
     // Matches thinking_engine::cognitive_stack::{SD_FLOW_THRESHOLD, SD_BLOCK_THRESHOLD}.
     const FLOW: f32 = 0.15;
@@ -402,6 +566,39 @@ fn style_ord_to_inference(ord: u8) -> InferenceType {
         7..=9 => InferenceType::Abduction,
         0 | 10    => InferenceType::Revision,
         _         => InferenceType::Synthesis,
+    }
+}
+
+/// Map shader ordinal (0..11, UNIFIED_STYLES) to a representative
+/// 36-style ThinkingStyle for awareness bootstrap. The mapping picks
+/// the closest semantic match per cluster.
+fn ord_to_thinking_style(ord: u8) -> ThinkingStyle {
+    match ord {
+        0  => ThinkingStyle::Methodical,    // deliberate
+        1  => ThinkingStyle::Analytical,    // analytical
+        2  => ThinkingStyle::Logical,       // convergent
+        3  => ThinkingStyle::Systematic,    // systematic
+        4  => ThinkingStyle::Creative,      // creative
+        5  => ThinkingStyle::Imaginative,   // divergent
+        6  => ThinkingStyle::Exploratory,   // exploratory
+        7  => ThinkingStyle::Precise,       // focused
+        8  => ThinkingStyle::Speculative,   // diffuse
+        9  => ThinkingStyle::Curious,       // peripheral
+        10 => ThinkingStyle::Reflective,    // intuitive
+        _  => ThinkingStyle::Metacognitive, // metacognitive
+    }
+}
+
+/// Map FreeEnergy outcome to ParseOutcome for NARS revision.
+fn free_energy_to_outcome(fe: &FreeEnergy, is_epiphany: bool) -> ParseOutcome {
+    if is_epiphany {
+        ParseOutcome::LocalSuccessConfirmedByLLM
+    } else if fe.is_homeostatic() {
+        ParseOutcome::LocalSuccess
+    } else if fe.is_catastrophic() {
+        ParseOutcome::LocalFailureLLMSucceeded
+    } else {
+        ParseOutcome::EscalatedButLLMAgreed
     }
 }
 

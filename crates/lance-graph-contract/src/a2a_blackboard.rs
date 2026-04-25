@@ -58,6 +58,12 @@ pub enum ExpertCapability {
     /// External inbound context — passive consumer event XOR'd into the trajectory bundle
     /// without activating a new reasoning cycle. Same Markov ±5 braiding as grammar tokens.
     ExternalContext = 9,
+    /// SMB entity validation (schema + business rules).
+    SmbEntityValidation = 10,
+    /// SMB lineage tracking (provenance chain).
+    SmbLineageTracking = 11,
+    /// SMB compliance check (GDPR + cross-border).
+    SmbComplianceCheck = 12,
 }
 
 /// Expert registration entry.

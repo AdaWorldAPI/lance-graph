@@ -633,3 +633,187 @@ mod tests {
         assert_eq!(a.trigger, ActionTrigger::Suggested);
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MARKING (GDPR data classification)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Data classification marking for GDPR compliance.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Marking {
+    Public,
+    Internal,
+    Pii,
+    Financial,
+    Restricted,
+}
+
+impl Default for Marking {
+    fn default() -> Self { Marking::Internal }
+}
+
+impl Marking {
+    pub fn most_restrictive(markings: &[Marking]) -> Marking {
+        markings.iter().copied().max().unwrap_or(Marking::Public)
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LINEAGE HANDLE
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Opaque handle to an entity's lineage chain.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LineageHandle {
+    pub entity_type: &'static str,
+    pub entity_id: u64,
+    pub version: u64,
+    pub source_system: &'static str,
+    pub timestamp_ms: u64,
+}
+
+impl LineageHandle {
+    pub const fn new(
+        entity_type: &'static str,
+        entity_id: u64,
+        version: u64,
+        source_system: &'static str,
+        timestamp_ms: u64,
+    ) -> Self {
+        Self { entity_type, entity_id, version, source_system, timestamp_ms }
+    }
+
+    /// Merge two handles. Takes higher version, newer source_system, max timestamp.
+    pub fn merge(self, other: Self) -> Self {
+        debug_assert_eq!(self.entity_type, other.entity_type);
+        debug_assert_eq!(self.entity_id, other.entity_id);
+        let (newer, older) = if self.version >= other.version {
+            (self, other)
+        } else {
+            (other, self)
+        };
+        Self {
+            entity_type: newer.entity_type,
+            entity_id: newer.entity_id,
+            version: newer.version,
+            source_system: newer.source_system,
+            timestamp_ms: newer.timestamp_ms.max(older.timestamp_ms),
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ENTITY STORE + WRITER TRAITS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Streaming-capable entity scan API for tables exceeding ~50K rows.
+pub trait EntityStore: Send + Sync {
+    type RowBatch: Send;
+    type Error: Send + 'static;
+    type ScanStream: Iterator<Item = Result<Self::RowBatch, Self::Error>> + Send;
+
+    fn scan_stream(&self, entity_type: &str) -> Result<Self::ScanStream, Self::Error>;
+}
+
+/// Writer trait with provenance tracking via LineageHandle.
+pub trait EntityWriter: Send + Sync {
+    type Error: Send + 'static;
+    type Row: Send;
+
+    fn upsert_with_lineage(
+        &self,
+        entity_type: &'static str,
+        entity_id: u64,
+        row: Self::Row,
+        source_system: &'static str,
+    ) -> Result<LineageHandle, Self::Error>;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MOCK STORE (test-only template)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// In-memory test store implementing EntityStore + EntityWriter.
+pub mod mock_store {
+    use super::*;
+    use std::sync::RwLock;
+
+    pub struct VecStore {
+        pub rows: RwLock<Vec<(u64, Vec<u8>)>>,
+        version_counter: RwLock<u64>,
+    }
+
+    impl VecStore {
+        pub fn new() -> Self {
+            Self {
+                rows: RwLock::new(Vec::new()),
+                version_counter: RwLock::new(0),
+            }
+        }
+    }
+
+    impl EntityStore for VecStore {
+        type RowBatch = Vec<(u64, Vec<u8>)>;
+        type Error = &'static str;
+        type ScanStream = std::vec::IntoIter<Result<Self::RowBatch, Self::Error>>;
+
+        fn scan_stream(&self, _entity_type: &str) -> Result<Self::ScanStream, Self::Error> {
+            let batch = self.rows.read().map_err(|_| "lock poisoned")?.clone();
+            Ok(vec![Ok(batch)].into_iter())
+        }
+    }
+
+    impl EntityWriter for VecStore {
+        type Error = &'static str;
+        type Row = Vec<u8>;
+
+        fn upsert_with_lineage(
+            &self,
+            entity_type: &'static str,
+            entity_id: u64,
+            row: Self::Row,
+            source_system: &'static str,
+        ) -> Result<LineageHandle, Self::Error> {
+            let mut ver = self.version_counter.write().map_err(|_| "lock poisoned")?;
+            *ver += 1;
+            let version = *ver;
+            self.rows.write().map_err(|_| "lock poisoned")?.push((entity_id, row));
+            Ok(LineageHandle::new(entity_type, entity_id, version, source_system, 0))
+        }
+    }
+}
+
+#[cfg(test)]
+mod smb_tests {
+    use super::*;
+
+    #[test]
+    fn marking_most_restrictive() {
+        assert_eq!(Marking::most_restrictive(&[]), Marking::Public);
+        assert_eq!(Marking::most_restrictive(&[Marking::Internal, Marking::Pii]), Marking::Pii);
+        assert_eq!(Marking::most_restrictive(&[Marking::Restricted, Marking::Public]), Marking::Restricted);
+    }
+
+    #[test]
+    fn lineage_merge_takes_higher_version() {
+        let a = LineageHandle::new("Customer", 1, 3, "mongo", 100);
+        let b = LineageHandle::new("Customer", 1, 5, "imap", 50);
+        let merged = a.merge(b);
+        assert_eq!(merged.version, 5);
+        assert_eq!(merged.source_system, "imap");
+        assert_eq!(merged.timestamp_ms, 100);
+    }
+
+    #[test]
+    fn vec_store_upsert_and_scan() {
+        use mock_store::VecStore;
+        let store = VecStore::new();
+        let handle = store.upsert_with_lineage("Customer", 42, vec![1, 2, 3], "test").unwrap();
+        assert_eq!(handle.entity_id, 42);
+        assert_eq!(handle.version, 1);
+        let mut stream = store.scan_stream("Customer").unwrap();
+        let batch = stream.next().unwrap().unwrap();
+        assert_eq!(batch.len(), 1);
+        assert_eq!(batch[0].0, 42);
+    }
+}
