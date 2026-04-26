@@ -4,6 +4,9 @@
 #
 # ONLY deploy on AVX-512 hardware.
 #
+# CPU detection & SIMD dispatch documentation: see Dockerfile.md
+# Portable (AVX2) variant: see Dockerfile
+#
 # Build: docker build -f Dockerfile.avx512 -t lance-graph-avx512 .
 # Run:   docker run --rm lance-graph-avx512
 
