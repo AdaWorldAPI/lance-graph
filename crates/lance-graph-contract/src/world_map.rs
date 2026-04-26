@@ -22,6 +22,10 @@
 //!        └── rendered via XyzRenderer     → industry-specific labels
 //! ```
 
+// `AnchorState` retained for wiring into the upcoming AnchorState→WorldMap
+// blending function (TD-WM-1). Currently the renderer reads from the
+// scalar StateAnchor variants directly.
+#[allow(unused_imports)]
 use crate::proprioception::{
     AnchorState, DriveMode, StateAnchor, StateReport, AXIS_LABELS, STATE_DIMS,
 };

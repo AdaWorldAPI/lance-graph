@@ -142,7 +142,7 @@ impl ThinkingStyle {
     /// to look up compiled scan kernels.
     pub fn tau(&self) -> u8 {
         match self.cluster() {
-            StyleCluster::Analytical  => 0x40 + (*self as u8 - 0),
+            StyleCluster::Analytical  => 0x40 + (*self as u8),
             StyleCluster::Creative    => 0xA0 + (*self as u8 - 6),
             StyleCluster::Empathic    => 0x80 + (*self as u8 - 12),
             StyleCluster::Direct      => 0x60 + (*self as u8 - 18),

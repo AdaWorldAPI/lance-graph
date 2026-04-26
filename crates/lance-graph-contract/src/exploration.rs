@@ -153,15 +153,10 @@ pub struct MassExplorer {
 impl MassExplorer {
     /// Create from a seed LiteralGraph.
     pub fn from_graph(graph: LiteralGraph, budget: usize) -> Self {
-        // Initialize frontier from all edges in the graph
-        let mut frontier = Vec::new();
-        for i in 0..graph.edge_count() {
-            // We need to iterate edges — use a helper
-        }
-        // Build frontier from graph edges
-        let edges: Vec<LiteralEdge> = (0..graph.edge_count())
-            .filter_map(|_| None::<LiteralEdge>) // placeholder — we'll iterate properly
-            .collect();
+        // TD-EXPLORATION-1: edge iteration goes through `seed_frontier()` later;
+        // the `from_graph` constructor leaves `frontier` empty by design.
+        // The original placeholder loop and `edges` vec were dead code, removed.
+        let frontier = Vec::new();
 
         Self {
             graph,
@@ -177,9 +172,12 @@ impl MassExplorer {
     /// Initialize frontier from all graph edges.
     pub fn seed_frontier(&mut self) {
         self.frontier.clear();
-        // Collect all edges via node traversal
-        let node_ids: Vec<String> = (0..self.graph.node_count())
-            .filter_map(|_| None) // need node_id access
+        // Pre-collected list (kept for future filtering by node_id allow-list).
+        // TD-EXPLORATION-2: `node_ids` is a placeholder for filtering by
+        // a node_id allow-list. Currently unused; marked _ to silence
+        // the lint until the filter wiring lands.
+        let _node_ids: Vec<String> = (0..self.graph.node_count())
+            .filter_map(|_| None::<String>) // TODO: needs node_id access
             .collect();
 
         // Use the graph's internal iteration
@@ -275,7 +273,7 @@ impl MassExplorer {
         let mut confirmed = Vec::new();
 
         // Simple verb-based extraction (same as OSINT extractor)
-        for sentence in text.split(|c: char| c == '.' || c == '!' || c == '?') {
+        for sentence in text.split(['.', '!', '?']) {
             let sentence = sentence.trim();
             if sentence.split_whitespace().count() < 3 { continue; }
 

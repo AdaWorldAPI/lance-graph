@@ -133,8 +133,7 @@ impl ContextChain {
             if let Some(fp) = slot {
                 if let Some(bits) = binary16k_bits(fp) {
                     contributors += 1;
-                    for w in 0..256 {
-                        let word = bits[w];
+                    for (w, &word) in bits.iter().enumerate() {
                         let base = w * 64;
                         for b in 0..64 {
                             if (word >> b) & 1 == 1 {
@@ -149,9 +148,9 @@ impl ContextChain {
             return 0.0;
         }
 
-        let threshold = (contributors as u16 + 1) / 2; // majority: strictly more than half
+        let threshold = contributors.div_ceil(2); // majority: strictly more than half
         let mut bundle = [0u64; 256];
-        for w in 0..256 {
+        for (w, slot) in bundle.iter_mut().enumerate() {
             let mut word: u64 = 0;
             let base = w * 64;
             for b in 0..64 {
@@ -161,7 +160,7 @@ impl ContextChain {
                     word |= 1u64 << b;
                 }
             }
-            bundle[w] = word;
+            *slot = word;
         }
 
         let dist = hamming_256(fp_i_bits, &bundle);

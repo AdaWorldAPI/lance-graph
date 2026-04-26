@@ -221,7 +221,7 @@ impl CrystalFingerprint {
                         (cells[i] as f32 / 127.5) - 1.0;
                 }
                 if let Some(q) = quorum {
-                    out[QUORUM_START + 0] = q.element;
+                    out[QUORUM_START] = q.element;
                     out[QUORUM_START + 1] = q.sentence_position;
                     out[QUORUM_START + 2] = q.slot;
                     out[QUORUM_START + 3] = q.nars_inference;
@@ -267,7 +267,7 @@ impl CrystalFingerprint {
         }
         let quorum = if vsa[QUORUM_SENTINEL] > 0.0 {
             Some(Quorum5D::new(
-                vsa[QUORUM_START + 0], vsa[QUORUM_START + 1],
+                vsa[QUORUM_START], vsa[QUORUM_START + 1],
                 vsa[QUORUM_START + 2], vsa[QUORUM_START + 3],
                 vsa[QUORUM_START + 4],
             ))
@@ -414,8 +414,7 @@ pub fn vsa16k_zero() -> Box<[f32; 16_384]> {
 /// Lossless under the inverse [`vsa16k_to_binary16k_threshold`].
 pub fn binary16k_to_vsa16k_bipolar(bits: &[u64; 256]) -> Box<[f32; 16_384]> {
     let mut out = Box::new([0.0f32; 16_384]);
-    for w in 0..256 {
-        let word = bits[w];
+    for (w, &word) in bits.iter().enumerate() {
         for b in 0..64 {
             let dim = w * 64 + b;
             out[dim] = if (word >> b) & 1 == 1 { 1.0 } else { -1.0 };

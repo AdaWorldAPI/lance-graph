@@ -12,6 +12,10 @@
 //!
 //! Zero-dep. All types are trait-shape or plain structs.
 
+// `PrefetchDepth` and `PropertyKind` retained for wiring the prefetch hint
+// from ontology.action_spec into Schema lookups (TD-ONTO-1). Currently the
+// fetch path uses ActionSpec.fetch_max_rows and LinkSpec only.
+#[allow(unused_imports)]
 use crate::property::{
     ActionSpec, LinkSpec, PrefetchDepth, PropertyKind, Schema,
 };
@@ -238,7 +242,7 @@ impl SimulationSpec {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::property::{ActionTrigger, Cardinality, PropertySpec};
+    use crate::property::Cardinality;
 
     #[test]
     fn ontology_builder_composes() {

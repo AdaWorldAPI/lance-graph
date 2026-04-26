@@ -83,11 +83,16 @@ pub type TenantId = u64;
 /// Scope a query or projection to one or more tenants.
 /// Single = strict isolation; Multi = federated read with
 /// per-tenant marking applied to each row.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub enum TenantScope {
+    /// Strict single-tenant isolation.
     Single(TenantId),
+    /// Federated read across the listed tenants; per-tenant marking applies per row.
     Multi(Vec<TenantId>),
-    All,  // admin / cross-tenant analytics — requires policy override
+    /// Default — unrestricted; admin / cross-tenant analytics. Requires policy override.
+    /// CommitFilter narrows from this.
+    #[default]
+    All,
 }
 
 impl TenantScope {
@@ -105,12 +110,6 @@ impl TenantScope {
             Self::Multi(ts) => ts.as_slice(),
             Self::All => &[],
         }
-    }
-}
-
-impl Default for TenantScope {
-    fn default() -> Self {
-        Self::All  // unrestricted by default; CommitFilter narrows.
     }
 }
 
