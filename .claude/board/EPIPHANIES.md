@@ -65,6 +65,43 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-04-26 — CORRECTION-OF 2026-04-20 "Resolution hierarchy 64×64 > 256×257 > 4096×4096 > 16k": HIP layer is 256×256, not 256×257
+
+**Status:** CORRECTION
+
+The 2026-04-20 resolution-ladder entry described the bgz17 HIP layer as
+`256 archetypes × 256 + 1 sentinel = 256×257`. The "+1" was an aspirational
+sentinel slot intended to cover three roles:
+
+- "unknown / out-of-palette" for queries not matching any of the 256 archetypes
+- "null edge" for absence of a relation in `mxm` composition
+- "identity" reserved index where `distance(x, sentinel) = ‖x‖₁`
+
+**Reality (as shipped):** `bgz17::DistanceMatrix` and
+`bgz17::PaletteSemiring::compose_table` are both `k × k` where
+`k = palette.len() ≤ 256`. There is no 257th row/column. The sentinel
+roles were absorbed elsewhere:
+
+- `PaletteSemiring::identity(palette)` returns the palette entry CLOSEST
+  to `Base17::zero()` (not a reserved slot — a real archetype that snaps
+  to zero).
+- Out-of-palette queries call `Palette::nearest(query)` and get clamped
+  to the closest existing centroid; there is no "no-match" code.
+- `MAX_PALETTE_SIZE = 256` because palette indices are `u8` — index 257
+  literally cannot be encoded in the byte-indexed scheme. Adding the
+  sentinel would require widening to `u16` indices throughout the
+  cascade and doubling the wire size of `PaletteEdge` from 3 bytes to
+  6 bytes per edge — a non-trivial cost.
+
+**Decision:** keep `k × k` as shipped; the resolution ladder entry now
+reads `64×64 > 256×256 > 4096×4096 > 16k`. The sentinel idea is filed
+under `TECH_DEBT.md` as TD-PALETTE-SENTINEL (open, low priority — only
+revisit if a real "absent-edge" code path actually needs it).
+
+Cross-ref: 2026-04-20 resolution hierarchy entry (now SUPERSEDED in
+spirit but kept verbatim — see governance rule); `bgz17::distance_matrix`,
+`bgz17::palette_semiring`, `bgz17::MAX_PALETTE_SIZE`.
+
 ## 2026-04-25 — FINDING: ndarray VSA migrated to 16384-bit — SIMD-clean at every precision tier
 
 **Status:** FINDING

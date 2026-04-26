@@ -1124,3 +1124,25 @@ Estimated 100× speedup for encoding (O(1) table lookup vs O(256) L1 per query).
 - **TD-DIST-3** (Palette distance table): `Palette::build_distance_table()` →
   `PaletteDistanceTable` with O(1) `distance(a, b)` and `edge_distance(a, b)`.
   128 KB table, L2-resident. Status: **PAID**.
+
+## 2026-04-26 — TD-PALETTE-SENTINEL: 257th sentinel slot in palette distance/compose tables
+
+**Status:** Open (low priority — historical aspirational design, no current need)
+
+The 2026-04-20 resolution-hierarchy epiphany described the bgz17 HIP layer
+as `256×257` (256 archetypes + 1 sentinel). Implementation shipped `k×k`
+without the sentinel. See EPIPHANIES.md 2026-04-26 CORRECTION for full
+context.
+
+**Why deferred:**
+- Adding a 257th index requires widening palette indices from `u8` to `u16`
+- `PaletteEdge` wire format doubles from 3 bytes to 6 bytes per edge
+- `MAX_PALETTE_SIZE = 256` is a deliberate u8-ceiling design choice
+- The three sentinel roles (unknown/null/identity) are already covered by
+  existing mechanisms: `Palette::nearest()` clamps unknowns, `identity()`
+  returns the closest-to-zero archetype.
+
+**Revisit when:** a real "absent edge" code path materializes (e.g., a
+sparse mxm that needs to distinguish "no relation" from "relation = 0
+distance"), or when the palette grows beyond 256 entries (which would
+also force u16 indices).
