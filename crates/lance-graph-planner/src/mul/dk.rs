@@ -63,6 +63,12 @@ pub struct DkDetector {
     history: Vec<(f64, f64)>, // (felt, demonstrated) pairs
 }
 
+impl Default for DkDetector {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DkDetector {
     pub fn new() -> Self {
         Self { history: Vec::new() }

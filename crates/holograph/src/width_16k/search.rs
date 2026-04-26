@@ -277,19 +277,15 @@ impl SchemaQuery {
         // NARS filter: read word[210] (lower 32 bits = truth)
         if let Some(ref nars) = self.nars_filter {
             let truth = NarsTruth::unpack(candidate_words[base + 2] as u32);
-            if let Some(min_f) = nars.min_frequency {
-                if truth.f() < min_f {
-                    return false;
-                }
+            if let Some(min_f) = nars.min_frequency && truth.f() < min_f {
+                return false;
             }
-            if let Some(min_c) = nars.min_confidence {
-                if truth.c() < min_c {
-                    return false;
-                }
+            if let Some(min_c) = nars.min_confidence && truth.c() < min_c {
+                return false;
             }
             // Budget: upper 32 bits of word[210] → lower 64 bits
             if let Some(min_p) = nars.min_priority {
-                let budget = NarsBudget::unpack((candidate_words[base + 2] >> 32) as u64);
+                let budget = NarsBudget::unpack(candidate_words[base + 2] >> 32);
                 if (budget.priority as f32 / 65535.0) < min_p {
                     return false;
                 }
@@ -338,10 +334,8 @@ impl SchemaQuery {
                     rewards.rewards[i + 4] = ((rw1 >> (i * 16)) & 0xFFFF) as u16 as i16;
                 }
 
-                if let Some(min_avg) = rl.min_avg_reward {
-                    if rewards.average() < min_avg {
-                        return false;
-                    }
+                if let Some(min_avg) = rl.min_avg_reward && rewards.average() < min_avg {
+                    return false;
                 }
                 if rl.positive_trend && rewards.trend() <= 0.0 {
                     return false;
@@ -354,25 +348,17 @@ impl SchemaQuery {
             let block15_base = base + 32;
             let metrics = GraphMetrics::unpack(candidate_words[block15_base + 8]);
 
-            if let Some(min_pr) = graph.min_pagerank {
-                if metrics.pagerank < min_pr {
-                    return false;
-                }
+            if let Some(min_pr) = graph.min_pagerank && metrics.pagerank < min_pr {
+                return false;
             }
-            if let Some(max_h) = graph.max_hop {
-                if metrics.hop_to_root > max_h {
-                    return false;
-                }
+            if let Some(max_h) = graph.max_hop && metrics.hop_to_root > max_h {
+                return false;
             }
-            if let Some(cid) = graph.cluster_id {
-                if metrics.cluster_id != cid {
-                    return false;
-                }
+            if let Some(cid) = graph.cluster_id && metrics.cluster_id != cid {
+                return false;
             }
-            if let Some(min_d) = graph.min_degree {
-                if metrics.degree < min_d {
-                    return false;
-                }
+            if let Some(min_d) = graph.min_degree && metrics.degree < min_d {
+                return false;
             }
         }
 
@@ -654,14 +640,14 @@ pub fn schema_bind(a: &[u64], b: &[u64]) -> Vec<u64> {
     let truth_b = NarsTruth::unpack(b[base + 2] as u32);
     let revised = truth_a.revision(&truth_b);
     // Budget: max priority
-    let budget_a = NarsBudget::unpack((a[base + 2] >> 32) as u64);
-    let budget_b = NarsBudget::unpack((b[base + 2] >> 32) as u64);
+    let budget_a = NarsBudget::unpack(a[base + 2] >> 32);
+    let budget_b = NarsBudget::unpack(b[base + 2] >> 32);
     let merged_budget = if budget_a.priority >= budget_b.priority {
         budget_a
     } else {
         budget_b
     };
-    out[base + 2] = revised.pack() as u64 | ((merged_budget.pack() as u64) << 32);
+    out[base + 2] = revised.pack() as u64 | (merged_budget.pack() << 32);
 
     // Block 13: Edge type — XOR verb IDs (compositional binding)
     let edge_a = EdgeTypeMarker::unpack(a[base + 3] as u32);
@@ -684,9 +670,7 @@ pub fn schema_bind(a: &[u64], b: &[u64]) -> Vec<u64> {
 
     // Block 14: RL state — preserve from primary operand (a)
     let block14_base = base + 16;
-    for w in 0..16 {
-        out[block14_base + w] = a[block14_base + w];
-    }
+    out[block14_base..(16 + block14_base)].copy_from_slice(&a[block14_base..(16 + block14_base)]);
 
     // Block 15: Graph cache — clear (new binding = new identity)
     // Words 240..255 remain zero
@@ -818,7 +802,7 @@ pub fn rl_guided_search(
     alpha: f32,
     schema_query: &SchemaQuery,
 ) -> Vec<RlSearchResult> {
-    let max_bits = (schema_query.block_mask.count() as f32 * BITS_PER_BLOCK as f32).max(1.0);
+    let _max_bits = (schema_query.block_mask.count() as f32 * BITS_PER_BLOCK as f32).max(1.0);
     let mut results: Vec<RlSearchResult> = Vec::with_capacity(k + 1);
 
     for (idx, &candidate) in candidates.iter().enumerate() {
@@ -927,15 +911,15 @@ pub fn schema_merge(primary: &[u64], secondary: &[u64]) -> Vec<u64> {
     let truth_a = NarsTruth::unpack(primary[base + 2] as u32);
     let truth_b = NarsTruth::unpack(secondary[base + 2] as u32);
     let revised = truth_a.revision(&truth_b);
-    let budget_a = NarsBudget::unpack((primary[base + 2] >> 32) as u64);
-    let budget_b = NarsBudget::unpack((secondary[base + 2] >> 32) as u64);
+    let budget_a = NarsBudget::unpack(primary[base + 2] >> 32);
+    let budget_b = NarsBudget::unpack(secondary[base + 2] >> 32);
     let merged_budget = NarsBudget {
         priority: budget_a.priority.max(budget_b.priority),
         durability: budget_a.durability.max(budget_b.durability),
         quality: budget_a.quality.max(budget_b.quality),
         _reserved: 0,
     };
-    out[base + 2] = revised.pack() as u64 | ((merged_budget.pack() as u64) << 32);
+    out[base + 2] = revised.pack() as u64 | (merged_budget.pack() << 32);
 
     // Block 13: Edge/Node types — preserve from primary
     out[base + 3] = primary[base + 3];
@@ -969,15 +953,11 @@ pub fn schema_merge(primary: &[u64], secondary: &[u64]) -> Vec<u64> {
     }
 
     // Block 14: STDP + Hebbian — preserve from primary
-    for w in 4..16 {
-        out[block14_base + w] = primary[block14_base + w];
-    }
+    out[(4 + block14_base)..(16 + block14_base)].copy_from_slice(&primary[(4 + block14_base)..(16 + block14_base)]);
 
     // Block 15: DN address — preserve from primary
     let block15_base = base + 32;
-    for w in 0..4 {
-        out[block15_base + w] = primary[block15_base + w];
-    }
+    out[block15_base..(4 + block15_base)].copy_from_slice(&primary[block15_base..(4 + block15_base)]);
 
     // Block 15: Bloom filter — OR (union of known neighbors)
     for w in 0..4 {

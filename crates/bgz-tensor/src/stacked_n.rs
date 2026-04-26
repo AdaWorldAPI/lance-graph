@@ -63,7 +63,7 @@ impl StackedN {
     /// when more octaves exist than sample slots).
     pub fn from_bf16(weights: &[u16], samples_per_dim: usize) -> Self {
         let n = weights.len();
-        let n_octaves = (n + BASE_DIM - 1) / BASE_DIM;
+        let n_octaves = n.div_ceil(BASE_DIM);
         let spd = samples_per_dim.max(1);
         let mut data = vec![0u16; BASE_DIM * spd];
 

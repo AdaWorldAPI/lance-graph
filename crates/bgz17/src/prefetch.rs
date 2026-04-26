@@ -209,6 +209,7 @@ impl PrefetchStats {
 ///
 /// The palette indices are NEVER re-encoded. The optimizer (prefetch +
 /// LFD correction) runs over the compiled form (3-byte edge) at query time.
+#[allow(clippy::too_many_arguments)]
 pub fn prefetch_layered_search(
     matrices: &SpoDistanceMatrices,
     scents: &[u8],
@@ -226,8 +227,8 @@ pub fn prefetch_layered_search(
 
     // Phase 1: Scent scan (no prefetch needed — sequential, 1 byte each)
     let mut candidates: Vec<(usize, u32)> = Vec::with_capacity(n / 4);
-    for i in 0..n {
-        let d = (query_scent ^ scents[i]).count_ones();
+    for (i, &scent) in scents.iter().enumerate().take(n) {
+        let d = (query_scent ^ scent).count_ones();
         if d <= scent_threshold {
             candidates.push((i, d));
         } else {

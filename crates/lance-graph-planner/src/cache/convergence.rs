@@ -19,9 +19,15 @@
 //! ```
 
 use super::kv_bundle::HeadPrint;
+#[allow(unused_imports)] // CausalEdge64 intended for hot-path convergence wiring
 use super::nars_engine::{SpoHead, MASK_SPO, CausalEdge64};
+#[allow(unused_imports)] // DistanceMatrix intended for per-plane distance wiring
 use ndarray::hpc::palette_distance::{Palette, DistanceMatrix, SpoDistanceMatrices};
+#[allow(unused_imports)] // intended for Base17 fingerprint convergence wiring
 use ndarray::hpc::bgz17_bridge::SpoBase17;
+
+/// Episode entry: (observation text, extracted triplets, recency weight).
+type EpisodeEntry = (String, Vec<(String, String, String)>, f32);
 
 /// Per-plane palette distance context (TD-INT-5).
 ///
@@ -196,7 +202,7 @@ pub fn run_convergence(
 /// Takes a list of episodes (observation text) and extracts SPO triplets,
 /// converts them to palette layers, ready for hot-path routing.
 pub fn episodes_to_palette_layers(
-    episodes: &[(String, Vec<(String, String, String)>, f32)], // (observation, triplets, recency)
+    episodes: &[EpisodeEntry],
 ) -> [[u64; 64]; 8] {
     let mut all_triplets = Vec::new();
     for (_, triplets, recency) in episodes {

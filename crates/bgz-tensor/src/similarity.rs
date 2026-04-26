@@ -63,11 +63,11 @@ impl SimilarityTable {
         }
 
         // Mean cosine per bin
-        for i in 0..N_BINS {
+        for (i, bin) in bins.iter_mut().enumerate().take(N_BINS) {
             if bin_counts[i] > 0 {
-                bins[i] = (bin_sums[i] / bin_counts[i] as f64) as f32;
+                *bin = (bin_sums[i] / bin_counts[i] as f64) as f32;
             } else {
-                bins[i] = f32::NAN; // will be interpolated
+                *bin = f32::NAN; // will be interpolated
             }
         }
 
@@ -84,8 +84,8 @@ impl SimilarityTable {
     /// similarity = 1.0 - l1/max_l1.
     pub fn linear_fallback(max_l1: u32) -> Self {
         let mut bins = [0.0f32; N_BINS];
-        for i in 0..N_BINS {
-            bins[i] = 1.0 - (i as f32 / 255.0);
+        for (i, bin) in bins.iter_mut().enumerate().take(N_BINS) {
+            *bin = 1.0 - (i as f32 / 255.0);
         }
         SimilarityTable { max_l1, bins }
     }
@@ -102,9 +102,9 @@ impl SimilarityTable {
                     if gap > 1 {
                         let start_val = bins[prev];
                         let end_val = bins[i];
-                        for j in (prev + 1)..i {
-                            let t = (j - prev) as f32 / gap as f32;
-                            bins[j] = start_val + t * (end_val - start_val);
+                        for (offset, bin) in bins[(prev + 1)..i].iter_mut().enumerate() {
+                            let t = (offset + 1) as f32 / gap as f32;
+                            *bin = start_val + t * (end_val - start_val);
                         }
                     }
                 }
@@ -125,8 +125,8 @@ impl SimilarityTable {
         }
         // If all NaN, default to linear
         if bins[0].is_nan() {
-            for i in 0..N_BINS {
-                bins[i] = 1.0 - i as f32 / 255.0;
+            for (i, bin) in bins.iter_mut().enumerate().take(N_BINS) {
+                *bin = 1.0 - i as f32 / 255.0;
             }
         }
     }

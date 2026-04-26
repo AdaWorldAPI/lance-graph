@@ -257,8 +257,7 @@ impl PaletteCsr {
 /// Returns (verb, target) pairs, stopping at first zero edge.
 fn extract_inline_edges(container: &[u64; CONTAINER_WORDS]) -> Vec<(u8, u8)> {
     let mut edges = Vec::new();
-    for w in W_INLINE_EDGES_START..=W_INLINE_EDGES_END {
-        let word = container[w];
+    for &word in &container[W_INLINE_EDGES_START..=W_INLINE_EDGES_END] {
         if word == 0 { break; }
         for shift in (0..64).step_by(16) {
             let verb = ((word >> shift) & 0xFF) as u8;

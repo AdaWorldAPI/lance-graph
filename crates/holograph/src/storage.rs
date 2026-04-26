@@ -41,7 +41,9 @@ use std::sync::Arc;
 use std::path::Path;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
+use arrow::array::ArrayBuilder;
 
+#[allow(unused_imports)] // BinaryArray, TimestampMicrosecondArray reserved for metadata column reads
 use arrow::array::{
     ArrayRef, FixedSizeBinaryArray, FixedSizeBinaryBuilder,
     UInt64Array, UInt64Builder, BinaryArray, BinaryBuilder,
@@ -52,6 +54,7 @@ use arrow::record_batch::RecordBatch;
 use arrow::ipc::reader::FileReader;
 use arrow::ipc::writer::FileWriter;
 
+#[allow(unused_imports)] // VectorRef, VECTOR_BYTES, VECTOR_WORDS reserved for zero-copy Arrow column access
 use crate::bitpack::{
     BitpackedVector, VectorRef, VectorSlice,
     VECTOR_BITS, VECTOR_BYTES, VECTOR_WORDS, PADDED_VECTOR_BYTES,
@@ -94,24 +97,30 @@ pub struct VectorBatch {
 impl VectorBatch {
     /// Create from Arrow RecordBatch
     pub fn from_record_batch(batch: RecordBatch) -> Result<Self> {
-        let fingerprints = batch
-            .column_by_name(FIELD_FINGERPRINT)
-            .ok_or_else(|| HdrError::Storage("Missing fingerprint column".into()))?
-            .as_any()
-            .downcast_ref::<FixedSizeBinaryArray>()
-            .ok_or_else(|| HdrError::Storage("Invalid fingerprint column type".into()))?;
+        let fingerprints = Arc::new(
+            batch
+                .column_by_name(FIELD_FINGERPRINT)
+                .ok_or_else(|| HdrError::Storage("Missing fingerprint column".into()))?
+                .as_any()
+                .downcast_ref::<FixedSizeBinaryArray>()
+                .ok_or_else(|| HdrError::Storage("Invalid fingerprint column type".into()))?
+                .clone(),
+        );
 
-        let ids = batch
-            .column_by_name(FIELD_ID)
-            .ok_or_else(|| HdrError::Storage("Missing id column".into()))?
-            .as_any()
-            .downcast_ref::<UInt64Array>()
-            .ok_or_else(|| HdrError::Storage("Invalid id column type".into()))?;
+        let ids = Arc::new(
+            batch
+                .column_by_name(FIELD_ID)
+                .ok_or_else(|| HdrError::Storage("Missing id column".into()))?
+                .as_any()
+                .downcast_ref::<UInt64Array>()
+                .ok_or_else(|| HdrError::Storage("Invalid id column type".into()))?
+                .clone(),
+        );
 
         Ok(Self {
             batch,
-            fingerprints: Arc::new(fingerprints.clone()),
-            ids: Arc::new(ids.clone()),
+            fingerprints,
+            ids,
         })
     }
 
@@ -158,10 +167,7 @@ impl VectorBatch {
         }
         let bytes = self.fingerprints.value(index);
         // Try zero-copy reinterpret; fall back should never happen with padded columns
-        match VectorSlice::from_bytes_or_copy(bytes) {
-            Ok(slice) => Some(slice),
-            Err(_) => None, // Alignment issue — caller should use get_vector() instead
-        }
+        VectorSlice::from_bytes_or_copy(bytes).ok()
     }
 
     /// Get vector bytes directly (truly zero-copy)
@@ -681,11 +687,14 @@ pub mod datafusion {
     use super::*;
     use ::datafusion::prelude::*;
     use ::datafusion::datasource::MemTable;
+    #[allow(unused_imports)] // ScalarUDF, Volatility, create_udf reserved for UDF registration surface
     use ::datafusion::logical_expr::{
         ScalarUDF, Volatility,
         create_udf,
     };
+    #[allow(unused_imports)] // ArrowDataType, ArrowField reserved for UDF return-type declarations
     use ::datafusion::arrow::datatypes::{DataType as ArrowDataType, Field as ArrowField};
+    #[allow(unused_imports)] // DFFixedSizeBinaryArray reserved for UDF fingerprint column access
     use ::datafusion::arrow::array::{
         UInt32Array, Float32Array, FixedSizeBinaryArray as DFFixedSizeBinaryArray,
     };
@@ -703,7 +712,7 @@ pub mod datafusion {
     /// These UDFs operate directly on Arrow FixedSizeBinary columns.
     /// The VectorSlice zero-copy path means no BitpackedVector is ever
     /// materialized — the UDF reads words straight from the Arrow buffer.
-    fn register_vector_udfs(ctx: &SessionContext) -> Result<()> {
+    fn register_vector_udfs(_ctx: &SessionContext) -> Result<()> {
         // hamming_distance(fingerprint_a, fingerprint_b) -> uint32
         // vector_similarity(fingerprint_a, fingerprint_b) -> float32
         // vector_bind(fingerprint_a, fingerprint_b) -> fixedsizebinary

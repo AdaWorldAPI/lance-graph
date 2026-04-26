@@ -278,12 +278,7 @@ impl HighHeelBGZ {
         let spo = bytes_to_spo(&spo_bytes);
         let truth_meta = buf[15];
         // Unpack edges (non-zero entries in W16-W255)
-        let mut edges = Vec::new();
-        for i in 16..256 {
-            if buf[i] != 0 {
-                edges.push(buf[i]);
-            }
-        }
+        let edges: Vec<u64> = buf[16..256].iter().copied().filter(|&v| v != 0).collect();
         Self {
             heel: Heel { dn_address, label_flags, spo, truth_meta },
             edges,
@@ -629,9 +624,10 @@ mod tests {
         let max_abs = dims.iter().map(|d| d.abs()).max().unwrap_or(1).max(1);
         let scale = 10000.0 / max_abs as f64;
         let mut spo = SpoBase17::ZERO;
-        for d in 0..17 { spo.s[d] = (dims[d] as f64 * scale).round().clamp(-32768.0, 32767.0) as i16; }
-        for d in 0..17 { spo.p[d] = (dims[17 + d] as f64 * scale).round().clamp(-32768.0, 32767.0) as i16; }
-        for d in 0..17 { spo.o[d] = (dims[34 + d] as f64 * scale).round().clamp(-32768.0, 32767.0) as i16; }
+        let pack = |v: i64| (v as f64 * scale).round().clamp(-32768.0, 32767.0) as i16;
+        for (d, slot) in spo.s.iter_mut().enumerate() { *slot = pack(dims[d]); }
+        for (d, slot) in spo.p.iter_mut().enumerate() { *slot = pack(dims[17 + d]); }
+        for (d, slot) in spo.o.iter_mut().enumerate() { *slot = pack(dims[34 + d]); }
         spo
     }
 
@@ -889,11 +885,11 @@ impl LensProfile {
 
         // Sample transfer curve at 256 equidistant cosine points
         let n_pairs = pairs.len();
-        for k in 0..256 {
+        for (k, slot) in transfer_curve.iter_mut().enumerate().take(256) {
             let target_cos = -1.0 + k as f32 * 2.0 / 255.0;
             // Find nearest pair
             let idx = pairs.partition_point(|p| p.0 < target_cos).min(n_pairs - 1);
-            transfer_curve[k] = pairs[idx].1 as f32;
+            *slot = pairs[idx].1 as f32;
             inverse_curve[pairs[idx].1 as usize] = target_cos;
         }
 

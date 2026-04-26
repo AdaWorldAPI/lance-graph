@@ -120,6 +120,12 @@ pub struct LearningLoop {
     observations: Vec<(f64, f64)>,
 }
 
+impl Default for LearningLoop {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl LearningLoop {
     pub fn new() -> Self {
         Self { observations: Vec::new() }

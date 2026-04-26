@@ -4,6 +4,7 @@
 //! Cost model decides between Cascade/Full/Index strategies.
 
 use crate::ir::{Arena, LogicalOp};
+#[allow(unused_imports)] // intended for scan strategy selection wiring
 use crate::ir::logical_op::ScanStrategy;
 use crate::traits::*;
 use crate::PlanError;
@@ -23,7 +24,7 @@ impl PlanStrategy for SigmaBandScan {
         }
     }
 
-    fn plan(&self, mut input: PlanInput, arena: &mut Arena<LogicalOp>) -> Result<PlanInput, PlanError> {
+    fn plan(&self, input: PlanInput, _arena: &mut Arena<LogicalOp>) -> Result<PlanInput, PlanError> {
         // Choose scan strategy based on data characteristics:
         // - Cascade: best for selective queries (threshold < 30% of max distance)
         // - Full: best for broad queries or small datasets

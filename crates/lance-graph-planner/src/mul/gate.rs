@@ -6,6 +6,7 @@
 //! - [ ] Not depleted
 //! - [ ] Trust not murky/dissonant
 
+#[allow(unused_imports)] // FlowState intended for homeostasis gate wiring
 use super::{MulAssessment, dk::DkPosition, trust::TrustTexture, homeostasis::FlowState};
 
 /// Gate decision.

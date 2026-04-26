@@ -36,8 +36,16 @@ pub enum ReplayDirection {
 
 impl ContextCrystal {
     /// Total sentences in the context (1 + preceding + following).
+    /// Always ≥ 1 (the focal sentence). See [`Self::is_empty`] which is
+    /// always false for this type — provided to satisfy the
+    /// `len_without_is_empty` lint.
     pub fn len(&self) -> usize {
         1 + self.preceding.len() + self.following.len()
+    }
+
+    /// Always false — a ContextCrystal always has at least its focal sentence.
+    pub fn is_empty(&self) -> bool {
+        false
     }
 
     /// Whether the window is saturated on both sides.

@@ -429,7 +429,7 @@ impl PlanStrategy for GremlinParse {
             let root = arena.push(ret);
 
             let plan = LogicalPlan::new(
-                std::mem::replace(arena, Arena::new()),
+                std::mem::take(arena),
                 expr_arena,
                 root,
             );
@@ -477,7 +477,11 @@ enum GremlinStep {
     InV,
     OutV,
     BothV,
-    Repeat { steps: Vec<GremlinStep>, times: usize },
+    Repeat {
+        #[allow(dead_code)] // future wiring for repeat-step expansion
+        steps: Vec<GremlinStep>,
+        times: usize,
+    },
     Until,
     Count,
     Sum(Option<String>),

@@ -63,6 +63,12 @@ pub struct ModelState {
     pub dk: DkPosition,
 }
 
+impl Default for ModelState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ModelState {
     pub fn new() -> Self {
         Self {
@@ -93,6 +99,12 @@ pub struct TripleModel {
     pub self_model: ModelState,
     pub user_model: ModelState,
     pub impact_model: ModelState,
+}
+
+impl Default for TripleModel {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl TripleModel {

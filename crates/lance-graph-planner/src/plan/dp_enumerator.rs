@@ -11,7 +11,9 @@
 //! differentiated by factorization encoding.
 
 use crate::ir::{Arena, LogicalOp, Node, SubPlansTable, SubqueryGraph, LogicalPlanRef};
+#[allow(unused_imports)] // Direction intended for edge traversal wiring
 use crate::ir::logical_op::{Direction, JoinType};
+#[allow(unused_imports)] // intended for factorization schema wiring
 use crate::ir::schema::Schema;
 use crate::plan::{PlannerConfig, QueryGraph, QueryGraphNode, QueryGraphEdge, CostModel};
 use crate::thinking::ThinkingContext;
@@ -19,6 +21,7 @@ use crate::PlanError;
 
 pub struct DpEnumerator<'a> {
     config: &'a PlannerConfig,
+    #[allow(dead_code)] // future wiring for thinking-aware join enumeration
     thinking: &'a ThinkingContext,
     cost_model: CostModel,
 }

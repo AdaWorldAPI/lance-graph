@@ -17,9 +17,9 @@
 //!    not content itself.
 //! 2. **A new `lance-graph-scenario` crate.** Rejected: the four pieces
 //!    that a scenario needs already exist (Pearl Rung 3 intervention in
-//!    `lance-graph-cognitive::world::counterfactual`, dataset versioning
-//!    + diff in `lance-graph::graph::versioned::VersionedGraph`,
-//!    archetype meta-state in `lance-graph-archetype::world::World`,
+//!    `lance-graph-cognitive::world::counterfactual`; dataset versioning
+//!    plus diff in `lance-graph::graph::versioned::VersionedGraph`;
+//!    archetype meta-state in `lance-graph-archetype::world::World`;
 //!    full situational DTO in `world_model::WorldModelDto`). A new crate
 //!    would re-state shape; a facade composes existing surfaces.
 //!

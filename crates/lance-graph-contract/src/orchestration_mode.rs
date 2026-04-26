@@ -37,6 +37,11 @@
 //!
 //! Zero dependencies.
 
+// `FieldModulation` retained as a wiring placeholder for the per-style
+// modulation override path (TD-ORCH-1). Currently only `ThinkingStyle`
+// is consumed; the modulation hook is wired in `OrchestrationBridge`
+// but not yet routed through this module.
+#[allow(unused_imports)]
 use crate::thinking::{ThinkingStyle, FieldModulation};
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -364,7 +369,7 @@ impl Hypothesis {
 /// Higher Pearl levels get priority (counterfactual > causal > associative).
 pub fn form_hypotheses(projections: &[SurvivorProjection], max: usize) -> Vec<Hypothesis> {
     let mut hypotheses: Vec<Hypothesis> = projections.iter()
-        .map(|p| Hypothesis::from_projection(p))
+        .map(Hypothesis::from_projection)
         .collect();
     // Sort by Pearl level descending (test deeper claims first)
     hypotheses.sort_by(|a, b| b.pearl_level.cmp(&a.pearl_level));

@@ -12,6 +12,8 @@
 //! Recovery quality depends on SNR = √(d×SPD / N_members).
 //! At SPD=32, d=17: SNR(N=6) ≈ 9.5 → expected Pearson ~0.96
 
+// cosine_f32_slice reserved for future fold quality measurement
+#[allow(unused_imports)]
 use crate::stacked_n::{StackedN, bf16_to_f32, f32_to_bf16, cosine_f32_slice};
 
 /// Euler-Mascheroni constant γ ≈ 0.5772156649...
@@ -219,7 +221,7 @@ pub fn euler_gamma_fold(members: &[Vec<f32>], spd: usize) -> FoldedFamily {
         .map(|&v| f32_to_bf16(v as f32))
         .collect();
 
-    let mut folded = StackedN {
+    let folded = StackedN {
         samples_per_dim: spd,
         data: folded_bf16,
     };
@@ -307,12 +309,12 @@ pub fn gate_test(members: &[Vec<f32>], spd: usize) -> FoldResult {
     let family = euler_gamma_fold(members, spd);
 
     let mut pearsons = Vec::with_capacity(n);
-    for j in 0..n {
+    for (j, member) in members.iter().enumerate().take(n) {
         let recovered = euler_gamma_unfold(&family, j);
 
         // Compute Pearson between original and recovered
         // (on the hydrated StackedN representation, not raw f32)
-        let orig_enc = StackedN::from_f32(&members[j], spd);
+        let orig_enc = StackedN::from_f32(member, spd);
         let orig_f32 = orig_enc.hydrate_f32();
 
         let r = crate::quality::pearson(

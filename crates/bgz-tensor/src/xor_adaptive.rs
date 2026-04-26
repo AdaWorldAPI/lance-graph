@@ -7,17 +7,23 @@
 //!
 //! No Hessian, no calibration data. The XOR IS the anomaly detector.
 
+// wht_f32 reserved for future Hadamard-rotated XOR codec path
+#[allow(unused_imports)]
 use ndarray::hpc::fft::wht_f32;
 use ndarray::hpc::cam_pq::kmeans;
+// cosine_f32_to_f64_simd used by tests
+#[allow(unused_imports)]
 use ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd;
 use crate::stacked_n::{bf16_to_f32, f32_to_bf16};
 
+// Reserved for future Hadamard-rotation integration
+#[allow(dead_code)]
 fn next_pow2(n: usize) -> usize {
     let mut p = 1; while p < n { p *= 2; } p
 }
 
 fn sign_bits(v: &[f32]) -> Vec<u64> {
-    let n_words = (v.len() + 63) / 64;
+    let n_words = v.len().div_ceil(64);
     let mut bits = vec![0u64; n_words];
     for (i, &val) in v.iter().enumerate() {
         if val > 0.0 { bits[i / 64] |= 1u64 << (i % 64); }
@@ -88,12 +94,12 @@ impl XorAdaptiveTensor {
             let mut flipped_idx = Vec::new();
             let mut matched_vals = Vec::new();
 
-            for d in 0..n_cols {
+            for (d, &res) in residual.iter().enumerate().take(n_cols) {
                 if is_flipped(&delta, d) {
-                    flipped_vals.push(residual[d]);
+                    flipped_vals.push(res);
                     flipped_idx.push(d as u16);
                 } else {
-                    matched_vals.push(residual[d]);
+                    matched_vals.push(res);
                 }
             }
 
@@ -107,7 +113,7 @@ impl XorAdaptiveTensor {
             let matched_max = matched_vals.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
             let ms = if matched_max > 1e-12 { 7.0 / matched_max } else { 0.0 };
             let matched_packed: Vec<u8> = {
-                let mut out = Vec::with_capacity((matched_vals.len() + 1) / 2);
+                let mut out = Vec::with_capacity(matched_vals.len().div_ceil(2));
                 let mut i = 0;
                 while i < matched_vals.len() {
                     let a = (matched_vals[i] * ms).round().clamp(-7.0, 7.0) as i8;
@@ -149,7 +155,7 @@ impl XorAdaptiveTensor {
 
         let ms = bf16_to_f32(row.matched_scale_bf16);
         let mut mi = 0;
-        for d in 0..self.n_cols {
+        for (d, res) in result.iter_mut().enumerate().take(self.n_cols) {
             if !row.flipped_indices.contains(&(d as u16)) {
                 let byte_idx = mi / 2;
                 if byte_idx < row.matched_codes.len() {
@@ -158,7 +164,7 @@ impl XorAdaptiveTensor {
                     } else {
                         (row.matched_codes[byte_idx] >> 4) as i8 - 8
                     };
-                    result[d] += nibble as f32 * ms;
+                    *res += nibble as f32 * ms;
                 }
                 mi += 1;
             }

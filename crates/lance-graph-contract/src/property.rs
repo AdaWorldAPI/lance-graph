@@ -710,17 +710,19 @@ mod tests {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Data classification marking for GDPR compliance.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub enum Marking {
+    /// No restriction; safe to expose externally.
     Public,
+    /// Default — internal use only, not for general sharing.
+    #[default]
     Internal,
+    /// Personally Identifiable Information; GDPR-protected.
     Pii,
+    /// Financial data; bookkeeping or tax-relevant.
     Financial,
+    /// Highest restriction; access requires explicit grant.
     Restricted,
-}
-
-impl Default for Marking {
-    fn default() -> Self { Marking::Internal }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -733,26 +735,37 @@ impl Default for Marking {
 ///
 /// SMB use cases: `iban` (DE89370400440532013000), `currency` (EUR 1234.56),
 /// `email`, `phone`, `date` (geburtsdatum), `address`, `tax_id` (umsatzsteuer-id).
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub enum SemanticType {
+    /// Default — opaque text, no semantic interpretation.
+    #[default]
     PlainText,
+    /// International Bank Account Number (IBAN).
     Iban,
+    /// Currency value with ISO 4217 currency code (e.g., "EUR", "USD").
     Currency(&'static str),
+    /// Email address.
     Email,
+    /// Phone number.
     Phone,
+    /// Date with explicit precision.
     Date(DatePrecision),
+    /// Geographic coordinate in the named format.
     Geo(GeoFormat),
+    /// Postal address (free-form).
     Address,
+    /// File reference with MIME type.
     File(&'static str),
+    /// Image reference (any format).
     Image,
+    /// HTTP/HTTPS URL.
     Url,
+    /// Tax identification number (e.g., German USt-ID).
     TaxId,
+    /// Customer identifier (per-tenant).
     CustomerId,
+    /// Invoice number (per-tenant).
     InvoiceNumber,
-}
-
-impl Default for SemanticType {
-    fn default() -> Self { SemanticType::PlainText }
 }
 
 /// Date granularity for `SemanticType::Date`.
@@ -931,12 +944,21 @@ pub mod mock_store {
     use super::*;
     use std::sync::RwLock;
 
+    /// In-memory test store: tuple of (entity_id, encoded_row_bytes).
     pub struct VecStore {
+        /// Stored rows.
         pub rows: RwLock<Vec<(u64, Vec<u8>)>>,
         version_counter: RwLock<u64>,
     }
 
+    impl Default for VecStore {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     impl VecStore {
+        /// Create an empty test store.
         pub fn new() -> Self {
             Self {
                 rows: RwLock::new(Vec::new()),

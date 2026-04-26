@@ -24,6 +24,8 @@
 use crate::projection::Base17;
 use crate::palette::WeightPalette;
 use crate::attention::AttentionTable;
+// ScentByte reserved for future scent-level cascade integration
+#[allow(unused_imports)]
 use crate::cascade::{ScentByte, CascadeConfig};
 
 /// Precomputed action for an archetype pair.
@@ -386,7 +388,7 @@ fn build_route_table(
     let mut routes = vec![RouteAction::Skip; k * k];
 
     // Precompute perceptual weights for each palette entry
-    let pw: Vec<f32> = palette.entries.iter().map(|e| perceptual_weight(e)).collect();
+    let pw: Vec<f32> = palette.entries.iter().map(perceptual_weight).collect();
 
     // Derive base thresholds from actual distance distribution
     let mut all_dists: Vec<u16> = Vec::with_capacity(k * k);
@@ -499,9 +501,9 @@ impl HhtlCache {
         if self.k() > 64 { return None; }
         let k = self.k();
         let mut matrix = [[0u16; 64]; 64];
-        for i in 0..k {
-            for j in 0..k {
-                matrix[i][j] = self.distance(i as u8, j as u8);
+        for (i, row) in matrix.iter_mut().enumerate().take(k) {
+            for (j, cell) in row.iter_mut().enumerate().take(k) {
+                *cell = self.distance(i as u8, j as u8);
             }
         }
         Some(matrix)

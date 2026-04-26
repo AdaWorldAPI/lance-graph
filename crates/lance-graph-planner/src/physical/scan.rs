@@ -7,6 +7,7 @@
 //!
 //! The SIMD kernels live in ndarray; this operator orchestrates them.
 
+#[allow(unused_imports)] // Morsel, ColumnData intended for scan execution wiring
 use super::{PhysicalOperator, Morsel, ColumnData};
 use crate::ir::logical_op::ScanStrategy;
 

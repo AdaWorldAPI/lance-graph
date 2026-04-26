@@ -2,14 +2,20 @@
 //!
 //! Sparse matrix of HDR vectors with GraphBLAS-compatible operations.
 
+#[allow(unused_imports)] // Arc reserved for shared matrix ownership in concurrent access
 use std::sync::Arc;
 use crate::bitpack::BitpackedVector;
+#[allow(unused_imports)] // HdrError and Result reserved for fallible matrix operations
 use crate::{HdrError, Result};
+#[allow(unused_imports)] // GRB_ALL reserved for whole-matrix masking operations
 use super::types::{GrBIndex, HdrScalar, GrBType, GRB_ALL};
+#[allow(unused_imports)] // SparseFormat reserved for format-switching logic
 use super::sparse::{CooStorage, CsrStorage, SparseFormat, SparseEntry};
 use super::semiring::{Semiring, HdrSemiring};
 use super::vector::GrBVector;
+#[allow(unused_imports)] // Descriptor reserved for operation modifiers (transpose, complement)
 use super::descriptor::Descriptor;
+#[allow(unused_imports)] // GrBInfo reserved for matrix metadata queries
 use super::GrBInfo;
 
 /// GraphBLAS Matrix
@@ -203,7 +209,7 @@ impl GrBMatrix {
     /// Iterate over non-zero entries
     pub fn iter(&self) -> impl Iterator<Item = SparseEntry> + '_ {
         match &self.storage {
-            MatrixStorage::Coo(coo) => IterImpl::Coo(coo.iter()),
+            MatrixStorage::Coo(coo) => IterImpl::Coo(Box::new(coo.iter())),
             MatrixStorage::Csr(csr) => IterImpl::Csr(CsrIter::new(csr)),
             MatrixStorage::Empty => IterImpl::Empty,
         }

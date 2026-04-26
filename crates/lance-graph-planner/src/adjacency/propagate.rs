@@ -25,7 +25,7 @@ pub fn adjacent_truth_propagate(
     let mut output: std::collections::HashMap<u64, SemiringValue> = std::collections::HashMap::new();
 
     for i in 0..batch.num_sources() {
-        let source = batch.source_ids[i];
+        let _source = batch.source_ids[i];
         let targets = batch.targets_for(i);
         let edge_ids = batch.edge_ids_for(i);
 

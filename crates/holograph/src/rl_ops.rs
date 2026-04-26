@@ -614,7 +614,7 @@ impl RlEngine {
         block_signature: &[u16; 10],
     ) {
         // 1. Generate reward signal
-        let signal = RewardSignal::from_scalar(query, result, reward);
+        let _signal = RewardSignal::from_scalar(query, result, reward);
 
         // 2. Propagate along path
         self.tracker.propagate_reward(path, reward);
@@ -798,6 +798,7 @@ pub struct CausalRlAgent {
     /// Learning rate
     alpha: f32,
     /// Exploration rate
+    #[allow(dead_code)] // future wiring: epsilon-greedy exploration policy
     epsilon: f32,
     /// Curiosity bonus: 1/(1 + visit_count) for unseen state-action pairs
     visit_counts: HashMap<u64, u32>,
@@ -992,7 +993,7 @@ impl CausalRlAgent {
     pub fn compute_regret(
         &self,
         state: &BitpackedVector,
-        actual_action: &BitpackedVector,
+        _actual_action: &BitpackedVector,
         actual_reward: f32,
         alt_action: &BitpackedVector,
     ) -> f32 {

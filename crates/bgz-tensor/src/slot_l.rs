@@ -129,8 +129,8 @@ pub fn decode_row(
     n_cols: usize,
 ) -> Vec<f32> {
     let mut coeffs = [0.0f32; SLOT_L_LANES];
-    for i in 0..SLOT_L_LANES {
-        coeffs[i] = slot_l.bytes[i] as f32 * scale;
+    for (i, coeff) in coeffs.iter_mut().enumerate().take(SLOT_L_LANES) {
+        *coeff = slot_l.bytes[i] as f32 * scale;
     }
     let residual = basis.reconstruct(&coeffs);
     let mut row = vec![0.0f32; n_cols];

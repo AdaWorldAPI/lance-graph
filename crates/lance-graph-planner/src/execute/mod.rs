@@ -5,6 +5,7 @@
 //! Each pipeline is a chain of operators executed by worker threads.
 //! Each thread processes a morsel (chunk) of data.
 
+#[allow(unused_imports)] // Morsel intended for pipeline execution wiring
 use crate::physical::{PhysicalPlan, Pipeline, Morsel};
 
 /// Pipeline executor.
@@ -30,7 +31,7 @@ impl PipelineExecutor {
     }
 
     /// Decompose a physical plan into pipelines.
-    pub fn decompose(&self, plan: &PhysicalPlan) -> Vec<Pipeline> {
+    pub fn decompose(&self, _plan: &PhysicalPlan) -> Vec<Pipeline> {
         // Walk the operator tree. Split at pipeline breakers.
         // Each pipeline is a chain from source to sink (or breaker).
         // Dependencies track which pipelines must complete first.

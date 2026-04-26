@@ -1,3 +1,34 @@
+// Greek letters (σ, μ) are idiomatic in statistical code; suppress false positives
+// against ASCII identifiers like `o` in unrelated modules.
+#![allow(confusable_idents)]
+// Stylistic lints suppressed at crate level — intentional patterns throughout holograph:
+#![allow(clippy::collapsible_if)]           // Nested if-let guards read more clearly expanded
+#![allow(clippy::unnecessary_cast)]         // Explicit casts document intended bit-width at pack/unpack boundaries
+#![allow(clippy::redundant_closure)]        // Explicit closures clarify generic map/filter intent
+#![allow(clippy::single_char_add_str)]      // push_str("\n") is consistent with other push_str calls
+#![allow(clippy::map_entry)]                // contains_key+insert is clearer for conditional insertion with side-effects
+#![allow(clippy::unnecessary_map_or)]       // map_or(false, ...) reads more explicitly than is_some_and
+#![allow(clippy::manual_div_ceil)]          // Explicit (n + d - 1) / d is clearer at bitpack boundaries
+#![allow(clippy::manual_is_multiple_of)]    // Explicit n % d == 0 is more widely understood
+#![allow(clippy::borrowed_box)]             // Box<dyn ...> borrows are used deliberately in iterator impls
+#![allow(clippy::needless_range_loop)]      // Index loops used when multiple arrays are indexed in parallel
+#![allow(clippy::large_enum_variant)]       // Variant size differences are acceptable for infrequently-cloned enums
+#![allow(clippy::too_many_arguments)]       // RL/cascade functions naturally have many parameters
+#![allow(clippy::result_large_err)]         // HdrError is a string-carrying enum; boxing adds indirection
+#![allow(clippy::derivable_impls)]          // Explicit Default impls document the chosen default variant
+#![allow(non_snake_case)]                    // GraphBLAS naming conventions use CamelCase modules
+#![allow(clippy::manual_clamp)]             // Explicit min/max chains are easier to read at call site
+#![allow(clippy::let_and_return)]           // Named return bindings document intent before return
+#![allow(clippy::manual_range_contains)]    // Explicit lo <= x && x <= hi reads more clearly
+#![allow(clippy::needless_borrows_for_generic_args)] // Explicit &path borrows document borrow intent
+#![allow(clippy::manual_ok_or)]             // Explicit match on Ok/Err is clearer for error context
+#![allow(clippy::get_first)]               // .get(0) is consistent with .get(n) at other indices
+#![allow(clippy::should_implement_trait)]   // next() methods on cursors intentionally differ from Iterator
+#![allow(clippy::manual_memcpy)]            // Explicit loops are used when partial-range copies are interleaved
+#![allow(dropping_references)]               // Explicit drop() calls document intentional scope termination
+#![allow(clippy::needless_lifetimes)]       // Explicit lifetimes document borrow relationships
+#![allow(overlapping_range_endpoints)]       // Overlapping match ranges use first-match semantics intentionally
+
 //! # Holograph — 3D Holographic HDR Bitpacked Vector Search
 //!
 //! High-performance hyperdimensional computing library with three vector widths:

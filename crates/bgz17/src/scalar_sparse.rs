@@ -74,14 +74,14 @@ impl ScalarCsr {
         assert_eq!(x.len(), self.ncols);
         let mut y = vec![0.0f32; self.nrows];
 
-        for i in 0..self.nrows {
+        for (i, y_val) in y.iter_mut().enumerate() {
             let start = self.row_ptr[i];
             let end = self.row_ptr[i + 1];
             let mut acc = 0.0f32;
             for idx in start..end {
                 acc += self.vals[idx] * x[self.col_idx[idx]];
             }
-            y[i] = acc;
+            *y_val = acc;
         }
         y
     }
@@ -93,13 +93,13 @@ impl ScalarCsr {
         assert_eq!(x.len(), self.ncols);
         let mut y = vec![f32::INFINITY; self.nrows];
 
-        for i in 0..self.nrows {
+        for (i, y_val) in y.iter_mut().enumerate() {
             let start = self.row_ptr[i];
             let end = self.row_ptr[i + 1];
             for idx in start..end {
                 let candidate = self.vals[idx] + x[self.col_idx[idx]];
-                if candidate < y[i] {
-                    y[i] = candidate;
+                if candidate < *y_val {
+                    *y_val = candidate;
                 }
             }
         }

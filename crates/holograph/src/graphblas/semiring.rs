@@ -17,6 +17,7 @@
 
 use crate::bitpack::BitpackedVector;
 use crate::hamming::{hamming_distance_scalar, hamming_to_similarity};
+#[allow(unused_imports)] // GrBMonoid reserved for custom monoid construction
 use super::types::{HdrScalar, GrBMonoid, GrBBinaryOp};
 
 /// A semiring defines the algebraic operations for matrix computation
@@ -84,6 +85,7 @@ pub enum HdrSemiring {
     },
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for HdrSemiring {
     fn default() -> Self {
         HdrSemiring::XorBundle
@@ -166,7 +168,7 @@ impl Semiring for HdrSemiring {
                 }
             }
 
-            HdrSemiring::Resonance { threshold } => {
+            HdrSemiring::Resonance { threshold: _threshold } => {
                 // Best matching vector above threshold
                 match (a, b) {
                     (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => {
@@ -428,6 +430,7 @@ fn apply_binary_op(op: GrBBinaryOp, a: &HdrScalar, b: &HdrScalar) -> HdrScalar {
 }
 
 /// Built-in semiring instances
+#[allow(dead_code)] // future wiring: semiring factory used from query planner
 pub mod semirings {
     use super::*;
 

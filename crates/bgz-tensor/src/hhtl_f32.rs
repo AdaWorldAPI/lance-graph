@@ -24,6 +24,8 @@
 //! `BGZ_HHTL_D.md`). `HhtlF32Tensor` is the reconstruction-grade sibling for
 //! f32 GEMM inference paths.
 
+// SLOT_L_LANES used by tests and encode_with_leaf
+#[allow(unused_imports)]
 use crate::slot_l::{SlotL, SLOT_L_LANES, encode_rows as encode_slot_l, decode_row as decode_slot_l_row};
 use crate::matryoshka::SvdBasis;
 
@@ -91,21 +93,21 @@ fn clam_furthest_point_f32(rows: &[Vec<f32>], k: usize) -> Vec<usize> {
 
     let mut selected = vec![first];
     let mut min_dist = vec![f32::MAX; n];
-    for i in 0..n { min_dist[i] = l2_dist_sq(&rows[i], &rows[first]); }
+    for (i, md) in min_dist.iter_mut().enumerate().take(n) { *md = l2_dist_sq(&rows[i], &rows[first]); }
     min_dist[first] = 0.0;
 
     for _ in 1..k {
         let mut next = 0usize;
         let mut best = f32::MIN;
-        for i in 0..n {
-            if min_dist[i] > best { best = min_dist[i]; next = i; }
+        for (i, &md) in min_dist.iter().enumerate().take(n) {
+            if md > best { best = md; next = i; }
         }
         if best <= 0.0 { break; }  // All rows already covered
         selected.push(next);
         let cidx = next;
-        for i in 0..n {
+        for (i, md) in min_dist.iter_mut().enumerate().take(n) {
             let d = l2_dist_sq(&rows[i], &rows[cidx]);
-            if d < min_dist[i] { min_dist[i] = d; }
+            if d < *md { *md = d; }
         }
     }
     selected
@@ -201,7 +203,7 @@ impl HhtlF32Tensor {
         let centroid = &self.palette_f32[twig];
         // Cap the centroid to n_cols (may differ from original training shape).
         let mut base = vec![0.0f32; n_cols];
-        for i in 0..n_cols.min(centroid.len()) { base[i] = centroid[i]; }
+        base[..n_cols.min(centroid.len())].copy_from_slice(&centroid[..n_cols.min(centroid.len())]);
 
         match (&self.slot_l, &self.svd_basis, self.slot_l_scale) {
             (Some(sl), Some(basis), Some(scale)) if idx < sl.len() => {

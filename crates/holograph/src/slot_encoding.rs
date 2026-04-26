@@ -369,6 +369,7 @@ impl Default for StringEncoder {
 /// Encode numeric values with locality preservation
 pub struct NumericEncoder {
     /// Resolution (values within this range share some bits)
+    #[allow(dead_code)] // future wiring: adaptive resolution decoding
     resolution: f64,
     /// Scale factor
     scale: f64,
@@ -389,8 +390,6 @@ impl NumericEncoder {
 
         // Generate fingerprint from quantized value
         // Use thermometer encoding for locality: similar values share bits
-        let mut fp = BitpackedVector::zero();
-
         // Base fingerprint from value
         let base_seed = quantized as u64;
         let base = BitpackedVector::random(base_seed.wrapping_mul(0x9E3779B97F4A7C15));
@@ -401,7 +400,7 @@ impl NumericEncoder {
 
         // Combine: base dominates, neighbors add similarity
         let refs = [&base, &base, &base, &blur1, &blur2];
-        fp = BitpackedVector::bundle(&refs);
+        let fp = BitpackedVector::bundle(&refs);
 
         fp
     }

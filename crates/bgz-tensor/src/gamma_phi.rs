@@ -235,7 +235,7 @@ pub fn roundtrip_error(row: &[f32], role_gamma: f32, phi_scale: f32) -> (f64, f6
     let decoded = decode_row(&encoded, role_gamma, phi_scale);
     let mut total_err = 0.0f64;
     let mut max_err = 0.0f64;
-    for (i, (&orig, &dec)) in row.iter().zip(decoded.iter()).enumerate() {
+    for (&orig, &dec) in row.iter().zip(decoded.iter()) {
         let err = (orig as f64 - dec as f64).abs();
         total_err += err;
         if err > max_err { max_err = err; }

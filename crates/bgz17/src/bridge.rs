@@ -26,8 +26,13 @@
 //!   → Layer 2 at deep levels (full L1 for decision boundary)
 //! ```
 
+// Retained for the encode/decode bridge that maps `SpoBase17 ↔ PaletteEdge` via
+// `SpoDistanceMatrices` — wiring in progress (TD-BGZ17-BRIDGE-1).
+#[allow(unused_imports)]
 use crate::base17::SpoBase17;
+#[allow(unused_imports)]
 use crate::palette::PaletteEdge;
+#[allow(unused_imports)]
 use crate::distance_matrix::SpoDistanceMatrices;
 use crate::layered::LayeredScope;
 

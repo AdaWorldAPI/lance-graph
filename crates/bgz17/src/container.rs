@@ -25,6 +25,8 @@
 
 use crate::base17::{Base17, SpoBase17};
 use crate::palette::PaletteEdge;
+// BASE_DIM used in the pack_container_header() layout constants (TD-BGZ17-CONTAINER-1).
+#[allow(unused_imports)]
 use crate::BASE_DIM;
 
 // ─── Container geometry ───────────────────────────────────────────────

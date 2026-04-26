@@ -22,6 +22,7 @@
 //! ```
 
 use crate::bitpack::{BitpackedVector, VectorRef, VECTOR_WORDS, VECTOR_BITS};
+#[allow(unused_imports)] // Ordering used by downstream comparison operators
 use std::cmp::Ordering;
 
 /// Strategic sample points for quick distance estimation
@@ -284,6 +285,7 @@ pub struct HammingEngine {
     /// Cache of recent stacked popcounts for reuse
     cache_enabled: bool,
     /// Batch size for parallel operations
+    #[allow(dead_code)] // future wiring: configurable batch size for SIMD parallel ops
     batch_size: usize,
 }
 
@@ -425,7 +427,7 @@ impl HammingEngine {
         quick_threshold: f32,
     ) -> Vec<(usize, u32)> {
         // Phase 1: Quick exposure filter
-        let mut survivors: Vec<usize> = candidates.iter()
+        let survivors: Vec<usize> = candidates.iter()
             .enumerate()
             .filter(|(_, c)| !self.quick_check(query, c).definitely_far(quick_threshold))
             .map(|(i, _)| i)
@@ -493,6 +495,7 @@ mod simd_x86 {
     use super::*;
 
     /// Check for AVX-512 VPOPCNTDQ support at runtime
+    #[allow(dead_code)] // future wiring: runtime SIMD dispatch
     #[inline]
     pub fn has_avx512_popcnt() -> bool {
         #[cfg(target_feature = "avx512vpopcntdq")]
@@ -506,6 +509,7 @@ mod simd_x86 {
     }
 
     /// Check for AVX2 support at runtime
+    #[allow(dead_code)] // future wiring: runtime SIMD dispatch
     #[inline]
     pub fn has_avx2() -> bool {
         #[cfg(target_feature = "avx2")]
@@ -661,6 +665,7 @@ mod simd_arm {
 
 /// Dispatch to best available SIMD implementation
 #[inline]
+#[allow(unreachable_code)] // Scalar fallback is unreachable when SIMD feature is active
 pub fn hamming_distance_simd(a: &BitpackedVector, b: &BitpackedVector) -> u32 {
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
     {

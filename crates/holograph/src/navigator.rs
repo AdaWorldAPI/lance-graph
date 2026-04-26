@@ -464,7 +464,7 @@ impl Navigator {
             "hdr.schemaSearch" | "hdr.schema_search" => {
                 let v = Self::extract_one_vector(args)?;
                 let words = self.extend_to_16k(&v);
-                let query_ref = words.as_slice();
+                let _query_ref = words.as_slice();
 
                 // For now, return the query info — real implementation needs
                 // 16K store integration. This wires up the API surface.
@@ -637,7 +637,7 @@ impl Navigator {
         k: usize,
         ef_search: Option<u32>,
     ) -> Result<Vec<(u64, f32)>> {
-        let old_radius = self.default_radius;
+        let _old_radius = self.default_radius;
         // ef_search maps to cascade radius: higher ef = broader search
         let results = if let Some(ef) = ef_search {
             let store = self.store.as_ref()
@@ -964,7 +964,7 @@ impl Navigator {
 
     /// Collect VectorBatch references from store
     #[cfg(feature = "datafusion-storage")]
-    fn collect_batches<'a>(&self, store: &'a ArrowStore) -> Vec<VectorBatch> {
+    fn collect_batches<'a>(&self, _store: &'a ArrowStore) -> Vec<VectorBatch> {
         // ArrowStore doesn't expose batches directly, so we search through it
         // In a real implementation, ArrowStore would provide batch access
         // For now, we use the search method
@@ -1048,6 +1048,7 @@ pub struct ZeroCopyCursor<'a> {
     /// Query vector
     query: &'a BitpackedVector,
     /// Minimum similarity threshold
+    #[allow(dead_code)] // future wiring: early-exit in cursor iteration
     min_similarity: f32,
     /// Maximum Hamming distance (derived from min_similarity)
     max_distance: u32,

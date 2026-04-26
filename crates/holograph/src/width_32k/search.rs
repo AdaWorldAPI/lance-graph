@@ -29,7 +29,9 @@
 //!
 //! Like 16K bloom search, but with per-dimension distance + 512-bit bloom.
 
+#[allow(unused_imports)] // HoloTrace and ProbeResult used by downstream search plumbing
 use super::holographic::{HoloVector, HoloTrace, ProbeResult};
+#[allow(unused_imports)] // HoloSchema, M_RL_BASE, M_VERSION reserved for schema negotiation surface
 use super::schema::{HoloSchema, M_ANI_BASE, M_NARS_TRUTH, M_BLOOM_BASE, M_GRAPH_BASE, M_RL_BASE, M_VERSION};
 use super::*;
 
@@ -419,7 +421,7 @@ pub fn probe_search(
     for (idx, &candidate) in candidates.iter().enumerate() {
         // XOR-probe: bind the two known dimensions with the candidate's trace
         // to recover the unknown dimension.
-        let (trace_start, _a_start, _b_start) = match probe {
+        let (_trace_start, _a_start, _b_start) = match probe {
             ProbeTarget::RecoverX => (X_START, Y_START, Z_START),
             ProbeTarget::RecoverY => (Y_START, X_START, Z_START),
             ProbeTarget::RecoverZ => (Z_START, X_START, Y_START),

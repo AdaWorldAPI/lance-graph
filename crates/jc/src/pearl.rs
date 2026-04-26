@@ -137,7 +137,10 @@ pub fn prove() -> PillarResult {
     let threshold = (D_BITS as u32 * 35) / 100;
 
     for trial in 0..N_TRIALS {
-        let mask = ((trial as u8) * 37 + 11) & 0b111;
+        // Mask cycles 0..7 deterministically across trials.
+        // Promote to u32 first to avoid u8 overflow at trial=7 (7*37=259 > 255)
+        // in debug builds; final value is bounded to 3 bits regardless.
+        let mask = ((trial as u32 * 37 + 11) & 0b111) as u8;
         let content = fingerprint(trial as u64 * 8 + 100);
 
         // Method A — three disjoint lossless planes.

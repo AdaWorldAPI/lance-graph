@@ -18,6 +18,7 @@ use super::triple_model::{Truth, truth_revision};
 pub use causal_edge::CausalEdge64;
 pub use causal_edge::CausalMask;
 pub use causal_edge::PlasticityState;
+#[allow(unused_imports)] // pack_truth intended for hot-path truth packing wiring
 use causal_edge::tables::{NarsTables, pack_truth, unpack_f, unpack_c};
 
 // ── SPO Head (mirrors CausalEdge64 layout) ──
@@ -227,8 +228,8 @@ pub fn style_score(
     let projections = distances.all_projections(candidate, context);
     let max_dist = 3.0 * 65535.0; // theoretical max across 3 planes
     let mut score = 0.0f32;
-    for i in 0..8 {
-        let normalized = 1.0 - (projections[i] as f32 / max_dist);
+    for (i, &proj) in projections.iter().enumerate().take(8) {
+        let normalized = 1.0 - (proj as f32 / max_dist);
         score += style.weights[i] * normalized;
     }
     score
@@ -263,7 +264,7 @@ impl NarsEngine {
 
     /// Hot path: NARS revision via lookup table. O(1), no float.
     #[inline]
-    pub fn revise_fast(&self, f1: u8, c1: u8, f2: u8, c2: u8) -> (u8, u8) {
+    pub fn revise_fast(&self, f1: u8, _c1: u8, f2: u8, _c2: u8) -> (u8, u8) {
         let packed = self.tables.deduction[f1 as usize * 256 + f2 as usize];
         (unpack_f(packed), unpack_c(packed))
     }

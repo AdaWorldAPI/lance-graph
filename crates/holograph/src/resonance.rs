@@ -28,6 +28,7 @@
 //! - **Bundle**: Create prototype from multiple examples
 //! - **Resonance**: Match noisy vector to clean concept (cleanup memory)
 
+#[allow(unused_imports)] // VECTOR_WORDS reserved for per-word resonance scoring
 use crate::bitpack::{BitpackedVector, VECTOR_WORDS, VECTOR_BITS};
 use crate::hamming::{hamming_distance_scalar, hamming_to_similarity, StackedPopcount};
 use std::collections::HashMap;
@@ -460,11 +461,9 @@ impl Resonator {
 
         for (i, concept) in self.concepts.iter().enumerate() {
             // Use stacked popcount with early termination
-            if let Some(stacked) = StackedPopcount::compute_with_threshold(noisy, concept, best_dist) {
-                if stacked.total < best_dist {
-                    best_dist = stacked.total;
-                    best_idx = i;
-                }
+            if let Some(stacked) = StackedPopcount::compute_with_threshold(noisy, concept, best_dist) && stacked.total < best_dist {
+                best_dist = stacked.total;
+                best_idx = i;
             }
         }
 

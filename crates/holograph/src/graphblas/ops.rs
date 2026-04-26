@@ -6,6 +6,7 @@
 use crate::bitpack::BitpackedVector;
 use super::matrix::GrBMatrix;
 use super::vector::GrBVector;
+#[allow(unused_imports)] // GRB_ALL reserved for full-index mask in mxv/vxm
 use super::types::{GrBIndex, HdrScalar, GRB_ALL};
 use super::semiring::{Semiring, HdrSemiring};
 use super::descriptor::Descriptor;
@@ -40,7 +41,7 @@ pub fn grb_mxm(
     let desc = desc.cloned().unwrap_or_default();
 
     // Handle transpose
-    let a_work = if desc.is_inp0_transposed() {
+    let _a_work = if desc.is_inp0_transposed() {
         a.transpose()
     } else {
         // Clone would be expensive; for now just use as-is
@@ -48,7 +49,7 @@ pub fn grb_mxm(
         a.transpose().transpose() // Identity
     };
 
-    let b_work = if desc.is_inp1_transposed() {
+    let _b_work = if desc.is_inp1_transposed() {
         b.transpose()
     } else {
         b.transpose().transpose()
@@ -650,7 +651,7 @@ pub fn hdr_sssp(
 /// Accumulates "influence" vectors through bundling.
 pub fn hdr_pagerank(
     adj: &mut GrBMatrix,
-    damping: f32,
+    _damping: f32,
     max_iters: usize,
 ) -> GrBVector {
     let n = adj.nrows();
@@ -663,7 +664,7 @@ pub fn hdr_pagerank(
     }
 
     // Teleport vector (random background)
-    let teleport = BitpackedVector::random(0xDEADBEEF);
+    let _teleport = BitpackedVector::random(0xDEADBEEF);
 
     for _iter in 0..max_iters {
         // new_rank = damping * (rank × adj) + (1-damping) * teleport

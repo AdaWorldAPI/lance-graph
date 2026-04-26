@@ -1124,3 +1124,65 @@ Estimated 100× speedup for encoding (O(1) table lookup vs O(256) L1 per query).
 - **TD-DIST-3** (Palette distance table): `Palette::build_distance_table()` →
   `PaletteDistanceTable` with O(1) `distance(a, b)` and `edge_distance(a, b)`.
   128 KB table, L2-resident. Status: **PAID**.
+
+## 2026-04-26 — TD-PALETTE-SENTINEL: 257th sentinel slot in palette distance/compose tables
+
+**Status:** Open (low priority — historical aspirational design, no current need)
+
+The 2026-04-20 resolution-hierarchy epiphany described the bgz17 HIP layer
+as `256×257` (256 archetypes + 1 sentinel). Implementation shipped `k×k`
+without the sentinel. See EPIPHANIES.md 2026-04-26 CORRECTION for full
+context.
+
+**Why deferred:**
+- Adding a 257th index requires widening palette indices from `u8` to `u16`
+- `PaletteEdge` wire format doubles from 3 bytes to 6 bytes per edge
+- `MAX_PALETTE_SIZE = 256` is a deliberate u8-ceiling design choice
+- The three sentinel roles (unknown/null/identity) are already covered by
+  existing mechanisms: `Palette::nearest()` clamps unknowns, `identity()`
+  returns the closest-to-zero archetype.
+
+**Revisit when:** a real "absent edge" code path materializes (e.g., a
+sparse mxm that needs to distinguish "no relation" from "relation = 0
+distance"), or when the palette grows beyond 256 entries (which would
+also force u16 indices).
+
+## 2026-04-26 — TD-AWARENESS-INLINE-1: awareness should be BF16-mantissa-inline, not driver-global
+
+**Status:** Open (P-0 architectural, scope: substrate-wide)
+
+Per EPIPHANIES.md 2026-04-26 "awareness should be BF16-mantissa-inline":
+the current `ShaderDriver.awareness: RwLock<Vec<GrammarStyleAwareness>>`
+is driver-global and separate from the stream. This wastes the CPU's
+20-200 ns random-access advantage and recreates the parser/processor
+split that AGI is supposed to dissolve.
+
+**The correct shape:** every stream operation returns `(value, awareness)`,
+where awareness (7-8 bits, BF16-mantissa-equivalent) is derived inline
+from operation properties (bit-purity, distribution shape, residual norm,
+match strength). Awareness composes through the cascade the same way
+values compose.
+
+**Wedge for the smallest viable adoption:**
+1. Extend `contract::distance::Distance` with
+   `distance_with_awareness(&self, other) -> (u32, u8)`. 8 bits per
+   measurement; 11% overhead vs raw distance.
+2. Add `Aware` trait and `Annotated<T>` to contract.
+3. Implement awareness derivation for the four primary operations:
+   `vsa_bind`, `vsa_bundle`, `hamming`, `cosine`.
+4. Update `ShaderDriver::dispatch` to compose inline awareness over
+   the cascade. The driver-global `GrammarStyleAwareness` becomes a
+   bootstrap seed, not the per-cycle source of truth.
+
+**Size budget:** 11-12% overhead on stream payloads (vs 43.75% for
+BF16 mantissa as a fraction of value), because the value plane is
+much wider here than in floating-point.
+
+**Why deferred:** scope is substrate-wide. Touches the contract
+Distance trait (just shipped TD-DIST-1), every SIMD operation in
+ndarray::hpc, the shader driver's cascade, and the BindSpace SoA.
+Should be designed as one coherent commit, not piecemeal.
+
+**Revisit when:** the next architectural sweep covers the awareness
+dimension. Until then, awareness stays driver-global. The epiphany
+documents the correct direction so future work doesn't re-derive it.

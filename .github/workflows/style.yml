@@ -19,29 +19,80 @@ env:
   RUSTFLAGS: "-C debuginfo=1 -C target-cpu=x86-64-v3"
 
 jobs:
+  # Clippy runs FIRST and is mandatory — logical soundness before syntax.
+  # Discipline:
+  #   - NEVER use `clippy --fix` for unused-import warnings; they signal
+  #     missing wiring, not dead code. Fix the wiring or add `#[allow]`
+  #     with a comment explaining why.
+  #   - Each clippy violation is owned by the author of the code that
+  #     introduced it; resolve manually.
+  #   - Run clippy in batches (per-feature combo), not after every file edit.
+  clippy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: lance-graph
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: lance-graph
+      - name: Checkout AdaWorldAPI/ndarray (sibling dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: AdaWorldAPI/ndarray
+          path: ndarray
+      - name: Setup rust toolchain
+        run: |
+          rustup toolchain install stable
+          rustup default stable
+          rustup component add clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "lance-graph-deps"
+          workspaces: lance-graph/crates/lance-graph
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y protobuf-compiler
+      # Clippy is gated tier-by-tier as the codebase incrementally adopts it.
+      # PRs that touch a new crate own that crate's clippy debt before merging.
+      #
+      # Tier A (mandatory, gating): zero-dep contract crate
+      - name: Clippy contract (zero-dep, mandatory)
+        run: cargo clippy --manifest-path crates/lance-graph-contract/Cargo.toml --lib --tests -- -D warnings
+      # Tier B (advisory until incrementally cleaned, non-gating):
+      #   lance-graph core has ~91 pre-existing clippy violations to be paid down
+      #   in subsequent PRs (TD-CLIPPY-LG-1). Don't auto-fix — each violation
+      #   is a wiring/refactor decision owned by the introducing author.
+      - name: Clippy lance-graph (advisory)
+        continue-on-error: true
+        run: cargo clippy --manifest-path crates/lance-graph/Cargo.toml --lib --tests -- -D warnings
+
   format:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    needs: clippy
+    defaults:
+      run:
+        working-directory: lance-graph
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: lance-graph
+      - name: Checkout AdaWorldAPI/ndarray (sibling dependency for cargo metadata)
+        uses: actions/checkout@v4
+        with:
+          repository: AdaWorldAPI/ndarray
+          path: ndarray
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           components: rustfmt
       - name: Check formatting
         run: cargo fmt --manifest-path crates/lance-graph/Cargo.toml -- --check
 
-  # clippy: runs LOCALLY as our internal pre-check, not on GitHub CI.
-  # GitHub CI focuses on compile + test + format + typos.
-  # Clippy discipline documented in CODING_PRACTICES.md:
-  #
-  #   cargo clippy --features lab -- -D warnings
-  #   cargo clippy --features serve -- -D warnings
+  # typos / spell-check removed 2026-04-26: too many false positives on
+  # technical jargon (NARS terms, codec acronyms, German loanwords used in
+  # the cognitive stack). Spelling discipline is a code-review concern,
+  # not a CI gate.
 
-  typos:
-    name: Spell Check
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Check spelling
-        uses: crate-ci/typos@v1.26.0

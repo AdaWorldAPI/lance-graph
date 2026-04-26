@@ -65,8 +65,10 @@ pub struct ElevationLearner {
 
 #[derive(Debug, Clone)]
 struct LevelObservation {
+    #[allow(dead_code)] // future wiring for level prediction input
     start_level: ElevationLevel,
     final_level: ElevationLevel,
+    #[allow(dead_code)] // future wiring for elevation count analysis
     elevations: usize,
 }
 

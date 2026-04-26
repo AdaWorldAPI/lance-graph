@@ -65,6 +65,43 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-04-26 — CORRECTION-OF 2026-04-20 "Resolution hierarchy 64×64 > 256×257 > 4096×4096 > 16k": HIP layer is 256×256, not 256×257
+
+**Status:** CORRECTION
+
+The 2026-04-20 resolution-ladder entry described the bgz17 HIP layer as
+`256 archetypes × 256 + 1 sentinel = 256×257`. The "+1" was an aspirational
+sentinel slot intended to cover three roles:
+
+- "unknown / out-of-palette" for queries not matching any of the 256 archetypes
+- "null edge" for absence of a relation in `mxm` composition
+- "identity" reserved index where `distance(x, sentinel) = ‖x‖₁`
+
+**Reality (as shipped):** `bgz17::DistanceMatrix` and
+`bgz17::PaletteSemiring::compose_table` are both `k × k` where
+`k = palette.len() ≤ 256`. There is no 257th row/column. The sentinel
+roles were absorbed elsewhere:
+
+- `PaletteSemiring::identity(palette)` returns the palette entry CLOSEST
+  to `Base17::zero()` (not a reserved slot — a real archetype that snaps
+  to zero).
+- Out-of-palette queries call `Palette::nearest(query)` and get clamped
+  to the closest existing centroid; there is no "no-match" code.
+- `MAX_PALETTE_SIZE = 256` because palette indices are `u8` — index 257
+  literally cannot be encoded in the byte-indexed scheme. Adding the
+  sentinel would require widening to `u16` indices throughout the
+  cascade and doubling the wire size of `PaletteEdge` from 3 bytes to
+  6 bytes per edge — a non-trivial cost.
+
+**Decision:** keep `k × k` as shipped; the resolution ladder entry now
+reads `64×64 > 256×256 > 4096×4096 > 16k`. The sentinel idea is filed
+under `TECH_DEBT.md` as TD-PALETTE-SENTINEL (open, low priority — only
+revisit if a real "absent-edge" code path actually needs it).
+
+Cross-ref: 2026-04-20 resolution hierarchy entry (now SUPERSEDED in
+spirit but kept verbatim — see governance rule); `bgz17::distance_matrix`,
+`bgz17::palette_semiring`, `bgz17::MAX_PALETTE_SIZE`.
+
 ## 2026-04-25 — FINDING: ndarray VSA migrated to 16384-bit — SIMD-clean at every precision tier
 
 **Status:** FINDING
@@ -3060,3 +3097,546 @@ for the FisherZ-transformed variant, defaulting to `atanh(similarity())`.
 Cross-ref: CLAUDE.md §The Click ("object speaks for itself"), I1 Codec Regime
 Split (`CodecRoute`), `contract::cam::DistanceTableProvider` (existing trait for
 ADC), `ndarray::hpc::bitwise::hamming_distance_raw`, `ndarray::hpc::palette_distance`.
+
+## 2026-04-26 — FINDING: awareness does NOT travel with CausalEdge64; it sits BESIDE it in the SoA
+
+**Status:** FINDING
+**Owner scope:** @truth-architect, @host-glove-designer
+
+### The question
+Does the mantissa/awareness travel WITH the CausalEdge64 (packed into the
+u64), or does it sit beside it in the SoA?
+
+### What CausalEdge64 actually carries
+
+CausalEdge64 is 64 bits packed (causal-edge/src/edge.rs):
+
+```
+[0:7]   S palette index       — WHERE (subject identity)
+[8:15]  P palette index       — WHAT (predicate type)
+[16:23] O palette index       — WHERE (object identity)
+[24:31] NARS frequency (u8)   — HOW OFTEN (belief)
+[32:39] NARS confidence (u8)  — HOW SURE (evidence weight)
+[40:42] Causal mask (3 bits)  — Pearl's 2³ (observational/do/counterfactual)
+[43:45] Direction triad       — sign(dim0) per S/P/O
+[46:48] Inference type        — Deduction/Induction/Abduction/Revision/Synthesis
+[49:51] Plasticity flags      — hot/cold per S/P/O
+[52:63] Temporal index        — 4096 time slots
+```
+
+The edge carries NARS truth (freq + conf) and Pearl mask, but NOT:
+- Per-style awareness (GrammarStyleAwareness — Brier history, revision count)
+- Free energy at emission time
+- The style ordinal that produced this edge
+- Mantissa / metacognitive state
+
+### Where awareness actually lives
+
+In the shader driver (`ShaderDriver::dispatch()`):
+
+1. **awareness** = `RwLock<Vec<GrammarStyleAwareness>>` (one per style × 12 styles)
+   — sits on `ShaderDriver`, NOT on the edge. It's a per-driver global state.
+   Lives as Column B in the SoA (beside the BindSpace columns, not in them).
+
+2. **MetaWord** = u32 packed in `MetaColumn` of `BindSpace`
+   — per-row transient state (bits for style selector, rung level, emit mode).
+   Lives in the BindSpace SoA but is TRANSIENT — cleared after the cycle.
+   This is the closest thing to "awareness travels with the data."
+
+3. **CausalEdge64** = emitted INTO the `EdgeColumn` of `BindSpace` (step [5])
+   — 8 edges per dispatch, written to the edges array.
+
+So the pipeline is:
+
+```
+StreamDto → encode → MetaWord (transient) → cascade → emit CausalEdge64
+                                                       ↓
+                                              awareness.revise(key, outcome)
+                                                       ↓
+                                              NEXT cycle's F is different
+```
+
+### Is the fan-out spatial (reverse pyramid)?
+
+**No — it's stylistic, not spatial.** The fan-out happens across thinking
+styles (12 ordinals), not across pyramid levels. The reverse pyramid
+(L1→L2→L3→L4) is the RESOLUTION hierarchy — 64²→256²→4K²→16K². The
+thinking-style fan-out is the PERSPECTIVE hierarchy — Analytical/Creative/
+Intuitive/Practical/Metacognitive/Social × 6 sub-styles each.
+
+These two hierarchies are ORTHOGONAL:
+- Pyramid levels = HOW FINE the representation is (spatial resolution)
+- Thinking styles = WHOSE PERSPECTIVE examines it (angle of approach)
+
+"Thinking about thinking" (metacognition via MUL gate, TD-INT-3) is
+a style-dimension operation: the MUL assessment reads awareness
+(skill_level, DK position, trust texture) and vetoes or promotes
+the dispatch — it doesn't move between pyramid levels. It stays at
+whatever resolution the current cycle operates at.
+
+The mantissa that was discussed earlier is fully absorbed into:
+- **CausalEdge64 bits [24:39]** = NARS frequency+confidence (the epistemic
+  weight of this specific edge assertion)
+- **GrammarStyleAwareness** = the accumulated Brier history per style
+  (the metacognitive "how good am I at this kind of thinking")
+
+These are TWO DIFFERENT things stored in TWO DIFFERENT places:
+- Edge truth = travels WITH the edge (packed in the u64)
+- Style awareness = stays on the driver (not in the edge)
+
+### The gap
+
+There is no meta SoA relationship that links stream↔awareness↔causality
+into a single coherent column. Today:
+
+- Stream = BindSpace.fingerprints (Column A, [u64; 256] per row)
+- Awareness = ShaderDriver.awareness (global, not per-row)
+- Emitted edges = BindSpace.edges (Column D, [u64; 8] per row)
+
+The awareness column does NOT exist in BindSpace. The awareness is driver-
+global, revised after each cycle, but not stored per-row or per-edge. To
+make awareness travel with the cycle, it would need to become a SoA column:
+`BindSpace.awareness_column: Box<[GrammarStyleAwareness; N_ROWS]>` —
+one awareness snapshot per row, capturing the epistemic state AT THE TIME
+that row was processed.
+
+This is not built. Whether it should be depends on whether downstream
+consumers (AriGraph, q2, callcenter) need to know "under what epistemic
+state was this edge emitted." If yes, awareness becomes a per-edge
+annotation. If no, the driver-global approach is correct.
+
+Cross-ref: CLAUDE.md §The Click (Think struct), cognitive-shader-driver
+src/driver.rs dispatch(), causal-edge src/edge.rs CausalEdge64 layout,
+EPIPHANIES.md 2026-04-25 "cognitive loop closes structurally" (TD-INT-1/2/4).
+
+## 2026-04-26 — FINDING: awareness should be BF16-mantissa-inline, not driver-global
+
+**Status:** FINDING (P-0 architectural correction to the 2026-04-26 prior entry)
+**Owner scope:** @truth-architect, @host-glove-designer, @bus-compiler
+
+### The correction
+
+The prior entry today said awareness sits BESIDE CausalEdge64 as a
+driver-global `RwLock<Vec<GrammarStyleAwareness>>`. That's wrong direction.
+The right direction is: awareness should travel WITH the stream the way
+BF16 mantissa travels with every floating-point value — small, always
+present, computed inline by every operation, never stored as a separate
+weight.
+
+### Why driver-global awareness is the wrong shape
+
+A driver-global `awareness[style_ord]` makes the system a blunt data
+lake: it stores per-style Brier history and revises after each cycle,
+but the stream itself sees no awareness during processing. Every u64,
+every fingerprint, every bind/bundle operation flows through unaware
+of its own epistemic context. Awareness only catches up afterwards
+via NARS revision.
+
+This wastes the one architectural advantage the CPU has over GPU:
+**20-200 ns random-access latency**. That latency budget only pays
+off if we DO something during access — compute causality and awareness
+INLINE while the bytes are passing through cache. If we just store
+awareness as a separate weight and apply it later, we're using the
+CPU as a glorified GPU streamer (and losing the access-pattern
+flexibility).
+
+### The BF16 mantissa analogy
+
+BF16: 1 sign + 8 exponent + 7 mantissa + 1 implicit = 16 bits per
+value. The mantissa is the precision-bearing part, but it never
+exists separately. When you multiply two BF16 values, the mantissas
+multiply as part of the operation; they don't get bolted on after the
+fact. They are the operation.
+
+Awareness should work the same way: every stream operation produces
+both a result AND an awareness annotation derived from properties of
+the operation itself:
+
+| Operation | Result | Inline awareness annotation |
+|---|---|---|
+| `vsa_bind(a, b)` | XOR fingerprint | bit-purity of inputs (popcount distance from 50%) |
+| `vsa_bundle(items)` | majority-vote fingerprint | concentration of agreement (variance of bit tallies) |
+| `hamming(a, b)` | distance u32 | distribution shape — uniform vs clustered differences |
+| `palette_lookup(idx)` | u8 | match strength — distance to 2nd-nearest centroid |
+| `cam_pq_decode(code)` | f32 estimate | residual norm from the ADC reconstruction |
+| `cosine(a, b)` | f32 similarity | both norms (low norm → low confidence) |
+
+Each yields a `(value, awareness)` pair that flows together through the
+next op. Awareness composes the same way values compose. After the
+shader cycle, the accumulated awareness IS the meta-confidence
+(meta_confidence in ShaderResonance, currently computed as
+`1 - free_energy.total` — but it should be the integral of inline
+awareness over the cycle, not a single post-hoc estimate).
+
+### What "the object IS the thinking" means here
+
+If awareness is computed inline by the operations themselves, then the
+stream IS the thinking. There is no separate "thinking step" that reads
+the stream and produces awareness. The awareness emerges as a structural
+byproduct of every bit-level operation.
+
+If awareness is a stored weight that gets applied after the stream, the
+stream is just data and the thinking happens elsewhere. That's two
+layers, not one. That violates "the object speaks for itself" and
+recreates the parser/processor split that AGI is supposed to dissolve.
+
+### The size budget
+
+For a 16384-bit fingerprint (`[u64; 256]`):
+- 7 bits awareness per u64 word = 256 × 7 / 8 ≈ 224 bytes parallel array
+- Total: 2048 bytes value + 224 bytes awareness ≈ 11% overhead
+- Fits the same cache line pattern; one fingerprint + its mantissa fits
+  in one prefetch group
+
+For a CausalEdge64:
+- 64 bits value + 8 bits awareness = 72 bits per edge
+- Pack as `[u72; N]` (won't align) or pair as `(CausalEdge64, u8)` = 9 bytes
+- 240 edges × 9 bytes = 2160 bytes (vs 1920 for bare edges). 12.5% overhead.
+
+The ratios are identical to BF16's 7/16 mantissa = 43.75% fraction of
+the total. Awareness is at 11-12% — much cheaper because the value
+plane is wider.
+
+### What this would change in the contract
+
+Add to `lance-graph-contract`:
+
+```rust
+/// Awareness annotation that travels with every stream value.
+/// Like BF16 mantissa — derived from the operation, never stored alone.
+pub trait Aware {
+    type Awareness: Copy;
+    fn awareness(&self) -> Self::Awareness;
+}
+
+/// A value paired with its inline-computed awareness.
+pub struct Annotated<T: Aware> {
+    pub value: T,
+    pub awareness: T::Awareness,
+}
+```
+
+And update the Distance trait (TD-DIST-1, just shipped) to return
+awareness alongside distance:
+
+```rust
+pub trait Distance: Sized {
+    fn distance_with_awareness(&self, other: &Self) -> (u32, Awareness);
+}
+```
+
+The awareness field would carry: bit-distribution flatness, palette
+match strength, residual norm — whatever the operation can cheaply
+derive from its inputs and intermediate state.
+
+### The connection to the reverse pyramid
+
+The pyramid (L1→L2→L3→L4) is the spatial resolution dimension.
+Inline awareness is a NEW orthogonal dimension — call it the
+"epistemic depth" dimension. Both can be present simultaneously:
+
+```
+                    awareness depth →
+                    0 bits   7 bits   16 bits  64 bits
+spatial level ↓
+L1 (64²)            tier 0   tier 1   tier 2   tier 3
+L2 (256²)           tier 0   tier 1   tier 2   tier 3
+L3 (4096²)          tier 0   tier 1   tier 2   tier 3
+L4 (16384²)         tier 0   tier 1   tier 2   tier 3
+```
+
+Tier-1 awareness (7 bits per word, BF16-mantissa-equivalent) is the
+minimum viable: cheap, always present, composable. Tier-3 (full
+NARS truth pair per word) is the maximum needed for downstream
+provenance. Both fit the same cascade dispatch.
+
+### Status of the gap
+
+This is NOT built. The current code:
+- ShaderDriver carries global awareness per style (driver-global)
+- BindSpace columns carry no awareness (per-row absent)
+- Operations return bare values (no inline awareness annotation)
+
+To build it, the smallest viable wedge is: extend the Distance trait
+with `distance_with_awareness()` returning `(u32, u8)` — 8 bits is
+the BF16-mantissa-equivalent budget. Then propagate the awareness
+through the cascade so each step composes the running awareness
+estimate. The driver-global awareness becomes a fallback/initialization
+seed, not the source of truth.
+
+Filed as TD-AWARENESS-INLINE-1 (separate entry).
+
+Cross-ref: BF16 reference (one mantissa per value, never stored alone);
+2026-04-26 prior entry "awareness sits BESIDE CausalEdge64" (now
+SUPERSEDED in spirit — the right answer is INSIDE every operation
+output, not beside the data).
+
+## 2026-04-26 — FINDING: SPO Pearl 2³ ontology enrichment should happen DURING the shader cycle, not after
+
+**Status:** FINDING (extends the BF16-mantissa-inline insight to SPO fan-out)
+**Owner scope:** @truth-architect, @integration-lead
+
+### The idea
+
+The cognitive shader cycle already processes every input through:
+1. **Grammar** (ContextChain → RoleKey bind → TEKAMOLO)
+2. **Thinking styles** (12 ordinals × 6 clusters → style dispatch)
+3. **Free energy** (FreeEnergy::compose → Resolution)
+4. **NARS revision** (awareness update per style)
+
+What it does NOT do during the cycle: **SPO Pearl 2³ ontology enrichment**.
+Today, ontology is a cold-path lookup — the `contract::ontology` module
+defines `EntityType`, `RelationType`, `OntologySpec` but these are
+consulted before/after the shader cycle, not during.
+
+The proposal: make the SPO decomposition happen INLINE during the shader
+cascade, the same way awareness should be inline (prior entry). Each
+cycle that touches a node/edge computes:
+
+```
+S (subject)   × 2 Pearl interventions  = 2 S-perspectives
+P (predicate) × 2 Pearl interventions  = 2 P-perspectives
+O (object)    × 2 Pearl interventions  = 2 O-perspectives
+                                        ─────────────────
+                                        2³ = 8 total views
+```
+
+Each of the 8 views runs through the thinking-style fan-out. The cycle
+becomes:
+
+```
+StreamDto
+  → encode (RoleKey bind, TEKAMOLO)
+  → SPO decompose (8 Pearl perspectives per triplet)
+  → for each perspective × each thinking style:
+       cascade (fingerprint compare, FreeEnergy, Resolution)
+       → emit CausalEdge64 WITH awareness annotation
+       → ontology enrichment: does this triplet match/extend/contradict
+         an existing EntityType or RelationType?
+  → NARS revise (inline, not post-hoc)
+  → if ontology extended: emit OntologyDelta alongside CausalEdge64
+```
+
+### Why this belongs in the SoA
+
+The cognitive-shader-driver's BindSpace already has four column families:
+- FingerprintColumns (content/topic/angle)
+- QualiaColumn (18×f32)
+- MetaColumn (MetaWord u32)
+- EdgeColumn (CausalEdge64 × 8)
+
+Add a fifth: **OntologyColumn** — per-row ontology delta. When the shader
+cycle discovers that a triplet extends the ontology (new entity type
+observed, new relation pattern, contradiction with existing schema),
+the delta is written to this column. Downstream consumers (AriGraph,
+callcenter, q2) read the deltas the same way they read emitted edges.
+
+```
+BindSpace SoA:
+  Column A: FingerprintColumns  — WHAT the cycle is about
+  Column B: QualiaColumn        — HOW it feels (18D qualia)
+  Column C: MetaColumn          — WHICH style dispatched (MetaWord)
+  Column D: EdgeColumn          — WHAT it concluded (CausalEdge64)
+  Column E: OntologyColumn      — WHAT it learned about structure
+  Column F: AwarenessColumn     — HOW SURE it is (inline mantissa)
+```
+
+Column E + Column F together make the shader cycle not just a processor
+but a self-describing reasoner: it emits what it concluded (edges),
+what structural knowledge it gained (ontology deltas), and how confident
+it was in each step (awareness).
+
+### The connection to blasgraph
+
+blasgraph's 7 semirings operate on SPO triples in graph-algebraic form.
+The cognitive shader already uses Binary16K fingerprints that decompose
+into S[0..4K), P[4K..8K), O[8K..12K) slices (per CLAUDE.md §The Click).
+The Pearl 2³ decomposition maps directly to blasgraph's semiring choices:
+
+| Pearl rung | blasgraph semiring | What it computes |
+|---|---|---|
+| Observational (do nothing) | HammingMin | How similar is this to what I've seen? |
+| Do (intervene on S) | XorBundle | What changes if I bind a different subject? |
+| Do (intervene on P) | Resonance | What changes if I bind a different predicate? |
+| Do (intervene on O) | SimilarityMax | What changes if I bind a different object? |
+| Counterfactual (S') | TruthPropagating | Had S been different, would the conclusion hold? |
+| Counterfactual (P') | NarsTruth | Had P been different, would the confidence change? |
+| Counterfactual (O') | Boolean | Had O been different, would the edge exist at all? |
+| Full counterfactual | CamPqAdc | Distance in the alternative universe's codebook |
+
+This is `blasgraph × thinking × grammar × ontology` — four subsystems
+composing in one SoA row per cycle. The composition is structural:
+each column IS a different axis of the same cognitive event.
+
+### "Can't resist thinking"
+
+The shader can't resist thinking when surprise exists (CLAUDE.md §The
+Click: "The system doesn't choose to think. It can't NOT think while
+surprise exists."). If ontology enrichment happens inline, then the
+shader also can't resist LEARNING about structure — every cycle that
+processes a novel triplet pattern automatically enriches the ontology.
+The system learns the shape of the data while it processes the data.
+
+This applies both at runtime ("can't resist thinking about the stream")
+AND during development ("can't resist thinking about the code" — the
+coding session IS a cognitive cycle where the human-agent pair enriches
+the architectural ontology by processing the codebase). The epiphany
+system itself IS the OntologyColumn for the development cycle.
+
+Cross-ref: CLAUDE.md §The Click (S[0..4K)/P[4K..8K)/O[8K..12K) slices);
+contract::ontology (EntityType, RelationType, OntologySpec);
+blasgraph 7 semirings (docs/SEMIRING_ALGEBRA_SURFACE.md);
+2026-04-26 BF16-mantissa-inline entry (Column F awareness);
+causal-edge Pearl 2³ (CausalMask 3 bits); TD-AWARENESS-INLINE-1.
+
+## 2026-04-26 — FINDING: SoA × awareness × ONNX × Foundry parity all converge in BindSpace columns
+
+**Status:** FINDING (synthesis: prior 3 epiphanies + LF roadmap + semantic-kernel framing)
+**Owner scope:** @truth-architect, @integration-lead, @host-glove-designer
+
+### The convergence
+
+Four threads from this session and prior work all land in the same place
+— the BindSpace SoA in cognitive-shader-driver. Each thread adds a
+column or constrains an existing one:
+
+| Thread | What it adds | Where it lands |
+|---|---|---|
+| **Distance dispatch** (today, shipped) | type-intrinsic `Distance::distance()` | trait surface (no SoA column) |
+| **Inline awareness** (today, queued) | `(value, awareness)` per op | NEW Column F (per-row awareness) |
+| **SPO Pearl 2³ ontology** (today, queued) | per-cycle ontology delta | NEW Column E (per-row ontology delta) |
+| **ONNX L4→L1 feedback** (2026-04-24, queued) | `style_oracle: Option<&OnnxClassifier>` | exists on `Think` struct, NOT yet in BindSpace SoA |
+| **Foundry parity LF-50/52** (planned) | `ModelRegistry` + `LlmProvider` | new crate `lance-graph-models`; trait shape decided |
+| **Foundry parity LF-12 Pipeline DAG** | `UnifiedStep.depends_on` | extends existing `OrchestrationBridge` |
+| **Foundry parity LF-22/23 ObjectView/Notification** | `Schema::ObjectView`, `NotificationSpec` | DTO addition to `contract::property/ontology` |
+| **Q2 ModelBinding + ModelHealth** | NARS-monitored model lifecycle | bridges `LlmProvider` + `awareness` |
+| **Semantic kernel** (Markov + CAM-PQ) | the algebra that runs across all columns | already encoded; columns just need to expose it |
+
+### What's missing from the SoA today
+
+The current BindSpace has 4 column families:
+```
+A: FingerprintColumns  — content / topic / angle (16384-bit per row)
+B: QualiaColumn        — 18×f32 (qualia state)
+C: MetaColumn          — MetaWord u32 (style + rung + emit)
+D: EdgeColumn          — CausalEdge64 × 8 (emitted edges)
+```
+
+The full picture, to deliver Foundry-equivalent parity AND make
+"can't resist thinking" mechanical, needs:
+
+```
+A: FingerprintColumns  — WHAT (input substrate, lossless)
+B: QualiaColumn        — HOW IT FEELS (qualia, 18D)
+C: MetaColumn          — WHICH STYLE (dispatch metadata)
+D: EdgeColumn          — WHAT IT CONCLUDED (CausalEdge64)
+E: OntologyColumn      — WHAT IT LEARNED (per-cycle ontology delta) ← NEW
+F: AwarenessColumn     — HOW SURE (per-word inline mantissa)        ← NEW
+G: ModelBindingColumn  — WHICH ONNX (style_oracle handle, optional) ← NEW
+H: TypeColumn          — OBJECT TYPE (per-row Foundry ontology link) ← NEW
+```
+
+Columns E+F together close "can't resist thinking" mechanically:
+the cycle MUST emit an ontology delta (even if empty) and MUST carry
+inline awareness. Like the GPU shader pipeline — no halt state, every
+stage produces structured output.
+
+Column G makes the L4→ONNX→L1 feedback loop addressable per-row:
+each row knows which model it should consult (or None for pure
+algebra). The ONNX classifier becomes a type-system citizen, not a
+side-channel call.
+
+Column H is the Foundry "Object Type" — the link between this row's
+fingerprint and the ontology entity type. Today this lives implicitly
+in the Schema; making it a column lets queries filter rows by
+EntityType without re-parsing the Schema.
+
+### The semantic kernel runs across columns
+
+Per `soa-review.md` §"Markov + CAM-PQ = semantic kernel":
+
+```
+ per-cycle Vsa16kF32 (Column A)
+  │
+  ├── grammar slices (SUBJECT / PREDICATE / OBJECT roles)
+  ├── persona slices (ExpertId × PERSONA_n)
+  └── thinking slices (ThinkingStyle × STYLE_n)
+  │
+  ▼ vsa_bundle (CK-safe)
+ trajectory in FingerprintColumns
+  │
+  ├── Index regime  → Column A persists losslessly
+  ├── Argmax regime → CAM-PQ 6 B scent in Column D
+  ├── Awareness     → inline mantissa in Column F (NEW)
+  ├── Ontology      → delta in Column E (NEW)
+  └── Type binding  → Foundry Object Type link in Column H (NEW)
+```
+
+The kernel IS the algebra (vsa_bundle + CAM-PQ cascade); the columns
+ARE the addressable face the kernel exposes. Every Foundry capability
+(ontology, models, decisions, scenarios, search) lands as a different
+read pattern over these same columns — no new substrate, just more
+columns and more traits over the existing SoA.
+
+### Vertex equivalence specifically
+
+Palantir Vertex (the Q2 equivalent) requires:
+
+| Vertex feature | Our column / trait | Status |
+|---|---|---|
+| Object Type system | Column H + `contract::ontology::EntityType` | NEED column H |
+| Property views (card/detail/summary) | `Schema::ObjectView` | ✅ LF-22 shipped |
+| Ontology functions | `FunctionSpec` | LF-20 queued |
+| Action triggers | `ActionSpec` | ✅ shipped |
+| Search (full-text + facets) | LF-40/41 traits | queued |
+| Notifications | `NotificationSpec` | LF-23 queued |
+| Time travel | `EntityStore::scan_as_of` | LF-31 queued (already in `VersionedGraph::at_version`) |
+| Branches / scenarios | `ScenarioBranch` | ✅ in-PR (LF-70/72) |
+| Model lifecycle | `ModelRegistry` + `ModelDeployment` | LF-50/51 queued |
+| LLM provider abstraction | `LlmProvider` | LF-52 queued |
+| Decisions / approvals | `Approval` workflow | LF-60 queued |
+| Lineage | per-row column-level | LF-14 queued (extends LF-7) |
+
+The new columns E, F, G, H map directly to Vertex requirements:
+- E = ontology learning (Vertex doesn't have this; we get it for free)
+- F = awareness (Vertex doesn't have this; we get inline confidence)
+- G = ModelBinding (Vertex's model deployment hooks)
+- H = Object Type (Vertex's core abstraction)
+
+### What should be built first — the wedge order
+
+The columns are not independent. Build order maximizing leverage:
+
+1. **Column H first** (Object Type binding) — pure DTO, unlocks LF-22
+   ObjectView usage AND lets queries filter by type. No SIMD impact.
+2. **Column E second** (OntologyColumn delta) — emits NotificationSpec
+   triggers (LF-23) AND captures the SPO Pearl 2³ enrichment. Needs
+   one new event sink in OrchestrationBridge.
+3. **Column F third** (AwarenessColumn) — extends Distance trait
+   (TD-DIST-1 just shipped) with `_with_awareness()` variant. The
+   composable inline-mantissa pattern.
+4. **Column G last** (ModelBindingColumn) — needs LF-50/52
+   (`ModelRegistry` + `LlmProvider`) shipped first as trait surface,
+   then the column becomes a thin ref into the registry.
+
+After H+E+F+G, the BindSpace SoA is a complete Foundry-Vertex-equivalent
+substrate, with two architecturally novel additions (E+F) that go
+BEYOND Foundry: structural ontology learning during the cycle, and
+inline epistemic mantissa.
+
+### The recursive coda
+
+The coding session itself is a cognitive cycle producing per-cycle
+ontology deltas — that's what these epiphany entries ARE. The
+EPIPHANIES.md file IS the development-cycle Column E. The TECH_DEBT
+items ARE the dispatched-but-not-yet-resolved edges. The PR
+descriptions ARE the cycle conclusions. CLAUDE.md and the agent cards
+ARE the persistent ontology that Column E perturbs each session.
+
+We can't resist thinking — and apparently we can't resist documenting
+that we can't resist.
+
+Cross-ref: 2026-04-26 BF16-mantissa-inline (Column F); 2026-04-26 SPO
+Pearl 2³ ontology enrichment (Column E); 2026-04-24 Two SoAs +
+ONNX L4→L1 feedback (Column G context); LF-22 ObjectView (Column H
+foundation); soa-review.md §semantic kernel; Q2 plan §Vertex equivalent.

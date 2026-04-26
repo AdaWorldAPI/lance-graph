@@ -142,6 +142,7 @@ unsafe fn avx2_batch(dm_data: &[u16], k: usize, query: u8, candidates: &[u8], ou
 ///
 /// For each candidate i:
 ///   out[i] = dm_s[q_s][c_s[i]] + dm_p[q_p][c_p[i]] + dm_o[q_o][c_o[i]]
+#[allow(clippy::too_many_arguments)]
 pub fn batch_spo_distance(
     dm: &SpoDistanceMatrices,
     query_s: u8,

@@ -632,6 +632,12 @@ pub struct DnNodeStore {
     fp_dirty: bool,
 }
 
+impl Default for DnNodeStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DnNodeStore {
     pub fn new() -> Self {
         Self {
@@ -814,6 +820,12 @@ pub struct DnCsr {
     edges: Vec<EdgeDescriptor>,
 }
 
+impl Default for DnCsr {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DnCsr {
     pub fn new() -> Self {
         Self {
@@ -864,8 +876,8 @@ impl DnCsr {
         // Safety: col_dns and edges are always the same length and parallel
         // We return an empty slice if not found
         if let Some(pos) = self.find_row(src) {
-            let start = self.row_ptrs[pos] as usize;
-            let end = self.row_ptrs[pos + 1] as usize;
+            let _start = self.row_ptrs[pos] as usize;
+            let _end = self.row_ptrs[pos + 1] as usize;
             // We can't return &[(PackedDn, EdgeDescriptor)] directly because
             // col_dns and edges are separate arrays. Use the iterator method instead.
             &[] // placeholder - use outgoing_iter instead
@@ -1538,7 +1550,7 @@ impl DnCsr {
     ) -> HashMap<PackedDn, S::Value> {
         let mut result: HashMap<PackedDn, S::Value> = HashMap::new();
 
-        let (lo, hi) = root.subtree_range();
+        let (_lo, hi) = root.subtree_range();
         let start_row = self.row_dns.partition_point(|dn| *dn < root);
         let end_row = self.row_dns.partition_point(|dn| *dn <= hi);
 
@@ -1614,6 +1626,12 @@ pub struct DeltaDnMatrix {
 
     /// Whether deltas are non-empty
     dirty: bool,
+}
+
+impl Default for DeltaDnMatrix {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl DeltaDnMatrix {
@@ -1784,6 +1802,12 @@ pub struct DnGraph {
     flush_threshold: u64,
 }
 
+impl Default for DnGraph {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DnGraph {
     pub fn new() -> Self {
         Self {
@@ -1898,7 +1922,7 @@ impl DnGraph {
         // Also add to verb-specific matrix
         let verb_cat = edge.verb().category() as u8;
         self.typed_adj.entry(verb_cat)
-            .or_insert_with(DeltaDnMatrix::new)
+            .or_default()
             .add_edge(src, dst, edge);
 
         self.ops_since_flush += 1;

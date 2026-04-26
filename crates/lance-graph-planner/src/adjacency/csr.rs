@@ -5,6 +5,7 @@
 
 use super::batch::AdjacencyBatch;
 use super::properties::EdgeProperties;
+#[allow(unused_imports)] // intended for CSR adjacency map wiring
 use std::collections::HashMap;
 
 /// The adjacency substrate. Everything else operates ON this.

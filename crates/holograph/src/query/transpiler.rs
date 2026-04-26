@@ -60,7 +60,7 @@ impl CypherTranspiler {
         sql.push_str(" FROM nodes");
 
         // WHERE clause with vector operations
-        if let Some(where_clause) = &ast.where_clause {
+        if let Some(_where_clause) = &ast.where_clause {
             sql.push_str(" WHERE ");
             // Convert predicates to SQL
         }
@@ -68,13 +68,13 @@ impl CypherTranspiler {
         // Vector operations become UDF calls
         for op in &ast.vector_ops {
             match op {
-                VectorOp::Hamming { a, b } => {
+                VectorOp::Hamming { a: _, b: _ } => {
                     sql.push_str(" /* hamming_distance(...) */");
                 }
-                VectorOp::Similarity { a, b } => {
+                VectorOp::Similarity { a: _, b: _ } => {
                     sql.push_str(" /* vector_similarity(...) */");
                 }
-                VectorOp::CascadeSearch { query, k, threshold } => {
+                VectorOp::CascadeSearch { query: _, k, threshold } => {
                     sql.push_str(&format!(
                         " /* cascade_search(query, {}, {:?}) */",
                         k, threshold
@@ -92,11 +92,11 @@ impl CypherTranspiler {
         sql
     }
 
-    fn create_to_sql(&self, ast: &QueryAst) -> String {
+    fn create_to_sql(&self, _ast: &QueryAst) -> String {
         "INSERT INTO nodes DEFAULT VALUES".to_string()
     }
 
-    fn bound_retrieval_to_sql(&self, ast: &QueryAst) -> String {
+    fn bound_retrieval_to_sql(&self, _ast: &QueryAst) -> String {
         // Bound retrieval becomes a function call
         "SELECT unbind_vector(edge, verb, known) AS result FROM edges".to_string()
     }
@@ -194,7 +194,7 @@ impl CypherTranspiler {
             }
             Expr::Case { whens, else_expr } => {
                 let mut sql = "CASE".to_string();
-                for (pred, expr) in whens {
+                for (_pred, expr) in whens {
                     sql.push_str(&format!(" WHEN ... THEN {}", self.expr_to_sql(expr)));
                 }
                 if let Some(e) = else_expr {
@@ -243,6 +243,7 @@ impl CypherTranspiler {
 /// Transpile GQL Alchemy to standard Cypher
 pub struct GqlTranspiler {
     /// Vector function mappings
+    #[allow(dead_code)] // future wiring: custom function-name remapping in Cypher output
     vector_functions: std::collections::HashMap<String, String>,
 }
 
@@ -320,7 +321,7 @@ impl GqlTranspiler {
         cypher
     }
 
-    fn bound_retrieval_to_cypher(&self, ast: &QueryAst) -> String {
+    fn bound_retrieval_to_cypher(&self, _ast: &QueryAst) -> String {
         // Convert bound retrieval to Cypher function call
         let mut cypher = String::new();
 
@@ -329,7 +330,7 @@ impl GqlTranspiler {
         cypher
     }
 
-    fn create_to_cypher(&self, ast: &QueryAst) -> String {
+    fn create_to_cypher(&self, _ast: &QueryAst) -> String {
         "CREATE (n) RETURN n".to_string()
     }
 

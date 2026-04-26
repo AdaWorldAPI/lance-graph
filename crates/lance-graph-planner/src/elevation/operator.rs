@@ -61,6 +61,7 @@ pub struct ElevatingOp {
     /// Current execution level.
     pub level: ElevationLevel,
     /// Starting level (for history recording).
+    #[allow(dead_code)] // future wiring for elevation history tracking
     start_level: ElevationLevel,
     /// Patience budget (from thinking style + homeostasis).
     pub budget: PatienceBudget,

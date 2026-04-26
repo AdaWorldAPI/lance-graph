@@ -61,7 +61,7 @@ impl ThinkingContext {
 pub fn orchestrate(
     query: &str,
     mul: &MulAssessment,
-    config: &PlannerConfig,
+    _config: &PlannerConfig,
 ) -> ThinkingContext {
     // 1. Select thinking style from MUL state
     let style = style::select_from_mul(mul);

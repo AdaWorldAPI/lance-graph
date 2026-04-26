@@ -195,6 +195,12 @@ pub struct LogicalPlanRef {
     pub factorization_encoding: u64,
 }
 
+impl Default for SubgraphPlans {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SubgraphPlans {
     pub fn new() -> Self {
         Self { plans: Vec::new() }
@@ -241,6 +247,12 @@ impl SubgraphPlans {
     }
 }
 
+impl Default for SubPlansTable {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SubPlansTable {
     pub fn new() -> Self {
         Self { table: HashMap::new() }
@@ -251,7 +263,7 @@ impl SubPlansTable {
     }
 
     pub fn get_or_insert(&mut self, sg: SubqueryGraph) -> &mut SubgraphPlans {
-        self.table.entry(sg).or_insert_with(SubgraphPlans::new)
+        self.table.entry(sg).or_default()
     }
 
     pub fn add_plan(&mut self, sg: SubqueryGraph, plan: LogicalPlanRef) {

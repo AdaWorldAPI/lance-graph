@@ -48,7 +48,7 @@ fn generate_deep_chains(
     budget: &PatienceBudget,
 ) -> Vec<Scenario> {
     let min_confidence = 0.5;
-    let max_chain_length = (budget.result_threshold / 1000).max(3).min(10);
+    let max_chain_length = (budget.result_threshold / 1000).clamp(3, 10);
 
     // Build adjacency: source → [(target, step)]
     let mut adj: std::collections::HashMap<&str, Vec<&CausalStep>> = std::collections::HashMap::new();
@@ -84,7 +84,7 @@ fn generate_deep_chains(
                 // No outgoing edges — try NARS deduction to extend
                 let inferred = infer_next_step(current, steps, min_confidence);
                 if let Some(inferred_step) = inferred {
-                    let target = inferred_step.target.clone();
+                    let _target = inferred_step.target.clone();
                     chain.push(inferred_step);
                     // Can't follow further without owned string
                     break;
@@ -133,7 +133,7 @@ fn generate_lateral_scenarios(
     question: &str,
     steps: &[CausalStep],
     style: ThinkingStyle,
-    budget: &PatienceBudget,
+    _budget: &PatienceBudget,
 ) -> Vec<Scenario> {
     let min_confidence = 0.2; // Low threshold — find weak signals
     let mut scenarios = Vec::new();

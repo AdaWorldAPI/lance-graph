@@ -377,12 +377,12 @@ fn extract_field(obj: &str, key: &str) -> Option<String> {
         return None;
     }
     // String value
-    if after.starts_with('"') {
-        let end = after[1..].find('"')?;
-        return Some(after[1..1 + end].to_string());
+    if let Some(rest) = after.strip_prefix('"') {
+        let end = rest.find('"')?;
+        return Some(rest[..end].to_string());
     }
     // Number value
-    let end = after.find(|c: char| c == ',' || c == '}' || c == '\n')?;
+    let end = after.find([',', '}', '\n'])?;
     let val = after[..end].trim();
     if val == "NaN" || val == "null" { return None; }
     Some(val.to_string())

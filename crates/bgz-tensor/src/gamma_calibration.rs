@@ -9,10 +9,14 @@
 //! Together: the Kurvenlineal offset that tells you where on the curve
 //! each model enters, and how to decode u8 back to exact cosine.
 
+// cosine_f32_slice reserved for future cross-model calibration
+#[allow(unused_imports)]
 use crate::stacked_n::cosine_f32_slice;
 use std::f64::consts::GOLDEN_RATIO;
 
 /// Euler-Mascheroni constant.
+// Reserved for future γ-offset calibration formula
+#[allow(dead_code)]
 const EULER_GAMMA: f64 = std::f64::consts::EULER_GAMMA;
 
 // ═══════════════════════════════════════════════════════════════════════════

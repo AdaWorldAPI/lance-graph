@@ -37,6 +37,7 @@
 
 use crate::bitpack::{BitpackedVector, VECTOR_BITS};
 use crate::hamming::hamming_distance_scalar;
+#[allow(unused_imports)] // EpiphanyZone and HAMMING_STD_DEV reserved for zone-aware déjà vu scoring
 use crate::epiphany::{EpiphanyZone, ONE_SIGMA, TWO_SIGMA, THREE_SIGMA, HAMMING_STD_DEV};
 use std::collections::HashMap;
 
@@ -254,6 +255,7 @@ pub struct SentenceCrystal {
     /// Insertion order for FIFO eviction of embedding_cache
     cache_order: Vec<String>,
     /// Embedding dimension (default: 1024 for Jina v3)
+    #[allow(dead_code)] // future wiring: dynamic projection matrix sizing
     embedding_dim: usize,
 }
 
@@ -498,6 +500,7 @@ pub struct DejaVuRL {
     /// Learning rate
     learning_rate: f32,
     /// Discount factor (how much past observations matter)
+    #[allow(dead_code)] // future wiring: temporal discount in RL update rule
     gamma: f32,
     /// Q-values for (state, action) pairs
     /// State = sigma band, Action = accept/reject
@@ -974,7 +977,7 @@ impl CrystalDejaVuTruth {
         num_passes: usize,
     ) -> Vec<PipelineResult> {
         // Convert query to fingerprint
-        let query_coord = self.crystal.projection.project(query_embedding);
+        let _query_coord = self.crystal.projection.project(query_embedding);
         let query_fp = self.crystal.embedding_to_fingerprint(query_embedding);
 
         // Convert candidates to fingerprints

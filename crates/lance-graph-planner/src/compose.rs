@@ -1,5 +1,6 @@
 //! Pipeline composition: run selected strategies in phase order.
 
+#[allow(unused_imports)] // LogicalOp intended for plan composition wiring
 use crate::ir::{Arena, LogicalOp, LogicalPlan};
 use crate::traits::{PlanStrategy, PlanInput, PlanContext};
 use crate::PlanError;

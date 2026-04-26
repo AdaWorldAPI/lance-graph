@@ -220,9 +220,10 @@ pub trait IvfContract: Send + Sync {
 /// lane types; lab Wire DTOs carry this enum verbatim so the JIT compiles
 /// against the width the REST handler decoded for (Rule E —
 /// Wire surface IS the SIMD surface).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum LaneWidth {
     /// AVX-512 f32 lane — default codec decode / ADC accumulator.
+    #[default]
     F32x16,
     /// AVX-512 u8 lane — palette index reads (`tile_dpbusd` input).
     U8x64,
@@ -232,23 +233,16 @@ pub enum LaneWidth {
     BF16x32,
 }
 
-impl Default for LaneWidth {
-    fn default() -> Self { Self::F32x16 }
-}
-
 /// Distance metric variant. Per CODING_PRACTICES gap 5: split u8/i8
 /// because sign-handling affects bipolar cancellation (codec-findings-
 /// 2026-04-20.md §I1 sign-flip).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum Distance {
     /// Asymmetric distance computation, unsigned palette indices.
+    #[default]
     AdcU8,
     /// Asymmetric distance, signed palette indices (bipolar cancellation).
     AdcI8,
-}
-
-impl Default for Distance {
-    fn default() -> Self { Self::AdcU8 }
 }
 
 /// Pre-rotation applied before PQ encoding. Each variant maps to a
@@ -258,15 +252,23 @@ impl Default for Distance {
 /// - `Hadamard { dim }` — Sylvester butterfly; stays on Tier-3 F32x16.
 /// - `Opq { matrix_blob_id, dim }` — learned rotation matmul; Tier-1
 ///   AMX (`tile_dpbf16ps`) when `ndarray::simd_amx::amx_available()`.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub enum Rotation {
+    /// No-op pre-rotation.
+    #[default]
     Identity,
-    Hadamard { dim: u32 },
-    Opq { matrix_blob_id: u64, dim: u32 },
-}
-
-impl Default for Rotation {
-    fn default() -> Self { Self::Identity }
+    /// Sylvester butterfly Hadamard rotation; stays on Tier-3 F32x16.
+    Hadamard {
+        /// Dimension of the Hadamard matrix (must be a power of 2).
+        dim: u32,
+    },
+    /// Optimized Product Quantization learned rotation (matmul, AMX path).
+    Opq {
+        /// Reference into the rotation-matrix blob store.
+        matrix_blob_id: u64,
+        /// Dimension of the rotation matrix.
+        dim: u32,
+    },
 }
 
 impl Rotation {

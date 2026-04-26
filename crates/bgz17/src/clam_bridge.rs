@@ -309,9 +309,9 @@ impl Bgz17ClamTree {
             for s in 0..num_seeds {
                 let si = working[s];
                 let mut sum = 0u64;
-                for t in 0..num_seeds {
+                for (t, &wt) in working.iter().enumerate().take(num_seeds) {
                     if s != t {
-                        sum += metric.distance(si, working[t]);
+                        sum += metric.distance(si, wt);
                     }
                 }
                 if sum < best_sum {
@@ -331,8 +331,8 @@ impl Bgz17ClamTree {
         let mut left_pole_dist = 0u64;
 
         let mut distances: Vec<u64> = Vec::with_capacity(n);
-        for i in 0..n {
-            let d = metric.distance(center_idx, working[i]);
+        for (i, &wi) in working.iter().enumerate() {
+            let d = metric.distance(center_idx, wi);
             distances.push(d);
             if d > radius { radius = d; }
             if d > left_pole_dist {
@@ -351,8 +351,8 @@ impl Bgz17ClamTree {
         let left_pole_idx = working[left_pole_local];
         let mut right_pole_local = 0;
         let mut right_pole_dist = 0u64;
-        for i in 0..n {
-            let d = metric.distance(left_pole_idx, working[i]);
+        for (i, &wi) in working.iter().enumerate() {
+            let d = metric.distance(left_pole_idx, wi);
             if d > right_pole_dist {
                 right_pole_dist = d;
                 right_pole_local = i;
@@ -362,9 +362,9 @@ impl Bgz17ClamTree {
 
         // Partition into L and R
         let mut side: Vec<bool> = Vec::with_capacity(n);
-        for i in 0..n {
-            let dl = metric.distance(left_pole_idx, working[i]);
-            let dr = metric.distance(right_pole_idx, working[i]);
+        for &wi in working.iter() {
+            let dl = metric.distance(left_pole_idx, wi);
+            let dr = metric.distance(right_pole_idx, wi);
             side.push(dl <= dr);
         }
 

@@ -14,6 +14,8 @@
 //! ```
 
 use crate::stacked::StackedBF16x4;
+// BASE_DIM and Base17 reserved for future PCDVQ-weighted distance
+#[allow(unused_imports)]
 use crate::projection::{BASE_DIM, Base17};
 
 /// A 12-bit codebook index: cluster(6) + entry(6) = 4096 entries.

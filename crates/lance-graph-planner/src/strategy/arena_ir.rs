@@ -2,7 +2,9 @@
 
 use crate::ir::{Arena, LogicalOp, LogicalPlan, Node};
 use crate::ir::logical_op::*;
+#[allow(unused_imports)] // intended for schema-aware plan building
 use crate::ir::schema::Schema;
+#[allow(unused_imports)] // intended for property propagation during plan building
 use crate::ir::properties::PlanProperties;
 use crate::traits::*;
 use crate::PlanError;
@@ -41,7 +43,7 @@ impl PlanStrategy for ArenaIR {
 
         let expr_arena = crate::ir::Arena::new();
         let plan = LogicalPlan::new(
-            std::mem::replace(arena, Arena::new()),
+            std::mem::take(arena),
             expr_arena,
             root,
         );
@@ -51,7 +53,7 @@ impl PlanStrategy for ArenaIR {
     }
 }
 
-fn build_resonance_plan(arena: &mut Arena<LogicalOp>, context: &PlanContext) -> Node {
+fn build_resonance_plan(arena: &mut Arena<LogicalOp>, _context: &PlanContext) -> Node {
     let broadcast = arena.push(LogicalOp::Broadcast {
         fingerprint: crate::ir::expr::ExprNode(Node(0)),
         partitions: 4,
@@ -76,7 +78,7 @@ fn build_resonance_plan(arena: &mut Arena<LogicalOp>, context: &PlanContext) -> 
     })
 }
 
-fn build_graph_plan(arena: &mut Arena<LogicalOp>, context: &PlanContext) -> Node {
+fn build_graph_plan(arena: &mut Arena<LogicalOp>, _context: &PlanContext) -> Node {
     // Single scan for now — DPJoinEnum will optimize multi-node patterns
     arena.push(LogicalOp::ScanNode {
         label: "Node".into(),

@@ -83,7 +83,7 @@ impl Band {
     /// Bytes needed for this band's quantized data per row.
     pub fn bytes_per_row(&self) -> usize {
         let bits = self.n_components() * self.precision as usize;
-        (bits + 7) / 8
+        bits.div_ceil(8)
     }
 }
 
@@ -206,8 +206,8 @@ impl SvdBasis {
         for i in 0..self.n_components {
             let start = i * self.original_cols;
             let mut dot = 0.0f64;
-            for j in 0..self.original_cols.min(row.len()) {
-                dot += row[j] as f64 * bf16_to_f32(self.basis_bf16[start + j]) as f64;
+            for (j, &rv) in row.iter().enumerate().take(self.original_cols.min(row.len())) {
+                dot += rv as f64 * bf16_to_f32(self.basis_bf16[start + j]) as f64;
             }
             coeffs.push(dot as f32);
         }
@@ -217,11 +217,10 @@ impl SvdBasis {
     /// Reconstruct a row from coefficients: coefficients[n_components] → row[cols].
     pub fn reconstruct(&self, coeffs: &[f32]) -> Vec<f32> {
         let mut row = vec![0.0f32; self.original_cols];
-        for i in 0..self.n_components.min(coeffs.len()) {
+        for (i, &c) in coeffs.iter().enumerate().take(self.n_components.min(coeffs.len())) {
             let start = i * self.original_cols;
-            let c = coeffs[i];
-            for j in 0..self.original_cols {
-                row[j] += c * bf16_to_f32(self.basis_bf16[start + j]);
+            for (j, rv) in row.iter_mut().enumerate() {
+                *rv += c * bf16_to_f32(self.basis_bf16[start + j]);
             }
         }
         row
@@ -261,10 +260,10 @@ impl SvdBasis {
         for comp in 0..d {
             // Initialize v randomly (deterministic seed)
             let mut v = vec![0.0f64; cols];
-            for j in 0..cols {
+            for (j, vj) in v.iter_mut().enumerate() {
                 // Simple hash-based initialization
                 let seed = (comp * 7919 + j * 104729 + 31) as f64;
-                v[j] = (seed.sin() * 43758.5453).fract() - 0.5;
+                *vj = (seed.sin() * 43758.5453).fract() - 0.5;
             }
             normalize_f64(&mut v);
 
@@ -303,8 +302,8 @@ impl SvdBasis {
             }
 
             // Store basis vector
-            for j in 0..cols {
-                basis_f32.push(v[j] as f32);
+            for &vj in v.iter() {
+                basis_f32.push(vj as f32);
             }
 
             // Deflate: remove this component from the matrix

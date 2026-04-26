@@ -126,9 +126,9 @@ impl AttentionTable {
         let n_k = k_indices.len();
         let mut scores = vec![0u16; n_q * n_k];
 
-        for i in 0..n_q {
-            for j in 0..n_k {
-                scores[i * n_k + j] = self.distance(q_indices[i], k_indices[j]);
+        for (i, &qi) in q_indices.iter().enumerate().take(n_q) {
+            for (j, &kj) in k_indices.iter().enumerate().take(n_k) {
+                scores[i * n_k + j] = self.distance(qi, kj);
             }
         }
 
@@ -152,9 +152,9 @@ impl AttentionTable {
         let n_k = k_indices.len();
         let mut sparse = Vec::new();
 
-        for i in 0..n_q {
-            for j in 0..n_k {
-                let d = self.distance(q_indices[i], k_indices[j]);
+        for (i, &qi) in q_indices.iter().enumerate().take(n_q) {
+            for (j, &kj) in k_indices.iter().enumerate().take(n_k) {
+                let d = self.distance(qi, kj);
                 if d < threshold {
                     sparse.push((i, j, d));
                 }

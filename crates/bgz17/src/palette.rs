@@ -153,8 +153,8 @@ impl Palette {
             for (i, p) in patterns.iter().enumerate() {
                 let c = assignments[i];
                 counts[c] += 1;
-                for d in 0..17 {
-                    new_centroids[c][d] += p.dims[d] as i64;
+                for (d, nc) in new_centroids[c].iter_mut().enumerate() {
+                    *nc += p.dims[d] as i64;
                 }
             }
 
@@ -197,8 +197,8 @@ impl Palette {
         let n = patterns.len();
         let mut mean = [0i64; 17];
         for p in patterns {
-            for d in 0..17 {
-                mean[d] += p.dims[d] as i64;
+            for (d, m) in mean.iter_mut().enumerate() {
+                *m += p.dims[d] as i64;
             }
         }
         let centroid = Base17 {

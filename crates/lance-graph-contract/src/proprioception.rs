@@ -344,8 +344,8 @@ impl StateClassifier for DefaultClassifier {
 /// L2 distance between a state observation and an anchor.
 fn distance(state: &[f32; STATE_DIMS], anchor: &AnchorState) -> f32 {
     let mut sum = 0.0f32;
-    for i in 0..STATE_DIMS {
-        let d = state[i] - anchor.coords[i];
+    for (s, a) in state.iter().zip(anchor.coords.iter()) {
+        let d = s - a;
         sum += d * d;
     }
     sum.sqrt()
@@ -469,13 +469,13 @@ mod tests {
         let hydrated = hydrate(&state, 10.0);
         // Each hydrated dim should be roughly the mean of that dim
         // across all 7 anchors.
-        for j in 0..STATE_DIMS {
+        for (j, &h) in hydrated.iter().enumerate().take(STATE_DIMS) {
             let anchor_mean: f32 = ANCHOR_REGISTRY.iter()
                 .map(|a| a.coords[j])
                 .sum::<f32>() / 7.0;
-            assert!((hydrated[j] - anchor_mean).abs() < 0.1,
+            assert!((h - anchor_mean).abs() < 0.1,
                 "dim {} high-temp hydrate should approach anchor mean ({:.2}), got {:.2}",
-                j, anchor_mean, hydrated[j]);
+                j, anchor_mean, h);
         }
     }
 

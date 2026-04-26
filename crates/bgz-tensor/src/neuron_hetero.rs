@@ -7,6 +7,8 @@
 //!
 //! This module implements the complete heterogeneous encoding.
 
+// bf16_to_f32 and f32_to_bf16 reserved for future BF16 serialization
+#[allow(unused_imports)]
 use crate::stacked_n::{StackedN, bf16_to_f32, f32_to_bf16};
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -445,6 +447,7 @@ impl HeterogeneousNeuronPrint {
 /// Gate becomes ThinkingStyleFingerprint.
 /// Up×Down becomes TransformSpectrum.
 /// Q, K, V become SpatialRole (StackedN + placeholder codebook index).
+#[allow(clippy::too_many_arguments)]
 pub fn build_neuron(
     layer: u16,
     feature: u32,

@@ -8,6 +8,7 @@
 //! The SD (standard deviation) is computed over the resonance scores
 //! in each result group. Low dispersion = coherent result = FLOW.
 
+#[allow(unused_imports)] // Morsel intended for collapse execution wiring
 use super::{PhysicalOperator, Morsel};
 use crate::ir::logical_op::CollapseGate;
 
