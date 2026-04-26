@@ -1146,3 +1146,43 @@ context.
 sparse mxm that needs to distinguish "no relation" from "relation = 0
 distance"), or when the palette grows beyond 256 entries (which would
 also force u16 indices).
+
+## 2026-04-26 — TD-AWARENESS-INLINE-1: awareness should be BF16-mantissa-inline, not driver-global
+
+**Status:** Open (P-0 architectural, scope: substrate-wide)
+
+Per EPIPHANIES.md 2026-04-26 "awareness should be BF16-mantissa-inline":
+the current `ShaderDriver.awareness: RwLock<Vec<GrammarStyleAwareness>>`
+is driver-global and separate from the stream. This wastes the CPU's
+20-200 ns random-access advantage and recreates the parser/processor
+split that AGI is supposed to dissolve.
+
+**The correct shape:** every stream operation returns `(value, awareness)`,
+where awareness (7-8 bits, BF16-mantissa-equivalent) is derived inline
+from operation properties (bit-purity, distribution shape, residual norm,
+match strength). Awareness composes through the cascade the same way
+values compose.
+
+**Wedge for the smallest viable adoption:**
+1. Extend `contract::distance::Distance` with
+   `distance_with_awareness(&self, other) -> (u32, u8)`. 8 bits per
+   measurement; 11% overhead vs raw distance.
+2. Add `Aware` trait and `Annotated<T>` to contract.
+3. Implement awareness derivation for the four primary operations:
+   `vsa_bind`, `vsa_bundle`, `hamming`, `cosine`.
+4. Update `ShaderDriver::dispatch` to compose inline awareness over
+   the cascade. The driver-global `GrammarStyleAwareness` becomes a
+   bootstrap seed, not the per-cycle source of truth.
+
+**Size budget:** 11-12% overhead on stream payloads (vs 43.75% for
+BF16 mantissa as a fraction of value), because the value plane is
+much wider here than in floating-point.
+
+**Why deferred:** scope is substrate-wide. Touches the contract
+Distance trait (just shipped TD-DIST-1), every SIMD operation in
+ndarray::hpc, the shader driver's cascade, and the BindSpace SoA.
+Should be designed as one coherent commit, not piecemeal.
+
+**Revisit when:** the next architectural sweep covers the awareness
+dimension. Until then, awareness stays driver-global. The epiphany
+documents the correct direction so future work doesn't re-derive it.

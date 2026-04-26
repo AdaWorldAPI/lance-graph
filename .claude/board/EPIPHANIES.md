@@ -3208,3 +3208,165 @@ annotation. If no, the driver-global approach is correct.
 Cross-ref: CLAUDE.md §The Click (Think struct), cognitive-shader-driver
 src/driver.rs dispatch(), causal-edge src/edge.rs CausalEdge64 layout,
 EPIPHANIES.md 2026-04-25 "cognitive loop closes structurally" (TD-INT-1/2/4).
+
+## 2026-04-26 — FINDING: awareness should be BF16-mantissa-inline, not driver-global
+
+**Status:** FINDING (P-0 architectural correction to the 2026-04-26 prior entry)
+**Owner scope:** @truth-architect, @host-glove-designer, @bus-compiler
+
+### The correction
+
+The prior entry today said awareness sits BESIDE CausalEdge64 as a
+driver-global `RwLock<Vec<GrammarStyleAwareness>>`. That's wrong direction.
+The right direction is: awareness should travel WITH the stream the way
+BF16 mantissa travels with every floating-point value — small, always
+present, computed inline by every operation, never stored as a separate
+weight.
+
+### Why driver-global awareness is the wrong shape
+
+A driver-global `awareness[style_ord]` makes the system a blunt data
+lake: it stores per-style Brier history and revises after each cycle,
+but the stream itself sees no awareness during processing. Every u64,
+every fingerprint, every bind/bundle operation flows through unaware
+of its own epistemic context. Awareness only catches up afterwards
+via NARS revision.
+
+This wastes the one architectural advantage the CPU has over GPU:
+**20-200 ns random-access latency**. That latency budget only pays
+off if we DO something during access — compute causality and awareness
+INLINE while the bytes are passing through cache. If we just store
+awareness as a separate weight and apply it later, we're using the
+CPU as a glorified GPU streamer (and losing the access-pattern
+flexibility).
+
+### The BF16 mantissa analogy
+
+BF16: 1 sign + 8 exponent + 7 mantissa + 1 implicit = 16 bits per
+value. The mantissa is the precision-bearing part, but it never
+exists separately. When you multiply two BF16 values, the mantissas
+multiply as part of the operation; they don't get bolted on after the
+fact. They are the operation.
+
+Awareness should work the same way: every stream operation produces
+both a result AND an awareness annotation derived from properties of
+the operation itself:
+
+| Operation | Result | Inline awareness annotation |
+|---|---|---|
+| `vsa_bind(a, b)` | XOR fingerprint | bit-purity of inputs (popcount distance from 50%) |
+| `vsa_bundle(items)` | majority-vote fingerprint | concentration of agreement (variance of bit tallies) |
+| `hamming(a, b)` | distance u32 | distribution shape — uniform vs clustered differences |
+| `palette_lookup(idx)` | u8 | match strength — distance to 2nd-nearest centroid |
+| `cam_pq_decode(code)` | f32 estimate | residual norm from the ADC reconstruction |
+| `cosine(a, b)` | f32 similarity | both norms (low norm → low confidence) |
+
+Each yields a `(value, awareness)` pair that flows together through the
+next op. Awareness composes the same way values compose. After the
+shader cycle, the accumulated awareness IS the meta-confidence
+(meta_confidence in ShaderResonance, currently computed as
+`1 - free_energy.total` — but it should be the integral of inline
+awareness over the cycle, not a single post-hoc estimate).
+
+### What "the object IS the thinking" means here
+
+If awareness is computed inline by the operations themselves, then the
+stream IS the thinking. There is no separate "thinking step" that reads
+the stream and produces awareness. The awareness emerges as a structural
+byproduct of every bit-level operation.
+
+If awareness is a stored weight that gets applied after the stream, the
+stream is just data and the thinking happens elsewhere. That's two
+layers, not one. That violates "the object speaks for itself" and
+recreates the parser/processor split that AGI is supposed to dissolve.
+
+### The size budget
+
+For a 16384-bit fingerprint (`[u64; 256]`):
+- 7 bits awareness per u64 word = 256 × 7 / 8 ≈ 224 bytes parallel array
+- Total: 2048 bytes value + 224 bytes awareness ≈ 11% overhead
+- Fits the same cache line pattern; one fingerprint + its mantissa fits
+  in one prefetch group
+
+For a CausalEdge64:
+- 64 bits value + 8 bits awareness = 72 bits per edge
+- Pack as `[u72; N]` (won't align) or pair as `(CausalEdge64, u8)` = 9 bytes
+- 240 edges × 9 bytes = 2160 bytes (vs 1920 for bare edges). 12.5% overhead.
+
+The ratios are identical to BF16's 7/16 mantissa = 43.75% fraction of
+the total. Awareness is at 11-12% — much cheaper because the value
+plane is wider.
+
+### What this would change in the contract
+
+Add to `lance-graph-contract`:
+
+```rust
+/// Awareness annotation that travels with every stream value.
+/// Like BF16 mantissa — derived from the operation, never stored alone.
+pub trait Aware {
+    type Awareness: Copy;
+    fn awareness(&self) -> Self::Awareness;
+}
+
+/// A value paired with its inline-computed awareness.
+pub struct Annotated<T: Aware> {
+    pub value: T,
+    pub awareness: T::Awareness,
+}
+```
+
+And update the Distance trait (TD-DIST-1, just shipped) to return
+awareness alongside distance:
+
+```rust
+pub trait Distance: Sized {
+    fn distance_with_awareness(&self, other: &Self) -> (u32, Awareness);
+}
+```
+
+The awareness field would carry: bit-distribution flatness, palette
+match strength, residual norm — whatever the operation can cheaply
+derive from its inputs and intermediate state.
+
+### The connection to the reverse pyramid
+
+The pyramid (L1→L2→L3→L4) is the spatial resolution dimension.
+Inline awareness is a NEW orthogonal dimension — call it the
+"epistemic depth" dimension. Both can be present simultaneously:
+
+```
+                    awareness depth →
+                    0 bits   7 bits   16 bits  64 bits
+spatial level ↓
+L1 (64²)            tier 0   tier 1   tier 2   tier 3
+L2 (256²)           tier 0   tier 1   tier 2   tier 3
+L3 (4096²)          tier 0   tier 1   tier 2   tier 3
+L4 (16384²)         tier 0   tier 1   tier 2   tier 3
+```
+
+Tier-1 awareness (7 bits per word, BF16-mantissa-equivalent) is the
+minimum viable: cheap, always present, composable. Tier-3 (full
+NARS truth pair per word) is the maximum needed for downstream
+provenance. Both fit the same cascade dispatch.
+
+### Status of the gap
+
+This is NOT built. The current code:
+- ShaderDriver carries global awareness per style (driver-global)
+- BindSpace columns carry no awareness (per-row absent)
+- Operations return bare values (no inline awareness annotation)
+
+To build it, the smallest viable wedge is: extend the Distance trait
+with `distance_with_awareness()` returning `(u32, u8)` — 8 bits is
+the BF16-mantissa-equivalent budget. Then propagate the awareness
+through the cascade so each step composes the running awareness
+estimate. The driver-global awareness becomes a fallback/initialization
+seed, not the source of truth.
+
+Filed as TD-AWARENESS-INLINE-1 (separate entry).
+
+Cross-ref: BF16 reference (one mantissa per value, never stored alone);
+2026-04-26 prior entry "awareness sits BESIDE CausalEdge64" (now
+SUPERSEDED in spirit — the right answer is INSIDE every operation
+output, not beside the data).
