@@ -126,3 +126,29 @@ loop {
 ```
 
 1630 ndarray lib tests pass (was 1619 → +11 renderer tests). Zero regressions.
+
+## 2026-04-26 — ndarray U8x64 rasterizer intrinsics shipped (seismon wishlist Tier 1+2)
+
+**Branch:** ndarray `claude/teleport-session-setup-wMZfb` (commit `1f224bae`)
+
+8 new methods on `U8x64` across all 3 backends (AVX-512 / AVX2 / scalar):
+
+| Method | AVX-512 intrinsic | What it unlocks |
+|---|---|---|
+| `pairwise_avg` | `_mm512_avg_epu8` | Mipmap 4×4 downsample in 2 ops |
+| `cmpgt_mask` | `_mm512_cmpgt_epu8_mask` | Threshold, Z-test, hit-test |
+| `mask_blend` | `_mm512_mask_blend_epi8` | Sprite alpha blit |
+| `shl_epi16` | `_mm512_slli_epi16` | Nibble write (completes `shr_epi16` pair) |
+| `mask_store` | `_mm512_mask_storeu_epi8` | Partial-tile edge writes |
+| `saturating_add` | `_mm512_adds_epu8` | Additive blend (completes `saturating_sub` pair) |
+| `permute_bytes` | `_mm512_permutexvar_epi8` | Cross-lane byte shuffle (palette remap) |
+
+**For seismon session:** these + existing `cmpeq_mask` + `shr_epi16` +
+`saturating_sub` + `shuffle_bytes` give you the full rasterizer toolkit.
+`framebuffer.rs` + `rasterize_dots` + `rasterize_edges` can now be built
+end-to-end against `crate::simd::U8x64`.
+
+**Tier 3 (deferred):** `U16x32` lane type, `movemask_epi8`. Not blocking;
+can synthesize via existing `unpack_lo/hi_epi8` + I32 ops.
+
+9 tests pass. All methods have matching scalar fallbacks.
