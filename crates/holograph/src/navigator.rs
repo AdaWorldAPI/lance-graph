@@ -1048,6 +1048,7 @@ pub struct ZeroCopyCursor<'a> {
     /// Query vector
     query: &'a BitpackedVector,
     /// Minimum similarity threshold
+    #[allow(dead_code)] // future wiring: early-exit in cursor iteration
     min_similarity: f32,
     /// Maximum Hamming distance (derived from min_similarity)
     max_distance: u32,

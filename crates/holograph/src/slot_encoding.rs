@@ -369,6 +369,7 @@ impl Default for StringEncoder {
 /// Encode numeric values with locality preservation
 pub struct NumericEncoder {
     /// Resolution (values within this range share some bits)
+    #[allow(dead_code)] // future wiring: adaptive resolution decoding
     resolution: f64,
     /// Scale factor
     scale: f64,

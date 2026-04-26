@@ -255,6 +255,7 @@ pub struct SentenceCrystal {
     /// Insertion order for FIFO eviction of embedding_cache
     cache_order: Vec<String>,
     /// Embedding dimension (default: 1024 for Jina v3)
+    #[allow(dead_code)] // future wiring: dynamic projection matrix sizing
     embedding_dim: usize,
 }
 
@@ -499,6 +500,7 @@ pub struct DejaVuRL {
     /// Learning rate
     learning_rate: f32,
     /// Discount factor (how much past observations matter)
+    #[allow(dead_code)] // future wiring: temporal discount in RL update rule
     gamma: f32,
     /// Q-values for (state, action) pairs
     /// State = sigma band, Action = accept/reject

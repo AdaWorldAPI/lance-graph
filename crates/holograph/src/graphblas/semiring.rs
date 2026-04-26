@@ -429,6 +429,7 @@ fn apply_binary_op(op: GrBBinaryOp, a: &HdrScalar, b: &HdrScalar) -> HdrScalar {
 }
 
 /// Built-in semiring instances
+#[allow(dead_code)] // future wiring: semiring factory used from query planner
 pub mod semirings {
     use super::*;
 

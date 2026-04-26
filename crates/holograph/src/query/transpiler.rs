@@ -243,6 +243,7 @@ impl CypherTranspiler {
 /// Transpile GQL Alchemy to standard Cypher
 pub struct GqlTranspiler {
     /// Vector function mappings
+    #[allow(dead_code)] // future wiring: custom function-name remapping in Cypher output
     vector_functions: std::collections::HashMap<String, String>,
 }
 

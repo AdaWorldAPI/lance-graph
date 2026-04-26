@@ -632,6 +632,12 @@ pub struct DnNodeStore {
     fp_dirty: bool,
 }
 
+impl Default for DnNodeStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DnNodeStore {
     pub fn new() -> Self {
         Self {
@@ -812,6 +818,12 @@ pub struct DnCsr {
 
     /// Edge descriptors (parallel to col_dns)
     edges: Vec<EdgeDescriptor>,
+}
+
+impl Default for DnCsr {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl DnCsr {
@@ -1616,6 +1628,12 @@ pub struct DeltaDnMatrix {
     dirty: bool,
 }
 
+impl Default for DeltaDnMatrix {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DeltaDnMatrix {
     pub fn new() -> Self {
         Self {
@@ -1782,6 +1800,12 @@ pub struct DnGraph {
 
     /// Auto-flush threshold
     flush_threshold: u64,
+}
+
+impl Default for DnGraph {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl DnGraph {

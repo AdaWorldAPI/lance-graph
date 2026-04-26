@@ -457,6 +457,7 @@ impl SparseVec {
     }
 
     /// Sort by index
+    #[allow(dead_code)] // future wiring: pre-sort for CSR conversion
     pub fn sort(&mut self) {
         let mut pairs: Vec<_> = self.indices.iter()
             .zip(self.values.iter())

@@ -277,15 +277,11 @@ impl SchemaQuery {
         // NARS filter: read word[210] (lower 32 bits = truth)
         if let Some(ref nars) = self.nars_filter {
             let truth = NarsTruth::unpack(candidate_words[base + 2] as u32);
-            if let Some(min_f) = nars.min_frequency {
-                if truth.f() < min_f {
-                    return false;
-                }
+            if let Some(min_f) = nars.min_frequency && truth.f() < min_f {
+                return false;
             }
-            if let Some(min_c) = nars.min_confidence {
-                if truth.c() < min_c {
-                    return false;
-                }
+            if let Some(min_c) = nars.min_confidence && truth.c() < min_c {
+                return false;
             }
             // Budget: upper 32 bits of word[210] → lower 64 bits
             if let Some(min_p) = nars.min_priority {

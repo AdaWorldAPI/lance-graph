@@ -798,6 +798,7 @@ pub struct CausalRlAgent {
     /// Learning rate
     alpha: f32,
     /// Exploration rate
+    #[allow(dead_code)] // future wiring: epsilon-greedy exploration policy
     epsilon: f32,
     /// Curiosity bonus: 1/(1 + visit_count) for unseen state-action pairs
     visit_counts: HashMap<u64, u32>,

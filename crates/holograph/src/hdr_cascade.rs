@@ -57,6 +57,7 @@ const DEFAULT_EXCITE: u32 = 2000;
 const DEFAULT_INHIBIT: u32 = 5000;
 
 /// Sample points for Belichtungsmesser (prime-spaced)
+#[allow(dead_code)] // future wiring: light-meter quick distance estimation
 const METER_POINTS: [usize; 7] = [0, 23, 47, 78, 101, 131, 155];
 
 // ============================================================================
