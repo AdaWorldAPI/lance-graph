@@ -137,9 +137,7 @@ impl FallbackSignals {
 
     /// Determine minimum precision needed based on signals.
     pub fn minimum_precision(&self) -> crate::Precision {
-        if self.max_anomaly_score > 0.75 {
-            crate::Precision::Base
-        } else if self.palette_collision_rate > 0.10 {
+        if self.max_anomaly_score > 0.75 || self.palette_collision_rate > 0.10 {
             crate::Precision::Base
         } else {
             crate::Precision::Palette

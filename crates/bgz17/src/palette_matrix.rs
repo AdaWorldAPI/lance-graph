@@ -148,10 +148,10 @@ impl PaletteMatrix {
             }
 
             // Emit row entries
-            for j in 0..ncols {
-                if let Some((pe, _)) = best[j] {
+            for (j, best_j) in best.iter().enumerate().take(ncols) {
+                if let Some((pe, _)) = best_j {
                     col_idx.push(j);
-                    vals.push(pe);
+                    vals.push(*pe);
                 }
             }
             row_ptr.push(col_idx.len());

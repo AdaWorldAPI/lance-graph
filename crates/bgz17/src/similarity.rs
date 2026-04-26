@@ -26,10 +26,10 @@ impl SimilarityTable {
         let mut table = [0.0f32; 256];
         let sigma_f = (sigma.max(1)) as f32;
         let mu_f = mu as f32;
-        for i in 0..256 {
+        for (i, entry) in table.iter_mut().enumerate() {
             let distance = (i as u32 * bucket_width) + bucket_width / 2;
             let z = (mu_f - distance as f32) / sigma_f;
-            table[i] = 1.0 / (1.0 + (-z).exp());
+            *entry = 1.0 / (1.0 + (-z).exp());
         }
         Self { table, bucket_width, max_distance }
     }
@@ -50,12 +50,12 @@ impl SimilarityTable {
         let bucket_width = (max_distance / 256).max(1);
         let mut table = [0.0f32; 256];
 
-        for i in 0..256 {
+        for (i, entry) in table.iter_mut().enumerate() {
             let bucket_center = (i as u32 * bucket_width) + bucket_width / 2;
             // CDF: fraction of samples <= bucket_center
             let count = samples.partition_point(|&s| s <= bucket_center);
             let cdf = count as f32 / n as f32;
-            table[i] = 1.0 - cdf; // similarity = 1 - CDF
+            *entry = 1.0 - cdf; // similarity = 1 - CDF
         }
 
         Self { table, bucket_width, max_distance }
