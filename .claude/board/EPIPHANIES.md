@@ -3097,3 +3097,114 @@ for the FisherZ-transformed variant, defaulting to `atanh(similarity())`.
 Cross-ref: CLAUDE.md §The Click ("object speaks for itself"), I1 Codec Regime
 Split (`CodecRoute`), `contract::cam::DistanceTableProvider` (existing trait for
 ADC), `ndarray::hpc::bitwise::hamming_distance_raw`, `ndarray::hpc::palette_distance`.
+
+## 2026-04-26 — FINDING: awareness does NOT travel with CausalEdge64; it sits BESIDE it in the SoA
+
+**Status:** FINDING
+**Owner scope:** @truth-architect, @host-glove-designer
+
+### The question
+Does the mantissa/awareness travel WITH the CausalEdge64 (packed into the
+u64), or does it sit beside it in the SoA?
+
+### What CausalEdge64 actually carries
+
+CausalEdge64 is 64 bits packed (causal-edge/src/edge.rs):
+
+```
+[0:7]   S palette index       — WHERE (subject identity)
+[8:15]  P palette index       — WHAT (predicate type)
+[16:23] O palette index       — WHERE (object identity)
+[24:31] NARS frequency (u8)   — HOW OFTEN (belief)
+[32:39] NARS confidence (u8)  — HOW SURE (evidence weight)
+[40:42] Causal mask (3 bits)  — Pearl's 2³ (observational/do/counterfactual)
+[43:45] Direction triad       — sign(dim0) per S/P/O
+[46:48] Inference type        — Deduction/Induction/Abduction/Revision/Synthesis
+[49:51] Plasticity flags      — hot/cold per S/P/O
+[52:63] Temporal index        — 4096 time slots
+```
+
+The edge carries NARS truth (freq + conf) and Pearl mask, but NOT:
+- Per-style awareness (GrammarStyleAwareness — Brier history, revision count)
+- Free energy at emission time
+- The style ordinal that produced this edge
+- Mantissa / metacognitive state
+
+### Where awareness actually lives
+
+In the shader driver (`ShaderDriver::dispatch()`):
+
+1. **awareness** = `RwLock<Vec<GrammarStyleAwareness>>` (one per style × 12 styles)
+   — sits on `ShaderDriver`, NOT on the edge. It's a per-driver global state.
+   Lives as Column B in the SoA (beside the BindSpace columns, not in them).
+
+2. **MetaWord** = u32 packed in `MetaColumn` of `BindSpace`
+   — per-row transient state (bits for style selector, rung level, emit mode).
+   Lives in the BindSpace SoA but is TRANSIENT — cleared after the cycle.
+   This is the closest thing to "awareness travels with the data."
+
+3. **CausalEdge64** = emitted INTO the `EdgeColumn` of `BindSpace` (step [5])
+   — 8 edges per dispatch, written to the edges array.
+
+So the pipeline is:
+
+```
+StreamDto → encode → MetaWord (transient) → cascade → emit CausalEdge64
+                                                       ↓
+                                              awareness.revise(key, outcome)
+                                                       ↓
+                                              NEXT cycle's F is different
+```
+
+### Is the fan-out spatial (reverse pyramid)?
+
+**No — it's stylistic, not spatial.** The fan-out happens across thinking
+styles (12 ordinals), not across pyramid levels. The reverse pyramid
+(L1→L2→L3→L4) is the RESOLUTION hierarchy — 64²→256²→4K²→16K². The
+thinking-style fan-out is the PERSPECTIVE hierarchy — Analytical/Creative/
+Intuitive/Practical/Metacognitive/Social × 6 sub-styles each.
+
+These two hierarchies are ORTHOGONAL:
+- Pyramid levels = HOW FINE the representation is (spatial resolution)
+- Thinking styles = WHOSE PERSPECTIVE examines it (angle of approach)
+
+"Thinking about thinking" (metacognition via MUL gate, TD-INT-3) is
+a style-dimension operation: the MUL assessment reads awareness
+(skill_level, DK position, trust texture) and vetoes or promotes
+the dispatch — it doesn't move between pyramid levels. It stays at
+whatever resolution the current cycle operates at.
+
+The mantissa that was discussed earlier is fully absorbed into:
+- **CausalEdge64 bits [24:39]** = NARS frequency+confidence (the epistemic
+  weight of this specific edge assertion)
+- **GrammarStyleAwareness** = the accumulated Brier history per style
+  (the metacognitive "how good am I at this kind of thinking")
+
+These are TWO DIFFERENT things stored in TWO DIFFERENT places:
+- Edge truth = travels WITH the edge (packed in the u64)
+- Style awareness = stays on the driver (not in the edge)
+
+### The gap
+
+There is no meta SoA relationship that links stream↔awareness↔causality
+into a single coherent column. Today:
+
+- Stream = BindSpace.fingerprints (Column A, [u64; 256] per row)
+- Awareness = ShaderDriver.awareness (global, not per-row)
+- Emitted edges = BindSpace.edges (Column D, [u64; 8] per row)
+
+The awareness column does NOT exist in BindSpace. The awareness is driver-
+global, revised after each cycle, but not stored per-row or per-edge. To
+make awareness travel with the cycle, it would need to become a SoA column:
+`BindSpace.awareness_column: Box<[GrammarStyleAwareness; N_ROWS]>` —
+one awareness snapshot per row, capturing the epistemic state AT THE TIME
+that row was processed.
+
+This is not built. Whether it should be depends on whether downstream
+consumers (AriGraph, q2, callcenter) need to know "under what epistemic
+state was this edge emitted." If yes, awareness becomes a per-edge
+annotation. If no, the driver-global approach is correct.
+
+Cross-ref: CLAUDE.md §The Click (Think struct), cognitive-shader-driver
+src/driver.rs dispatch(), causal-edge src/edge.rs CausalEdge64 layout,
+EPIPHANIES.md 2026-04-25 "cognitive loop closes structurally" (TD-INT-1/2/4).
