@@ -80,10 +80,9 @@ pub fn dn_hash(dn: &str) -> u64 {
 ///
 /// Returns the number of bit positions where the fingerprints differ.
 pub fn hamming_distance(a: &Fingerprint, b: &Fingerprint) -> u32 {
-    a.iter()
-        .zip(b.iter())
-        .map(|(x, y)| (x ^ y).count_ones())
-        .sum()
+    let a_bytes = unsafe { std::slice::from_raw_parts(a.as_ptr() as *const u8, FINGERPRINT_WORDS * 8) };
+    let b_bytes = unsafe { std::slice::from_raw_parts(b.as_ptr() as *const u8, FINGERPRINT_WORDS * 8) };
+    ndarray::hpc::bitwise::hamming_distance_raw(a_bytes, b_bytes) as u32
 }
 
 /// Zero fingerprint constant.

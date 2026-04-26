@@ -214,20 +214,7 @@ pub fn hamming_distance(a: &[u8], b: &[u8]) -> u32 {
     if a.len() != b.len() {
         return u32::MAX;
     }
-    // Process 8 bytes at a time via u64 popcount
-    let chunks = a.len() / 8;
-    let mut dist = 0u32;
-    for i in 0..chunks {
-        let offset = i * 8;
-        let wa = u64::from_le_bytes(a[offset..offset + 8].try_into().unwrap());
-        let wb = u64::from_le_bytes(b[offset..offset + 8].try_into().unwrap());
-        dist += (wa ^ wb).count_ones();
-    }
-    // Remainder bytes
-    for i in (chunks * 8)..a.len() {
-        dist += (a[i] ^ b[i]).count_ones();
-    }
-    dist
+    ndarray::hpc::bitwise::hamming_distance_raw(a, b) as u32
 }
 
 /// Hamming similarity: `1.0 - distance / total_bits`.
