@@ -1,5 +1,6 @@
 //! Core traits for the composable planning strategy system.
 
+#[allow(unused_imports)] // Node intended for strategy result wiring
 use crate::ir::{Arena, LogicalOp, LogicalPlan, Node};
 use crate::PlanError;
 

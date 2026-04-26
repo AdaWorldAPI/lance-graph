@@ -68,6 +68,7 @@
 //! ```
 
 use crate::physical::CamPqScanOp;
+#[allow(unused_imports)] // intended for CAM-PQ strategy selection wiring
 use crate::physical::cam_pq_scan::CamPqStrategy;
 use crate::traits::*;
 use crate::selector::StrategySelector;
@@ -439,9 +440,9 @@ impl CamSearch {
         for s in 0..6 {
             let q_sub = &query[s * subspace_dim..(s + 1) * subspace_dim];
             let num_c = self.codebook[s].len().min(256);
-            for c in 0..num_c {
+            for (c, centroid) in self.codebook[s].iter().enumerate().take(num_c) {
                 tables[s][c] = q_sub.iter()
-                    .zip(self.codebook[s][c].iter())
+                    .zip(centroid.iter())
                     .map(|(a, b)| (a - b) * (a - b))
                     .sum();
             }
@@ -503,8 +504,8 @@ impl CamSearch {
     /// Decode a CAM fingerprint to an approximate vector.
     pub fn decode(&self, cam: &[u8; 6]) -> Vec<f32> {
         let mut result = Vec::new();
-        for s in 0..6 {
-            result.extend_from_slice(&self.codebook[s][cam[s] as usize]);
+        for (s, &c) in cam.iter().enumerate() {
+            result.extend_from_slice(&self.codebook[s][c as usize]);
         }
         result
     }

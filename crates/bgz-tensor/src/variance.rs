@@ -190,13 +190,13 @@ fn compute_centroid(vecs: &[&Base17]) -> Base17 {
     }
     let mut sums = [0i64; 17];
     for v in vecs {
-        for d in 0..17 {
-            sums[d] += v.dims[d] as i64;
+        for (d, sum) in sums.iter_mut().enumerate() {
+            *sum += v.dims[d] as i64;
         }
     }
     let mut dims = [0i16; 17];
-    for d in 0..17 {
-        dims[d] = (sums[d] / n).clamp(-32768, 32767) as i16;
+    for (d, dim) in dims.iter_mut().enumerate() {
+        *dim = (sums[d] / n).clamp(-32768, 32767) as i16;
     }
     Base17 { dims }
 }

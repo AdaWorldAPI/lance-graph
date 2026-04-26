@@ -11,6 +11,7 @@
 //! - TruthPropagating: NARS deduction at each hop, revision at merge
 //! - Palette: bgz17 palette codec accumulation
 
+#[allow(unused_imports)] // Morsel, ColumnData intended for accumulate execution wiring
 use super::{PhysicalOperator, Morsel, ColumnData};
 use crate::ir::logical_op::SemiringType;
 

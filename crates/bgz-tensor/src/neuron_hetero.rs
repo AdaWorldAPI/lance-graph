@@ -447,6 +447,7 @@ impl HeterogeneousNeuronPrint {
 /// Gate becomes ThinkingStyleFingerprint.
 /// Up×Down becomes TransformSpectrum.
 /// Q, K, V become SpatialRole (StackedN + placeholder codebook index).
+#[allow(clippy::too_many_arguments)]
 pub fn build_neuron(
     layer: u16,
     feature: u32,

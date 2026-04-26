@@ -167,7 +167,7 @@ impl Semiring for HdrSemiring {
                 }
             }
 
-            HdrSemiring::Resonance { threshold } => {
+            HdrSemiring::Resonance { threshold: _threshold } => {
                 // Best matching vector above threshold
                 match (a, b) {
                     (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => {

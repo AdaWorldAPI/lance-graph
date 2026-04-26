@@ -426,7 +426,7 @@ impl HammingEngine {
         quick_threshold: f32,
     ) -> Vec<(usize, u32)> {
         // Phase 1: Quick exposure filter
-        let mut survivors: Vec<usize> = candidates.iter()
+        let survivors: Vec<usize> = candidates.iter()
             .enumerate()
             .filter(|(_, c)| !self.quick_check(query, c).definitely_far(quick_threshold))
             .map(|(i, _)| i)
@@ -662,6 +662,7 @@ mod simd_arm {
 
 /// Dispatch to best available SIMD implementation
 #[inline]
+#[allow(unreachable_code)] // Scalar fallback is unreachable when SIMD feature is active
 pub fn hamming_distance_simd(a: &BitpackedVector, b: &BitpackedVector) -> u32 {
     #[cfg(all(target_arch = "x86_64", feature = "simd"))]
     {

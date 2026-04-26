@@ -160,7 +160,7 @@ pub fn build_shared_palette(
     }
 
     // Build from combined sample
-    let owned: Vec<Base17> = combined.iter().map(|&&ref b| b.clone()).collect();
+    let owned: Vec<Base17> = combined.iter().map(|&b| b.clone()).collect();
     let sample = if owned.len() > 4096 { &owned[..4096] } else { &owned[..] };
     WeightPalette::build(sample, k)
 }
@@ -236,9 +236,9 @@ pub fn build_group_with_fisher_z(
             rep_dists[ci] = dist;
         }
     }
-    for ci in 0..n_centroids {
-        if reps[ci].is_empty() {
-            reps[ci] = palette.entries[ci].to_f32(key.shape.1);
+    for (ci, rep) in reps.iter_mut().enumerate().take(n_centroids) {
+        if rep.is_empty() {
+            *rep = palette.entries[ci].to_f32(key.shape.1);
         }
     }
 
@@ -314,9 +314,9 @@ pub fn build_group_with_leaf(
             rep_dists[ci] = dist;
         }
     }
-    for ci in 0..n_centroids {
-        if reps[ci].is_empty() {
-            reps[ci] = palette.entries[ci].to_f32(key.shape.1);
+    for (ci, rep) in reps.iter_mut().enumerate().take(n_centroids) {
+        if rep.is_empty() {
+            *rep = palette.entries[ci].to_f32(key.shape.1);
         }
     }
     let fisher_z = Some(FisherZTable::build(&reps, n_centroids));

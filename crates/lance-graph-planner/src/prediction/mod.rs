@@ -22,7 +22,9 @@ pub mod scenario;
 pub mod ingestion;
 pub mod temporal;
 
+#[allow(unused_imports)] // ThinkingCluster intended for cluster-based prediction wiring
 use crate::thinking::style::{ThinkingStyle, ThinkingCluster};
+#[allow(unused_imports)] // PatienceBudget intended for budget-aware prediction wiring
 use crate::elevation::budget::{PatienceBudget, budget_for_cluster};
 
 /// A prediction scenario — one possible future outcome.

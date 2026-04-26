@@ -74,10 +74,10 @@ impl StackedBF16x4 {
         // For vectors with > 4 octaves, use strided sampling (octaves 0, n/4, n/2, 3n/4)
         if n_octaves > 4 {
             let stride = n_octaves / 4;
-            for slot in 0..4 {
+            for slot in 0..4usize {
                 let octave = slot * stride;
-                for bi in 0..BASE_DIM {
-                    let dim = octave * BASE_DIM + GOLDEN_POS[bi] as usize;
+                for (bi, &gp) in GOLDEN_POS.iter().enumerate() {
+                    let dim = octave * BASE_DIM + gp as usize;
                     if dim < n {
                         slots[bi][slot] = weights[dim];
                     }
@@ -132,10 +132,10 @@ impl StackedBF16x4 {
     /// Collapse to Base17 (lossy: averages the 4 BF16 values per dim).
     pub fn to_base17(&self) -> Base17 {
         let mut dims = [0i16; BASE_DIM];
-        for d in 0..BASE_DIM {
+        for (d, dim) in dims.iter_mut().enumerate() {
             let vals = self.unpack_dim_f32(d);
             let mean = (vals[0] as f64 + vals[1] as f64 + vals[2] as f64 + vals[3] as f64) / 4.0;
-            dims[d] = (mean * FP_SCALE).round().clamp(-32768.0, 32767.0) as i16;
+            *dim = (mean * FP_SCALE).round().clamp(-32768.0, 32767.0) as i16;
         }
         Base17 { dims }
     }
@@ -143,7 +143,7 @@ impl StackedBF16x4 {
     /// Generate collapsed search key (17 bytes) for HEEL fast-reject.
     pub fn search_key(&self) -> SearchKey17 {
         let mut bytes = [0u8; BASE_DIM];
-        for d in 0..BASE_DIM {
+        for (d, byte) in bytes.iter_mut().enumerate() {
             let bf16s = self.unpack_dim(d);
 
             // Sign polarity: majority vote of 4 signs
@@ -163,7 +163,7 @@ impl StackedBF16x4 {
                 .fold(0u8, |acc, m| acc ^ m);
             let fine_hash = mantissa_xor & 0x0F;
 
-            bytes[d] = (sign_bit << 7) | (mag_class << 4) | fine_hash;
+            *byte = (sign_bit << 7) | (mag_class << 4) | fine_hash;
         }
         SearchKey17 { bytes }
     }

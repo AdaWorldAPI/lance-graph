@@ -9,9 +9,13 @@ mod cost;
 pub use dp_enumerator::DpEnumerator;
 pub use cost::CostModel;
 
+#[allow(unused_imports)] // Node, SubPlansTable, SubqueryGraph intended for DP enumeration wiring
 use crate::ir::{Arena, LogicalOp, LogicalPlan, Node, SubPlansTable, SubqueryGraph};
+#[allow(unused_imports)] // AExpr intended for expression plan construction
 use crate::ir::expr::{AExpr, ExprNode};
+#[allow(unused_imports)] // intended for factorization schema wiring
 use crate::ir::schema::Schema;
+#[allow(unused_imports)] // intended for plan property propagation
 use crate::ir::properties::PlanProperties;
 use crate::thinking::ThinkingContext;
 use crate::PlanError;
@@ -96,7 +100,7 @@ pub fn plan_query(
         let expr_arena = crate::ir::Arena::new();
         let root = arena.push(LogicalOp::EmptyResult);
         return Ok(LogicalPlan::new(
-            std::mem::replace(arena, Arena::new()),
+            std::mem::take(arena),
             expr_arena,
             root,
         ));
@@ -116,7 +120,7 @@ pub fn plan_query(
     let root = enumerator.enumerate(&query_graph, arena)?;
 
     Ok(LogicalPlan::new(
-        std::mem::replace(arena, Arena::new()),
+        std::mem::take(arena),
         expr_arena,
         root,
     ))
@@ -124,7 +128,7 @@ pub fn plan_query(
 
 /// Plan a resonance query: BROADCAST → SCAN → ACCUMULATE → COLLAPSE.
 fn plan_resonance_query(
-    query: &str,
+    _query: &str,
     thinking: &ThinkingContext,
     arena: &mut Arena<LogicalOp>,
     config: &PlannerConfig,
@@ -160,7 +164,7 @@ fn plan_resonance_query(
     });
 
     Ok(LogicalPlan::new(
-        std::mem::replace(arena, Arena::new()),
+        std::mem::take(arena),
         expr_arena,
         collapse,
     ))
@@ -169,7 +173,7 @@ fn plan_resonance_query(
 /// Simplified query graph extraction (real parser is in lance-graph core crate).
 fn parse_to_query_graph(
     query: &str,
-    arena: &mut Arena<LogicalOp>,
+    _arena: &mut Arena<LogicalOp>,
 ) -> Result<QueryGraph, PlanError> {
     // This is a simplified parser for the planner crate.
     // The real parser (66KB nom-based) lives in lance-graph core.

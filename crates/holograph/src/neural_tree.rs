@@ -223,7 +223,7 @@ impl NeuralProfile {
         threshold: u32,
     ) -> Option<Self> {
         let stacked = StackedPopcount::compute_with_threshold_ref(a, b, threshold)?;
-        let mut profile = Self::from_stacked(&stacked);
+        let profile = Self::from_stacked(&stacked);
         // No pruning occurred if we got here
         Some(profile)
     }

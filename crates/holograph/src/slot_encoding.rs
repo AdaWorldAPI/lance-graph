@@ -389,8 +389,6 @@ impl NumericEncoder {
 
         // Generate fingerprint from quantized value
         // Use thermometer encoding for locality: similar values share bits
-        let mut fp = BitpackedVector::zero();
-
         // Base fingerprint from value
         let base_seed = quantized as u64;
         let base = BitpackedVector::random(base_seed.wrapping_mul(0x9E3779B97F4A7C15));
@@ -401,7 +399,7 @@ impl NumericEncoder {
 
         // Combine: base dominates, neighbors add similarity
         let refs = [&base, &base, &base, &blur1, &blur2];
-        fp = BitpackedVector::bundle(&refs);
+        let fp = BitpackedVector::bundle(&refs);
 
         fp
     }

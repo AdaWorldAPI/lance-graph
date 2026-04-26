@@ -29,7 +29,7 @@ impl CostModel {
     }
 
     /// Cost of scanning a single node table.
-    pub fn scan_cost(&self, node: &QueryGraphNode) -> f64 {
+    pub fn scan_cost(&self, _node: &QueryGraphNode) -> f64 {
         // In a real implementation, this would use table statistics.
         self.base_cardinality / self.exploration_discount
     }

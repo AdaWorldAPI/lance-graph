@@ -65,10 +65,10 @@ impl Base17 {
         }
 
         let mut dims = [0i16; BASE_DIM];
-        for d in 0..BASE_DIM {
+        for (d, dim) in dims.iter_mut().enumerate() {
             if count[d] > 0 {
                 let mean = sum[d] / count[d] as f64;
-                dims[d] = (mean * FP_SCALE).round().clamp(-32768.0, 32767.0) as i16;
+                *dim = (mean * FP_SCALE).round().clamp(-32768.0, 32767.0) as i16;
             }
         }
         Base17 { dims }
@@ -259,10 +259,10 @@ impl Base17Fz {
         let norm = if max_abs > 1e-15 { 1.0 / max_abs } else { 0.0 };
 
         let mut dims = [0i16; BASE_DIM];
-        for d in 0..BASE_DIM {
+        for (d, dim) in dims.iter_mut().enumerate() {
             let normalized = means[d] * norm; // [-1, 1]
             let z = arctanh_clamp(normalized);
-            dims[d] = (z * FZ_SCALE).round().clamp(-32768.0, 32767.0) as i16;
+            *dim = (z * FZ_SCALE).round().clamp(-32768.0, 32767.0) as i16;
         }
         Base17Fz { dims }
     }

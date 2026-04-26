@@ -17,7 +17,7 @@ use crate::PlanError;
 pub fn optimize(
     mut plan: LogicalPlan,
     thinking: &ThinkingContext,
-    arena: &mut Arena<LogicalOp>,
+    _arena: &mut Arena<LogicalOp>,
 ) -> Result<LogicalPlan, PlanError> {
     let rules = build_rule_chain(thinking);
 
@@ -81,7 +81,7 @@ fn build_rule_chain(thinking: &ThinkingContext) -> Vec<Box<dyn OptimizerRule>> {
 struct RemoveFactorizationRewriter;
 impl OptimizerRule for RemoveFactorizationRewriter {
     fn name(&self) -> &str { "remove_factorization" }
-    fn apply(&self, plan: &LogicalPlan, _ctx: &ThinkingContext) -> RuleResult {
+    fn apply(&self, _plan: &LogicalPlan, _ctx: &ThinkingContext) -> RuleResult {
         // Remove Flatten operators to enable optimization, then re-insert later.
         RuleResult::Unchanged // Placeholder
     }
@@ -90,7 +90,7 @@ impl OptimizerRule for RemoveFactorizationRewriter {
 struct PredicatePushdown;
 impl OptimizerRule for PredicatePushdown {
     fn name(&self) -> &str { "predicate_pushdown" }
-    fn apply(&self, plan: &LogicalPlan, _ctx: &ThinkingContext) -> RuleResult {
+    fn apply(&self, _plan: &LogicalPlan, _ctx: &ThinkingContext) -> RuleResult {
         // Push Filter operators below joins/projections.
         // Convert cross-products with equality predicates into hash joins.
         // Convert primary-key equality predicates into index lookups.
@@ -101,7 +101,7 @@ impl OptimizerRule for PredicatePushdown {
 struct ProjectionPushdown;
 impl OptimizerRule for ProjectionPushdown {
     fn name(&self) -> &str { "projection_pushdown" }
-    fn apply(&self, plan: &LogicalPlan, _ctx: &ThinkingContext) -> RuleResult {
+    fn apply(&self, _plan: &LogicalPlan, _ctx: &ThinkingContext) -> RuleResult {
         RuleResult::Unchanged
     }
 }
@@ -109,7 +109,7 @@ impl OptimizerRule for ProjectionPushdown {
 struct LimitPushdown;
 impl OptimizerRule for LimitPushdown {
     fn name(&self) -> &str { "limit_pushdown" }
-    fn apply(&self, plan: &LogicalPlan, _ctx: &ThinkingContext) -> RuleResult {
+    fn apply(&self, _plan: &LogicalPlan, _ctx: &ThinkingContext) -> RuleResult {
         RuleResult::Unchanged
     }
 }
@@ -117,7 +117,7 @@ impl OptimizerRule for LimitPushdown {
 struct RemoveUnnecessaryJoins;
 impl OptimizerRule for RemoveUnnecessaryJoins {
     fn name(&self) -> &str { "remove_unnecessary_joins" }
-    fn apply(&self, plan: &LogicalPlan, _ctx: &ThinkingContext) -> RuleResult {
+    fn apply(&self, _plan: &LogicalPlan, _ctx: &ThinkingContext) -> RuleResult {
         RuleResult::Unchanged
     }
 }
@@ -127,7 +127,7 @@ impl OptimizerRule for RemoveUnnecessaryJoins {
 struct SipOptimizer;
 impl OptimizerRule for SipOptimizer {
     fn name(&self) -> &str { "sip_semi_mask" }
-    fn apply(&self, plan: &LogicalPlan, _ctx: &ThinkingContext) -> RuleResult {
+    fn apply(&self, _plan: &LogicalPlan, _ctx: &ThinkingContext) -> RuleResult {
         // Walk plan tree. For each HashJoin:
         // 1. After build side completes, create SemiMask
         // 2. Push SemiMask down to probe-side ScanNode
@@ -140,7 +140,7 @@ impl OptimizerRule for SipOptimizer {
 struct CollapseGateInsertion;
 impl OptimizerRule for CollapseGateInsertion {
     fn name(&self) -> &str { "collapse_gate_insertion" }
-    fn apply(&self, plan: &LogicalPlan, ctx: &ThinkingContext) -> RuleResult {
+    fn apply(&self, _plan: &LogicalPlan, _ctx: &ThinkingContext) -> RuleResult {
         // Insert Collapse operators after Accumulate operators
         // when the thinking style requires gated output.
         // Thresholds come from the thinking context's free_will_modifier.
@@ -153,7 +153,7 @@ impl OptimizerRule for CollapseGateInsertion {
 struct SemiringOptimizer;
 impl OptimizerRule for SemiringOptimizer {
     fn name(&self) -> &str { "semiring_optimizer" }
-    fn apply(&self, plan: &LogicalPlan, _ctx: &ThinkingContext) -> RuleResult {
+    fn apply(&self, _plan: &LogicalPlan, _ctx: &ThinkingContext) -> RuleResult {
         RuleResult::Unchanged
     }
 }
@@ -161,7 +161,7 @@ impl OptimizerRule for SemiringOptimizer {
 struct FactorizationRewriter;
 impl OptimizerRule for FactorizationRewriter {
     fn name(&self) -> &str { "factorization_rewriter" }
-    fn apply(&self, plan: &LogicalPlan, _ctx: &ThinkingContext) -> RuleResult {
+    fn apply(&self, _plan: &LogicalPlan, _ctx: &ThinkingContext) -> RuleResult {
         // Re-insert Flatten operators where required by downstream operators.
         // Walk the plan tree. For each operator that requires flat input,
         // check if the schema has an unflat group. If so, insert Flatten.
@@ -172,7 +172,7 @@ impl OptimizerRule for FactorizationRewriter {
 struct TopKOptimizer;
 impl OptimizerRule for TopKOptimizer {
     fn name(&self) -> &str { "topk_optimizer" }
-    fn apply(&self, plan: &LogicalPlan, _ctx: &ThinkingContext) -> RuleResult {
+    fn apply(&self, _plan: &LogicalPlan, _ctx: &ThinkingContext) -> RuleResult {
         // Combine OrderBy + Limit into TopK operator.
         RuleResult::Unchanged
     }

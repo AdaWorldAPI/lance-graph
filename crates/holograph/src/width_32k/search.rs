@@ -421,7 +421,7 @@ pub fn probe_search(
     for (idx, &candidate) in candidates.iter().enumerate() {
         // XOR-probe: bind the two known dimensions with the candidate's trace
         // to recover the unknown dimension.
-        let (trace_start, _a_start, _b_start) = match probe {
+        let (_trace_start, _a_start, _b_start) = match probe {
             ProbeTarget::RecoverX => (X_START, Y_START, Z_START),
             ProbeTarget::RecoverY => (Y_START, X_START, Z_START),
             ProbeTarget::RecoverZ => (Z_START, X_START, Y_START),

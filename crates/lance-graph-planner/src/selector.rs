@@ -53,7 +53,7 @@ pub fn select_strategies<'a>(
             selected
         }
 
-        StrategySelector::Resonance { thinking_style, mul_modifier, compass_score } => {
+        StrategySelector::Resonance { thinking_style, mul_modifier, compass_score: _ } => {
             // Score each strategy: affinity * mul_modifier * style_alignment
             let mut scored: Vec<(&dyn PlanStrategy, f32)> = strategies.iter()
                 .map(|s| {

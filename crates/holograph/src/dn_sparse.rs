@@ -864,8 +864,8 @@ impl DnCsr {
         // Safety: col_dns and edges are always the same length and parallel
         // We return an empty slice if not found
         if let Some(pos) = self.find_row(src) {
-            let start = self.row_ptrs[pos] as usize;
-            let end = self.row_ptrs[pos + 1] as usize;
+            let _start = self.row_ptrs[pos] as usize;
+            let _end = self.row_ptrs[pos + 1] as usize;
             // We can't return &[(PackedDn, EdgeDescriptor)] directly because
             // col_dns and edges are separate arrays. Use the iterator method instead.
             &[] // placeholder - use outgoing_iter instead
@@ -1538,7 +1538,7 @@ impl DnCsr {
     ) -> HashMap<PackedDn, S::Value> {
         let mut result: HashMap<PackedDn, S::Value> = HashMap::new();
 
-        let (lo, hi) = root.subtree_range();
+        let (_lo, hi) = root.subtree_range();
         let start_row = self.row_dns.partition_point(|dn| *dn < root);
         let end_row = self.row_dns.partition_point(|dn| *dn <= hi);
 

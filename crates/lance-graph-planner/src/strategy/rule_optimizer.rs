@@ -22,7 +22,7 @@ impl PlanStrategy for RuleOptimizer {
         }
     }
 
-    fn plan(&self, input: PlanInput, arena: &mut Arena<LogicalOp>) -> Result<PlanInput, PlanError> {
+    fn plan(&self, input: PlanInput, _arena: &mut Arena<LogicalOp>) -> Result<PlanInput, PlanError> {
         // Delegates to crate::optimize::optimize() which runs:
         // 1. RemoveFactorizationRewriter
         // 2. PredicatePushdown

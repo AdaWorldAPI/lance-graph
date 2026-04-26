@@ -5,6 +5,7 @@
 
 use std::sync::Arc;
 use crate::bitpack::BitpackedVector;
+#[allow(unused_imports)] // SearchResult reserved for typed cascade search result handling
 use crate::hdr_cascade::{HdrCascade, SearchResult};
 use crate::resonance::{VectorField, Resonator};
 use crate::storage::ArrowStore;

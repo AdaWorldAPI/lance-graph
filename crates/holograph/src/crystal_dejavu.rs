@@ -975,7 +975,7 @@ impl CrystalDejaVuTruth {
         num_passes: usize,
     ) -> Vec<PipelineResult> {
         // Convert query to fingerprint
-        let query_coord = self.crystal.projection.project(query_embedding);
+        let _query_coord = self.crystal.projection.project(query_embedding);
         let query_fp = self.crystal.embedding_to_fingerprint(query_embedding);
 
         // Convert candidates to fingerprints

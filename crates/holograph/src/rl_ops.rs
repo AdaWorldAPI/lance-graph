@@ -614,7 +614,7 @@ impl RlEngine {
         block_signature: &[u16; 10],
     ) {
         // 1. Generate reward signal
-        let signal = RewardSignal::from_scalar(query, result, reward);
+        let _signal = RewardSignal::from_scalar(query, result, reward);
 
         // 2. Propagate along path
         self.tracker.propagate_reward(path, reward);
@@ -992,7 +992,7 @@ impl CausalRlAgent {
     pub fn compute_regret(
         &self,
         state: &BitpackedVector,
-        actual_action: &BitpackedVector,
+        _actual_action: &BitpackedVector,
         actual_reward: f32,
         alt_action: &BitpackedVector,
     ) -> f32 {

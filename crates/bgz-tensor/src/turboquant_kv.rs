@@ -102,6 +102,8 @@ impl TurboQuantKvCache {
 
     pub fn len(&self) -> usize { self.k_entries.len() }
 
+    pub fn is_empty(&self) -> bool { self.k_entries.is_empty() }
+
     /// Cascade-accelerated attention for a query vector.
     ///
     /// Returns (attention_scores, top_k_indices) where scores are

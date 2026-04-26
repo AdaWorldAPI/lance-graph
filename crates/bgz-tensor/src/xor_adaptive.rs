@@ -94,12 +94,12 @@ impl XorAdaptiveTensor {
             let mut flipped_idx = Vec::new();
             let mut matched_vals = Vec::new();
 
-            for d in 0..n_cols {
+            for (d, &res) in residual.iter().enumerate().take(n_cols) {
                 if is_flipped(&delta, d) {
-                    flipped_vals.push(residual[d]);
+                    flipped_vals.push(res);
                     flipped_idx.push(d as u16);
                 } else {
-                    matched_vals.push(residual[d]);
+                    matched_vals.push(res);
                 }
             }
 
@@ -155,7 +155,7 @@ impl XorAdaptiveTensor {
 
         let ms = bf16_to_f32(row.matched_scale_bf16);
         let mut mi = 0;
-        for d in 0..self.n_cols {
+        for (d, res) in result.iter_mut().enumerate().take(self.n_cols) {
             if !row.flipped_indices.contains(&(d as u16)) {
                 let byte_idx = mi / 2;
                 if byte_idx < row.matched_codes.len() {
@@ -164,7 +164,7 @@ impl XorAdaptiveTensor {
                     } else {
                         (row.matched_codes[byte_idx] >> 4) as i8 - 8
                     };
-                    result[d] += nibble as f32 * ms;
+                    *res += nibble as f32 * ms;
                 }
                 mi += 1;
             }

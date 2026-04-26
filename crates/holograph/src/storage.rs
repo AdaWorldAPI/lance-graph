@@ -690,6 +690,7 @@ pub mod datafusion {
     };
     #[allow(unused_imports)] // ArrowDataType, ArrowField reserved for UDF return-type declarations
     use ::datafusion::arrow::datatypes::{DataType as ArrowDataType, Field as ArrowField};
+    #[allow(unused_imports)] // DFFixedSizeBinaryArray reserved for UDF fingerprint column access
     use ::datafusion::arrow::array::{
         UInt32Array, Float32Array, FixedSizeBinaryArray as DFFixedSizeBinaryArray,
     };
@@ -707,7 +708,7 @@ pub mod datafusion {
     /// These UDFs operate directly on Arrow FixedSizeBinary columns.
     /// The VectorSlice zero-copy path means no BitpackedVector is ever
     /// materialized — the UDF reads words straight from the Arrow buffer.
-    fn register_vector_udfs(ctx: &SessionContext) -> Result<()> {
+    fn register_vector_udfs(_ctx: &SessionContext) -> Result<()> {
         // hamming_distance(fingerprint_a, fingerprint_b) -> uint32
         // vector_similarity(fingerprint_a, fingerprint_b) -> float32
         // vector_bind(fingerprint_a, fingerprint_b) -> fixedsizebinary

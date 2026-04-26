@@ -626,6 +626,7 @@ pub enum SignalClass {
 }
 
 /// Classify a comparison result for routing
+#[allow(overlapping_range_endpoints)] // Ranges intentionally overlap; first-match semantics are desired
 pub fn classify_signal(mean: u8, sd: u8, distance: u32) -> SignalClass {
     match (mean, sd, distance) {
         (0..=2, 0..=30, 0..=2000) => SignalClass::Strong,

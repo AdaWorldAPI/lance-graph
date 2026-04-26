@@ -233,7 +233,7 @@ impl HhtlDTensor {
             let k = cache.palette.entries.len();
             let mut reps: Vec<Vec<f32>> = vec![Vec::new(); k];
             let mut rep_dists: Vec<u32> = vec![u32::MAX; k];
-            for (_i, row) in rows_f32.iter().enumerate() {
+            for row in rows_f32.iter() {
                 let b17 = Base17::from_f32(row);
                 let (ci, dist) = cache.nearest(&b17);
                 let ci = ci as usize;
@@ -243,9 +243,9 @@ impl HhtlDTensor {
                 }
             }
             // Fill empty centroids with palette to_f32
-            for ci in 0..k {
-                if reps[ci].is_empty() {
-                    reps[ci] = cache.palette.entries[ci].to_f32(n_cols);
+            for (ci, rep) in reps.iter_mut().enumerate().take(k) {
+                if rep.is_empty() {
+                    *rep = cache.palette.entries[ci].to_f32(n_cols);
                 }
             }
             Some(crate::fisher_z::FisherZTable::build(&reps, k))

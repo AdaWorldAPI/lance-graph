@@ -818,7 +818,7 @@ pub fn rl_guided_search(
     alpha: f32,
     schema_query: &SchemaQuery,
 ) -> Vec<RlSearchResult> {
-    let max_bits = (schema_query.block_mask.count() as f32 * BITS_PER_BLOCK as f32).max(1.0);
+    let _max_bits = (schema_query.block_mask.count() as f32 * BITS_PER_BLOCK as f32).max(1.0);
     let mut results: Vec<RlSearchResult> = Vec::with_capacity(k + 1);
 
     for (idx, &candidate) in candidates.iter().enumerate() {

@@ -29,7 +29,7 @@ impl PlanStrategy for DPJoinEnum {
         }
     }
 
-    fn plan(&self, input: PlanInput, arena: &mut Arena<LogicalOp>) -> Result<PlanInput, PlanError> {
+    fn plan(&self, input: PlanInput, _arena: &mut Arena<LogicalOp>) -> Result<PlanInput, PlanError> {
         // Delegates to crate::plan::DpEnumerator for the actual DP logic.
         // The DpEnumerator already implements:
         // - Level-by-level subgraph enumeration

@@ -4,6 +4,7 @@
 //! multiply = NARS deduction, add = NARS revision.
 
 use crate::ir::{Arena, LogicalOp};
+#[allow(unused_imports)] // intended for semiring selection wiring
 use crate::ir::logical_op::SemiringType;
 use crate::traits::*;
 use crate::PlanError;
