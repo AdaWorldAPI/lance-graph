@@ -546,7 +546,7 @@ impl GrBMindmap {
     }
 
     /// Find path between two nodes (BFS-based)
-    pub fn path(&self, from: GrBIndex, to: GrBIndex) -> Option<Vec<GrBIndex>> {
+    pub fn path(&mut self, from: GrBIndex, to: GrBIndex) -> Option<Vec<GrBIndex>> {
         let bfs_result = self.bfs(from, 10);
 
         if !bfs_result.iter().any(|(idx, _)| *idx == to) {

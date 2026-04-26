@@ -195,6 +195,12 @@ pub struct LogicalPlanRef {
     pub factorization_encoding: u64,
 }
 
+impl Default for SubgraphPlans {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SubgraphPlans {
     pub fn new() -> Self {
         Self { plans: Vec::new() }
@@ -238,6 +244,12 @@ impl SubgraphPlans {
 
     pub fn plans(&self) -> impl Iterator<Item = &LogicalPlanRef> {
         self.plans.iter().map(|(_, p)| p)
+    }
+}
+
+impl Default for SubPlansTable {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

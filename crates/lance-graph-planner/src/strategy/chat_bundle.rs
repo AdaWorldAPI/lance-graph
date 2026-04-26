@@ -28,6 +28,12 @@ pub struct AutocompleteCache {
     pub turn_count: u32,
 }
 
+impl Default for AutocompleteCache {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AutocompleteCache {
     pub fn new() -> Self {
         Self {
@@ -44,8 +50,8 @@ impl AutocompleteCache {
         self.turn_count += 1;
 
         // 1. Update user model
-        let row = (self.turn_count as usize % 64) as usize;
-        let col = (self.turn_count as usize / 64 % 64) as usize;
+        let row = self.turn_count as usize % 64;
+        let col = self.turn_count as usize / 64 % 64;
         self.triple.on_user_input(message, row, col);
 
         // 2. Evaluate all 4096 heads with DK-appropriate tension
@@ -86,8 +92,8 @@ impl AutocompleteCache {
 
     /// After LLM generates, update models.
     pub fn on_self_output(&mut self, output: &HeadPrint) {
-        let row = (self.turn_count as usize % 64) as usize;
-        let col = (self.turn_count as usize / 64 % 64) as usize;
+        let row = self.turn_count as usize % 64;
+        let col = self.turn_count as usize / 64 % 64;
         self.triple.on_self_output(output, row, col);
     }
 

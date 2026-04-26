@@ -65,7 +65,7 @@ pub fn decompose_fanout(results_so_far: &Morsel, max_partitions: usize) -> Vec<M
     }
 
     let partition_size = (results_so_far.num_rows / max_partitions).max(1);
-    let num_partitions = (results_so_far.num_rows + partition_size - 1) / partition_size;
+    let num_partitions = results_so_far.num_rows.div_ceil(partition_size);
 
     (0..num_partitions).map(|i| {
         let start = i * partition_size;

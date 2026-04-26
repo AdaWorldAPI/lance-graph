@@ -143,7 +143,6 @@ impl PlannerAwareness {
 
     /// Set the strategy selector.
     pub fn set_selector(&mut self, selector: StrategySelector) {
-        &mut self.selector;
         self.selector = selector;
     }
 

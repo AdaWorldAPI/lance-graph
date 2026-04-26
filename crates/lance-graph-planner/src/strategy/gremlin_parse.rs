@@ -429,7 +429,7 @@ impl PlanStrategy for GremlinParse {
             let root = arena.push(ret);
 
             let plan = LogicalPlan::new(
-                std::mem::replace(arena, Arena::new()),
+                std::mem::take(arena),
                 expr_arena,
                 root,
             );

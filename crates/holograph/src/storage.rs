@@ -41,6 +41,7 @@ use std::sync::Arc;
 use std::path::Path;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
+use arrow::array::ArrayBuilder;
 
 #[allow(unused_imports)] // BinaryArray, TimestampMicrosecondArray reserved for metadata column reads
 use arrow::array::{
@@ -96,24 +97,30 @@ pub struct VectorBatch {
 impl VectorBatch {
     /// Create from Arrow RecordBatch
     pub fn from_record_batch(batch: RecordBatch) -> Result<Self> {
-        let fingerprints = batch
-            .column_by_name(FIELD_FINGERPRINT)
-            .ok_or_else(|| HdrError::Storage("Missing fingerprint column".into()))?
-            .as_any()
-            .downcast_ref::<FixedSizeBinaryArray>()
-            .ok_or_else(|| HdrError::Storage("Invalid fingerprint column type".into()))?;
+        let fingerprints = Arc::new(
+            batch
+                .column_by_name(FIELD_FINGERPRINT)
+                .ok_or_else(|| HdrError::Storage("Missing fingerprint column".into()))?
+                .as_any()
+                .downcast_ref::<FixedSizeBinaryArray>()
+                .ok_or_else(|| HdrError::Storage("Invalid fingerprint column type".into()))?
+                .clone(),
+        );
 
-        let ids = batch
-            .column_by_name(FIELD_ID)
-            .ok_or_else(|| HdrError::Storage("Missing id column".into()))?
-            .as_any()
-            .downcast_ref::<UInt64Array>()
-            .ok_or_else(|| HdrError::Storage("Invalid id column type".into()))?;
+        let ids = Arc::new(
+            batch
+                .column_by_name(FIELD_ID)
+                .ok_or_else(|| HdrError::Storage("Missing id column".into()))?
+                .as_any()
+                .downcast_ref::<UInt64Array>()
+                .ok_or_else(|| HdrError::Storage("Invalid id column type".into()))?
+                .clone(),
+        );
 
         Ok(Self {
             batch,
-            fingerprints: Arc::new(fingerprints.clone()),
-            ids: Arc::new(ids.clone()),
+            fingerprints,
+            ids,
         })
     }
 
