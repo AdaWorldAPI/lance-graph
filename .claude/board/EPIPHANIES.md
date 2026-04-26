@@ -65,6 +65,46 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-04-25 — FINDING: ndarray VSA migrated to 16384-bit — SIMD-clean at every precision tier
+
+**Status:** FINDING
+**Owner scope:** @container-architect, @host-glove-designer
+
+ndarray `src/hpc/vsa.rs` was the last holdout of the deprecated `[u64; 157]` / 10000-bit format. Migrated to `[u64; 256]` / 16384-bit in commit `7041ea11` on ndarray `claude/teleport-session-setup-wMZfb`. With this, the entire workspace operates on a single canonical format: 16384 bits = 256 u64 = 2048 bytes, divisible by every SIMD register width (FP16x32, FP32x16, F64x8, U8x64) — zero scalar tail at any precision. The 2026-04-24 SIMD-alignment-sin epiphany no longer applies anywhere.
+
+Constants migrated in three modules:
+- `vsa.rs`: VSA_DIMS, VSA_WORDS, VSA_BYTES, TAIL_BITS, TAIL_MASK
+- `arrow_bridge.rs`: SOAKING_DIMS, SIGMA_MASK_BYTES, DEFAULT_SOAKING_DIM, plus 9 test assertions
+- `deepnsm.rs`: `nsm_to_fingerprint` return type `[u8; 1250]` → `[u8; 2048]`, XOR loop now 32×U8x64 chunks (no scalar remainder)
+
+1619 ndarray lib tests pass after migration. Audited 23 candidate files; 22 had only incidental uses of "10000" or "157" (RoPE θ, seed offsets, distance thresholds, unrelated array sizes). Only 3 files (vsa.rs, arrow_bridge.rs, deepnsm.rs) had real VSA-format references — all three now migrated.
+
+Cross-ref: 2026-04-24 "Vsa10k = [u64; 157] was a SIMD-alignment sin"; ndarray commit `7041ea11`; lance-graph contract `crystal::fingerprint::Binary16K` (the producer side); CROSS_SESSION_BROADCAST.md 2026-04-25 entry.
+
+## 2026-04-25 — CORRECTION-OF 2026-04-25 "cognitive loop closes structurally": MUL gate veto IS wired (TD-INT-3/10/14 shipped same day)
+
+**Status:** CORRECTION
+
+The 2026-04-25 loop-closing epiphany (lines 87, 89) states "MUL gate veto (DK position, trust texture) is not yet wired" and "TD-INT-3 still open." Both statements were true at the time of writing (between commits `474d3eb`/`b7787cf`) but became stale the same day: commit `0f9dcbb` wired MUL gate veto + NarsTables lookup + convergence highway (TD-INT-3, 10, 14). Board commit `49f1456` marks all three paid. The "What this is NOT" paragraph is therefore factually superseded — TD-INT-3 IS wired, MulAssessment DOES compute every dispatch.
+
+Cross-ref: commits `0f9dcbb`, `49f1456`; TECH_DEBT.md Paid Debt section.
+
+## 2026-04-25 — graph_render contract: Neo4j/Palantir Gotham visual render surface for q2 cockpit
+
+**Status:** FINDING
+**Owner scope:** @integration-lead, @bus-compiler
+
+New `contract::graph_render` module (7 tests, 250+ LOC) exports the trait surface q2 cockpit-server needs to consume TripletGraph, EpisodicMemory, GraphSensorium, and Cypher execution without circular deps on lance-graph core. Five traits: `GraphSnapshotProvider`, `GraphInferenceProvider`, `CypherExecutor`, `EpisodicTraceProvider`, `ShaderEventStream`. DTOs: `RenderNode`, `RenderEdge`, `InferredConnection`, `Contradiction`, `GraphSnapshot`, `GraphHealth`, `CypherResult`, `CypherValue`, `EpisodicTrace`, `ShaderEvent`. q2's `graph_engine.rs` (400 LOC shipped same session) implements the consumer side; lance-graph arigraph will implement the producer side.
+
+Cross-ref: q2 cockpit `graph_engine.rs`; contract `sensorium.rs` (existing signals); `literal_graph.rs` (existing LiteralGraph); arigraph `triplet_graph.rs` + `episodic.rs` + `sensorium.rs` (producer-side).
+
+## 2026-04-25 — CLAUDE.md Think struct corrected: Vsa10k → Vsa16kF32
+
+**Status:** CORRECTION
+
+CLAUDE.md §The Click had `trajectory: Vsa10k` and `global_context: &Vsa10k` in both Think struct examples (lines 86, 106) while the header (line 13) said `Vsa16kF32`. Fresh sessions hit a contradiction on the first P-1 read. Corrected both structs to `Vsa16kF32` / `&Vsa16kF32`.
+
+Cross-ref: 2026-04-21 CORRECTION-OF D5 Frankenstein (the original VSA format switch).
 
 ## 2026-04-25 — FINDING: cognitive loop closes structurally — TD-INT-1, 2, 4 wired into ShaderDriver dispatch
 

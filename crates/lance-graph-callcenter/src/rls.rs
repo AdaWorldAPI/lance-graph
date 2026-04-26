@@ -127,7 +127,7 @@ impl OptimizerRule for RlsRewriter {
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-#[cfg(test)]
+#[cfg(all(test, feature = "query"))]
 mod tests {
     use super::*;
     use datafusion::prelude::*;

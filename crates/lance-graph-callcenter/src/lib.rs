@@ -85,8 +85,9 @@ pub mod drain;
 #[cfg(any(feature = "auth-jwt", feature = "auth", feature = "full"))]
 pub mod auth;
 
-// DM-7 RLS rewriter: DataFusion OptimizerRule injecting tenant/actor predicates (auth-rls — pulls datafusion)
-#[cfg(any(feature = "auth-rls", feature = "auth", feature = "full"))]
+// DM-7 RLS rewriter: DataFusion OptimizerRule injecting tenant/actor predicates.
+// Gated on query-lite (activated by both auth-rls and auth-rls-lite).
+#[cfg(any(feature = "auth-rls-lite", feature = "auth-rls", feature = "auth", feature = "full"))]
 pub mod rls;
 
 // DM-8 — PostgRestHandler: query-string → DataFusion SQL → Lance → Arrow ([serve])
