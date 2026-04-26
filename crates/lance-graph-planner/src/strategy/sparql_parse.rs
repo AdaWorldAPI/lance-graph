@@ -148,7 +148,7 @@ impl PlanStrategy for SparqlParse {
                     }
                 }
 
-                SparqlPattern::Optional(patterns) => {
+                SparqlPattern::Optional(_patterns) => {
                     // OPTIONAL { ... } → Left join
                     // Process inner patterns to build a subplan
                     let outer = current_node.unwrap_or_else(|| arena.push(LogicalOp::EmptyResult));
@@ -171,7 +171,7 @@ impl PlanStrategy for SparqlParse {
                     current_node = Some(arena.push(join));
                 }
 
-                SparqlPattern::Union(left_patterns, right_patterns) => {
+                SparqlPattern::Union(_left_patterns, _right_patterns) => {
                     let left = current_node.unwrap_or_else(|| arena.push(LogicalOp::EmptyResult));
                     let right = arena.push(LogicalOp::EmptyResult);
                     let union = LogicalOp::Union {
@@ -612,10 +612,10 @@ fn split_triple(s: &str) -> Vec<String> {
 fn extract_braced(s: &str, brace_start: usize) -> String {
     let bytes = s.as_bytes();
     let mut depth = 0;
-    let mut start = brace_start + 1;
+    let start = brace_start + 1;
     let mut end = start;
-    for i in brace_start..bytes.len() {
-        match bytes[i] {
+    for (_, &b) in bytes.iter().enumerate().skip(brace_start) {
+        match b {
             b'{' => depth += 1,
             b'}' => {
                 depth -= 1;

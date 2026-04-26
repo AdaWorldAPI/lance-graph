@@ -74,6 +74,7 @@ impl StackedBF16x4 {
         // For vectors with > 4 octaves, use strided sampling (octaves 0, n/4, n/2, 3n/4)
         if n_octaves > 4 {
             let stride = n_octaves / 4;
+            #[allow(clippy::needless_range_loop)]
             for slot in 0..4usize {
                 let octave = slot * stride;
                 for (bi, &gp) in GOLDEN_POS.iter().enumerate() {

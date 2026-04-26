@@ -477,7 +477,11 @@ enum GremlinStep {
     InV,
     OutV,
     BothV,
-    Repeat { steps: Vec<GremlinStep>, times: usize },
+    Repeat {
+        #[allow(dead_code)] // future wiring for repeat-step expansion
+        steps: Vec<GremlinStep>,
+        times: usize,
+    },
     Until,
     Count,
     Sum(Option<String>),

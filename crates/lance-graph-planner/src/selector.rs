@@ -133,7 +133,7 @@ fn style_alignment(phase: PipelinePhase, thinking_style: &[f64]) -> f32 {
     // [5]=flow, [6]=vitality, [7]=transcendent, ...
     let analytical = thinking_style.get(4).copied().unwrap_or(0.0) as f32;
     let creative = thinking_style.get(3).copied().unwrap_or(0.0) as f32;
-    let depth = thinking_style.get(0).copied().unwrap_or(0.0) as f32;
+    let depth = thinking_style.first().copied().unwrap_or(0.0) as f32;
 
     match phase {
         PipelinePhase::Parse => 0.0,
