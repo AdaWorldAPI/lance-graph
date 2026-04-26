@@ -80,3 +80,49 @@ ndarray.
 1619 ndarray lib tests pass; 0 failed. All consumers (lance-graph
 arigraph, callcenter, contract, q2 cockpit) can now rely on a single
 canonical format end-to-end.
+
+## 2026-04-26 — ndarray::hpc::renderer shipped: SIMD double-buffer mothership
+
+**Branch:** ndarray `claude/teleport-session-setup-wMZfb` (commit `01f4ecd4`)
+
+The hardware-acceleration mothership for q2 cockpit / Palantir Gotham
+visual rendering now lives in `ndarray::hpc::renderer`. Per-tier dispatch
+via the existing `crate::simd` polyfill — same pattern as `hpc::vsa`.
+
+```
+crate::simd::F32x16  → AVX-512 (__m512, _mm512_fmadd_ps)
+                     → AVX2   (__m256, _mm256_fmadd_ps)
+                     → AMX    (tile-backed)
+                     → NEON   (float32x4_t, vfmaq_f32) at NEON LANES = 4
+                     → scalar (f32::mul_add loop)
+```
+
+**Surface:**
+- `RenderFrame` — SoA: positions/velocities (3·N f32), charges (N f32),
+  fingerprints (VSA_WORDS·N u64). Capacity padded to PREFERRED_F32_LANES.
+- `Renderer` — double-buffer with atomic XOR-flip (`fetch_xor(1, AcqRel)`).
+  `read_front()` for REST/SSE; `write_back()` for shader cycle.
+- `tick(dt, damping)` — one FMA pass per chunk:
+  `position = velocity·dt + position` via `F32x16::mul_add`.
+  Then atomic swap. Caller controls 60 fps cadence.
+- `GLOBAL_RENDERER: LazyLock<Renderer>` (4096-node default capacity).
+- `integrate_simd` / `apply_uniform_force` — exposed for custom physics.
+
+**Why ndarray, not lance-graph or q2:** rendering is hardware acceleration.
+ndarray is the substrate that owns SIMD types, FMA, BLAS, CAM-PQ, CLAM,
+fingerprint distance kernels. Putting the renderer here means q2 / cockpit
+gets it via a single dep, and the same renderer can drive Palantir-style
+graph visualization in any binary that pulls ndarray.
+
+**Consumers (q2 / cockpit-server):**
+```rust
+use ndarray::hpc::renderer::{Renderer, RenderFrame};
+let r = Renderer::with_capacity(4096);
+loop {
+    // shader cycle writes new positions to back buffer ...
+    r.tick(1.0/60.0, 0.95);  // SIMD-FMA + atomic swap
+    let snapshot = r.read_front();  // serve to REST / SSE
+}
+```
+
+1630 ndarray lib tests pass (was 1619 → +11 renderer tests). Zero regressions.
