@@ -137,56 +137,37 @@ pub fn cosine_distance(a: &[f32], b: &[f32]) -> f32 {
         return 2.0;
     }
 
-    let dot: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
-    let norm_a: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
-    let norm_b: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
-
-    if norm_a == 0.0 || norm_b == 0.0 {
-        return 2.0; // Maximum distance for zero vectors
-    }
-
-    let similarity = dot / (norm_a * norm_b);
-    1.0 - similarity
+    ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd(a, b) as f32
 }
 
 /// Compute cosine similarity (for vector_similarity function)
 /// Returns a value in [-1, 1] where 1 means identical and -1 means opposite
 pub fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
     if a.len() != b.len() {
-        // Dimension mismatch - return minimum similarity
         return -1.0;
     }
-
-    let dot: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
-    let norm_a: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
-    let norm_b: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
-
-    if norm_a == 0.0 || norm_b == 0.0 {
-        return -1.0; // Minimum similarity for zero vectors
-    }
-
-    dot / (norm_a * norm_b)
+    ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd(a, b) as f32
 }
 
 /// Compute dot product between two vectors
 /// For similarity search, we return the negative (so lower is better for sorting)
 pub fn dot_product_distance(a: &[f32], b: &[f32]) -> f32 {
     if a.len() != b.len() {
-        // Dimension mismatch - return worst distance to exclude from results
         return f32::MAX;
     }
-
-    -a.iter().zip(b.iter()).map(|(x, y)| x * y).sum::<f32>()
+    let a_f64: Vec<f64> = a.iter().map(|&x| x as f64).collect();
+    let b_f64: Vec<f64> = b.iter().map(|&x| x as f64).collect();
+    -(ndarray::hpc::heel_f64x8::dot_f64_simd(&a_f64, &b_f64) as f32)
 }
 
 /// Compute dot product similarity (for vector_similarity function)
 pub fn dot_product_similarity(a: &[f32], b: &[f32]) -> f32 {
     if a.len() != b.len() {
-        // Dimension mismatch - return worst similarity to exclude from results
         return f32::MIN;
     }
-
-    a.iter().zip(b.iter()).map(|(x, y)| x * y).sum::<f32>()
+    let a_f64: Vec<f64> = a.iter().map(|&x| x as f64).collect();
+    let b_f64: Vec<f64> = b.iter().map(|&x| x as f64).collect();
+    ndarray::hpc::heel_f64x8::dot_f64_simd(&a_f64, &b_f64) as f32
 }
 
 /// Compute vector distance for an array of vectors against a single query vector
@@ -214,20 +195,7 @@ pub fn hamming_distance(a: &[u8], b: &[u8]) -> u32 {
     if a.len() != b.len() {
         return u32::MAX;
     }
-    // Process 8 bytes at a time via u64 popcount
-    let chunks = a.len() / 8;
-    let mut dist = 0u32;
-    for i in 0..chunks {
-        let offset = i * 8;
-        let wa = u64::from_le_bytes(a[offset..offset + 8].try_into().unwrap());
-        let wb = u64::from_le_bytes(b[offset..offset + 8].try_into().unwrap());
-        dist += (wa ^ wb).count_ones();
-    }
-    // Remainder bytes
-    for i in (chunks * 8)..a.len() {
-        dist += (a[i] ^ b[i]).count_ones();
-    }
-    dist
+    ndarray::hpc::bitwise::hamming_distance_raw(a, b) as u32
 }
 
 /// Hamming similarity: `1.0 - distance / total_bits`.
