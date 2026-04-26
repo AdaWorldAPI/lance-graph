@@ -3488,3 +3488,155 @@ contract::ontology (EntityType, RelationType, OntologySpec);
 blasgraph 7 semirings (docs/SEMIRING_ALGEBRA_SURFACE.md);
 2026-04-26 BF16-mantissa-inline entry (Column F awareness);
 causal-edge Pearl 2³ (CausalMask 3 bits); TD-AWARENESS-INLINE-1.
+
+## 2026-04-26 — FINDING: SoA × awareness × ONNX × Foundry parity all converge in BindSpace columns
+
+**Status:** FINDING (synthesis: prior 3 epiphanies + LF roadmap + semantic-kernel framing)
+**Owner scope:** @truth-architect, @integration-lead, @host-glove-designer
+
+### The convergence
+
+Four threads from this session and prior work all land in the same place
+— the BindSpace SoA in cognitive-shader-driver. Each thread adds a
+column or constrains an existing one:
+
+| Thread | What it adds | Where it lands |
+|---|---|---|
+| **Distance dispatch** (today, shipped) | type-intrinsic `Distance::distance()` | trait surface (no SoA column) |
+| **Inline awareness** (today, queued) | `(value, awareness)` per op | NEW Column F (per-row awareness) |
+| **SPO Pearl 2³ ontology** (today, queued) | per-cycle ontology delta | NEW Column E (per-row ontology delta) |
+| **ONNX L4→L1 feedback** (2026-04-24, queued) | `style_oracle: Option<&OnnxClassifier>` | exists on `Think` struct, NOT yet in BindSpace SoA |
+| **Foundry parity LF-50/52** (planned) | `ModelRegistry` + `LlmProvider` | new crate `lance-graph-models`; trait shape decided |
+| **Foundry parity LF-12 Pipeline DAG** | `UnifiedStep.depends_on` | extends existing `OrchestrationBridge` |
+| **Foundry parity LF-22/23 ObjectView/Notification** | `Schema::ObjectView`, `NotificationSpec` | DTO addition to `contract::property/ontology` |
+| **Q2 ModelBinding + ModelHealth** | NARS-monitored model lifecycle | bridges `LlmProvider` + `awareness` |
+| **Semantic kernel** (Markov + CAM-PQ) | the algebra that runs across all columns | already encoded; columns just need to expose it |
+
+### What's missing from the SoA today
+
+The current BindSpace has 4 column families:
+```
+A: FingerprintColumns  — content / topic / angle (16384-bit per row)
+B: QualiaColumn        — 18×f32 (qualia state)
+C: MetaColumn          — MetaWord u32 (style + rung + emit)
+D: EdgeColumn          — CausalEdge64 × 8 (emitted edges)
+```
+
+The full picture, to deliver Foundry-equivalent parity AND make
+"can't resist thinking" mechanical, needs:
+
+```
+A: FingerprintColumns  — WHAT (input substrate, lossless)
+B: QualiaColumn        — HOW IT FEELS (qualia, 18D)
+C: MetaColumn          — WHICH STYLE (dispatch metadata)
+D: EdgeColumn          — WHAT IT CONCLUDED (CausalEdge64)
+E: OntologyColumn      — WHAT IT LEARNED (per-cycle ontology delta) ← NEW
+F: AwarenessColumn     — HOW SURE (per-word inline mantissa)        ← NEW
+G: ModelBindingColumn  — WHICH ONNX (style_oracle handle, optional) ← NEW
+H: TypeColumn          — OBJECT TYPE (per-row Foundry ontology link) ← NEW
+```
+
+Columns E+F together close "can't resist thinking" mechanically:
+the cycle MUST emit an ontology delta (even if empty) and MUST carry
+inline awareness. Like the GPU shader pipeline — no halt state, every
+stage produces structured output.
+
+Column G makes the L4→ONNX→L1 feedback loop addressable per-row:
+each row knows which model it should consult (or None for pure
+algebra). The ONNX classifier becomes a type-system citizen, not a
+side-channel call.
+
+Column H is the Foundry "Object Type" — the link between this row's
+fingerprint and the ontology entity type. Today this lives implicitly
+in the Schema; making it a column lets queries filter rows by
+EntityType without re-parsing the Schema.
+
+### The semantic kernel runs across columns
+
+Per `soa-review.md` §"Markov + CAM-PQ = semantic kernel":
+
+```
+ per-cycle Vsa16kF32 (Column A)
+  │
+  ├── grammar slices (SUBJECT / PREDICATE / OBJECT roles)
+  ├── persona slices (ExpertId × PERSONA_n)
+  └── thinking slices (ThinkingStyle × STYLE_n)
+  │
+  ▼ vsa_bundle (CK-safe)
+ trajectory in FingerprintColumns
+  │
+  ├── Index regime  → Column A persists losslessly
+  ├── Argmax regime → CAM-PQ 6 B scent in Column D
+  ├── Awareness     → inline mantissa in Column F (NEW)
+  ├── Ontology      → delta in Column E (NEW)
+  └── Type binding  → Foundry Object Type link in Column H (NEW)
+```
+
+The kernel IS the algebra (vsa_bundle + CAM-PQ cascade); the columns
+ARE the addressable face the kernel exposes. Every Foundry capability
+(ontology, models, decisions, scenarios, search) lands as a different
+read pattern over these same columns — no new substrate, just more
+columns and more traits over the existing SoA.
+
+### Vertex equivalence specifically
+
+Palantir Vertex (the Q2 equivalent) requires:
+
+| Vertex feature | Our column / trait | Status |
+|---|---|---|
+| Object Type system | Column H + `contract::ontology::EntityType` | NEED column H |
+| Property views (card/detail/summary) | `Schema::ObjectView` | ✅ LF-22 shipped |
+| Ontology functions | `FunctionSpec` | LF-20 queued |
+| Action triggers | `ActionSpec` | ✅ shipped |
+| Search (full-text + facets) | LF-40/41 traits | queued |
+| Notifications | `NotificationSpec` | LF-23 queued |
+| Time travel | `EntityStore::scan_as_of` | LF-31 queued (already in `VersionedGraph::at_version`) |
+| Branches / scenarios | `ScenarioBranch` | ✅ in-PR (LF-70/72) |
+| Model lifecycle | `ModelRegistry` + `ModelDeployment` | LF-50/51 queued |
+| LLM provider abstraction | `LlmProvider` | LF-52 queued |
+| Decisions / approvals | `Approval` workflow | LF-60 queued |
+| Lineage | per-row column-level | LF-14 queued (extends LF-7) |
+
+The new columns E, F, G, H map directly to Vertex requirements:
+- E = ontology learning (Vertex doesn't have this; we get it for free)
+- F = awareness (Vertex doesn't have this; we get inline confidence)
+- G = ModelBinding (Vertex's model deployment hooks)
+- H = Object Type (Vertex's core abstraction)
+
+### What should be built first — the wedge order
+
+The columns are not independent. Build order maximizing leverage:
+
+1. **Column H first** (Object Type binding) — pure DTO, unlocks LF-22
+   ObjectView usage AND lets queries filter by type. No SIMD impact.
+2. **Column E second** (OntologyColumn delta) — emits NotificationSpec
+   triggers (LF-23) AND captures the SPO Pearl 2³ enrichment. Needs
+   one new event sink in OrchestrationBridge.
+3. **Column F third** (AwarenessColumn) — extends Distance trait
+   (TD-DIST-1 just shipped) with `_with_awareness()` variant. The
+   composable inline-mantissa pattern.
+4. **Column G last** (ModelBindingColumn) — needs LF-50/52
+   (`ModelRegistry` + `LlmProvider`) shipped first as trait surface,
+   then the column becomes a thin ref into the registry.
+
+After H+E+F+G, the BindSpace SoA is a complete Foundry-Vertex-equivalent
+substrate, with two architecturally novel additions (E+F) that go
+BEYOND Foundry: structural ontology learning during the cycle, and
+inline epistemic mantissa.
+
+### The recursive coda
+
+The coding session itself is a cognitive cycle producing per-cycle
+ontology deltas — that's what these epiphany entries ARE. The
+EPIPHANIES.md file IS the development-cycle Column E. The TECH_DEBT
+items ARE the dispatched-but-not-yet-resolved edges. The PR
+descriptions ARE the cycle conclusions. CLAUDE.md and the agent cards
+ARE the persistent ontology that Column E perturbs each session.
+
+We can't resist thinking — and apparently we can't resist documenting
+that we can't resist.
+
+Cross-ref: 2026-04-26 BF16-mantissa-inline (Column F); 2026-04-26 SPO
+Pearl 2³ ontology enrichment (Column E); 2026-04-24 Two SoAs +
+ONNX L4→L1 feedback (Column G context); LF-22 ObjectView (Column H
+foundation); soa-review.md §semantic kernel; Q2 plan §Vertex equivalent.
