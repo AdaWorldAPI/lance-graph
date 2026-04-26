@@ -125,8 +125,8 @@ impl Base17 {
     #[inline]
     pub fn xor_bind(&self, other: &Base17) -> Base17 {
         let mut dims = [0i16; BASE_DIM];
-        for i in 0..BASE_DIM {
-            dims[i] = (self.dims[i] as u16 ^ other.dims[i] as u16) as i16;
+        for (i, dim) in dims.iter_mut().enumerate() {
+            *dim = (self.dims[i] as u16 ^ other.dims[i] as u16) as i16;
         }
         Base17 { dims }
     }
