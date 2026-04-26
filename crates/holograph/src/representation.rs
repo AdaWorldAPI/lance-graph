@@ -57,8 +57,8 @@ impl GradedVector {
     /// Create from binary vector (promote 0→-1, 1→+1)
     pub fn from_binary(binary: &BitpackedVector) -> Self {
         let mut values = vec![0i8; GRADED_DIMS];
-        for i in 0..GRADED_DIMS {
-            values[i] = if binary.get_bit(i) { 1 } else { -1 };
+        for (i, val) in values.iter_mut().enumerate() {
+            *val = if binary.get_bit(i) { 1 } else { -1 };
         }
         Self {
             values,

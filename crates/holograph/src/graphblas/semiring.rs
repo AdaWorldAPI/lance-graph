@@ -85,6 +85,7 @@ pub enum HdrSemiring {
     },
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for HdrSemiring {
     fn default() -> Self {
         HdrSemiring::XorBundle

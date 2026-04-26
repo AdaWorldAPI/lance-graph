@@ -461,11 +461,9 @@ impl Resonator {
 
         for (i, concept) in self.concepts.iter().enumerate() {
             // Use stacked popcount with early termination
-            if let Some(stacked) = StackedPopcount::compute_with_threshold(noisy, concept, best_dist) {
-                if stacked.total < best_dist {
-                    best_dist = stacked.total;
-                    best_idx = i;
-                }
+            if let Some(stacked) = StackedPopcount::compute_with_threshold(noisy, concept, best_dist) && stacked.total < best_dist {
+                best_dist = stacked.total;
+                best_idx = i;
             }
         }
 

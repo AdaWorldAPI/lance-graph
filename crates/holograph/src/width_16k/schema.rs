@@ -265,6 +265,7 @@ pub enum NodeKind {
     Observation = 7,
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for NodeKind {
     fn default() -> Self {
         Self::Entity
@@ -361,11 +362,11 @@ impl InlineQValues {
     /// Unpack from two u64 words
     pub fn unpack(words: [u64; 2]) -> Self {
         let mut values = [0i8; 16];
-        for i in 0..8 {
-            values[i] = ((words[0] >> (i * 8)) & 0xFF) as u8 as i8;
+        for (i, val) in values[..8].iter_mut().enumerate() {
+            *val = ((words[0] >> (i * 8)) & 0xFF) as u8 as i8;
         }
-        for i in 0..8 {
-            values[i + 8] = ((words[1] >> (i * 8)) & 0xFF) as u8 as i8;
+        for (i, val) in values[8..].iter_mut().enumerate() {
+            *val = ((words[1] >> (i * 8)) & 0xFF) as u8 as i8;
         }
         Self { values }
     }
@@ -691,7 +692,7 @@ impl SchemaSidecar {
 
         // Block 13: NARS budget (word 210 upper + word 211)
         let nars_b = self.nars_budget.pack();
-        words[base + 2] |= (nars_b as u64) << 32;
+        words[base + 2] |= nars_b << 32;
 
         // Block 13: Edge type (word 212 lower)
         let edge = self.edge_type.pack();
@@ -790,7 +791,7 @@ impl SchemaSidecar {
         let nars_truth = NarsTruth::unpack(words[base + 2] as u32);
 
         // Block 13: NARS budget
-        let nars_budget = NarsBudget::unpack((words[base + 2] >> 32) as u64);
+        let nars_budget = NarsBudget::unpack(words[base + 2] >> 32);
 
         // Block 13: Edge type
         let edge_type = EdgeTypeMarker::unpack(words[base + 3] as u32);

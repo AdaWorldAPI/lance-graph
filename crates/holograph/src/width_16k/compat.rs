@@ -143,7 +143,7 @@ pub fn full_distance_16k(a: &[u64], b: &[u64]) -> u32 {
 /// Returns owned Vec of 16K word arrays. For large batches, consider
 /// streaming to Arrow FixedSizeBinary(2048) instead.
 pub fn migrate_batch(vectors: &[BitpackedVector]) -> Vec<[u64; WORDS_16K]> {
-    vectors.iter().map(|v| zero_extend(v)).collect()
+    vectors.iter().map(zero_extend).collect()
 }
 
 /// Migrate with schema: apply the same SchemaSidecar to all vectors.

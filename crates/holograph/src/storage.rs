@@ -167,10 +167,7 @@ impl VectorBatch {
         }
         let bytes = self.fingerprints.value(index);
         // Try zero-copy reinterpret; fall back should never happen with padded columns
-        match VectorSlice::from_bytes_or_copy(bytes) {
-            Ok(slice) => Some(slice),
-            Err(_) => None, // Alignment issue — caller should use get_vector() instead
-        }
+        VectorSlice::from_bytes_or_copy(bytes).ok()
     }
 
     /// Get vector bytes directly (truly zero-copy)

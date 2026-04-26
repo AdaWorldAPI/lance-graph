@@ -1922,7 +1922,7 @@ impl DnGraph {
         // Also add to verb-specific matrix
         let verb_cat = edge.verb().category() as u8;
         self.typed_adj.entry(verb_cat)
-            .or_insert_with(DeltaDnMatrix::new)
+            .or_default()
             .add_edge(src, dst, edge);
 
         self.ops_since_flush += 1;
