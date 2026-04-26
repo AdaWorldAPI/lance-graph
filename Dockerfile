@@ -1,6 +1,9 @@
-# lance-graph — Railway compile-test image
+# lance-graph — Railway compile-test image (AVX2 default)
 # Verifies the workspace builds cleanly (core + bgz17 + planner + contract)
 # Requires Rust 1.94.0 (LazyLock, modern std APIs)
+#
+# CPU detection & SIMD dispatch documentation: see Dockerfile.md
+# AVX-512 pinned variant: see Dockerfile.avx512
 #
 # Build: docker build -t lance-graph-test .
 # Run:   docker run --rm lance-graph-test
