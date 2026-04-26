@@ -2973,3 +2973,90 @@ The architecture's five consumer perspectives are not layers — they're project
 **SoA vs Functional is not a choice — it's a WHERE.** BindSpace is SoA (columnar storage for SIMD). The algebra on it is Functional (methods on carriers). The SoA carries the state; the Functional methods transform it. Both exist simultaneously on the same data. The "struct of arrays vs object thinks for itself" tension resolves as: the ARRAY is the SoA, the ELEMENT (row, trajectory, fingerprint) thinks for itself via methods.
 
 Cross-ref: CLAUDE.md §The Stance (AGI-as-glove, SoA columns ARE the AGI surface), lab-vs-canonical-surface.md (I1-I11 invariants), ExternalMembrane (contract::external_membrane), BindSpace (cognitive-shader-driver::bindspace).
+
+## 2026-04-26 — FINDING: distance dispatch must be type-intrinsic, not crate-boundary-crossing
+
+**Status:** FINDING
+**Owner scope:** @family-codec-smith, @truth-architect, @host-glove-designer
+
+The struct-of-arrays (BindSpace, RenderFrame, Arrow columns) carries heterogeneous
+fingerprint types that each need a DIFFERENT distance function:
+
+| Type | Distance | Where it lives | Notes |
+|---|---|---|---|
+| `Binary16K = [u64; 256]` | Hamming (popcount of XOR) | `ndarray::hpc::bitwise::hamming_distance_raw` | 16384-bit, SIMD VPOPCNTDQ |
+| `Vsa16kF32 = [f32; 16_384]` | Cosine → FisherZ transform | `ndarray::hpc::heel_f64x8::cosine_f64_simd` | f32 dot/norm via F32x16 FMA |
+| `CamPqCode = [u8; 6]` | ADC (asymmetric distance computation) | `ndarray::hpc::cam_pq::adc_distance` | Precomputed distance tables, O(1) |
+| `PaletteEdge = [u8; 3]` | Palette L1 (lookup table) | `ndarray::hpc::palette_distance::SpoDistanceMatrices::distance` | bgz17 256×256 table, 1.8 ns |
+| `Base17 = [u8; 17]` | Palette nearest (codebook search) | `bgz17::Palette::nearest` | 256 centroids, should use precomputed table |
+| `HighHeelBGZ` container | Cascade (HHTL skip → palette → ADC fallback) | `ndarray::hpc::cascade` + `bgz-tensor::hhtl_cache` | Multi-level, route by `RouteAction` |
+
+**The problem:** When a SoA column contains mixed types (e.g., one column is Binary16K,
+another is CamPqCode), the distance dispatch currently happens at the call site — the
+caller must know which distance function to use. This works inside a single crate, but
+when the SoA lives in crate A (e.g., `cognitive-shader-driver::BindSpace`) and the
+distance kernel lives in crate B (e.g., `ndarray::hpc::bitwise`), every call crosses
+a crate boundary. That boundary is zero-cost for `#[inline]` functions, but NOT zero-cost
+if the function is generic over a trait object (`dyn DistanceFn`) or involves dynamic
+dispatch.
+
+**The solution — type-intrinsic dispatch, not dynamic dispatch:**
+
+The distance function should be a method ON the carrier type, not a free function
+called FROM the SoA consumer. This follows the "object speaks for itself" doctrine
+(CLAUDE.md §The Click):
+
+```rust
+// WRONG — caller must know the distance type:
+let d = hamming_distance_raw(fp_a.as_bytes(), fp_b.as_bytes()); // crate boundary
+
+// RIGHT — the type carries its own distance:
+let d = fp_a.distance(&fp_b); // monomorphized, inlined, zero boundary tax
+```
+
+The contract already has `CodecRoute: Passthrough | CamPq` which names the regime.
+What's missing is a `Distance` trait that each carrier implements:
+
+```rust
+pub trait Distance: Sized {
+    fn distance(&self, other: &Self) -> u32;
+    fn similarity(&self, other: &Self) -> f32 {
+        1.0 - (self.distance(other) as f32 / Self::MAX_DISTANCE as f32)
+    }
+    const MAX_DISTANCE: u32;
+}
+```
+
+Implementations:
+- `impl Distance for [u64; 256]` → `hamming_distance_raw` (inline, SIMD)
+- `impl Distance for CamPqCode` → ADC lookup (precomputed table ref)
+- `impl Distance for PaletteEdge` → palette L1 table lookup
+- `impl Distance for Vsa16kF32` → cosine → FisherZ (F32x16 FMA)
+
+The trait monomorphizes at compile time — no dynamic dispatch, no crate boundary
+tax. The SoA column iterates with `col.chunks().map(|a, b| a.distance(b))` and
+the correct distance function is selected by TYPE, not by runtime enum match.
+
+**Where this trait should live:** `lance-graph-contract` (zero deps). The
+implementations live in ndarray (for SIMD kernels) or in the carrier crate
+(for precomputed tables). The contract defines the interface; ndarray provides
+the hardware acceleration; the SoA consumer never needs to know which distance
+kernel runs.
+
+**Hard-coded dispatch within the same crate is fine** — when `BindSpace` calls
+`hamming_distance_raw` on its `content` column, that's a direct function call
+into ndarray, monomorphized and inlined. The problem only arises if we try to
+make the SoA generic over distance type via `dyn` trait objects. Don't do that.
+Keep the dispatch compile-time via generics or type-specific methods. The SoA
+pays zero boundary tax because Rust's monomorphization erases the crate boundary.
+
+**FisherZ note:** Cosine similarity ∈ [-1, 1] is nonlinear for averaging. The
+FisherZ transform `z = atanh(r)` maps it to a normal-distributed variable that
+can be averaged, then `r = tanh(z)` maps back. This matters when the SoA
+accumulates similarities across columns (e.g., weighted multi-column distance).
+The `Distance` trait should expose `fn similarity_z(&self, other: &Self) -> f32`
+for the FisherZ-transformed variant, defaulting to `atanh(similarity())`.
+
+Cross-ref: CLAUDE.md §The Click ("object speaks for itself"), I1 Codec Regime
+Split (`CodecRoute`), `contract::cam::DistanceTableProvider` (existing trait for
+ADC), `ndarray::hpc::bitwise::hamming_distance_raw`, `ndarray::hpc::palette_distance`.

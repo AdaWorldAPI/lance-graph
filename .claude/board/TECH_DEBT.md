@@ -1071,3 +1071,44 @@ Cross-ref: `container_bs/dn_redis.rs`; `callcenter-membrane-v1.md` §§595–803
 | Diagnostic | TD-INT-11 |
 
 All 14 items are additive (add call site). Zero items require type creation or code deletion.
+
+## 2026-04-26 — TD-DIST-1: Distance trait missing from contract (type-intrinsic dispatch)
+
+**Status:** Open
+**Severity:** Medium (no runtime cost today — hard-coded dispatch works — but blocks
+generic SoA distance sweeps)
+
+The contract has `CodecRoute` (Passthrough | CamPq) naming the regime and
+`DistanceTableProvider` for ADC, but no unified `Distance` trait that each
+carrier type implements. Today each call site hard-codes which distance
+function to use (`hamming_distance_raw` for Binary16K, `adc_distance` for
+CamPq, `cosine_f64_simd` for Vsa16kF32). This works but prevents writing
+generic distance sweeps over mixed SoA columns.
+
+**Fix:** Add `pub trait Distance` to `contract::cam` (or a new `contract::distance`
+module). Implement for `[u64; 256]`, `CamPqCode`, `PaletteEdge`, `Vsa16kF32`.
+Include `similarity_z()` for FisherZ-transformed cosine averaging.
+See EPIPHANIES.md 2026-04-26 distance-dispatch entry for full design.
+
+**Blocked by:** nothing — pure additive.
+**Unblocks:** generic SoA distance accumulation, multi-column weighted distance,
+render-frame similarity for force-directed layout (CAM-PQ pruning + HHTL cascade).
+
+## 2026-04-26 — TD-DIST-2: vector_ops.rs still has scalar dot/norm/cosine (4 loops)
+
+**Status:** Open
+**Severity:** High (hot path in DataFusion UDF — L2/cosine queries)
+
+`vector_ops.rs` lines 140, 160, 179, 189 have 4 independent scalar
+`.iter().map().sum()` loops for dot product, norm², cosine similarity.
+Should swap for `ndarray::hpc::heel_f64x8::{dot_f64_simd, cosine_f64_simd}`.
+Estimated 8-12× speedup (chunked F64x8 FMA vs scalar).
+
+## 2026-04-26 — TD-DIST-3: bgz17 Palette::nearest() uses brute-force 256×17 L1
+
+**Status:** Open
+**Severity:** Medium (build-time hot path for palette construction)
+
+`bgz17/palette.rs` lines 56-65 iterate all 256 centroids per query.
+Should use precomputed distance table from `ndarray::hpc::palette_distance`.
+Estimated 100× speedup for encoding (O(1) table lookup vs O(256) L1 per query).
