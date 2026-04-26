@@ -23,6 +23,7 @@
 //! GraphBLAS enables efficient BFS/PageRank/similarity traversals.
 
 use crate::bitpack::BitpackedVector;
+#[allow(unused_imports)] // DnTree, DnNode, DnEdge, WellKnown reserved for mindmap-to-dntree traversal wiring
 use crate::dntree::{TreeAddr, DnTree, DnNode, DnEdge, CogVerb, VerbCategory, WellKnown};
 use crate::graphblas::{GrBMatrix, GrBVector, HdrSemiring, Semiring};
 use crate::graphblas::types::{GrBIndex, HdrScalar};

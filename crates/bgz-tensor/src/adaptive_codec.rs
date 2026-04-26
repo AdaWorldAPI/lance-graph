@@ -9,6 +9,8 @@
 //! After quantization, GPTQ-style Hessian compensation adjusts remaining
 //! weights to minimize output error (not weight error).
 
+// Cluster used by future per-cluster anomaly reporting
+#[allow(unused_imports)]
 use ndarray::hpc::clam::{ClamTree, Cluster};
 use ndarray::hpc::fft::wht_f32;
 use ndarray::hpc::quantized::{
@@ -18,6 +20,8 @@ use ndarray::hpc::quantized::{
     QuantParams,
 };
 use ndarray::hpc::cam_pq::kmeans;
+// cosine_f32_to_f64_simd used by tests and future GPTQ compensation
+#[allow(unused_imports)]
 use ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd;
 use crate::stacked_n::{bf16_to_f32, f32_to_bf16};
 
@@ -75,7 +79,7 @@ fn hadamard_rotate(v: &[f32], dim: usize) -> Vec<f32> {
 fn rows_to_fingerprint_bytes(rows: &[Vec<f32>]) -> (Vec<u8>, usize) {
     if rows.is_empty() { return (vec![], 0); }
     let dim = rows[0].len();
-    let fp_bytes = (dim + 7) / 8;
+    let fp_bytes = dim.div_ceil(8);
     let mut flat = vec![0u8; rows.len() * fp_bytes];
     for (ri, row) in rows.iter().enumerate() {
         for (i, &v) in row.iter().enumerate() {
@@ -107,8 +111,8 @@ fn classify_rows_by_lfd(tree: &ClamTree) -> Vec<RowPrecision> {
     //   Bottom 70% → i4+i2 (regular, well-clustered)
     let mut sorted_lfd: Vec<f64> = row_lfd.clone();
     sorted_lfd.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    let p70 = sorted_lfd[n * 70 / 100.max(1)];
-    let p90 = sorted_lfd[n * 90 / 100.max(1)];
+    let p70 = sorted_lfd[n * 70 / 100];
+    let p90 = sorted_lfd[n * 90 / 100];
 
     row_lfd.iter().map(|&lfd| {
         if lfd > p90 { RowPrecision::Passthrough }
@@ -123,7 +127,7 @@ impl AdaptiveCodecTensor {
         rows: &[Vec<f32>],
         k: usize,
         is_kv_proj: bool,
-        calibration_inputs: Option<&[Vec<f32>]>,
+        _calibration_inputs: Option<&[Vec<f32>]>,
     ) -> Self {
         let n = rows.len();
         let n_cols = if n > 0 { rows[0].len() } else { 0 };

@@ -18,7 +18,7 @@ const GOLDEN_POS: [u8; BASE_DIM] = {
 };
 
 /// Number of octaves.
-const N_OCTAVES: usize = (FULL_DIM + BASE_DIM - 1) / BASE_DIM;
+const N_OCTAVES: usize = FULL_DIM.div_ceil(BASE_DIM);
 
 /// 17-dimensional base pattern. 34 bytes.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -109,8 +109,8 @@ impl Base17 {
     #[inline]
     pub fn xor_bind(&self, other: &Base17) -> Base17 {
         let mut dims = [0i16; BASE_DIM];
-        for i in 0..BASE_DIM {
-            dims[i] = (self.dims[i] as u16 ^ other.dims[i] as u16) as i16;
+        for (i, dim) in dims.iter_mut().enumerate() {
+            *dim = (self.dims[i] as u16 ^ other.dims[i] as u16) as i16;
         }
         Base17 { dims }
     }
@@ -126,8 +126,8 @@ impl Base17 {
         let mut dims = [0i16; BASE_DIM];
         let mut sums = [0i64; BASE_DIM];
         for p in patterns {
-            for d in 0..BASE_DIM {
-                sums[d] += p.dims[d] as i64;
+            for (d, sum) in sums.iter_mut().enumerate() {
+                *sum += p.dims[d] as i64;
             }
         }
         let n = patterns.len() as i64;
@@ -144,8 +144,8 @@ impl Base17 {
     #[inline]
     pub fn permute(&self, shift: usize) -> Base17 {
         let mut dims = [0i16; BASE_DIM];
-        for i in 0..BASE_DIM {
-            dims[i] = self.dims[(i + shift) % BASE_DIM];
+        for (i, dim) in dims.iter_mut().enumerate() {
+            *dim = self.dims[(i + shift) % BASE_DIM];
         }
         Base17 { dims }
     }

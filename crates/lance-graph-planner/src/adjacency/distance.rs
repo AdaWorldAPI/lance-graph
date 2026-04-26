@@ -5,6 +5,7 @@
 //! not on a flat table.
 
 use super::csr::AdjacencyStore;
+#[allow(unused_imports)] // intended for batch distance computation wiring
 use super::batch::AdjacencyBatch;
 
 /// Result of adjacent fingerprint distance scan.

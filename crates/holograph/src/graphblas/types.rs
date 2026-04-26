@@ -3,6 +3,7 @@
 //! Maps GraphBLAS types to HDR vector representations.
 
 use crate::bitpack::BitpackedVector;
+#[allow(unused_imports)] // TypeId reserved for runtime GrBType dispatch
 use std::any::TypeId;
 
 /// GraphBLAS index type

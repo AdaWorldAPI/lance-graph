@@ -19,11 +19,13 @@
 //! At D=1024, that's ~32 rows per cluster — works for k=64 (avg 16 rows/cluster).
 
 use ndarray::hpc::cam_pq::kmeans;
+// cosine_f32_to_f64_simd used by tests
+#[allow(unused_imports)]
 use ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd;
 use crate::stacked_n::{bf16_to_f32, f32_to_bf16};
 
 fn sign_fingerprint(v: &[f32]) -> Vec<u64> {
-    let n_words = (v.len() + 63) / 64;
+    let n_words = v.len().div_ceil(64);
     let mut bits = vec![0u64; n_words];
     for (i, &val) in v.iter().enumerate() {
         if val > 0.0 { bits[i / 64] |= 1u64 << (i % 64); }
@@ -93,7 +95,7 @@ impl HolographicResidualTensor {
         let k = k.min(n).min(256);
 
         let centroids = kmeans(data, k, n_cols, 10);
-        let n_words = (n_cols + 63) / 64;
+        let n_words = n_cols.div_ceil(64);
 
         // Assign rows to centroids
         let assignments: Vec<u16> = data.iter().map(|row| {

@@ -253,7 +253,7 @@ impl QueryExecutor {
     }
 
     /// Execute bound retrieval query
-    fn execute_bound_retrieval(&self, ast: &QueryAst) -> Result<QueryResult> {
+    fn execute_bound_retrieval(&self, _ast: &QueryAst) -> Result<QueryResult> {
         let mut result = QueryResult::with_columns(vec!["result".to_string()]);
 
         // Get edge, verb, and known from parameters
@@ -279,7 +279,7 @@ impl QueryExecutor {
     }
 
     /// Execute CREATE query
-    fn execute_create(&self, ast: &QueryAst) -> Result<QueryResult> {
+    fn execute_create(&self, _ast: &QueryAst) -> Result<QueryResult> {
         let mut result = QueryResult::with_columns(vec!["created".to_string()]);
         result.stats.nodes_created = 1;
         Ok(result)
@@ -341,7 +341,7 @@ impl QueryExecutor {
                 let sim = crate::hamming::hamming_to_similarity(dist);
                 Ok(ResultValue::Float(sim as f64))
             }
-            VectorOp::Cleanup { vector, memory } => {
+            VectorOp::Cleanup { vector, memory: _ } => {
                 let v = self.eval_to_vector(vector)?;
                 if let Some(resonator) = &self.resonator {
                     if let Some(res) = resonator.resonate(&v) {
@@ -352,7 +352,7 @@ impl QueryExecutor {
                 }
                 Ok(ResultValue::Vector(v))
             }
-            VectorOp::CascadeSearch { query, k, threshold } => {
+            VectorOp::CascadeSearch { query, k, threshold: _ } => {
                 let vquery = self.eval_to_vector(query)?;
                 if let Some(cascade) = &self.cascade {
                     let results = cascade.search(&vquery, *k);
@@ -416,7 +416,7 @@ impl QueryExecutor {
     fn eval_to_vector(&self, expr: &Expr) -> Result<BitpackedVector> {
         match expr {
             Expr::Variable(name) => self.get_param_vector(name),
-            Expr::Property { var, prop } => {
+            Expr::Property { var: _, prop: _ } => {
                 // TODO: property access
                 Err(HdrError::Query("Property access not implemented".into()))
             }

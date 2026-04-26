@@ -1,3 +1,7 @@
+// Greek letters (σ, μ) are idiomatic in statistical code; suppress false positives
+// against ASCII identifiers like `o` in unrelated modules.
+#![allow(confusable_idents)]
+
 //! # Holograph — 3D Holographic HDR Bitpacked Vector Search
 //!
 //! High-performance hyperdimensional computing library with three vector widths:

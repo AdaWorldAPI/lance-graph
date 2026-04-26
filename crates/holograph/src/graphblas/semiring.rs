@@ -17,6 +17,7 @@
 
 use crate::bitpack::BitpackedVector;
 use crate::hamming::{hamming_distance_scalar, hamming_to_similarity};
+#[allow(unused_imports)] // GrBMonoid reserved for custom monoid construction
 use super::types::{HdrScalar, GrBMonoid, GrBBinaryOp};
 
 /// A semiring defines the algebraic operations for matrix computation

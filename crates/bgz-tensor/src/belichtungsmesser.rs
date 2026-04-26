@@ -59,10 +59,10 @@ impl Belichtungsmesser {
         // 12 quarter-sigma bands centered on mean
         // Band edges: μ - 3σ, μ - 2.5σ, μ - 2σ, ..., μ + 2.5σ, μ + 3σ
         let mut edges = [0u32; N_BANDS + 1];
-        for i in 0..=N_BANDS {
+        for (i, edge) in edges.iter_mut().enumerate().take(N_BANDS + 1) {
             let offset = -3.0 + i as f64 * 0.5; // -3σ to +3σ in 0.5σ steps
             let val = (mean + offset * sigma).max(0.0);
-            edges[i] = val as u32;
+            *edge = val as u32;
         }
         // Last edge extends to max
         edges[N_BANDS] = u32::MAX;
@@ -79,8 +79,8 @@ impl Belichtungsmesser {
         }
 
         let mut bands = [Band { lo: 0, hi: 0, density: 0.0 }; N_BANDS];
-        for b in 0..N_BANDS {
-            bands[b] = Band {
+        for (b, band) in bands.iter_mut().enumerate().take(N_BANDS) {
+            *band = Band {
                 lo: edges[b],
                 hi: edges[b + 1],
                 density: counts[b] as f32 / n as f32,
@@ -93,8 +93,8 @@ impl Belichtungsmesser {
     /// Default bands when no calibration data is available.
     fn default_bands() -> Self {
         let mut bands = [Band { lo: 0, hi: 0, density: 0.0 }; N_BANDS];
-        for b in 0..N_BANDS {
-            bands[b] = Band {
+        for (b, band) in bands.iter_mut().enumerate().take(N_BANDS) {
+            *band = Band {
                 lo: b as u32 * 1000,
                 hi: (b as u32 + 1) * 1000,
                 density: 1.0 / N_BANDS as f32,

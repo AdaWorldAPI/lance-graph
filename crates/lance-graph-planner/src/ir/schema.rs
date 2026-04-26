@@ -5,6 +5,7 @@
 //! group is unflat at any point. This is the IR for factorized intermediate
 //! representations — avoiding exponential blowup in multi-hop graph traversals.
 
+#[allow(unused_imports)] // intended for expression-in-schema wiring
 use super::ExprNode;
 
 /// Schema: the plan's type system for factorization.

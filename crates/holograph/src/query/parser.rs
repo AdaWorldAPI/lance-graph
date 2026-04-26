@@ -521,7 +521,7 @@ impl QueryParser {
         Ok(())
     }
 
-    fn parse_optional_return(&mut self, ast: &mut QueryAst) -> Result<(), ParseError> {
+    fn parse_optional_return(&mut self, _ast: &mut QueryAst) -> Result<(), ParseError> {
         if self.try_consume_keyword("RETURN") {
             while self.pos < self.input.len() {
                 if let Some(kw) = self.peek_keyword() {
@@ -536,7 +536,7 @@ impl QueryParser {
         Ok(())
     }
 
-    fn parse_optional_order(&mut self, ast: &mut QueryAst) -> Result<(), ParseError> {
+    fn parse_optional_order(&mut self, _ast: &mut QueryAst) -> Result<(), ParseError> {
         if self.try_consume_keyword("ORDER") {
             self.consume_keyword("BY")?;
             // Skip ORDER BY clause
@@ -569,7 +569,7 @@ impl QueryParser {
         Ok(())
     }
 
-    fn parse_create_pattern(&mut self, ast: &mut QueryAst) -> Result<(), ParseError> {
+    fn parse_create_pattern(&mut self, _ast: &mut QueryAst) -> Result<(), ParseError> {
         // Simplified CREATE parsing
         while self.pos < self.input.len() {
             if let Some(kw) = self.peek_keyword() {

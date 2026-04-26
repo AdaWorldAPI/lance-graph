@@ -16,6 +16,8 @@
 //! Storage: k×k i8 table (64 KB at k=256) + 8 bytes family gamma.
 
 use crate::palette::WeightPalette;
+// Base17 reserved for future Base17-direct Fisher z table path
+#[allow(unused_imports)]
 use crate::projection::Base17;
 
 /// Per-family gamma for Fisher z encoding.

@@ -11,6 +11,7 @@ use arrow::array::{
 use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
 
+#[allow(unused_imports)] // VECTOR_BYTES reserved for Arrow serialization path
 use crate::bitpack::{BitpackedVector, VECTOR_BYTES, PADDED_VECTOR_BYTES};
 use crate::{HdrError, Result};
 use super::types::{GrBIndex, HdrScalar};

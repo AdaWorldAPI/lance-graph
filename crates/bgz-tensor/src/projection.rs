@@ -50,13 +50,13 @@ impl Base17 {
     /// Each base dimension accumulates the mean of all values mapped to it.
     pub fn from_f32(weights: &[f32]) -> Self {
         let n = weights.len();
-        let n_octaves = (n + BASE_DIM - 1) / BASE_DIM;
+        let n_octaves = n.div_ceil(BASE_DIM);
         let mut sum = [0f64; BASE_DIM];
         let mut count = [0u32; BASE_DIM];
 
         for octave in 0..n_octaves {
-            for bi in 0..BASE_DIM {
-                let dim = octave * BASE_DIM + GOLDEN_POS[bi] as usize;
+            for (bi, &gp) in GOLDEN_POS.iter().enumerate() {
+                let dim = octave * BASE_DIM + gp as usize;
                 if dim < n {
                     sum[bi] += weights[dim] as f64;
                     count[bi] += 1;
@@ -141,11 +141,11 @@ impl Base17 {
     /// Lossy: the original fine-grained variation within each octave is lost.
     /// Round-trip cosine similarity is typically > 0.95 for real weight vectors.
     pub fn to_f32(&self, n_dims: usize) -> Vec<f32> {
-        let n_octaves = (n_dims + BASE_DIM - 1) / BASE_DIM;
+        let n_octaves = n_dims.div_ceil(BASE_DIM);
         let mut output = vec![0.0f32; n_dims];
         for octave in 0..n_octaves {
-            for bi in 0..BASE_DIM {
-                let dim = octave * BASE_DIM + GOLDEN_POS[bi] as usize;
+            for (bi, &gp) in GOLDEN_POS.iter().enumerate() {
+                let dim = octave * BASE_DIM + gp as usize;
                 if dim < n_dims {
                     output[dim] = self.dims[bi] as f32 / FP_SCALE as f32;
                 }
@@ -234,13 +234,13 @@ impl Base17Fz {
     /// Pipeline: golden-fold mean → normalize → arctanh → i16 quantize.
     pub fn from_f32(weights: &[f32]) -> Self {
         let n = weights.len();
-        let n_octaves = (n + BASE_DIM - 1) / BASE_DIM;
+        let n_octaves = n.div_ceil(BASE_DIM);
         let mut sum = [0f64; BASE_DIM];
         let mut count = [0u32; BASE_DIM];
 
         for octave in 0..n_octaves {
-            for bi in 0..BASE_DIM {
-                let dim = octave * BASE_DIM + GOLDEN_POS[bi] as usize;
+            for (bi, &gp) in GOLDEN_POS.iter().enumerate() {
+                let dim = octave * BASE_DIM + gp as usize;
                 if dim < n {
                     sum[bi] += weights[dim] as f64;
                     count[bi] += 1;
@@ -271,11 +271,11 @@ impl Base17Fz {
     /// Returns values in approximately [-1, 1] (tanh output).
     /// Caller must denormalize if original scale is needed.
     pub fn to_f32(&self, n_dims: usize) -> Vec<f32> {
-        let n_octaves = (n_dims + BASE_DIM - 1) / BASE_DIM;
+        let n_octaves = n_dims.div_ceil(BASE_DIM);
         let mut output = vec![0.0f32; n_dims];
         for octave in 0..n_octaves {
-            for bi in 0..BASE_DIM {
-                let dim = octave * BASE_DIM + GOLDEN_POS[bi] as usize;
+            for (bi, &gp) in GOLDEN_POS.iter().enumerate() {
+                let dim = octave * BASE_DIM + gp as usize;
                 if dim < n_dims {
                     let z = self.dims[bi] as f64 / FZ_SCALE;
                     output[dim] = z.tanh() as f32;

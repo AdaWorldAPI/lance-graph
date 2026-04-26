@@ -37,6 +37,7 @@
 
 use crate::bitpack::{BitpackedVector, VECTOR_BITS};
 use crate::hamming::hamming_distance_scalar;
+#[allow(unused_imports)] // EpiphanyZone and HAMMING_STD_DEV reserved for zone-aware déjà vu scoring
 use crate::epiphany::{EpiphanyZone, ONE_SIGMA, TWO_SIGMA, THREE_SIGMA, HAMMING_STD_DEV};
 use std::collections::HashMap;
 

@@ -22,6 +22,7 @@
 //! ```
 
 use crate::bitpack::{BitpackedVector, VectorRef, VECTOR_WORDS, VECTOR_BITS};
+#[allow(unused_imports)] // Ordering used by downstream comparison operators
 use std::cmp::Ordering;
 
 /// Strategic sample points for quick distance estimation

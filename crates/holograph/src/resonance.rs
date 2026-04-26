@@ -28,6 +28,7 @@
 //! - **Bundle**: Create prototype from multiple examples
 //! - **Resonance**: Match noisy vector to clean concept (cleanup memory)
 
+#[allow(unused_imports)] // VECTOR_WORDS reserved for per-word resonance scoring
 use crate::bitpack::{BitpackedVector, VECTOR_WORDS, VECTOR_BITS};
 use crate::hamming::{hamming_distance_scalar, hamming_to_similarity, StackedPopcount};
 use std::collections::HashMap;

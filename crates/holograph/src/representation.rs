@@ -25,6 +25,7 @@
 //!          Unlimited capacity via plane selection
 //! ```
 
+#[allow(unused_imports)] // VECTOR_WORDS reserved for graded-vector plane iteration
 use crate::bitpack::{BitpackedVector, VECTOR_BITS, VECTOR_WORDS};
 use crate::hamming::hamming_distance_scalar;
 

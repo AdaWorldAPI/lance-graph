@@ -42,6 +42,7 @@ use std::path::Path;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 
+#[allow(unused_imports)] // BinaryArray, TimestampMicrosecondArray reserved for metadata column reads
 use arrow::array::{
     ArrayRef, FixedSizeBinaryArray, FixedSizeBinaryBuilder,
     UInt64Array, UInt64Builder, BinaryArray, BinaryBuilder,
@@ -52,6 +53,7 @@ use arrow::record_batch::RecordBatch;
 use arrow::ipc::reader::FileReader;
 use arrow::ipc::writer::FileWriter;
 
+#[allow(unused_imports)] // VectorRef, VECTOR_BYTES, VECTOR_WORDS reserved for zero-copy Arrow column access
 use crate::bitpack::{
     BitpackedVector, VectorRef, VectorSlice,
     VECTOR_BITS, VECTOR_BYTES, VECTOR_WORDS, PADDED_VECTOR_BYTES,
@@ -681,10 +683,12 @@ pub mod datafusion {
     use super::*;
     use ::datafusion::prelude::*;
     use ::datafusion::datasource::MemTable;
+    #[allow(unused_imports)] // ScalarUDF, Volatility, create_udf reserved for UDF registration surface
     use ::datafusion::logical_expr::{
         ScalarUDF, Volatility,
         create_udf,
     };
+    #[allow(unused_imports)] // ArrowDataType, ArrowField reserved for UDF return-type declarations
     use ::datafusion::arrow::datatypes::{DataType as ArrowDataType, Field as ArrowField};
     use ::datafusion::arrow::array::{
         UInt32Array, Float32Array, FixedSizeBinaryArray as DFFixedSizeBinaryArray,

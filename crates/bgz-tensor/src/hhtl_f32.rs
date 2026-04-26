@@ -24,6 +24,8 @@
 //! `BGZ_HHTL_D.md`). `HhtlF32Tensor` is the reconstruction-grade sibling for
 //! f32 GEMM inference paths.
 
+// SLOT_L_LANES used by tests and encode_with_leaf
+#[allow(unused_imports)]
 use crate::slot_l::{SlotL, SLOT_L_LANES, encode_rows as encode_slot_l, decode_row as decode_slot_l_row};
 use crate::matryoshka::SvdBasis;
 

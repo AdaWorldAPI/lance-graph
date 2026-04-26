@@ -121,6 +121,8 @@ impl HadCascadeTensor {
 
             if use_i8 {
                 // i8-only mode: 2:1 compression, higher fidelity
+                // dequantize_i8_to_f32 used in reconstruct_row decode path
+                #[allow(unused_imports)]
                 use ndarray::hpc::quantized::{quantize_f32_to_i8, dequantize_i8_to_f32};
                 let (i8_codes_raw, i8_params) = quantize_f32_to_i8(&rotated1[..n_cols]);
                 let i8_as_u8: Vec<u8> = i8_codes_raw.iter().map(|&v| v as u8).collect();

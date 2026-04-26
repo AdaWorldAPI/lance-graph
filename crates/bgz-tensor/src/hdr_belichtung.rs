@@ -50,10 +50,10 @@ pub struct QuarterSigmaBand {
 #[inline]
 pub fn quarter_sigma_bands(mu: f64, sigma: f64) -> [QuarterSigmaBand; N_BANDS] {
     let mut bands = [QuarterSigmaBand { lo: 0.0, hi: 0.0 }; N_BANDS];
-    for b in 0..N_BANDS {
+    for (b, band) in bands.iter_mut().enumerate().take(N_BANDS) {
         let offset = -3.0 + b as f64 * 0.5;
-        bands[b].lo = mu + offset * sigma;
-        bands[b].hi = if b == N_BANDS - 1 { f64::INFINITY } else { mu + (offset + 0.5) * sigma };
+        band.lo = mu + offset * sigma;
+        band.hi = if b == N_BANDS - 1 { f64::INFINITY } else { mu + (offset + 0.5) * sigma };
     }
     bands
 }

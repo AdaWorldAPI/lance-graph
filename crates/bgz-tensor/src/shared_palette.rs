@@ -34,12 +34,16 @@
 //! ```
 
 use crate::fisher_z::FisherZTable;
+// HeelBasin reserved for future basin-aware group partitioning
+#[allow(unused_imports)]
 use crate::hhtl_d::{HhtlDTensor, HhtlDEntry, HeelBasin, build_hip_families};
 use crate::hhtl_cache::HhtlCache;
 use crate::matryoshka::SvdBasis;
 use crate::palette::WeightPalette;
 use crate::projection::Base17;
 use crate::slot_l::{SlotL, SLOT_L_LANES};
+// HashMap used by tests
+#[allow(unused_imports)]
 use std::collections::HashMap;
 
 /// Key for grouping tensors that share a palette.

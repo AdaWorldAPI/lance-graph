@@ -7,6 +7,8 @@
 //!
 //! This module implements the complete heterogeneous encoding.
 
+// bf16_to_f32 and f32_to_bf16 reserved for future BF16 serialization
+#[allow(unused_imports)]
 use crate::stacked_n::{StackedN, bf16_to_f32, f32_to_bf16};
 
 // ═══════════════════════════════════════════════════════════════════════════

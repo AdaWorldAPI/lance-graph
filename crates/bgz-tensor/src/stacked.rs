@@ -56,7 +56,7 @@ impl StackedBF16x4 {
     /// the remaining slots are zero-filled.
     pub fn from_bf16(weights: &[u16]) -> Self {
         let n = weights.len();
-        let n_octaves = (n + BASE_DIM - 1) / BASE_DIM;
+        let n_octaves = n.div_ceil(BASE_DIM);
         // Collect values per base dim (up to 4 per slot)
         let mut slots: [[u16; 4]; BASE_DIM] = [[0u16; 4]; BASE_DIM];
         let mut counts = [0usize; BASE_DIM];

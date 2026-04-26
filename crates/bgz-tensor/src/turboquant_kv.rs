@@ -41,7 +41,7 @@ impl TurboQuantEntry {
 
         let (shape_i4, shape_params) = quantize_f32_to_i4(&unit);
 
-        let n_words = (dim + 63) / 64;
+        let n_words = dim.div_ceil(64);
         let mut fingerprint = vec![0u64; n_words];
         for (i, &val) in v.iter().enumerate() {
             if val > 0.0 {

@@ -233,7 +233,7 @@ impl HhtlDTensor {
             let k = cache.palette.entries.len();
             let mut reps: Vec<Vec<f32>> = vec![Vec::new(); k];
             let mut rep_dists: Vec<u32> = vec![u32::MAX; k];
-            for (i, row) in rows_f32.iter().enumerate() {
+            for (_i, row) in rows_f32.iter().enumerate() {
                 let b17 = Base17::from_f32(row);
                 let (ci, dist) = cache.nearest(&b17);
                 let ci = ci as usize;

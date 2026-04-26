@@ -12,7 +12,11 @@
 //!   - Highlight compression for large-magnitude roles (Gate)
 //!   - 28 bytes metadata per model for exact decode
 
+// StackedN reserved for future stacked-resolution codebook path
+#[allow(unused_imports)]
 use crate::stacked_n::{StackedN, cosine_f32_slice};
+// gamma_phi_encode/decode reserved for future per-codebook calibration path
+#[allow(unused_imports)]
 use crate::gamma_phi::{GammaProfile, calibrate_gamma, gamma_phi_encode, gamma_phi_decode};
 use std::f64::consts::GOLDEN_RATIO;
 
@@ -191,7 +195,7 @@ fn gamma_phi_cosine_to_u8(
     min_cos: f64,
     max_cos: f64,
     role_gamma: f32,
-    phi_scale: f32,
+    _phi_scale: f32,
 ) -> u8 {
     // Normalize cosine to [0, 1]
     let range = (max_cos - min_cos).max(1e-10);

@@ -6,6 +6,7 @@
 use crate::bitpack::BitpackedVector;
 use super::matrix::GrBMatrix;
 use super::vector::GrBVector;
+#[allow(unused_imports)] // GRB_ALL reserved for full-index mask in mxv/vxm
 use super::types::{GrBIndex, HdrScalar, GRB_ALL};
 use super::semiring::{Semiring, HdrSemiring};
 use super::descriptor::Descriptor;

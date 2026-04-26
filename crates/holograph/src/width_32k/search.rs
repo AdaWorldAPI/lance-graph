@@ -29,7 +29,9 @@
 //!
 //! Like 16K bloom search, but with per-dimension distance + 512-bit bloom.
 
+#[allow(unused_imports)] // HoloTrace and ProbeResult used by downstream search plumbing
 use super::holographic::{HoloVector, HoloTrace, ProbeResult};
+#[allow(unused_imports)] // HoloSchema, M_RL_BASE, M_VERSION reserved for schema negotiation surface
 use super::schema::{HoloSchema, M_ANI_BASE, M_NARS_TRUTH, M_BLOOM_BASE, M_GRAPH_BASE, M_RL_BASE, M_VERSION};
 use super::*;
 

@@ -83,7 +83,7 @@ impl Band {
     /// Bytes needed for this band's quantized data per row.
     pub fn bytes_per_row(&self) -> usize {
         let bits = self.n_components() * self.precision as usize;
-        (bits + 7) / 8
+        bits.div_ceil(8)
     }
 }
 
