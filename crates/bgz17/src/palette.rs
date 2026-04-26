@@ -65,6 +65,24 @@ impl Palette {
         best_idx
     }
 
+    /// Build a precomputed distance table for O(1) inter-centroid distance.
+    ///
+    /// Returns a 256×256 u16 table where `table[i][j]` = L1 distance between
+    /// `entries[i]` and `entries[j]`. Used by the renderer and cascade skip
+    /// for fast palette-edge distance without recomputing L1 per query.
+    pub fn build_distance_table(&self) -> PaletteDistanceTable {
+        let k = self.entries.len();
+        let mut table = vec![0u16; 256 * 256];
+        for i in 0..k {
+            for j in i..k {
+                let d = self.entries[i].l1(&self.entries[j]) as u16;
+                table[i * 256 + j] = d;
+                table[j * 256 + i] = d;
+            }
+        }
+        PaletteDistanceTable { table, size: k }
+    }
+
     /// Encode an SpoBase17 edge to palette indices.
     pub fn encode_edge(&self, edge: &SpoBase17) -> PaletteEdge {
         PaletteEdge {
@@ -224,6 +242,41 @@ impl Palette {
             Palette::build(&o_patterns, k, max_iter),
         )
     }
+}
+
+/// Precomputed 256×256 L1 distance table for O(1) inter-centroid lookup.
+///
+/// Built once from a `Palette` via `palette.build_distance_table()`.
+/// Used by the cascade skip (HHTL), renderer force-directed layout, and
+/// any path that needs repeated palette-edge distance without recomputing L1.
+///
+/// Memory: 256×256×2 = 128 KB (fits L2 cache). Build cost: O(k²×17).
+#[derive(Clone)]
+pub struct PaletteDistanceTable {
+    table: Vec<u16>,
+    size: usize,
+}
+
+impl PaletteDistanceTable {
+    /// O(1) distance between two palette indices.
+    #[inline]
+    pub fn distance(&self, a: u8, b: u8) -> u16 {
+        self.table[a as usize * 256 + b as usize]
+    }
+
+    /// Number of active entries (≤ 256).
+    pub fn size(&self) -> usize { self.size }
+
+    /// Distance between two PaletteEdges (sum of S + P + O distances).
+    #[inline]
+    pub fn edge_distance(&self, a: PaletteEdge, b: PaletteEdge) -> u32 {
+        self.distance(a.s_idx, b.s_idx) as u32
+            + self.distance(a.p_idx, b.p_idx) as u32
+            + self.distance(a.o_idx, b.o_idx) as u32
+    }
+
+    /// Memory footprint in bytes.
+    pub fn byte_size(&self) -> usize { self.table.len() * 2 }
 }
 
 /// Palette resolution: trade compression vs accuracy.
