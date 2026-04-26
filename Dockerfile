@@ -38,6 +38,11 @@ COPY crates/bgz17/Cargo.toml crates/bgz17/Cargo.toml
 # Copy source
 COPY crates/ crates/
 
+# Default target: x86-64-v3 (AVX2) — runs on GitHub CI and most servers.
+# Use Dockerfile.avx512 for x86-64-v4 (AVX-512) on Skylake-X / Ice Lake / Sapphire Rapids.
+# The .cargo/config.toml pins x86-64-v4 for LOCAL builds; override here for portability.
+ENV RUSTFLAGS="-C target-cpu=x86-64-v3"
+
 # Build bgz17 standalone (zero deps, fast check)
 RUN cargo build --release --manifest-path crates/bgz17/Cargo.toml 2>&1 \
     && echo "=== BGZ17 BUILD OK ==="

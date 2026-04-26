@@ -175,9 +175,9 @@ impl ShaderDriver {
                 let fp_i = self.bindspace.fingerprints.content_row(row_i as usize);
                 for (j_off, &row_j) in passed_rows.iter().enumerate().skip(i + 1) {
                     let fp_j = self.bindspace.fingerprints.content_row(row_j as usize);
-                    let hamming: u32 = fp_i.iter().zip(fp_j.iter())
-                        .map(|(a, b)| (a ^ b).count_ones())
-                        .sum();
+                    let fp_i_bytes = unsafe { std::slice::from_raw_parts(fp_i.as_ptr() as *const u8, WORDS_PER_FP * 8) };
+                    let fp_j_bytes = unsafe { std::slice::from_raw_parts(fp_j.as_ptr() as *const u8, WORDS_PER_FP * 8) };
+                    let hamming = ndarray::hpc::bitwise::hamming_distance_raw(fp_i_bytes, fp_j_bytes) as u32;
                     let resonance = 1.0 - (hamming as f32 / FP_BITS);
                     if resonance >= min_resonance {
                         hits.push(ShaderHit {
