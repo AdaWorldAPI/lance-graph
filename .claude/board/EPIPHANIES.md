@@ -3370,3 +3370,121 @@ Cross-ref: BF16 reference (one mantissa per value, never stored alone);
 2026-04-26 prior entry "awareness sits BESIDE CausalEdge64" (now
 SUPERSEDED in spirit — the right answer is INSIDE every operation
 output, not beside the data).
+
+## 2026-04-26 — FINDING: SPO Pearl 2³ ontology enrichment should happen DURING the shader cycle, not after
+
+**Status:** FINDING (extends the BF16-mantissa-inline insight to SPO fan-out)
+**Owner scope:** @truth-architect, @integration-lead
+
+### The idea
+
+The cognitive shader cycle already processes every input through:
+1. **Grammar** (ContextChain → RoleKey bind → TEKAMOLO)
+2. **Thinking styles** (12 ordinals × 6 clusters → style dispatch)
+3. **Free energy** (FreeEnergy::compose → Resolution)
+4. **NARS revision** (awareness update per style)
+
+What it does NOT do during the cycle: **SPO Pearl 2³ ontology enrichment**.
+Today, ontology is a cold-path lookup — the `contract::ontology` module
+defines `EntityType`, `RelationType`, `OntologySpec` but these are
+consulted before/after the shader cycle, not during.
+
+The proposal: make the SPO decomposition happen INLINE during the shader
+cascade, the same way awareness should be inline (prior entry). Each
+cycle that touches a node/edge computes:
+
+```
+S (subject)   × 2 Pearl interventions  = 2 S-perspectives
+P (predicate) × 2 Pearl interventions  = 2 P-perspectives
+O (object)    × 2 Pearl interventions  = 2 O-perspectives
+                                        ─────────────────
+                                        2³ = 8 total views
+```
+
+Each of the 8 views runs through the thinking-style fan-out. The cycle
+becomes:
+
+```
+StreamDto
+  → encode (RoleKey bind, TEKAMOLO)
+  → SPO decompose (8 Pearl perspectives per triplet)
+  → for each perspective × each thinking style:
+       cascade (fingerprint compare, FreeEnergy, Resolution)
+       → emit CausalEdge64 WITH awareness annotation
+       → ontology enrichment: does this triplet match/extend/contradict
+         an existing EntityType or RelationType?
+  → NARS revise (inline, not post-hoc)
+  → if ontology extended: emit OntologyDelta alongside CausalEdge64
+```
+
+### Why this belongs in the SoA
+
+The cognitive-shader-driver's BindSpace already has four column families:
+- FingerprintColumns (content/topic/angle)
+- QualiaColumn (18×f32)
+- MetaColumn (MetaWord u32)
+- EdgeColumn (CausalEdge64 × 8)
+
+Add a fifth: **OntologyColumn** — per-row ontology delta. When the shader
+cycle discovers that a triplet extends the ontology (new entity type
+observed, new relation pattern, contradiction with existing schema),
+the delta is written to this column. Downstream consumers (AriGraph,
+callcenter, q2) read the deltas the same way they read emitted edges.
+
+```
+BindSpace SoA:
+  Column A: FingerprintColumns  — WHAT the cycle is about
+  Column B: QualiaColumn        — HOW it feels (18D qualia)
+  Column C: MetaColumn          — WHICH style dispatched (MetaWord)
+  Column D: EdgeColumn          — WHAT it concluded (CausalEdge64)
+  Column E: OntologyColumn      — WHAT it learned about structure
+  Column F: AwarenessColumn     — HOW SURE it is (inline mantissa)
+```
+
+Column E + Column F together make the shader cycle not just a processor
+but a self-describing reasoner: it emits what it concluded (edges),
+what structural knowledge it gained (ontology deltas), and how confident
+it was in each step (awareness).
+
+### The connection to blasgraph
+
+blasgraph's 7 semirings operate on SPO triples in graph-algebraic form.
+The cognitive shader already uses Binary16K fingerprints that decompose
+into S[0..4K), P[4K..8K), O[8K..12K) slices (per CLAUDE.md §The Click).
+The Pearl 2³ decomposition maps directly to blasgraph's semiring choices:
+
+| Pearl rung | blasgraph semiring | What it computes |
+|---|---|---|
+| Observational (do nothing) | HammingMin | How similar is this to what I've seen? |
+| Do (intervene on S) | XorBundle | What changes if I bind a different subject? |
+| Do (intervene on P) | Resonance | What changes if I bind a different predicate? |
+| Do (intervene on O) | SimilarityMax | What changes if I bind a different object? |
+| Counterfactual (S') | TruthPropagating | Had S been different, would the conclusion hold? |
+| Counterfactual (P') | NarsTruth | Had P been different, would the confidence change? |
+| Counterfactual (O') | Boolean | Had O been different, would the edge exist at all? |
+| Full counterfactual | CamPqAdc | Distance in the alternative universe's codebook |
+
+This is `blasgraph × thinking × grammar × ontology` — four subsystems
+composing in one SoA row per cycle. The composition is structural:
+each column IS a different axis of the same cognitive event.
+
+### "Can't resist thinking"
+
+The shader can't resist thinking when surprise exists (CLAUDE.md §The
+Click: "The system doesn't choose to think. It can't NOT think while
+surprise exists."). If ontology enrichment happens inline, then the
+shader also can't resist LEARNING about structure — every cycle that
+processes a novel triplet pattern automatically enriches the ontology.
+The system learns the shape of the data while it processes the data.
+
+This applies both at runtime ("can't resist thinking about the stream")
+AND during development ("can't resist thinking about the code" — the
+coding session IS a cognitive cycle where the human-agent pair enriches
+the architectural ontology by processing the codebase). The epiphany
+system itself IS the OntologyColumn for the development cycle.
+
+Cross-ref: CLAUDE.md §The Click (S[0..4K)/P[4K..8K)/O[8K..12K) slices);
+contract::ontology (EntityType, RelationType, OntologySpec);
+blasgraph 7 semirings (docs/SEMIRING_ALGEBRA_SURFACE.md);
+2026-04-26 BF16-mantissa-inline entry (Column F awareness);
+causal-edge Pearl 2³ (CausalMask 3 bits); TD-AWARENESS-INLINE-1.
