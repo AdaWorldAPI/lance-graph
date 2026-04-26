@@ -263,7 +263,7 @@ impl SubPlansTable {
     }
 
     pub fn get_or_insert(&mut self, sg: SubqueryGraph) -> &mut SubgraphPlans {
-        self.table.entry(sg).or_insert_with(SubgraphPlans::new)
+        self.table.entry(sg).or_default()
     }
 
     pub fn add_plan(&mut self, sg: SubqueryGraph, plan: LogicalPlanRef) {
