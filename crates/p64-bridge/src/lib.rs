@@ -101,9 +101,9 @@ pub fn edges_to_layered_rows(edges: &[CausalEdge64]) -> [[u64; 64]; 8] {
     for edge in edges {
         let (row, col) = edge_to_block(edge);
         let layer_mask = edge_to_layer_mask(edge);
-        for z in 0..8 {
+        for (z, layer) in layers.iter_mut().enumerate() {
             if layer_mask & (1 << z) != 0 {
-                layers[z][row] |= 1u64 << col;
+                layer[row] |= 1u64 << col;
             }
         }
     }
@@ -237,7 +237,11 @@ pub fn semiring_to_modes(semiring_name: &str) -> (u8, u8) {
 /// No POPCNT. No Hamming. Distance is PRECOMPUTED in the codebook.
 /// The mask gates access. The table provides the answer. O(1).
 pub mod cognitive_shader {
+    // DistanceMatrix and Palette retained for the upcoming AriGraph→palette→shader
+    // convergence highway wiring (TD-P64-SHADER-1).
+    #[allow(unused_imports)]
     use bgz17::distance_matrix::DistanceMatrix;
+    #[allow(unused_imports)]
     use bgz17::palette::Palette;
     use bgz17::palette_semiring::PaletteSemiring;
 
@@ -416,9 +420,9 @@ pub mod cognitive_shader {
         /// Density per layer.
         pub fn layer_densities(&self) -> [f32; 8] {
             let mut d = [0.0f32; 8];
-            for z in 0..8 {
+            for (z, slot) in d.iter_mut().enumerate() {
                 let bits: u32 = self.planes[z].iter().map(|r| r.count_ones()).sum();
-                d[z] = bits as f32 / 4096.0;
+                *slot = bits as f32 / 4096.0;
             }
             d
         }

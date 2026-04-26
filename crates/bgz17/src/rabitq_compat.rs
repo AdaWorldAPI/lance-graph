@@ -141,7 +141,7 @@ impl RaBitQEncoding {
         // quantized[i] = if sign(rotated[i]) >= 0 { 1/sqrt(D) } else { -1/sqrt(D) }
         let scale = 1.0 / (d as f32).sqrt();
         let mut dot_qo = 0.0f32; // <quantized, original_rotated>
-        for (i, &v) in rotated.iter().enumerate() {
+        for &v in rotated.iter() {
             let q = if v >= 0.0 { scale } else { -scale };
             dot_qo += q * v;
         }

@@ -5,6 +5,9 @@
 //! Supports single-hop and multi-hop traversal via palette semiring mxm.
 
 use crate::distance_matrix::SpoDistanceMatrices;
+// PaletteEdge retained for the encode→store path that converts SpoBase17 edges
+// into palette-indexed form before inserting into the typed graph (TD-BGZ17-TPG-1).
+#[allow(unused_imports)]
 use crate::palette::PaletteEdge;
 use crate::palette_matrix::PaletteMatrix;
 use crate::palette_semiring::SpoPaletteSemiring;
@@ -67,8 +70,10 @@ impl TypedPaletteGraph {
     pub fn traverse(&self, rel_type: &str) -> Option<PaletteMatrix> {
         let mat = self.relations.get(rel_type)?;
         let k_s = self.semirings.subject.k;
-        let k_p = self.semirings.predicate.k;
-        let k_o = self.semirings.object.k;
+        // p/o codebook sizes retained for the multi-codebook mxm path
+        // where each S/P/O plane uses its own distance table (TD-BGZ17-MULTI-K).
+        let _k_p = self.semirings.predicate.k;
+        let _k_o = self.semirings.object.k;
         // For mxm we need a single k; use subject k and corresponding compose tables.
         // The mxm takes separate compose tables per plane.
         Some(PaletteMatrix::mxm(
