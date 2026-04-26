@@ -31,17 +31,14 @@ jobs:
         run: cargo fmt --manifest-path crates/lance-graph/Cargo.toml -- --check
 
   # clippy: runs LOCALLY as our internal pre-check, not on GitHub CI.
-  # GitHub CI focuses on compile + test + format + typos.
+  # GitHub CI focuses on compile + test + format.
   # Clippy discipline documented in CODING_PRACTICES.md:
   #
   #   cargo clippy --features lab -- -D warnings
   #   cargo clippy --features serve -- -D warnings
 
-  typos:
-    name: Spell Check
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Check spelling
-        uses: crate-ci/typos@v1.26.0
+  # typos / spell-check removed 2026-04-26: too many false positives on
+  # technical jargon (NARS terms, codec acronyms, German loanwords used in
+  # the cognitive stack). Spelling discipline is a code-review concern,
+  # not a CI gate.
+
