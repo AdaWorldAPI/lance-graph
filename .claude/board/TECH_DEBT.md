@@ -1112,3 +1112,15 @@ Estimated 8-12× speedup (chunked F64x8 FMA vs scalar).
 `bgz17/palette.rs` lines 56-65 iterate all 256 centroids per query.
 Should use precomputed distance table from `ndarray::hpc::palette_distance`.
 Estimated 100× speedup for encoding (O(1) table lookup vs O(256) L1 per query).
+
+## 2026-04-26 — Paid Debt: TD-DIST-1/2/3 all shipped in commit 8603148
+
+- **TD-DIST-1** (Distance trait): `contract::distance` module with `Distance` trait,
+  `fisher_z_inverse`, `mean_similarity_fisher`. Impls for `[u64; 256]`, `[u8; 6]`, `[u8; 3]`.
+  11 tests. Status: **PAID**.
+- **TD-DIST-2** (vector_ops scalar→SIMD): `cosine_distance`, `cosine_similarity`,
+  `dot_product_distance`, `dot_product_similarity` all now delegate to
+  `ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd` / `dot_f64_simd`. Status: **PAID**.
+- **TD-DIST-3** (Palette distance table): `Palette::build_distance_table()` →
+  `PaletteDistanceTable` with O(1) `distance(a, b)` and `edge_distance(a, b)`.
+  128 KB table, L2-resident. Status: **PAID**.
