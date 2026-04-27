@@ -52,28 +52,29 @@ use crate::external_intent::{CognitiveEventRow, ExternalIntent};
 
 /// The Blood-Brain Barrier enforcement point.
 ///
+/// Atomic actor identity snapshot — written once per ingest, read once per project.
+/// Single lock eliminates the F-01 identity-tear race where concurrent ingest+project
+/// could see role from event N, faculty from N+1, expert from N+2.
+#[derive(Clone, Copy, Debug)]
+struct ActorState {
+    role: u8,
+    faculty: u8,
+    expert: ExpertId,
+}
+
 /// One `LanceMembrane` per session. All interior state is protected by
 /// `RwLock` or atomics so it is `Send + Sync`.
 ///
-/// `current_role`, `current_faculty`, `current_expert` capture the last
-/// `ingest()` context so that the next `project()` call stamps the correct
-/// identity columns on the emitted `CognitiveEventRow`.
+/// `current_actor` captures the last `ingest()` context atomically so
+/// that the next `project()` call stamps a consistent identity triple
+/// on the emitted `CognitiveEventRow`.
 pub struct LanceMembrane {
-    current_role:    RwLock<u8>,      // ExternalRole discriminant
-    current_faculty: RwLock<u8>,      // FacultyRole discriminant
-    current_expert:  RwLock<ExpertId>,
+    current_actor:   RwLock<ActorState>,
     current_scent:   AtomicU64,
-    current_rationale_phase: AtomicBool, // MM-CoT stage: true = Stage 1 rationale
+    current_rationale_phase: AtomicBool,
     version:         AtomicU64,
-    /// Server-side fan-out filter (TD-INT-13). Default-empty = pass all.
-    /// Applied INSIDE `project()` before `watcher.bump`, so subscribers
-    /// only see rows matching the filter.
     server_filter:   RwLock<CommitFilter>,
-    /// Optional fan-out gate (TD-INT-9). RBAC, multi-tenant scope, etc.
-    /// Default `None` = no gating. When set, `should_emit` is consulted
-    /// before `watcher.bump`.
     gate:            RwLock<Option<Arc<dyn MembraneGate>>>,
-    /// Fan-out watcher for projected cognitive events ([realtime] feature only).
     #[cfg(feature = "realtime")]
     watcher:         LanceVersionWatcher,
 }
@@ -81,9 +82,11 @@ pub struct LanceMembrane {
 impl LanceMembrane {
     pub fn new() -> Self {
         Self {
-            current_role:    RwLock::new(0),
-            current_faculty: RwLock::new(FacultyRole::ReadingComprehension as u8),
-            current_expert:  RwLock::new(0),
+            current_actor:   RwLock::new(ActorState {
+                role: 0,
+                faculty: FacultyRole::ReadingComprehension as u8,
+                expert: 0,
+            }),
             current_scent:   AtomicU64::new(0),
             current_rationale_phase: AtomicBool::new(false),
             version:         AtomicU64::new(0),
@@ -127,8 +130,11 @@ impl LanceMembrane {
     /// dispatcher derives it from `FacultyDescriptor::is_asymmetric()`
     /// plus the current dispatch stage.
     pub fn set_faculty_context(&self, faculty: u8, expert: ExpertId, rationale_phase: bool) {
-        *self.current_faculty.write().expect("faculty poisoned") = faculty;
-        *self.current_expert.write().expect("expert poisoned") = expert;
+        {
+            let mut actor = self.current_actor.write().unwrap_or_else(|e| e.into_inner());
+            actor.faculty = faculty;
+            actor.expert = expert;
+        }
         self.current_rationale_phase.store(rationale_phase, Ordering::Relaxed);
     }
 }
@@ -168,9 +174,12 @@ impl ExternalMembrane for LanceMembrane {
     /// Strips all VSA state. Emits only Arrow-scalar-compatible fields.
     /// Called on every `CollapseGate` fire with `EmitMode::Persist`.
     fn project(&self, bus: &ShaderBus, meta: MetaWord) -> CognitiveEventRow {
-        let role    = *self.current_role.read().expect("role poisoned");
-        let faculty = *self.current_faculty.read().expect("faculty poisoned");
-        let expert  = *self.current_expert.read().expect("expert poisoned");
+        // Single-lock snapshot: role/faculty/expert are always consistent.
+        // Poison recovery via into_inner() (F-09: no permanent panic source).
+        let actor = *self.current_actor.read().unwrap_or_else(|e| e.into_inner());
+        let role    = actor.role;
+        let faculty = actor.faculty;
+        let expert  = actor.expert;
         let scent   = self.current_scent.load(Ordering::Relaxed) as u8;
 
         let row = CognitiveEventRow {
@@ -227,12 +236,15 @@ impl ExternalMembrane for LanceMembrane {
     ///
     /// Four-step BBB crossing:
     /// 1. Pass membrane — `ExternalIntent` is the safe crossing type.
-    /// 2. Get a role   — `intent.role` is stamped into `current_role`.
+    /// 2. Get a role   — `intent.role` is stamped into `current_actor.role`.
     /// 3. Get a place  — `intent.dn.scent_stub()` becomes `current_scent`.
     /// 4. Translate    — returns `UnifiedStep` for `OrchestrationBridge::route()`.
     fn ingest(&self, intent: ExternalIntent) -> UnifiedStep {
-        // 2. Role
-        *self.current_role.write().expect("role poisoned") = intent.role as u8;
+        // 2. Role — atomic write to the shared actor state (F-01 fix).
+        {
+            let mut actor = self.current_actor.write().unwrap_or_else(|e| e.into_inner());
+            actor.role = intent.role as u8;
+        }
 
         // 3. Place (Phase A: XOR-fold stub; Phase C: full cascade)
         let scent = intent.dn.scent_stub();
@@ -303,8 +315,8 @@ mod tests {
         assert_eq!(step.status, StepStatus::Pending);
         // scent was set
         assert_ne!(m.current_scent.load(Ordering::Relaxed), 0);
-        // role was stamped
-        assert_eq!(*m.current_role.read().unwrap(), ExternalRole::CrewaiAgent as u8);
+        // role was stamped (read from atomic ActorState — F-01 fix)
+        assert_eq!(m.current_actor.read().unwrap().role, ExternalRole::CrewaiAgent as u8);
     }
 
     #[test]
