@@ -217,6 +217,10 @@ impl BindSpaceBuilder {
         Self { bs: BindSpace::zeros(capacity), cursor: 0 }
     }
 
+    /// Push a row with default entity_type (0 = untyped).
+    ///
+    /// # Panics
+    /// Panics if cursor >= capacity (F-08: bounds-checked push).
     pub fn push(
         mut self,
         content: &[u64],
@@ -230,6 +234,9 @@ impl BindSpaceBuilder {
     }
 
     /// Push a row with explicit entity type (Column H).
+    ///
+    /// # Panics
+    /// Panics if cursor >= capacity (F-08: bounds-checked push).
     pub fn push_typed(
         mut self,
         content: &[u64],
@@ -240,6 +247,11 @@ impl BindSpaceBuilder {
         expert: u16,
         entity_type: u16,
     ) -> Self {
+        assert!(
+            self.cursor < self.bs.len,
+            "BindSpaceBuilder overflow: tried to push row {} into capacity {}",
+            self.cursor, self.bs.len,
+        );
         let row = self.cursor;
         self.bs.fingerprints.set_content(row, content);
         self.bs.meta.set(row, meta);
