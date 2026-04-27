@@ -455,3 +455,153 @@ Next cycle's F landscape is different (Column F awareness feeds back)
 
 **Total:** 24 deliverables. Phase 1 = 4 (all S). Phase 2 = 6 (2S + 3M + 1S).
 Phase 3 = 9 (3S + 4M + 1L + 1M). Phase 4 = 5 (1S + 2M + 1S + 1M).
+
+---
+
+## §11 Addendum: Horizontal vs Vertical Perturbationslernen
+
+### The distinction
+
+Two orthogonal perturbation-learning axes operate simultaneously:
+
+**Horizontal (spatial, within one cycle):**
+```
+L1 (64²) → L2 (256²) → L3 (4K²) → L4 (16K²) → ONNX → L1
+```
+The pyramid cascade is SPATIAL fan-out. One perturbation widens through
+cache-aligned levels in a single cycle. ONNX closes the loop by
+compressing L4 back to an L1 perturbation. This is Column G's domain.
+
+**Vertical (temporal, across cycles):**
+```
+Cycle N:    Column E emits OntologyDelta + Column F emits awareness
+                │                              │
+                ▼                              ▼
+Cycle N+1:  Column E reads accumulated       Column F reads prior
+            ontology as CONTEXT for           awareness as SEED for
+            this cycle's detection            this cycle's F-landscape
+                │                              │
+                ▼                              ▼
+Cycle N+2:  ...ripples propagate...
+```
+The ontology and awareness columns are TEMPORAL accumulators. Each cycle's
+output feeds the next cycle's input. This is "thinking about thinking" —
+the system's self-model (ontology) and self-confidence (awareness) evolve
+over time, and each cycle's reasoning is shaped by the accumulated
+epistemic state of all prior cycles.
+
+### Correction to D-E3 (novel pattern detection)
+
+The original D-E3 was hand-waved: "emit OntologyDelta when the cycle
+discovers a novel triplet pattern." This implies fresh detection from
+scratch each cycle — WRONG.
+
+**Corrected D-E3:** The shader cycle READS the accumulated ontology state
+from prior cycles (wire accumulation), then COMPARES the current triplet
+against it. The delta IS the comparison:
+
+```rust
+/// D-E3 corrected: ontology delta is a COMPARISON against accumulated prior,
+/// not a fresh heuristic detection.
+fn compute_ontology_delta(
+    current_triplet: &CausalEdge64,
+    accumulated_ontology: &AccumulatedOntology,  // ← read-back from prior cycles
+    pearl_rung: u8,
+) -> OntologyDelta {
+    let entity_type = accumulated_ontology.classify_entity(current_triplet.s_idx());
+    let relation_type = accumulated_ontology.classify_relation(current_triplet.p_idx());
+
+    let kind = if entity_type == 0 && relation_type == 0 {
+        DeltaKind::None     // routine — matches accumulated expectations
+    } else if accumulated_ontology.has_entity(entity_type) {
+        DeltaKind::Confirm  // seen before, reinforces
+    } else {
+        DeltaKind::Extend   // genuinely new — accumulated ontology grows
+    };
+
+    // Contradiction detection: does this triplet's truth disagree with
+    // the accumulated truth for the same (S, P, O) pattern?
+    let kind = if accumulated_ontology.contradicts(current_triplet) {
+        DeltaKind::Contradict
+    } else {
+        kind
+    };
+
+    OntologyDelta { entity_type_id: entity_type, kind, pearl_rung, .. }
+}
+```
+
+The `AccumulatedOntology` is the vertical read-back: it persists across
+cycles (not per-row, not per-dispatch — it's the running integral of all
+prior Column E deltas). It lives on `ShaderDriver` alongside `awareness`
+but unlike awareness (which the prior epiphany criticized as driver-global),
+the accumulated ontology IS correctly global because it represents the
+system's learned structural knowledge, not per-stream epistemic state.
+
+### Column F vertical read-back
+
+Similarly, Column F awareness from cycle N seeds cycle N+1:
+
+```rust
+/// Vertical awareness composition: prior cycle's mean awareness
+/// becomes this cycle's awareness prior.
+fn seed_awareness_from_prior(
+    prior_awareness: &[u8; 256],  // ← last cycle's Column F output
+    current_awareness: &mut [u8; 256],
+) {
+    // Exponential moving average: new = α·current + (1-α)·prior
+    // α = 0.7 gives recent cycles more weight while preserving history
+    for (cur, &prev) in current_awareness.iter_mut().zip(prior_awareness.iter()) {
+        *cur = ((*cur as u16 * 179 + prev as u16 * 76) / 255) as u8;
+    }
+}
+```
+
+This is the "thinking about thinking" temporal axis: the system's
+confidence in each word-position accumulates over cycles. A word
+that consistently has high awareness (balanced density, strong matches)
+retains high awareness. A word that fluctuates (noisy, unbalanced)
+decays toward low awareness. The temporal integral IS the metacognitive
+self-model.
+
+### The two axes combined
+
+```
+                    Vertical (temporal, cross-cycle)
+                    ↑
+                    │  accumulated ontology + awareness
+                    │  feeds NEXT cycle as context + seed
+                    │
+Cycle N ────────────┼────────────────────────────────→ Horizontal (spatial, within-cycle)
+                    │  L1 → L2 → L3 → L4 → ONNX → L1
+                    │  pyramid cascade + ONNX feedback
+                    │
+                    │  Column E delta + Column F awareness
+                    │  emitted at END of this cycle
+                    │
+Cycle N+1 ──────────┼────────────────────────────────→
+                    │  reads N's accumulated state
+                    ▼
+```
+
+The horizontal axis IS Column G (ONNX spatial perturbation within one cycle).
+The vertical axis IS Columns E+F (ontology + awareness temporal perturbation
+across cycles). Both operate simultaneously. The system perturbs itself
+spatially AND temporally every cycle. Neither has a halt state.
+
+### What this changes in the build order
+
+Phase 2 (Column E) needs an additional deliverable:
+
+- **D-E7:** `AccumulatedOntology` struct on `ShaderDriver` — the running
+  integral of all prior OntologyDeltas. Methods: `classify_entity(s_idx)`,
+  `classify_relation(p_idx)`, `contradicts(edge)`, `apply_delta(delta)`.
+  This is the vertical read-back state. Updated after each cycle's
+  Column E emission.
+
+Phase 3 (Column F) needs:
+
+- **D-F10:** `seed_awareness_from_prior()` — exponential moving average
+  of prior cycle's Column F into current cycle's initial awareness state.
+  This is the temporal integration mechanism.
+
