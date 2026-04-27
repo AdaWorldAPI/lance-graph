@@ -22,6 +22,27 @@ use crate::property::{
 use crate::cam::CodecRoute;
 
 // ═══════════════════════════════════════════════════════════════════════════
+// EntityTypeId — Foundry Object Type equivalent (Column H in BindSpace SoA)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Numeric entity type identifier for per-row BindSpace typing.
+/// 0 = untyped. Non-zero = index into `Ontology.schemas` (1-based).
+///
+/// This is the Palantir Vertex "Object Type" equivalent. Every row in
+/// BindSpace can be typed, enabling Object Explorer scrolling, property
+/// view selection (LF-22 ObjectView), and type-filtered search (LF-40).
+pub type EntityTypeId = u16;
+
+/// Look up the EntityTypeId for a named entity type within an Ontology.
+/// Returns 0 if the name doesn't match any schema.
+pub fn entity_type_id(ontology: &Ontology, name: &str) -> EntityTypeId {
+    ontology.schemas.iter()
+        .position(|s| s.name == name)
+        .map(|idx| (idx + 1) as EntityTypeId)
+        .unwrap_or(0)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Ontology — the composed object model
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -370,5 +391,24 @@ mod tests {
         assert!(PrefetchDepth::Identity < PrefetchDepth::Detail);
         assert!(PrefetchDepth::Detail < PrefetchDepth::Similar);
         assert!(PrefetchDepth::Similar < PrefetchDepth::Full);
+    }
+
+    #[test]
+    fn entity_type_id_returns_1_based_index() {
+        use crate::property::Schema;
+        let ont = Ontology {
+            name: "test",
+            schemas: vec![
+                Schema::builder("Customer").build(),
+                Schema::builder("Invoice").build(),
+                Schema::builder("Product").build(),
+            ],
+            links: Vec::new(),
+            actions: Vec::new(),
+        };
+        assert_eq!(entity_type_id(&ont, "Customer"), 1);
+        assert_eq!(entity_type_id(&ont, "Invoice"), 2);
+        assert_eq!(entity_type_id(&ont, "Product"), 3);
+        assert_eq!(entity_type_id(&ont, "Unknown"), 0);
     }
 }

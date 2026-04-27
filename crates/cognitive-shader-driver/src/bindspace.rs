@@ -144,6 +144,9 @@ pub struct BindSpace {
     pub meta: MetaColumn,
     pub temporal: Box<[u64]>,
     pub expert: Box<[u16]>,
+    /// Column H: per-row entity type binding (Foundry Object Type equivalent).
+    /// 0 = untyped. Non-zero = 1-based index into `Ontology.schemas`.
+    pub entity_type: Box<[u16]>,
 }
 
 impl BindSpace {
@@ -157,6 +160,7 @@ impl BindSpace {
             meta: MetaColumn::zeros(len),
             temporal: vec![0u64; len].into_boxed_slice(),
             expert: vec![0u16; len].into_boxed_slice(),
+            entity_type: vec![0u16; len].into_boxed_slice(),
         }
     }
 
@@ -169,7 +173,8 @@ impl BindSpace {
         let meta_bytes = self.len * 4;
         let temporal_bytes = self.len * 8;
         let expert_bytes = self.len * 2;
-        content_topic_angle + cycle_bytes + edge_bytes + qualia_bytes + meta_bytes + temporal_bytes + expert_bytes
+        let entity_type_bytes = self.len * 2;
+        content_topic_angle + cycle_bytes + edge_bytes + qualia_bytes + meta_bytes + temporal_bytes + expert_bytes + entity_type_bytes
     }
 
     /// Apply MetaFilter across a row window. Returns a dense Vec of row
@@ -221,6 +226,20 @@ impl BindSpaceBuilder {
         temporal: u64,
         expert: u16,
     ) -> Self {
+        self.push_typed(content, meta, edge, qualia, temporal, expert, 0)
+    }
+
+    /// Push a row with explicit entity type (Column H).
+    pub fn push_typed(
+        mut self,
+        content: &[u64],
+        meta: MetaWord,
+        edge: u64,
+        qualia: &[f32; QUALIA_DIMS],
+        temporal: u64,
+        expert: u16,
+        entity_type: u16,
+    ) -> Self {
         let row = self.cursor;
         self.bs.fingerprints.set_content(row, content);
         self.bs.meta.set(row, meta);
@@ -228,6 +247,7 @@ impl BindSpaceBuilder {
         self.bs.qualia.set(row, qualia);
         self.bs.temporal[row] = temporal;
         self.bs.expert[row] = expert;
+        self.bs.entity_type[row] = entity_type;
         self.cursor += 1;
         self
     }
@@ -254,9 +274,9 @@ mod tests {
     #[test]
     fn bindspace_footprint_adds_columns() {
         let bs = BindSpace::zeros(1);
-        // 3 × 2048 (content/topic/angle) + 65536 (cycle f32) + 8 (edge) + 72 (qualia 18×4) + 4 (meta) + 8 (temporal) + 2 (expert)
-        // = 6144 + 65536 + 8 + 72 + 4 + 8 + 2 = 71774
-        assert_eq!(bs.byte_footprint(), 71774);
+        // 3 × 2048 (content/topic/angle) + 65536 (cycle f32) + 8 (edge) + 72 (qualia 18×4) + 4 (meta) + 8 (temporal) + 2 (expert) + 2 (entity_type)
+        // = 6144 + 65536 + 8 + 72 + 4 + 8 + 2 + 2 = 71776
+        assert_eq!(bs.byte_footprint(), 71776);
     }
 
     #[test]
@@ -296,6 +316,37 @@ mod tests {
         assert_eq!(row[1], -1.0);  // bit 1 was not set
         // Row 0 should still be all zeros (not projected)
         assert!(bs.fingerprints.cycle_row(0).iter().all(|&v| v == 0.0));
+    }
+
+    #[test]
+    fn entity_type_defaults_to_untyped() {
+        let bs = BindSpace::zeros(4);
+        for row in 0..4 {
+            assert_eq!(bs.entity_type[row], 0, "default should be untyped (0)");
+        }
+    }
+
+    #[test]
+    fn entity_type_set_and_get() {
+        let mut bs = BindSpace::zeros(4);
+        bs.entity_type[1] = 42;
+        bs.entity_type[3] = 7;
+        assert_eq!(bs.entity_type[0], 0);
+        assert_eq!(bs.entity_type[1], 42);
+        assert_eq!(bs.entity_type[2], 0);
+        assert_eq!(bs.entity_type[3], 7);
+    }
+
+    #[test]
+    fn builder_push_typed_sets_entity_type() {
+        let qualia = [0.0f32; QUALIA_DIMS];
+        let content = [0u64; WORDS_PER_FP];
+        let bs = BindSpaceBuilder::new(2)
+            .push_typed(&content, MetaWord::new(1, 0, 100, 100, 0), 0, &qualia, 0, 0, 5)
+            .push(&content, MetaWord::new(2, 0, 200, 200, 0), 0, &qualia, 0, 0)
+            .build();
+        assert_eq!(bs.entity_type[0], 5, "push_typed should set entity_type");
+        assert_eq!(bs.entity_type[1], 0, "push should default to 0");
     }
 
     #[test]
