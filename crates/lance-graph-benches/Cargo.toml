@@ -7,7 +7,7 @@ description = "Benchmarks for lance-graph (not published)"
 
 [dependencies]
 lance-graph = { path = "../lance-graph", version = "0.5.3" }
-lance = "2"
+lance = "4"
 arrow-array = "57"
 arrow-schema = "57"
 criterion = { version = "0.5", features = ["async", "async_tokio", "html_reports"] }
