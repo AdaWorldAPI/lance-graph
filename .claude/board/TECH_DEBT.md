@@ -1186,3 +1186,63 @@ Should be designed as one coherent commit, not piecemeal.
 **Revisit when:** the next architectural sweep covers the awareness
 dimension. Until then, awareness stays driver-global. The epiphany
 documents the correct direction so future work doesn't re-derive it.
+
+## 2026-04-26 — TD-LANCE-UPGRADE: lance 2.0.1 → 4.0.1 + datafusion 51 → 52
+
+**Status:** Open (P-1 — two major versions behind)
+
+### Version map (lance format crate ↔ lancedb SDK ↔ deps)
+
+| lancedb SDK | lance format | Arrow | DataFusion | object_store |
+|---|---|---|---|---|
+| 0.14.0 | 0.20.0 | 53 | — | 0.10 |
+| 0.22.0 | 0.35.0 | 55 | 48 | 0.12 |
+| **0.27.2** (latest) | **4.0.0** | **57** | **52.1** | **0.12** |
+| — | **2.0.1** (ours) | **57** | **51** | **0.12** |
+
+We use `lance` (format crate) directly, NOT `lancedb` (SDK). But lancedb
+version tracking matters because:
+1. lancedb pins exact lance versions (`lance = =4.0.0` in 0.27.2)
+2. The Python/JS SDK releases drive the format crate's release cadence
+3. Third-party tooling (DuckDB lance extension, Polars lance reader)
+   tracks lancedb versions, not lance format versions
+4. When we eventually expose a lancedb-compatible API surface (LF-52
+   LlmProvider, Q2 connection management), version compat matters
+
+### What the upgrade changes
+
+| Crate | Current | Target | Change |
+|---|---|---|---|
+| `lance` | 2.0.1 | 4.0.1 | Internal encoding/index improvements |
+| `lance-linalg` | 2.0.1 | 4.0.1 | Distance metric updates |
+| `lance-namespace` | 2.0.1 | 4.0.1 | Namespace protocol |
+| `datafusion` | 51 | 52.1 | **Breaking:** OptimizerRule trait, LogicalPlan builder |
+| `arrow` | 57 | 57 | **No change** |
+| `object_store` | 0.12 | 0.12 | **No change** |
+
+### Breaking changes to fix
+
+DataFusion 51 → 52 API breaks:
+- `OptimizerRule::rewrite()` signature change → affects `RlsRewriter`
+  in `lance-graph-callcenter/src/rls.rs`
+- `LogicalPlanBuilder` API changes → affects `datafusion_planner/` in
+  lance-graph core
+- UDF registration API may have changed → affects `vsa_udfs.rs`
+
+### May resolve
+
+The xz2/liblzma `links = "lzma"` collision that blocks smb-office-rs's
+`auth-rls` feature. DataFusion 52 may have cleaned up the compression
+backend deps. If so, the `auth-rls-lite` workaround (datafusion with
+`default-features = false`) becomes unnecessary.
+
+### Scope
+
+~5 files: 2-3 Cargo.toml version bumps + DataFusion API migration in
+`rls.rs`, `datafusion_planner/*.rs`, `vsa_udfs.rs`. Arrow code untouched.
+
+### Why deferred
+
+The upgrade is bounded but not urgent — lance 2.0.1 works, arrow 57
+matches, only datafusion is stale. Best done as a focused session with
+the full test suite available (needs 16+ GB disk for datafusion compile).
