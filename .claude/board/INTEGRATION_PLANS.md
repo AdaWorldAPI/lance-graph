@@ -182,3 +182,16 @@ Phases 2–4 queued.
 **Driver:** ICC 0.9999 at 6 B/row on Qwen3-8B (PR #218 bench).
 **Effort:** ~8 person-days.
 **Confidence:** HIGH.
+
+---
+
+## v1 — BindSpace Columns E/F/G/H (authored 2026-04-26)
+
+**Author:** main thread (Opus 4.7 1M), session 2026-04-26
+**Status:** Active
+**Scope:** Extend BindSpace SoA from 4 → 8 column families. Column H (EntityTypeId, Foundry Object Type). Column E (OntologyDelta, per-cycle structural learning). Column F (AwarenessColumn, BF16-mantissa-inline per-word epistemic annotation). Column G (ModelRef, ONNX style_oracle binding). Total overhead +5.9% per row (6212→6578 bytes), still fits L3 cache.
+**Path:** `.claude/plans/bindspace-columns-v1.md`
+**Companions:** EPIPHANIES.md 2026-04-26 (4 entries), TD-AWARENESS-INLINE-1, TD-PALETTE-SENTINEL
+**Scientific review:** 7 SOUND, 7 CAUTION, 0 WRONG (Jirak/Pearl/NARS/Kleyko/Shaw cross-check)
+**Deliverables:** D-H1..4 (Phase 1), D-E1..6 (Phase 2), D-F1..9 (Phase 3), D-G1..5 (Phase 4). 24 total.
+**Cross-ref:** LF integration mapping v1 (Stages 2/5/6), Q2 Foundry plan (Vertex parity), soa-review.md §semantic kernel
