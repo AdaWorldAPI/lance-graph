@@ -109,7 +109,16 @@ impl TableReader for DeltaTableReader {
             ))
         })?;
 
-        ctx.register_table(table_name, Arc::new(delta_table))
+        let snapshot = delta_table.snapshot()
+            .map_err(|e| CatalogError::Other(format!("Failed to get Delta snapshot: {e}")))?
+            .snapshot()
+            .clone();
+        let log_store = delta_table.log_store();
+        let scan_config = Default::default();
+        let provider = deltalake::delta_datafusion::DeltaTableProvider::try_new(
+            snapshot, log_store, scan_config,
+        ).map_err(|e| CatalogError::Other(format!("Failed to create DeltaTableProvider: {e}")))?;
+        ctx.register_table(table_name, Arc::new(provider))
             .map_err(|e| {
                 CatalogError::Other(format!(
                     "Failed to register Delta table '{}': {}",

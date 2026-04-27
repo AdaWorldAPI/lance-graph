@@ -12,13 +12,14 @@ lance-graph-contract = { path = "../lance-graph-contract" }
 
 # [persist] — Arrow RecordBatch + Lance dataset ops
 arrow       = { version = "57", optional = true }
-lance       = { version = "2",  optional = true }
+lance       = { version = "4",  optional = true }
 
 # [query] / [query-lite] — DataFusion. Base dep has default-features = false.
 # The full `query` feature adds datafusion/default (compression backends etc).
 # The `query-lite` feature gets logical plan + optimizer without compression,
-# avoiding the xz2/liblzma `links = "lzma"` collision with lance v2.
-datafusion  = { version = "51", optional = true, default-features = false, features = ["unicode_expressions"] }
+# avoiding the xz2/liblzma `links = "lzma"` collision (lance v2 era; may be
+# resolved with lance 4 + datafusion 52 — verify and remove if so).
+datafusion  = { version = "52", optional = true, default-features = false, features = ["unicode_expressions"] }
 
 # [realtime] — version watcher, Phoenix channel shapes, WebSocket
 tokio            = { version = "1", features = ["sync"], optional = true }
