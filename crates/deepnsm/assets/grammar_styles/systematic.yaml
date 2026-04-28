@@ -1,0 +1,22 @@
+# (starter prior — tune empirically)
+# Systematic: methodical traversal, full TEKAMOLO, gaussian-weighted Markov.
+style: systematic
+nars:
+  primary: Deduction
+  fallback: Induction
+morphology:
+  tables: [english_svo, finnish_case_table, german_case_table]
+  agglutinative_mode: false
+tekamolo:
+  priority: [temporal, kausal, modal, lokal]
+  require_fillable: true
+markov:
+  radius: 5
+  kernel: gaussian
+  replay: forward
+spo_causal:
+  pearl_mask: 0x03
+  ambiguity_tolerance: 0.15
+coverage:
+  local_threshold: 0.88
+  escalate_below: 0.82

@@ -1,0 +1,22 @@
+# (starter prior — tune empirically)
+# Diffuse: wide context, induction-leaning, low fillable strictness.
+style: diffuse
+nars:
+  primary: Induction
+  fallback: Synthesis
+morphology:
+  tables: [english_svo, finnish_case_table, russian_case_table, german_case_table]
+  agglutinative_mode: true
+tekamolo:
+  priority: [modal, lokal, temporal, kausal]
+  require_fillable: false
+markov:
+  radius: 5
+  kernel: mexican_hat
+  replay: both_and_compare
+spo_causal:
+  pearl_mask: 0x3F
+  ambiguity_tolerance: 0.40
+coverage:
+  local_threshold: 0.70
+  escalate_below: 0.55
