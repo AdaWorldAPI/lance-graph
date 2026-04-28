@@ -42,7 +42,18 @@ auth-jwt = ["dep:serde", "dep:serde_json"]
 auth-rls-lite = ["auth-jwt", "query-lite"]
 auth-rls = ["auth-jwt", "query"]
 auth     = ["auth-rls"]
-full     = ["persist", "query", "realtime", "serve", "auth"]
+# LF-90 — append-only audit log skeleton (A3).
+audit-log = []
+# DM-8 — PostgREST stub uses a dependency-free hand-rolled JSON writer; the
+# feature flag turns the module on without dragging serde in.
+postgrest = []
+# A4 plugin slots. Each is independently activatable; the `with_*` builder on
+# `MembraneRegistry` is gated on the slot feature plus the underlying module
+# feature (so e.g. enabling `membrane-plugins-rls` without an RLS feature is
+# a no-op rather than a compile error).
+membrane-plugins-rls = []
+membrane-plugins-audit = ["audit-log"]
+full     = ["persist", "query", "realtime", "serve", "auth", "audit-log", "postgrest", "membrane-plugins-rls", "membrane-plugins-audit"]
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
