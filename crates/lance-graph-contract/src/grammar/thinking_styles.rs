@@ -303,6 +303,327 @@ pub fn revise_truth(current: TruthValue, f_obs: f32, c_obs: f32) -> TruthValue {
 }
 
 // ---------------------------------------------------------------------------
+// YAML loader (zero-dep, line-based)
+// ---------------------------------------------------------------------------
+//
+// Supports the strict subset our `grammar_styles/<style>.yaml` files use:
+//   - top-level scalars   (`style: analytical`)
+//   - top-level mappings  (`nars:` followed by indented `primary: …` lines)
+//   - inline flow lists   (`tables: [english_svo, finnish_case_table]`)
+//   - block lists         (one `- item` per line, indented under a key)
+//   - leading `#` comments and blank lines are ignored
+//   - hex literals (`0x01`, `0xFF`) accepted for `pearl_mask`
+//
+// Anything outside this subset returns a textual error rather than panicking
+// — these files are config, not user input, so a hard error during boot is
+// the correct failure mode.
+
+/// Parse a `grammar_styles/<style>.yaml` document into [`GrammarStyleConfig`].
+///
+/// Implementation: a small line-based YAML reader. We deliberately avoid
+/// pulling `serde_yaml` into the zero-dep contract crate.
+pub fn parse_style_yaml(yaml: &str) -> Result<GrammarStyleConfig, String> {
+    // Pass 1: collect a flat (path, value) map. `path` is dot-joined.
+    let pairs = collect_yaml_pairs(yaml)?;
+    config_from_pairs(&pairs)
+}
+
+/// Build a [`GrammarStyleConfig`] from already-flattened key/value pairs.
+/// Public so tests / alternative loaders can supply pairs directly when the
+/// YAML reader's subset is too narrow.
+pub fn config_from_pairs(pairs: &[(String, String)]) -> Result<GrammarStyleConfig, String> {
+    let lookup = |k: &str| -> Option<&str> {
+        pairs.iter().find(|(p, _)| p == k).map(|(_, v)| v.as_str())
+    };
+    let lookup_list = |k: &str| -> Vec<String> {
+        pairs
+            .iter()
+            .filter_map(|(p, v)| {
+                if p == k || p.starts_with(&format!("{k}.")) {
+                    Some(v.clone())
+                } else {
+                    None
+                }
+            })
+            .collect()
+    };
+    let req = |k: &str| -> Result<&str, String> {
+        lookup(k).ok_or_else(|| format!("missing key: {k}"))
+    };
+
+    let style = parse_style_name(req("style")?)?;
+
+    let nars = NarsPriorityChain {
+        primary: parse_nars_inference(req("nars.primary")?)?,
+        fallback: parse_nars_inference(req("nars.fallback")?)?,
+    };
+
+    let table_strs = lookup_list("morphology.tables");
+    let mut tables = Vec::new();
+    for s in &table_strs {
+        tables.push(parse_morphology_table(s)?);
+    }
+    let agglutinative_mode = parse_bool(req("morphology.agglutinative_mode")?)?;
+    let morphology = MorphologyPolicy { tables, agglutinative_mode };
+
+    let slot_strs = lookup_list("tekamolo.priority");
+    let mut priority = Vec::new();
+    for s in &slot_strs {
+        priority.push(parse_tekamolo_slot(s)?);
+    }
+    let require_fillable = parse_bool(req("tekamolo.require_fillable")?)?;
+    let tekamolo = TekamoloPolicy { priority, require_fillable };
+
+    let radius: u8 = req("markov.radius")?
+        .parse()
+        .map_err(|e| format!("markov.radius: {e}"))?;
+    let kernel = parse_kernel(req("markov.kernel")?)?;
+    let replay = parse_replay(req("markov.replay")?)?;
+    let markov = MarkovPolicy { radius, kernel, replay };
+
+    let pearl_mask = parse_u8_with_hex(req("spo_causal.pearl_mask")?)?;
+    let ambiguity_tolerance: f32 = req("spo_causal.ambiguity_tolerance")?
+        .parse()
+        .map_err(|e| format!("spo_causal.ambiguity_tolerance: {e}"))?;
+    let spo_causal = SpoCausalPolicy { pearl_mask, ambiguity_tolerance };
+
+    let local_threshold: f32 = req("coverage.local_threshold")?
+        .parse()
+        .map_err(|e| format!("coverage.local_threshold: {e}"))?;
+    let escalate_below: f32 = req("coverage.escalate_below")?
+        .parse()
+        .map_err(|e| format!("coverage.escalate_below: {e}"))?;
+    let coverage = CoveragePolicy { local_threshold, escalate_below };
+
+    Ok(GrammarStyleConfig {
+        style,
+        nars,
+        morphology,
+        tekamolo,
+        markov,
+        spo_causal,
+        coverage,
+    })
+}
+
+/// Flatten a YAML document into `(dotted.path, value)` pairs. List items
+/// repeat the key (`tekamolo.priority` appears once per slot).
+fn collect_yaml_pairs(yaml: &str) -> Result<Vec<(String, String)>, String> {
+    let mut out = Vec::new();
+    // path_stack tracks (indent, key) for the active mapping nesting.
+    let mut path_stack: Vec<(usize, String)> = Vec::new();
+    let mut active_list_key: Option<(usize, String)> = None;
+
+    for (lineno, raw_line) in yaml.lines().enumerate() {
+        // Strip comments (only when not inside a quoted scalar — our config
+        // files don't use quoted scalars, so plain split is safe).
+        let line_no_comment = match raw_line.find('#') {
+            Some(idx) => &raw_line[..idx],
+            None => raw_line,
+        };
+        let trimmed = line_no_comment.trim_end();
+        if trimmed.trim().is_empty() {
+            continue;
+        }
+        let indent = trimmed.chars().take_while(|c| *c == ' ').count();
+        let body = trimmed.trim_start();
+
+        // Block list item.
+        if let Some(item) = body.strip_prefix("- ") {
+            let key = active_list_key
+                .as_ref()
+                .map(|(_, k)| k.clone())
+                .ok_or_else(|| format!("line {}: list item without parent key", lineno + 1))?;
+            out.push((key, item.trim().to_string()));
+            continue;
+        }
+        // Leaving a list block (this line isn't a `- ` item but indent matches).
+        if active_list_key.is_some() {
+            active_list_key = None;
+        }
+
+        // Pop path entries whose indent ≥ current line's indent.
+        while path_stack.last().map(|(i, _)| *i).unwrap_or(usize::MAX) != usize::MAX
+            && path_stack.last().map(|(i, _)| *i >= indent).unwrap_or(false)
+        {
+            path_stack.pop();
+        }
+
+        // Split `key: value` (value may be empty for parent maps).
+        let (key_raw, value_raw) = match body.split_once(':') {
+            Some((k, v)) => (k.trim(), v.trim()),
+            None => return Err(format!("line {}: missing ':' in '{}'", lineno + 1, body)),
+        };
+        let dotted = if path_stack.is_empty() {
+            key_raw.to_string()
+        } else {
+            let prefix: Vec<&str> = path_stack.iter().map(|(_, k)| k.as_str()).collect();
+            format!("{}.{}", prefix.join("."), key_raw)
+        };
+
+        if value_raw.is_empty() {
+            // Parent map; remember it for the next deeper indent block.
+            path_stack.push((indent, key_raw.to_string()));
+            // Could become a list parent on the next line; record provisional.
+            active_list_key = Some((indent, dotted));
+            continue;
+        }
+
+        // Inline flow list: `[a, b, c]`.
+        if let Some(rest) = value_raw.strip_prefix('[') {
+            let rest = rest
+                .strip_suffix(']')
+                .ok_or_else(|| format!("line {}: unterminated flow list", lineno + 1))?;
+            for item in rest.split(',') {
+                let item = item.trim();
+                if !item.is_empty() {
+                    out.push((dotted.clone(), item.to_string()));
+                }
+            }
+            continue;
+        }
+
+        // Scalar.
+        out.push((dotted, value_raw.to_string()));
+    }
+
+    Ok(out)
+}
+
+fn parse_style_name(s: &str) -> Result<ThinkingStyle, String> {
+    // Spec ships 12 starter styles; map each to the closest entry in the
+    // canonical 36-style taxonomy. Any genuine ThinkingStyle variant name
+    // (case-insensitive) is also accepted as a passthrough.
+    let lower = s.trim().to_ascii_lowercase();
+    Ok(match lower.as_str() {
+        "analytical"    => ThinkingStyle::Analytical,
+        "convergent"    => ThinkingStyle::Logical,
+        "systematic"    => ThinkingStyle::Systematic,
+        "creative"      => ThinkingStyle::Creative,
+        "divergent"     => ThinkingStyle::Imaginative,
+        "exploratory"   => ThinkingStyle::Exploratory,
+        "focused"       => ThinkingStyle::Precise,
+        "diffuse"       => ThinkingStyle::Reflective,
+        "peripheral"    => ThinkingStyle::Curious,
+        "intuitive"     => ThinkingStyle::Empathetic,
+        "deliberate"    => ThinkingStyle::Methodical,
+        "metacognitive" => ThinkingStyle::Metacognitive,
+        // Passthrough for canonical names.
+        "logical"       => ThinkingStyle::Logical,
+        "critical"      => ThinkingStyle::Critical,
+        "methodical"    => ThinkingStyle::Methodical,
+        "precise"       => ThinkingStyle::Precise,
+        "imaginative"   => ThinkingStyle::Imaginative,
+        "innovative"    => ThinkingStyle::Innovative,
+        "artistic"      => ThinkingStyle::Artistic,
+        "poetic"        => ThinkingStyle::Poetic,
+        "playful"       => ThinkingStyle::Playful,
+        "empathetic"    => ThinkingStyle::Empathetic,
+        "compassionate" => ThinkingStyle::Compassionate,
+        "supportive"    => ThinkingStyle::Supportive,
+        "nurturing"     => ThinkingStyle::Nurturing,
+        "gentle"        => ThinkingStyle::Gentle,
+        "warm"          => ThinkingStyle::Warm,
+        "direct"        => ThinkingStyle::Direct,
+        "concise"       => ThinkingStyle::Concise,
+        "efficient"     => ThinkingStyle::Efficient,
+        "pragmatic"     => ThinkingStyle::Pragmatic,
+        "blunt"         => ThinkingStyle::Blunt,
+        "frank"         => ThinkingStyle::Frank,
+        "curious"       => ThinkingStyle::Curious,
+        "questioning"   => ThinkingStyle::Questioning,
+        "investigative" => ThinkingStyle::Investigative,
+        "speculative"   => ThinkingStyle::Speculative,
+        "philosophical" => ThinkingStyle::Philosophical,
+        "reflective"    => ThinkingStyle::Reflective,
+        "contemplative" => ThinkingStyle::Contemplative,
+        "wise"          => ThinkingStyle::Wise,
+        "transcendent"  => ThinkingStyle::Transcendent,
+        "sovereign"     => ThinkingStyle::Sovereign,
+        other => return Err(format!("unknown style: {other}")),
+    })
+}
+
+fn parse_nars_inference(s: &str) -> Result<NarsInference, String> {
+    let lower = s.trim().to_ascii_lowercase();
+    Ok(match lower.as_str() {
+        "deduction"                       => NarsInference::Deduction,
+        "induction"                       => NarsInference::Induction,
+        "abduction"                       => NarsInference::Abduction,
+        "revision"                        => NarsInference::Revision,
+        "synthesis"                       => NarsInference::Synthesis,
+        "extrapolation"                   => NarsInference::Extrapolation,
+        "counterfactualsynthesis" | "counterfactual_synthesis" | "counterfactual"
+                                          => NarsInference::CounterfactualSynthesis,
+        other => return Err(format!("unknown nars inference: {other}")),
+    })
+}
+
+fn parse_morphology_table(s: &str) -> Result<MorphologyTableId, String> {
+    let lower = s.trim().to_ascii_lowercase();
+    Ok(match lower.as_str() {
+        "english_svo"             => MorphologyTableId::EnglishSvo,
+        "finnish_case_table" | "finnish_case" => MorphologyTableId::FinnishCase,
+        "russian_case_table" | "russian_case" => MorphologyTableId::RussianCase,
+        "german_case_table"  | "german_case"  => MorphologyTableId::GermanCase,
+        "turkish_aggl" | "turkish_agglutinative" => MorphologyTableId::TurkishAgglutinative,
+        "japanese_particle" | "japanese_particles" => MorphologyTableId::JapaneseParticles,
+        other => return Err(format!("unknown morphology table: {other}")),
+    })
+}
+
+fn parse_tekamolo_slot(s: &str) -> Result<TekamoloSlot, String> {
+    let lower = s.trim().to_ascii_lowercase();
+    Ok(match lower.as_str() {
+        "temporal"   => TekamoloSlot::Temporal,
+        "kausal"     => TekamoloSlot::Kausal,
+        "modal"      => TekamoloSlot::Modal,
+        "lokal"      => TekamoloSlot::Lokal,
+        // `instrument` is in the spec's enum sketch but absent from the
+        // canonical `TekamoloSlot`; map to Modal as the closest fit.
+        "instrument" => TekamoloSlot::Modal,
+        other => return Err(format!("unknown tekamolo slot: {other}")),
+    })
+}
+
+fn parse_kernel(s: &str) -> Result<WeightingKernel, String> {
+    let lower = s.trim().to_ascii_lowercase();
+    Ok(match lower.as_str() {
+        "uniform"     => WeightingKernel::Uniform,
+        "mexican_hat" | "mexicanhat" => WeightingKernel::MexicanHat,
+        "gaussian"    => WeightingKernel::Gaussian,
+        other => return Err(format!("unknown kernel: {other}")),
+    })
+}
+
+fn parse_replay(s: &str) -> Result<ReplayStrategy, String> {
+    let lower = s.trim().to_ascii_lowercase();
+    Ok(match lower.as_str() {
+        "forward"            => ReplayStrategy::Forward,
+        "backward"           => ReplayStrategy::Backward,
+        "both_and_compare" | "bothandcompare" => ReplayStrategy::BothAndCompare,
+        other => return Err(format!("unknown replay direction: {other}")),
+    })
+}
+
+fn parse_bool(s: &str) -> Result<bool, String> {
+    match s.trim().to_ascii_lowercase().as_str() {
+        "true" | "yes" | "on"  => Ok(true),
+        "false" | "no" | "off" => Ok(false),
+        other => Err(format!("expected bool, got '{other}'")),
+    }
+}
+
+fn parse_u8_with_hex(s: &str) -> Result<u8, String> {
+    let s = s.trim();
+    if let Some(hex) = s.strip_prefix("0x").or_else(|| s.strip_prefix("0X")) {
+        u8::from_str_radix(hex, 16).map_err(|e| format!("hex u8 '{s}': {e}"))
+    } else {
+        s.parse().map_err(|e| format!("u8 '{s}': {e}"))
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -561,5 +882,183 @@ mod tests {
         let eff = a.effective_config(&prior);
         assert_eq!(eff.morphology.tables.len(), prior_tables_len);
         assert_eq!(prior.morphology.tables.len(), prior_tables_len);
+    }
+
+    // -- YAML parser ---------------------------------------------------------
+
+    const ANALYTICAL_YAML: &str = r#"
+style: analytical
+nars:
+  primary: Deduction
+  fallback: Abduction
+morphology:
+  tables: [english_svo, finnish_case_table]
+  agglutinative_mode: false
+tekamolo:
+  priority: [temporal, lokal, kausal, modal]
+  require_fillable: true
+markov:
+  radius: 5
+  kernel: uniform
+  replay: forward
+spo_causal:
+  pearl_mask: 0x01
+  ambiguity_tolerance: 0.1
+coverage:
+  local_threshold: 0.90
+  escalate_below: 0.85
+"#;
+
+    #[test]
+    fn parse_style_yaml_analytical_ok() {
+        let cfg = parse_style_yaml(ANALYTICAL_YAML).expect("parse failed");
+        assert_eq!(cfg.style, ThinkingStyle::Analytical);
+        assert_eq!(cfg.nars.primary, NarsInference::Deduction);
+        assert_eq!(cfg.nars.fallback, NarsInference::Abduction);
+        assert_eq!(cfg.morphology.tables.len(), 2);
+        assert!(!cfg.morphology.agglutinative_mode);
+        assert_eq!(cfg.tekamolo.priority.len(), 4);
+        assert!(cfg.tekamolo.require_fillable);
+        assert_eq!(cfg.markov.radius, 5);
+        assert_eq!(cfg.markov.kernel, WeightingKernel::Uniform);
+        assert_eq!(cfg.markov.replay, ReplayStrategy::Forward);
+        assert_eq!(cfg.spo_causal.pearl_mask, 0x01);
+        assert!((cfg.spo_causal.ambiguity_tolerance - 0.1).abs() < 1e-6);
+        assert!((cfg.coverage.local_threshold - 0.90).abs() < 1e-6);
+        assert!((cfg.coverage.escalate_below - 0.85).abs() < 1e-6);
+    }
+
+    #[test]
+    fn parse_style_yaml_block_list_form() {
+        // Block-list form for `tables` (one `- item` per line) must work
+        // identically to the inline `[a, b]` form.
+        let yaml = r#"
+style: exploratory
+nars:
+  primary: CounterfactualSynthesis
+  fallback: Abduction
+morphology:
+  tables:
+    - english_svo
+    - finnish_case_table
+    - russian_case_table
+  agglutinative_mode: true
+tekamolo:
+  priority:
+    - modal
+    - kausal
+    - lokal
+    - temporal
+  require_fillable: false
+markov:
+  radius: 5
+  kernel: mexican_hat
+  replay: both_and_compare
+spo_causal:
+  pearl_mask: 0xFF
+  ambiguity_tolerance: 0.4
+coverage:
+  local_threshold: 0.70
+  escalate_below: 0.50
+"#;
+        let cfg = parse_style_yaml(yaml).expect("parse failed");
+        assert_eq!(cfg.style, ThinkingStyle::Exploratory);
+        assert_eq!(cfg.nars.primary, NarsInference::CounterfactualSynthesis);
+        assert_eq!(cfg.morphology.tables.len(), 3);
+        assert!(cfg.morphology.agglutinative_mode);
+        assert_eq!(cfg.markov.kernel, WeightingKernel::MexicanHat);
+        assert_eq!(cfg.markov.replay, ReplayStrategy::BothAndCompare);
+        assert_eq!(cfg.spo_causal.pearl_mask, 0xFF);
+    }
+
+    #[test]
+    fn parse_style_yaml_unknown_style_errors() {
+        let yaml = r#"
+style: nonsensestyle
+nars: { primary: Deduction, fallback: Abduction }
+"#;
+        // We don't even need full coverage; the style parse fails first.
+        // (The `nars: { ... }` flow-map form isn't supported by our subset,
+        // but the style error short-circuits before that matters.)
+        let err = parse_style_yaml(yaml).err().expect("expected error");
+        assert!(err.to_lowercase().contains("style") || err.contains("nonsense"));
+    }
+
+    #[test]
+    fn truth_revision_neutral_to_local_success_raises_frequency() {
+        // Spec test: NEUTRAL revised by LocalSuccess.observation() raises f.
+        let neutral = TruthValue::new(0.5, 0.01);
+        let (f_obs, c_obs) = ParseOutcome::LocalSuccess.observation();
+        let revised = revise_truth(neutral, f_obs, c_obs);
+        assert!(
+            revised.frequency > 0.5,
+            "LocalSuccess revision must raise frequency, got {}",
+            revised.frequency
+        );
+    }
+
+    #[test]
+    fn truth_revision_neutral_to_local_failure_lowers_frequency() {
+        let neutral = TruthValue::new(0.5, 0.01);
+        let (f_obs, c_obs) = ParseOutcome::LocalFailureLLMSucceeded.observation();
+        let revised = revise_truth(neutral, f_obs, c_obs);
+        assert!(
+            revised.frequency < 0.5,
+            "LocalFailure revision must lower frequency, got {}",
+            revised.frequency
+        );
+    }
+
+    #[test]
+    fn revise_confidence_is_monotone_under_fixed_c_obs() {
+        // Confidence rises monotonically when `c_obs` is held constant
+        // (regardless of frequency polarity). Mixing `c_obs` sizes can
+        // pull confidence between two different asymptotes — that's a
+        // separate (well-known) behaviour, not a violation.
+        let mut t = TruthValue::new(0.5, 0.01);
+        let mut last_c = t.confidence;
+        for i in 0..30 {
+            // Alternate polarity, keep c_obs fixed at 1.0.
+            let (f_obs, c_obs) = if i % 2 == 0 {
+                ParseOutcome::LocalSuccess.observation()
+            } else {
+                ParseOutcome::EscalatedAndLLMDisagreed.observation()
+            };
+            t = revise_truth(t, f_obs, c_obs);
+            assert!(
+                t.confidence >= last_c,
+                "confidence regressed at step {i}: {} → {}",
+                last_c, t.confidence
+            );
+            last_c = t.confidence;
+        }
+    }
+
+    #[test]
+    fn effective_config_preserves_prior_shape_for_empty_awareness() {
+        // Empty awareness: every collection-shaped policy slot must round-trip
+        // unchanged. `nars.primary` is allowed to fall through to fallback at
+        // bootstrap (current `top_nars_inference` policy); we lock the
+        // structural shape here, not the specific NARS choice.
+        let prior = base_prior();
+        let a = GrammarStyleAwareness::bootstrap(prior.style);
+        let eff = a.effective_config(&prior);
+        assert_eq!(eff.style, prior.style);
+        assert_eq!(eff.nars.fallback, prior.nars.fallback);
+        // primary is either the prior's primary or its fallback at bootstrap.
+        assert!(
+            eff.nars.primary == prior.nars.primary || eff.nars.primary == prior.nars.fallback,
+            "effective primary should be prior.primary or prior.fallback, got {:?}",
+            eff.nars.primary
+        );
+        assert_eq!(eff.morphology.tables, prior.morphology.tables);
+        assert_eq!(eff.morphology.agglutinative_mode, prior.morphology.agglutinative_mode);
+        assert_eq!(eff.tekamolo.priority, prior.tekamolo.priority);
+        assert_eq!(eff.tekamolo.require_fillable, prior.tekamolo.require_fillable);
+        assert_eq!(eff.markov.radius, prior.markov.radius);
+        assert_eq!(eff.markov.kernel, prior.markov.kernel);
+        assert_eq!(eff.markov.replay, prior.markov.replay);
+        assert_eq!(eff.spo_causal, prior.spo_causal);
+        assert_eq!(eff.coverage, prior.coverage);
     }
 }
