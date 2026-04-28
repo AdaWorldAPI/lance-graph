@@ -45,42 +45,96 @@ pub struct ContextChain {
 /// Result of a counterfactual disambiguation: the chosen candidate, its
 /// coherence, the margin to second place, the full ranked alternatives,
 /// and whether the caller should escalate to an LLM.
+///
+/// D4 (2026-04 worker B2) extended this with `winner_index`, an alias
+/// `winner`, `dispersion` across the top-3 candidates, and a
+/// `candidate_count`. `chosen` and `winner` are equal by construction
+/// (`winner` is the canonical D4 name; `chosen` is preserved for
+/// existing consumers).
+///
+/// Empty-candidates contract: returns a sentinel result with
+/// `candidate_count = 0`, `winner_index = usize::MAX`, a zero
+/// `Binary16K` placeholder fingerprint, and `escalate_to_llm = true`.
+/// Callers should check `candidate_count == 0` (or `escalate_to_llm`)
+/// before reading `winner` / `chosen`.
 #[derive(Debug, Clone)]
 pub struct DisambiguationResult {
     pub chosen: CrystalFingerprint,
     pub coherence: f32,
-    /// `chosen.coherence - second_place.coherence`. Zero if only one candidate.
+    /// `chosen.coherence - second_place.coherence`. Zero if only one
+    /// candidate. `> DISAMBIGUATION_MARGIN_THRESHOLD` (~0.1) means
+    /// the winner is confidently above the runner-up.
     pub margin: f32,
     /// All candidates with their scores, sorted descending by coherence.
     pub alternatives: Vec<(CrystalFingerprint, f32)>,
     /// True if `margin < DISAMBIGUATION_MARGIN_THRESHOLD` (ambiguous, escalate).
     pub escalate_to_llm: bool,
+
+    // ── D4 reasoning-operator extensions ──────────────────────────
+    /// Index of the winner in the original candidate iterator (0-based).
+    /// `usize::MAX` if the candidate iterator was empty.
+    pub winner_index: usize,
+    /// Best candidate's fingerprint. Equal to `chosen`; provided under the
+    /// canonical D4 name for new callers.
+    pub winner: CrystalFingerprint,
+    /// Mean pairwise normalized Hamming distance across the top-3
+    /// candidates' Binary16K fingerprints. High value (close to 0.5)
+    /// indicates the alternatives spread out — "no clear winner."
+    /// Zero if fewer than two top candidates carry comparable
+    /// `Binary16K` fingerprints.
+    pub dispersion: f32,
+    /// Total candidates evaluated (length of the input iterator).
+    pub candidate_count: usize,
 }
 
 /// Weighting kernel for temporal position in the Markov chain.
 /// Mexican-hat emphasizes focal, de-emphasizes distant positions.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum WeightingKernel {
+    /// All positions weighted equally.
     Uniform,
+    /// Mexican-hat (DoG) — focal positive, near-neighbors decay through
+    /// zero-crossing into a small negative tail. Captures
+    /// anticipation / surprise on context shift. Default kernel.
+    #[default]
     MexicanHat,
+    /// Standard Gaussian decay from focal.
     Gaussian,
 }
 
 impl WeightingKernel {
-    /// Weight for a position at distance `d` from focal (0 = focal, 5 = edge).
-    pub fn weight(&self, d: usize) -> f32 {
+    /// Weight at signed offset `delta` (signed) for window `radius`.
+    /// Returns f32 in roughly `[-1, 1]`.
+    ///
+    /// `delta = 0` is the focal position; `|delta| = radius` is the edge of
+    /// the window. The kernel is symmetric in `delta` for all variants
+    /// (uniform / mexican-hat / gaussian).
+    ///
+    /// Approximate ricker wavelet: `(1 - d²) · exp(-d²/2)` where
+    /// `d = |delta| / max(radius, 1)`. Gaussian uses `exp(-d²/2)`.
+    pub fn weight(&self, delta: i32, radius: u32) -> f32 {
+        let r = radius.max(1) as f32;
         match self {
             Self::Uniform => 1.0,
             Self::MexicanHat => {
-                // Peak at focal (d=0), smooth fall-off, slight negative at edge.
-                let x = d as f32 / (MARKOV_RADIUS as f32);
-                (1.0 - 2.0 * x * x) * (-x * x * 2.0).exp()
+                let d = delta.unsigned_abs() as f32 / r;
+                let dd = d * d;
+                (1.0 - dd) * (-dd / 2.0).exp()
             }
             Self::Gaussian => {
-                let x = d as f32 / (MARKOV_RADIUS as f32);
-                (-x * x * 2.0).exp()
+                // delta is signed but the kernel is symmetric; using the
+                // absolute value avoids relying on signed-cast semantics.
+                let d = delta.unsigned_abs() as f32 / r;
+                (-(d * d) / 2.0).exp()
             }
         }
+    }
+
+    /// Convenience: weight at unsigned distance `d` from focal under the
+    /// chain's default radius (`MARKOV_RADIUS`). Equivalent to
+    /// `self.weight(d as i32, MARKOV_RADIUS as u32)`.
+    pub fn weight_at_distance(&self, d: usize) -> f32 {
+        self.weight(d as i32, MARKOV_RADIUS as u32)
     }
 }
 
@@ -202,10 +256,20 @@ impl ContextChain {
     /// Counterfactual disambiguation: try each candidate at position `i`,
     /// return the one with highest coherence and the decision margin.
     ///
+    /// Each candidate is scored by the `total_coherence` of the chain
+    /// after replacing position `i` with that candidate. The result
+    /// also carries `winner_index` (position in the input iterator),
+    /// `dispersion` (mean pairwise Binary16K Hamming distance across
+    /// the top-3 candidates), and `candidate_count`.
+    ///
     /// Edge cases:
-    /// - Empty candidate list: returns a result with a placeholder zero
-    ///   fingerprint and `escalate_to_llm = true`.
-    /// - Single candidate: `margin = 0.0`, `escalate_to_llm = true`.
+    /// - **Empty candidate iterator**: returns the documented sentinel
+    ///   (`candidate_count = 0`, `winner_index = usize::MAX`,
+    ///   placeholder `Binary16K` fingerprint, `escalate_to_llm = true`).
+    ///   Does *not* panic — keeping the API total simplifies caller
+    ///   code in the cypher bridge.
+    /// - **Single candidate**: `margin = 0.0`, `dispersion = 0.0`,
+    ///   `escalate_to_llm = true`.
     pub fn disambiguate<I>(
         &self,
         i: usize,
@@ -214,46 +278,90 @@ impl ContextChain {
     where
         I: IntoIterator<Item = CrystalFingerprint>,
     {
-        let mut scored: Vec<(CrystalFingerprint, f32)> = candidates
+        // Score with original input index preserved so we can report
+        // `winner_index` in the iterator's order.
+        let mut scored: Vec<(usize, CrystalFingerprint, f32)> = candidates
             .into_iter()
-            .map(|cand| {
+            .enumerate()
+            .map(|(idx, cand)| {
                 let (_chain, coh) = self.replay_with_alternative(i, cand.clone());
-                (cand, coh)
+                (idx, cand, coh)
             })
             .collect();
 
+        let candidate_count = scored.len();
+
         if scored.is_empty() {
-            // Placeholder: caller should check `escalate_to_llm`.
+            // Documented sentinel — never panic; callers gate on
+            // `escalate_to_llm` or `candidate_count == 0`.
+            let placeholder =
+                CrystalFingerprint::Binary16K(Box::new([0u64; 256]));
             return DisambiguationResult {
-                chosen: CrystalFingerprint::Binary16K(Box::new([0u64; 256])),
+                chosen: placeholder.clone(),
                 coherence: 0.0,
                 margin: 0.0,
                 alternatives: Vec::new(),
                 escalate_to_llm: true,
+                winner_index: usize::MAX,
+                winner: placeholder,
+                dispersion: 0.0,
+                candidate_count: 0,
             };
         }
 
         // Sort descending by coherence; ties resolved by insertion order
         // (stable sort + NaN-safe partial_cmp fallback to Equal).
         scored.sort_by(|a, b| {
-            b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
+            b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal)
         });
 
-        let (chosen, coherence) = scored[0].clone();
+        let winner_index = scored[0].0;
+        let chosen = scored[0].1.clone();
+        let coherence = scored[0].2;
         let margin = if scored.len() >= 2 {
-            scored[0].1 - scored[1].1
+            scored[0].2 - scored[1].2
         } else {
             0.0
         };
         let escalate_to_llm =
             scored.len() < 2 || margin < DISAMBIGUATION_MARGIN_THRESHOLD;
 
+        // Dispersion: mean pairwise normalized Hamming distance over the
+        // top-3 candidates. Only Binary16K pairs contribute; if fewer
+        // than two contribute, dispersion is 0.0 (cannot say).
+        let top_n = scored.len().min(3);
+        let mut pair_sum: f32 = 0.0;
+        let mut pair_count: u32 = 0;
+        for a_idx in 0..top_n {
+            for b_idx in (a_idx + 1)..top_n {
+                let a_bits = binary16k_bits(&scored[a_idx].1);
+                let b_bits = binary16k_bits(&scored[b_idx].1);
+                if let (Some(a), Some(b)) = (a_bits, b_bits) {
+                    let d = hamming_256(a, b) as f32 / MAX_HAMMING_BITS as f32;
+                    pair_sum += d;
+                    pair_count += 1;
+                }
+            }
+        }
+        let dispersion = if pair_count == 0 {
+            0.0
+        } else {
+            pair_sum / pair_count as f32
+        };
+
+        let alternatives: Vec<(CrystalFingerprint, f32)> =
+            scored.into_iter().map(|(_, fp, c)| (fp, c)).collect();
+
         DisambiguationResult {
-            chosen,
+            chosen: chosen.clone(),
             coherence,
             margin,
-            alternatives: scored,
+            alternatives,
             escalate_to_llm,
+            winner_index,
+            winner: chosen,
+            dispersion,
+            candidate_count,
         }
     }
 }
@@ -453,23 +561,206 @@ mod tests {
     #[test]
     fn mexican_hat_weights_monotone() {
         // Mexican-hat: peak at d=0, monotone decrease through d=1..5.
+        // Test through the convenience helper for compactness; the
+        // primary API is `weight(delta: i32, radius: u32)`.
         let k = WeightingKernel::MexicanHat;
-        let w0 = k.weight(0);
-        let w1 = k.weight(1);
-        let w2 = k.weight(2);
-        let w3 = k.weight(3);
-        let w4 = k.weight(4);
-        let w5 = k.weight(5);
+        let w0 = k.weight_at_distance(0);
+        let w1 = k.weight_at_distance(1);
+        let w2 = k.weight_at_distance(2);
+        let w3 = k.weight_at_distance(3);
+        let w4 = k.weight_at_distance(4);
+        let w5 = k.weight_at_distance(5);
         assert!(w0 > w1, "w(0)={w0} should exceed w(1)={w1}");
         assert!(w1 > w2, "w(1)={w1} should exceed w(2)={w2}");
         assert!(w2 > w3, "w(2)={w2} should exceed w(3)={w3}");
         assert!(w3 > w4, "w(3)={w3} should exceed w(4)={w4}");
         assert!(w4 > w5, "w(4)={w4} should exceed w(5)={w5}");
         // Uniform and Gaussian sanity checks.
-        assert_eq!(WeightingKernel::Uniform.weight(0), 1.0);
-        assert_eq!(WeightingKernel::Uniform.weight(5), 1.0);
-        let g0 = WeightingKernel::Gaussian.weight(0);
-        let g5 = WeightingKernel::Gaussian.weight(5);
+        assert_eq!(WeightingKernel::Uniform.weight_at_distance(0), 1.0);
+        assert_eq!(WeightingKernel::Uniform.weight_at_distance(5), 1.0);
+        let g0 = WeightingKernel::Gaussian.weight_at_distance(0);
+        let g5 = WeightingKernel::Gaussian.weight_at_distance(5);
         assert!(g0 > g5, "gaussian should also decay: g(0)={g0}, g(5)={g5}");
+    }
+
+    // ── D4 reasoning-operator tests (worker B2, 2026-04) ────────────────
+
+    /// 1. `Uniform` returns 1.0 at every offset.
+    #[test]
+    fn d4_uniform_kernel_is_constant() {
+        let k = WeightingKernel::Uniform;
+        for delta in -10i32..=10 {
+            for radius in 1u32..=5 {
+                let w = k.weight(delta, radius);
+                assert!(
+                    (w - 1.0).abs() < f32::EPSILON,
+                    "Uniform({delta}, {radius}) = {w}, expected 1.0"
+                );
+            }
+        }
+    }
+
+    /// 2. `MexicanHat` is symmetric: w(-d, r) == w(+d, r).
+    #[test]
+    fn d4_mexican_hat_symmetric() {
+        let k = WeightingKernel::MexicanHat;
+        for radius in [1u32, 2, 3, 5, 8] {
+            for d in 1i32..=10 {
+                let w_pos = k.weight(d, radius);
+                let w_neg = k.weight(-d, radius);
+                assert!(
+                    (w_pos - w_neg).abs() < 1e-6,
+                    "MexicanHat asymmetric at d={d} r={radius}: \
+                     w(+d)={w_pos} w(-d)={w_neg}"
+                );
+            }
+        }
+        // Gaussian also symmetric (same code path via |delta|).
+        let g = WeightingKernel::Gaussian;
+        for radius in [1u32, 5] {
+            for d in 1i32..=5 {
+                assert!(
+                    (g.weight(d, radius) - g.weight(-d, radius)).abs() < 1e-6,
+                    "Gaussian should also be symmetric"
+                );
+            }
+        }
+    }
+
+    /// 3. `MexicanHat` weight is monotone-decreasing in `|delta|` over the
+    ///    radius. Crosses zero at `|delta| ≈ radius` (where d² = 1) and
+    ///    stays in the negative tail past the radius — that is the
+    ///    Mexican-hat shape.
+    #[test]
+    fn d4_mexican_hat_monotone_and_zero_crossing() {
+        let k = WeightingKernel::MexicanHat;
+        let radius: u32 = 5;
+        // Monotone decrease in [0, radius].
+        let mut prev = k.weight(0, radius);
+        assert!(prev > 0.99, "focal weight should be ~1.0, got {prev}");
+        for d in 1i32..=radius as i32 {
+            let cur = k.weight(d, radius);
+            assert!(
+                cur < prev,
+                "MexicanHat not monotone at d={d}: prev={prev} cur={cur}"
+            );
+            prev = cur;
+        }
+        // At |delta| = radius, d² = 1 → (1 - 1) · exp(-0.5) = 0.
+        let edge = k.weight(radius as i32, radius);
+        assert!(
+            edge.abs() < 1e-6,
+            "MexicanHat zero-crossing should be at |delta|=radius, got {edge}"
+        );
+        // Beyond the radius the kernel goes negative (the "hat brim").
+        let beyond = k.weight((radius as i32) + 1, radius);
+        assert!(
+            beyond < 0.0,
+            "MexicanHat should be negative beyond radius, got {beyond}"
+        );
+    }
+
+    /// 4. `coherence_at` on a chain of identical fingerprints is ~1.0.
+    ///    (Existing `coherence_high_for_self_chain` covers this; this
+    ///    test re-verifies the D4 contract independently of the
+    ///    pre-existing test.)
+    #[test]
+    fn d4_coherence_self_chain_is_one() {
+        let fp = mk_fp(0x0102_0304_0506_0708);
+        let chain = fill_chain_with(&fp);
+        for i in 0..CHAIN_LEN {
+            let c = chain.coherence_at(i);
+            assert!(
+                c > 0.99,
+                "self-chain coherence at {i} should be ~1.0, got {c}"
+            );
+        }
+        let total = chain.total_coherence();
+        assert!(
+            total > 0.99,
+            "self-chain total_coherence should be ~1.0, got {total}"
+        );
+    }
+
+    /// 5. `disambiguate` with two candidates where one matches the
+    ///    surrounding chain → that one wins with non-zero margin and
+    ///    `winner_index` points at it.
+    #[test]
+    fn d4_disambiguate_picks_matching_candidate() {
+        let base = mk_fp(0x9999_AAAA_BBBB_CCCC);
+        let mut chain = fill_chain_with(&base);
+        // Blank position 4 so we can replay alternatives in.
+        chain.fingerprints[4] = None;
+
+        // Far-miss: fully inverted vs. base.
+        let far = match &base {
+            CrystalFingerprint::Binary16K(bits) => {
+                let mut inv = Box::new([0u64; 256]);
+                for (i, w) in bits.iter().enumerate() {
+                    inv[i] = !w;
+                }
+                CrystalFingerprint::Binary16K(inv)
+            }
+            _ => unreachable!(),
+        };
+
+        // Order: [far, base] → if base wins, winner_index must be 1.
+        let res = chain.disambiguate(4, vec![far, base.clone()]);
+        assert_eq!(res.candidate_count, 2);
+        assert_eq!(res.winner_index, 1, "base was at iterator index 1");
+        assert!(
+            res.margin > 0.0,
+            "matching candidate should have non-zero margin, got {}",
+            res.margin
+        );
+        // `winner` and `chosen` agree by construction.
+        match (&res.winner, &res.chosen) {
+            (CrystalFingerprint::Binary16K(a),
+             CrystalFingerprint::Binary16K(b)) => {
+                assert_eq!(**a, **b, "winner and chosen must agree");
+            }
+            _ => panic!("unexpected fingerprint variants"),
+        }
+        // Winner equals base.
+        match (&res.winner, &base) {
+            (CrystalFingerprint::Binary16K(a),
+             CrystalFingerprint::Binary16K(b)) => {
+                assert_eq!(**a, **b, "winner must be the matching base");
+            }
+            _ => panic!("unexpected fingerprint variants"),
+        }
+    }
+
+    /// 6. `disambiguate` with an empty candidate iterator returns the
+    ///    documented sentinel result (no panic). `candidate_count = 0`,
+    ///    `winner_index = usize::MAX`, `escalate_to_llm = true`.
+    #[test]
+    fn d4_disambiguate_empty_returns_sentinel() {
+        let chain = fill_chain_with(&mk_fp(0x1));
+        let res: DisambiguationResult =
+            chain.disambiguate(0, Vec::<CrystalFingerprint>::new());
+        assert_eq!(res.candidate_count, 0);
+        assert_eq!(res.winner_index, usize::MAX);
+        assert!(res.escalate_to_llm, "empty must escalate");
+        assert!(res.alternatives.is_empty());
+        assert_eq!(res.coherence, 0.0);
+        assert_eq!(res.margin, 0.0);
+        assert_eq!(res.dispersion, 0.0);
+        // The placeholder fingerprint is a zeroed Binary16K.
+        match &res.winner {
+            CrystalFingerprint::Binary16K(bits) => {
+                assert!(bits.iter().all(|&w| w == 0),
+                    "sentinel placeholder should be all-zero");
+            }
+            _ => panic!("sentinel must be Binary16K placeholder"),
+        }
+    }
+
+    /// `WeightingKernel::default()` is `MexicanHat` (D4 chose this as
+    /// the canonical kernel — focal-emphasizing with anticipation tail).
+    #[test]
+    fn d4_default_kernel_is_mexican_hat() {
+        let k: WeightingKernel = Default::default();
+        assert_eq!(k, WeightingKernel::MexicanHat);
     }
 }
