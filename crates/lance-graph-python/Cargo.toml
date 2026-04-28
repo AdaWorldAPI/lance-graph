@@ -14,7 +14,7 @@ arrow = { version = "57", features = ["pyarrow"] }
 arrow-array = "57"
 arrow-schema = "57"
 arrow-ipc = "57"
-datafusion = { version = "51", default-features = false }
+datafusion = { version = "52", default-features = false }
 futures = "0.3"
 lance-graph = { path = "../lance-graph" }
 serde = { version = "1", features = ["derive"] }
