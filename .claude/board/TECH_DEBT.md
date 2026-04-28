@@ -1186,3 +1186,59 @@ Should be designed as one coherent commit, not piecemeal.
 **Revisit when:** the next architectural sweep covers the awareness
 dimension. Until then, awareness stays driver-global. The epiphany
 documents the correct direction so future work doesn't re-derive it.
+
+## 2026-04-26 — TD-LANCEDB-FEATURES: lancedb 0.27.2 features worth wiring
+
+**Status:** Open (P-2 — dep exists behind `lancedb-sdk` feature gate, not yet consumed)
+
+lancedb 0.27.2 is in the workspace (optional, `lancedb-sdk` feature gate).
+It brings 9 lance sub-crates we don't dep directly, plus these features
+worth wiring into the cognitive stack:
+
+### RaBitQ (via lance-index)
+
+lance-index ships RaBitQ (Random Bit Quantization) — a scalar quantization
+method that compresses vectors to 1 bit per dimension while preserving
+distance ordering. This is the alternative to CAM-PQ for high-recall,
+low-precision nearest-neighbor search. lancedb exposes it through:
+- `Table::create_index()` with `IvfPq` or `IvfHnswSq` (scalar quantization)
+- The `fp16kernels` feature gate enables half-precision distance kernels
+
+**Where it fits:** CAM-PQ (our current codec) is 6 bytes per vector. RaBitQ
+is 1 bit per dimension = 2048 bytes for 16384-dim (same as Binary16K).
+The two are complementary: CAM-PQ for the Argmax regime (search), RaBitQ
+for the Index regime (exact recall). bgz17's `rabitq_compat.rs` already
+has a partial RaBitQ implementation — lancedb's version is production-grade
+with IVF partitioning.
+
+### Versioning (via lance-table + lance-core)
+
+lance-table provides:
+- `Table::checkout(version)` — time-travel to any committed version
+- `Table::restore(version)` — revert to a prior version
+- `Table::list_versions()` — version history
+- Automatic version management on every write
+
+**Where it fits:** `ScenarioBranch::fork()` (LF-70, shipped) wraps
+`VersionedGraph::tag_version`. lancedb's table versioning is the
+lower-level equivalent — one table, many versions, O(1) checkout.
+The `EntityStore::scan_as_of()` trait (LF-31, queued) maps directly
+to `Table::checkout(version)`.
+
+### Sentence Transformers (optional feature)
+
+The `sentence-transformers` feature pulls candle + HF hub + tokenizers
+for in-process embedding. We already have Jina v5 ONNX in thinking-engine;
+lancedb's candle path is an alternative for models not in ONNX format.
+
+### Cloud storage (aws/azure/gcs features)
+
+lance-io provides S3/Azure/GCS backends. We already have deltalake 0.31
+for cloud storage, but lancedb's version is tighter-integrated with
+lance's native format.
+
+### What to wire first
+
+1. **LF-31 scan_as_of** → `lancedb::Table::checkout(version)` — smallest wedge
+2. **RaBitQ index** → `Table::create_index(IvfHnswSq)` — complements CAM-PQ
+3. **Cloud storage** → replace deltalake cloud features with lance-native
