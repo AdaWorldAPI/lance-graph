@@ -47,6 +47,8 @@ pub enum StepDomain {
     Ndarray,
     /// SMB entity operations (outside BBB — boringly agnostic).
     Smb,
+    /// Medcare reality-check vertical (clinic data sovereignty).
+    Medcare,
 }
 
 impl StepDomain {
@@ -58,18 +60,45 @@ impl StepDomain {
     /// "n8n.set"          → N8n
     /// "lg.cypher"        → LanceGraph
     /// "nd.hamming"       → Ndarray
+    /// "medcare.check"    → Medcare
     /// ```
     pub fn from_step_type(step_type: &str) -> Option<Self> {
         let prefix = step_type.split('.').next()?;
         match prefix {
-            "crew" => Some(Self::Crew),
-            "lb"   => Some(Self::Ladybug),
-            "n8n"  => Some(Self::N8n),
-            "lg"   => Some(Self::LanceGraph),
-            "nd"   => Some(Self::Ndarray),
-            "smb"  => Some(Self::Smb),
-            _      => None,
+            "crew"    => Some(Self::Crew),
+            "lb"      => Some(Self::Ladybug),
+            "n8n"     => Some(Self::N8n),
+            "lg"      => Some(Self::LanceGraph),
+            "nd"      => Some(Self::Ndarray),
+            "smb"     => Some(Self::Smb),
+            "medcare" => Some(Self::Medcare),
+            _         => None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn step_domain_medcare_constructs_and_matches() {
+        let d = StepDomain::Medcare;
+        // Pattern-match smoke test — proves the variant is reachable.
+        let routed = matches!(d, StepDomain::Medcare);
+        assert!(routed);
+        // Distinct from sibling domains.
+        assert_ne!(StepDomain::Medcare, StepDomain::Crew);
+        assert_ne!(StepDomain::Medcare, StepDomain::Smb);
+    }
+
+    #[test]
+    fn step_domain_medcare_from_step_type() {
+        assert_eq!(
+            StepDomain::from_step_type("medcare.reality_check"),
+            Some(StepDomain::Medcare),
+        );
+        assert_eq!(StepDomain::from_step_type("unknown.foo"), None);
     }
 }
 
