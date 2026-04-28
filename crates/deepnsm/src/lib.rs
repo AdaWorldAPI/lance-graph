@@ -61,6 +61,15 @@ pub mod similarity;
 pub mod spo;
 pub mod vocabulary;
 
+pub mod trajectory;
+pub mod markov_bundle;
+
+#[cfg(feature = "contract-ticket")]
+pub mod ticket_emit;
+
+#[cfg(feature = "grammar-triangle")]
+pub mod triangle_bridge;
+
 // ─── Re-exports ──────────────────────────────────────────────────────────────
 
 pub use pipeline::DeepNsmEngine;
