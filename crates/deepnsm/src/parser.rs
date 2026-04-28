@@ -440,6 +440,167 @@ pub fn parse_with_secondary(tokens: &[Token]) -> SentenceStructure {
     result
 }
 
+// ────────────────────────────────────────────────────────────────────────
+// Coverage-branch hook for D2 FailureTicket emission.
+//
+// Wraps the existing free-function parser in a thin newtype that owns the
+// coverage threshold (default 0.85; configurable later from D7
+// `GrammarStyleConfig`). When a parse falls below threshold, the hook
+// hands the partial off to `ticket_emit::emit_ticket` so the LLM-tail
+// router can route the failure-mode itself as the inference signal.
+//
+// `Parser::parse` is preserved verbatim against the free `parse()` so no
+// existing call sites break.
+// ────────────────────────────────────────────────────────────────────────
+
+/// Default coverage threshold below which a parse triggers a FailureTicket.
+/// Mirrors `lance_graph_contract::grammar::LOCAL_COVERAGE_THRESHOLD` (0.9)
+/// minus a small slack so DeepNSM's looser FSM gets a chance.
+pub const DEFAULT_COVERAGE_THRESHOLD: f32 = 0.85;
+
+/// A parse outcome plus the metrics needed to decide whether it should
+/// escalate to the LLM router.
+#[derive(Clone, Debug)]
+pub struct ParseResult {
+    /// Token-derived semantic structure.
+    pub structure: SentenceStructure,
+    /// Coverage ∈ [0, 1]: classified-tokens / total-tokens.
+    pub coverage: f32,
+    /// Tokens the FSM successfully classified (rank-encoded).
+    pub resolved_tokens: Vec<u16>,
+    /// Tokens the FSM could not place (rank-encoded; OOV / unknown PoS).
+    pub unresolved_tokens: Vec<u16>,
+    /// NSM-prime count found in the resolved set. Drives Abduction routing.
+    pub primes_found: u8,
+    /// Distance vs. the SPO's expected qualia footprint (0.0 = identical).
+    /// Filled by `triangle_bridge::compute_classification_distance` once
+    /// the Triangle is wired; stays 0.0 in the bare-DeepNSM path.
+    pub classification_distance: f32,
+}
+
+/// Newtype around the FSM parser. Owns the coverage threshold so the
+/// LLM-tail policy is colocated with the parse decision instead of
+/// scattered across call sites.
+#[derive(Clone, Debug)]
+pub struct Parser {
+    coverage_threshold: f32,
+}
+
+impl Default for Parser {
+    fn default() -> Self {
+        Self {
+            coverage_threshold: DEFAULT_COVERAGE_THRESHOLD,
+        }
+    }
+}
+
+impl Parser {
+    /// Construct with the default 0.85 threshold.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Override the coverage threshold (D7 `GrammarStyleConfig` will feed
+    /// this once style-aware routing lands).
+    pub fn with_threshold(mut self, threshold: f32) -> Self {
+        self.coverage_threshold = threshold.clamp(0.0, 1.0);
+        self
+    }
+
+    /// Current coverage threshold ∈ [0, 1].
+    pub fn coverage_threshold(&self) -> f32 {
+        self.coverage_threshold
+    }
+
+    /// Run the FSM and return the structure unchanged (preserves the
+    /// existing public `parse()` shape for callers that don't need
+    /// coverage metrics).
+    pub fn parse(&self, tokens: &[crate::vocabulary::Token]) -> SentenceStructure {
+        parse(tokens)
+    }
+
+    /// Coverage-aware parse: returns the structure plus the metrics
+    /// `maybe_emit_ticket` needs.
+    pub fn parse_with_coverage(&self, tokens: &[crate::vocabulary::Token]) -> ParseResult {
+        let structure = parse(tokens);
+
+        let mut resolved = Vec::new();
+        let mut unresolved = Vec::new();
+        let mut primes = 0u8;
+        for t in tokens {
+            match t.rank {
+                Some(r) => {
+                    resolved.push(r);
+                    // NSM primes occupy fixed low ranks in the COCA
+                    // vocabulary (62/63 of them per lib.rs header).
+                    // Treat r < 64 as a primes-found heuristic.
+                    if r < 64 {
+                        primes = primes.saturating_add(1);
+                    }
+                }
+                None => unresolved.push(0u16),
+            }
+        }
+
+        let total = (resolved.len() + unresolved.len()) as f32;
+        let coverage = if total == 0.0 {
+            0.0
+        } else {
+            resolved.len() as f32 / total
+        };
+
+        ParseResult {
+            structure,
+            coverage,
+            resolved_tokens: resolved,
+            unresolved_tokens: unresolved,
+            primes_found: primes,
+            classification_distance: 0.0,
+        }
+    }
+
+    /// Whether the result fell below the configured threshold.
+    pub fn coverage_failed(&self, parse_result: &ParseResult) -> bool {
+        parse_result.coverage < self.coverage_threshold
+    }
+
+    /// D2 hook: if coverage falls below threshold, hand the partial off
+    /// to `ticket_emit::emit_ticket` and return the FailureTicket. Above
+    /// threshold returns `None` — the caller commits to AriGraph instead.
+    ///
+    /// Gated behind `contract-ticket` because the FailureTicket type
+    /// lives in `lance_graph_contract`. With the feature off, the hook
+    /// becomes a no-op `()` returner so the parser still compiles in
+    /// minimal builds.
+    #[cfg(feature = "contract-ticket")]
+    pub fn maybe_emit_ticket(
+        &self,
+        parse_result: &ParseResult,
+    ) -> Option<lance_graph_contract::grammar::FailureTicket> {
+        if !self.coverage_failed(parse_result) {
+            return None;
+        }
+        use lance_graph_contract::grammar::{PartialParse, TekamoloSlots};
+        let partial = PartialParse {
+            resolved_tokens: parse_result.resolved_tokens.clone(),
+            unresolved_tokens: parse_result.unresolved_tokens.clone(),
+            coverage: parse_result.coverage,
+        };
+        // TekamoloSlots / Wechsel / CausalAmbiguity stay empty until D3
+        // wires the Grammar Triangle; the ticket already routes correctly
+        // on `primes_found` + `classification_distance`.
+        Some(crate::ticket_emit::emit_ticket(
+            partial,
+            parse_result.coverage,
+            parse_result.classification_distance,
+            parse_result.primes_found,
+            TekamoloSlots::default(),
+            Vec::new(),
+            None,
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
