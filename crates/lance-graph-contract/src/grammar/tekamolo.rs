@@ -5,10 +5,11 @@
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TekamoloSlot {
-    Temporal,  // when
-    Kausal,    // why / because
-    Modal,     // how / in what manner
-    Lokal,     // where
+    Temporal,    // when
+    Kausal,      // why / because
+    Modal,       // how / in what manner
+    Lokal,       // where
+    Instrument,  // by what means / with what
 }
 
 /// Slot fillers as lightweight token-index pairs. Downstream crates carry
