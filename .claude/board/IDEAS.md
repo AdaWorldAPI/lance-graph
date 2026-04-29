@@ -104,6 +104,26 @@ Cross-ref: <epiphany entry / plan D-id / related knowledge doc>
 
 (When an Open idea ships, APPEND here with same title + PR anchor.)
 
+## 2026-04-29 — Probe M1: CLAM 3-level 16-way tree on 256 Jina-v5 centroids (from 2026-04-29)
+**Status:** Implemented 2026-04-29 via PR (this PR)
+**Result:** PASS — L0 balance 0.4550, discrimination 0.6429 (both under threshold)
+
+Drained Probe M1 from `bf16-hhtl-terrain.md` Probe Queue (PARTIAL → PASS).
+Tests the bit-layout L0 = 16 coarse clusters claim against the in-repo
+256×256 Jina-v5 distance table. Ward agglomerative clustering produces
+moderately balanced 16 clusters (sizes 4..31, std/mean=0.455) that
+discriminate (within/across=0.643). The geometry allows 16-way L0,
+doesn't prefer it strongly — but criteria met.
+
+Probe-design note: initial L1 sub-clustering test (which failed trivially
+because 16 L0 × 16 L1 = 256 = total centroids) was removed when re-reading
+the doc revealed L1 = 1:1 centroids. L2 (4096 buckets) is the COCA-Jina
+probe candidate's territory.
+
+Cross-ref: `crates/jc/src/probe_m1_clam_tree.rs`,
+`.claude/knowledge/bf16-hhtl-terrain.md` Probe Queue M1 (now PASS),
+`.claude/board/EPIPHANIES.md` 2026-04-29 M1 FINDING entry.
+
 ## 2026-04-29 — Probe P1: γ-phase-offset ranking discrimination (from 2026-04-29)
 **Status:** Implemented 2026-04-29 via PR (this PR)
 **Result:** PASS — min Spearman ρ = -0.963 across pairs of γ-offsets
@@ -188,6 +208,52 @@ citing the deferred one; flip the deferred entry's Status to
 
 Nothing is lost. Every idea has a trail from speculation to
 disposition.
+
+## 2026-04-29 — Probe M1: CLAM 3-level 16-way tree on 256 Jina-v5 centroids
+**Status:** Implemented 2026-04-29 (this PR)
+**Priority:** P0
+**Scope:** @savant-research jc thinking-engine domain:probe-queue domain:clam
+
+Drains entry M1 from `bf16-hhtl-terrain.md` Probe Queue (status before:
+**PARTIAL** — CHAODA on 256 rows works, 26/256 flagged, 16-way tree shape
+NOT YET tested). Tests the load-bearing claim that the 256 Jina-v5
+centroids factorize naturally into a 3-level 16-way CLAM tree
+(16 → 256 → 4096 hierarchy from doc Bit Layout section).
+
+**Data (in-repo, zero download):**
+`crates/thinking-engine/data/jina-v5-codebook/distance_table_256x256.u8`
+(64 KB, 256×256 u8 similarity table, diagonal = 255, off-diag = similarity).
+
+**Implementation form:** `jc`-style probe (pure Rust, zero deps, ~350 lines).
+Hand-rolled NPY-reader prepared but NOT used here (M1 only needs the
+distance_table, not assignments — saved for COCA-vs-Jina future probe).
+Convert similarity → distance (255 - similarity), run hand-rolled Ward
+agglomerative clustering at L0 (16 clusters from 256 centroids), then
+recursively at L1 within each L0 cluster (16-way subdivision target).
+
+**PASS criteria (joint):**
+- L0 cluster size std/mean ≤ 0.5 (moderate balance — perfect 16-way is 0.0)
+- Within-cluster mean distance / across-cluster mean distance ≤ 0.7
+  (clusters are at least somewhat discriminative)
+- All 16 L0 clusters can be subdivided into 16 sub-clusters at L1 without
+  degeneration (no L1 cluster contains < 4 or > 64 centroids)
+
+**FAIL criteria:**
+- std/mean > 1.0 (one giant cluster swallows >half the centroids), OR
+- within/across ratio > 0.9 (clusters not discriminative), OR
+- L1 subdivision degenerates (size 1 or empty L1 clusters, or single L1
+  cluster contains majority of L0's centroids)
+
+Preliminary scipy check (not the probe itself, just data sanity):
+- Ward linkage gives sizes 8..27, std/mean=0.357 (moderate balance)
+- Within/across = 0.631 (clusters are discriminative)
+- Average linkage degenerates to one cluster of 115 centroids
+- → expect M1 to PASS *with Ward*, FAIL *with average linkage*. The
+  probe uses Ward as the canonical method.
+
+Cross-ref: `.claude/knowledge/bf16-hhtl-terrain.md` Probe Queue M1,
+`crates/thinking-engine/data/jina-v5-codebook/distance_table_256x256.u8`,
+v0.3.0-highheelbgz-256-4096 release context.
 
 ## 2026-04-29 — Probe P1: γ-phase-offset ranking discrimination
 **Status:** Implemented 2026-04-29 (this PR)

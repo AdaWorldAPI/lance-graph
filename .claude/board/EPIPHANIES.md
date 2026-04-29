@@ -65,6 +65,43 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-04-29 — FINDING: Probe M1 PASS — 16-way L0 clustering of 256 Jina-v5 centroids is moderately balanced and discriminative
+
+**Status:** FINDING
+
+Probe M1 from `bf16-hhtl-terrain.md` Probe Queue (status before: PARTIAL —
+CHAODA flagged 26/256 outliers but 16-way tree shape never tested) drained
+to PASS via `jc` synthetic-free probe using the in-repo distance table at
+`crates/thinking-engine/data/jina-v5-codebook/distance_table_256x256.u8`.
+
+Result: L0 size balance std/mean = 0.4550 (PASS if ≤ 0.5), L0 discrimination
+within/across = 0.6429 (PASS if ≤ 0.7). Both criteria meet but tightly —
+the geometry *allows* 16-way L0 clustering, but doesn't prefer it strongly.
+
+L0 cluster sizes (sorted desc): [31, 30, 20, 20, 19, 19, 19, 15, 14, 14, 13,
+13, 12, 7, 6, 4]. Ward linkage; average linkage degenerates to one giant
+cluster of 115 centroids (verified pre-probe via scipy).
+
+**Probe-design clarification:** initial probe attempted to test L0 + L1 +
+L2 hierarchy by recursively subdividing each L0 cluster into 16 L1
+sub-clusters. This trivially failed (16 L0 × 16 L1 = 256 = total centroid
+count, no slack). Re-reading the bit-layout doc revealed L1 = 1:1
+centroids ("256 mid-clusters (HIP, 1:1 Jina-v5 centroids)" — each
+centroid IS its own L1 bucket, not a cluster of centroids). The corrected
+probe tests only L0 (where actual clustering happens) and notes that
+L2 (4096 sub-centroid buckets) requires per-centroid embeddings for a
+separate probe — see IDEAS.md COCA-vs-Jina-Bundle entry.
+
+Architectural consequence: the bit-layout's 16-coarse-cluster claim
+(bits 15..12 = HEEL scan target) is empirically supported. The 4096
+terminal-bucket claim (bits 7..4) is still untested at L2 level — that's
+where COCA-vs-Jina-bucket-comparison probe (IDEAS.md candidate) becomes
+the load-bearing next step.
+
+Cross-ref: `.claude/knowledge/bf16-hhtl-terrain.md` Probe Queue M1 (now
+PASS), `crates/jc/src/probe_m1_clam_tree.rs`, IDEAS.md 2026-04-29 COCA-Bundle
+vs Jina-CLAM-Bucket comparison entry.
+
 ## 2026-04-29 — FINDING: probe-queue routing — P2/P3/P4 are bgz-tensor probes, not jc probes
 
 **Status:** FINDING

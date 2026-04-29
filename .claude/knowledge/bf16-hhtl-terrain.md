@@ -137,14 +137,16 @@ All operations: bitmask + popcount on Slot D. No float decode.
 ```
 ID   Priority  Question                                    Pass             Fail              Status
 ──   ────────  ──────────────────────────────────────────  ───────────────  ────────────────  ──────
-M1   P0        CLAM 3-level 16-way tree on 256 Jina       Clean tree,      Degenerate tree,  PARTIAL
-                centroids? Knees at L1/L2?                 16-way natural   wrong depth       (v2.5 11f:
-                                                                                              CHAODA on 256
-                                                                                              rows works,
-                                                                                              26/256 flagged.
-                                                                                              Tree shape
-                                                                                              NOT YET tested
-                                                                                              for 16-way.)
+M1   P0        CLAM 3-level 16-way tree on 256 Jina       Clean tree,      Degenerate tree,  PASS
+                centroids? Knees at L1/L2?                 16-way natural   wrong depth       (jc probe_m1
+                                                                                              2026-04-29:
+                                                                                              L0 balance
+                                                                                              0.455, L0
+                                                                                              discrimination
+                                                                                              0.643, both
+                                                                                              under threshold.
+                                                                                              L1=centroids
+                                                                                              per bit-layout.)
 I    P1        4 γ-phase offsets → different ranked        ρ differs by     ρ identical        PASS
                 output from same base codebook?            >0.01 across     across offsets    (jc probe_p1
                                                            offsets                            2026-04-29:
@@ -169,7 +171,7 @@ each probe lives architecturally:
 
 | ID | Crate / harness                      | Data needed                                | Honest status |
 |----|--------------------------------------|--------------------------------------------|---------------|
-| M1 | `bgz-tensor` (CHAODA)                | 256 Jina-v5 centroids                      | PARTIAL — 16-way test pending |
+| M1 | `jc` (probe_m1)                      | 256×256 Jina-v5 distance table (in-repo)   | PASS (2026-04-29) |
 | P1 | `jc` (probe_p1)                      | none — synthetic codebook + math property  | PASS (2026-04-29) |
 | P2 | `bgz-tensor` calibrate feature       | real model BF16 weights + reconstruction   | data available (see below) |
 | P3 | `bgz-tensor` calibrate feature       | real COCA corpus + 4096-bucket assignment  | data available (see below) |

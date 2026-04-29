@@ -36,6 +36,13 @@ pub mod sigma_codebook_probe;
 //   cargo run --manifest-path crates/jc/Cargo.toml --release --example probe_p1
 pub mod probe_p1_gamma_phase;
 
+// Diagnostic probe — drains M1 (CLAM 3-level 16-way tree on 256 Jina-v5 centroids).
+// Run via:
+//   cargo run --manifest-path crates/jc/Cargo.toml --release --example probe_m1
+// Requires the in-repo data file at:
+//   crates/thinking-engine/data/jina-v5-codebook/distance_table_256x256.u8
+pub mod probe_m1_clam_tree;
+
 use std::time::Instant;
 
 #[derive(Debug, Clone)]
