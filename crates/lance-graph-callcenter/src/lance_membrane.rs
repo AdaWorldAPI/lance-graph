@@ -397,7 +397,7 @@ impl ExternalMembrane for LanceMembrane {
     /// Four-step BBB crossing:
     /// 1. Pass membrane — `ExternalIntent` is the safe crossing type.
     /// 2. Get a role   — `intent.role` is stamped into `current_actor.role`.
-    /// 3. Get a place  — `intent.dn.scent_stub()` becomes `current_scent`.
+    /// 3. Get a place  — `intent.dn.scent()` becomes `current_scent`.
     /// 4. Translate    — returns `UnifiedStep` for `OrchestrationBridge::route()`.
     fn ingest(&self, intent: ExternalIntent) -> UnifiedStep {
         // 2. Role — atomic write to the shared actor state (F-01 fix).
@@ -418,8 +418,8 @@ impl ExternalMembrane for LanceMembrane {
             actor.role = role;
         }
 
-        // 3. Place (Phase A: XOR-fold stub; Phase C: full cascade)
-        let scent = intent.dn.scent_stub();
+        // 3. Place (FNV-1a scent; Phase C may upgrade to full cascade)
+        let scent = intent.dn.scent();
         self.current_scent.store(scent as u64, Ordering::Release);
 
         // 4. Translate to step type for OrchestrationBridge

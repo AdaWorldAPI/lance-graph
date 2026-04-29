@@ -4,8 +4,9 @@
 //!
 //! Each segment is a u64 FNV-1a hash of the path component. The 6-tuple
 //! compresses via ZeckBF17→Base17→CAM-PQ→scent (1B, ρ=0.937).
-//! Phase C wires the full compression chain. Phase A carries the
-//! parsed address and a stub scent derived by XOR-folding the 6 hashes.
+//! Phase C wires the full compression chain. The scent is computed by
+//! FNV-1a hashing the canonical hex representation of the 6 segment
+//! hashes and XOR-folding the 64-bit digest to 1 byte.
 //!
 //! Plan: `.claude/plans/callcenter-membrane-v1.md` § 10.12 – § 10.13
 
@@ -45,21 +46,42 @@ impl DnPath {
         })
     }
 
-    /// Phase-A scent stub: XOR-fold of the 6 segment hashes into 1 byte.
+    /// Compute the scent of this DN path: FNV-1a hash of the canonical
+    /// path string, folded to a single `u8`.
     ///
-    /// Phase C replaces this with the full ZeckBF17→Base17→CAM-PQ chain
-    /// (16Kbit → 48B → 34B → 6B → 1B, ρ=0.937). Until then, this gives
-    /// a deterministic, stable placeholder that exercises the scent field.
+    /// The canonical form is the 6 segment hashes rendered as hex and
+    /// concatenated with `/` separators (deterministic, stable, zero-dep).
+    /// The full 64-bit FNV-1a digest is XOR-folded into 1 byte, preserving
+    /// avalanche properties much better than the old XOR-fold of individual
+    /// segment hashes.
+    ///
+    /// Future phases may replace this with ZeckBF17→Base17→CAM-PQ
+    /// (16Kbit → 48B → 34B → 6B → 1B, ρ=0.937) once bgz-tensor
+    /// enters the callcenter dep tree.
+    pub fn scent(&self) -> u8 {
+        use core::fmt::Write;
+        let mut buf = String::with_capacity(6 * 17);
+        let segments = [self.ns, self.heel, self.hip, self.branch, self.twig, self.leaf];
+        for (i, seg) in segments.iter().enumerate() {
+            if i > 0 { buf.push('/'); }
+            let _ = write!(buf, "{:016x}", seg);
+        }
+        let h = fnv1a(&buf);
+        let folded = h
+            ^ (h >> 8)
+            ^ (h >> 16)
+            ^ (h >> 24)
+            ^ (h >> 32)
+            ^ (h >> 40)
+            ^ (h >> 48)
+            ^ (h >> 56);
+        folded as u8
+    }
+
+    /// Deprecated alias — use [`scent()`](Self::scent) instead.
+    #[deprecated(since = "0.1.1", note = "renamed to `scent()`; the XOR-fold stub has been replaced with FNV-1a")]
     pub fn scent_stub(&self) -> u8 {
-        let fold = self.ns ^ self.heel ^ self.hip ^ self.branch ^ self.twig ^ self.leaf;
-        (fold
-            ^ (fold >> 8)
-            ^ (fold >> 16)
-            ^ (fold >> 24)
-            ^ (fold >> 32)
-            ^ (fold >> 40)
-            ^ (fold >> 48)
-            ^ (fold >> 56)) as u8
+        self.scent()
     }
 }
 
@@ -102,7 +124,7 @@ mod tests {
     }
 
     #[test]
-    fn scent_stub_is_deterministic() {
+    fn scent_is_deterministic() {
         let p1 = DnPath::parse(
             "/tree/ada/heel/callcenter/hip/v1/branch/agents/twig/card/leaf/abc",
         )
@@ -111,11 +133,11 @@ mod tests {
             "/tree/ada/heel/callcenter/hip/v1/branch/agents/twig/card/leaf/abc",
         )
         .unwrap();
-        assert_eq!(p1.scent_stub(), p2.scent_stub());
+        assert_eq!(p1.scent(), p2.scent());
     }
 
     #[test]
-    fn different_paths_typically_differ() {
+    fn different_paths_different_scents() {
         let p1 = DnPath::parse(
             "/tree/ada/heel/callcenter/hip/v1/branch/agents/twig/card/leaf/abc",
         )
@@ -124,7 +146,24 @@ mod tests {
             "/tree/ada/heel/callcenter/hip/v1/branch/agents/twig/card/leaf/xyz",
         )
         .unwrap();
-        // leaf differs → scent should differ (not guaranteed but very likely for FNV-1a)
-        assert_ne!(p1.leaf, p2.leaf);
+        assert_ne!(p1.scent(), p2.scent());
+    }
+
+    #[test]
+    fn empty_path_scent() {
+        let p = DnPath::default();
+        let s1 = p.scent();
+        let s2 = p.scent();
+        assert_eq!(s1, s2);
+    }
+
+    #[allow(deprecated)]
+    #[test]
+    fn scent_stub_alias_matches_scent() {
+        let p = DnPath::parse(
+            "/tree/ada/heel/callcenter/hip/v1/branch/agents/twig/card/leaf/abc",
+        )
+        .unwrap();
+        assert_eq!(p.scent_stub(), p.scent());
     }
 }
