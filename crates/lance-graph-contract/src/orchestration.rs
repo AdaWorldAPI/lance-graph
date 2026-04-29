@@ -75,6 +75,131 @@ impl StepDomain {
             _         => None,
         }
     }
+
+    /// Per-domain orchestration profile (E5 from PR #278 outlook).
+    ///
+    /// `StepDomain` is the seam for vertical-specific orchestration:
+    /// verb taxonomy, calibration thresholds, retention windows, and
+    /// escalation defaults are picked HERE so downstream code does not
+    /// hard-code Medcare-vs-SMB conditionals at every call site.
+    ///
+    /// Profiles are STATIC defaults — the runtime can override via the
+    /// membrane registry without changing the enum. Tune empirically
+    /// per deployment; the values below are conservative starters.
+    pub fn profile(&self) -> DomainProfile {
+        match self {
+            Self::Smb => DomainProfile {
+                audit_retention_days: 90,
+                auto_action_confidence: 0.75,
+                escalation: Escalation::Llm,
+                requires_fail_closed: false,
+                verb_taxonomy: VerbTaxonomyId::Smb,
+            },
+            Self::Medcare => DomainProfile {
+                // 6 years (HIPAA §164.316(b)(2)(i)) — starter, tune empirically.
+                audit_retention_days: 2190,
+                auto_action_confidence: 0.92,
+                escalation: Escalation::Human,
+                requires_fail_closed: true,
+                verb_taxonomy: VerbTaxonomyId::Medcare,
+            },
+            // Generic defaults for infrastructure / orchestration domains.
+            // These are NOT vertical-facing; they execute the cycle, not
+            // the policy. Starter values — tune empirically.
+            Self::Crew
+            | Self::Ladybug
+            | Self::N8n
+            | Self::LanceGraph
+            | Self::Ndarray => DomainProfile {
+                audit_retention_days: 30,
+                auto_action_confidence: 0.70,
+                escalation: Escalation::Llm,
+                requires_fail_closed: false,
+                verb_taxonomy: VerbTaxonomyId::Generic,
+            },
+        }
+    }
+}
+
+impl core::fmt::Display for StepDomain {
+    /// Lowercase form mirroring `from_step_type` keys exactly.
+    /// `from_step_type(&domain.to_string()) == Some(domain)` for every variant.
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let s = match self {
+            Self::Crew       => "crew",
+            Self::Ladybug    => "lb",
+            Self::N8n        => "n8n",
+            Self::LanceGraph => "lg",
+            Self::Ndarray    => "nd",
+            Self::Smb        => "smb",
+            Self::Medcare    => "medcare",
+        };
+        f.write_str(s)
+    }
+}
+
+/// Per-domain orchestration profile. Carries calibration thresholds,
+/// retention windows, escalation defaults, and verb-taxonomy markers.
+///
+/// Profiles are STATIC defaults — runtime can override via the membrane
+/// registry without changing the enum.
+#[derive(Debug, Clone, Copy)]
+pub struct DomainProfile {
+    /// Audit retention in days. Medcare (HIPAA) = 6 years (2190); SMB = 90.
+    pub audit_retention_days: u32,
+    /// Confidence threshold above which automated actions are allowed
+    /// without human review. Medcare requires higher threshold.
+    pub auto_action_confidence: f32,
+    /// Escalation target on uncertainty: Llm = degrade to LLM tail;
+    /// Human = require human-in-the-loop; Reject = fail closed.
+    pub escalation: Escalation,
+    /// Whether this domain demands fail-closed access control.
+    /// Medcare = true (HIPAA); SMB = false (commerce).
+    pub requires_fail_closed: bool,
+    /// Verb taxonomy id — picks which 144-cell verb table to consult.
+    pub verb_taxonomy: VerbTaxonomyId,
+}
+
+/// Escalation target on uncertainty.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Escalation {
+    /// Degrade to LLM tail (best-effort, no human in loop).
+    Llm,
+    /// Require human-in-the-loop (HIPAA-grade verticals default here).
+    Human,
+    /// Fail closed — reject the step rather than guess.
+    Reject,
+}
+
+/// Verb taxonomy identifier — selects the per-domain 144-cell verb table.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum VerbTaxonomyId {
+    /// 12 generic semantic families (BECOMES, CAUSES, SUPPORTS, ...).
+    Generic,
+    /// SMB-specific: invoice, quote, dispatch, fulfill, return, refund, ...
+    Smb,
+    /// Medcare-specific: prescribe, refer, discharge, admit, treat, diagnose, ...
+    Medcare,
+}
+
+/// Compute a Trajectory-aware audit hash for a step within this domain.
+///
+/// This is the cross-PR bridge between PR #279's grammar substrate and
+/// PR #278's audit log: the trajectory becomes the audit key, replacing
+/// the syntactic statement_hash.
+///
+/// PR #279 epiphany E4. Implementation lands in the bridge PR.
+///
+/// META-AGENT: feature-gated stub. Do NOT call until the bridge PR
+/// implements it; signature is locked here so callers can compile-test
+/// against the trajectory-audit feature flag.
+#[cfg(feature = "trajectory-audit")]
+pub fn step_trajectory_hash(
+    _domain: StepDomain,
+    _step: &UnifiedStep,
+    _trajectory: &[u64; 256],
+) -> u64 {
+    unimplemented!("see PR #279 outlook E4")
 }
 
 #[cfg(test)]
@@ -99,6 +224,55 @@ mod tests {
             Some(StepDomain::Medcare),
         );
         assert_eq!(StepDomain::from_step_type("unknown.foo"), None);
+    }
+
+    #[test]
+    fn display_round_trips_through_from_step_type() {
+        // Every variant must serialize to a string that `from_step_type`
+        // accepts and round-trips back. Keeps the Display impl honest.
+        let all = [
+            StepDomain::Crew,
+            StepDomain::Ladybug,
+            StepDomain::N8n,
+            StepDomain::LanceGraph,
+            StepDomain::Ndarray,
+            StepDomain::Smb,
+            StepDomain::Medcare,
+        ];
+        for domain in all {
+            let s = domain.to_string();
+            assert_eq!(
+                StepDomain::from_step_type(&s),
+                Some(domain),
+                "Display→from_step_type round-trip failed for {domain:?} (got {s:?})",
+            );
+        }
+    }
+
+    #[test]
+    fn medcare_requires_fail_closed() {
+        assert!(StepDomain::Medcare.profile().requires_fail_closed);
+    }
+
+    #[test]
+    fn medcare_auto_action_threshold_higher_than_smb() {
+        let medcare = StepDomain::Medcare.profile();
+        let smb = StepDomain::Smb.profile();
+        assert!(
+            medcare.auto_action_confidence > smb.auto_action_confidence,
+            "medcare ({}) must demand a higher auto-action confidence than smb ({})",
+            medcare.auto_action_confidence,
+            smb.auto_action_confidence,
+        );
+    }
+
+    #[test]
+    fn medcare_audit_retention_is_hipaa_grade() {
+        // HIPAA §164.316(b)(2)(i) = 6 years = 2190 days.
+        assert!(
+            StepDomain::Medcare.profile().audit_retention_days >= 2190,
+            "medcare audit retention must be >= 2190 days (HIPAA 6 years)",
+        );
     }
 }
 
