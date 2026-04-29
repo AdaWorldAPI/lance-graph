@@ -189,56 +189,54 @@ citing the deferred one; flip the deferred entry's Status to
 Nothing is lost. Every idea has a trail from speculation to
 disposition.
 
-## 2026-04-29 — COCA-Bundle vs Jina-CLAM-Bucket comparison (Probe candidate)
+## 2026-04-29 — Pyramid streaming with CausalEdge64 awareness through SPO+COCA→CAM_PQ pipeline
 **Status:** Open
 **Priority:** P2
-**Scope:** @savant-research deepnsm thinking-engine domain:probe domain:representation-comparison
+**Scope:** @savant-research cognitive-shader-driver thinking-engine domain:streaming domain:awareness
 
-**Question:** Erzeugt das diskrete COCA-Vokabular (4096 Worte) durch DeepNSM
-SPO-Encoding (XOR-bind + Majority-Bundle in 16k-Fingerprints) eine ähnliche
-Bucket-Struktur wie Jina-Embeddings durch CLAM-Clustering?
+**Corrects:** prior entry titled "COCA-Bundle vs Jina-CLAM-Bucket comparison"
+which framed COCA and CAM_PQ as competing alternatives. CAM_PQ Semantic
+mode (CLAM) IS based on COCA — they are one pipeline, not two systems.
 
-Concrete check: compare the 16k-fingerprint distribution of COCA-bundled
-words against the 16384-bucket CLAM assignments of Jina-v5 embeddings on
-the 50,000-sample dataset. Two hypotheses, both testable in same probe:
-- **Strong:** KL-divergence between COCA-bundle bucket distribution and
-  Jina-CLAM bucket distribution < 0.1 → bundling captures same semantic
-  topology as learned embedding
-- **Weak:** Adjusted Rand Index between the two clusterings > 0.3 →
-  shared cluster topology even if bucket labels differ
+**Actual question:** When weight rows stream through the inverted pyramid
+(L4 16384² → L3 4096² → L2 256² → L1 64²), can the BF16 mantissa
+awareness (Column F `AwarenessColumn = [u8; 256]` per
+`bindspace-columns-v1.md`) be channeled through CausalEdge64 (Column D)
+during the stream — so that each pyramid fold step emits awareness-
+annotated CausalEdge64 updates without a separate awareness pass?
 
-Outcomes:
-- **Both PASS:** DeepNSM bundling = CLAM clustering, no learned model needed
-- **Strong FAIL, Weak PASS:** two views on same substrate, complementary
-- **Both FAIL:** orthogonal representations — important negative finding,
-  forces choice of which is the substrate-canonical bucket structure
+**Architecture involved:**
+- SPO 2³ + COCA → CAM_PQ (one pipeline, not "vs"): COCA vocabulary →
+  DeepNSM SPO triples (3×12 bits) → CAM_PQ 6-subspace quantization
+- CausalEdge64: S/P/O palette indices (3×u8) + NARS freq/conf (2×u8)
+  + Pearl 2³ causal mask (3 bits) + direction/inference/plasticity/
+  temporal = 64 bits per edge
+- AwarenessColumn: per-word u8 mantissa quality, derived structurally
+  from BF16 fold residual at each pyramid level
+- Pyramid levels: L1(64²)→L2(256²)→L3(4096²)→L4(16384²) spatial
+  fan-out per cycle, ONNX compress L4→L1 feedback
 
-**Data (all in-repo, zero download):**
-- COCA 4096-word vocabulary: `crates/deepnsm/word_frequency/word_rank_lookup.csv`
-  (5050 lines, lemma+rank+pos+freq, 101KB)
-- Jina-v5 256-codebook distance table: `crates/thinking-engine/data/jina-v5-codebook/distance_table_256x256.u8`
-- Jina-v5 CLAM 16384 assignments on 50k samples: `crates/thinking-engine/data/jina-v5-codebook/clam_16384_assignments_50000.npy`
-- DeepNSM encoder: `crates/deepnsm/src/encoder.rs` + `markov_bundle.rs` + `fingerprint16k.rs`
+**What "streaming" means here:**
+- NOT decompression (BGZ-HHTL-D doesn't decompress — palette assignment
+  IS the inference signal per `BGZ_HHTL_D.md`)
+- Tile-by-tile flow through the pyramid cascade with awareness accrual:
+  each fold step produces a BF16 residual whose mantissa quality informs
+  the next step's CausalEdge64 frequency/confidence fields
 
-**Implementation form:** new example in `crates/deepnsm/examples/coca_jina_bucket_comparison.rs`.
-Estimated 300-400 lines: NPY reader (~30 lines, simple format), CSV reader
-(existing in vocabulary.rs), DeepNSM encoder usage (existing), Jina-CLAM
-loader, KL-divergence + ARI computation, comparison report.
+**Where it runs:** `shader-lab` via `WireSweepRequest` — the Lab infra
+already has Phase 0 DTOs for parameterized sweep. The streaming would
+be a new Phase 2+ deliverable, not a `jc` probe.
 
-**Why this matters architecturally:** answers a load-bearing question that
-doesn't appear in `cognitive-shader-architecture.md`, `endgame-holographic-agi.md`,
-or `deepnsm_integration_map.md` — those documents *assume* DeepNSM and Jina
-operate in compatible bucket-spaces, but it's never been measured. The
-existing `deepnsm_integration_map.md` shows DeepNSM → bgz17 → 4096²
-DistanceMatrix as a *pipeline*, not a *comparison*.
+**Test infrastructure already exists:**
+- `polarquant_hip_probe.rs` (HIP family NN-preservation)
+- `turboquant_correction_probe.rs` (LEAF orthogonal comparison)
+- `shader-lab` sweep endpoints (calibrate, token-agreement, sweep)
+- `codec-sweep-via-lab-infra-v1.md` Phase 0→2 plan
 
-If this probe lands, it either confirms a hidden axiom of the substrate
-(both bucketings agree) or reveals the substrate has two parallel
-bucket-spaces that need explicit reconciliation.
-
-Cross-ref: `crates/deepnsm/word_frequency/`, `crates/thinking-engine/data/jina-v5-codebook/`,
-`.claude/knowledge/deepnsm_integration_map.md`,
-`crates/deepnsm/src/{encoder.rs, markov_bundle.rs, fingerprint16k.rs}`.
+Cross-ref: `.claude/plans/bindspace-columns-v1.md` (Column D/F specs),
+`crates/causal-edge/src/edge.rs` (CausalEdge64 bit layout),
+`crates/bgz-tensor/BGZ_HHTL_D.md` (inverted pyramid + palette strategy),
+`crates/cognitive-shader-driver/src/wire.rs` (Phase 0 DTOs).
 
 ## 2026-04-29 — Probe P1: γ-phase-offset ranking discrimination
 **Status:** Implemented 2026-04-29 (this PR)

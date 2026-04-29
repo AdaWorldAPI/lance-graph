@@ -164,67 +164,76 @@ M4   P4        HHTL termination: what % at each level?    >60% HEEL        >60% 
 
 ## Probe Routing (which crate, which data)
 
-Not all probes are runnable in the same place. Honest assessment of where
-each probe lives architecturally:
+### Routing Map (corrected 2026-04-29, replaces confabulated version)
 
-| ID | Crate / harness                      | Data needed                                | Honest status |
-|----|--------------------------------------|--------------------------------------------|---------------|
-| M1 | `bgz-tensor` (CHAODA)                | 256 Jina-v5 centroids                      | PARTIAL — 16-way test pending |
-| P1 | `jc` (probe_p1)                      | none — synthetic codebook + math property  | PASS (2026-04-29) |
-| P2 | `bgz-tensor` calibrate feature       | real model BF16 weights + reconstruction   | data available (see below) |
-| P3 | `bgz-tensor` calibrate feature       | real COCA corpus + 4096-bucket assignment  | data available (see below) |
-| P4 | `bgz-tensor` cascade harness         | real inference workload with hit counters  | data available (see below) |
+| ID | Actual harness                                          | What it tests                                    | Status |
+|----|---------------------------------------------------------|--------------------------------------------------|--------|
+| M1 | `thinking-engine/examples/polarquant_hip_probe.rs` (P7) | HIP family assignment: Base17 L1 farthest-pair vs PolarQuant gain-shape NN-preservation | existing example, needs real safetensors |
+| P1 | `jc` (probe_p1)                                         | γ+φ Dupain-Sós discrepancy (pure math, synthetic) | PASS (2026-04-29) |
+| P2 | `shader-lab` via `WireSweepRequest`                      | Bucket-only retrieval quality across codec params | Phase 0 DTOs done, sweep parameterized |
+| P3 | `shader-lab` via `WireSweepRequest`                      | COCA-CAM_PQ bucket coherence (NOT "COCA vs Jina" — CAM_PQ IS COCA-based) | Phase 0 DTOs done |
+| P4 | `shader-lab` via `WireSweepRequest`                      | HHTL termination % per level under CascadeConfig variation | Phase 0 DTOs done |
 
-P1 was tractable in `jc` because it tests a **mathematical property**
-(Dupain-Sós discrepancy) on an **abstract codebook** — synthetic data is
-sufficient. P2/P3/P4 test **architectural claims about real data
-distributions** — synthetic data would either confirm tautologically
-(P3: two random distributions yield trivial MI by construction) or test
-a different question than the one in the queue (P2: synthetic BF16
-"quality" is not the production-relevant signal).
+### Why standalone probes are wrong for M1/P2/P3/P4
 
-The right place for P2/P3/P4 is `bgz-tensor` with `calibrate` feature
-enabled, against actual model weights / corpus / inference traces. The
-`crates/bgz-tensor/src/bin/cam_pq_calibrate.rs` infrastructure is the
-existing harness that should host them.
+P1 worked in `jc` because it tested a **mathematical property** (Dupain-Sós
+discrepancy) on an **abstract codebook** — synthetic data is sufficient
+when the property is structural, not distributional.
 
-### Data is available via release assets (followup 2026-04-29)
+M1/P2/P3/P4 are **architectural** claims. The substrate already has the
+correct test infrastructure:
 
-Initial assessment (above) said "needs production data" without checking
-where that data lives. Followup grep of `crates/bgz-tensor/src/hydrate.rs`
-and the GitHub Releases API:
+- **M1 (HIP family quality):** `bgz_tensor::hhtl_d::build_hip_families`
+  uses farthest-pair recursive binary split (4 levels → 16 families), NOT
+  Ward or k-means. The real test is `polarquant_hip_probe.rs` (P7) which
+  compares Base17 L1 farthest-pair vs PolarQuant gain-shape NN-preservation
+  on real `talker.model.layers.0.self_attn.k_proj.weight` from safetensors.
+  Plus `turboquant_correction_probe.rs` for the LEAF-level orthogonal
+  comparison (PolarQuant vs CAM_PQ — orthogonal only at LEAF).
 
-- `AdaWorldAPI/lance-graph` release `v0.1.0-bgz-data` contains **43 assets**
-  totaling ~700 MB across 5 model variants:
-  - `qwen35-9b-base` (4 shards, 80 MB), `qwen35-9b-distilled` (4 shards)
-  - `qwen35-27b-base` (11 shards, 174 MB), `qwen35-27b-distilled-{v1,v2}`
-  - `bge-m3-f16.bgz7`, `reader-lm-1.5b.bgz7`
-- `v0.3.0-highheelbgz-256-4096` has `jina-v5-4096-sparse.tar.gz` (88 MB)
-  — directly relevant for P3 (4096 terminal buckets)
-- `v0.2.0-7lane-codebooks` has `jina-v5-7lane.tar.gz` (codebook form)
-- `v1.0.0-context-spine` has `jina-v5-semantic-256.tar.gz`
+- **P2/P3/P4:** Route through the `shader-lab` Lab infra, not standalone
+  examples. The `codec-sweep-via-lab-infra-v1.md` plan documents the exact
+  progression: Phase 0 (API hardening — **done**: D0.1 `WireCalibrateRequest`
+  with `WireCodecParams`, D0.2 `WireTokenAgreement`, D0.3 `WireSweepRequest`
+  with `WireSweepGrid`). The JIT-first architecture compiles `shader-lab`
+  once, then runs thousands of candidates via parameterized REST without
+  `cargo` invocations. `KernelHandle`s cached by `CodecParams` hash.
 
-The `hydrate --download MODEL` binary fetches these into
-`crates/bgz-tensor/data/{model}/shard-NN.bgz7`. The 15 examples in
-`crates/bgz-tensor/examples/` consume them.
+### Key architecture facts (learned the hard way)
 
-**Caveat — existing examples need path updates:** several examples in
-`crates/bgz-tensor/examples/` have hardcoded paths like
-`/home/user/ndarray/src/hpc/openchat/weights/...` or `/tmp/jina_batch1.json`
-that don't exist in the current repo layout. Before running P2/P3/P4 as
-follow-on probes, those examples need either:
-  (a) path updates to point at `data/{model}/` after `hydrate --download`, or
-  (b) new probe examples that follow `cam_pq_row_count_probe.rs` pattern
-      (it correctly takes `<safetensors_path>` as CLI arg).
+- **CAM_PQ IS based on COCA.** CAM_PQ Semantic mode (CLAM) trains codebooks
+  from COCA-derived vectors (`deepnsm_integration_map.md`: "CamCodebook
+  trained from COCA subgenre vectors"). SPO 2³ + COCA flows THROUGH
+  CAM_PQ, not against it.
 
-So the honest sequence for draining P2/P3/P4 is:
-  1. `cargo run --features hydrate --bin hydrate -- --download qwen35-9b-base`
-     (fetches 4 shards = 80 MB from release assets)
-  2. Write a new probe example in `crates/bgz-tensor/examples/probe_pN.rs`
-     following the `cam_pq_row_count_probe.rs` CLI-arg convention
-  3. Run with `--features calibrate`
-  4. Update `bf16-hhtl-terrain.md` Probe Queue table per Update Protocol
-  5. Add substantive FINDING to `EPIPHANIES.md` per existing pattern
+- **CHAODA + CAM_PQ are orthogonal only at LEAF** (Slot V residual).
+  HEEL→HIP→TWIG (Slot D) is one cascade hierarchy. The orthogonal
+  comparison (PolarQuant vs CAM_PQ at LEAF) is what
+  `turboquant_correction_probe.rs` tests.
+
+- **ICC calibrates the family heel vector** via `LensProfile::build()`
+  in `lance-graph-contract/src/high_heel.rs`. Per-safetensor-class,
+  per-role. Currently DESIGNED but `LensProfile::build()` never called
+  in production (per `CALIBRATION_STATUS_GROUND_TRUTH.md`).
+
+- **CascadeConfig** (`bgz-tensor/src/cascade.rs`) exposes
+  `heel_min_agreement` and `hip_max_distance` as tunable dials — the
+  HHTL variation that doesn't need recompilation.
+
+- **JIT via jitson** (`lance-graph/src/cam_pq/jitson_kernel.rs`):
+  Cranelift-compiled scan kernels from JSON templates. Stages:
+  LOAD_HEEL → GATHER_HEEL → FILTER_HEEL → LOAD_BRANCH → ... → TOP_K.
+  AVX-512 (VPGATHERDD, VCMPPS+KMOV). This IS the "feature gate with
+  JIT and REST endpoints" — `shader-lab` exposes it.
+
+### Data availability (correct part from original #295)
+
+Release assets exist and are fetchable via `hydrate --download MODEL`:
+- `v0.1.0-bgz-data`: 43 assets, ~700 MB (qwen35-9b/27b base+distilled)
+- `v0.3.0-highheelbgz-256-4096`: `jina-v5-4096-sparse.tar.gz` (88 MB)
+- In-repo: `thinking-engine/data/` (5 baked lenses, CLAM assignments)
+- In-repo: `deepnsm/word_frequency/` (COCA 4096 vocabulary)
+- HuggingFace: real model safetensors via `hf-hub` (calibration feature)
 
 ## Endgame Gate (v2.5, FINDING)
 

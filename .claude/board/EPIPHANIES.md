@@ -65,34 +65,41 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
-## 2026-04-29 — FINDING: probe-queue routing — P2/P3/P4 are bgz-tensor probes, not jc probes
+## 2026-04-29 — FINDING: probe-queue routing — existing Lab infra already covers M1/P2/P3/P4
 
-**Status:** FINDING
+**Status:** FINDING (corrected — replaces confabulated version from same date)
 
-After draining P1 in `jc` (PASS, see entry below), an honest assessment of
-the remaining `bf16-hhtl-terrain.md` Probe Queue (P2 bucket-only quality,
-P3 4096-buckets-COCA correlation, P4 HHTL-termination percentages)
-revealed they all require **real data** (model BF16 weights, COCA corpus,
-real inference traces). Synthetic data would either confirm tautologically
-(P3: random distributions give trivial MI by construction) or test a
-different question than the one in the queue.
+The Probe Queue entries M1/P2/P3/P4 do NOT need new standalone probes.
+The substrate already has the correct test infrastructure:
 
-P1 was tractable in `jc` because it tested a *mathematical property*
-(Dupain-Sós discrepancy) on an *abstract codebook* — synthetic data is
-sufficient when the property under test is structural, not distributional.
+- **M1 (HIP family quality):** `thinking-engine/examples/polarquant_hip_probe.rs`
+  (P7) compares `build_hip_families` (farthest-pair binary split, 4 levels
+  → 16 families in `hhtl_d.rs`) against PolarQuant gain-shape split on
+  NN-preservation. Plus `turboquant_correction_probe.rs` for the orthogonal
+  LEAF-level comparison (PolarQuant vs CAM_PQ — orthogonal only at LEAF,
+  not at HEEL/HIP/TWIG which are one cascade hierarchy).
 
-The right host for P2/P3/P4 is `bgz-tensor` with the `calibrate` feature
-enabled, against `cam_pq_calibrate.rs` infrastructure. Probe-Queue table
-in `bf16-hhtl-terrain.md` updated with a "Probe Routing" section that
-makes the architectural assignment explicit.
+- **P2/P3/P4:** Route through `shader-lab` JIT-first Lab surface. Phase 0
+  is done: `WireCalibrateRequest(CodecParams)`, `WireTokenAgreement`,
+  `WireSweepRequest(WireSweepGrid)`. One `shader-lab` compile, then
+  parameterized sweeps via REST without recompilation. `KernelHandle`s
+  cached by `CodecParams` hash. Plan: `.claude/plans/codec-sweep-via-lab-infra-v1.md`.
 
-This avoids a class of agent failure: writing pure-Rust synthetic probes
-in `jc` for questions that fundamentally need production data, then
-declaring the probe "PASS" on data that doesn't represent the real
-distribution being claimed about.
+- **CAM_PQ IS based on COCA** — not a separate encoding to "compare
+  against". SPO 2³ + COCA flows through CAM_PQ Semantic mode (CLAM
+  trains codebooks from COCA-derived vectors). This renders the
+  "COCA-vs-Jina" framing from IDEAS.md moot (see corrected entry below).
 
-Cross-ref: `.claude/knowledge/bf16-hhtl-terrain.md` Probe Routing section,
-`crates/bgz-tensor/src/bin/cam_pq_calibrate.rs`.
+The `jc` crate is the right place for **mathematical property probes**
+(like P1 Dupain-Sós, Pillars 5+/5++/6 concentration bounds). It is NOT
+the right place for architectural claims about real data distributions
+or for re-implementing test harnesses that the Lab infra already provides.
+
+Cross-ref: `crates/thinking-engine/examples/{polarquant_hip_probe,
+turboquant_correction_probe}.rs`, `crates/bgz-tensor/BGZ_HHTL_D.md`
+(build_hip_families spec), `.claude/plans/codec-sweep-via-lab-infra-v1.md`,
+`crates/cognitive-shader-driver/src/wire.rs` (Phase 0 DTOs),
+`crates/lance-graph/src/cam_pq/jitson_kernel.rs` (JIT templates).
 
 ## 2026-04-29 — FINDING: Probe P1 PASS — γ+φ pre-rank selector empirically confirmed
 
