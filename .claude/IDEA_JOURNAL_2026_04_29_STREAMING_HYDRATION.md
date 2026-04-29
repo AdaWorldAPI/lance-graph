@@ -1,5 +1,27 @@
 # Streaming-Hydration & Family-Bound Fractal Codec — Idea Journal
 
+> **POSTHOC CORRECTION (2026-04-29):** This document was created without
+> first consulting `.claude/board/IDEAS.md`'s triple-entry mechanism or
+> `.claude/board/EPIPHANIES.md`'s date-prefixed append-only log. Both
+> mechanisms pre-existed and are the canonical home for new ideas.
+>
+> Per `.claude/knowledge/bf16-hhtl-terrain.md` process rule: "Any agent
+> reading this document MUST check the probe queue. If the probe relevant
+> to their proposed change is still NOT RUN, they must either (a) run the
+> probe first, or (b) label their proposal as CONJECTURE and defer
+> commitment."
+>
+> **Status of all claims in this document: CONJECTURE.** Two ideas captured
+> below have been re-filed in the canonical board. See:
+> - `.claude/board/IDEAS.md` 2026-04-29 entries
+> - `.claude/board/EPIPHANIES.md` 2026-04-29 entry
+>
+> This file is preserved for historical reference (the merge is in git
+> history); future readers should consult the board, not this file, for
+> the live status of these ideas.
+
+---
+
 **Stand:** 2026-04-29
 **Kontext:** Session nach Pillar 6 (EWA-Sandwich, PR #289). Zwei Ideen wurden in einem Atemzug formuliert; sie sind beide substanziell, lösen aber verschiedene Probleme. Dieses Dokument hält sie fest, bevor sie sich verdünnen.
 

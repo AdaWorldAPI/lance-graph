@@ -1,5 +1,33 @@
 # Future Pillars 7, 8, 9 — Application of the Certified Concentration Family
 
+> **POSTHOC CORRECTION (2026-04-29):** This document was created without
+> first consulting `.claude/board/IDEAS.md`'s triple-entry mechanism or
+> `.claude/board/EPIPHANIES.md`'s date-prefixed append-only log. Both
+> mechanisms pre-existed and are the canonical home for new ideas.
+>
+> Per `.claude/knowledge/bf16-hhtl-terrain.md` process rule: "Any agent
+> reading this document MUST check the probe queue. If the probe relevant
+> to their proposed change is still NOT RUN, they must either (a) run the
+> probe first, or (b) label their proposal as CONJECTURE and defer
+> commitment."
+>
+> **Status of all three pillars in this document: CONJECTURE.** They have
+> been re-filed in the canonical board. See:
+> - `.claude/board/IDEAS.md` 2026-04-29 entries
+> - `.claude/board/EPIPHANIES.md` 2026-04-29 entry
+>
+> Additionally, **Pillar 7's "front-to-back termination" is plausibly
+> already-known terrain** — the bgz-tensor cascade (HEEL→HIP→TWIG→LEAF)
+> is HHTL with metric-induced sparsity, which is already a form of
+> early-termination. Re-filing of this pillar specifically should
+> investigate whether it is novel work or rediscovery.
+>
+> This file is preserved for historical reference (the merge is in git
+> history); future readers should consult the board, not this file, for
+> the live status of these ideas.
+
+---
+
 **Stand:** 2026-04-29
 **Kontext:** Drei Anwendungs-Pillars vorgeschlagen nach Pillar 6 (PR #289). Sie wenden die zertifizierte Mathematik (Pillar 5+ KS, 5++ DZ, 6 EWA-Sandwich) auf konkrete Substrat-Operationen an.
 

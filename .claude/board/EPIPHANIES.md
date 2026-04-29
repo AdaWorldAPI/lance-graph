@@ -92,6 +92,35 @@ space) may produce different magnitudes — but the qualitative result
 Cross-ref: `.claude/knowledge/bf16-hhtl-terrain.md` Probe Queue P1 (now
 PASS), `crates/jc/src/probe_p1_gamma_phase.rs`, Constraint C3.
 
+## 2026-04-29 — FINDING: Pillars 5+, 5++, 6 close the concentration family for substrate aggregation
+
+**Status:** FINDING
+
+Three proof-in-code pillars were merged in succession (PRs #286, #287, #289):
+
+- **Pillar 5+ (Köstenberger-Stark):** PSD-cone Hadamard-space concentration
+  for non-iid Σ aggregation. Tightness 0.969× — bound is hit, not just
+  respected. Certifies single-step Σ aggregation.
+- **Pillar 5++ (Düker-Zoubouloglou):** Hilbert-space CLT for AR(1) Gaussian
+  process at d=16384. Relative error 0.103% — two orders of magnitude
+  below tolerance. Certifies bundle-of-N fingerprint convergence in ℓ².
+- **Pillar 6 (EWA-Sandwich):** Σ push-forward `M·Σ·Mᵀ` along multi-hop
+  paths. PSD-preservation 10000/10000 hops, CV tightness 1.467×.
+  Certifies multi-hop edge propagation stays in SPD cone for arbitrary
+  depth — the cant-stop-thinking loop has its mathematical backbone.
+
+Plus PR #288 (Σ-codebook viability probe, R² = 0.9949) ruled out the
+proposed CausalEdge64 8→16 byte expansion that would have halved the
+HighHeelBGZ 240-edge container limit. The 256-entry codebook with 1-byte
+sidecar is sufficient.
+
+Combined: every aggregation pattern in the cognitive substrate now sits
+on certified ground. Scalar (Pillar 5 Jirak) + Σ-tensor (Pillar 5+ KS) +
+Hilbert-space (Pillar 5++ DZ) + multi-hop propagation (Pillar 6 EWA).
+
+Cross-ref: PRs #286, #287, #288, #289; `.claude/board/IDEAS.md` 2026-04-29
+entries for proposed application pillars 7/8/9.
+
 ## 2026-04-26 — CORRECTION-OF 2026-04-20 "Resolution hierarchy 64×64 > 256×257 > 4096×4096 > 16k": HIP layer is 256×256, not 256×257
 
 **Status:** CORRECTION
