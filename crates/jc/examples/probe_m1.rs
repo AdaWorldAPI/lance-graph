@@ -22,7 +22,7 @@ fn main() {
     r.runtime_ms = t.elapsed().as_millis() as u64;
 
     let status = if r.pass {
-        "✓ PASS — 16-way CLAM tree fits Jina-v5 geometry"
+        "✓ PASS-with-caveat — 16-way fits, but uncalibrated single-shot"
     } else {
         "✗ FAIL — 16-way CLAM tree does NOT fit naturally"
     };
@@ -33,9 +33,11 @@ fn main() {
     println!();
     println!("═══ Queue Update Required ═══");
     if r.pass {
-        println!("→ Update bf16-hhtl-terrain.md Probe Queue entry M1: PARTIAL → PASS");
-        println!("→ The 3-level 16-way bit-layout (16/256/4096 hierarchy) is empirically");
-        println!("  supported by the Jina-v5 centroid geometry.");
+        println!("→ Update bf16-hhtl-terrain.md Probe Queue entry M1: PARTIAL → PASS-with-caveat");
+        println!("→ The L0 = 16 coarse-cluster claim is consistent with the data on");
+        println!("  uncalibrated single-shot Ward — necessary but not sufficient.");
+        println!("→ True closure (M1') needs ICC-calibrated codebook + CascadeConfig sweep");
+        println!("  + cross-class re-test. Tracked as separate Open Idea in IDEAS.md.");
     } else {
         println!("→ Update bf16-hhtl-terrain.md Probe Queue entry M1: PARTIAL → FAIL");
         println!("→ Architectural consequence: 16-way bit-layout claim needs revision.");

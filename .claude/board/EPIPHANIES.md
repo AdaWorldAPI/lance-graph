@@ -65,42 +65,52 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
-## 2026-04-29 — FINDING: Probe M1 PASS — 16-way L0 clustering of 256 Jina-v5 centroids is moderately balanced and discriminative
+## 2026-04-29 — FINDING: Probe M1 PASS-with-caveat — 16-way L0 clustering of 256 Jina-v5 centroids on uncalibrated codebook
 
-**Status:** FINDING
+**Status:** FINDING (with explicit caveat — not full closure of M1)
 
 Probe M1 from `bf16-hhtl-terrain.md` Probe Queue (status before: PARTIAL —
 CHAODA flagged 26/256 outliers but 16-way tree shape never tested) drained
-to PASS via `jc` synthetic-free probe using the in-repo distance table at
-`crates/thinking-engine/data/jina-v5-codebook/distance_table_256x256.u8`.
+to **PASS-with-caveat** via `jc` synthetic-free probe using the in-repo
+distance table at `crates/thinking-engine/data/jina-v5-codebook/distance_table_256x256.u8`.
 
 Result: L0 size balance std/mean = 0.4550 (PASS if ≤ 0.5), L0 discrimination
-within/across = 0.6429 (PASS if ≤ 0.7). Both criteria meet but tightly —
-the geometry *allows* 16-way L0 clustering, but doesn't prefer it strongly.
+within/across = 0.6429 (PASS if ≤ 0.7). Both criteria meet but tightly.
 
-L0 cluster sizes (sorted desc): [31, 30, 20, 20, 19, 19, 19, 15, 14, 14, 13,
-13, 12, 7, 6, 4]. Ward linkage; average linkage degenerates to one giant
-cluster of 115 centroids (verified pre-probe via scipy).
+**Why "with caveat":** the codebook used is **uncalibrated** per
+`CALIBRATION_STATUS_GROUND_TRUTH.md` ("ICC profile correction: DESIGNED
+but `LensProfile::build()` never called. Per-role scale factors: DESIGNED
+but nowhere stored, nowhere applied"). The probe also runs a single-shot
+Ward clustering without varying `CascadeConfig` parameters
+(heel_min_agreement, hip_max_distance) which are the actual tunable
+HHTL-cascade dials. Both gaps mean this PASS demonstrates *necessary
+condition* but not *sufficient condition* for the bit-layout claim.
 
-**Probe-design clarification:** initial probe attempted to test L0 + L1 +
-L2 hierarchy by recursively subdividing each L0 cluster into 16 L1
-sub-clusters. This trivially failed (16 L0 × 16 L1 = 256 = total centroid
-count, no slack). Re-reading the bit-layout doc revealed L1 = 1:1
-centroids ("256 mid-clusters (HIP, 1:1 Jina-v5 centroids)" — each
-centroid IS its own L1 bucket, not a cluster of centroids). The corrected
-probe tests only L0 (where actual clustering happens) and notes that
-L2 (4096 sub-centroid buckets) requires per-centroid embeddings for a
-separate probe — see IDEAS.md COCA-vs-Jina-Bundle entry.
+True M1 closure (call it M1') requires:
+  (a) ICC-calibrated codebooks (LensProfile::build() actually executing)
+  (b) Sweep across CascadeConfig parameter combinations
+  (c) Stability check: 16-way topology persists under HEEL/HIP threshold
+      variation
 
-Architectural consequence: the bit-layout's 16-coarse-cluster claim
-(bits 15..12 = HEEL scan target) is empirically supported. The 4096
-terminal-bucket claim (bits 7..4) is still untested at L2 level — that's
-where COCA-vs-Jina-bucket-comparison probe (IDEAS.md candidate) becomes
-the load-bearing next step.
+Still substantively useful: the 16-way Ward partition on the raw centroids
+*does* produce moderately balanced clusters with discriminative
+within/across distances. The bit-layout's L0 = 16 coarse-cluster claim is
+**not contradicted** by the data; it's just not yet rigorously validated.
+
+**Probe-design clarification (substantive):** initial probe attempted to
+test L0 + L1 + L2 hierarchy by recursively subdividing each L0 cluster
+into 16 L1 sub-clusters. This trivially failed (16 L0 × 16 L1 = 256 =
+total centroid count, no slack). Re-reading the bit-layout doc revealed
+L1 = 1:1 centroids ("256 mid-clusters (HIP, 1:1 Jina-v5 centroids)" —
+each centroid IS its own L1 bucket, not a cluster of centroids). The
+corrected probe tests only L0 (where actual clustering happens). L2
+(4096 sub-centroid buckets) requires per-centroid embeddings for a
+separate probe.
 
 Cross-ref: `.claude/knowledge/bf16-hhtl-terrain.md` Probe Queue M1 (now
-PASS), `crates/jc/src/probe_m1_clam_tree.rs`, IDEAS.md 2026-04-29 COCA-Bundle
-vs Jina-CLAM-Bucket comparison entry.
+PASS-with-caveat), `crates/jc/src/probe_m1_clam_tree.rs`,
+`.claude/CALIBRATION_STATUS_GROUND_TRUTH.md` for the ICC-calibration gap,
+IDEAS.md 2026-04-29 entries for follow-on probes.
 
 ## 2026-04-29 — FINDING: probe-queue routing — P2/P3/P4 are bgz-tensor probes, not jc probes
 

@@ -4,6 +4,34 @@
 //! (status before this probe: PARTIAL — CHAODA runs on 256 rows, 26/256
 //! flagged, but tree shape NOT YET tested for 16-way).
 //!
+//! # IMPORTANT CAVEAT (2026-04-29 Jan review feedback)
+//!
+//! This probe runs Ward clustering on the **uncalibrated** Jina-v5
+//! distance table baked at `crates/thinking-engine/data/jina-v5-codebook/`.
+//! Per `.claude/CALIBRATION_STATUS_GROUND_TRUTH.md`:
+//!
+//!   "ICC profile correction: DESIGNED but `LensProfile::build()` is
+//!    never called. Per-role scale factors: DESIGNED but nowhere stored,
+//!    nowhere applied."
+//!
+//! The 16-way bit-layout claim's true test requires:
+//!   (a) ICC-calibrated codebooks (per-safetensor-class)
+//!   (b) JIT-style HHTL parameter variation (currently exposed via
+//!       `CascadeConfig { heel_min_agreement, hip_max_distance }` but
+//!       not exercised in this probe — hardcoded Ward-only single-shot)
+//!   (c) Hierarchy actually applied: H→centroid-cluster→H→centroid-cluster
+//!       →T→centroid-cluster→L (the Hadamard-rotation-then-cluster cascade)
+//!
+//! The current PASS (L0 balance 0.4550, discrimination 0.6429) measures
+//! only that **uncalibrated raw Jina-v5 centroids form 16 moderately-
+//! balanced Ward clusters**. That's a necessary but insufficient
+//! condition for the bit-layout claim. A more rigorous M1 test would
+//! sweep over CascadeConfig combinations against ICC-calibrated codebooks.
+//!
+//! **Therefore the queue update reads: "PASS-with-caveat" rather than
+//! a clean PASS. The bit-layout's L0 = 16 coarse-cluster claim is
+//! consistent with the data but not yet rigorously validated.**
+//!
 //! # The claim under test
 //!
 //! The bf16-hhtl-terrain bit-layout claim:
@@ -30,7 +58,7 @@
 //!
 //! `crates/thinking-engine/data/jina-v5-codebook/distance_table_256x256.u8`:
 //! 256×256 u8 **similarity** table (diagonal = 255). Convert to distance
-//! via `d = 255 - similarity`.
+//! via `d = 255 - similarity`. **Not ICC-calibrated** — caveat above.
 //!
 //! # Method
 //!
@@ -44,27 +72,29 @@
 //! # PASS criteria (joint, both required)
 //!
 //! 1. **L0 size balance**: std(|cluster_i|)/mean(|cluster_i|) ≤ 0.5 across
-//!    16 L0 clusters. Perfect 16-way is 0.0; 0.5 allows moderate imbalance
-//!    (e.g. some clusters of 8, others of 24).
+//!    16 L0 clusters. Perfect 16-way is 0.0; 0.5 allows moderate imbalance.
 //!
 //! 2. **L0 discrimination**: mean within-L0-cluster distance / mean
-//!    across-L0-cluster distance ≤ 0.7. Clusters that don't separate at
-//!    all give ratio 1.0; perfect separation gives ~0.0.
+//!    across-L0-cluster distance ≤ 0.7.
 //!
 //! # Why no L1 test
 //!
 //! Per the bit-layout reading above, L1 = 1:1 centroids; there's no L1
 //! clustering to test. L2 (the 4096-bucket sub-centroid level) IS testable
 //! but requires per-centroid embeddings (not pairwise distances) and is
-//! the subject of a separate probe (queue's P3 / P4 / the COCA-vs-Jina
-//! probe candidate in IDEAS.md).
+//! the subject of a separate probe.
 //!
-//! # Honest caveat
+//! # Followup needed for true M1 closure
 //!
-//! Tested only on the 256-Jina-v5 centroid distance table. The further
-//! claim (4096 L2 terminal buckets aligning with COCA vocabulary) requires
-//! a separate probe (the queue's P3, candidate idea in IDEAS.md as
-//! "COCA-Bundle vs Jina-CLAM bucket comparison").
+//! 1. ICC-calibrate the codebook per safetensor class (LensProfile::build()
+//!    must actually run)
+//! 2. Re-run with ICC-calibrated codebooks across multiple model classes
+//! 3. Vary CascadeConfig parameters and measure stability of the 16-way
+//!    cluster topology under HEEL/HIP threshold variation
+//! 4. Then claim PASS without caveat.
+//!
+//! Captured as a separate Open Idea in `.claude/board/IDEAS.md` under
+//! "Probe M1' (M1-prime): ICC-calibrated rigorous M1".
 
 use crate::PillarResult;
 
@@ -338,12 +368,13 @@ pub fn prove() -> PillarResult {
     let pass = l0_balance_pass && l0_discrimination_pass;
 
     let conclusion = if pass {
-        "PASS — 16-way L0 clustering of 256 Jina-v5 centroids is moderately \
-         balanced and discriminative. The 16 coarse-cluster level of the \
-         CLAM bit-layout (bits 15..12) is empirically supported. \
-         Updates Probe M1 status PARTIAL → PASS in bf16-hhtl-terrain.md \
-         queue. (L1=centroids and L2=sub-centroid buckets are tested by \
-         separate probes — see IDEAS.md COCA-vs-Jina entry for the L2 case.)"
+        "PASS-with-caveat — 16-way L0 clustering of 256 Jina-v5 centroids is moderately \
+         balanced and discriminative on the UNCALIBRATED codebook in single-shot Ward. \
+         The 16 coarse-cluster level of the CLAM bit-layout (bits 15..12) is consistent \
+         with the data. Updates Probe M1 status PARTIAL → PASS-with-caveat in \
+         bf16-hhtl-terrain.md queue. CAVEAT: codebook not ICC-calibrated and CascadeConfig \
+         not varied — true closure (M1') needs ICC-calibrated codebook + parameter sweep \
+         + cross-class re-test (separate Open Idea in IDEAS.md)."
     } else {
         "FAIL — 16-way L0 clustering does NOT meet criteria. \
          Updates Probe M1 status PARTIAL → FAIL in bf16-hhtl-terrain.md \

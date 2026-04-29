@@ -105,24 +105,31 @@ Cross-ref: <epiphany entry / plan D-id / related knowledge doc>
 (When an Open idea ships, APPEND here with same title + PR anchor.)
 
 ## 2026-04-29 — Probe M1: CLAM 3-level 16-way tree on 256 Jina-v5 centroids (from 2026-04-29)
-**Status:** Implemented 2026-04-29 via PR (this PR)
-**Result:** PASS — L0 balance 0.4550, discrimination 0.6429 (both under threshold)
+**Status:** Implemented-with-caveat 2026-04-29 via PR (this PR)
+**Result:** PASS-with-caveat — L0 balance 0.4550, discrimination 0.6429 on uncalibrated single-shot
 
-Drained Probe M1 from `bf16-hhtl-terrain.md` Probe Queue (PARTIAL → PASS).
-Tests the bit-layout L0 = 16 coarse clusters claim against the in-repo
-256×256 Jina-v5 distance table. Ward agglomerative clustering produces
-moderately balanced 16 clusters (sizes 4..31, std/mean=0.455) that
-discriminate (within/across=0.643). The geometry allows 16-way L0,
-doesn't prefer it strongly — but criteria met.
+Drained Probe M1 from `bf16-hhtl-terrain.md` Probe Queue (PARTIAL →
+PASS-with-caveat). Tests the bit-layout L0 = 16 coarse clusters claim
+against the in-repo 256×256 Jina-v5 distance table. Ward agglomerative
+clustering produces moderately balanced 16 clusters (sizes 4..31,
+std/mean=0.455) that discriminate (within/across=0.643).
 
-Probe-design note: initial L1 sub-clustering test (which failed trivially
-because 16 L0 × 16 L1 = 256 = total centroids) was removed when re-reading
-the doc revealed L1 = 1:1 centroids. L2 (4096 buckets) is the COCA-Jina
-probe candidate's territory.
+**CAVEAT:** codebook is uncalibrated (per CALIBRATION_STATUS_GROUND_TRUTH.md
+ICC profile correction is DESIGNED but `LensProfile::build()` never called)
+and the probe runs single-shot Ward without CascadeConfig sweep. Both gaps
+mean this PASS demonstrates necessary-but-insufficient condition for the
+bit-layout claim. True closure tracked as separate Open Idea M1'
+(rigorous closure with ICC-calibrated codebook + CascadeConfig sweep).
+
+Probe-design clarification: initial L1 sub-clustering test failed trivially
+(16 L0 × 16 L1 = 256 = total centroids, no slack). Re-reading doc revealed
+L1 = 1:1 centroids — each centroid IS its own L1 bucket. L2 (4096 buckets)
+is the COCA-Jina probe candidate's territory.
 
 Cross-ref: `crates/jc/src/probe_m1_clam_tree.rs`,
-`.claude/knowledge/bf16-hhtl-terrain.md` Probe Queue M1 (now PASS),
-`.claude/board/EPIPHANIES.md` 2026-04-29 M1 FINDING entry.
+`.claude/knowledge/bf16-hhtl-terrain.md` Probe Queue M1 (now PASS-with-caveat),
+`.claude/board/EPIPHANIES.md` 2026-04-29 M1 FINDING entry,
+IDEAS.md Open M1' entry for rigorous closure.
 
 ## 2026-04-29 — Probe P1: γ-phase-offset ranking discrimination (from 2026-04-29)
 **Status:** Implemented 2026-04-29 via PR (this PR)
@@ -209,8 +216,47 @@ citing the deferred one; flip the deferred entry's Status to
 Nothing is lost. Every idea has a trail from speculation to
 disposition.
 
+## 2026-04-29 — Probe M1' (M1-prime): rigorous closure of M1 with ICC-calibrated codebook + CascadeConfig sweep
+**Status:** Open
+**Priority:** P0
+**Scope:** @savant-research bgz-tensor thinking-engine domain:probe-queue domain:calibration
+
+True closure of Probe M1. M1 (this PR) achieved PASS-with-caveat by Ward
+clustering on **uncalibrated** Jina-v5 centroids in a single-shot
+configuration — that's necessary but insufficient. The bit-layout's
+H→centroid-cluster→H→centroid-cluster→T→centroid-cluster→L hierarchy
+needs:
+
+  (a) **ICC-calibrated codebook**: `LensProfile::build()` actually
+      executed per safetensor class, per-role scale factors stored
+      and applied (currently DESIGNED but not wired per
+      `CALIBRATION_STATUS_GROUND_TRUTH.md`)
+  (b) **CascadeConfig sweep**: vary `heel_min_agreement` (0..3) and
+      `hip_max_distance` (multiple thresholds) and measure stability
+      of 16-way L0 topology under variation. Stable cluster topology
+      under threshold variation = robust hierarchy. Topology that
+      collapses under any threshold change = brittle.
+  (c) **Multi-class re-test**: M1 ran on Jina-v5 only. ICC-calibrated
+      versions of bge-m3, jina-v3, jina-reranker-v3 should produce
+      similar 16-way topology if the bit-layout claim is class-invariant
+      (4 lens directories already exist in `thinking-engine/data/`).
+
+PASS criterion: 16-way L0 topology stable across (a) all 4 lens classes,
+(b) all valid CascadeConfig parameter combinations, with std/mean ≤ 0.5
+and within/across ≤ 0.7 in every case. Single-class single-shot PASS is
+not closure; cross-class cross-config PASS is closure.
+
+**Where it runs**: `bgz-tensor` with `calibrate` feature + `LensProfile`
+infrastructure. Not in `jc` — this needs the production calibration
+machinery, not synthetic-free zero-deps probes.
+
+Cross-ref: M1 entry below (Implemented-with-caveat, this PR),
+`.claude/CALIBRATION_STATUS_GROUND_TRUTH.md`,
+`crates/bgz-tensor/src/cascade.rs` `CascadeConfig`,
+`.claude/knowledge/bf16-hhtl-terrain.md` Probe Queue M1.
+
 ## 2026-04-29 — Probe M1: CLAM 3-level 16-way tree on 256 Jina-v5 centroids
-**Status:** Implemented 2026-04-29 (this PR)
+**Status:** Implemented-with-caveat 2026-04-29 (this PR)
 **Priority:** P0
 **Scope:** @savant-research jc thinking-engine domain:probe-queue domain:clam
 
@@ -254,6 +300,56 @@ Preliminary scipy check (not the probe itself, just data sanity):
 Cross-ref: `.claude/knowledge/bf16-hhtl-terrain.md` Probe Queue M1,
 `crates/thinking-engine/data/jina-v5-codebook/distance_table_256x256.u8`,
 v0.3.0-highheelbgz-256-4096 release context.
+## 2026-04-29 — COCA-Bundle vs Jina-CLAM-Bucket comparison (Probe candidate)
+**Status:** Open
+**Priority:** P2
+**Scope:** @savant-research deepnsm thinking-engine domain:probe domain:representation-comparison
+
+**Question:** Erzeugt das diskrete COCA-Vokabular (4096 Worte) durch DeepNSM
+SPO-Encoding (XOR-bind + Majority-Bundle in 16k-Fingerprints) eine ähnliche
+Bucket-Struktur wie Jina-Embeddings durch CLAM-Clustering?
+
+Concrete check: compare the 16k-fingerprint distribution of COCA-bundled
+words against the 16384-bucket CLAM assignments of Jina-v5 embeddings on
+the 50,000-sample dataset. Two hypotheses, both testable in same probe:
+- **Strong:** KL-divergence between COCA-bundle bucket distribution and
+  Jina-CLAM bucket distribution < 0.1 → bundling captures same semantic
+  topology as learned embedding
+- **Weak:** Adjusted Rand Index between the two clusterings > 0.3 →
+  shared cluster topology even if bucket labels differ
+
+Outcomes:
+- **Both PASS:** DeepNSM bundling = CLAM clustering, no learned model needed
+- **Strong FAIL, Weak PASS:** two views on same substrate, complementary
+- **Both FAIL:** orthogonal representations — important negative finding,
+  forces choice of which is the substrate-canonical bucket structure
+
+**Data (all in-repo, zero download):**
+- COCA 4096-word vocabulary: `crates/deepnsm/word_frequency/word_rank_lookup.csv`
+  (5050 lines, lemma+rank+pos+freq, 101KB)
+- Jina-v5 256-codebook distance table: `crates/thinking-engine/data/jina-v5-codebook/distance_table_256x256.u8`
+- Jina-v5 CLAM 16384 assignments on 50k samples: `crates/thinking-engine/data/jina-v5-codebook/clam_16384_assignments_50000.npy`
+- DeepNSM encoder: `crates/deepnsm/src/encoder.rs` + `markov_bundle.rs` + `fingerprint16k.rs`
+
+**Implementation form:** new example in `crates/deepnsm/examples/coca_jina_bucket_comparison.rs`.
+Estimated 300-400 lines: NPY reader (~30 lines, simple format), CSV reader
+(existing in vocabulary.rs), DeepNSM encoder usage (existing), Jina-CLAM
+loader, KL-divergence + ARI computation, comparison report.
+
+**Why this matters architecturally:** answers a load-bearing question that
+doesn't appear in `cognitive-shader-architecture.md`, `endgame-holographic-agi.md`,
+or `deepnsm_integration_map.md` — those documents *assume* DeepNSM and Jina
+operate in compatible bucket-spaces, but it's never been measured. The
+existing `deepnsm_integration_map.md` shows DeepNSM → bgz17 → 4096²
+DistanceMatrix as a *pipeline*, not a *comparison*.
+
+If this probe lands, it either confirms a hidden axiom of the substrate
+(both bucketings agree) or reveals the substrate has two parallel
+bucket-spaces that need explicit reconciliation.
+
+Cross-ref: `crates/deepnsm/word_frequency/`, `crates/thinking-engine/data/jina-v5-codebook/`,
+`.claude/knowledge/deepnsm_integration_map.md`,
+`crates/deepnsm/src/{encoder.rs, markov_bundle.rs, fingerprint16k.rs}`.
 
 ## 2026-04-29 — Probe P1: γ-phase-offset ranking discrimination
 **Status:** Implemented 2026-04-29 (this PR)
