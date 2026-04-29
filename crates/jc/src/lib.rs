@@ -23,6 +23,7 @@ pub mod jirak;
 pub mod pearl;
 pub mod cartan;
 pub mod precond;
+pub mod koestenberger;
 
 use std::time::Instant;
 
@@ -70,6 +71,7 @@ pub fn run_all_pillars() -> Vec<PillarResult> {
         ("γ+φ preconditioner: prolongation step reduction", precond::prove),
         ("Jirak Berry-Esseen: weak-dep noise floor @ d=16384", jirak::prove),
         ("Pearl 2³ mask-accuracy: three-plane vs bundled @ d=16384", pearl::prove),
+        ("Köstenberger-Stark: inductive mean on Hadamard 2×2 SPD", koestenberger::prove),
     ];
 
     let total = pillars.len();
