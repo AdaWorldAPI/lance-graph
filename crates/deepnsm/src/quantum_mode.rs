@@ -20,12 +20,22 @@ impl PhaseTag {
     }
 
     pub fn from_angle(theta: f32) -> Self {
-        let normalized = (theta / std::f32::consts::TAU).rem_euclid(1.0);
-        PhaseTag((normalized * u128::MAX as f32) as u128)
+        // Normalize to [0, 1) first.
+        let normalized = ((theta / std::f32::consts::TAU).rem_euclid(1.0)) as f64;
+        // f64 has ~15 digits — enough headroom for u64 precision; we cast
+        // through u64 (u128::MAX as f32 overflows to infinity).
+        let scaled = (normalized * (u64::MAX as f64)) as u128;
+        // Place the u64 value in the low half, leave high half zero.
+        // For higher resolution, a future PR can fold an additional 64-bit
+        // entropy source into the upper half.
+        PhaseTag(scaled)
     }
 
     pub fn to_angle(self) -> f32 {
-        (self.0 as f32 / u128::MAX as f32) * std::f32::consts::TAU
+        // Use the low 64 bits (the high 64 are reserved for future precision).
+        let low = (self.0 & u64::MAX as u128) as u64;
+        let normalized = (low as f64) / (u64::MAX as f64);
+        (normalized * std::f64::consts::TAU as f64) as f32
     }
 
     pub fn distance(self, other: Self) -> u32 {
@@ -66,7 +76,10 @@ mod tests {
         let theta = 1.5f32;
         let p = PhaseTag::from_angle(theta);
         let recovered = p.to_angle();
-        assert!((recovered - theta).abs() < 0.01);
+        // f64 intermediate gives sub-1e-3 round-trip; f32 final cast caps
+        // precision around 1e-6 of TAU (~6e-6 absolute).
+        let diff = (recovered - theta).abs();
+        assert!(diff < 0.001, "round-trip diff {} exceeds tolerance 0.001", diff);
     }
 
     #[test]
