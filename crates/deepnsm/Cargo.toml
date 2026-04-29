@@ -4,6 +4,12 @@ version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
 publish = false
+
+# Empty `[workspace]` so cargo treats this crate as standalone when invoked
+# via `--manifest-path` (deepnsm is `exclude`d from the parent workspace,
+# but in nested git-worktree directories cargo's auto-discovery would
+# otherwise walk further up and pick up the outer workspace root).
+[workspace]
 description = """
 DeepNSM: Distributional semantic transformer replacement.
 4,096 words × 12 bits × 8MB distance matrix = complete semantic engine.
@@ -20,12 +26,17 @@ No GPU. No learned weights. Same decision boundaries as cosine.
 # never touches backend optimization files.
 [features]
 default = []
-contract-ticket = ["dep:lance-graph-contract"]
+contract-ticket = []
 grammar-triangle = ["dep:lance-graph-cognitive"]
 
 [dependencies]
 ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
-lance-graph-contract = { path = "../lance-graph-contract", optional = true }
+# `lance-graph-contract` is now a hard dep: markov_bundle imports the canonical
+# RoleKeySlice constants (SUBJECT_SLICE..) from `grammar::role_keys` so that
+# slice coordinates are unified with the rest of the workspace (CRITICAL fix
+# from PR #279 review — the equal-partition 16384/5 layout in markov_bundle
+# disagreed with the domain-specific widths in role_keys).
+lance-graph-contract = { path = "../lance-graph-contract" }
 lance-graph-cognitive = { path = "../lance-graph-cognitive", optional = true }
 
 [dev-dependencies]

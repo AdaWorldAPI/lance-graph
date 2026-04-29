@@ -63,6 +63,7 @@ pub mod vocabulary;
 
 pub mod trajectory;
 pub mod markov_bundle;
+pub mod nsm_primes;
 
 #[cfg(feature = "contract-ticket")]
 pub mod ticket_emit;
