@@ -189,6 +189,57 @@ citing the deferred one; flip the deferred entry's Status to
 Nothing is lost. Every idea has a trail from speculation to
 disposition.
 
+## 2026-04-29 — COCA-Bundle vs Jina-CLAM-Bucket comparison (Probe candidate)
+**Status:** Open
+**Priority:** P2
+**Scope:** @savant-research deepnsm thinking-engine domain:probe domain:representation-comparison
+
+**Question:** Erzeugt das diskrete COCA-Vokabular (4096 Worte) durch DeepNSM
+SPO-Encoding (XOR-bind + Majority-Bundle in 16k-Fingerprints) eine ähnliche
+Bucket-Struktur wie Jina-Embeddings durch CLAM-Clustering?
+
+Concrete check: compare the 16k-fingerprint distribution of COCA-bundled
+words against the 16384-bucket CLAM assignments of Jina-v5 embeddings on
+the 50,000-sample dataset. Two hypotheses, both testable in same probe:
+- **Strong:** KL-divergence between COCA-bundle bucket distribution and
+  Jina-CLAM bucket distribution < 0.1 → bundling captures same semantic
+  topology as learned embedding
+- **Weak:** Adjusted Rand Index between the two clusterings > 0.3 →
+  shared cluster topology even if bucket labels differ
+
+Outcomes:
+- **Both PASS:** DeepNSM bundling = CLAM clustering, no learned model needed
+- **Strong FAIL, Weak PASS:** two views on same substrate, complementary
+- **Both FAIL:** orthogonal representations — important negative finding,
+  forces choice of which is the substrate-canonical bucket structure
+
+**Data (all in-repo, zero download):**
+- COCA 4096-word vocabulary: `crates/deepnsm/word_frequency/word_rank_lookup.csv`
+  (5050 lines, lemma+rank+pos+freq, 101KB)
+- Jina-v5 256-codebook distance table: `crates/thinking-engine/data/jina-v5-codebook/distance_table_256x256.u8`
+- Jina-v5 CLAM 16384 assignments on 50k samples: `crates/thinking-engine/data/jina-v5-codebook/clam_16384_assignments_50000.npy`
+- DeepNSM encoder: `crates/deepnsm/src/encoder.rs` + `markov_bundle.rs` + `fingerprint16k.rs`
+
+**Implementation form:** new example in `crates/deepnsm/examples/coca_jina_bucket_comparison.rs`.
+Estimated 300-400 lines: NPY reader (~30 lines, simple format), CSV reader
+(existing in vocabulary.rs), DeepNSM encoder usage (existing), Jina-CLAM
+loader, KL-divergence + ARI computation, comparison report.
+
+**Why this matters architecturally:** answers a load-bearing question that
+doesn't appear in `cognitive-shader-architecture.md`, `endgame-holographic-agi.md`,
+or `deepnsm_integration_map.md` — those documents *assume* DeepNSM and Jina
+operate in compatible bucket-spaces, but it's never been measured. The
+existing `deepnsm_integration_map.md` shows DeepNSM → bgz17 → 4096²
+DistanceMatrix as a *pipeline*, not a *comparison*.
+
+If this probe lands, it either confirms a hidden axiom of the substrate
+(both bucketings agree) or reveals the substrate has two parallel
+bucket-spaces that need explicit reconciliation.
+
+Cross-ref: `crates/deepnsm/word_frequency/`, `crates/thinking-engine/data/jina-v5-codebook/`,
+`.claude/knowledge/deepnsm_integration_map.md`,
+`crates/deepnsm/src/{encoder.rs, markov_bundle.rs, fingerprint16k.rs}`.
+
 ## 2026-04-29 — Probe P1: γ-phase-offset ranking discrimination
 **Status:** Implemented 2026-04-29 (this PR)
 **Priority:** P1
