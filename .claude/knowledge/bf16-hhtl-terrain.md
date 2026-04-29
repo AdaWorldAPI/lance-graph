@@ -162,32 +162,6 @@ M2   P3        4096 terminal buckets correlate with       MI > 0.6         MI < 
 M4   P4        HHTL termination: what % at each level?    >60% HEEL        >60% LEAF         NOT RUN
 ```
 
-## Probe Routing (which crate, which data)
-
-Not all probes are runnable in the same place. Honest assessment of where
-each probe lives architecturally:
-
-| ID | Crate / harness                      | Data needed                                | Honest status |
-|----|--------------------------------------|--------------------------------------------|---------------|
-| M1 | `bgz-tensor` (CHAODA)                | 256 Jina-v5 centroids                      | PARTIAL — 16-way test pending |
-| P1 | `jc` (probe_p1)                      | none — synthetic codebook + math property  | PASS (2026-04-29) |
-| P2 | `bgz-tensor` calibrate feature       | real model BF16 weights + reconstruction   | needs production data |
-| P3 | `bgz-tensor` calibrate feature       | real COCA corpus + 4096-bucket assignment  | needs production data |
-| P4 | `bgz-tensor` cascade harness         | real inference workload with hit counters  | needs production data |
-
-P1 was tractable in `jc` because it tests a **mathematical property**
-(Dupain-Sós discrepancy) on an **abstract codebook** — synthetic data is
-sufficient. P2/P3/P4 test **architectural claims about real data
-distributions** — synthetic data would either confirm tautologically
-(P3: two random distributions yield trivial MI by construction) or test
-a different question than the one in the queue (P2: synthetic BF16
-"quality" is not the production-relevant signal).
-
-The right place for P2/P3/P4 is `bgz-tensor` with `calibrate` feature
-enabled, against actual model weights / corpus / inference traces. The
-`crates/bgz-tensor/src/bin/cam_pq_calibrate.rs` infrastructure is the
-existing harness that should host them.
-
 ## Endgame Gate (v2.5, FINDING)
 
 ```
