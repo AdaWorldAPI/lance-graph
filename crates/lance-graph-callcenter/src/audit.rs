@@ -131,13 +131,20 @@ impl AuditSink for InMemoryAuditSink {
 ///
 /// # Schema
 ///
-/// | Column           | Arrow Type | Source                        |
-/// |------------------|------------|-------------------------------|
-/// | `tenant_id`      | Utf8       | `AuditEntry::tenant_id`       |
-/// | `actor_id`       | Utf8       | `AuditEntry::actor_id`        |
-/// | `statement_hash` | UInt64     | `AuditEntry::statement_hash`  |
-/// | `timestamp`      | Int64      | `AuditEntry::ts_unix_ms` as i64 |
-/// | `action`         | Utf8       | `StatementKind` display name  |
+/// | Column                 | Arrow Type                              | Source                          |
+/// |------------------------|-----------------------------------------|---------------------------------|
+/// | `tenant_id`            | Utf8                                    | `AuditEntry::tenant_id`         |
+/// | `actor_id`             | Utf8                                    | `AuditEntry::actor_id`          |
+/// | `statement_hash`       | UInt64                                  | `AuditEntry::statement_hash`    |
+/// | `timestamp`            | Timestamp(Millisecond, "UTC")           | `AuditEntry::ts_unix_ms` as i64 |
+/// | `action`               | Utf8                                    | `StatementKind` display name    |
+/// | `rls_predicates_added` | UInt16                                  | `AuditEntry::rls_predicates_added` |
+/// | `rewritten_plan`       | Utf8 (nullable)                         | `AuditEntry::rewritten_plan`    |
+///
+/// `timestamp` is declared as a temporal type (millisecond precision, UTC) so
+/// DataFusion temporal predicates (`>=`, `BETWEEN`, etc.) work on the column;
+/// Lance still stores it as int64 underneath. The `as i64` cast at flush-time
+/// is therefore safe.
 ///
 /// # Example
 ///
@@ -173,8 +180,8 @@ impl LanceAuditSink {
     /// and appends them to the Lance dataset. If the dataset does not exist,
     /// it is created. Returns the number of entries flushed.
     pub async fn flush(&self) -> Result<usize, String> {
-        use arrow::array::{Int64Array, StringArray, UInt64Array};
-        use arrow::datatypes::{DataType, Field, Schema};
+        use arrow::array::{StringArray, TimestampMillisecondArray, UInt16Array, UInt64Array};
+        use arrow::datatypes::{DataType, Field, Schema, TimeUnit};
         use arrow::record_batch::RecordBatch;
         use lance::dataset::{Dataset, WriteMode, WriteParams};
         use std::sync::Arc;
@@ -199,14 +206,27 @@ impl LanceAuditSink {
             .iter()
             .map(|e| statement_kind_str(e.statement_kind))
             .collect();
+        let rls_preds: Vec<u16> = entries.iter().map(|e| e.rls_predicates_added).collect();
+        let plans: Vec<Option<&str>> =
+            entries.iter().map(|e| e.rewritten_plan.as_deref()).collect();
 
+        let tz: Arc<str> = Arc::from("UTC");
         let schema = Arc::new(Schema::new(vec![
             Field::new("tenant_id", DataType::Utf8, false),
             Field::new("actor_id", DataType::Utf8, false),
             Field::new("statement_hash", DataType::UInt64, false),
-            Field::new("timestamp", DataType::Int64, false),
+            Field::new(
+                "timestamp",
+                DataType::Timestamp(TimeUnit::Millisecond, Some(tz.clone())),
+                false,
+            ),
             Field::new("action", DataType::Utf8, false),
+            Field::new("rls_predicates_added", DataType::UInt16, false),
+            Field::new("rewritten_plan", DataType::Utf8, true),
         ]));
+
+        let ts_array =
+            TimestampMillisecondArray::from(timestamps).with_timezone(tz.clone());
 
         let batch = RecordBatch::try_new(
             schema.clone(),
@@ -214,8 +234,10 @@ impl LanceAuditSink {
                 Arc::new(StringArray::from(tenant_ids)),
                 Arc::new(StringArray::from(actor_ids)),
                 Arc::new(UInt64Array::from(hashes)),
-                Arc::new(Int64Array::from(timestamps)),
+                Arc::new(ts_array),
                 Arc::new(StringArray::from(actions)),
+                Arc::new(UInt16Array::from(rls_preds)),
+                Arc::new(StringArray::from(plans)),
             ],
         )
         .map_err(|e| format!("Arrow batch error: {e}"))?;
@@ -248,7 +270,9 @@ impl LanceAuditSink {
     /// Returns entries in dataset order (oldest first among the returned set).
     /// If fewer than `n` entries exist, all entries are returned.
     pub async fn scan_back(&self, n: usize) -> Result<Vec<AuditEntry>, String> {
-        use arrow::array::{Int64Array, StringArray, UInt64Array};
+        use arrow::array::{
+            Array, StringArray, TimestampMillisecondArray, UInt16Array, UInt64Array,
+        };
         use futures::TryStreamExt;
         use lance::dataset::Dataset;
 
@@ -256,16 +280,35 @@ impl LanceAuditSink {
             .await
             .map_err(|e| format!("Lance open error: {e}"))?;
 
-        let total_rows = ds.count_rows(None)
+        let total_rows = ds
+            .count_rows(None)
             .await
             .map_err(|e| format!("Lance count error: {e}"))?;
 
-        let skip = if total_rows > n { total_rows - n } else { 0 };
+        let skip = total_rows.saturating_sub(n);
 
-        let batches: Vec<arrow::record_batch::RecordBatch> = ds
-            .scan()
-            .project(&["tenant_id", "actor_id", "statement_hash", "timestamp", "action"])
-            .map_err(|e| format!("Lance project error: {e}"))?
+        // Push the limit + offset into the Lance scanner so we don't pull all
+        // fragments only to slice off the tail in process. `Scanner::limit`
+        // takes (limit, offset) on Lance v4. If the underlying fragment layout
+        // doesn't support efficient offsets, Lance will still degrade
+        // gracefully — but we get the win for typical append-only audit logs.
+        let mut scanner = ds.scan();
+        scanner
+            .project(&[
+                "tenant_id",
+                "actor_id",
+                "statement_hash",
+                "timestamp",
+                "action",
+                "rls_predicates_added",
+                "rewritten_plan",
+            ])
+            .map_err(|e| format!("Lance project error: {e}"))?;
+        scanner
+            .limit(Some(n as i64), Some(skip as i64))
+            .map_err(|e| format!("Lance limit error: {e}"))?;
+
+        let batches: Vec<arrow::record_batch::RecordBatch> = scanner
             .try_into_stream()
             .await
             .map_err(|e| format!("Lance stream error: {e}"))?
@@ -274,7 +317,6 @@ impl LanceAuditSink {
             .map_err(|e| format!("Lance collect error: {e}"))?;
 
         let mut entries = Vec::new();
-        let mut row_offset: usize = 0;
 
         for batch in &batches {
             let tenant_col = batch
@@ -295,28 +337,40 @@ impl LanceAuditSink {
             let ts_col = batch
                 .column(3)
                 .as_any()
-                .downcast_ref::<Int64Array>()
+                .downcast_ref::<TimestampMillisecondArray>()
                 .ok_or("timestamp column type mismatch")?;
             let action_col = batch
                 .column(4)
                 .as_any()
                 .downcast_ref::<StringArray>()
                 .ok_or("action column type mismatch")?;
+            let rls_col = batch
+                .column(5)
+                .as_any()
+                .downcast_ref::<UInt16Array>()
+                .ok_or("rls_predicates_added column type mismatch")?;
+            let plan_col = batch
+                .column(6)
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .ok_or("rewritten_plan column type mismatch")?;
 
             for i in 0..batch.num_rows() {
-                if row_offset + i >= skip {
-                    entries.push(AuditEntry {
-                        ts_unix_ms: ts_col.value(i) as u64,
-                        tenant_id: tenant_col.value(i).to_string(),
-                        actor_id: actor_col.value(i).to_string(),
-                        statement_hash: hash_col.value(i),
-                        statement_kind: parse_statement_kind(action_col.value(i)),
-                        rls_predicates_added: 0, // not stored in Lance schema
-                        rewritten_plan: None,     // not stored in Lance schema
-                    });
-                }
+                let plan = if plan_col.is_null(i) {
+                    None
+                } else {
+                    Some(plan_col.value(i).to_string())
+                };
+                entries.push(AuditEntry {
+                    ts_unix_ms: ts_col.value(i) as u64,
+                    tenant_id: tenant_col.value(i).to_string(),
+                    actor_id: actor_col.value(i).to_string(),
+                    statement_hash: hash_col.value(i),
+                    statement_kind: parse_statement_kind(action_col.value(i)),
+                    rls_predicates_added: rls_col.value(i),
+                    rewritten_plan: plan,
+                });
             }
-            row_offset += batch.num_rows();
         }
 
         Ok(entries)
@@ -580,9 +634,16 @@ mod tests {
 
             let sink = LanceAuditSink::new(path);
 
-            // Append 10 entries with distinct tags.
+            // Append 10 entries with distinct tags. The first 5 receive
+            // non-default `rls_predicates_added` values so we verify the
+            // column survives the Lance round-trip (and isn't silently
+            // rebuilt as 0 like the original schema-dropping behaviour).
             for i in 0..10 {
-                sink.append(lance_sample_entry(&format!("e{i}")));
+                let mut entry = lance_sample_entry(&format!("e{i}"));
+                if i < 5 {
+                    entry.rls_predicates_added = (i as u16) + 7; // 7..=11
+                }
+                sink.append(entry);
             }
 
             // snapshot() should see the 10 buffered entries.
@@ -607,6 +668,11 @@ mod tests {
                 assert_eq!(entry.statement_hash, hash_statement(&tag));
                 assert_eq!(entry.statement_kind, StatementKind::Select);
                 assert_eq!(entry.ts_unix_ms, 1000 + tag.len() as u64);
+                let expected_preds = if i < 5 { (i as u16) + 7 } else { 2 };
+                assert_eq!(
+                    entry.rls_predicates_added, expected_preds,
+                    "rls_predicates_added must round-trip (idx {i})"
+                );
             }
 
             // Cleanup.
@@ -698,6 +764,108 @@ mod tests {
             assert_eq!(all.len(), 10);
 
             // Cleanup.
+            let _ = std::fs::remove_dir_all(&dir);
+        }
+
+        /// Failing-test-first (loose end #1): the persisted Lance schema must declare
+        /// `timestamp` as a temporal type so DataFusion temporal predicates work.
+        /// On the original code this fails because the column is `Int64`.
+        #[tokio::test]
+        async fn test_timestamp_column_is_temporal_type() {
+            use arrow::datatypes::DataType;
+            use lance::dataset::Dataset;
+
+            let dir = std::env::temp_dir().join(format!(
+                "lance_audit_test_ts_temporal_{}",
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ));
+            let path = dir.to_str().unwrap();
+
+            let sink = LanceAuditSink::new(path);
+            sink.append(lance_sample_entry("ts-probe"));
+            sink.flush().await.unwrap();
+
+            let ds = Dataset::open(path).await.unwrap();
+            let schema = ds.schema();
+            // Lance's internal Schema → Arrow Schema for the field type assertion.
+            let arrow_schema: arrow::datatypes::Schema = schema.into();
+            let ts_field = arrow_schema
+                .field_with_name("timestamp")
+                .expect("timestamp column exists");
+            match ts_field.data_type() {
+                DataType::Timestamp(_, _) => { /* pass */ }
+                other => panic!(
+                    "timestamp must be a temporal type for DataFusion predicates, got {:?}",
+                    other
+                ),
+            }
+
+            let _ = std::fs::remove_dir_all(&dir);
+        }
+
+        /// Failing-test-first (loose end #2): `rls_predicates_added` and `rewritten_plan`
+        /// must round-trip through Lance. On the original code these were silently
+        /// dropped from the schema and rebuilt as `0` / `None` on read-back.
+        #[tokio::test]
+        async fn test_round_trip_preserves_rls_predicates_added_and_rewritten_plan() {
+            let dir = std::env::temp_dir().join(format!(
+                "lance_audit_test_lossless_{}",
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ));
+            let path = dir.to_str().unwrap();
+
+            let sink = LanceAuditSink::new(path);
+
+            // 10 entries; 5 of them with non-default rls_predicates_added + rewritten_plan.
+            for i in 0..10 {
+                let plan = if i < 5 {
+                    Some(format!("Filter: tenant_id = 't{i}'\n  TableScan: calls"))
+                } else {
+                    None
+                };
+                let preds = if i < 5 { (i as u16) + 3 } else { 0 };
+                sink.append(AuditEntry {
+                    ts_unix_ms: 2000 + i as u64,
+                    tenant_id: format!("t-{i}"),
+                    actor_id: format!("a-{i}"),
+                    statement_hash: hash_statement(&format!("stmt-{i}")),
+                    statement_kind: StatementKind::Select,
+                    rls_predicates_added: preds,
+                    rewritten_plan: plan,
+                });
+            }
+            sink.flush().await.unwrap();
+
+            let entries = sink.scan_back(10).await.unwrap();
+            assert_eq!(entries.len(), 10);
+
+            for (i, e) in entries.iter().enumerate() {
+                if i < 5 {
+                    assert_eq!(
+                        e.rls_predicates_added,
+                        (i as u16) + 3,
+                        "rls_predicates_added must round-trip (idx {i})"
+                    );
+                    let plan = e
+                        .rewritten_plan
+                        .as_ref()
+                        .unwrap_or_else(|| panic!("rewritten_plan must round-trip (idx {i})"));
+                    assert!(
+                        plan.contains(&format!("tenant_id = 't{i}'")),
+                        "rewritten_plan content must round-trip (idx {i}): got {plan:?}"
+                    );
+                } else {
+                    assert_eq!(e.rls_predicates_added, 0);
+                    assert!(e.rewritten_plan.is_none());
+                }
+            }
+
             let _ = std::fs::remove_dir_all(&dir);
         }
 
