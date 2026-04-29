@@ -231,6 +231,15 @@ pub enum Tense {
     Imperative = 11,
 }
 
+impl Tense {
+    pub const ALL: [Self; 12] = [
+        Self::Present, Self::Past, Self::Future,
+        Self::PresentContinuous, Self::PastContinuous, Self::FutureContinuous,
+        Self::Perfect, Self::Pluperfect, Self::FuturePerfect,
+        Self::Habitual, Self::Potential, Self::Imperative,
+    ];
+}
+
 const TENSE_START: usize = 9910;
 #[allow(dead_code)]
 const TENSE_END:   usize = 9970;
