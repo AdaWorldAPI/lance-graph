@@ -171,9 +171,9 @@ each probe lives architecturally:
 |----|--------------------------------------|--------------------------------------------|---------------|
 | M1 | `bgz-tensor` (CHAODA)                | 256 Jina-v5 centroids                      | PARTIAL — 16-way test pending |
 | P1 | `jc` (probe_p1)                      | none — synthetic codebook + math property  | PASS (2026-04-29) |
-| P2 | `bgz-tensor` calibrate feature       | real model BF16 weights + reconstruction   | data available (see below) |
-| P3 | `bgz-tensor` calibrate feature       | real COCA corpus + 4096-bucket assignment  | data available (see below) |
-| P4 | `bgz-tensor` cascade harness         | real inference workload with hit counters  | data available (see below) |
+| P2 | `bgz-tensor` calibrate feature       | real model BF16 weights + reconstruction   | needs production data |
+| P3 | `bgz-tensor` calibrate feature       | real COCA corpus + 4096-bucket assignment  | needs production data |
+| P4 | `bgz-tensor` cascade harness         | real inference workload with hit counters  | needs production data |
 
 P1 was tractable in `jc` because it tests a **mathematical property**
 (Dupain-Sós discrepancy) on an **abstract codebook** — synthetic data is
@@ -187,44 +187,6 @@ The right place for P2/P3/P4 is `bgz-tensor` with `calibrate` feature
 enabled, against actual model weights / corpus / inference traces. The
 `crates/bgz-tensor/src/bin/cam_pq_calibrate.rs` infrastructure is the
 existing harness that should host them.
-
-### Data is available via release assets (followup 2026-04-29)
-
-Initial assessment (above) said "needs production data" without checking
-where that data lives. Followup grep of `crates/bgz-tensor/src/hydrate.rs`
-and the GitHub Releases API:
-
-- `AdaWorldAPI/lance-graph` release `v0.1.0-bgz-data` contains **43 assets**
-  totaling ~700 MB across 5 model variants:
-  - `qwen35-9b-base` (4 shards, 80 MB), `qwen35-9b-distilled` (4 shards)
-  - `qwen35-27b-base` (11 shards, 174 MB), `qwen35-27b-distilled-{v1,v2}`
-  - `bge-m3-f16.bgz7`, `reader-lm-1.5b.bgz7`
-- `v0.3.0-highheelbgz-256-4096` has `jina-v5-4096-sparse.tar.gz` (88 MB)
-  — directly relevant for P3 (4096 terminal buckets)
-- `v0.2.0-7lane-codebooks` has `jina-v5-7lane.tar.gz` (codebook form)
-- `v1.0.0-context-spine` has `jina-v5-semantic-256.tar.gz`
-
-The `hydrate --download MODEL` binary fetches these into
-`crates/bgz-tensor/data/{model}/shard-NN.bgz7`. The 15 examples in
-`crates/bgz-tensor/examples/` consume them.
-
-**Caveat — existing examples need path updates:** several examples in
-`crates/bgz-tensor/examples/` have hardcoded paths like
-`/home/user/ndarray/src/hpc/openchat/weights/...` or `/tmp/jina_batch1.json`
-that don't exist in the current repo layout. Before running P2/P3/P4 as
-follow-on probes, those examples need either:
-  (a) path updates to point at `data/{model}/` after `hydrate --download`, or
-  (b) new probe examples that follow `cam_pq_row_count_probe.rs` pattern
-      (it correctly takes `<safetensors_path>` as CLI arg).
-
-So the honest sequence for draining P2/P3/P4 is:
-  1. `cargo run --features hydrate --bin hydrate -- --download qwen35-9b-base`
-     (fetches 4 shards = 80 MB from release assets)
-  2. Write a new probe example in `crates/bgz-tensor/examples/probe_pN.rs`
-     following the `cam_pq_row_count_probe.rs` CLI-arg convention
-  3. Run with `--features calibrate`
-  4. Update `bf16-hhtl-terrain.md` Probe Queue table per Update Protocol
-  5. Add substantive FINDING to `EPIPHANIES.md` per existing pattern
 
 ## Endgame Gate (v2.5, FINDING)
 
