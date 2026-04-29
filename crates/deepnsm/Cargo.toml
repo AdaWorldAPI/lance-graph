@@ -18,7 +18,14 @@ No GPU. No learned weights. Same decision boundaries as cosine.
 # simd_amx.rs based on hardware. This crate USES exported types like
 # F32x16 via their public Add/Sub/Mul impls and mul_add primitive; it
 # never touches backend optimization files.
+[features]
+default = []
+contract-ticket = ["dep:lance-graph-contract"]
+grammar-triangle = ["dep:lance-graph-cognitive"]
+
 [dependencies]
 ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
+lance-graph-contract = { path = "../lance-graph-contract", optional = true }
+lance-graph-cognitive = { path = "../lance-graph-cognitive", optional = true }
 
 [dev-dependencies]
