@@ -7,6 +7,11 @@
 //! META-AGENT (follow-up wiring, do NOT do here):
 //!   - gate behind feature `postgrest`; add `pub mod postgrest;` to lib.rs;
 //!   - add `postgrest = ["dep:serde", "dep:serde_json"]` to Cargo.toml [features].
+//!   - epiphany E4 outlook (PR #278): add an OPTIONAL feature
+//!     `datafusion-dispatch = ["dep:datafusion"]` that compiles the stub
+//!     `parsed_query_to_plan` at the bottom of this file into a real
+//!     PostgREST → DataFusion → RlsRewriter dispatcher. Keep it optional
+//!     so the zero-dep posture of the crate is preserved by default.
 //!
 //! This module is dependency-free: it uses only `std`, and emits JSON via
 //! a small hand-rolled writer so it compiles under the crate's default
@@ -188,8 +193,25 @@ pub struct ParseError {
 }
 
 impl ParseError {
-    fn new(msg: impl Into<String>) -> Self {
-        Self { message: msg.into() }
+    /// Construct a `ParseError` from any string-ish value.
+    ///
+    /// Public so downstream crates (e.g. an upcoming `PostgRestDispatcher`
+    /// that wires PostgREST → DataFusion → RlsRewriter) can surface their
+    /// own parse-time errors through this same type.
+    pub fn new(message: impl Into<String>) -> Self {
+        Self { message: message.into() }
+    }
+}
+
+impl From<String> for ParseError {
+    fn from(message: String) -> Self {
+        Self { message }
+    }
+}
+
+impl From<&str> for ParseError {
+    fn from(message: &str) -> Self {
+        Self { message: message.to_string() }
     }
 }
 
@@ -200,6 +222,51 @@ impl std::fmt::Display for ParseError {
 }
 
 impl std::error::Error for ParseError {}
+
+// ── URL decoding (HIGH) ──────────────────────────────────────────────────────
+
+/// Percent-decode a URL component. Handles `%XX` and `+` → space (form-encoding).
+/// Returns None if malformed (incomplete %XX or invalid hex).
+fn percent_decode(s: &str) -> Option<String> {
+    let mut out = Vec::with_capacity(s.len());
+    let bytes = s.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'+' => {
+                out.push(b' ');
+                i += 1;
+            }
+            b'%' if i + 2 < bytes.len() => {
+                let hex = std::str::from_utf8(&bytes[i + 1..i + 3]).ok()?;
+                let v = u8::from_str_radix(hex, 16).ok()?;
+                out.push(v);
+                i += 3;
+            }
+            b'%' => return None, // truncated escape
+            c => {
+                out.push(c);
+                i += 1;
+            }
+        }
+    }
+    String::from_utf8(out).ok()
+}
+
+// ── Table-name validation (MEDIUM) ───────────────────────────────────────────
+
+/// Validate a PostgREST table name: ASCII alphanumeric + underscore, not
+/// starting with `_` (rejects magic / reserved names), not empty.
+///
+/// This rejects path-traversal (`..`), dotted paths (`users.json`), and any
+/// non-ASCII identifier. PostgREST's real surface is more permissive (quoted
+/// identifiers can contain anything), but the SMB+MedCare subset only ever
+/// uses simple snake_case names; tighter validation is the safer default.
+fn is_valid_table_name(s: &str) -> bool {
+    !s.is_empty()
+        && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+        && !s.starts_with('_')
+}
 
 // ── Path parser ──────────────────────────────────────────────────────────────
 
@@ -227,6 +294,14 @@ pub fn parse_path(path: &str) -> Result<ParsedQuery, ParseError> {
     if table_part.contains('/') {
         return Err(ParseError::new(format!(
             "nested path not supported: {table_part}"
+        )));
+    }
+
+    // Reject path-traversal (`..`), dotted paths (`users.json`), magic
+    // names (`_internal`), and any non-ASCII-identifier table label.
+    if !is_valid_table_name(table_part) {
+        return Err(ParseError::new(format!(
+            "invalid table name: {table_part}"
         )));
     }
 
@@ -261,8 +336,18 @@ pub fn parse_path(path: &str) -> Result<ParsedQuery, ParseError> {
         }
 
         match key {
-            "select" => parsed.select = Some(value.to_string()),
-            "order" => parsed.order = Some(value.to_string()),
+            "select" => {
+                let decoded = percent_decode(value).ok_or_else(|| {
+                    ParseError::new(format!("malformed urlencoding in select: {value}"))
+                })?;
+                parsed.select = Some(decoded);
+            }
+            "order" => {
+                let decoded = percent_decode(value).ok_or_else(|| {
+                    ParseError::new(format!("malformed urlencoding in order: {value}"))
+                })?;
+                parsed.order = Some(decoded);
+            }
             "limit" => {
                 parsed.limit = Some(value.parse::<u64>().map_err(|_| {
                     ParseError::new(format!("bad limit: {value}"))
@@ -286,10 +371,19 @@ pub fn parse_path(path: &str) -> Result<ParsedQuery, ParseError> {
                 let op = FilterOp::parse(op_str).ok_or_else(|| {
                     ParseError::new(format!("unknown filter op: {op_str}"))
                 })?;
+                // URL-decode AFTER `op.` split so e.g. `eq.foo%40bar.com`
+                // yields `foo@bar.com` (and not a confused dot-split on a
+                // decoded `.`). Op tokens themselves are ASCII and never
+                // need decoding.
+                let decoded = percent_decode(val).ok_or_else(|| {
+                    ParseError::new(format!(
+                        "malformed urlencoding in filter value: {val}"
+                    ))
+                })?;
                 parsed.filters.push(Filter {
                     column: key.to_string(),
                     op,
-                    value: val.to_string(),
+                    value: decoded,
                 });
             }
         }
@@ -400,6 +494,11 @@ fn push_optional_string(out: &mut String, v: Option<&str>) {
 }
 
 /// Encode a Rust `&str` as a JSON string literal (with surrounding quotes).
+///
+/// Supplementary-plane characters (U+10000 and above) are emitted as a
+/// UTF-16 surrogate pair `\uXXXX\uXXXX` per RFC 8259 §7. BMP characters
+/// pass through as-is (UTF-8 in the JSON text is fine; we only escape
+/// when we have to).
 fn json_string(s: &str) -> String {
     let mut out = String::with_capacity(s.len() + 2);
     out.push('"');
@@ -414,6 +513,15 @@ fn json_string(s: &str) -> String {
             '\x0c' => out.push_str("\\f"),
             c if (c as u32) < 0x20 => {
                 out.push_str(&format!("\\u{:04x}", c as u32));
+            }
+            c if (c as u32) > 0xFFFF => {
+                // Supplementary plane: encode as UTF-16 surrogate pair.
+                //   high = 0xD800 + ((cp - 0x10000) >> 10)
+                //   low  = 0xDC00 + ((cp - 0x10000) & 0x3FF)
+                let cp = c as u32 - 0x10000;
+                let high = 0xD800 + (cp >> 10);
+                let low = 0xDC00 + (cp & 0x3FF);
+                out.push_str(&format!("\\u{:04x}\\u{:04x}", high, low));
             }
             c => out.push(c),
         }
@@ -656,4 +764,191 @@ mod tests {
         assert!(s.contains("\"offset\":null"), "{s}");
         assert!(s.contains("\"filters\":[]"), "{s}");
     }
+
+    // ── Filter-op coverage (LOW) — ilike / in / is / like ────────────────
+
+    #[test]
+    fn parse_ilike_filter() {
+        let q = parse_path("users?email=ilike.*@example.com").expect("parse ok");
+        assert_eq!(q.table, "users");
+        assert_eq!(q.filters.len(), 1);
+        let f = &q.filters[0];
+        assert_eq!(f.column, "email");
+        assert_eq!(f.op, FilterOp::ILike);
+        assert_eq!(f.value, "*@example.com");
+    }
+
+    #[test]
+    fn parse_in_filter() {
+        let q = parse_path("users?id=in.(1,2,3)").expect("parse ok");
+        assert_eq!(q.filters.len(), 1);
+        let f = &q.filters[0];
+        assert_eq!(f.column, "id");
+        assert_eq!(f.op, FilterOp::In);
+        assert_eq!(f.value, "(1,2,3)");
+    }
+
+    #[test]
+    fn parse_is_null_filter() {
+        let q = parse_path("users?status=is.null").expect("parse ok");
+        let f = &q.filters[0];
+        assert_eq!(f.column, "status");
+        assert_eq!(f.op, FilterOp::Is);
+        assert_eq!(f.value, "null");
+    }
+
+    #[test]
+    fn parse_like_filter() {
+        let q = parse_path("users?name=like.J*").expect("parse ok");
+        let f = &q.filters[0];
+        assert_eq!(f.column, "name");
+        assert_eq!(f.op, FilterOp::Like);
+        assert_eq!(f.value, "J*");
+    }
+
+    // ── URL-decode tests (HIGH) ──────────────────────────────────────────
+
+    #[test]
+    fn parse_url_decode_space() {
+        let q = parse_path("users?name=eq.John%20Doe").expect("parse ok");
+        assert_eq!(q.filters[0].value, "John Doe");
+    }
+
+    #[test]
+    fn parse_url_decode_at_sign() {
+        let q = parse_path("users?email=eq.foo%40bar.com").expect("parse ok");
+        assert_eq!(q.filters[0].value, "foo@bar.com");
+    }
+
+    #[test]
+    fn parse_url_decode_plus_sign() {
+        // %2B → '+' (literal plus, NOT a space — that's only bare `+`).
+        let q = parse_path("users?notes=eq.Hello%2BWorld").expect("parse ok");
+        assert_eq!(q.filters[0].value, "Hello+World");
+    }
+
+    #[test]
+    fn parse_url_decode_bare_plus_is_space() {
+        // form-encoding convention: bare `+` decodes to space.
+        let q = parse_path("users?name=eq.John+Doe").expect("parse ok");
+        assert_eq!(q.filters[0].value, "John Doe");
+    }
+
+    #[test]
+    fn parse_url_decode_select_and_order() {
+        let q = parse_path("users?select=id%2Cname&order=created.desc")
+            .expect("parse ok");
+        assert_eq!(q.select.as_deref(), Some("id,name"));
+        assert_eq!(q.order.as_deref(), Some("created.desc"));
+    }
+
+    #[test]
+    fn parse_url_decode_truncated_escape_errors() {
+        let err = parse_path("users?name=eq.foo%2").expect_err("must error");
+        assert!(err.message.contains("malformed urlencoding"), "{}", err.message);
+    }
+
+    #[test]
+    fn parse_url_decode_bad_hex_errors() {
+        let err = parse_path("users?name=eq.foo%ZZbar").expect_err("must error");
+        assert!(err.message.contains("malformed urlencoding"), "{}", err.message);
+    }
+
+    // ── Table-validation tests (MEDIUM) ──────────────────────────────────
+
+    #[test]
+    fn parse_table_traversal_errors() {
+        // `..` contains `.`, plus `/` → caught by either nested-path or
+        // invalid-table-name guard. Either error message is acceptable.
+        let err = parse_path("../../../etc/passwd").expect_err("must error");
+        assert!(
+            err.message.contains("nested path") || err.message.contains("invalid table name"),
+            "{}",
+            err.message
+        );
+    }
+
+    #[test]
+    fn parse_table_with_period_errors() {
+        let err = parse_path("users.json?id=eq.1").expect_err("must error");
+        assert!(err.message.contains("invalid table name"), "{}", err.message);
+    }
+
+    #[test]
+    fn parse_table_underscore_prefix_errors() {
+        let err = parse_path("_internal?id=eq.1").expect_err("must error");
+        assert!(err.message.contains("invalid table name"), "{}", err.message);
+    }
+
+    #[test]
+    fn parse_table_unicode_errors() {
+        let err = parse_path("ünits?id=eq.1").expect_err("must error");
+        assert!(err.message.contains("invalid table name"), "{}", err.message);
+    }
+
+    #[test]
+    fn parse_table_leading_slash_still_works() {
+        // Existing behaviour preserved.
+        let q = parse_path("/users").expect("parse ok");
+        assert_eq!(q.table, "users");
+    }
+
+    // ── ParseError public surface ────────────────────────────────────────
+
+    #[test]
+    fn parse_error_public_constructors() {
+        let a = ParseError::new("a");
+        let b: ParseError = "b".into();
+        let c: ParseError = String::from("c").into();
+        assert_eq!(a.message, "a");
+        assert_eq!(b.message, "b");
+        assert_eq!(c.message, "c");
+        // Display impl is reachable.
+        assert!(format!("{a}").contains("a"));
+    }
+
+    // ── Surrogate-pair JSON escaping (LOW) ───────────────────────────────
+
+    #[test]
+    fn json_string_supplementary_plane_emits_surrogate_pair() {
+        // U+1F600 GRINNING FACE → 😀
+        let out = json_string("\u{1F600}");
+        assert_eq!(out, "\"\\ud83d\\ude00\"", "{out}");
+    }
+
+    #[test]
+    fn json_string_bmp_passes_through() {
+        // BMP chars are emitted as UTF-8, not escaped.
+        let out = json_string("café");
+        assert_eq!(out, "\"café\"");
+    }
+}
+
+// ── EPIPHANY E4 SEED — PostgREST → DataFusion dispatch stub ──────────────────
+//
+// Doc-only stub for the upcoming `PostgRestDispatcher` (PR #278 outlook E4)
+// that wires PostgREST → DataFusion → RlsRewriter. Compiled only under the
+// optional `datafusion-dispatch` feature so the zero-dep default posture of
+// the crate is preserved.
+//
+// META-AGENT (follow-up wiring, do NOT do here):
+//   - add `datafusion-dispatch = ["dep:datafusion"]` to Cargo.toml [features];
+//   - add `datafusion = { version = "...", optional = true }` to dependencies;
+//   - flesh out `parsed_query_to_plan` to translate a `ParsedQuery` into a
+//     `LogicalPlan` (TableScan → Filter → Projection → Sort → Limit), then
+//     hand it to `crate::rls::RlsRewriter` for row-level-security overlay.
+
+/// Convert a [`ParsedQuery`] to a DataFusion `LogicalPlan`.
+///
+/// **NOT IMPLEMENTED** in this PR. Stub interface for the upcoming
+/// `PostgRestDispatcher` that wires PostgREST → DataFusion → RlsRewriter.
+/// See PR #278 outlook epiphany E4.
+#[cfg(feature = "datafusion-dispatch")]
+pub fn parsed_query_to_plan(
+    _query: &ParsedQuery,
+    _ctx: &datafusion::execution::context::SessionContext,
+) -> Result<datafusion::logical_expr::LogicalPlan, ParseError> {
+    Err(ParseError::new(
+        "parsed_query_to_plan: not yet implemented (PR #278 outlook E4)",
+    ))
 }
