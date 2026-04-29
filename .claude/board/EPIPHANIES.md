@@ -65,6 +65,35 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-04-29 — FINDING: probe-queue routing — P2/P3/P4 are bgz-tensor probes, not jc probes
+
+**Status:** FINDING
+
+After draining P1 in `jc` (PASS, see entry below), an honest assessment of
+the remaining `bf16-hhtl-terrain.md` Probe Queue (P2 bucket-only quality,
+P3 4096-buckets-COCA correlation, P4 HHTL-termination percentages)
+revealed they all require **real data** (model BF16 weights, COCA corpus,
+real inference traces). Synthetic data would either confirm tautologically
+(P3: random distributions give trivial MI by construction) or test a
+different question than the one in the queue.
+
+P1 was tractable in `jc` because it tested a *mathematical property*
+(Dupain-Sós discrepancy) on an *abstract codebook* — synthetic data is
+sufficient when the property under test is structural, not distributional.
+
+The right host for P2/P3/P4 is `bgz-tensor` with the `calibrate` feature
+enabled, against `cam_pq_calibrate.rs` infrastructure. Probe-Queue table
+in `bf16-hhtl-terrain.md` updated with a "Probe Routing" section that
+makes the architectural assignment explicit.
+
+This avoids a class of agent failure: writing pure-Rust synthetic probes
+in `jc` for questions that fundamentally need production data, then
+declaring the probe "PASS" on data that doesn't represent the real
+distribution being claimed about.
+
+Cross-ref: `.claude/knowledge/bf16-hhtl-terrain.md` Probe Routing section,
+`crates/bgz-tensor/src/bin/cam_pq_calibrate.rs`.
+
 ## 2026-04-29 — FINDING: Probe P1 PASS — γ+φ pre-rank selector empirically confirmed
 
 **Status:** FINDING
