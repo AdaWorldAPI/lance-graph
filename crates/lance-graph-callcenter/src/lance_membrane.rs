@@ -430,12 +430,14 @@ impl ExternalMembrane for LanceMembrane {
         };
 
         UnifiedStep {
+            id:         0,
             step_id:    format!("{:016x}", scent as u64),
             step_type:  step_type.to_owned(),
             status:     StepStatus::Pending,
             thinking:   None, // resolved by OrchestrationBridge::resolve_thinking()
             reasoning:  None,
             confidence: None,
+            depends_on: Vec::new(),
         }
     }
 

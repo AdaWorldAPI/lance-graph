@@ -276,12 +276,21 @@ mod tests {
     }
 }
 
+/// Numeric step identifier for DAG dependency tracking.
+///
+/// Used by `UnifiedStep::id` and `UnifiedStep::depends_on` to express
+/// execution ordering constraints. The pipeline executor in
+/// `lance-graph-planner::pipeline` builds a topological sort from these.
+pub type StepId = u64;
+
 /// Unified step — the unit of work crossing system boundaries.
 ///
 /// This is the canonical type. crewai-rust's UnifiedStep and
 /// n8n-contract's UnifiedStep should both be replaced by this.
 #[derive(Debug, Clone)]
 pub struct UnifiedStep {
+    /// Numeric identifier for DAG dependency edges.
+    pub id: StepId,
     pub step_id: String,
     pub step_type: String,
     pub status: StepStatus,
@@ -291,6 +300,9 @@ pub struct UnifiedStep {
     pub reasoning: Option<String>,
     /// NARS confidence (0.0–1.0).
     pub confidence: Option<f64>,
+    /// IDs of steps that must complete before this step can execute.
+    /// Empty means the step has no prerequisites (root node in the DAG).
+    pub depends_on: Vec<StepId>,
 }
 
 /// Step execution status.

@@ -147,12 +147,14 @@ mod tests {
 
     fn make_step(step_type: &str, reasoning: Option<&str>) -> UnifiedStep {
         UnifiedStep {
+            id: 0,
             step_id: "t-1".to_string(),
             step_type: step_type.to_string(),
             status: StepStatus::Pending,
             thinking: None,
             reasoning: reasoning.map(|s| s.to_string()),
             confidence: None,
+            depends_on: vec![],
         }
     }
 
