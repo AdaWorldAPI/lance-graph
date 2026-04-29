@@ -23,7 +23,9 @@ use datafusion::common::tree_node::Transformed;
 #[cfg(feature = "auth-rls-lite")]
 use datafusion::common::Result as DFResult;
 #[cfg(feature = "auth-rls-lite")]
-use datafusion::logical_expr::LogicalPlan;
+use datafusion::common::ScalarValue;
+#[cfg(feature = "auth-rls-lite")]
+use datafusion::logical_expr::{lit, Expr, LogicalPlan, Projection};
 #[cfg(feature = "auth-rls-lite")]
 use datafusion::optimizer::{ApplyOrder, OptimizerConfig, OptimizerRule};
 
@@ -108,6 +110,67 @@ pub struct ColumnMaskRewriter {
 }
 
 #[cfg(feature = "auth-rls-lite")]
+impl ColumnMaskRewriter {
+    /// Replace a column expression according to the given [`RedactionMode`].
+    ///
+    /// This is the v1 implementation. `Hash` mode uses a literal
+    /// `"***REDACTED***"` placeholder; a proper deterministic hash UDF
+    /// (FNV-64 or SHA-256-truncated) is a follow-up once the UDF
+    /// registry surface is stable. `Truncate(n)` uses DataFusion's
+    /// built-in `substr` via `Expr::ScalarFunction`.
+    fn mask_expr(expr: &Expr, mode: &RedactionMode) -> Expr {
+        match mode {
+            RedactionMode::Null => Expr::Literal(ScalarValue::Null, None),
+            RedactionMode::Constant => lit("[REDACTED]"),
+            RedactionMode::Hash => {
+                // v1: deterministic hash UDF is future work. For now,
+                // replace with a stable placeholder so the column value
+                // is never exposed.
+                lit("***REDACTED***")
+            }
+            RedactionMode::Truncate(n) => {
+                // Use DataFusion's built-in `substr(col, 1, n)`.
+                let col_expr = expr.clone();
+                let start = lit(1_i64);
+                let length = lit(*n as i64);
+                Expr::ScalarFunction(datafusion::logical_expr::expr::ScalarFunction::new_udf(
+                    Arc::new(datafusion::functions::unicode::substr().as_ref().clone()),
+                    vec![col_expr, start, length],
+                ))
+            }
+        }
+    }
+
+    /// Rewrite a single expression, replacing column references that match
+    /// a masked column with the appropriate redaction expression.
+    fn rewrite_expr(expr: &Expr, policy: &ColumnMaskPolicy) -> (Expr, bool) {
+        match expr {
+            Expr::Column(col) => {
+                let col_name = col.name();
+                if let Some(mode) = policy.columns.get(col_name) {
+                    (Self::mask_expr(expr, mode), true)
+                } else {
+                    (expr.clone(), false)
+                }
+            }
+            Expr::Alias(alias) => {
+                let (inner, changed) = Self::rewrite_expr(&alias.expr, policy);
+                if changed {
+                    (inner.alias(alias.name.clone()), true)
+                } else {
+                    (expr.clone(), false)
+                }
+            }
+            // For other expression types, return unchanged. A future
+            // version could recurse into nested expressions (e.g.
+            // BinaryExpr operands), but v1 keeps it simple: only
+            // top-level column references in Projection are rewritten.
+            _ => (expr.clone(), false),
+        }
+    }
+}
+
+#[cfg(feature = "auth-rls-lite")]
 impl PolicyRewriter for ColumnMaskRewriter {
     fn kind(&self) -> PolicyKind {
         PolicyKind::ColumnMask
@@ -116,11 +179,63 @@ impl PolicyRewriter for ColumnMaskRewriter {
         "column_mask"
     }
     fn rewrite_plan(&self, plan: LogicalPlan) -> DFResult<Transformed<LogicalPlan>> {
-        // Walk plan; on Projection, rewrite expressions for redacted columns.
-        // For this PR ship the structural skeleton; the actual UDF wrap lands
-        // in a follow-up once redaction UDFs are registered.
-        // TODO: wrap Expr::Column(c) in mask_udf(...) for c in policy.columns
-        Ok(Transformed::no(plan))
+        match &plan {
+            LogicalPlan::Projection(proj) => {
+                // Extract table name from the input plan. We look for
+                // TableScan as the immediate or nested input.
+                let table_name = Self::extract_table_name(proj.input.as_ref());
+                let policy = table_name
+                    .as_deref()
+                    .and_then(|t| self.registry.lookup(t));
+
+                let Some(policy) = policy else {
+                    return Ok(Transformed::no(plan));
+                };
+
+                // Rewrite each projection expression.
+                let mut any_changed = false;
+                let new_exprs: Vec<Expr> = proj
+                    .expr
+                    .iter()
+                    .map(|e| {
+                        let (new_e, changed) = Self::rewrite_expr(e, policy);
+                        if changed {
+                            any_changed = true;
+                        }
+                        new_e
+                    })
+                    .collect();
+
+                if any_changed {
+                    let new_proj = Projection::try_new(new_exprs, proj.input.clone())?;
+                    Ok(Transformed::yes(LogicalPlan::Projection(new_proj)))
+                } else {
+                    Ok(Transformed::no(plan))
+                }
+            }
+            _ => Ok(Transformed::no(plan)),
+        }
+    }
+}
+
+#[cfg(feature = "auth-rls-lite")]
+impl ColumnMaskRewriter {
+    /// Walk down the plan tree to find a `TableScan` and extract its name.
+    /// This is a best-effort heuristic for v1; it handles the common case
+    /// of `Projection → TableScan` and `Projection → Filter → TableScan`.
+    fn extract_table_name(plan: &LogicalPlan) -> Option<String> {
+        match plan {
+            LogicalPlan::TableScan(scan) => Some(scan.table_name.table().to_string()),
+            // Recurse through single-input nodes (Filter, Sort, Limit, etc.)
+            other => {
+                let inputs = other.inputs();
+                if inputs.len() == 1 {
+                    Self::extract_table_name(inputs[0])
+                } else {
+                    None
+                }
+            }
+        }
     }
 }
 
@@ -302,8 +417,136 @@ mod tests {
         let transformed = rewriter
             .rewrite_plan(plan)
             .expect("rewrite should succeed");
-        // Skeleton implementation — should be a no-op until the UDF wrap
-        // lands.
+        // Empty registry — no projection to rewrite, so pass-through.
         assert!(!transformed.transformed);
+    }
+
+    // ── Column masking rewrite tests (one per RedactionMode) ────────────
+
+    #[cfg(feature = "auth-rls-lite")]
+    mod mask_rewrite_tests {
+        use super::*;
+        use datafusion::common::tree_node::TreeNode;
+        use datafusion::datasource::{provider_as_source, MemTable};
+        use datafusion::logical_expr::builder::LogicalPlanBuilder;
+        use datafusion::optimizer::OptimizerContext;
+
+        /// Schema: `name` (Utf8), `ssn` (Utf8), `card` (Utf8), `score` (Int32).
+        fn mask_schema() -> Arc<arrow::datatypes::Schema> {
+            Arc::new(arrow::datatypes::Schema::new(vec![
+                arrow::datatypes::Field::new("name", arrow::datatypes::DataType::Utf8, false),
+                arrow::datatypes::Field::new("ssn", arrow::datatypes::DataType::Utf8, false),
+                arrow::datatypes::Field::new("card", arrow::datatypes::DataType::Utf8, false),
+                arrow::datatypes::Field::new("score", arrow::datatypes::DataType::Int32, true),
+            ]))
+        }
+
+        fn mem_source(
+            schema: Arc<arrow::datatypes::Schema>,
+        ) -> Arc<dyn datafusion::datasource::TableProvider> {
+            Arc::new(MemTable::try_new(schema, vec![vec![]]).unwrap())
+        }
+
+        /// Build a Projection → TableScan plan selecting all columns.
+        fn scan_with_projection(table_name: &str) -> LogicalPlan {
+            use datafusion::logical_expr::col;
+            let src = provider_as_source(mem_source(mask_schema()));
+            LogicalPlanBuilder::scan(table_name, src, None)
+                .unwrap()
+                .project(vec![
+                    col("name"),
+                    col("ssn"),
+                    col("card"),
+                    col("score"),
+                ])
+                .unwrap()
+                .build()
+                .unwrap()
+        }
+
+        fn apply(plan: LogicalPlan, rewriter: &ColumnMaskRewriter) -> LogicalPlan {
+            let cfg = OptimizerContext::new();
+            plan.transform_down(|n| rewriter.rewrite(n, &cfg))
+                .unwrap()
+                .data
+        }
+
+        fn make_rewriter(
+            table: &str,
+            masks: Vec<(&str, RedactionMode)>,
+        ) -> ColumnMaskRewriter {
+            let mut columns = HashMap::new();
+            for (col, mode) in masks {
+                columns.insert(col.to_string(), mode);
+            }
+            let mut registry = ColumnMaskRegistry::new();
+            registry.register(ColumnMaskPolicy {
+                table_name: table.to_string(),
+                columns,
+            });
+            ColumnMaskRewriter {
+                registry: Arc::new(registry),
+                actor_role: "analyst".to_string(),
+            }
+        }
+
+        #[test]
+        fn redaction_mode_null_replaces_column_with_null() {
+            let plan = scan_with_projection("customers");
+            let rewriter = make_rewriter("customers", vec![("ssn", RedactionMode::Null)]);
+            let rewritten = apply(plan, &rewriter);
+            let s = format!("{rewritten}");
+            // The SSN column should be replaced with NULL.
+            assert!(
+                s.contains("NULL"),
+                "expected NULL literal in rewritten plan: {s}"
+            );
+            // Other columns should remain.
+            assert!(s.contains("name"), "name column should be preserved: {s}");
+            assert!(s.contains("card"), "card column should be preserved: {s}");
+        }
+
+        #[test]
+        fn redaction_mode_constant_replaces_column_with_redacted() {
+            let plan = scan_with_projection("customers");
+            let rewriter = make_rewriter("customers", vec![("ssn", RedactionMode::Constant)]);
+            let rewritten = apply(plan, &rewriter);
+            let s = format!("{rewritten}");
+            assert!(
+                s.contains("[REDACTED]"),
+                "expected [REDACTED] literal in rewritten plan: {s}"
+            );
+            assert!(s.contains("name"), "name column should be preserved: {s}");
+        }
+
+        #[test]
+        fn redaction_mode_hash_replaces_column_with_placeholder() {
+            let plan = scan_with_projection("customers");
+            let rewriter = make_rewriter("customers", vec![("ssn", RedactionMode::Hash)]);
+            let rewritten = apply(plan, &rewriter);
+            let s = format!("{rewritten}");
+            // v1: Hash mode uses "***REDACTED***" placeholder.
+            assert!(
+                s.contains("***REDACTED***"),
+                "expected ***REDACTED*** placeholder in rewritten plan: {s}"
+            );
+            assert!(s.contains("name"), "name column should be preserved: {s}");
+        }
+
+        #[test]
+        fn redaction_mode_truncate_wraps_column_in_substr() {
+            let plan = scan_with_projection("customers");
+            let rewriter =
+                make_rewriter("customers", vec![("card", RedactionMode::Truncate(4))]);
+            let rewritten = apply(plan, &rewriter);
+            let s = format!("{rewritten}");
+            // Truncate(4) should produce a substr() call.
+            assert!(
+                s.contains("substr"),
+                "expected substr function in rewritten plan: {s}"
+            );
+            // The name column should be untouched.
+            assert!(s.contains("name"), "name column should be preserved: {s}");
+        }
     }
 }
