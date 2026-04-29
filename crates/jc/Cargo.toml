@@ -14,3 +14,6 @@ name = "prove_it"
 
 [[example]]
 name = "sigma_probe"
+
+[[example]]
+name = "probe_p1"

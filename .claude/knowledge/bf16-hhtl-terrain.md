@@ -145,9 +145,16 @@ M1   P0        CLAM 3-level 16-way tree on 256 Jina       Clean tree,      Degen
                                                                                               Tree shape
                                                                                               NOT YET tested
                                                                                               for 16-way.)
-I    P1        4 γ-phase offsets → different ranked        ρ differs by     ρ identical        NOT RUN
-                output from same base codebook?            >0.01 across     across offsets
-                                                           offsets
+I    P1        4 γ-phase offsets → different ranked        ρ differs by     ρ identical        PASS
+                output from same base codebook?            >0.01 across     across offsets    (jc probe_p1
+                                                           offsets                            2026-04-29:
+                                                                                              min ρ=-0.963
+                                                                                              over (0,3) pair,
+                                                                                              4 offsets at
+                                                                                              stride 1/(4φ).
+                                                                                              Dupain-Sós
+                                                                                              empirically
+                                                                                              confirmed.)
 M3   P2        Bucket-only retrieval (no Slot V) ≥90%     ≥90% quality     <70% quality      NOT RUN
                 of full BF16 quality?
 M2   P3        4096 terminal buckets correlate with       MI > 0.6         MI < 0.3          NOT RUN

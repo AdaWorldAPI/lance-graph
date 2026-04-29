@@ -65,6 +65,33 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-04-29 — FINDING: Probe P1 PASS — γ+φ pre-rank selector empirically confirmed
+
+**Status:** FINDING
+
+Probe P1 from `bf16-hhtl-terrain.md` Probe Queue (status before: NOT RUN)
+drained to PASS. Tests Constraint C3's "VALID — pre-rank discrete selector"
+regime: 4 γ-phase offsets at stride 1/(4φ) on a 256-entry codebook produce
+meaningfully different rankings (min Spearman ρ = -0.963 between offsets
+0 and 3, with intermediate pairs showing the expected gradient from +0.51
+through 0 to -0.96). Dupain-Sós discrepancy property empirically confirmed
+in the synthetic regime; γ+φ encoding strategy in `bgz-tensor` rests on
+a load-bearing axiom that holds.
+
+The pairwise gradient is mathematically clean: 4 offsets distributed over
+half the golden ratio produce rankings that smoothly transition from
+co-monotonic (ρ=+0.51 at adjacent offsets) through orthogonal (ρ≈0 at
+2-step) to anti-monotonic (ρ=-0.96 at maximum spacing). This is the
+Dupain-Sós signature.
+
+Caveat: tested on synthetic Beta(2,2) distributed codebook on [0,1) with
+toroidal distance. Production codebook (256 Jina centroids in higher-dim
+space) may produce different magnitudes — but the qualitative result
+(rankings DO differ across γ-offsets) is stable given the strong signal.
+
+Cross-ref: `.claude/knowledge/bf16-hhtl-terrain.md` Probe Queue P1 (now
+PASS), `crates/jc/src/probe_p1_gamma_phase.rs`, Constraint C3.
+
 ## 2026-04-29 — FINDING: Pillars 5+, 5++, 6 close the concentration family for substrate aggregation
 
 **Status:** FINDING

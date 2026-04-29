@@ -31,6 +31,11 @@ pub mod ewa_sandwich;
 //   cargo run --manifest-path crates/jc/Cargo.toml --release --example sigma_probe
 pub mod sigma_codebook_probe;
 
+// Diagnostic probe — drains an entry from bf16-hhtl-terrain.md probe queue.
+// Run via:
+//   cargo run --manifest-path crates/jc/Cargo.toml --release --example probe_p1
+pub mod probe_p1_gamma_phase;
+
 use std::time::Instant;
 
 #[derive(Debug, Clone)]
