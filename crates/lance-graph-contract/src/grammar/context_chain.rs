@@ -91,6 +91,26 @@ pub struct DisambiguationResult {
     pub candidate_count: usize,
 }
 
+/// Builder-style options for [`ContextChain::disambiguate_with`].
+///
+/// Single entry point for disambiguation: kernel and sentinel-fingerprint
+/// are both optional, enabling callers to opt in only to what they need.
+/// The four pre-existing `disambiguate*` methods are retained as
+/// `#[deprecated]` thin wrappers that construct a `DisambiguateOpts`
+/// and delegate here, so existing callers continue to compile.
+///
+/// `kernel` defaults to `WeightingKernel::default()` (MexicanHat).
+/// `sentinel_fp` is only consulted on the empty-candidates sentinel
+/// path; when `Some(fp)` it replaces the zero `Binary16K` placeholder
+/// in the sentinel result. This is the bridge that lets `deepnsm`
+/// inject a real `MarkovBundler::role_bundle()`-derived fingerprint
+/// without the contract crate taking a deepnsm dependency.
+#[derive(Default, Clone)]
+pub struct DisambiguateOpts {
+    pub kernel: Option<WeightingKernel>,
+    pub sentinel_fp: Option<CrystalFingerprint>,
+}
+
 /// Weighting kernel for temporal position in the Markov chain.
 /// Mexican-hat emphasizes focal, de-emphasizes distant positions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -303,6 +323,7 @@ impl ContextChain {
     ///   code in the cypher bridge.
     /// - **Single candidate**: `margin = 0.0`, `dispersion = 0.0`,
     ///   `escalate_to_llm = true`.
+    #[deprecated(since = "next", note = "use disambiguate_with(opts)")]
     pub fn disambiguate<I>(
         &self,
         i: usize,
@@ -311,7 +332,7 @@ impl ContextChain {
     where
         I: IntoIterator<Item = CrystalFingerprint>,
     {
-        self.disambiguate_with_kernel(i, candidates, WeightingKernel::default())
+        self.disambiguate_with(i, candidates, DisambiguateOpts::default())
     }
 
     /// Disambiguate with an externally-supplied fingerprint for the
@@ -324,6 +345,7 @@ impl ContextChain {
     ///
     /// When `chosen_fingerprint` is `None`, falls back to the original
     /// zero-sentinel behaviour (backwards compatible).
+    #[deprecated(since = "next", note = "use disambiguate_with(opts)")]
     pub fn disambiguate_with_fingerprint<I>(
         &self,
         i: usize,
@@ -333,17 +355,20 @@ impl ContextChain {
     where
         I: IntoIterator<Item = CrystalFingerprint>,
     {
-        self.disambiguate_with_kernel_and_fingerprint(
+        self.disambiguate_with(
             i,
             candidates,
-            WeightingKernel::default(),
-            chosen_fingerprint,
+            DisambiguateOpts {
+                kernel: None,
+                sentinel_fp: chosen_fingerprint,
+            },
         )
     }
 
     /// Kernel-aware variant of `disambiguate`. Identical contract; the
     /// supplied `kernel` is used when scoring each candidate replay via
     /// `total_coherence_with_kernel`.
+    #[deprecated(since = "next", note = "use disambiguate_with(opts)")]
     pub fn disambiguate_with_kernel<I>(
         &self,
         i: usize,
@@ -353,8 +378,13 @@ impl ContextChain {
     where
         I: IntoIterator<Item = CrystalFingerprint>,
     {
-        self.disambiguate_with_kernel_and_fingerprint(
-            i, candidates, kernel, None,
+        self.disambiguate_with(
+            i,
+            candidates,
+            DisambiguateOpts {
+                kernel: Some(kernel),
+                sentinel_fp: None,
+            },
         )
     }
 
@@ -369,6 +399,7 @@ impl ContextChain {
     /// When `chosen_fingerprint` is `None`, the sentinel falls back to
     /// the zero `Binary16K` — preserving backwards compatibility with
     /// all existing callers.
+    #[deprecated(since = "next", note = "use disambiguate_with(opts)")]
     pub fn disambiguate_with_kernel_and_fingerprint<I>(
         &self,
         i: usize,
@@ -379,6 +410,39 @@ impl ContextChain {
     where
         I: IntoIterator<Item = CrystalFingerprint>,
     {
+        self.disambiguate_with(
+            i,
+            candidates,
+            DisambiguateOpts {
+                kernel: Some(kernel),
+                sentinel_fp: chosen_fingerprint,
+            },
+        )
+    }
+
+    /// Single entry point for counterfactual disambiguation.
+    ///
+    /// Combines kernel selection and sentinel-fingerprint injection
+    /// into one builder. The four legacy `disambiguate*` methods are
+    /// retained as `#[deprecated]` thin wrappers that construct an
+    /// appropriate `DisambiguateOpts` and delegate here.
+    ///
+    /// `opts.kernel` defaults to `WeightingKernel::default()` (MexicanHat)
+    /// when `None`. `opts.sentinel_fp` is consulted only on the
+    /// empty-candidates sentinel path; on any non-empty path it is
+    /// ignored.
+    pub fn disambiguate_with<I>(
+        &self,
+        i: usize,
+        candidates: I,
+        opts: DisambiguateOpts,
+    ) -> DisambiguationResult
+    where
+        I: IntoIterator<Item = CrystalFingerprint>,
+    {
+        let kernel = opts.kernel.unwrap_or_default();
+        let chosen_fingerprint = opts.sentinel_fp;
+
         // Score with original input index preserved so we can report
         // `winner_index` in the iterator's order.
         let mut scored: Vec<(usize, CrystalFingerprint, f32)> = candidates
@@ -507,6 +571,7 @@ fn hamming_256(a: &[u64; 256], b: &[u64; 256]) -> u32 {
 }
 
 #[cfg(test)]
+#[allow(deprecated)] // exercises the deprecated wrappers to verify delegation
 mod tests {
     use super::*;
 

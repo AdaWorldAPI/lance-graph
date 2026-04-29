@@ -36,8 +36,9 @@ pub use wechsel::{WechselAmbiguity, WechselRole};
 pub use finnish::{FinnishCase, finnish_case_for_suffix};
 pub use inference::{NarsInference, inference_to_style_cluster};
 pub use context_chain::{
-    ContextChain, DisambiguationResult, ReplayDirection, ReplayRequest,
-    WeightingKernel, CHAIN_LEN, DISAMBIGUATION_MARGIN_THRESHOLD, MARKOV_RADIUS,
+    ContextChain, DisambiguateOpts, DisambiguationResult, ReplayDirection,
+    ReplayRequest, WeightingKernel, CHAIN_LEN, DISAMBIGUATION_MARGIN_THRESHOLD,
+    MARKOV_RADIUS,
 };
 pub use role_keys::*;
 pub use thinking_styles::{
