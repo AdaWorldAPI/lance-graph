@@ -65,6 +65,61 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-04-29 — CORRECTION: agent skipped board/probe-queue discipline, created parallel idea journals
+
+**Status:** CORRECTION
+
+In a single session 2026-04-29, two `IDEA_JOURNAL_*.md` files (PRs #290,
+#291) were created in `.claude/` root — capturing streaming-hydration,
+fractal-codec, and three proposed application pillars (7/8/9). Both files
+duplicated the function of the existing `.claude/board/IDEAS.md`
+(triple-entry, append-only, P0-P3 priorities) and `.claude/board/EPIPHANIES.md`
+(date-prefixed reverse-chrono log). Neither file consulted
+`.claude/knowledge/bf16-hhtl-terrain.md` Process Rule, which states
+that any agent MUST check the probe queue before proposing changes and
+MUST label proposals as CONJECTURE if relevant probe is NOT RUN.
+
+Posthoc correction (this PR): both journal files received a CONJECTURE
+banner at top pointing to canonical board, ideas re-filed into
+`.claude/board/IDEAS.md` Open section with cross-references and explicit
+CONJECTURE / LIKELY-REDISCOVERY tags where appropriate.
+
+Lesson for future sessions: read `knowledge.md` and `board/` *before*
+creating new top-level docs. The repo has 145+ `.claude/` documents
+encoding accumulated discipline; new patterns should reuse, not parallel.
+
+Cross-ref: `.claude/board/IDEAS.md` 2026-04-29 entries, PRs #290, #291,
+`.claude/knowledge/bf16-hhtl-terrain.md` Process Rule, `.claude/knowledge.md`.
+
+## 2026-04-29 — FINDING: Pillars 5+, 5++, 6 close the concentration family for substrate aggregation
+
+**Status:** FINDING
+
+Three proof-in-code pillars were merged in succession (PRs #286, #287, #289):
+
+- **Pillar 5+ (Köstenberger-Stark):** PSD-cone Hadamard-space concentration
+  for non-iid Σ aggregation. Tightness 0.969× — bound is hit, not just
+  respected. Certifies single-step Σ aggregation.
+- **Pillar 5++ (Düker-Zoubouloglou):** Hilbert-space CLT for AR(1) Gaussian
+  process at d=16384. Relative error 0.103% — two orders of magnitude
+  below tolerance. Certifies bundle-of-N fingerprint convergence in ℓ².
+- **Pillar 6 (EWA-Sandwich):** Σ push-forward `M·Σ·Mᵀ` along multi-hop
+  paths. PSD-preservation 10000/10000 hops, CV tightness 1.467×.
+  Certifies multi-hop edge propagation stays in SPD cone for arbitrary
+  depth — the cant-stop-thinking loop has its mathematical backbone.
+
+Plus PR #288 (Σ-codebook viability probe, R² = 0.9949) ruled out the
+proposed CausalEdge64 8→16 byte expansion that would have halved the
+HighHeelBGZ 240-edge container limit. The 256-entry codebook with 1-byte
+sidecar is sufficient.
+
+Combined: every aggregation pattern in the cognitive substrate now sits
+on certified ground. Scalar (Pillar 5 Jirak) + Σ-tensor (Pillar 5+ KS) +
+Hilbert-space (Pillar 5++ DZ) + multi-hop propagation (Pillar 6 EWA).
+
+Cross-ref: PRs #286, #287, #288, #289; `.claude/board/IDEAS.md` 2026-04-29
+entries for proposed application pillars 7/8/9.
+
 ## 2026-04-26 — CORRECTION-OF 2026-04-20 "Resolution hierarchy 64×64 > 256×257 > 4096×4096 > 16k": HIP layer is 256×256, not 256×257
 
 **Status:** CORRECTION
