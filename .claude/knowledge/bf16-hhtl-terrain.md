@@ -162,69 +162,37 @@ M2   P3        4096 terminal buckets correlate with       MI > 0.6         MI < 
 M4   P4        HHTL termination: what % at each level?    >60% HEEL        >60% LEAF         NOT RUN
 ```
 
-## Probe Routing (which crate, which data)
+## Probe Routing
 
-Not all probes are runnable in the same place. Honest assessment of where
-each probe lives architecturally:
+| ID | Harness | Status |
+|----|---------|--------|
+| M1 | `thinking-engine/examples/polarquant_hip_probe.rs` — tests HIP family assignment (farthest-pair `build_hip_families` vs PolarQuant gain-shape NN-preservation). Plus `turboquant_correction_probe.rs` for LEAF-orthogonal comparison. Needs real safetensors. | PARTIAL |
+| P1 | `jc/src/probe_p1_gamma_phase.rs` — mathematical property (Dupain-Sós), synthetic sufficient | PASS |
+| P2–P4 | `shader-lab` via `WireSweepRequest` / `WireTokenAgreement` / `WireCalibrate`. Phase 0 DTOs done. JIT-first: one compile, parameterized REST sweep. Plan: `.claude/plans/codec-sweep-via-lab-infra-v1.md` | NOT RUN |
 
-| ID | Crate / harness                      | Data needed                                | Honest status |
-|----|--------------------------------------|--------------------------------------------|---------------|
-| M1 | `bgz-tensor` (CHAODA)                | 256 Jina-v5 centroids                      | PARTIAL — 16-way test pending |
-| P1 | `jc` (probe_p1)                      | none — synthetic codebook + math property  | PASS (2026-04-29) |
-| P2 | `bgz-tensor` calibrate feature       | real model BF16 weights + reconstruction   | data available (see below) |
-| P3 | `bgz-tensor` calibrate feature       | real COCA corpus + 4096-bucket assignment  | data available (see below) |
-| P4 | `bgz-tensor` cascade harness         | real inference workload with hit counters  | data available (see below) |
+**Architecture notes:**
 
-P1 was tractable in `jc` because it tests a **mathematical property**
-(Dupain-Sós discrepancy) on an **abstract codebook** — synthetic data is
-sufficient. P2/P3/P4 test **architectural claims about real data
-distributions** — synthetic data would either confirm tautologically
-(P3: two random distributions yield trivial MI by construction) or test
-a different question than the one in the queue (P2: synthetic BF16
-"quality" is not the production-relevant signal).
+CAM_PQ Semantic mode (CLAM) IS based on COCA — they are one pipeline
+(SPO 2³ + COCA → CAM_PQ), not competing alternatives. CHAODA + CAM_PQ
+are orthogonal only at LEAF (Slot V residual). HEEL → HIP → TWIG
+(Slot D) is one cascade hierarchy with `build_hip_families` (farthest-
+pair binary split, 4 levels → 16 families — not Ward, not k-means).
 
-The right place for P2/P3/P4 is `bgz-tensor` with `calibrate` feature
-enabled, against actual model weights / corpus / inference traces. The
-`crates/bgz-tensor/src/bin/cam_pq_calibrate.rs` infrastructure is the
-existing harness that should host them.
+ICC calibrates the family heel vector via `LensProfile::build()` in
+`lance-graph-contract/src/high_heel.rs` (DESIGNED but not yet called
+per `CALIBRATION_STATUS_GROUND_TRUTH.md`). `CascadeConfig` in
+`bgz-tensor/src/cascade.rs` exposes `heel_min_agreement` and
+`hip_max_distance` for HHTL variation without recompilation.
 
-### Data is available via release assets (followup 2026-04-29)
+JIT infrastructure: `lance-graph/src/cam_pq/jitson_kernel.rs` generates
+Cranelift-compiled scan kernels (LOAD_HEEL → GATHER → FILTER → ... →
+TOP_K, AVX-512). Contract in `lance-graph-contract/src/jit.rs`
+(`JitCompiler`, `KernelHandle`, `StyleRegistry`). `shader-lab` binary
+exposes this via REST on `:3001`.
 
-Initial assessment (above) said "needs production data" without checking
-where that data lives. Followup grep of `crates/bgz-tensor/src/hydrate.rs`
-and the GitHub Releases API:
-
-- `AdaWorldAPI/lance-graph` release `v0.1.0-bgz-data` contains **43 assets**
-  totaling ~700 MB across 5 model variants:
-  - `qwen35-9b-base` (4 shards, 80 MB), `qwen35-9b-distilled` (4 shards)
-  - `qwen35-27b-base` (11 shards, 174 MB), `qwen35-27b-distilled-{v1,v2}`
-  - `bge-m3-f16.bgz7`, `reader-lm-1.5b.bgz7`
-- `v0.3.0-highheelbgz-256-4096` has `jina-v5-4096-sparse.tar.gz` (88 MB)
-  — directly relevant for P3 (4096 terminal buckets)
-- `v0.2.0-7lane-codebooks` has `jina-v5-7lane.tar.gz` (codebook form)
-- `v1.0.0-context-spine` has `jina-v5-semantic-256.tar.gz`
-
-The `hydrate --download MODEL` binary fetches these into
-`crates/bgz-tensor/data/{model}/shard-NN.bgz7`. The 15 examples in
-`crates/bgz-tensor/examples/` consume them.
-
-**Caveat — existing examples need path updates:** several examples in
-`crates/bgz-tensor/examples/` have hardcoded paths like
-`/home/user/ndarray/src/hpc/openchat/weights/...` or `/tmp/jina_batch1.json`
-that don't exist in the current repo layout. Before running P2/P3/P4 as
-follow-on probes, those examples need either:
-  (a) path updates to point at `data/{model}/` after `hydrate --download`, or
-  (b) new probe examples that follow `cam_pq_row_count_probe.rs` pattern
-      (it correctly takes `<safetensors_path>` as CLI arg).
-
-So the honest sequence for draining P2/P3/P4 is:
-  1. `cargo run --features hydrate --bin hydrate -- --download qwen35-9b-base`
-     (fetches 4 shards = 80 MB from release assets)
-  2. Write a new probe example in `crates/bgz-tensor/examples/probe_pN.rs`
-     following the `cam_pq_row_count_probe.rs` CLI-arg convention
-  3. Run with `--features calibrate`
-  4. Update `bf16-hhtl-terrain.md` Probe Queue table per Update Protocol
-  5. Add substantive FINDING to `EPIPHANIES.md` per existing pattern
+Data: release assets via `hydrate --download` (43 assets, ~700 MB in
+`v0.1.0-bgz-data`), in-repo baked lenses in `thinking-engine/data/`,
+COCA vocabulary in `deepnsm/word_frequency/`, HuggingFace via `hf-hub`.
 
 ## Endgame Gate (v2.5, FINDING)
 

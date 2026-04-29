@@ -189,56 +189,28 @@ citing the deferred one; flip the deferred entry's Status to
 Nothing is lost. Every idea has a trail from speculation to
 disposition.
 
-## 2026-04-29 — COCA-Bundle vs Jina-CLAM-Bucket comparison (Probe candidate)
+## 2026-04-29 — Inverted-pyramid awareness streaming via CausalEdge64 through SPO+COCA→CAM_PQ
 **Status:** Open
 **Priority:** P2
-**Scope:** @savant-research deepnsm thinking-engine domain:probe domain:representation-comparison
+**Scope:** @savant-research cognitive-shader-driver thinking-engine domain:streaming domain:awareness
 
-**Question:** Erzeugt das diskrete COCA-Vokabular (4096 Worte) durch DeepNSM
-SPO-Encoding (XOR-bind + Majority-Bundle in 16k-Fingerprints) eine ähnliche
-Bucket-Struktur wie Jina-Embeddings durch CLAM-Clustering?
+When weight rows stream through the inverted pyramid (L4 16384² → L1 64²),
+can the BF16 mantissa awareness (Column F `AwarenessColumn`, per
+`bindspace-columns-v1.md`) flow through CausalEdge64 (Column D) at each
+fold step — so awareness-annotated edges emit without a separate pass?
 
-Concrete check: compare the 16k-fingerprint distribution of COCA-bundled
-words against the 16384-bucket CLAM assignments of Jina-v5 embeddings on
-the 50,000-sample dataset. Two hypotheses, both testable in same probe:
-- **Strong:** KL-divergence between COCA-bundle bucket distribution and
-  Jina-CLAM bucket distribution < 0.1 → bundling captures same semantic
-  topology as learned embedding
-- **Weak:** Adjusted Rand Index between the two clusterings > 0.3 →
-  shared cluster topology even if bucket labels differ
+SPO 2³ + COCA → CAM_PQ is one pipeline (CAM_PQ Semantic CLAM trains
+from COCA vectors). The question is not "which encoding wins" but whether
+the awareness sidecar (BF16 mantissa quality → u8 per word) survives
+the pyramid compression and produces meaningful CausalEdge64 updates
+(frequency/confidence/Pearl 2³ mask) at each resolution level.
 
-Outcomes:
-- **Both PASS:** DeepNSM bundling = CLAM clustering, no learned model needed
-- **Strong FAIL, Weak PASS:** two views on same substrate, complementary
-- **Both FAIL:** orthogonal representations — important negative finding,
-  forces choice of which is the substrate-canonical bucket structure
+Routes through `shader-lab` Lab infra. Test infrastructure exists:
+`polarquant_hip_probe.rs`, `turboquant_correction_probe.rs`, Phase 0
+DTOs (`WireSweep`, `WireCalibrate`, `WireTokenAgreement`).
 
-**Data (all in-repo, zero download):**
-- COCA 4096-word vocabulary: `crates/deepnsm/word_frequency/word_rank_lookup.csv`
-  (5050 lines, lemma+rank+pos+freq, 101KB)
-- Jina-v5 256-codebook distance table: `crates/thinking-engine/data/jina-v5-codebook/distance_table_256x256.u8`
-- Jina-v5 CLAM 16384 assignments on 50k samples: `crates/thinking-engine/data/jina-v5-codebook/clam_16384_assignments_50000.npy`
-- DeepNSM encoder: `crates/deepnsm/src/encoder.rs` + `markov_bundle.rs` + `fingerprint16k.rs`
-
-**Implementation form:** new example in `crates/deepnsm/examples/coca_jina_bucket_comparison.rs`.
-Estimated 300-400 lines: NPY reader (~30 lines, simple format), CSV reader
-(existing in vocabulary.rs), DeepNSM encoder usage (existing), Jina-CLAM
-loader, KL-divergence + ARI computation, comparison report.
-
-**Why this matters architecturally:** answers a load-bearing question that
-doesn't appear in `cognitive-shader-architecture.md`, `endgame-holographic-agi.md`,
-or `deepnsm_integration_map.md` — those documents *assume* DeepNSM and Jina
-operate in compatible bucket-spaces, but it's never been measured. The
-existing `deepnsm_integration_map.md` shows DeepNSM → bgz17 → 4096²
-DistanceMatrix as a *pipeline*, not a *comparison*.
-
-If this probe lands, it either confirms a hidden axiom of the substrate
-(both bucketings agree) or reveals the substrate has two parallel
-bucket-spaces that need explicit reconciliation.
-
-Cross-ref: `crates/deepnsm/word_frequency/`, `crates/thinking-engine/data/jina-v5-codebook/`,
-`.claude/knowledge/deepnsm_integration_map.md`,
-`crates/deepnsm/src/{encoder.rs, markov_bundle.rs, fingerprint16k.rs}`.
+Cross-ref: `bindspace-columns-v1.md` (Column D/F), `causal-edge/src/edge.rs`,
+`BGZ_HHTL_D.md`, `codec-sweep-via-lab-infra-v1.md`.
 
 ## 2026-04-29 — Probe P1: γ-phase-offset ranking discrimination
 **Status:** Implemented 2026-04-29 (this PR)
