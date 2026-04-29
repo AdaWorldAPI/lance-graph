@@ -172,6 +172,90 @@ citing the deferred one; flip the deferred entry's Status to
 Nothing is lost. Every idea has a trail from speculation to
 disposition.
 
+## 2026-04-29 — Safetensor-Streaming als ndimensionale Bedeutungsakkumulation
+**Status:** Open
+**Priority:** P2
+**Scope:** @savant-research @palette-engineer bgz-tensor learning domain:hydration domain:cascade
+
+Stream a safetensor (1B–70B params) tile-by-tile through the existing
+HHTL cascade instead of loading into memory. Per tile: Hadamard-rotate
+(`fractal_descriptor`), extract Σ, propagate via EWA-sandwich (PR #289),
+accumulate in `holograph::width_16k::SchemaSidecar` Block 14/15. Estimated
+3.8 min for 7B model based on Pillar 6 measured 2 ms/sandwich latency.
+**CONJECTURE** — depends on Probe M2 / P3 (4096 terminal buckets correlate
+with COCA vocabulary?) being PASS before tile-streaming approach is
+guaranteed information-preserving.
+
+Cross-ref: `IDEA_JOURNAL_2026_04_29_STREAMING_HYDRATION.md` (full context),
+`bf16-hhtl-terrain.md` probe queue P3, `cognitive-shader-architecture.md`
+(weights-as-seeds doctrine).
+
+## 2026-04-29 — Family-Bounds als globale fraktale Codierung (Hypothesis Test)
+**Status:** Open
+**Priority:** P3
+**Scope:** @savant-research bgz-tensor domain:fractal domain:hypothesis-test
+
+Hypothesis: gesamtheit aller HighHeelBGZ family bounds bildet selbst-
+ähnliche Hierarchie kodierbar als Fraktal mit on-demand decoding statt
+vollständiger Materialisierung. **CONJECTURE** — `fractal_descriptor`
+misst Selbst-Ähnlichkeit *pro Row*, nicht *global*. Vorbedingung:
+Diagnostik-Probe ob globale Fraktalität existiert. PASS-Kriterium:
+Hurst ≠ 0.5, fraktale Dim > 1, Spektrum-Breite > 0 auf der Verteilung
+der family bounds. FAIL: Idee verworfen, lokale per-Row-Fraktalität ist
+nicht globale Eigenschaft.
+
+Cross-ref: `IDEA_JOURNAL_2026_04_29_STREAMING_HYDRATION.md`,
+`fractal-codec-argmax-regime.md`, `endgame-holographic-agi.md`.
+
+## 2026-04-29 — Pillar 7 Front-to-Back α-Akkumulation (LIKELY-REDISCOVERY)
+**Status:** Open
+**Priority:** P3
+**Scope:** @savant-research jc bgz-tensor domain:cascade domain:probe
+
+Apply 3DGS front-to-back α-blending with early-termination (`if α_acc > 0.95: break`)
+to HHTL cascade. KS Pillar 5+ would certify that omitted sources fall
+within concentration bound. **CONJECTURE / LIKELY-REDISCOVERY** —
+`bgz-tensor::cascade` already implements HHTL (HEEL/HIP/TWIG/LEAF) with
+metric-induced sparsity, which is a form of early-termination already.
+Re-filing this pillar specifically should investigate whether it adds
+α-blending novelty over existing cascade or duplicates known terrain.
+Read `cascade.rs` + `attention.rs` headers BEFORE building.
+
+Cross-ref: `IDEA_JOURNAL_2026_04_29_FUTURE_PILLARS.md`,
+`crates/bgz-tensor/src/cascade.rs`, `crates/bgz-tensor/BGZ_HHTL_D.md`.
+
+## 2026-04-29 — Pillar 8 Adaptive Densification für Σ-Codebook
+**Status:** Open
+**Priority:** P2
+**Scope:** @palette-engineer @family-codec-smith jc bgz-tensor domain:codebook domain:adaptive
+
+3DGS-style split (high error + many edges) and prune (low assignment count)
+operations on the Σ-codebook from PR #288 (R² = 0.9949). Total k=256 stays
+constant; codebook adapts to actual edge distribution online. **CONJECTURE** —
+heuristic could oscillate vs converge. Pre-condition: probe must demonstrate
+monotonic R² improvement over 50 densification passes. Builds on the
+already-merged sigma_codebook_probe.
+
+Cross-ref: `IDEA_JOURNAL_2026_04_29_FUTURE_PILLARS.md`, PR #288
+(sigma_codebook_probe), KS Pillar 5+ for convergence guarantee.
+
+## 2026-04-29 — Pillar 9 SH-Koeffizienten als Thinking-Style-Manifold
+**Status:** Open
+**Priority:** P3
+**Scope:** @cognitive-shader-driver learning bgz-tensor domain:cognitive-style domain:architecture
+
+Replace categorical thinking_style (analytical/creative/focused) with
+continuous SH-coefficient manifold evaluated against query view-direction.
+DZ Pillar 5++ already certifies the underlying Hilbert-space CLT.
+**CONJECTURE — TOUCHES PRODUCTION CODE.** Would modify
+`learning::cognitive_styles` and `awareness_dto::ResonanceDto::ThinkingStyle`.
+Pre-condition: explicit architecture decision required before any
+implementation — not a pure-math pillar like 5+/5++/6, but an actual
+substrate behavior change. Hold until that decision is made.
+
+Cross-ref: `IDEA_JOURNAL_2026_04_29_FUTURE_PILLARS.md`,
+`cognitive-shader-architecture.md`, DZ Pillar 5++ (PR #287).
+
 ## 2026-04-19 — FP_WORDS = 256 (supersede the 160 plan)
 **Status:** Open
 **Priority:** P1
