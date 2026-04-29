@@ -46,19 +46,14 @@ impl DnPath {
         })
     }
 
-    /// Compute the scent of this DN path: FNV-1a hash of the canonical
-    /// path string, folded to a single `u8`.
+    /// 64-bit FNV-1a digest over the canonical hex path.
     ///
     /// The canonical form is the 6 segment hashes rendered as hex and
     /// concatenated with `/` separators (deterministic, stable, zero-dep).
-    /// The full 64-bit FNV-1a digest is XOR-folded into 1 byte, preserving
-    /// avalanche properties much better than the old XOR-fold of individual
-    /// segment hashes.
-    ///
-    /// Future phases may replace this with ZeckBF17→Base17→CAM-PQ
-    /// (16Kbit → 48B → 34B → 6B → 1B, ρ=0.937) once bgz-tensor
-    /// enters the callcenter dep tree.
-    pub fn scent(&self) -> u8 {
+    /// CAM-PQ stages downstream (HHTL Phase C) keep the full bits;
+    /// [`scent()`](Self::scent) folds this to u8 for HHTL Phase A bucket
+    /// dispatch.
+    pub fn scent_u64(&self) -> u64 {
         use core::fmt::Write;
         let mut buf = String::with_capacity(6 * 17);
         let segments = [self.ns, self.heel, self.hip, self.branch, self.twig, self.leaf];
@@ -66,7 +61,21 @@ impl DnPath {
             if i > 0 { buf.push('/'); }
             let _ = write!(buf, "{:016x}", seg);
         }
-        let h = fnv1a(&buf);
+        fnv1a(&buf)
+    }
+
+    /// Compute the scent of this DN path: FNV-1a hash of the canonical
+    /// path string, folded to a single `u8`.
+    ///
+    /// XOR-folds [`scent_u64()`](Self::scent_u64) (64 → 8 bits), preserving
+    /// avalanche properties much better than the old XOR-fold of individual
+    /// segment hashes.
+    ///
+    /// Future phases may replace this with ZeckBF17→Base17→CAM-PQ
+    /// (16Kbit → 48B → 34B → 6B → 1B, ρ=0.937) once bgz-tensor
+    /// enters the callcenter dep tree.
+    pub fn scent(&self) -> u8 {
+        let h = self.scent_u64();
         let folded = h
             ^ (h >> 8)
             ^ (h >> 16)
@@ -165,5 +174,61 @@ mod tests {
         )
         .unwrap();
         assert_eq!(p.scent_stub(), p.scent());
+    }
+
+    #[test]
+    fn scent_u64_fold_matches_scent() {
+        let p = DnPath::parse(
+            "/tree/ada/heel/callcenter/hip/v1/branch/agents/twig/card/leaf/abc",
+        )
+        .unwrap();
+        let h = p.scent_u64();
+        let folded = (h
+            ^ (h >> 8)
+            ^ (h >> 16)
+            ^ (h >> 24)
+            ^ (h >> 32)
+            ^ (h >> 40)
+            ^ (h >> 48)
+            ^ (h >> 56)) as u8;
+        assert_eq!(folded, p.scent());
+    }
+
+    #[test]
+    fn scent_distribution_100_paths_low_collision() {
+        let paths: Vec<DnPath> = (0..100)
+            .map(|i| {
+                DnPath::parse(&format!(
+                    "/tree/tenant/heel/agent_{i}/hip/session_{i}/branch/leaf_{i}/twig/t_{i}/leaf/l_{i}"
+                ))
+                .unwrap()
+            })
+            .collect();
+        let scents: Vec<u8> = paths.iter().map(|p| p.scent()).collect();
+        let unique: std::collections::HashSet<_> = scents.iter().copied().collect();
+        assert!(
+            unique.len() >= 50,
+            "FNV-1a XOR-fold should distribute >=50 unique buckets across 100 distinct paths, got {}",
+            unique.len()
+        );
+    }
+
+    #[test]
+    fn scent_u64_distribution_100_paths_all_unique() {
+        let paths: Vec<DnPath> = (0..100)
+            .map(|i| {
+                DnPath::parse(&format!(
+                    "/tree/tenant/heel/agent_{i}/hip/session_{i}/branch/leaf_{i}/twig/t_{i}/leaf/l_{i}"
+                ))
+                .unwrap()
+            })
+            .collect();
+        let scents: std::collections::HashSet<u64> =
+            paths.iter().map(|p| p.scent_u64()).collect();
+        assert_eq!(
+            scents.len(),
+            100,
+            "scent_u64 in 64-bit codomain should have zero collisions in 100 paths"
+        );
     }
 }
