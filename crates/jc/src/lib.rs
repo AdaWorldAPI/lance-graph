@@ -26,6 +26,10 @@ pub mod precond;
 pub mod koestenberger;
 pub mod dueker_zoubouloglou;
 
+// Diagnostic probe (not a theorem proof). Run via:
+//   cargo run --manifest-path crates/jc/Cargo.toml --release --example sigma_probe
+pub mod sigma_codebook_probe;
+
 use std::time::Instant;
 
 #[derive(Debug, Clone)]
