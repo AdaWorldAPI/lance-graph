@@ -65,34 +65,20 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
-## 2026-04-29 — FINDING: probe-queue routing — P2/P3/P4 are bgz-tensor probes, not jc probes
+## 2026-04-29 — FINDING: M1/P2-P4 route through existing Lab infra, not new standalone probes
 
 **Status:** FINDING
 
-After draining P1 in `jc` (PASS, see entry below), an honest assessment of
-the remaining `bf16-hhtl-terrain.md` Probe Queue (P2 bucket-only quality,
-P3 4096-buckets-COCA correlation, P4 HHTL-termination percentages)
-revealed they all require **real data** (model BF16 weights, COCA corpus,
-real inference traces). Synthetic data would either confirm tautologically
-(P3: random distributions give trivial MI by construction) or test a
-different question than the one in the queue.
+M1's real test is `polarquant_hip_probe.rs` (P7) — compares `build_hip_families`
+farthest-pair binary split against PolarQuant gain-shape NN-preservation on
+real safetensors. Plus `turboquant_correction_probe.rs` for LEAF-orthogonal
+(PolarQuant vs CAM_PQ — orthogonal only at LEAF, not HEEL/HIP/TWIG).
+P2/P3/P4 route through `shader-lab` `WireSweep` JIT-first Lab surface
+(Phase 0 DTOs done). CAM_PQ IS based on COCA (one pipeline, not alternatives).
 
-P1 was tractable in `jc` because it tested a *mathematical property*
-(Dupain-Sós discrepancy) on an *abstract codebook* — synthetic data is
-sufficient when the property under test is structural, not distributional.
-
-The right host for P2/P3/P4 is `bgz-tensor` with the `calibrate` feature
-enabled, against `cam_pq_calibrate.rs` infrastructure. Probe-Queue table
-in `bf16-hhtl-terrain.md` updated with a "Probe Routing" section that
-makes the architectural assignment explicit.
-
-This avoids a class of agent failure: writing pure-Rust synthetic probes
-in `jc` for questions that fundamentally need production data, then
-declaring the probe "PASS" on data that doesn't represent the real
-distribution being claimed about.
-
-Cross-ref: `.claude/knowledge/bf16-hhtl-terrain.md` Probe Routing section,
-`crates/bgz-tensor/src/bin/cam_pq_calibrate.rs`.
+Cross-ref: `BGZ_HHTL_D.md`, `codec-sweep-via-lab-infra-v1.md`,
+`polarquant_hip_probe.rs`, `turboquant_correction_probe.rs`,
+`jitson_kernel.rs`, `wire.rs` Phase 0 DTOs.
 
 ## 2026-04-29 — FINDING: Probe P1 PASS — γ+φ pre-rank selector empirically confirmed
 
