@@ -15,9 +15,13 @@
 //!   table name is registered in the [`RlsPolicyRegistry`], the
 //!   configured tenant (and optional actor) predicates are AND-ed onto
 //!   the scan's existing `filters` so downstream predicate-pushdown sees
-//!   them. Tables NOT in the registry are left untouched — fail-open
-//!   for unprivileged-but-non-secret data, fail-closed must be enforced
-//!   by registering a policy.
+//!   them.
+//! - Tables NOT in the registry are handled per the registry's
+//!   [`RegistryMode`]. The default ([`RegistryMode::Sealed`]) rejects
+//!   the plan with a `DataFusionError::Plan` — this is the
+//!   deny-by-default contract from `foundry-roadmap.md` § 42.
+//!   Legacy / public data must opt in via
+//!   [`RlsPolicyRegistry::fail_open`] with an audit reason.
 //!
 //! # Predicate shape
 //!
@@ -43,7 +47,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use datafusion::common::tree_node::Transformed;
-use datafusion::common::Result as DFResult;
+use datafusion::common::{DataFusionError, Result as DFResult};
 use datafusion::logical_expr::{col, lit, Expr, LogicalPlan};
 use datafusion::optimizer::{ApplyOrder, OptimizerConfig, OptimizerRule};
 
@@ -67,9 +71,62 @@ pub struct RlsContext {
     pub actor_id: String,
 }
 
+/// Errors produced by the strict [`RlsContext::new`] constructor.
+///
+/// Hand-rolled (no `thiserror` dependency) so the crate keeps its
+/// minimal feature surface under `auth-rls-lite`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RlsError {
+    /// `tenant_id` was empty — RLS predicate would compare against
+    /// `''` and silently match nothing, which is worse than failing.
+    EmptyTenantId,
+    /// `actor_id` was empty — same hazard. Use [`RlsContext::new_unchecked`]
+    /// for legitimate system-actor cases (and audit-log the call site).
+    EmptyActorId,
+}
+
+impl std::fmt::Display for RlsError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::EmptyTenantId => f.write_str("tenant_id must not be empty"),
+            Self::EmptyActorId => f.write_str("actor_id must not be empty"),
+        }
+    }
+}
+
+impl std::error::Error for RlsError {}
+
 impl RlsContext {
-    /// Construct from owned strings.
-    pub fn new(tenant_id: impl Into<String>, actor_id: impl Into<String>) -> Self {
+    /// Construct from owned strings, validating that neither id is
+    /// empty. Empty ids would otherwise produce predicates of the
+    /// form `tenant_id = ''` which silently match nothing — a
+    /// failure mode that hides bugs instead of surfacing them.
+    pub fn new(
+        tenant_id: impl Into<String>,
+        actor_id: impl Into<String>,
+    ) -> Result<Self, RlsError> {
+        let tenant_id = tenant_id.into();
+        let actor_id = actor_id.into();
+        if tenant_id.is_empty() {
+            return Err(RlsError::EmptyTenantId);
+        }
+        if actor_id.is_empty() {
+            return Err(RlsError::EmptyActorId);
+        }
+        Ok(Self {
+            tenant_id,
+            actor_id,
+        })
+    }
+
+    /// Legacy-permissive constructor — allows empty ids (e.g. for
+    /// "system" contexts that operate without an actor). MUST be
+    /// paired with an audit-log entry showing why the empty id is
+    /// safe in this call site.
+    pub fn new_unchecked(
+        tenant_id: impl Into<String>,
+        actor_id: impl Into<String>,
+    ) -> Self {
         Self {
             tenant_id: tenant_id.into(),
             actor_id: actor_id.into(),
@@ -117,20 +174,83 @@ impl RlsPolicy {
     }
 }
 
+/// Operating mode of an [`RlsPolicyRegistry`].
+///
+/// The default is `Sealed`: any `TableScan` of an unregistered table
+/// is rejected with a `DataFusionError::Plan`. This matches the
+/// deny-by-default contract in `foundry-roadmap.md` § 42 — RLS is
+/// useless if the easy path is "forget to register a policy and read
+/// every tenant's data."
+///
+/// `FailOpen` is an explicit opt-in for legacy / non-tenanted data
+/// (public lookup tables, system catalogs). The `reason` field exists
+/// so the audit trail is grep-able: every `FailOpen { reason: "..." }`
+/// site documents *why* fail-open is the right choice there.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum RegistryMode {
+    /// Default: any `TableScan` of an unregistered table → `DataFusionError`.
+    /// Matches the deny-by-default contract in `foundry-roadmap.md` §42.
+    #[default]
+    Sealed,
+    /// Explicit opt-in for legacy / non-tenanted data. Requires an
+    /// audit trail (the `reason` is logged / grep-able).
+    FailOpen {
+        /// Human-readable justification for opening this registry.
+        /// E.g. `"legacy public lookup"`. Static lifetime so the
+        /// reason cannot be silently overwritten at runtime.
+        reason: &'static str,
+    },
+}
+
 /// Registry mapping table names to their RLS policy.
 ///
-/// Tables not registered here are passed through unchanged by the
-/// rewriter. Construct once at session/membrane start and share via
-/// `Arc` across the optimizer rule.
+/// In `Sealed` mode (the default), tables not registered here cause
+/// the rewriter to fail-closed: the plan is rejected. In `FailOpen`
+/// mode, unregistered tables are passed through unchanged. Construct
+/// once at session/membrane start and share via `Arc` across the
+/// optimizer rule.
 #[derive(Debug, Default, Clone)]
 pub struct RlsPolicyRegistry {
     policies: HashMap<String, RlsPolicy>,
+    mode: RegistryMode,
 }
 
 impl RlsPolicyRegistry {
-    /// New empty registry.
+    /// New empty registry in [`RegistryMode::Sealed`] mode (default).
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Build a registry that fails closed on unregistered tables.
+    /// Equivalent to `RlsPolicyRegistry::default()` but spells the
+    /// intent at the call site.
+    pub fn sealed() -> Self {
+        Self {
+            mode: RegistryMode::Sealed,
+            ..Default::default()
+        }
+    }
+
+    /// Build a registry that passes unregistered tables through. The
+    /// `reason` is recorded in the [`RegistryMode::FailOpen`] variant
+    /// for audit grep — pick something specific
+    /// (`"legacy public lookup"`, `"bootstrap migration window"`).
+    pub fn fail_open(reason: &'static str) -> Self {
+        Self {
+            mode: RegistryMode::FailOpen { reason },
+            ..Default::default()
+        }
+    }
+
+    /// Current mode.
+    pub fn mode(&self) -> RegistryMode {
+        self.mode
+    }
+
+    /// Builder-style mode override.
+    pub fn with_mode(mut self, mode: RegistryMode) -> Self {
+        self.mode = mode;
+        self
     }
 
     /// Register a policy keyed on its `table_name`. Replaces any
@@ -166,16 +286,29 @@ impl RlsPolicyRegistry {
 #[derive(Debug)]
 pub struct RlsRewriter {
     /// Identity envelope to inject. Cloned per scan into literals.
-    pub ctx: RlsContext,
+    /// Private — read via [`RlsRewriter::ctx`] to keep callers from
+    /// mutating live RLS state behind the rewriter's back.
+    ctx: RlsContext,
     /// Per-table policy registry. Shared via `Arc` so the rule is
     /// cheap to clone if the optimizer demands `Send + Sync` ownership.
-    pub registry: Arc<RlsPolicyRegistry>,
+    /// Private — read via [`RlsRewriter::registry`].
+    registry: Arc<RlsPolicyRegistry>,
 }
 
 impl RlsRewriter {
     /// Construct an `RlsRewriter` with a context and a shared registry.
     pub fn new(ctx: RlsContext, registry: Arc<RlsPolicyRegistry>) -> Self {
         Self { ctx, registry }
+    }
+
+    /// Borrow the [`RlsContext`] this rewriter injects.
+    pub fn ctx(&self) -> &RlsContext {
+        &self.ctx
+    }
+
+    /// Borrow the shared [`RlsPolicyRegistry`].
+    pub fn registry(&self) -> &Arc<RlsPolicyRegistry> {
+        &self.registry
     }
 
     /// Build the predicate `Expr` for a given policy.
@@ -223,8 +356,23 @@ impl OptimizerRule for RlsRewriter {
             LogicalPlan::TableScan(mut scan) => {
                 let table_name = scan.table_name.table().to_string();
                 let Some(policy) = self.registry.lookup(&table_name) else {
-                    // No policy for this table → leave it alone.
-                    return Ok(Transformed::no(LogicalPlan::TableScan(scan)));
+                    // No policy for this table — branch on the
+                    // registry mode. Sealed (default) refuses to
+                    // execute the plan; FailOpen passes through.
+                    return match self.registry.mode() {
+                        RegistryMode::Sealed => Err(DataFusionError::Plan(format!(
+                            "RLS sealed registry: no policy for table '{}'. \
+                             Register a policy or use \
+                             RlsPolicyRegistry::fail_open(...) explicitly.",
+                            table_name
+                        ))),
+                        RegistryMode::FailOpen { reason: _ } => {
+                            // Pass-through preserved exactly for
+                            // FailOpen mode. (Logging hook would land
+                            // here once a tracing facility is wired.)
+                            Ok(Transformed::no(LogicalPlan::TableScan(scan)))
+                        }
+                    };
                 };
                 let Some(predicate) = self.build_predicate(policy) else {
                     // Degenerate policy with no columns → no-op.
@@ -245,11 +393,12 @@ impl OptimizerRule for RlsRewriter {
 
 #[cfg(any(feature = "auth-jwt", feature = "auth", feature = "full"))]
 impl From<&lance_graph_contract::auth::ActorContext> for RlsContext {
+    /// Lossy on purpose — `ActorContext` may carry fields RLS does
+    /// not consume. Uses [`RlsContext::new_unchecked`] because the
+    /// ActorContext invariants already enforce non-empty fields
+    /// upstream (see `lance_graph_contract::auth`).
     fn from(actor: &lance_graph_contract::auth::ActorContext) -> Self {
-        Self {
-            tenant_id: actor.tenant_id.to_string(),
-            actor_id: actor.actor_id.clone(),
-        }
+        Self::new_unchecked(actor.tenant_id.to_string(), actor.actor_id.clone())
     }
 }
 
@@ -324,7 +473,7 @@ mod tests {
 
         let mut reg = RlsPolicyRegistry::new();
         reg.register(RlsPolicy::tenant_only("customers", "tenant_id"));
-        let rewriter = RlsRewriter::new(RlsContext::new("t1", "u1"), Arc::new(reg));
+        let rewriter = RlsRewriter::new(RlsContext::new("t1", "u1").expect("non-empty ids"), Arc::new(reg));
 
         let rewritten = apply(plan, &rewriter);
         let s = ps(&rewritten);
@@ -347,7 +496,7 @@ mod tests {
             "tenant_id",
             "actor_id",
         ));
-        let rewriter = RlsRewriter::new(RlsContext::new("t1", "u1"), Arc::new(reg));
+        let rewriter = RlsRewriter::new(RlsContext::new("t1", "u1").expect("non-empty ids"), Arc::new(reg));
 
         let rewritten = apply(plan, &rewriter);
         let s = ps(&rewritten);
@@ -375,7 +524,7 @@ mod tests {
         let mut reg = RlsPolicyRegistry::new();
         reg.register(RlsPolicy::tenant_only("customers", "tenant_id"));
         reg.register(RlsPolicy::tenant_only("orders", "tenant_id"));
-        let rewriter = RlsRewriter::new(RlsContext::new("t1", "u1"), Arc::new(reg));
+        let rewriter = RlsRewriter::new(RlsContext::new("t1", "u1").expect("non-empty ids"), Arc::new(reg));
 
         let rewritten = apply(plan, &rewriter);
         let s = ps(&rewritten);
@@ -391,10 +540,12 @@ mod tests {
         let plan = public_scan("public_lookup");
         let original = ps(&plan);
 
-        let mut reg = RlsPolicyRegistry::new();
+        // Opt into FailOpen: this test exercises the legacy
+        // pass-through path on an unregistered public table.
+        let mut reg = RlsPolicyRegistry::fail_open("legacy public lookup");
         // Policy for a DIFFERENT table — `public_lookup` has none.
         reg.register(RlsPolicy::tenant_only("customers", "tenant_id"));
-        let rewriter = RlsRewriter::new(RlsContext::new("t1", "u1"), Arc::new(reg));
+        let rewriter = RlsRewriter::new(RlsContext::new("t1", "u1").expect("non-empty ids"), Arc::new(reg));
 
         let rewritten = apply(plan, &rewriter);
         let s = ps(&rewritten);
@@ -420,7 +571,7 @@ mod tests {
             "tenant_id",
             "actor_id",
         ));
-        let rewriter = RlsRewriter::new(RlsContext::new("t1", "u1"), Arc::new(reg));
+        let rewriter = RlsRewriter::new(RlsContext::new("t1", "u1").expect("non-empty ids"), Arc::new(reg));
 
         let rewritten = apply(plan, &rewriter);
         let s = ps(&rewritten);
@@ -454,19 +605,21 @@ mod tests {
     #[test]
     fn rewriter_name_and_apply_order() {
         let reg = Arc::new(RlsPolicyRegistry::new());
-        let r = RlsRewriter::new(RlsContext::new("t", "u"), reg);
+        let r = RlsRewriter::new(RlsContext::new("t", "u").expect("non-empty ids"), reg);
         assert_eq!(r.name(), "rls_rewriter");
         assert!(matches!(r.apply_order(), Some(ApplyOrder::TopDown)));
     }
 
-    /// Sanity: an empty registry leaves every scan untouched.
+    /// Sanity: an empty FailOpen registry leaves every scan untouched.
+    /// (An empty Sealed registry would error; see
+    /// `sealed_registry_errors_on_unregistered_table`.)
     #[test]
     fn empty_registry_is_a_no_op() {
         let plan = rls_scan("customers");
         let original = ps(&plan);
         let rewriter = RlsRewriter::new(
-            RlsContext::new("t1", "u1"),
-            Arc::new(RlsPolicyRegistry::new()),
+            RlsContext::new("t1", "u1").expect("non-empty ids"),
+            Arc::new(RlsPolicyRegistry::fail_open("test fixture")),
         );
         let rewritten = apply(plan, &rewriter);
         assert_eq!(ps(&rewritten), original);
@@ -485,7 +638,7 @@ mod tests {
             "tenant_id",
             "actor_id",
         ));
-        let rewriter = RlsRewriter::new(RlsContext::new("t1", "u1"), Arc::new(reg));
+        let rewriter = RlsRewriter::new(RlsContext::new("t1", "u1").expect("non-empty ids"), Arc::new(reg));
         let rewritten = apply(plan, &rewriter);
         let after: DFSchema = rewritten.schema().as_ref().clone();
         assert_eq!(before, after, "rewriter must not change scan schema");
@@ -499,5 +652,129 @@ mod tests {
         let ctx: RlsContext = (&actor).into();
         assert_eq!(ctx.tenant_id, "42");
         assert_eq!(ctx.actor_id, "user@example.com");
+    }
+
+    // ── Round-2 hardening tests ──────────────────────────────────────────
+
+    /// Sealed registry (the default) must reject any TableScan whose
+    /// table is not registered. This is the deny-by-default contract.
+    #[test]
+    fn sealed_registry_errors_on_unregistered_table() {
+        let plan = rls_scan("customers");
+        // Default (Sealed) registry, no policies — `customers` is
+        // unregistered.
+        let rewriter = RlsRewriter::new(
+            RlsContext::new("t1", "u1").expect("non-empty ids"),
+            Arc::new(RlsPolicyRegistry::new()),
+        );
+        let cfg = OptimizerContext::new();
+        let result = plan.transform_down(|n| rewriter.rewrite(n, &cfg));
+        assert!(
+            matches!(result, Err(DataFusionError::Plan(_))),
+            "expected DataFusionError::Plan from sealed registry on unregistered scan, got {result:?}"
+        );
+    }
+
+    /// FailOpen mode is the explicit opt-in for legacy / public
+    /// data — unregistered scans pass through unchanged.
+    #[test]
+    fn fail_open_registry_passes_through_unregistered() {
+        let plan = public_scan("public_lookup");
+        let original = ps(&plan);
+
+        let reg = RlsPolicyRegistry::fail_open("legacy public lookup");
+        assert!(matches!(
+            reg.mode(),
+            RegistryMode::FailOpen { reason: "legacy public lookup" }
+        ));
+        let rewriter = RlsRewriter::new(
+            RlsContext::new("t1", "u1").expect("non-empty ids"),
+            Arc::new(reg),
+        );
+
+        let rewritten = apply(plan, &rewriter);
+        assert_eq!(ps(&rewritten), original);
+    }
+
+    /// `RlsContext::new` rejects empty tenant_id and empty actor_id.
+    /// Both branches must surface as distinct `RlsError` variants.
+    #[test]
+    fn rls_context_new_rejects_empty() {
+        assert_eq!(
+            RlsContext::new("", "u1").err(),
+            Some(RlsError::EmptyTenantId)
+        );
+        assert_eq!(
+            RlsContext::new("t1", "").err(),
+            Some(RlsError::EmptyActorId)
+        );
+        // Both empty: tenant is checked first.
+        assert_eq!(RlsContext::new("", "").err(), Some(RlsError::EmptyTenantId));
+        // Non-empty pair succeeds.
+        let ok = RlsContext::new("t1", "u1").expect("valid");
+        assert_eq!(ok.tenant_id, "t1");
+        assert_eq!(ok.actor_id, "u1");
+        // new_unchecked deliberately bypasses validation.
+        let unchecked = RlsContext::new_unchecked("", "");
+        assert!(unchecked.tenant_id.is_empty());
+        assert!(unchecked.actor_id.is_empty());
+    }
+
+    /// A degenerate policy with neither tenant_column nor actor_column
+    /// produces no predicate — the scan is left untouched.
+    #[test]
+    fn degenerate_policy_both_columns_none() {
+        let plan = rls_scan("customers");
+        let original = ps(&plan);
+
+        let mut reg = RlsPolicyRegistry::new();
+        reg.register(RlsPolicy {
+            table_name: "customers".to_string(),
+            tenant_column: None,
+            actor_column: None,
+        });
+        let rewriter = RlsRewriter::new(
+            RlsContext::new("t1", "u1").expect("non-empty ids"),
+            Arc::new(reg),
+        );
+        let rewritten = apply(plan, &rewriter);
+        let s = ps(&rewritten);
+        assert_eq!(s, original, "degenerate policy should be a no-op");
+        assert!(!s.contains("tenant_id ="), "no tenant predicate expected: {s}");
+        assert!(!s.contains("actor_id ="), "no actor predicate expected: {s}");
+    }
+
+    /// Registry mode default + builder helpers.
+    #[test]
+    fn registry_mode_defaults_to_sealed() {
+        assert_eq!(RegistryMode::default(), RegistryMode::Sealed);
+        let r = RlsPolicyRegistry::new();
+        assert_eq!(r.mode(), RegistryMode::Sealed);
+        let r2 = RlsPolicyRegistry::sealed();
+        assert_eq!(r2.mode(), RegistryMode::Sealed);
+        let r3 = RlsPolicyRegistry::fail_open("audit reason");
+        assert!(matches!(
+            r3.mode(),
+            RegistryMode::FailOpen { reason: "audit reason" }
+        ));
+        let r4 = RlsPolicyRegistry::new()
+            .with_mode(RegistryMode::FailOpen { reason: "via with_mode" });
+        assert!(matches!(
+            r4.mode(),
+            RegistryMode::FailOpen { reason: "via with_mode" }
+        ));
+    }
+
+    /// The privatised fields are still readable through accessors.
+    #[test]
+    fn rewriter_accessors_expose_ctx_and_registry() {
+        let reg = Arc::new(RlsPolicyRegistry::sealed());
+        let ctx = RlsContext::new("tenant-x", "actor-x").expect("valid");
+        let r = RlsRewriter::new(ctx, Arc::clone(&reg));
+        assert_eq!(r.ctx().tenant_id, "tenant-x");
+        assert_eq!(r.ctx().actor_id, "actor-x");
+        assert_eq!(r.registry().mode(), RegistryMode::Sealed);
+        // Same Arc instance.
+        assert!(Arc::ptr_eq(r.registry(), &reg));
     }
 }
