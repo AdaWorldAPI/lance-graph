@@ -65,6 +65,21 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-04-29 — FINDING: M1/P2-P4 route through existing Lab infra, not new standalone probes
+
+**Status:** FINDING
+
+M1's real test is `polarquant_hip_probe.rs` (P7) — compares `build_hip_families`
+farthest-pair binary split against PolarQuant gain-shape NN-preservation on
+real safetensors. Plus `turboquant_correction_probe.rs` for LEAF-orthogonal
+(PolarQuant vs CAM_PQ — orthogonal only at LEAF, not HEEL/HIP/TWIG).
+P2/P3/P4 route through `shader-lab` `WireSweep` JIT-first Lab surface
+(Phase 0 DTOs done). CAM_PQ IS based on COCA (one pipeline, not alternatives).
+
+Cross-ref: `BGZ_HHTL_D.md`, `codec-sweep-via-lab-infra-v1.md`,
+`polarquant_hip_probe.rs`, `turboquant_correction_probe.rs`,
+`jitson_kernel.rs`, `wire.rs` Phase 0 DTOs.
+
 ## 2026-04-29 — FINDING: Probe P1 PASS — γ+φ pre-rank selector empirically confirmed
 
 **Status:** FINDING

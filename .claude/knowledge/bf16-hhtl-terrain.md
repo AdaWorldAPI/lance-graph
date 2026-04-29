@@ -162,6 +162,38 @@ M2   P3        4096 terminal buckets correlate with       MI > 0.6         MI < 
 M4   P4        HHTL termination: what % at each level?    >60% HEEL        >60% LEAF         NOT RUN
 ```
 
+## Probe Routing
+
+| ID | Harness | Status |
+|----|---------|--------|
+| M1 | `thinking-engine/examples/polarquant_hip_probe.rs` — tests HIP family assignment (farthest-pair `build_hip_families` vs PolarQuant gain-shape NN-preservation). Plus `turboquant_correction_probe.rs` for LEAF-orthogonal comparison. Needs real safetensors. | PARTIAL |
+| P1 | `jc/src/probe_p1_gamma_phase.rs` — mathematical property (Dupain-Sós), synthetic sufficient | PASS |
+| P2–P4 | `shader-lab` via `WireSweepRequest` / `WireTokenAgreement` / `WireCalibrate`. Phase 0 DTOs done. JIT-first: one compile, parameterized REST sweep. Plan: `.claude/plans/codec-sweep-via-lab-infra-v1.md` | NOT RUN |
+
+**Architecture notes:**
+
+CAM_PQ Semantic mode (CLAM) IS based on COCA — they are one pipeline
+(SPO 2³ + COCA → CAM_PQ), not competing alternatives. CHAODA + CAM_PQ
+are orthogonal only at LEAF (Slot V residual). HEEL → HIP → TWIG
+(Slot D) is one cascade hierarchy with `build_hip_families` (farthest-
+pair binary split, 4 levels → 16 families — not Ward, not k-means).
+
+ICC calibrates the family heel vector via `LensProfile::build()` in
+`lance-graph-contract/src/high_heel.rs` (DESIGNED but not yet called
+per `CALIBRATION_STATUS_GROUND_TRUTH.md`). `CascadeConfig` in
+`bgz-tensor/src/cascade.rs` exposes `heel_min_agreement` and
+`hip_max_distance` for HHTL variation without recompilation.
+
+JIT infrastructure: `lance-graph/src/cam_pq/jitson_kernel.rs` generates
+Cranelift-compiled scan kernels (LOAD_HEEL → GATHER → FILTER → ... →
+TOP_K, AVX-512). Contract in `lance-graph-contract/src/jit.rs`
+(`JitCompiler`, `KernelHandle`, `StyleRegistry`). `shader-lab` binary
+exposes this via REST on `:3001`.
+
+Data: release assets via `hydrate --download` (43 assets, ~700 MB in
+`v0.1.0-bgz-data`), in-repo baked lenses in `thinking-engine/data/`,
+COCA vocabulary in `deepnsm/word_frequency/`, HuggingFace via `hf-hub`.
+
 ## Endgame Gate (v2.5, FINDING)
 
 ```

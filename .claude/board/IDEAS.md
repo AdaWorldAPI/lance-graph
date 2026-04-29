@@ -189,6 +189,29 @@ citing the deferred one; flip the deferred entry's Status to
 Nothing is lost. Every idea has a trail from speculation to
 disposition.
 
+## 2026-04-29 — Inverted-pyramid awareness streaming via CausalEdge64 through SPO+COCA→CAM_PQ
+**Status:** Open
+**Priority:** P2
+**Scope:** @savant-research cognitive-shader-driver thinking-engine domain:streaming domain:awareness
+
+When weight rows stream through the inverted pyramid (L4 16384² → L1 64²),
+can the BF16 mantissa awareness (Column F `AwarenessColumn`, per
+`bindspace-columns-v1.md`) flow through CausalEdge64 (Column D) at each
+fold step — so awareness-annotated edges emit without a separate pass?
+
+SPO 2³ + COCA → CAM_PQ is one pipeline (CAM_PQ Semantic CLAM trains
+from COCA vectors). The question is not "which encoding wins" but whether
+the awareness sidecar (BF16 mantissa quality → u8 per word) survives
+the pyramid compression and produces meaningful CausalEdge64 updates
+(frequency/confidence/Pearl 2³ mask) at each resolution level.
+
+Routes through `shader-lab` Lab infra. Test infrastructure exists:
+`polarquant_hip_probe.rs`, `turboquant_correction_probe.rs`, Phase 0
+DTOs (`WireSweep`, `WireCalibrate`, `WireTokenAgreement`).
+
+Cross-ref: `bindspace-columns-v1.md` (Column D/F), `causal-edge/src/edge.rs`,
+`BGZ_HHTL_D.md`, `codec-sweep-via-lab-infra-v1.md`.
+
 ## 2026-04-29 — Probe P1: γ-phase-offset ranking discrimination
 **Status:** Implemented 2026-04-29 (this PR)
 **Priority:** P1
