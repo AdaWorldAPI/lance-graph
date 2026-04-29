@@ -17,7 +17,9 @@
 //!   independent steps is a follow-up (PR-F4 / PR-G2 will decide
 //!   the concurrency model).
 
-use lance_graph_contract::orchestration::{StepId, StepStatus, UnifiedStep};
+use lance_graph_contract::orchestration::{
+    OrchestrationBridge, StepId, StepStatus, UnifiedStep,
+};
 use std::collections::{HashMap, HashSet, VecDeque};
 
 // -- Errors -------------------------------------------------------------------
@@ -89,8 +91,9 @@ impl PipelineDag {
         // 1. Index by StepId, check for duplicates.
         let mut index: HashMap<StepId, usize> = HashMap::with_capacity(steps.len());
         for (pos, step) in steps.iter().enumerate() {
-            if index.insert(step.id, pos).is_some() {
-                return Err(PipelineError::DuplicateStepId { step_id: step.id });
+            let sid = step.id();
+            if index.insert(sid, pos).is_some() {
+                return Err(PipelineError::DuplicateStepId { step_id: sid });
             }
         }
 
@@ -102,7 +105,7 @@ impl PipelineDag {
         for (pos, step) in steps.iter().enumerate() {
             for &dep in &step.depends_on {
                 let dep_pos = *index.get(&dep).ok_or(PipelineError::MissingDependency {
-                    step_id: step.id,
+                    step_id: step.id(),
                     missing_dep: dep,
                 })?;
                 // dep must complete before step: edge dep_pos -> pos
@@ -136,7 +139,7 @@ impl PipelineDag {
                 .iter()
                 .enumerate()
                 .filter(|(_, &d)| d > 0)
-                .map(|(pos, _)| steps[pos].id)
+                .map(|(pos, _)| steps[pos].id())
                 .collect();
             return Err(PipelineError::CycleDetected { involved });
         }
@@ -150,7 +153,7 @@ impl PipelineDag {
 
     /// Return the topological execution order as `StepId`s.
     pub fn execution_order(&self) -> Vec<StepId> {
-        self.topo_order.iter().map(|&pos| self.steps[pos].id).collect()
+        self.topo_order.iter().map(|&pos| self.steps[pos].id()).collect()
     }
 
     /// Number of steps in the DAG.
@@ -168,7 +171,7 @@ impl PipelineDag {
         self.steps
             .iter()
             .filter(|s| s.depends_on.is_empty())
-            .map(|s| s.id)
+            .map(|s| s.id())
             .collect()
     }
 
@@ -182,8 +185,8 @@ impl PipelineDag {
         }
         self.steps
             .iter()
-            .filter(|s| !has_dependent.contains(&s.id))
-            .map(|s| s.id)
+            .filter(|s| !has_dependent.contains(&s.id()))
+            .map(|s| s.id())
             .collect()
     }
 
@@ -208,7 +211,7 @@ impl PipelineDag {
                     step.status = StepStatus::Completed;
                 }
                 Err(reason) => {
-                    let id = step.id;
+                    let id = step.id();
                     step.status = StepStatus::Failed;
                     return Err(PipelineError::StepFailed {
                         step_id: id,
@@ -218,6 +221,23 @@ impl PipelineDag {
             }
         }
         Ok(())
+    }
+
+    /// Execute all steps in topological order via an `OrchestrationBridge`.
+    ///
+    /// This is the canonical adapter for `OrchestrationBridge` consumers
+    /// (PR-F4 / PR-G2 cross-domain step routing): it wires the trait's
+    /// `route()` into [`PipelineDag::execute_with`] so callers do not
+    /// have to fork a closure-based executor and a bridge-based one.
+    ///
+    /// On bridge failure, the per-step error is converted to a string
+    /// (matching the `execute_with` error contract) and surfaced as
+    /// [`PipelineError::StepFailed`].
+    pub fn execute_via_bridge<B: OrchestrationBridge>(
+        &mut self,
+        bridge: &B,
+    ) -> Result<(), PipelineError> {
+        self.execute_with(|s| bridge.route(s).map_err(|e| format!("{e:?}")))
     }
 
     /// Borrow the steps slice (in insertion order, not topo order).
@@ -239,10 +259,14 @@ impl PipelineDag {
 // -- Convenience constructor --------------------------------------------------
 
 /// Helper to create a minimal `UnifiedStep` for testing / scripting.
-pub fn make_step(id: StepId, depends_on: Vec<StepId>) -> UnifiedStep {
+///
+/// The `tag` argument names the step (becomes `step_id`); the numeric
+/// `StepId` used for DAG edges is derived from that tag via
+/// [`UnifiedStep::id`]. To depend on another step, pass the FNV id of
+/// that step's tag (use [`step_id_of`] to compute it).
+pub fn make_step_named(tag: &str, depends_on: Vec<StepId>) -> UnifiedStep {
     UnifiedStep {
-        id,
-        step_id: format!("step-{id}"),
+        step_id: tag.to_string(),
         step_type: "lg.noop".to_string(),
         status: StepStatus::Pending,
         thinking: None,
@@ -250,6 +274,35 @@ pub fn make_step(id: StepId, depends_on: Vec<StepId>) -> UnifiedStep {
         confidence: None,
         depends_on,
     }
+}
+
+/// Compute the FNV-derived `StepId` for a step tag — useful for
+/// expressing `depends_on` against a tag-named step.
+pub fn step_id_of(tag: &str) -> StepId {
+    // Mirror UnifiedStep::id() exactly.
+    let mut h: u64 = 0xcbf29ce484222325;
+    for b in tag.as_bytes() {
+        h ^= *b as u64;
+        h = h.wrapping_mul(0x100000001b3);
+    }
+    h
+}
+
+/// Numeric-tag convenience: `make_step(1, vec![3])` builds a step
+/// tagged `"step-1"` whose dependencies are FNV ids of `"step-3"`.
+/// Existing DAG tests use small numeric tags; this preserves their
+/// shape while routing through the derived-id design.
+pub fn make_step(id: StepId, depends_on_numeric: Vec<StepId>) -> UnifiedStep {
+    let deps: Vec<StepId> = depends_on_numeric
+        .into_iter()
+        .map(|n| step_id_of(&format!("step-{n}")))
+        .collect();
+    make_step_named(&format!("step-{id}"), deps)
+}
+
+/// Numeric-tag → FNV-id mapping mirroring `make_step`.
+pub fn id_of(numeric_tag: StepId) -> StepId {
+    step_id_of(&format!("step-{numeric_tag}"))
 }
 
 // -- Tests --------------------------------------------------------------------
@@ -277,18 +330,19 @@ mod tests {
         let steps = vec![make_step(1, vec![])];
         let mut dag = PipelineDag::build(steps).unwrap();
         assert_eq!(dag.len(), 1);
-        assert_eq!(dag.execution_order(), vec![1]);
-        assert_eq!(dag.roots(), vec![1]);
-        assert_eq!(dag.leaves(), vec![1]);
+        let id1 = id_of(1);
+        assert_eq!(dag.execution_order(), vec![id1]);
+        assert_eq!(dag.roots(), vec![id1]);
+        assert_eq!(dag.leaves(), vec![id1]);
 
         let mut executed = Vec::new();
         dag.execute_with(|step| {
-            executed.push(step.id);
+            executed.push(step.id());
             Ok(())
         })
         .unwrap();
-        assert_eq!(executed, vec![1]);
-        assert_eq!(dag.get(1).unwrap().status, StepStatus::Completed);
+        assert_eq!(executed, vec![id1]);
+        assert_eq!(dag.get(id1).unwrap().status, StepStatus::Completed);
     }
 
     // -- 3. Linear chain ------------------------------------------------------
@@ -303,17 +357,18 @@ mod tests {
             make_step(4, vec![3]),
         ];
         let mut dag = PipelineDag::build(steps).unwrap();
-        assert_eq!(dag.execution_order(), vec![1, 2, 3, 4]);
-        assert_eq!(dag.roots(), vec![1]);
-        assert_eq!(dag.leaves(), vec![4]);
+        let expected: Vec<StepId> = [1u64, 2, 3, 4].iter().map(|n| id_of(*n)).collect();
+        assert_eq!(dag.execution_order(), expected);
+        assert_eq!(dag.roots(), vec![id_of(1)]);
+        assert_eq!(dag.leaves(), vec![id_of(4)]);
 
         let mut order = Vec::new();
         dag.execute_with(|step| {
-            order.push(step.id);
+            order.push(step.id());
             Ok(())
         })
         .unwrap();
-        assert_eq!(order, vec![1, 2, 3, 4]);
+        assert_eq!(order, expected);
     }
 
     // -- 4. Diamond DAG -------------------------------------------------------
@@ -337,19 +392,19 @@ mod tests {
         assert_eq!(order.len(), 4);
 
         // 1 must come first
-        assert_eq!(order[0], 1);
+        assert_eq!(order[0], id_of(1));
         // 4 must come last
-        assert_eq!(order[3], 4);
+        assert_eq!(order[3], id_of(4));
         // 2 and 3 must both appear before 4 (and after 1)
         let pos_of = |id: StepId| order.iter().position(|&x| x == id).unwrap();
-        assert!(pos_of(2) > pos_of(1));
-        assert!(pos_of(3) > pos_of(1));
-        assert!(pos_of(4) > pos_of(2));
-        assert!(pos_of(4) > pos_of(3));
+        assert!(pos_of(id_of(2)) > pos_of(id_of(1)));
+        assert!(pos_of(id_of(3)) > pos_of(id_of(1)));
+        assert!(pos_of(id_of(4)) > pos_of(id_of(2)));
+        assert!(pos_of(id_of(4)) > pos_of(id_of(3)));
 
         let mut executed = Vec::new();
         dag.execute_with(|step| {
-            executed.push(step.id);
+            executed.push(step.id());
             Ok(())
         })
         .unwrap();
@@ -370,9 +425,9 @@ mod tests {
         match result {
             Err(PipelineError::CycleDetected { involved }) => {
                 assert_eq!(involved.len(), 3);
-                assert!(involved.contains(&1));
-                assert!(involved.contains(&2));
-                assert!(involved.contains(&3));
+                assert!(involved.contains(&id_of(1)));
+                assert!(involved.contains(&id_of(2)));
+                assert!(involved.contains(&id_of(3)));
             }
             other => panic!("expected CycleDetected, got {other:?}"),
         }
@@ -382,12 +437,18 @@ mod tests {
 
     #[test]
     fn missing_dependency_detected() {
-        let steps = vec![make_step(1, vec![99])];
-        match PipelineDag::build(steps) {
+        // Hand-build a step that references a non-existent dep id.
+        let mut step = make_step_named("only", vec![]);
+        let bogus: StepId = 0xDEAD_BEEF_DEAD_BEEF;
+        step.depends_on = vec![bogus];
+        match PipelineDag::build(vec![step]) {
             Err(PipelineError::MissingDependency {
-                step_id: 1,
-                missing_dep: 99,
-            }) => {}
+                step_id,
+                missing_dep,
+            }) => {
+                assert_eq!(step_id, step_id_of("only"));
+                assert_eq!(missing_dep, bogus);
+            }
             other => panic!("expected MissingDependency, got {other:?}"),
         }
     }
@@ -398,7 +459,9 @@ mod tests {
     fn duplicate_step_id_detected() {
         let steps = vec![make_step(1, vec![]), make_step(1, vec![])];
         match PipelineDag::build(steps) {
-            Err(PipelineError::DuplicateStepId { step_id: 1 }) => {}
+            Err(PipelineError::DuplicateStepId { step_id }) => {
+                assert_eq!(step_id, id_of(1));
+            }
             other => panic!("expected DuplicateStepId, got {other:?}"),
         }
     }
@@ -413,9 +476,10 @@ mod tests {
             make_step(3, vec![2]),
         ];
         let mut dag = PipelineDag::build(steps).unwrap();
+        let id2 = id_of(2);
 
         let result = dag.execute_with(|step| {
-            if step.id == 2 {
+            if step.id() == id2 {
                 Err("boom".into())
             } else {
                 Ok(())
@@ -424,16 +488,16 @@ mod tests {
 
         match result {
             Err(PipelineError::StepFailed {
-                step_id: 2,
+                step_id,
                 ref reason,
-            }) if reason == "boom" => {}
-            other => panic!("expected StepFailed(2, boom), got {other:?}"),
+            }) if reason == "boom" && step_id == id2 => {}
+            other => panic!("expected StepFailed(id_of(2), boom), got {other:?}"),
         }
 
         // Step 1 completed, step 2 failed, step 3 still pending.
-        assert_eq!(dag.get(1).unwrap().status, StepStatus::Completed);
-        assert_eq!(dag.get(2).unwrap().status, StepStatus::Failed);
-        assert_eq!(dag.get(3).unwrap().status, StepStatus::Pending);
+        assert_eq!(dag.get(id_of(1)).unwrap().status, StepStatus::Completed);
+        assert_eq!(dag.get(id_of(2)).unwrap().status, StepStatus::Failed);
+        assert_eq!(dag.get(id_of(3)).unwrap().status, StepStatus::Pending);
     }
 
     // -- 9. Wide fan-out ------------------------------------------------------
@@ -451,19 +515,19 @@ mod tests {
         ];
         let mut dag = PipelineDag::build(steps).unwrap();
         assert_eq!(dag.roots().len(), 5);
-        assert_eq!(dag.leaves(), vec![99]);
+        assert_eq!(dag.leaves(), vec![id_of(99)]);
 
         let mut order = Vec::new();
         dag.execute_with(|step| {
-            order.push(step.id);
+            order.push(step.id());
             Ok(())
         })
         .unwrap();
 
         // Sink must be last.
-        assert_eq!(*order.last().unwrap(), 99);
+        assert_eq!(*order.last().unwrap(), id_of(99));
         // All 5 roots must appear before the sink.
-        let sink_pos = order.iter().position(|&x| x == 99).unwrap();
+        let sink_pos = order.iter().position(|&x| x == id_of(99)).unwrap();
         assert_eq!(sink_pos, 5);
     }
 
@@ -478,5 +542,78 @@ mod tests {
             }
             other => panic!("expected CycleDetected, got {other:?}"),
         }
+    }
+
+    // -- 11. Self-loop cycle (LF-12 loose-end #3) ------------------------------
+
+    #[test]
+    fn cycle_detected_self_loop() {
+        // A single step that depends on itself: 1 -> 1.
+        let steps = vec![make_step(1, vec![1])];
+        match PipelineDag::build(steps) {
+            Err(PipelineError::CycleDetected { involved }) => {
+                assert!(
+                    involved.contains(&id_of(1)),
+                    "self-loop must surface step 1 in `involved`, got {involved:?}",
+                );
+            }
+            other => panic!("expected CycleDetected on self-loop, got {other:?}"),
+        }
+    }
+
+    // -- 12. OrchestrationBridge adapter (LF-12 loose-end #2) ------------------
+
+    #[test]
+    fn execute_via_bridge_routes_each_step() {
+        use lance_graph_contract::orchestration::{OrchestrationError, StepDomain};
+        use lance_graph_contract::thinking::{FieldModulation, ThinkingStyle};
+        use lance_graph_contract::nars::{InferenceType, QueryStrategy, SemiringChoice};
+        use lance_graph_contract::plan::ThinkingContext;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        struct CountingBridge {
+            count: AtomicUsize,
+        }
+
+        impl OrchestrationBridge for CountingBridge {
+            fn route(&self, step: &mut UnifiedStep) -> Result<(), OrchestrationError> {
+                self.count.fetch_add(1, Ordering::SeqCst);
+                step.reasoning = Some(format!("routed:{}", step.step_id));
+                Ok(())
+            }
+            fn resolve_thinking(
+                &self,
+                style: ThinkingStyle,
+                inference_type: InferenceType,
+            ) -> ThinkingContext {
+                ThinkingContext {
+                    style,
+                    modulation: FieldModulation::default(),
+                    inference_type,
+                    strategy: QueryStrategy::CamExact,
+                    semiring: SemiringChoice::Boolean,
+                    free_will_modifier: 1.0,
+                    exploratory: false,
+                }
+            }
+            fn domain_available(&self, _domain: StepDomain) -> bool {
+                true
+            }
+        }
+
+        let bridge = CountingBridge { count: AtomicUsize::new(0) };
+        let steps = vec![
+            make_step(1, vec![]),
+            make_step(2, vec![1]),
+            make_step(3, vec![2]),
+        ];
+        let mut dag = PipelineDag::build(steps).unwrap();
+        dag.execute_via_bridge(&bridge).unwrap();
+        assert_eq!(bridge.count.load(Ordering::SeqCst), 3);
+        assert_eq!(dag.get(id_of(1)).unwrap().status, StepStatus::Completed);
+        assert_eq!(
+            dag.get(id_of(1)).unwrap().reasoning.as_deref(),
+            Some("routed:step-1"),
+        );
     }
 }

@@ -430,7 +430,6 @@ impl ExternalMembrane for LanceMembrane {
         };
 
         UnifiedStep {
-            id:         0,
             step_id:    format!("{:016x}", scent as u64),
             step_type:  step_type.to_owned(),
             status:     StepStatus::Pending,

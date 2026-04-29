@@ -373,7 +373,6 @@ async fn route_handler(
     };
 
     let mut step = UnifiedStep {
-        id: 0,
         step_id: wire.step_id.clone(),
         step_type: wire.step_type.clone(),
         status: StepStatus::Pending,

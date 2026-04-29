@@ -217,8 +217,7 @@ mod tests {
     fn health_step_routes_successfully() {
         let planner = PlannerAwareness::new();
         let mut step = UnifiedStep {
-            id: 0,
-            step_id: "s1".into(),
+            step_id:"s1".into(),
             step_type: "lg.health".into(),
             status: StepStatus::Pending,
             thinking: None,
@@ -235,8 +234,7 @@ mod tests {
     fn plan_auto_step_routes_for_match_query() {
         let planner = PlannerAwareness::new();
         let mut step = UnifiedStep {
-            id: 0,
-            step_id: "s2".into(),
+            step_id:"s2".into(),
             step_type: "lg.plan_auto".into(),
             status: StepStatus::Pending,
             thinking: None,
@@ -254,8 +252,7 @@ mod tests {
     fn wrong_domain_step_returns_domain_unavailable() {
         let planner = PlannerAwareness::new();
         let mut step = UnifiedStep {
-            id: 0,
-            step_id: "s3".into(),
+            step_id:"s3".into(),
             step_type: "crew.agent.think".into(),
             status: StepStatus::Pending,
             thinking: None,
