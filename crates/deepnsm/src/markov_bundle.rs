@@ -1,6 +1,20 @@
 //! META-AGENT: add `pub mod markov_bundle;` to lib.rs.
+//!
+//! Slice coordinates are imported from `lance_graph_contract::grammar::role_keys`
+//! so that this module and the rest of the workspace agree on the [start:stop)
+//! boundaries of every grammatical role inside the 16384-dim VSA carrier.
+//! The previously hard-coded equal-partition layout (`16384 / 5 = 3277` per
+//! role) was incompatible with the domain-specific widths in role_keys (e.g.
+//! SUBJECT owns [0..2000), TEMPORAL owns [9000..9200)) — see PR #279 review,
+//! CRITICAL #1.
 
 use crate::trajectory::Trajectory;
+
+use lance_graph_contract::grammar::role_keys::{
+    CONTEXT_SLICE, INSTRUMENT_SLICE, KAUSAL_SLICE, LOKAL_SLICE, MODAL_SLICE,
+    MODIFIER_SLICE, OBJECT_SLICE, PREDICATE_SLICE, RoleKeySlice, SUBJECT_SLICE,
+    TEMPORAL_SLICE, VSA_DIMS,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Kernel {
@@ -36,20 +50,26 @@ pub enum GrammaticalRole {
 }
 
 impl GrammaticalRole {
-    /// Slice of the 16384-dim VSA carrier that owns this role.
-    pub fn slice(&self) -> (usize, usize) {
+    /// Canonical [start:stop) slice of the 16384-dim VSA carrier that owns
+    /// this role, sourced from `lance_graph_contract::grammar::role_keys`.
+    /// This is the single source of truth — the constants below are simple
+    /// re-exports of the contract crate's `RoleKeySlice` descriptors so that
+    /// every consumer (markov bundler, role-key catalogue, slice-aware
+    /// codecs) agrees on the same boundaries.
+    pub fn slice(&self) -> RoleKeySlice {
         match self {
-            Self::Subject => (0, 3277),
-            Self::Predicate => (3277, 6554),
-            Self::Object => (6554, 9830),
-            Self::Modifier => (9830, 13107),
-            Self::Context => (13107, 16384),
-            // TEKAMOLO sub-slices inside Context band.
-            Self::Temporal => (13107, 13762),
-            Self::Kausal => (13762, 14418),
-            Self::Modal => (14418, 15074),
-            Self::Lokal => (15074, 15729),
-            Self::Instrument => (15729, 16384),
+            Self::Subject => SUBJECT_SLICE,
+            Self::Predicate => PREDICATE_SLICE,
+            Self::Object => OBJECT_SLICE,
+            Self::Modifier => MODIFIER_SLICE,
+            Self::Context => CONTEXT_SLICE,
+            // TEKAMOLO sub-slices (NOT inside Context — they live in their
+            // own [9000..9650) post-context band per role_keys.rs layout).
+            Self::Temporal => TEMPORAL_SLICE,
+            Self::Kausal => KAUSAL_SLICE,
+            Self::Modal => MODAL_SLICE,
+            Self::Lokal => LOKAL_SLICE,
+            Self::Instrument => INSTRUMENT_SLICE,
         }
     }
 }
@@ -77,7 +97,9 @@ impl MarkovBundler {
         Self {
             radius,
             kernel,
-            dims: 16_384,
+            // Width of the canonical VSA carrier — kept in lock-step with
+            // `lance_graph_contract::grammar::role_keys::VSA_DIMS` (16_384).
+            dims: VSA_DIMS,
             buffer: std::collections::VecDeque::with_capacity((2 * radius + 1) as usize),
         }
     }
@@ -101,10 +123,11 @@ impl MarkovBundler {
             let delta = (i as i32) - focal;
             let weight = self.kernel.weight(delta, self.radius);
             for tok in &sent.tokens {
-                let (start, stop) = tok.role.slice();
-                let len = (stop - start).min(tok.content_fp.len());
+                let slice = tok.role.slice();
+                // Use the canonical role_keys width (NOT an equal partition).
+                let len = slice.len().min(tok.content_fp.len());
                 for k in 0..len {
-                    acc[start + k] += weight * tok.content_fp[k];
+                    acc[slice.start + k] += weight * tok.content_fp[k];
                 }
             }
         }
@@ -158,8 +181,26 @@ mod tests {
     }
     #[test]
     fn role_slices_disjoint() {
+        // SPO core slices are contiguous: SUBJECT.stop == PREDICATE.start by
+        // construction in `role_keys.rs` (0..2000, 2000..4000, ...).
         let s = GrammaticalRole::Subject.slice();
         let p = GrammaticalRole::Predicate.slice();
-        assert_eq!(s.1, p.0);
+        assert_eq!(s.stop, p.start);
+    }
+
+    #[test]
+    fn role_slice_widths_match_role_keys_canonical() {
+        // Spot-check that `GrammaticalRole::slice` returns the role_keys-canonical
+        // widths (NOT the old equal-partition 16384/5 = 3277 layout).
+        assert_eq!(GrammaticalRole::Subject.slice().len(),    2000);
+        assert_eq!(GrammaticalRole::Predicate.slice().len(),  2000);
+        assert_eq!(GrammaticalRole::Object.slice().len(),     2000);
+        assert_eq!(GrammaticalRole::Modifier.slice().len(),   1500);
+        assert_eq!(GrammaticalRole::Context.slice().len(),    1500);
+        assert_eq!(GrammaticalRole::Temporal.slice().len(),    200);
+        assert_eq!(GrammaticalRole::Kausal.slice().len(),      200);
+        assert_eq!(GrammaticalRole::Modal.slice().len(),       100);
+        assert_eq!(GrammaticalRole::Lokal.slice().len(),       150);
+        assert_eq!(GrammaticalRole::Instrument.slice().len(),  100);
     }
 }
