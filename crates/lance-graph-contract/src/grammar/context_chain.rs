@@ -53,10 +53,14 @@ pub struct ContextChain {
 /// existing consumers).
 ///
 /// Empty-candidates contract: returns a sentinel result with
-/// `candidate_count = 0`, `winner_index = usize::MAX`, a zero
-/// `Binary16K` placeholder fingerprint, and `escalate_to_llm = true`.
-/// Callers should check `candidate_count == 0` (or `escalate_to_llm`)
-/// before reading `winner` / `chosen`.
+/// `candidate_count = 0`, `winner_index = usize::MAX`,
+/// `escalate_to_llm = true`, and either the caller-supplied
+/// `chosen_fingerprint` (when provided via
+/// `disambiguate_with_fingerprint` or
+/// `disambiguate_with_kernel_and_fingerprint`) or a zero `Binary16K`
+/// placeholder (the backwards-compatible default). Callers should
+/// check `candidate_count == 0` (or `escalate_to_llm`) before
+/// reading `winner` / `chosen`.
 #[derive(Debug, Clone)]
 pub struct DisambiguationResult {
     pub chosen: CrystalFingerprint,
@@ -310,6 +314,33 @@ impl ContextChain {
         self.disambiguate_with_kernel(i, candidates, WeightingKernel::default())
     }
 
+    /// Disambiguate with an externally-supplied fingerprint for the
+    /// empty-candidates sentinel path. When `chosen_fingerprint` is
+    /// `Some(fp)`, that fingerprint replaces the zero `Binary16K`
+    /// placeholder in the sentinel result — allowing callers that have
+    /// access to `MarkovBundler::role_bundle()` (in `deepnsm`) to
+    /// inject the real bundled trajectory fingerprint without the
+    /// contract crate taking a dependency on `deepnsm`.
+    ///
+    /// When `chosen_fingerprint` is `None`, falls back to the original
+    /// zero-sentinel behaviour (backwards compatible).
+    pub fn disambiguate_with_fingerprint<I>(
+        &self,
+        i: usize,
+        candidates: I,
+        chosen_fingerprint: Option<CrystalFingerprint>,
+    ) -> DisambiguationResult
+    where
+        I: IntoIterator<Item = CrystalFingerprint>,
+    {
+        self.disambiguate_with_kernel_and_fingerprint(
+            i,
+            candidates,
+            WeightingKernel::default(),
+            chosen_fingerprint,
+        )
+    }
+
     /// Kernel-aware variant of `disambiguate`. Identical contract; the
     /// supplied `kernel` is used when scoring each candidate replay via
     /// `total_coherence_with_kernel`.
@@ -318,6 +349,32 @@ impl ContextChain {
         i: usize,
         candidates: I,
         kernel: WeightingKernel,
+    ) -> DisambiguationResult
+    where
+        I: IntoIterator<Item = CrystalFingerprint>,
+    {
+        self.disambiguate_with_kernel_and_fingerprint(
+            i, candidates, kernel, None,
+        )
+    }
+
+    /// Full variant: kernel-aware disambiguation with an optional
+    /// externally-supplied fingerprint for the empty-candidates sentinel.
+    ///
+    /// When `chosen_fingerprint` is `Some(fp)`, the sentinel result uses
+    /// `fp` instead of the zero `Binary16K` placeholder. This allows
+    /// callers in `deepnsm` (which has access to `MarkovBundler`) to
+    /// inject the real role-bundled trajectory fingerprint.
+    ///
+    /// When `chosen_fingerprint` is `None`, the sentinel falls back to
+    /// the zero `Binary16K` — preserving backwards compatibility with
+    /// all existing callers.
+    pub fn disambiguate_with_kernel_and_fingerprint<I>(
+        &self,
+        i: usize,
+        candidates: I,
+        kernel: WeightingKernel,
+        chosen_fingerprint: Option<CrystalFingerprint>,
     ) -> DisambiguationResult
     where
         I: IntoIterator<Item = CrystalFingerprint>,
@@ -342,8 +399,15 @@ impl ContextChain {
         if scored.is_empty() {
             // Documented sentinel — never panic; callers gate on
             // `escalate_to_llm` or `candidate_count == 0`.
-            let placeholder =
-                CrystalFingerprint::Binary16K(Box::new([0u64; 256]));
+            //
+            // When a `chosen_fingerprint` is supplied (e.g. from
+            // `MarkovBundler::role_bundle()` in deepnsm), use it
+            // instead of the zero placeholder. This is the PR-G3
+            // bridge: the contract crate stays zero-dep while the
+            // caller injects the real bundled trajectory fingerprint.
+            let placeholder = chosen_fingerprint.unwrap_or_else(|| {
+                CrystalFingerprint::Binary16K(Box::new([0u64; 256]))
+            });
             return DisambiguationResult {
                 chosen: placeholder.clone(),
                 coherence: 0.0,
@@ -801,6 +865,106 @@ mod tests {
                     "sentinel placeholder should be all-zero");
             }
             _ => panic!("sentinel must be Binary16K placeholder"),
+        }
+    }
+
+    // ── PR-G3 tests: real fingerprint in sentinel path ────────────────
+
+    /// `disambiguate_with_fingerprint` with empty candidates and a
+    /// `Some(fp)` chosen_fingerprint propagates that fingerprint into
+    /// the sentinel result instead of the zero placeholder.
+    #[test]
+    fn g3_sentinel_uses_provided_fingerprint() {
+        let chain = fill_chain_with(&mk_fp(0x1));
+        let real_fp = mk_fp(0xBEEF_CAFE_DEAD_F00D);
+        let res = chain.disambiguate_with_fingerprint(
+            0,
+            Vec::<CrystalFingerprint>::new(),
+            Some(real_fp.clone()),
+        );
+        // Sentinel metadata is unchanged.
+        assert_eq!(res.candidate_count, 0);
+        assert_eq!(res.winner_index, usize::MAX);
+        assert!(res.escalate_to_llm, "empty must still escalate");
+        assert!(res.alternatives.is_empty());
+        assert_eq!(res.coherence, 0.0);
+        assert_eq!(res.margin, 0.0);
+        assert_eq!(res.dispersion, 0.0);
+        // Winner and chosen carry the provided fingerprint, NOT zeros.
+        match (&res.winner, &real_fp) {
+            (CrystalFingerprint::Binary16K(a),
+             CrystalFingerprint::Binary16K(b)) => {
+                assert_eq!(**a, **b,
+                    "sentinel winner must be the provided fingerprint");
+            }
+            _ => panic!("expected Binary16K variant"),
+        }
+        match (&res.chosen, &real_fp) {
+            (CrystalFingerprint::Binary16K(a),
+             CrystalFingerprint::Binary16K(b)) => {
+                assert_eq!(**a, **b,
+                    "sentinel chosen must be the provided fingerprint");
+            }
+            _ => panic!("expected Binary16K variant"),
+        }
+        // Verify it's NOT all zeros.
+        match &res.winner {
+            CrystalFingerprint::Binary16K(bits) => {
+                assert!(!bits.iter().all(|&w| w == 0),
+                    "provided fingerprint must NOT be all-zero");
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    /// `disambiguate_with_fingerprint` with `None` falls back to
+    /// the zero sentinel — same as the original `disambiguate`.
+    #[test]
+    fn g3_sentinel_none_falls_back_to_zero() {
+        let chain = fill_chain_with(&mk_fp(0x1));
+        let res = chain.disambiguate_with_fingerprint(
+            0,
+            Vec::<CrystalFingerprint>::new(),
+            None,
+        );
+        assert_eq!(res.candidate_count, 0);
+        assert_eq!(res.winner_index, usize::MAX);
+        assert!(res.escalate_to_llm);
+        match &res.winner {
+            CrystalFingerprint::Binary16K(bits) => {
+                assert!(bits.iter().all(|&w| w == 0),
+                    "None should produce zero sentinel");
+            }
+            _ => panic!("sentinel must be Binary16K"),
+        }
+    }
+
+    /// `disambiguate_with_kernel_and_fingerprint` with non-empty
+    /// candidates ignores the chosen_fingerprint (it only applies
+    /// to the empty-candidates sentinel path).
+    #[test]
+    fn g3_nonempty_candidates_ignore_chosen_fingerprint() {
+        let base = mk_fp(0x1111_2222_3333_4444);
+        let mut chain = fill_chain_with(&base);
+        chain.fingerprints[3] = None;
+
+        let injected = mk_fp(0xFFFF_FFFF_FFFF_FFFF);
+        let res = chain.disambiguate_with_kernel_and_fingerprint(
+            3,
+            vec![base.clone()],
+            WeightingKernel::default(),
+            Some(injected),
+        );
+        // With one candidate, the winner is that candidate, not the
+        // injected fingerprint.
+        assert_eq!(res.candidate_count, 1);
+        match (&res.winner, &base) {
+            (CrystalFingerprint::Binary16K(a),
+             CrystalFingerprint::Binary16K(b)) => {
+                assert_eq!(**a, **b,
+                    "winner must be the actual candidate, not the injected fp");
+            }
+            _ => panic!("expected Binary16K variant"),
         }
     }
 
