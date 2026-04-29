@@ -527,18 +527,20 @@ impl Parser {
         let mut resolved = Vec::new();
         let mut unresolved = Vec::new();
         let mut primes = 0u8;
-        for t in tokens {
+        for (idx, t) in tokens.iter().enumerate() {
             match t.rank {
                 Some(r) => {
                     resolved.push(r);
-                    // NSM primes occupy fixed low ranks in the COCA
-                    // vocabulary (62/63 of them per lib.rs header).
-                    // Treat r < 64 as a primes-found heuristic.
-                    if r < 64 {
+                    // Use the curated NSM-prime ID set rather than the
+                    // earlier `r < 64` heuristic. See nsm_primes.rs.
+                    if crate::nsm_primes::is_nsm_prime(r as u16) {
                         primes = primes.saturating_add(1);
                     }
                 }
-                None => unresolved.push(0u16),
+                // Preserve token identity: push the original token's
+                // sentence index so the failure-ticket can name which
+                // position was OOV instead of degenerating to all-zeros.
+                None => unresolved.push(idx as u16),
             }
         }
 
@@ -580,7 +582,7 @@ impl Parser {
         if !self.coverage_failed(parse_result) {
             return None;
         }
-        use lance_graph_contract::grammar::{PartialParse, TekamoloSlots};
+        use lance_graph_contract::grammar::{NarsInference, PartialParse, TekamoloSlots};
         let partial = PartialParse {
             resolved_tokens: parse_result.resolved_tokens.clone(),
             unresolved_tokens: parse_result.unresolved_tokens.clone(),
@@ -589,6 +591,8 @@ impl Parser {
         // TekamoloSlots / Wechsel / CausalAmbiguity stay empty until D3
         // wires the Grammar Triangle; the ticket already routes correctly
         // on `primes_found` + `classification_distance`.
+        // The local pipeline default-attempted Deduction; downstream
+        // callers can plumb a different mode via a future config hook.
         Some(crate::ticket_emit::emit_ticket(
             partial,
             parse_result.coverage,
@@ -597,6 +601,7 @@ impl Parser {
             TekamoloSlots::default(),
             Vec::new(),
             None,
+            NarsInference::Deduction,
         ))
     }
 }
@@ -703,5 +708,106 @@ mod tests {
         let result = parse(&tokens);
         assert!(!result.triples.is_empty());
         assert!(!result.negations.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod parser_coverage_tests {
+    //! HIGH-priority coverage for the public `Parser` surface.
+    //!
+    //! These exercise `parse_with_coverage` + `coverage_failed` +
+    //! `maybe_emit_ticket` so the LLM-tail policy is regression-tested
+    //! against the new `is_nsm_prime` heuristic and the per-position
+    //! `unresolved_tokens` identity preservation.
+    use super::*;
+    use crate::pos::PoS;
+    use crate::vocabulary::Token;
+
+    fn tok(rank: Option<u16>, pos: PoS, surface: &str) -> Token {
+        Token {
+            rank,
+            pos,
+            position: 0,
+            is_negated: false,
+            surface: surface.to_string(),
+        }
+    }
+
+    fn nsm_prime_rank() -> u16 {
+        // Borrow a known prime-rank from the curated set so the test
+        // remains correct even if the seed list shifts.
+        *crate::nsm_primes::NSM_PRIME_IDS
+            .iter()
+            .next()
+            .expect("NSM prime set must be non-empty")
+    }
+
+    #[test]
+    fn coverage_threshold_default_is_0_85() {
+        assert_eq!(DEFAULT_COVERAGE_THRESHOLD, 0.85);
+        let p = Parser::new();
+        assert!((p.coverage_threshold() - 0.85).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn parse_with_coverage_above_threshold_no_ticket() {
+        // All tokens resolve → coverage == 1.0 → no ticket.
+        let prime = nsm_prime_rank();
+        let tokens = vec![
+            tok(Some(prime), PoS::Pronoun, "i"),
+            tok(Some(100),   PoS::Verb,    "see"),
+            tok(Some(200),   PoS::Noun,    "thing"),
+        ];
+        let parser = Parser::new();
+        let result = parser.parse_with_coverage(&tokens);
+        assert!(result.coverage >= parser.coverage_threshold());
+        assert!(!parser.coverage_failed(&result));
+        #[cfg(feature = "contract-ticket")]
+        {
+            assert!(parser.maybe_emit_ticket(&result).is_none());
+        }
+    }
+
+    #[test]
+    fn parse_with_coverage_below_threshold_emits_ticket() {
+        // Mostly OOV (rank: None) → coverage drops far below 0.85.
+        let tokens = vec![
+            tok(None,       PoS::Noun, "xyzzy"),
+            tok(None,       PoS::Noun, "plugh"),
+            tok(None,       PoS::Verb, "fnord"),
+            tok(Some(2943), PoS::Verb, "bites"),
+        ];
+        let parser = Parser::new();
+        let result = parser.parse_with_coverage(&tokens);
+        assert!(parser.coverage_failed(&result));
+        // 1/4 resolved → coverage == 0.25.
+        assert!(result.coverage < 0.5);
+        // Token-identity preservation: unresolved_tokens carry the
+        // original sentence positions, not zeros.
+        assert_eq!(result.unresolved_tokens, vec![0u16, 1u16, 2u16]);
+
+        #[cfg(feature = "contract-ticket")]
+        {
+            let ticket = parser.maybe_emit_ticket(&result);
+            assert!(ticket.is_some());
+            let t = ticket.unwrap();
+            // No NSM primes in the resolved set → primes_found low,
+            // routing should land on Abduction.
+            assert!(t.partial_parse.coverage < 0.5);
+        }
+    }
+
+    #[test]
+    fn unresolved_tokens_preserve_position_identity() {
+        // Mixed resolved/unresolved: positions of OOV tokens are 0 and 2.
+        let tokens = vec![
+            tok(None,        PoS::Noun, "blarf"),
+            tok(Some(100),   PoS::Verb, "is"),
+            tok(None,        PoS::Noun, "wibble"),
+        ];
+        let parser = Parser::new();
+        let result = parser.parse_with_coverage(&tokens);
+        assert_eq!(result.unresolved_tokens, vec![0u16, 2u16]);
+        assert_eq!(result.resolved_tokens, vec![100u16]);
     }
 }
