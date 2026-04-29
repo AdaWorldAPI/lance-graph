@@ -44,9 +44,16 @@ auth-rls = ["auth-jwt", "query"]
 auth     = ["auth-rls"]
 # LF-90 — append-only audit log skeleton (A3).
 audit-log = []
+# A-fix-audit forward-stub: enables `audit_from_plan(...)` helper that captures
+# rewritten DataFusion LogicalPlans into AuditEntry. No-op alias today; will
+# pull in `dep:datafusion` once the helper has a concrete consumer.
+datafusion-plan = ["query-lite"]
 # DM-8 — PostgREST stub uses a dependency-free hand-rolled JSON writer; the
 # feature flag turns the module on without dragging serde in.
 postgrest = []
+# A-fix-postgrest forward-stub: enables `parsed_query_to_plan(...)` ParsedQuery
+# → DataFusion LogicalPlan compiler. Wired in the follow-up dispatcher PR.
+datafusion-dispatch = ["query-lite"]
 # A4 plugin slots. Each is independently activatable; the `with_*` builder on
 # `MembraneRegistry` is gated on the slot feature plus the underlying module
 # feature (so e.g. enabling `membrane-plugins-rls` without an RLS feature is

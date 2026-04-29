@@ -67,7 +67,7 @@ pub enum StatementKind {
 
 /// Append-only sink. Default impl is in-memory ring buffer; production
 /// path swaps in a Lance-backed writer in a follow-up PR.
-pub trait AuditSink: Send + Sync {
+pub trait AuditSink: Send + Sync + std::fmt::Debug {
     fn append(&self, entry: AuditEntry);
     fn snapshot(&self) -> Vec<AuditEntry>;
 }
