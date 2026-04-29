@@ -104,6 +104,23 @@ Cross-ref: <epiphany entry / plan D-id / related knowledge doc>
 
 (When an Open idea ships, APPEND here with same title + PR anchor.)
 
+## 2026-04-29 — Probe P1: γ-phase-offset ranking discrimination (from 2026-04-29)
+**Status:** Implemented 2026-04-29 via PR (this PR)
+**Result:** PASS — min Spearman ρ = -0.963 across pairs of γ-offsets
+
+Drained Probe P1 from `bf16-hhtl-terrain.md` Probe Queue (NOT RUN → PASS).
+Tests Constraint C3's "VALID — pre-rank discrete selector" regime: 4
+γ-phase offsets at stride 1/(4φ) on a 256-entry codebook produce
+meaningfully different rankings. Pairwise Spearman ρ shows expected
+gradient: adjacent offsets co-monotonic (+0.51), maximum-spaced offsets
+near-anti-monotonic (-0.96). Dupain-Sós discrepancy property empirically
+confirmed in synthetic regime; γ+φ encoding strategy in `bgz-tensor` is
+grounded.
+
+Cross-ref: `crates/jc/src/probe_p1_gamma_phase.rs`,
+`.claude/knowledge/bf16-hhtl-terrain.md` Probe Queue P1 (now PASS),
+`.claude/board/EPIPHANIES.md` 2026-04-29 FINDING entry.
+
 ```
 ## YYYY-MM-DD — <same title as Open entry> (from YYYY-MM-DD)
 **Status:** Implemented YYYY-MM-DD via PR #NNN
@@ -171,6 +188,33 @@ citing the deferred one; flip the deferred entry's Status to
 
 Nothing is lost. Every idea has a trail from speculation to
 disposition.
+
+## 2026-04-29 — Probe P1: γ-phase-offset ranking discrimination
+**Status:** Implemented 2026-04-29 (this PR)
+**Priority:** P1
+**Scope:** @savant-research jc bgz-tensor domain:probe-queue domain:codec
+
+Execute Probe P1 from `bf16-hhtl-terrain.md` queue (status: NOT RUN). Tests
+Constraint C3 directly: γ+φ as pre-rank discrete selector should produce
+*different* rankings for different offsets on the same base codebook. If
+yes (ρ between rankings differs by >0.01 across offsets) — γ+φ pre-rank
+selector is VALID, Dupain-Sós discrepancy property holds. If no (ρ identical)
+— γ+φ joins the dead post-rank regime as a DEAD axis.
+
+Implementation form: jc-style probe (pure Rust, zero deps, ~250 lines).
+Synthesize plausible 256-entry codebook, apply 4 γ-phase-offset shifts,
+rank-by-distance under each, compute pairwise Spearman ρ. PASS if any
+two offsets produce ρ < 0.99 (rankings meaningfully differ). FAIL if all
+pairwise ρ > 0.999 (offsets are no-ops).
+
+Result feeds back into `bf16-hhtl-terrain.md` Probe Queue as P1 status
+update (NOT RUN → PASS or FAIL). On FAIL, downstream consequence: γ+φ
+encoding strategy needs revision; CONJECTURE label on existing γ-related
+architecture stays.
+
+Cross-ref: `.claude/knowledge/bf16-hhtl-terrain.md` Probe Queue P1,
+Constraint C3, `crates/bgz-tensor/src/gamma_phi.rs`,
+`crates/bgz-tensor/src/gamma_calibration.rs`.
 
 ## 2026-04-19 — FP_WORDS = 256 (supersede the 160 plan)
 **Status:** Open
