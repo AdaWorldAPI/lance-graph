@@ -131,11 +131,25 @@ impl MarkovBundler {
                 }
             }
         }
-        // permute by position offset (rotate_right)
-        if !acc.is_empty() {
-            let k = (self.radius as usize) % acc.len();
-            acc.rotate_right(k);
+        // REMOVED: post-bundle acc.rotate_right(k) — corrupted role-slice alignment.
+        // Plan called for per-sentence pre-bundle vsa_permute; that's a follow-up.
+        // Until then, no permutation = aligned bundle.
+
+        // Bundle normalization (HIGH item from PR #279 review): divide by the
+        // sum of |kernel weights| so cosine comparisons across kernel choices
+        // are invariant to kernel-shape magnitude. Without this, MexicanHat
+        // bundles have systematically smaller norms than Uniform bundles
+        // simply because the kernel weights peak at 1 and decay.
+        let radius_i = self.radius as i32;
+        let total_abs_weight: f32 = (-radius_i..=radius_i)
+            .map(|d| self.kernel.weight(d, self.radius).abs())
+            .sum();
+        if total_abs_weight > 1e-9 {
+            for v in acc.iter_mut() {
+                *v /= total_abs_weight;
+            }
         }
+
         Trajectory {
             fingerprint: acc,
             radius: self.radius,
@@ -202,5 +216,157 @@ mod tests {
         assert_eq!(GrammaticalRole::Modal.slice().len(),       100);
         assert_eq!(GrammaticalRole::Lokal.slice().len(),       150);
         assert_eq!(GrammaticalRole::Instrument.slice().len(),  100);
+    }
+
+    /// Helper: fill a bundler's window so a single push triggers `bundle_current`.
+    fn fill_and_bundle(
+        kernel: Kernel,
+        radius: u32,
+        sent: WindowedSentence,
+    ) -> Trajectory {
+        let mut b = MarkovBundler::new(radius, kernel);
+        let cap = (2 * radius + 1) as usize;
+        let mut last: Option<Trajectory> = None;
+        for _ in 0..cap {
+            last = b.push(sent.clone());
+        }
+        last.expect("bundler should emit a trajectory once window is full")
+    }
+
+    /// Helper: push a sequence of distinct sentences so per-position
+    /// kernel weights actually shape the bundle. Returns the trajectory
+    /// emitted on the final push (window saturated).
+    fn bundle_sequence(
+        kernel: Kernel,
+        radius: u32,
+        sentences: Vec<WindowedSentence>,
+    ) -> Trajectory {
+        let mut b = MarkovBundler::new(radius, kernel);
+        let cap = (2 * radius + 1) as usize;
+        assert_eq!(sentences.len(), cap, "sequence must fill exactly one window");
+        let mut last: Option<Trajectory> = None;
+        for s in sentences {
+            last = b.push(s);
+        }
+        last.expect("bundler should emit on the saturating push")
+    }
+
+    /// REGRESSION (PR #279 CRITICAL #2): the removed `rotate_right` shifted
+    /// SUBJECT-slice content into the PREDICATE slice (or worse, the
+    /// CONTEXT band). After the fix, a SUBJECT-only window must keep all
+    /// non-zero content inside `[0, 3277)` and have ~zero everywhere else.
+    #[test]
+    fn bundle_does_not_rotate_subject_dims_outside_subject_slice() {
+        // SUBJECT-only window: every sentence has a single SUBJECT token
+        // whose content_fp is all 1.0 across the SUBJECT slice.
+        let subject_len = GrammaticalRole::Subject.slice().1
+            - GrammaticalRole::Subject.slice().0;
+        let sent = WindowedSentence {
+            tokens: vec![TokenWithRole {
+                content_fp: vec![1.0; subject_len],
+                role: GrammaticalRole::Subject,
+            }],
+        };
+        let traj = fill_and_bundle(Kernel::Uniform, 5, sent);
+
+        let (s_start, s_stop) = GrammaticalRole::Subject.slice();
+        // SUBJECT slice should be non-zero (positive after normalization).
+        let subject_sum: f32 =
+            traj.fingerprint[s_start..s_stop].iter().sum();
+        assert!(
+            subject_sum > 1.0,
+            "expected non-trivial SUBJECT content, got sum={subject_sum}"
+        );
+        // Outside the SUBJECT slice every dim must be ~0 (no rotation).
+        let outside_max: f32 = traj.fingerprint[s_stop..]
+            .iter()
+            .fold(0.0f32, |acc, v| acc.max(v.abs()));
+        assert!(
+            outside_max < 1e-6,
+            "rotation leaked SUBJECT content past slice boundary: \
+             max |outside| = {outside_max}"
+        );
+    }
+
+    /// MexicanHat and Uniform kernels must produce materially different
+    /// bundles on the same window — otherwise the kernel selector is
+    /// ineffective at runtime. Uses an asymmetric heterogeneous window
+    /// (one outlier position carries content; others are blank) so that
+    /// per-position kernel weights reshape the accumulated bundle in a
+    /// way symmetric kernels can't equalize.
+    #[test]
+    fn mexican_hat_bundle_differs_from_uniform_bundle() {
+        let subject_len = GrammaticalRole::Subject.slice().1
+            - GrammaticalRole::Subject.slice().0;
+        let radius = 5u32;
+        let cap = (2 * radius + 1) as usize;
+        // Single outlier at position 1 (delta = -4). Uniform weights this
+        // identically to focal; MexicanHat strongly attenuates it
+        // (w(-4, 5) ≈ 0.26 vs w(0, 5) = 1.0). Normalization divides each
+        // by its own Σ|w|, so the per-dim values differ across the
+        // SUBJECT slice.
+        let outlier_pos = 1usize;
+        let sentences: Vec<WindowedSentence> = (0..cap)
+            .map(|i| WindowedSentence {
+                tokens: vec![TokenWithRole {
+                    content_fp: vec![
+                        if i == outlier_pos { 1.0 } else { 0.0 };
+                        subject_len
+                    ],
+                    role: GrammaticalRole::Subject,
+                }],
+            })
+            .collect();
+        let uni = bundle_sequence(Kernel::Uniform, radius, sentences.clone());
+        let mex = bundle_sequence(Kernel::MexicanHat, radius, sentences);
+        assert_eq!(uni.fingerprint.len(), mex.fingerprint.len());
+        let l2: f32 = uni
+            .fingerprint
+            .iter()
+            .zip(mex.fingerprint.iter())
+            .map(|(a, b)| (a - b) * (a - b))
+            .sum::<f32>()
+            .sqrt();
+        assert!(
+            l2 > 1e-3,
+            "MexicanHat bundle should differ from Uniform bundle, l2={l2}"
+        );
+    }
+
+    /// Bundle normalization (HIGH from PR #279) makes the L2 norm
+    /// invariant to kernel-shape magnitude. We assert all three kernels
+    /// land in a loose [0.5, 1.5] band on a controlled SUBJECT-only window.
+    #[test]
+    fn bundle_l2_norm_invariant_to_kernel() {
+        let subject_len = GrammaticalRole::Subject.slice().1
+            - GrammaticalRole::Subject.slice().0;
+        let sent = WindowedSentence {
+            tokens: vec![TokenWithRole {
+                content_fp: vec![1.0; subject_len],
+                role: GrammaticalRole::Subject,
+            }],
+        };
+        for k in [Kernel::Uniform, Kernel::MexicanHat, Kernel::Gaussian] {
+            let traj = fill_and_bundle(k, 5, sent.clone());
+            // Per-dim mean of |v| × sqrt(N_subj) ≈ L2 norm; we test L2 directly.
+            let l2: f32 = traj
+                .fingerprint
+                .iter()
+                .map(|v| v * v)
+                .sum::<f32>()
+                .sqrt();
+            // Each SUBJECT dim sums to (Σ_i w_i) / (Σ_i |w_i|). For Uniform
+            // and Gaussian (all-positive weights) this is exactly 1.0 per dim,
+            // so L2 = sqrt(subject_len) ≈ 57.2. For Mexican-hat the negative
+            // brim cancels part of the positive core, dropping the per-dim
+            // value but keeping it within the same order of magnitude.
+            // We loose-bound on L2 / sqrt(subject_len) ∈ [0.5, 1.5].
+            let scale = (subject_len as f32).sqrt();
+            let norm_l2 = l2 / scale;
+            assert!(
+                (0.5..=1.5).contains(&norm_l2),
+                "kernel {k:?}: normalized L2 {norm_l2} (raw {l2}) out of [0.5, 1.5]"
+            );
+        }
     }
 }

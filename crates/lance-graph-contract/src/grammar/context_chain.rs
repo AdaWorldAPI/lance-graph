@@ -159,76 +159,90 @@ impl ContextChain {
         self.fingerprints[Self::focal_index()].as_ref()
     }
 
-    /// Coherence of position `i` against the rest of the chain.
-    /// Computed as `1 - hamming(fp[i], bundled_excluding_i) / max_hamming`.
-    /// Returns `0.0` if position `i` is empty or out of range, or if no
-    /// other Binary16K fingerprints are present to bundle against.
+    /// Coherence of position `i` against the rest of the chain under the
+    /// default kernel (`WeightingKernel::default()` = MexicanHat).
+    /// Computed as a kernel-weighted normalized similarity (see
+    /// `coherence_at_with_kernel`). Returns `0.0` if position `i` is empty
+    /// or out of range, or if no other Binary16K fingerprints are present
+    /// to compare against.
     pub fn coherence_at(&self, i: usize) -> f32 {
+        self.coherence_at_with_kernel(i, WeightingKernel::default())
+    }
+
+    /// Kernel-weighted coherence of position `i`. For each filled
+    /// Binary16K neighbor `j` within `±MARKOV_RADIUS` of `i`, computes
+    /// `sim(fp_i, fp_j) = 1 - hamming_normalized(fp_i, fp_j)` and weights
+    /// it by `kernel.weight(j - i, MARKOV_RADIUS)`. The returned value is
+    /// `Σ w·sim / Σ |w|`, so it sits in `[-1, 1]` (the absolute-weight
+    /// denominator handles MexicanHat's signed brim without inflating
+    /// the score).
+    ///
+    /// Returns `0.0` if position `i` is empty / out of range, the
+    /// fingerprint is not Binary16K, or no eligible neighbors exist.
+    pub fn coherence_at_with_kernel(
+        &self,
+        i: usize,
+        kernel: WeightingKernel,
+    ) -> f32 {
         if i >= self.fingerprints.len() {
             return 0.0;
         }
-        let fp_i = match self.fingerprints[i].as_ref() {
-            Some(fp) => fp,
-            None => return 0.0,
-        };
-        let fp_i_bits = match binary16k_bits(fp_i) {
+        let fp_i_bits = match self.fingerprints[i]
+            .as_ref()
+            .and_then(binary16k_bits)
+        {
             Some(b) => b,
             None => return 0.0,
         };
 
-        // Bundle all other Binary16K positions via naive majority-XOR:
-        // a bit is set in the bundle if it is set in the majority of the
-        // contributing fingerprints. With an even number of contributors
-        // and a tie, we leave the bit unset (conservative).
-        let mut counts = [0u16; MAX_HAMMING_BITS as usize];
-        let mut contributors: u16 = 0;
+        let radius = MARKOV_RADIUS as i32;
+        let i_i32 = i as i32;
+        let mut weighted_sum: f32 = 0.0;
+        let mut weight_sum_abs: f32 = 0.0;
+
         for (j, slot) in self.fingerprints.iter().enumerate() {
-            if j == i { continue; }
-            if let Some(fp) = slot {
-                if let Some(bits) = binary16k_bits(fp) {
-                    contributors += 1;
-                    for (w, &word) in bits.iter().enumerate() {
-                        let base = w * 64;
-                        for b in 0..64 {
-                            if (word >> b) & 1 == 1 {
-                                counts[base + b] += 1;
-                            }
-                        }
-                    }
-                }
+            if j == i {
+                continue;
             }
-        }
-        if contributors == 0 {
-            return 0.0;
+            let delta = (j as i32) - i_i32;
+            if delta.abs() > radius {
+                continue;
+            }
+            let bits = match slot.as_ref().and_then(binary16k_bits) {
+                Some(b) => b,
+                None => continue,
+            };
+            let w = kernel.weight(delta, MARKOV_RADIUS as u32);
+            let dist = hamming_256(fp_i_bits, bits);
+            let sim = 1.0 - (dist as f32 / MAX_HAMMING_BITS as f32);
+            weighted_sum += w * sim;
+            weight_sum_abs += w.abs();
         }
 
-        let threshold = contributors.div_ceil(2); // majority: strictly more than half
-        let mut bundle = [0u64; 256];
-        for (w, slot) in bundle.iter_mut().enumerate() {
-            let mut word: u64 = 0;
-            let base = w * 64;
-            for b in 0..64 {
-                if counts[base + b] >= threshold
-                    && counts[base + b] * 2 > contributors
-                {
-                    word |= 1u64 << b;
-                }
-            }
-            *slot = word;
+        if weight_sum_abs > 1e-9 {
+            weighted_sum / weight_sum_abs
+        } else {
+            0.0
         }
-
-        let dist = hamming_256(fp_i_bits, &bundle);
-        1.0 - (dist as f32 / MAX_HAMMING_BITS as f32)
     }
 
-    /// Mean coherence across all filled positions. Returns `0.0` if the
-    /// chain is entirely empty.
+    /// Mean coherence across all filled positions under the default
+    /// kernel. Returns `0.0` if the chain is entirely empty.
     pub fn total_coherence(&self) -> f32 {
+        self.total_coherence_with_kernel(WeightingKernel::default())
+    }
+
+    /// Mean coherence across all filled positions under the supplied
+    /// kernel. Returns `0.0` if the chain is entirely empty.
+    pub fn total_coherence_with_kernel(
+        &self,
+        kernel: WeightingKernel,
+    ) -> f32 {
         let mut sum = 0.0f32;
         let mut n = 0u32;
         for i in 0..self.fingerprints.len() {
             if self.fingerprints[i].is_some() {
-                sum += self.coherence_at(i);
+                sum += self.coherence_at_with_kernel(i, kernel);
                 n += 1;
             }
         }
@@ -237,19 +251,34 @@ impl ContextChain {
 
     /// Returns a new chain where position `i` has been replaced with `alt`.
     /// Used for counterfactual disambiguation testing.
-    /// Second return value is the `total_coherence` of the modified chain.
-    /// If `i` is out of range, returns a clone of the chain untouched and
-    /// its current total coherence.
+    /// Second return value is the `total_coherence` of the modified chain
+    /// under the default kernel. If `i` is out of range, returns a clone
+    /// of the chain untouched and its current total coherence.
     pub fn replay_with_alternative(
         &self,
         i: usize,
         alt: CrystalFingerprint,
     ) -> (Self, f32) {
+        self.replay_with_alternative_kernel(
+            i,
+            alt,
+            WeightingKernel::default(),
+        )
+    }
+
+    /// Kernel-aware variant of `replay_with_alternative`. Scores the
+    /// replayed chain with `kernel` instead of the default.
+    pub fn replay_with_alternative_kernel(
+        &self,
+        i: usize,
+        alt: CrystalFingerprint,
+        kernel: WeightingKernel,
+    ) -> (Self, f32) {
         let mut cloned = self.clone();
         if i < cloned.fingerprints.len() {
             cloned.fingerprints[i] = Some(alt);
         }
-        let coh = cloned.total_coherence();
+        let coh = cloned.total_coherence_with_kernel(kernel);
         (cloned, coh)
     }
 
@@ -278,13 +307,32 @@ impl ContextChain {
     where
         I: IntoIterator<Item = CrystalFingerprint>,
     {
+        self.disambiguate_with_kernel(i, candidates, WeightingKernel::default())
+    }
+
+    /// Kernel-aware variant of `disambiguate`. Identical contract; the
+    /// supplied `kernel` is used when scoring each candidate replay via
+    /// `total_coherence_with_kernel`.
+    pub fn disambiguate_with_kernel<I>(
+        &self,
+        i: usize,
+        candidates: I,
+        kernel: WeightingKernel,
+    ) -> DisambiguationResult
+    where
+        I: IntoIterator<Item = CrystalFingerprint>,
+    {
         // Score with original input index preserved so we can report
         // `winner_index` in the iterator's order.
         let mut scored: Vec<(usize, CrystalFingerprint, f32)> = candidates
             .into_iter()
             .enumerate()
             .map(|(idx, cand)| {
-                let (_chain, coh) = self.replay_with_alternative(i, cand.clone());
+                let (_chain, coh) = self.replay_with_alternative_kernel(
+                    i,
+                    cand.clone(),
+                    kernel,
+                );
                 (idx, cand, coh)
             })
             .collect();
@@ -762,5 +810,206 @@ mod tests {
     fn d4_default_kernel_is_mexican_hat() {
         let k: WeightingKernel = Default::default();
         assert_eq!(k, WeightingKernel::MexicanHat);
+    }
+
+    // ── PR #279 fix tests: WeightingKernel wired into coherence ──────────
+
+    /// Helper: construct a chain with explicit per-position fingerprints,
+    /// padding the rest with `None`. Useful for hand-rolled coherence checks.
+    fn chain_from_slots(slots: Vec<Option<CrystalFingerprint>>) -> ContextChain {
+        let mut c = ContextChain::new();
+        for (i, slot) in slots.into_iter().enumerate() {
+            if i < c.fingerprints.len() {
+                c.fingerprints[i] = slot;
+            }
+        }
+        c
+    }
+
+    /// 1. Uniform kernel coherence equals the simple average of pairwise
+    ///    similarities — the kernel collapses to a constant 1.0, so the
+    ///    weighted denominator equals the count of in-window neighbors.
+    #[test]
+    fn uniform_kernel_coherence_equals_simple_average() {
+        let fp_a = mk_fp(0xAAAA_AAAA_AAAA_AAAA);
+        let fp_b = mk_fp(0x5555_5555_5555_5555);
+        // Place fp_b at focal (5), fp_a at every other slot.
+        let mut slots: Vec<Option<CrystalFingerprint>> = (0..CHAIN_LEN)
+            .map(|i| {
+                if i == ContextChain::focal_index() {
+                    Some(fp_b.clone())
+                } else {
+                    Some(fp_a.clone())
+                }
+            })
+            .collect();
+        // Drop one to leave a stable in-window count we can hand-verify.
+        slots[0] = None;
+        let chain = chain_from_slots(slots);
+
+        // Hand-rolled: at focal index, the in-window neighbors (j != focal,
+        // |j - focal| <= 5, fp present) are positions 1..=4 and 6..=10.
+        // For each, sim = 1 - hamming(fp_b, fp_a) / MAX.
+        let focal = ContextChain::focal_index();
+        let bits_b = match &fp_b {
+            CrystalFingerprint::Binary16K(b) => b.as_ref(),
+            _ => unreachable!(),
+        };
+        let bits_a = match &fp_a {
+            CrystalFingerprint::Binary16K(b) => b.as_ref(),
+            _ => unreachable!(),
+        };
+        let pair_sim =
+            1.0 - (hamming_256(bits_b, bits_a) as f32) / MAX_HAMMING_BITS as f32;
+
+        let measured =
+            chain.coherence_at_with_kernel(focal, WeightingKernel::Uniform);
+        assert!(
+            (measured - pair_sim).abs() < 1e-6,
+            "Uniform-kernel coherence at focal should equal the pairwise sim \
+             (all neighbors identical fingerprints): measured={measured} \
+             expected={pair_sim}"
+        );
+    }
+
+    /// 2. Mexican-hat coherence diverges from uniform in the presence of
+    ///    a heterogeneous chain — distant neighbors get attenuated/inverted,
+    ///    so the weighted average differs measurably.
+    #[test]
+    fn mexican_hat_kernel_yields_different_coherence_than_uniform() {
+        // Focal matches fp_a; close-in neighbors match fp_a; far neighbors
+        // (radius edge) match fp_b. Mexican-hat will *negative-weight* the
+        // edge slots, while uniform averages them positively.
+        let fp_a = mk_fp(0xAAAA_AAAA_AAAA_AAAA);
+        let fp_b = mk_fp(0x5555_5555_5555_5555);
+        let focal = ContextChain::focal_index();
+        let mut slots: Vec<Option<CrystalFingerprint>> =
+            (0..CHAIN_LEN).map(|_| Some(fp_a.clone())).collect();
+        // Far edges get fp_b.
+        slots[0] = Some(fp_b.clone());
+        slots[CHAIN_LEN - 1] = Some(fp_b.clone());
+        let chain = chain_from_slots(slots);
+
+        let uni =
+            chain.coherence_at_with_kernel(focal, WeightingKernel::Uniform);
+        let mex = chain
+            .coherence_at_with_kernel(focal, WeightingKernel::MexicanHat);
+        assert!(
+            (uni - mex).abs() > 1e-3,
+            "uniform={uni} and mexican_hat={mex} should differ when the chain \
+             has heterogeneous edges"
+        );
+    }
+
+    /// 3. Kernel choice can flip the disambiguation outcome. Construct a
+    ///    chain where position `i` is missing, and craft two candidates
+    ///    such that uniform picks A but mexican-hat picks B (because the
+    ///    edge contributors are weighted differently).
+    #[test]
+    fn kernel_change_changes_disambiguation_outcome() {
+        // Setup: focal is empty, near-neighbors agree with cand_near,
+        // far-neighbors agree with cand_far.
+        let cand_near = mk_fp(0x1111_2222_3333_4444);
+        let cand_far = mk_fp(0xEEEE_DDDD_CCCC_BBBB);
+        let focal = ContextChain::focal_index();
+
+        let mut slots: Vec<Option<CrystalFingerprint>> =
+            (0..CHAIN_LEN).map(|_| None).collect();
+        // Near positions (focal ± 1, ± 2): cand_near.
+        for d in 1..=2usize {
+            slots[focal - d] = Some(cand_near.clone());
+            slots[focal + d] = Some(cand_near.clone());
+        }
+        // Far positions (focal ± 4, ± 5): cand_far.
+        for d in 4..=5usize {
+            slots[focal - d] = Some(cand_far.clone());
+            slots[focal + d] = Some(cand_far.clone());
+        }
+        let chain = chain_from_slots(slots);
+
+        // Under Uniform, both candidates score by total weighted average
+        // across the window — but cand_near matches 4 positions and cand_far
+        // matches 4 positions equally. Under MexicanHat, the inner band
+        // (|delta|=1,2) carries dominant *positive* weight and the outer
+        // band (|delta|=4,5) carries small / negative weight. So
+        // cand_near should win under MexicanHat with a margin that is at
+        // least no smaller than under Uniform. We assert the margin
+        // changes between the two kernels (kernel is wired through).
+        let res_uni = chain.disambiguate_with_kernel(
+            focal,
+            vec![cand_far.clone(), cand_near.clone()],
+            WeightingKernel::Uniform,
+        );
+        let res_mex = chain.disambiguate_with_kernel(
+            focal,
+            vec![cand_far.clone(), cand_near.clone()],
+            WeightingKernel::MexicanHat,
+        );
+
+        // Both must produce valid winners.
+        assert_eq!(res_uni.candidate_count, 2);
+        assert_eq!(res_mex.candidate_count, 2);
+
+        // The coherence-margin between candidates should change between
+        // kernels (exact flip depends on chain geometry; the contract we
+        // test is "kernel actually affects the outcome", not a specific
+        // direction).
+        assert!(
+            (res_uni.margin - res_mex.margin).abs() > 1e-4
+                || res_uni.winner_index != res_mex.winner_index
+                || (res_uni.coherence - res_mex.coherence).abs() > 1e-4,
+            "kernel choice failed to influence disambiguation: \
+             uni(winner={}, margin={}, coh={}), \
+             mex(winner={}, margin={}, coh={})",
+            res_uni.winner_index,
+            res_uni.margin,
+            res_uni.coherence,
+            res_mex.winner_index,
+            res_mex.margin,
+            res_mex.coherence,
+        );
+    }
+
+    /// 4. `total_coherence` (and the kernel-aware variant) produces a value
+    ///    in `[-1, 1]` regardless of kernel — the absolute-weight
+    ///    normalization keeps the score bounded even under MexicanHat's
+    ///    signed brim.
+    #[test]
+    fn total_coherence_normalized_to_unit_interval() {
+        // Mixed chain: a self-similar segment plus a wholly inverted edge.
+        let fp = mk_fp(0xC0FF_EE00_C0FF_EE00);
+        let inv = match &fp {
+            CrystalFingerprint::Binary16K(bits) => {
+                let mut out = Box::new([0u64; 256]);
+                for (i, w) in bits.iter().enumerate() {
+                    out[i] = !w;
+                }
+                CrystalFingerprint::Binary16K(out)
+            }
+            _ => unreachable!(),
+        };
+        let mut slots: Vec<Option<CrystalFingerprint>> =
+            (0..CHAIN_LEN).map(|_| Some(fp.clone())).collect();
+        slots[0] = Some(inv.clone());
+        slots[CHAIN_LEN - 1] = Some(inv);
+        let chain = chain_from_slots(slots);
+
+        for k in [
+            WeightingKernel::Uniform,
+            WeightingKernel::MexicanHat,
+            WeightingKernel::Gaussian,
+        ] {
+            let total = chain.total_coherence_with_kernel(k);
+            assert!(
+                (-1.0..=1.0).contains(&total),
+                "total_coherence under {k:?} = {total} escaped [-1, 1]"
+            );
+        }
+        // Default-kernel path also bounded.
+        let dflt = chain.total_coherence();
+        assert!(
+            (-1.0..=1.0).contains(&dflt),
+            "default total_coherence={dflt} escaped [-1, 1]"
+        );
     }
 }
