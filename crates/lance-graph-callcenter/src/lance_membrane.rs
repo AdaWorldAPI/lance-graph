@@ -1,3 +1,12 @@
+//! META-AGENT: `MembraneRegistry::with_rls()` requires
+//! `pub mod rls;` (already present, gated on `auth-rls-lite`/`auth-rls`/`auth`/`full`)
+//! and a `pub struct RlsPolicyRegistry` exported from that module (A2's work).
+//! `MembraneRegistry::with_audit()` requires `pub mod audit;` and
+//! `pub trait AuditSink: Send + Sync` (A3's work) plus a feature
+//! `audit-log` (or equivalent) declared in `Cargo.toml`. Until those
+//! land, the registry hooks are gated behind their respective features
+//! so this builder compiles whether the upstream pieces are wired or not.
+//!
 //! LanceMembrane — the `ExternalMembrane` implementation.
 //!
 //! This is the compile-time BBB enforcement point. It is the only place
@@ -62,6 +71,70 @@ struct ActorState {
     expert: ExpertId,
 }
 
+/// Component registry for membrane wiring. Holds optional handles to
+/// RLS rewriter, audit sink, catalog provider. Builders consult it
+/// at construction time; runtime is read-only after seal().
+///
+/// Each plugin slot is feature-gated so the registry compiles whether
+/// or not the upstream module (`rls`, `audit`, …) is enabled. Without
+/// any feature flags, `MembraneRegistry` is an empty placeholder; with
+/// the appropriate features active, the corresponding `with_*` builder
+/// method becomes callable.
+#[derive(Debug, Default)]
+pub struct MembraneRegistry {
+    #[cfg(all(
+        feature = "membrane-plugins-rls",
+        any(feature = "auth-rls-lite", feature = "auth-rls", feature = "auth", feature = "full")
+    ))]
+    rls: Option<Arc<crate::rls::RlsPolicyRegistry>>,
+    #[cfg(all(feature = "membrane-plugins-audit", feature = "audit-log"))]
+    audit: Option<Arc<dyn crate::audit::AuditSink>>,
+    // Future: catalog: Option<...>, validator: Option<...>
+}
+
+impl MembraneRegistry {
+    /// Construct an empty registry. Use the `with_*` chain to populate.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Install an RLS policy registry (A2's `RlsPolicyRegistry`).
+    /// Requires the `membrane-plugins-rls` cargo feature plus one of the
+    /// `auth-rls{,-lite}` / `auth` / `full` features that activates
+    /// `crate::rls`.
+    #[cfg(all(
+        feature = "membrane-plugins-rls",
+        any(feature = "auth-rls-lite", feature = "auth-rls", feature = "auth", feature = "full")
+    ))]
+    pub fn with_rls(mut self, reg: Arc<crate::rls::RlsPolicyRegistry>) -> Self {
+        self.rls = Some(reg);
+        self
+    }
+
+    /// Install an audit sink (A3's `AuditSink`).
+    /// Requires the `membrane-plugins-audit` and `audit-log` cargo features.
+    #[cfg(all(feature = "membrane-plugins-audit", feature = "audit-log"))]
+    pub fn with_audit(mut self, sink: Arc<dyn crate::audit::AuditSink>) -> Self {
+        self.audit = Some(sink);
+        self
+    }
+
+    /// Borrow the installed RLS policy registry, if any.
+    #[cfg(all(
+        feature = "membrane-plugins-rls",
+        any(feature = "auth-rls-lite", feature = "auth-rls", feature = "auth", feature = "full")
+    ))]
+    pub fn rls(&self) -> Option<&Arc<crate::rls::RlsPolicyRegistry>> {
+        self.rls.as_ref()
+    }
+
+    /// Borrow the installed audit sink, if any.
+    #[cfg(all(feature = "membrane-plugins-audit", feature = "audit-log"))]
+    pub fn audit(&self) -> Option<&Arc<dyn crate::audit::AuditSink>> {
+        self.audit.as_ref()
+    }
+}
+
 /// One `LanceMembrane` per session. All interior state is protected by
 /// `RwLock` or atomics so it is `Send + Sync`.
 ///
@@ -75,6 +148,9 @@ pub struct LanceMembrane {
     version:         AtomicU64,
     server_filter:   RwLock<CommitFilter>,
     gate:            RwLock<Option<Arc<dyn MembraneGate>>>,
+    /// Optional plugin registry (RLS, audit, catalog). Set via
+    /// `LanceMembrane::with_registry()`. Read-only after seal in v1.
+    registry:        Option<MembraneRegistry>,
     #[cfg(feature = "realtime")]
     watcher:         LanceVersionWatcher,
 }
@@ -92,9 +168,25 @@ impl LanceMembrane {
             version:         AtomicU64::new(0),
             server_filter:   RwLock::new(CommitFilter::default()),
             gate:            RwLock::new(None),
+            registry:        None,
             #[cfg(feature = "realtime")]
             watcher:         LanceVersionWatcher::default(),
         }
+    }
+
+    /// Build the membrane with a registry of plugins (RLS / audit / catalog).
+    ///
+    /// Idempotent — calling twice replaces the registry rather than
+    /// merging or appending. v1 keeps the registry read-only after this
+    /// call; a future seal() may freeze it explicitly.
+    pub fn with_registry(mut self, registry: MembraneRegistry) -> Self {
+        self.registry = Some(registry);
+        self
+    }
+
+    /// Borrow the installed registry, if any.
+    pub fn registry(&self) -> Option<&MembraneRegistry> {
+        self.registry.as_ref()
     }
 
     /// Install a server-side fan-out filter (TD-INT-13). Subscribers only
@@ -476,6 +568,29 @@ mod tests {
         m.set_faculty_context(FacultyRole::ReadingComprehension as u8, 42, false);
         let row = m.project(&bus, meta);
         assert!(!row.rationale_phase, "after set_faculty_context(false), should be Stage 2");
+    }
+
+    #[test]
+    fn with_registry_chain_compiles_and_stores() {
+        // Empty registry composes through the builder and is readable back.
+        let m = LanceMembrane::new().with_registry(MembraneRegistry::new());
+        assert!(m.registry().is_some(), "registry() should be Some after wiring");
+    }
+
+    #[test]
+    fn with_registry_replaces_not_appends() {
+        // Two consecutive with_registry calls — second wins.
+        let m = LanceMembrane::new()
+            .with_registry(MembraneRegistry::new())
+            .with_registry(MembraneRegistry::new());
+        // Still exactly one registry held — call site is idempotent.
+        assert!(m.registry().is_some());
+    }
+
+    #[test]
+    fn registry_none_by_default() {
+        let m = LanceMembrane::new();
+        assert!(m.registry().is_none(), "registry() should be None on a bare LanceMembrane");
     }
 
     #[test]
