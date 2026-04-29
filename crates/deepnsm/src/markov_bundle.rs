@@ -259,8 +259,8 @@ mod tests {
     fn bundle_does_not_rotate_subject_dims_outside_subject_slice() {
         // SUBJECT-only window: every sentence has a single SUBJECT token
         // whose content_fp is all 1.0 across the SUBJECT slice.
-        let subject_len = GrammaticalRole::Subject.slice().1
-            - GrammaticalRole::Subject.slice().0;
+        let subject_len = GrammaticalRole::Subject.slice().stop
+            - GrammaticalRole::Subject.slice().start;
         let sent = WindowedSentence {
             tokens: vec![TokenWithRole {
                 content_fp: vec![1.0; subject_len],
@@ -269,7 +269,9 @@ mod tests {
         };
         let traj = fill_and_bundle(Kernel::Uniform, 5, sent);
 
-        let (s_start, s_stop) = GrammaticalRole::Subject.slice();
+        let _slice = GrammaticalRole::Subject.slice();
+        let s_start = _slice.start;
+        let s_stop = _slice.stop;
         // SUBJECT slice should be non-zero (positive after normalization).
         let subject_sum: f32 =
             traj.fingerprint[s_start..s_stop].iter().sum();
@@ -296,8 +298,8 @@ mod tests {
     /// way symmetric kernels can't equalize.
     #[test]
     fn mexican_hat_bundle_differs_from_uniform_bundle() {
-        let subject_len = GrammaticalRole::Subject.slice().1
-            - GrammaticalRole::Subject.slice().0;
+        let subject_len = GrammaticalRole::Subject.slice().stop
+            - GrammaticalRole::Subject.slice().start;
         let radius = 5u32;
         let cap = (2 * radius + 1) as usize;
         // Single outlier at position 1 (delta = -4). Uniform weights this
@@ -338,8 +340,8 @@ mod tests {
     /// land in a loose [0.5, 1.5] band on a controlled SUBJECT-only window.
     #[test]
     fn bundle_l2_norm_invariant_to_kernel() {
-        let subject_len = GrammaticalRole::Subject.slice().1
-            - GrammaticalRole::Subject.slice().0;
+        let subject_len = GrammaticalRole::Subject.slice().stop
+            - GrammaticalRole::Subject.slice().start;
         let sent = WindowedSentence {
             tokens: vec![TokenWithRole {
                 content_fp: vec![1.0; subject_len],

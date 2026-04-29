@@ -11,8 +11,8 @@ pub struct Trajectory {
 impl Trajectory {
     /// Slice the role band out of the trajectory's fingerprint.
     pub fn role_bundle(&self, role: GrammaticalRole) -> Vec<f32> {
-        let (start, stop) = role.slice();
-        self.role_bundle_range(start, stop)
+        let slice = role.slice();
+        self.role_bundle_range(slice.start, slice.stop)
     }
 
     /// Lower-level slice helper retained for test fixtures + callers
@@ -117,7 +117,9 @@ mod tests {
             radius: 5,
         };
         let bundle = t.role_bundle(GrammaticalRole::Subject);
-        let (start, stop) = GrammaticalRole::Subject.slice();
+        let _slice = GrammaticalRole::Subject.slice();
+        let start = _slice.start;
+        let stop = _slice.stop;
         assert_eq!(bundle.len(), stop - start);
     }
 
@@ -134,7 +136,9 @@ mod tests {
     fn role_candidates_filters_by_threshold() {
         // Codebook of 5 with similarities [0.9, 0.8, 0.4, 0.3, 0.1];
         // threshold 0.5 → only the first two pass.
-        let (start, stop) = GrammaticalRole::Subject.slice();
+        let _slice = GrammaticalRole::Subject.slice();
+        let start = _slice.start;
+        let stop = _slice.stop;
         let n = stop - start;
         let mut fingerprint = vec![0.0_f32; 16_384];
         for v in fingerprint[start..stop].iter_mut() {
@@ -181,7 +185,9 @@ mod tests {
     fn role_candidates_top_k_truncation() {
         // Codebook of 10 entries all above threshold — top_k=3 must
         // return exactly 3.
-        let (start, stop) = GrammaticalRole::Subject.slice();
+        let _slice = GrammaticalRole::Subject.slice();
+        let start = _slice.start;
+        let stop = _slice.stop;
         let n = stop - start;
         let mut fingerprint = vec![0.0_f32; 16_384];
         for v in fingerprint[start..stop].iter_mut() {
