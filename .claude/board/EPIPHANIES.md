@@ -65,32 +65,6 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
-## 2026-04-29 — CORRECTION: agent skipped board/probe-queue discipline, created parallel idea journals
-
-**Status:** CORRECTION
-
-In a single session 2026-04-29, two `IDEA_JOURNAL_*.md` files (PRs #290,
-#291) were created in `.claude/` root — capturing streaming-hydration,
-fractal-codec, and three proposed application pillars (7/8/9). Both files
-duplicated the function of the existing `.claude/board/IDEAS.md`
-(triple-entry, append-only, P0-P3 priorities) and `.claude/board/EPIPHANIES.md`
-(date-prefixed reverse-chrono log). Neither file consulted
-`.claude/knowledge/bf16-hhtl-terrain.md` Process Rule, which states
-that any agent MUST check the probe queue before proposing changes and
-MUST label proposals as CONJECTURE if relevant probe is NOT RUN.
-
-Posthoc correction (this PR): both journal files received a CONJECTURE
-banner at top pointing to canonical board, ideas re-filed into
-`.claude/board/IDEAS.md` Open section with cross-references and explicit
-CONJECTURE / LIKELY-REDISCOVERY tags where appropriate.
-
-Lesson for future sessions: read `knowledge.md` and `board/` *before*
-creating new top-level docs. The repo has 145+ `.claude/` documents
-encoding accumulated discipline; new patterns should reuse, not parallel.
-
-Cross-ref: `.claude/board/IDEAS.md` 2026-04-29 entries, PRs #290, #291,
-`.claude/knowledge/bf16-hhtl-terrain.md` Process Rule, `.claude/knowledge.md`.
-
 ## 2026-04-29 — FINDING: Pillars 5+, 5++, 6 close the concentration family for substrate aggregation
 
 **Status:** FINDING
