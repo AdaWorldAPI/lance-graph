@@ -24,6 +24,12 @@ pub mod role_keys;
 pub mod thinking_styles;
 pub mod free_energy;
 
+// PR #279 outlook epiphany E3 — 144-cell verb-role lookup table.
+pub mod verb_table;
+
+// PR #279 outlook epiphany E5 — generalized disambiguation primitive.
+pub mod disambiguator;
+
 pub use ticket::{FailureTicket, PartialParse, CausalAmbiguity};
 pub use tekamolo::{TekamoloSlots, TekamoloSlot};
 pub use wechsel::{WechselAmbiguity, WechselRole};
@@ -43,6 +49,8 @@ pub use free_energy::{
     FreeEnergy, Hypothesis, Resolution,
     EPIPHANY_MARGIN, FAILURE_CEILING, HOMEOSTASIS_FLOOR,
 };
+pub use verb_table::{VerbFamily, VerbRoleTable, SlotPrior, default_table};
+pub use disambiguator::{Disambiguatable, GeneralizedResult, disambiguate_general};
 
 /// Coverage of a local parse — if below [`LOCAL_COVERAGE_THRESHOLD`],
 /// the ticket is emitted for LLM fallback.

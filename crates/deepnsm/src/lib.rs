@@ -65,6 +65,15 @@ pub mod trajectory;
 pub mod markov_bundle;
 pub mod nsm_primes;
 
+// PR #279 outlook epiphany E4 — Trajectory-as-statement-hash bridge to
+// PR #278 audit log. Converts grammatical structure to a 16384-bit
+// semantic hash key.
+pub mod trajectory_audit;
+
+// PR #279 outlook epiphany E8 — Quantum mode (PhaseTag + holographic
+// addressing) sharing the 16384-dim substrate with Crystal mode.
+pub mod quantum_mode;
+
 #[cfg(feature = "contract-ticket")]
 pub mod ticket_emit;
 
