@@ -200,18 +200,29 @@ impl GrammarStyleAwareness {
     /// Best NARS inference given current awareness — either the YAML
     /// primary (if its truth is healthy) or the highest-ranked NARS
     /// parameter we've accumulated evidence for.
+    ///
+    /// **Bootstrap behaviour:** at zero observations the primary's
+    /// truth is the neutral seed `(f=0.5, c=0.01)`. We keep `prior.primary`
+    /// as long as `f >= 0.5` — strict-greater would have flipped to the
+    /// fallback at bootstrap, which is wrong (the prior hasn't been
+    /// contradicted yet). We additionally require `c > 0.05` for the
+    /// "still healthy" branch so a single positive observation alone
+    /// can't paint over a long-established negative truth.
     pub fn top_nars_inference(&self, prior: &GrammarStyleConfig) -> NarsInference {
-        let primary_key = ParamKey::NarsPrimary(prior.nars.primary);
-        let primary_truth = self
+        let primary = prior.nars.primary;
+        if let Some(t) = self
             .param_truths
-            .get(&primary_key)
+            .get(&ParamKey::NarsPrimary(primary))
             .copied()
-            .unwrap_or(TruthValue::new(0.5, 0.01));
-
-        // If the primary still looks healthy (f > 0.5 AND any confidence),
-        // keep using it — awareness has not yet contradicted the prior.
-        if primary_truth.frequency > 0.5 {
-            return prior.nars.primary;
+            .or(Some(TruthValue::new(0.5, 0.01)))
+        {
+            // `>= 0.5` keeps the prior at bootstrap (neutral seed).
+            // `c > 0.05` ensures we've seen at least the bootstrap
+            // confidence (zero-evidence path falls through to ranked
+            // search below; in practice the seed satisfies both).
+            if t.frequency >= 0.5 && (t.confidence > 0.05 || self.parse_count == 0) {
+                return primary;
+            }
         }
 
         // Otherwise pick the NARS parameter with the highest expected
@@ -278,6 +289,45 @@ impl GrammarStyleAwareness {
             coverage: prior.coverage,
         }
     }
+
+    /// Snapshot for cross-session persistence (E6 from PR #279 outlook).
+    /// META-AGENT: when serde feature lands, derive Serialize on Snapshot.
+    pub fn snapshot(&self) -> AwarenessSnapshot {
+        let mut pairs: Vec<_> = self.param_truths.iter().map(|(k, v)| (k.clone(), *v)).collect();
+        pairs.sort_by_key(|(k, _)| format!("{:?}", k));  // stable for diff
+        AwarenessSnapshot {
+            style: self.style,
+            param_truths: pairs,
+            recent_success: self.recent_success,
+            parse_count: self.parse_count,
+        }
+    }
+
+    /// Restore from a snapshot. New + restore is the basic persistence cycle.
+    pub fn restore(snap: AwarenessSnapshot) -> Self {
+        Self {
+            style: snap.style,
+            param_truths: snap.param_truths.into_iter().collect(),
+            recent_success: snap.recent_success,
+            parse_count: snap.parse_count,
+        }
+    }
+}
+
+/// Snapshot of [`GrammarStyleAwareness`] suitable for serialization.
+/// Serde-friendly: just the truth map + counters. No transient fields.
+///
+/// `param_truths` is a `Vec` (not the live `HashMap`) so the wire format
+/// has a stable iteration order for diffs — `snapshot()` sorts by the
+/// `Debug` representation of the key. When the `serde` feature lands,
+/// derive `Serialize` / `Deserialize` here without touching the runtime
+/// `GrammarStyleAwareness` shape.
+#[derive(Debug, Clone)]
+pub struct AwarenessSnapshot {
+    pub style: ThinkingStyle,
+    pub param_truths: Vec<(ParamKey, TruthValue)>,  // Vec for stable ordering
+    pub recent_success: TruthValue,
+    pub parse_count: u64,
 }
 
 // ---------------------------------------------------------------------------
@@ -406,6 +456,51 @@ pub fn config_from_pairs(pairs: &[(String, String)]) -> Result<GrammarStyleConfi
     })
 }
 
+/// Strip an inline `#` comment from a YAML line. The unconditional
+/// `find('#')` from earlier versions ate any value containing `#`
+/// (e.g. `label: section#2`). Real YAML only treats `#` as a comment
+/// start when it follows whitespace (or starts the line); we mirror
+/// that subset here. Quoted scalars aren't supported by this loader,
+/// so we don't have to worry about `#` inside `"..."`.
+fn strip_inline_comment(line: &str) -> &str {
+    // Only strip `#` when preceded by whitespace (or at start of line) AND
+    // not inside quoted scalar (we don't support quoted scalars yet — but
+    // the whitespace check protects against `label: section#2`).
+    if let Some(idx) = line.find(" #").or_else(|| line.find("\t#")) {
+        &line[..idx]
+    } else if line.starts_with('#') {
+        ""
+    } else {
+        line
+    }
+}
+
+/// Parse a YAML flow-map line of the form
+/// `key: { k1: v1, k2: v2, … }`
+/// into `Vec<(qualified_key, value)>` pairs (`qualified_key = "key.k1"`).
+/// Returns `None` for any line that isn't a flow map — callers fall
+/// back to the regular scalar / block-map path.
+fn parse_flow_map(line: &str) -> Option<Vec<(String, String)>> {
+    // Parse `key: { k1: v1, k2: v2 }` into Vec<(qualified_key, value)>.
+    // Returns None if not a flow map.
+    let line = line.trim();
+    let colon = line.find(':')?;
+    let outer_key = line[..colon].trim().to_string();
+    let rest = line[colon+1..].trim();
+    if !rest.starts_with('{') || !rest.ends_with('}') { return None; }
+    let inner = &rest[1..rest.len()-1];
+    let mut pairs = Vec::new();
+    for piece in inner.split(',') {
+        let piece = piece.trim();
+        if let Some(c) = piece.find(':') {
+            let k = piece[..c].trim();
+            let v = piece[c+1..].trim();
+            pairs.push((format!("{}.{}", outer_key, k), v.to_string()));
+        }
+    }
+    Some(pairs)
+}
+
 /// Flatten a YAML document into `(dotted.path, value)` pairs. List items
 /// repeat the key (`tekamolo.priority` appears once per slot).
 fn collect_yaml_pairs(yaml: &str) -> Result<Vec<(String, String)>, String> {
@@ -415,12 +510,9 @@ fn collect_yaml_pairs(yaml: &str) -> Result<Vec<(String, String)>, String> {
     let mut active_list_key: Option<(usize, String)> = None;
 
     for (lineno, raw_line) in yaml.lines().enumerate() {
-        // Strip comments (only when not inside a quoted scalar — our config
-        // files don't use quoted scalars, so plain split is safe).
-        let line_no_comment = match raw_line.find('#') {
-            Some(idx) => &raw_line[..idx],
-            None => raw_line,
-        };
+        // Strip comments only when `#` is preceded by whitespace or starts
+        // the line — preserves values like `section#2`.
+        let line_no_comment = strip_inline_comment(raw_line);
         let trimmed = line_no_comment.trim_end();
         if trimmed.trim().is_empty() {
             continue;
@@ -447,6 +539,26 @@ fn collect_yaml_pairs(yaml: &str) -> Result<Vec<(String, String)>, String> {
             && path_stack.last().map(|(i, _)| *i >= indent).unwrap_or(false)
         {
             path_stack.pop();
+        }
+
+        // Flow-map tolerance: `key: { k1: v1, k2: v2 }` absorbed before
+        // we try the scalar split (which would otherwise see the `{` as
+        // a value and fail downstream type-parsing). Compute the dotted
+        // outer key with the current path prefix so nested flow maps
+        // still flatten correctly.
+        if let Some(flow_pairs) = parse_flow_map(body) {
+            // `parse_flow_map` returned a non-empty map of `(outer.k, v)`;
+            // re-prefix with the current path stack.
+            let prefix: Vec<&str> = path_stack.iter().map(|(_, k)| k.as_str()).collect();
+            for (k, v) in flow_pairs {
+                let dotted = if prefix.is_empty() {
+                    k
+                } else {
+                    format!("{}.{}", prefix.join("."), k)
+                };
+                out.push((dotted, v));
+            }
+            continue;
         }
 
         // Split `key: value` (value may be empty for parent maps).
@@ -579,9 +691,11 @@ fn parse_tekamolo_slot(s: &str) -> Result<TekamoloSlot, String> {
         "kausal"     => TekamoloSlot::Kausal,
         "modal"      => TekamoloSlot::Modal,
         "lokal"      => TekamoloSlot::Lokal,
-        // `instrument` is in the spec's enum sketch but absent from the
-        // canonical `TekamoloSlot`; map to Modal as the closest fit.
-        "instrument" => TekamoloSlot::Modal,
+        // `Instrument` is a distinct slot ("by what means / with what")
+        // from `Modal` ("how / in what manner"). Per-slot logic that
+        // differentiates the two will land on top of this scaffold —
+        // for now, downstream matchers should treat them as siblings.
+        "instrument" => TekamoloSlot::Instrument,
         other => return Err(format!("unknown tekamolo slot: {other}")),
     })
 }
@@ -1031,6 +1145,100 @@ nars: { primary: Deduction, fallback: Abduction }
                 last_c, t.confidence
             );
             last_c = t.confidence;
+        }
+    }
+
+    // -- YAML robustness -----------------------------------------------------
+
+    #[test]
+    fn inline_comment_with_hash_in_value_preserved() {
+        // YAML `label: section#2` — `#` inside a value (no preceding space)
+        // must NOT be treated as a comment marker.
+        let yaml = "label: section#2\n";
+        let pairs = collect_yaml_pairs(yaml).expect("collect failed");
+        let val = pairs.iter().find(|(k, _)| k == "label").map(|(_, v)| v.as_str());
+        assert_eq!(val, Some("section#2"));
+    }
+
+    #[test]
+    fn inline_comment_at_end_stripped() {
+        // YAML `key: value # trailing` — `#` after whitespace is a comment.
+        let yaml = "key: value # trailing\n";
+        let pairs = collect_yaml_pairs(yaml).expect("collect failed");
+        let val = pairs.iter().find(|(k, _)| k == "key").map(|(_, v)| v.as_str());
+        assert_eq!(val, Some("value"));
+    }
+
+    #[test]
+    fn flow_map_parses_inline() {
+        // Flow map at top level: `nars: { primary: Deduction, fallback: Abduction }`
+        // expands to `nars.primary` and `nars.fallback` pairs.
+        let yaml = "nars: { primary: Deduction, fallback: Abduction }\n";
+        let pairs = collect_yaml_pairs(yaml).expect("collect failed");
+        let primary = pairs.iter().find(|(k, _)| k == "nars.primary").map(|(_, v)| v.as_str());
+        let fallback = pairs.iter().find(|(k, _)| k == "nars.fallback").map(|(_, v)| v.as_str());
+        assert_eq!(primary, Some("Deduction"));
+        assert_eq!(fallback, Some("Abduction"));
+    }
+
+    // -- TekamoloSlot::Instrument --------------------------------------------
+
+    #[test]
+    fn parse_tekamolo_slot_instrument_distinct_from_modal() {
+        // The `instrument` string must now parse to `Instrument` (not `Modal`).
+        assert_eq!(
+            parse_tekamolo_slot("instrument").ok(),
+            Some(TekamoloSlot::Instrument)
+        );
+        assert_ne!(TekamoloSlot::Instrument, TekamoloSlot::Modal);
+    }
+
+    // -- top_nars_inference threshold ----------------------------------------
+
+    #[test]
+    fn bootstrap_returns_primary_not_fallback() {
+        // Fresh awareness (zero observations) must keep `prior.nars.primary`
+        // — the prior has not been contradicted yet, so we should not flip
+        // to `fallback`.
+        let prior = base_prior();
+        let a = GrammarStyleAwareness::bootstrap(prior.style);
+        let inf = a.top_nars_inference(&prior);
+        assert_eq!(inf, prior.nars.primary);
+    }
+
+    // -- Persistence stub (E6) ----------------------------------------------
+
+    #[test]
+    fn snapshot_then_restore_round_trips() {
+        let prior = base_prior();
+        let mut a = GrammarStyleAwareness::bootstrap(prior.style);
+        // Apply a mix of 10 outcomes touching multiple ParamKey variants.
+        for i in 0..10 {
+            let key = if i % 2 == 0 {
+                ParamKey::NarsPrimary(NarsInference::Deduction)
+            } else {
+                ParamKey::MorphologyTable(MorphologyTableId::FinnishCase)
+            };
+            let outcome = if i % 3 == 0 {
+                ParseOutcome::LocalSuccess
+            } else {
+                ParseOutcome::EscalatedAndLLMDisagreed
+            };
+            a.revise(key, outcome);
+        }
+
+        let snap = a.snapshot();
+        let restored = GrammarStyleAwareness::restore(snap);
+
+        assert_eq!(restored.style, a.style);
+        assert_eq!(restored.parse_count, a.parse_count);
+        assert!((restored.recent_success.frequency - a.recent_success.frequency).abs() < 1e-6);
+        assert!((restored.recent_success.confidence - a.recent_success.confidence).abs() < 1e-6);
+        assert_eq!(restored.param_truths.len(), a.param_truths.len());
+        for (k, v) in a.param_truths.iter() {
+            let r = restored.param_truths.get(k).copied().expect("missing key after restore");
+            assert!((r.frequency - v.frequency).abs() < 1e-6);
+            assert!((r.confidence - v.confidence).abs() < 1e-6);
         }
     }
 
