@@ -24,6 +24,7 @@ pub mod pearl;
 pub mod cartan;
 pub mod precond;
 pub mod koestenberger;
+pub mod dueker_zoubouloglou;
 
 use std::time::Instant;
 
@@ -72,6 +73,7 @@ pub fn run_all_pillars() -> Vec<PillarResult> {
         ("Jirak Berry-Esseen: weak-dep noise floor @ d=16384", jirak::prove),
         ("Pearl 2³ mask-accuracy: three-plane vs bundled @ d=16384", pearl::prove),
         ("Köstenberger-Stark: inductive mean on Hadamard 2×2 SPD", koestenberger::prove),
+        ("Düker-Zoubouloglou: Hilbert-space CLT for AR(1) in ℝ^16384", dueker_zoubouloglou::prove),
     ];
 
     let total = pillars.len();
