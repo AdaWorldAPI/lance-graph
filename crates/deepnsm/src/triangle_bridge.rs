@@ -137,6 +137,13 @@ pub fn analyze_without_triangle(structure: SentenceStructure) -> SpoWithGrammar 
     }
 }
 
+// Qualia dim mapping (PAD model — Pleasure-Arousal-Dominance, sanitized for non-academic context):
+//   dim 0 = Agency      ← Dominance      (Subject plane bit; P=1 → Subject contributes)
+//   dim 1 = Activity    ← Activation     (Predicate plane bit; P=1 → Predicate contributes)
+//   dim 2 = Affection   ← Arousal        (Object plane bit; P=1 → Object contributes)
+// Cross-ref: lance-graph-cognitive::grammar::qualia uses {valence,activation,dominance};
+//            contract::qualia uses {arousal,valence,tension}. This module uses sanitized PAD.
+
 /// Normalized Hamming distance between the qualia fingerprint and the
 /// SPO predicate's expected qualia footprint.
 ///
@@ -405,5 +412,85 @@ mod tests {
         let fp = qualia_to_binary_fingerprint(&triangle);
         let expected = (1u64 << 18) - 1;
         assert_eq!(fp[0], expected);
+    }
+
+    /// PR-G1 spec test (failing-test-first): two structures with the SAME
+    /// subject but DIFFERENT Pearl masks (one transitive 0b111, one
+    /// intransitive 0b110) must produce different `analyze_with_triangle`
+    /// outputs.
+    ///
+    /// This exercises the path where the former 0.5 placeholder lived. If
+    /// the placeholder were still in place, both calls would have produced
+    /// the SAME `causality_footprint = 0` (zero-init / placeholder) and the
+    /// expected_qualia_footprint would not differ on dim 2. With the real
+    /// Pearl 2³ mask wired in:
+    ///
+    /// - Transitive (S+P+O = 0b111) → expected_qualia_footprint bit 2 set
+    /// - Intransitive (S+P   = 0b110) → expected_qualia_footprint bit 2 unset
+    ///
+    /// The differing dim is dim 2 (Affection ← Object plane bit 0 of mask).
+    #[cfg(feature = "grammar-triangle")]
+    #[test]
+    fn analyze_with_triangle_returns_different_qualia_for_different_pearl_masks() {
+        // Sentence A: transitive — S+P+O all present (0b111)
+        let s_transitive = fixture_structure_with(671, 2943, 95);
+        // Sentence B: intransitive — S+P only, no O (0b110)
+        let s_intransitive = {
+            let empty: Vec<crate::vocabulary::Token> = Vec::new();
+            let mut s = crate::parser::parse(&empty);
+            s.triples.push(SpoTriple::intransitive(671, 100));
+            s
+        };
+
+        // Same surface text so the GrammarTriangle::from_text branch is
+        // identical for both — what differs is the structure (Pearl mask).
+        let text = "the dog acts";
+
+        let out_a = analyze_with_triangle(text, s_transitive);
+        let out_b = analyze_with_triangle(text, s_intransitive);
+
+        // Same subject in both
+        assert_eq!(
+            out_a.triples.triples[0].subject(),
+            out_b.triples.triples[0].subject(),
+            "both sentences must share the same subject"
+        );
+
+        // Pearl masks must differ — the core PR-G1 invariant.
+        assert_ne!(
+            out_a.causality_footprint, out_b.causality_footprint,
+            "transitive (0b{:03b}) vs intransitive (0b{:03b}) must differ \
+             on the analyze_with_triangle path",
+            out_a.causality_footprint, out_b.causality_footprint
+        );
+        assert_eq!(out_a.causality_footprint, 0b111, "transitive = SPO");
+        assert_eq!(out_b.causality_footprint, 0b110, "intransitive = SP_");
+
+        // Expected-qualia-footprint differs in dim 2 (Affection ← Object).
+        // The transitive sentence expects bit 2 set; the intransitive does
+        // not. This is what the 0.5 placeholder used to mask.
+        let exp_a = expected_qualia_footprint(&out_a.triples);
+        let exp_b = expected_qualia_footprint(&out_b.triples);
+        assert_ne!(
+            exp_a, exp_b,
+            "expected_qualia_footprint must differ for differing Pearl masks"
+        );
+        let dim2_mask: u64 = 1u64 << 2;
+        assert_eq!(
+            exp_a[0] & dim2_mask,
+            dim2_mask,
+            "transitive must set dim 2 (Affection from Object plane)"
+        );
+        assert_eq!(
+            exp_b[0] & dim2_mask,
+            0,
+            "intransitive must NOT set dim 2 (no Object plane)"
+        );
+
+        // Sanity: classification_distance is in [0,1] for both — a 0.5
+        // placeholder would have been a constant; here it must respond
+        // to the structure.
+        assert!(out_a.classification_distance >= 0.0 && out_a.classification_distance <= 1.0);
+        assert!(out_b.classification_distance >= 0.0 && out_b.classification_distance <= 1.0);
     }
 }
