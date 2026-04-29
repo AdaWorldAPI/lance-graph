@@ -9,3 +9,9 @@ keywords = ["lance", "graph", "contract", "orchestration", "thinking"]
 [dependencies]
 # Zero dependencies by design — this is a trait-only crate.
 # Consumers depend on this; implementations depend on lance-graph-planner.
+
+[features]
+# A-unlock-stepdomain — `step_trajectory_hash` forward stub for the E4
+# cross-PR bridge between PR #278 audit log + PR #279 grammar trajectory.
+# No-op alias today; concrete impl lands once the bridge PR ships.
+trajectory-audit = []

@@ -100,3 +100,10 @@ pub mod postgrest;
 //         A3: in-memory ring buffer skeleton; Lance-backed writer arrives later.
 #[cfg(feature = "audit-log")]
 pub mod audit;
+
+// PR #278 outlook E1 — generalized PolicyRewriter trait (column masking,
+// row encryption, differential privacy stubs) sharing the OptimizerRule slot
+// with the existing RLS rewriter. Gated on auth-rls-lite (where the
+// DataFusion types live).
+#[cfg(any(feature = "auth-rls-lite", feature = "auth-rls", feature = "auth", feature = "full"))]
+pub mod policy;
