@@ -25,6 +25,7 @@ pub mod cartan;
 pub mod precond;
 pub mod koestenberger;
 pub mod dueker_zoubouloglou;
+pub mod ewa_sandwich;
 
 // Diagnostic probe (not a theorem proof). Run via:
 //   cargo run --manifest-path crates/jc/Cargo.toml --release --example sigma_probe
@@ -78,6 +79,7 @@ pub fn run_all_pillars() -> Vec<PillarResult> {
         ("Pearl 2³ mask-accuracy: three-plane vs bundled @ d=16384", pearl::prove),
         ("Köstenberger-Stark: inductive mean on Hadamard 2×2 SPD", koestenberger::prove),
         ("Düker-Zoubouloglou: Hilbert-space CLT for AR(1) in ℝ^16384", dueker_zoubouloglou::prove),
+        ("EWA-Sandwich: Σ-push-forward along multi-hop edge paths", ewa_sandwich::prove),
     ];
 
     let total = pillars.len();
