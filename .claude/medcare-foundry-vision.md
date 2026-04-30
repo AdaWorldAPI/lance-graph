@@ -1,4 +1,6 @@
-DRAFT — pending review (2026-04-28)
+Status: F1 parity machinery shipped 2026-04-30 (see §3 F1 + §7 for the
+as-shipped architecture). F1 latency benchmark not yet started. F2 is a
+posture, not a delivery (see §7 next-deliverable).
 
 # MedCare Foundry: Architectural Vision
 
@@ -33,20 +35,23 @@ and unification.
 
 ## 2. Comparison table
 
-*Anchor: as of 2026-04-28. This table will age. We commit to updating it at the end of every
-phase, F1 through F5, and re-dating the anchor.*
+*Anchor: as of 2026-04-30 (post-F1 parity ship). This table will age.
+We commit to updating it at the end of every phase, F1 through F5, and
+re-dating the anchor.*
 
 | Property            | MedCare Foundry (target)                       | Palantir Gotham                                 | OpenEMR                                       | Raw Postgres + JSONB                                  |
 |---------------------|------------------------------------------------|-------------------------------------------------|-----------------------------------------------|--------------------------------------------------------|
 | Data sovereignty    | Per-clinic substrate; bring-your-own-storage   | Vendor-managed; sovereignty contractual         | Self-hosted; sovereignty by deployment        | Self-hosted; sovereignty by deployment                  |
 | Audit               | Optimizer-enforced; append-only Lance log      | Built-in, vendor-defined                        | Application-level audit hooks                 | DIY (triggers or app code); easy to bypass              |
-| Latency             | Designed to match C# direct-MySQL; F1 numbers  | Vendor-published; not directly comparable       | Bound by application stack on top of MySQL    | Application-stack-dependent                             |
+| Latency             | Designed to match C# direct-MySQL; benchmark pending | Vendor-published; not directly comparable | Bound by application stack on top of MySQL    | Application-stack-dependent                             |
 | Cost                | Self-hosted; storage cost dominates            | Enterprise license; high                        | License-free; ops cost dominates              | License-free; ops cost dominates                        |
 
 Caveats on this table:
 
-- "Designed to match" in the latency row is a posture, not a benchmark result. F1 publishes the
-  first numbers. Until then, do not quote latency claims from this table in a customer setting.
+- "Designed to match" in the latency row is a posture, not a benchmark result. F1's parity
+  machinery has shipped (it verifies result equality query-by-query — see §7), but the
+  separately-scoped F1 latency benchmark on a fixed corpus has not been started. Until that
+  report is published, do not quote latency claims from this table in a customer setting.
 - Palantir Gotham is a different product category. The comparison row is included because clinics
   ask about it; it is not a like-for-like.
 - OpenEMR and raw Postgres+JSONB are the two realistic alternatives a clinic would actually
@@ -61,26 +66,35 @@ ship a phase whose benefit cannot be stated in one sentence.
 
 ### F1 — Oracle parity
 
-We stand up a MedCare Foundry instance whose read path produces results identical to the existing
-C# direct-MySQL groundtruth on a fixed query corpus, on a hand-curated subset of clinic data.
-Cold path only — no caching tricks, no warm-up. The benefit is a fully automated, query-by-query
-parity check: any future divergence between Foundry and the MySQL groundtruth is detected by the
-harness, not by an unhappy clinician.
+**Shipped 2026-04-30.** A MedCare Foundry instance's read path is now compared, query-by-query,
+against the existing C# direct-MySQL groundtruth on a hand-curated subset of clinic data. Any
+divergence is detected by the harness, not by an unhappy clinician. The full as-shipped data
+flow (LanceProbe → ParityWitness → DriftSink → `/api/__parity/csharp`) is documented in §7.
+F1 latency benchmarking on the same corpus is a separately-scoped follow-up that has not started.
 
 ### F2 — RBAC and audit
 
-We turn on the row-level-security rewriter (gated upstream by lance-graph PR-1) and the audit log
-(gated upstream by lance-graph PR-2). Every read of a patient record now goes through the
-rewriter, which means every read either matches an explicit role grant or is rejected. Audit
-entries are append-only and tenant-scoped. The benefit is that the clinic can answer "who read
-this record" with evidence, end-to-end, without trusting application code.
+We turn on the row-level-security rewriter (lance-graph PR #278's
+`lance_graph_callcenter::rls::RlsRewriter`, fortified by the round-2 sealed-registry fixes in
+PR #280 and the `PolicyRewriter` trait that landed in PR #284) and the audit log (lance-graph
+PR #278's append-only ring buffer, with the `LanceAuditSink` persistent writer in PR #302).
+Every read of a patient record goes through the rewriter, which means every read either
+matches an explicit role grant or is rejected. Audit entries are append-only and tenant-scoped.
+The benefit is that the clinic can answer "who read this record" with evidence, end-to-end,
+without trusting application code. **Status today**: lance-graph side is in production;
+medcare-rs has not yet adopted the rewriter into its read path. F2 is therefore a posture
+until the medcare-rs adoption PR lands — see §7.
 
 ### F3 — PostgREST shape
 
 We expose the Foundry over an HTTP surface that follows PostgREST's URL and header grammar
-(gated upstream by lance-graph PR-4). Existing PostgREST-aware tooling can be pointed at the
-MedCare Foundry with minimal code change. The benefit is that integration with third-party
-clinical tools and dashboards is reduced to a configuration change, not an SDK port.
+(lance-graph PR #278's `postgrest::parse_path` + `EchoHandler` dispatcher, with the
+URL-decoding + table-validation hardening from PR #280's `A-fix-postgrest`). Existing
+PostgREST-aware tooling can be pointed at the MedCare Foundry with minimal code change. The
+benefit is that integration with third-party clinical tools and dashboards is reduced to a
+configuration change, not an SDK port. **Status today**: the URL parser + dispatcher stub is
+on lance-graph main; the medcare-rs adopter (which decomposes ParsedQuery into a DataFusion
+plan) is the round-2-and-beyond work.
 
 ### F4 — Dataflow
 
@@ -100,15 +114,16 @@ ritual; the manual extraction was the part that was actually leaking sovereignty
 
 ## 4. Performance posture
 
-The Foundry is **designed to match** the C# direct-MySQL baseline on identical workload. The
-benchmark harness lands as part of F1.
+The Foundry is **designed to match** the C# direct-MySQL baseline on identical workload. F1
+parity (correctness) shipped 2026-04-30; F1 latency benchmarking on the fixed corpus has not
+been started. The two are separately-scoped F1 sub-deliverables.
 
-> Footnote: this claim is "designed to match" until F1 numbers are published. We will not market
-> "faster than" on unmeasured ground. Any latency or throughput number that appears in client
-> material must cite a specific F-phase benchmark report. If you cannot cite the report, do not
-> quote the number.
+> Footnote: this claim is "designed to match" until the F1 latency benchmark report is
+> published. We will not market "faster than" on unmeasured ground. Any latency or throughput
+> number that appears in client material must cite a specific F-phase benchmark report. If you
+> cannot cite the report, do not quote the number.
 
-What we will measure in F1, in this order:
+What we will measure when the F1 latency benchmark runs, in this order:
 
 1. End-to-end query latency, p50 and p95, on the fixed query corpus, against the MySQL
    groundtruth. Equal-or-better on p50 is the bar. Equal-or-worse-by-no-more-than-X% on p95 is
