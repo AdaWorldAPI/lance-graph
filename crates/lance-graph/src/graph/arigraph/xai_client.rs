@@ -214,7 +214,13 @@ impl XaiClient {
             .filter_map(|part| {
                 let parts: Vec<&str> = part.split(',').map(|s| s.trim()).collect();
                 if parts.len() >= 3 {
-                    Some(Triplet::new(parts[0], parts[1], parts[2], timestamp))
+                    // Input format is "subject, relation, object" (S-P-O).
+                    // Triplet::new takes (subject, object, relation, timestamp) —
+                    // note the (object, relation) swap relative to the SPO
+                    // input order. Without this argument re-ordering, the
+                    // parsed relation lands in the object slot and vice
+                    // versa, silently corrupting every LLM-extracted fact.
+                    Some(Triplet::new(parts[0], parts[2], parts[1], timestamp))
                 } else {
                     None
                 }

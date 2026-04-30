@@ -433,14 +433,21 @@ impl GraphSensorium {
     pub fn suggested_bias(&self) -> GraphBias {
         if self.contradiction_rate > 0.3 {
             GraphBias::Resolve // Too many contradictions — focus on reflex/resolution
+        } else if self.revision_velocity < 0.05 && self.truth_entropy > 0.4 {
+            // Stagnant is a strict refinement of Explore (high entropy +
+            // also low revision velocity). Must be checked BEFORE the
+            // bare-entropy Explore branch — otherwise a fully uniform-
+            // confidence + zero-revision graph reads as Explore instead
+            // of Stagnant, and downstream temperature-on-stagnation
+            // regulation in MetaOrchestrator::update_sensorium never
+            // fires for the canonical stagnation case.
+            GraphBias::Stagnant // Not learning + still uncertain — shake things up
         } else if self.truth_entropy > 0.7 {
             GraphBias::Explore // Uncertain about everything — gather more evidence
         } else if self.deduction_yield > 0.5 && self.truth_entropy < 0.3 {
             GraphBias::Exploit // Rich consistent graph — exploit the knowledge
         } else if self.plasticity_flux > 0.5 {
             GraphBias::Adapt // Environment changing — stay flexible
-        } else if self.revision_velocity < 0.05 && self.truth_entropy > 0.4 {
-            GraphBias::Stagnant // Not learning + still uncertain — shake things up
         } else {
             GraphBias::Balanced // Normal operation
         }
@@ -1174,6 +1181,16 @@ impl MetaOrchestrator {
         self.mode = new_mode;
         self.steps_in_current_mode = 0;
         self.fallback_position = 0;
+        // The new mode deserves to be evaluated on its own evidence, not on
+        // the previous regime's rolling history. The other "give the new
+        // mode a fresh start" state (steps_in_current_mode, fallback_position)
+        // already resets here; the quality window was the missing piece —
+        // without this, restoring from HardcodedFallback to Adaptive after
+        // good outcomes is gated by stale low-quality samples that the
+        // failed Adaptive run pushed in. MIN_OBSERVATIONS still enforces a
+        // floor of 5 fresh samples before any further switch, so this
+        // doesn't enable thrashing.
+        self.quality_window.clear();
     }
 
     /// Full status snapshot for the /mri endpoint.

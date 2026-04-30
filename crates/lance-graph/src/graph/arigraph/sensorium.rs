@@ -208,14 +208,20 @@ impl GraphSensorium {
     pub fn suggested_bias(&self) -> GraphBias {
         if self.contradiction_rate > 0.3 {
             GraphBias::Resolve
+        } else if self.revision_velocity < 0.05 && self.truth_entropy > 0.4 {
+            // Stagnant is a strict refinement of Explore (high entropy +
+            // also low revision velocity), so it must be checked BEFORE
+            // the bare-entropy Explore branch — otherwise a fully
+            // uniform-confidence + zero-revision graph reads as Explore
+            // instead of Stagnant, and downstream temperature-on-
+            // stagnation regulation never fires.
+            GraphBias::Stagnant
         } else if self.truth_entropy > 0.7 {
             GraphBias::Explore
         } else if self.deduction_yield > 0.5 && self.truth_entropy < 0.3 {
             GraphBias::Exploit
         } else if self.plasticity_flux > 0.5 {
             GraphBias::Adapt
-        } else if self.revision_velocity < 0.05 && self.truth_entropy > 0.4 {
-            GraphBias::Stagnant
         } else {
             GraphBias::Balanced
         }

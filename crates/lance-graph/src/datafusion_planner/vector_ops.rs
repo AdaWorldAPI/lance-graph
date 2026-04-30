@@ -139,7 +139,9 @@ pub fn cosine_distance(a: &[f32], b: &[f32]) -> f32 {
         return 2.0;
     }
 
-    ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd(a, b) as f32
+    // ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd returns cosine
+    // SIMILARITY (in [-1, 1]); distance is 1 - similarity.
+    1.0 - ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd(a, b) as f32
 }
 
 /// Compute cosine similarity (for vector_similarity function)
