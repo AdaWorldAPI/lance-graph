@@ -260,10 +260,7 @@ fn float_vs_hamming_sssp_equivalence() {
     println!(
         "Reachable nodes: float={}, hamming={}",
         dist_float.iter().filter(|d| **d < f64::MAX / 2.0).count(),
-        dist_hamming
-            .iter()
-            .filter(|d| **d < f64::MAX / 2.0)
-            .count()
+        dist_hamming.iter().filter(|d| **d < f64::MAX / 2.0).count()
     );
     println!("Pairwise comparisons: {}", total);
     println!("Agreement: {:.1}%", agreement * 100.0);

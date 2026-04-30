@@ -1,11 +1,11 @@
 //! Strategy #2: ArenaIR — Build arena-allocated logical plan (Polars pattern).
 
-use crate::ir::{Arena, LogicalOp, LogicalPlan, Node};
 use crate::ir::logical_op::*;
-#[allow(unused_imports)] // intended for schema-aware plan building
-use crate::ir::schema::Schema;
 #[allow(unused_imports)] // intended for property propagation during plan building
 use crate::ir::properties::PlanProperties;
+#[allow(unused_imports)] // intended for schema-aware plan building
+use crate::ir::schema::Schema;
+use crate::ir::{Arena, LogicalOp, LogicalPlan, Node};
 use crate::traits::*;
 use crate::PlanError;
 
@@ -13,8 +13,12 @@ use crate::PlanError;
 pub struct ArenaIR;
 
 impl PlanStrategy for ArenaIR {
-    fn name(&self) -> &str { "arena_ir" }
-    fn capability(&self) -> PlanCapability { PlanCapability::LogicalPlan }
+    fn name(&self) -> &str {
+        "arena_ir"
+    }
+    fn capability(&self) -> PlanCapability {
+        PlanCapability::LogicalPlan
+    }
 
     fn affinity(&self, context: &PlanContext) -> f32 {
         // High affinity if we have a graph pattern to plan
@@ -27,11 +31,17 @@ impl PlanStrategy for ArenaIR {
         }
     }
 
-    fn plan(&self, mut input: PlanInput, arena: &mut Arena<LogicalOp>) -> Result<PlanInput, PlanError> {
+    fn plan(
+        &self,
+        mut input: PlanInput,
+        arena: &mut Arena<LogicalOp>,
+    ) -> Result<PlanInput, PlanError> {
         // Build a basic logical plan from detected features.
         // Real implementation receives AST from CypherParse strategy.
 
-        let root = if input.context.features.has_resonance || input.context.features.has_fingerprint_scan {
+        let root = if input.context.features.has_resonance
+            || input.context.features.has_fingerprint_scan
+        {
             // Resonance query: BROADCAST → SCAN → ACCUMULATE → COLLAPSE
             build_resonance_plan(arena, &input.context)
         } else if input.context.features.has_graph_pattern {
@@ -42,11 +52,7 @@ impl PlanStrategy for ArenaIR {
         };
 
         let expr_arena = crate::ir::Arena::new();
-        let plan = LogicalPlan::new(
-            std::mem::take(arena),
-            expr_arena,
-            root,
-        );
+        let plan = LogicalPlan::new(std::mem::take(arena), expr_arena, root);
 
         input.plan = Some(plan);
         Ok(input)

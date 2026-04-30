@@ -42,12 +42,10 @@ impl LanceNamespace for DirNamespace {
         })?;
 
         if id.len() != 1 {
-            return Err(NamespaceError::invalid_input(
-                format!(
-                    "DirNamespace expects identifiers with a single component, got {:?}",
-                    id
-                ),
-            ));
+            return Err(NamespaceError::invalid_input(format!(
+                "DirNamespace expects identifiers with a single component, got {:?}",
+                id
+            )));
         }
 
         let table_name = &id[0];

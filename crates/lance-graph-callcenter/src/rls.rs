@@ -123,10 +123,7 @@ impl RlsContext {
     /// "system" contexts that operate without an actor). MUST be
     /// paired with an audit-log entry showing why the empty id is
     /// safe in this call site.
-    pub fn new_unchecked(
-        tenant_id: impl Into<String>,
-        actor_id: impl Into<String>,
-    ) -> Self {
+    pub fn new_unchecked(tenant_id: impl Into<String>, actor_id: impl Into<String>) -> Self {
         Self {
             tenant_id: tenant_id.into(),
             actor_id: actor_id.into(),
@@ -438,7 +435,9 @@ mod tests {
     }
 
     /// Build a `MemTable` source for a given schema.
-    fn mem_source(schema: Arc<arrow::datatypes::Schema>) -> Arc<dyn datafusion::datasource::TableProvider> {
+    fn mem_source(
+        schema: Arc<arrow::datatypes::Schema>,
+    ) -> Arc<dyn datafusion::datasource::TableProvider> {
         // Empty batches are fine — the rewriter only inspects logical plans.
         Arc::new(MemTable::try_new(schema, vec![vec![]]).unwrap())
     }
@@ -446,13 +445,19 @@ mod tests {
     /// Build a `TableScan` plan for the named table with the RLS schema.
     fn rls_scan(name: &str) -> LogicalPlan {
         let src = provider_as_source(mem_source(rls_schema()));
-        LogicalPlanBuilder::scan(name, src, None).unwrap().build().unwrap()
+        LogicalPlanBuilder::scan(name, src, None)
+            .unwrap()
+            .build()
+            .unwrap()
     }
 
     /// Build a `TableScan` plan for the named public table.
     fn public_scan(name: &str) -> LogicalPlan {
         let src = provider_as_source(mem_source(public_schema()));
-        LogicalPlanBuilder::scan(name, src, None).unwrap().build().unwrap()
+        LogicalPlanBuilder::scan(name, src, None)
+            .unwrap()
+            .build()
+            .unwrap()
     }
 
     /// Apply the rewriter top-down across the plan.
@@ -473,7 +478,10 @@ mod tests {
 
         let mut reg = RlsPolicyRegistry::new();
         reg.register(RlsPolicy::tenant_only("customers", "tenant_id"));
-        let rewriter = RlsRewriter::new(RlsContext::new("t1", "u1").expect("non-empty ids"), Arc::new(reg));
+        let rewriter = RlsRewriter::new(
+            RlsContext::new("t1", "u1").expect("non-empty ids"),
+            Arc::new(reg),
+        );
 
         let rewritten = apply(plan, &rewriter);
         let s = ps(&rewritten);
@@ -496,7 +504,10 @@ mod tests {
             "tenant_id",
             "actor_id",
         ));
-        let rewriter = RlsRewriter::new(RlsContext::new("t1", "u1").expect("non-empty ids"), Arc::new(reg));
+        let rewriter = RlsRewriter::new(
+            RlsContext::new("t1", "u1").expect("non-empty ids"),
+            Arc::new(reg),
+        );
 
         let rewritten = apply(plan, &rewriter);
         let s = ps(&rewritten);
@@ -524,7 +535,10 @@ mod tests {
         let mut reg = RlsPolicyRegistry::new();
         reg.register(RlsPolicy::tenant_only("customers", "tenant_id"));
         reg.register(RlsPolicy::tenant_only("orders", "tenant_id"));
-        let rewriter = RlsRewriter::new(RlsContext::new("t1", "u1").expect("non-empty ids"), Arc::new(reg));
+        let rewriter = RlsRewriter::new(
+            RlsContext::new("t1", "u1").expect("non-empty ids"),
+            Arc::new(reg),
+        );
 
         let rewritten = apply(plan, &rewriter);
         let s = ps(&rewritten);
@@ -545,7 +559,10 @@ mod tests {
         let mut reg = RlsPolicyRegistry::fail_open("legacy public lookup");
         // Policy for a DIFFERENT table — `public_lookup` has none.
         reg.register(RlsPolicy::tenant_only("customers", "tenant_id"));
-        let rewriter = RlsRewriter::new(RlsContext::new("t1", "u1").expect("non-empty ids"), Arc::new(reg));
+        let rewriter = RlsRewriter::new(
+            RlsContext::new("t1", "u1").expect("non-empty ids"),
+            Arc::new(reg),
+        );
 
         let rewritten = apply(plan, &rewriter);
         let s = ps(&rewritten);
@@ -571,7 +588,10 @@ mod tests {
             "tenant_id",
             "actor_id",
         ));
-        let rewriter = RlsRewriter::new(RlsContext::new("t1", "u1").expect("non-empty ids"), Arc::new(reg));
+        let rewriter = RlsRewriter::new(
+            RlsContext::new("t1", "u1").expect("non-empty ids"),
+            Arc::new(reg),
+        );
 
         let rewritten = apply(plan, &rewriter);
         let s = ps(&rewritten);
@@ -638,7 +658,10 @@ mod tests {
             "tenant_id",
             "actor_id",
         ));
-        let rewriter = RlsRewriter::new(RlsContext::new("t1", "u1").expect("non-empty ids"), Arc::new(reg));
+        let rewriter = RlsRewriter::new(
+            RlsContext::new("t1", "u1").expect("non-empty ids"),
+            Arc::new(reg),
+        );
         let rewritten = apply(plan, &rewriter);
         let after: DFSchema = rewritten.schema().as_ref().clone();
         assert_eq!(before, after, "rewriter must not change scan schema");
@@ -685,7 +708,9 @@ mod tests {
         let reg = RlsPolicyRegistry::fail_open("legacy public lookup");
         assert!(matches!(
             reg.mode(),
-            RegistryMode::FailOpen { reason: "legacy public lookup" }
+            RegistryMode::FailOpen {
+                reason: "legacy public lookup"
+            }
         ));
         let rewriter = RlsRewriter::new(
             RlsContext::new("t1", "u1").expect("non-empty ids"),
@@ -740,8 +765,14 @@ mod tests {
         let rewritten = apply(plan, &rewriter);
         let s = ps(&rewritten);
         assert_eq!(s, original, "degenerate policy should be a no-op");
-        assert!(!s.contains("tenant_id ="), "no tenant predicate expected: {s}");
-        assert!(!s.contains("actor_id ="), "no actor predicate expected: {s}");
+        assert!(
+            !s.contains("tenant_id ="),
+            "no tenant predicate expected: {s}"
+        );
+        assert!(
+            !s.contains("actor_id ="),
+            "no actor predicate expected: {s}"
+        );
     }
 
     /// Registry mode default + builder helpers.
@@ -755,13 +786,18 @@ mod tests {
         let r3 = RlsPolicyRegistry::fail_open("audit reason");
         assert!(matches!(
             r3.mode(),
-            RegistryMode::FailOpen { reason: "audit reason" }
+            RegistryMode::FailOpen {
+                reason: "audit reason"
+            }
         ));
-        let r4 = RlsPolicyRegistry::new()
-            .with_mode(RegistryMode::FailOpen { reason: "via with_mode" });
+        let r4 = RlsPolicyRegistry::new().with_mode(RegistryMode::FailOpen {
+            reason: "via with_mode",
+        });
         assert!(matches!(
             r4.mode(),
-            RegistryMode::FailOpen { reason: "via with_mode" }
+            RegistryMode::FailOpen {
+                reason: "via with_mode"
+            }
         ));
     }
 

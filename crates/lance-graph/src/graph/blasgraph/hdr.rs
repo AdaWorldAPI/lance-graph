@@ -215,7 +215,8 @@ impl ReservoirSample {
         }
         let n = self.samples.len() as u64;
         let s4 = (sigma as u64).pow(4);
-        let m4: u64 = self.samples
+        let m4: u64 = self
+            .samples
             .iter()
             .map(|&d| {
                 let diff = d as i64 - mu as i64;
@@ -326,14 +327,14 @@ impl Cascade {
     /// Integer arithmetic: kσ = k*σ/4 with k in quarter-sigma units.
     fn compute_cascade(mu: u32, sigma: u32) -> [u32; 8] {
         [
-            mu.saturating_sub(4 * sigma / 4),   // 1.00σ
-            mu.saturating_sub(6 * sigma / 4),   // 1.50σ
-            mu.saturating_sub(7 * sigma / 4),   // 1.75σ
-            mu.saturating_sub(8 * sigma / 4),   // 2.00σ
-            mu.saturating_sub(9 * sigma / 4),   // 2.25σ
-            mu.saturating_sub(10 * sigma / 4),  // 2.50σ
-            mu.saturating_sub(11 * sigma / 4),  // 2.75σ
-            mu.saturating_sub(12 * sigma / 4),  // 3.00σ
+            mu.saturating_sub(4 * sigma / 4),  // 1.00σ
+            mu.saturating_sub(6 * sigma / 4),  // 1.50σ
+            mu.saturating_sub(7 * sigma / 4),  // 1.75σ
+            mu.saturating_sub(8 * sigma / 4),  // 2.00σ
+            mu.saturating_sub(9 * sigma / 4),  // 2.25σ
+            mu.saturating_sub(10 * sigma / 4), // 2.50σ
+            mu.saturating_sub(11 * sigma / 4), // 2.75σ
+            mu.saturating_sub(12 * sigma / 4), // 3.00σ
         ]
     }
 
@@ -343,14 +344,14 @@ impl Cascade {
     /// 1σ → 84.13% rejection → 15.87th percentile, etc.
     fn compute_empirical_cascade(reservoir: &ReservoirSample) -> [u32; 8] {
         [
-            reservoir.quantile(0.1587),  // 1.00σ → 84.13% above
-            reservoir.quantile(0.0668),  // 1.50σ → 93.32% above
-            reservoir.quantile(0.0401),  // 1.75σ → 95.99% above
-            reservoir.quantile(0.0228),  // 2.00σ → 97.72% above
-            reservoir.quantile(0.0122),  // 2.25σ → 98.78% above
-            reservoir.quantile(0.0062),  // 2.50σ → 99.38% above
-            reservoir.quantile(0.0030),  // 2.75σ → 99.70% above
-            reservoir.quantile(0.0013),  // 3.00σ → 99.87% above
+            reservoir.quantile(0.1587), // 1.00σ → 84.13% above
+            reservoir.quantile(0.0668), // 1.50σ → 93.32% above
+            reservoir.quantile(0.0401), // 1.75σ → 95.99% above
+            reservoir.quantile(0.0228), // 2.00σ → 97.72% above
+            reservoir.quantile(0.0122), // 2.25σ → 98.78% above
+            reservoir.quantile(0.0062), // 2.50σ → 99.38% above
+            reservoir.quantile(0.0030), // 2.75σ → 99.70% above
+            reservoir.quantile(0.0013), // 3.00σ → 99.87% above
         ]
     }
 
@@ -360,10 +361,10 @@ impl Cascade {
     /// [0.13% (3σ), 2.28% (2σ), 15.87% (1σ), 50% (median)].
     fn compute_empirical_bands(reservoir: &ReservoirSample) -> [u32; 4] {
         [
-            reservoir.quantile(0.001),  // Foveal: bottom 0.1% (≈ 3σ)
-            reservoir.quantile(0.023),  // Near:   bottom 2.3% (≈ 2σ)
-            reservoir.quantile(0.159),  // Good:   bottom 15.9% (≈ 1σ)
-            reservoir.quantile(0.500),  // Weak:   below median
+            reservoir.quantile(0.001), // Foveal: bottom 0.1% (≈ 3σ)
+            reservoir.quantile(0.023), // Near:   bottom 2.3% (≈ 2σ)
+            reservoir.quantile(0.159), // Good:   bottom 15.9% (≈ 1σ)
+            reservoir.quantile(0.500), // Weak:   below median
         ]
     }
 
@@ -588,12 +589,7 @@ impl Cascade {
     /// sorted by `u32` distance within each bucket. No float anywhere.
     ///
     /// Automatically uses empirical thresholds when `use_empirical` is set.
-    pub fn query(
-        &self,
-        query: &[u64],
-        candidates: &[&[u64]],
-        top_k: usize,
-    ) -> Vec<RankedHit> {
+    pub fn query(&self, query: &[u64], candidates: &[&[u64]], top_k: usize) -> Vec<RankedHit> {
         let nwords = query.len();
         let do_stage1 = nwords >= 16;
         let do_stage2 = nwords >= 4;
@@ -715,9 +711,8 @@ impl Cascade {
                 self.kurtosis = self.reservoir.kurtosis(running_mu, running_sigma);
 
                 // Auto-switch: if distribution is non-normal, use empirical thresholds.
-                let is_normal = self.skewness.abs() < 2
-                    && self.kurtosis > 200
-                    && self.kurtosis < 500;
+                let is_normal =
+                    self.skewness.abs() < 2 && self.kurtosis > 200 && self.kurtosis < 500;
 
                 if !is_normal {
                     self.empirical_bands = Self::compute_empirical_bands(&self.reservoir);
@@ -864,23 +859,30 @@ mod tests {
 
         assert!(
             meter.mu > 7800 && meter.mu < 8600,
-            "Expected μ near 8192, got {}", meter.mu
+            "Expected μ near 8192, got {}",
+            meter.mu
         );
         assert!(
             meter.sigma > 20 && meter.sigma < 110,
-            "Expected σ near 64, got {}", meter.sigma
+            "Expected σ near 64, got {}",
+            meter.sigma
         );
         assert!(meter.bands[0] < meter.bands[1]);
         assert!(meter.bands[1] < meter.bands[2]);
         assert!(meter.bands[2] < meter.bands[3]);
 
         // Reservoir should be seeded from calibration data.
-        assert!(!meter.reservoir.is_empty(),
-            "Reservoir should be seeded from calibration");
+        assert!(
+            !meter.reservoir.is_empty(),
+            "Reservoir should be seeded from calibration"
+        );
 
         println!(
             "Calibrated: μ={}, σ={}, bands={:?}, reservoir={}",
-            meter.mu, meter.sigma, meter.bands, meter.reservoir.len()
+            meter.mu,
+            meter.sigma,
+            meter.bands,
+            meter.reservoir.len()
         );
     }
 
@@ -946,16 +948,29 @@ mod tests {
         let total_reject_pct = 100.0 * (1.0 - stage2_pass as f64 / n_candidates as f64);
 
         println!("Cascade: {:?}", cascade);
-        println!("Stage 1: {}/{} pass ({:.1}% rejected)", stage1_pass, n_candidates, s1_reject_pct);
+        println!(
+            "Stage 1: {}/{} pass ({:.1}% rejected)",
+            stage1_pass, n_candidates, s1_reject_pct
+        );
         println!("Stage 2: {}/{} pass", stage2_pass, stage1_pass);
         println!("Stage 3: {} final", stage3_pass);
         println!("Combined: {:.1}% rejected", total_reject_pct);
-        println!("Time: {:?} ({} ns/candidate)", elapsed, elapsed.as_nanos() / n_candidates as u128);
+        println!(
+            "Time: {:?} ({} ns/candidate)",
+            elapsed,
+            elapsed.as_nanos() / n_candidates as u128
+        );
 
-        assert!(s1_reject_pct > 50.0,
-            "Stage 1 must reject >50%, got {:.1}%", s1_reject_pct);
-        assert!(total_reject_pct > 80.0,
-            "Combined must reject >80%, got {:.1}%", total_reject_pct);
+        assert!(
+            s1_reject_pct > 50.0,
+            "Stage 1 must reject >50%, got {:.1}%",
+            s1_reject_pct
+        );
+        assert!(
+            total_reject_pct > 80.0,
+            "Combined must reject >80%, got {:.1}%",
+            total_reject_pct
+        );
     }
 
     // -- Test 4: Cascade work savings --
@@ -1003,14 +1018,20 @@ mod tests {
             + s2_pass * nwords as u64;
         let savings_pct = 100 - (cascade_cost * 100 / brute_cost);
 
-        println!("Brute: {} ops, Cascade: {} ops, Savings: {}%",
-            brute_cost, cascade_cost, savings_pct);
+        println!(
+            "Brute: {} ops, Cascade: {} ops, Savings: {}%",
+            brute_cost, cascade_cost, savings_pct
+        );
         println!("Brute: {} ns, Cascade: {} ns", brute_ns, cascade_ns);
         if cascade_ns > 0 {
             println!("Speedup: {:.1}x", brute_ns as f64 / cascade_ns as f64);
         }
 
-        assert!(savings_pct > 50, "Must save >50% work, got {}%", savings_pct);
+        assert!(
+            savings_pct > 50,
+            "Must save >50% work, got {}%",
+            savings_pct
+        );
     }
 
     // -- Test 5: Shift detection --
@@ -1023,8 +1044,12 @@ mod tests {
         for i in 0..5000u32 {
             let fake_dist = 7500 + (i % 100);
             if let Some(alert) = meter.observe(fake_dist) {
-                assert!(alert.new_mu < alert.old_mu,
-                    "Shift should detect lower mean: old={}, new={}", alert.old_mu, alert.new_mu);
+                assert!(
+                    alert.new_mu < alert.old_mu,
+                    "Shift should detect lower mean: old={}, new={}",
+                    alert.old_mu,
+                    alert.new_mu
+                );
                 meter.recalibrate(&alert);
                 alert_fired = true;
                 break;
@@ -1032,10 +1057,16 @@ mod tests {
         }
 
         assert!(alert_fired, "Shift alert must fire when μ changes by >σ/2");
-        assert!(meter.mu < 8000,
-            "After recalibration, μ should reflect new distribution, got {}", meter.mu);
+        assert!(
+            meter.mu < 8000,
+            "After recalibration, μ should reflect new distribution, got {}",
+            meter.mu
+        );
         // Welford should be reset after recalibrate.
-        assert_eq!(meter.running_count, 0, "Welford should be reset after recalibrate");
+        assert_eq!(
+            meter.running_count, 0,
+            "Welford should be reset after recalibrate"
+        );
     }
 
     // -- Test 6: No float guarantee --
@@ -1045,14 +1076,21 @@ mod tests {
         let meter = Cascade::calibrate(&[8000, 8100, 8200, 8300, 8400]);
 
         let b: Band = meter.band(8050);
-        assert!(matches!(b, Band::Foveal | Band::Near | Band::Good | Band::Weak | Band::Reject));
+        assert!(matches!(
+            b,
+            Band::Foveal | Band::Near | Band::Good | Band::Weak | Band::Reject
+        ));
 
         let t: [u32; 4] = meter.thresholds();
         for &thresh in &t {
             let _check: u32 = thresh;
         }
 
-        let hit = RankedHit { index: 0, distance: 8050, band: Band::Near };
+        let hit = RankedHit {
+            index: 0,
+            distance: 8050,
+            band: Band::Near,
+        };
         let _d: u32 = hit.distance;
         let _m: u32 = meter.mu();
         let _s: u32 = meter.sigma();
@@ -1081,7 +1119,14 @@ mod tests {
         for n in [10, 50, 100, 1000, 4096, 16384, 100000, 1000000u32] {
             let s = isqrt(n);
             assert!(s * s <= n, "isqrt({})={}: {}² > {}", n, s, s, n);
-            assert!((s + 1) * (s + 1) > n, "isqrt({})={}: {}² ≤ {}", n, s, s + 1, n);
+            assert!(
+                (s + 1) * (s + 1) > n,
+                "isqrt({})={}: {}² ≤ {}",
+                n,
+                s,
+                s + 1,
+                n
+            );
         }
     }
 
@@ -1092,22 +1137,28 @@ mod tests {
         let meter = Cascade::for_width(16384);
         let c = meter.cascade;
 
-        assert_eq!(c[0], 8192 - 64);       // μ - 1.00σ = 8128
-        assert_eq!(c[1], 8192 - 96);       // μ - 1.50σ = 8096
-        assert_eq!(c[2], 8192 - 112);      // μ - 1.75σ = 8080
-        assert_eq!(c[3], 8192 - 128);      // μ - 2.00σ = 8064
-        assert_eq!(c[4], 8192 - 144);      // μ - 2.25σ = 8048
-        assert_eq!(c[5], 8192 - 160);      // μ - 2.50σ = 8032
-        assert_eq!(c[6], 8192 - 176);      // μ - 2.75σ = 8016
-        assert_eq!(c[7], 8192 - 192);      // μ - 3.00σ = 8000
+        assert_eq!(c[0], 8192 - 64); // μ - 1.00σ = 8128
+        assert_eq!(c[1], 8192 - 96); // μ - 1.50σ = 8096
+        assert_eq!(c[2], 8192 - 112); // μ - 1.75σ = 8080
+        assert_eq!(c[3], 8192 - 128); // μ - 2.00σ = 8064
+        assert_eq!(c[4], 8192 - 144); // μ - 2.25σ = 8048
+        assert_eq!(c[5], 8192 - 160); // μ - 2.50σ = 8032
+        assert_eq!(c[6], 8192 - 176); // μ - 2.75σ = 8016
+        assert_eq!(c[7], 8192 - 192); // μ - 3.00σ = 8000
 
         for i in 0..7 {
-            assert!(c[i] > c[i + 1], "cascade[{}]={} must > cascade[{}]={}",
-                i, c[i], i + 1, c[i + 1]);
+            assert!(
+                c[i] > c[i + 1],
+                "cascade[{}]={} must > cascade[{}]={}",
+                i,
+                c[i],
+                i + 1,
+                c[i + 1]
+            );
         }
 
-        assert_eq!(meter.cascade_at(7), 8192 - 7 * 64 / 4);  // 1.75σ
-        assert_eq!(meter.cascade_at(9), 8192 - 9 * 64 / 4);  // 2.25σ
+        assert_eq!(meter.cascade_at(7), 8192 - 7 * 64 / 4); // 1.75σ
+        assert_eq!(meter.cascade_at(9), 8192 - 9 * 64 / 4); // 2.25σ
         assert_eq!(meter.cascade_at(11), 8192 - 11 * 64 / 4); // 2.75σ
 
         println!("Cascade: {:?}", c);
@@ -1134,18 +1185,35 @@ mod tests {
         println!("Empirical cascade (from N(8192,64)): {:?}", cascade);
 
         // 1σ threshold should be near 8128 (±25).
-        assert!((cascade[0] as i32 - 8128).unsigned_abs() < 25,
-            "1σ empirical should be near 8128, got {}", cascade[0]);
+        assert!(
+            (cascade[0] as i32 - 8128).unsigned_abs() < 25,
+            "1σ empirical should be near 8128, got {}",
+            cascade[0]
+        );
         // 2σ threshold should be near 8064 (±25).
-        assert!((cascade[3] as i32 - 8064).unsigned_abs() < 25,
-            "2σ empirical should be near 8064, got {}", cascade[3]);
+        assert!(
+            (cascade[3] as i32 - 8064).unsigned_abs() < 25,
+            "2σ empirical should be near 8064, got {}",
+            cascade[3]
+        );
 
         // Skewness and kurtosis should be near-normal.
         let skew = reservoir.skewness(8192, 64);
         let kurt = reservoir.kurtosis(8192, 64);
-        println!("Normal data: skewness={}, kurtosis={} (300=normal)", skew, kurt);
-        assert!(skew.abs() < 2, "Normal data skewness should be near 0, got {}", skew);
-        assert!(kurt > 200 && kurt < 500, "Normal data kurtosis should be near 300, got {}", kurt);
+        println!(
+            "Normal data: skewness={}, kurtosis={} (300=normal)",
+            skew, kurt
+        );
+        assert!(
+            skew.abs() < 2,
+            "Normal data skewness should be near 0, got {}",
+            skew
+        );
+        assert!(
+            kurt > 200 && kurt < 500,
+            "Normal data kurtosis should be near 300, got {}",
+            kurt
+        );
 
         // Now test with bimodal distribution.
         let mut reservoir_bi = ReservoirSample::new(1000);
@@ -1165,9 +1233,11 @@ mod tests {
         // Bimodal with modes 1000 apart should NOT look normal.
         // Kurtosis should be well below 200 (platykurtic) for equal-weight bimodal.
         let is_normal_bi = skew_bi.abs() < 2 && kurt_bi > 200 && kurt_bi < 500;
-        assert!(!is_normal_bi,
+        assert!(
+            !is_normal_bi,
             "Bimodal distribution should be detected as non-normal (skew={}, kurt={})",
-            skew_bi, kurt_bi);
+            skew_bi, kurt_bi
+        );
     }
 
     // -- Test 10: Warmup with 2000 samples, then shift, with reservoir --
@@ -1182,13 +1252,24 @@ mod tests {
         let mut meter = Cascade::calibrate(&dists_2k);
 
         println!("=== Phase 1: Warmup ({} samples) ===", dists_2k.len());
-        println!("  μ={}, σ={}, reservoir={}", meter.mu, meter.sigma, meter.reservoir.len());
+        println!(
+            "  μ={}, σ={}, reservoir={}",
+            meter.mu,
+            meter.sigma,
+            meter.reservoir.len()
+        );
         println!("  cascade: {:?}", meter.cascade);
-        println!("  empirical: {:?}", Cascade::compute_empirical_cascade(&meter.reservoir));
+        println!(
+            "  empirical: {:?}",
+            Cascade::compute_empirical_cascade(&meter.reservoir)
+        );
         println!("  use_empirical: {}", meter.use_empirical);
 
-        assert!(meter.sigma > 50 && meter.sigma < 80,
-            "After 2000 samples, σ should be near 64, got {}", meter.sigma);
+        assert!(
+            meter.sigma > 50 && meter.sigma < 80,
+            "After 2000 samples, σ should be near 64, got {}",
+            meter.sigma
+        );
 
         // Cascade level sweep.
         let query = random_words(nwords, 0);
@@ -1197,13 +1278,19 @@ mod tests {
             .map(|i| random_words(nwords, i as u64 + 10000))
             .collect();
 
-        let level_names = ["1.00σ", "1.50σ", "1.75σ", "2.00σ", "2.25σ", "2.50σ", "2.75σ", "3.00σ"];
+        let level_names = [
+            "1.00σ", "1.50σ", "1.75σ", "2.00σ", "2.25σ", "2.50σ", "2.75σ", "3.00σ",
+        ];
         let expected_reject = [84.13, 93.32, 95.99, 97.72, 98.78, 99.38, 99.70, 99.87];
 
-        println!("\n  Cascade level sweep (1/16 sample, {} candidates):", n_test);
+        println!(
+            "\n  Cascade level sweep (1/16 sample, {} candidates):",
+            n_test
+        );
         for level in 0..8 {
             let threshold = meter.cascade[level];
-            let pass: u32 = candidates.iter()
+            let pass: u32 = candidates
+                .iter()
                 .filter(|c| words_hamming_sampled(&query, c, 16) <= threshold)
                 .count() as u32;
             let reject_pct = 100.0 * (1.0 - pass as f64 / n_test as f64);
@@ -1219,8 +1306,15 @@ mod tests {
             let noise = (splitmix64(&mut rng_state) % 161) as i64 - 80;
             let shifted_dist = (7800i64 + noise).max(0) as u32;
             if let Some(alert) = meter.observe(shifted_dist) {
-                println!("  Shift #{} at obs {}: μ {}→{}, σ {}→{}",
-                    shifts + 1, i, alert.old_mu, alert.new_mu, alert.old_sigma, alert.new_sigma);
+                println!(
+                    "  Shift #{} at obs {}: μ {}→{}, σ {}→{}",
+                    shifts + 1,
+                    i,
+                    alert.old_mu,
+                    alert.new_mu,
+                    alert.old_sigma,
+                    alert.new_sigma
+                );
                 meter.recalibrate(&alert);
                 shifts += 1;
                 println!("  New cascade: {:?}", meter.cascade);
@@ -1229,23 +1323,35 @@ mod tests {
         }
 
         assert!(shifts > 0, "Must detect at least one shift");
-        assert!(meter.mu < 8000, "μ should have shifted below 8000, got {}", meter.mu);
+        assert!(
+            meter.mu < 8000,
+            "μ should have shifted below 8000, got {}",
+            meter.mu
+        );
 
         // After recalibrate: Welford was reset, reservoir was reset.
-        println!("\n  After shift: μ={}, σ={}, reservoir={}, empirical={}",
-            meter.mu, meter.sigma, meter.reservoir.len(), meter.use_empirical);
+        println!(
+            "\n  After shift: μ={}, σ={}, reservoir={}, empirical={}",
+            meter.mu,
+            meter.sigma,
+            meter.reservoir.len(),
+            meter.use_empirical
+        );
         println!("  Cascade: {:?}", meter.cascade);
 
         // Re-sweep.
         println!("\n  Post-shift cascade level sweep:");
         for level in 0..8 {
             let threshold = meter.cascade[level];
-            let pass: u32 = candidates.iter()
+            let pass: u32 = candidates
+                .iter()
                 .filter(|c| words_hamming_sampled(&query, c, 16) <= threshold)
                 .count() as u32;
             let reject_pct = 100.0 * (1.0 - pass as f64 / n_test as f64);
-            println!("    cascade[{}] ({:>5}) = {:>5}: {:>5}/{} pass ({:>5.1}% rejected)",
-                level, level_names[level], threshold, pass, n_test, reject_pct);
+            println!(
+                "    cascade[{}] ({:>5}) = {:>5}: {:>5}/{} pass ({:>5.1}% rejected)",
+                level, level_names[level], threshold, pass, n_test, reject_pct
+            );
         }
     }
 
@@ -1257,8 +1363,7 @@ mod tests {
         let total_bits = nwords as u32 * 64;
 
         let level_names = [
-            "1.00σ", "1.50σ", "1.75σ", "2.00σ",
-            "2.25σ", "2.50σ", "2.75σ", "3.00σ",
+            "1.00σ", "1.50σ", "1.75σ", "2.00σ", "2.25σ", "2.50σ", "2.75σ", "3.00σ",
         ];
 
         // One-sided normal CDF: P(X > μ-kσ).
@@ -1266,7 +1371,7 @@ mod tests {
         // 1/16 sample: effective Z = k/4.
         let expected_s16 = [59.87, 64.62, 66.91, 69.15, 71.31, 73.40, 75.41, 77.34];
         // 1/4 sample: effective Z = k/2.
-        let expected_s4  = [69.15, 77.34, 80.92, 84.13, 86.97, 89.44, 91.54, 93.32];
+        let expected_s4 = [69.15, 77.34, 80.92, 84.13, 86.97, 89.44, 91.54, 93.32];
 
         // =========================================================
         // Part 1: Full-width σ thresholds vs theory
@@ -1286,18 +1391,28 @@ mod tests {
         let mut max_delta_full = 0.0f64;
         for level in 0..8 {
             let threshold = meter.cascade[level];
-            let pass = candidates.iter()
+            let pass = candidates
+                .iter()
                 .filter(|c| words_hamming(&query, c) <= threshold)
                 .count();
             let reject_pct = 100.0 * (1.0 - pass as f64 / n_test as f64);
             let delta = (reject_pct - expected_full[level]).abs();
             max_delta_full = max_delta_full.max(delta);
-            println!("    {} {:>5}: {:>5.1}% rejected (expected {:.1}%, Δ={:.1}) {}",
-                level_names[level], threshold, reject_pct, expected_full[level],
-                delta, if delta < 3.0 { "✓" } else { "✗" });
+            println!(
+                "    {} {:>5}: {:>5.1}% rejected (expected {:.1}%, Δ={:.1}) {}",
+                level_names[level],
+                threshold,
+                reject_pct,
+                expected_full[level],
+                delta,
+                if delta < 3.0 { "✓" } else { "✗" }
+            );
         }
-        assert!(max_delta_full < 3.0,
-            "Full-width Δ must be < 3%, worst={:.1}", max_delta_full);
+        assert!(
+            max_delta_full < 3.0,
+            "Full-width Δ must be < 3%, worst={:.1}",
+            max_delta_full
+        );
 
         // =========================================================
         // Part 2: Sampling variance inflation
@@ -1311,29 +1426,45 @@ mod tests {
         println!("\n  1/16 sample:");
         for level in 0..8 {
             let threshold = meter.cascade[level];
-            let pass = candidates.iter()
+            let pass = candidates
+                .iter()
                 .filter(|c| words_hamming_sampled(&query, c, 16) <= threshold)
                 .count();
             let reject_pct = 100.0 * (1.0 - pass as f64 / n_test as f64);
             let delta = (reject_pct - expected_s16[level]).abs();
             let k = [1.0, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0][level];
-            println!("    {} {:>5}: {:>5.1}% rejected (expected {:.1}% at Z={:.3}, Δ={:.1}) {}",
-                level_names[level], threshold, reject_pct, expected_s16[level],
-                k / 4.0, delta, if delta < 4.0 { "✓" } else { "✗" });
+            println!(
+                "    {} {:>5}: {:>5.1}% rejected (expected {:.1}% at Z={:.3}, Δ={:.1}) {}",
+                level_names[level],
+                threshold,
+                reject_pct,
+                expected_s16[level],
+                k / 4.0,
+                delta,
+                if delta < 4.0 { "✓" } else { "✗" }
+            );
         }
 
         println!("\n  1/4 sample:");
         for level in 0..8 {
             let threshold = meter.cascade[level];
-            let pass = candidates.iter()
+            let pass = candidates
+                .iter()
                 .filter(|c| words_hamming_sampled(&query, c, 4) <= threshold)
                 .count();
             let reject_pct = 100.0 * (1.0 - pass as f64 / n_test as f64);
             let delta = (reject_pct - expected_s4[level]).abs();
             let k = [1.0, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0][level];
-            println!("    {} {:>5}: {:>5.1}% rejected (expected {:.1}% at Z={:.3}, Δ={:.1}) {}",
-                level_names[level], threshold, reject_pct, expected_s4[level],
-                k / 2.0, delta, if delta < 4.0 { "✓" } else { "✗" });
+            println!(
+                "    {} {:>5}: {:>5.1}% rejected (expected {:.1}% at Z={:.3}, Δ={:.1}) {}",
+                level_names[level],
+                threshold,
+                reject_pct,
+                expected_s4[level],
+                k / 2.0,
+                delta,
+                if delta < 4.0 { "✓" } else { "✗" }
+            );
         }
 
         // =========================================================
@@ -1352,9 +1483,24 @@ mod tests {
         }
 
         let phases = [
-            Phase { name: "A (μ=8192, σ=64)", mu: 8192, sigma: 64, n_obs: 3000 },
-            Phase { name: "B (μ=7800, σ=80)", mu: 7800, sigma: 80, n_obs: 5000 },
-            Phase { name: "C (μ=8500, σ=40)", mu: 8500, sigma: 40, n_obs: 5000 },
+            Phase {
+                name: "A (μ=8192, σ=64)",
+                mu: 8192,
+                sigma: 64,
+                n_obs: 3000,
+            },
+            Phase {
+                name: "B (μ=7800, σ=80)",
+                mu: 7800,
+                sigma: 80,
+                n_obs: 5000,
+            },
+            Phase {
+                name: "C (μ=8500, σ=40)",
+                mu: 8500,
+                sigma: 40,
+                n_obs: 5000,
+            },
         ];
 
         let mut meter = Cascade::for_width(total_bits);
@@ -1363,23 +1509,41 @@ mod tests {
         let mut rng = 12345u64;
 
         for phase in &phases {
-            println!("\n  --- Phase {} ({} observations) ---", phase.name, phase.n_obs);
+            println!(
+                "\n  --- Phase {} ({} observations) ---",
+                phase.name, phase.n_obs
+            );
 
             for _ in 0..phase.n_obs {
                 let d = gen_approx_normal(&mut rng, phase.mu, phase.sigma);
                 if let Some(alert) = meter.observe(d) {
-                    println!("    Shift: μ {}→{}, σ {}→{} (skew={}, kurt={})",
-                        alert.old_mu, alert.new_mu, alert.old_sigma, alert.new_sigma,
-                        meter.skewness, meter.kurtosis);
+                    println!(
+                        "    Shift: μ {}→{}, σ {}→{} (skew={}, kurt={})",
+                        alert.old_mu,
+                        alert.new_mu,
+                        alert.old_sigma,
+                        alert.new_sigma,
+                        meter.skewness,
+                        meter.kurtosis
+                    );
                     meter.recalibrate(&alert);
-                    println!("    → Recalibrated + reset. reservoir={}, empirical={}",
-                        meter.reservoir.len(), meter.use_empirical);
+                    println!(
+                        "    → Recalibrated + reset. reservoir={}, empirical={}",
+                        meter.reservoir.len(),
+                        meter.use_empirical
+                    );
                 }
             }
 
-            println!("\n    State: μ={}, σ={}, empirical={}, reservoir={}, skew={}, kurt={}",
-                meter.mu, meter.sigma, meter.use_empirical,
-                meter.reservoir.len(), meter.skewness, meter.kurtosis);
+            println!(
+                "\n    State: μ={}, σ={}, empirical={}, reservoir={}, skew={}, kurt={}",
+                meter.mu,
+                meter.sigma,
+                meter.use_empirical,
+                meter.reservoir.len(),
+                meter.skewness,
+                meter.kurtosis
+            );
 
             // Measure rejection accuracy with test distances from this phase.
             let mut test_rng = (phase.mu as u64) * 7 + 99999;
@@ -1389,16 +1553,21 @@ mod tests {
                 .collect();
 
             let active = *meter.active_cascade();
-            println!("\n    Rejection accuracy (active cascade, {} test distances):", n_test_dist);
+            println!(
+                "\n    Rejection accuracy (active cascade, {} test distances):",
+                n_test_dist
+            );
             println!("    {:>5}  {:>12}  expected", "level", "actual");
             for &level in &[0usize, 3, 7] {
-                let rej = 100.0 * test_dists.iter()
-                    .filter(|&&d| d > active[level]).count() as f64 / n_test_dist as f64;
+                let rej = 100.0 * test_dists.iter().filter(|&&d| d > active[level]).count() as f64
+                    / n_test_dist as f64;
                 let delta = (rej - expected_full[level]).abs();
                 total_delta += delta;
                 n_measurements += 1;
-                println!("    {:>5}  {:>6.1}% Δ{:<4.1}  {:.1}%",
-                    level_names[level], rej, delta, expected_full[level]);
+                println!(
+                    "    {:>5}  {:>6.1}% Δ{:<4.1}  {:.1}%",
+                    level_names[level], rej, delta, expected_full[level]
+                );
             }
         }
 
@@ -1412,11 +1581,17 @@ mod tests {
         let avg_delta = total_delta / n_measurements as f64;
         println!("\n  Average |Δ| across all phases: {:.2}%", avg_delta);
         println!("  Total |Δ|: {:.1}", total_delta);
-        println!("  Final state: μ={}, σ={}, empirical={}", meter.mu, meter.sigma, meter.use_empirical);
+        println!(
+            "  Final state: μ={}, σ={}, empirical={}",
+            meter.mu, meter.sigma, meter.use_empirical
+        );
         println!("  Active cascade: {:?}", meter.active_cascade());
 
-        assert!(avg_delta < 10.0,
-            "Average Δ must be < 10%, got {:.2}%", avg_delta);
+        assert!(
+            avg_delta < 10.0,
+            "Average Δ must be < 10%, got {:.2}%",
+            avg_delta
+        );
     }
 
     // -- Test 12: Empirical auto-switch on bimodal distribution --
@@ -1433,8 +1608,10 @@ mod tests {
                 meter.recalibrate(&alert);
             }
         }
-        println!("After normal phase: empirical={}, skew={}, kurt={}",
-            meter.use_empirical, meter.skewness, meter.kurtosis);
+        println!(
+            "After normal phase: empirical={}, skew={}, kurt={}",
+            meter.use_empirical, meter.skewness, meter.kurtosis
+        );
 
         // Phase 2: Feed bimodal data — should switch to empirical.
         // Mix two narrow distributions far apart.
@@ -1453,8 +1630,10 @@ mod tests {
             }
         }
 
-        println!("After bimodal phase: empirical={}, skew={}, kurt={}",
-            meter.use_empirical, meter.skewness, meter.kurtosis);
+        println!(
+            "After bimodal phase: empirical={}, skew={}, kurt={}",
+            meter.use_empirical, meter.skewness, meter.kurtosis
+        );
 
         // The meter should have detected non-normality at some point during
         // the bimodal phase. After recalibrate resets, it may have switched

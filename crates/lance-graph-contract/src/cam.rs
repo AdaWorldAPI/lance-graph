@@ -142,12 +142,12 @@ pub fn route_tensor(name: &str, dims: &[u64]) -> CodecRoute {
 /// Named CAM bytes (stroke positions).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum CamByte {
-    Heel   = 0,
+    Heel = 0,
     Branch = 1,
-    TwigA  = 2,
-    TwigB  = 3,
-    Leaf   = 4,
-    Gamma  = 5,
+    TwigA = 2,
+    TwigB = 3,
+    Leaf = 4,
+    Gamma = 5,
 }
 
 /// CAM-PQ scan strategy (selected by cost model).
@@ -291,12 +291,27 @@ pub struct ResidualSpec {
 }
 
 impl Default for ResidualSpec {
-    fn default() -> Self { Self { depth: 0, centroids: NUM_CENTROIDS as u32 } }
+    fn default() -> Self {
+        Self {
+            depth: 0,
+            centroids: NUM_CENTROIDS as u32,
+        }
+    }
 }
 
 impl ResidualSpec {
-    pub fn none() -> Self { Self { depth: 0, centroids: 0 } }
-    pub fn depth(d: u8, centroids: u32) -> Self { Self { depth: d, centroids } }
+    pub fn none() -> Self {
+        Self {
+            depth: 0,
+            centroids: 0,
+        }
+    }
+    pub fn depth(d: u8, centroids: u32) -> Self {
+        Self {
+            depth: d,
+            centroids,
+        }
+    }
 }
 
 /// Full codec parameter shape consumed by the JIT compiler.
@@ -337,8 +352,16 @@ impl core::fmt::Display for CodecParamsError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::ZeroDimension { field } => write!(f, "codec param `{}` must be non-zero", field),
-            Self::OpqRequiresBf16 { got } => write!(f, "OPQ rotation requires LaneWidth::BF16x32 (tile_dpbf16ps), got {:?}", got),
-            Self::HadamardDimNotPow2 { dim } => write!(f, "Hadamard dim must be a power of two (Sylvester), got {}", dim),
+            Self::OpqRequiresBf16 { got } => write!(
+                f,
+                "OPQ rotation requires LaneWidth::BF16x32 (tile_dpbf16ps), got {:?}",
+                got
+            ),
+            Self::HadamardDimNotPow2 { dim } => write!(
+                f,
+                "Hadamard dim must be a power of two (Sylvester), got {}",
+                dim
+            ),
             Self::CalibrationEqualsMeasurement { rows } => write!(
                 f,
                 "calibration_rows ({}) must differ from measurement_rows \
@@ -396,7 +419,9 @@ pub struct CodecParamsBuilder {
 }
 
 impl Default for CodecParamsBuilder {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl CodecParamsBuilder {
@@ -413,23 +438,58 @@ impl CodecParamsBuilder {
             seed: 42,
         }
     }
-    pub fn subspaces(mut self, n: u32) -> Self { self.subspaces = n; self }
-    pub fn centroids(mut self, n: u32) -> Self { self.centroids = n; self }
-    pub fn residual(mut self, spec: ResidualSpec) -> Self { self.residual = spec; self }
-    pub fn lane_width(mut self, lw: LaneWidth) -> Self { self.lane_width = lw; self }
-    pub fn rotation(mut self, r: Rotation) -> Self { self.pre_rotation = r; self }
-    pub fn distance(mut self, d: Distance) -> Self { self.distance = d; self }
-    pub fn calibration_rows(mut self, n: u32) -> Self { self.calibration_rows = n; self }
-    pub fn measurement_rows(mut self, n: u32) -> Self { self.measurement_rows = n; self }
-    pub fn seed(mut self, s: u64) -> Self { self.seed = s; self }
+    pub fn subspaces(mut self, n: u32) -> Self {
+        self.subspaces = n;
+        self
+    }
+    pub fn centroids(mut self, n: u32) -> Self {
+        self.centroids = n;
+        self
+    }
+    pub fn residual(mut self, spec: ResidualSpec) -> Self {
+        self.residual = spec;
+        self
+    }
+    pub fn lane_width(mut self, lw: LaneWidth) -> Self {
+        self.lane_width = lw;
+        self
+    }
+    pub fn rotation(mut self, r: Rotation) -> Self {
+        self.pre_rotation = r;
+        self
+    }
+    pub fn distance(mut self, d: Distance) -> Self {
+        self.distance = d;
+        self
+    }
+    pub fn calibration_rows(mut self, n: u32) -> Self {
+        self.calibration_rows = n;
+        self
+    }
+    pub fn measurement_rows(mut self, n: u32) -> Self {
+        self.measurement_rows = n;
+        self
+    }
+    pub fn seed(mut self, s: u64) -> Self {
+        self.seed = s;
+        self
+    }
 
     /// Build with precision-ladder validation (D0.7).
     pub fn build(self) -> Result<CodecParams, CodecParamsError> {
-        if self.subspaces == 0 { return Err(CodecParamsError::ZeroDimension { field: "subspaces" }); }
-        if self.centroids == 0 { return Err(CodecParamsError::ZeroDimension { field: "centroids" }); }
+        if self.subspaces == 0 {
+            return Err(CodecParamsError::ZeroDimension { field: "subspaces" });
+        }
+        if self.centroids == 0 {
+            return Err(CodecParamsError::ZeroDimension { field: "centroids" });
+        }
         // Precision ladder: OPQ routes through tile_dpbf16ps → BF16x32 only.
-        if matches!(self.pre_rotation, Rotation::Opq { .. }) && self.lane_width != LaneWidth::BF16x32 {
-            return Err(CodecParamsError::OpqRequiresBf16 { got: self.lane_width });
+        if matches!(self.pre_rotation, Rotation::Opq { .. })
+            && self.lane_width != LaneWidth::BF16x32
+        {
+            return Err(CodecParamsError::OpqRequiresBf16 {
+                got: self.lane_width,
+            });
         }
         // Hadamard Sylvester construction needs dim = 2^k.
         if let Rotation::Hadamard { dim } = &self.pre_rotation {
@@ -439,7 +499,9 @@ impl CodecParamsBuilder {
         }
         // Overfit guard: reject calibration_rows == measurement_rows (PR #219 pattern).
         if self.measurement_rows != 0 && self.calibration_rows == self.measurement_rows {
-            return Err(CodecParamsError::CalibrationEqualsMeasurement { rows: self.calibration_rows });
+            return Err(CodecParamsError::CalibrationEqualsMeasurement {
+                rows: self.calibration_rows,
+            });
         }
         Ok(CodecParams {
             subspaces: self.subspaces,
@@ -473,13 +535,19 @@ mod codec_params_tests {
     #[test]
     fn builder_zero_subspaces_rejected() {
         let err = CodecParamsBuilder::new().subspaces(0).build().unwrap_err();
-        assert!(matches!(err, CodecParamsError::ZeroDimension { field: "subspaces" }));
+        assert!(matches!(
+            err,
+            CodecParamsError::ZeroDimension { field: "subspaces" }
+        ));
     }
 
     #[test]
     fn builder_zero_centroids_rejected() {
         let err = CodecParamsBuilder::new().centroids(0).build().unwrap_err();
-        assert!(matches!(err, CodecParamsError::ZeroDimension { field: "centroids" }));
+        assert!(matches!(
+            err,
+            CodecParamsError::ZeroDimension { field: "centroids" }
+        ));
     }
 
     #[test]
@@ -487,17 +555,28 @@ mod codec_params_tests {
         // OPQ routes through tile_dpbf16ps — BF16x32 is the only allowed lane.
         let err = CodecParamsBuilder::new()
             .lane_width(LaneWidth::F32x16)
-            .rotation(Rotation::Opq { matrix_blob_id: 0xDEAD, dim: 4096 })
+            .rotation(Rotation::Opq {
+                matrix_blob_id: 0xDEAD,
+                dim: 4096,
+            })
             .build()
             .unwrap_err();
-        assert!(matches!(err, CodecParamsError::OpqRequiresBf16 { got: LaneWidth::F32x16 }));
+        assert!(matches!(
+            err,
+            CodecParamsError::OpqRequiresBf16 {
+                got: LaneWidth::F32x16
+            }
+        ));
     }
 
     #[test]
     fn opq_with_bf16x32_accepted() {
         let p = CodecParamsBuilder::new()
             .lane_width(LaneWidth::BF16x32)
-            .rotation(Rotation::Opq { matrix_blob_id: 0xDEAD, dim: 4096 })
+            .rotation(Rotation::Opq {
+                matrix_blob_id: 0xDEAD,
+                dim: 4096,
+            })
             .build()
             .unwrap();
         assert!(p.is_matmul_heavy());
@@ -509,7 +588,10 @@ mod codec_params_tests {
             .rotation(Rotation::Hadamard { dim: 3000 })
             .build()
             .unwrap_err();
-        assert!(matches!(err, CodecParamsError::HadamardDimNotPow2 { dim: 3000 }));
+        assert!(matches!(
+            err,
+            CodecParamsError::HadamardDimNotPow2 { dim: 3000 }
+        ));
     }
 
     #[test]
@@ -531,7 +613,10 @@ mod codec_params_tests {
             .measurement_rows(128)
             .build()
             .unwrap_err();
-        assert!(matches!(err, CodecParamsError::CalibrationEqualsMeasurement { rows: 128 }));
+        assert!(matches!(
+            err,
+            CodecParamsError::CalibrationEqualsMeasurement { rows: 128 }
+        ));
     }
 
     #[test]
@@ -568,8 +653,14 @@ mod codec_params_tests {
 
     #[test]
     fn kernel_signature_changes_with_rotation_kind() {
-        let a = CodecParamsBuilder::new().rotation(Rotation::Identity).build().unwrap();
-        let b = CodecParamsBuilder::new().rotation(Rotation::Hadamard { dim: 4096 }).build().unwrap();
+        let a = CodecParamsBuilder::new()
+            .rotation(Rotation::Identity)
+            .build()
+            .unwrap();
+        let b = CodecParamsBuilder::new()
+            .rotation(Rotation::Hadamard { dim: 4096 })
+            .build()
+            .unwrap();
         assert_ne!(a.kernel_signature(), b.kernel_signature());
     }
 
@@ -577,7 +668,10 @@ mod codec_params_tests {
     fn matmul_heavy_detects_opq_and_wide_codebook() {
         let opq = CodecParamsBuilder::new()
             .lane_width(LaneWidth::BF16x32)
-            .rotation(Rotation::Opq { matrix_blob_id: 1, dim: 4096 })
+            .rotation(Rotation::Opq {
+                matrix_blob_id: 1,
+                dim: 4096,
+            })
             .build()
             .unwrap();
         assert!(opq.is_matmul_heavy(), "OPQ is matmul-heavy");
@@ -586,7 +680,10 @@ mod codec_params_tests {
         assert!(wide.is_matmul_heavy(), "centroids=1024 is matmul-heavy");
 
         let narrow = CodecParamsBuilder::new().centroids(256).build().unwrap();
-        assert!(!narrow.is_matmul_heavy(), "narrow codebook + identity is not matmul-heavy");
+        assert!(
+            !narrow.is_matmul_heavy(),
+            "narrow codebook + identity is not matmul-heavy"
+        );
     }
 }
 
@@ -652,7 +749,10 @@ mod route_tests {
         );
         // Generic embedding tables (e.g. Qwen3-TTS codec_embedding)
         assert_eq!(
-            route_tensor("talker.code_predictor.model.codec_embedding.0.weight", &[2048, 1024]),
+            route_tensor(
+                "talker.code_predictor.model.codec_embedding.0.weight",
+                &[2048, 1024]
+            ),
             CodecRoute::Passthrough,
         );
         assert_eq!(
@@ -667,14 +767,8 @@ mod route_tests {
             route_tensor("model.layers.0.input_layernorm.weight", &[4096]),
             CodecRoute::Skip,
         );
-        assert_eq!(
-            route_tensor("model.norm.weight", &[4096]),
-            CodecRoute::Skip,
-        );
-        assert_eq!(
-            route_tensor("ln_1.weight", &[768]),
-            CodecRoute::Skip,
-        );
+        assert_eq!(route_tensor("model.norm.weight", &[4096]), CodecRoute::Skip,);
+        assert_eq!(route_tensor("ln_1.weight", &[768]), CodecRoute::Skip,);
     }
 
     #[test]
@@ -700,7 +794,11 @@ mod route_tests {
         // lm_head is 2D, large, would match the ambiguous-2D fallback.
         // Must be caught by rule 1 first.
         let r = route_tensor("lm_head.weight", &[151936, 4096]);
-        assert_eq!(r, CodecRoute::Passthrough, "lm_head must NOT route to CamPq");
+        assert_eq!(
+            r,
+            CodecRoute::Passthrough,
+            "lm_head must NOT route to CamPq"
+        );
     }
 
     #[test]

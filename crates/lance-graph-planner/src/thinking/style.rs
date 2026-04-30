@@ -5,10 +5,10 @@
 //!
 //! Styles are NOT metadata — they directly modify execution paths.
 
-use crate::mul::MulAssessment;
-use crate::mul::homeostasis::FlowState;
 use crate::mul::dk::DkPosition;
+use crate::mul::homeostasis::FlowState;
 use crate::mul::trust::TrustTexture;
+use crate::mul::MulAssessment;
 
 /// The 12 base thinking styles (ladybug-rs canonical set).
 /// Runtime YAML templates can extend to 36+ via StyleOverride.
@@ -187,7 +187,11 @@ impl FieldModulation {
             threshold: (self.resonance_threshold * 2000.0) as u32 + 100,
             top_k: (self.fan_out as u32).max(1),
             prefetch_ahead: ((1.0 - self.speed_bias) * 7.0) as u32 + 1,
-            filter_mask: if self.noise_tolerance < 0.3 { 0xFFFFFFFF } else { 0 },
+            filter_mask: if self.noise_tolerance < 0.3 {
+                0xFFFFFFFF
+            } else {
+                0
+            },
         }
     }
 

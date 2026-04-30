@@ -65,12 +65,10 @@ impl CamPqScanOp {
     }
 
     /// Full ADC: 6 table lookups per candidate.
-    fn full_adc(
-        &self,
-        dt: &[[f32; 256]; 6],
-        cam_data: &[[u8; 6]],
-    ) -> Vec<(usize, f32)> {
-        let mut results: Vec<(usize, f32)> = cam_data.iter().enumerate()
+    fn full_adc(&self, dt: &[[f32; 256]; 6], cam_data: &[[u8; 6]]) -> Vec<(usize, f32)> {
+        let mut results: Vec<(usize, f32)> = cam_data
+            .iter()
+            .enumerate()
             .map(|(idx, cam)| {
                 let dist = dt[0][cam[0] as usize]
                     + dt[1][cam[1] as usize]
@@ -88,11 +86,7 @@ impl CamPqScanOp {
     }
 
     /// Stroke cascade: progressive rejection.
-    fn cascade(
-        &self,
-        dt: &[[f32; 256]; 6],
-        cam_data: &[[u8; 6]],
-    ) -> Vec<(usize, f32)> {
+    fn cascade(&self, dt: &[[f32; 256]; 6], cam_data: &[[u8; 6]]) -> Vec<(usize, f32)> {
         // Stroke 1: HEEL only
         let mut survivors: Vec<usize> = Vec::with_capacity(cam_data.len() / 10);
         for (idx, cam) in cam_data.iter().enumerate() {
@@ -112,16 +106,19 @@ impl CamPqScanOp {
         }
 
         // Stroke 3: full 6-byte ADC on finalists
-        let mut results: Vec<(usize, f32)> = refined.iter().map(|&idx| {
-            let cam = &cam_data[idx];
-            let dist = dt[0][cam[0] as usize]
-                + dt[1][cam[1] as usize]
-                + dt[2][cam[2] as usize]
-                + dt[3][cam[3] as usize]
-                + dt[4][cam[4] as usize]
-                + dt[5][cam[5] as usize];
-            (idx, dist)
-        }).collect();
+        let mut results: Vec<(usize, f32)> = refined
+            .iter()
+            .map(|&idx| {
+                let cam = &cam_data[idx];
+                let dist = dt[0][cam[0] as usize]
+                    + dt[1][cam[1] as usize]
+                    + dt[2][cam[2] as usize]
+                    + dt[3][cam[3] as usize]
+                    + dt[4][cam[4] as usize]
+                    + dt[5][cam[5] as usize];
+                (idx, dist)
+            })
+            .collect();
 
         results.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
         results.truncate(self.top_k);
@@ -165,9 +162,13 @@ impl CamPqScanOp {
 }
 
 impl PhysicalOperator for CamPqScanOp {
-    fn name(&self) -> &str { "CamPqScan" }
+    fn name(&self) -> &str {
+        "CamPqScan"
+    }
 
-    fn cardinality(&self) -> f64 { self.estimated_cardinality }
+    fn cardinality(&self) -> f64 {
+        self.estimated_cardinality
+    }
 
     fn is_pipeline_breaker(&self) -> bool {
         // Cascade is streaming (no materialization needed)
@@ -181,8 +182,8 @@ impl PhysicalOperator for CamPqScanOp {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::broadcast::BroadcastOp;
+    use super::*;
 
     fn make_distance_tables() -> [[f32; 256]; 6] {
         let mut dt = [[0.0f32; 256]; 6];
@@ -196,11 +197,19 @@ mod tests {
     }
 
     fn make_cam_data(n: usize) -> Vec<[u8; 6]> {
-        (0..n).map(|i| {
-            let v = (i % 256) as u8;
-            [v, v.wrapping_add(1), v.wrapping_add(2),
-             v.wrapping_add(3), v.wrapping_add(4), v.wrapping_add(5)]
-        }).collect()
+        (0..n)
+            .map(|i| {
+                let v = (i % 256) as u8;
+                [
+                    v,
+                    v.wrapping_add(1),
+                    v.wrapping_add(2),
+                    v.wrapping_add(3),
+                    v.wrapping_add(4),
+                    v.wrapping_add(5),
+                ]
+            })
+            .collect()
     }
 
     fn dummy_child() -> Box<dyn PhysicalOperator> {
@@ -243,7 +252,7 @@ mod tests {
         let cams = make_cam_data(10000);
         let op = CamPqScanOp {
             strategy: CamPqStrategy::Cascade,
-            heel_threshold: 5.0,  // Only pass centroids with heel index < ~50
+            heel_threshold: 5.0, // Only pass centroids with heel index < ~50
             branch_threshold: 10.0,
             top_k: 10,
             num_probes: 0,
@@ -268,7 +277,7 @@ mod tests {
         let cams = make_cam_data(100_000);
         let op = CamPqScanOp {
             strategy: CamPqStrategy::Cascade,
-            heel_threshold: 2.0,  // Very tight
+            heel_threshold: 2.0, // Very tight
             branch_threshold: 3.0,
             top_k: 10,
             num_probes: 0,
@@ -283,9 +292,18 @@ mod tests {
 
     #[test]
     fn test_strategy_selection() {
-        assert_eq!(CamPqScanOp::select_strategy(1_000_000), CamPqStrategy::FullAdc);
-        assert_eq!(CamPqScanOp::select_strategy(10_000_000), CamPqStrategy::Cascade);
-        assert_eq!(CamPqScanOp::select_strategy(500_000_000), CamPqStrategy::IvfCascade);
+        assert_eq!(
+            CamPqScanOp::select_strategy(1_000_000),
+            CamPqStrategy::FullAdc
+        );
+        assert_eq!(
+            CamPqScanOp::select_strategy(10_000_000),
+            CamPqStrategy::Cascade
+        );
+        assert_eq!(
+            CamPqScanOp::select_strategy(500_000_000),
+            CamPqStrategy::IvfCascade
+        );
     }
 
     #[test]
@@ -294,9 +312,13 @@ mod tests {
         let n = 100_000_000;
         let full_cost = CamPqScanOp::estimated_cost_us(n, CamPqStrategy::FullAdc);
         let cascade_cost = CamPqScanOp::estimated_cost_us(n, CamPqStrategy::Cascade);
-        assert!(cascade_cost < full_cost,
+        assert!(
+            cascade_cost < full_cost,
             "cascade {}µs should be < full_adc {}µs for {}M candidates",
-            cascade_cost, full_cost, n / 1_000_000);
+            cascade_cost,
+            full_cost,
+            n / 1_000_000
+        );
     }
 
     #[test]

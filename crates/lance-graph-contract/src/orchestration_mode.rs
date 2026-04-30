@@ -42,7 +42,7 @@
 // is consumed; the modulation hook is wired in `OrchestrationBridge`
 // but not yet routed through this module.
 #[allow(unused_imports)]
-use crate::thinking::{ThinkingStyle, FieldModulation};
+use crate::thinking::{FieldModulation, ThinkingStyle};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // INFERENCE STAGES — the atoms of reasoning
@@ -76,24 +76,30 @@ pub enum InferenceOp {
 
 impl InferenceOp {
     pub const ALL: [InferenceOp; 10] = [
-        Self::Association, Self::Intuition, Self::Abduction,
-        Self::Deduction, Self::Induction, Self::Hypothesis,
-        Self::HypothesisTest, Self::Synthesis,
-        Self::Extrapolation, Self::Counterfactual,
+        Self::Association,
+        Self::Intuition,
+        Self::Abduction,
+        Self::Deduction,
+        Self::Induction,
+        Self::Hypothesis,
+        Self::HypothesisTest,
+        Self::Synthesis,
+        Self::Extrapolation,
+        Self::Counterfactual,
     ];
 
     /// Preferred thinking style when this op runs.
     pub fn style(&self) -> ThinkingStyle {
         match self {
-            Self::Association    => ThinkingStyle::Curious,
-            Self::Intuition      => ThinkingStyle::Warm,
-            Self::Abduction      => ThinkingStyle::Investigative,
-            Self::Deduction      => ThinkingStyle::Logical,
-            Self::Induction      => ThinkingStyle::Analytical,
-            Self::Hypothesis     => ThinkingStyle::Speculative,
+            Self::Association => ThinkingStyle::Curious,
+            Self::Intuition => ThinkingStyle::Warm,
+            Self::Abduction => ThinkingStyle::Investigative,
+            Self::Deduction => ThinkingStyle::Logical,
+            Self::Induction => ThinkingStyle::Analytical,
+            Self::Hypothesis => ThinkingStyle::Speculative,
             Self::HypothesisTest => ThinkingStyle::Critical,
-            Self::Synthesis      => ThinkingStyle::Creative,
-            Self::Extrapolation  => ThinkingStyle::Philosophical,
+            Self::Synthesis => ThinkingStyle::Creative,
+            Self::Extrapolation => ThinkingStyle::Philosophical,
             Self::Counterfactual => ThinkingStyle::Metacognitive,
         }
     }
@@ -110,11 +116,16 @@ impl InferenceOp {
     /// Default fan-out width.
     pub fn fan_out(&self) -> usize {
         match self {
-            Self::Association => 8, Self::Intuition => 3,
-            Self::Abduction => 4, Self::Deduction => 2,
-            Self::Induction => 6, Self::Hypothesis => 3,
-            Self::HypothesisTest => 2, Self::Synthesis => 4,
-            Self::Extrapolation => 3, Self::Counterfactual => 2,
+            Self::Association => 8,
+            Self::Intuition => 3,
+            Self::Abduction => 4,
+            Self::Deduction => 2,
+            Self::Induction => 6,
+            Self::Hypothesis => 3,
+            Self::HypothesisTest => 2,
+            Self::Synthesis => 4,
+            Self::Extrapolation => 3,
+            Self::Counterfactual => 2,
         }
     }
 }
@@ -147,17 +158,23 @@ pub enum CausalMask {
 
 impl CausalMask {
     pub const ALL: [CausalMask; 8] = [
-        Self::None, Self::O, Self::P, Self::PO,
-        Self::S, Self::SO, Self::SP, Self::SPO,
+        Self::None,
+        Self::O,
+        Self::P,
+        Self::PO,
+        Self::S,
+        Self::SO,
+        Self::SP,
+        Self::SPO,
     ];
 
     /// Pearl level for this mask.
     pub fn pearl_level(&self) -> u8 {
         match self {
             Self::None | Self::S | Self::P | Self::O => 0, // marginals
-            Self::SO => 1,  // SEE: association P(Y|X)
-            Self::PO | Self::SP => 2, // DO: intervention P(Y|do(X))
-            Self::SPO => 3, // IMAGINE: counterfactual
+            Self::SO => 1,                                 // SEE: association P(Y|X)
+            Self::PO | Self::SP => 2,                      // DO: intervention P(Y|do(X))
+            Self::SPO => 3,                                // IMAGINE: counterfactual
         }
     }
 
@@ -165,13 +182,13 @@ impl CausalMask {
     pub fn target_ops(&self) -> &'static [InferenceOp] {
         match self {
             Self::None => &[InferenceOp::Intuition],
-            Self::S    => &[InferenceOp::Abduction, InferenceOp::Association],
-            Self::P    => &[InferenceOp::Induction, InferenceOp::Deduction],
-            Self::O    => &[InferenceOp::Abduction, InferenceOp::Association],
-            Self::SO   => &[InferenceOp::Induction, InferenceOp::Association],
-            Self::PO   => &[InferenceOp::Deduction, InferenceOp::Hypothesis],
-            Self::SP   => &[InferenceOp::Hypothesis, InferenceOp::HypothesisTest],
-            Self::SPO  => &[InferenceOp::Counterfactual, InferenceOp::Synthesis],
+            Self::S => &[InferenceOp::Abduction, InferenceOp::Association],
+            Self::P => &[InferenceOp::Induction, InferenceOp::Deduction],
+            Self::O => &[InferenceOp::Abduction, InferenceOp::Association],
+            Self::SO => &[InferenceOp::Induction, InferenceOp::Association],
+            Self::PO => &[InferenceOp::Deduction, InferenceOp::Hypothesis],
+            Self::SP => &[InferenceOp::Hypothesis, InferenceOp::HypothesisTest],
+            Self::SPO => &[InferenceOp::Counterfactual, InferenceOp::Synthesis],
         }
     }
 }
@@ -202,13 +219,16 @@ impl SurvivorProjection {
     pub fn query(&self) -> String {
         match self.mask {
             CausalMask::None => format!("{} {} {}", self.subject, self.predicate, self.object),
-            CausalMask::S    => format!("who is {}", self.subject),
-            CausalMask::P    => format!("what does {} mean", self.predicate),
-            CausalMask::O    => format!("what is {}", self.object),
-            CausalMask::SO   => format!("{} related to {}", self.subject, self.object),
-            CausalMask::PO   => format!("what causes {} {}", self.predicate, self.object),
-            CausalMask::SP   => format!("{} as {}", self.subject, self.predicate),
-            CausalMask::SPO  => format!("what if {} had not {} {}", self.subject, self.predicate, self.object),
+            CausalMask::S => format!("who is {}", self.subject),
+            CausalMask::P => format!("what does {} mean", self.predicate),
+            CausalMask::O => format!("what is {}", self.object),
+            CausalMask::SO => format!("{} related to {}", self.subject, self.object),
+            CausalMask::PO => format!("what causes {} {}", self.predicate, self.object),
+            CausalMask::SP => format!("{} as {}", self.subject, self.predicate),
+            CausalMask::SPO => format!(
+                "what if {} had not {} {}",
+                self.subject, self.predicate, self.object
+            ),
         }
     }
 
@@ -228,7 +248,9 @@ pub fn decompose_survivors(
 ) -> Vec<SurvivorProjection> {
     let mut projections = Vec::new();
     for (s, p, o, freq, conf, source) in survivors {
-        if *conf < conf_threshold { continue; }
+        if *conf < conf_threshold {
+            continue;
+        }
         for &mask in &CausalMask::ALL {
             projections.push(SurvivorProjection {
                 subject: s.clone(),
@@ -245,7 +267,10 @@ pub fn decompose_survivors(
 }
 
 /// Filter projections relevant to a specific inference op.
-pub fn projections_for_op(projections: &[SurvivorProjection], op: InferenceOp) -> Vec<&SurvivorProjection> {
+pub fn projections_for_op(
+    projections: &[SurvivorProjection],
+    op: InferenceOp,
+) -> Vec<&SurvivorProjection> {
     projections.iter().filter(|p| p.feeds(op)).collect()
 }
 
@@ -294,22 +319,37 @@ impl Hypothesis {
     pub fn from_projection(proj: &SurvivorProjection) -> Self {
         let claim = match proj.mask {
             CausalMask::None => format!("{} {} {}", proj.subject, proj.predicate, proj.object),
-            CausalMask::S    => format!("{} is a significant entity in this domain", proj.subject),
-            CausalMask::P    => format!("the relationship '{}' is meaningful here", proj.predicate),
-            CausalMask::O    => format!("{} is a significant entity in this domain", proj.object),
-            CausalMask::SO   => format!("{} and {} are directly associated", proj.subject, proj.object),
-            CausalMask::PO   => format!("{} causally leads to {}", proj.predicate, proj.object),
-            CausalMask::SP   => format!("{} as {} may be a confounding factor", proj.subject, proj.predicate),
-            CausalMask::SPO  => format!("if {} had not {} {}, the outcome would differ", proj.subject, proj.predicate, proj.object),
+            CausalMask::S => format!("{} is a significant entity in this domain", proj.subject),
+            CausalMask::P => format!("the relationship '{}' is meaningful here", proj.predicate),
+            CausalMask::O => format!("{} is a significant entity in this domain", proj.object),
+            CausalMask::SO => format!(
+                "{} and {} are directly associated",
+                proj.subject, proj.object
+            ),
+            CausalMask::PO => format!("{} causally leads to {}", proj.predicate, proj.object),
+            CausalMask::SP => format!(
+                "{} as {} may be a confounding factor",
+                proj.subject, proj.predicate
+            ),
+            CausalMask::SPO => format!(
+                "if {} had not {} {}, the outcome would differ",
+                proj.subject, proj.predicate, proj.object
+            ),
         };
         Self {
             claim,
             source_mask: proj.mask,
             pearl_level: proj.mask.pearl_level(),
-            prior: PathTruth { frequency: proj.truth_freq, confidence: proj.truth_conf },
+            prior: PathTruth {
+                frequency: proj.truth_freq,
+                confidence: proj.truth_conf,
+            },
             evidence_for: Vec::new(),
             evidence_against: Vec::new(),
-            posterior: PathTruth { frequency: proj.truth_freq, confidence: proj.truth_conf },
+            posterior: PathTruth {
+                frequency: proj.truth_freq,
+                confidence: proj.truth_conf,
+            },
             status: HypothesisStatus::Pending,
         }
     }
@@ -368,7 +408,8 @@ impl Hypothesis {
 /// Batch-form hypotheses from survivor projections.
 /// Higher Pearl levels get priority (counterfactual > causal > associative).
 pub fn form_hypotheses(projections: &[SurvivorProjection], max: usize) -> Vec<Hypothesis> {
-    let mut hypotheses: Vec<Hypothesis> = projections.iter()
+    let mut hypotheses: Vec<Hypothesis> = projections
+        .iter()
         .map(Hypothesis::from_projection)
         .collect();
     // Sort by Pearl level descending (test deeper claims first)
@@ -414,18 +455,54 @@ impl InferenceDag {
         Self {
             nodes: vec![
                 // Stage 0: Fan-out
-                DagNode { op: InferenceOp::Association,    inputs: vec![],     stage: 0 },
-                DagNode { op: InferenceOp::Intuition,      inputs: vec![],     stage: 0 },
+                DagNode {
+                    op: InferenceOp::Association,
+                    inputs: vec![],
+                    stage: 0,
+                },
+                DagNode {
+                    op: InferenceOp::Intuition,
+                    inputs: vec![],
+                    stage: 0,
+                },
                 // Stage 1: Explain
-                DagNode { op: InferenceOp::Abduction,      inputs: vec![0],    stage: 1 },
-                DagNode { op: InferenceOp::Induction,      inputs: vec![1],    stage: 1 },
+                DagNode {
+                    op: InferenceOp::Abduction,
+                    inputs: vec![0],
+                    stage: 1,
+                },
+                DagNode {
+                    op: InferenceOp::Induction,
+                    inputs: vec![1],
+                    stage: 1,
+                },
                 // Stage 2: Form
-                DagNode { op: InferenceOp::Hypothesis,     inputs: vec![2],    stage: 2 },
-                DagNode { op: InferenceOp::Deduction,      inputs: vec![3],    stage: 2 },
+                DagNode {
+                    op: InferenceOp::Hypothesis,
+                    inputs: vec![2],
+                    stage: 2,
+                },
+                DagNode {
+                    op: InferenceOp::Deduction,
+                    inputs: vec![3],
+                    stage: 2,
+                },
                 // Stage 3: Test + Combine
-                DagNode { op: InferenceOp::Synthesis,      inputs: vec![4, 5], stage: 3 },
-                DagNode { op: InferenceOp::Counterfactual, inputs: vec![4],    stage: 3 },
-                DagNode { op: InferenceOp::Extrapolation,  inputs: vec![5],    stage: 3 },
+                DagNode {
+                    op: InferenceOp::Synthesis,
+                    inputs: vec![4, 5],
+                    stage: 3,
+                },
+                DagNode {
+                    op: InferenceOp::Counterfactual,
+                    inputs: vec![4],
+                    stage: 3,
+                },
+                DagNode {
+                    op: InferenceOp::Extrapolation,
+                    inputs: vec![5],
+                    stage: 3,
+                },
             ],
         }
     }
@@ -434,9 +511,21 @@ impl InferenceDag {
     pub fn entity_pipeline() -> Self {
         Self {
             nodes: vec![
-                DagNode { op: InferenceOp::Association,  inputs: vec![],  stage: 0 },
-                DagNode { op: InferenceOp::Deduction,    inputs: vec![0], stage: 1 },
-                DagNode { op: InferenceOp::Synthesis,    inputs: vec![1], stage: 2 },
+                DagNode {
+                    op: InferenceOp::Association,
+                    inputs: vec![],
+                    stage: 0,
+                },
+                DagNode {
+                    op: InferenceOp::Deduction,
+                    inputs: vec![0],
+                    stage: 1,
+                },
+                DagNode {
+                    op: InferenceOp::Synthesis,
+                    inputs: vec![1],
+                    stage: 2,
+                },
             ],
         }
     }
@@ -445,13 +534,41 @@ impl InferenceDag {
     pub fn causal_pipeline() -> Self {
         Self {
             nodes: vec![
-                DagNode { op: InferenceOp::Association,    inputs: vec![],     stage: 0 },
-                DagNode { op: InferenceOp::Intuition,      inputs: vec![],     stage: 0 },
-                DagNode { op: InferenceOp::Abduction,      inputs: vec![0, 1], stage: 1 },
-                DagNode { op: InferenceOp::Hypothesis,     inputs: vec![2],    stage: 2 },
-                DagNode { op: InferenceOp::HypothesisTest, inputs: vec![3],    stage: 2 },
-                DagNode { op: InferenceOp::Counterfactual, inputs: vec![3],    stage: 3 },
-                DagNode { op: InferenceOp::Synthesis,      inputs: vec![4, 5], stage: 3 },
+                DagNode {
+                    op: InferenceOp::Association,
+                    inputs: vec![],
+                    stage: 0,
+                },
+                DagNode {
+                    op: InferenceOp::Intuition,
+                    inputs: vec![],
+                    stage: 0,
+                },
+                DagNode {
+                    op: InferenceOp::Abduction,
+                    inputs: vec![0, 1],
+                    stage: 1,
+                },
+                DagNode {
+                    op: InferenceOp::Hypothesis,
+                    inputs: vec![2],
+                    stage: 2,
+                },
+                DagNode {
+                    op: InferenceOp::HypothesisTest,
+                    inputs: vec![3],
+                    stage: 2,
+                },
+                DagNode {
+                    op: InferenceOp::Counterfactual,
+                    inputs: vec![3],
+                    stage: 3,
+                },
+                DagNode {
+                    op: InferenceOp::Synthesis,
+                    inputs: vec![4, 5],
+                    stage: 3,
+                },
             ],
         }
     }
@@ -460,13 +577,41 @@ impl InferenceDag {
     pub fn exploratory_pipeline() -> Self {
         Self {
             nodes: vec![
-                DagNode { op: InferenceOp::Association,   inputs: vec![],     stage: 0 },
-                DagNode { op: InferenceOp::Intuition,     inputs: vec![],     stage: 0 },
-                DagNode { op: InferenceOp::Induction,     inputs: vec![0, 1], stage: 1 },
-                DagNode { op: InferenceOp::Abduction,     inputs: vec![0, 1], stage: 1 },
-                DagNode { op: InferenceOp::Extrapolation, inputs: vec![2],    stage: 2 },
-                DagNode { op: InferenceOp::Hypothesis,    inputs: vec![3],    stage: 2 },
-                DagNode { op: InferenceOp::Synthesis,     inputs: vec![4, 5], stage: 3 },
+                DagNode {
+                    op: InferenceOp::Association,
+                    inputs: vec![],
+                    stage: 0,
+                },
+                DagNode {
+                    op: InferenceOp::Intuition,
+                    inputs: vec![],
+                    stage: 0,
+                },
+                DagNode {
+                    op: InferenceOp::Induction,
+                    inputs: vec![0, 1],
+                    stage: 1,
+                },
+                DagNode {
+                    op: InferenceOp::Abduction,
+                    inputs: vec![0, 1],
+                    stage: 1,
+                },
+                DagNode {
+                    op: InferenceOp::Extrapolation,
+                    inputs: vec![2],
+                    stage: 2,
+                },
+                DagNode {
+                    op: InferenceOp::Hypothesis,
+                    inputs: vec![3],
+                    stage: 2,
+                },
+                DagNode {
+                    op: InferenceOp::Synthesis,
+                    inputs: vec![4, 5],
+                    stage: 3,
+                },
             ],
         }
     }
@@ -478,7 +623,9 @@ impl InferenceDag {
 
     /// Nodes at a given stage (can execute in parallel).
     pub fn stage(&self, s: u8) -> Vec<(usize, &DagNode)> {
-        self.nodes.iter().enumerate()
+        self.nodes
+            .iter()
+            .enumerate()
             .filter(|(_, n)| n.stage == s)
             .collect()
     }
@@ -528,11 +675,21 @@ impl DagResult {
     pub fn from_nodes(results: Vec<NodeResult>) -> Self {
         let total_discovered: usize = results.iter().map(|r| r.edges_discovered).sum();
         let total_confirmed: usize = results.iter().map(|r| r.edges_confirmed).sum();
-        let combined = if results.is_empty() { 0.0 } else {
-            let product: f64 = results.iter().map(|r| r.relevance.max(0.01) as f64).product();
+        let combined = if results.is_empty() {
+            0.0
+        } else {
+            let product: f64 = results
+                .iter()
+                .map(|r| r.relevance.max(0.01) as f64)
+                .product();
             product.powf(1.0 / results.len() as f64) as f32
         };
-        Self { node_results: results, combined_relevance: combined, total_discovered, total_confirmed }
+        Self {
+            node_results: results,
+            combined_relevance: combined,
+            total_discovered,
+            total_confirmed,
+        }
     }
 }
 
@@ -548,7 +705,12 @@ pub struct PathTruth {
 }
 
 impl PathTruth {
-    pub fn prior() -> Self { Self { frequency: 0.5, confidence: 0.1 } }
+    pub fn prior() -> Self {
+        Self {
+            frequency: 0.5,
+            confidence: 0.1,
+        }
+    }
 
     pub fn expectation(&self) -> f32 {
         self.confidence * (self.frequency - 0.5) + 0.5
@@ -558,10 +720,15 @@ impl PathTruth {
         let w1 = self.confidence / (1.0 - self.confidence + 1e-9);
         let w2 = evidence_weight;
         let total = w1 + w2;
-        if total < 1e-9 { return *self; }
+        if total < 1e-9 {
+            return *self;
+        }
         let f = (self.frequency * w1 + new_f * w2) / total;
         let c = (total / (total + 1.0)).min(0.99);
-        PathTruth { frequency: f, confidence: c }
+        PathTruth {
+            frequency: f,
+            confidence: c,
+        }
     }
 }
 
@@ -604,11 +771,14 @@ impl Orchestrator {
             InferenceDag::causal_pipeline(),
             InferenceDag::exploratory_pipeline(),
         ];
-        let path_truths = templates.iter().map(|t| PathEntry {
-            signature: t.signature(),
-            truth: PathTruth::prior(),
-            executions: 0,
-        }).collect();
+        let path_truths = templates
+            .iter()
+            .map(|t| PathEntry {
+                signature: t.signature(),
+                truth: PathTruth::prior(),
+                executions: 0,
+            })
+            .collect();
 
         Self {
             templates,
@@ -628,15 +798,28 @@ impl Orchestrator {
 
         if explore {
             // Pick least-executed template
-            let min_idx = self.path_truths.iter().enumerate()
+            let min_idx = self
+                .path_truths
+                .iter()
+                .enumerate()
                 .min_by_key(|(_, e)| e.executions)
-                .map(|(i, _)| i).unwrap_or(0);
+                .map(|(i, _)| i)
+                .unwrap_or(0);
             &self.templates[min_idx]
         } else {
             // Pick highest expectation
-            let best_idx = self.path_truths.iter().enumerate()
-                .max_by(|(_, a), (_, b)| a.truth.expectation().partial_cmp(&b.truth.expectation()).unwrap())
-                .map(|(i, _)| i).unwrap_or(0);
+            let best_idx = self
+                .path_truths
+                .iter()
+                .enumerate()
+                .max_by(|(_, a), (_, b)| {
+                    a.truth
+                        .expectation()
+                        .partial_cmp(&b.truth.expectation())
+                        .unwrap()
+                })
+                .map(|(i, _)| i)
+                .unwrap_or(0);
             &self.templates[best_idx]
         }
     }
@@ -647,11 +830,17 @@ impl Orchestrator {
         let success = result.combined_relevance > 0.5
             || result.total_discovered > 0
             || result.total_confirmed > 0;
-        let reward_f = if success { result.combined_relevance.max(0.6) } else { 0.2 };
+        let reward_f = if success {
+            result.combined_relevance.max(0.6)
+        } else {
+            0.2
+        };
 
         // Find or create path entry
         if let Some(entry) = self.path_truths.iter_mut().find(|e| e.signature == sig) {
-            entry.truth = entry.truth.revise(reward_f, result.combined_relevance.max(0.1));
+            entry.truth = entry
+                .truth
+                .revise(reward_f, result.combined_relevance.max(0.1));
             entry.executions += 1;
         } else {
             self.path_truths.push(PathEntry {
@@ -682,15 +871,28 @@ impl Orchestrator {
     /// Mutate the best DAG to explore variations (evolutionary).
     /// Swaps one random node's op to a nearby alternative.
     pub fn mutate_best(&mut self) {
-        let best_idx = self.path_truths.iter().enumerate()
-            .max_by(|(_, a), (_, b)| a.truth.expectation().partial_cmp(&b.truth.expectation()).unwrap())
-            .map(|(i, _)| i).unwrap_or(0);
+        let best_idx = self
+            .path_truths
+            .iter()
+            .enumerate()
+            .max_by(|(_, a), (_, b)| {
+                a.truth
+                    .expectation()
+                    .partial_cmp(&b.truth.expectation())
+                    .unwrap()
+            })
+            .map(|(i, _)| i)
+            .unwrap_or(0);
 
-        if best_idx >= self.templates.len() { return; }
+        if best_idx >= self.templates.len() {
+            return;
+        }
         let mut new_dag = self.templates[best_idx].clone();
 
         // Pick a node to mutate
-        if new_dag.nodes.is_empty() { return; }
+        if new_dag.nodes.is_empty() {
+            return;
+        }
         let node_idx = (self.step_count as usize) % new_dag.nodes.len();
         let current_op = new_dag.nodes[node_idx].op as u8;
         let new_op_idx = (current_op as usize + 1) % InferenceOp::ALL.len();
@@ -701,7 +903,9 @@ impl Orchestrator {
 
     /// Get rankings of all paths.
     pub fn path_rankings(&self) -> Vec<(Vec<u8>, f32, u32)> {
-        let mut rankings: Vec<_> = self.path_truths.iter()
+        let mut rankings: Vec<_> = self
+            .path_truths
+            .iter()
             .map(|e| (e.signature.clone(), e.truth.expectation(), e.executions))
             .collect();
         rankings.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
@@ -712,8 +916,14 @@ impl Orchestrator {
     pub fn stats(&self) -> OrchestratorStats {
         let total_discovered: usize = self.history.iter().map(|(_, r)| r.total_discovered).sum();
         let total_confirmed: usize = self.history.iter().map(|(_, r)| r.total_confirmed).sum();
-        let avg_relevance = if self.history.is_empty() { 0.0 } else {
-            self.history.iter().map(|(_, r)| r.combined_relevance).sum::<f32>() / self.history.len() as f32
+        let avg_relevance = if self.history.is_empty() {
+            0.0
+        } else {
+            self.history
+                .iter()
+                .map(|(_, r)| r.combined_relevance)
+                .sum::<f32>()
+                / self.history.len() as f32
         };
         OrchestratorStats {
             steps: self.step_count,
@@ -727,7 +937,9 @@ impl Orchestrator {
 }
 
 impl Default for Orchestrator {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -772,8 +984,18 @@ mod tests {
     #[test]
     fn test_dag_result_geometric_mean() {
         let results = vec![
-            NodeResult { op: InferenceOp::Association, edges_discovered: 3, edges_confirmed: 0, relevance: 0.9 },
-            NodeResult { op: InferenceOp::Deduction, edges_discovered: 1, edges_confirmed: 2, relevance: 0.8 },
+            NodeResult {
+                op: InferenceOp::Association,
+                edges_discovered: 3,
+                edges_confirmed: 0,
+                relevance: 0.9,
+            },
+            NodeResult {
+                op: InferenceOp::Deduction,
+                edges_discovered: 1,
+                edges_confirmed: 2,
+                relevance: 0.8,
+            },
         ];
         let dag_result = DagResult::from_nodes(results);
         // geometric mean of 0.9 and 0.8 = sqrt(0.72) ≈ 0.849
@@ -790,8 +1012,18 @@ mod tests {
         let causal = InferenceDag::causal_pipeline();
         for _ in 0..20 {
             let result = DagResult::from_nodes(vec![
-                NodeResult { op: InferenceOp::Abduction, edges_discovered: 5, edges_confirmed: 3, relevance: 0.9 },
-                NodeResult { op: InferenceOp::Counterfactual, edges_discovered: 2, edges_confirmed: 1, relevance: 0.85 },
+                NodeResult {
+                    op: InferenceOp::Abduction,
+                    edges_discovered: 5,
+                    edges_confirmed: 3,
+                    relevance: 0.9,
+                },
+                NodeResult {
+                    op: InferenceOp::Counterfactual,
+                    edges_discovered: 2,
+                    edges_confirmed: 1,
+                    relevance: 0.85,
+                },
             ]);
             orch.record_outcome(&causal, result);
         }
@@ -799,9 +1031,12 @@ mod tests {
         // Punish entity pipeline
         let entity = InferenceDag::entity_pipeline();
         for _ in 0..10 {
-            let result = DagResult::from_nodes(vec![
-                NodeResult { op: InferenceOp::Association, edges_discovered: 0, edges_confirmed: 0, relevance: 0.1 },
-            ]);
+            let result = DagResult::from_nodes(vec![NodeResult {
+                op: InferenceOp::Association,
+                edges_discovered: 0,
+                edges_confirmed: 0,
+                relevance: 0.1,
+            }]);
             orch.record_outcome(&entity, result);
         }
 
@@ -809,8 +1044,14 @@ mod tests {
         let rankings = orch.path_rankings();
         let causal_sig = causal.signature();
         let entity_sig = entity.signature();
-        let causal_rank = rankings.iter().position(|(s, _, _)| *s == causal_sig).unwrap();
-        let entity_rank = rankings.iter().position(|(s, _, _)| *s == entity_sig).unwrap();
+        let causal_rank = rankings
+            .iter()
+            .position(|(s, _, _)| *s == causal_sig)
+            .unwrap();
+        let entity_rank = rankings
+            .iter()
+            .position(|(s, _, _)| *s == entity_sig)
+            .unwrap();
         assert!(causal_rank < entity_rank, "causal should rank above entity");
     }
 
@@ -832,9 +1073,12 @@ mod tests {
         let t0 = orch.temperature;
         let dag = InferenceDag::default_pipeline();
         for _ in 0..100 {
-            let result = DagResult::from_nodes(vec![
-                NodeResult { op: InferenceOp::Association, edges_discovered: 1, edges_confirmed: 0, relevance: 0.5 },
-            ]);
+            let result = DagResult::from_nodes(vec![NodeResult {
+                op: InferenceOp::Association,
+                edges_discovered: 1,
+                edges_confirmed: 0,
+                relevance: 0.5,
+            }]);
             orch.record_outcome(&dag, result);
         }
         assert!(orch.temperature < t0);
@@ -862,7 +1106,11 @@ mod tests {
         for op in &InferenceOp::ALL {
             let style = op.style();
             // Verify it maps to a real ThinkingStyle
-            assert!(ThinkingStyle::ALL.contains(&style), "{:?} has no valid style", op);
+            assert!(
+                ThinkingStyle::ALL.contains(&style),
+                "{:?} has no valid style",
+                op
+            );
         }
     }
 
@@ -872,9 +1120,21 @@ mod tests {
         // User-defined: Association → HypothesisTest → Synthesis
         let custom = InferenceDag {
             nodes: vec![
-                DagNode { op: InferenceOp::Association,    inputs: vec![],  stage: 0 },
-                DagNode { op: InferenceOp::HypothesisTest, inputs: vec![0], stage: 1 },
-                DagNode { op: InferenceOp::Synthesis,      inputs: vec![1], stage: 2 },
+                DagNode {
+                    op: InferenceOp::Association,
+                    inputs: vec![],
+                    stage: 0,
+                },
+                DagNode {
+                    op: InferenceOp::HypothesisTest,
+                    inputs: vec![0],
+                    stage: 1,
+                },
+                DagNode {
+                    op: InferenceOp::Synthesis,
+                    inputs: vec![1],
+                    stage: 2,
+                },
             ],
         };
         orch.add_template(custom);
@@ -885,7 +1145,11 @@ mod tests {
     fn test_exploratory_pipeline_fan_out() {
         let dag = InferenceDag::exploratory_pipeline();
         let total = dag.total_fan_out();
-        assert!(total > 20, "exploratory should have wide fan-out: {}", total);
+        assert!(
+            total > 20,
+            "exploratory should have wide fan-out: {}",
+            total
+        );
     }
 
     // ═════════════════════════════════════════════════════════════════════
@@ -894,19 +1158,30 @@ mod tests {
 
     #[test]
     fn test_pearl_decompose_survivors() {
-        let survivors = vec![
-            ("Palantir".into(), "developed".into(), "Gotham".into(), 0.9, 0.7, 0usize),
-        ];
+        let survivors = vec![(
+            "Palantir".into(),
+            "developed".into(),
+            "Gotham".into(),
+            0.9,
+            0.7,
+            0usize,
+        )];
         let projections = decompose_survivors(&survivors, 0.5);
         assert_eq!(projections.len(), 8); // 8 Pearl masks per survivor
 
         // Check routing: S mask feeds Abduction
-        let s_proj = projections.iter().find(|p| p.mask == CausalMask::S).unwrap();
+        let s_proj = projections
+            .iter()
+            .find(|p| p.mask == CausalMask::S)
+            .unwrap();
         assert!(s_proj.feeds(InferenceOp::Abduction));
         assert!(!s_proj.feeds(InferenceOp::Counterfactual));
 
         // SPO mask feeds Counterfactual
-        let spo_proj = projections.iter().find(|p| p.mask == CausalMask::SPO).unwrap();
+        let spo_proj = projections
+            .iter()
+            .find(|p| p.mask == CausalMask::SPO)
+            .unwrap();
         assert!(spo_proj.feeds(InferenceOp::Counterfactual));
         assert!(spo_proj.feeds(InferenceOp::Synthesis));
     }
@@ -914,8 +1189,13 @@ mod tests {
     #[test]
     fn test_survivor_query_generation() {
         let proj = SurvivorProjection {
-            subject: "CIA".into(), predicate: "funded".into(), object: "Palantir".into(),
-            mask: CausalMask::SPO, truth_freq: 0.8, truth_conf: 0.6, source_node: 0,
+            subject: "CIA".into(),
+            predicate: "funded".into(),
+            object: "Palantir".into(),
+            mask: CausalMask::SPO,
+            truth_freq: 0.8,
+            truth_conf: 0.6,
+            source_node: 0,
         };
         let q = proj.query();
         assert!(q.contains("CIA"), "SPO counterfactual query: {}", q);
@@ -925,14 +1205,23 @@ mod tests {
 
     #[test]
     fn test_projections_route_to_ops() {
-        let survivors = vec![
-            ("NSA".into(), "adopted".into(), "Gotham".into(), 0.8, 0.6, 0usize),
-        ];
+        let survivors = vec![(
+            "NSA".into(),
+            "adopted".into(),
+            "Gotham".into(),
+            0.8,
+            0.6,
+            0usize,
+        )];
         let projections = decompose_survivors(&survivors, 0.5);
 
         // Abduction should get S and O projections
         let abduction_inputs = projections_for_op(&projections, InferenceOp::Abduction);
-        assert!(abduction_inputs.len() >= 2, "abduction needs S+O: got {}", abduction_inputs.len());
+        assert!(
+            abduction_inputs.len() >= 2,
+            "abduction needs S+O: got {}",
+            abduction_inputs.len()
+        );
 
         // Deduction should get P projection
         let deduction_inputs = projections_for_op(&projections, InferenceOp::Deduction);
@@ -945,15 +1234,22 @@ mod tests {
 
     #[test]
     fn test_form_hypotheses_from_projections() {
-        let survivors = vec![
-            ("Palantir".into(), "developed".into(), "Gotham".into(), 0.9, 0.7, 0usize),
-        ];
+        let survivors = vec![(
+            "Palantir".into(),
+            "developed".into(),
+            "Gotham".into(),
+            0.9,
+            0.7,
+            0usize,
+        )];
         let projections = decompose_survivors(&survivors, 0.5);
         let hypotheses = form_hypotheses(&projections, 5);
 
         // Should prioritize higher Pearl levels
-        assert!(hypotheses[0].pearl_level >= hypotheses.last().unwrap().pearl_level,
-            "should sort by Pearl level descending");
+        assert!(
+            hypotheses[0].pearl_level >= hypotheses.last().unwrap().pearl_level,
+            "should sort by Pearl level descending"
+        );
         // SPO (level 3) should come first
         assert_eq!(hypotheses[0].pearl_level, 3);
     }
@@ -961,8 +1257,13 @@ mod tests {
     #[test]
     fn test_hypothesis_evidence_accumulation() {
         let proj = SurvivorProjection {
-            subject: "Palantir".into(), predicate: "developed".into(), object: "Gotham".into(),
-            mask: CausalMask::SO, truth_freq: 0.5, truth_conf: 0.3, source_node: 0,
+            subject: "Palantir".into(),
+            predicate: "developed".into(),
+            object: "Gotham".into(),
+            mask: CausalMask::SO,
+            truth_freq: 0.5,
+            truth_conf: 0.3,
+            source_node: 0,
         };
         let mut h = Hypothesis::from_projection(&proj);
         assert_eq!(h.status, HypothesisStatus::Pending);
@@ -972,23 +1273,43 @@ mod tests {
         h.add_evidence(0.85, true);
         h.add_evidence(0.8, true);
         // With strong positive evidence, should be testing or already confirmed
-        assert!(h.status == HypothesisStatus::Testing || h.status == HypothesisStatus::Confirmed,
-            "should be testing or confirmed: {:?}", h.status);
+        assert!(
+            h.status == HypothesisStatus::Testing || h.status == HypothesisStatus::Confirmed,
+            "should be testing or confirmed: {:?}",
+            h.status
+        );
 
         // More evidence
         h.add_evidence(0.9, true);
         h.add_evidence(0.88, true);
         // Should be confirmed now (high freq, high conf)
-        assert_eq!(h.status, HypothesisStatus::Confirmed, "should confirm after strong evidence");
-        assert!(h.posterior.frequency > 0.6, "freq should be high: {}", h.posterior.frequency);
-        assert!(h.posterior.confidence > 0.5, "conf should be rising: {}", h.posterior.confidence);
+        assert_eq!(
+            h.status,
+            HypothesisStatus::Confirmed,
+            "should confirm after strong evidence"
+        );
+        assert!(
+            h.posterior.frequency > 0.6,
+            "freq should be high: {}",
+            h.posterior.frequency
+        );
+        assert!(
+            h.posterior.confidence > 0.5,
+            "conf should be rising: {}",
+            h.posterior.confidence
+        );
     }
 
     #[test]
     fn test_hypothesis_denial() {
         let proj = SurvivorProjection {
-            subject: "X".into(), predicate: "causes".into(), object: "Y".into(),
-            mask: CausalMask::PO, truth_freq: 0.5, truth_conf: 0.2, source_node: 0,
+            subject: "X".into(),
+            predicate: "causes".into(),
+            object: "Y".into(),
+            mask: CausalMask::PO,
+            truth_freq: 0.5,
+            truth_conf: 0.2,
+            source_node: 0,
         };
         let mut h = Hypothesis::from_projection(&proj);
 
@@ -996,8 +1317,11 @@ mod tests {
         for _ in 0..8 {
             h.add_evidence(0.8, false);
         }
-        assert!(h.posterior.frequency < 0.4,
-            "freq should be low after denial: {}", h.posterior.frequency);
+        assert!(
+            h.posterior.frequency < 0.4,
+            "freq should be low after denial: {}",
+            h.posterior.frequency
+        );
     }
 
     #[test]
@@ -1006,9 +1330,30 @@ mod tests {
 
         // S0 output: 3 surviving triplets
         let survivors = vec![
-            ("Palantir".into(), "developed".into(), "Gotham".into(), 0.9, 0.7, 0),
-            ("CIA".into(), "funded".into(), "Palantir".into(), 0.8, 0.6, 1),
-            ("Thiel".into(), "owns".into(), "Palantir".into(), 0.7, 0.5, 1),
+            (
+                "Palantir".into(),
+                "developed".into(),
+                "Gotham".into(),
+                0.9,
+                0.7,
+                0,
+            ),
+            (
+                "CIA".into(),
+                "funded".into(),
+                "Palantir".into(),
+                0.8,
+                0.6,
+                1,
+            ),
+            (
+                "Thiel".into(),
+                "owns".into(),
+                "Palantir".into(),
+                0.7,
+                0.5,
+                1,
+            ),
         ];
 
         // Decompose: 3 survivors × 8 masks = 24 projections
@@ -1022,7 +1367,10 @@ mod tests {
 
         eprintln!("Projections: {} total", projections.len());
         eprintln!("  → Abduction gets {} inputs", for_abduction.len());
-        eprintln!("  → Counterfactual gets {} inputs", for_counterfactual.len());
+        eprintln!(
+            "  → Counterfactual gets {} inputs",
+            for_counterfactual.len()
+        );
         eprintln!("  → Deduction gets {} inputs", for_deduction.len());
 
         // Form hypotheses (top 10 by Pearl level)
@@ -1044,7 +1392,7 @@ mod tests {
         for h in &mut tested {
             // Simulate: Jina returns relevance based on Pearl level
             let mock_relevance = match h.pearl_level {
-                3 => 0.6, // counterfactuals harder to verify
+                3 => 0.6,  // counterfactuals harder to verify
                 2 => 0.75, // causal claims moderate
                 _ => 0.85, // associative claims easy
             };
@@ -1052,9 +1400,19 @@ mod tests {
             h.add_evidence(mock_relevance * 0.9, true);
         }
 
-        let confirmed = tested.iter().filter(|h| h.posterior.frequency > 0.6).count();
-        eprintln!("After Jina testing: {}/{} have freq > 0.6", confirmed, tested.len());
-        assert!(confirmed > 0, "at least one hypothesis should have evidence");
+        let confirmed = tested
+            .iter()
+            .filter(|h| h.posterior.frequency > 0.6)
+            .count();
+        eprintln!(
+            "After Jina testing: {}/{} have freq > 0.6",
+            confirmed,
+            tested.len()
+        );
+        assert!(
+            confirmed > 0,
+            "at least one hypothesis should have evidence"
+        );
     }
 
     #[test]

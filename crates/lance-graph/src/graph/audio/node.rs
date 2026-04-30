@@ -95,7 +95,8 @@ impl AudioNode {
 
     /// Total spectral energy (sum of BF16 band energies, approximate).
     pub fn energy(&self) -> f32 {
-        self.band_energies.iter()
+        self.band_energies
+            .iter()
             .map(|&b| f32::from_bits((b as u32) << 16))
             .sum()
     }
@@ -184,8 +185,14 @@ mod tests {
     #[test]
     fn serialize_roundtrip() {
         let node = AudioNode::from_parts(
-            [100; 21], [1, 2, 3, 4, 5, 6], [200, 50, 128, 30],
-            0, 5, 10, 42, 1,
+            [100; 21],
+            [1, 2, 3, 4, 5, 6],
+            [200, 50, 128, 30],
+            0,
+            5,
+            10,
+            42,
+            1,
         );
         let bytes = node.to_bytes();
         let recovered = AudioNode::from_bytes(&bytes);
@@ -214,7 +221,13 @@ mod tests {
     fn spectral_l1_self_zero() {
         let node = AudioNode::from_parts(
             [0x3C00; 21], // BF16 for 1.0
-            [0; 6], [0; 4], 0, 5, 1, 0, 0,
+            [0; 6],
+            [0; 4],
+            0,
+            5,
+            1,
+            0,
+            0,
         );
         assert_eq!(spectral_l1(&node, &node), 0);
     }

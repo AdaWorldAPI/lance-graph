@@ -25,9 +25,7 @@ use std::io::BufReader;
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 3 {
-        eprintln!(
-            "Usage: cam_pq_row_count_probe <safetensors_path> <tensor_name_substring>"
-        );
+        eprintln!("Usage: cam_pq_row_count_probe <safetensors_path> <tensor_name_substring>");
         std::process::exit(1);
     }
     let path = &args[1];
@@ -185,8 +183,7 @@ fn icc_3_1(truth: &[f32], pred: &[f32]) -> f32 {
     for i in 0..n {
         let row_mean = ((truth[i] + pred[i]) as f64) / 2.0;
         ms_r += 2.0 * (row_mean - grand).powi(2);
-        ms_w +=
-            (truth[i] as f64 - row_mean).powi(2) + (pred[i] as f64 - row_mean).powi(2);
+        ms_w += (truth[i] as f64 - row_mean).powi(2) + (pred[i] as f64 - row_mean).powi(2);
     }
     ms_r /= (n - 1) as f64;
     ms_w /= n as f64;

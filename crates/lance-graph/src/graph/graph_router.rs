@@ -180,11 +180,7 @@ impl GraphRouter {
     /// Composes multiple relationship types sequentially using XorBundle
     /// semiring (the default for path composition). Results are filtered
     /// by the truth gate using the weakest truth value along each path.
-    pub fn query_blasgraph_multi_hop(
-        &self,
-        rel_types: &[&str],
-        gate: TruthGate,
-    ) -> Vec<GraphHit> {
+    pub fn query_blasgraph_multi_hop(&self, rel_types: &[&str], gate: TruthGate) -> Vec<GraphHit> {
         let result = match self
             .typed_graph
             .multi_hop(rel_types, &HdrSemiring::XorBundle)
@@ -218,12 +214,8 @@ impl GraphRouter {
     /// Currently only blasgraph is connected; palette routing will be added in Phase 4.
     pub fn query_routed(&self, rel_type: &str, gate: TruthGate) -> Vec<GraphHit> {
         match Self::classify_query(rel_type) {
-            QueryClass::Similarity => {
-                self.query_blasgraph(rel_type, gate)
-            }
-            QueryClass::PureTraversal | QueryClass::Hybrid => {
-                self.query_blasgraph(rel_type, gate)
-            }
+            QueryClass::Similarity => self.query_blasgraph(rel_type, gate),
+            QueryClass::PureTraversal | QueryClass::Hybrid => self.query_blasgraph(rel_type, gate),
         }
     }
 
@@ -232,9 +224,8 @@ impl GraphRouter {
         #[cfg(feature = "planner")]
         {
             let q = query_text.to_uppercase();
-            let has_fingerprint = q.contains("HAMMING")
-                || q.contains("FINGERPRINT")
-                || q.contains("RESONATE");
+            let has_fingerprint =
+                q.contains("HAMMING") || q.contains("FINGERPRINT") || q.contains("RESONATE");
             let has_graph_pattern = q.contains("MATCH");
 
             if has_fingerprint && has_graph_pattern {
@@ -339,13 +330,18 @@ mod tests {
     fn test_empty_graph() {
         let router = GraphRouter::new(0);
         assert!(router.query_blasgraph("KNOWS", TruthGate::OPEN).is_empty());
-        assert!(router.query_blasgraph_multi_hop(&["KNOWS", "KNOWS"], TruthGate::OPEN).is_empty());
+        assert!(router
+            .query_blasgraph_multi_hop(&["KNOWS", "KNOWS"], TruthGate::OPEN)
+            .is_empty());
         assert!(router.query_routed("KNOWS", TruthGate::OPEN).is_empty());
     }
 
     #[test]
     fn test_query_classification() {
-        assert_eq!(GraphRouter::classify_query("KNOWS"), QueryClass::PureTraversal);
+        assert_eq!(
+            GraphRouter::classify_query("KNOWS"),
+            QueryClass::PureTraversal
+        );
     }
 
     #[test]

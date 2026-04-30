@@ -97,7 +97,10 @@ fn main() {
     eprintln!("cam_pq_calibrate");
     eprintln!("  model:       {}", model_path.display());
     eprintln!("  out_dir:     {}", out_dir.display());
-    eprintln!("  max_rows:    {}", max_rows.map_or("all".to_string(), |n| n.to_string()));
+    eprintln!(
+        "  max_rows:    {}",
+        max_rows.map_or("all".to_string(), |n| n.to_string())
+    );
     eprintln!("  icc_samples: {icc_samples}");
 
     fs::create_dir_all(out_dir.join("codebooks")).expect("mkdir codebooks");
@@ -163,10 +166,8 @@ fn main() {
                 };
 
                 // Chunk into rows. Limit row count for calibration if requested.
-                let rows_full: Vec<Vec<f32>> = flat
-                    .chunks_exact(row_dim_u)
-                    .map(|c| c.to_vec())
-                    .collect();
+                let rows_full: Vec<Vec<f32>> =
+                    flat.chunks_exact(row_dim_u).map(|c| c.to_vec()).collect();
                 assert_eq!(rows_full.len(), n_rows_u);
 
                 let calibration_rows: &[Vec<f32>] = match max_rows {
@@ -259,7 +260,9 @@ fn main() {
                 let pt_sha = sha256_file(&pt_path).expect("sha256 passthrough");
                 eprintln!(
                     "  [passthrough {:.1} MB]",
-                    fs::metadata(&pt_path).map(|m| m.len() as f64 / 1e6).unwrap_or(0.0),
+                    fs::metadata(&pt_path)
+                        .map(|m| m.len() as f64 / 1e6)
+                        .unwrap_or(0.0),
                 );
                 manifest_entries.push(ManifestEntry {
                     name: tensor.name.clone(),
@@ -317,13 +320,29 @@ fn main() {
     serde_json::to_writer_pretty(BufWriter::new(file), &manifest).expect("write manifest");
 
     let total = t_start.elapsed();
-    eprintln!("done in {:.1}s ({:.1} min)", total.as_secs_f32(), total.as_secs_f32() / 60.0);
+    eprintln!(
+        "done in {:.1}s ({:.1} min)",
+        total.as_secs_f32(),
+        total.as_secs_f32() / 60.0
+    );
     eprintln!("manifest: {}", manifest_path.display());
 
     // Summary.
-    let campq = manifest.entries.iter().filter(|e| e.route == "CamPq").count();
-    let pt = manifest.entries.iter().filter(|e| e.route == "Passthrough").count();
-    let skip = manifest.entries.iter().filter(|e| e.route == "Skip").count();
+    let campq = manifest
+        .entries
+        .iter()
+        .filter(|e| e.route == "CamPq")
+        .count();
+    let pt = manifest
+        .entries
+        .iter()
+        .filter(|e| e.route == "Passthrough")
+        .count();
+    let skip = manifest
+        .entries
+        .iter()
+        .filter(|e| e.route == "Skip")
+        .count();
     eprintln!("  CamPq       tensors: {campq}");
     eprintln!("  Passthrough tensors: {pt}");
     eprintln!("  Skip        tensors: {skip}");
@@ -342,9 +361,7 @@ fn main() {
         eprintln!("  min ICC_3_1 across CamPq tensors: {min_icc:.4}");
         eprintln!("  max relative L2 error:             {max_err:.4}");
         if min_icc < 0.99 {
-            eprintln!(
-                "WARN: at least one tensor has ICC < 0.99 — D7 fallback threshold applies."
-            );
+            eprintln!("WARN: at least one tensor has ICC < 0.99 — D7 fallback threshold applies.");
         }
     }
 }
@@ -367,11 +384,7 @@ fn write_codebook(path: &Path, cb: &CamCodebook) -> std::io::Result<()> {
         // centroids are zero-filled — encoder will never select them because
         // squared_l2 against a zero vector dominates for any non-trivial row.
         for c in 0..NUM_CENTROIDS {
-            let centroid = cb_s
-                .centroids
-                .get(c)
-                .map(|v| v.as_slice())
-                .unwrap_or(&[]);
+            let centroid = cb_s.centroids.get(c).map(|v| v.as_slice()).unwrap_or(&[]);
             for d in 0..cb.subspace_dim {
                 let val = centroid.get(d).copied().unwrap_or(0.0);
                 w.write_all(&val.to_le_bytes())?;
@@ -382,11 +395,7 @@ fn write_codebook(path: &Path, cb: &CamCodebook) -> std::io::Result<()> {
     Ok(())
 }
 
-fn write_fingerprints(
-    path: &Path,
-    row_dim: u32,
-    fps: &[CamFingerprint],
-) -> std::io::Result<()> {
+fn write_fingerprints(path: &Path, row_dim: u32, fps: &[CamFingerprint]) -> std::io::Result<()> {
     let file = File::create(path)?;
     let mut w = BufWriter::new(file);
     w.write_all(b"CMFP")?;
@@ -539,7 +548,13 @@ fn row_layout(dims: &[u64]) -> Option<(u64, u64)> {
 
 fn sanitize_name(name: &str) -> String {
     name.chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '.' || c == '_' || c == '-' { c } else { '_' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '.' || c == '_' || c == '-' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect()
 }
 

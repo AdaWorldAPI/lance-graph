@@ -83,24 +83,31 @@ pub enum CrystalFingerprint {
 /// that dimension.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Quorum5D {
-    pub element:           f32,
+    pub element: f32,
     pub sentence_position: f32,
-    pub slot:              f32,
-    pub nars_inference:    f32,
-    pub style_cluster:     f32,
+    pub slot: f32,
+    pub nars_inference: f32,
+    pub style_cluster: f32,
 }
 
 impl Quorum5D {
     pub const fn new(e: f32, p: f32, s: f32, n: f32, c: f32) -> Self {
         Self {
-            element: e, sentence_position: p, slot: s,
-            nars_inference: n, style_cluster: c,
+            element: e,
+            sentence_position: p,
+            slot: s,
+            nars_inference: n,
+            style_cluster: c,
         }
     }
 
     pub fn mean(&self) -> f32 {
-        (self.element + self.sentence_position + self.slot
-            + self.nars_inference + self.style_cluster) / 5.0
+        (self.element
+            + self.sentence_position
+            + self.slot
+            + self.nars_inference
+            + self.style_cluster)
+            / 5.0
     }
 }
 
@@ -114,11 +121,14 @@ pub struct Structured5x5 {
 impl Structured5x5 {
     /// Index into the 5^5 grid. Each axis ∈ [0, 5).
     #[inline]
-    pub fn idx(element: u8, sentence_pos: u8, slot: u8,
-               nars: u8, style: u8) -> usize {
-        let (e, p, s, n, c) =
-            (element as usize, sentence_pos as usize, slot as usize,
-             nars as usize, style as usize);
+    pub fn idx(element: u8, sentence_pos: u8, slot: u8, nars: u8, style: u8) -> usize {
+        let (e, p, s, n, c) = (
+            element as usize,
+            sentence_pos as usize,
+            slot as usize,
+            nars as usize,
+            style as usize,
+        );
         e + 5 * (p + 5 * (s + 5 * (n + 5 * c)))
     }
 
@@ -152,14 +162,14 @@ impl Structured5x5 {
 // permuted by a position-dependent stride, carrying sequence/ordering
 // information into the VSA space. See [`CrystalFingerprint::bit_chain_stride`].
 
-const SANDWICH_LEAD: usize       = 3437;
-const CELLS_START: usize         = SANDWICH_LEAD;
-const CELLS_END: usize           = CELLS_START + 3125;           // 6562
-const QUORUM_START: usize        = CELLS_END;                    // 6562
-const QUORUM_END: usize          = QUORUM_START + 5;             // 6567
-const QUORUM_SENTINEL: usize     = QUORUM_END;                   // 6567
-const SANDWICH_TAIL_START: usize = QUORUM_SENTINEL + 1;          // 6568
-// SANDWICH_TAIL_END = 10_000 (exclusive)
+const SANDWICH_LEAD: usize = 3437;
+const CELLS_START: usize = SANDWICH_LEAD;
+const CELLS_END: usize = CELLS_START + 3125; // 6562
+const QUORUM_START: usize = CELLS_END; // 6562
+const QUORUM_END: usize = QUORUM_START + 5; // 6567
+const QUORUM_SENTINEL: usize = QUORUM_END; // 6567
+const SANDWICH_TAIL_START: usize = QUORUM_SENTINEL + 1; // 6568
+                                                        // SANDWICH_TAIL_END = 10_000 (exclusive)
 
 impl CrystalFingerprint {
     /// Project into the 10,000-D f32 VSA form.
@@ -197,8 +207,8 @@ impl CrystalFingerprint {
                         let val = match (b0, b1) {
                             (0, 0) => -1.0f32,
                             (1, 0) => -0.33,
-                            (0, 1) =>  0.33,
-                            _      =>  1.0,
+                            (0, 1) => 0.33,
+                            _ => 1.0,
                         };
                         out[base + d] = val;
                     }
@@ -217,8 +227,7 @@ impl CrystalFingerprint {
                 // into those regions for multi-role superposition.
                 for i in 0..3125 {
                     // Bipolar: cell 0 → -1.0, cell 127/128 → ~0, cell 255 → +1.0
-                    out[CELLS_START + i] =
-                        (cells[i] as f32 / 127.5) - 1.0;
+                    out[CELLS_START + i] = (cells[i] as f32 / 127.5) - 1.0;
                 }
                 if let Some(q) = quorum {
                     out[QUORUM_START] = q.element;
@@ -262,13 +271,17 @@ impl CrystalFingerprint {
         let mut cells = Box::new([0u8; 3125]);
         for i in 0..3125 {
             // Inverse of bipolar: f32 [-1, 1] → u8 [0, 255]
-            let v = ((vsa[CELLS_START + i] + 1.0) * 127.5).round().clamp(0.0, 255.0) as u8;
+            let v = ((vsa[CELLS_START + i] + 1.0) * 127.5)
+                .round()
+                .clamp(0.0, 255.0) as u8;
             cells[i] = v;
         }
         let quorum = if vsa[QUORUM_SENTINEL] > 0.0 {
             Some(Quorum5D::new(
-                vsa[QUORUM_START], vsa[QUORUM_START + 1],
-                vsa[QUORUM_START + 2], vsa[QUORUM_START + 3],
+                vsa[QUORUM_START],
+                vsa[QUORUM_START + 1],
+                vsa[QUORUM_START + 2],
+                vsa[QUORUM_START + 3],
                 vsa[QUORUM_START + 4],
             ))
         } else {
@@ -283,13 +296,19 @@ impl CrystalFingerprint {
     /// permutation primitive. Downstream crates applying sequence/
     /// position encoding should permute the leading or trailing sandwich
     /// regions before bundling crystals.
-    pub const fn sandwich_lead() -> (usize, usize) { (0, SANDWICH_LEAD) }
+    pub const fn sandwich_lead() -> (usize, usize) {
+        (0, SANDWICH_LEAD)
+    }
 
     /// Sandwich range for the 3,125 cells (middle).
-    pub const fn sandwich_cells() -> (usize, usize) { (CELLS_START, CELLS_END) }
+    pub const fn sandwich_cells() -> (usize, usize) {
+        (CELLS_START, CELLS_END)
+    }
 
     /// Sandwich range for the trailing role-binding region.
-    pub const fn sandwich_tail() -> (usize, usize) { (SANDWICH_TAIL_START, 10_000) }
+    pub const fn sandwich_tail() -> (usize, usize) {
+        (SANDWICH_TAIL_START, 10_000)
+    }
 
     /// Reconstruct a Binary16K from its 10K-D form (lossless inverse).
     ///
@@ -329,11 +348,11 @@ impl CrystalFingerprint {
     /// Byte size of this fingerprint in its native form.
     pub fn byte_size(&self) -> usize {
         match self {
-            Self::Binary16K(_)            => 2 * 1024,          //  2 KB
-            Self::Structured5x5 { .. }    => 3125 + 5 * 4,      // ~3 KB
-            Self::Vsa10kI8(_)            => 10_000,            // 10 KB
-            Self::Vsa10kF32(_)           => 40_000,            // 40 KB
-            Self::Vsa16kF32(_)           => 65_536,            // 64 KB
+            Self::Binary16K(_) => 2 * 1024,             //  2 KB
+            Self::Structured5x5 { .. } => 3125 + 5 * 4, // ~3 KB
+            Self::Vsa10kI8(_) => 10_000,                // 10 KB
+            Self::Vsa10kF32(_) => 40_000,               // 40 KB
+            Self::Vsa16kF32(_) => 65_536,               // 64 KB
         }
     }
 }
@@ -367,10 +386,7 @@ pub fn vsa_bundle(vectors: &[&[f32; 10_000]]) -> Box<[f32; 10_000]> {
 }
 
 /// Weighted superposition: merges with explicit blending weights.
-pub fn vsa_superpose(
-    vectors: &[&[f32; 10_000]],
-    weights: &[f32],
-) -> Box<[f32; 10_000]> {
+pub fn vsa_superpose(vectors: &[&[f32; 10_000]], weights: &[f32]) -> Box<[f32; 10_000]> {
     let mut out = Box::new([0.0f32; 10_000]);
     for (v, &w) in vectors.iter().zip(weights.iter()) {
         for i in 0..10_000 {
@@ -391,7 +407,11 @@ pub fn vsa_cosine(a: &[f32; 10_000], b: &[f32; 10_000]) -> f32 {
         norm_b += b[i] * b[i];
     }
     let denom = norm_a.sqrt() * norm_b.sqrt();
-    if denom < 1e-12 { 0.0 } else { dot / denom }
+    if denom < 1e-12 {
+        0.0
+    } else {
+        dot / denom
+    }
 }
 
 // ── Vsa16kF32 — the Click switchboard carrier ──────────────────────────
@@ -477,7 +497,11 @@ pub fn vsa16k_cosine(a: &[f32; 16_384], b: &[f32; 16_384]) -> f32 {
         norm_b += b[i] * b[i];
     }
     let denom = norm_a.sqrt() * norm_b.sqrt();
-    if denom < 1e-12 { 0.0 } else { dot / denom }
+    if denom < 1e-12 {
+        0.0
+    } else {
+        dot / denom
+    }
 }
 
 #[cfg(test)]
@@ -497,7 +521,9 @@ mod tests {
     #[test]
     fn structured_passthrough_roundtrip_with_quorum() {
         let mut cells = Box::new([0u8; 3125]);
-        for i in 0..3125 { cells[i] = (i % 256) as u8; }
+        for i in 0..3125 {
+            cells[i] = (i % 256) as u8;
+        }
         let quorum = Some(Quorum5D::new(0.9, 0.8, 0.7, 0.6, 0.5));
         let fp = CrystalFingerprint::Structured5x5 { cells, quorum };
 
@@ -506,8 +532,11 @@ mod tests {
         match back {
             CrystalFingerprint::Structured5x5 { cells, quorum } => {
                 for i in 0..3125 {
-                    assert_eq!(cells[i], (i % 256) as u8,
-                        "cell {i} differs after passthrough");
+                    assert_eq!(
+                        cells[i],
+                        (i % 256) as u8,
+                        "cell {i} differs after passthrough"
+                    );
                 }
                 let q = quorum.expect("quorum should be Some after roundtrip");
                 assert!((q.element - 0.9).abs() < 1e-3);
@@ -520,7 +549,10 @@ mod tests {
     #[test]
     fn structured_passthrough_roundtrip_without_quorum() {
         let cells = Box::new([42u8; 3125]);
-        let fp = CrystalFingerprint::Structured5x5 { cells, quorum: None };
+        let fp = CrystalFingerprint::Structured5x5 {
+            cells,
+            quorum: None,
+        };
 
         let vsa = fp.to_vsa10k_f32();
         let back = CrystalFingerprint::structured_from_vsa10k(&vsa);
@@ -547,7 +579,10 @@ mod tests {
         let vb = fb.to_vsa10k_f32();
         // They should differ (word 100 maps to base 3900, word 200 to 7800)
         let diff: f32 = va.iter().zip(vb.iter()).map(|(x, y)| (x - y).abs()).sum();
-        assert!(diff > 0.0, "different binary fingerprints must yield different VSA");
+        assert!(
+            diff > 0.0,
+            "different binary fingerprints must yield different VSA"
+        );
     }
 
     #[test]
@@ -585,9 +620,11 @@ mod tests {
         match back {
             CrystalFingerprint::Binary16K(recovered) => {
                 for i in 0..256 {
-                    assert_eq!(recovered[i], bits[i],
+                    assert_eq!(
+                        recovered[i], bits[i],
                         "word {i}: expected {:#018x} got {:#018x}",
-                        bits[i], recovered[i]);
+                        bits[i], recovered[i]
+                    );
                 }
             }
             _ => panic!("unexpected variant"),
@@ -606,8 +643,12 @@ mod tests {
         let unbound = vsa_bind(&bound, &key);
         // Unbinding should recover the content (since key²=1 for ±1)
         for i in 0..10_000 {
-            assert!((unbound[i] - content[i]).abs() < 1e-5,
-                "dim {i}: expected {} got {}", content[i], unbound[i]);
+            assert!(
+                (unbound[i] - content[i]).abs() < 1e-5,
+                "dim {i}: expected {} got {}",
+                content[i],
+                unbound[i]
+            );
         }
     }
 
@@ -615,8 +656,12 @@ mod tests {
     fn vsa_bundle_preserves_similarity() {
         let mut a = Box::new([0.0f32; 10_000]);
         let mut b = Box::new([0.0f32; 10_000]);
-        for i in 0..10_000 { a[i] = 1.0; }
-        for i in 0..10_000 { b[i] = if i < 5000 { 1.0 } else { -1.0 }; }
+        for i in 0..10_000 {
+            a[i] = 1.0;
+        }
+        for i in 0..10_000 {
+            b[i] = if i < 5000 { 1.0 } else { -1.0 };
+        }
         let bundled = vsa_bundle(&[&*a, &*b]);
         let sim_a = vsa_cosine(&bundled, &a);
         let sim_b = vsa_cosine(&bundled, &b);
@@ -639,8 +684,11 @@ mod tests {
         let v = binary16k_to_vsa16k_bipolar(&bits);
         let back = vsa16k_to_binary16k_threshold(&v);
         for i in 0..256 {
-            assert_eq!(back[i], bits[i],
-                "word {i}: expected {:#018x} got {:#018x}", bits[i], back[i]);
+            assert_eq!(
+                back[i], bits[i],
+                "word {i}: expected {:#018x} got {:#018x}",
+                bits[i], back[i]
+            );
         }
     }
 
@@ -649,8 +697,11 @@ mod tests {
         let bits = Box::new([0xAAAA_AAAA_AAAA_AAAAu64; 256]);
         let v = binary16k_to_vsa16k_bipolar(&bits);
         for i in 0..16_384 {
-            assert!(v[i] == 1.0 || v[i] == -1.0,
-                "dim {i} is {} — must be strict ±1", v[i]);
+            assert!(
+                v[i] == 1.0 || v[i] == -1.0,
+                "dim {i} is {} — must be strict ±1",
+                v[i]
+            );
         }
     }
 
@@ -673,8 +724,12 @@ mod tests {
         let bound = vsa16k_bind(&content, &key);
         let unbound = vsa16k_bind(&bound, &key);
         for i in 0..16_384 {
-            assert!((unbound[i] - content[i]).abs() < 1e-5,
-                "dim {i}: expected {} got {}", content[i], unbound[i]);
+            assert!(
+                (unbound[i] - content[i]).abs() < 1e-5,
+                "dim {i}: expected {} got {}",
+                content[i],
+                unbound[i]
+            );
         }
     }
 
@@ -682,12 +737,16 @@ mod tests {
     fn vsa16k_bundle_preserves_similarity_to_inputs() {
         let a = {
             let mut v = Box::new([0.0f32; 16_384]);
-            for i in 0..16_384 { v[i] = 1.0; }
+            for i in 0..16_384 {
+                v[i] = 1.0;
+            }
             v
         };
         let b = {
             let mut v = Box::new([0.0f32; 16_384]);
-            for i in 0..16_384 { v[i] = if i < 8_192 { 1.0 } else { -1.0 }; }
+            for i in 0..16_384 {
+                v[i] = if i < 8_192 { 1.0 } else { -1.0 };
+            }
             v
         };
         let bundled = vsa16k_bundle(&[&*a, &*b]);
@@ -709,12 +768,14 @@ mod tests {
         let bundled = vsa16k_bundle(&[&*bound_a, &*bound_b]);
         let recovered_a = vsa16k_bind(&bundled, &role_a);
         let recovered_b = vsa16k_bind(&bundled, &role_b);
-        assert!(vsa16k_cosine(&recovered_a, &content_a)
-              > vsa16k_cosine(&recovered_a, &content_b),
-            "unbind(role_a) must favour content_a over content_b");
-        assert!(vsa16k_cosine(&recovered_b, &content_b)
-              > vsa16k_cosine(&recovered_b, &content_a),
-            "unbind(role_b) must favour content_b over content_a");
+        assert!(
+            vsa16k_cosine(&recovered_a, &content_a) > vsa16k_cosine(&recovered_a, &content_b),
+            "unbind(role_a) must favour content_a over content_b"
+        );
+        assert!(
+            vsa16k_cosine(&recovered_b, &content_b) > vsa16k_cosine(&recovered_b, &content_a),
+            "unbind(role_b) must favour content_b over content_a"
+        );
     }
 
     #[test]
@@ -722,8 +783,11 @@ mod tests {
         let fp = CrystalFingerprint::Vsa16kF32(Box::new([1.0f32; 16_384]));
         let v10 = fp.to_vsa10k_f32();
         for i in 0..10_000 {
-            assert!(v10[i].is_finite(),
-                "vsa16k→vsa10k must produce finite values; dim {i} is {}", v10[i]);
+            assert!(
+                v10[i].is_finite(),
+                "vsa16k→vsa10k must produce finite values; dim {i} is {}",
+                v10[i]
+            );
         }
     }
 }

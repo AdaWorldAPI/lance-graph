@@ -939,7 +939,11 @@ name = "bgz-tensor"
 version = "0.1.0"
 dependencies = [
  "holograph",
+ "lance-graph-contract",
  "ndarray 0.17.2",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
 ]
 
 [[package]]

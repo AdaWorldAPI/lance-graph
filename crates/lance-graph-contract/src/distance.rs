@@ -26,7 +26,9 @@ pub trait Distance: Sized {
     /// Normalized similarity in [0.0, 1.0]. Default: 1 - d/MAX.
     #[inline]
     fn similarity(&self, other: &Self) -> f32 {
-        if Self::MAX_DISTANCE == 0 { return 1.0; }
+        if Self::MAX_DISTANCE == 0 {
+            return 1.0;
+        }
         1.0 - (self.distance(other) as f32 / Self::MAX_DISTANCE as f32)
     }
 
@@ -53,7 +55,9 @@ pub fn fisher_z_inverse(z: f32) -> f32 {
 
 /// Average similarities via FisherZ transform (correct for nonlinear scales).
 pub fn mean_similarity_fisher(z_values: &[f32]) -> f32 {
-    if z_values.is_empty() { return 0.0; }
+    if z_values.is_empty() {
+        return 0.0;
+    }
     let mean_z: f32 = z_values.iter().sum::<f32>() / z_values.len() as f32;
     fisher_z_inverse(mean_z)
 }

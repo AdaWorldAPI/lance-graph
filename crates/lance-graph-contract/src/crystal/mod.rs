@@ -61,22 +61,21 @@
 //! All crystals share the [`Crystal`] trait: hardness, revision count,
 //! crystallized-at timestamp, and a polymorphic [`CrystalFingerprint`].
 
+pub mod context;
+pub mod cycle;
+pub mod document;
 pub mod fingerprint;
 pub mod sentence;
-pub mod context;
-pub mod document;
-pub mod cycle;
 pub mod session;
 
+pub use context::ContextCrystal;
+pub use cycle::CycleCrystal;
+pub use document::DocumentCrystal;
 pub use fingerprint::{
-    CrystalFingerprint, Structured5x5, Quorum5D,
-    vsa16k_zero, binary16k_to_vsa16k_bipolar, vsa16k_to_binary16k_threshold,
-    vsa16k_bind, vsa16k_bundle, vsa16k_cosine,
+    binary16k_to_vsa16k_bipolar, vsa16k_bind, vsa16k_bundle, vsa16k_cosine,
+    vsa16k_to_binary16k_threshold, vsa16k_zero, CrystalFingerprint, Quorum5D, Structured5x5,
 };
 pub use sentence::SentenceCrystal;
-pub use context::ContextCrystal;
-pub use document::DocumentCrystal;
-pub use cycle::CycleCrystal;
 pub use session::SessionCrystal;
 
 /// The kind of crystal — used for dispatch and policy.
@@ -98,7 +97,10 @@ pub struct TruthValue {
 
 impl TruthValue {
     pub const fn new(frequency: f32, confidence: f32) -> Self {
-        Self { frequency, confidence }
+        Self {
+            frequency,
+            confidence,
+        }
     }
 }
 

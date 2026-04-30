@@ -133,12 +133,10 @@ impl ColumnMaskRewriter {
                 // the plan returns a `NotImplemented` error at the
                 // first row — preventing silent disclosure if the
                 // wiring is forgotten.
-                Expr::ScalarFunction(
-                    datafusion::logical_expr::expr::ScalarFunction::new_udf(
-                        Arc::new(ScalarUDF::from(NotYetWiredHashUdf::new())),
-                        vec![expr.clone()],
-                    ),
-                )
+                Expr::ScalarFunction(datafusion::logical_expr::expr::ScalarFunction::new_udf(
+                    Arc::new(ScalarUDF::from(NotYetWiredHashUdf::new())),
+                    vec![expr.clone()],
+                ))
             }
             RedactionMode::Truncate(n) => {
                 // Use DataFusion's built-in `substr(col, 1, n)`.
@@ -199,10 +197,7 @@ impl PolicyRewriter for ColumnMaskRewriter {
         // nearest TableScan. Without a TableScan we have no table
         // name → no policy applies.
         let table_name = Self::extract_table_name(&plan);
-        let Some(policy) = table_name
-            .as_deref()
-            .and_then(|t| self.registry.lookup(t))
-        else {
+        let Some(policy) = table_name.as_deref().and_then(|t| self.registry.lookup(t)) else {
             return Ok(Transformed::no(plan));
         };
         let policy = policy.clone();
@@ -471,7 +466,10 @@ mod tests {
             actor_role: "analyst".to_string(),
         };
         assert_eq!(rewriter.kind(), PolicyKind::ColumnMask);
-        assert_eq!(<ColumnMaskRewriter as PolicyRewriter>::name(&rewriter), "column_mask");
+        assert_eq!(
+            <ColumnMaskRewriter as PolicyRewriter>::name(&rewriter),
+            "column_mask"
+        );
     }
 
     #[test]
@@ -504,9 +502,7 @@ mod tests {
             produce_one_row: false,
             schema: StdArc::new(datafusion::common::DFSchema::empty()),
         });
-        let transformed = rewriter
-            .rewrite_plan(plan)
-            .expect("rewrite should succeed");
+        let transformed = rewriter.rewrite_plan(plan).expect("rewrite should succeed");
         // Empty registry — no projection to rewrite, so pass-through.
         assert!(!transformed.transformed);
     }
@@ -543,12 +539,7 @@ mod tests {
             let src = provider_as_source(mem_source(mask_schema()));
             LogicalPlanBuilder::scan(table_name, src, None)
                 .unwrap()
-                .project(vec![
-                    col("name"),
-                    col("ssn"),
-                    col("card"),
-                    col("score"),
-                ])
+                .project(vec![col("name"), col("ssn"), col("card"), col("score")])
                 .unwrap()
                 .build()
                 .unwrap()
@@ -561,10 +552,7 @@ mod tests {
                 .data
         }
 
-        fn make_rewriter(
-            table: &str,
-            masks: Vec<(&str, RedactionMode)>,
-        ) -> ColumnMaskRewriter {
+        fn make_rewriter(table: &str, masks: Vec<(&str, RedactionMode)>) -> ColumnMaskRewriter {
             let mut columns = HashMap::new();
             for (col, mode) in masks {
                 columns.insert(col.to_string(), mode);
@@ -635,8 +623,7 @@ mod tests {
         #[test]
         fn redaction_mode_truncate_wraps_column_in_substr() {
             let plan = scan_with_projection("customers");
-            let rewriter =
-                make_rewriter("customers", vec![("card", RedactionMode::Truncate(4))]);
+            let rewriter = make_rewriter("customers", vec![("card", RedactionMode::Truncate(4))]);
             let rewritten = apply(plan, &rewriter);
             let s = format!("{rewritten}");
             // Truncate(4) should produce a substr() call.
@@ -871,11 +858,10 @@ mod tests {
             }
             for i in 0..=bytes.len() - wlen {
                 if &bytes[i..i + wlen] == word.as_bytes() {
-                    let before_ok = i == 0
-                        || !(bytes[i - 1].is_ascii_alphanumeric() || bytes[i - 1] == b'_');
+                    let before_ok =
+                        i == 0 || !(bytes[i - 1].is_ascii_alphanumeric() || bytes[i - 1] == b'_');
                     let after_ok = i + wlen == bytes.len()
-                        || !(bytes[i + wlen].is_ascii_alphanumeric()
-                            || bytes[i + wlen] == b'_');
+                        || !(bytes[i + wlen].is_ascii_alphanumeric() || bytes[i + wlen] == b'_');
                     if before_ok && after_ok {
                         return true;
                     }

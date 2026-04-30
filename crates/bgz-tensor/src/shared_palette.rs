@@ -35,9 +35,9 @@
 
 use crate::fisher_z::FisherZTable;
 // HeelBasin reserved for future basin-aware group partitioning
-#[allow(unused_imports)]
-use crate::hhtl_d::{HhtlDTensor, HhtlDEntry, HeelBasin, build_hip_families};
 use crate::hhtl_cache::HhtlCache;
+#[allow(unused_imports)]
+use crate::hhtl_d::{build_hip_families, HeelBasin, HhtlDEntry, HhtlDTensor};
 use crate::matryoshka::SvdBasis;
 use crate::palette::WeightPalette;
 use crate::projection::Base17;
@@ -102,23 +102,38 @@ pub fn should_use_leaf(role: &str) -> bool {
 /// Classify a tensor name into a palette group role.
 pub fn classify_role(name: &str) -> &'static str {
     let n = name.to_lowercase();
-    if n.contains("q_proj") || n.contains("k_proj") || n.contains("o_proj") { "qko" }
-    else if n.contains("v_proj") { "v" }
-    else if n.contains("gate_proj") { "gate" }
-    else if n.contains("up_proj") { "up" }
-    else if n.contains("down_proj") { "down" }
-    else if n.contains("embed") { "embed" }
-    else if n.contains("lm_head") { "lm_head" }
-    else if n.contains("projection") || n.contains("codec_head") { "projection" }
-    else { "other" }
+    if n.contains("q_proj") || n.contains("k_proj") || n.contains("o_proj") {
+        "qko"
+    } else if n.contains("v_proj") {
+        "v"
+    } else if n.contains("gate_proj") {
+        "gate"
+    } else if n.contains("up_proj") {
+        "up"
+    } else if n.contains("down_proj") {
+        "down"
+    } else if n.contains("embed") {
+        "embed"
+    } else if n.contains("lm_head") {
+        "lm_head"
+    } else if n.contains("projection") || n.contains("codec_head") {
+        "projection"
+    } else {
+        "other"
+    }
 }
 
 /// Classify a tensor name into component.
 pub fn classify_component(name: &str) -> &'static str {
-    if name.contains("code_predictor") { "code_predictor" }
-    else if name.contains("talker") { "talker" }
-    else if name.contains("speaker_encoder") { "speaker_encoder" }
-    else { "other" }
+    if name.contains("code_predictor") {
+        "code_predictor"
+    } else if name.contains("talker") {
+        "talker"
+    } else if name.contains("speaker_encoder") {
+        "speaker_encoder"
+    } else {
+        "other"
+    }
 }
 
 /// Determine if a tensor should be HHTL-D encoded (extended strategy).
@@ -161,7 +176,11 @@ pub fn build_shared_palette(
 
     // Build from combined sample
     let owned: Vec<Base17> = combined.iter().map(|&b| b.clone()).collect();
-    let sample = if owned.len() > 4096 { &owned[..4096] } else { &owned[..] };
+    let sample = if owned.len() > 4096 {
+        &owned[..4096]
+    } else {
+        &owned[..]
+    };
     WeightPalette::build(sample, k)
 }
 
@@ -216,9 +235,7 @@ pub fn build_group_with_fisher_z(
 
     // Build Base17 projections from first tensor for palette
     let first_rows = &tensor_rows_f32[0];
-    let base17_rows: Vec<Base17> = first_rows.iter()
-        .map(|r| Base17::from_f32(r))
-        .collect();
+    let base17_rows: Vec<Base17> = first_rows.iter().map(|r| Base17::from_f32(r)).collect();
     let palette = WeightPalette::build(&base17_rows, k);
     let cache = HhtlCache::from_palette(palette.clone());
     let hip_families = build_hip_families(&palette.entries);
@@ -228,7 +245,9 @@ pub fn build_group_with_fisher_z(
     let mut reps: Vec<Vec<f32>> = vec![Vec::new(); n_centroids];
     let mut rep_dists: Vec<u32> = vec![u32::MAX; n_centroids];
     for (i, row) in first_rows.iter().enumerate() {
-        if i >= base17_rows.len() { break; }
+        if i >= base17_rows.len() {
+            break;
+        }
         let (ci, dist) = cache.nearest(&base17_rows[i]);
         let ci = ci as usize;
         if ci < n_centroids && dist < rep_dists[ci] {
@@ -287,9 +306,7 @@ pub fn build_group_with_leaf(
 
     // Shared palette from first tensor's Base17 projection (same as Fisher-z path).
     let first_rows = &tensor_rows_f32[0];
-    let base17_rows: Vec<Base17> = first_rows.iter()
-        .map(|r| Base17::from_f32(r))
-        .collect();
+    let base17_rows: Vec<Base17> = first_rows.iter().map(|r| Base17::from_f32(r)).collect();
     let palette = WeightPalette::build(&base17_rows, k);
     let cache = HhtlCache::from_palette(palette.clone());
     let hip_families = build_hip_families(&palette.entries);
@@ -306,7 +323,9 @@ pub fn build_group_with_leaf(
     let mut reps: Vec<Vec<f32>> = vec![Vec::new(); n_centroids];
     let mut rep_dists: Vec<u32> = vec![u32::MAX; n_centroids];
     for (i, row) in first_rows.iter().enumerate() {
-        if i >= base17_rows.len() { break; }
+        if i >= base17_rows.len() {
+            break;
+        }
         let (ci, dist) = cache.nearest(&base17_rows[i]);
         let ci = ci as usize;
         if ci < n_centroids && dist < rep_dists[ci] {
@@ -349,7 +368,8 @@ impl SharedPaletteGroup {
     /// Total Slot L byte size across all tensors in this group (not counting
     /// the shared SVD basis, which is amortised per group).
     pub fn slot_l_byte_size(&self) -> usize {
-        self.tensor_slot_l.iter()
+        self.tensor_slot_l
+            .iter()
             .map(|(_, entries, _)| entries.len() * SlotL::BYTE_SIZE)
             .sum()
     }
@@ -361,7 +381,8 @@ impl SharedPaletteGroup {
 
     /// Find the SlotL vector for a given tensor name (and its shared scale).
     pub fn slot_l_for(&self, tensor_name: &str) -> Option<(&[SlotL], f32)> {
-        self.tensor_slot_l.iter()
+        self.tensor_slot_l
+            .iter()
             .find(|(n, _, _)| n == tensor_name)
             .map(|(_, entries, scale)| (entries.as_slice(), *scale))
     }
@@ -408,12 +429,27 @@ mod tests {
 
     #[test]
     fn classify_roles_correct() {
-        assert_eq!(classify_role("talker.layers.0.self_attn.q_proj.weight"), "qko");
-        assert_eq!(classify_role("talker.layers.0.self_attn.v_proj.weight"), "v");
-        assert_eq!(classify_role("talker.layers.0.mlp.gate_proj.weight"), "gate");
+        assert_eq!(
+            classify_role("talker.layers.0.self_attn.q_proj.weight"),
+            "qko"
+        );
+        assert_eq!(
+            classify_role("talker.layers.0.self_attn.v_proj.weight"),
+            "v"
+        );
+        assert_eq!(
+            classify_role("talker.layers.0.mlp.gate_proj.weight"),
+            "gate"
+        );
         assert_eq!(classify_role("talker.model.text_embedding.weight"), "embed");
-        assert_eq!(classify_role("talker.code_predictor.lm_head.0.weight"), "lm_head");
-        assert_eq!(classify_role("talker.layers.0.input_layernorm.weight"), "other");
+        assert_eq!(
+            classify_role("talker.code_predictor.lm_head.0.weight"),
+            "lm_head"
+        );
+        assert_eq!(
+            classify_role("talker.layers.0.input_layernorm.weight"),
+            "other"
+        );
     }
 
     #[test]
@@ -477,16 +513,18 @@ mod tests {
             let atom: Vec<f32> = (0..cols).map(|_| next()).collect();
             atoms.push(atom);
         }
-        (0..n).map(|_| {
-            let mut row = vec![0.0f32; cols];
-            for atom in &atoms {
-                let w = next() * 0.5;
-                for j in 0..cols {
-                    row[j] += atom[j] * w;
+        (0..n)
+            .map(|_| {
+                let mut row = vec![0.0f32; cols];
+                for atom in &atoms {
+                    let w = next() * 0.5;
+                    for j in 0..cols {
+                        row[j] += atom[j] * w;
+                    }
                 }
-            }
-            row
-        }).collect()
+                row
+            })
+            .collect()
     }
 
     #[test]
@@ -501,8 +539,14 @@ mod tests {
         let names = vec!["talker.layers.0.self_attn.q_proj.weight".to_string()];
         let rows = vec![low_rank_rows(32, 64, 0x1111)];
         let group = build_group_with_leaf(&key, &names, &rows, 16);
-        assert!(group.svd_basis.is_none(), "argmax-regime group should have no SVD basis");
-        assert!(group.tensor_slot_l.is_empty(), "argmax-regime group should have no Slot L entries");
+        assert!(
+            group.svd_basis.is_none(),
+            "argmax-regime group should have no SVD basis"
+        );
+        assert!(
+            group.tensor_slot_l.is_empty(),
+            "argmax-regime group should have no Slot L entries"
+        );
         assert_eq!(group.slot_l_byte_size(), 0);
         assert_eq!(group.svd_basis_byte_size(), 0);
     }
@@ -548,7 +592,7 @@ mod tests {
         // dispatch into a function that indexes tensor_rows_f32[0].
         let key = PaletteGroupKey {
             component: "talker".into(),
-            role: "embed".into(),  // index-regime path
+            role: "embed".into(), // index-regime path
             shape: (64, 128),
         };
         let empty_names: Vec<String> = vec![];
@@ -588,10 +632,7 @@ mod tests {
             "talker.code_predictor.lm_head.0.weight".to_string(),
             "talker.code_predictor.lm_head.1.weight".to_string(),
         ];
-        let rows = vec![
-            low_rank_rows(32, 64, 0x4444),
-            low_rank_rows(32, 64, 0x5555),
-        ];
+        let rows = vec![low_rank_rows(32, 64, 0x4444), low_rank_rows(32, 64, 0x5555)];
         let group = build_group_with_leaf(&key, &names, &rows, 8);
 
         assert_eq!(group.tensor_slot_l.len(), 2);

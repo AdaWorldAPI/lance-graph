@@ -29,7 +29,11 @@ impl JinaEmbedding {
     /// Create from raw embedding vector.
     pub fn new(text: String, vector: Vec<f32>) -> Self {
         let base17 = Base17::from_f32(&vector);
-        JinaEmbedding { text, vector, base17 }
+        JinaEmbedding {
+            text,
+            vector,
+            base17,
+        }
     }
 }
 
@@ -47,7 +51,11 @@ pub fn cosine_f32(a: &[f32], b: &[f32]) -> f64 {
         norm_b += y * y;
     }
     let denom = (norm_a * norm_b).sqrt();
-    if denom < 1e-12 { 0.0 } else { dot / denom }
+    if denom < 1e-12 {
+        0.0
+    } else {
+        dot / denom
+    }
 }
 
 /// A ground truth pair: two texts with their API cosine and Base17 L1 distance.
@@ -91,7 +99,11 @@ pub fn collect_ground_truth(embeddings: &[JinaEmbedding]) -> Vec<GroundTruthPair
         }
     }
 
-    pairs.sort_by(|a, b| b.api_cosine.partial_cmp(&a.api_cosine).unwrap_or(std::cmp::Ordering::Equal));
+    pairs.sort_by(|a, b| {
+        b.api_cosine
+            .partial_cmp(&a.api_cosine)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     pairs
 }
 
@@ -119,11 +131,15 @@ pub fn summarize_ground_truth(pairs: &[GroundTruthPair]) -> GroundTruthSummary {
     let n = pairs.len();
     if n == 0 {
         return GroundTruthSummary {
-            n_texts: 0, n_pairs: 0,
-            mean_api_cosine: 0.0, std_api_cosine: 0.0,
+            n_texts: 0,
+            n_pairs: 0,
+            mean_api_cosine: 0.0,
+            std_api_cosine: 0.0,
             mean_base17_l1: 0.0,
-            pearson_l1_vs_cosine: 0.0, spearman_l1_vs_cosine: 0.0,
-            mean_base17_cosine: 0.0, pearson_base17cos_vs_apicos: 0.0,
+            pearson_l1_vs_cosine: 0.0,
+            spearman_l1_vs_cosine: 0.0,
+            mean_base17_cosine: 0.0,
+            pearson_base17cos_vs_apicos: 0.0,
         };
     }
 
@@ -165,10 +181,8 @@ pub fn parse_jina_response(json: &str, texts: &[&str]) -> Result<Vec<JinaEmbeddi
     let mut embeddings = Vec::new();
 
     // Find "data" array
-    let data_start = json.find("\"data\"")
-        .ok_or("missing 'data' field")?;
-    let arr_start = json[data_start..].find('[')
-        .ok_or("missing data array")?;
+    let data_start = json.find("\"data\"").ok_or("missing 'data' field")?;
+    let arr_start = json[data_start..].find('[').ok_or("missing data array")?;
     let json_from_arr = &json[data_start + arr_start..];
 
     // Parse each embedding object
@@ -196,12 +210,17 @@ pub fn parse_jina_response(json: &str, texts: &[&str]) -> Result<Vec<JinaEmbeddi
 
         // Parse numbers between [ and ]
         let nums_str = &json_from_arr[arr_start + 1..arr_end];
-        let vector: Vec<f32> = nums_str.split(',')
+        let vector: Vec<f32> = nums_str
+            .split(',')
             .filter_map(|s| s.trim().parse::<f32>().ok())
             .collect();
 
         if !vector.is_empty() {
-            let text = if idx < texts.len() { texts[idx].to_string() } else { format!("text_{}", idx) };
+            let text = if idx < texts.len() {
+                texts[idx].to_string()
+            } else {
+                format!("text_{}", idx)
+            };
             embeddings.push(JinaEmbedding::new(text, vector));
         }
 
@@ -248,7 +267,8 @@ pub fn calibration_texts() -> Vec<&'static str> {
 
 /// Build the curl command for Jina API embedding request.
 pub fn jina_curl_command(texts: &[&str], api_key: &str) -> String {
-    let input_json: String = texts.iter()
+    let input_json: String = texts
+        .iter()
         .map(|t| format!("\"{}\"", t.replace('\"', "\\\"")))
         .collect::<Vec<_>>()
         .join(",");
@@ -298,7 +318,7 @@ mod tests {
         ];
         let pairs = collect_ground_truth(&embs);
         assert_eq!(pairs.len(), 3); // C(3,2) = 3
-        // hello↔hi should have highest cosine
+                                    // hello↔hi should have highest cosine
         let best = &pairs[0];
         assert!(best.api_cosine > 0.9);
     }
@@ -323,12 +343,18 @@ mod tests {
     fn ground_truth_summary_basic() {
         let pairs = vec![
             GroundTruthPair {
-                text_a: "a".into(), text_b: "b".into(),
-                api_cosine: 0.9, base17_l1: 100, base17_cosine: 0.85,
+                text_a: "a".into(),
+                text_b: "b".into(),
+                api_cosine: 0.9,
+                base17_l1: 100,
+                base17_cosine: 0.85,
             },
             GroundTruthPair {
-                text_a: "c".into(), text_b: "d".into(),
-                api_cosine: 0.1, base17_l1: 5000, base17_cosine: 0.05,
+                text_a: "c".into(),
+                text_b: "d".into(),
+                api_cosine: 0.1,
+                base17_l1: 5000,
+                base17_cosine: 0.05,
             },
         ];
         let summary = summarize_ground_truth(&pairs);

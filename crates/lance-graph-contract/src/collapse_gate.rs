@@ -27,22 +27,43 @@ pub enum MergeMode {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct GateDecision {
     /// Flow = apply delta. Block = reject. Hold = queue for next cycle.
-    pub gate: u8,  // 0=Flow, 1=Block, 2=Hold (matches ndarray CollapseGate ordinals)
+    pub gate: u8, // 0=Flow, 1=Block, 2=Hold (matches ndarray CollapseGate ordinals)
     /// How to merge if Flow.
     pub merge: MergeMode,
 }
 
 impl GateDecision {
-    pub const FLOW_XOR: Self = Self { gate: 0, merge: MergeMode::Xor };
-    pub const FLOW_BUNDLE: Self = Self { gate: 0, merge: MergeMode::Bundle };
-    pub const FLOW_SUPER: Self = Self { gate: 0, merge: MergeMode::Superposition };
-    pub const BLOCK: Self = Self { gate: 1, merge: MergeMode::Xor };
-    pub const HOLD: Self = Self { gate: 2, merge: MergeMode::Xor };
+    pub const FLOW_XOR: Self = Self {
+        gate: 0,
+        merge: MergeMode::Xor,
+    };
+    pub const FLOW_BUNDLE: Self = Self {
+        gate: 0,
+        merge: MergeMode::Bundle,
+    };
+    pub const FLOW_SUPER: Self = Self {
+        gate: 0,
+        merge: MergeMode::Superposition,
+    };
+    pub const BLOCK: Self = Self {
+        gate: 1,
+        merge: MergeMode::Xor,
+    };
+    pub const HOLD: Self = Self {
+        gate: 2,
+        merge: MergeMode::Xor,
+    };
 
     #[inline]
-    pub fn is_flow(&self) -> bool { self.gate == 0 }
+    pub fn is_flow(&self) -> bool {
+        self.gate == 0
+    }
     #[inline]
-    pub fn is_block(&self) -> bool { self.gate == 1 }
+    pub fn is_block(&self) -> bool {
+        self.gate == 1
+    }
     #[inline]
-    pub fn is_hold(&self) -> bool { self.gate == 2 }
+    pub fn is_hold(&self) -> bool {
+        self.gate == 2
+    }
 }

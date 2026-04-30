@@ -3,9 +3,9 @@
 //! Each thinking cluster has different tolerance for latency, fan-out,
 //! and memory before elevating to a more expensive execution level.
 
-use std::time::Duration;
 use super::ElevationLevel;
 use crate::thinking::style::ThinkingCluster;
+use std::time::Duration;
 
 /// How much patience the planner has before elevating.
 #[derive(Debug, Clone)]
@@ -126,15 +126,14 @@ mod tests {
 
     #[test]
     fn test_budget_with_ceiling() {
-        let budget = budget_for_cluster(ThinkingCluster::Divergent)
-            .with_ceiling(ElevationLevel::Batch);
+        let budget =
+            budget_for_cluster(ThinkingCluster::Divergent).with_ceiling(ElevationLevel::Batch);
         assert_eq!(budget.ceiling, ElevationLevel::Batch);
     }
 
     #[test]
     fn test_budget_latency_scale() {
-        let budget = budget_for_cluster(ThinkingCluster::Convergent)
-            .with_latency_scale(0.25);
+        let budget = budget_for_cluster(ThinkingCluster::Convergent).with_latency_scale(0.25);
         assert!(budget.latency_budget <= Duration::from_millis(130));
     }
 }

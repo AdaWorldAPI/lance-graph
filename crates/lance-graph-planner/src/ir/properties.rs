@@ -29,15 +29,15 @@ impl PlanProperties {
 
     /// Check if a set of columns is a unique key.
     pub fn is_unique(&self, columns: &[String]) -> bool {
-        self.uccs.iter().any(|ucc| {
-            ucc.iter().all(|c| columns.contains(c))
-        })
+        self.uccs
+            .iter()
+            .any(|ucc| ucc.iter().all(|c| columns.contains(c)))
     }
 
     /// Check if a column is functionally determined by a set of columns.
     pub fn is_determined_by(&self, column: &str, determinant: &[String]) -> bool {
-        self.fds.iter().any(|(det, dep)| {
-            dep == column && det.iter().all(|d| determinant.contains(d))
-        })
+        self.fds
+            .iter()
+            .any(|(det, dep)| dep == column && det.iter().all(|d| determinant.contains(d)))
     }
 }

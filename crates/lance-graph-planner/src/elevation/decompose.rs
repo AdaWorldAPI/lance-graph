@@ -67,14 +67,16 @@ pub fn decompose_fanout(results_so_far: &Morsel, max_partitions: usize) -> Vec<M
     let partition_size = (results_so_far.num_rows / max_partitions).max(1);
     let num_partitions = results_so_far.num_rows.div_ceil(partition_size);
 
-    (0..num_partitions).map(|i| {
-        let start = i * partition_size;
-        let end = ((i + 1) * partition_size).min(results_so_far.num_rows);
-        Morsel {
-            num_rows: end - start,
-            columns: vec![], // Real impl: slice Arrow columns
-        }
-    }).collect()
+    (0..num_partitions)
+        .map(|i| {
+            let start = i * partition_size;
+            let end = ((i + 1) * partition_size).min(results_so_far.num_rows);
+            Morsel {
+                num_rows: end - start,
+                columns: vec![], // Real impl: slice Arrow columns
+            }
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -97,7 +99,10 @@ mod tests {
 
     #[test]
     fn test_decompose_splits_morsel() {
-        let morsel = Morsel { num_rows: 1000, columns: vec![] };
+        let morsel = Morsel {
+            num_rows: 1000,
+            columns: vec![],
+        };
         let parts = decompose_fanout(&morsel, 4);
         assert_eq!(parts.len(), 4);
         let total: usize = parts.iter().map(|m| m.num_rows).sum();
@@ -106,7 +111,10 @@ mod tests {
 
     #[test]
     fn test_decompose_empty_morsel() {
-        let morsel = Morsel { num_rows: 0, columns: vec![] };
+        let morsel = Morsel {
+            num_rows: 0,
+            columns: vec![],
+        };
         let parts = decompose_fanout(&morsel, 4);
         assert!(parts.is_empty());
     }

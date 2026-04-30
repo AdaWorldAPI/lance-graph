@@ -13,6 +13,7 @@
 pub mod builder;
 pub mod merkle;
 pub mod nsm_bridge;
+pub mod ontology_bridge;
 pub mod semiring;
 pub mod store;
 pub mod truth;

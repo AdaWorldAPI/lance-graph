@@ -38,14 +38,21 @@ impl FamilyGamma {
     /// Compute from a set of pairwise cosine values.
     pub fn from_cosines(cosines: &[f32]) -> Self {
         if cosines.is_empty() {
-            return FamilyGamma { z_min: 0.0, z_range: 1.0 };
+            return FamilyGamma {
+                z_min: 0.0,
+                z_range: 1.0,
+            };
         }
         let mut z_min = f32::INFINITY;
         let mut z_max = f32::NEG_INFINITY;
         for &cos in cosines {
             let z = atanh_clamp(cos);
-            if z < z_min { z_min = z; }
-            if z > z_max { z_max = z; }
+            if z < z_min {
+                z_min = z;
+            }
+            if z > z_max {
+                z_max = z;
+            }
         }
         let z_range = (z_max - z_min).max(1e-10);
         FamilyGamma { z_min, z_range }
@@ -126,11 +133,13 @@ impl FisherZTable {
         let gamma = FamilyGamma::from_cosines(&cosines);
 
         // Encode to i8
-        let entries: Vec<i8> = table_f32.iter()
-            .map(|&cos| gamma.encode(cos))
-            .collect();
+        let entries: Vec<i8> = table_f32.iter().map(|&cos| gamma.encode(cos)).collect();
 
-        FisherZTable { entries, k: n, gamma }
+        FisherZTable {
+            entries,
+            k: n,
+            gamma,
+        }
     }
 
     /// Build from a palette's Base17 entries using Base17 cosine proxy.
@@ -140,9 +149,7 @@ impl FisherZTable {
     /// keeping the full-dimension data.
     pub fn build_from_palette(palette: &WeightPalette, n_cols: usize) -> Self {
         let k = palette.entries.len();
-        let reps: Vec<Vec<f32>> = palette.entries.iter()
-            .map(|b| b.to_f32(n_cols))
-            .collect();
+        let reps: Vec<Vec<f32>> = palette.entries.iter().map(|b| b.to_f32(n_cols)).collect();
         Self::build(&reps, k)
     }
 
@@ -181,10 +188,7 @@ impl FisherZTable {
     /// Deserialize from bytes. Requires knowing k.
     pub fn from_bytes(bytes: &[u8], k: usize) -> Self {
         let gamma = FamilyGamma::from_le_bytes(bytes[0..8].try_into().unwrap());
-        let entries: Vec<i8> = bytes[8..8 + k * k]
-            .iter()
-            .map(|&b| b as i8)
-            .collect();
+        let entries: Vec<i8> = bytes[8..8 + k * k].iter().map(|&b| b as i8).collect();
         FisherZTable { entries, k, gamma }
     }
 }
@@ -209,7 +213,11 @@ fn cosine_f32(a: &[f32], b: &[f32]) -> f32 {
         nb += y * y;
     }
     let denom = (na * nb).sqrt();
-    if denom < 1e-15 { 0.0 } else { (dot / denom) as f32 }
+    if denom < 1e-15 {
+        0.0
+    } else {
+        (dot / denom) as f32
+    }
 }
 
 #[cfg(test)]
@@ -218,7 +226,10 @@ mod tests {
 
     #[test]
     fn gamma_roundtrip() {
-        let gamma = FamilyGamma { z_min: -0.5, z_range: 1.0 };
+        let gamma = FamilyGamma {
+            z_min: -0.5,
+            z_range: 1.0,
+        };
         let bytes = gamma.to_le_bytes();
         let recovered = FamilyGamma::from_le_bytes(&bytes);
         assert_eq!(gamma, recovered);
@@ -230,9 +241,14 @@ mod tests {
         for &cos in &[-0.3f32, -0.1, 0.0, 0.1, 0.5] {
             let encoded = gamma.encode(cos);
             let decoded = gamma.decode(encoded);
-            assert!((cos - decoded).abs() < 0.02,
+            assert!(
+                (cos - decoded).abs() < 0.02,
                 "cos={} → i8={} → decoded={}, err={}",
-                cos, encoded, decoded, (cos - decoded).abs());
+                cos,
+                encoded,
+                decoded,
+                (cos - decoded).abs()
+            );
         }
     }
 
@@ -247,19 +263,24 @@ mod tests {
         // Diagonal should be max (self-similarity = 1.0)
         for i in 0..3 {
             let self_val = table.lookup_i8(i as u8, i as u8);
-            assert!(self_val > 100, "Self-similarity should be high: {}", self_val);
+            assert!(
+                self_val > 100,
+                "Self-similarity should be high: {}",
+                self_val
+            );
         }
     }
 
     #[test]
     fn table_orthogonal_near_zero() {
-        let rows = vec![
-            vec![1.0, 0.0, 0.0, 0.0],
-            vec![0.0, 1.0, 0.0, 0.0],
-        ];
+        let rows = vec![vec![1.0, 0.0, 0.0, 0.0], vec![0.0, 1.0, 0.0, 0.0]];
         let table = FisherZTable::build(&rows, 2);
         let cos_01 = table.lookup_f32(0, 1);
-        assert!(cos_01.abs() < 0.1, "Orthogonal should be near 0: {}", cos_01);
+        assert!(
+            cos_01.abs() < 0.1,
+            "Orthogonal should be near 0: {}",
+            cos_01
+        );
     }
 
     #[test]
@@ -272,8 +293,13 @@ mod tests {
         let table = FisherZTable::build(&rows, 3);
         for i in 0..3u8 {
             for j in 0..3u8 {
-                assert_eq!(table.lookup_i8(i, j), table.lookup_i8(j, i),
-                    "Table should be symmetric at ({}, {})", i, j);
+                assert_eq!(
+                    table.lookup_i8(i, j),
+                    table.lookup_i8(j, i),
+                    "Table should be symmetric at ({}, {})",
+                    i,
+                    j
+                );
             }
         }
     }
@@ -298,7 +324,10 @@ mod tests {
         let table = FisherZTable {
             entries: vec![0i8; k * k],
             k,
-            gamma: FamilyGamma { z_min: 0.0, z_range: 1.0 },
+            gamma: FamilyGamma {
+                z_min: 0.0,
+                z_range: 1.0,
+            },
         };
         assert_eq!(table.byte_size(), 256 * 256 + 8); // 64 KB + 8 bytes
     }

@@ -68,11 +68,7 @@ impl EdgeSchema {
             Field::new("src_id", DataType::UInt32, false),
             Field::new("dst_id", DataType::UInt32, false),
             Field::new("weight", DataType::Float16, false),
-            Field::new(
-                "label",
-                DataType::FixedSizeBinary(PLANE_BYTES),
-                true,
-            ),
+            Field::new("label", DataType::FixedSizeBinary(PLANE_BYTES), true),
         ])
     }
 
@@ -95,11 +91,7 @@ impl FingerprintSchema {
     pub fn arrow_schema() -> Schema {
         Schema::new(vec![
             Field::new("id", DataType::UInt32, false),
-            Field::new(
-                "fingerprint",
-                DataType::FixedSizeBinary(PLANE_BYTES),
-                false,
-            ),
+            Field::new("fingerprint", DataType::FixedSizeBinary(PLANE_BYTES), false),
         ])
     }
 
@@ -128,10 +120,7 @@ mod tests {
             DataType::FixedSizeBinary(2048)
         );
         assert_eq!(schema.field(1).name(), "plane_s");
-        assert_eq!(
-            *schema.field(4).data_type(),
-            DataType::FixedSizeBinary(6)
-        );
+        assert_eq!(*schema.field(4).data_type(), DataType::FixedSizeBinary(6));
         assert_eq!(schema.field(4).name(), "seal_s");
         assert_eq!(schema.field(7).name(), "encounters");
     }

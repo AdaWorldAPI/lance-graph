@@ -25,17 +25,18 @@
 //!   Structured embeddings (audio codec): HadCascade (ICC 1.000)
 
 use crate::stacked_n::{bf16_to_f32, f32_to_bf16};
-use ndarray::hpc::fft::wht_f32;
-use ndarray::hpc::quantized::{
-    quantize_f32_to_i4, dequantize_i4_to_f32,
-    quantize_f32_to_i2, dequantize_i2_to_f32,
-};
 use ndarray::hpc::cam_pq::{kmeans, squared_l2};
+use ndarray::hpc::fft::wht_f32;
 use ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd;
+use ndarray::hpc::quantized::{
+    dequantize_i2_to_f32, dequantize_i4_to_f32, quantize_f32_to_i2, quantize_f32_to_i4,
+};
 
 fn next_pow2(n: usize) -> usize {
     let mut p = 1;
-    while p < n { p *= 2; }
+    while p < n {
+        p *= 2;
+    }
     p
 }
 
@@ -111,50 +112,60 @@ impl HadCascadeTensor {
 
         let centroids = build_centroids(data, k);
 
-        let rows: Vec<HadCascadeRow> = data.iter().map(|row| {
-            let (ci, _) = nearest_centroid(row, &centroids);
+        let rows: Vec<HadCascadeRow> = data
+            .iter()
+            .map(|row| {
+                let (ci, _) = nearest_centroid(row, &centroids);
 
-            let residual: Vec<f32> = row.iter().zip(centroids[ci].iter())
-                .map(|(a, b)| a - b).collect();
+                let residual: Vec<f32> = row
+                    .iter()
+                    .zip(centroids[ci].iter())
+                    .map(|(a, b)| a - b)
+                    .collect();
 
-            let rotated1 = hadamard_rotate(&residual, padded);
+                let rotated1 = hadamard_rotate(&residual, padded);
 
-            if use_i8 {
-                // i8-only mode: 2:1 compression, higher fidelity
-                // dequantize_i8_to_f32 used in reconstruct_row decode path
-                #[allow(unused_imports)]
-                use ndarray::hpc::quantized::{quantize_f32_to_i8, dequantize_i8_to_f32};
-                let (i8_codes_raw, i8_params) = quantize_f32_to_i8(&rotated1[..n_cols]);
-                let i8_as_u8: Vec<u8> = i8_codes_raw.iter().map(|&v| v as u8).collect();
-                HadCascadeRow {
-                    twig: ci as u8,
-                    scale1_bf16: f32_to_bf16(i8_params.scale),
-                    i4_codes: i8_as_u8,
-                    scale2_bf16: 0,
-                    i2_codes: vec![],
+                if use_i8 {
+                    // i8-only mode: 2:1 compression, higher fidelity
+                    // dequantize_i8_to_f32 used in reconstruct_row decode path
+                    #[allow(unused_imports)]
+                    use ndarray::hpc::quantized::dequantize_i8_to_f32;
+                    use ndarray::hpc::quantized::quantize_f32_to_i8;
+                    let (i8_codes_raw, i8_params) = quantize_f32_to_i8(&rotated1[..n_cols]);
+                    let i8_as_u8: Vec<u8> = i8_codes_raw.iter().map(|&v| v as u8).collect();
+                    HadCascadeRow {
+                        twig: ci as u8,
+                        scale1_bf16: f32_to_bf16(i8_params.scale),
+                        i4_codes: i8_as_u8,
+                        scale2_bf16: 0,
+                        i2_codes: vec![],
+                    }
+                } else {
+                    // i4+i2 cascade: 2.65:1 compression
+                    let (i4_codes, i4_params) = quantize_f32_to_i4(&rotated1[..n_cols]);
+                    let dequant1 = dequantize_i4_to_f32(&i4_codes, &i4_params, n_cols);
+                    let mut full1 = vec![0.0f32; padded];
+                    full1[..n_cols].copy_from_slice(&dequant1);
+                    let recon1 = hadamard_rotate(&full1, padded);
+
+                    let residual2: Vec<f32> = residual
+                        .iter()
+                        .zip(recon1.iter().take(n_cols))
+                        .map(|(orig, r1)| orig - r1)
+                        .collect();
+                    let rotated2 = hadamard_rotate(&residual2, padded);
+                    let (i2_codes, i2_params) = quantize_f32_to_i2(&rotated2[..n_cols]);
+
+                    HadCascadeRow {
+                        twig: ci as u8,
+                        scale1_bf16: f32_to_bf16(i4_params.scale),
+                        i4_codes,
+                        scale2_bf16: f32_to_bf16(i2_params.scale),
+                        i2_codes,
+                    }
                 }
-            } else {
-                // i4+i2 cascade: 2.65:1 compression
-                let (i4_codes, i4_params) = quantize_f32_to_i4(&rotated1[..n_cols]);
-                let dequant1 = dequantize_i4_to_f32(&i4_codes, &i4_params, n_cols);
-                let mut full1 = vec![0.0f32; padded];
-                full1[..n_cols].copy_from_slice(&dequant1);
-                let recon1 = hadamard_rotate(&full1, padded);
-
-                let residual2: Vec<f32> = residual.iter().zip(recon1.iter().take(n_cols))
-                    .map(|(orig, r1)| orig - r1).collect();
-                let rotated2 = hadamard_rotate(&residual2, padded);
-                let (i2_codes, i2_params) = quantize_f32_to_i2(&rotated2[..n_cols]);
-
-                HadCascadeRow {
-                    twig: ci as u8,
-                    scale1_bf16: f32_to_bf16(i4_params.scale),
-                    i4_codes,
-                    scale2_bf16: f32_to_bf16(i2_params.scale),
-                    i2_codes,
-                }
-            }
-        }).collect();
+            })
+            .collect();
 
         HadCascadeTensor {
             role: role.to_string(),
@@ -168,20 +179,28 @@ impl HadCascadeTensor {
     }
 
     pub fn reconstruct_row(&self, i: usize) -> Vec<f32> {
-        use ndarray::hpc::quantized::QuantParams;
+        use ndarray::hpc::quantized::{dequantize_i8_to_f32, QuantParams};
         let row = &self.rows[i];
         let ci = row.twig as usize;
-        let p1 = QuantParams { scale: bf16_to_f32(row.scale1_bf16), zero_point: 0, min_val: 0.0, max_val: 0.0 };
+        let p1 = QuantParams {
+            scale: bf16_to_f32(row.scale1_bf16),
+            zero_point: 0,
+            min_val: 0.0,
+            max_val: 0.0,
+        };
 
         if row.i2_codes.is_empty() {
             // i8-only mode
-            use ndarray::hpc::quantized::dequantize_i8_to_f32;
             let i8_codes: Vec<i8> = row.i4_codes.iter().map(|&v| v as i8).collect();
             let dequant = dequantize_i8_to_f32(&i8_codes, &p1, self.n_cols);
             let mut full = vec![0.0f32; self.padded_dim];
             full[..self.n_cols].copy_from_slice(&dequant);
             let recon = hadamard_rotate(&full, self.padded_dim);
-            self.centroids[ci].iter().zip(recon.iter()).map(|(c, r)| c + r).collect()
+            self.centroids[ci]
+                .iter()
+                .zip(recon.iter())
+                .map(|(c, r)| c + r)
+                .collect()
         } else {
             // i4+i2 cascade mode
             let dequant1 = dequantize_i4_to_f32(&row.i4_codes, &p1, self.n_cols);
@@ -189,13 +208,19 @@ impl HadCascadeTensor {
             full1[..self.n_cols].copy_from_slice(&dequant1);
             let recon1 = hadamard_rotate(&full1, self.padded_dim);
 
-            let p2 = QuantParams { scale: bf16_to_f32(row.scale2_bf16), zero_point: 0, min_val: 0.0, max_val: 0.0 };
+            let p2 = QuantParams {
+                scale: bf16_to_f32(row.scale2_bf16),
+                zero_point: 0,
+                min_val: 0.0,
+                max_val: 0.0,
+            };
             let dequant2 = dequantize_i2_to_f32(&row.i2_codes, &p2, self.n_cols);
             let mut full2 = vec![0.0f32; self.padded_dim];
             full2[..self.n_cols].copy_from_slice(&dequant2);
             let recon2 = hadamard_rotate(&full2, self.padded_dim);
 
-            self.centroids[ci].iter()
+            self.centroids[ci]
+                .iter()
                 .zip(recon1.iter())
                 .zip(recon2.iter())
                 .map(|((c, r1), r2)| c + r1 + r2)
@@ -208,7 +233,11 @@ impl HadCascadeTensor {
     }
 
     pub fn bytes_per_row(&self) -> usize {
-        if self.rows.is_empty() { 0 } else { self.rows[0].byte_size() }
+        if self.rows.is_empty() {
+            0
+        } else {
+            self.rows[0].byte_size()
+        }
     }
 
     pub fn total_bytes(&self) -> usize {
@@ -219,7 +248,11 @@ impl HadCascadeTensor {
 
     pub fn compression_ratio(&self) -> f64 {
         let original = self.n_rows * self.n_cols * 2; // BF16
-        if self.total_bytes() == 0 { 0.0 } else { original as f64 / self.total_bytes() as f64 }
+        if self.total_bytes() == 0 {
+            0.0
+        } else {
+            original as f64 / self.total_bytes() as f64
+        }
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
@@ -255,7 +288,9 @@ impl HadCascadeTensor {
 
 fn build_centroids(rows: &[Vec<f32>], k: usize) -> Vec<Vec<f32>> {
     let n = rows.len();
-    if n == 0 || k == 0 { return vec![]; }
+    if n == 0 || k == 0 {
+        return vec![];
+    }
     let dim = rows[0].len();
     kmeans(rows, k.min(n), dim, 10)
 }
@@ -265,7 +300,10 @@ fn nearest_centroid(row: &[f32], centroids: &[Vec<f32>]) -> (usize, f32) {
     let mut best_d = f32::MAX;
     for (ci, c) in centroids.iter().enumerate() {
         let d = squared_l2(row, c);
-        if d < best_d { best_d = d; best = ci; }
+        if d < best_d {
+            best_d = d;
+            best = ci;
+        }
     }
     (best, best_d)
 }
@@ -278,7 +316,9 @@ fn nearest_centroid(row: &[f32], centroids: &[Vec<f32>]) -> (usize, f32) {
 
 pub fn measure_quality(original: &[Vec<f32>], reconstructed: &[Vec<f32>]) -> (f64, f64) {
     let n = original.len().min(reconstructed.len());
-    if n == 0 { return (0.0, 0.0); }
+    if n == 0 {
+        return (0.0, 0.0);
+    }
 
     let mut cos_sum = 0.0f64;
     for i in 0..n {
@@ -287,11 +327,20 @@ pub fn measure_quality(original: &[Vec<f32>], reconstructed: &[Vec<f32>]) -> (f6
     let avg_cos = cos_sum / n as f64;
 
     let icc = crate::quality::icc_3_1(
-        &original.iter().enumerate()
-            .flat_map(|(i, _)| (i + 1..n).map(move |j| cosine_f32_to_f64_simd(&original[i], &original[j])))
+        &original
+            .iter()
+            .enumerate()
+            .flat_map(|(i, _)| {
+                (i + 1..n).map(move |j| cosine_f32_to_f64_simd(&original[i], &original[j]))
+            })
             .collect::<Vec<_>>(),
-        &reconstructed.iter().enumerate()
-            .flat_map(|(i, _)| (i + 1..n).map(move |j| cosine_f32_to_f64_simd(&reconstructed[i], &reconstructed[j])))
+        &reconstructed
+            .iter()
+            .enumerate()
+            .flat_map(|(i, _)| {
+                (i + 1..n)
+                    .map(move |j| cosine_f32_to_f64_simd(&reconstructed[i], &reconstructed[j]))
+            })
             .collect::<Vec<_>>(),
     );
 
@@ -303,9 +352,9 @@ mod tests {
     use super::*;
 
     fn make_row(seed: usize, dim: usize) -> Vec<f32> {
-        (0..dim).map(|d| {
-            ((d * 97 + seed * 31 + 17) as f64 * 0.618).sin() as f32 * 0.01
-        }).collect()
+        (0..dim)
+            .map(|d| ((d * 97 + seed * 31 + 17) as f64 * 0.618).sin() as f32 * 0.01)
+            .collect()
     }
 
     #[test]
@@ -326,10 +375,22 @@ mod tests {
 
     #[test]
     fn regime_detection() {
-        assert_eq!(TensorRegime::from_role("self_attn.q_proj.weight"), TensorRegime::Argmax);
-        assert_eq!(TensorRegime::from_role("mlp.gate_proj.weight"), TensorRegime::Argmax);
-        assert_eq!(TensorRegime::from_role("text_embedding.weight"), TensorRegime::Index);
-        assert_eq!(TensorRegime::from_role("lm_head.weight"), TensorRegime::Index);
+        assert_eq!(
+            TensorRegime::from_role("self_attn.q_proj.weight"),
+            TensorRegime::Argmax
+        );
+        assert_eq!(
+            TensorRegime::from_role("mlp.gate_proj.weight"),
+            TensorRegime::Argmax
+        );
+        assert_eq!(
+            TensorRegime::from_role("text_embedding.weight"),
+            TensorRegime::Index
+        );
+        assert_eq!(
+            TensorRegime::from_role("lm_head.weight"),
+            TensorRegime::Index
+        );
     }
 
     #[test]
@@ -349,7 +410,12 @@ mod tests {
         let (packed, params) = quantize_f32_to_i4(&vals);
         let unpacked = dequantize_i4_to_f32(&packed, &params, 5);
         for (orig, recon) in vals.iter().zip(unpacked.iter()) {
-            assert!((orig - recon).abs() < 0.2, "i4 roundtrip: {} vs {}", orig, recon);
+            assert!(
+                (orig - recon).abs() < 0.2,
+                "i4 roundtrip: {} vs {}",
+                orig,
+                recon
+            );
         }
     }
 
@@ -359,7 +425,11 @@ mod tests {
         let (packed, params) = quantize_f32_to_i2(&vals);
         let unpacked = dequantize_i2_to_f32(&packed, &params, 5);
         for &v in &unpacked {
-            assert!(v.abs() <= params.scale + 0.01, "i2 value out of range: {}", v);
+            assert!(
+                v.abs() <= params.scale + 0.01,
+                "i2 value out of range: {}",
+                v
+            );
         }
     }
 
@@ -369,6 +439,10 @@ mod tests {
         let rows: Vec<Vec<f32>> = (0..512).map(|i| make_row(i, 256)).collect();
         let tensor = HadCascadeTensor::encode("test", &rows, 64);
         let ratio = tensor.compression_ratio();
-        assert!(ratio > 1.5 && ratio < 4.0, "ratio {} should be in [1.5, 4.0]", ratio);
+        assert!(
+            ratio > 1.5 && ratio < 4.0,
+            "ratio {} should be in [1.5, 4.0]",
+            ratio
+        );
     }
 }

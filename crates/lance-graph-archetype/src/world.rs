@@ -83,7 +83,11 @@ impl World {
         if branch.is_empty() {
             return Err(ArchetypeError::InvalidBranch);
         }
-        let separator = if self.dataset_uri.contains('?') { "&" } else { "?" };
+        let separator = if self.dataset_uri.contains('?') {
+            "&"
+        } else {
+            "?"
+        };
         Ok(World {
             tick: 0,
             dataset_uri: format!("{}{}branch={}", self.dataset_uri, separator, branch),
@@ -103,7 +107,10 @@ impl World {
     /// past the current observation).
     pub fn at_tick(&self, tick: u64) -> Result<World, ArchetypeError> {
         if tick > self.tick {
-            return Err(ArchetypeError::InvalidTick { requested: tick, current: self.tick });
+            return Err(ArchetypeError::InvalidTick {
+                requested: tick,
+                current: self.tick,
+            });
         }
         Ok(World {
             tick,
@@ -135,7 +142,10 @@ mod tests {
     fn fork_appends_branch_query() {
         let w = World::new("lance://tmp/archetype");
         let forked = w.fork("experiment").expect("fork should succeed");
-        assert_eq!(forked.dataset_uri(), "lance://tmp/archetype?branch=experiment");
+        assert_eq!(
+            forked.dataset_uri(),
+            "lance://tmp/archetype?branch=experiment"
+        );
         assert_eq!(forked.current_tick(), 0);
     }
 

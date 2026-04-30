@@ -85,7 +85,11 @@ fn main() {
 
     // Collect ground truth pairs
     let pairs = bgz_tensor::jina::collect_ground_truth(&all_embeddings);
-    println!("Total pairs: {} (C({},2))", pairs.len(), all_embeddings.len());
+    println!(
+        "Total pairs: {} (C({},2))",
+        pairs.len(),
+        all_embeddings.len()
+    );
 
     // Summary statistics
     let summary = bgz_tensor::jina::summarize_ground_truth(&pairs);
@@ -96,22 +100,37 @@ fn main() {
     println!("Mean Base17 cosine:   {:.4}", summary.mean_base17_cosine);
     println!("Pearson(neg_L1, cos): {:.4}", summary.pearson_l1_vs_cosine);
     println!("Spearman(neg_L1,cos): {:.4}", summary.spearman_l1_vs_cosine);
-    println!("Pearson(b17cos,cos):  {:.4}", summary.pearson_base17cos_vs_apicos);
+    println!(
+        "Pearson(b17cos,cos):  {:.4}",
+        summary.pearson_base17cos_vs_apicos
+    );
 
     // Show top-10 most similar pairs
     println!("\n=== Top 10 Most Similar Pairs ===");
     for (i, p) in pairs.iter().take(10).enumerate() {
-        println!("{:2}. cos={:.4} L1={:5} b17cos={:.4} | {} ↔ {}",
-            i + 1, p.api_cosine, p.base17_l1, p.base17_cosine,
-            truncate(&p.text_a, 40), truncate(&p.text_b, 40));
+        println!(
+            "{:2}. cos={:.4} L1={:5} b17cos={:.4} | {} ↔ {}",
+            i + 1,
+            p.api_cosine,
+            p.base17_l1,
+            p.base17_cosine,
+            truncate(&p.text_a, 40),
+            truncate(&p.text_b, 40)
+        );
     }
 
     // Show bottom-10 (most dissimilar)
     println!("\n=== Bottom 10 Most Dissimilar Pairs ===");
     for (i, p) in pairs.iter().rev().take(10).enumerate() {
-        println!("{:2}. cos={:.4} L1={:5} b17cos={:.4} | {} ↔ {}",
-            i + 1, p.api_cosine, p.base17_l1, p.base17_cosine,
-            truncate(&p.text_a, 40), truncate(&p.text_b, 40));
+        println!(
+            "{:2}. cos={:.4} L1={:5} b17cos={:.4} | {} ↔ {}",
+            i + 1,
+            p.api_cosine,
+            p.base17_l1,
+            p.base17_cosine,
+            truncate(&p.text_a, 40),
+            truncate(&p.text_b, 40)
+        );
     }
 
     // Calibrate SimilarityTable
@@ -125,7 +144,8 @@ fn main() {
     println!("Similarity at L1=10000: {:.4}", table.similarity(10000));
 
     // Validate table: compute Spearman between table output and API cosine
-    let table_sims: Vec<f64> = pairs.iter()
+    let table_sims: Vec<f64> = pairs
+        .iter()
         .map(|p| table.similarity(p.base17_l1) as f64)
         .collect();
     let api_cosines: Vec<f64> = pairs.iter().map(|p| p.api_cosine).collect();
@@ -139,7 +159,8 @@ fn main() {
     println!("{}", bel.summary());
 
     // Validate: false negative rate
-    let val_pairs: Vec<(bgz_tensor::Base17, bgz_tensor::Base17, f64)> = all_embeddings.iter()
+    let val_pairs: Vec<(bgz_tensor::Base17, bgz_tensor::Base17, f64)> = all_embeddings
+        .iter()
         .enumerate()
         .flat_map(|(i, a)| {
             all_embeddings[i + 1..].iter().map(move |b| {
@@ -150,7 +171,10 @@ fn main() {
         .collect();
 
     let (fn_rate, agreement_rate) = bel.validate(&val_pairs, 0.5, 6);
-    println!("False negative rate (cosine > 0.5): {:.4} (target < 0.01)", fn_rate);
+    println!(
+        "False negative rate (cosine > 0.5): {:.4} (target < 0.01)",
+        fn_rate
+    );
     println!("Band agreement rate (3-stroke):     {:.4}", agreement_rate);
 
     // Band distribution of similar vs dissimilar pairs
@@ -168,18 +192,41 @@ fn main() {
     println!("Band | Similar | Dissimilar");
     for b in 0..12 {
         if band_counts_sim[b] > 0 || band_counts_dis[b] > 0 {
-            println!("  {:2}  | {:>7} | {:>10}", b, band_counts_sim[b], band_counts_dis[b]);
+            println!(
+                "  {:2}  | {:>7} | {:>10}",
+                b, band_counts_sim[b], band_counts_dis[b]
+            );
         }
     }
 
     println!("\n=== CALIBRATION COMPLETE ===");
     println!("Texts: {}, Pairs: {}", all_embeddings.len(), pairs.len());
-    println!("Target Spearman > 0.85: {} (actual: {:.4})",
-        if table_spearman > 0.85 { "PASS" } else { "FAIL" }, table_spearman);
-    println!("Target FN rate < 0.01:  {} (actual: {:.4})",
-        if fn_rate < 0.01 { "PASS" } else if fn_rate < 0.05 { "MARGINAL" } else { "FAIL" }, fn_rate);
+    println!(
+        "Target Spearman > 0.85: {} (actual: {:.4})",
+        if table_spearman > 0.85 {
+            "PASS"
+        } else {
+            "FAIL"
+        },
+        table_spearman
+    );
+    println!(
+        "Target FN rate < 0.01:  {} (actual: {:.4})",
+        if fn_rate < 0.01 {
+            "PASS"
+        } else if fn_rate < 0.05 {
+            "MARGINAL"
+        } else {
+            "FAIL"
+        },
+        fn_rate
+    );
 }
 
 fn truncate(s: &str, max: usize) -> String {
-    if s.len() <= max { s.to_string() } else { format!("{}...", &s[..max - 3]) }
+    if s.len() <= max {
+        s.to_string()
+    } else {
+        format!("{}...", &s[..max - 3])
+    }
 }

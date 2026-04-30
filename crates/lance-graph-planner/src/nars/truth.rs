@@ -44,8 +44,11 @@ impl TruthValue {
 
     /// Evidence weight (w = c / (1 - c)).
     pub fn evidence_weight(&self) -> f32 {
-        if self.confidence >= 1.0 { f32::MAX }
-        else { self.confidence / (1.0 - self.confidence) }
+        if self.confidence >= 1.0 {
+            f32::MAX
+        } else {
+            self.confidence / (1.0 - self.confidence)
+        }
     }
 
     /// NARS Revision: merge two truth values for the same statement.
@@ -106,10 +109,14 @@ mod tests {
         let b = TruthValue::new(0.8, 0.5);
         let revised = a.revise(&b);
 
-        assert!(revised.confidence > a.confidence,
-            "Revision with agreeing evidence should increase confidence");
-        assert!((revised.frequency - 0.8).abs() < 0.01,
-            "Revision of agreeing evidence should preserve frequency");
+        assert!(
+            revised.confidence > a.confidence,
+            "Revision with agreeing evidence should increase confidence"
+        );
+        assert!(
+            (revised.frequency - 0.8).abs() < 0.01,
+            "Revision of agreeing evidence should preserve frequency"
+        );
     }
 
     #[test]
@@ -127,7 +134,9 @@ mod tests {
         let high = TruthValue::new(0.9, 0.8);
         let low = TruthValue::new(0.9, 0.1);
 
-        assert!(high.expectation() > low.expectation(),
-            "Higher confidence should push expectation toward frequency");
+        assert!(
+            high.expectation() > low.expectation(),
+            "Higher confidence should push expectation toward frequency"
+        );
     }
 }

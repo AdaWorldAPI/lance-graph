@@ -7,19 +7,15 @@
 //! - [ ] Trust not murky/dissonant
 
 #[allow(unused_imports)] // FlowState intended for homeostasis gate wiring
-use super::{MulAssessment, dk::DkPosition, trust::TrustTexture, homeostasis::FlowState};
+use super::{dk::DkPosition, homeostasis::FlowState, trust::TrustTexture, MulAssessment};
 
 /// Gate decision.
 #[derive(Debug, Clone)]
 pub enum GateDecision {
     /// All checks pass. Proceed with free will modifier applied.
-    Proceed {
-        free_will_modifier: f64,
-    },
+    Proceed { free_will_modifier: f64 },
     /// Gate blocked. Need sandbox or human assistance.
-    Sandbox {
-        reason: String,
-    },
+    Sandbox { reason: String },
     /// Need compass function for navigation in unknown territory.
     Compass,
 }

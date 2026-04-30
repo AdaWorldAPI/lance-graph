@@ -25,7 +25,11 @@ pub struct TaxPeriod {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub enum PeriodKind { Month, Quarter, Year }
+pub enum PeriodKind {
+    Month,
+    Quarter,
+    Year,
+}
 
 #[derive(Clone, Copy, Debug)]
 pub enum Jurisdiction {

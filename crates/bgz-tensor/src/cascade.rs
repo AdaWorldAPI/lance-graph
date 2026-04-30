@@ -62,10 +62,10 @@ pub struct CascadeConfig {
 impl Default for CascadeConfig {
     fn default() -> Self {
         CascadeConfig {
-            heel_min_agreement: 1,  // at least 1 plane must agree
+            heel_min_agreement: 1,   // at least 1 plane must agree
             hip_max_distance: 40000, // ~60th percentile of distance distribution
-            twig_max_l1: 500000,    // generous for Base17 range
-            leaf_budget: 0.01,      // max 1% of pairs go to full precision
+            twig_max_l1: 500000,     // generous for Base17 range
+            leaf_budget: 0.01,       // max 1% of pairs go to full precision
         }
     }
 }
@@ -139,11 +139,7 @@ impl ScentByte {
     /// - S-plane: which input features this weight responds to
     /// - P-plane: what transformation this weight applies
     /// - O-plane: which output features this weight produces
-    pub fn compute(
-        q_base: &Base17,
-        k_base: &Base17,
-        threshold: u32,
-    ) -> Self {
+    pub fn compute(q_base: &Base17, k_base: &Base17, threshold: u32) -> Self {
         // Split 17 dims into 3 planes: S(0-5), P(6-11), O(12-16)
         let ds = plane_l1(q_base, k_base, 0, 6);
         let dp = plane_l1(q_base, k_base, 6, 12);
@@ -154,7 +150,8 @@ impl ScentByte {
         let oc = (d_o < threshold) as u8;
 
         ScentByte(
-            sc | (pc << 1) | (oc << 2)
+            sc | (pc << 1)
+                | (oc << 2)
                 | ((sc & pc) << 3)
                 | ((sc & oc) << 4)
                 | ((pc & oc) << 5)
@@ -305,14 +302,15 @@ mod tests {
             ..Default::default()
         };
 
-        let (active, stats) = cascade_attention(
-            &q_bases, &k_bases, &q_idx, &k_idx, &table, &config,
-        );
+        let (active, stats) =
+            cascade_attention(&q_bases, &k_bases, &q_idx, &k_idx, &table, &config);
 
         // Should eliminate significant fraction
-        assert!(stats.elimination_rate() > 0.0,
+        assert!(
+            stats.elimination_rate() > 0.0,
             "Cascade should eliminate some pairs. Stats: {}",
-            stats.summary());
+            stats.summary()
+        );
         assert!(active.len() <= n * n);
     }
 
@@ -325,11 +323,18 @@ mod tests {
         let table = crate::attention::AttentionTable::build(&palette);
 
         let (_, stats) = cascade_attention(
-            &bases, &bases, &idx, &idx, &table, &CascadeConfig::default(),
+            &bases,
+            &bases,
+            &idx,
+            &idx,
+            &table,
+            &CascadeConfig::default(),
         );
 
         let accounted = stats.eliminated_at.iter().sum::<usize>() + stats.active_pairs;
-        assert_eq!(accounted, stats.total_pairs,
-            "All pairs must be accounted for: eliminated + active = total");
+        assert_eq!(
+            accounted, stats.total_pairs,
+            "All pairs must be accounted for: eliminated + active = total"
+        );
     }
 }

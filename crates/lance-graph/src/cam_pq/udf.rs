@@ -82,10 +82,8 @@ impl CamDistanceTables {
                 result.push(f32::MAX);
             } else {
                 let bytes = cam_column.value(i);
-                let cam: [u8; CAM_SIZE] = [
-                    bytes[0], bytes[1], bytes[2],
-                    bytes[3], bytes[4], bytes[5],
-                ];
+                let cam: [u8; CAM_SIZE] =
+                    [bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5]];
                 result.push(self.distance(&cam));
             }
         }
@@ -115,10 +113,8 @@ fn cam_distance_func(
                 .map_err(|e| datafusion::error::DataFusionError::Execution(e.to_string()))?;
             vec![v]
         }
-        ColumnarValue::Array(arr) => {
-            vector_ops::extract_vectors(arr)
-                .map_err(|e| datafusion::error::DataFusionError::Execution(e.to_string()))?
-        }
+        ColumnarValue::Array(arr) => vector_ops::extract_vectors(arr)
+            .map_err(|e| datafusion::error::DataFusionError::Execution(e.to_string()))?,
     };
 
     // Extract CAM column from second argument
@@ -290,10 +286,14 @@ pub fn create_cam_heel_distance_udf(codebook: Arc<Vec<Vec<Vec<f32>>>>) -> Arc<Sc
 
         match &args[1] {
             ColumnarValue::Array(cam_arr) => {
-                let cam_column = cam_arr.as_any().downcast_ref::<FixedSizeBinaryArray>()
-                    .ok_or_else(|| datafusion::error::DataFusionError::Execution(
-                        "cam_heel_distance: second argument must be FixedSizeBinary(6)".into(),
-                    ))?;
+                let cam_column = cam_arr
+                    .as_any()
+                    .downcast_ref::<FixedSizeBinaryArray>()
+                    .ok_or_else(|| {
+                        datafusion::error::DataFusionError::Execution(
+                            "cam_heel_distance: second argument must be FixedSizeBinary(6)".into(),
+                        )
+                    })?;
 
                 let distances: Vec<f32> = (0..cam_column.len())
                     .map(|i| {
@@ -305,7 +305,9 @@ pub fn create_cam_heel_distance_udf(codebook: Arc<Vec<Vec<Vec<f32>>>>) -> Arc<Sc
                     })
                     .collect();
 
-                Ok(ColumnarValue::Array(Arc::new(Float32Array::from(distances)) as ArrayRef))
+                Ok(ColumnarValue::Array(
+                    Arc::new(Float32Array::from(distances)) as ArrayRef,
+                ))
             }
             _ => Err(datafusion::error::DataFusionError::Execution(
                 "cam_heel_distance: second argument must be an array".into(),

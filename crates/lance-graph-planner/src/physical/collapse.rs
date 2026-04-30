@@ -9,7 +9,7 @@
 //! in each result group. Low dispersion = coherent result = FLOW.
 
 #[allow(unused_imports)] // Morsel intended for collapse execution wiring
-use super::{PhysicalOperator, Morsel};
+use super::{Morsel, PhysicalOperator};
 use crate::ir::logical_op::CollapseGate;
 
 /// COLLAPSE physical operator.
@@ -69,7 +69,11 @@ impl CollapseOp {
             }
         }
 
-        CollapseResult { flow, hold, blocked }
+        CollapseResult {
+            flow,
+            hold,
+            blocked,
+        }
     }
 }
 
@@ -85,10 +89,18 @@ pub struct CollapseResult {
 }
 
 impl PhysicalOperator for CollapseOp {
-    fn name(&self) -> &str { "Collapse" }
-    fn cardinality(&self) -> f64 { self.estimated_cardinality }
-    fn is_pipeline_breaker(&self) -> bool { false }
-    fn children(&self) -> Vec<&dyn PhysicalOperator> { vec![&*self.child] }
+    fn name(&self) -> &str {
+        "Collapse"
+    }
+    fn cardinality(&self) -> f64 {
+        self.estimated_cardinality
+    }
+    fn is_pipeline_breaker(&self) -> bool {
+        false
+    }
+    fn children(&self) -> Vec<&dyn PhysicalOperator> {
+        vec![&*self.child]
+    }
 }
 
 fn standard_deviation(values: &[f64]) -> f64 {
@@ -96,9 +108,7 @@ fn standard_deviation(values: &[f64]) -> f64 {
         return 0.0;
     }
     let mean = values.iter().sum::<f64>() / values.len() as f64;
-    let variance = values.iter()
-        .map(|v| (v - mean).powi(2))
-        .sum::<f64>() / values.len() as f64;
+    let variance = values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / values.len() as f64;
     variance.sqrt()
 }
 
@@ -150,9 +160,17 @@ mod tests {
     #[derive(Debug)]
     struct DummyOp;
     impl PhysicalOperator for DummyOp {
-        fn name(&self) -> &str { "Dummy" }
-        fn cardinality(&self) -> f64 { 0.0 }
-        fn is_pipeline_breaker(&self) -> bool { false }
-        fn children(&self) -> Vec<&dyn PhysicalOperator> { vec![] }
+        fn name(&self) -> &str {
+            "Dummy"
+        }
+        fn cardinality(&self) -> f64 {
+            0.0
+        }
+        fn is_pipeline_breaker(&self) -> bool {
+            false
+        }
+        fn children(&self) -> Vec<&dyn PhysicalOperator> {
+            vec![]
+        }
     }
 }

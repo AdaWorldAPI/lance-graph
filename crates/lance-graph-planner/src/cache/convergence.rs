@@ -20,11 +20,11 @@
 
 use super::kv_bundle::HeadPrint;
 #[allow(unused_imports)] // CausalEdge64 intended for hot-path convergence wiring
-use super::nars_engine::{SpoHead, MASK_SPO, CausalEdge64};
-#[allow(unused_imports)] // DistanceMatrix intended for per-plane distance wiring
-use ndarray::hpc::palette_distance::{Palette, DistanceMatrix, SpoDistanceMatrices};
+use super::nars_engine::{CausalEdge64, SpoHead, MASK_SPO};
 #[allow(unused_imports)] // intended for Base17 fingerprint convergence wiring
 use ndarray::hpc::bgz17_bridge::SpoBase17;
+#[allow(unused_imports)] // DistanceMatrix intended for per-plane distance wiring
+use ndarray::hpc::palette_distance::{DistanceMatrix, Palette, SpoDistanceMatrices};
 
 /// Episode entry: (observation text, extracted triplets, recency weight).
 type EpisodeEntry = (String, Vec<(String, String, String)>, f32);
@@ -45,13 +45,16 @@ pub struct PlaneDistance {
 impl PlaneDistance {
     /// Build from three palettes (one per S/P/O plane).
     pub fn build(s_pal: &Palette, p_pal: &Palette, o_pal: &Palette) -> Self {
-        Self { matrices: SpoDistanceMatrices::build(s_pal, p_pal, o_pal) }
+        Self {
+            matrices: SpoDistanceMatrices::build(s_pal, p_pal, o_pal),
+        }
     }
 
     /// Combined S+P+O distance. O(1): three table lookups.
     #[inline]
     pub fn spo_distance(&self, a: &SpoHead, b: &SpoHead) -> u32 {
-        self.matrices.spo_distance(a.s_idx, a.p_idx, a.o_idx, b.s_idx, b.p_idx, b.o_idx)
+        self.matrices
+            .spo_distance(a.s_idx, a.p_idx, a.o_idx, b.s_idx, b.p_idx, b.o_idx)
     }
 
     /// Subject-plane only distance. O(1): one table lookup.
@@ -110,7 +113,9 @@ pub fn headprint_to_spo(fp: &HeadPrint, truth_f: f32, truth_c: f32) -> SpoHead {
     let o_idx = (o.unsigned_abs() % 256) as u8;
 
     SpoHead {
-        s_idx, p_idx, o_idx,
+        s_idx,
+        p_idx,
+        o_idx,
         freq: (truth_f.clamp(0.0, 1.0) * 255.0) as u8,
         conf: (truth_c.clamp(0.0, 0.99) * 255.0) as u8,
         pearl: MASK_SPO,
@@ -156,15 +161,41 @@ pub fn triplets_to_palette_layers(
 /// Classify a relation string into a p64 predicate layer index.
 fn classify_relation(relation: &str) -> usize {
     let r = relation.to_lowercase();
-    if r.contains("cause") || r.contains("lead") || r.contains("result") { 0 }      // CAUSES
-    else if r.contains("enable") || r.contains("allow") || r.contains("permit") { 1 } // ENABLES
-    else if r.contains("support") || r.contains("confirm") || r.contains("agree") { 2 } // SUPPORTS
-    else if r.contains("contradict") || r.contains("deny") || r.contains("oppose") { 3 } // CONTRADICTS
-    else if r.contains("refine") || r.contains("improve") || r.contains("update") { 4 } // REFINES
-    else if r.contains("abstract") || r.contains("general") || r.contains("type") { 5 } // ABSTRACTS
-    else if r.contains("ground") || r.contains("evidence") || r.contains("prove") { 6 } // GROUNDS
-    else if r.contains("become") || r.contains("transform") || r.contains("change") { 7 } // BECOMES
-    else { 0 } // default: CAUSES
+    if r.contains("cause") || r.contains("lead") || r.contains("result") {
+        0
+    }
+    // CAUSES
+    else if r.contains("enable") || r.contains("allow") || r.contains("permit") {
+        1
+    }
+    // ENABLES
+    else if r.contains("support") || r.contains("confirm") || r.contains("agree") {
+        2
+    }
+    // SUPPORTS
+    else if r.contains("contradict") || r.contains("deny") || r.contains("oppose") {
+        3
+    }
+    // CONTRADICTS
+    else if r.contains("refine") || r.contains("improve") || r.contains("update") {
+        4
+    }
+    // REFINES
+    else if r.contains("abstract") || r.contains("general") || r.contains("type") {
+        5
+    }
+    // ABSTRACTS
+    else if r.contains("ground") || r.contains("evidence") || r.contains("prove") {
+        6
+    }
+    // GROUNDS
+    else if r.contains("become") || r.contains("transform") || r.contains("change") {
+        7
+    }
+    // BECOMES
+    else {
+        0
+    } // default: CAUSES
 }
 
 /// Run the convergence highway: AriGraph triplets → palette planes → caller.
@@ -201,9 +232,7 @@ pub fn run_convergence(
 ///
 /// Takes a list of episodes (observation text) and extracts SPO triplets,
 /// converts them to palette layers, ready for hot-path routing.
-pub fn episodes_to_palette_layers(
-    episodes: &[EpisodeEntry],
-) -> [[u64; 64]; 8] {
+pub fn episodes_to_palette_layers(episodes: &[EpisodeEntry]) -> [[u64; 64]; 8] {
     let mut all_triplets = Vec::new();
     for (_, triplets, recency) in episodes {
         for (s, p, o) in triplets {
@@ -241,8 +270,12 @@ mod tests {
         let combined = pd.spo_distance(&a, &b);
         let sub_only = pd.subject_distance(&a, &b);
         // Subject-only ≤ combined (since combined adds P + O)
-        assert!(sub_only as u32 <= combined,
-            "subject-only {} should be <= combined {}", sub_only, combined);
+        assert!(
+            sub_only as u32 <= combined,
+            "subject-only {} should be <= combined {}",
+            sub_only,
+            combined
+        );
     }
 
     #[test]
@@ -289,13 +322,25 @@ mod tests {
         let layers = triplets_to_palette_layers(&triplets);
 
         // CAUSES layer should have bits set
-        assert!(layers[0].iter().any(|row| *row != 0), "CAUSES should be populated");
+        assert!(
+            layers[0].iter().any(|row| *row != 0),
+            "CAUSES should be populated"
+        );
         // ENABLES layer should have bits set
-        assert!(layers[1].iter().any(|row| *row != 0), "ENABLES should be populated");
+        assert!(
+            layers[1].iter().any(|row| *row != 0),
+            "ENABLES should be populated"
+        );
         // SUPPORTS layer should have bits set
-        assert!(layers[2].iter().any(|row| *row != 0), "SUPPORTS should be populated");
+        assert!(
+            layers[2].iter().any(|row| *row != 0),
+            "SUPPORTS should be populated"
+        );
         // CONTRADICTS layer should have bits set
-        assert!(layers[3].iter().any(|row| *row != 0), "CONTRADICTS should be populated");
+        assert!(
+            layers[3].iter().any(|row| *row != 0),
+            "CONTRADICTS should be populated"
+        );
     }
 
     #[test]
@@ -307,9 +352,7 @@ mod tests {
 
     #[test]
     fn test_palette_layers_ready_for_cognitive_shader() {
-        let triplets = vec![
-            ("A".into(), "causes".into(), "B".into(), 0.9),
-        ];
+        let triplets = vec![("A".into(), "causes".into(), "B".into(), 0.9)];
         let layers = triplets_to_palette_layers(&triplets);
         // layers is [[u64; 64]; 8] — exactly what CognitiveShader::new() expects
         assert_eq!(layers.len(), 8);
@@ -332,7 +375,12 @@ mod tests {
             ("v1".into(), "contradicts".into(), "v2".into(), 0.7),
             ("draft".into(), "refines".into(), "outline".into(), 0.6),
             ("dog".into(), "is type of".into(), "animal".into(), 0.95),
-            ("data".into(), "grounds with evidence".into(), "claim".into(), 0.75),
+            (
+                "data".into(),
+                "grounds with evidence".into(),
+                "claim".into(),
+                0.75,
+            ),
             ("ice".into(), "becomes".into(), "water".into(), 0.99),
         ];
 
@@ -346,9 +394,11 @@ mod tests {
         // Knowledge must have reached the cascade: at least one bit set
         // somewhere in the 8 × 64 × 64 palette (i.e. the planes are not
         // the zero topology the driver was constructed with).
-        let any_bit_set = planes.iter()
-            .any(|layer| layer.iter().any(|row| *row != 0));
-        assert!(any_bit_set, "convergence produced an all-zero topology — knowledge never reached the cascade");
+        let any_bit_set = planes.iter().any(|layer| layer.iter().any(|row| *row != 0));
+        assert!(
+            any_bit_set,
+            "convergence produced an all-zero topology — knowledge never reached the cascade"
+        );
 
         // Every relation we fed should have lit up its predicate layer.
         // Layers 0..7 cover CAUSES/ENABLES/SUPPORTS/CONTRADICTS/REFINES/
@@ -378,7 +428,9 @@ mod tests {
 
         assert_eq!(call_count, 1, "callback must run exactly once");
         assert!(
-            captured.iter().all(|layer| layer.iter().all(|row| *row == 0)),
+            captured
+                .iter()
+                .all(|layer| layer.iter().all(|row| *row == 0)),
             "no triplets means zero topology"
         );
     }

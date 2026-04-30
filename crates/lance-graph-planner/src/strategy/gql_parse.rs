@@ -35,24 +35,35 @@ use crate::PlanError;
 pub struct GqlParse;
 
 impl PlanStrategy for GqlParse {
-    fn name(&self) -> &str { "gql_parse" }
-    fn capability(&self) -> PlanCapability { PlanCapability::Parse }
+    fn name(&self) -> &str {
+        "gql_parse"
+    }
+    fn capability(&self) -> PlanCapability {
+        PlanCapability::Parse
+    }
 
     fn affinity(&self, context: &PlanContext) -> f32 {
         let q = context.query.to_uppercase();
         // GQL-specific keywords that distinguish from plain Cypher
         let gql_signals = [
-            "LEFT MATCH", "MANDATORY MATCH",
-            "ANY SHORTEST", "ALL SHORTEST", "ANY CHEAPEST",
-            "WALK", "TRAIL", "ACYCLIC", "SIMPLE",
-            "GRAPH TYPE", "USE GRAPH",
-            "LET ", "FOR ",
-            "INSERT (", "DETACH DELETE",
+            "LEFT MATCH",
+            "MANDATORY MATCH",
+            "ANY SHORTEST",
+            "ALL SHORTEST",
+            "ANY CHEAPEST",
+            "WALK",
+            "TRAIL",
+            "ACYCLIC",
+            "SIMPLE",
+            "GRAPH TYPE",
+            "USE GRAPH",
+            "LET ",
+            "FOR ",
+            "INSERT (",
+            "DETACH DELETE",
         ];
 
-        let gql_score: f32 = gql_signals.iter()
-            .filter(|kw| q.contains(*kw))
-            .count() as f32 * 0.2;
+        let gql_score: f32 = gql_signals.iter().filter(|kw| q.contains(*kw)).count() as f32 * 0.2;
 
         if gql_score > 0.0 {
             (0.7 + gql_score).min(0.98)
@@ -66,36 +77,48 @@ impl PlanStrategy for GqlParse {
         }
     }
 
-    fn plan(&self, mut input: PlanInput, _arena: &mut Arena<LogicalOp>) -> Result<PlanInput, PlanError> {
+    fn plan(
+        &self,
+        mut input: PlanInput,
+        _arena: &mut Arena<LogicalOp>,
+    ) -> Result<PlanInput, PlanError> {
         let q = input.context.query.to_uppercase();
 
         // ── Core pattern detection (shared with Cypher) ──
         input.context.features.has_graph_pattern = q.contains("MATCH");
         input.context.features.has_fingerprint_scan =
             q.contains("HAMMING") || q.contains("FINGERPRINT") || q.contains("RESONATE");
-        input.context.features.has_variable_length_path =
-            q.contains("*..") || q.contains("*1..") || q.contains("*2..")
-            || q.contains("TRAIL") || q.contains("WALK")
-            || q.contains("ACYCLIC") || q.contains("SIMPLE");
-        input.context.features.has_aggregation =
-            q.contains("COUNT") || q.contains("SUM") || q.contains("AVG")
-            || q.contains("COLLECT") || q.contains("FOR ");
-        input.context.features.has_mutation =
-            q.contains("INSERT") || q.contains("SET") || q.contains("DELETE")
-            || q.contains("MERGE") || q.contains("REMOVE");
+        input.context.features.has_variable_length_path = q.contains("*..")
+            || q.contains("*1..")
+            || q.contains("*2..")
+            || q.contains("TRAIL")
+            || q.contains("WALK")
+            || q.contains("ACYCLIC")
+            || q.contains("SIMPLE");
+        input.context.features.has_aggregation = q.contains("COUNT")
+            || q.contains("SUM")
+            || q.contains("AVG")
+            || q.contains("COLLECT")
+            || q.contains("FOR ");
+        input.context.features.has_mutation = q.contains("INSERT")
+            || q.contains("SET")
+            || q.contains("DELETE")
+            || q.contains("MERGE")
+            || q.contains("REMOVE");
         input.context.features.has_resonance = q.contains("RESONATE");
-        input.context.features.has_truth_values =
-            q.contains("TRUTH") || q.contains("CONFIDENCE");
-        input.context.features.has_workflow =
-            q.contains("WORKFLOW") || q.contains("TASK");
+        input.context.features.has_truth_values = q.contains("TRUTH") || q.contains("CONFIDENCE");
+        input.context.features.has_workflow = q.contains("WORKFLOW") || q.contains("TASK");
         input.context.features.num_match_clauses = q.matches("MATCH").count();
 
         // ── GQL-specific features ──
 
         // Path modes (GQL 7.16)
-        let has_path_mode = q.contains("ANY SHORTEST") || q.contains("ALL SHORTEST")
-            || q.contains("ANY CHEAPEST") || q.contains("ALL TRAIL")
-            || q.contains("ANY SIMPLE") || q.contains("ALL ACYCLIC");
+        let has_path_mode = q.contains("ANY SHORTEST")
+            || q.contains("ALL SHORTEST")
+            || q.contains("ANY CHEAPEST")
+            || q.contains("ALL TRAIL")
+            || q.contains("ANY SIMPLE")
+            || q.contains("ALL ACYCLIC");
         if has_path_mode {
             input.context.features.has_variable_length_path = true;
         }
@@ -111,12 +134,24 @@ impl PlanStrategy for GqlParse {
 
         // ── Complexity estimation ──
         let mut complexity = input.context.features.num_match_clauses as f64 * 0.2;
-        if input.context.features.has_variable_length_path { complexity += 0.3; }
-        if input.context.features.has_fingerprint_scan { complexity += 0.2; }
-        if input.context.features.has_aggregation { complexity += 0.1; }
-        if has_path_mode { complexity += 0.2; }
-        if has_left_match { complexity += 0.1; }
-        if has_let { complexity += 0.15; }
+        if input.context.features.has_variable_length_path {
+            complexity += 0.3;
+        }
+        if input.context.features.has_fingerprint_scan {
+            complexity += 0.2;
+        }
+        if input.context.features.has_aggregation {
+            complexity += 0.1;
+        }
+        if has_path_mode {
+            complexity += 0.2;
+        }
+        if has_left_match {
+            complexity += 0.1;
+        }
+        if has_let {
+            complexity += 0.15;
+        }
         input.context.features.estimated_complexity = complexity.min(1.0);
 
         // GQL AST production: delegate to CypherParse for shared syntax,
@@ -201,7 +236,9 @@ mod tests {
         let input = PlanInput {
             plan: None,
             context: PlanContext {
-                query: "LET friends = (MATCH (a)-[:KNOWS]->(b) RETURN b) MATCH (f) IN friends RETURN f".into(),
+                query:
+                    "LET friends = (MATCH (a)-[:KNOWS]->(b) RETURN b) MATCH (f) IN friends RETURN f"
+                        .into(),
                 features: QueryFeatures::default(),
                 free_will_modifier: 1.0,
                 thinking_style: None,

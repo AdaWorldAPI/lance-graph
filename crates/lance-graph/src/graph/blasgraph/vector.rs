@@ -232,10 +232,7 @@ impl GrBVector {
     /// Used by `mxv`/`vxm` when semirings like `HammingMin` or
     /// `SimilarityMax` produce `Float` accumulators instead of `Vector`.
     pub fn set_scalar(&mut self, index: usize, value: HdrScalar) {
-        match self
-            .scalar_entries
-            .binary_search_by_key(&index, |e| e.0)
-        {
+        match self.scalar_entries.binary_search_by_key(&index, |e| e.0) {
             Ok(pos) => self.scalar_entries[pos].1 = value,
             Err(pos) => self.scalar_entries.insert(pos, (index, value)),
         }

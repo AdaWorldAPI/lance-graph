@@ -116,9 +116,7 @@ pub fn measure_cluster_radii(
         // Compute radius: max distance from center to any point
         let total_distance: u64 = indices
             .iter()
-            .map(|&i| {
-                scent_hamming_distance(scent_vectors[center_idx], scent_vectors[i]) as u64
-            })
+            .map(|&i| scent_hamming_distance(scent_vectors[center_idx], scent_vectors[i]) as u64)
             .sum();
         let mean_distance = total_distance as f64 / indices.len() as f64;
 
@@ -139,8 +137,7 @@ pub fn measure_cluster_radii(
 
         for &i in indices {
             let d_left = scent_hamming_distance(scent_vectors[farthest_idx], scent_vectors[i]);
-            let d_right =
-                scent_hamming_distance(scent_vectors[second_farthest], scent_vectors[i]);
+            let d_right = scent_hamming_distance(scent_vectors[second_farthest], scent_vectors[i]);
             if d_left <= d_right {
                 left.push(i);
             } else {
@@ -288,8 +285,7 @@ mod tests {
         let ids: Vec<u64> = (0..n as u64).collect();
         let (_, neighborhoods) = ScopeBuilder::build(1, &ids, &planes);
 
-        let scent_vecs: Vec<Vec<u8>> =
-            neighborhoods.iter().map(|nv| nv.scent_vector()).collect();
+        let scent_vecs: Vec<Vec<u8>> = neighborhoods.iter().map(|nv| nv.scent_vector()).collect();
         let scent_refs: Vec<&[u8]> = scent_vecs.iter().map(|v| v.as_slice()).collect();
 
         let observations = measure_cluster_radii(&scent_refs, 5);
@@ -345,8 +341,7 @@ mod tests {
         let ids: Vec<u64> = (0..n as u64).collect();
         let (_, neighborhoods) = ScopeBuilder::build(1, &ids, &planes);
 
-        let scent_vecs: Vec<Vec<u8>> =
-            neighborhoods.iter().map(|nv| nv.scent_vector()).collect();
+        let scent_vecs: Vec<Vec<u8>> = neighborhoods.iter().map(|nv| nv.scent_vector()).collect();
         let scent_refs: Vec<&[u8]> = scent_vecs.iter().map(|v| v.as_slice()).collect();
 
         let observations = measure_cluster_radii(&scent_refs, 10);

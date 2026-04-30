@@ -47,8 +47,7 @@ mod tests {
 
     impl Processor for IdentityProcessor {
         fn matches(schema: &Schema) -> bool {
-            schema.fields().len() == 1
-                && schema.field(0).data_type() == &DataType::Int64
+            schema.fields().len() == 1 && schema.field(0).data_type() == &DataType::Int64
         }
 
         fn process(batch: RecordBatch) -> Result<RecordBatch, ArchetypeError> {

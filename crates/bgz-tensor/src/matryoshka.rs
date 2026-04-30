@@ -106,12 +106,32 @@ impl BandProfile {
     pub fn standard(n_components: usize, original_dim: usize) -> Self {
         let d = n_components;
         let bands = vec![
-            Band { start: 0, end: 64.min(d), precision: BandPrecision::I16 },
-            Band { start: 64.min(d), end: 192.min(d), precision: BandPrecision::I8 },
-            Band { start: 192.min(d), end: 384.min(d), precision: BandPrecision::I4 },
-            Band { start: 384.min(d), end: d, precision: BandPrecision::I2 },
+            Band {
+                start: 0,
+                end: 64.min(d),
+                precision: BandPrecision::I16,
+            },
+            Band {
+                start: 64.min(d),
+                end: 192.min(d),
+                precision: BandPrecision::I8,
+            },
+            Band {
+                start: 192.min(d),
+                end: 384.min(d),
+                precision: BandPrecision::I4,
+            },
+            Band {
+                start: 384.min(d),
+                end: d,
+                precision: BandPrecision::I2,
+            },
         ];
-        BandProfile { bands, total_components: d, original_dim }
+        BandProfile {
+            bands,
+            total_components: d,
+            original_dim,
+        }
     }
 
     /// Aggressive profile for high compression (8:1+).
@@ -119,12 +139,32 @@ impl BandProfile {
     pub fn aggressive(n_components: usize, original_dim: usize) -> Self {
         let d = n_components;
         let bands = vec![
-            Band { start: 0, end: 32.min(d), precision: BandPrecision::I16 },
-            Band { start: 32.min(d), end: 128.min(d), precision: BandPrecision::I8 },
-            Band { start: 128.min(d), end: 256.min(d), precision: BandPrecision::I4 },
-            Band { start: 256.min(d), end: d, precision: BandPrecision::I2 },
+            Band {
+                start: 0,
+                end: 32.min(d),
+                precision: BandPrecision::I16,
+            },
+            Band {
+                start: 32.min(d),
+                end: 128.min(d),
+                precision: BandPrecision::I8,
+            },
+            Band {
+                start: 128.min(d),
+                end: 256.min(d),
+                precision: BandPrecision::I4,
+            },
+            Band {
+                start: 256.min(d),
+                end: d,
+                precision: BandPrecision::I2,
+            },
         ];
-        BandProfile { bands, total_components: d, original_dim }
+        BandProfile {
+            bands,
+            total_components: d,
+            original_dim,
+        }
     }
 
     /// Conservative profile for quality-critical roles (2:1).
@@ -132,11 +172,27 @@ impl BandProfile {
     pub fn conservative(n_components: usize, original_dim: usize) -> Self {
         let d = n_components;
         let bands = vec![
-            Band { start: 0, end: 128.min(d), precision: BandPrecision::I16 },
-            Band { start: 128.min(d), end: 384.min(d), precision: BandPrecision::I8 },
-            Band { start: 384.min(d), end: d, precision: BandPrecision::I4 },
+            Band {
+                start: 0,
+                end: 128.min(d),
+                precision: BandPrecision::I16,
+            },
+            Band {
+                start: 128.min(d),
+                end: 384.min(d),
+                precision: BandPrecision::I8,
+            },
+            Band {
+                start: 384.min(d),
+                end: d,
+                precision: BandPrecision::I4,
+            },
         ];
-        BandProfile { bands, total_components: d, original_dim }
+        BandProfile {
+            bands,
+            total_components: d,
+            original_dim,
+        }
     }
 
     /// Bytes per row for the quantized coefficients (excluding basis).
@@ -184,10 +240,18 @@ impl SvdBasis {
 
     /// Fraction of total energy captured by the first `k` components.
     pub fn energy_fraction(&self, k: usize) -> f64 {
-        let total: f64 = self.singular_values.iter().map(|&s| (s as f64).powi(2)).sum();
-        if total < 1e-30 { return 0.0; }
-        let partial: f64 = self.singular_values[..k.min(self.n_components)].iter()
-            .map(|&s| (s as f64).powi(2)).sum();
+        let total: f64 = self
+            .singular_values
+            .iter()
+            .map(|&s| (s as f64).powi(2))
+            .sum();
+        if total < 1e-30 {
+            return 0.0;
+        }
+        let partial: f64 = self.singular_values[..k.min(self.n_components)]
+            .iter()
+            .map(|&s| (s as f64).powi(2))
+            .sum();
         partial / total
     }
 
@@ -195,7 +259,8 @@ impl SvdBasis {
     pub fn vector_f32(&self, i: usize) -> Vec<f32> {
         let start = i * self.original_cols;
         let end = start + self.original_cols;
-        self.basis_bf16[start..end].iter()
+        self.basis_bf16[start..end]
+            .iter()
             .map(|&bits| bf16_to_f32(bits))
             .collect()
     }
@@ -206,7 +271,11 @@ impl SvdBasis {
         for i in 0..self.n_components {
             let start = i * self.original_cols;
             let mut dot = 0.0f64;
-            for (j, &rv) in row.iter().enumerate().take(self.original_cols.min(row.len())) {
+            for (j, &rv) in row
+                .iter()
+                .enumerate()
+                .take(self.original_cols.min(row.len()))
+            {
                 dot += rv as f64 * bf16_to_f32(self.basis_bf16[start + j]) as f64;
             }
             coeffs.push(dot as f32);
@@ -217,7 +286,11 @@ impl SvdBasis {
     /// Reconstruct a row from coefficients: coefficients[n_components] → row[cols].
     pub fn reconstruct(&self, coeffs: &[f32]) -> Vec<f32> {
         let mut row = vec![0.0f32; self.original_cols];
-        for (i, &c) in coeffs.iter().enumerate().take(self.n_components.min(coeffs.len())) {
+        for (i, &c) in coeffs
+            .iter()
+            .enumerate()
+            .take(self.n_components.min(coeffs.len()))
+        {
             let start = i * self.original_cols;
             for (j, rv) in row.iter_mut().enumerate() {
                 *rv += c * bf16_to_f32(self.basis_bf16[start + j]);
@@ -289,7 +362,9 @@ impl SvdBasis {
                 }
 
                 let sigma = norm_f64(&v_new);
-                if sigma < 1e-15 { break; }
+                if sigma < 1e-15 {
+                    break;
+                }
 
                 for j in 0..cols {
                     v[j] = v_new[j] / sigma;
@@ -339,7 +414,9 @@ impl SvdBasis {
 fn normalize_f64(v: &mut [f64]) {
     let norm = norm_f64(v);
     if norm > 1e-15 {
-        for x in v.iter_mut() { *x /= norm; }
+        for x in v.iter_mut() {
+            *x /= norm;
+        }
     }
 }
 
@@ -392,7 +469,8 @@ pub fn encode_row(row: &[f32], basis: &SvdBasis, profile: &BandProfile) -> Matry
         let band_coeffs = &coeffs[band.start..band.end.min(coeffs.len())];
 
         // Find scale for this band
-        let band_max = band_coeffs.iter()
+        let band_max = band_coeffs
+            .iter()
             .map(|&c| c.abs())
             .fold(0.0f32, f32::max)
             .max(1e-15);
@@ -422,7 +500,9 @@ pub fn encode_row(row: &[f32], basis: &SvdBasis, profile: &BandProfile) -> Matry
                     let a = (band_coeffs[i] * scale).round().clamp(-7.0, 7.0) as i8;
                     let b = if i + 1 < band_coeffs.len() {
                         (band_coeffs[i + 1] * scale).round().clamp(-7.0, 7.0) as i8
-                    } else { 0 };
+                    } else {
+                        0
+                    };
                     // Pack: low nibble = a+8, high nibble = b+8 (unsigned 0-15)
                     let byte = ((a + 8) as u8) | (((b + 8) as u8) << 4);
                     data.push(byte);
@@ -462,9 +542,12 @@ pub fn decode_row(encoded: &MatryoshkaRow, basis: &SvdBasis, profile: &BandProfi
         let max_val = band.precision.max_val();
 
         // Read band scale
-        if offset + 2 > encoded.data.len() { break; }
+        if offset + 2 > encoded.data.len() {
+            break;
+        }
         let band_max = bf16_to_f32(u16::from_le_bytes([
-            encoded.data[offset], encoded.data[offset + 1]
+            encoded.data[offset],
+            encoded.data[offset + 1],
         ]));
         offset += 2;
         let inv_scale = band_max / max_val as f32;
@@ -474,17 +557,19 @@ pub fn decode_row(encoded: &MatryoshkaRow, basis: &SvdBasis, profile: &BandProfi
         match band.precision {
             BandPrecision::I16 => {
                 for i in 0..n {
-                    if offset + 2 > encoded.data.len() { break; }
-                    let q = i16::from_le_bytes([
-                        encoded.data[offset], encoded.data[offset + 1]
-                    ]);
+                    if offset + 2 > encoded.data.len() {
+                        break;
+                    }
+                    let q = i16::from_le_bytes([encoded.data[offset], encoded.data[offset + 1]]);
                     coeffs[band.start + i] = q as f32 * inv_scale;
                     offset += 2;
                 }
             }
             BandPrecision::I8 => {
                 for i in 0..n {
-                    if offset >= encoded.data.len() { break; }
+                    if offset >= encoded.data.len() {
+                        break;
+                    }
                     let q = encoded.data[offset] as i8;
                     coeffs[band.start + i] = q as f32 * inv_scale;
                     offset += 1;
@@ -493,7 +578,9 @@ pub fn decode_row(encoded: &MatryoshkaRow, basis: &SvdBasis, profile: &BandProfi
             BandPrecision::I4 => {
                 let mut i = 0;
                 while i < n {
-                    if offset >= encoded.data.len() { break; }
+                    if offset >= encoded.data.len() {
+                        break;
+                    }
                     let byte = encoded.data[offset];
                     let a = (byte & 0x0F) as i8 - 8;
                     coeffs[band.start + i] = a as f32 * inv_scale;
@@ -508,7 +595,9 @@ pub fn decode_row(encoded: &MatryoshkaRow, basis: &SvdBasis, profile: &BandProfi
             BandPrecision::I2 => {
                 let mut i = 0;
                 while i < n {
-                    if offset >= encoded.data.len() { break; }
+                    if offset >= encoded.data.len() {
+                        break;
+                    }
                     let byte = encoded.data[offset];
                     for bit in 0..4 {
                         if i + bit < n {
@@ -542,7 +631,9 @@ pub fn encode_matrix(
     basis: &SvdBasis,
     profile: &BandProfile,
 ) -> Vec<MatryoshkaRow> {
-    rows.iter().map(|row| encode_row(row, basis, profile)).collect()
+    rows.iter()
+        .map(|row| encode_row(row, basis, profile))
+        .collect()
 }
 
 /// Decode a full weight matrix.
@@ -551,16 +642,18 @@ pub fn decode_matrix(
     basis: &SvdBasis,
     profile: &BandProfile,
 ) -> Vec<Vec<f32>> {
-    encoded.iter().map(|row| decode_row(row, basis, profile)).collect()
+    encoded
+        .iter()
+        .map(|row| decode_row(row, basis, profile))
+        .collect()
 }
 
 /// Measure reconstruction quality: per-row cosine and pairwise rank.
-pub fn measure_quality(
-    original: &[Vec<f32>],
-    reconstructed: &[Vec<f32>],
-) -> (f64, f64) {
+pub fn measure_quality(original: &[Vec<f32>], reconstructed: &[Vec<f32>]) -> (f64, f64) {
     let n = original.len().min(reconstructed.len());
-    if n == 0 { return (0.0, 0.0); }
+    if n == 0 {
+        return (0.0, 0.0);
+    }
 
     // Per-row cosine (average)
     let mut cos_sum = 0.0f64;
@@ -588,7 +681,9 @@ pub fn measure_quality(
         z ^= z >> 31;
         let b = (z as usize) % n;
 
-        if a == b { continue; }
+        if a == b {
+            continue;
+        }
         gt.push(cosine_f32(&original[a], &original[b]));
         rc.push(cosine_f32(&reconstructed[a], &reconstructed[b]));
     }
@@ -610,7 +705,11 @@ fn cosine_f32(a: &[f32], b: &[f32]) -> f64 {
         nb += y * y;
     }
     let denom = (na * nb).sqrt();
-    if denom < 1e-15 { 0.0 } else { dot / denom }
+    if denom < 1e-15 {
+        0.0
+    } else {
+        dot / denom
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -637,25 +736,35 @@ impl SvdBasis {
 
     /// Deserialize from bytes.
     pub fn from_bytes(role: &str, data: &[u8]) -> Option<Self> {
-        if data.len() < 8 { return None; }
+        if data.len() < 8 {
+            return None;
+        }
         let n_components = u32::from_le_bytes([data[0], data[1], data[2], data[3]]) as usize;
         let original_cols = u32::from_le_bytes([data[4], data[5], data[6], data[7]]) as usize;
 
         let sv_start = 8;
         let sv_end = sv_start + n_components * 4;
-        if data.len() < sv_end { return None; }
-        let singular_values: Vec<f32> = (0..n_components).map(|i| {
-            let off = sv_start + i * 4;
-            f32::from_le_bytes([data[off], data[off+1], data[off+2], data[off+3]])
-        }).collect();
+        if data.len() < sv_end {
+            return None;
+        }
+        let singular_values: Vec<f32> = (0..n_components)
+            .map(|i| {
+                let off = sv_start + i * 4;
+                f32::from_le_bytes([data[off], data[off + 1], data[off + 2], data[off + 3]])
+            })
+            .collect();
 
         let basis_start = sv_end;
         let basis_len = n_components * original_cols;
-        if data.len() < basis_start + basis_len * 2 { return None; }
-        let basis_bf16: Vec<u16> = (0..basis_len).map(|i| {
-            let off = basis_start + i * 2;
-            u16::from_le_bytes([data[off], data[off+1]])
-        }).collect();
+        if data.len() < basis_start + basis_len * 2 {
+            return None;
+        }
+        let basis_bf16: Vec<u16> = (0..basis_len)
+            .map(|i| {
+                let off = basis_start + i * 2;
+                u16::from_le_bytes([data[off], data[off + 1]])
+            })
+            .collect();
 
         Some(SvdBasis {
             role: role.to_string(),
@@ -672,10 +781,12 @@ mod tests {
     use super::*;
 
     fn make_row(seed: usize, dim: usize) -> Vec<f32> {
-        (0..dim).map(|d| {
-            let x = ((d * 97 + seed * 31 + 17) as f64 * 0.618).sin() as f32;
-            x * 0.01
-        }).collect()
+        (0..dim)
+            .map(|d| {
+                let x = ((d * 97 + seed * 31 + 17) as f64 * 0.618).sin() as f32;
+                x * 0.01
+            })
+            .collect()
     }
 
     #[test]
@@ -683,7 +794,11 @@ mod tests {
         let p = BandProfile::standard(512, 2048);
         let bpr = p.bytes_per_row();
         // gain(2) + band0: scale(2)+64×2 + band1: scale(2)+128 + band2: scale(2)+96 + band3: scale(2)+32
-        assert!(bpr > 350 && bpr < 600, "bytes_per_row = {} not in [350,600]", bpr);
+        assert!(
+            bpr > 350 && bpr < 600,
+            "bytes_per_row = {} not in [350,600]",
+            bpr
+        );
         assert!(p.compression_ratio() > 3.0, "ratio should be >3:1");
     }
 
@@ -715,7 +830,11 @@ mod tests {
 
         let (avg_cos, pairwise_rho) = measure_quality(&rows, &decoded);
         assert!(avg_cos > 0.8, "row cosine {} should be >0.8", avg_cos);
-        assert!(pairwise_rho > 0.7, "pairwise ρ {} should be >0.7", pairwise_rho);
+        assert!(
+            pairwise_rho > 0.7,
+            "pairwise ρ {} should be >0.7",
+            pairwise_rho
+        );
     }
 
     #[test]

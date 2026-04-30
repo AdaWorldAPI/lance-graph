@@ -337,14 +337,10 @@ pub fn apply_healing(graph: &mut TripletGraph, actions: &[HealingAction]) -> usi
                     // Reduce confidence of both contradicting triplets.
                     let ci = graph.triplets[*i].truth.confidence;
                     let cj = graph.triplets[*j].truth.confidence;
-                    graph.triplets[*i].truth = TruthValue::new(
-                        graph.triplets[*i].truth.frequency,
-                        ci * 0.5,
-                    );
-                    graph.triplets[*j].truth = TruthValue::new(
-                        graph.triplets[*j].truth.frequency,
-                        cj * 0.5,
-                    );
+                    graph.triplets[*i].truth =
+                        TruthValue::new(graph.triplets[*i].truth.frequency, ci * 0.5);
+                    graph.triplets[*j].truth =
+                        TruthValue::new(graph.triplets[*j].truth.frequency, cj * 0.5);
                     modified += 2;
                 }
             }
@@ -393,10 +389,8 @@ pub fn apply_healing(graph: &mut TripletGraph, actions: &[HealingAction]) -> usi
                     let scale = 0.95 / max_c;
                     for t in graph.triplets.iter_mut() {
                         if !t.is_deleted() {
-                            t.truth = TruthValue::new(
-                                t.truth.frequency,
-                                t.truth.confidence * scale,
-                            );
+                            t.truth =
+                                TruthValue::new(t.truth.frequency, t.truth.confidence * scale);
                             modified += 1;
                         }
                     }
@@ -410,8 +404,8 @@ pub fn apply_healing(graph: &mut TripletGraph, actions: &[HealingAction]) -> usi
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::triplet_graph::Triplet;
+    use super::*;
 
     fn make_graph() -> TripletGraph {
         let mut g = TripletGraph::new();
@@ -438,44 +432,43 @@ mod tests {
 
     #[test]
     fn test_suggested_bias_resolve() {
-        let mut signals = GraphSensorium::compute(
-            100, 40, &[10, 10, 30, 30, 20], 1, 10, 20, 50, 2, 20, 5, 20,
-        );
+        let mut signals =
+            GraphSensorium::compute(100, 40, &[10, 10, 30, 30, 20], 1, 10, 20, 50, 2, 20, 5, 20);
         assert_eq!(signals.suggested_bias(), GraphBias::Resolve);
     }
 
     #[test]
     fn test_suggested_bias_stagnant() {
-        let signals = GraphSensorium::compute(
-            100, 5, &[20, 20, 20, 20, 20], 0, 20, 2, 100, 0, 10, 5, 20,
-        );
+        let signals =
+            GraphSensorium::compute(100, 5, &[20, 20, 20, 20, 20], 0, 20, 2, 100, 0, 10, 5, 20);
         assert_eq!(signals.suggested_bias(), GraphBias::Stagnant);
     }
 
     #[test]
     fn test_suggested_bias_exploit() {
-        let signals = GraphSensorium::compute(
-            200, 2, &[180, 10, 5, 3, 2], 15, 20, 2, 100, 15, 20, 5, 50,
-        );
+        let signals =
+            GraphSensorium::compute(200, 2, &[180, 10, 5, 3, 2], 15, 20, 2, 100, 15, 20, 5, 50);
         assert_eq!(signals.suggested_bias(), GraphBias::Exploit);
     }
 
     #[test]
     fn test_diagnose_contradictions() {
-        let signals = GraphSensorium::compute(
-            100, 20, &[10, 10, 30, 30, 20], 1, 10, 10, 50, 2, 20, 5, 20,
-        );
+        let signals =
+            GraphSensorium::compute(100, 20, &[10, 10, 30, 30, 20], 1, 10, 10, 50, 2, 20, 5, 20);
         let actions = diagnose_healing(&signals);
-        assert!(actions.iter().any(|a| a.action == HealingType::ResolveContradictions));
+        assert!(actions
+            .iter()
+            .any(|a| a.action == HealingType::ResolveContradictions));
     }
 
     #[test]
     fn test_diagnose_bootstrap() {
-        let signals = GraphSensorium::compute(
-            100, 5, &[20, 20, 20, 20, 20], 0, 20, 2, 100, 0, 10, 5, 20,
-        );
+        let signals =
+            GraphSensorium::compute(100, 5, &[20, 20, 20, 20, 20], 0, 20, 2, 100, 0, 10, 5, 20);
         let actions = diagnose_healing(&signals);
-        assert!(actions.iter().any(|a| a.action == HealingType::BootstrapTruth));
+        assert!(actions
+            .iter()
+            .any(|a| a.action == HealingType::BootstrapTruth));
     }
 
     #[test]
@@ -484,7 +477,10 @@ mod tests {
         let signals = GraphSensorium::from_graph(&graph, &EpisodicMemory::new(10), 0, 1, 0, 0);
         let actions = diagnose_healing(&signals);
 
-        if actions.iter().any(|a| a.action == HealingType::ResolveContradictions) {
+        if actions
+            .iter()
+            .any(|a| a.action == HealingType::ResolveContradictions)
+        {
             let modified = apply_healing(&mut graph, &actions);
             assert!(modified > 0);
             // Contradicting triplets should have reduced confidence.

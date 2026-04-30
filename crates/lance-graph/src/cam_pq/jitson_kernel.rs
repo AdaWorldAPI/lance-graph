@@ -207,8 +207,8 @@ mod tests {
     fn test_cascade_template_valid_json() {
         let json = cam_pq_cascade_template(50.0, 25.0, 10, "vectors");
         // Should be valid JSON
-        let parsed: serde_json::Value = serde_json::from_str(&json)
-            .expect("cascade template should be valid JSON");
+        let parsed: serde_json::Value =
+            serde_json::from_str(&json).expect("cascade template should be valid JSON");
         assert_eq!(parsed["kernel"], "cam_pq_cascade");
         assert_eq!(parsed["pipeline"].as_array().unwrap().len(), 9);
         assert_eq!(parsed["scan"]["top_k"], 10);
@@ -217,8 +217,8 @@ mod tests {
     #[test]
     fn test_full_adc_template_valid_json() {
         let json = cam_pq_full_adc_template(20, "my_table");
-        let parsed: serde_json::Value = serde_json::from_str(&json)
-            .expect("full ADC template should be valid JSON");
+        let parsed: serde_json::Value =
+            serde_json::from_str(&json).expect("full ADC template should be valid JSON");
         assert_eq!(parsed["kernel"], "cam_pq_full_adc");
         assert_eq!(parsed["pipeline"].as_array().unwrap().len(), 4);
     }

@@ -3,20 +3,21 @@
 //! DP-based join order enumeration with factorization-aware plan space (from Kuzudb).
 //! The thinking context controls planner behavior: fan-out, depth, thresholds.
 
-mod dp_enumerator;
 mod cost;
+mod dp_enumerator;
 
-pub use dp_enumerator::DpEnumerator;
 pub use cost::CostModel;
+pub use dp_enumerator::DpEnumerator;
 
-#[allow(unused_imports)] // Node, SubPlansTable, SubqueryGraph intended for DP enumeration wiring
-use crate::ir::{Arena, LogicalOp, LogicalPlan, Node, SubPlansTable, SubqueryGraph};
 #[allow(unused_imports)] // AExpr intended for expression plan construction
 use crate::ir::expr::{AExpr, ExprNode};
-#[allow(unused_imports)] // intended for factorization schema wiring
-use crate::ir::schema::Schema;
 #[allow(unused_imports)] // intended for plan property propagation
 use crate::ir::properties::PlanProperties;
+#[allow(unused_imports)] // intended for factorization schema wiring
+use crate::ir::schema::Schema;
+#[allow(unused_imports)]
+// Node, SubPlansTable, SubqueryGraph intended for DP enumeration wiring
+use crate::ir::{Arena, LogicalOp, LogicalPlan, Node, SubPlansTable, SubqueryGraph};
 use crate::thinking::ThinkingContext;
 use crate::PlanError;
 
@@ -99,16 +100,12 @@ pub fn plan_query(
         // Empty query → EmptyResult
         let expr_arena = crate::ir::Arena::new();
         let root = arena.push(LogicalOp::EmptyResult);
-        return Ok(LogicalPlan::new(
-            std::mem::take(arena),
-            expr_arena,
-            root,
-        ));
+        return Ok(LogicalPlan::new(std::mem::take(arena), expr_arena, root));
     }
 
     // Check if this is a resonance query (BROADCAST → SCAN → ACCUMULATE → COLLAPSE)
-    let is_resonance = query.to_uppercase().contains("RESONATE")
-        || query.to_uppercase().contains("HAMMING");
+    let is_resonance =
+        query.to_uppercase().contains("RESONATE") || query.to_uppercase().contains("HAMMING");
 
     if is_resonance {
         return plan_resonance_query(query, thinking, arena, config);
@@ -119,11 +116,7 @@ pub fn plan_query(
     let expr_arena = crate::ir::Arena::new();
     let root = enumerator.enumerate(&query_graph, arena)?;
 
-    Ok(LogicalPlan::new(
-        std::mem::take(arena),
-        expr_arena,
-        root,
-    ))
+    Ok(LogicalPlan::new(std::mem::take(arena), expr_arena, root))
 }
 
 /// Plan a resonance query: BROADCAST → SCAN → ACCUMULATE → COLLAPSE.

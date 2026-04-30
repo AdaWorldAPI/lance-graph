@@ -73,12 +73,21 @@ impl HhtlDEntry {
     pub const BYTE_SIZE: usize = 4;
 
     /// Construct from components.
-    pub fn new(basin: HeelBasin, hip_family: u8, twig_centroid: u8, polarity: bool, residual_bf16: u16) -> Self {
+    pub fn new(
+        basin: HeelBasin,
+        hip_family: u8,
+        twig_centroid: u8,
+        polarity: bool,
+        residual_bf16: u16,
+    ) -> Self {
         let d = basin.bits()
             | ((hip_family as u16 & 0x0F) << 10)
             | ((twig_centroid as u16) << 2)
             | if polarity { 2 } else { 0 };
-        HhtlDEntry { slot_d: d, slot_v: residual_bf16 }
+        HhtlDEntry {
+            slot_d: d,
+            slot_v: residual_bf16,
+        }
     }
 
     /// Extract HEEL basin (bits 15..14).
@@ -175,7 +184,7 @@ impl HhtlDTensor {
         role: &str,
         rows_f32: &[Vec<f32>],
         cache: &HhtlCache,
-        hip_assignments: &[u8],  // centroid → HIP family (16-way)
+        hip_assignments: &[u8], // centroid → HIP family (16-way)
     ) -> Self {
         let basin = HeelBasin::from_role(role);
         let n_rows = rows_f32.len();
@@ -193,7 +202,9 @@ impl HhtlDTensor {
             // Step 3: Compute residual magnitude
             // Residual = L1 distance normalized by centroid magnitude
             let centroid = &cache.palette.entries[centroid_idx as usize];
-            let centroid_mag: f64 = centroid.dims.iter()
+            let centroid_mag: f64 = centroid
+                .dims
+                .iter()
                 .map(|&d| (d as f64).abs())
                 .sum::<f64>()
                 .max(1.0);
@@ -293,10 +304,14 @@ impl HhtlDTensor {
         let n_cols = rows_f32[0].len();
 
         // Build per-row centroid_f32 from each row's assigned palette entry.
-        let centroids: Vec<Vec<f32>> = t.entries.iter().map(|e| {
-            let ci = e.twig_centroid() as usize;
-            cache.palette.entries[ci].to_f32(n_cols)
-        }).collect();
+        let centroids: Vec<Vec<f32>> = t
+            .entries
+            .iter()
+            .map(|e| {
+                let ci = e.twig_centroid() as usize;
+                cache.palette.entries[ci].to_f32(n_cols)
+            })
+            .collect();
 
         let (slot_l_entries, scale) = crate::slot_l::encode_rows(rows_f32, &centroids, svd_basis);
         t.slot_l = Some(slot_l_entries);
@@ -321,9 +336,7 @@ impl HhtlDTensor {
         let centroid_f32 = self.cache.palette.entries[twig].to_f32(n_cols);
 
         match (&self.slot_l, &self.svd_basis, self.slot_l_scale) {
-            (Some(slot_l_entries), Some(basis), Some(scale))
-                if idx < slot_l_entries.len() =>
-            {
+            (Some(slot_l_entries), Some(basis), Some(scale)) if idx < slot_l_entries.len() => {
                 crate::slot_l::decode_row(&centroid_f32, &slot_l_entries[idx], scale, basis, n_cols)
             }
             _ => centroid_f32,
@@ -332,13 +345,18 @@ impl HhtlDTensor {
 
     /// Reconstruct all rows as a flat Vec<Vec<f32>>.
     pub fn reconstruct_rows(&self, n_cols: usize) -> Vec<Vec<f32>> {
-        (0..self.entries.len()).map(|i| self.reconstruct_row(i, n_cols)).collect()
+        (0..self.entries.len())
+            .map(|i| self.reconstruct_row(i, n_cols))
+            .collect()
     }
 
     /// Slot L byte size (only the i8 entries, not the shared basis or scale).
     /// Returns 0 when no Slot L is present.
     pub fn slot_l_byte_size(&self) -> usize {
-        self.slot_l.as_ref().map(|v| v.len() * crate::slot_l::SlotL::BYTE_SIZE).unwrap_or(0)
+        self.slot_l
+            .as_ref()
+            .map(|v| v.len() * crate::slot_l::SlotL::BYTE_SIZE)
+            .unwrap_or(0)
     }
 
     /// Serialize Slot L bytes (8 × i8 per row) to a flat Vec.
@@ -439,7 +457,13 @@ pub fn build_hip_families(palette: &[Base17]) -> Vec<u8> {
     }
 
     // Recursive binary split: 4 levels → 16 families
-    fn split(indices: &[usize], palette: &[Base17], assignments: &mut [u8], family_base: u8, depth: u8) {
+    fn split(
+        indices: &[usize],
+        palette: &[Base17],
+        assignments: &mut [u8],
+        family_base: u8,
+        depth: u8,
+    ) {
         if depth == 4 || indices.len() <= 1 {
             for &idx in indices {
                 assignments[idx] = family_base;
@@ -495,8 +519,8 @@ pub fn build_hip_families(palette: &[Base17]) -> Vec<u8> {
 /// Stored as JSON in the safetensors header's `__metadata__` field.
 #[derive(Clone, Debug)]
 pub struct HhtlDMeta {
-    pub encoding: String,   // "bgz-hhtl-d"
-    pub version: u32,       // 1
+    pub encoding: String, // "bgz-hhtl-d"
+    pub version: u32,     // 1
     pub original_model: String,
     pub n_roles: usize,
     pub palette_k: usize,
@@ -515,7 +539,10 @@ impl HhtlDMeta {
         m.insert("palette_k".into(), self.palette_k.to_string());
         m.insert("total_entries".into(), self.total_entries.to_string());
         m.insert("total_bytes".into(), self.total_bytes.to_string());
-        m.insert("compression_ratio".into(), format!("{:.1}", self.compression_ratio));
+        m.insert(
+            "compression_ratio".into(),
+            format!("{:.1}", self.compression_ratio),
+        );
         m
     }
 }
@@ -559,9 +586,7 @@ mod tests {
             HhtlDEntry::new(HeelBasin::FFN, 12, 200, false, 0x3F80),
         ];
 
-        let bytes: Vec<u8> = entries.iter()
-            .flat_map(|e| e.to_le_bytes())
-            .collect();
+        let bytes: Vec<u8> = entries.iter().flat_map(|e| e.to_le_bytes()).collect();
         let decoded = HhtlDTensor::entries_from_bytes(&bytes);
 
         assert_eq!(decoded.len(), 2);
@@ -572,23 +597,33 @@ mod tests {
     #[test]
     fn hip_families_produce_16_groups() {
         // Synthetic palette: 256 Base17 entries
-        let palette: Vec<Base17> = (0..256).map(|i| {
-            let mut dims = [0i16; 17];
-            dims[0] = (i as i16) * 100;
-            dims[1] = ((i as i16) % 17) * 50;
-            dims[2] = ((i as i16) / 17) * 30;
-            Base17 { dims }
-        }).collect();
+        let palette: Vec<Base17> = (0..256)
+            .map(|i| {
+                let mut dims = [0i16; 17];
+                dims[0] = (i as i16) * 100;
+                dims[1] = ((i as i16) % 17) * 50;
+                dims[2] = ((i as i16) / 17) * 30;
+                Base17 { dims }
+            })
+            .collect();
 
         let families = build_hip_families(&palette);
         assert_eq!(families.len(), 256);
 
         let max_family = *families.iter().max().unwrap();
-        assert!(max_family < 16, "should produce at most 16 families, got max {}", max_family);
+        assert!(
+            max_family < 16,
+            "should produce at most 16 families, got max {}",
+            max_family
+        );
 
         // At least 8 families should be used
         let used: std::collections::HashSet<u8> = families.iter().copied().collect();
-        assert!(used.len() >= 8, "should use at least 8 families, got {}", used.len());
+        assert!(
+            used.len() >= 8,
+            "should use at least 8 families, got {}",
+            used.len()
+        );
     }
 
     #[test]
@@ -616,16 +651,18 @@ mod tests {
             let atom: Vec<f32> = (0..cols).map(|_| next()).collect();
             atoms.push(atom);
         }
-        (0..n).map(|_| {
-            let mut row = vec![0.0f32; cols];
-            for atom in &atoms {
-                let w = next() * 0.5;
-                for j in 0..cols {
-                    row[j] += atom[j] * w;
+        (0..n)
+            .map(|_| {
+                let mut row = vec![0.0f32; cols];
+                for atom in &atoms {
+                    let w = next() * 0.5;
+                    for j in 0..cols {
+                        row[j] += atom[j] * w;
+                    }
                 }
-            }
-            row
-        }).collect()
+                row
+            })
+            .collect()
     }
 
     fn cosine_f32(a: &[f32], b: &[f32]) -> f64 {
@@ -639,14 +676,20 @@ mod tests {
             nb += b[i] as f64 * b[i] as f64;
         }
         let d = (na * nb).sqrt();
-        if d < 1e-15 { 0.0 } else { dot / d }
+        if d < 1e-15 {
+            0.0
+        } else {
+            dot / d
+        }
     }
 
     #[test]
     fn encode_preserves_slot_d_path_with_no_leaf() {
         // Minimal palette + rows. The existing encode() path must still
         // produce slot_l == None (no Slot L).
-        let rows: Vec<Vec<f32>> = (0..16).map(|i| (0..128).map(|j| ((i * 128 + j) as f32).sin()).collect()).collect();
+        let rows: Vec<Vec<f32>> = (0..16)
+            .map(|i| (0..128).map(|j| ((i * 128 + j) as f32).sin()).collect())
+            .collect();
         let b17_rows: Vec<Base17> = rows.iter().map(|r| Base17::from_f32(r)).collect();
         let cache = crate::hhtl_cache::HhtlCache::from_base17_rows(&b17_rows, 16);
         let hip = build_hip_families(&cache.palette.entries);
@@ -686,7 +729,9 @@ mod tests {
         for i in 0..n {
             let recon = t.reconstruct_row(i, cols);
             let c = cosine_f32(&rows[i], &recon);
-            if c < min_c { min_c = c; }
+            if c < min_c {
+                min_c = c;
+            }
             sum_c += c;
         }
         let avg = sum_c / n as f64;
@@ -695,10 +740,16 @@ mod tests {
         // realistic bar on randomly-initialised palette caches. Slot-L
         // alone hit ρ ≥ 0.98 in its module's tests (zero-centroid); here
         // the centroid shifts the operating point.
-        assert!(avg >= 0.85,
-            "avg per-row cos with SlotL should be >= 0.85 on low-rank inputs, got {:.4}", avg);
-        assert!(min_c >= 0.50,
-            "min per-row cos with SlotL should be >= 0.50, got {:.4}", min_c);
+        assert!(
+            avg >= 0.85,
+            "avg per-row cos with SlotL should be >= 0.85 on low-rank inputs, got {:.4}",
+            avg
+        );
+        assert!(
+            min_c >= 0.50,
+            "min per-row cos with SlotL should be >= 0.50, got {:.4}",
+            min_c
+        );
     }
 
     #[test]
@@ -729,7 +780,9 @@ mod tests {
     #[test]
     fn reconstruct_row_without_leaf_returns_centroid_only() {
         // No Slot L -> reconstruct_row returns the centroid expansion, no residual.
-        let rows: Vec<Vec<f32>> = (0..4).map(|i| (0..64).map(|j| ((i * 64 + j) as f32).cos()).collect()).collect();
+        let rows: Vec<Vec<f32>> = (0..4)
+            .map(|i| (0..64).map(|j| ((i * 64 + j) as f32).cos()).collect())
+            .collect();
         let b17_rows: Vec<Base17> = rows.iter().map(|r| Base17::from_f32(r)).collect();
         let cache = crate::hhtl_cache::HhtlCache::from_base17_rows(&b17_rows, 4);
         let hip = build_hip_families(&cache.palette.entries);
@@ -743,8 +796,11 @@ mod tests {
         let twig = t.entries[0].twig_centroid() as usize;
         let expected = t.cache.palette.entries[twig].to_f32(64);
         for i in 0..64 {
-            assert!((recon[i] - expected[i]).abs() < 1e-6,
-                "without Slot L, reconstruct_row must equal centroid.to_f32 at dim {}", i);
+            assert!(
+                (recon[i] - expected[i]).abs() < 1e-6,
+                "without Slot L, reconstruct_row must equal centroid.to_f32 at dim {}",
+                i
+            );
         }
     }
 }

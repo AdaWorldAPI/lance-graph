@@ -40,13 +40,19 @@ impl Schema {
 
     /// Get the single unflat group, if any (invariant: at most one).
     pub fn unflat_group(&self) -> Option<(usize, &FactorizationGroup)> {
-        self.groups.iter().enumerate()
+        self.groups
+            .iter()
+            .enumerate()
             .find(|(_, g)| !g.flat && !g.single_state)
     }
 
     /// Check the factorization invariant: at most one unflat group.
     pub fn is_valid(&self) -> bool {
-        self.groups.iter().filter(|g| !g.flat && !g.single_state).count() <= 1
+        self.groups
+            .iter()
+            .filter(|g| !g.flat && !g.single_state)
+            .count()
+            <= 1
     }
 
     /// Encode the factorization state as a bitmask (for DP table differentiation).
@@ -77,7 +83,8 @@ impl Schema {
 
     /// Total cardinality multiplier across all groups.
     pub fn total_cardinality(&self) -> f64 {
-        self.groups.iter()
+        self.groups
+            .iter()
             .map(|g| g.cardinality_multiplier)
             .product()
     }

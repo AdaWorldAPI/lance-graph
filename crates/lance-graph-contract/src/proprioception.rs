@@ -34,9 +34,17 @@
 
 /// Clinical axis labels, index-aligned with the 11D state vector.
 pub const AXIS_LABELS: [&str; 11] = [
-    "warmth", "clarity", "depth", "safety",
-    "vitality", "insight", "contact",
-    "tension", "novelty", "wonder", "attunement",
+    "warmth",
+    "clarity",
+    "depth",
+    "safety",
+    "vitality",
+    "insight",
+    "contact",
+    "tension",
+    "novelty",
+    "wonder",
+    "attunement",
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -68,26 +76,50 @@ pub struct ProprioceptionAxes {
 impl ProprioceptionAxes {
     pub const fn zero() -> Self {
         Self {
-            warmth: 0.0, clarity: 0.0, depth: 0.0, safety: 0.0,
-            vitality: 0.0, insight: 0.0, contact: 0.0,
-            tension: 0.0, novelty: 0.0, wonder: 0.0, attunement: 0.0,
+            warmth: 0.0,
+            clarity: 0.0,
+            depth: 0.0,
+            safety: 0.0,
+            vitality: 0.0,
+            insight: 0.0,
+            contact: 0.0,
+            tension: 0.0,
+            novelty: 0.0,
+            wonder: 0.0,
+            attunement: 0.0,
         }
     }
 
     /// Pack into the raw state vector used by classifiers.
     pub fn to_vector(&self) -> [f32; STATE_DIMS] {
         [
-            self.warmth, self.clarity, self.depth, self.safety,
-            self.vitality, self.insight, self.contact,
-            self.tension, self.novelty, self.wonder, self.attunement,
+            self.warmth,
+            self.clarity,
+            self.depth,
+            self.safety,
+            self.vitality,
+            self.insight,
+            self.contact,
+            self.tension,
+            self.novelty,
+            self.wonder,
+            self.attunement,
         ]
     }
 
     pub fn from_vector(v: &[f32; STATE_DIMS]) -> Self {
         Self {
-            warmth: v[0], clarity: v[1], depth: v[2], safety: v[3],
-            vitality: v[4], insight: v[5], contact: v[6],
-            tension: v[7], novelty: v[8], wonder: v[9], attunement: v[10],
+            warmth: v[0],
+            clarity: v[1],
+            depth: v[2],
+            safety: v[3],
+            vitality: v[4],
+            insight: v[5],
+            contact: v[6],
+            tension: v[7],
+            novelty: v[8],
+            wonder: v[9],
+            attunement: v[10],
         }
     }
 
@@ -98,9 +130,13 @@ impl ProprioceptionAxes {
 
     pub fn drive_mode(&self) -> DriveMode {
         let phi = self.drive_ratio();
-        if phi < 1.0 { DriveMode::Explore }
-        else if phi < 1.8 { DriveMode::Exploit }
-        else { DriveMode::Reflect }
+        if phi < 1.0 {
+            DriveMode::Explore
+        } else if phi < 1.8 {
+            DriveMode::Exploit
+        } else {
+            DriveMode::Reflect
+        }
     }
 }
 
@@ -142,16 +178,21 @@ pub enum StateAnchor {
 impl StateAnchor {
     /// All 7 anchors in canonical order.
     pub const ALL: [Self; 7] = [
-        Self::Intake, Self::Focused, Self::Rest, Self::Flow,
-        Self::Observer, Self::Balanced, Self::Baseline,
+        Self::Intake,
+        Self::Focused,
+        Self::Rest,
+        Self::Flow,
+        Self::Observer,
+        Self::Balanced,
+        Self::Baseline,
     ];
 
     pub fn name(self) -> &'static str {
         match self {
-            Self::Intake   => "intake",
-            Self::Focused  => "focused",
-            Self::Rest     => "rest",
-            Self::Flow     => "flow",
+            Self::Intake => "intake",
+            Self::Focused => "focused",
+            Self::Rest => "rest",
+            Self::Flow => "flow",
             Self::Observer => "observer",
             Self::Balanced => "balanced",
             Self::Baseline => "baseline",
@@ -160,10 +201,10 @@ impl StateAnchor {
 
     pub fn from_name(s: &str) -> Option<Self> {
         match s {
-            "intake"   => Some(Self::Intake),
-            "focused"  => Some(Self::Focused),
-            "rest"     => Some(Self::Rest),
-            "flow"     => Some(Self::Flow),
+            "intake" => Some(Self::Intake),
+            "focused" => Some(Self::Focused),
+            "rest" => Some(Self::Rest),
+            "flow" => Some(Self::Flow),
             "observer" => Some(Self::Observer),
             "balanced" => Some(Self::Balanced),
             "baseline" => Some(Self::Baseline),
@@ -186,10 +227,14 @@ pub struct AnchorState {
 impl AnchorState {
     /// Core 7 (indices 0..6): warmth, clarity, depth, safety, vitality,
     /// insight, contact.
-    pub fn core(&self) -> &[f32] { &self.coords[..CORE_AXES] }
+    pub fn core(&self) -> &[f32] {
+        &self.coords[..CORE_AXES]
+    }
 
     /// Drive 4 (indices 7..10): tension, novelty, wonder, attunement.
-    pub fn drive(&self) -> &[f32] { &self.coords[CORE_AXES..] }
+    pub fn drive(&self) -> &[f32] {
+        &self.coords[CORE_AXES..]
+    }
 
     /// Drive ratio = tension / novelty. Below 1.0 → Explore;
     /// 1.0-1.8 → Exploit; ≥1.8 → Reflect.
@@ -200,9 +245,13 @@ impl AnchorState {
     /// Classification of drive regime from the ratio.
     pub fn drive_mode(&self) -> DriveMode {
         let phi = self.drive_ratio();
-        if phi < 1.0 { DriveMode::Explore }
-        else if phi < 1.8 { DriveMode::Exploit }
-        else { DriveMode::Reflect }
+        if phi < 1.0 {
+            DriveMode::Explore
+        } else if phi < 1.8 {
+            DriveMode::Exploit
+        } else {
+            DriveMode::Reflect
+        }
     }
 }
 
@@ -230,43 +279,43 @@ pub const ANCHOR_REGISTRY: [AnchorState; 7] = [
     // Intake — breath-centered, moderate everything, high attunement
     AnchorState {
         anchor: StateAnchor::Intake,
-        coords: [0.3, 0.6, 0.4, 0.4, 0.8, 0.5, 0.3,   0.3, 0.4, 0.5, 0.7],
+        coords: [0.3, 0.6, 0.4, 0.4, 0.8, 0.5, 0.3, 0.3, 0.4, 0.5, 0.7],
         rung: 5,
     },
     // Focused — high clarity and contact, precise
     AnchorState {
         anchor: StateAnchor::Focused,
-        coords: [0.3, 0.7, 0.5, 0.6, 0.5, 0.6, 0.7,   0.4, 0.3, 0.4, 0.6],
+        coords: [0.3, 0.7, 0.5, 0.6, 0.5, 0.6, 0.7, 0.4, 0.3, 0.4, 0.6],
         rung: 4,
     },
     // Rest — high safety + depth, low arousal
     AnchorState {
         anchor: StateAnchor::Rest,
-        coords: [0.6, 0.2, 0.8, 0.9, 0.3, 0.4, 0.8,   0.6, 0.2, 0.3, 0.8],
+        coords: [0.6, 0.2, 0.8, 0.9, 0.3, 0.4, 0.8, 0.6, 0.2, 0.3, 0.8],
         rung: 3,
     },
     // Flow — high vitality and novelty, active engagement
     AnchorState {
         anchor: StateAnchor::Flow,
-        coords: [0.7, 0.5, 0.3, 0.6, 0.9, 0.6, 0.7,   0.2, 0.8, 0.7, 0.7],
+        coords: [0.7, 0.5, 0.3, 0.6, 0.9, 0.6, 0.7, 0.2, 0.8, 0.7, 0.7],
         rung: 5,
     },
     // Observer — high insight and clarity, low contact
     AnchorState {
         anchor: StateAnchor::Observer,
-        coords: [0.2, 0.8, 0.7, 0.3, 0.6, 0.9, 0.2,   0.8, 0.1, 0.5, 0.5],
+        coords: [0.2, 0.8, 0.7, 0.3, 0.6, 0.9, 0.2, 0.8, 0.1, 0.5, 0.5],
         rung: 7,
     },
     // Balanced — equanimous, neither tension- nor novelty-dominant
     AnchorState {
         anchor: StateAnchor::Balanced,
-        coords: [0.4, 0.6, 0.7, 0.5, 0.5, 0.7, 0.3,   0.5, 0.5, 0.4, 0.6],
+        coords: [0.4, 0.6, 0.7, 0.5, 0.5, 0.7, 0.3, 0.5, 0.5, 0.4, 0.6],
         rung: 6,
     },
     // Baseline — nominal warmth + attunement without effort
     AnchorState {
         anchor: StateAnchor::Baseline,
-        coords: [0.9, 0.3, 0.5, 0.8, 0.7, 0.4, 0.6,   0.1, 0.6, 0.8, 0.9],
+        coords: [0.9, 0.3, 0.5, 0.8, 0.7, 0.4, 0.6, 0.1, 0.6, 0.8, 0.9],
         rung: 5,
     },
 ];
@@ -380,7 +429,9 @@ pub fn hydrate(state: &[f32; STATE_DIMS], temperature: f32) -> [f32; STATE_DIMS]
         weights[i] = (neg_dists[i] - max).exp();
         sum += weights[i];
     }
-    for w in &mut weights { *w /= sum; }
+    for w in &mut weights {
+        *w /= sum;
+    }
 
     let mut acc = [0.0f32; STATE_DIMS];
     for i in 0..7 {
@@ -460,7 +511,11 @@ mod tests {
         let hydrated = hydrate(&anchor.coords, 0.01);
         // Near-zero distance from Rest itself
         let d = distance(&hydrated, anchor);
-        assert!(d < 0.1, "low-temp hydrate should be near the anchor, got d={}", d);
+        assert!(
+            d < 0.1,
+            "low-temp hydrate should be near the anchor, got d={}",
+            d
+        );
     }
 
     #[test]
@@ -470,12 +525,14 @@ mod tests {
         // Each hydrated dim should be roughly the mean of that dim
         // across all 7 anchors.
         for (j, &h) in hydrated.iter().enumerate().take(STATE_DIMS) {
-            let anchor_mean: f32 = ANCHOR_REGISTRY.iter()
-                .map(|a| a.coords[j])
-                .sum::<f32>() / 7.0;
-            assert!((h - anchor_mean).abs() < 0.1,
+            let anchor_mean: f32 = ANCHOR_REGISTRY.iter().map(|a| a.coords[j]).sum::<f32>() / 7.0;
+            assert!(
+                (h - anchor_mean).abs() < 0.1,
                 "dim {} high-temp hydrate should approach anchor mean ({:.2}), got {:.2}",
-                j, anchor_mean, h);
+                j,
+                anchor_mean,
+                h
+            );
         }
     }
 
@@ -499,9 +556,17 @@ mod tests {
     #[test]
     fn axes_roundtrip_through_vector() {
         let axes = ProprioceptionAxes {
-            warmth: 0.1, clarity: 0.2, depth: 0.3, safety: 0.4,
-            vitality: 0.5, insight: 0.6, contact: 0.7,
-            tension: 0.8, novelty: 0.9, wonder: 0.15, attunement: 0.25,
+            warmth: 0.1,
+            clarity: 0.2,
+            depth: 0.3,
+            safety: 0.4,
+            vitality: 0.5,
+            insight: 0.6,
+            contact: 0.7,
+            tension: 0.8,
+            novelty: 0.9,
+            wonder: 0.15,
+            attunement: 0.25,
         };
         let v = axes.to_vector();
         let back = ProprioceptionAxes::from_vector(&v);

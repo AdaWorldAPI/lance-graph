@@ -215,10 +215,7 @@ mod tests {
     #[test]
     fn test_adjacency_store() {
         // Triangle: 0→1, 1→2, 2→0
-        let store = AdjacencyStore::from_edges(
-            "KNOWS".into(), 3,
-            &[(0, 1), (1, 2), (2, 0)],
-        );
+        let store = AdjacencyStore::from_edges("KNOWS".into(), 3, &[(0, 1), (1, 2), (2, 0)]);
 
         assert_eq!(store.adjacent(0), &[1]);
         assert_eq!(store.adjacent(1), &[2]);
@@ -229,22 +226,17 @@ mod tests {
     #[test]
     fn test_batch_adjacent() {
         // Star: 0→1, 0→2, 0→3, 1→3
-        let store = AdjacencyStore::from_edges(
-            "LINKS".into(), 4,
-            &[(0, 1), (0, 2), (0, 3), (1, 3)],
-        );
+        let store =
+            AdjacencyStore::from_edges("LINKS".into(), 4, &[(0, 1), (0, 2), (0, 3), (1, 3)]);
 
         let batch = store.batch_adjacent(&[0, 1]);
         assert_eq!(batch.targets_for(0), &[1, 2, 3]); // 0's adjacency
-        assert_eq!(batch.targets_for(1), &[3]);         // 1's adjacency
+        assert_eq!(batch.targets_for(1), &[3]); // 1's adjacency
     }
 
     #[test]
     fn test_incoming_adjacency() {
-        let store = AdjacencyStore::from_edges(
-            "KNOWS".into(), 3,
-            &[(0, 2), (1, 2)],
-        );
+        let store = AdjacencyStore::from_edges("KNOWS".into(), 3, &[(0, 2), (1, 2)]);
 
         // Node 2 has incoming edges from 0 and 1
         let incoming = store.adjacent_incoming(2);

@@ -151,11 +151,11 @@ impl ParseOutcome {
     /// `f_obs` ∈ {0, 1} polarity; `c_obs` weights the update.
     pub fn observation(self) -> (f32, f32) {
         match self {
-            Self::LocalSuccess                => (1.0, 1.0),
-            Self::LocalSuccessConfirmedByLLM  => (1.0, 2.0),
-            Self::EscalatedButLLMAgreed       => (1.0, 0.5),
-            Self::EscalatedAndLLMDisagreed    => (0.0, 1.0),
-            Self::LocalFailureLLMSucceeded    => (0.0, 2.0),
+            Self::LocalSuccess => (1.0, 1.0),
+            Self::LocalSuccessConfirmedByLLM => (1.0, 2.0),
+            Self::EscalatedButLLMAgreed => (1.0, 0.5),
+            Self::EscalatedAndLLMDisagreed => (0.0, 1.0),
+            Self::LocalFailureLLMSucceeded => (0.0, 2.0),
         }
     }
 }
@@ -236,10 +236,11 @@ impl GrammarStyleAwareness {
                 _ => None,
             })
             .collect();
-        ranked.sort_by(|a, b| {
-            b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
-        });
-        ranked.first().map(|(inf, _)| *inf).unwrap_or(prior.nars.fallback)
+        ranked.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        ranked
+            .first()
+            .map(|(inf, _)| *inf)
+            .unwrap_or(prior.nars.fallback)
     }
 
     /// KL-style divergence of this awareness's accumulated beliefs from
@@ -293,8 +294,12 @@ impl GrammarStyleAwareness {
     /// Snapshot for cross-session persistence (E6 from PR #279 outlook).
     /// META-AGENT: when serde feature lands, derive Serialize on Snapshot.
     pub fn snapshot(&self) -> AwarenessSnapshot {
-        let mut pairs: Vec<_> = self.param_truths.iter().map(|(k, v)| (k.clone(), *v)).collect();
-        pairs.sort_by_key(|(k, _)| format!("{:?}", k));  // stable for diff
+        let mut pairs: Vec<_> = self
+            .param_truths
+            .iter()
+            .map(|(k, v)| (k.clone(), *v))
+            .collect();
+        pairs.sort_by_key(|(k, _)| format!("{:?}", k)); // stable for diff
         AwarenessSnapshot {
             style: self.style,
             param_truths: pairs,
@@ -325,7 +330,7 @@ impl GrammarStyleAwareness {
 #[derive(Debug, Clone)]
 pub struct AwarenessSnapshot {
     pub style: ThinkingStyle,
-    pub param_truths: Vec<(ParamKey, TruthValue)>,  // Vec for stable ordering
+    pub param_truths: Vec<(ParamKey, TruthValue)>, // Vec for stable ordering
     pub recent_success: TruthValue,
     pub parse_count: u64,
 }
@@ -382,9 +387,8 @@ pub fn parse_style_yaml(yaml: &str) -> Result<GrammarStyleConfig, String> {
 /// Public so tests / alternative loaders can supply pairs directly when the
 /// YAML reader's subset is too narrow.
 pub fn config_from_pairs(pairs: &[(String, String)]) -> Result<GrammarStyleConfig, String> {
-    let lookup = |k: &str| -> Option<&str> {
-        pairs.iter().find(|(p, _)| p == k).map(|(_, v)| v.as_str())
-    };
+    let lookup =
+        |k: &str| -> Option<&str> { pairs.iter().find(|(p, _)| p == k).map(|(_, v)| v.as_str()) };
     let lookup_list = |k: &str| -> Vec<String> {
         pairs
             .iter()
@@ -397,9 +401,8 @@ pub fn config_from_pairs(pairs: &[(String, String)]) -> Result<GrammarStyleConfi
             })
             .collect()
     };
-    let req = |k: &str| -> Result<&str, String> {
-        lookup(k).ok_or_else(|| format!("missing key: {k}"))
-    };
+    let req =
+        |k: &str| -> Result<&str, String> { lookup(k).ok_or_else(|| format!("missing key: {k}")) };
 
     let style = parse_style_name(req("style")?)?;
 
@@ -414,7 +417,10 @@ pub fn config_from_pairs(pairs: &[(String, String)]) -> Result<GrammarStyleConfi
         tables.push(parse_morphology_table(s)?);
     }
     let agglutinative_mode = parse_bool(req("morphology.agglutinative_mode")?)?;
-    let morphology = MorphologyPolicy { tables, agglutinative_mode };
+    let morphology = MorphologyPolicy {
+        tables,
+        agglutinative_mode,
+    };
 
     let slot_strs = lookup_list("tekamolo.priority");
     let mut priority = Vec::new();
@@ -422,20 +428,30 @@ pub fn config_from_pairs(pairs: &[(String, String)]) -> Result<GrammarStyleConfi
         priority.push(parse_tekamolo_slot(s)?);
     }
     let require_fillable = parse_bool(req("tekamolo.require_fillable")?)?;
-    let tekamolo = TekamoloPolicy { priority, require_fillable };
+    let tekamolo = TekamoloPolicy {
+        priority,
+        require_fillable,
+    };
 
     let radius: u8 = req("markov.radius")?
         .parse()
         .map_err(|e| format!("markov.radius: {e}"))?;
     let kernel = parse_kernel(req("markov.kernel")?)?;
     let replay = parse_replay(req("markov.replay")?)?;
-    let markov = MarkovPolicy { radius, kernel, replay };
+    let markov = MarkovPolicy {
+        radius,
+        kernel,
+        replay,
+    };
 
     let pearl_mask = parse_u8_with_hex(req("spo_causal.pearl_mask")?)?;
     let ambiguity_tolerance: f32 = req("spo_causal.ambiguity_tolerance")?
         .parse()
         .map_err(|e| format!("spo_causal.ambiguity_tolerance: {e}"))?;
-    let spo_causal = SpoCausalPolicy { pearl_mask, ambiguity_tolerance };
+    let spo_causal = SpoCausalPolicy {
+        pearl_mask,
+        ambiguity_tolerance,
+    };
 
     let local_threshold: f32 = req("coverage.local_threshold")?
         .parse()
@@ -443,7 +459,10 @@ pub fn config_from_pairs(pairs: &[(String, String)]) -> Result<GrammarStyleConfi
     let escalate_below: f32 = req("coverage.escalate_below")?
         .parse()
         .map_err(|e| format!("coverage.escalate_below: {e}"))?;
-    let coverage = CoveragePolicy { local_threshold, escalate_below };
+    let coverage = CoveragePolicy {
+        local_threshold,
+        escalate_below,
+    };
 
     Ok(GrammarStyleConfig {
         style,
@@ -486,15 +505,17 @@ fn parse_flow_map(line: &str) -> Option<Vec<(String, String)>> {
     let line = line.trim();
     let colon = line.find(':')?;
     let outer_key = line[..colon].trim().to_string();
-    let rest = line[colon+1..].trim();
-    if !rest.starts_with('{') || !rest.ends_with('}') { return None; }
-    let inner = &rest[1..rest.len()-1];
+    let rest = line[colon + 1..].trim();
+    if !rest.starts_with('{') || !rest.ends_with('}') {
+        return None;
+    }
+    let inner = &rest[1..rest.len() - 1];
     let mut pairs = Vec::new();
     for piece in inner.split(',') {
         let piece = piece.trim();
         if let Some(c) = piece.find(':') {
             let k = piece[..c].trim();
-            let v = piece[c+1..].trim();
+            let v = piece[c + 1..].trim();
             pairs.push((format!("{}.{}", outer_key, k), v.to_string()));
         }
     }
@@ -536,7 +557,10 @@ fn collect_yaml_pairs(yaml: &str) -> Result<Vec<(String, String)>, String> {
 
         // Pop path entries whose indent ≥ current line's indent.
         while path_stack.last().map(|(i, _)| *i).unwrap_or(usize::MAX) != usize::MAX
-            && path_stack.last().map(|(i, _)| *i >= indent).unwrap_or(false)
+            && path_stack
+                .last()
+                .map(|(i, _)| *i >= indent)
+                .unwrap_or(false)
         {
             path_stack.pop();
         }
@@ -608,50 +632,50 @@ fn parse_style_name(s: &str) -> Result<ThinkingStyle, String> {
     // (case-insensitive) is also accepted as a passthrough.
     let lower = s.trim().to_ascii_lowercase();
     Ok(match lower.as_str() {
-        "analytical"    => ThinkingStyle::Analytical,
-        "convergent"    => ThinkingStyle::Logical,
-        "systematic"    => ThinkingStyle::Systematic,
-        "creative"      => ThinkingStyle::Creative,
-        "divergent"     => ThinkingStyle::Imaginative,
-        "exploratory"   => ThinkingStyle::Exploratory,
-        "focused"       => ThinkingStyle::Precise,
-        "diffuse"       => ThinkingStyle::Reflective,
-        "peripheral"    => ThinkingStyle::Curious,
-        "intuitive"     => ThinkingStyle::Empathetic,
-        "deliberate"    => ThinkingStyle::Methodical,
+        "analytical" => ThinkingStyle::Analytical,
+        "convergent" => ThinkingStyle::Logical,
+        "systematic" => ThinkingStyle::Systematic,
+        "creative" => ThinkingStyle::Creative,
+        "divergent" => ThinkingStyle::Imaginative,
+        "exploratory" => ThinkingStyle::Exploratory,
+        "focused" => ThinkingStyle::Precise,
+        "diffuse" => ThinkingStyle::Reflective,
+        "peripheral" => ThinkingStyle::Curious,
+        "intuitive" => ThinkingStyle::Empathetic,
+        "deliberate" => ThinkingStyle::Methodical,
         "metacognitive" => ThinkingStyle::Metacognitive,
         // Passthrough for canonical names.
-        "logical"       => ThinkingStyle::Logical,
-        "critical"      => ThinkingStyle::Critical,
-        "methodical"    => ThinkingStyle::Methodical,
-        "precise"       => ThinkingStyle::Precise,
-        "imaginative"   => ThinkingStyle::Imaginative,
-        "innovative"    => ThinkingStyle::Innovative,
-        "artistic"      => ThinkingStyle::Artistic,
-        "poetic"        => ThinkingStyle::Poetic,
-        "playful"       => ThinkingStyle::Playful,
-        "empathetic"    => ThinkingStyle::Empathetic,
+        "logical" => ThinkingStyle::Logical,
+        "critical" => ThinkingStyle::Critical,
+        "methodical" => ThinkingStyle::Methodical,
+        "precise" => ThinkingStyle::Precise,
+        "imaginative" => ThinkingStyle::Imaginative,
+        "innovative" => ThinkingStyle::Innovative,
+        "artistic" => ThinkingStyle::Artistic,
+        "poetic" => ThinkingStyle::Poetic,
+        "playful" => ThinkingStyle::Playful,
+        "empathetic" => ThinkingStyle::Empathetic,
         "compassionate" => ThinkingStyle::Compassionate,
-        "supportive"    => ThinkingStyle::Supportive,
-        "nurturing"     => ThinkingStyle::Nurturing,
-        "gentle"        => ThinkingStyle::Gentle,
-        "warm"          => ThinkingStyle::Warm,
-        "direct"        => ThinkingStyle::Direct,
-        "concise"       => ThinkingStyle::Concise,
-        "efficient"     => ThinkingStyle::Efficient,
-        "pragmatic"     => ThinkingStyle::Pragmatic,
-        "blunt"         => ThinkingStyle::Blunt,
-        "frank"         => ThinkingStyle::Frank,
-        "curious"       => ThinkingStyle::Curious,
-        "questioning"   => ThinkingStyle::Questioning,
+        "supportive" => ThinkingStyle::Supportive,
+        "nurturing" => ThinkingStyle::Nurturing,
+        "gentle" => ThinkingStyle::Gentle,
+        "warm" => ThinkingStyle::Warm,
+        "direct" => ThinkingStyle::Direct,
+        "concise" => ThinkingStyle::Concise,
+        "efficient" => ThinkingStyle::Efficient,
+        "pragmatic" => ThinkingStyle::Pragmatic,
+        "blunt" => ThinkingStyle::Blunt,
+        "frank" => ThinkingStyle::Frank,
+        "curious" => ThinkingStyle::Curious,
+        "questioning" => ThinkingStyle::Questioning,
         "investigative" => ThinkingStyle::Investigative,
-        "speculative"   => ThinkingStyle::Speculative,
+        "speculative" => ThinkingStyle::Speculative,
         "philosophical" => ThinkingStyle::Philosophical,
-        "reflective"    => ThinkingStyle::Reflective,
+        "reflective" => ThinkingStyle::Reflective,
         "contemplative" => ThinkingStyle::Contemplative,
-        "wise"          => ThinkingStyle::Wise,
-        "transcendent"  => ThinkingStyle::Transcendent,
-        "sovereign"     => ThinkingStyle::Sovereign,
+        "wise" => ThinkingStyle::Wise,
+        "transcendent" => ThinkingStyle::Transcendent,
+        "sovereign" => ThinkingStyle::Sovereign,
         other => return Err(format!("unknown style: {other}")),
     })
 }
@@ -659,14 +683,15 @@ fn parse_style_name(s: &str) -> Result<ThinkingStyle, String> {
 fn parse_nars_inference(s: &str) -> Result<NarsInference, String> {
     let lower = s.trim().to_ascii_lowercase();
     Ok(match lower.as_str() {
-        "deduction"                       => NarsInference::Deduction,
-        "induction"                       => NarsInference::Induction,
-        "abduction"                       => NarsInference::Abduction,
-        "revision"                        => NarsInference::Revision,
-        "synthesis"                       => NarsInference::Synthesis,
-        "extrapolation"                   => NarsInference::Extrapolation,
-        "counterfactualsynthesis" | "counterfactual_synthesis" | "counterfactual"
-                                          => NarsInference::CounterfactualSynthesis,
+        "deduction" => NarsInference::Deduction,
+        "induction" => NarsInference::Induction,
+        "abduction" => NarsInference::Abduction,
+        "revision" => NarsInference::Revision,
+        "synthesis" => NarsInference::Synthesis,
+        "extrapolation" => NarsInference::Extrapolation,
+        "counterfactualsynthesis" | "counterfactual_synthesis" | "counterfactual" => {
+            NarsInference::CounterfactualSynthesis
+        }
         other => return Err(format!("unknown nars inference: {other}")),
     })
 }
@@ -674,10 +699,10 @@ fn parse_nars_inference(s: &str) -> Result<NarsInference, String> {
 fn parse_morphology_table(s: &str) -> Result<MorphologyTableId, String> {
     let lower = s.trim().to_ascii_lowercase();
     Ok(match lower.as_str() {
-        "english_svo"             => MorphologyTableId::EnglishSvo,
+        "english_svo" => MorphologyTableId::EnglishSvo,
         "finnish_case_table" | "finnish_case" => MorphologyTableId::FinnishCase,
         "russian_case_table" | "russian_case" => MorphologyTableId::RussianCase,
-        "german_case_table"  | "german_case"  => MorphologyTableId::GermanCase,
+        "german_case_table" | "german_case" => MorphologyTableId::GermanCase,
         "turkish_aggl" | "turkish_agglutinative" => MorphologyTableId::TurkishAgglutinative,
         "japanese_particle" | "japanese_particles" => MorphologyTableId::JapaneseParticles,
         other => return Err(format!("unknown morphology table: {other}")),
@@ -687,10 +712,10 @@ fn parse_morphology_table(s: &str) -> Result<MorphologyTableId, String> {
 fn parse_tekamolo_slot(s: &str) -> Result<TekamoloSlot, String> {
     let lower = s.trim().to_ascii_lowercase();
     Ok(match lower.as_str() {
-        "temporal"   => TekamoloSlot::Temporal,
-        "kausal"     => TekamoloSlot::Kausal,
-        "modal"      => TekamoloSlot::Modal,
-        "lokal"      => TekamoloSlot::Lokal,
+        "temporal" => TekamoloSlot::Temporal,
+        "kausal" => TekamoloSlot::Kausal,
+        "modal" => TekamoloSlot::Modal,
+        "lokal" => TekamoloSlot::Lokal,
         // `Instrument` is a distinct slot ("by what means / with what")
         // from `Modal` ("how / in what manner"). Per-slot logic that
         // differentiates the two will land on top of this scaffold —
@@ -703,9 +728,9 @@ fn parse_tekamolo_slot(s: &str) -> Result<TekamoloSlot, String> {
 fn parse_kernel(s: &str) -> Result<WeightingKernel, String> {
     let lower = s.trim().to_ascii_lowercase();
     Ok(match lower.as_str() {
-        "uniform"     => WeightingKernel::Uniform,
+        "uniform" => WeightingKernel::Uniform,
         "mexican_hat" | "mexicanhat" => WeightingKernel::MexicanHat,
-        "gaussian"    => WeightingKernel::Gaussian,
+        "gaussian" => WeightingKernel::Gaussian,
         other => return Err(format!("unknown kernel: {other}")),
     })
 }
@@ -713,8 +738,8 @@ fn parse_kernel(s: &str) -> Result<WeightingKernel, String> {
 fn parse_replay(s: &str) -> Result<ReplayStrategy, String> {
     let lower = s.trim().to_ascii_lowercase();
     Ok(match lower.as_str() {
-        "forward"            => ReplayStrategy::Forward,
-        "backward"           => ReplayStrategy::Backward,
+        "forward" => ReplayStrategy::Forward,
+        "backward" => ReplayStrategy::Backward,
         "both_and_compare" | "bothandcompare" => ReplayStrategy::BothAndCompare,
         other => return Err(format!("unknown replay direction: {other}")),
     })
@@ -722,7 +747,7 @@ fn parse_replay(s: &str) -> Result<ReplayStrategy, String> {
 
 fn parse_bool(s: &str) -> Result<bool, String> {
     match s.trim().to_ascii_lowercase().as_str() {
-        "true" | "yes" | "on"  => Ok(true),
+        "true" | "yes" | "on" => Ok(true),
         "false" | "no" | "off" => Ok(false),
         other => Err(format!("expected bool, got '{other}'")),
     }
@@ -802,7 +827,9 @@ mod tests {
         assert!(
             b.frequency < c.frequency && c.frequency < d.frequency,
             "frequency should monotonically rise on repeated positives: {}, {}, {}",
-            b.frequency, c.frequency, d.frequency
+            b.frequency,
+            c.frequency,
+            d.frequency
         );
         assert!(b.confidence < c.confidence && c.confidence < d.confidence);
         assert!(d.confidence < 1.0, "confidence must stay below 1");
@@ -816,12 +843,14 @@ mod tests {
         assert!(
             b.frequency > c.frequency,
             "f should fall: {} -> {}",
-            b.frequency, c.frequency
+            b.frequency,
+            c.frequency
         );
         assert!(
             b.confidence < c.confidence,
             "c should rise regardless of polarity: {} -> {}",
-            b.confidence, c.confidence
+            b.confidence,
+            c.confidence
         );
     }
 
@@ -926,16 +955,13 @@ mod tests {
             1.0
         );
         assert_eq!(ParseOutcome::EscalatedButLLMAgreed.observation().0, 1.0);
-        assert_eq!(
-            ParseOutcome::EscalatedAndLLMDisagreed.observation().0,
-            0.0
-        );
-        assert_eq!(
-            ParseOutcome::LocalFailureLLMSucceeded.observation().0,
-            0.0
-        );
+        assert_eq!(ParseOutcome::EscalatedAndLLMDisagreed.observation().0, 0.0);
+        assert_eq!(ParseOutcome::LocalFailureLLMSucceeded.observation().0, 0.0);
         // Strong negatives and confirmations carry double weight.
-        assert_eq!(ParseOutcome::LocalSuccessConfirmedByLLM.observation().1, 2.0);
+        assert_eq!(
+            ParseOutcome::LocalSuccessConfirmedByLLM.observation().1,
+            2.0
+        );
         assert_eq!(ParseOutcome::LocalFailureLLMSucceeded.observation().1, 2.0);
     }
 
@@ -1094,7 +1120,7 @@ nars: { primary: Deduction, fallback: Abduction }
         // We don't even need full coverage; the style parse fails first.
         // (The `nars: { ... }` flow-map form isn't supported by our subset,
         // but the style error short-circuits before that matters.)
-        let err = parse_style_yaml(yaml).err().expect("expected error");
+        let err = parse_style_yaml(yaml).expect_err("expected error");
         assert!(err.to_lowercase().contains("style") || err.contains("nonsense"));
     }
 
@@ -1142,7 +1168,8 @@ nars: { primary: Deduction, fallback: Abduction }
             assert!(
                 t.confidence >= last_c,
                 "confidence regressed at step {i}: {} → {}",
-                last_c, t.confidence
+                last_c,
+                t.confidence
             );
             last_c = t.confidence;
         }
@@ -1156,7 +1183,10 @@ nars: { primary: Deduction, fallback: Abduction }
         // must NOT be treated as a comment marker.
         let yaml = "label: section#2\n";
         let pairs = collect_yaml_pairs(yaml).expect("collect failed");
-        let val = pairs.iter().find(|(k, _)| k == "label").map(|(_, v)| v.as_str());
+        let val = pairs
+            .iter()
+            .find(|(k, _)| k == "label")
+            .map(|(_, v)| v.as_str());
         assert_eq!(val, Some("section#2"));
     }
 
@@ -1165,7 +1195,10 @@ nars: { primary: Deduction, fallback: Abduction }
         // YAML `key: value # trailing` — `#` after whitespace is a comment.
         let yaml = "key: value # trailing\n";
         let pairs = collect_yaml_pairs(yaml).expect("collect failed");
-        let val = pairs.iter().find(|(k, _)| k == "key").map(|(_, v)| v.as_str());
+        let val = pairs
+            .iter()
+            .find(|(k, _)| k == "key")
+            .map(|(_, v)| v.as_str());
         assert_eq!(val, Some("value"));
     }
 
@@ -1175,8 +1208,14 @@ nars: { primary: Deduction, fallback: Abduction }
         // expands to `nars.primary` and `nars.fallback` pairs.
         let yaml = "nars: { primary: Deduction, fallback: Abduction }\n";
         let pairs = collect_yaml_pairs(yaml).expect("collect failed");
-        let primary = pairs.iter().find(|(k, _)| k == "nars.primary").map(|(_, v)| v.as_str());
-        let fallback = pairs.iter().find(|(k, _)| k == "nars.fallback").map(|(_, v)| v.as_str());
+        let primary = pairs
+            .iter()
+            .find(|(k, _)| k == "nars.primary")
+            .map(|(_, v)| v.as_str());
+        let fallback = pairs
+            .iter()
+            .find(|(k, _)| k == "nars.fallback")
+            .map(|(_, v)| v.as_str());
         assert_eq!(primary, Some("Deduction"));
         assert_eq!(fallback, Some("Abduction"));
     }
@@ -1236,7 +1275,11 @@ nars: { primary: Deduction, fallback: Abduction }
         assert!((restored.recent_success.confidence - a.recent_success.confidence).abs() < 1e-6);
         assert_eq!(restored.param_truths.len(), a.param_truths.len());
         for (k, v) in a.param_truths.iter() {
-            let r = restored.param_truths.get(k).copied().expect("missing key after restore");
+            let r = restored
+                .param_truths
+                .get(k)
+                .copied()
+                .expect("missing key after restore");
             assert!((r.frequency - v.frequency).abs() < 1e-6);
             assert!((r.confidence - v.confidence).abs() < 1e-6);
         }
@@ -1260,9 +1303,15 @@ nars: { primary: Deduction, fallback: Abduction }
             eff.nars.primary
         );
         assert_eq!(eff.morphology.tables, prior.morphology.tables);
-        assert_eq!(eff.morphology.agglutinative_mode, prior.morphology.agglutinative_mode);
+        assert_eq!(
+            eff.morphology.agglutinative_mode,
+            prior.morphology.agglutinative_mode
+        );
         assert_eq!(eff.tekamolo.priority, prior.tekamolo.priority);
-        assert_eq!(eff.tekamolo.require_fillable, prior.tekamolo.require_fillable);
+        assert_eq!(
+            eff.tekamolo.require_fillable,
+            prior.tekamolo.require_fillable
+        );
         assert_eq!(eff.markov.radius, prior.markov.radius);
         assert_eq!(eff.markov.kernel, prior.markov.kernel);
         assert_eq!(eff.markov.replay, prior.markov.replay);

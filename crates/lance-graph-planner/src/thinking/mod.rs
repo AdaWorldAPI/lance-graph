@@ -11,15 +11,15 @@
 //! The sigma chain (Ω→Δ→Φ→Θ→Λ) tracks the epistemic lifecycle
 //! of each thinking atom through the planning process.
 
-pub mod style;
 pub mod nars_dispatch;
-pub mod sigma_chain;
 pub mod semiring_selection;
+pub mod sigma_chain;
+pub mod style;
 
-pub use style::{ThinkingStyle, ThinkingCluster, FieldModulation};
 pub use nars_dispatch::{NarsInferenceType, QueryStrategy};
-pub use sigma_chain::{SigmaStage, ThinkingAtom};
 pub use semiring_selection::SemiringChoice;
+pub use sigma_chain::{SigmaStage, ThinkingAtom};
+pub use style::{FieldModulation, ThinkingCluster, ThinkingStyle};
 
 use crate::mul::MulAssessment;
 use crate::plan::PlannerConfig;
@@ -58,11 +58,7 @@ impl ThinkingContext {
 }
 
 /// Orchestrate thinking: select style, NARS type, semiring from query + MUL assessment.
-pub fn orchestrate(
-    query: &str,
-    mul: &MulAssessment,
-    _config: &PlannerConfig,
-) -> ThinkingContext {
+pub fn orchestrate(query: &str, mul: &MulAssessment, _config: &PlannerConfig) -> ThinkingContext {
     // 1. Select thinking style from MUL state
     let style = style::select_from_mul(mul);
     let modulation = style.default_modulation();

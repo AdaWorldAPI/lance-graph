@@ -24,10 +24,9 @@ fn main() {
                     for pair in args[i].split(',') {
                         let parts: Vec<&str> = pair.split(':').collect();
                         if parts.len() == 2 {
-                            config.repos.push((
-                                parts[0].to_string(),
-                                PathBuf::from(parts[1]),
-                            ));
+                            config
+                                .repos
+                                .push((parts[0].to_string(), PathBuf::from(parts[1])));
                         }
                     }
                 }
@@ -44,7 +43,9 @@ fn main() {
                 eprintln!("Usage: neural-scan [OPTIONS]");
                 eprintln!();
                 eprintln!("Options:");
-                eprintln!("  --repos <name:path,...>  Repos to scan (default: auto-detect siblings)");
+                eprintln!(
+                    "  --repos <name:path,...>  Repos to scan (default: auto-detect siblings)"
+                );
                 eprintln!("  --output, -o <path>      Output JSON file (default: stdout)");
                 eprintln!("  --help, -h               Show this help");
                 std::process::exit(0);
@@ -101,10 +102,7 @@ fn main() {
         std::process::exit(1);
     }
 
-    eprintln!(
-        "Scanning {} repos...",
-        config.repos.len()
-    );
+    eprintln!("Scanning {} repos...", config.repos.len());
 
     let diagnosis = scan_stack(&config);
 
@@ -118,10 +116,7 @@ fn main() {
     );
     eprintln!(
         "Dead: {} | Stub: {} | NaN risk: {} | Health: {:.1}%",
-        diagnosis.total_dead,
-        diagnosis.total_stub,
-        diagnosis.total_nan_risk,
-        diagnosis.health_pct
+        diagnosis.total_dead, diagnosis.total_stub, diagnosis.total_nan_risk, diagnosis.health_pct
     );
     eprintln!("Scan time: {}ms", diagnosis.scan_duration_ms);
     eprintln!();
@@ -129,11 +124,7 @@ fn main() {
     for repo in &diagnosis.repos {
         eprintln!(
             "  {} — {} functions, {:.0}% health, {} dead, {} stub",
-            repo.name,
-            repo.total_functions,
-            repo.health_pct,
-            repo.total_dead,
-            repo.total_stub,
+            repo.name, repo.total_functions, repo.health_pct, repo.total_dead, repo.total_stub,
         );
         for module in &repo.modules {
             if module.dead > 0 || module.nan_risk > 0 {

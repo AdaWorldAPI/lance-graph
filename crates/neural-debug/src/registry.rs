@@ -66,7 +66,9 @@ pub struct RowStateMap {
 
 impl RowStateMap {
     pub fn new() -> Self {
-        Self { states: Mutex::new(HashMap::new()) }
+        Self {
+            states: Mutex::new(HashMap::new()),
+        }
     }
 
     pub fn record(&self, row: u32, state: NeuronState) {
@@ -122,7 +124,9 @@ impl RowStateMap {
 }
 
 impl Default for RowStateMap {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// Aggregate runtime diagnostic produced from a `RowStateMap` snapshot —
@@ -152,7 +156,9 @@ pub struct RuntimeRegistry {
 }
 
 impl Default for RuntimeRegistry {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl RuntimeRegistry {
@@ -165,11 +171,13 @@ impl RuntimeRegistry {
 
     pub fn record(&self, function_id: &str, elapsed: Duration, is_nan: bool) {
         let mut map = self.counters.lock().unwrap();
-        let entry = map.entry(function_id.to_string()).or_insert(CounterSnapshot {
-            call_count: 0,
-            total_ns: 0,
-            nan_count: 0,
-        });
+        let entry = map
+            .entry(function_id.to_string())
+            .or_insert(CounterSnapshot {
+                call_count: 0,
+                total_ns: 0,
+                nan_count: 0,
+            });
         entry.call_count += 1;
         entry.total_ns += elapsed.as_nanos() as u64;
         if is_nan {

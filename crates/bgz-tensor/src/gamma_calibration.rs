@@ -100,8 +100,11 @@ impl RoleGamma {
                 "Embed" | "embed_tokens" | "tok_embd" | "wte" => Self::EMBED,
                 _ => continue,
             };
-            if rows.is_empty() { continue; }
-            let total_mag: f64 = rows.iter()
+            if rows.is_empty() {
+                continue;
+            }
+            let total_mag: f64 = rows
+                .iter()
                 .flat_map(|r| r.iter())
                 .map(|v| v.abs() as f64)
                 .sum();
@@ -153,7 +156,11 @@ impl CosineGamma {
     /// Calibrate from a set of pairwise cosines.
     pub fn calibrate(cosines: &[f64]) -> Self {
         if cosines.is_empty() {
-            return Self { gamma: 1.0, center: 0.0, spread: 1.0 };
+            return Self {
+                gamma: 1.0,
+                center: 0.0,
+                spread: 1.0,
+            };
         }
 
         let n = cosines.len();
@@ -168,7 +175,11 @@ impl CosineGamma {
         // γ = IQR / 2: smaller IQR (tighter cluster) → smaller γ → more expansion
         let gamma = (iqr / 2.0).max(0.01);
 
-        Self { gamma, center, spread: iqr }
+        Self {
+            gamma,
+            center,
+            spread: iqr,
+        }
     }
 
     /// Map cosine [-1, 1] → γ-expanded → u8 [0, 255].
@@ -182,7 +193,8 @@ impl CosineGamma {
         // Normalize to [0, 1] using φ distribution
         let max_expanded = (1.0 + 2.0 / g).ln() * g; // max possible expansion
         let normalized = ((expanded / max_expanded) + 1.0) / 2.0;
-        let phi_distributed = (GOLDEN_RATIO.powf(normalized.clamp(0.0, 1.0)) - 1.0) / (GOLDEN_RATIO - 1.0);
+        let phi_distributed =
+            (GOLDEN_RATIO.powf(normalized.clamp(0.0, 1.0)) - 1.0) / (GOLDEN_RATIO - 1.0);
 
         (phi_distributed * 255.0).round().clamp(0.0, 255.0) as u8
     }
@@ -248,7 +260,11 @@ impl MetaGamma {
             }
         }
 
-        MetaGamma { models, baselines, offsets }
+        MetaGamma {
+            models,
+            baselines,
+            offsets,
+        }
     }
 
     /// Get the offset to align model_a's cosines to model_b's scale.
@@ -308,13 +324,22 @@ mod tests {
 
     #[test]
     fn role_gamma_roundtrip() {
-        let rg = RoleGamma { gamma: [0.37, 0.94, 1.33, 1.50, 0.12, 0.15, 0.80, 0.45], phi_scale: 1.50 };
+        let rg = RoleGamma {
+            gamma: [0.37, 0.94, 1.33, 1.50, 0.12, 0.15, 0.80, 0.45],
+            phi_scale: 1.50,
+        };
         for role in 0..8 {
             for &v in &[0.001f32, 0.1, 0.5, 1.0, 2.0] {
                 let encoded = rg.encode(v, role);
                 let decoded = rg.decode(encoded, role);
-                assert!((v - decoded).abs() < 0.001,
-                    "role {} value {}: encoded={}, decoded={}", role, v, encoded, decoded);
+                assert!(
+                    (v - decoded).abs() < 0.001,
+                    "role {} value {}: encoded={}, decoded={}",
+                    role,
+                    v,
+                    encoded,
+                    decoded
+                );
             }
         }
     }
@@ -326,30 +351,53 @@ mod tests {
         let cg = CosineGamma::calibrate(&cosines);
         assert!(cg.gamma > 0.0);
         assert!((cg.center).abs() < 0.1); // centered near 0
-        eprintln!("CosineGamma: γ={:.4}, center={:.4}, spread={:.4}", cg.gamma, cg.center, cg.spread);
+        eprintln!(
+            "CosineGamma: γ={:.4}, center={:.4}, spread={:.4}",
+            cg.gamma, cg.center, cg.spread
+        );
     }
 
     #[test]
     fn cosine_u8_roundtrip() {
-        let cg = CosineGamma { gamma: 0.3, center: 0.0, spread: 0.5 };
+        let cg = CosineGamma {
+            gamma: 0.3,
+            center: 0.0,
+            spread: 0.5,
+        };
         for i in 0..20 {
             let cos = -1.0 + i as f64 * 0.1;
             let u8_val = cg.cosine_to_u8(cos);
             let decoded = cg.u8_to_cosine(u8_val);
             // Allow up to 1/256 = 0.004 quantization error
-            assert!((cos - decoded).abs() < 0.05,
-                "cos={:.3}: u8={}, decoded={:.3}, err={:.4}", cos, u8_val, decoded, (cos - decoded).abs());
+            assert!(
+                (cos - decoded).abs() < 0.05,
+                "cos={:.3}: u8={}, decoded={:.3}, err={:.4}",
+                cos,
+                u8_val,
+                decoded,
+                (cos - decoded).abs()
+            );
         }
     }
 
     #[test]
     fn cosine_u8_monotone() {
-        let cg = CosineGamma { gamma: 0.2, center: 0.0, spread: 0.4 };
+        let cg = CosineGamma {
+            gamma: 0.2,
+            center: 0.0,
+            spread: 0.4,
+        };
         let mut prev = 0u8;
         for i in 0..200 {
             let cos = -1.0 + i as f64 * 0.01;
             let u8_val = cg.cosine_to_u8(cos);
-            assert!(u8_val >= prev, "should be monotone: cos={:.2} u8={} < prev={}", cos, u8_val, prev);
+            assert!(
+                u8_val >= prev,
+                "should be monotone: cos={:.2} u8={} < prev={}",
+                cos,
+                u8_val,
+                prev
+            );
             prev = u8_val;
         }
     }
@@ -357,18 +405,26 @@ mod tests {
     #[test]
     fn meta_gamma_offset() {
         let mg = MetaGamma::calibrate(&[
-            ("jina", &[0.1, 0.05, 0.15, 0.08, 0.12]),      // baseline ~0.1
-            ("qwopus", &[0.3, 0.25, 0.35, 0.28, 0.32]),    // baseline ~0.3
-            ("gpt2", &[-0.05, 0.0, 0.05, -0.02, 0.03]),    // baseline ~0.0
+            ("jina", &[0.1, 0.05, 0.15, 0.08, 0.12]),   // baseline ~0.1
+            ("qwopus", &[0.3, 0.25, 0.35, 0.28, 0.32]), // baseline ~0.3
+            ("gpt2", &[-0.05, 0.0, 0.05, -0.02, 0.03]), // baseline ~0.0
         ]);
 
         // Qwopus baseline higher than Jina → positive offset
         let offset = mg.offset("jina", "qwopus");
-        assert!(offset < 0.0, "jina→qwopus should be negative offset: {}", offset);
+        assert!(
+            offset < 0.0,
+            "jina→qwopus should be negative offset: {}",
+            offset
+        );
 
         // Translate: "0.1 in jina = ? in qwopus"
         let translated = mg.translate(0.1, "jina", "qwopus");
-        assert!(translated < 0.1, "should shift down to qwopus scale: {}", translated);
+        assert!(
+            translated < 0.1,
+            "should shift down to qwopus scale: {}",
+            translated
+        );
 
         eprintln!("Baselines: {:?}", mg.baselines);
         eprintln!("Jina→Qwopus offset: {:.4}", offset);
@@ -382,12 +438,20 @@ mod tests {
     #[test]
     fn full_pipeline() {
         // Simulate: weight rows → γ_role → pairwise cosines → γ_cosine
-        let q_rows: Vec<Vec<f32>> = (0..10).map(|i|
-            (0..64).map(|d| ((d * i) as f32 * 0.01).sin() * 0.4).collect()
-        ).collect();
-        let gate_rows: Vec<Vec<f32>> = (0..10).map(|i|
-            (0..64).map(|d| ((d * i) as f32 * 0.02).cos() * 2.0).collect()
-        ).collect();
+        let q_rows: Vec<Vec<f32>> = (0..10)
+            .map(|i| {
+                (0..64)
+                    .map(|d| ((d * i) as f32 * 0.01).sin() * 0.4)
+                    .collect()
+            })
+            .collect();
+        let gate_rows: Vec<Vec<f32>> = (0..10)
+            .map(|i| {
+                (0..64)
+                    .map(|d| ((d * i) as f32 * 0.02).cos() * 2.0)
+                    .collect()
+            })
+            .collect();
 
         let q_refs: Vec<&[f32]> = q_rows.iter().map(|r| r.as_slice()).collect();
         let gate_refs: Vec<&[f32]> = gate_rows.iter().map(|r| r.as_slice()).collect();
@@ -396,7 +460,7 @@ mod tests {
         let all_rows: Vec<&[f32]> = q_refs.iter().chain(gate_refs.iter()).copied().collect();
         let mut cosines = Vec::new();
         for i in 0..all_rows.len() {
-            for j in (i+1)..all_rows.len() {
+            for j in (i + 1)..all_rows.len() {
                 cosines.push(cosine_f32_slice(all_rows[i], all_rows[j]));
             }
         }
@@ -407,10 +471,13 @@ mod tests {
             &cosines,
         );
 
-        assert!(profile.role_gamma.gamma[3] > profile.role_gamma.gamma[0],
-            "Gate should have higher γ than Q");
-        eprintln!("Profile: Q_γ={:.4}, Gate_γ={:.4}, cos_γ={:.4}",
-            profile.role_gamma.gamma[0], profile.role_gamma.gamma[3],
-            profile.cosine_gamma.gamma);
+        assert!(
+            profile.role_gamma.gamma[3] > profile.role_gamma.gamma[0],
+            "Gate should have higher γ than Q"
+        );
+        eprintln!(
+            "Profile: Q_γ={:.4}, Gate_γ={:.4}, cos_γ={:.4}",
+            profile.role_gamma.gamma[0], profile.role_gamma.gamma[3], profile.cosine_gamma.gamma
+        );
     }
 }

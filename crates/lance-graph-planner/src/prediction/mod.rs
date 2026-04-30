@@ -18,14 +18,14 @@
 //!          (LLM or parser)    with truth values   propagation
 //! ```
 
-pub mod scenario;
 pub mod ingestion;
+pub mod scenario;
 pub mod temporal;
 
-#[allow(unused_imports)] // ThinkingCluster intended for cluster-based prediction wiring
-use crate::thinking::style::{ThinkingStyle, ThinkingCluster};
 #[allow(unused_imports)] // PatienceBudget intended for budget-aware prediction wiring
-use crate::elevation::budget::{PatienceBudget, budget_for_cluster};
+use crate::elevation::budget::{budget_for_cluster, PatienceBudget};
+#[allow(unused_imports)] // ThinkingCluster intended for cluster-based prediction wiring
+use crate::thinking::style::{ThinkingCluster, ThinkingStyle};
 
 /// A prediction scenario — one possible future outcome.
 #[derive(Debug, Clone)]
@@ -130,20 +130,20 @@ pub fn predict_multi_style(
 
     for &style in styles {
         let budget = budget_for_cluster(style.cluster());
-        let scenarios = scenario::generate_scenarios(
-            question,
-            seed_edges,
-            style,
-            &budget,
-        );
+        let scenarios = scenario::generate_scenarios(question, seed_edges, style, &budget);
         all_scenarios.extend(scenarios);
     }
 
     // Sort by confidence descending
-    all_scenarios.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap_or(std::cmp::Ordering::Equal));
+    all_scenarios.sort_by(|a, b| {
+        b.confidence
+            .partial_cmp(&a.confidence)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     // Count inferred edges
-    let inferred_edges = all_scenarios.iter()
+    let inferred_edges = all_scenarios
+        .iter()
         .flat_map(|s| &s.chain)
         .filter(|step| step.derivation != Derivation::Observed)
         .count();
@@ -169,11 +169,41 @@ mod tests {
         // Shared target: Iron_Dome → Target AND Fire_Factory → Target (for Creative/abduction)
         // Shared source: Iron_Dome → Target AND Iron_Dome → Military_Base (for Creative/induction)
         let edges = vec![
-            ("Lavender".into(), "TARGETS".into(), "Gospel".into(), 0.95, 0.87),
-            ("Gospel".into(), "CONFIRMS".into(), "Fire_Factory".into(), 0.90, 0.82),
-            ("Fire_Factory".into(), "STRIKES".into(), "Target".into(), 0.88, 0.79),
-            ("Iron_Dome".into(), "INTERCEPTS".into(), "Target".into(), 0.92, 0.85),
-            ("Iron_Dome".into(), "DEFENDS".into(), "Military_Base".into(), 0.85, 0.78),
+            (
+                "Lavender".into(),
+                "TARGETS".into(),
+                "Gospel".into(),
+                0.95,
+                0.87,
+            ),
+            (
+                "Gospel".into(),
+                "CONFIRMS".into(),
+                "Fire_Factory".into(),
+                0.90,
+                0.82,
+            ),
+            (
+                "Fire_Factory".into(),
+                "STRIKES".into(),
+                "Target".into(),
+                0.88,
+                0.79,
+            ),
+            (
+                "Iron_Dome".into(),
+                "INTERCEPTS".into(),
+                "Target".into(),
+                0.92,
+                0.85,
+            ),
+            (
+                "Iron_Dome".into(),
+                "DEFENDS".into(),
+                "Military_Base".into(),
+                0.85,
+                0.78,
+            ),
         ];
 
         let styles = vec![
@@ -192,8 +222,11 @@ mod tests {
         assert_eq!(result.styles_used.len(), 3);
         // Each style should produce at least one scenario
         for style in &styles {
-            assert!(result.scenarios.iter().any(|s| s.style == *style),
-                "No scenario from {:?}", style);
+            assert!(
+                result.scenarios.iter().any(|s| s.style == *style),
+                "No scenario from {:?}",
+                style
+            );
         }
         // Scenarios should be sorted by confidence
         for w in result.scenarios.windows(2) {

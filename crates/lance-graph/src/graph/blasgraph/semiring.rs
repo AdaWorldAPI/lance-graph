@@ -95,9 +95,7 @@ impl Semiring for HdrSemiring {
                 _ => HdrScalar::Empty,
             },
             HdrSemiring::HammingMin | HdrSemiring::SimilarityMax => match (a, b) {
-                (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => {
-                    HdrScalar::Vector(va.xor(vb))
-                }
+                (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => HdrScalar::Vector(va.xor(vb)),
                 _ => HdrScalar::Empty,
             },
             HdrSemiring::Boolean => match (a, b) {

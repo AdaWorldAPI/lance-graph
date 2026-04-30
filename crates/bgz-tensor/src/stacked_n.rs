@@ -91,7 +91,10 @@ impl StackedN {
             }
         }
 
-        StackedN { samples_per_dim: spd, data }
+        StackedN {
+            samples_per_dim: spd,
+            data,
+        }
     }
 
     /// Encode from f32 weights.
@@ -150,7 +153,6 @@ impl StackedN {
         }
         d
     }
-
 }
 
 // NOTE: popcount_distance / sign_bits / sign_agreement REMOVED.
@@ -218,7 +220,8 @@ impl ClamCodebook {
 
         for _ in 1..k {
             // Select vector with MAXIMUM minimum cosine distance
-            let next = max_cos_dist.iter()
+            let next = max_cos_dist
+                .iter()
                 .enumerate()
                 .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
                 .map(|(i, _)| i)
@@ -239,7 +242,8 @@ impl ClamCodebook {
         let mut max_radii = vec![0.0f64; k];
 
         for (vi, v) in vectors.iter().enumerate() {
-            let (best, dist) = selected.iter()
+            let (best, dist) = selected
+                .iter()
                 .enumerate()
                 .map(|(ci, &si)| (ci, 1.0 - v.cosine(&vectors[si])))
                 .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
@@ -251,7 +255,8 @@ impl ClamCodebook {
             }
         }
 
-        let entries: Vec<CodebookEntry> = selected.iter()
+        let entries: Vec<CodebookEntry> = selected
+            .iter()
             .enumerate()
             .map(|(ci, &si)| CodebookEntry {
                 stacked: vectors[si].clone(),
@@ -275,7 +280,8 @@ impl ClamCodebook {
 
     /// Assign a single query vector (returns index + cosine distance).
     pub fn assign(&self, query: &StackedN) -> (u16, f64) {
-        self.entries.iter()
+        self.entries
+            .iter()
             .enumerate()
             .map(|(i, e)| (i as u16, 1.0 - query.cosine(&e.stacked)))
             .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
@@ -334,7 +340,11 @@ pub fn cosine_f32_slice_scalar(a: &[f32], b: &[f32]) -> f64 {
         nb += y * y;
     }
     let denom = (na * nb).sqrt();
-    if denom < 1e-12 { 0.0 } else { dot / denom }
+    if denom < 1e-12 {
+        0.0
+    } else {
+        dot / denom
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -346,12 +356,14 @@ mod tests {
     use super::*;
 
     fn make_vectors(n: usize, dim: usize, spd: usize) -> Vec<StackedN> {
-        (0..n).map(|i| {
-            let vals: Vec<f32> = (0..dim).map(|d| {
-                ((i * 97 + d * 31) as f32 % 200.0 - 100.0) * 0.01
-            }).collect();
-            StackedN::from_f32(&vals, spd)
-        }).collect()
+        (0..n)
+            .map(|i| {
+                let vals: Vec<f32> = (0..dim)
+                    .map(|d| ((i * 97 + d * 31) as f32 % 200.0 - 100.0) * 0.01)
+                    .collect();
+                StackedN::from_f32(&vals, spd)
+            })
+            .collect()
     }
 
     #[test]
@@ -366,7 +378,12 @@ mod tests {
 
     #[test]
     fn cosine_self_one() {
-        let v = StackedN::from_f32(&(0..256).map(|i| (i as f32 - 128.0) * 0.01).collect::<Vec<_>>(), 8);
+        let v = StackedN::from_f32(
+            &(0..256)
+                .map(|i| (i as f32 - 128.0) * 0.01)
+                .collect::<Vec<_>>(),
+            8,
+        );
         assert!((v.cosine(&v) - 1.0).abs() < 1e-6);
     }
 
@@ -382,11 +399,21 @@ mod tests {
         // Relative error ≈ 2^-7 ≈ 0.8% for normal values.
         // Golden-step maps input dims to base positions, so hydrated[0]
         // may not correspond to original[0]. Check that the VALUES exist.
-        let orig_bf16: Vec<f32> = original.iter().map(|&v| bf16_to_f32(f32_to_bf16(v))).collect();
+        let orig_bf16: Vec<f32> = original
+            .iter()
+            .map(|&v| bf16_to_f32(f32_to_bf16(v)))
+            .collect();
         // Verify BF16 roundtrip preserves values
         for (i, (&o, &b)) in original.iter().zip(orig_bf16.iter()).enumerate() {
             let err = (b - o).abs() / o.abs().max(1e-6);
-            assert!(err < 0.02, "BF16 roundtrip error at dim {}: {} vs {}, err={:.4}", i, b, o, err);
+            assert!(
+                err < 0.02,
+                "BF16 roundtrip error at dim {}: {} vs {}, err={:.4}",
+                i,
+                b,
+                o,
+                err
+            );
         }
     }
 
@@ -407,7 +434,9 @@ mod tests {
     fn higher_spd_preserves_better() {
         // Same vector, increasing samples_per_dim
         let base: Vec<f32> = (0..4096).map(|i| (i as f32 * 0.01).sin() * 0.5).collect();
-        let shifted: Vec<f32> = (0..4096).map(|i| (i as f32 * 0.01 + 0.3).sin() * 0.5).collect();
+        let shifted: Vec<f32> = (0..4096)
+            .map(|i| (i as f32 * 0.01 + 0.3).sin() * 0.5)
+            .collect();
 
         let true_cos = cosine_f32_slice(&base, &shifted);
 
@@ -425,8 +454,11 @@ mod tests {
         // (not strictly monotone due to sampling, but trend should hold)
         let first_err = errors[0].1;
         let last_err = errors.last().unwrap().1;
-        assert!(last_err <= first_err + 0.05,
+        assert!(
+            last_err <= first_err + 0.05,
             "higher SPD should not be much worse: spd=4 err={:.4}, spd=32 err={:.4}",
-            first_err, last_err);
+            first_err,
+            last_err
+        );
     }
 }

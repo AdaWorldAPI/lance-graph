@@ -69,7 +69,9 @@ mod tests {
 
     #[test]
     fn unimplemented_carries_method_name() {
-        let err = ArchetypeError::Unimplemented { method: "World::fork" };
+        let err = ArchetypeError::Unimplemented {
+            method: "World::fork",
+        };
         let msg = format!("{err}");
         assert!(msg.contains("World::fork"));
         assert!(msg.contains("not yet implemented"));

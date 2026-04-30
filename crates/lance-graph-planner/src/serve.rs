@@ -27,9 +27,7 @@ mod server {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use lance_graph_planner::cache::candidate_pool::Phase;
-    use lance_graph_planner::cache::convergence::{
-        triplet_to_headprint, headprint_to_spo,
-    };
+    use lance_graph_planner::cache::convergence::{headprint_to_spo, triplet_to_headprint};
     use lance_graph_planner::cache::nars_engine::{
         analytical_style, nars_infer, Inference, SpoHead,
     };
@@ -46,7 +44,10 @@ mod server {
     type AppState = std::sync::Arc<Mutex<ServerState>>;
 
     fn timestamp() -> u64 {
-        SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs()
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs()
     }
 
     /// Extract SPO triplets from text using verb-pattern matching.
@@ -56,16 +57,23 @@ mod server {
         // Split on sentence boundaries
         for sentence in text.split(|c| c == '.' || c == '!' || c == '?' || c == '\n') {
             let sentence = sentence.trim();
-            if sentence.is_empty() { continue; }
+            if sentence.is_empty() {
+                continue;
+            }
 
             let words: Vec<&str> = sentence.split_whitespace().collect();
-            if words.len() < 2 { continue; }
+            if words.len() < 2 {
+                continue;
+            }
 
             // Find verb position by morphological cues or common verb list
             let verb_pos = words.iter().position(|w| {
                 let w = w.to_lowercase();
-                w.ends_with("ed") || w.ends_with("ing") || w.ends_with("es")
-                    || w.ends_with("ize") || w.ends_with("ify")
+                w.ends_with("ed")
+                    || w.ends_with("ing")
+                    || w.ends_with("es")
+                    || w.ends_with("ize")
+                    || w.ends_with("ify")
                     || COMMON_VERBS.contains(&w.as_str())
             });
 
@@ -85,29 +93,113 @@ mod server {
                 ));
             } else if words.len() == 2 {
                 // Intransitive: S P (no object)
-                triplets.push((
-                    words[0].to_string(),
-                    words[1].to_string(),
-                    String::new(),
-                ));
+                triplets.push((words[0].to_string(), words[1].to_string(), String::new()));
             }
         }
         triplets
     }
 
     const COMMON_VERBS: &[&str] = &[
-        "is", "are", "was", "were", "has", "have", "had", "do", "does", "did",
-        "can", "could", "will", "would", "shall", "should", "may", "might",
-        "must", "need", "know", "think", "want", "like", "use", "find", "give",
-        "tell", "say", "get", "make", "go", "see", "come", "take", "help",
-        "show", "try", "ask", "work", "call", "keep", "let", "begin", "seem",
-        "run", "move", "live", "believe", "hold", "bring", "happen", "write",
-        "provide", "sit", "stand", "lose", "pay", "meet", "include", "continue",
-        "set", "learn", "change", "lead", "understand", "watch", "follow",
-        "stop", "create", "speak", "read", "allow", "add", "spend", "grow",
-        "open", "walk", "win", "offer", "remember", "love", "consider", "appear",
-        "buy", "wait", "serve", "die", "send", "expect", "build", "stay",
-        "fall", "cut", "reach", "kill", "remain", "causes", "enables", "supports",
+        "is",
+        "are",
+        "was",
+        "were",
+        "has",
+        "have",
+        "had",
+        "do",
+        "does",
+        "did",
+        "can",
+        "could",
+        "will",
+        "would",
+        "shall",
+        "should",
+        "may",
+        "might",
+        "must",
+        "need",
+        "know",
+        "think",
+        "want",
+        "like",
+        "use",
+        "find",
+        "give",
+        "tell",
+        "say",
+        "get",
+        "make",
+        "go",
+        "see",
+        "come",
+        "take",
+        "help",
+        "show",
+        "try",
+        "ask",
+        "work",
+        "call",
+        "keep",
+        "let",
+        "begin",
+        "seem",
+        "run",
+        "move",
+        "live",
+        "believe",
+        "hold",
+        "bring",
+        "happen",
+        "write",
+        "provide",
+        "sit",
+        "stand",
+        "lose",
+        "pay",
+        "meet",
+        "include",
+        "continue",
+        "set",
+        "learn",
+        "change",
+        "lead",
+        "understand",
+        "watch",
+        "follow",
+        "stop",
+        "create",
+        "speak",
+        "read",
+        "allow",
+        "add",
+        "spend",
+        "grow",
+        "open",
+        "walk",
+        "win",
+        "offer",
+        "remember",
+        "love",
+        "consider",
+        "appear",
+        "buy",
+        "wait",
+        "serve",
+        "die",
+        "send",
+        "expect",
+        "build",
+        "stay",
+        "fall",
+        "cut",
+        "reach",
+        "kill",
+        "remain",
+        "causes",
+        "enables",
+        "supports",
     ];
 
     fn phase_to_str(phase: Phase) -> &'static str {
@@ -121,7 +213,9 @@ mod server {
         }
     }
 
-    async fn health() -> &'static str { "ok" }
+    async fn health() -> &'static str {
+        "ok"
+    }
 
     async fn list_models() -> Json<Value> {
         Json(json!({
@@ -149,27 +243,45 @@ mod server {
         State(state): State<AppState>,
         Json(req): Json<Value>,
     ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
-        let model = req.get("model").and_then(|v| v.as_str()).unwrap_or("qwen35-opus46");
-        let messages = req.get("messages").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+        let model = req
+            .get("model")
+            .and_then(|v| v.as_str())
+            .unwrap_or("qwen35-opus46");
+        let messages = req
+            .get("messages")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
 
         const VALID_MODELS: &[&str] = &[
-            "qwen35-opus46", "qwen35-opus45", "qwen35-9b",
-            "reader-lm", "bge-m3", "llama4-scout", "openchat-3.5",
+            "qwen35-opus46",
+            "qwen35-opus45",
+            "qwen35-9b",
+            "reader-lm",
+            "bge-m3",
+            "llama4-scout",
+            "openchat-3.5",
         ];
         if !VALID_MODELS.contains(&model) {
-            return Err((StatusCode::NOT_FOUND, Json(json!({
-                "error": {
-                    "message": format!("Model '{}' not found. Available: {}", model, VALID_MODELS.join(", ")),
-                    "type": "invalid_request_error",
-                    "code": "model_not_found"
-                }
-            }))));
+            return Err((
+                StatusCode::NOT_FOUND,
+                Json(json!({
+                    "error": {
+                        "message": format!("Model '{}' not found. Available: {}", model, VALID_MODELS.join(", ")),
+                        "type": "invalid_request_error",
+                        "code": "model_not_found"
+                    }
+                })),
+            ));
         }
 
         if messages.is_empty() {
-            return Err((StatusCode::BAD_REQUEST, Json(json!({
-                "error": {"message": "messages array is empty", "type": "invalid_request_error"}
-            }))));
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "error": {"message": "messages array is empty", "type": "invalid_request_error"}
+                })),
+            ));
         }
 
         let mut server = state.lock().unwrap();
@@ -195,8 +307,11 @@ mod server {
                         last_content = format!(
                             "[SPO] S={} P={} O={} | score={:.3} E={:.3} | \
                              Phase: {} | Model: {}",
-                            spo.s_idx, spo.p_idx, spo.o_idx,
-                            score, spo.expectation(),
+                            spo.s_idx,
+                            spo.p_idx,
+                            spo.o_idx,
+                            score,
+                            spo.expectation(),
                             phase_to_str(server.cache.phase()),
                             model,
                         );
@@ -222,14 +337,16 @@ mod server {
                             let e = truth.expectation();
                             if e > best_truth_e {
                                 best_truth_e = e;
-                                best_inference = Some(("deduction", known.s_idx, known.p_idx, known.o_idx, e));
+                                best_inference =
+                                    Some(("deduction", known.s_idx, known.p_idx, known.o_idx, e));
                             }
                             // Try abduction: spo ← known
                             let truth = nars_infer(&spo, known, Inference::Abduction);
                             let e = truth.expectation();
                             if e > best_truth_e {
                                 best_truth_e = e;
-                                best_inference = Some(("abduction", known.s_idx, known.p_idx, known.o_idx, e));
+                                best_inference =
+                                    Some(("abduction", known.s_idx, known.p_idx, known.o_idx, e));
                             }
                         }
 
@@ -238,7 +355,9 @@ mod server {
                         server.context = spo.clone();
 
                         let inference_str = match best_inference {
-                            Some((rule, s, p, o, e)) => format!(" | NARS {}→[{},{},{}] E={:.3}", rule, s, p, o, e),
+                            Some((rule, s, p, o, e)) => {
+                                format!(" | NARS {}→[{},{},{}] E={:.3}", rule, s, p, o, e)
+                            }
                             None => String::new(),
                         };
 
@@ -295,17 +414,28 @@ mod server {
         State(_state): State<AppState>,
         Json(req): Json<Value>,
     ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
-        let model = req.get("model").and_then(|v| v.as_str()).unwrap_or("bge-m3");
-        let input = req.get("input").and_then(|v| v.as_str())
-            .or_else(|| req.get("input").and_then(|v| v.as_array())
-                .and_then(|a| a.first())
-                .and_then(|v| v.as_str()))
+        let model = req
+            .get("model")
+            .and_then(|v| v.as_str())
+            .unwrap_or("bge-m3");
+        let input = req
+            .get("input")
+            .and_then(|v| v.as_str())
+            .or_else(|| {
+                req.get("input")
+                    .and_then(|v| v.as_array())
+                    .and_then(|a| a.first())
+                    .and_then(|v| v.as_str())
+            })
             .unwrap_or("");
 
         if input.is_empty() {
-            return Err((StatusCode::BAD_REQUEST, Json(json!({
-                "error": {"message": "input is empty", "type": "invalid_request_error"}
-            }))));
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "error": {"message": "input is empty", "type": "invalid_request_error"}
+                })),
+            ));
         }
 
         // SPO-decomposed embedding: extract triplets, encode each, bundle
@@ -315,7 +445,9 @@ mod server {
             let mut sums = [0.0f64; 17];
             for (s, p, o) in &triplets {
                 let fp = triplet_to_headprint(s, p, o);
-                for d in 0..17 { sums[d] += fp.dims[d] as f64; }
+                for d in 0..17 {
+                    sums[d] += fp.dims[d] as f64;
+                }
             }
             let n = triplets.len() as f64;
             sums.iter().map(|s| s / n).collect()
@@ -400,7 +532,10 @@ mod server {
 #[cfg(feature = "serve")]
 #[tokio::main]
 async fn main() {
-    let port: u16 = std::env::args().nth(1).and_then(|s| s.parse().ok()).unwrap_or(3000);
+    let port: u16 = std::env::args()
+        .nth(1)
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(3000);
     server::run(port).await;
 }
 

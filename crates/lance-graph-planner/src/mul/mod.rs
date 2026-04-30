@@ -14,17 +14,17 @@
 //! 6. Compass Function (navigation when the map runs out)
 //! 7. Post-Action Learning Loop
 
-pub mod trust;
-pub mod dk;
-pub mod homeostasis;
 pub mod compass;
+pub mod dk;
 pub mod gate;
+pub mod homeostasis;
+pub mod trust;
 
-pub use trust::{TrustQualia, TrustTexture};
-pub use dk::{DkPosition, DkDetector};
-pub use homeostasis::{FlowState, Homeostasis};
-pub use compass::{CompassResult, CompassDecision};
+pub use compass::{CompassDecision, CompassResult};
+pub use dk::{DkDetector, DkPosition};
 pub use gate::GateDecision;
+pub use homeostasis::{FlowState, Homeostasis};
+pub use trust::{TrustQualia, TrustTexture};
 
 /// Input to the MUL assessment.
 #[derive(Debug, Clone)]

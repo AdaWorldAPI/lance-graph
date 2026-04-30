@@ -101,7 +101,13 @@ impl Base17 {
         let mut d = 0u32;
         for i in 0..BASE_DIM {
             let diff = (self.dims[i] as i32 - other.dims[i] as i32).unsigned_abs();
-            let weight = if i == 0 { 20 } else if i < 7 { 3 } else { 1 };
+            let weight = if i == 0 {
+                20
+            } else if i < 7 {
+                3
+            } else {
+                1
+            };
             d += diff * weight;
         }
         d
@@ -167,12 +173,18 @@ impl Base17 {
             norm_b += b * b;
         }
         let denom = (norm_a * norm_b).sqrt();
-        if denom < 1e-12 { 0.0 } else { dot / denom }
+        if denom < 1e-12 {
+            0.0
+        } else {
+            dot / denom
+        }
     }
 
     /// Zero vector (identity for xor_bind).
     pub fn zero() -> Self {
-        Base17 { dims: [0i16; BASE_DIM] }
+        Base17 {
+            dims: [0i16; BASE_DIM],
+        }
     }
 
     /// Serialize to 34 bytes (little-endian i16).
@@ -301,7 +313,11 @@ impl Base17Fz {
             norm_b += b * b;
         }
         let denom = (norm_a * norm_b).sqrt();
-        if denom < 1e-12 { 0.0 } else { dot / denom }
+        if denom < 1e-12 {
+            0.0
+        } else {
+            dot / denom
+        }
     }
 
     /// L1 distance in z-space.
@@ -390,11 +406,19 @@ fn f16_to_f32(bits: u16) -> f32 {
             // Subnormal
             let mut f = frac as f32 / 1024.0;
             f *= 2.0f32.powi(-14);
-            if sign == 1 { -f } else { f }
+            if sign == 1 {
+                -f
+            } else {
+                f
+            }
         }
     } else if exp == 31 {
         if frac == 0 {
-            if sign == 1 { f32::NEG_INFINITY } else { f32::INFINITY }
+            if sign == 1 {
+                f32::NEG_INFINITY
+            } else {
+                f32::INFINITY
+            }
         } else {
             f32::NAN
         }
@@ -425,8 +449,10 @@ mod tests {
         let b = Base17::from_f32(&weights);
         // All dimensions should be approximately equal
         for i in 1..BASE_DIM {
-            assert!((b.dims[i] - b.dims[0]).abs() < 5,
-                "dims should be uniform for constant vector");
+            assert!(
+                (b.dims[i] - b.dims[0]).abs() < 5,
+                "dims should be uniform for constant vector"
+            );
         }
     }
 
@@ -505,7 +531,10 @@ mod tests {
         let recovered_b = b17_b.to_f32(4096);
         let reprojected_b = Base17::from_f32(&recovered_b);
         let l1_reprojected = reprojected_a.l1(&reprojected_b);
-        assert_eq!(l1_orig, l1_reprojected, "L1 distance must be preserved through round-trip");
+        assert_eq!(
+            l1_orig, l1_reprojected,
+            "L1 distance must be preserved through round-trip"
+        );
     }
 
     #[test]
@@ -527,7 +556,11 @@ mod tests {
             norm_rec += b * b;
         }
         let cosine = dot / (norm_orig.sqrt() * norm_rec.sqrt());
-        assert!(cosine > 0.90, "small vector round-trip cosine = {:.4}, expected > 0.90", cosine);
+        assert!(
+            cosine > 0.90,
+            "small vector round-trip cosine = {:.4}, expected > 0.90",
+            cosine
+        );
     }
 
     #[test]
@@ -544,8 +577,16 @@ mod tests {
         let rb = b.to_f32(5);
         let rc = c.to_f32(5);
 
-        let dist_ab: f64 = ra.iter().zip(rb.iter()).map(|(x, y)| (*x as f64 - *y as f64).powi(2)).sum();
-        let dist_ac: f64 = ra.iter().zip(rc.iter()).map(|(x, y)| (*x as f64 - *y as f64).powi(2)).sum();
+        let dist_ab: f64 = ra
+            .iter()
+            .zip(rb.iter())
+            .map(|(x, y)| (*x as f64 - *y as f64).powi(2))
+            .sum();
+        let dist_ac: f64 = ra
+            .iter()
+            .zip(rc.iter())
+            .map(|(x, y)| (*x as f64 - *y as f64).powi(2))
+            .sum();
         assert!(dist_ab < dist_ac, "distance ranking should be preserved");
     }
 
@@ -565,7 +606,11 @@ mod tests {
             b.dims[i] = -1000;
         }
         let c = a.cosine(&b);
-        assert!(c < -0.99, "opposite vectors should have cosine near -1: {}", c);
+        assert!(
+            c < -0.99,
+            "opposite vectors should have cosine near -1: {}",
+            c
+        );
     }
 
     #[test]

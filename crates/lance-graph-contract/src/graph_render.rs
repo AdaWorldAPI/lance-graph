@@ -179,7 +179,12 @@ pub trait GraphInferenceProvider: Send + Sync {
     fn contradictions(&self) -> Vec<Contradiction>;
 
     /// Revise truth value of a specific triplet (by index). Returns new (freq, conf).
-    fn revise_truth(&mut self, triplet_idx: usize, evidence_freq: f32, evidence_conf: f32) -> (f32, f32);
+    fn revise_truth(
+        &mut self,
+        triplet_idx: usize,
+        evidence_freq: f32,
+        evidence_conf: f32,
+    ) -> (f32, f32);
 }
 
 /// Trait for Cypher query execution.
@@ -289,12 +294,29 @@ mod tests {
     fn snapshot_with_inferences() {
         let snap = GraphSnapshot {
             nodes: vec![
-                RenderNode { id: "a".into(), label: "A".into(), kind: "Entity".into(), confidence: 1.0, props: vec![] },
-                RenderNode { id: "b".into(), label: "B".into(), kind: "Entity".into(), confidence: 1.0, props: vec![] },
+                RenderNode {
+                    id: "a".into(),
+                    label: "A".into(),
+                    kind: "Entity".into(),
+                    confidence: 1.0,
+                    props: vec![],
+                },
+                RenderNode {
+                    id: "b".into(),
+                    label: "B".into(),
+                    kind: "Entity".into(),
+                    confidence: 1.0,
+                    props: vec![],
+                },
             ],
-            edges: vec![
-                RenderEdge { source: "a".into(), target: "b".into(), label: "knows".into(), frequency: 0.9, confidence: 0.8, inferred: false },
-            ],
+            edges: vec![RenderEdge {
+                source: "a".into(),
+                target: "b".into(),
+                label: "knows".into(),
+                frequency: 0.9,
+                confidence: 0.8,
+                inferred: false,
+            }],
             inferences: vec![],
             contradictions: vec![],
             timestamp: 42,
@@ -308,9 +330,10 @@ mod tests {
     fn cypher_result_structure() {
         let result = CypherResult {
             columns: vec!["n".into(), "r".into()],
-            rows: vec![
-                vec![CypherValue::Text("Alice".into()), CypherValue::Text("knows".into())],
-            ],
+            rows: vec![vec![
+                CypherValue::Text("Alice".into()),
+                CypherValue::Text("knows".into()),
+            ]],
             nodes_touched: 1,
             relationships_touched: 1,
         };

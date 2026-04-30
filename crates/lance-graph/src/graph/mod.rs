@@ -10,13 +10,13 @@
 pub mod arigraph;
 pub mod audio;
 pub mod blasgraph;
-pub mod graph_router;
-pub mod semiring_map;
 pub mod fingerprint;
+pub mod graph_router;
 pub mod hydrate;
 pub mod metadata;
-pub mod neuron;
 pub mod neighborhood;
+pub mod neuron;
+pub mod semiring_map;
 pub mod sparse;
 pub mod spo;
 pub mod versioned;

@@ -127,14 +127,20 @@ impl IvfIndex {
 
     /// Find the top-P closest partitions for a query (probe list).
     pub fn probe(&self, query: &[f32]) -> Vec<IvfAssignment> {
-        let mut distances: Vec<IvfAssignment> = self.centroids.iter()
+        let mut distances: Vec<IvfAssignment> = self
+            .centroids
+            .iter()
             .map(|c| IvfAssignment {
                 partition: c.partition_id,
                 distance: squared_l2(query, &c.vector),
             })
             .collect();
 
-        distances.sort_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap_or(Ordering::Equal));
+        distances.sort_by(|a, b| {
+            a.distance
+                .partial_cmp(&b.distance)
+                .unwrap_or(Ordering::Equal)
+        });
         distances.truncate(self.config.num_probes);
         distances
     }
@@ -158,7 +164,10 @@ impl IvfIndex {
                 best_id = c.partition_id;
             }
         }
-        IvfAssignment { partition: best_id, distance: best_dist }
+        IvfAssignment {
+            partition: best_id,
+            distance: best_dist,
+        }
     }
 }
 
@@ -178,11 +187,16 @@ pub fn merge_partition_results(
     partition_results: &[Vec<IvfCamResult>],
     global_top_k: usize,
 ) -> Vec<IvfCamResult> {
-    let mut merged: Vec<IvfCamResult> = partition_results.iter()
+    let mut merged: Vec<IvfCamResult> = partition_results
+        .iter()
         .flat_map(|r| r.iter().cloned())
         .collect();
 
-    merged.sort_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap_or(Ordering::Equal));
+    merged.sort_by(|a, b| {
+        a.distance
+            .partial_cmp(&b.distance)
+            .unwrap_or(Ordering::Equal)
+    });
     merged.truncate(global_top_k);
     merged
 }
@@ -214,7 +228,9 @@ fn kmeans(data: &[Vec<f32>], k: usize, dim: usize, iterations: usize) -> Vec<Vec
                 min_dists[i] = d;
             }
         }
-        let best = min_dists.iter().enumerate()
+        let best = min_dists
+            .iter()
+            .enumerate()
             .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(Ordering::Equal))
             .map(|(i, _)| i)
             .unwrap_or(0);
@@ -345,12 +361,28 @@ mod tests {
     #[test]
     fn test_merge_partition_results() {
         let p1 = vec![
-            IvfCamResult { id: 1, partition: 0, distance: 0.5 },
-            IvfCamResult { id: 2, partition: 0, distance: 1.0 },
+            IvfCamResult {
+                id: 1,
+                partition: 0,
+                distance: 0.5,
+            },
+            IvfCamResult {
+                id: 2,
+                partition: 0,
+                distance: 1.0,
+            },
         ];
         let p2 = vec![
-            IvfCamResult { id: 3, partition: 1, distance: 0.3 },
-            IvfCamResult { id: 4, partition: 1, distance: 0.8 },
+            IvfCamResult {
+                id: 3,
+                partition: 1,
+                distance: 0.3,
+            },
+            IvfCamResult {
+                id: 4,
+                partition: 1,
+                distance: 0.8,
+            },
         ];
 
         let merged = merge_partition_results(&[p1, p2], 3);
@@ -370,10 +402,12 @@ mod tests {
         // Simulate billion-scale without actually training on 1B vectors
         let index = IvfIndex {
             config,
-            centroids: (0..4096).map(|i| CoarseCentroid {
-                partition_id: i as u32,
-                vector: vec![0.0; 256],
-            }).collect(),
+            centroids: (0..4096)
+                .map(|i| CoarseCentroid {
+                    partition_id: i as u32,
+                    vector: vec![0.0; 256],
+                })
+                .collect(),
             partition_sizes: vec![244_140; 4096], // ~1B / 4096
             total_vectors: 1_000_000_000,
         };

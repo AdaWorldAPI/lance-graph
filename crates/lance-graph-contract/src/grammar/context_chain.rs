@@ -164,10 +164,14 @@ impl WeightingKernel {
 
 impl ContextChain {
     pub fn new() -> Self {
-        Self { fingerprints: (0..CHAIN_LEN).map(|_| None).collect() }
+        Self {
+            fingerprints: (0..CHAIN_LEN).map(|_| None).collect(),
+        }
     }
 
-    pub fn focal_index() -> usize { MARKOV_RADIUS }
+    pub fn focal_index() -> usize {
+        MARKOV_RADIUS
+    }
 
     /// Count of filled positions in the chain.
     pub fn filled(&self) -> usize {
@@ -203,18 +207,11 @@ impl ContextChain {
     ///
     /// Returns `0.0` if position `i` is empty / out of range, the
     /// fingerprint is not Binary16K, or no eligible neighbors exist.
-    pub fn coherence_at_with_kernel(
-        &self,
-        i: usize,
-        kernel: WeightingKernel,
-    ) -> f32 {
+    pub fn coherence_at_with_kernel(&self, i: usize, kernel: WeightingKernel) -> f32 {
         if i >= self.fingerprints.len() {
             return 0.0;
         }
-        let fp_i_bits = match self.fingerprints[i]
-            .as_ref()
-            .and_then(binary16k_bits)
-        {
+        let fp_i_bits = match self.fingerprints[i].as_ref().and_then(binary16k_bits) {
             Some(b) => b,
             None => return 0.0,
         };
@@ -258,10 +255,7 @@ impl ContextChain {
 
     /// Mean coherence across all filled positions under the supplied
     /// kernel. Returns `0.0` if the chain is entirely empty.
-    pub fn total_coherence_with_kernel(
-        &self,
-        kernel: WeightingKernel,
-    ) -> f32 {
+    pub fn total_coherence_with_kernel(&self, kernel: WeightingKernel) -> f32 {
         let mut sum = 0.0f32;
         let mut n = 0u32;
         for i in 0..self.fingerprints.len() {
@@ -270,7 +264,11 @@ impl ContextChain {
                 n += 1;
             }
         }
-        if n == 0 { 0.0 } else { sum / n as f32 }
+        if n == 0 {
+            0.0
+        } else {
+            sum / n as f32
+        }
     }
 
     /// Returns a new chain where position `i` has been replaced with `alt`.
@@ -278,16 +276,8 @@ impl ContextChain {
     /// Second return value is the `total_coherence` of the modified chain
     /// under the default kernel. If `i` is out of range, returns a clone
     /// of the chain untouched and its current total coherence.
-    pub fn replay_with_alternative(
-        &self,
-        i: usize,
-        alt: CrystalFingerprint,
-    ) -> (Self, f32) {
-        self.replay_with_alternative_kernel(
-            i,
-            alt,
-            WeightingKernel::default(),
-        )
+    pub fn replay_with_alternative(&self, i: usize, alt: CrystalFingerprint) -> (Self, f32) {
+        self.replay_with_alternative_kernel(i, alt, WeightingKernel::default())
     }
 
     /// Kernel-aware variant of `replay_with_alternative`. Scores the
@@ -324,11 +314,7 @@ impl ContextChain {
     /// - **Single candidate**: `margin = 0.0`, `dispersion = 0.0`,
     ///   `escalate_to_llm = true`.
     #[deprecated(note = "use disambiguate_with(opts)")]
-    pub fn disambiguate<I>(
-        &self,
-        i: usize,
-        candidates: I,
-    ) -> DisambiguationResult
+    pub fn disambiguate<I>(&self, i: usize, candidates: I) -> DisambiguationResult
     where
         I: IntoIterator<Item = CrystalFingerprint>,
     {
@@ -449,11 +435,7 @@ impl ContextChain {
             .into_iter()
             .enumerate()
             .map(|(idx, cand)| {
-                let (_chain, coh) = self.replay_with_alternative_kernel(
-                    i,
-                    cand.clone(),
-                    kernel,
-                );
+                let (_chain, coh) = self.replay_with_alternative_kernel(i, cand.clone(), kernel);
                 (idx, cand, coh)
             })
             .collect();
@@ -469,9 +451,8 @@ impl ContextChain {
             // instead of the zero placeholder. This is the PR-G3
             // bridge: the contract crate stays zero-dep while the
             // caller injects the real bundled trajectory fingerprint.
-            let placeholder = chosen_fingerprint.unwrap_or_else(|| {
-                CrystalFingerprint::Binary16K(Box::new([0u64; 256]))
-            });
+            let placeholder = chosen_fingerprint
+                .unwrap_or_else(|| CrystalFingerprint::Binary16K(Box::new([0u64; 256])));
             return DisambiguationResult {
                 chosen: placeholder.clone(),
                 coherence: 0.0,
@@ -487,9 +468,7 @@ impl ContextChain {
 
         // Sort descending by coherence; ties resolved by insertion order
         // (stable sort + NaN-safe partial_cmp fallback to Equal).
-        scored.sort_by(|a, b| {
-            b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal)
-        });
+        scored.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
 
         let winner_index = scored[0].0;
         let chosen = scored[0].1.clone();
@@ -499,8 +478,7 @@ impl ContextChain {
         } else {
             0.0
         };
-        let escalate_to_llm =
-            scored.len() < 2 || margin < DISAMBIGUATION_MARGIN_THRESHOLD;
+        let escalate_to_llm = scored.len() < 2 || margin < DISAMBIGUATION_MARGIN_THRESHOLD;
 
         // Dispersion: mean pairwise normalized Hamming distance over the
         // top-3 candidates. Only Binary16K pairs contribute; if fewer
@@ -543,7 +521,9 @@ impl ContextChain {
 }
 
 impl Default for ContextChain {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 // ── Internal helpers ───────────────────────────────────────────────────
@@ -621,7 +601,10 @@ mod tests {
         let fp = mk_fp(0xDEAD_BEEF_CAFE_BABE);
         let c = fill_chain_with(&fp);
         let total = c.total_coherence();
-        assert!(total > 0.99, "expected near-1.0 self-coherence, got {total}");
+        assert!(
+            total > 0.99,
+            "expected near-1.0 self-coherence, got {total}"
+        );
         for i in 0..CHAIN_LEN {
             let k = c.coherence_at(i);
             assert!(k > 0.99, "position {i} coherence {k} should be near 1.0");
@@ -636,35 +619,31 @@ mod tests {
         let (replayed, _coh) = c.replay_with_alternative(3, alt.clone());
         // Position 3 should equal alt.
         match (&replayed.fingerprints[3], &alt) {
-            (Some(CrystalFingerprint::Binary16K(a)),
-             CrystalFingerprint::Binary16K(b)) => {
+            (Some(CrystalFingerprint::Binary16K(a)), CrystalFingerprint::Binary16K(b)) => {
                 assert_eq!(**a, **b, "position 3 should be the alt fingerprint");
             }
             _ => panic!("position 3 missing or wrong variant"),
         }
         // All other positions should equal `base`.
         for i in 0..CHAIN_LEN {
-            if i == 3 { continue; }
+            if i == 3 {
+                continue;
+            }
             match (&replayed.fingerprints[i], &base) {
-                (Some(CrystalFingerprint::Binary16K(a)),
-                 CrystalFingerprint::Binary16K(b)) => {
-                    assert_eq!(**a, **b,
-                        "position {i} was mutated by replay");
+                (Some(CrystalFingerprint::Binary16K(a)), CrystalFingerprint::Binary16K(b)) => {
+                    assert_eq!(**a, **b, "position {i} was mutated by replay");
                 }
                 _ => panic!("position {i} unexpectedly empty or wrong variant"),
             }
         }
         // The original chain must not have been modified.
         match &c.fingerprints[3] {
-            Some(CrystalFingerprint::Binary16K(a)) => {
-                match &base {
-                    CrystalFingerprint::Binary16K(b) => {
-                        assert_eq!(**a, **b,
-                            "original chain should be untouched");
-                    }
-                    _ => unreachable!(),
+            Some(CrystalFingerprint::Binary16K(a)) => match &base {
+                CrystalFingerprint::Binary16K(b) => {
+                    assert_eq!(**a, **b, "original chain should be untouched");
                 }
-            }
+                _ => unreachable!(),
+            },
             _ => panic!("original position 3 missing"),
         }
     }
@@ -691,20 +670,15 @@ mod tests {
         let far = {
             let mut bits = Box::new([0u64; 256]);
             for i in 0..256 {
-                bits[i] =
-                    !(0x1111_2222_3333_4444u64.wrapping_mul(i as u64 + 1));
+                bits[i] = !(0x1111_2222_3333_4444u64.wrapping_mul(i as u64 + 1));
             }
             CrystalFingerprint::Binary16K(bits)
         };
 
-        let res = c.disambiguate(
-            3,
-            vec![far.clone(), near.clone(), base.clone()],
-        );
+        let res = c.disambiguate(3, vec![far.clone(), near.clone(), base.clone()]);
         // Base should win (it matches the surrounding bundle perfectly).
         match (&res.chosen, &base) {
-            (CrystalFingerprint::Binary16K(a),
-             CrystalFingerprint::Binary16K(b)) => {
+            (CrystalFingerprint::Binary16K(a), CrystalFingerprint::Binary16K(b)) => {
                 assert_eq!(**a, **b, "disambiguate should pick base");
             }
             _ => panic!("wrong variant in chosen"),
@@ -728,11 +702,15 @@ mod tests {
         let cand_b = cand_a.clone();
         let res = c.disambiguate(3, vec![cand_a, cand_b]);
         assert_eq!(res.alternatives.len(), 2);
-        assert!(res.margin.abs() < 1e-6,
+        assert!(
+            res.margin.abs() < 1e-6,
             "two identical candidates should produce zero margin, got {}",
-            res.margin);
-        assert!(res.escalate_to_llm,
-            "zero margin must trigger LLM escalation");
+            res.margin
+        );
+        assert!(
+            res.escalate_to_llm,
+            "zero margin must trigger LLM escalation"
+        );
     }
 
     #[test]
@@ -892,16 +870,14 @@ mod tests {
         );
         // `winner` and `chosen` agree by construction.
         match (&res.winner, &res.chosen) {
-            (CrystalFingerprint::Binary16K(a),
-             CrystalFingerprint::Binary16K(b)) => {
+            (CrystalFingerprint::Binary16K(a), CrystalFingerprint::Binary16K(b)) => {
                 assert_eq!(**a, **b, "winner and chosen must agree");
             }
             _ => panic!("unexpected fingerprint variants"),
         }
         // Winner equals base.
         match (&res.winner, &base) {
-            (CrystalFingerprint::Binary16K(a),
-             CrystalFingerprint::Binary16K(b)) => {
+            (CrystalFingerprint::Binary16K(a), CrystalFingerprint::Binary16K(b)) => {
                 assert_eq!(**a, **b, "winner must be the matching base");
             }
             _ => panic!("unexpected fingerprint variants"),
@@ -914,8 +890,7 @@ mod tests {
     #[test]
     fn d4_disambiguate_empty_returns_sentinel() {
         let chain = fill_chain_with(&mk_fp(0x1));
-        let res: DisambiguationResult =
-            chain.disambiguate(0, Vec::<CrystalFingerprint>::new());
+        let res: DisambiguationResult = chain.disambiguate(0, Vec::<CrystalFingerprint>::new());
         assert_eq!(res.candidate_count, 0);
         assert_eq!(res.winner_index, usize::MAX);
         assert!(res.escalate_to_llm, "empty must escalate");
@@ -926,8 +901,10 @@ mod tests {
         // The placeholder fingerprint is a zeroed Binary16K.
         match &res.winner {
             CrystalFingerprint::Binary16K(bits) => {
-                assert!(bits.iter().all(|&w| w == 0),
-                    "sentinel placeholder should be all-zero");
+                assert!(
+                    bits.iter().all(|&w| w == 0),
+                    "sentinel placeholder should be all-zero"
+                );
             }
             _ => panic!("sentinel must be Binary16K placeholder"),
         }
@@ -957,26 +934,24 @@ mod tests {
         assert_eq!(res.dispersion, 0.0);
         // Winner and chosen carry the provided fingerprint, NOT zeros.
         match (&res.winner, &real_fp) {
-            (CrystalFingerprint::Binary16K(a),
-             CrystalFingerprint::Binary16K(b)) => {
-                assert_eq!(**a, **b,
-                    "sentinel winner must be the provided fingerprint");
+            (CrystalFingerprint::Binary16K(a), CrystalFingerprint::Binary16K(b)) => {
+                assert_eq!(**a, **b, "sentinel winner must be the provided fingerprint");
             }
             _ => panic!("expected Binary16K variant"),
         }
         match (&res.chosen, &real_fp) {
-            (CrystalFingerprint::Binary16K(a),
-             CrystalFingerprint::Binary16K(b)) => {
-                assert_eq!(**a, **b,
-                    "sentinel chosen must be the provided fingerprint");
+            (CrystalFingerprint::Binary16K(a), CrystalFingerprint::Binary16K(b)) => {
+                assert_eq!(**a, **b, "sentinel chosen must be the provided fingerprint");
             }
             _ => panic!("expected Binary16K variant"),
         }
         // Verify it's NOT all zeros.
         match &res.winner {
             CrystalFingerprint::Binary16K(bits) => {
-                assert!(!bits.iter().all(|&w| w == 0),
-                    "provided fingerprint must NOT be all-zero");
+                assert!(
+                    !bits.iter().all(|&w| w == 0),
+                    "provided fingerprint must NOT be all-zero"
+                );
             }
             _ => unreachable!(),
         }
@@ -987,18 +962,16 @@ mod tests {
     #[test]
     fn g3_sentinel_none_falls_back_to_zero() {
         let chain = fill_chain_with(&mk_fp(0x1));
-        let res = chain.disambiguate_with_fingerprint(
-            0,
-            Vec::<CrystalFingerprint>::new(),
-            None,
-        );
+        let res = chain.disambiguate_with_fingerprint(0, Vec::<CrystalFingerprint>::new(), None);
         assert_eq!(res.candidate_count, 0);
         assert_eq!(res.winner_index, usize::MAX);
         assert!(res.escalate_to_llm);
         match &res.winner {
             CrystalFingerprint::Binary16K(bits) => {
-                assert!(bits.iter().all(|&w| w == 0),
-                    "None should produce zero sentinel");
+                assert!(
+                    bits.iter().all(|&w| w == 0),
+                    "None should produce zero sentinel"
+                );
             }
             _ => panic!("sentinel must be Binary16K"),
         }
@@ -1024,10 +997,11 @@ mod tests {
         // injected fingerprint.
         assert_eq!(res.candidate_count, 1);
         match (&res.winner, &base) {
-            (CrystalFingerprint::Binary16K(a),
-             CrystalFingerprint::Binary16K(b)) => {
-                assert_eq!(**a, **b,
-                    "winner must be the actual candidate, not the injected fp");
+            (CrystalFingerprint::Binary16K(a), CrystalFingerprint::Binary16K(b)) => {
+                assert_eq!(
+                    **a, **b,
+                    "winner must be the actual candidate, not the injected fp"
+                );
             }
             _ => panic!("expected Binary16K variant"),
         }
@@ -1088,11 +1062,9 @@ mod tests {
             CrystalFingerprint::Binary16K(b) => b.as_ref(),
             _ => unreachable!(),
         };
-        let pair_sim =
-            1.0 - (hamming_256(bits_b, bits_a) as f32) / MAX_HAMMING_BITS as f32;
+        let pair_sim = 1.0 - (hamming_256(bits_b, bits_a) as f32) / MAX_HAMMING_BITS as f32;
 
-        let measured =
-            chain.coherence_at_with_kernel(focal, WeightingKernel::Uniform);
+        let measured = chain.coherence_at_with_kernel(focal, WeightingKernel::Uniform);
         assert!(
             (measured - pair_sim).abs() < 1e-6,
             "Uniform-kernel coherence at focal should equal the pairwise sim \
@@ -1119,10 +1091,8 @@ mod tests {
         slots[CHAIN_LEN - 1] = Some(fp_b.clone());
         let chain = chain_from_slots(slots);
 
-        let uni =
-            chain.coherence_at_with_kernel(focal, WeightingKernel::Uniform);
-        let mex = chain
-            .coherence_at_with_kernel(focal, WeightingKernel::MexicanHat);
+        let uni = chain.coherence_at_with_kernel(focal, WeightingKernel::Uniform);
+        let mex = chain.coherence_at_with_kernel(focal, WeightingKernel::MexicanHat);
         assert!(
             (uni - mex).abs() > 1e-3,
             "uniform={uni} and mexican_hat={mex} should differ when the chain \
@@ -1142,8 +1112,7 @@ mod tests {
         let cand_far = mk_fp(0xEEEE_DDDD_CCCC_BBBB);
         let focal = ContextChain::focal_index();
 
-        let mut slots: Vec<Option<CrystalFingerprint>> =
-            (0..CHAIN_LEN).map(|_| None).collect();
+        let mut slots: Vec<Option<CrystalFingerprint>> = (0..CHAIN_LEN).map(|_| None).collect();
         // Near positions (focal ± 1, ± 2): cand_near.
         for d in 1..=2usize {
             slots[focal - d] = Some(cand_near.clone());

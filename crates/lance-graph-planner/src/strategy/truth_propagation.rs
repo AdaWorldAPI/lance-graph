@@ -3,9 +3,9 @@
 //! The missing piece: truth values accumulated DURING traversal, not post-hoc.
 //! multiply = NARS deduction, add = NARS revision.
 
-use crate::ir::{Arena, LogicalOp};
 #[allow(unused_imports)] // intended for semiring selection wiring
 use crate::ir::logical_op::SemiringType;
+use crate::ir::{Arena, LogicalOp};
 use crate::traits::*;
 use crate::PlanError;
 
@@ -13,8 +13,12 @@ use crate::PlanError;
 pub struct TruthPropagation;
 
 impl PlanStrategy for TruthPropagation {
-    fn name(&self) -> &str { "truth_propagation" }
-    fn capability(&self) -> PlanCapability { PlanCapability::TruthPropagation }
+    fn name(&self) -> &str {
+        "truth_propagation"
+    }
+    fn capability(&self) -> PlanCapability {
+        PlanCapability::TruthPropagation
+    }
 
     fn affinity(&self, context: &PlanContext) -> f32 {
         // High affinity when truth values are involved
@@ -29,7 +33,11 @@ impl PlanStrategy for TruthPropagation {
         }
     }
 
-    fn plan(&self, input: PlanInput, _arena: &mut Arena<LogicalOp>) -> Result<PlanInput, PlanError> {
+    fn plan(
+        &self,
+        input: PlanInput,
+        _arena: &mut Arena<LogicalOp>,
+    ) -> Result<PlanInput, PlanError> {
         // Injects ACCUMULATE operators with TruthPropagating semiring
         // into the physical plan. The semiring implements:
         // - multiply (edge traversal): NARS deduction

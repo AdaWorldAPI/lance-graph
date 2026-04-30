@@ -26,9 +26,9 @@
 //! | `.select("a","b")`     | Projection { expressions: [Column...] }      |
 //! | `.as("x")`             | (alias for current step)                     |
 
-use crate::ir::{Arena, LogicalOp, LogicalPlan, Node, AExpr, ExprNode};
+use crate::ir::expr::{BinaryOp, Literal, UnaryOp};
 use crate::ir::logical_op::Direction;
-use crate::ir::expr::{Literal, BinaryOp, UnaryOp};
+use crate::ir::{AExpr, Arena, ExprNode, LogicalOp, LogicalPlan, Node};
 use crate::traits::*;
 use crate::PlanError;
 
@@ -36,8 +36,12 @@ use crate::PlanError;
 pub struct GremlinParse;
 
 impl PlanStrategy for GremlinParse {
-    fn name(&self) -> &str { "gremlin_parse" }
-    fn capability(&self) -> PlanCapability { PlanCapability::Parse }
+    fn name(&self) -> &str {
+        "gremlin_parse"
+    }
+    fn capability(&self) -> PlanCapability {
+        PlanCapability::Parse
+    }
 
     fn affinity(&self, context: &PlanContext) -> f32 {
         let q = &context.query;
@@ -51,7 +55,11 @@ impl PlanStrategy for GremlinParse {
         }
     }
 
-    fn plan(&self, mut input: PlanInput, arena: &mut Arena<LogicalOp>) -> Result<PlanInput, PlanError> {
+    fn plan(
+        &self,
+        mut input: PlanInput,
+        arena: &mut Arena<LogicalOp>,
+    ) -> Result<PlanInput, PlanError> {
         let source = input.context.query.clone();
         let steps = parse_gremlin_steps(&source)?;
 
@@ -84,9 +92,7 @@ impl PlanStrategy for GremlinParse {
                             variable: current_alias.clone(),
                             property: "id".to_string(),
                         });
-                        let id_lit = expr_arena.push(AExpr::Literal(
-                            parse_gremlin_literal(id),
-                        ));
+                        let id_lit = expr_arena.push(AExpr::Literal(parse_gremlin_literal(id)));
                         let pred = expr_arena.push(AExpr::BinaryOp {
                             left: ExprNode(id_col),
                             op: BinaryOp::Eq,
@@ -114,7 +120,10 @@ impl PlanStrategy for GremlinParse {
                     // Refine the last ScanNode to use this label
                     if let Some(node) = current_node {
                         let op = arena.get(node);
-                        if let LogicalOp::ScanNode { alias, projections, .. } = op {
+                        if let LogicalOp::ScanNode {
+                            alias, projections, ..
+                        } = op
+                        {
                             let refined = LogicalOp::ScanNode {
                                 label: label.clone(),
                                 alias: alias.clone(),
@@ -127,9 +136,8 @@ impl PlanStrategy for GremlinParse {
                                 variable: current_alias.clone(),
                                 property: "__label__".to_string(),
                             });
-                            let label_lit = expr_arena.push(AExpr::Literal(
-                                Literal::String(label.clone()),
-                            ));
+                            let label_lit =
+                                expr_arena.push(AExpr::Literal(Literal::String(label.clone())));
                             let pred = expr_arena.push(AExpr::BinaryOp {
                                 left: ExprNode(label_col),
                                 op: BinaryOp::Eq,
@@ -150,9 +158,7 @@ impl PlanStrategy for GremlinParse {
                             variable: current_alias.clone(),
                             property: property.clone(),
                         });
-                        let lit = expr_arena.push(AExpr::Literal(
-                            parse_gremlin_literal(value),
-                        ));
+                        let lit = expr_arena.push(AExpr::Literal(parse_gremlin_literal(value)));
                         let pred = expr_arena.push(AExpr::BinaryOp {
                             left: ExprNode(col),
                             op: BinaryOp::Eq,
@@ -184,7 +190,9 @@ impl PlanStrategy for GremlinParse {
                     }
                 }
 
-                GremlinStep::Out(rel_type) | GremlinStep::In(rel_type) | GremlinStep::Both(rel_type) => {
+                GremlinStep::Out(rel_type)
+                | GremlinStep::In(rel_type)
+                | GremlinStep::Both(rel_type) => {
                     let direction = match step {
                         GremlinStep::Out(_) => Direction::Outgoing,
                         GremlinStep::In(_) => Direction::Incoming,
@@ -205,7 +213,9 @@ impl PlanStrategy for GremlinParse {
                     }
                 }
 
-                GremlinStep::OutE(rel_type) | GremlinStep::InE(rel_type) | GremlinStep::BothE(rel_type) => {
+                GremlinStep::OutE(rel_type)
+                | GremlinStep::InE(rel_type)
+                | GremlinStep::BothE(rel_type) => {
                     let direction = match step {
                         GremlinStep::OutE(_) => Direction::Outgoing,
                         GremlinStep::InE(_) => Direction::Incoming,
@@ -399,9 +409,7 @@ impl PlanStrategy for GremlinParse {
 
                 GremlinStep::Property(key, value) => {
                     if let Some(node) = current_node {
-                        let val = expr_arena.push(AExpr::Literal(
-                            parse_gremlin_literal(value),
-                        ));
+                        let val = expr_arena.push(AExpr::Literal(parse_gremlin_literal(value)));
                         let set = LogicalOp::SetProperty {
                             input: node,
                             property: key.clone(),
@@ -428,11 +436,7 @@ impl PlanStrategy for GremlinParse {
             };
             let root = arena.push(ret);
 
-            let plan = LogicalPlan::new(
-                std::mem::take(arena),
-                expr_arena,
-                root,
-            );
+            let plan = LogicalPlan::new(std::mem::take(arena), expr_arena, root);
             // Swap the new arena back
             *arena = plan.ops;
             // We can't easily move both arenas, so store plan in input
@@ -448,8 +452,12 @@ impl PlanStrategy for GremlinParse {
 
         // Set complexity estimate
         let mut complexity = input.context.features.num_match_clauses as f64 * 0.2;
-        if has_path_expansion { complexity += 0.3; }
-        if has_aggregation { complexity += 0.1; }
+        if has_path_expansion {
+            complexity += 0.3;
+        }
+        if has_aggregation {
+            complexity += 0.1;
+        }
         input.context.features.estimated_complexity = complexity.min(1.0);
 
         Ok(input)
@@ -513,10 +521,13 @@ fn parse_gremlin_steps(source: &str) -> Result<Vec<GremlinStep>, PlanError> {
 
     while pos < bytes.len() {
         // Skip whitespace and dots
-        while pos < bytes.len() && (bytes[pos] == b'.' || bytes[pos] == b' ' || bytes[pos] == b'\n') {
+        while pos < bytes.len() && (bytes[pos] == b'.' || bytes[pos] == b' ' || bytes[pos] == b'\n')
+        {
             pos += 1;
         }
-        if pos >= bytes.len() { break; }
+        if pos >= bytes.len() {
+            break;
+        }
 
         // Read method name
         let name_start = pos;
@@ -536,10 +547,14 @@ fn parse_gremlin_steps(source: &str) -> Result<Vec<GremlinStep>, PlanError> {
                     b')' => depth -= 1,
                     _ => {}
                 }
-                if depth > 0 { pos += 1; }
+                if depth > 0 {
+                    pos += 1;
+                }
             }
             let arg_str = chain[arg_start..pos].trim();
-            if pos < bytes.len() { pos += 1; } // skip ')'
+            if pos < bytes.len() {
+                pos += 1;
+            } // skip ')'
             parse_gremlin_args(arg_str)
         } else {
             vec![]
@@ -577,10 +592,14 @@ fn parse_gremlin_steps(source: &str) -> Result<Vec<GremlinStep>, PlanError> {
             "bothV" => steps.push(GremlinStep::BothV),
             "repeat" => {
                 // Simple: extract times from a following .times() step
-                steps.push(GremlinStep::Repeat { steps: vec![], times: 1 });
+                steps.push(GremlinStep::Repeat {
+                    steps: vec![],
+                    times: 1,
+                });
             }
             "times" => {
-                let n = args.first()
+                let n = args
+                    .first()
                     .and_then(|s| s.parse::<usize>().ok())
                     .unwrap_or(1);
                 // Patch the last Repeat step
@@ -595,7 +614,8 @@ fn parse_gremlin_steps(source: &str) -> Result<Vec<GremlinStep>, PlanError> {
             "max" => steps.push(GremlinStep::Max(args.first().cloned())),
             "dedup" => steps.push(GremlinStep::Dedup),
             "limit" => {
-                let n = args.first()
+                let n = args
+                    .first()
                     .and_then(|s| s.parse::<usize>().ok())
                     .unwrap_or(10);
                 steps.push(GremlinStep::Limit(n));
@@ -632,11 +652,10 @@ fn parse_gremlin_steps(source: &str) -> Result<Vec<GremlinStep>, PlanError> {
                     steps.push(GremlinStep::Property(args[0].clone(), args[1].clone()));
                 }
             }
-            "from" | "to" | "fold" | "unfold" | "group" | "groupCount"
-            | "coalesce" | "optional" | "choose" | "union" | "where"
-            | "not" | "and" | "or" | "is" | "emit" | "sack"
-            | "project" | "math" | "store" | "aggregate" | "cap"
-            | "toList" | "toSet" | "next" | "iterate" => {
+            "from" | "to" | "fold" | "unfold" | "group" | "groupCount" | "coalesce"
+            | "optional" | "choose" | "union" | "where" | "not" | "and" | "or" | "is" | "emit"
+            | "sack" | "project" | "math" | "store" | "aggregate" | "cap" | "toList" | "toSet"
+            | "next" | "iterate" => {
                 // Known but unimplemented steps — feature detection only
             }
             "" => {} // empty segment between dots
@@ -750,13 +769,16 @@ mod tests {
 
     #[test]
     fn test_parse_gremlin_steps_basic() {
-        let steps = parse_gremlin_steps("g.V().hasLabel(\"Person\").out(\"KNOWS\").values(\"name\")").unwrap();
+        let steps =
+            parse_gremlin_steps("g.V().hasLabel(\"Person\").out(\"KNOWS\").values(\"name\")")
+                .unwrap();
         assert!(steps.len() >= 4);
     }
 
     #[test]
     fn test_parse_gremlin_steps_has() {
-        let steps = parse_gremlin_steps("g.V().has(\"name\", \"Jan\").outE(\"DEVELOPS\").inV()").unwrap();
+        let steps =
+            parse_gremlin_steps("g.V().has(\"name\", \"Jan\").outE(\"DEVELOPS\").inV()").unwrap();
         assert!(steps.len() >= 4);
         assert!(matches!(&steps[1], GremlinStep::Has(k, v) if k == "name" && v == "Jan"));
     }
@@ -770,7 +792,9 @@ mod tests {
     #[test]
     fn test_parse_gremlin_steps_repeat() {
         let steps = parse_gremlin_steps("g.V(1).repeat(out()).times(3)").unwrap();
-        let repeat = steps.iter().find(|s| matches!(s, GremlinStep::Repeat { .. }));
+        let repeat = steps
+            .iter()
+            .find(|s| matches!(s, GremlinStep::Repeat { .. }));
         assert!(repeat.is_some());
         if let Some(GremlinStep::Repeat { times, .. }) = repeat {
             assert_eq!(*times, 3);
@@ -811,11 +835,13 @@ mod tests {
 
     #[test]
     fn test_gremlin_mutation() {
-        let steps = parse_gremlin_steps(
-            "g.addV(\"Person\").property(\"name\", \"Ada\").addE(\"KNOWS\")"
-        ).unwrap();
+        let steps =
+            parse_gremlin_steps("g.addV(\"Person\").property(\"name\", \"Ada\").addE(\"KNOWS\")")
+                .unwrap();
         assert!(steps.iter().any(|s| matches!(s, GremlinStep::AddV(_))));
-        assert!(steps.iter().any(|s| matches!(s, GremlinStep::Property(_, _))));
+        assert!(steps
+            .iter()
+            .any(|s| matches!(s, GremlinStep::Property(_, _))));
         assert!(steps.iter().any(|s| matches!(s, GremlinStep::AddE(_))));
     }
 }

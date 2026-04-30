@@ -20,15 +20,17 @@
 
 use ndarray::hpc::cam_pq::kmeans;
 // cosine_f32_to_f64_simd used by tests
+use crate::stacked_n::{bf16_to_f32, f32_to_bf16};
 #[allow(unused_imports)]
 use ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd;
-use crate::stacked_n::{bf16_to_f32, f32_to_bf16};
 
 fn sign_fingerprint(v: &[f32]) -> Vec<u64> {
     let n_words = v.len().div_ceil(64);
     let mut bits = vec![0u64; n_words];
     for (i, &val) in v.iter().enumerate() {
-        if val > 0.0 { bits[i / 64] |= 1u64 << (i % 64); }
+        if val > 0.0 {
+            bits[i / 64] |= 1u64 << (i % 64);
+        }
     }
     bits
 }
@@ -42,14 +44,17 @@ fn xor_bind(a: &[u64], b: &[u64]) -> Vec<u64> {
 }
 
 fn bundle(items: &[Vec<u64>]) -> Vec<u64> {
-    if items.is_empty() { return vec![]; }
+    if items.is_empty() {
+        return vec![];
+    }
     let n_words = items[0].len();
     let n = items.len();
     let threshold = n / 2;
     let mut result = vec![0u64; n_words];
     for w in 0..n_words {
         for bit in 0..64 {
-            let count: usize = items.iter()
+            let count: usize = items
+                .iter()
                 .filter(|item| (item[w] >> bit) & 1 == 1)
                 .count();
             if count > threshold {
@@ -98,38 +103,53 @@ impl HolographicResidualTensor {
         let n_words = n_cols.div_ceil(64);
 
         // Assign rows to centroids
-        let assignments: Vec<u16> = data.iter().map(|row| {
-            let mut best = 0u16;
-            let mut best_d = f32::MAX;
-            for (ci, c) in centroids.iter().enumerate() {
-                let d: f32 = row.iter().zip(c.iter()).map(|(a, b)| (a - b) * (a - b)).sum();
-                if d < best_d { best_d = d; best = ci as u16; }
-            }
-            best
-        }).collect();
+        let assignments: Vec<u16> = data
+            .iter()
+            .map(|row| {
+                let mut best = 0u16;
+                let mut best_d = f32::MAX;
+                for (ci, c) in centroids.iter().enumerate() {
+                    let d: f32 = row
+                        .iter()
+                        .zip(c.iter())
+                        .map(|(a, b)| (a - b) * (a - b))
+                        .sum();
+                    if d < best_d {
+                        best_d = d;
+                        best = ci as u16;
+                    }
+                }
+                best
+            })
+            .collect();
 
         // Compute row fingerprints
         let row_fps: Vec<Vec<u64>> = data.iter().map(|r| sign_fingerprint(r)).collect();
 
         // Build holographic memory per cluster
-        let mut clusters: Vec<HolographicCluster> = centroids.iter().map(|c| {
-            HolographicCluster {
+        let mut clusters: Vec<HolographicCluster> = centroids
+            .iter()
+            .map(|c| HolographicCluster {
                 centroid: c.clone(),
                 centroid_fp: sign_fingerprint(c),
                 memory: vec![0u64; n_words],
                 residual_scale_bf16: 0,
                 n_members: 0,
-            }
-        }).collect();
+            })
+            .collect();
 
         // Collect residuals per cluster, compute scale, build holographic memory
         for ci in 0..k {
-            let members: Vec<usize> = assignments.iter().enumerate()
+            let members: Vec<usize> = assignments
+                .iter()
+                .enumerate()
                 .filter(|(_, &a)| a as usize == ci)
                 .map(|(i, _)| i)
                 .collect();
 
-            if members.is_empty() { continue; }
+            if members.is_empty() {
+                continue;
+            }
             clusters[ci].n_members = members.len();
 
             // Compute residual magnitudes for scale
@@ -137,24 +157,37 @@ impl HolographicResidualTensor {
             for &mi in &members {
                 for d in 0..n_cols {
                     let r = (data[mi][d] - centroids[ci][d]).abs();
-                    if r > max_abs { max_abs = r; }
+                    if r > max_abs {
+                        max_abs = r;
+                    }
                 }
             }
             clusters[ci].residual_scale_bf16 = f32_to_bf16(max_abs);
 
             // Build holographic memory: bundle(K_i ⊕ Q(R_i))
-            let bound_items: Vec<Vec<u64>> = members.iter().map(|&mi| {
-                let residual: Vec<f32> = data[mi].iter().zip(centroids[ci].iter())
-                    .map(|(a, b)| a - b).collect();
-                let res_fp = quantize_residual_to_fingerprint(&residual);
-                xor_bind(&row_fps[mi], &res_fp)
-            }).collect();
+            let bound_items: Vec<Vec<u64>> = members
+                .iter()
+                .map(|&mi| {
+                    let residual: Vec<f32> = data[mi]
+                        .iter()
+                        .zip(centroids[ci].iter())
+                        .map(|(a, b)| a - b)
+                        .collect();
+                    let res_fp = quantize_residual_to_fingerprint(&residual);
+                    xor_bind(&row_fps[mi], &res_fp)
+                })
+                .collect();
 
             clusters[ci].memory = bundle(&bound_items);
         }
 
         HolographicResidualTensor {
-            role: role.to_string(), n_rows: n, n_cols, clusters, assignments, row_fps,
+            role: role.to_string(),
+            n_rows: n,
+            n_cols,
+            clusters,
+            assignments,
+            row_fps,
         }
     }
 
@@ -167,8 +200,12 @@ impl HolographicResidualTensor {
         let scale = bf16_to_f32(cluster.residual_scale_bf16);
         let correction = fp_to_correction(&retrieved, scale, self.n_cols);
 
-        cluster.centroid.iter().zip(correction.iter())
-            .map(|(c, r)| c + r).collect()
+        cluster
+            .centroid
+            .iter()
+            .zip(correction.iter())
+            .map(|(c, r)| c + r)
+            .collect()
     }
 
     pub fn reconstruct_all(&self) -> Vec<Vec<f32>> {
@@ -176,8 +213,12 @@ impl HolographicResidualTensor {
     }
 
     pub fn bytes_per_row(&self) -> f64 {
-        if self.n_rows == 0 { return 0.0; }
-        let cluster_bytes: usize = self.clusters.iter()
+        if self.n_rows == 0 {
+            return 0.0;
+        }
+        let cluster_bytes: usize = self
+            .clusters
+            .iter()
             .map(|c| c.centroid.len() * 4 + c.memory.len() * 8 + 2)
             .sum();
         let index_bytes = self.n_rows * 2;
@@ -188,8 +229,11 @@ impl HolographicResidualTensor {
     pub fn compression_ratio(&self) -> f64 {
         let original = self.n_rows * self.n_cols * 2; // BF16
         let compressed = {
-            let cluster_bytes: usize = self.clusters.iter()
-                .map(|c| c.centroid.len() * 4 + c.memory.len() * 8 + 2).sum();
+            let cluster_bytes: usize = self
+                .clusters
+                .iter()
+                .map(|c| c.centroid.len() * 4 + c.memory.len() * 8 + 2)
+                .sum();
             let index_bytes = self.n_rows * 2;
             let fp_bytes: usize = self.row_fps.iter().map(|f| f.len() * 8).sum();
             cluster_bytes + index_bytes + fp_bytes
@@ -203,7 +247,9 @@ mod tests {
     use super::*;
 
     fn make_row(seed: usize, dim: usize) -> Vec<f32> {
-        (0..dim).map(|d| ((d * 97 + seed * 31 + 17) as f64 * 0.618).sin() as f32 * 0.01).collect()
+        (0..dim)
+            .map(|d| ((d * 97 + seed * 31 + 17) as f64 * 0.618).sin() as f32 * 0.01)
+            .collect()
     }
 
     #[test]
@@ -216,9 +262,17 @@ mod tests {
             cos_sum += cosine_f32_to_f64_simd(&rows[i], &recon[i]);
         }
         let avg = cos_sum / 64.0;
-        assert!(avg > 0.5, "holographic avg cosine {} should show signal", avg);
-        println!("Holographic: avg_cos={:.4}, ratio={:.1}:1, bpr={:.0}",
-            avg, tensor.compression_ratio(), tensor.bytes_per_row());
+        assert!(
+            avg > 0.5,
+            "holographic avg cosine {} should show signal",
+            avg
+        );
+        println!(
+            "Holographic: avg_cos={:.4}, ratio={:.1}:1, bpr={:.0}",
+            avg,
+            tensor.compression_ratio(),
+            tensor.bytes_per_row()
+        );
     }
 
     #[test]
@@ -262,6 +316,10 @@ mod tests {
 
         // XOR is exact (no bundling noise in single-entry case)
         let diff = phase_val.xor(&retrieved_phase);
-        assert_eq!(diff.popcount(), 0, "slot retrieval should be exact without bundling");
+        assert_eq!(
+            diff.popcount(),
+            0,
+            "slot retrieval should be exact without bundling"
+        );
     }
 }

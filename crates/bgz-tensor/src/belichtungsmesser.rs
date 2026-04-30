@@ -50,10 +50,14 @@ impl Belichtungsmesser {
         }
 
         let mean = l1_distances.iter().map(|&d| d as f64).sum::<f64>() / n as f64;
-        let variance = l1_distances.iter().map(|&d| {
-            let diff = d as f64 - mean;
-            diff * diff
-        }).sum::<f64>() / n as f64;
+        let variance = l1_distances
+            .iter()
+            .map(|&d| {
+                let diff = d as f64 - mean;
+                diff * diff
+            })
+            .sum::<f64>()
+            / n as f64;
         let sigma = variance.sqrt().max(1.0);
 
         // 12 quarter-sigma bands centered on mean
@@ -78,7 +82,11 @@ impl Belichtungsmesser {
             }
         }
 
-        let mut bands = [Band { lo: 0, hi: 0, density: 0.0 }; N_BANDS];
+        let mut bands = [Band {
+            lo: 0,
+            hi: 0,
+            density: 0.0,
+        }; N_BANDS];
         for (b, band) in bands.iter_mut().enumerate().take(N_BANDS) {
             *band = Band {
                 lo: edges[b],
@@ -87,12 +95,21 @@ impl Belichtungsmesser {
             };
         }
 
-        Belichtungsmesser { bands, mean, sigma, n_calibration: n }
+        Belichtungsmesser {
+            bands,
+            mean,
+            sigma,
+            n_calibration: n,
+        }
     }
 
     /// Default bands when no calibration data is available.
     fn default_bands() -> Self {
-        let mut bands = [Band { lo: 0, hi: 0, density: 0.0 }; N_BANDS];
+        let mut bands = [Band {
+            lo: 0,
+            hi: 0,
+            density: 0.0,
+        }; N_BANDS];
         for (b, band) in bands.iter_mut().enumerate().take(N_BANDS) {
             *band = Band {
                 lo: b as u32 * 1000,
@@ -101,7 +118,12 @@ impl Belichtungsmesser {
             };
         }
         bands[N_BANDS - 1].hi = u32::MAX;
-        Belichtungsmesser { bands, mean: 6000.0, sigma: 2000.0, n_calibration: 0 }
+        Belichtungsmesser {
+            bands,
+            mean: 6000.0,
+            sigma: 2000.0,
+            n_calibration: 0,
+        }
     }
 
     /// Classify an L1 distance into a band index (0..12).
@@ -195,7 +217,10 @@ impl Belichtungsmesser {
         for (i, band) in self.bands.iter().enumerate() {
             s.push_str(&format!(
                 "  Band {:2}: [{:6}, {:6}) density={:.3}\n",
-                i, band.lo, if band.hi == u32::MAX { 999999 } else { band.hi }, band.density
+                i,
+                band.lo,
+                if band.hi == u32::MAX { 999999 } else { band.hi },
+                band.density
             ));
         }
         s
@@ -218,12 +243,14 @@ mod tests {
 
     fn make_distances(n: usize, mean: f64, sigma: f64) -> Vec<u32> {
         // Pseudo-normal distribution via Box-Muller approximation
-        (0..n).map(|i| {
-            let t = i as f64 / n as f64;
-            let z = (2.0 * std::f64::consts::PI * t).sin() * 2.0; // crude approx
-            let val = mean + z * sigma;
-            val.max(0.0) as u32
-        }).collect()
+        (0..n)
+            .map(|i| {
+                let t = i as f64 / n as f64;
+                let z = (2.0 * std::f64::consts::PI * t).sin() * 2.0; // crude approx
+                let val = mean + z * sigma;
+                val.max(0.0) as u32
+            })
+            .collect()
     }
 
     #[test]
@@ -234,7 +261,11 @@ mod tests {
         assert!(bel.sigma > 0.0);
         // Total density should sum to ≈ 1.0
         let total: f32 = bel.bands.iter().map(|b| b.density).sum();
-        assert!((total - 1.0).abs() < 0.01, "densities should sum to 1.0: {}", total);
+        assert!(
+            (total - 1.0).abs() < 0.01,
+            "densities should sum to 1.0: {}",
+            total
+        );
     }
 
     #[test]
@@ -253,8 +284,15 @@ mod tests {
         let a = Base17 { dims: [1000; 17] };
         let (band, confident) = bel.three_stroke(&a, &a);
         // Self-comparison has L1=0, which falls in the lowest band
-        assert!(band <= 1, "self-comparison should be in lowest bands, got band {}", band);
-        assert!(confident, "self-comparison should be confident (all planes agree)");
+        assert!(
+            band <= 1,
+            "self-comparison should be in lowest bands, got band {}",
+            band
+        );
+        assert!(
+            confident,
+            "self-comparison should be confident (all planes agree)"
+        );
     }
 
     #[test]
@@ -262,9 +300,14 @@ mod tests {
         let dists = make_distances(1000, 5000.0, 1500.0);
         let bel = Belichtungsmesser::calibrate(&dists);
         for i in 1..N_BANDS {
-            assert!(bel.bands[i].lo >= bel.bands[i - 1].lo,
+            assert!(
+                bel.bands[i].lo >= bel.bands[i - 1].lo,
                 "band {} lo ({}) < band {} lo ({})",
-                i, bel.bands[i].lo, i - 1, bel.bands[i - 1].lo);
+                i,
+                bel.bands[i].lo,
+                i - 1,
+                bel.bands[i - 1].lo
+            );
         }
     }
 
@@ -277,6 +320,9 @@ mod tests {
         let a = Base17 { dims: [500; 17] };
         let pairs = vec![(a.clone(), a.clone(), 1.0)];
         let (fn_rate, _) = bel.validate(&pairs, 0.5, 6);
-        assert_eq!(fn_rate, 0.0, "identical pairs should never be false negatives");
+        assert_eq!(
+            fn_rate, 0.0,
+            "identical pairs should never be false negatives"
+        );
     }
 }

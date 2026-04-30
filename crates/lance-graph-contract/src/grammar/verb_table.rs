@@ -46,15 +46,34 @@ use crate::grammar::role_keys::Tense;
 /// predicate plays" that disambiguate which TEKAMOLO slots get filled.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum VerbFamily {
-    Becomes, Causes, Supports, Contradicts, Refines, Grounds,
-    Abstracts, Enables, Prevents, Transforms, Mirrors, Dissolves,
+    Becomes,
+    Causes,
+    Supports,
+    Contradicts,
+    Refines,
+    Grounds,
+    Abstracts,
+    Enables,
+    Prevents,
+    Transforms,
+    Mirrors,
+    Dissolves,
 }
 
 impl VerbFamily {
     pub const ALL: [Self; 12] = [
-        Self::Becomes, Self::Causes, Self::Supports, Self::Contradicts,
-        Self::Refines, Self::Grounds, Self::Abstracts, Self::Enables,
-        Self::Prevents, Self::Transforms, Self::Mirrors, Self::Dissolves,
+        Self::Becomes,
+        Self::Causes,
+        Self::Supports,
+        Self::Contradicts,
+        Self::Refines,
+        Self::Grounds,
+        Self::Abstracts,
+        Self::Enables,
+        Self::Prevents,
+        Self::Transforms,
+        Self::Mirrors,
+        Self::Dissolves,
     ];
 }
 
@@ -71,7 +90,13 @@ pub struct SlotPrior {
 
 impl SlotPrior {
     pub const fn uniform() -> Self {
-        Self { temporal: 0.5, kausal: 0.5, modal: 0.5, lokal: 0.5, instrument: 0.5 }
+        Self {
+            temporal: 0.5,
+            kausal: 0.5,
+            modal: 0.5,
+            lokal: 0.5,
+            instrument: 0.5,
+        }
     }
 
     /// Apply a tense-driven delta to each axis and clamp the result to
@@ -79,13 +104,13 @@ impl SlotPrior {
     /// gain tense x family interaction (G4 loose end).
     pub fn combine(self, delta: SlotPriorDelta) -> Self {
         fn clamp(x: f32) -> f32 {
-            if x < 0.0 { 0.0 } else if x > 1.0 { 1.0 } else { x }
+            x.clamp(0.0, 1.0)
         }
         Self {
-            temporal:   clamp(self.temporal   + delta.temporal),
-            kausal:     clamp(self.kausal     + delta.kausal),
-            modal:      clamp(self.modal      + delta.modal),
-            lokal:      clamp(self.lokal      + delta.lokal),
+            temporal: clamp(self.temporal + delta.temporal),
+            kausal: clamp(self.kausal + delta.kausal),
+            modal: clamp(self.modal + delta.modal),
+            lokal: clamp(self.lokal + delta.lokal),
             instrument: clamp(self.instrument + delta.instrument),
         }
     }
@@ -111,24 +136,44 @@ pub fn tense_modifier(tense: Tense) -> SlotPriorDelta {
     match tense {
         // Perfect aspects emphasise completion -> temporal anchoring.
         Perfect | Pluperfect | FuturePerfect => SlotPriorDelta {
-            temporal: 0.15, kausal: 0.0, modal: 0.0, lokal: 0.0, instrument: 0.0,
+            temporal: 0.15,
+            kausal: 0.0,
+            modal: 0.0,
+            lokal: 0.0,
+            instrument: 0.0,
         },
         // Continuous (progressive) aspects emphasise ongoing process.
         PresentContinuous | PastContinuous | FutureContinuous => SlotPriorDelta {
-            temporal: 0.10, kausal: 0.0, modal: -0.05, lokal: 0.0, instrument: 0.0,
+            temporal: 0.10,
+            kausal: 0.0,
+            modal: -0.05,
+            lokal: 0.0,
+            instrument: 0.0,
         },
         // Imperative: timeless directive -> suppresses temporal, amplifies modal.
         Imperative => SlotPriorDelta {
-            temporal: -0.20, kausal: 0.0, modal: 0.20, lokal: 0.0, instrument: 0.0,
+            temporal: -0.20,
+            kausal: 0.0,
+            modal: 0.20,
+            lokal: 0.0,
+            instrument: 0.0,
         },
         // Potential (irrealis / subjunctive role): possibility -> modal up,
         // kausal slightly down (cause is hypothetical), temporal slightly down.
         Potential => SlotPriorDelta {
-            temporal: -0.10, kausal: -0.05, modal: 0.25, lokal: 0.0, instrument: 0.0,
+            temporal: -0.10,
+            kausal: -0.05,
+            modal: 0.25,
+            lokal: 0.0,
+            instrument: 0.0,
         },
         // Habitual: recurring-as-timeless.
         Habitual => SlotPriorDelta {
-            temporal: -0.10, kausal: 0.0, modal: 0.05, lokal: 0.0, instrument: 0.0,
+            temporal: -0.10,
+            kausal: 0.0,
+            modal: 0.05,
+            lokal: 0.0,
+            instrument: 0.0,
         },
         // Present, Past, Future: unmarked tense, no modifier.
         Present | Past | Future => SlotPriorDelta::default(),
@@ -144,7 +189,9 @@ pub struct VerbRoleTable {
 
 impl VerbRoleTable {
     pub fn new_uniform() -> Self {
-        Self { cells: [[SlotPrior::uniform(); 12]; 12] }
+        Self {
+            cells: [[SlotPrior::uniform(); 12]; 12],
+        }
     }
     pub fn lookup(&self, family: VerbFamily, tense: Tense) -> SlotPrior {
         self.cells[family as usize][tense as usize]
@@ -179,21 +226,93 @@ impl VerbRoleTable {
 pub fn base_prior(family: VerbFamily) -> SlotPrior {
     match family {
         // --- Change verbs: high Temporal + Modal ---
-        VerbFamily::Becomes    => SlotPrior { temporal: 0.9,  kausal: 0.2,  modal: 0.7,  lokal: 0.3,  instrument: 0.2  },
-        VerbFamily::Dissolves  => SlotPrior { temporal: 0.85, kausal: 0.3,  modal: 0.7,  lokal: 0.25, instrument: 0.2  },
-        VerbFamily::Abstracts  => SlotPrior { temporal: 0.7,  kausal: 0.25, modal: 0.85, lokal: 0.15, instrument: 0.2  },
-        VerbFamily::Mirrors    => SlotPrior { temporal: 0.75, kausal: 0.2,  modal: 0.7,  lokal: 0.6,  instrument: 0.15 },
+        VerbFamily::Becomes => SlotPrior {
+            temporal: 0.9,
+            kausal: 0.2,
+            modal: 0.7,
+            lokal: 0.3,
+            instrument: 0.2,
+        },
+        VerbFamily::Dissolves => SlotPrior {
+            temporal: 0.85,
+            kausal: 0.3,
+            modal: 0.7,
+            lokal: 0.25,
+            instrument: 0.2,
+        },
+        VerbFamily::Abstracts => SlotPrior {
+            temporal: 0.7,
+            kausal: 0.25,
+            modal: 0.85,
+            lokal: 0.15,
+            instrument: 0.2,
+        },
+        VerbFamily::Mirrors => SlotPrior {
+            temporal: 0.75,
+            kausal: 0.2,
+            modal: 0.7,
+            lokal: 0.6,
+            instrument: 0.15,
+        },
         // --- Action verbs: high Kausal + Temporal ---
-        VerbFamily::Causes     => SlotPrior { temporal: 0.4,  kausal: 0.95, modal: 0.4,  lokal: 0.3,  instrument: 0.5  },
-        VerbFamily::Prevents   => SlotPrior { temporal: 0.7,  kausal: 0.9,  modal: 0.4,  lokal: 0.25, instrument: 0.35 },
-        VerbFamily::Transforms => SlotPrior { temporal: 0.8,  kausal: 0.85, modal: 0.35, lokal: 0.3,  instrument: 0.6  },
+        VerbFamily::Causes => SlotPrior {
+            temporal: 0.4,
+            kausal: 0.95,
+            modal: 0.4,
+            lokal: 0.3,
+            instrument: 0.5,
+        },
+        VerbFamily::Prevents => SlotPrior {
+            temporal: 0.7,
+            kausal: 0.9,
+            modal: 0.4,
+            lokal: 0.25,
+            instrument: 0.35,
+        },
+        VerbFamily::Transforms => SlotPrior {
+            temporal: 0.8,
+            kausal: 0.85,
+            modal: 0.35,
+            lokal: 0.3,
+            instrument: 0.6,
+        },
         // --- State verbs: high Modal, low Temporal ---
-        VerbFamily::Supports    => SlotPrior { temporal: 0.2,  kausal: 0.35, modal: 0.85, lokal: 0.2,  instrument: 0.3  },
-        VerbFamily::Contradicts => SlotPrior { temporal: 0.15, kausal: 0.7,  modal: 0.9,  lokal: 0.15, instrument: 0.1  },
-        VerbFamily::Refines     => SlotPrior { temporal: 0.3,  kausal: 0.4,  modal: 0.8,  lokal: 0.2,  instrument: 0.35 },
-        VerbFamily::Grounds     => SlotPrior { temporal: 0.25, kausal: 0.3,  modal: 0.75, lokal: 0.85, instrument: 0.2  },
+        VerbFamily::Supports => SlotPrior {
+            temporal: 0.2,
+            kausal: 0.35,
+            modal: 0.85,
+            lokal: 0.2,
+            instrument: 0.3,
+        },
+        VerbFamily::Contradicts => SlotPrior {
+            temporal: 0.15,
+            kausal: 0.7,
+            modal: 0.9,
+            lokal: 0.15,
+            instrument: 0.1,
+        },
+        VerbFamily::Refines => SlotPrior {
+            temporal: 0.3,
+            kausal: 0.4,
+            modal: 0.8,
+            lokal: 0.2,
+            instrument: 0.35,
+        },
+        VerbFamily::Grounds => SlotPrior {
+            temporal: 0.25,
+            kausal: 0.3,
+            modal: 0.75,
+            lokal: 0.85,
+            instrument: 0.2,
+        },
         // --- Discovery / enablement: high Kausal + Lokal ---
-        VerbFamily::Enables    => SlotPrior { temporal: 0.35, kausal: 0.8,  modal: 0.4,  lokal: 0.7,  instrument: 0.45 },
+        VerbFamily::Enables => SlotPrior {
+            temporal: 0.35,
+            kausal: 0.8,
+            modal: 0.4,
+            lokal: 0.7,
+            instrument: 0.45,
+        },
     }
 }
 
@@ -337,7 +456,10 @@ mod tests {
         let p = t.lookup(VerbFamily::Transforms, Tense::FuturePerfect);
         assert!(p.kausal > 0.7, "Transforms should have high kausal");
         assert!(p.temporal > 0.7, "Transforms should have high temporal");
-        assert!(p.instrument > 0.5, "Transforms should have elevated instrument");
+        assert!(
+            p.instrument > 0.5,
+            "Transforms should have elevated instrument"
+        );
         assert!(count_non_uniform(&p) >= 3);
     }
 
@@ -391,7 +513,8 @@ mod tests {
         assert!(
             perfect.temporal > past.temporal,
             "Perfect should amplify temporal over Past for Causes; got perfect={} past={}",
-            perfect.temporal, past.temporal
+            perfect.temporal,
+            past.temporal
         );
     }
 
@@ -404,12 +527,14 @@ mod tests {
         assert!(
             imperative.temporal < present.temporal,
             "Imperative should suppress temporal vs Present for Causes; got imp={} pres={}",
-            imperative.temporal, present.temporal
+            imperative.temporal,
+            present.temporal
         );
         assert!(
             imperative.modal > present.modal,
             "Imperative should amplify modal vs Present for Causes; got imp={} pres={}",
-            imperative.modal, present.modal
+            imperative.modal,
+            present.modal
         );
     }
 
@@ -425,7 +550,8 @@ mod tests {
             potential.modal > present.modal,
             "Potential (subjunctive role) should amplify modal vs Present for Supports; \
              got pot={} pres={}",
-            potential.modal, present.modal
+            potential.modal,
+            present.modal
         );
     }
 
@@ -437,8 +563,14 @@ mod tests {
         let cont = t.lookup(VerbFamily::Causes, Tense::PresentContinuous);
         let perf = t.lookup(VerbFamily::Causes, Tense::Perfect);
         let pres = t.lookup(VerbFamily::Causes, Tense::Present);
-        assert!(cont.temporal > pres.temporal, "Continuous > Present temporal");
-        assert!(perf.temporal > cont.temporal, "Perfect > Continuous temporal");
+        assert!(
+            cont.temporal > pres.temporal,
+            "Continuous > Present temporal"
+        );
+        assert!(
+            perf.temporal > cont.temporal,
+            "Perfect > Continuous temporal"
+        );
     }
 
     /// Sanity: clamp to [0,1] holds even when base prior is near saturation.

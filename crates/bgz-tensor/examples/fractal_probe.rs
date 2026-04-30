@@ -60,8 +60,8 @@ fn find_gguf_tensors<R: Read + Seek>(
     reader: &mut R,
 ) -> Result<(u64, Vec<(String, u64, usize, usize)>), String> {
     // Use ndarray's GGUF header parser.
-    let header = ndarray::hpc::gguf::read_gguf_header(reader)
-        .map_err(|e| format!("GGUF parse: {e}"))?;
+    let header =
+        ndarray::hpc::gguf::read_gguf_header(reader).map_err(|e| format!("GGUF parse: {e}"))?;
 
     let mut tensors = Vec::new();
     for t in &header.tensors {
@@ -98,9 +98,8 @@ fn probe_tensor<R: Read + Seek>(
     let mut f32_buf = vec![0.0f32; padded];
     let mut descriptors = Vec::with_capacity(rows_to_read);
 
-    let byte_buf = unsafe {
-        std::slice::from_raw_parts_mut(bf16_buf.as_mut_ptr() as *mut u8, n_cols * 2)
-    };
+    let byte_buf =
+        unsafe { std::slice::from_raw_parts_mut(bf16_buf.as_mut_ptr() as *mut u8, n_cols * 2) };
 
     for _ in 0..rows_to_read {
         reader.read_exact(byte_buf).expect("read BF16 row");
@@ -148,8 +147,14 @@ fn report(name: &str, descriptors: &[FractalDescriptor]) {
     let mean_d = d_values.iter().sum::<f32>() / d_values.len() as f32;
 
     eprintln!("  {name}:");
-    eprintln!("    w_mfs   mean={mean_w:.4}  CoV={cov_w:.4}  {}",
-        if cov_w > 0.3 { "✓ SIGNAL" } else { "✗ flat" });
+    eprintln!(
+        "    w_mfs   mean={mean_w:.4}  CoV={cov_w:.4}  {}",
+        if cov_w > 0.3 {
+            "✓ SIGNAL"
+        } else {
+            "✗ flat"
+        }
+    );
     eprintln!("    H_hurst mean={mean_h:.4}  CoV={cov_h:.4}");
     eprintln!("    D_local mean={mean_d:.4}  CoV={cov_d:.4}");
 }
@@ -164,18 +169,28 @@ fn main() {
     eprintln!("File size: {:.1} GB", reader.total_size() as f64 / 1e9);
     eprintln!("Parsing GGUF header...");
 
-    let (data_offset, tensors) = find_gguf_tensors(&mut reader)
-        .expect("failed to parse GGUF");
+    let (data_offset, tensors) = find_gguf_tensors(&mut reader).expect("failed to parse GGUF");
 
     eprintln!("Found {} tensors", tensors.len());
 
     // Find first k_proj and first gate_proj.
-    let k_proj = tensors.iter().find(|(name, _, _, _)| name.contains("k_proj"));
-    let gate_proj = tensors.iter().find(|(name, _, _, _)| name.contains("gate_proj"));
+    let k_proj = tensors
+        .iter()
+        .find(|(name, _, _, _)| name.contains("k_proj"));
+    let gate_proj = tensors
+        .iter()
+        .find(|(name, _, _, _)| name.contains("gate_proj"));
 
     if let Some((name, offset, n_rows, n_cols)) = k_proj {
         eprintln!("\nProbing {name} ({n_rows} rows × {n_cols} cols, {PROBE_ROWS} sampled)...");
-        let descs = probe_tensor(&mut reader, data_offset, *offset, *n_rows, *n_cols, PROBE_ROWS);
+        let descs = probe_tensor(
+            &mut reader,
+            data_offset,
+            *offset,
+            *n_rows,
+            *n_cols,
+            PROBE_ROWS,
+        );
         report("k_proj L0", &descs);
     } else {
         eprintln!("WARNING: no k_proj tensor found");
@@ -183,12 +198,22 @@ fn main() {
 
     if let Some((name, offset, n_rows, n_cols)) = gate_proj {
         eprintln!("\nProbing {name} ({n_rows} rows × {n_cols} cols, {PROBE_ROWS} sampled)...");
-        let descs = probe_tensor(&mut reader, data_offset, *offset, *n_rows, *n_cols, PROBE_ROWS);
+        let descs = probe_tensor(
+            &mut reader,
+            data_offset,
+            *offset,
+            *n_rows,
+            *n_cols,
+            PROBE_ROWS,
+        );
         report("gate_proj L0", &descs);
     } else {
         eprintln!("WARNING: no gate_proj tensor found");
     }
 
     eprintln!("\nGate: CoV(w_mfs) > 0.3 → fractal leaf has signal.");
-    eprintln!("Downloaded {:.1} MB from HF", reader.bytes_downloaded() as f64 / 1e6);
+    eprintln!(
+        "Downloaded {:.1} MB from HF",
+        reader.bytes_downloaded() as f64 / 1e6
+    );
 }

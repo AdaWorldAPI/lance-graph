@@ -11,19 +11,18 @@
 
 // Cluster used by future per-cluster anomaly reporting
 #[allow(unused_imports)]
+use ndarray::hpc::cam_pq::kmeans;
+#[allow(unused_imports)]
 use ndarray::hpc::clam::{ClamTree, Cluster};
 use ndarray::hpc::fft::wht_f32;
 use ndarray::hpc::quantized::{
-    quantize_f32_to_i4, dequantize_i4_to_f32,
-    quantize_f32_to_i8, dequantize_i8_to_f32,
-    quantize_f32_to_i2, dequantize_i2_to_f32,
-    QuantParams,
+    dequantize_i2_to_f32, dequantize_i4_to_f32, dequantize_i8_to_f32, quantize_f32_to_i2,
+    quantize_f32_to_i4, quantize_f32_to_i8, QuantParams,
 };
-use ndarray::hpc::cam_pq::kmeans;
 // cosine_f32_to_f64_simd used by tests and future GPTQ compensation
+use crate::stacked_n::{bf16_to_f32, f32_to_bf16};
 #[allow(unused_imports)]
 use ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd;
-use crate::stacked_n::{bf16_to_f32, f32_to_bf16};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RowPrecision {
@@ -65,7 +64,9 @@ pub struct AdaptiveStats {
 
 fn next_pow2(n: usize) -> usize {
     let mut p = 1;
-    while p < n { p *= 2; }
+    while p < n {
+        p *= 2;
+    }
     p
 }
 
@@ -77,7 +78,9 @@ fn hadamard_rotate(v: &[f32], dim: usize) -> Vec<f32> {
 }
 
 fn rows_to_fingerprint_bytes(rows: &[Vec<f32>]) -> (Vec<u8>, usize) {
-    if rows.is_empty() { return (vec![], 0); }
+    if rows.is_empty() {
+        return (vec![], 0);
+    }
     let dim = rows[0].len();
     let fp_bytes = dim.div_ceil(8);
     let mut flat = vec![0u8; rows.len() * fp_bytes];
@@ -96,11 +99,15 @@ fn classify_rows_by_lfd(tree: &ClamTree) -> Vec<RowPrecision> {
     let mut row_lfd = vec![0.0f64; n];
 
     for node in &tree.nodes {
-        if !node.is_leaf() { continue; }
+        if !node.is_leaf() {
+            continue;
+        }
         for i in node.offset..node.offset + node.cardinality {
             if i < n {
                 let orig_idx = tree.reordered[i];
-                if orig_idx < n { row_lfd[orig_idx] = node.lfd.value; }
+                if orig_idx < n {
+                    row_lfd[orig_idx] = node.lfd.value;
+                }
             }
         }
     }
@@ -114,11 +121,18 @@ fn classify_rows_by_lfd(tree: &ClamTree) -> Vec<RowPrecision> {
     let p70 = sorted_lfd[n * 70 / 100];
     let p90 = sorted_lfd[n * 90 / 100];
 
-    row_lfd.iter().map(|&lfd| {
-        if lfd > p90 { RowPrecision::Passthrough }
-        else if lfd > p70 { RowPrecision::I8 }
-        else { RowPrecision::I4I2 }
-    }).collect()
+    row_lfd
+        .iter()
+        .map(|&lfd| {
+            if lfd > p90 {
+                RowPrecision::Passthrough
+            } else if lfd > p70 {
+                RowPrecision::I8
+            } else {
+                RowPrecision::I4I2
+            }
+        })
+        .collect()
 }
 
 impl AdaptiveCodecTensor {
@@ -143,14 +157,21 @@ impl AdaptiveCodecTensor {
 
         // Override: if is_kv_proj, promote all non-passthrough to i8
         let row_precision: Vec<RowPrecision> = if is_kv_proj {
-            row_precision.iter().map(|p| match p {
-                RowPrecision::I4I2 => RowPrecision::I8,
-                other => *other,
-            }).collect()
-        } else { row_precision };
+            row_precision
+                .iter()
+                .map(|p| match p {
+                    RowPrecision::I4I2 => RowPrecision::I8,
+                    other => *other,
+                })
+                .collect()
+        } else {
+            row_precision
+        };
 
         // Step 2: Build centroids on compressible rows
-        let regular_rows: Vec<Vec<f32>> = rows.iter().enumerate()
+        let regular_rows: Vec<Vec<f32>> = rows
+            .iter()
+            .enumerate()
             .filter(|(i, _)| row_precision[*i] != RowPrecision::Passthrough)
             .map(|(_, r)| r.clone())
             .collect();
@@ -188,12 +209,22 @@ impl AdaptiveCodecTensor {
             let mut best_ci = 0;
             let mut best_d = f32::MAX;
             for (ci, c) in centroids.iter().enumerate() {
-                let d: f32 = row.iter().zip(c.iter()).map(|(a, b)| (a - b) * (a - b)).sum();
-                if d < best_d { best_d = d; best_ci = ci; }
+                let d: f32 = row
+                    .iter()
+                    .zip(c.iter())
+                    .map(|(a, b)| (a - b) * (a - b))
+                    .sum();
+                if d < best_d {
+                    best_d = d;
+                    best_ci = ci;
+                }
             }
 
-            let residual: Vec<f32> = row.iter().zip(centroids[best_ci].iter())
-                .map(|(a, b)| a - b).collect();
+            let residual: Vec<f32> = row
+                .iter()
+                .zip(centroids[best_ci].iter())
+                .map(|(a, b)| a - b)
+                .collect();
             let rotated = hadamard_rotate(&residual, padded);
 
             if row_precision[ri] == RowPrecision::I8 {
@@ -218,8 +249,11 @@ impl AdaptiveCodecTensor {
                 full1[..n_cols].copy_from_slice(&dequant1);
                 let recon1 = hadamard_rotate(&full1, padded);
 
-                let res2: Vec<f32> = residual.iter().zip(recon1.iter().take(n_cols))
-                    .map(|(a, b)| a - b).collect();
+                let res2: Vec<f32> = residual
+                    .iter()
+                    .zip(recon1.iter().take(n_cols))
+                    .map(|(a, b)| a - b)
+                    .collect();
                 let rot2 = hadamard_rotate(&res2, padded);
                 let (i2_codes, i2_params) = quantize_f32_to_i2(&rot2[..n_cols]);
 
@@ -257,30 +291,53 @@ impl AdaptiveCodecTensor {
             RowPrecision::Passthrough => row.passthrough.clone(),
             RowPrecision::I8 => {
                 let ci = row.centroid_idx as usize;
-                let p = QuantParams { scale: bf16_to_f32(row.scale_bf16), zero_point: 0, min_val: 0.0, max_val: 0.0 };
+                let p = QuantParams {
+                    scale: bf16_to_f32(row.scale_bf16),
+                    zero_point: 0,
+                    min_val: 0.0,
+                    max_val: 0.0,
+                };
                 let i8_codes: Vec<i8> = row.codes.iter().map(|&v| v as i8).collect();
                 let dequant = dequantize_i8_to_f32(&i8_codes, &p, self.n_cols);
                 let mut full = vec![0.0f32; self.padded_dim];
                 full[..self.n_cols].copy_from_slice(&dequant);
                 let recon = hadamard_rotate(&full, self.padded_dim);
-                self.centroids[ci].iter().zip(recon.iter()).map(|(c, r)| c + r).collect()
+                self.centroids[ci]
+                    .iter()
+                    .zip(recon.iter())
+                    .map(|(c, r)| c + r)
+                    .collect()
             }
             RowPrecision::I4I2 => {
                 let ci = row.centroid_idx as usize;
-                let p1 = QuantParams { scale: bf16_to_f32(row.scale_bf16), zero_point: 0, min_val: 0.0, max_val: 0.0 };
+                let p1 = QuantParams {
+                    scale: bf16_to_f32(row.scale_bf16),
+                    zero_point: 0,
+                    min_val: 0.0,
+                    max_val: 0.0,
+                };
                 let dq1 = dequantize_i4_to_f32(&row.codes, &p1, self.n_cols);
                 let mut f1 = vec![0.0f32; self.padded_dim];
                 f1[..self.n_cols].copy_from_slice(&dq1);
                 let r1 = hadamard_rotate(&f1, self.padded_dim);
 
-                let p2 = QuantParams { scale: bf16_to_f32(row.scale2_bf16), zero_point: 0, min_val: 0.0, max_val: 0.0 };
+                let p2 = QuantParams {
+                    scale: bf16_to_f32(row.scale2_bf16),
+                    zero_point: 0,
+                    min_val: 0.0,
+                    max_val: 0.0,
+                };
                 let dq2 = dequantize_i2_to_f32(&row.codes2, &p2, self.n_cols);
                 let mut f2 = vec![0.0f32; self.padded_dim];
                 f2[..self.n_cols].copy_from_slice(&dq2);
                 let r2 = hadamard_rotate(&f2, self.padded_dim);
 
-                self.centroids[ci].iter().zip(r1.iter()).zip(r2.iter())
-                    .map(|((c, a), b)| c + a + b).collect()
+                self.centroids[ci]
+                    .iter()
+                    .zip(r1.iter())
+                    .zip(r2.iter())
+                    .map(|((c, a), b)| c + a + b)
+                    .collect()
             }
         }
     }
@@ -293,8 +350,11 @@ impl AdaptiveCodecTensor {
         let s = &self.stats;
         format!(
             "CLAM-adaptive: {} passthrough ({:.1}%), {} i8, {} i4+i2, LFD threshold={:.2}",
-            s.n_passthrough, s.n_passthrough as f64 / self.n_rows as f64 * 100.0,
-            s.n_i8, s.n_i4i2, s.lfd_threshold
+            s.n_passthrough,
+            s.n_passthrough as f64 / self.n_rows as f64 * 100.0,
+            s.n_i8,
+            s.n_i4i2,
+            s.lfd_threshold
         )
     }
 }
@@ -304,7 +364,9 @@ mod tests {
     use super::*;
 
     fn make_row(seed: usize, dim: usize) -> Vec<f32> {
-        (0..dim).map(|d| ((d * 97 + seed * 31 + 17) as f64 * 0.618).sin() as f32 * 0.01).collect()
+        (0..dim)
+            .map(|d| ((d * 97 + seed * 31 + 17) as f64 * 0.618).sin() as f32 * 0.01)
+            .collect()
     }
 
     #[test]
@@ -332,15 +394,23 @@ mod tests {
         }
 
         let tensor = AdaptiveCodecTensor::encode("test", &rows, 32, false, None);
-        assert!(tensor.stats.n_passthrough > 0,
-            "should have some passthrough rows, got {}", tensor.stats.n_passthrough);
+        assert!(
+            tensor.stats.n_passthrough > 0,
+            "should have some passthrough rows, got {}",
+            tensor.stats.n_passthrough
+        );
 
         // Passthrough rows should reconstruct exactly
         for i in 0..tensor.n_rows {
             if tensor.rows[i].precision == RowPrecision::Passthrough {
                 let recon = tensor.reconstruct_row(i);
                 let cos = cosine_f32_to_f64_simd(&rows[i], &recon);
-                assert!((cos - 1.0).abs() < 1e-6, "passthrough row {} cos={}", i, cos);
+                assert!(
+                    (cos - 1.0).abs() < 1e-6,
+                    "passthrough row {} cos={}",
+                    i,
+                    cos
+                );
             }
         }
     }
@@ -348,12 +418,21 @@ mod tests {
     #[test]
     fn kv_proj_uses_i8() {
         // Use many similar rows so CLAM doesn't flag everything as outlier
-        let rows: Vec<Vec<f32>> = (0..128).map(|i| {
-            let base = make_row(i % 16, 256); // 16 clusters of 8 each
-            base.iter().enumerate().map(|(d, &v)| v + ((d * 7 + i) as f64 * 0.001).sin() as f32 * 0.001).collect()
-        }).collect();
+        let rows: Vec<Vec<f32>> = (0..128)
+            .map(|i| {
+                let base = make_row(i % 16, 256); // 16 clusters of 8 each
+                base.iter()
+                    .enumerate()
+                    .map(|(d, &v)| v + ((d * 7 + i) as f64 * 0.001).sin() as f32 * 0.001)
+                    .collect()
+            })
+            .collect();
         let tensor = AdaptiveCodecTensor::encode("k_proj", &rows, 32, true, None);
-        assert!(tensor.stats.n_i8 > 0 || tensor.stats.n_passthrough > 0,
-            "should have encoded rows: i8={} pt={}", tensor.stats.n_i8, tensor.stats.n_passthrough);
+        assert!(
+            tensor.stats.n_i8 > 0 || tensor.stats.n_passthrough > 0,
+            "should have encoded rows: i8={} pt={}",
+            tensor.stats.n_i8,
+            tensor.stats.n_passthrough
+        );
     }
 }

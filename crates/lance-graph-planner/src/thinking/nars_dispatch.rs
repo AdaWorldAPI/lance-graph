@@ -28,7 +28,10 @@ pub enum QueryStrategy {
     /// DN-tree full traversal — abductive search through graph.
     DnTreeFull { beam: usize, no_early_exit: bool },
     /// Bundle into existing — update/revise with learning rate.
-    BundleInto { learning_rate: f64, btsp_gate_prob: f64 },
+    BundleInto {
+        learning_rate: f64,
+        btsp_gate_prob: f64,
+    },
     /// Bundle across domains — multi-winner synthesis.
     BundleAcross { winner_k: usize },
 }
@@ -36,10 +39,7 @@ pub enum QueryStrategy {
 /// Route NARS inference type to query strategy.
 pub fn route(nars_type: NarsInferenceType) -> QueryStrategy {
     match nars_type {
-        NarsInferenceType::Deduction => QueryStrategy::CamExact {
-            top_k: 8,
-            beam: 1,
-        },
+        NarsInferenceType::Deduction => QueryStrategy::CamExact { top_k: 8, beam: 1 },
         NarsInferenceType::Induction => QueryStrategy::CamWide {
             top_k: 32,
             window: 64,
@@ -52,9 +52,7 @@ pub fn route(nars_type: NarsInferenceType) -> QueryStrategy {
             learning_rate: 0.1,
             btsp_gate_prob: 0.05,
         },
-        NarsInferenceType::Synthesis => QueryStrategy::BundleAcross {
-            winner_k: 3,
-        },
+        NarsInferenceType::Synthesis => QueryStrategy::BundleAcross { winner_k: 3 },
     }
 }
 
@@ -68,8 +66,11 @@ pub fn detect_from_query(query: &str) -> NarsInferenceType {
     }
 
     // Deduction: exact MATCH with specific property lookups
-    if q.contains("WHERE") && q.contains("=") && !q.contains("LIKE")
-        && !q.contains("CONTAINS") && !q.contains("*")
+    if q.contains("WHERE")
+        && q.contains("=")
+        && !q.contains("LIKE")
+        && !q.contains("CONTAINS")
+        && !q.contains("*")
     {
         return NarsInferenceType::Deduction;
     }
@@ -85,9 +86,7 @@ pub fn detect_from_query(query: &str) -> NarsInferenceType {
     }
 
     // Induction: pattern matching, CONTAINS, LIKE, RESONATE
-    if q.contains("CONTAINS") || q.contains("LIKE") || q.contains("RESONATE")
-        || q.contains("=~")
-    {
+    if q.contains("CONTAINS") || q.contains("LIKE") || q.contains("RESONATE") || q.contains("=~") {
         return NarsInferenceType::Induction;
     }
 

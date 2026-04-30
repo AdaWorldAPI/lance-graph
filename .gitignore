@@ -67,3 +67,6 @@ crates/thinking-engine/data/Qwopus3.5-27B-v3-BF16-silu/token_embd_4096x4096.u8
 
 # Sub-agent ephemeral worktrees
 .claude/worktrees/
+
+# Test fixtures (public-domain German legal/medical/tax data)
+.test/

@@ -113,7 +113,9 @@ pub fn calibrate_gamma(
             _ => continue,
         };
 
-        if rows.is_empty() { continue; }
+        if rows.is_empty() {
+            continue;
+        }
 
         // Compute mean absolute magnitude across all values
         let mut total_mag = 0.0f64;
@@ -124,7 +126,11 @@ pub fn calibrate_gamma(
                 count += 1;
             }
         }
-        let mean_mag = if count > 0 { total_mag / count as f64 } else { 1.0 };
+        let mean_mag = if count > 0 {
+            total_mag / count as f64
+        } else {
+            1.0
+        };
         role_gamma[role_idx] = mean_mag as f32;
     }
 
@@ -178,8 +184,8 @@ pub fn phi_encode(value: f32, phi_scale: f32) -> f32 {
     let ps = phi_scale.max(1e-8);
     let sign = value.signum();
     let normalized = value.abs() / ps; // [0, ~1] range
-    // Map through φ-log: spacing increases by φ at each level
-    // This is log_φ(1 + x) = ln(1 + x) / ln(φ)
+                                       // Map through φ-log: spacing increases by φ at each level
+                                       // This is log_φ(1 + x) = ln(1 + x) / ln(φ)
     let phi_log = (1.0 + normalized).ln() / (GOLDEN_RATIO as f32).ln();
     sign * phi_log * ps
 }
@@ -221,12 +227,17 @@ pub fn gamma_phi_decode(encoded: f32, role_gamma: f32, phi_scale: f32) -> f32 {
 
 /// Encode a full weight row with gamma+φ.
 pub fn encode_row(row: &[f32], role_gamma: f32, phi_scale: f32) -> Vec<f32> {
-    row.iter().map(|&v| gamma_phi_encode(v, role_gamma, phi_scale)).collect()
+    row.iter()
+        .map(|&v| gamma_phi_encode(v, role_gamma, phi_scale))
+        .collect()
 }
 
 /// Decode back to original values.
 pub fn decode_row(encoded: &[f32], role_gamma: f32, phi_scale: f32) -> Vec<f32> {
-    encoded.iter().map(|&v| gamma_phi_decode(v, role_gamma, phi_scale)).collect()
+    encoded
+        .iter()
+        .map(|&v| gamma_phi_decode(v, role_gamma, phi_scale))
+        .collect()
 }
 
 /// Measure roundtrip fidelity: encode → decode → compare with original.
@@ -238,7 +249,9 @@ pub fn roundtrip_error(row: &[f32], role_gamma: f32, phi_scale: f32) -> (f64, f6
     for (&orig, &dec) in row.iter().zip(decoded.iter()) {
         let err = (orig as f64 - dec as f64).abs();
         total_err += err;
-        if err > max_err { max_err = err; }
+        if err > max_err {
+            max_err = err;
+        }
     }
     let mean_err = total_err / row.len().max(1) as f64;
     (mean_err, max_err)
@@ -254,7 +267,9 @@ pub fn compare_strategies(
     phi_scale: f32,
 ) -> StrategyComparison {
     let n = rows.len().min(100);
-    if n < 2 { return StrategyComparison::default(); }
+    if n < 2 {
+        return StrategyComparison::default();
+    }
 
     let mut gt_cosines = Vec::new();
     let mut linear_cosines = Vec::new();
@@ -263,12 +278,18 @@ pub fn compare_strategies(
     let mut gamma_phi_cosines = Vec::new();
 
     // Pre-encode all rows under each strategy
-    let gamma_rows: Vec<Vec<f32>> = rows[..n].iter()
-        .map(|r| r.iter().map(|&v| gamma_encode(v, role_gamma)).collect()).collect();
-    let phi_rows: Vec<Vec<f32>> = rows[..n].iter()
-        .map(|r| r.iter().map(|&v| phi_encode(v, phi_scale)).collect()).collect();
-    let gp_rows: Vec<Vec<f32>> = rows[..n].iter()
-        .map(|r| encode_row(r, role_gamma, phi_scale)).collect();
+    let gamma_rows: Vec<Vec<f32>> = rows[..n]
+        .iter()
+        .map(|r| r.iter().map(|&v| gamma_encode(v, role_gamma)).collect())
+        .collect();
+    let phi_rows: Vec<Vec<f32>> = rows[..n]
+        .iter()
+        .map(|r| r.iter().map(|&v| phi_encode(v, phi_scale)).collect())
+        .collect();
+    let gp_rows: Vec<Vec<f32>> = rows[..n]
+        .iter()
+        .map(|r| encode_row(r, role_gamma, phi_scale))
+        .collect();
 
     for i in 0..n {
         for j in (i + 1)..n.min(i + 10) {
@@ -319,10 +340,14 @@ impl StrategyComparison {
              γ+φ combined │ {:>7.4} │ {:>7.4}",
             self.n_pairs,
             "",
-            self.linear_pearson, self.linear_spearman,
-            self.gamma_pearson, self.gamma_spearman,
-            self.phi_pearson, self.phi_spearman,
-            self.gamma_phi_pearson, self.gamma_phi_spearman,
+            self.linear_pearson,
+            self.linear_spearman,
+            self.gamma_pearson,
+            self.gamma_spearman,
+            self.phi_pearson,
+            self.phi_spearman,
+            self.gamma_phi_pearson,
+            self.gamma_phi_spearman,
         )
     }
 }
@@ -338,7 +363,11 @@ fn cosine(a: &[f32], b: &[f32]) -> f64 {
         nb += (b[i] as f64).powi(2);
     }
     let denom = (na * nb).sqrt();
-    if denom < 1e-12 { 0.0 } else { dot / denom }
+    if denom < 1e-12 {
+        0.0
+    } else {
+        dot / denom
+    }
 }
 
 #[cfg(test)]
@@ -350,8 +379,13 @@ mod tests {
         for &v in &[0.0f32, 1.0, -1.0, 0.001, -0.001, 100.0, -100.0] {
             let encoded = gamma_encode(v, 0.15);
             let decoded = gamma_decode(encoded, 0.15);
-            assert!((v - decoded).abs() < 1e-5,
-                "gamma roundtrip failed: {} → {} → {}", v, encoded, decoded);
+            assert!(
+                (v - decoded).abs() < 1e-5,
+                "gamma roundtrip failed: {} → {} → {}",
+                v,
+                encoded,
+                decoded
+            );
         }
     }
 
@@ -360,8 +394,13 @@ mod tests {
         for &v in &[0.0f32, 0.5, -0.5, 0.004, -0.004, 2.3, -2.3] {
             let encoded = phi_encode(v, 2.5);
             let decoded = phi_decode(encoded, 2.5);
-            assert!((v - decoded).abs() < 1e-5,
-                "phi roundtrip failed: {} → {} → {}", v, encoded, decoded);
+            assert!(
+                (v - decoded).abs() < 1e-5,
+                "phi roundtrip failed: {} → {} → {}",
+                v,
+                encoded,
+                decoded
+            );
         }
     }
 
@@ -370,8 +409,13 @@ mod tests {
         for &v in &[0.0f32, 0.15, -0.15, 0.004, -0.004, 1.5, -1.5] {
             let encoded = gamma_phi_encode(v, 0.15, 2.5);
             let decoded = gamma_phi_decode(encoded, 0.15, 2.5);
-            assert!((v - decoded).abs() < 1e-4,
-                "gamma+phi roundtrip failed: {} → {} → {}", v, encoded, decoded);
+            assert!(
+                (v - decoded).abs() < 1e-4,
+                "gamma+phi roundtrip failed: {} → {} → {}",
+                v,
+                encoded,
+                decoded
+            );
         }
     }
 
@@ -386,16 +430,21 @@ mod tests {
         // In gamma space: the ratio should be larger (shadows expanded)
         let linear_ratio = 0.001 / 0.15;
         let gamma_ratio = small.abs() / medium.abs();
-        assert!(gamma_ratio > linear_ratio,
+        assert!(
+            gamma_ratio > linear_ratio,
             "gamma should expand shadows: linear ratio={:.4}, gamma ratio={:.4}",
-            linear_ratio, gamma_ratio);
+            linear_ratio,
+            gamma_ratio
+        );
     }
 
     #[test]
     fn phi_spacing_is_irrational() {
         // φ-encoded values at integer inputs should never land on rational grid
         let phi_scale = 1.0;
-        let vals: Vec<f32> = (1..20).map(|i| phi_encode(i as f32 * 0.1, phi_scale)).collect();
+        let vals: Vec<f32> = (1..20)
+            .map(|i| phi_encode(i as f32 * 0.1, phi_scale))
+            .collect();
 
         // Check no two adjacent values have a rational ratio
         for i in 1..vals.len() {
@@ -410,41 +459,66 @@ mod tests {
 
     #[test]
     fn calibrate_basic() {
-        let q_rows: Vec<Vec<f32>> = (0..10).map(|i|
-            (0..100).map(|d| ((d * i) as f32 * 0.01).sin() * 0.4).collect()
-        ).collect();
-        let gate_rows: Vec<Vec<f32>> = (0..10).map(|i|
-            (0..100).map(|d| ((d * i) as f32 * 0.02).cos() * 2.0).collect()
-        ).collect();
+        let q_rows: Vec<Vec<f32>> = (0..10)
+            .map(|i| {
+                (0..100)
+                    .map(|d| ((d * i) as f32 * 0.01).sin() * 0.4)
+                    .collect()
+            })
+            .collect();
+        let gate_rows: Vec<Vec<f32>> = (0..10)
+            .map(|i| {
+                (0..100)
+                    .map(|d| ((d * i) as f32 * 0.02).cos() * 2.0)
+                    .collect()
+            })
+            .collect();
 
         let q_refs: Vec<&[f32]> = q_rows.iter().map(|r| r.as_slice()).collect();
         let gate_refs: Vec<&[f32]> = gate_rows.iter().map(|r| r.as_slice()).collect();
 
-        let profile = calibrate_gamma("test_model", &[
-            ("Q", &q_refs),
-            ("Gate", &gate_refs),
-        ]);
+        let profile = calibrate_gamma("test_model", &[("Q", &q_refs), ("Gate", &gate_refs)]);
 
         assert!(profile.role_gamma[0] > 0.0, "Q gamma should be positive");
-        assert!(profile.role_gamma[3] > profile.role_gamma[0],
+        assert!(
+            profile.role_gamma[3] > profile.role_gamma[0],
             "Gate gamma should be larger than Q: Gate={:.4}, Q={:.4}",
-            profile.role_gamma[3], profile.role_gamma[0]);
-        eprintln!("Profile: Q={:.4}, Gate={:.4}, phi_scale={:.4}",
-            profile.role_gamma[0], profile.role_gamma[3], profile.phi_scale);
+            profile.role_gamma[3],
+            profile.role_gamma[0]
+        );
+        eprintln!(
+            "Profile: Q={:.4}, Gate={:.4}, phi_scale={:.4}",
+            profile.role_gamma[0], profile.role_gamma[3], profile.phi_scale
+        );
     }
 
     #[test]
     fn compare_preserves_cosine() {
         // Linear encoding preserves cosine perfectly (it IS the same data)
-        let rows: Vec<Vec<f32>> = (0..20).map(|i|
-            (0..256).map(|d| ((d * 97 + i * 31) as f32 % 200.0 - 100.0) * 0.01).collect()
-        ).collect();
+        let rows: Vec<Vec<f32>> = (0..20)
+            .map(|i| {
+                (0..256)
+                    .map(|d| ((d * 97 + i * 31) as f32 % 200.0 - 100.0) * 0.01)
+                    .collect()
+            })
+            .collect();
 
         let comp = compare_strategies(&rows, 0.15, 1.5);
-        assert!((comp.linear_pearson - 1.0).abs() < 1e-10, "linear should be perfect");
+        assert!(
+            (comp.linear_pearson - 1.0).abs() < 1e-10,
+            "linear should be perfect"
+        );
         // Gamma and phi should also preserve cosine well (monotonic transforms)
-        assert!(comp.gamma_pearson > 0.95, "gamma should preserve: {:.4}", comp.gamma_pearson);
-        assert!(comp.phi_pearson > 0.95, "phi should preserve: {:.4}", comp.phi_pearson);
+        assert!(
+            comp.gamma_pearson > 0.95,
+            "gamma should preserve: {:.4}",
+            comp.gamma_pearson
+        );
+        assert!(
+            comp.phi_pearson > 0.95,
+            "phi should preserve: {:.4}",
+            comp.phi_pearson
+        );
         eprintln!("{}", comp.summary());
     }
 }

@@ -69,11 +69,7 @@ impl TypedGraph {
     }
 
     /// Single-hop traversal under the given semiring for one relationship type.
-    pub fn traverse(
-        &self,
-        rel_type: &str,
-        semiring: &dyn Semiring,
-    ) -> Option<GrBMatrix> {
+    pub fn traverse(&self, rel_type: &str, semiring: &dyn Semiring) -> Option<GrBMatrix> {
         let matrix = self.relations.get(rel_type)?;
         let desc = GrBDesc::default();
         // A × A under the given semiring = one hop
@@ -83,11 +79,7 @@ impl TypedGraph {
     /// Multi-hop traversal: compose multiple relationship types sequentially.
     ///
     /// `rel_types[0] × rel_types[1] × ... × rel_types[n-1]` under the semiring.
-    pub fn multi_hop(
-        &self,
-        rel_types: &[&str],
-        semiring: &dyn Semiring,
-    ) -> Option<GrBMatrix> {
+    pub fn multi_hop(&self, rel_types: &[&str], semiring: &dyn Semiring) -> Option<GrBMatrix> {
         if rel_types.is_empty() {
             return None;
         }

@@ -35,13 +35,21 @@ impl Role {
     /// Parse from tensor name (HuggingFace or GGUF convention).
     pub fn from_name(name: &str) -> Option<Self> {
         let n = name.to_lowercase();
-        if n.contains("q_proj") || n.contains("attn_q") || n.contains(".wq.") { Some(Role::Q) }
-        else if n.contains("k_proj") || n.contains("attn_k") || n.contains(".wk.") { Some(Role::K) }
-        else if n.contains("v_proj") || n.contains("attn_v") || n.contains(".wv.") { Some(Role::V) }
-        else if n.contains("gate_proj") || n.contains("ffn_gate") || n.contains(".w1.") { Some(Role::Gate) }
-        else if n.contains("up_proj") || n.contains("ffn_up") || n.contains(".w3.") { Some(Role::Up) }
-        else if n.contains("down_proj") || n.contains("ffn_down") || n.contains(".w2.") { Some(Role::Down) }
-        else { None }
+        if n.contains("q_proj") || n.contains("attn_q") || n.contains(".wq.") {
+            Some(Role::Q)
+        } else if n.contains("k_proj") || n.contains("attn_k") || n.contains(".wk.") {
+            Some(Role::K)
+        } else if n.contains("v_proj") || n.contains("attn_v") || n.contains(".wv.") {
+            Some(Role::V)
+        } else if n.contains("gate_proj") || n.contains("ffn_gate") || n.contains(".w1.") {
+            Some(Role::Gate)
+        } else if n.contains("up_proj") || n.contains("ffn_up") || n.contains(".w3.") {
+            Some(Role::Up)
+        } else if n.contains("down_proj") || n.contains("ffn_down") || n.contains(".w2.") {
+            Some(Role::Down)
+        } else {
+            None
+        }
     }
 }
 
@@ -88,14 +96,22 @@ impl RoleVarianceReport {
             self.mean_inter_l1,
             self.mean_intra_l1,
             self.ratio,
-            if self.ratio > 2.0 { "DISTINCT" }
-            else if self.ratio > 1.0 { "SEPARABLE" }
-            else { "MUSHY" },
+            if self.ratio > 2.0 {
+                "DISTINCT"
+            } else if self.ratio > 1.0 {
+                "SEPARABLE"
+            } else {
+                "MUSHY"
+            },
         );
         for rs in &self.per_role {
             s.push_str(&format!(
                 "  {:<5}: n={:>5}, mean_intra_L1={:>8.1}, var={:>10.1}, magnitude={:.3}\n",
-                rs.role.label(), rs.count, rs.mean_intra_l1, rs.var_intra_l1, rs.mean_magnitude
+                rs.role.label(),
+                rs.count,
+                rs.mean_intra_l1,
+                rs.var_intra_l1,
+                rs.mean_magnitude
             ));
         }
         s.push_str("\nCentroid distance matrix (top pairs):\n");
@@ -112,10 +128,7 @@ impl RoleVarianceReport {
 ///
 /// Input: Vec of (role, Base17) pairs from a single model.
 /// Typically produced by reading bgz7 files and parsing tensor names.
-pub fn compute_variance(
-    model_name: &str,
-    labeled: &[(Role, Base17)],
-) -> RoleVarianceReport {
+pub fn compute_variance(model_name: &str, labeled: &[(Role, Base17)]) -> RoleVarianceReport {
     // Group by role
     let mut groups: [Vec<&Base17>; 6] = Default::default();
     for (role, b17) in labeled {
@@ -133,13 +146,21 @@ pub fn compute_variance(
         let centroid = compute_centroid(vecs);
         let distances: Vec<u32> = vecs.iter().map(|v| v.l1(&centroid)).collect();
         let mean_d = distances.iter().map(|&d| d as f64).sum::<f64>() / distances.len() as f64;
-        let var_d = distances.iter().map(|&d| {
-            let diff = d as f64 - mean_d;
-            diff * diff
-        }).sum::<f64>() / distances.len() as f64;
+        let var_d = distances
+            .iter()
+            .map(|&d| {
+                let diff = d as f64 - mean_d;
+                diff * diff
+            })
+            .sum::<f64>()
+            / distances.len() as f64;
 
-        let mean_mag = vecs.iter().flat_map(|v| v.dims.iter())
-            .map(|&d| (d as f64).abs()).sum::<f64>() / (vecs.len() * 17) as f64;
+        let mean_mag = vecs
+            .iter()
+            .flat_map(|v| v.dims.iter())
+            .map(|&d| (d as f64).abs())
+            .sum::<f64>()
+            / (vecs.len() * 17) as f64;
 
         per_role.push(RoleStats {
             role,
@@ -164,13 +185,21 @@ pub fn compute_variance(
         }
     }
 
-    let mean_inter = if inter_count > 0 { inter_sum / inter_count as f64 } else { 0.0 };
+    let mean_inter = if inter_count > 0 {
+        inter_sum / inter_count as f64
+    } else {
+        0.0
+    };
     let mean_intra = if per_role.is_empty() {
         0.0
     } else {
         per_role.iter().map(|r| r.mean_intra_l1).sum::<f64>() / per_role.len() as f64
     };
-    let ratio = if mean_intra > 0.0 { mean_inter / mean_intra } else { 0.0 };
+    let ratio = if mean_intra > 0.0 {
+        mean_inter / mean_intra
+    } else {
+        0.0
+    };
 
     RoleVarianceReport {
         model_name: model_name.to_string(),
@@ -206,13 +235,15 @@ mod tests {
     use super::*;
 
     fn make_role_vectors(role: Role, base: i16, n: usize) -> Vec<(Role, Base17)> {
-        (0..n).map(|i| {
-            let mut dims = [0i16; 17];
-            for d in 0..17 {
-                dims[d] = base + ((i * 7 + d * 3) % 100) as i16;
-            }
-            (role, Base17 { dims })
-        }).collect()
+        (0..n)
+            .map(|i| {
+                let mut dims = [0i16; 17];
+                for d in 0..17 {
+                    dims[d] = base + ((i * 7 + d * 3) % 100) as i16;
+                }
+                (role, Base17 { dims })
+            })
+            .collect()
     }
 
     #[test]
@@ -227,8 +258,11 @@ mod tests {
         labeled.extend(make_role_vectors(Role::Down, 4000, 50));
 
         let report = compute_variance("test_model", &labeled);
-        assert!(report.ratio > 1.0,
-            "distinct roles should have ratio > 1: {}", report.ratio);
+        assert!(
+            report.ratio > 1.0,
+            "distinct roles should have ratio > 1: {}",
+            report.ratio
+        );
         assert_eq!(report.per_role.len(), 6);
     }
 
@@ -242,7 +276,11 @@ mod tests {
 
         let report = compute_variance("mushy_model", &labeled);
         // When all roles have the same distribution, inter ≈ intra
-        assert!(report.ratio < 1.5, "identical distributions should have low ratio: {}", report.ratio);
+        assert!(
+            report.ratio < 1.5,
+            "identical distributions should have low ratio: {}",
+            report.ratio
+        );
     }
 
     #[test]
@@ -264,9 +302,15 @@ mod tests {
         labeled.extend(make_role_vectors(Role::Down, 140, 50));
 
         let report = compute_variance("gate_dominant", &labeled);
-        let gate_stats = report.per_role.iter().find(|r| r.role == Role::Gate).unwrap();
+        let gate_stats = report
+            .per_role
+            .iter()
+            .find(|r| r.role == Role::Gate)
+            .unwrap();
         let q_stats = report.per_role.iter().find(|r| r.role == Role::Q).unwrap();
-        assert!(gate_stats.mean_magnitude > q_stats.mean_magnitude * 10.0,
-            "Gate should have much higher magnitude");
+        assert!(
+            gate_stats.mean_magnitude > q_stats.mean_magnitude * 10.0,
+            "Gate should have much higher magnitude"
+        );
     }
 }

@@ -39,6 +39,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: AdaWorldAPI/ndarray
+          # TODO: revert to default branch once ndarray PR #115 lands
+          # (which exports wht_f32, kmeans, squared_l2, dequantize_i8_to_f32,
+          # quantize_f32_to_i2, dequantize_i2_to_f32 publicly).
+          ref: claude/continue-lance-graph-ndarray-Ld786
           path: ndarray
       - name: Setup rust toolchain
         run: |
@@ -74,6 +78,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: AdaWorldAPI/ndarray
+          # TODO: revert to default branch once ndarray PR #115 lands
+          # (which exports wht_f32, kmeans, squared_l2, dequantize_i8_to_f32,
+          # quantize_f32_to_i2, dequantize_i2_to_f32 publicly).
+          ref: claude/continue-lance-graph-ndarray-Ld786
           path: ndarray
       - name: Setup rust toolchain
         run: |

@@ -59,12 +59,18 @@ impl EdgeProperties {
 
     /// Get a float property for a specific edge.
     pub fn get_float(&self, column: &str, edge_id: u64) -> Option<f32> {
-        self.float_columns.get(column)?.get(edge_id as usize).copied()
+        self.float_columns
+            .get(column)?
+            .get(edge_id as usize)
+            .copied()
     }
 
     /// Get fingerprint property for a specific edge.
     pub fn get_fingerprint(&self, column: &str, edge_id: u64) -> Option<&[u64]> {
-        self.fingerprint_columns.get(column)?.get(edge_id as usize).map(|v| v.as_slice())
+        self.fingerprint_columns
+            .get(column)?
+            .get(edge_id as usize)
+            .map(|v| v.as_slice())
     }
 }
 

@@ -91,16 +91,21 @@ pub fn simulate(
             // Deduction: A→B and B→C at this timestep ⟹ A→C
             for i in 0..next_active.len() {
                 for j in 0..next_active.len() {
-                    if i == j { continue; }
+                    if i == j {
+                        continue;
+                    }
                     if next_active[i].target == next_active[j].source {
                         let freq = next_active[i].frequency * next_active[j].frequency;
-                        let conf = next_active[i].confidence * next_active[j].confidence
-                            * next_active[i].frequency * next_active[j].frequency;
+                        let conf = next_active[i].confidence
+                            * next_active[j].confidence
+                            * next_active[i].frequency
+                            * next_active[j].frequency;
                         if conf >= config.alive_threshold {
                             // Check we don't already have this edge
                             let src = &next_active[i].source;
                             let tgt = &next_active[j].target;
-                            let already_exists = next_active.iter()
+                            let already_exists = next_active
+                                .iter()
                                 .chain(inferred.iter())
                                 .any(|e| e.source == *src && e.target == *tgt);
                             if !already_exists && src != tgt {
@@ -121,20 +126,32 @@ pub fn simulate(
 
         // Build narrative
         let narrative = if round == 0 {
-            format!("t={round}: {trigger}. {} active edges, {} inferred.",
-                next_active.len(), inferred.len())
+            format!(
+                "t={round}: {trigger}. {} active edges, {} inferred.",
+                next_active.len(),
+                inferred.len()
+            )
         } else if !inferred.is_empty() {
-            let new_connections: Vec<String> = inferred.iter()
+            let new_connections: Vec<String> = inferred
+                .iter()
                 .map(|e| format!("{} → {}", e.source, e.target))
                 .collect();
-            format!("t={round}: {} edges active, {} decayed. New connections: {}",
-                next_active.len(), decayed.len(), new_connections.join(", "))
+            format!(
+                "t={round}: {} edges active, {} decayed. New connections: {}",
+                next_active.len(),
+                decayed.len(),
+                new_connections.join(", ")
+            )
         } else if !decayed.is_empty() {
-            let lost: Vec<String> = decayed.iter()
+            let lost: Vec<String> = decayed
+                .iter()
                 .map(|e| format!("{} → {}", e.source, e.target))
                 .collect();
-            format!("t={round}: {} edges active. Lost confidence: {}",
-                next_active.len(), lost.join(", "))
+            format!(
+                "t={round}: {} edges active. Lost confidence: {}",
+                next_active.len(),
+                lost.join(", ")
+            )
         } else {
             format!("t={round}: {} edges active, stable.", next_active.len())
         };
@@ -162,10 +179,7 @@ pub fn simulate(
 }
 
 /// Compute the "cascade depth" — how many rounds until a specific target is reached.
-pub fn cascade_depth(
-    timesteps: &[TimeStep],
-    target: &str,
-) -> Option<usize> {
+pub fn cascade_depth(timesteps: &[TimeStep], target: &str) -> Option<usize> {
     for ts in timesteps {
         if ts.active_edges.iter().any(|e| e.target == target)
             || ts.inferred_edges.iter().any(|e| e.target == target)
@@ -183,7 +197,7 @@ pub struct SimulationSummary {
     pub peak_active_edges: usize,
     pub total_inferred: usize,
     pub total_decayed: usize,
-    pub cascade_reach: Vec<String>, // All nodes ever reached
+    pub cascade_reach: Vec<String>,         // All nodes ever reached
     pub final_confidence_range: (f64, f64), // (min, max) of surviving edges
 }
 
@@ -208,8 +222,16 @@ pub fn summarize(timesteps: &[TimeStep]) -> SimulationSummary {
         if confs.is_empty() {
             (0.0, 0.0)
         } else {
-            (*confs.iter().min_by(|a, b| a.partial_cmp(b).unwrap()).unwrap(),
-             *confs.iter().max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap())
+            (
+                *confs
+                    .iter()
+                    .min_by(|a, b| a.partial_cmp(b).unwrap())
+                    .unwrap(),
+                *confs
+                    .iter()
+                    .max_by(|a, b| a.partial_cmp(b).unwrap())
+                    .unwrap(),
+            )
         }
     } else {
         (0.0, 0.0)
@@ -232,23 +254,35 @@ mod tests {
     fn iran_scenario_edges() -> Vec<CausalStep> {
         vec![
             CausalStep {
-                source: "F35".into(), relationship: "PENETRATES".into(),
-                target: "Iran_AD".into(), frequency: 0.75, confidence: 0.65,
+                source: "F35".into(),
+                relationship: "PENETRATES".into(),
+                target: "Iran_AD".into(),
+                frequency: 0.75,
+                confidence: 0.65,
                 derivation: Derivation::Observed,
             },
             CausalStep {
-                source: "Iran_AD".into(), relationship: "RETALIATES".into(),
-                target: "Israeli_Base".into(), frequency: 0.60, confidence: 0.50,
+                source: "Iran_AD".into(),
+                relationship: "RETALIATES".into(),
+                target: "Israeli_Base".into(),
+                frequency: 0.60,
+                confidence: 0.50,
                 derivation: Derivation::Observed,
             },
             CausalStep {
-                source: "Iron_Dome".into(), relationship: "INTERCEPTS".into(),
-                target: "Retaliation".into(), frequency: 0.92, confidence: 0.85,
+                source: "Iron_Dome".into(),
+                relationship: "INTERCEPTS".into(),
+                target: "Retaliation".into(),
+                frequency: 0.92,
+                confidence: 0.85,
                 derivation: Derivation::Observed,
             },
             CausalStep {
-                source: "Israeli_Base".into(), relationship: "ESCALATES".into(),
-                target: "Regional_War".into(), frequency: 0.30, confidence: 0.25,
+                source: "Israeli_Base".into(),
+                relationship: "ESCALATES".into(),
+                target: "Regional_War".into(),
+                frequency: 0.30,
+                confidence: 0.25,
                 derivation: Derivation::Hypothetical,
             },
         ]
@@ -278,11 +312,14 @@ mod tests {
         };
         let result = simulate(&edges, "test", &config);
         // Hypothetical edge (f=0.30, c=0.25) should decay and die quickly
-        let hypothetical_alive_at_end = result.last()
-            .map(|ts| ts.active_edges.iter()
-                .any(|e| e.target == "Regional_War"))
+        let hypothetical_alive_at_end = result
+            .last()
+            .map(|ts| ts.active_edges.iter().any(|e| e.target == "Regional_War"))
             .unwrap_or(false);
-        assert!(!hypothetical_alive_at_end, "Low-confidence edge should decay");
+        assert!(
+            !hypothetical_alive_at_end,
+            "Low-confidence edge should decay"
+        );
     }
 
     #[test]
@@ -295,12 +332,15 @@ mod tests {
         };
         let result = simulate(&edges, "test", &config);
         // F35 → Iran_AD and Iran_AD → Israeli_Base should produce F35 → Israeli_Base
-        let has_deduction = result.iter().any(|ts|
-            ts.inferred_edges.iter().any(|e|
-                e.source == "F35" && e.target == "Israeli_Base"
-            )
+        let has_deduction = result.iter().any(|ts| {
+            ts.inferred_edges
+                .iter()
+                .any(|e| e.source == "F35" && e.target == "Israeli_Base")
+        });
+        assert!(
+            has_deduction,
+            "Should infer F35 → Israeli_Base via deduction"
         );
-        assert!(has_deduction, "Should infer F35 → Israeli_Base via deduction");
     }
 
     #[test]
@@ -316,7 +356,10 @@ mod tests {
     #[test]
     fn test_simulation_summary() {
         let edges = iran_scenario_edges();
-        let config = TemporalConfig { max_rounds: 5, ..Default::default() };
+        let config = TemporalConfig {
+            max_rounds: 5,
+            ..Default::default()
+        };
         let result = simulate(&edges, "test", &config);
         let summary = summarize(&result);
         assert!(summary.peak_active_edges >= 4);

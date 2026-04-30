@@ -33,13 +33,13 @@ impl NarsInference {
     pub fn core(self) -> crate::nars::InferenceType {
         use crate::nars::InferenceType as Core;
         match self {
-            Self::Deduction                => Core::Deduction,
-            Self::Induction                => Core::Induction,
-            Self::Abduction                => Core::Abduction,
-            Self::Revision                 => Core::Revision,
-            Self::Synthesis                => Core::Synthesis,
-            Self::Extrapolation            => Core::Induction,
-            Self::CounterfactualSynthesis  => Core::Synthesis,
+            Self::Deduction => Core::Deduction,
+            Self::Induction => Core::Induction,
+            Self::Abduction => Core::Abduction,
+            Self::Revision => Core::Revision,
+            Self::Synthesis => Core::Synthesis,
+            Self::Extrapolation => Core::Induction,
+            Self::CounterfactualSynthesis => Core::Synthesis,
         }
     }
 }
@@ -47,12 +47,12 @@ impl NarsInference {
 /// Which thinking-style cluster this inference dispatches to.
 pub fn inference_to_style_cluster(inf: NarsInference) -> StyleCluster {
     match inf {
-        NarsInference::Deduction              => StyleCluster::Analytical,
-        NarsInference::Induction              => StyleCluster::Exploratory,
-        NarsInference::Abduction              => StyleCluster::Meta,
-        NarsInference::Revision               => StyleCluster::Meta,
-        NarsInference::Synthesis              => StyleCluster::Creative,
-        NarsInference::Extrapolation          => StyleCluster::Exploratory,
+        NarsInference::Deduction => StyleCluster::Analytical,
+        NarsInference::Induction => StyleCluster::Exploratory,
+        NarsInference::Abduction => StyleCluster::Meta,
+        NarsInference::Revision => StyleCluster::Meta,
+        NarsInference::Synthesis => StyleCluster::Creative,
+        NarsInference::Extrapolation => StyleCluster::Exploratory,
         NarsInference::CounterfactualSynthesis => StyleCluster::Creative,
     }
 }

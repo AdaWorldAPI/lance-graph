@@ -9,12 +9,11 @@
 //!
 //! Token throughput: 18K+ tokens/sec on CPU (611M SPO lookups/sec).
 
-use crate::cache::kv_bundle::HeadPrint;
 use crate::cache::candidate_pool::{CandidatePool, Phase};
-use crate::cache::triple_model::TripleModel;
+use crate::cache::kv_bundle::HeadPrint;
 use crate::cache::lane_eval::{LaneEvaluator, Tension};
-use crate::cache::nars_engine::{NarsEngine, SpoHead, SpoDistances,
-    MASK_SPO};
+use crate::cache::nars_engine::{NarsEngine, SpoDistances, SpoHead, MASK_SPO};
+use crate::cache::triple_model::TripleModel;
 use crate::ir::{Arena, LogicalOp};
 use crate::traits::{PlanCapability, PlanContext, PlanInput, PlanStrategy};
 use crate::PlanError;
@@ -66,7 +65,8 @@ impl AutocompleteCache {
         let surprise = self.triple.free_energy(message);
         let alignment = self.triple.alignment();
         let has_contradiction = false; // TODO: wire nars.detect_contradiction
-        self.pool.update_phase(surprise, alignment, has_contradiction);
+        self.pool
+            .update_phase(surprise, alignment, has_contradiction);
 
         // 5. Check if we have a good candidate
         if let Some(best) = self.pool.best() {
@@ -124,15 +124,22 @@ pub enum CacheRoute {
 pub struct AutocompleteCacheStrategy;
 
 impl PlanStrategy for AutocompleteCacheStrategy {
-    fn name(&self) -> &str { "AutocompleteCache" }
+    fn name(&self) -> &str {
+        "AutocompleteCache"
+    }
 
-    fn capability(&self) -> PlanCapability { PlanCapability::Extension }
+    fn capability(&self) -> PlanCapability {
+        PlanCapability::Extension
+    }
 
     fn affinity(&self, context: &PlanContext) -> f32 {
         let q = &context.query;
         // Graph queries → skip
-        if q.starts_with("MATCH ") || q.starts_with("SELECT ")
-            || q.starts_with("g.") || q.contains("WHERE {") {
+        if q.starts_with("MATCH ")
+            || q.starts_with("SELECT ")
+            || q.starts_with("g.")
+            || q.contains("WHERE {")
+        {
             return 0.0;
         }
         // Chat JSON → high affinity
@@ -254,7 +261,10 @@ mod tests {
             nars_hint: None,
         };
         let aff = strategy.affinity(&plain);
-        assert!(aff > 0.3 && aff < 0.7, "plain text affinity should be moderate: {aff}");
+        assert!(
+            aff > 0.3 && aff < 0.7,
+            "plain text affinity should be moderate: {aff}"
+        );
     }
 
     #[test]

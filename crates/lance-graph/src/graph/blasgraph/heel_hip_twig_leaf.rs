@@ -274,7 +274,11 @@ pub fn leaf_verify(
     query_integrated: Option<&super::types::BitVec>,
     candidate_integrated: &[(usize, &super::types::BitVec)],
     top_n_exact: usize,
-    query_planes: Option<(&super::types::BitVec, &super::types::BitVec, &super::types::BitVec)>,
+    query_planes: Option<(
+        &super::types::BitVec,
+        &super::types::BitVec,
+        &super::types::BitVec,
+    )>,
     candidate_planes: &[(
         usize,
         &super::types::BitVec,
@@ -388,11 +392,11 @@ mod tests {
     fn test_heel_search_basic() {
         // Create scent vector with known patterns
         let scents = vec![
-            0u8,   // self (no edge)
-            0x7F,  // all bands close (distance 0 from 0x7F)
-            0x3F,  // 6 bands close
-            0x01,  // 1 band close
-            0x00,  // no bands close
+            0u8,  // self (no edge)
+            0x7F, // all bands close (distance 0 from 0x7F)
+            0x3F, // 6 bands close
+            0x01, // 1 band close
+            0x00, // no bands close
         ];
 
         let hits = heel_search(0x7F, &scents, 3);
@@ -458,7 +462,10 @@ mod tests {
         let scent_vecs: Vec<Vec<u8>> = neighborhoods.iter().map(|nv| nv.scent_column()).collect();
         let scent_refs: Vec<&[u8]> = scent_vecs.iter().map(|v| v.as_slice()).collect();
 
-        let config = SearchConfig { k: 10, use_progressive: false };
+        let config = SearchConfig {
+            k: 10,
+            use_progressive: false,
+        };
         let query_scent = zeckf64::scent(neighborhoods[0].edges[1]);
         let results = cascade_search(&scent_vecs[0], query_scent, &scent_refs, &config);
 
@@ -471,15 +478,7 @@ mod tests {
         let candidates = vec![(1usize, 2u32), (3, 3), (5, 4)];
         let scope_ids = vec![100u64, 200, 300, 400, 500, 600];
 
-        let results = leaf_verify(
-            &candidates,
-            &scope_ids,
-            None,
-            &[],
-            0,
-            None,
-            &[],
-        );
+        let results = leaf_verify(&candidates, &scope_ids, None, &[], 0, None, &[]);
 
         assert_eq!(results.len(), 3);
         assert_eq!(results[0].node_id, 200);
@@ -495,8 +494,7 @@ mod tests {
         let cand0_int = BitVec::random(43); // far from query
         let cand1_int = query_int.clone(); // identical to query
 
-        let candidate_integrated: Vec<(usize, &BitVec)> =
-            vec![(0, &cand0_int), (1, &cand1_int)];
+        let candidate_integrated: Vec<(usize, &BitVec)> = vec![(0, &cand0_int), (1, &cand1_int)];
 
         let results = leaf_verify(
             &candidates,

@@ -92,7 +92,11 @@ mod tests {
         let drained = b.drain();
         assert_eq!(
             drained,
-            vec![Command::Spawn(1), Command::Update(1, 7), Command::Despawn(1)]
+            vec![
+                Command::Spawn(1),
+                Command::Update(1, 7),
+                Command::Despawn(1)
+            ]
         );
         assert!(b.is_empty());
     }

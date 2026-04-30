@@ -210,9 +210,7 @@ impl Resolution {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::grammar::{
-        inference::NarsInference, tekamolo::TekamoloSlots, ticket::PartialParse,
-    };
+    use crate::grammar::{inference::NarsInference, tekamolo::TekamoloSlots, ticket::PartialParse};
 
     fn dummy_ticket() -> FailureTicket {
         FailureTicket {
@@ -275,7 +273,10 @@ mod tests {
         let ranked = vec![(h.clone(), fe)];
         let r = Resolution::from_ranked(&ranked, dummy_ticket);
         match r {
-            Resolution::Commit { hypothesis, free_energy } => {
+            Resolution::Commit {
+                hypothesis,
+                free_energy,
+            } => {
                 assert_eq!(hypothesis.label, "clear");
                 assert!(free_energy.is_homeostatic());
             }
@@ -288,12 +289,17 @@ mod tests {
         // Two hypotheses within EPIPHANY_MARGIN — both commit.
         let h1 = Hypothesis::new("literal windmill fell");
         let h2 = Hypothesis::new("Snowball sabotaged windmill");
-        let fe1 = FreeEnergy::compose(0.9, 0.05);  // total = 0.15
+        let fe1 = FreeEnergy::compose(0.9, 0.05); // total = 0.15
         let fe2 = FreeEnergy::compose(0.89, 0.05); // total = 0.16
         let ranked = vec![(h1.clone(), fe1), (h2.clone(), fe2)];
         let r = Resolution::from_ranked(&ranked, dummy_ticket);
         match r {
-            Resolution::Epiphany { winner, loser, margin, .. } => {
+            Resolution::Epiphany {
+                winner,
+                loser,
+                margin,
+                ..
+            } => {
                 assert_eq!(winner.label, "literal windmill fell");
                 assert_eq!(loser.label, "Snowball sabotaged windmill");
                 assert!(margin.abs() < EPIPHANY_MARGIN);
@@ -319,7 +325,10 @@ mod tests {
         let ranked = vec![(h.clone(), fe)];
         let r = Resolution::from_ranked(&ranked, dummy_ticket);
         match r {
-            Resolution::Commit { hypothesis, free_energy } => {
+            Resolution::Commit {
+                hypothesis,
+                free_energy,
+            } => {
                 assert_eq!(hypothesis.label, "mid-band");
                 assert!(!free_energy.is_homeostatic());
                 assert!(!free_energy.is_catastrophic());

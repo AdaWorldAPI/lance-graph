@@ -40,10 +40,10 @@ use futures::TryStreamExt;
 use lance::dataset::{Dataset, WriteMode, WriteParams};
 use std::sync::Arc;
 
-use crate::error::{GraphError, Result};
 use super::blasgraph::columnar::{EdgeSchema, FingerprintSchema, NodeSchema};
-use crate::graph::neighborhood::{scope, storage};
+use crate::error::{GraphError, Result};
 use crate::graph::neighborhood::scope::{NeighborhoodVector, ScopeMap};
+use crate::graph::neighborhood::{scope, storage};
 
 // ---------------------------------------------------------------------------
 // GraphSealStatus — result of comparing seals across versions
@@ -198,12 +198,7 @@ impl VersionedGraph {
     ///
     /// Creates the dataset if it doesn't exist, otherwise overwrites
     /// (which creates a new version in Lance).
-    async fn write_batch(
-        &self,
-        path: &str,
-        batch: RecordBatch,
-        schema: SchemaRef,
-    ) -> Result<u64> {
+    async fn write_batch(&self, path: &str, batch: RecordBatch, schema: SchemaRef) -> Result<u64> {
         let reader = RecordBatchIterator::new(vec![Ok(batch)], schema);
 
         // Try to open existing dataset first
@@ -263,14 +258,13 @@ impl VersionedGraph {
         let node_ids_buf = storage::serialize_scope_node_ids(scope);
 
         let node_ids_size = (scope::MAX_SCOPE_SIZE * 8) as i32;
-        let mut node_ids_builder =
-            FixedSizeBinaryBuilder::with_capacity(1, node_ids_size);
-        node_ids_builder.append_value(&node_ids_buf).map_err(|e| {
-            GraphError::ExecutionError {
+        let mut node_ids_builder = FixedSizeBinaryBuilder::with_capacity(1, node_ids_size);
+        node_ids_builder
+            .append_value(&node_ids_buf)
+            .map_err(|e| GraphError::ExecutionError {
                 message: format!("Failed to build node_ids column: {e}"),
                 location: snafu::Location::new(file!(), line!(), column!()),
-            }
-        })?;
+            })?;
 
         let now = chrono::Utc::now().timestamp_micros();
         let batch = RecordBatch::try_new(
@@ -306,31 +300,33 @@ impl VersionedGraph {
 
         let node_ids: Vec<i64> = neighborhoods.iter().map(|nv| nv.node_id as i64).collect();
         let scope_ids: Vec<i64> = vec![scope_id as i64; n];
-        let edge_counts: Vec<u16> =
-            neighborhoods.iter().map(|nv| nv.edge_count() as u16).collect();
+        let edge_counts: Vec<u16> = neighborhoods
+            .iter()
+            .map(|nv| nv.edge_count() as u16)
+            .collect();
         let now = chrono::Utc::now().timestamp_micros();
         let timestamps: Vec<Option<i64>> = vec![Some(now); n];
 
         let mut scent_builder = FixedSizeBinaryBuilder::with_capacity(n, bin_size);
         for nv in neighborhoods {
             let buf = storage::serialize_scent(nv);
-            scent_builder.append_value(&buf).map_err(|e| {
-                GraphError::ExecutionError {
+            scent_builder
+                .append_value(&buf)
+                .map_err(|e| GraphError::ExecutionError {
                     message: format!("Failed to build scent column: {e}"),
                     location: snafu::Location::new(file!(), line!(), column!()),
-                }
-            })?;
+                })?;
         }
 
         let mut resolution_builder = FixedSizeBinaryBuilder::with_capacity(n, bin_size);
         for nv in neighborhoods {
             let buf = storage::serialize_resolution(nv);
-            resolution_builder.append_value(&buf).map_err(|e| {
-                GraphError::ExecutionError {
+            resolution_builder
+                .append_value(&buf)
+                .map_err(|e| GraphError::ExecutionError {
                     message: format!("Failed to build resolution column: {e}"),
                     location: snafu::Location::new(file!(), line!(), column!()),
-                }
-            })?;
+                })?;
         }
 
         let batch = RecordBatch::try_new(
@@ -711,8 +707,7 @@ mod tests {
     /// Helper: create a minimal edge batch.
     fn make_edge_batch(edges: &[(u32, u32)]) -> RecordBatch {
         let label_bytes = vec![0u8; 2048];
-        let mut label_builder =
-            FixedSizeBinaryBuilder::with_capacity(edges.len(), 2048);
+        let mut label_builder = FixedSizeBinaryBuilder::with_capacity(edges.len(), 2048);
         let mut src_ids = Vec::new();
         let mut dst_ids = Vec::new();
 
@@ -859,7 +854,10 @@ mod tests {
         let nodes2 = make_node_batch(&[1, 2], 2);
         let edges2 = make_edge_batch(&[(1, 2)]);
         let fps2 = make_fingerprint_batch(&[1, 2]);
-        let v2 = g.commit_encounter_round(nodes2, edges2, fps2).await.unwrap();
+        let v2 = g
+            .commit_encounter_round(nodes2, edges2, fps2)
+            .await
+            .unwrap();
 
         assert!(v2 > v1);
 
@@ -890,10 +888,7 @@ mod tests {
             .await
             .unwrap();
 
-        let v2 = g
-            .commit_encounter_round(nodes, edges, fps)
-            .await
-            .unwrap();
+        let v2 = g.commit_encounter_round(nodes, edges, fps).await.unwrap();
 
         let status = g.graph_seal_check(v1, v2).await.unwrap();
         assert_eq!(status, GraphSealStatus::Wisdom);
@@ -964,8 +959,8 @@ mod tests {
 
     // -- neighborhood extension tests ---------------------------------------
 
-    use crate::graph::neighborhood::scope::ScopeBuilder;
     use crate::graph::blasgraph::types::BitVec;
+    use crate::graph::neighborhood::scope::ScopeBuilder;
 
     fn random_triple(s: u64, p: u64, o: u64) -> (BitVec, BitVec, BitVec) {
         (BitVec::random(s), BitVec::random(p), BitVec::random(o))

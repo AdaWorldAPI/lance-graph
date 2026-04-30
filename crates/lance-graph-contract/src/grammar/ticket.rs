@@ -77,10 +77,11 @@ impl FailureTicket {
     pub fn needs_llm(&self, threshold: f32) -> bool {
         self.coverage < threshold
             || !self.wechsel.is_empty()
-            || self.causal_ambiguity
-                   .as_ref()
-                   .map(|c| !c.is_resolved(0.75))
-                   .unwrap_or(false)
+            || self
+                .causal_ambiguity
+                .as_ref()
+                .map(|c| !c.is_resolved(0.75))
+                .unwrap_or(false)
     }
 
     /// Construct a FailureTicket for a schema-validation miss: one or
@@ -157,7 +158,10 @@ mod tests {
 
     #[test]
     fn causal_ambiguity_plausible_count() {
-        let c = CausalAmbiguity { plausible_mask: 0b0000_0101, leading_confidence: 0.5 };
+        let c = CausalAmbiguity {
+            plausible_mask: 0b0000_0101,
+            leading_confidence: 0.5,
+        };
         assert_eq!(c.plausible_count(), 2);
         assert!(!c.is_resolved(0.75));
     }

@@ -8,8 +8,12 @@ use crate::PlanError;
 pub struct StreamPipeline;
 
 impl PlanStrategy for StreamPipeline {
-    fn name(&self) -> &str { "stream_pipeline" }
-    fn capability(&self) -> PlanCapability { PlanCapability::StreamExecution }
+    fn name(&self) -> &str {
+        "stream_pipeline"
+    }
+    fn capability(&self) -> PlanCapability {
+        PlanCapability::StreamExecution
+    }
 
     fn affinity(&self, context: &PlanContext) -> f32 {
         // Streaming is better for large result sets
@@ -20,7 +24,11 @@ impl PlanStrategy for StreamPipeline {
         }
     }
 
-    fn plan(&self, input: PlanInput, _arena: &mut Arena<LogicalOp>) -> Result<PlanInput, PlanError> {
+    fn plan(
+        &self,
+        input: PlanInput,
+        _arena: &mut Arena<LogicalOp>,
+    ) -> Result<PlanInput, PlanError> {
         // Adds backpressure tokens and multiplexer auto-insertion
         // from the Polars streaming model.
         // Subgraph-at-a-time scheduling with memory bounds.

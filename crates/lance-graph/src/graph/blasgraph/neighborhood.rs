@@ -201,7 +201,11 @@ impl ProgressiveU16Vector {
     pub fn from_neighborhood(nv: &NeighborhoodVector) -> Self {
         Self {
             node_id: nv.node_id,
-            values: nv.edges.iter().map(|&e| zeckf64::progressive_u16(e)).collect(),
+            values: nv
+                .edges
+                .iter()
+                .map(|&e| zeckf64::progressive_u16(e))
+                .collect(),
         }
     }
 

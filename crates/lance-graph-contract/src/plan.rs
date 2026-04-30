@@ -3,9 +3,9 @@
 //! Defines the traits that lance-graph-planner implements and
 //! consumers (ladybug-rs, n8n-rs) call.
 
-use crate::thinking::{ThinkingStyle, FieldModulation};
-use crate::mul::{MulAssessment, SituationInput, GateDecision};
+use crate::mul::{GateDecision, MulAssessment, SituationInput};
 use crate::nars::{InferenceType, SemiringChoice};
+use crate::thinking::{FieldModulation, ThinkingStyle};
 
 /// Thinking context — the full resolved state for one query.
 ///
@@ -73,8 +73,10 @@ impl core::fmt::Display for PlanError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::GateBlocked { reason } => write!(f, "MUL gate blocked: {reason}"),
-            Self::SurfaceToMeta { compass_score, reason } =>
-                write!(f, "Surface to meta (compass={compass_score:.3}): {reason}"),
+            Self::SurfaceToMeta {
+                compass_score,
+                reason,
+            } => write!(f, "Surface to meta (compass={compass_score:.3}): {reason}"),
             Self::Parse(s) => write!(f, "Parse: {s}"),
             Self::Plan(s) => write!(f, "Plan: {s}"),
             Self::Optimize(s) => write!(f, "Optimize: {s}"),
@@ -102,7 +104,10 @@ pub enum StrategySelector {
 
 impl Default for StrategySelector {
     fn default() -> Self {
-        Self::Auto { max_per_phase: 3, min_affinity: 0.1 }
+        Self::Auto {
+            max_per_phase: 3,
+            min_affinity: 0.1,
+        }
     }
 }
 
@@ -142,11 +147,7 @@ pub trait PlannerContract: Send + Sync {
     fn set_selector(&mut self, selector: StrategySelector);
 
     /// Orchestrate: resolve thinking context from query + MUL.
-    fn orchestrate(
-        &self,
-        query: &str,
-        mul: &MulAssessment,
-    ) -> ThinkingContext;
+    fn orchestrate(&self, query: &str, mul: &MulAssessment) -> ThinkingContext;
 
     /// Gate check only (without full planning).
     fn gate_check(&self, situation: &SituationInput) -> GateDecision;

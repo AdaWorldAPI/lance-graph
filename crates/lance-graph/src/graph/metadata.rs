@@ -180,9 +180,8 @@ impl MetadataStore {
 
     /// Remove edges between source and target with a given type.
     pub fn remove_edge(&mut self, source: u32, target: u32, edge_type: &str) {
-        self.edges.retain(|e| {
-            !(e.source == source && e.target == target && e.edge_type == edge_type)
-        });
+        self.edges
+            .retain(|e| !(e.source == source && e.target == target && e.edge_type == edge_type));
     }
 
     /// Get all distinct labels in the store.
@@ -215,19 +214,15 @@ impl MetadataStore {
     ///
     /// Automatically maps all labels and edge types found in the store.
     fn build_config(&self) -> Result<GraphConfig> {
-        let mut builder = GraphConfig::builder()
-            .with_default_node_id_field("node_id");
+        let mut builder = GraphConfig::builder().with_default_node_id_field("node_id");
 
         for label in self.labels() {
             builder = builder.with_node_label(label, "node_id".to_string());
         }
 
         for edge_type in self.edge_types() {
-            builder = builder.with_relationship(
-                edge_type,
-                "source".to_string(),
-                "target".to_string(),
-            );
+            builder =
+                builder.with_relationship(edge_type, "source".to_string(), "target".to_string());
         }
 
         builder.build()

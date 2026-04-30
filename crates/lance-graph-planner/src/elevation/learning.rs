@@ -88,11 +88,14 @@ impl ElevationLearner {
         history: &ElevationHistory,
     ) {
         let final_level = history.final_level().unwrap_or(start_level);
-        self.observations.entry(feature_hash).or_default().push(LevelObservation {
-            start_level,
-            final_level,
-            elevations: history.elevation_count(),
-        });
+        self.observations
+            .entry(feature_hash)
+            .or_default()
+            .push(LevelObservation {
+                start_level,
+                final_level,
+                elevations: history.elevation_count(),
+            });
     }
 
     /// Predict the recommended starting level for a query with this feature hash.
@@ -111,8 +114,7 @@ impl ElevationLearner {
             *level_counts.entry(o.final_level).or_default() += 1;
         }
 
-        let (most_common_level, count) = level_counts.iter()
-            .max_by_key(|(_, count)| *count)?;
+        let (most_common_level, count) = level_counts.iter().max_by_key(|(_, count)| *count)?;
 
         // Only recommend if >50% of observations agree
         if *count * 2 > obs.len() {
@@ -131,10 +133,16 @@ impl ElevationLearner {
         has_aggregation: bool,
     ) -> u64 {
         let mut h: u64 = 0;
-        if has_vlp { h |= 1; }
+        if has_vlp {
+            h |= 1;
+        }
         h |= (num_match as u64 & 0xFF) << 8;
-        if has_fingerprint { h |= 1 << 16; }
-        if has_aggregation { h |= 1 << 17; }
+        if has_fingerprint {
+            h |= 1 << 16;
+        }
+        if has_aggregation {
+            h |= 1 << 17;
+        }
         h
     }
 }
@@ -147,8 +155,8 @@ impl Default for ElevationLearner {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::ElevationTrigger;
+    use super::*;
     use std::time::{Duration, Instant};
 
     fn make_history(from: ElevationLevel, to: ElevationLevel) -> ElevationHistory {
@@ -193,9 +201,21 @@ mod tests {
         let hash = 99;
 
         // Mixed: some go to Cascade, some to Batch, some to IvfBatch
-        learner.observe(hash, ElevationLevel::Scan, &make_history(ElevationLevel::Scan, ElevationLevel::Cascade));
-        learner.observe(hash, ElevationLevel::Scan, &make_history(ElevationLevel::Scan, ElevationLevel::Batch));
-        learner.observe(hash, ElevationLevel::Scan, &make_history(ElevationLevel::Scan, ElevationLevel::IvfBatch));
+        learner.observe(
+            hash,
+            ElevationLevel::Scan,
+            &make_history(ElevationLevel::Scan, ElevationLevel::Cascade),
+        );
+        learner.observe(
+            hash,
+            ElevationLevel::Scan,
+            &make_history(ElevationLevel::Scan, ElevationLevel::Batch),
+        );
+        learner.observe(
+            hash,
+            ElevationLevel::Scan,
+            &make_history(ElevationLevel::Scan, ElevationLevel::IvfBatch),
+        );
 
         // No majority — no prediction
         assert_eq!(learner.predict_start_level(hash), None);

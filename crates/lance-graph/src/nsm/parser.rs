@@ -271,12 +271,7 @@ pub fn parse(tokens: &[Token]) -> SentenceStructure {
                     }
                     PoS::C => {
                         // Conjunction: emit current triple, fork
-                        emit_triple(
-                            &subject_np,
-                            current_verb,
-                            &object_np,
-                            &mut result,
-                        );
+                        emit_triple(&subject_np, current_verb, &object_np, &mut result);
                         last_verb = current_verb;
                         // Reset for next clause
                         let saved_subject = subject_np.clone();
@@ -297,12 +292,7 @@ pub fn parse(tokens: &[Token]) -> SentenceStructure {
                             });
                         }
                         // Emit current triple before prep phrase
-                        emit_triple(
-                            &subject_np,
-                            current_verb,
-                            &object_np,
-                            &mut result,
-                        );
+                        emit_triple(&subject_np, current_verb, &object_np, &mut result);
                         last_verb = current_verb;
                         current_verb = None;
                         object_np.clear();
@@ -310,12 +300,7 @@ pub fn parse(tokens: &[Token]) -> SentenceStructure {
                     }
                     PoS::V | PoS::M => {
                         // New verb: emit current triple, start new clause
-                        emit_triple(
-                            &subject_np,
-                            current_verb,
-                            &object_np,
-                            &mut result,
-                        );
+                        emit_triple(&subject_np, current_verb, &object_np, &mut result);
                         // The object NP becomes the new subject
                         subject_np = object_np.clone();
                         last_subject_head = subject_np.head();
@@ -438,7 +423,9 @@ fn emit_triple(
     // Object may be empty (intransitive verb)
     let object = object_np.head().unwrap_or(0);
 
-    result.triples.push(SpoTriple::new(subject, predicate, object));
+    result
+        .triples
+        .push(SpoTriple::new(subject, predicate, object));
 
     // Attach object adjectives to object head
     if let Some(head) = object_np.head() {
@@ -486,10 +473,10 @@ mod tests {
         // "the cat chases the dog"
         let tokens = vec![
             make_token(9, PoS::D, 0, false),  // the
-            make_token(50, PoS::N, 1, false),  // cat
-            make_token(67, PoS::V, 2, false),  // chases
-            make_token(9, PoS::D, 3, false),   // the
-            make_token(51, PoS::N, 4, false),  // dog
+            make_token(50, PoS::N, 1, false), // cat
+            make_token(67, PoS::V, 2, false), // chases
+            make_token(9, PoS::D, 3, false),  // the
+            make_token(51, PoS::N, 4, false), // dog
         ];
         let result = parse(&tokens);
         assert_eq!(result.triples.len(), 1);
@@ -502,28 +489,20 @@ mod tests {
     fn test_adjective_modifier() {
         // "big cat chases small dog"
         let tokens = vec![
-            make_token(19, PoS::J, 0, false),  // big
-            make_token(50, PoS::N, 1, false),  // cat
-            make_token(67, PoS::V, 2, false),  // chases
-            make_token(20, PoS::J, 3, false),  // small
-            make_token(51, PoS::N, 4, false),  // dog
+            make_token(19, PoS::J, 0, false), // big
+            make_token(50, PoS::N, 1, false), // cat
+            make_token(67, PoS::V, 2, false), // chases
+            make_token(20, PoS::J, 3, false), // small
+            make_token(51, PoS::N, 4, false), // dog
         ];
         let result = parse(&tokens);
         assert_eq!(result.triples.len(), 1);
         // "big" should be attached to "cat"
-        let big_mod = result
-            .modifiers
-            .iter()
-            .find(|m| m.modifier == 19)
-            .unwrap();
+        let big_mod = result.modifiers.iter().find(|m| m.modifier == 19).unwrap();
         assert_eq!(big_mod.head, 50); // cat
         assert_eq!(big_mod.relation, ModRelation::AdjectiveOf);
         // "small" should be attached to "dog"
-        let small_mod = result
-            .modifiers
-            .iter()
-            .find(|m| m.modifier == 20)
-            .unwrap();
+        let small_mod = result.modifiers.iter().find(|m| m.modifier == 20).unwrap();
         assert_eq!(small_mod.head, 51); // dog
         assert_eq!(small_mod.relation, ModRelation::AdjectiveOf);
     }
@@ -532,8 +511,8 @@ mod tests {
     fn test_negation() {
         // "cat does not run" -> negated verb
         let tokens = vec![
-            make_token(50, PoS::N, 0, false),  // cat
-            make_token(60, PoS::V, 1, true),   // run (negated)
+            make_token(50, PoS::N, 0, false), // cat
+            make_token(60, PoS::V, 1, true),  // run (negated)
         ];
         let result = parse(&tokens);
         assert_eq!(result.triples.len(), 1);
@@ -544,11 +523,11 @@ mod tests {
     fn test_conjunction_forks() {
         // "cat chases dog and mouse" -> two triples
         let tokens = vec![
-            make_token(50, PoS::N, 0, false),  // cat
-            make_token(67, PoS::V, 1, false),  // chases
-            make_token(51, PoS::N, 2, false),  // dog
-            make_token(45, PoS::C, 3, false),  // and
-            make_token(70, PoS::N, 4, false),  // mat (standing in for mouse)
+            make_token(50, PoS::N, 0, false), // cat
+            make_token(67, PoS::V, 1, false), // chases
+            make_token(51, PoS::N, 2, false), // dog
+            make_token(45, PoS::C, 3, false), // and
+            make_token(70, PoS::N, 4, false), // mat (standing in for mouse)
         ];
         let result = parse(&tokens);
         assert_eq!(result.triples.len(), 2);
@@ -566,17 +545,13 @@ mod tests {
     fn test_adverb_modifier() {
         // "cat runs quickly"
         let tokens = vec![
-            make_token(50, PoS::N, 0, false),  // cat
-            make_token(60, PoS::V, 1, false),  // runs
-            make_token(66, PoS::R, 2, false),  // quickly
+            make_token(50, PoS::N, 0, false), // cat
+            make_token(60, PoS::V, 1, false), // runs
+            make_token(66, PoS::R, 2, false), // quickly
         ];
         let result = parse(&tokens);
         assert_eq!(result.triples.len(), 1);
-        let adv_mod = result
-            .modifiers
-            .iter()
-            .find(|m| m.modifier == 66)
-            .unwrap();
+        let adv_mod = result.modifiers.iter().find(|m| m.modifier == 66).unwrap();
         assert_eq!(adv_mod.head, 60); // run
         assert_eq!(adv_mod.relation, ModRelation::AdverbOf);
     }

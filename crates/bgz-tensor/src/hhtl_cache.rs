@@ -21,12 +21,12 @@
 //!   TWIG: bgz7 → per-row Base17 lookup (17+ MB, feature-gated download)
 //!   LEAF: BF16 from HuggingFace → never stored locally
 
-use crate::projection::Base17;
-use crate::palette::WeightPalette;
 use crate::attention::AttentionTable;
+use crate::palette::WeightPalette;
+use crate::projection::Base17;
 // ScentByte reserved for future scent-level cascade integration
 #[allow(unused_imports)]
-use crate::cascade::{ScentByte, CascadeConfig};
+use crate::cascade::{CascadeConfig, ScentByte};
 
 /// Precomputed action for an archetype pair.
 ///
@@ -88,7 +88,12 @@ impl HhtlCache {
     pub fn from_palette_with_config(palette: WeightPalette, config: &CascadeConfig) -> Self {
         let distances = AttentionTable::build(&palette);
         let routes = build_route_table(&palette, &distances, config);
-        Self { palette, distances, routes, gamma_meta: [0.0; 4] }
+        Self {
+            palette,
+            distances,
+            routes,
+            gamma_meta: [0.0; 4],
+        }
     }
 
     /// Build from raw Base17 rows (e.g., read from bgz7 shards).
@@ -166,7 +171,12 @@ impl HhtlCache {
         let config = CascadeConfig::default();
         let routes = build_route_table(&palette, &distances, &config);
 
-        Self { palette, distances, routes, gamma_meta: [0.0; 4] }
+        Self {
+            palette,
+            distances,
+            routes,
+            gamma_meta: [0.0; 4],
+        }
     }
 
     /// Palette size (number of archetypes).
@@ -213,7 +223,8 @@ impl HhtlCache {
         let mut f = std::fs::File::create(path).map_err(|e| e.to_string())?;
 
         f.write_all(b"HHTL").map_err(|e| e.to_string())?;
-        f.write_all(&(k as u16).to_le_bytes()).map_err(|e| e.to_string())?;
+        f.write_all(&(k as u16).to_le_bytes())
+            .map_err(|e| e.to_string())?;
 
         // Palette entries
         for entry in &self.palette.entries {
@@ -310,13 +321,20 @@ impl HhtlCache {
         if f.read_exact(&mut gamma_buf).is_ok() {
             for i in 0..4 {
                 gamma_meta[i] = f32::from_le_bytes([
-                    gamma_buf[i*4], gamma_buf[i*4+1], gamma_buf[i*4+2], gamma_buf[i*4+3],
+                    gamma_buf[i * 4],
+                    gamma_buf[i * 4 + 1],
+                    gamma_buf[i * 4 + 2],
+                    gamma_buf[i * 4 + 3],
                 ]);
             }
         }
 
         Ok(Self {
-            palette: WeightPalette { entries, radii, counts },
+            palette: WeightPalette {
+                entries,
+                radii,
+                counts,
+            },
             distances: AttentionTable { distances, k },
             routes,
             gamma_meta,
@@ -364,7 +382,9 @@ fn perceptual_weight(entry: &Base17) -> f32 {
     let formant_energy: i64 = dims[5..11].iter().map(|&d| (d as i64).abs()).sum();
     // Total energy across all dims
     let total_energy: i64 = dims.iter().map(|&d| (d as i64).abs()).sum();
-    if total_energy < 1 { return 1.0; }
+    if total_energy < 1 {
+        return 1.0;
+    }
     // Formant fraction: how much of this entry's energy is in the sensitive band
     let formant_frac = formant_energy as f32 / total_energy as f32;
     // Map: 0% formant → weight 0.5 (can skip aggressively)
@@ -402,14 +422,18 @@ fn build_route_table(
     all_dists.sort_unstable();
     let n = all_dists.len();
     let p25 = if n > 0 { all_dists[n / 4] } else { 0 };
-    let p75 = if n > 0 { all_dists[3 * n / 4] } else { u16::MAX };
+    let p75 = if n > 0 {
+        all_dists[3 * n / 4]
+    } else {
+        u16::MAX
+    };
 
     for a in 0..k {
         for b in 0..k {
             let dist = distances.distance(a as u8, b as u8);
             // Perceptual-weighted skip threshold: formant pairs harder to skip
-            let pair_weight = (pw.get(a).copied().unwrap_or(1.0)
-                             + pw.get(b).copied().unwrap_or(1.0)) / 2.0;
+            let pair_weight =
+                (pw.get(a).copied().unwrap_or(1.0) + pw.get(b).copied().unwrap_or(1.0)) / 2.0;
             let weighted_p75 = (p75 as f32 * pair_weight) as u16;
 
             // Skip: distance above perceptual-weighted 75th percentile
@@ -422,7 +446,9 @@ fn build_route_table(
             // (exists intermediate c where d(a,c) + d(c,b) < d(a,b) * 1.1)
             let mut has_shortcut = false;
             for c in 0..k {
-                if c == a || c == b { continue; }
+                if c == a || c == b {
+                    continue;
+                }
                 let d_ac = distances.distance(a as u8, c as u8) as u32;
                 let d_cb = distances.distance(c as u8, b as u8) as u32;
                 let d_ab = dist as u32;
@@ -498,7 +524,9 @@ impl HhtlCache {
     ///
     /// Returns None if k > 64 (use full HHTL instead).
     pub fn as_p64_distances(&self) -> Option<[[u16; 64]; 64]> {
-        if self.k() > 64 { return None; }
+        if self.k() > 64 {
+            return None;
+        }
         let k = self.k();
         let mut matrix = [[0u16; 64]; 64];
         for (i, row) in matrix.iter_mut().enumerate().take(k) {
@@ -522,12 +550,14 @@ mod tests {
 
     #[test]
     fn test_hhtl_cache_small() {
-        let rows: Vec<Base17> = (0..10).map(|i| {
-            let mut dims = [0i16; 17];
-            dims[0] = (i * 100) as i16;
-            dims[1] = (i * 50) as i16;
-            Base17 { dims }
-        }).collect();
+        let rows: Vec<Base17> = (0..10)
+            .map(|i| {
+                let mut dims = [0i16; 17];
+                dims[0] = (i * 100) as i16;
+                dims[1] = (i * 50) as i16;
+                Base17 { dims }
+            })
+            .collect();
 
         let cache = HhtlCache::from_base17_rows(&rows, 256);
         assert_eq!(cache.k(), 10); // fewer rows than max_k
@@ -543,13 +573,15 @@ mod tests {
 
     #[test]
     fn test_hhtl_cache_serialization_roundtrip() {
-        let rows: Vec<Base17> = (0..20).map(|i| {
-            let mut dims = [0i16; 17];
-            dims[0] = (i * 100) as i16;
-            dims[3] = (i * 77) as i16;
-            dims[16] = -(i * 30) as i16;
-            Base17 { dims }
-        }).collect();
+        let rows: Vec<Base17> = (0..20)
+            .map(|i| {
+                let mut dims = [0i16; 17];
+                dims[0] = (i * 100) as i16;
+                dims[3] = (i * 77) as i16;
+                dims[16] = -(i * 30) as i16;
+                Base17 { dims }
+            })
+            .collect();
 
         let cache = HhtlCache::from_base17_rows(&rows, 16);
         assert_eq!(cache.k(), 16);
@@ -582,12 +614,14 @@ mod tests {
     #[test]
     fn test_hhtl_cache_256_size() {
         // Verify file size for k=256
-        let rows: Vec<Base17> = (0..300).map(|i| {
-            let mut dims = [0i16; 17];
-            dims[0] = (i % 256) as i16 * 100;
-            dims[1] = (i / 3) as i16;
-            Base17 { dims }
-        }).collect();
+        let rows: Vec<Base17> = (0..300)
+            .map(|i| {
+                let mut dims = [0i16; 17];
+                dims[0] = (i % 256) as i16 * 100;
+                dims[1] = (i / 3) as i16;
+                Base17 { dims }
+            })
+            .collect();
 
         let cache = HhtlCache::from_base17_rows(&rows, 256);
         assert_eq!(cache.k(), 256);
@@ -598,7 +632,10 @@ mod tests {
         let size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
         // 4 magic + 2 k + 256×34 entries + 256×256×2 distances + 256×256×1 routes + 256×4 radii
         let expected = 4 + 2 + 256 * 34 + 256 * 256 * 2 + 256 * 256 * 1 + 256 * 4;
-        assert_eq!(size, expected as u64, "expected {expected} bytes, got {size}");
+        assert_eq!(
+            size, expected as u64,
+            "expected {expected} bytes, got {size}"
+        );
 
         std::fs::remove_file(path).ok();
     }

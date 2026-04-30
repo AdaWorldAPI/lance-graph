@@ -99,7 +99,7 @@ pub fn compute_mfdfa_descriptor(row: &[f32]) -> FractalDescriptor {
     let h_q = generalized_hurst(&rotated, &q_values);
 
     let h2 = h_q[4]; // q = 2.0
-    // Multifractal spectrum width via finite-diff Legendre transform.
+                     // Multifractal spectrum width via finite-diff Legendre transform.
     let w = spectrum_width(&q_values, &h_q);
     // Box-counting fractal dim from Hurst (1-D series): D = 2 − H.
     let d = (2.0 - h2).clamp(0.0, 2.0);
@@ -289,14 +289,20 @@ impl PhaseDescriptor {
     /// 4. Normalize by window size → flip density.
     pub fn from_row(row: &[f32]) -> Self {
         let n = row.len();
-        assert!(n.is_power_of_two() && n >= 64, "row length must be power of 2 ≥ 64");
+        assert!(
+            n.is_power_of_two() && n >= 64,
+            "row length must be power of 2 ≥ 64"
+        );
 
         // Rotate into orthogonal basis.
         let mut rotated = row.to_vec();
         wht_f32(&mut rotated);
 
         // Sign sequence: +1 for non-negative, −1 otherwise.
-        let signs: Vec<i8> = rotated.iter().map(|&x| if x >= 0.0 { 1 } else { -1 }).collect();
+        let signs: Vec<i8> = rotated
+            .iter()
+            .map(|&x| if x >= 0.0 { 1 } else { -1 })
+            .collect();
 
         // Flip density at each scale.
         let mut flip_density = [0.0_f32; 5];
@@ -354,7 +360,9 @@ mod tests {
         let mut state = seed;
         (0..n)
             .map(|_| {
-                state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+                state = state
+                    .wrapping_mul(6364136223846793005)
+                    .wrapping_add(1442695040888963407);
                 ((state >> 32) as i32 as f32) / i32::MAX as f32
             })
             .collect()
@@ -423,7 +431,10 @@ mod tests {
         let recovered = d.sigma_energy_f32();
         // BF16 precision is ~2^-7 relative; allow 1% tolerance.
         let rel_err = (recovered - expected_energy).abs() / expected_energy.max(1e-6);
-        assert!(rel_err < 0.01, "energy {expected_energy} → {recovered}, rel_err {rel_err}");
+        assert!(
+            rel_err < 0.01,
+            "energy {expected_energy} → {recovered}, rel_err {rel_err}"
+        );
     }
 
     #[test]
@@ -433,6 +444,9 @@ mod tests {
         let d = compute_mfdfa_descriptor(&row);
         let w = d.w_mfs_f32();
         // Real signals always have some w; just ensure it's not blown up.
-        assert!(w < 1.5, "monofractal spectrum width should be < 1.5, got {w}");
+        assert!(
+            w < 1.5,
+            "monofractal spectrum width should be < 1.5, got {w}"
+        );
     }
 }

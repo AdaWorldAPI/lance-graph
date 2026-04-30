@@ -232,13 +232,11 @@ impl<'a> OsintRetriever<'a> {
     /// 2. Filters triplets by truth expectation threshold.
     /// 3. Retrieves top-k similar episodes from memory.
     /// 4. Returns the merged result.
-    pub fn retrieve(
-        &self,
-        seed_entities: &HashSet<String>,
-        query: &str,
-    ) -> RetrievalResult {
+    pub fn retrieve(&self, seed_entities: &HashSet<String>, query: &str) -> RetrievalResult {
         // Graph BFS retrieval
-        let associated = self.graph.get_associated(seed_entities, self.config.max_depth);
+        let associated = self
+            .graph
+            .get_associated(seed_entities, self.config.max_depth);
 
         let mut graph_context: Vec<String> = Vec::new();
         let mut entities: HashSet<String> = seed_entities.clone();
@@ -282,8 +280,7 @@ impl<'a> OsintRetriever<'a> {
         let mut depth_map: HashMap<String, usize> = HashMap::new();
 
         // Track depths during manual BFS
-        let mut current: HashSet<String> =
-            seed_entities.iter().map(|e| e.to_lowercase()).collect();
+        let mut current: HashSet<String> = seed_entities.iter().map(|e| e.to_lowercase()).collect();
         for entity in &current {
             depth_map.insert(entity.clone(), 0);
         }
@@ -369,8 +366,16 @@ mod tests {
         ]);
 
         let mut memory = EpisodicMemory::new(10);
-        memory.add("Alice met Bob at the park", &["alice - knows - bob".to_string()], 1);
-        memory.add("Carol introduced Dave to the group", &["carol - knows - dave".to_string()], 2);
+        memory.add(
+            "Alice met Bob at the park",
+            &["alice - knows - bob".to_string()],
+            1,
+        );
+        memory.add(
+            "Carol introduced Dave to the group",
+            &["carol - knows - dave".to_string()],
+            2,
+        );
 
         (graph, memory)
     }

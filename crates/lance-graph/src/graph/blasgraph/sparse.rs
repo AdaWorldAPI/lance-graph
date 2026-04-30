@@ -835,8 +835,8 @@ mod tests {
 
     #[test]
     fn test_should_use_heuristic() {
-        assert!(HyperCsrStorage::should_use(5, 1000));    // 0.005 < 0.1
+        assert!(HyperCsrStorage::should_use(5, 1000)); // 0.005 < 0.1
         assert!(!HyperCsrStorage::should_use(200, 1000)); // 0.2 > 0.1
-        assert!(!HyperCsrStorage::should_use(0, 0));      // empty
+        assert!(!HyperCsrStorage::should_use(0, 0)); // empty
     }
 }

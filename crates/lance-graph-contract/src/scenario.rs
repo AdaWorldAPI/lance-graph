@@ -287,8 +287,7 @@ pub trait ScenarioWorld {
     /// dispatches via the branch's `inference_mode` (typically
     /// `CounterfactualSynthesis`), consulting the archetype prior
     /// (if any) and applying any pending interventions.
-    fn simulate_forward(&self, branch: &ScenarioBranch, steps: u32)
-        -> Result<u64, String>;
+    fn simulate_forward(&self, branch: &ScenarioBranch, steps: u32) -> Result<u64, String>;
 
     /// Compose-chain palette forecast (Chronos-extracted method).
     /// Returns the palette index sequence the branch is expected to
@@ -393,8 +392,7 @@ mod tests {
 
     #[test]
     fn override_inference_mode() {
-        let b = ScenarioBranch::new("x", 0, "tag", 0)
-            .with_inference_mode(0); // Deduction
+        let b = ScenarioBranch::new("x", 0, "tag", 0).with_inference_mode(0); // Deduction
         assert_eq!(b.inference_mode, 0);
     }
 }

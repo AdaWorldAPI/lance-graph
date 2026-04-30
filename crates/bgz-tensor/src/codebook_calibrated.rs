@@ -14,10 +14,10 @@
 
 // StackedN reserved for future stacked-resolution codebook path
 #[allow(unused_imports)]
-use crate::stacked_n::{StackedN, cosine_f32_slice};
+use crate::stacked_n::{cosine_f32_slice, StackedN};
 // gamma_phi_encode/decode reserved for future per-codebook calibration path
 #[allow(unused_imports)]
-use crate::gamma_phi::{GammaProfile, calibrate_gamma, gamma_phi_encode, gamma_phi_decode};
+use crate::gamma_phi::{calibrate_gamma, gamma_phi_decode, gamma_phi_encode, GammaProfile};
 use std::f64::consts::GOLDEN_RATIO;
 
 /// Calibrated codebook: centroids + γ-corrected u8 distance table.
@@ -52,10 +52,18 @@ impl CalibratedCodebook {
 
         if k == 0 || dim == 0 {
             return Self {
-                centroids_f32: Vec::new(), distance_table: Vec::new(),
-                gamma: GammaProfile { model_name: String::new(), role_gamma: [0.01; 8],
-                    phi_scale: 0.01, n_calibration: 0 },
-                k: 0, dim: 0, raw_cosine_range: (0.0, 0.0), calibrated_entropy: 0.0,
+                centroids_f32: Vec::new(),
+                distance_table: Vec::new(),
+                gamma: GammaProfile {
+                    model_name: String::new(),
+                    role_gamma: [0.01; 8],
+                    phi_scale: 0.01,
+                    n_calibration: 0,
+                },
+                k: 0,
+                dim: 0,
+                raw_cosine_range: (0.0, 0.0),
+                calibrated_entropy: 0.0,
             };
         }
 
@@ -74,18 +82,22 @@ impl CalibratedCodebook {
 
         // Greedily select furthest point
         for _ in 1..k {
-            let next = max_dist.iter().enumerate()
+            let next = max_dist
+                .iter()
+                .enumerate()
                 .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
-                .map(|(i, _)| i).unwrap_or(0);
+                .map(|(i, _)| i)
+                .unwrap_or(0);
             selected.push(next);
             for i in 0..n {
                 let d = 1.0 - cosine_f32_slice(&vectors[i], &vectors[next]);
-                if d < max_dist[i] { max_dist[i] = d; }
+                if d < max_dist[i] {
+                    max_dist[i] = d;
+                }
             }
         }
 
-        let centroids_f32: Vec<Vec<f32>> = selected.iter()
-            .map(|&i| vectors[i].clone()).collect();
+        let centroids_f32: Vec<Vec<f32>> = selected.iter().map(|&i| vectors[i].clone()).collect();
 
         // ══════════════════════════════════════════════════════════════════
         // PASS 2: Measure raw cosine distribution → γ+φ calibrate
@@ -102,8 +114,12 @@ impl CalibratedCodebook {
                 let cos = cosine_f32_slice(&centroids_f32[i], &centroids_f32[j]);
                 raw_cosines[i * k + j] = cos;
                 raw_cosines[j * k + i] = cos;
-                if cos < min_cos { min_cos = cos; }
-                if cos > max_cos && i != j { max_cos = cos; }
+                if cos < min_cos {
+                    min_cos = cos;
+                }
+                if cos > max_cos && i != j {
+                    max_cos = cos;
+                }
             }
         }
 
@@ -118,7 +134,12 @@ impl CalibratedCodebook {
         // where most pairs cluster. The φ distribution ensures the u8 levels
         // sit at maximally irrational spacings.
         let role_idx = match role_name {
-            "Q" => 0, "K" => 1, "V" => 2, "Gate" => 3, "Up" => 4, "Down" => 5,
+            "Q" => 0,
+            "K" => 1,
+            "V" => 2,
+            "Gate" => 3,
+            "Up" => 4,
+            "Down" => 5,
             _ => 0,
         };
         let role_gamma = gamma.role_gamma[role_idx];
@@ -134,7 +155,8 @@ impl CalibratedCodebook {
                 let cos = raw_cosines[i * k + j];
 
                 // γ+φ transform: cosine → calibrated u8
-                let calibrated = gamma_phi_cosine_to_u8(cos, min_cos, max_cos, role_gamma, phi_scale);
+                let calibrated =
+                    gamma_phi_cosine_to_u8(cos, min_cos, max_cos, role_gamma, phi_scale);
 
                 distance_table[i * k + j] = calibrated;
                 distance_table[j * k + i] = calibrated;
@@ -152,8 +174,11 @@ impl CalibratedCodebook {
         }
 
         CalibratedCodebook {
-            centroids_f32, distance_table, gamma,
-            k, dim,
+            centroids_f32,
+            distance_table,
+            gamma,
+            k,
+            dim,
             raw_cosine_range: (min_cos, max_cos),
             calibrated_entropy: entropy_acc,
         }
@@ -161,7 +186,9 @@ impl CalibratedCodebook {
 
     /// Assign a vector to the nearest centroid.
     pub fn assign(&self, vector: &[f32]) -> (u16, f64) {
-        self.centroids_f32.iter().enumerate()
+        self.centroids_f32
+            .iter()
+            .enumerate()
             .map(|(i, c)| (i as u16, cosine_f32_slice(vector, c)))
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .unwrap_or((0, 0.0))
@@ -177,10 +204,13 @@ impl CalibratedCodebook {
         format!(
             "CalibratedCodebook: k={}, dim={}, cosine_range=[{:.4}, {:.4}], entropy={:.2} bits\n\
              gamma: role_gamma={:.4}, phi_scale={:.4}",
-            self.k, self.dim,
-            self.raw_cosine_range.0, self.raw_cosine_range.1,
+            self.k,
+            self.dim,
+            self.raw_cosine_range.0,
+            self.raw_cosine_range.1,
             self.calibrated_entropy,
-            self.gamma.role_gamma[0], self.gamma.phi_scale,
+            self.gamma.role_gamma[0],
+            self.gamma.phi_scale,
         )
     }
 }
@@ -224,10 +254,13 @@ mod tests {
     use super::*;
 
     fn make_vectors(n: usize, dim: usize) -> Vec<Vec<f32>> {
-        (0..n).map(|i| {
-            (0..dim).map(|d| ((i * 97 + d * 31) as f32 % 200.0 - 100.0) * 0.01)
-                .collect()
-        }).collect()
+        (0..n)
+            .map(|i| {
+                (0..dim)
+                    .map(|d| ((i * 97 + d * 31) as f32 % 200.0 - 100.0) * 0.01)
+                    .collect()
+            })
+            .collect()
     }
 
     #[test]
@@ -254,8 +287,13 @@ mod tests {
         let cb = CalibratedCodebook::build(&vecs, 16, "Q");
         for i in 0..16 {
             for j in 0..16 {
-                assert_eq!(cb.distance_table[i * 16 + j], cb.distance_table[j * 16 + i],
-                    "table should be symmetric at ({},{})", i, j);
+                assert_eq!(
+                    cb.distance_table[i * 16 + j],
+                    cb.distance_table[j * 16 + i],
+                    "table should be symmetric at ({},{})",
+                    i,
+                    j
+                );
             }
         }
     }
@@ -264,7 +302,11 @@ mod tests {
     fn calibrated_entropy_positive() {
         let vecs = make_vectors(200, 256);
         let cb = CalibratedCodebook::build(&vecs, 32, "Q");
-        assert!(cb.calibrated_entropy > 0.0, "entropy should be positive: {}", cb.calibrated_entropy);
+        assert!(
+            cb.calibrated_entropy > 0.0,
+            "entropy should be positive: {}",
+            cb.calibrated_entropy
+        );
         eprintln!("Calibrated entropy: {:.2} bits", cb.calibrated_entropy);
     }
 
@@ -280,20 +322,35 @@ mod tests {
     #[test]
     fn gamma_phi_cosine_mapping() {
         // Test that γ+φ produces more u8 levels in the center than linear
-        let values: Vec<u8> = (0..100).map(|i| {
-            let cos = -1.0 + i as f64 * 0.02; // [-1, 1]
-            gamma_phi_cosine_to_u8(cos, -1.0, 1.0, 0.15, 0.5)
-        }).collect();
+        let values: Vec<u8> = (0..100)
+            .map(|i| {
+                let cos = -1.0 + i as f64 * 0.02; // [-1, 1]
+                gamma_phi_cosine_to_u8(cos, -1.0, 1.0, 0.15, 0.5)
+            })
+            .collect();
 
         // Should be monotone increasing
         for i in 1..values.len() {
-            assert!(values[i] >= values[i - 1],
-                "should be monotone: u8[{}]={} < u8[{}]={}", i, values[i], i-1, values[i-1]);
+            assert!(
+                values[i] >= values[i - 1],
+                "should be monotone: u8[{}]={} < u8[{}]={}",
+                i,
+                values[i],
+                i - 1,
+                values[i - 1]
+            );
         }
 
         // Should use more of the u8 range than linear
         let distinct: std::collections::HashSet<u8> = values.iter().copied().collect();
-        assert!(distinct.len() > 20, "should use many distinct u8 values: {}", distinct.len());
-        eprintln!("{} distinct u8 values from 100 cosine samples", distinct.len());
+        assert!(
+            distinct.len() > 20,
+            "should use many distinct u8 values: {}",
+            distinct.len()
+        );
+        eprintln!(
+            "{} distinct u8 values from 100 cosine samples",
+            distinct.len()
+        );
     }
 }

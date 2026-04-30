@@ -9,7 +9,7 @@
 //!
 //! Usage: cargo run --manifest-path crates/bgz-tensor/Cargo.toml --example gguf_families -- /path/to/model.gguf
 
-use bgz_tensor::stacked_n::{StackedN, ClamCodebook, bf16_to_f32, f32_to_bf16, cosine_f32_slice};
+use bgz_tensor::stacked_n::{bf16_to_f32, cosine_f32_slice, f32_to_bf16, ClamCodebook, StackedN};
 use bgz_tensor::variance::Role;
 use std::collections::HashMap;
 use std::io::{Read, Seek, SeekFrom};
@@ -25,13 +25,19 @@ fn main() {
 
     let mut file = match std::fs::File::open(&path) {
         Ok(f) => f,
-        Err(e) => { eprintln!("Cannot open {}: {}", path, e); return; }
+        Err(e) => {
+            eprintln!("Cannot open {}: {}", path, e);
+            return;
+        }
     };
 
     // ─── Parse GGUF header ──────────────────────────────────────────────
     let header = match parse_gguf_header(&mut file) {
         Ok(h) => h,
-        Err(e) => { eprintln!("GGUF parse error: {}", e); return; }
+        Err(e) => {
+            eprintln!("GGUF parse error: {}", e);
+            return;
+        }
     };
 
     println!("Tensors: {}", header.tensors.len());
@@ -50,7 +56,9 @@ fn main() {
             None => continue, // skip non-Q/K/V/Gate/Up/Down tensors
         };
 
-        if tensor.n_elements < 1024 { continue; } // skip tiny
+        if tensor.n_elements < 1024 {
+            continue;
+        } // skip tiny
 
         // Read and dequantize to f32
         let f32_data = match read_tensor_f32(&mut file, &header, tensor) {
@@ -63,7 +71,10 @@ fn main() {
 
         // Reshape into rows
         let (n_rows, n_cols) = if tensor.dims.len() >= 2 {
-            (tensor.dims[0] as usize, tensor.dims[1..].iter().map(|&d| d as usize).product())
+            (
+                tensor.dims[0] as usize,
+                tensor.dims[1..].iter().map(|&d| d as usize).product(),
+            )
         } else {
             (1, f32_data.len())
         };
@@ -83,11 +94,16 @@ fn main() {
         tensors_processed += 1;
 
         if tensors_processed % 20 == 0 {
-            eprint!("\rProcessed {} tensors, {} rows...", tensors_processed, total_rows);
+            eprint!(
+                "\rProcessed {} tensors, {} rows...",
+                tensors_processed, total_rows
+            );
         }
     }
-    eprintln!("\rProcessed {} tensors, {} rows, {} params total",
-        tensors_processed, total_rows, total_params);
+    eprintln!(
+        "\rProcessed {} tensors, {} rows, {} params total",
+        tensors_processed, total_rows, total_params
+    );
 
     // ─── Per-role summary ───────────────────────────────────────────────
     println!("\n=== Per-Role Row Counts ===");
@@ -119,9 +135,7 @@ fn main() {
             let rows = &rows[..limit];
 
             // Encode as StackedN
-            let encoded: Vec<StackedN> = rows.iter()
-                .map(|v| StackedN::from_f32(v, spd))
-                .collect();
+            let encoded: Vec<StackedN> = rows.iter().map(|v| StackedN::from_f32(v, spd)).collect();
 
             let bytes_per_vec = 17 * spd * 2;
             let raw_bytes = encoded.len() * bytes_per_vec;
@@ -161,9 +175,15 @@ fn main() {
             }
 
             let ratio = raw_bytes as f64 / family_bytes.max(1) as f64;
-            println!("  {:<5}: {} vecs → {} families, raw={:.0}KB family={:.0}KB ratio={:.1}×",
-                role.label(), encoded.len(), cb.entries.len(),
-                raw_bytes as f64 / 1024.0, family_bytes as f64 / 1024.0, ratio);
+            println!(
+                "  {:<5}: {} vecs → {} families, raw={:.0}KB family={:.0}KB ratio={:.1}×",
+                role.label(),
+                encoded.len(),
+                cb.entries.len(),
+                raw_bytes as f64 / 1024.0,
+                family_bytes as f64 / 1024.0,
+                ratio
+            );
 
             total_raw_bytes += raw_bytes;
             total_family_bytes += family_bytes;
@@ -172,13 +192,23 @@ fn main() {
         }
 
         let total_ratio = total_raw_bytes as f64 / total_family_bytes.max(1) as f64;
-        let mean_err = if cosine_errors.is_empty() { 0.0 }
-            else { cosine_errors.iter().sum::<f64>() / cosine_errors.len() as f64 };
+        let mean_err = if cosine_errors.is_empty() {
+            0.0
+        } else {
+            cosine_errors.iter().sum::<f64>() / cosine_errors.len() as f64
+        };
         let max_err = cosine_errors.iter().cloned().fold(0.0f64, f64::max);
 
-        println!("  TOTAL: {} vecs, {} families", total_vectors, total_families);
-        println!("  Raw: {:.0} KB, Family: {:.0} KB, Ratio: {:.1}×",
-            total_raw_bytes as f64 / 1024.0, total_family_bytes as f64 / 1024.0, total_ratio);
+        println!(
+            "  TOTAL: {} vecs, {} families",
+            total_vectors, total_families
+        );
+        println!(
+            "  Raw: {:.0} KB, Family: {:.0} KB, Ratio: {:.1}×",
+            total_raw_bytes as f64 / 1024.0,
+            total_family_bytes as f64 / 1024.0,
+            total_ratio
+        );
         println!("  Cosine error: mean={:.4}, max={:.4}\n", mean_err, max_err);
     }
 
@@ -189,7 +219,7 @@ fn main() {
         for &spd in &[32, 64] {
             let mut errors = Vec::new();
             for i in 0..sample {
-                for j in (i+1)..sample.min(i+5) {
+                for j in (i + 1)..sample.min(i + 5) {
                     let gt = cosine_f32_slice(&q_rows[i], &q_rows[j]);
                     let a = StackedN::from_f32(&q_rows[i], spd);
                     let b = StackedN::from_f32(&q_rows[j], spd);
@@ -201,8 +231,13 @@ fn main() {
             }
             let mean = errors.iter().sum::<f64>() / errors.len().max(1) as f64;
             let max = errors.iter().cloned().fold(0.0f64, f64::max);
-            println!("  SPD={}: leaf↔gt mean_err={:.6}, max_err={:.6} ({} pairs)",
-                spd, mean, max, errors.len());
+            println!(
+                "  SPD={}: leaf↔gt mean_err={:.6}, max_err={:.6} ({} pairs)",
+                spd,
+                mean,
+                max,
+                errors.len()
+            );
         }
     }
 
@@ -233,12 +268,16 @@ fn parse_gguf_header<R: Read + Seek>(r: &mut R) -> Result<GgufHeader, String> {
     // Magic
     r.read_exact(&mut buf4).map_err(|e| e.to_string())?;
     let magic = u32::from_le_bytes(buf4);
-    if magic != 0x46554747 { return Err(format!("bad magic: {:#x}", magic)); }
+    if magic != 0x46554747 {
+        return Err(format!("bad magic: {:#x}", magic));
+    }
 
     // Version
     r.read_exact(&mut buf4).map_err(|e| e.to_string())?;
     let version = u32::from_le_bytes(buf4);
-    if version < 2 || version > 3 { return Err(format!("unsupported version: {}", version)); }
+    if version < 2 || version > 3 {
+        return Err(format!("unsupported version: {}", version));
+    }
 
     // Tensor count
     r.read_exact(&mut buf8).map_err(|e| e.to_string())?;
@@ -283,7 +322,13 @@ fn parse_gguf_header<R: Read + Seek>(r: &mut R) -> Result<GgufHeader, String> {
         let offset = u64::from_le_bytes(buf8);
 
         let n_elements: u64 = dims.iter().product();
-        tensors.push(TensorMeta { name, dims, dtype, offset, n_elements });
+        tensors.push(TensorMeta {
+            name,
+            dims,
+            dtype,
+            offset,
+            n_elements,
+        });
     }
 
     // Data starts at next alignment boundary (default: 32 bytes)
@@ -291,7 +336,10 @@ fn parse_gguf_header<R: Read + Seek>(r: &mut R) -> Result<GgufHeader, String> {
     let align = 32u64;
     let data_offset = (pos + align - 1) / align * align;
 
-    Ok(GgufHeader { tensors, data_offset })
+    Ok(GgufHeader {
+        tensors,
+        data_offset,
+    })
 }
 
 fn skip_gguf_kv<R: Read + Seek>(r: &mut R, _version: u32) -> Result<(), String> {
@@ -316,16 +364,25 @@ fn skip_gguf_value<R: Read + Seek>(r: &mut R, vtype: u32) -> Result<(), String> 
     let mut buf8 = [0u8; 8];
     let mut buf4 = [0u8; 4];
     match vtype {
-        0 | 1 | 7 => { let mut b = [0u8; 1]; r.read_exact(&mut b).map_err(|e| e.to_string())?; } // uint8/int8/bool
-        2 | 3 => { r.read_exact(&mut [0u8; 2]).map_err(|e| e.to_string())?; } // uint16/int16
-        4 | 5 | 6 => { r.read_exact(&mut buf4).map_err(|e| e.to_string())?; } // uint32/int32/float32
-        8 => { // string
+        0 | 1 | 7 => {
+            let mut b = [0u8; 1];
+            r.read_exact(&mut b).map_err(|e| e.to_string())?;
+        } // uint8/int8/bool
+        2 | 3 => {
+            r.read_exact(&mut [0u8; 2]).map_err(|e| e.to_string())?;
+        } // uint16/int16
+        4 | 5 | 6 => {
+            r.read_exact(&mut buf4).map_err(|e| e.to_string())?;
+        } // uint32/int32/float32
+        8 => {
+            // string
             r.read_exact(&mut buf8).map_err(|e| e.to_string())?;
             let len = u64::from_le_bytes(buf8) as usize;
             let mut s = vec![0u8; len];
             r.read_exact(&mut s).map_err(|e| e.to_string())?;
         }
-        9 => { // array
+        9 => {
+            // array
             r.read_exact(&mut buf4).map_err(|e| e.to_string())?;
             let elem_type = u32::from_le_bytes(buf4);
             r.read_exact(&mut buf8).map_err(|e| e.to_string())?;
@@ -334,7 +391,9 @@ fn skip_gguf_value<R: Read + Seek>(r: &mut R, vtype: u32) -> Result<(), String> 
                 skip_gguf_value(r, elem_type)?;
             }
         }
-        10 | 11 | 12 => { r.read_exact(&mut buf8).map_err(|e| e.to_string())?; } // uint64/int64/float64
+        10 | 11 | 12 => {
+            r.read_exact(&mut buf8).map_err(|e| e.to_string())?;
+        } // uint64/int64/float64
         _ => return Err(format!("unknown GGUF value type: {}", vtype)),
     }
     Ok(())
@@ -346,29 +405,35 @@ fn read_tensor_f32<R: Read + Seek>(
     tensor: &TensorMeta,
 ) -> Result<Vec<f32>, String> {
     let abs_offset = header.data_offset + tensor.offset;
-    r.seek(SeekFrom::Start(abs_offset)).map_err(|e| e.to_string())?;
+    r.seek(SeekFrom::Start(abs_offset))
+        .map_err(|e| e.to_string())?;
 
     let n = tensor.n_elements as usize;
 
     match tensor.dtype {
-        0 => { // F32
+        0 => {
+            // F32
             let mut buf = vec![0u8; n * 4];
             r.read_exact(&mut buf).map_err(|e| e.to_string())?;
-            Ok(buf.chunks_exact(4)
+            Ok(buf
+                .chunks_exact(4)
                 .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
                 .collect())
         }
-        1 => { // F16
+        1 => {
+            // F16
             let mut buf = vec![0u8; n * 2];
             r.read_exact(&mut buf).map_err(|e| e.to_string())?;
-            Ok(buf.chunks_exact(2)
+            Ok(buf
+                .chunks_exact(2)
                 .map(|c| {
                     let bits = u16::from_le_bytes([c[0], c[1]]);
                     f16_to_f32(bits)
                 })
                 .collect())
         }
-        8 => { // Q8_0: blocks of 32 int8 values + f16 scale
+        8 => {
+            // Q8_0: blocks of 32 int8 values + f16 scale
             let block_size = 32;
             let n_blocks = (n + block_size - 1) / block_size;
             let bytes_per_block = 2 + 32; // f16 scale + 32 int8 values
@@ -381,24 +446,31 @@ fn read_tensor_f32<R: Read + Seek>(
                 let scale_bits = u16::from_le_bytes([buf[off], buf[off + 1]]);
                 let scale = f16_to_f32(scale_bits);
                 for i in 0..block_size {
-                    if result.len() >= n { break; }
+                    if result.len() >= n {
+                        break;
+                    }
                     let val = buf[off + 2 + i] as i8;
                     result.push(val as f32 * scale);
                 }
             }
             Ok(result)
         }
-        30 => { // BF16
+        30 => {
+            // BF16
             let mut buf = vec![0u8; n * 2];
             r.read_exact(&mut buf).map_err(|e| e.to_string())?;
-            Ok(buf.chunks_exact(2)
+            Ok(buf
+                .chunks_exact(2)
                 .map(|c| {
                     let bits = u16::from_le_bytes([c[0], c[1]]);
                     bf16_to_f32(bits)
                 })
                 .collect())
         }
-        _ => Err(format!("unsupported dtype {} for {}", tensor.dtype, tensor.name)),
+        _ => Err(format!(
+            "unsupported dtype {} for {}",
+            tensor.dtype, tensor.name
+        )),
     }
 }
 
@@ -407,11 +479,26 @@ fn f16_to_f32(bits: u16) -> f32 {
     let exp = ((bits >> 10) & 0x1F) as u32;
     let frac = (bits & 0x3FF) as u32;
     if exp == 0 {
-        if frac == 0 { f32::from_bits(sign << 31) }
-        else { let f = frac as f32 / 1024.0 * 2.0f32.powi(-14); if sign == 1 { -f } else { f } }
+        if frac == 0 {
+            f32::from_bits(sign << 31)
+        } else {
+            let f = frac as f32 / 1024.0 * 2.0f32.powi(-14);
+            if sign == 1 {
+                -f
+            } else {
+                f
+            }
+        }
     } else if exp == 31 {
-        if frac == 0 { if sign == 1 { f32::NEG_INFINITY } else { f32::INFINITY } }
-        else { f32::NAN }
+        if frac == 0 {
+            if sign == 1 {
+                f32::NEG_INFINITY
+            } else {
+                f32::INFINITY
+            }
+        } else {
+            f32::NAN
+        }
     } else {
         f32::from_bits((sign << 31) | ((exp + 127 - 15) << 23) | (frac << 13))
     }

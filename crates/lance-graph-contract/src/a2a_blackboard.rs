@@ -112,7 +112,9 @@ pub struct Blackboard {
 }
 
 impl Blackboard {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     /// Post a result from an expert.
     pub fn post(&mut self, entry: BlackboardEntry) {
@@ -126,7 +128,10 @@ impl Blackboard {
 
     /// Get all entries for a specific capability.
     pub fn by_capability(&self, cap: ExpertCapability) -> Vec<&BlackboardEntry> {
-        self.entries.iter().filter(|e| e.capability == cap).collect()
+        self.entries
+            .iter()
+            .filter(|e| e.capability == cap)
+            .collect()
     }
 
     /// Clear for next round.
@@ -136,8 +141,12 @@ impl Blackboard {
     }
 
     /// Number of entries this round.
-    pub fn len(&self) -> usize { self.entries.len() }
-    pub fn is_empty(&self) -> bool { self.entries.is_empty() }
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -204,21 +213,23 @@ pub fn compute_consensus(
     experts: &[ExpertEntry],
     strategy: ConsensusStrategy,
 ) -> Option<ConsensusResult> {
-    if entries.is_empty() { return None; }
+    if entries.is_empty() {
+        return None;
+    }
 
     match strategy {
         ConsensusStrategy::WeightedVote => {
             // Accumulate weighted votes per result
             let mut votes: std::collections::HashMap<u16, f32> = std::collections::HashMap::new();
             for entry in entries {
-                let weight = experts.iter()
+                let weight = experts
+                    .iter()
                     .find(|e| e.id == entry.expert_id)
                     .map(|e| e.weight)
                     .unwrap_or(1.0);
                 *votes.entry(entry.result).or_insert(0.0) += entry.confidence * weight;
             }
-            let (&winner, &score) = votes.iter()
-                .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())?;
+            let (&winner, &score) = votes.iter().max_by(|a, b| a.1.partial_cmp(b.1).unwrap())?;
             let total_weight: f32 = votes.values().sum();
             let agreeing = entries.iter().filter(|e| e.result == winner).count();
 
@@ -232,7 +243,9 @@ pub fn compute_consensus(
             })
         }
         ConsensusStrategy::HighestConfidence => {
-            let best = entries.iter().max_by(|a, b| a.confidence.partial_cmp(&b.confidence).unwrap())?;
+            let best = entries
+                .iter()
+                .max_by(|a, b| a.confidence.partial_cmp(&b.confidence).unwrap())?;
             let agreeing = entries.iter().filter(|e| e.result == best.result).count();
             Some(ConsensusResult {
                 strategy,
@@ -244,17 +257,26 @@ pub fn compute_consensus(
             })
         }
         ConsensusStrategy::Majority | ConsensusStrategy::Unanimous => {
-            let mut counts: std::collections::HashMap<u16, usize> = std::collections::HashMap::new();
-            for e in entries { *counts.entry(e.result).or_insert(0) += 1; }
+            let mut counts: std::collections::HashMap<u16, usize> =
+                std::collections::HashMap::new();
+            for e in entries {
+                *counts.entry(e.result).or_insert(0) += 1;
+            }
             let (&winner, &count) = counts.iter().max_by_key(|e| e.1)?;
             let threshold = match strategy {
                 ConsensusStrategy::Unanimous => entries.len(),
                 _ => entries.len() / 2 + 1,
             };
             let confidence = if count >= threshold {
-                entries.iter().filter(|e| e.result == winner)
-                    .map(|e| e.confidence).sum::<f32>() / count as f32
-            } else { 0.0 };
+                entries
+                    .iter()
+                    .filter(|e| e.result == winner)
+                    .map(|e| e.confidence)
+                    .sum::<f32>()
+                    / count as f32
+            } else {
+                0.0
+            };
 
             Some(ConsensusResult {
                 strategy,
@@ -276,9 +298,13 @@ mod tests {
     fn blackboard_post_and_read() {
         let mut bb = Blackboard::new();
         bb.post(BlackboardEntry {
-            expert_id: 1, capability: ExpertCapability::SemanticSimilarity,
-            result: 42, confidence: 0.9, support: [42, 85, 29, 0],
-            dissonance: 0.1, cost_us: 100,
+            expert_id: 1,
+            capability: ExpertCapability::SemanticSimilarity,
+            result: 42,
+            confidence: 0.9,
+            support: [42, 85, 29, 0],
+            dissonance: 0.1,
+            cost_us: 100,
         });
         assert_eq!(bb.len(), 1);
         assert_eq!(bb.from_expert(1).len(), 1);
@@ -288,16 +314,59 @@ mod tests {
     #[test]
     fn weighted_vote_consensus() {
         let entries = vec![
-            BlackboardEntry { expert_id: 1, capability: ExpertCapability::SemanticSimilarity, result: 42, confidence: 0.9, support: [0;4], dissonance: 0.0, cost_us: 0 },
-            BlackboardEntry { expert_id: 2, capability: ExpertCapability::RelevanceScoring, result: 42, confidence: 0.8, support: [0;4], dissonance: 0.0, cost_us: 0 },
-            BlackboardEntry { expert_id: 3, capability: ExpertCapability::ReasoningTopology, result: 99, confidence: 0.7, support: [0;4], dissonance: 0.0, cost_us: 0 },
+            BlackboardEntry {
+                expert_id: 1,
+                capability: ExpertCapability::SemanticSimilarity,
+                result: 42,
+                confidence: 0.9,
+                support: [0; 4],
+                dissonance: 0.0,
+                cost_us: 0,
+            },
+            BlackboardEntry {
+                expert_id: 2,
+                capability: ExpertCapability::RelevanceScoring,
+                result: 42,
+                confidence: 0.8,
+                support: [0; 4],
+                dissonance: 0.0,
+                cost_us: 0,
+            },
+            BlackboardEntry {
+                expert_id: 3,
+                capability: ExpertCapability::ReasoningTopology,
+                result: 99,
+                confidence: 0.7,
+                support: [0; 4],
+                dissonance: 0.0,
+                cost_us: 0,
+            },
         ];
         let experts = vec![
-            ExpertEntry { id: 1, capability: ExpertCapability::SemanticSimilarity, base_confidence: 0.9, weight: 1.0, activation_count: 0 },
-            ExpertEntry { id: 2, capability: ExpertCapability::RelevanceScoring, base_confidence: 0.8, weight: 1.0, activation_count: 0 },
-            ExpertEntry { id: 3, capability: ExpertCapability::ReasoningTopology, base_confidence: 0.7, weight: 1.0, activation_count: 0 },
+            ExpertEntry {
+                id: 1,
+                capability: ExpertCapability::SemanticSimilarity,
+                base_confidence: 0.9,
+                weight: 1.0,
+                activation_count: 0,
+            },
+            ExpertEntry {
+                id: 2,
+                capability: ExpertCapability::RelevanceScoring,
+                base_confidence: 0.8,
+                weight: 1.0,
+                activation_count: 0,
+            },
+            ExpertEntry {
+                id: 3,
+                capability: ExpertCapability::ReasoningTopology,
+                base_confidence: 0.7,
+                weight: 1.0,
+                activation_count: 0,
+            },
         ];
-        let result = compute_consensus(&entries, &experts, ConsensusStrategy::WeightedVote).unwrap();
+        let result =
+            compute_consensus(&entries, &experts, ConsensusStrategy::WeightedVote).unwrap();
         assert_eq!(result.result, 42); // 2 experts agree on 42
         assert_eq!(result.agreeing_count, 2);
     }
@@ -305,12 +374,40 @@ mod tests {
     #[test]
     fn unanimous_fails_on_disagreement() {
         let entries = vec![
-            BlackboardEntry { expert_id: 1, capability: ExpertCapability::SemanticSimilarity, result: 42, confidence: 0.9, support: [0;4], dissonance: 0.0, cost_us: 0 },
-            BlackboardEntry { expert_id: 2, capability: ExpertCapability::RelevanceScoring, result: 99, confidence: 0.8, support: [0;4], dissonance: 0.0, cost_us: 0 },
+            BlackboardEntry {
+                expert_id: 1,
+                capability: ExpertCapability::SemanticSimilarity,
+                result: 42,
+                confidence: 0.9,
+                support: [0; 4],
+                dissonance: 0.0,
+                cost_us: 0,
+            },
+            BlackboardEntry {
+                expert_id: 2,
+                capability: ExpertCapability::RelevanceScoring,
+                result: 99,
+                confidence: 0.8,
+                support: [0; 4],
+                dissonance: 0.0,
+                cost_us: 0,
+            },
         ];
         let experts = vec![
-            ExpertEntry { id: 1, capability: ExpertCapability::SemanticSimilarity, base_confidence: 0.9, weight: 1.0, activation_count: 0 },
-            ExpertEntry { id: 2, capability: ExpertCapability::RelevanceScoring, base_confidence: 0.8, weight: 1.0, activation_count: 0 },
+            ExpertEntry {
+                id: 1,
+                capability: ExpertCapability::SemanticSimilarity,
+                base_confidence: 0.9,
+                weight: 1.0,
+                activation_count: 0,
+            },
+            ExpertEntry {
+                id: 2,
+                capability: ExpertCapability::RelevanceScoring,
+                base_confidence: 0.8,
+                weight: 1.0,
+                activation_count: 0,
+            },
         ];
         let result = compute_consensus(&entries, &experts, ConsensusStrategy::Unanimous).unwrap();
         assert_eq!(result.confidence, 0.0); // not unanimous → zero confidence
@@ -319,7 +416,15 @@ mod tests {
     #[test]
     fn next_round_clears() {
         let mut bb = Blackboard::new();
-        bb.post(BlackboardEntry { expert_id: 1, capability: ExpertCapability::SemanticSimilarity, result: 42, confidence: 0.9, support: [0;4], dissonance: 0.0, cost_us: 0 });
+        bb.post(BlackboardEntry {
+            expert_id: 1,
+            capability: ExpertCapability::SemanticSimilarity,
+            result: 42,
+            confidence: 0.9,
+            support: [0; 4],
+            dissonance: 0.0,
+            cost_us: 0,
+        });
         bb.next_round();
         assert!(bb.is_empty());
         assert_eq!(bb.round, 1);

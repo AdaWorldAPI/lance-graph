@@ -21,8 +21,8 @@ pub trait Disambiguatable: Sized {
 pub struct GeneralizedResult<T> {
     pub winner: T,
     pub winner_index: usize,
-    pub margin: f32,         // score of winner - score of runner-up
-    pub dispersion: f32,     // mean pairwise distance among top candidates
+    pub margin: f32,     // score of winner - score of runner-up
+    pub dispersion: f32, // mean pairwise distance among top candidates
     pub candidate_count: usize,
 }
 
@@ -55,9 +55,7 @@ pub fn disambiguate_general<T: Disambiguatable + Clone, I: IntoIterator<Item = T
         .enumerate()
         .map(|(i, (t, s))| (i, t, s))
         .collect();
-    sorted.sort_by(|a, b| {
-        b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal)
-    });
+    sorted.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
     let winner = sorted[0].clone();
     let margin = if sorted.len() > 1 {
         winner.2 - sorted[1].2

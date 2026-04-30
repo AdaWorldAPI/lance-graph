@@ -11,7 +11,10 @@ pub struct Role {
 
 impl Role {
     pub const fn new(name: &'static str) -> Self {
-        Self { name, permissions: Vec::new() }
+        Self {
+            name,
+            permissions: Vec::new(),
+        }
     }
 
     /// Builder: add a permission and return self.
@@ -22,11 +25,17 @@ impl Role {
 
     /// Find the permission for a specific entity type.
     pub fn permission_for(&self, entity_type: &str) -> Option<&PermissionSpec> {
-        self.permissions.iter().find(|p| p.entity_type == entity_type)
+        self.permissions
+            .iter()
+            .find(|p| p.entity_type == entity_type)
     }
 
     /// Check if this role can read an entity type at a given depth.
-    pub fn can_read(&self, entity_type: &str, depth: lance_graph_contract::property::PrefetchDepth) -> bool {
+    pub fn can_read(
+        &self,
+        entity_type: &str,
+        depth: lance_graph_contract::property::PrefetchDepth,
+    ) -> bool {
         self.permission_for(entity_type)
             .map(|p| p.can_read_at(depth))
             .unwrap_or(false)
@@ -62,7 +71,10 @@ pub fn accountant() -> Role {
             &["status", "payment_date"],
             &["approve", "mark_paid"],
         ))
-        .with_permission(PermissionSpec::read_at("TaxDeclaration", PrefetchDepth::Similar))
+        .with_permission(PermissionSpec::read_at(
+            "TaxDeclaration",
+            PrefetchDepth::Similar,
+        ))
 }
 
 /// Auditor: can see Full (L3) on everything but cannot write or act.
@@ -71,7 +83,10 @@ pub fn auditor() -> Role {
     Role::new("auditor")
         .with_permission(PermissionSpec::read_at("Customer", PrefetchDepth::Full))
         .with_permission(PermissionSpec::read_at("Invoice", PrefetchDepth::Full))
-        .with_permission(PermissionSpec::read_at("TaxDeclaration", PrefetchDepth::Full))
+        .with_permission(PermissionSpec::read_at(
+            "TaxDeclaration",
+            PrefetchDepth::Full,
+        ))
 }
 
 /// Admin: full access everywhere.
@@ -79,7 +94,18 @@ pub fn admin() -> Role {
     Role::new("admin")
         .with_permission(PermissionSpec::full(
             "Customer",
-            &["customer_name", "tax_id", "address", "iban", "phone", "email", "industry", "description", "tag", "note"],
+            &[
+                "customer_name",
+                "tax_id",
+                "address",
+                "iban",
+                "phone",
+                "email",
+                "industry",
+                "description",
+                "tag",
+                "note",
+            ],
             &["classify", "merge", "delete"],
         ))
         .with_permission(PermissionSpec::full(

@@ -74,7 +74,10 @@ pub struct SpoBuilder {
 impl SpoBuilder {
     /// Create a fresh builder with no schema and an empty staging area.
     pub fn new() -> Self {
-        Self { schema: None, staged: Vec::new() }
+        Self {
+            schema: None,
+            staged: Vec::new(),
+        }
     }
 
     /// Attach a [`Schema`] to validate Required predicates against on
@@ -95,7 +98,11 @@ impl SpoBuilder {
         key: u64,
         record: SpoRecord,
     ) -> &mut Self {
-        self.staged.push(StagedTriple { predicate_name, key, record });
+        self.staged.push(StagedTriple {
+            predicate_name,
+            key,
+            record,
+        });
         self
     }
 
@@ -107,8 +114,7 @@ impl SpoBuilder {
         let Some(schema) = self.schema.as_ref() else {
             return Vec::new();
         };
-        let present: Vec<&str> =
-            self.staged.iter().map(|t| t.predicate_name).collect();
+        let present: Vec<&str> = self.staged.iter().map(|t| t.predicate_name).collect();
         schema.validate(&present)
     }
 
@@ -119,10 +125,7 @@ impl SpoBuilder {
     /// On failure (one or more Required predicates missing) returns a
     /// [`FailureTicket`] carrying the missing predicate names; nothing
     /// is inserted and the staged set is preserved for retry.
-    pub fn commit_validated(
-        &mut self,
-        store: &mut SpoStore,
-    ) -> Result<usize, FailureTicket> {
+    pub fn commit_validated(&mut self, store: &mut SpoStore) -> Result<usize, FailureTicket> {
         let missing = self.validate();
         if !missing.is_empty() {
             return Err(FailureTicket::missing_required(missing));
@@ -264,7 +267,11 @@ mod tests {
         let mut builder = SpoBuilder::new().with_schema(schema);
 
         builder
-            .stage("customer_name", dn_hash("c:name"), record_for("customer_name"))
+            .stage(
+                "customer_name",
+                dn_hash("c:name"),
+                record_for("customer_name"),
+            )
             .stage("tax_id", dn_hash("c:tax"), record_for("tax_id"))
             .stage("address", dn_hash("c:addr"), record_for("address"));
 
@@ -288,7 +295,11 @@ mod tests {
         let mut builder = SpoBuilder::new().with_schema(schema);
 
         builder
-            .stage("customer_name", dn_hash("c:name"), record_for("customer_name"))
+            .stage(
+                "customer_name",
+                dn_hash("c:name"),
+                record_for("customer_name"),
+            )
             .stage("address", dn_hash("c:addr"), record_for("address"));
 
         let missing = builder.validate();
@@ -317,7 +328,11 @@ mod tests {
         let mut store = SpoStore::new();
         let mut builder = SpoBuilder::new().with_schema(schema);
 
-        builder.stage("customer_name", dn_hash("c:name"), record_for("customer_name"));
+        builder.stage(
+            "customer_name",
+            dn_hash("c:name"),
+            record_for("customer_name"),
+        );
         assert!(builder.commit_validated(&mut store).is_err());
 
         // Caller addresses the failure by adding the missing predicate.

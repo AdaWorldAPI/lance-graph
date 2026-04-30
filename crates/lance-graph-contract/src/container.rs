@@ -42,7 +42,10 @@ impl CogRecord {
 
     /// Zero record (both containers zeroed).
     pub fn zero() -> Self {
-        Self { meta: [0u64; 256], content: [0u64; 256] }
+        Self {
+            meta: [0u64; 256],
+            content: [0u64; 256],
+        }
     }
 
     /// Total byte size.

@@ -5,7 +5,9 @@
 //!   --features hydrate --bin hydrate -- --list
 //! ```
 
-use bgz_tensor::manifest::{self, load_manifest, is_hydrated, is_enabled, enabled_models, bgz7_path, verify_sha256};
+use bgz_tensor::manifest::{
+    self, bgz7_path, enabled_models, is_enabled, is_hydrated, load_manifest, verify_sha256,
+};
 use std::{env, fs, process};
 
 fn main() {
@@ -104,7 +106,15 @@ fn cmd_download_enabled(manifest: &manifest::Manifest) {
 fn cmd_download(manifest: &manifest::Manifest, model: &str) {
     let entry = manifest.models.get(model).unwrap_or_else(|| {
         eprintln!("Unknown model: {model}");
-        eprintln!("Available: {}", manifest.models.keys().cloned().collect::<Vec<_>>().join(", "));
+        eprintln!(
+            "Available: {}",
+            manifest
+                .models
+                .keys()
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
         process::exit(1)
     });
 
@@ -131,8 +141,16 @@ fn cmd_download(manifest: &manifest::Manifest, model: &str) {
         println!("  Downloading {local_filename} (from asset {asset_name})...");
 
         let status = process::Command::new("curl")
-            .args(["-fSL", "--retry", "4", "--retry-delay", "2",
-                   "-o", dest.to_str().unwrap(), &url])
+            .args([
+                "-fSL",
+                "--retry",
+                "4",
+                "--retry-delay",
+                "2",
+                "-o",
+                dest.to_str().unwrap(),
+                &url,
+            ])
             .status()
             .expect("curl not found");
 
@@ -165,10 +183,12 @@ fn cmd_reindex(manifest: &manifest::Manifest, model: &str) {
     eprintln!("Then copy the shards:");
     let dir = bgz7_path(model, 0).parent().unwrap().to_path_buf();
     for shard in 0..entry.shards {
-        let src = format!("/tmp/{}_{}_shard{:02}.bgz7",
+        let src = format!(
+            "/tmp/{}_{}_shard{:02}.bgz7",
             model.replace('-', "_").replace("distilled_", ""),
             if model.contains("distilled") { "" } else { "" },
-            shard + 1);
+            shard + 1
+        );
         let dest = dir.join(format!("shard-{shard:02}.bgz7"));
         eprintln!("  cp {} {}", src, dest.display());
     }

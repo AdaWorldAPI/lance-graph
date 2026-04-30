@@ -9,7 +9,7 @@
 
 // bf16_to_f32 and f32_to_bf16 reserved for future BF16 serialization
 #[allow(unused_imports)]
-use crate::stacked_n::{StackedN, bf16_to_f32, f32_to_bf16};
+use crate::stacked_n::{bf16_to_f32, f32_to_bf16, StackedN};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SpatialRole: Q, K, V encoded as StackedBF16 + codebook index
@@ -81,7 +81,11 @@ impl ThinkingStyleFingerprint {
     /// For ranking/ordering thinking styles, use τ address distance or
     /// FieldModulation cosine from lance-graph-contract.
     #[inline]
-    pub fn texture_resonance_check(&self, other: &ThinkingStyleFingerprint, min_agreement: u32) -> bool {
+    pub fn texture_resonance_check(
+        &self,
+        other: &ThinkingStyleFingerprint,
+        min_agreement: u32,
+    ) -> bool {
         let agreement = 64 - (self.bits ^ other.bits).count_ones();
         agreement >= min_agreement
     }
@@ -121,7 +125,9 @@ impl ThinkingStyleFingerprint {
     /// signature reveals its decision-making character.
     pub fn from_gate_weights(gate_row: &[f32]) -> Self {
         let n = gate_row.len();
-        if n == 0 { return Self::zero(); }
+        if n == 0 {
+            return Self::zero();
+        }
 
         let mut bits = 0u64;
 
@@ -143,57 +149,113 @@ impl ThinkingStyleFingerprint {
         bits |= sparsity_class << 3;
 
         // Magnitude class: log2 of max absolute value → 2 bits
-        let mag_class = if max_abs < 0.01 { 0u64 }
-            else if max_abs < 0.1 { 1 }
-            else if max_abs < 1.0 { 2 }
-            else { 3 };
+        let mag_class = if max_abs < 0.01 {
+            0u64
+        } else if max_abs < 0.1 {
+            1
+        } else if max_abs < 1.0 {
+            2
+        } else {
+            3
+        };
         bits |= mag_class << 6;
 
         // ── Bits 8-15: distribution shape ───────────────────────────────
 
         // Mean / std ratio (coefficient of variation)
         let mean = gate_row.iter().map(|&v| v as f64).sum::<f64>() / n as f64;
-        let variance = gate_row.iter().map(|&v| {
-            let d = v as f64 - mean;
-            d * d
-        }).sum::<f64>() / n as f64;
+        let variance = gate_row
+            .iter()
+            .map(|&v| {
+                let d = v as f64 - mean;
+                d * d
+            })
+            .sum::<f64>()
+            / n as f64;
         let std = variance.sqrt();
-        let cv = if mean.abs() > 1e-10 { (std / mean.abs()).min(7.0) } else { 3.5 };
+        let cv = if mean.abs() > 1e-10 {
+            (std / mean.abs()).min(7.0)
+        } else {
+            3.5
+        };
         let cv_class = ((cv * 2.0).round() as u64).min(7);
         bits |= cv_class << 8;
 
         // Kurtosis indicator (heavy-tailed vs light-tailed)
-        let m4 = gate_row.iter().map(|&v| {
-            let d = v as f64 - mean;
-            d * d * d * d
-        }).sum::<f64>() / n as f64;
-        let kurtosis = if variance > 1e-12 { m4 / (variance * variance) } else { 3.0 };
-        let kurt_class = if kurtosis < 2.0 { 0u64 } // platykurtic (light tails)
-            else if kurtosis < 3.5 { 1 }             // mesokurtic (normal)
-            else if kurtosis < 6.0 { 2 }              // leptokurtic (heavy tails)
-            else { 3 };                                // extreme
+        let m4 = gate_row
+            .iter()
+            .map(|&v| {
+                let d = v as f64 - mean;
+                d * d * d * d
+            })
+            .sum::<f64>()
+            / n as f64;
+        let kurtosis = if variance > 1e-12 {
+            m4 / (variance * variance)
+        } else {
+            3.0
+        };
+        let kurt_class = if kurtosis < 2.0 {
+            0u64
+        }
+        // platykurtic (light tails)
+        else if kurtosis < 3.5 {
+            1
+        }
+        // mesokurtic (normal)
+        else if kurtosis < 6.0 {
+            2
+        }
+        // leptokurtic (heavy tails)
+        else {
+            3
+        }; // extreme
         bits |= kurt_class << 11;
 
         // Skewness direction
-        let m3 = gate_row.iter().map(|&v| {
-            let d = v as f64 - mean;
-            d * d * d
-        }).sum::<f64>() / n as f64;
-        let skew = if std > 1e-12 { m3 / (std * std * std) } else { 0.0 };
-        let skew_class = if skew < -0.5 { 0u64 }      // left-skewed
-            else if skew < 0.5 { 1 }                   // symmetric
-            else { 2 };                                 // right-skewed
+        let m3 = gate_row
+            .iter()
+            .map(|&v| {
+                let d = v as f64 - mean;
+                d * d * d
+            })
+            .sum::<f64>()
+            / n as f64;
+        let skew = if std > 1e-12 {
+            m3 / (std * std * std)
+        } else {
+            0.0
+        };
+        let skew_class = if skew < -0.5 {
+            0u64
+        }
+        // left-skewed
+        else if skew < 0.5 {
+            1
+        }
+        // symmetric
+        else {
+            2
+        }; // right-skewed
         bits |= skew_class << 13;
 
         // ── Bits 16-23: spatial structure within Gate row ───────────────
 
         // First-half vs second-half energy ratio
         let half = n / 2;
-        let energy_first: f64 = gate_row[..half].iter().map(|v| (v.abs() as f64).powi(2)).sum();
-        let energy_second: f64 = gate_row[half..].iter().map(|v| (v.abs() as f64).powi(2)).sum();
+        let energy_first: f64 = gate_row[..half]
+            .iter()
+            .map(|v| (v.abs() as f64).powi(2))
+            .sum();
+        let energy_second: f64 = gate_row[half..]
+            .iter()
+            .map(|v| (v.abs() as f64).powi(2))
+            .sum();
         let energy_ratio = if energy_first + energy_second > 1e-12 {
             energy_first / (energy_first + energy_second)
-        } else { 0.5 };
+        } else {
+            0.5
+        };
         let energy_class = ((energy_ratio * 7.0).round() as u64).min(7);
         bits |= energy_class << 16;
 
@@ -216,13 +278,18 @@ impl ThinkingStyleFingerprint {
 
         // Number of values > 2σ (outlier count)
         let two_sigma = mean + 2.0 * std;
-        let n_outliers = gate_row.iter().filter(|&&v| (v as f64).abs() > two_sigma.abs()).count();
+        let n_outliers = gate_row
+            .iter()
+            .filter(|&&v| (v as f64).abs() > two_sigma.abs())
+            .count();
         let outlier_frac = n_outliers as f64 / n as f64;
         let outlier_class = ((outlier_frac * 15.0).round() as u64).min(7);
         bits |= outlier_class << 24;
 
         // Max positive position (where in the row is the strongest activation)
-        let max_pos = gate_row.iter().enumerate()
+        let max_pos = gate_row
+            .iter()
+            .enumerate()
             .max_by(|(_, a), (_, b)| a.abs().partial_cmp(&b.abs()).unwrap())
             .map(|(i, _)| i)
             .unwrap_or(0);
@@ -232,11 +299,19 @@ impl ThinkingStyleFingerprint {
         // Effective rank estimate (how many dims carry signal)
         // Simple: count dims with |v| > 10% of max
         let rank_threshold = max_abs * 0.1;
-        let effective_rank = gate_row.iter().filter(|&&v| v.abs() > rank_threshold).count();
-        let rank_class = if effective_rank < n / 10 { 0u64 }
-            else if effective_rank < n / 4 { 1 }
-            else if effective_rank < n / 2 { 2 }
-            else { 3 };
+        let effective_rank = gate_row
+            .iter()
+            .filter(|&&v| v.abs() > rank_threshold)
+            .count();
+        let rank_class = if effective_rank < n / 10 {
+            0u64
+        } else if effective_rank < n / 4 {
+            1
+        } else if effective_rank < n / 2 {
+            2
+        } else {
+            3
+        };
         bits |= rank_class << 30;
 
         // ── Bits 32-63: hash of fine structure (for collision avoidance) ─
@@ -259,7 +334,11 @@ impl ThinkingStyleFingerprint {
         // Encode NARS into bits 8-10 (overwrite distribution shape)
         let freq_class = ((frequency * 3.0).round() as u64).min(3);
         let conf_class = ((confidence * 3.0).round() as u64).min(3);
-        let exploit = if frequency > 0.5 && confidence > 0.5 { 1u64 } else { 0 };
+        let exploit = if frequency > 0.5 && confidence > 0.5 {
+            1u64
+        } else {
+            0
+        };
         self.bits = (self.bits & !0x700) | (freq_class << 8) | (conf_class << 9) | (exploit << 11);
         self
     }
@@ -275,7 +354,8 @@ impl ThinkingStyleFingerprint {
 
         format!(
             "sign_bal={:.2} sparse={:.2} mag={} cv={:.1} kurt={} osc={:.2}",
-            sign_bal, sparsity,
+            sign_bal,
+            sparsity,
             ["tiny", "small", "medium", "large"][mag as usize],
             cv,
             ["platy", "normal", "lepto", "extreme"][kurt as usize],
@@ -321,18 +401,27 @@ impl TransformSpectrum {
         let effective_rank = (up_rank.min(255)) as u8;
 
         // Compression ratio
-        let ratio = if up_n > 0 { down_n as f64 / up_n as f64 } else { 1.0 };
+        let ratio = if up_n > 0 {
+            down_n as f64 / up_n as f64
+        } else {
+            1.0
+        };
         let compression_ratio = ((ratio * 1000.0).round() as u16).min(4000);
 
         // Energy concentration: sort |values|, fraction in top 10%
         let mut up_sorted: Vec<f32> = up_row.iter().map(|v| v.abs()).collect();
         up_sorted.sort_by(|a, b| b.partial_cmp(a).unwrap());
         let top10_count = (up_n / 10).max(1);
-        let top10_energy: f64 = up_sorted[..top10_count].iter().map(|&v| (v as f64).powi(2)).sum();
+        let top10_energy: f64 = up_sorted[..top10_count]
+            .iter()
+            .map(|&v| (v as f64).powi(2))
+            .sum();
         let total_energy: f64 = up_sorted.iter().map(|&v| (v as f64).powi(2)).sum();
         let concentration = if total_energy > 1e-12 {
             (top10_energy / total_energy * 255.0).round() as u8
-        } else { 0 };
+        } else {
+            0
+        };
 
         // Up-Down correlation: sign agreement on shared dims
         let shared = up_n.min(down_n);
@@ -341,7 +430,9 @@ impl TransformSpectrum {
             .count();
         let corr = if shared > 0 {
             ((agreements as f64 / shared as f64 - 0.5) * 254.0).round() as i8
-        } else { 0 };
+        } else {
+            0
+        };
 
         TransformSpectrum {
             effective_rank,
@@ -418,7 +509,7 @@ impl HeterogeneousNeuronPrint {
         3 * 2  // Q, K, V codebook indices
         + 8    // thinking_style
         + TransformSpectrum::BYTE_SIZE
-        + 6    // layer + feature
+        + 6 // layer + feature
     }
 
     /// Spatial similarity (Q×K alignment proxy).
@@ -487,11 +578,15 @@ mod tests {
         match pattern {
             "sparse" => {
                 let mut v = vec![0.0f32; 1024];
-                for i in (0..1024).step_by(100) { v[i] = 2.0; }
+                for i in (0..1024).step_by(100) {
+                    v[i] = 2.0;
+                }
                 v
             }
             "dense" => (0..1024).map(|i| (i as f32 * 0.01).sin()).collect(),
-            "oscillating" => (0..1024).map(|i| if i % 2 == 0 { 1.0 } else { -1.0 }).collect(),
+            "oscillating" => (0..1024)
+                .map(|i| if i % 2 == 0 { 1.0 } else { -1.0 })
+                .collect(),
             "one_sided" => vec![1.0; 1024],
             _ => vec![0.0; 1024],
         }
@@ -506,8 +601,14 @@ mod tests {
 
         // Different patterns should have different fingerprints
         assert_ne!(sparse.bits, dense.bits, "sparse and dense should differ");
-        assert_ne!(sparse.bits, oscillating.bits, "sparse and oscillating should differ");
-        assert_ne!(dense.bits, one_sided.bits, "dense and one-sided should differ");
+        assert_ne!(
+            sparse.bits, oscillating.bits,
+            "sparse and oscillating should differ"
+        );
+        assert_ne!(
+            dense.bits, one_sided.bits,
+            "dense and one-sided should differ"
+        );
 
         // Hamming distance should reflect structural difference
         let d_sparse_dense = sparse.bit_disagreements(&dense);
@@ -541,10 +642,14 @@ mod tests {
 
     #[test]
     fn transform_spectrum_sparse_vs_dense() {
-        let up_dense = (0..4096).map(|i| (i as f32 * 0.01).sin()).collect::<Vec<_>>();
+        let up_dense = (0..4096)
+            .map(|i| (i as f32 * 0.01).sin())
+            .collect::<Vec<_>>();
         let up_sparse = {
             let mut v = vec![0.0f32; 4096];
-            for i in (0..4096).step_by(100) { v[i] = 5.0; }
+            for i in (0..4096).step_by(100) {
+                v[i] = 5.0;
+            }
             v
         };
         let down = vec![0.1f32; 1024];
@@ -552,9 +657,12 @@ mod tests {
         let spec_dense = TransformSpectrum::from_up_down(&up_dense, &down);
         let spec_sparse = TransformSpectrum::from_up_down(&up_sparse, &down);
 
-        assert!(spec_sparse.effective_rank < spec_dense.effective_rank,
+        assert!(
+            spec_sparse.effective_rank < spec_dense.effective_rank,
             "sparse should have lower rank: {} vs {}",
-            spec_sparse.effective_rank, spec_dense.effective_rank);
+            spec_sparse.effective_rank,
+            spec_dense.effective_rank
+        );
         eprintln!("dense:  {}", spec_dense.summary());
         eprintln!("sparse: {}", spec_sparse.summary());
     }
@@ -566,8 +674,12 @@ mod tests {
 
     #[test]
     fn build_neuron_roundtrip() {
-        let q = (0..512).map(|i| (i as f32 * 0.01).sin()).collect::<Vec<_>>();
-        let k = (0..512).map(|i| (i as f32 * 0.02).cos()).collect::<Vec<_>>();
+        let q = (0..512)
+            .map(|i| (i as f32 * 0.01).sin())
+            .collect::<Vec<_>>();
+        let k = (0..512)
+            .map(|i| (i as f32 * 0.02).cos())
+            .collect::<Vec<_>>();
         let v = vec![0.1f32; 512];
         let gate = make_gate("dense");
         let up = vec![0.5f32; 2048];
@@ -579,7 +691,10 @@ mod tests {
         assert!(neuron.thinking_style.bits != 0);
         assert!(neuron.transform.effective_rank > 0);
         eprintln!("Full size: {} bytes", neuron.full_byte_size());
-        eprintln!("Compact size: {} bytes", HeterogeneousNeuronPrint::compact_byte_size());
+        eprintln!(
+            "Compact size: {} bytes",
+            HeterogeneousNeuronPrint::compact_byte_size()
+        );
         eprintln!("Style: {}", neuron.thinking_style.profile());
         eprintln!("Transform: {}", neuron.transform.summary());
     }

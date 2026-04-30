@@ -9,8 +9,8 @@
 //! O(1) precomputed distance lookups on millions of edges.
 
 use arrow::array::{
-    ArrayRef, FixedSizeListBuilder, Float32Builder, Int16Builder,
-    StringArray, UInt16Array, UInt32Array, UInt8Array,
+    ArrayRef, FixedSizeListBuilder, Float32Builder, Int16Builder, StringArray, UInt16Array,
+    UInt32Array, UInt8Array,
 };
 use arrow::record_batch::RecordBatch;
 use std::sync::Arc;
@@ -35,16 +35,27 @@ impl TensorRole {
     /// Works with both HuggingFace and GGUF naming conventions.
     pub fn from_name(name: &str) -> Self {
         let n = name.to_lowercase();
-        if n.contains("q_proj") || n.contains("attn_q") || n.contains(".wq.") { TensorRole::QProj }
-        else if n.contains("k_proj") || n.contains("attn_k") || n.contains(".wk.") { TensorRole::KProj }
-        else if n.contains("v_proj") || n.contains("attn_v") || n.contains(".wv.") { TensorRole::VProj }
-        else if n.contains("o_proj") || n.contains("attn_output") || n.contains(".wo.") { TensorRole::OProj }
-        else if n.contains("gate_proj") || n.contains("ffn_gate") || n.contains(".w1.") { TensorRole::GateProj }
-        else if n.contains("up_proj") || n.contains("ffn_up") || n.contains(".w3.") { TensorRole::UpProj }
-        else if n.contains("down_proj") || n.contains("ffn_down") || n.contains(".w2.") { TensorRole::DownProj }
-        else if n.contains("embed") || n.contains("token_embd") { TensorRole::Embedding }
-        else if n.contains("norm") || n.contains("ln_") { TensorRole::Norm }
-        else { TensorRole::Other }
+        if n.contains("q_proj") || n.contains("attn_q") || n.contains(".wq.") {
+            TensorRole::QProj
+        } else if n.contains("k_proj") || n.contains("attn_k") || n.contains(".wk.") {
+            TensorRole::KProj
+        } else if n.contains("v_proj") || n.contains("attn_v") || n.contains(".wv.") {
+            TensorRole::VProj
+        } else if n.contains("o_proj") || n.contains("attn_output") || n.contains(".wo.") {
+            TensorRole::OProj
+        } else if n.contains("gate_proj") || n.contains("ffn_gate") || n.contains(".w1.") {
+            TensorRole::GateProj
+        } else if n.contains("up_proj") || n.contains("ffn_up") || n.contains(".w3.") {
+            TensorRole::UpProj
+        } else if n.contains("down_proj") || n.contains("ffn_down") || n.contains(".w2.") {
+            TensorRole::DownProj
+        } else if n.contains("embed") || n.contains("token_embd") {
+            TensorRole::Embedding
+        } else if n.contains("norm") || n.contains("ln_") {
+            TensorRole::Norm
+        } else {
+            TensorRole::Other
+        }
     }
 
     /// Numeric ID for Arrow column storage.
@@ -98,9 +109,7 @@ pub fn parse_layer_idx(name: &str) -> Option<u16> {
 ///
 /// Each row gets `layer_idx` and `tensor_role` parsed from the tensor name.
 /// This enables partitioned CAM indexing: per-role palettes, per-layer search.
-pub fn bgz7_to_batch(
-    tensors: &[(String, Vec<ndarray::hpc::bgz17_bridge::Base17>)],
-) -> RecordBatch {
+pub fn bgz7_to_batch(tensors: &[(String, Vec<ndarray::hpc::bgz17_bridge::Base17>)]) -> RecordBatch {
     let mut names = Vec::new();
     let mut row_idxs = Vec::new();
     let mut layer_idxs: Vec<Option<u16>> = Vec::new();
@@ -161,18 +170,13 @@ pub fn hydrate_bgz7(path: &str) -> Result<RecordBatch, String> {
 }
 
 /// Write a RecordBatch to a Lance dataset.
-pub async fn write_to_lance(
-    batch: &RecordBatch,
-    dataset_path: &str,
-) -> Result<(), String> {
+pub async fn write_to_lance(batch: &RecordBatch, dataset_path: &str) -> Result<(), String> {
     use lance::dataset::{WriteMode, WriteParams};
     use lance::Dataset;
 
     let batches = vec![batch.clone()];
-    let reader = arrow::record_batch::RecordBatchIterator::new(
-        batches.into_iter().map(Ok),
-        batch.schema(),
-    );
+    let reader =
+        arrow::record_batch::RecordBatchIterator::new(batches.into_iter().map(Ok), batch.schema());
 
     let params = WriteParams {
         mode: WriteMode::Append,
@@ -232,8 +236,14 @@ mod tests {
     #[test]
     fn test_bgz7_to_batch() {
         let tensors = vec![
-            ("model.layers.0.self_attn.q_proj.weight".into(), vec![Base17 { dims: [100; 17] }, Base17 { dims: [200; 17] }]),
-            ("model.layers.0.self_attn.k_proj.weight".into(), vec![Base17 { dims: [-50; 17] }]),
+            (
+                "model.layers.0.self_attn.q_proj.weight".into(),
+                vec![Base17 { dims: [100; 17] }, Base17 { dims: [200; 17] }],
+            ),
+            (
+                "model.layers.0.self_attn.k_proj.weight".into(),
+                vec![Base17 { dims: [-50; 17] }],
+            ),
         ];
         let batch = bgz7_to_batch(&tensors);
         assert_eq!(batch.num_rows(), 3);
@@ -242,34 +252,82 @@ mod tests {
 
     #[test]
     fn test_tensor_role_parsing() {
-        assert_eq!(TensorRole::from_name("model.layers.0.self_attn.q_proj.weight"), TensorRole::QProj);
-        assert_eq!(TensorRole::from_name("model.layers.0.self_attn.k_proj.weight"), TensorRole::KProj);
-        assert_eq!(TensorRole::from_name("model.layers.0.self_attn.v_proj.weight"), TensorRole::VProj);
-        assert_eq!(TensorRole::from_name("model.layers.0.self_attn.o_proj.weight"), TensorRole::OProj);
-        assert_eq!(TensorRole::from_name("model.layers.0.mlp.gate_proj.weight"), TensorRole::GateProj);
-        assert_eq!(TensorRole::from_name("model.layers.0.mlp.up_proj.weight"), TensorRole::UpProj);
-        assert_eq!(TensorRole::from_name("model.layers.0.mlp.down_proj.weight"), TensorRole::DownProj);
-        assert_eq!(TensorRole::from_name("model.embed_tokens.weight"), TensorRole::Embedding);
-        assert_eq!(TensorRole::from_name("model.layers.0.input_layernorm.weight"), TensorRole::Norm);
+        assert_eq!(
+            TensorRole::from_name("model.layers.0.self_attn.q_proj.weight"),
+            TensorRole::QProj
+        );
+        assert_eq!(
+            TensorRole::from_name("model.layers.0.self_attn.k_proj.weight"),
+            TensorRole::KProj
+        );
+        assert_eq!(
+            TensorRole::from_name("model.layers.0.self_attn.v_proj.weight"),
+            TensorRole::VProj
+        );
+        assert_eq!(
+            TensorRole::from_name("model.layers.0.self_attn.o_proj.weight"),
+            TensorRole::OProj
+        );
+        assert_eq!(
+            TensorRole::from_name("model.layers.0.mlp.gate_proj.weight"),
+            TensorRole::GateProj
+        );
+        assert_eq!(
+            TensorRole::from_name("model.layers.0.mlp.up_proj.weight"),
+            TensorRole::UpProj
+        );
+        assert_eq!(
+            TensorRole::from_name("model.layers.0.mlp.down_proj.weight"),
+            TensorRole::DownProj
+        );
+        assert_eq!(
+            TensorRole::from_name("model.embed_tokens.weight"),
+            TensorRole::Embedding
+        );
+        assert_eq!(
+            TensorRole::from_name("model.layers.0.input_layernorm.weight"),
+            TensorRole::Norm
+        );
         // GGUF naming
-        assert_eq!(TensorRole::from_name("blk.5.attn_q.weight"), TensorRole::QProj);
-        assert_eq!(TensorRole::from_name("blk.5.ffn_gate.weight"), TensorRole::GateProj);
+        assert_eq!(
+            TensorRole::from_name("blk.5.attn_q.weight"),
+            TensorRole::QProj
+        );
+        assert_eq!(
+            TensorRole::from_name("blk.5.ffn_gate.weight"),
+            TensorRole::GateProj
+        );
     }
 
     #[test]
     fn test_layer_idx_parsing() {
-        assert_eq!(parse_layer_idx("model.layers.15.self_attn.q_proj.weight"), Some(15));
+        assert_eq!(
+            parse_layer_idx("model.layers.15.self_attn.q_proj.weight"),
+            Some(15)
+        );
         assert_eq!(parse_layer_idx("blk.7.attn_q.weight"), Some(7));
         assert_eq!(parse_layer_idx("model.embed_tokens.weight"), None);
-        assert_eq!(parse_layer_idx("model.layers.0.mlp.gate_proj.weight"), Some(0));
+        assert_eq!(
+            parse_layer_idx("model.layers.0.mlp.gate_proj.weight"),
+            Some(0)
+        );
     }
 
     #[test]
     fn test_partition_columns_populated() {
         let tensors = vec![
-            ("model.layers.5.self_attn.q_proj.weight".into(), vec![Base17 { dims: [100; 17] }]),
-            ("model.layers.5.mlp.gate_proj.weight".into(), vec![Base17 { dims: [200; 17] }]),
-            ("model.embed_tokens.weight".into(), vec![Base17 { dims: [50; 17] }]),
+            (
+                "model.layers.5.self_attn.q_proj.weight".into(),
+                vec![Base17 { dims: [100; 17] }],
+            ),
+            (
+                "model.layers.5.mlp.gate_proj.weight".into(),
+                vec![Base17 { dims: [200; 17] }],
+            ),
+            (
+                "model.embed_tokens.weight".into(),
+                vec![Base17 { dims: [50; 17] }],
+            ),
         ];
         let batch = bgz7_to_batch(&tensors);
         let roles = batch.column_by_name("tensor_role").unwrap();
@@ -288,9 +346,14 @@ mod tests {
 
     #[test]
     fn test_compute_heel() {
-        let tensors = vec![("t".into(), vec![
-            Base17 { dims: [10; 17] }, Base17 { dims: [20; 17] }, Base17 { dims: [30; 17] },
-        ])];
+        let tensors = vec![(
+            "t".into(),
+            vec![
+                Base17 { dims: [10; 17] },
+                Base17 { dims: [20; 17] },
+                Base17 { dims: [30; 17] },
+            ],
+        )];
         let batch = bgz7_to_batch(&tensors);
         let heel = compute_heel(&batch);
         assert_eq!(heel.dims[0], 20);
@@ -298,10 +361,17 @@ mod tests {
 
     #[test]
     fn test_heel_asymmetric() {
-        let tensors = vec![("t".into(), vec![
-            Base17 { dims: [100, 200, -50, 300, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
-            Base17 { dims: [150, 100, -30, 250, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
-        ])];
+        let tensors = vec![(
+            "t".into(),
+            vec![
+                Base17 {
+                    dims: [100, 200, -50, 300, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                },
+                Base17 {
+                    dims: [150, 100, -30, 250, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                },
+            ],
+        )];
         let batch = bgz7_to_batch(&tensors);
         let heel = compute_heel(&batch);
         assert_eq!(heel.dims[0], 125);
@@ -310,9 +380,14 @@ mod tests {
 
     #[test]
     fn test_f32_preserves_i16() {
-        let tensors = vec![("t".into(), vec![
-            Base17 { dims: [-32768, 32767, 0, 1, -1, 12345, -12345, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
-        ])];
+        let tensors = vec![(
+            "t".into(),
+            vec![Base17 {
+                dims: [
+                    -32768, 32767, 0, 1, -1, 12345, -12345, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                ],
+            }],
+        )];
         let batch = bgz7_to_batch(&tensors);
         let heel = compute_heel(&batch);
         assert_eq!(heel.dims[0], -32768);
@@ -322,7 +397,10 @@ mod tests {
 
     #[test]
     fn test_all_columns_present() {
-        let tensors = vec![("model.layers.0.self_attn.q_proj.weight".into(), vec![Base17 { dims: [42; 17] }])];
+        let tensors = vec![(
+            "model.layers.0.self_attn.q_proj.weight".into(),
+            vec![Base17 { dims: [42; 17] }],
+        )];
         let batch = bgz7_to_batch(&tensors);
         assert!(batch.column_by_name("vector").is_some());
         assert!(batch.column_by_name("base17").is_some());
@@ -335,7 +413,11 @@ mod tests {
     #[ignore = "requires /tmp/qwen35_27b_v2_shard02.bgz7"]
     fn test_hydrate_real() {
         let batch = hydrate_bgz7("/tmp/qwen35_27b_v2_shard02.bgz7").unwrap();
-        eprintln!("Hydrated: {} rows, {} cols", batch.num_rows(), batch.num_columns());
+        eprintln!(
+            "Hydrated: {} rows, {} cols",
+            batch.num_rows(),
+            batch.num_columns()
+        );
         let heel = compute_heel(&batch);
         eprintln!("HEEL: {:?}", heel.dims);
     }

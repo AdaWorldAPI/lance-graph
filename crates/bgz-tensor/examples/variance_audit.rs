@@ -23,7 +23,8 @@ fn main() {
             "/home/user/ndarray/src/hpc/openchat/weights/llama4_scout_shard4.bgz7",
             "/home/user/ndarray/src/hpc/openchat/weights/llama4_scout_shard5.bgz7",
         ];
-        candidates.into_iter()
+        candidates
+            .into_iter()
             .filter(|p| std::path::Path::new(p).exists())
             .map(|s| s.to_string())
             .collect()
@@ -69,31 +70,44 @@ fn audit_bgz7_file(path: &str) {
     let mut total_rows = 0;
 
     for _ in 0..n_tensors {
-        if pos + 4 > data.len() { break; }
+        if pos + 4 > data.len() {
+            break;
+        }
 
         // Parse: [name_len:u32][name][layer_type:u8][n_rows:u32][n_cols:u32][base17 × n_rows]
-        let name_len = u32::from_le_bytes([data[pos], data[pos+1], data[pos+2], data[pos+3]]) as usize;
+        let name_len =
+            u32::from_le_bytes([data[pos], data[pos + 1], data[pos + 2], data[pos + 3]]) as usize;
         pos += 4;
-        if pos + name_len > data.len() { break; }
+        if pos + name_len > data.len() {
+            break;
+        }
 
         let name = String::from_utf8_lossy(&data[pos..pos + name_len]).to_string();
         pos += name_len;
 
-        if pos + 1 > data.len() { break; }
+        if pos + 1 > data.len() {
+            break;
+        }
         let _layer_type = data[pos];
         pos += 1;
 
-        if pos + 8 > data.len() { break; }
-        let n_rows = u32::from_le_bytes([data[pos], data[pos+1], data[pos+2], data[pos+3]]) as usize;
+        if pos + 8 > data.len() {
+            break;
+        }
+        let n_rows =
+            u32::from_le_bytes([data[pos], data[pos + 1], data[pos + 2], data[pos + 3]]) as usize;
         pos += 4;
-        let _n_cols = u32::from_le_bytes([data[pos], data[pos+1], data[pos+2], data[pos+3]]) as usize;
+        let _n_cols =
+            u32::from_le_bytes([data[pos], data[pos + 1], data[pos + 2], data[pos + 3]]) as usize;
         pos += 4;
 
         // Parse role from tensor name
         let role = bgz_tensor::variance::Role::from_name(&name);
 
         for _ in 0..n_rows {
-            if pos + 34 > data.len() { break; }
+            if pos + 34 > data.len() {
+                break;
+            }
             let b17 = bgz_tensor::Base17::from_bytes(&data[pos..pos + 34]);
             pos += 34;
 
@@ -107,7 +121,11 @@ fn audit_bgz7_file(path: &str) {
 
     println!("Total rows: {}, Labeled: {}", total_rows, labeled.len());
     for role in bgz_tensor::variance::Role::ALL {
-        println!("  {}: {} rows", role.label(), tensor_count_by_role[role as usize]);
+        println!(
+            "  {}: {} rows",
+            role.label(),
+            tensor_count_by_role[role as usize]
+        );
     }
 
     if labeled.is_empty() {
@@ -182,7 +200,10 @@ fn run_synthetic_audit() {
         for d in 0..17 {
             dims[d] = 500 + ((i * 17 + d * 11) % 1000) as i16 - 500;
         }
-        labeled.push((bgz_tensor::variance::Role::Gate, bgz_tensor::Base17 { dims }));
+        labeled.push((
+            bgz_tensor::variance::Role::Gate,
+            bgz_tensor::Base17 { dims },
+        ));
     }
 
     // Simulate Up: moderate-high
@@ -200,7 +221,10 @@ fn run_synthetic_audit() {
         for d in 0..17 {
             dims[d] = -300 + ((i * 23 + d * 17) % 600) as i16 - 300;
         }
-        labeled.push((bgz_tensor::variance::Role::Down, bgz_tensor::Base17 { dims }));
+        labeled.push((
+            bgz_tensor::variance::Role::Down,
+            bgz_tensor::Base17 { dims },
+        ));
     }
 
     let report = bgz_tensor::variance::compute_variance("synthetic_model", &labeled);
@@ -212,17 +236,24 @@ fn run_synthetic_audit() {
     // Build palette from all vectors
     let all_b17: Vec<bgz_tensor::Base17> = labeled.iter().map(|(_, b)| b.clone()).collect();
     let palette = bgz_tensor::WeightPalette::build(&all_b17, 256);
-    println!("Palette: {} entries, max distortion: {}", palette.len(), palette.max_distortion());
+    println!(
+        "Palette: {} entries, max distortion: {}",
+        palette.len(),
+        palette.max_distortion()
+    );
     println!("Mean distortion: {:.1}", palette.mean_distortion());
 
     // Compress each role and measure fidelity
     for role in bgz_tensor::variance::Role::ALL {
-        let role_vecs: Vec<&bgz_tensor::Base17> = labeled.iter()
+        let role_vecs: Vec<&bgz_tensor::Base17> = labeled
+            .iter()
             .filter(|(r, _)| *r == role)
             .map(|(_, b)| b)
             .collect();
 
-        if role_vecs.is_empty() { continue; }
+        if role_vecs.is_empty() {
+            continue;
+        }
 
         let mut total_distortion = 0u64;
         let mut max_dist = 0u32;
@@ -242,7 +273,8 @@ fn run_synthetic_audit() {
                 let orig_cos = role_vecs[i].cosine(role_vecs[j]);
                 let idx_i = palette.assign(role_vecs[i]).index;
                 let idx_j = palette.assign(role_vecs[j]).index;
-                let comp_cos = palette.entries[idx_i as usize].cosine(&palette.entries[idx_j as usize]);
+                let comp_cos =
+                    palette.entries[idx_i as usize].cosine(&palette.entries[idx_j as usize]);
                 cos_before.push(orig_cos);
                 cos_after.push(comp_cos);
             }
@@ -250,10 +282,17 @@ fn run_synthetic_audit() {
 
         let cos_pearson = if cos_before.len() > 1 {
             bgz_tensor::quality::pearson(&cos_before, &cos_after)
-        } else { 0.0 };
+        } else {
+            0.0
+        };
 
-        println!("  {:<5}: mean_dist={:>8.1}, max_dist={:>6}, cos_preservation={:.4}",
-            role.label(), mean_dist, max_dist, cos_pearson);
+        println!(
+            "  {:<5}: mean_dist={:>8.1}, max_dist={:>6}, cos_preservation={:.4}",
+            role.label(),
+            mean_dist,
+            max_dist,
+            cos_pearson
+        );
     }
 
     // Full NeuronPrint: 6 indices = 6 bytes per neuron
@@ -262,7 +301,9 @@ fn run_synthetic_audit() {
 
     // Cross-role distance preservation
     println!("\n=== Cross-Role Distance After Compression ===");
-    let centroids_by_role: Vec<(bgz_tensor::variance::Role, bgz_tensor::Base17)> = report.per_role.iter()
+    let centroids_by_role: Vec<(bgz_tensor::variance::Role, bgz_tensor::Base17)> = report
+        .per_role
+        .iter()
         .map(|rs| (rs.role, rs.centroid.clone()))
         .collect();
 
@@ -274,9 +315,14 @@ fn run_synthetic_audit() {
             let idx1 = palette.assign(c1).index;
             let idx2 = palette.assign(c2).index;
             let comp_l1 = palette.entries[idx1 as usize].l1(&palette.entries[idx2 as usize]);
-            println!("  {} ↔ {}: orig_L1={:>5}, compressed_L1={:>5}, ratio={:.2}",
-                r1.label(), r2.label(), orig_l1, comp_l1,
-                comp_l1 as f64 / orig_l1.max(1) as f64);
+            println!(
+                "  {} ↔ {}: orig_L1={:>5}, compressed_L1={:>5}, ratio={:.2}",
+                r1.label(),
+                r2.label(),
+                orig_l1,
+                comp_l1,
+                comp_l1 as f64 / orig_l1.max(1) as f64
+            );
         }
     }
 }

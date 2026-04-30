@@ -68,9 +68,7 @@ impl NdarrayFingerprint {
     pub fn as_bytes(&self) -> &[u8] {
         // SAFETY: [u64; 256] and [u8; 2048] have the same size and alignment
         // requirements are satisfied (u8 has alignment 1).
-        unsafe {
-            std::slice::from_raw_parts(self.words.as_ptr() as *const u8, VECTOR_BYTES)
-        }
+        unsafe { std::slice::from_raw_parts(self.words.as_ptr() as *const u8, VECTOR_BYTES) }
     }
 
     /// Population count (number of set bits).
@@ -93,9 +91,7 @@ impl From<&BitVec> for NdarrayFingerprint {
     ///
     /// Copies the word array (stack copy, no heap allocation).
     fn from(bv: &BitVec) -> Self {
-        NdarrayFingerprint {
-            words: *bv.words(),
-        }
+        NdarrayFingerprint { words: *bv.words() }
     }
 }
 
@@ -254,8 +250,8 @@ unsafe fn hamming_avx2(a: &[u8], b: &[u8]) -> u64 {
 
     // Nibble lookup table for popcount: LUT[nibble] = popcount(nibble)
     let lut = _mm256_setr_epi8(
-        0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,
-        0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,
+        0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3,
+        3, 4,
     );
     let mask_lo = _mm256_set1_epi8(0x0f);
     let mut acc = _mm256_setzero_si256();
@@ -301,8 +297,8 @@ unsafe fn popcount_avx2(a: &[u8]) -> u64 {
     let mut total = 0u64;
 
     let lut = _mm256_setr_epi8(
-        0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,
-        0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,
+        0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3,
+        3, 4,
     );
     let mask_lo = _mm256_set1_epi8(0x0f);
     let mut acc = _mm256_setzero_si256();
@@ -346,7 +342,10 @@ unsafe fn hamming_avx512bw(a: &[u8], b: &[u8]) -> u64 {
     let mut total = 0u64;
 
     let lut = _mm512_set4_epi32(
-        0x04030302_i32, 0x03020201_i32, 0x03020201_i32, 0x02010100_i32,
+        0x04030302_i32,
+        0x03020201_i32,
+        0x03020201_i32,
+        0x02010100_i32,
     );
     let mask_lo = _mm512_set1_epi8(0x0f);
     let mut acc = _mm512_setzero_si512();
@@ -386,7 +385,10 @@ unsafe fn popcount_avx512bw(a: &[u8]) -> u64 {
     let mut total = 0u64;
 
     let lut = _mm512_set4_epi32(
-        0x04030302_i32, 0x03020201_i32, 0x03020201_i32, 0x02010100_i32,
+        0x04030302_i32,
+        0x03020201_i32,
+        0x03020201_i32,
+        0x02010100_i32,
     );
     let mask_lo = _mm512_set1_epi8(0x0f);
     let mut acc = _mm512_setzero_si512();

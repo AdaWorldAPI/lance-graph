@@ -5,17 +5,17 @@
 //!
 //! Plus standard graph operators mapped from logical plan.
 
-pub mod broadcast;
-pub mod scan;
 pub mod accumulate;
-pub mod collapse;
+pub mod broadcast;
 pub mod cam_pq_scan;
+pub mod collapse;
+pub mod scan;
 
-pub use broadcast::BroadcastOp;
-pub use scan::ScanOp;
 pub use accumulate::AccumulateOp;
-pub use collapse::CollapseOp;
+pub use broadcast::BroadcastOp;
 pub use cam_pq_scan::CamPqScanOp;
+pub use collapse::CollapseOp;
+pub use scan::ScanOp;
 
 /// Physical operator trait.
 /// Each operator processes morsels of data in a pipeline.

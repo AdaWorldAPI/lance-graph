@@ -6,7 +6,7 @@
 //! Each thread processes a morsel (chunk) of data.
 
 #[allow(unused_imports)] // Morsel intended for pipeline execution wiring
-use crate::physical::{PhysicalPlan, Pipeline, Morsel};
+use crate::physical::{Morsel, PhysicalPlan, Pipeline};
 
 /// Pipeline executor.
 pub struct PipelineExecutor {
@@ -27,7 +27,10 @@ impl Default for PipelineExecutor {
 
 impl PipelineExecutor {
     pub fn new(num_threads: usize, morsel_size: usize) -> Self {
-        Self { num_threads, morsel_size }
+        Self {
+            num_threads,
+            morsel_size,
+        }
     }
 
     /// Decompose a physical plan into pipelines.

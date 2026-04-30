@@ -36,6 +36,7 @@
 //! ```
 
 pub mod ast;
+pub mod cam_pq;
 pub mod case_insensitive;
 pub mod config;
 pub mod datafusion_planner;
@@ -44,6 +45,7 @@ pub mod graph;
 pub mod lance_native_planner;
 pub mod lance_vector_search;
 pub mod logical_plan;
+pub mod nsm;
 pub mod parameter_substitution;
 pub mod parser;
 pub mod query;
@@ -52,8 +54,6 @@ pub mod spark_dialect;
 pub mod sql_catalog;
 pub mod sql_query;
 pub mod table_readers;
-pub mod cam_pq;
-pub mod nsm;
 
 /// Maximum allowed hops for variable-length relationship expansion (e.g., *1..N)
 pub const MAX_VARIABLE_LENGTH_HOPS: u32 = 20;

@@ -20,23 +20,23 @@
 //! |16 | GqlParse          | Parse               | ISO GQL (39075)      |
 //! |17 | AutocompleteCache | Extension           | BindSpace hot path   |
 
-pub mod cypher_parse;
-pub mod gremlin_parse;
-pub mod sparql_parse;
-pub mod gql_parse;
 pub mod arena_ir;
+pub mod chat_bundle;
+pub mod collapse_gate;
+pub mod cypher_parse;
 pub mod dp_join;
-pub mod rule_optimizer;
+pub mod extension;
+pub mod gql_parse;
+pub mod gremlin_parse;
 pub mod histogram_cost;
-pub mod sigma_scan;
+pub mod jit_compile;
 pub mod morsel_exec;
+pub mod rule_optimizer;
+pub mod sigma_scan;
+pub mod sparql_parse;
 pub mod stream_pipeline;
 pub mod truth_propagation;
-pub mod collapse_gate;
-pub mod jit_compile;
 pub mod workflow_dag;
-pub mod extension;
-pub mod chat_bundle;
 
 use crate::traits::PlanStrategy;
 

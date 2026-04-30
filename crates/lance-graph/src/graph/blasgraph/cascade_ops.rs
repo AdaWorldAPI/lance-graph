@@ -206,8 +206,7 @@ mod tests {
 
     #[test]
     fn test_hamming_predicate_to_cascade() {
-        let (config, cascade) =
-            hamming_predicate_to_cascade(7000, "plane_s".to_string());
+        let (config, cascade) = hamming_predicate_to_cascade(7000, "plane_s".to_string());
         assert_eq!(config.threshold, 7000);
         assert_eq!(config.min_band, Band::Foveal);
         // The cascade should be calibrated for 16384-bit vectors

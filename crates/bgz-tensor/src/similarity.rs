@@ -151,13 +151,21 @@ impl SimilarityTable {
         let n = pairs.len();
 
         // L1 ranks (ascending)
-        let mut l1_indexed: Vec<(usize, u32)> = pairs.iter().enumerate().map(|(i, &(l1, _))| (i, l1)).collect();
+        let mut l1_indexed: Vec<(usize, u32)> = pairs
+            .iter()
+            .enumerate()
+            .map(|(i, &(l1, _))| (i, l1))
+            .collect();
         l1_indexed.sort_by_key(|&(_, l1)| l1);
         let mut l1_ranks = vec![0.0f64; n];
         assign_ranks(&l1_indexed, &mut l1_ranks);
 
         // Cosine ranks (descending — higher cosine = lower rank number)
-        let mut cos_indexed: Vec<(usize, f64)> = pairs.iter().enumerate().map(|(i, &(_, c))| (i, -c)).collect();
+        let mut cos_indexed: Vec<(usize, f64)> = pairs
+            .iter()
+            .enumerate()
+            .map(|(i, &(_, c))| (i, -c))
+            .collect();
         cos_indexed.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
         let mut cos_ranks = vec![0.0f64; n];
         // Direct rank assignment for cosine (already sorted)
@@ -199,7 +207,10 @@ pub fn collect_calibration_pairs(
     embeddings_b: &[Base17],
     cosine_ground_truth: &[f64],
 ) -> Vec<(u32, f64)> {
-    let n = embeddings_a.len().min(embeddings_b.len()).min(cosine_ground_truth.len());
+    let n = embeddings_a
+        .len()
+        .min(embeddings_b.len())
+        .min(cosine_ground_truth.len());
     (0..n)
         .map(|i| (embeddings_a[i].l1(&embeddings_b[i]), cosine_ground_truth[i]))
         .collect()
@@ -221,9 +232,14 @@ mod tests {
         let table = SimilarityTable::linear_fallback(10000);
         for l1 in (0..10000).step_by(100) {
             let next = l1 + 100;
-            assert!(table.similarity(l1) >= table.similarity(next),
+            assert!(
+                table.similarity(l1) >= table.similarity(next),
                 "similarity should decrease with L1: s({})={} > s({})={}",
-                l1, table.similarity(l1), next, table.similarity(next));
+                l1,
+                table.similarity(l1),
+                next,
+                table.similarity(next)
+            );
         }
     }
 
@@ -241,8 +257,14 @@ mod tests {
         let table = SimilarityTable::calibrate(&pairs);
         // Should be monotone
         for i in 1..N_BINS {
-            assert!(table.bins[i] <= table.bins[i - 1],
-                "bin {} ({}) > bin {} ({})", i, table.bins[i], i - 1, table.bins[i - 1]);
+            assert!(
+                table.bins[i] <= table.bins[i - 1],
+                "bin {} ({}) > bin {} ({})",
+                i,
+                table.bins[i],
+                i - 1,
+                table.bins[i - 1]
+            );
         }
         // Near-zero L1 should give high similarity
         assert!(table.similarity(0) > 0.9);
@@ -276,7 +298,11 @@ mod tests {
             .map(|i| (i as u32, 1.0 - i as f64 / 100.0))
             .collect();
         let rho = SimilarityTable::spearman_l1_vs_cosine(&pairs);
-        assert!(rho > 0.99, "perfect inverse should give ρ ≈ 1.0, got {}", rho);
+        assert!(
+            rho > 0.99,
+            "perfect inverse should give ρ ≈ 1.0, got {}",
+            rho
+        );
     }
 
     #[test]

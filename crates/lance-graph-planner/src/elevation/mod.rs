@@ -16,10 +16,10 @@
 //! ```
 
 pub mod budget;
-pub mod homeostasis;
-pub mod operator;
 pub mod decompose;
+pub mod homeostasis;
 pub mod learning;
+pub mod operator;
 
 use std::time::{Duration, Instant};
 
@@ -80,8 +80,12 @@ impl ElevationLevel {
 
     /// All levels in order.
     pub const ALL: [ElevationLevel; 6] = [
-        Self::Point, Self::Scan, Self::Cascade,
-        Self::Batch, Self::IvfBatch, Self::Async,
+        Self::Point,
+        Self::Scan,
+        Self::Cascade,
+        Self::Batch,
+        Self::IvfBatch,
+        Self::Async,
     ];
 }
 

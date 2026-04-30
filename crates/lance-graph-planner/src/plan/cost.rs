@@ -3,8 +3,8 @@
 //! Thinking-aware: the modulation parameters from the thinking context
 //! influence cost estimates (e.g., exploratory styles tolerate higher costs).
 
-use crate::thinking::ThinkingContext;
 use super::QueryGraphNode;
+use crate::thinking::ThinkingContext;
 
 /// Cost model influenced by thinking context.
 pub struct CostModel {

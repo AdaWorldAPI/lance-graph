@@ -23,11 +23,11 @@
 //! ```
 
 use arrow::datatypes::{DataType, Field, Schema};
-use arrow_array::{
-    builder::FixedSizeBinaryBuilder, Array, FixedSizeBinaryArray, Float32Array,
-    Int64Array, RecordBatch, UInt8Array,
-};
 use arrow_array::builder::Float32Builder;
+use arrow_array::{
+    builder::FixedSizeBinaryBuilder, Array, FixedSizeBinaryArray, Float32Array, Int64Array,
+    RecordBatch, UInt8Array,
+};
 use std::sync::Arc;
 
 /// CAM column name in Lance tables.
@@ -67,7 +67,10 @@ pub fn cam_codebook_schema(subspace_dim: usize) -> Schema {
 ///
 /// `ids` and `cams` must have the same length.
 /// Each `cams[i]` is a 6-byte CAM fingerprint.
-pub fn build_cam_batch(ids: &[i64], cams: &[[u8; CAM_SIZE]]) -> Result<RecordBatch, arrow::error::ArrowError> {
+pub fn build_cam_batch(
+    ids: &[i64],
+    cams: &[[u8; CAM_SIZE]],
+) -> Result<RecordBatch, arrow::error::ArrowError> {
     assert_eq!(ids.len(), cams.len());
 
     let schema = Arc::new(cam_vectors_schema());
@@ -81,10 +84,7 @@ pub fn build_cam_batch(ids: &[i64], cams: &[[u8; CAM_SIZE]]) -> Result<RecordBat
 
     RecordBatch::try_new(
         schema,
-        vec![
-            Arc::new(id_array),
-            Arc::new(cam_builder.finish()),
-        ],
+        vec![Arc::new(id_array), Arc::new(cam_builder.finish())],
     )
 }
 
@@ -118,7 +118,8 @@ pub fn build_codebook_batch(
         subspace_dim as i32,
     );
     // Build the FixedSizeList manually via values + offsets
-    let flat_values: Vec<f32> = codebook.iter()
+    let flat_values: Vec<f32> = codebook
+        .iter()
         .flat_map(|s| s.iter().flat_map(|c| c.iter().copied()))
         .collect();
     let values_array = Float32Array::from(flat_values);
@@ -245,7 +246,12 @@ impl CamStorageStats {
         } else {
             0.0
         };
-        CamStorageStats { num_vectors, cam_bytes, codebook_bytes, compression_ratio }
+        CamStorageStats {
+            num_vectors,
+            cam_bytes,
+            codebook_bytes,
+            compression_ratio,
+        }
     }
 }
 
@@ -256,7 +262,9 @@ mod tests {
     #[test]
     fn test_build_cam_batch() {
         let ids: Vec<i64> = (0..100).collect();
-        let cams: Vec<[u8; 6]> = (0..100u8).map(|i| [i, i + 1, i + 2, i + 3, i + 4, i + 5]).collect();
+        let cams: Vec<[u8; 6]> = (0..100u8)
+            .map(|i| [i, i + 1, i + 2, i + 3, i + 4, i + 5])
+            .collect();
 
         let batch = build_cam_batch(&ids, &cams).unwrap();
         assert_eq!(batch.num_rows(), 100);
@@ -308,7 +316,10 @@ mod tests {
     fn test_schema_creation() {
         let vectors_schema = cam_vectors_schema();
         assert_eq!(vectors_schema.fields().len(), 2);
-        assert_eq!(vectors_schema.field(1).data_type(), &DataType::FixedSizeBinary(6));
+        assert_eq!(
+            vectors_schema.field(1).data_type(),
+            &DataType::FixedSizeBinary(6)
+        );
 
         let codebook_schema = cam_codebook_schema(170);
         assert_eq!(codebook_schema.fields().len(), 3);

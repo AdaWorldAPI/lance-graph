@@ -4,7 +4,7 @@
 //! n8n-rs implements CompiledStyleRegistry using this contract.
 //! ndarray provides the jitson engine.
 
-use crate::thinking::{ThinkingStyle, ScanParams};
+use crate::thinking::{ScanParams, ThinkingStyle};
 
 /// JIT template — a compiled scan kernel configuration.
 ///

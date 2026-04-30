@@ -106,12 +106,7 @@ impl BitVec {
     pub fn as_bytes(&self) -> &[u8] {
         // SAFETY: [u64; 256] is layout-compatible with [u8; 2048] for reads.
         // u8 has alignment 1, so the cast is always valid.
-        unsafe {
-            std::slice::from_raw_parts(
-                self.words.as_ptr() as *const u8,
-                VECTOR_WORDS * 8,
-            )
-        }
+        unsafe { std::slice::from_raw_parts(self.words.as_ptr() as *const u8, VECTOR_WORDS * 8) }
     }
 
     /// Construct a `BitVec` from a byte slice.
@@ -446,8 +441,8 @@ unsafe fn hamming_distance_avx2(a: &[u64; VECTOR_WORDS], b: &[u64; VECTOR_WORDS]
 
     // Lookup table for 4-bit popcount
     let lookup = _mm256_setr_epi8(
-        0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3,
-        2, 3, 3, 4,
+        0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3,
+        3, 4,
     );
     let low_mask = _mm256_set1_epi8(0x0f);
     let mut total = _mm256_setzero_si256();

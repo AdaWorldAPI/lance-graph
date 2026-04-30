@@ -72,7 +72,7 @@ pub fn cascade_search(
     candidates: &[super::node::AudioNode],
     route_table: &[u8], // k×k route table (RouteAction as u8)
     k: usize,           // palette size
-    hip_threshold: u16,  // max distance for HIP attend
+    hip_threshold: u16, // max distance for HIP attend
 ) -> Vec<(usize, AudioCascadeResult)> {
     let mut results = Vec::new();
 
@@ -80,17 +80,20 @@ pub fn cascade_search(
         // ═══ HEEL: stride match + PVQ category ═══
         // Different stride = different role = categorically different
         if query.spiral[1] != cand.spiral[1] {
-            results.push((idx, AudioCascadeResult {
-                level: AudioCascadeLevel::Heel,
-                distance: u32::MAX,
-                attend: false,
-            }));
+            results.push((
+                idx,
+                AudioCascadeResult {
+                    level: AudioCascadeLevel::Heel,
+                    distance: u32::MAX,
+                    attend: false,
+                },
+            ));
             continue;
         }
 
         // PVQ sign pattern match (bytes 0-1 = spectral category)
         let pvq_match = query.pvq_summary[0] == cand.pvq_summary[0]
-                      && query.pvq_summary[1] == cand.pvq_summary[1];
+            && query.pvq_summary[1] == cand.pvq_summary[1];
         if !pvq_match {
             // Different spectral category — likely skip, but check HIP
             // (don't hard-reject: similar energy can have different signs)
@@ -102,32 +105,44 @@ pub fn cascade_search(
         if qa < k && ca < k {
             let route = route_table[qa * k + ca];
             match route {
-                0 => { // Skip
-                    results.push((idx, AudioCascadeResult {
-                        level: AudioCascadeLevel::Hip,
-                        distance: u32::MAX,
-                        attend: false,
-                    }));
+                0 => {
+                    // Skip
+                    results.push((
+                        idx,
+                        AudioCascadeResult {
+                            level: AudioCascadeLevel::Hip,
+                            distance: u32::MAX,
+                            attend: false,
+                        },
+                    ));
                     continue;
                 }
-                1 => { // Attend
+                1 => {
+                    // Attend
                     let d = super::node::spectral_l1(query, cand);
-                    results.push((idx, AudioCascadeResult {
-                        level: AudioCascadeLevel::Hip,
-                        distance: d as u32,
-                        attend: d <= hip_threshold,
-                    }));
+                    results.push((
+                        idx,
+                        AudioCascadeResult {
+                            level: AudioCascadeLevel::Hip,
+                            distance: d as u32,
+                            attend: d <= hip_threshold,
+                        },
+                    ));
                     continue;
                 }
-                2 => { // Compose — check intermediate path
+                2 => {
+                    // Compose — check intermediate path
                     // For audio: compose = "could these frames be crossfaded?"
                     // Attend if either direct or composed distance is small
                     let d = super::node::spectral_l1(query, cand);
-                    results.push((idx, AudioCascadeResult {
-                        level: AudioCascadeLevel::Hip,
-                        distance: d as u32,
-                        attend: d <= hip_threshold * 2, // wider threshold for compose
-                    }));
+                    results.push((
+                        idx,
+                        AudioCascadeResult {
+                            level: AudioCascadeLevel::Hip,
+                            distance: d as u32,
+                            attend: d <= hip_threshold * 2, // wider threshold for compose
+                        },
+                    ));
                     continue;
                 }
                 _ => { // Escalate → fall through to TWIG
@@ -137,11 +152,14 @@ pub fn cascade_search(
 
         // ═══ TWIG: spectral L1 distance ═══
         let d = super::node::spectral_l1(query, cand);
-        results.push((idx, AudioCascadeResult {
-            level: AudioCascadeLevel::Twig,
-            distance: d as u32,
-            attend: d <= hip_threshold,
-        }));
+        results.push((
+            idx,
+            AudioCascadeResult {
+                level: AudioCascadeLevel::Twig,
+                distance: d as u32,
+                attend: d <= hip_threshold,
+            },
+        ));
     }
 
     results
@@ -174,9 +192,15 @@ impl CascadeStats {
     }
 
     pub fn skip_rate(&self) -> f32 {
-        let total = self.heel_rejected + self.hip_skipped + self.hip_attended
-                  + self.hip_composed + self.twig_resolved + self.leaf_decoded;
-        if total == 0 { return 0.0; }
+        let total = self.heel_rejected
+            + self.hip_skipped
+            + self.hip_attended
+            + self.hip_composed
+            + self.twig_resolved
+            + self.leaf_decoded;
+        if total == 0 {
+            return 0.0;
+        }
         (self.heel_rejected + self.hip_skipped) as f32 / total as f32
     }
 }
@@ -188,12 +212,10 @@ impl CascadeStats {
 /// spending cycles on iMDCT decode.
 ///
 /// Returns the input nodes with route_hint filled in.
-pub fn assign_route_hints(
-    nodes: &mut [super::node::AudioNode],
-    route_table: &[u8],
-    k: usize,
-) {
-    if nodes.is_empty() { return; }
+pub fn assign_route_hints(nodes: &mut [super::node::AudioNode], route_table: &[u8], k: usize) {
+    if nodes.is_empty() {
+        return;
+    }
     nodes[0].route_hint = 1; // first frame always attends
 
     for i in 1..nodes.len() {
@@ -209,13 +231,19 @@ pub fn assign_route_hints(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::node::AudioNode;
+    use super::*;
 
     fn make_node(stride: u16, palette_idx: u8, energy: u16) -> AudioNode {
         AudioNode::from_parts(
-            [energy; 21], [0; 6], [200, 30, 128, 50],
-            0, stride, 10, palette_idx, 0,
+            [energy; 21],
+            [0; 6],
+            [200, 30, 128, 50],
+            0,
+            stride,
+            10,
+            palette_idx,
+            0,
         )
     }
 
@@ -232,17 +260,20 @@ mod tests {
         let results = cascade_search(&query, &candidates, &route_table, 256, 1000);
         // Only stride=5 should pass HEEL
         assert!(results[0].1.attend, "Same stride should attend");
-        assert!(!results[1].1.attend, "Different stride should reject at HEEL");
-        assert!(!results[2].1.attend, "Different stride should reject at HEEL");
+        assert!(
+            !results[1].1.attend,
+            "Different stride should reject at HEEL"
+        );
+        assert!(
+            !results[2].1.attend,
+            "Different stride should reject at HEEL"
+        );
     }
 
     #[test]
     fn hip_skips_when_route_table_says_skip() {
         let query = make_node(5, 0, 0x3C00);
-        let candidates = vec![
-            make_node(5, 1, 0x3C00),
-            make_node(5, 2, 0x3C00),
-        ];
+        let candidates = vec![make_node(5, 1, 0x3C00), make_node(5, 2, 0x3C00)];
         // Route table: palette 0→1 = Skip, palette 0→2 = Attend
         let mut route_table = vec![1u8; 256 * 256]; // default Attend
         route_table[0 * 256 + 1] = 0; // Skip
@@ -255,10 +286,38 @@ mod tests {
     #[test]
     fn cascade_stats_skip_rate() {
         let results = vec![
-            (0, AudioCascadeResult { level: AudioCascadeLevel::Heel, distance: u32::MAX, attend: false }),
-            (1, AudioCascadeResult { level: AudioCascadeLevel::Hip, distance: u32::MAX, attend: false }),
-            (2, AudioCascadeResult { level: AudioCascadeLevel::Hip, distance: 100, attend: true }),
-            (3, AudioCascadeResult { level: AudioCascadeLevel::Twig, distance: 50, attend: true }),
+            (
+                0,
+                AudioCascadeResult {
+                    level: AudioCascadeLevel::Heel,
+                    distance: u32::MAX,
+                    attend: false,
+                },
+            ),
+            (
+                1,
+                AudioCascadeResult {
+                    level: AudioCascadeLevel::Hip,
+                    distance: u32::MAX,
+                    attend: false,
+                },
+            ),
+            (
+                2,
+                AudioCascadeResult {
+                    level: AudioCascadeLevel::Hip,
+                    distance: 100,
+                    attend: true,
+                },
+            ),
+            (
+                3,
+                AudioCascadeResult {
+                    level: AudioCascadeLevel::Twig,
+                    distance: 50,
+                    attend: true,
+                },
+            ),
         ];
         let stats = CascadeStats::from_results(&results);
         assert_eq!(stats.heel_rejected, 1);
@@ -270,10 +329,7 @@ mod tests {
 
     #[test]
     fn assign_route_hints_first_always_attends() {
-        let mut nodes = vec![
-            make_node(5, 0, 0x3C00),
-            make_node(5, 0, 0x3C00),
-        ];
+        let mut nodes = vec![make_node(5, 0, 0x3C00), make_node(5, 0, 0x3C00)];
         let route_table = vec![0u8; 256 * 256]; // all Skip
         assign_route_hints(&mut nodes, &route_table, 256);
         assert_eq!(nodes[0].route_hint, 1, "First frame always attends");

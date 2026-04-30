@@ -8,7 +8,7 @@ use std::time::Instant;
 
 use super::budget::PatienceBudget;
 use super::learning::ElevationHistory;
-use super::{ElevationEvent, ElevationLevel, ElevationTrigger, should_elevate};
+use super::{should_elevate, ElevationEvent, ElevationLevel, ElevationTrigger};
 use crate::physical::{Morsel, PhysicalOperator};
 
 /// A level-specific operator that can be seeded with partial results.
@@ -30,9 +30,15 @@ pub enum ElevationError {
     /// No operator registered for this level.
     NoPlanForLevel(ElevationLevel),
     /// Execution timed out at ceiling level.
-    Timeout { level: ElevationLevel, elapsed_ms: u64 },
+    Timeout {
+        level: ElevationLevel,
+        elapsed_ms: u64,
+    },
     /// Execution error at a specific level.
-    LevelError { level: ElevationLevel, message: String },
+    LevelError {
+        level: ElevationLevel,
+        message: String,
+    },
 }
 
 impl std::fmt::Display for ElevationError {
@@ -96,7 +102,9 @@ impl ElevatingOp {
     /// the next level operator.
     pub fn execute(&mut self) -> Result<Morsel, ElevationError> {
         loop {
-            let op = self.levels.get_mut(&self.level)
+            let op = self
+                .levels
+                .get_mut(&self.level)
                 .ok_or(ElevationError::NoPlanForLevel(self.level))?;
 
             let start = Instant::now();
@@ -108,9 +116,7 @@ impl ElevatingOp {
                         memory_bytes: estimate_morsel_bytes(&morsel),
                     };
 
-                    if should_elevate(&trigger, &self.budget)
-                        && self.level < self.budget.ceiling
-                    {
+                    if should_elevate(&trigger, &self.budget) && self.level < self.budget.ceiling {
                         let next = self.level.next();
                         self.history.record(ElevationEvent {
                             from_level: self.level,
@@ -164,10 +170,13 @@ impl ElevatingOp {
 }
 
 impl PhysicalOperator for ElevatingOp {
-    fn name(&self) -> &str { "elevating" }
+    fn name(&self) -> &str {
+        "elevating"
+    }
 
     fn cardinality(&self) -> f64 {
-        self.levels.get(&self.level)
+        self.levels
+            .get(&self.level)
             .map(|op| op.cardinality())
             .unwrap_or(0.0)
     }
@@ -185,13 +194,17 @@ impl PhysicalOperator for ElevatingOp {
 /// Rough estimate of morsel memory footprint.
 fn estimate_morsel_bytes(morsel: &Morsel) -> usize {
     use crate::physical::ColumnData;
-    morsel.columns.iter().map(|col| match col {
-        ColumnData::Int64(v) => v.len() * 8,
-        ColumnData::Float64(v) => v.len() * 8,
-        ColumnData::String(v) => v.iter().map(|s| s.len() + 24).sum(),
-        ColumnData::Fingerprint(v) => v.iter().map(|fp| fp.len() * 8).sum(),
-        ColumnData::TruthValue(v) => v.len() * 16,
-    }).sum()
+    morsel
+        .columns
+        .iter()
+        .map(|col| match col {
+            ColumnData::Int64(v) => v.len() * 8,
+            ColumnData::Float64(v) => v.len() * 8,
+            ColumnData::String(v) => v.iter().map(|s| s.len() + 24).sum(),
+            ColumnData::Fingerprint(v) => v.iter().map(|fp| fp.len() * 8).sum(),
+            ColumnData::TruthValue(v) => v.len() * 16,
+        })
+        .sum()
 }
 
 #[cfg(test)]
@@ -206,17 +219,27 @@ mod tests {
     }
 
     impl DummyLevel {
-        fn new(rows: usize) -> Self { Self { rows, seeded: false } }
+        fn new(rows: usize) -> Self {
+            Self {
+                rows,
+                seeded: false,
+            }
+        }
     }
 
     impl LevelOperator for DummyLevel {
         fn execute_level(&mut self) -> Result<Morsel, ElevationError> {
-            Ok(Morsel { num_rows: self.rows, columns: vec![] })
+            Ok(Morsel {
+                num_rows: self.rows,
+                columns: vec![],
+            })
         }
         fn seed_results(&mut self, _partial: &Morsel) {
             self.seeded = true;
         }
-        fn cardinality(&self) -> f64 { self.rows as f64 }
+        fn cardinality(&self) -> f64 {
+            self.rows as f64
+        }
     }
 
     #[test]

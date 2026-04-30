@@ -27,84 +27,103 @@ fn main() {
         let texts: Vec<&str> = (0..20).map(|_| "x").collect();
         if let Ok(json) = std::fs::read_to_string(path) {
             if let Ok(embs) = bgz_tensor::jina::parse_jina_response(&json, &texts) {
-                for e in embs { raw.push(e.vector); }
+                for e in embs {
+                    raw.push(e.vector);
+                }
             }
         }
     }
-    if raw.is_empty() { eprintln!("No Jina data"); return; }
+    if raw.is_empty() {
+        eprintln!("No Jina data");
+        return;
+    }
     let n = raw.len();
     let dim = raw[0].len();
     println!("{} vectors, dim={}\n", n, dim);
 
     // Ground truth: f32 pairwise cosines
     let mut gt: Vec<(usize, usize, f64)> = Vec::new();
-    for i in 0..n { for j in (i+1)..n {
-        gt.push((i, j, cosine_f32(&raw[i], &raw[j])));
-    }}
+    for i in 0..n {
+        for j in (i + 1)..n {
+            gt.push((i, j, cosine_f32(&raw[i], &raw[j])));
+        }
+    }
     let gt_cos: Vec<f64> = gt.iter().map(|p| p.2).collect();
 
     // ═══ Strategy A: i16, integer stride 11 mod 17, offset 0 (current) ═══
-    let a_projected: Vec<[i16; BASE_DIM]> = raw.iter()
+    let a_projected: Vec<[i16; BASE_DIM]> = raw
+        .iter()
         .map(|v| project_i16_integer_stride(v, 11, 0))
         .collect();
-    let a_cos: Vec<f64> = gt.iter()
-        .map(|&(i,j,_)| cosine_i16(&a_projected[i], &a_projected[j]))
+    let a_cos: Vec<f64> = gt
+        .iter()
+        .map(|&(i, j, _)| cosine_i16(&a_projected[i], &a_projected[j]))
         .collect();
 
     // ═══ Strategy B: i32, integer stride 11 mod 17, offset 0 ═══
-    let b_projected: Vec<[i32; BASE_DIM]> = raw.iter()
+    let b_projected: Vec<[i32; BASE_DIM]> = raw
+        .iter()
         .map(|v| project_i32_integer_stride(v, 11, 0))
         .collect();
-    let b_cos: Vec<f64> = gt.iter()
-        .map(|&(i,j,_)| cosine_i32(&b_projected[i], &b_projected[j]))
+    let b_cos: Vec<f64> = gt
+        .iter()
+        .map(|&(i, j, _)| cosine_i32(&b_projected[i], &b_projected[j]))
         .collect();
 
     // ═══ Strategy C: i32, actual φ fractional, offset 0 ═══
-    let c_projected: Vec<[i32; BASE_DIM]> = raw.iter()
+    let c_projected: Vec<[i32; BASE_DIM]> = raw
+        .iter()
         .map(|v| project_i32_phi_fractional(v, 0))
         .collect();
-    let c_cos: Vec<f64> = gt.iter()
-        .map(|&(i,j,_)| cosine_i32(&c_projected[i], &c_projected[j]))
+    let c_cos: Vec<f64> = gt
+        .iter()
+        .map(|&(i, j, _)| cosine_i32(&c_projected[i], &c_projected[j]))
         .collect();
 
     // ═══ Strategy D: i32, actual φ fractional, offset 20 ═══
-    let d_projected: Vec<[i32; BASE_DIM]> = raw.iter()
+    let d_projected: Vec<[i32; BASE_DIM]> = raw
+        .iter()
         .map(|v| project_i32_phi_fractional(v, 20))
         .collect();
-    let d_cos: Vec<f64> = gt.iter()
-        .map(|&(i,j,_)| cosine_i32(&d_projected[i], &d_projected[j]))
+    let d_cos: Vec<f64> = gt
+        .iter()
+        .map(|&(i, j, _)| cosine_i32(&d_projected[i], &d_projected[j]))
         .collect();
 
     // ═══ Strategy E: i32, actual φ fractional, offset 50 ═══
-    let e_projected: Vec<[i32; BASE_DIM]> = raw.iter()
+    let e_projected: Vec<[i32; BASE_DIM]> = raw
+        .iter()
         .map(|v| project_i32_phi_fractional(v, 50))
         .collect();
-    let e_cos: Vec<f64> = gt.iter()
-        .map(|&(i,j,_)| cosine_i32(&e_projected[i], &e_projected[j]))
+    let e_cos: Vec<f64> = gt
+        .iter()
+        .map(|&(i, j, _)| cosine_i32(&e_projected[i], &e_projected[j]))
         .collect();
 
     // ═══ Strategy F: i32, φ fractional, offset 20, skip 3 per step ═══
-    let f_projected: Vec<[i32; BASE_DIM]> = raw.iter()
-        .map(|v| project_i32_phi_skip(v, 20, 3))
-        .collect();
-    let f_cos: Vec<f64> = gt.iter()
-        .map(|&(i,j,_)| cosine_i32(&f_projected[i], &f_projected[j]))
+    let f_projected: Vec<[i32; BASE_DIM]> =
+        raw.iter().map(|v| project_i32_phi_skip(v, 20, 3)).collect();
+    let f_cos: Vec<f64> = gt
+        .iter()
+        .map(|&(i, j, _)| cosine_i32(&f_projected[i], &f_projected[j]))
         .collect();
 
     // ═══ Strategy G: i32, φ fractional, offset 20, skip 7 ═══
-    let g_projected: Vec<[i32; BASE_DIM]> = raw.iter()
-        .map(|v| project_i32_phi_skip(v, 20, 7))
-        .collect();
-    let g_cos: Vec<f64> = gt.iter()
-        .map(|&(i,j,_)| cosine_i32(&g_projected[i], &g_projected[j]))
+    let g_projected: Vec<[i32; BASE_DIM]> =
+        raw.iter().map(|v| project_i32_phi_skip(v, 20, 7)).collect();
+    let g_cos: Vec<f64> = gt
+        .iter()
+        .map(|&(i, j, _)| cosine_i32(&g_projected[i], &g_projected[j]))
         .collect();
 
     // ═══ Strategy H: i32, φ fractional, offset 100 ═══
-    let h_projected: Vec<[i32; BASE_DIM]> = raw.iter()
+    let h_projected: Vec<[i32; BASE_DIM]> = raw
+        .iter()
         .map(|v| project_i32_phi_fractional(v, 100))
         .collect();
-    let h_cos: Vec<f64> = gt.iter()
-        .map(|&(i,j,_)| cosine_i32(&h_projected[i], &h_projected[j]))
+    let h_cos: Vec<f64> = gt
+        .iter()
+        .map(|&(i, j, _)| cosine_i32(&h_projected[i], &h_projected[j]))
         .collect();
 
     // ═══ Results ═══
@@ -113,14 +132,14 @@ fn main() {
     println!("├────┼──────────────────────────────────────────┼──────────┼──────────┤");
 
     let strategies: Vec<(&str, &[f64])> = vec![
-        ("A: i16, stride 11, offset 0 (CURRENT)",  &a_cos),
-        ("B: i32, stride 11, offset 0",            &b_cos),
-        ("C: i32, φ-frac, offset 0",               &c_cos),
-        ("D: i32, φ-frac, offset 20",              &d_cos),
-        ("E: i32, φ-frac, offset 50",              &e_cos),
-        ("F: i32, φ-frac, offset 20, skip 3",      &f_cos),
-        ("G: i32, φ-frac, offset 20, skip 7",      &g_cos),
-        ("H: i32, φ-frac, offset 100",             &h_cos),
+        ("A: i16, stride 11, offset 0 (CURRENT)", &a_cos),
+        ("B: i32, stride 11, offset 0", &b_cos),
+        ("C: i32, φ-frac, offset 0", &c_cos),
+        ("D: i32, φ-frac, offset 20", &d_cos),
+        ("E: i32, φ-frac, offset 50", &e_cos),
+        ("F: i32, φ-frac, offset 20, skip 3", &f_cos),
+        ("G: i32, φ-frac, offset 20, skip 7", &g_cos),
+        ("H: i32, φ-frac, offset 100", &h_cos),
     ];
 
     for (i, (name, cos)) in strategies.iter().enumerate() {
@@ -137,22 +156,50 @@ fn main() {
     println!("Integer stride 11 mod 17:");
     let int_pos: Vec<usize> = (0..BASE_DIM).map(|i| (i * 11) % BASE_DIM).collect();
     println!("  {:?}", int_pos);
-    let int_gaps: Vec<usize> = (1..BASE_DIM).map(|i| {
-        let mut sorted = int_pos[..=i].to_vec(); sorted.sort(); sorted[i] - sorted[i-1]
-    }).collect();
+    let int_gaps: Vec<usize> = (1..BASE_DIM)
+        .map(|i| {
+            let mut sorted = int_pos[..=i].to_vec();
+            sorted.sort();
+            sorted[i] - sorted[i - 1]
+        })
+        .collect();
     println!("  Sorted gaps: {:?}\n", int_gaps);
 
     println!("φ-fractional, offset 0:");
-    let phi_pos_0: Vec<f64> = (0..BASE_DIM).map(|i| frac(i as f64 * GOLDEN_RATIO) * BASE_DIM as f64).collect();
-    println!("  {:?}", phi_pos_0.iter().map(|p| format!("{:.2}", p)).collect::<Vec<_>>());
+    let phi_pos_0: Vec<f64> = (0..BASE_DIM)
+        .map(|i| frac(i as f64 * GOLDEN_RATIO) * BASE_DIM as f64)
+        .collect();
+    println!(
+        "  {:?}",
+        phi_pos_0
+            .iter()
+            .map(|p| format!("{:.2}", p))
+            .collect::<Vec<_>>()
+    );
 
     println!("φ-fractional, offset 20:");
-    let phi_pos_20: Vec<f64> = (0..BASE_DIM).map(|i| frac((i + 20) as f64 * GOLDEN_RATIO) * BASE_DIM as f64).collect();
-    println!("  {:?}", phi_pos_20.iter().map(|p| format!("{:.2}", p)).collect::<Vec<_>>());
+    let phi_pos_20: Vec<f64> = (0..BASE_DIM)
+        .map(|i| frac((i + 20) as f64 * GOLDEN_RATIO) * BASE_DIM as f64)
+        .collect();
+    println!(
+        "  {:?}",
+        phi_pos_20
+            .iter()
+            .map(|p| format!("{:.2}", p))
+            .collect::<Vec<_>>()
+    );
 
     println!("φ-fractional, offset 50:");
-    let phi_pos_50: Vec<f64> = (0..BASE_DIM).map(|i| frac((i + 50) as f64 * GOLDEN_RATIO) * BASE_DIM as f64).collect();
-    println!("  {:?}", phi_pos_50.iter().map(|p| format!("{:.2}", p)).collect::<Vec<_>>());
+    let phi_pos_50: Vec<f64> = (0..BASE_DIM)
+        .map(|i| frac((i + 50) as f64 * GOLDEN_RATIO) * BASE_DIM as f64)
+        .collect();
+    println!(
+        "  {:?}",
+        phi_pos_50
+            .iter()
+            .map(|p| format!("{:.2}", p))
+            .collect::<Vec<_>>()
+    );
 
     // ═══ Resolution comparison: distinct cosine values ═══
     println!("\n=== Distinct Cosine Values (resolution) ===\n");
@@ -160,7 +207,12 @@ fn main() {
         let mut sorted: Vec<i64> = cos.iter().map(|c| (c * 1e8) as i64).collect();
         sorted.sort();
         sorted.dedup();
-        println!("  {}: {} distinct values out of {} pairs", name, sorted.len(), cos.len());
+        println!(
+            "  {}: {} distinct values out of {} pairs",
+            name,
+            sorted.len(),
+            cos.len()
+        );
     }
 }
 
@@ -187,7 +239,9 @@ fn project_i16_integer_stride(weights: &[f32], stride: usize, offset: usize) -> 
     let mut dims = [0i16; BASE_DIM];
     for d in 0..BASE_DIM {
         if count[d] > 0 {
-            dims[d] = (sum[d] / count[d] as f64 * FP_SCALE_I16).round().clamp(-32768.0, 32767.0) as i16;
+            dims[d] = (sum[d] / count[d] as f64 * FP_SCALE_I16)
+                .round()
+                .clamp(-32768.0, 32767.0) as i16;
         }
     }
     dims
@@ -212,7 +266,8 @@ fn project_i32_integer_stride(weights: &[f32], stride: usize, offset: usize) -> 
     let mut dims = [0i32; BASE_DIM];
     for d in 0..BASE_DIM {
         if count[d] > 0 {
-            dims[d] = (sum[d] / count[d] as f64 * FP_SCALE_I32).round()
+            dims[d] = (sum[d] / count[d] as f64 * FP_SCALE_I32)
+                .round()
                 .clamp(i32::MIN as f64, i32::MAX as f64) as i32;
         }
     }
@@ -240,7 +295,8 @@ fn project_i32_phi_fractional(weights: &[f32], offset: usize) -> [i32; BASE_DIM]
     let mut dims = [0i32; BASE_DIM];
     for d in 0..BASE_DIM {
         if count[d] > 0 {
-            dims[d] = (sum[d] / count[d] as f64 * FP_SCALE_I32).round()
+            dims[d] = (sum[d] / count[d] as f64 * FP_SCALE_I32)
+                .round()
                 .clamp(i32::MIN as f64, i32::MAX as f64) as i32;
         }
     }
@@ -268,7 +324,8 @@ fn project_i32_phi_skip(weights: &[f32], offset: usize, skip: usize) -> [i32; BA
     let mut dims = [0i32; BASE_DIM];
     for d in 0..BASE_DIM {
         if count[d] > 0 {
-            dims[d] = (sum[d] / count[d] as f64 * FP_SCALE_I32).round()
+            dims[d] = (sum[d] / count[d] as f64 * FP_SCALE_I32)
+                .round()
                 .clamp(i32::MIN as f64, i32::MAX as f64) as i32;
         }
     }
@@ -281,23 +338,62 @@ fn project_i32_phi_skip(weights: &[f32], offset: usize, skip: usize) -> [i32; BA
 
 /// Fractional part: frac(x) = x - floor(x), always in [0, 1)
 #[inline]
-fn frac(x: f64) -> f64 { x - x.floor() }
+fn frac(x: f64) -> f64 {
+    x - x.floor()
+}
 
 fn cosine_f32(a: &[f32], b: &[f32]) -> f64 {
     let n = a.len().min(b.len());
-    let mut dot = 0.0f64; let mut na = 0.0f64; let mut nb = 0.0f64;
-    for i in 0..n { dot += a[i] as f64 * b[i] as f64; na += (a[i] as f64).powi(2); nb += (b[i] as f64).powi(2); }
-    let d = (na * nb).sqrt(); if d < 1e-12 { 0.0 } else { dot / d }
+    let mut dot = 0.0f64;
+    let mut na = 0.0f64;
+    let mut nb = 0.0f64;
+    for i in 0..n {
+        dot += a[i] as f64 * b[i] as f64;
+        na += (a[i] as f64).powi(2);
+        nb += (b[i] as f64).powi(2);
+    }
+    let d = (na * nb).sqrt();
+    if d < 1e-12 {
+        0.0
+    } else {
+        dot / d
+    }
 }
 
 fn cosine_i16(a: &[i16; BASE_DIM], b: &[i16; BASE_DIM]) -> f64 {
-    let mut dot = 0.0f64; let mut na = 0.0f64; let mut nb = 0.0f64;
-    for i in 0..BASE_DIM { let x = a[i] as f64; let y = b[i] as f64; dot += x*y; na += x*x; nb += y*y; }
-    let d = (na * nb).sqrt(); if d < 1e-12 { 0.0 } else { dot / d }
+    let mut dot = 0.0f64;
+    let mut na = 0.0f64;
+    let mut nb = 0.0f64;
+    for i in 0..BASE_DIM {
+        let x = a[i] as f64;
+        let y = b[i] as f64;
+        dot += x * y;
+        na += x * x;
+        nb += y * y;
+    }
+    let d = (na * nb).sqrt();
+    if d < 1e-12 {
+        0.0
+    } else {
+        dot / d
+    }
 }
 
 fn cosine_i32(a: &[i32; BASE_DIM], b: &[i32; BASE_DIM]) -> f64 {
-    let mut dot = 0.0f64; let mut na = 0.0f64; let mut nb = 0.0f64;
-    for i in 0..BASE_DIM { let x = a[i] as f64; let y = b[i] as f64; dot += x*y; na += x*x; nb += y*y; }
-    let d = (na * nb).sqrt(); if d < 1e-12 { 0.0 } else { dot / d }
+    let mut dot = 0.0f64;
+    let mut na = 0.0f64;
+    let mut nb = 0.0f64;
+    for i in 0..BASE_DIM {
+        let x = a[i] as f64;
+        let y = b[i] as f64;
+        dot += x * y;
+        na += x * x;
+        nb += y * y;
+    }
+    let d = (na * nb).sqrt();
+    if d < 1e-12 {
+        0.0
+    } else {
+        dot / d
+    }
 }

@@ -6,9 +6,9 @@
 //! Euler-gamma noise floor: signals below γ/(γ+1)/√d are noise.
 //! ThinkingStyle.noise_tolerance controls how far above the floor to accept.
 
-use super::kv_bundle::{HeadPrint, AttentionMatrix};
 use super::candidate_pool::{Candidate, HeadAddress};
-use super::triple_model::{TripleModel, DkPosition};
+use super::kv_bundle::{AttentionMatrix, HeadPrint};
+use super::triple_model::{DkPosition, TripleModel};
 
 /// Euler-Mascheroni constant (Rust 1.94+).
 const EULER_GAMMA: f64 = std::f64::consts::EULER_GAMMA;
@@ -83,10 +83,10 @@ impl Tension {
     /// Select tension from DK position.
     pub fn from_dk(dk: DkPosition) -> Self {
         match dk {
-            DkPosition::MountStupid => Self::creative(),      // explore everything
+            DkPosition::MountStupid => Self::creative(), // explore everything
             DkPosition::ValleyOfDespair => Self::analytical(), // careful, methodical
             DkPosition::SlopeOfEnlightenment => Self::integrative(), // balanced
-            DkPosition::PlateauOfMastery => Self::focused(),   // trust and precision
+            DkPosition::PlateauOfMastery => Self::focused(), // trust and precision
         }
     }
 }
@@ -97,7 +97,9 @@ pub struct LaneEvaluator {
 }
 
 impl LaneEvaluator {
-    pub fn new(tension: Tension) -> Self { Self { tension } }
+    pub fn new(tension: Tension) -> Self {
+        Self { tension }
+    }
 
     /// Fire all 4096 heads in the matrix. Each head that exceeds the
     /// signal threshold produces a candidate.
@@ -117,7 +119,10 @@ impl LaneEvaluator {
 
                     candidates.push(Candidate {
                         head: head.clone(),
-                        address: HeadAddress { row: row as u8, col: col as u8 },
+                        address: HeadAddress {
+                            row: row as u8,
+                            col: col as u8,
+                        },
                         rank,
                         confidence: 0.5 + signal * 0.4,
                         frequency: signal,
@@ -125,9 +130,13 @@ impl LaneEvaluator {
                     });
                 }
 
-                if candidates.len() >= max_candidates { break; }
+                if candidates.len() >= max_candidates {
+                    break;
+                }
             }
-            if candidates.len() >= max_candidates { break; }
+            if candidates.len() >= max_candidates {
+                break;
+            }
         }
 
         candidates.sort_by(|a, b| b.rank.partial_cmp(&a.rank).unwrap());
@@ -142,17 +151,24 @@ impl LaneEvaluator {
         // Self model: use DK-appropriate tension
         let self_tension = Tension::from_dk(triple.self_model.dk);
         let self_eval = LaneEvaluator::new(self_tension);
-        all.extend(self_eval.evaluate(&triple.self_model.matrix, &triple.self_model.matrix.gestalt));
+        all.extend(
+            self_eval.evaluate(&triple.self_model.matrix, &triple.self_model.matrix.gestalt),
+        );
 
         // User model: always more exploratory (we know less)
         let mut user_tension = Tension::from_dk(triple.user_model.dk);
         user_tension.noise_tolerance = (user_tension.noise_tolerance + 0.3).min(1.0);
         let user_eval = LaneEvaluator::new(user_tension);
-        all.extend(user_eval.evaluate(&triple.user_model.matrix, &triple.user_model.matrix.gestalt));
+        all.extend(
+            user_eval.evaluate(&triple.user_model.matrix, &triple.user_model.matrix.gestalt),
+        );
 
         // Impact model: analytical (we need precision on predictions)
         let impact_eval = LaneEvaluator::new(Tension::analytical());
-        all.extend(impact_eval.evaluate(&triple.impact_model.matrix, &triple.impact_model.matrix.gestalt));
+        all.extend(impact_eval.evaluate(
+            &triple.impact_model.matrix,
+            &triple.impact_model.matrix.gestalt,
+        ));
 
         all.sort_by(|a, b| b.rank.partial_cmp(&a.rank).unwrap());
         all
@@ -167,9 +183,15 @@ mod tests {
     fn test_noise_floor_value() {
         // NOISE_FLOOR = γ/(γ+1)/√17
         let expected = (EULER_GAMMA / (EULER_GAMMA + 1.0) / (17.0_f64).sqrt()) as f32;
-        assert!((NOISE_FLOOR - expected).abs() < 1e-6, "NOISE_FLOOR={NOISE_FLOOR}, expected={expected}");
+        assert!(
+            (NOISE_FLOOR - expected).abs() < 1e-6,
+            "NOISE_FLOOR={NOISE_FLOOR}, expected={expected}"
+        );
         // Should be roughly 0.0887
-        assert!(NOISE_FLOOR > 0.08 && NOISE_FLOOR < 0.10, "NOISE_FLOOR out of expected range: {NOISE_FLOOR}");
+        assert!(
+            NOISE_FLOOR > 0.08 && NOISE_FLOOR < 0.10,
+            "NOISE_FLOOR out of expected range: {NOISE_FLOOR}"
+        );
     }
 
     #[test]
@@ -199,7 +221,10 @@ mod tests {
         // All heads are zero, gestalt is zero, l1 distance = 0, signal = 0
         // Nothing should exceed the threshold
         let candidates = eval.evaluate(&matrix, &gestalt);
-        assert!(candidates.is_empty(), "zero matrix should produce no candidates");
+        assert!(
+            candidates.is_empty(),
+            "zero matrix should produce no candidates"
+        );
     }
 
     #[test]
@@ -211,9 +236,7 @@ mod tests {
         // After setting, gestalt = strong_head (epoch was 0, weight_self=0).
         // l1(gestalt, zero) = 17 * 30000 = 510000; signal = 510000 / (17*65535) ≈ 0.458
         // Creative threshold ≈ 0.214, so 0.458 > 0.214 → candidates produced.
-        let strong_head = HeadPrint {
-            dims: [30000; 17],
-        };
+        let strong_head = HeadPrint { dims: [30000; 17] };
         matrix.set(5, 10, strong_head);
 
         // Now gestalt has shifted toward that head, but all other heads are zero.
@@ -221,7 +244,10 @@ mod tests {
         let candidates = eval.evaluate(&matrix, &matrix.gestalt);
 
         // We should get some candidates (the zero heads are now "surprising" relative to gestalt)
-        assert!(!candidates.is_empty(), "should produce candidates when gestalt diverges from heads");
+        assert!(
+            !candidates.is_empty(),
+            "should produce candidates when gestalt diverges from heads"
+        );
 
         // Candidates should be sorted by rank descending
         for window in candidates.windows(2) {
@@ -256,7 +282,10 @@ mod tests {
 
         // All-zero triple should produce no candidates
         let candidates = eval.evaluate_triple(&triple);
-        assert!(candidates.is_empty(), "all-zero triple should produce no candidates");
+        assert!(
+            candidates.is_empty(),
+            "all-zero triple should produce no candidates"
+        );
 
         // After setting some heads, we should get candidates
         let mut triple2 = TripleModel::new();

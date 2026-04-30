@@ -51,7 +51,11 @@ pub struct ActorContext {
 impl ActorContext {
     /// Create a new `ActorContext`.
     pub fn new(actor_id: String, tenant_id: TenantId, roles: Vec<String>) -> Self {
-        Self { actor_id, tenant_id, roles }
+        Self {
+            actor_id,
+            tenant_id,
+            roles,
+        }
     }
 
     /// Returns `true` if the actor holds the `"admin"` role.
@@ -98,11 +102,7 @@ mod tests {
 
     #[test]
     fn actor_context_new() {
-        let ctx = ActorContext::new(
-            "user@example.com".into(),
-            42,
-            vec!["viewer".into()],
-        );
+        let ctx = ActorContext::new("user@example.com".into(), 42, vec!["viewer".into()]);
         assert_eq!(ctx.actor_id, "user@example.com");
         assert_eq!(ctx.tenant_id, 42);
         assert_eq!(ctx.roles, vec!["viewer"]);

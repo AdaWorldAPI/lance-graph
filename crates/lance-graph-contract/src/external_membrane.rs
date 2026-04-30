@@ -20,7 +20,7 @@
 //!
 //! Plan: `.claude/plans/callcenter-membrane-v1.md`
 
-use crate::cognitive_shader::{ShaderBus, MetaWord};
+use crate::cognitive_shader::{MetaWord, ShaderBus};
 use crate::orchestration::UnifiedStep;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -39,15 +39,15 @@ use crate::orchestration::UnifiedStep;
 #[repr(u8)]
 pub enum ExternalRole {
     // ── Inbound (consumer identity) ──
-    User        = 0,
-    Consumer    = 1,
-    N8n         = 2,
-    OpenClaw    = 3,
-    CrewaiUser  = 4,
+    User = 0,
+    Consumer = 1,
+    N8n = 2,
+    OpenClaw = 3,
+    CrewaiUser = 4,
     CrewaiAgent = 5,
     // ── Outbound (substrate identity as seen externally) ──
-    Rag         = 6,  // cognitive shader acting as knowledge retriever
-    Agent       = 7,  // specific cognitive agent that handled this step
+    Rag = 6,   // cognitive shader acting as knowledge retriever
+    Agent = 7, // specific cognitive agent that handled this step
 }
 
 /// Whether an external crossing is a seed, passive context, or outbound commit.
@@ -96,10 +96,26 @@ impl CommitFilter {
         style_ordinal: u8,
         is_commit: bool,
     ) -> bool {
-        if let Some(want) = self.actor_id { if actor_id != want { return false; } }
-        if let Some(max) = self.max_free_energy { if free_energy > max { return false; } }
-        if let Some(want) = self.style_ordinal { if style_ordinal != want { return false; } }
-        if let Some(want) = self.is_commit { if is_commit != want { return false; } }
+        if let Some(want) = self.actor_id {
+            if actor_id != want {
+                return false;
+            }
+        }
+        if let Some(max) = self.max_free_energy {
+            if free_energy > max {
+                return false;
+            }
+        }
+        if let Some(want) = self.style_ordinal {
+            if style_ordinal != want {
+                return false;
+            }
+        }
+        if let Some(want) = self.is_commit {
+            if is_commit != want {
+                return false;
+            }
+        }
         true
     }
 }
@@ -127,7 +143,9 @@ pub struct AllowAllGate;
 
 impl MembraneGate for AllowAllGate {
     #[inline]
-    fn should_emit(&self, _: u8, _: u8, _: u16, _: bool) -> bool { true }
+    fn should_emit(&self, _: u8, _: u8, _: u16, _: bool) -> bool {
+        true
+    }
 }
 
 /// The typed boundary between the canonical cognitive substrate and

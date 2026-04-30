@@ -44,6 +44,11 @@
 //! Plan: `.claude/plans/callcenter-membrane-v1.md`
 
 pub use lance_graph_contract::external_membrane::{CommitFilter, ExternalMembrane};
+pub use lance_graph_contract::ontology::{Label, Locale};
+
+// ── External ontology DTO surface (the "Foundry outside" layer) ──────────────
+pub mod ontology_dto;
+pub use ontology_dto::{medcare_ontology, smb_ontology, OntologyDto};
 
 // ── Phase A: BBB spine (DM-2) ────────────────────────────────────────────────
 // UNKNOWN-1 resolved: ShaderSink is internal BindSpace ingestion; no overlap
@@ -87,7 +92,12 @@ pub mod auth;
 
 // DM-7 RLS rewriter: DataFusion OptimizerRule injecting tenant/actor predicates.
 // Gated on query-lite (activated by both auth-rls and auth-rls-lite).
-#[cfg(any(feature = "auth-rls-lite", feature = "auth-rls", feature = "auth", feature = "full"))]
+#[cfg(any(
+    feature = "auth-rls-lite",
+    feature = "auth-rls",
+    feature = "auth",
+    feature = "full"
+))]
 pub mod rls;
 
 // DM-8 — PostgRestHandler: query-string → DataFusion SQL → Lance → Arrow ([serve])
@@ -105,5 +115,10 @@ pub mod audit;
 // row encryption, differential privacy stubs) sharing the OptimizerRule slot
 // with the existing RLS rewriter. Gated on auth-rls-lite (where the
 // DataFusion types live).
-#[cfg(any(feature = "auth-rls-lite", feature = "auth-rls", feature = "auth", feature = "full"))]
+#[cfg(any(
+    feature = "auth-rls-lite",
+    feature = "auth-rls",
+    feature = "auth",
+    feature = "full"
+))]
 pub mod policy;

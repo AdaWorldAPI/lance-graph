@@ -105,7 +105,12 @@ impl RoleKey {
                 words[word] |= 1u64 << offset;
             }
         }
-        Self { words, slice_start: start, slice_end: end, label }
+        Self {
+            words,
+            slice_start: start,
+            slice_end: end,
+            label,
+        }
     }
 }
 
@@ -131,29 +136,38 @@ fn lcg_next(state: &mut u64) -> u64 {
 // SPO core roles
 // ---------------------------------------------------------------------------
 
-pub static SUBJECT_KEY:   LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("SUBJECT",      0, 2000));
-pub static PREDICATE_KEY: LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("PREDICATE", 2000, 4000));
-pub static OBJECT_KEY:    LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("OBJECT",    4000, 6000));
-pub static MODIFIER_KEY:  LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("MODIFIER",  6000, 7500));
-pub static CONTEXT_KEY:   LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("CONTEXT",   7500, 9000));
+pub static SUBJECT_KEY: LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("SUBJECT", 0, 2000));
+pub static PREDICATE_KEY: LazyLock<RoleKey> =
+    LazyLock::new(|| RoleKey::generate("PREDICATE", 2000, 4000));
+pub static OBJECT_KEY: LazyLock<RoleKey> =
+    LazyLock::new(|| RoleKey::generate("OBJECT", 4000, 6000));
+pub static MODIFIER_KEY: LazyLock<RoleKey> =
+    LazyLock::new(|| RoleKey::generate("MODIFIER", 6000, 7500));
+pub static CONTEXT_KEY: LazyLock<RoleKey> =
+    LazyLock::new(|| RoleKey::generate("CONTEXT", 7500, 9000));
 
 // ---------------------------------------------------------------------------
 // TEKAMOLO slots
 // ---------------------------------------------------------------------------
 
-pub static TEMPORAL_KEY: LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("TEMPORAL", 9000, 9200));
-pub static KAUSAL_KEY:   LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("KAUSAL",   9200, 9400));
-pub static MODAL_KEY:    LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("MODAL",    9400, 9500));
-pub static LOKAL_KEY:    LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("LOKAL",    9500, 9650));
+pub static TEMPORAL_KEY: LazyLock<RoleKey> =
+    LazyLock::new(|| RoleKey::generate("TEMPORAL", 9000, 9200));
+pub static KAUSAL_KEY: LazyLock<RoleKey> =
+    LazyLock::new(|| RoleKey::generate("KAUSAL", 9200, 9400));
+pub static MODAL_KEY: LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("MODAL", 9400, 9500));
+pub static LOKAL_KEY: LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("LOKAL", 9500, 9650));
 
 // ---------------------------------------------------------------------------
 // Future-ready roles (CausalityFlow not extended yet)
 // ---------------------------------------------------------------------------
 
-pub static INSTRUMENT_KEY:  LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("INSTRUMENT",  9650, 9750));
-pub static BENEFICIARY_KEY: LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("BENEFICIARY", 9750, 9780));
-pub static GOAL_KEY:        LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("GOAL",        9780, 9810));
-pub static SOURCE_KEY:      LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("SOURCE",      9810, 9840));
+pub static INSTRUMENT_KEY: LazyLock<RoleKey> =
+    LazyLock::new(|| RoleKey::generate("INSTRUMENT", 9650, 9750));
+pub static BENEFICIARY_KEY: LazyLock<RoleKey> =
+    LazyLock::new(|| RoleKey::generate("BENEFICIARY", 9750, 9780));
+pub static GOAL_KEY: LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("GOAL", 9780, 9810));
+pub static SOURCE_KEY: LazyLock<RoleKey> =
+    LazyLock::new(|| RoleKey::generate("SOURCE", 9810, 9840));
 
 // ---------------------------------------------------------------------------
 // Finnish 15 cases — [9840 .. 9910), 70 dims / 15 cases ≈ 4-5 dims each.
@@ -163,7 +177,7 @@ pub static SOURCE_KEY:      LazyLock<RoleKey> = LazyLock::new(|| RoleKey::genera
 #[allow(dead_code)]
 const FINNISH_START: usize = 9840;
 #[allow(dead_code)]
-const FINNISH_END:   usize = 9910;
+const FINNISH_END: usize = 9910;
 
 /// Inclusive-exclusive slice boundaries for each of the 15 Finnish cases,
 /// indexed by `FinnishCase as u8`. Widths: first 10 cases = 5 dims, last 5 = 4 dims.
@@ -186,11 +200,21 @@ const FINNISH_SLICES: [(usize, usize); 15] = [
 ];
 
 const FINNISH_LABELS: [&str; 15] = [
-    "FI_NOMINATIVE", "FI_GENITIVE", "FI_ACCUSATIVE", "FI_PARTITIVE",
-    "FI_INESSIVE",   "FI_ELATIVE",  "FI_ILLATIVE",
-    "FI_ADESSIVE",   "FI_ABLATIVE", "FI_ALLATIVE",
-    "FI_ESSIVE",     "FI_TRANSLATIVE", "FI_INSTRUCTIVE",
-    "FI_ABESSIVE",   "FI_COMITATIVE",
+    "FI_NOMINATIVE",
+    "FI_GENITIVE",
+    "FI_ACCUSATIVE",
+    "FI_PARTITIVE",
+    "FI_INESSIVE",
+    "FI_ELATIVE",
+    "FI_ILLATIVE",
+    "FI_ADESSIVE",
+    "FI_ABLATIVE",
+    "FI_ALLATIVE",
+    "FI_ESSIVE",
+    "FI_TRANSLATIVE",
+    "FI_INSTRUCTIVE",
+    "FI_ABESSIVE",
+    "FI_COMITATIVE",
 ];
 
 static FINNISH_KEYS: LazyLock<[RoleKey; 15]> = LazyLock::new(|| {
@@ -228,23 +252,39 @@ pub enum Tense {
 
 impl Tense {
     pub const ALL: [Self; 12] = [
-        Self::Present, Self::Past, Self::Future,
-        Self::PresentContinuous, Self::PastContinuous, Self::FutureContinuous,
-        Self::Perfect, Self::Pluperfect, Self::FuturePerfect,
-        Self::Habitual, Self::Potential, Self::Imperative,
+        Self::Present,
+        Self::Past,
+        Self::Future,
+        Self::PresentContinuous,
+        Self::PastContinuous,
+        Self::FutureContinuous,
+        Self::Perfect,
+        Self::Pluperfect,
+        Self::FuturePerfect,
+        Self::Habitual,
+        Self::Potential,
+        Self::Imperative,
     ];
 }
 
 const TENSE_START: usize = 9910;
 #[allow(dead_code)]
-const TENSE_END:   usize = 9970;
+const TENSE_END: usize = 9970;
 const TENSE_WIDTH: usize = 5;
 
 const TENSE_LABELS: [&str; 12] = [
-    "T_PRESENT", "T_PAST", "T_FUTURE",
-    "T_PRESENT_CONTINUOUS", "T_PAST_CONTINUOUS", "T_FUTURE_CONTINUOUS",
-    "T_PERFECT", "T_PLUPERFECT", "T_FUTURE_PERFECT",
-    "T_HABITUAL", "T_POTENTIAL", "T_IMPERATIVE",
+    "T_PRESENT",
+    "T_PAST",
+    "T_FUTURE",
+    "T_PRESENT_CONTINUOUS",
+    "T_PAST_CONTINUOUS",
+    "T_FUTURE_CONTINUOUS",
+    "T_PERFECT",
+    "T_PLUPERFECT",
+    "T_FUTURE_PERFECT",
+    "T_HABITUAL",
+    "T_POTENTIAL",
+    "T_IMPERATIVE",
 ];
 
 static TENSE_KEYS: LazyLock<[RoleKey; 12]> = LazyLock::new(|| {
@@ -267,21 +307,25 @@ pub fn tense_key(tense: Tense) -> &'static RoleKey {
 #[allow(dead_code)]
 const NARS_START: usize = 9970;
 #[allow(dead_code)]
-const NARS_END:   usize = 10_000;
+const NARS_END: usize = 10_000;
 
 const NARS_SLICES: [(usize, usize); 7] = [
-    (9970, 9975), // Deduction
-    (9975, 9980), // Induction
-    (9980, 9984), // Abduction
-    (9984, 9988), // Revision
-    (9988, 9992), // Synthesis
-    (9992, 9996), // Extrapolation
+    (9970, 9975),   // Deduction
+    (9975, 9980),   // Induction
+    (9980, 9984),   // Abduction
+    (9984, 9988),   // Revision
+    (9988, 9992),   // Synthesis
+    (9992, 9996),   // Extrapolation
     (9996, 10_000), // CounterfactualSynthesis
 ];
 
 const NARS_LABELS: [&str; 7] = [
-    "N_DEDUCTION", "N_INDUCTION", "N_ABDUCTION",
-    "N_REVISION", "N_SYNTHESIS", "N_EXTRAPOLATION",
+    "N_DEDUCTION",
+    "N_INDUCTION",
+    "N_ABDUCTION",
+    "N_REVISION",
+    "N_SYNTHESIS",
+    "N_EXTRAPOLATION",
     "N_COUNTERFACTUAL",
 ];
 
@@ -294,12 +338,12 @@ static NARS_KEYS: LazyLock<[RoleKey; 7]> = LazyLock::new(|| {
 
 pub fn nars_inference_key(inf: NarsInference) -> &'static RoleKey {
     let idx = match inf {
-        NarsInference::Deduction               => 0,
-        NarsInference::Induction               => 1,
-        NarsInference::Abduction               => 2,
-        NarsInference::Revision                => 3,
-        NarsInference::Synthesis               => 4,
-        NarsInference::Extrapolation           => 5,
+        NarsInference::Deduction => 0,
+        NarsInference::Induction => 1,
+        NarsInference::Abduction => 2,
+        NarsInference::Revision => 3,
+        NarsInference::Synthesis => 4,
+        NarsInference::Extrapolation => 5,
         NarsInference::CounterfactualSynthesis => 6,
     };
     &NARS_KEYS[idx]
@@ -309,14 +353,22 @@ pub fn nars_inference_key(inf: NarsInference) -> &'static RoleKey {
 // SMB domain role keys — [10000 .. 14096), 512 dims each (LF-2)
 // ---------------------------------------------------------------------------
 
-pub static KUNDE_KEY:     LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("smb.kunde",     10_000, 10_512));
-pub static SCHULDNER_KEY: LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("smb.schuldner", 10_512, 11_024));
-pub static MAHNUNG_KEY:   LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("smb.mahnung",   11_024, 11_536));
-pub static RECHNUNG_KEY:  LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("smb.rechnung",  11_536, 12_048));
-pub static DOKUMENT_KEY:  LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("smb.dokument",  12_048, 12_560));
-pub static BANK_KEY:      LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("smb.bank",      12_560, 13_072));
-pub static FIBU_KEY:      LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("smb.fibu",      13_072, 13_584));
-pub static STEUER_KEY:    LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("smb.steuer",    13_584, 14_096));
+pub static KUNDE_KEY: LazyLock<RoleKey> =
+    LazyLock::new(|| RoleKey::generate("smb.kunde", 10_000, 10_512));
+pub static SCHULDNER_KEY: LazyLock<RoleKey> =
+    LazyLock::new(|| RoleKey::generate("smb.schuldner", 10_512, 11_024));
+pub static MAHNUNG_KEY: LazyLock<RoleKey> =
+    LazyLock::new(|| RoleKey::generate("smb.mahnung", 11_024, 11_536));
+pub static RECHNUNG_KEY: LazyLock<RoleKey> =
+    LazyLock::new(|| RoleKey::generate("smb.rechnung", 11_536, 12_048));
+pub static DOKUMENT_KEY: LazyLock<RoleKey> =
+    LazyLock::new(|| RoleKey::generate("smb.dokument", 12_048, 12_560));
+pub static BANK_KEY: LazyLock<RoleKey> =
+    LazyLock::new(|| RoleKey::generate("smb.bank", 12_560, 13_072));
+pub static FIBU_KEY: LazyLock<RoleKey> =
+    LazyLock::new(|| RoleKey::generate("smb.fibu", 13_072, 13_584));
+pub static STEUER_KEY: LazyLock<RoleKey> =
+    LazyLock::new(|| RoleKey::generate("smb.steuer", 13_584, 14_096));
 
 // ---------------------------------------------------------------------------
 // D6 — RoleKeySlice catalogue (const-addressable [start:stop) slices + FNV-64
@@ -347,11 +399,21 @@ impl RoleKeySlice {
     /// Construct a const slice. `start <= stop <= VSA_DIMS` is the caller's
     /// invariant (debug-checked at first use, not in this `const fn` body).
     pub const fn new(start: usize, stop: usize, fnv_seed: u64) -> Self {
-        Self { start, stop, fnv_seed }
+        Self {
+            start,
+            stop,
+            fnv_seed,
+        }
     }
-    pub const fn len(&self) -> usize { self.stop - self.start }
-    pub const fn is_empty(&self) -> bool { self.start == self.stop }
-    pub const fn range(&self) -> std::ops::Range<usize> { self.start..self.stop }
+    pub const fn len(&self) -> usize {
+        self.stop - self.start
+    }
+    pub const fn is_empty(&self) -> bool {
+        self.start == self.stop
+    }
+    pub const fn range(&self) -> std::ops::Range<usize> {
+        self.start..self.stop
+    }
 }
 
 /// Delegate to the canonical `hash::fnv1a` (const fn, zero-dep).
@@ -361,42 +423,149 @@ pub const fn fnv64_bytes(bytes: &[u8]) -> u64 {
 
 // --- SPO core role slices (mirror of SUBJECT_KEY..CONTEXT_KEY) --------------
 
-pub const SUBJECT_SLICE:   RoleKeySlice = RoleKeySlice::new(0,    2000, fnv64_bytes(b"SUBJECT"));
+pub const SUBJECT_SLICE: RoleKeySlice = RoleKeySlice::new(0, 2000, fnv64_bytes(b"SUBJECT"));
 pub const PREDICATE_SLICE: RoleKeySlice = RoleKeySlice::new(2000, 4000, fnv64_bytes(b"PREDICATE"));
-pub const OBJECT_SLICE:    RoleKeySlice = RoleKeySlice::new(4000, 6000, fnv64_bytes(b"OBJECT"));
-pub const MODIFIER_SLICE:  RoleKeySlice = RoleKeySlice::new(6000, 7500, fnv64_bytes(b"MODIFIER"));
-pub const CONTEXT_SLICE:   RoleKeySlice = RoleKeySlice::new(7500, 9000, fnv64_bytes(b"CONTEXT"));
+pub const OBJECT_SLICE: RoleKeySlice = RoleKeySlice::new(4000, 6000, fnv64_bytes(b"OBJECT"));
+pub const MODIFIER_SLICE: RoleKeySlice = RoleKeySlice::new(6000, 7500, fnv64_bytes(b"MODIFIER"));
+pub const CONTEXT_SLICE: RoleKeySlice = RoleKeySlice::new(7500, 9000, fnv64_bytes(b"CONTEXT"));
 
 // --- TEKAMOLO sub-slices (mirror of TEMPORAL_KEY..LOKAL_KEY + extras) ------
 
-pub const TEMPORAL_SLICE:    RoleKeySlice = RoleKeySlice::new(9000, 9200, fnv64_bytes(b"TEMPORAL"));
-pub const KAUSAL_SLICE:      RoleKeySlice = RoleKeySlice::new(9200, 9400, fnv64_bytes(b"KAUSAL"));
-pub const MODAL_SLICE:       RoleKeySlice = RoleKeySlice::new(9400, 9500, fnv64_bytes(b"MODAL"));
-pub const LOKAL_SLICE:       RoleKeySlice = RoleKeySlice::new(9500, 9650, fnv64_bytes(b"LOKAL"));
-pub const INSTRUMENT_SLICE:  RoleKeySlice = RoleKeySlice::new(9650, 9750, fnv64_bytes(b"INSTRUMENT"));
-pub const BENEFICIARY_SLICE: RoleKeySlice = RoleKeySlice::new(9750, 9780, fnv64_bytes(b"BENEFICIARY"));
-pub const GOAL_SLICE:        RoleKeySlice = RoleKeySlice::new(9780, 9810, fnv64_bytes(b"GOAL"));
-pub const SOURCE_SLICE:      RoleKeySlice = RoleKeySlice::new(9810, 9840, fnv64_bytes(b"SOURCE"));
+pub const TEMPORAL_SLICE: RoleKeySlice = RoleKeySlice::new(9000, 9200, fnv64_bytes(b"TEMPORAL"));
+pub const KAUSAL_SLICE: RoleKeySlice = RoleKeySlice::new(9200, 9400, fnv64_bytes(b"KAUSAL"));
+pub const MODAL_SLICE: RoleKeySlice = RoleKeySlice::new(9400, 9500, fnv64_bytes(b"MODAL"));
+pub const LOKAL_SLICE: RoleKeySlice = RoleKeySlice::new(9500, 9650, fnv64_bytes(b"LOKAL"));
+pub const INSTRUMENT_SLICE: RoleKeySlice =
+    RoleKeySlice::new(9650, 9750, fnv64_bytes(b"INSTRUMENT"));
+pub const BENEFICIARY_SLICE: RoleKeySlice =
+    RoleKeySlice::new(9750, 9780, fnv64_bytes(b"BENEFICIARY"));
+pub const GOAL_SLICE: RoleKeySlice = RoleKeySlice::new(9780, 9810, fnv64_bytes(b"GOAL"));
+pub const SOURCE_SLICE: RoleKeySlice = RoleKeySlice::new(9810, 9840, fnv64_bytes(b"SOURCE"));
 
 // --- Finnish 15 cases (mirror FINNISH_SLICES, indexed by FinnishCase as u8)
 
 pub static FINNISH_CASE_SLICES: LazyLock<[(FinnishCase, RoleKeySlice); 15]> = LazyLock::new(|| {
     [
-        (FinnishCase::Nominative,  RoleKeySlice::new(FINNISH_SLICES[0].0,  FINNISH_SLICES[0].1,  fnv64_bytes(b"FI_NOMINATIVE"))),
-        (FinnishCase::Genitive,    RoleKeySlice::new(FINNISH_SLICES[1].0,  FINNISH_SLICES[1].1,  fnv64_bytes(b"FI_GENITIVE"))),
-        (FinnishCase::Accusative,  RoleKeySlice::new(FINNISH_SLICES[2].0,  FINNISH_SLICES[2].1,  fnv64_bytes(b"FI_ACCUSATIVE"))),
-        (FinnishCase::Partitive,   RoleKeySlice::new(FINNISH_SLICES[3].0,  FINNISH_SLICES[3].1,  fnv64_bytes(b"FI_PARTITIVE"))),
-        (FinnishCase::Inessive,    RoleKeySlice::new(FINNISH_SLICES[4].0,  FINNISH_SLICES[4].1,  fnv64_bytes(b"FI_INESSIVE"))),
-        (FinnishCase::Elative,     RoleKeySlice::new(FINNISH_SLICES[5].0,  FINNISH_SLICES[5].1,  fnv64_bytes(b"FI_ELATIVE"))),
-        (FinnishCase::Illative,    RoleKeySlice::new(FINNISH_SLICES[6].0,  FINNISH_SLICES[6].1,  fnv64_bytes(b"FI_ILLATIVE"))),
-        (FinnishCase::Adessive,    RoleKeySlice::new(FINNISH_SLICES[7].0,  FINNISH_SLICES[7].1,  fnv64_bytes(b"FI_ADESSIVE"))),
-        (FinnishCase::Ablative,    RoleKeySlice::new(FINNISH_SLICES[8].0,  FINNISH_SLICES[8].1,  fnv64_bytes(b"FI_ABLATIVE"))),
-        (FinnishCase::Allative,    RoleKeySlice::new(FINNISH_SLICES[9].0,  FINNISH_SLICES[9].1,  fnv64_bytes(b"FI_ALLATIVE"))),
-        (FinnishCase::Essive,      RoleKeySlice::new(FINNISH_SLICES[10].0, FINNISH_SLICES[10].1, fnv64_bytes(b"FI_ESSIVE"))),
-        (FinnishCase::Translative, RoleKeySlice::new(FINNISH_SLICES[11].0, FINNISH_SLICES[11].1, fnv64_bytes(b"FI_TRANSLATIVE"))),
-        (FinnishCase::Instructive, RoleKeySlice::new(FINNISH_SLICES[12].0, FINNISH_SLICES[12].1, fnv64_bytes(b"FI_INSTRUCTIVE"))),
-        (FinnishCase::Abessive,    RoleKeySlice::new(FINNISH_SLICES[13].0, FINNISH_SLICES[13].1, fnv64_bytes(b"FI_ABESSIVE"))),
-        (FinnishCase::Comitative,  RoleKeySlice::new(FINNISH_SLICES[14].0, FINNISH_SLICES[14].1, fnv64_bytes(b"FI_COMITATIVE"))),
+        (
+            FinnishCase::Nominative,
+            RoleKeySlice::new(
+                FINNISH_SLICES[0].0,
+                FINNISH_SLICES[0].1,
+                fnv64_bytes(b"FI_NOMINATIVE"),
+            ),
+        ),
+        (
+            FinnishCase::Genitive,
+            RoleKeySlice::new(
+                FINNISH_SLICES[1].0,
+                FINNISH_SLICES[1].1,
+                fnv64_bytes(b"FI_GENITIVE"),
+            ),
+        ),
+        (
+            FinnishCase::Accusative,
+            RoleKeySlice::new(
+                FINNISH_SLICES[2].0,
+                FINNISH_SLICES[2].1,
+                fnv64_bytes(b"FI_ACCUSATIVE"),
+            ),
+        ),
+        (
+            FinnishCase::Partitive,
+            RoleKeySlice::new(
+                FINNISH_SLICES[3].0,
+                FINNISH_SLICES[3].1,
+                fnv64_bytes(b"FI_PARTITIVE"),
+            ),
+        ),
+        (
+            FinnishCase::Inessive,
+            RoleKeySlice::new(
+                FINNISH_SLICES[4].0,
+                FINNISH_SLICES[4].1,
+                fnv64_bytes(b"FI_INESSIVE"),
+            ),
+        ),
+        (
+            FinnishCase::Elative,
+            RoleKeySlice::new(
+                FINNISH_SLICES[5].0,
+                FINNISH_SLICES[5].1,
+                fnv64_bytes(b"FI_ELATIVE"),
+            ),
+        ),
+        (
+            FinnishCase::Illative,
+            RoleKeySlice::new(
+                FINNISH_SLICES[6].0,
+                FINNISH_SLICES[6].1,
+                fnv64_bytes(b"FI_ILLATIVE"),
+            ),
+        ),
+        (
+            FinnishCase::Adessive,
+            RoleKeySlice::new(
+                FINNISH_SLICES[7].0,
+                FINNISH_SLICES[7].1,
+                fnv64_bytes(b"FI_ADESSIVE"),
+            ),
+        ),
+        (
+            FinnishCase::Ablative,
+            RoleKeySlice::new(
+                FINNISH_SLICES[8].0,
+                FINNISH_SLICES[8].1,
+                fnv64_bytes(b"FI_ABLATIVE"),
+            ),
+        ),
+        (
+            FinnishCase::Allative,
+            RoleKeySlice::new(
+                FINNISH_SLICES[9].0,
+                FINNISH_SLICES[9].1,
+                fnv64_bytes(b"FI_ALLATIVE"),
+            ),
+        ),
+        (
+            FinnishCase::Essive,
+            RoleKeySlice::new(
+                FINNISH_SLICES[10].0,
+                FINNISH_SLICES[10].1,
+                fnv64_bytes(b"FI_ESSIVE"),
+            ),
+        ),
+        (
+            FinnishCase::Translative,
+            RoleKeySlice::new(
+                FINNISH_SLICES[11].0,
+                FINNISH_SLICES[11].1,
+                fnv64_bytes(b"FI_TRANSLATIVE"),
+            ),
+        ),
+        (
+            FinnishCase::Instructive,
+            RoleKeySlice::new(
+                FINNISH_SLICES[12].0,
+                FINNISH_SLICES[12].1,
+                fnv64_bytes(b"FI_INSTRUCTIVE"),
+            ),
+        ),
+        (
+            FinnishCase::Abessive,
+            RoleKeySlice::new(
+                FINNISH_SLICES[13].0,
+                FINNISH_SLICES[13].1,
+                fnv64_bytes(b"FI_ABESSIVE"),
+            ),
+        ),
+        (
+            FinnishCase::Comitative,
+            RoleKeySlice::new(
+                FINNISH_SLICES[14].0,
+                FINNISH_SLICES[14].1,
+                fnv64_bytes(b"FI_COMITATIVE"),
+            ),
+        ),
     ]
 });
 
@@ -412,18 +581,54 @@ pub static TENSE_SLICES: LazyLock<[(Tense, RoleKeySlice); 12]> = LazyLock::new(|
     let s = |i: usize| TENSE_START + i * TENSE_WIDTH;
     let e = |i: usize| TENSE_START + (i + 1) * TENSE_WIDTH;
     [
-        (Tense::Present,            RoleKeySlice::new(s(0),  e(0),  fnv64_bytes(b"T_PRESENT"))),
-        (Tense::Past,               RoleKeySlice::new(s(1),  e(1),  fnv64_bytes(b"T_PAST"))),
-        (Tense::Future,             RoleKeySlice::new(s(2),  e(2),  fnv64_bytes(b"T_FUTURE"))),
-        (Tense::PresentContinuous,  RoleKeySlice::new(s(3),  e(3),  fnv64_bytes(b"T_PRESENT_CONTINUOUS"))),
-        (Tense::PastContinuous,     RoleKeySlice::new(s(4),  e(4),  fnv64_bytes(b"T_PAST_CONTINUOUS"))),
-        (Tense::FutureContinuous,   RoleKeySlice::new(s(5),  e(5),  fnv64_bytes(b"T_FUTURE_CONTINUOUS"))),
-        (Tense::Perfect,            RoleKeySlice::new(s(6),  e(6),  fnv64_bytes(b"T_PERFECT"))),
-        (Tense::Pluperfect,         RoleKeySlice::new(s(7),  e(7),  fnv64_bytes(b"T_PLUPERFECT"))),
-        (Tense::FuturePerfect,      RoleKeySlice::new(s(8),  e(8),  fnv64_bytes(b"T_FUTURE_PERFECT"))),
-        (Tense::Habitual,           RoleKeySlice::new(s(9),  e(9),  fnv64_bytes(b"T_HABITUAL"))),
-        (Tense::Potential,          RoleKeySlice::new(s(10), e(10), fnv64_bytes(b"T_POTENTIAL"))),
-        (Tense::Imperative,         RoleKeySlice::new(s(11), e(11), fnv64_bytes(b"T_IMPERATIVE"))),
+        (
+            Tense::Present,
+            RoleKeySlice::new(s(0), e(0), fnv64_bytes(b"T_PRESENT")),
+        ),
+        (
+            Tense::Past,
+            RoleKeySlice::new(s(1), e(1), fnv64_bytes(b"T_PAST")),
+        ),
+        (
+            Tense::Future,
+            RoleKeySlice::new(s(2), e(2), fnv64_bytes(b"T_FUTURE")),
+        ),
+        (
+            Tense::PresentContinuous,
+            RoleKeySlice::new(s(3), e(3), fnv64_bytes(b"T_PRESENT_CONTINUOUS")),
+        ),
+        (
+            Tense::PastContinuous,
+            RoleKeySlice::new(s(4), e(4), fnv64_bytes(b"T_PAST_CONTINUOUS")),
+        ),
+        (
+            Tense::FutureContinuous,
+            RoleKeySlice::new(s(5), e(5), fnv64_bytes(b"T_FUTURE_CONTINUOUS")),
+        ),
+        (
+            Tense::Perfect,
+            RoleKeySlice::new(s(6), e(6), fnv64_bytes(b"T_PERFECT")),
+        ),
+        (
+            Tense::Pluperfect,
+            RoleKeySlice::new(s(7), e(7), fnv64_bytes(b"T_PLUPERFECT")),
+        ),
+        (
+            Tense::FuturePerfect,
+            RoleKeySlice::new(s(8), e(8), fnv64_bytes(b"T_FUTURE_PERFECT")),
+        ),
+        (
+            Tense::Habitual,
+            RoleKeySlice::new(s(9), e(9), fnv64_bytes(b"T_HABITUAL")),
+        ),
+        (
+            Tense::Potential,
+            RoleKeySlice::new(s(10), e(10), fnv64_bytes(b"T_POTENTIAL")),
+        ),
+        (
+            Tense::Imperative,
+            RoleKeySlice::new(s(11), e(11), fnv64_bytes(b"T_IMPERATIVE")),
+        ),
     ]
 });
 
@@ -433,26 +638,76 @@ pub fn tense_slice(tense: Tense) -> RoleKeySlice {
 
 // --- 7 NARS-inference slices (mirror NARS_SLICES) --------------------------
 
-pub static NARS_INFERENCE_SLICES: LazyLock<[(NarsInference, RoleKeySlice); 7]> = LazyLock::new(|| {
-    [
-        (NarsInference::Deduction,               RoleKeySlice::new(NARS_SLICES[0].0, NARS_SLICES[0].1, fnv64_bytes(b"N_DEDUCTION"))),
-        (NarsInference::Induction,               RoleKeySlice::new(NARS_SLICES[1].0, NARS_SLICES[1].1, fnv64_bytes(b"N_INDUCTION"))),
-        (NarsInference::Abduction,               RoleKeySlice::new(NARS_SLICES[2].0, NARS_SLICES[2].1, fnv64_bytes(b"N_ABDUCTION"))),
-        (NarsInference::Revision,                RoleKeySlice::new(NARS_SLICES[3].0, NARS_SLICES[3].1, fnv64_bytes(b"N_REVISION"))),
-        (NarsInference::Synthesis,               RoleKeySlice::new(NARS_SLICES[4].0, NARS_SLICES[4].1, fnv64_bytes(b"N_SYNTHESIS"))),
-        (NarsInference::Extrapolation,           RoleKeySlice::new(NARS_SLICES[5].0, NARS_SLICES[5].1, fnv64_bytes(b"N_EXTRAPOLATION"))),
-        (NarsInference::CounterfactualSynthesis, RoleKeySlice::new(NARS_SLICES[6].0, NARS_SLICES[6].1, fnv64_bytes(b"N_COUNTERFACTUAL"))),
-    ]
-});
+pub static NARS_INFERENCE_SLICES: LazyLock<[(NarsInference, RoleKeySlice); 7]> =
+    LazyLock::new(|| {
+        [
+            (
+                NarsInference::Deduction,
+                RoleKeySlice::new(
+                    NARS_SLICES[0].0,
+                    NARS_SLICES[0].1,
+                    fnv64_bytes(b"N_DEDUCTION"),
+                ),
+            ),
+            (
+                NarsInference::Induction,
+                RoleKeySlice::new(
+                    NARS_SLICES[1].0,
+                    NARS_SLICES[1].1,
+                    fnv64_bytes(b"N_INDUCTION"),
+                ),
+            ),
+            (
+                NarsInference::Abduction,
+                RoleKeySlice::new(
+                    NARS_SLICES[2].0,
+                    NARS_SLICES[2].1,
+                    fnv64_bytes(b"N_ABDUCTION"),
+                ),
+            ),
+            (
+                NarsInference::Revision,
+                RoleKeySlice::new(
+                    NARS_SLICES[3].0,
+                    NARS_SLICES[3].1,
+                    fnv64_bytes(b"N_REVISION"),
+                ),
+            ),
+            (
+                NarsInference::Synthesis,
+                RoleKeySlice::new(
+                    NARS_SLICES[4].0,
+                    NARS_SLICES[4].1,
+                    fnv64_bytes(b"N_SYNTHESIS"),
+                ),
+            ),
+            (
+                NarsInference::Extrapolation,
+                RoleKeySlice::new(
+                    NARS_SLICES[5].0,
+                    NARS_SLICES[5].1,
+                    fnv64_bytes(b"N_EXTRAPOLATION"),
+                ),
+            ),
+            (
+                NarsInference::CounterfactualSynthesis,
+                RoleKeySlice::new(
+                    NARS_SLICES[6].0,
+                    NARS_SLICES[6].1,
+                    fnv64_bytes(b"N_COUNTERFACTUAL"),
+                ),
+            ),
+        ]
+    });
 
 pub fn nars_inference_slice(inf: NarsInference) -> RoleKeySlice {
     let idx = match inf {
-        NarsInference::Deduction               => 0,
-        NarsInference::Induction               => 1,
-        NarsInference::Abduction               => 2,
-        NarsInference::Revision                => 3,
-        NarsInference::Synthesis               => 4,
-        NarsInference::Extrapolation           => 5,
+        NarsInference::Deduction => 0,
+        NarsInference::Induction => 1,
+        NarsInference::Abduction => 2,
+        NarsInference::Revision => 3,
+        NarsInference::Synthesis => 4,
+        NarsInference::Extrapolation => 5,
         NarsInference::CounterfactualSynthesis => 6,
     };
     NARS_INFERENCE_SLICES[idx].1
@@ -470,19 +725,40 @@ mod tests {
     fn all_slices() -> Vec<(usize, usize, &'static str)> {
         let mut v: Vec<(usize, usize, &'static str)> = Vec::new();
         for k in [
-            &*SUBJECT_KEY, &*PREDICATE_KEY, &*OBJECT_KEY,
-            &*MODIFIER_KEY, &*CONTEXT_KEY,
-            &*TEMPORAL_KEY, &*KAUSAL_KEY, &*MODAL_KEY, &*LOKAL_KEY,
-            &*INSTRUMENT_KEY, &*BENEFICIARY_KEY, &*GOAL_KEY, &*SOURCE_KEY,
+            &*SUBJECT_KEY,
+            &*PREDICATE_KEY,
+            &*OBJECT_KEY,
+            &*MODIFIER_KEY,
+            &*CONTEXT_KEY,
+            &*TEMPORAL_KEY,
+            &*KAUSAL_KEY,
+            &*MODAL_KEY,
+            &*LOKAL_KEY,
+            &*INSTRUMENT_KEY,
+            &*BENEFICIARY_KEY,
+            &*GOAL_KEY,
+            &*SOURCE_KEY,
         ] {
             v.push((k.slice_start, k.slice_end, k.label));
         }
-        for k in FINNISH_KEYS.iter() { v.push((k.slice_start, k.slice_end, k.label)); }
-        for k in TENSE_KEYS.iter()   { v.push((k.slice_start, k.slice_end, k.label)); }
-        for k in NARS_KEYS.iter()    { v.push((k.slice_start, k.slice_end, k.label)); }
+        for k in FINNISH_KEYS.iter() {
+            v.push((k.slice_start, k.slice_end, k.label));
+        }
+        for k in TENSE_KEYS.iter() {
+            v.push((k.slice_start, k.slice_end, k.label));
+        }
+        for k in NARS_KEYS.iter() {
+            v.push((k.slice_start, k.slice_end, k.label));
+        }
         for k in [
-            &*KUNDE_KEY, &*SCHULDNER_KEY, &*MAHNUNG_KEY, &*RECHNUNG_KEY,
-            &*DOKUMENT_KEY, &*BANK_KEY, &*FIBU_KEY, &*STEUER_KEY,
+            &*KUNDE_KEY,
+            &*SCHULDNER_KEY,
+            &*MAHNUNG_KEY,
+            &*RECHNUNG_KEY,
+            &*DOKUMENT_KEY,
+            &*BANK_KEY,
+            &*FIBU_KEY,
+            &*STEUER_KEY,
         ] {
             v.push((k.slice_start, k.slice_end, k.label));
         }
@@ -520,10 +796,7 @@ mod tests {
             let offset = dim % 64;
             let bit = (k.words[word] >> offset) & 1;
             if dim < k.slice_start || dim >= k.slice_end {
-                assert_eq!(
-                    bit, 0,
-                    "SUBJECT_KEY bit set outside slice at dim {dim}"
-                );
+                assert_eq!(bit, 0, "SUBJECT_KEY bit set outside slice at dim {dim}");
             }
         }
 
@@ -534,10 +807,7 @@ mod tests {
             let offset = dim % 64;
             let bit = (k.words[word] >> offset) & 1;
             if dim < k.slice_start || dim >= k.slice_end {
-                assert_eq!(
-                    bit, 0,
-                    "KAUSAL_KEY bit set outside slice at dim {dim}"
-                );
+                assert_eq!(bit, 0, "KAUSAL_KEY bit set outside slice at dim {dim}");
             }
         }
     }
@@ -554,11 +824,21 @@ mod tests {
     #[test]
     fn finnish_case_lookup_covers_all_15() {
         let all = [
-            FinnishCase::Nominative, FinnishCase::Genitive, FinnishCase::Accusative,
-            FinnishCase::Partitive,  FinnishCase::Inessive, FinnishCase::Elative,
-            FinnishCase::Illative,   FinnishCase::Adessive, FinnishCase::Ablative,
-            FinnishCase::Allative,   FinnishCase::Essive,   FinnishCase::Translative,
-            FinnishCase::Instructive, FinnishCase::Abessive, FinnishCase::Comitative,
+            FinnishCase::Nominative,
+            FinnishCase::Genitive,
+            FinnishCase::Accusative,
+            FinnishCase::Partitive,
+            FinnishCase::Inessive,
+            FinnishCase::Elative,
+            FinnishCase::Illative,
+            FinnishCase::Adessive,
+            FinnishCase::Ablative,
+            FinnishCase::Allative,
+            FinnishCase::Essive,
+            FinnishCase::Translative,
+            FinnishCase::Instructive,
+            FinnishCase::Abessive,
+            FinnishCase::Comitative,
         ];
         for case in all {
             let k = finnish_case_key(case);
@@ -571,9 +851,12 @@ mod tests {
     #[test]
     fn nars_inference_lookup_covers_all_7() {
         let all = [
-            NarsInference::Deduction, NarsInference::Induction,
-            NarsInference::Abduction, NarsInference::Revision,
-            NarsInference::Synthesis, NarsInference::Extrapolation,
+            NarsInference::Deduction,
+            NarsInference::Induction,
+            NarsInference::Abduction,
+            NarsInference::Revision,
+            NarsInference::Synthesis,
+            NarsInference::Extrapolation,
             NarsInference::CounterfactualSynthesis,
         ];
         for inf in all {
@@ -593,10 +876,18 @@ mod tests {
     #[test]
     fn tense_lookup_covers_all_12() {
         let all = [
-            Tense::Present, Tense::Past, Tense::Future,
-            Tense::PresentContinuous, Tense::PastContinuous, Tense::FutureContinuous,
-            Tense::Perfect, Tense::Pluperfect, Tense::FuturePerfect,
-            Tense::Habitual, Tense::Potential, Tense::Imperative,
+            Tense::Present,
+            Tense::Past,
+            Tense::Future,
+            Tense::PresentContinuous,
+            Tense::PastContinuous,
+            Tense::FutureContinuous,
+            Tense::Perfect,
+            Tense::Pluperfect,
+            Tense::FuturePerfect,
+            Tense::Habitual,
+            Tense::Potential,
+            Tense::Imperative,
         ];
         for t in all {
             let k = tense_key(t);
@@ -615,13 +906,18 @@ mod tests {
     #[test]
     fn spo_slices_disjoint_and_contiguous() {
         let spo = [
-            SUBJECT_SLICE, PREDICATE_SLICE, OBJECT_SLICE, MODIFIER_SLICE, CONTEXT_SLICE,
+            SUBJECT_SLICE,
+            PREDICATE_SLICE,
+            OBJECT_SLICE,
+            MODIFIER_SLICE,
+            CONTEXT_SLICE,
         ];
         // Contiguous: each slice starts where the previous ended.
         for pair in spo.windows(2) {
             assert_eq!(
                 pair[0].stop, pair[1].start,
-                "SPO slices not contiguous: {:?} vs {:?}", pair[0], pair[1]
+                "SPO slices not contiguous: {:?} vs {:?}",
+                pair[0], pair[1]
             );
         }
         // Union covers [0, 9000) — the SPO+TEKAMOLO-prefix region. (CONTEXT
@@ -636,13 +932,19 @@ mod tests {
     #[test]
     fn tekamolo_sub_slices_in_post_context_band() {
         let teka = [
-            TEMPORAL_SLICE, KAUSAL_SLICE, MODAL_SLICE, LOKAL_SLICE,
-            INSTRUMENT_SLICE, BENEFICIARY_SLICE, GOAL_SLICE, SOURCE_SLICE,
+            TEMPORAL_SLICE,
+            KAUSAL_SLICE,
+            MODAL_SLICE,
+            LOKAL_SLICE,
+            INSTRUMENT_SLICE,
+            BENEFICIARY_SLICE,
+            GOAL_SLICE,
+            SOURCE_SLICE,
         ];
         for s in teka {
             assert!(s.start >= 9000, "TEKAMOLO slice starts before 9000: {s:?}");
-            assert!(s.stop <= 9840,  "TEKAMOLO slice ends after 9840: {s:?}");
-            assert!(s.len() > 0,     "empty TEKAMOLO slice: {s:?}");
+            assert!(s.stop <= 9840, "TEKAMOLO slice ends after 9840: {s:?}");
+            assert!(!s.is_empty(), "empty TEKAMOLO slice: {s:?}");
         }
     }
 
@@ -656,12 +958,14 @@ mod tests {
         for pair in by_start.windows(2) {
             assert!(
                 pair[0].stop <= pair[1].start,
-                "Finnish slice overlap: {:?} vs {:?}", pair[0], pair[1]
+                "Finnish slice overlap: {:?} vs {:?}",
+                pair[0],
+                pair[1]
             );
         }
         for (_, s) in arr.iter() {
             assert!(s.start >= FINNISH_START);
-            assert!(s.stop  <= FINNISH_END);
+            assert!(s.stop <= FINNISH_END);
         }
     }
 
@@ -669,25 +973,62 @@ mod tests {
     #[test]
     fn fnv64_no_collisions_on_role_labels() {
         let labels: &[&[u8]] = &[
-            b"SUBJECT", b"PREDICATE", b"OBJECT", b"MODIFIER", b"CONTEXT",
-            b"TEMPORAL", b"KAUSAL", b"MODAL", b"LOKAL",
-            b"INSTRUMENT", b"BENEFICIARY", b"GOAL", b"SOURCE",
-            b"FI_NOMINATIVE", b"FI_GENITIVE", b"FI_ACCUSATIVE", b"FI_PARTITIVE",
-            b"FI_INESSIVE", b"FI_ELATIVE", b"FI_ILLATIVE",
-            b"FI_ADESSIVE", b"FI_ABLATIVE", b"FI_ALLATIVE",
-            b"FI_ESSIVE", b"FI_TRANSLATIVE", b"FI_INSTRUCTIVE",
-            b"FI_ABESSIVE", b"FI_COMITATIVE",
-            b"T_PRESENT", b"T_PAST", b"T_FUTURE",
-            b"T_PRESENT_CONTINUOUS", b"T_PAST_CONTINUOUS", b"T_FUTURE_CONTINUOUS",
-            b"T_PERFECT", b"T_PLUPERFECT", b"T_FUTURE_PERFECT",
-            b"T_HABITUAL", b"T_POTENTIAL", b"T_IMPERATIVE",
-            b"N_DEDUCTION", b"N_INDUCTION", b"N_ABDUCTION", b"N_REVISION",
-            b"N_SYNTHESIS", b"N_EXTRAPOLATION", b"N_COUNTERFACTUAL",
+            b"SUBJECT",
+            b"PREDICATE",
+            b"OBJECT",
+            b"MODIFIER",
+            b"CONTEXT",
+            b"TEMPORAL",
+            b"KAUSAL",
+            b"MODAL",
+            b"LOKAL",
+            b"INSTRUMENT",
+            b"BENEFICIARY",
+            b"GOAL",
+            b"SOURCE",
+            b"FI_NOMINATIVE",
+            b"FI_GENITIVE",
+            b"FI_ACCUSATIVE",
+            b"FI_PARTITIVE",
+            b"FI_INESSIVE",
+            b"FI_ELATIVE",
+            b"FI_ILLATIVE",
+            b"FI_ADESSIVE",
+            b"FI_ABLATIVE",
+            b"FI_ALLATIVE",
+            b"FI_ESSIVE",
+            b"FI_TRANSLATIVE",
+            b"FI_INSTRUCTIVE",
+            b"FI_ABESSIVE",
+            b"FI_COMITATIVE",
+            b"T_PRESENT",
+            b"T_PAST",
+            b"T_FUTURE",
+            b"T_PRESENT_CONTINUOUS",
+            b"T_PAST_CONTINUOUS",
+            b"T_FUTURE_CONTINUOUS",
+            b"T_PERFECT",
+            b"T_PLUPERFECT",
+            b"T_FUTURE_PERFECT",
+            b"T_HABITUAL",
+            b"T_POTENTIAL",
+            b"T_IMPERATIVE",
+            b"N_DEDUCTION",
+            b"N_INDUCTION",
+            b"N_ABDUCTION",
+            b"N_REVISION",
+            b"N_SYNTHESIS",
+            b"N_EXTRAPOLATION",
+            b"N_COUNTERFACTUAL",
         ];
         let mut seen = std::collections::HashSet::new();
         for l in labels {
             let h = fnv64_bytes(l);
-            assert!(seen.insert(h), "FNV-64 collision on label {:?}", std::str::from_utf8(l).unwrap());
+            assert!(
+                seen.insert(h),
+                "FNV-64 collision on label {:?}",
+                std::str::from_utf8(l).unwrap()
+            );
         }
         // Spot-check the prompt's pinned non-collision.
         assert_ne!(fnv64_bytes(b"SUBJECT"), fnv64_bytes(b"OBJECT"));
@@ -699,21 +1040,34 @@ mod tests {
     #[test]
     fn finnish_case_round_trip() {
         let all = [
-            FinnishCase::Nominative, FinnishCase::Genitive, FinnishCase::Accusative,
-            FinnishCase::Partitive,  FinnishCase::Inessive, FinnishCase::Elative,
-            FinnishCase::Illative,   FinnishCase::Adessive, FinnishCase::Ablative,
-            FinnishCase::Allative,   FinnishCase::Essive,   FinnishCase::Translative,
-            FinnishCase::Instructive, FinnishCase::Abessive, FinnishCase::Comitative,
+            FinnishCase::Nominative,
+            FinnishCase::Genitive,
+            FinnishCase::Accusative,
+            FinnishCase::Partitive,
+            FinnishCase::Inessive,
+            FinnishCase::Elative,
+            FinnishCase::Illative,
+            FinnishCase::Adessive,
+            FinnishCase::Ablative,
+            FinnishCase::Allative,
+            FinnishCase::Essive,
+            FinnishCase::Translative,
+            FinnishCase::Instructive,
+            FinnishCase::Abessive,
+            FinnishCase::Comitative,
         ];
         for case in all {
             let (stored_case, slice) = FINNISH_CASE_SLICES[case as usize];
-            assert_eq!(stored_case, case, "FINNISH_CASE_SLICES not indexed by `as u8`");
+            assert_eq!(
+                stored_case, case,
+                "FINNISH_CASE_SLICES not indexed by `as u8`"
+            );
             // The free-function lookup must agree with the array entry.
             assert_eq!(finnish_case_slice(case), slice);
             // Slice mirrors the live RoleKey boundaries.
             let live = finnish_case_key(case);
             assert_eq!(slice.start, live.slice_start);
-            assert_eq!(slice.stop,  live.slice_end);
+            assert_eq!(slice.stop, live.slice_end);
             // And the FNV-64 fingerprint is non-zero (every label hashes to
             // something distinct from the empty string's seed).
             assert_ne!(slice.fnv_seed, 0xcbf29ce484222325);
@@ -725,23 +1079,31 @@ mod tests {
     #[test]
     fn role_key_slice_mirrors_live_role_key_boundaries() {
         let pairs: &[(RoleKeySlice, &RoleKey)] = &[
-            (SUBJECT_SLICE,    &SUBJECT_KEY),
-            (PREDICATE_SLICE,  &PREDICATE_KEY),
-            (OBJECT_SLICE,     &OBJECT_KEY),
-            (MODIFIER_SLICE,   &MODIFIER_KEY),
-            (CONTEXT_SLICE,    &CONTEXT_KEY),
-            (TEMPORAL_SLICE,   &TEMPORAL_KEY),
-            (KAUSAL_SLICE,     &KAUSAL_KEY),
-            (MODAL_SLICE,      &MODAL_KEY),
-            (LOKAL_SLICE,      &LOKAL_KEY),
+            (SUBJECT_SLICE, &SUBJECT_KEY),
+            (PREDICATE_SLICE, &PREDICATE_KEY),
+            (OBJECT_SLICE, &OBJECT_KEY),
+            (MODIFIER_SLICE, &MODIFIER_KEY),
+            (CONTEXT_SLICE, &CONTEXT_KEY),
+            (TEMPORAL_SLICE, &TEMPORAL_KEY),
+            (KAUSAL_SLICE, &KAUSAL_KEY),
+            (MODAL_SLICE, &MODAL_KEY),
+            (LOKAL_SLICE, &LOKAL_KEY),
             (INSTRUMENT_SLICE, &INSTRUMENT_KEY),
-            (BENEFICIARY_SLICE,&BENEFICIARY_KEY),
-            (GOAL_SLICE,       &GOAL_KEY),
-            (SOURCE_SLICE,     &SOURCE_KEY),
+            (BENEFICIARY_SLICE, &BENEFICIARY_KEY),
+            (GOAL_SLICE, &GOAL_KEY),
+            (SOURCE_SLICE, &SOURCE_KEY),
         ];
         for (slice, live) in pairs {
-            assert_eq!(slice.start, live.slice_start, "slice/live start mismatch for {}", live.label);
-            assert_eq!(slice.stop,  live.slice_end,   "slice/live stop  mismatch for {}", live.label);
+            assert_eq!(
+                slice.start, live.slice_start,
+                "slice/live start mismatch for {}",
+                live.label
+            );
+            assert_eq!(
+                slice.stop, live.slice_end,
+                "slice/live stop  mismatch for {}",
+                live.label
+            );
             assert!(slice.stop <= VSA_DIMS);
         }
     }
@@ -752,22 +1114,25 @@ mod tests {
         assert!(!SUBJECT_SLICE.is_empty());
         let r = SUBJECT_SLICE.range();
         assert_eq!(r.start, 0);
-        assert_eq!(r.end,   2000);
+        assert_eq!(r.end, 2000);
     }
 
     #[test]
     fn nars_inference_slice_round_trip() {
         let all = [
-            NarsInference::Deduction, NarsInference::Induction,
-            NarsInference::Abduction, NarsInference::Revision,
-            NarsInference::Synthesis, NarsInference::Extrapolation,
+            NarsInference::Deduction,
+            NarsInference::Induction,
+            NarsInference::Abduction,
+            NarsInference::Revision,
+            NarsInference::Synthesis,
+            NarsInference::Extrapolation,
             NarsInference::CounterfactualSynthesis,
         ];
         for inf in all {
             let s = nars_inference_slice(inf);
             assert!(s.start >= NARS_START);
-            assert!(s.stop  <= NARS_END);
-            assert!(s.len() > 0);
+            assert!(s.stop <= NARS_END);
+            assert!(!s.is_empty());
         }
     }
 }

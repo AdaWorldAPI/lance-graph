@@ -201,14 +201,12 @@ impl NsmEvalStore {
     /// Returns `None` if no evaluations exist for the word.
     pub fn best_model_for_word(&self, word: &str) -> Option<&NsmModelEval> {
         self.evaluations.get(word).and_then(|evals| {
-            evals
-                .iter()
-                .max_by(|a, b| {
-                    a.mapping
-                        .total_score
-                        .partial_cmp(&b.mapping.total_score)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                })
+            evals.iter().max_by(|a, b| {
+                a.mapping
+                    .total_score
+                    .partial_cmp(&b.mapping.total_score)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
         })
     }
 
@@ -304,8 +302,10 @@ impl NsmEvalStore {
                     let conf = (2.0 * (freq - 0.5).abs()).clamp(0.0, 1.0);
                     let truth = TruthValue::new(freq, conf);
                     let record = SpoBuilder::build_edge(&subj, &pred, &obj, truth);
-                    let key_str =
-                        format!("nsm:{}:{}:grader:{}", word, eval.model_name, gs.grader_model);
+                    let key_str = format!(
+                        "nsm:{}:{}:grader:{}",
+                        word, eval.model_name, gs.grader_model
+                    );
                     let key = dn_hash(&key_str);
                     results.push((key, record, truth));
                 }
@@ -516,7 +516,7 @@ mod tests {
         let mapping = NsmSpoMapping {
             word: "test".to_string(),
             explication_text: "test".to_string(),
-            primes_ratio: 1.5, // exceeds 1.0
+            primes_ratio: 1.5,     // exceeds 1.0
             molecules_ratio: -0.2, // below 0.0
             total_score: 0.0,
             uses_original_word: false,

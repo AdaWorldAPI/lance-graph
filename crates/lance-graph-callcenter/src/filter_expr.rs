@@ -14,10 +14,10 @@ use lance_graph_contract::external_membrane::CommitFilter;
 
 /// Column name constants — keep in sync with the schema written by `LanceMembrane`.
 pub mod columns {
-    pub const GATE_F:      &str = "gate_f";      // u8 — free_energy at commit time
-    pub const THINKING:    &str = "thinking";    // u8 — ThinkingStyle ordinal
+    pub const GATE_F: &str = "gate_f"; // u8 — free_energy at commit time
+    pub const THINKING: &str = "thinking"; // u8 — ThinkingStyle ordinal
     pub const GATE_COMMIT: &str = "gate_commit"; // bool — CollapseGate decision
-    // actor_id column: not yet in schema (UNKNOWN-4); filtered in Phase B.
+                                                 // actor_id column: not yet in schema (UNKNOWN-4); filtered in Phase B.
 }
 
 /// Translate a `CommitFilter` to a DataFusion `Expr`.
@@ -70,26 +70,44 @@ mod tests {
 
     #[test]
     fn single_predicate_max_free_energy() {
-        let f = CommitFilter { max_free_energy: Some(50), ..Default::default() };
+        let f = CommitFilter {
+            max_free_energy: Some(50),
+            ..Default::default()
+        };
         let expr = commit_filter_to_expr(&f).expect("should produce expr");
         let s = format!("{expr}");
-        assert!(s.contains("gate_f"), "expr should reference gate_f, got: {s}");
+        assert!(
+            s.contains("gate_f"),
+            "expr should reference gate_f, got: {s}"
+        );
     }
 
     #[test]
     fn style_predicate() {
-        let f = CommitFilter { style_ordinal: Some(3), ..Default::default() };
+        let f = CommitFilter {
+            style_ordinal: Some(3),
+            ..Default::default()
+        };
         let expr = commit_filter_to_expr(&f).expect("should produce expr");
         let s = format!("{expr}");
-        assert!(s.contains("thinking"), "expr should reference thinking, got: {s}");
+        assert!(
+            s.contains("thinking"),
+            "expr should reference thinking, got: {s}"
+        );
     }
 
     #[test]
     fn commit_predicate() {
-        let f = CommitFilter { is_commit: Some(true), ..Default::default() };
+        let f = CommitFilter {
+            is_commit: Some(true),
+            ..Default::default()
+        };
         let expr = commit_filter_to_expr(&f).expect("should produce expr");
         let s = format!("{expr}");
-        assert!(s.contains("gate_commit"), "expr should reference gate_commit, got: {s}");
+        assert!(
+            s.contains("gate_commit"),
+            "expr should reference gate_commit, got: {s}"
+        );
     }
 
     #[test]
@@ -102,8 +120,14 @@ mod tests {
         };
         let expr = commit_filter_to_expr(&f).expect("should produce combined expr");
         let s = format!("{expr}");
-        assert!(s.contains("gate_f"),      "combined expr missing gate_f: {s}");
-        assert!(s.contains("thinking"),    "combined expr missing thinking: {s}");
-        assert!(s.contains("gate_commit"), "combined expr missing gate_commit: {s}");
+        assert!(s.contains("gate_f"), "combined expr missing gate_f: {s}");
+        assert!(
+            s.contains("thinking"),
+            "combined expr missing thinking: {s}"
+        );
+        assert!(
+            s.contains("gate_commit"),
+            "combined expr missing gate_commit: {s}"
+        );
     }
 }

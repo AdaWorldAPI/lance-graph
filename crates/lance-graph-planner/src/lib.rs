@@ -46,13 +46,13 @@ pub mod adjacency;
 pub mod nars;
 
 // === Core modules ===
+pub mod execute;
 pub mod ir;
 pub mod mul;
-pub mod thinking;
-pub mod plan;
 pub mod optimize;
 pub mod physical;
-pub mod execute;
+pub mod plan;
+pub mod thinking;
 
 // === Dynamic Elevation (cost model that smells resistance) ===
 pub mod elevation;
@@ -61,10 +61,10 @@ pub mod elevation;
 pub mod prediction;
 
 // === Strategy system ===
-pub mod traits;
-pub mod selector;
 pub mod compose;
+pub mod selector;
 pub mod strategy;
+pub mod traits;
 
 // === Pipeline DAG executor (LF-12 keystone) ===
 pub mod pipeline;
@@ -82,10 +82,10 @@ pub mod api;
 mod orchestration_impl;
 
 use ir::LogicalPlan;
-use mul::{MulAssessment, GateDecision};
-use thinking::ThinkingContext;
-use traits::{PlanStrategy, PlanContext, QueryFeatures};
+use mul::{GateDecision, MulAssessment};
 use selector::StrategySelector;
+use thinking::ThinkingContext;
+use traits::{PlanContext, PlanStrategy, QueryFeatures};
 
 /// The unified planner entry point with strategy awareness.
 pub struct PlannerAwareness {
@@ -129,11 +129,7 @@ impl PlannerAwareness {
     }
 
     /// Create with AGI resonance selection.
-    pub fn with_resonance(
-        thinking_style: Vec<f64>,
-        mul_modifier: f64,
-        compass_score: f64,
-    ) -> Self {
+    pub fn with_resonance(thinking_style: Vec<f64>, mul_modifier: f64, compass_score: f64) -> Self {
         Self {
             strategies: strategy::default_strategies(),
             selector: StrategySelector::Resonance {
@@ -172,27 +168,29 @@ impl PlannerAwareness {
         match gate {
             GateDecision::Proceed { free_will_modifier } => {
                 // === LAYER 2: THINKING ORCHESTRATION ===
-                let thinking_ctx = thinking::orchestrate(
-                    query,
-                    &mul_assessment,
-                    &plan::PlannerConfig::default(),
-                );
+                let thinking_ctx =
+                    thinking::orchestrate(query, &mul_assessment, &plan::PlannerConfig::default());
 
                 // === LAYER 3: STRATEGY COMPOSITION ===
                 let context = PlanContext {
                     query: query.to_string(),
                     features: QueryFeatures::default(),
                     free_will_modifier,
-                    thinking_style: Some(thinking_ctx.modulation.to_fingerprint()
-                        .iter().map(|b| *b as f64 / 255.0).collect()),
+                    thinking_style: Some(
+                        thinking_ctx
+                            .modulation
+                            .to_fingerprint()
+                            .iter()
+                            .map(|b| *b as f64 / 255.0)
+                            .collect(),
+                    ),
                     nars_hint: Some(thinking_ctx.nars_type),
                 };
 
-                let selected = selector::select_strategies(
-                    &self.selector, &self.strategies, &context,
-                );
-                let strategy_names: Vec<String> = selected.iter()
-                    .map(|s| s.name().to_string()).collect();
+                let selected =
+                    selector::select_strategies(&self.selector, &self.strategies, &context);
+                let strategy_names: Vec<String> =
+                    selected.iter().map(|s| s.name().to_string()).collect();
 
                 let plan = compose::compose_and_execute(&selected, context)?;
 
@@ -205,22 +203,20 @@ impl PlannerAwareness {
                     compass_score: None,
                 })
             }
-            GateDecision::Sandbox { reason } => {
-                Err(PlanError::GateBlocked { reason })
-            }
+            GateDecision::Sandbox { reason } => Err(PlanError::GateBlocked { reason }),
             GateDecision::Compass => {
                 let compass = mul::compass::navigate(query, &mul_assessment);
                 match compass.decision {
-                    mul::compass::CompassDecision::SurfaceToMeta => {
-                        Err(PlanError::SurfaceToMeta {
-                            compass_score: compass.score,
-                            reason: "Stakes too high".into(),
-                        })
-                    }
+                    mul::compass::CompassDecision::SurfaceToMeta => Err(PlanError::SurfaceToMeta {
+                        compass_score: compass.score,
+                        reason: "Stakes too high".into(),
+                    }),
                     _ => {
                         // Proceed with reduced confidence
                         let thinking_ctx = thinking::orchestrate(
-                            query, &mul_assessment, &plan::PlannerConfig::default(),
+                            query,
+                            &mul_assessment,
+                            &plan::PlannerConfig::default(),
                         );
                         let context = PlanContext {
                             query: query.to_string(),
@@ -229,11 +225,10 @@ impl PlannerAwareness {
                             thinking_style: None,
                             nars_hint: Some(thinking_ctx.nars_type),
                         };
-                        let selected = selector::select_strategies(
-                            &self.selector, &self.strategies, &context,
-                        );
-                        let strategy_names: Vec<String> = selected.iter()
-                            .map(|s| s.name().to_string()).collect();
+                        let selected =
+                            selector::select_strategies(&self.selector, &self.strategies, &context);
+                        let strategy_names: Vec<String> =
+                            selected.iter().map(|s| s.name().to_string()).collect();
                         let plan = compose::compose_and_execute(&selected, context)?;
 
                         Ok(PlanResult {
@@ -282,12 +277,14 @@ impl PlannerAwareness {
 
         // Pass 2: select strategies with detected features
         let selected = selector::select_strategies(
-            &StrategySelector::Auto { max_per_phase: 2, min_affinity: 0.3 },
+            &StrategySelector::Auto {
+                max_per_phase: 2,
+                min_affinity: 0.3,
+            },
             &self.strategies,
             &context,
         );
-        let strategy_names: Vec<String> = selected.iter()
-            .map(|s| s.name().to_string()).collect();
+        let strategy_names: Vec<String> = selected.iter().map(|s| s.name().to_string()).collect();
 
         let plan = compose::compose_and_execute(&selected, context)?;
 
@@ -334,9 +331,9 @@ mod tests {
     #[test]
     fn auto_selects_dp_join_for_multi_hop_pattern() {
         let planner = PlannerAwareness::new();
-        let result = planner.plan_auto(
-            "MATCH (a)-[:KNOWS]->(b)-[:KNOWS]->(c) RETURN a, c"
-        ).unwrap();
+        let result = planner
+            .plan_auto("MATCH (a)-[:KNOWS]->(b)-[:KNOWS]->(c) RETURN a, c")
+            .unwrap();
 
         // Should include arena_ir for logical plan + dp_join for join ordering
         assert!(result.strategies_used.iter().any(|s| s == "arena_ir"));
@@ -345,68 +342,82 @@ mod tests {
     #[test]
     fn auto_selects_sigma_scan_for_fingerprint_query() {
         let planner = PlannerAwareness::new();
-        let result = planner.plan_auto(
-            "MATCH (n) WHERE RESONATE(n.fingerprint, $query, 0.7) RETURN n"
-        ).unwrap();
+        let result = planner
+            .plan_auto("MATCH (n) WHERE RESONATE(n.fingerprint, $query, 0.7) RETURN n")
+            .unwrap();
 
         assert!(result.strategies_used.iter().any(|s| s == "sigma_scan"));
     }
 
     #[test]
     fn explicit_override_uses_only_named_strategies() {
-        let planner = PlannerAwareness::with_explicit(
-            vec!["cypher_parse".into(), "arena_ir".into()]
-        );
+        let planner =
+            PlannerAwareness::with_explicit(vec!["cypher_parse".into(), "arena_ir".into()]);
         let result = planner.plan_auto("MATCH (n) RETURN n");
 
         // plan_auto uses Auto selector, but with_explicit sets Explicit
         // Let's use plan_full instead with a default situation
-        let result = planner.plan_full(
-            "MATCH (n) RETURN n",
-            &mul::SituationInput {
-                felt_competence: 0.8,
-                demonstrated_competence: 0.8,
-                source_reliability: 0.9,
-                environment_stability: 0.9,
-                calibration_accuracy: 0.8,
-                complexity_ratio: 0.7,
-                ..Default::default()
-            },
-        ).unwrap();
+        let result = planner
+            .plan_full(
+                "MATCH (n) RETURN n",
+                &mul::SituationInput {
+                    felt_competence: 0.8,
+                    demonstrated_competence: 0.8,
+                    source_reliability: 0.9,
+                    environment_stability: 0.9,
+                    calibration_accuracy: 0.8,
+                    complexity_ratio: 0.7,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
 
         // Only cypher_parse and arena_ir should be used
         assert!(result.strategies_used.len() <= 2);
         for name in &result.strategies_used {
-            assert!(name == "cypher_parse" || name == "arena_ir",
-                "Unexpected strategy: {name}");
+            assert!(
+                name == "cypher_parse" || name == "arena_ir",
+                "Unexpected strategy: {name}"
+            );
         }
     }
 
     #[test]
     fn strategies_compose_in_pipeline_order() {
         let planner = PlannerAwareness::new();
-        let result = planner.plan_auto(
-            "MATCH (a)-[:CAUSES*2..5]->(b) WHERE RESONATE(a.fp, $q, 0.3) RETURN a, b"
-        ).unwrap();
+        let result = planner
+            .plan_auto("MATCH (a)-[:CAUSES*2..5]->(b) WHERE RESONATE(a.fp, $q, 0.3) RETURN a, b")
+            .unwrap();
 
         // Verify strategies are in phase order
-        let phases: Vec<_> = result.strategies_used.iter().map(|name| {
-            planner.strategies.iter()
-                .find(|s| s.name() == name)
-                .map(|s| s.capability().phase())
-        }).collect();
+        let phases: Vec<_> = result
+            .strategies_used
+            .iter()
+            .map(|name| {
+                planner
+                    .strategies
+                    .iter()
+                    .find(|s| s.name() == name)
+                    .map(|s| s.capability().phase())
+            })
+            .collect();
 
         for window in phases.windows(2) {
             if let (Some(a), Some(b)) = (window[0], window[1]) {
-                assert!(a <= b, "Strategies not in pipeline order: {:?} > {:?}", a, b);
+                assert!(
+                    a <= b,
+                    "Strategies not in pipeline order: {:?} > {:?}",
+                    a,
+                    b
+                );
             }
         }
     }
 
     #[test]
     fn collapse_gate_filters_low_resonance_results() {
-        use physical::collapse::{CollapseOp, GateState};
         use ir::logical_op::CollapseGate;
+        use physical::collapse::{CollapseOp, GateState};
 
         let op = CollapseOp {
             gate: CollapseGate::default(),
@@ -422,27 +433,46 @@ mod tests {
 
     #[test]
     fn truth_propagation_accumulates_during_traversal() {
-        use physical::accumulate::{TruthPropagatingSemiring, Semiring, SemiringValue};
+        use physical::accumulate::{Semiring, SemiringValue, TruthPropagatingSemiring};
 
         let sr = TruthPropagatingSemiring;
 
         // Deduction along edge
-        let premise = SemiringValue::Truth { frequency: 0.9, confidence: 0.8 };
-        let edge = SemiringValue::Truth { frequency: 0.7, confidence: 0.9 };
+        let premise = SemiringValue::Truth {
+            frequency: 0.9,
+            confidence: 0.8,
+        };
+        let edge = SemiringValue::Truth {
+            frequency: 0.7,
+            confidence: 0.9,
+        };
         let conclusion = sr.multiply(&premise, &edge);
 
-        if let SemiringValue::Truth { frequency, confidence } = conclusion {
+        if let SemiringValue::Truth {
+            frequency,
+            confidence,
+        } = conclusion
+        {
             assert!(frequency < 0.9, "Deduction should reduce frequency");
             assert!(confidence < 0.8, "Deduction should reduce confidence");
         }
 
         // Revision merges evidence
-        let path_a = SemiringValue::Truth { frequency: 0.8, confidence: 0.7 };
-        let path_b = SemiringValue::Truth { frequency: 0.6, confidence: 0.5 };
+        let path_a = SemiringValue::Truth {
+            frequency: 0.8,
+            confidence: 0.7,
+        };
+        let path_b = SemiringValue::Truth {
+            frequency: 0.6,
+            confidence: 0.5,
+        };
         let revised = sr.add(&path_a, &path_b);
 
         if let SemiringValue::Truth { confidence, .. } = revised {
-            assert!(confidence > 0.5, "Revision should increase confidence with more evidence");
+            assert!(
+                confidence > 0.5,
+                "Revision should increase confidence with more evidence"
+            );
         }
     }
 
@@ -450,22 +480,24 @@ mod tests {
     fn resonance_mode_uses_thinking_style_affinity() {
         let planner = PlannerAwareness::with_resonance(
             vec![0.8, 0.1, 0.1, 0.2, 0.9, 0.5, 0.5, 0.3], // High depth + analytical
-            0.85, // Good MUL modifier
-            0.0,  // No compass
+            0.85,                                         // Good MUL modifier
+            0.0,                                          // No compass
         );
 
-        let result = planner.plan_full(
-            "MATCH (a)-[:KNOWS]->(b) RETURN a",
-            &mul::SituationInput {
-                felt_competence: 0.8,
-                demonstrated_competence: 0.8,
-                source_reliability: 0.9,
-                environment_stability: 0.9,
-                calibration_accuracy: 0.8,
-                complexity_ratio: 0.7,
-                ..Default::default()
-            },
-        ).unwrap();
+        let result = planner
+            .plan_full(
+                "MATCH (a)-[:KNOWS]->(b) RETURN a",
+                &mul::SituationInput {
+                    felt_competence: 0.8,
+                    demonstrated_competence: 0.8,
+                    source_reliability: 0.9,
+                    environment_stability: 0.9,
+                    calibration_accuracy: 0.8,
+                    complexity_ratio: 0.7,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
 
         assert!(!result.strategies_used.is_empty());
     }
@@ -474,9 +506,17 @@ mod tests {
     #[derive(Debug)]
     struct DummyPhysOp;
     impl physical::PhysicalOperator for DummyPhysOp {
-        fn name(&self) -> &str { "dummy" }
-        fn cardinality(&self) -> f64 { 0.0 }
-        fn is_pipeline_breaker(&self) -> bool { false }
-        fn children(&self) -> Vec<&dyn physical::PhysicalOperator> { vec![] }
+        fn name(&self) -> &str {
+            "dummy"
+        }
+        fn cardinality(&self) -> f64 {
+            0.0
+        }
+        fn is_pipeline_breaker(&self) -> bool {
+            false
+        }
+        fn children(&self) -> Vec<&dyn physical::PhysicalOperator> {
+            vec![]
+        }
     }
 }

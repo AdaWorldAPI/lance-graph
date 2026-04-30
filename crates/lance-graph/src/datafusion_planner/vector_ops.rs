@@ -7,7 +7,9 @@
 
 use crate::ast::DistanceMetric;
 use crate::error::{GraphError, Result};
-use arrow::array::{Array, ArrayRef, FixedSizeBinaryArray, FixedSizeListArray, Float32Array, ListArray};
+use arrow::array::{
+    Array, ArrayRef, FixedSizeBinaryArray, FixedSizeListArray, Float32Array, ListArray,
+};
 
 /// Extract vectors from Arrow ListArray or FixedSizeListArray
 ///
