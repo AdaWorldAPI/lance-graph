@@ -17,7 +17,7 @@
 //! Matryoshka truncation: `cosine_phase_only` < `cosine_zipper_full`.
 //! Same descriptor serves both truncation levels.
 
-use crate::ndarray_compat::wht_f32;
+use ndarray::hpc::fft::wht_f32;
 
 /// Active phase bits in the zipper container. bgz17's design places
 /// ~48-64 discriminative bits in the 16,384-bit halo; we lock the

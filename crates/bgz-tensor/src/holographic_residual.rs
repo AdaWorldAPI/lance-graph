@@ -18,7 +18,7 @@
 //! Capacity: ~sqrt(D) items per memory before interference degrades.
 //! At D=1024, that's ~32 rows per cluster — works for k=64 (avg 16 rows/cluster).
 
-use crate::ndarray_compat::kmeans;
+use ndarray::hpc::cam_pq::kmeans;
 // cosine_f32_to_f64_simd used by tests
 use crate::stacked_n::{bf16_to_f32, f32_to_bf16};
 #[allow(unused_imports)]

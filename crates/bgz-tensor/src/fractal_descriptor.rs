@@ -20,7 +20,7 @@
 //! 6. **Hurst exponent** `H = h(2)`.
 //! 7. **Fractal dimension** `D = 2 − H` (box-counting estimate from Hurst).
 
-use crate::ndarray_compat::wht_f32;
+use ndarray::hpc::fft::wht_f32;
 
 /// 7-byte fractal descriptor of a row's self-similar shape on an
 /// orthogonal (Hadamard) basis.

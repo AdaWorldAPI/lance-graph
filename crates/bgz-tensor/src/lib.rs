@@ -76,7 +76,6 @@ pub mod hhtl_d;
 pub mod hhtl_f32;
 pub mod holographic_residual;
 pub mod jina;
-pub mod ndarray_compat;
 pub mod neuron_hetero;
 pub mod palette;
 pub mod projection;

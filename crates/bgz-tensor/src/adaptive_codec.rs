@@ -10,12 +10,15 @@
 //! weights to minimize output error (not weight error).
 
 // Cluster used by future per-cluster anomaly reporting
-use crate::ndarray_compat::{
-    dequantize_i2_to_f32, dequantize_i8_to_f32, kmeans, quantize_f32_to_i2, wht_f32, QuantParams,
-};
+#[allow(unused_imports)]
+use ndarray::hpc::cam_pq::kmeans;
 #[allow(unused_imports)]
 use ndarray::hpc::clam::{ClamTree, Cluster};
-use ndarray::hpc::quantized::{dequantize_i4_to_f32, quantize_f32_to_i4, quantize_f32_to_i8};
+use ndarray::hpc::fft::wht_f32;
+use ndarray::hpc::quantized::{
+    dequantize_i2_to_f32, dequantize_i4_to_f32, dequantize_i8_to_f32, quantize_f32_to_i2,
+    quantize_f32_to_i4, quantize_f32_to_i8, QuantParams,
+};
 // cosine_f32_to_f64_simd used by tests and future GPTQ compensation
 use crate::stacked_n::{bf16_to_f32, f32_to_bf16};
 #[allow(unused_imports)]

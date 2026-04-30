@@ -8,9 +8,9 @@
 //! No Hessian, no calibration data. The XOR IS the anomaly detector.
 
 // wht_f32 reserved for future Hadamard-rotated XOR codec path
-use crate::ndarray_compat::kmeans;
+use ndarray::hpc::cam_pq::kmeans;
 #[allow(unused_imports)]
-use crate::ndarray_compat::wht_f32;
+use ndarray::hpc::fft::wht_f32;
 // cosine_f32_to_f64_simd used by tests
 use crate::stacked_n::{bf16_to_f32, f32_to_bf16};
 #[allow(unused_imports)]
