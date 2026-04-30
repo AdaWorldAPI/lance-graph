@@ -231,6 +231,15 @@ pub enum Tense {
     Imperative = 11,
 }
 
+impl Tense {
+    pub const ALL: [Self; 12] = [
+        Self::Present, Self::Past, Self::Future,
+        Self::PresentContinuous, Self::PastContinuous, Self::FutureContinuous,
+        Self::Perfect, Self::Pluperfect, Self::FuturePerfect,
+        Self::Habitual, Self::Potential, Self::Imperative,
+    ];
+}
+
 const TENSE_START: usize = 9910;
 #[allow(dead_code)]
 const TENSE_END:   usize = 9970;
@@ -313,6 +322,154 @@ pub static DOKUMENT_KEY:  LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate
 pub static BANK_KEY:      LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("smb.bank",      12_560, 13_072));
 pub static FIBU_KEY:      LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("smb.fibu",      13_072, 13_584));
 pub static STEUER_KEY:    LazyLock<RoleKey> = LazyLock::new(|| RoleKey::generate("smb.steuer",    13_584, 14_096));
+
+// ---------------------------------------------------------------------------
+// D6 — RoleKeySlice catalogue (const-addressable [start:stop) slices + FNV-64
+// fingerprint over the role label). This layer is the **catalogue index** for
+// the live `RoleKey` static instances above: same boundaries, no duplication
+// of the bipolar payload — just `Copy`/`const`-friendly descriptors that can
+// be embedded in tables, dispatch maps, or codecs without taking a LazyLock.
+//
+// `RoleKeySlice::fnv_seed` is the FNV-64 of the canonical label string and
+// can be used as a stable per-role identifier (e.g. unbinding lookup, codec
+// keying). All slices are sub-ranges of the existing 16,384-dim VSA space.
+// ---------------------------------------------------------------------------
+
+/// A role key descriptor: a contiguous `[start:stop)` slice of the VSA space
+/// plus a deterministic FNV-64 fingerprint over the role's canonical label
+/// (used for unbinding / similarity / codec keying).
+///
+/// This is the `Copy`/`const`-friendly companion to [`RoleKey`]; both share
+/// the same slice boundaries by construction (see `role_key_slice_*` tests).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct RoleKeySlice {
+    pub start: usize,
+    pub stop: usize,
+    pub fnv_seed: u64,
+}
+
+impl RoleKeySlice {
+    /// Construct a const slice. `start <= stop <= VSA_DIMS` is the caller's
+    /// invariant (debug-checked at first use, not in this `const fn` body).
+    pub const fn new(start: usize, stop: usize, fnv_seed: u64) -> Self {
+        Self { start, stop, fnv_seed }
+    }
+    pub const fn len(&self) -> usize { self.stop - self.start }
+    pub const fn is_empty(&self) -> bool { self.start == self.stop }
+    pub const fn range(&self) -> std::ops::Range<usize> { self.start..self.stop }
+}
+
+/// Hand-rolled FNV-64a over raw bytes. `const fn` so role-key tables can
+/// be evaluated at compile time. No new deps.
+pub const fn fnv64_bytes(bytes: &[u8]) -> u64 {
+    let mut hash: u64 = 0xcbf29ce484222325;
+    let mut i = 0;
+    while i < bytes.len() {
+        hash ^= bytes[i] as u64;
+        hash = hash.wrapping_mul(0x100000001b3);
+        i += 1;
+    }
+    hash
+}
+
+// --- SPO core role slices (mirror of SUBJECT_KEY..CONTEXT_KEY) --------------
+
+pub const SUBJECT_SLICE:   RoleKeySlice = RoleKeySlice::new(0,    2000, fnv64_bytes(b"SUBJECT"));
+pub const PREDICATE_SLICE: RoleKeySlice = RoleKeySlice::new(2000, 4000, fnv64_bytes(b"PREDICATE"));
+pub const OBJECT_SLICE:    RoleKeySlice = RoleKeySlice::new(4000, 6000, fnv64_bytes(b"OBJECT"));
+pub const MODIFIER_SLICE:  RoleKeySlice = RoleKeySlice::new(6000, 7500, fnv64_bytes(b"MODIFIER"));
+pub const CONTEXT_SLICE:   RoleKeySlice = RoleKeySlice::new(7500, 9000, fnv64_bytes(b"CONTEXT"));
+
+// --- TEKAMOLO sub-slices (mirror of TEMPORAL_KEY..LOKAL_KEY + extras) ------
+
+pub const TEMPORAL_SLICE:    RoleKeySlice = RoleKeySlice::new(9000, 9200, fnv64_bytes(b"TEMPORAL"));
+pub const KAUSAL_SLICE:      RoleKeySlice = RoleKeySlice::new(9200, 9400, fnv64_bytes(b"KAUSAL"));
+pub const MODAL_SLICE:       RoleKeySlice = RoleKeySlice::new(9400, 9500, fnv64_bytes(b"MODAL"));
+pub const LOKAL_SLICE:       RoleKeySlice = RoleKeySlice::new(9500, 9650, fnv64_bytes(b"LOKAL"));
+pub const INSTRUMENT_SLICE:  RoleKeySlice = RoleKeySlice::new(9650, 9750, fnv64_bytes(b"INSTRUMENT"));
+pub const BENEFICIARY_SLICE: RoleKeySlice = RoleKeySlice::new(9750, 9780, fnv64_bytes(b"BENEFICIARY"));
+pub const GOAL_SLICE:        RoleKeySlice = RoleKeySlice::new(9780, 9810, fnv64_bytes(b"GOAL"));
+pub const SOURCE_SLICE:      RoleKeySlice = RoleKeySlice::new(9810, 9840, fnv64_bytes(b"SOURCE"));
+
+// --- Finnish 15 cases (mirror FINNISH_SLICES, indexed by FinnishCase as u8)
+
+pub static FINNISH_CASE_SLICES: LazyLock<[(FinnishCase, RoleKeySlice); 15]> = LazyLock::new(|| {
+    [
+        (FinnishCase::Nominative,  RoleKeySlice::new(FINNISH_SLICES[0].0,  FINNISH_SLICES[0].1,  fnv64_bytes(b"FI_NOMINATIVE"))),
+        (FinnishCase::Genitive,    RoleKeySlice::new(FINNISH_SLICES[1].0,  FINNISH_SLICES[1].1,  fnv64_bytes(b"FI_GENITIVE"))),
+        (FinnishCase::Accusative,  RoleKeySlice::new(FINNISH_SLICES[2].0,  FINNISH_SLICES[2].1,  fnv64_bytes(b"FI_ACCUSATIVE"))),
+        (FinnishCase::Partitive,   RoleKeySlice::new(FINNISH_SLICES[3].0,  FINNISH_SLICES[3].1,  fnv64_bytes(b"FI_PARTITIVE"))),
+        (FinnishCase::Inessive,    RoleKeySlice::new(FINNISH_SLICES[4].0,  FINNISH_SLICES[4].1,  fnv64_bytes(b"FI_INESSIVE"))),
+        (FinnishCase::Elative,     RoleKeySlice::new(FINNISH_SLICES[5].0,  FINNISH_SLICES[5].1,  fnv64_bytes(b"FI_ELATIVE"))),
+        (FinnishCase::Illative,    RoleKeySlice::new(FINNISH_SLICES[6].0,  FINNISH_SLICES[6].1,  fnv64_bytes(b"FI_ILLATIVE"))),
+        (FinnishCase::Adessive,    RoleKeySlice::new(FINNISH_SLICES[7].0,  FINNISH_SLICES[7].1,  fnv64_bytes(b"FI_ADESSIVE"))),
+        (FinnishCase::Ablative,    RoleKeySlice::new(FINNISH_SLICES[8].0,  FINNISH_SLICES[8].1,  fnv64_bytes(b"FI_ABLATIVE"))),
+        (FinnishCase::Allative,    RoleKeySlice::new(FINNISH_SLICES[9].0,  FINNISH_SLICES[9].1,  fnv64_bytes(b"FI_ALLATIVE"))),
+        (FinnishCase::Essive,      RoleKeySlice::new(FINNISH_SLICES[10].0, FINNISH_SLICES[10].1, fnv64_bytes(b"FI_ESSIVE"))),
+        (FinnishCase::Translative, RoleKeySlice::new(FINNISH_SLICES[11].0, FINNISH_SLICES[11].1, fnv64_bytes(b"FI_TRANSLATIVE"))),
+        (FinnishCase::Instructive, RoleKeySlice::new(FINNISH_SLICES[12].0, FINNISH_SLICES[12].1, fnv64_bytes(b"FI_INSTRUCTIVE"))),
+        (FinnishCase::Abessive,    RoleKeySlice::new(FINNISH_SLICES[13].0, FINNISH_SLICES[13].1, fnv64_bytes(b"FI_ABESSIVE"))),
+        (FinnishCase::Comitative,  RoleKeySlice::new(FINNISH_SLICES[14].0, FINNISH_SLICES[14].1, fnv64_bytes(b"FI_COMITATIVE"))),
+    ]
+});
+
+/// Lookup the [`RoleKeySlice`] for a Finnish case (round-trip via the
+/// `LazyLock` array — exactly one slice per variant by construction).
+pub fn finnish_case_slice(case: FinnishCase) -> RoleKeySlice {
+    FINNISH_CASE_SLICES[case as usize].1
+}
+
+// --- 12 Tense slices (mirror TENSE_KEYS) -----------------------------------
+
+pub static TENSE_SLICES: LazyLock<[(Tense, RoleKeySlice); 12]> = LazyLock::new(|| {
+    let s = |i: usize| TENSE_START + i * TENSE_WIDTH;
+    let e = |i: usize| TENSE_START + (i + 1) * TENSE_WIDTH;
+    [
+        (Tense::Present,            RoleKeySlice::new(s(0),  e(0),  fnv64_bytes(b"T_PRESENT"))),
+        (Tense::Past,               RoleKeySlice::new(s(1),  e(1),  fnv64_bytes(b"T_PAST"))),
+        (Tense::Future,             RoleKeySlice::new(s(2),  e(2),  fnv64_bytes(b"T_FUTURE"))),
+        (Tense::PresentContinuous,  RoleKeySlice::new(s(3),  e(3),  fnv64_bytes(b"T_PRESENT_CONTINUOUS"))),
+        (Tense::PastContinuous,     RoleKeySlice::new(s(4),  e(4),  fnv64_bytes(b"T_PAST_CONTINUOUS"))),
+        (Tense::FutureContinuous,   RoleKeySlice::new(s(5),  e(5),  fnv64_bytes(b"T_FUTURE_CONTINUOUS"))),
+        (Tense::Perfect,            RoleKeySlice::new(s(6),  e(6),  fnv64_bytes(b"T_PERFECT"))),
+        (Tense::Pluperfect,         RoleKeySlice::new(s(7),  e(7),  fnv64_bytes(b"T_PLUPERFECT"))),
+        (Tense::FuturePerfect,      RoleKeySlice::new(s(8),  e(8),  fnv64_bytes(b"T_FUTURE_PERFECT"))),
+        (Tense::Habitual,           RoleKeySlice::new(s(9),  e(9),  fnv64_bytes(b"T_HABITUAL"))),
+        (Tense::Potential,          RoleKeySlice::new(s(10), e(10), fnv64_bytes(b"T_POTENTIAL"))),
+        (Tense::Imperative,         RoleKeySlice::new(s(11), e(11), fnv64_bytes(b"T_IMPERATIVE"))),
+    ]
+});
+
+pub fn tense_slice(tense: Tense) -> RoleKeySlice {
+    TENSE_SLICES[tense as usize].1
+}
+
+// --- 7 NARS-inference slices (mirror NARS_SLICES) --------------------------
+
+pub static NARS_INFERENCE_SLICES: LazyLock<[(NarsInference, RoleKeySlice); 7]> = LazyLock::new(|| {
+    [
+        (NarsInference::Deduction,               RoleKeySlice::new(NARS_SLICES[0].0, NARS_SLICES[0].1, fnv64_bytes(b"N_DEDUCTION"))),
+        (NarsInference::Induction,               RoleKeySlice::new(NARS_SLICES[1].0, NARS_SLICES[1].1, fnv64_bytes(b"N_INDUCTION"))),
+        (NarsInference::Abduction,               RoleKeySlice::new(NARS_SLICES[2].0, NARS_SLICES[2].1, fnv64_bytes(b"N_ABDUCTION"))),
+        (NarsInference::Revision,                RoleKeySlice::new(NARS_SLICES[3].0, NARS_SLICES[3].1, fnv64_bytes(b"N_REVISION"))),
+        (NarsInference::Synthesis,               RoleKeySlice::new(NARS_SLICES[4].0, NARS_SLICES[4].1, fnv64_bytes(b"N_SYNTHESIS"))),
+        (NarsInference::Extrapolation,           RoleKeySlice::new(NARS_SLICES[5].0, NARS_SLICES[5].1, fnv64_bytes(b"N_EXTRAPOLATION"))),
+        (NarsInference::CounterfactualSynthesis, RoleKeySlice::new(NARS_SLICES[6].0, NARS_SLICES[6].1, fnv64_bytes(b"N_COUNTERFACTUAL"))),
+    ]
+});
+
+pub fn nars_inference_slice(inf: NarsInference) -> RoleKeySlice {
+    let idx = match inf {
+        NarsInference::Deduction               => 0,
+        NarsInference::Induction               => 1,
+        NarsInference::Abduction               => 2,
+        NarsInference::Revision                => 3,
+        NarsInference::Synthesis               => 4,
+        NarsInference::Extrapolation           => 5,
+        NarsInference::CounterfactualSynthesis => 6,
+    };
+    NARS_INFERENCE_SLICES[idx].1
+}
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -459,6 +616,171 @@ mod tests {
             assert_eq!(k.slice_width(), TENSE_WIDTH);
             assert!(k.slice_start >= TENSE_START);
             assert!(k.slice_end <= TENSE_END);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // D6 — RoleKeySlice catalogue tests
+    // -----------------------------------------------------------------------
+
+    /// All five SPO core slices are non-overlapping and union to [0, 9000)
+    /// (the "SPO-spine" prefix of the 16,384-dim VSA carrier).
+    #[test]
+    fn spo_slices_disjoint_and_contiguous() {
+        let spo = [
+            SUBJECT_SLICE, PREDICATE_SLICE, OBJECT_SLICE, MODIFIER_SLICE, CONTEXT_SLICE,
+        ];
+        // Contiguous: each slice starts where the previous ended.
+        for pair in spo.windows(2) {
+            assert_eq!(
+                pair[0].stop, pair[1].start,
+                "SPO slices not contiguous: {:?} vs {:?}", pair[0], pair[1]
+            );
+        }
+        // Union covers [0, 9000) — the SPO+TEKAMOLO-prefix region. (CONTEXT
+        // ends at 9000; TEKAMOLO sub-slices begin there.)
+        assert_eq!(spo[0].start, 0);
+        assert_eq!(spo[spo.len() - 1].stop, 9000);
+    }
+
+    /// TEKAMOLO sub-slices fit within [9000, 9840) — the slice region beyond
+    /// CONTEXT_KEY where the original prompt placed them. (CONTEXT_KEY itself
+    /// owns [7500, 9000) and TEKAMOLO sits AFTER it in the LF-2 layout.)
+    #[test]
+    fn tekamolo_sub_slices_in_post_context_band() {
+        let teka = [
+            TEMPORAL_SLICE, KAUSAL_SLICE, MODAL_SLICE, LOKAL_SLICE,
+            INSTRUMENT_SLICE, BENEFICIARY_SLICE, GOAL_SLICE, SOURCE_SLICE,
+        ];
+        for s in teka {
+            assert!(s.start >= 9000, "TEKAMOLO slice starts before 9000: {s:?}");
+            assert!(s.stop <= 9840,  "TEKAMOLO slice ends after 9840: {s:?}");
+            assert!(s.len() > 0,     "empty TEKAMOLO slice: {s:?}");
+        }
+    }
+
+    /// Finnish case slices are non-overlapping AND fall inside the existing
+    /// `FINNISH_START..FINNISH_END` band.
+    #[test]
+    fn finnish_case_slices_disjoint_in_band() {
+        let arr = &*FINNISH_CASE_SLICES;
+        let mut by_start: Vec<RoleKeySlice> = arr.iter().map(|(_, s)| *s).collect();
+        by_start.sort_by_key(|s| s.start);
+        for pair in by_start.windows(2) {
+            assert!(
+                pair[0].stop <= pair[1].start,
+                "Finnish slice overlap: {:?} vs {:?}", pair[0], pair[1]
+            );
+        }
+        for (_, s) in arr.iter() {
+            assert!(s.start >= FINNISH_START);
+            assert!(s.stop  <= FINNISH_END);
+        }
+    }
+
+    /// FNV-64 of distinct labels does not collide on the canonical role names.
+    #[test]
+    fn fnv64_no_collisions_on_role_labels() {
+        let labels: &[&[u8]] = &[
+            b"SUBJECT", b"PREDICATE", b"OBJECT", b"MODIFIER", b"CONTEXT",
+            b"TEMPORAL", b"KAUSAL", b"MODAL", b"LOKAL",
+            b"INSTRUMENT", b"BENEFICIARY", b"GOAL", b"SOURCE",
+            b"FI_NOMINATIVE", b"FI_GENITIVE", b"FI_ACCUSATIVE", b"FI_PARTITIVE",
+            b"FI_INESSIVE", b"FI_ELATIVE", b"FI_ILLATIVE",
+            b"FI_ADESSIVE", b"FI_ABLATIVE", b"FI_ALLATIVE",
+            b"FI_ESSIVE", b"FI_TRANSLATIVE", b"FI_INSTRUCTIVE",
+            b"FI_ABESSIVE", b"FI_COMITATIVE",
+            b"T_PRESENT", b"T_PAST", b"T_FUTURE",
+            b"T_PRESENT_CONTINUOUS", b"T_PAST_CONTINUOUS", b"T_FUTURE_CONTINUOUS",
+            b"T_PERFECT", b"T_PLUPERFECT", b"T_FUTURE_PERFECT",
+            b"T_HABITUAL", b"T_POTENTIAL", b"T_IMPERATIVE",
+            b"N_DEDUCTION", b"N_INDUCTION", b"N_ABDUCTION", b"N_REVISION",
+            b"N_SYNTHESIS", b"N_EXTRAPOLATION", b"N_COUNTERFACTUAL",
+        ];
+        let mut seen = std::collections::HashSet::new();
+        for l in labels {
+            let h = fnv64_bytes(l);
+            assert!(seen.insert(h), "FNV-64 collision on label {:?}", std::str::from_utf8(l).unwrap());
+        }
+        // Spot-check the prompt's pinned non-collision.
+        assert_ne!(fnv64_bytes(b"SUBJECT"), fnv64_bytes(b"OBJECT"));
+    }
+
+    /// Round-trip: each FinnishCase variant maps to exactly one
+    /// `RoleKeySlice` via the LazyLock array, and the array is keyed by
+    /// `FinnishCase as u8` (i.e. `arr[c as usize].0 == c`).
+    #[test]
+    fn finnish_case_round_trip() {
+        let all = [
+            FinnishCase::Nominative, FinnishCase::Genitive, FinnishCase::Accusative,
+            FinnishCase::Partitive,  FinnishCase::Inessive, FinnishCase::Elative,
+            FinnishCase::Illative,   FinnishCase::Adessive, FinnishCase::Ablative,
+            FinnishCase::Allative,   FinnishCase::Essive,   FinnishCase::Translative,
+            FinnishCase::Instructive, FinnishCase::Abessive, FinnishCase::Comitative,
+        ];
+        for case in all {
+            let (stored_case, slice) = FINNISH_CASE_SLICES[case as usize];
+            assert_eq!(stored_case, case, "FINNISH_CASE_SLICES not indexed by `as u8`");
+            // The free-function lookup must agree with the array entry.
+            assert_eq!(finnish_case_slice(case), slice);
+            // Slice mirrors the live RoleKey boundaries.
+            let live = finnish_case_key(case);
+            assert_eq!(slice.start, live.slice_start);
+            assert_eq!(slice.stop,  live.slice_end);
+            // And the FNV-64 fingerprint is non-zero (every label hashes to
+            // something distinct from the empty string's seed).
+            assert_ne!(slice.fnv_seed, 0xcbf29ce484222325);
+        }
+    }
+
+    /// The slice catalogue mirrors the live `RoleKey` boundaries for SPO/
+    /// TEKAMOLO so consumers can swap the two without re-deriving widths.
+    #[test]
+    fn role_key_slice_mirrors_live_role_key_boundaries() {
+        let pairs: &[(RoleKeySlice, &RoleKey)] = &[
+            (SUBJECT_SLICE,    &SUBJECT_KEY),
+            (PREDICATE_SLICE,  &PREDICATE_KEY),
+            (OBJECT_SLICE,     &OBJECT_KEY),
+            (MODIFIER_SLICE,   &MODIFIER_KEY),
+            (CONTEXT_SLICE,    &CONTEXT_KEY),
+            (TEMPORAL_SLICE,   &TEMPORAL_KEY),
+            (KAUSAL_SLICE,     &KAUSAL_KEY),
+            (MODAL_SLICE,      &MODAL_KEY),
+            (LOKAL_SLICE,      &LOKAL_KEY),
+            (INSTRUMENT_SLICE, &INSTRUMENT_KEY),
+            (BENEFICIARY_SLICE,&BENEFICIARY_KEY),
+            (GOAL_SLICE,       &GOAL_KEY),
+            (SOURCE_SLICE,     &SOURCE_KEY),
+        ];
+        for (slice, live) in pairs {
+            assert_eq!(slice.start, live.slice_start, "slice/live start mismatch for {}", live.label);
+            assert_eq!(slice.stop,  live.slice_end,   "slice/live stop  mismatch for {}", live.label);
+            assert!(slice.stop <= VSA_DIMS);
+        }
+    }
+
+    #[test]
+    fn role_key_slice_const_helpers() {
+        assert_eq!(SUBJECT_SLICE.len(), 2000);
+        assert!(!SUBJECT_SLICE.is_empty());
+        let r = SUBJECT_SLICE.range();
+        assert_eq!(r.start, 0);
+        assert_eq!(r.end,   2000);
+    }
+
+    #[test]
+    fn nars_inference_slice_round_trip() {
+        let all = [
+            NarsInference::Deduction, NarsInference::Induction,
+            NarsInference::Abduction, NarsInference::Revision,
+            NarsInference::Synthesis, NarsInference::Extrapolation,
+            NarsInference::CounterfactualSynthesis,
+        ];
+        for inf in all {
+            let s = nars_inference_slice(inf);
+            assert!(s.start >= NARS_START);
+            assert!(s.stop  <= NARS_END);
+            assert!(s.len() > 0);
         }
     }
 }

@@ -12,7 +12,7 @@ lance-graph-contract = { path = "../lance-graph-contract" }
 
 # [persist] — Arrow RecordBatch + Lance dataset ops
 arrow       = { version = "57", optional = true }
-lance       = { version = "4",  optional = true }
+lance       = { version = "=4.0.0",  optional = true }
 
 # [query] / [query-lite] — DataFusion. Base dep has default-features = false.
 # The full `query` feature adds datafusion/default (compression backends etc).
@@ -26,6 +26,9 @@ tokio            = { version = "1", features = ["sync"], optional = true }
 tokio-tungstenite = { version = "0.24", optional = true }
 serde            = { version = "1", features = ["derive"], optional = true }
 serde_json       = { version = "1", optional = true }
+
+# [audit-log] — Lance-backed audit writer needs futures for stream collect
+futures      = { version = "0.3", optional = true }
 
 # [serve] — axum WS server (implies realtime + query)
 axum        = { version = "0.8", features = ["ws"], optional = true }
@@ -42,7 +45,26 @@ auth-jwt = ["dep:serde", "dep:serde_json"]
 auth-rls-lite = ["auth-jwt", "query-lite"]
 auth-rls = ["auth-jwt", "query"]
 auth     = ["auth-rls"]
-full     = ["persist", "query", "realtime", "serve", "auth"]
+# LF-90 — append-only audit log skeleton (A3).
+# PR-F3: LanceAuditSink requires lance + arrow + futures + tokio for async I/O.
+audit-log = ["dep:arrow", "dep:lance", "dep:futures", "dep:tokio"]
+# A-fix-audit forward-stub: enables `audit_from_plan(...)` helper that captures
+# rewritten DataFusion LogicalPlans into AuditEntry. No-op alias today; will
+# pull in `dep:datafusion` once the helper has a concrete consumer.
+datafusion-plan = ["query-lite"]
+# DM-8 — PostgREST stub uses a dependency-free hand-rolled JSON writer; the
+# feature flag turns the module on without dragging serde in.
+postgrest = []
+# A-fix-postgrest forward-stub: enables `parsed_query_to_plan(...)` ParsedQuery
+# → DataFusion LogicalPlan compiler. Wired in the follow-up dispatcher PR.
+datafusion-dispatch = ["query-lite"]
+# A4 plugin slots. Each is independently activatable; the `with_*` builder on
+# `MembraneRegistry` is gated on the slot feature plus the underlying module
+# feature (so e.g. enabling `membrane-plugins-rls` without an RLS feature is
+# a no-op rather than a compile error).
+membrane-plugins-rls = []
+membrane-plugins-audit = ["audit-log"]
+full     = ["persist", "query", "realtime", "serve", "auth", "audit-log", "postgrest", "membrane-plugins-rls", "membrane-plugins-audit"]
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }

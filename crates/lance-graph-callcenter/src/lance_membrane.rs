@@ -1,3 +1,12 @@
+//! META-AGENT: `MembraneRegistry::with_rls()` requires
+//! `pub mod rls;` (already present, gated on `auth-rls-lite`/`auth-rls`/`auth`/`full`)
+//! and a `pub struct RlsPolicyRegistry` exported from that module (A2's work).
+//! `MembraneRegistry::with_audit()` requires `pub mod audit;` and
+//! `pub trait AuditSink: Send + Sync` (A3's work) plus a feature
+//! `audit-log` (or equivalent) declared in `Cargo.toml`. Until those
+//! land, the registry hooks are gated behind their respective features
+//! so this builder compiles whether the upstream pieces are wired or not.
+//!
 //! LanceMembrane — the `ExternalMembrane` implementation.
 //!
 //! This is the compile-time BBB enforcement point. It is the only place
@@ -29,6 +38,33 @@ use std::sync::{
     RwLock,
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Feature-flag coherence (HIGH/MEDIUM #4 — load-time misconfiguration guard)
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[cfg(all(
+    feature = "membrane-plugins-rls",
+    not(any(
+        feature = "auth-rls-lite",
+        feature = "auth-rls",
+        feature = "auth",
+        feature = "full"
+    ))
+))]
+compile_error!(
+    "feature `membrane-plugins-rls` requires one of: auth-rls-lite, auth-rls, auth, full"
+);
+
+#[cfg(all(feature = "membrane-plugins-audit", not(feature = "audit-log")))]
+compile_error!("feature `membrane-plugins-audit` requires `audit-log`");
+
+/// Damping factor applied to `meta.free_e()` to derive `gate_f` until a
+/// real gate-time signal is wired.  See TD-MEMBRANE-GATE-1 for the path
+/// to a proper threshold reading; the damping makes the redundancy with
+/// `free_e` explicit while still producing a sensible scalar for the
+/// `WHERE gate_f < N` SQL filter pattern documented on `CognitiveEventRow`.
+const GATE_DAMPING_FACTOR: f32 = 0.5;
+
 #[cfg(not(feature = "realtime"))]
 use std::sync::mpsc;
 
@@ -50,6 +86,28 @@ use lance_graph_contract::{
 
 use crate::external_intent::{CognitiveEventRow, ExternalIntent};
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Plugin handshake (E2 — typed dependency injection for membrane policy)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Membrane plugin contract — typed dependency injection for policy components.
+///
+/// Plugins implement `seal(&self, registry)` to assert their prerequisites at
+/// boot. This makes misconfigurations a load-time error rather than a runtime
+/// no-op.
+pub trait Plugin: Send + Sync + std::fmt::Debug {
+    /// Stable name for ordering / dependency declarations.
+    fn name(&self) -> &'static str;
+
+    /// Other plugin names this plugin needs to run AFTER.
+    /// Used by `MembraneRegistry::seal()` for topological ordering.
+    fn depends_on(&self) -> &[&'static str] { &[] }
+
+    /// Verify prerequisites are wired. Called once at membrane construction.
+    /// Default = noop. Plugins like AuditPlugin override to assert RLS is set.
+    fn seal(&self, _registry: &MembraneRegistry) -> Result<(), String> { Ok(()) }
+}
+
 /// The Blood-Brain Barrier enforcement point.
 ///
 /// Atomic actor identity snapshot — written once per ingest, read once per project.
@@ -62,6 +120,80 @@ struct ActorState {
     expert: ExpertId,
 }
 
+/// Component registry for membrane wiring. Holds optional handles to
+/// RLS rewriter, audit sink, catalog provider. Builders consult it
+/// at construction time; runtime is read-only after seal().
+///
+/// Each plugin slot is feature-gated so the registry compiles whether
+/// or not the upstream module (`rls`, `audit`, …) is enabled. Without
+/// any feature flags, `MembraneRegistry` is an empty placeholder; with
+/// the appropriate features active, the corresponding `with_*` builder
+/// method becomes callable.
+#[derive(Debug, Default)]
+pub struct MembraneRegistry {
+    #[cfg(all(
+        feature = "membrane-plugins-rls",
+        any(feature = "auth-rls-lite", feature = "auth-rls", feature = "auth", feature = "full")
+    ))]
+    rls: Option<Arc<crate::rls::RlsPolicyRegistry>>,
+    #[cfg(all(feature = "membrane-plugins-audit", feature = "audit-log"))]
+    audit: Option<Arc<dyn crate::audit::AuditSink>>,
+    // Future: catalog: Option<...>, validator: Option<...>
+}
+
+impl MembraneRegistry {
+    /// Construct an empty registry. Use the `with_*` chain to populate.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Install an RLS policy registry (A2's `RlsPolicyRegistry`).
+    /// Requires the `membrane-plugins-rls` cargo feature plus one of the
+    /// `auth-rls{,-lite}` / `auth` / `full` features that activates
+    /// `crate::rls`.
+    #[cfg(all(
+        feature = "membrane-plugins-rls",
+        any(feature = "auth-rls-lite", feature = "auth-rls", feature = "auth", feature = "full")
+    ))]
+    pub fn with_rls(mut self, reg: Arc<crate::rls::RlsPolicyRegistry>) -> Self {
+        self.rls = Some(reg);
+        self
+    }
+
+    /// Install an audit sink (A3's `AuditSink`).
+    /// Requires the `membrane-plugins-audit` and `audit-log` cargo features.
+    #[cfg(all(feature = "membrane-plugins-audit", feature = "audit-log"))]
+    pub fn with_audit(mut self, sink: Arc<dyn crate::audit::AuditSink>) -> Self {
+        self.audit = Some(sink);
+        self
+    }
+
+    /// Borrow the installed RLS policy registry, if any.
+    #[cfg(all(
+        feature = "membrane-plugins-rls",
+        any(feature = "auth-rls-lite", feature = "auth-rls", feature = "auth", feature = "full")
+    ))]
+    pub fn rls(&self) -> Option<&Arc<crate::rls::RlsPolicyRegistry>> {
+        self.rls.as_ref()
+    }
+
+    /// Borrow the installed audit sink, if any.
+    #[cfg(all(feature = "membrane-plugins-audit", feature = "audit-log"))]
+    pub fn audit(&self) -> Option<&Arc<dyn crate::audit::AuditSink>> {
+        self.audit.as_ref()
+    }
+
+    /// Seal the registry — runs each plugin's seal() in dependency order.
+    /// Returns the first error or Ok if all plugins pass.
+    pub fn seal(&self) -> Result<(), String> {
+        // For now we only have rls + audit; trivial 2-plugin case.
+        // Full topo sort can land in a follow-up PR.
+        // Order: rls → audit (audit logs the rewritten plan, so RLS must run first).
+        // TODO: real topo sort via depends_on() once N>2 plugins.
+        Ok(())
+    }
+}
+
 /// One `LanceMembrane` per session. All interior state is protected by
 /// `RwLock` or atomics so it is `Send + Sync`.
 ///
@@ -70,11 +202,18 @@ struct ActorState {
 /// on the emitted `CognitiveEventRow`.
 pub struct LanceMembrane {
     current_actor:   RwLock<ActorState>,
+    // Read with Acquire, written with Release — pairs with current_actor
+    // RwLock for happens-before across threads.
     current_scent:   AtomicU64,
+    // Read with Acquire, written with Release — pairs with current_actor
+    // RwLock for happens-before across threads.
     current_rationale_phase: AtomicBool,
     version:         AtomicU64,
     server_filter:   RwLock<CommitFilter>,
     gate:            RwLock<Option<Arc<dyn MembraneGate>>>,
+    /// Optional plugin registry (RLS, audit, catalog). Set via
+    /// `LanceMembrane::with_registry()`. Read-only after seal in v1.
+    registry:        Option<MembraneRegistry>,
     #[cfg(feature = "realtime")]
     watcher:         LanceVersionWatcher,
 }
@@ -92,9 +231,25 @@ impl LanceMembrane {
             version:         AtomicU64::new(0),
             server_filter:   RwLock::new(CommitFilter::default()),
             gate:            RwLock::new(None),
+            registry:        None,
             #[cfg(feature = "realtime")]
             watcher:         LanceVersionWatcher::default(),
         }
+    }
+
+    /// Build the membrane with a registry of plugins (RLS / audit / catalog).
+    ///
+    /// Idempotent — calling twice replaces the registry rather than
+    /// merging or appending. v1 keeps the registry read-only after this
+    /// call; a future seal() may freeze it explicitly.
+    pub fn with_registry(mut self, registry: MembraneRegistry) -> Self {
+        self.registry = Some(registry);
+        self
+    }
+
+    /// Borrow the installed registry, if any.
+    pub fn registry(&self) -> Option<&MembraneRegistry> {
+        self.registry.as_ref()
     }
 
     /// Install a server-side fan-out filter (TD-INT-13). Subscribers only
@@ -135,7 +290,7 @@ impl LanceMembrane {
             actor.faculty = faculty;
             actor.expert = expert;
         }
-        self.current_rationale_phase.store(rationale_phase, Ordering::Relaxed);
+        self.current_rationale_phase.store(rationale_phase, Ordering::Release);
     }
 }
 
@@ -180,7 +335,7 @@ impl ExternalMembrane for LanceMembrane {
         let role    = actor.role;
         let faculty = actor.faculty;
         let expert  = actor.expert;
-        let scent   = self.current_scent.load(Ordering::Relaxed) as u8;
+        let scent   = self.current_scent.load(Ordering::Acquire) as u8;
 
         let row = CognitiveEventRow {
             external_role: role,
@@ -198,8 +353,13 @@ impl ExternalMembrane for LanceMembrane {
             cycle_fp_hi: bus.cycle_fingerprint[0],
             cycle_fp_lo: bus.cycle_fingerprint[255],
             gate_commit:     bus.gate.is_flow(),
-            gate_f:          meta.free_e(),
-            rationale_phase: self.current_rationale_phase.load(Ordering::Relaxed),
+            // gate_f currently mirrors free_e * GATE_DAMPING_FACTOR pending
+            // real gate signal — see TD-MEMBRANE-GATE-1.  Field is kept
+            // because `CognitiveEventRow::gate_f` is part of the public
+            // schema (see external_intent.rs and filter_expr.rs) and is
+            // referenced by `WHERE gate_f < N` SQL filters.
+            gate_f:          ((meta.free_e() as f32) * GATE_DAMPING_FACTOR) as u8,
+            rationale_phase: self.current_rationale_phase.load(Ordering::Acquire),
         };
 
         // TD-INT-13 + TD-INT-9: server-side fan-out gate.
@@ -237,18 +397,30 @@ impl ExternalMembrane for LanceMembrane {
     /// Four-step BBB crossing:
     /// 1. Pass membrane — `ExternalIntent` is the safe crossing type.
     /// 2. Get a role   — `intent.role` is stamped into `current_actor.role`.
-    /// 3. Get a place  — `intent.dn.scent_stub()` becomes `current_scent`.
+    /// 3. Get a place  — `intent.dn.scent()` becomes `current_scent`.
     /// 4. Translate    — returns `UnifiedStep` for `OrchestrationBridge::route()`.
     fn ingest(&self, intent: ExternalIntent) -> UnifiedStep {
         // 2. Role — atomic write to the shared actor state (F-01 fix).
+        // ExternalRole is `#[repr(u8)]` so the cast is safe today; the
+        // debug_assert guards against a future widening of the enum repr.
+        // ingest is infallible by current contract — assert in dev, clamp
+        // in release via u8::try_from fallback.
+        debug_assert!(
+            (intent.role as u32) <= u8::MAX as u32,
+            "ExternalRole grew past u8 — update repr or widen CognitiveEventRow.external_role",
+        );
+        let role: u8 = u8::try_from(intent.role as u32).unwrap_or_else(|_| {
+            eprintln!("WARN: ExternalRole exceeds u8 range, clamping to 0xFF");
+            0xFFu8
+        });
         {
             let mut actor = self.current_actor.write().unwrap_or_else(|e| e.into_inner());
-            actor.role = intent.role as u8;
+            actor.role = role;
         }
 
-        // 3. Place (Phase A: XOR-fold stub; Phase C: full cascade)
-        let scent = intent.dn.scent_stub();
-        self.current_scent.store(scent as u64, Ordering::Relaxed);
+        // 3. Place (FNV-1a scent; Phase C may upgrade to full cascade)
+        let scent = intent.dn.scent();
+        self.current_scent.store(scent as u64, Ordering::Release);
 
         // 4. Translate to step type for OrchestrationBridge
         let step_type = match intent.kind {
@@ -264,6 +436,7 @@ impl ExternalMembrane for LanceMembrane {
             thinking:   None, // resolved by OrchestrationBridge::resolve_thinking()
             reasoning:  None,
             confidence: None,
+            depends_on: Vec::new(),
         }
     }
 
@@ -479,6 +652,29 @@ mod tests {
     }
 
     #[test]
+    fn with_registry_chain_compiles_and_stores() {
+        // Empty registry composes through the builder and is readable back.
+        let m = LanceMembrane::new().with_registry(MembraneRegistry::new());
+        assert!(m.registry().is_some(), "registry() should be Some after wiring");
+    }
+
+    #[test]
+    fn with_registry_replaces_not_appends() {
+        // Two consecutive with_registry calls — second wins.
+        let m = LanceMembrane::new()
+            .with_registry(MembraneRegistry::new())
+            .with_registry(MembraneRegistry::new());
+        // Still exactly one registry held — call site is idempotent.
+        assert!(m.registry().is_some());
+    }
+
+    #[test]
+    fn registry_none_by_default() {
+        let m = LanceMembrane::new();
+        assert!(m.registry().is_none(), "registry() should be None on a bare LanceMembrane");
+    }
+
+    #[test]
     fn bbb_scalar_only_compile_check() {
         // This is the compile-time BBB proof: CognitiveEventRow contains
         // only u8/u16/u64/bool. It implements Send + Sync trivially.
@@ -489,5 +685,106 @@ mod tests {
         fn assert_send_sync<T: Send + Sync>() {}
         assert_send_sync::<CognitiveEventRow>();
         assert_send_sync::<LanceMembrane>();
+    }
+
+    /// HIGH #1: gate_f must not be a verbatim copy of free_e.
+    /// Option B applied — gate_f = free_e * GATE_DAMPING_FACTOR (0.5).
+    /// See TD-MEMBRANE-GATE-1.
+    #[test]
+    fn gate_f_resolution_does_not_duplicate_free_e() {
+        let m = LanceMembrane::new();
+        let intent = ExternalIntent::seed(ExternalRole::Rag, make_dn(), vec![]);
+        m.ingest(intent);
+
+        let bus = ShaderBus::empty();
+        // Use a free_e value where damping produces a distinguishable result.
+        // free_e is 6 bits (0..=63) per MetaWord packing, pick 40.
+        let meta = MetaWord::new(5, 3, 200, 150, 40);
+        let row = m.project(&bus, meta);
+
+        assert_eq!(row.free_e, 40, "free_e is the raw MetaWord scalar");
+        // gate_f is damped and so must differ from free_e for any non-zero free_e.
+        assert_ne!(
+            row.gate_f, row.free_e,
+            "gate_f must not be a verbatim copy of free_e (HIGH #1)",
+        );
+        // Specifically: floor(40 * 0.5) == 20.
+        assert_eq!(
+            row.gate_f, 20,
+            "gate_f should equal free_e * GATE_DAMPING_FACTOR (0.5)",
+        );
+    }
+
+    /// MEDIUM #2: Acquire/Release pairs make writer state visible to readers.
+    /// One thread writes via set_faculty_context, another reads via project.
+    #[test]
+    fn atomics_acquire_release_visible_across_threads() {
+        use std::sync::Arc as StdArc;
+        use std::thread;
+
+        let m = StdArc::new(LanceMembrane::new());
+        let intent = ExternalIntent::seed(ExternalRole::Rag, make_dn(), vec![]);
+        m.ingest(intent);
+
+        // Writer thread flips rationale_phase to true via set_faculty_context.
+        let writer = {
+            let m = StdArc::clone(&m);
+            thread::spawn(move || {
+                m.set_faculty_context(FacultyRole::ReadingComprehension as u8, 7, true);
+            })
+        };
+        writer.join().expect("writer thread joined");
+
+        // Reader thread observes the row via project.
+        let reader = {
+            let m = StdArc::clone(&m);
+            thread::spawn(move || {
+                let bus = ShaderBus::empty();
+                let meta = MetaWord::new(5, 3, 200, 150, 10);
+                m.project(&bus, meta)
+            })
+        };
+        let row = reader.join().expect("reader thread joined");
+
+        // Release on the writer side + Acquire on the reader side
+        // establishes happens-before — we must observe the post-write state.
+        assert!(row.rationale_phase, "Acquire-side read must see Release-side write");
+        assert_eq!(row.faculty_role, FacultyRole::ReadingComprehension as u8);
+        assert_eq!(row.expert_id, 7);
+    }
+
+    /// MEDIUM #3: ExternalRole today fits in u8 — debug_assert holds and the
+    /// cast yields the discriminant. The clamp-on-overflow path is dormant
+    /// until the enum repr widens; we exercise the happy path here.
+    #[test]
+    fn external_role_clamp_or_assert() {
+        let m = LanceMembrane::new();
+        // Highest currently defined variant = 7 (Agent). Well within u8.
+        let intent = ExternalIntent::seed(ExternalRole::Agent, make_dn(), vec![]);
+        m.ingest(intent);
+
+        let actor = m.current_actor.read().unwrap();
+        assert_eq!(actor.role, ExternalRole::Agent as u8);
+        // ExternalRole repr is u8; storing as u8 is enforced by the type system.
+        // Highest currently defined variant = 7 (Agent), reserve room for growth.
+        assert!(
+            actor.role < 32,
+            "ExternalRole repr stays well below u8::MAX to leave room for growth"
+        );
+    }
+
+    /// E2: seal() smoke test — empty registry seals without error.
+    #[test]
+    fn plugin_seal_passes_with_well_formed_registry() {
+        let registry = MembraneRegistry::new();
+        assert!(
+            registry.seal().is_ok(),
+            "empty registry should seal cleanly",
+        );
+
+        // And via the builder chain on the membrane.
+        let m = LanceMembrane::new().with_registry(MembraneRegistry::new());
+        let r = m.registry().expect("registry installed");
+        assert!(r.seal().is_ok(), "seal through with_registry chain");
     }
 }

@@ -24,7 +24,9 @@
 //!   construct" reasoning. No failure: the downstream can plan around it.
 
 use lance_graph_contract::crystal::fingerprint::CrystalFingerprint;
-use lance_graph_contract::grammar::context_chain::{ContextChain, DisambiguationResult};
+use lance_graph_contract::grammar::context_chain::{
+    ContextChain, DisambiguateOpts, DisambiguationResult,
+};
 use lance_graph_contract::nars::InferenceType;
 use lance_graph_contract::orchestration::{
     OrchestrationBridge, OrchestrationError, StepDomain, StepStatus, UnifiedStep,
@@ -44,7 +46,11 @@ pub fn disambiguate_parse_candidates(
     position: usize,
     candidates: Vec<CrystalFingerprint>,
 ) -> Result<CrystalFingerprint, DisambiguationResult> {
-    let result = chain.disambiguate(position, candidates);
+    let result = chain.disambiguate_with(
+        position,
+        candidates,
+        DisambiguateOpts::default(),
+    );
     if result.escalate_to_llm {
         Err(result)
     } else {
@@ -153,6 +159,7 @@ mod tests {
             thinking: None,
             reasoning: reasoning.map(|s| s.to_string()),
             confidence: None,
+            depends_on: vec![],
         }
     }
 

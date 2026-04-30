@@ -23,6 +23,18 @@ pub mod jirak;
 pub mod pearl;
 pub mod cartan;
 pub mod precond;
+pub mod koestenberger;
+pub mod dueker_zoubouloglou;
+pub mod ewa_sandwich;
+
+// Diagnostic probe (not a theorem proof). Run via:
+//   cargo run --manifest-path crates/jc/Cargo.toml --release --example sigma_probe
+pub mod sigma_codebook_probe;
+
+// Diagnostic probe — drains an entry from bf16-hhtl-terrain.md probe queue.
+// Run via:
+//   cargo run --manifest-path crates/jc/Cargo.toml --release --example probe_p1
+pub mod probe_p1_gamma_phase;
 
 use std::time::Instant;
 
@@ -70,6 +82,9 @@ pub fn run_all_pillars() -> Vec<PillarResult> {
         ("γ+φ preconditioner: prolongation step reduction", precond::prove),
         ("Jirak Berry-Esseen: weak-dep noise floor @ d=16384", jirak::prove),
         ("Pearl 2³ mask-accuracy: three-plane vs bundled @ d=16384", pearl::prove),
+        ("Köstenberger-Stark: inductive mean on Hadamard 2×2 SPD", koestenberger::prove),
+        ("Düker-Zoubouloglou: Hilbert-space CLT for AR(1) in ℝ^16384", dueker_zoubouloglou::prove),
+        ("EWA-Sandwich: Σ-push-forward along multi-hop edge paths", ewa_sandwich::prove),
     ];
 
     let total = pillars.len();

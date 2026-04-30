@@ -440,6 +440,172 @@ pub fn parse_with_secondary(tokens: &[Token]) -> SentenceStructure {
     result
 }
 
+// ────────────────────────────────────────────────────────────────────────
+// Coverage-branch hook for D2 FailureTicket emission.
+//
+// Wraps the existing free-function parser in a thin newtype that owns the
+// coverage threshold (default 0.85; configurable later from D7
+// `GrammarStyleConfig`). When a parse falls below threshold, the hook
+// hands the partial off to `ticket_emit::emit_ticket` so the LLM-tail
+// router can route the failure-mode itself as the inference signal.
+//
+// `Parser::parse` is preserved verbatim against the free `parse()` so no
+// existing call sites break.
+// ────────────────────────────────────────────────────────────────────────
+
+/// Default coverage threshold below which a parse triggers a FailureTicket.
+/// Mirrors `lance_graph_contract::grammar::LOCAL_COVERAGE_THRESHOLD` (0.9)
+/// minus a small slack so DeepNSM's looser FSM gets a chance.
+pub const DEFAULT_COVERAGE_THRESHOLD: f32 = 0.85;
+
+/// A parse outcome plus the metrics needed to decide whether it should
+/// escalate to the LLM router.
+#[derive(Clone, Debug)]
+pub struct ParseResult {
+    /// Token-derived semantic structure.
+    pub structure: SentenceStructure,
+    /// Coverage ∈ [0, 1]: classified-tokens / total-tokens.
+    pub coverage: f32,
+    /// Tokens the FSM successfully classified (rank-encoded).
+    pub resolved_tokens: Vec<u16>,
+    /// Tokens the FSM could not place (rank-encoded; OOV / unknown PoS).
+    pub unresolved_tokens: Vec<u16>,
+    /// NSM-prime count found in the resolved set. Drives Abduction routing.
+    pub primes_found: u8,
+    /// Distance vs. the SPO's expected qualia footprint (0.0 = identical).
+    /// Filled by `triangle_bridge::compute_classification_distance` once
+    /// the Triangle is wired; stays 0.0 in the bare-DeepNSM path.
+    pub classification_distance: f32,
+}
+
+/// Newtype around the FSM parser. Owns the coverage threshold so the
+/// LLM-tail policy is colocated with the parse decision instead of
+/// scattered across call sites.
+#[derive(Clone, Debug)]
+pub struct Parser {
+    coverage_threshold: f32,
+}
+
+impl Default for Parser {
+    fn default() -> Self {
+        Self {
+            coverage_threshold: DEFAULT_COVERAGE_THRESHOLD,
+        }
+    }
+}
+
+impl Parser {
+    /// Construct with the default 0.85 threshold.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Override the coverage threshold (D7 `GrammarStyleConfig` will feed
+    /// this once style-aware routing lands).
+    pub fn with_threshold(mut self, threshold: f32) -> Self {
+        self.coverage_threshold = threshold.clamp(0.0, 1.0);
+        self
+    }
+
+    /// Current coverage threshold ∈ [0, 1].
+    pub fn coverage_threshold(&self) -> f32 {
+        self.coverage_threshold
+    }
+
+    /// Run the FSM and return the structure unchanged (preserves the
+    /// existing public `parse()` shape for callers that don't need
+    /// coverage metrics).
+    pub fn parse(&self, tokens: &[crate::vocabulary::Token]) -> SentenceStructure {
+        parse(tokens)
+    }
+
+    /// Coverage-aware parse: returns the structure plus the metrics
+    /// `maybe_emit_ticket` needs.
+    pub fn parse_with_coverage(&self, tokens: &[crate::vocabulary::Token]) -> ParseResult {
+        let structure = parse(tokens);
+
+        let mut resolved = Vec::new();
+        let mut unresolved = Vec::new();
+        let mut primes = 0u8;
+        for (idx, t) in tokens.iter().enumerate() {
+            match t.rank {
+                Some(r) => {
+                    resolved.push(r);
+                    // Use the curated NSM-prime ID set rather than the
+                    // earlier `r < 64` heuristic. See nsm_primes.rs.
+                    if crate::nsm_primes::is_nsm_prime(r as u16) {
+                        primes = primes.saturating_add(1);
+                    }
+                }
+                // Preserve token identity: push the original token's
+                // sentence index so the failure-ticket can name which
+                // position was OOV instead of degenerating to all-zeros.
+                None => unresolved.push(idx as u16),
+            }
+        }
+
+        let total = (resolved.len() + unresolved.len()) as f32;
+        let coverage = if total == 0.0 {
+            0.0
+        } else {
+            resolved.len() as f32 / total
+        };
+
+        ParseResult {
+            structure,
+            coverage,
+            resolved_tokens: resolved,
+            unresolved_tokens: unresolved,
+            primes_found: primes,
+            classification_distance: 0.0,
+        }
+    }
+
+    /// Whether the result fell below the configured threshold.
+    pub fn coverage_failed(&self, parse_result: &ParseResult) -> bool {
+        parse_result.coverage < self.coverage_threshold
+    }
+
+    /// D2 hook: if coverage falls below threshold, hand the partial off
+    /// to `ticket_emit::emit_ticket` and return the FailureTicket. Above
+    /// threshold returns `None` — the caller commits to AriGraph instead.
+    ///
+    /// Gated behind `contract-ticket` because the FailureTicket type
+    /// lives in `lance_graph_contract`. With the feature off, the hook
+    /// becomes a no-op `()` returner so the parser still compiles in
+    /// minimal builds.
+    #[cfg(feature = "contract-ticket")]
+    pub fn maybe_emit_ticket(
+        &self,
+        parse_result: &ParseResult,
+    ) -> Option<lance_graph_contract::grammar::FailureTicket> {
+        if !self.coverage_failed(parse_result) {
+            return None;
+        }
+        use lance_graph_contract::grammar::{NarsInference, PartialParse, TekamoloSlots};
+        let partial = PartialParse {
+            resolved_tokens: parse_result.resolved_tokens.clone(),
+            unresolved_tokens: parse_result.unresolved_tokens.clone(),
+            coverage: parse_result.coverage,
+        };
+        // TekamoloSlots / Wechsel / CausalAmbiguity stay empty until D3
+        // wires the Grammar Triangle; the ticket already routes correctly
+        // on `primes_found` + `classification_distance`.
+        // The local pipeline default-attempted Deduction; downstream
+        // callers can plumb a different mode via a future config hook.
+        Some(crate::ticket_emit::emit_ticket(
+            partial,
+            parse_result.coverage,
+            parse_result.classification_distance,
+            parse_result.primes_found,
+            TekamoloSlots::default(),
+            Vec::new(),
+            None,
+            NarsInference::Deduction,
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -542,5 +708,106 @@ mod tests {
         let result = parse(&tokens);
         assert!(!result.triples.is_empty());
         assert!(!result.negations.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod parser_coverage_tests {
+    //! HIGH-priority coverage for the public `Parser` surface.
+    //!
+    //! These exercise `parse_with_coverage` + `coverage_failed` +
+    //! `maybe_emit_ticket` so the LLM-tail policy is regression-tested
+    //! against the new `is_nsm_prime` heuristic and the per-position
+    //! `unresolved_tokens` identity preservation.
+    use super::*;
+    use crate::pos::PoS;
+    use crate::vocabulary::Token;
+
+    fn tok(rank: Option<u16>, pos: PoS, surface: &str) -> Token {
+        Token {
+            rank,
+            pos,
+            position: 0,
+            is_negated: false,
+            surface: surface.to_string(),
+        }
+    }
+
+    fn nsm_prime_rank() -> u16 {
+        // Borrow a known prime-rank from the curated set so the test
+        // remains correct even if the seed list shifts.
+        *crate::nsm_primes::NSM_PRIME_IDS
+            .iter()
+            .next()
+            .expect("NSM prime set must be non-empty")
+    }
+
+    #[test]
+    fn coverage_threshold_default_is_0_85() {
+        assert_eq!(DEFAULT_COVERAGE_THRESHOLD, 0.85);
+        let p = Parser::new();
+        assert!((p.coverage_threshold() - 0.85).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn parse_with_coverage_above_threshold_no_ticket() {
+        // All tokens resolve → coverage == 1.0 → no ticket.
+        let prime = nsm_prime_rank();
+        let tokens = vec![
+            tok(Some(prime), PoS::Pronoun, "i"),
+            tok(Some(100),   PoS::Verb,    "see"),
+            tok(Some(200),   PoS::Noun,    "thing"),
+        ];
+        let parser = Parser::new();
+        let result = parser.parse_with_coverage(&tokens);
+        assert!(result.coverage >= parser.coverage_threshold());
+        assert!(!parser.coverage_failed(&result));
+        #[cfg(feature = "contract-ticket")]
+        {
+            assert!(parser.maybe_emit_ticket(&result).is_none());
+        }
+    }
+
+    #[test]
+    fn parse_with_coverage_below_threshold_emits_ticket() {
+        // Mostly OOV (rank: None) → coverage drops far below 0.85.
+        let tokens = vec![
+            tok(None,       PoS::Noun, "xyzzy"),
+            tok(None,       PoS::Noun, "plugh"),
+            tok(None,       PoS::Verb, "fnord"),
+            tok(Some(2943), PoS::Verb, "bites"),
+        ];
+        let parser = Parser::new();
+        let result = parser.parse_with_coverage(&tokens);
+        assert!(parser.coverage_failed(&result));
+        // 1/4 resolved → coverage == 0.25.
+        assert!(result.coverage < 0.5);
+        // Token-identity preservation: unresolved_tokens carry the
+        // original sentence positions, not zeros.
+        assert_eq!(result.unresolved_tokens, vec![0u16, 1u16, 2u16]);
+
+        #[cfg(feature = "contract-ticket")]
+        {
+            let ticket = parser.maybe_emit_ticket(&result);
+            assert!(ticket.is_some());
+            let t = ticket.unwrap();
+            // No NSM primes in the resolved set → primes_found low,
+            // routing should land on Abduction.
+            assert!(t.partial_parse.coverage < 0.5);
+        }
+    }
+
+    #[test]
+    fn unresolved_tokens_preserve_position_identity() {
+        // Mixed resolved/unresolved: positions of OOV tokens are 0 and 2.
+        let tokens = vec![
+            tok(None,        PoS::Noun, "blarf"),
+            tok(Some(100),   PoS::Verb, "is"),
+            tok(None,        PoS::Noun, "wibble"),
+        ];
+        let parser = Parser::new();
+        let result = parser.parse_with_coverage(&tokens);
+        assert_eq!(result.unresolved_tokens, vec![0u16, 2u16]);
+        assert_eq!(result.resolved_tokens, vec![100u16]);
     }
 }

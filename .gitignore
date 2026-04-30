@@ -64,3 +64,6 @@ crates/thinking-engine/data/Qwopus3.5-27B-v3-BF16-silu/token_embd_4096x4096.u8
 
 # Per-session agent blackboard (Layer B) — see .claude/AGENT_COORDINATION.md
 .claude/board/AGENT_LOG.md
+
+# Sub-agent ephemeral worktrees
+.claude/worktrees/

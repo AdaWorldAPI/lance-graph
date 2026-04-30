@@ -1,0 +1,22 @@
+# (starter prior — tune empirically)
+# Focused: tight Markov radius, single morphology table, deduction-first.
+style: focused
+nars:
+  primary: Deduction
+  fallback: Revision
+morphology:
+  tables: [english_svo]
+  agglutinative_mode: false
+tekamolo:
+  priority: [temporal, lokal, kausal, modal]
+  require_fillable: true
+markov:
+  radius: 2
+  kernel: gaussian
+  replay: forward
+spo_causal:
+  pearl_mask: 0x01
+  ambiguity_tolerance: 0.05
+coverage:
+  local_threshold: 0.95
+  escalate_below: 0.90

@@ -11,3 +11,9 @@ license = "Apache-2.0"
 
 [[example]]
 name = "prove_it"
+
+[[example]]
+name = "sigma_probe"
+
+[[example]]
+name = "probe_p1"

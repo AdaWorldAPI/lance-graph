@@ -66,6 +66,9 @@ pub mod selector;
 pub mod compose;
 pub mod strategy;
 
+// === Pipeline DAG executor (LF-12 keystone) ===
+pub mod pipeline;
+
 // === Autocomplete Cache (VSA superposition KV-cache) ===
 pub mod cache;
 

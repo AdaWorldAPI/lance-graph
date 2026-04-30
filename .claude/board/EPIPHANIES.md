@@ -65,6 +65,95 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-04-30 — FINDING: Wave-1 follow-up shipped (PRs #300-#306) — 3,156 LOC, full LOC audit confirms 0 lost from #275-#283 recovery
+
+**Status:** FINDING
+
+Session 2026-04-30 shipped the grammar-foundry-followup-v1 plan: 7 PRs (S1, F1, F3, F6, G1, G3, G4) closing the explicit stubs left behind by recovery-merge #299. Each PR went through a brutally-honest reviewer agent that surfaced 12+ defects (G1 fabricated qualia dim labels — later softened to "PAD-model sanitization"; F1 had a WHERE/JOIN/AGG leak that only rewrote Projection; G4 broadcast 12 priors across 12 tenses producing the illusion of 144 unique values; S1 introduced an `id: 0` landmine across 4 callers; F3 had a non-temporal Int64 timestamp + lossy column round-trip; G3's "real fp" was passthrough-only with no caller). All defects closed via 7 follow-up refactor commits with failing-test-first regression tests.
+
+**LOC audit (verified `git diff --shortstat`):**
+- Recovery (#275-#283 via #299): `71fad59..77c6292` = +8,728 / -334 across 41 files
+- Wave 1 (#300-#306): `77c6292..40718e4` = +3,156 / -107 across 18 files
+- Combined: `71fad59..40718e4` = +11,807 / -364 across 48 files
+- The G1 rebase (`--force-with-lease`) dropped only commit `460329f` (a stray F6 dn_path cherry-pick of ~124 LOC, NOT recovery code) and the plan commit `18240ec`. Math validated: 8,728 + 3,156 - 77 (file overlap) = 11,807. Zero recovery LOC lost.
+
+**Clippy gate (post-merge):** 2 deny-level errors fixed — 4× `#[deprecated(since = "next")]` invalid semver in context_chain.rs (G3); 1× `actor.role <= u8::MAX` tautology in lance_membrane.rs (pre-existing). Warnings only remain (pre-existing `len_zero`, `err_expect`, `useless_vec`, `manual_div_ceil`, `manual_repeat_n` in contract/planner/callcenter/deepnsm). `cargo fmt --check` clean.
+
+**Process lesson:** "tests pass" alone is not a quality signal for agent-authored PRs. The reviewer-then-refactor loop is the correction.
+
+Cross-ref: `.claude/plans/grammar-foundry-followup-v1.md`; PRs #300-#306.
+
+## 2026-04-29 — FINDING: M1/P2-P4 route through existing Lab infra, not new standalone probes
+
+**Status:** FINDING
+
+M1's real test is `polarquant_hip_probe.rs` (P7) — compares `build_hip_families`
+farthest-pair binary split against PolarQuant gain-shape NN-preservation on
+real safetensors. Plus `turboquant_correction_probe.rs` for LEAF-orthogonal
+(PolarQuant vs CAM_PQ — orthogonal only at LEAF, not HEEL/HIP/TWIG).
+P2/P3/P4 route through `shader-lab` `WireSweep` JIT-first Lab surface
+(Phase 0 DTOs done). CAM_PQ IS based on COCA (one pipeline, not alternatives).
+
+Cross-ref: `BGZ_HHTL_D.md`, `codec-sweep-via-lab-infra-v1.md`,
+`polarquant_hip_probe.rs`, `turboquant_correction_probe.rs`,
+`jitson_kernel.rs`, `wire.rs` Phase 0 DTOs.
+
+## 2026-04-29 — FINDING: Probe P1 PASS — γ+φ pre-rank selector empirically confirmed
+
+**Status:** FINDING
+
+Probe P1 from `bf16-hhtl-terrain.md` Probe Queue (status before: NOT RUN)
+drained to PASS. Tests Constraint C3's "VALID — pre-rank discrete selector"
+regime: 4 γ-phase offsets at stride 1/(4φ) on a 256-entry codebook produce
+meaningfully different rankings (min Spearman ρ = -0.963 between offsets
+0 and 3, with intermediate pairs showing the expected gradient from +0.51
+through 0 to -0.96). Dupain-Sós discrepancy property empirically confirmed
+in the synthetic regime; γ+φ encoding strategy in `bgz-tensor` rests on
+a load-bearing axiom that holds.
+
+The pairwise gradient is mathematically clean: 4 offsets distributed over
+half the golden ratio produce rankings that smoothly transition from
+co-monotonic (ρ=+0.51 at adjacent offsets) through orthogonal (ρ≈0 at
+2-step) to anti-monotonic (ρ=-0.96 at maximum spacing). This is the
+Dupain-Sós signature.
+
+Caveat: tested on synthetic Beta(2,2) distributed codebook on [0,1) with
+toroidal distance. Production codebook (256 Jina centroids in higher-dim
+space) may produce different magnitudes — but the qualitative result
+(rankings DO differ across γ-offsets) is stable given the strong signal.
+
+Cross-ref: `.claude/knowledge/bf16-hhtl-terrain.md` Probe Queue P1 (now
+PASS), `crates/jc/src/probe_p1_gamma_phase.rs`, Constraint C3.
+
+## 2026-04-29 — FINDING: Pillars 5+, 5++, 6 close the concentration family for substrate aggregation
+
+**Status:** FINDING
+
+Three proof-in-code pillars were merged in succession (PRs #286, #287, #289):
+
+- **Pillar 5+ (Köstenberger-Stark):** PSD-cone Hadamard-space concentration
+  for non-iid Σ aggregation. Tightness 0.969× — bound is hit, not just
+  respected. Certifies single-step Σ aggregation.
+- **Pillar 5++ (Düker-Zoubouloglou):** Hilbert-space CLT for AR(1) Gaussian
+  process at d=16384. Relative error 0.103% — two orders of magnitude
+  below tolerance. Certifies bundle-of-N fingerprint convergence in ℓ².
+- **Pillar 6 (EWA-Sandwich):** Σ push-forward `M·Σ·Mᵀ` along multi-hop
+  paths. PSD-preservation 10000/10000 hops, CV tightness 1.467×.
+  Certifies multi-hop edge propagation stays in SPD cone for arbitrary
+  depth — the cant-stop-thinking loop has its mathematical backbone.
+
+Plus PR #288 (Σ-codebook viability probe, R² = 0.9949) ruled out the
+proposed CausalEdge64 8→16 byte expansion that would have halved the
+HighHeelBGZ 240-edge container limit. The 256-entry codebook with 1-byte
+sidecar is sufficient.
+
+Combined: every aggregation pattern in the cognitive substrate now sits
+on certified ground. Scalar (Pillar 5 Jirak) + Σ-tensor (Pillar 5+ KS) +
+Hilbert-space (Pillar 5++ DZ) + multi-hop propagation (Pillar 6 EWA).
+
+Cross-ref: PRs #286, #287, #288, #289; `.claude/board/IDEAS.md` 2026-04-29
+entries for proposed application pillars 7/8/9.
+
 ## 2026-04-26 — CORRECTION-OF 2026-04-20 "Resolution hierarchy 64×64 > 256×257 > 4096×4096 > 16k": HIP layer is 256×256, not 256×257
 
 **Status:** CORRECTION

@@ -1,0 +1,22 @@
+# (starter prior — tune empirically)
+# Peripheral: scan the edges, low-radius mexican-hat catches outliers.
+style: peripheral
+nars:
+  primary: Abduction
+  fallback: Extrapolation
+morphology:
+  tables: [english_svo, finnish_case_table, japanese_particles]
+  agglutinative_mode: true
+tekamolo:
+  priority: [lokal, temporal, modal, kausal]
+  require_fillable: false
+markov:
+  radius: 4
+  kernel: mexican_hat
+  replay: backward
+spo_causal:
+  pearl_mask: 0x1F
+  ambiguity_tolerance: 0.35
+coverage:
+  local_threshold: 0.72
+  escalate_below: 0.58

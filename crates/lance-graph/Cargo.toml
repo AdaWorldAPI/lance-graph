@@ -33,9 +33,10 @@ datafusion-functions-aggregate = "52"
 futures = "0.3"
 lance-graph-catalog = { path = "../lance-graph-catalog", version = "0.5.4" }
 lance-graph-contract = { path = "../lance-graph-contract" }
-lance = "4"
-lance-linalg = "4"
-lance-namespace = "4"
+lance = "=4.0.0"
+lance-linalg = "=4.0.0"
+lance-namespace = "=4.0.0"
+lancedb = { version = "=0.27.2", optional = true, default-features = false }
 nom = "7.1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -60,6 +61,10 @@ bgz-tensor = { path = "../bgz-tensor", optional = true }
 default = ["unity-catalog", "delta", "ndarray-hpc", "planner", "bgz17-codec", "tensor-codec"]
 unity-catalog = ["lance-graph-catalog/unity-catalog"]
 delta = ["dep:deltalake", "dep:url"]
+# lancedb: high-level table/connection API (Python/JS SDK equivalent in Rust).
+# Enables LanceDB-compatible connection strings, table management, and the
+# vector search API surface that third-party tooling (DuckDB ext, Polars) expects.
+lancedb-sdk = ["dep:lancedb"]
 # ndarray-hpc: use AdaWorldAPI/ndarray for Fingerprint<256>, CAM-PQ, CLAM, BLAS, ZeckF64.
 # Disable for minimal builds (CI, wasm, embedded) — falls back to standalone ndarray_bridge.rs.
 ndarray-hpc = ["dep:ndarray"]
@@ -72,7 +77,7 @@ tensor-codec = ["dep:bgz-tensor"]
 
 [dev-dependencies]
 futures = "0.3"
-lance-arrow = "4"
-lance-index = "4"
+lance-arrow = "=4.0.0"
+lance-index = "=4.0.0"
 tempfile = "3"
 tokio = { version = "1.37", features = ["macros", "rt-multi-thread"] }

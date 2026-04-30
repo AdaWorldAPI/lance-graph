@@ -92,5 +92,18 @@ pub mod rls;
 
 // DM-8 — PostgRestHandler: query-string → DataFusion SQL → Lance → Arrow ([serve])
 //         Confirm PostgREST compat is needed before building (§ 8 stop point 4).
-// #[cfg(feature = "serve")]
-// pub mod postgrest;
+//         A5: dependency-free stub gated behind `postgrest` feature.
+#[cfg(feature = "postgrest")]
+pub mod postgrest;
+
+// LF-90 — append-only audit log for every RLS-rewritten query.
+//         A3: in-memory ring buffer skeleton; Lance-backed writer arrives later.
+#[cfg(feature = "audit-log")]
+pub mod audit;
+
+// PR #278 outlook E1 — generalized PolicyRewriter trait (column masking,
+// row encryption, differential privacy stubs) sharing the OptimizerRule slot
+// with the existing RLS rewriter. Gated on auth-rls-lite (where the
+// DataFusion types live).
+#[cfg(any(feature = "auth-rls-lite", feature = "auth-rls", feature = "auth", feature = "full"))]
+pub mod policy;

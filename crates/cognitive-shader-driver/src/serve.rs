@@ -379,6 +379,7 @@ async fn route_handler(
         thinking: None,
         reasoning: wire.reasoning,
         confidence: None,
+        depends_on: vec![],
     };
 
     // Try codec research bridge first (nd.*)

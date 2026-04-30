@@ -61,6 +61,34 @@ pub mod similarity;
 pub mod spo;
 pub mod vocabulary;
 
+pub mod trajectory;
+pub mod markov_bundle;
+pub mod nsm_primes;
+
+// Loose-end-#2 closer (PR-G3): glue from MarkovBundler::role_bundle()
+// → ContextChain::disambiguate_with(.., DisambiguateOpts {
+// sentinel_fp }). Closes the "real fp" honesty gap by giving the
+// contract crate a caller that actually constructs a non-zero
+// `CrystalFingerprint::Binary16K` from an f32 trajectory bundle.
+pub mod disambiguator_glue;
+
+// PR #279 outlook epiphany E4 — Trajectory-as-statement-hash bridge to
+// PR #278 audit log. Converts grammatical structure to a 16384-bit
+// semantic hash key.
+pub mod trajectory_audit;
+
+// PR #279 outlook epiphany E8 — Quantum mode (PhaseTag + holographic
+// addressing) sharing the 16384-dim substrate with Crystal mode.
+pub mod quantum_mode;
+
+#[cfg(feature = "contract-ticket")]
+pub mod ticket_emit;
+
+// PR-G1: module always compiled — Pearl mask computation and
+// analyze_without_triangle are core. Only GrammarTriangle-dependent
+// code inside is gated behind #[cfg(feature = "grammar-triangle")].
+pub mod triangle_bridge;
+
 // ─── Re-exports ──────────────────────────────────────────────────────────────
 
 pub use pipeline::DeepNsmEngine;

@@ -104,6 +104,23 @@ Cross-ref: <epiphany entry / plan D-id / related knowledge doc>
 
 (When an Open idea ships, APPEND here with same title + PR anchor.)
 
+## 2026-04-29 — Probe P1: γ-phase-offset ranking discrimination (from 2026-04-29)
+**Status:** Implemented 2026-04-29 via PR (this PR)
+**Result:** PASS — min Spearman ρ = -0.963 across pairs of γ-offsets
+
+Drained Probe P1 from `bf16-hhtl-terrain.md` Probe Queue (NOT RUN → PASS).
+Tests Constraint C3's "VALID — pre-rank discrete selector" regime: 4
+γ-phase offsets at stride 1/(4φ) on a 256-entry codebook produce
+meaningfully different rankings. Pairwise Spearman ρ shows expected
+gradient: adjacent offsets co-monotonic (+0.51), maximum-spaced offsets
+near-anti-monotonic (-0.96). Dupain-Sós discrepancy property empirically
+confirmed in synthetic regime; γ+φ encoding strategy in `bgz-tensor` is
+grounded.
+
+Cross-ref: `crates/jc/src/probe_p1_gamma_phase.rs`,
+`.claude/knowledge/bf16-hhtl-terrain.md` Probe Queue P1 (now PASS),
+`.claude/board/EPIPHANIES.md` 2026-04-29 FINDING entry.
+
 ```
 ## YYYY-MM-DD — <same title as Open entry> (from YYYY-MM-DD)
 **Status:** Implemented YYYY-MM-DD via PR #NNN
@@ -171,6 +188,139 @@ citing the deferred one; flip the deferred entry's Status to
 
 Nothing is lost. Every idea has a trail from speculation to
 disposition.
+
+## 2026-04-29 — Inverted-pyramid awareness streaming via CausalEdge64 through SPO+COCA→CAM_PQ
+**Status:** Open
+**Priority:** P2
+**Scope:** @savant-research cognitive-shader-driver thinking-engine domain:streaming domain:awareness
+
+When weight rows stream through the inverted pyramid (L4 16384² → L1 64²),
+can the BF16 mantissa awareness (Column F `AwarenessColumn`, per
+`bindspace-columns-v1.md`) flow through CausalEdge64 (Column D) at each
+fold step — so awareness-annotated edges emit without a separate pass?
+
+SPO 2³ + COCA → CAM_PQ is one pipeline (CAM_PQ Semantic CLAM trains
+from COCA vectors). The question is not "which encoding wins" but whether
+the awareness sidecar (BF16 mantissa quality → u8 per word) survives
+the pyramid compression and produces meaningful CausalEdge64 updates
+(frequency/confidence/Pearl 2³ mask) at each resolution level.
+
+Routes through `shader-lab` Lab infra. Test infrastructure exists:
+`polarquant_hip_probe.rs`, `turboquant_correction_probe.rs`, Phase 0
+DTOs (`WireSweep`, `WireCalibrate`, `WireTokenAgreement`).
+
+Cross-ref: `bindspace-columns-v1.md` (Column D/F), `causal-edge/src/edge.rs`,
+`BGZ_HHTL_D.md`, `codec-sweep-via-lab-infra-v1.md`.
+
+## 2026-04-29 — Probe P1: γ-phase-offset ranking discrimination
+**Status:** Implemented 2026-04-29 (this PR)
+**Priority:** P1
+**Scope:** @savant-research jc bgz-tensor domain:probe-queue domain:codec
+
+Execute Probe P1 from `bf16-hhtl-terrain.md` queue (status: NOT RUN). Tests
+Constraint C3 directly: γ+φ as pre-rank discrete selector should produce
+*different* rankings for different offsets on the same base codebook. If
+yes (ρ between rankings differs by >0.01 across offsets) — γ+φ pre-rank
+selector is VALID, Dupain-Sós discrepancy property holds. If no (ρ identical)
+— γ+φ joins the dead post-rank regime as a DEAD axis.
+
+Implementation form: jc-style probe (pure Rust, zero deps, ~250 lines).
+Synthesize plausible 256-entry codebook, apply 4 γ-phase-offset shifts,
+rank-by-distance under each, compute pairwise Spearman ρ. PASS if any
+two offsets produce ρ < 0.99 (rankings meaningfully differ). FAIL if all
+pairwise ρ > 0.999 (offsets are no-ops).
+
+Result feeds back into `bf16-hhtl-terrain.md` Probe Queue as P1 status
+update (NOT RUN → PASS or FAIL). On FAIL, downstream consequence: γ+φ
+encoding strategy needs revision; CONJECTURE label on existing γ-related
+architecture stays.
+
+Cross-ref: `.claude/knowledge/bf16-hhtl-terrain.md` Probe Queue P1,
+Constraint C3, `crates/bgz-tensor/src/gamma_phi.rs`,
+`crates/bgz-tensor/src/gamma_calibration.rs`.
+## 2026-04-29 — Safetensor-Streaming als ndimensionale Bedeutungsakkumulation
+**Status:** Open
+**Priority:** P2
+**Scope:** @savant-research @palette-engineer bgz-tensor learning domain:hydration domain:cascade
+
+Stream a safetensor (1B–70B params) tile-by-tile through the existing
+HHTL cascade instead of loading into memory. Per tile: Hadamard-rotate
+(`fractal_descriptor`), extract Σ, propagate via EWA-sandwich (PR #289),
+accumulate in `holograph::width_16k::SchemaSidecar` Block 14/15. Estimated
+3.8 min for 7B model based on Pillar 6 measured 2 ms/sandwich latency.
+**CONJECTURE** — depends on Probe M2 / P3 (4096 terminal buckets correlate
+with COCA vocabulary?) being PASS before tile-streaming approach is
+guaranteed information-preserving.
+
+Cross-ref: `IDEA_JOURNAL_2026_04_29_STREAMING_HYDRATION.md` (full context),
+`bf16-hhtl-terrain.md` probe queue P3, `cognitive-shader-architecture.md`
+(weights-as-seeds doctrine).
+
+## 2026-04-29 — Family-Bounds als globale fraktale Codierung (Hypothesis Test)
+**Status:** Open
+**Priority:** P3
+**Scope:** @savant-research bgz-tensor domain:fractal domain:hypothesis-test
+
+Hypothesis: gesamtheit aller HighHeelBGZ family bounds bildet selbst-
+ähnliche Hierarchie kodierbar als Fraktal mit on-demand decoding statt
+vollständiger Materialisierung. **CONJECTURE** — `fractal_descriptor`
+misst Selbst-Ähnlichkeit *pro Row*, nicht *global*. Vorbedingung:
+Diagnostik-Probe ob globale Fraktalität existiert. PASS-Kriterium:
+Hurst ≠ 0.5, fraktale Dim > 1, Spektrum-Breite > 0 auf der Verteilung
+der family bounds. FAIL: Idee verworfen, lokale per-Row-Fraktalität ist
+nicht globale Eigenschaft.
+
+Cross-ref: `IDEA_JOURNAL_2026_04_29_STREAMING_HYDRATION.md`,
+`fractal-codec-argmax-regime.md`, `endgame-holographic-agi.md`.
+
+## 2026-04-29 — Pillar 7 Front-to-Back α-Akkumulation (LIKELY-REDISCOVERY)
+**Status:** Open
+**Priority:** P3
+**Scope:** @savant-research jc bgz-tensor domain:cascade domain:probe
+
+Apply 3DGS front-to-back α-blending with early-termination (`if α_acc > 0.95: break`)
+to HHTL cascade. KS Pillar 5+ would certify that omitted sources fall
+within concentration bound. **CONJECTURE / LIKELY-REDISCOVERY** —
+`bgz-tensor::cascade` already implements HHTL (HEEL/HIP/TWIG/LEAF) with
+metric-induced sparsity, which is a form of early-termination already.
+Re-filing this pillar specifically should investigate whether it adds
+α-blending novelty over existing cascade or duplicates known terrain.
+Read `cascade.rs` + `attention.rs` headers BEFORE building.
+
+Cross-ref: `IDEA_JOURNAL_2026_04_29_FUTURE_PILLARS.md`,
+`crates/bgz-tensor/src/cascade.rs`, `crates/bgz-tensor/BGZ_HHTL_D.md`.
+
+## 2026-04-29 — Pillar 8 Adaptive Densification für Σ-Codebook
+**Status:** Open
+**Priority:** P2
+**Scope:** @palette-engineer @family-codec-smith jc bgz-tensor domain:codebook domain:adaptive
+
+3DGS-style split (high error + many edges) and prune (low assignment count)
+operations on the Σ-codebook from PR #288 (R² = 0.9949). Total k=256 stays
+constant; codebook adapts to actual edge distribution online. **CONJECTURE** —
+heuristic could oscillate vs converge. Pre-condition: probe must demonstrate
+monotonic R² improvement over 50 densification passes. Builds on the
+already-merged sigma_codebook_probe.
+
+Cross-ref: `IDEA_JOURNAL_2026_04_29_FUTURE_PILLARS.md`, PR #288
+(sigma_codebook_probe), KS Pillar 5+ for convergence guarantee.
+
+## 2026-04-29 — Pillar 9 SH-Koeffizienten als Thinking-Style-Manifold
+**Status:** Open
+**Priority:** P3
+**Scope:** @cognitive-shader-driver learning bgz-tensor domain:cognitive-style domain:architecture
+
+Replace categorical thinking_style (analytical/creative/focused) with
+continuous SH-coefficient manifold evaluated against query view-direction.
+DZ Pillar 5++ already certifies the underlying Hilbert-space CLT.
+**CONJECTURE — TOUCHES PRODUCTION CODE.** Would modify
+`learning::cognitive_styles` and `awareness_dto::ResonanceDto::ThinkingStyle`.
+Pre-condition: explicit architecture decision required before any
+implementation — not a pure-math pillar like 5+/5++/6, but an actual
+substrate behavior change. Hold until that decision is made.
+
+Cross-ref: `IDEA_JOURNAL_2026_04_29_FUTURE_PILLARS.md`,
+`cognitive-shader-architecture.md`, DZ Pillar 5++ (PR #287).
 
 ## 2026-04-19 — FP_WORDS = 256 (supersede the 160 plan)
 **Status:** Open
