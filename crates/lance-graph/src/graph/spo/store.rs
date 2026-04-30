@@ -252,13 +252,13 @@ impl SpoStore {
 
     /// Find the key for a given object fingerprint (reverse lookup).
     fn key_for_object(&self, object: &Fingerprint) -> u64 {
-        // Hash the object fingerprint to get a stable key
-        let mut h: u64 = 0xcbf29ce484222325;
-        for &w in object.iter() {
-            h ^= w;
-            h = h.wrapping_mul(0x100000001b3);
-        }
-        h
+        let bytes: &[u8] = unsafe {
+            std::slice::from_raw_parts(
+                object.as_ptr() as *const u8,
+                object.len() * 8,
+            )
+        };
+        lance_graph_contract::hash::fnv1a(bytes)
     }
 }
 

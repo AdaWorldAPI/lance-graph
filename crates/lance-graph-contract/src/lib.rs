@@ -68,3 +68,4 @@ pub mod auth;
 pub mod scenario;
 pub mod graph_render;
 pub mod distance;
+pub mod hash;

@@ -424,12 +424,7 @@ fn parse_statement_kind(s: &str) -> StatementKind {
 /// whose output is explicitly not stable across Rust versions and therefore
 /// could not be relied on for long-lived audit records.
 pub fn hash_statement(stmt_text: &str) -> u64 {
-    let mut hash: u64 = 0xcbf29ce484222325;
-    for byte in stmt_text.bytes() {
-        hash ^= byte as u64;
-        hash = hash.wrapping_mul(0x100000001b3);
-    }
-    hash
+    lance_graph_contract::hash::fnv1a_str(stmt_text)
 }
 
 /// Convenience: current wall-clock time in unix milliseconds.
