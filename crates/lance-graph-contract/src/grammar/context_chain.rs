@@ -323,7 +323,7 @@ impl ContextChain {
     ///   code in the cypher bridge.
     /// - **Single candidate**: `margin = 0.0`, `dispersion = 0.0`,
     ///   `escalate_to_llm = true`.
-    #[deprecated(since = "next", note = "use disambiguate_with(opts)")]
+    #[deprecated(note = "use disambiguate_with(opts)")]
     pub fn disambiguate<I>(
         &self,
         i: usize,
@@ -345,7 +345,7 @@ impl ContextChain {
     ///
     /// When `chosen_fingerprint` is `None`, falls back to the original
     /// zero-sentinel behaviour (backwards compatible).
-    #[deprecated(since = "next", note = "use disambiguate_with(opts)")]
+    #[deprecated(note = "use disambiguate_with(opts)")]
     pub fn disambiguate_with_fingerprint<I>(
         &self,
         i: usize,
@@ -368,7 +368,7 @@ impl ContextChain {
     /// Kernel-aware variant of `disambiguate`. Identical contract; the
     /// supplied `kernel` is used when scoring each candidate replay via
     /// `total_coherence_with_kernel`.
-    #[deprecated(since = "next", note = "use disambiguate_with(opts)")]
+    #[deprecated(note = "use disambiguate_with(opts)")]
     pub fn disambiguate_with_kernel<I>(
         &self,
         i: usize,
@@ -399,7 +399,7 @@ impl ContextChain {
     /// When `chosen_fingerprint` is `None`, the sentinel falls back to
     /// the zero `Binary16K` — preserving backwards compatibility with
     /// all existing callers.
-    #[deprecated(since = "next", note = "use disambiguate_with(opts)")]
+    #[deprecated(note = "use disambiguate_with(opts)")]
     pub fn disambiguate_with_kernel_and_fingerprint<I>(
         &self,
         i: usize,

@@ -65,6 +65,24 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-04-30 — FINDING: Wave-1 follow-up shipped (PRs #300-#306) — 3,156 LOC, full LOC audit confirms 0 lost from #275-#283 recovery
+
+**Status:** FINDING
+
+Session 2026-04-30 shipped the grammar-foundry-followup-v1 plan: 7 PRs (S1, F1, F3, F6, G1, G3, G4) closing the explicit stubs left behind by recovery-merge #299. Each PR went through a brutally-honest reviewer agent that surfaced 12+ defects (G1 fabricated qualia dim labels — later softened to "PAD-model sanitization"; F1 had a WHERE/JOIN/AGG leak that only rewrote Projection; G4 broadcast 12 priors across 12 tenses producing the illusion of 144 unique values; S1 introduced an `id: 0` landmine across 4 callers; F3 had a non-temporal Int64 timestamp + lossy column round-trip; G3's "real fp" was passthrough-only with no caller). All defects closed via 7 follow-up refactor commits with failing-test-first regression tests.
+
+**LOC audit (verified `git diff --shortstat`):**
+- Recovery (#275-#283 via #299): `71fad59..77c6292` = +8,728 / -334 across 41 files
+- Wave 1 (#300-#306): `77c6292..40718e4` = +3,156 / -107 across 18 files
+- Combined: `71fad59..40718e4` = +11,807 / -364 across 48 files
+- The G1 rebase (`--force-with-lease`) dropped only commit `460329f` (a stray F6 dn_path cherry-pick of ~124 LOC, NOT recovery code) and the plan commit `18240ec`. Math validated: 8,728 + 3,156 - 77 (file overlap) = 11,807. Zero recovery LOC lost.
+
+**Clippy gate (post-merge):** 2 deny-level errors fixed — 4× `#[deprecated(since = "next")]` invalid semver in context_chain.rs (G3); 1× `actor.role <= u8::MAX` tautology in lance_membrane.rs (pre-existing). Warnings only remain (pre-existing `len_zero`, `err_expect`, `useless_vec`, `manual_div_ceil`, `manual_repeat_n` in contract/planner/callcenter/deepnsm). `cargo fmt --check` clean.
+
+**Process lesson:** "tests pass" alone is not a quality signal for agent-authored PRs. The reviewer-then-refactor loop is the correction.
+
+Cross-ref: `.claude/plans/grammar-foundry-followup-v1.md`; PRs #300-#306.
+
 ## 2026-04-29 — FINDING: M1/P2-P4 route through existing Lab infra, not new standalone probes
 
 **Status:** FINDING

@@ -765,7 +765,12 @@ mod tests {
 
         let actor = m.current_actor.read().unwrap();
         assert_eq!(actor.role, ExternalRole::Agent as u8);
-        assert!(actor.role <= u8::MAX, "ExternalRole stays clamped within u8");
+        // ExternalRole repr is u8; storing as u8 is enforced by the type system.
+        // Highest currently defined variant = 7 (Agent), reserve room for growth.
+        assert!(
+            actor.role < 32,
+            "ExternalRole repr stays well below u8::MAX to leave room for growth"
+        );
     }
 
     /// E2: seal() smoke test — empty registry seals without error.
