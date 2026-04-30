@@ -1,2 +1,13 @@
 [toolchain]
 channel = "1.94.0"
+# rustfmt + clippy are mandatory CI components and must be present
+# whenever the pinned channel is installed. Without this, `cargo fmt`
+# under `actions-rust-lang/setup-rust-toolchain@v1` resolves to the
+# pinned `1.94.0` channel but rustfmt is only installed for `stable`
+# (the action's default), producing:
+#   error: 'cargo-fmt' is not installed for the toolchain '1.94.0-...'
+# Declaring components here makes rustup install them as part of the
+# toolchain itself, which is also developer-friendly: a fresh
+# `rustup show` in this workspace materializes a complete CI-equivalent
+# toolchain in one step.
+components = ["rustfmt", "clippy"]
