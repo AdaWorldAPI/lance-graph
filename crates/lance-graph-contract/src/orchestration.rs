@@ -274,12 +274,58 @@ mod tests {
             "medcare audit retention must be >= 2190 days (HIPAA 6 years)",
         );
     }
+
+    fn step_with_step_id(s: &str) -> UnifiedStep {
+        UnifiedStep {
+            step_id: s.to_string(),
+            step_type: "lg.noop".to_string(),
+            status: StepStatus::Pending,
+            thinking: None,
+            reasoning: None,
+            confidence: None,
+            depends_on: vec![],
+        }
+    }
+
+    /// Regression test for the `id: 0` landmine: under the old design,
+    /// every caller hard-coded `id: 0` so two distinct steps collided
+    /// in the DAG (same StepId → DuplicateStepId or wrong dependency
+    /// resolution). The fix derives `id()` from `step_id` via FNV-1a,
+    /// so distinct `step_id` strings produce distinct numeric ids.
+    #[test]
+    fn test_distinct_step_ids_when_step_id_strings_differ() {
+        let a = step_with_step_id("step-alpha");
+        let b = step_with_step_id("step-beta");
+        assert_ne!(
+            a.id(), b.id(),
+            "FNV-1a derivation must distinguish 'step-alpha' from 'step-beta'; \
+             with the old `id: 0` field both would collide at zero",
+        );
+        // And the derivation must be deterministic — same string → same id.
+        let a_again = step_with_step_id("step-alpha");
+        assert_eq!(a.id(), a_again.id(), "id() must be deterministic over step_id");
+    }
 }
+
+/// Numeric step identifier for DAG dependency tracking.
+///
+/// Used by `UnifiedStep::id` and `UnifiedStep::depends_on` to express
+/// execution ordering constraints. The pipeline executor in
+/// `lance-graph-planner::pipeline` builds a topological sort from these.
+pub type StepId = u64;
 
 /// Unified step — the unit of work crossing system boundaries.
 ///
 /// This is the canonical type. crewai-rust's UnifiedStep and
 /// n8n-contract's UnifiedStep should both be replaced by this.
+///
+/// # Identity
+///
+/// The numeric `StepId` used for DAG edges is **derived** from
+/// `step_id` via [`UnifiedStep::id`] (FNV-1a hash of the bytes).
+/// There is no stored `id` field, so callers cannot hard-code
+/// `id: 0` and accidentally collide all steps at the same node —
+/// see the original `id: 0` landmine that motivated this design.
 #[derive(Debug, Clone)]
 pub struct UnifiedStep {
     pub step_id: String,
@@ -291,6 +337,28 @@ pub struct UnifiedStep {
     pub reasoning: Option<String>,
     /// NARS confidence (0.0–1.0).
     pub confidence: Option<f64>,
+    /// IDs of steps that must complete before this step can execute.
+    /// Empty means the step has no prerequisites (root node in the DAG).
+    pub depends_on: Vec<StepId>,
+}
+
+impl UnifiedStep {
+    /// Numeric identifier for DAG dependency edges.
+    ///
+    /// Derived deterministically from `step_id` via FNV-1a hashing.
+    /// Two steps with different `step_id` strings will produce
+    /// different numeric ids with overwhelming probability — far
+    /// better than the old `pub id: StepId` field that every caller
+    /// initialized to `0`, collapsing the DAG to a single node.
+    pub fn id(&self) -> StepId {
+        // FNV-1a over step_id bytes — deterministic, collision-resistant.
+        let mut h: u64 = 0xcbf29ce484222325;
+        for b in self.step_id.as_bytes() {
+            h ^= *b as u64;
+            h = h.wrapping_mul(0x100000001b3);
+        }
+        h
+    }
 }
 
 /// Step execution status.

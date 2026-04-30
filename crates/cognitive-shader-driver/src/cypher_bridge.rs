@@ -153,6 +153,7 @@ mod tests {
             thinking: None,
             reasoning: reasoning.map(|s| s.to_string()),
             confidence: None,
+            depends_on: vec![],
         }
     }
 

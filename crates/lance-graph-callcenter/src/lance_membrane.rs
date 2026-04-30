@@ -436,6 +436,7 @@ impl ExternalMembrane for LanceMembrane {
             thinking:   None, // resolved by OrchestrationBridge::resolve_thinking()
             reasoning:  None,
             confidence: None,
+            depends_on: Vec::new(),
         }
     }
 
