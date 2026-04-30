@@ -44,6 +44,11 @@
 //! Plan: `.claude/plans/callcenter-membrane-v1.md`
 
 pub use lance_graph_contract::external_membrane::{CommitFilter, ExternalMembrane};
+pub use lance_graph_contract::ontology::{Label, Locale};
+
+// ── External ontology DTO surface (the "Foundry outside" layer) ──────────────
+pub mod ontology_dto;
+pub use ontology_dto::{OntologyDto, smb_ontology, medcare_ontology};
 
 // ── Phase A: BBB spine (DM-2) ────────────────────────────────────────────────
 // UNKNOWN-1 resolved: ShaderSink is internal BindSpace ingestion; no overlap

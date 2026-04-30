@@ -9,6 +9,7 @@ members = [
     "crates/lance-graph-callcenter",
     "crates/lance-graph-archetype",
     "crates/lance-graph-rbac",
+    "crates/bgz-tensor",
 ]
 exclude = [
     # Python bindings (upstream-inherited, opt-in via --manifest-path)
@@ -16,7 +17,6 @@ exclude = [
     "crates/lance-graph-codec-research",
     "crates/bgz17",
     "crates/deepnsm",
-    "crates/bgz-tensor",
     "crates/lance-graph-osint",
     "crates/reader-lm",
     "crates/bge-m3",

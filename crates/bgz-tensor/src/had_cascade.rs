@@ -25,12 +25,13 @@
 //!   Structured embeddings (audio codec): HadCascade (ICC 1.000)
 
 use crate::stacked_n::{bf16_to_f32, f32_to_bf16};
-use ndarray::hpc::fft::wht_f32;
+use crate::ndarray_compat::{
+    wht_f32, quantize_f32_to_i2, dequantize_i2_to_f32,
+    kmeans, squared_l2,
+};
 use ndarray::hpc::quantized::{
     quantize_f32_to_i4, dequantize_i4_to_f32,
-    quantize_f32_to_i2, dequantize_i2_to_f32,
 };
-use ndarray::hpc::cam_pq::{kmeans, squared_l2};
 use ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd;
 
 fn next_pow2(n: usize) -> usize {
@@ -123,7 +124,8 @@ impl HadCascadeTensor {
                 // i8-only mode: 2:1 compression, higher fidelity
                 // dequantize_i8_to_f32 used in reconstruct_row decode path
                 #[allow(unused_imports)]
-                use ndarray::hpc::quantized::{quantize_f32_to_i8, dequantize_i8_to_f32};
+                use crate::ndarray_compat::dequantize_i8_to_f32;
+                use ndarray::hpc::quantized::quantize_f32_to_i8;
                 let (i8_codes_raw, i8_params) = quantize_f32_to_i8(&rotated1[..n_cols]);
                 let i8_as_u8: Vec<u8> = i8_codes_raw.iter().map(|&v| v as u8).collect();
                 HadCascadeRow {
@@ -168,14 +170,13 @@ impl HadCascadeTensor {
     }
 
     pub fn reconstruct_row(&self, i: usize) -> Vec<f32> {
-        use ndarray::hpc::quantized::QuantParams;
+        use crate::ndarray_compat::{QuantParams, dequantize_i8_to_f32};
         let row = &self.rows[i];
         let ci = row.twig as usize;
         let p1 = QuantParams { scale: bf16_to_f32(row.scale1_bf16), zero_point: 0, min_val: 0.0, max_val: 0.0 };
 
         if row.i2_codes.is_empty() {
             // i8-only mode
-            use ndarray::hpc::quantized::dequantize_i8_to_f32;
             let i8_codes: Vec<i8> = row.i4_codes.iter().map(|&v| v as i8).collect();
             let dequant = dequantize_i8_to_f32(&i8_codes, &p1, self.n_cols);
             let mut full = vec![0.0f32; self.padded_dim];

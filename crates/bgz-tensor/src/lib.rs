@@ -59,6 +59,7 @@
 //! The question is whether attention-specific distance (dot product similarity)
 //! preserves as well as generic L1 distance.
 
+pub mod ndarray_compat;
 pub mod adaptive_codec;
 pub mod attention;
 pub mod belichtungsmesser;

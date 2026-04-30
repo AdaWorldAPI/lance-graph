@@ -12,14 +12,14 @@
 // Cluster used by future per-cluster anomaly reporting
 #[allow(unused_imports)]
 use ndarray::hpc::clam::{ClamTree, Cluster};
-use ndarray::hpc::fft::wht_f32;
+use crate::ndarray_compat::{
+    wht_f32, dequantize_i8_to_f32, quantize_f32_to_i2, dequantize_i2_to_f32,
+    kmeans, QuantParams,
+};
 use ndarray::hpc::quantized::{
     quantize_f32_to_i4, dequantize_i4_to_f32,
-    quantize_f32_to_i8, dequantize_i8_to_f32,
-    quantize_f32_to_i2, dequantize_i2_to_f32,
-    QuantParams,
+    quantize_f32_to_i8,
 };
-use ndarray::hpc::cam_pq::kmeans;
 // cosine_f32_to_f64_simd used by tests and future GPTQ compensation
 #[allow(unused_imports)]
 use ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd;
