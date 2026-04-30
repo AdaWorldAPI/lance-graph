@@ -122,3 +122,10 @@ pub mod audit;
     feature = "full"
 ))]
 pub mod policy;
+
+// Outer ↔ inner ontology transcode — reusable Foundry primitives.
+// Domain-agnostic mapper between the wire-shape DTO surface (already in
+// `ontology_dto`) and the inner SoA / SPO substrate. Also hosts the
+// **single deliberate transition bandaid**: `parallelbetrieb` for the
+// MySQL ↔ DataFusion ↔ SPO reconciler. See `transcode/mod.rs`.
+pub mod transcode;
