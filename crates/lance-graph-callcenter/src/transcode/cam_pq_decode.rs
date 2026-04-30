@@ -13,18 +13,23 @@
 //! this trait only carries the read-side shape downstream consumers
 //! interact with.
 
-use lance_graph_contract::cam::{route_tensor, CodecRoute};
+use lance_graph_contract::cam::CodecRoute;
 
-use super::zerocopy::{ArrowTypeCode, OuterColumn};
+use super::zerocopy::OuterColumn;
 
-/// Pick the `CodecRoute` for an outer-ontology column. Same heuristic
-/// `route_tensor` uses for tensors, applied to the column's Arrow shape.
+/// Pick the `CodecRoute` for an outer-ontology column.
+///
+/// Returns the column's declarative route copied straight from the
+/// upstream `PropertySpec.codec_route`. This is round-2 of the dispatch
+/// path: round-1 inferred the route by feeding the column name through
+/// `lance_graph_contract::cam::route_tensor`, which is calibrated for
+/// model-weight tensor names (`q_proj`, `lm_head`, …) and would
+/// silently mis-classify document predicates (`patient_id`, `iban`, …).
+///
+/// The schema layer already declares each property's route; honouring
+/// that field is correct by construction.
 pub fn route_for_column(col: &OuterColumn) -> CodecRoute {
-    match col.arrow_type_code {
-        ArrowTypeCode::FixedSizeListF32(n) => route_tensor(col.name, &[n as u64]),
-        ArrowTypeCode::FixedSizeBinary(n) if n >= 64 => route_tensor(col.name, &[n as u64]),
-        _ => CodecRoute::Skip,
-    }
+    col.codec_route
 }
 
 /// Read-side decoder. Implementations get one row's worth of bytes and
@@ -97,15 +102,23 @@ mod tests {
     use lance_graph_contract::property::Schema;
 
     #[test]
-    fn route_for_scalar_columns_skips_codec() {
+    fn route_for_required_scalar_column_uses_property_spec_default() {
+        // PropertySpec::required() defaults `codec_route` to
+        // `CodecRoute::Passthrough` (Index regime). The transcode-layer
+        // dispatcher must honour that — round-1's heuristic returned
+        // Skip for scalars by guessing from the Arrow shape, which
+        // diverged from the contract's own field. Round-2 just reads
+        // `OuterColumn.codec_route`, so the result is whatever the
+        // schema declared.
         let ont = Ontology::builder("T")
             .schema(Schema::builder("Patient").required("name").build())
             .build();
         let soa = OuterSchema::from_ontology(&ont, "Patient").unwrap();
-        assert!(matches!(
+        assert_eq!(
             route_for_column(&soa.columns[0]),
-            CodecRoute::Skip
-        ));
+            CodecRoute::Passthrough,
+            "required scalar default route should be Passthrough"
+        );
     }
 
     #[test]

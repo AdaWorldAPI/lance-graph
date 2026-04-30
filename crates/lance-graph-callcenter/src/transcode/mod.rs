@@ -77,3 +77,111 @@ pub use crate::ontology_dto::{
 pub use lance_graph_contract::ontology::{
     EntityTypeId, ExpandedTriple, Label, Locale, Ontology, SchemaExpander,
 };
+
+// ── Cached ontology bundle ───────────────────────────────────────────────────
+
+use std::collections::HashMap;
+use std::sync::Arc;
+
+/// Bundle that caches the bilingual DTO projections of one `Ontology`.
+///
+/// `OntologyDto::from_ontology(_, locale)` walks every schema +
+/// link + action and is `O(properties + links + actions)`. Per-call
+/// rebuilds in a hot path waste cycles. Round-2 of the transcode crate
+/// extracts the cached pattern that medcare-rs's `MedcareOntology` and
+/// smb-office-rs's session ontology both grew independently — one place,
+/// one bug to fix, identical semantics for both consumers.
+///
+/// Construction is `O(work)`; every subsequent `dto(locale)` call is a
+/// `HashMap` hit. The DTOs are cloned-cheap (`Arc<OntologyDto>`).
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use lance_graph_callcenter::transcode::CachedOntology;
+/// use lance_graph_callcenter::ontology_dto::medcare_ontology;
+/// use lance_graph_contract::ontology::Locale;
+///
+/// let cached = CachedOntology::new(medcare_ontology());
+/// let de = cached.dto(Locale::De); // O(1) cache hit
+/// let en = cached.dto(Locale::En); // O(1) cache hit
+/// assert_eq!(cached.inner().name, "medcare");
+/// ```
+#[derive(Debug)]
+pub struct CachedOntology {
+    inner: Arc<Ontology>,
+    dtos: HashMap<Locale, Arc<OntologyDto>>,
+}
+
+impl CachedOntology {
+    /// Build a `CachedOntology` for the given inner ontology, eagerly
+    /// projecting it to every supported locale (`De`, `En`).
+    pub fn new(ontology: Ontology) -> Self {
+        let inner = Arc::new(ontology);
+        let mut dtos = HashMap::with_capacity(2);
+        for locale in [Locale::De, Locale::En] {
+            dtos.insert(locale, Arc::new(OntologyDto::from_ontology(&inner, locale)));
+        }
+        Self { inner, dtos }
+    }
+
+    /// Return a shared reference to the underlying inner ontology.
+    /// Use this when you need to consume the canonical Schema /
+    /// LinkSpec / ActionSpec entries directly (e.g. inside
+    /// `OntologyTableProvider::new`).
+    pub fn inner(&self) -> &Arc<Ontology> {
+        &self.inner
+    }
+
+    /// Look up the DTO projection for one locale. Returns the cached
+    /// `Arc<OntologyDto>` — clone is cheap.
+    ///
+    /// Panics only if the locale wasn't projected at construction
+    /// time, which can't happen with the present implementation
+    /// (constructor projects all variants of `Locale`). The panic
+    /// would surface as a fast-failure indicator if the enum grows.
+    pub fn dto(&self, locale: Locale) -> Arc<OntologyDto> {
+        self.dtos
+            .get(&locale)
+            .cloned()
+            .expect("Locale must be projected at CachedOntology construction time")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use lance_graph_contract::property::Schema;
+
+    fn small_ontology() -> Ontology {
+        Ontology::builder("Small")
+            .label(Label::new("small", "Small Test", "Kleiner Test"))
+            .schema(Schema::builder("Patient").required("name").build())
+            .build()
+    }
+
+    #[test]
+    fn cached_ontology_projects_every_locale_at_construction() {
+        let cached = CachedOntology::new(small_ontology());
+        let de = cached.dto(Locale::De);
+        let en = cached.dto(Locale::En);
+        // Just verifying the cache is populated and clones are cheap.
+        assert_eq!(de.locale, Locale::De);
+        assert_eq!(en.locale, Locale::En);
+    }
+
+    #[test]
+    fn cached_ontology_clones_are_arc_cheap() {
+        let cached = CachedOntology::new(small_ontology());
+        let a = cached.dto(Locale::De);
+        let b = cached.dto(Locale::De);
+        // Both Arcs point at the same cached projection.
+        assert!(Arc::ptr_eq(&a, &b));
+    }
+
+    #[test]
+    fn cached_ontology_inner_round_trips() {
+        let cached = CachedOntology::new(small_ontology());
+        assert_eq!(cached.inner().name, "Small");
+    }
+}
