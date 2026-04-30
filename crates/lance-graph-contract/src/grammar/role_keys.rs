@@ -655,7 +655,7 @@ mod tests {
         for s in teka {
             assert!(s.start >= 9000, "TEKAMOLO slice starts before 9000: {s:?}");
             assert!(s.stop <= 9840,  "TEKAMOLO slice ends after 9840: {s:?}");
-            assert!(s.len() > 0,     "empty TEKAMOLO slice: {s:?}");
+            assert!(!s.is_empty(),   "empty TEKAMOLO slice: {s:?}");
         }
     }
 
@@ -780,7 +780,7 @@ mod tests {
             let s = nars_inference_slice(inf);
             assert!(s.start >= NARS_START);
             assert!(s.stop  <= NARS_END);
-            assert!(s.len() > 0);
+            assert!(!s.is_empty());
         }
     }
 }

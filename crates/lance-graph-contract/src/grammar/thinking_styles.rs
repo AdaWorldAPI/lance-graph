@@ -1094,7 +1094,7 @@ nars: { primary: Deduction, fallback: Abduction }
         // We don't even need full coverage; the style parse fails first.
         // (The `nars: { ... }` flow-map form isn't supported by our subset,
         // but the style error short-circuits before that matters.)
-        let err = parse_style_yaml(yaml).err().expect("expected error");
+        let err = parse_style_yaml(yaml).expect_err("expected error");
         assert!(err.to_lowercase().contains("style") || err.contains("nonsense"));
     }
 

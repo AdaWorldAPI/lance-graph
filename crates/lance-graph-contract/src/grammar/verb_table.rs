@@ -79,7 +79,7 @@ impl SlotPrior {
     /// gain tense x family interaction (G4 loose end).
     pub fn combine(self, delta: SlotPriorDelta) -> Self {
         fn clamp(x: f32) -> f32 {
-            if x < 0.0 { 0.0 } else if x > 1.0 { 1.0 } else { x }
+            x.clamp(0.0, 1.0)
         }
         Self {
             temporal:   clamp(self.temporal   + delta.temporal),
