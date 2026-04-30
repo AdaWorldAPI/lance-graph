@@ -767,20 +767,50 @@ where
     Ok(out)
 }
 
-/// Parse `YYYY-MM-DD` → days since 1970-01-01. Used by the `Date32`
-/// arm of [`build_typed_array`]. Returns `None` on any malformed
-/// input, including out-of-range months / days. Algorithm: Howard
-/// Hinnant's civil_to_days, mirrored from
-/// `parallelbetrieb::unix_to_ymd_hms`'s inverse.
+/// Parse an ISO-8601 date string → days since 1970-01-01.
+///
+/// Accepts three precisions, matching `lance_graph_contract::property::DatePrecision`:
+///
+/// | Input          | Interpretation                | Example → days     |
+/// |----------------|-------------------------------|--------------------|
+/// | `YYYY-MM-DD`   | exact day                     | `1970-01-02` → `1` |
+/// | `YYYY-MM`      | first day of the month        | `1970-02` → `31`   |
+/// | `YYYY`         | first day of the year         | `2000` → `10_957`  |
+///
+/// Lower-precision inputs are treated as the **earliest** point in
+/// the period (day 1 of the month, January 1 of the year). This is
+/// the conventional choice for lossy up-cast: a column declared
+/// `Date(Day)` that receives a `Date(Month)`-shaped value still
+/// stores a valid day, just with the implicit guess that the
+/// consumer cares about the start of the period. Round-5 may add a
+/// strict-mode that refuses cross-precision inputs.
+///
+/// Returns `None` on any malformed input — non-numeric parts,
+/// out-of-range month/day, wrong separator, empty string, etc.
+///
+/// Algorithm: Howard Hinnant's civil_to_days, public-domain. Exact
+/// for any proleptic-Gregorian date.
 #[cfg(any(feature = "persist", feature = "query-lite"))]
 fn parse_iso_date_to_days(s: &str) -> Option<i32> {
     let parts: Vec<&str> = s.split('-').collect();
-    if parts.len() != 3 {
-        return None;
-    }
-    let y: i64 = parts[0].parse().ok()?;
-    let m: i64 = parts[1].parse().ok()?;
-    let d: i64 = parts[2].parse().ok()?;
+    let (y, m, d): (i64, i64, i64) = match parts.as_slice() {
+        [year] => {
+            let y: i64 = year.parse().ok()?;
+            (y, 1, 1)
+        }
+        [year, month] => {
+            let y: i64 = year.parse().ok()?;
+            let m: i64 = month.parse().ok()?;
+            (y, m, 1)
+        }
+        [year, month, day] => {
+            let y: i64 = year.parse().ok()?;
+            let m: i64 = month.parse().ok()?;
+            let d: i64 = day.parse().ok()?;
+            (y, m, d)
+        }
+        _ => return None,
+    };
     if !(1..=12).contains(&m) || !(1..=31).contains(&d) {
         return None;
     }
@@ -1314,6 +1344,73 @@ mod tests {
             assert_eq!(parse_iso_date_to_days("1970-13-01"), None);
             assert_eq!(parse_iso_date_to_days("1970-01-32"), None);
             assert_eq!(parse_iso_date_to_days("1970/01/01"), None);
+            assert_eq!(parse_iso_date_to_days(""), None);
+            // 4-part input (e.g., a malformed timestamp) is rejected.
+            assert_eq!(parse_iso_date_to_days("1970-01-01-12"), None);
+        }
+
+        // ── round-4 lossy-up-cast precisions ─────────────────────────────────
+
+        #[test]
+        fn typed_resolver_iso_year_only_parses_to_jan_1() {
+            // `Date(Year)` precision: bare 4-digit year → day-1-of-year.
+            assert_eq!(parse_iso_date_to_days("1970"), Some(0));
+            assert_eq!(parse_iso_date_to_days("2000"), Some(10_957));
+            // 1980-01-01: 365×10 days from 1970 + 3 leap days (72/76/80→excluding 80)
+            // = 3650 + 2 leap days through end of 1979 = 3652. Just trust the
+            // algorithm and test the day-of-year alignment with YYYY-01-01.
+            assert_eq!(
+                parse_iso_date_to_days("1980"),
+                parse_iso_date_to_days("1980-01-01")
+            );
+            assert_eq!(
+                parse_iso_date_to_days("2026"),
+                parse_iso_date_to_days("2026-01-01")
+            );
+        }
+
+        #[test]
+        fn typed_resolver_iso_year_month_parses_to_day_1() {
+            // `Date(Month)` precision: YYYY-MM → first day of that month.
+            assert_eq!(parse_iso_date_to_days("1970-01"), Some(0));
+            assert_eq!(parse_iso_date_to_days("1970-02"), Some(31));
+            // Same alignment property: YYYY-MM equals YYYY-MM-01.
+            assert_eq!(
+                parse_iso_date_to_days("2020-02"),
+                parse_iso_date_to_days("2020-02-01")
+            );
+            assert_eq!(
+                parse_iso_date_to_days("2026-04"),
+                parse_iso_date_to_days("2026-04-01")
+            );
+        }
+
+        #[test]
+        fn typed_resolver_iso_lower_precision_rejects_bad_components() {
+            // YYYY-MM with bad month → None.
+            assert_eq!(parse_iso_date_to_days("1970-13"), None);
+            assert_eq!(parse_iso_date_to_days("1970-00"), None);
+            // YYYY with non-numeric → None.
+            assert_eq!(parse_iso_date_to_days("nineteenseventy"), None);
+            // Empty year → None.
+            assert_eq!(parse_iso_date_to_days("-01-01"), None);
+        }
+
+        #[test]
+        fn typed_resolver_iso_lower_precision_handles_leap_year_feb() {
+            // Make sure the lossy up-cast doesn't break leap-year math.
+            // 2020 is a leap year; February 1 = day 31 of the year.
+            // Days from 1970-01-01 to 2020-02-01 = 18_293
+            // (verified via the inverse civil_to_days in
+            // parallelbetrieb::unix_to_ymd_hms).
+            assert_eq!(parse_iso_date_to_days("2020-02"), Some(18_293));
+            // 2020-01 = 2020-01-01 = day 0 of 2020 = total days since
+            // epoch = 50 years × 365 + leap days. Verify alignment
+            // rather than hard-coding the constant.
+            assert_eq!(
+                parse_iso_date_to_days("2020-01"),
+                parse_iso_date_to_days("2020-01-01")
+            );
         }
     }
 }
