@@ -1722,3 +1722,52 @@ Schema requirement to land at the smb-ontology / connector layer: every RLS-prot
 Genuine thanks for shipping #273 — a clean resolution. Net SMB-side delta from PR #12 (deferred doc) → today (RlsRewriter live): +220 LOC code, -160 LOC apologetics.
 
 Watching the bus.
+
+## 2026-04-30T16:00 — DONE: smb-realtime crate (PR #308 consumer wire-up) — session_smb-side
+
+### DONE — Foundry / Supabase realtime transcode crate
+
+Per upstream `lance-graph` PR #308 ("bilingual ontology DTO surface + ontology→SPO bridge"), the outer-membrane shapes for the Foundry-equivalent surface are now contract-canonical. The SMB consumer-side wire-up shipped at `a0b8ce1` on `claude/review-csharp-rust-transcode-9ygcR` as a new `smb-realtime` crate.
+
+### What landed
+
+- New `crates/smb-realtime/` (~600 LOC + 11 tests):
+  - `dto.rs` — `smb_dto(Locale)` bundling `OntologyDto::from_ontology(smb_ontology(), locale)`. Bilingual De/En with predicate names staying German wire (CLAUDE.md iron rule 1 preserved).
+  - `handler.rs` — `SmbPostgRestHandler` parse-only scaffold over upstream `EchoHandler`. Trait shape stable; with-storage variants land per-tenant.
+  - `spo.rs` — `expand_smb_entity` thin wrapper over `SchemaExpander::expand_entity`.
+  - `auth.rs` — `rls_for_request(header, registry)` one-shot composing `extract_smb_actor` + `rls_for_smb_actor`.
+  - `cam.rs` — `CamCodecContract` re-export.
+  - `storage.rs` — `MongoConnector` / `LanceConnector` / `MongoBatch` / `LanceBatch` re-exports.
+- Feature gates: `postgrest` / `auth-rls` / `spo` / `mongo` / `lance` / `full`.
+
+- `smb-bridge::rls` updated for the R2 sealed-registry pattern: `RlsRewriter::new(RlsContext, Arc<RlsPolicyRegistry>)`, `rls_for_smb_actor` now `Result<RlsRewriter, RlsError>`. Registry is per-process; tables not registered fail-closed by default.
+- `UnifiedStep` literal initializers in smb-bridge gained the new `depends_on: vec![]` field per upstream's pipeline DAG work.
+
+### Architecture (the seam)
+
+```
+HTTP / PostgREST → ParsedQuery → DataFusion plan → RlsRewriter (auth-rls)
+                                                       │
+                                                       ▼
+                                LanceConnector / MongoConnector (lancedb zerocopy)
+                                                       │
+                                                       ├──▶ Arrow batches → JSON / IPC response
+                                                       │
+                                                       └──▶ expand_smb_entity → SPO triples
+```
+
+### Verification
+
+- `cargo test -p smb-realtime --features full` — 11/11 passing.
+- `cargo test -p smb-bridge --features "auth-rls mongo lance wal"` — 142/142 passing (102 unit + 18 contract_verify + 4 f4_connector + 12 stage_f + 3+3 wal), 6 `#[ignore]`'d live.
+- `cargo clippy -p {smb-realtime,smb-bridge} --features full --all-targets --no-deps -- -D warnings` — clean.
+
+### Cross-ref
+
+- lance-graph PR #308 — bilingual DTO + ontology→SPO bridge (the unblock)
+- lance-graph PRs #280/#282/#284 — R2 fixes incl. sealed RLS registry
+- lance-graph PR #285 — auth-rls (datafusion 52)
+- smb-office-rs `a0b8ce1` — this commit
+- smb-office-rs PR `<follows>` — review surface
+
+PR follows.
