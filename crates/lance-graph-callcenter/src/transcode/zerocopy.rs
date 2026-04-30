@@ -827,7 +827,11 @@ fn parse_iso_date_to_days(s: &str) -> Option<i32> {
             // Gregorian leap year: divisible by 4, except centuries
             // not divisible by 400. 1900 NOT leap. 2000 IS leap.
             let leap = (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;
-            if leap { 29 } else { 28 }
+            if leap {
+                29
+            } else {
+                28
+            }
         }
         _ => return None,
     };
