@@ -65,6 +65,13 @@ pub mod trajectory;
 pub mod markov_bundle;
 pub mod nsm_primes;
 
+// Loose-end-#2 closer (PR-G3): glue from MarkovBundler::role_bundle()
+// → ContextChain::disambiguate_with(.., DisambiguateOpts {
+// sentinel_fp }). Closes the "real fp" honesty gap by giving the
+// contract crate a caller that actually constructs a non-zero
+// `CrystalFingerprint::Binary16K` from an f32 trajectory bundle.
+pub mod disambiguator_glue;
+
 // PR #279 outlook epiphany E4 — Trajectory-as-statement-hash bridge to
 // PR #278 audit log. Converts grammatical structure to a 16384-bit
 // semantic hash key.
