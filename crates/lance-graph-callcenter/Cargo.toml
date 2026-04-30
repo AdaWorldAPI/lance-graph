@@ -27,6 +27,9 @@ tokio-tungstenite = { version = "0.24", optional = true }
 serde            = { version = "1", features = ["derive"], optional = true }
 serde_json       = { version = "1", optional = true }
 
+# [audit-log] — Lance-backed audit writer needs futures for stream collect
+futures      = { version = "0.3", optional = true }
+
 # [serve] — axum WS server (implies realtime + query)
 axum        = { version = "0.8", features = ["ws"], optional = true }
 tower-http  = { version = "0.5", features = ["cors"], optional = true }
@@ -43,7 +46,8 @@ auth-rls-lite = ["auth-jwt", "query-lite"]
 auth-rls = ["auth-jwt", "query"]
 auth     = ["auth-rls"]
 # LF-90 — append-only audit log skeleton (A3).
-audit-log = []
+# PR-F3: LanceAuditSink requires lance + arrow + futures + tokio for async I/O.
+audit-log = ["dep:arrow", "dep:lance", "dep:futures", "dep:tokio"]
 # A-fix-audit forward-stub: enables `audit_from_plan(...)` helper that captures
 # rewritten DataFusion LogicalPlans into AuditEntry. No-op alias today; will
 # pull in `dep:datafusion` once the helper has a concrete consumer.
