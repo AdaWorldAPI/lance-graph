@@ -16,7 +16,7 @@
 use crate::stacked::StackedBF16x4;
 // BASE_DIM and Base17 reserved for future PCDVQ-weighted distance
 #[allow(unused_imports)]
-use crate::projection::{BASE_DIM, Base17};
+use crate::projection::{Base17, BASE_DIM};
 
 /// A 12-bit codebook index: cluster(6) + entry(6) = 4096 entries.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -29,10 +29,14 @@ impl CodebookIndex {
     }
 
     #[inline]
-    pub fn cluster(self) -> u8 { (self.0 >> 6) as u8 }
+    pub fn cluster(self) -> u8 {
+        (self.0 >> 6) as u8
+    }
 
     #[inline]
-    pub fn entry(self) -> u8 { (self.0 & 0x3F) as u8 }
+    pub fn entry(self) -> u8 {
+        (self.0 & 0x3F) as u8
+    }
 }
 
 /// A single cluster: 64 stacked BF16×4 entries.
@@ -82,7 +86,10 @@ impl Codebook4096 {
         let k_entries = max_entries_per_cluster.min(64);
 
         if vectors.is_empty() {
-            return Codebook4096 { clusters: Vec::new(), total_entries: 0 };
+            return Codebook4096 {
+                clusters: Vec::new(),
+                total_entries: 0,
+            };
         }
 
         // Phase 1: Select 64 cluster centroids via furthest-point sampling
@@ -101,30 +108,35 @@ impl Codebook4096 {
 
         for (ci, centroid_idx) in centroid_indices.iter().enumerate() {
             let centroid = vectors[*centroid_idx].clone();
-            let cluster_vecs: Vec<&StackedBF16x4> = assignments[ci]
-                .iter()
-                .map(|&i| &vectors[i])
-                .collect();
+            let cluster_vecs: Vec<&StackedBF16x4> =
+                assignments[ci].iter().map(|&i| &vectors[i]).collect();
 
             let (entries, radius) = if cluster_vecs.len() <= k_entries {
                 // All fit → use them all
                 let mut max_r = 0u64;
-                let entries: Vec<StackedBF16x4> = cluster_vecs.iter().map(|v| {
-                    let d = centroid.full_distance(v);
-                    max_r = max_r.max(d);
-                    (*v).clone()
-                }).collect();
+                let entries: Vec<StackedBF16x4> = cluster_vecs
+                    .iter()
+                    .map(|v| {
+                        let d = centroid.full_distance(v);
+                        max_r = max_r.max(d);
+                        (*v).clone()
+                    })
+                    .collect();
                 (entries, max_r)
             } else {
                 // Subsample via furthest-point within cluster
-                let cluster_owned: Vec<StackedBF16x4> = cluster_vecs.iter().map(|v| (*v).clone()).collect();
+                let cluster_owned: Vec<StackedBF16x4> =
+                    cluster_vecs.iter().map(|v| (*v).clone()).collect();
                 let entry_indices = furthest_point_sampling(&cluster_owned, k_entries);
                 let mut max_r = 0u64;
-                let entries: Vec<StackedBF16x4> = entry_indices.iter().map(|&i| {
-                    let d = centroid.full_distance(&cluster_owned[i]);
-                    max_r = max_r.max(d);
-                    cluster_owned[i].clone()
-                }).collect();
+                let entries: Vec<StackedBF16x4> = entry_indices
+                    .iter()
+                    .map(|&i| {
+                        let d = centroid.full_distance(&cluster_owned[i]);
+                        max_r = max_r.max(d);
+                        cluster_owned[i].clone()
+                    })
+                    .collect();
                 (entries, max_r)
             };
 
@@ -137,7 +149,10 @@ impl Codebook4096 {
             });
         }
 
-        Codebook4096 { clusters, total_entries }
+        Codebook4096 {
+            clusters,
+            total_entries,
+        }
     }
 
     /// Two-level attend: find nearest codebook entry.
@@ -156,7 +171,9 @@ impl Codebook4096 {
         }
 
         // Level 1: find nearest cluster
-        let (best_cluster, cluster_dist) = self.clusters.iter()
+        let (best_cluster, cluster_dist) = self
+            .clusters
+            .iter()
             .enumerate()
             .map(|(i, c)| (i, query.full_distance(&c.centroid)))
             .min_by_key(|&(_, d)| d)
@@ -172,7 +189,9 @@ impl Codebook4096 {
             };
         }
 
-        let (best_entry, entry_dist) = cluster.entries.iter()
+        let (best_entry, entry_dist) = cluster
+            .entries
+            .iter()
             .enumerate()
             .map(|(i, e)| (i, query.full_distance(e)))
             .min_by_key(|&(_, d)| d)
@@ -213,15 +232,20 @@ impl Codebook4096 {
         let min_pop = populations.iter().min().copied().unwrap_or(0);
         let mean_pop = if n_clusters > 0 {
             populations.iter().sum::<usize>() as f64 / n_clusters as f64
-        } else { 0.0 };
+        } else {
+            0.0
+        };
 
         format!(
             "Codebook4096: {} clusters, {} entries, {:.1} KB\n\
              Population: min={}, max={}, mean={:.1}\n\
              Max radius: {}",
-            n_clusters, self.total_entries,
+            n_clusters,
+            self.total_entries,
             self.byte_size() as f64 / 1024.0,
-            min_pop, max_pop, mean_pop,
+            min_pop,
+            max_pop,
+            mean_pop,
             self.clusters.iter().map(|c| c.radius).max().unwrap_or(0),
         )
     }
@@ -232,7 +256,9 @@ impl Codebook4096 {
 /// Furthest-point sampling for k centroids.
 fn furthest_point_sampling(vectors: &[StackedBF16x4], k: usize) -> Vec<usize> {
     let k = k.min(vectors.len());
-    if k == 0 { return Vec::new(); }
+    if k == 0 {
+        return Vec::new();
+    }
 
     let mut selected = Vec::with_capacity(k);
     let mut min_dist = vec![u64::MAX; vectors.len()];
@@ -245,7 +271,8 @@ fn furthest_point_sampling(vectors: &[StackedBF16x4], k: usize) -> Vec<usize> {
 
     for _ in 1..k {
         // Select vector with maximum min_dist
-        let next = min_dist.iter()
+        let next = min_dist
+            .iter()
             .enumerate()
             .max_by_key(|&(_, &d)| d)
             .map(|(i, _)| i)
@@ -270,7 +297,8 @@ fn nearest_centroid(
     centroid_indices: &[usize],
     all_vectors: &[StackedBF16x4],
 ) -> (usize, u64) {
-    centroid_indices.iter()
+    centroid_indices
+        .iter()
         .enumerate()
         .map(|(ci, &vi)| (ci, query.full_distance(&all_vectors[vi])))
         .min_by_key(|&(_, d)| d)
@@ -282,12 +310,14 @@ mod tests {
     use super::*;
 
     fn make_stacked_vectors(n: usize) -> Vec<StackedBF16x4> {
-        (0..n).map(|i| {
-            let vals: Vec<f32> = (0..68).map(|d| {
-                ((i * 97 + d * 31) as f32 % 100.0) - 50.0
-            }).collect();
-            StackedBF16x4::from_f32(&vals)
-        }).collect()
+        (0..n)
+            .map(|i| {
+                let vals: Vec<f32> = (0..68)
+                    .map(|d| ((i * 97 + d * 31) as f32 % 100.0) - 50.0)
+                    .collect();
+                StackedBF16x4::from_f32(&vals)
+            })
+            .collect()
     }
 
     #[test]

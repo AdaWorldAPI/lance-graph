@@ -89,7 +89,10 @@ impl ZipperDescriptor {
 
         // Magnitude stream: MAG_ACTIVE_SAMPLES i8 samples at φ²-stride.
         // Per-row max-abs normalizes magnitudes into [-127, 127].
-        let max_abs = rotated.iter().fold(0.0_f32, |m, &x| m.max(x.abs())).max(1e-20);
+        let max_abs = rotated
+            .iter()
+            .fold(0.0_f32, |m, &x| m.max(x.abs()))
+            .max(1e-20);
         let scale = 127.0 / max_abs;
 
         let mut mag_samples = [0i8; MAG_ACTIVE_SAMPLES];
@@ -100,7 +103,10 @@ impl ZipperDescriptor {
             mag_samples[i] = q as i8;
         }
 
-        Self { phase_bits, mag_samples }
+        Self {
+            phase_bits,
+            mag_samples,
+        }
     }
 
     /// Phase-only similarity — matryoshka truncation level 0.
@@ -124,7 +130,11 @@ impl ZipperDescriptor {
             nb += b * b;
         }
         let d = (na * nb).sqrt();
-        if d < 1e-15 { 0.0 } else { dot / d }
+        if d < 1e-15 {
+            0.0
+        } else {
+            dot / d
+        }
     }
 
     /// Full zipper similarity — matryoshka truncation level 1.
@@ -133,7 +143,6 @@ impl ZipperDescriptor {
     pub fn cosine_zipper_full(&self, other: &Self) -> f32 {
         0.5 * self.cosine_phase_only(other) + 0.5 * self.cosine_magnitude_only(other)
     }
-
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -172,19 +181,25 @@ impl ZipperI8Descriptor {
         };
 
         // Per-row max-abs for normalization to [-1, 1].
-        let max_abs = rotated.iter().fold(0.0_f32, |m, &x| m.max(x.abs())).max(1e-20);
+        let max_abs = rotated
+            .iter()
+            .fold(0.0_f32, |m, &x| m.max(x.abs()))
+            .max(1e-20);
 
         let mut samples = Vec::with_capacity(k);
         for i in 0..k {
             let frac = ((i + 1) as f64 * stride_frac) % 1.0;
             let pos = (frac * n as f64) as usize % n;
             let x = rotated[pos] / max_abs; // normalized to [-1, 1]
-            // μ-law companding (gamma correction).
+                                            // μ-law companding (gamma correction).
             let compressed = mu_law_encode(x);
             samples.push(compressed);
         }
 
-        Self { samples, stride_kind }
+        Self {
+            samples,
+            stride_kind,
+        }
     }
 
     /// Cosine similarity between two I8 descriptors.
@@ -201,10 +216,16 @@ impl ZipperI8Descriptor {
             nb += b * b;
         }
         let d = (na * nb).sqrt();
-        if d < 1e-15 { 0.0 } else { dot / d }
+        if d < 1e-15 {
+            0.0
+        } else {
+            dot / d
+        }
     }
 
-    pub fn bytes_per_row(&self) -> usize { self.samples.len() }
+    pub fn bytes_per_row(&self) -> usize {
+        self.samples.len()
+    }
 }
 
 /// μ-law encode: x ∈ [-1, 1] → i8 with gamma-concentrated precision.
@@ -265,15 +286,24 @@ impl Zipper5LevelDescriptor {
             let pos = (frac * n as f64) as usize % n;
             let normalized = rotated[pos] / global_scale;
             // 5-level signed quantization via thresholds at {-1.5, -0.5, 0.5, 1.5}
-            let q = if normalized < -1.5 { -2 }
-                    else if normalized < -0.5 { -1 }
-                    else if normalized <= 0.5 { 0 }
-                    else if normalized <= 1.5 { 1 }
-                    else { 2 };
+            let q = if normalized < -1.5 {
+                -2
+            } else if normalized < -0.5 {
+                -1
+            } else if normalized <= 0.5 {
+                0
+            } else if normalized <= 1.5 {
+                1
+            } else {
+                2
+            };
             samples.push(q as i8);
         }
 
-        Self { samples, stride_kind }
+        Self {
+            samples,
+            stride_kind,
+        }
     }
 
     /// Compute population-global scale: median of per-row max-abs,
@@ -286,7 +316,9 @@ impl Zipper5LevelDescriptor {
             // Pad to pow2 if needed
             if !n.is_power_of_two() {
                 let mut p = 1usize;
-                while p < n { p <<= 1; }
+                while p < n {
+                    p <<= 1;
+                }
                 rotated.resize(p, 0.0);
             }
             wht_f32(&mut rotated);
@@ -315,7 +347,11 @@ impl Zipper5LevelDescriptor {
             nb += b * b;
         }
         let d = (na * nb).sqrt();
-        if d < 1e-15 { 0.0 } else { dot / d }
+        if d < 1e-15 {
+            0.0
+        } else {
+            dot / d
+        }
     }
 
     /// VSA-style bundle with signed accumulation and saturation at ±2.
@@ -327,7 +363,10 @@ impl Zipper5LevelDescriptor {
             let sum = self.samples[i] as i16 + other.samples[i] as i16;
             samples.push(sum.clamp(-2, 2) as i8);
         }
-        Self { samples, stride_kind: self.stride_kind }
+        Self {
+            samples,
+            stride_kind: self.stride_kind,
+        }
     }
 
     pub fn bytes_per_row(k: usize) -> usize {
@@ -369,17 +408,28 @@ impl Zipper7LevelDescriptor {
             let pos = (frac * n as f64) as usize % n;
             let normalized = rotated[pos] / global_scale;
             // 7-level signed quantization: thresholds at {±0.5, ±1.5, ±2.5}
-            let q = if normalized < -2.5 { -3 }
-                    else if normalized < -1.5 { -2 }
-                    else if normalized < -0.5 { -1 }
-                    else if normalized <= 0.5 { 0 }
-                    else if normalized <= 1.5 { 1 }
-                    else if normalized <= 2.5 { 2 }
-                    else { 3 };
+            let q = if normalized < -2.5 {
+                -3
+            } else if normalized < -1.5 {
+                -2
+            } else if normalized < -0.5 {
+                -1
+            } else if normalized <= 0.5 {
+                0
+            } else if normalized <= 1.5 {
+                1
+            } else if normalized <= 2.5 {
+                2
+            } else {
+                3
+            };
             samples.push(q as i8);
         }
 
-        Self { samples, stride_kind }
+        Self {
+            samples,
+            stride_kind,
+        }
     }
 
     pub fn cosine(&self, other: &Self) -> f32 {
@@ -395,7 +445,11 @@ impl Zipper7LevelDescriptor {
             nb += b * b;
         }
         let d = (na * nb).sqrt();
-        if d < 1e-15 { 0.0 } else { dot / d }
+        if d < 1e-15 {
+            0.0
+        } else {
+            dot / d
+        }
     }
 
     pub fn bundle(&self, other: &Self) -> Self {
@@ -405,7 +459,10 @@ impl Zipper7LevelDescriptor {
             let sum = self.samples[i] as i16 + other.samples[i] as i16;
             samples.push(sum.clamp(-3, 3) as i8);
         }
-        Self { samples, stride_kind: self.stride_kind }
+        Self {
+            samples,
+            stride_kind: self.stride_kind,
+        }
     }
 }
 
@@ -421,14 +478,16 @@ impl ZipperDescriptor {
 
     pub fn unpack(bytes: [u8; ZIPPER_BYTES]) -> Self {
         let phase_bits = u64::from_le_bytes([
-            bytes[0], bytes[1], bytes[2], bytes[3],
-            bytes[4], bytes[5], bytes[6], bytes[7],
+            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
         ]);
         let mut mag_samples = [0i8; MAG_ACTIVE_SAMPLES];
         for i in 0..MAG_ACTIVE_SAMPLES {
             mag_samples[i] = bytes[8 + i] as i8;
         }
-        Self { phase_bits, mag_samples }
+        Self {
+            phase_bits,
+            mag_samples,
+        }
     }
 }
 
@@ -440,7 +499,9 @@ mod tests {
         let mut state = seed;
         (0..n)
             .map(|_| {
-                state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+                state = state
+                    .wrapping_mul(6364136223846793005)
+                    .wrapping_add(1442695040888963407);
                 ((state >> 32) as i32 as f32) / i32::MAX as f32 * scale
             })
             .collect()
@@ -494,7 +555,10 @@ mod tests {
         // Phase bits all flip → agreement → -1.
         assert!(phase < -0.95, "flipped row should give ~-1 phase: {phase}");
         // Magnitude samples all negate → cosine → -1 (sign-inverted).
-        assert!(mag < -0.95, "flipped row should give ~-1 magnitude cosine: {mag}");
+        assert!(
+            mag < -0.95,
+            "flipped row should give ~-1 magnitude cosine: {mag}"
+        );
     }
 
     #[test]

@@ -12,8 +12,12 @@ use crate::PlanError;
 pub struct WorkflowDAG;
 
 impl PlanStrategy for WorkflowDAG {
-    fn name(&self) -> &str { "workflow_dag" }
-    fn capability(&self) -> PlanCapability { PlanCapability::WorkflowOrchestration }
+    fn name(&self) -> &str {
+        "workflow_dag"
+    }
+    fn capability(&self) -> PlanCapability {
+        PlanCapability::WorkflowOrchestration
+    }
 
     fn affinity(&self, context: &PlanContext) -> f32 {
         if context.features.has_workflow {
@@ -23,7 +27,11 @@ impl PlanStrategy for WorkflowDAG {
         }
     }
 
-    fn plan(&self, input: PlanInput, _arena: &mut Arena<LogicalOp>) -> Result<PlanInput, PlanError> {
+    fn plan(
+        &self,
+        input: PlanInput,
+        _arena: &mut Arena<LogicalOp>,
+    ) -> Result<PlanInput, PlanError> {
         // In full implementation:
         // 1. Parse workflow task declarations from query
         // 2. Build task dependency graph (just another graph pattern)

@@ -111,22 +111,22 @@ impl ExternalIntent {
 pub struct CognitiveEventRow {
     // ── Identity columns (§ 4 schema, § 10.11 metadata address bus) ──
     pub external_role: u8,
-    pub faculty_role:  u8,
-    pub expert_id:     u16,
-    pub dialect:       u8, // Phase B: set by polyglot front-end parser
-    pub scent:         u8, // Phase C: full ZeckBF17→Base17→CAM-PQ chain
+    pub faculty_role: u8,
+    pub expert_id: u16,
+    pub dialect: u8, // Phase B: set by polyglot front-end parser
+    pub scent: u8,   // Phase C: full ZeckBF17→Base17→CAM-PQ chain
     // ── MetaWord fields ──
-    pub thinking:  u8,
+    pub thinking: u8,
     pub awareness: u8,
-    pub nars_f:    u8,
-    pub nars_c:    u8,
-    pub free_e:    u8,
+    pub nars_f: u8,
+    pub nars_c: u8,
+    pub free_e: u8,
     // ── Cycle identity (NOT the full 2 KB fingerprint) ──
     pub cycle_fp_hi: u64, // fingerprint[0]   — first word of cycle signature
     pub cycle_fp_lo: u64, // fingerprint[255]  — last word of cycle signature
     // ── Gate outcome ──
     pub gate_commit: bool, // true = F < 0.2 (Flow); false = Hold or Block
-    pub gate_f:      u8,   // free_e at gate time (for SQL filter `WHERE gate_f < 50`)
+    pub gate_f: u8,        // free_e at gate time (for SQL filter `WHERE gate_f < 50`)
     // ── MM-CoT stage (DU-4, plan unified-integration-v1.md § DU-4) ──
     pub rationale_phase: bool, // Phase B: true = inbound_style stage (rationale)
 }

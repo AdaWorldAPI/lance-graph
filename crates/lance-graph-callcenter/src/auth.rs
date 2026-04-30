@@ -188,8 +188,7 @@ fn base64url_decode(input: &str) -> Result<Vec<u8>, AuthError> {
 /// Encode bytes as base64url without padding (for test helpers).
 #[cfg(test)]
 fn base64url_encode(input: &[u8]) -> String {
-    const ALPHABET: &[u8; 64] =
-        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 
     let mut out = String::with_capacity((input.len() + 2) / 3 * 4);
 

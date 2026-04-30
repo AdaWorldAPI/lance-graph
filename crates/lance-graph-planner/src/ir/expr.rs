@@ -10,10 +10,7 @@ pub struct ExprNode(pub Node);
 #[derive(Debug, Clone)]
 pub enum AExpr {
     /// Column reference: variable.property
-    Column {
-        variable: String,
-        property: String,
-    },
+    Column { variable: String, property: String },
 
     /// Literal value.
     Literal(Literal),
@@ -26,16 +23,10 @@ pub enum AExpr {
     },
 
     /// Unary operation.
-    UnaryOp {
-        op: UnaryOp,
-        input: ExprNode,
-    },
+    UnaryOp { op: UnaryOp, input: ExprNode },
 
     /// Function call.
-    Function {
-        name: String,
-        args: Vec<ExprNode>,
-    },
+    Function { name: String, args: Vec<ExprNode> },
 
     /// RESONATE(fingerprint, query, threshold) — first-class resonance query.
     Resonate {
@@ -45,22 +36,13 @@ pub enum AExpr {
     },
 
     /// Hamming distance between two fingerprints.
-    HammingDistance {
-        left: ExprNode,
-        right: ExprNode,
-    },
+    HammingDistance { left: ExprNode, right: ExprNode },
 
     /// NARS truth value expression.
-    TruthValue {
-        frequency: f64,
-        confidence: f64,
-    },
+    TruthValue { frequency: f64, confidence: f64 },
 
     /// Cast expression.
-    Cast {
-        input: ExprNode,
-        to_type: DataType,
-    },
+    Cast { input: ExprNode, to_type: DataType },
 
     /// CASE WHEN ... THEN ... ELSE ... END
     Case {
@@ -69,17 +51,13 @@ pub enum AExpr {
     },
 
     /// Exists subquery.
-    Exists {
-        subquery: Node,
-    },
+    Exists { subquery: Node },
 
     /// Wildcard (*) — expanded during binding.
     Wildcard,
 
     /// Parameter placeholder ($name).
-    Parameter {
-        name: String,
-    },
+    Parameter { name: String },
 }
 
 /// Literal values.

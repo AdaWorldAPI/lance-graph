@@ -8,8 +8,12 @@ use crate::PlanError;
 pub struct HistogramCost;
 
 impl PlanStrategy for HistogramCost {
-    fn name(&self) -> &str { "histogram_cost" }
-    fn capability(&self) -> PlanCapability { PlanCapability::CostEstimation }
+    fn name(&self) -> &str {
+        "histogram_cost"
+    }
+    fn capability(&self) -> PlanCapability {
+        PlanCapability::CostEstimation
+    }
 
     fn affinity(&self, context: &PlanContext) -> f32 {
         // Higher affinity for complex queries where cost estimation matters
@@ -22,7 +26,11 @@ impl PlanStrategy for HistogramCost {
         }
     }
 
-    fn plan(&self, input: PlanInput, _arena: &mut Arena<LogicalOp>) -> Result<PlanInput, PlanError> {
+    fn plan(
+        &self,
+        input: PlanInput,
+        _arena: &mut Arena<LogicalOp>,
+    ) -> Result<PlanInput, PlanError> {
         // In full implementation: walk the plan tree, estimate cardinality
         // at each node using per-column histograms, min/max filters,
         // and extension rate statistics from the graph catalog.

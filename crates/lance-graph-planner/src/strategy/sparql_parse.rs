@@ -20,9 +20,9 @@
 //! | `?s :path+ ?o`                    | RecursiveExtend (property path)            |
 //! | `PREFIX : <...>`                  | (namespace resolution)                     |
 
-use crate::ir::{Arena, LogicalOp, LogicalPlan, Node, AExpr, ExprNode};
-use crate::ir::logical_op::{Direction, JoinType, AggFunction, AggregateExpr, SortKey};
-use crate::ir::expr::{Literal, BinaryOp};
+use crate::ir::expr::{BinaryOp, Literal};
+use crate::ir::logical_op::{AggFunction, AggregateExpr, Direction, JoinType, SortKey};
+use crate::ir::{AExpr, Arena, ExprNode, LogicalOp, LogicalPlan, Node};
 use crate::traits::*;
 use crate::PlanError;
 
@@ -32,12 +32,20 @@ use std::collections::HashMap;
 pub struct SparqlParse;
 
 impl PlanStrategy for SparqlParse {
-    fn name(&self) -> &str { "sparql_parse" }
-    fn capability(&self) -> PlanCapability { PlanCapability::Parse }
+    fn name(&self) -> &str {
+        "sparql_parse"
+    }
+    fn capability(&self) -> PlanCapability {
+        PlanCapability::Parse
+    }
 
     fn affinity(&self, context: &PlanContext) -> f32 {
         let q = context.query.to_uppercase();
-        if q.contains("PREFIX ") || q.contains("SELECT ?") || q.contains("CONSTRUCT ") || q.contains("ASK ") {
+        if q.contains("PREFIX ")
+            || q.contains("SELECT ?")
+            || q.contains("CONSTRUCT ")
+            || q.contains("ASK ")
+        {
             0.95
         } else if q.contains("WHERE {") || q.contains("OPTIONAL {") {
             0.80
@@ -46,7 +54,11 @@ impl PlanStrategy for SparqlParse {
         }
     }
 
-    fn plan(&self, mut input: PlanInput, arena: &mut Arena<LogicalOp>) -> Result<PlanInput, PlanError> {
+    fn plan(
+        &self,
+        mut input: PlanInput,
+        arena: &mut Arena<LogicalOp>,
+    ) -> Result<PlanInput, PlanError> {
         let source = input.context.query.clone();
         let query = parse_sparql(&source)?;
 
@@ -61,7 +73,11 @@ impl PlanStrategy for SparqlParse {
 
         for pattern in &query.where_patterns {
             match pattern {
-                SparqlPattern::Triple { subject, predicate, object } => {
+                SparqlPattern::Triple {
+                    subject,
+                    predicate,
+                    object,
+                } => {
                     // rdf:type → ScanNode with label
                     if predicate == "rdf:type" || predicate == "a" || predicate.ends_with("#type") {
                         let label = extract_local_name(object);
@@ -99,9 +115,7 @@ impl PlanStrategy for SparqlParse {
                             variable: var,
                             property: prop,
                         });
-                        let lit = expr_arena.push(AExpr::Literal(
-                            parse_sparql_literal(object),
-                        ));
+                        let lit = expr_arena.push(AExpr::Literal(parse_sparql_literal(object)));
                         let pred = expr_arena.push(AExpr::BinaryOp {
                             left: ExprNode(col),
                             op: BinaryOp::Eq,
@@ -192,7 +206,11 @@ impl PlanStrategy for SparqlParse {
                     }
                 }
 
-                SparqlPattern::PropertyPath { subject, path, object } => {
+                SparqlPattern::PropertyPath {
+                    subject,
+                    path,
+                    object,
+                } => {
                     let src_var = var_name(subject);
                     let dst_var = var_name(object);
 
@@ -258,18 +276,25 @@ impl PlanStrategy for SparqlParse {
         // Add ORDER BY
         if !query.order_by.is_empty() {
             if let Some(node) = current_node {
-                let sort_keys: Vec<SortKey> = query.order_by.iter().map(|(var, asc)| {
-                    let col = expr_arena.push(AExpr::Column {
-                        variable: var.clone(),
-                        property: "*".to_string(),
-                    });
-                    SortKey {
-                        expr: ExprNode(col),
-                        ascending: *asc,
-                        nulls_first: false,
-                    }
-                }).collect();
-                let order = LogicalOp::OrderBy { input: node, sort_keys };
+                let sort_keys: Vec<SortKey> = query
+                    .order_by
+                    .iter()
+                    .map(|(var, asc)| {
+                        let col = expr_arena.push(AExpr::Column {
+                            variable: var.clone(),
+                            property: "*".to_string(),
+                        });
+                        SortKey {
+                            expr: ExprNode(col),
+                            ascending: *asc,
+                            nulls_first: false,
+                        }
+                    })
+                    .collect();
+                let order = LogicalOp::OrderBy {
+                    input: node,
+                    sort_keys,
+                };
                 current_node = Some(arena.push(order));
             }
         }
@@ -292,16 +317,23 @@ impl PlanStrategy for SparqlParse {
                 let w = expr_arena.push(AExpr::Wildcard);
                 vec![ExprNode(w)]
             } else {
-                query.select_vars.iter().map(|var| {
-                    let col = expr_arena.push(AExpr::Column {
-                        variable: var.clone(),
-                        property: "*".to_string(),
-                    });
-                    ExprNode(col)
-                }).collect()
+                query
+                    .select_vars
+                    .iter()
+                    .map(|var| {
+                        let col = expr_arena.push(AExpr::Column {
+                            variable: var.clone(),
+                            property: "*".to_string(),
+                        });
+                        ExprNode(col)
+                    })
+                    .collect()
             };
 
-            let ret = LogicalOp::Return { input: node, columns };
+            let ret = LogicalOp::Return {
+                input: node,
+                columns,
+            };
             let root = arena.push(ret);
 
             input.plan = Some(LogicalPlan {
@@ -316,8 +348,12 @@ impl PlanStrategy for SparqlParse {
 
         // Complexity
         let mut complexity = input.context.features.num_match_clauses as f64 * 0.2;
-        if input.context.features.has_variable_length_path { complexity += 0.3; }
-        if input.context.features.has_aggregation { complexity += 0.1; }
+        if input.context.features.has_variable_length_path {
+            complexity += 0.3;
+        }
+        if input.context.features.has_aggregation {
+            complexity += 0.1;
+        }
         input.context.features.estimated_complexity = complexity.min(1.0);
 
         Ok(input)
@@ -350,11 +386,19 @@ struct SparqlAggregate {
 
 #[derive(Debug)]
 enum SparqlPattern {
-    Triple { subject: String, predicate: String, object: String },
+    Triple {
+        subject: String,
+        predicate: String,
+        object: String,
+    },
     Optional(Vec<SparqlPattern>),
     Union(Vec<SparqlPattern>, Vec<SparqlPattern>),
     Filter(String),
-    PropertyPath { subject: String, path: String, object: String },
+    PropertyPath {
+        subject: String,
+        path: String,
+        object: String,
+    },
 }
 
 fn parse_sparql(source: &str) -> Result<SparqlQuery, PlanError> {
@@ -382,7 +426,8 @@ fn parse_sparql(source: &str) -> Result<SparqlQuery, PlanError> {
             let rest = trimmed[6..].trim();
             if let Some(colon_pos) = rest.find(':') {
                 let prefix = rest[..colon_pos].trim().to_string();
-                let uri = rest[colon_pos + 1..].trim()
+                let uri = rest[colon_pos + 1..]
+                    .trim()
                     .trim_start_matches('<')
                     .trim_end_matches('>')
                     .trim()
@@ -424,8 +469,12 @@ fn parse_sparql(source: &str) -> Result<SparqlQuery, PlanError> {
                     let mut depth = 1;
                     i += 1;
                     while i < chars.len() && depth > 0 {
-                        if chars[i] == '(' { depth += 1; }
-                        if chars[i] == ')' { depth -= 1; }
+                        if chars[i] == '(' {
+                            depth += 1;
+                        }
+                        if chars[i] == ')' {
+                            depth -= 1;
+                        }
                         i += 1;
                     }
                     let agg_str = &select_clause[start..i];
@@ -454,7 +503,9 @@ fn parse_sparql(source: &str) -> Result<SparqlQuery, PlanError> {
                     b'}' => depth -= 1,
                     _ => {}
                 }
-                if depth > 0 { end += 1; }
+                if depth > 0 {
+                    end += 1;
+                }
             }
 
             let body = &full[start..end];
@@ -465,7 +516,9 @@ fn parse_sparql(source: &str) -> Result<SparqlQuery, PlanError> {
     // Parse ORDER BY
     if let Some(order_pos) = upper.find("ORDER BY") {
         let rest = &full[order_pos + 8..];
-        let end = rest.to_uppercase().find("LIMIT")
+        let end = rest
+            .to_uppercase()
+            .find("LIMIT")
             .or_else(|| rest.to_uppercase().find("OFFSET"))
             .unwrap_or(rest.len());
         let order_clause = rest[..end].trim();
@@ -485,13 +538,21 @@ fn parse_sparql(source: &str) -> Result<SparqlQuery, PlanError> {
     // Parse LIMIT / OFFSET
     if let Some(limit_pos) = upper.find("LIMIT") {
         let rest = upper[limit_pos + 5..].trim();
-        if let Some(n) = rest.split_whitespace().next().and_then(|s| s.parse::<usize>().ok()) {
+        if let Some(n) = rest
+            .split_whitespace()
+            .next()
+            .and_then(|s| s.parse::<usize>().ok())
+        {
             query.limit = Some(n);
         }
     }
     if let Some(offset_pos) = upper.find("OFFSET") {
         let rest = upper[offset_pos + 6..].trim();
-        if let Some(n) = rest.split_whitespace().next().and_then(|s| s.parse::<usize>().ok()) {
+        if let Some(n) = rest
+            .split_whitespace()
+            .next()
+            .and_then(|s| s.parse::<usize>().ok())
+        {
             query.offset = Some(n);
         }
     }
@@ -519,7 +580,8 @@ fn parse_sparql_body(body: &str) -> Vec<SparqlPattern> {
                 patterns.push(SparqlPattern::Optional(inner_patterns));
             }
         } else if su.starts_with("FILTER") {
-            let expr = s[6..].trim()
+            let expr = s[6..]
+                .trim()
                 .trim_start_matches('(')
                 .trim_end_matches(')')
                 .to_string();
@@ -561,8 +623,14 @@ fn split_sparql_statements(body: &str) -> Vec<String> {
 
     for ch in body.chars() {
         match ch {
-            '{' => { depth += 1; current.push(ch); }
-            '}' => { depth -= 1; current.push(ch); }
+            '{' => {
+                depth += 1;
+                current.push(ch);
+            }
+            '}' => {
+                depth -= 1;
+                current.push(ch);
+            }
             '.' if depth == 0 => {
                 let trimmed = current.trim().to_string();
                 if !trimmed.is_empty() {
@@ -589,9 +657,18 @@ fn split_triple(s: &str) -> Vec<String> {
 
     for ch in s.chars() {
         match ch {
-            '<' if !in_string => { in_uri = true; current.push(ch); }
-            '>' if in_uri => { in_uri = false; current.push(ch); }
-            '"' => { in_string = !in_string; current.push(ch); }
+            '<' if !in_string => {
+                in_uri = true;
+                current.push(ch);
+            }
+            '>' if in_uri => {
+                in_uri = false;
+                current.push(ch);
+            }
+            '"' => {
+                in_string = !in_string;
+                current.push(ch);
+            }
             ' ' | '\t' if !in_uri && !in_string => {
                 let trimmed = current.trim().to_string();
                 if !trimmed.is_empty() {
@@ -636,7 +713,9 @@ fn parse_sparql_aggregate(s: &str) -> Option<SparqlAggregate> {
 
     let alias = if let Some(as_pos) = upper.find(" AS ") {
         let rest = inner[as_pos + 4..].trim();
-        rest.trim_start_matches('?').trim_start_matches('$').to_string()
+        rest.trim_start_matches('?')
+            .trim_start_matches('$')
+            .to_string()
     } else {
         "agg".to_string()
     };
@@ -669,7 +748,9 @@ fn is_variable(s: &str) -> bool {
 }
 
 fn var_name(s: &str) -> String {
-    s.trim_start_matches('?').trim_start_matches('$').to_string()
+    s.trim_start_matches('?')
+        .trim_start_matches('$')
+        .to_string()
 }
 
 fn extract_local_name(uri: &str) -> String {
@@ -678,7 +759,9 @@ fn extract_local_name(uri: &str) -> String {
     // :Person → Person
     let stripped = stripped.trim_start_matches(':');
     // Try fragment (#), then path (/), then prefix (:)
-    stripped.rsplit_once('#').map(|(_, local)| local)
+    stripped
+        .rsplit_once('#')
+        .map(|(_, local)| local)
         .or_else(|| stripped.rsplit_once('/').map(|(_, local)| local))
         .or_else(|| stripped.rsplit_once(':').map(|(_, local)| local))
         .unwrap_or(stripped)
@@ -707,9 +790,12 @@ fn parse_sparql_filter_expr(expr: &str, expr_arena: &mut Arena<AExpr>) -> ExprNo
 
     // Try to parse as comparison
     for (op_str, op) in &[
-        (">=", BinaryOp::Gte), ("<=", BinaryOp::Lte),
-        ("!=", BinaryOp::Neq), ("=", BinaryOp::Eq),
-        (">", BinaryOp::Gt), ("<", BinaryOp::Lt),
+        (">=", BinaryOp::Gte),
+        ("<=", BinaryOp::Lte),
+        ("!=", BinaryOp::Neq),
+        ("=", BinaryOp::Eq),
+        (">", BinaryOp::Gt),
+        ("<", BinaryOp::Lt),
     ] {
         if let Some(pos) = trimmed.find(op_str) {
             let left_str = trimmed[..pos].trim();
@@ -798,17 +884,18 @@ mod tests {
 
     #[test]
     fn test_parse_sparql_with_filter() {
-        let query = parse_sparql(
-            "SELECT ?s WHERE { ?s :age ?age . FILTER (?age > 30) }"
-        ).unwrap();
-        assert!(query.where_patterns.iter().any(|p| matches!(p, SparqlPattern::Filter(_))));
+        let query = parse_sparql("SELECT ?s WHERE { ?s :age ?age . FILTER (?age > 30) }").unwrap();
+        assert!(query
+            .where_patterns
+            .iter()
+            .any(|p| matches!(p, SparqlPattern::Filter(_))));
     }
 
     #[test]
     fn test_parse_sparql_with_limit() {
-        let query = parse_sparql(
-            "SELECT ?s WHERE { ?s rdf:type :System } ORDER BY ?s LIMIT 10 OFFSET 5"
-        ).unwrap();
+        let query =
+            parse_sparql("SELECT ?s WHERE { ?s rdf:type :System } ORDER BY ?s LIMIT 10 OFFSET 5")
+                .unwrap();
         assert_eq!(query.limit, Some(10));
         assert_eq!(query.offset, Some(5));
         assert_eq!(query.order_by.len(), 1);
@@ -856,9 +943,8 @@ mod tests {
 
     #[test]
     fn test_sparql_aggregate() {
-        let query = parse_sparql(
-            "SELECT (COUNT(?s) AS ?count) WHERE { ?s rdf:type :System }"
-        ).unwrap();
+        let query =
+            parse_sparql("SELECT (COUNT(?s) AS ?count) WHERE { ?s rdf:type :System }").unwrap();
         assert_eq!(query.aggregates.len(), 1);
         assert_eq!(query.aggregates[0].function, "COUNT");
         assert_eq!(query.aggregates[0].alias, "count");

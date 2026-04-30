@@ -197,7 +197,10 @@ impl MulAssessment {
             input.demonstrated_competence,
             composite_trust,
         );
-        let trust = TrustQualia { value: composite_trust, texture: trust_texture };
+        let trust = TrustQualia {
+            value: composite_trust,
+            texture: trust_texture,
+        };
 
         // Phase 1: Dunning-Kruger position (felt vs demonstrated competence).
         let dk_position = dk_from(input.felt_competence, input.demonstrated_competence);
@@ -214,10 +217,10 @@ impl MulAssessment {
 
         // Phase 4: Free-will modifier (multiplicative humility chain).
         let dk_factor = match dk_position {
-            DkPosition::MountStupid          => 0.3,
-            DkPosition::ValleyOfDespair      => 0.7,
+            DkPosition::MountStupid => 0.3,
+            DkPosition::ValleyOfDespair => 0.7,
             DkPosition::SlopeOfEnlightenment => 0.85,
-            DkPosition::Plateau              => 1.0,
+            DkPosition::Plateau => 1.0,
         };
         let trust_factor = composite_trust;
         let complexity_factor = if complexity_mapped {
@@ -225,18 +228,28 @@ impl MulAssessment {
         } else {
             0.4
         };
-        let load_penalty = if input.allostatic_load > 0.7 { 0.3 } else { 1.0 };
+        let load_penalty = if input.allostatic_load > 0.7 {
+            0.3
+        } else {
+            1.0
+        };
         let flow_factor = match flow_state {
-            FlowState::Flow       => 1.0,
-            FlowState::Anxiety    => 0.6,
-            FlowState::Boredom    => 0.8,
+            FlowState::Flow => 1.0,
+            FlowState::Anxiety => 0.6,
+            FlowState::Boredom => 0.8,
             FlowState::Transition => 0.7,
         } * load_penalty;
 
         let free_will_modifier =
             (dk_factor * trust_factor * complexity_factor * flow_factor).clamp(0.0, 1.0);
 
-        Self { trust, dk_position, homeostasis, complexity_mapped, free_will_modifier }
+        Self {
+            trust,
+            dk_position,
+            homeostasis,
+            complexity_mapped,
+            free_will_modifier,
+        }
     }
 
     /// Whether the meta-uncertainty layer is signalling unskilled-overconfident:

@@ -3,9 +3,9 @@
 //! Sigma-band cascade: scan stroke columns first, progressive refinement.
 //! Cost model decides between Cascade/Full/Index strategies.
 
-use crate::ir::{Arena, LogicalOp};
 #[allow(unused_imports)] // intended for scan strategy selection wiring
 use crate::ir::logical_op::ScanStrategy;
+use crate::ir::{Arena, LogicalOp};
 use crate::traits::*;
 use crate::PlanError;
 
@@ -13,8 +13,12 @@ use crate::PlanError;
 pub struct SigmaBandScan;
 
 impl PlanStrategy for SigmaBandScan {
-    fn name(&self) -> &str { "sigma_scan" }
-    fn capability(&self) -> PlanCapability { PlanCapability::VectorScan }
+    fn name(&self) -> &str {
+        "sigma_scan"
+    }
+    fn capability(&self) -> PlanCapability {
+        PlanCapability::VectorScan
+    }
 
     fn affinity(&self, context: &PlanContext) -> f32 {
         if context.features.has_fingerprint_scan || context.features.has_resonance {
@@ -24,7 +28,11 @@ impl PlanStrategy for SigmaBandScan {
         }
     }
 
-    fn plan(&self, input: PlanInput, _arena: &mut Arena<LogicalOp>) -> Result<PlanInput, PlanError> {
+    fn plan(
+        &self,
+        input: PlanInput,
+        _arena: &mut Arena<LogicalOp>,
+    ) -> Result<PlanInput, PlanError> {
         // Choose scan strategy based on data characteristics:
         // - Cascade: best for selective queries (threshold < 30% of max distance)
         // - Full: best for broad queries or small datasets

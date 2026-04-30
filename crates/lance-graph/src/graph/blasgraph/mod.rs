@@ -23,9 +23,9 @@ pub mod blasgraph_planner;
 pub mod cascade_ops;
 pub mod clam_neighborhood;
 pub mod columnar;
+pub mod descriptor;
 pub mod hdr;
 pub mod heel_hip_twig_leaf;
-pub mod descriptor;
 pub mod lance_neighborhood;
 pub mod matrix;
 pub mod ndarray_bridge;
@@ -43,7 +43,9 @@ pub use descriptor::{Descriptor, GrBDesc};
 pub use matrix::GrBMatrix;
 pub use ops::*;
 pub use semiring::{HdrSemiring, Semiring};
-pub use sparse::{CooStorage, CscStorage, CsrStorage, HyperCsrStorage, SparseFormat, StorageFormat};
+pub use sparse::{
+    CooStorage, CscStorage, CsrStorage, HyperCsrStorage, SparseFormat, StorageFormat,
+};
 pub use types::*;
 pub use vector::GrBVector;
 

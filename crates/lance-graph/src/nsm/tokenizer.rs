@@ -181,10 +181,7 @@ impl Vocabulary {
     /// Construct a vocabulary from pre-built entries (for testing / embedding).
     ///
     /// Each entry is (word, rank, pos, freq). Forms is (inflected_form, base_rank).
-    pub fn from_entries(
-        entries: &[(&str, u16, PoS, u32)],
-        form_entries: &[(&str, u16)],
-    ) -> Self {
+    pub fn from_entries(entries: &[(&str, u16, PoS, u32)], form_entries: &[(&str, u16)]) -> Self {
         let mut words = HashMap::new();
         let mut max_rank: u16 = 0;
 
@@ -192,10 +189,7 @@ impl Vocabulary {
             if rank > max_rank {
                 max_rank = rank;
             }
-            words.insert(
-                word.to_lowercase(),
-                WordEntry { rank, pos, freq },
-            );
+            words.insert(word.to_lowercase(), WordEntry { rank, pos, freq });
         }
 
         let mut reverse = vec![String::new(); (max_rank as usize) + 1];

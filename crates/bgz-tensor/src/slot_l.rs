@@ -42,7 +42,9 @@ impl SlotL {
     pub const BYTE_SIZE: usize = SLOT_L_LANES;
 
     pub fn zero() -> Self {
-        SlotL { bytes: [0i8; SLOT_L_LANES] }
+        SlotL {
+            bytes: [0i8; SLOT_L_LANES],
+        }
     }
 
     pub fn to_le_bytes(&self) -> [u8; SLOT_L_LANES] {
@@ -80,8 +82,11 @@ pub fn encode_rows(
     basis: &SvdBasis,
 ) -> (Vec<SlotL>, f32) {
     debug_assert_eq!(rows_f32.len(), centroids_per_row.len());
-    debug_assert!(basis.n_components >= SLOT_L_LANES,
-        "SVD basis needs at least {} components for SlotL", SLOT_L_LANES);
+    debug_assert!(
+        basis.n_components >= SLOT_L_LANES,
+        "SVD basis needs at least {} components for SlotL",
+        SLOT_L_LANES
+    );
 
     // First pass: project all residuals, track max abs coefficient.
     let n = rows_f32.len();
@@ -97,24 +102,33 @@ pub fn encode_rows(
         for i in 0..SLOT_L_LANES.min(coeffs.len()) {
             arr[i] = coeffs[i];
             let a = arr[i].abs();
-            if a > max_abs { max_abs = a; }
+            if a > max_abs {
+                max_abs = a;
+            }
         }
         all_coeffs.push(arr);
     }
 
     // Scale so max-abs maps to ±127.
-    let scale = if max_abs > 1e-12 { max_abs / 127.0 } else { 1.0 };
+    let scale = if max_abs > 1e-12 {
+        max_abs / 127.0
+    } else {
+        1.0
+    };
     let inv_scale = 1.0 / scale;
 
     // Second pass: quantize.
-    let entries: Vec<SlotL> = all_coeffs.iter().map(|coeffs| {
-        let mut bytes = [0i8; SLOT_L_LANES];
-        for i in 0..SLOT_L_LANES {
-            let q = (coeffs[i] * inv_scale).round();
-            bytes[i] = q.clamp(-127.0, 127.0) as i8;
-        }
-        SlotL { bytes }
-    }).collect();
+    let entries: Vec<SlotL> = all_coeffs
+        .iter()
+        .map(|coeffs| {
+            let mut bytes = [0i8; SLOT_L_LANES];
+            for i in 0..SLOT_L_LANES {
+                let q = (coeffs[i] * inv_scale).round();
+                bytes[i] = q.clamp(-127.0, 127.0) as i8;
+            }
+            SlotL { bytes }
+        })
+        .collect();
 
     (entries, scale)
 }
@@ -135,7 +149,11 @@ pub fn decode_row(
     let residual = basis.reconstruct(&coeffs);
     let mut row = vec![0.0f32; n_cols];
     for i in 0..n_cols {
-        let c = if i < centroid_f32.len() { centroid_f32[i] } else { 0.0 };
+        let c = if i < centroid_f32.len() {
+            centroid_f32[i]
+        } else {
+            0.0
+        };
         let r = if i < residual.len() { residual[i] } else { 0.0 };
         row[i] = c + r;
     }
@@ -158,7 +176,9 @@ mod tests {
 
     #[test]
     fn slot_l_roundtrip() {
-        let entry = SlotL { bytes: [-128i8, -1, 0, 1, 42, 100, 127, -50] };
+        let entry = SlotL {
+            bytes: [-128i8, -1, 0, 1, 42, 100, 127, -50],
+        };
         let b = entry.to_le_bytes();
         let back = SlotL::from_le_bytes(&b);
         assert_eq!(entry, back);
@@ -180,16 +200,18 @@ mod tests {
             let atom: Vec<f32> = (0..cols).map(|_| next()).collect();
             atoms.push(atom);
         }
-        (0..n).map(|_| {
-            let mut row = vec![0.0f32; cols];
-            for atom in &atoms {
-                let w = next() * 0.5;
-                for j in 0..cols {
-                    row[j] += atom[j] * w;
+        (0..n)
+            .map(|_| {
+                let mut row = vec![0.0f32; cols];
+                for atom in &atoms {
+                    let w = next() * 0.5;
+                    for j in 0..cols {
+                        row[j] += atom[j] * w;
+                    }
                 }
-            }
-            row
-        }).collect()
+                row
+            })
+            .collect()
     }
 
     fn cosine(a: &[f32], b: &[f32]) -> f64 {
@@ -203,7 +225,11 @@ mod tests {
             nb += b[i] as f64 * b[i] as f64;
         }
         let d = (na * nb).sqrt();
-        if d < 1e-15 { 0.0 } else { dot / d }
+        if d < 1e-15 {
+            0.0
+        } else {
+            dot / d
+        }
     }
 
     #[test]
@@ -227,14 +253,22 @@ mod tests {
         for i in 0..n {
             let recon = decode_row(&centroids[i], &entries[i], scale, &basis, cols);
             let c = cosine(&rows[i], &recon);
-            if c < min_cos { min_cos = c; }
+            if c < min_cos {
+                min_cos = c;
+            }
             sum_cos += c;
         }
         let avg_cos = sum_cos / n as f64;
-        assert!(avg_cos >= 0.98,
-            "avg cos should be >= 0.98 on low-rank synthetic with 8 atoms, got {:.4}", avg_cos);
-        assert!(min_cos >= 0.95,
-            "min cos should be >= 0.95, got {:.4}", min_cos);
+        assert!(
+            avg_cos >= 0.98,
+            "avg cos should be >= 0.98 on low-rank synthetic with 8 atoms, got {:.4}",
+            avg_cos
+        );
+        assert!(
+            min_cos >= 0.95,
+            "min cos should be >= 0.95, got {:.4}",
+            min_cos
+        );
     }
 
     #[test]

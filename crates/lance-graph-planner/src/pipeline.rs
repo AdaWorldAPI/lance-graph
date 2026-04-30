@@ -17,9 +17,7 @@
 //!   independent steps is a follow-up (PR-F4 / PR-G2 will decide
 //!   the concurrency model).
 
-use lance_graph_contract::orchestration::{
-    OrchestrationBridge, StepId, StepStatus, UnifiedStep,
-};
+use lance_graph_contract::orchestration::{OrchestrationBridge, StepId, StepStatus, UnifiedStep};
 use std::collections::{HashMap, HashSet, VecDeque};
 
 // -- Errors -------------------------------------------------------------------
@@ -45,7 +43,10 @@ pub enum PipelineError {
 impl core::fmt::Display for PipelineError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            Self::MissingDependency { step_id, missing_dep } => {
+            Self::MissingDependency {
+                step_id,
+                missing_dep,
+            } => {
                 write!(
                     f,
                     "step {step_id} depends on {missing_dep}, which is not in the pipeline"
@@ -153,7 +154,10 @@ impl PipelineDag {
 
     /// Return the topological execution order as `StepId`s.
     pub fn execution_order(&self) -> Vec<StepId> {
-        self.topo_order.iter().map(|&pos| self.steps[pos].id()).collect()
+        self.topo_order
+            .iter()
+            .map(|&pos| self.steps[pos].id())
+            .collect()
     }
 
     /// Number of steps in the DAG.
@@ -565,10 +569,10 @@ mod tests {
 
     #[test]
     fn execute_via_bridge_routes_each_step() {
-        use lance_graph_contract::orchestration::{OrchestrationError, StepDomain};
-        use lance_graph_contract::thinking::{FieldModulation, ThinkingStyle};
         use lance_graph_contract::nars::{InferenceType, QueryStrategy, SemiringChoice};
+        use lance_graph_contract::orchestration::{OrchestrationError, StepDomain};
         use lance_graph_contract::plan::ThinkingContext;
+        use lance_graph_contract::thinking::{FieldModulation, ThinkingStyle};
         use std::sync::atomic::{AtomicUsize, Ordering};
 
         struct CountingBridge {
@@ -601,7 +605,9 @@ mod tests {
             }
         }
 
-        let bridge = CountingBridge { count: AtomicUsize::new(0) };
+        let bridge = CountingBridge {
+            count: AtomicUsize::new(0),
+        };
         let steps = vec![
             make_step(1, vec![]),
             make_step(2, vec![1]),

@@ -108,7 +108,10 @@ impl LiteralGraph {
         self.ensure_label(&edge.label);
         let idx = self.edges.len();
         self.adj.entry(edge.source.clone()).or_default().push(idx);
-        self.rev_adj.entry(edge.target.clone()).or_default().push(idx);
+        self.rev_adj
+            .entry(edge.target.clone())
+            .or_default()
+            .push(idx);
         self.edges.push(edge);
         true
     }
@@ -121,7 +124,10 @@ impl LiteralGraph {
 
     /// Get palette index for a label string.
     pub fn label_to_palette(&self, label: &str) -> Option<u8> {
-        self.label_codebook.iter().position(|l| l == label).map(|i| i as u8)
+        self.label_codebook
+            .iter()
+            .position(|l| l == label)
+            .map(|i| i as u8)
     }
 
     /// Get label string from palette index.
@@ -141,14 +147,16 @@ impl LiteralGraph {
 
     /// Get all outgoing edges from a node.
     pub fn edges_from(&self, id: &str) -> Vec<&LiteralEdge> {
-        self.adj.get(id)
+        self.adj
+            .get(id)
             .map(|indices| indices.iter().map(|&i| &self.edges[i]).collect())
             .unwrap_or_default()
     }
 
     /// Get all incoming edges to a node.
     pub fn edges_to(&self, id: &str) -> Vec<&LiteralEdge> {
-        self.rev_adj.get(id)
+        self.rev_adj
+            .get(id)
             .map(|indices| indices.iter().map(|&i| &self.edges[i]).collect())
             .unwrap_or_default()
     }
@@ -161,7 +169,8 @@ impl LiteralGraph {
     /// BFS from seed entities, N hops. Returns associated triplet strings.
     /// Faithful to original AriGraph `get_associated_triplets(items, steps=2)`.
     pub fn get_associated(&self, seeds: &[&str], steps: usize) -> Vec<String> {
-        let mut current: std::collections::HashSet<String> = seeds.iter().map(|s| s.to_string()).collect();
+        let mut current: std::collections::HashSet<String> =
+            seeds.iter().map(|s| s.to_string()).collect();
         let mut result = Vec::new();
         let mut seen = std::collections::HashSet::new();
 
@@ -191,19 +200,27 @@ impl LiteralGraph {
     }
 
     /// Total node count.
-    pub fn node_count(&self) -> usize { self.nodes.len() }
+    pub fn node_count(&self) -> usize {
+        self.nodes.len()
+    }
     /// Total edge count.
-    pub fn edge_count(&self) -> usize { self.edges.len() }
+    pub fn edge_count(&self) -> usize {
+        self.edges.len()
+    }
     /// Codebook size (distinct labels).
-    pub fn codebook_size(&self) -> usize { self.label_codebook.len() }
+    pub fn codebook_size(&self) -> usize {
+        self.label_codebook.len()
+    }
 
     /// Print graph stats.
     pub fn stats(&self) -> GraphStats {
-        let mut label_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+        let mut label_counts: std::collections::HashMap<String, usize> =
+            std::collections::HashMap::new();
         for node in &self.nodes {
             *label_counts.entry(node.label.clone()).or_default() += 1;
         }
-        let mut edge_label_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+        let mut edge_label_counts: std::collections::HashMap<String, usize> =
+            std::collections::HashMap::new();
         for edge in &self.edges {
             *edge_label_counts.entry(edge.label.clone()).or_default() += 1;
         }
@@ -218,7 +235,9 @@ impl LiteralGraph {
 }
 
 impl Default for LiteralGraph {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// Graph statistics snapshot.
@@ -233,8 +252,11 @@ pub struct GraphStats {
 
 impl fmt::Display for GraphStats {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "Nodes: {}, Edges: {}, Codebook: {} labels",
-            self.node_count, self.edge_count, self.codebook_size)?;
+        writeln!(
+            f,
+            "Nodes: {}, Edges: {}, Codebook: {} labels",
+            self.node_count, self.edge_count, self.codebook_size
+        )?;
         writeln!(f, "Node labels:")?;
         let mut labels: Vec<_> = self.node_labels.iter().collect();
         labels.sort_by(|a, b| b.1.cmp(a.1));
@@ -271,7 +293,13 @@ pub fn ingest_aiwar_json(json_str: &str) -> Result<LiteralGraph, String> {
     let mut graph = LiteralGraph::new();
 
     // Parse node arrays
-    for node_key in &["N_Systems", "N_Civic", "N_Historical", "N_Stakeholders", "N_People"] {
+    for node_key in &[
+        "N_Systems",
+        "N_Civic",
+        "N_Historical",
+        "N_Stakeholders",
+        "N_People",
+    ] {
         let category = match *node_key {
             "N_Systems" => "System",
             "N_Civic" => "CivicSystem",
@@ -284,26 +312,53 @@ pub fn ingest_aiwar_json(json_str: &str) -> Result<LiteralGraph, String> {
             let id = extract_field(&item, "id").unwrap_or_default();
             let name = extract_field(&item, "name").unwrap_or_else(|| id.clone());
             let typ = extract_field(&item, "type").unwrap_or_else(|| category.to_string());
-            if id.is_empty() { continue; }
+            if id.is_empty() {
+                continue;
+            }
             let mut props = Vec::new();
-            if let Some(year) = extract_field(&item, "year") { props.push(("year".into(), year)); }
-            if let Some(status) = extract_field(&item, "currentStatus") { props.push(("status".into(), status)); }
-            if let Some(mu) = extract_field(&item, "militaryUse") { props.push(("military_use".into(), mu)); }
-            if let Some(cu) = extract_field(&item, "civicUse") { props.push(("civic_use".into(), cu)); }
-            graph.add_node(LiteralNode { id, name, label: typ, props, dn: 0 });
+            if let Some(year) = extract_field(&item, "year") {
+                props.push(("year".into(), year));
+            }
+            if let Some(status) = extract_field(&item, "currentStatus") {
+                props.push(("status".into(), status));
+            }
+            if let Some(mu) = extract_field(&item, "militaryUse") {
+                props.push(("military_use".into(), mu));
+            }
+            if let Some(cu) = extract_field(&item, "civicUse") {
+                props.push(("civic_use".into(), cu));
+            }
+            graph.add_node(LiteralNode {
+                id,
+                name,
+                label: typ,
+                props,
+                dn: 0,
+            });
         }
     }
 
     // Parse edge arrays
-    for edge_key in &["E_connection", "E_isDevelopedBy", "E_isDeployedBy", "E_place", "E_people"] {
+    for edge_key in &[
+        "E_connection",
+        "E_isDevelopedBy",
+        "E_isDeployedBy",
+        "E_place",
+        "E_people",
+    ] {
         for item in extract_array_items(json_str, edge_key) {
             let source = extract_field(&item, "source").unwrap_or_default();
             let target = extract_field(&item, "target").unwrap_or_default();
             let label = extract_field(&item, "label").unwrap_or_else(|| edge_key.replace("E_", ""));
-            if source.is_empty() || target.is_empty() { continue; }
+            if source.is_empty() || target.is_empty() {
+                continue;
+            }
             graph.add_edge(LiteralEdge {
-                source, target, label,
-                weight: None, reference: None,
+                source,
+                target,
+                label,
+                weight: None,
+                reference: None,
             });
         }
     }
@@ -348,7 +403,9 @@ fn extract_array_items(json: &str, key: &str) -> Vec<String> {
     for (i, c) in array_str.char_indices() {
         match c {
             '{' => {
-                if depth == 0 { start = i; }
+                if depth == 0 {
+                    start = i;
+                }
                 depth += 1;
             }
             '}' => {
@@ -384,7 +441,9 @@ fn extract_field(obj: &str, key: &str) -> Option<String> {
     // Number value
     let end = after.find([',', '}', '\n'])?;
     let val = after[..end].trim();
-    if val == "NaN" || val == "null" { return None; }
+    if val == "NaN" || val == "null" {
+        return None;
+    }
     Some(val.to_string())
 }
 
@@ -396,19 +455,28 @@ mod tests {
     fn test_literal_graph_basics() {
         let mut g = LiteralGraph::new();
         let dn1 = g.add_node(LiteralNode {
-            id: "Palantir".into(), name: "Palantir".into(),
-            label: "TechCompany".into(), props: vec![], dn: 0,
+            id: "Palantir".into(),
+            name: "Palantir".into(),
+            label: "TechCompany".into(),
+            props: vec![],
+            dn: 0,
         });
         let dn2 = g.add_node(LiteralNode {
-            id: "Gotham".into(), name: "Palantir Gotham".into(),
-            label: "System".into(), props: vec![], dn: 0,
+            id: "Gotham".into(),
+            name: "Palantir Gotham".into(),
+            label: "System".into(),
+            props: vec![],
+            dn: 0,
         });
         assert_ne!(dn1, dn2);
         assert_eq!(g.node_count(), 2);
 
         g.add_edge(LiteralEdge {
-            source: "Palantir".into(), target: "Gotham".into(),
-            label: "developed".into(), weight: None, reference: None,
+            source: "Palantir".into(),
+            target: "Gotham".into(),
+            label: "developed".into(),
+            weight: None,
+            reference: None,
         });
         assert_eq!(g.edge_count(), 1);
 
@@ -421,12 +489,18 @@ mod tests {
     fn test_dedup_nodes() {
         let mut g = LiteralGraph::new();
         let dn1 = g.add_node(LiteralNode {
-            id: "US".into(), name: "United States".into(),
-            label: "Nation".into(), props: vec![], dn: 0,
+            id: "US".into(),
+            name: "United States".into(),
+            label: "Nation".into(),
+            props: vec![],
+            dn: 0,
         });
         let dn2 = g.add_node(LiteralNode {
-            id: "US".into(), name: "USA".into(),
-            label: "Nation".into(), props: vec![], dn: 0,
+            id: "US".into(),
+            name: "USA".into(),
+            label: "Nation".into(),
+            props: vec![],
+            dn: 0,
         });
         assert_eq!(dn1, dn2); // same DN, deduplicated
         assert_eq!(g.node_count(), 1);
@@ -437,13 +511,34 @@ mod tests {
         let mut g = LiteralGraph::new();
         for id in &["A", "B", "C", "D"] {
             g.add_node(LiteralNode {
-                id: id.to_string(), name: id.to_string(),
-                label: "Node".into(), props: vec![], dn: 0,
+                id: id.to_string(),
+                name: id.to_string(),
+                label: "Node".into(),
+                props: vec![],
+                dn: 0,
             });
         }
-        g.add_edge(LiteralEdge { source: "A".into(), target: "B".into(), label: "knows".into(), weight: None, reference: None });
-        g.add_edge(LiteralEdge { source: "B".into(), target: "C".into(), label: "knows".into(), weight: None, reference: None });
-        g.add_edge(LiteralEdge { source: "C".into(), target: "D".into(), label: "knows".into(), weight: None, reference: None });
+        g.add_edge(LiteralEdge {
+            source: "A".into(),
+            target: "B".into(),
+            label: "knows".into(),
+            weight: None,
+            reference: None,
+        });
+        g.add_edge(LiteralEdge {
+            source: "B".into(),
+            target: "C".into(),
+            label: "knows".into(),
+            weight: None,
+            reference: None,
+        });
+        g.add_edge(LiteralEdge {
+            source: "C".into(),
+            target: "D".into(),
+            label: "knows".into(),
+            weight: None,
+            reference: None,
+        });
 
         let hop1 = g.get_associated(&["A"], 1);
         assert_eq!(hop1.len(), 1); // A→B only
@@ -455,9 +550,27 @@ mod tests {
     #[test]
     fn test_codebook() {
         let mut g = LiteralGraph::new();
-        g.add_node(LiteralNode { id: "X".into(), name: "X".into(), label: "System".into(), props: vec![], dn: 0 });
-        g.add_node(LiteralNode { id: "Y".into(), name: "Y".into(), label: "Person".into(), props: vec![], dn: 0 });
-        g.add_edge(LiteralEdge { source: "X".into(), target: "Y".into(), label: "created_by".into(), weight: None, reference: None });
+        g.add_node(LiteralNode {
+            id: "X".into(),
+            name: "X".into(),
+            label: "System".into(),
+            props: vec![],
+            dn: 0,
+        });
+        g.add_node(LiteralNode {
+            id: "Y".into(),
+            name: "Y".into(),
+            label: "Person".into(),
+            props: vec![],
+            dn: 0,
+        });
+        g.add_edge(LiteralEdge {
+            source: "X".into(),
+            target: "Y".into(),
+            label: "created_by".into(),
+            weight: None,
+            reference: None,
+        });
         assert_eq!(g.codebook_size(), 3); // System, Person, created_by
         assert_eq!(g.label_to_palette("System"), Some(0));
         assert_eq!(g.palette_to_label(1), Some("Person"));
@@ -499,7 +612,11 @@ mod tests {
 
         // BFS from Israel
         let assoc = g.get_associated(&["Israel"], 1);
-        assert!(assoc.len() >= 2, "Israel should have >=2 associations, got {}", assoc.len());
+        assert!(
+            assoc.len() >= 2,
+            "Israel should have >=2 associations, got {}",
+            assoc.len()
+        );
 
         let stats = g.stats();
         eprintln!("{}", stats);
@@ -510,7 +627,10 @@ mod tests {
         let json_path = "/root/data/aiwar_graph.json";
         let json = match std::fs::read_to_string(json_path) {
             Ok(s) => s,
-            Err(_) => { eprintln!("SKIP: {} not found", json_path); return; }
+            Err(_) => {
+                eprintln!("SKIP: {} not found", json_path);
+                return;
+            }
         };
         let g = ingest_aiwar_json(&json).unwrap();
         let stats = g.stats();
@@ -531,9 +651,21 @@ mod tests {
             eprintln!("  {}", t);
         }
 
-        assert!(g.node_count() > 200, "expected >200 nodes, got {}", g.node_count());
-        assert!(g.edge_count() > 300, "expected >300 edges, got {}", g.edge_count());
-        eprintln!("\nREALITY CHECK: {} nodes, {} edges, {} codebook labels",
-            g.node_count(), g.edge_count(), g.codebook_size());
+        assert!(
+            g.node_count() > 200,
+            "expected >200 nodes, got {}",
+            g.node_count()
+        );
+        assert!(
+            g.edge_count() > 300,
+            "expected >300 edges, got {}",
+            g.edge_count()
+        );
+        eprintln!(
+            "\nREALITY CHECK: {} nodes, {} edges, {} codebook labels",
+            g.node_count(),
+            g.edge_count(),
+            g.codebook_size()
+        );
     }
 }

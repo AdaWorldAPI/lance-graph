@@ -108,10 +108,14 @@ mod tests {
     #[test]
     fn test_headprint_bundle_unbundle() {
         let a = HeadPrint {
-            dims: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170],
+            dims: [
+                10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170,
+            ],
         };
         let b = HeadPrint {
-            dims: [5, 15, 25, 35, 45, 55, 65, 75, 85, 95, 105, 115, 125, 135, 145, 155, 165],
+            dims: [
+                5, 15, 25, 35, 45, 55, 65, 75, 85, 95, 105, 115, 125, 135, 145, 155, 165,
+            ],
         };
 
         // Bundle a and b into a target with equal weight
@@ -167,7 +171,10 @@ mod tests {
 
         // Set some heads to shift the gestalt, then check surprise
         let head = HeadPrint {
-            dims: [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700],
+            dims: [
+                100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500,
+                1600, 1700,
+            ],
         };
         mat.set(0, 0, head.clone());
 
@@ -176,7 +183,10 @@ mod tests {
 
         // Surprise of opposite head should be higher
         let opposite = HeadPrint {
-            dims: [-100, -200, -300, -400, -500, -600, -700, -800, -900, -1000, -1100, -1200, -1300, -1400, -1500, -1600, -1700],
+            dims: [
+                -100, -200, -300, -400, -500, -600, -700, -800, -900, -1000, -1100, -1200, -1300,
+                -1400, -1500, -1600, -1700,
+            ],
         };
         let s_opposite = mat.surprise(&opposite);
         assert!(

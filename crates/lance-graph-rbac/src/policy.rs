@@ -1,7 +1,7 @@
 //! Policy: a collection of roles with lookup and evaluation.
 
-use crate::role::Role;
 use crate::access::AccessDecision;
+use crate::role::Role;
 use lance_graph_contract::property::PrefetchDepth;
 
 /// A policy is a named set of roles. Users are assigned roles;
@@ -14,7 +14,10 @@ pub struct Policy {
 
 impl Policy {
     pub fn new(name: &'static str) -> Self {
-        Self { name, roles: Vec::new() }
+        Self {
+            name,
+            roles: Vec::new(),
+        }
     }
 
     pub fn with_role(mut self, role: Role) -> Self {
@@ -35,7 +38,11 @@ impl Policy {
     ) -> AccessDecision {
         let role = match self.role(role_name) {
             Some(r) => r,
-            None => return AccessDecision::Deny { reason: "unknown role" },
+            None => {
+                return AccessDecision::Deny {
+                    reason: "unknown role",
+                }
+            }
         };
 
         match operation {
@@ -43,21 +50,27 @@ impl Policy {
                 if role.can_read(entity_type, depth) {
                     AccessDecision::Allow
                 } else {
-                    AccessDecision::Deny { reason: "insufficient read depth" }
+                    AccessDecision::Deny {
+                        reason: "insufficient read depth",
+                    }
                 }
             }
             Operation::Write { predicate } => {
                 if role.can_write(entity_type, predicate) {
                     AccessDecision::Allow
                 } else {
-                    AccessDecision::Deny { reason: "predicate not writable" }
+                    AccessDecision::Deny {
+                        reason: "predicate not writable",
+                    }
                 }
             }
             Operation::Act { action } => {
                 if role.can_act(entity_type, action) {
                     AccessDecision::Allow
                 } else {
-                    AccessDecision::Deny { reason: "action not allowed" }
+                    AccessDecision::Deny {
+                        reason: "action not allowed",
+                    }
                 }
             }
         }
@@ -74,7 +87,7 @@ pub enum Operation<'a> {
 
 /// Build the default SMB policy with accountant, auditor, admin roles.
 pub fn smb_policy() -> Policy {
-    use crate::role::{accountant, auditor, admin};
+    use crate::role::{accountant, admin, auditor};
     Policy::new("smb-default")
         .with_role(accountant())
         .with_role(auditor())
@@ -101,7 +114,9 @@ mod tests {
         let decision = policy.evaluate(
             "accountant",
             "Customer",
-            Operation::Read { depth: PrefetchDepth::Detail },
+            Operation::Read {
+                depth: PrefetchDepth::Detail,
+            },
         );
         assert_eq!(decision, AccessDecision::Allow);
     }
@@ -112,7 +127,9 @@ mod tests {
         let decision = policy.evaluate(
             "accountant",
             "Customer",
-            Operation::Read { depth: PrefetchDepth::Full },
+            Operation::Read {
+                depth: PrefetchDepth::Full,
+            },
         );
         assert!(decision.is_denied());
     }
@@ -123,7 +140,9 @@ mod tests {
         let decision = policy.evaluate(
             "auditor",
             "Invoice",
-            Operation::Write { predicate: "status" },
+            Operation::Write {
+                predicate: "status",
+            },
         );
         assert!(decision.is_denied());
     }
@@ -134,7 +153,9 @@ mod tests {
         let decision = policy.evaluate(
             "admin",
             "Customer",
-            Operation::Write { predicate: "customer_name" },
+            Operation::Write {
+                predicate: "customer_name",
+            },
         );
         assert_eq!(decision, AccessDecision::Allow);
     }
@@ -145,9 +166,16 @@ mod tests {
         let decision = policy.evaluate(
             "ghost",
             "Customer",
-            Operation::Read { depth: PrefetchDepth::Identity },
+            Operation::Read {
+                depth: PrefetchDepth::Identity,
+            },
         );
         assert!(decision.is_denied());
-        assert_eq!(decision, AccessDecision::Deny { reason: "unknown role" });
+        assert_eq!(
+            decision,
+            AccessDecision::Deny {
+                reason: "unknown role"
+            }
+        );
     }
 }

@@ -127,10 +127,7 @@ impl TripletGraph {
     pub fn delete_triplets(&mut self, patterns: &[(String, String, String)]) {
         for (subj, rel, obj) in patterns {
             for triplet in self.triplets.iter_mut() {
-                if triplet.subject == *subj
-                    && triplet.relation == *rel
-                    && triplet.object == *obj
-                {
+                if triplet.subject == *subj && triplet.relation == *rel && triplet.object == *obj {
                     triplet.truth = TruthValue::unknown();
                 }
             }
@@ -376,9 +373,15 @@ pub fn process_triplets(raw: &str, timestamp: u64) -> Vec<Triplet> {
             if let Some(pos) = subj.rfind(':') {
                 subj = subj[pos + 1..].to_string();
             }
-            let subj = subj.trim_matches(|c: char| " '\n\"".contains(c)).to_string();
-            let rel = parts[1].trim_matches(|c: char| " '\n\"".contains(c)).to_string();
-            let obj = parts[2].trim_matches(|c: char| " '\n\"".contains(c)).to_string();
+            let subj = subj
+                .trim_matches(|c: char| " '\n\"".contains(c))
+                .to_string();
+            let rel = parts[1]
+                .trim_matches(|c: char| " '\n\"".contains(c))
+                .to_string();
+            let obj = parts[2]
+                .trim_matches(|c: char| " '\n\"".contains(c))
+                .to_string();
             if subj.is_empty() || rel.is_empty() || obj.is_empty() {
                 return None;
             }
@@ -412,9 +415,15 @@ pub fn parse_triplets_removing(text: &str) -> Vec<(String, String, String)> {
             if triplet_parts.len() != 3 {
                 return None;
             }
-            let subj = triplet_parts[0].trim_matches(|c: char| " '\"\n".contains(c)).to_string();
-            let rel = triplet_parts[1].trim_matches(|c: char| " '\"\n".contains(c)).to_string();
-            let obj = triplet_parts[2].trim_matches(|c: char| " '\"\n".contains(c)).to_string();
+            let subj = triplet_parts[0]
+                .trim_matches(|c: char| " '\"\n".contains(c))
+                .to_string();
+            let rel = triplet_parts[1]
+                .trim_matches(|c: char| " '\"\n".contains(c))
+                .to_string();
+            let obj = triplet_parts[2]
+                .trim_matches(|c: char| " '\"\n".contains(c))
+                .to_string();
             Some((subj, rel, obj))
         })
         .collect()
@@ -441,7 +450,10 @@ pub fn find_unexplored_exits(location: &str, triplet_strings: &[String]) -> Vec<
         if subj == loc_lower && rel.contains("has exit") {
             exits.insert(obj.clone());
         } else if subj == loc_lower
-            && (rel.contains("exit") || rel.contains("lead") || rel.contains("entr") || rel.contains("path"))
+            && (rel.contains("exit")
+                || rel.contains("lead")
+                || rel.contains("entr")
+                || rel.contains("path"))
         {
             for dir in &["north", "south", "east", "west"] {
                 if rel.contains(dir) || obj.contains(dir) {
@@ -472,7 +484,13 @@ impl TripletGraph {
             .triplets
             .iter()
             .filter(|t| !t.is_deleted() && is_spatial_connection(&t.relation))
-            .map(|t| (t.subject.to_lowercase(), t.object.to_lowercase(), t.relation.clone()))
+            .map(|t| {
+                (
+                    t.subject.to_lowercase(),
+                    t.object.to_lowercase(),
+                    t.relation.clone(),
+                )
+            })
             .collect();
         for (from, to, dir) in edges {
             self.add_spatial_edge(&from, &to, &dir);
@@ -497,18 +515,14 @@ impl TripletGraph {
                     if neighbor == to {
                         let mut dirs = directions.clone();
                         // Convert "is north of" → "go north"
-                        let movement = direction
-                            .replace("is ", "go ")
-                            .replace(" of", "");
+                        let movement = direction.replace("is ", "go ").replace(" of", "");
                         dirs.push(movement);
                         return Some(dirs);
                     }
                     if !visited.contains(neighbor) {
                         visited.insert(neighbor.clone());
                         let mut dirs = directions.clone();
-                        let movement = direction
-                            .replace("is ", "go ")
-                            .replace(" of", "");
+                        let movement = direction.replace("is ", "go ").replace(" of", "");
                         dirs.push(movement);
                         queue.push_back((neighbor.clone(), dirs));
                     }
@@ -547,16 +561,11 @@ impl TripletGraph {
     ) {
         for (subj, rel, obj) in patterns {
             // Protect spatial triplets
-            if locations.contains(&subj.to_lowercase())
-                && locations.contains(&obj.to_lowercase())
-            {
+            if locations.contains(&subj.to_lowercase()) && locations.contains(&obj.to_lowercase()) {
                 continue;
             }
             for triplet in self.triplets.iter_mut() {
-                if triplet.subject == *subj
-                    && triplet.relation == *rel
-                    && triplet.object == *obj
-                {
+                if triplet.subject == *subj && triplet.relation == *rel && triplet.object == *obj {
                     triplet.truth = TruthValue::unknown();
                 }
             }
@@ -583,8 +592,7 @@ impl TripletGraph {
         self.delete_with_location_protection(outdated_patterns, locations);
 
         // 3. Add spatial edges if the agent moved
-        if let (Some(curr), Some(prev), Some(act)) = (current_location, previous_location, action)
-        {
+        if let (Some(curr), Some(prev), Some(act)) = (current_location, previous_location, action) {
             if curr != prev && !act.contains("go to") {
                 let dir = find_direction(act);
                 let opp = find_opposite_direction(act);
@@ -677,9 +685,7 @@ impl TripletGraph {
                     continue;
                 }
                 // Same subject and object but different relation
-                if t1.subject == t2.subject
-                    && t1.object == t2.object
-                    && t1.relation != t2.relation
+                if t1.subject == t2.subject && t1.object == t2.object && t1.relation != t2.relation
                 {
                     contradictions.push((i, j));
                 }
@@ -828,7 +834,14 @@ mod extended_tests {
             Triplet::new("apple", "table", "is on", 1),
             Triplet::new("knife", "kitchen", "is in", 1),
         ];
-        g.update(&new_triplets, &[], &mut locations, Some("bedroom"), Some("kitchen"), Some("go north"));
+        g.update(
+            &new_triplets,
+            &[],
+            &mut locations,
+            Some("bedroom"),
+            Some("kitchen"),
+            Some("go north"),
+        );
 
         assert!(g.len() >= 2);
         assert!(locations.contains("bedroom"));
@@ -929,11 +942,7 @@ mod tests {
         g.add_triplets(&[make_triplet("alice", "bob", "knows")]);
         assert_eq!(g.triplets_to_strings().len(), 1);
 
-        g.delete_triplets(&[(
-            "alice".to_string(),
-            "knows".to_string(),
-            "bob".to_string(),
-        )]);
+        g.delete_triplets(&[("alice".to_string(), "knows".to_string(), "bob".to_string())]);
         // Still in storage but filtered out from active triplets
         assert_eq!(g.len(), 1);
         assert_eq!(g.triplets_to_strings().len(), 0);
@@ -978,11 +987,7 @@ mod tests {
             make_triplet("alice", "bob", "knows"),
             make_triplet("bob", "carol", "knows"),
         ]);
-        g.delete_triplets(&[(
-            "alice".to_string(),
-            "knows".to_string(),
-            "bob".to_string(),
-        )]);
+        g.delete_triplets(&[("alice".to_string(), "knows".to_string(), "bob".to_string())]);
 
         let seed: HashSet<String> = ["alice".to_string()].into_iter().collect();
         let assoc = g.get_associated(&seed, 2);
@@ -998,7 +1003,10 @@ mod tests {
         g.add_spatial_edge("room1", "room4", "south");
 
         let path = g.find_path("room1", "room3");
-        assert_eq!(path, Some(vec!["room1".into(), "room2".into(), "room3".into()]));
+        assert_eq!(
+            path,
+            Some(vec!["room1".into(), "room2".into(), "room3".into()])
+        );
     }
 
     #[test]

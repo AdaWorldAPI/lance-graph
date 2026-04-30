@@ -3,8 +3,8 @@
 //! Nobody else does this: the semiring is inferred from the query rather
 //! than being hardcoded per backend.
 
-use super::style::ThinkingStyle;
 use super::nars_dispatch::NarsInferenceType;
+use super::style::ThinkingStyle;
 use crate::ir::logical_op::SemiringType;
 
 /// Semiring choice with rationale.
@@ -15,11 +15,7 @@ pub struct SemiringChoice {
 }
 
 /// Select the optimal semiring based on query shape, thinking style, and NARS type.
-pub fn select(
-    query: &str,
-    style: &ThinkingStyle,
-    nars_type: &NarsInferenceType,
-) -> SemiringChoice {
+pub fn select(query: &str, style: &ThinkingStyle, nars_type: &NarsInferenceType) -> SemiringChoice {
     let q = query.to_uppercase();
 
     // 1. RESONATE queries → XorBundle (superposition algebra)
@@ -31,7 +27,10 @@ pub fn select(
     }
 
     // 2. Truth-value propagation queries (NARS revision/synthesis)
-    if matches!(nars_type, NarsInferenceType::Revision | NarsInferenceType::Synthesis) {
+    if matches!(
+        nars_type,
+        NarsInferenceType::Revision | NarsInferenceType::Synthesis
+    ) {
         return SemiringChoice {
             semiring: SemiringType::TruthPropagating,
             rationale: "NARS revision/synthesis: truth values accumulated during traversal",
@@ -63,7 +62,10 @@ pub fn select(
     }
 
     // 6. Creative/exploratory thinking styles → XorBundle (supports superposition)
-    if matches!(style, ThinkingStyle::Creative | ThinkingStyle::Exploratory | ThinkingStyle::Divergent) {
+    if matches!(
+        style,
+        ThinkingStyle::Creative | ThinkingStyle::Exploratory | ThinkingStyle::Divergent
+    ) {
         return SemiringChoice {
             semiring: SemiringType::XorBundle,
             rationale: "Divergent thinking: XOR bundle for exploration",

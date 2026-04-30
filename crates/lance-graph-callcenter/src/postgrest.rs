@@ -96,11 +96,12 @@ impl PostgRestResponse {
     /// Convenience constructor for an `application/json` reply.
     pub fn json(status: u16, body: Vec<u8>) -> Self {
         let mut headers = BTreeMap::new();
-        headers.insert(
-            "Content-Type".to_string(),
-            "application/json".to_string(),
-        );
-        Self { status, headers, body }
+        headers.insert("Content-Type".to_string(), "application/json".to_string());
+        Self {
+            status,
+            headers,
+            body,
+        }
     }
 
     /// Convenience constructor for a plain-text reply.
@@ -199,7 +200,9 @@ impl ParseError {
     /// that wires PostgREST → DataFusion → RlsRewriter) can surface their
     /// own parse-time errors through this same type.
     pub fn new(message: impl Into<String>) -> Self {
-        Self { message: message.into() }
+        Self {
+            message: message.into(),
+        }
     }
 }
 
@@ -211,7 +214,9 @@ impl From<String> for ParseError {
 
 impl From<&str> for ParseError {
     fn from(message: &str) -> Self {
-        Self { message: message.to_string() }
+        Self {
+            message: message.to_string(),
+        }
     }
 }
 
@@ -263,9 +268,7 @@ fn percent_decode(s: &str) -> Option<String> {
 /// identifiers can contain anything), but the SMB+MedCare subset only ever
 /// uses simple snake_case names; tighter validation is the safer default.
 fn is_valid_table_name(s: &str) -> bool {
-    !s.is_empty()
-        && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
-        && !s.starts_with('_')
+    !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') && !s.starts_with('_')
 }
 
 // ── Path parser ──────────────────────────────────────────────────────────────
@@ -300,9 +303,7 @@ pub fn parse_path(path: &str) -> Result<ParsedQuery, ParseError> {
     // Reject path-traversal (`..`), dotted paths (`users.json`), magic
     // names (`_internal`), and any non-ASCII-identifier table label.
     if !is_valid_table_name(table_part) {
-        return Err(ParseError::new(format!(
-            "invalid table name: {table_part}"
-        )));
+        return Err(ParseError::new(format!("invalid table name: {table_part}")));
     }
 
     let mut parsed = ParsedQuery {
@@ -323,16 +324,10 @@ pub fn parse_path(path: &str) -> Result<ParsedQuery, ParseError> {
         }
         let (key, value) = match raw_param.find('=') {
             Some(idx) => (&raw_param[..idx], &raw_param[idx + 1..]),
-            None => {
-                return Err(ParseError::new(format!(
-                    "param missing '=': {raw_param}"
-                )))
-            }
+            None => return Err(ParseError::new(format!("param missing '=': {raw_param}"))),
         };
         if key.is_empty() {
-            return Err(ParseError::new(format!(
-                "empty param key in '{raw_param}'"
-            )));
+            return Err(ParseError::new(format!("empty param key in '{raw_param}'")));
         }
 
         match key {
@@ -349,14 +344,18 @@ pub fn parse_path(path: &str) -> Result<ParsedQuery, ParseError> {
                 parsed.order = Some(decoded);
             }
             "limit" => {
-                parsed.limit = Some(value.parse::<u64>().map_err(|_| {
-                    ParseError::new(format!("bad limit: {value}"))
-                })?);
+                parsed.limit = Some(
+                    value
+                        .parse::<u64>()
+                        .map_err(|_| ParseError::new(format!("bad limit: {value}")))?,
+                );
             }
             "offset" => {
-                parsed.offset = Some(value.parse::<u64>().map_err(|_| {
-                    ParseError::new(format!("bad offset: {value}"))
-                })?);
+                parsed.offset = Some(
+                    value
+                        .parse::<u64>()
+                        .map_err(|_| ParseError::new(format!("bad offset: {value}")))?,
+                );
             }
             _ => {
                 // Filter: value is "op.val".
@@ -368,17 +367,14 @@ pub fn parse_path(path: &str) -> Result<ParsedQuery, ParseError> {
                         )))
                     }
                 };
-                let op = FilterOp::parse(op_str).ok_or_else(|| {
-                    ParseError::new(format!("unknown filter op: {op_str}"))
-                })?;
+                let op = FilterOp::parse(op_str)
+                    .ok_or_else(|| ParseError::new(format!("unknown filter op: {op_str}")))?;
                 // URL-decode AFTER `op.` split so e.g. `eq.foo%40bar.com`
                 // yields `foo@bar.com` (and not a confused dot-split on a
                 // decoded `.`). Op tokens themselves are ASCII and never
                 // need decoding.
                 let decoded = percent_decode(val).ok_or_else(|| {
-                    ParseError::new(format!(
-                        "malformed urlencoding in filter value: {val}"
-                    ))
+                    ParseError::new(format!("malformed urlencoding in filter value: {val}"))
                 })?;
                 parsed.filters.push(Filter {
                     column: key.to_string(),
@@ -562,8 +558,7 @@ mod tests {
 
     #[test]
     fn parse_select_order_limit() {
-        let q = parse_path("patients?select=id,name&order=name.asc&limit=10")
-            .expect("parse ok");
+        let q = parse_path("patients?select=id,name&order=name.asc&limit=10").expect("parse ok");
         assert_eq!(q.table, "patients");
         assert_eq!(q.select.as_deref(), Some("id,name"));
         assert_eq!(q.order.as_deref(), Some("name.asc"));
@@ -574,8 +569,7 @@ mod tests {
 
     #[test]
     fn parse_offset_and_multiple_filters() {
-        let q = parse_path("orders?status=eq.open&total=gte.100&offset=5")
-            .expect("parse ok");
+        let q = parse_path("orders?status=eq.open&total=gte.100&offset=5").expect("parse ok");
         assert_eq!(q.table, "orders");
         assert_eq!(q.offset, Some(5));
         assert_eq!(q.filters.len(), 2);
@@ -714,10 +708,7 @@ mod tests {
         ] {
             assert_eq!(HttpMethod::parse(m.as_str()), Some(m.clone()));
             // case-insensitive
-            assert_eq!(
-                HttpMethod::parse(&m.as_str().to_ascii_lowercase()),
-                Some(m)
-            );
+            assert_eq!(HttpMethod::parse(&m.as_str().to_ascii_lowercase()), Some(m));
         }
         assert!(HttpMethod::parse("FROOB").is_none());
     }
@@ -836,8 +827,7 @@ mod tests {
 
     #[test]
     fn parse_url_decode_select_and_order() {
-        let q = parse_path("users?select=id%2Cname&order=created.desc")
-            .expect("parse ok");
+        let q = parse_path("users?select=id%2Cname&order=created.desc").expect("parse ok");
         assert_eq!(q.select.as_deref(), Some("id,name"));
         assert_eq!(q.order.as_deref(), Some("created.desc"));
     }
@@ -845,13 +835,21 @@ mod tests {
     #[test]
     fn parse_url_decode_truncated_escape_errors() {
         let err = parse_path("users?name=eq.foo%2").expect_err("must error");
-        assert!(err.message.contains("malformed urlencoding"), "{}", err.message);
+        assert!(
+            err.message.contains("malformed urlencoding"),
+            "{}",
+            err.message
+        );
     }
 
     #[test]
     fn parse_url_decode_bad_hex_errors() {
         let err = parse_path("users?name=eq.foo%ZZbar").expect_err("must error");
-        assert!(err.message.contains("malformed urlencoding"), "{}", err.message);
+        assert!(
+            err.message.contains("malformed urlencoding"),
+            "{}",
+            err.message
+        );
     }
 
     // ── Table-validation tests (MEDIUM) ──────────────────────────────────
@@ -871,19 +869,31 @@ mod tests {
     #[test]
     fn parse_table_with_period_errors() {
         let err = parse_path("users.json?id=eq.1").expect_err("must error");
-        assert!(err.message.contains("invalid table name"), "{}", err.message);
+        assert!(
+            err.message.contains("invalid table name"),
+            "{}",
+            err.message
+        );
     }
 
     #[test]
     fn parse_table_underscore_prefix_errors() {
         let err = parse_path("_internal?id=eq.1").expect_err("must error");
-        assert!(err.message.contains("invalid table name"), "{}", err.message);
+        assert!(
+            err.message.contains("invalid table name"),
+            "{}",
+            err.message
+        );
     }
 
     #[test]
     fn parse_table_unicode_errors() {
         let err = parse_path("ünits?id=eq.1").expect_err("must error");
-        assert!(err.message.contains("invalid table name"), "{}", err.message);
+        assert!(
+            err.message.contains("invalid table name"),
+            "{}",
+            err.message
+        );
     }
 
     #[test]

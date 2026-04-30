@@ -25,9 +25,11 @@
 //! f32 GEMM inference paths.
 
 // SLOT_L_LANES used by tests and encode_with_leaf
-#[allow(unused_imports)]
-use crate::slot_l::{SlotL, SLOT_L_LANES, encode_rows as encode_slot_l, decode_row as decode_slot_l_row};
 use crate::matryoshka::SvdBasis;
+#[allow(unused_imports)]
+use crate::slot_l::{
+    decode_row as decode_slot_l_row, encode_rows as encode_slot_l, SlotL, SLOT_L_LANES,
+};
 
 /// One row of HhtlF32Tensor: twig index into the f32 palette.
 /// Slot V scalar residual is omitted — f32 centroid already carries direction.
@@ -38,8 +40,12 @@ pub struct HhtlF32Entry {
 
 impl HhtlF32Entry {
     pub const BYTE_SIZE: usize = 1;
-    pub fn to_le_bytes(&self) -> [u8; 1] { [self.twig] }
-    pub fn from_le_bytes(b: &[u8; 1]) -> Self { Self { twig: b[0] } }
+    pub fn to_le_bytes(&self) -> [u8; 1] {
+        [self.twig]
+    }
+    pub fn from_le_bytes(b: &[u8; 1]) -> Self {
+        Self { twig: b[0] }
+    }
 }
 
 /// Maximum palette size supported by HhtlF32Tensor (constrained by u8 twig index).
@@ -74,13 +80,18 @@ pub struct HhtlF32Tensor {
 fn l2_dist_sq(a: &[f32], b: &[f32]) -> f32 {
     let n = a.len().min(b.len());
     let mut s = 0.0f32;
-    for i in 0..n { let d = a[i] - b[i]; s += d * d; }
+    for i in 0..n {
+        let d = a[i] - b[i];
+        s += d * d;
+    }
     s
 }
 
 fn clam_furthest_point_f32(rows: &[Vec<f32>], k: usize) -> Vec<usize> {
     let n = rows.len();
-    if n == 0 || k == 0 { return Vec::new(); }
+    if n == 0 || k == 0 {
+        return Vec::new();
+    }
     let k = k.min(n);
 
     // Seed: row with largest L2 norm (proxy for "farthest from origin").
@@ -88,41 +99,58 @@ fn clam_furthest_point_f32(rows: &[Vec<f32>], k: usize) -> Vec<usize> {
     let mut first_norm = 0.0f32;
     for (i, r) in rows.iter().enumerate() {
         let n_sq: f32 = r.iter().map(|x| x * x).sum();
-        if n_sq > first_norm { first_norm = n_sq; first = i; }
+        if n_sq > first_norm {
+            first_norm = n_sq;
+            first = i;
+        }
     }
 
     let mut selected = vec![first];
     let mut min_dist = vec![f32::MAX; n];
-    for (i, md) in min_dist.iter_mut().enumerate().take(n) { *md = l2_dist_sq(&rows[i], &rows[first]); }
+    for (i, md) in min_dist.iter_mut().enumerate().take(n) {
+        *md = l2_dist_sq(&rows[i], &rows[first]);
+    }
     min_dist[first] = 0.0;
 
     for _ in 1..k {
         let mut next = 0usize;
         let mut best = f32::MIN;
         for (i, &md) in min_dist.iter().enumerate().take(n) {
-            if md > best { best = md; next = i; }
+            if md > best {
+                best = md;
+                next = i;
+            }
         }
-        if best <= 0.0 { break; }  // All rows already covered
+        if best <= 0.0 {
+            break;
+        } // All rows already covered
         selected.push(next);
         let cidx = next;
         for (i, md) in min_dist.iter_mut().enumerate().take(n) {
             let d = l2_dist_sq(&rows[i], &rows[cidx]);
-            if d < *md { *md = d; }
+            if d < *md {
+                *md = d;
+            }
         }
     }
     selected
 }
 
 fn assign_nearest_f32(rows: &[Vec<f32>], centroids: &[Vec<f32>]) -> Vec<u8> {
-    rows.iter().map(|row| {
-        let mut best = 0u8;
-        let mut best_d = f32::MAX;
-        for (ci, c) in centroids.iter().enumerate() {
-            let d = l2_dist_sq(row, c);
-            if d < best_d { best_d = d; best = ci as u8; }
-        }
-        best
-    }).collect()
+    rows.iter()
+        .map(|row| {
+            let mut best = 0u8;
+            let mut best_d = f32::MAX;
+            for (ci, c) in centroids.iter().enumerate() {
+                let d = l2_dist_sq(row, c);
+                if d < best_d {
+                    best_d = d;
+                    best = ci as u8;
+                }
+            }
+            best
+        })
+        .collect()
 }
 
 // ═════════════════════════════════════════════════════════════════════
@@ -138,16 +166,22 @@ impl HhtlF32Tensor {
     /// wrap indices via `as u8` and corrupt row assignments.
     pub fn encode(role: &str, rows_f32: &[Vec<f32>], k: usize) -> Self {
         assert!(k > 0, "HhtlF32Tensor::encode requires k > 0, got {}", k);
-        assert!(k <= MAX_PALETTE_K,
+        assert!(
+            k <= MAX_PALETTE_K,
             "HhtlF32Tensor::encode requires k <= {} (u8 twig limit), got {}",
-            MAX_PALETTE_K, k);
+            MAX_PALETTE_K,
+            k
+        );
         let n_rows = rows_f32.len();
         let n_cols = if n_rows > 0 { rows_f32[0].len() } else { 0 };
 
         let selected = clam_furthest_point_f32(rows_f32, k);
         let palette_f32: Vec<Vec<f32>> = selected.iter().map(|&i| rows_f32[i].clone()).collect();
         let twig_assign = assign_nearest_f32(rows_f32, &palette_f32);
-        let entries: Vec<HhtlF32Entry> = twig_assign.iter().map(|&t| HhtlF32Entry { twig: t }).collect();
+        let entries: Vec<HhtlF32Entry> = twig_assign
+            .iter()
+            .map(|&t| HhtlF32Entry { twig: t })
+            .collect();
 
         Self {
             role: role.to_string(),
@@ -172,15 +206,26 @@ impl HhtlF32Tensor {
         k: usize,
         svd_basis: &SvdBasis,
     ) -> Self {
-        assert!(k > 0, "HhtlF32Tensor::encode_with_leaf requires k > 0, got {}", k);
-        assert!(k <= MAX_PALETTE_K,
+        assert!(
+            k > 0,
+            "HhtlF32Tensor::encode_with_leaf requires k > 0, got {}",
+            k
+        );
+        assert!(
+            k <= MAX_PALETTE_K,
             "HhtlF32Tensor::encode_with_leaf requires k <= {} (u8 twig limit), got {}",
-            MAX_PALETTE_K, k);
+            MAX_PALETTE_K,
+            k
+        );
         let mut t = Self::encode(role, rows_f32, k);
-        if rows_f32.is_empty() { return t; }
+        if rows_f32.is_empty() {
+            return t;
+        }
 
         // Per-row centroid (copy from palette by twig index).
-        let centroids_per_row: Vec<Vec<f32>> = t.entries.iter()
+        let centroids_per_row: Vec<Vec<f32>> = t
+            .entries
+            .iter()
             .map(|e| t.palette_f32[e.twig as usize].clone())
             .collect();
 
@@ -215,7 +260,9 @@ impl HhtlF32Tensor {
 
     /// Reconstruct all rows.
     pub fn reconstruct_rows(&self, n_cols: usize) -> Vec<Vec<f32>> {
-        (0..self.entries.len()).map(|i| self.reconstruct_row(i, n_cols)).collect()
+        (0..self.entries.len())
+            .map(|i| self.reconstruct_row(i, n_cols))
+            .collect()
     }
 
     /// Byte sizes (excluding palette + basis, which are per-group shared).
@@ -223,7 +270,10 @@ impl HhtlF32Tensor {
         self.entries.len() * HhtlF32Entry::BYTE_SIZE
     }
     pub fn slot_l_byte_size(&self) -> usize {
-        self.slot_l.as_ref().map(|v| v.len() * SlotL::BYTE_SIZE).unwrap_or(0)
+        self.slot_l
+            .as_ref()
+            .map(|v| v.len() * SlotL::BYTE_SIZE)
+            .unwrap_or(0)
     }
 
     /// Palette byte size (BF16 footprint — centroids compressed for shipping).
@@ -265,29 +315,43 @@ mod tests {
             let atom: Vec<f32> = (0..cols).map(|_| next()).collect();
             atoms.push(atom);
         }
-        (0..n).map(|_| {
-            let mut row = vec![0.0f32; cols];
-            for atom in &atoms {
-                let w = next() * 0.5;
-                for j in 0..cols { row[j] += atom[j] * w; }
-            }
-            row
-        }).collect()
+        (0..n)
+            .map(|_| {
+                let mut row = vec![0.0f32; cols];
+                for atom in &atoms {
+                    let w = next() * 0.5;
+                    for j in 0..cols {
+                        row[j] += atom[j] * w;
+                    }
+                }
+                row
+            })
+            .collect()
     }
 
     fn cosine(a: &[f32], b: &[f32]) -> f64 {
-        let mut dot = 0.0f64; let mut na = 0.0f64; let mut nb = 0.0f64;
+        let mut dot = 0.0f64;
+        let mut na = 0.0f64;
+        let mut nb = 0.0f64;
         for i in 0..a.len().min(b.len()) {
-            let x = a[i] as f64; let y = b[i] as f64;
-            dot += x * y; na += x * x; nb += y * y;
+            let x = a[i] as f64;
+            let y = b[i] as f64;
+            dot += x * y;
+            na += x * x;
+            nb += y * y;
         }
         let d = (na * nb).sqrt();
-        if d < 1e-15 { 0.0 } else { dot / d }
+        if d < 1e-15 {
+            0.0
+        } else {
+            dot / d
+        }
     }
 
     #[test]
     fn encode_without_leaf_picks_real_rows_as_centroids() {
-        let n = 32; let cols = 64;
+        let n = 32;
+        let cols = 64;
         let rows = low_rank_rows(n, cols, 0xAAA);
         let t = HhtlF32Tensor::encode("test", &rows, 8);
 
@@ -295,7 +359,9 @@ mod tests {
         // (furthest-point sampling picks from the row set, doesn't synthesize).
         for centroid in &t.palette_f32 {
             let matches = rows.iter().any(|r| {
-                r.iter().zip(centroid.iter()).all(|(a, b)| (a - b).abs() < 1e-6)
+                r.iter()
+                    .zip(centroid.iter())
+                    .all(|(a, b)| (a - b).abs() < 1e-6)
             });
             assert!(matches, "every centroid must be an original row");
         }
@@ -312,8 +378,10 @@ mod tests {
             let recon = t.reconstruct_row(i, 32);
             let expected = &t.palette_f32[t.entries[i].twig as usize];
             for d in 0..32 {
-                assert!((recon[d] - expected[d]).abs() < 1e-6,
-                    "without SlotL, reconstruct_row == palette[twig]");
+                assert!(
+                    (recon[d] - expected[d]).abs() < 1e-6,
+                    "without SlotL, reconstruct_row == palette[twig]"
+                );
             }
         }
     }
@@ -322,7 +390,8 @@ mod tests {
     fn encode_with_leaf_beats_without_leaf_on_real_rows() {
         // Key test: proves the Path A codec recovers per-row cosine far
         // beyond what the #183 Base17-reconstruction measurement showed.
-        let n = 64; let cols = 128;
+        let n = 64;
+        let cols = 128;
         let rows = low_rank_rows(n, cols, 0xC0DE);
 
         let t_plain = HhtlF32Tensor::encode("plain", &rows, 16);
@@ -341,12 +410,22 @@ mod tests {
         let avg_leaf = sum_leaf / n as f64;
 
         // On low-rank rows both should be high, leaf strictly better.
-        assert!(avg_plain >= 0.70,
-            "plain f32-centroid avg cos should be >= 0.70 on low-rank data, got {:.4}", avg_plain);
-        assert!(avg_leaf >= avg_plain,
-            "leaf avg cos ({:.4}) must be >= plain ({:.4})", avg_leaf, avg_plain);
-        assert!(avg_leaf >= 0.95,
-            "leaf avg cos should be >= 0.95 on low-rank 8-atom data, got {:.4}", avg_leaf);
+        assert!(
+            avg_plain >= 0.70,
+            "plain f32-centroid avg cos should be >= 0.70 on low-rank data, got {:.4}",
+            avg_plain
+        );
+        assert!(
+            avg_leaf >= avg_plain,
+            "leaf avg cos ({:.4}) must be >= plain ({:.4})",
+            avg_leaf,
+            avg_plain
+        );
+        assert!(
+            avg_leaf >= 0.95,
+            "leaf avg cos should be >= 0.95 on low-rank 8-atom data, got {:.4}",
+            avg_leaf
+        );
     }
 
     #[test]
@@ -385,7 +464,7 @@ mod tests {
     #[test]
     fn encode_accepts_k_at_max_palette() {
         // k == MAX_PALETTE_K (256) is the largest legal value and must succeed.
-        let rows = low_rank_rows(300, 16, 0);  // Need > 256 rows so all 256 centroid slots fill
+        let rows = low_rank_rows(300, 16, 0); // Need > 256 rows so all 256 centroid slots fill
         let t = HhtlF32Tensor::encode("max_k", &rows, MAX_PALETTE_K);
         assert!(t.palette_f32.len() <= MAX_PALETTE_K);
         assert_eq!(t.entries.len(), 300);
@@ -397,9 +476,9 @@ mod tests {
         let basis = SvdBasis::build("storage", &rows, SLOT_L_LANES);
         let t = HhtlF32Tensor::encode_with_leaf("storage_test", &rows, 8, &basis);
 
-        assert_eq!(t.entries_byte_size(), 16);  // 16 rows × 1 byte
+        assert_eq!(t.entries_byte_size(), 16); // 16 rows × 1 byte
         assert_eq!(t.slot_l_byte_size(), 16 * SLOT_L_LANES);
-        assert_eq!(t.palette_byte_size_bf16(), 8 * 64 * 2);  // 8 centroids × 64 cols × 2 B
+        assert_eq!(t.palette_byte_size_bf16(), 8 * 64 * 2); // 8 centroids × 64 cols × 2 B
 
         let expected_total = 16 + 16 * SLOT_L_LANES + 8 * 64 * 2 + t.svd_basis_byte_size();
         assert_eq!(t.total_byte_size_bf16(), expected_total);

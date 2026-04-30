@@ -8,8 +8,12 @@ use crate::PlanError;
 pub struct MorselExec;
 
 impl PlanStrategy for MorselExec {
-    fn name(&self) -> &str { "morsel_exec" }
-    fn capability(&self) -> PlanCapability { PlanCapability::PhysicalPlan }
+    fn name(&self) -> &str {
+        "morsel_exec"
+    }
+    fn capability(&self) -> PlanCapability {
+        PlanCapability::PhysicalPlan
+    }
 
     fn affinity(&self, context: &PlanContext) -> f32 {
         // Always needed for execution
@@ -20,7 +24,11 @@ impl PlanStrategy for MorselExec {
         }
     }
 
-    fn plan(&self, input: PlanInput, _arena: &mut Arena<LogicalOp>) -> Result<PlanInput, PlanError> {
+    fn plan(
+        &self,
+        input: PlanInput,
+        _arena: &mut Arena<LogicalOp>,
+    ) -> Result<PlanInput, PlanError> {
         // Maps LogicalOp tree → PhysicalOp tree.
         // Decomposes into pipelines at materialization boundaries.
         // Each pipeline is a chain of operators executed by worker threads.

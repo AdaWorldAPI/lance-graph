@@ -15,11 +15,9 @@
 // `PrefetchDepth` and `PropertyKind` retained for wiring the prefetch hint
 // from ontology.action_spec into Schema lookups (TD-ONTO-1). Currently the
 // fetch path uses ActionSpec.fetch_max_rows and LinkSpec only.
-#[allow(unused_imports)]
-use crate::property::{
-    ActionSpec, LinkSpec, PrefetchDepth, PropertyKind, Schema,
-};
 use crate::cam::CodecRoute;
+#[allow(unused_imports)]
+use crate::property::{ActionSpec, LinkSpec, PrefetchDepth, PropertyKind, Schema};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Locale + Label — bilingual ontology support (DE/EN)
@@ -53,7 +51,11 @@ impl Label {
     }
 
     pub const fn en_only(key: &'static str) -> Self {
-        Self { key, en: key, de: key }
+        Self {
+            key,
+            en: key,
+            de: key,
+        }
     }
 
     pub const fn display(&self, locale: Locale) -> &str {
@@ -79,7 +81,9 @@ pub type EntityTypeId = u16;
 /// Look up the EntityTypeId for a named entity type within an Ontology.
 /// Returns 0 if the name doesn't match any schema.
 pub fn entity_type_id(ontology: &Ontology, name: &str) -> EntityTypeId {
-    ontology.schemas.iter()
+    ontology
+        .schemas
+        .iter()
         .position(|s| s.name == name)
         .map(|idx| (idx + 1) as EntityTypeId)
         .unwrap_or(0)
@@ -119,15 +123,24 @@ impl Ontology {
     }
 
     pub fn links_from(&self, subject_type: &str) -> Vec<&LinkSpec> {
-        self.links.iter().filter(|l| l.subject_type == subject_type).collect()
+        self.links
+            .iter()
+            .filter(|l| l.subject_type == subject_type)
+            .collect()
     }
 
     pub fn links_to(&self, object_type: &str) -> Vec<&LinkSpec> {
-        self.links.iter().filter(|l| l.object_type == object_type).collect()
+        self.links
+            .iter()
+            .filter(|l| l.object_type == object_type)
+            .collect()
     }
 
     pub fn actions_for(&self, entity_type: &str) -> Vec<&ActionSpec> {
-        self.actions.iter().filter(|a| a.entity_type == entity_type).collect()
+        self.actions
+            .iter()
+            .filter(|a| a.entity_type == entity_type)
+            .collect()
     }
 }
 
@@ -257,8 +270,8 @@ impl ModelHealth {
             self.predictions_correct = self.predictions_correct.saturating_add(1);
         }
         if self.predictions_total > 0 {
-            self.frequency = ((self.predictions_correct as u64 * 255)
-                / self.predictions_total as u64) as u8;
+            self.frequency =
+                ((self.predictions_correct as u64 * 255) / self.predictions_total as u64) as u8;
         }
         self.confidence = match self.predictions_total {
             0..=9 => (self.predictions_total as u8) * 25,

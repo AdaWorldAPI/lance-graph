@@ -156,13 +156,18 @@ impl PropertySchema {
 
     /// Return all Required properties.
     pub fn required(&self) -> impl Iterator<Item = &PropertySpec> {
-        self.properties.iter().filter(|p| p.kind == PropertyKind::Required)
+        self.properties
+            .iter()
+            .filter(|p| p.kind == PropertyKind::Required)
     }
 
     /// Return all predicates that are missing from a given set of
     /// predicate names. Only checks Required properties.
     /// Returns predicate names that should trigger FailureTicket.
-    pub fn missing_required<'a>(&'a self, present: &'a [&str]) -> impl Iterator<Item = &'static str> + 'a {
+    pub fn missing_required<'a>(
+        &'a self,
+        present: &'a [&str],
+    ) -> impl Iterator<Item = &'static str> + 'a {
         self.required()
             .filter(move |p| !present.contains(&p.predicate))
             .map(|p| p.predicate)
@@ -192,7 +197,11 @@ pub struct Schema {
 
 impl Schema {
     pub fn builder(name: &'static str) -> SchemaBuilder {
-        SchemaBuilder { name, properties: Vec::new(), view: None }
+        SchemaBuilder {
+            name,
+            properties: Vec::new(),
+            view: None,
+        }
     }
 
     pub fn get(&self, predicate: &str) -> Option<&PropertySpec> {
@@ -200,10 +209,15 @@ impl Schema {
     }
 
     pub fn required_props(&self) -> impl Iterator<Item = &PropertySpec> {
-        self.properties.iter().filter(|p| p.kind == PropertyKind::Required)
+        self.properties
+            .iter()
+            .filter(|p| p.kind == PropertyKind::Required)
     }
 
-    pub fn missing_required<'a>(&'a self, present: &'a [&str]) -> impl Iterator<Item = &'static str> + 'a {
+    pub fn missing_required<'a>(
+        &'a self,
+        present: &'a [&str],
+    ) -> impl Iterator<Item = &'static str> + 'a {
         self.required_props()
             .filter(move |p| !present.contains(&p.predicate))
             .map(|p| p.predicate)
@@ -237,13 +251,15 @@ impl SchemaBuilder {
 
     /// Add an Optional property with Passthrough (exact match) codec.
     pub fn optional(mut self, predicate: &'static str) -> Self {
-        self.properties.push(PropertySpec::optional(predicate, CodecRoute::Passthrough));
+        self.properties
+            .push(PropertySpec::optional(predicate, CodecRoute::Passthrough));
         self
     }
 
     /// Add an Optional property with CamPq (similarity search) codec.
     pub fn searchable(mut self, predicate: &'static str) -> Self {
-        self.properties.push(PropertySpec::optional(predicate, CodecRoute::CamPq));
+        self.properties
+            .push(PropertySpec::optional(predicate, CodecRoute::CamPq));
         self
     }
 
@@ -266,7 +282,11 @@ impl SchemaBuilder {
     }
 
     pub fn build(self) -> Schema {
-        Schema { name: self.name, properties: self.properties, view: self.view }
+        Schema {
+            name: self.name,
+            properties: self.properties,
+            view: self.view,
+        }
     }
 }
 
@@ -300,7 +320,9 @@ impl LinkSpec {
         object_type: &'static str,
     ) -> Self {
         Self {
-            subject_type, predicate, object_type,
+            subject_type,
+            predicate,
+            object_type,
             cardinality: Cardinality::OneToMany,
             codec_route: CodecRoute::Passthrough,
         }
@@ -312,7 +334,9 @@ impl LinkSpec {
         object_type: &'static str,
     ) -> Self {
         Self {
-            subject_type, predicate, object_type,
+            subject_type,
+            predicate,
+            object_type,
             cardinality: Cardinality::ManyToMany,
             codec_route: CodecRoute::Passthrough,
         }
@@ -344,19 +368,21 @@ pub enum PrefetchDepth {
 impl Schema {
     /// Return properties visible at a given prefetch depth.
     pub fn properties_at_depth(&self, depth: PrefetchDepth) -> Vec<&PropertySpec> {
-        self.properties.iter().filter(|p| {
-            match depth {
+        self.properties
+            .iter()
+            .filter(|p| match depth {
                 PrefetchDepth::Identity => p.kind == PropertyKind::Required,
                 PrefetchDepth::Detail => {
                     p.kind == PropertyKind::Required
-                    || (p.kind == PropertyKind::Optional && p.codec_route == CodecRoute::Passthrough)
+                        || (p.kind == PropertyKind::Optional
+                            && p.codec_route == CodecRoute::Passthrough)
                 }
                 PrefetchDepth::Similar => {
                     p.kind == PropertyKind::Required || p.kind == PropertyKind::Optional
                 }
                 PrefetchDepth::Full => true,
-            }
-        }).collect()
+            })
+            .collect()
     }
 }
 
@@ -391,16 +417,39 @@ pub enum ActionTrigger {
 }
 
 impl ActionSpec {
-    pub const fn manual(name: &'static str, entity_type: &'static str, target: &'static str) -> Self {
-        Self { name, entity_type, target_predicate: target, trigger: ActionTrigger::Manual }
+    pub const fn manual(
+        name: &'static str,
+        entity_type: &'static str,
+        target: &'static str,
+    ) -> Self {
+        Self {
+            name,
+            entity_type,
+            target_predicate: target,
+            trigger: ActionTrigger::Manual,
+        }
     }
 
     pub const fn auto(name: &'static str, entity_type: &'static str, target: &'static str) -> Self {
-        Self { name, entity_type, target_predicate: target, trigger: ActionTrigger::Auto }
+        Self {
+            name,
+            entity_type,
+            target_predicate: target,
+            trigger: ActionTrigger::Auto,
+        }
     }
 
-    pub const fn suggested(name: &'static str, entity_type: &'static str, target: &'static str) -> Self {
-        Self { name, entity_type, target_predicate: target, trigger: ActionTrigger::Suggested }
+    pub const fn suggested(
+        name: &'static str,
+        entity_type: &'static str,
+        target: &'static str,
+    ) -> Self {
+        Self {
+            name,
+            entity_type,
+            target_predicate: target,
+            trigger: ActionTrigger::Suggested,
+        }
     }
 }
 
@@ -478,7 +527,10 @@ mod tests {
     #[test]
     fn property_spec_marking_defaults_to_internal() {
         assert_eq!(PropertySpec::required("kdnr").marking, Marking::Internal);
-        assert_eq!(PropertySpec::optional("note", CodecRoute::CamPq).marking, Marking::Internal);
+        assert_eq!(
+            PropertySpec::optional("note", CodecRoute::CamPq).marking,
+            Marking::Internal
+        );
         assert_eq!(PropertySpec::free("free").marking, Marking::Internal);
     }
 
@@ -534,13 +586,22 @@ mod tests {
 
     #[test]
     fn schema_codec_route_known_predicate() {
-        assert_eq!(CUSTOMER_SCHEMA.codec_route_for("tax_id"), CodecRoute::Passthrough);
-        assert_eq!(CUSTOMER_SCHEMA.codec_route_for("industry"), CodecRoute::CamPq);
+        assert_eq!(
+            CUSTOMER_SCHEMA.codec_route_for("tax_id"),
+            CodecRoute::Passthrough
+        );
+        assert_eq!(
+            CUSTOMER_SCHEMA.codec_route_for("industry"),
+            CodecRoute::CamPq
+        );
     }
 
     #[test]
     fn schema_codec_route_unknown_predicate_defaults_to_campq() {
-        assert_eq!(CUSTOMER_SCHEMA.codec_route_for("unknown_field"), CodecRoute::CamPq);
+        assert_eq!(
+            CUSTOMER_SCHEMA.codec_route_for("unknown_field"),
+            CodecRoute::CamPq
+        );
     }
 
     #[test]
@@ -594,9 +655,7 @@ mod tests {
 
     #[test]
     fn schema_searchable_is_campq() {
-        let s = Schema::builder("Test")
-            .searchable("description")
-            .build();
+        let s = Schema::builder("Test").searchable("description").build();
         assert_eq!(s.codec_route_for("description"), CodecRoute::CamPq);
     }
 
@@ -608,9 +667,7 @@ mod tests {
 
     #[test]
     fn schema_optional_is_passthrough() {
-        let s = Schema::builder("Test")
-            .optional("address")
-            .build();
+        let s = Schema::builder("Test").optional("address").build();
         assert_eq!(s.codec_route_for("address"), CodecRoute::Passthrough);
     }
 
@@ -805,7 +862,11 @@ impl ObjectView {
         detail: &'static [&'static str],
         summary_template: &'static str,
     ) -> Self {
-        Self { card, detail, summary_template }
+        Self {
+            card,
+            detail,
+            summary_template,
+        }
     }
 }
 
@@ -851,11 +912,7 @@ pub trait AuditLog: Send + Sync {
         entity_id: u64,
     ) -> Result<Vec<AuditEntry>, Self::Error>;
 
-    fn entries_by_actor(
-        &self,
-        actor: u64,
-        since_ms: u64,
-    ) -> Result<Vec<AuditEntry>, Self::Error>;
+    fn entries_by_actor(&self, actor: u64, since_ms: u64) -> Result<Vec<AuditEntry>, Self::Error>;
 }
 
 impl Marking {
@@ -886,7 +943,13 @@ impl LineageHandle {
         source_system: &'static str,
         timestamp_ms: u64,
     ) -> Self {
-        Self { entity_type, entity_id, version, source_system, timestamp_ms }
+        Self {
+            entity_type,
+            entity_id,
+            version,
+            source_system,
+            timestamp_ms,
+        }
     }
 
     /// Merge two handles. Takes higher version, newer source_system, max timestamp.
@@ -992,8 +1055,17 @@ pub mod mock_store {
             let mut ver = self.version_counter.write().map_err(|_| "lock poisoned")?;
             *ver += 1;
             let version = *ver;
-            self.rows.write().map_err(|_| "lock poisoned")?.push((entity_id, row));
-            Ok(LineageHandle::new(entity_type, entity_id, version, source_system, 0))
+            self.rows
+                .write()
+                .map_err(|_| "lock poisoned")?
+                .push((entity_id, row));
+            Ok(LineageHandle::new(
+                entity_type,
+                entity_id,
+                version,
+                source_system,
+                0,
+            ))
         }
     }
 }
@@ -1005,8 +1077,14 @@ mod smb_tests {
     #[test]
     fn marking_most_restrictive() {
         assert_eq!(Marking::most_restrictive(&[]), Marking::Public);
-        assert_eq!(Marking::most_restrictive(&[Marking::Internal, Marking::Pii]), Marking::Pii);
-        assert_eq!(Marking::most_restrictive(&[Marking::Restricted, Marking::Public]), Marking::Restricted);
+        assert_eq!(
+            Marking::most_restrictive(&[Marking::Internal, Marking::Pii]),
+            Marking::Pii
+        );
+        assert_eq!(
+            Marking::most_restrictive(&[Marking::Restricted, Marking::Public]),
+            Marking::Restricted
+        );
     }
 
     #[test]
@@ -1023,7 +1101,9 @@ mod smb_tests {
     fn vec_store_upsert_and_scan() {
         use mock_store::VecStore;
         let store = VecStore::new();
-        let handle = store.upsert_with_lineage("Customer", 42, vec![1, 2, 3], "test").unwrap();
+        let handle = store
+            .upsert_with_lineage("Customer", 42, vec![1, 2, 3], "test")
+            .unwrap();
         assert_eq!(handle.entity_id, 42);
         assert_eq!(handle.version, 1);
         let mut stream = store.scan_stream("Customer").unwrap();

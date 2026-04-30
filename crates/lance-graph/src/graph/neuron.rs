@@ -108,17 +108,26 @@ pub struct NeuronQuery {
 impl NeuronQuery {
     /// "What does this query attend to?" — probe Q against K store.
     pub fn attention(q: Base17) -> Self {
-        NeuronQuery { q: Some(q), ..Default::default() }
+        NeuronQuery {
+            q: Some(q),
+            ..Default::default()
+        }
     }
 
     /// "What is retrieved for this key?" — probe K against V store.
     pub fn retrieval(k: Base17) -> Self {
-        NeuronQuery { k: Some(k), ..Default::default() }
+        NeuronQuery {
+            k: Some(k),
+            ..Default::default()
+        }
     }
 
     /// "Does this feature fire?" — probe Gate.
     pub fn gating(gate: Base17) -> Self {
-        NeuronQuery { gate: Some(gate), ..Default::default() }
+        NeuronQuery {
+            gate: Some(gate),
+            ..Default::default()
+        }
     }
 
     /// "What does layer N do?" — constrain to a specific layer.
@@ -132,13 +141,35 @@ impl NeuronQuery {
     pub fn score(&self, neuron: &NeuronPrint) -> u32 {
         let mut total = 0u32;
         let mut count = 0u32;
-        if let Some(ref q) = self.q { total += q.l1(&neuron.q); count += 1; }
-        if let Some(ref k) = self.k { total += k.l1(&neuron.k); count += 1; }
-        if let Some(ref v) = self.v { total += v.l1(&neuron.v); count += 1; }
-        if let Some(ref g) = self.gate { total += g.l1(&neuron.gate); count += 1; }
-        if let Some(ref u) = self.up { total += u.l1(&neuron.up); count += 1; }
-        if let Some(ref d) = self.down { total += d.l1(&neuron.down); count += 1; }
-        if count > 0 { total / count } else { u32::MAX }
+        if let Some(ref q) = self.q {
+            total += q.l1(&neuron.q);
+            count += 1;
+        }
+        if let Some(ref k) = self.k {
+            total += k.l1(&neuron.k);
+            count += 1;
+        }
+        if let Some(ref v) = self.v {
+            total += v.l1(&neuron.v);
+            count += 1;
+        }
+        if let Some(ref g) = self.gate {
+            total += g.l1(&neuron.gate);
+            count += 1;
+        }
+        if let Some(ref u) = self.up {
+            total += u.l1(&neuron.up);
+            count += 1;
+        }
+        if let Some(ref d) = self.down {
+            total += d.l1(&neuron.down);
+            count += 1;
+        }
+        if count > 0 {
+            total / count
+        } else {
+            u32::MAX
+        }
     }
 
     /// How many roles are active in this query.
@@ -153,12 +184,24 @@ impl NeuronQuery {
     /// Bit 0=Q, 1=K, 2=V, 3=Gate, 4=Up, 5=Down.
     pub fn role_mask(&self) -> u8 {
         let mut mask = 0u8;
-        if self.q.is_some() { mask |= 1 << 0; }
-        if self.k.is_some() { mask |= 1 << 1; }
-        if self.v.is_some() { mask |= 1 << 2; }
-        if self.gate.is_some() { mask |= 1 << 3; }
-        if self.up.is_some() { mask |= 1 << 4; }
-        if self.down.is_some() { mask |= 1 << 5; }
+        if self.q.is_some() {
+            mask |= 1 << 0;
+        }
+        if self.k.is_some() {
+            mask |= 1 << 1;
+        }
+        if self.v.is_some() {
+            mask |= 1 << 2;
+        }
+        if self.gate.is_some() {
+            mask |= 1 << 3;
+        }
+        if self.up.is_some() {
+            mask |= 1 << 4;
+        }
+        if self.down.is_some() {
+            mask |= 1 << 5;
+        }
         mask
     }
 }
@@ -196,7 +239,13 @@ impl NeuronTrace {
 
         // Up/Down ratio → confidence
         let up_mag = n.up.dims.iter().map(|d| (*d as f32).abs()).sum::<f32>();
-        let down_mag = n.down.dims.iter().map(|d| (*d as f32).abs()).sum::<f32>().max(1.0);
+        let down_mag = n
+            .down
+            .dims
+            .iter()
+            .map(|d| (*d as f32).abs())
+            .sum::<f32>()
+            .max(1.0);
         let confidence = (up_mag / (up_mag + down_mag)).clamp(0.0, 0.99);
 
         // Q·K alignment → attention strength
@@ -209,7 +258,13 @@ impl NeuronTrace {
 
         let expectation = confidence * (frequency - 0.5) + 0.5;
 
-        NeuronTrace { frequency, confidence, attention, coherence, expectation }
+        NeuronTrace {
+            frequency,
+            confidence,
+            attention,
+            coherence,
+            expectation,
+        }
     }
 }
 
@@ -221,12 +276,24 @@ mod tests {
         NeuronPrint {
             layer,
             feature,
-            q: Base17 { dims: [base_val; 17] },
-            k: Base17 { dims: [base_val + 10; 17] },
-            v: Base17 { dims: [base_val + 20; 17] },
-            gate: Base17 { dims: [base_val + 100; 17] },
-            up: Base17 { dims: [base_val + 50; 17] },
-            down: Base17 { dims: [base_val + 30; 17] },
+            q: Base17 {
+                dims: [base_val; 17],
+            },
+            k: Base17 {
+                dims: [base_val + 10; 17],
+            },
+            v: Base17 {
+                dims: [base_val + 20; 17],
+            },
+            gate: Base17 {
+                dims: [base_val + 100; 17],
+            },
+            up: Base17 {
+                dims: [base_val + 50; 17],
+            },
+            down: Base17 {
+                dims: [base_val + 30; 17],
+            },
         }
     }
 
@@ -259,7 +326,10 @@ mod tests {
         // Query that's far from Q
         let q_far = NeuronQuery::attention(Base17 { dims: [10000; 17] });
         let score_far = q_far.score(&n);
-        assert!(score_exact < score_far, "exact match should score lower (closer)");
+        assert!(
+            score_exact < score_far,
+            "exact match should score lower (closer)"
+        );
     }
 
     #[test]
@@ -288,14 +358,18 @@ mod tests {
         let mut n = make_neuron(0, 0, 0);
         n.gate = Base17 { dims: [30000; 17] }; // high gate
         let t = NeuronTrace::from_neuron(&n);
-        assert!(t.frequency > 0.8, "high gate should mean high frequency: {}", t.frequency);
+        assert!(
+            t.frequency > 0.8,
+            "high gate should mean high frequency: {}",
+            t.frequency
+        );
     }
 
     #[test]
     fn test_attention_xor_bind() {
         let n = make_neuron(0, 0, 100);
         let attn = n.attention(); // Q ⊕ K
-        // Should be non-zero (Q ≠ K)
+                                  // Should be non-zero (Q ≠ K)
         assert!(attn.dims.iter().any(|d| *d != 0));
     }
 

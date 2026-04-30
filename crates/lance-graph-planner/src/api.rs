@@ -67,19 +67,19 @@
 //! let results = search.top_k(&cam_data, 10);
 //! ```
 
-use crate::physical::CamPqScanOp;
 #[allow(unused_imports)] // intended for CAM-PQ strategy selection wiring
 use crate::physical::cam_pq_scan::CamPqStrategy;
-use crate::traits::*;
+use crate::physical::CamPqScanOp;
 use crate::selector::StrategySelector;
+use crate::traits::*;
 
 // Re-export key types for ergonomic API
-pub use crate::thinking::style::{ThinkingStyle, ThinkingCluster, FieldModulation, ScanParams};
-pub use crate::thinking::ThinkingContext;
-pub use crate::mul::SituationInput;
 pub use crate::mul::gate::GateDecision as Gate;
-pub use crate::PlanResult;
+pub use crate::mul::SituationInput;
+pub use crate::thinking::style::{FieldModulation, ScanParams, ThinkingCluster, ThinkingStyle};
+pub use crate::thinking::ThinkingContext;
 pub use crate::PlanError;
+pub use crate::PlanResult;
 
 /// The planner. One per session, reusable, thread-safe.
 ///
@@ -113,11 +113,7 @@ impl Planner {
     /// Create with resonance mode (23D thinking style vector).
     pub fn with_resonance(style_vector: Vec<f64>, mul_modifier: f64) -> Self {
         Self {
-            inner: crate::PlannerAwareness::with_resonance(
-                style_vector,
-                mul_modifier,
-                0.0,
-            ),
+            inner: crate::PlannerAwareness::with_resonance(style_vector, mul_modifier, 0.0),
         }
     }
 
@@ -136,7 +132,8 @@ impl Planner {
         style: ThinkingStyle,
     ) -> Result<PlanResult, PlanError> {
         let modulation = style.default_modulation();
-        let style_vec = modulation.to_fingerprint()
+        let style_vec = modulation
+            .to_fingerprint()
             .iter()
             .map(|b| *b as f64 / 255.0)
             .collect::<Vec<f64>>();
@@ -160,8 +157,7 @@ impl Planner {
             self.inner.strategies(),
             &context,
         );
-        let strategy_names: Vec<String> = selected.iter()
-            .map(|s| s.name().to_string()).collect();
+        let strategy_names: Vec<String> = selected.iter().map(|s| s.name().to_string()).collect();
 
         let plan = crate::compose::compose_and_execute(&selected, context)?;
 
@@ -180,10 +176,7 @@ impl Planner {
             ),
             sigma_stage: crate::thinking::sigma_chain::SigmaStage::Omega,
             free_will_modifier: 1.0,
-            exploratory: matches!(
-                style.cluster(),
-                ThinkingCluster::Divergent
-            ),
+            exploratory: matches!(style.cluster(), ThinkingCluster::Divergent),
         };
 
         Ok(PlanResult {
@@ -221,7 +214,11 @@ impl Planner {
 
     /// Get the list of available strategy names.
     pub fn strategy_names(&self) -> Vec<String> {
-        self.inner.strategies().iter().map(|s| s.name().to_string()).collect()
+        self.inner
+            .strategies()
+            .iter()
+            .map(|s| s.name().to_string())
+            .collect()
     }
 
     /// Gate check only — assess situation without planning.
@@ -273,7 +270,8 @@ impl QueryLanguage {
         let upper = trimmed.to_uppercase();
 
         // Gremlin: method-chain style starting with g.
-        if trimmed.starts_with("g.") || trimmed.starts_with("g\n.")
+        if trimmed.starts_with("g.")
+            || trimmed.starts_with("g\n.")
             || trimmed.contains(".hasLabel(")
             || (trimmed.contains(".outE(") && !upper.contains("MATCH"))
         {
@@ -281,27 +279,39 @@ impl QueryLanguage {
         }
 
         // SPARQL: PREFIX declarations or SELECT ?variable
-        if upper.starts_with("PREFIX ") || upper.starts_with("BASE ")
-            || upper.contains("SELECT ?") || upper.contains("CONSTRUCT {")
-            || upper.contains("ASK {") || upper.contains("DESCRIBE ")
+        if upper.starts_with("PREFIX ")
+            || upper.starts_with("BASE ")
+            || upper.contains("SELECT ?")
+            || upper.contains("CONSTRUCT {")
+            || upper.contains("ASK {")
+            || upper.contains("DESCRIBE ")
         {
             return Self::Sparql;
         }
 
         // GQL: ISO-specific keywords that Cypher doesn't have
         let gql_signals = [
-            "LEFT MATCH", "MANDATORY MATCH",
-            "ANY SHORTEST", "ALL SHORTEST", "ANY CHEAPEST",
-            "ALL TRAIL", "ANY SIMPLE", "ALL ACYCLIC",
-            "GRAPH TYPE", "USE GRAPH", "LET ",
+            "LEFT MATCH",
+            "MANDATORY MATCH",
+            "ANY SHORTEST",
+            "ALL SHORTEST",
+            "ANY CHEAPEST",
+            "ALL TRAIL",
+            "ANY SIMPLE",
+            "ALL ACYCLIC",
+            "GRAPH TYPE",
+            "USE GRAPH",
+            "LET ",
         ];
         if gql_signals.iter().any(|kw| upper.contains(kw)) {
             return Self::Gql;
         }
 
         // Cypher: MATCH / CREATE / RETURN
-        if upper.contains("MATCH") || upper.contains("CREATE")
-            || upper.contains("RETURN") || upper.contains("MERGE")
+        if upper.contains("MATCH")
+            || upper.contains("CREATE")
+            || upper.contains("RETURN")
+            || upper.contains("MERGE")
         {
             return Self::Cypher;
         }
@@ -426,7 +436,10 @@ impl CamSearch {
     ///
     /// The codebook is `codebook[subspace][centroid]` = Vec<f32> of length D/6.
     pub fn new(codebook: Vec<Vec<Vec<f32>>>) -> Self {
-        Self { tables: None, codebook }
+        Self {
+            tables: None,
+            codebook,
+        }
     }
 
     /// Precompute distance tables for a query vector.
@@ -441,7 +454,8 @@ impl CamSearch {
             let q_sub = &query[s * subspace_dim..(s + 1) * subspace_dim];
             let num_c = self.codebook[s].len().min(256);
             for (c, centroid) in self.codebook[s].iter().enumerate().take(num_c) {
-                tables[s][c] = q_sub.iter()
+                tables[s][c] = q_sub
+                    .iter()
                     .zip(centroid.iter())
                     .map(|(a, b)| (a - b) * (a - b))
                     .sum();
@@ -477,28 +491,32 @@ impl CamSearch {
 
     /// Encode vectors to 6-byte CAM fingerprints.
     pub fn encode(&self, vectors: &[Vec<f32>]) -> Vec<[u8; 6]> {
-        vectors.iter().map(|v| {
-            let dim = v.len();
-            let sub_dim = dim / 6;
-            let mut cam = [0u8; 6];
-            for s in 0..6 {
-                let sub = &v[s * sub_dim..(s + 1) * sub_dim];
-                let mut best_c = 0u8;
-                let mut best_d = f32::MAX;
-                for (c, centroid) in self.codebook[s].iter().enumerate() {
-                    let d: f32 = sub.iter()
-                        .zip(centroid.iter())
-                        .map(|(a, b)| (a - b) * (a - b))
-                        .sum();
-                    if d < best_d {
-                        best_d = d;
-                        best_c = c as u8;
+        vectors
+            .iter()
+            .map(|v| {
+                let dim = v.len();
+                let sub_dim = dim / 6;
+                let mut cam = [0u8; 6];
+                for s in 0..6 {
+                    let sub = &v[s * sub_dim..(s + 1) * sub_dim];
+                    let mut best_c = 0u8;
+                    let mut best_d = f32::MAX;
+                    for (c, centroid) in self.codebook[s].iter().enumerate() {
+                        let d: f32 = sub
+                            .iter()
+                            .zip(centroid.iter())
+                            .map(|(a, b)| (a - b) * (a - b))
+                            .sum();
+                        if d < best_d {
+                            best_d = d;
+                            best_c = c as u8;
+                        }
                     }
+                    cam[s] = best_c;
                 }
-                cam[s] = best_c;
-            }
-            cam
-        }).collect()
+                cam
+            })
+            .collect()
     }
 
     /// Decode a CAM fingerprint to an approximate vector.
@@ -523,7 +541,11 @@ impl CamSearch {
             raw_bytes,
             cam_bytes,
             codebook_bytes,
-            compression_ratio: if total > 0 { raw_bytes as f64 / total as f64 } else { 0.0 },
+            compression_ratio: if total > 0 {
+                raw_bytes as f64 / total as f64
+            } else {
+                0.0
+            },
         }
     }
 }
@@ -577,10 +599,8 @@ mod tests {
     #[test]
     fn test_plan_with_style() {
         let planner = Planner::new();
-        let result = planner.plan_with_style(
-            "MATCH (n)-[r]->(m) RETURN n",
-            ThinkingStyle::Analytical,
-        );
+        let result =
+            planner.plan_with_style("MATCH (n)-[r]->(m) RETURN n", ThinkingStyle::Analytical);
         assert!(result.is_ok());
         let output = result.unwrap();
         assert!(output.thinking.is_some());

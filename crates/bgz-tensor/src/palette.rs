@@ -236,8 +236,8 @@ impl WeightPalette {
     /// outlier weight rows that don't fit the learned manifold.
     /// These should use higher precision (Base17 instead of palette index).
     pub fn anomalous_entries(&self, radius_threshold: f32) -> Vec<usize> {
-        let mean_radius = self.radii.iter().map(|&r| r as f64).sum::<f64>()
-            / self.radii.len().max(1) as f64;
+        let mean_radius =
+            self.radii.iter().map(|&r| r as f64).sum::<f64>() / self.radii.len().max(1) as f64;
         let threshold = (mean_radius * radius_threshold as f64) as u32;
 
         self.radii
@@ -381,9 +381,7 @@ mod tests {
     fn anomaly_detection() {
         let mut rows = make_rows(100);
         // Add an outlier
-        rows.push(Base17 {
-            dims: [30000; 17],
-        });
+        rows.push(Base17 { dims: [30000; 17] });
 
         let palette = WeightPalette::build(&rows, 16);
         let anomalies = palette.anomalous_entries(2.0);

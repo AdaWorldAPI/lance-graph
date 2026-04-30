@@ -7,8 +7,8 @@
 //! - Intuitive/Speed: fast heuristic, top-1 most likely
 
 use super::{CausalStep, Derivation, Scenario};
-use crate::thinking::style::{ThinkingStyle, ThinkingCluster};
 use crate::elevation::budget::PatienceBudget;
+use crate::thinking::style::{ThinkingCluster, ThinkingStyle};
 
 /// Generate scenarios from seed edges through a specific thinking style lens.
 pub fn generate_scenarios(
@@ -20,16 +20,17 @@ pub fn generate_scenarios(
     let cluster = style.cluster();
 
     // Convert seed edges to CausalSteps
-    let steps: Vec<CausalStep> = seed_edges.iter().map(|(src, rel, tgt, freq, conf)| {
-        CausalStep {
+    let steps: Vec<CausalStep> = seed_edges
+        .iter()
+        .map(|(src, rel, tgt, freq, conf)| CausalStep {
             source: src.clone(),
             relationship: rel.clone(),
             target: tgt.clone(),
             frequency: *freq,
             confidence: *conf,
             derivation: Derivation::Observed,
-        }
-    }).collect();
+        })
+        .collect();
 
     match cluster {
         ThinkingCluster::Convergent => generate_deep_chains(question, &steps, style, budget),
@@ -51,7 +52,8 @@ fn generate_deep_chains(
     let max_chain_length = (budget.result_threshold / 1000).clamp(3, 10);
 
     // Build adjacency: source → [(target, step)]
-    let mut adj: std::collections::HashMap<&str, Vec<&CausalStep>> = std::collections::HashMap::new();
+    let mut adj: std::collections::HashMap<&str, Vec<&CausalStep>> =
+        std::collections::HashMap::new();
     for step in steps {
         adj.entry(&step.source).or_default().push(step);
     }
@@ -66,14 +68,21 @@ fn generate_deep_chains(
 
         // Follow chain
         while chain.len() < max_chain_length {
-            if visited.contains(current.as_str()) { break; }
+            if visited.contains(current.as_str()) {
+                break;
+            }
             visited.insert(current);
 
             if let Some(next_steps) = adj.get(current.as_str()) {
                 // Pick highest confidence next step
-                if let Some(best) = next_steps.iter()
+                if let Some(best) = next_steps
+                    .iter()
                     .filter(|s| s.confidence >= min_confidence)
-                    .max_by(|a, b| a.confidence.partial_cmp(&b.confidence).unwrap_or(std::cmp::Ordering::Equal))
+                    .max_by(|a, b| {
+                        a.confidence
+                            .partial_cmp(&b.confidence)
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                    })
                 {
                     chain.push((*best).clone());
                     current = &best.target;
@@ -95,14 +104,14 @@ fn generate_deep_chains(
         }
 
         if chain.len() >= 2 {
-            let overall_confidence = chain.iter()
-                .map(|s| s.confidence)
-                .product::<f64>();
+            let overall_confidence = chain.iter().map(|s| s.confidence).product::<f64>();
 
             scenarios.push(Scenario {
-                name: format!("Sequential: {} → ... → {}",
+                name: format!(
+                    "Sequential: {} → ... → {}",
                     chain.first().map(|s| s.source.as_str()).unwrap_or("?"),
-                    chain.last().map(|s| s.target.as_str()).unwrap_or("?")),
+                    chain.last().map(|s| s.target.as_str()).unwrap_or("?")
+                ),
                 description: format!("{} (deep chain, {} steps)", question, chain.len()),
                 chain,
                 confidence: overall_confidence,
@@ -120,7 +129,9 @@ fn generate_deep_chains(
     scenarios.sort_by(|a, b| {
         let score_a = a.chain.len() as f64 * a.confidence;
         let score_b = b.chain.len() as f64 * b.confidence;
-        score_b.partial_cmp(&score_a).unwrap_or(std::cmp::Ordering::Equal)
+        score_b
+            .partial_cmp(&score_a)
+            .unwrap_or(std::cmp::Ordering::Equal)
     });
 
     scenarios.truncate(3); // Top 3 deep chains
@@ -139,8 +150,10 @@ fn generate_lateral_scenarios(
     let mut scenarios = Vec::new();
 
     // Find nodes that appear as both source and target of different relationships
-    let mut as_source: std::collections::HashMap<&str, Vec<&CausalStep>> = std::collections::HashMap::new();
-    let mut as_target: std::collections::HashMap<&str, Vec<&CausalStep>> = std::collections::HashMap::new();
+    let mut as_source: std::collections::HashMap<&str, Vec<&CausalStep>> =
+        std::collections::HashMap::new();
+    let mut as_target: std::collections::HashMap<&str, Vec<&CausalStep>> =
+        std::collections::HashMap::new();
 
     for step in steps {
         as_source.entry(&step.source).or_default().push(step);
@@ -171,8 +184,7 @@ fn generate_lateral_scenarios(
                             b.clone(),
                         ];
                         scenarios.push(Scenario {
-                            name: format!("Lateral: {} ↔ {} via {}",
-                                a.source, b.source, target),
+                            name: format!("Lateral: {} ↔ {} via {}", a.source, b.source, target),
                             description: format!("{} (abductive discovery)", question),
                             chain,
                             confidence: conf,
@@ -212,16 +224,13 @@ fn generate_lateral_scenarios(
                             b.clone(),
                         ];
                         scenarios.push(Scenario {
-                            name: format!("Induced: {} ↔ {} from {}",
-                                a.target, b.target, source),
+                            name: format!("Induced: {} ↔ {} from {}", a.target, b.target, source),
                             description: format!("{} (inductive discovery)", question),
                             chain,
                             confidence: conf,
                             style,
                             time_horizon: 3,
-                            blind_spots: vec![
-                                "Induction from shared source is speculative".into(),
-                            ],
+                            blind_spots: vec!["Induction from shared source is speculative".into()],
                         });
                     }
                 }
@@ -229,7 +238,11 @@ fn generate_lateral_scenarios(
         }
     }
 
-    scenarios.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap_or(std::cmp::Ordering::Equal));
+    scenarios.sort_by(|a, b| {
+        b.confidence
+            .partial_cmp(&a.confidence)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     scenarios.truncate(5); // Top 5 lateral discoveries
     scenarios
 }
@@ -274,9 +287,11 @@ fn generate_focused_chain(
     }
 
     vec![Scenario {
-        name: format!("Kill chain: {} → {}",
+        name: format!(
+            "Kill chain: {} → {}",
             best_chain.first().map(|s| s.source.as_str()).unwrap_or("?"),
-            best_chain.last().map(|s| s.target.as_str()).unwrap_or("?")),
+            best_chain.last().map(|s| s.target.as_str()).unwrap_or("?")
+        ),
         description: format!("{} (focused, single strongest path)", question),
         chain: best_chain,
         confidence: best_confidence,
@@ -297,10 +312,11 @@ fn generate_heuristic_scenario(
     _budget: &PatienceBudget,
 ) -> Vec<Scenario> {
     // Just pick the highest confidence step
-    let best = steps.iter()
-        .max_by(|a, b| (a.frequency * a.confidence)
+    let best = steps.iter().max_by(|a, b| {
+        (a.frequency * a.confidence)
             .partial_cmp(&(b.frequency * b.confidence))
-            .unwrap_or(std::cmp::Ordering::Equal));
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     match best {
         Some(step) => vec![Scenario {
@@ -321,15 +337,9 @@ fn generate_heuristic_scenario(
 }
 
 /// NARS deduction: given a target node, find if any two edges can chain to it.
-fn infer_next_step(
-    from: &str,
-    steps: &[CausalStep],
-    min_confidence: f64,
-) -> Option<CausalStep> {
+fn infer_next_step(from: &str, steps: &[CausalStep], min_confidence: f64) -> Option<CausalStep> {
     // Find edges FROM this node
-    let outgoing: Vec<&CausalStep> = steps.iter()
-        .filter(|s| s.source == from)
-        .collect();
+    let outgoing: Vec<&CausalStep> = steps.iter().filter(|s| s.source == from).collect();
 
     // Find edges whose source matches any of our outgoing targets
     for out in &outgoing {
@@ -361,14 +371,62 @@ mod tests {
 
     fn kill_chain_edges() -> Vec<(String, String, String, f64, f64)> {
         vec![
-            ("Lavender".into(), "TARGETS".into(), "Gaza_Combatant".into(), 0.95, 0.87),
-            ("Gospel".into(), "CONFIRMS".into(), "Lavender_Target".into(), 0.90, 0.82),
-            ("Fire_Factory".into(), "STRIKES".into(), "Confirmed_Target".into(), 0.88, 0.79),
-            ("Iron_Dome".into(), "INTERCEPTS".into(), "Incoming_Rocket".into(), 0.92, 0.85),
-            ("Patriot".into(), "DEFENDS".into(), "Military_Base".into(), 0.85, 0.78),
-            ("Iran_AD".into(), "PROTECTS".into(), "Tehran".into(), 0.80, 0.70),
-            ("F35".into(), "PENETRATES".into(), "Iran_AD".into(), 0.75, 0.65),
-            ("Iran_AD".into(), "RETALIATES".into(), "Israeli_Base".into(), 0.60, 0.45),
+            (
+                "Lavender".into(),
+                "TARGETS".into(),
+                "Gaza_Combatant".into(),
+                0.95,
+                0.87,
+            ),
+            (
+                "Gospel".into(),
+                "CONFIRMS".into(),
+                "Lavender_Target".into(),
+                0.90,
+                0.82,
+            ),
+            (
+                "Fire_Factory".into(),
+                "STRIKES".into(),
+                "Confirmed_Target".into(),
+                0.88,
+                0.79,
+            ),
+            (
+                "Iron_Dome".into(),
+                "INTERCEPTS".into(),
+                "Incoming_Rocket".into(),
+                0.92,
+                0.85,
+            ),
+            (
+                "Patriot".into(),
+                "DEFENDS".into(),
+                "Military_Base".into(),
+                0.85,
+                0.78,
+            ),
+            (
+                "Iran_AD".into(),
+                "PROTECTS".into(),
+                "Tehran".into(),
+                0.80,
+                0.70,
+            ),
+            (
+                "F35".into(),
+                "PENETRATES".into(),
+                "Iran_AD".into(),
+                0.75,
+                0.65,
+            ),
+            (
+                "Iran_AD".into(),
+                "RETALIATES".into(),
+                "Israeli_Base".into(),
+                0.60,
+                0.45,
+            ),
         ]
     }
 
@@ -398,24 +456,18 @@ mod tests {
             &budget,
         );
         // Creative should find abductive/inductive links
-        assert!(scenarios.iter().any(|s|
-            s.chain.iter().any(|step|
-                step.derivation == Derivation::Abduction
-                || step.derivation == Derivation::Induction
-            )
-        ));
+        assert!(scenarios.iter().any(|s| s
+            .chain
+            .iter()
+            .any(|step| step.derivation == Derivation::Abduction
+                || step.derivation == Derivation::Induction)));
     }
 
     #[test]
     fn test_focused_produces_single_chain() {
         let edges = kill_chain_edges();
         let budget = budget_for_cluster(ThinkingCluster::Attention);
-        let scenarios = generate_scenarios(
-            "Kill chain",
-            &edges,
-            ThinkingStyle::Focused,
-            &budget,
-        );
+        let scenarios = generate_scenarios("Kill chain", &edges, ThinkingStyle::Focused, &budget);
         assert_eq!(scenarios.len(), 1);
     }
 
@@ -423,12 +475,7 @@ mod tests {
     fn test_intuitive_is_fast() {
         let edges = kill_chain_edges();
         let budget = budget_for_cluster(ThinkingCluster::Speed);
-        let scenarios = generate_scenarios(
-            "Quick read",
-            &edges,
-            ThinkingStyle::Intuitive,
-            &budget,
-        );
+        let scenarios = generate_scenarios("Quick read", &edges, ThinkingStyle::Intuitive, &budget);
         assert_eq!(scenarios.len(), 1);
         assert_eq!(scenarios[0].chain.len(), 1); // Single step
         assert!(!scenarios[0].blind_spots.is_empty()); // Acknowledges limitations
@@ -438,19 +485,25 @@ mod tests {
     fn test_different_styles_different_blind_spots() {
         let edges = kill_chain_edges();
         let analytical = generate_scenarios(
-            "test", &edges, ThinkingStyle::Analytical,
+            "test",
+            &edges,
+            ThinkingStyle::Analytical,
             &budget_for_cluster(ThinkingCluster::Convergent),
         );
         let creative = generate_scenarios(
-            "test", &edges, ThinkingStyle::Creative,
+            "test",
+            &edges,
+            ThinkingStyle::Creative,
             &budget_for_cluster(ThinkingCluster::Divergent),
         );
 
         // Different styles should identify different blind spots
-        let analytical_spots: Vec<&str> = analytical.iter()
+        let analytical_spots: Vec<&str> = analytical
+            .iter()
             .flat_map(|s| s.blind_spots.iter().map(|b| b.as_str()))
             .collect();
-        let creative_spots: Vec<&str> = creative.iter()
+        let creative_spots: Vec<&str> = creative
+            .iter()
             .flat_map(|s| s.blind_spots.iter().map(|b| b.as_str()))
             .collect();
         assert_ne!(analytical_spots, creative_spots);

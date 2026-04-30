@@ -465,9 +465,7 @@ impl std::hash::Hash for VectorSimilarityUDF {
 ///
 /// Returns the number of differing bits (as `Float32`) between two binary
 /// vectors. This is the primary distance metric for 16384-bit fingerprints.
-fn hamming_distance_func(
-    args: &[ColumnarValue],
-) -> datafusion::error::Result<ColumnarValue> {
+fn hamming_distance_func(args: &[ColumnarValue]) -> datafusion::error::Result<ColumnarValue> {
     if args.len() != 2 {
         return Err(datafusion::error::DataFusionError::Execution(
             "hamming_distance requires exactly 2 arguments".to_string(),
@@ -536,9 +534,7 @@ fn hamming_distance_func(
 }
 
 /// Hamming similarity UDF: returns `1.0 - hamming_distance / total_bits`.
-fn hamming_similarity_func(
-    args: &[ColumnarValue],
-) -> datafusion::error::Result<ColumnarValue> {
+fn hamming_similarity_func(args: &[ColumnarValue]) -> datafusion::error::Result<ColumnarValue> {
     if args.len() != 2 {
         return Err(datafusion::error::DataFusionError::Execution(
             "hamming_similarity requires exactly 2 arguments".to_string(),
@@ -988,8 +984,8 @@ mod tests {
     fn create_binary_array(vectors: Vec<Vec<u8>>) -> ArrayRef {
         use arrow::array::FixedSizeBinaryArray;
         let byte_len = vectors[0].len() as i32;
-        let arr = FixedSizeBinaryArray::try_from_iter(vectors.iter().map(|v| v.as_slice()))
-            .unwrap();
+        let arr =
+            FixedSizeBinaryArray::try_from_iter(vectors.iter().map(|v| v.as_slice())).unwrap();
         Arc::new(arr) as ArrayRef
     }
 
@@ -1059,7 +1055,7 @@ mod tests {
         if let ColumnarValue::Array(arr) = result {
             let float_arr = arr.as_any().downcast_ref::<Float32Array>().unwrap();
             assert_eq!(float_arr.len(), 3);
-            assert_eq!(float_arr.value(0), 0.0);  // identical
+            assert_eq!(float_arr.value(0), 0.0); // identical
             assert_eq!(float_arr.value(1), 64.0); // complement
             assert_eq!(float_arr.value(2), 32.0); // 0x0F vs 0xFF = 4 bits per byte * 8 bytes
         } else {

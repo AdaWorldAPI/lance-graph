@@ -23,9 +23,9 @@ impl DkPosition {
     pub fn humility_factor(&self) -> f64 {
         match self {
             Self::MountStupid => 0.3,           // Heavily discounted
-            Self::ValleyOfDespair => 0.7,        // Cautious but aware
-            Self::SlopeOfEnlightenment => 0.85,  // Building competence
-            Self::PlateauOfMastery => 1.0,       // Full confidence earned
+            Self::ValleyOfDespair => 0.7,       // Cautious but aware
+            Self::SlopeOfEnlightenment => 0.85, // Building competence
+            Self::PlateauOfMastery => 1.0,      // Full confidence earned
         }
     }
 
@@ -71,7 +71,9 @@ impl Default for DkDetector {
 
 impl DkDetector {
     pub fn new() -> Self {
-        Self { history: Vec::new() }
+        Self {
+            history: Vec::new(),
+        }
     }
 
     pub fn record(&mut self, felt: f64, demonstrated: f64) {
@@ -95,8 +97,9 @@ impl DkDetector {
             return DkTrend::Stable;
         }
 
-        let first_half: f64 = gaps[..gaps.len()/2].iter().sum::<f64>() / (gaps.len()/2) as f64;
-        let second_half: f64 = gaps[gaps.len()/2..].iter().sum::<f64>() / (gaps.len() - gaps.len()/2) as f64;
+        let first_half: f64 = gaps[..gaps.len() / 2].iter().sum::<f64>() / (gaps.len() / 2) as f64;
+        let second_half: f64 =
+            gaps[gaps.len() / 2..].iter().sum::<f64>() / (gaps.len() - gaps.len() / 2) as f64;
 
         let delta = second_half - first_half;
 

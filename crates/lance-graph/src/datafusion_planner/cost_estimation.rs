@@ -28,11 +28,11 @@ use crate::graph::blasgraph::hdr::Band;
 /// to the binomial distribution for 16384-bit random binary vectors.
 pub fn band_selectivity(band: &Band) -> f64 {
     match band {
-        Band::Foveal => 0.001,  // 0.1% — extremely selective
-        Band::Near => 0.01,     // 1.0% — very selective
-        Band::Good => 0.05,     // 5.0% — moderately selective
-        Band::Weak => 0.20,     // 20.0% — weakly selective
-        Band::Reject => 1.00,   // 100.0% — no filtering
+        Band::Foveal => 0.001, // 0.1% — extremely selective
+        Band::Near => 0.01,    // 1.0% — very selective
+        Band::Good => 0.05,    // 5.0% — moderately selective
+        Band::Weak => 0.20,    // 20.0% — weakly selective
+        Band::Reject => 1.00,  // 100.0% — no filtering
     }
 }
 
@@ -125,7 +125,13 @@ mod tests {
 
     #[test]
     fn test_band_selectivity_bounds() {
-        for band in &[Band::Foveal, Band::Near, Band::Good, Band::Weak, Band::Reject] {
+        for band in &[
+            Band::Foveal,
+            Band::Near,
+            Band::Good,
+            Band::Weak,
+            Band::Reject,
+        ] {
             let sel = band_selectivity(band);
             assert!(sel >= 0.0 && sel <= 1.0, "selectivity out of range: {sel}");
         }

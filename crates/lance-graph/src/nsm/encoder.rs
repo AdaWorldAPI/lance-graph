@@ -134,7 +134,11 @@ pub struct RoleVectors {
 impl RoleVectors {
     /// Generate role vectors from a 64-bit seed using XorShift64.
     pub fn from_seed(seed: u64) -> Self {
-        let mut state = if seed == 0 { 0xDEAD_BEEF_CAFE_BABE } else { seed };
+        let mut state = if seed == 0 {
+            0xDEAD_BEEF_CAFE_BABE
+        } else {
+            seed
+        };
         let mut vectors = [[0u8; ROLE_VECTOR_BYTES]; NUM_ROLES];
 
         for role in 0..NUM_ROLES {
@@ -216,11 +220,7 @@ pub struct NsmEncoder {
 
 impl NsmEncoder {
     /// Create an encoder with a distance matrix, roles, and prime ranks.
-    pub fn new(
-        matrix: WordDistanceMatrix,
-        roles: RoleVectors,
-        prime_ranks: Vec<u16>,
-    ) -> Self {
+    pub fn new(matrix: WordDistanceMatrix, roles: RoleVectors, prime_ranks: Vec<u16>) -> Self {
         NsmEncoder {
             matrix,
             roles,
@@ -233,7 +233,9 @@ impl NsmEncoder {
     /// O(1): three matrix lookups.
     pub fn triple_distance(&self, a: &SpoTriple, b: &SpoTriple) -> u32 {
         let sd = self.matrix.get(a.subject() as usize, b.subject() as usize);
-        let pd = self.matrix.get(a.predicate() as usize, b.predicate() as usize);
+        let pd = self
+            .matrix
+            .get(a.predicate() as usize, b.predicate() as usize);
         let od = self.matrix.get(a.object() as usize, b.object() as usize);
         sd + pd + od
     }
@@ -249,13 +251,11 @@ impl NsmEncoder {
     }
 
     /// Detailed similarity breakdown between two triples.
-    pub fn triple_similarity_detail(
-        &self,
-        a: &SpoTriple,
-        b: &SpoTriple,
-    ) -> TripleSimilarity {
+    pub fn triple_similarity_detail(&self, a: &SpoTriple, b: &SpoTriple) -> TripleSimilarity {
         let sd = self.matrix.get(a.subject() as usize, b.subject() as usize);
-        let pd = self.matrix.get(a.predicate() as usize, b.predicate() as usize);
+        let pd = self
+            .matrix
+            .get(a.predicate() as usize, b.predicate() as usize);
         let od = self.matrix.get(a.object() as usize, b.object() as usize);
         let dist = sd + pd + od;
         let max_dist = 255u32 * 3;
@@ -304,11 +304,7 @@ impl NsmEncoder {
     }
 
     /// Sentence-level similarity: average of best-matching triple pairs.
-    pub fn sentence_similarity(
-        &self,
-        a: &EncodedSentence,
-        b: &EncodedSentence,
-    ) -> f32 {
+    pub fn sentence_similarity(&self, a: &EncodedSentence, b: &EncodedSentence) -> f32 {
         if a.triples.is_empty() || b.triples.is_empty() {
             return 0.0;
         }
@@ -363,11 +359,7 @@ pub fn test_encoder() -> NsmEncoder {
     // NSM primes are ranks 0..63 in our test vocabulary
     let prime_ranks: Vec<u16> = (0..63u16).collect();
 
-    NsmEncoder::new(
-        mat,
-        RoleVectors::from_seed(42),
-        prime_ranks,
-    )
+    NsmEncoder::new(mat, RoleVectors::from_seed(42), prime_ranks)
 }
 
 #[cfg(test)]
@@ -393,11 +385,7 @@ mod tests {
 
     #[test]
     fn test_distance_matrix_build() {
-        let vecs: Vec<Vec<f32>> = vec![
-            vec![0.0, 0.0],
-            vec![1.0, 0.0],
-            vec![0.0, 1.0],
-        ];
+        let vecs: Vec<Vec<f32>> = vec![vec![0.0, 0.0], vec![1.0, 0.0], vec![0.0, 1.0]];
         let mat = WordDistanceMatrix::build(&vecs);
         assert_eq!(mat.size(), 3);
         assert_eq!(mat.get(0, 0), 0);
@@ -472,9 +460,7 @@ mod tests {
         let s1 = EncodedSentence {
             triples: vec![t.clone()],
         };
-        let s2 = EncodedSentence {
-            triples: vec![t],
-        };
+        let s2 = EncodedSentence { triples: vec![t] };
         let sim = enc.sentence_similarity(&s1, &s2);
         assert!((sim - 1.0).abs() < f32::EPSILON);
     }
@@ -494,12 +480,8 @@ mod tests {
             object: 51,
             negated: true,
         };
-        let s1 = EncodedSentence {
-            triples: vec![t1],
-        };
-        let s2 = EncodedSentence {
-            triples: vec![t2],
-        };
+        let s1 = EncodedSentence { triples: vec![t1] };
+        let s2 = EncodedSentence { triples: vec![t2] };
         let sim = enc.sentence_similarity(&s1, &s2);
         // Should be penalized for negation mismatch: 1.0 * 0.5 = 0.5
         assert!((sim - 0.5).abs() < f32::EPSILON);

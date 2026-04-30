@@ -207,8 +207,10 @@ impl LanceAuditSink {
             .map(|e| statement_kind_str(e.statement_kind))
             .collect();
         let rls_preds: Vec<u16> = entries.iter().map(|e| e.rls_predicates_added).collect();
-        let plans: Vec<Option<&str>> =
-            entries.iter().map(|e| e.rewritten_plan.as_deref()).collect();
+        let plans: Vec<Option<&str>> = entries
+            .iter()
+            .map(|e| e.rewritten_plan.as_deref())
+            .collect();
 
         let tz: Arc<str> = Arc::from("UTC");
         let schema = Arc::new(Schema::new(vec![
@@ -225,8 +227,7 @@ impl LanceAuditSink {
             Field::new("rewritten_plan", DataType::Utf8, true),
         ]));
 
-        let ts_array =
-            TimestampMillisecondArray::from(timestamps).with_timezone(tz.clone());
+        let ts_array = TimestampMillisecondArray::from(timestamps).with_timezone(tz.clone());
 
         let batch = RecordBatch::try_new(
             schema.clone(),
@@ -242,10 +243,7 @@ impl LanceAuditSink {
         )
         .map_err(|e| format!("Arrow batch error: {e}"))?;
 
-        let reader = arrow::record_batch::RecordBatchIterator::new(
-            vec![Ok(batch)],
-            schema,
-        );
+        let reader = arrow::record_batch::RecordBatchIterator::new(vec![Ok(batch)], schema);
 
         // Determine write mode: Create if new, Append if existing.
         let mode = match Dataset::open(&self.dataset_path).await {
@@ -533,7 +531,10 @@ mod tests {
         let h2 = hash_statement("SELECT * FROM calls WHERE tenant_id = 'x'");
         let h3 = hash_statement("SELECT * FROM calls WHERE tenant_id = 'y'");
         assert_eq!(h1, h2, "same input must hash identically within a run");
-        assert_ne!(h1, h3, "different inputs should (with overwhelming prob) differ");
+        assert_ne!(
+            h1, h3,
+            "different inputs should (with overwhelming prob) differ"
+        );
     }
 
     #[test]

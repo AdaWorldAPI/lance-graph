@@ -4,7 +4,7 @@
 //! The pool tracks what has been said (already_said bundle) and what remains.
 //! Composition phase (Exposition→Coda) emerges from surprise/alignment dynamics.
 
-use super::kv_bundle::{HeadPrint, bundle_into};
+use super::kv_bundle::{bundle_into, HeadPrint};
 
 /// Which composition phase the conversation is in.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -73,7 +73,12 @@ impl CandidatePool {
             return None;
         }
         let best = self.candidates.remove(0);
-        bundle_into(&best.head, &mut self.already_said, self.emit_count as f32, 1.0);
+        bundle_into(
+            &best.head,
+            &mut self.already_said,
+            self.emit_count as f32,
+            1.0,
+        );
         self.emit_count += 1;
         Some(best)
     }

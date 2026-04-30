@@ -275,7 +275,10 @@ mod realtime_tests {
         let waker = noop_waker();
         let mut cx = Context::from_waker(&waker);
         let poll = Pin::new(&mut task).poll(&mut cx);
-        assert!(matches!(poll, Poll::Pending), "empty open channel is Pending");
+        assert!(
+            matches!(poll, Poll::Pending),
+            "empty open channel is Pending"
+        );
         assert_eq!(task.drained(), 0);
         assert_eq!(bridge.routed(), 0);
     }

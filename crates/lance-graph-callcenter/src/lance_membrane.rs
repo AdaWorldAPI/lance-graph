@@ -101,11 +101,15 @@ pub trait Plugin: Send + Sync + std::fmt::Debug {
 
     /// Other plugin names this plugin needs to run AFTER.
     /// Used by `MembraneRegistry::seal()` for topological ordering.
-    fn depends_on(&self) -> &[&'static str] { &[] }
+    fn depends_on(&self) -> &[&'static str] {
+        &[]
+    }
 
     /// Verify prerequisites are wired. Called once at membrane construction.
     /// Default = noop. Plugins like AuditPlugin override to assert RLS is set.
-    fn seal(&self, _registry: &MembraneRegistry) -> Result<(), String> { Ok(()) }
+    fn seal(&self, _registry: &MembraneRegistry) -> Result<(), String> {
+        Ok(())
+    }
 }
 
 /// The Blood-Brain Barrier enforcement point.
@@ -133,7 +137,12 @@ struct ActorState {
 pub struct MembraneRegistry {
     #[cfg(all(
         feature = "membrane-plugins-rls",
-        any(feature = "auth-rls-lite", feature = "auth-rls", feature = "auth", feature = "full")
+        any(
+            feature = "auth-rls-lite",
+            feature = "auth-rls",
+            feature = "auth",
+            feature = "full"
+        )
     ))]
     rls: Option<Arc<crate::rls::RlsPolicyRegistry>>,
     #[cfg(all(feature = "membrane-plugins-audit", feature = "audit-log"))]
@@ -153,7 +162,12 @@ impl MembraneRegistry {
     /// `crate::rls`.
     #[cfg(all(
         feature = "membrane-plugins-rls",
-        any(feature = "auth-rls-lite", feature = "auth-rls", feature = "auth", feature = "full")
+        any(
+            feature = "auth-rls-lite",
+            feature = "auth-rls",
+            feature = "auth",
+            feature = "full"
+        )
     ))]
     pub fn with_rls(mut self, reg: Arc<crate::rls::RlsPolicyRegistry>) -> Self {
         self.rls = Some(reg);
@@ -171,7 +185,12 @@ impl MembraneRegistry {
     /// Borrow the installed RLS policy registry, if any.
     #[cfg(all(
         feature = "membrane-plugins-rls",
-        any(feature = "auth-rls-lite", feature = "auth-rls", feature = "auth", feature = "full")
+        any(
+            feature = "auth-rls-lite",
+            feature = "auth-rls",
+            feature = "auth",
+            feature = "full"
+        )
     ))]
     pub fn rls(&self) -> Option<&Arc<crate::rls::RlsPolicyRegistry>> {
         self.rls.as_ref()
@@ -201,39 +220,39 @@ impl MembraneRegistry {
 /// that the next `project()` call stamps a consistent identity triple
 /// on the emitted `CognitiveEventRow`.
 pub struct LanceMembrane {
-    current_actor:   RwLock<ActorState>,
+    current_actor: RwLock<ActorState>,
     // Read with Acquire, written with Release — pairs with current_actor
     // RwLock for happens-before across threads.
-    current_scent:   AtomicU64,
+    current_scent: AtomicU64,
     // Read with Acquire, written with Release — pairs with current_actor
     // RwLock for happens-before across threads.
     current_rationale_phase: AtomicBool,
-    version:         AtomicU64,
-    server_filter:   RwLock<CommitFilter>,
-    gate:            RwLock<Option<Arc<dyn MembraneGate>>>,
+    version: AtomicU64,
+    server_filter: RwLock<CommitFilter>,
+    gate: RwLock<Option<Arc<dyn MembraneGate>>>,
     /// Optional plugin registry (RLS, audit, catalog). Set via
     /// `LanceMembrane::with_registry()`. Read-only after seal in v1.
-    registry:        Option<MembraneRegistry>,
+    registry: Option<MembraneRegistry>,
     #[cfg(feature = "realtime")]
-    watcher:         LanceVersionWatcher,
+    watcher: LanceVersionWatcher,
 }
 
 impl LanceMembrane {
     pub fn new() -> Self {
         Self {
-            current_actor:   RwLock::new(ActorState {
+            current_actor: RwLock::new(ActorState {
                 role: 0,
                 faculty: FacultyRole::ReadingComprehension as u8,
                 expert: 0,
             }),
-            current_scent:   AtomicU64::new(0),
+            current_scent: AtomicU64::new(0),
             current_rationale_phase: AtomicBool::new(false),
-            version:         AtomicU64::new(0),
-            server_filter:   RwLock::new(CommitFilter::default()),
-            gate:            RwLock::new(None),
-            registry:        None,
+            version: AtomicU64::new(0),
+            server_filter: RwLock::new(CommitFilter::default()),
+            gate: RwLock::new(None),
+            registry: None,
             #[cfg(feature = "realtime")]
-            watcher:         LanceVersionWatcher::default(),
+            watcher: LanceVersionWatcher::default(),
         }
     }
 
@@ -286,11 +305,15 @@ impl LanceMembrane {
     /// plus the current dispatch stage.
     pub fn set_faculty_context(&self, faculty: u8, expert: ExpertId, rationale_phase: bool) {
         {
-            let mut actor = self.current_actor.write().unwrap_or_else(|e| e.into_inner());
+            let mut actor = self
+                .current_actor
+                .write()
+                .unwrap_or_else(|e| e.into_inner());
             actor.faculty = faculty;
             actor.expert = expert;
         }
-        self.current_rationale_phase.store(rationale_phase, Ordering::Release);
+        self.current_rationale_phase
+            .store(rationale_phase, Ordering::Release);
     }
 }
 
@@ -332,33 +355,33 @@ impl ExternalMembrane for LanceMembrane {
         // Single-lock snapshot: role/faculty/expert are always consistent.
         // Poison recovery via into_inner() (F-09: no permanent panic source).
         let actor = *self.current_actor.read().unwrap_or_else(|e| e.into_inner());
-        let role    = actor.role;
+        let role = actor.role;
         let faculty = actor.faculty;
-        let expert  = actor.expert;
-        let scent   = self.current_scent.load(Ordering::Acquire) as u8;
+        let expert = actor.expert;
+        let scent = self.current_scent.load(Ordering::Acquire) as u8;
 
         let row = CognitiveEventRow {
             external_role: role,
-            faculty_role:  faculty,
-            expert_id:     expert,
-            dialect:       0, // Phase B: populated by polyglot front-end
+            faculty_role: faculty,
+            expert_id: expert,
+            dialect: 0, // Phase B: populated by polyglot front-end
             scent,
-            thinking:  meta.thinking(),
+            thinking: meta.thinking(),
             awareness: meta.awareness(),
-            nars_f:    meta.nars_f(),
-            nars_c:    meta.nars_c(),
-            free_e:    meta.free_e(),
+            nars_f: meta.nars_f(),
+            nars_c: meta.nars_c(),
+            free_e: meta.free_e(),
             // Two scalar words from the fingerprint — cycle identity without
             // the full 2 KB VSA tensor. The tensor lives only in ShaderBus.
             cycle_fp_hi: bus.cycle_fingerprint[0],
             cycle_fp_lo: bus.cycle_fingerprint[255],
-            gate_commit:     bus.gate.is_flow(),
+            gate_commit: bus.gate.is_flow(),
             // gate_f currently mirrors free_e * GATE_DAMPING_FACTOR pending
             // real gate signal — see TD-MEMBRANE-GATE-1.  Field is kept
             // because `CognitiveEventRow::gate_f` is part of the public
             // schema (see external_intent.rs and filter_expr.rs) and is
             // referenced by `WHERE gate_f < N` SQL filters.
-            gate_f:          ((meta.free_e() as f32) * GATE_DAMPING_FACTOR) as u8,
+            gate_f: ((meta.free_e() as f32) * GATE_DAMPING_FACTOR) as u8,
             rationale_phase: self.current_rationale_phase.load(Ordering::Acquire),
         };
 
@@ -378,7 +401,10 @@ impl ExternalMembrane for LanceMembrane {
             .gate
             .read()
             .ok()
-            .and_then(|g| g.as_ref().map(|g| g.should_emit(role, faculty, expert, bus.gate.is_flow())))
+            .and_then(|g| {
+                g.as_ref()
+                    .map(|g| g.should_emit(role, faculty, expert, bus.gate.is_flow()))
+            })
             .unwrap_or(true);
 
         // DM-4: fan out to all current subscribers (supabase-shape realtime).
@@ -414,7 +440,10 @@ impl ExternalMembrane for LanceMembrane {
             0xFFu8
         });
         {
-            let mut actor = self.current_actor.write().unwrap_or_else(|e| e.into_inner());
+            let mut actor = self
+                .current_actor
+                .write()
+                .unwrap_or_else(|e| e.into_inner());
             actor.role = role;
         }
 
@@ -424,17 +453,17 @@ impl ExternalMembrane for LanceMembrane {
 
         // 4. Translate to step type for OrchestrationBridge
         let step_type = match intent.kind {
-            ExternalEventKind::Seed    => "lg.blackboard.seed",
+            ExternalEventKind::Seed => "lg.blackboard.seed",
             ExternalEventKind::Context => "lg.blackboard.context",
-            ExternalEventKind::Commit  => "lg.blackboard.commit",
+            ExternalEventKind::Commit => "lg.blackboard.commit",
         };
 
         UnifiedStep {
-            step_id:    format!("{:016x}", scent as u64),
-            step_type:  step_type.to_owned(),
-            status:     StepStatus::Pending,
-            thinking:   None, // resolved by OrchestrationBridge::resolve_thinking()
-            reasoning:  None,
+            step_id: format!("{:016x}", scent as u64),
+            step_type: step_type.to_owned(),
+            status: StepStatus::Pending,
+            thinking: None, // resolved by OrchestrationBridge::resolve_thinking()
+            reasoning: None,
             confidence: None,
             depends_on: Vec::new(),
         }
@@ -464,15 +493,11 @@ impl ExternalMembrane for LanceMembrane {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lance_graph_contract::{
-        cognitive_shader::ShaderBus,
-        external_membrane::ExternalRole,
-    };
     use crate::dn_path::DnPath;
+    use lance_graph_contract::{cognitive_shader::ShaderBus, external_membrane::ExternalRole};
 
     fn make_dn() -> DnPath {
-        DnPath::parse("/tree/ada/heel/callcenter/hip/v1/branch/agents/twig/card/leaf/abc")
-            .unwrap()
+        DnPath::parse("/tree/ada/heel/callcenter/hip/v1/branch/agents/twig/card/leaf/abc").unwrap()
     }
 
     #[test]
@@ -489,18 +514,17 @@ mod tests {
         // scent was set
         assert_ne!(m.current_scent.load(Ordering::Relaxed), 0);
         // role was stamped (read from atomic ActorState — F-01 fix)
-        assert_eq!(m.current_actor.read().unwrap().role, ExternalRole::CrewaiAgent as u8);
+        assert_eq!(
+            m.current_actor.read().unwrap().role,
+            ExternalRole::CrewaiAgent as u8
+        );
     }
 
     #[test]
     fn project_emits_scalar_row() {
         let m = LanceMembrane::new();
         // Prime role context via ingest
-        let intent = ExternalIntent::seed(
-            ExternalRole::Rag,
-            make_dn(),
-            vec![],
-        );
+        let intent = ExternalIntent::seed(ExternalRole::Rag, make_dn(), vec![]);
         m.ingest(intent);
 
         let bus = ShaderBus::empty();
@@ -522,11 +546,8 @@ mod tests {
     #[test]
     fn context_kind_produces_context_step() {
         let m = LanceMembrane::new();
-        let intent = ExternalIntent::context(
-            ExternalRole::N8n,
-            make_dn(),
-            b"context payload".to_vec(),
-        );
+        let intent =
+            ExternalIntent::context(ExternalRole::N8n, make_dn(), b"context payload".to_vec());
         let step = m.ingest(intent);
         assert_eq!(step.step_type, "lg.blackboard.context");
     }
@@ -546,7 +567,9 @@ mod tests {
     fn gate_denies_skips_emit_but_returns_row() {
         struct DenyAll;
         impl MembraneGate for DenyAll {
-            fn should_emit(&self, _: u8, _: u8, _: u16, _: bool) -> bool { false }
+            fn should_emit(&self, _: u8, _: u8, _: u16, _: bool) -> bool {
+                false
+            }
         }
 
         let m = LanceMembrane::new();
@@ -621,7 +644,10 @@ mod tests {
 
         // The watcher should have delivered the row
         let snapshot = rx.borrow();
-        assert_eq!(snapshot.thinking, 7, "subscriber should see the projected row");
+        assert_eq!(
+            snapshot.thinking, 7,
+            "subscriber should see the projected row"
+        );
         assert_eq!(snapshot.external_role, ExternalRole::CrewaiAgent as u8);
     }
 
@@ -637,25 +663,34 @@ mod tests {
         // Wire Stage 1 (rationale) via set_faculty_context
         m.set_faculty_context(
             FacultyRole::ReadingComprehension as u8,
-            42, // expert_id
+            42,   // expert_id
             true, // rationale phase = Stage 1
         );
         let row = m.project(&bus, meta);
-        assert!(row.rationale_phase, "after set_faculty_context(true), should be Stage 1");
+        assert!(
+            row.rationale_phase,
+            "after set_faculty_context(true), should be Stage 1"
+        );
         assert_eq!(row.faculty_role, FacultyRole::ReadingComprehension as u8);
         assert_eq!(row.expert_id, 42);
 
         // Wire Stage 2 (answer)
         m.set_faculty_context(FacultyRole::ReadingComprehension as u8, 42, false);
         let row = m.project(&bus, meta);
-        assert!(!row.rationale_phase, "after set_faculty_context(false), should be Stage 2");
+        assert!(
+            !row.rationale_phase,
+            "after set_faculty_context(false), should be Stage 2"
+        );
     }
 
     #[test]
     fn with_registry_chain_compiles_and_stores() {
         // Empty registry composes through the builder and is readable back.
         let m = LanceMembrane::new().with_registry(MembraneRegistry::new());
-        assert!(m.registry().is_some(), "registry() should be Some after wiring");
+        assert!(
+            m.registry().is_some(),
+            "registry() should be Some after wiring"
+        );
     }
 
     #[test]
@@ -671,7 +706,10 @@ mod tests {
     #[test]
     fn registry_none_by_default() {
         let m = LanceMembrane::new();
-        assert!(m.registry().is_none(), "registry() should be None on a bare LanceMembrane");
+        assert!(
+            m.registry().is_none(),
+            "registry() should be None on a bare LanceMembrane"
+        );
     }
 
     #[test]
@@ -748,7 +786,10 @@ mod tests {
 
         // Release on the writer side + Acquire on the reader side
         // establishes happens-before — we must observe the post-write state.
-        assert!(row.rationale_phase, "Acquire-side read must see Release-side write");
+        assert!(
+            row.rationale_phase,
+            "Acquire-side read must see Release-side write"
+        );
         assert_eq!(row.faculty_role, FacultyRole::ReadingComprehension as u8);
         assert_eq!(row.expert_id, 7);
     }

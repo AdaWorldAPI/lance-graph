@@ -66,11 +66,11 @@ pub enum FacultyRole {
     /// Text understanding: chunking, entity extraction, coreference.
     ReadingComprehension = 0,
     /// Prosody-aware speech generation / analysis.
-    Voice                = 1,
+    Voice = 1,
     /// Logical composition, NARS revision, semiring derivation.
-    Reasoning            = 2,
+    Reasoning = 2,
     /// Qualia matching, resonance scoring, other-as-self modelling.
-    Empathy              = 3,
+    Empathy = 3,
     // Extensible: Memory, Attention, Prosody, Imagination, Planning, …
 }
 

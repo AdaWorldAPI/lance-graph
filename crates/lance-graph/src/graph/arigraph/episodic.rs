@@ -225,20 +225,17 @@ impl EpisodicMemory {
                 // data and has no padding. Reinterpreting as &[u8] of
                 // the same byte length is always safe.
                 let bytes = unsafe {
-                    core::slice::from_raw_parts(
-                        ep.fingerprint.as_ptr() as *const u8,
-                        FP_BYTES,
-                    )
+                    core::slice::from_raw_parts(ep.fingerprint.as_ptr() as *const u8, FP_BYTES)
                 };
                 db.extend_from_slice(bytes);
             }
-            let q = unsafe {
-                core::slice::from_raw_parts(fp.as_ptr() as *const u8, FP_BYTES)
-            };
+            let q = unsafe { core::slice::from_raw_parts(fp.as_ptr() as *const u8, FP_BYTES) };
             let dists = ndarray::hpc::bitwise::hamming_batch_raw(q, &db, n, FP_BYTES);
             let mut best: Option<(usize, u64)> = None;
             for (i, &d) in dists.iter().enumerate() {
-                if d as u32 > max_distance { continue; }
+                if d as u32 > max_distance {
+                    continue;
+                }
                 match best {
                     None => best = Some((i, d)),
                     Some((_, bd)) if d < bd => best = Some((i, d)),
@@ -253,7 +250,9 @@ impl EpisodicMemory {
             let mut best: Option<(usize, u32)> = None;
             for (i, ep) in self.episodes.iter().enumerate() {
                 let d = hamming_distance(fp, &ep.fingerprint);
-                if d > max_distance { continue; }
+                if d > max_distance {
+                    continue;
+                }
                 match best {
                     None => best = Some((i, d)),
                     Some((_, bd)) if d < bd => best = Some((i, d)),
@@ -274,9 +273,7 @@ impl EpisodicMemory {
     pub fn rebundle_cold(&mut self, step_cutoff: u64) -> RebundleReport {
         let mut report = RebundleReport::default();
         for ep in self.episodes.iter_mut() {
-            if ep.step < step_cutoff
-                && ep.truth.confidence < UNBUNDLE_HARDNESS_THRESHOLD
-            {
+            if ep.step < step_cutoff && ep.truth.confidence < UNBUNDLE_HARDNESS_THRESHOLD {
                 report.facts_compacted += ep.triplets.len() as u64;
                 ep.triplets.clear();
                 report.cold_episodes += 1;
@@ -293,16 +290,8 @@ mod tests {
     #[test]
     fn test_add_and_retrieve() {
         let mut mem = EpisodicMemory::new(10);
-        mem.add(
-            "alpha bravo charlie",
-            &["a - r - b".to_string()],
-            1,
-        );
-        mem.add(
-            "delta echo foxtrot",
-            &["d - r - e".to_string()],
-            2,
-        );
+        mem.add("alpha bravo charlie", &["a - r - b".to_string()], 1);
+        mem.add("delta echo foxtrot", &["d - r - e".to_string()], 2);
 
         assert_eq!(mem.len(), 2);
 
@@ -375,19 +364,16 @@ mod tests {
     }
 
     fn set_hardness(mem: &mut EpisodicMemory, idx: usize, hardness: f32) {
-        mem.episodes[idx].truth = TruthValue::new(
-            mem.episodes[idx].truth.frequency,
-            hardness,
-        );
+        mem.episodes[idx].truth = TruthValue::new(mem.episodes[idx].truth.frequency, hardness);
     }
 
     #[test]
     fn unbundle_hardened_emits_facts_from_hard_episodes() {
         let mut mem = EpisodicMemory::new(10);
-        mem.add("soft",  &["a - r - b".into()], 1);
-        mem.add("hard",  &["c - r - d".into(), "e - r - f".into()], 2);
+        mem.add("soft", &["a - r - b".into()], 1);
+        mem.add("hard", &["c - r - d".into(), "e - r - f".into()], 2);
         mem.add("harder", &["g - r - h".into()], 3);
-        set_hardness(&mut mem, 0, 0.3);  // below threshold
+        set_hardness(&mut mem, 0, 0.3); // below threshold
         set_hardness(&mut mem, 1, 0.85); // above
         set_hardness(&mut mem, 2, 0.95); // above
 
@@ -402,7 +388,7 @@ mod tests {
     fn unbundle_targeted_returns_facts_of_match() {
         let mut mem = EpisodicMemory::new(10);
         mem.add("alpha bravo", &["x - r - y".into()], 1);
-        mem.add("delta echo",  &["u - r - v".into()], 2);
+        mem.add("delta echo", &["u - r - v".into()], 2);
         set_hardness(&mut mem, 0, 0.9);
 
         let fp = label_fp("alpha bravo");
@@ -415,12 +401,12 @@ mod tests {
     #[test]
     fn rebundle_cold_clears_old_soft_episode_triplets() {
         let mut mem = EpisodicMemory::new(10);
-        mem.add("aged-soft",  &["p - r - q".into(), "s - r - t".into()], 1);
-        mem.add("aged-hard",  &["m - r - n".into()], 2);
+        mem.add("aged-soft", &["p - r - q".into(), "s - r - t".into()], 1);
+        mem.add("aged-hard", &["m - r - n".into()], 2);
         mem.add("young-soft", &["j - r - k".into()], 100);
-        set_hardness(&mut mem, 0, 0.3);   // soft, aged → rebundle
-        set_hardness(&mut mem, 1, 0.9);   // hard, aged → keep
-        set_hardness(&mut mem, 2, 0.3);   // soft, young → keep
+        set_hardness(&mut mem, 0, 0.3); // soft, aged → rebundle
+        set_hardness(&mut mem, 1, 0.9); // hard, aged → keep
+        set_hardness(&mut mem, 2, 0.3); // soft, young → keep
 
         let report = mem.rebundle_cold(10);
         assert_eq!(report.cold_episodes, 1);

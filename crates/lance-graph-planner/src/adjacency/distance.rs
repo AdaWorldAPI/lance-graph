@@ -4,9 +4,9 @@
 //! This is the key insight: resonance scanning happens on the adjacency graph,
 //! not on a flat table.
 
-use super::csr::AdjacencyStore;
 #[allow(unused_imports)] // intended for batch distance computation wiring
 use super::batch::AdjacencyBatch;
+use super::csr::AdjacencyStore;
 
 /// Result of adjacent fingerprint distance scan.
 #[derive(Debug, Clone)]
@@ -55,7 +55,8 @@ pub fn adjacent_fingerprint_distance(
 /// In production, this is an ndarray SIMD kernel.
 #[inline]
 fn hamming_distance(a: &[u64], b: &[u64]) -> u32 {
-    a.iter().zip(b.iter())
+    a.iter()
+        .zip(b.iter())
         .map(|(x, y)| (x ^ y).count_ones())
         .sum()
 }
@@ -66,22 +67,18 @@ mod tests {
 
     #[test]
     fn test_adjacent_fingerprint_distance() {
-        let store = AdjacencyStore::from_edges("KNOWS".into(), 4, &[
-            (0, 1), (0, 2), (0, 3),
-        ]);
+        let store = AdjacencyStore::from_edges("KNOWS".into(), 4, &[(0, 1), (0, 2), (0, 3)]);
 
         // Node fingerprints (simple 2-word fingerprints for testing)
         let query_fp = vec![0xFF00FF00u64, 0x00FF00FFu64];
         let node_fps = vec![
-            vec![0u64, 0u64],                     // node 0
-            vec![0xFF00FF00u64, 0x00FF00FFu64],   // node 1: exact match
-            vec![0xFF00FF01u64, 0x00FF00FFu64],   // node 2: 1 bit off
-            vec![0x00000000u64, 0xFFFFFFFFu64],   // node 3: very different
+            vec![0u64, 0u64],                   // node 0
+            vec![0xFF00FF00u64, 0x00FF00FFu64], // node 1: exact match
+            vec![0xFF00FF01u64, 0x00FF00FFu64], // node 2: 1 bit off
+            vec![0x00000000u64, 0xFFFFFFFFu64], // node 3: very different
         ];
 
-        let result = adjacent_fingerprint_distance(
-            &store, &[0], &query_fp, &node_fps, 5,
-        );
+        let result = adjacent_fingerprint_distance(&store, &[0], &query_fp, &node_fps, 5);
 
         // Node 1: distance 0 (exact match) — should be included
         // Node 2: distance 1 — should be included

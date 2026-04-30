@@ -75,7 +75,9 @@ impl SpoBase17 {
     /// L1 distance on subject plane only.
     pub fn l1_subject(&self, other: &Self) -> u32 {
         let mut d = 0u32;
-        for i in 0..17 { d += (self.s[i] as i32 - other.s[i] as i32).unsigned_abs(); }
+        for i in 0..17 {
+            d += (self.s[i] as i32 - other.s[i] as i32).unsigned_abs();
+        }
         d
     }
 
@@ -86,25 +88,43 @@ impl SpoBase17 {
         let ds = self.l1_subject(other);
         let dp = {
             let mut d = 0u32;
-            for i in 0..17 { d += (self.p[i] as i32 - other.p[i] as i32).unsigned_abs(); }
+            for i in 0..17 {
+                d += (self.p[i] as i32 - other.p[i] as i32).unsigned_abs();
+            }
             d
         };
         let do_ = {
             let mut d = 0u32;
-            for i in 0..17 { d += (self.o[i] as i32 - other.o[i] as i32).unsigned_abs(); }
+            for i in 0..17 {
+                d += (self.o[i] as i32 - other.o[i] as i32).unsigned_abs();
+            }
             d
         };
         let s_close = ds < threshold;
         let p_close = dp < threshold;
         let o_close = do_ < threshold;
         let mut b = 0u8;
-        if s_close { b |= 1; }
-        if p_close { b |= 2; }
-        if o_close { b |= 4; }
-        if s_close && p_close { b |= 8; }
-        if s_close && o_close { b |= 16; }
-        if p_close && o_close { b |= 32; }
-        if s_close && p_close && o_close { b |= 64; }
+        if s_close {
+            b |= 1;
+        }
+        if p_close {
+            b |= 2;
+        }
+        if o_close {
+            b |= 4;
+        }
+        if s_close && p_close {
+            b |= 8;
+        }
+        if s_close && o_close {
+            b |= 16;
+        }
+        if p_close && o_close {
+            b |= 32;
+        }
+        if s_close && p_close && o_close {
+            b |= 64;
+        }
         b
     }
 }
@@ -159,7 +179,10 @@ impl Heel {
     pub fn pack_truth_meta(freq: f32, conf: f32, scent: u8, plasticity: u8, temporal: u32) -> u64 {
         let f = (freq.clamp(0.0, 1.0) * 255.0) as u64;
         let c = (conf.clamp(0.0, 1.0) * 255.0) as u64;
-        f | (c << 8) | ((scent as u64) << 16) | ((plasticity as u64) << 24) | ((temporal as u64) << 32)
+        f | (c << 8)
+            | ((scent as u64) << 16)
+            | ((plasticity as u64) << 24)
+            | ((temporal as u64) << 32)
     }
 }
 
@@ -221,17 +244,32 @@ impl HighHeelBGZ {
         let w1 = old_c;
         let w2 = new_conf;
         let total = w1 + w2;
-        if total < 1e-6 { return; }
+        if total < 1e-6 {
+            return;
+        }
         let merged_f = (old_f * w1 + new_freq * w2) / total;
         let merged_c = (total / (total + 1.0)).min(0.99); // confidence approaches but never reaches 1.0
-        // Cool plasticity as confidence rises
-        let plasticity = if merged_c > 0.8 { 0 }      // frozen
-            else if merged_c > 0.6 { 1 }               // cooling
-            else if merged_c > 0.3 { 2 }               // warm
-            else { 3 };                                 // hot
+                                                          // Cool plasticity as confidence rises
+        let plasticity = if merged_c > 0.8 {
+            0
+        }
+        // frozen
+        else if merged_c > 0.6 {
+            1
+        }
+        // cooling
+        else if merged_c > 0.3 {
+            2
+        }
+        // warm
+        else {
+            3
+        }; // hot
         self.heel.truth_meta = Heel::pack_truth_meta(
-            merged_f, merged_c,
-            self.heel.scent(), plasticity,
+            merged_f,
+            merged_c,
+            self.heel.scent(),
+            plasticity,
             self.heel.temporal(),
         );
     }
@@ -257,7 +295,9 @@ impl HighHeelBGZ {
         buf[15] = self.heel.truth_meta;
         // Pack edges
         for (i, &edge) in self.edges.iter().enumerate() {
-            if i >= MAX_EDGES { break; }
+            if i >= MAX_EDGES {
+                break;
+            }
             buf[16 + i] = edge;
         }
         buf
@@ -280,13 +320,20 @@ impl HighHeelBGZ {
         // Unpack edges (non-zero entries in W16-W255)
         let edges: Vec<u64> = buf[16..256].iter().copied().filter(|&v| v != 0).collect();
         Self {
-            heel: Heel { dn_address, label_flags, spo, truth_meta },
+            heel: Heel {
+                dn_address,
+                label_flags,
+                spo,
+                truth_meta,
+            },
             edges,
         }
     }
 
     /// Total byte size on wire.
-    pub const fn wire_size() -> usize { CONTAINER_BYTES }
+    pub const fn wire_size() -> usize {
+        CONTAINER_BYTES
+    }
 }
 
 /// Convert SpoBase17 to 102 bytes (+ 2 padding = 104).
@@ -372,14 +419,23 @@ impl BasinAccumulator {
     /// Call after ingesting a seed batch (e.g., first 10-20 triplets).
     /// Sets threshold to the given percentile of pairwise distances.
     pub fn calibrate(&mut self, percentile: f32) {
-        if self.basins.len() < 2 { return; }
+        if self.basins.len() < 2 {
+            return;
+        }
         let mut dists = Vec::new();
         for i in 0..self.basins.len() {
             for j in (i + 1)..self.basins.len() {
-                dists.push(self.basins[i].heel.spo.l1_distance(&self.basins[j].heel.spo));
+                dists.push(
+                    self.basins[i]
+                        .heel
+                        .spo
+                        .l1_distance(&self.basins[j].heel.spo),
+                );
             }
         }
-        if dists.is_empty() { return; }
+        if dists.is_empty() {
+            return;
+        }
         dists.sort_unstable();
         let idx = ((percentile * dists.len() as f32) as usize).min(dists.len() - 1);
         self.threshold = dists[idx];
@@ -406,9 +462,15 @@ impl BasinAccumulator {
             let n = self.basins[idx].edge_count() as i32;
             let weight = 1.max(n); // weight of existing centroid
             for d in 0..17 {
-                self.basins[idx].heel.spo.s[d] = ((self.basins[idx].heel.spo.s[d] as i32 * weight + spo.s[d] as i32) / (weight + 1)) as i16;
-                self.basins[idx].heel.spo.p[d] = ((self.basins[idx].heel.spo.p[d] as i32 * weight + spo.p[d] as i32) / (weight + 1)) as i16;
-                self.basins[idx].heel.spo.o[d] = ((self.basins[idx].heel.spo.o[d] as i32 * weight + spo.o[d] as i32) / (weight + 1)) as i16;
+                self.basins[idx].heel.spo.s[d] = ((self.basins[idx].heel.spo.s[d] as i32 * weight
+                    + spo.s[d] as i32)
+                    / (weight + 1)) as i16;
+                self.basins[idx].heel.spo.p[d] = ((self.basins[idx].heel.spo.p[d] as i32 * weight
+                    + spo.p[d] as i32)
+                    / (weight + 1)) as i16;
+                self.basins[idx].heel.spo.o[d] = ((self.basins[idx].heel.spo.o[d] as i32 * weight
+                    + spo.o[d] as i32)
+                    / (weight + 1)) as i16;
             }
             // Revise truth: more evidence → higher confidence
             let freq = self.basins[idx].heel.frequency();
@@ -431,8 +493,11 @@ impl BasinAccumulator {
     pub fn stats(&self) -> BasinStats {
         let crystallized = self.basins.iter().filter(|b| b.is_crystallized()).count();
         let total_edges: usize = self.basins.iter().map(|b| b.edge_count()).sum();
-        let avg_edges = if self.basins.is_empty() { 0.0 }
-            else { total_edges as f32 / self.basins.len() as f32 };
+        let avg_edges = if self.basins.is_empty() {
+            0.0
+        } else {
+            total_edges as f32 / self.basins.len() as f32
+        };
         BasinStats {
             basin_count: self.basins.len(),
             total_ingested: self.ingested,
@@ -440,8 +505,11 @@ impl BasinAccumulator {
             total_edges,
             avg_edges_per_basin: avg_edges,
             crystallized_count: crystallized,
-            merge_ratio: if self.ingested == 0 { 0.0 }
-                else { self.merges as f32 / self.ingested as f32 },
+            merge_ratio: if self.ingested == 0 {
+                0.0
+            } else {
+                self.merges as f32 / self.ingested as f32
+            },
         }
     }
 }
@@ -471,7 +539,9 @@ mod tests {
 
     fn make_spo(s0: i16, p0: i16, o0: i16) -> SpoBase17 {
         let mut spo = SpoBase17::ZERO;
-        spo.s[0] = s0; spo.p[0] = p0; spo.o[0] = o0;
+        spo.s[0] = s0;
+        spo.p[0] = p0;
+        spo.o[0] = o0;
         spo
     }
 
@@ -508,8 +578,10 @@ mod tests {
     fn test_heel_truth_pack_unpack() {
         let meta = Heel::pack_truth_meta(0.9, 0.7, 0x3F, 2, 42);
         let heel = Heel {
-            dn_address: 1, label_flags: 0,
-            spo: SpoBase17::ZERO, truth_meta: meta,
+            dn_address: 1,
+            label_flags: 0,
+            spo: SpoBase17::ZERO,
+            truth_meta: meta,
         };
         assert!((heel.frequency() - 0.9).abs() < 0.01);
         assert!((heel.confidence() - 0.7).abs() < 0.01);
@@ -595,8 +667,14 @@ mod tests {
             acc.ingest(spo, i as u64);
         }
         let stats = acc.stats();
-        assert!(stats.merge_ratio > 0.5, "most should merge at threshold=1000");
-        assert!(stats.basin_count < 10, "should consolidate into fewer basins");
+        assert!(
+            stats.merge_ratio > 0.5,
+            "most should merge at threshold=1000"
+        );
+        assert!(
+            stats.basin_count < 10,
+            "should consolidate into fewer basins"
+        );
     }
 
     #[test]
@@ -615,7 +693,13 @@ mod tests {
         let mut dims = [0i64; 51]; // 17×3
         let third = n / 3;
         for (i, word) in words.iter().enumerate() {
-            let plane = if i < third { 0 } else if i < third * 2 { 17 } else { 34 };
+            let plane = if i < third {
+                0
+            } else if i < third * 2 {
+                17
+            } else {
+                34
+            };
             for (j, byte) in word.bytes().enumerate() {
                 let dim = plane + ((j * 11) % 17);
                 dims[dim] += byte as i64 * 31;
@@ -625,16 +709,25 @@ mod tests {
         let scale = 10000.0 / max_abs as f64;
         let mut spo = SpoBase17::ZERO;
         let pack = |v: i64| (v as f64 * scale).round().clamp(-32768.0, 32767.0) as i16;
-        for (d, slot) in spo.s.iter_mut().enumerate() { *slot = pack(dims[d]); }
-        for (d, slot) in spo.p.iter_mut().enumerate() { *slot = pack(dims[17 + d]); }
-        for (d, slot) in spo.o.iter_mut().enumerate() { *slot = pack(dims[34 + d]); }
+        for (d, slot) in spo.s.iter_mut().enumerate() {
+            *slot = pack(dims[d]);
+        }
+        for (d, slot) in spo.p.iter_mut().enumerate() {
+            *slot = pack(dims[17 + d]);
+        }
+        for (d, slot) in spo.o.iter_mut().enumerate() {
+            *slot = pack(dims[34 + d]);
+        }
         spo
     }
 
     /// Make a fake CausalEdge64 from S/P/O palette indices + NARS truth.
     fn make_edge(s: u8, p: u8, o: u8, freq: u8, conf: u8) -> u64 {
-        (s as u64) | ((p as u64) << 8) | ((o as u64) << 16)
-            | ((freq as u64) << 24) | ((conf as u64) << 32)
+        (s as u64)
+            | ((p as u64) << 8)
+            | ((o as u64) << 16)
+            | ((freq as u64) << 24)
+            | ((conf as u64) << 32)
     }
 
     #[test]
@@ -658,9 +751,12 @@ mod tests {
         }
         // Auto-calibrate: set threshold to p40 of pairwise distances (merge similar)
         acc.calibrate(0.40);
-        eprintln!("  [calibrate] threshold set to {} (p40 of {} basins, {} pairs)",
-            acc.threshold, acc.basins.len(),
-            acc.basins.len() * (acc.basins.len() - 1) / 2);
+        eprintln!(
+            "  [calibrate] threshold set to {} (p40 of {} basins, {} pairs)",
+            acc.threshold,
+            acc.basins.len(),
+            acc.basins.len() * (acc.basins.len() - 1) / 2
+        );
         let stats1 = acc.stats();
         // After seed phase: 6 basins (each fact its own), 0 merges
         // Calibration set threshold — merging starts with next batch
@@ -723,14 +819,22 @@ mod tests {
         eprintln!("\n══════════════════════════════════════════════════════════");
         eprintln!("  HighHeelBGZ Streaming Experiment — Reality Check");
         eprintln!("══════════════════════════════════════════════════════════");
-        eprintln!("\nL1 Simple facts:    basins={:2}  merges={:2}  merge_ratio={:.2}  edges={}",
-            stats1.basin_count, stats1.total_merges, stats1.merge_ratio, stats1.total_edges);
-        eprintln!("L2 +Concepts:       basins={:2}  merges={:2}  merge_ratio={:.2}  edges={}",
-            stats2.basin_count, stats2.total_merges, stats2.merge_ratio, stats2.total_edges);
-        eprintln!("L3 +Rumi poetry:    basins={:2}  merges={:2}  merge_ratio={:.2}  edges={}",
-            stats3.basin_count, stats3.total_merges, stats3.merge_ratio, stats3.total_edges);
-        eprintln!("L4 +Tagore poetry:  basins={:2}  merges={:2}  merge_ratio={:.2}  edges={}",
-            stats4.basin_count, stats4.total_merges, stats4.merge_ratio, stats4.total_edges);
+        eprintln!(
+            "\nL1 Simple facts:    basins={:2}  merges={:2}  merge_ratio={:.2}  edges={}",
+            stats1.basin_count, stats1.total_merges, stats1.merge_ratio, stats1.total_edges
+        );
+        eprintln!(
+            "L2 +Concepts:       basins={:2}  merges={:2}  merge_ratio={:.2}  edges={}",
+            stats2.basin_count, stats2.total_merges, stats2.merge_ratio, stats2.total_edges
+        );
+        eprintln!(
+            "L3 +Rumi poetry:    basins={:2}  merges={:2}  merge_ratio={:.2}  edges={}",
+            stats3.basin_count, stats3.total_merges, stats3.merge_ratio, stats3.total_edges
+        );
+        eprintln!(
+            "L4 +Tagore poetry:  basins={:2}  merges={:2}  merge_ratio={:.2}  edges={}",
+            stats4.basin_count, stats4.total_merges, stats4.merge_ratio, stats4.total_edges
+        );
 
         // Show basin sizes
         eprintln!("\nBasin distribution (edges per basin):");
@@ -739,17 +843,28 @@ mod tests {
         for (i, &size) in sizes.iter().enumerate().take(10) {
             let basin = &acc.basins[i];
             let state = match basin.heel.plasticity() {
-                0 => "FROZEN", 1 => "cooling", 2 => "warm", 3 => "HOT", _ => "?"
+                0 => "FROZEN",
+                1 => "cooling",
+                2 => "warm",
+                3 => "HOT",
+                _ => "?",
             };
-            eprintln!("  basin {:2}: {:2} edges  conf={:.2}  plasticity={}",
-                i, size, basin.heel.confidence(), state);
+            eprintln!(
+                "  basin {:2}: {:2} edges  conf={:.2}  plasticity={}",
+                i,
+                size,
+                basin.heel.confidence(),
+                state
+            );
         }
 
         // Check L1 distances between basins
         eprintln!("\nInter-basin L1 distances (first 5×5):");
         let n = acc.basins.len().min(5);
         eprint!("       ");
-        for j in 0..n { eprint!("  B{:<4}", j); }
+        for j in 0..n {
+            eprint!("  B{:<4}", j);
+        }
         eprintln!();
         for i in 0..n {
             eprint!("  B{}: ", i);
@@ -766,16 +881,27 @@ mod tests {
 
         // ═══ REALITY CHECK ASSERTIONS ═══
         // With 27 inputs (6 seed + 21 post-calibration), expect some consolidation
-        assert!(stats4.total_edges == 27,
-            "FAIL: edge count should match input count, got {}", stats4.total_edges);
+        assert!(
+            stats4.total_edges == 27,
+            "FAIL: edge count should match input count, got {}",
+            stats4.total_edges
+        );
 
         // The key insight metric: are similar texts actually merging?
         eprintln!("\n══════════════════════════════════════════════════════════");
-        eprintln!("  VERDICT: {} basins from 27 inputs (compression: {:.1}x)",
-            stats4.basin_count, 27.0 / stats4.basin_count as f64);
+        eprintln!(
+            "  VERDICT: {} basins from 27 inputs (compression: {:.1}x)",
+            stats4.basin_count,
+            27.0 / stats4.basin_count as f64
+        );
         if stats4.merge_ratio < 0.2 {
-            eprintln!("  WARNING: Low merge ratio ({:.2}) — threshold may be too tight", stats4.merge_ratio);
-            eprintln!("  SUGGESTION: Increase basin threshold or improve text_to_spo discrimination");
+            eprintln!(
+                "  WARNING: Low merge ratio ({:.2}) — threshold may be too tight",
+                stats4.merge_ratio
+            );
+            eprintln!(
+                "  SUGGESTION: Increase basin threshold or improve text_to_spo discrimination"
+            );
         }
         if stats4.basin_count > 20 {
             eprintln!("  WARNING: Too many basins — texts not clustering meaningfully");
@@ -864,11 +990,15 @@ impl LensProfile {
             let mut row_error = 0.0f32;
             let mut row_count = 0;
             for j in 0..n {
-                if i == j { continue; }
+                if i == j {
+                    continue;
+                }
                 let cos = ground_truth[i * n + j];
                 let enc = encoded[i * n + j];
                 pairs.push((cos, enc));
-                if cos < 0.0 { negative_count += 1; }
+                if cos < 0.0 {
+                    negative_count += 1;
+                }
                 total_count += 1;
                 // Bias: expected encoded vs actual
                 let expected = ((cos + 1.0) / 2.0 * 255.0) as u8; // linear mapping
@@ -898,19 +1028,25 @@ impl LensProfile {
         for w in pairs.windows(2) {
             if w[0].1 != w[1].1 {
                 let delta = (w[1].0 - w[0].0).abs();
-                if delta < noise_floor { noise_floor = delta; }
+                if delta < noise_floor {
+                    noise_floor = delta;
+                }
             }
         }
 
         // Effective bits: log2 of distinct encoded values
         let mut seen = [false; 256];
-        for &(_, e) in &pairs { seen[e as usize] = true; }
+        for &(_, e) in &pairs {
+            seen[e as usize] = true;
+        }
         let distinct = seen.iter().filter(|&&v| v).count();
         let effective_bits = (distinct as f32).log2();
 
         let signed_ratio = if total_count > 0 {
             negative_count as f32 / total_count as f32
-        } else { 0.0 };
+        } else {
+            0.0
+        };
 
         Self {
             model_name: model_name.to_string(),
@@ -976,47 +1112,69 @@ pub enum TokenizerFamily {
 /// The 6-lane lens registry.
 pub static LENS_REGISTRY: &[LensConfig] = &[
     LensConfig {
-        name: "jina-v3", family: LensFamily::Embedding,
-        vocab_size: 250_002, n_centroids: 256,
+        name: "jina-v3",
+        family: LensFamily::Embedding,
+        vocab_size: 250_002,
+        n_centroids: 256,
         tokenizer: TokenizerFamily::XlmRoberta,
-        cos_range: (-0.067, 0.234), gamma_offset: 0.37,
-        is_signed: false, is_truth_anchor: true,
+        cos_range: (-0.067, 0.234),
+        gamma_offset: 0.37,
+        is_signed: false,
+        is_truth_anchor: true,
     },
     LensConfig {
-        name: "bge-m3", family: LensFamily::Embedding,
-        vocab_size: 250_002, n_centroids: 256,
+        name: "bge-m3",
+        family: LensFamily::Embedding,
+        vocab_size: 250_002,
+        n_centroids: 256,
         tokenizer: TokenizerFamily::XlmRoberta,
-        cos_range: (-0.07, 0.23), gamma_offset: 0.40,
-        is_signed: false, is_truth_anchor: false,
+        cos_range: (-0.07, 0.23),
+        gamma_offset: 0.40,
+        is_signed: false,
+        is_truth_anchor: false,
     },
     LensConfig {
-        name: "reranker-v3", family: LensFamily::Reranker,
-        vocab_size: 151_936, n_centroids: 256,
+        name: "reranker-v3",
+        family: LensFamily::Reranker,
+        vocab_size: 151_936,
+        n_centroids: 256,
         tokenizer: TokenizerFamily::Qwen2,
-        cos_range: (-0.886, 0.826), gamma_offset: 1.50,
+        cos_range: (-0.886, 0.826),
+        gamma_offset: 1.50,
         is_signed: false, // best candidate FOR signed
         is_truth_anchor: false,
     },
     LensConfig {
-        name: "reader-lm-1.5b", family: LensFamily::Reader,
-        vocab_size: 151_936, n_centroids: 256,
+        name: "reader-lm-1.5b",
+        family: LensFamily::Reader,
+        vocab_size: 151_936,
+        n_centroids: 256,
         tokenizer: TokenizerFamily::Qwen2,
-        cos_range: (-0.095, 0.336), gamma_offset: 0.12,
-        is_signed: false, is_truth_anchor: false,
+        cos_range: (-0.095, 0.336),
+        gamma_offset: 0.12,
+        is_signed: false,
+        is_truth_anchor: false,
     },
     LensConfig {
-        name: "qwopus-27b", family: LensFamily::LanguageModel,
-        vocab_size: 248_320, n_centroids: 4096,
+        name: "qwopus-27b",
+        family: LensFamily::LanguageModel,
+        vocab_size: 248_320,
+        n_centroids: 4096,
         tokenizer: TokenizerFamily::Qwen2,
-        cos_range: (-0.23, 0.18), gamma_offset: 1.50,
-        is_signed: false, is_truth_anchor: false,
+        cos_range: (-0.23, 0.18),
+        gamma_offset: 1.50,
+        is_signed: false,
+        is_truth_anchor: false,
     },
     LensConfig {
-        name: "maverick-128e", family: LensFamily::MoE,
-        vocab_size: 202_048, n_centroids: 256, // TBD: scale to 4096
+        name: "maverick-128e",
+        family: LensFamily::MoE,
+        vocab_size: 202_048,
+        n_centroids: 256, // TBD: scale to 4096
         tokenizer: TokenizerFamily::Llama,
         cos_range: (0.0, 0.0), // TBD: stream and measure
         gamma_offset: 0.0,     // TBD: calibrate
-        is_signed: false, is_truth_anchor: false,
+        is_signed: false,
+        is_truth_anchor: false,
     },
 ];

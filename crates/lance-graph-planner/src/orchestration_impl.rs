@@ -45,11 +45,12 @@ use crate::PlannerAwareness;
 
 impl OrchestrationBridge for PlannerAwareness {
     fn route(&self, step: &mut UnifiedStep) -> Result<(), OrchestrationError> {
-        let domain = StepDomain::from_step_type(&step.step_type)
-            .ok_or_else(|| OrchestrationError::RoutingFailed(format!(
+        let domain = StepDomain::from_step_type(&step.step_type).ok_or_else(|| {
+            OrchestrationError::RoutingFailed(format!(
                 "unknown step_type prefix: {}",
                 step.step_type,
-            )))?;
+            ))
+        })?;
         if domain != StepDomain::LanceGraph {
             return Err(OrchestrationError::DomainUnavailable(domain));
         }
@@ -60,7 +61,10 @@ impl OrchestrationBridge for PlannerAwareness {
         // The query string is read from `step.reasoning` (set by the caller
         // before route() fires). Richer inputs flow through BridgeSlots in
         // a future extension — this impl covers the minimal path.
-        let op = step.step_type.strip_prefix("lg.").unwrap_or(&step.step_type);
+        let op = step
+            .step_type
+            .strip_prefix("lg.")
+            .unwrap_or(&step.step_type);
         let query = step.reasoning.as_deref().unwrap_or("");
 
         match op {
@@ -182,17 +186,17 @@ fn thinking_to_contract(p: &crate::thinking::ThinkingContext) -> ContractThinkin
 fn planner_style_to_contract(s: crate::thinking::ThinkingStyle) -> ContractThinkingStyle {
     use crate::thinking::ThinkingStyle as P;
     match s {
-        P::Analytical    => ContractThinkingStyle::Analytical,
-        P::Convergent    => ContractThinkingStyle::Logical,
-        P::Systematic    => ContractThinkingStyle::Systematic,
-        P::Creative      => ContractThinkingStyle::Creative,
-        P::Divergent     => ContractThinkingStyle::Imaginative,
-        P::Exploratory   => ContractThinkingStyle::Exploratory,
-        P::Focused       => ContractThinkingStyle::Precise,
-        P::Diffuse       => ContractThinkingStyle::Gentle,
-        P::Peripheral    => ContractThinkingStyle::Poetic,
-        P::Intuitive     => ContractThinkingStyle::Curious,
-        P::Deliberate    => ContractThinkingStyle::Methodical,
+        P::Analytical => ContractThinkingStyle::Analytical,
+        P::Convergent => ContractThinkingStyle::Logical,
+        P::Systematic => ContractThinkingStyle::Systematic,
+        P::Creative => ContractThinkingStyle::Creative,
+        P::Divergent => ContractThinkingStyle::Imaginative,
+        P::Exploratory => ContractThinkingStyle::Exploratory,
+        P::Focused => ContractThinkingStyle::Precise,
+        P::Diffuse => ContractThinkingStyle::Gentle,
+        P::Peripheral => ContractThinkingStyle::Poetic,
+        P::Intuitive => ContractThinkingStyle::Curious,
+        P::Deliberate => ContractThinkingStyle::Methodical,
         P::Metacognitive => ContractThinkingStyle::Reflective,
     }
 }
@@ -204,7 +208,7 @@ fn planner_nars_to_contract(n: crate::thinking::NarsInferenceType) -> InferenceT
         P::Deduction => InferenceType::Deduction,
         P::Induction => InferenceType::Induction,
         P::Abduction => InferenceType::Abduction,
-        P::Revision  => InferenceType::Revision,
+        P::Revision => InferenceType::Revision,
         P::Synthesis => InferenceType::Synthesis,
     }
 }
@@ -217,7 +221,7 @@ mod tests {
     fn health_step_routes_successfully() {
         let planner = PlannerAwareness::new();
         let mut step = UnifiedStep {
-            step_id:"s1".into(),
+            step_id: "s1".into(),
             step_type: "lg.health".into(),
             status: StepStatus::Pending,
             thinking: None,
@@ -234,7 +238,7 @@ mod tests {
     fn plan_auto_step_routes_for_match_query() {
         let planner = PlannerAwareness::new();
         let mut step = UnifiedStep {
-            step_id:"s2".into(),
+            step_id: "s2".into(),
             step_type: "lg.plan_auto".into(),
             status: StepStatus::Pending,
             thinking: None,
@@ -252,7 +256,7 @@ mod tests {
     fn wrong_domain_step_returns_domain_unavailable() {
         let planner = PlannerAwareness::new();
         let mut step = UnifiedStep {
-            step_id:"s3".into(),
+            step_id: "s3".into(),
             step_type: "crew.agent.think".into(),
             status: StepStatus::Pending,
             thinking: None,
@@ -279,10 +283,8 @@ mod tests {
     #[test]
     fn resolve_thinking_returns_minimal_context() {
         let planner = PlannerAwareness::new();
-        let ctx = planner.resolve_thinking(
-            ContractThinkingStyle::Analytical,
-            InferenceType::Deduction,
-        );
+        let ctx =
+            planner.resolve_thinking(ContractThinkingStyle::Analytical, InferenceType::Deduction);
         assert_eq!(ctx.style, ContractThinkingStyle::Analytical);
         assert_eq!(ctx.inference_type, InferenceType::Deduction);
     }

@@ -84,40 +84,40 @@ use crate::proprioception::{CORE_AXES, DRIVE_AXES, STATE_DIMS};
 ///   `wonder    ← sqrt(qualia[9]·qualia[15])` (coherence × expansion)
 ///   `attunement ← qualia[10]·(1-qualia[2])` (intimacy × relaxation)
 pub fn qualia_to_state(q: &QualiaVector) -> [f32; STATE_DIMS] {
-    let arousal      = q[0];
-    let valence      = q[1];
-    let tension      = q[2];
-    let warmth       = q[3];
-    let clarity      = q[4];
-    let depth        = q[6];
-    let coherence    = q[9];
-    let intimacy     = q[10];
-    let presence     = q[11];
-    let receptivity  = q[13];
+    let arousal = q[0];
+    let valence = q[1];
+    let tension = q[2];
+    let warmth = q[3];
+    let clarity = q[4];
+    let depth = q[6];
+    let coherence = q[9];
+    let intimacy = q[10];
+    let presence = q[11];
+    let receptivity = q[13];
     let groundedness = q[14];
-    let expansion    = q[15];
-    let integration  = q[16];
+    let expansion = q[15];
+    let integration = q[16];
 
     let vitality = (0.6 * arousal + 0.4 * receptivity).clamp(0.0, 1.0);
-    let insight  = (0.5 * presence + 0.5 * integration).clamp(0.0, 1.0);
+    let insight = (0.5 * presence + 0.5 * integration).clamp(0.0, 1.0);
 
-    let tension_axis   = (0.5 * (1.0 - valence) + 0.5 * tension).clamp(0.0, 1.0);
-    let wonder_axis    = (coherence * expansion).sqrt().clamp(0.0, 1.0);
-    let attune_axis    = (intimacy * (1.0 - tension)).clamp(0.0, 1.0);
+    let tension_axis = (0.5 * (1.0 - valence) + 0.5 * tension).clamp(0.0, 1.0);
+    let wonder_axis = (coherence * expansion).sqrt().clamp(0.0, 1.0);
+    let attune_axis = (intimacy * (1.0 - tension)).clamp(0.0, 1.0);
 
     let _ = (CORE_AXES, DRIVE_AXES); // structural tie to proprioception contract
     [
-        warmth,         // 0 core: warmth
-        clarity,        // 1 core: clarity
-        depth,          // 2 core: depth
-        groundedness,   // 3 core: safety
-        vitality,       // 4 core: vitality
-        insight,        // 5 core: insight
-        intimacy,       // 6 core: contact
-        tension_axis,   // 7 drive: tension
-        expansion,      // 8 drive: novelty
-        wonder_axis,    // 9 drive: wonder
-        attune_axis,    // 10 drive: attunement
+        warmth,       // 0 core: warmth
+        clarity,      // 1 core: clarity
+        depth,        // 2 core: depth
+        groundedness, // 3 core: safety
+        vitality,     // 4 core: vitality
+        insight,      // 5 core: insight
+        intimacy,     // 6 core: contact
+        tension_axis, // 7 drive: tension
+        expansion,    // 8 drive: novelty
+        wonder_axis,  // 9 drive: wonder
+        attune_axis,  // 10 drive: attunement
     ]
 }
 
@@ -164,9 +164,9 @@ mod tests {
     #[test]
     fn projection_preserves_direct_axes() {
         let mut q = ZERO;
-        q[3] = 0.8;   // warmth
-        q[4] = 0.9;   // clarity
-        q[14] = 0.7;  // groundedness
+        q[3] = 0.8; // warmth
+        q[4] = 0.9; // clarity
+        q[14] = 0.7; // groundedness
         let state = qualia_to_state(&q);
         assert!((state[0] - 0.8).abs() < 1e-6, "warmth should pass through");
         assert!((state[1] - 0.9).abs() < 1e-6, "clarity should pass through");
@@ -176,8 +176,8 @@ mod tests {
     #[test]
     fn projection_computes_wonder_from_coherence_and_expansion() {
         let mut q = ZERO;
-        q[9]  = 0.64;  // coherence
-        q[15] = 0.64;  // expansion
+        q[9] = 0.64; // coherence
+        q[15] = 0.64; // expansion
         let state = qualia_to_state(&q);
         // wonder = sqrt(0.64 * 0.64) = 0.64
         assert!((state[9] - 0.64).abs() < 1e-5);

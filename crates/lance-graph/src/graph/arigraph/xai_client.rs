@@ -14,7 +14,7 @@
 
 use std::collections::HashSet;
 
-use super::retrieval::{EXTRACTION_PROMPT, REFINING_PROMPT, PLAN_PROMPT};
+use super::retrieval::{EXTRACTION_PROMPT, PLAN_PROMPT, REFINING_PROMPT};
 use super::triplet_graph::{Triplet, TripletGraph};
 
 /// Default xAI API base URL.
@@ -41,8 +41,7 @@ impl Default for XaiConfig {
         Self {
             base_url: std::env::var("XAI_BASE_URL")
                 .unwrap_or_else(|_| DEFAULT_BASE_URL.to_string()),
-            model: std::env::var("XAI_MODEL")
-                .unwrap_or_else(|_| DEFAULT_MODEL.to_string()),
+            model: std::env::var("XAI_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.to_string()),
             max_tokens: 1024,
             temperature: 0.1,
         }
@@ -336,15 +335,16 @@ impl XaiClient {
         // Get existing triplets near the observation's entities for refinement
         let words: HashSet<String> = observation
             .split_whitespace()
-            .map(|w| w.to_lowercase().trim_matches(|c: char| !c.is_alphanumeric()).to_string())
+            .map(|w| {
+                w.to_lowercase()
+                    .trim_matches(|c: char| !c.is_alphanumeric())
+                    .to_string()
+            })
             .filter(|w| !w.is_empty())
             .collect();
 
         let associated = graph.get_associated(&words, 1);
-        let existing: Vec<String> = associated
-            .iter()
-            .map(|t| t.to_string_repr())
-            .collect();
+        let existing: Vec<String> = associated.iter().map(|t| t.to_string_repr()).collect();
 
         let refinement = if existing.is_empty() {
             None
@@ -460,7 +460,8 @@ mod tests {
 
     #[test]
     fn test_parse_outdated_some() {
-        let patterns = XaiClient::parse_outdated("alice, lives_in, new_york; bob, works_at, old_co");
+        let patterns =
+            XaiClient::parse_outdated("alice, lives_in, new_york; bob, works_at, old_co");
         assert_eq!(patterns.len(), 2);
         assert_eq!(patterns[0].0, "alice");
     }

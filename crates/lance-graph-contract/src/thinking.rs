@@ -22,52 +22,52 @@
 #[repr(u8)]
 pub enum ThinkingStyle {
     // Analytical Cluster (τ 0x40-0x4F)
-    Logical      = 0,
-    Analytical   = 1,
-    Critical     = 2,
-    Systematic   = 3,
-    Methodical   = 4,
-    Precise      = 5,
+    Logical = 0,
+    Analytical = 1,
+    Critical = 2,
+    Systematic = 3,
+    Methodical = 4,
+    Precise = 5,
 
     // Creative Cluster (τ 0xA0-0xAF)
-    Creative     = 6,
-    Imaginative  = 7,
-    Innovative   = 8,
-    Artistic     = 9,
-    Poetic       = 10,
-    Playful      = 11,
+    Creative = 6,
+    Imaginative = 7,
+    Innovative = 8,
+    Artistic = 9,
+    Poetic = 10,
+    Playful = 11,
 
     // Empathic Cluster (τ 0x80-0x8F)
-    Empathetic   = 12,
+    Empathetic = 12,
     Compassionate = 13,
-    Supportive   = 14,
-    Nurturing    = 15,
-    Gentle       = 16,
-    Warm         = 17,
+    Supportive = 14,
+    Nurturing = 15,
+    Gentle = 16,
+    Warm = 17,
 
     // Direct Cluster (τ 0x60-0x6F)
-    Direct       = 18,
-    Concise      = 19,
-    Efficient    = 20,
-    Pragmatic    = 21,
-    Blunt        = 22,
-    Frank        = 23,
+    Direct = 18,
+    Concise = 19,
+    Efficient = 20,
+    Pragmatic = 21,
+    Blunt = 22,
+    Frank = 23,
 
     // Exploratory Cluster (τ 0x20-0x2F)
-    Curious      = 24,
-    Exploratory  = 25,
-    Questioning  = 26,
+    Curious = 24,
+    Exploratory = 25,
+    Questioning = 26,
     Investigative = 27,
-    Speculative  = 28,
+    Speculative = 28,
     Philosophical = 29,
 
     // Meta Cluster (τ 0xC0-0xCF)
-    Reflective   = 30,
+    Reflective = 30,
     Contemplative = 31,
     Metacognitive = 32,
-    Wise         = 33,
+    Wise = 33,
     Transcendent = 34,
-    Sovereign    = 35,
+    Sovereign = 35,
 }
 
 /// The 6 style clusters.
@@ -99,25 +99,49 @@ pub enum PlannerCluster {
 impl ThinkingStyle {
     /// All 36 styles in canonical order.
     pub const ALL: [ThinkingStyle; 36] = [
-        Self::Logical, Self::Analytical, Self::Critical,
-        Self::Systematic, Self::Methodical, Self::Precise,
-        Self::Creative, Self::Imaginative, Self::Innovative,
-        Self::Artistic, Self::Poetic, Self::Playful,
-        Self::Empathetic, Self::Compassionate, Self::Supportive,
-        Self::Nurturing, Self::Gentle, Self::Warm,
-        Self::Direct, Self::Concise, Self::Efficient,
-        Self::Pragmatic, Self::Blunt, Self::Frank,
-        Self::Curious, Self::Exploratory, Self::Questioning,
-        Self::Investigative, Self::Speculative, Self::Philosophical,
-        Self::Reflective, Self::Contemplative, Self::Metacognitive,
-        Self::Wise, Self::Transcendent, Self::Sovereign,
+        Self::Logical,
+        Self::Analytical,
+        Self::Critical,
+        Self::Systematic,
+        Self::Methodical,
+        Self::Precise,
+        Self::Creative,
+        Self::Imaginative,
+        Self::Innovative,
+        Self::Artistic,
+        Self::Poetic,
+        Self::Playful,
+        Self::Empathetic,
+        Self::Compassionate,
+        Self::Supportive,
+        Self::Nurturing,
+        Self::Gentle,
+        Self::Warm,
+        Self::Direct,
+        Self::Concise,
+        Self::Efficient,
+        Self::Pragmatic,
+        Self::Blunt,
+        Self::Frank,
+        Self::Curious,
+        Self::Exploratory,
+        Self::Questioning,
+        Self::Investigative,
+        Self::Speculative,
+        Self::Philosophical,
+        Self::Reflective,
+        Self::Contemplative,
+        Self::Metacognitive,
+        Self::Wise,
+        Self::Transcendent,
+        Self::Sovereign,
     ];
 
     /// Which behavioral cluster this style belongs to.
     pub fn cluster(&self) -> StyleCluster {
         match *self as u8 {
-            0..=5   => StyleCluster::Analytical,
-            6..=11  => StyleCluster::Creative,
+            0..=5 => StyleCluster::Analytical,
+            6..=11 => StyleCluster::Creative,
             12..=17 => StyleCluster::Empathic,
             18..=23 => StyleCluster::Direct,
             24..=29 => StyleCluster::Exploratory,
@@ -142,12 +166,12 @@ impl ThinkingStyle {
     /// to look up compiled scan kernels.
     pub fn tau(&self) -> u8 {
         match self.cluster() {
-            StyleCluster::Analytical  => 0x40 + (*self as u8),
-            StyleCluster::Creative    => 0xA0 + (*self as u8 - 6),
-            StyleCluster::Empathic    => 0x80 + (*self as u8 - 12),
-            StyleCluster::Direct      => 0x60 + (*self as u8 - 18),
+            StyleCluster::Analytical => 0x40 + (*self as u8),
+            StyleCluster::Creative => 0xA0 + (*self as u8 - 6),
+            StyleCluster::Empathic => 0x80 + (*self as u8 - 12),
+            StyleCluster::Direct => 0x60 + (*self as u8 - 18),
             StyleCluster::Exploratory => 0x20 + (*self as u8 - 24),
-            StyleCluster::Meta        => 0xC0 + (*self as u8 - 30),
+            StyleCluster::Meta => 0xC0 + (*self as u8 - 30),
         }
     }
 }
@@ -210,7 +234,11 @@ impl FieldModulation {
             threshold: (self.resonance_threshold * 1000.0) as u32,
             top_k: self.fan_out as u32 * 10,
             prefetch_ahead: if self.speed_bias > 0.7 { 8 } else { 4 },
-            filter_mask: if self.noise_tolerance > 0.5 { 0xFFFF_FFFF } else { 0xFFFF_FF00 },
+            filter_mask: if self.noise_tolerance > 0.5 {
+                0xFFFF_FFFF
+            } else {
+                0xFFFF_FF00
+            },
         }
     }
 
@@ -262,26 +290,50 @@ mod tests {
 
     #[test]
     fn test_cluster_mapping() {
-        assert_eq!(ThinkingStyle::Analytical.cluster(), StyleCluster::Analytical);
+        assert_eq!(
+            ThinkingStyle::Analytical.cluster(),
+            StyleCluster::Analytical
+        );
         assert_eq!(ThinkingStyle::Creative.cluster(), StyleCluster::Creative);
         assert_eq!(ThinkingStyle::Empathetic.cluster(), StyleCluster::Empathic);
         assert_eq!(ThinkingStyle::Direct.cluster(), StyleCluster::Direct);
-        assert_eq!(ThinkingStyle::Exploratory.cluster(), StyleCluster::Exploratory);
+        assert_eq!(
+            ThinkingStyle::Exploratory.cluster(),
+            StyleCluster::Exploratory
+        );
         assert_eq!(ThinkingStyle::Metacognitive.cluster(), StyleCluster::Meta);
     }
 
     #[test]
     fn test_planner_cluster_mapping() {
         // Analytical + Direct → Convergent
-        assert_eq!(ThinkingStyle::Analytical.planner_cluster(), PlannerCluster::Convergent);
-        assert_eq!(ThinkingStyle::Direct.planner_cluster(), PlannerCluster::Convergent);
+        assert_eq!(
+            ThinkingStyle::Analytical.planner_cluster(),
+            PlannerCluster::Convergent
+        );
+        assert_eq!(
+            ThinkingStyle::Direct.planner_cluster(),
+            PlannerCluster::Convergent
+        );
         // Creative + Exploratory → Divergent
-        assert_eq!(ThinkingStyle::Creative.planner_cluster(), PlannerCluster::Divergent);
-        assert_eq!(ThinkingStyle::Exploratory.planner_cluster(), PlannerCluster::Divergent);
+        assert_eq!(
+            ThinkingStyle::Creative.planner_cluster(),
+            PlannerCluster::Divergent
+        );
+        assert_eq!(
+            ThinkingStyle::Exploratory.planner_cluster(),
+            PlannerCluster::Divergent
+        );
         // Empathic → Attention
-        assert_eq!(ThinkingStyle::Empathetic.planner_cluster(), PlannerCluster::Attention);
+        assert_eq!(
+            ThinkingStyle::Empathetic.planner_cluster(),
+            PlannerCluster::Attention
+        );
         // Meta → Speed
-        assert_eq!(ThinkingStyle::Metacognitive.planner_cluster(), PlannerCluster::Speed);
+        assert_eq!(
+            ThinkingStyle::Metacognitive.planner_cluster(),
+            PlannerCluster::Speed
+        );
     }
 
     #[test]
@@ -318,8 +370,8 @@ mod tests {
         };
         let fp = m.to_fingerprint();
         assert_eq!(fp[0], 255); // resonance_threshold
-        assert_eq!(fp[1], 8);   // fan_out
-        assert_eq!(fp[2], 0);   // depth_bias
+        assert_eq!(fp[1], 8); // fan_out
+        assert_eq!(fp[2], 0); // depth_bias
         assert_eq!(fp[6], 255); // exploration
     }
 }

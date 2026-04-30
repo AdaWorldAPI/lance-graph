@@ -30,7 +30,7 @@
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct SlaPolicy {
     pub max_latency_ms: u32,
-    pub min_freshness_ms: u32,  // staleness ceiling
+    pub min_freshness_ms: u32, // staleness ceiling
     pub priority: SlaPriority,
 }
 
@@ -63,12 +63,18 @@ impl SlaPolicy {
     };
 
     pub const fn new(max_latency_ms: u32, min_freshness_ms: u32, priority: SlaPriority) -> Self {
-        Self { max_latency_ms, min_freshness_ms, priority }
+        Self {
+            max_latency_ms,
+            min_freshness_ms,
+            priority,
+        }
     }
 }
 
 impl Default for SlaPolicy {
-    fn default() -> Self { SlaPolicy::STANDARD }
+    fn default() -> Self {
+        SlaPolicy::STANDARD
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -155,8 +161,7 @@ mod tests {
 
     #[test]
     fn sla_policy_const_new() {
-        const CUSTOM: SlaPolicy =
-            SlaPolicy::new(50, 500, SlaPriority::Urgent);
+        const CUSTOM: SlaPolicy = SlaPolicy::new(50, 500, SlaPriority::Urgent);
         assert_eq!(CUSTOM.max_latency_ms, 50);
         assert_eq!(CUSTOM.min_freshness_ms, 500);
         assert_eq!(CUSTOM.priority, SlaPriority::Urgent);

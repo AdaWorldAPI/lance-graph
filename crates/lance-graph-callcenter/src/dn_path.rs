@@ -17,12 +17,12 @@
 /// See plan § 10.13 for the four uses of one compressed object.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct DnPath {
-    pub ns:     u64,
-    pub heel:   u64,
-    pub hip:    u64,
+    pub ns: u64,
+    pub heel: u64,
+    pub hip: u64,
     pub branch: u64,
-    pub twig:   u64,
-    pub leaf:   u64,
+    pub twig: u64,
+    pub leaf: u64,
 }
 
 impl DnPath {
@@ -32,17 +32,25 @@ impl DnPath {
     /// Returns `None` if the path does not match the 12-segment pattern.
     pub fn parse(path: &str) -> Option<Self> {
         let segs: Vec<&str> = path.trim_start_matches('/').split('/').collect();
-        if segs.len() < 12 { return None; }
-        if segs[0] != "tree" || segs[2] != "heel" || segs[4] != "hip"
-            || segs[6] != "branch" || segs[8] != "twig" || segs[10] != "leaf"
-        { return None; }
+        if segs.len() < 12 {
+            return None;
+        }
+        if segs[0] != "tree"
+            || segs[2] != "heel"
+            || segs[4] != "hip"
+            || segs[6] != "branch"
+            || segs[8] != "twig"
+            || segs[10] != "leaf"
+        {
+            return None;
+        }
         Some(Self {
-            ns:     fnv1a(segs[1]),
-            heel:   fnv1a(segs[3]),
-            hip:    fnv1a(segs[5]),
+            ns: fnv1a(segs[1]),
+            heel: fnv1a(segs[3]),
+            hip: fnv1a(segs[5]),
             branch: fnv1a(segs[7]),
-            twig:   fnv1a(segs[9]),
-            leaf:   fnv1a(segs[11]),
+            twig: fnv1a(segs[9]),
+            leaf: fnv1a(segs[11]),
         })
     }
 
@@ -56,9 +64,18 @@ impl DnPath {
     pub fn scent_u64(&self) -> u64 {
         use core::fmt::Write;
         let mut buf = String::with_capacity(6 * 17);
-        let segments = [self.ns, self.heel, self.hip, self.branch, self.twig, self.leaf];
+        let segments = [
+            self.ns,
+            self.heel,
+            self.hip,
+            self.branch,
+            self.twig,
+            self.leaf,
+        ];
         for (i, seg) in segments.iter().enumerate() {
-            if i > 0 { buf.push('/'); }
+            if i > 0 {
+                buf.push('/');
+            }
             let _ = write!(buf, "{:016x}", seg);
         }
         fnv1a(&buf)
@@ -76,19 +93,16 @@ impl DnPath {
     /// enters the callcenter dep tree.
     pub fn scent(&self) -> u8 {
         let h = self.scent_u64();
-        let folded = h
-            ^ (h >> 8)
-            ^ (h >> 16)
-            ^ (h >> 24)
-            ^ (h >> 32)
-            ^ (h >> 40)
-            ^ (h >> 48)
-            ^ (h >> 56);
+        let folded =
+            h ^ (h >> 8) ^ (h >> 16) ^ (h >> 24) ^ (h >> 32) ^ (h >> 40) ^ (h >> 48) ^ (h >> 56);
         folded as u8
     }
 
     /// Deprecated alias — use [`scent()`](Self::scent) instead.
-    #[deprecated(since = "0.1.1", note = "renamed to `scent()`; the XOR-fold stub has been replaced with FNV-1a")]
+    #[deprecated(
+        since = "0.1.1",
+        note = "renamed to `scent()`; the XOR-fold stub has been replaced with FNV-1a"
+    )]
     pub fn scent_stub(&self) -> u8 {
         self.scent()
     }
@@ -110,10 +124,8 @@ mod tests {
 
     #[test]
     fn parse_full_dn_path() {
-        let p = DnPath::parse(
-            "/tree/ada/heel/callcenter/hip/v1/branch/agents/twig/card/leaf/abc",
-        )
-        .unwrap();
+        let p = DnPath::parse("/tree/ada/heel/callcenter/hip/v1/branch/agents/twig/card/leaf/abc")
+            .unwrap();
         assert_ne!(p.ns, 0);
         assert_ne!(p.leaf, 0);
     }
@@ -126,35 +138,26 @@ mod tests {
     #[test]
     fn parse_rejects_wrong_keywords() {
         // "hip" replaced by "HIP" — case-sensitive
-        assert!(DnPath::parse(
-            "/tree/ada/heel/cc/HIP/v1/branch/agents/twig/card/leaf/abc"
-        )
-        .is_none());
+        assert!(
+            DnPath::parse("/tree/ada/heel/cc/HIP/v1/branch/agents/twig/card/leaf/abc").is_none()
+        );
     }
 
     #[test]
     fn scent_is_deterministic() {
-        let p1 = DnPath::parse(
-            "/tree/ada/heel/callcenter/hip/v1/branch/agents/twig/card/leaf/abc",
-        )
-        .unwrap();
-        let p2 = DnPath::parse(
-            "/tree/ada/heel/callcenter/hip/v1/branch/agents/twig/card/leaf/abc",
-        )
-        .unwrap();
+        let p1 = DnPath::parse("/tree/ada/heel/callcenter/hip/v1/branch/agents/twig/card/leaf/abc")
+            .unwrap();
+        let p2 = DnPath::parse("/tree/ada/heel/callcenter/hip/v1/branch/agents/twig/card/leaf/abc")
+            .unwrap();
         assert_eq!(p1.scent(), p2.scent());
     }
 
     #[test]
     fn different_paths_different_scents() {
-        let p1 = DnPath::parse(
-            "/tree/ada/heel/callcenter/hip/v1/branch/agents/twig/card/leaf/abc",
-        )
-        .unwrap();
-        let p2 = DnPath::parse(
-            "/tree/ada/heel/callcenter/hip/v1/branch/agents/twig/card/leaf/xyz",
-        )
-        .unwrap();
+        let p1 = DnPath::parse("/tree/ada/heel/callcenter/hip/v1/branch/agents/twig/card/leaf/abc")
+            .unwrap();
+        let p2 = DnPath::parse("/tree/ada/heel/callcenter/hip/v1/branch/agents/twig/card/leaf/xyz")
+            .unwrap();
         assert_ne!(p1.scent(), p2.scent());
     }
 
@@ -169,28 +172,19 @@ mod tests {
     #[allow(deprecated)]
     #[test]
     fn scent_stub_alias_matches_scent() {
-        let p = DnPath::parse(
-            "/tree/ada/heel/callcenter/hip/v1/branch/agents/twig/card/leaf/abc",
-        )
-        .unwrap();
+        let p = DnPath::parse("/tree/ada/heel/callcenter/hip/v1/branch/agents/twig/card/leaf/abc")
+            .unwrap();
         assert_eq!(p.scent_stub(), p.scent());
     }
 
     #[test]
     fn scent_u64_fold_matches_scent() {
-        let p = DnPath::parse(
-            "/tree/ada/heel/callcenter/hip/v1/branch/agents/twig/card/leaf/abc",
-        )
-        .unwrap();
+        let p = DnPath::parse("/tree/ada/heel/callcenter/hip/v1/branch/agents/twig/card/leaf/abc")
+            .unwrap();
         let h = p.scent_u64();
-        let folded = (h
-            ^ (h >> 8)
-            ^ (h >> 16)
-            ^ (h >> 24)
-            ^ (h >> 32)
-            ^ (h >> 40)
-            ^ (h >> 48)
-            ^ (h >> 56)) as u8;
+        let folded =
+            (h ^ (h >> 8) ^ (h >> 16) ^ (h >> 24) ^ (h >> 32) ^ (h >> 40) ^ (h >> 48) ^ (h >> 56))
+                as u8;
         assert_eq!(folded, p.scent());
     }
 
@@ -223,8 +217,7 @@ mod tests {
                 .unwrap()
             })
             .collect();
-        let scents: std::collections::HashSet<u64> =
-            paths.iter().map(|p| p.scent_u64()).collect();
+        let scents: std::collections::HashSet<u64> = paths.iter().map(|p| p.scent_u64()).collect();
         assert_eq!(
             scents.len(),
             100,

@@ -10,12 +10,12 @@
 //! Keeps up to max_plans_per_subgraph plans per subgraph,
 //! differentiated by factorization encoding.
 
-use crate::ir::{Arena, LogicalOp, Node, SubPlansTable, SubqueryGraph, LogicalPlanRef};
 #[allow(unused_imports)] // Direction intended for edge traversal wiring
 use crate::ir::logical_op::{Direction, JoinType};
 #[allow(unused_imports)] // intended for factorization schema wiring
 use crate::ir::schema::Schema;
-use crate::plan::{PlannerConfig, QueryGraph, QueryGraphNode, QueryGraphEdge, CostModel};
+use crate::ir::{Arena, LogicalOp, LogicalPlanRef, Node, SubPlansTable, SubqueryGraph};
+use crate::plan::{CostModel, PlannerConfig, QueryGraph, QueryGraphEdge, QueryGraphNode};
 use crate::thinking::ThinkingContext;
 use crate::PlanError;
 
@@ -61,11 +61,14 @@ impl<'a> DpEnumerator<'a> {
             let scan_node = self.plan_single_node(node, arena);
             let cost = self.cost_model.scan_cost(node);
 
-            dp.add_plan(sg, LogicalPlanRef {
-                root: scan_node,
-                cost,
-                factorization_encoding: 0, // Single node, no factorization choice
-            });
+            dp.add_plan(
+                sg,
+                LogicalPlanRef {
+                    root: scan_node,
+                    cost,
+                    factorization_encoding: 0, // Single node, no factorization choice
+                },
+            );
         }
 
         // Level 2+: enumerate edge-at-a-time
@@ -119,10 +122,12 @@ impl<'a> DpEnumerator<'a> {
                 }
 
                 // Check that both sides have plans
-                let left_plans: Vec<_> = dp.get(left)
+                let left_plans: Vec<_> = dp
+                    .get(left)
                     .map(|sp| sp.plans().cloned().collect())
                     .unwrap_or_default();
-                let right_plans: Vec<_> = dp.get(right)
+                let right_plans: Vec<_> = dp
+                    .get(right)
                     .map(|sp| sp.plans().cloned().collect())
                     .unwrap_or_default();
 
@@ -150,11 +155,14 @@ impl<'a> DpEnumerator<'a> {
                             let cost = self.cost_model.hash_join_cost(lp.cost, rp.cost);
                             let encoding = lp.factorization_encoding | rp.factorization_encoding;
 
-                            dp.add_plan(sg, LogicalPlanRef {
-                                root: join_node,
-                                cost,
-                                factorization_encoding: encoding,
-                            });
+                            dp.add_plan(
+                                sg,
+                                LogicalPlanRef {
+                                    root: join_node,
+                                    cost,
+                                    factorization_encoding: encoding,
+                                },
+                            );
 
                             // Also try flipped sides
                             let flipped = arena.push(LogicalOp::HashJoin {
@@ -169,11 +177,14 @@ impl<'a> DpEnumerator<'a> {
 
                             let flipped_cost = self.cost_model.hash_join_cost(rp.cost, lp.cost);
 
-                            dp.add_plan(sg, LogicalPlanRef {
-                                root: flipped,
-                                cost: flipped_cost,
-                                factorization_encoding: encoding,
-                            });
+                            dp.add_plan(
+                                sg,
+                                LogicalPlanRef {
+                                    root: flipped,
+                                    cost: flipped_cost,
+                                    factorization_encoding: encoding,
+                                },
+                            );
                         }
 
                         // Option 2: INL join (if one side is single edge scan)
@@ -188,11 +199,14 @@ impl<'a> DpEnumerator<'a> {
 
                                 let cost = self.cost_model.inl_join_cost(lp.cost);
 
-                                dp.add_plan(sg, LogicalPlanRef {
-                                    root: inl,
-                                    cost,
-                                    factorization_encoding: lp.factorization_encoding,
-                                });
+                                dp.add_plan(
+                                    sg,
+                                    LogicalPlanRef {
+                                        root: inl,
+                                        cost,
+                                        factorization_encoding: lp.factorization_encoding,
+                                    },
+                                );
                             }
                         }
                     }
@@ -221,7 +235,9 @@ impl<'a> DpEnumerator<'a> {
         for node in &graph.nodes {
             if sg.contains(SubqueryGraph::singleton(node.id)) {
                 // Count edges in the subgraph that touch this node
-                let touching_edges: Vec<&QueryGraphEdge> = graph.edges.iter()
+                let touching_edges: Vec<&QueryGraphEdge> = graph
+                    .edges
+                    .iter()
                     .filter(|e| {
                         (e.src_id == node.id || e.dst_id == node.id)
                             && sg.contains(SubqueryGraph::singleton(e.src_id))
@@ -236,7 +252,11 @@ impl<'a> DpEnumerator<'a> {
                     let mut total_cost = 0.0;
 
                     for edge in &touching_edges {
-                        let other_id = if edge.src_id == node.id { edge.dst_id } else { edge.src_id };
+                        let other_id = if edge.src_id == node.id {
+                            edge.dst_id
+                        } else {
+                            edge.src_id
+                        };
                         let other_sg = SubqueryGraph::singleton(other_id);
 
                         if let Some(plan) = dp.best_plan(other_sg) {
@@ -251,13 +271,18 @@ impl<'a> DpEnumerator<'a> {
                             children,
                         });
 
-                        let cost = self.cost_model.wco_join_cost(total_cost, touching_edges.len());
+                        let cost = self
+                            .cost_model
+                            .wco_join_cost(total_cost, touching_edges.len());
 
-                        dp.add_plan(sg, LogicalPlanRef {
-                            root: wco,
-                            cost,
-                            factorization_encoding: 0,
-                        });
+                        dp.add_plan(
+                            sg,
+                            LogicalPlanRef {
+                                root: wco,
+                                cost,
+                                factorization_encoding: 0,
+                            },
+                        );
                     }
                 }
             }
@@ -293,7 +318,9 @@ impl<'a> DpEnumerator<'a> {
         }
 
         if best_mask == 0 {
-            return Err(PlanError::Plan("No base plan found for greedy extension".into()));
+            return Err(PlanError::Plan(
+                "No base plan found for greedy extension".into(),
+            ));
         }
 
         let mut current_sg = SubqueryGraph(best_mask);
@@ -336,11 +363,14 @@ impl<'a> DpEnumerator<'a> {
 
             if let Some((node_id, join_node, cost)) = best_next {
                 let new_sg = current_sg.union(SubqueryGraph::singleton(node_id));
-                dp.add_plan(new_sg, LogicalPlanRef {
-                    root: join_node,
-                    cost,
-                    factorization_encoding: 0,
-                });
+                dp.add_plan(
+                    new_sg,
+                    LogicalPlanRef {
+                        root: join_node,
+                        cost,
+                        factorization_encoding: 0,
+                    },
+                );
                 current_sg = new_sg;
                 best_cost = cost;
             } else {

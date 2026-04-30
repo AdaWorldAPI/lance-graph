@@ -222,25 +222,45 @@ mod tests {
     fn sample_world_model() -> WorldModelDto {
         WorldModelDto {
             self_state: SelfState {
-                style_id: 1, rung: 3, gate: 0, qualia_state: 3,
-                confidence: 0.8, calibration_error: 0.1,
+                style_id: 1,
+                rung: 3,
+                gate: 0,
+                qualia_state: 3,
+                confidence: 0.8,
+                calibration_error: 0.1,
                 should_acknowledge_limits: false,
-                trace_count: 5, free_energy: 0.05, thought_count: 42,
+                trace_count: 5,
+                free_energy: 0.05,
+                thought_count: 42,
             },
             user_state: UserState {
-                style_id: 6, engagement: 0.9, valence: 0.5,
-                depth: 5, model_confidence: 0.7,
+                style_id: 6,
+                engagement: 0.9,
+                valence: 0.5,
+                depth: 5,
+                model_confidence: 0.7,
             },
             field_state: FieldState {
                 gestalt: GestaltState::Crystallizing,
-                resonance_subject: 0.8, resonance_predicate: 0.7, resonance_object: 0.6,
-                dominant: 0, dissonance: 0.1, n_resonant: 20,
-                total_energy: 5.0, is_divergent: false, is_converged: false,
+                resonance_subject: 0.8,
+                resonance_predicate: 0.7,
+                resonance_object: 0.6,
+                dominant: 0,
+                dissonance: 0.1,
+                n_resonant: 20,
+                total_energy: 5.0,
+                is_divergent: false,
+                is_converged: false,
             },
             context_state: ContextState {
-                primary_family: 0, overlay_family: 2,
-                arousal: 0.6, tension: 0.2, warmth: 0.8, clarity: 0.7,
-                spo_count: 15, has_conflict: false,
+                primary_family: 0,
+                overlay_family: 2,
+                arousal: 0.6,
+                tension: 0.2,
+                warmth: 0.8,
+                clarity: 0.7,
+                spo_count: 15,
+                has_conflict: false,
             },
             qualia: None,
             axes: None,
@@ -305,9 +325,17 @@ mod tests {
         use crate::proprioception::ProprioceptionAxes;
         let mut wm = sample_world_model();
         wm.axes = Some(ProprioceptionAxes {
-            warmth: 0.9, clarity: 0.7, depth: 0.5, safety: 0.8,
-            vitality: 0.6, insight: 0.4, contact: 0.5,
-            tension: 0.2, novelty: 0.6, wonder: 0.5, attunement: 0.7,
+            warmth: 0.9,
+            clarity: 0.7,
+            depth: 0.5,
+            safety: 0.8,
+            vitality: 0.6,
+            insight: 0.4,
+            contact: 0.5,
+            tension: 0.2,
+            novelty: 0.6,
+            wonder: 0.5,
+            attunement: 0.7,
         });
         let axes = wm.axes.unwrap();
         assert!((axes.warmth - 0.9).abs() < 1e-6);
@@ -326,10 +354,16 @@ mod tests {
     #[test]
     fn self_state_is_copy() {
         let s = SelfState {
-            style_id: 0, rung: 0, gate: 0, qualia_state: 0,
-            confidence: 0.0, calibration_error: 0.0,
+            style_id: 0,
+            rung: 0,
+            gate: 0,
+            qualia_state: 0,
+            confidence: 0.0,
+            calibration_error: 0.0,
             should_acknowledge_limits: false,
-            trace_count: 0, free_energy: 0.0, thought_count: 0,
+            trace_count: 0,
+            free_energy: 0.0,
+            thought_count: 0,
         };
         let _s2 = s; // Copy
         let _s3 = s; // Still valid

@@ -10,8 +10,12 @@ use crate::PlanError;
 pub struct RuleOptimizer;
 
 impl PlanStrategy for RuleOptimizer {
-    fn name(&self) -> &str { "rule_optimizer" }
-    fn capability(&self) -> PlanCapability { PlanCapability::RuleOptimization }
+    fn name(&self) -> &str {
+        "rule_optimizer"
+    }
+    fn capability(&self) -> PlanCapability {
+        PlanCapability::RuleOptimization
+    }
 
     fn affinity(&self, context: &PlanContext) -> f32 {
         // Always useful if there's a plan to optimize
@@ -22,7 +26,11 @@ impl PlanStrategy for RuleOptimizer {
         }
     }
 
-    fn plan(&self, input: PlanInput, _arena: &mut Arena<LogicalOp>) -> Result<PlanInput, PlanError> {
+    fn plan(
+        &self,
+        input: PlanInput,
+        _arena: &mut Arena<LogicalOp>,
+    ) -> Result<PlanInput, PlanError> {
         // Delegates to crate::optimize::optimize() which runs:
         // 1. RemoveFactorizationRewriter
         // 2. PredicatePushdown

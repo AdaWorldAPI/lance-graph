@@ -19,7 +19,8 @@ fn main() {
                     let freq = 0.01 + (i as f64 * 0.001);
                     let phase = i as f64 * 0.1;
                     ((d as f64 * freq + phase).sin() * 0.5
-                        + (d as f64 * freq * 2.3 + phase * 0.7).cos() * 0.3) as f32
+                        + (d as f64 * freq * 2.3 + phase * 0.7).cos() * 0.3)
+                        as f32
                 })
                 .collect()
         })
@@ -161,10 +162,8 @@ fn main() {
 
     // === Search key comparison ===
     println!("\n=== Search Key HEEL Performance ===");
-    let search_keys: Vec<bgz_tensor::SearchKey17> = stacked_vecs
-        .iter()
-        .map(|s| s.search_key())
-        .collect();
+    let search_keys: Vec<bgz_tensor::SearchKey17> =
+        stacked_vecs.iter().map(|s| s.search_key()).collect();
 
     // Measure sign agreement vs cosine correlation
     let sign_agreements: Vec<f64> = pairs

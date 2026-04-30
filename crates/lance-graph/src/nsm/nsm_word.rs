@@ -59,14 +59,9 @@ impl NsmRuntime {
         let cam_codes_path = word_frequency_dir.join("cam_codes.bin");
 
         let matrix = if codebook_path.exists() && cam_codes_path.exists() {
-            let codebook_bytes =
-                std::fs::read(&codebook_path).map_err(|e| NsmLoadError {
-                    message: format!(
-                        "Failed to read {}: {}",
-                        codebook_path.display(),
-                        e
-                    ),
-                })?;
+            let codebook_bytes = std::fs::read(&codebook_path).map_err(|e| NsmLoadError {
+                message: format!("Failed to read {}: {}", codebook_path.display(), e),
+            })?;
             let cam_bytes = std::fs::read(&cam_codes_path).map_err(|e| NsmLoadError {
                 message: format!("Failed to read {}: {}", cam_codes_path.display(), e),
             })?;
@@ -127,9 +122,7 @@ impl NsmRuntime {
         let pairs = self.encoder.decompose(rank);
         let result = pairs
             .into_iter()
-            .filter_map(|(pr, sim)| {
-                self.vocabulary.word(pr).map(|w| (w.to_string(), sim))
-            })
+            .filter_map(|(pr, sim)| self.vocabulary.word(pr).map(|w| (w.to_string(), sim)))
             .collect();
         Some(result)
     }
@@ -367,9 +360,7 @@ fn nsm_similarity_impl(
 }
 
 /// Extract UTF-8 string values from a ColumnarValue.
-fn extract_utf8_values(
-    col: &ColumnarValue,
-) -> datafusion::error::Result<Vec<String>> {
+fn extract_utf8_values(col: &ColumnarValue) -> datafusion::error::Result<Vec<String>> {
     match col {
         ColumnarValue::Scalar(s) => {
             if let datafusion::scalar::ScalarValue::Utf8(Some(val)) = s {
@@ -383,14 +374,11 @@ fn extract_utf8_values(
             }
         }
         ColumnarValue::Array(arr) => {
-            let string_arr = arr
-                .as_any()
-                .downcast_ref::<StringArray>()
-                .ok_or_else(|| {
-                    datafusion::error::DataFusionError::Execution(
-                        "nsm_similarity: arguments must be Utf8 string arrays".to_string(),
-                    )
-                })?;
+            let string_arr = arr.as_any().downcast_ref::<StringArray>().ok_or_else(|| {
+                datafusion::error::DataFusionError::Execution(
+                    "nsm_similarity: arguments must be Utf8 string arrays".to_string(),
+                )
+            })?;
             let mut vals = Vec::with_capacity(string_arr.len());
             for i in 0..string_arr.len() {
                 if string_arr.is_null(i) {

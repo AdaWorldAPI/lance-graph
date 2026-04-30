@@ -37,12 +37,16 @@ mod tests {
         assert!(!allow.is_denied());
         assert!(!allow.is_escalation());
 
-        let deny = AccessDecision::Deny { reason: "no permission" };
+        let deny = AccessDecision::Deny {
+            reason: "no permission",
+        };
         assert!(!deny.is_allowed());
         assert!(deny.is_denied());
         assert!(!deny.is_escalation());
 
-        let escalate = AccessDecision::Escalate { reason: "needs MFA" };
+        let escalate = AccessDecision::Escalate {
+            reason: "needs MFA",
+        };
         assert!(!escalate.is_allowed());
         assert!(!escalate.is_denied());
         assert!(escalate.is_escalation());

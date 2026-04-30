@@ -120,21 +120,13 @@ pub fn top_k_recall(ground_truth: &[f64], compiled: &[f64], k: usize) -> f64 {
     }
 
     // Find top-K indices in ground truth
-    let mut gt_indexed: Vec<(usize, f64)> = ground_truth[..n]
-        .iter()
-        .copied()
-        .enumerate()
-        .collect();
+    let mut gt_indexed: Vec<(usize, f64)> = ground_truth[..n].iter().copied().enumerate().collect();
     gt_indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
     let gt_top: std::collections::HashSet<usize> =
         gt_indexed[..k].iter().map(|&(i, _)| i).collect();
 
     // Find top-K indices in compiled
-    let mut comp_indexed: Vec<(usize, f64)> = compiled[..n]
-        .iter()
-        .copied()
-        .enumerate()
-        .collect();
+    let mut comp_indexed: Vec<(usize, f64)> = compiled[..n].iter().copied().enumerate().collect();
     comp_indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
     let comp_top: std::collections::HashSet<usize> =
         comp_indexed[..k].iter().map(|&(i, _)| i).collect();
@@ -175,10 +167,7 @@ impl QualityReport {
         let n = ground_truth_dots.len().min(compiled_distances.len());
 
         // Negate distances for correlation (lower distance = higher similarity)
-        let neg_distances: Vec<f64> = compiled_distances[..n]
-            .iter()
-            .map(|&d| -d)
-            .collect();
+        let neg_distances: Vec<f64> = compiled_distances[..n].iter().map(|&d| -d).collect();
 
         let gt = &ground_truth_dots[..n];
 
@@ -278,9 +267,13 @@ pub fn ground_truth_dots(
 /// α < 0.70 → codecs measure different constructs (both informative)
 pub fn cronbach_alpha(items: &[Vec<f64>]) -> f64 {
     let k = items.len();
-    if k < 2 { return 0.0; }
+    if k < 2 {
+        return 0.0;
+    }
     let n = items[0].len();
-    if n < 2 { return 0.0; }
+    if n < 2 {
+        return 0.0;
+    }
 
     // Item variances
     let mut sum_item_var = 0.0f64;
@@ -291,13 +284,16 @@ pub fn cronbach_alpha(items: &[Vec<f64>]) -> f64 {
     }
 
     // Total score variance (sum across items per observation)
-    let totals: Vec<f64> = (0..n).map(|obs| {
-        items.iter().map(|item| item[obs]).sum::<f64>()
-    }).collect();
+    let totals: Vec<f64> = (0..n)
+        .map(|obs| items.iter().map(|item| item[obs]).sum::<f64>())
+        .collect();
     let total_mean: f64 = totals.iter().sum::<f64>() / n as f64;
-    let total_var: f64 = totals.iter().map(|x| (x - total_mean).powi(2)).sum::<f64>() / (n - 1) as f64;
+    let total_var: f64 =
+        totals.iter().map(|x| (x - total_mean).powi(2)).sum::<f64>() / (n - 1) as f64;
 
-    if total_var < 1e-15 { return 0.0; }
+    if total_var < 1e-15 {
+        return 0.0;
+    }
     (k as f64 / (k - 1) as f64) * (1.0 - sum_item_var / total_var)
 }
 
@@ -312,24 +308,35 @@ pub fn cronbach_alpha(items: &[Vec<f64>]) -> f64 {
 /// κ < 0.40 → fair or poor
 pub fn cohens_kappa(a: &[usize], b: &[usize]) -> f64 {
     let n = a.len().min(b.len());
-    if n == 0 { return 0.0; }
+    if n == 0 {
+        return 0.0;
+    }
 
     // Count categories
     let max_cat = a.iter().chain(b.iter()).copied().max().unwrap_or(0) + 1;
 
     // Confusion matrix
     let mut conf = vec![vec![0usize; max_cat]; max_cat];
-    for i in 0..n { conf[a[i].min(max_cat - 1)][b[i].min(max_cat - 1)] += 1; }
+    for i in 0..n {
+        conf[a[i].min(max_cat - 1)][b[i].min(max_cat - 1)] += 1;
+    }
 
     // Observed agreement
     let p_o: f64 = (0..max_cat).map(|c| conf[c][c] as f64).sum::<f64>() / n as f64;
 
     // Expected agreement by chance (marginal products)
-    let row_sums: Vec<f64> = (0..max_cat).map(|r| conf[r].iter().sum::<usize>() as f64).collect();
-    let col_sums: Vec<f64> = (0..max_cat).map(|c| (0..max_cat).map(|r| conf[r][c]).sum::<usize>() as f64).collect();
-    let p_e: f64 = (0..max_cat).map(|c| row_sums[c] * col_sums[c]).sum::<f64>() / (n as f64 * n as f64);
+    let row_sums: Vec<f64> = (0..max_cat)
+        .map(|r| conf[r].iter().sum::<usize>() as f64)
+        .collect();
+    let col_sums: Vec<f64> = (0..max_cat)
+        .map(|c| (0..max_cat).map(|r| conf[r][c]).sum::<usize>() as f64)
+        .collect();
+    let p_e: f64 =
+        (0..max_cat).map(|c| row_sums[c] * col_sums[c]).sum::<f64>() / (n as f64 * n as f64);
 
-    if (1.0 - p_e).abs() < 1e-15 { return 1.0; } // perfect marginal agreement
+    if (1.0 - p_e).abs() < 1e-15 {
+        return 1.0;
+    } // perfect marginal agreement
     (p_o - p_e) / (1.0 - p_e)
 }
 
@@ -344,11 +351,15 @@ pub fn cohens_kappa(a: &[usize], b: &[usize]) -> f64 {
 /// If |bias| << sqrt(variance): random noise (correction doesn't help, P5 finding)
 pub fn bias_variance(errors: &[f64]) -> (f64, f64) {
     let n = errors.len();
-    if n == 0 { return (0.0, 0.0); }
+    if n == 0 {
+        return (0.0, 0.0);
+    }
     let mean = errors.iter().sum::<f64>() / n as f64;
     let var = if n > 1 {
         errors.iter().map(|e| (e - mean).powi(2)).sum::<f64>() / (n - 1) as f64
-    } else { 0.0 };
+    } else {
+        0.0
+    };
     (mean, var)
 }
 
@@ -361,31 +372,33 @@ pub fn bias_variance(errors: &[f64]) -> (f64, f64) {
 /// Ranges [-1, 1]; ≥ 0.75 = good, ≥ 0.90 = excellent.
 pub fn icc_3_1(ground_truth: &[f64], codec: &[f64]) -> f64 {
     let n = ground_truth.len().min(codec.len());
-    if n < 2 { return 0.0; }
+    if n < 2 {
+        return 0.0;
+    }
 
     // Two-way ANOVA decomposition (2 raters, n targets)
-    let grand_mean = (ground_truth[..n].iter().sum::<f64>() + codec[..n].iter().sum::<f64>())
-        / (2 * n) as f64;
+    let grand_mean =
+        (ground_truth[..n].iter().sum::<f64>() + codec[..n].iter().sum::<f64>()) / (2 * n) as f64;
 
     // Target means (average of GT and codec per target)
-    let target_means: Vec<f64> = (0..n).map(|i| {
-        (ground_truth[i] + codec[i]) / 2.0
-    }).collect();
+    let target_means: Vec<f64> = (0..n).map(|i| (ground_truth[i] + codec[i]) / 2.0).collect();
 
     // MS_targets = 2 × Σ (target_mean - grand_mean)² / (n-1)
-    let ss_targets: f64 = target_means.iter()
+    let ss_targets: f64 = target_means
+        .iter()
         .map(|&m| (m - grand_mean).powi(2))
         .sum::<f64>();
     let ms_targets = 2.0 * ss_targets / (n - 1) as f64;
 
     // MS_error = Σ (x_ij - target_mean_i)² / n  (for 2 raters)
-    let ss_error: f64 = (0..n).map(|i| {
-        (ground_truth[i] - target_means[i]).powi(2)
-        + (codec[i] - target_means[i]).powi(2)
-    }).sum::<f64>();
+    let ss_error: f64 = (0..n)
+        .map(|i| (ground_truth[i] - target_means[i]).powi(2) + (codec[i] - target_means[i]).powi(2))
+        .sum::<f64>();
     let ms_error = ss_error / n as f64;
 
-    if (ms_targets + ms_error).abs() < 1e-15 { return 0.0; }
+    if (ms_targets + ms_error).abs() < 1e-15 {
+        return 0.0;
+    }
     (ms_targets - ms_error) / (ms_targets + ms_error)
 }
 
@@ -395,7 +408,9 @@ pub fn icc_3_1(ground_truth: &[f64], codec: &[f64]) -> f64 {
 /// for tied ranks (common with quantized scores).
 pub fn kendall_tau(x: &[f64], y: &[f64]) -> f64 {
     let n = x.len().min(y.len());
-    if n < 2 { return 0.0; }
+    if n < 2 {
+        return 0.0;
+    }
     let mut concordant = 0i64;
     let mut discordant = 0i64;
     let mut ties_x = 0i64;
@@ -410,14 +425,20 @@ pub fn kendall_tau(x: &[f64], y: &[f64]) -> f64 {
             } else if product < 0.0 {
                 discordant += 1;
             } else {
-                if dx.abs() < 1e-15 { ties_x += 1; }
-                if dy.abs() < 1e-15 { ties_y += 1; }
+                if dx.abs() < 1e-15 {
+                    ties_x += 1;
+                }
+                if dy.abs() < 1e-15 {
+                    ties_y += 1;
+                }
             }
         }
     }
     let n0 = (n * (n - 1) / 2) as f64;
     let denom = ((n0 - ties_x as f64) * (n0 - ties_y as f64)).sqrt();
-    if denom < 1e-15 { return 0.0; }
+    if denom < 1e-15 {
+        return 0.0;
+    }
     (concordant - discordant) as f64 / denom
 }
 
@@ -460,7 +481,7 @@ mod tests {
     fn top_k_recall_worst() {
         let gt = vec![5.0, 4.0, 3.0, 2.0, 1.0];
         let comp = vec![1.0, 2.0, 3.0, 4.0, 5.0]; // reversed
-        // Top-1 of GT is index 0, top-1 of comp is index 4 → recall = 0
+                                                  // Top-1 of GT is index 0, top-1 of comp is index 4 → recall = 0
         assert_eq!(top_k_recall(&gt, &comp, 1), 0.0);
     }
 
@@ -554,7 +575,11 @@ mod tests {
         let x = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let y = vec![10.0, 20.0, 30.0, 40.0, 50.0];
         let tau = kendall_tau(&x, &y);
-        assert!((tau - 1.0).abs() < 1e-6, "perfect concordance → τ=1, got {}", tau);
+        assert!(
+            (tau - 1.0).abs() < 1e-6,
+            "perfect concordance → τ=1, got {}",
+            tau
+        );
     }
 
     #[test]
@@ -562,6 +587,10 @@ mod tests {
         let x = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let y = vec![50.0, 40.0, 30.0, 20.0, 10.0];
         let tau = kendall_tau(&x, &y);
-        assert!((tau - (-1.0)).abs() < 1e-6, "perfect discordance → τ=-1, got {}", tau);
+        assert!(
+            (tau - (-1.0)).abs() < 1e-6,
+            "perfect discordance → τ=-1, got {}",
+            tau
+        );
     }
 }

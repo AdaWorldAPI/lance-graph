@@ -128,7 +128,6 @@ pub enum LogicalOp {
     },
 
     // === Resonance-specific (BROADCAST → SCAN → ACCUMULATE → COLLAPSE) ===
-
     /// BROADCAST: Distribute a query fingerprint to all scan partitions.
     Broadcast {
         /// The fingerprint source (expression producing a Container)

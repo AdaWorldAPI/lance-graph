@@ -7,7 +7,7 @@
 //!
 //! Depends only on `lance-graph-contract`.
 
-pub mod permission;
-pub mod role;
-pub mod policy;
 pub mod access;
+pub mod permission;
+pub mod policy;
+pub mod role;

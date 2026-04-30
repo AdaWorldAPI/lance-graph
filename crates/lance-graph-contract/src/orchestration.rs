@@ -26,9 +26,9 @@
 //! ladybug-rs ───┘
 //! ```
 
-use crate::thinking::ThinkingStyle;
 use crate::nars::InferenceType;
 use crate::plan::ThinkingContext;
+use crate::thinking::ThinkingStyle;
 
 /// Step domain: which subsystem handles this step.
 ///
@@ -65,14 +65,14 @@ impl StepDomain {
     pub fn from_step_type(step_type: &str) -> Option<Self> {
         let prefix = step_type.split('.').next()?;
         match prefix {
-            "crew"    => Some(Self::Crew),
-            "lb"      => Some(Self::Ladybug),
-            "n8n"     => Some(Self::N8n),
-            "lg"      => Some(Self::LanceGraph),
-            "nd"      => Some(Self::Ndarray),
-            "smb"     => Some(Self::Smb),
+            "crew" => Some(Self::Crew),
+            "lb" => Some(Self::Ladybug),
+            "n8n" => Some(Self::N8n),
+            "lg" => Some(Self::LanceGraph),
+            "nd" => Some(Self::Ndarray),
+            "smb" => Some(Self::Smb),
             "medcare" => Some(Self::Medcare),
-            _         => None,
+            _ => None,
         }
     }
 
@@ -106,17 +106,15 @@ impl StepDomain {
             // Generic defaults for infrastructure / orchestration domains.
             // These are NOT vertical-facing; they execute the cycle, not
             // the policy. Starter values — tune empirically.
-            Self::Crew
-            | Self::Ladybug
-            | Self::N8n
-            | Self::LanceGraph
-            | Self::Ndarray => DomainProfile {
-                audit_retention_days: 30,
-                auto_action_confidence: 0.70,
-                escalation: Escalation::Llm,
-                requires_fail_closed: false,
-                verb_taxonomy: VerbTaxonomyId::Generic,
-            },
+            Self::Crew | Self::Ladybug | Self::N8n | Self::LanceGraph | Self::Ndarray => {
+                DomainProfile {
+                    audit_retention_days: 30,
+                    auto_action_confidence: 0.70,
+                    escalation: Escalation::Llm,
+                    requires_fail_closed: false,
+                    verb_taxonomy: VerbTaxonomyId::Generic,
+                }
+            }
         }
     }
 }
@@ -126,13 +124,13 @@ impl core::fmt::Display for StepDomain {
     /// `from_step_type(&domain.to_string()) == Some(domain)` for every variant.
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let s = match self {
-            Self::Crew       => "crew",
-            Self::Ladybug    => "lb",
-            Self::N8n        => "n8n",
+            Self::Crew => "crew",
+            Self::Ladybug => "lb",
+            Self::N8n => "n8n",
             Self::LanceGraph => "lg",
-            Self::Ndarray    => "nd",
-            Self::Smb        => "smb",
-            Self::Medcare    => "medcare",
+            Self::Ndarray => "nd",
+            Self::Smb => "smb",
+            Self::Medcare => "medcare",
         };
         f.write_str(s)
     }
@@ -297,13 +295,18 @@ mod tests {
         let a = step_with_step_id("step-alpha");
         let b = step_with_step_id("step-beta");
         assert_ne!(
-            a.id(), b.id(),
+            a.id(),
+            b.id(),
             "FNV-1a derivation must distinguish 'step-alpha' from 'step-beta'; \
              with the old `id: 0` field both would collide at zero",
         );
         // And the derivation must be deterministic — same string → same id.
         let a_again = step_with_step_id("step-alpha");
-        assert_eq!(a.id(), a_again.id(), "id() must be deterministic over step_id");
+        assert_eq!(
+            a.id(),
+            a_again.id(),
+            "id() must be deterministic over step_id"
+        );
     }
 }
 

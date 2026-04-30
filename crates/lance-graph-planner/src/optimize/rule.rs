@@ -3,9 +3,9 @@
 //! Each rule transforms a LogicalPlan → LogicalPlan.
 //! Rules declare their traversal order (TopDown or BottomUp).
 
+use super::RuleResult;
 use crate::ir::LogicalPlan;
 use crate::thinking::ThinkingContext;
-use super::RuleResult;
 
 /// Apply order for tree traversal.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -44,7 +44,10 @@ impl GrBMatrix {
 
     /// Build a matrix from CSR storage.
     pub fn from_csr(csr: CsrStorage) -> Self {
-        Self { storage: csr, csc: None }
+        Self {
+            storage: csr,
+            csc: None,
+        }
     }
 
     /// Build a matrix from CSC storage.
@@ -58,7 +61,10 @@ impl GrBMatrix {
 
     /// Build a matrix with both CSR and CSC populated.
     pub fn from_csr_and_csc(csr: CsrStorage, csc: CscStorage) -> Self {
-        Self { storage: csr, csc: Some(csc) }
+        Self {
+            storage: csr,
+            csc: Some(csc),
+        }
     }
 
     /// Ensure CSC storage is populated (built from CSR if needed).

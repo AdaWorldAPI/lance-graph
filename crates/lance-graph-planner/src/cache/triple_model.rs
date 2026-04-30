@@ -7,7 +7,7 @@
 //! All three are 64×64 AttentionMatrices that evolve with each turn.
 //! CausalEdge64 forward() predicts impact. learn() revises after feedback.
 
-use super::kv_bundle::{HeadPrint, AttentionMatrix};
+use super::kv_bundle::{AttentionMatrix, HeadPrint};
 
 /// 3-bit plasticity: which planes are still learning.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -18,9 +18,15 @@ pub struct Plasticity {
 impl Plasticity {
     pub const ALL_HOT: Self = Self { bits: 0b111 };
     pub const ALL_FROZEN: Self = Self { bits: 0b000 };
-    pub fn s_hot(self) -> bool { self.bits & 1 != 0 }
-    pub fn p_hot(self) -> bool { self.bits & 2 != 0 }
-    pub fn o_hot(self) -> bool { self.bits & 4 != 0 }
+    pub fn s_hot(self) -> bool {
+        self.bits & 1 != 0
+    }
+    pub fn p_hot(self) -> bool {
+        self.bits & 2 != 0
+    }
+    pub fn o_hot(self) -> bool {
+        self.bits & 4 != 0
+    }
     pub fn freeze_if_confident(&mut self, confidence: f32) {
         if confidence > 0.9 {
             self.bits = 0;
@@ -119,7 +125,8 @@ impl TripleModel {
     /// After I say something: update self_model, predict impact.
     pub fn on_self_output(&mut self, output: &HeadPrint, row: usize, col: usize) {
         let evidence = Truth::new(0.8, 0.7); // I know what I said
-        self.self_model.update_head(row, col, output.clone(), evidence);
+        self.self_model
+            .update_head(row, col, output.clone(), evidence);
         // Impact prediction: how will user react?
         // Surprise = divergence between self and user models
     }
@@ -127,7 +134,8 @@ impl TripleModel {
     /// After user responds: update user_model, measure prediction error.
     pub fn on_user_input(&mut self, input: &HeadPrint, row: usize, col: usize) {
         let evidence = Truth::new(0.6, 0.5); // less certain about user
-        self.user_model.update_head(row, col, input.clone(), evidence);
+        self.user_model
+            .update_head(row, col, input.clone(), evidence);
         // Prediction error = Friston free energy
         let prediction_error = self.impact_model.matrix.surprise(input);
         // Revise impact model based on error
@@ -142,13 +150,20 @@ impl TripleModel {
 
     /// Alignment: how close are self and user models?
     pub fn alignment(&self) -> f32 {
-        1.0 - self.self_model.matrix.gestalt.l1(&self.user_model.matrix.gestalt) as f32
+        1.0 - self
+            .self_model
+            .matrix
+            .gestalt
+            .l1(&self.user_model.matrix.gestalt) as f32
             / (17u32 * 65535) as f32
     }
 
     /// Topic shift: self_model diverging from user_model?
     pub fn topic_shift(&self) -> f32 {
-        self.self_model.matrix.gestalt.l1(&self.user_model.matrix.gestalt) as f32
+        self.self_model
+            .matrix
+            .gestalt
+            .l1(&self.user_model.matrix.gestalt) as f32
             / (17u32 * 65535) as f32
     }
 }
@@ -172,14 +187,20 @@ mod tests {
     fn test_on_self_output() {
         let mut triple = TripleModel::new();
         let head = HeadPrint {
-            dims: [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700],
+            dims: [
+                100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500,
+                1600, 1700,
+            ],
         };
         triple.on_self_output(&head, 5, 10);
 
         // Self model should have the head set
         assert_eq!(triple.self_model.matrix.get(5, 10), &head);
         // Truth should have been revised from unknown
-        assert!(triple.self_model.truth.confidence > 0.0, "confidence should increase after evidence");
+        assert!(
+            triple.self_model.truth.confidence > 0.0,
+            "confidence should increase after evidence"
+        );
         assert_eq!(triple.self_model.matrix.epoch, 1);
     }
 
@@ -187,7 +208,9 @@ mod tests {
     fn test_on_user_input_revises() {
         let mut triple = TripleModel::new();
         let input = HeadPrint {
-            dims: [50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850],
+            dims: [
+                50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850,
+            ],
         };
         let initial_impact_truth = triple.impact_model.truth.confidence;
 
@@ -210,11 +233,12 @@ mod tests {
         assert_eq!(triple.free_energy(&zero), 0.0);
 
         // A non-zero head against zero gestalt should have non-zero surprise
-        let head = HeadPrint {
-            dims: [1000; 17],
-        };
+        let head = HeadPrint { dims: [1000; 17] };
         let energy = triple.free_energy(&head);
-        assert!(energy > 0.0, "non-zero head should produce surprise: {energy}");
+        assert!(
+            energy > 0.0,
+            "non-zero head should produce surprise: {energy}"
+        );
     }
 
     #[test]

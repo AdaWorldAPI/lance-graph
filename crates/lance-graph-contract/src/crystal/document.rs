@@ -17,10 +17,22 @@ pub struct DocumentCrystal {
 }
 
 impl Crystal for DocumentCrystal {
-    fn kind(&self) -> CrystalKind { CrystalKind::Document }
-    fn hardness(&self) -> f32 { self.hardness }
-    fn revision_count(&self) -> u32 { self.revision_count }
-    fn crystallized_at(&self) -> u64 { self.crystallized_at }
-    fn fingerprint(&self) -> &CrystalFingerprint { &self.fingerprint }
-    fn truth(&self) -> TruthValue { self.truth }
+    fn kind(&self) -> CrystalKind {
+        CrystalKind::Document
+    }
+    fn hardness(&self) -> f32 {
+        self.hardness
+    }
+    fn revision_count(&self) -> u32 {
+        self.revision_count
+    }
+    fn crystallized_at(&self) -> u64 {
+        self.crystallized_at
+    }
+    fn fingerprint(&self) -> &CrystalFingerprint {
+        &self.fingerprint
+    }
+    fn truth(&self) -> TruthValue {
+        self.truth
+    }
 }

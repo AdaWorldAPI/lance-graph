@@ -55,11 +55,7 @@ pub const DEFAULT_THRESHOLD: u32 = D_MAX / 2;
 /// 7 distance quantiles (bytes 1-7).
 ///
 /// The `sign` parameter encodes causality direction (0 or 1).
-pub fn zeckf64(
-    a: (&BitVec, &BitVec, &BitVec),
-    b: (&BitVec, &BitVec, &BitVec),
-    sign: bool,
-) -> u64 {
+pub fn zeckf64(a: (&BitVec, &BitVec, &BitVec), b: (&BitVec, &BitVec, &BitVec), sign: bool) -> u64 {
     let ds = a.0.hamming_distance(b.0); // S__ distance
     let dp = a.1.hamming_distance(b.1); // _P_ distance
     let d_o = a.2.hamming_distance(b.2); // __O distance
@@ -279,10 +275,7 @@ pub fn count_legal_patterns() -> u32 {
 ///
 /// Returns a vector of `u64` where position `j` contains the ZeckF64
 /// edge from node `i` to node `j`. Position `i` is set to 0 (no self-edge).
-pub fn compute_neighborhood(
-    i: usize,
-    planes: &[(&BitVec, &BitVec, &BitVec)],
-) -> Vec<u64> {
+pub fn compute_neighborhood(i: usize, planes: &[(&BitVec, &BitVec, &BitVec)]) -> Vec<u64> {
     let n = planes.len();
     let mut neighborhood = vec![0u64; n];
     let (s_i, p_i, o_i) = planes[i];
@@ -396,7 +389,7 @@ mod tests {
         assert!(is_legal_scent(0b0000_0001));
         // SP close but S not close = ILLEGAL
         assert!(!is_legal_scent(0b0000_1010)); // SP=1, P=1, S=0
-        // SPO close but PO not close = ILLEGAL
+                                               // SPO close but PO not close = ILLEGAL
         assert!(!is_legal_scent(0b0101_1111)); // SPO=1, PO=0
     }
 

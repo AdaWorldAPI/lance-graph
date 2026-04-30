@@ -17,8 +17,8 @@
 //!   Level 2: exact cosine(Q, dequant(gain_k, shape_k)) on 5% survivors
 //!   = Same argmax, 11-13x faster, 3.2x less KV memory
 
-use ndarray::hpc::quantized::{quantize_f32_to_i4, dequantize_i4_to_f32, QuantParams};
 use ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd;
+use ndarray::hpc::quantized::{dequantize_i4_to_f32, quantize_f32_to_i4, QuantParams};
 
 /// One cached K or V entry: gain-shape split with cascade fingerprint.
 #[derive(Clone)]
@@ -34,7 +34,11 @@ impl TurboQuantEntry {
     /// Encode an f32 vector into gain-shape split.
     pub fn encode(v: &[f32]) -> Self {
         let dim = v.len();
-        let gain = v.iter().map(|x| (*x as f64) * (*x as f64)).sum::<f64>().sqrt();
+        let gain = v
+            .iter()
+            .map(|x| (*x as f64) * (*x as f64))
+            .sum::<f64>()
+            .sqrt();
         let gain_bf16 = crate::stacked_n::f32_to_bf16(gain as f32);
         let inv_gain = if gain > 1e-15 { 1.0 / gain } else { 0.0 };
         let unit: Vec<f32> = v.iter().map(|x| *x * inv_gain as f32).collect();
@@ -49,7 +53,13 @@ impl TurboQuantEntry {
             }
         }
 
-        TurboQuantEntry { gain_bf16, shape_i4, shape_params, fingerprint, dim }
+        TurboQuantEntry {
+            gain_bf16,
+            shape_i4,
+            shape_params,
+            fingerprint,
+            dim,
+        }
     }
 
     /// Decode back to f32.
@@ -66,7 +76,9 @@ impl TurboQuantEntry {
 
     /// Hamming distance between two fingerprints.
     pub fn hamming_distance(&self, other: &TurboQuantEntry) -> u32 {
-        self.fingerprint.iter().zip(other.fingerprint.iter())
+        self.fingerprint
+            .iter()
+            .zip(other.fingerprint.iter())
             .map(|(a, b)| (a ^ b).count_ones())
             .sum()
     }
@@ -100,9 +112,13 @@ impl TurboQuantKvCache {
         self.v_entries.push(TurboQuantEntry::encode(v));
     }
 
-    pub fn len(&self) -> usize { self.k_entries.len() }
+    pub fn len(&self) -> usize {
+        self.k_entries.len()
+    }
 
-    pub fn is_empty(&self) -> bool { self.k_entries.is_empty() }
+    pub fn is_empty(&self) -> bool {
+        self.k_entries.is_empty()
+    }
 
     /// Cascade-accelerated attention for a query vector.
     ///
@@ -110,13 +126,18 @@ impl TurboQuantKvCache {
     /// exact cosine on the cascade survivors.
     pub fn cascade_attention(&self, q: &[f32], top_k: usize) -> (Vec<f64>, Vec<usize>) {
         let n = self.k_entries.len();
-        if n == 0 { return (vec![], vec![]); }
+        if n == 0 {
+            return (vec![], vec![]);
+        }
 
         let q_entry = TurboQuantEntry::encode(q);
         let top_k = top_k.min(n);
 
         // Level 1: Hamming sweep on fingerprints
-        let mut candidates: Vec<(usize, u32)> = self.k_entries.iter().enumerate()
+        let mut candidates: Vec<(usize, u32)> = self
+            .k_entries
+            .iter()
+            .enumerate()
             .map(|(i, k)| (i, q_entry.hamming_distance(k)))
             .collect();
         candidates.sort_unstable_by_key(|&(_, d)| d);
@@ -135,7 +156,8 @@ impl TurboQuantKvCache {
 
     /// Brute-force attention (for comparison — computes ALL pairwise cosines).
     pub fn brute_attention(&self, q: &[f32]) -> Vec<f64> {
-        self.k_entries.iter()
+        self.k_entries
+            .iter()
             .map(|k| {
                 let k_decoded = k.decode();
                 cosine_f32_to_f64_simd(q, &k_decoded)
@@ -171,7 +193,9 @@ mod tests {
     use super::*;
 
     fn make_vec(seed: usize, dim: usize) -> Vec<f32> {
-        (0..dim).map(|d| ((d * 97 + seed * 31 + 17) as f64 * 0.618).sin() as f32 * 0.1).collect()
+        (0..dim)
+            .map(|d| ((d * 97 + seed * 31 + 17) as f64 * 0.618).sin() as f32 * 0.1)
+            .collect()
     }
 
     #[test]
@@ -202,12 +226,18 @@ mod tests {
         let brute = cache.brute_attention(&q);
         let (cascade_scores, cascade_idx) = cache.cascade_attention(&q, 8);
 
-        let brute_best = brute.iter().enumerate()
+        let brute_best = brute
+            .iter()
+            .enumerate()
             .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
-            .map(|(i, _)| i).unwrap();
+            .map(|(i, _)| i)
+            .unwrap();
 
-        assert!(cascade_idx.contains(&brute_best),
-            "cascade should find brute-force best (idx {})", brute_best);
+        assert!(
+            cascade_idx.contains(&brute_best),
+            "cascade should find brute-force best (idx {})",
+            brute_best
+        );
     }
 
     #[test]
@@ -219,6 +249,10 @@ mod tests {
         }
         let stats = cache.memory_stats();
         assert_eq!(stats.n_tokens, 100);
-        assert!(stats.compression_ratio > 2.5, "ratio {}", stats.compression_ratio);
+        assert!(
+            stats.compression_ratio > 2.5,
+            "ratio {}",
+            stats.compression_ratio
+        );
     }
 }

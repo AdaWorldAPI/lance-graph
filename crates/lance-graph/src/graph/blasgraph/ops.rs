@@ -480,11 +480,7 @@ mod tests {
             .map(|i| result.get_scalar(i).unwrap().as_float().unwrap())
             .collect();
         for w in costs.windows(2) {
-            assert!(
-                w[0] <= w[1],
-                "cost should be non-decreasing: {:?}",
-                costs
-            );
+            assert!(w[0] <= w[1], "cost should be non-decreasing: {:?}", costs);
         }
     }
 

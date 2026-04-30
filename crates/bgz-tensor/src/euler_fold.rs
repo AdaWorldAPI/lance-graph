@@ -14,7 +14,7 @@
 
 // cosine_f32_slice reserved for future fold quality measurement
 #[allow(unused_imports)]
-use crate::stacked_n::{StackedN, bf16_to_f32, f32_to_bf16, cosine_f32_slice};
+use crate::stacked_n::{bf16_to_f32, cosine_f32_slice, f32_to_bf16, StackedN};
 
 /// Euler-Mascheroni constant γ ≈ 0.5772156649...
 /// Irrational + transcendental → ergodic on torus → no aliasing between members.
@@ -45,13 +45,16 @@ pub struct ClamFamily {
 /// assign all vectors within `cos_threshold` of nearest seed.
 pub fn clam_group(vectors: &[Vec<f32>], cos_threshold: f64) -> Vec<ClamFamily> {
     let n = vectors.len();
-    if n == 0 { return Vec::new(); }
+    if n == 0 {
+        return Vec::new();
+    }
 
     let mut assigned = vec![false; n];
     let mut families: Vec<ClamFamily> = Vec::new();
 
     // Precompute norms for fast cosine
-    let norms: Vec<f64> = vectors.iter()
+    let norms: Vec<f64> = vectors
+        .iter()
         .map(|v| v.iter().map(|&x| (x as f64).powi(2)).sum::<f64>().sqrt())
         .collect();
 
@@ -63,8 +66,11 @@ pub fn clam_group(vectors: &[Vec<f32>], cos_threshold: f64) -> Vec<ClamFamily> {
             let mut best_idx = None;
             let mut best_min_cos = f64::INFINITY;
             for i in 0..n {
-                if assigned[i] { continue; }
-                let min_cos = families.iter()
+                if assigned[i] {
+                    continue;
+                }
+                let min_cos = families
+                    .iter()
                     .map(|f| fast_cosine(&vectors[i], &f.centroid_f32, norms[i]))
                     .fold(f64::INFINITY, f64::min);
                 if min_cos < best_min_cos {
@@ -78,14 +84,18 @@ pub fn clam_group(vectors: &[Vec<f32>], cos_threshold: f64) -> Vec<ClamFamily> {
             }
         };
 
-        if assigned[seed] { break; }
+        if assigned[seed] {
+            break;
+        }
 
         // Assign seed + all unassigned vectors within threshold
         let mut members = vec![seed];
         assigned[seed] = true;
 
         for i in 0..n {
-            if assigned[i] { continue; }
+            if assigned[i] {
+                continue;
+            }
             let cos = fast_cosine(&vectors[i], &vectors[seed], norms[i]);
             if cos >= cos_threshold {
                 members.push(i);
@@ -123,7 +133,11 @@ fn fast_cosine(a: &[f32], b: &[f32], norm_a: f64) -> f64 {
         nb += (b[i] as f64).powi(2);
     }
     let denom = norm_a * nb.sqrt();
-    if denom < 1e-12 { 0.0 } else { dot / denom }
+    if denom < 1e-12 {
+        0.0
+    } else {
+        dot / denom
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -184,12 +198,14 @@ pub fn euler_gamma_fold(members: &[Vec<f32>], spd: usize) -> FoldedFamily {
     let centroid_enc = StackedN::from_f32(&centroid_f32, spd);
 
     // Step 2: residuals (member - centroid)
-    let residuals: Vec<Vec<f32>> = members.iter()
+    let residuals: Vec<Vec<f32>> = members
+        .iter()
         .map(|m| m.iter().zip(&centroid_f32).map(|(&a, &b)| a - b).collect())
         .collect();
 
     // Step 3: encode residuals as StackedN
-    let encoded_residuals: Vec<StackedN> = residuals.iter()
+    let encoded_residuals: Vec<StackedN> = residuals
+        .iter()
         .map(|r| StackedN::from_f32(r, spd))
         .collect();
 
@@ -217,9 +233,7 @@ pub fn euler_gamma_fold(members: &[Vec<f32>], spd: usize) -> FoldedFamily {
     }
 
     // Convert folded f64 → BF16
-    let folded_bf16: Vec<u16> = folded_data.iter()
-        .map(|&v| f32_to_bf16(v as f32))
-        .collect();
+    let folded_bf16: Vec<u16> = folded_data.iter().map(|&v| f32_to_bf16(v as f32)).collect();
 
     let folded = StackedN {
         samples_per_dim: spd,
@@ -265,7 +279,8 @@ pub fn euler_gamma_unfold(family: &FoldedFamily, member_index: usize) -> Vec<f32
     }
 
     // Recovered residual as StackedN
-    let recovered_bf16: Vec<u16> = recovered_f64.iter()
+    let recovered_bf16: Vec<u16> = recovered_f64
+        .iter()
         .map(|&v| f32_to_bf16(v as f32))
         .collect();
     let recovered = StackedN {
@@ -277,7 +292,9 @@ pub fn euler_gamma_unfold(family: &FoldedFamily, member_index: usize) -> Vec<f32
     let centroid_f32 = family.centroid.hydrate_f32();
     let residual_f32 = recovered.hydrate_f32();
 
-    centroid_f32.iter().zip(residual_f32.iter())
+    centroid_f32
+        .iter()
+        .zip(residual_f32.iter())
         .map(|(&c, &r)| c + r)
         .collect()
 }
@@ -341,13 +358,21 @@ pub fn gate_test(members: &[Vec<f32>], spd: usize) -> FoldResult {
 
 /// NeuronPrint 6D fold: fold 6 role vectors into 1 container.
 pub fn neuronprint_fold_test(
-    q: &[f32], k: &[f32], v: &[f32],
-    gate: &[f32], up: &[f32], down: &[f32],
+    q: &[f32],
+    k: &[f32],
+    v: &[f32],
+    gate: &[f32],
+    up: &[f32],
+    down: &[f32],
     spd: usize,
 ) -> FoldResult {
     let members = vec![
-        q.to_vec(), k.to_vec(), v.to_vec(),
-        gate.to_vec(), up.to_vec(), down.to_vec(),
+        q.to_vec(),
+        k.to_vec(),
+        v.to_vec(),
+        gate.to_vec(),
+        up.to_vec(),
+        down.to_vec(),
     ];
     gate_test(&members, spd)
 }
@@ -365,30 +390,53 @@ mod tests {
 
         let noise_scale = (1.0 - base_cos).sqrt() as f32;
 
-        (0..n).map(|i| {
-            base.iter().enumerate().map(|(d, &b)| {
-                let noise = ((d * 97 + i * 31) as f32 % 100.0 - 50.0) * 0.01 * noise_scale;
-                b + noise
-            }).collect()
-        }).collect()
+        (0..n)
+            .map(|i| {
+                base.iter()
+                    .enumerate()
+                    .map(|(d, &b)| {
+                        let noise = ((d * 97 + i * 31) as f32 % 100.0 - 50.0) * 0.01 * noise_scale;
+                        b + noise
+                    })
+                    .collect()
+            })
+            .collect()
     }
 
     #[test]
     fn fold_unfold_two_members() {
         let members = make_similar_vectors(2, 1024, 0.95);
         let result = gate_test(&members, 32);
-        eprintln!("N=2: mean_pearson={:.4}, min={:.4}, SNR={:.1}, ratio={:.1}×",
-            result.mean_pearson, result.min_pearson, result.theoretical_snr, result.compression_ratio);
-        assert!(result.mean_pearson > 0.5, "N=2 should recover well: {:.4}", result.mean_pearson);
+        eprintln!(
+            "N=2: mean_pearson={:.4}, min={:.4}, SNR={:.1}, ratio={:.1}×",
+            result.mean_pearson,
+            result.min_pearson,
+            result.theoretical_snr,
+            result.compression_ratio
+        );
+        assert!(
+            result.mean_pearson > 0.5,
+            "N=2 should recover well: {:.4}",
+            result.mean_pearson
+        );
     }
 
     #[test]
     fn fold_unfold_four_members() {
         let members = make_similar_vectors(4, 1024, 0.95);
         let result = gate_test(&members, 32);
-        eprintln!("N=4: mean_pearson={:.4}, min={:.4}, SNR={:.1}, ratio={:.1}×",
-            result.mean_pearson, result.min_pearson, result.theoretical_snr, result.compression_ratio);
-        assert!(result.mean_pearson > 0.3, "N=4 should recover: {:.4}", result.mean_pearson);
+        eprintln!(
+            "N=4: mean_pearson={:.4}, min={:.4}, SNR={:.1}, ratio={:.1}×",
+            result.mean_pearson,
+            result.min_pearson,
+            result.theoretical_snr,
+            result.compression_ratio
+        );
+        assert!(
+            result.mean_pearson > 0.3,
+            "N=4 should recover: {:.4}",
+            result.mean_pearson
+        );
     }
 
     #[test]
@@ -396,8 +444,13 @@ mod tests {
         // The NeuronPrint gate test: 6 roles folded into 1 container
         let members = make_similar_vectors(6, 1024, 0.90);
         let result = gate_test(&members, 32);
-        eprintln!("N=6 (NeuronPrint): mean_pearson={:.4}, min={:.4}, SNR={:.1}, ratio={:.1}×",
-            result.mean_pearson, result.min_pearson, result.theoretical_snr, result.compression_ratio);
+        eprintln!(
+            "N=6 (NeuronPrint): mean_pearson={:.4}, min={:.4}, SNR={:.1}, ratio={:.1}×",
+            result.mean_pearson,
+            result.min_pearson,
+            result.theoretical_snr,
+            result.compression_ratio
+        );
         // This is the GATE: does 6-fold work?
     }
 
@@ -406,16 +459,32 @@ mod tests {
         let mut vectors = Vec::new();
         // Group A: similar to each other
         for i in 0..10 {
-            vectors.push((0..100).map(|d| (d as f32 + i as f32 * 0.1) * 0.01).collect());
+            vectors.push(
+                (0..100)
+                    .map(|d| (d as f32 + i as f32 * 0.1) * 0.01)
+                    .collect(),
+            );
         }
         // Group B: different direction
         for i in 0..10 {
-            vectors.push((0..100).map(|d| -(d as f32 + i as f32 * 0.1) * 0.01).collect());
+            vectors.push(
+                (0..100)
+                    .map(|d| -(d as f32 + i as f32 * 0.1) * 0.01)
+                    .collect(),
+            );
         }
 
         let families = clam_group(&vectors, 0.8);
-        assert!(families.len() >= 2, "should find at least 2 families: {}", families.len());
-        eprintln!("Found {} families from {} vectors", families.len(), vectors.len());
+        assert!(
+            families.len() >= 2,
+            "should find at least 2 families: {}",
+            families.len()
+        );
+        eprintln!(
+            "Found {} families from {} vectors",
+            families.len(),
+            vectors.len()
+        );
         for (i, f) in families.iter().enumerate() {
             eprintln!("  Family {}: {} members", i, f.member_indices.len());
         }
@@ -427,8 +496,10 @@ mod tests {
 
         for n in [2, 4, 8, 16] {
             let result = gate_test(&members[..n], 32);
-            eprintln!("N={:>2}: ratio={:.1}×, pearson={:.4}, SNR={:.1}",
-                n, result.compression_ratio, result.mean_pearson, result.theoretical_snr);
+            eprintln!(
+                "N={:>2}: ratio={:.1}×, pearson={:.4}, SNR={:.1}",
+                n, result.compression_ratio, result.mean_pearson, result.theoretical_snr
+            );
         }
     }
 
@@ -441,9 +512,14 @@ mod tests {
         println!("───┼────────┼────────┼──────┼──────");
         for n in [2, 4, 6, 8, 12, 16] {
             let result = gate_test(&members[..n], 32);
-            println!("{:>2} │ {:>.4} │ {:>.4} │ {:>4.1} │ {:>4.1}×",
-                n, result.mean_pearson, result.min_pearson,
-                result.theoretical_snr, result.compression_ratio);
+            println!(
+                "{:>2} │ {:>.4} │ {:>.4} │ {:>4.1} │ {:>4.1}×",
+                n,
+                result.mean_pearson,
+                result.min_pearson,
+                result.theoretical_snr,
+                result.compression_ratio
+            );
         }
     }
 }

@@ -159,13 +159,19 @@ pub struct StepResult {
 #[derive(Debug, Clone)]
 pub enum StepReason {
     /// NARS topology exploit (highest expected quality × MUL free_will).
-    TopologyExploit { expected_quality: f64, confidence: f64 },
+    TopologyExploit {
+        expected_quality: f64,
+        confidence: f64,
+    },
     /// Topology explore (least-observed edge for information gain).
     TopologyExplore { observations: u64 },
     /// Hardcoded sequence position.
     HardcodedSequence { position: usize },
     /// MUL compass/DK override.
-    MulOverride { dk: DkPosition, explanation: &'static str },
+    MulOverride {
+        dk: DkPosition,
+        explanation: &'static str,
+    },
 }
 
 /// Trait for graph sensorium providers.
@@ -214,13 +220,19 @@ mod tests {
 
     #[test]
     fn test_contradiction_resolves() {
-        let s = GraphSignals { contradiction_rate: 0.4, ..Default::default() };
+        let s = GraphSignals {
+            contradiction_rate: 0.4,
+            ..Default::default()
+        };
         assert_eq!(suggested_bias(&s), GraphBias::Resolve);
     }
 
     #[test]
     fn test_high_entropy_explores() {
-        let s = GraphSignals { truth_entropy: 0.8, ..Default::default() };
+        let s = GraphSignals {
+            truth_entropy: 0.8,
+            ..Default::default()
+        };
         assert_eq!(suggested_bias(&s), GraphBias::Explore);
     }
 

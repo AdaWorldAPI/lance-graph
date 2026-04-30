@@ -8,7 +8,7 @@
 //! The SIMD kernels live in ndarray; this operator orchestrates them.
 
 #[allow(unused_imports)] // Morsel, ColumnData intended for scan execution wiring
-use super::{PhysicalOperator, Morsel, ColumnData};
+use super::{ColumnData, Morsel, PhysicalOperator};
 use crate::ir::logical_op::ScanStrategy;
 
 /// SCAN physical operator.
@@ -33,11 +33,7 @@ impl ScanOp {
     /// - Cascade: scan stroke columns (high-order bits) first, then refine
     /// - Full: VPOPCNTDQ over all rows
     /// - Index: lookup in precomputed proximity index
-    pub fn execute_partition(
-        &self,
-        query_fp: &[u64],
-        data: &[Vec<u64>],
-    ) -> Vec<(usize, u32)> {
+    pub fn execute_partition(&self, query_fp: &[u64], data: &[Vec<u64>]) -> Vec<(usize, u32)> {
         match self.strategy {
             ScanStrategy::Cascade => self.cascade_scan(query_fp, data),
             ScanStrategy::Full => self.full_scan(query_fp, data),
@@ -84,9 +80,12 @@ impl ScanOp {
     /// Full scan: brute force Hamming distance over all rows.
     /// In production, this calls ndarray's AVX-512 VPOPCNTDQ kernel.
     fn full_scan(&self, query_fp: &[u64], data: &[Vec<u64>]) -> Vec<(usize, u32)> {
-        let mut results: Vec<(usize, u32)> = data.iter().enumerate()
+        let mut results: Vec<(usize, u32)> = data
+            .iter()
+            .enumerate()
             .map(|(idx, row_fp)| {
-                let distance: u32 = query_fp.iter()
+                let distance: u32 = query_fp
+                    .iter()
                     .zip(row_fp.iter())
                     .map(|(q, r)| (q ^ r).count_ones())
                     .sum();
@@ -109,8 +108,16 @@ impl ScanOp {
 }
 
 impl PhysicalOperator for ScanOp {
-    fn name(&self) -> &str { "Scan" }
-    fn cardinality(&self) -> f64 { self.estimated_cardinality }
-    fn is_pipeline_breaker(&self) -> bool { false }
-    fn children(&self) -> Vec<&dyn PhysicalOperator> { vec![&*self.child] }
+    fn name(&self) -> &str {
+        "Scan"
+    }
+    fn cardinality(&self) -> f64 {
+        self.estimated_cardinality
+    }
+    fn is_pipeline_breaker(&self) -> bool {
+        false
+    }
+    fn children(&self) -> Vec<&dyn PhysicalOperator> {
+        vec![&*self.child]
+    }
 }

@@ -677,9 +677,21 @@ impl CypherQuery {
                 }
 
                 let schema = arrow::datatypes::Schema::new(vec![
-                    arrow::datatypes::Field::new("source", arrow::datatypes::DataType::UInt64, false),
-                    arrow::datatypes::Field::new("target", arrow::datatypes::DataType::UInt64, false),
-                    arrow::datatypes::Field::new("distance", arrow::datatypes::DataType::UInt32, false),
+                    arrow::datatypes::Field::new(
+                        "source",
+                        arrow::datatypes::DataType::UInt64,
+                        false,
+                    ),
+                    arrow::datatypes::Field::new(
+                        "target",
+                        arrow::datatypes::DataType::UInt64,
+                        false,
+                    ),
+                    arrow::datatypes::Field::new(
+                        "distance",
+                        arrow::datatypes::DataType::UInt32,
+                        false,
+                    ),
                 ]);
                 let batch = arrow::record_batch::RecordBatch::try_new(
                     std::sync::Arc::new(schema),

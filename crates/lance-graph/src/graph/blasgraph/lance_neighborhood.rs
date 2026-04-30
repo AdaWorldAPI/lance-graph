@@ -89,26 +89,10 @@ pub fn cognitive_nodes_schema() -> Schema {
     Schema::new(vec![
         Field::new("node_id", DataType::Int64, false),
         Field::new("zeckf16_self", DataType::UInt8, false),
-        Field::new(
-            "integrated_16k",
-            DataType::FixedSizeBinary(2048),
-            false,
-        ),
-        Field::new(
-            "subject_plane",
-            DataType::FixedSizeBinary(2048),
-            false,
-        ),
-        Field::new(
-            "predicate_plane",
-            DataType::FixedSizeBinary(2048),
-            false,
-        ),
-        Field::new(
-            "object_plane",
-            DataType::FixedSizeBinary(2048),
-            false,
-        ),
+        Field::new("integrated_16k", DataType::FixedSizeBinary(2048), false),
+        Field::new("subject_plane", DataType::FixedSizeBinary(2048), false),
+        Field::new("predicate_plane", DataType::FixedSizeBinary(2048), false),
+        Field::new("object_plane", DataType::FixedSizeBinary(2048), false),
         Field::new("truth_freq", DataType::Float32, true),
         Field::new("truth_conf", DataType::Float32, true),
         Field::new("merkle_root", DataType::FixedSizeBinary(6), true),

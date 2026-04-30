@@ -39,9 +39,7 @@ pub fn compile_to_blasgraph(
     let desc = GrBDesc::default();
 
     match plan {
-        LogicalOperator::ScanByLabel {
-            label, ..
-        } => {
+        LogicalOperator::ScanByLabel { label, .. } => {
             // Produce a diagonal matrix for the label mask
             let mask = graph
                 .label_mask(label)
@@ -258,9 +256,9 @@ mod tests {
 
         let mut truth_values = HashMap::new();
         truth_values.insert((0, 0), TruthValue::new(0.95, 0.95)); // Jan: strong
-        truth_values.insert((1, 1), TruthValue::new(0.9, 0.9));   // Ada: strong
-        truth_values.insert((2, 2), TruthValue::new(0.3, 0.2));   // Max: weak
-        truth_values.insert((3, 3), TruthValue::new(0.7, 0.7));   // Eve: medium
+        truth_values.insert((1, 1), TruthValue::new(0.9, 0.9)); // Ada: strong
+        truth_values.insert((2, 2), TruthValue::new(0.3, 0.2)); // Max: weak
+        truth_values.insert((3, 3), TruthValue::new(0.7, 0.7)); // Eve: medium
 
         // STRONG gate filters weak edges
         let hits = apply_truth_gate(&result, TruthGate::STRONG, &truth_values);

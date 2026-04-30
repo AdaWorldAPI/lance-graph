@@ -19,7 +19,7 @@
 //!
 //! The planner's `plan_polyglot()` can then query the expanded graph.
 
-use super::{IngestNode, IngestEdge, Derivation};
+use super::{Derivation, IngestEdge, IngestNode};
 
 /// Result of entity extraction from text.
 #[derive(Debug, Clone)]
@@ -37,12 +37,12 @@ pub struct ExtractionResult {
 /// Entity types recognized by the extractor.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EntityType {
-    System,       // AI/weapon system
-    Stakeholder,  // Company, government, military unit
-    Person,       // Individual
-    Location,     // Geographic location
-    Event,        // Military operation, treaty, deployment
-    Technology,   // Specific technology (radar, drone, cyber tool)
+    System,      // AI/weapon system
+    Stakeholder, // Company, government, military unit
+    Person,      // Individual
+    Location,    // Geographic location
+    Event,       // Military operation, treaty, deployment
+    Technology,  // Specific technology (radar, drone, cyber tool)
 }
 
 impl EntityType {
@@ -168,9 +168,7 @@ pub fn extract_entities(text: &str, source: &str) -> ExtractionResult {
                 id: id.clone(),
                 label: name.to_string(),
                 node_type: node_type.to_string(),
-                properties: vec![
-                    ("type".into(), stake_type.to_string()),
-                ],
+                properties: vec![("type".into(), stake_type.to_string())],
                 source: source.into(),
                 source_confidence: 0.80,
             });
@@ -179,14 +177,19 @@ pub fn extract_entities(text: &str, source: &str) -> ExtractionResult {
 
     // Extract edges from co-occurrence
     // If two entities appear in the same sentence, they're likely related
-    let sentences: Vec<&str> = text.split(['.', '!', '?', '\n'])
+    let sentences: Vec<&str> = text
+        .split(['.', '!', '?', '\n'])
         .map(|s| s.trim())
         .filter(|s| !s.is_empty())
         .collect();
 
     for sentence in &sentences {
-        let sentence_nodes: Vec<&IngestNode> = nodes.iter()
-            .filter(|n| sentence.contains(&n.label) || sentence.to_uppercase().contains(&n.label.to_uppercase()))
+        let sentence_nodes: Vec<&IngestNode> = nodes
+            .iter()
+            .filter(|n| {
+                sentence.contains(&n.label)
+                    || sentence.to_uppercase().contains(&n.label.to_uppercase())
+            })
             .collect();
 
         for i in 0..sentence_nodes.len() {
@@ -195,21 +198,46 @@ pub fn extract_entities(text: &str, source: &str) -> ExtractionResult {
                 let b = &sentence_nodes[j];
 
                 // Determine relationship type from context keywords
-                let rel = if sentence.contains("develop") || sentence.contains("built") || sentence.contains("created") {
+                let rel = if sentence.contains("develop")
+                    || sentence.contains("built")
+                    || sentence.contains("created")
+                {
                     RelationType::DevelopedBy
-                } else if sentence.contains("deploy") || sentence.contains("used") || sentence.contains("operate") {
+                } else if sentence.contains("deploy")
+                    || sentence.contains("used")
+                    || sentence.contains("operate")
+                {
                     RelationType::DeployedBy
-                } else if sentence.contains("target") || sentence.contains("strike") || sentence.contains("attack") {
+                } else if sentence.contains("target")
+                    || sentence.contains("strike")
+                    || sentence.contains("attack")
+                {
                     RelationType::Targets
-                } else if sentence.contains("defend") || sentence.contains("protect") || sentence.contains("intercept") {
+                } else if sentence.contains("defend")
+                    || sentence.contains("protect")
+                    || sentence.contains("intercept")
+                {
                     RelationType::Defends
-                } else if sentence.contains("sanction") || sentence.contains("restrict") || sentence.contains("ban") {
+                } else if sentence.contains("sanction")
+                    || sentence.contains("restrict")
+                    || sentence.contains("ban")
+                {
                     RelationType::SanctionedBy
-                } else if sentence.contains("ally") || sentence.contains("partner") || sentence.contains("cooperat") {
+                } else if sentence.contains("ally")
+                    || sentence.contains("partner")
+                    || sentence.contains("cooperat")
+                {
                     RelationType::AlliedWith
-                } else if sentence.contains("oppos") || sentence.contains("rival") || sentence.contains("enemy") || sentence.contains("against") {
+                } else if sentence.contains("oppos")
+                    || sentence.contains("rival")
+                    || sentence.contains("enemy")
+                    || sentence.contains("against")
+                {
                     RelationType::OpposedTo
-                } else if sentence.contains("supply") || sentence.contains("sell") || sentence.contains("provide") {
+                } else if sentence.contains("supply")
+                    || sentence.contains("sell")
+                    || sentence.contains("provide")
+                {
                     RelationType::SuppliedBy
                 } else {
                     RelationType::ConnectedTo
@@ -280,8 +308,8 @@ Rules:
 
 /// Parse an LLM's JSON response into IngestNode/IngestEdge.
 pub fn parse_llm_response(json: &str, source: &str) -> Result<ExtractionResult, String> {
-    let doc: serde_json::Value = serde_json::from_str(json)
-        .map_err(|e| format!("Invalid JSON from LLM: {e}"))?;
+    let doc: serde_json::Value =
+        serde_json::from_str(json).map_err(|e| format!("Invalid JSON from LLM: {e}"))?;
 
     let mut nodes = Vec::new();
     let mut edges = Vec::new();
@@ -290,7 +318,10 @@ pub fn parse_llm_response(json: &str, source: &str) -> Result<ExtractionResult, 
         for node in node_array {
             let id = node.get("id").and_then(|v| v.as_str()).unwrap_or_default();
             let label = node.get("label").and_then(|v| v.as_str()).unwrap_or(id);
-            let node_type = node.get("type").and_then(|v| v.as_str()).unwrap_or("System");
+            let node_type = node
+                .get("type")
+                .and_then(|v| v.as_str())
+                .unwrap_or("System");
 
             let mut properties = Vec::new();
             if let Some(props) = node.get("properties").and_then(|v| v.as_object()) {
@@ -314,10 +345,22 @@ pub fn parse_llm_response(json: &str, source: &str) -> Result<ExtractionResult, 
 
     if let Some(edge_array) = doc.get("edges").and_then(|v| v.as_array()) {
         for edge in edge_array {
-            let source_id = edge.get("source").and_then(|v| v.as_str()).unwrap_or_default();
-            let target_id = edge.get("target").and_then(|v| v.as_str()).unwrap_or_default();
-            let relationship = edge.get("relationship").and_then(|v| v.as_str()).unwrap_or("CONNECTED_TO");
-            let confidence = edge.get("confidence").and_then(|v| v.as_f64()).unwrap_or(0.5);
+            let source_id = edge
+                .get("source")
+                .and_then(|v| v.as_str())
+                .unwrap_or_default();
+            let target_id = edge
+                .get("target")
+                .and_then(|v| v.as_str())
+                .unwrap_or_default();
+            let relationship = edge
+                .get("relationship")
+                .and_then(|v| v.as_str())
+                .unwrap_or("CONNECTED_TO");
+            let confidence = edge
+                .get("confidence")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.5);
 
             edges.push(IngestEdge {
                 source_id: source_id.to_string(),
@@ -364,9 +407,10 @@ mod tests {
         assert!(!result.edges.is_empty());
 
         // Should have defense relationship for Iron Dome
-        assert!(result.edges.iter().any(|e|
-            e.source_id.contains("iron_dome") || e.target_id.contains("iron_dome")
-        ));
+        assert!(result
+            .edges
+            .iter()
+            .any(|e| e.source_id.contains("iron_dome") || e.target_id.contains("iron_dome")));
     }
 
     #[test]
@@ -407,10 +451,13 @@ mod tests {
         let text = "Iran deployed S-300 systems near Tehran.";
         let result = extract_entities(text, "test");
         // Iran and S-300 co-occur → should have an edge
-        let has_edge = result.edges.iter().any(|e|
+        let has_edge = result.edges.iter().any(|e| {
             (e.source_id.contains("iran") && e.target_id.contains("s-300"))
-            || (e.source_id.contains("s-300") && e.target_id.contains("iran"))
+                || (e.source_id.contains("s-300") && e.target_id.contains("iran"))
+        });
+        assert!(
+            has_edge,
+            "Should extract co-occurrence edge between Iran and S-300"
         );
-        assert!(has_edge, "Should extract co-occurrence edge between Iran and S-300");
     }
 }

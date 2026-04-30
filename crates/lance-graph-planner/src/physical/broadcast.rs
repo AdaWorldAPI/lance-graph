@@ -4,7 +4,7 @@
 //! The fingerprint is a Container (256×u64 = 16,384 bits) that gets
 //! broadcast to all partitions for parallel Hamming distance computation.
 
-use super::{PhysicalOperator, Morsel};
+use super::{Morsel, PhysicalOperator};
 
 /// BROADCAST physical operator.
 #[derive(Debug)]
@@ -31,15 +31,25 @@ impl BroadcastOp {
         (0..self.partitions)
             .map(|_| Morsel {
                 num_rows: 1,
-                columns: vec![super::ColumnData::Fingerprint(vec![self.fingerprint.clone()])],
+                columns: vec![super::ColumnData::Fingerprint(vec![self
+                    .fingerprint
+                    .clone()])],
             })
             .collect()
     }
 }
 
 impl PhysicalOperator for BroadcastOp {
-    fn name(&self) -> &str { "Broadcast" }
-    fn cardinality(&self) -> f64 { self.cardinality }
-    fn is_pipeline_breaker(&self) -> bool { false }
-    fn children(&self) -> Vec<&dyn PhysicalOperator> { vec![] }
+    fn name(&self) -> &str {
+        "Broadcast"
+    }
+    fn cardinality(&self) -> f64 {
+        self.cardinality
+    }
+    fn is_pipeline_breaker(&self) -> bool {
+        false
+    }
+    fn children(&self) -> Vec<&dyn PhysicalOperator> {
+        vec![]
+    }
 }

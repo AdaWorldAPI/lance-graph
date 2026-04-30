@@ -44,7 +44,8 @@ use crate::collapse_gate::GateDecision;
 pub struct MetaWord(pub u32);
 
 impl MetaWord {
-    #[inline] pub const fn new(thinking: u8, awareness: u8, nars_f: u8, nars_c: u8, free_e: u8) -> Self {
+    #[inline]
+    pub const fn new(thinking: u8, awareness: u8, nars_f: u8, nars_c: u8, free_e: u8) -> Self {
         let w = (thinking as u32 & 0x3F)
             | (((awareness as u32) & 0x0F) << 6)
             | ((nars_f as u32) << 10)
@@ -52,22 +53,37 @@ impl MetaWord {
             | (((free_e as u32) & 0x3F) << 26);
         Self(w)
     }
-    #[inline] pub fn thinking(&self) -> u8 { (self.0 & 0x3F) as u8 }
-    #[inline] pub fn awareness(&self) -> u8 { ((self.0 >> 6) & 0x0F) as u8 }
-    #[inline] pub fn nars_f(&self) -> u8 { ((self.0 >> 10) & 0xFF) as u8 }
-    #[inline] pub fn nars_c(&self) -> u8 { ((self.0 >> 18) & 0xFF) as u8 }
-    #[inline] pub fn free_e(&self) -> u8 { ((self.0 >> 26) & 0x3F) as u8 }
+    #[inline]
+    pub fn thinking(&self) -> u8 {
+        (self.0 & 0x3F) as u8
+    }
+    #[inline]
+    pub fn awareness(&self) -> u8 {
+        ((self.0 >> 6) & 0x0F) as u8
+    }
+    #[inline]
+    pub fn nars_f(&self) -> u8 {
+        ((self.0 >> 10) & 0xFF) as u8
+    }
+    #[inline]
+    pub fn nars_c(&self) -> u8 {
+        ((self.0 >> 18) & 0xFF) as u8
+    }
+    #[inline]
+    pub fn free_e(&self) -> u8 {
+        ((self.0 >> 26) & 0x3F) as u8
+    }
 }
 
 /// Prefilter predicate applied to the MetaColumn before any fingerprint load.
 /// All fields are AND-combined; `u8::MAX`/`u8::MIN` act as "don't care" bounds.
 #[derive(Clone, Copy, Debug)]
 pub struct MetaFilter {
-    pub thinking_mask: u64,   // bitset over 64 possible styles; 0 = accept all
-    pub awareness_min: u8,    // 0 = accept all
-    pub nars_f_min: u8,       // frequency lower bound
-    pub nars_c_min: u8,       // confidence lower bound
-    pub free_e_max: u8,       // free-energy ceiling (63 = accept all)
+    pub thinking_mask: u64, // bitset over 64 possible styles; 0 = accept all
+    pub awareness_min: u8,  // 0 = accept all
+    pub nars_f_min: u8,     // frequency lower bound
+    pub nars_c_min: u8,     // confidence lower bound
+    pub free_e_max: u8,     // free-energy ceiling (63 = accept all)
 }
 
 impl MetaFilter {
@@ -81,8 +97,8 @@ impl MetaFilter {
 
     #[inline]
     pub fn accepts(&self, w: MetaWord) -> bool {
-        let style_ok = self.thinking_mask == 0
-            || (self.thinking_mask & (1u64 << (w.thinking() & 0x3F))) != 0;
+        let style_ok =
+            self.thinking_mask == 0 || (self.thinking_mask & (1u64 << (w.thinking() & 0x3F))) != 0;
         style_ok
             && w.awareness() >= self.awareness_min
             && w.nars_f() >= self.nars_f_min
@@ -107,9 +123,15 @@ pub struct ColumnWindow {
 }
 
 impl ColumnWindow {
-    pub const fn new(start: u32, end: u32) -> Self { Self { start, end } }
-    pub const fn len(&self) -> u32 { self.end.saturating_sub(self.start) }
-    pub const fn is_empty(&self) -> bool { self.end <= self.start }
+    pub const fn new(start: u32, end: u32) -> Self {
+        Self { start, end }
+    }
+    pub const fn len(&self) -> u32 {
+        self.end.saturating_sub(self.start)
+    }
+    pub const fn is_empty(&self) -> bool {
+        self.end <= self.start
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -133,7 +155,8 @@ pub enum StyleSelector {
 #[derive(Clone, Copy, Debug, Default)]
 #[repr(u8)]
 pub enum RungLevel {
-    #[default] Surface = 0,
+    #[default]
+    Surface = 0,
     Shallow = 1,
     Contextual = 2,
     Analogical = 3,
@@ -302,8 +325,12 @@ pub struct MetaSummary {
 /// Drivers dispatch cycle → `on_resonance` → `on_bus` → `on_crystal`.
 /// Return `false` from any callback to short-circuit the cycle.
 pub trait ShaderSink {
-    fn on_resonance(&mut self, _r: &ShaderResonance) -> bool { true }
-    fn on_bus(&mut self, _b: &ShaderBus) -> bool { true }
+    fn on_resonance(&mut self, _r: &ShaderResonance) -> bool {
+        true
+    }
+    fn on_bus(&mut self, _b: &ShaderBus) -> bool {
+        true
+    }
     fn on_crystal(&mut self, _c: &ShaderCrystal) {}
 }
 
@@ -321,7 +348,11 @@ pub trait CognitiveShaderDriver {
     fn dispatch(&self, req: &ShaderDispatch) -> ShaderCrystal;
 
     /// Run with a sink for streaming callbacks.
-    fn dispatch_with_sink<S: ShaderSink>(&self, req: &ShaderDispatch, sink: &mut S) -> ShaderCrystal;
+    fn dispatch_with_sink<S: ShaderSink>(
+        &self,
+        req: &ShaderDispatch,
+        sink: &mut S,
+    ) -> ShaderCrystal;
 
     /// Current BindSpace row count.
     fn row_count(&self) -> u32;
@@ -356,7 +387,10 @@ mod tests {
 
     #[test]
     fn meta_filter_rejects_low_nars() {
-        let filter = MetaFilter { nars_c_min: 100, ..MetaFilter::ALL };
+        let filter = MetaFilter {
+            nars_c_min: 100,
+            ..MetaFilter::ALL
+        };
         let w = MetaWord::new(0, 0, 200, 50, 0);
         assert!(!filter.accepts(w));
     }

@@ -40,5 +40,10 @@ pub trait ThreadLinker: Send + Sync {
     /// Given `message-id` + `in-reply-to` + `references`, return a
     /// stable thread key. Implementations may hash, bucket, or
     /// persist; the contract only requires determinism per instance.
-    fn thread_key(&self, message_id: &str, in_reply_to: Option<&str>, references: &[&str]) -> [u8; 16];
+    fn thread_key(
+        &self,
+        message_id: &str,
+        in_reply_to: Option<&str>,
+        references: &[&str],
+    ) -> [u8; 16];
 }

@@ -5,10 +5,10 @@
 //!
 //! Transcoded from Python AriGraph — a memory architecture for LLM agents.
 
-pub mod triplet_graph;
 pub mod episodic;
+pub mod language;
+pub mod orchestrator;
 pub mod retrieval;
 pub mod sensorium;
-pub mod orchestrator;
+pub mod triplet_graph;
 pub mod xai_client;
-pub mod language;

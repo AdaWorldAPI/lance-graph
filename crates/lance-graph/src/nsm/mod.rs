@@ -8,8 +8,8 @@
 //!
 //! Pipeline: text -> tokenize -> parse SPO -> encode -> compare via calibrated similarity.
 
-pub mod tokenizer;
-pub mod parser;
 pub mod encoder;
-pub mod similarity;
 pub mod nsm_word;
+pub mod parser;
+pub mod similarity;
+pub mod tokenizer;

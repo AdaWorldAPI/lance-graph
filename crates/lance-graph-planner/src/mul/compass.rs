@@ -96,8 +96,10 @@ fn compute_needles(query: &str, assessment: &MulAssessment) -> CompassNeedles {
 
     // Reversibility: queries are read-only by default (highly reversible)
     // unless the query contains mutations
-    let is_mutation = query.contains("CREATE") || query.contains("SET")
-        || query.contains("DELETE") || query.contains("MERGE");
+    let is_mutation = query.contains("CREATE")
+        || query.contains("SET")
+        || query.contains("DELETE")
+        || query.contains("MERGE");
     let reversibility = if is_mutation { 0.3 } else { 0.95 };
 
     // Curiosity: higher for complex/novel queries
@@ -128,7 +130,9 @@ impl Default for LearningLoop {
 
 impl LearningLoop {
     pub fn new() -> Self {
-        Self { observations: Vec::new() }
+        Self {
+            observations: Vec::new(),
+        }
     }
 
     /// Record an observation: predicted compass score vs actual outcome.
@@ -145,7 +149,9 @@ impl LearningLoop {
         if self.observations.is_empty() {
             return 0.5; // Default: uncalibrated
         }
-        let sum: f64 = self.observations.iter()
+        let sum: f64 = self
+            .observations
+            .iter()
             .map(|(predicted, actual)| (predicted - actual).powi(2))
             .sum();
         sum / self.observations.len() as f64

@@ -56,11 +56,7 @@ impl ScentCsr {
 
         Self {
             nrows: n,
-            ncols: if n > 0 {
-                scent_vectors[0].len()
-            } else {
-                0
-            },
+            ncols: if n > 0 { scent_vectors[0].len() } else { 0 },
             row_ptrs,
             col_indices,
             values,

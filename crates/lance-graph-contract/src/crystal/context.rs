@@ -50,16 +50,27 @@ impl ContextCrystal {
 
     /// Whether the window is saturated on both sides.
     pub fn is_saturated(&self) -> bool {
-        self.preceding.len() == MARKOV_RADIUS
-            && self.following.len() == MARKOV_RADIUS
+        self.preceding.len() == MARKOV_RADIUS && self.following.len() == MARKOV_RADIUS
     }
 }
 
 impl Crystal for ContextCrystal {
-    fn kind(&self) -> CrystalKind { CrystalKind::Context }
-    fn hardness(&self) -> f32 { self.hardness }
-    fn revision_count(&self) -> u32 { self.revision_count }
-    fn crystallized_at(&self) -> u64 { self.crystallized_at }
-    fn fingerprint(&self) -> &CrystalFingerprint { &self.fingerprint }
-    fn truth(&self) -> TruthValue { self.truth }
+    fn kind(&self) -> CrystalKind {
+        CrystalKind::Context
+    }
+    fn hardness(&self) -> f32 {
+        self.hardness
+    }
+    fn revision_count(&self) -> u32 {
+        self.revision_count
+    }
+    fn crystallized_at(&self) -> u64 {
+        self.crystallized_at
+    }
+    fn fingerprint(&self) -> &CrystalFingerprint {
+        &self.fingerprint
+    }
+    fn truth(&self) -> TruthValue {
+        self.truth
+    }
 }

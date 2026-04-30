@@ -8,8 +8,12 @@ use crate::PlanError;
 pub struct CollapseGateStrategy;
 
 impl PlanStrategy for CollapseGateStrategy {
-    fn name(&self) -> &str { "collapse_gate" }
-    fn capability(&self) -> PlanCapability { PlanCapability::ResonanceGating }
+    fn name(&self) -> &str {
+        "collapse_gate"
+    }
+    fn capability(&self) -> PlanCapability {
+        PlanCapability::ResonanceGating
+    }
 
     fn affinity(&self, context: &PlanContext) -> f32 {
         // Relevant for resonance queries and truth-propagation queries
@@ -22,7 +26,11 @@ impl PlanStrategy for CollapseGateStrategy {
         }
     }
 
-    fn plan(&self, input: PlanInput, _arena: &mut Arena<LogicalOp>) -> Result<PlanInput, PlanError> {
+    fn plan(
+        &self,
+        input: PlanInput,
+        _arena: &mut Arena<LogicalOp>,
+    ) -> Result<PlanInput, PlanError> {
         // Inserts COLLAPSE operators after ACCUMULATE operators.
         // Thresholds are derived from the thinking context:
         // - FLOW threshold = 0.15 (crystalline trust)

@@ -13,8 +13,8 @@
 //! The compose table gives you multi-hop reasoning.
 //! Together they form a semiring: the algebraic structure of attention.
 
-use crate::projection::Base17;
 use crate::palette::WeightPalette;
+use crate::projection::Base17;
 
 /// Precomputed pairwise distance table between palette entries.
 ///
@@ -117,11 +117,7 @@ impl AttentionTable {
     /// the n_q × n_k attention distance matrix.
     ///
     /// This replaces Q·K^T matmul. Each score is one table lookup.
-    pub fn attention_scores(
-        &self,
-        q_indices: &[u8],
-        k_indices: &[u8],
-    ) -> Vec<u16> {
+    pub fn attention_scores(&self, q_indices: &[u8], k_indices: &[u8]) -> Vec<u16> {
         let n_q = q_indices.len();
         let n_k = k_indices.len();
         let mut scores = vec![0u16; n_q * n_k];
@@ -379,10 +375,7 @@ impl CompiledHead {
 ///
 /// Unlike same-palette semiring, this computes distances between
 /// Q palette entries and K palette entries (different palettes).
-fn build_cross_semiring(
-    q_palette: &WeightPalette,
-    k_palette: &WeightPalette,
-) -> AttentionSemiring {
+fn build_cross_semiring(q_palette: &WeightPalette, k_palette: &WeightPalette) -> AttentionSemiring {
     let q_k = q_palette.len();
     let k_k = k_palette.len();
     let k = q_k.max(k_k); // use larger for table sizing
@@ -488,8 +481,14 @@ mod tests {
 
         // compose(a, identity) should ≈ a
         for a in 0..pal.len() as u8 {
-            assert_eq!(compose.compose(a, id), a,
-                "compose({}, identity={}) should be {}", a, id, a);
+            assert_eq!(
+                compose.compose(a, id),
+                a,
+                "compose({}, identity={}) should be {}",
+                a,
+                id,
+                a
+            );
         }
     }
 

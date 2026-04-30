@@ -2,7 +2,7 @@
 
 #[allow(unused_imports)] // LogicalOp intended for plan composition wiring
 use crate::ir::{Arena, LogicalOp, LogicalPlan};
-use crate::traits::{PlanStrategy, PlanInput, PlanContext};
+use crate::traits::{PlanContext, PlanInput, PlanStrategy};
 use crate::PlanError;
 
 /// Compose selected strategies into a pipeline and execute.
@@ -19,15 +19,23 @@ pub fn compose_and_execute(
     tracing::info!(
         "Composing {} strategies: [{}]",
         strategies.len(),
-        strategies.iter().map(|s| s.name()).collect::<Vec<_>>().join(" → "),
+        strategies
+            .iter()
+            .map(|s| s.name())
+            .collect::<Vec<_>>()
+            .join(" → "),
     );
 
     for strategy in strategies {
-        tracing::debug!("Running strategy: {} (capability: {:?})", strategy.name(), strategy.capability());
+        tracing::debug!(
+            "Running strategy: {} (capability: {:?})",
+            strategy.name(),
+            strategy.capability()
+        );
         current = strategy.plan(current, &mut arena)?;
     }
 
-    current.plan.ok_or_else(|| PlanError::Plan(
-        "No strategy produced a plan. Check strategy selection.".into()
-    ))
+    current.plan.ok_or_else(|| {
+        PlanError::Plan("No strategy produced a plan. Check strategy selection.".into())
+    })
 }

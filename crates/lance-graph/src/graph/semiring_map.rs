@@ -65,15 +65,30 @@ mod tests {
 
     #[test]
     fn test_semiring_mapping() {
-        assert_eq!(GraphBlasSemiring::MinPlus.to_hdr_semiring(), HdrSemiring::HammingMin);
-        assert_eq!(GraphBlasSemiring::OrAnd.to_hdr_semiring(), HdrSemiring::Boolean);
-        assert_eq!(GraphBlasSemiring::XorBundle.to_hdr_semiring(), HdrSemiring::XorBundle);
+        assert_eq!(
+            GraphBlasSemiring::MinPlus.to_hdr_semiring(),
+            HdrSemiring::HammingMin
+        );
+        assert_eq!(
+            GraphBlasSemiring::OrAnd.to_hdr_semiring(),
+            HdrSemiring::Boolean
+        );
+        assert_eq!(
+            GraphBlasSemiring::XorBundle.to_hdr_semiring(),
+            HdrSemiring::XorBundle
+        );
     }
 
     #[test]
     fn test_graphblas_names() {
-        assert!(GraphBlasSemiring::MinPlus.graphblas_name().contains("GrB_MIN_PLUS"));
-        assert!(GraphBlasSemiring::OrAnd.graphblas_name().contains("GrB_LOR_LAND"));
-        assert!(GraphBlasSemiring::XorBundle.graphblas_name().contains("novel"));
+        assert!(GraphBlasSemiring::MinPlus
+            .graphblas_name()
+            .contains("GrB_MIN_PLUS"));
+        assert!(GraphBlasSemiring::OrAnd
+            .graphblas_name()
+            .contains("GrB_LOR_LAND"));
+        assert!(GraphBlasSemiring::XorBundle
+            .graphblas_name()
+            .contains("novel"));
     }
 }

@@ -106,10 +106,7 @@ fn scan_repo(name: &str, path: &Path, skip_dirs: &[String]) -> RepoDiagnosis {
             let functions = extract_functions(&content, &rel_path, &module, name);
             total_functions += functions.len();
 
-            modules_map
-                .entry(module)
-                .or_default()
-                .extend(functions);
+            modules_map.entry(module).or_default().extend(functions);
         }
     }
 
@@ -117,8 +114,14 @@ fn scan_repo(name: &str, path: &Path, skip_dirs: &[String]) -> RepoDiagnosis {
         .into_iter()
         .map(|(mod_name, functions)| {
             let total = functions.len();
-            let dead = functions.iter().filter(|f| f.state == NeuronState::Dead).count();
-            let stub = functions.iter().filter(|f| f.state == NeuronState::Stub).count();
+            let dead = functions
+                .iter()
+                .filter(|f| f.state == NeuronState::Dead)
+                .count();
+            let stub = functions
+                .iter()
+                .filter(|f| f.state == NeuronState::Stub)
+                .count();
             let nan_risk = functions.iter().filter(|f| f.has_nan_risk).count();
             let alive_or_static = total - dead - stub;
             let health_pct = if total > 0 {
@@ -194,8 +197,8 @@ fn extract_functions(
 
         // Analyze the body
         let has_todo = body.contains("todo!()") || body.contains("todo!(\"");
-        let has_unimplemented = body.contains("unimplemented!()")
-            || body.contains("unimplemented!(\"");
+        let has_unimplemented =
+            body.contains("unimplemented!()") || body.contains("unimplemented!(\"");
         let has_panic = body.contains("panic!(") && !body.contains("catch_unwind");
 
         let is_stub = detect_stub(&body, &return_type);
@@ -297,7 +300,11 @@ fn detect_stub(body: &str, _return_type: &str) -> bool {
         "\"\"",
     ];
     // Check if body is just one of these patterns (with optional Ok() wrapper)
-    let body_lines: Vec<&str> = trimmed.lines().map(|l| l.trim()).filter(|l| !l.is_empty() && !l.starts_with("//")).collect();
+    let body_lines: Vec<&str> = trimmed
+        .lines()
+        .map(|l| l.trim())
+        .filter(|l| !l.is_empty() && !l.starts_with("//"))
+        .collect();
     if body_lines.len() == 1 {
         let line = body_lines[0].trim_end_matches(';');
         for pat in &patterns {
@@ -326,9 +333,8 @@ fn detect_nan_risk(body: &str, return_type: &str) -> bool {
         || body.contains("f64::NAN")
         || body.contains("NaN")
         || body.contains("INFINITY");
-    let has_nan_guard = body.contains("is_nan()")
-        || body.contains("is_finite()")
-        || body.contains("is_infinite()");
+    let has_nan_guard =
+        body.contains("is_nan()") || body.contains("is_finite()") || body.contains("is_infinite()");
 
     (has_division && !has_nan_guard) || has_nan_literal
 }

@@ -126,7 +126,10 @@ pub trait WorldMapRenderer {
     /// Full descriptive rendering of the map. Default composes the
     /// individual labels; override for domain-specific narration.
     fn describe(&self, map: &WorldMapDto) -> String {
-        let top = map.state_vector.iter().enumerate()
+        let top = map
+            .state_vector
+            .iter()
+            .enumerate()
             .take(STATE_DIMS)
             .filter(|(_, v)| **v > 0.5)
             .map(|(i, v)| format!("{}={:.2}", self.axis_label(i), v))
@@ -195,18 +198,17 @@ mod tests {
         impl WorldMapRenderer for GreekRenderer {
             fn axis_label(&self, idx: usize) -> &str {
                 const G: [&str; 11] = [
-                    "alpha", "beta", "gamma", "delta",
-                    "epsilon", "zeta", "eta",
-                    "theta", "iota", "kappa", "lambda",
+                    "alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta", "iota",
+                    "kappa", "lambda",
                 ];
                 G.get(idx).copied().unwrap_or("")
             }
             fn anchor_label(&self, anchor: StateAnchor) -> &str {
                 match anchor {
-                    StateAnchor::Intake   => "Α",
-                    StateAnchor::Focused  => "Β",
-                    StateAnchor::Rest     => "Γ",
-                    StateAnchor::Flow     => "Δ",
+                    StateAnchor::Intake => "Α",
+                    StateAnchor::Focused => "Β",
+                    StateAnchor::Rest => "Γ",
+                    StateAnchor::Flow => "Δ",
                     StateAnchor::Observer => "Ε",
                     StateAnchor::Balanced => "Ζ",
                     StateAnchor::Baseline => "Η",

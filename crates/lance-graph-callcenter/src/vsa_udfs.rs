@@ -26,8 +26,8 @@
 use std::sync::Arc;
 
 use arrow::array::{
-    Array, ArrayRef, FixedSizeBinaryArray, FixedSizeBinaryBuilder, Float32Array,
-    ListArray, UInt16Array, UInt32Array,
+    Array, ArrayRef, FixedSizeBinaryArray, FixedSizeBinaryBuilder, Float32Array, ListArray,
+    UInt16Array, UInt32Array,
 };
 use arrow::buffer::{Buffer, OffsetBuffer};
 use arrow::datatypes::{DataType, Field};
@@ -86,9 +86,9 @@ fn as_fp_array(col: &ArrayRef) -> DfResult<&FixedSizeBinaryArray> {
 fn to_array(cv: &ColumnarValue, len: usize) -> DfResult<ArrayRef> {
     match cv {
         ColumnarValue::Array(a) => Ok(Arc::clone(a)),
-        ColumnarValue::Scalar(s) => s.to_array_of_size(len).map_err(|e| {
-            DataFusionError::Execution(format!("VSA UDF scalar broadcast: {e}"))
-        }),
+        ColumnarValue::Scalar(s) => s
+            .to_array_of_size(len)
+            .map_err(|e| DataFusionError::Execution(format!("VSA UDF scalar broadcast: {e}"))),
     }
 }
 
@@ -129,7 +129,10 @@ fn bundle_op(a: &[u8], b: &[u8]) -> [u64; FP_WORDS] {
 fn hamming_dist_op(a: &[u8], b: &[u8]) -> u32 {
     let wa = bytes_to_words(a);
     let wb = bytes_to_words(b);
-    wa.iter().zip(wb.iter()).map(|(x, y)| (x ^ y).count_ones()).sum()
+    wa.iter()
+        .zip(wb.iter())
+        .map(|(x, y)| (x ^ y).count_ones())
+        .sum()
 }
 
 /// Cyclic-rotate fingerprint words by `pos` positions.
@@ -171,10 +174,18 @@ struct UnbindUdf {
 }
 
 impl datafusion::logical_expr::ScalarUDFImpl for UnbindUdf {
-    fn as_any(&self) -> &dyn std::any::Any { self }
-    fn name(&self) -> &str { "vsa_unbind" }
-    fn signature(&self) -> &Signature { &self.signature }
-    fn return_type(&self, _: &[DataType]) -> DfResult<DataType> { Ok(DataType::Float32) }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn name(&self) -> &str {
+        "vsa_unbind"
+    }
+    fn signature(&self) -> &Signature {
+        &self.signature
+    }
+    fn return_type(&self, _: &[DataType]) -> DfResult<DataType> {
+        Ok(DataType::Float32)
+    }
 
     fn invoke_with_args(
         &self,
@@ -196,7 +207,9 @@ impl datafusion::logical_expr::ScalarUDFImpl for UnbindUdf {
         let role_arr = to_array(&args[0], len)?;
         let fp_arr = to_array(&args[1], len)?;
 
-        let roles = role_arr.as_any().downcast_ref::<arrow::array::UInt8Array>()
+        let roles = role_arr
+            .as_any()
+            .downcast_ref::<arrow::array::UInt8Array>()
             .ok_or_else(|| DataFusionError::Execution("vsa_unbind: arg 0 must be UInt8".into()))?;
         let fps = as_fp_array(&fp_arr)?;
 
@@ -214,10 +227,16 @@ impl datafusion::logical_expr::ScalarUDFImpl for UnbindUdf {
     }
 }
 
-impl PartialEq for UnbindUdf { fn eq(&self, o: &Self) -> bool { self.name() == o.name() } }
+impl PartialEq for UnbindUdf {
+    fn eq(&self, o: &Self) -> bool {
+        self.name() == o.name()
+    }
+}
 impl Eq for UnbindUdf {}
 impl std::hash::Hash for UnbindUdf {
-    fn hash<H: std::hash::Hasher>(&self, s: &mut H) { self.name().hash(s); }
+    fn hash<H: std::hash::Hasher>(&self, s: &mut H) {
+        self.name().hash(s);
+    }
 }
 
 // ─── vsa_bundle ──────────────────────────────────────────────────────────────
@@ -228,9 +247,15 @@ struct BundleUdf {
 }
 
 impl datafusion::logical_expr::ScalarUDFImpl for BundleUdf {
-    fn as_any(&self) -> &dyn std::any::Any { self }
-    fn name(&self) -> &str { "vsa_bundle" }
-    fn signature(&self) -> &Signature { &self.signature }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn name(&self) -> &str {
+        "vsa_bundle"
+    }
+    fn signature(&self) -> &Signature {
+        &self.signature
+    }
     fn return_type(&self, _: &[DataType]) -> DfResult<DataType> {
         Ok(DataType::FixedSizeBinary(FP_BYTES))
     }
@@ -272,10 +297,16 @@ impl datafusion::logical_expr::ScalarUDFImpl for BundleUdf {
     }
 }
 
-impl PartialEq for BundleUdf { fn eq(&self, o: &Self) -> bool { self.name() == o.name() } }
+impl PartialEq for BundleUdf {
+    fn eq(&self, o: &Self) -> bool {
+        self.name() == o.name()
+    }
+}
 impl Eq for BundleUdf {}
 impl std::hash::Hash for BundleUdf {
-    fn hash<H: std::hash::Hasher>(&self, s: &mut H) { self.name().hash(s); }
+    fn hash<H: std::hash::Hasher>(&self, s: &mut H) {
+        self.name().hash(s);
+    }
 }
 
 // ─── vsa_hamming_dist ────────────────────────────────────────────────────────
@@ -286,10 +317,18 @@ struct HammingDistUdf {
 }
 
 impl datafusion::logical_expr::ScalarUDFImpl for HammingDistUdf {
-    fn as_any(&self) -> &dyn std::any::Any { self }
-    fn name(&self) -> &str { "vsa_hamming_dist" }
-    fn signature(&self) -> &Signature { &self.signature }
-    fn return_type(&self, _: &[DataType]) -> DfResult<DataType> { Ok(DataType::UInt32) }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn name(&self) -> &str {
+        "vsa_hamming_dist"
+    }
+    fn signature(&self) -> &Signature {
+        &self.signature
+    }
+    fn return_type(&self, _: &[DataType]) -> DfResult<DataType> {
+        Ok(DataType::UInt32)
+    }
 
     fn invoke_with_args(
         &self,
@@ -325,10 +364,16 @@ impl datafusion::logical_expr::ScalarUDFImpl for HammingDistUdf {
     }
 }
 
-impl PartialEq for HammingDistUdf { fn eq(&self, o: &Self) -> bool { self.name() == o.name() } }
+impl PartialEq for HammingDistUdf {
+    fn eq(&self, o: &Self) -> bool {
+        self.name() == o.name()
+    }
+}
 impl Eq for HammingDistUdf {}
 impl std::hash::Hash for HammingDistUdf {
-    fn hash<H: std::hash::Hasher>(&self, s: &mut H) { self.name().hash(s); }
+    fn hash<H: std::hash::Hasher>(&self, s: &mut H) {
+        self.name().hash(s);
+    }
 }
 
 // ─── vsa_braid_at ────────────────────────────────────────────────────────────
@@ -339,9 +384,15 @@ struct BraidAtUdf {
 }
 
 impl datafusion::logical_expr::ScalarUDFImpl for BraidAtUdf {
-    fn as_any(&self) -> &dyn std::any::Any { self }
-    fn name(&self) -> &str { "vsa_braid_at" }
-    fn signature(&self) -> &Signature { &self.signature }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn name(&self) -> &str {
+        "vsa_braid_at"
+    }
+    fn signature(&self) -> &Signature {
+        &self.signature
+    }
     fn return_type(&self, _: &[DataType]) -> DfResult<DataType> {
         Ok(DataType::FixedSizeBinary(FP_BYTES))
     }
@@ -366,8 +417,12 @@ impl datafusion::logical_expr::ScalarUDFImpl for BraidAtUdf {
         let pos_arr = to_array(&args[0], len)?;
         let fp_arr = to_array(&args[1], len)?;
 
-        let pos_col = pos_arr.as_any().downcast_ref::<arrow::array::Int32Array>()
-            .ok_or_else(|| DataFusionError::Execution("vsa_braid_at: arg 0 must be Int32".into()))?;
+        let pos_col = pos_arr
+            .as_any()
+            .downcast_ref::<arrow::array::Int32Array>()
+            .ok_or_else(|| {
+                DataFusionError::Execution("vsa_braid_at: arg 0 must be Int32".into())
+            })?;
         let fps = as_fp_array(&fp_arr)?
             .iter()
             .map(|v| v.map(|b| b.to_vec()))
@@ -386,10 +441,16 @@ impl datafusion::logical_expr::ScalarUDFImpl for BraidAtUdf {
     }
 }
 
-impl PartialEq for BraidAtUdf { fn eq(&self, o: &Self) -> bool { self.name() == o.name() } }
+impl PartialEq for BraidAtUdf {
+    fn eq(&self, o: &Self) -> bool {
+        self.name() == o.name()
+    }
+}
 impl Eq for BraidAtUdf {}
 impl std::hash::Hash for BraidAtUdf {
-    fn hash<H: std::hash::Hasher>(&self, s: &mut H) { self.name().hash(s); }
+    fn hash<H: std::hash::Hasher>(&self, s: &mut H) {
+        self.name().hash(s);
+    }
 }
 
 // ─── vsa_top_k ───────────────────────────────────────────────────────────────
@@ -401,10 +462,18 @@ struct TopKUdf {
 }
 
 impl datafusion::logical_expr::ScalarUDFImpl for TopKUdf {
-    fn as_any(&self) -> &dyn std::any::Any { self }
-    fn name(&self) -> &str { "vsa_top_k" }
-    fn signature(&self) -> &Signature { &self.signature }
-    fn return_type(&self, _: &[DataType]) -> DfResult<DataType> { Ok(self.return_type.clone()) }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn name(&self) -> &str {
+        "vsa_top_k"
+    }
+    fn signature(&self) -> &Signature {
+        &self.signature
+    }
+    fn return_type(&self, _: &[DataType]) -> DfResult<DataType> {
+        Ok(self.return_type.clone())
+    }
 
     fn invoke_with_args(
         &self,
@@ -425,7 +494,9 @@ impl datafusion::logical_expr::ScalarUDFImpl for TopKUdf {
             .map(|v| v.map(|b| b.to_vec()))
             .collect::<Vec<_>>();
         let k_arr = to_array(&args[1], len)?;
-        let k_col = k_arr.as_any().downcast_ref::<UInt32Array>()
+        let k_col = k_arr
+            .as_any()
+            .downcast_ref::<UInt32Array>()
             .ok_or_else(|| DataFusionError::Execution("vsa_top_k: arg 1 must be UInt32".into()))?;
 
         // Build ListArray of UInt16
@@ -452,10 +523,16 @@ impl datafusion::logical_expr::ScalarUDFImpl for TopKUdf {
     }
 }
 
-impl PartialEq for TopKUdf { fn eq(&self, o: &Self) -> bool { self.name() == o.name() } }
+impl PartialEq for TopKUdf {
+    fn eq(&self, o: &Self) -> bool {
+        self.name() == o.name()
+    }
+}
 impl Eq for TopKUdf {}
 impl std::hash::Hash for TopKUdf {
-    fn hash<H: std::hash::Hasher>(&self, s: &mut H) { self.name().hash(s); }
+    fn hash<H: std::hash::Hasher>(&self, s: &mut H) {
+        self.name().hash(s);
+    }
 }
 
 // ── Public constructors ───────────────────────────────────────────────────────

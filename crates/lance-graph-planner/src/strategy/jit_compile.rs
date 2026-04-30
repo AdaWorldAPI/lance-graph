@@ -12,8 +12,12 @@ use crate::PlanError;
 pub struct JitCompile;
 
 impl PlanStrategy for JitCompile {
-    fn name(&self) -> &str { "jit_compile" }
-    fn capability(&self) -> PlanCapability { PlanCapability::JitCompilation }
+    fn name(&self) -> &str {
+        "jit_compile"
+    }
+    fn capability(&self) -> PlanCapability {
+        PlanCapability::JitCompilation
+    }
 
     fn affinity(&self, context: &PlanContext) -> f32 {
         // JIT is worth it for hot-path scan operations
@@ -26,7 +30,11 @@ impl PlanStrategy for JitCompile {
         }
     }
 
-    fn plan(&self, input: PlanInput, _arena: &mut Arena<LogicalOp>) -> Result<PlanInput, PlanError> {
+    fn plan(
+        &self,
+        input: PlanInput,
+        _arena: &mut Arena<LogicalOp>,
+    ) -> Result<PlanInput, PlanError> {
         // In full implementation:
         // 1. Extract ScanParams from thinking style (via to_scan_params())
         // 2. Look up precompiled kernel by τ address in PrecompileQueue

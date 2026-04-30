@@ -20,12 +20,12 @@
 //! High similarity with query = "this node's neighborhood is relevant."
 //! Prefilter before actual traversal. Attention for graphs.
 
-pub mod csr;
 pub mod batch;
-pub mod properties;
+pub mod csr;
 pub mod distance;
 pub mod propagate;
+pub mod properties;
 
-pub use csr::AdjacencyStore;
 pub use batch::AdjacencyBatch;
+pub use csr::AdjacencyStore;
 pub use properties::EdgeProperties;

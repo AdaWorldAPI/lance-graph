@@ -4,15 +4,15 @@
 //! O(1) node replacement, cache-friendly, serializable.
 //! Extended with Kuzudb's factorization schema.
 
-pub mod logical_op;
 pub mod expr;
-pub mod schema;
+pub mod logical_op;
 pub mod properties;
+pub mod schema;
 
-pub use logical_op::LogicalOp;
 pub use expr::{AExpr, ExprNode};
-pub use schema::{FactorizationGroup, Schema};
+pub use logical_op::LogicalOp;
 pub use properties::PlanProperties;
+pub use schema::{FactorizationGroup, Schema};
 
 use std::collections::HashMap;
 
@@ -38,7 +38,9 @@ impl<T> Arena<T> {
     }
 
     pub fn with_capacity(cap: usize) -> Self {
-        Self { items: Vec::with_capacity(cap) }
+        Self {
+            items: Vec::with_capacity(cap),
+        }
     }
 
     /// Insert a new item, returning its handle.
@@ -72,7 +74,10 @@ impl<T> Arena<T> {
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (Node, &T)> {
-        self.items.iter().enumerate().map(|(i, t)| (Node(i as u32), t))
+        self.items
+            .iter()
+            .enumerate()
+            .map(|(i, t)| (Node(i as u32), t))
     }
 }
 
@@ -148,7 +153,10 @@ impl SubqueryGraph {
 
     /// Iterate over all proper non-empty subsets.
     pub fn subsets(self) -> SubsetIter {
-        SubsetIter { full: self.0, current: self.0 }
+        SubsetIter {
+            full: self.0,
+            current: self.0,
+        }
     }
 }
 
@@ -226,7 +234,10 @@ impl SubgraphPlans {
             self.plans.push((encoding, plan));
         } else {
             // Replace the most expensive plan if this one is cheaper
-            if let Some((idx, _)) = self.plans.iter().enumerate()
+            if let Some((idx, _)) = self
+                .plans
+                .iter()
+                .enumerate()
                 .max_by(|a, b| a.1 .1.cost.partial_cmp(&b.1 .1.cost).unwrap())
             {
                 if plan.cost < self.plans[idx].1.cost {
@@ -237,7 +248,8 @@ impl SubgraphPlans {
     }
 
     pub fn best(&self) -> Option<&LogicalPlanRef> {
-        self.plans.iter()
+        self.plans
+            .iter()
             .map(|(_, p)| p)
             .min_by(|a, b| a.cost.partial_cmp(&b.cost).unwrap())
     }
@@ -255,7 +267,9 @@ impl Default for SubPlansTable {
 
 impl SubPlansTable {
     pub fn new() -> Self {
-        Self { table: HashMap::new() }
+        Self {
+            table: HashMap::new(),
+        }
     }
 
     pub fn get(&self, sg: SubqueryGraph) -> Option<&SubgraphPlans> {

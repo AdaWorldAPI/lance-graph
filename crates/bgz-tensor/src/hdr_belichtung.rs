@@ -22,12 +22,12 @@
 //! we expose 12 bands at ¼σ from whatever μ/σ the Cascade currently holds.
 //! When ShiftAlert fires, bands recalculate automatically.
 
-use crate::stacked_n::StackedN;
 use crate::projection::Base17;
+use crate::stacked_n::StackedN;
 
 // ndarray = hardware acceleration (Welford σ, ShiftAlert, SIMD L1).
 // bgz-tensor = consumer. NOT optional — both in same binary.
-pub use ndarray::hpc::cascade::{Cascade as NdarrayCascade, Band as NdarrayBand, ShiftAlert};
+pub use ndarray::hpc::cascade::{Band as NdarrayBand, Cascade as NdarrayCascade, ShiftAlert};
 
 /// Number of quarter-sigma bands.
 pub const N_BANDS: usize = 12;
@@ -53,7 +53,11 @@ pub fn quarter_sigma_bands(mu: f64, sigma: f64) -> [QuarterSigmaBand; N_BANDS] {
     for (b, band) in bands.iter_mut().enumerate().take(N_BANDS) {
         let offset = -3.0 + b as f64 * 0.5;
         band.lo = mu + offset * sigma;
-        band.hi = if b == N_BANDS - 1 { f64::INFINITY } else { mu + (offset + 0.5) * sigma };
+        band.hi = if b == N_BANDS - 1 {
+            f64::INFINITY
+        } else {
+            mu + (offset + 0.5) * sigma
+        };
     }
     bands
 }
@@ -61,7 +65,9 @@ pub fn quarter_sigma_bands(mu: f64, sigma: f64) -> [QuarterSigmaBand; N_BANDS] {
 /// Classify a distance into a band index (0-11) given current μ/σ.
 #[inline]
 pub fn classify_band(distance: f64, mu: f64, sigma: f64) -> u8 {
-    if sigma < 1e-12 { return 6; } // center band if no variance
+    if sigma < 1e-12 {
+        return 6;
+    } // center band if no variance
     let z = (distance - mu) / sigma;
     let band = ((z + 3.0) / 0.5).floor() as i32;
     band.clamp(0, (N_BANDS - 1) as i32) as u8
@@ -79,11 +85,11 @@ pub fn classify_band(distance: f64, mu: f64, sigma: f64) -> u8 {
 pub fn cascade_band_to_quarter_sigma(band_name: &str) -> (u8, u8) {
     match band_name {
         "Foveal" => (0, 2),
-        "Near"   => (3, 4),
-        "Good"   => (5, 6),
-        "Weak"   => (7, 9),
+        "Near" => (3, 4),
+        "Good" => (5, 6),
+        "Weak" => (7, 9),
         "Reject" => (10, 11),
-        _        => (6, 6),
+        _ => (6, 6),
     }
 }
 
@@ -172,7 +178,12 @@ impl PaletteCascade {
     /// Create with initial calibration. Delegates to ndarray Cascade::calibrate().
     pub fn calibrate(distances: &[u32]) -> Self {
         let inner = NdarrayCascade::calibrate(distances, 34); // 34 = Base17 byte size
-        Self { inner, heel_max_band: 6, hip_max_band: 8, twig_max_band: 10 }
+        Self {
+            inner,
+            heel_max_band: 6,
+            hip_max_band: 8,
+            twig_max_band: 10,
+        }
     }
 
     /// Welford online update — delegates to ndarray Cascade::observe().
@@ -192,10 +203,14 @@ impl PaletteCascade {
     }
 
     /// Current μ from ndarray Cascade.
-    pub fn mu(&self) -> f64 { self.inner.mu() }
+    pub fn mu(&self) -> f64 {
+        self.inner.mu()
+    }
 
     /// Current σ from ndarray Cascade.
-    pub fn sigma(&self) -> f64 { self.inner.sigma() }
+    pub fn sigma(&self) -> f64 {
+        self.inner.sigma()
+    }
 
     /// Current ¼σ bands (recomputed from Cascade's rolling μ/σ).
     pub fn bands(&self) -> [QuarterSigmaBand; N_BANDS] {
@@ -227,12 +242,20 @@ pub struct PaletteCascadeStats {
 
 impl PaletteCascadeStats {
     pub fn elimination_rate(&self) -> f64 {
-        if self.total_pairs == 0 { return 0.0; }
+        if self.total_pairs == 0 {
+            return 0.0;
+        }
         1.0 - self.leaf_computed as f64 / self.total_pairs as f64
     }
 
     pub fn summary(&self) -> String {
-        let pct = |n: usize| if self.total_pairs > 0 { n as f64 / self.total_pairs as f64 * 100.0 } else { 0.0 };
+        let pct = |n: usize| {
+            if self.total_pairs > 0 {
+                n as f64 / self.total_pairs as f64 * 100.0
+            } else {
+                0.0
+            }
+        };
         format!(
             "PaletteCascade: {} pairs\n\
              HEEL (palette L1):  {:>6} rejected ({:.1}%)\n\
@@ -241,10 +264,14 @@ impl PaletteCascadeStats {
              LEAF (hydrate):     {:>6} computed  ({:.1}%)\n\
              Elimination:        {:.1}%",
             self.total_pairs,
-            self.heel_rejected, pct(self.heel_rejected),
-            self.hip_rejected, pct(self.hip_rejected),
-            self.twig_rejected, pct(self.twig_rejected),
-            self.leaf_computed, pct(self.leaf_computed),
+            self.heel_rejected,
+            pct(self.heel_rejected),
+            self.hip_rejected,
+            pct(self.hip_rejected),
+            self.twig_rejected,
+            pct(self.twig_rejected),
+            self.leaf_computed,
+            pct(self.leaf_computed),
             self.elimination_rate() * 100.0,
         )
     }
@@ -266,12 +293,15 @@ pub fn run_palette_cascade(
 
     'outer: for (qi, q) in queries.iter().enumerate() {
         for (ki, k) in keys.iter().enumerate() {
-            if count >= max_pairs { break 'outer; }
+            if count >= max_pairs {
+                break 'outer;
+            }
             count += 1;
             stats.total_pairs += 1;
 
             // HEEL: palette distance (O(1) table lookup)
-            let heel_dist = heel_distance_palette(q_palette_idx[qi], k_palette_idx[ki], palette_table);
+            let heel_dist =
+                heel_distance_palette(q_palette_idx[qi], k_palette_idx[ki], palette_table);
             if cascade.should_reject(heel_dist as f64, cascade.heel_max_band) {
                 stats.heel_rejected += 1;
                 continue;
@@ -357,8 +387,12 @@ mod tests {
             cascade.observe(5000);
         }
         // After many extreme observations, mu should have moved significantly
-        assert!(cascade.mu() > initial_mu + 100.0,
-            "extreme observations should shift mu: {} vs {}", cascade.mu(), initial_mu);
+        assert!(
+            cascade.mu() > initial_mu + 100.0,
+            "extreme observations should shift mu: {} vs {}",
+            cascade.mu(),
+            initial_mu
+        );
     }
 
     #[test]
@@ -382,14 +416,8 @@ mod tests {
 
     #[test]
     fn run_cascade_with_palette() {
-        let queries = vec![
-            Base17 { dims: [100; 17] },
-            Base17 { dims: [200; 17] },
-        ];
-        let keys = vec![
-            Base17 { dims: [105; 17] },
-            Base17 { dims: [500; 17] },
-        ];
+        let queries = vec![Base17 { dims: [100; 17] }, Base17 { dims: [200; 17] }];
+        let keys = vec![Base17 { dims: [105; 17] }, Base17 { dims: [500; 17] }];
 
         // Build simple palette table: distance = |a - b|
         let mut table = vec![0u16; 256 * 256];
@@ -404,13 +432,14 @@ mod tests {
 
         let cascade = PaletteCascade::calibrate(&[50, 100, 150, 200, 250]);
 
-        let (results, stats) = run_palette_cascade(
-            &queries, &keys, &q_idx, &k_idx, &table, &cascade, 100
-        );
+        let (results, stats) =
+            run_palette_cascade(&queries, &keys, &q_idx, &k_idx, &table, &cascade, 100);
 
         assert_eq!(stats.total_pairs, 4);
-        assert!(stats.heel_rejected + stats.hip_rejected +
-                stats.twig_rejected + stats.leaf_computed == stats.total_pairs);
+        assert!(
+            stats.heel_rejected + stats.hip_rejected + stats.twig_rejected + stats.leaf_computed
+                == stats.total_pairs
+        );
         eprintln!("{}", stats.summary());
     }
 }

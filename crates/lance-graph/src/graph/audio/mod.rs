@@ -15,5 +15,5 @@
 //! Edges = temporal adjacency + spectral similarity.
 //! Search = HHTL cascade over AudioNodes (content-based audio retrieval).
 
-pub mod node;
 pub mod hhtl_bridge;
+pub mod node;

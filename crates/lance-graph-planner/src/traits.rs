@@ -50,9 +50,14 @@ impl PlanCapability {
     pub fn phase(&self) -> PipelinePhase {
         match self {
             Self::Parse => PipelinePhase::Parse,
-            Self::LogicalPlan | Self::JoinOrdering | Self::WorkflowOrchestration => PipelinePhase::Plan,
+            Self::LogicalPlan | Self::JoinOrdering | Self::WorkflowOrchestration => {
+                PipelinePhase::Plan
+            }
             Self::RuleOptimization | Self::CostEstimation => PipelinePhase::Optimize,
-            Self::VectorScan | Self::PhysicalPlan | Self::TruthPropagation | Self::ResonanceGating => PipelinePhase::Physicalize,
+            Self::VectorScan
+            | Self::PhysicalPlan
+            | Self::TruthPropagation
+            | Self::ResonanceGating => PipelinePhase::Physicalize,
             Self::StreamExecution | Self::JitCompilation => PipelinePhase::Execute,
             Self::Extension => PipelinePhase::Physicalize, // Extensions can slot in anywhere
         }

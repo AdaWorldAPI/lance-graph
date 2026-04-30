@@ -152,14 +152,16 @@ impl StackedBF16x4 {
             let sign_bit = if n_negative >= 2 { 1u8 } else { 0u8 };
 
             // Magnitude class: mean of 4 exponents (5-bit BF16 exponent → 3-bit class)
-            let exp_sum: u32 = bf16s.iter()
+            let exp_sum: u32 = bf16s
+                .iter()
                 .map(|&b| ((b >> 7) & 0xFF) as u32) // 8-bit exponent
                 .sum();
             let mean_exp = (exp_sum / 4) as u8;
             let mag_class = (mean_exp >> 5) & 0x07; // Top 3 bits of mean exponent
 
             // Fine hash: XOR fold of 4 mantissas → 4 bits
-            let mantissa_xor = bf16s.iter()
+            let mantissa_xor = bf16s
+                .iter()
                 .map(|&b| (b & 0x7F) as u8) // 7-bit mantissa
                 .fold(0u8, |acc, m| acc ^ m);
             let fine_hash = mantissa_xor & 0x0F;
@@ -221,7 +223,11 @@ impl StackedBF16x4 {
             }
         }
         let denom = (norm_a * norm_b).sqrt();
-        if denom < 1e-12 { 0.0 } else { dot / denom }
+        if denom < 1e-12 {
+            0.0
+        } else {
+            dot / denom
+        }
     }
 
     /// Serialize to 136 bytes (little-endian u64).
@@ -240,8 +246,14 @@ impl StackedBF16x4 {
         let mut dims = [0u64; BASE_DIM];
         for i in 0..BASE_DIM {
             dims[i] = u64::from_le_bytes([
-                buf[i * 8], buf[i * 8 + 1], buf[i * 8 + 2], buf[i * 8 + 3],
-                buf[i * 8 + 4], buf[i * 8 + 5], buf[i * 8 + 6], buf[i * 8 + 7],
+                buf[i * 8],
+                buf[i * 8 + 1],
+                buf[i * 8 + 2],
+                buf[i * 8 + 3],
+                buf[i * 8 + 4],
+                buf[i * 8 + 5],
+                buf[i * 8 + 6],
+                buf[i * 8 + 7],
             ]);
         }
         StackedBF16x4 { dims }
@@ -249,7 +261,9 @@ impl StackedBF16x4 {
 
     /// Zero vector.
     pub fn zero() -> Self {
-        StackedBF16x4 { dims: [0u64; BASE_DIM] }
+        StackedBF16x4 {
+            dims: [0u64; BASE_DIM],
+        }
     }
 }
 
@@ -350,7 +364,9 @@ pub struct VedicCascadeResult {
 
 impl VedicCascadeResult {
     pub fn elimination_rate(&self) -> f64 {
-        if self.total_pairs == 0 { return 0.0; }
+        if self.total_pairs == 0 {
+            return 0.0;
+        }
         1.0 - self.stage3_survived as f64 / self.total_pairs as f64
     }
 }
@@ -438,7 +454,11 @@ mod tests {
 
         // Both should be in the same ballpark (not identical due to BF16 truncation)
         let l1 = base17.l1(&direct_base17);
-        assert!(l1 < 500, "stacked→base17 should be close to direct base17: L1={}", l1);
+        assert!(
+            l1 < 500,
+            "stacked→base17 should be close to direct base17: L1={}",
+            l1
+        );
     }
 
     #[test]
@@ -458,9 +478,11 @@ mod tests {
         let key_pos = pos.search_key();
         let key_neg = neg.search_key();
         // Signs should be opposite for most dims
-        assert!(key_pos.sign_agreement(&key_neg) < 5,
+        assert!(
+            key_pos.sign_agreement(&key_neg) < 5,
             "opposite vectors should have low sign agreement: {}",
-            key_pos.sign_agreement(&key_neg));
+            key_pos.sign_agreement(&key_neg)
+        );
     }
 
     #[test]
@@ -517,14 +539,19 @@ mod tests {
         let base17_error = (base17_cosine - true_cosine).abs();
 
         // Print for visibility
-        eprintln!("true_cosine={:.6}, stacked={:.6} (err={:.6}), base17={:.6} (err={:.6})",
-            true_cosine, stacked_cosine, stacked_error, base17_cosine, base17_error);
+        eprintln!(
+            "true_cosine={:.6}, stacked={:.6} (err={:.6}), base17={:.6} (err={:.6})",
+            true_cosine, stacked_cosine, stacked_error, base17_cosine, base17_error
+        );
 
         // Stacked should have less error (or at least not much more)
         // Note: for very long vectors with only 4 samples, the advantage may be small
-        assert!(stacked_error < 0.5 || stacked_error <= base17_error + 0.1,
+        assert!(
+            stacked_error < 0.5 || stacked_error <= base17_error + 0.1,
             "stacked should preserve phase better: stacked_err={:.4}, base17_err={:.4}",
-            stacked_error, base17_error);
+            stacked_error,
+            base17_error
+        );
     }
 
     #[test]
@@ -544,9 +571,13 @@ mod tests {
         };
 
         let (active, result) = vedic_cascade(&queries, &keys, &config);
-        assert!(result.elimination_rate() > 0.0,
+        assert!(
+            result.elimination_rate() > 0.0,
             "should eliminate some pairs. Stage1: {}, Stage2: {}, Survived: {}",
-            result.stage1_eliminated, result.stage2_eliminated, result.stage3_survived);
+            result.stage1_eliminated,
+            result.stage2_eliminated,
+            result.stage3_survived
+        );
         assert!(active.len() <= queries.len() * keys.len());
     }
 

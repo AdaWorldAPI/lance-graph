@@ -159,7 +159,10 @@ impl ThinkingAtom {
         let c_revised = (c1 + c2) / (c1 + c2 + 1.0);
 
         ThinkingAtom {
-            dn: format!("DN:Atom.Rev.{:08x}", fxhash(&format!("{}{}", self.dn, other.dn))),
+            dn: format!(
+                "DN:Atom.Rev.{:08x}",
+                fxhash(&format!("{}{}", self.dn, other.dn))
+            ),
             content: format!("Revision of {} and {}", self.content, other.content),
             stage: self.stage,
             confidence: c_revised,
@@ -219,7 +222,11 @@ mod tests {
             content: "claim A".into(),
             stage: SigmaStage::Phi,
             confidence: 0.8,
-            knowns: vec![Proposition { content: "A is true".into(), confidence: 0.7, source: None }],
+            knowns: vec![Proposition {
+                content: "A is true".into(),
+                confidence: 0.7,
+                source: None,
+            }],
             unknowns: vec![],
             assumptions: vec![],
             derives_from: vec![],
@@ -230,7 +237,11 @@ mod tests {
             content: "claim B".into(),
             stage: SigmaStage::Phi,
             confidence: 0.6,
-            knowns: vec![Proposition { content: "A is true".into(), confidence: 0.9, source: None }],
+            knowns: vec![Proposition {
+                content: "A is true".into(),
+                confidence: 0.9,
+                source: None,
+            }],
             unknowns: vec![],
             assumptions: vec![],
             derives_from: vec![],

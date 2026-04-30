@@ -5,8 +5,8 @@
 //!
 //! Each inference type = a specific semiring for adjacent_truth_propagate().
 
-pub mod truth;
 pub mod inference;
+pub mod truth;
 
-pub use truth::TruthValue;
 pub use inference::NarsInference;
+pub use truth::TruthValue;

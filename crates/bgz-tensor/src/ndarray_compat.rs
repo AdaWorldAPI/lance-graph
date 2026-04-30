@@ -14,7 +14,10 @@ pub use ndarray::hpc::quantized::QuantParams;
 /// `data` must have power-of-two length. Standard butterfly.
 pub fn wht_f32(data: &mut [f32]) {
     let n = data.len();
-    assert!(n.is_power_of_two(), "WHT requires power-of-two length, got {n}");
+    assert!(
+        n.is_power_of_two(),
+        "WHT requires power-of-two length, got {n}"
+    );
     let mut h = 1;
     while h < n {
         for i in (0..n).step_by(h * 2) {
@@ -57,12 +60,15 @@ pub fn quantize_f32_to_i2(data: &[f32]) -> (Vec<u8>, QuantParams) {
         let bits = (q & 0x03) as u8;
         packed[i / 4] |= bits << ((i % 4) * 2);
     }
-    (packed, QuantParams {
-        scale: abs_max,
-        zero_point: 0,
-        min_val,
-        max_val,
-    })
+    (
+        packed,
+        QuantParams {
+            scale: abs_max,
+            zero_point: 0,
+            min_val,
+            max_val,
+        },
+    )
 }
 
 /// Dequantize 2-bit packed codes back to f32.
@@ -102,7 +108,11 @@ pub fn kmeans(data: &[Vec<f32>], k: usize, dim: usize, iterations: usize) -> Vec
             let mut best = 0;
             let mut best_d = f32::MAX;
             for (c, centroid) in centroids.iter().enumerate() {
-                let d: f32 = point.iter().zip(centroid).map(|(a, b)| (a - b) * (a - b)).sum();
+                let d: f32 = point
+                    .iter()
+                    .zip(centroid)
+                    .map(|(a, b)| (a - b) * (a - b))
+                    .sum();
                 if d < best_d {
                     best_d = d;
                     best = c;

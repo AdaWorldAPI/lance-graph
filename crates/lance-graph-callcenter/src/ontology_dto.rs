@@ -60,34 +60,49 @@ pub struct ActionTypeDto {
 
 impl OntologyDto {
     pub fn from_ontology(ontology: &Ontology, locale: Locale) -> Self {
-        let entity_types: Vec<EntityTypeDto> = ontology.schemas.iter().enumerate().map(|(idx, schema)| {
-            EntityTypeDto {
+        let entity_types: Vec<EntityTypeDto> = ontology
+            .schemas
+            .iter()
+            .enumerate()
+            .map(|(idx, schema)| EntityTypeDto {
                 id: (idx + 1) as EntityTypeId,
                 key: schema.name,
                 name: schema.name.to_string(),
                 required_count: schema.required_props().count(),
-                properties: schema.properties.iter().map(|p| PropertyDto {
-                    key: p.predicate,
-                    kind: kind_str(p.kind),
-                    semantic_type: semantic_type_str(&p.semantic_type),
-                    marking: marking_str(p.marking),
-                }).collect(),
-            }
-        }).collect();
+                properties: schema
+                    .properties
+                    .iter()
+                    .map(|p| PropertyDto {
+                        key: p.predicate,
+                        kind: kind_str(p.kind),
+                        semantic_type: semantic_type_str(&p.semantic_type),
+                        marking: marking_str(p.marking),
+                    })
+                    .collect(),
+            })
+            .collect();
 
-        let link_types: Vec<LinkTypeDto> = ontology.links.iter().map(|l| LinkTypeDto {
-            subject_type: l.subject_type,
-            predicate: l.predicate,
-            object_type: l.object_type,
-            cardinality: cardinality_str(l.cardinality),
-        }).collect();
+        let link_types: Vec<LinkTypeDto> = ontology
+            .links
+            .iter()
+            .map(|l| LinkTypeDto {
+                subject_type: l.subject_type,
+                predicate: l.predicate,
+                object_type: l.object_type,
+                cardinality: cardinality_str(l.cardinality),
+            })
+            .collect();
 
-        let action_types: Vec<ActionTypeDto> = ontology.actions.iter().map(|a| ActionTypeDto {
-            name: a.name,
-            entity_type: a.entity_type,
-            target_predicate: a.target_predicate,
-            trigger: trigger_str(a.trigger),
-        }).collect();
+        let action_types: Vec<ActionTypeDto> = ontology
+            .actions
+            .iter()
+            .map(|a| ActionTypeDto {
+                name: a.name,
+                entity_type: a.entity_type,
+                target_predicate: a.target_predicate,
+                trigger: trigger_str(a.trigger),
+            })
+            .collect();
 
         OntologyDto {
             key: ontology.name,
@@ -104,11 +119,17 @@ impl OntologyDto {
     }
 
     pub fn links_from(&self, subject_type: &str) -> Vec<&LinkTypeDto> {
-        self.link_types.iter().filter(|l| l.subject_type == subject_type).collect()
+        self.link_types
+            .iter()
+            .filter(|l| l.subject_type == subject_type)
+            .collect()
     }
 
     pub fn actions_for(&self, entity_type: &str) -> Vec<&ActionTypeDto> {
-        self.action_types.iter().filter(|a| a.entity_type == entity_type).collect()
+        self.action_types
+            .iter()
+            .filter(|a| a.entity_type == entity_type)
+            .collect()
     }
 }
 
@@ -173,31 +194,37 @@ pub fn smb_ontology() -> Ontology {
     Ontology::builder("smb")
         .label(Label::new("smb", "Tax Practice", "Steuerberatungskanzlei"))
         .locale(Locale::De)
-        .schema(Schema::builder("Customer")
-            .required("customer_name")
-            .required("tax_id")
-            .optional("address")
-            .optional("iban")
-            .searchable("industry")
-            .free("note")
-            .build())
-        .schema(Schema::builder("Invoice")
-            .required("invoice_number")
-            .required("date")
-            .required("total_amount")
-            .required("currency")
-            .required("customer_ref")
-            .optional("due_date")
-            .free("note")
-            .build())
-        .schema(Schema::builder("TaxDeclaration")
-            .required("declaration_id")
-            .required("tax_year")
-            .required("customer_ref")
-            .required("declaration_type")
-            .optional("filing_date")
-            .optional("status")
-            .build())
+        .schema(
+            Schema::builder("Customer")
+                .required("customer_name")
+                .required("tax_id")
+                .optional("address")
+                .optional("iban")
+                .searchable("industry")
+                .free("note")
+                .build(),
+        )
+        .schema(
+            Schema::builder("Invoice")
+                .required("invoice_number")
+                .required("date")
+                .required("total_amount")
+                .required("currency")
+                .required("customer_ref")
+                .optional("due_date")
+                .free("note")
+                .build(),
+        )
+        .schema(
+            Schema::builder("TaxDeclaration")
+                .required("declaration_id")
+                .required("tax_year")
+                .required("customer_ref")
+                .required("declaration_type")
+                .optional("filing_date")
+                .optional("status")
+                .build(),
+        )
         .link(LinkSpec::one_to_many("Customer", "issued", "Invoice"))
         .link(LinkSpec::one_to_many("Customer", "filed", "TaxDeclaration"))
         .action(ActionSpec::manual("approve", "Invoice", "status"))
@@ -210,46 +237,70 @@ pub fn medcare_ontology() -> Ontology {
     Ontology::builder("medcare")
         .label(Label::new("medcare", "Medical Practice", "Arztpraxis"))
         .locale(Locale::De)
-        .schema(Schema::builder("Patient")
-            .required("patient_id")
-            .required("name")
-            .required("geburtsdatum")
-            .optional("versichertennummer")
-            .optional("krankenkasse")
-            .optional("address")
-            .free("note")
-            .build())
-        .schema(Schema::builder("Diagnosis")
-            .required("icd10_code")
-            .required("patient_ref")
-            .required("date")
-            .optional("description")
-            .optional("severity")
-            .build())
-        .schema(Schema::builder("LabResult")
-            .required("lab_id")
-            .required("patient_ref")
-            .required("parameter")
-            .required("value")
-            .required("unit")
-            .optional("reference_range")
-            .optional("date")
-            .build())
-        .schema(Schema::builder("Prescription")
-            .required("prescription_id")
-            .required("patient_ref")
-            .required("medication")
-            .required("dosage")
-            .optional("duration")
-            .optional("refills")
-            .build())
-        .link(LinkSpec::one_to_many("Patient", "diagnosed_with", "Diagnosis"))
+        .schema(
+            Schema::builder("Patient")
+                .required("patient_id")
+                .required("name")
+                .required("geburtsdatum")
+                .optional("versichertennummer")
+                .optional("krankenkasse")
+                .optional("address")
+                .free("note")
+                .build(),
+        )
+        .schema(
+            Schema::builder("Diagnosis")
+                .required("icd10_code")
+                .required("patient_ref")
+                .required("date")
+                .optional("description")
+                .optional("severity")
+                .build(),
+        )
+        .schema(
+            Schema::builder("LabResult")
+                .required("lab_id")
+                .required("patient_ref")
+                .required("parameter")
+                .required("value")
+                .required("unit")
+                .optional("reference_range")
+                .optional("date")
+                .build(),
+        )
+        .schema(
+            Schema::builder("Prescription")
+                .required("prescription_id")
+                .required("patient_ref")
+                .required("medication")
+                .required("dosage")
+                .optional("duration")
+                .optional("refills")
+                .build(),
+        )
+        .link(LinkSpec::one_to_many(
+            "Patient",
+            "diagnosed_with",
+            "Diagnosis",
+        ))
         .link(LinkSpec::one_to_many("Patient", "lab_result", "LabResult"))
-        .link(LinkSpec::one_to_many("Patient", "prescribed", "Prescription"))
-        .link(LinkSpec::one_to_many("Diagnosis", "confirmed_by", "LabResult"))
+        .link(LinkSpec::one_to_many(
+            "Patient",
+            "prescribed",
+            "Prescription",
+        ))
+        .link(LinkSpec::one_to_many(
+            "Diagnosis",
+            "confirmed_by",
+            "LabResult",
+        ))
         .action(ActionSpec::auto("triage", "Patient", "urgency"))
         .action(ActionSpec::suggested("prescribe", "Patient", "medication"))
-        .action(ActionSpec::manual("approve_prescription", "Prescription", "status"))
+        .action(ActionSpec::manual(
+            "approve_prescription",
+            "Prescription",
+            "status",
+        ))
         .build()
 }
 
@@ -343,7 +394,11 @@ mod tests {
         let ont = smb_ontology();
         let dto = OntologyDto::from_ontology(&ont, Locale::En);
         let customer = dto.entity_type("Customer").unwrap();
-        let tax_id = customer.properties.iter().find(|p| p.key == "tax_id").unwrap();
+        let tax_id = customer
+            .properties
+            .iter()
+            .find(|p| p.key == "tax_id")
+            .unwrap();
         assert_eq!(tax_id.marking, "internal");
         assert_eq!(tax_id.kind, "required");
     }

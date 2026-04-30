@@ -42,7 +42,7 @@ pub use search::{HeelResult, SearchCascade, SearchConfig};
 pub use sparse::ScentCsr;
 pub use storage::{
     cognitive_nodes_schema, deserialize_scope_node_ids, neighborhoods_schema, scopes_schema,
-    serialize_scent, serialize_resolution, serialize_scope_node_ids,
+    serialize_resolution, serialize_scent, serialize_scope_node_ids,
 };
 pub use zeckf64::{
     resolution, scent, zeckf64, zeckf64_distance, zeckf64_scent_distance,

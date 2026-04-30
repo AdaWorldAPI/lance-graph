@@ -156,7 +156,10 @@ fn test_three_hop_traversal_coverage() {
     );
 
     // Query node should not be in results
-    assert!(!explored.contains(&0), "Query node should not be in results");
+    assert!(
+        !explored.contains(&0),
+        "Query node should not be in results"
+    );
 }
 
 // =========================================================================

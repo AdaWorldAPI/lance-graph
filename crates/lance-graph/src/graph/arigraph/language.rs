@@ -53,17 +53,11 @@ pub trait LanguageBackend: Send + Sync {
     ) -> Result<Vec<Triplet>, String>;
 
     /// Classify entities by type (Person, Org, Location, etc.).
-    fn classify_entities(
-        &self,
-        entities: &[String],
-    ) -> Result<Vec<(String, EntityType)>, String>;
+    fn classify_entities(&self, entities: &[String]) -> Result<Vec<(String, EntityType)>, String>;
 
     /// Generate a plan given the current blackboard state.
-    fn plan(
-        &self,
-        blackboard: &ContextBlackboard,
-        observation: &str,
-    ) -> Result<PlanResult, String>;
+    fn plan(&self, blackboard: &ContextBlackboard, observation: &str)
+        -> Result<PlanResult, String>;
 
     /// Identify outdated triplets that should be replaced by new observation.
     fn refine(
@@ -73,11 +67,7 @@ pub trait LanguageBackend: Send + Sync {
     ) -> Result<Vec<(String, String, String)>, String>;
 
     /// Free-form chat response grounded in blackboard context.
-    fn chat(
-        &self,
-        user_message: &str,
-        blackboard: &ContextBlackboard,
-    ) -> Result<String, String>;
+    fn chat(&self, user_message: &str, blackboard: &ContextBlackboard) -> Result<String, String>;
 
     /// Backend name for logging/metrics.
     fn name(&self) -> &str;
@@ -144,7 +134,10 @@ impl Default for ContextBlackboard {
 impl ContextBlackboard {
     /// Create a new blackboard for a conversation turn.
     pub fn new(turn: u64) -> Self {
-        Self { turn, ..Default::default() }
+        Self {
+            turn,
+            ..Default::default()
+        }
     }
 
     /// Load context from a triplet graph via BFS from seed entities.
@@ -155,7 +148,8 @@ impl ContextBlackboard {
         }
 
         let associated = graph.get_associated(&self.active_entities, self.max_depth);
-        self.graph_context = associated.iter()
+        self.graph_context = associated
+            .iter()
             .take(self.top_k)
             .map(|t| t.to_string_repr())
             .collect();
@@ -283,7 +277,8 @@ mod tests {
     fn test_blackboard_flush() {
         let mut bb = ContextBlackboard::new(1);
         bb.pending_triplets.push(Triplet::new("a", "b", "c", 0));
-        bb.pending_refinements.push(("x".into(), "y".into(), "z".into()));
+        bb.pending_refinements
+            .push(("x".into(), "y".into(), "z".into()));
         assert!(!bb.pending_triplets.is_empty());
         bb.flush_pending();
         assert!(bb.pending_triplets.is_empty());

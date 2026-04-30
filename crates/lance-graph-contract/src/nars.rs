@@ -47,7 +47,7 @@ impl InferenceType {
             Self::Deduction => QueryStrategy::CamExact,
             Self::Induction => QueryStrategy::CamWide,
             Self::Abduction => QueryStrategy::DnTreeFull,
-            Self::Revision  => QueryStrategy::BundleInto,
+            Self::Revision => QueryStrategy::BundleInto,
             Self::Synthesis => QueryStrategy::BundleAcross,
         }
     }

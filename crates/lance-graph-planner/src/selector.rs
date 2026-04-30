@@ -1,6 +1,6 @@
 //! Strategy selection: who decides which strategies participate.
 
-use crate::traits::{PlanStrategy, PlanContext, PipelinePhase};
+use crate::traits::{PipelinePhase, PlanContext, PlanStrategy};
 
 /// Strategy selection mode.
 #[derive(Debug, Clone)]
@@ -45,7 +45,8 @@ pub fn select_strategies<'a>(
     match selector {
         StrategySelector::Explicit(names) => {
             // Return only explicitly named strategies, in pipeline order.
-            let mut selected: Vec<&dyn PlanStrategy> = strategies.iter()
+            let mut selected: Vec<&dyn PlanStrategy> = strategies
+                .iter()
                 .filter(|s| names.iter().any(|n| n.eq_ignore_ascii_case(s.name())))
                 .map(|s| s.as_ref())
                 .collect();
@@ -53,9 +54,14 @@ pub fn select_strategies<'a>(
             selected
         }
 
-        StrategySelector::Resonance { thinking_style, mul_modifier, compass_score: _ } => {
+        StrategySelector::Resonance {
+            thinking_style,
+            mul_modifier,
+            compass_score: _,
+        } => {
             // Score each strategy: affinity * mul_modifier * style_alignment
-            let mut scored: Vec<(&dyn PlanStrategy, f32)> = strategies.iter()
+            let mut scored: Vec<(&dyn PlanStrategy, f32)> = strategies
+                .iter()
                 .map(|s| {
                     let base_affinity = s.affinity(context);
                     let modifier = *mul_modifier as f32;
@@ -87,15 +93,21 @@ pub fn select_strategies<'a>(
             selected
         }
 
-        StrategySelector::Auto { max_per_phase, min_affinity } => {
+        StrategySelector::Auto {
+            max_per_phase,
+            min_affinity,
+        } => {
             // Each strategy scores affinity, top-N per phase compose.
-            let mut by_phase: std::collections::HashMap<PipelinePhase, Vec<(&dyn PlanStrategy, f32)>> =
-                std::collections::HashMap::new();
+            let mut by_phase: std::collections::HashMap<
+                PipelinePhase,
+                Vec<(&dyn PlanStrategy, f32)>,
+            > = std::collections::HashMap::new();
 
             for strategy in strategies {
                 let affinity = strategy.affinity(context);
                 if affinity >= *min_affinity {
-                    by_phase.entry(strategy.capability().phase())
+                    by_phase
+                        .entry(strategy.capability().phase())
                         .or_default()
                         .push((strategy.as_ref(), affinity));
                 }
