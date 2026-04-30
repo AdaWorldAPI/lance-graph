@@ -1332,6 +1332,7 @@ mod tests {
             bus: ShaderBus::empty(),
             persisted_row: Some(42),
             meta: MetaSummary { confidence: 0.9, meta_confidence: 0.8, brier: 0.1, should_admit_ignorance: false },
+            alpha_composite: None,
         };
         let wire = WireCrystal::from(&crystal);
         let json = serde_json::to_string(&wire).unwrap();

@@ -29,7 +29,7 @@
 //! - **Feature gates** — consumers opt into compile-time capabilities
 //! - **No forward pass at runtime** — bgz17 distance IS precomputed
 
-use crate::collapse_gate::GateDecision;
+use crate::collapse_gate::{GateDecision, MergeMode};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Packed meta column — the cheap prefilter
@@ -194,6 +194,18 @@ pub struct ShaderDispatch {
     pub entropy_floor: f32,
     /// Commit mode.
     pub emit: EmitMode,
+    /// Pillar-7: optional override of the [7] sink stage's `MergeMode`.
+    ///
+    /// `None` (the default) keeps the existing top-K aggregation in
+    /// stage [7]. `Some(MergeMode::AlphaFrontToBack)` runs the
+    /// Kerbl-style α-compositing loop and writes the result to
+    /// `ShaderCrystal::alpha_composite`. Other modes preserve their
+    /// existing semantics.
+    pub merge_override: Option<MergeMode>,
+    /// Pillar-7: per-dispatch saturation threshold for early-ray-termination
+    /// in `MergeMode::AlphaFrontToBack`. `None` falls back to
+    /// [`crate::collapse_gate::ALPHA_SATURATION_THRESHOLD`] (0.99).
+    pub alpha_saturation_override: Option<f32>,
 }
 
 impl Default for ShaderDispatch {
@@ -208,6 +220,8 @@ impl Default for ShaderDispatch {
             max_cycles: 10,
             entropy_floor: 0.05,
             emit: EmitMode::Cycle,
+            merge_override: None,
+            alpha_saturation_override: None,
         }
     }
 }
@@ -239,6 +253,27 @@ pub struct ShaderHit {
     pub cycle_index: u32,
 }
 
+impl ShaderHit {
+    /// Pillar-7 mapping: hit confidence → α coefficient ∈ [0, 1].
+    ///
+    /// The shader currently encodes confidence in the `resonance` field
+    /// (0.0..1.0 by construction — Hamming-derived in the content
+    /// pre-pass and 1/(1+d/dmax) in the cascade), and via the row's
+    /// NARS truth payload elsewhere. We use `resonance` directly because
+    /// it is what the front-to-back loop in the [7] sink stage has in
+    /// hand at composite time, and clamp to [0, 1] defensively — NaN,
+    /// negative, or out-of-range values return 0.0 (a fully transparent
+    /// contribution that does not advance α_acc).
+    #[inline]
+    pub fn confidence_to_alpha(&self) -> f32 {
+        if self.resonance.is_finite() {
+            self.resonance.clamp(0.0, 1.0)
+        } else {
+            0.0
+        }
+    }
+}
+
 /// Top-K hits + cycle statistics. Fixed-size = no allocation on hot path.
 #[derive(Clone, Copy, Debug)]
 pub struct ShaderResonance {
@@ -260,6 +295,46 @@ impl Default for ShaderResonance {
             entropy: 0.0,
             std_dev: 0.0,
             style_ord: 0,
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AlphaComposite — Pillar-7 front-to-back α-merge result
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Active payload dimensionality for the α-composite color accumulator.
+/// Sized to a 32-slot fixed array so `ShaderCrystal` stays Clone+Copy-cheap.
+/// The active prefix matches `BindSpace`'s qualia column (currently 18 f32);
+/// trailing slots are zero by construction.
+pub const ALPHA_COMPOSITE_DIMS: usize = 32;
+
+/// Pillar-7 α-front-to-back composite output.
+///
+/// When `MergeMode::AlphaFrontToBack` is selected for the [7] sink stage,
+/// the driver runs Kerbl-style EWA splatting over the resonance hits,
+/// producing an accumulated qualia vector and total α. `hits_consumed`
+/// records how many hits contributed before early-ray-termination
+/// (or end-of-list). Zero hits → all-zero vector + α = 0.
+#[derive(Clone, Copy, Debug)]
+pub struct AlphaComposite {
+    /// Composited qualia accumulator (front-to-back).
+    pub color_acc: [f32; ALPHA_COMPOSITE_DIMS],
+    /// Final accumulated α (∈ [0, 1]).
+    pub alpha_acc: f32,
+    /// Number of hits the loop consumed before saturation / end.
+    pub hits_consumed: u16,
+    /// Whether early-ray-termination fired (α exceeded saturation).
+    pub saturated: bool,
+}
+
+impl Default for AlphaComposite {
+    fn default() -> Self {
+        Self {
+            color_acc: [0.0f32; ALPHA_COMPOSITE_DIMS],
+            alpha_acc: 0.0,
+            hits_consumed: 0,
+            saturated: false,
         }
     }
 }
@@ -307,6 +382,10 @@ pub struct ShaderCrystal {
     pub persisted_row: Option<u32>,
     /// Meta assessment (Brier, confidence, should_admit_ignorance).
     pub meta: MetaSummary,
+    /// Pillar-7 α-front-to-back composite, populated only when stage [7]
+    /// dispatched on `MergeMode::AlphaFrontToBack`. `None` for the
+    /// existing top-K aggregation modes (Bundle / Xor / Superposition).
+    pub alpha_composite: Option<AlphaComposite>,
 }
 
 /// Meta-cognitive summary of the cycle.
@@ -422,6 +501,7 @@ mod tests {
             bus: ShaderBus::empty(),
             persisted_row: None,
             meta: MetaSummary::default(),
+            alpha_composite: None,
         });
     }
 

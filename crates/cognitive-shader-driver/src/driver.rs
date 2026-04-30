@@ -31,10 +31,11 @@ use causal_edge::pearl::CausalMask;
 use causal_edge::plasticity::PlasticityState;
 use causal_edge::tables::{NarsTables, unpack_c, unpack_f};
 use lance_graph_contract::cognitive_shader::{
-    CognitiveShaderDriver, EmitMode, MetaSummary, NullSink, ShaderBus, ShaderCrystal,
-    ShaderDispatch, ShaderHit, ShaderResonance, ShaderSink,
+    AlphaComposite, CognitiveShaderDriver, EmitMode, MetaSummary, NullSink, ShaderBus,
+    ShaderCrystal, ShaderDispatch, ShaderHit, ShaderResonance, ShaderSink,
+    ALPHA_COMPOSITE_DIMS,
 };
-use lance_graph_contract::collapse_gate::{GateDecision, MergeMode};
+use lance_graph_contract::collapse_gate::{GateDecision, MergeMode, ALPHA_SATURATION_THRESHOLD};
 use lance_graph_contract::grammar::free_energy::{FreeEnergy, EPIPHANY_MARGIN};
 use lance_graph_contract::grammar::inference::NarsInference;
 use lance_graph_contract::grammar::thinking_styles::{GrammarStyleAwareness, ParamKey, ParseOutcome};
@@ -357,6 +358,34 @@ impl ShaderDriver {
             style_ord,
         };
 
+        // ── [7] Sink stage — dispatch on MergeMode ──────────────────────
+        //
+        // Pillar-7 (B5): when the effective merge mode for this dispatch
+        // is `AlphaFrontToBack`, replace the top-K hit aggregation with
+        // Kerbl 2023 EWA front-to-back α-compositing. All other merge
+        // modes (Bundle / Xor / Superposition) preserve their existing
+        // behaviour exactly — only `alpha_composite` toggles.
+        //
+        // The override hierarchy is:
+        //   1. `req.merge_override` (caller-set)
+        //   2. `gate.merge`         (gate-decided)
+        //
+        // Only `AlphaFrontToBack` changes the sink path; everything else
+        // routes through the original code below unchanged.
+        let effective_merge = req.merge_override.unwrap_or(gate.merge);
+        let alpha_composite = if effective_merge == MergeMode::AlphaFrontToBack {
+            let threshold = req
+                .alpha_saturation_override
+                .unwrap_or(ALPHA_SATURATION_THRESHOLD);
+            Some(alpha_front_to_back_composite(
+                &hits,
+                |row| self.bindspace.qualia.row(row as usize),
+                threshold,
+            ))
+        } else {
+            None
+        };
+
         // [7] Sink callbacks.
         if !sink.on_resonance(&resonance_dto) {
             return ShaderCrystal {
@@ -369,6 +398,7 @@ impl ShaderDriver {
                 },
                 persisted_row: None,
                 meta: MetaSummary::default(),
+                alpha_composite,
             };
         }
 
@@ -380,7 +410,12 @@ impl ShaderDriver {
             resonance: resonance_dto,
         };
         if !sink.on_bus(&bus) {
-            return ShaderCrystal { bus, persisted_row: None, meta: MetaSummary::default() };
+            return ShaderCrystal {
+                bus,
+                persisted_row: None,
+                meta: MetaSummary::default(),
+                alpha_composite,
+            };
         }
 
         // Meta summary (confidence from top-1 resonance, FreeEnergy-derived).
@@ -420,10 +455,77 @@ impl ShaderDriver {
             }
         }
 
-        let crystal = ShaderCrystal { bus, persisted_row, meta };
+        let crystal = ShaderCrystal { bus, persisted_row, meta, alpha_composite };
         sink.on_crystal(&crystal);
         crystal
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Pillar-7 — α-front-to-back composite helper (stage [7] sink mode)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Kerbl-2023 EWA-splatting front-to-back α-compositing over `hits`.
+///
+/// Hits are assumed sorted by confidence DESC (the dispatch pipeline
+/// already does this in stage [3]). The loop terminates early when
+/// accumulated α exceeds `saturation_threshold` — the early-ray-
+/// termination optimization that makes 3DGS practical.
+///
+/// `qualia_for_row` extracts the per-hit color (qualia vector) from
+/// whatever payload the BindSpace has bound to that row. The slice it
+/// returns is copied into `color_acc`'s active prefix; trailing slots
+/// stay zero. Robust to non-finite confidences (treated as α = 0,
+/// fully transparent — does not advance α_acc).
+///
+/// Per Pillar-7 (B5):
+///
+/// ```text
+///   α_acc     = 0
+///   color_acc = 0
+///   for hit in hits:                           # sorted by confidence DESC
+///       α_i  = hit.confidence_to_alpha()
+///       w    = α_i * (1 - α_acc)               # transmittance × current α
+///       color_acc += hit.qualia_payload() * w
+///       α_acc     += w
+///       if α_acc > saturation_threshold: break # early ray termination
+/// ```
+pub fn alpha_front_to_back_composite<'a, F>(
+    hits: &[ShaderHit],
+    qualia_for_row: F,
+    saturation_threshold: f32,
+) -> AlphaComposite
+where
+    F: Fn(u32) -> &'a [f32],
+{
+    let mut alpha_acc: f32 = 0.0;
+    let mut color_acc = [0.0f32; ALPHA_COMPOSITE_DIMS];
+    let mut hits_consumed: u16 = 0;
+    let mut saturated = false;
+
+    for hit in hits.iter() {
+        let alpha_i = hit.confidence_to_alpha();
+        if alpha_i <= 0.0 {
+            // Fully transparent — does not advance α_acc, but still
+            // counts as "considered" so loop progress is visible.
+            hits_consumed = hits_consumed.saturating_add(1);
+            continue;
+        }
+        let weight = alpha_i * (1.0 - alpha_acc);
+        let q = qualia_for_row(hit.row);
+        let active = q.len().min(ALPHA_COMPOSITE_DIMS);
+        for i in 0..active {
+            color_acc[i] += q[i] * weight;
+        }
+        alpha_acc += weight;
+        hits_consumed = hits_consumed.saturating_add(1);
+        if alpha_acc > saturation_threshold {
+            saturated = true;
+            break;
+        }
+    }
+
+    AlphaComposite { color_acc, alpha_acc, hits_consumed, saturated }
 }
 
 impl CognitiveShaderDriver for ShaderDriver {
@@ -856,5 +958,238 @@ mod tests {
         // Short-circuited → persisted_row is None, meta is default.
         assert!(crystal.persisted_row.is_none());
         assert_eq!(crystal.meta.confidence, 0.0);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Pillar-7 — α-front-to-back merge tests (B5)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    use lance_graph_contract::cognitive_shader::ALPHA_COMPOSITE_DIMS;
+    use lance_graph_contract::collapse_gate::ALPHA_SATURATION_THRESHOLD;
+
+    /// Build hits inline with the given resonances. Each hit gets a unique
+    /// `row` so the qualia closure can map row → distinct color.
+    fn mk_hits(resonances: &[f32]) -> Vec<ShaderHit> {
+        resonances.iter().enumerate().map(|(i, &r)| ShaderHit {
+            row: i as u32,
+            distance: 0,
+            predicates: 0,
+            _pad: 0,
+            resonance: r,
+            cycle_index: i as u32,
+        }).collect()
+    }
+
+    /// Per-row qualia: row k → all-ones vector × (k+1) so we can tell which
+    /// hits actually contributed to the composited color.
+    fn qualia_with(rows: usize) -> Vec<[f32; QUALIA_DIMS]> {
+        (0..rows).map(|k| {
+            let mut q = [0.0f32; QUALIA_DIMS];
+            for slot in q.iter_mut() { *slot = (k + 1) as f32; }
+            q
+        }).collect()
+    }
+
+    #[test]
+    fn alpha_merge_terminates_early_when_saturated() {
+        // Two hits at α=0.99 each. After hit #1: α_acc = 0.99, which
+        // *equals* the default threshold (0.99) — strict `>` won't fire.
+        // After hit #2: α_acc = 0.99 + 0.99·0.01 = 0.9999 > 0.99 → break.
+        // So `hits_consumed` must be exactly 2 even though we passed 5.
+        let hits = mk_hits(&[0.99, 0.99, 0.99, 0.99, 0.99]);
+        let qualia = qualia_with(hits.len());
+        let composite = alpha_front_to_back_composite(
+            &hits,
+            |row| &qualia[row as usize][..],
+            ALPHA_SATURATION_THRESHOLD,
+        );
+        assert_eq!(composite.hits_consumed, 2,
+            "early-ray-termination should fire after 2 hits at α=0.99 each, got {}",
+            composite.hits_consumed);
+        assert!(composite.saturated,
+            "saturated flag should be set when α exceeds threshold");
+        assert!(composite.alpha_acc > ALPHA_SATURATION_THRESHOLD,
+            "α_acc must exceed threshold at termination, got {}", composite.alpha_acc);
+    }
+
+    #[test]
+    fn alpha_merge_respects_confidence_ordering() {
+        // Two hits at the same modest α, identical qualia rows except
+        // their magnitude differs. Front (high) should dominate; reversing
+        // the order produces a *different* color (front-to-back is order
+        // dependent — that is the load-bearing property under test).
+        let hits_desc = mk_hits(&[0.5, 0.5]);
+        let qualia = qualia_with(2);
+        let asc_composite = alpha_front_to_back_composite(
+            &hits_desc,
+            |row| &qualia[row as usize][..], // row 0 → 1.0, row 1 → 2.0
+            ALPHA_SATURATION_THRESHOLD,
+        );
+        // First hit weight = 0.5 · 1.0    = 0.5  → contributes 0.5 · 1.0 = 0.5
+        // Second hit weight = 0.5 · 0.5   = 0.25 → contributes 0.25 · 2.0 = 0.5
+        // color_acc[0] = 0.5 + 0.5 = 1.0
+        // α_acc       = 0.75
+        assert!((asc_composite.color_acc[0] - 1.0).abs() < 1e-5,
+            "expected color_acc[0] = 1.0 (front=row0 dominates first), got {}",
+            asc_composite.color_acc[0]);
+
+        // Reverse order: row 1 first (qualia × 2), row 0 second (qualia × 1)
+        let mut hits_rev = hits_desc.clone();
+        hits_rev[0].row = 1;
+        hits_rev[1].row = 0;
+        let rev_composite = alpha_front_to_back_composite(
+            &hits_rev,
+            |row| &qualia[row as usize][..],
+            ALPHA_SATURATION_THRESHOLD,
+        );
+        // First hit weight 0.5 · 1.0 = 0.5  → 0.5 · 2.0 = 1.0
+        // Second hit weight 0.5 · 0.5 = 0.25 → 0.25 · 1.0 = 0.25
+        // color_acc[0] = 1.25, distinct from the 1.0 we got front-first.
+        assert!((rev_composite.color_acc[0] - 1.25).abs() < 1e-5,
+            "reversed order should give color_acc[0] = 1.25, got {}",
+            rev_composite.color_acc[0]);
+        assert!((asc_composite.color_acc[0] - rev_composite.color_acc[0]).abs() > 0.1,
+            "front-to-back composite must be order-dependent; got identical results");
+    }
+
+    #[test]
+    fn alpha_merge_zero_hits_returns_default() {
+        let hits: Vec<ShaderHit> = Vec::new();
+        let composite = alpha_front_to_back_composite(
+            &hits,
+            |_row| -> &[f32] { &[] },
+            ALPHA_SATURATION_THRESHOLD,
+        );
+        assert_eq!(composite.alpha_acc, 0.0);
+        assert_eq!(composite.hits_consumed, 0);
+        assert!(!composite.saturated);
+        for &slot in composite.color_acc.iter() {
+            assert_eq!(slot, 0.0,
+                "zero-hits composite must be all-zero color, found {}", slot);
+        }
+        // Sanity: AlphaComposite::default() matches the zero-hits result.
+        let default = AlphaComposite::default();
+        assert_eq!(default.alpha_acc, composite.alpha_acc);
+        assert_eq!(default.hits_consumed, composite.hits_consumed);
+        assert_eq!(default.saturated, composite.saturated);
+        assert_eq!(default.color_acc, composite.color_acc);
+        // ALPHA_COMPOSITE_DIMS sanity probe — keeps the import live and
+        // documents the active prefix size.
+        assert!(ALPHA_COMPOSITE_DIMS >= QUALIA_DIMS);
+    }
+
+    #[test]
+    fn alpha_merge_single_hit_dominates() {
+        // One opaque hit (α = 1.0): the composite must equal that hit's
+        // qualia exactly, with α_acc = 1.0 and saturated = true.
+        let hits = mk_hits(&[1.0]);
+        let qualia = qualia_with(1);
+        let composite = alpha_front_to_back_composite(
+            &hits,
+            |row| &qualia[row as usize][..],
+            ALPHA_SATURATION_THRESHOLD,
+        );
+        assert_eq!(composite.hits_consumed, 1);
+        assert!((composite.alpha_acc - 1.0).abs() < 1e-6,
+            "α_acc must be 1.0 after one opaque hit, got {}", composite.alpha_acc);
+        assert!(composite.saturated,
+            "α=1.0 > 0.99 threshold → saturated must be true");
+        // qualia[0] = [1.0; QUALIA_DIMS]. weight = 1.0 · 1.0 = 1.0.
+        // color_acc[0..QUALIA_DIMS] = qualia[0].
+        for i in 0..QUALIA_DIMS {
+            assert!((composite.color_acc[i] - 1.0).abs() < 1e-6,
+                "color_acc[{}] must equal qualia[0][{}] = 1.0, got {}",
+                i, i, composite.color_acc[i]);
+        }
+        // Trailing slots [QUALIA_DIMS..ALPHA_COMPOSITE_DIMS) stay zero.
+        for i in QUALIA_DIMS..ALPHA_COMPOSITE_DIMS {
+            assert_eq!(composite.color_acc[i], 0.0,
+                "color_acc[{}] beyond QUALIA_DIMS must be zero", i);
+        }
+    }
+
+    /// Negative-space: existing merge modes (Bundle, Xor, Superposition)
+    /// must not populate `alpha_composite`. Only AlphaFrontToBack does.
+    /// The full top-K aggregation pipeline (entropy, std_dev, top_k) must
+    /// also be unchanged across modes — we probe by running the same
+    /// dispatch with no override and with each non-alpha override and
+    /// asserting `alpha_composite` stays None and the cycle outputs match.
+    #[test]
+    fn existing_merge_modes_unchanged() {
+        let bs = Arc::new(demo_bindspace());
+        let sr = Arc::new(demo_semiring());
+        let driver = CognitiveShaderBuilder::new()
+            .bindspace(bs).semiring(sr).planes(demo_planes()).build();
+
+        let baseline = ShaderDispatch {
+            rows: ColumnWindow::new(0, 4),
+            meta_prefilter: MetaFilter::ALL,
+            layer_mask: 0xFF,
+            radius: u16::MAX,
+            style: StyleSelector::Ordinal(auto_style::ANALYTICAL),
+            ..Default::default()
+        };
+        let baseline_crystal = driver.dispatch(&baseline);
+        // No override → alpha_composite must be None (gate decides Bundle
+        // by default for homeostatic paths, never AlphaFrontToBack).
+        assert!(baseline_crystal.alpha_composite.is_none(),
+            "default dispatch must not populate alpha_composite");
+
+        // Bundle override — the gate's Bundle path stays.
+        let bundle_req = ShaderDispatch {
+            merge_override: Some(MergeMode::Bundle),
+            ..baseline
+        };
+        let bundle_crystal = driver.dispatch(&bundle_req);
+        assert!(bundle_crystal.alpha_composite.is_none(),
+            "MergeMode::Bundle override must not populate alpha_composite");
+        // Top-K outputs remain identical to baseline.
+        assert_eq!(bundle_crystal.bus.resonance.hit_count,
+                   baseline_crystal.bus.resonance.hit_count);
+        assert_eq!(bundle_crystal.bus.resonance.entropy.to_bits(),
+                   baseline_crystal.bus.resonance.entropy.to_bits());
+
+        // Xor override — same negative-space property.
+        let xor_req = ShaderDispatch {
+            merge_override: Some(MergeMode::Xor),
+            ..baseline
+        };
+        let xor_crystal = driver.dispatch(&xor_req);
+        assert!(xor_crystal.alpha_composite.is_none(),
+            "MergeMode::Xor override must not populate alpha_composite");
+        assert_eq!(xor_crystal.bus.resonance.hit_count,
+                   baseline_crystal.bus.resonance.hit_count);
+
+        // Superposition override — same.
+        let super_req = ShaderDispatch {
+            merge_override: Some(MergeMode::Superposition),
+            ..baseline
+        };
+        let super_crystal = driver.dispatch(&super_req);
+        assert!(super_crystal.alpha_composite.is_none(),
+            "MergeMode::Superposition override must not populate alpha_composite");
+
+        // Positive control: AlphaFrontToBack override DOES populate it.
+        let alpha_req = ShaderDispatch {
+            merge_override: Some(MergeMode::AlphaFrontToBack),
+            ..baseline
+        };
+        let alpha_crystal = driver.dispatch(&alpha_req);
+        assert!(alpha_crystal.alpha_composite.is_some(),
+            "MergeMode::AlphaFrontToBack override MUST populate alpha_composite");
+    }
+
+    /// Sanity probe: `confidence_to_alpha` clamps NaN / out-of-range
+    /// resonances to zero so a poisoned hit can't break the composite.
+    #[test]
+    fn confidence_to_alpha_clamps_pathological() {
+        let hit_nan = ShaderHit { resonance: f32::NAN, ..Default::default() };
+        let hit_inf = ShaderHit { resonance: f32::INFINITY, ..Default::default() };
+        let hit_neg = ShaderHit { resonance: -0.5, ..Default::default() };
+        let hit_big = ShaderHit { resonance: 5.0, ..Default::default() };
+        assert_eq!(hit_nan.confidence_to_alpha(), 0.0);
+        assert_eq!(hit_inf.confidence_to_alpha(), 0.0);
+        assert_eq!(hit_neg.confidence_to_alpha(), 0.0);
+        assert_eq!(hit_big.confidence_to_alpha(), 1.0);
     }
 }
