@@ -160,19 +160,40 @@ are the wrong vendor today.
 
 ## 7. Next deliverable
 
-The next concrete deliverable is the **F1 oracle-parity demo** on a hand-curated 1,000-record
-subset of clinic data. The demo will show:
+**F1 has shipped.** The MySQL ↔ SPO oracle-parity machinery is now in place across all three
+repositories. What is in production today:
 
-- The fixed query corpus running against both MySQL groundtruth and the MedCare Foundry.
-- Per-query result equality, automatically checked.
-- Per-query latency comparison, recorded.
-- A short written summary of where Foundry matches, where it diverges, and (if any) where it is
-  faster — with the caveat that F1 numbers on a 1k-record subset do not generalize.
+- **C# read path (MedCareV2).** A sample-gated `LanceProbe` calls both the existing
+  direct-MySQL path and the Foundry path on the same query, hands both result sets to
+  `ParityWitness` for canonicalisation, and emits the witness into `DriftSink`'s in-process
+  queue. `DriftSink` flushes asynchronously to an HTTP ingest endpoint. Landed in MedCareV2
+  PRs **#1**, **#2**, **#3**.
+- **medcare-rs ingest.** `POST /api/__parity/csharp` accepts the JSON document `DriftSink`
+  emits and writes it into an in-memory ring buffer (capacity 1024, drops oldest). Landed in
+  medcare-rs PR **#71**. The ring buffer is deliberately bounded; nothing here is durable
+  yet, and that is a known limitation, not a missing feature.
+- **lance-graph contract DTO.** The wire format both sides serialise to is defined by
+  `lance-graph-callcenter::transcode::parallelbetrieb::DriftEvent`, with the discriminant
+  `DriftKind` (`Match` / `ValueDrift` / `ShapeDrift` / `MissingMysql` / `MissingLance`) and
+  the `Reconciler` trait that any future runner implements. Landed in lance-graph PR **#309**.
 
-We will publish the F1 numbers exactly as measured. If they are unfavourable, we publish them
-unfavourable. The whole point of an oracle-parity phase is to find out where we are, not to
-confirm where we wish we were.
+What F1 does **not** yet give us:
 
+- No latency numbers are quoted here. The harness records per-query timing, but the §4 rule
+  still applies: until a benchmark report on the fixed corpus is published, treat performance
+  as "designed to match", not "matches".
+- The drift queue is in-memory on both sides. Persistence and replay are out of scope for F1.
+- The corpus is hand-curated. Generalisation to a clinic's full query mix is not claimed.
+
+**What is actually next: F2 RBAC + audit wiring on the medcare-rs read path.** The
+lance-graph side already exposes `lance_graph_callcenter::rls::RlsRewriter` and the
+`AuditSink` trait (see `crates/lance-graph-callcenter/src/postgrest.rs` and
+`crates/lance-graph-callcenter/src/lance_membrane.rs`). The C# direct-MySQL path is the
+groundtruth oracle, so its access-control story is unchanged. The blocker is a medcare-rs
+PR that wires `RlsRewriter` into the SPO read path so that every read either matches an
+explicit role grant or is rejected, and routes the resulting decision through an
+`AuditSink` implementation. That PR has not been opened yet. Until it is, F2 is a posture,
+not a delivery, and we will not quote F2 guarantees in client material.
 ---
 
 End of draft.
