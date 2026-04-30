@@ -354,13 +354,7 @@ impl UnifiedStep {
     /// better than the old `pub id: StepId` field that every caller
     /// initialized to `0`, collapsing the DAG to a single node.
     pub fn id(&self) -> StepId {
-        // FNV-1a over step_id bytes — deterministic, collision-resistant.
-        let mut h: u64 = 0xcbf29ce484222325;
-        for b in self.step_id.as_bytes() {
-            h ^= *b as u64;
-            h = h.wrapping_mul(0x100000001b3);
-        }
-        h
+        crate::hash::fnv1a_str(&self.step_id)
     }
 }
 

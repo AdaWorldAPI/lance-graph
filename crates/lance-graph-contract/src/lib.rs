@@ -44,6 +44,7 @@ pub mod external_membrane;
 pub mod faculty;
 pub mod grammar;
 pub mod graph_render;
+pub mod hash;
 pub mod high_heel;
 pub mod jit;
 pub mod literal_graph;

@@ -108,14 +108,8 @@ impl DnPath {
     }
 }
 
-/// FNV-1a 64-bit — zero-dep, stable for the same input string.
 fn fnv1a(s: &str) -> u64 {
-    let mut h: u64 = 14695981039346656037;
-    for b in s.bytes() {
-        h ^= b as u64;
-        h = h.wrapping_mul(1099511628211);
-    }
-    h
+    lance_graph_contract::hash::fnv1a_str(s)
 }
 
 #[cfg(test)]

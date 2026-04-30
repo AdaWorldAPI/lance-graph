@@ -370,18 +370,6 @@ pub trait SchemaExpander {
     fn expand_link(&self, link: &LinkSpec, subject_id: u64, object_id: u64) -> ExpandedTriple;
 }
 
-/// FNV-1a 64-bit hash of an arbitrary byte slice. Used by the
-/// `SchemaExpander` impl to materialise stable `value:{hex}` object
-/// labels from raw property bytes without dragging in a hashing dep.
-pub(crate) fn fnv64(bytes: &[u8]) -> u64 {
-    let mut h: u64 = 0xcbf29ce484222325;
-    for &b in bytes {
-        h ^= b as u64;
-        h = h.wrapping_mul(0x100000001b3);
-    }
-    h
-}
-
 impl SchemaExpander for Ontology {
     fn expand_entity(
         &self,
@@ -427,7 +415,7 @@ impl SchemaExpander for Ontology {
                 ExpandedTriple {
                     subject_label: subject_label.clone(),
                     predicate: predicate_static,
-                    object_label: format!("value:{:016x}", fnv64(value_bytes)),
+                    object_label: format!("value:{:016x}", crate::hash::fnv1a(value_bytes)),
                     truth,
                     property_kind: kind,
                     marking,

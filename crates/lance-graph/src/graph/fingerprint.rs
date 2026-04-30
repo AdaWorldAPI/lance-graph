@@ -20,12 +20,7 @@ pub fn label_fp(label: &str) -> Fingerprint {
     let mut fp = [0u64; FINGERPRINT_WORDS];
     let bytes = label.as_bytes();
 
-    // Primary hash using FNV-1a constants
-    let mut h: u64 = 0xcbf29ce484222325;
-    for &b in bytes {
-        h ^= b as u64;
-        h = h.wrapping_mul(0x100000001b3);
-    }
+    let mut h: u64 = lance_graph_contract::hash::fnv1a(bytes);
     fp[0] = h;
 
     // Fill remaining words with cascading mixes
@@ -68,12 +63,7 @@ pub fn label_fp(label: &str) -> Fingerprint {
 ///
 /// Used for keying records in the SPO store.
 pub fn dn_hash(dn: &str) -> u64 {
-    let mut h: u64 = 0xcbf29ce484222325;
-    for &b in dn.as_bytes() {
-        h ^= b as u64;
-        h = h.wrapping_mul(0x100000001b3);
-    }
-    h
+    lance_graph_contract::hash::fnv1a_str(dn)
 }
 
 /// Compute Hamming distance between two fingerprints.

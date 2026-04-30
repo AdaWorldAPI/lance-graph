@@ -283,13 +283,7 @@ pub fn make_step_named(tag: &str, depends_on: Vec<StepId>) -> UnifiedStep {
 /// Compute the FNV-derived `StepId` for a step tag — useful for
 /// expressing `depends_on` against a tag-named step.
 pub fn step_id_of(tag: &str) -> StepId {
-    // Mirror UnifiedStep::id() exactly.
-    let mut h: u64 = 0xcbf29ce484222325;
-    for b in tag.as_bytes() {
-        h ^= *b as u64;
-        h = h.wrapping_mul(0x100000001b3);
-    }
-    h
+    lance_graph_contract::hash::fnv1a_str(tag)
 }
 
 /// Numeric-tag convenience: `make_step(1, vec![3])` builds a step

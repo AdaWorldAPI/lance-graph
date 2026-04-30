@@ -124,12 +124,7 @@ impl RoleKey {
 //   `vsa_cosine` (similarity)
 
 fn fnv64(s: &str) -> u64 {
-    let mut h: u64 = 0xcbf29ce484222325;
-    for b in s.bytes() {
-        h ^= b as u64;
-        h = h.wrapping_mul(0x100000001b3);
-    }
-    h
+    crate::hash::fnv1a_str(s)
 }
 
 fn lcg_next(state: &mut u64) -> u64 {
@@ -421,17 +416,9 @@ impl RoleKeySlice {
     }
 }
 
-/// Hand-rolled FNV-64a over raw bytes. `const fn` so role-key tables can
-/// be evaluated at compile time. No new deps.
+/// Delegate to the canonical `hash::fnv1a` (const fn, zero-dep).
 pub const fn fnv64_bytes(bytes: &[u8]) -> u64 {
-    let mut hash: u64 = 0xcbf29ce484222325;
-    let mut i = 0;
-    while i < bytes.len() {
-        hash ^= bytes[i] as u64;
-        hash = hash.wrapping_mul(0x100000001b3);
-        i += 1;
-    }
-    hash
+    crate::hash::fnv1a(bytes)
 }
 
 // --- SPO core role slices (mirror of SUBJECT_KEY..CONTEXT_KEY) --------------
