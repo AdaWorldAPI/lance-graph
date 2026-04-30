@@ -66,6 +66,65 @@ filter discipline — agents pull their own debt by `@`-mention.
 (Seeded with known deferrals from recent PRs. New items PREPEND
 with today's date.)
 
+## 2026-04-30 — TD-BGZ-TESTS-1: 5 pre-existing bgz-tensor test failures shipped with PR #308
+
+**Status:** Open
+**Priority:** P2
+**Scope:** @family-codec-smith @palette-engineer crate:bgz-tensor
+**Introduced by:** PR #308 (bgz-tensor pulled into workspace; failures pre-date workspace inclusion)
+**Payoff estimate:** ~150-300 LOC across 4 modules; investigation-heavy
+
+### What
+
+PR #308's body claimed "194/200 tests pass, 6 pre-existing failures in
+experimental codec paths" without listing which tests. Verified after
+the merge — actually **5 failures** today (one was fixed by the master
+merge during the PR cycle). The five are deterministic and reproducible
+on `main` `540408e`:
+
+| Test (file:line) | Panic |
+|---|---|
+| `gamma_calibration::tests::calibration_profile_size` (`src/gamma_calibration.rs:435`) | `assertion left == right failed: left: 48, right: 40` — calibration profile size drifted |
+| `hhtl_d::tests::hhtl_d_entry_roundtrip` (`src/hhtl_d.rs:564`) | `(decoded.residual_f32() - 1.0).abs() < 1e-3` — residual roundtrip exceeds 1e-3 tolerance |
+| `matryoshka::tests::encode_decode_roundtrip_nonzero` (`src/matryoshka.rs:469`) | panic at `band_max` selection in roundtrip path |
+| `matryoshka::tests::roundtrip_quality_reasonable` (`src/matryoshka.rs:469`) | same panic site as above |
+| `hhtl_cache::tests::test_hhtl_cache_256_size` (`src/hhtl_cache.rs:635`) | `assertion left == right failed: expected 206342 bytes, got 206358` (16-byte drift) |
+
+### Why open
+
+These are pre-existing failures in experimental codec paths
+(gamma calibration, HHTL-D residual, Matryoshka encoding,
+HHTL cache layout). They were never exercised by CI before
+PR #308 because bgz-tensor was workspace-excluded. The
+substrate (workspace inclusion + ndarray exports + compat shim
+removal) is the actual deliverable of #308; fixing these tests
+is its own scope.
+
+### Cross-ref
+
+- Reproduce: `cargo test -p bgz-tensor --lib --no-fail-fast`
+- Test logs captured (locally): `/tmp/bgz-tensor-tests.log`, `/tmp/bgz-tests-detail.log`
+- Per-failure panic detail: see table above
+- PR #308 (merged commit `540408e`)
+- Earlier session footprint: agent originally reported 6 failures
+  (added `adaptive_codec::tests::adaptive_encode_decode`); that one
+  was fixed by master merge `f429dec`
+
+### Payoff path
+
+1. **Quick win**: `hhtl_cache::test_hhtl_cache_256_size` — 16-byte
+   size drift, likely a recent struct alignment change. Read
+   `hhtl_cache.rs:635` + `git log -p src/hhtl_cache.rs`. ~1 hour.
+2. **Medium**: `gamma_calibration::calibration_profile_size` —
+   profile size 48 vs expected 40. Either expectation needs update
+   or profile structure regressed. ~2 hours.
+3. **Hard**: `hhtl_d::hhtl_d_entry_roundtrip` and the two
+   `matryoshka::*roundtrip*` failures — encoding-quality
+   regressions. Need codec-smith specialist.
+
+Defer until calibration probe queue catches up
+(`bf16-hhtl-terrain.md`).
+
 ```
 ## YYYY-MM-DD — <short title>
 **Status:** Open
