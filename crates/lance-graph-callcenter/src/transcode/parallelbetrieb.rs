@@ -156,6 +156,47 @@ impl DriftEvent {
     }
 }
 
+/// Validate that a drift-event route resolves to an entity_type in the
+/// given ontology.
+///
+/// Routes follow the convention `/api/{entity_type_lowercase}/{...}` —
+/// e.g. `/api/patient/42`, `/api/labresult/17`. The validator parses the
+/// second path segment, lowercases it, and checks that it matches any
+/// `Schema.name` in the ontology under a case-insensitive comparison.
+///
+/// Returns `Ok(())` on a valid route, `Err(reason)` otherwise. The error
+/// is intended for fast-fail in tests and for warnings in dashboard
+/// rendering — the parallelbetrieb runner itself should *not* gate on
+/// route validation, because a typo route is still genuine telemetry
+/// (it tells you a buggy callsite exists). The validator is for
+/// pre-flight checks of static route lists.
+pub fn validate_route(
+    route: &str,
+    ontology: &lance_graph_contract::ontology::Ontology,
+) -> Result<(), String> {
+    let stripped = route
+        .strip_prefix("/api/")
+        .ok_or_else(|| format!("route does not start with `/api/` (got `{route}`)"))?;
+    let entity_segment = stripped
+        .split('/')
+        .next()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| format!("route has no entity segment after `/api/` (got `{route}`)"))?;
+    let normalized = entity_segment.to_ascii_lowercase();
+    let matches = ontology
+        .schemas
+        .iter()
+        .any(|s| s.name.eq_ignore_ascii_case(&normalized));
+    if matches {
+        Ok(())
+    } else {
+        let known: Vec<&str> = ontology.schemas.iter().map(|s| s.name).collect();
+        Err(format!(
+            "route entity_type `{entity_segment}` not found in ontology — known: {known:?}"
+        ))
+    }
+}
+
 /// Contract for any parallelbetrieb implementation.
 ///
 /// Two implementors are anticipated:
@@ -289,5 +330,47 @@ mod tests {
         assert_eq!(ev.captured_at.len(), 20); // yyyy-mm-ddTHH:MM:SSZ
         assert!(ev.captured_at.ends_with('Z'));
         assert!(ev.captured_at.contains('T'));
+    }
+
+    // ── route validation ────────────────────────────────────────────────────
+
+    fn ontology_with_patient_and_labresult() -> lance_graph_contract::ontology::Ontology {
+        use lance_graph_contract::property::Schema;
+        lance_graph_contract::ontology::Ontology::builder("Test")
+            .schema(Schema::builder("Patient").required("name").build())
+            .schema(Schema::builder("LabResult").required("value").build())
+            .build()
+    }
+
+    #[test]
+    fn validate_route_accepts_known_entity_type() {
+        let ont = ontology_with_patient_and_labresult();
+        assert!(validate_route("/api/patient/42", &ont).is_ok());
+        assert!(validate_route("/api/Patient/42", &ont).is_ok());
+        assert!(validate_route("/api/labresult/17", &ont).is_ok());
+        assert!(validate_route("/api/LabResult/17", &ont).is_ok());
+    }
+
+    #[test]
+    fn validate_route_rejects_typo_entity_type() {
+        let ont = ontology_with_patient_and_labresult();
+        let err = validate_route("/api/patient_typo/42", &ont).unwrap_err();
+        assert!(err.contains("patient_typo"));
+        assert!(err.contains("Patient"));
+        assert!(err.contains("LabResult"));
+    }
+
+    #[test]
+    fn validate_route_rejects_missing_api_prefix() {
+        let ont = ontology_with_patient_and_labresult();
+        assert!(validate_route("/v1/patient/42", &ont).is_err());
+        assert!(validate_route("patient/42", &ont).is_err());
+    }
+
+    #[test]
+    fn validate_route_rejects_empty_entity_segment() {
+        let ont = ontology_with_patient_and_labresult();
+        assert!(validate_route("/api/", &ont).is_err());
+        assert!(validate_route("/api//42", &ont).is_err());
     }
 }

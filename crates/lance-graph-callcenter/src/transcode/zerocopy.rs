@@ -51,6 +51,8 @@ pub enum ArrowTypeCode {
     UInt32,
     UInt64,
     Float32,
+    /// 32-bit days since Unix epoch — Arrow `Date32`.
+    Date32,
     /// Fixed-size list of f32 with the given size (e.g. 16 384 for VSA carriers).
     FixedSizeListF32(usize),
     /// Fixed-size binary of the given byte width (e.g. 64 for `Fingerprint`).
@@ -60,6 +62,11 @@ pub enum ArrowTypeCode {
 }
 
 /// One column in the outer-ontology view of an entity type.
+///
+/// Carries the [`CodecRoute`] copied from the upstream `PropertySpec` so
+/// that read-side dispatch (in [`super::cam_pq_decode`]) can consult the
+/// declarative route directly, without re-running the model-weight
+/// classifier in `lance_graph_contract::cam::route_tensor`.
 #[derive(Clone, Debug)]
 pub struct OuterColumn {
     pub name: &'static str,
@@ -67,6 +74,12 @@ pub struct OuterColumn {
     pub semantic_type: SemanticType,
     pub marking: Marking,
     pub arrow_type_code: ArrowTypeCode,
+    /// Codec route declared by the upstream `PropertySpec`. Round-1 of
+    /// the transcode crate inferred this from the column name; round-2
+    /// honours the contract's own field — every PropertySpec already
+    /// carries a `codec_route` and hand-rolled inference would only
+    /// ever drift from it.
+    pub codec_route: lance_graph_contract::cam::CodecRoute,
 }
 
 /// Outer-ontology projection of one entity type's columns. Derived from
@@ -105,14 +118,37 @@ fn schema_columns(schema: &Schema) -> Vec<OuterColumn> {
             semantic_type: p.semantic_type.clone(),
             marking: p.marking,
             arrow_type_code: arrow_type_for_semantic(&p.semantic_type),
+            codec_route: p.codec_route,
         })
         .collect()
 }
 
-/// Round-1 collapses every semantic type to `Utf8`. Round 2 plumbs richer
-/// Arrow types (`Date32`, `Decimal128`, etc.) per consumer demand.
-fn arrow_type_for_semantic(_st: &SemanticType) -> ArrowTypeCode {
-    ArrowTypeCode::Utf8
+/// Map a `SemanticType` to the Arrow type the external surface should
+/// emit. Picked so that DataFusion predicate pushdown is meaningful:
+///
+/// - **`Currency` → `Float32`**: numeric comparison (`amount > 1000.0`)
+///   becomes a fast scan filter instead of a string compare.
+/// - **`Date(_)` → `Date32`**: temporal comparison (`birth >= 1980-01-01`)
+///   pushes down through Arrow's date kernels.
+/// - **`CustomerId` / `InvoiceNumber` → `UInt64`**: per-tenant numeric
+///   identifiers; faster equality checks than string equality.
+/// - **Everything else → `Utf8`**: opaque text, lexical compare only.
+///
+/// Currency carries an ISO 4217 code (`Currency("EUR")`); the code is
+/// metadata at the schema layer, not per-row data, so we don't widen the
+/// Arrow type to a struct. Consumers that need the code read it from the
+/// `OuterColumn.semantic_type` field.
+fn arrow_type_for_semantic(st: &SemanticType) -> ArrowTypeCode {
+    match st {
+        SemanticType::Currency(_) => ArrowTypeCode::Float32,
+        SemanticType::Date(_) => ArrowTypeCode::Date32,
+        SemanticType::CustomerId | SemanticType::InvoiceNumber => ArrowTypeCode::UInt64,
+        // Geo / File / Image / Address / Iban / Email / Phone / Url /
+        // TaxId / PlainText all collapse to opaque text. Round 3 may
+        // pivot specific ones (Geo → struct{lat: f32, lon: f32}) when
+        // a consumer asks.
+        _ => ArrowTypeCode::Utf8,
+    }
 }
 
 // ── Arrow wiring (feature `persist`) ─────────────────────────────────────────
@@ -141,6 +177,7 @@ pub fn arrow_data_type(code: ArrowTypeCode) -> DataType {
         ArrowTypeCode::UInt32 => DataType::UInt32,
         ArrowTypeCode::UInt64 => DataType::UInt64,
         ArrowTypeCode::Float32 => DataType::Float32,
+        ArrowTypeCode::Date32 => DataType::Date32,
         ArrowTypeCode::FixedSizeListF32(n) => DataType::FixedSizeList(
             Arc::new(Field::new("item", DataType::Float32, false)),
             n as i32,
@@ -158,6 +195,9 @@ pub enum OwnedColumn {
     UInt32(Vec<u32>),
     Float32(Vec<f32>),
     Utf8(Vec<String>),
+    /// Date32 — days since Unix epoch (1970-01-01). Negative values are
+    /// pre-epoch. Backed by Arrow's native `Date32Array`.
+    Date32(Vec<i32>),
     /// VSA carriers — flat row-major `f32`. `inner_size` is the per-row
     /// dimensionality (e.g. 16384 for Vsa16kF32). Total length must be
     /// `nrows * inner_size`.
@@ -183,6 +223,7 @@ impl OwnedColumn {
             OwnedColumn::UInt32(v) => v.len(),
             OwnedColumn::Float32(v) => v.len(),
             OwnedColumn::Utf8(v) => v.len(),
+            OwnedColumn::Date32(v) => v.len(),
             OwnedColumn::FixedSizeListF32 { flat, inner_size } => {
                 if *inner_size == 0 {
                     0
@@ -206,6 +247,7 @@ impl OwnedColumn {
             OwnedColumn::UInt32(v) => Ok(Arc::new(UInt32Array::from(v)) as ArrayRef),
             OwnedColumn::Float32(v) => Ok(Arc::new(Float32Array::from(v)) as ArrayRef),
             OwnedColumn::Utf8(v) => Ok(Arc::new(StringArray::from(v)) as ArrayRef),
+            OwnedColumn::Date32(v) => Ok(Arc::new(arrow::array::Date32Array::from(v)) as ArrayRef),
             OwnedColumn::FixedSizeListF32 { flat, inner_size } => {
                 if inner_size == 0 || flat.len() % inner_size != 0 {
                     return Err(TranscodeError::ShapeMismatch);
@@ -269,6 +311,75 @@ pub fn from_columns(
             return Err(TranscodeError::RowCountMismatch);
         }
         arrays.push(owned.into_array()?);
+    }
+
+    if let Some((extra, _)) = by_name.iter().find(|(_, c)| c.is_some()) {
+        return Err(TranscodeError::UndeclaredColumn(extra.clone()));
+    }
+
+    RecordBatch::try_new(arrow_schema, arrays).map_err(TranscodeError::Arrow)
+}
+
+/// Build a `RecordBatch` for a **partial** row write — for PATCH-style
+/// upserts where only a subset of fields is being changed.
+///
+/// Rules (stricter than [`from_columns`] in one place, looser in another):
+///
+/// 1. **Required columns** declared in the ontology must still be
+///    present. Required-by-construction means the entity row can't exist
+///    without them; allowing partial writes that omit required fields
+///    would invite silent rows missing key data.
+/// 2. **Optional / Free columns** may be omitted. Omitted columns appear
+///    as Arrow null arrays in the output batch — DataFusion's standard
+///    `IS NULL` filter sees them.
+/// 3. Undeclared columns are still rejected (same as the strict path).
+/// 4. The mode is honest about itself — round-1 emits all-null arrays
+///    for missing optionals, which costs `O(nrows)` bytes per skipped
+///    column. A full Arrow null-bitmap path is the round-2 lift; this
+///    keeps the API surface stable while lifting the contract.
+#[cfg(any(feature = "persist", feature = "query-lite"))]
+pub fn from_columns_partial(
+    soa: &OuterSchema,
+    ids: Vec<u64>,
+    body_columns: Vec<(&str, OwnedColumn)>,
+) -> Result<RecordBatch, TranscodeError> {
+    use arrow::array::new_null_array;
+
+    let nrows = ids.len();
+    let arrow_schema = arrow_schema(soa);
+
+    let mut by_name: Vec<(String, Option<OwnedColumn>)> = body_columns
+        .into_iter()
+        .map(|(n, c)| (n.to_string(), Some(c)))
+        .collect();
+
+    let entity_type_strs: Vec<&'static str> = (0..nrows).map(|_| soa.entity_type).collect();
+    let mut arrays: Vec<ArrayRef> = Vec::with_capacity(arrow_schema.fields().len());
+    arrays.push(Arc::new(UInt64Array::from(ids)) as ArrayRef);
+    arrays.push(Arc::new(StringArray::from(entity_type_strs)) as ArrayRef);
+
+    for (idx, soa_col) in soa.columns.iter().enumerate() {
+        let slot = by_name
+            .iter_mut()
+            .find(|(n, c)| n == soa_col.name && c.is_some());
+        match slot {
+            Some((_, slot_opt)) => {
+                let owned = slot_opt.take().expect("just-checked-some");
+                if owned.rows() != nrows {
+                    return Err(TranscodeError::RowCountMismatch);
+                }
+                arrays.push(owned.into_array()?);
+            }
+            None => {
+                if matches!(soa_col.kind, PropertyKind::Required) {
+                    return Err(TranscodeError::MissingColumn(soa_col.name.to_string()));
+                }
+                // Optional / Free — fill with nulls. Field index in
+                // arrow_schema is `idx + 2` (id + entity_type prefix).
+                let field = arrow_schema.field(idx + 2);
+                arrays.push(new_null_array(field.data_type(), nrows));
+            }
+        }
     }
 
     if let Some((extra, _)) = by_name.iter().find(|(_, c)| c.is_some()) {
