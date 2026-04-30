@@ -549,6 +549,252 @@ fn parse_entity_id_from_label(subject_label: &str, expected_type: &str) -> Optio
         .and_then(|rest| rest.parse::<u64>().ok())
 }
 
+// ── Round-3: typed value reconstruction with resolver ────────────────────────
+
+/// Build a `RecordBatch` from a stream of [`ExpandedTriple`]s, **with
+/// typed value reconstruction**. Round-3 of the Phase-2 reverse-path
+/// helper.
+///
+/// The round-1 [`triples_to_batch`] emits hashes in the body columns —
+/// `ExpandedTriple.object_label` is constructed as
+/// `format!("value:{:016x}", fnv1a(value_bytes))`, so the original
+/// values aren't recoverable from triples alone. Round-3 takes a
+/// `value_resolver` closure that maps each `object_label` back to the
+/// original `&[u8]` (consumer-side state — typically a side-table the
+/// caller maintains alongside the SPO store).
+///
+/// When the resolver returns `Some(bytes)` the helper parses them per
+/// the column's `SemanticType` into a typed Arrow scalar:
+///
+/// | `SemanticType` | Arrow type | Parser |
+/// |---|---|---|
+/// | `Currency(_)` | `Float32` | `str::parse::<f32>` |
+/// | `Date(_)` | `Date32` | `YYYY-MM-DD` → days-since-Unix-epoch |
+/// | `CustomerId` / `InvoiceNumber` | `UInt64` | `str::parse::<u64>` |
+/// | everything else | `Utf8` | UTF-8 bytes as-is |
+///
+/// When the resolver returns `None` (i.e. the consumer doesn't know
+/// the original value for this hash), the cell is null. Required
+/// columns that get all-`None` resolutions surface as a typed
+/// `MissingColumn` error — consistent with the round-1
+/// [`from_columns`] / [`triples_to_batch`] contract.
+///
+/// The output schema matches [`arrow_schema(soa)`](arrow_schema) — the
+/// canonical typed wire shape, **not** the lenient round-1 Utf8
+/// fallback. Callers that need the lenient shape stay on
+/// [`triples_to_batch`].
+///
+/// ## What's still deferred
+///
+/// - `Date(Month)` / `Date(Year)` precisions parse only `YYYY-MM-DD`
+///   today; round-4 plumbs the precision into the parser.
+/// - `Geo` / `File(_)` / `Image` collapse to Utf8; Round-4 may pivot
+///   them to richer types per consumer demand.
+/// - The resolver signature is synchronous. An async variant for
+///   resolvers that hit a remote store is round-5.
+#[cfg(any(feature = "persist", feature = "query-lite"))]
+pub fn triples_to_batch_with_resolver<R>(
+    soa: &OuterSchema,
+    triples: &[lance_graph_contract::ontology::ExpandedTriple],
+    resolver: R,
+) -> Result<RecordBatch, TranscodeError>
+where
+    R: Fn(&str) -> Option<Vec<u8>>,
+{
+    use std::collections::BTreeMap;
+
+    // Group triples by subject_label exactly as triples_to_batch does.
+    // Same canonicalisation rules — entity_type_id must match, label
+    // must follow the canonical mint.
+    let mut grouped: BTreeMap<String, (u64, Vec<&lance_graph_contract::ontology::ExpandedTriple>)> =
+        BTreeMap::new();
+    for t in triples {
+        if t.entity_type_id != soa.entity_type_id {
+            return Err(TranscodeError::EntityTypeMismatch {
+                expected: soa.entity_type_id,
+                got: t.entity_type_id,
+            });
+        }
+        let entity_id = parse_entity_id_from_label(&t.subject_label, soa.entity_type)
+            .ok_or_else(|| TranscodeError::BadSubjectLabel(t.subject_label.clone()))?;
+        grouped
+            .entry(t.subject_label.clone())
+            .or_insert_with(|| (entity_id, Vec::new()))
+            .1
+            .push(t);
+    }
+
+    let nrows = grouped.len();
+    let arrow_schema = arrow_schema(soa);
+    let mut ids: Vec<u64> = Vec::with_capacity(nrows);
+    let mut entity_type_strs: Vec<&'static str> = Vec::with_capacity(nrows);
+
+    // Per-row resolved value (or None) for each declared body column.
+    let ncols = soa.columns.len();
+    let mut resolved: Vec<Vec<Option<Vec<u8>>>> =
+        (0..ncols).map(|_| Vec::with_capacity(nrows)).collect();
+
+    for (_subject, (entity_id, group_triples)) in &grouped {
+        ids.push(*entity_id);
+        entity_type_strs.push(soa.entity_type);
+        for (col_idx, soa_col) in soa.columns.iter().enumerate() {
+            let bytes = group_triples
+                .iter()
+                .find(|t| t.predicate == soa_col.name)
+                .and_then(|t| resolver(&t.object_label));
+            resolved[col_idx].push(bytes);
+        }
+    }
+
+    // Materialise. id + entity_type lead; body columns build per
+    // declared `arrow_type_code`, parsing the resolved bytes.
+    let mut arrays: Vec<ArrayRef> = Vec::with_capacity(arrow_schema.fields().len());
+    arrays.push(Arc::new(UInt64Array::from(ids)) as ArrayRef);
+    arrays.push(Arc::new(StringArray::from(entity_type_strs)) as ArrayRef);
+
+    for (col_idx, col_resolved) in resolved.into_iter().enumerate() {
+        let soa_col = &soa.columns[col_idx];
+        let required = matches!(soa_col.kind, PropertyKind::Required);
+        if required && col_resolved.iter().any(|b| b.is_none()) {
+            return Err(TranscodeError::MissingColumn(soa_col.name.into()));
+        }
+        let arr = build_typed_array(soa_col, &col_resolved)?;
+        arrays.push(arr);
+    }
+
+    RecordBatch::try_new(arrow_schema, arrays).map_err(TranscodeError::Arrow)
+}
+
+/// Build a typed Arrow array for one column from the resolver's
+/// per-row `Option<Vec<u8>>` outputs.
+///
+/// Behaviour:
+/// - `None` (resolver couldn't find the value) → null cell. The caller
+///   has already filtered required-with-all-`None` cases; this path
+///   only reaches `None` for optional columns or when the batch as a
+///   whole has at least one resolved cell for a required column.
+/// - `Some(bytes)` parses per `arrow_type_code`.
+/// - **Parse failure on a required column** surfaces as
+///   `TranscodeError::ParseFailure` rather than a null cell. Arrow
+///   would later reject the null in a non-nullable column with an
+///   opaque error; the typed error gives the consumer enough context
+///   to decide whether to fix the data or relax the schema.
+/// - Parse failure on an optional / free column → null cell (consumer
+///   may inspect the resolver's input separately if needed).
+#[cfg(any(feature = "persist", feature = "query-lite"))]
+fn build_typed_array(
+    col: &OuterColumn,
+    resolved: &[Option<Vec<u8>>],
+) -> Result<ArrayRef, TranscodeError> {
+    use arrow::array::{Date32Array, Float32Array as Fa};
+
+    let required = matches!(col.kind, PropertyKind::Required);
+
+    match col.arrow_type_code {
+        ArrowTypeCode::Utf8 | ArrowTypeCode::Null => {
+            // String parsing never fails (UTF-8 lossy decode), so the
+            // required-vs-optional distinction doesn't apply here.
+            let strs: Vec<Option<String>> = resolved
+                .iter()
+                .map(|b| b.as_ref().map(|v| String::from_utf8_lossy(v).into_owned()))
+                .collect();
+            Ok(Arc::new(StringArray::from(strs)) as ArrayRef)
+        }
+        ArrowTypeCode::Float32 => {
+            let vals = parse_each(col, required, resolved, |s| s.parse::<f32>().ok())?;
+            Ok(Arc::new(Fa::from(vals)) as ArrayRef)
+        }
+        ArrowTypeCode::UInt32 => {
+            let vals = parse_each(col, required, resolved, |s| s.parse::<u32>().ok())?;
+            Ok(Arc::new(UInt32Array::from(vals)) as ArrayRef)
+        }
+        ArrowTypeCode::UInt64 => {
+            let vals = parse_each(col, required, resolved, |s| s.parse::<u64>().ok())?;
+            Ok(Arc::new(UInt64Array::from(vals)) as ArrayRef)
+        }
+        ArrowTypeCode::Date32 => {
+            let vals = parse_each(col, required, resolved, parse_iso_date_to_days)?;
+            Ok(Arc::new(Date32Array::from(vals)) as ArrayRef)
+        }
+        ArrowTypeCode::FixedSizeListF32(_) | ArrowTypeCode::FixedSizeBinary(_) => {
+            // Fixed-shape columns aren't resolvable from a single
+            // string-shaped object_label. Round-5 plumbs them via a
+            // separate resolver that returns the full row payload.
+            // Today: emit nulls. Required fixed-shape columns surface
+            // as ParseFailure so the consumer is notified.
+            if required && resolved.iter().any(|r| r.is_some()) {
+                return Err(TranscodeError::ParseFailure {
+                    column: col.name.into(),
+                    reason: "fixed-shape columns not yet supported via resolver",
+                });
+            }
+            let strs: Vec<Option<String>> = resolved.iter().map(|_| None).collect();
+            Ok(Arc::new(StringArray::from(strs)) as ArrayRef)
+        }
+    }
+}
+
+/// Parse each `Option<Vec<u8>>` into `Option<T>` via `parser`. For
+/// **required** columns, a parser that returns `None` on `Some(bytes)`
+/// is treated as `ParseFailure` — the resolver supplied data but it
+/// doesn't fit the declared type, so the consumer should know.
+#[cfg(any(feature = "persist", feature = "query-lite"))]
+fn parse_each<T, F>(
+    col: &OuterColumn,
+    required: bool,
+    resolved: &[Option<Vec<u8>>],
+    parser: F,
+) -> Result<Vec<Option<T>>, TranscodeError>
+where
+    F: Fn(&str) -> Option<T>,
+{
+    let mut out = Vec::with_capacity(resolved.len());
+    for r in resolved {
+        match r.as_ref() {
+            None => out.push(None),
+            Some(bytes) => {
+                let parsed = std::str::from_utf8(bytes).ok().and_then(&parser);
+                if parsed.is_none() && required {
+                    return Err(TranscodeError::ParseFailure {
+                        column: col.name.into(),
+                        reason: "value did not parse as the column's declared type",
+                    });
+                }
+                out.push(parsed);
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// Parse `YYYY-MM-DD` → days since 1970-01-01. Used by the `Date32`
+/// arm of [`build_typed_array`]. Returns `None` on any malformed
+/// input, including out-of-range months / days. Algorithm: Howard
+/// Hinnant's civil_to_days, mirrored from
+/// `parallelbetrieb::unix_to_ymd_hms`'s inverse.
+#[cfg(any(feature = "persist", feature = "query-lite"))]
+fn parse_iso_date_to_days(s: &str) -> Option<i32> {
+    let parts: Vec<&str> = s.split('-').collect();
+    if parts.len() != 3 {
+        return None;
+    }
+    let y: i64 = parts[0].parse().ok()?;
+    let m: i64 = parts[1].parse().ok()?;
+    let d: i64 = parts[2].parse().ok()?;
+    if !(1..=12).contains(&m) || !(1..=31).contains(&d) {
+        return None;
+    }
+    // civil_to_days (Howard Hinnant). Public-domain, exact for any
+    // proleptic-Gregorian date.
+    let y = if m <= 2 { y - 1 } else { y };
+    let era = if y >= 0 { y } else { y - 399 } / 400;
+    let yoe = (y - era * 400) as u64;
+    let doy = ((153 * (if m > 2 { m - 3 } else { m + 9 } as u64) + 2) / 5 + d as u64 - 1) as u64;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    let days_since_epoch = era * 146_097 + doe as i64 - 719_468;
+    i32::try_from(days_since_epoch).ok()
+}
+
 /// Errors from the transcode layer.
 #[derive(Debug)]
 pub enum TranscodeError {
@@ -566,6 +812,13 @@ pub enum TranscodeError {
     /// `subject_label` didn't follow the canonical `entity:{type}:{id}`
     /// shape that `Ontology::expand_entity()` produces.
     BadSubjectLabel(String),
+    /// A required column had `Some(bytes)` from the resolver but the
+    /// bytes didn't parse as the column's declared Arrow type. Carries
+    /// the column name and a static reason for the consumer's logs.
+    ParseFailure {
+        column: String,
+        reason: &'static str,
+    },
     #[cfg(any(feature = "persist", feature = "query-lite"))]
     Arrow(arrow::error::ArrowError),
 }
@@ -588,6 +841,9 @@ impl core::fmt::Display for TranscodeError {
                 f,
                 "subject label `{s}` is not in the canonical `entity:{{type}}:{{id}}` form"
             ),
+            TranscodeError::ParseFailure { column, reason } => {
+                write!(f, "required column `{column}` parse failure: {reason}")
+            }
             #[cfg(any(feature = "persist", feature = "query-lite"))]
             TranscodeError::Arrow(e) => write!(f, "arrow error: {e}"),
         }
@@ -842,6 +1098,222 @@ mod tests {
             // Lexical order: "17" < "42" → row 0 is 17.
             assert_eq!(id_col.value(0), 17);
             assert_eq!(id_col.value(1), 42);
+        }
+    }
+
+    // ── triples_to_batch_with_resolver (round-3 typed values) ────────────────
+    #[cfg(any(feature = "persist", feature = "query-lite"))]
+    mod typed_resolver {
+        use super::*;
+        use arrow::array::{Date32Array, Float32Array as Fa, StringArray, UInt64Array};
+        use lance_graph_contract::cam::CodecRoute;
+        use lance_graph_contract::ontology::{Ontology, SchemaExpander};
+        use lance_graph_contract::property::{DatePrecision, PropertySpec, Schema, SemanticType};
+        use std::collections::HashMap;
+
+        /// Build a resolver from a `(predicate, original_bytes)` map by
+        /// reconstructing each predicate's `object_label` (the FNV-1a
+        /// hash format `Ontology::expand_entity()` mints) and using
+        /// the inverse map at lookup time.
+        fn build_resolver(predicates: &[(&'static str, &[u8])]) -> HashMap<String, Vec<u8>> {
+            use lance_graph_contract::hash::fnv1a;
+            let mut by_label: HashMap<String, Vec<u8>> = HashMap::new();
+            for (_pred, bytes) in predicates {
+                let label = format!("value:{:016x}", fnv1a(bytes));
+                by_label.insert(label, bytes.to_vec());
+            }
+            by_label
+        }
+
+        fn ont_with_typed(
+            name: &'static str,
+            predicate: &'static str,
+            st: SemanticType,
+        ) -> Ontology {
+            let spec = PropertySpec::required(predicate).with_semantic_type(st);
+            Ontology::builder("T")
+                .schema(Schema::builder(name).property(spec).build())
+                .build()
+        }
+
+        #[test]
+        fn typed_resolver_currency_parses_to_float32() {
+            let ont = ont_with_typed("Invoice", "amount", SemanticType::Currency("EUR"));
+            let soa = OuterSchema::from_ontology(&ont, "Invoice").unwrap();
+            assert_eq!(soa.columns[0].arrow_type_code, ArrowTypeCode::Float32);
+
+            let triples = ont.expand_entity("Invoice", 1, &[("amount", b"12.34")]);
+            let resolver_map = build_resolver(&[("amount", b"12.34")]);
+            let batch = triples_to_batch_with_resolver(&soa, &triples, |label| {
+                resolver_map.get(label).cloned()
+            })
+            .unwrap();
+            // body column is at idx 2 (after id + entity_type).
+            let arr = batch.column(2).as_any().downcast_ref::<Fa>().unwrap();
+            assert!((arr.value(0) - 12.34_f32).abs() < 1e-4);
+        }
+
+        #[test]
+        fn typed_resolver_date_parses_to_days_since_epoch() {
+            let ont = ont_with_typed(
+                "Patient",
+                "birthday",
+                SemanticType::Date(DatePrecision::Day),
+            );
+            let soa = OuterSchema::from_ontology(&ont, "Patient").unwrap();
+            assert_eq!(soa.columns[0].arrow_type_code, ArrowTypeCode::Date32);
+
+            // 1970-01-02 = day 1.
+            let triples = ont.expand_entity("Patient", 1, &[("birthday", b"1970-01-02")]);
+            let resolver_map = build_resolver(&[("birthday", b"1970-01-02")]);
+            let batch = triples_to_batch_with_resolver(&soa, &triples, |label| {
+                resolver_map.get(label).cloned()
+            })
+            .unwrap();
+            let arr = batch
+                .column(2)
+                .as_any()
+                .downcast_ref::<Date32Array>()
+                .unwrap();
+            assert_eq!(arr.value(0), 1);
+        }
+
+        #[test]
+        fn typed_resolver_required_unparseable_returns_parse_failure() {
+            // Required column + Some(bytes) that don't parse as the
+            // declared type → typed `ParseFailure`, NOT a silent null.
+            // Arrow rejects nulls in non-nullable columns; surfacing
+            // the typed error gives the consumer enough context to
+            // decide whether to fix the data or relax the schema.
+            let ont = ont_with_typed("Customer", "customer_id", SemanticType::CustomerId);
+            let soa = OuterSchema::from_ontology(&ont, "Customer").unwrap();
+            assert_eq!(soa.columns[0].arrow_type_code, ArrowTypeCode::UInt64);
+
+            let triples = ont.expand_entity("Customer", 1, &[("customer_id", b"4_2")]);
+            let resolver_map = build_resolver(&[("customer_id", b"4_2")]);
+            let err = triples_to_batch_with_resolver(&soa, &triples, |label| {
+                resolver_map.get(label).cloned()
+            })
+            .unwrap_err();
+            match err {
+                TranscodeError::ParseFailure { column, .. } => {
+                    assert_eq!(column, "customer_id");
+                }
+                other => panic!("expected ParseFailure, got {other:?}"),
+            }
+        }
+
+        #[test]
+        fn typed_resolver_optional_unparseable_emits_null() {
+            // Optional column + Some(bytes) that don't parse → null.
+            // Optional columns are nullable in the Arrow schema, so
+            // "we tried, the data was wrong" surfaces as a null
+            // rather than a hard error.
+            let opt = PropertySpec::optional("customer_id", CodecRoute::Passthrough)
+                .with_semantic_type(SemanticType::CustomerId);
+            let ont = Ontology::builder("T")
+                .schema(Schema::builder("Customer").property(opt).build())
+                .build();
+            let soa = OuterSchema::from_ontology(&ont, "Customer").unwrap();
+
+            let triples = ont.expand_entity("Customer", 1, &[("customer_id", b"4_2")]);
+            let resolver_map = build_resolver(&[("customer_id", b"4_2")]);
+            let batch = triples_to_batch_with_resolver(&soa, &triples, |label| {
+                resolver_map.get(label).cloned()
+            })
+            .unwrap();
+            let arr = batch
+                .column(2)
+                .as_any()
+                .downcast_ref::<UInt64Array>()
+                .unwrap();
+            assert!(arr.is_null(0));
+        }
+
+        #[test]
+        fn typed_resolver_customer_id_round_trips_uint64() {
+            let ont = ont_with_typed("Customer", "customer_id", SemanticType::CustomerId);
+            let soa = OuterSchema::from_ontology(&ont, "Customer").unwrap();
+            let triples = ont.expand_entity("Customer", 1, &[("customer_id", b"4242")]);
+            let resolver_map = build_resolver(&[("customer_id", b"4242")]);
+            let batch = triples_to_batch_with_resolver(&soa, &triples, |label| {
+                resolver_map.get(label).cloned()
+            })
+            .unwrap();
+            let arr = batch
+                .column(2)
+                .as_any()
+                .downcast_ref::<UInt64Array>()
+                .unwrap();
+            assert_eq!(arr.value(0), 4242);
+        }
+
+        #[test]
+        fn typed_resolver_returns_null_when_resolver_misses() {
+            // Required + optional schema. Resolver knows only the
+            // required predicate; the optional should null.
+            let req = PropertySpec::required("patient_id"); // PlainText
+            let opt = PropertySpec::optional("krankenkasse", CodecRoute::Passthrough);
+            let ont = Ontology::builder("T")
+                .schema(
+                    Schema::builder("Patient")
+                        .property(req)
+                        .property(opt)
+                        .build(),
+                )
+                .build();
+            let soa = OuterSchema::from_ontology(&ont, "Patient").unwrap();
+            let triples = ont.expand_entity(
+                "Patient",
+                1,
+                &[("patient_id", b"P-1"), ("krankenkasse", b"AOK")],
+            );
+            let resolver_map = build_resolver(&[("patient_id", b"P-1")]);
+            let batch = triples_to_batch_with_resolver(&soa, &triples, |label| {
+                resolver_map.get(label).cloned()
+            })
+            .unwrap();
+            let id_arr = batch
+                .column(2)
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .unwrap();
+            let kk_arr = batch
+                .column(3)
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .unwrap();
+            assert_eq!(id_arr.value(0), "P-1");
+            assert!(kk_arr.is_null(0));
+        }
+
+        #[test]
+        fn typed_resolver_required_all_unresolved_errors() {
+            // Required column + resolver always returns None →
+            // MissingColumn (not silent null).
+            let ont = ont_with_typed("Patient", "name", SemanticType::PlainText);
+            let soa = OuterSchema::from_ontology(&ont, "Patient").unwrap();
+            let triples = ont.expand_entity("Patient", 1, &[("name", b"Anna")]);
+            let err =
+                triples_to_batch_with_resolver(&soa, &triples, |_| -> Option<Vec<u8>> { None })
+                    .unwrap_err();
+            assert!(matches!(err, TranscodeError::MissingColumn(_)));
+        }
+
+        #[test]
+        fn typed_resolver_iso_date_parses_known_dates() {
+            assert_eq!(parse_iso_date_to_days("1970-01-01"), Some(0));
+            assert_eq!(parse_iso_date_to_days("1970-01-02"), Some(1));
+            assert_eq!(parse_iso_date_to_days("2000-01-01"), Some(10_957));
+            assert_eq!(parse_iso_date_to_days("2020-02-29"), Some(18_321));
+        }
+
+        #[test]
+        fn typed_resolver_iso_date_rejects_garbage() {
+            assert_eq!(parse_iso_date_to_days("not-a-date"), None);
+            assert_eq!(parse_iso_date_to_days("1970-13-01"), None);
+            assert_eq!(parse_iso_date_to_days("1970-01-32"), None);
+            assert_eq!(parse_iso_date_to_days("1970/01/01"), None);
         }
     }
 }
