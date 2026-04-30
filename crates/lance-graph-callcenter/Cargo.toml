@@ -34,6 +34,11 @@ futures      = { version = "0.3", optional = true }
 axum        = { version = "0.8", features = ["ws"], optional = true }
 tower-http  = { version = "0.5", features = ["cors"], optional = true }
 
+# `transcode` submodules: `ontology_table` needs `async_trait` for the
+# DataFusion `TableProvider` impl. The trait crate is small and pulls in
+# nothing else, so it's worth always-on (no dep behind a feature).
+async-trait = "0.1"
+
 [features]
 default  = []
 persist  = ["dep:arrow", "dep:lance"]
