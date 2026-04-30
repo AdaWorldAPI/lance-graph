@@ -17,7 +17,9 @@
 // fetch path uses ActionSpec.fetch_max_rows and LinkSpec only.
 use crate::cam::CodecRoute;
 #[allow(unused_imports)]
-use crate::property::{ActionSpec, LinkSpec, PrefetchDepth, PropertyKind, Schema};
+use crate::property::{
+    ActionSpec, LinkSpec, Marking, PrefetchDepth, PropertyKind, Schema, SemanticType,
+};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Locale + Label — bilingual ontology support (DE/EN)
@@ -334,6 +336,123 @@ impl SimulationSpec {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Schema → SPO expansion (Phase 1 of the SQL↔SPO bridge)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// One SPO triple expanded from an Ontology Schema/LinkSpec entry.
+/// Zero-dep DTO — the receiving SpoStore implementation hashes labels
+/// into Fingerprints and writes the actual triple.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ExpandedTriple {
+    pub subject_label: String,
+    pub predicate: &'static str,
+    pub object_label: String,
+    pub truth: (f32, f32), // (frequency, confidence)
+    pub property_kind: PropertyKind,
+    pub marking: Marking,
+    pub semantic_type: SemanticType,
+    pub entity_type_id: EntityTypeId,
+}
+
+/// Trait for expanding ontology elements into SPO triples.
+pub trait SchemaExpander {
+    /// Expand a single entity row's properties into triples.
+    /// `properties` is a list of (predicate, value_bytes) pairs.
+    fn expand_entity(
+        &self,
+        entity_type: &str,
+        entity_id: u64,
+        properties: &[(&str, &[u8])],
+    ) -> Vec<ExpandedTriple>;
+
+    /// Expand a typed link between two entities into a single edge triple.
+    fn expand_link(&self, link: &LinkSpec, subject_id: u64, object_id: u64) -> ExpandedTriple;
+}
+
+/// FNV-1a 64-bit hash of an arbitrary byte slice. Used by the
+/// `SchemaExpander` impl to materialise stable `value:{hex}` object
+/// labels from raw property bytes without dragging in a hashing dep.
+pub(crate) fn fnv64(bytes: &[u8]) -> u64 {
+    let mut h: u64 = 0xcbf29ce484222325;
+    for &b in bytes {
+        h ^= b as u64;
+        h = h.wrapping_mul(0x100000001b3);
+    }
+    h
+}
+
+impl SchemaExpander for Ontology {
+    fn expand_entity(
+        &self,
+        entity_type: &str,
+        entity_id: u64,
+        properties: &[(&str, &[u8])],
+    ) -> Vec<ExpandedTriple> {
+        let etype_id = entity_type_id(self, entity_type);
+        let schema = match self.schema(entity_type) {
+            Some(s) => s,
+            None => return Vec::new(),
+        };
+
+        let subject_label = format!("entity:{entity_type}:{entity_id}");
+
+        properties
+            .iter()
+            .map(|(predicate, value_bytes)| {
+                let spec = schema.get(predicate);
+                let (kind, marking, semantic_type, truth) = match spec {
+                    Some(s) => {
+                        // Required: start at nars_floor; Optional/Free: unknown
+                        let truth = match s.kind {
+                            PropertyKind::Required => s
+                                .nars_floor
+                                .map(|(f, c)| (f as f32 / 255.0, c as f32 / 255.0))
+                                .unwrap_or((1.0, 0.5)),
+                            _ => (0.5, 0.01), // unknown
+                        };
+                        (s.kind, s.marking, s.semantic_type.clone(), truth)
+                    }
+                    None => (
+                        PropertyKind::Free,
+                        Marking::Internal,
+                        SemanticType::PlainText,
+                        (0.5, 0.01),
+                    ),
+                };
+
+                // Predicate must be &'static — schema's predicates are &'static
+                let predicate_static: &'static str = spec.map(|s| s.predicate).unwrap_or("unknown");
+
+                ExpandedTriple {
+                    subject_label: subject_label.clone(),
+                    predicate: predicate_static,
+                    object_label: format!("value:{:016x}", fnv64(value_bytes)),
+                    truth,
+                    property_kind: kind,
+                    marking,
+                    semantic_type,
+                    entity_type_id: etype_id,
+                }
+            })
+            .collect()
+    }
+
+    fn expand_link(&self, link: &LinkSpec, subject_id: u64, object_id: u64) -> ExpandedTriple {
+        let subject_type_id = entity_type_id(self, link.subject_type);
+        ExpandedTriple {
+            subject_label: format!("entity:{}:{subject_id}", link.subject_type),
+            predicate: link.predicate,
+            object_label: format!("entity:{}:{object_id}", link.object_type),
+            truth: (1.0, 0.9), // links are by-construction true
+            property_kind: PropertyKind::Required,
+            marking: Marking::Internal,
+            semantic_type: SemanticType::PlainText,
+            entity_type_id: subject_type_id,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -519,5 +638,21 @@ mod tests {
         assert_eq!(entity_type_id(&ont, "Invoice"), 2);
         assert_eq!(entity_type_id(&ont, "Product"), 3);
         assert_eq!(entity_type_id(&ont, "Unknown"), 0);
+    }
+
+    #[test]
+    fn expanded_triple_construction() {
+        let t = ExpandedTriple {
+            subject_label: "entity:Customer:42".into(),
+            predicate: "tax_id",
+            object_label: "value:DE123456".into(),
+            truth: (1.0, 0.9),
+            property_kind: PropertyKind::Required,
+            marking: Marking::Financial,
+            semantic_type: SemanticType::TaxId,
+            entity_type_id: 1,
+        };
+        assert_eq!(t.predicate, "tax_id");
+        assert_eq!(t.entity_type_id, 1);
     }
 }
