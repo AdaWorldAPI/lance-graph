@@ -77,7 +77,9 @@ pub mod quantum_mode;
 #[cfg(feature = "contract-ticket")]
 pub mod ticket_emit;
 
-#[cfg(feature = "grammar-triangle")]
+// PR-G1: module always compiled — Pearl mask computation and
+// analyze_without_triangle are core. Only GrammarTriangle-dependent
+// code inside is gated behind #[cfg(feature = "grammar-triangle")].
 pub mod triangle_bridge;
 
 // ─── Re-exports ──────────────────────────────────────────────────────────────
