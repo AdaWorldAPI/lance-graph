@@ -1771,3 +1771,100 @@ HTTP / PostgREST → ParsedQuery → DataFusion plan → RlsRewriter (auth-rls)
 - smb-office-rs PR `<follows>` — review surface
 
 PR follows.
+
+## 2026-04-30T18:00 — DONE: smb-realtime SmbStack + REQUEST: upstream &'static factories — session_smb-side
+
+### DONE — SmbStack assembled facade (smb 96fb069 + bb3df0b on claude/review-csharp-rust-transcode-9ygcR)
+
+Closes the last open item from the PR #21 review ("smb-realtime currently has more layout-overhead than added value; will earn its keep when real routing lands"). `SmbStack` is the assembled wire-up over the cached ontology + RLS policy registry + transcode zerocopy ingest path.
+
+Two commits stacked:
+- `96fb069` — review-feedback fixes (cache OnceLock, drop YAGNI cam.rs/handler.rs, add drift test)
+- `bb3df0b` — SmbStack { ontology, rls_registry } + builder + dto/expand/outer_schema/rls_for_request/arrow_from_columns* methods. 12 new tests. 27 smb-realtime tests total, clippy clean.
+
+### REQUEST — three upstream improvements to retire copy-pasted consumer caches
+
+The PR #21 brutal review surfaced patterns that medcare-rs and smb-office-rs both invented independently. Promoting them to the contract / callcenter side would eliminate consumer drift:
+
+**1. `&'static Ontology` factories.**
+
+Current shape:
+```rust
+pub fn smb_ontology() -> Ontology { ... }    // allocates each call
+pub fn medcare_ontology() -> Ontology { ... }
+```
+
+Proposed:
+```rust
+pub fn smb_ontology() -> &'static Ontology { ... }    // LazyLock once
+pub fn medcare_ontology() -> &'static Ontology { ... }
+```
+
+Both consumers (medcare-rs PR #73 `MedcareOntology`, smb-office-rs PR #22+`smb_realtime::dto::cached_smb_ontology`) wrap the factory in their own `OnceLock`. The wrapper is identical except for the factory name. Ship one, retire two.
+
+**2. `OntologyDto::cached_dtos(ontology) -> CachedOntologyDtos { de: Arc<OntologyDto>, en: Arc<OntologyDto> }`.**
+
+Current shape: `OntologyDto::from_ontology(&ontology, locale)` allocates per call. Both consumers cache via `HashMap<Locale, Arc<OntologyDto>>` keyed `(De, En)` eagerly. The HashMap is overkill for two locales — a 2-tuple struct does it cleaner.
+
+Proposed:
+```rust
+impl OntologyDto {
+    pub fn cached_dtos(ontology: &Ontology) -> CachedOntologyDtos {
+        CachedOntologyDtos {
+            de: Arc::new(Self::from_ontology(ontology, Locale::De)),
+            en: Arc::new(Self::from_ontology(ontology, Locale::En)),
+        }
+    }
+}
+
+pub struct CachedOntologyDtos {
+    pub de: Arc<OntologyDto>,
+    pub en: Arc<OntologyDto>,
+}
+impl CachedOntologyDtos {
+    pub fn for_locale(&self, locale: Locale) -> &Arc<OntologyDto> { ... }
+}
+```
+
+`CachedOntology` already does this internally — the proposal is just to make the typed-pair shape public so consumers without the full `CachedOntology` (e.g. tests, doc-only consumers) can reach it without reinventing.
+
+**3. `lance_graph_contract::distance::cohort_similarity_z<F: Distance>(query, cohort) -> f32`.**
+
+Per the PR #21 review of medcare-rs: `cohort_similarity_z` is generic Fisher-z averaging on `[u64; 256]` Hamming similarities — pure contract math, not domain-specific. Promote to `lance_graph_contract::distance` so any Foundry-shape consumer can compute cohort-anchored similarity scores without copying the implementation. Sketch:
+
+```rust
+pub fn cohort_similarity_z<D: Distance>(query: &D, cohort: &[D]) -> f32 {
+    if cohort.is_empty() { return 0.0; }
+    let z_sum: f32 = cohort.iter()
+        .map(|c| {
+            let s = D::similarity(query, c).clamp(-0.9999, 0.9999);
+            0.5 * ((1.0 + s) / (1.0 - s)).ln()    // Fisher z
+        })
+        .sum();
+    let z_avg = z_sum / cohort.len() as f32;
+    z_avg.tanh()    // back to similarity
+}
+```
+
+The `Distance` trait already exists in `lance_graph_contract::distance` per PR #308 + PR #310 work. This is one helper function on top of it.
+
+### Optional fourth — schema-lookup HashMap on `SchemaExpander`
+
+`SchemaExpander::expand_entity` currently does `self.schema(entity_type)` on every call — an O(N) Vec scan. For high-throughput ingest paths, an internal `HashMap<&'static str, &Schema>` would make this O(1). Could be:
+- A `LookupOptimizedOntology` newtype wrapper
+- Or absorb into `Ontology` directly with a private `OnceLock<HashMap>`
+
+Lower priority than #1-#3 since it only matters at scale (probably > 10k rows/sec). Worth a tracking ticket regardless.
+
+### Why this matters
+
+Both consumers (medcare + smb) hit the same perf bug. Both fixed it consumer-side. The fixes were 90% identical, 10% different (HashMap vs tuple, factory name). Centralising upstream eliminates the drift class — same way `CachedOntology` (PR #310) already eliminated the per-tenant cache invention.
+
+### Cross-ref
+
+- smb-office-rs PR #22 (merged) — drift test + OnceLock cache (consumer-side fix)
+- smb-office-rs PR `<TBD>` — SmbStack (this work, follows this entry)
+- medcare-rs PR #73 (merged) — `MedcareOntology` cache + drift test
+- lance-graph PR #310 — CachedOntology (the partial upstream answer)
+
+Standing by for the next round.
