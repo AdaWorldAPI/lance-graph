@@ -811,7 +811,31 @@ fn parse_iso_date_to_days(s: &str) -> Option<i32> {
         }
         _ => return None,
     };
-    if !(1..=12).contains(&m) || !(1..=31).contains(&d) {
+    if !(1..=12).contains(&m) {
+        return None;
+    }
+    // Per-month day-validity, leap-year-aware. Without this, the
+    // bare 1..=31 check silently lets 1900-02-30, 2021-04-31, etc.
+    // through and civil_to_days happily computes them as the next
+    // month — a real correctness bug exposed once Date(Month) /
+    // Date(Year) precisions started letting more inputs reach this
+    // function in round-4 (PR #318).
+    let max_day: i64 = match m {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 => {
+            // Gregorian leap year: divisible by 4, except centuries
+            // not divisible by 400. 1900 NOT leap. 2000 IS leap.
+            let leap = (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;
+            if leap {
+                29
+            } else {
+                28
+            }
+        }
+        _ => return None,
+    };
+    if !(1..=max_day).contains(&d) {
         return None;
     }
     // civil_to_days (Howard Hinnant). Public-domain, exact for any
@@ -1411,6 +1435,37 @@ mod tests {
                 parse_iso_date_to_days("2020-01"),
                 parse_iso_date_to_days("2020-01-01")
             );
+        }
+
+        #[test]
+        fn typed_resolver_iso_date_rejects_invalid_per_month_days() {
+            // Per-month day-validity. Without the leap-year-aware
+            // max_day check in parse_iso_date_to_days, civil_to_days
+            // happily accepts these as the next-month overflow.
+
+            // April has 30 days — Apr 31 must reject.
+            assert_eq!(parse_iso_date_to_days("2021-04-31"), None);
+            // June has 30 days — Jun 31 must reject.
+            assert_eq!(parse_iso_date_to_days("2026-06-31"), None);
+            // November has 30 days — Nov 31 must reject.
+            assert_eq!(parse_iso_date_to_days("2026-11-31"), None);
+            // Feb 30 always invalid regardless of leap year.
+            assert_eq!(parse_iso_date_to_days("2020-02-30"), None);
+            // 1900 is divisible by 100 but not 400 — NOT a leap year.
+            assert_eq!(parse_iso_date_to_days("1900-02-29"), None);
+            assert_eq!(parse_iso_date_to_days("1900-02-30"), None);
+        }
+
+        #[test]
+        fn typed_resolver_iso_date_accepts_2000_leap_day() {
+            // 2000 IS a leap year (divisible by 400) — Feb 29 accepts.
+            // 2000-01-01 = day 10_957 (already pinned by
+            // typed_resolver_iso_date_parses_known_dates).
+            // Jan has 31 days → 2000-02-01 = 10_988.
+            // Feb 29 = +28 days from Feb 1 = 11_016.
+            assert_eq!(parse_iso_date_to_days("2000-02-29"), Some(11_016));
+            // 2000-02-30 still invalid (leap year only adds Feb 29).
+            assert_eq!(parse_iso_date_to_days("2000-02-30"), None);
         }
     }
 }
