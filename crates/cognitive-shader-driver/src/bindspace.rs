@@ -17,10 +17,20 @@ pub const WIDTH_BITS: usize = WORDS_PER_FP * 64;
 pub const QUALIA_DIMS: usize = 18;
 pub const FLOATS_PER_VSA: usize = 16_384;  // Vsa16kF32 carrier width
 
-/// Named fingerprint planes (content / cycle / topic / angle).
+/// Named fingerprint planes (content / cycle / topic / angle) plus the
+/// per-row Σ codebook index.
+///
 /// Flat `Box<[u64]>` of length `len * 256` for content/topic/angle. Each row starts at
 /// `row * 256` words and spans 256 consecutive u64.
 /// The `cycle` plane uses `Vsa16kF32` carrier: `Box<[f32]>` of length `len * 16_384`.
+///
+/// `sigma` is a 1-byte-per-row index into a 256-entry Σ codebook (per
+/// Pillar-6 / PR #289 and Σ-Codebook viability #288, R²=0.9949 at k=256).
+/// The codebook itself is *not* loaded here — that lives in
+/// `lance-graph-contract::sigma_propagation` (B1/B3 PRs) and is boot-loaded
+/// from disk by the runtime. This column only stores the per-row index;
+/// callers that need μ alone can ignore it (1 byte / row ≈ 0.02 % of the
+/// ~6.2 KB row footprint).
 ///
 /// Why not `[[u64; 256]]`? Because row-major Box<[u64]> gives us O(1)
 /// `chunks_exact(256)` iteration which LLVM autovectorises cleanly.
@@ -30,6 +40,11 @@ pub struct FingerprintColumns {
     pub cycle: Box<[f32]>,    // was Box<[u64]>, now Vsa16kF32 carrier (16_384 f32 per row)
     pub topic: Box<[u64]>,
     pub angle: Box<[u64]>,
+    /// Σ-codebook index, one byte per row. 0 = "untrained" / first centroid;
+    /// non-zero indexes into the 256-entry Σ codebook owned by
+    /// `lance-graph-contract::sigma_propagation`. See Pillar-6 (PR #289)
+    /// and Σ-Codebook viability (#288, R²=0.9949 at k=256).
+    pub sigma: Box<[u8]>,
 }
 
 impl FingerprintColumns {
@@ -40,7 +55,20 @@ impl FingerprintColumns {
             cycle: vec![0.0f32; len * FLOATS_PER_VSA].into_boxed_slice(),
             topic: mk(),
             angle: mk(),
+            sigma: vec![0u8; len].into_boxed_slice(),
         }
+    }
+
+    /// Read a row's Σ-codebook index (1 byte).
+    #[inline]
+    pub fn sigma_at(&self, row: usize) -> u8 {
+        self.sigma[row]
+    }
+
+    /// Write a row's Σ-codebook index (1 byte).
+    #[inline]
+    pub fn write_sigma(&mut self, row: usize, idx: u8) {
+        self.sigma[row] = idx;
     }
 
     /// Zero-copy view of a row's content fingerprint words (len = 256).
@@ -168,13 +196,14 @@ impl BindSpace {
     pub fn byte_footprint(&self) -> usize {
         let content_topic_angle = 3 * self.len * WORDS_PER_FP * 8;
         let cycle_bytes = self.len * FLOATS_PER_VSA * 4; // f32 carrier
+        let sigma_bytes = self.len; // 1 byte per row, Σ-codebook index
         let edge_bytes = self.len * 8;
         let qualia_bytes = self.len * QUALIA_DIMS * 4;
         let meta_bytes = self.len * 4;
         let temporal_bytes = self.len * 8;
         let expert_bytes = self.len * 2;
         let entity_type_bytes = self.len * 2;
-        content_topic_angle + cycle_bytes + edge_bytes + qualia_bytes + meta_bytes + temporal_bytes + expert_bytes + entity_type_bytes
+        content_topic_angle + cycle_bytes + sigma_bytes + edge_bytes + qualia_bytes + meta_bytes + temporal_bytes + expert_bytes + entity_type_bytes
     }
 
     /// Apply MetaFilter across a row window. Returns a dense Vec of row
@@ -279,6 +308,7 @@ mod tests {
         assert_eq!(bs.len, 10);
         assert_eq!(bs.fingerprints.content.len(), 10 * WORDS_PER_FP);
         assert_eq!(bs.fingerprints.cycle.len(), 10 * FLOATS_PER_VSA);
+        assert_eq!(bs.fingerprints.sigma.len(), 10);
         assert_eq!(bs.qualia.0.len(), 10 * QUALIA_DIMS);
         assert_eq!(bs.meta.0.len(), 10);
     }
@@ -286,9 +316,57 @@ mod tests {
     #[test]
     fn bindspace_footprint_adds_columns() {
         let bs = BindSpace::zeros(1);
-        // 3 × 2048 (content/topic/angle) + 65536 (cycle f32) + 8 (edge) + 72 (qualia 18×4) + 4 (meta) + 8 (temporal) + 2 (expert) + 2 (entity_type)
-        // = 6144 + 65536 + 8 + 72 + 4 + 8 + 2 + 2 = 71776
-        assert_eq!(bs.byte_footprint(), 71776);
+        // 3 × 2048 (content/topic/angle) + 65536 (cycle f32) + 1 (sigma u8)
+        //   + 8 (edge) + 72 (qualia 18×4) + 4 (meta) + 8 (temporal)
+        //   + 2 (expert) + 2 (entity_type)
+        // = 6144 + 65536 + 1 + 8 + 72 + 4 + 8 + 2 + 2 = 71777
+        assert_eq!(bs.byte_footprint(), 71777);
+    }
+
+    #[test]
+    fn sigma_column_zeros_initialised_to_index_zero() {
+        let fp = FingerprintColumns::zeros(8);
+        assert_eq!(fp.sigma.len(), 8);
+        for row in 0..8 {
+            assert_eq!(fp.sigma_at(row), 0, "row {row} must default to codebook index 0");
+        }
+    }
+
+    #[test]
+    fn sigma_column_round_trips_per_row() {
+        let mut fp = FingerprintColumns::zeros(4);
+        // Distinct indices to prove per-row independence.
+        fp.write_sigma(0, 0);
+        fp.write_sigma(1, 17);
+        fp.write_sigma(2, 200);
+        fp.write_sigma(3, 255);
+        assert_eq!(fp.sigma_at(0), 0);
+        assert_eq!(fp.sigma_at(1), 17);
+        assert_eq!(fp.sigma_at(2), 200);
+        assert_eq!(fp.sigma_at(3), 255);
+        // Overwrite must replace, not OR/accumulate.
+        fp.write_sigma(2, 9);
+        assert_eq!(fp.sigma_at(2), 9);
+    }
+
+    #[test]
+    fn fingerprint_columns_sigma_len_matches_other_columns() {
+        // Σ is one byte per ROW, while content/topic/angle are 256 u64
+        // per row and cycle is 16_384 f32 per row. Verify the implied
+        // row-count is identical across all columns.
+        for &n in &[0usize, 1, 7, 64, 1_000] {
+            let fp = FingerprintColumns::zeros(n);
+            assert_eq!(fp.sigma.len(), n, "sigma row count for len {n}");
+            assert_eq!(fp.content.len(), n * WORDS_PER_FP);
+            assert_eq!(fp.topic.len(), n * WORDS_PER_FP);
+            assert_eq!(fp.angle.len(), n * WORDS_PER_FP);
+            assert_eq!(fp.cycle.len(), n * FLOATS_PER_VSA);
+            // Implied row counts agree.
+            assert_eq!(fp.content.len() / WORDS_PER_FP, fp.sigma.len());
+            assert_eq!(fp.topic.len() / WORDS_PER_FP, fp.sigma.len());
+            assert_eq!(fp.angle.len() / WORDS_PER_FP, fp.sigma.len());
+            assert_eq!(fp.cycle.len() / FLOATS_PER_VSA, fp.sigma.len());
+        }
     }
 
     #[test]
