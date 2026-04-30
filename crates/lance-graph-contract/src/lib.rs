@@ -63,6 +63,7 @@ pub mod qualia;
 pub mod reasoning;
 pub mod repository;
 pub mod scenario;
+pub mod sigma_propagation;
 pub mod sensorium;
 pub mod sla;
 pub mod tax;
