@@ -27,8 +27,7 @@ use lance_graph::{
     ast::{DistanceMetric as RustDistanceMetric, GraphPattern, ReadingClause},
     CypherQuery as RustCypherQuery, ExecutionStrategy as RustExecutionStrategy,
     GraphConfig as RustGraphConfig, GraphError as RustGraphError, InMemoryCatalog,
-    SqlDialect as RustSqlDialect, SqlQuery as RustSqlQuery,
-    VectorSearch as RustVectorSearch,
+    SqlDialect as RustSqlDialect, SqlQuery as RustSqlQuery, VectorSearch as RustVectorSearch,
 };
 use pyo3::{
     exceptions::{PyNotImplementedError, PyRuntimeError, PyValueError},
