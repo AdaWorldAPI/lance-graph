@@ -15,7 +15,7 @@ use lance_graph_contract::cognitive_shader::{ColumnWindow, MetaFilter, MetaWord}
 pub const WORDS_PER_FP: usize = 256;
 pub const WIDTH_BITS: usize = WORDS_PER_FP * 64;
 pub const QUALIA_DIMS: usize = 18;
-pub const FLOATS_PER_VSA: usize = 16_384;  // Vsa16kF32 carrier width
+pub const FLOATS_PER_VSA: usize = 16_384; // Vsa16kF32 carrier width
 
 /// Named fingerprint planes (content / cycle / topic / angle) plus the
 /// per-row Σ codebook index.
@@ -37,7 +37,7 @@ pub const FLOATS_PER_VSA: usize = 16_384;  // Vsa16kF32 carrier width
 #[derive(Debug)]
 pub struct FingerprintColumns {
     pub content: Box<[u64]>,
-    pub cycle: Box<[f32]>,    // was Box<[u64]>, now Vsa16kF32 carrier (16_384 f32 per row)
+    pub cycle: Box<[f32]>, // was Box<[u64]>, now Vsa16kF32 carrier (16_384 f32 per row)
     pub topic: Box<[u64]>,
     pub angle: Box<[u64]>,
     /// Σ-codebook index, one byte per row. 0 = "untrained" / first centroid;
