@@ -384,18 +384,38 @@ mod tests {
 
     #[test]
     fn log_norm_growth_negative_when_m_attenuates() {
-        // M with eigenvalues < 1 should shrink the log-norm.
+        // log_norm_growth measures the SIGNED change in log-Frobenius
+        // distance from identity. Since ‖log(Σ)‖²_F ≥ 0 with equality
+        // iff Σ = I, an attenuating M only produces NEGATIVE growth
+        // when it pulls Σ TOWARD identity, not just away from a
+        // pre-attenuated seed.
+        //
+        // Setup: seed = 4·I (far from identity in log-distance).
+        // M = 0.5·I. Sandwich = M·Σ·Mᵀ = 0.25·4·I = I.
+        //   ‖log(seed)‖²_F = ‖ln(4)·I‖²_F = 2·ln(4)² ≈ 3.84
+        //   ‖log(propagated)‖²_F = ‖log(I)‖²_F = 0
+        // Growth = 0 - 3.84 = -3.84 < 0.
+        //
+        // The original (now-corrected) test used seed = I, which is
+        // already at the log-distance origin — every sandwich pushes
+        // Σ AWAY from I, so growth is structurally positive regardless
+        // of whether M attenuates or amplifies. That made the assertion
+        // unsatisfiable: ‖log(0.25·I)‖²_F = 2·ln(0.25)² ≈ 3.84 > 0.
         let m = Spd2 {
             a: 0.5,
             b: 0.0,
             c: 0.5,
-        }; // 0.5I
-        let sigma = Spd2::I;
+        }; // 0.5·I
+        let sigma = Spd2 {
+            a: 4.0,
+            b: 0.0,
+            c: 4.0,
+        }; // 4·I — start far from identity
         let propagated = ewa_sandwich(&m, &sigma);
         let growth = log_norm_growth(&sigma, &propagated);
         assert!(
             growth < 0.0,
-            "attenuating M must shrink log-norm: {growth}"
+            "attenuating M pulling Σ toward I must shrink log-norm: {growth}"
         );
     }
 
