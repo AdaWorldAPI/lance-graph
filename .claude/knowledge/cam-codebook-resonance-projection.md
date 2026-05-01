@@ -17,6 +17,78 @@ SPO 2^3   = triadic projection grammar
 
 ---
 
+## Losslessness claim: what is guaranteed
+
+The important claim is not merely that the 16,384-bit plane is small. The claim is that the projection can be treated as lossless **within the calibrated COCA/CAM codebook contract**.
+
+The calibrated premise:
+
+```text
+4096 COCA codebook entries
+  calibrated from frequent English speaker vocabulary / meaning atoms
+
+4096 x 4096 pairwise factor field
+  deterministic factor-pair address space
+
+SPO / ABC 2^3 projection grammar
+  deterministic observed/missing-factor masks
+
+ReasoningWitness64 sidecar
+  preserves NARS truth/style/source/projection transition angle
+
+16,384-bit awareness plane
+  materialized CAM/COCA resonance state
+```
+
+So the guarantee is not:
+
+```text
+all natural language meaning is magically lossless
+```
+
+The guarantee is:
+
+```text
+Given the fixed 4096 COCA codebook, fixed projection grammar, fixed witness layout,
+fixed seeds/codebook versions, and deterministic kernels, the system can replay the
+same thought-state projection without losing the encoded factors, projection mask,
+reasoning angle, and cycle lineage.
+```
+
+That is a codebook-level losslessness guarantee.
+
+Full sentence text, full parse details, full NARS terms, and ontology provenance still live in replay. The hot plane is lossless for the compressed codebook state, not for every raw source artifact.
+
+---
+
+## Why 4096x4096 -> 16,384 is not arbitrary compression
+
+The arrow does not mean a dense 16,777,216-cell matrix is crushed blindly into 16,384 bits.
+
+It means:
+
+```text
+4096x4096 defines the deterministic pairwise address space.
+The active pair/projection/witness combinations are folded into a 16,384-bit
+COCA/CAM awareness plane using the calibrated codebook mapping.
+```
+
+This is closer to a deterministic codebook projection than to lossy vector compression.
+
+The `4096` basis matters because it is the calibrated vocabulary/meaning-atom codebook. The `16,384` plane is the replayable resonance surface over that codebook, with grammar and reasoning sidecars preserving interpretation and transition evidence.
+
+In shorthand:
+
+```text
+4096-codebook atoms give the alphabet.
+4096x4096 gives the pairwise grammar field.
+SPO 2^3 gives the missing-factor query masks.
+ReasoningWitness64 gives the truth/style angle.
+16,384 bits gives the deterministic awareness projection.
+```
+
+---
+
 ## Why this is not a dense monster
 
 The architecture should not be read as physically materializing a dense `16k x 16k` float matrix.
@@ -525,6 +597,14 @@ multiple witnesses and projections can activate the same plane deterministically
 sigma + theta + NARS/AriGraph gates decide candidates
 ```
 
+7. Codebook-level losslessness
+
+```text
+within the fixed 4096 COCA codebook and deterministic projection/witness contract,
+the thought-state projection can be replayed without losing encoded factor,
+projection, witness, and cycle-lineage information
+```
+
 This is why the architecture should be called a deterministic superposition resonance projection rather than a dense graph matrix.
 
 ---
@@ -534,7 +614,7 @@ This is why the architecture should be called a deterministic superposition reso
 Use this:
 
 ```text
-The 4096x4096 substrate is a pairwise factor-interaction CAM address space. SPO is represented as a generic ABC triadic lens with 2^3 projection masks, allowing any two factors to query or support the third. Each cycle materializes only a 16,384-bit CAM/COCA awareness plane, not a dense matrix. ReasoningWitness64 carries the quantized NARS truth, relation family, projection kind, temporal bucket, thinking style, perturbation class, source lane, and generation for each transition. The resulting plane is a deterministic superposition of replayable witness-weighted projections. Sigma controls uncertainty geometry, theta controls dynamic aperture, and NARS/AriGraph validation controls collapse into ontology candidates.
+The 4096x4096 substrate is a pairwise factor-interaction CAM address space calibrated on a 4096-entry COCA meaning/codebook basis derived from frequent English speaker vocabulary. SPO is represented as a generic ABC triadic lens with 2^3 projection masks, allowing any two factors to query or support the third. Each cycle materializes only a 16,384-bit CAM/COCA awareness plane, not a dense matrix. ReasoningWitness64 carries the quantized NARS truth, relation family, projection kind, temporal bucket, thinking style, perturbation class, source lane, and generation for each transition. The resulting plane is a deterministic superposition of replayable witness-weighted projections. Given fixed codebook versions, projection masks, witness layout, seeds, and kernels, this gives a codebook-level losslessness guarantee for replaying the encoded thought state. Sigma controls uncertainty geometry, theta controls dynamic aperture, and NARS/AriGraph validation controls collapse into ontology candidates.
 ```
 
 Avoid this:
@@ -546,7 +626,7 @@ We store all meanings in a 16k x 16k matrix.
 Better:
 
 ```text
-We store a compact 16kbit cycle plane that indexes an implicit 4096x4096 triadic completion field.
+We store a compact 16kbit cycle plane that indexes an implicit 4096x4096 triadic completion field over a calibrated 4096-entry COCA codebook.
 ```
 
 ---
