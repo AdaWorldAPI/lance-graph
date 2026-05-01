@@ -62,6 +62,17 @@ jobs:
         run: cargo test --manifest-path crates/lance-graph/Cargo.toml --lib
       - name: Run doc tests
         run: cargo test --manifest-path crates/lance-graph/Cargo.toml --doc
+      # lance-graph-contract is the zero-dep trait crate every workspace
+      # consumer (planner, callcenter, shader-driver, ...) depends on.
+      # Its clippy gate (style.yml) catches type errors but does NOT
+      # execute tests, so a logically-broken assertion can ship green —
+      # PR #322's `log_norm_growth_negative_when_m_attenuates` slipped
+      # through exactly this way and was caught only after merge.
+      # Adding the test gate here closes that hole. Cost is minimal:
+      # zero-dep crate, ~1 s build + <1 s test execution, reuses the
+      # already-installed toolchain and Swatinem cache from above.
+      - name: Run contract unit tests
+        run: cargo test --manifest-path crates/lance-graph-contract/Cargo.toml --lib
 
   test-with-coverage:
     runs-on: ubuntu-24.04
