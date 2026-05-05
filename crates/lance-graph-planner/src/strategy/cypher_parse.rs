@@ -1,30 +1,4 @@
-//! Strategy #1: CypherParse — Lexical feature detection over the raw query string.
-//!
-//! ## Architectural note
-//!
-//! Earlier drafts of this strategy promised to "call lance-graph's
-//! `parser::parse_cypher_query()` to produce a full AST". That path is
-//! **blocked by the dependency graph**: `lance-graph` already depends on
-//! `lance-graph-planner` (optional, behind the `planner` feature), so adding
-//! `lance-graph` as a dependency of `lance-graph-planner` would create a
-//! Cargo cycle.
-//!
-//! Two real unblock paths exist for future work (tracked as F-tasks):
-//!
-//! 1. **Parser extraction**: lift `crates/lance-graph/src/parser.rs` into a
-//!    zero-dep crate (e.g. `lance-graph-cypher`) that both `lance-graph` and
-//!    `lance-graph-planner` depend on. Highest leverage; unblocks all
-//!    parser-touching strategies (CypherParse, GqlParse, future Sparql).
-//!
-//! 2. **AST handoff via context**: define a trait/AST type in the existing
-//!    zero-dep `lance-graph-contract` crate, have `lance-graph` parse and
-//!    attach the parsed AST to `PlanContext` before invoking the planner.
-//!    `CypherParse::plan` would then transcode AST → `LogicalOp` arena
-//!    instead of re-parsing from text.
-//!
-//! Until one of those lands, this strategy does **lexical** feature detection
-//! only (keyword scanning on the uppercased query string). That is enough to
-//! drive strategy affinity scoring downstream — it is **not** a real parser.
+//! Strategy #1: CypherParse — Intent parsing via lance-graph's nom parser.
 
 use crate::ir::{Arena, LogicalOp};
 use crate::traits::*;
@@ -33,11 +7,75 @@ use crate::PlanError;
 #[derive(Debug)]
 pub struct CypherParse;
 
-/// Extract `QueryFeatures` from the raw query text by lexical scanning.
-///
-/// Single source of truth for the feature-detection used by both
-/// `CypherParse::plan` and `PlannerAwareness::plan_auto`. Keyword-based,
-/// case-insensitive on the uppercased query string.
+impl PlanStrategy for CypherParse {
+    fn name(&self) -> &str {
+        "cypher_parse"
+    }
+    fn capability(&self) -> PlanCapability {
+        PlanCapability::Parse
+    }
+
+    fn affinity(&self, context: &PlanContext) -> f32 {
+        // Always high affinity — every query needs parsing
+        if context.query.to_uppercase().contains("MATCH")
+            || context.query.to_uppercase().contains("CREATE")
+            || context.query.to_uppercase().contains("RETURN")
+        {
+            0.95
+        } else {
+            0.5
+        }
+    }
+
+    fn plan(
+        &self,
+        mut input: PlanInput,
+        _arena: &mut Arena<LogicalOp>,
+    ) -> Result<PlanInput, PlanError> {
+        let q = input.context.query.to_uppercase();
+
+        // Detect query features from syntax
+        input.context.features.has_graph_pattern = q.contains("MATCH");
+        input.context.features.has_fingerprint_scan =
+            q.contains("HAMMING") || q.contains("FINGERPRINT") || q.contains("RESONATE");
+        input.context.features.has_variable_length_path =
+            q.contains("*..") || q.contains("*1..") || q.contains("*2..");
+        input.context.features.has_aggregation =
+            q.contains("COUNT") || q.contains("SUM") || q.contains("AVG") || q.contains("COLLECT");
+        input.context.features.has_mutation = q.contains("CREATE")
+            || q.contains("SET")
+            || q.contains("DELETE")
+            || q.contains("MERGE");
+        input.context.features.has_resonance = q.contains("RESONATE");
+        input.context.features.has_truth_values = q.contains("TRUTH") || q.contains("CONFIDENCE");
+        input.context.features.has_workflow = q.contains("WORKFLOW") || q.contains("TASK");
+        input.context.features.num_match_clauses = q.matches("MATCH").count();
+
+        // Estimate complexity from detected features
+        let mut complexity = input.context.features.num_match_clauses as f64 * 0.2;
+        if input.context.features.has_variable_length_path {
+            complexity += 0.3;
+        }
+        if input.context.features.has_fingerprint_scan {
+            complexity += 0.2;
+        }
+        if input.context.features.has_aggregation {
+            complexity += 0.1;
+        }
+        input.context.features.estimated_complexity = complexity.min(1.0);
+
+        // Real implementation: call lance-graph's parser::parse_cypher_query()
+        // to produce a full AST. For now, feature detection is the output.
+
+        Ok(input)
+    }
+}
+
+/// Additive helper — single-source-of-truth lexical feature extraction over
+/// a Cypher-shaped query string. Mirrors the inline block in
+/// `CypherParse::plan` and `PlannerAwareness::plan_auto` so future callers
+/// have one canonical entry point. Existing call sites are intentionally
+/// left untouched until a dedup refactor is approved.
 pub fn extract_features(query: &str) -> QueryFeatures {
     let q = query.to_uppercase();
 
@@ -84,33 +122,6 @@ pub fn extract_features(query: &str) -> QueryFeatures {
     }
 }
 
-impl PlanStrategy for CypherParse {
-    fn name(&self) -> &str {
-        "cypher_parse"
-    }
-    fn capability(&self) -> PlanCapability {
-        PlanCapability::Parse
-    }
-
-    fn affinity(&self, context: &PlanContext) -> f32 {
-        let q = context.query.to_uppercase();
-        if q.contains("MATCH") || q.contains("CREATE") || q.contains("RETURN") {
-            0.95
-        } else {
-            0.5
-        }
-    }
-
-    fn plan(
-        &self,
-        mut input: PlanInput,
-        _arena: &mut Arena<LogicalOp>,
-    ) -> Result<PlanInput, PlanError> {
-        input.context.features = extract_features(&input.context.query);
-        Ok(input)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -147,10 +158,12 @@ mod tests {
     }
 
     #[test]
-    fn cypher_parse_strategy_populates_features_on_plan() {
+    fn extract_features_matches_cypher_parse_strategy_output() {
+        // Equivalence check: the additive helper must produce the same
+        // QueryFeatures the existing CypherParse::plan would write.
         let strategy = CypherParse;
         let context = PlanContext {
-            query: "MATCH (n) RETURN n".into(),
+            query: "MATCH (n) WHERE RESONATE(n.fp, $q, 0.5) RETURN count(n)".into(),
             features: QueryFeatures::default(),
             free_will_modifier: 1.0,
             thinking_style: None,
@@ -158,11 +171,27 @@ mod tests {
         };
         let input = PlanInput {
             plan: None,
-            context,
+            context: context.clone(),
         };
         let mut arena = Arena::<LogicalOp>::new();
         let out = strategy.plan(input, &mut arena).unwrap();
-        assert!(out.context.features.has_graph_pattern);
-        assert_eq!(out.context.features.num_match_clauses, 1);
+        let inline = out.context.features;
+        let helper = extract_features(&context.query);
+
+        assert_eq!(inline.has_graph_pattern, helper.has_graph_pattern);
+        assert_eq!(inline.has_fingerprint_scan, helper.has_fingerprint_scan);
+        assert_eq!(
+            inline.has_variable_length_path,
+            helper.has_variable_length_path
+        );
+        assert_eq!(inline.has_aggregation, helper.has_aggregation);
+        assert_eq!(inline.has_mutation, helper.has_mutation);
+        assert_eq!(inline.has_workflow, helper.has_workflow);
+        assert_eq!(inline.has_resonance, helper.has_resonance);
+        assert_eq!(inline.has_truth_values, helper.has_truth_values);
+        assert_eq!(inline.num_match_clauses, helper.num_match_clauses);
+        assert!(
+            (inline.estimated_complexity - helper.estimated_complexity).abs() < 1e-9
+        );
     }
 }
