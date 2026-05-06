@@ -310,3 +310,134 @@ This row alone (combined with PERMUTE-1, CONTENT-FP-1,
 ROLEKEY-OPS-1, CRYSTAL-1) carries the highest cognitive leverage
 of any single fix in the ledger.
 
+
+---
+
+## 2026-05-06 — VSA-scope correction + cross-repo ledger updates
+
+### VSA-1 description correction
+
+**Old framing (this session, 2026-05-05 snapshot Section A row + Section F.5):**
+"Vsa16kF32 is the architecture's load-bearing carrier — the literal FMA
+`bind(role, content) + bundle(prior)` lives on it. ... the canonical
+deficit-vs-genius gap."
+
+**Corrected framing (per CLAUDE.md I-VSA-IDENTITIES iron rule):**
+`Vsa16kF32` is for **one job**: Markov chain over identity fingerprints
+(per-cycle cognitive state, role-keyed content, position-braided).
+Bundle size N ≤ √d / 4 ≈ 32 by concentration-of-measure. The Click
+P-1 deficit (8 free fns vs methods on a newtype) stands and remains
+the highest-leverage carrier-method genius move. **What does NOT
+stand:** any framing that has `Vsa16kF32` carrying provenance, JWT
+claims, RBAC roles, transform IDs, branch IDs, or other register-
+territory state. Those are HashMap / typed-struct / Lance-column
+work, gated by Test 0 (register laziness) of the four VSA tests.
+
+### PERMUTE-1 description correction
+
+**Old framing:** "Markov ρ^d braiding requires lossless permute."
+
+**Corrected framing:** `vsa_permute` is unitary as an operation but
+the **braiding usage is not lossless** — position-shifted copies in
+a bundle have cross-talk that shrinks the unbinding margin with N.
+Treat permute as **SNR-bounded position-braiding for Markov ρ^d**,
+bound by N ≤ √d / 4 like every other VSA bundle. The deficit row
+stands; the description is honest now.
+
+### EWA-SANDWICH-1 — new row (missed in 2026-05-05 snapshot)
+
+| ID | Region | Component | Mat | State | S/D | Dups | DupPot | LooseEnds | Plan/Status | E | Deficit→Genius |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| **EWA-SANDWICH-1** | R6/(jc) | Pillar-6 covariance sandwich | **3** | Wired (shipped #289, 7/7 tests, 10K/10K SPD) | Smart (`EwaSandwich::propagate(&[M], Σ_0)` carrier method) | 1 | None | **Scope: SPD-bounded propagation of cognitive `Vsa16kF32` across Markov ρ^d cycles. NOT a lineage error model.** Couples to (currently absent) SPLAT-1 ingestion path; per-row `sigma` carries through `propagate` cleanly only once `BindSpace.apply()` (E1) lands. | jc / Shipped #289 | **2** | Expose `Σ_path` on `ShaderHit` for cold-audit replay; couple to E1 Action API so per-row σ enters the propagate chain at write time |
+
+### SUBJECT-DTO-1 — new row (implied by MedCareV2 #7 + #8)
+
+| ID | Region | Component | Mat | State | S/D | Dups | DupPot | LooseEnds | Plan/Status | E | Deficit→Genius |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| **SUBJECT-DTO-1** | R4/R6 | `Subject` / authentication context | **0** | Aspirational | n/a (type does not exist; MedCareV2 #8 carries JWT shape `{token, user_id, role, display_name}` ad-hoc) | 0 | None | Multiple consumers waiting on a canonical type that doesn't exist yet — namespace pre-claimed by JWT shape in MedCareV2 #8 + `q2` cycle session-binding. `MembraneGate::admit` has no Subject parameter today. | foundry-roadmap.md (no D-id) / Missing | **4** | `contract::subject::Subject { user_id: u64, roles: SmallVec<[u16; 4]>, display_name: SmolStr, auth_time: i64, source: AuthSource }` with `AuthSource::{Jwt(JwtClaims), Session(SessionId), Anonymous, ProbeOnly}`. **Typed struct fields, not VSA.** Consumed by `MembraneGate::admit(subject, resource, op)` (E2 seam) |
+
+### THINK-1 — partial resolution event (q2 PR #35, 2026-05-06 09:16 UTC)
+
+**State delta:** in `cockpit-server` only.
+- Old: cockpit-server consumed `thinking_engine::dto::*` (THINK-1
+  spaghetti contributor).
+- New: cockpit-server migrated to canonical
+  `lance_graph_contract::cognitive_shader::*`. Both `thinking-engine`
+  and `cognitive-shader-driver` workspace deps DROPPED from
+  cockpit-server.
+- THINK-1 row entropy stays 5 workspace-wide (planner-12 + engine-12
+  + engine-5 + bandit + UNIFIED_STYLES const still exist), but the
+  cluster has one fewer downstream consumer.
+- Wire-shape compression also landed: `cycle_fingerprint [u64;256]`
+  (2 KB) → `cycle_fingerprint_hash u64` (8 B), 256× reduction.
+  `color_acc [f32;32]` (128 B) → `color_acc_active_dims u8` (1 B).
+
+### TRUTH-1 — partial resolution event (q2 PR #35)
+
+**State delta:** in `cockpit-server` `graph_engine.rs::nars_deduction`.
+- Old: hand-rolled `f = f1*f2, c = f1*f2*c1*c2` (4th `TruthValue`
+  copy in this workspace).
+- New: bridges to `lance_graph_planner::nars::truth::TruthValue::deduction`.
+  Same formula, single source.
+- TRUTH-1 entropy stays 4 workspace-wide (3 copies still exist:
+  contract::crystal + planner::nars::truth + causal-edge::tables
+  with subtly different `revise()` math), but q2 is no longer the 4th.
+
+### MOCK-DRIVER-IS-CONTRACT-CITIZEN — new row (q2 PR #35)
+
+| ID | Region | Component | Mat | State | S/D | Dups | DupPot | LooseEnds | Plan/Status | E | Deficit→Genius |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| **MOCK-DRIVER-1** | R3 | `MockShaderDriver` (q2/cockpit-server) | **2** | Wired (Phase-3 placeholder; 5/5 tests) | Smart (`impl CognitiveShaderDriver`; `dispatch_with_sink(&dispatch, &mut SseSink)`) | 1 | None | Synthesizes `ShaderHit` from perturbation indices via `idx → row = idx % row_count`, `distance = i*64`, `resonance = 1.0 - i*0.1`. Phase-3 placeholder until real `BgzShaderDriver` lands (BindSpace + bgz17 + Jina v5 codebook). Disclosed at `mock_driver.rs:1-30`. | (no plan; phase-3 implicit) / Stalled-by-design | **2** | Replace with `BgzShaderDriver` once Jina v5 + BGE-M3 + Reader-LM models load + `default_distance_table` mmaps real Jina codebook |
+
+### POLICY-1 + MEMBRANE-GATE-1 — downstream-blocker promotion (MedCareV2 #8)
+
+**State delta:** Both rows already at Stalled / Missing; no maturity
+change. **New attached consumer:** MedCareV2 #8 ships C# `AuthClient`
+fire-and-forget JWT acquisition. The JWT carries `{token, user_id,
+role, display_name}`. medcare-rs cannot gate routes on `role` until
+`impl MembraneGate for Arc<rbac::Policy>` lands (POLICY-1 deficit) +
+medcare-rs `routes/auth.rs::login` grows the dual-hash branch
+(legacy `u_pwd_argon2 = NULL` blocker, separate). **Priority bump:**
+POLICY-1 + MEMBRANE-GATE-1 are now blocking a shipped consumer in a
+sibling repo, not just internal entropy.
+
+### Section G — Ingestion-vs-Traversal axis (added per sibling-session analysis)
+
+The SoA-DTO graph has two flow modes the original FMA map did not
+name. Adding here so future sessions traverse cleanly:
+
+| Mode | Path | Region | State | Replaces neo4j? |
+|---|---|---|---|---|
+| **Ingestion (Option 1: Cypher-parser)** | OSINT source → `lance-graph::parser::parse_cypher_query` (1,932 LOC nom, 44 tests, REAL) → AST → `RowDelta` → `BindSpace.apply()` (E1) | R8 → R3 → R0 | Real on lance-graph-side; PARSER-1 stub on planner-side | Yes for pre-baked Cypher data (the 30 aiwar-neo4j-harvest files) |
+| **Ingestion (Option 2: splat-deposit)** | OSINT source → witness builder → `CamPlaneSplat::deposit(witness, σ, θ)` → `RowDelta` → `BindSpace.apply()` (E1) | R8 → R5 → R0 | SPLAT-1 row entropy 4, Aspirational | Yes for live OSINT (no Cypher upstream) |
+| **Traversal (Pillar-6)** | `BindSpace` columns → `EwaSandwich::propagate(&[M], Σ_0)` → SPD-bounded multi-hop → `ShaderHit { row, distance, predicates, resonance, cycle_index }` | R0 → R6 → R3 | Shipped (PR #289), EWA-SANDWICH-1 row Stage 3 | Yes; in-process µs/hop, no network |
+
+**Both ingestion modes converge on the same E1 typed Action API** —
+they are two `RowDelta` constructors feeding the same commit gate,
+not competing architectures. Cypher-parser is the import path
+(pre-baked data); splat is the streamfeed path (live OSINT). Both
+should ship; SPLAT-1 is the gating deficit for Option 2.
+
+### E8 retraction note
+
+E8 ("geometrically-bounded provenance via Vsa16kF32 + EWA-Sandwich")
+is **retracted** — register laziness; provenance is typed-struct /
+HashMap / Lance-column work, not VSA-bundled. The Pillar-6 σ-sandwich
+bounds **cognitive Markov state propagation**, NOT arbitrary lineage.
+Does not get appended to `EPIPHANIES.md`. EWA-SANDWICH-1 row above
+captures the corrected scope.
+
+E4 ("VSA-bundled algebraic provenance") is **retracted** for the same
+reason. Not appended to `EPIPHANIES.md`.
+
+E1, E2, E3 (with `CognitiveEventRow` as **typed Lance struct, not
+VSA**), E5, E6 (storage-as-compute, MetaWord write triggers cognitive
+shader read of the row's `Vsa16kF32`, the only place it lives), E7
+(Time/Geo as register columns: `timestamp: i64`, `geohash: u64`), E9
+(observability-tier vs business-tier) **stand**.
+
+### Lessons-loop: pattern file
+
+Patterns derived from this session captured in `.claude/pattern.md`
+(15 patterns + 7 critical findings + update protocol). Future sessions
+read pattern.md before traversing the SoA/DTO graph.
