@@ -289,6 +289,103 @@ impl CamSplatCertificate {
     }
 }
 
+// ── ThetaDecision: theta-policy aperture proxy ─────────────────────────────
+
+/// Sigma codebook proxy. The full SigmaCodebook lives in lance-graph-cognitive
+/// (not a contract dep); this contract function takes `sigma_idx: u8` and the
+/// sigma's q8-encoded `width` directly. Callers in the cognitive crate look up
+/// the codebook entry and pass `(sigma_idx, sigma_width_q8)` here.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ThetaDecision {
+    /// q8 acceptance aperture (the splat's theta_accept_q8 lands here verbatim)
+    pub accept_q8: u8,
+    /// q8 width contribution from theta (combined with sigma_width_q8 by witness_to_splat)
+    pub width_q8: u8,
+    /// Polarity bit — false = positive evidence, true = contradiction.
+    pub negative: bool,
+}
+
+// ── witness_to_splat: deterministic conversion (D-SPLAT-3, PR 2 of 6) ──────
+
+/// Deterministic conversion: ReasoningWitness64 (under sigma geometry + theta
+/// aperture) → CamPlaneSplat. Per `.claude/knowledge/gaussian-splat-cam-plane-
+/// workaround.md` § "Deposition rule".
+///
+/// Determinism contract: same inputs ALWAYS produce the same CamPlaneSplat.
+/// No floats, no PRNG, no system clock. q8 lanes only.
+///
+/// Channel selection logic:
+///   - If theta.negative → SplatChannel::Contradiction
+///   - Else if witness has the "forecast" bit set in its high nibble → SplatChannel::Forecast
+///   - Else if witness has the "counterfactual" bit set → SplatChannel::Counterfactual
+///   - Else → SplatChannel::Support
+///
+/// (Style/Source channels are populated by separate higher-level builders;
+/// they need richer context than a single witness provides.)
+///
+/// Width: combine sigma + theta widths (q8 saturating add) — matches the
+/// "width: sigma geometry × theta_width" doc spec but in q8 lanes.
+///
+/// Amplitude: the witness's truth byte (NARS f * c packed into one u8 per the
+/// witness layout — the lower 8 bits of the `ReasoningWitness64.0` word are
+/// taken as the truth byte; this matches the splat.rs file-header
+/// I-VSA-IDENTITIES note that ReasoningWitness64 is a 64-bit identity
+/// fingerprint POINTING TO content rather than carrying it).
+///
+/// `sigma_idx` is currently unused at the contract level (lookup is callers'
+/// job) but reserved for a future SigmaProvider trait. It is accepted in the
+/// signature so cognitive-crate callers do not need to refactor when that
+/// trait lands.
+///
+/// Per CLAUDE.md Click P-1 litmus: this is a **constructor** producing a fresh
+/// CamPlaneSplat from raw inputs (no carrier with pre-existing state to mutate),
+/// so it lives as a free function rather than a method on `&self` — builders
+/// and constructors are exempt from the method-only rule.
+#[allow(clippy::too_many_arguments)] // spec-mandated 8-arg signature: factor_a/b, projection, witness, sigma_idx, sigma_width_q8, theta, replay_ref
+pub fn witness_to_splat(
+    factor_a: u16,
+    factor_b: u16,
+    projection: TriadicProjection,
+    witness: ReasoningWitness64,
+    sigma_idx: u8,
+    sigma_width_q8: u8,
+    theta: ThetaDecision,
+    replay_ref: u64,
+) -> CamPlaneSplat {
+    // 1. Determine channel from theta + witness.
+    let channel = if theta.negative {
+        SplatChannel::Contradiction
+    } else {
+        let high_nibble = ((witness.0 >> 60) as u8) & 0x0F;
+        match high_nibble {
+            0b0001 => SplatChannel::Forecast,
+            0b0010 => SplatChannel::Counterfactual,
+            _ => SplatChannel::Support,
+        }
+    };
+
+    // 2. Combine sigma + theta widths (q8 saturating).
+    let width_q8 = sigma_width_q8.saturating_add(theta.width_q8);
+
+    // 3. Extract amplitude from witness truth byte (low 8 bits).
+    let amplitude_q8 = (witness.0 & 0xFF) as u8;
+
+    // sigma_idx reserved for a future SigmaProvider trait — discard here.
+    let _ = sigma_idx;
+
+    CamPlaneSplat {
+        center_a: factor_a,
+        center_b: factor_b,
+        projection,
+        channel,
+        amplitude_q8,
+        width_q8,
+        theta_accept_q8: theta.accept_q8,
+        witness,
+        replay_ref,
+    }
+}
+
 // ── Tests (ALL inline, in this file) ───────────────────────────────────────
 
 #[cfg(test)]
@@ -501,5 +598,180 @@ mod tests {
     fn cam_splat_certificate_decide_drop_when_all_low() {
         let cert = CamSplatCertificate::default();
         assert_eq!(cert.decide(128, 64), SplatDecision::Drop);
+    }
+
+    // ── D-SPLAT-3: witness_to_splat tests ──────────────────────────────────
+
+    /// Helper: produce a "vanilla" theta with positive polarity.
+    fn theta_pos(accept: u8, width: u8) -> ThetaDecision {
+        ThetaDecision {
+            accept_q8: accept,
+            width_q8: width,
+            negative: false,
+        }
+    }
+
+    #[test]
+    fn witness_to_splat_deterministic() {
+        let projection = TriadicProjection(2);
+        let witness = ReasoningWitness64(0x0000_DEAD_BEEF_00AB);
+        let theta = theta_pos(40, 30);
+
+        let a = witness_to_splat(11, 22, projection, witness, 5, 80, theta, 0xCAFE_BABE);
+        let b = witness_to_splat(11, 22, projection, witness, 5, 80, theta, 0xCAFE_BABE);
+
+        // Field-by-field equality (CamPlaneSplat is not Eq; compare bytes).
+        assert_eq!(a.center_a, b.center_a);
+        assert_eq!(a.center_b, b.center_b);
+        assert_eq!(a.projection.0, b.projection.0);
+        assert_eq!(a.channel as u8, b.channel as u8);
+        assert_eq!(a.amplitude_q8, b.amplitude_q8);
+        assert_eq!(a.width_q8, b.width_q8);
+        assert_eq!(a.theta_accept_q8, b.theta_accept_q8);
+        assert_eq!(a.witness.0, b.witness.0);
+        assert_eq!(a.replay_ref, b.replay_ref);
+    }
+
+    #[test]
+    fn witness_to_splat_negative_theta_routes_to_contradiction() {
+        // Even if witness high nibble is 0x1 (forecast), negative polarity wins.
+        let witness = ReasoningWitness64(0x1000_0000_0000_0042);
+        let theta = ThetaDecision {
+            accept_q8: 32,
+            width_q8: 16,
+            negative: true,
+        };
+        let s = witness_to_splat(1, 2, TriadicProjection(0), witness, 0, 64, theta, 0);
+        assert!(matches!(s.channel, SplatChannel::Contradiction));
+    }
+
+    #[test]
+    fn witness_to_splat_forecast_high_nibble() {
+        // High nibble 0x1 → Forecast.
+        let witness = ReasoningWitness64(0x1000_0000_0000_0000);
+        let s = witness_to_splat(
+            1,
+            2,
+            TriadicProjection(0),
+            witness,
+            0,
+            64,
+            theta_pos(32, 16),
+            0,
+        );
+        assert!(matches!(s.channel, SplatChannel::Forecast));
+    }
+
+    #[test]
+    fn witness_to_splat_counterfactual_high_nibble() {
+        // High nibble 0x2 → Counterfactual.
+        let witness = ReasoningWitness64(0x2000_0000_0000_0000);
+        let s = witness_to_splat(
+            1,
+            2,
+            TriadicProjection(0),
+            witness,
+            0,
+            64,
+            theta_pos(32, 16),
+            0,
+        );
+        assert!(matches!(s.channel, SplatChannel::Counterfactual));
+    }
+
+    #[test]
+    fn witness_to_splat_default_routes_to_support() {
+        // Clean witness (high nibble 0x0) + positive theta → Support.
+        let witness = ReasoningWitness64(0x0000_0000_0000_00FF);
+        let s = witness_to_splat(
+            1,
+            2,
+            TriadicProjection(0),
+            witness,
+            0,
+            64,
+            theta_pos(32, 16),
+            0,
+        );
+        assert!(matches!(s.channel, SplatChannel::Support));
+    }
+
+    #[test]
+    fn witness_to_splat_widths_saturating_add() {
+        // sigma_width=200, theta_width=100 → saturated to 255.
+        let witness = ReasoningWitness64(0);
+        let theta = theta_pos(0, 100);
+        let s = witness_to_splat(0, 0, TriadicProjection(0), witness, 0, 200, theta, 0);
+        assert_eq!(
+            s.width_q8, 255,
+            "sigma+theta widths must saturate at u8::MAX"
+        );
+    }
+
+    #[test]
+    fn witness_to_splat_amplitude_from_witness_low_byte() {
+        // Witness low byte = 0xAB → amplitude_q8 = 0xAB.
+        let witness = ReasoningWitness64(0xDEAD_BEEF_DEAD_00AB);
+        let s = witness_to_splat(
+            0,
+            0,
+            TriadicProjection(0),
+            witness,
+            0,
+            16,
+            theta_pos(8, 4),
+            0,
+        );
+        assert_eq!(s.amplitude_q8, 0xAB);
+    }
+
+    #[test]
+    fn witness_to_splat_factor_pair_preserved() {
+        // center_a / center_b round-trip verbatim.
+        let s = witness_to_splat(
+            0xABCD,
+            0x1234,
+            TriadicProjection(7),
+            ReasoningWitness64(0),
+            0,
+            16,
+            theta_pos(8, 4),
+            0,
+        );
+        assert_eq!(s.center_a, 0xABCD);
+        assert_eq!(s.center_b, 0x1234);
+        assert_eq!(s.projection.0, 7);
+    }
+
+    #[test]
+    fn witness_to_splat_replay_ref_preserved() {
+        // replay_ref round-trips verbatim.
+        let s = witness_to_splat(
+            0,
+            0,
+            TriadicProjection(0),
+            ReasoningWitness64(0),
+            0,
+            16,
+            theta_pos(8, 4),
+            0xFEED_FACE_DEAD_BEEF,
+        );
+        assert_eq!(s.replay_ref, 0xFEED_FACE_DEAD_BEEF);
+    }
+
+    #[test]
+    fn witness_to_splat_theta_accept_passes_through() {
+        // theta.accept_q8 lands verbatim in splat.theta_accept_q8.
+        let s = witness_to_splat(
+            0,
+            0,
+            TriadicProjection(0),
+            ReasoningWitness64(0),
+            0,
+            16,
+            theta_pos(123, 4),
+            0,
+        );
+        assert_eq!(s.theta_accept_q8, 123);
     }
 }
