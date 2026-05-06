@@ -27,3 +27,9 @@ name = "osint_edge_traversal"
 
 [[example]]
 name = "splat_to_ewa_bridge"
+
+[[example]]
+name = "splat_triangle_count"
+
+[[example]]
+name = "splat_lpa_label_propagation"
