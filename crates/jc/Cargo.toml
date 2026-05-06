@@ -5,9 +5,13 @@ edition = "2021"
 description = "Jirak-Cartan: five-pillar proof-in-code for binary-Hamming causal field computation"
 license = "Apache-2.0"
 
-# Zero deps — standalone, like deepnsm and bgz17.
+# Zero deps in production — standalone, like deepnsm and bgz17.
 # The proof is the proof regardless of SIMD path.
 # ndarray can be added later for acceleration; the core math is pure Rust.
+
+# Dev-only deps for cross-crate bridge examples (production stays zero-dep).
+[dev-dependencies]
+lance-graph-contract = { path = "../lance-graph-contract" }
 
 [[example]]
 name = "prove_it"
@@ -20,3 +24,12 @@ name = "probe_p1"
 
 [[example]]
 name = "osint_edge_traversal"
+
+[[example]]
+name = "splat_to_ewa_bridge"
+
+[[example]]
+name = "splat_triangle_count"
+
+[[example]]
+name = "splat_lpa_label_propagation"
