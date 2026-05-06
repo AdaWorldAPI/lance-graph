@@ -35,6 +35,42 @@
 
 ---
 
+## splat-osint-ingestion: SPLAT-1 stage 0->1 + EWA OSINT bridge (2026-05-06)
+
+**Confidence (2026-05-06):** high (math certified by Pillar 6 — PR #289 EWA-Sandwich PSD-preserving 10 000/10 000 hops; PR #286 Koestenberger-Stark 1.467x tightness; PR #287 Dueker-Zoubouloglou Hilbert-CLT). **Status:** In PR (branch `claude/splat-osint-ingestion`).
+
+**Added:**
+- `crates/lance-graph-contract/src/splat.rs` (new module) — `SplatChannel` (6 variants: Support / Contradiction / Forecast / Counterfactual / Style / Source), `CamPlaneSplat` (q8 amplitude / width / theta_accept + 16-byte witness identity + 8-byte `replay_ref`), `SplatPlaneSet` (6 channel planes = 12 KB), `AwarenessPlane16K` (256 x u64 = 2 KB pressure tile), `CamSplatCertificate` (q8 pressure measurements + replay decision), `SplatDecision` (Proceed / RequireExactReplay / PrefetchOnly / ScenarioOnly / Drop), `TriadicProjection`, `ReasoningWitness64`. 10+ unit tests.
+- `crates/jc/examples/osint_edge_traversal.rs` (new example) — EWA-Sandwich Sigma-push-forward demo for an OSINT 5-hop chain. Side-by-side vs naive convolution. Pillar-6-certified neo4j-edge-hydration substitute.
+- `.claude/plans/2026-05-06-splat-osint-ingestion-v1.md` — plan doc tracking PRs 1-6 of the gaussian-splat-cam-plane-workaround.md sequence (D-SPLAT-1 through D-SPLAT-7).
+- Board hygiene: `INTEGRATION_PLANS.md` prepend; `LATEST_STATE.md` Contract Inventory adds `splat`; `ARCHITECTURE_ENTROPY_LEDGER.md` SPLAT-1 row Aspirational -> Wired stage 1 (entropy 4 -> 2); `STATUS_BOARD.md` new section with D-SPLAT-1..7 rows.
+
+**Locked:**
+- **Splat plane width = 16 384 bits** (matches `Vsa16kF32` and `Binary16K` carriers). `AwarenessPlane16K` = 256 x u64 = 2 KB.
+- **q8 amplitudes everywhere on the hot path** — no `f32`/`f64` fields in `CamPlaneSplat`, `SplatPlaneSet`, or `CamSplatCertificate`. Float accumulation, if it ever appears, lives behind calibration paths, not the deposition kernel.
+- **I-VSA-IDENTITIES preserved** — splats POINT TO content via 16-byte witness identity + 8-byte `replay_ref`. The 6 channel planes are addressable by content identity, never by anonymous superposition of content bits.
+- **Zero-dep contract preserved** — `lance-graph-contract` keeps its zero external-crate-dep invariant.
+- **No serde on types** — wire formats are explicit per CLAUDE.md Workspace Convention 5.
+- **Click P-1 method discipline** — `CamPlaneSplat::pressure_q8()`, `SplatPlaneSet::deposit(&CamPlaneSplat)`, `CamSplatCertificate::decide() -> SplatDecision`. No free functions on the carrier state.
+- **Pillar-6 / Pillar-7 inheritance** — PR 2 inherits PR #289 PSD-preservation guarantee; D-SPLAT-4 (queued) consumes `MergeMode::AlphaFrontToBack` from PR #324.
+
+**Deferred (PRs 3-6 of the doc-sequence):**
+- **PR 3 (D-SPLAT-3):** `witness_to_splat()` deterministic conversion — `(factor_a, factor_b, projection, ReasoningWitness64, sigma_idx, ThetaDecision, replay_ref) -> CamPlaneSplat` under fixed codebooks + seeds.
+- **PR 3 (D-SPLAT-4):** Splat deposition into BindSpace columns via `MergeMode::AlphaFrontToBack` lanes (q8 / bit-tile accumulation per Pillar-7 sink mode).
+- **PR 4 (D-SPLAT-5):** `PlanarSplatBundle4096` with local (8-16) / short (64) / medium (512) / long (4096) cycle bands.
+- **PR 5 (D-SPLAT-6):** Semantic-CAM-distance integration — survivor tile selection compares against splatted pressure planes, not raw Hamming over anonymous bits.
+- **PR 6 (D-SPLAT-7):** Replay fallback — when `CamSplatCertificate` is insufficient (e.g. high support AND high contradiction), load exact 4096-cycle ThoughtCycleSoA replay slice.
+
+**Docs:**
+- `.claude/knowledge/gaussian-splat-cam-plane-workaround.md` (already-existing; not modified by this PR).
+- `.claude/plans/2026-05-06-splat-osint-ingestion-v1.md` (new this PR).
+- Companion: `.claude/plans/tetrahedral-epiphany-splat-integration-v1.md` (SPOW tetrahedron axis; not modified).
+
+**Resolves ledger rows:**
+- SPLAT-1 (Section A of `.claude/board/ARCHITECTURE_ENTROPY_LEDGER.md`): Aspirational -> Wired (x1, stage 1). Entropy 4 -> 2.
+
+---
+
 ## #243 — D5+D7 categorical-algebraic inference architecture (2026-04-21)
 
 **Confidence (2026-04-21):** Working. 175/175 contract, 63/63 deepnsm (grammar-10k).

@@ -2,7 +2,7 @@
 
 > **Auto-injected at session start via SessionStart hook.**
 > Updated after every merged PR.
-> **Last updated:** 2026-04-21 post PR #243 (D5+D7 + categorical-algebraic inference architecture).
+> **Last updated:** 2026-05-06 (splat-osint-ingestion-v1 PR 1+2 of 6 in flight: contract::splat module + EWA OSINT example). Prior: 2026-04-21 post PR #243.
 >
 > Purpose: prevent new sessions from hallucinating structure that
 > already exists or proposing features already shipped. Read this
@@ -65,6 +65,8 @@ Types live in `crates/cognitive-shader-driver/src/wire.rs` behind `--features se
 **`mail`** (new, SMB domain): `MailParser` + `ThreadLinker` + `ParseHints` + `AttachmentRef` + `PartRef`.
 
 **`ocr`** (new, SMB domain): `OcrProvider` + `PageImage` + `OcrOpts` + `Bbox` + `BlockKind` + `LayoutBlock`.
+
+**`splat`** (new, 2026-05-06): `SplatChannel` (6 variants: Support / Contradiction / Forecast / Counterfactual / Style / Source), `CamPlaneSplat` (q8 amplitude / width / theta_accept + 16-byte witness identity + 8-byte `replay_ref`), `AwarenessPlane16K` (256 × u64 = 2 KB pressure tile), `SplatPlaneSet` (6 channel planes = 12 KB), `CamSplatCertificate` (q8 pressure measurements + replay decision), `SplatDecision` (Proceed / RequireExactReplay / PrefetchOnly / ScenarioOnly / Drop), `TriadicProjection`, `ReasoningWitness64`. Resolves SPLAT-1 row in entropy ledger (Aspirational → Wired stage 1, entropy 4 → 2). Per `.claude/knowledge/gaussian-splat-cam-plane-workaround.md` PR 1. Plan: `.claude/plans/2026-05-06-splat-osint-ingestion-v1.md`.
 
 **`tax`** (new, SMB domain): `TaxEngine` + `TaxPeriod` + `PeriodKind` + `Jurisdiction` + `PostingBatchRef` + `RuleBundle`.
 
