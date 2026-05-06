@@ -34,6 +34,20 @@
 - **Status** — **mutable**: Active / Shipped / Superseded / Deferred / Abandoned
 - **Confidence** — **mutable**: Working / Partial / Broken — see PR #N
 
+
+---
+
+## splat-osint-ingestion-v1 — Splat contract + EWA OSINT bridge (authored 2026-05-06)
+
+- **Plan:** `.claude/plans/2026-05-06-splat-osint-ingestion-v1.md`
+- **Author + date:** Claude (for Jan), 2026-05-06
+- **Status:** Active (PR 1+2 of 6 in flight)
+- **Scope:** SPLAT-1 ledger row Aspirational -> Wired (x1). Materialise SplatChannel/CamPlaneSplat/SplatPlaneSet/CamSplatCertificate in lance-graph-contract; demonstrate EWA-sandwich Sigma-push-forward as neo4j-edge-traversal substitute via crates/jc/examples/osint_edge_traversal.rs.
+- **Originating question:** q2 PR #35 review
+- **Resolves ledger rows:** SPLAT-1 (entropy 4 -> 2, Aspirational -> Wired stage 1).
+- **Branch:** claude/splat-osint-ingestion
+- **Confidence (2026-05-06):** Working (math certified by Pillar 6 PR #289).
+
 ---
 
 ## v1 — LF Integration Mapping (authored 2026-04-25)
