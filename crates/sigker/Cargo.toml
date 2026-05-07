@@ -8,12 +8,8 @@ description = "Path-signature representations: Chen-Lyons signatures, randomized
 
 # Zero deps in production — same constitution as bgz17, deepnsm, jc.
 # Standalone, opt-in build via --manifest-path.
-# ndarray can be added later for accelerated kernel PDE solves;
-# the core math (truncated tensor algebra, randomized projections,
-# Goursat-PDE solver) is pure Rust.
 [dependencies]
 
-# Dev-only — bench against the existing carriers.
 [dev-dependencies]
 
 [[example]]
@@ -21,3 +17,6 @@ name = "sig_vs_hamming"
 
 [[example]]
 name = "randomized_signature_demo"
+
+[[example]]
+name = "depth_scaling"
