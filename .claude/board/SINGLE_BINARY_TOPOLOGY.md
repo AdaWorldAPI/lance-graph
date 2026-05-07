@@ -263,16 +263,207 @@ slow outer flush.
 
 ## Where each in-flight integration plan lives on the diagram
 
-(See full doc in branch — content abbreviated due to push_files size constraints; full version on commit 384cbe03 of branch claude/lance-datafusion-integration-gv0BF.)
+| Plan | Layer(s) | Notes |
+|---|---|---|
+| `elegant-herding-rocket-v1` | **L1** | Markov ±5 + role keys + thinking styles, all on BindSpace zero-copy. |
+| `unified-integration-v1` | **L1** + L2 contract | DU-0..DU-3 on substrate; DU-4 (`rationale_phase`) is L1 column; DU-5 board hygiene. |
+| `bindspace-columns-v1` | **L1** | Extends the SoA from 4→8 columns. |
+| `categorical-algebraic-inference-v1` | **L1** (companion) | Five-lens grounding; no own D-ids. |
+| `callcenter-membrane-v1` | **L2** (membrane) → **L3** (DM-5/DM-8) | DM-0..DM-7 are membrane (sync, L2); DM-5 + DM-8 are serving endpoints (tokio, L3). The plan SPANS the L2/L3 boundary — that's where it touches the tokio invariant. |
+| `supabase-subscriber-v1` | **L2** (membrane) | DM-4 + DM-6 wire-up. **CORRECTION needed:** the plan's `tokio::sync::watch::Receiver` choice violates I-2; sync substitute (`ArcSwap<u64>` + `event_listener::Event`) per WATCHER-1 framing. |
+| `foundry-consumer-parity-v1` | **L2** (consumers) | medcare-rs + smb-office-rs in the callcenter ecosystem. Consumer-side mirror of `lf-integration-mapping-v1`. |
+| `lf-integration-mapping-v1` | **L1** producer | Producer-side mirror of `smb-office-rs/docs/foundry-parity-checklist.md`. |
+| `q2-foundry-integration-v1` | **L2** + L3 | Q2 UI is mostly L3 (HTTP/WS surface) over L2 callcenter ontology. |
+| `thought-cycle-soa-awareness-integration-v1` (#335) | **L1** | PRs 1-10 over the SoA. |
+| `codec-sweep-via-lab-infra-v1` | **L1** infra + L3 lab endpoint | JIT codec kernels are L1; the sweep endpoint serves results in L3. |
 
 ---
 
 ## Cross-references
 
-- **`ARCHITECTURE_ENTROPY_LEDGER.md`** Section A row anchors
+- **`ARCHITECTURE_ENTROPY_LEDGER.md`** Section A row anchors:
+  POLICY-1 / MEMBRANE-GATE-1 (this doc says: SMB SHIPPED #29, medcare PENDING),
+  WATCHER-1 (sync replacement spec lives here),
+  SEAL-1 / PROJECT-LANCE-1 (queued upstream),
+  GATE-1 (existing namespace clash that motivated I-4's distinct-naming rule)
 - **`external_membrane.rs:7-13`** — the BBB invariant text that I-3 enforces
-- **`collapse_gate.rs`** — per-row `GateDecision`
-- **`INTEGRATION_PLANS.md`** / **`LATEST_STATE.md`** / **`PR_ARC_INVENTORY.md`** / **`CROSS_REPO_PRS.md`**
+- **`collapse_gate.rs`** — the per-row `GateDecision` primitive that I-4 distinguishes from `CycleAccumulator`
+- **`INTEGRATION_PLANS.md`** — versioned plan index; this doc is referenced from there as the canonical topology
+- **`LATEST_STATE.md`** — current-state snapshot
+- **`PR_ARC_INVENTORY.md`** — per-PR decision history; PR #29 entry should cross-link here once added
+- **`CROSS_REPO_PRS.md`** — append-only log of merged PRs in other AdaWorldAPI repos that touch this topology (smb-office-rs#29, q2#35, MedCareV2#7)
+- **`smb-office-rs#29`** — `SmbMembraneGate + domain_profile` (merged 2026-05-06) — first concrete POLICY-1 closure; reference implementation for the medcare-side mirror
+
+---
+
+## Q2 cockpit-server reference (Gotham-equivalent consumer)
+
+Q2 is the Palantir-Gotham-equivalent consumer surface in the
+AdaWorldAPI workspace. Its cockpit-server validates this topology
+in production code; this section pins what it confirms so future
+sessions can use it as a reference shape for other consumers.
+
+### 1. First concrete consumer-side L1 surface migration
+
+**q2 PR #35** (merged 2026-05-06) migrated `cockpit-server` to the
+canonical L1 contract surface:
+
+- Dropped `thinking-engine` and `cognitive-shader-driver` deps.
+- Adopted `lance_graph_contract::cognitive_shader::{ShaderDispatch,
+  ShaderResonance, ShaderBus, ShaderCrystal}` directly.
+- Implemented `MockShaderDriver: CognitiveShaderDriver` (stub for
+  Phase 3's real `BgzShaderDriver`).
+- Bridged NARS deduction to
+  `lance_graph_planner::nars::truth::TruthValue::deduction` (q2
+  was the 4th copy; closes one TRUTH-1 duplicate).
+
+**Entropy-ledger impact:** **THINK-1 closed for q2**. The four-copy
+collapse to single contract-36 surface — q2 was one consumer-side
+copy; this PR is the consumer-side closure for it. Sets the
+reference shape for the remaining THINK-1 / TRUTH-1 closures
+(medcare-rs, smb-office-rs, ladybug-rs, etc.).
+
+This is the **first concrete consumer-side L1 surface migration**
+in the workspace. Prior to PR #35 the canonical R1 surface existed
+in contract but no consumer used it directly — every consumer
+shipped its own copy of the dispatch / resonance / bus / crystal
+DTOs. PR #35 demonstrates the migration is tractable: 1304
+additions / 935 deletions across 14 files, two dropped deps, no
+test regressions.
+
+### 2. Wire-shape compaction as I-3 enforcement evidence
+
+The L1→L3 projection in cockpit-server's SSE handler is the first
+real-world demonstration of I-3 BBB compile-time enforcement.
+Three concrete shrinks land in the SSE wire shape:
+
+| Inner type (L1, BBB-internal)            | Outer wire (L3, scalar-only)                   | Ratio |
+|------------------------------------------|------------------------------------------------|-------|
+| `cycle_fingerprint: [u64; 256]` (2 KB)   | `cycle_fingerprint_hash: u64` (8 B; XOR-fold)  | 256×  |
+| `color_acc: [f32; 32]` (128 B)           | `color_acc_active_dims: u8` (1 B; popcount)    | 128×  |
+| `top_k: [(u32, u32)][]` (tuple-of-tuples)| `top_k: WireShaderHit[]` (structured `{row, distance, predicates, resonance, cycle_index}`) | (semantic clarity) |
+
+The `[u64; 256]` inner fingerprint **cannot** appear in the SSE
+wire — Arrow scalar typing rejects it at compile time. The
+XOR-fold to `u64` is the only way the row crosses, and the fold
+itself is an Arrow-scalar primitive. Same logic for `[f32; 32]`:
+the active-dims summary is a scalar; the array isn't.
+
+**Read alongside `external_membrane.rs:7-13`.** That file declares
+the rule (`Self::Commit MUST NOT contain Vsa10k, RoleKey, …`); q2
+PR #35 is the first place the rule visibly bites in real wire
+output. Future consumer-side projections should mirror this
+shape: inner array → scalar summary, never inner array → wire
+array. The L2→L3 projection is the only allowed leak path, and
+its leaks must be lossy summaries, not full payloads.
+
+**One additional wire surface point of interest** for I-4: PR #35
+exposes the L2 per-row gate in the L3 wire as
+`gate: { gate: u8, merge: 'Xor'|'Bundle'|'Superposition'|'AlphaFrontToBack' }`.
+This is a deliberate L2→L3 projection — the Gotham-equivalent UI
+needs to see Flow/Block/Hold + merge mode per row to render
+analyst diagnostics. The `CollapseGate` primitive itself (per-row,
+2 B) is L2; the wire-side projection is its scalar shadow.
+
+### 3. Phase 3 → `CycleAccumulator` load-bearing argument
+
+Phase 2B uses `MockShaderDriver` at low rate — the SSE cadence URL
+parameter `cycle_ms=300` is the throttle. Mock driver synthesizes
+a handful of events per second at 300 ms cadence; well within
+tokio + browser budget.
+
+Phase 3 replaces this with `BgzShaderDriver` running at real
+cognitive-cycle speed (20–200 ns/op). At 100 ns/cycle:
+
+```
+1 cycle      = 100 ns       = 10⁻⁷ s
+10⁷ cycles/sec
+3 × 10⁶ cycles per 300 ms window  ≈  3 million cycles per flush
+```
+
+3 million cycles per 300 ms window is the load-bearing problem:
+
+- SSE cannot deliver 10M events/sec to a browser.
+- HTTP/2 flow control will stall.
+- The browser's `EventSource` parser cannot keep up.
+- The Gotham-equivalent UI doesn't *need* per-cycle resolution —
+  it needs analyst-pace situational updates (10–100 Hz max).
+
+**This is exactly where `CycleAccumulator` is load-bearing.** It
+sits between `BgzShaderDriver` (L1, 20–200 ns/op) and `SseSink`
+(L3, ms-cadence outbound). It absorbs the 10,000× ratio per I-4
+by aggregating per-window: top-K-by-resonance, mean free-energy,
+gate-decision histogram, brier mass — *not* every fire.
+
+Q2 is the **canonical reference for what `CycleAccumulator`
+flushes**. The SSE wire shape after Phase 3 should aggregate per
+window, not stream per cycle. The `cycle_ms=300` URL param becomes
+the consumer-side hint for `threshold_ms` in the accumulator.
+Consumers requesting tighter cadence get smaller windows (and
+fewer aggregate stats per window); consumers OK with looser
+cadence get more ergonomic flushes.
+
+**Sequencing implication:** Phase 3 PR will need to land both
+`BgzShaderDriver` (L1) and `CycleAccumulator` (L2) together.
+Trying to ship the driver without the accumulator will produce
+the failure mode above and force a rollback. The accumulator is
+not optional; it's the architectural prerequisite for
+real-driver Phase 3.
+
+### 4. Gotham parity scope reference
+
+For the full Gotham-equivalent UX scope (analyst loop,
+link-analysis surface, real-time situational map), see
+`q2-foundry-integration-v1.md`. The cockpit-server's surface
+mirrors Gotham's analyst loop:
+
+| Q2 component | Gotham analog | Reads from |
+|---|---|---|
+| `EnergyField` | situational map | `WireShaderResonance` |
+| `BusTicker` | live event feed | `WireShaderBus` |
+| `ThoughtLog` | decision history | `WireShaderCrystal` |
+| `FreeEnergyDial` | uncertainty meter | `meta.brier / meta.confidence` |
+| `/reasoning` page | analyst workspace | (composite) |
+| `/api/graph/infer` | NARS-deduced inferences | `TruthValue::deduction` |
+| Cypher backbone | link-analysis graph | `CYPHER_PATH=...` |
+| Defensive UI placeholders | "stale data" indicators | (UI-side fallback) |
+| Diagnostic overlay (Shift+D) | analyst troubleshooting | (UI-side wire-validators) |
+
+Q2 is *not* Gotham — it's the same analyst-facing serving shape
+over a graph + reasoning substrate. The Single-Binary Topology
+places cockpit-server correctly: L1+L2 in-process, L3 SSE/HTTP
+serving on tokio. No cockpit-side ontology is invented; Q2 reads
+the canonical R1 surface directly.
+
+**OSINT adjacency.** Gotham's heritage in IC/DoD OSINT use cases
+is what `q2-foundry-integration-v1.md` targets. The cockpit-
+server's Cypher graph backbone (`aiwar-neo4j-harvest/cypher`),
+NARS truth revision over uncertain facts, and real-time analyst
+SSE stream are the OSINT-investigation interface shape that the
+Single-Binary Topology serves. The four invariants matter
+specifically for OSINT: BBB I-3 prevents leaking inner cognitive
+state to UI consumers; tokio I-2 keeps the analyst-facing wire
+async-bounded; CycleAccumulator I-4 makes Phase 3 real-driver
+throughput tractable for human-pace analyst work.
+
+**Cross-references:**
+- `q2-foundry-integration-v1.md` — full Gotham parity scope (28
+  deliverables across 4 phases)
+- `CROSS_REPO_PRS.md` — q2#35 detailed entry
+- q2 cockpit-server `mock_driver.rs:1-30` + `codebook.rs::default_distance_table` doc-comment (in q2 repo) — stub markers preventing future sessions from mistaking mock for real driver
+
+---
+
+## Anti-patterns settled by this doc
+
+| Anti-pattern | What it conflated | Why this doc rules it out |
+|---|---|---|
+| "External callcenter membrane crate" framing (callcenter-membrane-v1, 2026-04-22) | Treated callcenter as a process boundary | I-1: single binary, callcenter is in-process |
+| "Foundry consumer parity for SMB + MedCare" (foundry-consumer-parity-v1, 2026-04-26) | Implied consumers were a separate ontology layer | Consumers ARE in the callcenter ecosystem ontology (Layer 2), not a separate one |
+| "Tokio at the membrane edge" (earlier framings in this session) | Drew tokio between Layer 1 and Layer 2 | I-2: tokio is outbound-only, past the `CycleAccumulator` |
+| "CollapseGate accumulates the 10,000× ratio" | Conflated per-row write-airgap with per-cadence speed-absorber | I-4: two distinct primitives. `CollapseGate` = per-row; `CycleAccumulator` = per-cadence. |
+| "Inner CognitiveShader DTO is transcoded into outer callcenter DTO" | Implied a serialization/copy at the boundary | I-3: compile-time type-system relabel, not a copy |
+| "lance-graph-contract is the headless core; consumers can pick what they need" | Implied modularity at the consumer level | I-1: consumers always link the full graph; contract + callcenter ship together |
 
 ---
 
@@ -288,3 +479,11 @@ When a new design proposal arrives that names a "membrane",
 3. Cross-reference it from `INTEGRATION_PLANS.md` to this doc.
 4. If it introduces a new gate / accumulator / boundary primitive,
    add it to the I-4 distinct-naming rule before it lands.
+
+When an entropy-ledger row's status changes (e.g. medcare-side
+POLICY-1 ships):
+
+1. Update the corresponding "Anchored entropy-ledger rows" entry
+   here with the SHIPPED/PR reference.
+2. The ledger row remains the source of truth; this doc just points
+   at it.
