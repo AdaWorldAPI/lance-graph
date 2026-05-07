@@ -50,6 +50,8 @@ fn namespace_registry_seed_defaults_assigns_canonical_v1_ids() {
     assert_eq!(r.get("SMB"), Some(0));
     // Mail orchestration namespace (spear / stalwart / SharePoint).
     assert_eq!(r.get("EmailCorrespondance"), Some(4));
+    // SharePoint content orchestration namespace (Sharepoint→smb-office-rs).
+    assert_eq!(r.get("SharePoint"), Some(5));
 
     // Medical reserved range 10..=19, dense, alphabetical-stable.
     assert_eq!(r.get("Medical/RxNorm"), Some(11));
@@ -62,8 +64,8 @@ fn namespace_registry_seed_defaults_assigns_canonical_v1_ids() {
     assert_eq!(r.get("Medical/DRON"), Some(18));
     assert_eq!(r.get("Medical/CHEBI"), Some(19));
 
-    // 15 seed mappings total (5 cognitive + 10 medical).
-    assert_eq!(r.len(), 15);
+    // 16 seed mappings total (6 cognitive + 10 medical).
+    assert_eq!(r.len(), 16);
 }
 
 #[test]
@@ -76,17 +78,17 @@ fn namespace_registry_get_returns_none_for_unregistered() {
 #[test]
 fn namespace_registry_allocate_is_idempotent_and_dense() {
     let mut r = NamespaceRegistry::seed_defaults();
-    // Allocate a new namespace; gets the first free id (5 — between
-    // EmailCorrespondance=4 and Medical/ICD10CM=10).
+    // Allocate a new namespace; gets the first free id (6 — between
+    // SharePoint=5 and Medical/ICD10CM=10).
     let id1 = r.allocate("CallCenter");
-    assert_eq!(id1, 5);
+    assert_eq!(id1, 6);
     // Idempotent.
-    assert_eq!(r.allocate("CallCenter"), 5);
-    // Next free id continues densely (6).
+    assert_eq!(r.allocate("CallCenter"), 6);
+    // Next free id continues densely (7).
     let id2 = r.allocate("Splat");
-    assert_eq!(id2, 6);
+    assert_eq!(id2, 7);
     assert_ne!(id1, id2);
-    assert_eq!(r.len(), 17);
+    assert_eq!(r.len(), 18);
 }
 
 #[test]

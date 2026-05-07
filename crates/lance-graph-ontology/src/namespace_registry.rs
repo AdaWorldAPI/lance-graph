@@ -49,6 +49,7 @@ impl NamespaceRegistry {
     /// | `Healthcare` | 2 | OGIT/NTO/Healthcare (delegated to lance-graph-rdf) |
     /// | `Network` | 3 | OGIT/NTO/Network |
     /// | `EmailCorrespondance` | 4 | OGIT/NTO/EmailCorrespondance (spear/stalwart/SharePoint) |
+    /// | `SharePoint` | 5 | OGIT/NTO/SharePoint (Sharepoint→smb-office-rs orchestrator) |
     /// | `Medical/ICD10CM` | 10 | BioPortal stub (Wave 2 agent-bioportal-stubs) |
     /// | `Medical/RxNorm` | 11 | BioPortal stub |
     /// | `Medical/LOINC` | 12 | BioPortal stub |
@@ -60,7 +61,7 @@ impl NamespaceRegistry {
     /// | `Medical/DRON` | 18 | BioPortal stub |
     /// | `Medical/CHEBI` | 19 | BioPortal stub |
     pub fn seed_defaults() -> Self {
-        let mut ids = HashMap::with_capacity(15);
+        let mut ids = HashMap::with_capacity(16);
         // Live cognitive namespaces.
         ids.insert("SMB".to_string(), 0); // export-only per v5 ratification
         ids.insert("WorkOrder".to_string(), 1);
@@ -68,6 +69,8 @@ impl NamespaceRegistry {
         ids.insert("Network".to_string(), 3);
         // Mail orchestration namespace (spear / stalwart / SharePoint).
         ids.insert("EmailCorrespondance".to_string(), 4);
+        // SharePoint content orchestration namespace (Sharepoint→smb-office-rs).
+        ids.insert("SharePoint".to_string(), 5);
         // Medical/<sub> reserved range 10..=19, dense.
         ids.insert("Medical/ICD10CM".to_string(), 10);
         ids.insert("Medical/RxNorm".to_string(), 11);
@@ -136,9 +139,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn seed_defaults_has_fifteen_entries() {
+    fn seed_defaults_has_sixteen_entries() {
         let r = NamespaceRegistry::seed_defaults();
-        assert_eq!(r.len(), 15);
+        assert_eq!(r.len(), 16);
     }
 
     #[test]
@@ -150,6 +153,7 @@ mod tests {
         assert_eq!(r.get("Healthcare"), Some(2));
         assert_eq!(r.get("Network"), Some(3));
         assert_eq!(r.get("EmailCorrespondance"), Some(4));
+        assert_eq!(r.get("SharePoint"), Some(5));
         // Medical/<sub> reserved range 10..=19.
         assert_eq!(r.get("Medical/ICD10CM"), Some(10));
         assert_eq!(r.get("Medical/CHEBI"), Some(19));
@@ -158,12 +162,12 @@ mod tests {
     #[test]
     fn allocate_skips_to_first_unused_id() {
         let mut r = NamespaceRegistry::seed_defaults();
-        // 0..=4 and 10..=19 are taken; first free id is 5.
+        // 0..=5 and 10..=19 are taken; first free id is 6.
         let id = r.allocate("CallCenter");
-        assert_eq!(id, 5);
+        assert_eq!(id, 6);
         // Idempotent: re-allocate returns the same id.
-        assert_eq!(r.allocate("CallCenter"), 5);
+        assert_eq!(r.allocate("CallCenter"), 6);
         // Next allocation skips again.
-        assert_eq!(r.allocate("Splat"), 6);
+        assert_eq!(r.allocate("Splat"), 7);
     }
 }
