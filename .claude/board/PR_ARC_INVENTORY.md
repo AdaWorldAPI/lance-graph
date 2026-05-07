@@ -35,6 +35,26 @@
 
 ---
 
+## #354 — gov: #353 post-merge + adjacent-landings (#109, OGIT#2, woa-rs#2) (merged 2026-05-07)
+
+**Confidence (2026-05-07):** governance-only PR, no plan / knowledge / code changes. Append-only board hygiene confirmed working — merged cleanly, no past entries edited. **Status:** Merged to `main` as `a6797ad`.
+
+**Added:**
+- `.claude/board/PR_ARC_INVENTORY.md` — full Added/Locked/Deferred entry for #353 prepended.
+- `.claude/board/LATEST_STATE.md` — `#353` row prepended; "Last updated" advanced.
+
+**Locked:**
+- **Append-only board hygiene works in practice** — the prepend pattern survived 4 sequential PR landings (#352, #353, #354, plus prior splat-osint) without any past-entry mutation. Confidence-line-only mutability policy is durable.
+- **Cross-repo coordinated landing pattern** is documented as a 5-PR-in-a-day recipe: lance-graph plans → OGIT TTL → woa-rs/medcare-rs consumer integration → lance-graph governance close-out.
+
+**Deferred:** none — pure governance.
+
+**Docs:** none added — only board updates.
+
+**Resolves ledger rows:** none. **Closes the governance loop** for the #352 → #353 → #354 sequence.
+
+---
+
 ## #353 — plan: palantir-parity-cascade v2 + SoA DTO entropy ledger + #352 post-merge governance (merged 2026-05-07)
 
 **Confidence (2026-05-07):** plan-only, pre-execution. Pillar 0 carry-forward (Foundry parity IS SoA-as-canon parity) is the architectural anchor; v2 integrates 4 prior Foundry parity docs without duplicating. SoA DTO ledger formalizes 22 DTOs across 4 tiers as the canonical classification artifact. **Status:** Merged to `main` as `4d0c2d9`.
