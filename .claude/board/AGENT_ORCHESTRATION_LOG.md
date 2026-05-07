@@ -974,3 +974,74 @@ The 1.41x overshoot vs the 150 envelope is structural: 7 new fields × forced do
 - **agent-bridge-collapse (already shipped):** your `entity_dto` / `link_dto` / `action_dto` helpers now populate per the new columns. `transcode::CachedOntology` (legacy `from_ontology` path) is unaffected.
 
 **No commit. No push.** Per orchestration policy, main thread consolidates.
+
+---
+## [13:30:00] [meta-3] [META-REVIEW-FINAL]
+
+**Wave:** ALL (1, 2, 3)
+
+**Aggregate verdict per dimension:**
+
+| dimension | verdict | summary |
+|---|---|---|
+| 1. Aggregate scope discipline | **CONCERN-trending-PASS** | Wave 1 silent overshoots (2.0–2.3x); Wave 2 worse (2.0–3.7x); Wave 3 corrected: 3 of 4 agents under 1.5x; cascade-cols self-trimmed from 1.87x to 1.41x via BLOCKER protocol; mysql-transcode hit a structural floor (3.0x) main-thread arbitrated. NUDGE-5/6 worked. |
+| 2. Aggregate design quality | **PASS** | Pillar 0 click realised: `OntologyRegistry` now carries codec cascade columns + provenance + thinking_style + entity-type refs on `MappingRow`. Three OPEN ledger rows (META-NUDGE-1, FIX-3, META-NUDGE-4) flip to FINDING after cascade-cols. Bridge collapsed to 2-line projection per Pillar 3. Zone 1 hygiene preserved (no `Serialize` derives added; cert-officer build gate locks doctrine). |
+| 3. Aggregate test coverage | **PASS** | 41/41 ontology suite + 3/3 callcenter + 7/7 spo_promotion + 5/5 busdto_bridge + 7/7 mul_threshold + 4/4 object_view + 6/6 context_id + 2/2 cascade_cols + bench at 2554x O(1) ratio + dto-class-check smoke pass. Two named gaps: trust_below_floor branch is dead-effect until ctx_id is wired per-row (FIX-5 deferred); zone_serialize_check poison-pill is `assert!(true)` smoke (FIX-1 deferred). |
+| 4. Aggregate handoff debt | **CONCERN** | (a) `BindSpace.context_ids: Box<[u32]>` per-row column not yet added — driver.rs:311 reads first-passed-row only; (b) `lance_cache.rs` Arrow schema does NOT persist the 7 new MappingRow columns — replay defaults them; (c) trybuild-style poison-pill probe for cert-officer; (d) the 22 ledger types still need their `// classification:` doc comments to flip dto-class-check from FAIL to OK; (e) 80 of 104 mysql tables deferred; (f) FunctionSpec (D-PARITY-V2-5) and Pipeline DAG (D-PARITY-V2-6) deferred per plan. |
+| 5. Aggregate integration risk | **PASS** | All 12 outputs compose cleanly: contextId 10..19 cross-verified between bioportal-stubs TTL files and namespace_registry seed_defaults; cascade-cols' `entity_dto/link_dto/action_dto` populate from columns the bridge-collapse helpers expected; busdto_bridge encoding map aligns with cam_pq_code/qualia[0..9] from cascade-cols; spo_bridge does not touch AriGraph or SPO types; ttl_parse's `parse_with_provenance` consumed by cascade-cols' `attach_provenance` without re-walk; mul_threshold profiles consult `MappingRow::ontology_context_id()` exactly as agent-context-id surfaced. Downstream consumers (Q2 D-PARITY-V2-7, n8n, crewai) get NEW types but no breaking signature changes — they learn six POD shapes (ObjectView, NotificationSpec, FieldRef, DisplayTemplate, NotificationTrigger, NotificationChannel) and `MappingRow.thinking_style` / `attribute_sources` accessors. |
+
+**Cross-wave findings:**
+
+The BLOCKER discipline corrective worked. Wave 1 set the silent-overshoot precedent (cert-officer 2.3x, spo-promote 2.0x — neither flagged). Wave 2 worsened despite META-NUDGE-3 (context-id 3.7x, mul-threshold and busdto-bridge at 2.0x). Wave 3 reversed cleanly: object-view at 1.12x (cleanest of all 12), probes at 1.39x, cascade-cols self-trimmed from 1.87x to 1.41x via the explicit BLOCKER-and-resolve protocol meta-2's NUDGE-5/6 prescribed. Lesson: behavior-shaping nudges that name the rationalization mode (doc-density exemption) and require main-thread arbitration are 2-3x more effective than vague "respect the envelope" guidance. Pin this in PR_ARC.
+
+Structural floors are real. mysql-transcode's 25 x ~18 LOC = ~450 LOC is unmeetable below 150 because each per-file Turtle stub mandatorily ships a `@prefix` block plus the spec-required predicate set (rdfs:Class/subClassOf/label/comment/source/scope/parent/loaderStatus/columnCount/primaryKey/mysqlTable). The agent surfaced the trade-off correctly (drop spec predicates vs. miss envelope) and main-thread arbitrated to ship-as-is. Future LOC envelopes should compute structural floors before issuing.
+
+The 3-gap closure pattern works. cascade-cols closed META-NUDGE-1 + FIX-3 + META-NUDGE-4 in one pass — bundling related downstream consumers into one agent's prompt produced higher leverage than three sequential agents would have. The cost was a single 1.41x overshoot and two trim passes; the alternative (3 sub-agents in Wave-3.5) would have re-opened all three handoffs and burned more LOC across separate agent contexts. Bake into future plans.
+
+Doctrinal correctness held throughout. Pillar 0 (OntologyRegistry IS the SoA, schema IS DTO+index) is now realized by cascade-cols' column extension. Pillar 3 (bridges become 2-line projections) was achieved by bridge-collapse in Wave 1 and stays valid post-cascade-cols. Pillar 1 (per-row contextId across named graphs) is in place via SchemaPtr widening. Pillar 4 (BioPortal stubs + MySQL transcode mirroring source-of-truth) is in place via two OGIT commits. The codec cascade column extension flips the OPEN status entries in `soa-dto-dependency-ledger.md` to FINDING for the 7 columns now persisted in `MappingRow` (cam_pq_code, base17_head, palette_key, scent, qualia, meta, edge plus thinking_style, attribute_sources, subject/object/entity_type_ref).
+
+Test coverage is strong on the new behavior with two known dead-effect spots: trust_below_floor branch in the gate (FIX-5 deferred — ctx_id always reads as 0 today until BindSpace.context_ids lands) and the cert-officer poison-pill (FIX-1 deferred — `assert!(true)` smoke). Both are deferable; neither is commit-blocking.
+
+**Handoff debt for Wave-3.5 / next session:**
+
+1. **`BindSpace.context_ids: Box<[u32]>` per-row sibling column** (cognitive-shader-driver/bindspace.rs) — driver.rs:311 currently reads first-passed-row only; per-row read enables proper SIMD sweep over MUL profiles. Estimated 30 LOC + test.
+2. **`lance_cache.rs` Arrow schema for the 7 new MappingRow columns** — replay currently defaults them. FixedSizeBinary(6/8), UInt32, UInt8, FixedSizeList<f32; 18>, UInt64, List<Struct>, Utf8 mappings spelled out in cascade-cols' DONE notes. Estimated 80 LOC.
+3. **22 ledger-type `// classification:` doc comments** — tools/dto-class-check is shipped but exits 1 today; one-line prepend per type flips it to exit 0 and unlocks CI. Estimated 22 LOC across 22 files.
+4. **trybuild-style poison-pill probe for cert-officer** (FIX-1) — replace `assert!(true)` with a real compile-fail probe. Estimated 25 LOC.
+5. **trust_below_floor unit test wiring ctx_id=2 -> MEDICAL** (FIX-5) — pin the for_context branches behaviorally. Estimated 25 LOC.
+6. **Codebook_index recovery edge case** (FIX-4) — 1 test for headline-only recovery with bit collision. Estimated 15 LOC.
+7. **Remaining 80 of 104 MySQL tables** — sql_mirror sweep continuation. Estimated 1500 LOC TTL.
+8. **D-PARITY-V2-5 (FunctionSpec)** + **D-PARITY-V2-6 (Pipeline DAG resolver)** — both deferred per plan; ship after Q2/n8n consumer story is in flight.
+9. **Governance commit not yet added** — LATEST_STATE.md and PR_ARC_INVENTORY.md need the per-PR entry post-merge per the workspace's post-merge governance rule (this is a governance-debt observation, not a code one — apply on merge).
+
+**Recommendation on consolidated PR(s):** **READY-TO-PR with FIX-1+FIX-4+FIX-5+classification doc comments deferrable to follow-up**
+
+### lance-graph PR (branch `claude/create-graph-ontology-crate-gkuJG` -> main, range `63484c9..fc49a29`, 4 commits)
+
+**Strengths the reviewer needs to see:**
+1. **Pillar 0 realized end-to-end.** `OntologyRegistry` now IS the SoA — cam_pq_code/base17_head/palette_key/scent/qualia/meta/edge/thinking_style/attribute_sources/subject_type/object_type/entity_type_ref all live on `MappingRow`. The bridge collapsed to a 2-line projection in `ontology_dto.rs`. The codec cascade is no longer a side-channel: it is the column.
+2. **Zone 1 doctrine locked at the build script.** `cargo check -p lance-graph-callcenter` syn-parses 4 Zone 1/2 files and aborts on any new `pub` `#[derive(Serialize)]` violation in direct builds (transitive cargo check still warns). 0 violations in the canonical surface today.
+3. **O(1) registry probe gives 2554x over linear-scan baseline** — far above the 100x acceptance bar. Bench: registry p99 = 253 ns vs sparql_proxy p99 = 646220 ns over 1024 rows.
+
+**Concerns the reviewer needs to see:**
+1. **lance_cache.rs Arrow schema does not yet persist the 7 new MappingRow columns** — replay defaults them. The `cascade_cols_test.rs` does not exercise the lance round-trip. Mechanical follow-up; non-blocking for review but should land in Wave-3.5.
+2. **`assert!(true)` in `zone_serialize_check_compile_fail.rs` is a smoke test, not a compile-fail probe.** The cert-officer gate is real; the negative test is tautological. Trybuild-style replacement is the proper fix.
+3. **driver.rs:311 reads first-passed-row only for ctx_id** — per-row SIMD-friendly read awaits `BindSpace.context_ids`. The trust_below_floor branch is dead-effect across all dispatches today (ctx_id=0=DEFAULT) and will not actually downgrade until Wave-3.5 wires the per-row column.
+
+### OGIT PR (branch `claude/create-graph-ontology-crate-gkuJG` -> master, range `master..3baf5b9`, 2 commits)
+
+**Strengths the reviewer needs to see:**
+1. **10 BioPortal namespace stubs land on dense contextIds 10..19** that match `lance-graph-ontology::namespace_registry::seed_defaults()` exactly — no runtime negotiation required. Stubs declare loaderStatus=stub so no triple ingestion is implied.
+2. **25 MySQL transcode stubs** (praxis_/pat_/pf_/glob_) cite `MedCare-rs/.MYSQL/Struktur.sql` as `dcterms:source` with programmatically computed columnCount + primaryKey. rdflib parsed all 25 successfully.
+3. **Source-of-truth lineage is preserved.** Every stub's `dcterms:source` points to the canonical SQL or BioPortal release manifest — Pillar 4 of the v1 cascade plan made concrete.
+
+**Concerns the reviewer needs to see:**
+1. **80 of 104 MySQL tables deferred** to a follow-up sweep. The 25 shipped cover the medcare-bridge projection set, but the long tail (test_*, audit_*, hist_*, view_*) is unshipped. Document this in the PR description so reviewers do not flag the gap.
+2. **Three rdfs:comment quality flags from agent-bioportal-stubs** (SNOMED partial, DRON derivation, RadLex four-facet description) were not validated against actual BioPortal metadata in this push — flagged as "worth a sanity check" in the agent's DONE entry.
+3. **No Healthcare/Network/SDF/SGO touch** — this PR scopes to NTO/Medical and NTO/WorkOrder only. If reviewers expect broader OGIT coverage they will need to be redirected to the next push.
+
+**LOC discipline trend:**
+
+- Wave 1: 4 agents, average 1.7x (2.0x median). Two silent overshoots (cert-officer 2.3x, spo-promote 2.0x). META-NUDGE-3 fired post-hoc.
+- Wave 2: 4 agents, average 2.4x (2.0x median, 3.7x outlier on context-id). META-NUDGE-3 bypassed by doc-density rationalization. META-NUDGE-5/6 fired pre-Wave-3.
+- Wave 3: 4 agents, average 1.7x BUT three of four under 1.5x (object-view 1.12x, cascade-cols 1.41x, probes 1.39x); the 4th (mysql-transcode 3.0x) hit a structural floor and was main-thread arbitrated. cascade-cols self-corrected from 1.87x to 1.41x via the BLOCKER-and-resolve protocol. **The trend reversed in Wave 3.**
