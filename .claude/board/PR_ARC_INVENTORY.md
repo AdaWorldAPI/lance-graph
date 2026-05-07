@@ -35,6 +35,38 @@
 
 ---
 
+## #352 — plan: lance-graph-ontology v5 + ogit-cascade v1 (merged 2026-05-07)
+
+**Confidence (2026-05-07):** plan-only, pre-execution. Pillar 0 (SoA-as-canon) is the architectural anchor; Pillars 1-4 are mechanical consequences. Top-3 deliverables locked for both v5 and v1 cascade. Foundry/Gotham parity prior art confirmed extensive (Q2 = Gotham UI equivalent per `q2-foundry-integration-v1.md`; Column H EntityTypeId = Foundry Object Type bridge per PR #272 SHIPPED; LF-12/20/22/23/50 already mapped in `lf-integration-mapping-v1.md`). v2 roadmap will integrate, not duplicate. **Status:** Merged to `main` as `8e2f088`.
+
+**Added:**
+- `.claude/plans/lance-graph-ontology-v5.md` (177 lines) — 15 deliverables ranked by leverage/cost, picking up where v4 (OGIT#1 merged) left off.
+- `.claude/plans/ogit-cascade-supabase-callcenter-v1.md` (209 lines) — Pillar 0 (SoA-as-canon) + Pillar 1 (OGIT SPO-G lingua franca) + Pillar 2 (Zone 1/2/3 BBB tightening) + Pillar 3 (smb/medcare bridge collapse to 2-line projections) + Pillar 4 (BioPortal arsenal stubs); 15 D-CASCADE deliverables.
+- `.claude/board/INTEGRATION_PLANS.md` — prepended with both v5 and v1 cascade entries (append-only governance honored).
+
+**Locked:**
+- **v5 ratifications (4):** smb-ontology export-only forever; D-ONTO-V5-9 above D-ONTO-V5-2 (registry has zero behavioral consumer until V5-9 lands); `MulThresholdProfile` lives in `lance-graph-contract`; `AdaWorldAPI/OGIT` is extension-fork-only — never PR back to `almatoai/OGIT`.
+- **v1 Pillar 0 (the holy-grail click):** `OntologyRegistry` IS the SoA; per-domain schema IS the DTO + name→row index. Bridges hold `LazyLock<&OntologyRegistry>`, project columns through scoped views.
+- **v1 Pillar 2 (Zone 1/2/3 BBB tightening):** Zone 3 is the only outbound emission point. `serde::Serialize` is **denied on Zone 1 / Zone 2 types** via `cert-officer` static check (D-CASCADE-V1-1).
+- **v1 codec cascade per row** (target state — NOT YET WIRED, see Deferred): identity `Vsa16kF32` (64 KB) → CAM-PQ `[u8; 6]` → Base17 `[u8; 34]` → palette key `u32` → Scent `u8` + qualia `[f32; 18]` + meta `MetaWord` + edge `CausalEdge64`. Every step `O(1)`.
+- **v1 `ontology_context_id: u32` per named graph** (D-CASCADE-V1-2; consistent with `lance-graph-rdf-fma-snomed-v1` §Core).
+- **v1 BioPortal arsenal scope:** 10 namespace stubs under `OGIT/NTO/Medical/{ICD10CM, RxNorm, LOINC, FMA, RadLex, SNOMED, MONDO, HPO, DRON, CHEBI}/`. Full ingestion gated on `lance-graph-rdf-fma-snomed-v1`.
+
+**Deferred (immutable parks):**
+- All 30 D-* code implementations across both plans (D-ONTO-V5-1..15 + D-CASCADE-V1-1..15).
+- **Codec cascade column population in `OntologyRegistry`** — current state has NO `cam_pq_code`/`base17`/`palette_key`/`scent` columns; uses `(bridge_id, public_name)` tuples + `ogit_uri` hashing for indexing (per agent audit, `registry.rs:33-86`). D-CASCADE-V1-7 is the wiring deliverable.
+- Full SNOMED CT, DRON, CHEBI imports (license / size-payoff gated).
+- bgz-tensor attention layer integration with codec cascade (orthogonal).
+- n8n-rs / crewai-rust consumption of new SoA columns (separate plan).
+- **Thinking-style OGIT mapping** — user request 2026-05-07; queued as v2 follow-on.
+- TRUST-1 / FLOW-1 / COMPASS-1 / PARSER-1 ledger rows — explicit deferrals.
+
+**Docs:**
+- `.claude/plans/lance-graph-ontology-v5.md` — v5 plan with §7 self-bootstrapping prompt.
+- `.claude/plans/ogit-cascade-supabase-callcenter-v1.md` — v1 cascade plan with §"Self-bootstrapping prompt" + cross-reference table.
+
+---
+
 ## splat-osint-ingestion: SPLAT-1 stage 0->1 + EWA OSINT bridge (2026-05-06)
 
 **Confidence (2026-05-06):** high (math certified by Pillar 6 — PR #289 EWA-Sandwich PSD-preserving 10 000/10 000 hops; PR #286 Koestenberger-Stark 1.467x tightness; PR #287 Dueker-Zoubouloglou Hilbert-CLT). **Status:** In PR (branch `claude/splat-osint-ingestion`).
