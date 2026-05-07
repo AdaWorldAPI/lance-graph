@@ -18,8 +18,8 @@
 use crate::error::{Error, Result};
 use crate::namespace::{NamespaceId, SchemaPtr};
 use crate::proposal::{
-    HydrationFailure, HydrationReport, MappingHandle, MappingProposal, MappingProposalKind,
-    MappingRow,
+    HydrationFailure, HydrationReport, IdentityCodec, MappingHandle, MappingProposal,
+    MappingProposalKind, MappingRow, ProvenanceBundle, QualiaMeta,
 };
 use crate::semantic_types::SemanticTypeMap;
 use crate::ttl_parse::{parse_ttl_directory, ttl_root_checksum};
@@ -251,6 +251,33 @@ impl OntologyRegistry {
         self.inner.read().unwrap().rows.is_empty()
     }
 
+    /// Thread a [`ProvenanceBundle`] onto its row (FIX-3, consumes
+    /// [`crate::ttl_parse::parse_with_provenance`] — no re-walk).
+    pub fn attach_provenance(&self, bundle: &ProvenanceBundle) -> bool {
+        let mut s = self.inner.write().unwrap();
+        s.by_uri.get(&bundle.entity_uri).copied().map(|idx| {
+            s.rows[idx as usize].attribute_sources = bundle.attribute_sources.clone();
+        }).is_some()
+    }
+
+    /// Attach a `ThinkingStyle` (D-PARITY-V2-12) to the row at `ogit_uri`.
+    pub fn attach_thinking_style(
+        &self,
+        ogit_uri: &str,
+        style: lance_graph_contract::thinking::ThinkingStyle,
+    ) -> bool {
+        let mut s = self.inner.write().unwrap();
+        s.by_uri.get(ogit_uri).copied().map(|idx| {
+            s.rows[idx as usize].thinking_style = Some(style);
+        }).is_some()
+    }
+
+    /// Resolve a `BindSpace.entity_type` index to its row (D-CASCADE-V1-7).
+    pub fn enumerate_first_with_entity_type_id(&self, entity_type_id: u16) -> Option<MappingRow> {
+        let s = self.inner.read().unwrap();
+        s.rows.iter().find(|r| r.schema_ptr.entity_type_id() == entity_type_id).cloned()
+    }
+
     /// Export the registry to an OGIT-shaped TTL fragment for the named
     /// namespace. Used by the Lance ↔ OGIT round-trip and for fork PRs
     /// that promote schema-scanner suggestions back into the canonical
@@ -327,6 +354,18 @@ impl RegistryState {
             MappingProposalKind::Attribute { semantic_type, .. } => semantic_type.clone(),
             _ => sem.lookup(proposal.ogit_uri.as_str()),
         };
+        // D-CASCADE-V1-7: derive subject/object/entity-type strings
+        // (META-NUDGE-1); codec/qualia/thinking attach via `attach_*`.
+        let entity_name = proposal.ogit_uri.name().unwrap_or(&proposal.public_name).to_string();
+        let (subject_type, object_type, entity_type_ref) = match &proposal.kind {
+            MappingProposalKind::Edge { link } => {
+                (link.subject_type.to_string(), link.object_type.to_string(), String::new())
+            }
+            MappingProposalKind::Attribute { .. } => (String::new(), String::new(), entity_name),
+            MappingProposalKind::Entity { schema } => {
+                (String::new(), String::new(), schema.name.to_string())
+            }
+        };
         let row = MappingRow {
             bridge_id: proposal.bridge_id.clone(),
             public_name: proposal.public_name.clone(),
@@ -342,6 +381,13 @@ impl RegistryState {
             source_uri: proposal.source_uri.clone(),
             active: true,
             checksum: proposal.checksum.clone(),
+            identity_codec: IdentityCodec::default(),
+            qualia_meta: QualiaMeta::default(),
+            thinking_style: None,
+            attribute_sources: Vec::new(),
+            subject_type,
+            object_type,
+            entity_type_ref,
         };
         let idx = self.rows.len() as u32;
         self.rows.push(row);

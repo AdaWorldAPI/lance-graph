@@ -197,22 +197,38 @@ fn entity_dto(row: &MappingRow) -> EntityTypeDto {
         .name()
         .unwrap_or(&row.public_name)
         .to_string();
+    // D-CASCADE-V1-7 / META-NUDGE-1: surface the per-attribute provenance
+    // pairs threaded onto MappingRow as one PropertyDto per pair. The
+    // marking + semantic_type come from the entity row itself; per-property
+    // marking divergence is a follow-up when MappingRow learns it.
+    let marking = marking_str(row.marking);
+    let semantic_type = semantic_type_str(&row.semantic_type);
+    let properties: Vec<PropertyDto> = row
+        .attribute_sources
+        .iter()
+        .map(|p| PropertyDto {
+            key: p.predicate_iri.clone(),
+            kind: kind_str(PropertyKind::Optional),
+            semantic_type: semantic_type.clone(),
+            marking,
+        })
+        .collect();
+    let required_count = properties.len();
     EntityTypeDto {
         id,
         key: row.public_name.clone(),
         name,
-        // Properties land in this slot when D-CASCADE-V1-7 wires the
-        // codec-cascade columns; today MappingRow only knows kind+marking.
-        properties: Vec::new(),
-        required_count: 0,
+        properties,
+        required_count,
     }
 }
 
 fn link_dto(row: &MappingRow) -> LinkTypeDto {
+    // D-CASCADE-V1-7 / META-NUDGE-1: subject/object now ride on MappingRow.
     LinkTypeDto {
-        subject_type: String::new(),
+        subject_type: row.subject_type.clone(),
         predicate: row.public_name.clone(),
-        object_type: String::new(),
+        object_type: row.object_type.clone(),
         cardinality: "many_to_many",
     }
 }
@@ -220,7 +236,7 @@ fn link_dto(row: &MappingRow) -> LinkTypeDto {
 fn action_dto(row: &MappingRow) -> ActionTypeDto {
     ActionTypeDto {
         name: row.public_name.clone(),
-        entity_type: String::new(),
+        entity_type: row.entity_type_ref.clone(),
         target_predicate: row
             .ogit_uri
             .name()

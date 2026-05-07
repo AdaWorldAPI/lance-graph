@@ -302,13 +302,17 @@ impl ShaderDriver {
         };
         let mul = MulAssessment::compute(&situation);
 
-        // D-ONTO-V5-9: ontology-aware MUL trust thresholds. Replaces the
-        // implicit fixed-scalar gate with a per-context profile (medical
-        // = strict, callcenter = lenient, default = middle). Today the
-        // ctx_id is `0` (DEFAULT); Wave-2 `agent-context-id` adds
-        // `SchemaPtr::ontology_context_id` and Wave-3 `agent-cascade-cols`
-        // threads it onto `BindSpace` per-row so this site can read it.
-        let ctx_id: u32 = 0;
+        // D-CASCADE-V1-7: ctx_id resolves via BindSpace.entity_type +
+        // optional OntologyRegistry handle; per-row context column is
+        // Wave-3.5 follow-up (gate is one-per-dispatch today).
+        let ctx_id: u32 = passed_rows.first().copied().and_then(|r| {
+            let etid = self.bindspace.entity_type[r as usize];
+            if etid == 0 { return None; }
+            self.bindspace.ontology().and_then(|reg| {
+                reg.enumerate_first_with_entity_type_id(etid)
+                    .map(|row| row.ontology_context_id())
+            })
+        }).unwrap_or(0);
         let profile = MulThresholdProfile::for_context(ctx_id);
         let trust_below_floor = (mul.trust.value as f32) < profile.trust_min;
 

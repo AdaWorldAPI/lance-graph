@@ -9,6 +9,7 @@
 
 use crate::namespace::{NamespaceId, OgitUri, SchemaKind, SchemaPtr};
 use lance_graph_contract::property::{LinkSpec, Marking, Schema, SemanticType};
+use lance_graph_contract::thinking::ThinkingStyle;
 
 /// A single producer-side proposal. One TTL file → typically one proposal
 /// (an entity TTL). Schema scanners may emit one proposal per discovered
@@ -73,10 +74,9 @@ impl MappingProposal {
     }
 }
 
-/// What the registry stores. `MappingRow` mirrors the
-/// `ontology_dictionary` Lance table schema column-for-column. Adding a
-/// new column means adding a field here AND extending the Lance writer
-/// (under `lance-cache`) AND bumping the registry's append path.
+/// What the registry stores. Wave-3 (D-CASCADE-V1-7 + D-PARITY-V2-12) adds
+/// codec-cascade bundles + `thinking_style` + `attribute_sources` (consumes
+/// [`crate::ttl_parse::parse_with_provenance`] — no re-walk).
 #[derive(Clone, Debug)]
 pub struct MappingRow {
     pub bridge_id: String,
@@ -93,6 +93,39 @@ pub struct MappingRow {
     pub source_uri: String,
     pub active: bool,
     pub checksum: String,
+    /// Pillar-0 codec hot path (aligns with BusDto map at engine_bridge.rs:230-273).
+    pub identity_codec: IdentityCodec,
+    /// Pillar-0 dispatch bundle (qualia + packed MetaWord/CausalEdge64).
+    pub qualia_meta: QualiaMeta,
+    /// Per-entity thinking style (D-PARITY-V2-12).
+    pub thinking_style: Option<ThinkingStyle>,
+    /// Per-attribute dcterms:source (FIX-3 — threaded from ProvenanceBundle).
+    pub attribute_sources: Vec<AttributeProvenance>,
+    /// Edge-only: subject entity public name.
+    pub subject_type: String,
+    /// Edge-only: object entity public name.
+    pub object_type: String,
+    /// Attribute-only: enclosing entity public name (META-NUDGE-1 unblock).
+    pub entity_type_ref: String,
+}
+
+/// Pillar-0 hot-path codec bundle (CAM-PQ + base17 head + palette + scent).
+/// Warm `identity_fp: Vsa16kF32` stays on `BindSpace` (Zone 2 cleanliness).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct IdentityCodec {
+    pub cam_pq_code: [u8; 6],
+    pub base17_head: [u8; 8],
+    pub palette_key: u32,
+    pub scent: u8,
+}
+
+/// Pillar-0 dispatch bundle (`meta`/`edge` stay packed to avoid pulling
+/// `cognitive-shader-driver` into `lance-graph-ontology`).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct QualiaMeta {
+    pub qualia: [f32; 18],
+    pub meta: u32,
+    pub edge: u64,
 }
 
 impl MappingRow {
@@ -110,6 +143,12 @@ impl MappingRow {
     /// `.claude/plans/lance-graph-rdf-fma-snomed-v1.md` §Core types.
     pub fn ontology_context_id(&self) -> u32 {
         self.schema_ptr.ontology_context_id()
+    }
+
+    /// Number of `dcterms:source` attribute pairs threaded onto this row
+    /// (D-CASCADE-V1-7). `0` for legacy / pre-OGIT-#2 rows.
+    pub fn attribute_source_count(&self) -> usize {
+        self.attribute_sources.len()
     }
 }
 
