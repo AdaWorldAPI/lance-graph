@@ -10,5 +10,6 @@ pub mod language;
 pub mod orchestrator;
 pub mod retrieval;
 pub mod sensorium;
+pub mod spo_bridge;
 pub mod triplet_graph;
 pub mod xai_client;

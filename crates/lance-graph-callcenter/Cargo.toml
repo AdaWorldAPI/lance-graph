@@ -3,12 +3,15 @@ name = "lance-graph-callcenter"
 version = "0.1.0"
 edition = "2021"
 description = "External callcenter membrane over Lance + DataFusion (Supabase-shape API)"
+build = "build.rs"
 
 # NEVER add: reqwest (client HTTP; we are the server), postgres, sqlx, pg-embed.
 # All external HTTP/WS/SQL is replaced by Lance + DataFusion + axum.
 
 [dependencies]
 lance-graph-contract = { path = "../lance-graph-contract" }
+# D-CASCADE-V1-3 — bridge collapse: factories project from the canonical SoA.
+lance-graph-ontology = { path = "../lance-graph-ontology" }
 
 # [persist] — Arrow RecordBatch + Lance dataset ops
 arrow       = { version = "57", optional = true }
@@ -70,6 +73,17 @@ datafusion-dispatch = ["query-lite"]
 membrane-plugins-rls = []
 membrane-plugins-audit = ["audit-log"]
 full     = ["persist", "query", "realtime", "serve", "auth", "audit-log", "postgrest", "membrane-plugins-rls", "membrane-plugins-audit"]
+# D-CASCADE-V1-1 — Internal-only feature gating the poison-pill compile-fail
+# test in tests/zone_serialize_check_compile_fail.rs. Activates a deliberately-
+# violating Zone 2 struct that carries `#[derive(serde::Serialize)]`. Default
+# build does NOT enable this feature; CI may opt-in to confirm the build
+# script aborts as expected.
+_internal_test_serialize_poison = ["dep:serde"]
+
+[build-dependencies]
+# D-CASCADE-V1-1 — syn parses the four Zone 1 / Zone 2 source files at build
+# time. `full` features enable item / attribute parsing; `parsing` is implied.
+syn = { version = "2", features = ["full", "parsing"] }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }

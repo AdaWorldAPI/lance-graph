@@ -35,7 +35,9 @@
 
 use crate::error::{Error, Result};
 use crate::namespace::OgitUri;
-use crate::proposal::{HydrationFailure, MappingProposal, MappingProposalKind};
+use crate::proposal::{
+    AttributeProvenance, HydrationFailure, MappingProposal, MappingProposalKind, ProvenanceBundle,
+};
 use crate::semantic_types::SemanticTypeMap;
 use lance_graph_contract::cam::CodecRoute;
 use lance_graph_contract::property::{Cardinality, LinkSpec, Marking, PropertySpec, Schema};
@@ -60,6 +62,7 @@ const OGIT_SCOPE: &str = "http://www.purl.org/ogit/scope";
 const OGIT_MANDATORY: &str = "http://www.purl.org/ogit/mandatory-attributes";
 const OGIT_OPTIONAL: &str = "http://www.purl.org/ogit/optional-attributes";
 const OGIT_INDEXED: &str = "http://www.purl.org/ogit/indexed-attributes";
+const DCTERMS_SOURCE: &str = "http://purl.org/dc/terms/source";
 
 /// One TTL source — typically a single `.ttl` file in the OGIT NTO tree.
 pub struct TtlSource {
@@ -232,6 +235,143 @@ impl TtlSource {
 
         Ok(proposals)
     }
+
+    /// Walk the TTL and collect per-subject provenance bundles.
+    ///
+    /// One bundle per OGIT subject (entity / verb / attribute). Each bundle
+    /// carries the entity-level `dcterms:source` literal (when the subject
+    /// declared one) plus, for entity subjects, every attribute predicate's
+    /// own `(predicate_iri, dcterms:source)` pair. Per-attribute `dcterms:
+    /// source` triples appear on standalone attribute subjects in the TTL
+    /// (e.g. `ogit.WorkOrder:fahrtKm`); we collect those into the entity
+    /// bundle that lists the predicate in its `mandatory-attributes` /
+    /// `optional-attributes` / `indexed-attributes` lists, so the test
+    /// surface can ask the parsed Customer.ttl for `Customer.fahrtKm`'s
+    /// source URI directly.
+    ///
+    /// Closes TTL-PROBE-5 (the parsed-extraction half — Wave 1). Wave 3 will
+    /// thread these pairs into a new `MappingRow` column.
+    pub fn parse_provenance(&self) -> std::result::Result<Vec<ProvenanceBundle>, HydrationFailure> {
+        use oxttl::TurtleParser;
+
+        let parser = TurtleParser::new()
+            .with_base_iri("http://www.purl.org/ogit/")
+            .map_err(|e| HydrationFailure {
+                source: format!("{}", self.path.display()),
+                reason: format!("base IRI: {e}"),
+            })?
+            .for_slice(&self.bytes);
+
+        // Pass 1: collect (predicate, object) pairs by subject.
+        let mut by_subject: HashMap<String, Vec<(String, RdfValue)>> = HashMap::new();
+        for item in parser {
+            match item {
+                Ok(t) => {
+                    let s = subject_to_string(&t.subject);
+                    let p = t.predicate.as_str().to_string();
+                    let o = term_to_value(&t.object);
+                    by_subject.entry(s).or_default().push((p, o));
+                }
+                Err(e) => {
+                    return Err(HydrationFailure {
+                        source: format!("{}", self.path.display()),
+                        reason: format!("oxttl: {e}"),
+                    });
+                }
+            }
+        }
+
+        // Pass 2: for each OGIT subject, build a ProvenanceBundle. For entity
+        // subjects, also collect the per-attribute pairs by walking the
+        // mandatory / optional / indexed lists and inspecting each attribute
+        // subject's own dcterms:source triple.
+        let mut bundles: Vec<ProvenanceBundle> = Vec::new();
+        for (subject_uri, props) in &by_subject {
+            if !subject_uri.starts_with(OGIT_BASE) {
+                continue;
+            }
+            let canonical = canonical_ogit_uri(subject_uri);
+            // Skip OGIT root vocabulary terms (no namespace).
+            if OgitUri::parse(&canonical).is_err() {
+                continue;
+            }
+
+            let mut bundle = ProvenanceBundle {
+                entity_uri: canonical.clone(),
+                ..Default::default()
+            };
+
+            // Subject-level dcterms:source (entity / verb / attribute).
+            if let Some(src) = lookup_literal(props, DCTERMS_SOURCE) {
+                bundle.entity_source_uri = src.to_string();
+            }
+
+            // For an entity, harvest every attribute predicate's own
+            // dcterms:source by walking its attribute lists.
+            if classify(props) == SubjectKind::Entity {
+                for (p, o) in props {
+                    let attrs = match p.as_str() {
+                        OGIT_MANDATORY | OGIT_OPTIONAL | OGIT_INDEXED => {
+                            walk_rdf_list(o, &by_subject)
+                        }
+                        _ => continue,
+                    };
+                    for attr_iri in attrs {
+                        if let Some(attr_props) = by_subject.get(&attr_iri) {
+                            if let Some(attr_src) = lookup_literal(attr_props, DCTERMS_SOURCE) {
+                                let predicate = canonical_ogit_uri(&attr_iri);
+                                // Idempotent: only insert once per predicate.
+                                if !bundle
+                                    .attribute_sources
+                                    .iter()
+                                    .any(|p| p.predicate_iri == predicate)
+                                {
+                                    bundle.attribute_sources.push(AttributeProvenance {
+                                        predicate_iri: predicate,
+                                        source_uri: attr_src.to_string(),
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Skip subjects that contributed no provenance at all (purely
+            // a schema declaration without dcterms:source anywhere).
+            if !bundle.entity_source_uri.is_empty() || !bundle.attribute_sources.is_empty() {
+                bundles.push(bundle);
+            }
+        }
+
+        Ok(bundles)
+    }
+
+    /// Convenience: parse `(MappingProposal list, ProvenanceBundle list)` in
+    /// one walk. Useful when a consumer needs both the dictionary rows and
+    /// the column-level provenance side-channel.
+    pub fn parse_with_provenance(
+        &self,
+        bridge_id: &str,
+        sem: &SemanticTypeMap,
+    ) -> std::result::Result<(Vec<MappingProposal>, Vec<ProvenanceBundle>), HydrationFailure> {
+        let proposals = self.parse_into_proposals(bridge_id, sem)?;
+        let bundles = self.parse_provenance()?;
+        Ok((proposals, bundles))
+    }
+}
+
+/// Look up the first literal value of a predicate among `(p, o)` triples.
+/// Returns `None` for non-literal objects or missing predicates.
+fn lookup_literal<'a>(props: &'a [(String, RdfValue)], predicate: &str) -> Option<&'a str> {
+    for (p, o) in props {
+        if p == predicate {
+            if let RdfValue::Literal(s) = o {
+                return Some(s.as_str());
+            }
+        }
+    }
+    None
 }
 
 /// Walk a directory tree, parse every `*.ttl` file, return all proposals.
@@ -352,12 +492,13 @@ struct RawTriple {
 enum RdfValue {
     Iri(String),
     Blank(String),
-    // `Literal(String)`'s payload is captured for completeness and round-trip;
-    // the current entity-classifier doesn't read it. TTL-PROBE-5 (TECH_DEBT)
-    // tracks the follow-up that wires `dcterms:source` literals through to
-    // `MappingProposal::source_uri`. Don't strip the field — its presence is
-    // load-bearing for the future fix.
-    #[allow(dead_code)]
+    // `Literal(String)`'s payload is read by `lookup_literal` (used by
+    // `parse_provenance` to surface per-attribute `dcterms:source` triples
+    // post-OGIT-#2). The TTL-PROBE-5 entity-level fix (preserving
+    // dcterms:source over the file path in `MappingProposal::source_uri`)
+    // remains a Wave-3 follow-up; this Wave-1 surface emits the per-attribute
+    // pairs through `ProvenanceBundle` so the column-level provenance is
+    // already extractable.
     Literal(String),
 }
 

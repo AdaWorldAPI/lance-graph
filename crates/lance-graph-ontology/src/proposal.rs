@@ -101,6 +101,62 @@ impl MappingRow {
     }
 }
 
+/// Per-attribute provenance — sibling structure to [`MappingRow`].
+///
+/// After OGIT #2 every attribute predicate in an entity TTL carries its own
+/// `dcterms:source` literal (e.g. `ogit.WorkOrder:fahrtKm` is sourced from
+/// `"AdaWorldAPI/WoA/models.py:Customer.fahrt_km"`). The TTL parser walks
+/// these triples and emits one `AttributeProvenance` per `(predicate,
+/// dcterms:source)` pair so column-level provenance can ride alongside the
+/// entity-level `source_uri` on `MappingRow` without modifying that struct's
+/// shape (Wave 3 owns the MappingRow column extension; this is the Wave 1
+/// extraction half).
+///
+/// `predicate_iri` is the canonical OGIT URI of the attribute (e.g.
+/// `"ogit.WorkOrder:fahrtKm"`). `source_uri` is the literal verbatim from
+/// the TTL's `dcterms:source` triple. Closes TTL-PROBE-5 (the data is now
+/// available; persisting it into the dictionary row is a follow-up).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AttributeProvenance {
+    pub predicate_iri: String,
+    pub source_uri: String,
+}
+
+/// Per-entity provenance bundle — what the TTL parser exposes alongside
+/// `MappingProposal` lists. Carries the entity URI plus every attribute
+/// predicate's `(predicate_iri, dcterms:source)` pair the parser saw.
+///
+/// Empty `entity_source_uri` and empty `attribute_sources` together mean the
+/// TTL had no `dcterms:source` triples at all (legacy / pre-OGIT-#2 files).
+#[derive(Clone, Debug, Default)]
+pub struct ProvenanceBundle {
+    /// OGIT URI of the entity / verb / attribute subject this bundle is
+    /// keyed against, e.g. `"ogit.WorkOrder:Customer"`.
+    pub entity_uri: String,
+    /// Entity-level `dcterms:source` literal (verbatim) — empty when the
+    /// TTL did not declare one for this subject.
+    pub entity_source_uri: String,
+    /// Per-attribute `(predicate_iri, dcterms:source)` pairs collected from
+    /// every attribute subject under this entity that carried its own
+    /// `dcterms:source` literal in the TTL.
+    pub attribute_sources: Vec<AttributeProvenance>,
+}
+
+impl ProvenanceBundle {
+    /// Number of per-attribute `dcterms:source` pairs recorded.
+    pub fn attribute_count(&self) -> usize {
+        self.attribute_sources.len()
+    }
+
+    /// Look up the `dcterms:source` literal for a given predicate IRI.
+    pub fn source_for(&self, predicate_iri: &str) -> Option<&str> {
+        self.attribute_sources
+            .iter()
+            .find(|p| p.predicate_iri == predicate_iri)
+            .map(|p| p.source_uri.as_str())
+    }
+}
+
 /// Opaque receipt for an appended proposal. Carries the assigned
 /// `SchemaPtr` and the dictionary index where the row landed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
