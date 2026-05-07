@@ -244,3 +244,8 @@ Phases 2–4 queued.
 **Scope:** Map the shared Foundry parity surface consumed by both smb-office-rs and medcare-rs. Resolve 5 callcenter UNKNOWNs (consumer-validated). Document the DataFusion/SQL groundtruth pattern. Identify shared build priorities (DM-8 PostgREST is P-0 for both). Ontology unification: one contract shape, two domain-specific instances.
 **Path:** `.claude/plans/foundry-consumer-parity-v1.md`
 **Cross-ref:** `smb-office-rs/docs/foundry-parity-checklist.md` (45 LF chunks); `medcare-rs` callcenter-as-owner architecture; `q2-foundry-integration-v1.md`; `lf-integration-mapping-v1.md`; `callcenter-membrane-v1.md` (UNKNOWNs resolved)
+
+## 2026-05-07 — Status annotation: `sql-spo-ontology-bridge-v1` partially superseded
+
+**Status:** Active (partially superseded by `lance-graph-ontology` crate, 2026-05-07)
+**Note:** The `SchemaExpander` proposed in `sql-spo-ontology-bridge-v1` already shipped in earlier work, and the new `lance-graph-ontology` crate (commit `4cf9a26`, branch `claude/create-graph-ontology-crate-gkuJG`) consumes it as its sole bridge surface. The plan's Phase 4 (NARS cold sink) and `promote_to_spo` writer bridge remain owned by the original plan. Recon + decision for the new crate: `.claude/RECON_ONTOLOGY_CRATE.md` + `.claude/DECISION_SPO_ARIGRAPH.md` (prior commit `edef321`). Federated two-layer cache (Option B): SPO + ARiGraph triplet_graph are not duplicates by design; entropy-ledger rows 70 + 245 cite the L1/L2 cache pair. APPEND-ONLY annotation; original plan entry not edited.

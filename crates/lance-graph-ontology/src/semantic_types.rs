@@ -170,4 +170,99 @@ unmapped = "PlainText"
         assert_eq!(map.lookup("b"), SemanticType::Date(DatePrecision::DateTime));
         assert_eq!(map.lookup("c"), SemanticType::Geo(GeoFormat::LatLon));
     }
+
+    /// WorkOrder namespace mappings cover the WoA-domain attributes emitted
+    /// in `OGIT/NTO/WorkOrder/entities/*.ttl`. Each canonical SemanticType
+    /// (Email/Phone/Iban/TaxId/CustomerId/InvoiceNumber/Date/DateTime/Image)
+    /// must round-trip through the bundled TOML.
+    #[test]
+    fn workorder_namespace_lookups() {
+        let map = SemanticTypeMap::defaults();
+        // Customer
+        assert_eq!(
+            map.lookup("ogit.WorkOrder:Customer.email"),
+            SemanticType::Email
+        );
+        assert_eq!(
+            map.lookup("ogit.WorkOrder:Customer.telefon"),
+            SemanticType::Phone
+        );
+        assert_eq!(
+            map.lookup("ogit.WorkOrder:Customer.iban"),
+            SemanticType::Iban
+        );
+        assert_eq!(
+            map.lookup("ogit.WorkOrder:Customer.taxId"),
+            SemanticType::TaxId
+        );
+        assert_eq!(
+            map.lookup("ogit.WorkOrder:Customer.kdnr"),
+            SemanticType::CustomerId
+        );
+        // Order
+        assert_eq!(
+            map.lookup("ogit.WorkOrder:Order.orderId"),
+            SemanticType::InvoiceNumber
+        );
+        assert_eq!(
+            map.lookup("ogit.WorkOrder:Order.datum"),
+            SemanticType::Date(DatePrecision::Day)
+        );
+        assert_eq!(
+            map.lookup("ogit.WorkOrder:Order.bezahlt"),
+            SemanticType::Date(DatePrecision::Day)
+        );
+        // LogbookEntry / User
+        assert_eq!(
+            map.lookup("ogit.WorkOrder:LogbookEntry.datum"),
+            SemanticType::Date(DatePrecision::Day)
+        );
+        assert_eq!(
+            map.lookup("ogit.WorkOrder:LogbookEntry.createdAt"),
+            SemanticType::Date(DatePrecision::DateTime)
+        );
+        assert_eq!(
+            map.lookup("ogit.WorkOrder:User.email"),
+            SemanticType::Email
+        );
+        assert_eq!(
+            map.lookup("ogit.WorkOrder:User.phone"),
+            SemanticType::Phone
+        );
+        // Picture / PasswordEntry
+        assert_eq!(
+            map.lookup("ogit.WorkOrder:Picture.dateiname"),
+            SemanticType::Image
+        );
+        assert_eq!(
+            map.lookup("ogit.WorkOrder:PasswordEntry.url"),
+            SemanticType::Url
+        );
+    }
+
+    /// WorkOrder attributes that are not given a dedicated semantic type
+    /// fall through to `PlainText` (the default `unmapped`). And opaque
+    /// PlainText labels in the TOML still resolve to PlainText.
+    #[test]
+    fn workorder_plaintext_and_default_fallback() {
+        let map = SemanticTypeMap::defaults();
+        // Explicit PlainText mapping (route / firma / artikelnr).
+        assert_eq!(
+            map.lookup("ogit.WorkOrder:LogbookEntry.route"),
+            SemanticType::PlainText
+        );
+        assert_eq!(
+            map.lookup("ogit.WorkOrder:Customer.firma"),
+            SemanticType::PlainText
+        );
+        assert_eq!(
+            map.lookup("ogit.WorkOrder:Article.artikelnr"),
+            SemanticType::PlainText
+        );
+        // Unmapped WorkOrder attribute → default PlainText.
+        assert_eq!(
+            map.lookup("ogit.WorkOrder:Order.bogusFieldThatDoesNotExist"),
+            SemanticType::PlainText
+        );
+    }
 }

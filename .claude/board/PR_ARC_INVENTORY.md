@@ -1151,3 +1151,41 @@ Removes `crate-ci/typos` spell-check job from `style.yml`; `cargo fmt --check` r
 **Deferred:** —
 **Docs:** `Dockerfile.md`, `.claude/board/EPIPHANIES.md`, `.claude/board/TECH_DEBT.md`
 
+
+---
+
+## (open / pending merge) — feat(lance-graph-ontology): scaffold OGIT-canonical ontology spine (2026-05-07)
+
+(Per APPEND-ONLY rule: PR sections are reverse-chronological; this dated entry is the new top-of-arc entry. Reverse-chronologically newest, even though it sits at the file end under tee-a governance.)
+
+**Confidence (2026-05-07):** High. 28 tests passing (16 inline + 12 integration). Builds without `protoc` because Lance persistence is feature-gated.
+
+**Branch:** `claude/create-graph-ontology-crate-gkuJG`
+**Commit:** `4cf9a26` (prior recon + SPO-1 decision: `edef321`)
+
+**Added:**
+- New workspace member `crates/lance-graph-ontology/` (~3000 LOC). Cargo.toml with feature-gated `lance-cache` so the crate compiles without `protoc` (lance-encoding's build-script otherwise requires it).
+- `src/lib.rs` public surface; modules `error`, `namespace`, `proposal`, `semantic_types`, `ttl_parse`, `foundry_map`, `registry`, `bridge`, `schema_source`.
+- Public types: `OntologyRegistry`, `NamespaceBridge` (trait), `NamespaceId`, `OgitUri`, `SchemaPtr`, `SchemaKind`, `MappingProposal`, `MappingProposalKind`, `MappingRow`, `MappingHandle`, `HydrationReport`, `HydrationFailure`, `BridgeError`, `Error`, `SchemaSource` (trait), `EntityRef`, `EdgeRef`, `OntologyAssembler`, `SemanticTypeMap`, `TtlSource`.
+- Default tenant bridges `bridges::WoaBridge`, `bridges::MedcareBridge`, `bridges::OgitBridge` (thin scoped views over the shared registry, ~20 LOC each per the v4 plan).
+- `src/semantic_types.toml`: declarative OGIT-attribute → SemanticType map (the only TOML in the crate; ontology data itself is TTL).
+- `src/lance_cache.rs` (feature-gated `lance-cache`): `LanceWriter` for runtime dictionary persistence.
+- Phase 3 (scaffold), Phase 4 (TTL hydration), Phase 5 (tenant bridges) of the v4 plan.
+
+**Locked:**
+- **OGIT TTL is the canonical ontology source.** Lance is the runtime dictionary cache, not the source of truth.
+- **Tenant bridges are thin scoped views** over the shared `OntologyRegistry`, not independent ontology multiplication.
+- **Lance persistence is feature-gated** under `lance-cache`; the default compile path requires no `protoc`.
+- **Federated two-layer cache (Option B) for SPO + ARiGraph**, per `.claude/DECISION_SPO_ARIGRAPH.md` (entropy-ledger rows 70 + 245: SPO + ARiGraph triplet_graph are not duplicates by design — they are an L1/L2 cache pair). The ontology crate is agnostic; it produces `Ontology` values; consumers route via `SchemaExpander`. Does NOT close SPO-1 — `promote_to_spo` bridge work remains separately owned.
+- **`SchemaExpander` consumer point** (already shipped in earlier work) is the one bridge surface the ontology crate writes through; the prior `sql-spo-ontology-bridge-v1` plan's `SchemaExpander` proposal is therefore partially superseded (the expander shipped, the bridge plan's surface is now produced).
+
+**Deferred:**
+- Lance feature-gated compile path requires `protoc` to actually exercise the `lance-cache` feature; default compile path stays clean. Activating `lance-cache` in CI is deferred pending a `protoc` install step or a vendored protobuf descriptor.
+- SPO-1 closure (`promote_to_spo` writer bridge between `arigraph::triplet_graph` and `spo::store`) — owned separately, not by this crate.
+- Phases 6-7 of the v4 plan (canonical TTL emission for WoA / Healthcare into `AdaWorldAPI/OGIT/NTO/`; Cypher integration test routing around PARSER-1 stub via `lance_graph::parser::parse_cypher_query`).
+- Tenant rosters beyond WoA / MedCare / OGIT.
+
+**Docs:**
+- `.claude/RECON_ONTOLOGY_CRATE.md` (Phase 1 recon, commit `edef321`).
+- `.claude/DECISION_SPO_ARIGRAPH.md` (SPO-1 decision, commit `edef321`).
+- This board update (LATEST_STATE.md table + Inventory; INTEGRATION_PLANS.md status annotation on `sql-spo-ontology-bridge-v1`; EPIPHANIES.md SPO-1 disposition entry; AGENT_LOG.md run entry).

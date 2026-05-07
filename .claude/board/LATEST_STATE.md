@@ -218,3 +218,19 @@ the contract. This file exists to prevent that.
 | **#270** | 2026-04-26 | ci: remove typos spell-check job (too many false positives) | Removed crate-ci/typos from style.yml; cargo fmt --check remains |
 | **#269** | 2026-04-26 | feat: Distance trait + SIMD Hamming/cosine wiring + PaletteDistanceTable + Dockerfile docs | Distance trait; SIMD Hamming/cosine wiring; PaletteDistanceTable 128KB; Dockerfile.md |
 
+
+---
+
+## 2026-05-07 — Append: lance-graph-ontology shipped (commit 4cf9a26, branch claude/create-graph-ontology-crate-gkuJG)
+
+(Per APPEND-ONLY rule: this dated annotation augments the "Recently Shipped PRs" table and "Current Contract Inventory" snapshot above. Treat the row below as the new top-of-table entry; treat the inventory paragraph below as a new top-of-inventory entry.)
+
+### Recently Shipped PRs — new top row
+
+| PR | Merged | Title | What it added |
+|---|---|---|---|
+| **(open / pending merge)** | *(open)* | feat(lance-graph-ontology): scaffold OGIT-canonical ontology spine | New workspace member `crates/lance-graph-ontology/` (~3000 LOC, 28 tests = 16 inline + 12 integration). Phases 3-5 of the v4 plan: scaffold + TTL hydration + tenant bridges. Public surface: `OntologyRegistry`, `NamespaceBridge` trait, `NamespaceId`, `OgitUri`, `SchemaPtr`, `SchemaKind`, `MappingProposal`, `MappingProposalKind`, `MappingRow`, `MappingHandle`, `HydrationReport`, `HydrationFailure`, `BridgeError`, `Error`, `SchemaSource` trait, `EntityRef`, `EdgeRef`, `OntologyAssembler`, `SemanticTypeMap`, `TtlSource`. Default tenant bridges: `bridges::WoaBridge`, `bridges::MedcareBridge`, `bridges::OgitBridge`. Feature-gated `lance_cache::LanceWriter` (under `lance-cache` feature, gated to keep zero-protoc compile path). Builds on prior commit `edef321` (recon + SPO-1 decision: federated two-layer cache, Option B). |
+
+### Current Contract Inventory — new entry
+
+**`lance-graph-ontology`** (new crate, 2026-05-07): consolidates per-tenant bridge multiplication into one ontology spine. OGIT becomes the canonical TTL ontology source; Lance is the (feature-gated) runtime dictionary cache; tenant bridges become thin scoped views over the shared registry. Public types: `OntologyRegistry`, `NamespaceBridge` trait, `NamespaceId`, `OgitUri`, `SchemaPtr`, `SchemaKind`, `MappingProposal`, `MappingProposalKind`, `MappingRow`, `MappingHandle`, `HydrationReport`, `HydrationFailure`, `BridgeError`, `Error`, `SchemaSource` trait, `EntityRef`, `EdgeRef`, `OntologyAssembler`, `SemanticTypeMap`, `TtlSource`. Default tenant bridges: `bridges::WoaBridge`, `bridges::MedcareBridge`, `bridges::OgitBridge`. 28 tests passing (16 inline + 12 integration). Feature-gated Lance persistence under `lance-cache` (kept off by default so the crate compiles without `protoc`, which `lance-encoding`'s build-script requires). Branch `claude/create-graph-ontology-crate-gkuJG`; commit `4cf9a26`; prior recon + decision in `edef321` (`.claude/RECON_ONTOLOGY_CRATE.md`, `.claude/DECISION_SPO_ARIGRAPH.md`).

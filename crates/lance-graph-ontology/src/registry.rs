@@ -354,6 +354,11 @@ impl RegistryState {
         })
     }
 
+    // Used by `lance_cache::LanceWriter::replay()` when reconstituting the
+    // in-memory state from a Lance dataset on `OntologyRegistry::open`.
+    // The reader only compiles under the `lance-cache` feature; suppress
+    // the dead-code lint when the feature is off.
+    #[cfg_attr(not(feature = "lance-cache"), allow(dead_code))]
     fn absorb_row(&mut self, row: MappingRow) {
         let key = (row.bridge_id.clone(), row.public_name.clone());
         if !self.by_namespace.contains_key(row.ogit_uri.namespace().unwrap_or("")) {

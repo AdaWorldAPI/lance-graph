@@ -61,6 +61,75 @@ fn hydrate_network_namespace_from_real_ogit() {
     assert_eq!(entity.schema_ptr.namespace_id(), bridge.g_lock());
 }
 
+/// Hydrate the WorkOrder namespace from the OGIT fork (the namespace
+/// added in this session via `AdaWorldAPI/WoA` transcode). Closes the
+/// "Phase 7 has no executed proof" gap surfaced by the integration-lead
+/// review: this test exercises the full TTL → registry path against the
+/// 15 entities + 12 verbs that landed in commit `3871d37` on the OGIT
+/// fork branch `claude/create-graph-ontology-crate-gkuJG`.
+#[test]
+fn hydrate_workorder_namespace_from_real_ogit() {
+    let Some(root) = ogit_root() else {
+        eprintln!("SKIP: OGIT fork not found (set OGIT_FORK_PATH)");
+        return;
+    };
+    if !root.join("WorkOrder").exists() {
+        eprintln!(
+            "SKIP: OGIT fork has no WorkOrder/ namespace at {}",
+            root.display()
+        );
+        return;
+    }
+    let registry = Arc::new(OntologyRegistry::new_in_memory());
+    let report = registry
+        .hydrate_once_sync(&root, &["WorkOrder"])
+        .expect("hydration");
+    assert!(
+        report.is_clean(),
+        "WorkOrder hydration must report no failures: {:?}",
+        report.failures
+    );
+    assert!(
+        report.registered >= 15,
+        "expected at least 15 WorkOrder entities + 12 verbs, got {report:?}"
+    );
+
+    // Spot-check the canonical entity URIs that map to WoA models.py.
+    for entity in [
+        "ogit.WorkOrder:Tenant",
+        "ogit.WorkOrder:Customer",
+        "ogit.WorkOrder:Order",
+        "ogit.WorkOrder:Article",
+        "ogit.WorkOrder:Position",
+        "ogit.WorkOrder:Activity",
+        "ogit.WorkOrder:Picture",
+        "ogit.WorkOrder:HistoryEntry",
+        "ogit.WorkOrder:User",
+        "ogit.WorkOrder:LogbookEntry",
+        "ogit.WorkOrder:NumberSequence",
+        "ogit.WorkOrder:Setting",
+        "ogit.WorkOrder:CustomerPortalUser",
+        "ogit.WorkOrder:PasswordEntry",
+        "ogit.WorkOrder:TimeSheet",
+    ] {
+        let ptr = registry
+            .resolve_uri(entity)
+            .unwrap_or_else(|| panic!("{entity} must resolve in WorkOrder namespace"));
+        assert!(
+            ptr.namespace_id().is_known(),
+            "{entity} must carry an assigned NamespaceId"
+        );
+    }
+
+    // The WoA bridge must lock all 15 to its single G partition.
+    let bridge = lance_graph_ontology::bridges::WoaBridge::new(registry.clone())
+        .expect("WoaBridge constructs once WorkOrder namespace is hydrated");
+    let order_ptr = bridge
+        .entity_by_uri(&lance_graph_ontology::OgitUri::parse("ogit.WorkOrder:Order").unwrap())
+        .expect("Order resolves through the bridge scope-lock");
+    assert_eq!(order_ptr.schema_ptr.namespace_id(), bridge.g_lock());
+}
+
 #[test]
 fn idempotent_re_hydration_is_fast() {
     let Some(root) = ogit_root() else {

@@ -1483,3 +1483,10 @@ documents the correct direction so future work doesn't re-derive it.
 **Introduced by:** PR #329 (audit surfaced)
 **Author's words:** "Most 'drift' in the standalones is intentional author style (single-line `if`s, visually-aligned struct literals, two-space-comment alignment). No CI gate exists to lock the canonical style. Two viable follow-up paths: Path A (per-crate rustfmt.toml overrides) or Path B (mass-rewrite + CI gate for every crate)."
 
+
+## 2026-05-07 — TTL-PROBE-5: dcterms:source dropped during TTL hydration
+**Status:** Open
+**Priority:** P2
+**Scope:** @truth-architect lance-graph-ontology
+**Description:** When a TTL declares `dcterms:source <upstream-iri>` for an entity, the parser at `crates/lance-graph-ontology/src/ttl_parse.rs` ignores it and writes `source_uri = "file:<local-path>"` to the dictionary instead. The probe `dcterms_source_is_currently_dropped` in `tests/round_trip_ttl.rs` locks this current-but-undesired behaviour. Real OGIT TTLs do carry `dcterms:source` provenance; losing it cripples upstream-pull / round-trip-export workflows.
+**Followup:** Extend `parse_into_proposals` to look for `<http://purl.org/dc/terms/source>` triples per subject; if present, prefer that IRI over the local file path. Flip the assertion in the probe so it asserts the dcterms IRI is preserved. Close this row.

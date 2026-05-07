@@ -3729,3 +3729,11 @@ Cross-ref: 2026-04-26 BF16-mantissa-inline (Column F); 2026-04-26 SPO
 Pearl 2³ ontology enrichment (Column E); 2026-04-24 Two SoAs +
 ONNX L4→L1 feedback (Column G context); LF-22 ObjectView (Column H
 foundation); soa-review.md §semantic kernel; Q2 plan §Vertex equivalent.
+
+## 2026-05-07 — FINDING: SPO-1 disposition is Option B (federated two-layer cache; ARiGraph + SPO are NOT duplicates by design)
+
+**Status:** FINDING
+
+SPO-1 (the longstanding "are SPO and ARiGraph triplet_graph two implementations of the same triple store?" question) closes with **Option B: federated, two-layer cache**. ARiGraph's `triplet_graph` is the L1 cognitive hot-cache (NARS-truth-bearing, Pearl 2-cube-aware, episodic-bound); SPO is the L2 cold-store (Merkle-anchored, semiring-algebra-ready, persistence-friendly). They share schema via the new `lance-graph-ontology` crate's `OntologyRegistry` but stay structurally distinct because their access patterns and truth-update semantics diverge. The `promote_to_spo` writer bridge is the cache-eviction path (L1 hot → L2 cold) and remains separately owned (not closed by the ontology crate). The earlier instinct "they are duplicates, deduplicate them" was wrong — the dual-layer split is the design, not an accident.
+
+Cross-ref: `.claude/DECISION_SPO_ARIGRAPH.md` (full decision text, commit `edef321`); `ARCHITECTURE_ENTROPY_LEDGER.md` rows 70 (SPO) + 245 (ARiGraph triplet_graph) — both retain "Wired" status; the federated-cache framing reconciles the apparent overlap. The `lance-graph-ontology` crate (commit `4cf9a26`) is the agnostic schema/bridge spine; consumers route through `SchemaExpander`. SPO-1 itself does NOT close — only its disposition does; `promote_to_spo` remains queued.

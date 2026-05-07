@@ -352,6 +352,12 @@ struct RawTriple {
 enum RdfValue {
     Iri(String),
     Blank(String),
+    // `Literal(String)`'s payload is captured for completeness and round-trip;
+    // the current entity-classifier doesn't read it. TTL-PROBE-5 (TECH_DEBT)
+    // tracks the follow-up that wires `dcterms:source` literals through to
+    // `MappingProposal::source_uri`. Don't strip the field — its presence is
+    // load-bearing for the future fix.
+    #[allow(dead_code)]
     Literal(String),
 }
 
