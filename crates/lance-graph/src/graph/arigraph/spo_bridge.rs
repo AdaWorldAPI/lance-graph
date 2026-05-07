@@ -90,7 +90,10 @@ impl Default for PromoteGate {
 /// Exposed so callers and tests can derive the same key without
 /// guessing the format.
 pub fn canonical_dn(triplet: &Triplet) -> String {
-    format!("{} -[{}]-> {}", triplet.subject, triplet.relation, triplet.object)
+    format!(
+        "{} -[{}]-> {}",
+        triplet.subject, triplet.relation, triplet.object
+    )
 }
 
 /// Promote a single warm AriGraph triplet into the cold SPO store.
@@ -188,8 +191,7 @@ mod tests {
     #[test]
     fn gate_filters_low_truth() {
         // Expectation 0.5 fails NORMAL gate (0.6).
-        let triplet =
-            Triplet::with_truth("a", "b", "r", TruthValue::new(0.5, 0.5), 1);
+        let triplet = Triplet::with_truth("a", "b", "r", TruthValue::new(0.5, 0.5), 1);
         let mut spo = SpoStore::new();
         let err = promote_to_spo(&triplet, PromoteGate::NORMAL, &mut spo).unwrap_err();
         assert_eq!(err, PromoteError::BelowGate);

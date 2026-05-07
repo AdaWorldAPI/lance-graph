@@ -26,13 +26,7 @@ use lance_graph::graph::spo::truth::TruthValue;
 #[test]
 fn spo_promotion_round_trips_a_single_triplet() {
     // 1. Hand-built warm triplet (string-keyed L1 representation).
-    let triplet = Triplet::with_truth(
-        "alice",
-        "bob",
-        "knows",
-        TruthValue::new(0.9, 0.8),
-        42,
-    );
+    let triplet = Triplet::with_truth("alice", "bob", "knows", TruthValue::new(0.9, 0.8), 42);
 
     // 2. Cold store starts empty; promote the warm entry.
     let mut spo = SpoStore::new();
