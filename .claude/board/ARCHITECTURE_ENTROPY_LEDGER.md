@@ -1132,3 +1132,260 @@ the PLURAL doc — meta-irony noted).
   soa-dto-dependency-ledger): post-merge governance + 4-tier DTO
   classification (bare-metal=9 / SoA-glue=7 / bridge-projection=6,
   3 OPEN re-classifications). Merges 2026-05-07 10:47 UTC.
+
+---
+
+## 2026-05-07 — PR #355 absorption: SPO-1 + TTL-PROBE-5 closures + 8 new rows + Per-row-context cluster
+
+> **Append-only update.** PR #355 (palantir-cascade, merged 13:40 UTC,
+> 11 deliverables / 12 agents / 3 waves, +4,092 / −263 across 36 files;
+> base = `a6797ad`, head = `140dbc07`) realized Pillar 0 end-to-end:
+> `OntologyRegistry` IS the SoA, schema IS the DTO + index. Codec
+> cascade columns now live ON `MappingRow`; bridge collapsed to 2-line
+> projection over `OntologyRegistry::enumerate(ns)`; O(1) probe shows
+> registry p99 = 253 ns vs SPARQL-proxy p99 = 646,220 ns = **2554×
+> ratio** (target ≥ 100× exceeded by 25.5×).
+
+### State changes
+
+#### SPO-1 — Stalled (Wired ×2 distinct, no bridge) → Wired (canonical bridge shipped)
+
+**Old state:** Two SPO stores wired in parallel. `lance-graph::graph::spo::*`
+(fingerprint-keyed, HammingMin truth-semiring) + `lance-graph::graph::
+arigraph::triplet_graph` (string-keyed `HashMap<String, Vec<usize>>`,
+1,072 LOC). Share only `TruthValue`. **No bridge fn** between them —
+`to_fingerprints()` was a derive, not a writer. Entropy 4. Cluster:
+Foundry seal.
+
+**New state:** L1/L2 cache framing concretely realized via
+`SpoBridge::promote_to_spo` writer at `crates/lance-graph/src/graph/
+arigraph/spo_bridge.rs`. Warm string-keyed AriGraph (L1) → cold
+fingerprint-keyed SPO (L2) via FNV-1a `dn_hash`. The two stores are
+**tiers, not duplicates** — bridge closes the missing writer seam.
+
+**Evidence:** PR #355 D-ONTO-V5-9 (Wave 1, agent-spo-promote;
+commit `8528161`).
+
+**Entropy:** 4 → **2**. Maturity Stage 3 (multi-crate consumer).
+Smart/Dumb: **Smart** (`promote_to_spo` carrier method). Cluster
+status: SPO-1 drops out of Section C "open seams" list.
+
+#### TTL-PROBE-5 — Aspirational/Stub → Wired
+
+**Old state:** Per-attribute `dcterms:source` provenance referenced
+in plans; no implementation surface.
+
+**New state:** Wired via sibling `AttributeProvenance` +
+`ProvenanceBundle` types in `proposal.rs`. Wave-3 cascade-cols
+(D-CASCADE-V1-7) threaded `attribute_sources` into `MappingRow`.
+
+**Evidence:** PR #355 D-ONTO-V5-1 (Wave 1, agent-ttl-source).
+
+**Entropy:** closed. Maturity Stage 2.
+
+### New row introductions
+
+#### ONTOLOGY-REGISTRY-SOA-1 — Pillar 0 realized (Registry IS the SoA)
+
+| Field | Value |
+|---|---|
+| Region | R6/R0 |
+| Component | `lance-graph-ontology::OntologyRegistry`; schema IS the DTO + index; `enumerate(ns)` + `SchemaPtr` carrier methods |
+| Maturity | **Stage 3** (consumed by bridge crates + `MappingRow` + callcenter) |
+| Smart/Dumb | **Smart** (carrier methods on registry; Click-P-1 satisfied) |
+| State | Wired |
+| DupCount | 1 |
+| DupPotential | None |
+| LooseEnds | (a) `lance_cache.rs` Arrow schema doesn't yet persist the 7 new MappingRow cascade columns — replay defaults them (CRITICAL per meta-3); (b) per-row `BindSpace.context_ids` deferred to Wave-3.5 |
+| Plan | `lance-graph-ontology-v5.md` |
+| Plan-status | Active |
+| **Entropy** | **2** (Mostly clean — wired with empirical proof; two known loose ends in cluster Per-row-context below) |
+| Empirical | O(1) probe: registry p99 = 253 ns vs SPARQL-proxy p99 = 646,220 ns = **2554× ratio** (target ≥ 100×); 41/41 tests in `lance-graph-ontology` |
+| Evidence | PR #355 D-CASCADE-V1-3 (bridge collapse, agent-bridge-collapse) + D-CASCADE-V1-11 (probe, agent-probes); commits `8528161` + `fc49a29` |
+
+#### MUL-THRESHOLD-1 — context-aware threshold profile
+
+| Field | Value |
+|---|---|
+| Region | R6 (companion to MUL-ASSESS-1; consult site at `driver.rs:303-321`) |
+| Component | `lance-graph-contract::mul::MulThresholdProfile` w/ const profiles `MEDICAL` / `CALLCENTER` / `DEFAULT` + `for_context(u32)` lookup |
+| Maturity | Stage 2 |
+| Smart/Dumb | Smart (`for_context()` carrier method) |
+| State | Wired (7/7 tests) |
+| DupCount | 1 |
+| DupPotential | None |
+| LooseEnds | `driver.rs:311` per-dispatch (not per-row) `ctx_id` — `trust_below_floor` branch is dead-effect today; per-row `BindSpace.context_ids` deferred to Wave-3.5 |
+| Plan | `ogit-cascade-supabase-callcenter-v1` D-ONTO-V5-9 |
+| Plan-status | Active |
+| **Entropy** | **3** (Partial — wired but `trust_below_floor` branch dead-effect; cluster Per-row-context) |
+| Evidence | PR #355 D-ONTO-V5-9 (Wave 2, agent-mul-threshold; commit `8366e70`) |
+
+#### CASCADE-COLS-1 — codec cascade columns ON MappingRow
+
+| Field | Value |
+|---|---|
+| Region | R6/R7 |
+| Component | `MappingRow` cascade cols: `IdentityCodec { cam_pq_code, base17_head, palette_key, scent }` + `QualiaMeta { qualia, meta, edge }` + `thinking_style: Option<u16>` + `attribute_sources` + 3 type-ref strings |
+| Maturity | Stage 2 |
+| Smart/Dumb | **Dumb** (struct fields; no carrier methods yet declared beyond constructors — Click-P-1 deficit candidate) |
+| State | Wired (4/4 cascade_cols tests) |
+| DupCount | 1 |
+| DupPotential | None |
+| LooseEnds | `lance_cache.rs` Arrow schema bump pending — Lance-cache hydrate is currently **lossy** (replay defaults the 7 new cols). Flagged in #355 body as item 5 of 9 handoff debt |
+| Plan | `ogit-cascade-supabase-callcenter-v1` D-V1-7 + `palantir-parity-cascade-v2` D-V2-12 (3-gap closer: META-NUDGE-1 + META-NUDGE-4 + ontology_dto.rs empty-vec drift, all in one pass) |
+| Plan-status | Active |
+| **Entropy** | **3** (Partial — Lance-cache replay lossy; cluster Per-row-context) |
+| Evidence | PR #355 D-V1-7 + D-V2-12 (Wave 3, agent-cascade-cols; self-trimmed 1.87× → 1.41× envelope via BLOCKER-and-resolve discipline; commit `fc49a29`) |
+
+#### OBJECT-VIEW-1 — Foundry Object/Notification primitives (POD)
+
+| Field | Value |
+|---|---|
+| Region | R6 (contract surface for foundry) |
+| Component | `ObjectView`, `NotificationSpec`, `DisplayTemplate{Card,Detail,Summary}`, `NotificationTrigger{Created,Updated,Deleted,ThresholdCrossed}`, `NotificationChannel{Inline,Webhook,Email}`, `FieldRef`. Zero serde, zero deps. POD-shaped |
+| Maturity | **Stage 1** (≤1 consumer — only the test suite; no production consumer until D-PARITY-V2-7 ships) |
+| Smart/Dumb | Smart-leaning (carrier types with display/notification semantics) |
+| State | Wired (4/4 object_view tests) |
+| DupCount | 1 |
+| DupPotential | **Watch** (namespace pre-claim risk if Q2 Object Explorer invents parallel types before D-PARITY-V2-7 lands — CRYSTAL-1-style collision potential) |
+| LooseEnds | No production consumer yet — POD primitives wait for the future Q2 Object Explorer (D-PARITY-V2-7) |
+| Plan | `palantir-parity-cascade-v2` D-V2-4 shipped; D-V2-7 future |
+| Plan-status | Active |
+| **Entropy** | **3** (Partial — types exist with tests but namespace pre-claim risk + no consumer; Stage-1 risk row) |
+| Evidence | PR #355 D-PARITY-V2-4 (Wave 3, agent-object-view; commit `fc49a29`) |
+
+#### BUSDTO-BRIDGE-1 — engine_bridge BusDto → ShaderDispatch encode path
+
+| Field | Value |
+|---|---|
+| Region | R3 |
+| Component | `engine_bridge.rs` `BusDto` → `ShaderDispatch::encode` → `BindSpace` SoA path |
+| Maturity | Stage 2 |
+| Smart/Dumb | Smart (carrier-method encode path) |
+| State | Wired (5/5 busdto_bridge tests) |
+| DupCount | 1 |
+| DupPotential | Low |
+| LooseEnds | LOSSY only for non-positive-energy `top_k` entries (idx → 0; energy still bit-exact via qualia). Documented expected behaviour — but downstream consumers reading idx must handle the 0-marker convention |
+| Bit-exact | `codebook_index` + positive-energy `top_k` + `cycle_count` + `converged` + all energies |
+| Plan | `palantir-parity-cascade-v2` D-V2-3 |
+| Plan-status | Active |
+| **Entropy** | **2** (Mostly clean — bit-exact for canonical case, documented lossy edge case) |
+| Evidence | PR #355 D-V2-3 (Wave 2, agent-busdto-bridge; commit `8366e70`) |
+
+#### CERT-OFFICER-1 — Zone 1/2 `Serialize`-leak build-script gate
+
+| Field | Value |
+|---|---|
+| Region | R8 (build / governance) |
+| Component | `lance-graph-callcenter/build.rs` syn-based static check; walks `Item::Struct/Enum` filtered by `Visibility::Public`, flags `#[derive(Serialize)]` on Zone 1/2 source files |
+| Maturity | Stage 2 |
+| Smart/Dumb | n/a (build script) |
+| State | Wired (post-FIX-2: hard-abort scoped to direct builds + `--features zone-check-strict`); 0 violations on canonical surface |
+| DupCount | 1 |
+| DupPotential | None |
+| LooseEnds | `zone_serialize_check_compile_fail.rs` is `assert!(true)` smoke — trybuild-style probe is the proper fix (FIX-1, deferred per #355 handoff debt item 1) |
+| Plan | `ogit-cascade-supabase-callcenter-v1` D-V1-1 |
+| Plan-status | Active |
+| **Entropy** | **3** (Partial — gate is wired but the test of the gate is `assert!(true)`; trybuild deferred) |
+| Evidence | PR #355 D-V1-1 (Wave 1, agent-cert-officer + meta-1 FIX-2 in commit `16a745c`) |
+
+#### CONTEXT-ID-1 — `SchemaPtr` widened + NamespaceRegistry seed_defaults
+
+| Field | Value |
+|---|---|
+| Region | R6 (contract::SchemaPtr) + R0 (BindSpace context-id column) |
+| Component | `SchemaPtr` widened tuple → named struct w/ `ontology_context_id: u32`; new `NamespaceRegistry::seed_defaults()` with 14 mappings (WorkOrder=1, Healthcare=2, Network=3, SMB=0, Medical/{ICD10CM..CHEBI}=10..19) |
+| Maturity | Stage 2 → Stage 3 (consumed by SchemaPtr + driver.rs + bridge crates) |
+| Smart/Dumb | Smart (`SchemaPtr` named struct + `NamespaceRegistry::seed_defaults()` carrier method) |
+| State | Wired |
+| DupCount | 1 |
+| DupPotential | None |
+| LooseEnds | per-row `BindSpace.context_ids` deferred to Wave-3.5 — `driver.rs:311` uses per-dispatch ctx_id, not per-row (same loose end as MUL-THRESHOLD-1 + CASCADE-COLS-1) |
+| Plan | `ogit-cascade-supabase-callcenter-v1` D-V1-2 |
+| Plan-status | Active |
+| **Entropy** | **3** (Partial — schema-side ctx_id wired, per-row ctx_id deferred; cluster Per-row-context) |
+| Evidence | PR #355 D-V1-2 (Wave 2, agent-context-id; commit `8366e70`) |
+
+#### DTO-CLASS-CHECK-1 — workspace DTO classification gate
+
+| Field | Value |
+|---|---|
+| Region | (board / governance tooling) |
+| Component | `tools/dto-class-check/` new bin scans 28 types vs 22-row hardcoded ledger const |
+| Maturity | Stage 1 (gate exists; consumer-side annotations missing) |
+| Smart/Dumb | n/a (binary tool) |
+| State | Wired (gate works; 1/1 smoke test) / **currently 28/28 FAIL** exit 1 (consumer side incomplete) |
+| DupCount | 1 |
+| DupPotential | None |
+| LooseEnds | 22 `// classification: …` doc comments needed in owner crates to flip 28/28 FAIL → 28/28 PASS (#355 handoff debt item 4; deferable, not commit-blocking) |
+| Plan | `palantir-parity-cascade-v2` D-V2-10 |
+| Plan-status | Active |
+| **Entropy** | **4** (High — gate works but workspace fails it 28/28; the gate is currently a shame-stick, not an enforced check, until owner crates add the doc-comment classifications) |
+| Evidence | PR #355 D-V2-10 (Wave 3, agent-probes; commit `fc49a29`) |
+
+### New cluster — Per-row-context (joins Section B clusters)
+
+| Cluster | Members | Total entropy | Suggested order |
+|---|---|---|---|
+| **Per-row-context** | MUL-THRESHOLD-1 (3) + CASCADE-COLS-1 (3) + CONTEXT-ID-1 (3) + ONTOLOGY-REGISTRY-SOA-1 loose-end (b) | 9 (cluster of three rows + one carry-over) | (1) Land per-row `BindSpace.context_ids` column (Wave-3.5 carry); (2) Re-wire `driver.rs:303-321` to use per-row ctx_id (closes MUL-THRESHOLD-1's `trust_below_floor` dead-effect); (3) Bump `lance_cache.rs` Arrow schema for the 7 new MappingRow cascade cols (closes CASCADE-COLS-1 lossy-replay). **Single 200-300 LOC PR** drops three rows entropy 3 → 2. |
+
+This cluster is the highest-leverage **single-fix unlock** introduced
+by PR #355's deferred handoff debt — it shares the same root deficit
+(per-row vs per-dispatch context) across three otherwise-independent
+rows, and PR #355's body explicitly identifies items 5 + 6 of the
+9-item handoff debt as the work to do.
+
+### Open seams update (Section C, current as of 2026-05-07 13:40 UTC)
+
+Of the 5 remaining seams from PR #345's update:
+
+| Seam | Status |
+|---|---|
+| ~~R6/R0 ontology-as-SoA seam (registry vs schema indirection)~~ | **Closed** by PR #355 (Pillar 0 realized; `OntologyRegistry::enumerate(ns)` IS the canonical surface) |
+| R0 `BindSpace` write airgap soft-enforced | unchanged |
+| R3 `step_trajectory_hash` | unchanged |
+| R7 LanceMembrane projection cold-path | unchanged |
+| R8 cypher_bridge regex | unchanged |
+| Pillar-7 prover | unchanged |
+| Pillar-2 (Cartan-Kuranishi) genuinely deferred | unchanged (per PR #348) |
+| **NEW: per-row `BindSpace.context_ids` (Wave-3.5 carry)** | **OPEN** — drives Per-row-context cluster above |
+| **NEW: `lance_cache.rs` Arrow schema bump for 7 cascade cols** | **OPEN** — Lance-cache hydrate is currently lossy |
+
+**4 seams remain + 2 new** = 6 active seams. Highest-leverage:
+**Per-row-context** (single 200-300 LOC PR closes three ledger rows
+entropy 3 → 2, totals −3).
+
+### Cross-references added by this absorption
+
+- **PR #355 lance-graph** (palantir-cascade, 4,092 / 263, 36 files,
+  +5 commits, 11 deliverables, 12 agents, 3 waves):
+  realizes Pillar 0 end-to-end; closes SPO-1 + TTL-PROBE-5;
+  introduces 8 new rows above.
+- **Sibling OGIT PR #2** (merged): 24 WoA predicate fills + Healthcare
+  bootstrap (7 entities + 7 enums); woa-bridge + medcare-bridge
+  unblocked for OGIT-O(1) migration. (Out of MCP scope for direct
+  diff fetch; per user 2026-05-07.)
+- **`.claude/board/AGENT_ORCHESTRATION_LOG.md`** — append-only timeline
+  of all 12 agents + 3 meta-reviews + main-thread arbitrations + FIX-
+  applied notes (introduced by PR #355).
+
+### Aggregate (post-PR #355)
+
+- **Total rows:** 43 (post-#345/346/347/348/353) + CYCLE-ACCUM-1
+  + LADYBUG-EQUIV-1 (this branch) + 8 new from #355 = **53 rows
+  tracked**.
+- **State changes this PR:** SPO-1 (4→2) = −2; TTL-PROBE-5 closed = ~0.
+- **New entropy added:** ONTOLOGY-REGISTRY-SOA-1 (2) + MUL-THRESHOLD-1
+  (3) + CASCADE-COLS-1 (3) + OBJECT-VIEW-1 (3) + BUSDTO-BRIDGE-1 (2)
+  + CERT-OFFICER-1 (3) + CONTEXT-ID-1 (3) + DTO-CLASS-CHECK-1 (4)
+  = **23 entropy units across 8 new rows** (mean 2.875 — lower than
+  the 2026-05-05 snapshot mean of 3.46, reflecting that Wave-3 BLOCKER
+  discipline produced cleaner deliverables than the 2026-04 baseline
+  did).
+- **Open seams:** 5 → 4 + 2 new = 6 active.
+- **Highest-leverage cluster:** **Per-row-context** (9 cluster-entropy,
+  single 200-300 LOC PR, closes three rows entropy 3 → 2; shares root
+  with PR #355's items 5+6 of 9-item handoff debt).
+- **Stage-1 risk row:** OBJECT-VIEW-1 — namespace pre-claim risk
+  pending Q2 Object Explorer (D-PARITY-V2-7) to materialise the
+  consumer side.
