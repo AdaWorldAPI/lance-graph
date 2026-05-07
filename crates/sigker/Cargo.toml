@@ -19,4 +19,4 @@ name = "sig_vs_hamming"
 name = "randomized_signature_demo"
 
 [[example]]
-name = "depth_scaling"
+name = "cubature_vs_randomized"

@@ -80,17 +80,15 @@ pub fn signature_kernel_normalized(x: &[Vec<f64>], y: &[Vec<f64>], depth: usize)
 ///
 /// For piecewise-linear paths X = (x_0, …, x_n) and Y = (y_0, …, y_m),
 /// `〈Ẋ(s), Ẏ(t)〉` is *constant* on each grid cell (i, j), equal to
-/// `c_ij = 〈ΔX_i, ΔY_j〉`. On a cell of constant `c`, the PDE solution
-/// integrates exactly to
+/// `c_ij = 〈ΔX_i, ΔY_j〉`. The first-order finite-difference update is
 ///
 /// ```text
-///   K[i+1, j+1]  =  K[i+1, j] + K[i, j+1] − K[i, j] + K[i, j] · (e^{c_ij} − 1)
+///   K[i+1, j+1]  =  K[i+1, j] + K[i, j+1] − K[i, j] + c_ij · K[i, j]
 /// ```
 ///
-/// This is the second-order-in-grid-spacing scheme that's exact for
-/// piecewise-linear inputs (no truncation error per cell — the only error
-/// comes from how well the polyline approximates the underlying continuous
-/// path, which is the consumer's choice of sampling).
+/// This converges to the analytic solution as the path grid is refined,
+/// at rate O(1/N). For tighter accuracy on a fixed input, refine the
+/// input paths before calling — that's cheaper than upgrading the scheme.
 ///
 /// Cost: O(n · m · d) flops, O(n · m) memory. **No signature
 /// materialization at any depth.** For OSINT-typical paths (n, m ≤ 64,
@@ -98,13 +96,13 @@ pub fn signature_kernel_normalized(x: &[Vec<f64>], y: &[Vec<f64>], depth: usize)
 /// Scales to depth-∞ in path-grid time — the splat-hydration analog for
 /// the kernel-matrix consumer pattern.
 ///
-/// # Verification anchor
+/// # Convergence anchor
 ///
-/// For two linear paths X(t) = t·u, Y(t) = t·v on [0, 1] (sampled at any
-/// resolution ≥ 2 points each), this returns the exact closed form
-/// `I_0(2·√⟨u, v⟩)` to within accumulated floating-point error of the
-/// per-cell exponentials. See `linear_path_kernel_closed_form` for the
-/// reference value used by the test suite.
+/// For two linear paths X(t) = t·u, Y(t) = t·v on [0, 1] sampled at N+1
+/// points each, this returns a value converging to the closed form
+/// `I_0(2·√⟨u, v⟩)` as N → ∞. See `linear_path_kernel_closed_form` for
+/// the reference value. At N=128, expect ~1% relative error for
+/// moderate `⟨u, v⟩`; tighten by sampling more.
 pub fn signature_kernel_pde(x: &[Vec<f64>], y: &[Vec<f64>]) -> f64 {
     assert!(!x.is_empty() && !y.is_empty(), "paths must be non-empty");
     let dim = x[0].len();
@@ -122,10 +120,10 @@ pub fn signature_kernel_pde(x: &[Vec<f64>], y: &[Vec<f64>]) -> f64 {
         let dx_i: Vec<f64> = (0..dim).map(|a| x[i + 1][a] - x[i][a]).collect();
         for j in 0..m - 1 {
             let c_ij: f64 = (0..dim).map(|a| dx_i[a] * (y[j + 1][a] - y[j][a])).sum();
-            // Exact-on-cell update: integrates ∂²K/∂s∂t = c·K analytically
-            // when c is constant on the cell.
+            // First-order scheme: K[i+1,j+1] = K[i+1,j] + K[i,j+1] − K[i,j] + c_ij·K[i,j].
+            // Converges to I_0(2√⟨u,v⟩) for linear paths as N → ∞.
             k_grid[i + 1][j + 1] = k_grid[i + 1][j] + k_grid[i][j + 1] - k_grid[i][j]
-                + k_grid[i][j] * (c_ij.exp() - 1.0);
+                + c_ij * k_grid[i][j];
         }
     }
 
@@ -239,40 +237,111 @@ mod tests {
     }
 
     #[test]
-    fn pde_kernel_grid_refinement_converges() {
-        // The PDE kernel ≠ the truncated tensor-algebra kernel; they measure
-        // different inner products. The right self-consistency check is that
-        // grid refinement gives a stable answer. Coarse grid (n=16) should be
-        // within ~5% of the n=256 reference for the same total displacement.
-        let make_path = |n: usize, dx: f64, dy: f64| -> Vec<Vec<f64>> {
-            let mut p = vec![vec![0.0, 0.0]];
-            for i in 1..=n {
-                let t = i as f64 / n as f64;
-                p.push(vec![dx * t, dy * t]);
-            }
-            p
+    fn pde_kernel_converges_to_closed_form_for_linear_paths() {
+        // For X(t) = t·u, Y(t) = t·v on [0, 1] sampled at N+1 points,
+        // the first-order PDE solver converges to I_0(2·√⟨u, v⟩) at rate
+        // O(1/N). Use small displacements so N=128 is sufficient for
+        // the 1e-3 tolerance.
+        let u = vec![0.5, 0.4];
+        let v = vec![0.3, 0.6];
+        let n_samples = 128;
+        let make_linear = |w: &[f64]| -> Vec<Vec<f64>> {
+            (0..=n_samples)
+                .map(|i| {
+                    let t = i as f64 / n_samples as f64;
+                    w.iter().map(|&c| c * t).collect()
+                })
+                .collect()
         };
-        let x_ref = make_path(256, 0.5, 0.3);
-        let y_ref = make_path(256, 0.4, 0.5);
-        let k_ref = signature_kernel_pde(&x_ref, &y_ref);
+        let x = make_linear(&u);
+        let y = make_linear(&v);
 
-        let x_coarse = make_path(16, 0.5, 0.3);
-        let y_coarse = make_path(16, 0.4, 0.5);
-        let k_coarse = signature_kernel_pde(&x_coarse, &y_coarse);
+        let k_pde = signature_kernel_pde(&x, &y);
+        let k_closed = linear_path_kernel_closed_form(&u, &v);
 
-        let rel = (k_coarse - k_ref).abs() / k_ref.abs().max(1e-12);
-        assert!(rel < 5e-2, "coarse-vs-ref rel err {rel:.3e}");
+        let rel = (k_pde - k_closed).abs() / k_closed.abs();
+        assert!(
+            rel < 1e-3,
+            "PDE {k_pde} should approach closed-form {k_closed}, rel err {rel:.3e}"
+        );
     }
 
     #[test]
-    fn pde_kernel_bounded_growth() {
-        // For linear paths X(s)=sΔx, Y(t)=tΔy on [0,1], the exact closed form
-        // is I₀(2·√〈Δx,Δy〉). With 〈Δx,Δy〉=0.35 → I₀(2·√0.35) ≈ 1.382.
-        // We verify the value lies in (1.0, exp(0.7)≈2.014).
-        let x = vec![vec![0.0, 0.0], vec![0.5, 0.3]];
-        let y = vec![vec![0.0, 0.0], vec![0.4, 0.5]];
-        let k = signature_kernel_pde(&x, &y);
-        assert!(k > 1.0 && k < 2.014, "k = {k} out of expected envelope");
+    fn pde_kernel_refinement_reduces_error() {
+        // O(1/N) convergence: doubling N should roughly halve the error.
+        let u = vec![0.5, 0.4];
+        let v = vec![0.3, 0.6];
+        let cf = linear_path_kernel_closed_form(&u, &v);
+        let make = |n: usize, w: &[f64]| -> Vec<Vec<f64>> {
+            (0..=n)
+                .map(|i| {
+                    let t = i as f64 / n as f64;
+                    w.iter().map(|&c| c * t).collect()
+                })
+                .collect()
+        };
+        let err = |n: usize| -> f64 {
+            (signature_kernel_pde(&make(n, &u), &make(n, &v)) - cf).abs() / cf.abs()
+        };
+        let e_32 = err(32);
+        let e_128 = err(128);
+        let e_512 = err(512);
+        assert!(e_128 < e_32, "N=128 ({e_128:.3e}) should beat N=32 ({e_32:.3e})");
+        assert!(e_512 < e_128, "N=512 ({e_512:.3e}) should beat N=128 ({e_128:.3e})");
+    }
+
+    #[test]
+    fn truncated_kernel_converges_to_closed_form() {
+        // For linear paths with displacement u, v, the truncated kernel
+        // K_N = Σ_{k≤N} ⟨u,v⟩^k / (k!)² converges to I_0(2·√⟨u,v⟩).
+        // At depth 6 we should already be within 1e-4 for ⟨u,v⟩ ≤ 3.
+        let u = vec![1.5, 1.0];
+        let v = vec![0.8, 1.2];
+        let x = vec![vec![0.0, 0.0], u.clone()];
+        let y = vec![vec![0.0, 0.0], v.clone()];
+
+        let k_closed = linear_path_kernel_closed_form(&u, &v);
+        let k_trunc_2 = signature_kernel(&x, &y, 2);
+        let k_trunc_4 = signature_kernel(&x, &y, 4);
+        let k_trunc_6 = signature_kernel(&x, &y, 6);
+
+        let err_2 = (k_trunc_2 - k_closed).abs();
+        let err_4 = (k_trunc_4 - k_closed).abs();
+        let err_6 = (k_trunc_6 - k_closed).abs();
+        assert!(err_4 < err_2, "depth 4 ({err_4:.3e}) should beat depth 2 ({err_2:.3e})");
+        assert!(err_6 < err_4, "depth 6 ({err_6:.3e}) should beat depth 4 ({err_4:.3e})");
+        assert!(err_6 < 1e-4, "depth-6 error {err_6:.3e} above tolerance 1e-4");
+    }
+
+    #[test]
+    fn pde_and_truncated_agree_on_linear_paths_in_the_limit() {
+        // The fundamental claim: PDE kernel (refined to N=128) and the
+        // truncated kernel (depth 8) both converge to the same I_0 limit.
+        // They should agree to ~1e-3 for moderate ⟨u, v⟩.
+        let u = vec![0.5, 0.4];
+        let v = vec![0.3, 0.6];
+        let n_samples = 128;
+        let make_linear = |w: &[f64]| -> Vec<Vec<f64>> {
+            (0..=n_samples)
+                .map(|i| {
+                    let t = i as f64 / n_samples as f64;
+                    w.iter().map(|&c| c * t).collect()
+                })
+                .collect()
+        };
+        let x = make_linear(&u);
+        let y = make_linear(&v);
+        let x_short = vec![vec![0.0, 0.0], u.clone()];
+        let y_short = vec![vec![0.0, 0.0], v.clone()];
+
+        let k_pde = signature_kernel_pde(&x, &y);
+        let k_trunc_high = signature_kernel(&x_short, &y_short, 8);
+
+        let rel = (k_pde - k_trunc_high).abs() / k_pde.abs().max(1e-12);
+        assert!(
+            rel < 5e-3,
+            "PDE-refined {k_pde} vs truncated-depth-8 {k_trunc_high}, rel err {rel:.3e}"
+        );
     }
 
     #[test]
