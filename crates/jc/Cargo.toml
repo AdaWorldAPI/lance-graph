@@ -33,3 +33,12 @@ name = "splat_triangle_count"
 
 [[example]]
 name = "splat_lpa_label_propagation"
+
+[[example]]
+name = "splat_louvain_modularity"
+
+[[example]]
+name = "splat_jaccard_adamic_adar"
+
+[[example]]
+name = "splat_perturbationslernen"

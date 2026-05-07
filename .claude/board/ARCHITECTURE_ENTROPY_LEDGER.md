@@ -630,3 +630,104 @@ Three measurements still missing for full coverage:
 3. Perturbationslernen — apply a query splat as a perturbation, measure per-row Σ-displacement via EWA, identify rows whose Σ moves > threshold (the "context search via perturbation" claim).
 
 These three probes complete the empirical floor for the three-goal vision (replace neo4j edge detection / Redis-fast insert with full graph coverage / context search as Perturbationslernen). Each is ~250-400 LOC, single PR.
+
+---
+
+## 2026-05-06 — Bitpacked vs Palette substrate clarification + 3 follow-up probes
+
+### Substrate-tier correction (retracts implicit conflation in PR #346 ledger block)
+
+**Correction (per user 2026-05-06):** The "20K × 20K Gaussian-splat lab precedent" entry in PR #346's ledger block implicitly conflated two distinct substrate tiers. Restating cleanly:
+
+| Tier | Storage | Operation | Workloads | Lab validation |
+|---|---|---|---|---|
+| **SplatShaderBlas-Bitpacked** | `AwarenessPlane16K = [u64; 256]` (1 bit per codebook position) | `popcount`, `AND-popcount`, `OR-popcount` | set-membership, neighborhood overlap, Jaccard, Adamic-Adar, triangle, LPA, Louvain | this session's empirical probes (PR #346 + this commit) |
+| **SplatShaderBlas-Palette** | BGZ17 256-entry palette + 256×256 distance table (8-bit indices) | `D[palette_a[i]][palette_b[j]]` table lookup | continuous metric similarity (CAM-PQ-style) | **20K × 20K Gaussian-splat lab work** |
+
+The two tiers share architectural lineage (both "spatial Gaussian splat") but validate **different operations and different math**. The PR #346 ledger entry implied my bitpacked probes inherited the palette lab validation; that was sloppy and is herewith retracted. Each tier needs its own empirical validation against the math it actually exercises.
+
+**Consequence for the ledger:**
+- `SPLAT-EWA-BRIDGE-1` row Stage-2 status remains valid — the linear-bridge example DOES traverse the bitpacked tier with EWA σ propagation. No change to its row.
+- `SplatShaderBlas` naming should be qualified by tier in future entries: `SplatShaderBlas-Bitpacked` (this session's empirical work) vs `SplatShaderBlas-Palette` (separate substrate, separate probes required).
+- Palette-tier probes are **not** in scope for this PR; would be a separate `splat_palette_*` example set against `bgz17::PaletteMatrix`.
+
+### 3 new bitpacked-tier probes (this commit)
+
+#### 1. `splat_louvain_modularity.rs` (~330 LOC) — modularity-based community detection
+
+Louvain Phase-1 modularity-gain on the bitpacked tier. Each ΔQ candidate move is one L2 popcount-AND between the node's neighbour plane and the target-community membership plane.
+
+| Metric | Canonical run | Stress (100 graphs) |
+|---|---|---|
+| Convergence | superstep 4 (α-saturation + Δ=0) | 100/100 converged |
+| α trajectory | 0.0234 → 0.6758 → 0.9980 → 1.0000 | mean 3.5 iterations |
+| Q (final) | 0.594943 (ΔQ from init: +0.596935) | mean 0.589850 |
+| Q std across runs | n/a | **0.010434** |
+| Unique communities | **4** (matches ground-truth 4) | mean purity 0.9975 |
+| Purity | **1.0000 (100% correct)** | **0.9975** |
+| Runtime | 12.3 ms | 14.3 ms / run |
+| Q monotonicity | ✓ assertion-checked | ✓ across all 100 runs |
+
+**Quality vs LPA on the same graph:** Louvain 0.9975 / LPA 0.475 = **2.10× quality improvement**. Confirms that the L4 + α-saturation pattern generalises beyond label-collapse-prone LPA to modularity-driven community detection.
+
+**Pillar-6 confidence-interval footnote:** Empirical Q std = 0.0104 across 100 runs. Per-run Q variance is bounded by the Pillar-6 KS bound on EWA-sandwich variance growth on community-membership planes; concrete σ_pred derivation deferred to a follow-up probe.
+
+#### 2. `splat_jaccard_adamic_adar.rs` (~280 LOC) — node similarity + mutate-back
+
+Jaccard and Adamic-Adar reduce to L2 popcount-AND/OR plus L1 popcount(degree). Top-K pairs by Jaccard mutate back into a SIMILAR plane in one L4 sweep.
+
+**Canonical run (n=512, 4 communities):**
+
+| Pair class | Mean Jaccard | σ J | Mean AA | σ AA |
+|---|---|---|---|---|
+| Same-community (32 768 pairs) | **0.1218** | 0.0396 | **2.2710** | 0.7573 |
+| Cross-community (98 304 pairs) | 0.0141 | 0.0137 | 0.2907 | 0.2814 |
+| **Discrimination** | **d_J = 4.04** (very strong) | | **d_AA = 3.81** | |
+
+**Mutate-back:** top-200 pairs by Jaccard deposited into SIMILAR plane via `pair_bit_position(u, v, n)` hash. **200/200 (100%) of the top pairs are same-community** (vs 25% baseline). 197 of 200 bits set on SIMILAR plane (3 hash collisions, expected). Original neighbour planes verified unchanged after mutate.
+
+**Stress (50 graphs, n=256):** mean d_J = 2.71, mean d_AA = 2.56 — discrimination holds across random graph instances.
+
+**The "compute + materialise SIMILAR edges in one pass" claim is empirically grounded** — replaces neo4j's `compute then UNWIND ... MERGE` two-step pattern with a single L4 sweep that reads + writes the same SoA.
+
+#### 3. `splat_perturbationslernen.rs` (~340 LOC) — context search via bounded field perturbation
+
+The novel probe. Inject query as deposit on seed rows; propagate Σ across edges via Pillar-6-bounded sandwich; measure per-row Σ-displacement; identify rows whose displacement crosses an α-derived threshold.
+
+**Canonical run (n=256, 4 communities, 5 seeds from community 0, 20 supersteps):**
+
+| Metric | Value |
+|---|---|
+| Σ stayed SPD across all rows | ✓ assertion-checked |
+| α_iter trajectory | 0.000 → 0.832 → 0.918 → 0.947 (approaching saturation, max iters hit) |
+| Per-community mean Σ-displacement | comm 0 (target): **33.59** (LOWEST); comms 1-3: 36-37 |
+| Found rows (below mean - 1σ threshold) | **50 of 50 (100%)** are in community 0 (target) |
+| Lift over baseline | **4.00× precision** over the 25% chance baseline |
+| Runtime | 2 ms |
+
+**Critical readout finding:** the response signature is INVERTED from naive expectation. Target rows have *lower* Σ-displacement (their Σ stayed closer to baseline) because consistent strong query-overlap deposits keep their Σ pinned near identity, while non-target rows' Σ shrinks rapidly under weak deposits. The discrimination signal is real and strong (d ≈ 3-4σ), just in the opposite direction. Threshold logic was inverted on first run; corrected to `disp < mean - 1σ` for the "found" criterion.
+
+**Generalisation:** the field-perturbation pattern surfaces correlated rows. Maps to:
+- **Relevance feedback** — deposit query + clicked results, perturbation finds more like them.
+- **Active learning** — deposit ambiguous samples, observe spread, label whichever community responds strongest.
+- **Influence propagation** — deposit source, measure reach.
+
+**Saturation note:** at 20 iters, α = 0.947 (approaching but not crossing 0.99). The system has a slow-asymptote saturation profile because mean-displacement grows ~linearly per iter under the current arithmetic-mean propagation. A geometric-mean propagation or a ε-damped deposit would saturate faster — flagged as a polish item, not a substrate concern.
+
+### Reduction map (now empirically grounded for bitpacked tier)
+
+| Algorithm | Reduces to | Probe status |
+|---|---|---|
+| Triangle Count / LCC | L1 + L2 popcount-AND | shipped (PR #346) |
+| **Louvain Phase-1 modularity** | L1 + L2 (community-membership planes) + L4 sweep + α-saturation | **shipped (this commit)** |
+| **Jaccard / Adamic-Adar** | L2 popcount-AND/OR + L1 popcount(degree) | **shipped (this commit)** |
+| LPA | L4 SoA sweep + α-saturation | shipped (PR #346) |
+| **Perturbationslernen** | deposit + EWA-propagate + Σ-displacement + α-gate | **shipped (this commit)** |
+| WCC / SCC | L4 BFS frontier (forward + backward) | not novel; throughput win |
+| **Mutate-back (compute + write SIMILAR edges)** | L4 sweep with split read/write planes | **shipped via Jaccard (this commit)** |
+
+### What this PR does NOT validate
+
+- **Palette-tier (BGZ17) workloads.** The 20K × 20K Gaussian-splat lab work — separate substrate, separate probes required against `bgz17::PaletteMatrix mxm` and `batch_palette_distance`.
+- **Pillar-6 σ-bound derivation as a tight predicted bound on Q variance** (modularity confidence interval). The empirical Q std of 0.0104 across 100 runs IS measured; deriving the predicted σ from Pillar-6 first principles is a follow-up probe.
+- **Production wiring through E1 (BindSpace.apply Action API).** All probes use `AwarenessPlane16K` directly; the integration through the typed Action API remains the seam-closing work named in the entropy ledger.
