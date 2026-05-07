@@ -968,3 +968,424 @@ comparison table in the activation commit message.
 Pillar-4-+-Pillar-11 activation is a clean atomic deliverable. SIMD-
 hot is its own deliverable with its own measurement (throughput
 ratios for the 4 SIMD-critical pillars under feature on/off).
+
+
+---
+
+## 2026-05-07 — CYCLE-ACCUM-1 + LADYBUG-EQUIV-1 introductions + crate inventory expansion (post-#353)
+
+> **Append-only update** — placed after the post-#353 ledger state.
+> This entry was first authored on a stale branch (`claude/lance-
+> datafusion-integration-gv0BF`) on 2026-05-06 22:07 UTC and has been
+> rebased here onto current main (post-#345/#346/#347/#348/#352/#353).
+> The state-change blocks for WATCHER-1, POLICY-1, MEMBRANE-GATE-1
+> and SPLAT-1 are now redundant with the prior dated entries on this
+> file — that content is preserved at the original branch commit
+> `0dd0f560` for archaeology but not duplicated here per APPEND-ONLY.
+> Two row introductions + one inventory expansion remain unique.
+
+### Origin
+
+Session 2026-05-06 closed POLICY-1 medcare-side via PR #98 (medcare-rs)
++ shipped CycleAccumulator + WATCHER-1 sync swap via PR #337 (lance-
+graph). Then walked through ~10 rounds of "is X new?" → "no, X exists
+at Y" before building the workspace-graph traversal map that landed as
+`.claude/patterns.md` on the branch (rebased here as a sibling of PR
+#345's `.claude/pattern.md`; see Open Question below).
+
+### CYCLE-ACCUM-1 — `CycleAccumulator` per-cadence flush gate
+
+**Region:** R2 (companion to `collapse_gate::GateDecision`; distinct
+primitive per topology I-4).
+
+**Component:** `crates/lance-graph-contract/src/cycle_accumulator.rs`.
+
+**State:** Wired. Pure data + decision logic; no I/O, no callbacks.
+Generic over commit type `C`. `push(commit) -> AccumulatorAction { Hold,
+Flush }` returns flush decision based on rows-since-flush threshold OR
+ms-since-flush threshold. `drain() -> Vec<C>` returns pending batch and
+resets. 11 tests cover Hold/Flush thresholds + drain reset + time
+threshold + zero-threshold edge cases + I-4 structural invariant
+(no callback field).
+
+**Why:** absorbs the ~10,000× speed ratio between Layer 1 cognitive
+cycle (20–200 ns/op) and Layer 3 outbound sinks (2–200 ms/external-
+write) per `.claude/board/SINGLE_BINARY_TOPOLOGY.md`. Architecturally
+prerequisite for Q2 Phase 3 BgzShaderDriver wiring (3M cycles per
+300 ms window otherwise un-flushable).
+
+**DupCount:** 1 (single canonical).
+**DupPotential:** None (the I-4 distinct-naming rule was added to
+`SINGLE_BINARY_TOPOLOGY.md` to prevent future GATE-2 namespace clash).
+**Plan:** `SINGLE_BINARY_TOPOLOGY.md` § Per-cadence gate.
+**Plan-status:** Active.
+**Entropy:** 2 (Mostly clean — wired with full tests; Stage 2;
+Smart-pure-data).
+**Evidence:** PR #337 (commit `bd61758c`).
+
+### LADYBUG-EQUIV-1 — ladybug-rs ↔ lance-graph equivalence closure
+
+**Region:** Workspace meta-finding (no R-id; affects future-session
+traversal).
+
+**Component:** Documented mapping between `ladybug-rs/src/spo/*`
+modules and lance-graph workspace locations. ladybug-rs is the
+EARLIER prototype; everything migrated.
+
+**State:** Documented (no code change). The finding is the absence:
+nothing remains to harvest from ladybug-rs into the lance-graph
+workspace.
+
+| ladybug-rs/src/spo/ | Lance-graph location |
+|---|---|
+| `nsm_substrate` | `crates/deepnsm/{codebook,fingerprint16k,encoder}.rs` |
+| `sentence_crystal` | `crates/holograph/src/sentence_crystal.rs` (27 KB, same name) |
+| `context_crystal` | `lance-graph-contract::grammar::context_chain` + `deepnsm::context` |
+| `spo` (5^5 crystal) | `lance-graph-contract::crystal::Structured5x5` + `holograph::representation` |
+| `spo_harvest` (238× cosine) | `bgz-tensor` + `highheelbgz` + `holograph::{hamming,bitpack,hdr_cascade}` + `ndarray::hpc::cascade` |
+| `causal_trajectory` | `deepnsm::{trajectory,trajectory_audit,triangle_bridge}.rs` |
+| `gestalt`, `meta_resonance` | `holograph::resonance` + `deepnsm::{ticket_emit,similarity}.rs` |
+| `nsm_primes` | `deepnsm::nsm_primes` (exact match) |
+| **`clam_path`** | **`crates/lance-graph/src/cam_pq/`** (5 files: `mod`, `ivf`, `jitson_kernel`, `storage`, `udf`) |
+| `crystal_lm` | `crates/reader-lm/src/{classifier,inference,tokenizer,weights}.rs` |
+| `codebook_*` | `deepnsm::codebook` + `bgz-tensor` |
+| `deepnsm_integration` | The `deepnsm` crate IS this |
+| **DN-tree ↔ crystal binding** | **`holograph::{dntree,dn_sparse,navigator}.rs`** (~214 KB combined) |
+
+**Verdict:** the harvest is empty. The lance-graph workspace contains
+all of ladybug-rs material plus substantial growth. Future sessions
+asked "harvest from ladybug-rs?" should consult this row before
+proposing work — saves the ~10-round discovery-loop tax this session
+paid.
+
+**DupCount:** 0 (this is a closure, not a duplicate).
+**Plan-status:** n/a (informational).
+**Entropy:** 1 (Clean — fully resolved).
+**Evidence:** session 2026-05-06 + crate inventory below.
+
+### Crate inventory — 22 → 23 (sigker added by PR #348)
+
+The session that authored this entry initially tracked ~5 crates and
+walked through ~10 rounds of "is X new?" before discovering the actual
+~22-crate list. Then PR #348 added `crates/sigker/`, raising the count
+to 23. This list is the canonical "what exists" surface; the discovery-
+loop cost is paid once here for all future sessions.
+
+**Lance-graph workspace (~17 crates including sigker):**
+`lance-graph-contract`, `lance-graph`, `lance-graph-planner`,
+`lance-graph-callcenter`, `lance-graph-rbac`, `lance-graph-archetype`,
+`lance-graph-catalog`, `lance-graph-cognitive`, `cognitive-shader-driver`,
+**`deepnsm`**, **`holograph`** (workspace-EXCLUDED but present in
+`crates/`), **`bgz-tensor`**, **`highheelbgz`**, **`reader-lm`**,
+**`sigker`** (NEW per PR #348), `jc/`, `thinking-engine`, `neural-debug`,
+`learning`, `causal-edge`, plus embedded modules `lance-graph::nsm/` +
+`lance-graph::cam_pq/` + `lance-graph::graph::{spo,arigraph,versioned}`.
+
+**Consumer-side (separate repos, in MCP allowlist):**
+`medcare-rs/{medcare-rbac,medcare-realtime,medcare-{server,db,core,
+analytics,pdf}}`, `smb-office-rs/{smb-realtime,smb-{office-bin,db,core,
+analytics}}`, `q2/cockpit-server`.
+
+**Out-of-scope:** `MedCareV2` (C# probe, not in MCP), `ladybug-rs`
+(earlier prototype, fully migrated per LADYBUG-EQUIV-1 above).
+
+### Open question — `.claude/pattern.md` (PR #345 SINGULAR) vs `.claude/patterns.md` (this session, PLURAL)
+
+PR #345 (merged 2026-05-06 22:47 UTC) authored
+`.claude/pattern.md` (578 lines, 15 named patterns). This session's
+work — authored 30 minutes earlier on a stale branch — produced
+`.claude/patterns.md` (PLURAL, sibling file). Both files now exist
+on different branches; only the SINGULAR is in main. Content overlap:
+medium (15 patterns vs 5 patterns + 6 wiring recipes + 22-crate
+inventory + ladybug-rs equivalence map + 5 anti-patterns observed).
+
+**Recommendation:** rename `pattern.md` → `patterns.md` (plural matches
+"collection-of" file-naming convention) and absorb both bodies into
+the canonical doc. Future sessions are otherwise at risk of
+Single-Name Lookup confusion (one of the anti-patterns documented in
+the PLURAL doc — meta-irony noted).
+
+### Cross-references added by this session
+
+- **`.claude/patterns.md`** (NEW on session branch; not yet in main —
+  see Open Question above) — 5 traversal patterns + 22-crate inventory
+  (now 23 with sigker) + 5 anti-patterns + 6 wiring recipes
+  (CAM-DIST-1 register, PARSER-1 wire, DEEPNSM-NSM-1 collapse,
+  VSA-1 methods, MEMBRANE-GATE-1 done, WATCHER-1 done) +
+  ladybug-rs equivalence map + pre-work checklist.
+- **`.claude/board/SINGLE_BINARY_TOPOLOGY.md`** — three-layer topology
+  with four invariants (I-1 single binary, I-2 tokio outbound only,
+  I-3 BBB compile-time enforced, I-4 per-row vs per-cadence gates
+  distinct). Authored earlier this session (PR #337).
+- **`.claude/board/MEDCARE_POLICY_GAP.md`** — finding doc that scoped
+  the medcare-side POLICY-1 closure (PR #337).
+- **`.claude/board/CROSS_REPO_PRS.md`** — append-only log of merged
+  PRs in other AdaWorldAPI repos that touch this workspace (smb#29,
+  q2#35, MedCareV2#7-#13, medcare-rs#98, medcare-rs#109).
+- **`.claude/board/sprint-log/`** — 12-worker + 3-meta agent sprint
+  trail for the medcare-side POLICY-1 closure (16+ files).
+- **PR #109 medcare-rs** (M6b `?source=lance` toggle on `routes/patient.rs`):
+  first consumer to exercise the per-request `RlsRewriter` +
+  `ColumnMaskRewriter` attachment pattern documented in PR #345's
+  `pattern.md` §4.7. Cross-validates the doctrine in production code.
+- **PR #353 lance-graph** (palantir-parity-cascade-v2 plan +
+  soa-dto-dependency-ledger): post-merge governance + 4-tier DTO
+  classification (bare-metal=9 / SoA-glue=7 / bridge-projection=6,
+  3 OPEN re-classifications). Merges 2026-05-07 10:47 UTC.
+
+---
+
+## 2026-05-07 — PR #355 absorption: SPO-1 + TTL-PROBE-5 closures + 8 new rows + Per-row-context cluster
+
+> **Append-only update.** PR #355 (palantir-cascade, merged 13:40 UTC,
+> 11 deliverables / 12 agents / 3 waves, +4,092 / −263 across 36 files;
+> base = `a6797ad`, head = `140dbc07`) realized Pillar 0 end-to-end:
+> `OntologyRegistry` IS the SoA, schema IS the DTO + index. Codec
+> cascade columns now live ON `MappingRow`; bridge collapsed to 2-line
+> projection over `OntologyRegistry::enumerate(ns)`; O(1) probe shows
+> registry p99 = 253 ns vs SPARQL-proxy p99 = 646,220 ns = **2554×
+> ratio** (target ≥ 100× exceeded by 25.5×).
+
+### State changes
+
+#### SPO-1 — Stalled (Wired ×2 distinct, no bridge) → Wired (canonical bridge shipped)
+
+**Old state:** Two SPO stores wired in parallel. `lance-graph::graph::spo::*`
+(fingerprint-keyed, HammingMin truth-semiring) + `lance-graph::graph::
+arigraph::triplet_graph` (string-keyed `HashMap<String, Vec<usize>>`,
+1,072 LOC). Share only `TruthValue`. **No bridge fn** between them —
+`to_fingerprints()` was a derive, not a writer. Entropy 4. Cluster:
+Foundry seal.
+
+**New state:** L1/L2 cache framing concretely realized via
+`SpoBridge::promote_to_spo` writer at `crates/lance-graph/src/graph/
+arigraph/spo_bridge.rs`. Warm string-keyed AriGraph (L1) → cold
+fingerprint-keyed SPO (L2) via FNV-1a `dn_hash`. The two stores are
+**tiers, not duplicates** — bridge closes the missing writer seam.
+
+**Evidence:** PR #355 D-ONTO-V5-9 (Wave 1, agent-spo-promote;
+commit `8528161`).
+
+**Entropy:** 4 → **2**. Maturity Stage 3 (multi-crate consumer).
+Smart/Dumb: **Smart** (`promote_to_spo` carrier method). Cluster
+status: SPO-1 drops out of Section C "open seams" list.
+
+#### TTL-PROBE-5 — Aspirational/Stub → Wired
+
+**Old state:** Per-attribute `dcterms:source` provenance referenced
+in plans; no implementation surface.
+
+**New state:** Wired via sibling `AttributeProvenance` +
+`ProvenanceBundle` types in `proposal.rs`. Wave-3 cascade-cols
+(D-CASCADE-V1-7) threaded `attribute_sources` into `MappingRow`.
+
+**Evidence:** PR #355 D-ONTO-V5-1 (Wave 1, agent-ttl-source).
+
+**Entropy:** closed. Maturity Stage 2.
+
+### New row introductions
+
+#### ONTOLOGY-REGISTRY-SOA-1 — Pillar 0 realized (Registry IS the SoA)
+
+| Field | Value |
+|---|---|
+| Region | R6/R0 |
+| Component | `lance-graph-ontology::OntologyRegistry`; schema IS the DTO + index; `enumerate(ns)` + `SchemaPtr` carrier methods |
+| Maturity | **Stage 3** (consumed by bridge crates + `MappingRow` + callcenter) |
+| Smart/Dumb | **Smart** (carrier methods on registry; Click-P-1 satisfied) |
+| State | Wired |
+| DupCount | 1 |
+| DupPotential | None |
+| LooseEnds | (a) `lance_cache.rs` Arrow schema doesn't yet persist the 7 new MappingRow cascade columns — replay defaults them (CRITICAL per meta-3); (b) per-row `BindSpace.context_ids` deferred to Wave-3.5 |
+| Plan | `lance-graph-ontology-v5.md` |
+| Plan-status | Active |
+| **Entropy** | **2** (Mostly clean — wired with empirical proof; two known loose ends in cluster Per-row-context below) |
+| Empirical | O(1) probe: registry p99 = 253 ns vs SPARQL-proxy p99 = 646,220 ns = **2554× ratio** (target ≥ 100×); 41/41 tests in `lance-graph-ontology` |
+| Evidence | PR #355 D-CASCADE-V1-3 (bridge collapse, agent-bridge-collapse) + D-CASCADE-V1-11 (probe, agent-probes); commits `8528161` + `fc49a29` |
+
+#### MUL-THRESHOLD-1 — context-aware threshold profile
+
+| Field | Value |
+|---|---|
+| Region | R6 (companion to MUL-ASSESS-1; consult site at `driver.rs:303-321`) |
+| Component | `lance-graph-contract::mul::MulThresholdProfile` w/ const profiles `MEDICAL` / `CALLCENTER` / `DEFAULT` + `for_context(u32)` lookup |
+| Maturity | Stage 2 |
+| Smart/Dumb | Smart (`for_context()` carrier method) |
+| State | Wired (7/7 tests) |
+| DupCount | 1 |
+| DupPotential | None |
+| LooseEnds | `driver.rs:311` per-dispatch (not per-row) `ctx_id` — `trust_below_floor` branch is dead-effect today; per-row `BindSpace.context_ids` deferred to Wave-3.5 |
+| Plan | `ogit-cascade-supabase-callcenter-v1` D-ONTO-V5-9 |
+| Plan-status | Active |
+| **Entropy** | **3** (Partial — wired but `trust_below_floor` branch dead-effect; cluster Per-row-context) |
+| Evidence | PR #355 D-ONTO-V5-9 (Wave 2, agent-mul-threshold; commit `8366e70`) |
+
+#### CASCADE-COLS-1 — codec cascade columns ON MappingRow
+
+| Field | Value |
+|---|---|
+| Region | R6/R7 |
+| Component | `MappingRow` cascade cols: `IdentityCodec { cam_pq_code, base17_head, palette_key, scent }` + `QualiaMeta { qualia, meta, edge }` + `thinking_style: Option<u16>` + `attribute_sources` + 3 type-ref strings |
+| Maturity | Stage 2 |
+| Smart/Dumb | **Dumb** (struct fields; no carrier methods yet declared beyond constructors — Click-P-1 deficit candidate) |
+| State | Wired (4/4 cascade_cols tests) |
+| DupCount | 1 |
+| DupPotential | None |
+| LooseEnds | `lance_cache.rs` Arrow schema bump pending — Lance-cache hydrate is currently **lossy** (replay defaults the 7 new cols). Flagged in #355 body as item 5 of 9 handoff debt |
+| Plan | `ogit-cascade-supabase-callcenter-v1` D-V1-7 + `palantir-parity-cascade-v2` D-V2-12 (3-gap closer: META-NUDGE-1 + META-NUDGE-4 + ontology_dto.rs empty-vec drift, all in one pass) |
+| Plan-status | Active |
+| **Entropy** | **3** (Partial — Lance-cache replay lossy; cluster Per-row-context) |
+| Evidence | PR #355 D-V1-7 + D-V2-12 (Wave 3, agent-cascade-cols; self-trimmed 1.87× → 1.41× envelope via BLOCKER-and-resolve discipline; commit `fc49a29`) |
+
+#### OBJECT-VIEW-1 — Foundry Object/Notification primitives (POD)
+
+| Field | Value |
+|---|---|
+| Region | R6 (contract surface for foundry) |
+| Component | `ObjectView`, `NotificationSpec`, `DisplayTemplate{Card,Detail,Summary}`, `NotificationTrigger{Created,Updated,Deleted,ThresholdCrossed}`, `NotificationChannel{Inline,Webhook,Email}`, `FieldRef`. Zero serde, zero deps. POD-shaped |
+| Maturity | **Stage 1** (≤1 consumer — only the test suite; no production consumer until D-PARITY-V2-7 ships) |
+| Smart/Dumb | Smart-leaning (carrier types with display/notification semantics) |
+| State | Wired (4/4 object_view tests) |
+| DupCount | 1 |
+| DupPotential | **Watch** (namespace pre-claim risk if Q2 Object Explorer invents parallel types before D-PARITY-V2-7 lands — CRYSTAL-1-style collision potential) |
+| LooseEnds | No production consumer yet — POD primitives wait for the future Q2 Object Explorer (D-PARITY-V2-7) |
+| Plan | `palantir-parity-cascade-v2` D-V2-4 shipped; D-V2-7 future |
+| Plan-status | Active |
+| **Entropy** | **3** (Partial — types exist with tests but namespace pre-claim risk + no consumer; Stage-1 risk row) |
+| Evidence | PR #355 D-PARITY-V2-4 (Wave 3, agent-object-view; commit `fc49a29`) |
+
+#### BUSDTO-BRIDGE-1 — engine_bridge BusDto → ShaderDispatch encode path
+
+| Field | Value |
+|---|---|
+| Region | R3 |
+| Component | `engine_bridge.rs` `BusDto` → `ShaderDispatch::encode` → `BindSpace` SoA path |
+| Maturity | Stage 2 |
+| Smart/Dumb | Smart (carrier-method encode path) |
+| State | Wired (5/5 busdto_bridge tests) |
+| DupCount | 1 |
+| DupPotential | Low |
+| LooseEnds | LOSSY only for non-positive-energy `top_k` entries (idx → 0; energy still bit-exact via qualia). Documented expected behaviour — but downstream consumers reading idx must handle the 0-marker convention |
+| Bit-exact | `codebook_index` + positive-energy `top_k` + `cycle_count` + `converged` + all energies |
+| Plan | `palantir-parity-cascade-v2` D-V2-3 |
+| Plan-status | Active |
+| **Entropy** | **2** (Mostly clean — bit-exact for canonical case, documented lossy edge case) |
+| Evidence | PR #355 D-V2-3 (Wave 2, agent-busdto-bridge; commit `8366e70`) |
+
+#### CERT-OFFICER-1 — Zone 1/2 `Serialize`-leak build-script gate
+
+| Field | Value |
+|---|---|
+| Region | R8 (build / governance) |
+| Component | `lance-graph-callcenter/build.rs` syn-based static check; walks `Item::Struct/Enum` filtered by `Visibility::Public`, flags `#[derive(Serialize)]` on Zone 1/2 source files |
+| Maturity | Stage 2 |
+| Smart/Dumb | n/a (build script) |
+| State | Wired (post-FIX-2: hard-abort scoped to direct builds + `--features zone-check-strict`); 0 violations on canonical surface |
+| DupCount | 1 |
+| DupPotential | None |
+| LooseEnds | `zone_serialize_check_compile_fail.rs` is `assert!(true)` smoke — trybuild-style probe is the proper fix (FIX-1, deferred per #355 handoff debt item 1) |
+| Plan | `ogit-cascade-supabase-callcenter-v1` D-V1-1 |
+| Plan-status | Active |
+| **Entropy** | **3** (Partial — gate is wired but the test of the gate is `assert!(true)`; trybuild deferred) |
+| Evidence | PR #355 D-V1-1 (Wave 1, agent-cert-officer + meta-1 FIX-2 in commit `16a745c`) |
+
+#### CONTEXT-ID-1 — `SchemaPtr` widened + NamespaceRegistry seed_defaults
+
+| Field | Value |
+|---|---|
+| Region | R6 (contract::SchemaPtr) + R0 (BindSpace context-id column) |
+| Component | `SchemaPtr` widened tuple → named struct w/ `ontology_context_id: u32`; new `NamespaceRegistry::seed_defaults()` with 14 mappings (WorkOrder=1, Healthcare=2, Network=3, SMB=0, Medical/{ICD10CM..CHEBI}=10..19) |
+| Maturity | Stage 2 → Stage 3 (consumed by SchemaPtr + driver.rs + bridge crates) |
+| Smart/Dumb | Smart (`SchemaPtr` named struct + `NamespaceRegistry::seed_defaults()` carrier method) |
+| State | Wired |
+| DupCount | 1 |
+| DupPotential | None |
+| LooseEnds | per-row `BindSpace.context_ids` deferred to Wave-3.5 — `driver.rs:311` uses per-dispatch ctx_id, not per-row (same loose end as MUL-THRESHOLD-1 + CASCADE-COLS-1) |
+| Plan | `ogit-cascade-supabase-callcenter-v1` D-V1-2 |
+| Plan-status | Active |
+| **Entropy** | **3** (Partial — schema-side ctx_id wired, per-row ctx_id deferred; cluster Per-row-context) |
+| Evidence | PR #355 D-V1-2 (Wave 2, agent-context-id; commit `8366e70`) |
+
+#### DTO-CLASS-CHECK-1 — workspace DTO classification gate
+
+| Field | Value |
+|---|---|
+| Region | (board / governance tooling) |
+| Component | `tools/dto-class-check/` new bin scans 28 types vs 22-row hardcoded ledger const |
+| Maturity | Stage 1 (gate exists; consumer-side annotations missing) |
+| Smart/Dumb | n/a (binary tool) |
+| State | Wired (gate works; 1/1 smoke test) / **currently 28/28 FAIL** exit 1 (consumer side incomplete) |
+| DupCount | 1 |
+| DupPotential | None |
+| LooseEnds | 22 `// classification: …` doc comments needed in owner crates to flip 28/28 FAIL → 28/28 PASS (#355 handoff debt item 4; deferable, not commit-blocking) |
+| Plan | `palantir-parity-cascade-v2` D-V2-10 |
+| Plan-status | Active |
+| **Entropy** | **4** (High — gate works but workspace fails it 28/28; the gate is currently a shame-stick, not an enforced check, until owner crates add the doc-comment classifications) |
+| Evidence | PR #355 D-V2-10 (Wave 3, agent-probes; commit `fc49a29`) |
+
+### New cluster — Per-row-context (joins Section B clusters)
+
+| Cluster | Members | Total entropy | Suggested order |
+|---|---|---|---|
+| **Per-row-context** | MUL-THRESHOLD-1 (3) + CASCADE-COLS-1 (3) + CONTEXT-ID-1 (3) + ONTOLOGY-REGISTRY-SOA-1 loose-end (b) | 9 (cluster of three rows + one carry-over) | (1) Land per-row `BindSpace.context_ids` column (Wave-3.5 carry); (2) Re-wire `driver.rs:303-321` to use per-row ctx_id (closes MUL-THRESHOLD-1's `trust_below_floor` dead-effect); (3) Bump `lance_cache.rs` Arrow schema for the 7 new MappingRow cascade cols (closes CASCADE-COLS-1 lossy-replay). **Single 200-300 LOC PR** drops three rows entropy 3 → 2. |
+
+This cluster is the highest-leverage **single-fix unlock** introduced
+by PR #355's deferred handoff debt — it shares the same root deficit
+(per-row vs per-dispatch context) across three otherwise-independent
+rows, and PR #355's body explicitly identifies items 5 + 6 of the
+9-item handoff debt as the work to do.
+
+### Open seams update (Section C, current as of 2026-05-07 13:40 UTC)
+
+Of the 5 remaining seams from PR #345's update:
+
+| Seam | Status |
+|---|---|
+| ~~R6/R0 ontology-as-SoA seam (registry vs schema indirection)~~ | **Closed** by PR #355 (Pillar 0 realized; `OntologyRegistry::enumerate(ns)` IS the canonical surface) |
+| R0 `BindSpace` write airgap soft-enforced | unchanged |
+| R3 `step_trajectory_hash` | unchanged |
+| R7 LanceMembrane projection cold-path | unchanged |
+| R8 cypher_bridge regex | unchanged |
+| Pillar-7 prover | unchanged |
+| Pillar-2 (Cartan-Kuranishi) genuinely deferred | unchanged (per PR #348) |
+| **NEW: per-row `BindSpace.context_ids` (Wave-3.5 carry)** | **OPEN** — drives Per-row-context cluster above |
+| **NEW: `lance_cache.rs` Arrow schema bump for 7 cascade cols** | **OPEN** — Lance-cache hydrate is currently lossy |
+
+**4 seams remain + 2 new** = 6 active seams. Highest-leverage:
+**Per-row-context** (single 200-300 LOC PR closes three ledger rows
+entropy 3 → 2, totals −3).
+
+### Cross-references added by this absorption
+
+- **PR #355 lance-graph** (palantir-cascade, 4,092 / 263, 36 files,
+  +5 commits, 11 deliverables, 12 agents, 3 waves):
+  realizes Pillar 0 end-to-end; closes SPO-1 + TTL-PROBE-5;
+  introduces 8 new rows above.
+- **Sibling OGIT PR #2** (merged): 24 WoA predicate fills + Healthcare
+  bootstrap (7 entities + 7 enums); woa-bridge + medcare-bridge
+  unblocked for OGIT-O(1) migration. (Out of MCP scope for direct
+  diff fetch; per user 2026-05-07.)
+- **`.claude/board/AGENT_ORCHESTRATION_LOG.md`** — append-only timeline
+  of all 12 agents + 3 meta-reviews + main-thread arbitrations + FIX-
+  applied notes (introduced by PR #355).
+
+### Aggregate (post-PR #355)
+
+- **Total rows:** 43 (post-#345/346/347/348/353) + CYCLE-ACCUM-1
+  + LADYBUG-EQUIV-1 (this branch) + 8 new from #355 = **53 rows
+  tracked**.
+- **State changes this PR:** SPO-1 (4→2) = −2; TTL-PROBE-5 closed = ~0.
+- **New entropy added:** ONTOLOGY-REGISTRY-SOA-1 (2) + MUL-THRESHOLD-1
+  (3) + CASCADE-COLS-1 (3) + OBJECT-VIEW-1 (3) + BUSDTO-BRIDGE-1 (2)
+  + CERT-OFFICER-1 (3) + CONTEXT-ID-1 (3) + DTO-CLASS-CHECK-1 (4)
+  = **23 entropy units across 8 new rows** (mean 2.875 — lower than
+  the 2026-05-05 snapshot mean of 3.46, reflecting that Wave-3 BLOCKER
+  discipline produced cleaner deliverables than the 2026-04 baseline
+  did).
+- **Open seams:** 5 → 4 + 2 new = 6 active.
+- **Highest-leverage cluster:** **Per-row-context** (9 cluster-entropy,
+  single 200-300 LOC PR, closes three rows entropy 3 → 2; shares root
+  with PR #355's items 5+6 of 9-item handoff debt).
+- **Stage-1 risk row:** OBJECT-VIEW-1 — namespace pre-claim risk
+  pending Q2 Object Explorer (D-PARITY-V2-7) to materialise the
+  consumer side.
