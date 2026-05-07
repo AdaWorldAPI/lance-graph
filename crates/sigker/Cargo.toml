@@ -1,0 +1,23 @@
+[package]
+name = "sigker"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "Path-signature representations: Chen-Lyons signatures, randomized signatures, signature kernels — algebraic peer to bgz17/deepnsm for sequential/path-structured data."
+
+# Zero deps in production — same constitution as bgz17, deepnsm, jc.
+# Standalone, opt-in build via --manifest-path.
+# ndarray can be added later for accelerated kernel PDE solves;
+# the core math (truncated tensor algebra, randomized projections,
+# Goursat-PDE solver) is pure Rust.
+[dependencies]
+
+# Dev-only — bench against the existing carriers.
+[dev-dependencies]
+
+[[example]]
+name = "sig_vs_hamming"
+
+[[example]]
+name = "randomized_signature_demo"
