@@ -79,6 +79,12 @@ full     = ["persist", "query", "realtime", "serve", "auth", "audit-log", "postg
 # build does NOT enable this feature; CI may opt-in to confirm the build
 # script aborts as expected.
 _internal_test_serialize_poison = ["dep:serde"]
+# FIX-2 (meta-1 review, 2026-05-07) — strict Zone 1/2 Serialize gate.
+# Default build emits warnings only. With `--features zone-check-strict`,
+# the build script aborts on the first violation via `cargo::error=` +
+# `std::process::exit(1)`. Direct builds of this crate also activate strict
+# mode automatically (`CARGO_PKG_NAME == "lance-graph-callcenter"`).
+zone-check-strict = []
 
 [build-dependencies]
 # D-CASCADE-V1-1 — syn parses the four Zone 1 / Zone 2 source files at build

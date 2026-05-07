@@ -175,13 +175,28 @@ fn main() {
                 zone, path, ident, derive_name
             );
         }
-        // cargo::error:: aborts the build with the message attached to the
-        // first violation. Aborts ALL `cargo build`/`check`/`test` invocations.
-        let first = &violations[0];
-        println!(
-            "cargo::error=D-CASCADE-V1-1 zone_serialize_check: `{}` in {} (Zone {}) carries `#[derive({})]` — Zone 1/2 types may NOT serialize. Move to Zone 3 (transcode/phoenix/postgrest/drain/supabase) or remove the derive.",
-            first.2, first.1, first.0, first.3
-        );
-        std::process::exit(1);
+        // FIX-2 (meta-1 review, 2026-05-07): scope the hard abort to direct
+        // builds of THIS crate. A transitive `cargo check` of an unrelated
+        // crate that pulls lance-graph-callcenter would otherwise be killed
+        // by `cargo::error=`, making downstream incremental development
+        // brittle. Default behaviour is now: warnings always emit, hard
+        // abort only fires when (a) the user opts in via the
+        // `zone-check-strict` feature, or (b) `lance-graph-callcenter` is
+        // the package being built directly (i.e. `cargo build -p
+        // lance-graph-callcenter`).
+        let direct_build = std::env::var("CARGO_PKG_NAME")
+            .map(|n| n == "lance-graph-callcenter")
+            .unwrap_or(false);
+        let strict = std::env::var("CARGO_FEATURE_ZONE_CHECK_STRICT").is_ok();
+        if direct_build || strict {
+            // cargo::error:: aborts the build with the message attached to the
+            // first violation.
+            let first = &violations[0];
+            println!(
+                "cargo::error=D-CASCADE-V1-1 zone_serialize_check: `{}` in {} (Zone {}) carries `#[derive({})]` — Zone 1/2 types may NOT serialize. Move to Zone 3 (transcode/phoenix/postgrest/drain/supabase) or remove the derive.",
+                first.2, first.1, first.0, first.3
+            );
+            std::process::exit(1);
+        }
     }
 }
