@@ -34,6 +34,10 @@ required-features = ["lab"]
 
 [dependencies]
 lance-graph-contract = { path = "../lance-graph-contract" }
+# Read-only ontology registry (Phase 7, v4 plan). default-features = false so the
+# `lance-cache` feature (which pulls protoc/lance-encoding) stays gated; this
+# crate consumes the in-memory registry path only.
+lance-graph-ontology = { path = "../lance-graph-ontology", default-features = false }
 p64-bridge            = { path = "../p64-bridge" }
 bgz17                 = { path = "../bgz17" }
 causal-edge           = { path = "../causal-edge" }
