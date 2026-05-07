@@ -37,6 +37,21 @@
 
 ---
 
+## lance-graph-ontology-v5 — post-merge follow-ons (authored 2026-05-07)
+
+- **Plan:** `.claude/plans/lance-graph-ontology-v5.md`
+- **Author + date:** integration-lead (Opus 4.7 1M), 2026-05-07
+- **Status:** Active
+- **Scope:** Picks up where v4 (`claude/create-graph-ontology-crate-gkuJG`, OGIT#1 merged) left off. 15 deliverables ranked by leverage / cost: D-ONTO-V5-1 (dcterms:source provenance, closes TTL-PROBE-5), D-ONTO-V5-2 (`arigraph::SpoBridge::promote_to_spo`, closes SPO-1), D-ONTO-V5-3 (Healthcare TTL transcode), D-ONTO-V5-4 (smb-ontology export-only, NOT migration — brutal-honest reversal, ratified by main thread 2026-05-07), D-ONTO-V5-5 (q2 TTL transcode), D-ONTO-V5-6/7 (MySQL/MSSQL `SchemaSource` impls), D-ONTO-V5-8 (customer admin form, owned by woa-rs surface), D-ONTO-V5-9 (ontology-aware MUL trust thresholds — registry as namespace-keyed lookup), D-ONTO-V5-10 (callcenter-bridge, deferred until SUBJECT-DTO-1 lands), D-ONTO-V5-11 (woa-rs 80/20 binary cut), D-ONTO-V5-12 (MUL publishers — Brier/damage/sandbox), D-ONTO-V5-13 (hydration parallelism), D-ONTO-V5-14 (Lance dictionary load probe), D-ONTO-V5-15 (in-memory → Lance-backed cutover).
+- **Originating context:** v4 OGIT#1 merge (15 entities + 12 verbs in `NTO/WorkOrder/`, master); 36 ontology tests pass; cognitive-shader-driver wired (read-only registry attachment).
+- **Resolves ledger rows:** TTL-PROBE-5 (D-ONTO-V5-1), SPO-1 (D-ONTO-V5-2 70+245). Partial leverage on MUL-ASSESS-1 (registry as namespace-keyed threshold table). No leverage on TRUST-1 / FLOW-1 / COMPASS-1 / PARSER-1 (out of scope; the ontology crate has no influence on enum consolidation or the cypher cold/hot split).
+- **Branch:** `claude/onto-v5-<D-id>` per deliverable; OGIT-fork PRs per namespace transcode. Upstream `almatoai/OGIT` is never PR'd (ratified 2026-05-07).
+- **Confidence (2026-05-07):** Pre-execution. Plan reviews v4's outputs as FINDING-grade and v5's deferrals as honestly-deferred (not punted). Next-3 ranked: D-ONTO-V5-1, D-ONTO-V5-9, D-ONTO-V5-2.
+- **Cross-ref:** `.claude/RECON_ONTOLOGY_CRATE.md`, `.claude/DECISION_SPO_ARIGRAPH.md`, `.claude/knowledge/ontology-registry.md`, `sql-spo-ontology-bridge-v1.md` (partially superseded), `foundry-roadmap-unified-smb-medcare-v1.md` (adjacent).
+- **Ratifications (main-thread, 2026-05-07):** Q1 smb-ontology export-only — RATIFIED (consistent with v4 "preserved as native fallback"; not a contradiction). Q2 D-9 above D-2 ordering — RATIFIED (registry has zero behavioral consumer until V5-9 lands; SPO L1/L2 cache works without the bridge fn today). Q3 `MulThresholdProfile` location — RATIFIED in `lance-graph-contract` (zero-dep canonical home; co-located with `MulAssessment`). Q4 OGIT-fork upstream PR rule — RATIFIED (AdaWorldAPI/OGIT extension fork only; never PR back to almatoai/OGIT).
+
+---
+
 ## splat-osint-ingestion-v1 — Splat contract + EWA OSINT bridge (authored 2026-05-06)
 
 - **Plan:** `.claude/plans/2026-05-06-splat-osint-ingestion-v1.md`
