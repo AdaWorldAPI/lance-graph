@@ -801,3 +801,170 @@ The proper arithmetic mean tightened the target community's σ-displacement stan
 Three real bugs caught by Codex review; all fixed. The Louvain denominator fix tightens Q variance ~3×; the assert! fix removes a false-validation surface; the α-saturation fix makes the example actually demonstrate what its verdict claims. Net empirical impact: cleaner numbers everywhere, no regressions, all assertions still pass.
 
 Codex review comments are an effective review surface — these are exactly the kind of subtle correctness issues a fast-shipping session can miss.
+
+---
+
+## 2026-05-07 — Pillar 4 + Pillar 11 activated; deferred count 3 → 2 (default) / 1 (`--features hambly-lyons`)
+
+Two deferred FORMAL-SCAFFOLD pillars activated as one-PR jobs each, per the
+mechanical-activation criteria identified in the cross-chat audit (Rust 1.94.1
+stabilized `std::f64::consts::{EULER_GAMMA, GOLDEN_RATIO}`; sigker landed in
+workspace via PR #348). Cartan-Kuranishi (Pillar 2) remains genuinely deferred —
+it needs the learned-attention-mask module from the coupled-revival track, not
+a probe-shaped activation.
+
+### Pillar 4 — γ+φ preconditioner: prolongation step reduction (ACTIVE on default build)
+
+Was: `PillarResult::deferred(...)` since the JC harness was created.
+Now: SOR with ω = `GOLDEN_RATIO` vs vanilla Jacobi (ω = 1.0) on N=50 stiff
+tridiagonal SPD systems (perturbed 1D Laplacian).
+
+**Empirical result:**
+- Jacobi(ω=1) total iters: **12 940** (mean 258.8)
+- SOR(ω=φ=1.6180) total iters: **2 419** (mean 48.4)
+- **Step-count ratio = 5.349× (pass if ≥ 2.0×)**
+- SOR ≤ Jacobi on 50/50 problems
+- Runtime: ~5 ms
+
+**Why φ wins on stiff (not on diagonally-dominant) regime:** for tridiagonal SPD
+with ρ_J ≈ 0.983 (close to 1), optimal SOR ω* = 2/(1 + sin(π/(n+1))) ≈ 1.690,
+within ~10 % of φ ≈ 1.618. Probe deliberately uses the perturbed-Laplacian
+regime where the over-relaxation claim is sharp. The earlier draft's
+diagonally-dominant problem had ρ_J ≈ 0.4, where optimal ω* ≈ 1.04 and ω = φ
+*overshoots* — wrong calibration for the pillar's claim.
+
+**Constants integrated as workspace-style local consts:**
+```rust
+const EULER_GAMMA: f64 = std::f64::consts::EULER_GAMMA;
+const GOLDEN_RATIO: f64 = std::f64::consts::GOLDEN_RATIO;
+```
+Same idiom as `bgz-tensor::euler_fold` / `bgz-tensor::gamma_calibration` /
+`lance_graph_planner::cache::lane_eval`. γ enters as the convergence-tolerance
+scaling factor (matches `lane_eval::NOISE_FLOOR` form: γ/(γ+1)/√N), tying
+Pillar 4 to the same Euler-Mascheroni anchor Pillar 5 (Jirak Berry-Esseen)
+uses for σ-thresholds.
+
+**Commit:** `f4bd6bf` (this PR).
+
+### Pillar 11 — Hambly-Lyons signature uniqueness on tree-quotient (ACTIVE under `--features hambly-lyons`)
+
+Was: `PillarResult::deferred(...)` since added in PR #348.
+Now: gated behind `hambly-lyons` feature flag. With feature ON, runs forward
++ converse Hambly-Lyons probe via `sigker::signature_truncated` at depth 2.
+
+**Empirical result (with feature):**
+- Forward (tree-equivalence): max `‖S(out-and-back) − S_identity‖` = **0.000e0**
+  across 100/100 pairs at depth-2 (the tensor-algebra path is bit-exact for
+  out-and-back paths)
+- Converse (non-tree): min `‖S(triangle) − S_identity‖` = **0.0940** across
+  100/100 pairs (above 0.05 discrimination threshold)
+- **Discrimination ratio = ∞** (perfect separation between tree-quotient classes)
+- Runtime: < 1 ms
+
+**Architectural choice — feature flag, not dev-dep:** dev-deps don't reach lib
+code (they're scoped to tests / examples / benches). Adding `sigker` as a
+regular dep would unconditionally tie JC's default build to a workspace
+sibling, breaking the "zero-dep production" constitution. Feature-gated
+optional dep is the clean middle path:
+
+| Build | Outcome |
+|---|---|
+| `cargo run --release --example prove_it` | 9/11 PASS, 2 deferred (Cartan + Hambly-Lyons fallback) |
+| `cargo run --release --features hambly-lyons --example prove_it` | **10/11 PASS, 1 deferred** (Cartan only) |
+
+The fallback under `#[cfg(not(feature = "hambly-lyons"))]` returns a `deferred()`
+with a message telling the caller how to activate.
+
+**Why this avoids the PR #350 PDE-form correction:** the probe uses
+`sigker::signature_truncated` (tensor-algebra path), independent of
+`signature_kernel_pde`. PR #350's correction to the Goursat-PDE form does not
+affect Pillar 11's certification.
+
+**Commit:** `c191f23` (this PR).
+
+### Stragglers unmissed by the regex pass (per session 2026-05-07 sanity grep)
+
+Two non-blocking hand-typed literals identified during the toolchain-pin verify:
+- `crates/thinking-engine/examples/codec_rnd_bench.rs:1454-1455` —
+  `const EULER_GAMMA: f64 = 0.5772156649015329;` + `const _PHI = 1.618033988749895;`
+- `crates/lance-graph-codec-research/src/zeckbf17.rs:1660` —
+  `let euler_gamma = 0.5772156649;`
+
+Both in non-production paths (example + workspace-EXCLUDED research crate).
+Worth a 5-line cleanup PR if you want full hygiene. Not blocking this PR.
+
+### Board-hygiene retrofit for #348 + #349 (deferred to a separate PR)
+
+Per the merge-audit I did earlier (audit of #347-#350), neither PR #348
+(Pillar 10 / sigker scaffold / Pillar 11 stub) nor PR #349 (sigker
+Goursat-PDE / log-signature / depth-scaling) updated:
+- `LATEST_STATE.md` Contract Inventory (sigker types missing)
+- `ARCHITECTURE_ENTROPY_LEDGER.md` (Pillar 10 row, Pillar 11 stub row, sigker rows)
+- `PR_ARC_INVENTORY.md` per-PR entries
+- `STATUS_BOARD.md` D-ids
+
+This activation PR closes the Pillar-11 row hygiene gap (the row promotion
+from "Stage 1 stub" → "Stage 2 wired-via-feature" is in the pillar-activation
+narrative above). The remaining hygiene items (Pillar 10, sigker types
+inventory, per-PR archive entries) are a separate retrofit PR — flagged here
+as a follow-up rather than ballooned into this scope.
+
+### Updated deferred-pillar inventory
+
+| Pillar | Status pre-this-PR | Status post-this-PR (default) | Status post-this-PR (--features hambly-lyons) |
+|---|---|---|---|
+| 2 (Cartan-Kuranishi) | DEFERRED | DEFERRED (genuinely — needs ML module) | DEFERRED (genuinely) |
+| 4 (γ+φ preconditioner) | DEFERRED | **ACTIVE (5.349× ratio)** | **ACTIVE** |
+| 11 (Hambly-Lyons) | DEFERRED | DEFERRED (graceful fallback) | **ACTIVE (∞ discrimination)** |
+
+**Net:** deferred count drops 3 → 2 by default; 3 → 1 when the feature is on.
+Pillar 2 remains the only "real" deferred — and correctly so; its activation
+is research-shaped, not probe-shaped.
+
+### Follow-up debt — JC pillars need `ndarray::simd` for production hot paths (per @adaworldapi 2026-05-07)
+
+JC currently ships zero-external-dep hand-rolled scalar Rust for all pillar
+math. Adequate for the proof-in-code role (the pillars are *correctness*
+certificates, not production hot paths), but not adequate for production-
+grade throughput when the same pillars are run as inline regression
+checks against the actual cognitive substrate.
+
+**SIMD-critical pillars (operate on d ∈ {10 000, 16 384} vectors):**
+
+| Pillar | File | Hot loop | Production replacement |
+|---|---|---|---|
+| 1 (E-SUBSTRATE-1) | `substrate.rs` | bundle associativity over d=10 000, N=10 000 trials | `ndarray::hpc::vsa::{bind, bundle, cosine}` SIMD-dispatched primitives |
+| 5 (Jirak Berry-Esseen) | `jirak.rs` | empirical CDF + sup-error at d=16 384, n=5 000 | `ndarray::simd` reductions + `simd_caps()` dispatched popcount/cmp |
+| 5b (Pearl 2³ mask) | `pearl.rs` | three-plane mask classification at d=16 384, N=4 000 | SIMD popcount over `[u64; 256]` (the same primitive `SplatShaderBlas` Triangle-Count probe uses) |
+| 8 (Düker-Zoubouloglou) | `dueker_zoubouloglou.rs` | AR(1) Gaussian process in ℝ^16 384, MC=20, n=1 000 | BLAS L1 GEMV via `ndarray::linalg` for the AR(1) iterate |
+
+**Tier-2 pillars (small dimensions, modest SIMD benefit):**
+
+| Pillar | File | Note |
+|---|---|---|
+| 7 (Köstenberger-Stark) | `koestenberger.rs` | 2×2 SPD ops; SIMD overhead may exceed scalar win |
+| 9 (EWA-Sandwich) | `ewa_sandwich.rs` | 2×2 SPD ops; same |
+| 4 (γ+φ preconditioner) | `precond.rs` | 16×16 SOR; same |
+| 11 (Hambly-Lyons) | `hambly_lyons.rs` | depth-2 signature ops on 3D paths; sigker would also need its own SIMD pass before this matters |
+
+**Architectural shape of the refactor:**
+
+JC stays "zero-dep by default" via the same feature-flag pattern this PR
+uses for `hambly-lyons`. New feature `simd-hot` (or similar) gates an
+optional `ndarray = { path = "../../../ndarray", optional = true }` dep;
+the SIMD-critical pillars switch their inner loops behind
+`#[cfg(feature = "simd-hot")]` to use `ndarray::hpc::vsa` primitives. The
+pure-Rust scalar fallback stays as the constitution's reference
+implementation. Default `cargo run --example prove_it` keeps the
+zero-dep purity; production deployment runs `--features simd-hot` for
+throughput.
+
+**Scope boundary:** this is a separate PR (call it `feat(jc): simd-hot
+feature flag for pillar hot paths`). Estimated ~150-300 LOC across the
+4 SIMD-critical pillars + Cargo.toml feature wiring + a short throughput
+comparison table in the activation commit message.
+
+**Why this PR doesn't include the SIMD refactor:** scope creep; the
+Pillar-4-+-Pillar-11 activation is a clean atomic deliverable. SIMD-
+hot is its own deliverable with its own measurement (throughput
+ratios for the 4 SIMD-critical pillars under feature on/off).
