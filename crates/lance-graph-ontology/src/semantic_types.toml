@@ -1,0 +1,72 @@
+# semantic_types.toml — declarative OGIT-attribute → SemanticType mapping.
+#
+# This is the only TOML in the lance-graph-ontology crate. It is a
+# developer-facing configuration file. Customer-facing ontology data goes
+# through TTL (which this crate parses via oxttl).
+#
+# Keys are OGIT-shape attribute URIs `ogit.<Namespace>:<Entity>.<attr>` (or
+# bare `ogit.<Namespace>:<Attribute>` for namespace-level attributes).
+# Values are the *names* of variants in
+# `lance_graph_contract::property::SemanticType`. Currently supported variant
+# names: PlainText | Iban | Email | Phone | Address | Url | TaxId |
+# CustomerId | InvoiceNumber | Image | Date | DateMonth | DateYear |
+# DateTime | GeoLatLon | GeoWgs84 | GeoPlusCode.
+#
+# Currency(...) and File(...) take static-string parameters that cannot be
+# expressed in TOML; they must be set via explicit Rust call sites (e.g.
+# from a tenant bridge that knows its own currency code).
+#
+# `default.unmapped` controls the fallback when a predicate does not appear
+# in `[mappings]`. Default = PlainText (safe).
+
+[mappings]
+# ── Network ────────────────────────────────────────────────────────────────
+"ogit.Network:IPAddress.id" = "Url"
+"ogit.Network:MACAddress.id" = "PlainText"
+"ogit.Network:NetworkInterface.name" = "PlainText"
+
+# ── Auth ───────────────────────────────────────────────────────────────────
+"ogit.Auth:Account.email" = "Email"
+"ogit.Auth:Account.username" = "PlainText"
+"ogit.Auth:Account.password" = "PlainText"
+"ogit.Auth:Person.email" = "Email"
+"ogit.Auth:Person.phone" = "Phone"
+"ogit.Auth:Person.address" = "Address"
+
+# ── Compliance / Legal ────────────────────────────────────────────────────
+"ogit.Compliance:Person.taxId" = "TaxId"
+"ogit.Compliance:Organization.taxId" = "TaxId"
+
+# ── Procurement / SalesDistribution ───────────────────────────────────────
+"ogit.SalesDistribution:Order.orderId" = "InvoiceNumber"
+"ogit.SalesDistribution:Customer.customerId" = "CustomerId"
+"ogit.SalesDistribution:Customer.taxId" = "TaxId"
+"ogit.SalesDistribution:Customer.iban" = "Iban"
+"ogit.SalesDistribution:Customer.email" = "Email"
+"ogit.SalesDistribution:Customer.phone" = "Phone"
+
+# ── MRP / MaterialManagement ──────────────────────────────────────────────
+"ogit.MRP:Material.partNumber" = "PlainText"
+
+# ── WorkOrder (this session adds these in OGIT/NTO/WorkOrder/) ────────────
+"ogit.WorkOrder:Order.orderId" = "InvoiceNumber"
+"ogit.WorkOrder:Order.invoiceNumber" = "InvoiceNumber"
+"ogit.WorkOrder:Order.dueDate" = "Date"
+"ogit.WorkOrder:Order.createdAt" = "DateTime"
+"ogit.WorkOrder:Customer.email" = "Email"
+"ogit.WorkOrder:Customer.phone" = "Phone"
+"ogit.WorkOrder:Customer.address" = "Address"
+"ogit.WorkOrder:Customer.taxId" = "TaxId"
+"ogit.WorkOrder:Customer.customerId" = "CustomerId"
+"ogit.WorkOrder:Customer.iban" = "Iban"
+"ogit.WorkOrder:LogbookEntry.date" = "Date"
+"ogit.WorkOrder:Picture.image" = "Image"
+
+# ── GeoProfile ─────────────────────────────────────────────────────────────
+"ogit.GeoProfile:Place.latlon" = "GeoLatLon"
+
+# ── Documents ──────────────────────────────────────────────────────────────
+"ogit.Documents:Document.url" = "Url"
+
+[default]
+unmapped = "PlainText"
