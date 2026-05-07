@@ -52,14 +52,11 @@ pub mod shuffle;
 pub mod randomized;
 pub mod kernel;
 pub mod codec;
-pub mod log_signature;
+pub mod cubature;
 
 pub use signature::{Signature, signature_truncated};
 pub use shuffle::shuffle_product;
 pub use randomized::{RandomizedSignature, RandomizedSignatureBuilder};
-pub use kernel::{signature_kernel, signature_kernel_pde};
+pub use kernel::{signature_kernel, signature_kernel_pde, linear_path_kernel_closed_form};
 pub use codec::CodecRouteSigker;
-pub use log_signature::{
-    enumerate_lyndon_words, log_signature_truncated, witt_component, witt_dimension,
-    LogSignature,
-};
+pub use cubature::{CubatureBasis, trivial_constant_cubature, hydrate_signature};
