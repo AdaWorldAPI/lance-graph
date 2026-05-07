@@ -37,6 +37,23 @@
 
 ---
 
+## palantir-parity-cascade-v2 — Foundry/Gotham parity capstone + DTO ladder (authored 2026-05-07)
+
+- **Plan:** `.claude/plans/palantir-parity-cascade-v2.md`
+- **Companion knowledge:** `.claude/knowledge/soa-dto-dependency-ledger.md` (the SoA DTO entropy ledger; ships with this plan).
+- **Author + date:** main thread (Opus 4.7 1M), 2026-05-07 (immediately after PR #352 merge).
+- **Status:** Active.
+- **Scope:** Integration capstone over 4 prior Foundry parity docs (`q2-foundry-integration-v1`, `lf-integration-mapping-v1`, `foundry-consumer-parity-v1`, `medcare-foundry-vision`) and v1 cascade Pillar 0. **Pillar 0 carry-forward**: Foundry parity IS SoA-as-canon parity — Column H (`EntityTypeId: u16`, PR #272 SHIPPED) is already the Foundry Object Type bridge; v2 just makes the SoA carry the Foundry-equivalent shape, NOT duplicate the table set. **DTO ladder finding (2026-05-07 audit)**: `StreamDto`, `ResonanceDto`, `BusDto` all live in `thinking-engine::dto.rs` (Tiers 0/1/2), upstream of contract. 22 DTOs classified across 3 buckets: 9 bare-metal, 7 SoA-glue, 6 bridge-projection (3 OPEN re-classifications). **Business Logic ↔ Thinking-style ↔ OGIT triangle**: each business operation has 3 faces (`thinking_style: ThinkingStyle` dispatch, `ogit_verb: TTL`, `ogit_entities[]: TTL`); v2 D-PARITY-V2-2 ships the routing table.
+- **Originating context:** main-thread requests 2026-05-07: (a) updated roadmap with Foundry/Gotham parity; (b) SoA DTO dependency-graph / entropy ledger to classify bare-metal vs SoA-glue (StreamDto, BusDto, ResonanceDto); (c) cognitive-shader-driver internal vs lance-graph-callcenter external O(1) mapping; (d) Business Logic Thinking-style OGIT mapping later.
+- **Resolves ledger rows:** none directly. **Hardens** v1 D-CASCADE-V1-7 (codec cascade column population) via the explicit ledger entry tracking the "OPEN" status of each cascade column.
+- **Branch:** `claude/create-graph-ontology-crate-gkuJG`. PR target: `AdaWorldAPI/lance-graph` base=`main`.
+- **Confidence (2026-05-07):** Pre-execution. Pillar 0 carry-forward is right per existing PR #272 (Column H is the bridge already). Top-3 ranked: D-PARITY-V2-1 (DTO ledger — ships with this plan), D-PARITY-V2-2 (triangle ledger — ships with this plan), D-PARITY-V2-3 (BusDto bridge into engine_bridge.rs).
+- **Cross-plan deps:** v1 D-CASCADE-V1-2 (`SchemaPtr.context_id`) → v2 D-PARITY-V2-4 (`Schema::ObjectView`); v1 D-CASCADE-V1-7 (codec cascade columns) → v2 D-PARITY-V2-12 (`SchemaPtr.thinking_style`); v5 D-9 (`MulThresholdProfile`) → v2 D-PARITY-V2-12 (column extension).
+- **Foundry parity status snapshot:** SHIPPED — Column H (PR #272), audit trail, RBAC/RLS, PostgREST. IN PROGRESS — Q2 cockpit. QUEUED — LF-12 Pipeline DAG, LF-20 FunctionSpec, LF-22/23 ObjectView/Notification, LF-50 ModelRegistry.
+- **Out of v2 scope:** CRDT scenario branching (Column F already exists; UI affordance is v3), Foundry Marketplace/Compass, Foundry Code Repositories, Vertex/Workshop UX (covered by `q2-foundry-integration-v1`), Foundry-export-format ingest.
+
+---
+
 ## ogit-cascade-supabase-callcenter-v1 — OGIT SPO-G + Supabase realtime + Zone 1/2/3 (authored 2026-05-07)
 
 - **Plan:** `.claude/plans/ogit-cascade-supabase-callcenter-v1.md`
