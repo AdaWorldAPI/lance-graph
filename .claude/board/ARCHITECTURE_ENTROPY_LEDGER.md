@@ -920,3 +920,51 @@ as a follow-up rather than ballooned into this scope.
 **Net:** deferred count drops 3 → 2 by default; 3 → 1 when the feature is on.
 Pillar 2 remains the only "real" deferred — and correctly so; its activation
 is research-shaped, not probe-shaped.
+
+### Follow-up debt — JC pillars need `ndarray::simd` for production hot paths (per @adaworldapi 2026-05-07)
+
+JC currently ships zero-external-dep hand-rolled scalar Rust for all pillar
+math. Adequate for the proof-in-code role (the pillars are *correctness*
+certificates, not production hot paths), but not adequate for production-
+grade throughput when the same pillars are run as inline regression
+checks against the actual cognitive substrate.
+
+**SIMD-critical pillars (operate on d ∈ {10 000, 16 384} vectors):**
+
+| Pillar | File | Hot loop | Production replacement |
+|---|---|---|---|
+| 1 (E-SUBSTRATE-1) | `substrate.rs` | bundle associativity over d=10 000, N=10 000 trials | `ndarray::hpc::vsa::{bind, bundle, cosine}` SIMD-dispatched primitives |
+| 5 (Jirak Berry-Esseen) | `jirak.rs` | empirical CDF + sup-error at d=16 384, n=5 000 | `ndarray::simd` reductions + `simd_caps()` dispatched popcount/cmp |
+| 5b (Pearl 2³ mask) | `pearl.rs` | three-plane mask classification at d=16 384, N=4 000 | SIMD popcount over `[u64; 256]` (the same primitive `SplatShaderBlas` Triangle-Count probe uses) |
+| 8 (Düker-Zoubouloglou) | `dueker_zoubouloglou.rs` | AR(1) Gaussian process in ℝ^16 384, MC=20, n=1 000 | BLAS L1 GEMV via `ndarray::linalg` for the AR(1) iterate |
+
+**Tier-2 pillars (small dimensions, modest SIMD benefit):**
+
+| Pillar | File | Note |
+|---|---|---|
+| 7 (Köstenberger-Stark) | `koestenberger.rs` | 2×2 SPD ops; SIMD overhead may exceed scalar win |
+| 9 (EWA-Sandwich) | `ewa_sandwich.rs` | 2×2 SPD ops; same |
+| 4 (γ+φ preconditioner) | `precond.rs` | 16×16 SOR; same |
+| 11 (Hambly-Lyons) | `hambly_lyons.rs` | depth-2 signature ops on 3D paths; sigker would also need its own SIMD pass before this matters |
+
+**Architectural shape of the refactor:**
+
+JC stays "zero-dep by default" via the same feature-flag pattern this PR
+uses for `hambly-lyons`. New feature `simd-hot` (or similar) gates an
+optional `ndarray = { path = "../../../ndarray", optional = true }` dep;
+the SIMD-critical pillars switch their inner loops behind
+`#[cfg(feature = "simd-hot")]` to use `ndarray::hpc::vsa` primitives. The
+pure-Rust scalar fallback stays as the constitution's reference
+implementation. Default `cargo run --example prove_it` keeps the
+zero-dep purity; production deployment runs `--features simd-hot` for
+throughput.
+
+**Scope boundary:** this is a separate PR (call it `feat(jc): simd-hot
+feature flag for pillar hot paths`). Estimated ~150-300 LOC across the
+4 SIMD-critical pillars + Cargo.toml feature wiring + a short throughput
+comparison table in the activation commit message.
+
+**Why this PR doesn't include the SIMD refactor:** scope creep; the
+Pillar-4-+-Pillar-11 activation is a clean atomic deliverable. SIMD-
+hot is its own deliverable with its own measurement (throughput
+ratios for the 4 SIMD-critical pillars under feature on/off).
