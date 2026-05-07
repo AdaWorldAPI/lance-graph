@@ -17,9 +17,14 @@
 //!    Schmocker-Teichmann 2021); the practical bridge to fixed-width
 //!    fingerprints comparable to Vsa16k.
 //! 4. **Signature kernels** (`kernel.rs`): inner product 〈S(X), S(Y)〉
-//!    computed without materializing the signature, via the Goursat PDE
-//!    formulation (Salvi-Cass-Foster-Lyons-Lemercier 2020).
-//! 5. **Codec route integration** (`codec.rs`): exposes sigker as a third
+//!    computed two ways — truncated direct (depth-bounded) and via the
+//!    **full Goursat PDE solver** (depth-∞ in O(T₁·T₂) flops, no signature
+//!    materialization). The PDE solver is the production path for any
+//!    workload that exceeds depth-6 truncation.
+//! 5. **Log-signatures** (`log_signature.rs`): compact storage of the
+//!    truncated signature in the Lyndon-basis of the free Lie algebra.
+//!    Compression 7–13× depending on (d, N), with NO information loss.
+//! 6. **Codec route integration** (`codec.rs`): exposes sigker as a third
 //!    `CodecRoute` variant alongside Passthrough and CamPq. Sigker is
 //!    **Index regime** — by Hambly-Lyons uniqueness, it is lossless on
 //!    tree-quotient classes of paths.
@@ -34,55 +39,27 @@
 //! cancellations — and the latter equivalence is the *intended* identification
 //! for any path-as-information consumer.
 //!
-//! Concretely, in the lance-graph `CodecRoute` table:
-//!
-//! ```text
-//!   Index    fields  ⇒  Passthrough  (lossless on the carrier)
-//!   Index    paths   ⇒  Sigker       (lossless on tree-quotient, this crate)
-//!   Argmax   fields  ⇒  CamPq        (codebook quantization, lossy)
-//!   Skip     fields  ⇒  Skip         (not stored)
-//! ```
-//!
 //! ## Relationship to jc pillars
 //!
 //! Sigker provides operations; jc certifies them. The natural certification
-//! is a future jc pillar (Hambly-Lyons signature uniqueness on lance-graph
-//! paths) which proves that sigker's "Index regime" classification is
-//! mathematically warranted, not asserted. Until that pillar lands, sigker
-//! ships with internal property-based tests of the algebraic identities
-//! (Chen's identity, shuffle distributivity).
-//!
-//! ## Performance envelope
-//!
-//! - Truncated signature, depth 3, dim d: O(d^3) flops, O(d^3) bytes.
-//!   For d=8 (typical OSINT edge feature dim): 512 floats per path.
-//! - Randomized signature, projection dim k: O(k · path_length) per step,
-//!   O(k) bytes total. For k=4096 (matches Vsa16kF32 carrier size after
-//!   bf16 packing): comparable to deepnsm's working width.
-//! - Signature kernel via Goursat PDE: O(L₁ · L₂) where Lᵢ is path length;
-//!   no signature materialization required.
-//!
-//! ## What lives elsewhere
-//!
-//! - The Lance I/O / DataFusion UDF wiring lives in `lance-graph-contract`
-//!   once `CodecRoute::Sigker` is added; sigker stays a pure-math crate.
-//! - The certification (Hambly-Lyons uniqueness probe) lives in `crates/jc`
-//!   as a future pillar 11.
-//! - Comparative benches against bgz17 palette and deepnsm tiling live in
-//!   `examples/sig_vs_hamming.rs`.
+//! is jc Pillar 11 (Hambly-Lyons signature uniqueness on lance-graph paths)
+//! which proves that sigker's "Index regime" classification is mathematically
+//! warranted, not asserted. Pillar 11 is currently DEFERRED in jc; it
+//! activates once sigker is benchmarked at production carrier widths.
 
 pub mod signature;
 pub mod shuffle;
 pub mod randomized;
 pub mod kernel;
 pub mod codec;
-
-// ════════════════════════════════════════════════════════════════════════════
-// Top-level re-exports — minimal surface, mirrors bgz17/deepnsm pattern.
-// ════════════════════════════════════════════════════════════════════════════
+pub mod log_signature;
 
 pub use signature::{Signature, signature_truncated};
 pub use shuffle::shuffle_product;
 pub use randomized::{RandomizedSignature, RandomizedSignatureBuilder};
-pub use kernel::signature_kernel;
+pub use kernel::{signature_kernel, signature_kernel_pde};
 pub use codec::CodecRouteSigker;
+pub use log_signature::{
+    enumerate_lyndon_words, log_signature_truncated, witt_component, witt_dimension,
+    LogSignature,
+};
