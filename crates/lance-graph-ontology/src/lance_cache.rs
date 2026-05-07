@@ -244,6 +244,8 @@ fn record_batch_to_rows(batch: &RecordBatch) -> Result<Vec<MappingRow>> {
 
     let mut rows = Vec::with_capacity(bridge_id.len());
     for i in 0..bridge_id.len() {
+        // D-CASCADE-V1-7: codec-cascade columns not yet persisted; replay
+        // defaults them. Producer pipeline writer is the follow-up.
         rows.push(MappingRow {
             bridge_id: bridge_id.value(i).to_string(),
             public_name: public_name.value(i).to_string(),
@@ -259,6 +261,13 @@ fn record_batch_to_rows(batch: &RecordBatch) -> Result<Vec<MappingRow>> {
             source_uri: source_uri.value(i).to_string(),
             active: active.value(i),
             checksum: checksum.value(i).to_string(),
+            identity_codec: Default::default(),
+            qualia_meta: Default::default(),
+            thinking_style: None,
+            attribute_sources: Vec::new(),
+            subject_type: String::new(),
+            object_type: String::new(),
+            entity_type_ref: String::new(),
         });
     }
     Ok(rows)

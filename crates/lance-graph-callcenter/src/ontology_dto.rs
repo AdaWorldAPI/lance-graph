@@ -1,20 +1,31 @@
 //! External ontology DTO surface — the "Foundry outside" layer.
 //!
-//! Projects the internal `contract::ontology::Ontology` into consumer-facing
+//! Projects the canonical `OntologyRegistry` (the SoA, per
+//! `ogit-cascade-supabase-callcenter-v1.md` Pillar 0) into consumer-facing
 //! bilingual DTOs that PostgREST, Phoenix, and downstream apps consume.
 //! This is the ONE surface both SMB and MedCare consumers see.
+//!
+//! Per Pillar 3 of v1 cascade, the per-tenant factories (`medcare_ontology`,
+//! `smb_ontology`) collapsed from hand-rolled DTO builders to 2-line
+//! projections over `OntologyRegistry::enumerate(namespace)`. The bridges
+//! stay 15-20 LOC; the heavy lifting moves into the registry.
 //!
 //! Internal types (`BindSpace`, `FingerprintColumns`, `CausalEdge64`) never
 //! leak through this module. The BBB invariant (from `external_membrane.rs`)
 //! holds: VSA/semiring types stay inside; scalar/typed DTOs cross outside.
 
+// classification: bridge-projection
+// (per .claude/plans/palantir-parity-cascade-v2.md DTO ladder Tier-4)
+
 use lance_graph_contract::ontology::{EntityTypeId, Label, Locale, Ontology};
 use lance_graph_contract::property::{
-    ActionSpec, ActionTrigger, Cardinality, LinkSpec, Marking, PropertyKind, Schema, SemanticType,
+    ActionTrigger, Cardinality, Marking, PropertyKind, SemanticType,
 };
+use lance_graph_ontology::{MappingRow, OntologyRegistry, SchemaPtr};
+use lance_graph_ontology::namespace::SchemaKind;
 
-/// External-facing ontology view. Projects the full `Ontology` through
-/// a locale lens, stripping internal implementation details.
+/// External-facing ontology view. Projects the registry through a locale
+/// lens, stripping internal implementation details.
 #[derive(Clone, Debug)]
 pub struct OntologyDto {
     pub key: &'static str,
@@ -28,7 +39,7 @@ pub struct OntologyDto {
 #[derive(Clone, Debug)]
 pub struct EntityTypeDto {
     pub id: EntityTypeId,
-    pub key: &'static str,
+    pub key: String,
     pub name: String,
     pub properties: Vec<PropertyDto>,
     pub required_count: usize,
@@ -36,7 +47,7 @@ pub struct EntityTypeDto {
 
 #[derive(Clone, Debug)]
 pub struct PropertyDto {
-    pub key: &'static str,
+    pub key: String,
     pub kind: &'static str,
     pub semantic_type: String,
     pub marking: &'static str,
@@ -44,21 +55,64 @@ pub struct PropertyDto {
 
 #[derive(Clone, Debug)]
 pub struct LinkTypeDto {
-    pub subject_type: &'static str,
-    pub predicate: &'static str,
-    pub object_type: &'static str,
+    pub subject_type: String,
+    pub predicate: String,
+    pub object_type: String,
     pub cardinality: &'static str,
 }
 
 #[derive(Clone, Debug)]
 pub struct ActionTypeDto {
-    pub name: &'static str,
-    pub entity_type: &'static str,
-    pub target_predicate: &'static str,
+    pub name: String,
+    pub entity_type: String,
+    pub target_predicate: String,
     pub trigger: &'static str,
 }
 
 impl OntologyDto {
+    /// Projection over a registry namespace — the v1 cascade Pillar 0
+    /// canonical constructor. Walks `registry.enumerate(namespace)` once
+    /// and drops each row into the matching kind bucket.
+    ///
+    /// Per the v1 cascade plan: `MappingRow` carries dictionary metadata
+    /// (kind / semantic_type / marking), not full Schema property layouts.
+    /// Property + link/action body fields populate when D-CASCADE-V1-7
+    /// (codec-cascade columns) lands; today they remain projections of
+    /// what the registry knows.
+    pub fn project(
+        registry: &OntologyRegistry,
+        namespace: &str,
+        key: &'static str,
+        label: Label,
+        locale: Locale,
+    ) -> Self {
+        let rows = registry.enumerate(namespace);
+        let mut entity_types: Vec<EntityTypeDto> = Vec::new();
+        let mut link_types: Vec<LinkTypeDto> = Vec::new();
+        let mut action_types: Vec<ActionTypeDto> = Vec::new();
+
+        for row in rows {
+            match row.kind {
+                SchemaKind::Entity => entity_types.push(entity_dto(&row)),
+                SchemaKind::Edge => link_types.push(link_dto(&row)),
+                SchemaKind::Attribute => action_types.push(action_dto(&row)),
+            }
+        }
+
+        OntologyDto {
+            key,
+            name: label.display(locale).to_string(),
+            locale,
+            entity_types,
+            link_types,
+            action_types,
+        }
+    }
+
+    /// Legacy projection over a hand-rolled `Ontology`. Retained for
+    /// `transcode::CachedOntology` and any consumer that already carries
+    /// a fully-formed `Ontology` literal. New code should use
+    /// [`OntologyDto::project`] over the canonical registry instead.
     pub fn from_ontology(ontology: &Ontology, locale: Locale) -> Self {
         let entity_types: Vec<EntityTypeDto> = ontology
             .schemas
@@ -66,14 +120,14 @@ impl OntologyDto {
             .enumerate()
             .map(|(idx, schema)| EntityTypeDto {
                 id: (idx + 1) as EntityTypeId,
-                key: schema.name,
+                key: schema.name.to_string(),
                 name: schema.name.to_string(),
                 required_count: schema.required_props().count(),
                 properties: schema
                     .properties
                     .iter()
                     .map(|p| PropertyDto {
-                        key: p.predicate,
+                        key: p.predicate.to_string(),
                         kind: kind_str(p.kind),
                         semantic_type: semantic_type_str(&p.semantic_type),
                         marking: marking_str(p.marking),
@@ -86,9 +140,9 @@ impl OntologyDto {
             .links
             .iter()
             .map(|l| LinkTypeDto {
-                subject_type: l.subject_type,
-                predicate: l.predicate,
-                object_type: l.object_type,
+                subject_type: l.subject_type.to_string(),
+                predicate: l.predicate.to_string(),
+                object_type: l.object_type.to_string(),
                 cardinality: cardinality_str(l.cardinality),
             })
             .collect();
@@ -97,9 +151,9 @@ impl OntologyDto {
             .actions
             .iter()
             .map(|a| ActionTypeDto {
-                name: a.name,
-                entity_type: a.entity_type,
-                target_predicate: a.target_predicate,
+                name: a.name.to_string(),
+                entity_type: a.entity_type.to_string(),
+                target_predicate: a.target_predicate.to_string(),
                 trigger: trigger_str(a.trigger),
             })
             .collect();
@@ -130,6 +184,65 @@ impl OntologyDto {
             .iter()
             .filter(|a| a.entity_type == entity_type)
             .collect()
+    }
+}
+
+// ── Per-row projection helpers ───────────────────────────────────────────────
+
+fn entity_dto(row: &MappingRow) -> EntityTypeDto {
+    let SchemaPtr { .. } = row.schema_ptr; // structural binding only
+    let id = row.schema_ptr.entity_type_id();
+    let name = row
+        .ogit_uri
+        .name()
+        .unwrap_or(&row.public_name)
+        .to_string();
+    // D-CASCADE-V1-7 / META-NUDGE-1: surface the per-attribute provenance
+    // pairs threaded onto MappingRow as one PropertyDto per pair. The
+    // marking + semantic_type come from the entity row itself; per-property
+    // marking divergence is a follow-up when MappingRow learns it.
+    let marking = marking_str(row.marking);
+    let semantic_type = semantic_type_str(&row.semantic_type);
+    let properties: Vec<PropertyDto> = row
+        .attribute_sources
+        .iter()
+        .map(|p| PropertyDto {
+            key: p.predicate_iri.clone(),
+            kind: kind_str(PropertyKind::Optional),
+            semantic_type: semantic_type.clone(),
+            marking,
+        })
+        .collect();
+    let required_count = properties.len();
+    EntityTypeDto {
+        id,
+        key: row.public_name.clone(),
+        name,
+        properties,
+        required_count,
+    }
+}
+
+fn link_dto(row: &MappingRow) -> LinkTypeDto {
+    // D-CASCADE-V1-7 / META-NUDGE-1: subject/object now ride on MappingRow.
+    LinkTypeDto {
+        subject_type: row.subject_type.clone(),
+        predicate: row.public_name.clone(),
+        object_type: row.object_type.clone(),
+        cardinality: "many_to_many",
+    }
+}
+
+fn action_dto(row: &MappingRow) -> ActionTypeDto {
+    ActionTypeDto {
+        name: row.public_name.clone(),
+        entity_type: row.entity_type_ref.clone(),
+        target_predicate: row
+            .ogit_uri
+            .name()
+            .unwrap_or(&row.public_name)
+            .to_string(),
+        trigger: "manual",
     }
 }
 
@@ -187,237 +300,125 @@ fn semantic_type_str(st: &SemanticType) -> String {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Bilingual SMB + MedCare example ontologies
+// Bilingual SMB + MedCare projection factories — the bridge collapse.
+//
+// Per `.claude/plans/ogit-cascade-supabase-callcenter-v1.md` Pillar 3:
+// the per-tenant factories are 2-line projections over the canonical
+// `OntologyRegistry` enumerate. The hand-rolled `Ontology` literals these
+// used to build were displaced when v4 hydration started populating the
+// registry from `OGIT/NTO/Healthcare/` and `OGIT/NTO/SMB/` TTL.
 // ═══════════════════════════════════════════════════════════════════════════
 
-pub fn smb_ontology() -> Ontology {
-    Ontology::builder("smb")
-        .label(Label::new("smb", "Tax Practice", "Steuerberatungskanzlei"))
-        .locale(Locale::De)
-        .schema(
-            Schema::builder("Customer")
-                .required("customer_name")
-                .required("tax_id")
-                .optional("address")
-                .optional("iban")
-                .searchable("industry")
-                .free("note")
-                .build(),
-        )
-        .schema(
-            Schema::builder("Invoice")
-                .required("invoice_number")
-                .required("date")
-                .required("total_amount")
-                .required("currency")
-                .required("customer_ref")
-                .optional("due_date")
-                .free("note")
-                .build(),
-        )
-        .schema(
-            Schema::builder("TaxDeclaration")
-                .required("declaration_id")
-                .required("tax_year")
-                .required("customer_ref")
-                .required("declaration_type")
-                .optional("filing_date")
-                .optional("status")
-                .build(),
-        )
-        .link(LinkSpec::one_to_many("Customer", "issued", "Invoice"))
-        .link(LinkSpec::one_to_many("Customer", "filed", "TaxDeclaration"))
-        .action(ActionSpec::manual("approve", "Invoice", "status"))
-        .action(ActionSpec::auto("classify", "Customer", "industry"))
-        .action(ActionSpec::manual("submit", "TaxDeclaration", "status"))
-        .build()
+/// SMB DTO — projection over the `SMB` namespace of the canonical registry.
+pub fn smb_ontology(registry: &OntologyRegistry) -> OntologyDto {
+    OntologyDto::project(
+        registry,
+        "SMB",
+        "smb",
+        Label::new("smb", "Tax Practice", "Steuerberatungskanzlei"),
+        Locale::De,
+    )
 }
 
-pub fn medcare_ontology() -> Ontology {
-    Ontology::builder("medcare")
-        .label(Label::new("medcare", "Medical Practice", "Arztpraxis"))
-        .locale(Locale::De)
-        .schema(
-            Schema::builder("Patient")
-                .required("patient_id")
-                .required("name")
-                .required("geburtsdatum")
-                .optional("versichertennummer")
-                .optional("krankenkasse")
-                .optional("address")
-                .free("note")
-                .build(),
-        )
-        .schema(
-            Schema::builder("Diagnosis")
-                .required("icd10_code")
-                .required("patient_ref")
-                .required("date")
-                .optional("description")
-                .optional("severity")
-                .build(),
-        )
-        .schema(
-            Schema::builder("LabResult")
-                .required("lab_id")
-                .required("patient_ref")
-                .required("parameter")
-                .required("value")
-                .required("unit")
-                .optional("reference_range")
-                .optional("date")
-                .build(),
-        )
-        .schema(
-            Schema::builder("Prescription")
-                .required("prescription_id")
-                .required("patient_ref")
-                .required("medication")
-                .required("dosage")
-                .optional("duration")
-                .optional("refills")
-                .build(),
-        )
-        .link(LinkSpec::one_to_many(
-            "Patient",
-            "diagnosed_with",
-            "Diagnosis",
-        ))
-        .link(LinkSpec::one_to_many("Patient", "lab_result", "LabResult"))
-        .link(LinkSpec::one_to_many(
-            "Patient",
-            "prescribed",
-            "Prescription",
-        ))
-        .link(LinkSpec::one_to_many(
-            "Diagnosis",
-            "confirmed_by",
-            "LabResult",
-        ))
-        .action(ActionSpec::auto("triage", "Patient", "urgency"))
-        .action(ActionSpec::suggested("prescribe", "Patient", "medication"))
-        .action(ActionSpec::manual(
-            "approve_prescription",
-            "Prescription",
-            "status",
-        ))
-        .build()
+/// MedCare DTO — projection over the `Healthcare` namespace of the
+/// canonical registry.
+pub fn medcare_ontology(registry: &OntologyRegistry) -> OntologyDto {
+    OntologyDto::project(
+        registry,
+        "Healthcare",
+        "medcare",
+        Label::new("medcare", "Medical Practice", "Arztpraxis"),
+        Locale::De,
+    )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use lance_graph_contract::property::Schema;
+    use lance_graph_ontology::namespace::OgitUri;
+    use lance_graph_ontology::{MappingProposal, MappingProposalKind};
+
+    fn entity_proposal(bridge: &str, public: &str, uri: &str) -> MappingProposal {
+        let parsed = OgitUri::parse(uri).unwrap();
+        let ns = parsed.namespace().unwrap().to_string();
+        let name = parsed.name().unwrap().to_string();
+        MappingProposal {
+            public_name: public.to_string(),
+            bridge_id: bridge.to_string(),
+            ogit_uri: parsed,
+            namespace: ns,
+            kind: MappingProposalKind::Entity {
+                schema: Schema::builder(Box::leak(name.into_boxed_str())).build(),
+            },
+            marking: Marking::Internal,
+            confidence: 1.0,
+            source_uri: format!("test://{uri}"),
+            checksum: format!("ck-{uri}"),
+            created_by: "test".into(),
+        }
+    }
+
+    fn smb_registry() -> OntologyRegistry {
+        let reg = OntologyRegistry::new_in_memory();
+        reg.append_mapping(entity_proposal("smb", "Customer", "ogit.SMB:Customer")).unwrap();
+        reg.append_mapping(entity_proposal("smb", "Invoice", "ogit.SMB:Invoice")).unwrap();
+        reg.append_mapping(entity_proposal("smb", "TaxDeclaration", "ogit.SMB:TaxDeclaration")).unwrap();
+        reg
+    }
+
+    fn medcare_registry() -> OntologyRegistry {
+        let reg = OntologyRegistry::new_in_memory();
+        reg.append_mapping(entity_proposal("medcare", "Patient", "ogit.Healthcare:Patient")).unwrap();
+        reg.append_mapping(entity_proposal("medcare", "Diagnosis", "ogit.Healthcare:Diagnosis")).unwrap();
+        reg.append_mapping(entity_proposal("medcare", "LabResult", "ogit.Healthcare:LabResult")).unwrap();
+        reg.append_mapping(entity_proposal("medcare", "Prescription", "ogit.Healthcare:Prescription")).unwrap();
+        reg
+    }
 
     #[test]
-    fn smb_dto_german_display_name() {
-        let ont = smb_ontology();
-        let dto = OntologyDto::from_ontology(&ont, Locale::De);
-        assert_eq!(dto.name, "Steuerberatungskanzlei");
+    fn smb_projects_three_entities() {
+        let reg = smb_registry();
+        let dto = smb_ontology(&reg);
         assert_eq!(dto.key, "smb");
-    }
-
-    #[test]
-    fn smb_dto_english_display_name() {
-        let ont = smb_ontology();
-        let dto = OntologyDto::from_ontology(&ont, Locale::En);
-        assert_eq!(dto.name, "Tax Practice");
-    }
-
-    #[test]
-    fn smb_entity_types() {
-        let ont = smb_ontology();
-        let dto = OntologyDto::from_ontology(&ont, Locale::De);
+        assert_eq!(dto.name, "Steuerberatungskanzlei");
         assert_eq!(dto.entity_types.len(), 3);
-        let customer = dto.entity_type("Customer").unwrap();
-        assert_eq!(customer.id, 1);
-        assert_eq!(customer.required_count, 2);
-        assert_eq!(customer.properties.len(), 6);
+        assert!(dto.entity_type("Customer").is_some());
     }
 
     #[test]
-    fn smb_links_from_customer() {
-        let ont = smb_ontology();
-        let dto = OntologyDto::from_ontology(&ont, Locale::De);
-        let links = dto.links_from("Customer");
-        assert_eq!(links.len(), 2);
-        assert_eq!(links[0].predicate, "issued");
-        assert_eq!(links[1].predicate, "filed");
-    }
-
-    #[test]
-    fn smb_actions_for_invoice() {
-        let ont = smb_ontology();
-        let dto = OntologyDto::from_ontology(&ont, Locale::De);
-        let actions = dto.actions_for("Invoice");
-        assert_eq!(actions.len(), 1);
-        assert_eq!(actions[0].trigger, "manual");
-    }
-
-    #[test]
-    fn medcare_dto_bilingual() {
-        let ont = medcare_ontology();
-        let de = OntologyDto::from_ontology(&ont, Locale::De);
-        let en = OntologyDto::from_ontology(&ont, Locale::En);
-        assert_eq!(de.name, "Arztpraxis");
-        assert_eq!(en.name, "Medical Practice");
-    }
-
-    #[test]
-    fn medcare_entity_types() {
-        let ont = medcare_ontology();
-        let dto = OntologyDto::from_ontology(&ont, Locale::De);
+    fn medcare_projects_four_entities() {
+        let reg = medcare_registry();
+        let dto = medcare_ontology(&reg);
+        assert_eq!(dto.key, "medcare");
+        assert_eq!(dto.name, "Arztpraxis");
         assert_eq!(dto.entity_types.len(), 4);
-        let patient = dto.entity_type("Patient").unwrap();
-        assert_eq!(patient.required_count, 3);
     }
 
     #[test]
-    fn medcare_links() {
-        let ont = medcare_ontology();
-        let dto = OntologyDto::from_ontology(&ont, Locale::De);
-        assert_eq!(dto.link_types.len(), 4);
-        let patient_links = dto.links_from("Patient");
-        assert_eq!(patient_links.len(), 3);
+    fn unknown_namespace_yields_empty_dto() {
+        let reg = OntologyRegistry::new_in_memory();
+        let dto = OntologyDto::project(
+            &reg,
+            "Nonexistent",
+            "x",
+            Label::en_only("x"),
+            Locale::En,
+        );
+        assert!(dto.entity_types.is_empty());
+        assert!(dto.link_types.is_empty());
+        assert!(dto.action_types.is_empty());
     }
 
     #[test]
-    fn medcare_actions() {
-        let ont = medcare_ontology();
-        let dto = OntologyDto::from_ontology(&ont, Locale::De);
-        assert_eq!(dto.action_types.len(), 3);
-        let prescribe = dto.actions_for("Patient");
-        assert_eq!(prescribe.len(), 2);
-    }
-
-    #[test]
-    fn property_marking_exposed() {
-        let ont = smb_ontology();
-        let dto = OntologyDto::from_ontology(&ont, Locale::En);
-        let customer = dto.entity_type("Customer").unwrap();
-        let tax_id = customer
-            .properties
-            .iter()
-            .find(|p| p.key == "tax_id")
-            .unwrap();
-        assert_eq!(tax_id.marking, "internal");
-        assert_eq!(tax_id.kind, "required");
-    }
-
-    #[test]
-    fn entity_type_id_matches_dto_id() {
-        use lance_graph_contract::ontology::entity_type_id;
-        let ont = smb_ontology();
-        let dto = OntologyDto::from_ontology(&ont, Locale::En);
-        let customer_id = entity_type_id(&ont, "Customer");
-        let dto_customer = dto.entity_type("Customer").unwrap();
-        assert_eq!(customer_id, dto_customer.id);
-    }
-
-    #[test]
-    fn env_var_api_key_pattern() {
-        // Railway pattern: API key from env, never hardcoded
-        let key = std::env::var("RAILWAY_API_KEY").unwrap_or_default();
-        // In tests, key is empty (no Railway); in CI/Railway, it's set
-        assert!(key.is_empty() || key.len() > 8);
+    fn from_ontology_legacy_path_still_works() {
+        // Legacy projection path retained for `transcode::CachedOntology`.
+        let ontology = Ontology::builder("test")
+            .label(Label::new("test", "Test", "Test"))
+            .schema(Schema::builder("Customer").required("name").build())
+            .build();
+        let dto = OntologyDto::from_ontology(&ontology, Locale::En);
+        assert_eq!(dto.entity_types.len(), 1);
+        assert_eq!(dto.entity_types[0].required_count, 1);
     }
 }

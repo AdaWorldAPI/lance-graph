@@ -17,17 +17,26 @@
 
 use crate::error::{Error, Result};
 use crate::namespace::{NamespaceId, SchemaPtr};
+use crate::namespace_registry::NamespaceRegistry;
 use crate::proposal::{
-    HydrationFailure, HydrationReport, MappingHandle, MappingProposal, MappingProposalKind,
-    MappingRow,
+    HydrationFailure, HydrationReport, IdentityCodec, MappingHandle, MappingProposal,
+    MappingProposalKind, MappingRow, ProvenanceBundle, QualiaMeta,
 };
 use crate::semantic_types::SemanticTypeMap;
-use crate::ttl_parse::{parse_ttl_directory, ttl_root_checksum};
+use crate::ttl_parse::{parse_ttl_directory_with_provenance, ttl_root_checksum};
 use lance_graph_contract::property::{Marking, SemanticType};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::RwLock;
+use std::sync::{LazyLock, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
+
+// Codex P1 fix (2026-05-07): canonical namespace → ontology_context_id
+// lookup for `RegistryState::append`. The `seed_defaults()` constructor
+// is hot-path-cheap (allocates one HashMap on first call) and the
+// resulting registry is read-only thereafter, so a LazyLock is the
+// right primitive — no rebuild per append.
+static SEED_NAMESPACE_REGISTRY: LazyLock<NamespaceRegistry> =
+    LazyLock::new(NamespaceRegistry::seed_defaults);
 
 /// The single ontology registry.
 pub struct OntologyRegistry {
@@ -105,8 +114,12 @@ impl OntologyRegistry {
             }
         }
 
-        let (proposals, failures) =
-            parse_ttl_directory(ttl_root, "ogit", &self.sem_map, namespaces)?;
+        // Codex P2 fix (2026-05-07): single-walk variant returns the
+        // ProvenanceBundles too. Previously parse_ttl_directory dropped
+        // bundles, so MappingRow.attribute_sources stayed empty in the
+        // production hydration path.
+        let (proposals, bundles, failures) =
+            parse_ttl_directory_with_provenance(ttl_root, "ogit", &self.sem_map, namespaces)?;
         if proposals.is_empty() && failures.is_empty() {
             return Err(Error::EmptyHydration(ttl_root.to_path_buf()));
         }
@@ -132,6 +145,19 @@ impl OntologyRegistry {
                 }
             }
         }
+        // Codex P2 fix (2026-05-07): attach the harvested provenance
+        // bundles AFTER all proposals are appended so by_uri is fully
+        // populated. We do this inside the existing write-lock to
+        // avoid the deadlock that public attach_provenance would hit
+        // (which acquires its own write-lock).
+        let mut attached = 0u32;
+        for bundle in &bundles {
+            if let Some(idx) = state.by_uri.get(&bundle.entity_uri).copied() {
+                state.rows[idx as usize].attribute_sources = bundle.attribute_sources.clone();
+                attached += 1;
+            }
+        }
+        report.provenance_attached = attached;
         state.last_root_checksum = Some(root_checksum);
         report.namespaces_seen = seen_namespaces.into_iter().collect();
         Ok(report)
@@ -251,6 +277,33 @@ impl OntologyRegistry {
         self.inner.read().unwrap().rows.is_empty()
     }
 
+    /// Thread a [`ProvenanceBundle`] onto its row (FIX-3, consumes
+    /// [`crate::ttl_parse::parse_with_provenance`] — no re-walk).
+    pub fn attach_provenance(&self, bundle: &ProvenanceBundle) -> bool {
+        let mut s = self.inner.write().unwrap();
+        s.by_uri.get(&bundle.entity_uri).copied().map(|idx| {
+            s.rows[idx as usize].attribute_sources = bundle.attribute_sources.clone();
+        }).is_some()
+    }
+
+    /// Attach a `ThinkingStyle` (D-PARITY-V2-12) to the row at `ogit_uri`.
+    pub fn attach_thinking_style(
+        &self,
+        ogit_uri: &str,
+        style: lance_graph_contract::thinking::ThinkingStyle,
+    ) -> bool {
+        let mut s = self.inner.write().unwrap();
+        s.by_uri.get(ogit_uri).copied().map(|idx| {
+            s.rows[idx as usize].thinking_style = Some(style);
+        }).is_some()
+    }
+
+    /// Resolve a `BindSpace.entity_type` index to its row (D-CASCADE-V1-7).
+    pub fn enumerate_first_with_entity_type_id(&self, entity_type_id: u16) -> Option<MappingRow> {
+        let s = self.inner.read().unwrap();
+        s.rows.iter().find(|r| r.schema_ptr.entity_type_id() == entity_type_id).cloned()
+    }
+
     /// Export the registry to an OGIT-shaped TTL fragment for the named
     /// namespace. Used by the Lance ↔ OGIT round-trip and for fork PRs
     /// that promote schema-scanner suggestions back into the canonical
@@ -321,11 +374,35 @@ impl RegistryState {
 
         let kind = proposal.schema_kind();
         let entity_type_id = (self.rows.len() + 1) as u16;
-        let schema_ptr = SchemaPtr::new(namespace_id, entity_type_id, kind);
+        // Codex P1 fix (2026-05-07): the previous code constructed
+        // SchemaPtr::new(...) with the default ontology_context_id = 0,
+        // which left every registry-created row with ctx_id 0 — making
+        // the MulThresholdProfile MEDICAL/CALLCENTER lookup at
+        // driver.rs:303-321 dead-effect (always selected DEFAULT).
+        // Look up the seeded context_id by namespace name and stamp it
+        // onto the SchemaPtr so the dispatch gate can reach
+        // MEDICAL/CALLCENTER for Healthcare / WorkOrder / Medical/* rows.
+        let ctx_id = SEED_NAMESPACE_REGISTRY
+            .get(&proposal.namespace)
+            .unwrap_or(0);
+        let schema_ptr = SchemaPtr::new(namespace_id, entity_type_id, kind)
+            .with_context_id(ctx_id);
 
         let semantic_type = match &proposal.kind {
             MappingProposalKind::Attribute { semantic_type, .. } => semantic_type.clone(),
             _ => sem.lookup(proposal.ogit_uri.as_str()),
+        };
+        // D-CASCADE-V1-7: derive subject/object/entity-type strings
+        // (META-NUDGE-1); codec/qualia/thinking attach via `attach_*`.
+        let entity_name = proposal.ogit_uri.name().unwrap_or(&proposal.public_name).to_string();
+        let (subject_type, object_type, entity_type_ref) = match &proposal.kind {
+            MappingProposalKind::Edge { link } => {
+                (link.subject_type.to_string(), link.object_type.to_string(), String::new())
+            }
+            MappingProposalKind::Attribute { .. } => (String::new(), String::new(), entity_name),
+            MappingProposalKind::Entity { schema } => {
+                (String::new(), String::new(), schema.name.to_string())
+            }
         };
         let row = MappingRow {
             bridge_id: proposal.bridge_id.clone(),
@@ -342,6 +419,13 @@ impl RegistryState {
             source_uri: proposal.source_uri.clone(),
             active: true,
             checksum: proposal.checksum.clone(),
+            identity_codec: IdentityCodec::default(),
+            qualia_meta: QualiaMeta::default(),
+            thinking_style: None,
+            attribute_sources: Vec::new(),
+            subject_type,
+            object_type,
+            entity_type_ref,
         };
         let idx = self.rows.len() as u32;
         self.rows.push(row);

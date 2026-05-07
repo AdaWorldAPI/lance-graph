@@ -161,6 +161,95 @@ pub trait MulProvider: Send + Sync {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Ontology-aware MUL thresholds (D-ONTO-V5-9)
+//
+// Per `lance-graph-ontology-v5.md` §D-9: medical contexts demand stricter
+// trust / flow / compass thresholds than callcenter contexts. Today the
+// driver uses fixed scalar thresholds; this profile makes them
+// ontology-context-aware. The driver's GateDecision computation site
+// (cognitive-shader-driver::driver.rs ~L271-320) consults
+// `MulThresholdProfile::for_context(ontology_context_id)` to pick the
+// active profile.
+//
+// **Zone classification**: Zone 1 (BindSpace SoA, inside the BBB).
+// MUST NOT carry `serde::Serialize` — `crates/lance-graph-callcenter/build.rs`
+// (D-CASCADE-V1-1) actively scans for and rejects Serialize on Zone 1 types.
+// See `.claude/knowledge/soa-dto-dependency-ledger.md`.
+//
+// **Integration plumb-through (TODO)**: `for_context` accepts a `u32`
+// `ontology_context_id` placeholder. The Wave-2 `agent-context-id`
+// deliverable adds `ontology_context_id: u32` onto
+// `lance_graph_ontology::SchemaPtr`; the Wave-3 `agent-cascade-cols`
+// deliverable threads it through `MappingRow` so `BindSpace` can read
+// it per-row. Until then, the driver passes `0` (default profile).
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Per-ontology-context MUL gate thresholds.
+///
+/// Three canonical profiles ship with the contract: `MEDICAL` (strict),
+/// `CALLCENTER` (lenient), `DEFAULT` (everything else). Lookup happens
+/// via `for_context(ontology_context_id)`.
+///
+/// The struct is `Copy` so it can sit on the BindSpace per-row carrier
+/// without indirection. `Eq`/`Hash` are NOT derived because the `f32`
+/// fields cannot satisfy them; `PartialEq` is sufficient for the gate's
+/// equality checks and the test asserts.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MulThresholdProfile {
+    /// `GateDecision` rejects when `TrustQualia.value` (texture-derived) < this.
+    pub trust_min: f32,
+    /// Homeostasis floor: flow_state must clear this before the gate emits Flow.
+    pub flow_min: f32,
+    /// Angular drift ceiling: the compass blocks when drift > this.
+    pub compass_max: f32,
+    /// Symbolic profile name (`"medical" | "callcenter" | "default"`).
+    pub label: &'static str,
+}
+
+impl MulThresholdProfile {
+    /// Strict medical/healthcare profile — trust ≥ 0.85, flow ≥ 0.70, drift ≤ 0.15.
+    pub const MEDICAL: Self = Self {
+        trust_min: 0.85,
+        flow_min: 0.70,
+        compass_max: 0.15,
+        label: "medical",
+    };
+
+    /// Lenient callcenter / WorkOrder profile — trust ≥ 0.55, flow ≥ 0.40, drift ≤ 0.40.
+    pub const CALLCENTER: Self = Self {
+        trust_min: 0.55,
+        flow_min: 0.40,
+        compass_max: 0.40,
+        label: "callcenter",
+    };
+
+    /// Default profile for unmapped contexts — trust ≥ 0.65, flow ≥ 0.50, drift ≤ 0.30.
+    pub const DEFAULT: Self = Self {
+        trust_min: 0.65,
+        flow_min: 0.50,
+        compass_max: 0.30,
+        label: "default",
+    };
+
+    /// Look up the active profile for an ontology context id.
+    ///
+    /// Mapping (per `lance-graph-ontology-v5.md` §D-9):
+    /// - `1` (WorkOrder) → `CALLCENTER`
+    /// - `2` (Healthcare) → `MEDICAL`
+    /// - `10..=19` (Medical/* subnamespaces) → `MEDICAL`
+    /// - everything else → `DEFAULT`
+    #[inline]
+    pub const fn for_context(ontology_context_id: u32) -> Self {
+        match ontology_context_id {
+            1 => Self::CALLCENTER,
+            2 => Self::MEDICAL,
+            10..=19 => Self::MEDICAL,
+            _ => Self::DEFAULT,
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Carrier-method MUL assessment (TD-INT-3 wiring)
 //
 // Per CLAUDE.md doctrine ("methods on the carrier, not free functions on
