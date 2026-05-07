@@ -225,6 +225,11 @@ pub struct HydrationReport {
     pub failures: Vec<HydrationFailure>,
     pub namespaces_seen: Vec<String>,
     pub from_cache: bool,
+    /// Codex P2 fix (2026-05-07): how many ProvenanceBundle entries
+    /// were successfully threaded into MappingRow.attribute_sources
+    /// during this hydration. Lets callers verify the cascade-cols
+    /// handoff actually fires on production hydration paths.
+    pub provenance_attached: u32,
 }
 
 #[derive(Clone, Debug)]

@@ -242,12 +242,23 @@ pub fn dispatch_busdto(
     // [2] qualia column — energies as continuous payload (lossless f32 store).
     //     qualia[0]   = headline energy
     //     qualia[1..9] = top_k energies (positions 1-based to keep dim 0 = headline)
-    //     qualia[9..18] = zeroed (reserved for downstream qualia / classification dist)
+    //     qualia[9]   = codebook_index headline (codex P2 fix 2026-05-07)
+    //     qualia[10..18] = zeroed (reserved for downstream qualia / classification dist)
+    //
+    // The codebook_index headline goes into qualia[9] explicitly so the
+    // round-trip is bit-exact even when codebook_index collides with or
+    // is larger than any positive-energy top_k index. Previously the
+    // decoder relied on `set_bits.iter().next()` which always returned
+    // the LOWEST set bit; for `codebook_index = 1234` with positive
+    // top_k containing 777, the recovered headline was 777 instead of
+    // 1234. f32 represents any integer in [0, 2^24] exactly, so the
+    // u16 codebook_index round-trips losslessly through f32.
     let mut q = [0.0f32; QUALIA_DIMS];
     q[0] = bus.energy;
     for (i, &(_idx, e)) in bus.top_k.iter().enumerate().take(8) {
         q[TOP_K_ENERGY_BASE_DIM + i] = e;
     }
+    q[9] = bus.codebook_index as f32;
     bs.qualia.set(row, &q);
 
     // [3] meta column — packed dispatch state.
@@ -314,14 +325,15 @@ pub fn unbind_busdto(bs: &BindSpace, row: usize) -> BusDto {
         .collect();
 
     // [3] Reconstruct top_k indices in the slots where the encoder set them.
-    //     The headline (codebook_index) is set_bits[0] by construction (bits
-    //     are recovered in ascending position order, and the headline is
-    //     among the bits set). Top-K bits with positive energy at encode
-    //     match the bit positions; we assign them in encode order via
-    //     positive-energy slots.
-    let mut bit_iter = set_bits.iter().copied();
-    // Headline first.
-    let codebook_index = bit_iter.next().unwrap_or(0);
+    //     codex P2 fix (2026-05-07): the headline (codebook_index) is now
+    //     stored explicitly in qualia[9] at encode, so we read it back
+    //     directly rather than guessing from set_bits.iter().next() (which
+    //     returned the LOWEST set bit, not the original headline, when
+    //     codebook_index collided with or exceeded any positive-energy
+    //     top_k index). The set_bits iterator now feeds only the
+    //     non-headline top_k slots.
+    let codebook_index = q[9] as u16;
+    let mut bit_iter = set_bits.iter().copied().filter(|&b| b != codebook_index);
     // For each positive-energy top_k slot at encode, attach the next set bit.
     // We can't perfectly recover ordering for ties; we use the natural ascending
     // bit order, which matches the encoder's deterministic walk for distinct indices.
@@ -330,8 +342,9 @@ pub fn unbind_busdto(bs: &BindSpace, row: usize) -> BusDto {
         top_k[0].0 = codebook_index;
     }
     // Fill remaining positive-energy top_k slots from the remaining set bits.
-    // Skip the headline bit if top_k[0] used it.
-    let remaining: Vec<u16> = bit_iter.filter(|&b| b != codebook_index).collect();
+    // Skip the headline bit if top_k[0] used it. (bit_iter already filters
+    // out codebook_index above, so no second filter pass is needed.)
+    let remaining: Vec<u16> = bit_iter.collect();
     let mut r = remaining.into_iter();
     let skip_head = top_k[0].1 > 0.0;
     for slot in top_k.iter_mut().skip(if skip_head { 1 } else { 0 }) {

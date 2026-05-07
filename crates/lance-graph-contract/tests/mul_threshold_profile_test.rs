@@ -39,15 +39,20 @@ fn unmapped_context_falls_through_to_default() {
 }
 
 #[test]
+#[allow(clippy::assertions_on_constants)]
 fn medical_is_stricter_than_callcenter() {
     // The fundamental ordering invariant of D-9: medical demands more
-    // trust, more flow, and tolerates less angular drift.
+    // trust, more flow, and tolerates less angular drift. The values
+    // are const so clippy flags the assertion as compile-time-known,
+    // but the test is still valuable as a regression guard if the
+    // const profile values are ever touched.
     assert!(MulThresholdProfile::MEDICAL.trust_min > MulThresholdProfile::CALLCENTER.trust_min);
     assert!(MulThresholdProfile::MEDICAL.flow_min > MulThresholdProfile::CALLCENTER.flow_min);
     assert!(MulThresholdProfile::MEDICAL.compass_max < MulThresholdProfile::CALLCENTER.compass_max);
 }
 
 #[test]
+#[allow(clippy::assertions_on_constants)]
 fn default_sits_between_medical_and_callcenter() {
     let m = MulThresholdProfile::MEDICAL;
     let c = MulThresholdProfile::CALLCENTER;

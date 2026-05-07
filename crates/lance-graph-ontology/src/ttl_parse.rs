@@ -382,7 +382,33 @@ pub fn parse_ttl_directory(
     sem: &SemanticTypeMap,
     namespace_filter: &[&str],
 ) -> Result<(Vec<MappingProposal>, Vec<HydrationFailure>)> {
+    let (proposals, _bundles, failures) =
+        parse_ttl_directory_with_provenance(root, bridge_id, sem, namespace_filter)?;
+    Ok((proposals, failures))
+}
+
+/// Codex P2 fix (2026-05-07): single-walk variant of [`parse_ttl_directory`]
+/// that ALSO returns the per-entity [`ProvenanceBundle`]s harvested from
+/// each TTL file's per-attribute `dcterms:source` triples.
+///
+/// `OntologyRegistry::hydrate_once_sync` calls this and then threads each
+/// bundle into `MappingRow.attribute_sources` via `attach_provenance`,
+/// so the agent-ttl-source / agent-cascade-cols handoff actually fires
+/// on the production hydration path. Previously `parse_ttl_directory`
+/// dropped bundles on the floor, leaving `MappingRow.attribute_sources`
+/// empty regardless of TTL content.
+pub fn parse_ttl_directory_with_provenance(
+    root: &Path,
+    bridge_id: &str,
+    sem: &SemanticTypeMap,
+    namespace_filter: &[&str],
+) -> Result<(
+    Vec<MappingProposal>,
+    Vec<crate::proposal::ProvenanceBundle>,
+    Vec<HydrationFailure>,
+)> {
     let mut proposals = Vec::new();
+    let mut bundles = Vec::new();
     let mut failures = Vec::new();
 
     walk_ttl_files(root, &mut |path| {
@@ -399,10 +425,17 @@ pub fn parse_ttl_directory(
             }
         }
         match TtlSource::from_path(path) {
-            Ok(src) => match src.parse_into_proposals(bridge_id, sem) {
-                Ok(mut p) => proposals.append(&mut p),
-                Err(f) => failures.push(f),
-            },
+            Ok(src) => {
+                match src.parse_into_proposals(bridge_id, sem) {
+                    Ok(mut p) => proposals.append(&mut p),
+                    Err(f) => failures.push(f),
+                }
+                // Best-effort bundle harvest — a failure here does NOT
+                // poison the proposal walk, which is the canonical path.
+                if let Ok(mut b) = src.parse_provenance() {
+                    bundles.append(&mut b);
+                }
+            }
             Err(e) => failures.push(HydrationFailure {
                 source: format!("{}", path.display()),
                 reason: format!("io: {e}"),
@@ -411,7 +444,7 @@ pub fn parse_ttl_directory(
         Ok(())
     })?;
 
-    Ok((proposals, failures))
+    Ok((proposals, bundles, failures))
 }
 
 /// Compute the SHA256 of the concatenated sorted contents of every TTL
