@@ -99,6 +99,18 @@ impl MappingRow {
     pub fn schema_ptr(&self) -> SchemaPtr {
         self.schema_ptr
     }
+
+    /// Named-graph / ontology-context id this row resolves under. Delegates
+    /// to [`SchemaPtr::ontology_context_id`] — `MappingRow` does not store a
+    /// duplicate field; the context id rides on the packed pointer's sibling
+    /// field. `0` means "unbound" (legacy / pre-context-id rows). Wave 3
+    /// (`agent-cascade-cols`) is the consumer side that will populate
+    /// non-zero context ids by extending the registry's append path. Per
+    /// `.claude/plans/ogit-cascade-supabase-callcenter-v1.md` §Pillar 1 +
+    /// `.claude/plans/lance-graph-rdf-fma-snomed-v1.md` §Core types.
+    pub fn ontology_context_id(&self) -> u32 {
+        self.schema_ptr.ontology_context_id()
+    }
 }
 
 /// Per-attribute provenance — sibling structure to [`MappingRow`].

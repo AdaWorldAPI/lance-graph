@@ -40,6 +40,7 @@ pub mod bridges;
 pub mod error;
 pub mod foundry_map;
 pub mod namespace;
+pub mod namespace_registry;
 pub mod proposal;
 pub mod registry;
 pub mod schema_source;
