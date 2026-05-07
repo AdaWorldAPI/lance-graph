@@ -35,6 +35,41 @@
 
 ---
 
+## #353 — plan: palantir-parity-cascade v2 + SoA DTO entropy ledger + #352 post-merge governance (merged 2026-05-07)
+
+**Confidence (2026-05-07):** plan-only, pre-execution. Pillar 0 carry-forward (Foundry parity IS SoA-as-canon parity) is the architectural anchor; v2 integrates 4 prior Foundry parity docs without duplicating. SoA DTO ledger formalizes 22 DTOs across 4 tiers as the canonical classification artifact. **Status:** Merged to `main` as `4d0c2d9`.
+
+**Added:**
+- `.claude/plans/palantir-parity-cascade-v2.md` (262 lines) — integration capstone over `q2-foundry-integration-v1`, `lf-integration-mapping-v1`, `foundry-consumer-parity-v1`, `medcare-foundry-vision`, and v1 cascade Pillar 0. 15 D-PARITY-V2 deliverables. Top-3 ship with the plan: V2-1 (DTO ledger), V2-2 (triangle ledger — not yet), V2-3 (BusDto bridge — not yet).
+- `.claude/knowledge/soa-dto-dependency-ledger.md` (210 lines) — append-only entropy ledger. 22 DTOs classified: 9 bare-metal, 7 SoA-glue, 6 bridge-projection (3 OPEN reclassifications). Codec cascade column status: all 8 OPEN today (registry uses `(bridge_id, public_name)` tuples + `ogit_uri` hashing per 2026-05-07 audit). Internal vs external O(1) mapping diagrams. Probe queue with pass criteria for D-CASCADE-V1-1/7/11 + D-PARITY-V2-3/10. Maintenance protocol attached.
+- `.claude/board/PR_ARC_INVENTORY.md` + `.claude/board/LATEST_STATE.md` — post-merge governance for #352 (`8e2f088`).
+- `.claude/board/INTEGRATION_PLANS.md` — v2 capstone prepend.
+
+**Locked:**
+- **v2 Pillar 0 carry-forward:** Foundry parity IS SoA-as-canon parity. Column H (`EntityTypeId = u16`, PR #272 SHIPPED) is already the Foundry Object Type bridge; v2 makes the SoA carry the Foundry-equivalent shape, NOT duplicate the table set.
+- **DTO ledger maintenance protocol:** every PR adding `*Dto`/`*Row`/`*Filter`/`*Intent`/`*Event`/`*Step`/`*Slot` types prepends a row. CI gate D-PARITY-V2-10 (planned) enforces.
+- **`ResonanceDto` IS the SoA**, not a glue layer (per the 2026-05-07 audit; `thinking-engine::dto.rs:59`, 4096-element ripple field).
+- **Business Logic ↔ Thinking-style ↔ OGIT triangle** is a routing artifact (D-PARITY-V2-2), NOT a new schema column.
+- **Three-tier classification doctrine:** bare-metal may carry `serde::Serialize` (Zone 3 only); SoA-glue must NOT carry `serde::Serialize` (projections break the SIMD sweep); bridge-projection must own no data (only `LazyLock<&Registry>`).
+
+**Deferred (immutable parks):**
+- All 15 D-PARITY-V2 code implementations except V2-1 (ledger ships with the plan).
+- Q2 cockpit panels (D-PARITY-V2-7/11/15) — depend on lance-graph workspace + Q2 repo simultaneously; cross-repo sync needed.
+- `lance-graph-models` crate scaffold (D-PARITY-V2-8) — independent but unscheduled.
+- Helix-equivalent causal-histogram operator (D-PARITY-V2-14) — out of v2 scope.
+
+**Docs:**
+- `.claude/plans/palantir-parity-cascade-v2.md` — capstone with §"Self-bootstrapping prompt".
+- `.claude/knowledge/soa-dto-dependency-ledger.md` — entropy ledger.
+
+**Resolves ledger rows:** none directly. **Hardens** v1 D-CASCADE-V1-7 (codec cascade column population) via explicit OPEN status tracking per column.
+
+**Adjacent consumer landings (not in this PR):**
+- **MedCare-rs #109** (merged 2026-05-07): `?source=lance` toggle on `GET /api/patient/{id}` exercises per-request `RlsRewriter` + `ColumnMaskRewriter` attachment from `lance-graph-callcenter::rls` and `policy::ColumnMaskRewriter`. Validates the Zone 2 → Zone 3 path the v1/v2 plans rely on. Note: PR #109 documents that `ColumnMaskRewriter` has NO `::new()` method — constructed via struct literal `{ registry, actor_role }` (verified at `policy.rs:111-114, 464, 565, 672`). Consider a `// classification:` doc-comment audit for the DTO ledger now that consumer-side construction patterns are known.
+- **OGIT fork branch** (`claude/create-graph-ontology-crate-gkuJG`, not yet PR'd): post-merge follow-on adds 24 predicate fills to NTO/WorkOrder/{Order,Customer,Article}.ttl + bootstraps NTO/Healthcare/ with 7 entities + 7 enums (846 lines). Closes the entity-level + per-attribute gaps the woa-bridge and medcare-bridge needed for O(1) migration. v5 D-1 (dcterms:source) extended from entity-level to per-attribute level in this work; medcare-bridge previously failed at hydrate with `UnknownNamespace("Healthcare")` — now resolvable.
+
+---
+
 ## #352 — plan: lance-graph-ontology v5 + ogit-cascade v1 (merged 2026-05-07)
 
 **Confidence (2026-05-07):** plan-only, pre-execution. Pillar 0 (SoA-as-canon) is the architectural anchor; Pillars 1-4 are mechanical consequences. Top-3 deliverables locked for both v5 and v1 cascade. Foundry/Gotham parity prior art confirmed extensive (Q2 = Gotham UI equivalent per `q2-foundry-integration-v1.md`; Column H EntityTypeId = Foundry Object Type bridge per PR #272 SHIPPED; LF-12/20/22/23/50 already mapped in `lf-integration-mapping-v1.md`). v2 roadmap will integrate, not duplicate. **Status:** Merged to `main` as `8e2f088`.

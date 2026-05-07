@@ -2,7 +2,7 @@
 
 > **Auto-injected at session start via SessionStart hook.**
 > Updated after every merged PR.
-> **Last updated:** 2026-05-07 (PR #352 merged: lance-graph-ontology v5 + ogit-cascade v1 plans). Prior: 2026-05-06 (splat-osint-ingestion-v1 PR 1+2 of 6 in flight). Prior: 2026-04-21 post PR #243.
+> **Last updated:** 2026-05-07 (PR #353 merged: palantir-parity-cascade v2 capstone + SoA DTO entropy ledger + #352 post-merge governance). Prior: 2026-05-07 (PR #352 merged: lance-graph-ontology v5 + ogit-cascade v1 plans). Prior: 2026-05-06 (splat-osint-ingestion-v1 PR 1+2 of 6 in flight). Prior: 2026-04-21 post PR #243.
 >
 > Purpose: prevent new sessions from hallucinating structure that
 > already exists or proposing features already shipped. Read this
@@ -14,6 +14,7 @@
 
 | PR | Merged | Title | What it added |
 |---|---|---|---|
+| **#353** | 2026-05-07 | plan: palantir-parity-cascade v2 + SoA DTO entropy ledger + #352 post-merge governance | Three artifacts. **v2 capstone** (262 lines): integrates 4 prior Foundry parity docs. Pillar 0 carry-forward: Foundry parity IS SoA-as-canon parity. Column H (PR #272 SHIPPED) is already the Foundry Object Type bridge. 15 D-PARITY-V2 deliverables. **SoA DTO entropy ledger** (210 lines, append-only knowledge): 22 DTOs classified across 4 tiers (sensor → engine → contract → callcenter). Buckets: 9 bare-metal / 7 SoA-glue / 6 bridge-projection (3 OPEN). `ResonanceDto` IS the SoA. Codec cascade columns all OPEN today. **#352 post-merge governance**: PR_ARC + LATEST_STATE updates. |
 | **#352** | 2026-05-07 | plan: lance-graph-ontology v5 + ogit-cascade v1 | Two-plan PR. **v5** (177 lines): 15 deliverables for ontology crate post-merge follow-on (D-1 dcterms:source, D-2 SpoBridge::promote_to_spo, D-9 ontology-aware MUL thresholds). 4 ratifications (smb-ontology export-only, D-9 above D-2, MulThresholdProfile in lance-graph-contract, OGIT-fork upstream non-PR). **v1 cascade** (209 lines): 15 D-CASCADE deliverables for SoA-as-canon + Zone 1/2/3 + BioPortal arsenal + bridge collapse. **Pillar 0**: OntologyRegistry IS the SoA, schema IS the DTO + name→row index. **Codec cascade per row** (target state, NOT YET WIRED — D-CASCADE-V1-7): identity Vsa16kF32 → CAM-PQ 6 B → Base17 34 B → palette key 4 B → Scent 1 B + qualia 18×f32 + meta 8 B + edge 8 B, every step O(1). |
 | **#243** | *(open)* | D5+D7 categorical-algebraic inference | `thinking_styles.rs` (490 LOC, 12 tests), `free_energy.rs` (347 LOC, 7 tests), `role_keys.rs` bind/unbind/recovery (295 LOC, 14 tests), `content_fp.rs` (98 LOC, 5 tests), `markov_bundle.rs` (250 LOC, 8 tests), `trajectory.rs` (298 LOC, 4 tests). Plans: `categorical-algebraic-inference-v1.md` (496 lines). Knowledge: `paper-landscape-grammar-parsing.md`, `session-2026-04-21-categorical-click.md`. CLAUDE.md § The Click (P-1). 12 epiphanies. |
 | **#225** | *(open)* | Codec-sweep plan + D0.6/D0.7 CodecParams | 9-commit plan (`codec-sweep-via-lab-infra-v1.md`, Rules A-F, 9 starter YAMLs, CODING_PRACTICES audit) + `lance-graph-contract::cam` CodecParams/Builder/precision-ladder validation (14 tests). 147/147 contract suite |
