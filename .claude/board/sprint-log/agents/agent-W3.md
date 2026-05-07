@@ -44,23 +44,17 @@ auditor_reads_full, receptionist_demographics_only, admin_can_do_everything,
    write on Anamnese predicates (complaint, family_history, etc.) and
    action `append`. But Anamnese is logically append-only (BMV-Ä
    retention). Current model relies on the consumer to interpret
-   "append" as the only allowed mutation. A future iteration may want
-   to model "append-only" as a permission-spec attribute (third axis)
-   rather than relying on convention. *Pending Meta-1 verdict.*
+   "append" as the only allowed mutation. *Pending Meta-1 verdict.*
 
 2. **BtM (controlled substance) escalation.** Doctor role grants
    action `issue` on Prescription, INCLUDING when btm_flag is true.
    The escalation surface lives at evaluate() level (returning Escalate
-   decision), not at role-grant level. But `policy.rs::evaluate` doesn't
-   currently return Escalate for BtM — it returns Allow. *Round 3
-   gate.rs needs to wrap the BtM-flagged check.*
+   decision), not at role-grant level. *Round 3 gate.rs needs to wrap.*
 
 3. **§73 SGB V cross-doctor visibility.** Doctor role grants Full read
    on Patient, but per §73 SGB V cross-doctor visibility requires an
    active Ueberweisung row. Current model treats this as gate/RLS
-   concern (correct architectural call) but the test surface here
-   doesn't exercise it. *Round 3 (W12) ships the per-row Ueberweisung
-   visibility test.*
+   concern. *Round 3 (W12) ships the per-row Ueberweisung visibility test.*
 
 ## Self-review
 
