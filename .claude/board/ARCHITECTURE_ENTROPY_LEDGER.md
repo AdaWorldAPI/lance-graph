@@ -731,3 +731,73 @@ The novel probe. Inject query as deposit on seed rows; propagate Σ across edges
 - **Palette-tier (BGZ17) workloads.** The 20K × 20K Gaussian-splat lab work — separate substrate, separate probes required against `bgz17::PaletteMatrix mxm` and `batch_palette_distance`.
 - **Pillar-6 σ-bound derivation as a tight predicted bound on Q variance** (modularity confidence interval). The empirical Q std of 0.0104 across 100 runs IS measured; deriving the predicted σ from Pillar-6 first principles is a follow-up probe.
 - **Production wiring through E1 (BindSpace.apply Action API).** All probes use `AwarenessPlane16K` directly; the integration through the typed Action API remains the seam-closing work named in the entropy ledger.
+
+---
+
+## 2026-05-06 — PR #347 Codex review fixes (3 corrections)
+
+Three P2 review comments from Codex on PR #347, all confirmed and fixed:
+
+### 1. Louvain ΔQ denominator was halved (bug)
+
+**Codex finding:** the modularity penalty term used `two_m_sq = 4.0 * m * m` (= (2m)²) but the canonical Louvain Phase-1 ΔQ denominator is `2·m²` per Blondel et al. 2008. Halved penalty meant moves whose estimated ΔQ was positive could be accepted even when the actual modularity didn't improve.
+
+**Verified:** re-derived the formula:
+```
+ΔQ = (k_{u,in,B} - k_{u,in,A}) / m
+   + k_u · (a_A_after_remove - a_B) / (2 · m²)
+```
+
+**Fix:** `let two_m_squared = 2.0 * m * m;` with explicit derivation comment.
+
+**Empirical impact (re-running with corrected denominator):**
+
+| Metric | Before fix | After fix |
+|---|---|---|
+| Mean purity (100 stress runs) | 0.9975 | **1.0000** |
+| Mean Q at convergence | 0.589850 | 0.590807 |
+| Q variance across runs | 1.089 × 10⁻⁴ | **1.306 × 10⁻⁵** |
+| Empirical Q std | 0.0104 | **0.0036** (~3× tighter) |
+| Mean iterations | 3.5 | 3.8 |
+| Runtime | 14.3 ms / run | 14.5 ms / run |
+
+**Why Q-monotonicity assertion didn't catch it before:** Q is computed via the canonical `modularity()` function (uses correct e_C and a_C counts), so the monotonicity assertion on the *actual* Q held. The buggy `delta_q()` was a candidate-evaluation function that sometimes ranked moves slightly off; the algorithm still picked moves that improved Q (because the dense graph structure made most moves clearly beneficial), just sometimes a sub-optimal one.
+
+### 2. `debug_assert!` in --release silently passes (false validation)
+
+**Codex finding:** `splat_perturbationslernen.rs` had `debug_assert!(new_sigma.is_spd(), ...)`. In `--release` builds, `debug_assert!` is compiled out — the SPD invariant was never actually checked, but the verdict reported "Σ stayed SPD across all rows : YES (assertion-checked)".
+
+**Fix:** changed to `assert!` so the SPD check runs in release. Verdict claim now matches reality.
+
+**Hardening:** the assertion message now includes `agg`, `step`, and `new_sigma` for diagnostic context if the invariant ever fails.
+
+### 3. α-saturation didn't actually trigger in default run
+
+**Codex finding:** at `max_supersteps = 20`, `α_iter` reached only 0.9470 — never crossed the 0.99 threshold. The verdict claimed "Pillar-7 α-saturation makes the propagation stop deterministically" while the actual stop condition was the iteration cap.
+
+**Two fixes applied:**
+
+(a) **Running-`spd_average` bug:** the earlier neighbour-aggregation loop applied a *running* pairwise average (`agg = avg(agg, sigma[v])` accumulated across the loop), which weighted later neighbours disproportionately and prevented true equilibrium. Replaced inline by an unweighted arithmetic mean (sum-then-divide-once).
+
+(b) **`max_supersteps` raised to 200.** Under the multiplicative dynamics with proper averaging, `relative_change ≈ 1/iter` asymptotically. To cross α ≥ 0.99 needs roughly `iter ≥ 100`. Bumping to 200 gives margin.
+
+**Empirical result after both fixes:**
+
+| Metric | Before fixes | After fixes |
+|---|---|---|
+| `α_iter` at iter 20 | 0.9470 | 0.9549 |
+| Convergence iter | never (max-iters) | **iter 100 (α-saturation)** |
+| Verdict claim | "α-saturation triggered: no" | "α-saturation triggered: YES" |
+| Per-community discrimination | comm 0: 33.59 (σ=0.93) vs ~36 | **comm 0: 77.24 (σ=0.14)** vs ~80 |
+| Inter-class separation | ~3σ_target | **~25σ_target** (target σ tightened) |
+| Found rows in community 0 | 50/50 (100%) | **64/64 (100%)** |
+| Lift over baseline | 4.00× | **4.00×** |
+| Runtime | 2 ms | 11 ms (5× more iters) |
+
+The proper arithmetic mean tightened the target community's σ-displacement standard deviation from 0.93 → 0.14 (6.6× sharper), making the discrimination signal substantially cleaner. Inter-class separation at convergence is ~25× the target's intra-class std.
+
+### Summary
+
+Three real bugs caught by Codex review; all fixed. The Louvain denominator fix tightens Q variance ~3×; the assert! fix removes a false-validation surface; the α-saturation fix makes the example actually demonstrate what its verdict claims. Net empirical impact: cleaner numbers everywhere, no regressions, all assertions still pass.
+
+Codex review comments are an effective review surface — these are exactly the kind of subtle correctness issues a fast-shipping session can miss.

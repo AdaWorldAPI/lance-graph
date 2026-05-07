@@ -199,11 +199,24 @@ impl LouvainState {
 
 // ── ΔQ for a candidate move ────────────────────────────────────────────────
 //
-//   ΔQ(u: a → b) = (k_{u,in_b} - k_{u,in_a}) / m
-//                + (k_u / 2m²) · (a_a' - a_b)
+// Standard Louvain modularity gain (Blondel et al. 2008), derived from
+// Q = Σ_C [e_C/(2m) - (a_C/(2m))²]. Moving u from community A to B:
 //
-// where a_a' is the degree of community `a` AFTER removing u
-// (= a_a - k_u). Standard Louvain modularity gain formula.
+//   Δ(e_A + e_B) = 2·(k_{u,in_B} - k_{u,in_A})
+//   Δ(a_A² + a_B²) = 2·k_u·(a_B + k_u - a_A) = 2·k_u·(a_B - a_A_after_remove)
+//
+// where a_A_after_remove = a_A - k_u (degree of A after u leaves).
+// Therefore:
+//
+//   ΔQ = (k_{u,in_B} - k_{u,in_A}) / m
+//      - k_u · (a_B - a_A_after_remove) / (2m²)
+//      = (k_{u,in_B} - k_{u,in_A}) / m
+//      + k_u · (a_A_after_remove - a_B) / (2m²)
+//
+// Denominator is 2·m² (not (2m)² = 4m²). Earlier `two_m_sq = 4*m*m`
+// halved the penalty term, accepting moves whose estimated ΔQ was
+// positive even when actual Q would not improve. Per-PR #347 Codex
+// review correction.
 // ───────────────────────────────────────────────────────────────────────────
 
 fn delta_q(
@@ -215,7 +228,7 @@ fn delta_q(
 ) -> f64 {
     if from == to { return 0.0; }
     let m = graph.total_edges as f64;
-    let two_m_sq = 4.0 * m * m;
+    let two_m_squared = 2.0 * m * m;  // = 2·m²; canonical Louvain denominator
     let k_u = graph.degree[u as usize] as f64;
 
     let plane_u = &graph.planes[u as usize];
@@ -233,7 +246,7 @@ fn delta_q(
     // After removing u from `from`, its degree is a_from - k_u.
     let a_from_prime = a_from - k_u;
 
-    (k_u_in_to - k_u_in_from) / m + k_u * (a_from_prime - a_to) / two_m_sq
+    (k_u_in_to - k_u_in_from) / m + k_u * (a_from_prime - a_to) / two_m_squared
 }
 
 // ── one Louvain Phase-1 superstep: each node tries best move ──────────────

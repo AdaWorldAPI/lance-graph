@@ -133,18 +133,10 @@ fn sandwich(m: &Mat2, n: &Mat2) -> Mat2 {
     }
 }
 
-/// Average two SPD matrices in the SPD cone (geometric mean approximation
-/// via half-step interpolation: A^(1/2) · B · A^(1/2) is close to GM in
-/// the affine-invariant metric for nearby SPDs).
-fn spd_average(a: &Mat2, b: &Mat2) -> Mat2 {
-    // Use arithmetic mean for simplicity — adequate for small perturbations
-    // and keeps determinism; geometric mean would be tighter to the AI metric.
-    Mat2 {
-        a: (a.a + b.a) / 2.0,
-        b: (a.b + b.b) / 2.0,
-        c: (a.c + b.c) / 2.0,
-    }
-}
+// (spd_average removed — earlier version applied a *running* pairwise
+// average inside the iter_set_bits loop, which weighted later neighbours
+// disproportionately and prevented true equilibrium. Replaced inline by
+// an unweighted arithmetic mean over all neighbours; see perturb_superstep.)
 
 // ── planted graph ──────────────────────────────────────────────────────────
 
@@ -225,15 +217,18 @@ fn perturb_superstep(
     for u in 0..graph.n {
         let row_plane = &graph.planes[u as usize];
 
-        // Aggregate neighbour Σ via SPD-cone average.
-        let mut agg = Mat2::I;
+        // Aggregate neighbour Σ via *unweighted* arithmetic mean — sum all
+        // entries first, divide by count once (avoids the running-average
+        // overweighting bug from the earlier version).
+        let mut sum_a = 0.0;
+        let mut sum_b = 0.0;
+        let mut sum_c = 0.0;
         let mut count = 0u32;
         iter_set_bits(row_plane, |v| {
-            agg = if count == 0 {
-                sigma[v as usize]
-            } else {
-                spd_average(&agg, &sigma[v as usize])
-            };
+            let s = &sigma[v as usize];
+            sum_a += s.a;
+            sum_b += s.b;
+            sum_c += s.c;
             count += 1;
         });
         if count == 0 {
@@ -241,6 +236,12 @@ fn perturb_superstep(
             next_sigma[u as usize] = sigma[u as usize];
             continue;
         }
+        let n_inv = 1.0 / count as f64;
+        let agg = Mat2 {
+            a: sum_a * n_inv,
+            b: sum_b * n_inv,
+            c: sum_c * n_inv,
+        };
 
         // Apply perturbation deposit: Σ_step = deposit_from_query_overlap.
         let step = deposit_from_query_overlap(graph, u, query_plane);
@@ -248,7 +249,10 @@ fn perturb_superstep(
 
         // Pillar-6 sandwich: Σ_{u,n+1} = M · agg · Mᵀ.
         let new_sigma = sandwich(&m, &agg);
-        debug_assert!(new_sigma.is_spd(), "Σ left SPD cone at row {u}!");
+        // assert! (NOT debug_assert!) so the SPD invariant is checked under
+        // --release too; per PR #347 Codex review correction.
+        assert!(new_sigma.is_spd(), "Σ left SPD cone at row {u}: agg={:?} step={:?} new={:?}",
+            agg, step, new_sigma);
         next_sigma[u as usize] = new_sigma;
     }
 }
@@ -302,7 +306,18 @@ fn main() {
     let mut prev_mean = 0.0;
     let mut consecutive = 0;
     let mut converged_at: Option<usize> = None;
-    let max_supersteps = 20;
+    // Asymptote: relative_change ≈ 1/iter under the multiplicative
+    // dynamics; α = 1 - relative_change crosses 0.99 around iter ~100.
+    // Bumped to 200 for margin so the default --release run actually
+    // demonstrates Pillar-7 α-saturation triggering (per PR #347 Codex
+    // review correction).
+    let max_supersteps = 200;
+
+    // Print only key checkpoints + saturation event (avoids 200 lines of output).
+    fn should_print(i: usize, max: usize) -> bool {
+        i == 1 || i == max || (i <= 20 && i % 5 == 0) ||
+        (i <= 50 && i % 10 == 0) || i % 25 == 0
+    }
 
     let t0 = std::time::Instant::now();
     for iter in 1..=max_supersteps {
@@ -326,8 +341,10 @@ fn main() {
             ""
         };
 
-        println!("    {:4}  {:8.4}   {:8.4}   {:.4}    {:.4}    {}",
-            iter, mean_disp, max_disp, delta_mean, alpha_iter, note);
+        if should_print(iter, max_supersteps) || saturated || consecutive >= 2 {
+            println!("    {:4}  {:8.4}   {:8.4}   {:.4}    {:.4}    {}",
+                iter, mean_disp, max_disp, delta_mean, alpha_iter, note);
+        }
 
         prev_mean = mean_disp;
         if consecutive >= 2 {
