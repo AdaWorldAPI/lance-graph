@@ -37,6 +37,21 @@
 
 ---
 
+## ogit-cascade-supabase-callcenter-v1 — OGIT SPO-G + Supabase realtime + Zone 1/2/3 (authored 2026-05-07)
+
+- **Plan:** `.claude/plans/ogit-cascade-supabase-callcenter-v1.md`
+- **Author + date:** main thread (Opus 4.7 1M), 2026-05-07.
+- **Status:** Active.
+- **Scope:** 15 deliverables across `lance-graph-callcenter`, `lance-graph-ontology`, AdaWorldAPI/OGIT (extension fork), and a future `lance-graph-rdf` consumer. Pillar 0 (the holy-grail click): `OntologyRegistry` IS the SoA; per-domain schema (Healthcare, WorkOrder, SMB, CallCenter, Medical) IS the DTO + name→row index. Codec cascade per row: identity Vsa16kF32 → CAM-PQ 6 B → Base17 34 B → palette key 4 B → Scent 1 B → qualia/meta/edge columns. Every step O(1). Pillar 1: OGIT as universal SPO-G lingua franca with `ontology_context_id: u32` per named graph. Pillar 2: Zone 1 (BindSpace, no Serialize) / Zone 2 (Arrow scalar membrane, BBB invariant) / Zone 3 (Supabase RPC, REST, transcode — the only emission point). Pillar 3: smb-bridge + medcare-bridge collapse to 2-line projections over `OntologyRegistry::enumerate(ns)`. Pillar 4: BioPortal arsenal — 10 namespace stubs under `OGIT/NTO/Medical/{ICD10CM,RxNorm,LOINC,FMA,RadLex,SNOMED,MONDO,HPO,DRON,CHEBI}/` carrying provenance + license + size, with full ingestion gated on `lance-graph-rdf-fma-snomed-v1`.
+- **Originating context:** main-thread question 2026-05-07: *"should the lance-graph-ontology be the SoA and the schema the DTO + index?"* — answered YES, with the codec cascade chain making it content-addressable through every encoding tier (the holy grail). User-supplied references: `MedCare-rs/.MYSQL/Struktur.sql` (104 tables, 5 dominant prefixes) and `MedCare-rs/releases/tag/bioportal-ontologies-2026-05-05` (25 bundles, ~2.4 GB).
+- **Resolves ledger rows:** none directly. **Hardens** v5's D-9 (`MulThresholdProfile` becomes `ontology_context_id`-aware, so medical thresholds are stricter than callcenter thresholds). **Locks down** the BBB membrane doctrine from `callcenter-membrane-v1.md` § 10.9 with a `cert-officer` static check (D-CASCADE-V1-1).
+- **Branch:** `claude/create-graph-ontology-crate-gkuJG` (continues the v4/v5 thread). PR target: `AdaWorldAPI/lance-graph` base=`main`. OGIT-fork PRs land under the same branch on the OGIT-fork side.
+- **Confidence (2026-05-07):** Pre-execution. Pillar 0 is the only architectural commitment that admits no rollback — and it is right per the existing `LazyLock<&OntologyRegistry>` pattern in `lance-graph-ontology/src/bridges/`. Top-3 ranked: D-CASCADE-V1-1, D-CASCADE-V1-2, D-CASCADE-V1-3 (no upstream blockers).
+- **Cross-plan deps:** v5 D-9 (`MulThresholdProfile`), `lance-graph-rdf-fma-snomed-v1` (`SemanticQuad`), `supabase-subscriber-v1` (DM-4 watcher / DM-6 drain), `callcenter-membrane-v1` § 10.9 (BBB iron rule).
+- **Out of v1 scope (deferrals):** full SNOMED CT import (license-gated; BioPortal release ships only 666 KB partial), full DRON / CHEBI import (size unclear-payoff; revisit after D-CASCADE-V1-11 measures cascade), n8n-rs / crewai-rust consumption of new SoA columns (separate plan), bgz-tensor attention layer integration (orthogonal).
+
+---
+
 ## lance-graph-ontology-v5 — post-merge follow-ons (authored 2026-05-07)
 
 - **Plan:** `.claude/plans/lance-graph-ontology-v5.md`
