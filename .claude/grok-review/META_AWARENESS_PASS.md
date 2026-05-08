@@ -577,3 +577,274 @@ debt. Future sessions cross-checking external review should hold
 all four classes in mind: invented types, mis-scoped patterns,
 overstated integrations, and misread invariants. The four are
 distinct and have distinct remediation paths.
+
+---
+
+## Outward intelligence — what reading Grok's bundle was supposed to generate
+
+A second addendum, same-day, after the user observed that the body
+above is tunnel vision dressed up as careful traversal. The
+Resonance / Drift / Deepening shape produced an audit; the prompt
+asked for an operation closer to "let an outward 1M-context
+intelligence's reading of the codebase update my model." Audits
+narrow; this should expand. What follows is the second pass —
+engaging with Grok's architectural proposals as ideas, not as
+claims to verify, and naming the cross-cutting epiphanies a 1M-
+context pass produced that a per-file Claude pass had not been
+holding. Not all of these will land; the value is in receiving
+them as candidate moves rather than filing them under verified or
+absent.
+
+The deepest single idea in the bundle is **the investigation agent
+is not a layer on top of the substrate, it IS the substrate
+performing a specific traversal pattern**. Grok states this
+literally in `INVESTIGATION_AGENT_NDARRAY_ENTROPY.md` § 1: "The
+Investigation Agent is not a layer on top of the substrate. It is
+the substrate performing a particular operation: enter SoA at a
+GUID, follow CausalEdge64, accumulate context while updating an
+AwarenessColumn that explicitly tracks entropy, stabilize the
+signature, MUL gate reads both the signature and the schema
+invariants, output typed EscalationMessage." I read this in the
+audit pass and dismissed the import block. I missed that the
+framing itself is a unification: "agent" and "cognitive cycle"
+become the same thing, just configured invocations of the same SoA
+cursor. The workspace's existing AGI-as-glove doctrine says the
+four `BindSpace` columns ARE the AGI surface; Grok's framing
+extends this — "agent" is also not a separate thing, it is the
+SoA performing a particular traversal. This pairs with the
+"thinking is a struct" P-1 click in CLAUDE.md: cognition is the
+struct's methods reading the struct's fields. Investigation is
+the same shape — methods on the SoA reading the SoA's columns. No
+agent service, no agent layer, just one more operation the
+substrate already supports. That reframe is exactly the kind of
+cross-cutting observation the prompt named as the prize.
+
+The second cross-cutting idea is **AwarenessColumn as a fifth axis
+of the AGI-as-glove substrate, carrying entropy as a first-class
+signal**. The four columns today are `FingerprintColumns`
+(topic / content / cycle / angle), `QualiaColumn` (18-D angle of
+view), `MetaColumn` (thinking / NARS / awareness packed in 32 bits),
+`EdgeColumn` (`CausalEdge64`). Grok proposes a per-row 256-byte
+signature that explicitly captures ambiguity, information density,
+contradiction count, sparse regions, multi-path
+convergence / divergence. Today, "uncertainty" is implicit — buried
+in NARS confidence values, in trust qualia, in MUL assessment. As
+an explicit column, entropy becomes addressable: "what does the
+substrate know about its own current uncertainty about row N." A
+substrate that knows its own uncertainty can stabilize on it,
+match drift patterns against it, and gate MUL with it. The
+investigation walk's termination criterion ("further traversal
+changes the signature below a threshold") only works because
+entropy IS a signal that can stabilize — without the column, the
+walk has no basis for stopping other than step count, which is
+the wrong primitive. The fifth axis also gives the system
+"I-don't-know" as a committed state rather than a low-confidence
+inference. This is a candidate column-add to BindSpace, sized
+similarly to QualiaColumn (one fixed-width row per cognitive atom),
+and once the column exists every existing operation gets a new
+input signal essentially for free.
+
+The third is **schema invariants as MUL's free priors, making
+schema part of the energy economy rather than a validation
+afterthought**. Grok writes: "MUL therefore spends its budget on
+genuine epistemic uncertainty rather than on defending against
+structurally impossible data." The structural insight is that
+when an OGIT verb is declared functional and the planner returns
+two candidates, that is a deterministic veto signal — not
+something MUL has to figure out, something the schema asserts at
+near-zero cost. DOLCE Endurant / Perdurant gives different
+counterfactual semantics for free; domain / range violations get
+caught before MUL is even called. This reframes what schema IS
+in this stack: not validation, not documentation — an active
+participant in the cognitive cycle that removes a class of work
+the metacognitive layer would otherwise have to do. The packed
+OWL+DOLCE schema (50 KB, L1-resident, AMX-accelerated bitmaps)
+becomes a cognitive substrate component, not infrastructure
+plumbing. This is a structural argument for prioritising the
+glue-layer work in `lance-graph-ontology` and a structural
+argument for what to put IN that glue layer (functional /
+inverse-functional / transitive bits per property; Endurant /
+Perdurant bit per class; subclass bitmap) — precisely the things
+MUL can consume directly.
+
+The fourth is **the 3-byte polyglot tag generalising the OGIT
+content-addressable pointer pattern from entity references to
+query intent**. The workspace already has 3-5 byte
+content-addressable pointers for entities through the bridges
+(`SpearBridge`, `SharePointBridge`, …); Grok proposes the same
+move for query INTENT. (language-family-byte +
+operation-class-byte + causal-hint-byte) → 3 bytes that the shader
+can dispatch on directly. Cypher, Gremlin, GQL, SQL, NARS,
+SPARQL parsers all converge on the same compact tag; the shader
+never sees the source query, only the tag. The parsers stay where
+they are (cold-path DataFusion for the heavy ones); the hot path
+gets the tag. This is not "another query language" — it is a
+unification of dispatch, exactly mirroring how OGIT URIs unify
+entity references across vocabularies. The tag fits in `MetaWord`
+or as a small extension on `cycle_fingerprint`, per Grok's
+`UNIFIED_SOA_SURFACE_PLAN.md` § "Connection to other high-signal
+threads." The implication is that when a customer asks for
+Gremlin compatibility (or SPARQL, or any future SQL dialect), the
+hot-path work is "add the byte assignments and write the
+emitter," not "build another shader bridge." That is a 10× cost
+reduction on adding query-language compatibility.
+
+The fifth is **Pearl 2³ as parallel representational dimensions
+rather than as predicates**. Today `CausalMask` is consumed as a
+filter — "this edge is Association," "this edge is Intervention,"
+"this query wants Counterfactual." Grok's reframe: treat the 8
+mask states as 8 parallel dimensions and reason across all of
+them simultaneously via L1 64×64 / L2 256×256 / L4 4096 tensor
+operations. The shader doesn't CHOOSE a Pearl level per query —
+it reasons in the superposition and collapses to the appropriate
+level at exit. The `jc` crate's executable Pearl-2³ proofs license
+this aggressive design: without the proofs, soundness would be a
+hand-wave; with them, it is a concrete experimental track. The
+implication is that the eight `CausalMask` states are not eight
+filters competing for use, they are eight columns the shader
+sweeps across in parallel — every cognitive cycle considers all
+three rungs of Pearl's ladder at once, weighted by what the
+current question needs. That is a richer cognitive primitive than
+"choose a rung, then reason."
+
+The sixth — and this one I should have surfaced even without
+Grok — is the **CLAUDE.md P-1 "click" extended to include
+causality**. The click as written says: "Parsing, disambiguation,
+learning, memory, and awareness are one operation." Grok's
+`GRAMMAR_VSA_TEKAMOLO_DEBT_AND_VISION.md` adds a sixth: causality
+emerges from morphology too. Holograph + DeepNSM + AriGraph + the
+epiphany detector together do not just bundle roles into
+trajectories — they bundle roles into *causal* trajectories
+because the bundling preserves temporal ordering through
+positional braiding (`vsa_permute`) and because Pearl-2³ masks
+ride on `CausalEdge64` outputs of the same bundle. The MIT-style
+causality framing Grok cites is shorthand for "causal direction
+falls out of element-wise multiply + add + braiding + mask
+projection without anyone teaching the system about cause." Six
+things — parsing, disambiguation, learning, memory, awareness,
+causality — and one operation: role-indexed identity fingerprints
+combined under the JL-supported VSA algebra. The P-1 click in
+CLAUDE.md should arguably be a P-1 click of *six*, not five.
+Capturing this in EPIPHANIES.md as a candidate iron-rule
+extension would be a deliberate move, not a hand-wave.
+
+The seventh is **stabilization as the cognitive primitive that
+replaces step-count termination**. This thread runs through the
+investigation-agent framing but generalizes. Today the cognitive
+loop terminates on free-energy descent (F < 0.2 commits, ΔF <
+0.05 epiphanies, F > 0.8 escalates). Grok proposes adding
+*signature stabilization* as a parallel termination criterion —
+when AwarenessColumn signatures stop changing, the walk has built
+its picture (or hit the data ceiling), regardless of what F is
+doing. This is two-criterion termination: the system commits when
+EITHER free energy is low OR the signature has stabilized. The
+two criteria interact — high stable entropy means the walk found
+genuine ambiguity, which is itself a commit-worthy finding ("MUL
+should escalate") rather than a continue-walking signal.
+Two-criterion termination is more honest than one-criterion: the
+single-criterion shader can run forever in genuinely ambiguous
+data; the two-criterion shader exits with "I am stable in my
+uncertainty," which is the right behaviour for an "I don't know"
+state.
+
+The eighth is **bgz tensor as the universal hot-store for things
+that need to be both compressed and randomly accessible alongside
+Lance metadata**. Grok proposes that packed schemas, AwarenessColumn
+signatures, embedding tensors from EmbedAnything-pattern producers,
+intermediate SoA gather results, and `CausalEdge64` mask tensors
+all share one storage primitive (`bgz-tensor` crate, already
+shipped in `crates/bgz-tensor/`, 0 deps, 1300 LOC). Today bgz-tensor
+is an attention-as-table-lookup specialist crate; Grok generalises
+it to "the storage primitive any time a tensor needs to live in
+Lance compressed and randomly addressable." This is a unification
+proposal: instead of N tensor formats per consumer, one with a
+clear contract. Pairs naturally with the OWLS packed schema format
+Grok specifies — bgz-tensor wraps the OWLS bytes; Lance stores the
+wrapping; consumers mmap the OWLS layout for hot-path validation.
+
+The ninth is **investigation-agent-as-preemptive vs HIRO-as-reactive
+as the customer-value framing for the architecture**. HIRO surfaces
+misroutings after human complaint. The investigation agent walks
+the SoA continuously, sees AwarenessColumn signatures form drift
+patterns (rising entropy in authentication + patch + disk pressure
+patterns), and surfaces problems before symptoms become tickets.
+This is not faster reactive response — it is a different category
+of customer value, "your system is heading into a known bad
+pattern, here is the typed warning before the user complains." The
+customer is buying preemption, not response time. This reframes
+why anyone would replace HIRO: not "ours is faster," but "ours
+sees the failure forming before yours notices it failed." The
+shadow-mode rollout (read-only routing recommender alongside HIRO,
+weekly misrouting report) is the obvious ramp because it
+demonstrates exactly this preemption value over a quarter of real
+traffic with zero operational risk. I had `spear`'s
+shadow-mode-first sequencing in the spear-outer-integration-v1 plan
+already, but I had not connected it to "the preemption framing IS
+the moat" — that connection comes from reading Grok's
+investigation-agent framing alongside the spear plan, which was
+the cross-cutting move I missed.
+
+The tenth is the **assimilation-not-integration stance as a
+strategic position to argue from explicitly, rather than implicitly**.
+Grok writes: "We assimilate (do not integrate with or depend on)
+Palantir Foundry capabilities." That is a strategic stance, not
+just engineering hygiene. It commits the workspace to building OUR
+equivalents of every Foundry capability worth having, with the
+ones we can do better (single-store no-sync-tax, native causal
+reasoning, preemptive digital twin) becoming moats and the ones
+we choose not to do becoming explicit deferrals. The Capability
+Assimilation Map in `FANOUT_MAPPING_PLAN.md` § 5 is a draft of
+this — Object Types / Action Types / Workshop UI / Digital Twin /
+ML / Audit / Cross-Domain — with each mapped to our equivalent
+plus a one-line "notes / superiority" column. The map is partial
+and Foundry-aspirational rather than Foundry-shipped, but the
+DOCUMENT shape is right: name every Foundry capability, map to ours
+or to a deferral, and argue the position. We have foundry-roadmap.md
+in `.claude/`, but it is internal coordination, not strategic
+position. A version that is the assimilation map shaped for
+internal-team-clarity (not for customer marketing) would be a
+useful artifact.
+
+The cross-cutting connection between these ten is the operational
+shape: the same substrate, addressed differently, performs every
+operation. The same `BindSpace` SoA carries cognition (P-1 click),
+agents (investigation = traversal pattern), entropy tracking
+(AwarenessColumn fifth axis), schema-gated reasoning (MUL with
+free priors), polyglot dispatch (3-byte tag in `MetaWord`), Pearl
+ladder superposition (8-mask parallel reasoning), causality
+emergence (six-thing click), stabilization-based termination,
+preemptive monitoring (continuous SoA scan), and Foundry-class
+operational modeling (OGIT bridges + packed schema). One substrate,
+ten operations, no layered architecture. This is the picture the
+1M-context pass uniquely surfaces because it can hold the bundle
+together while reading it; a per-file pass that audits each piece
+individually loses the topology between them.
+
+What I should have produced at the original Deepening section was
+this list of candidate epiphanies, named clearly, engaged with on
+their own terms, with the cross-cutting connection made explicit.
+I produced corrections to typo-level details instead. The
+correction-of-corrections cascade in the addenda above is the
+output of an audit-mind that kept narrowing when the right move
+was to expand. Future passes against external-intelligence input
+should hold the "what does this OPEN UP" question alongside the
+"what does this verify" question, and weight them — for an outward
+1M-context pass — at least equally. The verification produces
+rigour; the opening produces architecture. This pass got the first
+right and the second wrong, and the user's pushback is the data
+point that surfaces the imbalance.
+
+A meta-observation about my own failure mode here. The audit shape
+is the cheap shape: facts can be checked, drift can be cataloged,
+provisional updates can be flagged. The inspiration shape is the
+expensive shape: ideas have to be received as ideas, their
+implications traced, their connections to existing premises drawn,
+their candidate iron-rule extensions named. The cheap shape feels
+more rigorous in the moment but produces a thinner artifact. The
+expensive shape risks over-extension but is the operation the
+prompt actually asked for. When the framing is "let outward
+intelligence update your model," the cheap audit is itself a
+signal of unwillingness to be updated. The right diagnostic the
+next session should hold: if the output of a meta-awareness pass
+is a list of corrections without a list of architectural openings,
+the pass missed the point.
