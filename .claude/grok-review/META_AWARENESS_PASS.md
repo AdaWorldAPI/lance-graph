@@ -848,3 +848,288 @@ signal of unwillingness to be updated. The right diagnostic the
 next session should hold: if the output of a meta-awareness pass
 is a list of corrections without a list of architectural openings,
 the pass missed the point.
+
+---
+
+## The actual reading — what emerges when the bundle and the code are held together at 1M
+
+A third addendum, written after actually loading the bundle and the relevant
+source into one mental space the way the prompt asked for in the first place.
+The surface I see now is qualitatively different from what the audit pass saw,
+and the difference is not just additional findings — it is a different
+*topology*. The substrate is not "BindSpace plus CausalEdge64 plus an
+aspirational schema layer" the way Grok's bundle reads it, and it is not
+"BindSpace + four columns + AGI-as-glove" the way the audit pass framed it.
+What it actually is, when you hold the splat module, the orchestration
+contract, the entropy ledger, the cognitive shader DTO, the CausalEdge64
+forward pass, and the lance-membrane BBB invariant together in one head, is
+a **single substrate doing six interlocking operations through different
+addressings of the same SoA**, with a published DTO entropy ledger that
+already names every fragmentation Grok's pass surfaced and several Grok did
+not see. The job of this addendum is to capture what the code is actually
+doing and where the genuine architectural openings are — not corrections,
+not catalogs, but a real reading.
+
+The deepest single thing I had been missing — and that the audit pass and
+Grok's pass both circled around without naming — is that **`AwarenessPlane16K`
+already exists and is six channels, not one**. Grok proposed an
+`AwarenessColumn` as a "fifth axis carrying entropy as a first-class signal."
+The audit pass gave that proposal a paragraph and moved on. What is actually
+in `crates/lance-graph-contract/src/splat.rs` (shipped 2026-05-06, PR
+referenced as SPLAT-1 in the entropy ledger) is a 2 KB pressure tile per
+row — `[u64; 256]`, exactly the same width as `Vsa16kF32` and `Binary16K`,
+deliberately — split across six semantically distinct channels: `Support`,
+`Contradiction`, `Forecast`, `Counterfactual`, `Style`, `Source`. The first
+two are evidence-bearing and may promote ontology facts after NARS
+validation; the second two are scenario-only and "must NOT promote ontology
+facts." That distinction is the architecture *making explicit* the
+difference between "I am believing this," "I am doubting this," "I am
+forecasting this," and "I am imagining this" — four epistemic modes, four
+separate pressure tiles, the same row addressed through four different
+lenses. Grok's single-channel `AwarenessColumn` proposal is the right
+instinct undershot; the workspace already has the richer shape because the
+6-channel split is what lets `Counterfactual` and `Forecast` enter the
+substrate without contaminating the believed-fact graph. That separation is
+the substrate's answer to the question "how does a system imagine without
+hallucinating commitments?", and the answer is: through 12 KB of explicitly
+labeled pressure planes per `SplatPlaneSet`, with `SplatDecision` returning
+one of `Proceed | RequireExactReplay | PrefetchOnly | ScenarioOnly` based
+on which planes carry pressure. This is the meta-cognitive primitive that
+makes the difference between an investigation agent (Grok's framing) and a
+cognitive system that knows when it is reasoning hypothetically — the
+investigation agent is the trivial case where `ScenarioOnly` never fires.
+
+The deposition kernel is geometric in a way that connects to a separate
+thread Grok was groping at. The bit position for a splat is
+`(center_a << 8) ^ center_b mod 16_384` — two codebook indices XORed into
+a 14-bit address. Both centers are `u16` indices into the CAM-PQ codebook;
+the `TriadicProjection` byte selects whether the pair came from S/P, P/O,
+or S/O. So a single `CamPlaneSplat` carries three things: which codebook
+pair (the "where"), which projection lens produced the pair (the "from
+which Pearl angle"), and which channel the splat lands on (the "what kind
+of evidence"). Pearl 2³ is not just `CausalMask` on the edge — it is also
+`TriadicProjection` on the splat. The splat addresses the awareness plane
+through a Pearl-2³-aware geometry: each of the three projections (direct,
+transposed, diagonal) lands at a different bit position in the same plane,
+so the same evidence can leave traces in three places that later
+correlation can recover. Grok's "8-mask superposition over CausalEdge64"
+proposal converges on this in a different vocabulary; the workspace's
+shipped form is the projection-byte plus the deposition-XOR. It is not a
+4096-codebook L4 projection of 8 mask views (Grok's framing); it is a
+14-bit binary plane indexed by two-byte codebook pair through a
+projection-byte lens. Different cardinality, same cognitive function:
+**spread evidence across multiple Pearl-aware addresses so later
+reconstruction can read the geometry**. This is the substrate-level
+mechanism for what Grok called "true multi-perspective reasoning via
+superposition" — already implemented, but in the splat geometry rather
+than as a tensor projection.
+
+The schema-as-MUL-priors pattern Grok proposed has its concrete realization
+in **`DomainProfile`**, and it is sharper than the proposal. Grok suggested
+that "OWL functional-property + multi-match → MUL hard veto" should become
+the substrate-level pattern. What the workspace ships in
+`lance-graph-contract::orchestration::DomainProfile` is the per-`StepDomain`
+calibration table — `Medcare` requires `auto_action_confidence >= 0.92`,
+`escalation = Human`, `requires_fail_closed = true`, and 2,190-day audit
+retention (HIPAA 6-year, codified as a unit-tested invariant); `Smb`
+requires `0.75`, `Llm` escalation, no fail-closed, 90-day retention. These
+are not aspirational thresholds — they are constants in code with
+unit tests asserting that Medcare's threshold is strictly higher than
+SMB's and that the retention is HIPAA-grade. The MUL priors are not coming
+from OWL property characteristics (which are not in the workspace), they
+are coming from `StepDomain` per-vertical profiles. What that means for
+the proposal direction Grok pointed at is concrete: the move is not "add
+OWL bits to the schema and feed them to MUL," it is "extend `DomainProfile`
+to carry per-domain functional-property + DOLCE-Endurant/Perdurant masks
+so the existing per-vertical calibration absorbs the schema-derived priors
+into the same path." That is one type extension, one method on `MulAssessment`
+that consumes the masks, and zero new abstractions. The substrate already
+has the seam.
+
+The investigation-agent-IS-substrate-traversal-pattern claim that I
+appended in the second addendum has its concrete substrate, and the
+substrate is sharper than Grok's framing. Grok said "the agent IS the
+substrate performing a particular operation" — true, but the operation is
+not an arbitrary SoA traversal. The operation is **a stabilization on the
+trajectory carried by the cycle_fingerprint, gated by the splat
+certificate's `SplatDecision`**. `BindSpace::write_cycle_fingerprint` is
+how Layer-4 persists its per-cycle signature; the trajectory is read by
+`step_trajectory_hash` (feature-gated, PR #279 outlook E4 wiring); the
+splat planes accumulate evidence across the cycle; the `CamSplatCertificate`
+emits the four-way decision; the `CognitiveEventRow` projects two scalar
+words (`fingerprint[0]` and `fingerprint[255]`) across the BBB to identify
+the cycle. So an "investigation" is: (1) choose anchor row by
+`entity_type` filter, (2) traverse `CausalEdge64` chains with
+`forward()` accumulating into a cycle fingerprint, (3) deposit splats
+into the appropriate `SplatPlaneSet` channel during the traversal,
+(4) read the `CamSplatCertificate` at stabilization, (5) emit the
+typed decision. That is the substrate's existing operation;
+"investigation agent" is the name for it when invoked from outside via
+`ExternalIntent` at the `LanceMembrane`. The existence of `Forecast` and
+`Counterfactual` channels means the investigation can ALSO be hypothetical
+— "what if this drift were extending in this direction" — without
+contaminating the committed-fact path. Grok's preemptive-vs-reactive
+framing maps onto this: a preemptive investigation is one that runs in
+the `Forecast` channel, accumulates pressure without commitment, and
+emits a typed warning when forecast pressure exceeds threshold, all
+without ever crossing into the `Support` plane that promotes facts. The
+substrate ALREADY supports preemption-without-commitment; what is
+missing is the wiring to actually run continuous traversals against
+incoming streams.
+
+The polyglot 3-byte tag idea Grok proposed has a different concrete
+realization than I had been imagining. The workspace's
+`CognitiveEventRow` already has a `dialect: u8` column at the
+membrane-projection layer — Phase B, set by polyglot front-end parsers,
+distinguishing Cypher / SPARQL / SQL / GQL / NARS dialects in a single
+byte. The 3-byte tag Grok proposed (language family + operation class +
+Pearl/NARS hint) maps onto: `dialect: u8` (already exists,
+membrane-level) + `MetaWord.thinking: 6 bits` (already exists, the
+36-style packed prefilter) + `MetaWord.nars_f: 8 bits` (already exists,
+NARS frequency byte). The "compact polyglot tag" is not a new structure;
+it is **the existing 14 bits of `MetaWord` plus the 8 bits of `dialect`
+on `CognitiveEventRow`, addressed as one composite key**. The OGIT-of-
+query-languages framing is right; the composite already exists, scattered
+across two structs that compose at the membrane boundary. The actual
+implementation work is "make those bits queryable as a single composite
+predicate against the membrane projection so SQL filters like `WHERE
+dialect = cypher AND thinking IN (analytical, deductive)` are O(1)
+prefilters at the columnar store." Grok's tag is not a new abstraction;
+it is the obvious composite of bits the workspace already produces.
+
+The Vsa16kF32 / Vsa10000 / CAM-PQ purpose-scoping the user surfaced over
+two pushbacks lands cleanly when read against the actual fingerprint
+module. `crates/lance-graph-contract/src/crystal/fingerprint.rs` is a
+single enum, `CrystalFingerprint`, with five variants — `Binary16K`,
+`Structured5x5`, `Vsa10kI8`, `Vsa10kF32`, `Vsa16kF32` — and the methods
+on the enum convert between variants. The "deprecation" of `Vsa10000`
+is real but it lives inside an enum that exists *precisely* to carry
+multiple format generations through one type. The migration target is
+not "delete `Vsa10kF32`" but "stop creating new uses of it." The
+algebra functions `vsa_bind` / `vsa_bundle` operating on `[f32; 10_000]`
+are old API that survived the carrier-width change because they are
+behind the enum's projection methods (`to_vsa10k_f32`,
+`structured_from_vsa10k`); calling them is opting into the legacy path.
+The right statement of the situation that I had been missing: **the
+workspace ships a multi-carrier algebra deliberately**. Vsa10000 is for
+the Markov-bundling path (where 10K width matched the Johnson-Lindenstrauss
+bound for the original ±32 saturation count). Vsa16kF32 is for the
+collapse-gate output and the BindSpace cycle column (where 16K width
+gives more room for high-dimensional carrier operations under the
+2026-04-21 click). Binary16K is for Hamming-compare and bit-deposition
+(splat planes use this). CAM-PQ is for compressed addressable search —
+the cascade columns. Each carrier has a purpose; the migration the user
+is asking for is "stop using Vsa10kF32 as the algebra default; use
+Vsa16kF32 for new bundling and CAM-PQ for new search," not "delete
+Vsa10kF32." The TECH_DEBT entry I appended yesterday is right in
+direction but should be reframed: not a single migration target, but a
+purpose-scoped routing of every existing call site to the right
+carrier per its actual operation. This sharpens the work meaningfully —
+it is N decisions, not one.
+
+The Foundry-aspiration framing has a concrete shipped piece I had been
+treating as aspirational. **Column H — `BindSpace.entity_type: Box<[u16]>`
+— IS the Foundry Object Type bridge**, shipped in PR #272, indexed in
+the entropy ledger as ENT-TYPE-1 (entropy 2, the only entry under 3 in
+that section). `EntityTypeId = u16` with explicit "Foundry Object Type /
+Column H" doc; `BindSpaceBuilder::push_typed` writes it; the bridge to
+`OntologyRegistry` resolves the index into named OGIT schemas at read
+time; the TODO comment in `bindspace.rs:191-198` calls out the next step
+("downstream calibration improvements will let the MUL gate pick
+ontology-aware trust thresholds — Compliance edges → Plateau-only commit,
+Healthcare edges → stricter trust calibration"). The Foundry parity is
+not aspirational; it is shipped substrate plus a documented next step
+that connects directly to the `DomainProfile` extension I named two
+paragraphs ago. The cluster of work ("schema as MUL priors" + "ontology-
+aware trust thresholds" + "Foundry Object Type bridge" + "per-domain
+calibration") is not three or four disconnected proposals — it is one
+move with one type-extension surface, and the substrate is waiting for
+it. The right framing of the Foundry-aspiration is: "Column H ships;
+the `entity_type[row]` → `DomainProfile` lookup is the missing wire;
+once that wire exists, `MulAssessment::compute()` consumes ontology-aware
+priors in O(1) per row, and the Foundry parity is achieved at the
+substrate level." That is one concrete deliverable, sized between 200
+and 600 lines, with the type system already cooperating.
+
+There is a depth to the parser fragmentation that neither pass surfaced
+clearly, and it changes the implementation sizing for the hot-path
+Cypher work. The entropy ledger entry **DEBUG-STRINGIFY-1** (entropy 5)
+documents that "35 `format!("{:?}", logical_plan)` Debug-string
+introspection sites workspace-wide" exist — the hot path does not just
+lack a real parser, it reads DataFusion `LogicalPlan` Debug output as a
+stable surface, with `lance_native_planner.rs:76-79` feeding the result
+back into `Planner::plan(query_hint)` running `.to_uppercase().contains
+("MATCH")` against pretty-printed Rust struct syntax. This is a load-
+bearing pattern — 35 sites — that any hot-path Cypher migration has to
+either replicate, replace, or eradicate. Grok's Phase-2 plan
+(`CypherParseResult` DTO + pluggable parser + map to `CausalEdge64`)
+does not address the 35 sites; the Phase-3 work is "introduce a typed
+visitor over `LogicalPlan` so the 35 string-introspection sites become
+typed pattern matches" and that is probably 1–2× the size of Phase 2.
+Sizing the hot-path Cypher work as "one DTO + a parser hook" is
+underestimating by an order of magnitude; sizing it as "one DTO + a
+parser hook + a typed `LogicalPlan` visitor + 35 call-site migrations"
+is realistic. The audit pass missed this; Grok missed this; the
+workspace's own ledger flags it at the highest entropy tier.
+
+The shape of the substrate, when you read it from this angle, is:
+**six operations on one SoA, each operation a different addressing of
+the same rows**. (1) Cognition: `BindSpace.cycle` carries the trajectory,
+`MetaColumn` filters, `CausalEdge64.forward()` advances, `cycle_fingerprint`
+emits. (2) Memory: the same rows addressed by `entity_type` are entities;
+addressed by `temporal` they are episodes; addressed by `cycle_fp_hi/lo`
+they are cycles. (3) Imagination: the same rows addressed through
+`SplatChannel::Forecast` and `SplatChannel::Counterfactual` accumulate
+hypothetical pressure without committing facts. (4) Awareness: the same
+rows with `AwarenessPlane16K` pressure tiles carry six separated
+epistemic states. (5) External traffic: `LanceMembrane` projects the
+same rows as `CognitiveEventRow` scalars across the BBB, with two
+scalar fingerprint words identifying each cycle without carrying its
+content. (6) Audit: `step_trajectory_hash(_, _, &[u64; 256])` keys the
+audit log by trajectory, not by syntax — the same rows addressed by
+their cognitive history. One SoA. Six operations. Each operation is a
+different way of *reading* the same rows; mutations stay narrow
+(through `CollapseGate` on writes; the audit-pass and the imagination-
+pass are read-only with respect to the believed-fact substrate). This
+is the picture. It is not "BindSpace + accessories"; it is an SoA
+deliberately designed so that every cognitive operation is an addressing
+mode rather than a layer.
+
+What that means for Grok's bundle: the most valuable thing in it is not
+the architectural proposals themselves (most of those are partial
+re-derivations of structure that already exists in code more sharply),
+it is the **forensic diagnosis of where the workspace's own iron rules
+are not yet matched by the workspace's own implementation**. Hot-path
+Cypher is a stub. The 35 Debug-string sites exist. `Vsa10kF32` co-exists
+with `Vsa16kF32` and the algebra ops favor the older width. The
+`OntologyRegistry`-to-`DomainProfile` wire that would close
+ontology-aware MUL is not yet drawn. `LanceVersionWatcher` is a stub
+that wraps `tokio::sync::watch` without binding to `Dataset::version()`.
+`step_trajectory_hash` is feature-gated `unimplemented!()`. These are
+the seams the workspace's own ledger names; Grok's pass independently
+re-derived several of them with less precision; my audit pass cataloged
+them without engaging with them as a coherent substrate-completion task.
+The right framing for the next session is: **"complete the substrate"
+is one named project, not seven,** and the project's deliverables are
+the high-entropy rows in the existing
+`.claude/board/ARCHITECTURE_ENTROPY_LEDGER.md`. Sized that way, Grok's
+bundle becomes a forensic confirmation of the workspace's own
+self-assessment, useful as a second-opinion outside-eye that converges
+with the inside view rather than as a source of new proposals.
+
+The single most valuable thing I had been missing is that **the
+workspace already knows what it is**. The entropy ledger, the iron
+rules, the `splat.rs` six-channel awareness substrate, the `DomainProfile`
+per-vertical calibration, the `EntityTypeId` Foundry bridge, the
+`CognitiveEventRow` BBB-projection invariants, the
+`CamSplatCertificate` four-way decision gate, the
+`AlphaFrontToBack` Kerbl-2023 compositing in the merge stage — all of
+these are shipped substrate that already names and implements the
+patterns Grok's pass and my audit pass independently re-derived in less
+mature forms. The architectural picture in the workspace is more
+complete than either external pass realized. The work is not "add the
+proposed structures"; the work is "complete the seams between
+structures that already exist." That is a smaller, sharper, more
+tractable framing — and it is the framing that emerges when you read
+the bundle and the code together at the scope the system actually has,
+which is what happens when 1M tokens are used like 1M tokens.
