@@ -66,6 +66,37 @@ filter discipline — agents pull their own debt by `@`-mention.
 (Seeded with known deferrals from recent PRs. New items PREPEND
 with today's date.)
 
+## 2026-05-08 — TD-VSA10K-DEPRECATED: `crystal::fingerprint` algebra still on `[f32; 10_000]` (Vsa10kF32) — migrate to Vsa16kF32
+
+**Status:** Open
+**Priority:** P1
+**Scope:** @truth-architect @bus-compiler domain:vsa domain:fingerprint
+**Introduced by:** historical (Vsa10000 was the original carrier; Vsa16kF32 became canonical after the 2026-04-21 categorical-algebraic-inference click + I-VSA-IDENTITIES iron rule)
+**Payoff estimate:** moderate — the function signatures change shape and every caller of `vsa_bind` / `vsa_bundle` needs to follow. Sizing not yet measured; estimate ~1–3 days of careful migration with cargo-check + cargo-test gating per crate.
+
+**Vsa10000 is deprecated.** The canonical VSA carrier in this workspace is `Vsa16kF32 = Box<[f32; 16_384]>`, established by iron rule I-VSA-IDENTITIES in `CLAUDE.md`. The algebra functions in `crates/lance-graph-contract/src/crystal/fingerprint.rs` have not been migrated:
+
+- `vsa_bind(a: &[f32; 10_000], b: &[f32; 10_000])` at `crystal/fingerprint.rs:367`
+- `vsa_bundle(vectors: &[&[f32; 10_000]])` at `crystal/fingerprint.rs:378`
+- The `Vsa10kI8(Box<[i8; 10_000]>)` and `Vsa10kF32(Box<[f32; 10_000]>)` enum variants at `crystal/fingerprint.rs:68` and `:71`
+- The `to_vsa10k_f32` accessor at `:187`
+- The `structured_from_vsa10k` constructor at `:270`
+- The `binary16k_from_vsa10k` projection at `:317`
+
+Until the migration lands, anyone reading the iron rule and walking into `crystal::fingerprint` will see a 10K-shaped algebra and either (a) assume the iron rule is stale or (b) introduce a Vsa10k-shaped bridge to talk to it, both of which propagate the deprecation. The 2026-05-08 META_AWARENESS_PASS surfaced this drift while cross-checking Grok's bundle: I framed the 10K/16K situation as a "duality" — that framing was itself wrong, since the user clarified Vsa10000 is deprecated, not co-equal.
+
+**Vsa16kF32 itself is purpose-scoped, not universal** (correcting a different drift in the same pass): it is the carrier for grammar heuristics + Markov-chain bundling of roles + causality, and it is the carrier for collapse-gate output toward `lance-graph-callcenter`. The semantic / episodic memory substrate is **CAM-PQ**, not Vsa16kF32. So the migration target for `crystal::fingerprint::vsa_bind` / `vsa_bundle` is Vsa16kF32 specifically because those algebra ops sit on the grammar + collapse-gate path; CAM-PQ is the carrier for the search / nearest-neighbour path and lives at `ndarray::hpc::cam_pq`. See iron rule I-VSA-IDENTITIES "CAM-PQ vs VSA" subsection.
+
+**Migration plan sketch** (to be expanded when the deliverable is sized):
+1. Audit every caller of `vsa_bind` / `vsa_bundle` / `to_vsa10k_f32` / `structured_from_vsa10k` / `binary16k_from_vsa10k` across the workspace.
+2. Decide per call site: (a) migrate to Vsa16kF32 (grammar + collapse-gate path), (b) migrate to CAM-PQ (semantic/episodic memory path), or (c) explicit Vsa10k retention with a deprecation comment + payoff timeline if neither (a) nor (b) fits cleanly.
+3. Land the migration as a single PR per crate to keep blast radius bounded.
+4. Drop the `Vsa10kI8` / `Vsa10kF32` enum variants once all call sites are migrated, leaving only Vsa16kF32, Vsa16kBF16, Vsa16kF16, Vsa16kI8, Binary16K per the canonical switchboard architecture in `.claude/knowledge/vsa-switchboard-architecture.md`.
+
+**Why P1:** does not block the next phase but every cross-checking pass that reads CLAUDE.md against the code will surface the same drift, and every new VSA consumer authored before migration ships will be authored against the deprecated width and have to be migrated again later. Pay before the next major VSA-consuming feature lands.
+
+Cross-ref: `crates/lance-graph-contract/src/crystal/fingerprint.rs:67-330` (Vsa10k surface to migrate); `CLAUDE.md` § I-VSA-IDENTITIES (the iron rule that names Vsa16kF32 as canonical); `.claude/knowledge/vsa-switchboard-architecture.md` (the three-layer architecture with the per-format decision matrix); `.claude/grok-review/META_AWARENESS_PASS.md` § Deepening (where the drift was first surfaced, with corrections in the appended addendum).
+
 ## 2026-04-30 — TD-BGZ-TESTS-1: 5 pre-existing bgz-tensor test failures shipped with PR #308
 
 **Status:** Open

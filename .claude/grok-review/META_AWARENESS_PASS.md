@@ -461,3 +461,119 @@ The investigation-agent traversal pattern that Grok and the
 workspace both describe, applied to text rather than to rows, is
 itself the operation this document records. That recursion is not
 metaphor.
+
+---
+
+## Addendum — corrections appended 2026-05-08 (same-day, after user pushback)
+
+Three things in the body above were themselves drift. Recording the
+corrections inline rather than editing the original because the
+governance pattern for this workspace is append-only on bookkeeping
+and because surfacing the corrections is more useful than hiding the
+original framings — the failure modes of this pass are part of what
+the next session needs to see.
+
+**Correction 1 — Vsa10000 is deprecated, not co-equal.** The "Deepening"
+section above frames the `[f32; 10_000]` algebra in
+`crystal::fingerprint` and the `[f32; 16_384]` cycle column in
+`BindSpace` as a "duality — both real, both used, the iron rule
+glosses them as one" and recommends a correction note in CLAUDE.md
+distinguishing the two carrier widths. That framing is wrong.
+Vsa10000 is **deprecated**. The iron rule I-VSA-IDENTITIES is
+forward-looking-correct: Vsa16kF32 is the canonical width. The
+algebra ops in `crystal::fingerprint` (`vsa_bind`, `vsa_bundle`, the
+`Vsa10kI8` / `Vsa10kF32` enum variants, the `to_vsa10k_f32`
+accessor, the `structured_from_vsa10k` constructor, the
+`binary16k_from_vsa10k` projection) have not been migrated yet —
+that is technical debt awaiting a migration PR, not a duality the
+iron rule should accommodate. The correct note is now captured in
+`.claude/board/TECH_DEBT.md` as TD-VSA10K-DEPRECATED (P1, 2026-05-08).
+The CLAUDE.md iron rule does NOT need a "two carrier widths" note;
+it stands as written. What needs to change is the code, not the
+rule.
+
+**Correction 2 — Vsa16kF32 itself is purpose-scoped, not the universal
+canonical carrier.** The body above implicitly treats Vsa16kF32 as
+"the canonical VSA carrier" full stop. The user's clarification
+sharpens the picture: Vsa16kF32 is the carrier for **grammar
+heuristics + Markov-chain bundling + roles + causality** (the
+trajectory-shape carrier in `BindSpace.cycle`), and it is the
+carrier for **collapse-gate output in the direction of
+`lance-graph-callcenter`** (the realtime/transcode path). For the
+**entire semantic episodic memory substrate**, the workspace uses
+**CAM-PQ** (compressed addressable memory + product quantisation),
+**not Vsa16kF32**. This split is in fact stated in the iron rule
+I-VSA-IDENTITIES under the "CAM-PQ vs VSA" subsection ("CAM-PQ is
+for *search* (compressed nearest-neighbor); VSA is for *bundling*
+(lossless role superposition). Switching between them requires
+decompression, not mixing"), and I quoted that subsection in this
+pass without internalising the structural implication: there is no
+single canonical "VSA carrier"; there are **three substrates with
+clear role assignments** (Vsa16kF32 for grammar/collapse-gate, CAM-PQ
+for semantic/episodic memory, Binary16K for Hamming-compare). The
+"AGI-as-glove" four-column doctrine in `BindSpace` continues to
+hold, but the four columns themselves carry **different carriers
+per role**: the cycle column is Vsa16kF32, the content/topic/angle
+columns are u64×256 fingerprints, the qualia column is f32×18, the
+edge column is `CausalEdge64` u64s — and the AriGraph + episodic
+memory tissue addressed *from* those columns lives in CAM-PQ space.
+A future correction-note candidate in CLAUDE.md would be a one-
+sentence reminder that "the canonical VSA carrier" framing is too
+loose — the real statement is "Vsa16kF32 is the canonical carrier
+for grammar bundling and collapse-gate output; CAM-PQ is the
+canonical carrier for semantic/episodic memory."
+
+**Correction 3 — EmbedAnything is a documented pattern, not an absent
+type.** The "Drift" section above lists `EmbedAnythingDTO` among a
+cluster of "invented type names" that don't exist in the workspace.
+The literal struct name does not exist, but the **EmbedAnything DTO
+pattern itself is documented in the workspace and applied
+deliberately**. Two anchors confirm this:
+
+- `crates/lance-graph-contract/src/cognitive_shader.rs:24` —
+  module-level "# EmbedAnything Patterns Applied" section listing
+  the four patterns the workspace inherits from the EmbedAnything
+  Rust crate (commit sinks, auto-detect, builder, feature gates,
+  no-runtime-forward-pass).
+- `crates/lance-graph-contract/src/cognitive_shader.rs:401` — the
+  `ShaderSink` trait header literally reads "ShaderSink —
+  EmbedAnything commit-adapter pattern".
+- `crates/cognitive-shader-driver/src/wire.rs:130` — the wire DTO
+  surface header says "EmbedAnything-style: one DTO surface for
+  all shader operations".
+- The `bgz-tensor` crate (`crates/bgz-tensor/`) implements
+  EmbedAnything-pattern shapes in its `jina.rs` integration
+  (Request/response types for the Jina API + cosine similarity +
+  Base17 projection, all behind a single DTO surface).
+
+So the right framing for that drift entry is: Grok's
+`InvestigationAgent` sketch imports an `embed_anything` crate that
+does not exist as a top-level workspace dependency name, and an
+`EmbedAnythingDTO` struct that does not exist with that
+CamelCase name. But the **pattern** the sketch is reaching for is
+real, documented, and applied across `cognitive_shader.rs` +
+`wire.rs` + `bgz-tensor`. A future session integrating Grok's
+INVESTIGATION_AGENT_CODE_SKETCH should not interpret the imports as
+naming non-existent infrastructure but as gesturing at the
+EmbedAnything-pattern surface that already exists; the
+implementation work is plumbing, not greenfield. My original drift
+entry was over-literal in a way that under-counted the substrate
+that actually exists.
+
+The shape of the meta-finding: **a 1M-context-window external pass
+can drift in three different directions at once** — name-invention
+that styles itself as quotation (the literal `SoACursor` /
+`AwarenessColumn` / `lance-graph-owl-simd` cluster, where neither
+the names nor the substrate exists), pattern-recognition that
+collapses scope (the EmbedAnything pattern entry where the substrate
+exists but Grok's imports name it wrong), and integration-depth
+overstatement (the ndarray "fully integrated" claim where the
+helpers exist but the storage backbone is something else). My pass
+caught the first; under-counted the second; got the third right.
+The Vsa10000-vs-Vsa16kF32 framing was a fourth class — not Grok's
+drift but mine, where I read the iron rule against the code and
+called the diff a "duality" instead of recognising it as deprecation
+debt. Future sessions cross-checking external review should hold
+all four classes in mind: invented types, mis-scoped patterns,
+overstated integrations, and misread invariants. The four are
+distinct and have distinct remediation paths.
