@@ -30,9 +30,10 @@ Usage (in your reasoning or scripts):
     # Create a comment on an issue (after you have the issue dict or wrap it)
     # comment_spec = repo.add_issue_comment(issue_number=42, body="Thanks!")
 
-    # File operations (very common)
-    readme_spec = repo.get_contents("README.md", ref="main")
-    # content_data = call... ; then content_data.get("content") is base64 usually
+    # File operations (very common) - use the wrapper's get/ls/cat instead of raw github___get_file_contents !
+    readme_spec = repo.cat("README.md", ref="main")          # cat / get file contents (like Unix cat)
+    dir_listing = repo.ls("docs/", ref="main")               # list directory (like ls)
+    # or repo.get(...) / repo.get_contents(...) for full control. Content is base64; use ContentFile wrapper for .decoded_content / .text
 
     # Create or update file
     create_spec = repo.create_file(
@@ -357,7 +358,7 @@ class Repository(GithubObject):
         if "sort" in kwargs:
             args["sort"] = kwargs["sort"]
         if "direction" in kwargs:
-            args["direction"] = kwargs["direction"]
+            args["direction"] = direction.upper()
         return self._github._call("github___list_pull_requests", args) if self._github else {
             "tool_name": "github___list_pull_requests", "arguments": args
         }
@@ -440,7 +441,7 @@ class Repository(GithubObject):
     # --- Files & Contents ---
     def get_contents(
         self, path: str = "", ref: Optional[str] = None, sha: Optional[str] = None, **kwargs: Any
-    ) -> Union[Dict[str, Any], List[Dict[str, Any]]}:
+    ) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
         """Get file or directory contents. Maps to github___get_file_contents.
         Returns file info (with base64 content) or list of entries for directories.
         Use .decoded_content on wrapped ContentFile.
@@ -458,6 +459,53 @@ class Repository(GithubObject):
             "tool_name": "github___get_file_contents", "arguments": args,
             "_note": "For files: content is base64. For dirs: list of {name, path, type, sha, ...}"
         }
+
+    def get(
+        self, path: str, ref: Optional[str] = None, sha: Optional[str] = None, **kwargs: Any
+    ) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+        """Get the contents of a file or directory from the repository.
+
+        Convenience method / alias for get_contents. Prefer this over calling
+        github___get_file_contents directly. Returns the tool call spec dict
+        (use with call_connected_tool or pass mcp_caller to auto-execute).
+
+        - For a file: returns dict with 'content' (base64), 'sha', 'encoding', etc.
+          Use ContentFile(...).decoded_content or .text for convenience.
+        - For a directory: returns list of entry dicts (name, path, type, sha, ...).
+        """
+        return self.get_contents(path, ref=ref, sha=sha, **kwargs)
+
+    def cat(
+        self, path: str, ref: Optional[str] = None, sha: Optional[str] = None, **kwargs: Any
+    ) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+        """Get/display file contents, akin to the Unix `cat` command.
+
+        Convenience alias for `get()` (which calls get_contents). Use `cat` for
+        showing file contents (like `cat filename` in shell). It also works for
+        directories by returning a listing (though standard `cat` on dirs errors).
+
+        Prefer this for file content retrieval over raw github___get_file_contents.
+        Returns the tool call spec dict (use with call_connected_tool or pass
+        mcp_caller=... to auto-execute).
+
+        - For a file: returns dict with 'content' (base64), 'sha', 'encoding', etc.
+          Use ContentFile(...).decoded_content or .text for convenience.
+        - For a directory: returns list of entry dicts (name, path, type, sha, ...).
+        """
+        return self.get(path, ref=ref, sha=sha, **kwargs)
+
+    def ls(
+        self, path: str = "", ref: Optional[str] = None, **kwargs: Any
+    ) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+        """List the contents of a directory (defaults to repository root).
+
+        Convenience wrapper for directory listings. Equivalent to
+        get_contents(path or '/', ref=ref). Use this instead of raw
+        github___get_file_contents for 'ls'-like operations.
+
+        Returns the call specification dict for github___get_file_contents.
+        """
+        return self.get_contents(path or "/", ref=ref, **kwargs)
 
     def create_file(
         self,
@@ -496,9 +544,7 @@ class Repository(GithubObject):
         """Update existing file (sha required). Same MCP tool as create."""
         return self.create_file(path, message, content, branch, sha=sha, **kwargs)
 
-    def delete_file(
-        self, path: str, message: str, branch: str = "main", sha: Optional[str] = None, **kwargs: Any
-    ) -> Dict[str, Any]:
+    def delete_file(self, path: str, message: str, branch: str = "main", sha: Optional[str] = None, **kwargs: Any) -> Dict[str, Any]:
         """Delete a file. Maps to github___delete_file.
         Note: MCP delete_file schema does not require sha (uses latest?).
         """
