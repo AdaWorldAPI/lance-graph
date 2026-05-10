@@ -7,6 +7,7 @@
 
 | ID | Area | Debt | Impact | Owner / Next Step |
 |----|------|------|--------|-------------------|
+| **TD-NARS-01** | NARS + Thinking fragmentation | Logic duplicated across `causal-edge`, `nars_engine.rs` (planner), `cognitive_frameworks.rs` (learning), `orchestrator.rs`, `auto_style.rs`, DeepNSM/Holograph. No canonical hot-path surface or unified style modulation. 12 vs 36 styles split. | High duplication (40%+ session restart cost), drift risk, inconsistent Pearl/NARS application | Use new canonical inventory `.grok/03_cognitive_layers/NARS_THINKING_IMPLEMENTATIONS_INVENTORY_MIGRATION.md` as single source. Execute phased migration to `CausalEdge64` + shader-driver `NarsOp`. |
 | **TD-QUERY-01** | Multiple Cypher implementations | 4–6 parallel approaches (DataFusion cold + shader stub + proposed compact). No clear primary hot path. | High confusion + duplicated effort | Consolidate on `cognitive-shader-driver` canonical bridge. Design 3-byte polyglot tag. |
 | **TD-QUERY-02** | `cypher_bridge.rs` is stub only | Keyword classifier (`starts_with CREATE/MATCH`). Explicitly Phase 1. | Hot path has almost no real Cypher | Wire real parser in Phase 2 while staying inside `OrchestrationBridge`. |
 | **TD-HOT-01** | Missing compact polyglot encoding | "OGIT of query languages in 3 bytes" vision exists but not designed. | Missed extreme hot-path efficiency | Design small tag (language family + op class + Pearl/NARS hints). |
