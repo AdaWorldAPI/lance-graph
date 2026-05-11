@@ -44,3 +44,5 @@ The orchestrator produces `StepResult` containing the chosen style. This style c
 ---
 
 *This is one of the strongest metacognition implementations seen in cognitive architectures.*
+
+**See canonical NARS + Thinking inventory & migration plan** (all call sites, uniqueness, DTO ownership, before/after, inner/outer ontology integration): `.grok/03_cognitive_layers/NARS_THINKING_IMPLEMENTATIONS_INVENTORY_MIGRATION.md`. This file now owns the full context for thinking styles, MUL, StyleTopology (NARS at meta level), and their unification with the shader-driver SoA surface.
