@@ -36,3 +36,5 @@ This crate is therefore the implementation of the central bus shown in the Reson
 ---
 
 *High-signal area. Needs deeper targeted exploration.*
+
+**See canonical NARS + Thinking inventory & migration plan**: `.grok/03_cognitive_layers/NARS_THINKING_IMPLEMENTATIONS_INVENTORY_MIGRATION.md` — this is now the single source for how NARS ops, thinking styles, and MUL fit into the shader-driver SoA surface, BindSpace zero-copy, and NarsOp cam integration.
