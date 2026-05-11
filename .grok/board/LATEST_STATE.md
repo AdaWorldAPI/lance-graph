@@ -2,7 +2,7 @@
 
 **Purpose**: Rapid orientation for any session. Pruned and updated from `.claude/board/` version. Focus on current architecture, not historical PR noise.
 
-**Last Major Update**: 2026-05-08 (Grok synthesis pass — incorporated CausalEdge64, cognitive-shader-driver SoA, hot/cold paths, JC proofs, technical debt analysis).
+**Last Major Update**: 2026-05-10 (Grok synthesis pass — clarified multi-zone boundaries + spear as deliberate Zone 2 ↔ Zone 3 bridge for HubSpot/ticket logic that cannot live in lance-graph core).
 
 ---
 
@@ -28,6 +28,8 @@ Multiple (4–6) Cypher implementations exist:
 
 **Technical Debt**: Fragmentation is the main issue. Hot path needs real parser wiring while staying inside the canonical `OrchestrationBridge`. Missing mapping from parsed intent → `CausalEdge64` fields.
 
+**See also**: New canonical inventory + migration plan for all NARS + thinking implementations (including hot-path `nars_engine`, symbolic `cognitive_frameworks`, meta styles, grammar heuristics): `.grok/03_cognitive_layers/NARS_THINKING_IMPLEMENTATIONS_INVENTORY_MIGRATION.md`. This is now the single source of truth to prevent context duplication.
+
 ---
 
 ## Key Open High-Potential Directions
@@ -38,13 +40,15 @@ Multiple (4–6) Cypher implementations exist:
 4. Full hot-path Cypher (and polyglot) support via the canonical `OrchestrationBridge`.
 5. How Thinking Styles should modulate `CausalEdge64` fields.
 6. Promotion Membrane implementation using `CausalEdge64` + plasticity + confidence.
+7. **spear as Zone 2 ↔ Zone 3 bridge** — Implement crisp contracts so spear owns HubSpot reverse-engineered surface + Hiro tickets + external serialized I/O (mail, SharePoint, MySQL, JSON/gRPC) while accessing inner ontology zero-copy via lance-graph-callcenter. Keep all hubspot/ticket business logic strictly out of lance-graph and pure Zone 2. See `.grok/board/MULTI_ZONE_ONTOLOGY_ARCHITECTURE.md` for full zone model.
 
 ---
 
 ## What to Read Next (Efficient Order)
 
 1. `.grok/boot.md` — Session bootstrap + continuity procedure.
-2. `.grok/board/UNIFIED_SOA_SURFACE_PLAN.md` — Highest-signal current direction (SoA DTO unification).
+2. `github_mcp_wrapper.py` (in artifacts/ or pushed to `.grok/github_mcp_wrapper.py` on GitHub) — PyGithub-like wrapper over MCP GitHub connected tools. Use this for all .grok file ops, listings, and bulk pushes instead of raw `github___*` calls. Preferred modern interface.
+3. `.grok/board/UNIFIED_SOA_SURFACE_PLAN.md` — Highest-signal current direction (SoA DTO unification).
 3. `.grok/05_query_languages/cypher_implementations.md` — Current Cypher landscape + debt.
 4. `.grok/03_cognitive_layers/cognitive_shader_driver.md` — SoA layer deep dive.
 5. `.grok/02_core_primitives/causal_edge64.md` — Atomic register.
