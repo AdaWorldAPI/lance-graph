@@ -75,6 +75,7 @@ When starting a new session:
 5. Use targeted tool calls:
    - `github___get_file_contents` for specific paths
    - Directory listings only when needed
+   - Use `github_mcp_wrapper.py` (PyGithub-style) for all GitHub .grok syncs, file reads, listings, and pushes. Avoid raw `github___*` micro-commands when possible; the wrapper handles the MCP tool specs cleanly.
    - Always cross-reference with uploaded diagrams when available
 6. After significant progress, update:
    - Relevant `.grok/` file
