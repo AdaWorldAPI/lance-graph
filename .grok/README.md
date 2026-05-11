@@ -28,7 +28,7 @@ This is intentionally modular. Start here and expand as needed.
 
 | Section | File | Status | Description |
 |---------|------|--------|-------------|
-| **Overview** | `01_overview.md` | Skeleton | High-level system map + key invariants |
+| **Overview** | `01_overview/01_system_overview.md` | Active | High-level system map + key invariants (multi-zone, L1–L4 shaders, spear bridge, OGIT) |
 | **Core Primitives** | `02_core_primitives/` | Active | `CausalEdge64`, Pearl masks, Plasticity |
 | **Cognitive Layers** | `03_cognitive_layers/` | Active | Resonance, MetaOrchestrator, Thinking Styles |
 | **Mathematical Foundation** | `04_mathematical_foundation/` | Active | `jc` crate, proofs, CI verification |
@@ -39,12 +39,15 @@ This is intentionally modular. Start here and expand as needed.
 
 ### Quick Navigation (Current Focus Areas)
 
+- **High-Level System Map & Multi-Zone Overview** → `01_overview/01_system_overview.md`
 - **CausalEdge64** → `02_core_primitives/causal_edge64.md`
 - **Pearl 2³ Masks** → `02_core_primitives/pearl_masks.md`
 - **Thinking Styles + MetaOrchestrator** → `03_cognitive_layers/meta_orchestrator.md`
+- **NARS + Thinking Full Inventory & Migration** (single source — paths, uniqueness, DTO/SoA, before/after, inner/outer ontology + OGIT) → `03_cognitive_layers/NARS_THINKING_IMPLEMENTATIONS_INVENTORY_MIGRATION.md`
 - **cognitive-shader-driver + Cypher** → `03_cognitive_layers/cognitive_shader_driver.md` + `05_query_languages/cypher_implementations.md`
 - **Jirak-Cartan Mathematical Proofs** → `04_mathematical_foundation/jc_jirak_cartan.md`
 - **CI Proof Pipeline** → `06_ci_and_verification.md`
+- **Grok Session Tooling & GitHub Sync** (meta) → `github_mcp_wrapper.py` (use this PyGithub-like wrapper for all .grok GitHub operations; bulk push, ls, cat, etc. via MCP connected tools)
 
 ---
 
