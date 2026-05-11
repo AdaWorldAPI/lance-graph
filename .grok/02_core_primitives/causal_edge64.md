@@ -29,6 +29,8 @@ It is the atomic unit that flows through the L1–4 resonance loop.
 
 ## Related Modules
 
+**See canonical NARS + Thinking inventory & migration plan** (all call sites, uniqueness, DTO ownership, before/after, inner/outer ontology integration): `.grok/03_cognitive_layers/NARS_THINKING_IMPLEMENTATIONS_INVENTORY_MIGRATION.md`. This file now owns the full context for NARS frequency/confidence usage inside `CausalEdge64`.
+
 - `pearl.rs` — `CausalMask` enum (Association / Intervention / Counterfactual)
 - `plasticity.rs` — Per-plane hot/cold/frozen control
 
