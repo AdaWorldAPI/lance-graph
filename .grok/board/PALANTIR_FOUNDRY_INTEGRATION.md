@@ -16,12 +16,13 @@ Palantir Foundry is a mature platform for:
 - **Security & governance** — Fine-grained access control, auditing, and policy enforcement at the ontology level.
 - **Cross-domain reasoning** — Connecting disparate data sources into a unified semantic graph.
 
-The aspiration in this system is:
-- **Inner ontology (Zone 1)**: AGI-aspiring (continuous resonance, causal reasoning via `CausalEdge64` + Pearl/NARS).
-- **Mid surface (Zone 2 via spear)**: Foundry / HubSpot-aspiring operational layer — clean, typed, queryable, realtime.
-- **Outer ontology (Zone 3)**: Foundry-style interoperability with external systems (serialization, long-term storage, external consumers).
+The aspiration in this system is deliberately split:
 
-**OGIT** is positioned as the unifying semantic spine that makes inner and outer ontology consistent per domain.
+- **Inner (Zone 1 + cognitive-shader-driver)**: **AGI-aspiring** — full L1–L4 square shaders (64×64 CausalEdge64 → 256×256 attention → 4096×4096 Coca CAM + optional 4096 OGIT layer) + SPO-G/SPO-W semantic trajectory witnesses + continuous causal reasoning via `CausalEdge64` + Pearl/NARS.
+- **Mid surface (Zone 2 via spear + lance-graph-callcenter in same binary)**: **Palantir Foundry / HubSpot-aspiring** operational layer — clean, typed, queryable, zero-copy transcode. Does **not** force AGI complexity on consumers. spear harbors HubSpot reverse-engineering + SharePoint/Hiro transcodes + Stalwart stubs.
+- **Outer (Zone 3)**: **Palantir Foundry + Gotham Neo4j aspiring** interoperability — serialized, long-term, external systems. Uses LanceDB DataFusion + one-time OGIT/OWL codebook hydration.
+
+**OGIT** (future OWL) is the unifying semantic spine that keeps inner (AGI) and outer (Foundry) ontology consistent per domain while allowing completely different performance and serialization characteristics. The 3–5 byte `g` pointer enables O(1) schema/label switching everywhere.
 
 ---
 
@@ -31,8 +32,8 @@ The aspiration in this system is:
 |--------------------------|-----------------------------------------------------------------------|------|----------|-------|
 | **Ontology (Objects + Links)** | OGIT schemas + `BindSpace` entities + `CausalEdge64` links           | 1+2+3 | Medium  | OGIT provides the schema spine; BindSpace + CausalEdge64 provide high-performance runtime |
 | **Typed Properties**     | QualiaColumn (18D), MetaWord, entity_type in BindSpace               | 1    | Medium  | Needs richer property modeling aligned with OGIT |
-| **Data Integration Pipelines** | lance-graph-callcenter (realtime transcode) + spear pipelines       | 2    | Early   | spear is the emerging integration surface |
-| **Operational Apps**     | spear (HubSpot-like surface)                                         | 2    | Early   | Intended as the clean operational layer over BindSpace |
+| **Data Integration Pipelines** | lance-graph-callcenter (transcode layer in same binary, **no Supabase Realtime**) + spear pipelines | 2    | Early   | spear is now the owned HubSpot-like surface absorbing SharePoint + Hiro transcodes |
+| **Operational Apps**     | spear (HubSpot-like surface — harbors reverse-engineering + SharePoint/Hiro/Stalwart transcodes) | 2    | Early   | Owned Zone 2 surface. Clean consumer APIs over BindSpace. Does not expose full AGI machinery. |
 | **Analysis / Intelligence** | q2 repository (Gotham / Neo4j aspiring)                             | 3    | Early   | High-value target for OSINT + cross-domain reasoning |
 | **Provenance & Audit**   | LanceAuditSink, temporal fields in BindSpace, CollapseGate decisions | 1+2  | Medium  | Can be extended to full Foundry-style lineage |
 | **Security & Policies**  | CollapseGate entropy budget + MUL + ontology-aware thresholds        | 1    | Early   | Needs expansion to domain-level policies |
