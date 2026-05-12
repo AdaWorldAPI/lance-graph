@@ -317,3 +317,41 @@ The master plan-doc `.claude/plans/unified-ogit-architecture-v1.md` provides the
 - **Risk:** the "~80% already shipped" claim is W1/W2's recognition assertion, not independently re-verified by W9. This section reports it as the synthesis output; the canonical evidence lives in `tier-0-pattern-recognition.md` (W2) and the entropy ledger reframe rows (W6).
 - **Governance:** append-only preserved. No deletions. No edits to the prior `## 2026-05-07 — Append: lance-graph-ontology shipped` section. Section heading matches the spec exactly.
 - **What this section does NOT do:** it does not edit the top-of-file "Last updated" line (would violate append-only); it does not edit the "Recently Shipped PRs" table (Sprint-2 shipped no PRs); it does not edit "Active Branches" (Sprint-2 is documentation tier on a branch that has not yet merged).
+
+## 2026-05-12 — Sprint-3: Tier-1 Implementation Specs (PR #360 + #361 + post-#360 substrate sweep)
+
+**PR #360** (sprint-3 main): 11 PR-X-1 specs covering 7 design-phase patterns A/B/C/D/E/F/J + 3 trivia closures + supporting docs. ~140 KB across `.claude/specs/`. Engineer can now execute Tier-1 in ~6 working days parallelized (per W10 sequencing).
+
+**PR #361** (post-#360 corrections): PR-F-1 supervisor must skip inert bundles (DOLCE/FMA have consumer_pointer=None by design); PR-E-1 build script must emit data-only (no consumer crate refs) to avoid Cargo dependency cycle. Both fixed via append-only correction sections; inventory-crate self-registration recommended for actor binding.
+
+**Post-#360 substrate-recognition sweep** (this PR): 3 of 11 specs reclassified PARTIALLY SHIPPED:
+- Pattern A: SchemaPtr.ontology_context_id + NamespaceRegistry::seed_defaults already ship; PR-A-1 reduces to ~150 LOC / 1 day
+- Pattern C: BridgeFromRegistry + 3 impls + woa-rs#2 + medcare-rs#110 consumer scaffolds already ship; PR-C-1 reduces to ~80 LOC / ½ day
+- Pattern D: parse_ttl_directory_with_provenance + attach_provenance already ship; PR-D-1 reduces to ~250 LOC / 1-2 days (OWL/RDF-XML adapter only)
+
+Compressed sprint-3 critical path: ~6 days → ~3-4 days parallelized. The genuinely-new ~5-pattern set is B (context bundle), E (manifest-modules), F (ractor port), G (inheritance protocol), J (INT4-32D atoms).
+
+### New knowledge docs (sprint-3 substrate-sweep)
+
+- `.claude/knowledge/pattern-recognition-cross-source.md` — A-O ↔ Pillars 0-4 ↔ `.grok/` ↔ shipped substrate matrix (4 parallel taxonomies cross-referenced)
+- `.claude/knowledge/cca2a-sprint-prompt-template.md` — substrate-grep checklist + wrong-repo guardrail + pattern-letter discipline (mandatory pre-spawn template for future sprints)
+
+### Anti-Pattern recurrence captured
+
+The "Designing What's Already Built" anti-pattern (introduced PR #358) recurred in sprint-3's own design (PR-A-1/PR-C-1/PR-D-1 over-scoped because they didn't sweep post-#355 substrate). The correction PR formalizes the substrate-grep checklist as mandatory before any new spec.
+
+### Recurring failure mode: wrong-repo error
+
+Sprint-2 W7 → ndarray; sprint-3 W9 → ada-consciousness. Both corrected via main-thread pygithub recovery. Wrong-repo guardrail snippet now mandatory in every worker prompt (per `.claude/knowledge/cca2a-sprint-prompt-template.md`).
+
+### Cross-references
+
+- `.claude/specs/sprint-3-execution-plan.md` (W1 master)
+- `.claude/specs/sprint-3-pr-graph.md` (W10 sequencing — to be updated for compressed timeline)
+- `.claude/specs/pr-{a,b,c,d,e,f,j}-1-*.md` (11 PR-ready specs; A/C/D have appended CORRECTION sections)
+- `.claude/specs/consumer-crate-template.md` (W8; re-target from hubspo-rs hypothetical to woa-rs/medcare-rs precedent)
+- `.claude/specs/ogit-g-smoke-test.md` (W11 validation)
+- `.claude/specs/trivia-prs-bundle.md` (W12 — 3 quick wins parallel-shippable)
+- `.claude/board/sprint-log-3/{SPRINT_LOG.md,agents/agent-W1..W12.md,meta-1-review.md,sprint-summary.md}`
+
+PR sequence: #360 → #361 → post-#360 substrate-sweep (this PR).
