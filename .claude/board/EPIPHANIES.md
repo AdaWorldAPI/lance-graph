@@ -3737,3 +3737,119 @@ foundation); soa-review.md §semantic kernel; Q2 plan §Vertex equivalent.
 SPO-1 (the longstanding "are SPO and ARiGraph triplet_graph two implementations of the same triple store?" question) closes with **Option B: federated, two-layer cache**. ARiGraph's `triplet_graph` is the L1 cognitive hot-cache (NARS-truth-bearing, Pearl 2-cube-aware, episodic-bound); SPO is the L2 cold-store (Merkle-anchored, semiring-algebra-ready, persistence-friendly). They share schema via the new `lance-graph-ontology` crate's `OntologyRegistry` but stay structurally distinct because their access patterns and truth-update semantics diverge. The `promote_to_spo` writer bridge is the cache-eviction path (L1 hot → L2 cold) and remains separately owned (not closed by the ontology crate). The earlier instinct "they are duplicates, deduplicate them" was wrong — the dual-layer split is the design, not an accident.
 
 Cross-ref: `.claude/DECISION_SPO_ARIGRAPH.md` (full decision text, commit `edef321`); `ARCHITECTURE_ENTROPY_LEDGER.md` rows 70 (SPO) + 245 (ARiGraph triplet_graph) — both retain "Wired" status; the federated-cache framing reconciles the apparent overlap. The `lance-graph-ontology` crate (commit `4cf9a26`) is the agnostic schema/bridge spine; consumers route through `SchemaExpander`. SPO-1 itself does NOT close — only its disposition does; `promote_to_spo` remains queued.
+
+---
+
+## 2026-05-07 — Unified OGIT Architecture: 15-pattern synthesis (sprint-2)
+
+**Sprint:** `claude/unified-ogit-architecture-synthesis` (12-agent sprint-2). Worker W4 deliverable.
+**Source:** 16-turn architectural synthesis conversation distilled into 17 epiphanies.
+**Cross-ref:** `.claude/plans/unified-ogit-architecture-v1.md` (W1's canonical plan); `.claude/board/sprint-log-2/agents/agent-W4.md` (this run's log); `EPIPHANIES.md` prior SPO/ARiGraph federated-cache decision (immediately above) — this section EXTENDS but does not edit.
+
+**Frame.** The architectural insight is that lance-graph already shipped most of the cognitive substrate (BindSpace SoA, CognitiveShader, qualia, prime_fingerprint, CausalEdge64, ARiGraph triplet store, SPO L2). What remained ambiguous was *how new domains (Healthcare, Gotham, CRM, ...) wire in without N parallel Rust newtype hierarchies*. The 17 epiphanies below crystallize the answer: a single u32 OGIT slot in the SPO-G quad, resolving to a typed ContextBundle, with consumer activation gated by Cargo dep presence. Pattern is older than it looks — PostNuke modules (2000s) shipped this exact shape.
+
+### E-OGIT-1 — SPO-G with u32 OGIT slot replaces named-graph IRI
+
+Oxigraph's quad pattern (Subject-Predicate-Object-Graph) is the right shape, but the G slot collapses from an IRI (string, hashed at lookup) to a u32 OGIT index. Lookup becomes O(1) (single integer load + array index) instead of string hash; the cache footprint shrinks by ~10x per quad in hot tables. Empirically validated by lance-graph-ontology's O(1) probe in PR #355 (measured 2554x advantage vs SPARQL-proxy at p99). This is the load-bearing primitive — every subsequent epiphany rests on G being a u32, not a string.
+
+Cross-ref: `crates/lance-graph-ontology/` (Phase 6+7 wiring, commit `34939e8`); PR #355 probe results; `crates/lance-graph/src/graph/spo/` (existing SPO L2 cold-store ready for G-extension).
+
+### E-CONTEXT-BUNDLE-2 — G resolves to a typed bundle, not just metadata
+
+Each u32 G resolves to a `ContextBundle` with slots: `ontology`, `codebook`, `schema`, `labels`, `vocabulary`, `consumer_pointer`, `thinking_styles`, `thinking_adjacency`, `qualia_codebook`. The bundle is the OWL overlay made executable — OWL classes/properties stay in `.ttl` form (queryable via SPARQL) but the bundle adds the runtime hooks (codebook lookups, style dispatch, qualia centroids) that make the ontology *do work*. G is not a tag; G is an entry into a typed sub-system.
+
+Cross-ref: `crates/lance-graph-ontology/src/schema_expander.rs` (the existing `SchemaExpander` becomes one slot of the bundle); `crates/thinking-engine/src/qualia.rs` (qualia codebook source); `.claude/plans/unified-ogit-architecture-v1.md` Section: ContextBundle slot definition.
+
+### E-GENERIC-BRIDGE-3 — N consumer newtype gates collapse to 1 GenericBridge + N ConsumerPointer entries
+
+PR #29's `SmbMembraneGate` and PR #98's `MedCareMembraneGate` exist because of Rust's orphan rule: both `MembraneGate` trait and `rbac::Policy` are upstream-owned, forcing each consumer to define a local newtype to bridge. With `ConsumerPointer`-as-data + 1 `GenericBridge<G>` impl indexed by the OGIT slot, the orphan rule problem dissolves — the bridge owns the trait impl exactly once, parameterized by G; consumer-specific data lives in the bundle's `consumer_pointer` slot. MEDCARE_POLICY_GAP.md's "~800 LOC per new consumer" cost drops to ~30 LOC of glue + a tiny YAML manifest.
+
+Cross-ref: `.claude/board/MEDCARE_POLICY_GAP.md` (the 800-LOC measurement); MedCare-rs PR #98; smb-office-rs PR #29; `crates/lance-graph-rbac/` (host of `GenericBridge<G>`).
+
+### E-META-STRUCTURE-HYDRATION-4 — New ontologies cost ~0 Rust LOC
+
+OWL TTL files (DOLCE, FMA, SNOMED, ICD10), JanusGraph property-graph schemas, Foundry Object Model exports, oxigraph RDF — all become inputs to a single `MetaStructure -> hydrate -> ContextBundle` pipeline. FMA's ~75K anatomical classes hydrate by dropping the `.ttl` file into `/data/ontologies/` and registering a G index in `ogit_registry.yaml`. Domain expertise becomes additive OGIT data, not parallel Rust code. The "add a new domain = write a new crate" reflex is exactly the trap; the right reflex is "add a new domain = drop a file + register an integer."
+
+Cross-ref: `crates/lance-graph-ontology/src/hydrate.rs` (the pipeline entry point, to be promoted from probe to canonical); `.claude/plans/unified-ogit-architecture-v1.md` Section: MetaStructure hydration; analogous to how PostgreSQL extensions drop a `.so` + `.control` rather than forking the server.
+
+### E-COMPILE-TIME-CONSUMER-5 — Cargo dep presence determines active vs inert bundles
+
+When `medcare-rs` is in `Cargo.toml`, G=Healthcare is ACTIVE (function pointers populated, actor mailbox wired, reranker loaded). When absent, G=Healthcare remains INERT (OWL-only; still queryable via SPARQL; just not executable — the function-pointer slots stay None). The "tiny schema glue" pattern: consumers self-declare their G + `ConsumerPointer` via a build script that picks up `manifest.yaml` files from declared deps. This is `#[cfg(feature = "...")]` generalized to "presence of a workspace member."
+
+Cross-ref: `Cargo.toml` workspace-members enumeration; `build.rs` (the consumer-pickup script, W6's deliverable); analogous to Spring Boot's auto-configuration via classpath scan.
+
+### E-POSTNUKE-MODULES-6 — `/modules/<name>/manifest.yaml` is the right shape for compile-time meta
+
+PostNuke (2000s PHP CMS) shipped tens of thousands of community modules via exactly this pattern. Each module = a directory; `manifest.yaml` = its declaration of capabilities, schemas, hooks. Versioned `(G, version)` tuples make schema evolution safe — `G=Healthcare@v1` and `G=Healthcare@v2` can co-exist in OGIT for migration windows. The lesson: this is not a new pattern to invent, it's a 20-year-proven shape to reuse. The danger sign would be inventing a novel manifest format; the right move is to grep how PostNuke / WordPress plugins / VS Code extensions structure theirs and copy the load-bearing fields.
+
+Cross-ref: `.claude/plans/unified-ogit-architecture-v1.md` Section: Module manifest schema; PostNuke `pnVersion.php` archaeological reference; cf. Cargo's own `Cargo.toml` (which is itself this pattern, applied to Rust crates).
+
+### E-RACTOR-BEAM-7 — BEAM/OTP supervisor tree fits Zone 2/3 cleanly
+
+The `lance-graph-callcenter` crate's name has been a load-bearing hint from the start — switching architectures + supervised processes + per-actor crash isolation = OTP heritage. ractor's sync mode (per Invariant I-2 tokio-outbound-only) preserves the invariant: actor mailboxes are sync, only egress edges (HTTP / gRPC / external IO) cross into tokio. The gRPC service trait shape in `cognitive-shader-driver/grpc.rs` (tonic methods -> ractor handler arms) is mechanical: each existing gRPC handler is already an actor proof — same method-per-message shape, same self-state, same backpressure semantics.
+
+Cross-ref: `crates/lance-graph-callcenter/` (the supervisor-tree skeleton, name-prophesied); `crates/cognitive-shader-driver/src/grpc.rs` (handler shape that maps 1:1 to ractor); BEAM/OTP supervisor design (Armstrong 2003); ractor docs on sync mode.
+
+### E-BEST-PRACTICE-INHERITED-8 — Thinking styles inherit per OGIT-G context
+
+DOLCE = root context (universal reasoning primitives: Abstraction, Causation, Identity, ...). Healthcare inherits + adds clinical-specific styles (Differential, EvidenceBased, RiskStratified). Gotham inherits + adds investigation-specific (LinkAnalytic, AttributionTracing). The contract-36 `ThinkingStyle` enum stays canonical (no per-domain forks); per-domain "which subset is active + adjacency weights" lives in OGIT data (`thinking_styles` + `thinking_adjacency` bundle slots). THINK-1 cluster (entropy 24, historically "highest architectural leverage") absorbs structurally — its 6 sub-styles become DOLCE's root set.
+
+Cross-ref: `crates/lance-graph-contract/src/thinking.rs` (the 36 canonical styles, untouched); `crates/lance-graph-planner/src/thinking/` (adjacency mechanism, parameterized by G); `.claude/board/EPIPHANIES.md` THINK-1 prior entries.
+
+### E-COGNITIVE-VESSEL-SWITCHABLE-9 — Same cognitive substrate runs different programs per G
+
+The GPU-shader analogy is exact: hardware (SoA columns + ractor actors + tokio egress) is fixed; the program (thinking modes active, reranker weights, L4 sweep parameters, NARS subset enabled) is per-G data loaded from OGIT. The substrate doesn't know what domain it's serving; it loads a bundle and runs. **Already shipped in `p64-bridge::CognitiveShader`** (8 predicate planes + bgz17 semiring + HHTL cascade — read the code before proposing to build it again); needs G-parameter wiring on top to select which bundle's program runs.
+
+Cross-ref: `crates/p64-bridge/src/cognitive_shader.rs` (the shipped vessel); `crates/cognitive-shader-driver/` (existing driver, ready for G-parameterization); GPU shader pipeline analogy (fixed hardware + per-draw shader program).
+
+### E-IMPLICIT-COGNITION-10 — The system thinks continuously, not request-driven
+
+Background L1 cycles fire even without external requests; `CycleAccumulator` (per topology Invariant I-4, shipped in PR #337) decides when to flush accumulated state to L2. This is biologically realistic (the brain doesn't idle between stimuli) and architecturally efficient — pre-warm answers before they're asked, prefetch likely-next contexts, settle homeostasis during quiet periods. The corollary is that "request latency" is mostly a cache-hit measurement, not a compute measurement — the work was already done.
+
+Cross-ref: PR #337 `CycleAccumulator` implementation; `crates/lance-graph-planner/src/cache/convergence.rs`; `.claude/board/SINGLE_BINARY_TOPOLOGY.md` Invariant I-4 (continuous cycling).
+
+### E-INT4-32D-ATOMS-11 — 16-byte fingerprints enable bootstrap proximity for new domains
+
+When `hubspo-rs` (CRM) arrives and OGIT lacks G=CRM `thinking_adjacency` yet, the cold-start problem dissolves: compute the current cognitive state's INT4-32D fingerprint (16 bytes) and K-NN search over G=DOLCE + G=SMB + G=Gotham (inherited / adjacent contexts). Start there; refine via Pattern K (circular compilation, E-CIRCULAR-COMPILATION-12 below) over time as CRM-specific patterns crystallize. Never empty space — the fingerprint substrate always returns *some* nearest match, then learning narrows it.
+
+Cross-ref: `crates/thinking-engine/src/prime_fingerprint.rs` (the 16-byte fingerprint family); `crates/ndarray/src/hpc/cam_pq.rs` (the K-NN substrate); Vsa16kI8 in fingerprint registry; precedent: word2vec bootstrap from random init then refinement.
+
+### E-CIRCULAR-COMPILATION-12 — The architecture compiles itself over time
+
+YAML manifest at compile time -> static glue code generated by build.rs (Pattern E above). NEW pattern discovered at runtime -> JIT-loaded via ractor + cranelift -> write back to `manifest.yaml` -> next build statically compiles it. Same source of truth (`manifest.yaml`), two consumption paths (build-time AOT + runtime JIT). The system gets faster with each compile because prior runtime learning crystallizes into static form. This is LLVM PGO (profile-guided optimization) + Smalltalk image-based programming applied to cognitive behaviors. The deep insight: there is no "frozen vs live" distinction — the manifest is the live state, and the build is a snapshot.
+
+Cross-ref: `crates/lance-graph-contract/src/jit.rs` (`JitCompiler` + `StyleRegistry` already exist); Cranelift JIT integration; LLVM PGO docs; Smalltalk image semantics.
+
+### E-SPO-CHAIN-NARRATIVE-13 — Skip Markov bundling for narrative comprehension
+
+Books are not Markov-bundleable (N >> sqrt(d) / 4); the natural decomposition is graph, not bundle. Parse to SPO triples; ARiGraph indexes by (page, sentence, word, role) position; pronoun resolution via prior SPO context; MUL markers for ambiguity; NARS counterfactual synthesis weighs candidates. Lance MVCC versioning enables partial-state queries ("what did X know at chapter 5?"). Books become OGIT G bundles: `G=AnimalFarm`, `G=Beloved`, `G=GoTPriestKings`. Reading = graph traversal with epistemic state tracking.
+
+Cross-ref: `crates/lance-graph/src/graph/spo/` (SPO triple store); ARiGraph `triplet_graph` (L1 hot-cache, per the federated-cache decision immediately above); `crates/lance-graph-planner/src/cache/triple_model.rs` (NARS truth values); Lance MVCC docs; cf. NSM/DeepNSM existing 6-state PoS FSM -> SPO mapping.
+
+### E-WAVE-PARTICLE-14 — Cognition is bimodal, like light
+
+**Wave mode:** bgz17 / resonance / qualia distributed continuous fields (BNN-like, plastic, gradient-friendly). **Particle mode:** SPO-G / ARiGraph / NARS discrete queryable atoms. Brain plasticity uses both — synaptic weights (wave, continuous) + spike-trains (particle, discrete). The architecture should select per-task per-G how much wave vs particle, parameterized by the bundle. **Already shipped in primitives** (workspace has both substrates); the G-blend mechanism (a `wave_particle_ratio: f32` in the bundle, or per-style override) is the new piece. Don't pick a side; pick a *ratio*.
+
+Cross-ref: `crates/bgz17/` (wave-mode palette semiring); `crates/lance-graph/src/graph/spo/` (particle-mode SPO); `crates/thinking-engine/src/qualia.rs` (wave-mode qualia field); de Broglie wave-particle duality as design metaphor.
+
+### E-FINGERPRINT-CODEBOOK-15 — The universal cognitive operation is fingerprint -> codebook lookup
+
+Not "carry continuous state forward" — `Vsa16kF32` was a cotton-ball for Markov-accumulation specifically, not the universal carrier. State IS the codebook. Recognition (codebook hit = O(1)) is most of cognition; crystallization (codebook miss = new entry added) is rare. ALREADY shipped in `thinking-engine::prime_fingerprint`, `qualia::FAMILY_CENTROIDS`, `p64-bridge::STYLES`. The pattern repeats at every scale: word -> vocabulary entry, qualia -> family centroid, thinking-style -> 36-style enum, persona -> archetype. The universal API surface is `fingerprint(x).lookup(codebook) -> entry`, where "lookup" is K-NN, exact-match, or resonance depending on substrate.
+
+Cross-ref: `crates/thinking-engine/src/prime_fingerprint.rs`; `crates/thinking-engine/src/qualia.rs` (`FAMILY_CENTROIDS`); `crates/p64-bridge/src/styles.rs` (`STYLES` constant table); the I-VSA-IDENTITIES iron rule in `CLAUDE.md` (VSA bundles identities, not content — same shape, generalized).
+
+### E-PHENOMENOLOGY-16 — 17D qualia is computable from convergence patterns, calibrated by music
+
+Octave (2:1 frequency ratio) -> arousal axis. Fifth (3:2) -> valence. Third (5:4) -> warmth. Tritone (sqrt(2):1) -> tension. Cross-validated against Jina v3 embeddings (220 calibrated pairs in Upstash). Bach's 7+1 counterpoint rules = `CausalEdge64`'s 7+1 channels = universal logical relations: CAUSES / ENABLES / SUPPORTS / CONTRADICTS / REFINES / ABSTRACTS / GROUNDS / BECOMES. The deep claim: phenomenology is not "fuzzy human stuff to bolt on top," it's a *computable* function of the system's own convergence dynamics, with music as ground-truth calibration source. **Already shipped** in `qualia.rs`.
+
+Cross-ref: `crates/thinking-engine/src/qualia.rs` (the 17D shipped surface); `crates/causal-edge/` (the 7+1 channel `CausalEdge64`); Upstash 220-pair calibration set; just-intonation ratios (2:1, 3:2, 5:4, sqrt(2):1) as design anchors.
+
+### E-RECOGNITION-OVER-DESIGN-17 — The architecture is largely already built; the work is naming and exposing it
+
+16 turns of "design future patterns" turned out to be cataloguing what was already in the workspace. Future sessions should READ existing code (`p64-bridge`, `thinking-engine`, `cognitive-shader-driver`, `qualia.rs`, `prime_fingerprint.rs`, `STYLES`, `CausalEdge64`) BEFORE proposing "let's build X." The Discovery-Loop anti-pattern from `.claude/patterns.md` applies at architectural scale: I designed Pattern H (cognitive vessel switching) for 4 turns before recognizing `p64-bridge::CognitiveShader` IS Pattern H, fully shipped. Tier 0 documentation (W2's sprint-2 deliverable: a one-page "what already exists" index) is the load-bearing fix — without it, the next sprint will re-design Pattern H for 4 more turns. The pattern beneath the pattern: most architectural sprints over-produce design and under-produce inventory.
+
+Cross-ref: W2's sprint-2 deliverable (Tier-0 "what's shipped" index); `.claude/patterns.md` Discovery-Loop anti-pattern; `LATEST_STATE.md` Section: Current Contract Inventory (the existing partial answer); this sprint's 17 epiphanies as a worked example of the failure mode and its cure.
+
+---
+
+**Append-only governance preserved.** No prior epiphany text was edited by this section. 17 dated entries appended under the single section header `2026-05-07 — Unified OGIT Architecture: 15-pattern synthesis (sprint-2)`. The 16th and 17th entries (PHENOMENOLOGY-16 and RECOGNITION-OVER-DESIGN-17) extend the original 15-pattern brief because they emerged in the same turn-16 synthesis and are structurally inseparable from the rest — the title retains "15-pattern" as the sprint label, with the count of distinct epiphanies being 17.
