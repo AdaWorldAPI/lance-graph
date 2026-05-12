@@ -237,3 +237,83 @@ the contract. This file exists to prevent that.
 ### Current Contract Inventory — new entry
 
 **`lance-graph-ontology`** (new crate, 2026-05-07): consolidates per-tenant bridge multiplication into one ontology spine. OGIT becomes the canonical TTL ontology source; Lance is the (feature-gated) runtime dictionary cache; tenant bridges become thin scoped views over the shared registry. Public types: `OntologyRegistry`, `NamespaceBridge` trait, `NamespaceId`, `OgitUri`, `SchemaPtr`, `SchemaKind`, `MappingProposal`, `MappingProposalKind`, `MappingRow`, `MappingHandle`, `HydrationReport`, `HydrationFailure`, `BridgeError`, `Error`, `SchemaSource` trait, `EntityRef`, `EdgeRef`, `OntologyAssembler`, `SemanticTypeMap`, `TtlSource`. Default tenant bridges: `bridges::WoaBridge`, `bridges::MedcareBridge`, `bridges::OgitBridge`. 28 tests passing (16 inline + 12 integration). Feature-gated Lance persistence under `lance-cache` (kept off by default so the crate compiles without `protoc`, which `lance-encoding`'s build-script requires). Branch `claude/create-graph-ontology-crate-gkuJG`; commit `4cf9a26`; prior recon + decision in `edef321` (`.claude/RECON_ONTOLOGY_CRATE.md`, `.claude/DECISION_SPO_ARIGRAPH.md`).
+
+---
+
+## 2026-05-07 — Sprint-2: Unified OGIT Architecture synthesis (recently shipped — documentation tier)
+
+> **APPEND-ONLY annotation.** Per the governance rule above, this section augments — does not edit — prior content. Treat as the new top-of-state. Branch: `claude/unified-ogit-architecture-synthesis`.
+>
+> Sprint-2 was a 12-agent + meta-review coordinated burst. **Zero code changes; documentation tier only.** It captures 16 turns of architectural conversation (2026-05-07) as a unified pattern-recognition framework over already-shipped substrate, plus three concrete next-PR sub-plans and one proof-of-vision plan. The dominant finding: ~80% of the "unified OGIT architecture" we were about to design is **already shipped**; recognising this drops architecture entropy by **−11** with no code written.
+
+### Sprint-2 deliverables (12 workers + meta)
+
+**New plan-docs (4)**
+
+| File | Size | Worker | Purpose |
+|---|---|---|---|
+| `.claude/plans/unified-ogit-architecture-v1.md` | ~22 KB | W1 | Master synthesis: 15 patterns (A-O) + Tier 0-4 stack + proof-of-vision. Canonical reference for the unified OGIT architecture. |
+| `.claude/plans/ogit-g-context-bundle-v1.md` | ~10 KB | W10 | Tier-1 sub-plan: G-overlay wiring; Patterns A (G-slot) + B (context-bundle) + C (per-cycle cascade). |
+| `.claude/plans/compile-time-consumer-binding-v1.md` | ~10 KB | W11 | Tier-2 sub-plan: compile-time consumer binding + ractor; Patterns E (consumer-binding) + F (zero-overhead actor seam). |
+| `.claude/plans/anatomy-realtime-v1.md` | ~12 KB | W12 | Proof-of-vision: north-star realtime anatomy demo end-to-end across the unified stack. |
+
+**New knowledge doc (1)**
+
+| File | Size | Worker | Purpose |
+|---|---|---|---|
+| `.claude/knowledge/tier-0-pattern-recognition.md` | ~13 KB | W2 | File→pattern map covering ~30 already-shipped files. Read this FIRST in any future session that touches OGIT architecture to avoid the Discovery-Loop anti-pattern. |
+
+**Board appends (5, append-only governance preserved)**
+
+| File | Worker | Append summary |
+|---|---|---|
+| `.claude/patterns.md` | W3 | Appended **Pattern Recognition Framework**: 15 patterns A-O catalogued + new Anti-Pattern **"Designing What's Already Built"**. |
+| `.claude/board/EPIPHANIES.md` | W4 | Appended **17 architectural epiphanies**: E-OGIT-1 through E-RECOGNITION-OVER-DESIGN-17. |
+| `.claude/board/TECH_DEBT.md` | W5 | Appended **11 TD entries**: TD-OGIT-G-SLOT-1 through TD-DEEPNSM-NSM-COLLAPSE-11, each with effort estimate. |
+| `.claude/board/ARCHITECTURE_ENTROPY_LEDGER.md` | W6 | Appended **5 row reframes** (THINK-1 5→3, HEEL-1 4→2, ADJ-THINK-1 4→2, CRYSTAL-1 4→2, CAM-DIST-1 3→2) + 15-pattern absorption table. **Net entropy delta: −11**. |
+| `.claude/board/ARCHITECTURE_ENTROPY_LEDGER_RESOLVED.md` | W7 | Appended RECOGNITION-1 meta-finding row + Anti-Pattern surfaced ("Designing What's Already Built"). |
+
+**Index update (1)**
+
+| File | Worker | Update |
+|---|---|---|
+| `.claude/board/INTEGRATION_PLANS.md` | W8 | Indexed the 4 new plan-docs (W1 master + W10 + W11 + W12). |
+
+**Sprint coordination (CCA2A pattern, `/sprint-log-2`)**
+
+- `.claude/board/sprint-log-2/SPRINT_LOG.md` — master coordination index.
+- `.claude/board/sprint-log-2/agents/agent-W{1..12}.md` — per-agent append-only logs (12 files).
+- `.claude/board/sprint-log-2/meta-1-review.md` — meta agent brutally-honest review.
+- `.claude/board/sprint-log-2/agents/agent-W9.md` — this worker's handover log.
+
+### Aggregate impact
+
+- **15 architectural patterns (A-O)** named and catalogued.
+- **~80% of the "unified OGIT architecture" is recognised as already shipped** — Patterns H, M, N, O at substrate level; Pattern F shape proven by gRPC.
+- **~20% genuinely new wiring work** captured as TECH_DEBT entries with effort estimates (TD-OGIT-G-SLOT-1 through TD-DEEPNSM-NSM-COLLAPSE-11).
+- **Net entropy reduction from recognition alone: −11** (no code changes; 5 row reframes + 15-pattern absorption).
+- **Totals shipped this sprint:** 4 new plan-docs + 1 knowledge doc + 5 board appends + 1 index update + sprint-log-2 scaffolding (1 master + 12 agent logs + 1 meta review).
+
+### What this enables
+
+Future sessions that read `.claude/knowledge/tier-0-pattern-recognition.md` first will avoid the **Discovery-Loop anti-pattern at architectural scale** — the same anti-pattern `.claude/patterns.md` warns about at cycle level (proposing concepts that already exist in workspace).
+
+The master plan-doc `.claude/plans/unified-ogit-architecture-v1.md` provides the canonical reference for the unified OGIT architecture. The three sub-plans give concrete next-PR scope:
+
+- **Tier 1 next PR** — `.claude/plans/ogit-g-context-bundle-v1.md` (G-overlay wiring).
+- **Tier 2 next PR** — `.claude/plans/compile-time-consumer-binding-v1.md` (compile-time consumer binding + ractor).
+- **Proof of vision** — `.claude/plans/anatomy-realtime-v1.md` (north-star demo).
+
+### Cross-references
+
+- All sister deliverables listed above (W1–W12 + meta).
+- 16-turn architectural conversation (2026-05-07).
+- Pre-existing plans absorbed into the unified framework: `lance-graph-ontology-v5` (PR #355), `palantir-parity-cascade-v2` (PR #353), `ogit-cascade-supabase-callcenter-v1` (PR #355).
+- Substrate already shipped (Patterns H/M/N/O): see "Current Contract Inventory" and "Current AriGraph Inventory" sections above; especially `lance-graph-ontology` (commit `4cf9a26`), `cognitive-shader-driver` BindSpace SoA (PR #204+ thru #323), `crystal/` Vsa16kF32 sandwich (PR #208/#209), `cam/` codec cascade (PR #225).
+
+### Brutally-honest self-review (W9)
+
+- **In scope:** append-only update to `LATEST_STATE.md`. Did not edit any prior content. Verified the file's existing closing section (`2026-05-07 — Append: lance-graph-ontology shipped`) is preserved verbatim.
+- **Risk:** the "~80% already shipped" claim is W1/W2's recognition assertion, not independently re-verified by W9. This section reports it as the synthesis output; the canonical evidence lives in `tier-0-pattern-recognition.md` (W2) and the entropy ledger reframe rows (W6).
+- **Governance:** append-only preserved. No deletions. No edits to the prior `## 2026-05-07 — Append: lance-graph-ontology shipped` section. Section heading matches the spec exactly.
+- **What this section does NOT do:** it does not edit the top-of-file "Last updated" line (would violate append-only); it does not edit the "Recently Shipped PRs" table (Sprint-2 shipped no PRs); it does not edit "Active Branches" (Sprint-2 is documentation tier on a branch that has not yet merged).

@@ -1490,3 +1490,292 @@ documents the correct direction so future work doesn't re-derive it.
 **Scope:** @truth-architect lance-graph-ontology
 **Description:** When a TTL declares `dcterms:source <upstream-iri>` for an entity, the parser at `crates/lance-graph-ontology/src/ttl_parse.rs` ignores it and writes `source_uri = "file:<local-path>"` to the dictionary instead. The probe `dcterms_source_is_currently_dropped` in `tests/round_trip_ttl.rs` locks this current-but-undesired behaviour. Real OGIT TTLs do carry `dcterms:source` provenance; losing it cripples upstream-pull / round-trip-export workflows.
 **Followup:** Extend `parse_into_proposals` to look for `<http://purl.org/dc/terms/source>` triples per subject; if present, prefer that IRI over the local file path. Flip the assertion in the probe so it asserts the dcterms IRI is preserved. Close this row.
+
+
+## 2026-05-07 — Unified OGIT Architecture: remaining wiring work (sprint-2)
+
+> **Section context.** Sprint-2 of the `claude/unified-ogit-architecture-synthesis`
+> branch crystallized 15 architectural patterns (`.claude/plans/
+> unified-ogit-architecture-v1.md`). Code audit found ~80% already shipped
+> in workspace; the rows below capture the remaining ~20% wiring debt plus
+> three discovered substrate-misclassifications (the ledger framings were
+> wrong, not the code — see W6 reframe notes per row). Each row carries
+> Title / Region / Severity-Effort / Where / What / Plan / Dependencies
+> per the W5 acceptance criteria.
+>
+> Cross-refs: `ARCHITECTURE_ENTROPY_LEDGER.md` (region taxonomy R0–R8),
+> `.claude/plans/ogit-g-context-bundle-v1.md` (W10),
+> `.claude/plans/compile-time-consumer-binding-v1.md` (W11),
+> `.claude/plans/anatomy-realtime-v1.md` (W12),
+> `.claude/board/EPIPHANIES.md` patterns.md (Recipe C).
+
+---
+
+### TD-OGIT-G-SLOT-1 — Wire u32 G slot into the SPO quad-store as fourth tuple position
+
+**Status:** Open
+**Priority:** P0 (blocks Tier-1 of unified-ogit-architecture plan)
+**Region:** R6 (truth/SPO) / R0 (contract surface)
+**Effort:** medium (~300 LOC + Lance schema migration)
+**Scope:** crate:lance-graph crate:lance-graph-contract domain:ogit domain:spo
+**Where:** `crates/lance-graph/src/graph/spo/` (truth, builder, semiring),
+`crates/lance-graph/src/graph/arigraph/` (triplet store).
+**What:** Today SPO triples are `(S, P, O)`. Pattern A requires
+`(S, P, O, G)` quads where `G: u32` is the OGIT consumer slot. The
+existing `SpoBridge::promote_to_spo` (PR #355 D-ONTO-V5-9) is the natural
+bridge to extend — promote already routes raw RDF triples into SPO, so
+extending it to thread G through is the minimal-surgery path. Lance MVCC
+already supports versioned reads; that is the `G + version` foundation
+for time-travel queries per ConsumerPointer.
+**Plan reference:** `.claude/plans/unified-ogit-architecture-v1.md` Tier 1;
+`.claude/plans/ogit-g-context-bundle-v1.md` (W10).
+**Dependencies:** none (this is the foundation row; TD-CONTEXT-BUNDLE-2
+and TD-GENERIC-BRIDGE-3 build on it).
+
+---
+
+### TD-CONTEXT-BUNDLE-2 — Define ContextBundle as the typed OGIT registry surface
+
+**Status:** Open
+**Priority:** P1
+**Region:** R6 (ontology / typed-registry surface)
+**Effort:** small (~200 LOC type definitions + a few hydrator scaffolds)
+**Scope:** crate:lance-graph-ontology domain:ogit domain:contract
+**Where:** new module in `crates/lance-graph-ontology/` (the crate
+introduced by PR #355).
+**What:** `ContextBundle` is the typed registry surface keyed by `G`.
+Slot list (each `Option<Arc<…>>` initially; populated lazily by the
+Pattern-D hydrator):
+- `ontology` (OWL/TTL/whatever the upstream feed offers)
+- `codebook` (CAM-PQ centroids per G)
+- `schema` (Arrow / Lance schema for the G's tables)
+- `labels` (display strings)
+- `vocabulary` (NSM-style primes per G)
+- `consumer_pointer` (read by TD-GENERIC-BRIDGE-3)
+- `thinking_styles` (per-G subset of the 36 contract styles)
+- `thinking_adjacency` (TD-ADJ-THINK-EXPOSE-10 writes here)
+- `qualia_codebook` (per-G qualia centroids)
+- `trust_texture_set` (MUL TrustTexture per actor type)
+- `flow_state_set` (MUL FlowState per scenario)
+- `mul_threshold_profile` (per-G threshold pack — replaces hand-tuned σ)
+**Plan reference:** `.claude/plans/ogit-g-context-bundle-v1.md` (W10).
+**Dependencies:** TD-OGIT-G-SLOT-1 (G must exist as a key before the
+bundle can be indexed by it).
+
+---
+
+### TD-GENERIC-BRIDGE-3 — Implement GenericBridge dispatching per-G ConsumerPointer
+
+**Status:** Open
+**Priority:** P1
+**Region:** R3 (membrane / bridge) / R4 (callcenter routing)
+**Effort:** medium (~200 LOC + tests)
+**Scope:** crate:lance-graph-callcenter domain:membrane domain:ogit
+**Where:** new `crates/lance-graph-callcenter/src/generic_bridge.rs`.
+**What:** One canonical `impl MembraneGate for GenericBridge`. It reads
+the `ConsumerPointer` from the OGIT `ContextBundle` indexed by `G` and
+routes `admit` / `should_emit` through it. `SmbMembraneGate` (PR #29)
+and `MedCareMembraneGate` (PR #98) become thin wrappers — ergonomic
+aliases like `GenericBridge::for_g(OGIT::SMB_OFFICE_V1)` and
+`GenericBridge::for_g(OGIT::HEALTHCARE_V1)`. After the wrappers stabilise,
+both bespoke gates can optionally retire (a separate paid-debt entry).
+**Plan reference:** `.claude/plans/ogit-g-context-bundle-v1.md` (W10).
+**Dependencies:** TD-OGIT-G-SLOT-1, TD-CONTEXT-BUNDLE-2 (ConsumerPointer
+slot must be populated by the hydrator before the bridge can read it).
+
+---
+
+### TD-MANIFEST-MODULES-4 — PostNuke-style `/modules/<name>/manifest.yaml` + build-script glue
+
+**Status:** Open
+**Priority:** P1
+**Region:** R8 (build / governance)
+**Effort:** medium (~150 LOC build-script + ~30 LOC × 6 manifests ≈ 180 LOC)
+**Scope:** workspace-root crate:lance-graph-contract domain:build domain:ogit
+**Where:**
+- `/modules/medcare/manifest.yaml`
+- `/modules/q2-cockpit/manifest.yaml`
+- `/modules/smb-office/manifest.yaml`
+- `/modules/dolce/manifest.yaml`
+- `/modules/fma/manifest.yaml`
+- (sixth slot reserved for the first community-contributed module)
+- build-script: `crates/lance-graph-contract/build.rs`
+**What:** Each manifest declares `(G, version, domain_name, entity_types,
+rbac_policy, stack_profile, action_capabilities, actor crate + actor
+type)`. The build-script scans `/modules/*/manifest.yaml` at compile time
+and generates the canonical OGIT constants (e.g.
+`pub const HEALTHCARE_V1: (u32, u32) = (2, 1);`) plus `Consumer` trait
+impl scaffolds. PostNuke-style module discovery without runtime cost:
+manifest is data, the binary is fully statically-linked at link time.
+**Plan reference:** `.claude/plans/compile-time-consumer-binding-v1.md` (W11).
+**Dependencies:** TD-OGIT-G-SLOT-1 (G constants are emitted by the
+build-script).
+
+---
+
+### TD-RACTOR-SUPERVISOR-5 — Port gRPC service trait shape to ractor supervisor + per-consumer actors
+
+**Status:** Open
+**Priority:** P1
+**Region:** R4 (callcenter actor topology)
+**Effort:** large (~400 LOC + tests for the first consumer port;
+subsequent consumers smaller, ~100 LOC each)
+**Scope:** crate:lance-graph-callcenter crate:cognitive-shader-driver
+domain:ractor domain:supervisor
+**Where:** new `crates/lance-graph-callcenter/src/supervisor.rs`.
+Proof shape already exists in
+`crates/cognitive-shader-driver/src/grpc.rs` (the gRPC service trait
+that we port the shape of).
+**What:** Each consumer's gRPC service-trait methods become arms of a
+`ractor` actor handler. `Arc<Mutex<…>>` state becomes `ractor`-owned
+serial state (no Mutex — the actor mailbox is the serialisation
+primitive). Sync mode (`ractor::concurrency::sync` feature) preserves
+the I-2 iron rule (tokio outbound only). The supervisor reads
+`ConsumerPointer` from the OGIT `ContextBundle` to enumerate which
+actors to start at startup.
+**Plan reference:** `.claude/plans/compile-time-consumer-binding-v1.md` (W11).
+**Dependencies:** TD-MANIFEST-MODULES-4 (ConsumerPointer registration
+emitted by the build-script), TD-CONTEXT-BUNDLE-2 (the typed bundle
+surface the supervisor reads from), TD-OGIT-G-SLOT-1 (G key for the
+bundle index).
+
+---
+
+### TD-INT4-32D-ATOMS-6 — Compute INT4-32D cognitive-style fingerprints for bootstrap proximity
+
+**Status:** Open
+**Priority:** P2
+**Region:** R6 (thinking-as-codebook)
+**Effort:** small (~120 LOC + K-NN + tests)
+**Scope:** crate:lance-graph-contract domain:thinking domain:fingerprint
+**Where:** new `crates/lance-graph-contract/src/thinking/atoms.rs`.
+**What:** 32-dimensional INT4 (16-byte) fingerprints of cognitive
+state. K-NN search across the known thinking-style codebooks (DOLCE,
+Healthcare, Gotham, SMB) when a new G appears without best-practice
+data. Cosine-friendly via INT4 → BF16 expansion on read; also
+popcount-friendly for cheap pre-filter. The 16-byte width is chosen so
+a single AVX-512 / Apple AMX register holds a row; K-NN over a few
+thousand atoms costs microseconds.
+**Plan reference:** `.claude/plans/unified-ogit-architecture-v1.md` Tier 3.
+**Dependencies:** TD-CONTEXT-BUNDLE-2 (atoms live in the
+`thinking_styles` slot of the bundle).
+
+---
+
+### TD-CIRCULAR-COMPILATION-7 — JIT runtime hot-load of new thinking-style YAMLs (Pattern K)
+
+**Status:** Open (aspirational; not blocking any P0/P1 deliverable)
+**Priority:** P3
+**Region:** R8 (build / aspirational JIT)
+**Effort:** large (~500–800 LOC; cranelift integration + write-back path)
+**Scope:** crate:lance-graph domain:jit domain:cam-pq
+**Where:** extension to
+`crates/lance-graph/src/cam_pq/jitson_kernel.rs` (precedent for
+runtime-JIT in this workspace; cranelift is already vendored).
+**What:** When a new thinking-style is discovered at runtime (e.g. an
+INT4-32D atom from TD-INT4-32D-ATOMS-6 lands far from every known
+codebook entry), JIT-compile it as a `ractor` actor via cranelift;
+write the YAML back to `/modules/<name>/thinking_styles/*.yaml`; the
+next `cargo build` then statically compiles it via the
+TD-MANIFEST-MODULES-4 build-script. BEAM-style hot-code-load in Rust.
+Aspirational — listed so the path is documented; not blocking the
+anatomy demo or any production wiring.
+**Plan reference:** `.claude/plans/unified-ogit-architecture-v1.md` Tier 4.
+**Dependencies:** TD-MANIFEST-MODULES-4 (write-back target),
+TD-INT4-32D-ATOMS-6 (the trigger), TD-RACTOR-SUPERVISOR-5 (the actor
+shape to JIT into).
+
+---
+
+### TD-ANATOMY-DEMO-8 — anatomy-realtime-v1 demo (proof of vision)
+
+**Status:** Open
+**Priority:** P2 (proof; not on the critical path but funds the vision)
+**Region:** cross-region (R0–R8; integration vehicle)
+**Effort:** very large (multi-PR, ~5–7 PRs over weeks)
+**Scope:** new crate:lance-graph-demos domain:anatomy domain:medcare domain:q2
+**Where:** new demo binary + plan
+`.claude/plans/anatomy-realtime-v1.md` (W12).
+**What:** Hydrate FMA (Foundational Model of Anatomy, 75K anatomical
+classes) via the OWL hydrator; ingest a medical scan (DICOM) via the
+DICOM hydrator; render in `q2/cockpit-server` with a realtime anatomy-
+graph overlay. Exercises every pillar in one binary: SplatShaderBlas,
+EWA-Sandwich, α-saturation, OGIT-G, GenericBridge, medcare-rs RBAC,
+Q2 cockpit, ractor supervisor. The first artifact the unified-OGIT
+architecture is end-to-end visible in.
+**Plan reference:** `.claude/plans/anatomy-realtime-v1.md` (W12).
+**Dependencies:** TD-OGIT-G-SLOT-1, TD-CONTEXT-BUNDLE-2,
+TD-GENERIC-BRIDGE-3, TD-MANIFEST-MODULES-4, TD-RACTOR-SUPERVISOR-5
+(all of the above); FMA manifest entry comes from TD-MANIFEST-MODULES-4.
+
+---
+
+### TD-CAM-DIST-REGISTRATION-9 — Register `cam_distance` UDF globally in DataFusionPlanner::new
+
+**Status:** Open
+**Priority:** P2 (low-hanging fruit; closes a Tier-0 quick-win)
+**Region:** R6 (codec / DataFusion glue)
+**Effort:** trivial (1 line of wiring + 1 integration test)
+**Scope:** crate:lance-graph domain:cam-pq domain:datafusion
+**Where:** `crates/lance-graph/src/cam_pq/udf.rs` already exposes
+`register_cam_distance`; the call-site to add is
+`crates/lance-graph/src/datafusion_planner/mod.rs::DataFusionPlanner::new`.
+**What:** Add a single line:
+`state = lance_graph::cam_pq::udf::register_cam_distance(state);`
+This closes the `CAM-DIST-1` row in the entropy ledger (entropy 3 → 2)
+because the default Cypher path becomes able to reference
+`cam_distance` without an opt-in `with_cam_codebook(...)` call. The
+W6 reframe of this row was: the UDF is already registered globally
+*available*; it just needs to be threaded into the default planner
+constructor.
+**Plan reference:** `.claude/plans/unified-ogit-architecture-v1.md` Tier 0
+quick-wins.
+**Dependencies:** none.
+
+---
+
+### TD-ADJ-THINK-EXPOSE-10 — Expose ThinkingAdjacency::tau() write API over existing p64-bridge::CognitiveShader::planes
+
+**Status:** Open
+**Priority:** P2 (substrate exists; just needs a public API)
+**Region:** R3 (membrane) / R6 (thinking adjacency)
+**Effort:** trivial (~30 LOC + tests)
+**Scope:** crate:p64-bridge domain:thinking domain:adjacency
+**Where:** new public method on
+`crates/p64-bridge/src/lib.rs::cognitive_shader::CognitiveShader`.
+**What:** The `[u64; 64]; 8` planes ALREADY ARE the adjacency store.
+The `ADJ-THINK-1` row's framing — "`tau()` addresses computed, never
+written" — was **wrong** (W6 reframe). The planes ARE the writes; the
+debt is the missing public surface to write into them by
+`(plane, block_row, block_col)`. Add a `tau_write(plane: usize,
+block_row: usize, block_col: usize)` method (or a builder constructor
+API) and the ledger row drops from entropy 4 → 2.
+**Plan reference:** `.claude/plans/unified-ogit-architecture-v1.md` Tier 0
+quick-wins; W6 entropy-ledger reframe of `ADJ-THINK-1`.
+**Dependencies:** none.
+
+---
+
+### TD-DEEPNSM-NSM-COLLAPSE-11 — Delete orphan `lance-graph/src/nsm/` (~2,405 LOC); replace with re-export shim from deepnsm
+
+**Status:** Open
+**Priority:** P2 (migration debt, not a parallel design)
+**Region:** R5 (NSM) / R6 (semantic substrate)
+**Effort:** small (~30 LOC shim + delete 5 files + verify no consumers)
+**Scope:** crate:lance-graph crate:deepnsm domain:nsm domain:dedup
+**Where:** `crates/lance-graph/src/nsm/` (5 files: `encoder.rs`,
+`parser.rs`, `similarity.rs`, `tokenizer.rs`, `nsm_word.rs`,
+≈2,405 LOC) collapses to a thin re-export `pub use deepnsm::*;`.
+**What:** The `DEEPNSM-NSM-1` row's "Spaghetti-5" framing was wrong
+(W6 reframe). It is not two parallel implementations of NSM — it is
+stale migration residue from when `deepnsm` was promoted from an
+embedded module to a root-level crate. The CLAUDE.md Phase-3 task
+"Consolidate `nsm/` module" never ran. Recipe C in `EPIPHANIES.md`
+patterns.md ("collapse-parallel-impl-to-reexport") covers this exact
+shape. Delete the 5 files; replace with one re-export module; verify
+no in-tree consumer imports a symbol that doesn't exist in `deepnsm`
+(the `nsm_bridge.rs` consumer must continue to compile).
+**Plan reference:** `.claude/board/EPIPHANIES.md` patterns.md Recipe C;
+W6 entropy-ledger reframe of `DEEPNSM-NSM-1`.
+**Dependencies:** none (verification step is local to lance-graph crate).
+
