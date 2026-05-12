@@ -250,3 +250,32 @@ Rough breakdown:
 - `.claude/specs/sprint-3-execution-plan.md` -- W1 master execution plan
 - PR #355 -- D-ONTO-V5-9 SpoBridge writer (extended by this PR)
 - PR #359 -- canonical Pattern A letter assignment
+
+---
+
+## CORRECTION (post-#360 substrate-recognition sweep)
+
+**Defect:** This spec proposed a NEW `crates/lance-graph-contract/src/spo_g.rs` with a `SpoQuad` type carrying `g: u32`, and a NEW migration script. **But the post-#355 substrate already ships:**
+
+| Already shipped on main | File |
+|---|---|
+| `SchemaPtr.ontology_context_id: u32` — the canonical u32 slot ON the SchemaPtr type | `crates/lance-graph-ontology/src/namespace.rs` |
+| `NamespaceRegistry::seed_defaults()` — the static codebook (SMB=0, WorkOrder=1, Healthcare=2, Network=3, Medical/{ICD10CM..CHEBI}=10..19) | `crates/lance-graph-ontology/src/namespace_registry.rs` |
+| `RegistryState::append` ctx_id stamping via `LazyLock<NamespaceRegistry>` | `crates/lance-graph-ontology/src/registry.rs:351` |
+
+**Pattern A's contract surface is `SchemaPtr.ontology_context_id`.** The codebook is `NamespaceRegistry::seed_defaults()`. Proposing a second type for the same semantic concept is the "Designing What's Already Built" anti-pattern documented in PR #358 — recurring in PR-A-1's own spec.
+
+### Re-scoped PR-A-1 (post-substrate-sweep)
+
+**Reuse, don't create:**
+- `SchemaPtr.ontology_context_id` IS the canonical u32 slot. Either alias `SpoQuad.g = SchemaPtr.ontology_context_id` (zero-cost newtype) or drop SpoQuad entirely and pass `SchemaPtr` through the SPO API.
+- `NamespaceRegistry::seed_defaults()` IS the codebook. Don't propose a second one.
+- The migration script's default-value population must consult `NamespaceRegistry` so existing rows get the correct `g` (not all zero).
+
+**Net new work:** extend `SpoStore::insert` signature + Lance schema column (using the existing `SchemaPtr` carrier) + migration that consults the registry.
+
+**Revised effort:** ~150 LOC, ~1 day (down from ~300 LOC, ~2 days).
+
+**Pattern A status update:** PARTIALLY SHIPPED (was: design phase). The contract surface + codebook + ctx_id stamping are shipped; only the SPO writer's awareness of g + Lance schema column remain. Future tier-0 doc should reflect this.
+
+**Provenance:** post-#360 substrate-recognition sweep, flagged by reviewer.
