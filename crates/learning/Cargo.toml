@@ -1,0 +1,21 @@
+[package]
+name = "learning"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = """
+Cognitive learning engine: 4096 CAM operations, cognitive styles with RL,
+quantum ops, structural causal models, dream consolidation, Pearl's
+do-calculus, NARS inference, feedback loops.
+
+Optional. Not required by lance-graph core.
+"""
+
+[dependencies]
+ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
+lance-graph-contract = { path = "../lance-graph-contract" }
+
+[features]
+default = []
+wip = []

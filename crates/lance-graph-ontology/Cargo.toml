@@ -1,0 +1,58 @@
+[package]
+name = "lance-graph-ontology"
+version = "0.1.0"
+edition = "2021"
+description = "OGIT-canonical ontology spine: TTL hydration, runtime dictionary cache, and tenant namespace bridges over the lance-graph contract surface."
+license = "Apache-2.0"
+keywords = ["ontology", "ogit", "ttl", "rdf", "lance"]
+
+[dependencies]
+# Contract surface: PropertySpec / Marking / SemanticType / Schema / Ontology
+# / SchemaExpander. Zero-dep crate by design — we depend on it, not the reverse.
+lance-graph-contract = { path = "../lance-graph-contract" }
+
+# TTL parser. oxttl is the smallest streaming Turtle parser in the workspace's
+# dependency graph and matches the shape of OGIT's per-entity .ttl files.
+oxttl = "0.1"
+oxrdf = "0.2"
+
+# Errors. thiserror keeps the public Error enum readable without serde.
+thiserror = "2"
+
+# Lazy globals for the SemanticType lookup table built from semantic_types.toml.
+once_cell = "1"
+
+# TOML config (semantic_types.toml). Used as a value-shape parser only — no
+# serde derives on registry types per CLAUDE.md "no JSON serialization in types".
+toml = { version = "0.8", default-features = false, features = ["parse"] }
+
+# Hashing for idempotent TTL hydration (root checksum + per-fragment checksum).
+sha2 = "0.10"
+
+# Lance-backed dictionary cache is feature-gated so the crate compiles without
+# protoc (lance-encoding's build-time dep). The default in-memory registry is
+# the canonical surface for tests and consumers that don't need persistence.
+lance = { version = "=4.0.0", optional = true }
+arrow = { version = "57", optional = true }
+arrow-array = { version = "57", optional = true }
+arrow-schema = { version = "57", optional = true }
+tokio = { version = "1", default-features = false, features = ["rt", "macros", "fs"], optional = true }
+futures = { version = "0.3", optional = true }
+
+[features]
+default = []
+# Lance dataset persistence for the ontology_dictionary table. Requires protoc
+# at build time (lance-encoding pulls prost-build). Off by default so the
+# in-memory registry path is reachable without the system dependency.
+lance-cache = ["dep:lance", "dep:arrow", "dep:arrow-array", "dep:arrow-schema", "dep:tokio", "dep:futures"]
+
+[dev-dependencies]
+tempfile = "3"
+
+# D-CASCADE-V1-11 — O(1) probe bench. Instant-based (no criterion) to keep
+# dev-deps minimal; criterion is a workspace dep elsewhere but adds compile
+# overhead this crate doesn't need for a single Instant::now() probe.
+[[bench]]
+name = "o1_probe"
+harness = false
+path = "benches/o1_probe.rs"

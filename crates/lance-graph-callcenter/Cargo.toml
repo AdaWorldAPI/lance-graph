@@ -1,0 +1,95 @@
+[package]
+name = "lance-graph-callcenter"
+version = "0.1.0"
+edition = "2021"
+description = "External callcenter membrane over Lance + DataFusion (Supabase-shape API)"
+build = "build.rs"
+
+# NEVER add: reqwest (client HTTP; we are the server), postgres, sqlx, pg-embed.
+# All external HTTP/WS/SQL is replaced by Lance + DataFusion + axum.
+
+[dependencies]
+lance-graph-contract = { path = "../lance-graph-contract" }
+# D-CASCADE-V1-3 — bridge collapse: factories project from the canonical SoA.
+lance-graph-ontology = { path = "../lance-graph-ontology" }
+
+# [persist] — Arrow RecordBatch + Lance dataset ops
+arrow       = { version = "57", optional = true }
+lance       = { version = "=4.0.0",  optional = true }
+
+# [query] / [query-lite] — DataFusion. Base dep has default-features = false.
+# The full `query` feature adds datafusion/default (compression backends etc).
+# The `query-lite` feature gets logical plan + optimizer without compression,
+# avoiding the xz2/liblzma `links = "lzma"` collision (lance v2 era; may be
+# resolved with lance 4 + datafusion 52 — verify and remove if so).
+datafusion  = { version = "52", optional = true, default-features = false, features = ["unicode_expressions"] }
+
+# [realtime] — version watcher, Phoenix channel shapes, WebSocket
+tokio            = { version = "1", features = ["sync"], optional = true }
+tokio-tungstenite = { version = "0.24", optional = true }
+serde            = { version = "1", features = ["derive"], optional = true }
+serde_json       = { version = "1", optional = true }
+
+# [audit-log] — Lance-backed audit writer needs futures for stream collect
+futures      = { version = "0.3", optional = true }
+
+# [serve] — axum WS server (implies realtime + query)
+axum        = { version = "0.8", features = ["ws"], optional = true }
+tower-http  = { version = "0.5", features = ["cors"], optional = true }
+
+# `transcode` submodules: `ontology_table` needs `async_trait` for the
+# DataFusion `TableProvider` impl. The trait crate is small and pulls in
+# nothing else, so it's worth always-on (no dep behind a feature).
+async-trait = "0.1"
+
+[features]
+default  = []
+persist  = ["dep:arrow", "dep:lance"]
+query-lite = ["dep:datafusion", "dep:arrow"]
+query    = ["query-lite", "datafusion/default"]
+realtime = ["dep:tokio", "dep:tokio-tungstenite", "dep:serde", "dep:serde_json"]
+serve    = ["realtime", "query", "dep:axum", "dep:tower-http"]
+auth-jwt = ["dep:serde", "dep:serde_json"]
+auth-rls-lite = ["auth-jwt", "query-lite"]
+auth-rls = ["auth-jwt", "query"]
+auth     = ["auth-rls"]
+# LF-90 — append-only audit log skeleton (A3).
+# PR-F3: LanceAuditSink requires lance + arrow + futures + tokio for async I/O.
+audit-log = ["dep:arrow", "dep:lance", "dep:futures", "dep:tokio"]
+# A-fix-audit forward-stub: enables `audit_from_plan(...)` helper that captures
+# rewritten DataFusion LogicalPlans into AuditEntry. No-op alias today; will
+# pull in `dep:datafusion` once the helper has a concrete consumer.
+datafusion-plan = ["query-lite"]
+# DM-8 — PostgREST stub uses a dependency-free hand-rolled JSON writer; the
+# feature flag turns the module on without dragging serde in.
+postgrest = []
+# A-fix-postgrest forward-stub: enables `parsed_query_to_plan(...)` ParsedQuery
+# → DataFusion LogicalPlan compiler. Wired in the follow-up dispatcher PR.
+datafusion-dispatch = ["query-lite"]
+# A4 plugin slots. Each is independently activatable; the `with_*` builder on
+# `MembraneRegistry` is gated on the slot feature plus the underlying module
+# feature (so e.g. enabling `membrane-plugins-rls` without an RLS feature is
+# a no-op rather than a compile error).
+membrane-plugins-rls = []
+membrane-plugins-audit = ["audit-log"]
+full     = ["persist", "query", "realtime", "serve", "auth", "audit-log", "postgrest", "membrane-plugins-rls", "membrane-plugins-audit"]
+# D-CASCADE-V1-1 — Internal-only feature gating the poison-pill compile-fail
+# test in tests/zone_serialize_check_compile_fail.rs. Activates a deliberately-
+# violating Zone 2 struct that carries `#[derive(serde::Serialize)]`. Default
+# build does NOT enable this feature; CI may opt-in to confirm the build
+# script aborts as expected.
+_internal_test_serialize_poison = ["dep:serde"]
+# FIX-2 (meta-1 review, 2026-05-07) — strict Zone 1/2 Serialize gate.
+# Default build emits warnings only. With `--features zone-check-strict`,
+# the build script aborts on the first violation via `cargo::error=` +
+# `std::process::exit(1)`. Direct builds of this crate also activate strict
+# mode automatically (`CARGO_PKG_NAME == "lance-graph-callcenter"`).
+zone-check-strict = []
+
+[build-dependencies]
+# D-CASCADE-V1-1 — syn parses the four Zone 1 / Zone 2 source files at build
+# time. `full` features enable item / attribute parsing; `parsing` is implied.
+syn = { version = "2", features = ["full", "parsing"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
