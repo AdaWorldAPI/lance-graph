@@ -245,3 +245,41 @@ Under `GenericBridge`:
 | `Arc<dyn RbacPolicy>` clones cost too much in hot path | Low | Medium | Resolve `ConsumerPointer` once per request, not per commit; if still hot, intern by G-id |
 | `OntologyRegistry::resolve` blocks the gate path | Medium | Medium | Resolution must be lock-free read (PR-A-1 acceptance covers this); add `criterion` benchmark in this PR |
 | Inert-G "deny by default" surprises an existing caller | Low | Low | Document in `CHANGELOG.md`; the only path to inert G today is misconfiguration, which should fail closed anyway |
+
+---
+
+## CORRECTION (post-#360 substrate-recognition sweep)
+
+**Defect:** This spec proposed NEW `crates/lance-graph-callcenter/src/generic_bridge.rs` + NEW `crates/lance-graph-contract/src/consumer.rs` with ConsumerPointer/ActionCap/GateDecision/DomainProfile/RbacPolicy. **But the post-#355 substrate already ships a bridge contract + 3 concrete impls + 2 consumer-side scaffolds:**
+
+| Already shipped on main | File |
+|---|---|
+| `BridgeFromRegistry` trait — orphan-rule-resolved bridge contract | `crates/lance-graph-ontology/src/bridges/mod.rs` |
+| `WoaBridge` (~17 LOC scoped view) | `crates/lance-graph-ontology/src/bridges/woa_bridge.rs` |
+| `MedcareBridge` (~15 LOC scoped view) | `crates/lance-graph-ontology/src/bridges/medcare_bridge.rs` |
+| `OgitBridge` (~26 LOC scoped view) | `crates/lance-graph-ontology/src/bridges/ogit_bridge.rs` |
+| `WoaRegistry::hydrate(ttl_root) → (registry, bridge)` consumer scaffold | `AdaWorldAPI/woa-rs` PR #2 (merged) |
+| `MedcareRegistry::hydrate(...)` consumer scaffold | `AdaWorldAPI/medcare-rs` PR #110 (merged) |
+
+**Two architectural concerns surfaced:**
+
+1. **Fragmentation risk.** Creating a `GenericBridge` in `lance-graph-callcenter` alongside the existing `BridgeFromRegistry` in `lance-graph-ontology` is exactly the "two-bridge-mechanisms" fragmentation Pattern C is designed to dissolve. Either `GenericBridge` lives next to its siblings in `lance-graph-ontology`, OR `BridgeFromRegistry` migrates to `lance-graph-contract` (zero-dep canonical home, correct location for trait declarations every consumer pulls).
+
+2. **W8 consumer-template dry-run target is already validated.** The original W8 spec proposed scaffolding hubspo-rs from scratch as the architectural validation gate. **woa-rs (~150 LOC) and medcare-rs medcare-bridge (~250 LOC) already validate the LOC reduction claim.** Use them as the precedent, not a hypothetical hubspo-rs.
+
+### Re-scoped PR-C-1 (post-substrate-sweep)
+
+**Move + extend, don't duplicate:**
+- Move `BridgeFromRegistry` from `lance-graph-ontology` to `lance-graph-contract` (zero-dep canonical home). Existing 3 bridges follow.
+- `ConsumerPointer` becomes the data carried by the existing `OntologyRegistry::enumerate(namespace)` projection plus per-G policy slots — NOT a new contract type.
+- `for_g(g: u32)` becomes a thin factory dispatching to the right `BridgeFromRegistry` impl by namespace lookup against `NamespaceRegistry`.
+
+**Net new work:** ConsumerPointer data slots + `for_g(g)` factory.
+
+**Revised effort:** ~80 LOC, ~½ day (down from ~200 LOC, ~1-2 days).
+
+**W8 consumer-template re-target:** The dry-run validation gate becomes "verify woa-rs (~150 LOC) + medcare-rs medcare-bridge (~250 LOC) hit the LOC budget claim" — those are merged precedents. The W8 spec for hypothetical hubspo-rs becomes a documentation exercise, not an architectural-validation gate.
+
+**Pattern C status update:** PARTIALLY SHIPPED (was: design phase). Bridge contract + 3 impls + 2 consumer scaffolds ship; only `ConsumerPointer` data slots + `for_g(g)` factory + (optional) trait-relocation remain.
+
+**Provenance:** post-#360 substrate-recognition sweep, flagged by reviewer.
