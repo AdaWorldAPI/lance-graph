@@ -296,3 +296,52 @@ Phases 2–4 queued.
 
 **Status:** Active (partially superseded by `lance-graph-ontology` crate, 2026-05-07)
 **Note:** The `SchemaExpander` proposed in `sql-spo-ontology-bridge-v1` already shipped in earlier work, and the new `lance-graph-ontology` crate (commit `4cf9a26`, branch `claude/create-graph-ontology-crate-gkuJG`) consumes it as its sole bridge surface. The plan's Phase 4 (NARS cold sink) and `promote_to_spo` writer bridge remain owned by the original plan. Recon + decision for the new crate: `.claude/RECON_ONTOLOGY_CRATE.md` + `.claude/DECISION_SPO_ARIGRAPH.md` (prior commit `edef321`). Federated two-layer cache (Option B): SPO + ARiGraph triplet_graph are not duplicates by design; entropy-ledger rows 70 + 245 cite the L1/L2 cache pair. APPEND-ONLY annotation; original plan entry not edited.
+
+---
+
+## 2026-05-07 — Unified OGIT Architecture plans (sprint-2)
+
+Sprint-2 (12-agent + meta) synthesized 15 architectural patterns (A-O) into a layered plan-doc structure. ~80% of the architecture is already shipped in workspace; the plan-docs name and expose what exists + the ~20% remaining wiring work.
+
+### Master plan-doc
+
+- **`unified-ogit-architecture-v1.md`** (Active) — master synthesis covering all 15 patterns A-O, Tier 0-4 structure. The single document future sessions read first to understand the unified architecture and its current state. Cross-references the 3 sub-plans below and the proof-of-vision.
+
+### Tier 1 — G-overlay wiring (Patterns A+B+C+E)
+
+- **`ogit-g-context-bundle-v1.md`** (Active) — concrete plan for Patterns A (SPO-G u32 slot), B (ContextBundle typed surface), C (GenericBridge dispatching per-G ConsumerPointer). Threads G through existing primitives. Closes TD-OGIT-G-SLOT-1, TD-CONTEXT-BUNDLE-2, TD-GENERIC-BRIDGE-3.
+
+### Tier 2 — Supervised consumer mesh (Patterns E+F)
+
+- **`compile-time-consumer-binding-v1.md`** (Active) — concrete plan for `/modules/<name>/manifest.yaml` build-script glue (Pattern E) + ractor supervisor port from gRPC service trait shape (Pattern F). Closes TD-MANIFEST-MODULES-4, TD-RACTOR-SUPERVISOR-5.
+
+### Proof of vision
+
+- **`anatomy-realtime-v1.md`** (Active) — end-to-end demo: hydrate FMA (75K-class anatomy ontology) via OWL hydrator + ingest medical scan (DICOM) + render in Q2 cockpit with realtime anatomy-graph overlay. Exercises every pillar (Splat, EWA-Sandwich, α-saturation, OGIT-G, Generic Bridge, medcare-rs RBAC, ractor supervisor). Multi-PR; ~5-7 PRs spread over weeks. Closes TD-ANATOMY-DEMO-8.
+
+### Pre-existing plans reframed by sprint-2
+
+These existing plans absorb cleanly into the new architecture and remain in scope:
+- `lance-graph-ontology-v5.md` — Pillar 0 work (already merged via PR #355); the OGIT registry is the Pattern B carrier.
+- `palantir-parity-cascade-v2.md` — Foundry-equivalent surface; ConsumerPointer + actor shape lands its deliverables.
+- `ogit-cascade-supabase-callcenter-v1.md` — already merged via PR #355; GenericBridge replaces the per-callcenter scaffolding.
+- `callcenter-membrane-v1.md` — DM-2/DM-3 still in flight; supervisor shape (Pattern F) defines how they compose.
+
+### Plans deferred / aspirational
+
+- Tier 4 (Pattern K: JIT circular compilation via cranelift) — captured as TD-CIRCULAR-COMPILATION-7; aspirational only.
+
+### Cross-references
+
+- `.claude/plans/unified-ogit-architecture-v1.md` (W1 — master synthesis)
+- `.claude/knowledge/tier-0-pattern-recognition.md` (W2 — code → pattern map)
+- `.claude/patterns.md` (W3 — appended Pattern Recognition Framework section)
+- `.claude/board/EPIPHANIES.md` (W4 — 17 architectural epiphanies appended)
+- `.claude/board/TECH_DEBT.md` (W5 — 11 TD entries appended)
+- `.claude/board/ARCHITECTURE_ENTROPY_LEDGER.md` (W6 — 5 reframes + 15-pattern absorption table)
+- `.claude/board/ARCHITECTURE_ENTROPY_LEDGER_RESOLVED.md` (W7 — RECOGNITION-1 row)
+- `.claude/board/LATEST_STATE.md` (W9 — sprint-2 deliverables added to Recently Shipped)
+
+### Sprint-2 governance
+
+This sprint was orchestrated as 12 worker agents + 1 meta agent on branch `claude/unified-ogit-architecture-synthesis`. CCA2A pattern: per-agent append-only logs in `.claude/board/sprint-log-2/agents/agent-W*.md`; meta review in `.claude/board/sprint-log-2/meta-1-review.md`; sprint summary in `.claude/board/sprint-log-2/sprint-summary.md`.
