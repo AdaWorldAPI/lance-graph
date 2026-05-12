@@ -434,7 +434,7 @@ the session.
 
 ## Cross-references
 
-- **W1's master:** `.claude/knowledge/unified-ogit-architecture-v1.md`
+- **W1's master:** `.claude/plans/unified-ogit-architecture-v1.md`
   — full Pattern A–O definitions, dependency arrows between
   patterns, and the OGIT-G wiring spec
 - **Region map:** `.claude/knowledge/soa-dto-fma-map.md` (R0–R8)
