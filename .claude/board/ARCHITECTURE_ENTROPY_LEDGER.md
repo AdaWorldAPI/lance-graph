@@ -607,9 +607,13 @@ To stay brutally honest (per sprint instruction):
 Re-counted with the six reframes applied (and treating the original
 Section A counts as the immutable baseline):
 
-- **Spaghetti (entropy 5):** 5 rows (was 7) — NARS-1, DEEPNSM-NSM-1,
-  PARSER-1, DNTREE-1, MUL-ASSESS-1, DEBUG-STRINGIFY-1 minus
-  **THINK-1 leaves** (5→3) and **VSA-1 leaves** (5→3). Count: 7 − 2 = 5.
+- **Spaghetti (entropy 5):** 6 rows (was 8) — NARS-1, DEEPNSM-NSM-1,
+  PARSER-1, DNTREE-1, MUL-ASSESS-1, DEBUG-STRINGIFY-1 (after
+  **THINK-1 leaves** 5→3 and **VSA-1 leaves** 5→3). Count: 8 − 2 = 6.
+  *(Reconciliation note 2026-05-07: the 2026-05-05 Section A listed
+  8 rows under the "7" label — original off-by-one persists in the
+  immutable snapshot per APPEND-ONLY governance; 8 is the actual
+  enumerated count there.)*
 - **High (entropy 4):** 8 rows (was 11) — GATE-1, TRUTH-1,
   STATUS-CODEC-1, TRUST-1, FLOW-1, COMPASS-1, PROJECT-LANCE-1,
   PERMUTE-1, CONTENT-FP-1, ROLEKEY-OPS-1, SUBJECT-DTO-1,
