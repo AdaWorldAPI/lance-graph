@@ -345,3 +345,45 @@ These existing plans absorb cleanly into the new architecture and remain in scop
 ### Sprint-2 governance
 
 This sprint was orchestrated as 12 worker agents + 1 meta agent on branch `claude/unified-ogit-architecture-synthesis`. CCA2A pattern: per-agent append-only logs in `.claude/board/sprint-log-2/agents/agent-W*.md`; meta review in `.claude/board/sprint-log-2/meta-1-review.md`; sprint summary in `.claude/board/sprint-log-2/sprint-summary.md`.
+
+## 2026-05-12 — Sprint-3: Tier-1 Implementation Specs (PR #360 + #361 + substrate-recognition sweep)
+
+11 PR-X-1 implementation specs landed via PR #360 + 2 architectural corrections via PR #361 + 3 spec re-scopes via post-#360 substrate-sweep PR. After this sprint sequence, an engineer picks any PR-X-Y spec and starts coding without re-design.
+
+### New specs (`.claude/specs/`)
+
+| Spec | Pattern | Status | Effort (post-substrate-sweep) |
+|---|---|---|---|
+| `sprint-3-execution-plan.md` | (master) | Active | n/a |
+| `sprint-3-pr-graph.md` | (sequencing; compressed timeline) | Active | n/a |
+| `pr-a-1-spo-g-u32-slot.md` | A | Active (re-scoped) | ~150 LOC / 1 day |
+| `pr-b-1-context-bundle.md` | B | Active | ~200 LOC / 1 day |
+| `pr-c-1-generic-bridge.md` | C | Active (re-scoped) | ~80 LOC / ½ day |
+| `pr-d-1-fma-owl-hydrator.md` | D (PARTIALLY SHIPPED) | Active (re-scoped) | ~250 LOC / 1-2 days |
+| `pr-e-1-manifest-modules.md` | E | Active (post-#361 cycle fix) | ~330 LOC / 2 days |
+| `pr-f-1-ractor-supervisor.md` | F | Active (post-#361 inert-bundle skip) | ~400 LOC / 3 days |
+| `pr-j-1-int4-32d-atoms.md` | J | Active | ~120 LOC / 1 day |
+| `consumer-crate-template.md` | (Pattern C dry-run; re-targeted to woa-rs + medcare-rs precedents) | Active | n/a |
+| `ogit-g-smoke-test.md` | (validation; PR-A-1+B-1+C-1+E-1+F-1) | Active | ~200 LOC / 1 day |
+| `trivia-prs-bundle.md` | (3 quick wins: TD-CAM-DIST + TD-ADJ-THINK + TD-DEEPNSM-NSM) | Active | ~60 LOC total / <1 day |
+
+### New knowledge docs (`.claude/knowledge/`)
+
+- `pattern-recognition-cross-source.md` — 4-taxonomy matrix (A-O ↔ Pillars 0-4 ↔ `.grok/` ↔ shipped substrate)
+- `cca2a-sprint-prompt-template.md` — substrate-grep checklist + wrong-repo guardrail + pattern-letter discipline
+
+### Pre-existing plans absorbed by sprint-3
+
+- `lance-graph-ontology-v5.md` — Pillar 0 (already shipped via PR #355)
+- `palantir-parity-cascade-v2.md` — Pillars 0-4 architecture (parallel taxonomy; cross-referenced via new matrix)
+- `ogit-cascade-supabase-callcenter-v1.md` — Pillars 0-4 cascade execution (parallel taxonomy)
+- `unified-ogit-architecture-v1.md` (W1 master) — sprint-2 north star
+- `ogit-g-context-bundle-v1.md` (sprint-2 Tier-1 sub-plan)
+- `compile-time-consumer-binding-v1.md` (sprint-2 Tier-2 sub-plan)
+- `anatomy-realtime-v1.md` (sprint-2 proof-of-vision)
+
+### Cross-references
+
+- `.claude/board/LATEST_STATE.md` — sprint-3 entry (paired with this index update)
+- `.claude/board/TECH_DEBT.md` — TD-OGIT-G-SLOT-1 through TD-DEEPNSM-NSM-COLLAPSE-11 (the 11 entries spec'd by sprint-3)
+- `.claude/board/sprint-log-3/` — coordination directory (12 agent logs + meta-1 + sprint-summary)
