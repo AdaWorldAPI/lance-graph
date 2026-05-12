@@ -236,3 +236,81 @@ Per-attribute `dcterms:source` provenance wired via sibling `AttributeProvenance
 - `MEDCARE_POLICY_GAP.md` — finding doc that scoped the medcare-side POLICY-1 closure
 - `.claude/patterns.md` — traversal patterns guide (5 patterns + crate inventory + anti-patterns + wiring recipes)
 - `.claude/pattern.md` (PR #345) — sister patterns doc (singular; 15 patterns)
+
+
+---
+
+## 2026-05-07 — RECOGNITION-1: the architecture is largely already shipped (sprint-2 meta-finding)
+
+> **Append-only.** Sprint-2 (12 worker + 1 meta agent ensemble, branch
+> `claude/unified-ogit-architecture-synthesis`) named 15 architectural
+> patterns (A-O) from a 16-turn conversation. The central recognition:
+> ~80% of the proposed architecture is already shipped across
+> `thinking-engine`, `p64-bridge`, `cognitive-shader-driver`, `qualia.rs`,
+> `causal-edge`, `bgz17` etc. Only ~20% (the OGIT-G overlay wiring +
+> manifest pattern + ractor port) is genuinely new work.
+
+### RECOGNITION-1 row scoring
+
+| Field | Value |
+|---|---|
+| ID | RECOGNITION-1 |
+| Region | workspace meta-finding (no R-id) |
+| Component | Architectural pattern recognition framework (15 patterns A-O) |
+| State | Documented (no code change) |
+| DupCount | 0 (this is a closure, not a duplicate) |
+| Maturity | Stage 4 (canonical recognition surface) |
+| Smart/Dumb | n/a (meta) |
+| Entropy | **1** (Clean — fully resolved as recognition) |
+| Plan-status | n/a (informational closure) |
+
+### Pattern → file recognition map (canonical: `.claude/knowledge/tier-0-pattern-recognition.md`)
+
+| Pattern | Status | Already shipped in |
+|---|---|---|
+| H Switchable Cognitive Vessel | **shipped** | `crates/p64-bridge/src/lib.rs::cognitive_shader::CognitiveShader` (8 predicate planes + bgz17 semiring + HHTL cascade) |
+| N Fingerprint-as-Codebook-Address | **shipped** | `crates/thinking-engine/src/prime_fingerprint.rs`, `qualia::FAMILY_CENTROIDS`, `p64-bridge::STYLES`, cam_pq codebook, bgz17 palette |
+| O Phenomenological Memory | **shipped** | `crates/thinking-engine/src/qualia.rs` (17D + 10 families + music calibration + Bach 7+1 = CausalEdge64 7+1) + `awareness_dto.rs` |
+| M Wave-Particle Bimodal | **shipped (primitives)** | bgz17/resonance/qualia (wave) + AriGraph/SPO/NARS (particle); G-blend mechanism is the new piece |
+| F ractor message shape | **proven** | `crates/cognitive-shader-driver/src/grpc.rs` tonic service trait = the ractor handler shape |
+| I Implicit Cognition | **shipped** | `CycleAccumulator` (PR #337) |
+
+### Anti-Pattern surfaced: "Designing What's Already Built"
+
+This generalizes the Discovery-Loop anti-pattern (already documented in `.claude/patterns.md`) from cycle-level (find the existing crate) to architecture-level (recognize the existing pattern). The 16-turn conversation repeatedly described future Pattern X work that was discovered, mid-conversation, to already exist in workspace. The cure is the same as Discovery-Loop: **READ existing code BEFORE proposing new design.**
+
+### Five ledger row reframes (detail in OPEN ledger 2026-05-07 sprint-2 section)
+
+| Row | Old (drift framing) | New (recognition) | Delta |
+|---|---|---|---|
+| THINK-1 | Spaghetti-5, 4-copy drift | 12-base codebook (`p64-bridge::STYLES`) + 36-entry composed surface (`contract::thinking::ThinkingStyle`); intentional layering | 5 → 3 |
+| HEEL-1 | "3 different orderings" entropy 4 | Single canonical HHTL cascade in `p64-bridge::cognitive_shader::cascade` — "No POPCNT. No Hamming. Distance is PRECOMPUTED. O(1)." | 4 → 2 |
+| ADJ-THINK-1 | Aspirational entropy 4 — "tau() never written" | The `[u64; 64]; 8` planes in `p64-bridge::CognitiveShader` IS the adjacency store; needs `tau_write()` public API only | 4 → 2 |
+| CRYSTAL-1 | "Name collision" entropy 4 | Two legitimate codebooks at different Pattern N layers (sentence-level vs semantic-level) | 4 → 2 |
+| CAM-DIST-1 | Stalled entropy 3 | One-line registration fix in `DataFusionPlanner::new`; substrate shipped | 3 → 2 |
+| VSA-1 (bonus) | "Highest cognitive leverage carrier" entropy 5 | One Markov-accumulation program mode; CAM is the actual substrate | 5 → 3 |
+
+**Aggregate entropy delta from recognition alone:** **−13** (no code changes).
+**Cluster reorganization:** ~37 units (Thinking 24→~10, VSA carrier 23→~8, HEEL ladder 12→~4).
+
+### Future-session implications
+
+Sessions proposing "let's build the cognitive vessel" should hit RECOGNITION-1 first and be redirected to `p64-bridge::cognitive_shader::CognitiveShader`. The pre-work checklist in `.claude/patterns.md` should grow a step: **"Read `tier-0-pattern-recognition.md` first to see if the proposed architectural piece is already shipped."** (W3's append already added this.)
+
+### Cross-references
+
+- `.claude/plans/unified-ogit-architecture-v1.md` (W1 master synthesis, 30 KB)
+- `.claude/knowledge/tier-0-pattern-recognition.md` (W2 file→pattern map, 21.8 KB)
+- `.claude/patterns.md` (W3 appended Pattern Recognition Framework A-O)
+- `.claude/board/EPIPHANIES.md` (W4 appended 17 architectural epiphanies)
+- `.claude/board/TECH_DEBT.md` (W5 appended 11 TD entries: TD-OGIT-G-SLOT-1 through TD-DEEPNSM-NSM-COLLAPSE-11)
+- `.claude/board/ARCHITECTURE_ENTROPY_LEDGER.md` (W6 appended 5 row reframes + VSA-1 clarification + 15-pattern absorption table)
+- `.claude/board/INTEGRATION_PLANS.md` (W8 indexed the 4 new plan-docs)
+- `.claude/board/LATEST_STATE.md` (W9 appended sprint-2 deliverables)
+- `.claude/plans/ogit-g-context-bundle-v1.md` (W10 Tier-1 sub-plan, Patterns A+B+C)
+- `.claude/plans/compile-time-consumer-binding-v1.md` (W11 Tier-2 sub-plan, Patterns E+F)
+- `.claude/plans/anatomy-realtime-v1.md` (W12 proof-of-vision)
+
+### Note on this row's provenance
+
+This RECOGNITION-1 row was authored by W7 of the sprint-2 ensemble. The first W7 attempt pushed to the wrong repo (`AdaWorldAPI/ndarray`); this is the W7-rev2 correction landing on `AdaWorldAPI/lance-graph` directly via pygithub REST (main thread coordinator). The ndarray push remains as harmless residue at `AdaWorldAPI/ndarray/claude/unified-ogit-architecture-synthesis` for archaeology.
