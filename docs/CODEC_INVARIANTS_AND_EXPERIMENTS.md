@@ -1,0 +1,604 @@
+# Codec Invariants & Experiments
+
+> Session-end catalogue of every compression approach tried in PRs #176–#185
+> and the lesson each one produced. Nothing is thrown away. Future sessions
+> should use this to recognise which approach fits a given tensor shape,
+> role, and quality gate — and to mutate from when the immediate path fails.
+
+## Core invariants (must always hold)
+
+These are structural truths about this codebase that every future codec
+must respect. Violating any of them silently corrupts downstream state
+(see `#183`, `#184`, #185` for each class of violation in the wild).
+
+### I1. Two regimes, opposite needs
+
+| Regime | Where it lives | What it requires | Error shape |
+|---|---|---|---|
+| **Argmax-decoded** | attention / MLP / logits / codec head | top-1 argmax stability under `hidden @ W.T` | robust to cos ≈ 0.95 |
+| **Index-lookup** | `text_embedding`, `lm_head`, `code_embed` | per-row identity | cascading — no argmax downstream rescues |
+
+Empirically measured on Qwen3-TTS-0.6B: 477/478 tensors survived RVQ at cos ≈ 0.95 (argmax regime); one vocab tensor at cos = 0.05 **destroyed the pipeline** (index regime). See PR `#178` passthrough fix.
+
+### I2. Near-orthogonality of weight rows in high dim
+
+Qwen3 weight matrix rows in 1024-d or 2048-d space behave near-orthogonal for random pairs. Any compression that assumes rows cluster tightly in L2 is wrong.
+
+Concretely this refutes:
+- `RVQ_K_LADDER_TUNING.md § 3` claim "one L2 centroid per row at ≤3 rows/leaf → cos ≈ 1" (disproven by PR `#177` HCLAM run: cos = 0.0046).
+- Any single-centroid tree quantisation without directional residual (`HhtlDTensor::reconstruct_row` without SlotL cannot synthesise direction).
+
+### I3. Direction vs amplitude cannot be merged into one scalar
+
+A scalar residual (like `Slot V`) can only shift magnitude. It cannot describe direction. Any codec that uses one scalar magnitude + direction-less centroid misses high-dim directional information entirely.
+
+This was the unstated assumption baking into `BGZ_HHTL_D.md`'s "cos ≈ 0.95 typical" claim — probably true for *HHTL cascade inference* (table lookup), definitely false for *f32 GEMM reconstruction* (measured cos = 0.04 on real Qwen3 in PR `#183`).
+
+### I4. Wire-format type widths are hard caps, enforce at encode time
+
+`HhtlF32Entry.twig: u8` silently wraps `ci as u8` for `k > 256` (caught in `#185` codex review). Always `assert!(k <= MAX_*)` at encode sites. Widening the index (u8 → u16) is a wire-format change; log-companded bucketing is the alternative.
+
+### I5. "u8 can span u16/u64 effective" requires the right decoder
+
+Per the bgz17 philosophy: u8 × BF16 (amplitude) × gamma (stride) = u24–u64 effective precision at decode time — **if and only if** the decoder evaluates the universal curve parametrised by those values, not a straight-line interpolation or a tile-back.
+
+`Base17::to_f32` is the floor (tile-and-average). The elevator
+(`rehydrate_interpolated` with γ+φ weighting) lives in
+`highheelbgz::rehydrate` and is **not wired into `HhtlDTensor`** — that's
+part of the gap that made PR #183 fail.
+
+### I6. The ticket-for-curve model
+
+The real primitive per the bgz17 design: each row = a ticket on a
+universal kurvenlineal (curve).
+
+```
+Universal curve:   r(θ) = a · e^(bθ)  or fitted anchor spline
+Ticket per row:    (start, stop, stride, polarity)  — as few as 1 signed byte (i8)
+Shared per group:  curve anchors (K × 17 × 2 B BF16), gamma profile (28 B)
+```
+
+Reconstruction = curve evaluation at the ticket's parameters. Not
+`centroid + residual`. Not tile-and-average. Not tree quantisation.
+**`highheelbgz::rehydrate::SpiralEncoding` implements this — useful for
+token signature retrieval, but signature-only (not dense reconstruction).**
+
+### I8. Location + orthogonal LEAF hybrid — the layered synthesis
+
+The two framings from I7 don't compete — they layer at **different scales**
+of the same row:
+
+```
+HEEL (2 bit)    BASIN        coarse location (Q/K, V, Gate, FFN)
+HIP  (4 bit)    FAMILY        fine location within basin (16 sub-clusters)
+LEAF (8 × i8)   JL-projected residual on shared random Rademacher basis
+                = PolarQuant on (row − centroid[HEEL, HIP])
+```
+
+**Per-row cost: 1 B address + 8 B leaf = 9 B/row.**
+
+Why this works where flat single-centroid failed (#183, #184 A3/A6):
+
+- Within any one (HEEL × HIP) bin, residuals are **small-magnitude
+  corrections** to a bin-local centroid.
+- Small residuals are NOT near-orthogonal the way raw weight rows are —
+  they live in a narrower cone around zero.
+- **That's exactly the regime where JL + PolarQuant preserves inner
+  products** (I7 / Lindenstrauss concentration-of-measure).
+
+The location framing does coarse directory lookup (what tree quantization
+is good at). The sparse-signal framing handles fine-grained inner-product
+preservation of the residual (what JL is good at). Neither on its own
+solves the argmax-regime problem; together they might.
+
+**Structural status**: HhtlDTensor's HEEL + HIP already exist; TWIG (8 bit
+of flat palette index) and Slot V (scalar magnitude residual) would be
+replaced by the 8 × i8 LEAF.
+
+**This is a candidate codec in the R&D bench (P6 below).**
+
+### I7. Vector-as-location vs vector-as-sparse-signal — the regime split again
+
+The session's hardest lesson: two different framings of "compress a vector"
+exist and can't share primitives.
+
+**Vector-as-location** (Cartesian coordinates, L2 distance):
+- Raw f32 weight rows, each dim independent.
+- Codecs: centroid + residual, tree quantization, palette lookup.
+- **On near-orthogonal high-dim rows these ALL fail** (see A3, A6, #183, #184).
+
+**Vector-as-sparse-signal** (Phase + magnitude on an orthogonal basis):
+- Project onto orthogonal basis (JL = random ±1 signed, SVD = data-fit, Hadamard = structured JL).
+- Encode as (sign, log-magnitude) per projected coefficient = **PolarQuant**.
+- Inner products preserved by Lindenstrauss concentration-of-measure.
+- No centroid, no palette, no SVD needed — **the orthogonal leaf IS the representation.**
+
+**If the leaf is orthogonal (JL/Hadamard/PolarQuant), you do NOT need the other (centroid + residual).** They solve different problems. The centroid framework was wrong for argmax-regime tensors because argmax needs inner-product preservation, which JL gives directly.
+
+Already in the repo:
+- `crates/bgz17/src/rabitq_compat.rs` — JL + dot_correction (structured JL via Hadamard rotation)
+- `crates/bgz-tensor/src/matryoshka.rs` — PolarQuant gain-shape split
+- `crates/thinking-engine/examples/turboquant_correction_probe.rs` — 466-line probe comparing 4 correction methods across 33-layer chain simulation
+
+**`TurboQuant = PolarQuant + JLQ + correction`** is the canonical argmax-regime codec. This session's centroid+residual work (A5, A6, A7) was solving the wrong problem.
+
+## Approaches tried, what each one was, where it fits
+
+### A1. `HhtlDTensor` — Base17 + Slot D + Slot V (PR #173–#174, codebase existing)
+
+- **What**: 4 B/row tree address (HEEL 2b + HIP 4b + TWIG 8b + polarity) + BF16 scalar magnitude
+- **Designed for**: HHTL cascade lookup inference (Skip/Attend/Compose/Escalate routing)
+- **Measured on**: Qwen3-TTS-0.6B reconstruction path in `#183` — cos = 0.04
+- **Verdict**: **Correct codec, wrong application**. Use for cascade inference (`bgz-tensor::hhtl_cache`). Do NOT use for f32 GEMM reconstruction.
+- **Mutation hooks**: Slot L residual (PR `#181`) adds direction correction; Slot V is still unused in `reconstruct_row`. If f32 GEMM is the target, ADD a curve-evaluator decode path (`rehydrate_interpolated`) instead of the current Base17 tile-back.
+
+### A2. Progressive residual RVQ with k-ladder (PR #176)
+
+- **What**: Multiple CLAM codebooks per tensor, residual accumulates across levels
+- **Measured on**: Qwen3-TTS-0.6B vocab embedding — cos = 0.054
+- **Verdict**: **Works on argmax-regime tensors** (477/478 hit cos ≈ 1). **Fails on index-regime vocab tensors** because k=4096 < rows/4 on 151K-row vocab.
+- **Mutation hooks**: Extend k-ladder for large-vocab tensors (e.g. `[256, 1024, 4096, 16384]`) OR switch those tensors to passthrough BF16 (what #178 did).
+
+### A3. Hierarchical CLAM 256×256 (PR #177, REFUTED by #178)
+
+- **What**: Tree quantisation: 256 L1 coarse clusters × 256 L2 fine centroids per cluster, one leaf per row, no residual sum
+- **Measured on**: vocab embedding — cos = 0.0046 (**worse than RVQ it replaced**)
+- **Verdict**: **Structurally incapable of reconstructing near-orthogonal rows.** Single-centroid picks one existing row as the answer; for near-orthogonal distinct rows, cos ≈ 0.
+- **Mutation hooks**: Do NOT use for reconstruction. Could work for lookup-grade routing where only nearest-centroid identity matters, not value fidelity. That is what `HhtlDTensor` already is.
+- **Refutation notice**: `docs/RVQ_K_LADDER_TUNING.md § 3` must be read with this refutation in mind.
+
+### A4. Passthrough BF16 for `n_rows > 8192` (PR #178, SHIPS)
+
+- **What**: Skip compression entirely on vocab-sized tensors
+- **Measured on**: Qwen3-TTS-0.6B — codec token match 225/225 = 100%
+- **Verdict**: **Correctness ship-grade.** Storage ratio 1:1.39 (net loss) — not a product.
+- **Mutation hooks**: Replace passthrough with any index-regime codec (SpiralEncoding shared-anchor, HhtlDTensor + SlotL properly reconstructed, f32 palette with log-radial CLAM) as soon as that codec hits ρ ≥ 0.98 on real vocab rows.
+
+### A5. SlotL — 8 × i8 directional residual on shared SVD basis (PR #180, #181, #182)
+
+- **What**: 8 i8 coefficients on a palette-shared Matryoshka SVD basis; encoder projects `row − centroid` onto basis, quantises
+- **Measured on**: synthetic low-rank — ρ ≥ 0.98; paired with Base17 centroid on real Qwen3 — ρ ≈ 0.04 (ineffective because centroid is direction-less)
+- **Verdict**: **Algorithm is correct in isolation.** Fails at integration because it's adding a direction correction to a centroid that has no direction.
+- **Mutation hooks**: Keep the module, reuse with a directional centroid (f32 CLAM or curve-eval output). SlotL is a generic residual primitive that composes.
+
+### A6. HhtlF32Tensor — f32/BF16 CLAM centroid palette + SlotL (PR #184)
+
+- **What**: Replaces Base17 palette with CLAM centroids stored as f32 vectors; reuses SlotL residual
+- **Measured on**: Qwen3-TTS-0.6B — ρ̄ ≈ 0.2–0.5 (10× better than Base17's 0.04, still short of 0.95 target)
+- **Verdict**: **Right direction, insufficient bandwidth.** k=256 + 8 SVD coefficients is not enough for 1024-d near-orthogonal rows.
+- **Mutation hooks**: k=512 or 1024 (needs widening twig to u16); per-leaf local SVD basis; log-radial CLAM on unit-normalised rows. Module already has codex-P1 bounds enforcement from #185.
+
+### A7. cascade_attention_probe — HhtlCache + FisherZTable table lookup for attention (PR #184)
+
+- **What**: Replace `Q · K^T → argmax` with `FisherZTable[pal_idx(Q), pal_idx(K)] → argmax`
+- **Measured on**: layer-0 k_proj, 512 queries — 3.71% top-1 agreement
+- **Verdict**: **Fails because Base17 palette doesn't preserve inner-product neighbourhoods.** Not an argument against codec-space inference; an argument that the palette under it must preserve inner-product structure first.
+- **Mutation hooks**: Retry with f32 CLAM palette (Path A under Path B) — cascade inference only works when the palette faithfully partitions by inner product. This is the Path B / Path A dependency that wasn't clear before running the probe.
+
+## Abstractions that ARE the right primitive
+
+### R1. `highheelbgz::rehydrate::SpiralEncoding`
+
+- 6-byte `SpiralAddress` (start, stride) + K anchors × 17 × 2 B BF16 per row
+- `GammaProfile` shared per model (28 B: role_gamma[6] + phi_scale)
+- `rehydrate_interpolated(target_spd, gamma)`: φ-weighted interpolation `frac.powf(1/GOLDEN_RATIO)` between anchors — **golden-rule reconstruction, not linear interpolation**
+- Self-test in module: exact match round-trip ρ = 1 on self; different vectors get ρ < 1; 1000-token vocab < 200 KB
+
+This is the real kurvenlineal codec. Every other "reconstruction-grade" attempt in this session is a less-capable cousin.
+
+**Unproven**: has not been measured against real Qwen3-TTS weight rows end-to-end. That's the missing probe — see § Open probes.
+
+### R2. Per-role stride in `NeuronPrint` (highheelbgz lib.rs)
+
+Six `SpiralAddress` fields, one per role, with fixed strides per the design:
+
+```
+q:    stride=3    (attention, must match K)
+k:    stride=3    (attention)
+v:    stride=5    (content)
+gate: stride=8    (thinking style)
+up:   stride=2
+down: stride=4    (down/up ratio = effective rank)
+```
+
+Total 36 bytes per neuron (6 roles × 6 bytes). This is what `should_use_leaf` / `classify_role` in `bgz-tensor::shared_palette` was reaching toward — mapping roles to per-role encoding parameters. **Currently the two schemes aren't integrated.**
+
+### R3. HHTL cascade inference (`bgz-tensor::hhtl_cache`)
+
+RouteAction { Skip, Attend, Compose, Escalate }. `HhtlDTensor` + `FisherZTable` composed at inference time replaces `hidden @ W.T` with table lookups.
+
+**Requires**: a palette that preserves inner-product neighbourhoods (the Base17 palette probably does *not* — see A7 above). The Path A+B dependency.
+
+## Open probes (unproven claims that need experiment before next build)
+
+### P1. SpiralEncoding on real Qwen3 weights
+
+Claim: `SpiralEncoding::rehydrate_interpolated` hits ρ ≥ 0.95 on real Qwen3-TTS-0.6B weight rows at reasonable K (say K=4–16).
+
+**Probe RUN (PR #186, `spiral_reconstruction_probe.rs`).** Clarification: `SpiralEncoding` is a SIGNATURE codec (17 Base17 dims × K anchor samples per row) not a dense reconstructor, so the probe measures neighborhood preservation instead of per-element ρ.
+
+Measured on `talker.model.layers.0.self_attn.k_proj.weight [1024×1024]`, 256 stride-sampled rows, spiral stride=3:
+
+| K | Top-1 NN | Top-5 NN | Pairwise rank-agree | Bytes/row | Self-cos |
+|---|---|---|---|---|---|
+| 4 | 18.4% | 39.8% | 0.663 | 142 | 1.000000 |
+| 8 | 31.6% | 59.8% | 0.747 | 278 | 1.000000 |
+| 16 | **44.9%** | **78.9%** | **0.803** | 550 | 1.000000 |
+
+**Status: PARTIAL — monotonic with K, ~12× better than Base17 palette (#184's 3.71% top-1), but does NOT clear the 90% top-1 / 0.85 rank-agree thresholds at K=16.** Codec is directionally right; quality is K-bound.
+
+Mutation hooks for future probe:
+- Larger K (K=32 gives ~1 KB/row — ratio degrades but may cross G2/G3)
+- Per-role stride sweep (tested stride=3 for k_proj; other roles have 2/4/5/8)
+- Signature + small BF16 residual correction on top (hybrid)
+- Different spiral parameter (start ≠ 0) — rows may align better at non-zero start offset
+
+### P2. Shared anchors + i8 position per row
+
+Claim: If anchors are shared across a (component, role, shape) group à la `SharedPaletteGroup`, per-row cost collapses from 142 B to ~1 B.
+
+Probe: NOT YET WRITTEN. Depends on P1 passing first.
+
+Pass → real compression story. Projected 200:1 on vocab tensors at shippable ρ.
+Fail → shared anchors lose per-row fidelity; each row needs its own curve calibration.
+
+### P3. Palette preserves inner-product neighbourhoods (Path A → B dependency)
+
+Claim: An f32 CLAM palette on Qwen3 weight rows, used as the substrate for `FisherZTable`, gives `lookup_f32(pal(q), pal(k)) ≈ q · k^T`.
+
+Probe: NOT YET WRITTEN. Successor to `cascade_attention_probe.rs` with f32 palette instead of Base17.
+
+Pass → cascade inference is viable, proceed to pipeline rewire.
+Fail → codec-space inference needs richer routing (per-family tables, hierarchical route indices).
+
+### P6. Competitive codec R&D bench — psychometric metrics, all candidates
+
+Not "which one wins, retire the others." **"Which approach fits which
+(regime × budget × quality) cell in the codec landscape."**
+
+Bench structure: one example (`codec_rnd_bench.rs`), one tensor per regime,
+all candidate codecs encode the same rows, all metrics computed against
+ground-truth pairwise raw-cosine. Output: markdown table.
+
+**Candidate codecs (argmax-regime bench):**
+
+| Candidate | Framing | Bytes/row | Shared overhead |
+|---|---|---|---|
+| PassthroughBF16 | location, no compression | 2 × n_cols | 0 |
+| Base17Signature | location signature (17-dim projection) | 34 | 0 |
+| SpiralK8 | location signature (17 × 8 anchors) | 278 | 0 |
+| RaBitQ | sparse-signal (JL + binary) | ~4 | Hadamard matrix (tiny) |
+| PolarQuantGain | sparse-signal (magnitude + unit direction) | 2 + 2·n_cols | 0 |
+| HEEL+HIP+LEAF (I8 hybrid) | layered: location + JL orthogonal residual | 9 | 64 centroids × n_cols × 2 B |
+| HhtlF32Tensor + SlotL | location + SVD residual | 9 + palette | ~256 × n_cols × 2 B |
+
+**Candidate codecs (index-regime bench):**
+
+| Candidate | Bytes/row | When to use |
+|---|---|---|
+| PassthroughBF16 | 2 × n_cols | Baseline (what #178 ships) |
+| HhtlF32Tensor (k=256 palette only) | 1 | If NN-preservation is sufficient for lookup |
+| LEAF-only (no centroid) | 8 | JL residual without address, see P5 |
+
+**Psychometric metric suite:**
+
+| Metric | What it measures |
+|---|---|
+| Pearson r | linear correlation of codec score vs raw cosine |
+| Spearman ρ | rank correlation (monotonic fit) |
+| Kendall τ | concordant-pair proportion |
+| MAE / RMSE | score-estimate error magnitude |
+| Top-1 / 5 / 10 NN recall | argmax preservation at top of ranking |
+| Cohen's κ | top-1 agreement above chance baseline |
+| Bias | mean signed error (positive = overestimate) |
+| Variance of signed error | random vs systematic |
+| ICC(3,1) | intraclass correlation, consistency form |
+
+**Pass/fail reading** (per regime, per candidate):
+- argmax regime viable: Top-1 ≥ 0.90, Spearman ≥ 0.85, Cohen's κ ≥ 0.80
+- product-quality: add bytes/row ≤ 32 (competitive with BF16 baseline)
+
+**Deliverable**: one table per regime, sorted by quality-at-budget Pareto
+frontier. Each cell marks which candidate is best for that use.
+
+### P5. TurboQuant (PolarQuant + JLQ + QJL correction) on real Qwen3 — THE HIGH-PRIORITY PROBE
+
+Claim: per I7, argmax-regime tensors compress correctly via
+`TurboQuant = PolarQuant + JLQ + correction` at ~20 B/row with
+argmax-parity ≥ 90% over 33-layer chain.
+
+**Probe already written**: `crates/thinking-engine/examples/turboquant_correction_probe.rs`
+(466 L). Compares:
+  a. Direct i8 (no correction)
+  b. Fisher z (arctanh + family gamma — scale correction)
+  c. QJL corrected (i8 + bias removal)
+  d. RaBitQ corrected (binary + dot_correction)
+
+Across 200-row sample, 33-layer chain simulation, measures Spearman
+ranking preservation on final layer output.
+
+**Not yet run on Qwen3-TTS** to the best of this session's knowledge.
+That's the single probe that decides whether the whole centroid stack
+(A5, A6, A7) is obsolete vs worth keeping.
+
+### P4. Log-radial CLAM with magnitude split
+
+Claim: Unit-normalising rows (direction ∈ sphere) + CLAM on unit sphere + BF16 magnitude separately ≫ linear CLAM on raw f32 rows.
+
+Probe: NOT YET WRITTEN. Would replace `clam_furthest_point_f32` in `hhtl_f32.rs`.
+
+Pass → HhtlF32Tensor ρ̄ improves from 0.2–0.5 to ≥ 0.95 at same k=256.
+Fail → direction space is too near-uniform to cluster; needs different factorisation.
+
+## Signposts for future sessions
+
+**Déjà vu triggers** — if a future session is tempted to do any of these,
+read the referenced PR first:
+
+| Instinct | Read first |
+|---|---|
+| "Let's reconstruct rows from Base17 centroids" | #183 — the cos = 0.04 measurement |
+| "Hierarchical CLAM will fix the vocab tensor" | #177 → #178, HCLAM got cos = 0.0046, worse than RVQ |
+| "Widen twig to u16 for k > 256 centroids" | #185 codex; first probe log-companded bucketing |
+| "Base17 palette will preserve attention scoring" | #184 cascade_attention_probe 3.71% agreement |
+| "Add more layers of residual" (RVQ-style) | A2 — works for argmax regime only |
+| "f32 palette fixes reconstruction entirely" | A6 — 10× better than Base17, still not 0.95 |
+| "Single scalar residual (Slot V)" | I3 — can only shift amplitude, cannot add direction |
+
+**Structural checklist before shipping any new codec:**
+
+1. What regime does this tensor belong to? (I1)
+2. Does the codec encode direction AND amplitude separately? (I3)
+3. Is the palette substrate inner-product-preserving? (I2, A7)
+4. Does the decoder evaluate the curve, or tile anchors? (I5)
+5. Are wire-format widths asserted at encode time? (I4)
+
+## PR timeline (this session)
+
+| PR | Approach | Gate result |
+|---|---|---|
+| #176 | AVX-512 F32x16 FMA encoder + AMX polyfill | ✓ SIMD correct |
+| #177 | HCLAM 256×256 | ✗ REFUTED for vocab (cos 0.0046) |
+| #178 | Passthrough BF16 `n_rows > 8192` + Lance roadmap + WAV test | ✓ token match 225/225 |
+| #179 | Compression mindset shifts doc | — (doc) |
+| #180 | SlotL foundation (8 × i8 on shared SVD) | ✓ unit tests pass |
+| #181 | HhtlDTensor × SlotL integration | ✓ tests pass, integration with centroid flawed |
+| #182 | SharedPaletteGroup × SlotL group-level | ✓ tests pass |
+| #183 | Universal encoder with Base17 centroid reconstruction | ✗ ρ ≈ 0.04 on real Qwen3 |
+| #184 | HhtlF32Tensor + Path A/B probes | ◐ Path A ρ̄ 0.2–0.5 (improves on Base17, short of target); Path B 3.71% (fails) |
+| #185 | `HhtlF32Tensor` palette bounds (codex P1) | ✓ safety fix |
+| #186 | This doc + SpiralEncoding reconstruction probe | ◐ P1 PARTIAL — K=16 hits 45%/79%/0.80 (top-1/top-5/rank-agree), misses 90%/0.85 gate |
+
+## Session finding: SpiralEncoding is directionally right, K-bound
+
+`SpiralEncoding` at K=16 preserves ~12× more neighborhood structure than the Base17 palette tested in #184, but on Qwen3 k_proj weights it tops out at 45% top-1 NN agreement — short of the 90% threshold for cascade-inference viability.
+
+The monotonic K trend (K=4 → K=8 → K=16 gains 18% → 32% → 45% top-1) suggests K=32 or K=64 could cross the threshold but at 1–2 KB/row — no longer competitive on ratio.
+
+This means the session's forward menu narrows to:
+1. **Hybrid codec**: SpiralEncoding signature at small K + a compact residual correction (BF16 scalar or 4-component i8 vector) to lift the NN-top-1 threshold without blowing up per-row bytes.
+2. **Per-role stride optimisation**: the probe used stride=3 for k_proj (matches NeuronPrint design); other roles use 2/4/5/8. Sweep.
+3. **Accept signature-grade cascade ≠ f32 GEMM reconstruction**: wire SpiralEncoding as the palette substrate for the already-failed `cascade_attention_probe` in #184 and measure there directly. The "45% top-1" result is ON a signature distance, but actual attention scoring might still converge when the cascade routes Skip/Attend/Compose with richer rules than raw argmax.
+
+Next session starts here.
+
+https://claude.ai/code/session_01NYGrxVopyszZYgLBxe4hgj
+
+## I9. BF17 shapeshifting — same bits, different semantics per hierarchy level
+
+The same 17-bit (or 16-bit) wire width carries different constructs at
+different HHTL levels:
+
+| Level | Bit interpretation | Construct measured |
+|---|---|---|
+| HEEL (coarse) | BF17 float → golden-step fold → Base17 address | Joint direction+magnitude opinion (P7 confirmed: don't split) |
+| HIP (family) | 4-bit sub-cluster within basin | Partition of opinion space (Base17 L1 > PolarQuant-only per P7) |
+| LEAF (fine) | 8 × i8 signed = PolarQuant coefficients on JLQ basis | Residual direction in orthogonal space |
+
+The "shapeshifting" is: exponent bits at HEEL become direction bits at
+LEAF; mantissa bits at HEEL become magnitude bits at LEAF. Same wire
+budget, different semantic load. This is why separating direction from
+magnitude before clustering (PolarQuant-only) HURTS — the coupling IS
+the information at the HEEL/HIP level.
+
+## P8. Cronbach's α codec bench — psychometric measurement model
+
+### Framing
+
+Codec candidates are NOT alternatives to eliminate. They are **test items
+on a psychometric instrument**. We measure internal consistency (α) to
+discover which items measure the SAME construct and which measure
+DIFFERENT constructs.
+
+### Decision logic
+
+| α result | Interpretation | Action |
+|---|---|---|
+| α ≥ 0.85 within a codec subset | Those codecs are REDUNDANT (measure same construct) | Keep the cheapest |
+| α < 0.70 between two codecs | They measure DIFFERENT constructs | Both informative, keep for different regimes |
+| Removing one item RAISES α | That item is NOISY | Investigate WHY before discarding |
+
+### Epiphany × population correlation matrix
+
+Each epiphany (E/I) predicts a specific pattern across data populations.
+The bench validates whether the prediction holds:
+
+| Epiphany | Prediction | Attention k_proj | MLP gate | Vocab embed | Jina v5 | Audio codec |
+|---|---|---|---|---|---|---|
+| I1 (two regimes) | argmax vs index regimes need different codecs | argmax ✓ | argmax ✓ | INDEX ✗ | argmax ✓ | index? |
+| I2 (near-orthogonal) | single-centroid fails on high-dim rows | ✗ (1024-d) | ✗ (1024-d) | ✗✗ (2048-d) | ?(1024-d) | ?(1024-d) |
+| I3 (direction ≠ magnitude) | scalar residual can't fix direction | ✗ | ✗ | ✗ | ? | ? |
+| I7 (location vs sparse-signal) | two-factor structure in codec α | location factor | location factor | index factor | ? | ? |
+| I8 (layered HEEL+HIP+LEAF) | location + JLQ beats either alone | probe needed | probe needed | passthrough wins | probe needed | probe needed |
+| I9 (BF17 shapeshifting) | joint dir+mag > separated at HEEL/HIP | P7 confirmed | probe needed | N/A (index) | probe needed | probe needed |
+| P5 (chain collapse) | single-layer OK, 33-layer chain ρ→0 | ✓ measured | extrapolated | N/A | ? | ? |
+| P7 (PolarQuant HIP) | direction-only families worse than joint | ✓ measured (-9%) | ? | N/A | ? | ? |
+
+### Populations (data types for cross-validation)
+
+| Population | Regime | Dim | Source | Distribution signature |
+|---|---|---|---|---|
+| Attention k_proj | argmax | 1024 | Qwen3-TTS-0.6B | near-orthogonal, small magnitude range |
+| MLP gate_proj | argmax | 1024 | Qwen3-TTS-0.6B | SiLU-gated, bimodal |
+| Text embedding | index | 2048 | Qwen3-TTS-0.6B | vocab-sized, sparse usage |
+| Jina v5 output | argmax | 1024 | jina-v5-onnx/ on disk | semantic similarity, unit-normalized |
+| Audio codec emb | index | 1024 | Qwen3-TTS-0.6B (×15) | RVQ codebook, discrete latent |
+| BGE-M3 output | argmax | 1024 | bge-m3 crate | multilingual, SentencePiece |
+
+### Metrics per (codec × population) cell
+
+| Metric | What it measures | Tool |
+|---|---|---|
+| Pearson r | linear score correlation vs ground truth | `bgz_tensor::quality::pearson` |
+| Spearman ρ | rank correlation | `bgz_tensor::quality::spearman` |
+| Top-1/5/10 NN recall | argmax preservation | `bgz_tensor::quality::top_k_recall` |
+| MAE / RMSE | score estimate error | `bgz_tensor::quality::mae/rmse` |
+| Cronbach's α (inter-codec) | internal consistency across codec "items" | NEW — implement |
+| Cohen's κ (top-1 agreement) | agreement above chance for argmax | NEW — implement |
+| Bias (mean signed error) | systematic over/under-estimation | NEW — implement |
+| ICC(3,1) | intraclass correlation, consistency | NEW — implement |
+
+### Deliverable
+
+One table per population, all codecs as rows, all metrics as columns.
+Cross-population α matrix showing which codecs generalize vs which are
+population-specific. Factor analysis identifying the location/sparse-signal
+two-factor structure (or refuting it).
+
+This is P6 from earlier, now with the psychometric measurement model and
+the epiphany × population correlation matrix that ties it back to every
+lesson this session learned.
+
+### P9. Resolution as a variable — mixed bit-width per HHTL level
+
+The bit width per level is NOT fixed. The bench should test whether
+wider HIP address (finer opinion bins → tighter compartments) reduces
+residual variance enough that the LEAF can be shorter. Total bits/row
+could DROP despite wider address.
+
+Variants to test (same tensor, same population matrix):
+
+| Variant | Address | Leaf | Total bits/row |
+|---|---|---|---|
+| I8-baseline | 2+4=6b | 8×i8=64b | 70 |
+| Wide-HIP | 2+8=10b | 8×i8=64b | 74 |
+| Mixed-leaf | 2+4=6b | 4×i16+4×i8=96b | 102 |
+| Compact-leaf | 2+4=6b | 4×i8=32b | 38 |
+| BF16-leaf | 2+4=6b | 2×BF16=32b | 38 |
+| Stacked-Matryoshka | 2+4=6b | 2×i16+2×i8+2×i4+2×i2=52b | 58 |
+
+Key question: does wider HIP × shorter leaf beat narrow HIP × longer
+leaf at the SAME total bit budget?
+
+The Matryoshka module (bgz-tensor/src/matryoshka.rs) already has the
+4-band design (BandPrecision::I16/I8/I4/I2 per SVD energy ordering).
+Wiring it into the leaf encoding is a composition, not a new primitive.
+
+This connects I9 (BF17 shapeshifting): the optimal encoding per level
+might be BF17-like mixed precision — high-energy dims get i16 mantissa,
+low-energy dims get i2. Same total wire budget, but information-weighted
+allocation across the Matryoshka bands.
+
+### I10. Embeddings are DTOs — extract addresses, don't compress
+
+The text embedding IS the encoding. Compressing it = lossy lemma reencoding.
+Every session attempt to compress the embedding table failed (RVQ cos=0.054,
+HCLAM cos=0.004, HhtlDTensor cos=0.04, HhtlF32+SlotL ICC=0.05, I8-Hybrid
+ICC=0.05). This is the correct result: embedding tables are DTOs.
+
+The right pattern: DUAL REPRESENTATION.
+  - BF16 DTO (exact, for GEMM) — stays intact, 620 MB
+  - Extracted address (compact, for routing) — CAM-PQ 6 bytes per token
+  - HHTL cascade routes on the address; only 1-5% of pairs touch the DTO
+
+Tokens are a low-level CAM. The whole stack is a hierarchy of CAMs:
+  Level 0: BPE tokens (bytes → token_id, frequency-optimal addressing)
+  Level 1: Embedding table (token_id → f32 vector, the DTO bridge)
+  Level 2: CAM-PQ (f32 vector → 6-byte address, semantic cascade)
+  Level 3: HHTL cascade (address → route action, computation gating)
+  Level 4: DeepNSM (word → 4096² cell, distributional lookup)
+
+Data flow rule: DTOs flow intact through the spine. Only weight matrices
+get codec-compressed. Embeddings get ADDRESSED (CAM-PQ), not compressed.
+
+### P10. CAM-PQ as extracted address for embeddings
+
+Our `ndarray::hpc::cam_pq` already implements this:
+  6 subspaces × 256 centroids = 48 bits per vector
+  HEEL/BRANCH/TWIG_A/TWIG_B/LEAF/GAMMA hierarchy
+  3-stroke cascade: 99% rejection before full ADC
+  500M candidates/sec via AVX-512 VPGATHERDD
+
+Compare to Jina v5's 512-codebook PQ at ~1152 bits — our CAM-PQ is 24×
+more compact with semantic cascade routing they don't have.
+
+Pipeline: Jina v5 → 1024-d DTO + CAM-PQ 6-byte address → HHTL cascade
+Skip/Attend on address → full cosine only on 1% Escalate cases.
+
+Wiring exists but is not connected end-to-end:
+  ndarray::hpc::cam_pq         → the codec (encode, decode, distance)
+  lance-graph::cam_pq::udf     → DataFusion UDF scaffold
+  lance-graph::cam_pq::storage → Lance table schema
+  lance-graph::cam_pq::ivf     → IVF coarse partitioning
+  lance-graph-planner::physical::cam_pq_scan → scan operator
+
+Probe: encode Jina v5 output embeddings via CAM-PQ, measure cascade
+Skip/Attend/Escalate ratio + ICC on the Attend decisions vs ground truth.
+
+### I11. Bitpacked quantized codes ARE content-addressable addresses
+
+Full-rank i4 quantization produces a code vector that is simultaneously:
+1. A reconstruction key (centroid + dequant(i4_codes) × SVD_basis)
+2. A content-addressable address (Manhattan distance on i4 codes ≈ cosine on original)
+
+This generalises HHTL-D Slot D (16-bit tree address) to full dimensionality:
+- Slot D: 16 bits → basin/family/twig/polarity (coarse address)
+- i4×D: D×4 bits → per-SVD-component quantized value (fine address)
+
+The bitpacked codes inherit the SVD ordering: top components carry more
+discriminative energy. Truncating the address (first K of D codes) gives
+a natural multi-resolution CAM hierarchy — like CAM-PQ's 3-stroke cascade
+but data-adaptive rather than fixed-subspace.
+
+Status: CONJECTURE. `codec_rnd_bench.rs` has the `i4-CAM` codec candidate
+measuring Manhattan-distance ICC vs ground-truth cosine.
+
+### P11. Full-rank i4 leaf (256×i4 at 256-d)
+
+At 256-d, n_components = n_cols = 256. Each row gets:
+  - 1 byte centroid index (CLAM k=64)
+  - 128 bytes i4 coefficients (256 × 4 bits)
+  - 4 bytes scale
+  = 133 bytes/row (vs 512 bytes BF16 = 3.85:1 compression)
+
+This captures the ENTIRE SVD subspace at 4-bit precision. No lost
+directions. The only error source is quantization noise per coefficient
+(±0.5/7 ≈ 7% max relative error per dimension).
+
+Hypothesis: ICC ≥ 0.85 at 256-d populations where previous narrow codecs
+(i4×16, i8×8) scored ICC ≈ 0.4-0.5 — because the residual energy was
+spread across ALL 256 dimensions, not concentrated in the first 16.
+
+### P12. Matryoshka variable-precision (production codec path)
+
+Tests the actual bgz_tensor::matryoshka encode/decode pipeline:
+  - Band 0 (0..64): i16 (high-energy SVD components)
+  - Band 1 (64..192): i8
+  - Band 2 (192..384): i4
+  - Band 3 (384..D): i2
+
+This is the Opus-inspired variable bit allocation. At 256-d, only bands
+0-2 are populated (no i2 band). bytes/row ≈ 200-350 depending on dim.
+
+### P13. i4 residue after full-rank quantization
+
+After full-rank i4, the quantization residue per coefficient is at most
+0.5 × scale / 7. This residue is:
+- NOT reconstructible from the i4 codes alone
+- Systematic: always rounds toward zero (bias toward centroid)
+- Small if SVD singular values decay fast (low energy in tail = small scale)
+
+Options for the residue:
+1. Accept it (if ICC ≥ 0.85, the 4-bit floor is sufficient)
+2. Second-pass i2 on the residue (adds 64 bytes at 256-d)
+3. Use the residue magnitude as a confidence bit (large residue = uncertain address)

@@ -1,0 +1,22 @@
+# (starter prior — tune empirically)
+# Intuitive: leap to abduction, soft thresholds, agglutinative for surface tells.
+style: intuitive
+nars:
+  primary: Abduction
+  fallback: Synthesis
+morphology:
+  tables: [english_svo, finnish_case_table, turkish_aggl]
+  agglutinative_mode: true
+tekamolo:
+  priority: [modal, temporal, kausal, lokal]
+  require_fillable: false
+markov:
+  radius: 4
+  kernel: gaussian
+  replay: forward
+spo_causal:
+  pearl_mask: 0x0F
+  ambiguity_tolerance: 0.30
+coverage:
+  local_threshold: 0.78
+  escalate_below: 0.60

@@ -1,0 +1,167 @@
+# semantic_types.toml — declarative OGIT-attribute → SemanticType mapping.
+#
+# This is the only TOML in the lance-graph-ontology crate. It is a
+# developer-facing configuration file. Customer-facing ontology data goes
+# through TTL (which this crate parses via oxttl).
+#
+# Keys are OGIT-shape attribute URIs `ogit.<Namespace>:<Entity>.<attr>` (or
+# bare `ogit.<Namespace>:<Attribute>` for namespace-level attributes).
+# Values are the *names* of variants in
+# `lance_graph_contract::property::SemanticType`. Currently supported variant
+# names: PlainText | Iban | Email | Phone | Address | Url | TaxId |
+# CustomerId | InvoiceNumber | Image | Date | DateMonth | DateYear |
+# DateTime | GeoLatLon | GeoWgs84 | GeoPlusCode.
+#
+# Currency(...) and File(...) take static-string parameters that cannot be
+# expressed in TOML; they must be set via explicit Rust call sites (e.g.
+# from a tenant bridge that knows its own currency code).
+#
+# `default.unmapped` controls the fallback when a predicate does not appear
+# in `[mappings]`. Default = PlainText (safe).
+
+[mappings]
+# ── Network ────────────────────────────────────────────────────────────────
+"ogit.Network:IPAddress.id" = "Url"
+"ogit.Network:MACAddress.id" = "PlainText"
+"ogit.Network:NetworkInterface.name" = "PlainText"
+
+# ── Auth ───────────────────────────────────────────────────────────────────
+"ogit.Auth:Account.email" = "Email"
+"ogit.Auth:Account.username" = "PlainText"
+"ogit.Auth:Account.password" = "PlainText"
+"ogit.Auth:Person.email" = "Email"
+"ogit.Auth:Person.phone" = "Phone"
+"ogit.Auth:Person.address" = "Address"
+
+# ── Compliance / Legal ────────────────────────────────────────────────────
+"ogit.Compliance:Person.taxId" = "TaxId"
+"ogit.Compliance:Organization.taxId" = "TaxId"
+
+# ── Procurement / SalesDistribution ───────────────────────────────────────
+"ogit.SalesDistribution:Order.orderId" = "InvoiceNumber"
+"ogit.SalesDistribution:Customer.customerId" = "CustomerId"
+"ogit.SalesDistribution:Customer.taxId" = "TaxId"
+"ogit.SalesDistribution:Customer.iban" = "Iban"
+"ogit.SalesDistribution:Customer.email" = "Email"
+"ogit.SalesDistribution:Customer.phone" = "Phone"
+
+# ── MRP / MaterialManagement ──────────────────────────────────────────────
+"ogit.MRP:Material.partNumber" = "PlainText"
+
+# ── WorkOrder (this session adds these in OGIT/NTO/WorkOrder/) ────────────
+# Customer (Kunde)
+"ogit.WorkOrder:Customer.email" = "Email"
+"ogit.WorkOrder:Customer.telefon" = "Phone"
+"ogit.WorkOrder:Customer.iban" = "Iban"
+"ogit.WorkOrder:Customer.taxId" = "TaxId"
+"ogit.WorkOrder:Customer.kdnr" = "CustomerId"
+"ogit.WorkOrder:Customer.firma" = "PlainText"
+"ogit.WorkOrder:Customer.vorname" = "PlainText"
+"ogit.WorkOrder:Customer.nachname" = "PlainText"
+"ogit.WorkOrder:Customer.strasse" = "Address"
+"ogit.WorkOrder:Customer.plz" = "PlainText"
+"ogit.WorkOrder:Customer.ort" = "Address"
+"ogit.WorkOrder:Customer.zahlungsziel" = "PlainText"
+"ogit.WorkOrder:Customer.stundensatz" = "PlainText"
+
+# Order (Auftrag/Rechnung)
+"ogit.WorkOrder:Order.orderId" = "InvoiceNumber"
+"ogit.WorkOrder:Order.datum" = "Date"
+"ogit.WorkOrder:Order.bezahlt" = "Date"
+"ogit.WorkOrder:Order.docType" = "PlainText"
+"ogit.WorkOrder:Order.betreff" = "PlainText"
+"ogit.WorkOrder:Order.nettoSumme" = "PlainText"
+"ogit.WorkOrder:Order.bruttoSumme" = "PlainText"
+"ogit.WorkOrder:Order.mwstBetrag" = "PlainText"
+
+# LogbookEntry (Fahrtenbuch)
+"ogit.WorkOrder:LogbookEntry.datum" = "Date"
+"ogit.WorkOrder:LogbookEntry.createdAt" = "DateTime"
+"ogit.WorkOrder:LogbookEntry.abfahrt" = "DateTime"
+"ogit.WorkOrder:LogbookEntry.ankunft" = "DateTime"
+"ogit.WorkOrder:LogbookEntry.rueckfahrt" = "DateTime"
+"ogit.WorkOrder:LogbookEntry.zurueck" = "DateTime"
+"ogit.WorkOrder:LogbookEntry.route" = "PlainText"
+"ogit.WorkOrder:LogbookEntry.zweck" = "PlainText"
+"ogit.WorkOrder:LogbookEntry.fahrzeug" = "PlainText"
+"ogit.WorkOrder:LogbookEntry.startKm" = "PlainText"
+"ogit.WorkOrder:LogbookEntry.endeKm" = "PlainText"
+"ogit.WorkOrder:LogbookEntry.privatAnteil" = "PlainText"
+
+# Picture (Bild)
+"ogit.WorkOrder:Picture.dateiname" = "Image"
+"ogit.WorkOrder:Picture.beschreibung" = "PlainText"
+
+# User (Mitarbeiter)
+"ogit.WorkOrder:User.email" = "Email"
+"ogit.WorkOrder:User.phone" = "Phone"
+"ogit.WorkOrder:User.username" = "PlainText"
+"ogit.WorkOrder:User.firstname" = "PlainText"
+"ogit.WorkOrder:User.lastname" = "PlainText"
+"ogit.WorkOrder:User.passwordHash" = "PlainText"
+"ogit.WorkOrder:User.createdAt" = "DateTime"
+
+# CustomerPortalUser
+"ogit.WorkOrder:CustomerPortalUser.username" = "PlainText"
+"ogit.WorkOrder:CustomerPortalUser.passwordHash" = "PlainText"
+"ogit.WorkOrder:CustomerPortalUser.createdAt" = "DateTime"
+"ogit.WorkOrder:CustomerPortalUser.lastLogin" = "DateTime"
+
+# Tenant
+"ogit.WorkOrder:Tenant.slug" = "PlainText"
+"ogit.WorkOrder:Tenant.logoPath" = "PlainText"
+"ogit.WorkOrder:Tenant.createdAt" = "DateTime"
+
+# TimeSheet (Stundenzettel)
+"ogit.WorkOrder:TimeSheet.datum" = "Date"
+"ogit.WorkOrder:TimeSheet.createdAt" = "DateTime"
+"ogit.WorkOrder:TimeSheet.updatedAt" = "DateTime"
+"ogit.WorkOrder:TimeSheet.timerStart" = "DateTime"
+"ogit.WorkOrder:TimeSheet.beschreibung" = "PlainText"
+"ogit.WorkOrder:TimeSheet.minuten" = "PlainText"
+
+# PasswordEntry (Passwort-Tresor)
+"ogit.WorkOrder:PasswordEntry.url" = "Url"
+"ogit.WorkOrder:PasswordEntry.benutzername" = "PlainText"
+"ogit.WorkOrder:PasswordEntry.passwortEnc" = "PlainText"
+"ogit.WorkOrder:PasswordEntry.notizenEnc" = "PlainText"
+"ogit.WorkOrder:PasswordEntry.titel" = "PlainText"
+"ogit.WorkOrder:PasswordEntry.gruppe" = "PlainText"
+"ogit.WorkOrder:PasswordEntry.icon" = "PlainText"
+"ogit.WorkOrder:PasswordEntry.createdAt" = "DateTime"
+"ogit.WorkOrder:PasswordEntry.updatedAt" = "DateTime"
+
+# Article (Artikelstamm)
+"ogit.WorkOrder:Article.artikelnr" = "PlainText"
+"ogit.WorkOrder:Article.beschreibung" = "PlainText"
+"ogit.WorkOrder:Article.lieferant" = "PlainText"
+"ogit.WorkOrder:Article.preisNetto" = "PlainText"
+"ogit.WorkOrder:Article.ekPreis" = "PlainText"
+"ogit.WorkOrder:Article.mwstSatz" = "PlainText"
+
+# Position (Auftragsposition)
+"ogit.WorkOrder:Position.beschreibung" = "PlainText"
+"ogit.WorkOrder:Position.einzelpreis" = "PlainText"
+"ogit.WorkOrder:Position.menge" = "PlainText"
+"ogit.WorkOrder:Position.einheit" = "PlainText"
+"ogit.WorkOrder:Position.posTyp" = "PlainText"
+"ogit.WorkOrder:Position.mwstSatz" = "PlainText"
+
+# Activity / HistoryEntry / Setting / NumberSequence
+"ogit.WorkOrder:Activity.beschreibung" = "PlainText"
+"ogit.WorkOrder:Activity.geraet" = "PlainText"
+"ogit.WorkOrder:HistoryEntry.aktion" = "PlainText"
+"ogit.WorkOrder:HistoryEntry.details" = "PlainText"
+"ogit.WorkOrder:Setting.settingKey" = "PlainText"
+"ogit.WorkOrder:Setting.settingValue" = "PlainText"
+"ogit.WorkOrder:Setting.label" = "PlainText"
+"ogit.WorkOrder:NumberSequence.prefix" = "PlainText"
+
+# ── GeoProfile ─────────────────────────────────────────────────────────────
+"ogit.GeoProfile:Place.latlon" = "GeoLatLon"
+
+# ── Documents ──────────────────────────────────────────────────────────────
+"ogit.Documents:Document.url" = "Url"
+
+[default]
+unmapped = "PlainText"

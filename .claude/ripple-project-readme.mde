@@ -1,0 +1,58 @@
+# Ripple Project Readme
+
+## What this effort is
+
+This effort treats `lance-graph` as an emerging cognition stack.
+
+The goal is not to bolt a metaphor onto the repo.
+The goal is to align the codebase with what it is already becoming:
+
+- role-aware cold anatomy
+- basin and family routing
+- contradiction-preserving structure
+- searchable resonance field
+- explicit reasoning bus
+- accountable thought objects
+
+## Primary references
+
+- `docs/integrated-architecture-map.md`
+- `.claude/knowledge.md`
+- `.claude/blackboard-ripple-architecture-20260402-01.MD`
+- `.claude/blackboard-ripple-architecture-changelog.md`
+
+## Core doctrine
+
+1. Do not flatten unlike functions early.
+2. Treat bgz17 as HEEL, not universal truth.
+3. Split at least into QK / V / Gate / UD.
+4. Keep field distinct from sweep distinct from bus.
+5. Treat style as collapse policy.
+6. Preserve contradiction as structure.
+7. Compile thought into structure before text.
+
+## Layer picture
+
+- Cold anatomy
+- HEEL
+- HIP
+- BRANCH
+- TWIG
+- LEAF
+- `StreamDto`
+- `ResonanceDto`
+- `BusDto`
+- `ThoughtStruct`
+
+## First implementation targets
+
+- `StreamDto`
+- `BusDto`
+- `ThoughtStruct`
+- role-aware HIP layer
+- contradiction-preserving BRANCH layer
+- searchable resonance field and `ResonanceDto`
+
+## Working sentence
+
+The repo already contains the anatomy, bus, and blackboard; the task now is to promote basin, family, contradiction, resonance, and thought-object into first-class layers.
