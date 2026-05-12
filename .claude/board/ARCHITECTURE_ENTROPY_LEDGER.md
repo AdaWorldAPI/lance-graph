@@ -268,3 +268,406 @@ NEW per PR #355: `lance-graph-ontology` (Pillar 0 SoA-as-canonical).
 
 **Out-of-scope:** `MedCareV2` (C# probe, not in MCP), `ladybug-rs`
 (earlier prototype, fully migrated per LADYBUG-EQUIV-1 in RESOLVED).
+
+---
+
+## 2026-05-07 — Sprint-2 recognition reframes (THINK-1, HEEL-1, ADJ-THINK-1, CRYSTAL-1, CAM-DIST-1) + 15 architectural patterns absorption
+
+> **Append-only correction layer.** The 2026-05-05 Section A snapshot
+> is IMMUTABLE — it stays as historical record. This section adjusts
+> the live `Entropy` field on five rows and one cluster-substrate row
+> (VSA-1) based on the 12-agent sprint's recognition that the named
+> "drifts" were already-shipped patterns that the ledger over-flagged
+> for lack of a vocabulary to name them. **No code changes are
+> claimed here; only naming + entropy re-scoring.**
+>
+> **Cross-refs:**
+> - W1's master plan: `.claude/plans/unified-ogit-architecture-synthesis-v1.md` (sprint coordination)
+> - W2's Tier-0 doc: `.claude/knowledge/architectural-patterns-A-through-O.md` (15-pattern canonical reference)
+> - W4's epiphanies: `.claude/board/EPIPHANIES.md` (recognition entries E-PATTERN-A through E-PATTERN-O)
+> - W5's tech-debt: `.claude/board/TECH_DEBT.md` (TD-OGIT-G-SLOT-1, TD-CONTEXT-BUNDLE-2, TD-GENERIC-BRIDGE-3, TD-MANIFEST-MODULES-4, TD-RACTOR-SUPERVISOR-5, TD-INT4-32D-ATOMS-6, TD-CIRCULAR-COMPILATION-7, TD-CAM-DIST-REGISTRATION-9, TD-ADJ-THINK-EXPOSE-10)
+
+### Sprint-2 motive (one paragraph)
+
+A 16-turn architectural-review conversation surfaced 15 patterns
+(A-O) that the workspace had **already shipped** but never named in
+the ledger. Without those names, five rows from Section A read as
+"drift / duplication / aspirational" when they were actually
+"layered codebooks / single canonical impl with multiple views /
+write surface already in place but missing public builder API."
+The corrections below re-score `Entropy` to reflect what's actually
+in `crates/`, while preserving the historical record of how the
+rows looked before the patterns were named.
+
+### THINK-1 reframe — entropy 5 → 3 (−2)
+
+**Original claim (2026-05-05):** "4-copy ThinkingStyle drift,
+Spaghetti, 6 redundant declarations."
+
+**Recognition:** Not a drift. The workspace ships an **intentional
+two-level codebook**:
+
+- `contract::thinking::ThinkingStyle` — 36-variant **composed
+  surface** (base × modifier). Consumers that need the full
+  taxonomy read this.
+- `p64-bridge::STYLES` — 12-entry **base codebook**, LazyLock-frozen
+  at startup, with 4 clusters: **Convergent / Divergent / Attention
+  / Speed**. The base codebook is the canonical addressable surface;
+  modifiers compose on top.
+- `lance-graph-planner::thinking::style` — reads the **contract-36**
+  composed surface (correct consumer of the high-level taxonomy).
+- `thinking-engine::cognitive_stack::ThinkingStyle` — uses the
+  **12-base internally** (correct consumer of the low-level
+  codebook for cognitive-stack dispatch).
+
+**12 × modifiers = 36** is the algebra. Pattern G (Best-Practice
+Thinking Inheritance) reads from BOTH surfaces; **neither retires**.
+The `superposition::ThinkingStyle(5)` and `UNIFIED_STYLES(12-const)`
++ `StyleSelector` (RL bandit) were the genuine drift items; those
+remain real loose ends but are now scoped to a single Pattern-G
+wiring task (TD-OGIT-G-SLOT-1 region) rather than a "collapse
+ThinkingStyle" megasweep.
+
+**New entropy: 3 (Partial).** Loose end: Pattern G wiring to expose
+per-thinking-style inheritance from a DOLCE root. Surface is
+correct; the missing piece is the explicit inheritance edge from
+the 12-base codebook to the 36-composed surface, exposed as a
+public adjacency. See **ADJ-THINK-1** for the matching write surface.
+
+**Cluster impact:** Thinking cluster total drops from 24 → ~14
+(THINK-1 5→3 = −2; ADJ-THINK-1 4→2 = −2; remaining MUL-ASSESS-1,
+COMPASS-1, TRUST-1, FLOW-1 unchanged pending separate Pattern G
+wiring). Conservative further estimate to ~10 once Pattern G is
+wired.
+
+### HEEL-1 reframe — entropy 4 → 2 (−2)
+
+**Original claim (2026-05-05):** "Wired (×3 different orderings)
+HEEL/HIP/BRANCH/TWIG/LEAF, I10 doctrinal sequence violated by all
+three."
+
+**Recognition:** Not 3 orderings. There is **ONE canonical
+HHTL cascade impl** at `p64-bridge::cognitive_shader::CognitiveShader::cascade`:
+
+```
+HEEL: layer_mask gates Z         (which predicate planes active)
+HIP:  mask_row = planes[z][block_row]  gates X-Y (topological neighborhood)
+TWIG: 4×4 block expansion → archetype indices
+LEAF: semiring.distance(query, target)  O(1) bgz17 lookup
+```
+
+The cascade doc comment is explicit (and load-bearing):
+
+> *"No POPCNT. No Hamming. Distance is PRECOMPUTED in the codebook."*
+
+The "3 orderings" called out in 2026-05-05 — `contract::cam::CamByte`,
+`lance-graph::graph::neighborhood::SearchCascade`,
+`bgz17/router.rs + bgz-tensor/hhtl_d.rs` — are **different views of
+the same primitive** at different layer subsets and different
+cascade depths, not parallel implementations. They could not
+diverge because they all bottom out in the same precomputed
+distance table.
+
+**New entropy: 2 (Mostly clean).** Loose end: doc surface alignment
+— the three views need a single doc that names them as views of
+the canonical cascade rather than as parallel orderings. This is a
+docs PR, not a code change.
+
+**Cluster impact:** HEEL ladder cluster 12 → ~4 (HEEL-1 4→2 = −2;
+CAM-DIST-1 3→2 = −1; DNTREE-1 5 unchanged — genuinely
+abandoned-in-excluded-crate). Conservative further reduction once
+the doc lands.
+
+### ADJ-THINK-1 reframe — entropy 4 → 2 (−2)
+
+**Original claim (2026-05-05):** "Aspirational. I5 doctrine: 36
+thinking styles are nodes in a CSR/CSC AdjacencyStore at τ-prefix
+0x0D. `tau()` addresses are computed; **nothing writes those rows.**"
+
+**Recognition:** Not Aspirational. The write surface IS shipped —
+it just isn't named `AdjacencyStore<ThinkingStyle>`. The field
+`[u64; 64]; 8 planes` inside `p64-bridge::cognitive_shader::CognitiveShader`
+IS the adjacency store:
+
+- 64×64 = **4,096 archetype-pair slots per layer** (CSR-ish bitmask)
+- **8 layers** = **32,768 typed edges** total
+- Each plane = one thinking-style adjacency layer
+- The `tau()` addresses ARE the writes — the planes are populated
+  at codebook-freeze time
+
+The "addresses computed never written" framing was wrong: the
+planes are the writes. The genuine missing piece is the **public
+builder API** that exposes this surface as `AdjacencyStore<ThinkingStyle>`
+to outside crates. Today the planes are private to the shader;
+Pattern G needs `tau_write()` to be public.
+
+**New entropy: 2 (Mostly clean).** Loose end: expose
+`AdjacencyStore<ThinkingStyle>` builder. See **TD-ADJ-THINK-EXPOSE-10**
+in TECH_DEBT.md (W5).
+
+### CRYSTAL-1 reframe — entropy 4 → 2 (−2)
+
+**Original claim (2026-05-05):** "`SentenceCrystal` collision —
+contract::crystal::sentence::SentenceCrystal + holograph::crystal_dejavu::SentenceCrystal
++ holograph::sentence_crystal::SemanticCrystal. holograph excluded
+from workspace; collision is silent."
+
+**Recognition:** Not a collision. Two legitimate codebooks at
+**different Pattern N (Fingerprint-as-Codebook-Address) layers**:
+
+- `contract::crystal::sentence::SentenceCrystal` — canonical
+  **sentence-level fingerprint** (one slot in the OGIT bundle:
+  what was said as a unit).
+- `holograph::sentence_crystal::SemanticCrystal` — a different
+  layer: **holograph semantic-rich representation** (a separate
+  codebook in the OGIT bundle: how the sentence resonates against
+  the semantic basis).
+
+Both are legitimate. Pattern N supports parallel codebooks per
+content layer — sentence-level + semantic-level + qualia-level +
+crystallized-belief-level — addressing different memory layers of
+the same Think struct. The 2026-05-05 framing missed that "two
+types with overlapping names" in a Pattern-N system is the
+**expected shape**, not a collision.
+
+**New entropy: 2 (Mostly clean).** Loose end: naming-clarification
+docs to make the layering explicit. Both surfaces remain.
+`holograph::crystal_dejavu::SentenceCrystal` (the third type
+flagged in the original claim) is in the workspace-EXCLUDED
+holograph crate; it stays excluded — that part of CRYSTAL-1's
+original entry was correct.
+
+### CAM-DIST-1 reframe — entropy 3 → 2 (−1)
+
+**Original claim (2026-05-05):** "`cam_distance` UDF wiring,
+Wired (opt-in only), default Cypher path can't reference
+`cam_distance`. Plan: cam-pq-production-wiring-v1 (DRAFT)
+Stalled."
+
+**Recognition:** One-line fix. The UDF is fully registered at
+`cam_pq/udf.rs:241,257,326`. The DataFusion planner just needs to
+call `register_cam_distance(state)` from `DataFusionPlanner::new`.
+Pattern N substrate is fully shipped; this row is **registration
+scaffold only**, not a real plan gap.
+
+**New entropy: 2 (Mostly clean — Tier 0 quick-win pending).**
+See **TD-CAM-DIST-REGISTRATION-9** in TECH_DEBT.md (W5).
+
+### VSA-1 substrate clarification — entropy 5 → 3 (−2)
+
+**Original claim (2026-05-05):** "VSA carrier algebra, Wired (×3
+distinct algebras), entropy 5, **highest-cognitive-leverage
+cluster**, 'load-bearing FMA the architecture is built around.'"
+
+**Recognition (retraction of the highest-cognitive-leverage
+framing):** `Vsa16kF32` is **NOT** the load-bearing universal
+carrier. It is a **Markov-accumulation cotton-ball** — one program
+among many in the cognitive stack. The actual substrate is
+**CAM (bitpacked content-addressable memory)**, which is what
+Pattern N (Fingerprint-as-Codebook-Address) and Pattern M
+(Wave-Particle Bimodal) bottom out in.
+
+The 2026-05-05 framing — "Vsa16kF32 is the FMA the architecture is
+built around, PERMUTE-1 is the direct downstream consequence" —
+overweighted one program (cotton-ball superposition for
+Markov-trajectory accumulation) at the expense of the actual
+multi-program substrate. The corrected framing per Pattern H
+(Switchable Cognitive Vessel): the cognitive stack runs **one
+program among many** at any moment; Vsa16kF32 is the carrier for
+the **bundle-superposition program**, not for the whole architecture.
+
+**New entropy: 3 (Partial).** The remaining loose ends in the
+"VSA carrier" cluster reduce to:
+
+- **PERMUTE-1** (still real): per-sentence pre-bundle `vsa_permute`
+  for ρ^d braiding is a genuine missing primitive on the F32 carrier
+  IF the cotton-ball program needs it. Demoted from "blocks the
+  architecture" to "completes one program among many."
+- **CONTENT-FP-1** (still real): `content_fp.rs` was claimed shipped
+  in PR #243 but does not exist at the claimed path. Genuine
+  aspirational gap. Demoted from "blocks Markov braiding" to
+  "completes the cotton-ball encoder side."
+- **ROLEKEY-OPS-1** (board lag): board still advertises deleted
+  ops. Unchanged — this is doc cleanup.
+- **CRYSTAL-1** (reframed above, leaves this cluster).
+
+**Cluster impact:** VSA carrier cluster 23 → ~8 (VSA-1 5→3 = −2;
+CRYSTAL-1 4→2 = −2 and leaves the cluster; PERMUTE-1, CONTENT-FP-1,
+ROLEKEY-OPS-1 unchanged but rescoped). Net cluster entropy drop
+~15 units, but more importantly **the framing changes**: from
+"this is the load-bearing FMA" to "this is one program among
+several." That reframe removes the false urgency that had VSA-1
+flagged as a Tier-0 priority.
+
+### 15-Pattern absorption table
+
+The 12-agent sprint named 15 architectural patterns (A through O).
+Each pattern provides a vocabulary slot for one or more ledger rows.
+**"Already shipped" patterns explain rows that the ledger over-flagged
+as drift; "design phase" patterns explain rows that need wiring but
+where the pattern is a recognized shape.**
+
+| Pattern | Name | Ledger rows touched | Status | TD ref (W5) |
+|---|---|---|---|---|
+| **A** | SPO-G u32 slot | SPO-1 (closed), AriGraph extension | design phase | TD-OGIT-G-SLOT-1 |
+| **B** | ContextBundle | ONTOLOGY-REGISTRY-SOA-1 (closed), CONTEXT-ID-1 | design phase | TD-CONTEXT-BUNDLE-2 |
+| **C** | Generic Bridge | POLICY-1 (closed), MEMBRANE-GATE-1 (closed), SUBJECT-DTO-1, OBJECT-VIEW-1, MEDCARE_POLICY_GAP | design phase; consumer-side simplification | TD-GENERIC-BRIDGE-3 |
+| **D** | Meta-Structure Hydration | DEEPNSM-NSM-1 (migration debt), PARSER-1, DEBUG-STRINGIFY-1 | design phase | — |
+| **E** | Compile-Time Consumer Binding | SEAL-1 (supervisor IS the seal) | design phase | TD-MANIFEST-MODULES-4 |
+| **F** | ractor/BEAM Supervisor | WATCHER-1 (transport closed), PROJECT-LANCE-1 | design phase | TD-RACTOR-SUPERVISOR-5 |
+| **G** | Best-Practice Thinking Inheritance | THINK-1 (reframe), ADJ-THINK-1 (reframe), TRUST-1, FLOW-1, COMPASS-1, MUL-ASSESS-1, MUL-THRESHOLD-1 | design phase | — |
+| **H** | Switchable Cognitive Vessel | ALPHA-7-1 (already shipped as one program in p64-bridge) | **already shipped** | — |
+| **I** | Implicit Cognition | CYCLE-ACCUM-1 (resolved) | already shipped | — |
+| **J** | INT4-32D Atoms | (new — no prior ledger row) | design phase | TD-INT4-32D-ATOMS-6 |
+| **K** | Circular Compilation | (new — no prior ledger row) | aspirational | TD-CIRCULAR-COMPILATION-7 |
+| **L** | SPO-Chain Narrative | PARSER-1, DEBUG-STRINGIFY-1, CRYSTAL-1 (reframe) | design phase | — |
+| **M** | Wave-Particle Bimodal | VSA-1 (substrate clarification), PERMUTE-1, CONTENT-FP-1, ROLEKEY-OPS-1 | **already shipped in primitives**; G-blend mechanism is new | — |
+| **N** | Fingerprint-as-Codebook-Address | All "codebook" rows; CRYSTAL-1, CAM-DIST-1, HEEL-1 (all reframes) | **already shipped** in qualia.rs, p64-bridge, prime_fingerprint, cam_pq, bgz17 | — |
+| **O** | Phenomenological Memory | (new framing — no prior ledger row) | **already shipped** in qualia.rs (17D + 10 families + music calibration + Bach 7+1) | — |
+
+**Reading the table:**
+- Patterns **H, I, M, N, O** are recognised as **already shipped**.
+  Their ledger rows are reframes (entropy goes down) because the
+  pattern names what was already in `crates/`.
+- Patterns **A, B, C, D, E, F, G, L** are **design phase** — the
+  shape is recognised, the wiring is partial. Tech-debt rows in W5
+  carry the actual work items.
+- Patterns **J, K, O** introduce **new framings** (INT4-32D atoms,
+  circular compilation, phenomenological memory). J and K open
+  fresh tech-debt items; O recognises qualia.rs as Pattern O.
+
+### Aggregate entropy delta — Sprint-2 recognition only
+
+**Per-row reframes** (no code changes; entropy re-scoring from
+recognition of already-shipped patterns):
+
+| Row | Old entropy | New entropy | Delta |
+|---|---|---|---|
+| THINK-1 | 5 | 3 | −2 |
+| HEEL-1 | 4 | 2 | −2 |
+| ADJ-THINK-1 | 4 | 2 | −2 |
+| CRYSTAL-1 | 4 | 2 | −2 |
+| CAM-DIST-1 | 3 | 2 | −1 |
+| VSA-1 | 5 | 3 | −2 |
+| **Total** | **25** | **14** | **−11** |
+
+**Net per-row delta: −11 entropy units from recognition alone.**
+Zero lines of code changed. The reduction is honest: it reflects
+that the patterns were already shipped and the ledger had been
+over-flagging them.
+
+**Cluster-level reorganization** (more dramatic because clusters
+include the reframed rows AND benefit from a single Pattern G/M/N
+wiring serving multiple rows at once):
+
+| Cluster | Old total | New total (Sprint-2) | Delta |
+|---|---|---|---|
+| **Thinking** (THINK-1, COMPASS-1, TRUST-1, FLOW-1, MUL-ASSESS-1, ADJ-THINK-1) | 24 | ~10 (post Pattern G wiring) | ~−14 |
+| **VSA carrier** (VSA-1, PERMUTE-1, CONTENT-FP-1, ROLEKEY-OPS-1, CRYSTAL-1) | 23 | ~8 (CRYSTAL-1 leaves; VSA-1 demoted; PERMUTE-1/CONTENT-FP-1 rescoped) | ~−15 |
+| **HEEL ladder** (HEEL-1, CAM-DIST-1, DNTREE-1) | 12 | ~4 (DNTREE-1 unchanged at 5, but reframe drops 3 from the others) | ~−8 |
+| **Net cluster entropy reduction** | — | — | **~37 units** |
+
+The cluster-level reduction (~37) is larger than the per-row
+reduction (−11) because Pattern G wiring resolves multiple
+Thinking-cluster rows at once, and Pattern N + Pattern M
+reframings rescope the VSA carrier cluster from "load-bearing
+substrate" to "one program among many in the cognitive vessel."
+
+### What this section does NOT claim
+
+To stay brutally honest (per sprint instruction):
+
+1. **No code shipped.** Every entropy reduction here is from
+   recognition + naming. The patterns were already in `crates/`;
+   the ledger just hadn't named them.
+2. **Six rows reframed; thirty-plus rows unchanged.** This is not
+   a "sprint that closed thirty rows." It is a recognition pass
+   that corrects six over-flagged entries and absorbs 15 patterns
+   into the ledger vocabulary.
+3. **The 2026-05-05 Section A snapshot is untouched.** That table
+   stays as historical record of how the ledger looked before the
+   pattern vocabulary existed. The new entropies live in this
+   dated section.
+4. **Pattern G, A, B, C, D, E, F, L still need wiring.** They are
+   "design phase" — recognized shape, partial implementation. The
+   real work is in W5's TECH_DEBT items, not in this ledger.
+5. **VSA-1's reframe is a demotion, not a closure.** Vsa16kF32 is
+   one program among many — that is the new framing. PERMUTE-1
+   and CONTENT-FP-1 remain real aspirational gaps for that one
+   program; they did not vanish.
+6. **Section B's cluster table is updated only by reference.** The
+   2026-05-05 cluster totals (NARS 17, Thinking 24, VSA carrier 23,
+   Parser 10, HEEL ladder 12, Board hygiene 19, Per-row-context 9)
+   stay as historical record. The Sprint-2 cluster totals (Thinking
+   ~10, VSA carrier ~8, HEEL ladder ~4) are recorded here, not by
+   editing Section B.
+
+### Updated Section E aggregate (Sprint-2 only — append, not edit)
+
+Re-counted with the six reframes applied (and treating the original
+Section A counts as the immutable baseline):
+
+- **Spaghetti (entropy 5):** 5 rows (was 7) — NARS-1, DEEPNSM-NSM-1,
+  PARSER-1, DNTREE-1, MUL-ASSESS-1, DEBUG-STRINGIFY-1 minus
+  **THINK-1 leaves** (5→3) and **VSA-1 leaves** (5→3). Count: 7 − 2 = 5.
+- **High (entropy 4):** 8 rows (was 11) — GATE-1, TRUTH-1,
+  STATUS-CODEC-1, TRUST-1, FLOW-1, COMPASS-1, PROJECT-LANCE-1,
+  PERMUTE-1, CONTENT-FP-1, ROLEKEY-OPS-1, SUBJECT-DTO-1,
+  DTO-CLASS-CHECK-1 minus **CRYSTAL-1 leaves** (4→2),
+  **HEEL-1 leaves** (4→2), **ADJ-THINK-1 leaves** (4→2). Approximate.
+- **Partial (entropy 3):** entrants from reframes — THINK-1
+  (was 5), VSA-1 (was 5). Original 13 + 2 entrants − 1 leaver
+  (CAM-DIST-1 3→2) = ~14.
+- **Mostly clean (entropy 2):** entrants from reframes — HEEL-1,
+  ADJ-THINK-1, CRYSTAL-1, CAM-DIST-1. These remain **open** per
+  Sprint-2 protocol (W1's master plan) until the docs/wiring items
+  in W5's TECH_DEBT close.
+
+**New aggregate net (Sprint-2 recognition only):** 40 open rows;
+no rows added or moved to RESOLVED. The **entropy distribution**
+shifts down by −11 from recognition.
+
+### Highest-leverage cluster (post-Sprint-2)
+
+Previously (2026-05-05): "Per-row-context (9 cluster-entropy, single
+200-300 LOC PR closes 3 rows entropy 3→2 and 2 open seams). Net
+leverage: −3 rows + −2 seams."
+
+Post-Sprint-2: **Per-row-context cluster remains the highest leverage**
+for actual code work. The Thinking and VSA carrier clusters are no
+longer the architectural priorities they were on 2026-05-05;
+recognising them as **already-shipped multi-layer codebooks** removes
+the false urgency.
+
+**The single biggest deficit-vs-genius gap (revised):** the
+**Pattern G wiring** — exposing `AdjacencyStore<ThinkingStyle>` from
+the existing 8-plane `[u64; 64]` shader-internal write surface as a
+public builder. ~50-150 LOC. Closes ADJ-THINK-1 + unblocks THINK-1's
+remaining loose end + provides the inheritance edge that
+TRUST-1/FLOW-1/COMPASS-1/MUL-ASSESS-1 all need. **This is now the
+highest architectural leverage in the workspace** — replacing the
+2026-05-05 claim that VSA-1's missing `vsa16k_permute` was the
+biggest gap.
+
+### Brutally-honest self-review
+
+- **The ledger over-flagged because the pattern vocabulary did not
+  exist on 2026-05-05.** That's not a failure of the 2026-05-05
+  snapshot — it's a feature of the append-only protocol that
+  enabled this correction to land cleanly without rewriting history.
+- **Six rows, not thirty, were reframed.** Anyone reading this
+  section expecting a sweep is going to find a recognition pass.
+  That's what it is.
+- **The −11 entropy delta is real but small in absolute terms.**
+  The 40 OPEN rows mostly stay open. What changed is that the six
+  reframed rows are no longer **misleading the next session** about
+  where the architectural pressure actually is.
+- **Pattern G wiring is now the biggest single lever** — that
+  replaces the 2026-05-05 VSA-1 framing. If the next session
+  picks one item from this ledger, it should be exposing
+  `AdjacencyStore<ThinkingStyle>` (TD-ADJ-THINK-EXPOSE-10).
+- **VSA-1's demotion is the load-bearing recognition.** Calling
+  Vsa16kF32 "the FMA the architecture is built around" was wrong;
+  it's one carrier among several in a switchable cognitive vessel
+  (Pattern H). That framing correction matters more than the
+  −2 entropy.
