@@ -1,473 +1,438 @@
-# Tier-0 Pattern Recognition — Map Patterns A–O to Shipped Code
+# Tier-0 Pattern Recognition — read this BEFORE proposing architectural work
 
-> **READ THIS BEFORE READING ANYTHING ELSE in a unified-OGIT session.**
+> **MANDATORY READ** for any session proposing Pattern A-O work.
+> The Anti-Pattern this doc is designed to prevent: **"Designing What's
+> Already Built"** (architectural-scale generalization of the
+> Discovery-Loop anti-pattern in `.claude/patterns.md`).
 >
-> Authored 2026-05-12 by Worker Agent W2 of the OGIT-architecture sprint
-> as the **anti-Discovery-Loop** doc. The unified-OGIT synthesis
-> crystallized 15 architectural patterns (A–O). Brutally honest fact:
-> **~80 % of those patterns are already shipped in this workspace.**
-> The only genuinely new work is the OGIT-G overlay wiring + the
-> per-G manifest pattern.
->
-> Every prior multi-agent sprint that did not consult this map
-> spent 6–10 turns rediscovering substrate before producing a single
-> commit. This file exists so the next session pays a one-read tax
-> instead of an N-turn rediscovery tax.
->
-> **Companion docs:**
-> - `.claude/patterns.md` — five traversal patterns (P-1..P-5)
-> - `.claude/knowledge/soa-dto-fma-map.md` — region map R0–R8
-> - `.claude/board/ARCHITECTURE_ENTROPY_LEDGER.md` — open entropy rows
-> - `unified-ogit-architecture-v1.md` (W1, sibling deliverable) —
->   master plan-doc with full Pattern A–O definitions
->
-> **Rule of engagement:** if you are about to propose "build Pattern X"
-> for any X in {A..O}, first locate it on the table below. If a file
-> path appears in the right column, you are extending — not building.
+> Every pattern letter A-O below uses the **canonical assignment**
+> from `.claude/plans/unified-ogit-architecture-v1.md` (W1's master
+> synthesis). If you read code/PRs/board files and see a different
+> letter mapping, the canonical W1 master and `.claude/patterns.md`
+> Pattern Recognition Framework are authoritative.
 
 ---
 
-## TL;DR — Which patterns are already shipped, which need wiring
+## CRITICAL CORRECTION (2026-05-07, post-PR #358)
 
-| Pattern | Status | Ships in |
-|---|---|---|
-| A — OGIT Triangle (T/A/P + W as four contexts) | **Shipped (consumer side)** | `crates/thinking-engine/src/world_model.rs`, contract `SelfState/UserState/FieldState/ContextState` |
-| B — Context Bundle (8-slot per-G manifest) | **Half-shipped** | 8 predicate planes in `crates/p64-bridge/src/lib.rs`; per-G manifest spec missing |
-| C — Per-G Tokenizer Registry | **Shipped** | `crates/thinking-engine/src/tokenizer_registry.rs` |
-| D — Persona Runtime | **Shipped** | `crates/thinking-engine/src/persona.rs` |
-| E — Sensor Bridge | **Shipped** | `crates/thinking-engine/src/sensor.rs`, `crates/thinking-engine/src/osint_bridge.rs` |
-| F — Actor Message Shape (ractor-equivalent) | **Shipped (proof-of-shape)** | `crates/cognitive-shader-driver/src/grpc.rs` tonic service trait |
-| G — OGIT Overlay (per-G shader bind) | **NEW WORK** | nothing — this is the actual deliverable |
-| H — Switchable Cognitive Vessel | **Shipped** | `crates/p64-bridge/src/lib.rs` (CognitiveShader + 12 STYLES + 8 planes) |
-| I — Implicit-Cognition Flush Gate | **Shipped** | `crates/lance-graph-contract/src/cycle_accumulator.rs` |
-| J — Switchable Reranker Lens | **Shipped** | `crates/thinking-engine/src/reranker_lens.rs` |
-| K — Crystallization-Side Learning | **Shipped** | `crates/thinking-engine/src/contrastive_learner.rs`, `crates/lance-graph/src/cam_pq/jitson_kernel.rs` |
-| L — MUL Counterfactual Branching | **Shipped** | `crates/thinking-engine/src/branching.rs`, `crates/thinking-engine/src/ghosts.rs`, `crates/lance-graph/src/graph/arigraph/` |
-| M — Wave-Side BNN World Model | **Shipped** | `crates/thinking-engine/src/world_model.rs`, `superposition.rs`, `jina_lens.rs`, `bge_m3_lens.rs` |
-| N — Fingerprint-as-Codebook-Address | **Shipped** | `crates/thinking-engine/src/prime_fingerprint.rs` |
-| O — Phenomenological Memory | **Shipped** | `crates/thinking-engine/src/qualia.rs`, `awareness_dto.rs` |
+**Earlier draft of this file used a non-canonical pattern-letter scheme
+that mislabeled Pattern A as "OGIT Triangle / Shipped".** That was
+wrong: canonical Pattern A is the **SPO-G u32 OGIT slot in the quad
+store, currently DESIGN PHASE** (tracked by TD-OGIT-G-SLOT-1 in
+`.claude/board/TECH_DEBT.md`).
 
-**Net new work for OGIT-G:** Pattern G overlay wiring + Pattern B's
-manifest format. Everything else is **extension**, not construction.
+If this file ever tells you "Pattern X is shipped" in a way that
+contradicts `.claude/plans/unified-ogit-architecture-v1.md` or
+`.claude/patterns.md`, the master plan-doc + patterns.md win. **Do
+not skip TD-tracked work because of a label collision.**
+
+The file→shipped-substrate insights from the earlier draft are
+preserved below under each canonical pattern as supporting evidence
+where they apply, and as a separate "Substrate inventory" appendix
+where they describe shipped pieces that do NOT correspond to any
+canonical A-O pattern letter.
 
 ---
 
-## Pattern-by-pattern recognition
+## TL;DR — canonical Pattern A-O status (the load-bearing table)
 
-### Pattern A — OGIT Triangle (T/A/P + W)
+| # | Canonical pattern (from W1 master) | Status | Where to find / What's needed |
+|---|---|---|---|
+| **A** | **SPO-G with u32 OGIT slot** | 🚧 **DESIGN PHASE** | TD-OGIT-G-SLOT-1; sub-plan in `.claude/plans/ogit-g-context-bundle-v1.md` D-OGIT-G-1 |
+| **B** | **Context Bundle per G (typed surface)** | 🚧 **DESIGN PHASE** | TD-CONTEXT-BUNDLE-2; D-OGIT-G-2 in same sub-plan. *Adjacent shipped primitives:* the 8 predicate planes in `p64-bridge::CognitiveShader` are a partial slot-shape (not the typed bundle) |
+| **C** | **Generic Bridge dispatching ConsumerPointer** | 🚧 **DESIGN PHASE** | TD-GENERIC-BRIDGE-3; D-OGIT-G-3 in same sub-plan. *PR #29 SmbMembraneGate + PR #98 MedCareMembraneGate are the per-consumer newtypes this replaces* |
+| **D** | **Meta-Structure Hydration (OWL/JanusGraph/Foundry → bundle)** | 🚧 **DESIGN PHASE** | per-ontology hydrators TBD; first concrete: FMA OWL hydrator in `.claude/plans/anatomy-realtime-v1.md` PR-ANATOMY-1 |
+| **E** | **Compile-Time Consumer Binding (`/modules/<name>/manifest.yaml`)** | 🚧 **DESIGN PHASE** | TD-MANIFEST-MODULES-4; sub-plan `.claude/plans/compile-time-consumer-binding-v1.md` D-MANIFEST-MODULES |
+| **F** | **ractor/BEAM Supervisor in Zone 2/3** | 🚧 **DESIGN PHASE — actor shape PROVEN** | TD-RACTOR-SUPERVISOR-5. The handler-arm shape is mechanical from `crates/cognitive-shader-driver/src/grpc.rs` tonic service trait |
+| **G** | **Best-Practice Thinking Inheritance per OGIT-G** | 🚧 **DESIGN PHASE** | The 12-style base codebook in `crates/p64-bridge/src/lib.rs::STYLES` is the substrate. The per-G inheritance chain (DOLCE root → Healthcare/Gotham/SMB/CRM extensions) is what's missing |
+| **H** | **Switchable Cognitive Vessel** | ✅ **SHIPPED** | `crates/p64-bridge/src/lib.rs::cognitive_shader::CognitiveShader` (8 predicate planes + bgz17 PaletteSemiring + HHTL cascade + `deduce_path`). Doc says: *"No POPCNT. No Hamming. Distance is PRECOMPUTED in the codebook. The mask gates access. The table provides the answer. O(1)."* |
+| **I** | **Implicit Cognition (continuous, not request-driven)** | ✅ **SHIPPED** | `crates/lance-graph-contract/src/cycle_accumulator.rs` (PR #337) — the per-cadence flush gate that lets L1 fire continuously and L2 pull on threshold |
+| **J** | **INT4-32D Thinking Atoms** | 🚧 **DESIGN PHASE** | TD-INT4-32D-ATOMS-6. *Adjacent shipped primitives:* `crates/thinking-engine/src/reranker_lens.rs` is the lens shape; INT4-32D fingerprint format itself is new |
+| **K** | **Circular Compilation (YAML→JIT→YAML→static)** | ⏳ **ASPIRATIONAL** | TD-CIRCULAR-COMPILATION-7. *Precedent muscle:* `crates/lance-graph/src/cam_pq/jitson_kernel.rs` is a YAML/JSON-driven JIT pattern at kernel scale; extending to actor scale is real new infra |
+| **L** | **SPO-Chain Narrative (skip Markov)** | ◐ **PARTIALLY SHIPPED** | `crates/lance-graph/src/graph/arigraph/triplet_graph.rs` (string-keyed SPO position index) + `lance-graph-planner::nars::truth::TruthValue` (NARS algebra) exist. *What's new:* MUL marker propagation through pronoun resolution + counterfactual NARS synthesis loop |
+| **M** | **Wave-Particle Bimodal Cognition** | ◐ **SHIPPED (primitives)** | Wave: `crates/bgz17`, `crates/holograph::resonance`, `crates/thinking-engine/src/qualia.rs`, `crates/thinking-engine/src/world_model.rs` (the four-section BindSpace world model). Particle: `crates/lance-graph/src/graph/arigraph/`, `crates/lance-graph/src/graph/spo/`, NARS. *What's new:* the per-G blend dial that selects how much wave vs particle for a given task |
+| **N** | **Fingerprint-as-Codebook-Address** | ✅ **SHIPPED** | `crates/thinking-engine/src/prime_fingerprint.rs`, `crates/thinking-engine/src/qualia.rs::FAMILY_CENTROIDS` (10 named family centroids), `crates/p64-bridge/src/lib.rs::STYLES` (12-entry thinking-style codebook), `crates/lance-graph/src/cam_pq/` (256-entry palette), `crates/bgz17/` palette codebook. The substrate-level cognitive operation: fingerprint → codebook → O(1) recognition |
+| **O** | **Phenomenological Memory Layers** | ✅ **SHIPPED** | `crates/thinking-engine/src/qualia.rs` (39 KB, 17D + 10 family centroids + music calibration via Octave 2:1 / Fifth 3:2 / Third 5:4 / Tritone √2:1 + cross-validation against Jina v3) + `crates/thinking-engine/src/awareness_dto.rs` (meta-awareness DTO) + `crates/causal-edge::CausalEdge64` (Bach 7+1 = canonical 8 logical relations) |
 
-The four cognitive surfaces — Topic, Angle, Planner, World — are not
-new abstractions; they are the four **BindSpace columns** already
-specified in CLAUDE.md AGI-as-glove doctrine + shipped as the
-`WorldModelDto` four-section split.
+**Net new work for OGIT-G:** Patterns A + B + C + D + E + F + G are
+all design phase. Patterns H + I + N + O are fully shipped. Patterns
+J + L + M have shipped primitives that need the per-G dial / new
+glue. Pattern K is aspirational.
 
-**Already ships:** `crates/thinking-engine/src/world_model.rs` (13 KB)
-defines `SelfState / UserState / FieldState / ContextState`. Each is
-a typed struct of fields the agent actually reads. The OGIT triangle
-labels (Topic / Angle / Planner / World) map onto these four sections
-1:1 — `ContextState` IS Topic, `UserState` IS Angle, `SelfState` +
-`FieldState` IS the Planner/World pair.
+**Read this whenever you see "let's build Pattern X" in a plan-doc.**
+If X ∈ {H, I, N, O}, the answer is "no — it's shipped; what you
+mean is extending or wiring around it."
+If X ∈ {A, B, C, D, E, F, G, J}, the TD-X row in
+`.claude/board/TECH_DEBT.md` is the canonical work item.
+If X ∈ {L, M}, partial work; check the substrate references first.
+If X = K, defer per "aspirational" status unless the JITson kernel
+pattern has matured enough to extend to actor scope.
 
-**Anti-rediscovery:** do NOT propose `struct OgitTriangle { topic,
-angle, planner, world }`. Read `WorldModelDto` first.
+---
 
-### Pattern B — Context Bundle (8 slots) + per-G Manifest
+## Pattern-by-pattern recognition (canonical letters)
 
-The 8-slot structure already ships as the 8 predicate planes in
-`p64-bridge::CognitiveShader::planes: [[u64; 64]; 8]`. Each plane
-(CAUSES / ENABLES / SUPPORTS / CONTRADICTS / REFINES / ABSTRACTS /
-GROUNDS / BECOMES) IS a slot of the bundle.
+### Pattern A — SPO-G with u32 OGIT slot (DESIGN PHASE)
 
-**Already ships:** `crates/p64-bridge/src/lib.rs:113-122` —
-predicate-layer indices + bit positions.
+The quad shape `(S, P, O, G)` where G is a u32 OGIT index. Replaces
+oxigraph's IRI-based named-graph slot with O(1) integer indexing.
 
-**What's missing:** the per-G *manifest* — a small YAML or struct
-that says, for graph G, which tokenizer / persona / role catalogue /
-codebook / lens binds into those 8 slots. This is the **only**
-genuinely new artifact on this axis.
+**Status:** NOT SHIPPED. The current SPO surfaces are 3-tuple:
+- `crates/lance-graph/src/graph/spo/` — fingerprint-keyed cold store
+- `crates/lance-graph/src/graph/arigraph/triplet_graph.rs` — string-keyed warm cache
+- `SpoBridge::promote_to_spo` writer (PR #355 D-ONTO-V5-9) — bridges them
 
-### Pattern C — Per-G Tokenizer Registry
+The G slot is missing. `MappingRow` cascade columns from PR #355
+contain `ontology_context_id: u32` (CONTEXT-ID-1 ledger row) — this
+is the SAME `u32` that becomes the canonical G, but the SPO writer
+doesn't yet thread it.
 
-**Already ships:** `crates/thinking-engine/src/tokenizer_registry.rs`
-(16 KB). Routes between Qwen3 BPE (Jina v5 + Reranker v3), Qwen2 BPE
-(Qwopus, Reader-LM), XLM-R SentencePiece (Jina v3, BGE-M3 legacy),
-and OLMo BPE (ModernBERT). The per-G overlay just selects which
-registry entry binds for graph G.
+**TD reference:** TD-OGIT-G-SLOT-1 in `.claude/board/TECH_DEBT.md`.
+**Sub-plan:** `.claude/plans/ogit-g-context-bundle-v1.md` D-OGIT-G-1.
 
-**Anti-rediscovery:** do NOT write a "TokenizerRouter" trait — the
-registry already routes by model family.
+**Adjacent shipped infrastructure:** Lance MVCC versioning (`Dataset::checkout_latest().version()`)
+provides the temporal axis once the G slot lands. `OntologyRegistry`
+in `crates/lance-graph-ontology` (PR #355) is the lookup table.
 
-### Pattern D — Persona Runtime
+### Pattern B — Context Bundle per G (DESIGN PHASE)
 
-**Already ships:** `crates/thinking-engine/src/persona.rs` (18 KB).
-Per-G personas are catalogue entries here, not new types.
+A typed `ContextBundle` struct living in OGIT, addressable by G,
+with named slots: `ontology`, `codebook`, `schema`, `labels`,
+`vocabulary`, `consumer_pointer`, `thinking_styles`,
+`thinking_adjacency`, `qualia_codebook`, `mul_threshold_profile`,
+`trust_texture_set`, `flow_state_set`.
 
-### Pattern E — Sensor Bridge
+**Status:** NOT SHIPPED as a typed surface. Adjacent primitives that
+will populate the slots:
+- `crates/p64-bridge/src/lib.rs::cognitive_shader::CognitiveShader.planes: [[u64; 64]; 8]` — partial Pattern B slot for the 8-predicate-layer adjacency (one of many bundle slots)
+- `crates/thinking-engine/src/qualia.rs::FAMILY_CENTROIDS` — qualia codebook slot content
+- `crates/p64-bridge/src/lib.rs::STYLES` — thinking-style codebook slot content
+- `crates/lance-graph-contract::mul::MulThresholdProfile` (PR #355) — mul_threshold_profile slot content
+- `crates/causal-edge::CausalEdge64` — Pattern B's causal-edge slot type
 
-**Already ships:** `crates/thinking-engine/src/sensor.rs` (13 KB) for
-generic input handling, plus the Gotham-equivalent consumer-side
-bridge in `crates/thinking-engine/src/osint_bridge.rs` (5.5 KB).
-Per-G overlay swaps which sensor schema binds; the bridge itself is
-done.
+**What's missing:** the typed `ContextBundle` struct itself + the
+`OntologyRegistry::resolve(g: u32) -> Option<&ContextBundle>` API.
 
-### Pattern F — Actor Message Shape (ractor-equivalent)
+**TD reference:** TD-CONTEXT-BUNDLE-2.
+**Sub-plan:** `ogit-g-context-bundle-v1.md` D-OGIT-G-2.
 
-**Already ships (proof-of-shape):**
-`crates/cognitive-shader-driver/src/grpc.rs` — the tonic
-`CognitiveShaderService` trait IS the actor handler shape we would
-otherwise reach for ractor to provide. `async fn dispatch(req) ->
-Response` is the message-handler signature; the `Arc<Mutex<ShaderDriver>>`
-field is the actor's state cell.
+### Pattern C — Generic Bridge dispatching ConsumerPointer (DESIGN PHASE)
 
-**Rephrase before designing a new actor framework:** any
-ractor-shaped proposal needs to justify what it adds over this
-trait. The runtime A2A blackboard
-(`lance_graph_contract::a2a_blackboard`) is the cycle-orchestration
-substrate; tonic services are the I/O surface. There is no Pattern-F
-gap to fill — only a question of which lab-vs-canonical edge a new
-endpoint sits on (see `.claude/knowledge/lab-vs-canonical-surface.md`).
+One canonical `MembraneGate` impl that reads per-G `ConsumerPointer`
+from OGIT and dispatches accordingly. Replaces the per-consumer
+newtype gates (PR #29 `SmbMembraneGate`, PR #98 `MedCareMembraneGate`).
 
-### Pattern G — OGIT Overlay (THE NEW WORK)
+**Status:** NOT SHIPPED. The per-consumer newtypes work; the generic
+dispatcher is what reduces per-new-consumer cost from ~800 LOC
+(per `.claude/board/MEDCARE_POLICY_GAP.md`) to ~30 LOC.
 
-This is the one pattern with no prior implementation. The OGIT-G
-overlay binds a specific graph G into the `CognitiveShader::planes`
-+ `STYLES` + persona registry simultaneously. The wiring shape:
+**TD reference:** TD-GENERIC-BRIDGE-3.
+**Sub-plan:** `ogit-g-context-bundle-v1.md` D-OGIT-G-3.
 
-1. Read the per-G manifest (Pattern B's missing piece).
-2. Resolve tokenizer / persona / lens / role catalogue / codebook.
-3. Construct `CognitiveShader<'a>` with G's planes + G's semiring.
-4. Hand to `ShaderDriver::dispatch` via `UnifiedStep`.
+### Pattern D — Meta-Structure Hydration (DESIGN PHASE)
 
-**No existing crate does step 1 or step 4 end-to-end for an
-arbitrary G.** Everything inside steps 2–3 is shipped substrate.
+A trait + implementations: `OwlHydrator`, `JanusGraphHydrator`,
+`FoundryObjectHydrator`, `OxigraphRdfHydrator`, etc. Each takes a
+source format (TTL / property-graph schema / Foundry export / RDF
+quads) and emits a `ContextBundle` per Pattern B.
 
-### Pattern H — Switchable Cognitive Vessel
+**Status:** NOT SHIPPED. First concrete deliverable: FMA OWL hydrator
+in `.claude/plans/anatomy-realtime-v1.md` PR-ANATOMY-1.
 
-**Already ships:** `crates/p64-bridge/src/lib.rs` is the canonical
-shipping of Pattern H. Concretely:
+**Adjacent shipped infrastructure:** the existing `OntologyRegistry`
+namespace seeding (PR #355 NamespaceRegistry::seed_defaults with 14
+mappings: WorkOrder=1, Healthcare=2, Network=3, SMB=0, Medical/{ICD10CM..CHEBI}=10..19)
+is hand-coded today; Pattern D hydrators replace this with TTL-driven seeding.
+
+### Pattern E — Compile-Time Consumer Binding (DESIGN PHASE)
+
+`/modules/<name>/manifest.yaml` declares each consumer's G-binding,
+ConsumerPointer fields, RBAC, action capabilities. The build script
+in `lance-graph-contract` reads all `/modules/*/manifest.yaml` at
+compile time and generates Rust glue.
+
+**Status:** NOT SHIPPED. The PostNuke (anno-2000) module pattern is
+the precedent.
+
+**TD reference:** TD-MANIFEST-MODULES-4.
+**Sub-plan:** `compile-time-consumer-binding-v1.md` D-MANIFEST-MODULES.
+
+### Pattern F — ractor/BEAM Supervisor in Zone 2/3 (DESIGN PHASE — actor shape PROVEN)
+
+Per-consumer ractor actors, supervised in `lance-graph-callcenter`,
+with typed `Msg` enums. Each `impl Consumer` exposes its actor type;
+the supervisor enumerates them at compile time and spawns the tree.
+
+**Status:** SUPERVISOR NOT SHIPPED. Actor message shape PROVEN by
+`crates/cognitive-shader-driver/src/grpc.rs` (~345 LOC tonic service
+trait — `dispatch / ingest / health / qualia / styles / tensors /
+calibrate / probe`). The translation to ractor handlers is mechanical
+(tonic async fn → ractor sync handle, same args, same return types).
+
+**TD reference:** TD-RACTOR-SUPERVISOR-5.
+**Sub-plan:** `compile-time-consumer-binding-v1.md` D-RACTOR-SUPERVISOR.
+
+### Pattern G — Best-Practice Thinking Inheritance per OGIT-G (DESIGN PHASE)
+
+Each G slot's bundle declares `thinking_styles: SmallVec<[u8; 8]>` +
+`thinking_adjacency: AdjacencyStore<u8>`. Healthcare inherits from
+DOLCE + adds clinical-specific (Differential, EvidenceBased,
+RiskStratified). Gotham inherits from DOLCE + adds investigation-
+specific (LinkAnalytic, AttributionTracing, TimelineReconstructive).
+
+**Status:** NOT SHIPPED as inheritance chain. Adjacent shipped
+infrastructure:
+- `crates/p64-bridge/src/lib.rs::STYLES` — 12-entry base thinking-style codebook (the substrate)
+- `crates/lance-graph-contract::thinking::ThinkingStyle` — 36-entry composed surface
+- `crates/thinking-engine/src/cognitive_stack.rs` — runtime selection
+
+The base codebook + composed surface co-exist by design (recognition
+that THINK-1 ledger row's "Spaghetti-5 drift" framing was wrong;
+they're intentional layering — see W6's reframe in
+`.claude/board/ARCHITECTURE_ENTROPY_LEDGER.md`).
+
+**What's missing:** the per-G inheritance chain that lets a consumer
+crate inherit DOLCE + extend with domain-specific styles.
+
+### Pattern H — Switchable Cognitive Vessel ✅ SHIPPED
+
+`cognitive-shader-driver` is the L1+L2 vessel; OGIT G is the dispatch
+parameter; per-G program selection.
+
+**Already ships:** `crates/p64-bridge/src/lib.rs::cognitive_shader::CognitiveShader`:
 
 ```rust
 pub struct CognitiveShader<'a> {
-    pub planes: [[u64; 64]; 8],         // 8 predicate planes (Pattern B slot)
-    pub semiring: &'a PaletteSemiring,   // bgz17 O(1) distance + compose
+    pub planes: [[u64; 64]; 8],         // 8 predicate planes (topology)
+    pub semiring: &'a PaletteSemiring,  // bgz17 O(1) distance + compose algebra
     pub k: usize,
 }
 ```
 
-Plus the **12-entry STYLES codebook** at `lib.rs:161-180`:
+8 predicate planes (CAUSES / ENABLES / SUPPORTS / CONTRADICTS /
+REFINES / ABSTRACTS / GROUNDS / BECOMES) = the canonical 8 logical
+relations = Bach's 7+1 = `causal_edge::CausalEdge64`'s 7+1 channels.
 
-- *Convergent cluster:* analytical / convergent / systematic
-- *Divergent cluster:* creative / divergent / exploratory
-- *Attention cluster:* focused / diffuse / peripheral
-- *Speed cluster:* intuitive / deliberate / metacognitive
+The HHTL cascade lives at `CognitiveShader::cascade()`:
+- HEEL: `layer_mask` gates Z (which kinds of relations matter)
+- HIP: `planes[z][block_row]` gates X-Y (topological neighborhood)
+- TWIG: 4-archetype-per-block expansion (4×4 refinement)
+- LEAF: `semiring.distance(query, target)` (O(1) bgz17 metric lookup)
 
-Each style is a `StyleParams { layer_mask, combine, contra,
-density_target, name }` — the same shape Pattern H needs as a vessel
-switch.
+The doc comment is the thesis: *"No POPCNT. No Hamming. Distance is
+PRECOMPUTED in the codebook. The mask gates access. The table
+provides the answer. O(1)."*
 
-The doc comment at `lib.rs:237-238` is the giveaway:
+**HEEL-1 ledger row reframe:** the "3 different orderings" framing
+was wrong; the cascade is implemented in this single canonical place.
 
-> *"No POPCNT. No Hamming. Distance is PRECOMPUTED in the codebook.
-> The mask gates access. The table provides the answer. O(1)."*
+`CognitiveShader::deduce_path(query, cause_layer, effect_layer, max_hops)`
+is Pattern L's chain-of-thought primitive at the substrate.
 
-That sentence IS the Pattern H thesis. The HHTL cascade lives at
-`cognitive_shader::cascade(query, radius, layer_mask)`:
+**What G-overlay needs to add:** thread G through `cascade()` so that
+which `planes` and which `semiring` get loaded is per-G data from
+ContextBundle (Pattern B).
 
-- **HEEL** = `layer_mask` gates which Z planes are active
-- **HIP** = `planes[z][block_row]` gates which X-Y cols are active
-- **TWIG** = 4x4 block expansion to archetype indices
-- **LEAF** = `semiring.distance(query, target)` O(1) lookup
+### Pattern I — Implicit Cognition ✅ SHIPPED
 
-The transitive-chain reasoning lives at `cognitive_shader::deduce_path(query,
-cause_layer, effect_layer, max_hops)` — Pattern L's chain-of-thought
-at substrate level via `semiring.compose`.
-
-**Anti-rediscovery:** if a future session says "we need a switchable
-cognitive vessel with 8 predicate planes and 12 styles" — point them
-at `p64-bridge/src/lib.rs` and stop the meeting.
-
-### Pattern I — Implicit-Cognition Flush Gate
+The CycleAccumulator gate from PR #337 lets L1 fire continuously;
+L2 pulls on threshold. This is the "can't stop thinking" pattern —
+the system thinks in the background, flushes on cadence or pull.
 
 **Already ships:** `crates/lance-graph-contract/src/cycle_accumulator.rs`
-implements topology I-4: the per-cadence gate that sits between the
-20–200 ns BindSpace ops and the 2–200 ms outbound sink. The doc
-comment explicitly distinguishes it from `CollapseGate` (the per-row
-write-airgap). Both are gates; they govern different boundaries.
+(per topology I-4 distinct-naming rule from `SINGLE_BINARY_TOPOLOGY.md`).
 
-**Anti-rediscovery:** do NOT propose a "thinking accumulator" or
-"reflection batch buffer" — `CycleAccumulator` IS it. See
-`.claude/board/SINGLE_BINARY_TOPOLOGY.md` Per-cadence gate section.
+### Pattern J — INT4-32D Thinking Atoms (DESIGN PHASE)
 
-### Pattern J — Switchable Reranker Lens
+32 dimensions × 4 bits = 16-byte cognitive-style fingerprints. Used
+for K-NN proximity search over the thinking-style codebook when OGIT
+doesn't have best-practice patterns for a new domain yet (e.g.,
+hubspo-rs landing without G=CRM thinking_adjacency).
 
-**Already ships:** `crates/thinking-engine/src/reranker_lens.rs`
-(7 KB). The lens is switchable per-call; the registry of available
-rerankers (Qwen3-based v3 ground-truth, legacy v2 lens, etc.) is
-documented in CLAUDE.md Model Registry section.
+**Status:** NOT SHIPPED. The reranker-lens shape is precedent.
 
-### Pattern K — Crystallization-Side Learning
+**Adjacent shipped infrastructure:**
+`crates/thinking-engine/src/reranker_lens.rs` — switchable reranker
+backend. The K-NN proximity step would slot in as one reranker mode.
 
-**Already ships:**
+**TD reference:** TD-INT4-32D-ATOMS-6.
 
-- `crates/thinking-engine/src/contrastive_learner.rs` (9 KB) —
-  crystallization-side learning loop
-- `crates/lance-graph/src/cam_pq/jitson_kernel.rs` — JIT muscle that
-  recompiles when the learner promotes a kernel from "researched"
-  to "hot path"
+### Pattern K — Circular Compilation ⏳ ASPIRATIONAL
 
-**Anti-rediscovery:** the question is never "build learning into the
-crystal" — it is "wire the learner's promotion signal to the JIT
-kernel cache." That wiring is open; the substrate is done.
+YAML manifest at compile time → static glue. New pattern at runtime
+→ JIT-loaded → write back to YAML → next build statically compiles.
+Self-extending architecture.
 
-### Pattern L — MUL Counterfactual Branching
+**Status:** ASPIRATIONAL. Real new infra needed (cranelift integration
++ dynamic actor loading).
 
-**Already ships:**
+**Precedent muscle in workspace:** `crates/lance-graph/src/cam_pq/jitson_kernel.rs`
+is a YAML/JSON-driven JIT at kernel scale. Extending to actor scale
+is the genuine new work.
 
-- `crates/thinking-engine/src/branching.rs` (10 KB) — branch
-  bookkeeping
-- `crates/thinking-engine/src/ghosts.rs` (11 KB) — counterfactual
-  ghost branches (the MUL ambiguity carriers)
-- `crates/thinking-engine/src/domino.rs` (23 KB) — cascading
-  inference chains across branches
-- `crates/lance-graph/src/graph/arigraph/` — AriGraph string-keyed
-  SPO store providing the position index for branch-local facts
+**TD reference:** TD-CIRCULAR-COMPILATION-7.
 
-`p64-bridge::CognitiveShader::deduce_path` at substrate level
-composes via `semiring.compose` per hop.
+### Pattern L — SPO-Chain Narrative (PARTIALLY SHIPPED)
 
-### Pattern M — Wave-Side BNN World Model
+Skip Markov bundling for narrative comprehension. Parse to SPO
+triples; AriGraph indexes by (page, sentence, word, role); pronoun
+resolution via prior SPO context; MUL markers for ambiguity; NARS
+counterfactual synthesis.
 
 **Already ships:**
+- `crates/lance-graph/src/graph/arigraph/triplet_graph.rs` — string-keyed SPO + position index
+- `crates/lance-graph-planner::nars::truth::TruthValue` — NARS algebra (revise / deduce / induce / abduce)
+- `crates/lance-graph-contract::mul::MulAssessment` + `MulThresholdProfile` (PR #355)
+- `crates/p64-bridge/src/lib.rs::cognitive_shader::CognitiveShader::deduce_path` — chain-of-thought primitive
+- `crates/thinking-engine/src/branching.rs` — branch-based counterfactual synthesis
+- `crates/thinking-engine/src/ghosts.rs` — counterfactual "ghost" branches (Pattern L's MUL ambiguity)
 
-- `crates/thinking-engine/src/world_model.rs` (13 KB) — the BNN-like
-  world model itself (`WorldModelDto` four-section structure)
-- `crates/thinking-engine/src/superposition.rs` (9.6 KB) — wave-mode
-  quantum-like superposition
-- `crates/thinking-engine/src/jina_lens.rs` and `bge_m3_lens.rs` —
-  wave-mode lenses INTO the LM embedding spaces (the wave side
-  observes via these lenses; particle side reads the same data via
-  fingerprint comparisons)
+**What's new:** the MUL marker propagation through pronoun resolution
++ Lance MVCC time-travel for "read book as of chapter 5" partial-state
+queries.
 
-Pattern M's "wave" vs "particle" dual is the same split as
-`thinking-engine::layered.rs` vs `thinking-engine::cognitive_stack.rs`:
-streaming-perception lenses on one side, L1–L4 commit pipeline on
-the other.
+### Pattern M — Wave-Particle Bimodal Cognition (PRIMITIVES SHIPPED)
 
-### Pattern N — Fingerprint-as-Codebook-Address
+Wave: bgz17/resonance/qualia distributed continuous (BNN-like, plastic).
+Particle: SPO-G/AriGraph/NARS discrete queryable.
 
-**Already ships:** `crates/thinking-engine/src/prime_fingerprint.rs`
-(15 KB). The fingerprint IS the address into the codebook; this is
-the substrate Pattern N declares. Reference doc:
-`.claude/knowledge/primzahl-encoding-research.md`. Companion
-substrate at `crates/bgz17/src/palette_semiring.rs` (O(1) distance +
-compose algebra).
+**Already ships (wave side):**
+- `crates/bgz17/` — palette + distance matrix + semiring (the wave algebra)
+- `crates/holograph/src/resonance.rs` — wave-mode similarity
+- `crates/thinking-engine/src/qualia.rs` — 17D phenomenology (wave)
+- `crates/thinking-engine/src/world_model.rs` (13 KB) — `SelfState / UserState / FieldState / ContextState` four-section BindSpace world model. (This was the "OGIT Triangle / four contexts" insight from the earlier draft of this doc — preserved here as substrate, not as a separate Pattern A.)
+- `crates/thinking-engine/src/superposition.rs` — interference-field machinery cited by `qualia.rs::from_superposition`
 
-### Pattern O — Phenomenological Memory
+**Already ships (particle side):**
+- `crates/lance-graph/src/graph/arigraph/`
+- `crates/lance-graph/src/graph/spo/`
+- `crates/lance-graph-planner::nars::*`
 
-**Already ships:**
+**What's new:** the per-G blend dial that selects wave vs particle
+weight per task per consumer.
 
-- `crates/thinking-engine/src/qualia.rs` (39 KB) — 17D qualia, 10
-  family centroids, music-calibrated dims (octave / fifth / third /
-  tritone → arousal / valence / warmth / tension), audio bridges,
-  220-pair Jina v3 cross-validation
-- `crates/thinking-engine/src/awareness_dto.rs` (12 KB) — the
-  meta-awareness layer DTO that carries qualia between cycles
+### Pattern N — Fingerprint-as-Codebook-Address ✅ SHIPPED
 
-This is the most surprising "already done" — 39 KB of calibrated
-17-dim phenomenological substrate. Any session proposing "give the
-agent feelings" must read `qualia.rs` first.
+The substrate-level cognitive operation: `fingerprint(content) →
+codebook lookup → O(1) recognition`. Recognition (codebook hit) is
+most of cognition; crystallization (codebook miss = new entry) is rare.
+
+**Already ships across multiple codebooks:**
+- `crates/thinking-engine/src/prime_fingerprint.rs` (15 KB) — content-addressable prime-coded fingerprints
+- `crates/thinking-engine/src/qualia.rs::FAMILY_CENTROIDS` — 10 named family centroids (emberglow, woodwarm, steelwind, oceandrift, frostbite, sunburst, nightshade, thornrose, velvetdusk, stormbreak)
+- `crates/p64-bridge/src/lib.rs::STYLES` — 12-entry thinking-style codebook (analytical, convergent, systematic, creative, divergent, exploratory, focused, diffuse, peripheral, intuitive, deliberate, metacognitive)
+- `crates/lance-graph/src/cam_pq/` — 256-entry CAM-PQ palette
+- `crates/bgz17/` — palette codebook + 256×256 distance table
+- `crates/deepnsm/src/codebook.rs` — vocabulary codebook
+- `crates/causal-edge::CausalEdge64` (8 channels = Bach 7+1) — per-edge fingerprint
+
+**Substrate clarification:** Vsa16kF32 is NOT the canonical substrate.
+It's a special-purpose Markov-accumulation mode (one program among
+many that the cognitive-shader-driver vessel runs). The actual
+substrate is the codebook collection per G. See `.claude/patterns.md`
+"Substrate clarification" section + W6's VSA-1 ledger reframe.
+
+### Pattern O — Phenomenological Memory Layers ✅ SHIPPED
+
+Multiple parallel memory traces per experience: SPO + Qualia17D +
+CausalEdge64 + Resonance + Epiphany + meta-awareness.
+
+**Already ships:** `crates/thinking-engine/src/qualia.rs` (39 KB):
+- 17D qualia substrate calibrated from musical interval ratios
+- Octave (2:1) → arousal, Fifth (3:2) → valence, Third (5:4) → warmth, Tritone (√2:1) → tension
+- Universal invariance: a fifth sounds like a fifth in any register
+- Cross-validated against 220 Jina v3 calibrated pairs in Upstash
+- 10 family centroids + emotional blend (second-order codebook)
+- Multiple `from_*` constructors: `from_convergence`, `from_engine`, `from_superposition`, `from_band_energies` — each is a different memory layer projecting INTO the same 17D space
+- Bidirectional bridge: Qualia17D ↔ musical mode ↔ band energies ↔ voice channels
+- `verify_grid_completeness()` — formal proof that all 17 dims are covered
+
+Plus:
+- `crates/thinking-engine/src/awareness_dto.rs` (12 KB) — meta-awareness DTO (the recursive layer)
+- `crates/causal-edge::CausalEdge64` — Bach 7+1 = canonical 8 logical relations
+- `crates/holograph/src/epiphany.rs` + `.claude/board/EPIPHANIES.md` — high-salience meta-cognition crystallization
 
 ---
 
-## Supporting substrate (reads to do before any OGIT-G work)
+## Substrate inventory (shipped pieces that don't map 1:1 to canonical Pattern A-O)
 
-| File | Size | Why it matters |
+These are real shipped substrate files that the earlier draft of this
+doc misattributed as "Pattern A through Pattern G". They're preserved
+here as supporting infrastructure for the canonical patterns above:
+
+| Substrate | File | Supports canonical pattern(s) |
 |---|---|---|
-| `crates/thinking-engine/src/cognitive_stack.rs` | 13 KB | L1–L4 cognitive substrate the OGIT overlay plugs into |
-| `crates/thinking-engine/src/cognitive_trace.rs` | 6 KB | Audit trail of cognitive steps; every G's session writes here |
-| `crates/thinking-engine/src/l4.rs`, `l4_bridge.rs` | — | L4 spatial-BLAS surface |
-| `crates/thinking-engine/src/meaning_axes.rs` | 9 KB | Semantic dimensions (HdrResonance, Archetype, Viscosity) |
-| `crates/thinking-engine/src/cronbach.rs` | 12 KB | Psychometric reliability of any per-G codebook (use BEFORE shipping a manifest) |
-| `crates/causal-edge/src/edge.rs` | — | CausalEdge64 = 7+1 Bach channels = the 8 predicate layers |
-| `crates/bgz17/src/palette_semiring.rs` | — | O(1) distance + compose algebra Pattern H rests on |
-| `crates/lance-graph/src/cam_pq/jitson_kernel.rs` | — | JIT muscle for Pattern K |
-| `crates/lance-graph/src/graph/arigraph/` | dir | String-keyed SPO position index (Pattern L) |
-| `crates/lance-graph-contract/src/cycle_accumulator.rs` | — | Pattern I per-cadence flush gate |
+| WorldModel four-section split (T/A/P + W as four contexts) | `crates/thinking-engine/src/world_model.rs` (13 KB; SelfState/UserState/FieldState/ContextState) | Pattern M wave-side; future Pattern B `world_state` slot |
+| Per-G Tokenizer Registry | `crates/thinking-engine/src/tokenizer_registry.rs` (16 KB) | Pattern B `vocabulary` slot infrastructure |
+| Persona Runtime | `crates/thinking-engine/src/persona.rs` (18 KB) | Pattern C `consumer_pointer.persona` field; per-G persona selection |
+| Sensor Bridge | `crates/thinking-engine/src/sensor.rs` (13 KB) | Pattern E ingestion-side; consumer-actor input handlers |
+| Reranker Lens | `crates/thinking-engine/src/reranker_lens.rs` (7 KB) | Pattern J substrate (proximity reranker is one switchable backend) |
+| Crystallization-Side Learning | `crates/thinking-engine/src/contrastive_learner.rs` (9 KB) | Pattern K crystallization step (codebook entry generation) |
+| MUL Counterfactual Branching | `crates/thinking-engine/src/branching.rs` (10 KB) + `ghosts.rs` (11 KB) | Pattern L MUL marker propagation |
+| Cronbach reliability | `crates/thinking-engine/src/cronbach.rs` (11 KB) | Pattern N codebook quality metric |
+| Meaning axes | `crates/thinking-engine/src/meaning_axes.rs` (9 KB) | Pattern G semantic dimensions |
+| Composite/dual/signed engines | `crates/thinking-engine/src/{composite,dual,signed,bf16,f32}_engine.rs` | Pattern H multiple-substrate vessel modes |
 
 ---
 
-## Ledger row reframes (these are the rediscovery traps)
+## Pre-work checklist (extends `.claude/patterns.md` P-1..P-5)
 
-The `ARCHITECTURE_ENTROPY_LEDGER.md` flags several rows as Spaghetti
-or High-entropy. Read flat, they invite "fix by consolidating." Read
-through the Pattern A–O lens, several are **intentional layering**,
-not entropy. Future sessions: do not chase these without checking
-the reframe first.
+Before proposing **any** Pattern A-O work:
 
-### THINK-1 — *not* a 4-copy drift
+```
+[ ] Read this Tier-0 doc to identify canonical pattern letter (NOT a
+    creative re-letter; use the W1 master assignment)
+[ ] If canonical pattern is SHIPPED (H, I, N, O fully shipped; M
+    primitives shipped; L partially shipped) → propose extension or
+    wiring, NOT construction
+[ ] If canonical pattern is DESIGN PHASE (A, B, C, D, E, F, G, J)
+    → cite the TD-X row in `.claude/board/TECH_DEBT.md` AND the
+    sub-plan in `.claude/plans/` BEFORE writing code
+[ ] If canonical pattern is ASPIRATIONAL (K) → defer unless the
+    JITson kernel pattern has matured to actor scope
+[ ] Check `.claude/patterns.md` Pattern Recognition Framework
+    (W3-appended section) for any state changes since this Tier-0 doc
+[ ] Check `.claude/board/ARCHITECTURE_ENTROPY_LEDGER.md` and
+    `_RESOLVED.md` for ledger row state changes
+[ ] If your work spans multiple patterns, cite all letters + the
+    cluster in `.claude/board/ARCHITECTURE_ENTROPY_LEDGER.md` Section B
+[ ] Cite `file:line` for every "currently broken" or "not shipped"
+    claim in your proposal
+```
 
-**Ledger:** `contract::thinking::ThinkingStyle`(36) +
-`planner::thinking::style::ThinkingStyle`(12) +
-`thinking-engine::cognitive_stack::ThinkingStyle`(12) +
-`thinking-engine::superposition::ThinkingStyle`(5) +
-`cognitive-shader-driver::engine_bridge::UNIFIED_STYLES`(12-const) +
-RL bandit. Flagged Spaghetti / entropy 5.
-
-**Reframe:** the 12-style codebook lives canonically in
-`p64-bridge::STYLES` (the substrate codebook of 4 clusters × 3
-styles). The 36-entry `contract::thinking::ThinkingStyle` is the
-**composed surface** (12 base styles × 3 modulation levels — same
-relationship as a base palette and its tinted derivatives). The
-5-entry superposition variant and the bandit selector are
-*projections* of the 12-base codebook onto more constrained
-selectors. This is Pattern H's vessel mechanism + Pattern K's
-learning loop, working as designed. The fix is `From` adapters and
-a doc explaining the layering — not collapsing the layers.
-
-### HEEL-1 — *not* three different orderings, one canonical cascade
-
-**Ledger:** `contract::cam::CamByte::{Heel, Branch, TwigA, TwigB,
-Leaf, Gamma}` vs `lance-graph::graph::neighborhood::SearchCascade::
-{heel, hip, twig, leaf_rerank}` vs `bgz17/router.rs` +
-`bgz-tensor/hhtl_d.rs`. Flagged High / entropy 4.
-
-**Reframe:** the canonical HHTL cascade is the four-step
-`cognitive_shader::cascade` documented in `p64-bridge/src/lib.rs:288-293`:
-HEEL→HIP→TWIG→LEAF. The three "orderings" in the ledger are
-different **views** of the same cascade at different points in the
-pipeline (CamByte = packed addressing, SearchCascade = neighborhood
-walk, bgz17/router = bf16 basin routing). All four bottom out in
-`semiring.distance` O(1). Fix is to consolidate the **labels** so
-the four views announce themselves as the same cascade — not to
-re-implement.
-
-### ADJ-THINK-1 — *not* "aspirational, never written"
-
-**Ledger:** "I5 doctrine: 36 thinking styles are nodes in a CSR/CSC
-`AdjacencyStore` at tau-prefix `0x0D`. `tau()` addresses are computed;
-**nothing writes those rows.**" Flagged Aspirational / entropy 4.
-
-**Reframe:** the `[[u64; 64]; 8]` `planes` field of
-`p64-bridge::CognitiveShader` **IS** the adjacency store. Each
-predicate plane is a 64×64 boolean adjacency matrix. The 36 styles
-are addressed via the `layer_mask` field of `StyleParams` — that
-mask IS the tau-prefix the doctrine asked for. What's missing is the
-`tau()` **write API** that exposes "write style S's adjacency into
-plane z" to the planner; reads work fine. One method, not a new
-crate.
-
-### CRYSTAL-1 — *not* a name collision
-
-**Ledger:** `contract::crystal::sentence::SentenceCrystal` +
-`holograph::crystal_dejavu::SentenceCrystal` +
-`holograph::sentence_crystal::SemanticCrystal`. Flagged High /
-entropy 4.
-
-**Reframe:** these are **two legitimate codebooks at different
-Pattern-N layers**. `contract::SentenceCrystal` is the contract-side
-sentence-grain crystal (the read-only carrier the orchestrator
-hands to consumers). `holograph::SemanticCrystal` is the holographic
-internal crystal (excluded crate, internal-grain). Both are valid
-codebook entries at different layers of the same Pattern N
-hierarchy (fingerprint → crystal → codebook address). The
-collision is *nominal*, not semantic. Holograph being excluded
-means the consumer never sees both at once. Fix is rename inside
-holograph, not unification.
-
-### CAM-DIST-1 — *not* stalled
-
-**Ledger:** "UDF registered at `cam_pq/udf.rs:241,257,326`. Called
-from `query.rs:470` only when `with_cam_codebook(...)` is opted
-into. `datafusion_planner/mod.rs` does NOT register; default Cypher
-path can't reference `cam_distance`." Flagged Stalled / entropy 3.
-
-**Reframe:** this is a **one-line registration fix** in
-`DataFusionPlanner::new` — register `cam_distance` unconditionally
-the way other UDFs already are. The substrate (the UDF body, the
-codebook, the distance table) is shipped. "Stalled" overstates it;
-"awaiting one-line wire-up" is accurate. Anyone reaching for the
-`cam-pq-production-wiring-v1` plan should grep `DataFusionPlanner::new`
-first and confirm the gap is genuinely one line.
-
----
-
-## Pre-work checklist for future sessions (extends `.claude/patterns.md`)
-
-Before proposing **any** Pattern A–O work, run this checklist in
-order. Stop at the first hit.
-
-1. **Pattern-recognition (this file):** is the pattern in the table
-   at the top? If yes, the file path in the right column is your
-   starting read — not your starting blank file.
-2. **CRATE-FIRST (P-1):** `grep -E '^\s+"crates/' Cargo.toml` — if
-   the pattern's home crate is a workspace member, it is already
-   shipped to consumers.
-3. **REGION-FIRST (P-2):** name the R0–R8 region from
-   `.claude/knowledge/soa-dto-fma-map.md`. If R5 or R6, the
-   substrate is almost certainly thinking-engine or contract.
-4. **ENTROPY-FIRST (P-3):** check `ARCHITECTURE_ENTROPY_LEDGER.md`
-   for a related row. **Then check the reframes above.** Several
-   rows that look like entropy are intentional Pattern A–O layering.
-5. **CLUSTER-AWARE (P-5):** if you are touching THINK-1, the cluster
-   includes COMPASS-1, TRUST-1, FLOW-1, MUL-ASSESS-1, ADJ-THINK-1 —
-   move them together or not at all. Section B of the ledger lists
-   the clusters.
-6. **CONSULT-DON'T-GUESS (CLAUDE.md Stance):** if a knowledge doc
-   has a `READ BY:` header naming your subagent type, load it before
-   writing.
-
-The 30-turn rediscovery tax this checklist prevents:
-
-> "Let's build a thinking codebook." → 6 turns of design →
-> someone greps and finds p64-bridge::STYLES → rewrite as adapter →
-> 4 turns of unwinding the new code → land 1-line adapter.
->
-> *vs.*
->
-> "Let's build a thinking codebook." → read tier-0-pattern-recognition.md
-> Pattern H section → write 1-line adapter.
-
-The five turns of "checklist read" are the cheapest five turns in
-the session.
+If any checklist box reveals existing work, do NOT propose new work.
+Either:
+- Update the existing row's status (state change) per ledger Update Protocol
+- Cite the existing as canonical and propose only the missing edge
+- Stop and ask the user
 
 ---
 
 ## Cross-references
 
-- **W1's master:** `.claude/plans/unified-ogit-architecture-v1.md`
-  — full Pattern A–O definitions, dependency arrows between
-  patterns, and the OGIT-G wiring spec
-- **Region map:** `.claude/knowledge/soa-dto-fma-map.md` (R0–R8)
-- **Open entropy:** `.claude/board/ARCHITECTURE_ENTROPY_LEDGER.md`
-  (especially rows THINK-1 / HEEL-1 / ADJ-THINK-1 / CRYSTAL-1 /
-  CAM-DIST-1 — see Reframes section above before acting)
-- **Topology invariants:** `.claude/board/SINGLE_BINARY_TOPOLOGY.md`
-  (especially I-4 Pattern-I gate distinction)
-- **Lab-vs-canonical doctrine:** `.claude/knowledge/lab-vs-canonical-surface.md`
-  (mandatory before Pattern F endpoint work)
-- **VSA-substrate iron rules:** CLAUDE.md sections I-SUBSTRATE-MARKOV /
-  I-NOISE-FLOOR-JIRAK / I-VSA-IDENTITIES (mandatory before any
-  Pattern M / N change)
+- **`.claude/plans/unified-ogit-architecture-v1.md`** (W1) — master synthesis (authoritative for Pattern letter assignments)
+- **`.claude/patterns.md`** (W3-appended Pattern Recognition Framework) — second authoritative source on pattern letters
+- **`.claude/board/TECH_DEBT.md`** (W5) — TD-OGIT-G-SLOT-1 through TD-DEEPNSM-NSM-COLLAPSE-11 (all canonical Pattern A-O work items)
+- **`.claude/board/ARCHITECTURE_ENTROPY_LEDGER.md`** (OPEN) — W6's reframes of THINK-1, HEEL-1, ADJ-THINK-1, CRYSTAL-1, CAM-DIST-1, VSA-1
+- **`.claude/board/ARCHITECTURE_ENTROPY_LEDGER_RESOLVED.md`** — RECOGNITION-1 meta-row (W7-rev2)
+- **`.claude/plans/ogit-g-context-bundle-v1.md`** (W10-rev2) — Tier-1 sub-plan: Patterns A + B + C
+- **`.claude/plans/compile-time-consumer-binding-v1.md`** (W11) — Tier-2 sub-plan: Patterns E + F
+- **`.claude/plans/anatomy-realtime-v1.md`** (W12) — proof-of-vision: exercises every pattern A-O end-to-end
+- **`.claude/board/EPIPHANIES.md`** — 17 dated epiphanies E-OGIT-1 through E-RECOGNITION-OVER-DESIGN-17
+- **`.claude/board/sprint-log-2/sprint-summary.md`** — sprint-2 closure summary
+- **`.claude/board/SINGLE_BINARY_TOPOLOGY.md`** — three-layer architecture invariants (I-1 single binary, I-2 tokio outbound only, I-3 BBB compile-time, I-4 per-row vs per-cadence gates distinct)
 
----
+## Maintenance
 
-## Honest scope statement
+This file is the load-bearing entry point for future architectural
+work. Maintain ruthlessly:
 
-This doc maps Pattern names → file paths. It does **not**:
-
-- Define what the patterns mean (W1's job)
-- Specify the OGIT-G overlay wiring (W1 + W3+ collaborative)
-- Author the per-G manifest format (later sprint deliverable)
-- Resolve the entropy ledger rows (separate cleanup work)
-
-It does:
-
-- Stop the next session from rebuilding what already exists
-- Reframe ledger rows that look like entropy but are Pattern layering
-- List the substrate reads required before touching any pattern
-- Surface the **one** genuinely new bit (Pattern G + Pattern B's
-  manifest)
-
-If a future session reads this and still proposes a parallel
-implementation of a shipped pattern, the rediscovery is on them —
-not on the workspace.
+1. **Pattern letter assignments are immutable** — they come from the
+   W1 master synthesis. Future workers must not invent new letter schemes.
+2. **Status changes** (DESIGN PHASE → SHIPPED) get a dated note when
+   a TD-X is closed. Move the canonical line in the TL;DR table; do
+   not rewrite history.
+3. **New shipped substrate files** that don't map to a canonical
+   letter go in the "Substrate inventory" appendix.
+4. **If you find a contradiction with W1 master or W3 patterns.md,
+   they win.** Open a follow-up to fix this Tier-0 doc.
