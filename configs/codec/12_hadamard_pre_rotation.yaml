@@ -1,0 +1,24 @@
+# PR #220 fix (c) — Hadamard pre-rotation.
+# Hadamard stays at Tier-3 F32x16 per Rule C (add/sub butterfly, not matmul
+# → no AMX benefit). Sylvester construction requires dim power-of-two.
+# Combined with wider codebook to probe the compound effect.
+name: hadamard_pre_rotation
+tensor_path: models/qwen3-tts-0.6b/o_proj.safetensors
+grid:
+  subspaces: [6]
+  centroids: [256, 512]
+  residual_depths: [0]
+  rotations:
+    - { kind: identity }
+    - { kind: hadamard, dim: 4096 }
+  distances: [AdcU8]
+  lane_widths: [F32x16]
+  residual_centroids: 256
+  calibration_rows: 2048
+  measurement_rows: 512
+  seed: 42
+measure:
+  - reconstruction_icc_held_out
+  - token_agreement_top1
+  - token_agreement_top5
+label: "PR #220 fix (c): Hadamard pre-rotation × centroids sweep"

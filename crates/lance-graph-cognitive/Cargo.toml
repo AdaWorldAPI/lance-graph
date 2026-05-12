@@ -1,0 +1,29 @@
+[package]
+name = "lance-graph-cognitive"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = """
+Cognitive extensions for lance-graph: crystal encoding, grammar triangle,
+quantum ops, structural causal models, dream consolidation, GEL execution.
+
+Imported from AdaWorldAPI/ladybug-rs. Optional — not required by core
+lance-graph or bgz-tensor. Feature-gated to keep the dependency tree lean.
+"""
+
+[dependencies]
+# Foundation
+ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
+holograph = { path = "../holograph", default-features = false }
+lance-graph-contract = { path = "../lance-graph-contract" }
+
+# Serialization (optional, for persistence)
+serde = { version = "1", features = ["derive"], optional = true }
+
+[features]
+default = []
+serde = ["dep:serde"]
+wip = []  # Enable work-in-progress modules (may not compile)
+
+[dev-dependencies]

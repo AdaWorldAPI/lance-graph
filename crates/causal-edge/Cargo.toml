@@ -1,0 +1,13 @@
+[package]
+name = "causal-edge"
+version = "0.1.0"
+edition = "2021"
+description = "CausalEdge64: 64-bit causal neuron with SPO palette, NARS truth, Pearl hierarchy, plasticity"
+license = "MIT"
+repository = "https://github.com/AdaWorldAPI/lance-graph"
+
+[dependencies]
+# No dependencies — this crate is self-contained.
+# Palette and distance matrices come from bgz17 at integration time.
+
+[dev-dependencies]

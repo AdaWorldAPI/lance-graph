@@ -1,0 +1,22 @@
+# (starter prior — tune empirically)
+# Rule-clear, depth-first, English+Finnish morphology, low ambiguity tolerance.
+style: analytical
+nars:
+  primary: Deduction
+  fallback: Abduction
+morphology:
+  tables: [english_svo, finnish_case_table]
+  agglutinative_mode: false
+tekamolo:
+  priority: [temporal, lokal, kausal, modal]
+  require_fillable: true
+markov:
+  radius: 5
+  kernel: uniform
+  replay: forward
+spo_causal:
+  pearl_mask: 0x01
+  ambiguity_tolerance: 0.1
+coverage:
+  local_threshold: 0.90
+  escalate_below: 0.85

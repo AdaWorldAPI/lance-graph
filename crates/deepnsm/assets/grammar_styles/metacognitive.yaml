@@ -1,0 +1,22 @@
+# (starter prior — tune empirically)
+# Metacognitive: revision-primary, both-direction replay, mid-tolerance for self-check.
+style: metacognitive
+nars:
+  primary: Revision
+  fallback: Abduction
+morphology:
+  tables: [english_svo, finnish_case_table, russian_case_table]
+  agglutinative_mode: false
+tekamolo:
+  priority: [kausal, modal, temporal, lokal]
+  require_fillable: false
+markov:
+  radius: 5
+  kernel: mexican_hat
+  replay: both_and_compare
+spo_causal:
+  pearl_mask: 0x3F
+  ambiguity_tolerance: 0.25
+coverage:
+  local_threshold: 0.80
+  escalate_below: 0.65
