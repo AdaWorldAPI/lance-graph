@@ -1,0 +1,316 @@
+# Consumer Crate Template — adding the Nth consumer in <1 day
+
+**Tier-2 implementation spec — Pattern E + F validation deliverable.**
+**Sprint-3 owner:** W8 (this spec) -> consumer-author pickup.
+**Worked example:** `hubspo-rs` (HubSpot CRM consumer).
+
+---
+
+## Why this exists
+
+Per `.claude/board/MEDCARE_POLICY_GAP.md`, mirroring smb-office-rs PR #29
+(`SmbMembraneGate`) onto medcare-rs cost ~800 LOC across **three sequential
+stages** — `medcare-rbac` (~300 LOC), `medcare-realtime` (~200 LOC), and
+`MedCareMembraneGate` itself (~300 LOC). PR #29 / PR #98 used per-consumer
+**newtype gates** because the orphan rule prevented `impl MembraneGate for
+Arc<lance_graph_rbac::Policy>` from living upstream. Every consumer paid the
+same orphan-rule tax, and per-consumer audit / membrane / RBAC scaffolding
+got duplicated each time.
+
+Under Sprint-3's new architecture (Patterns **A + B + C + E + F**):
+
+- **Pattern A (PR-A-1, W2)** puts a `u32` OGIT slot on every quad — no
+  per-consumer schema change needed.
+- **Pattern B (PR-B-1, W3)** makes `ContextBundle` the typed surface for any
+  ontology / RBAC / stack-profile context, looked up by `g`.
+- **Pattern C (PR-C-1, W4)** ships **one** `GenericBridge` impl that
+  dispatches by `ConsumerPointer` — no per-consumer newtype gate.
+- **Pattern E (PR-E-1, W5)** declares the consumer as data in
+  `modules/<name>/manifest.yaml`; a build script materialises the
+  `ConsumerPointer` const.
+- **Pattern F (PR-F-1, W6)** spawns the consumer's actor under the canonical
+  ractor supervisor — no per-consumer supervision tree.
+
+The aggregate effect: **per-consumer cost collapses from ~800 LOC of
+boilerplate to ~30 LOC of glue + a manifest.** This spec walks through
+hubspo-rs as the worked example so the architectural claim has a concrete
+artefact to validate against.
+
+---
+
+## Step-by-step: adding hubspo-rs
+
+### Step 1 — Reverse-engineer the domain (~1-2 hours, Claude Code)
+
+Run a Claude Code session against HubSpot's public API + ontology docs.
+Output: a concrete entity catalogue (`Contact`, `Company`, `Deal`, `Ticket`,
+`Pipeline`, `Stage`, `Engagement`) + property model + RBAC role set
+(`Admin`, `SalesRep`, `MarketingManager`, `SupportAgent`).
+
+Commit the output as `data/ontologies/hubspot.yaml` (raw OWL-style YAML so
+humans can review). This file is the **input** to the manifest in step 2 —
+think of it as the domain dictionary the consumer will reason against.
+
+### Step 2 — Create `modules/hubspo/manifest.yaml` (~30 LOC)
+
+```yaml
+ogit_g: CRM            # symbolic; resolved to u32 by build script (PR-E-1)
+version: 1
+domain_name: hubspo
+inert_when_consumer_absent: false   # CRM data flows even without hubspo-rs
+
+entity_types:
+  Contact:    u16=200
+  Company:    u16=201
+  Deal:       u16=202
+  Ticket:     u16=203
+  Pipeline:   u16=204
+  Engagement: u16=205
+
+rbac_policy: hubspo_policy
+
+stack_profile:
+  audit_retention_days: 2555     # 7 years (CRM compliance default)
+  requires_fail_closed: false    # CRM is read-heavy; failed reads OK
+  escalation: webhook            # high-value moves escalate, don't auto-deny
+
+action_capabilities:
+  close_deal: escalate           # high-value move; manager signoff required
+  delete_contact: escalate       # GDPR Art.17 right-to-erasure
+  send_bulk_email: escalate      # spam-protection gate
+
+actor:
+  crate: hubspo-rs
+  type: HubSpoActor
+  message_type: HubSpoMessage
+
+inherits_from: dolce             # falls back to DOLCE root for unmapped predicates
+```
+
+The manifest is read at compile time by the PR-E-1 build script and
+materialised into a `ConsumerPointer` const — no runtime YAML parsing on
+the hot path.
+
+### Step 3 — Scaffold `hubspo-rs` minimal crate (~50 LOC across 3 files)
+
+Three files, no more:
+
+#### `crates/hubspo-rs/Cargo.toml` (~10 LOC)
+
+```toml
+[package]
+name = "hubspo-rs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lance-graph-contract   = { path = "../lance-graph-contract" }
+lance-graph-callcenter = { path = "../lance-graph-callcenter" }
+ractor                 = "0.13"
+async-trait            = "0.1"
+tokio                  = { version = "1", features = ["sync", "macros"] }
+```
+
+#### `crates/hubspo-rs/src/lib.rs` (~10 LOC)
+
+```rust
+//! HubSpot CRM consumer for the lance-graph runtime.
+//! Wired to G=CRM via `modules/hubspo/manifest.yaml`.
+
+pub mod actor;
+pub mod policy;
+
+pub use actor::{HubSpoActor, HubSpoMessage};
+pub use policy::hubspo_policy;
+```
+
+#### `crates/hubspo-rs/src/actor.rs` (~30 LOC)
+
+```rust
+use lance_graph_contract::consumer::{Consumer, ConsumerPointer};
+use lance_graph_contract::ogit::OGIT;
+use ractor::{Actor, ActorRef};
+
+pub struct HubSpoActor;
+
+impl Consumer for HubSpoActor {
+    const G: u32 = OGIT::CRM;          // resolved by PR-B-1 OntologyRegistry
+    type Msg     = HubSpoMessage;
+    type Pointer = ConsumerPointer;
+
+    fn pointer() -> ConsumerPointer {
+        // Generated by PR-E-1 build script from manifest.yaml.
+        ConsumerPointer::from_manifest("hubspo")
+    }
+}
+
+#[derive(Clone)]
+pub enum HubSpoMessage {
+    GetContact   { id: u32, reply: tokio::sync::oneshot::Sender<Contact> },
+    UpdateDeal   { deal: Deal, reply: tokio::sync::oneshot::Sender<Result<(), HubSpoErr>> },
+    CloseDeal    { id: u32, reply: tokio::sync::oneshot::Sender<Result<(), HubSpoErr>> },
+    DeleteContact{ id: u32, reply: tokio::sync::oneshot::Sender<Result<(), HubSpoErr>> },
+    // ... ~6 more variants per entity type from the manifest
+}
+
+#[async_trait::async_trait]
+impl Actor for HubSpoActor {
+    type Msg   = HubSpoMessage;
+    type State = ();
+    type Arguments = ();
+    // handle() with match arms — domain logic only, no membrane/audit code
+}
+```
+
+Notice what is **not** in this file: no `MembraneGate` impl, no audit
+plumbing, no per-consumer dispatch table, no policy newtype. The
+`GenericBridge` (PR-C-1) routes by `ConsumerPointer`; the supervisor
+(PR-F-1) handles spawning; `stack_profile` from the manifest drives audit.
+
+### Step 4 — Add to workspace `Cargo.toml` (1 line)
+
+```toml
+members = [
+  ...,
+  "crates/hubspo-rs",
+]
+```
+
+### Step 5 — Optional: hubspo-side hydrator for the OWL ontology (~50 LOC)
+
+If you want G=CRM to be **active** (rich semantic ontology in the
+`OntologySlot` of the bundle, not just inert OWL data on disk), drop a
+hydrator in `crates/lance-graph-ontology/src/hydrators/hubspot.rs` that
+reads `data/ontologies/hubspot.yaml` and populates the `OntologySlot` of
+the G=CRM `ContextBundle`. This is the same Pattern D path as PR-D-1 (W9,
+FMA OWL hydrator) — just point it at a different YAML.
+
+If the consumer only needs `entity_types` + RBAC (no rich semantic
+ontology), **skip step 5**; the manifest alone is enough for the bridge to
+dispatch and the actor to handle messages.
+
+### Step 6 — Tests (~20 LOC)
+
+Two integration tests, both consume the upstream test harness:
+
+| Test | Coverage |
+|---|---|
+| `tests/hubspo_actor_spawns.rs` | Supervisor includes a G=CRM child after `hubspo-rs` is compiled in. Asserts `supervisor.children().any(|c| c.g == OGIT::CRM)`. |
+| `tests/hubspo_consumer_pointer_resolves.rs` | `registry.resolve(OGIT::CRM_V1_0)` returns an active bundle whose `actor.crate == "hubspo-rs"`. |
+
+That's it. RBAC unit tests are part of `crates/hubspo-rs/src/policy.rs` and
+counted under "domain logic," not glue.
+
+---
+
+## Total cost
+
+| Component | LOC |
+|---|---|
+| `modules/hubspo/manifest.yaml` | ~30 |
+| `crates/hubspo-rs/Cargo.toml` + `lib.rs` + `actor.rs` | ~50 |
+| Workspace `Cargo.toml` member entry | 1 |
+| (Optional hydrator `hydrators/hubspot.rs`) | ~50 |
+| Tests (`hubspo_actor_spawns.rs` + `hubspo_consumer_pointer_resolves.rs`) | ~20 |
+| **Grand total (no hydrator)** | **~100 LOC** |
+| **Grand total (with hydrator)** | **~150 LOC** |
+
+Compare PR #98 medcare-rs: **~1865 LOC** for the equivalent integration.
+
+**Reduction: 12-18× per consumer** — beats the W1 master plan's headline
+800 → 30 LOC claim once you net out the inevitable per-domain message
+enum (`HubSpoMessage` variants per entity type) and policy.rs, both of
+which are domain logic, not architectural overhead.
+
+---
+
+## What you DON'T need to write
+
+These were per-consumer LOC pre-Sprint-3; they are now upstream-once:
+
+- **Per-consumer gate impl.** `GenericBridge` (PR-C-1) dispatches by
+  `ConsumerPointer.g` — there is no `HubSpoMembraneGate` to write.
+- **Per-consumer membrane integration.** The manifest's `stack_profile`
+  block declares retention, fail-closed semantics, and escalation; the
+  `lance-graph-callcenter` membrane reads them at supervisor spawn.
+- **Per-consumer audit setup.** `ConsumerPointer.stack_profile.audit_retention_days`
+  is plumbed into the audit sink by the supervisor (PR-F-1). Consumers
+  never touch the audit pipeline directly.
+- **Per-consumer RBAC scaffolding.** `rbac_policy: hubspo_policy` is a
+  symbolic reference; the policy itself is `crates/hubspo-rs/src/policy.rs`
+  (~100 LOC of domain rules). No `medcare-rbac`-style standalone crate
+  per consumer; the contract crate provides `Policy / Role / Operation /
+  AccessDecision` once.
+- **Per-consumer supervisor wiring.** PR-F-1's ractor supervisor enumerates
+  manifests at boot; new consumers register by existing in `modules/`, not
+  by editing a supervisor file.
+
+---
+
+## Validation criteria for the architecture
+
+This consumer-template dry-run is the **architectural proof** for Patterns
+A + B + C + E + F. Three pass/fail gates:
+
+1. **LOC budget.** If `hubspo-rs` ends up >300 LOC of glue (excluding
+   `HubSpoMessage` variants and `policy.rs`), the `GenericBridge` /
+   `ConsumerPointer` design has a regression — escalate as architectural
+   debt **before** more consumers land.
+2. **Time budget.** A consumer-author with the manifest schema (PR-E-1)
+   and the bridge contract (PR-C-1) in hand should finish steps 2-6 in
+   **under one engineering day**. If it takes longer, the friction is in
+   docs (fix W8 spec) or in the contract surface (fix PR-C-1 / PR-E-1).
+3. **No upstream changes required.** Adding hubspo-rs MUST NOT require
+   touching `lance-graph`, `lance-graph-contract`, `lance-graph-callcenter`,
+   or any sibling consumer crate. If it does, the orphan-rule fix from
+   Pattern C didn't land cleanly — escalate.
+
+If all three pass for hubspo-rs, the architecture is validated and the
+"Nth consumer in <1 day" claim moves from CONJECTURE to FINDING in
+`.claude/board/EPIPHANIES.md`.
+
+---
+
+## Open questions for the consumer-author
+
+1. **Should the manifest's `ogit_g: CRM` symbolic value live in
+   `lance-graph-contract::ogit::OGIT` as a const?** Recommend **yes** —
+   makes the const usable from `impl Consumer for HubSpoActor { const G:
+   u32 = OGIT::CRM; }` without a build-time string lookup. Add to the
+   `OGIT` namespace in PR-B-1 once the slot allocation is final.
+2. **Where do `Contact`, `Deal`, etc. types live?** Recommend
+   `crates/hubspo-rs/src/types.rs` (re-exported from `lib.rs`). Don't
+   leak HubSpot DTOs into `lance-graph-contract` — that crate stays
+   domain-neutral.
+3. **Hydrator placement.** The optional Step-5 hydrator could live in
+   `crates/hubspo-rs/src/hydrator.rs` instead of
+   `lance-graph-ontology/src/hydrators/`. Recommend **upstream
+   placement** (`lance-graph-ontology`) so the hydrator can be enabled
+   without depending on `hubspo-rs` — useful when running an inert
+   ontology-only build (e.g. for ontology browsing without the live
+   actor).
+4. **Tests for the manifest itself.** Should `tests/hubspo_manifest_parses.rs`
+   exist as a third integration test? Recommend **deferred** — PR-E-1's
+   build script already fails the workspace build if the manifest is
+   malformed; an extra test is redundant.
+
+---
+
+## Cross-references
+
+- `.claude/specs/pr-c-1-generic-bridge.md` (W4) — the dispatcher this
+  template uses; without it, you'd be writing per-consumer newtype gates.
+- `.claude/specs/pr-e-1-manifest-modules.md` (W5) — the manifest schema
+  this template fills; defines `ConsumerPointer` materialisation.
+- `.claude/specs/pr-f-1-ractor-supervisor.md` (W6) — the supervisor that
+  spawns `HubSpoActor` based on the manifest.
+- `.claude/specs/pr-a-1-spo-g-u32-slot.md` (W2) — the `u32 g` slot
+  `HubSpoActor::G` writes into when committing CRM quads.
+- `.claude/specs/pr-b-1-context-bundle.md` (W3) — the `ContextBundle`
+  surface `OGIT::CRM` resolves to.
+- `.claude/specs/pr-d-1-fma-owl-hydrator.md` (W9) — sister Pattern D
+  hydrator; precedent for the optional Step-5 hydrator.
+- `.claude/board/MEDCARE_POLICY_GAP.md` — the ~800 LOC baseline being
+  beaten; primary motivating document for this template.
+- `.claude/specs/sprint-3-execution-plan.md` (W1) — master execution
+  plan; lists W8 as the architecture-validation deliverable.
