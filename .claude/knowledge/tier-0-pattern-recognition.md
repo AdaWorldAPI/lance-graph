@@ -436,3 +436,58 @@ work. Maintain ruthlessly:
    letter go in the "Substrate inventory" appendix.
 4. **If you find a contradiction with W1 master or W3 patterns.md,
    they win.** Open a follow-up to fix this Tier-0 doc.
+
+---
+
+## SUBSTRATE-RECOGNITION SWEEP (post-#360, 2026-05-12)
+
+**Update:** sprint-3 review surfaced that 3 of 11 PR-X-1 specs (PR-A-1, PR-C-1, PR-D-1) over-scoped because they didn't fully sweep post-#355 substrate. Patterns A, C, D are reclassified PARTIALLY SHIPPED, not DESIGN PHASE.
+
+### Reclassifications
+
+| Pattern | Old status | New status | Already-shipped substrate (post-#355) |
+|---|---|---|---|
+| **A** SPO-G u32 slot | DESIGN PHASE | **PARTIALLY SHIPPED** | `SchemaPtr.ontology_context_id` in `crates/lance-graph-ontology/src/namespace.rs`; `NamespaceRegistry::seed_defaults()` codebook in `namespace_registry.rs`; ctx_id stamping in `registry.rs:351`. **Net new:** SPO writer's awareness of g + Lance schema column (~150 LOC, ~1 day) |
+| **C** Generic Bridge + ConsumerPointer | DESIGN PHASE | **PARTIALLY SHIPPED** | `BridgeFromRegistry` trait in `crates/lance-graph-ontology/src/bridges/mod.rs`; `WoaBridge` + `MedcareBridge` + `OgitBridge` impls (~15-26 LOC each); consumer scaffolds at woa-rs PR #2 + medcare-rs PR #110 (merged). **Net new:** ConsumerPointer data slots + `for_g(g)` factory + (optional) trait migration to contract crate (~80 LOC, ~½ day) |
+| **D** Meta-Structure Hydration | DESIGN PHASE | **PARTIALLY SHIPPED** | `parse_ttl_directory_with_provenance` in `ttl_parse.rs`; `OntologyRegistry::hydrate_once_sync` + `attach_provenance`; `MappingRow.attribute_sources` cascade column. **Net new:** OWL/RDF-XML adapter (FMA's input format) → existing hydrate_once_sync pipeline (~250 LOC, ~1-2 days) |
+
+### Updated TL;DR table — canonical letter status (post-substrate-sweep)
+
+Replace the corresponding rows in the canonical TL;DR table with:
+
+| # | Pattern | Status | Net new work |
+|---|---|---|---|
+| **A** | SPO-G u32 OGIT slot | 🟡 **PARTIALLY SHIPPED** | SPO writer awareness of g + Lance column (~150 LOC) |
+| **B** | Context Bundle per G | 🚧 DESIGN PHASE | (unchanged — typed surface still missing) |
+| **C** | Generic Bridge + ConsumerPointer | 🟡 **PARTIALLY SHIPPED** | ConsumerPointer slots + `for_g(g)` factory (~80 LOC) |
+| **D** | Meta-Structure Hydration | 🟡 **PARTIALLY SHIPPED** | OWL/RDF-XML adapter for FMA (~250 LOC) |
+| **E** | Compile-Time Consumer Binding | 🚧 DESIGN PHASE | (unchanged) |
+| **F** | ractor Supervisor | 🚧 DESIGN PHASE — actor shape PROVEN | (unchanged) |
+| **G** | Best-Practice Thinking Inheritance | 🚧 DESIGN PHASE | (unchanged) |
+| **H** | Switchable Cognitive Vessel | ✅ SHIPPED | (unchanged) |
+| **I** | Implicit Cognition | ✅ SHIPPED | (unchanged) |
+| **J** | INT4-32D Atoms | 🚧 DESIGN PHASE | (unchanged) |
+| **K** | Circular Compilation | ⏳ ASPIRATIONAL | (unchanged) |
+| **L** | SPO-Chain Narrative | ◐ PARTIALLY SHIPPED | (unchanged) |
+| **M** | Wave-Particle Bimodal | ◐ PRIMITIVES SHIPPED | (unchanged) |
+| **N** | Fingerprint-as-Codebook | ✅ SHIPPED | (unchanged) |
+| **O** | Phenomenological Memory | ✅ SHIPPED | (unchanged) |
+
+### Net effect on sprint-3 critical path
+
+Original estimate (per `.claude/specs/sprint-3-pr-graph.md` W10): ~6 working days parallelized.
+
+Post-substrate-sweep:
+- PR-A-1 effort: 2 days → 1 day
+- PR-C-1 effort: 1-2 days → ½ day
+- PR-D-1 effort: 3-4 days → 1-2 days
+
+**Compressed estimate: ~3-4 working days parallelized.** The genuinely-new ~5-pattern set (B context bundle, E manifest-modules, F ractor port, G inheritance protocol, J INT4-32D atoms) is the majority of remaining design-phase work; A, C, D are extensions of shipped substrate.
+
+### Anti-Pattern recurrence — meta-finding
+
+The Anti-Pattern "Designing What's Already Built" (introduced PR #358; reinforced post-#359 with the Pattern A mislabel) **recurred in sprint-3's own design**. PR-A-1 actually cites PR #355 D-ONTO-V5-9 in its files-to-touch table — then re-scopes around it without folding the rest of #355 in. **Seeing a slice and stopping is the failure mode.**
+
+The cure: future sprint prompts must include an explicit substrate-grep step BEFORE any spec is written. See `.claude/knowledge/cca2a-sprint-prompt-template.md` (next deliverable in this PR) for the substrate-grep checklist that should precede every PR-X-Y spec.
+
+**Provenance:** post-#360 review pass.
