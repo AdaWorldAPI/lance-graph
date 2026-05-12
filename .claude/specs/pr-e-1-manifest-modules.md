@@ -364,3 +364,162 @@ Rough breakdown:
   `hubspo-rs` in <30 LOC of consumer-side code
 - `.claude/specs/sprint-3-execution-plan.md` -- W1 master execution plan
 - `.claude/knowledge/tier-0-pattern-recognition.md` -- Pattern E section
+
+---
+
+## CORRECTION (2026-05-12, PR #360 review)
+
+**Defect:** This spec said the build script in `lance-graph-contract` emits Rust glue from each manifest, including the consumer's actor type (e.g. `actor.crate: medcare-rs`, `actor.type: MedCareActor`). For the build script to emit working Rust referencing `medcare_rs::MedCareActor`, the contract crate would need `medcare-rs` as a dependency when the `module-medcare` feature is enabled. **But every consumer crate already depends on `lance-graph-contract`** (per the consumer-template W8 spec and the Single-Binary Topology I-1 invariant: consumers always pull contract). Enabling the feature therefore creates a **Cargo dependency cycle** (contract → medcare-rs → contract), which Cargo refuses to compile.
+
+**Fix:** Move the concrete actor registration OUT of the contract crate. The contract crate's build script should emit ONLY:
+
+1. **OGIT::* u32 namespace constants** (pure data; no consumer code referenced)
+2. **The `Consumer` trait declaration** (manifest-agnostic)
+3. **Manifest data as a static `phf::Map`** (strings + values; no Rust refs to consumer crates)
+
+The actor registration moves to one of three valid mechanisms:
+
+### Option A — `inventory` crate self-registration (recommended)
+
+Each consumer crate impls `Consumer for ItsActor` and uses the `inventory` crate to self-register at link time:
+
+```rust
+// crates/medcare-rs/src/actor.rs
+use lance_graph_contract::consumer::{Consumer, ConsumerRegistration};
+use inventory;
+
+pub struct MedCareActor;
+impl Consumer for MedCareActor {
+    const G: u32 = lance_graph_contract::OGIT::HEALTHCARE_V1.0;
+    type Msg = MedCareMessage;
+    fn pointer() -> ConsumerPointer { /* read from compiled-in MANIFEST_METADATA[Self::G] */ }
+}
+
+inventory::submit! {
+    ConsumerRegistration {
+        g: lance_graph_contract::OGIT::HEALTHCARE_V1.0,
+        spawn_fn: || Box::new(<MedCareActor as Consumer>::spawn()),
+        pointer_fn: <MedCareActor as Consumer>::pointer,
+    }
+}
+```
+
+The `lance-graph-callcenter` supervisor enumerates `inventory::iter::<ConsumerRegistration>()` at startup — no compile-time generation of consumer references in the contract crate. **No dependency cycle.**
+
+### Option B — umbrella-binary registration crate
+
+A separate `lance-graph-binary` (or per-deployment binary crate) depends on ALL active consumer crates AND on `lance-graph-callcenter`. The build script for THIS umbrella crate (NOT the contract crate) emits:
+
+```rust
+// crates/lance-graph-binary/src/generated/consumer_registry.rs (build-script output)
+pub fn register_all(supervisor: &mut CallcenterSupervisor) {
+    supervisor.register::<medcare_rs::MedCareActor>();
+    supervisor.register::<smb_office_rs::SmbOfficeActor>();
+    supervisor.register::<q2::Q2CockpitActor>();
+    // (hubspo-rs absent → not registered; G=CRM stays inert)
+}
+```
+
+The contract crate stays consumer-agnostic. The umbrella crate eats the dependency-graph union. **No cycle.**
+
+### Option C — callback registry at supervisor init
+
+`lance-graph-callcenter::supervisor::CallcenterSupervisor::with_consumers(...)` takes an explicit list of consumer types passed by the binary's `main()`. Each consumer registers itself by spec-value (no compile-time enumeration). Most explicit; no macro magic; least automation.
+
+**Recommendation:** Option A (inventory crate) — best ergonomics, zero per-consumer wiring beyond the `inventory::submit!` macro, no umbrella-binary requirement. Used by `tracing` subscriber registry and many other Rust ecosystems for exactly this pattern.
+
+### Build-script scope correction
+
+The contract crate's `build.rs` emits:
+
+```rust
+// crates/lance-graph-contract/src/generated/ogit_namespace.rs (post-fix)
+pub mod OGIT {
+    pub const DOLCE_V1: (u32, u32)      = (0, 1);
+    pub const HEALTHCARE_V1: (u32, u32) = (2, 1);
+    pub const SMB_V1: (u32, u32)        = (4, 1);
+    pub const GOTHAM_V1: (u32, u32)     = (3, 1);
+    pub const FMA_V1: (u32, u32)        = (5, 1);
+    pub const CRM_V1: (u32, u32)        = (6, 1);
+}
+
+// crates/lance-graph-contract/src/generated/manifest_metadata.rs (post-fix)
+use phf::phf_map;
+
+pub static MANIFEST_METADATA: phf::Map<u32, ManifestMetadata> = phf_map! {
+    0u32 => ManifestMetadata {
+        domain_name: "dolce",
+        version: 1,
+        rbac_policy_name: None,
+        stack_profile: DomainProfile { /* ... */ },
+        action_capabilities: &[],
+        actor_crate: None,           // inert: no consumer crate
+        actor_type_name: None,
+    },
+    2u32 => ManifestMetadata {
+        domain_name: "medcare",
+        version: 1,
+        rbac_policy_name: Some("medcare_policy"),
+        stack_profile: DomainProfile { /* ... */ },
+        action_capabilities: &[/* finalize_diagnosis: escalate, ... */],
+        actor_crate: Some("medcare-rs"),     // string only — no Rust ref
+        actor_type_name: Some("MedCareActor"),
+    },
+    // ...
+};
+```
+
+Every emitted symbol is **data only** — no `use medcare_rs::*` import, no actor type reference, no spawn function. The contract crate stays consumer-agnostic.
+
+The **consumer-side** crate then reads its `MANIFEST_METADATA[G]` entry at compile time:
+
+```rust
+// crates/medcare-rs/src/actor.rs (after fix)
+const META: &'static lance_graph_contract::ManifestMetadata =
+    &lance_graph_contract::MANIFEST_METADATA[&lance_graph_contract::OGIT::HEALTHCARE_V1.0];
+
+pub struct MedCareActor;
+impl Consumer for MedCareActor {
+    const G: u32 = lance_graph_contract::OGIT::HEALTHCARE_V1.0;
+    type Msg = MedCareMessage;
+    fn pointer() -> ConsumerPointer {
+        ConsumerPointer {
+            g: Self::G,
+            domain_name: META.domain_name.into(),
+            stack_profile: META.stack_profile.clone(),
+            action_capabilities: META.action_capabilities.into(),
+            rbac_policy_ref: META.rbac_policy_name.map(|n| resolve_policy(n)),
+            // ...
+        }
+    }
+}
+
+inventory::submit! { ConsumerRegistration::new::<MedCareActor>() }
+```
+
+### Validation
+
+After this fix, the cargo dependency graph has no cycles:
+
+```
+medcare-rs ────→ lance-graph-contract                [unchanged]
+medcare-rs ────→ lance-graph-callcenter              [unchanged]
+lance-graph-contract ──X (no edge to consumer crates)
+lance-graph-callcenter::supervisor uses inventory::iter at startup
+                        ────→ lance-graph-contract (for ConsumerRegistration type)
+```
+
+W8 consumer template stays correct — the ~50 LOC consumer scaffolding now includes:
+- `impl Consumer for ItsActor` block (~15 LOC)
+- `inventory::submit!` macro line (~5 LOC)
+- The actor's `Msg` enum + `Actor::handle` impl (~30 LOC)
+
+**Updated PR-E-1 acceptance criteria:**
+
+- [x] Build script in `lance-graph-contract` emits OGIT::* + MANIFEST_METADATA (data only)
+- [x] Build script does NOT reference consumer crates (no `use medcare_rs::*`)
+- [x] Add `inventory = "0.3"` and `phf = { version = "0.11", features = ["macros"] }` as new external deps in lance-graph-contract
+- [x] Document inventory pattern in W8 consumer template (see W8 spec — corrections also needed there)
+- [x] Verify cargo dependency graph has no cycles (`cargo tree --duplicates` clean; `cargo check --features module-medcare,module-q2-cockpit,module-smb-office` clean)
+
+**Provenance:** flagged by user during PR #360 review.

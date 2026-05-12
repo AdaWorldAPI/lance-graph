@@ -356,3 +356,88 @@ shader-actor message arm porting.
 - `.claude/specs/pr-e-1-manifest-modules.md` (W5 sister; required upstream).
 - `.claude/specs/sprint-3-execution-plan.md` (W1 master).
 - `.claude/board/sprint-log-3/agents/agent-W6.md` (this agent's log).
+
+---
+
+## CORRECTION (2026-05-12, PR #360 review)
+
+**Defect:** The original `pre_start` loop sketched in this spec iterates over `registry.active_g_list()` and unwraps `bundle.consumer_pointer` — but inert bundles (DOLCE G=0, FMA G=5) have `consumer_pointer = None` by design. Per the W11 smoke test spec, DOLCE must remain registered as inert context (no actor) while Healthcare spawns its actor. The original loop would either panic on `unwrap()` or return `ActorProcessingErr` and abort `pre_start` before any consumer actor spawns.
+
+**Fix:** Skip inert bundles in the supervisor's spawn loop. Two equivalent options:
+
+### Option A — explicit filter inside `pre_start` (recommended)
+
+```rust
+async fn pre_start(
+    &self,
+    myself: ActorRef<Self::Msg>,
+    registry: Self::Arguments,
+) -> Result<Self::State, ActorProcessingErr> {
+    let mut children = HashMap::new();
+    for g in registry.all_registered_g() {
+        let bundle = registry.resolve(g).expect("registered g must resolve");
+
+        // SKIP inert bundles — DOLCE / FMA / unconsumed ontologies are
+        // queryable via SPARQL/Cypher but have no executable behavior.
+        let pointer = match bundle.consumer_pointer.as_ref() {
+            Some(p) => p,
+            None => {
+                tracing::debug!("g={} is inert (no consumer_pointer); skipping spawn", g);
+                continue;
+            }
+        };
+
+        let (actor_ref, _handle) = Actor::spawn_linked(
+            Some(format!("consumer_g_{}", g)),
+            pointer.actor_type.spawn(),
+            (),
+            myself.get_cell(),
+        ).await?;
+        children.insert(g, actor_ref);
+    }
+    Ok(children)
+}
+```
+
+### Option B — narrow the iterator's contract
+
+Rename `active_g_list()` to `active_consumer_g_list()` and have it return ONLY G slots whose bundle has `consumer_pointer.is_some()`. The supervisor loop becomes:
+
+```rust
+for g in registry.active_consumer_g_list() {
+    let bundle = registry.resolve(g).unwrap();
+    let pointer = bundle.consumer_pointer.as_ref().unwrap();  // safe by iterator contract
+    // ... spawn
+}
+```
+
+Plus a sibling iterator `inert_g_list()` for SPARQL/Cypher consumers who need read access to all G (active + inert).
+
+**Recommendation:** Option A — explicit filter — surfaces the inert-vs-active distinction at the spawn site (debugging clarity > iterator API minimalism).
+
+**New test for the fix** (extends PR-F-1 test plan):
+
+```rust
+#[tokio::test]
+async fn supervisor_skips_inert_bundles_and_spawns_consumers() {
+    // Registry seeded with: DOLCE (inert), Healthcare (active), FMA (inert)
+    let registry = test_registry_with_inert_and_active();
+    let (sup_ref, _handle) = Actor::spawn(
+        Some("test_sup".into()),
+        CallcenterSupervisor { registry: registry.clone(), children: HashMap::new() },
+        registry.clone(),
+    ).await.unwrap();
+
+    // Supervisor MUST be running (not aborted)
+    assert_eq!(sup_ref.get_status(), ActorStatus::Running);
+
+    // Healthcare actor MUST exist; DOLCE / FMA actors MUST NOT exist
+    assert!(supervisor_has_g(&sup_ref, OGIT::HEALTHCARE_V1.0).await);
+    assert!(!supervisor_has_g(&sup_ref, OGIT::DOLCE_V1.0).await);
+    assert!(!supervisor_has_g(&sup_ref, OGIT::FMA_V1.0).await);
+}
+```
+
+This test also covers W11's smoke-test expectation that DOLCE is queryable but not spawned.
+
+**Provenance:** flagged by user during PR #360 review.
