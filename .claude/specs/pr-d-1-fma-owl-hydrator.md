@@ -286,3 +286,32 @@ Once it lands:
 ---
 
 *W9 / Sprint-3 / DESIGN PHASE / pygithub-first*
+
+---
+
+## CORRECTION (post-#360 substrate-recognition sweep)
+
+**Defect:** This spec proposed a 600-LOC FMA-specific OWL hydrator + glue. **But the post-#355 substrate already ships ~50% of the hydrator pipeline:**
+
+| Already shipped on main | File |
+|---|---|
+| `parse_ttl_directory_with_provenance` — generic TTL hydrator with per-attribute `dcterms:source` threading | `crates/lance-graph-ontology/src/ttl_parse.rs` |
+| `OntologyRegistry::hydrate_once_sync` + `attach_provenance` — production hydration path | `crates/lance-graph-ontology/src/registry.rs` |
+| `MappingRow.attribute_sources: Vec<AttributeProvenance>` — D-CASCADE-V1-7 column extension | (PR #355 cascade cols on MappingRow) |
+
+**Pattern D is ~50% shipped.** The Turtle hydrator + provenance threading + Registry append + MappingRow attribute_sources column all ship. **Only the OWL/RDF-XML reader is genuinely new** (FMA ships in OWL/XML format, not Turtle, so a separate parser is needed for the input format) — the destination side is done.
+
+### Re-scoped PR-D-1 (post-substrate-sweep)
+
+**Adapter, not full hydrator:**
+- Build OWL/RDF-XML reader (or use `oxttl` / `rio_xml`) → adapter that emits `MappingProposal` + `ProvenanceBundle`
+- Adapter calls existing `OntologyRegistry::hydrate_once_sync` path
+- Skip writing a parallel hydration pipeline; reuse what ships
+
+**Net new work:** OWL/RDF-XML reader → adapter.
+
+**Revised effort:** ~250 LOC, ~1-2 days (down from ~600 LOC, ~3-4 days).
+
+**Pattern D status update:** PARTIALLY SHIPPED (was: design phase, "first concrete proof Pattern D works"). The hydrator SHAPE ships and is in production via existing TTL ingestion; FMA OWL/XML adapter is one input-format extension, not the proof. Future tier-0 doc should mark Pattern D as "primitives shipped" similar to Pattern M.
+
+**Provenance:** post-#360 substrate-recognition sweep, flagged by reviewer.
