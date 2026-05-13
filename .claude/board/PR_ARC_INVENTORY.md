@@ -35,6 +35,44 @@
 
 ---
 
+## #364 — D-SDR-3/4/5 + sprint-log-4 governance + sprint 5-9 roadmap + codex P1/P2 fixes (merged 2026-05-13)
+
+**Confidence (2026-05-13):** merged clean, all 5 CI checks green on `c8176cb`. Codex review threads auto-marked Outdated by GitHub after the surgical fixes shipped pre-merge. **Status:** Merged to `main`. **Adjacent landings (2026-05-13):** MedCare-rs#112 (PR-B, UnifiedBridge<MedcareBridge> + medcare-rbac + medcare-realtime substrate, +2963 LOC across 17 files) and smb-office-rs#31 (PR-C, UnifiedBridge<OgitBridge> wiring, +111 LOC) both **merged** the same day, closing the sprint-5 cross-repo coordinated landing for D-SDR-5's `UnifiedBridge` surface. Substrate this PR shipped is now consumed end-to-end by both MedCare and smb-office.
+
+**Added:**
+- **D-SDR-3** (`2c3e87d`, ~300 LOC): `OgitFamilyTable` + `FamilyEntry` per-family codebook (inline label + schema + verbs per `super-domain-rbac-tenancy-v1.md §3.3`).
+- **D-SDR-4** (`1d0157f`, ~460 LOC): merkle-chained `UnifiedAuditEvent` log for `UnifiedBridge`. `AuditMerkleRoot = u64` FNV-1a.
+- **D-SDR-5** (`dc9e081`, ~300 LOC): wire `authorize_*` through `Policy::evaluate` chain with audit emission on every decision.
+- **Codex P1 surgical fix** (`3208743`): widen `OwlIdentity` slot u8 → u16. Layout becomes `{ family: u8, slot: u16 }` = 3 bytes on-wire. `OgitFamilyTable` migrates from `[Option<FamilyEntry>; 256]` to sparse `HashMap<u16, FamilyEntry>`. `UnifiedAuditEvent::canonical_bytes` grows 25 → 26 bytes (`owl` slice [13..16); op/decision/role_hash offsets shift by 1). New test `slot_keyspace_distinguishes_high_ids` locks the invariant. `to_canonical_bytes() -> [u8; 3]` replaces `raw()`.
+- **Codex P2 surgical fix** (`e23ce89`): `emit_audit` stamps `super_domain` from `self.audit_chain.super_domain()` instead of the all-`Unknown` static `FAMILY_TO_SUPER_DOMAIN` lookup.
+- **CI build fix** (`a3c753f`): enable `ndarray/hpc-extras` feature so `blake3` resolves in the workspace build.
+- **Sprint-log-4** governance corpus (~280 KB): 12 worker specs at `.claude/specs/`, 2 meta reviews at `.claude/board/sprint-log-4/meta-{1,2}-review.md`, sprint summary + per-worker scratchpads.
+- **Sprint-5-through-9 roadmap** at `.claude/plans/sprint-5-through-9-roadmap-v1.md` (70 agents = 60 workers + 10 meta across 5 sprints).
+- `Cargo.lock` updated post hpc-extras opt-in (`c8176cb`).
+
+**Locked:**
+- **OwlIdentity canonical wire form = 3 bytes** `[family, slot_lo, slot_hi]`. Any cross-language emitter (Rust / C#) MUST use `OwlIdentity::to_canonical_bytes()`. The old 2-byte packed `u16` layout is gone; no compat shim because no on-disk audit log exists outside test fixtures at this commit.
+- **`UnifiedAuditEvent::canonical_bytes` is 26 bytes**, owl at `[13..16)`. Wire-format breaking for any persisted audit log.
+- **`OgitFamilyTable` is sparse** (`HashMap<u16, FamilyEntry>`); the "256-slot dense array" framing in prior doc comments is replaced by "sparse map".
+- **Audit events take super_domain from the configured `AuditChain.super_domain()`**, not from a static family→domain table. `FAMILY_TO_SUPER_DOMAIN`'s purpose narrows to a fallback / future hydration mechanism.
+- **Sprint-5+ worker prompts have a mandatory 12-step `.claude/plans/` read-order** as hard precondition (per sprint-4 retrospective: worker specs duplicated existing plan corpus when read-order was advisory).
+
+**Deferred:**
+- TTL namespaces, full compliance certification, federation Phase 2, drift bridge LanceProbe M5/M6 — owned by sprints 6/8 per roadmap.
+- **PR-B medcare-rs UnifiedBridge wiring**: commits exist locally on `claude/lance-datafusion-integration-gv0BF` in `MedCare-rs` repo (already pushed to remote integration branch, no PR opened yet).
+- **PR-C smb-office-rs UnifiedBridge wiring**: same shape, commits already on remote integration branch in `smb-office-rs`, no PR opened yet.
+- **Per-namespace u8 slot allocation in `RegistryState::append`**: declined this session — widening to u16 carrier in `3208743` is the chosen fix path. Per-namespace allocation would require widening `BindSpace.entity_type` from bare u16 to carry `(namespace_id, entity_type_id)` and rewriting `enumerate_first_with_entity_type_id` (currently relies on global uniqueness, breaks silently under per-namespace allocation — two known callers in `cascade_cols_test.rs:80` + `cognitive-shader-driver/src/driver.rs:312`). Tracked in TECH_DEBT.
+
+**Docs:**
+- `.claude/plans/sprint-5-through-9-roadmap-v1.md` (the 60-worker + 10-meta map).
+- `.claude/board/sprint-log-4/` (full sprint corpus).
+- `.claude/specs/` (12 PR-scoped specs for sprint-5 deliverables).
+- `EPIPHANIES.md` 2026-05-13 entries (sprint-4 duplication-audit, 14+ FINDING/CORRECTION/CONJECTURE entries on OGIT axes, super-domain subcrates, API drift, FMA convergence).
+
+**Correction (2026-05-13):** Sprint-4 specs partially duplicated existing `.claude/plans/` content despite the advisory read-order — see EPIPHANIES 2026-05-13 duplication-audit. Sprint-5+ enforces the read-order as a hard precondition in the worker-prompt template.
+
+---
+
 ## #354 — gov: #353 post-merge + adjacent-landings (#109, OGIT#2, woa-rs#2) (merged 2026-05-07)
 
 **Confidence (2026-05-07):** governance-only PR, no plan / knowledge / code changes. Append-only board hygiene confirmed working — merged cleanly, no past entries edited. **Status:** Merged to `main` as `a6797ad`.
