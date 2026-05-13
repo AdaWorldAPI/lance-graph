@@ -6,7 +6,7 @@
 //! No data is copied or shifted. The GGUF stays on disk.
 //! Hydration = seek + read + dequant. On demand. For survivors only.
 
-use crate::{SpiralAddress, SpiralWalk, BASE_DIM};
+use crate::{SpiralAddress, SpiralWalk};
 use std::io::{Read, Seek, SeekFrom};
 use std::path::PathBuf;
 
@@ -371,6 +371,7 @@ fn skip_val<R: Read + Seek>(r: &mut R, vt: u32) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::BASE_DIM;
 
     #[test]
     #[ignore = "requires Jina GGUF"]

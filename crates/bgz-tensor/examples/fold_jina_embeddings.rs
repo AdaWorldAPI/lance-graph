@@ -65,7 +65,7 @@ fn main() {
         };
         match std::fs::read_to_string(path) {
             Ok(json) => {
-                let refs: Vec<&str> = text_slice.iter().copied().collect();
+                let refs: Vec<&str> = text_slice.to_vec();
                 match bgz_tensor::jina::parse_jina_response(&json, &refs) {
                     Ok(embs) => {
                         for e in embs {

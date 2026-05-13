@@ -275,7 +275,7 @@ fn parse_gguf_header<R: Read + Seek>(r: &mut R) -> Result<GgufHeader, String> {
     // Version
     r.read_exact(&mut buf4).map_err(|e| e.to_string())?;
     let version = u32::from_le_bytes(buf4);
-    if version < 2 || version > 3 {
+    if !(2..=3).contains(&version) {
         return Err(format!("unsupported version: {}", version));
     }
 

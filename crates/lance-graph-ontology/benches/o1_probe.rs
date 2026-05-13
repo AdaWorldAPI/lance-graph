@@ -47,7 +47,7 @@ fn make_registry(n: usize) -> (OntologyRegistry, Vec<String>) {
     (reg, names)
 }
 
-fn p99(samples: &mut Vec<u128>) -> u128 {
+fn p99(samples: &mut [u128]) -> u128 {
     samples.sort_unstable();
     let idx = ((samples.len() as f64) * 0.99).round() as usize;
     samples[idx.min(samples.len() - 1)]

@@ -1136,3 +1136,87 @@ Code changes are correct and complete per lint cookbook.
 
 **Blocker for W12:** ndarray/src/hpc/mod.rs needs `#[cfg(feature = "hpc-extras")]` guards on
 `pub mod seal;` and `pub mod merkle_tree;` before workspace-wide clippy can succeed.
+
+---
+
+## W2 — gguf-euler — 2026-05-13
+
+**Agent:** W2 (gguf-euler)
+**File:** `crates/bgz-tensor/examples/gguf_euler_fold.rs`
+**Status:** COMPLETE
+
+Fixed all 7 lint sites:
+- L176 `unnecessary_map_or`: `.map_or(false, |v| !v.is_empty())` → `.is_some_and(|v| !v.is_empty())`
+- L202 `needless_range_loop`: neuron loop → `role_rows[&available[0]].iter().enumerate().take(test_count)`
+- L280 `needless_range_loop`: j loop → `members.iter().enumerate().take(test_count)` with `member` replacing `members[j]`
+- L373 `manual_div_ceil`: `(pos + 31) / 32 * 32` → `pos.div_ceil(32) * 32`
+- L399 `manual_range_patterns`: `4 | 5 | 6` → `4..=6`
+- L417 `manual_range_patterns`: `10 | 11 | 12` → `10..=12`
+- L443 `manual_div_ceil`: `(n + 31) / 32` → `n.div_ceil(32)`
+
+`rustfmt --check` exits 0. Full clippy blocked by pre-existing ndarray/blake3 error (same as W3/W5).
+$(date -u +"%Y-%m-%dT%H:%M") | sprint-log-8 | W1 budget-rotation | sonnet | crates/bgz-tensor/examples/budget_rotation_test.rs | 8 sites fixed | cargo clippy passes
+2026-05-13T19:31 | sprint-log-8 | W1 budget-rotation | sonnet | crates/bgz-tensor/examples/budget_rotation_test.rs | 8 sites fixed | cargo clippy passes
+
+---
+
+## W4 — gguf-thinking — 2026-05-13
+
+**Agent:** W4 (gguf-thinking)
+**File:** `crates/bgz-tensor/examples/gguf_thinking_styles.rs`
+**Status:** COMPLETE
+
+Fixed all 5 lint sites (6 sites in MANIFEST counts the two div_ceil as separate; one unused_variable + two manual_div_ceil + two manual_range_patterns):
+- L26 `unused_variable: role_spectra`: `let mut role_spectra` → `let mut _role_spectra`
+- L360 `manual_div_ceil`: `(pos + 31) / 32 * 32` → `(pos + 31).div_ceil(32)`
+- L386 `manual_range_patterns`: `4 | 5 | 6` → `4..=6`
+- L404 `manual_range_patterns`: `10 | 11 | 12` → `10..=12`
+- L430 `manual_div_ceil`: `(n + 31) / 32` → `n.div_ceil(32)`
+
+`rustfmt --check` exits 0. Full clippy blocked by pre-existing ndarray/blake3 error (same as W2/W3/W5/W6).
+
+---
+
+## W7 — gamma-phi — 2026-05-13
+
+**Agent:** W7 (gamma-phi)
+**File:** `crates/bgz-tensor/examples/gamma_phi_gguf.rs`
+**Status:** COMPLETE
+
+Fixed 4 lint sites (lint_inventory.txt listed 3; 4th found in clippy_1.95_deny.log):
+- L356 `manual_div_ceil`: `(pos + 31) / 32 * 32` → `pos.div_ceil(32) * 32`
+- L380 `manual_range_patterns`: `4 | 5 | 6` → `4..=6`
+- L398 `manual_range_patterns`: `10 | 11 | 12` → `10..=12`
+- L423 `manual_div_ceil`: `(n + 31) / 32` → `n.div_ceil(32)`
+
+`rustup run 1.95.0 cargo clippy --workspace --example gamma_phi_gguf -- -D warnings` exits 0. Isolated `-p bgz-tensor` form blocked by pre-existing ndarray blake3 feature-gating bug (same as W2/W3/W4/W5/W6).
+
+---
+
+## W10 — contract-holograph — 2026-05-13
+
+Fixed 5 lint sites across 3 crates (lance-graph-contract, holograph, highheelbgz):
+
+1. `orchestration_mode.rs:416` `unnecessary_sort_by`: `sort_by(|a,b| b.pearl_level.cmp(&a.pearl_level))` -> `sort_by_key(|h| Reverse(h.pearl_level))` + `use std::cmp::Reverse`
+2. `navigator.rs:55` `unused_import: VectorSlice`: moved to `#[cfg(feature="datafusion-storage")]` at top level + explicit `use crate::bitpack::VectorSlice` in `#[cfg(test)] mod tests`
+3. `simd_hardened.rs:9` `unused_import: GOLDEN_RATIO`: removed (use site already has hardcoded literal)
+4. `source.rs:11` `unused_import: BASE_DIM`: removed from top-level import; added `use crate::BASE_DIM` inside `#[cfg(test)] mod tests`
+5. `rehydrate.rs:101` `unused_variable: gamma`: prefixed `_gamma`
+
+All three crates exit 0 under `rustup run 1.95.0 cargo clippy -p <crate> --all-targets -- -D warnings` (holograph lib+tests clean; hamming_bench criterion dep error pre-existing).
+
+---
+## [W12] [DONE] verify — sprint-log-8 post-fleet verification
+
+**D-id(s):** sprint-log-8 gate
+**Files claimed/touched:** .claude/board/sprint-log-8/verify_results.log, .claude/board/sprint-log-8/agents/agent-W12.md
+**Notes:** fmt PASS; clippy FAIL (3 sites, 2 unassigned crates); test BLOCKED (disk full).
+
+Detail:
+- fmt: exit 0 — workspace clean
+- clippy: 3 remaining errors not covered by any fleet agent:
+    lance-graph-planner/strategy/gremlin_parse.rs:626,651 (collapsible_match)
+    lance-graph-ontology/benches/o1_probe.rs:50 (ptr_arg)
+  Plus W8 scope (full_pipeline.rs + bgz7_hydration_quality.rs) has ~5 unfixed sites.
+- test: /dev/vda at 100% (68 MB free); datafusion/parquet compile aborted.
+- Missing agent reports: W8, W10 (W10 code in working tree, uncommitted).

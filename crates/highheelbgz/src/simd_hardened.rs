@@ -6,8 +6,6 @@
 //! Consumer API: SpiralAddr, NeuronPrint (AoS, ergonomic).
 //! Search internals: SpiralIndex, NeuronIndex (SoA, SIMD-batched).
 
-use std::f64::consts::GOLDEN_RATIO;
-
 // ═══════════════════════════════════════════════════════════════════════════
 // SpiralAddr: repr(C), validated, 6 bytes guaranteed
 // ═══════════════════════════════════════════════════════════════════════════
