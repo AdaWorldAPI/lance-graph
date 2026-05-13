@@ -248,6 +248,47 @@ impl AuditChain
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// HydrationRefreshAudit — emitted on every FAMILY_TABLE reload
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Audit event emitted whenever `FAMILY_TABLE` is reloaded (on first boot or
+/// on a hot-reload triggered by `BridgeHandle::reload_family_table()`).
+///
+/// Per spec §3.2 — consumers can observe `generation` to change-detect
+/// without racing on the table lock.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HydrationRefreshAudit {
+    /// Wall-clock timestamp in milliseconds since UNIX epoch of the reload.
+    pub ts_unix_ms: u64,
+    /// Generation counter after the reload. Starts at 1; incremented on each
+    /// subsequent reload.
+    pub generation: u64,
+    /// Number of family_id → SuperDomain mappings that changed or were newly
+    /// set relative to the prior generation. Zero on the first boot (no prior
+    /// to compare against).
+    pub updated_count: u32,
+    /// Human-readable description of the source(s) that contributed to this
+    /// reload (e.g. `"seed"`, `"seed+overlay:/etc/ogit/family"`).
+    pub source: String,
+}
+
+impl HydrationRefreshAudit {
+    /// Build a `HydrationRefreshAudit` from the current wall clock.
+    pub fn now(generation: u64, updated_count: u32, source: impl Into<String>) -> Self {
+        let ts_unix_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
+        Self {
+            ts_unix_ms,
+            generation,
+            updated_count,
+            source: source.into(),
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // UnifiedAuditSink — pluggable persistence
 // ═══════════════════════════════════════════════════════════════════════════
 

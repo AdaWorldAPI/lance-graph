@@ -130,6 +130,15 @@ pub mod policy;
 // MySQL ↔ DataFusion ↔ SPO reconciler. See `transcode/mod.rs`.
 pub mod transcode;
 
+// PR-D4 (pr-d4-family-hydration.md) — boot-time TTL hydration of FAMILY_TABLE.
+// `parse_family_registry()` (OQ-1 option c) + `FAMILY_TABLE` OnceLock +
+// `try_resolve()` + backward-compat shim for `super_domain_for_family()`.
+pub mod hydration;
+pub use hydration::{
+    current_generation, HydrationError, HydrationPolicy, HydrationSourceSet, load_seed,
+    try_resolve, FamilyTableInner, FAMILY_TABLE, SEED_TTL,
+};
+
 // D-SDR-1 (super-domain-rbac-tenancy-v1 §3.9 + §13.1) — UnifiedBridge
 // composes a per-namespace `NamespaceBridge` (g-locked ontology lookup) with
 // an RBAC `Policy` (role-based access decisions) and a `TenantId` (multi-
@@ -137,7 +146,7 @@ pub mod transcode;
 // surface (super-domain routing, role groups with FieldRedactionMask, merkle
 // audit chain) lands in follow-up commits.
 pub mod unified_bridge;
-pub use unified_bridge::{AuthError, OgitFamily, OwlIdentity, TenantId, UnifiedBridge};
+pub use unified_bridge::{AuthError, BridgeConfig, BridgeHandle, OgitFamily, OwlIdentity, TenantId, UnifiedBridge};
 
 // D-SDR-2 (super-domain-rbac-tenancy-v1 §3.4-§3.7) — SuperDomain layer.
 // Activation root above OGIT basins (1 byte; 8 starter values; 256 cap)
@@ -147,8 +156,8 @@ pub use unified_bridge::{AuthError, OgitFamily, OwlIdentity, TenantId, UnifiedBr
 // types lands as D-SDR-5; this module is type-system-only.
 pub mod super_domain;
 pub use super_domain::{
-    super_domain_entry, super_domain_for_family, ComplianceRegime, DolceMarker, MetaAnchors,
-    SuperDomain, SuperDomainEntry, SUPER_DOMAINS,
+    super_domain_entry, super_domain_for_family, try_resolve as super_domain_try_resolve,
+    ComplianceRegime, DolceMarker, MetaAnchors, SuperDomain, SuperDomainEntry, SUPER_DOMAINS,
 };
 
 // D-SDR-3 (super-domain-rbac-tenancy-v1 §3.3) — per-family codebook table.
@@ -163,6 +172,12 @@ pub use family_table::{
     FamilyEntry, OgitFamilyTable, OwlCharacteristics, PerFamilyCodebook, SchemaKind,
 };
 
+// PR-F1 — UnifiedBridgeGate<B>: production CognitiveBridgeGate impl.
+// Wraps UnifiedBridge<B>; Chinese-wall check fires before policy evaluation
+// on cross-tenant ops (§3.8). No dep on thinking-engine from thinking-engine.
+pub mod cognitive_bridge_gate;
+pub use cognitive_bridge_gate::UnifiedBridgeGate;
+
 // D-SDR-4 (super-domain-rbac-tenancy-v1 §13.3) — merkle-chained audit log
 // for UnifiedBridge::authorize() decisions. Each emitted event chains off
 // the prior event's merkle root + a per-super-domain salt (§13.4
@@ -171,6 +186,6 @@ pub use family_table::{
 // Lance) land in D-SDR-4b; wiring into authorize() is D-SDR-5.
 pub mod unified_audit;
 pub use unified_audit::{
-    verify_chain, AuditChain, AuditMerkleRoot, AuthDecision, AuthOp, NoopUnifiedAuditSink,
-    UnifiedAuditEvent, UnifiedAuditSink,
+    verify_chain, AuditChain, AuditMerkleRoot, AuthDecision, AuthOp, HydrationRefreshAudit,
+    NoopUnifiedAuditSink, UnifiedAuditEvent, UnifiedAuditSink,
 };

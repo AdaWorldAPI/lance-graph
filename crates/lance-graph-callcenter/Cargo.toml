@@ -10,6 +10,10 @@ build = "build.rs"
 
 [dependencies]
 lance-graph-contract = { path = "../lance-graph-contract" }
+# PR-F1 — CognitiveBridgeGate: UnifiedBridgeGate wraps UnifiedBridge and
+# implements the trait from thinking-engine. Direction: callcenter → thinking-engine.
+# The reverse dep (thinking-engine → callcenter) is forbidden to avoid circular deps.
+thinking-engine = { path = "../thinking-engine", default-features = false }
 # D-CASCADE-V1-3 — bridge collapse: factories project from the canonical SoA.
 lance-graph-ontology = { path = "../lance-graph-ontology" }
 # D-SDR-1 (super-domain-rbac-tenancy-v1 §3.9 + §13.1) — UnifiedBridge composes

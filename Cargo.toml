@@ -12,6 +12,7 @@ members = [
     "crates/lance-graph-ontology",
     "crates/bgz-tensor",
     "tools/dto-class-check",
+    "crates/lance-graph-consumer-conformance",
 ]
 exclude = [
     # Python bindings (upstream-inherited, opt-in via --manifest-path)

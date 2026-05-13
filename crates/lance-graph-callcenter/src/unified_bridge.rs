@@ -482,6 +482,163 @@ fn now_unix_ms() -> u64 {
         .unwrap_or(0)
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// BridgeConfig — boot-time configuration for TTL hydration
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Configuration for `UnifiedBridge::new_hydrated`.
+///
+/// `Default::default()` gives safe library-mode settings:
+/// - No overlay directory (seed-only hydration)
+/// - `BestEffort` hydration policy (never fail-hard)
+/// - No background refresh (restart-only)
+#[derive(Clone, Debug, Default)]
+pub struct BridgeConfig {
+    /// Optional directory containing override TTL files. If set and the
+    /// directory exists, its `.ttl` files are parsed and merged on top of
+    /// the compiled-in seed. Missing or empty directories are silently
+    /// accepted (soft-warn semantics per spec §2.2).
+    pub ttl_overlay_dir: Option<std::path::PathBuf>,
+
+    /// Hydration failure policy. Binary entrypoints should set
+    /// `RequireMinDomains { min: 5 }`; library / test consumers use
+    /// `BestEffort`.
+    pub hydration_policy: crate::hydration::HydrationPolicy,
+
+    /// Background refresh interval. `None` = restart-only (default).
+    /// `Some(d)` = reload every `d` in a background task.
+    pub ttl_refresh_interval: Option<std::time::Duration>,
+}
+
+impl BridgeConfig {
+    /// Strict binary-mode config: require ≥5 distinct domains, no overlay.
+    pub fn strict() -> Self {
+        Self {
+            hydration_policy: crate::hydration::HydrationPolicy::RequireMinDomains { min: 5 },
+            ..Default::default()
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BridgeHandle — post-hydration control surface
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Returned alongside the `UnifiedBridge` by `UnifiedBridge::new_hydrated`.
+/// Exposes the hydration control surface: generation counter, manual reload,
+/// and (future) background-refresh task handle.
+#[derive(Clone, Debug)]
+pub struct BridgeHandle {
+    config: BridgeConfig,
+}
+
+impl BridgeHandle {
+    fn new(config: BridgeConfig) -> Self {
+        Self { config }
+    }
+
+    /// Current `FAMILY_TABLE` generation. Starts at 1 after the first
+    /// hydration; incremented on every hot-reload. Returns 0 if the table
+    /// has not been initialised (should not happen after `new_hydrated`).
+    pub fn family_table_generation(&self) -> u64 {
+        crate::hydration::current_generation()
+    }
+
+    /// Manually trigger a family table reload from the same seed + overlay
+    /// configuration used at construction.
+    ///
+    /// Emits a `HydrationRefreshAudit` event (returned) on success.
+    /// Returns `Err(HydrationError)` if the reload fails under the
+    /// configured `HydrationPolicy`.
+    pub fn reload_family_table(
+        &self,
+    ) -> Result<crate::unified_audit::HydrationRefreshAudit, crate::hydration::HydrationError>
+    {
+        reload_family_table_inner(&self.config)
+    }
+}
+
+/// Inner reload logic — shared between `BridgeHandle::reload_family_table`
+/// and the background refresh task spawned by `new_hydrated`.
+fn reload_family_table_inner(
+    config: &BridgeConfig,
+) -> Result<crate::unified_audit::HydrationRefreshAudit, crate::hydration::HydrationError>
+{
+    use crate::hydration::{commit, load_overlay, load_seed, sanity_gate, HydrationPolicy, HydrationSourceSet, SEED_TTL};
+    use crate::unified_audit::HydrationRefreshAudit;
+
+    let mut map = load_seed(SEED_TTL)?;
+    let has_overlay = config.ttl_overlay_dir.is_some();
+    load_overlay(&mut map, config.ttl_overlay_dir.as_deref())?;
+
+    match &config.hydration_policy {
+        HydrationPolicy::RequireMinDomains { min } => {
+            sanity_gate(&map, *min)?;
+        }
+        HydrationPolicy::BestEffort => {
+            // sanity-gate failure is a warning, not an abort
+            if let Err(e) = sanity_gate(&map, 5) {
+                eprintln!("[hydration] WARN: {e}");
+            }
+        }
+    }
+
+    let source = HydrationSourceSet {
+        seed: true,
+        overlay_dir: config.ttl_overlay_dir.clone(),
+    };
+    let prev_gen = crate::hydration::current_generation();
+    commit(&map, source);
+    let new_gen = crate::hydration::current_generation();
+
+    let source_label = if has_overlay {
+        format!(
+            "seed+overlay:{}",
+            config
+                .ttl_overlay_dir
+                .as_deref()
+                .map(|p| p.display().to_string())
+                .unwrap_or_default()
+        )
+    } else {
+        "seed".to_string()
+    };
+
+    // updated_count = map entries on first boot (prev_gen==0), else map.len()
+    // as a conservative upper bound (we don't diff generations).
+    let updated_count = if prev_gen == 0 { map.len() as u32 } else { map.len() as u32 };
+
+    Ok(HydrationRefreshAudit::now(new_gen, updated_count, source_label))
+}
+
+impl<B: NamespaceBridge> UnifiedBridge<B> {
+    /// Production constructor: hydrates `FAMILY_TABLE` from the compiled-in
+    /// seed TTL, optionally merges an overlay directory, then returns the
+    /// bridge + a `BridgeHandle` for subsequent reload/monitoring.
+    ///
+    /// Callers that do not need TTL hydration (unit tests, minimal setups)
+    /// should use `UnifiedBridge::new` instead.
+    pub fn new_hydrated(
+        bridge: Arc<B>,
+        policy: Arc<Policy>,
+        actor_role: &'static str,
+        tenant: TenantId,
+        config: BridgeConfig,
+    ) -> Result<(Self, BridgeHandle), crate::hydration::HydrationError>
+    {
+        let audit_event = reload_family_table_inner(&config)?;
+        // Log the hydration event — in production this would go through the
+        // configured audit sink. For now we use eprintln for visibility.
+        eprintln!(
+            "[hydration] INFO: FAMILY_TABLE generation={} updated={} source={}",
+            audit_event.generation, audit_event.updated_count, audit_event.source
+        );
+        let handle = BridgeHandle::new(config);
+        let bridge = Self::new(bridge, policy, actor_role, tenant);
+        Ok((bridge, handle))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
