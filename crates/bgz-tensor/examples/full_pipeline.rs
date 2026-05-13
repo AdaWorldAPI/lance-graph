@@ -62,7 +62,7 @@ fn main() {
     ] {
         match std::fs::read_to_string(path) {
             Ok(json) => {
-                let text_refs: Vec<&str> = texts.iter().copied().collect();
+                let text_refs: Vec<&str> = texts.to_vec();
                 match bgz_tensor::jina::parse_jina_response(&json, &text_refs) {
                     Ok(embs) => {
                         println!("Loaded {} embeddings from {}", embs.len(), path);

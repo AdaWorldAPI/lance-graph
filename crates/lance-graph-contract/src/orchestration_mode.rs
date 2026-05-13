@@ -41,6 +41,7 @@
 // modulation override path (TD-ORCH-1). Currently only `ThinkingStyle`
 // is consumed; the modulation hook is wired in `OrchestrationBridge`
 // but not yet routed through this module.
+use std::cmp::Reverse;
 #[allow(unused_imports)]
 use crate::thinking::{FieldModulation, ThinkingStyle};
 
@@ -413,7 +414,7 @@ pub fn form_hypotheses(projections: &[SurvivorProjection], max: usize) -> Vec<Hy
         .map(Hypothesis::from_projection)
         .collect();
     // Sort by Pearl level descending (test deeper claims first)
-    hypotheses.sort_by(|a, b| b.pearl_level.cmp(&a.pearl_level));
+    hypotheses.sort_by_key(|h| Reverse(h.pearl_level));
     hypotheses.truncate(max);
     hypotheses
 }

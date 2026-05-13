@@ -68,7 +68,7 @@ fn main() {
                 u32::from_le_bytes([data[pos], data[pos + 1], data[pos + 2], data[pos + 3]])
                     as usize;
             pos += 4;
-            let n_cols =
+            let _n_cols =
                 u32::from_le_bytes([data[pos], data[pos + 1], data[pos + 2], data[pos + 3]])
                     as usize;
             pos += 4;

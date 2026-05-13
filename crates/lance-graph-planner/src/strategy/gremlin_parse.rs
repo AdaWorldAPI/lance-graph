@@ -621,14 +621,19 @@ fn parse_gremlin_steps(source: &str) -> Result<Vec<GremlinStep>, PlanError> {
                 steps.push(GremlinStep::Limit(n));
             }
             "order" => steps.push(GremlinStep::Order(true)),
-            "by" => {
-                // Modifies the previous order step
-                if args.len() >= 2 && args[1].to_lowercase().contains("desc") {
-                    if let Some(GremlinStep::Order(asc)) = steps.last_mut() {
-                        *asc = false;
-                    }
+            // collapsible_match (Rust 1.95): match-guard form collapses
+            // the inner `if let Some(GremlinStep::Order(asc))` into the
+            // outer match arm.
+            "by"
+                if args.len() >= 2
+                    && args[1].to_lowercase().contains("desc")
+                    && matches!(steps.last(), Some(GremlinStep::Order(_))) =>
+            {
+                if let Some(GremlinStep::Order(asc)) = steps.last_mut() {
+                    *asc = false;
                 }
             }
+            "by" => {}
             "values" => steps.push(GremlinStep::Values(args)),
             "valueMap" => steps.push(GremlinStep::ValueMap),
             "select" => steps.push(GremlinStep::Select(args)),
@@ -647,11 +652,12 @@ fn parse_gremlin_steps(source: &str) -> Result<Vec<GremlinStep>, PlanError> {
                 let rel = args.first().cloned().unwrap_or_default();
                 steps.push(GremlinStep::AddE(rel));
             }
-            "property" => {
-                if args.len() >= 2 {
-                    steps.push(GremlinStep::Property(args[0].clone(), args[1].clone()));
-                }
+            // collapsible_match: same shape as "by" above — fold the
+            // length guard into the match arm via `if` guard.
+            "property" if args.len() >= 2 => {
+                steps.push(GremlinStep::Property(args[0].clone(), args[1].clone()));
             }
+            "property" => {}
             "from" | "to" | "fold" | "unfold" | "group" | "groupCount" | "coalesce"
             | "optional" | "choose" | "union" | "where" | "not" | "and" | "or" | "is" | "emit"
             | "sack" | "project" | "math" | "store" | "aggregate" | "cap" | "toList" | "toSet"

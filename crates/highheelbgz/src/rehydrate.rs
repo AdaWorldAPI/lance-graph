@@ -99,7 +99,7 @@ impl SpiralEncoding {
     ///
     /// Expands K anchors to target_spd samples per dim via γ-weighted
     /// linear interpolation along the spiral curve.
-    pub fn rehydrate_interpolated(&self, target_spd: usize, gamma: &GammaProfile) -> Vec<f32> {
+    pub fn rehydrate_interpolated(&self, target_spd: usize, _gamma: &GammaProfile) -> Vec<f32> {
         let mut result = Vec::with_capacity(target_spd * BASE_DIM);
 
         for d in 0..BASE_DIM {
