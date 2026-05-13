@@ -353,7 +353,7 @@ fn parse_gguf_header<R: Read + Seek>(r: &mut R) -> Result<GgufHeader, String> {
     let pos = r.stream_position().map_err(|e| e.to_string())?;
     Ok(GgufHeader {
         tensors,
-        data_offset: (pos + 31) / 32 * 32,
+        data_offset: pos.div_ceil(32) * 32,
     })
 }
 fn skip_kv<R: Read + Seek>(r: &mut R) -> Result<(), String> {
