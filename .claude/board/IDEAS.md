@@ -91,6 +91,30 @@ Agents filter by `@`-mention or domain to see what's theirs.
 
 Earlier this session conflated EWA-Sandwich with a Gaussian-splat anatomical renderer. Per user 2026-05-13 follow-up + source confirmation: EWA-Sandwich is **Pillar 6** of the JC pillars framework — Σ push-forward `M·Σ·Mᵀ` for multi-hop edge propagation in the SPD cone. Already implemented at `crates/jc/src/ewa_sandwich.rs` (450 LOC) + `crates/lance-graph-contract/src/sigma_propagation.rs` (488 LOC) + `crates/jc/examples/osint_edge_traversal.rs` + `crates/jc/examples/splat_perturbationslernen.rs`. Not a new idea — an existing certified pillar. See EPIPHANIES 2026-05-13 CORRECTION-OF entry.
 
+## 2026-05-13 — REFRAME: holographic cinematic is a SALES asset (customer-conversation hook), not a product feature — owner = demo budget, NOT sprint-5
+
+User clarification 2026-05-13: the holographic projection + prerender cinematic exists to "get customers hooked" — it's conversion-funnel eye candy, not a maintained product capability. This re-prioritizes everything in the two entries below this one.
+
+| Dimension | Reframed value |
+|---|---|
+| Purpose | Open every customer demo with a 60-90 s cyan-glow anatomical fly-through that lands on the heart-click moment as the transition to live substrate |
+| Success metric | Minutes-shaved off "explain what we do" before the prospect leans forward; demo-to-second-meeting conversion rate |
+| Cost | ~500 LOC one-shot prerender tool + 1 week trajectory hand-curation + render-farm time |
+| Owner | Demo / marketing budget — NOT sprint-5 engineering scope |
+| Substrate dependency | **Zero in either direction.** The prerender is opaque pixels; it doesn't gate the D-SDR / Pillar-6 / FMA / UnifiedBridge work, and they don't gate it. |
+| Risk if wrong | Zero technical, low brand — one-shot, can be re-rendered with new trajectory |
+| Priority vs sprint-5 specs | **Lower.** Sprint-5 substrate work (W4 super-domain subcrates, W6 thinking-engine wire, W10 slot widen, W11 FMA spec, W8 audit sink) is the actual product. The cinematic is the wrapper. |
+
+**Build path when funded:** parallel track to sprint-5, owned by whoever runs customer demos. Shipping order:
+1. Hand-script the camera trajectory + layer-reveal beats (storyboard, ~half-day)
+2. Stand up the prerender tool against current `ndarray::hpc::renderer` even before FMA SPO is loaded — fake the entity positions with a procedural T-pose seeder; the cinematic doesn't need real anatomy data, just convincing visuals
+3. Render farm pass: 30-60 fps, 60-90 s, anti-aliased + bloom (~hours, depending on cluster)
+4. Bundle the resulting .mp4 / .splat-stream as a release artifact + embed in demo cockpit at session-start
+
+**What this kills from earlier in this file:** the elaborate handoff-contract, transition-clip library, and outro-share features below ARE STILL VALID for a v2 customer-facing product feature, but are NOT sprint-5 / sprint-6 work. They're a v1.x demo enhancement when sales asks for them.
+
+**The substrate work that matters in sprint-5 stands unchanged:** sprint-4 specs already cover the actual product surface. The cinematic just decorates it. Don't let the WOW seduce engineering hours away from the audit chain.
+
 ## 2026-05-13 — RECONCILIATION: Amiga-demoscene prerender + live 60fps renderer compose as cutscene-plus-gameplay, NOT competing alternatives
 
 Today's prior thrashing wrongly framed prerender vs live as either/or. **Both are right, for different phases.** Classic AAA game pattern: prerendered cinematics for WOW + live engine for interaction. The FMA holographic demo gets the same split:
