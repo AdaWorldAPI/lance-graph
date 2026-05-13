@@ -37,7 +37,7 @@
 
 ## #365 — specs(sprint-5-6): 13-worker parallel batch + Opus meta review (merged 2026-05-13)
 
-**Confidence (2026-05-13):** governance-only PR, no `.rs` / `Cargo.toml` changes. CI green (format / clippy / build / test / coverage — no code touched). **Status:** Merged to `main`.
+**Confidence (2026-05-13):** governance-only PR, no `.rs` / `Cargo.toml` changes. CI green (format / clippy / build / test / coverage — no code touched). **Status:** Merged to `main`. **OQ resolutions (2026-05-13 post-merge, durable):** OQ-1 → new `parse_family_registry()` API; OQ-2 → sorted-slice + binary search (zero-dep invariant); OQ-3 → direct migration `doctor → physician` + add 4 RoleGroups; OQ-4 → `ogit.SMB.bson:` sub-namespace. Full rationale at `EPIPHANIES.md` 2026-05-13 DECISION entry. Sprint-7 implementation fleet unblocked.
 
 **Added:**
 - **13 PR-ready specs at `.claude/specs/`** (~300 KB total):

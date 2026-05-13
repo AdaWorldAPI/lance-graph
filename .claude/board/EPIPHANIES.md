@@ -65,6 +65,25 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-05-13 — DECISION: 4 PR #365 blocking OQs resolved — sprint-7 implementation can begin
+
+Post-#365 cross-session triage with the medcare-rs session resolved all four user-decision Open Questions that the Opus meta-review flagged as blocking sprint-7 implementation:
+
+- **OQ-1 (W3) TTL family-registry parser entry → new `parse_family_registry()` API.** Keeps `parse_ttl_directory_with_provenance` focused on ontology TTL; family-registry TTL is a different schema; mixing them via overload-by-naming is the wrong abstraction.
+- **OQ-2 (W10) `MANIFEST_METADATA` storage → sorted-slice + binary search.** `lance-graph-contract` zero-dep invariant in CLAUDE.md is iron. `phf` would be the first non-build dep on the contract crate. Binary search on sorted-slice is O(log n) and zero-dep. The C-grade meta finding for `pr-g1-manifest-modules.md §4.3` resolves by this change.
+- **OQ-3 (W6) `medcare_rbac::Role` migration → direct migration (rename `doctor → physician`, add `nurse / cashier / researcher / hipaa_audit`).** Per CLAUDE.md "Don't introduce abstractions beyond what the task requires." A bridge adapter is a permanent abstraction to avoid one-time call-site churn — wrong tradeoff. `super-domain-rbac-tenancy-v1.md §14` made canonical RoleGroups primary; aligning is mandatory, not optional. E1-1 LOC stays at ~180. medcare-rs session eats the call-site churn.
+- **OQ-4 (W13 §E.1) OGIT/NTO/SMB BSON namespace → `ogit.SMB.bson:` sub-namespace.** `registry.enumerate("SMB")` must return exactly 3 Foundry entities; mixing BSON into the same namespace breaks the `smb_projects_three_entities` test and corrupts the `OntologyRegistry` index.
+
+Cross-session boundary clarified (lance-graph side ↔ medcare-rs side):
+- **lance-graph (this session):** sprint-7 implementation fleet for W3 family-hydration (the cascade unblocker), W10 manifest-modules (with sorted-slice fix), W11 ractor-supervisor (with `LifecycleAuditEvent` split per meta CC-2), W12 conformance crate, W1 LanceAuditSink, W2 JsonlAuditSink + verify CLI, W9 thinking-engine wire.
+- **medcare-rs session:** PR-α (`MedcareOntology::from_registry` red-build fix), PR-β' (E1-1 wire `medcare_healthcare_policy()` + direct migration per OQ-3), PR-γ (FingerprintCodec re-export fold — Pattern N anti-pattern at `medcare-analytics/src/soa_mapping.rs`; ~20 LOC scope, delete enum + re-export from `lance_graph_contract::cam` / `bgz17`), PR-δ (AUTH_LEGACY_TRIPLEDES_MIGRATION audit vs PR #363 §18, doc-only).
+- **Both deferred:** E1-5 (HIPAA hard-lock cross-domain matrix, D-SDR-17, ~60 LOC) → sprint-8 compliance owns. E1-6 (JWT middleware stub for `praxis_id`, ~150 LOC) → blocked on DM-7 (`RlsRewriter::rewrite(LogicalPlan, &ActorContext)` per foundry-roadmap §2).
+- **E1-3 / E1-4** (`MedCareStack` composition + audit emission) → cascade-unblocks once W3 lands `parse_family_registry()` + seeds `OgitFamilyTable` for Healthcare basins 0x10..=0x19.
+
+Cross-ref: `.claude/board/sprint-log-5-6/meta-review.md` §6 (OQ triage), PR #365 body (OQs as checkboxes), `super-domain-rbac-tenancy-v1.md §14`.
+
+---
+
 ## 2026-05-13 — CORRECTION-OF sprint-4 framing: most worker specs partially duplicated existing `.claude/plans/` corpus — sprint-5 MUST grep `.claude/plans/*.md` before spawning any worker
 
 **Status:** FINDING (user surfaced prior plans 2026-05-13 evening)
