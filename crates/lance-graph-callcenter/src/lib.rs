@@ -129,3 +129,12 @@ pub mod policy;
 // **single deliberate transition bandaid**: `parallelbetrieb` for the
 // MySQL ↔ DataFusion ↔ SPO reconciler. See `transcode/mod.rs`.
 pub mod transcode;
+
+// D-SDR-1 (super-domain-rbac-tenancy-v1 §3.9 + §13.1) — UnifiedBridge
+// composes a per-namespace `NamespaceBridge` (g-locked ontology lookup) with
+// an RBAC `Policy` (role-based access decisions) and a `TenantId` (multi-
+// tenant Chinese wall tag). Single entry point consumers import; richer
+// surface (super-domain routing, role groups with FieldRedactionMask, merkle
+// audit chain) lands in follow-up commits.
+pub mod unified_bridge;
+pub use unified_bridge::{AuthError, TenantId, UnifiedBridge};
