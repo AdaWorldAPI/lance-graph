@@ -52,9 +52,9 @@
 
 use std::sync::Arc;
 
-use crate::bitpack::{BitpackedVector, VECTOR_BITS, VectorRef};
 #[cfg(feature = "datafusion-storage")]
 use crate::bitpack::VectorSlice;
+use crate::bitpack::{BitpackedVector, VECTOR_BITS, VectorRef};
 use crate::epiphany::TWO_SIGMA;
 use crate::hamming::{
     Belichtung, StackedPopcount, hamming_distance_ref, hamming_distance_scalar,
