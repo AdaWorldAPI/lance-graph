@@ -91,6 +91,26 @@ Agents filter by `@`-mention or domain to see what's theirs.
 
 Earlier this session conflated EWA-Sandwich with a Gaussian-splat anatomical renderer. Per user 2026-05-13 follow-up + source confirmation: EWA-Sandwich is **Pillar 6** of the JC pillars framework — Σ push-forward `M·Σ·Mᵀ` for multi-hop edge propagation in the SPD cone. Already implemented at `crates/jc/src/ewa_sandwich.rs` (450 LOC) + `crates/lance-graph-contract/src/sigma_propagation.rs` (488 LOC) + `crates/jc/examples/osint_edge_traversal.rs` + `crates/jc/examples/splat_perturbationslernen.rs`. Not a new idea — an existing certified pillar. See EPIPHANIES 2026-05-13 CORRECTION-OF entry.
 
+## 2026-05-13 — RECONCILIATION: Amiga-demoscene prerender + live 60fps renderer compose as cutscene-plus-gameplay, NOT competing alternatives
+
+Today's prior thrashing wrongly framed prerender vs live as either/or. **Both are right, for different phases.** Classic AAA game pattern: prerendered cinematics for WOW + live engine for interaction. The FMA holographic demo gets the same split:
+
+| Phase | Substrate | Frames | Role |
+|---|---|---|---|
+| **Intro cinematic** | Prerendered frame stream (demoscene-grade) | 900-18000 (30-300s @ 30-60fps) | Camera fly-through full-body → cardiovascular → heart; layer reveals; system showcases. Hand-crafted, every frame perfect. Zero runtime compute. THIS IS THE WOW. |
+| **Hand-off** | Last prerender frame == first live frame | 1 | Alignment contract: prerender exit camera + entity positions match live `RenderFrame` initial state. |
+| **Live interaction** | `ndarray::hpc::renderer` 60fps double-buffer + Pillar 6 propagation | indefinite | User rotates, hovers, clicks. EWA-splat live render. Heart-click triggers Pillar 6 wave. |
+| **Transition cinematics** | Short prerendered clips | 60-300 (1-5s) | "Switch to nervous system" → peel-transition clip → hand back to live in new layer state. Library of ~20 precomputed clips. |
+| **Outro / share** | Capture live session to splat stream | variable | User clicks "share this view" → record N seconds of live render → publish. |
+
+**Build implications:**
+- Prerender pipeline: offline tool that runs the live renderer through scripted camera trajectories at higher per-frame compute (path tracing, accumulation, anti-aliasing) and dumps frames to a streamable format. ~500 LOC tool. Probably new crate `crates/fma-cinematic` or extension to a render binary.
+- Handoff contract: `RenderFrame::from_prerender_final_state(stream)` constructor that seeds positions/velocities/camera from the prerender's last frame metadata. ~100 LOC.
+- Transition clip library: 10-20 hand-curated clips for system switches, organ-zoom, ghost-mode toggle. Stored as `.splat-stream` files in a release artifact (similar to the bgz7 Qwen3.5 release pattern).
+- Storage format candidates: (a) raw Arrow batches of `RenderFrame` snapshots, (b) MP4 with custom video codec, (c) `.splat`/`.ply` 3DGS native, (d) custom temporal-delta codec exploiting the front/back buffer's small per-frame deltas.
+
+**Lesson learned:** when conjecturing an alternative substrate, ask "is this a different phase of the same UX, or actually a competing implementation?" The prerender vs live thrash today was a false dichotomy that wasted three correction cycles in EPIPHANIES. Cross-ref EPIPHANIES 2026-05-13 unification entry (one kernel, three Jacobians) — same lesson at the math layer.
+
 ## 2026-05-13 — Sci-fi presentation vision: transparent holographic human-body projection for q2 (Tony Stark / Star Trek sickbay aesthetic) — emerges naturally from the unified Σ-push-forward kernel
 
 The sci-fi UX target for the FMA heart-click demo: a transparent, glowing, layered holographic projection of the human body the user can rotate, peel, and probe. **The technical substrate already produces this look** without a separate volumetric renderer — the unified Gaussian-splat + EWA-Sandwich kernel (see EPIPHANIES 2026-05-13 unification entry) gives every component for free:
