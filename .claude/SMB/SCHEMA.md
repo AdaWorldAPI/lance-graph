@@ -15,6 +15,11 @@
 >   build_smb_ontology()`
 > - Originating inventory: `smb-office-rs/.claude/board/OGIT_TTL_INVENTORY.md`
 >
+> **Formal hydration spec:** `lance-graph/.claude/specs/pr-ogit-ttl-smb-hydration.md`
+> (W13, sprint-5-6) — 35 KB executable spec, derived from the
+> originating inventory above. Read this when the task is OGIT-side
+> TTL authoring or registry hydration wiring.
+>
 > When the two diverge, smb-office-rs wins; update this doc.
 
 ---
