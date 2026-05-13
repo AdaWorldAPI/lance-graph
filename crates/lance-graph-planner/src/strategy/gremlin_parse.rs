@@ -624,10 +624,9 @@ fn parse_gremlin_steps(source: &str) -> Result<Vec<GremlinStep>, PlanError> {
             // collapsible_match (Rust 1.95): match-guard form collapses
             // the inner `if let Some(GremlinStep::Order(asc))` into the
             // outer match arm.
-            "by"
-                if args.len() >= 2
-                    && args[1].to_lowercase().contains("desc")
-                    && matches!(steps.last(), Some(GremlinStep::Order(_))) =>
+            "by" if args.len() >= 2
+                && args[1].to_lowercase().contains("desc")
+                && matches!(steps.last(), Some(GremlinStep::Order(_))) =>
             {
                 if let Some(GremlinStep::Order(asc)) = steps.last_mut() {
                     *asc = false;

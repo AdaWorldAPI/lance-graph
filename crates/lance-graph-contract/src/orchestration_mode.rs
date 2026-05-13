@@ -41,9 +41,9 @@
 // modulation override path (TD-ORCH-1). Currently only `ThinkingStyle`
 // is consumed; the modulation hook is wired in `OrchestrationBridge`
 // but not yet routed through this module.
-use std::cmp::Reverse;
 #[allow(unused_imports)]
 use crate::thinking::{FieldModulation, ThinkingStyle};
+use std::cmp::Reverse;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // INFERENCE STAGES — the atoms of reasoning
