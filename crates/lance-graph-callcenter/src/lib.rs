@@ -135,8 +135,8 @@ pub mod transcode;
 // `try_resolve()` + backward-compat shim for `super_domain_for_family()`.
 pub mod hydration;
 pub use hydration::{
-    current_generation, HydrationError, HydrationPolicy, HydrationSourceSet, load_seed,
-    try_resolve, FamilyTableInner, FAMILY_TABLE, SEED_TTL,
+    current_generation, load_seed, try_resolve, FamilyTableInner, HydrationError, HydrationPolicy,
+    HydrationSourceSet, FAMILY_TABLE, SEED_TTL,
 };
 
 // D-SDR-1 (super-domain-rbac-tenancy-v1 §3.9 + §13.1) — UnifiedBridge
@@ -146,7 +146,9 @@ pub use hydration::{
 // surface (super-domain routing, role groups with FieldRedactionMask, merkle
 // audit chain) lands in follow-up commits.
 pub mod unified_bridge;
-pub use unified_bridge::{AuthError, BridgeConfig, BridgeHandle, OgitFamily, OwlIdentity, TenantId, UnifiedBridge};
+pub use unified_bridge::{
+    AuthError, BridgeConfig, BridgeHandle, OgitFamily, OwlIdentity, TenantId, UnifiedBridge,
+};
 
 // D-SDR-2 (super-domain-rbac-tenancy-v1 §3.4-§3.7) — SuperDomain layer.
 // Activation root above OGIT basins (1 byte; 8 starter values; 256 cap)

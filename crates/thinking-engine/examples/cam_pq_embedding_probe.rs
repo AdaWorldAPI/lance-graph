@@ -11,11 +11,13 @@
 //!     --manifest-path crates/thinking-engine/Cargo.toml \
 //!     -- /path/to/model.safetensors
 
-use ndarray::hpc::cam_pq::{CamCodebook, CamFingerprint, DistanceTables, NUM_SUBSPACES, train_geometric};
-use ndarray::hpc::safetensors::read_safetensors_header;
+use bgz_tensor::quality::{bias_variance, icc_3_1, pearson, spearman};
+use ndarray::hpc::cam_pq::{
+    train_geometric, CamCodebook, CamFingerprint, DistanceTables, NUM_SUBSPACES,
+};
 use ndarray::hpc::gguf::GgmlType;
+use ndarray::hpc::safetensors::read_safetensors_header;
 use ndarray::simd::bf16_to_f32_batch;
-use bgz_tensor::quality::{pearson, spearman, icc_3_1, bias_variance};
 
 use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
@@ -27,16 +29,24 @@ fn load_rows(path: &str, tensor_substr: &str) -> (Vec<Vec<f32>>, String) {
     let file = File::open(path).expect("open");
     let mut reader = BufReader::new(file);
     let header = read_safetensors_header(&mut reader).expect("parse");
-    let t = header.tensors.iter().find(|t| t.name.contains(tensor_substr))
+    let t = header
+        .tensors
+        .iter()
+        .find(|t| t.name.contains(tensor_substr))
         .expect(&format!("tensor '{}' not found", tensor_substr));
     let n: usize = t.dimensions.iter().map(|&d| d as usize).product();
     let n_rows = t.dimensions[0] as usize;
     let n_cols: usize = t.dimensions.iter().skip(1).map(|&d| d as usize).product();
-    reader.seek(SeekFrom::Start(header.tensor_data_offset + t.offset)).unwrap();
+    reader
+        .seek(SeekFrom::Start(header.tensor_data_offset + t.offset))
+        .unwrap();
     let mut raw = vec![0u8; n * 2];
     reader.read_exact(&mut raw).unwrap();
     let f32_data: Vec<f32> = {
-        let u16s: Vec<u16> = raw.chunks_exact(2).map(|c| u16::from_le_bytes([c[0], c[1]])).collect();
+        let u16s: Vec<u16> = raw
+            .chunks_exact(2)
+            .map(|c| u16::from_le_bytes([c[0], c[1]]))
+            .collect();
         let mut out = vec![0.0f32; u16s.len()];
         bf16_to_f32_batch(&u16s, &mut out);
         out
@@ -46,18 +56,28 @@ fn load_rows(path: &str, tensor_substr: &str) -> (Vec<Vec<f32>>, String) {
         .map(|i| {
             let ri = (i * stride).min(n_rows - 1);
             f32_data[ri * n_cols..(ri + 1) * n_cols].to_vec()
-        }).collect();
+        })
+        .collect();
     (rows, format!("{} [{}×{}]", t.name, n_rows, n_cols))
 }
 
 fn cosine(a: &[f32], b: &[f32]) -> f64 {
-    let mut dot = 0.0f64; let mut na = 0.0f64; let mut nb = 0.0f64;
+    let mut dot = 0.0f64;
+    let mut na = 0.0f64;
+    let mut nb = 0.0f64;
     for i in 0..a.len().min(b.len()) {
-        let x = a[i] as f64; let y = b[i] as f64;
-        dot += x * y; na += x * x; nb += y * y;
+        let x = a[i] as f64;
+        let y = b[i] as f64;
+        dot += x * y;
+        na += x * x;
+        nb += y * y;
     }
     let d = (na * nb).sqrt();
-    if d < 1e-15 { 0.0 } else { dot / d }
+    if d < 1e-15 {
+        0.0
+    } else {
+        dot / d
+    }
 }
 
 fn probe_population(name: &str, rows: &[Vec<f32>], tensor_desc: &str) {
@@ -69,22 +89,27 @@ fn probe_population(name: &str, rows: &[Vec<f32>], tensor_desc: &str) {
 
     // Pad rows to multiple of NUM_SUBSPACES if needed
     let padded_cols = ((n_cols + NUM_SUBSPACES - 1) / NUM_SUBSPACES) * NUM_SUBSPACES;
-    let padded_rows: Vec<Vec<f32>> = rows.iter().map(|r| {
-        let mut p = r.clone();
-        p.resize(padded_cols, 0.0);
-        p
-    }).collect();
+    let padded_rows: Vec<Vec<f32>> = rows
+        .iter()
+        .map(|r| {
+            let mut p = r.clone();
+            p.resize(padded_cols, 0.0);
+            p
+        })
+        .collect();
 
     // Train CAM-PQ codebook on these rows
     let t0 = Instant::now();
     let codebook = train_geometric(&padded_rows, padded_cols, 50);
     let train_ms = t0.elapsed().as_secs_f32() * 1000.0;
-    println!("  CAM-PQ trained in {:.1}ms (6 subspaces × 256 centroids)", train_ms);
+    println!(
+        "  CAM-PQ trained in {:.1}ms (6 subspaces × 256 centroids)",
+        train_ms
+    );
 
     // Encode all rows
-    let fingerprints: Vec<CamFingerprint> = padded_rows.iter()
-        .map(|r| codebook.encode(r))
-        .collect();
+    let fingerprints: Vec<CamFingerprint> =
+        padded_rows.iter().map(|r| codebook.encode(r)).collect();
 
     // Ground truth pairwise cosines
     let mut gt_scores = Vec::with_capacity(n * (n - 1) / 2);
@@ -98,9 +123,15 @@ fn probe_population(name: &str, rows: &[Vec<f32>], tensor_desc: &str) {
     // CAM-PQ returns L2² (lower = more similar). Convert to cosine scale:
     // cos(a,b) ≈ 1 - d²/(2 × ||a|| × ||b||)
     // Precompute row norms for the conversion.
-    let norms: Vec<f64> = rows.iter().map(|r| {
-        r.iter().map(|x| (*x as f64) * (*x as f64)).sum::<f64>().sqrt()
-    }).collect();
+    let norms: Vec<f64> = rows
+        .iter()
+        .map(|r| {
+            r.iter()
+                .map(|x| (*x as f64) * (*x as f64))
+                .sum::<f64>()
+                .sqrt()
+        })
+        .collect();
 
     let mut cam_scores = Vec::with_capacity(n * (n - 1) / 2);
     for i in 0..n {
@@ -111,7 +142,9 @@ fn probe_population(name: &str, rows: &[Vec<f32>], tensor_desc: &str) {
             let denom = 2.0 * norms[i] * norms[j];
             let cos_est = if denom > 1e-12 {
                 (1.0 - d_sq / denom).clamp(-1.0, 1.0)
-            } else { 0.0 };
+            } else {
+                0.0
+            };
             cam_scores.push(cos_est);
         }
     }
@@ -121,8 +154,11 @@ fn probe_population(name: &str, rows: &[Vec<f32>], tensor_desc: &str) {
     let p = pearson(&gt_scores, &cam_scores);
     let s = spearman(&gt_scores, &cam_scores);
     let icc = icc_3_1(&gt_scores, &cam_scores);
-    let errors: Vec<f64> = gt_scores.iter().zip(cam_scores.iter())
-        .map(|(g, c)| c - g).collect();
+    let errors: Vec<f64> = gt_scores
+        .iter()
+        .zip(cam_scores.iter())
+        .map(|(g, c)| c - g)
+        .collect();
     let (bias, var) = bias_variance(&errors);
 
     // Top-K recall
@@ -138,12 +174,17 @@ fn probe_population(name: &str, rows: &[Vec<f32>], tensor_desc: &str) {
     println!("    Variance: {:.2e}", var);
 
     // Byte budget comparison
-    println!("  Storage: {} rows × 6 B = {} B CAM + {} B codebook overhead",
-        n, n * 6, 6 * 256 * (padded_cols / 6) * 4);
+    println!(
+        "  Storage: {} rows × 6 B = {} B CAM + {} B codebook overhead",
+        n,
+        n * 6,
+        6 * 256 * (padded_cols / 6) * 4
+    );
 }
 
 fn main() {
-    let path = std::env::args().nth(1)
+    let path = std::env::args()
+        .nth(1)
         .expect("usage: cam_pq_embedding_probe <model.safetensors>");
 
     println!("# CAM-PQ Embedding Probe — Extracted Address Quality");
@@ -154,7 +195,10 @@ fn main() {
         ("self_attn.k_proj.weight", "Attention k_proj (argmax)"),
         ("mlp.gate_proj.weight", "MLP gate (argmax, SiLU)"),
         ("text_embedding.weight", "Text embedding (index/DTO)"),
-        ("code_predictor.model.codec_embedding.0.weight", "Audio codec emb"),
+        (
+            "code_predictor.model.codec_embedding.0.weight",
+            "Audio codec emb",
+        ),
     ];
 
     for (substr, name) in &populations {

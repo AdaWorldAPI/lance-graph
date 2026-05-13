@@ -50,11 +50,9 @@ fn hydrate_network_namespace_from_real_ogit() {
     assert!(ip.is_some(), "ogit.Network:IPAddress should be present");
 
     // Ogit-bridge for the Network namespace should resolve URIs.
-    let bridge = lance_graph_ontology::bridges::OgitBridge::for_namespace(
-        registry.clone(),
-        "Network",
-    )
-    .unwrap();
+    let bridge =
+        lance_graph_ontology::bridges::OgitBridge::for_namespace(registry.clone(), "Network")
+            .unwrap();
     let entity = bridge
         .entity_by_uri(&lance_graph_ontology::OgitUri::parse("ogit.Network:IPAddress").unwrap())
         .expect("network bridge resolves IPAddress");

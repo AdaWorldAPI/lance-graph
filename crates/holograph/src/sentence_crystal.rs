@@ -51,8 +51,8 @@
 //! No GPU needed. No model weights. Deterministic and reproducible.
 
 use crate::bitpack::{BitpackedVector, VECTOR_BITS, VECTOR_WORDS};
-use crate::hamming::hamming_distance_scalar;
 use crate::crystal_dejavu::Coord5D;
+use crate::hamming::hamming_distance_scalar;
 use std::collections::HashMap;
 
 // ============================================================================
@@ -100,7 +100,7 @@ impl SemanticCrystal {
             ngram_cache: HashMap::new(),
             word_cache: HashMap::new(),
             cell_prototypes: HashMap::new(),
-            char_weight: 0.6, // 60% character ngrams, 40% word-level
+            char_weight: 0.6,  // 60% character ngrams, 40% word-level
             max_cache: 10_000, // 10K not 100K: ~13MB per cache, not ~130MB
         }
     }
@@ -364,7 +364,10 @@ impl LearningCell {
             self.prototype = fp.clone();
         } else {
             let refs = vec![
-                (&self.prototype, (1.0 - self.learning_rate) * self.count as f32),
+                (
+                    &self.prototype,
+                    (1.0 - self.learning_rate) * self.count as f32,
+                ),
                 (fp, self.learning_rate * self.count as f32),
             ];
             self.prototype = BitpackedVector::bundle_weighted(&refs);
@@ -461,7 +464,8 @@ impl LearningCrystal {
                     .entry(neighbor_idx)
                     .or_insert_with(|| LearningCell::new(*neighbor_coord));
 
-                let sim = 1.0 - (hamming_distance_scalar(fp, &ncell.prototype) as f32 / VECTOR_BITS as f32);
+                let sim = 1.0
+                    - (hamming_distance_scalar(fp, &ncell.prototype) as f32 / VECTOR_BITS as f32);
                 ncell.activate(sim * 0.3); // Weak neighbor activation
             }
         }
@@ -535,11 +539,7 @@ impl LearningCrystal {
     }
 
     /// Spread activation: activate a cell and propagate through connections
-    pub fn spread_activation(
-        &self,
-        start: Coord5D,
-        depth: usize,
-    ) -> Vec<(Coord5D, f32)> {
+    pub fn spread_activation(&self, start: Coord5D, depth: usize) -> Vec<(Coord5D, f32)> {
         let mut activations: HashMap<usize, f32> = HashMap::new();
         let start_idx = start.to_index();
         activations.insert(start_idx, 1.0);
@@ -567,9 +567,7 @@ impl LearningCrystal {
 
         let mut results: Vec<_> = activations
             .iter()
-            .filter_map(|(&idx, &act)| {
-                self.cells.get(&idx).map(|cell| (cell.coord, act))
-            })
+            .filter_map(|(&idx, &act)| self.cells.get(&idx).map(|cell| (cell.coord, act)))
             .collect();
 
         results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
@@ -665,7 +663,11 @@ mod tests {
 
         // Should normalize case and punctuation
         let sim = crystal.similarity("Hello, World!", "hello world");
-        assert!(sim > 0.8, "Normalized texts should be very similar: {}", sim);
+        assert!(
+            sim > 0.8,
+            "Normalized texts should be very similar: {}",
+            sim
+        );
     }
 
     #[test]
@@ -688,7 +690,10 @@ mod tests {
         // At default learning_rate=0.1, the old prototype dominates
         // but the result is still a valid prototype
         let dist = hamming_distance_scalar(&cell.prototype, &fp1);
-        assert!(dist > 0 || cell.prototype == fp1, "Learning should incorporate new signal or keep old");
+        assert!(
+            dist > 0 || cell.prototype == fp1,
+            "Learning should incorporate new signal or keep old"
+        );
     }
 
     #[test]
@@ -710,13 +715,7 @@ mod tests {
         // Learn some fingerprints
         for i in 0..20 {
             let fp = BitpackedVector::random(i);
-            let coord = Coord5D::new(
-                (i % 5) as u8,
-                (i / 5 % 5) as u8,
-                2,
-                2,
-                2,
-            );
+            let coord = Coord5D::new((i % 5) as u8, (i / 5 % 5) as u8, 2, 2, 2);
             crystal.learn(&fp, coord);
         }
 

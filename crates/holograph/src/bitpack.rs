@@ -7,9 +7,9 @@
 //!
 //! Migrated from 10,000 bits (legacy). 16K = 2^14 = exact power of 2.
 
+use crate::{HdrError, Result};
 use std::fmt;
 use std::ops::{BitAnd, BitOr, BitXor, Not};
-use crate::{HdrError, Result};
 
 /// Number of bits in the logical vector (16,384 = 2^14, production).
 pub const VECTOR_BITS: usize = 16_384;
@@ -48,7 +48,7 @@ const LAST_WORD_MASK: u64 = u64::MAX;
 ///   64 bits     64 bits          64 bits     64 bits (full)
 /// ```
 #[derive(Clone, PartialEq, Eq)]
-#[repr(C, align(64))]  // Cache-line aligned for SIMD
+#[repr(C, align(64))] // Cache-line aligned for SIMD
 pub struct BitpackedVector {
     /// The packed bits
     words: [u64; VECTOR_WORDS],
@@ -76,7 +76,9 @@ impl BitpackedVector {
     /// Create a vector with all bits set to 1
     #[inline]
     pub fn ones() -> Self {
-        let mut v = Self { words: [!0u64; VECTOR_WORDS] };
+        let mut v = Self {
+            words: [!0u64; VECTOR_WORDS],
+        };
         // Mask the last word to only use valid bits
         v.words[VECTOR_WORDS - 1] &= LAST_WORD_MASK;
         v
@@ -559,9 +561,15 @@ impl<'a> VectorSlice<'a> {
     /// Panics if `words.len() < VECTOR_WORDS`.
     #[inline]
     pub fn from_words(words: &'a [u64]) -> Self {
-        debug_assert!(words.len() >= VECTOR_WORDS,
-            "VectorSlice requires {} words, got {}", VECTOR_WORDS, words.len());
-        Self { words: &words[..VECTOR_WORDS] }
+        debug_assert!(
+            words.len() >= VECTOR_WORDS,
+            "VectorSlice requires {} words, got {}",
+            VECTOR_WORDS,
+            words.len()
+        );
+        Self {
+            words: &words[..VECTOR_WORDS],
+        }
     }
 
     /// Create from a byte slice (Arrow FixedSizeBinary value).
@@ -573,8 +581,10 @@ impl<'a> VectorSlice<'a> {
     #[inline]
     pub unsafe fn from_bytes_unchecked(bytes: &'a [u8]) -> Self {
         debug_assert!(bytes.len() >= VECTOR_BYTES);
-        debug_assert!(bytes.as_ptr() as usize % 8 == 0,
-            "VectorSlice requires 8-byte alignment");
+        debug_assert!(
+            bytes.as_ptr() as usize % 8 == 0,
+            "VectorSlice requires 8-byte alignment"
+        );
         let ptr = bytes.as_ptr() as *const u64;
         let words = unsafe { std::slice::from_raw_parts(ptr, VECTOR_WORDS) };
         Self { words }
@@ -613,8 +623,12 @@ impl<'a> VectorRef for VectorSlice<'a> {
 
 impl<'a> fmt::Debug for VectorSlice<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "VectorSlice({} words, {} set)",
-            VECTOR_WORDS, self.popcount())
+        write!(
+            f,
+            "VectorSlice({} words, {} set)",
+            VECTOR_WORDS,
+            self.popcount()
+        )
     }
 }
 
@@ -718,7 +732,9 @@ impl Not for BitpackedVector {
 
 impl fmt::Debug for BitpackedVector {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "BitpackedVector({} bits, {} set, density={:.3})",
+        write!(
+            f,
+            "BitpackedVector({} bits, {} set, density={:.3})",
             VECTOR_BITS,
             self.popcount(),
             self.density()
@@ -729,7 +745,9 @@ impl fmt::Debug for BitpackedVector {
 impl fmt::Display for BitpackedVector {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Show first and last few words in hex
-        write!(f, "Vec10K[{:016x}...{:016x}]",
+        write!(
+            f,
+            "Vec10K[{:016x}...{:016x}]",
             self.words[0],
             self.words[VECTOR_WORDS - 1]
         )
@@ -756,9 +774,11 @@ impl<'de> serde::Deserialize<'de> for BitpackedVector {
     {
         let vec = Vec::<u64>::deserialize(deserializer)?;
         if vec.len() != VECTOR_WORDS {
-            return Err(serde::de::Error::custom(
-                format!("expected {} words, got {}", VECTOR_WORDS, vec.len())
-            ));
+            return Err(serde::de::Error::custom(format!(
+                "expected {} words, got {}",
+                VECTOR_WORDS,
+                vec.len()
+            )));
         }
         let mut words = [0u64; VECTOR_WORDS];
         words.copy_from_slice(&vec);
@@ -846,8 +866,11 @@ mod tests {
         let density = v.density();
 
         // Random vectors should have ~50% density
-        assert!(density > 0.4 && density < 0.6,
-            "Density {} outside expected range", density);
+        assert!(
+            density > 0.4 && density < 0.6,
+            "Density {} outside expected range",
+            density
+        );
     }
 
     #[test]

@@ -98,7 +98,13 @@ impl GradedVector {
     /// Clamp value to valid range for bits_per_dim
     fn clamp_value(&self, value: i8) -> i8 {
         match self.bits_per_dim {
-            1 => if value >= 0 { 1 } else { -1 },
+            1 => {
+                if value >= 0 {
+                    1
+                } else {
+                    -1
+                }
+            }
             2 => value.clamp(-2, 2),
             4 => value.clamp(-8, 7),
             8 => value, // Full range
@@ -297,7 +303,11 @@ impl StackedBinary {
     /// Create random stacked vector
     pub fn random(num_planes: usize, seed: u64) -> Self {
         let planes = (0..num_planes)
-            .map(|i| BitpackedVector::random(seed.wrapping_add((i as u64).wrapping_mul(0x9E3779B97F4A7C15))))
+            .map(|i| {
+                BitpackedVector::random(
+                    seed.wrapping_add((i as u64).wrapping_mul(0x9E3779B97F4A7C15)),
+                )
+            })
             .collect();
         Self { planes }
     }
@@ -332,8 +342,16 @@ impl StackedBinary {
         let mut planes = Vec::with_capacity(max_planes);
 
         for i in 0..max_planes {
-            let a = self.planes.get(i).cloned().unwrap_or_else(BitpackedVector::zero);
-            let b = other.planes.get(i).cloned().unwrap_or_else(BitpackedVector::zero);
+            let a = self
+                .planes
+                .get(i)
+                .cloned()
+                .unwrap_or_else(BitpackedVector::zero);
+            let b = other
+                .planes
+                .get(i)
+                .cloned()
+                .unwrap_or_else(BitpackedVector::zero);
             planes.push(a.xor(&b));
         }
 
@@ -466,7 +484,9 @@ impl SparseHdr {
 
     /// Sort by index (for efficient operations)
     pub fn sort(&mut self) {
-        let mut pairs: Vec<_> = self.indices.iter()
+        let mut pairs: Vec<_> = self
+            .indices
+            .iter()
             .zip(self.values.iter())
             .map(|(&i, &v)| (i, v))
             .collect();

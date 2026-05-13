@@ -20,9 +20,9 @@
 //! searches with no semantic distortion — they just don't have schema
 //! markers or the extra 6K information bits.
 
-use crate::bitpack::{BitpackedVector, VECTOR_WORDS as WORDS_10K};
 use super::VECTOR_WORDS as WORDS_16K;
 use super::schema::SchemaSidecar;
+use crate::bitpack::{BitpackedVector, VECTOR_WORDS as WORDS_10K};
 
 // ============================================================================
 // ZERO-EXTEND: 10K → 16K
@@ -47,10 +47,7 @@ pub fn zero_extend(v10k: &BitpackedVector) -> [u64; WORDS_16K] {
 /// Same as `zero_extend` but also writes a SchemaSidecar into blocks 13-15.
 /// Useful when ingesting 10K vectors into a 16K store and wanting to
 /// populate schema fields (e.g., from external metadata).
-pub fn zero_extend_with_schema(
-    v10k: &BitpackedVector,
-    schema: &SchemaSidecar,
-) -> [u64; WORDS_16K] {
+pub fn zero_extend_with_schema(v10k: &BitpackedVector, schema: &SchemaSidecar) -> [u64; WORDS_16K] {
     let mut words = zero_extend(v10k);
     schema.write_to_words(&mut words);
     words
@@ -154,7 +151,10 @@ pub fn migrate_batch_with_schema(
     vectors: &[BitpackedVector],
     schema: &SchemaSidecar,
 ) -> Vec<[u64; WORDS_16K]> {
-    vectors.iter().map(|v| zero_extend_with_schema(v, schema)).collect()
+    vectors
+        .iter()
+        .map(|v| zero_extend_with_schema(v, schema))
+        .collect()
 }
 
 // ============================================================================
@@ -163,8 +163,8 @@ pub fn migrate_batch_with_schema(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::schema::NarsTruth;
+    use super::*;
 
     #[test]
     fn test_zero_extend_preserves_content() {
@@ -255,9 +255,8 @@ mod tests {
 
     #[test]
     fn test_migrate_batch() {
-        let vectors: Vec<BitpackedVector> = (0..10)
-            .map(|i| BitpackedVector::random(i as u64))
-            .collect();
+        let vectors: Vec<BitpackedVector> =
+            (0..10).map(|i| BitpackedVector::random(i as u64)).collect();
         let migrated = migrate_batch(&vectors);
         assert_eq!(migrated.len(), 10);
 

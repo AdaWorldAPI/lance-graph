@@ -15,15 +15,15 @@
 //!     --manifest-path crates/thinking-engine/Cargo.toml \
 //!     -- /path/to/model.safetensors
 
+use bgz_tensor::hhtl_f32::HhtlF32Tensor;
+use bgz_tensor::matryoshka::SvdBasis;
 use bgz_tensor::shared_palette::{
     classify_component, classify_role, effective_shape, is_encodable, should_use_leaf,
     PaletteGroupKey,
 };
-use bgz_tensor::hhtl_f32::HhtlF32Tensor;
-use bgz_tensor::matryoshka::SvdBasis;
 use bgz_tensor::slot_l::SLOT_L_LANES;
+use ndarray::hpc::gguf::{f16_to_f32, GgmlType, GgufFile};
 use ndarray::hpc::safetensors::read_safetensors_header;
-use ndarray::hpc::gguf::{GgmlType, GgufFile, f16_to_f32};
 use ndarray::simd::bf16_to_f32_batch;
 
 use std::collections::HashMap;
@@ -55,32 +55,56 @@ fn load_all_tensors_f32(model_path: &str) -> (Vec<TensorMeta>, GgufFile) {
             GgmlType::F32 => 4,
             _ => continue,
         };
-        reader.seek(SeekFrom::Start(header.tensor_data_offset + t.offset)).unwrap();
+        reader
+            .seek(SeekFrom::Start(header.tensor_data_offset + t.offset))
+            .unwrap();
         let mut raw = vec![0u8; n * elem_size];
-        if reader.read_exact(&mut raw).is_err() { continue; }
+        if reader.read_exact(&mut raw).is_err() {
+            continue;
+        }
         let f32_data: Vec<f32> = match t.dtype {
             GgmlType::BF16 => {
-                let u16s: Vec<u16> = raw.chunks_exact(2).map(|c| u16::from_le_bytes([c[0], c[1]])).collect();
+                let u16s: Vec<u16> = raw
+                    .chunks_exact(2)
+                    .map(|c| u16::from_le_bytes([c[0], c[1]]))
+                    .collect();
                 let mut out = vec![0.0f32; u16s.len()];
                 bf16_to_f32_batch(&u16s, &mut out);
                 out
             }
-            GgmlType::F16 => raw.chunks_exact(2).map(|c| f16_to_f32(u16::from_le_bytes([c[0], c[1]]))).collect(),
-            GgmlType::F32 => raw.chunks_exact(4).map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]])).collect(),
+            GgmlType::F16 => raw
+                .chunks_exact(2)
+                .map(|c| f16_to_f32(u16::from_le_bytes([c[0], c[1]])))
+                .collect(),
+            GgmlType::F32 => raw
+                .chunks_exact(4)
+                .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+                .collect(),
             _ => continue,
         };
-        tensors.push(TensorMeta { name: t.name.clone(), shape, size_bytes: n * elem_size, f32_data });
+        tensors.push(TensorMeta {
+            name: t.name.clone(),
+            shape,
+            size_bytes: n * elem_size,
+            f32_data,
+        });
     }
     (tensors, header)
 }
 
-struct Bucket { key: PaletteGroupKey, tensors: Vec<TensorMeta> }
+struct Bucket {
+    key: PaletteGroupKey,
+    tensors: Vec<TensorMeta>,
+}
 
 fn bucket_tensors(tensors: Vec<TensorMeta>) -> (Vec<Bucket>, Vec<TensorMeta>) {
     let mut by_key: HashMap<PaletteGroupKey, Vec<TensorMeta>> = HashMap::new();
     let mut passthrough: Vec<TensorMeta> = Vec::new();
     for t in tensors {
-        if !is_encodable(&t.shape, t.size_bytes) { passthrough.push(t); continue; }
+        if !is_encodable(&t.shape, t.size_bytes) {
+            passthrough.push(t);
+            continue;
+        }
         let key = PaletteGroupKey {
             component: classify_component(&t.name).to_string(),
             role: classify_role(&t.name).to_string(),
@@ -88,20 +112,37 @@ fn bucket_tensors(tensors: Vec<TensorMeta>) -> (Vec<Bucket>, Vec<TensorMeta>) {
         };
         by_key.entry(key).or_insert_with(Vec::new).push(t);
     }
-    let mut buckets: Vec<Bucket> = by_key.into_iter().map(|(key, tensors)| Bucket { key, tensors }).collect();
-    buckets.sort_by(|a, b| (a.key.component.as_str(), a.key.role.as_str(), a.key.shape)
-        .cmp(&(b.key.component.as_str(), b.key.role.as_str(), b.key.shape)));
+    let mut buckets: Vec<Bucket> = by_key
+        .into_iter()
+        .map(|(key, tensors)| Bucket { key, tensors })
+        .collect();
+    buckets.sort_by(|a, b| {
+        (a.key.component.as_str(), a.key.role.as_str(), a.key.shape).cmp(&(
+            b.key.component.as_str(),
+            b.key.role.as_str(),
+            b.key.shape,
+        ))
+    });
     (buckets, passthrough)
 }
 
 fn cosine_f32(a: &[f32], b: &[f32]) -> f64 {
-    let mut dot = 0.0f64; let mut na = 0.0f64; let mut nb = 0.0f64;
+    let mut dot = 0.0f64;
+    let mut na = 0.0f64;
+    let mut nb = 0.0f64;
     for i in 0..a.len().min(b.len()) {
-        let x = a[i] as f64; let y = b[i] as f64;
-        dot += x * y; na += x * x; nb += y * y;
+        let x = a[i] as f64;
+        let y = b[i] as f64;
+        dot += x * y;
+        na += x * x;
+        nb += y * y;
     }
     let d = (na * nb).sqrt();
-    if d < 1e-15 { 0.0 } else { dot / d }
+    if d < 1e-15 {
+        0.0
+    } else {
+        dot / d
+    }
 }
 
 #[derive(Default, Debug)]
@@ -115,16 +156,33 @@ struct RhoStats {
 
 impl RhoStats {
     fn new(regime: &str) -> Self {
-        Self { regime: regime.to_string(), n_rows: 0, sum: 0.0, min: 1.0, p_candidates: Vec::new() }
+        Self {
+            regime: regime.to_string(),
+            n_rows: 0,
+            sum: 0.0,
+            min: 1.0,
+            p_candidates: Vec::new(),
+        }
     }
     fn add(&mut self, rho: f64) {
-        self.n_rows += 1; self.sum += rho;
-        if rho < self.min { self.min = rho; }
+        self.n_rows += 1;
+        self.sum += rho;
+        if rho < self.min {
+            self.min = rho;
+        }
         self.p_candidates.push(rho);
     }
-    fn mean(&self) -> f64 { if self.n_rows == 0 { 0.0 } else { self.sum / self.n_rows as f64 } }
+    fn mean(&self) -> f64 {
+        if self.n_rows == 0 {
+            0.0
+        } else {
+            self.sum / self.n_rows as f64
+        }
+    }
     fn percentile(&mut self, p: f64) -> f64 {
-        if self.p_candidates.is_empty() { return 0.0; }
+        if self.p_candidates.is_empty() {
+            return 0.0;
+        }
         self.p_candidates.sort_by(|a, b| a.partial_cmp(b).unwrap());
         let idx = ((p / 100.0) * (self.p_candidates.len() as f64 - 1.0)).round() as usize;
         self.p_candidates[idx.min(self.p_candidates.len() - 1)]
@@ -132,7 +190,8 @@ impl RhoStats {
 }
 
 fn main() {
-    let model_path = std::env::args().nth(1)
+    let model_path = std::env::args()
+        .nth(1)
         .expect("usage: universal_hhtl_f32_encode <model.safetensors>");
 
     println!("═══ universal_hhtl_f32_encode — Path A (f32 centroid palette) ═══");
@@ -140,10 +199,18 @@ fn main() {
 
     let t0 = Instant::now();
     let (tensors, _header) = load_all_tensors_f32(&model_path);
-    println!("  Loaded {} tensors in {:.2}s", tensors.len(), t0.elapsed().as_secs_f32());
+    println!(
+        "  Loaded {} tensors in {:.2}s",
+        tensors.len(),
+        t0.elapsed().as_secs_f32()
+    );
     let orig_bytes: usize = tensors.iter().map(|t| t.f32_data.len() * 2).sum();
     let (buckets, passthrough) = bucket_tensors(tensors);
-    println!("  {} encodable groups, {} passthrough tensors", buckets.len(), passthrough.len());
+    println!(
+        "  {} encodable groups, {} passthrough tensors",
+        buckets.len(),
+        passthrough.len()
+    );
 
     let mut argmax_stats = RhoStats::new("argmax");
     let mut index_stats = RhoStats::new("index");
@@ -167,8 +234,14 @@ fn main() {
             let sample_rows: Vec<Vec<f32>> = (0..sample_n)
                 .map(|ri| first.f32_data[ri * c..(ri + 1) * c].to_vec())
                 .collect();
-            Some(SvdBasis::build(&bucket.key.role, &sample_rows, SLOT_L_LANES))
-        } else { None };
+            Some(SvdBasis::build(
+                &bucket.key.role,
+                &sample_rows,
+                SLOT_L_LANES,
+            ))
+        } else {
+            None
+        };
 
         // Encode each tensor in the bucket.
         let mut group_rho_sum = 0.0f64;
@@ -201,8 +274,13 @@ fn main() {
                 let orig = &rows[ri];
                 let recon = hhtl.reconstruct_row(ri, c);
                 let rho = cosine_f32(orig, &recon);
-                if use_leaf { index_stats.add(rho); } else { argmax_stats.add(rho); }
-                group_rho_sum += rho; group_rho_n += 1;
+                if use_leaf {
+                    index_stats.add(rho);
+                } else {
+                    argmax_stats.add(rho);
+                }
+                group_rho_sum += rho;
+                group_rho_n += 1;
             }
 
             total_entries_bytes += hhtl.entries_byte_size();
@@ -211,21 +289,39 @@ fn main() {
             total_svd_basis_bytes += hhtl.svd_basis_byte_size();
         }
 
-        let group_rho = if group_rho_n > 0 { group_rho_sum / group_rho_n as f64 } else { 0.0 };
+        let group_rho = if group_rho_n > 0 {
+            group_rho_sum / group_rho_n as f64
+        } else {
+            0.0
+        };
         let _ = first_rows;
-        println!("  [{:>2}/{:<2}] {:<6} {}/{:<9} [{}×{}] × {:<2}  ρ̄={:.4}  {:>6.1}ms",
-            i + 1, n_buckets, regime, bucket.key.component, bucket.key.role,
-            bucket.key.shape.0, bucket.key.shape.1, bucket.tensors.len(),
-            group_rho, tg.elapsed().as_secs_f32() * 1000.0);
+        println!(
+            "  [{:>2}/{:<2}] {:<6} {}/{:<9} [{}×{}] × {:<2}  ρ̄={:.4}  {:>6.1}ms",
+            i + 1,
+            n_buckets,
+            regime,
+            bucket.key.component,
+            bucket.key.role,
+            bucket.key.shape.0,
+            bucket.key.shape.1,
+            bucket.tensors.len(),
+            group_rho,
+            tg.elapsed().as_secs_f32() * 1000.0
+        );
     }
 
     let passthrough_bytes: usize = passthrough.iter().map(|t| t.f32_data.len() * 2).sum();
-    let total_output = total_entries_bytes + total_slot_l_bytes + total_palette_bytes
-                     + total_svd_basis_bytes + passthrough_bytes;
+    let total_output = total_entries_bytes
+        + total_slot_l_bytes
+        + total_palette_bytes
+        + total_svd_basis_bytes
+        + passthrough_bytes;
 
     println!("\n═══ GATE 1 — per-row ρ by regime ═══");
     for stats in [&mut argmax_stats, &mut index_stats] {
-        if stats.n_rows == 0 { continue; }
+        if stats.n_rows == 0 {
+            continue;
+        }
         let p5 = stats.percentile(5.0);
         let p50 = stats.percentile(50.0);
         let p95 = stats.percentile(95.0);
@@ -235,15 +331,36 @@ fn main() {
     }
 
     println!("\n═══ GATE 3 — storage ratio ═══");
-    println!("  Entries (1 byte/row):       {:>10.2} MB", total_entries_bytes as f64 / 1e6);
-    println!("  Slot L (8 × i8 per row):    {:>10.2} MB", total_slot_l_bytes as f64 / 1e6);
-    println!("  Palettes (f32 → BF16):      {:>10.2} MB", total_palette_bytes as f64 / 1e6);
-    println!("  SVD bases:                  {:>10.2} MB", total_svd_basis_bytes as f64 / 1e6);
-    println!("  Passthrough (BF16):         {:>10.2} MB  ({} tensors)",
-        passthrough_bytes as f64 / 1e6, passthrough.len());
+    println!(
+        "  Entries (1 byte/row):       {:>10.2} MB",
+        total_entries_bytes as f64 / 1e6
+    );
+    println!(
+        "  Slot L (8 × i8 per row):    {:>10.2} MB",
+        total_slot_l_bytes as f64 / 1e6
+    );
+    println!(
+        "  Palettes (f32 → BF16):      {:>10.2} MB",
+        total_palette_bytes as f64 / 1e6
+    );
+    println!(
+        "  SVD bases:                  {:>10.2} MB",
+        total_svd_basis_bytes as f64 / 1e6
+    );
+    println!(
+        "  Passthrough (BF16):         {:>10.2} MB  ({} tensors)",
+        passthrough_bytes as f64 / 1e6,
+        passthrough.len()
+    );
     println!("  ─────────────────────────────────────");
-    println!("  Total output:               {:>10.2} MB", total_output as f64 / 1e6);
-    println!("  Original (BF16):            {:>10.2} MB", orig_bytes as f64 / 1e6);
+    println!(
+        "  Total output:               {:>10.2} MB",
+        total_output as f64 / 1e6
+    );
+    println!(
+        "  Original (BF16):            {:>10.2} MB",
+        orig_bytes as f64 / 1e6
+    );
     let ratio = orig_bytes as f64 / total_output.max(1) as f64;
     println!("  Ratio:                      {:.1} : 1", ratio);
 
@@ -255,12 +372,18 @@ fn main() {
     let argmax_pass = argmax_median >= 0.95 && argmax_p5 >= 0.90;
     let index_pass = index_median >= 0.98 && index_p5 >= 0.95;
     let ratio_pass = ratio >= 2.0;
-    println!("  ARGMAX regime (target median ≥ 0.95, p5 ≥ 0.90): {}",
-        if argmax_pass { "PASS" } else { "FAIL" });
-    println!("  INDEX  regime (target median ≥ 0.98, p5 ≥ 0.95): {}",
-        if index_pass { "PASS" } else { "FAIL" });
-    println!("  RATIO  (target ≥ 2:1):                            {}",
-        if ratio_pass { "PASS" } else { "FAIL" });
+    println!(
+        "  ARGMAX regime (target median ≥ 0.95, p5 ≥ 0.90): {}",
+        if argmax_pass { "PASS" } else { "FAIL" }
+    );
+    println!(
+        "  INDEX  regime (target median ≥ 0.98, p5 ≥ 0.95): {}",
+        if index_pass { "PASS" } else { "FAIL" }
+    );
+    println!(
+        "  RATIO  (target ≥ 2:1):                            {}",
+        if ratio_pass { "PASS" } else { "FAIL" }
+    );
     if argmax_pass && index_pass && ratio_pass {
         println!("\n  ★ PATH A PASSED");
     } else {

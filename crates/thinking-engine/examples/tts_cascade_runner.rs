@@ -15,8 +15,8 @@
 //!     --manifest-path crates/thinking-engine/Cargo.toml
 //! ```
 
-use bgz_tensor::hhtl_cache::{HhtlCache, RouteAction};
 use bgz_tensor::attention::ComposeTable;
+use bgz_tensor::hhtl_cache::{HhtlCache, RouteAction};
 use std::collections::HashMap;
 use std::time::Instant;
 
@@ -32,12 +32,24 @@ fn main() {
     let mut assignments: HashMap<String, Vec<u8>> = HashMap::new();
 
     let roles = [
-        "talker_q_proj", "talker_k_proj", "talker_v_proj", "talker_o_proj",
-        "talker_gate_proj", "talker_up_proj", "talker_down_proj",
-        "talker_embedding", "talker_norm",
-        "code_predictor_q_proj", "code_predictor_k_proj", "code_predictor_v_proj",
-        "code_predictor_o_proj", "code_predictor_gate_proj", "code_predictor_up_proj",
-        "code_predictor_down_proj", "code_predictor_embedding", "code_predictor_norm",
+        "talker_q_proj",
+        "talker_k_proj",
+        "talker_v_proj",
+        "talker_o_proj",
+        "talker_gate_proj",
+        "talker_up_proj",
+        "talker_down_proj",
+        "talker_embedding",
+        "talker_norm",
+        "code_predictor_q_proj",
+        "code_predictor_k_proj",
+        "code_predictor_v_proj",
+        "code_predictor_o_proj",
+        "code_predictor_gate_proj",
+        "code_predictor_up_proj",
+        "code_predictor_down_proj",
+        "code_predictor_embedding",
+        "code_predictor_norm",
     ];
 
     for role in &roles {
@@ -51,8 +63,16 @@ fn main() {
                 let gamma = cache.gamma_meta;
                 // Build ComposeTable from palette for O(1) multi-hop composition
                 let ct = ComposeTable::build(&cache.palette);
-                println!("    {}: k={}, gamma=[{:.4},{:.4},{:.4}], {} assigns, compose={}B",
-                    role, k, gamma[0], gamma[1], gamma[2], assign.len(), ct.byte_size());
+                println!(
+                    "    {}: k={}, gamma=[{:.4},{:.4},{:.4}], {} assigns, compose={}B",
+                    role,
+                    k,
+                    gamma[0],
+                    gamma[1],
+                    gamma[2],
+                    assign.len(),
+                    ct.byte_size()
+                );
                 compose_tables.insert(role.to_string(), ct);
                 caches.insert(role.to_string(), cache);
                 assignments.insert(role.to_string(), assign);
@@ -62,10 +82,17 @@ fn main() {
             }
         }
     }
-    println!("[1] Loaded {} caches + compose tables in {:?}\n", caches.len(), t0.elapsed());
+    println!(
+        "[1] Loaded {} caches + compose tables in {:?}\n",
+        caches.len(),
+        t0.elapsed()
+    );
 
     // Step 2: Tokenize real text → token IDs → embedding archetype lookup
-    let embed_assign = assignments.get("talker_embedding").cloned().unwrap_or_default();
+    let embed_assign = assignments
+        .get("talker_embedding")
+        .cloned()
+        .unwrap_or_default();
     if embed_assign.is_empty() {
         println!("ERROR: no embedding assignments");
         return;
@@ -82,11 +109,22 @@ fn main() {
     let encoding = tokenizer.encode(text, false).unwrap();
     let token_ids: Vec<u32> = encoding.get_ids().to_vec();
     let n_tokens = token_ids.len();
-    println!("[2] Tokenized {:?} → {} tokens: {:?}", text, n_tokens, &token_ids[..n_tokens.min(20)]);
+    println!(
+        "[2] Tokenized {:?} → {} tokens: {:?}",
+        text,
+        n_tokens,
+        &token_ids[..n_tokens.min(20)]
+    );
 
     // For each token: get its embedding archetype, then route through layers
-    let talker_roles = ["talker_q_proj", "talker_k_proj", "talker_v_proj",
-                        "talker_gate_proj", "talker_up_proj", "talker_down_proj"];
+    let talker_roles = [
+        "talker_q_proj",
+        "talker_k_proj",
+        "talker_v_proj",
+        "talker_gate_proj",
+        "talker_up_proj",
+        "talker_down_proj",
+    ];
 
     let mut attend_count = 0u64;
     let mut skip_count = 0u64;
@@ -97,7 +135,11 @@ fn main() {
     let t0 = Instant::now();
     for token_idx in 0..n_tokens {
         let tid = token_ids[token_idx] as usize;
-        let embed_arch = if tid < embed_assign.len() { embed_assign[tid] } else { 0 };
+        let embed_arch = if tid < embed_assign.len() {
+            embed_assign[tid]
+        } else {
+            0
+        };
         let mut current_arch = embed_arch;
 
         // Route through talker layers (simulate by routing through each role's cache)
@@ -106,7 +148,11 @@ fn main() {
                 // Route: how does this token's archetype interact with adjacent?
                 let next_idx = (token_idx + 1).min(n_tokens - 1);
                 let next_tid = token_ids[next_idx] as usize;
-                let next_arch = if next_tid < embed_assign.len() { embed_assign[next_tid] } else { 0 };
+                let next_arch = if next_tid < embed_assign.len() {
+                    embed_assign[next_tid]
+                } else {
+                    0
+                };
 
                 match cache.route(current_arch, next_arch) {
                     RouteAction::Skip => {
@@ -144,18 +190,37 @@ fn main() {
     let elapsed = t0.elapsed();
 
     println!("[3] Talker cascade results ({:?}):", elapsed);
-    println!("    Attend:   {} ({:.1}%)", attend_count,
-        attend_count as f64 / (attend_count + skip_count + compose_count + escalate_count).max(1) as f64 * 100.0);
-    println!("    Skip:     {} ({:.1}%)", skip_count,
-        skip_count as f64 / (attend_count + skip_count + compose_count + escalate_count).max(1) as f64 * 100.0);
+    println!(
+        "    Attend:   {} ({:.1}%)",
+        attend_count,
+        attend_count as f64
+            / (attend_count + skip_count + compose_count + escalate_count).max(1) as f64
+            * 100.0
+    );
+    println!(
+        "    Skip:     {} ({:.1}%)",
+        skip_count,
+        skip_count as f64
+            / (attend_count + skip_count + compose_count + escalate_count).max(1) as f64
+            * 100.0
+    );
     println!("    Compose:  {}", compose_count);
     println!("    Escalate: {}", escalate_count);
 
     // Step 3b: Code predictor cascade (5 layers → 16 codebook indices)
     println!("\n[4] Code predictor cascade → audio codes...");
-    let cp_roles = ["code_predictor_q_proj", "code_predictor_k_proj", "code_predictor_v_proj",
-                    "code_predictor_gate_proj", "code_predictor_up_proj", "code_predictor_down_proj"];
-    let cp_embed_assign = assignments.get("code_predictor_embedding").cloned().unwrap_or_default();
+    let cp_roles = [
+        "code_predictor_q_proj",
+        "code_predictor_k_proj",
+        "code_predictor_v_proj",
+        "code_predictor_gate_proj",
+        "code_predictor_up_proj",
+        "code_predictor_down_proj",
+    ];
+    let cp_embed_assign = assignments
+        .get("code_predictor_embedding")
+        .cloned()
+        .unwrap_or_default();
 
     let t0 = Instant::now();
     let mut audio_codes: Vec<[u8; 16]> = Vec::with_capacity(n_tokens);
@@ -177,12 +242,16 @@ fn main() {
                 let next_talker = output_archetypes[next_idx] as usize;
                 let next_cp = if next_talker < cp_embed_assign.len() {
                     cp_embed_assign[next_talker]
-                } else { 0 };
+                } else {
+                    0
+                };
 
                 match cache.route(current, next_cp) {
                     RouteAction::Attend => {
                         let dist = cache.distance(current, next_cp);
-                        if dist < 50 { current = next_cp; }
+                        if dist < 50 {
+                            current = next_cp;
+                        }
                     }
                     RouteAction::Compose => {
                         // O(1) multi-hop via ComposeTable (XOR bind lookup)
@@ -208,7 +277,11 @@ fn main() {
     }
     let cp_elapsed = t0.elapsed();
 
-    println!("    {} frames of 16 codes in {:?}", audio_codes.len(), cp_elapsed);
+    println!(
+        "    {} frames of 16 codes in {:?}",
+        audio_codes.len(),
+        cp_elapsed
+    );
     println!("    First 5 frames:");
     for (i, codes) in audio_codes.iter().take(5).enumerate() {
         println!("      frame {}: {:?}", i, codes);
@@ -217,12 +290,18 @@ fn main() {
     // Step 4: Analyze output
     let unique_arches: std::collections::HashSet<u8> = output_archetypes.iter().copied().collect();
     println!("\n[5] Output analysis:");
-    println!("    Talker archetypes: {} unique out of {}", unique_arches.len(), n_tokens);
+    println!(
+        "    Talker archetypes: {} unique out of {}",
+        unique_arches.len(),
+        n_tokens
+    );
 
     // Check code diversity per group
     for g in 0..16 {
-        let unique_codes: std::collections::HashSet<u8> = audio_codes.iter().map(|c| c[g]).collect();
-        if g < 4 { // only print first 4 groups
+        let unique_codes: std::collections::HashSet<u8> =
+            audio_codes.iter().map(|c| c[g]).collect();
+        if g < 4 {
+            // only print first 4 groups
             println!("    Code group {}: {} unique values", g, unique_codes.len());
         }
     }
@@ -230,7 +309,9 @@ fn main() {
     // Transition rate
     let mut transitions = 0u64;
     for w in output_archetypes.windows(2) {
-        if w[0] != w[1] { transitions += 1; }
+        if w[0] != w[1] {
+            transitions += 1;
+        }
     }
     let transition_rate = transitions as f64 / (output_archetypes.len() - 1).max(1) as f64;
     println!("    Transition rate: {:.1}%", transition_rate * 100.0);
@@ -238,8 +319,11 @@ fn main() {
     // Total throughput
     let total_elapsed = elapsed + cp_elapsed;
     let tokens_per_sec = n_tokens as f64 / total_elapsed.as_secs_f64();
-    println!("\n[6] Throughput: {:.0} tokens/sec ({:.1}µs/token, talker+cp)",
-        tokens_per_sec, total_elapsed.as_micros() as f64 / n_tokens as f64);
+    println!(
+        "\n[6] Throughput: {:.0} tokens/sec ({:.1}µs/token, talker+cp)",
+        tokens_per_sec,
+        total_elapsed.as_micros() as f64 / n_tokens as f64
+    );
 
     // Write audio codes to binary file for potential decoder input
     let codes_path = format!("{}/cascade_audio_codes.bin", CODEBOOK_DIR);
@@ -248,8 +332,12 @@ fn main() {
         code_bytes.extend_from_slice(frame);
     }
     std::fs::write(&codes_path, &code_bytes).unwrap();
-    println!("    Audio codes saved: {} ({} frames × 16 groups = {} bytes)",
-        codes_path, audio_codes.len(), code_bytes.len());
+    println!(
+        "    Audio codes saved: {} ({} frames × 16 groups = {} bytes)",
+        codes_path,
+        audio_codes.len(),
+        code_bytes.len()
+    );
 
     println!("\n═══ DONE ═══");
 }

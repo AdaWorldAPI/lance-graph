@@ -62,8 +62,7 @@ pub use lance_graph_ontology::namespace::SchemaKind;
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub struct OwlCharacteristics(pub u8);
 
-impl OwlCharacteristics
-{
+impl OwlCharacteristics {
     pub const FUNCTIONAL: u8 = 1 << 0;
     pub const INVERSE_FUNCTIONAL: u8 = 1 << 1;
     pub const TRANSITIVE: u8 = 1 << 2;
@@ -77,56 +76,47 @@ impl OwlCharacteristics
     pub const EMPTY: Self = Self(0);
 
     #[inline]
-    pub const fn from_bits(bits: u8) -> Self
-    {
+    pub const fn from_bits(bits: u8) -> Self {
         Self(bits)
     }
 
     #[inline]
-    pub const fn bits(self) -> u8
-    {
+    pub const fn bits(self) -> u8 {
         self.0
     }
 
     #[inline]
-    pub const fn is_functional(self) -> bool
-    {
+    pub const fn is_functional(self) -> bool {
         self.0 & Self::FUNCTIONAL != 0
     }
 
     #[inline]
-    pub const fn is_inverse_functional(self) -> bool
-    {
+    pub const fn is_inverse_functional(self) -> bool {
         self.0 & Self::INVERSE_FUNCTIONAL != 0
     }
 
     #[inline]
-    pub const fn is_transitive(self) -> bool
-    {
+    pub const fn is_transitive(self) -> bool {
         self.0 & Self::TRANSITIVE != 0
     }
 
     #[inline]
-    pub const fn is_symmetric(self) -> bool
-    {
+    pub const fn is_symmetric(self) -> bool {
         self.0 & Self::SYMMETRIC != 0
     }
 
     #[inline]
-    pub const fn is_asymmetric(self) -> bool
-    {
+    pub const fn is_asymmetric(self) -> bool {
         self.0 & Self::ASYMMETRIC != 0
     }
 
     #[inline]
-    pub const fn is_reflexive(self) -> bool
-    {
+    pub const fn is_reflexive(self) -> bool {
         self.0 & Self::REFLEXIVE != 0
     }
 
     #[inline]
-    pub const fn is_irreflexive(self) -> bool
-    {
+    pub const fn is_irreflexive(self) -> bool {
         self.0 & Self::IRREFLEXIVE != 0
     }
 }
@@ -140,8 +130,7 @@ impl OwlCharacteristics
 /// these tables are baked at hydration time (TTL → `OgitFamilyTable`) and
 /// then read-only at runtime.
 #[derive(Clone, Copy, Debug)]
-pub struct FamilyEntry
-{
+pub struct FamilyEntry {
     /// e.g. `"ogit.Network:IPAddress"` — the canonical OGIT URI.
     pub label_uri: &'static str,
     /// Entity / Edge / Attribute discriminant (reuses
@@ -164,13 +153,11 @@ pub struct FamilyEntry
     pub verbs: &'static [u8],
 }
 
-impl FamilyEntry
-{
+impl FamilyEntry {
     /// Construct a minimal `FamilyEntry` for a plain entity — no OWL axioms,
     /// no DOLCE refinement, no provenance. Used by tests and the simplest
     /// hydration paths.
-    pub const fn plain_entity(label_uri: &'static str) -> Self
-    {
+    pub const fn plain_entity(label_uri: &'static str) -> Self {
         Self {
             label_uri,
             kind: SchemaKind::Entity,
@@ -207,19 +194,16 @@ pub struct PerFamilyCodebook;
 /// ~50-200 KB per family depending on entry count + axiom blob sizes.
 /// With ~75 active basins on a hydrated registry, the resident set is
 /// ~5-15 MB. Lookups are O(1) hash probes (sub-microsecond).
-pub struct OgitFamilyTable
-{
+pub struct OgitFamilyTable {
     pub family: OgitFamily,
     pub entries: HashMap<u16, FamilyEntry>,
     pub codebook: PerFamilyCodebook,
 }
 
-impl OgitFamilyTable
-{
+impl OgitFamilyTable {
     /// Construct an empty table for the given family. Hydration populates
     /// `entries` as TTL classes / properties are discovered.
-    pub fn empty(family: OgitFamily) -> Self
-    {
+    pub fn empty(family: OgitFamily) -> Self {
         Self {
             family,
             entries: HashMap::new(),
@@ -233,8 +217,7 @@ impl OgitFamilyTable
     /// release builds the assertion is elided, so callers MUST ensure the
     /// table was selected via `FAMILY_TO_SUPER_DOMAIN`-style routing first.
     #[inline]
-    pub fn lookup(&self, owl: OwlIdentity) -> Option<&FamilyEntry>
-    {
+    pub fn lookup(&self, owl: OwlIdentity) -> Option<&FamilyEntry> {
         debug_assert_eq!(
             owl.family().raw(),
             self.family.raw(),
@@ -248,23 +231,20 @@ impl OgitFamilyTable
     /// Resolve to the canonical label URI for a slot, e.g.
     /// `"ogit.Network:IPAddress"`. Returns `None` if the slot is empty.
     #[inline]
-    pub fn label(&self, owl: OwlIdentity) -> Option<&str>
-    {
+    pub fn label(&self, owl: OwlIdentity) -> Option<&str> {
         self.lookup(owl).map(|e| e.label_uri)
     }
 
     /// What kind of dictionary entry this is (Entity / Edge / Attribute).
     #[inline]
-    pub fn kind(&self, owl: OwlIdentity) -> Option<SchemaKind>
-    {
+    pub fn kind(&self, owl: OwlIdentity) -> Option<SchemaKind> {
         self.lookup(owl).map(|e| e.kind)
     }
 
     /// Does this slot carry the `Functional` OWL characteristic? Cheap
     /// helper for the MUL planner's veto path.
     #[inline]
-    pub fn is_functional(&self, owl: OwlIdentity) -> bool
-    {
+    pub fn is_functional(&self, owl: OwlIdentity) -> bool {
         self.lookup(owl)
             .is_some_and(|e| e.owl_characteristics.is_functional())
     }
@@ -272,48 +252,41 @@ impl OgitFamilyTable
     /// Does this slot carry the `Transitive` OWL characteristic? Used by
     /// the planner's closure-expansion hint.
     #[inline]
-    pub fn is_transitive(&self, owl: OwlIdentity) -> bool
-    {
+    pub fn is_transitive(&self, owl: OwlIdentity) -> bool {
         self.lookup(owl)
             .is_some_and(|e| e.owl_characteristics.is_transitive())
     }
 
     /// Insert / overwrite a slot. Used by hydration; runtime code stays
     /// read-only against `&OgitFamilyTable`.
-    pub fn set(&mut self, slot: u16, entry: FamilyEntry)
-    {
+    pub fn set(&mut self, slot: u16, entry: FamilyEntry) {
         self.entries.insert(slot, entry);
     }
 
     /// Drop a slot's entry. Used by retraction during re-hydration.
-    pub fn clear(&mut self, slot: u16)
-    {
+    pub fn clear(&mut self, slot: u16) {
         self.entries.remove(&slot);
     }
 
     /// Number of occupied slots in this table. O(1).
-    pub fn len(&self) -> usize
-    {
+    pub fn len(&self) -> usize {
         self.entries.len()
     }
 
     /// True when no slots are occupied.
-    pub fn is_empty(&self) -> bool
-    {
+    pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
 }
 
 #[cfg(test)]
-mod tests
-{
+mod tests {
     use super::*;
 
     const TEST_FAMILY: OgitFamily = OgitFamily(7);
 
     #[test]
-    fn empty_table_has_no_entries()
-    {
+    fn empty_table_has_no_entries() {
         let t = OgitFamilyTable::empty(TEST_FAMILY);
         assert_eq!(t.family.raw(), 7);
         assert!(t.is_empty());
@@ -321,8 +294,7 @@ mod tests
     }
 
     #[test]
-    fn lookup_returns_inserted_entry()
-    {
+    fn lookup_returns_inserted_entry() {
         let mut t = OgitFamilyTable::empty(TEST_FAMILY);
         let entry = FamilyEntry::plain_entity("ogit.Test:Patient");
         t.set(42, entry);
@@ -335,16 +307,14 @@ mod tests
     }
 
     #[test]
-    fn lookup_returns_none_for_empty_slot()
-    {
+    fn lookup_returns_none_for_empty_slot() {
         let t = OgitFamilyTable::empty(TEST_FAMILY);
         let owl = OwlIdentity::new(TEST_FAMILY, 0);
         assert!(t.lookup(owl).is_none());
     }
 
     #[test]
-    fn label_kind_helpers_match_lookup()
-    {
+    fn label_kind_helpers_match_lookup() {
         let mut t = OgitFamilyTable::empty(TEST_FAMILY);
         t.set(5, FamilyEntry::plain_entity("ogit.Healthcare:Diagnose"));
 
@@ -354,8 +324,7 @@ mod tests
     }
 
     #[test]
-    fn owl_characteristics_bits_round_trip()
-    {
+    fn owl_characteristics_bits_round_trip() {
         let chars = OwlCharacteristics::from_bits(
             OwlCharacteristics::FUNCTIONAL | OwlCharacteristics::TRANSITIVE,
         );
@@ -367,8 +336,7 @@ mod tests
     }
 
     #[test]
-    fn is_functional_helper_reads_slot()
-    {
+    fn is_functional_helper_reads_slot() {
         let mut t = OgitFamilyTable::empty(TEST_FAMILY);
         let entry = FamilyEntry {
             label_uri: "ogit.Network:hostname",
@@ -387,8 +355,7 @@ mod tests
     }
 
     #[test]
-    fn clear_removes_entry()
-    {
+    fn clear_removes_entry() {
         let mut t = OgitFamilyTable::empty(TEST_FAMILY);
         t.set(99, FamilyEntry::plain_entity("ogit.Test:Removable"));
         assert_eq!(t.len(), 1);
@@ -398,8 +365,7 @@ mod tests
     }
 
     #[test]
-    fn len_counts_populated_slots_only()
-    {
+    fn len_counts_populated_slots_only() {
         let mut t = OgitFamilyTable::empty(TEST_FAMILY);
         for slot in [0, 1, 5, 17, 200] {
             t.set(slot, FamilyEntry::plain_entity("ogit.Test:Multi"));
@@ -408,8 +374,7 @@ mod tests
     }
 
     #[test]
-    fn slot_keyspace_distinguishes_high_ids()
-    {
+    fn slot_keyspace_distinguishes_high_ids() {
         // PR #364 review: registry IDs allocate globally as u16, so slots
         // that differ by 256 used to alias under the old u8 truncation.
         // Lock that two slots in the upper half of the keyspace stay
@@ -426,8 +391,7 @@ mod tests
 
     #[test]
     #[should_panic(expected = "does not match table family")]
-    fn lookup_panics_on_wrong_family_in_debug()
-    {
+    fn lookup_panics_on_wrong_family_in_debug() {
         let t = OgitFamilyTable::empty(TEST_FAMILY);
         // Different family — debug_assert should fire.
         let wrong = OwlIdentity::new(OgitFamily(99), 0);

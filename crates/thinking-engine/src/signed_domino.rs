@@ -8,8 +8,8 @@
 //! Unlike the unsigned cascade where `floor` is an artificial construct,
 //! the signed cascade has a NATURAL zero point: the sign IS the gate.
 
+use crate::domino::{CascadeAtom, CognitiveMarkers, StageResult};
 use crate::signed_engine::SignedThinkingEngine;
-use crate::domino::{CascadeAtom, StageResult, CognitiveMarkers};
 
 /// Signed domino cascade engine.
 pub struct SignedDominoCascade<'a> {
@@ -22,7 +22,8 @@ pub struct SignedDominoCascade<'a> {
 
 impl<'a> SignedDominoCascade<'a> {
     pub fn new(engine: &'a SignedThinkingEngine, centroid_counts: &[u32]) -> Self {
-        let mut idf: Vec<f32> = centroid_counts.iter()
+        let mut idf: Vec<f32> = centroid_counts
+            .iter()
             .map(|&c| 1.0 / (1.0 + (c.max(1) as f32).ln()))
             .collect();
         while idf.len() < engine.size {
@@ -55,8 +56,7 @@ impl<'a> SignedDominoCascade<'a> {
         query.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
 
         let mut stages: Vec<StageResult> = Vec::new();
-        let mut visit_count: std::collections::HashMap<u16, u32> =
-            std::collections::HashMap::new();
+        let mut visit_count: std::collections::HashMap<u16, u32> = std::collections::HashMap::new();
 
         for stage in 0..self.max_stages {
             let mut excitatory: Vec<CascadeAtom> = Vec::new();
@@ -67,11 +67,15 @@ impl<'a> SignedDominoCascade<'a> {
             }
 
             for &(q_idx, q_energy) in &query {
-                if (q_idx as usize) >= n { continue; }
+                if (q_idx as usize) >= n {
+                    continue;
+                }
                 let row = &table[q_idx as usize * n..(q_idx as usize + 1) * n];
 
                 for j in 0..n {
-                    if j == q_idx as usize { continue; }
+                    if j == q_idx as usize {
+                        continue;
+                    }
                     let val = row[j];
 
                     // Sign IS the gate decision
@@ -110,7 +114,8 @@ impl<'a> SignedDominoCascade<'a> {
             let mut deduped: std::collections::HashMap<u16, CascadeAtom> =
                 std::collections::HashMap::new();
             for atom in excitatory {
-                deduped.entry(atom.index)
+                deduped
+                    .entry(atom.index)
                     .and_modify(|e| {
                         e.energy += atom.energy;
                         e.frequency = e.frequency.max(atom.frequency);
@@ -123,73 +128,101 @@ impl<'a> SignedDominoCascade<'a> {
             for atom in &inhibitory {
                 if let Some(exc) = deduped.get_mut(&atom.index) {
                     exc.energy -= atom.energy;
-                    if exc.energy < 0.0 { exc.energy = 0.0; }
+                    if exc.energy < 0.0 {
+                        exc.energy = 0.0;
+                    }
                 }
             }
 
-            let mut neighbors: Vec<CascadeAtom> = deduped.into_values()
-                .filter(|a| a.energy > 0.0)
-                .collect();
+            let mut neighbors: Vec<CascadeAtom> =
+                deduped.into_values().filter(|a| a.energy > 0.0).collect();
             neighbors.sort_by(|a, b| b.energy.partial_cmp(&a.energy).unwrap());
 
-            let focus: Vec<CascadeAtom> = neighbors.iter()
-                .take(self.top_k).cloned().collect();
-            let promoted: Vec<CascadeAtom> = neighbors.iter()
+            let focus: Vec<CascadeAtom> = neighbors.iter().take(self.top_k).cloned().collect();
+            let promoted: Vec<CascadeAtom> = neighbors
+                .iter()
                 .skip(self.top_k)
                 .filter(|a| a.confidence > self.conf_threshold && a.frequency > 0.5)
-                .take(self.top_k * 2).cloned().collect();
+                .take(self.top_k * 2)
+                .cloned()
+                .collect();
 
             // Contradictions = inhibitory atoms with strong confidence
-            let contradictions: Vec<CascadeAtom> = inhibitory.iter()
+            let contradictions: Vec<CascadeAtom> = inhibitory
+                .iter()
                 .filter(|a| a.confidence > self.conf_threshold)
-                .take(self.top_k).cloned().collect();
+                .take(self.top_k)
+                .cloned()
+                .collect();
 
             // Cognitive markers
-            let staunen = focus.iter()
+            let staunen = focus
+                .iter()
                 .filter(|a| visit_count.get(&a.index).copied().unwrap_or(0) == 0)
                 .map(|a| a.frequency * a.confidence)
-                .sum::<f32>() / self.top_k as f32;
+                .sum::<f32>()
+                / self.top_k as f32;
 
             let wisdom = if stage > 0 {
-                let prev: std::collections::HashSet<u16> = stages[stage - 1].focus.iter()
-                    .map(|a| a.index).collect();
-                let curr: std::collections::HashSet<u16> = focus.iter()
-                    .map(|a| a.index).collect();
+                let prev: std::collections::HashSet<u16> =
+                    stages[stage - 1].focus.iter().map(|a| a.index).collect();
+                let curr: std::collections::HashSet<u16> = focus.iter().map(|a| a.index).collect();
                 prev.intersection(&curr).count() as f32 / self.top_k.max(1) as f32
-            } else { 0.0 };
+            } else {
+                0.0
+            };
 
             let epiphany = if stage > 0 && !stages[stage - 1].contradictions.is_empty() {
                 let prev_c = stages[stage - 1].contradictions.len() as f32;
                 let curr_c = contradictions.len() as f32;
-                if curr_c < prev_c * 0.5 { (prev_c - curr_c) / prev_c.max(1.0) } else { 0.0 }
-            } else { 0.0 };
+                if curr_c < prev_c * 0.5 {
+                    (prev_c - curr_c) / prev_c.max(1.0)
+                } else {
+                    0.0
+                }
+            } else {
+                0.0
+            };
 
-            let truth_freq = focus.iter().map(|a| a.frequency).sum::<f32>()
-                / focus.len().max(1) as f32;
-            let truth_conf = focus.iter().map(|a| a.confidence).sum::<f32>()
-                / focus.len().max(1) as f32;
+            let truth_freq =
+                focus.iter().map(|a| a.frequency).sum::<f32>() / focus.len().max(1) as f32;
+            let truth_conf =
+                focus.iter().map(|a| a.confidence).sum::<f32>() / focus.len().max(1) as f32;
 
             let result = StageResult {
                 focus: focus.clone(),
                 promoted: promoted.clone(),
                 contradictions,
                 stage: stage as u8,
-                markers: CognitiveMarkers { staunen, wisdom, epiphany, truth_freq, truth_conf },
+                markers: CognitiveMarkers {
+                    staunen,
+                    wisdom,
+                    epiphany,
+                    truth_freq,
+                    truth_conf,
+                },
             };
             stages.push(result);
 
-            query = focus.iter().chain(promoted.iter())
-                .map(|a| (a.index, a.energy)).collect();
+            query = focus
+                .iter()
+                .chain(promoted.iter())
+                .map(|a| (a.index, a.energy))
+                .collect();
 
             // Stop if stable
             if stage > 0 {
-                let prev: std::collections::HashSet<u16> = stages[stage - 1].focus.iter()
-                    .map(|a| a.index).collect();
-                let curr: std::collections::HashSet<u16> = stages[stage].focus.iter()
-                    .map(|a| a.index).collect();
-                if prev == curr { break; }
+                let prev: std::collections::HashSet<u16> =
+                    stages[stage - 1].focus.iter().map(|a| a.index).collect();
+                let curr: std::collections::HashSet<u16> =
+                    stages[stage].focus.iter().map(|a| a.index).collect();
+                if prev == curr {
+                    break;
+                }
             }
-            if query.is_empty() { break; }
+            if query.is_empty() {
+                break;
+            }
         }
 
         stages
@@ -198,13 +231,12 @@ impl<'a> SignedDominoCascade<'a> {
     /// Run cascade and return dominant atom + stages + inhibition count.
     pub fn think(&self, centroids: &[u16]) -> (u16, Vec<StageResult>, usize) {
         let stages = self.cascade(centroids);
-        let dominant = stages.last()
+        let dominant = stages
+            .last()
             .and_then(|s| s.focus.first())
             .map(|a| a.index)
             .unwrap_or(0);
-        let total_contradictions: usize = stages.iter()
-            .map(|s| s.contradictions.len())
-            .sum();
+        let total_contradictions: usize = stages.iter().map(|s| s.contradictions.len()).sum();
         (dominant, stages, total_contradictions)
     }
 }
@@ -238,8 +270,10 @@ mod tests {
         // Signed tables should naturally produce contradictions
         // (negative table values = inhibitory connections)
         let has_contra = stages.iter().any(|s| !s.contradictions.is_empty());
-        assert!(has_contra || total_contra == 0,
-            "signed cascade should detect contradictions from negative table values");
+        assert!(
+            has_contra || total_contra == 0,
+            "signed cascade should detect contradictions from negative table values"
+        );
     }
 
     #[test]

@@ -164,10 +164,7 @@ pub fn build_neighborhood_arrays(
 ) -> (Arc<Schema>, Vec<Vec<u8>>, Vec<Vec<u8>>) {
     let schema = Arc::new(neighborhoods_schema());
     let scent_bufs: Vec<Vec<u8>> = neighborhoods.iter().map(serialize_scent).collect();
-    let resolution_bufs: Vec<Vec<u8>> = neighborhoods
-        .iter()
-        .map(serialize_resolution)
-        .collect();
+    let resolution_bufs: Vec<Vec<u8>> = neighborhoods.iter().map(serialize_resolution).collect();
     (schema, scent_bufs, resolution_bufs)
 }
 

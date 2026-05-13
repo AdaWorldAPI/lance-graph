@@ -25,9 +25,9 @@
 //! 128 words per dimension / 8 = 16 AVX-512 iterations (zero remainder).
 //! 512 words total / 8 = 64 AVX-512 iterations for full-vector ops.
 
+pub mod compat;
 pub mod holographic;
 pub mod schema;
-pub mod compat;
 pub mod search;
 
 // ============================================================================

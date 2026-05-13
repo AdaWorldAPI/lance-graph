@@ -6,8 +6,8 @@
 //! Built offline by finding the nearest weight row (cosine similarity)
 //! for each token embedding. Replaces the `token_id % K` placeholder.
 
-use std::path::Path;
 use std::io::{Read, Write};
+use std::path::Path;
 
 /// Maps each token_id to a distance-table row index.
 #[derive(Clone, Debug)]
@@ -30,10 +30,16 @@ impl CodebookIndex {
             assert!(
                 idx < table_size,
                 "index[{}] = {} >= table_size {}",
-                i, idx, table_size
+                i,
+                idx,
+                table_size
             );
         }
-        Self { indices, table_size, model }
+        Self {
+            indices,
+            table_size,
+            model,
+        }
     }
 
     /// Look up the distance-table row for a single token.
@@ -91,7 +97,11 @@ impl CodebookIndex {
                 ));
             }
         }
-        Ok(Self { indices, table_size, model })
+        Ok(Self {
+            indices,
+            table_size,
+            model,
+        })
     }
 
     /// Number of tokens in the index (vocab size).

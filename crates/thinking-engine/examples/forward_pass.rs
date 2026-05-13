@@ -10,7 +10,7 @@
 
 #[cfg(feature = "calibration")]
 fn main() {
-    use candle_core::{Device, DType, IndexOp, Tensor};
+    use candle_core::{DType, Device, IndexOp, Tensor};
     use candle_nn::VarBuilder;
     use candle_transformers::models::qwen3;
 
@@ -25,8 +25,10 @@ fn main() {
     let config_path = "crates/thinking-engine/data/jina-v5-onnx/config_candle.json";
     let config_str = std::fs::read_to_string(config_path).expect("config.json not found");
     let config: qwen3::Config = serde_json::from_str(&config_str).expect("parse config");
-    println!("[1] Config: {} layers, {} hidden, {} vocab",
-        config.num_hidden_layers, config.hidden_size, config.vocab_size);
+    println!(
+        "[1] Config: {} layers, {} hidden, {} vocab",
+        config.num_hidden_layers, config.hidden_size, config.vocab_size
+    );
 
     // Step 2: Load safetensors
     // Jina v5 safetensors has no "model." prefix (embed_tokens.weight, not model.embed_tokens.weight)
@@ -39,9 +41,7 @@ fn main() {
     };
     // candle Qwen3 looks for "model.embed_tokens.weight" but safetensors has "embed_tokens.weight"
     // Strip the "model." prefix that candle prepends
-    let vb = vb.rename_f(|name| {
-        name.strip_prefix("model.").unwrap_or(name).to_string()
-    });
+    let vb = vb.rename_f(|name| name.strip_prefix("model.").unwrap_or(name).to_string());
 
     // Step 3: Build model
     println!("[3] Building Qwen3 model...");
@@ -75,14 +75,16 @@ fn main() {
         let ids = enc.get_ids();
         let n_tokens = ids.len();
 
-        let input_ids = Tensor::new(ids, &device).expect("tensor")
-            .unsqueeze(0).expect("batch dim");
+        let input_ids = Tensor::new(ids, &device)
+            .expect("tensor")
+            .unsqueeze(0)
+            .expect("batch dim");
 
         // Fresh model per text (avoids KV cache contamination)
         let vb_fresh = unsafe {
-            VarBuilder::from_mmaped_safetensors(&[model_path], dtype, &device)
-                .expect("reload")
-        }.rename_f(|name| name.strip_prefix("model.").unwrap_or(name).to_string());
+            VarBuilder::from_mmaped_safetensors(&[model_path], dtype, &device).expect("reload")
+        }
+        .rename_f(|name| name.strip_prefix("model.").unwrap_or(name).to_string());
         let mut fresh_model = qwen3::Model::new(&config, vb_fresh).expect("rebuild");
 
         let hidden = fresh_model.forward(&input_ids, 0).expect("forward");
@@ -93,16 +95,26 @@ fn main() {
         // shape: [1024]
 
         // L2 normalize
-        let norm = last_token.sqr().expect("sqr").sum_all().expect("sum").sqrt().expect("sqrt");
+        let norm = last_token
+            .sqr()
+            .expect("sqr")
+            .sum_all()
+            .expect("sum")
+            .sqrt()
+            .expect("sqrt");
         let embedding = last_token.broadcast_div(&norm).expect("normalize");
 
         let emb_vec: Vec<f32> = embedding.to_vec1().expect("to_vec");
 
         let label = if text.len() > 50 { &text[..50] } else { text };
-        println!("  [{}/{}] {} tokens → 1024D  |emb|={:.4}  \"{}\"",
-            i+1, texts.len(), n_tokens,
-            emb_vec.iter().map(|x| x*x).sum::<f32>().sqrt(),
-            label);
+        println!(
+            "  [{}/{}] {} tokens → 1024D  |emb|={:.4}  \"{}\"",
+            i + 1,
+            texts.len(),
+            n_tokens,
+            emb_vec.iter().map(|x| x * x).sum::<f32>().sqrt(),
+            label
+        );
 
         embeddings.push(emb_vec);
     }
@@ -121,27 +133,54 @@ fn main() {
     ];
 
     for &(a, b, label) in &comparison_pairs {
-        let cos: f32 = embeddings[a].iter().zip(&embeddings[b])
-            .map(|(x, y)| x * y).sum();
-        println!("  {:>20}  {:>30}↔{:<30}  {:.4}",
+        let cos: f32 = embeddings[a]
+            .iter()
+            .zip(&embeddings[b])
+            .map(|(x, y)| x * y)
+            .sum();
+        println!(
+            "  {:>20}  {:>30}↔{:<30}  {:.4}",
             label,
-            if texts[a].len() > 28 { &texts[a][..28] } else { texts[a] },
-            if texts[b].len() > 28 { &texts[b][..28] } else { texts[b] },
-            cos);
+            if texts[a].len() > 28 {
+                &texts[a][..28]
+            } else {
+                texts[a]
+            },
+            if texts[b].len() > 28 {
+                &texts[b][..28]
+            } else {
+                texts[b]
+            },
+            cos
+        );
     }
 
     // Step 7: Does it discriminate?
-    let rumi_rumi: f32 = embeddings[0].iter().zip(&embeddings[1]).map(|(x,y)| x*y).sum();
-    let rumi_tcp: f32 = embeddings[0].iter().zip(&embeddings[3]).map(|(x,y)| x*y).sum();
+    let rumi_rumi: f32 = embeddings[0]
+        .iter()
+        .zip(&embeddings[1])
+        .map(|(x, y)| x * y)
+        .sum();
+    let rumi_tcp: f32 = embeddings[0]
+        .iter()
+        .zip(&embeddings[3])
+        .map(|(x, y)| x * y)
+        .sum();
 
     println!("\n═══════════════════════════════════════════════════════════");
     if rumi_rumi > rumi_tcp + 0.05 {
-        println!("  DISCRIMINATES! Rumi↔Rumi ({:.4}) > Rumi↔TCP ({:.4})", rumi_rumi, rumi_tcp);
+        println!(
+            "  DISCRIMINATES! Rumi↔Rumi ({:.4}) > Rumi↔TCP ({:.4})",
+            rumi_rumi, rumi_tcp
+        );
         println!("  Forward pass embeddings HAVE semantic topology.");
         println!("  → Build CLAM codebook from THESE embeddings.");
         println!("  → The playground will WORK with semantic tables.");
     } else {
-        println!("  NO discrimination. Rumi↔Rumi ({:.4}) ≈ Rumi↔TCP ({:.4})", rumi_rumi, rumi_tcp);
+        println!(
+            "  NO discrimination. Rumi↔Rumi ({:.4}) ≈ Rumi↔TCP ({:.4})",
+            rumi_rumi, rumi_tcp
+        );
         println!("  Check: model loading, tokenization, pooling strategy.");
     }
     println!("═══════════════════════════════════════════════════════════");

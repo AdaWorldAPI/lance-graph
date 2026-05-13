@@ -23,8 +23,8 @@
 //!     -- /path/to/model.safetensors
 
 use highheelbgz::rehydrate::SpiralEncoding;
-use ndarray::hpc::safetensors::read_safetensors_header;
 use ndarray::hpc::gguf::{GgmlType, GgufFile};
+use ndarray::hpc::safetensors::read_safetensors_header;
 use ndarray::simd::bf16_to_f32_batch;
 
 use std::fs::File;
@@ -32,52 +32,79 @@ use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::time::Instant;
 
 const TARGET_TENSOR: &str = "talker.model.layers.0.self_attn.k_proj.weight";
-const N_SAMPLE_ROWS: usize = 256;   // how many rows to probe
-const K_VALUES: &[usize] = &[4, 8, 16];  // anchor counts to sweep
-const TOP_K: usize = 5;              // top-K agreement threshold
+const N_SAMPLE_ROWS: usize = 256; // how many rows to probe
+const K_VALUES: &[usize] = &[4, 8, 16]; // anchor counts to sweep
+const TOP_K: usize = 5; // top-K agreement threshold
 const SPIRAL_START: u32 = 0;
-const SPIRAL_STRIDE: u32 = 3;        // k_proj role uses stride=3 per NeuronPrint design
+const SPIRAL_STRIDE: u32 = 3; // k_proj role uses stride=3 per NeuronPrint design
 
 fn load_tensor(path: &str, name_substr: &str) -> (Vec<f32>, [usize; 2]) {
     let file = File::open(path).expect("open model");
     let mut reader = BufReader::new(file);
     let header: GgufFile = read_safetensors_header(&mut reader).expect("parse header");
 
-    let t = header.tensors.iter()
+    let t = header
+        .tensors
+        .iter()
         .find(|t| t.name.contains(name_substr))
         .expect(&format!("tensor '{}' not found", name_substr));
 
     let n: usize = t.dimensions.iter().map(|&d| d as usize).product();
-    let elem_size = match t.dtype { GgmlType::BF16 | GgmlType::F16 => 2, GgmlType::F32 => 4, _ => 2 };
-    reader.seek(SeekFrom::Start(header.tensor_data_offset + t.offset)).unwrap();
+    let elem_size = match t.dtype {
+        GgmlType::BF16 | GgmlType::F16 => 2,
+        GgmlType::F32 => 4,
+        _ => 2,
+    };
+    reader
+        .seek(SeekFrom::Start(header.tensor_data_offset + t.offset))
+        .unwrap();
     let mut raw = vec![0u8; n * elem_size];
     reader.read_exact(&mut raw).unwrap();
 
     let f32_data: Vec<f32> = match t.dtype {
         GgmlType::BF16 => {
-            let u16s: Vec<u16> = raw.chunks_exact(2).map(|c| u16::from_le_bytes([c[0], c[1]])).collect();
+            let u16s: Vec<u16> = raw
+                .chunks_exact(2)
+                .map(|c| u16::from_le_bytes([c[0], c[1]]))
+                .collect();
             let mut out = vec![0.0f32; u16s.len()];
             bf16_to_f32_batch(&u16s, &mut out);
             out
         }
-        GgmlType::F32 => raw.chunks_exact(4).map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]])).collect(),
-        _ => raw.chunks_exact(2)
+        GgmlType::F32 => raw
+            .chunks_exact(4)
+            .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+            .collect(),
+        _ => raw
+            .chunks_exact(2)
             .map(|c| ndarray::hpc::gguf::f16_to_f32(u16::from_le_bytes([c[0], c[1]])))
             .collect(),
     };
-    let shape = [t.dimensions[0] as usize, t.dimensions.iter().skip(1).map(|&d| d as usize).product()];
+    let shape = [
+        t.dimensions[0] as usize,
+        t.dimensions.iter().skip(1).map(|&d| d as usize).product(),
+    ];
     println!("  Loaded '{}' shape={:?}", t.name, shape);
     (f32_data, shape)
 }
 
 fn cosine_f32(a: &[f32], b: &[f32]) -> f64 {
-    let mut dot = 0.0f64; let mut na = 0.0f64; let mut nb = 0.0f64;
+    let mut dot = 0.0f64;
+    let mut na = 0.0f64;
+    let mut nb = 0.0f64;
     for i in 0..a.len().min(b.len()) {
-        let x = a[i] as f64; let y = b[i] as f64;
-        dot += x * y; na += x * x; nb += y * y;
+        let x = a[i] as f64;
+        let y = b[i] as f64;
+        dot += x * y;
+        na += x * x;
+        nb += y * y;
     }
     let d = (na * nb).sqrt();
-    if d < 1e-15 { 0.0 } else { dot / d }
+    if d < 1e-15 {
+        0.0
+    } else {
+        dot / d
+    }
 }
 
 /// Measure nearest-neighbor preservation for one K value.
@@ -86,7 +113,8 @@ fn probe_k(rows: &[Vec<f32>], k: usize) {
     let t0 = Instant::now();
 
     // Encode all rows at this K.
-    let encodings: Vec<SpiralEncoding> = rows.iter()
+    let encodings: Vec<SpiralEncoding> = rows
+        .iter()
         .map(|r| SpiralEncoding::encode(r, SPIRAL_START, SPIRAL_STRIDE, k))
         .collect();
     let encode_ms = t0.elapsed().as_secs_f32() * 1000.0;
@@ -95,7 +123,9 @@ fn probe_k(rows: &[Vec<f32>], k: usize) {
     let mut self_cos_min = 1.0f64;
     for enc in &encodings {
         let c = enc.cosine(enc);
-        if c < self_cos_min { self_cos_min = c; }
+        if c < self_cos_min {
+            self_cos_min = c;
+        }
     }
 
     // G2: NN preservation. For each row, compare:
@@ -109,22 +139,29 @@ fn probe_k(rows: &[Vec<f32>], k: usize) {
 
     for i in 0..n {
         // Raw pairwise scores excluding self.
-        let mut raw_scores: Vec<(usize, f64)> = (0..n).filter(|&j| j != i)
+        let mut raw_scores: Vec<(usize, f64)> = (0..n)
+            .filter(|&j| j != i)
             .map(|j| (j, cosine_f32(&rows[i], &rows[j])))
             .collect();
         raw_scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
         let raw_top1 = raw_scores[0].0;
 
         // Signature pairwise scores excluding self.
-        let mut sig_scores: Vec<(usize, f64)> = (0..n).filter(|&j| j != i)
+        let mut sig_scores: Vec<(usize, f64)> = (0..n)
+            .filter(|&j| j != i)
             .map(|j| (j, encodings[i].cosine(&encodings[j])))
             .collect();
         sig_scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
         let sig_top1 = sig_scores[0].0;
-        let sig_topk: std::collections::HashSet<usize> = sig_scores.iter().take(TOP_K).map(|(j, _)| *j).collect();
+        let sig_topk: std::collections::HashSet<usize> =
+            sig_scores.iter().take(TOP_K).map(|(j, _)| *j).collect();
 
-        if raw_top1 == sig_top1 { top1_match += 1; }
-        if sig_topk.contains(&raw_top1) { topk_match += 1; }
+        if raw_top1 == sig_top1 {
+            top1_match += 1;
+        }
+        if sig_topk.contains(&raw_top1) {
+            topk_match += 1;
+        }
     }
     let probe_ms = t1.elapsed().as_secs_f32() * 1000.0;
 
@@ -134,23 +171,36 @@ fn probe_k(rows: &[Vec<f32>], k: usize) {
     let sample = n.min(64);
     let mut rank_agreement_sum = 0.0f64;
     for i in 0..sample {
-        let raw_ranks: Vec<(usize, f64)> = (0..n).filter(|&j| j != i)
+        let raw_ranks: Vec<(usize, f64)> = (0..n)
+            .filter(|&j| j != i)
             .map(|j| (j, cosine_f32(&rows[i], &rows[j])))
             .collect();
-        let sig_ranks: Vec<(usize, f64)> = (0..n).filter(|&j| j != i)
+        let sig_ranks: Vec<(usize, f64)> = (0..n)
+            .filter(|&j| j != i)
             .map(|j| (j, encodings[i].cosine(&encodings[j])))
             .collect();
 
         // Spearman-esque: how often do the TWO rankings agree on a random pair?
-        let mut agree = 0usize; let mut total = 0usize;
+        let mut agree = 0usize;
+        let mut total = 0usize;
         for a in 0..raw_ranks.len() {
             for b in (a + 1)..raw_ranks.len() {
                 let raw_order = raw_ranks[a].1 > raw_ranks[b].1;
                 // Find sig_rank entries matching a and b
-                let sa_val = sig_ranks.iter().find(|(j, _)| *j == raw_ranks[a].0).unwrap().1;
-                let sb_val = sig_ranks.iter().find(|(j, _)| *j == raw_ranks[b].0).unwrap().1;
+                let sa_val = sig_ranks
+                    .iter()
+                    .find(|(j, _)| *j == raw_ranks[a].0)
+                    .unwrap()
+                    .1;
+                let sb_val = sig_ranks
+                    .iter()
+                    .find(|(j, _)| *j == raw_ranks[b].0)
+                    .unwrap()
+                    .1;
                 let sig_order = sa_val > sb_val;
-                if raw_order == sig_order { agree += 1; }
+                if raw_order == sig_order {
+                    agree += 1;
+                }
                 total += 1;
             }
         }
@@ -167,7 +217,8 @@ fn probe_k(rows: &[Vec<f32>], k: usize) {
 }
 
 fn main() {
-    let model_path = std::env::args().nth(1)
+    let model_path = std::env::args()
+        .nth(1)
         .expect("usage: spiral_reconstruction_probe <model.safetensors>");
 
     println!("═══ spiral_reconstruction_probe — SpiralEncoding on real Qwen3 ═══");
@@ -203,7 +254,9 @@ fn main() {
     println!("  G2 top-1 NN match ≥ 90% → SpiralEncoding signature preserves neighborhood");
     println!("  G3 pairwise-rank-agree ≥ 0.85 → rank correlation strong enough for cascade");
     println!();
-    println!("  If G2+G3 pass: Path B from #184 is viable with SpiralEncoding as the palette substrate.");
+    println!(
+        "  If G2+G3 pass: Path B from #184 is viable with SpiralEncoding as the palette substrate."
+    );
     println!("  If either fails: spiral trajectory insufficient for Qwen3 weight inner-product structure.");
     println!("═══ DONE ═══");
 }

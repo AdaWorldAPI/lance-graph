@@ -10,8 +10,8 @@
 //! Edge topology is extracted from container W16-31 inline edges, mapped
 //! through palette assignments to produce archetype-level graph structure.
 
+use crate::container::{CONTAINER_WORDS, W_INLINE_EDGES_END, W_INLINE_EDGES_START};
 use crate::distance_matrix::SpoDistanceMatrices;
-use crate::container::{CONTAINER_WORDS, W_INLINE_EDGES_START, W_INLINE_EDGES_END};
 use crate::palette::PaletteEdge;
 use crate::scope::Bgz17Scope;
 
@@ -64,12 +64,14 @@ impl PaletteCsr {
         containers: &[[u64; CONTAINER_WORDS]],
     ) -> Self {
         let n = scope.edge_count;
-        let k = scope.palette_s.len().max(scope.palette_p.len()).max(scope.palette_o.len());
+        let k = scope
+            .palette_s
+            .len()
+            .max(scope.palette_p.len())
+            .max(scope.palette_o.len());
 
         // Assign each node to an archetype: use subject palette index as primary.
-        let assignments: Vec<u8> = scope.palette_indices.iter()
-            .map(|pe| pe.s_idx)
-            .collect();
+        let assignments: Vec<u8> = scope.palette_indices.iter().map(|pe| pe.s_idx).collect();
 
         // Build archetype membership lists
         let mut archetype_members = vec![Vec::new(); k];
@@ -165,7 +167,8 @@ impl PaletteCsr {
         let left = self.build_tree_node(&left_set);
         let right = self.build_tree_node(&right_set);
 
-        let member_count: usize = archetypes.iter()
+        let member_count: usize = archetypes
+            .iter()
             .map(|&a| self.archetype_members[a as usize].len())
             .sum();
 
@@ -186,7 +189,10 @@ impl PaletteCsr {
         let mut best = (archetypes[0], archetypes[0]);
         for i in 0..archetypes.len() {
             for j in (i + 1)..archetypes.len() {
-                let d = self.distances.subject.distance(archetypes[i], archetypes[j]) as u32;
+                let d = self
+                    .distances
+                    .subject
+                    .distance(archetypes[i], archetypes[j]) as u32;
                 if d > best_dist {
                     best_dist = d;
                     best = (archetypes[i], archetypes[j]);
@@ -200,8 +206,13 @@ impl PaletteCsr {
         let mut max_d = 0u32;
         for i in 0..archetypes.len() {
             for j in (i + 1)..archetypes.len() {
-                let d = self.distances.subject.distance(archetypes[i], archetypes[j]) as u32;
-                if d > max_d { max_d = d; }
+                let d = self
+                    .distances
+                    .subject
+                    .distance(archetypes[i], archetypes[j]) as u32;
+                if d > max_d {
+                    max_d = d;
+                }
             }
         }
         max_d
@@ -210,18 +221,18 @@ impl PaletteCsr {
     /// Search: find top-k nearest nodes to a query.
     ///
     /// Uses archetype-level distances to prune, then refines within archetypes.
-    pub fn search(
-        &self,
-        query_pe: &PaletteEdge,
-        k_results: usize,
-    ) -> Vec<(usize, u32)> {
+    pub fn search(&self, query_pe: &PaletteEdge, k_results: usize) -> Vec<(usize, u32)> {
         // Score each archetype
         let mut arch_scores: Vec<(u8, u32)> = (0..self.k as u8)
             .filter(|&a| !self.archetype_members[a as usize].is_empty())
             .map(|a| {
                 let d = self.distances.spo_distance(
-                    query_pe.s_idx, query_pe.p_idx, query_pe.o_idx,
-                    a, a, a,  // archetype centroid (simplified: same index for all planes)
+                    query_pe.s_idx,
+                    query_pe.p_idx,
+                    query_pe.o_idx,
+                    a,
+                    a,
+                    a, // archetype centroid (simplified: same index for all planes)
                 );
                 (a, d)
             })
@@ -235,8 +246,12 @@ impl PaletteCsr {
                 // Use the node's actual palette indices (s, p, o) for distance
                 let node_pe = &self.palette_indices[node_idx];
                 let d = self.distances.spo_distance(
-                    query_pe.s_idx, query_pe.p_idx, query_pe.o_idx,
-                    node_pe.s_idx, node_pe.p_idx, node_pe.o_idx,
+                    query_pe.s_idx,
+                    query_pe.p_idx,
+                    query_pe.o_idx,
+                    node_pe.s_idx,
+                    node_pe.p_idx,
+                    node_pe.o_idx,
                 );
                 results.push((node_idx, d));
             }
@@ -258,11 +273,15 @@ impl PaletteCsr {
 fn extract_inline_edges(container: &[u64; CONTAINER_WORDS]) -> Vec<(u8, u8)> {
     let mut edges = Vec::new();
     for &word in &container[W_INLINE_EDGES_START..=W_INLINE_EDGES_END] {
-        if word == 0 { break; }
+        if word == 0 {
+            break;
+        }
         for shift in (0..64).step_by(16) {
             let verb = ((word >> shift) & 0xFF) as u8;
             let target = ((word >> (shift + 8)) & 0xFF) as u8;
-            if verb == 0 && target == 0 { return edges; }
+            if verb == 0 && target == 0 {
+                return edges;
+            }
             edges.push((verb, target));
         }
     }
@@ -272,14 +291,16 @@ fn extract_inline_edges(container: &[u64; CONTAINER_WORDS]) -> Vec<(u8, u8)> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::container::{CONTAINER_WORDS, InlineEdge};
+    use crate::container::{InlineEdge, CONTAINER_WORDS};
     use crate::scope::Bgz17Scope;
 
     fn random_plane(seed: u64) -> Vec<i8> {
         let mut v = vec![0i8; 16384];
         let mut s = seed;
         for x in v.iter_mut() {
-            s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            s = s
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
             *x = (s >> 33) as i8;
         }
         v
@@ -290,8 +311,14 @@ mod tests {
         // Pack some synthetic inline edges into W16-31
         for (i, container) in containers.iter_mut().enumerate() {
             // Each node has 2-3 edges to nearby nodes
-            let e1 = InlineEdge { verb: 1, target: ((i + 1) % n) as u8 };
-            let e2 = InlineEdge { verb: 2, target: ((i + 2) % n) as u8 };
+            let e1 = InlineEdge {
+                verb: 1,
+                target: ((i + 1) % n) as u8,
+            };
+            let e2 = InlineEdge {
+                verb: 2,
+                target: ((i + 2) % n) as u8,
+            };
             let quad = [e1, e2, InlineEdge::default(), InlineEdge::default()];
             container[W_INLINE_EDGES_START] = InlineEdge::pack4(&quad);
         }
@@ -301,8 +328,14 @@ mod tests {
     #[test]
     fn test_extract_inline_edges() {
         let mut container = [0u64; CONTAINER_WORDS];
-        let e1 = InlineEdge { verb: 5, target: 10 };
-        let e2 = InlineEdge { verb: 7, target: 20 };
+        let e1 = InlineEdge {
+            verb: 5,
+            target: 10,
+        };
+        let e2 = InlineEdge {
+            verb: 7,
+            target: 20,
+        };
         let quad = [e1, e2, InlineEdge::default(), InlineEdge::default()];
         container[W_INLINE_EDGES_START] = InlineEdge::pack4(&quad);
 
@@ -318,7 +351,11 @@ mod tests {
         let planes: Vec<(Vec<i8>, Vec<i8>, Vec<i8>)> = (0..n)
             .map(|i| {
                 let s = i as u64;
-                (random_plane(s * 3), random_plane(s * 3 + 1), random_plane(s * 3 + 2))
+                (
+                    random_plane(s * 3),
+                    random_plane(s * 3 + 1),
+                    random_plane(s * 3 + 2),
+                )
             })
             .collect();
 
@@ -335,7 +372,9 @@ mod tests {
         }
 
         // At least some archetypes should have members
-        let non_empty: usize = pcsr.archetype_members.iter()
+        let non_empty: usize = pcsr
+            .archetype_members
+            .iter()
             .filter(|m| !m.is_empty())
             .count();
         assert!(non_empty > 0);
@@ -347,7 +386,11 @@ mod tests {
         let planes: Vec<(Vec<i8>, Vec<i8>, Vec<i8>)> = (0..n)
             .map(|i| {
                 let s = i as u64;
-                (random_plane(s * 3 + 100), random_plane(s * 3 + 101), random_plane(s * 3 + 102))
+                (
+                    random_plane(s * 3 + 100),
+                    random_plane(s * 3 + 101),
+                    random_plane(s * 3 + 102),
+                )
             })
             .collect();
 
@@ -366,7 +409,11 @@ mod tests {
         let planes: Vec<(Vec<i8>, Vec<i8>, Vec<i8>)> = (0..n)
             .map(|i| {
                 let s = i as u64;
-                (random_plane(s * 3 + 200), random_plane(s * 3 + 201), random_plane(s * 3 + 202))
+                (
+                    random_plane(s * 3 + 200),
+                    random_plane(s * 3 + 201),
+                    random_plane(s * 3 + 202),
+                )
             })
             .collect();
 
@@ -374,7 +421,11 @@ mod tests {
         let containers = make_containers_with_edges(n);
         let pcsr = PaletteCsr::from_scope_with_edges(&scope, &containers);
 
-        let query = PaletteEdge { s_idx: 0, p_idx: 0, o_idx: 0 };
+        let query = PaletteEdge {
+            s_idx: 0,
+            p_idx: 0,
+            o_idx: 0,
+        };
         let results = pcsr.search(&query, 5);
 
         // Results should be sorted by distance

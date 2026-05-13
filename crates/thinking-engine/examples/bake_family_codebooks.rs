@@ -37,12 +37,14 @@
 //! ```
 
 #[cfg(not(feature = "calibration"))]
-fn main() { eprintln!("Requires --features calibration"); }
+fn main() {
+    eprintln!("Requires --features calibration");
+}
 
 #[cfg(feature = "calibration")]
 fn main() {
-    use bgz17::rabitq_compat::{OrthogonalMatrix, RaBitQEncoding};
     use bgz17::palette::Palette;
+    use bgz17::rabitq_compat::{OrthogonalMatrix, RaBitQEncoding};
     use rayon::prelude::*;
 
     // ── Configuration ──
@@ -55,16 +57,17 @@ fn main() {
 
     // Parse K from argv (default 256).
     let args: Vec<String> = std::env::args().collect();
-    let k: usize = args.get(1)
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(256);
+    let k: usize = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(256);
 
     println!("═══════════════════════════════════════════════════════════");
     println!("  BAKE FAMILY CODEBOOKS — MVP v1");
     println!("  Source : {}", SAFETENSORS_PATH);
     println!("  Tensor : {}", TENSOR_NAME);
     println!("  K      : {} centroids", k);
-    println!("  Algo   : RaBitQ FPS init + F32 k-means refinement ({} iters)", N_REFINE_ITERS);
+    println!(
+        "  Algo   : RaBitQ FPS init + F32 k-means refinement ({} iters)",
+        N_REFINE_ITERS
+    );
     println!("═══════════════════════════════════════════════════════════\n");
 
     // ── Step 1: Load safetensors via the upstream crate ──
@@ -91,13 +94,20 @@ fn main() {
     let dim = shape[1];
     println!(
         "  {} shape=[{}, {}] dtype={:?} ({:.2} MB) loaded in {:.1}s",
-        TENSOR_NAME, vocab, dim, embed.dtype(),
+        TENSOR_NAME,
+        vocab,
+        dim,
+        embed.dtype(),
         bytes.len() as f64 / 1e6,
         t_start.elapsed().as_secs_f64()
     );
     assert_eq!(vocab, EXPECTED_VOCAB, "vocab size mismatch");
     assert_eq!(dim, EXPECTED_DIM, "hidden dim mismatch");
-    assert_eq!(embed.dtype(), safetensors::Dtype::BF16, "expected BF16 source");
+    assert_eq!(
+        embed.dtype(),
+        safetensors::Dtype::BF16,
+        "expected BF16 source"
+    );
 
     // ── Step 2: Upcast BF16 → F32 in one batch pass ──
     // This is the only materialized F32 buffer in the bake (vocab × dim × 4
@@ -132,17 +142,25 @@ fn main() {
     let mut norms = vec![0.0f32; vocab];
     for v in 0..vocab {
         let row = &mut embeddings[v * dim..(v + 1) * dim];
-        let norm = row.iter().map(|x| (*x as f64) * (*x as f64)).sum::<f64>().sqrt() as f32;
+        let norm = row
+            .iter()
+            .map(|x| (*x as f64) * (*x as f64))
+            .sum::<f64>()
+            .sqrt() as f32;
         norms[v] = norm;
         if norm > 1e-12 {
             let inv = 1.0 / norm;
-            for x in row.iter_mut() { *x *= inv; }
+            for x in row.iter_mut() {
+                *x *= inv;
+            }
         }
     }
     let nonzero_norms = norms.iter().filter(|&&n| n > 1e-12).count();
     println!(
         "  {} non-zero norms of {} total in {:.2}s",
-        nonzero_norms, vocab, t_norm.elapsed().as_secs_f64()
+        nonzero_norms,
+        vocab,
+        t_norm.elapsed().as_secs_f64()
     );
 
     // ── Step 4: RaBitQ encode every row (first-pass binary signature) ──
@@ -199,15 +217,22 @@ fn main() {
             .zip(rabitq_encodings.par_iter())
             .for_each(|(md, enc)| {
                 let d = enc.hamming_distance(new_enc);
-                if d < *md { *md = d; }
+                if d < *md {
+                    *md = d;
+                }
             });
     }
-    println!("  {} centroids picked in {:.1}s", selected.len(), t_fps.elapsed().as_secs_f64());
+    println!(
+        "  {} centroids picked in {:.1}s",
+        selected.len(),
+        t_fps.elapsed().as_secs_f64()
+    );
 
     // ── Step 6: Initial assignment (nearest Hamming centroid) ──
     println!("\n[6] Initial bucket assignment by Hamming distance");
     let t_assign = std::time::Instant::now();
-    let centroid_encs: Vec<&RaBitQEncoding> = selected.iter().map(|&i| &rabitq_encodings[i]).collect();
+    let centroid_encs: Vec<&RaBitQEncoding> =
+        selected.iter().map(|&i| &rabitq_encodings[i]).collect();
     let mut assignments: Vec<u16> = (0..vocab)
         .into_par_iter()
         .map(|v| {
@@ -215,7 +240,10 @@ fn main() {
             let mut best_d = u32::MAX;
             for (c, enc) in centroid_encs.iter().enumerate() {
                 let d = rabitq_encodings[v].hamming_distance(enc);
-                if d < best_d { best_d = d; best = c as u16; }
+                if d < best_d {
+                    best_d = d;
+                    best = c as u16;
+                }
             }
             best
         })
@@ -226,8 +254,10 @@ fn main() {
     // Iteratively: compute F32 mean per bucket → reassign rows by
     // cosine similarity to the new means → repeat until convergence
     // or N_REFINE_ITERS exhausted.
-    println!("\n[7] F32 k-means refinement (max {} iterations, ε = {:.4})",
-        N_REFINE_ITERS, CONVERGENCE_EPS);
+    println!(
+        "\n[7] F32 k-means refinement (max {} iterations, ε = {:.4})",
+        N_REFINE_ITERS, CONVERGENCE_EPS
+    );
     let mut centroids: Vec<Vec<f32>> = compute_centroid_means(&embeddings, &assignments, k, dim);
     for iter in 0..N_REFINE_ITERS {
         let t_iter = std::time::Instant::now();
@@ -240,7 +270,10 @@ fn main() {
                 let mut best_sim = f32::NEG_INFINITY;
                 for (c, cent) in centroids.iter().enumerate() {
                     let dot: f32 = row.iter().zip(cent.iter()).map(|(a, b)| a * b).sum();
-                    if dot > best_sim { best_sim = dot; best = c as u16; }
+                    if dot > best_sim {
+                        best_sim = dot;
+                        best = c as u16;
+                    }
                 }
                 best
             })
@@ -280,55 +313,58 @@ fn main() {
         );
 
         if mean_move < CONVERGENCE_EPS {
-            println!("  Converged at iter {} (mean Δ < {:.4})", iter + 1, CONVERGENCE_EPS);
+            println!(
+                "  Converged at iter {} (mean Δ < {:.4})",
+                iter + 1,
+                CONVERGENCE_EPS
+            );
             break;
         }
     }
 
     // ── Step 8: Final bucket statistics ──
     let mut bucket_counts = vec![0u32; k];
-    for &a in &assignments { bucket_counts[a as usize] += 1; }
+    for &a in &assignments {
+        bucket_counts[a as usize] += 1;
+    }
     let min_bucket = *bucket_counts.iter().min().unwrap_or(&0);
     let max_bucket = *bucket_counts.iter().max().unwrap_or(&0);
     let mean_bucket = vocab as f64 / k as f64;
     let var: f64 = bucket_counts
         .iter()
         .map(|&c| (c as f64 - mean_bucket).powi(2))
-        .sum::<f64>() / k as f64;
+        .sum::<f64>()
+        / k as f64;
     let std_bucket = var.sqrt();
     let balance_ratio = max_bucket as f64 / mean_bucket;
 
     println!("\n[8] Bucket statistics:");
     println!("  K = {}, vocab = {}, mean = {:.1}", k, vocab, mean_bucket);
-    println!("  min = {}, max = {}, std = {:.1}", min_bucket, max_bucket, std_bucket);
+    println!(
+        "  min = {}, max = {}, std = {:.1}",
+        min_bucket, max_bucket, std_bucket
+    );
     println!("  balance ratio (max / mean) = {:.2}", balance_ratio);
     if balance_ratio > 5.0 {
         eprintln!("  ⚠ balance ratio > 5 — buckets are highly uneven; tree hierarchy may fail");
     }
 
     // ── Step 9: Save outputs ──
-    let out_dir = format!(
-        "crates/thinking-engine/data/qwen3-0.6b-family-embed-{}", k
-    );
+    let out_dir = format!("crates/thinking-engine/data/qwen3-0.6b-family-embed-{}", k);
     std::fs::create_dir_all(&out_dir).ok();
 
     let centroid_bytes: Vec<u8> = centroids
         .iter()
         .flat_map(|c| c.iter().flat_map(|x| x.to_le_bytes()))
         .collect();
-    std::fs::write(
-        format!("{}/centroids_f32.bin", out_dir),
-        &centroid_bytes,
-    ).unwrap();
+    std::fs::write(format!("{}/centroids_f32.bin", out_dir), &centroid_bytes).unwrap();
 
-    let assignments_bytes: Vec<u8> = assignments
-        .iter()
-        .flat_map(|a| a.to_le_bytes())
-        .collect();
+    let assignments_bytes: Vec<u8> = assignments.iter().flat_map(|a| a.to_le_bytes()).collect();
     std::fs::write(
         format!("{}/assignments_u16.bin", out_dir),
         &assignments_bytes,
-    ).unwrap();
+    )
+    .unwrap();
 
     let metadata = serde_json::json!({
         "model": "qwen3-0.6b",
@@ -366,7 +402,8 @@ fn main() {
     std::fs::write(
         format!("{}/metadata.json", out_dir),
         serde_json::to_string_pretty(&metadata).unwrap(),
-    ).unwrap();
+    )
+    .unwrap();
 
     println!("\n[9] Saved to {}", out_dir);
     println!("═══════════════════════════════════════════════════════════");
@@ -390,7 +427,9 @@ fn compute_centroid_means(
         let bucket = c as usize;
         counts[bucket] += 1;
         let row = &embeddings[v * dim..(v + 1) * dim];
-        for d in 0..dim { sums[bucket][d] += row[d] as f64; }
+        for d in 0..dim {
+            sums[bucket][d] += row[d] as f64;
+        }
     }
     (0..k)
         .map(|c| {
@@ -406,7 +445,9 @@ fn compute_centroid_means(
                 .sqrt() as f32;
             if norm > 1e-12 {
                 let inv = 1.0 / norm;
-                for x in centroid.iter_mut() { *x *= inv; }
+                for x in centroid.iter_mut() {
+                    *x *= inv;
+                }
             }
             centroid
         })

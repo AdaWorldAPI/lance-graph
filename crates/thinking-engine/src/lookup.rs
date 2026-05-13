@@ -58,15 +58,18 @@ impl TextToThought {
             std::path::Path::new(codebook_path),
             table_size as u16,
             model.into(),
-        ).map_err(|e| format!("codebook: {}", e))?;
+        )
+        .map_err(|e| format!("codebook: {}", e))?;
 
-        let table_data = std::fs::read(table_path)
-            .map_err(|e| format!("table: {}", e))?;
+        let table_data = std::fs::read(table_path).map_err(|e| format!("table: {}", e))?;
 
         if table_data.len() != table_size * table_size {
             return Err(format!(
                 "table size mismatch: file {} bytes, expected {}×{}={}",
-                table_data.len(), table_size, table_size, table_size * table_size
+                table_data.len(),
+                table_size,
+                table_size,
+                table_size * table_size
             ));
         }
 
@@ -101,7 +104,9 @@ impl TextToThought {
         let start = std::time::Instant::now();
 
         // Tokenize
-        let encoding = self.tokenizer.encode(text, true)
+        let encoding = self
+            .tokenizer
+            .encode(text, true)
             .expect("tokenization failed");
         let token_ids = encoding.get_ids();
 
@@ -198,8 +203,16 @@ mod tests {
             bus: BusDto {
                 codebook_index: 42,
                 energy: 0.15,
-                top_k: [(42, 0.15), (0, 0.0), (0, 0.0), (0, 0.0),
-                         (0, 0.0), (0, 0.0), (0, 0.0), (0, 0.0)],
+                top_k: [
+                    (42, 0.15),
+                    (0, 0.0),
+                    (0, 0.0),
+                    (0, 0.0),
+                    (0, 0.0),
+                    (0, 0.0),
+                    (0, 0.0),
+                    (0, 0.0),
+                ],
                 cycle_count: 5,
                 converged: true,
             },

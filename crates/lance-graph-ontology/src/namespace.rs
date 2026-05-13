@@ -130,9 +130,8 @@ impl SchemaPtr {
     /// back-compat). Use [`SchemaPtr::with_context_id`] to attach a context
     /// after construction.
     pub const fn new(namespace_id: NamespaceId, entity_type_id: u16, kind: SchemaKind) -> Self {
-        let packed = ((namespace_id.0 as u32) << 24)
-            | ((entity_type_id as u32) << 8)
-            | (kind as u32 & 0xFF);
+        let packed =
+            ((namespace_id.0 as u32) << 24) | ((entity_type_id as u32) << 8) | (kind as u32 & 0xFF);
         Self {
             packed,
             ontology_context_id: 0,

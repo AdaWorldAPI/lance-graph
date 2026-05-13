@@ -31,10 +31,10 @@
 #[allow(unused_imports)]
 use crate::base17::SpoBase17;
 #[allow(unused_imports)]
-use crate::palette::PaletteEdge;
-#[allow(unused_imports)]
 use crate::distance_matrix::SpoDistanceMatrices;
 use crate::layered::LayeredScope;
+#[allow(unused_imports)]
+use crate::palette::PaletteEdge;
 
 // Precision is defined in lib.rs (crate root) and re-exported here for convenience.
 pub use crate::Precision;
@@ -118,14 +118,11 @@ impl Bgz17Distance for Bgz17Metric {
             Precision::Palette => {
                 let pa = &self.scope.palette_edges[a];
                 let pb = &self.scope.palette_edges[b];
-                self.scope.distance_matrices.spo_distance(
-                    pa.s_idx, pa.p_idx, pa.o_idx,
-                    pb.s_idx, pb.p_idx, pb.o_idx,
-                )
+                self.scope
+                    .distance_matrices
+                    .spo_distance(pa.s_idx, pa.p_idx, pa.o_idx, pb.s_idx, pb.p_idx, pb.o_idx)
             }
-            Precision::Base => {
-                self.scope.base_patterns[a].l1(&self.scope.base_patterns[b])
-            }
+            Precision::Base => self.scope.base_patterns[a].l1(&self.scope.base_patterns[b]),
             Precision::Exact => {
                 // Would require loading full planes from Lance.
                 // Fall back to Base as upper bound.
@@ -147,11 +144,7 @@ impl Bgz17Distance for Bgz17Metric {
 /// Palette-minimum precision.
 ///
 /// For production search with HEEL pre-filter, use `search_prefilter_then_sieve()`.
-pub fn cakes_sieve(
-    metric: &Bgz17Metric,
-    query_idx: usize,
-    k: usize,
-) -> Vec<(usize, u32)> {
+pub fn cakes_sieve(metric: &Bgz17Metric, query_idx: usize, k: usize) -> Vec<(usize, u32)> {
     // Simple brute-force k-NN using palette distance (Layer 1).
     // The real CAKES sieve walks a CLAM tree — this is the baseline
     // that the tree-based sieve improves upon.
@@ -223,7 +216,8 @@ pub fn search_prefilter_then_sieve(
     prefilter.truncate(prefilter_k);
 
     // Stage 2: re-rank survivors with metric-safe Palette distance
-    let mut hits: Vec<(usize, u32)> = prefilter.iter()
+    let mut hits: Vec<(usize, u32)> = prefilter
+        .iter()
         .map(|&(i, _)| (i, metric.distance(query_idx, i))) // distance() = Palette
         .collect();
     hits.sort_by_key(|&(_, d)| d);
@@ -274,15 +268,17 @@ pub fn hhtl_leaf_bgz17(
 mod tests {
     use super::*;
     use crate::base17::Base17;
-    use crate::palette::Palette;
     use crate::distance_matrix::SpoDistanceMatrices;
+    use crate::palette::Palette;
     use crate::scope::Bgz17Scope;
 
     fn random_plane(seed: u64) -> Vec<i8> {
         let mut v = vec![0i8; crate::FULL_DIM];
         let mut s = seed;
         for x in v.iter_mut() {
-            s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            s = s
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
             *x = (s >> 33) as i8;
         }
         v
@@ -291,7 +287,13 @@ mod tests {
     #[test]
     fn test_bgz17_metric_self_zero() {
         let planes: Vec<_> = (0..50)
-            .map(|i| (random_plane(i * 3), random_plane(i * 3 + 1), random_plane(i * 3 + 2)))
+            .map(|i| {
+                (
+                    random_plane(i * 3),
+                    random_plane(i * 3 + 1),
+                    random_plane(i * 3 + 2),
+                )
+            })
             .collect();
         let scope = Bgz17Scope::build(1, &planes, 32);
         let metric = Bgz17Metric::new(scope.to_layered_scope());
@@ -306,7 +308,13 @@ mod tests {
     #[test]
     fn test_precision_ordering() {
         let planes: Vec<_> = (0..30)
-            .map(|i| (random_plane(i * 3), random_plane(i * 3 + 1), random_plane(i * 3 + 2)))
+            .map(|i| {
+                (
+                    random_plane(i * 3),
+                    random_plane(i * 3 + 1),
+                    random_plane(i * 3 + 2),
+                )
+            })
             .collect();
         let scope = Bgz17Scope::build(1, &planes, 16);
         let metric = Bgz17Metric::new(scope.to_layered_scope());
@@ -318,13 +326,22 @@ mod tests {
 
         // All should be non-negative, scent should be coarsest (0-8 range)
         assert!(d_scent <= 8, "Scent distance max is 8, got {}", d_scent);
-        println!("Distances: scent={}, palette={}, base={}", d_scent, d_palette, d_base);
+        println!(
+            "Distances: scent={}, palette={}, base={}",
+            d_scent, d_palette, d_base
+        );
     }
 
     #[test]
     fn test_cakes_sieve() {
         let planes: Vec<_> = (0..100)
-            .map(|i| (random_plane(i * 3), random_plane(i * 3 + 1), random_plane(i * 3 + 2)))
+            .map(|i| {
+                (
+                    random_plane(i * 3),
+                    random_plane(i * 3 + 1),
+                    random_plane(i * 3 + 2),
+                )
+            })
             .collect();
         let scope = Bgz17Scope::build(1, &planes, 32);
         let metric = Bgz17Metric::new(scope.to_layered_scope());
@@ -340,7 +357,13 @@ mod tests {
     #[test]
     fn test_hhtl_leaf_bgz17() {
         let planes: Vec<_> = (0..50)
-            .map(|i| (random_plane(i * 3), random_plane(i * 3 + 1), random_plane(i * 3 + 2)))
+            .map(|i| {
+                (
+                    random_plane(i * 3),
+                    random_plane(i * 3 + 1),
+                    random_plane(i * 3 + 2),
+                )
+            })
             .collect();
         let scope = Bgz17Scope::build(1, &planes, 16);
         let metric = Bgz17Metric::new(scope.to_layered_scope());
@@ -362,7 +385,13 @@ mod tests {
     #[test]
     fn test_prefilter_then_sieve() {
         let planes: Vec<_> = (0..100)
-            .map(|i| (random_plane(i * 3), random_plane(i * 3 + 1), random_plane(i * 3 + 2)))
+            .map(|i| {
+                (
+                    random_plane(i * 3),
+                    random_plane(i * 3 + 1),
+                    random_plane(i * 3 + 2),
+                )
+            })
             .collect();
         let scope = Bgz17Scope::build(1, &planes, 32);
         let metric = Bgz17Metric::new(scope.to_layered_scope());
@@ -379,9 +408,12 @@ mod tests {
         // Pre-filter may miss the true top-1 (scent is heuristic, not metric).
         // But the top-1 from prefilter should be in brute-force top-10.
         let brute_positions: Vec<usize> = brute.iter().map(|r| r.0).collect();
-        assert!(brute_positions.contains(&results[0].0),
+        assert!(
+            brute_positions.contains(&results[0].0),
             "Pre-filter top-1 ({}) should appear in brute-force top-10 ({:?})",
-            results[0].0, brute_positions);
+            results[0].0,
+            brute_positions
+        );
     }
 
     #[test]
@@ -389,7 +421,13 @@ mod tests {
         // Palette (L1) MUST satisfy triangle inequality for CAKES soundness:
         //   d(a,c) ≤ d(a,b) + d(b,c) for all a, b, c
         let planes: Vec<_> = (0..30)
-            .map(|i| (random_plane(i * 3), random_plane(i * 3 + 1), random_plane(i * 3 + 2)))
+            .map(|i| {
+                (
+                    random_plane(i * 3),
+                    random_plane(i * 3 + 1),
+                    random_plane(i * 3 + 2),
+                )
+            })
             .collect();
         let scope = Bgz17Scope::build(1, &planes, 16);
         let metric = Bgz17Metric::new(scope.to_layered_scope());
@@ -407,8 +445,11 @@ mod tests {
                 }
             }
         }
-        assert_eq!(violations, 0,
-            "Palette L1 must satisfy triangle inequality: {} violations", violations);
+        assert_eq!(
+            violations, 0,
+            "Palette L1 must satisfy triangle inequality: {} violations",
+            violations
+        );
     }
 
     #[test]
@@ -417,7 +458,13 @@ mod tests {
         // This test documents the expectation — it's not a bug, it's why
         // Scent must only be used as a heuristic pre-filter.
         let planes: Vec<_> = (0..30)
-            .map(|i| (random_plane(i * 3), random_plane(i * 3 + 1), random_plane(i * 3 + 2)))
+            .map(|i| {
+                (
+                    random_plane(i * 3),
+                    random_plane(i * 3 + 1),
+                    random_plane(i * 3 + 2),
+                )
+            })
             .collect();
         let scope = Bgz17Scope::build(1, &planes, 16);
         let metric = Bgz17Metric::new(scope.to_layered_scope());
@@ -438,7 +485,13 @@ mod tests {
         // We verify by checking that adaptive distance >= palette distance
         // (Scent is coarser with range 0-8, palette is finer with larger range).
         let planes: Vec<_> = (0..20)
-            .map(|i| (random_plane(i * 3), random_plane(i * 3 + 1), random_plane(i * 3 + 2)))
+            .map(|i| {
+                (
+                    random_plane(i * 3),
+                    random_plane(i * 3 + 1),
+                    random_plane(i * 3 + 2),
+                )
+            })
             .collect();
         let scope = Bgz17Scope::build(1, &planes, 16);
         let metric = Bgz17Metric::new(scope.to_layered_scope());
@@ -450,8 +503,11 @@ mod tests {
             // If depth < 5: uses Palette (same as d_palette)
             // If depth >= 5: uses Base (may differ from palette but still metric-safe)
             if depth < 5 {
-                assert_eq!(d_adaptive, d_palette,
-                    "At depth {}, adaptive should equal palette", depth);
+                assert_eq!(
+                    d_adaptive, d_palette,
+                    "At depth {}, adaptive should equal palette",
+                    depth
+                );
             }
         }
     }

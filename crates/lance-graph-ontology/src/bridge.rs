@@ -47,12 +47,13 @@ pub trait NamespaceBridge: Send + Sync {
     fn g_lock(&self) -> NamespaceId;
 
     fn entity(&self, public_name: &str) -> std::result::Result<EntityRef, BridgeError> {
-        let ptr = self.registry().resolve(self.bridge_id(), public_name).ok_or(
-            BridgeError::NotInScope {
+        let ptr = self
+            .registry()
+            .resolve(self.bridge_id(), public_name)
+            .ok_or(BridgeError::NotInScope {
                 bridge_id: self.bridge_id_static(),
                 public_name: public_name.to_string(),
-            },
-        )?;
+            })?;
         if ptr.namespace_id() != self.g_lock() {
             return Err(BridgeError::CrossNamespaceLeak {
                 bridge_id: self.bridge_id_static(),
@@ -64,12 +65,13 @@ pub trait NamespaceBridge: Send + Sync {
     }
 
     fn edge(&self, public_name: &str) -> std::result::Result<EdgeRef, BridgeError> {
-        let ptr = self.registry().resolve(self.bridge_id(), public_name).ok_or(
-            BridgeError::NotInScope {
+        let ptr = self
+            .registry()
+            .resolve(self.bridge_id(), public_name)
+            .ok_or(BridgeError::NotInScope {
                 bridge_id: self.bridge_id_static(),
                 public_name: public_name.to_string(),
-            },
-        )?;
+            })?;
         if ptr.namespace_id() != self.g_lock() {
             return Err(BridgeError::CrossNamespaceLeak {
                 bridge_id: self.bridge_id_static(),
@@ -84,12 +86,13 @@ pub trait NamespaceBridge: Send + Sync {
     /// not maintain a public-name dictionary; tenants generally prefer
     /// `entity()` / `edge()`.
     fn entity_by_uri(&self, uri: &OgitUri) -> std::result::Result<EntityRef, BridgeError> {
-        let ptr = self.registry().resolve_uri(uri.as_str()).ok_or(
-            BridgeError::NotInScope {
+        let ptr = self
+            .registry()
+            .resolve_uri(uri.as_str())
+            .ok_or(BridgeError::NotInScope {
                 bridge_id: self.bridge_id_static(),
                 public_name: uri.as_str().to_string(),
-            },
-        )?;
+            })?;
         if ptr.namespace_id() != self.g_lock() {
             return Err(BridgeError::CrossNamespaceLeak {
                 bridge_id: self.bridge_id_static(),

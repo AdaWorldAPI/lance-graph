@@ -9,7 +9,10 @@ use lance_graph_contract::mul::MulThresholdProfile;
 #[test]
 fn medical_context_selects_medical_profile() {
     // Healthcare namespace id (per the v5 D-9 mapping).
-    assert_eq!(MulThresholdProfile::for_context(2), MulThresholdProfile::MEDICAL);
+    assert_eq!(
+        MulThresholdProfile::for_context(2),
+        MulThresholdProfile::MEDICAL
+    );
 }
 
 #[test]
@@ -25,17 +28,35 @@ fn workorder_context_selects_callcenter_profile() {
 fn medical_subnamespace_range_selects_medical_profile() {
     // Medical/* subnamespaces are 10..=19 (BioPortal stubs land here per
     // D-CASCADE-V1-4). Spot-check 10, 15, and 19.
-    assert_eq!(MulThresholdProfile::for_context(10), MulThresholdProfile::MEDICAL);
-    assert_eq!(MulThresholdProfile::for_context(15), MulThresholdProfile::MEDICAL);
-    assert_eq!(MulThresholdProfile::for_context(19), MulThresholdProfile::MEDICAL);
+    assert_eq!(
+        MulThresholdProfile::for_context(10),
+        MulThresholdProfile::MEDICAL
+    );
+    assert_eq!(
+        MulThresholdProfile::for_context(15),
+        MulThresholdProfile::MEDICAL
+    );
+    assert_eq!(
+        MulThresholdProfile::for_context(19),
+        MulThresholdProfile::MEDICAL
+    );
 }
 
 #[test]
 fn unmapped_context_falls_through_to_default() {
-    assert_eq!(MulThresholdProfile::for_context(99), MulThresholdProfile::DEFAULT);
-    assert_eq!(MulThresholdProfile::for_context(0), MulThresholdProfile::DEFAULT);
+    assert_eq!(
+        MulThresholdProfile::for_context(99),
+        MulThresholdProfile::DEFAULT
+    );
+    assert_eq!(
+        MulThresholdProfile::for_context(0),
+        MulThresholdProfile::DEFAULT
+    );
     // Just above the medical range.
-    assert_eq!(MulThresholdProfile::for_context(20), MulThresholdProfile::DEFAULT);
+    assert_eq!(
+        MulThresholdProfile::for_context(20),
+        MulThresholdProfile::DEFAULT
+    );
 }
 
 #[test]

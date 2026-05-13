@@ -43,15 +43,21 @@ const N_CENTROIDS: usize = 256;
 
 fn main() {
     let t0 = Instant::now();
-    
+
     eprintln!("═══════════════════════════════════════════════════════════");
     eprintln!("  Llama 4 Maverick 17B-128E — BF16 Streaming Extraction");
     eprintln!("═══════════════════════════════════════════════════════════\n");
 
     // Shard URLs
-    let base = "https://huggingface.co/unsloth/Llama-4-Maverick-17B-128E-Instruct-GGUF/resolve/main/BF16";
+    let base =
+        "https://huggingface.co/unsloth/Llama-4-Maverick-17B-128E-Instruct-GGUF/resolve/main/BF16";
     let shards: Vec<String> = (1..=18)
-        .map(|i| format!("{}/Llama-4-Maverick-17B-128E-Instruct-BF16-{:05}-of-00018.gguf", base, i))
+        .map(|i| {
+            format!(
+                "{}/Llama-4-Maverick-17B-128E-Instruct-BF16-{:05}-of-00018.gguf",
+                base, i
+            )
+        })
         .collect();
 
     eprintln!("Shards: {}", shards.len());
@@ -62,7 +68,7 @@ fn main() {
     // Phase 1: Parse first shard header to find tensor layout
     eprintln!("\nPhase 1: Parse GGUF header from shard 1...");
     let header = read_range(&shards[0], 0, 20_000_000);
-    
+
     if header.is_empty() {
         eprintln!("ERROR: Could not read header. Check network/TLS.");
         eprintln!("This sandbox may block HTTPS. Run outside sandbox.");
@@ -79,14 +85,17 @@ fn main() {
     let n_tensors = u64::from_le_bytes(header[8..16].try_into().unwrap());
     let n_kv = u64::from_le_bytes(header[16..24].try_into().unwrap());
 
-    eprintln!("  GGUF v{}: {} tensors, {} KV pairs", version, n_tensors, n_kv);
+    eprintln!(
+        "  GGUF v{}: {} tensors, {} KV pairs",
+        version, n_tensors, n_kv
+    );
     eprintln!("  Phase 1 complete in {:.1}s", t0.elapsed().as_secs_f64());
 
     // Phase 2: Find expert tensors
     // In multi-shard GGUF, tensor info is in shard 1 but data spans all shards.
     // Each shard's tensor offsets are relative to that shard's data section.
     // For now, just report what we found.
-    
+
     eprintln!("\nPhase 2: Identify expert tensor layout...");
     eprintln!("  Expected per layer:");
     eprintln!("    gate (router): 5120 × 128 = 1.3 MB");
@@ -97,7 +106,7 @@ fn main() {
 
     // Phase 3: Stream one expert as proof of concept
     // (Will be implemented in next session with full GGUF multi-shard parsing)
-    
+
     eprintln!("\nPhase 3: Ready for next session.");
     eprintln!("  The streaming pipeline from Qwopus (read_range + bf16_to_f32 + CLAM)");
     eprintln!("  works identically on multi-shard GGUF.");
@@ -110,9 +119,14 @@ fn main() {
 
 fn read_range(url: &str, offset: usize, length: usize) -> Vec<u8> {
     let output = std::process::Command::new("curl")
-        .args(["-sLk", "--max-time", "30",
-               "-H", &format!("Range: bytes={}-{}", offset, offset + length - 1),
-               url])
+        .args([
+            "-sLk",
+            "--max-time",
+            "30",
+            "-H",
+            &format!("Range: bytes={}-{}", offset, offset + length - 1),
+            url,
+        ])
         .output();
     match output {
         Ok(o) if o.status.success() => o.stdout,

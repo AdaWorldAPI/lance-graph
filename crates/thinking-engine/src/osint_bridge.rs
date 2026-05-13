@@ -12,8 +12,8 @@
 //!   → NARS truth tracks confidence per centroid pair
 //! ```
 
-use crate::f32_engine::F32ThinkingEngine;
 use crate::contrastive_learner::ContrastiveLearner;
+use crate::f32_engine::F32ThinkingEngine;
 
 /// Result of processing one document through the thinking engine.
 #[derive(Clone, Debug)]
@@ -44,22 +44,28 @@ impl OsintThinkingBridge {
     /// `codebook_index`: path to codebook_index.u16 (token → centroid mapping)
     /// `cosine_table`: path to cosine_matrix_NxN.f32 (pairwise centroid cosines)
     pub fn from_files(codebook_index_path: &str, cosine_table_path: &str) -> Result<Self, String> {
-        let idx_data = std::fs::read(codebook_index_path)
-            .map_err(|e| format!("read codebook index: {e}"))?;
-        let codebook_index: Vec<u16> = idx_data.chunks_exact(2)
+        let idx_data =
+            std::fs::read(codebook_index_path).map_err(|e| format!("read codebook index: {e}"))?;
+        let codebook_index: Vec<u16> = idx_data
+            .chunks_exact(2)
             .map(|c| u16::from_le_bytes([c[0], c[1]]))
             .collect();
 
-        let table_data = std::fs::read(cosine_table_path)
-            .map_err(|e| format!("read cosine table: {e}"))?;
-        let table: Vec<f32> = table_data.chunks_exact(4)
+        let table_data =
+            std::fs::read(cosine_table_path).map_err(|e| format!("read cosine table: {e}"))?;
+        let table: Vec<f32> = table_data
+            .chunks_exact(4)
             .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
             .collect();
 
         let n = (table.len() as f64).sqrt() as usize;
         assert_eq!(n * n, table.len(), "table not square");
 
-        Ok(Self { codebook_index, n_centroids: n, table })
+        Ok(Self {
+            codebook_index,
+            n_centroids: n,
+            table,
+        })
     }
 
     /// Map token IDs to codebook centroid IDs.

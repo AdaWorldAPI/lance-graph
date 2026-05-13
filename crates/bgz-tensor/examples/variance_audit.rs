@@ -170,8 +170,8 @@ fn run_synthetic_audit() {
     // Simulate Q: moderate magnitude, moderate variance
     for i in 0..200 {
         let mut dims = [0i16; 17];
-        for d in 0..17 {
-            dims[d] = 50 + ((i * 13 + d * 7) % 200) as i16 - 100;
+        for (d, out) in dims.iter_mut().enumerate() {
+            *out = 50 + ((i * 13 + d * 7) % 200) as i16 - 100;
         }
         labeled.push((bgz_tensor::variance::Role::Q, bgz_tensor::Base17 { dims }));
     }
@@ -179,8 +179,8 @@ fn run_synthetic_audit() {
     // Simulate K: low variance (most stable)
     for i in 0..200 {
         let mut dims = [0i16; 17];
-        for d in 0..17 {
-            dims[d] = 30 + ((i * 5 + d * 3) % 50) as i16 - 25;
+        for (d, out) in dims.iter_mut().enumerate() {
+            *out = 30 + ((i * 5 + d * 3) % 50) as i16 - 25;
         }
         labeled.push((bgz_tensor::variance::Role::K, bgz_tensor::Base17 { dims }));
     }
@@ -188,8 +188,8 @@ fn run_synthetic_audit() {
     // Simulate V: similar to Q
     for i in 0..200 {
         let mut dims = [0i16; 17];
-        for d in 0..17 {
-            dims[d] = -80 + ((i * 11 + d * 9) % 180) as i16 - 90;
+        for (d, out) in dims.iter_mut().enumerate() {
+            *out = -80 + ((i * 11 + d * 9) % 180) as i16 - 90;
         }
         labeled.push((bgz_tensor::variance::Role::V, bgz_tensor::Base17 { dims }));
     }
@@ -197,8 +197,8 @@ fn run_synthetic_audit() {
     // Simulate Gate: HIGH magnitude (dominant role per findings)
     for i in 0..200 {
         let mut dims = [0i16; 17];
-        for d in 0..17 {
-            dims[d] = 500 + ((i * 17 + d * 11) % 1000) as i16 - 500;
+        for (d, out) in dims.iter_mut().enumerate() {
+            *out = 500 + ((i * 17 + d * 11) % 1000) as i16 - 500;
         }
         labeled.push((
             bgz_tensor::variance::Role::Gate,
@@ -209,8 +209,8 @@ fn run_synthetic_audit() {
     // Simulate Up: moderate-high
     for i in 0..200 {
         let mut dims = [0i16; 17];
-        for d in 0..17 {
-            dims[d] = 200 + ((i * 19 + d * 13) % 400) as i16 - 200;
+        for (d, out) in dims.iter_mut().enumerate() {
+            *out = 200 + ((i * 19 + d * 13) % 400) as i16 - 200;
         }
         labeled.push((bgz_tensor::variance::Role::Up, bgz_tensor::Base17 { dims }));
     }
@@ -218,8 +218,8 @@ fn run_synthetic_audit() {
     // Simulate Down: moderate, offset from Up
     for i in 0..200 {
         let mut dims = [0i16; 17];
-        for d in 0..17 {
-            dims[d] = -300 + ((i * 23 + d * 17) % 600) as i16 - 300;
+        for (d, out) in dims.iter_mut().enumerate() {
+            *out = -300 + ((i * 23 + d * 17) % 600) as i16 - 300;
         }
         labeled.push((
             bgz_tensor::variance::Role::Down,

@@ -39,7 +39,10 @@ impl GammaProfile {
     /// Calibrate from raw f32 weight rows.
     pub fn calibrate(rows: &[&[f32]]) -> Self {
         if rows.is_empty() {
-            return GammaProfile { role_gamma: [0.01; 6], phi_scale: 0.01 };
+            return GammaProfile {
+                role_gamma: [0.01; 6],
+                phi_scale: 0.01,
+            };
         }
         let mut total_mag = 0.0f64;
         let mut count = 0u64;
@@ -70,9 +73,7 @@ impl SpiralEncoding {
 
         let mut anchors = Vec::with_capacity(BASE_DIM);
         for d in 0..BASE_DIM {
-            let bf16_vals: Vec<u16> = walk.samples[d].iter()
-                .map(|&v| f32_to_bf16(v))
-                .collect();
+            let bf16_vals: Vec<u16> = walk.samples[d].iter().map(|&v| f32_to_bf16(v)).collect();
             anchors.push(bf16_vals);
         }
 
@@ -98,7 +99,7 @@ impl SpiralEncoding {
     ///
     /// Expands K anchors to target_spd samples per dim via γ-weighted
     /// linear interpolation along the spiral curve.
-    pub fn rehydrate_interpolated(&self, target_spd: usize, gamma: &GammaProfile) -> Vec<f32> {
+    pub fn rehydrate_interpolated(&self, target_spd: usize, _gamma: &GammaProfile) -> Vec<f32> {
         let mut result = Vec::with_capacity(target_spd * BASE_DIM);
 
         for d in 0..BASE_DIM {
@@ -108,9 +109,7 @@ impl SpiralEncoding {
                 continue;
             }
 
-            let anchor_f32: Vec<f32> = self.anchors[d].iter()
-                .map(|&b| bf16_to_f32(b))
-                .collect();
+            let anchor_f32: Vec<f32> = self.anchors[d].iter().map(|&b| bf16_to_f32(b)).collect();
 
             if n_anchors >= target_spd {
                 // More anchors than needed — subsample
@@ -132,8 +131,8 @@ impl SpiralEncoding {
                     // closer in spiral space (not linear space)
                     let phi_frac = frac.powf(1.0 / GOLDEN_RATIO);
 
-                    let val = anchor_f32[lo] as f64 * (1.0 - phi_frac)
-                            + anchor_f32[hi] as f64 * phi_frac;
+                    let val =
+                        anchor_f32[lo] as f64 * (1.0 - phi_frac) + anchor_f32[hi] as f64 * phi_frac;
                     result.push(val as f32);
                 }
             }
@@ -149,21 +148,41 @@ impl SpiralEncoding {
     }
 
     /// Cosine similarity with interpolation to target SPD.
-    pub fn cosine_interpolated(&self, other: &SpiralEncoding, target_spd: usize, gamma: &GammaProfile) -> f64 {
+    pub fn cosine_interpolated(
+        &self,
+        other: &SpiralEncoding,
+        target_spd: usize,
+        gamma: &GammaProfile,
+    ) -> f64 {
         let a = self.rehydrate_interpolated(target_spd, gamma);
         let b = other.rehydrate_interpolated(target_spd, gamma);
         cosine_f32(&a, &b)
     }
 }
 
-fn f32_to_bf16(v: f32) -> u16 { (v.to_bits() >> 16) as u16 }
-fn bf16_to_f32(bits: u16) -> f32 { f32::from_bits((bits as u32) << 16) }
+fn f32_to_bf16(v: f32) -> u16 {
+    (v.to_bits() >> 16) as u16
+}
+fn bf16_to_f32(bits: u16) -> f32 {
+    f32::from_bits((bits as u32) << 16)
+}
 
 fn cosine_f32(a: &[f32], b: &[f32]) -> f64 {
     let n = a.len().min(b.len());
-    let mut dot = 0.0f64; let mut na = 0.0f64; let mut nb = 0.0f64;
-    for i in 0..n { dot += a[i] as f64 * b[i] as f64; na += (a[i] as f64).powi(2); nb += (b[i] as f64).powi(2); }
-    let d = (na * nb).sqrt(); if d < 1e-12 { 0.0 } else { dot / d }
+    let mut dot = 0.0f64;
+    let mut na = 0.0f64;
+    let mut nb = 0.0f64;
+    for i in 0..n {
+        dot += a[i] as f64 * b[i] as f64;
+        na += (a[i] as f64).powi(2);
+        nb += (b[i] as f64).powi(2);
+    }
+    let d = (na * nb).sqrt();
+    if d < 1e-12 {
+        0.0
+    } else {
+        dot / d
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -193,21 +212,24 @@ impl SpiralTokenizer {
     /// Build from raw vocabulary embeddings.
     ///
     /// Each vocab entry = (token_string, f32_embedding_vector).
-    pub fn build(
-        vocab: &[(&str, Vec<f32>)],
-        start: u32,
-        stride: u32,
-        k: usize,
-    ) -> Self {
+    pub fn build(vocab: &[(&str, Vec<f32>)], start: u32, stride: u32, k: usize) -> Self {
         let refs: Vec<&[f32]> = vocab.iter().map(|(_, v)| v.as_slice()).collect();
         let gamma = GammaProfile::calibrate(&refs);
 
-        let encoded: Vec<SpiralEncoding> = vocab.iter()
+        let encoded: Vec<SpiralEncoding> = vocab
+            .iter()
             .map(|(_, v)| SpiralEncoding::encode(v, start, stride, k))
             .collect();
         let tokens: Vec<String> = vocab.iter().map(|(t, _)| t.to_string()).collect();
 
-        SpiralTokenizer { vocab: encoded, tokens, gamma, start, stride, k }
+        SpiralTokenizer {
+            vocab: encoded,
+            tokens,
+            gamma,
+            start,
+            stride,
+            k,
+        }
     }
 
     /// Tokenize: find nearest vocab entry by spiral cosine.
@@ -235,14 +257,17 @@ impl SpiralTokenizer {
     pub fn nearest_k(&self, query_embedding: &[f32], k: usize) -> Vec<(usize, &str, f64)> {
         let query_enc = SpiralEncoding::encode(query_embedding, self.start, self.stride, self.k);
 
-        let mut scored: Vec<(usize, f64)> = self.vocab.iter()
+        let mut scored: Vec<(usize, f64)> = self
+            .vocab
+            .iter()
             .enumerate()
             .map(|(i, entry)| (i, query_enc.cosine(entry)))
             .collect();
 
         scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
-        scored.into_iter()
+        scored
+            .into_iter()
             .take(k)
             .map(|(i, cos)| (i, self.tokens[i].as_str(), cos))
             .collect()
@@ -250,8 +275,7 @@ impl SpiralTokenizer {
 
     /// Storage budget.
     pub fn byte_size(&self) -> usize {
-        self.vocab.iter().map(|e| e.byte_size()).sum::<usize>()
-            + GammaProfile::BYTE_SIZE
+        self.vocab.iter().map(|e| e.byte_size()).sum::<usize>() + GammaProfile::BYTE_SIZE
     }
 }
 
@@ -260,7 +284,9 @@ mod tests {
     use super::*;
 
     fn make_embedding(seed: usize, dim: usize) -> Vec<f32> {
-        (0..dim).map(|d| ((d * 97 + seed * 31) as f32 % 200.0 - 100.0) * 0.01).collect()
+        (0..dim)
+            .map(|d| ((d * 97 + seed * 31) as f32 % 200.0 - 100.0) * 0.01)
+            .collect()
     }
 
     #[test]
@@ -295,7 +321,10 @@ mod tests {
     fn interpolation_more_values() {
         let v = make_embedding(42, 1024);
         let enc = SpiralEncoding::encode(&v, 20, 8, 4);
-        let gamma = GammaProfile { role_gamma: [0.5; 6], phi_scale: 0.5 };
+        let gamma = GammaProfile {
+            role_gamma: [0.5; 6],
+            phi_scale: 0.5,
+        };
 
         let direct = enc.rehydrate();
         let interp = enc.rehydrate_interpolated(32, &gamma);
@@ -325,17 +354,26 @@ mod tests {
         // Query with same embedding as "cat" should find "cat"
         let (idx, token, cos) = tok.nearest(&make_embedding(1, 512));
         assert_eq!(token, "cat");
-        assert!((cos - 1.0).abs() < 1e-6, "exact match should be 1.0: {}", cos);
+        assert!(
+            (cos - 1.0).abs() < 1e-6,
+            "exact match should be 1.0: {}",
+            cos
+        );
     }
 
     #[test]
     fn tokenizer_top_k() {
         let vocab: Vec<(&str, Vec<f32>)> = (0..20)
-            .map(|i| (["hello", "world", "foo", "bar", "baz",
-                       "cat", "dog", "fish", "bird", "tree",
-                       "sky", "sun", "moon", "star", "rain",
-                       "wind", "sea", "hill", "rock", "leaf"][i],
-                make_embedding(i, 256)))
+            .map(|i| {
+                (
+                    [
+                        "hello", "world", "foo", "bar", "baz", "cat", "dog", "fish", "bird",
+                        "tree", "sky", "sun", "moon", "star", "rain", "wind", "sea", "hill",
+                        "rock", "leaf",
+                    ][i],
+                    make_embedding(i, 256),
+                )
+            })
             .collect();
 
         let tok = SpiralTokenizer::build(&vocab, 20, 8, 4);
@@ -347,14 +385,21 @@ mod tests {
 
     #[test]
     fn tokenizer_byte_budget() {
-        let vocab: Vec<(&str, Vec<f32>)> = (0..1000)
-            .map(|i| ("tok", make_embedding(i, 512)))
-            .collect();
+        let vocab: Vec<(&str, Vec<f32>)> =
+            (0..1000).map(|i| ("tok", make_embedding(i, 512))).collect();
 
         let tok = SpiralTokenizer::build(&vocab, 20, 8, 4);
         let bytes = tok.byte_size();
         // 1000 tokens × 142 bytes + 28 gamma = 142,028 bytes ≈ 139 KB
-        assert!(bytes < 200_000, "1000-token vocab should be < 200 KB: {} bytes", bytes);
-        eprintln!("1000-token vocab: {} bytes ({:.1} KB)", bytes, bytes as f64 / 1024.0);
+        assert!(
+            bytes < 200_000,
+            "1000-token vocab should be < 200 KB: {} bytes",
+            bytes
+        );
+        eprintln!(
+            "1000-token vocab: {} bytes ({:.1} KB)",
+            bytes,
+            bytes as f64 / 1024.0
+        );
     }
 }

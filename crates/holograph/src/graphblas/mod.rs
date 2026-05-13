@@ -31,23 +31,23 @@
 //! | HAMMING_MIN | Hamming | Min | Shortest path |
 //! | BIND_RESONANCE | Bind | Best match | Query expansion |
 
-pub mod types;
+mod descriptor;
 mod matrix;
-mod vector;
-mod semiring;
 mod ops;
+mod semiring;
 #[cfg(feature = "datafusion-storage")]
 mod sparse;
-mod descriptor;
+pub mod types;
+mod vector;
 
-pub use types::*;
-pub use matrix::GrBMatrix;
-pub use vector::GrBVector;
-pub use semiring::{Semiring, HdrSemiring};
-pub use ops::*;
-#[cfg(feature = "datafusion-storage")]
-pub use sparse::{SparseFormat, CsrStorage, CooStorage};
 pub use descriptor::{Descriptor, GrBDesc};
+pub use matrix::GrBMatrix;
+pub use ops::*;
+pub use semiring::{HdrSemiring, Semiring};
+#[cfg(feature = "datafusion-storage")]
+pub use sparse::{CooStorage, CsrStorage, SparseFormat};
+pub use types::*;
+pub use vector::GrBVector;
 
 use crate::{HdrError, Result};
 

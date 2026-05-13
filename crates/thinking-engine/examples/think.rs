@@ -7,15 +7,15 @@
 //! cargo run --release --manifest-path crates/thinking-engine/Cargo.toml \
 //!   --example think -- "sentence 1" "sentence 2" "sentence 3"
 
-use thinking_engine::engine::ThinkingEngine;
+use thinking_engine::bge_m3_lens;
+use thinking_engine::centroid_labels::JINA_CENTROID_LABELS;
+use thinking_engine::cognitive_trace::CognitiveTrace;
 use thinking_engine::domino::DominoCascade;
+use thinking_engine::engine::ThinkingEngine;
+use thinking_engine::ghosts::{GhostField, GhostType};
+use thinking_engine::jina_lens;
 use thinking_engine::qualia::Qualia17D;
 use thinking_engine::superposition;
-use thinking_engine::ghosts::{GhostField, GhostType};
-use thinking_engine::cognitive_trace::CognitiveTrace;
-use thinking_engine::centroid_labels::JINA_CENTROID_LABELS;
-use thinking_engine::jina_lens;
-use thinking_engine::bge_m3_lens;
 
 fn label(c: u16) -> &'static str {
     JINA_CENTROID_LABELS.get(c as usize).copied().unwrap_or("?")
@@ -37,7 +37,10 @@ fn main() {
 
     let tokenizer = match tokenizers::Tokenizer::from_file("/tmp/bge-m3-tokenizer.json") {
         Ok(t) => t,
-        Err(_) => { eprintln!("Need /tmp/bge-m3-tokenizer.json"); return; }
+        Err(_) => {
+            eprintln!("Need /tmp/bge-m3-tokenizer.json");
+            return;
+        }
     };
 
     println!("╔══════════════════════════════════════════════════════════════╗");
@@ -54,17 +57,29 @@ fn main() {
 
         let encoding = tokenizer.encode(text.as_str(), true).expect("tokenize");
         let token_ids = encoding.get_ids();
-        let tokens: Vec<String> = encoding.get_tokens().iter().map(|s| s.to_string()).collect();
+        let tokens: Vec<String> = encoding
+            .get_tokens()
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
 
         // ── Ghost prediction (before thinking) ──
         let ghost_pred = ghost_field.prediction(256);
         let ghost_count = ghost_field.active_count();
         if ghost_count > 0 {
             let top_ghosts = ghost_field.summary();
-            println!("\n  👻 Ghost field: {} active ghosts (prediction from past thoughts)", ghost_count);
+            println!(
+                "\n  👻 Ghost field: {} active ghosts (prediction from past thoughts)",
+                ghost_count
+            );
             for (atom, gtype, intensity) in top_ghosts.iter().take(3) {
-                println!("    atom {:>3} [{}] {} intensity={:.2}",
-                    atom, label(*atom), gtype, intensity);
+                println!(
+                    "    atom {:>3} [{}] {} intensity={:.2}",
+                    atom,
+                    label(*atom),
+                    gtype,
+                    intensity
+                );
             }
         }
 
@@ -76,33 +91,47 @@ fn main() {
         let bge_engine = bge_m3_lens::bge_m3_engine();
 
         // Jina cascade WITH ghost bias
-        let jina_cascade = DominoCascade::new(&jina_engine, &vec![1u32; 256])
-            .with_ghost_bias(ghost_pred.clone());
+        let jina_cascade =
+            DominoCascade::new(&jina_engine, &vec![1u32; 256]).with_ghost_bias(ghost_pred.clone());
         let (jina_dom, jina_stages, jina_dis) = jina_cascade.think(&jina_cents);
-        let jina_chain: Vec<u16> = jina_stages.iter()
-            .filter_map(|s| s.focus.first().map(|a| a.index)).collect();
+        let jina_chain: Vec<u16> = jina_stages
+            .iter()
+            .filter_map(|s| s.focus.first().map(|a| a.index))
+            .collect();
 
         // BGE cascade WITH ghost bias
-        let bge_cascade = DominoCascade::new(&bge_engine, &vec![1u32; 256])
-            .with_ghost_bias(ghost_pred.clone());
+        let bge_cascade =
+            DominoCascade::new(&bge_engine, &vec![1u32; 256]).with_ghost_bias(ghost_pred.clone());
         let (bge_dom, bge_stages, bge_dis) = bge_cascade.think(&bge_cents);
-        let bge_chain: Vec<u16> = bge_stages.iter()
-            .filter_map(|s| s.focus.first().map(|a| a.index)).collect();
+        let bge_chain: Vec<u16> = bge_stages
+            .iter()
+            .filter_map(|s| s.focus.first().map(|a| a.index))
+            .collect();
 
-        println!("\n  Jina: {} → {}  BGE: {} → {}",
+        println!(
+            "\n  Jina: {} → {}  BGE: {} → {}",
             label(jina_chain.first().copied().unwrap_or(0)),
             label(jina_dom),
             label(bge_chain.first().copied().unwrap_or(0)),
-            label(bge_dom));
+            label(bge_dom)
+        );
 
         // ── Superposition ──
         let dis_avg = (jina_dis.total_dissonance + bge_dis.total_dissonance) / 2.0;
         let (field, style, gated) = superposition::superposition_cascade(
-            &[&jina_stages, &bge_stages], 256, dis_avg,
+            &[&jina_stages, &bge_stages],
+            256,
+            dis_avg,
             &superposition::StyleThresholds::default(),
         );
         let dom_agree = jina_dom == bge_dom;
-        let confidence = if dom_agree { 0.85 } else if !gated.is_empty() { 0.5 } else { 0.3 };
+        let confidence = if dom_agree {
+            0.85
+        } else if !gated.is_empty() {
+            0.5
+        } else {
+            0.3
+        };
 
         // ── Qualia from superposition ──
         let qualia = Qualia17D::from_superposition(&field, &style, dis_avg, confidence);
@@ -113,28 +142,52 @@ fn main() {
         let free_energy = ghost_field.free_energy(&actual_energy);
 
         // ── Markers ──
-        let staunen_max = jina_stages.iter().chain(bge_stages.iter())
-            .map(|s| s.markers.staunen).fold(0.0f32, f32::max);
-        let wisdom_max = jina_stages.iter().chain(bge_stages.iter())
-            .map(|s| s.markers.wisdom).fold(0.0f32, f32::max);
+        let staunen_max = jina_stages
+            .iter()
+            .chain(bge_stages.iter())
+            .map(|s| s.markers.staunen)
+            .fold(0.0f32, f32::max);
+        let wisdom_max = jina_stages
+            .iter()
+            .chain(bge_stages.iter())
+            .map(|s| s.markers.wisdom)
+            .fold(0.0f32, f32::max);
 
         println!("  Style: {}  Blend: {}", style, blend_name);
-        println!("  Resonant: {}/256  Gated: {}  Confidence: {:.0}%",
-            field.n_resonant, gated.len(), confidence * 100.0);
+        println!(
+            "  Resonant: {}/256  Gated: {}  Confidence: {:.0}%",
+            field.n_resonant,
+            gated.len(),
+            confidence * 100.0
+        );
         if ghost_count > 0 {
-            println!("  Free energy: {:.4} {}",
+            println!(
+                "  Free energy: {:.4} {}",
                 free_energy,
-                if free_energy < 0.01 { "(LOW — ghosts predicted well → autocomplete)" }
-                else if free_energy < 0.05 { "(moderate — partial match)" }
-                else { "(HIGH — surprise! ghosts wrong → learning)" });
+                if free_energy < 0.01 {
+                    "(LOW — ghosts predicted well → autocomplete)"
+                } else if free_energy < 0.05 {
+                    "(moderate — partial match)"
+                } else {
+                    "(HIGH — surprise! ghosts wrong → learning)"
+                }
+            );
         }
 
         // ── Markers ──
         let mut markers = Vec::new();
-        if staunen_max > 0.3 { markers.push(format!("✨ wonder {:.1}", staunen_max)); }
-        if wisdom_max > 0.1 { markers.push(format!("🦉 wisdom {:.1}", wisdom_max)); }
-        if dis_avg > 0.2 { markers.push(format!("⚡ tension {:.2}", dis_avg)); }
-        if dis_avg < 0.05 { markers.push("🕊 calm".into()); }
+        if staunen_max > 0.3 {
+            markers.push(format!("✨ wonder {:.1}", staunen_max));
+        }
+        if wisdom_max > 0.1 {
+            markers.push(format!("🦉 wisdom {:.1}", wisdom_max));
+        }
+        if dis_avg > 0.2 {
+            markers.push(format!("⚡ tension {:.2}", dis_avg));
+        }
+        if dis_avg < 0.05 {
+            markers.push("🕊 calm".into());
+        }
         if !markers.is_empty() {
             println!("  {}", markers.join("  "));
         }
@@ -147,10 +200,14 @@ fn main() {
             0.6,
         );
         if !spo.is_empty() {
-            println!("  SPO: {} triples (top: ({}) —[{}]→ ({}) c={:.2})",
+            println!(
+                "  SPO: {} triples (top: ({}) —[{}]→ ({}) c={:.2})",
                 spo.len(),
-                label(spo[0].subject), spo[0].predicate, label(spo[0].object),
-                spo[0].confidence);
+                label(spo[0].subject),
+                spo[0].predicate,
+                label(spo[0].object),
+                spo[0].confidence
+            );
         }
 
         // ── Imprint ghosts for NEXT thought ──
@@ -198,13 +255,19 @@ fn main() {
     println!("  {} ghosts after prune", ghost_field.active_count());
 
     let kg_lines = std::fs::read_to_string(kg_path)
-        .map(|s| s.lines().count()).unwrap_or(0);
+        .map(|s| s.lines().count())
+        .unwrap_or(0);
     println!("  {} SPO triples in knowledge graph", kg_lines);
 
     println!("\n  Ghost field summary:");
     for (atom, gtype, intensity) in ghost_field.summary().iter().take(10) {
-        println!("    atom {:>3} [{}] {} = {:.3}",
-            atom, label(*atom), gtype, intensity);
+        println!(
+            "    atom {:>3} [{}] {} = {:.3}",
+            atom,
+            label(*atom),
+            gtype,
+            intensity
+        );
     }
     println!();
 }

@@ -8,7 +8,7 @@
 //! The CollapseGate from the planner controls cascade termination.
 
 use crate::cognitive_stack::{self, GateState, RungLevel};
-use crate::meaning_axes::{Viscosity, CouncilWeights, Archetype};
+use crate::meaning_axes::{Archetype, CouncilWeights, Viscosity};
 
 /// Map contract's 36 styles to the engine's 12 styles.
 /// The 36 are grouped into 6 clusters of 6. Each cluster maps to
@@ -39,12 +39,12 @@ pub fn contract_style_to_engine(contract_style_id: u8) -> cognitive_stack::Think
 /// Map contract's 6 clusters to council archetypes.
 pub fn cluster_to_archetype(cluster_id: u8) -> Archetype {
     match cluster_id {
-        0 => Archetype::Guardian,  // Analytical → cautious
-        1 => Archetype::Catalyst,  // Creative → curious
-        2 => Archetype::Balanced,  // Empathic → balanced
-        3 => Archetype::Guardian,  // Direct → decisive (guardian-like)
-        4 => Archetype::Catalyst,  // Exploratory → curious
-        5 => Archetype::Balanced,  // Meta → balanced
+        0 => Archetype::Guardian, // Analytical → cautious
+        1 => Archetype::Catalyst, // Creative → curious
+        2 => Archetype::Balanced, // Empathic → balanced
+        3 => Archetype::Guardian, // Direct → decisive (guardian-like)
+        4 => Archetype::Catalyst, // Exploratory → curious
+        5 => Archetype::Balanced, // Meta → balanced
         _ => Archetype::Balanced,
     }
 }
@@ -64,20 +64,15 @@ pub struct CascadeConfig {
 
 impl CascadeConfig {
     /// Build cascade config from a contract style ID + current state.
-    pub fn from_contract(
-        style_id: u8,
-        rung: RungLevel,
-        sd: f32,
-        _free_energy: f32,
-    ) -> Self {
+    pub fn from_contract(style_id: u8, rung: RungLevel, sd: f32, _free_energy: f32) -> Self {
         let style = contract_style_to_engine(style_id);
         let params = style.params();
         let gate = GateState::from_sd_styled(sd, &style);
 
         let viscosity = match gate {
-            GateState::Flow => Viscosity::Ice,     // crystallized
-            GateState::Hold => Viscosity::Honey,   // still moving
-            GateState::Block => Viscosity::Water,  // need to explore
+            GateState::Flow => Viscosity::Ice,    // crystallized
+            GateState::Hold => Viscosity::Honey,  // still moving
+            GateState::Block => Viscosity::Water, // need to explore
         };
 
         let mut council = CouncilWeights::default();
@@ -85,14 +80,23 @@ impl CascadeConfig {
         council.shift_toward(archetype, 0.15);
 
         let max_stages = match gate {
-            GateState::Flow => 3,   // quick commit
-            GateState::Hold => 5,   // normal exploration
-            GateState::Block => 8,  // deep search
+            GateState::Flow => 3,  // quick commit
+            GateState::Hold => 5,  // normal exploration
+            GateState::Block => 8, // deep search
         };
 
         let top_k = params.fan_out.min(20);
 
-        Self { style, params, rung, gate, viscosity, council, max_stages, top_k }
+        Self {
+            style,
+            params,
+            rung,
+            gate,
+            viscosity,
+            council,
+            max_stages,
+            top_k,
+        }
     }
 
     /// Build from the superposition field state directly.
@@ -103,10 +107,18 @@ impl CascadeConfig {
     ) -> Self {
         // Map our 5 detected styles to the 12 cognitive_stack styles
         let engine_style = match style {
-            crate::superposition::ThinkingStyle::Analytical => cognitive_stack::ThinkingStyle::Analytical,
-            crate::superposition::ThinkingStyle::Creative => cognitive_stack::ThinkingStyle::Creative,
-            crate::superposition::ThinkingStyle::Emotional => cognitive_stack::ThinkingStyle::Intuitive,
-            crate::superposition::ThinkingStyle::Intuitive => cognitive_stack::ThinkingStyle::Intuitive,
+            crate::superposition::ThinkingStyle::Analytical => {
+                cognitive_stack::ThinkingStyle::Analytical
+            }
+            crate::superposition::ThinkingStyle::Creative => {
+                cognitive_stack::ThinkingStyle::Creative
+            }
+            crate::superposition::ThinkingStyle::Emotional => {
+                cognitive_stack::ThinkingStyle::Intuitive
+            }
+            crate::superposition::ThinkingStyle::Intuitive => {
+                cognitive_stack::ThinkingStyle::Intuitive
+            }
             crate::superposition::ThinkingStyle::Diffuse => cognitive_stack::ThinkingStyle::Diffuse,
         };
 
@@ -115,19 +127,28 @@ impl CascadeConfig {
         let sd = resonant_frac; // proxy for SD
         let gate = GateState::from_sd_styled(sd, &engine_style);
 
-        let viscosity = if free_energy < 0.05 { Viscosity::Ice }
-            else if free_energy < 0.1 { Viscosity::Honey }
-            else if free_energy < 0.2 { Viscosity::Oil }
-            else { Viscosity::Water };
+        let viscosity = if free_energy < 0.05 {
+            Viscosity::Ice
+        } else if free_energy < 0.1 {
+            Viscosity::Honey
+        } else if free_energy < 0.2 {
+            Viscosity::Oil
+        } else {
+            Viscosity::Water
+        };
 
         let mut council = CouncilWeights::default();
         if free_energy > 0.1 {
             council.shift_toward(Archetype::Catalyst, free_energy.min(0.2));
         }
 
-        let rung = if free_energy > 0.15 { RungLevel::Analogical }
-            else if field.n_resonant > 50 { RungLevel::Contextual }
-            else { RungLevel::Surface };
+        let rung = if free_energy > 0.15 {
+            RungLevel::Analogical
+        } else if field.n_resonant > 50 {
+            RungLevel::Contextual
+        } else {
+            RungLevel::Surface
+        };
 
         let max_stages = match gate {
             GateState::Flow => 3,
@@ -136,8 +157,14 @@ impl CascadeConfig {
         };
 
         Self {
-            style: engine_style, params, rung, gate, viscosity,
-            council, max_stages, top_k: params.fan_out.min(20),
+            style: engine_style,
+            params,
+            rung,
+            gate,
+            viscosity,
+            council,
+            max_stages,
+            top_k: params.fan_out.min(20),
         }
     }
 }
@@ -187,7 +214,11 @@ impl FastBusDto {
             dominant,
             energy,
             style: config.style as u8,
-            gate: match config.gate { GateState::Flow => 0, GateState::Hold => 1, GateState::Block => 2 },
+            gate: match config.gate {
+                GateState::Flow => 0,
+                GateState::Hold => 1,
+                GateState::Block => 2,
+            },
             rung: config.rung.as_u8(),
             n_resonant: n_resonant.min(255) as u8,
             dissonance: (dissonance * 255.0).min(255.0) as u8,
@@ -212,18 +243,40 @@ mod tests {
 
     #[test]
     fn contract_style_mapping() {
-        assert_eq!(contract_style_to_engine(0), cognitive_stack::ThinkingStyle::Analytical);
-        assert_eq!(contract_style_to_engine(6), cognitive_stack::ThinkingStyle::Creative);
-        assert_eq!(contract_style_to_engine(12), cognitive_stack::ThinkingStyle::Intuitive);
-        assert_eq!(contract_style_to_engine(18), cognitive_stack::ThinkingStyle::Focused);
-        assert_eq!(contract_style_to_engine(24), cognitive_stack::ThinkingStyle::Divergent);
-        assert_eq!(contract_style_to_engine(30), cognitive_stack::ThinkingStyle::Metacognitive);
+        assert_eq!(
+            contract_style_to_engine(0),
+            cognitive_stack::ThinkingStyle::Analytical
+        );
+        assert_eq!(
+            contract_style_to_engine(6),
+            cognitive_stack::ThinkingStyle::Creative
+        );
+        assert_eq!(
+            contract_style_to_engine(12),
+            cognitive_stack::ThinkingStyle::Intuitive
+        );
+        assert_eq!(
+            contract_style_to_engine(18),
+            cognitive_stack::ThinkingStyle::Focused
+        );
+        assert_eq!(
+            contract_style_to_engine(24),
+            cognitive_stack::ThinkingStyle::Divergent
+        );
+        assert_eq!(
+            contract_style_to_engine(30),
+            cognitive_stack::ThinkingStyle::Metacognitive
+        );
     }
 
     #[test]
     fn fast_bus_size() {
         // Should be compact — no padding waste
-        assert!(FastBusDto::SIZE <= 24, "FastBusDto is {} bytes, should be ≤24", FastBusDto::SIZE);
+        assert!(
+            FastBusDto::SIZE <= 24,
+            "FastBusDto is {} bytes, should be ≤24",
+            FastBusDto::SIZE
+        );
     }
 
     #[test]

@@ -17,8 +17,7 @@ pub static BGE_M3_HDR_TABLE: &[u8; 256 * 256] =
     include_bytes!("../data/bge-m3-hdr/distance_table_256x256.u8");
 
 /// BGE-M3 codebook index. 250,002 tokens × u16 = 488 KB.
-pub static BGE_M3_CODEBOOK_INDEX: &[u8] =
-    include_bytes!("../data/bge-m3-hdr/codebook_index.u16");
+pub static BGE_M3_CODEBOOK_INDEX: &[u8] = include_bytes!("../data/bge-m3-hdr/codebook_index.u16");
 
 pub const BGE_M3_N_CENTROIDS: usize = 256;
 pub const BGE_M3_VOCAB_SIZE: usize = 250_002;
@@ -28,8 +27,13 @@ pub fn bge_m3_lookup(token_id: u32) -> u16 {
     let idx = (token_id as usize).min(BGE_M3_VOCAB_SIZE - 1);
     let offset = idx * 2;
     if offset + 1 < BGE_M3_CODEBOOK_INDEX.len() {
-        u16::from_le_bytes([BGE_M3_CODEBOOK_INDEX[offset], BGE_M3_CODEBOOK_INDEX[offset + 1]])
-    } else { 0 }
+        u16::from_le_bytes([
+            BGE_M3_CODEBOOK_INDEX[offset],
+            BGE_M3_CODEBOOK_INDEX[offset + 1],
+        ])
+    } else {
+        0
+    }
 }
 
 pub fn bge_m3_lookup_many(token_ids: &[u32]) -> Vec<u16> {
@@ -69,10 +73,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn table_size() { assert_eq!(BGE_M3_HDR_TABLE.len(), 256 * 256); }
+    fn table_size() {
+        assert_eq!(BGE_M3_HDR_TABLE.len(), 256 * 256);
+    }
 
     #[test]
-    fn codebook_size() { assert_eq!(BGE_M3_CODEBOOK_INDEX.len(), BGE_M3_VOCAB_SIZE * 2); }
+    fn codebook_size() {
+        assert_eq!(BGE_M3_CODEBOOK_INDEX.len(), BGE_M3_VOCAB_SIZE * 2);
+    }
 
     #[test]
     fn diagonal_255() {
@@ -83,9 +91,17 @@ mod tests {
 
     #[test]
     fn hdr_variance() {
-        let avg = BGE_M3_HDR_TABLE.iter().map(|&v| v as f64).sum::<f64>() / BGE_M3_HDR_TABLE.len() as f64;
-        let std = (BGE_M3_HDR_TABLE.iter().map(|&v| { let d = v as f64 - avg; d * d })
-            .sum::<f64>() / BGE_M3_HDR_TABLE.len() as f64).sqrt();
+        let avg =
+            BGE_M3_HDR_TABLE.iter().map(|&v| v as f64).sum::<f64>() / BGE_M3_HDR_TABLE.len() as f64;
+        let std = (BGE_M3_HDR_TABLE
+            .iter()
+            .map(|&v| {
+                let d = v as f64 - avg;
+                d * d
+            })
+            .sum::<f64>()
+            / BGE_M3_HDR_TABLE.len() as f64)
+            .sqrt();
         assert!(std > 50.0, "HDR std={:.1} should be >50", std);
     }
 
