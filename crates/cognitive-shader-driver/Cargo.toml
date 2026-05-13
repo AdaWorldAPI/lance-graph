@@ -1,0 +1,95 @@
+[package]
+name = "cognitive-shader-driver"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.94"
+license = "Apache-2.0"
+publish = false
+description = """
+CognitiveShader driver — the shader IS the driver. Holds BindSpace columns
+(struct-of-arrays), dispatches cycles through thinking-engine, and emits
+cycle_fingerprint + CausalEdge64 through EmbedAnything-style commit sinks.
+
+Wires lance-graph-contract DTOs ⟷ p64-bridge::CognitiveShader ⟷ thinking-engine.
+"""
+
+[[bin]]
+name = "shader-serve"
+path = "src/bin/serve.rs"
+required-features = ["serve"]
+
+[[bin]]
+name = "shader-grpc"
+path = "src/bin/grpc.rs"
+required-features = ["grpc"]
+
+# shader-lab — the ONE lab binary. Compiles every endpoint behind the
+# unified DTO (UnifiedStep via OrchestrationBridge). Per-op endpoints
+# inside are lab-test shortcuts that dispatch through the same bridge
+# and are NEVER the canonical consumer surface.
+[[bin]]
+name = "shader-lab"
+path = "src/bin/serve.rs"
+required-features = ["lab"]
+
+[dependencies]
+lance-graph-contract = { path = "../lance-graph-contract" }
+# Read-only ontology registry (Phase 7, v4 plan). default-features = false so the
+# `lance-cache` feature (which pulls protoc/lance-encoding) stays gated; this
+# crate consumes the in-memory registry path only.
+lance-graph-ontology = { path = "../lance-graph-ontology", default-features = false }
+p64-bridge            = { path = "../p64-bridge" }
+bgz17                 = { path = "../bgz17" }
+causal-edge           = { path = "../causal-edge" }
+ndarray               = { path = "../../../ndarray", default-features = false, features = ["std"] }
+
+# Optional: real thinking-engine wiring behind a feature gate, matching
+# the EmbedAnything "default = runtime only; heavy deps behind features" rule.
+thinking-engine = { path = "../thinking-engine", optional = true, default-features = false }
+
+# Optional: planner integration. Same EmbedAnything pattern — debug/serve
+# only. When enabled, /v1/shader/plan and the Plan runbook step route
+# through PlannerAwareness (lance-graph-planner). Without it, those DTOs
+# return a 503 at runtime.
+lance-graph-planner = { path = "../lance-graph-planner", optional = true }
+
+# Debug/serve: serde + axum + tonic for live testing (NEVER in production binary)
+serde = { version = "1", features = ["derive"], optional = true }
+serde_json = { version = "1", optional = true }
+axum = { version = "0.8", optional = true }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"], optional = true }
+prost = { version = "0.13", optional = true }
+tonic = { version = "0.12", optional = true }
+# D0.1 — base64 decode for WireTensorView.bytes_base64 (Rule F: once, at ingress).
+base64 = { version = "0.22", optional = true }
+# D0.1 — bytemuck for the 64-byte-aligned decode target consumed by F32x16::from_slice.
+bytemuck = { version = "1", optional = true, features = ["derive"] }
+# Encode endpoint — DeepNSM (zero-dep, 4096-word COCA vocabulary, 512-bit VSA).
+deepnsm = { path = "../deepnsm", optional = true }
+
+[build-dependencies]
+tonic-build = { version = "0.12", optional = true }
+
+[features]
+default = []
+with-engine = ["dep:thinking-engine"]
+with-planner = ["dep:lance-graph-planner"]
+# Shared LAB DTOs — `wire.rs` + `auto_detect.rs` + codec kernel scaffolds
+# + token_agreement use these regardless of whether the transport is REST
+# (serve) or gRPC (grpc). Both features pull this set.
+_lab-dtos = ["dep:serde", "dep:serde_json", "dep:base64", "dep:bytemuck"]
+serve = ["_lab-dtos", "dep:axum", "dep:tokio", "dep:deepnsm"]
+grpc = ["_lab-dtos", "dep:prost", "dep:tonic", "dep:tonic-build", "dep:tokio"]
+
+# `lab` — umbrella switch for the single shader-lab binary. Enables every
+# endpoint (REST + gRPC), the planner bridge, the thinking-engine bridge,
+# and the research consumer (codec_research + CodecResearchBridge).
+#
+# Architecture note: the canonical surface is `UnifiedStep` via
+# `OrchestrationBridge` from lance-graph-contract. The `lab` feature only
+# adds test-convenience wrappers (per-op Wire DTOs, HTTP/gRPC transports)
+# on top of that canonical trait. Research is just one consumer of the
+# unified DTO, not the reason the DTO exists.
+lab = ["serve", "grpc", "with-engine", "with-planner"]
+
+[dev-dependencies]

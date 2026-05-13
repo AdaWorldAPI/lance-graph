@@ -1,0 +1,77 @@
+[package]
+name = "bgz-tensor"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = """
+bgz-tensor: Metric-algebraic tensor codec for transformer weight matrices.
+
+Not quantization — computation compilation. Projects weight matrices through
+golden-step folding into Base17 metric space, palette-quantizes via CLAM
+manifold clustering, then replaces matmul with precomputed distance table lookup.
+
+640× compression with algebraic structure preserved:
+  - Distance matrix: every attention score is a u16 table lookup
+  - Compose table: multi-hop reasoning is a u8 table lookup
+  - PCDVQ weighting: 20× sign / 3× magnitude / 1× detail
+  - HHTL cascade: 95% of attention computation eliminated at Layer 0-1
+"""
+
+# ndarray provides SIMD hardware acceleration (Cascade, Base17 L1, palette distance).
+# bgz-tensor is the consumer — it uses ndarray's kernels, does not reimplement them.
+# NOT optional — both live in same binary.
+[dependencies]
+ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
+holograph = { path = "../holograph", default-features = false }
+lance-graph-contract = { path = "../lance-graph-contract", optional = true }
+serde = { version = "1", features = ["derive"], optional = true }
+serde_json = { version = "1", optional = true }
+sha2 = { version = "0.10", optional = true }
+
+[features]
+default = []
+
+# Model selection — controls which bgz7 shards `hydrate --download` fetches.
+# No feature = palette-only (4 KB, always works, no download).
+# Pick ONE 27B variant. 9B is small enough to always include with a 27B.
+qwen35-9b = []              # 80 MB — quick thinking, shallow routing
+qwen35-27b-v1 = []          # 174 MB — Opus 4.5 behavior (deep reasoning)
+qwen35-27b-v2 = []          # 174 MB — Opus 4.6 precision (code/format)
+qwen35-full = ["qwen35-9b", "qwen35-27b-v1", "qwen35-27b-v2"]  # 430 MB — all variants
+
+# Hydrate binary deps (serde + sha2). Only needed for the CLI tool.
+hydrate = ["dep:serde", "dep:serde_json", "dep:sha2"]
+
+# CAM-PQ calibration binary deps. Reads safetensors/GGUF, classifies tensors
+# via route_tensor, trains a CamCodebook per argmax-regime tensor via
+# cam_pq::train_geometric, serializes codebooks + fingerprints. sha2 for
+# per-artifact manifest checksums.
+calibrate = ["dep:serde", "dep:serde_json", "dep:sha2", "dep:lance-graph-contract"]
+
+# Lab / R&D modules — analysis tools and experimental codec candidates
+# that must NOT leak into production builds. Gate for the MFDFA fractal
+# descriptor (probe showed per-row fractal structure is flat on Qwen3
+# — analysis-only, not a production codec) and future experimental
+# semiring / codec probes. Main binary MUST NOT enable this.
+lab = []
+
+[[bin]]
+name = "hydrate"
+path = "src/hydrate.rs"
+required-features = ["hydrate"]
+
+[[bin]]
+name = "cam_pq_calibrate"
+path = "src/bin/cam_pq_calibrate.rs"
+required-features = ["calibrate"]
+
+[[example]]
+name = "fractal_probe"
+required-features = ["lab"]
+
+[[example]]
+name = "cam_pq_row_count_probe"
+required-features = ["calibrate"]
+
+[dev-dependencies]
