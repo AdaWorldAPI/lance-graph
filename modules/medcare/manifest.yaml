@@ -1,0 +1,33 @@
+ogit_g: HEALTHCARE
+version: 1
+domain_name: medcare
+inert_when_consumer_absent: false
+
+entity_types:
+  Patient:      u16=100
+  Diagnosis:    u16=101
+  LabResult:    u16=102
+  Prescription: u16=103
+  Anamnese:     u16=104
+  Ueberweisung: u16=105
+
+rbac_policy: medcare_policy
+
+stack_profile:
+  audit_retention_days: 3650
+  requires_fail_closed: true
+  escalation: llm
+
+action_capabilities:
+  finalize_diagnosis:       escalate
+  issue_btm_prescription:   escalate
+  anonymize_patient:        escalate
+  read_lab:                 permit_with_audit
+  read_anamnese:            permit_with_audit
+
+actor:
+  crate: medcare-rs
+  type: MedCareActor
+  message_type: MedCareMessage
+
+inherits_from: dolce
