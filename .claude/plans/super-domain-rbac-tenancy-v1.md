@@ -1340,3 +1340,48 @@ The version pinning (lance =4.0.0, lancedb 0.27.2, rust 1.94.1) is **stricter** 
 - **Pinned versions:** stable; no action needed beyond using them in `Cargo.toml` for new crates (woa-rs/hubspot-rs/hiro-rs).
 - **`ndarray::simd` adoption:** assumed baseline for all D-SDR-* deliverables; no separate deliverable needed.
 - **Mandatory ndarray promotion:** **NOT in this spec's scope.** Tracked as Phase 3 + post-Phase-3 cleanup workstream. This spec ships against either world (with cfg-gates as transient overhead until promotion lands).
+
+### 19.7 Correction (same session): the SIMD dispatch pattern is already shipped — just import and use
+
+I framed §19.2 as "adopt ndarray::simd" with a "Tier A LOC drops ~15-25%" benefit. **Misleading.** The dispatch infrastructure is already shipped in the workspace's vendored ndarray fork; no new SIMD code is being avoided because no new SIMD code was ever going to be written. D-SDR-* deliverables just **import and call** `ndarray::simd::<op>` and the dispatch is transparent.
+
+**Existing file layout** (verified in `/home/user/ndarray/src/`):
+
+```
+ndarray/src/
+├── simd.rs                       # top-level entry; re-exports ops
+├── simd_avx2.rs                  # x86 AVX2 implementations
+├── simd_avx512.rs                # x86 AVX-512 implementations
+├── simd_neon.rs                  # ARM NEON implementations
+├── simd_amx.rs                   # Apple AMX implementations
+├── simd_wasm.rs                  # WASM SIMD implementations
+└── hpc/
+    ├── simd_caps.rs              # LazyLock<SimdCaps> — CPU detect ONCE at first call
+    └── simd_dispatch.rs          # routes to the right per-ISA impl based on detected caps
+```
+
+**The dispatch contract:**
+
+1. First call to any `ndarray::simd::*` op triggers `LazyLock` initialization in `hpc/simd_caps.rs`, which runs CPU feature detection once (CPUID on x86, runtime detection on ARM, etc.) and caches the result for the process lifetime.
+2. Each subsequent call goes through `hpc/simd_dispatch.rs`, which reads the cached caps and routes to the matching `simd_{avx512,avx2,neon,amx,wasm}.rs` implementation.
+3. **Polyfill:** if no SIMD ISA matches the host CPU, dispatch falls through to a scalar implementation (the polyfill). The scalar path is correctness-equivalent, just slower; consumers don't need cfg-gates.
+
+**Already-shipped consumers** of this pattern (per CLAUDE.md "ndarray = The Foundation (SIMD, GEMM, HPC, Fingerprint<256>, CAM-PQ codec)"):
+
+- `bgz17::batch_palette_distance` — SIMD palette distance over CSR rows
+- `lance-graph::graph::blasgraph::*` — SIMD Hamming over fingerprints
+- `bgz-tensor::cascade::*` — SIMD attention table lookup
+- `thinking-engine::role_tables::*` — SIMD per-role projection
+- `lance-graph::graph::neighborhood::*` — SIMD CLAM scope filter
+
+**Concrete consequence for D-SDR-* deliverables:**
+
+- D-SDR-1..3 (DTOs): no SIMD code authored. `BitSet256::contains`, `OwlIdentity::matches`, `MerkleRoot::from_fingerprint` either delegate to `ndarray::simd::*` or stay scalar (the per-row hot path doesn't need SIMD; the *batch* hot path does, and that's what `ndarray::simd::*` already handles for fingerprint columns).
+- D-SDR-25 (DriftDetectionBridge): batch MerkleRoot comparison uses `ndarray::simd::xor_fold` (already shipped) over the column.
+- D-SDR-31 (Arrow Flight SQL endpoint): no SIMD concerns at the endpoint; the underlying DataFusion plan execution already uses ndarray::simd through `lance-graph-planner::physical::*`.
+
+**The Tier A LOC reduction framing in §19.2 was wrong** — LOC was never inflated by hand-rolled SIMD in the first place. The correct framing: D-SDR-* code looks like normal Rust, and ndarray::simd is invisible at the call site (which is the point of a dispatch module).
+
+**Cfg-gating concern (§19.4) also overstated** — since other workspace crates already depend on ndarray unconditionally for SIMD, the `#[cfg(feature = "ndarray-hpc")]` gate at the lance-graph level is the *outlier*, not the norm. Once Phase 3 promotes ndarray to mandatory, the gate at lance-graph aligns with what bgz17 / bgz-tensor / thinking-engine already do.
+
+**No spec change needed beyond this clarification.** D-SDR-* deliverables stand as written; just don't expect the SIMD layer to be visible in their LOC counts.
