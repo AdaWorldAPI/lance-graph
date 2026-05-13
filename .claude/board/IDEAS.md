@@ -87,6 +87,39 @@ Agents filter by `@`-mention or domain to see what's theirs.
 
 (Prepend new ideas here with today's date. Format:)
 
+## 2026-05-13 — Pattern E+F+cognition cascade: ship manifest + ractor supervisor + thinking-engine bridge together (3-PR sequence)
+
+**Status:** Open
+**Priority:** P0 (architectural — every later D-SDR ships against the wrong substrate until this lands)
+**Scope:** @callcenter-membrane @truth-architect crate:lance-graph-callcenter crate:thinking-engine D-MANIFEST-MODULES-4 D-RACTOR-SUPERVISOR-5 D-SDR-13 D-SDR-15 D-SDR-17 D-SDR-19 domain:cognition domain:topology domain:auth
+
+Captures the 2026-05-13 two-paths-converging finding (`EPIPHANIES.md`). The wire-thinking-engine idea below carried Path A only; Path B (ractor supervisor) is the other half. Ship them as a single cascade, in order:
+
+**PR 1 — D-MANIFEST-MODULES-4** (PostNuke `/modules/<name>/manifest.yaml` + build-script). Generates compile-time `MODULES: [ConsumerEntry; N]` static carrying `(G, version, entity_types, rbac_policy, action_capabilities, stack_profile, actor_type, thinking_styles)` per consumer. Zero edits to `lance-graph-contract` after this. ~250 LOC + build-script + 3 manifest entries (medcare, smb, woa) + 4 tests.
+
+**PR 2 — D-RACTOR-SUPERVISOR-5** (`crates/lance-graph-callcenter/src/supervisor.rs`, ~400 LOC). `CallcenterSupervisor` ractor consuming the compile-time `MODULES` table, spawning each active consumer on boot, routing typed messages to the right addr — all in ractor sync mode (I-2: tokio outbound only / sync ractor inbound). 8-arm handler mapped 1:1 from `cognitive-shader-driver/src/grpc.rs` (dispatch / ingest / qualia / styles / health / tensors / calibrate / probe). Per-consumer crash isolation + restart strategy. ~5 integration tests covering boot, dispatch, crash-restart, and the I-2 BBB seam.
+
+**PR 3 — `cognition_bridge`** (`crates/lance-graph-callcenter/src/cognition_bridge.rs`, ~300 LOC). Composes Path A (thinking-engine substrate) against Path B (the per-consumer actor address from PR 2). Exposes `RoleProjection::for_role`, `ActorPersona::from_jwt`, `AwarenessFrame::project` on the actor's handler boundary. `UnifiedBridge::authorize_*` extension `with_cognition(...)` builder makes the cognitive surface optional; audit events carry `awareness_root: u64` in addition to `merkle_root`. ~5 integration tests covering each authorize op × Allow/Deny/Escalate.
+
+**Net deliverable collapse:** D-MANIFEST-MODULES-4 + D-RACTOR-SUPERVISOR-5 + D-SDR-13 + D-SDR-15 + D-SDR-17 (originally 5× scaffolded clean-room ≈ ~830 LOC + 23 tests) → 3-PR cascade ≈ ~950 LOC + 14 tests **composed against thinking-engine** instead of duplicating it. Architectural payoff: `lance-graph-callcenter` becomes the telephony-switching supervisor its name has promised since day one, cognitive substrate has a runtime home, and adding a new consumer = drop a manifest + add a Cargo dep + ~30 LOC glue.
+
+**Sub-questions to resolve in PR 1's review:**
+
+- Does the manifest build-script live in `lance-graph-callcenter/build.rs` or a new `lance-graph-modules` crate? (Probably the latter to keep callcenter's compile graph clean.)
+- Does the `thinking_styles: Vec<ThinkingStyleId>` manifest field reference contract-canonical (36) styles or the planner's 12-ord projection? (Probably contract-canonical; `ord_to_thinking_style` driver.rs:677 handles the down-projection.)
+- For BBB enforcement: does the `actor_type` enum gate which ractor handler shape the consumer gets (compile-time-typed dispatch), or does the supervisor dispatch dynamically with a trait object? (Sketch suggests compile-time-typed; let's confirm.)
+- For Pattern F sync-mode invariant: how do we test the I-2 seam? Probably a compile-fail test asserting `tokio::spawn` cannot be called inside a handler body. `crates/lance-graph-callcenter/tests/zone_serialize_check.rs` is the prior-art template for compile-fail invariant tests.
+
+**Open follow-ups (out of cascade scope, queued for after merge):**
+
+- D-SDR-25 (DriftDetectionBridge) composes against `thinking-engine::ground_truth` + `cronbach` once PR 3 lands.
+- D-SDR-26 (determinism rules) composes against `thinking-engine::reencode_safety` (x256-proven byte-determinism).
+- D-PARITY-V2-3..12 (DTO ladder rest) composes against `thinking-engine::tensor_bridge` + `meaning_axes` + `superposition`.
+
+Cross-ref: `EPIPHANIES.md` 2026-05-13 two-paths-converging finding; `TECH_DEBT.md` TD-RACTOR-SUPERVISOR-5 + TD-MANIFEST-MODULES-4 + TD-THINKING-ENGINE-UNWIRED-1; `.claude/plans/compile-time-consumer-binding-v1.md` Pattern E+F design; `.claude/plans/anatomy-realtime-v1.md` W11 gate; `.claude/handovers/2026-05-13-0855-brainstorm-arc-synthesis.md` §6 priority-ordered next steps (this cascade promotes to Phase 0.5 — before D-SDR-13/15/17).
+
+---
+
 ## 2026-05-13 — Wire `thinking-engine` into UnifiedBridge — collapse D-SDR-13/15/17 into one bridge module
 
 **Status:** Open

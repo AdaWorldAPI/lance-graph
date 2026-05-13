@@ -65,6 +65,40 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-05-13 — FINDING: `lance-graph-callcenter` has TWO complementary substrate paths waiting to be wired — thinking-engine (cognition) + ractor (runtime topology)
+
+**Status:** FINDING
+
+The 2026-05-13 thinking-engine finding (below) names one dormant substrate path that closes §16-§19. There is a **second, orthogonal** substrate path already designed and tech-debt-tracked: the **ractor supervisor** path that closes the runtime topology side. Both converge in `lance-graph-callcenter` — and both must be wired together, not picked one-or-the-other.
+
+| Path | What it solves | Status | Cross-ref |
+|---|---|---|---|
+| **A — `thinking-engine` substrate** (582 KB, 48 modules) | Cognitive surface: role projection, persona, qualia, awareness DTO, lenses, codebook lookup, ground-truth calibration | Indexed in `CLAUDE.md § Thinking Engine`; consumed by zero callcenter code | `TD-THINKING-ENGINE-UNWIRED-1`; `IDEAS.md` 2026-05-13 wire-thinking-engine |
+| **B — `ractor` supervisor** (designed, not yet built) | Runtime topology: sync actor supervision, per-consumer crash isolation, compile-time manifest-driven boot, typed message contracts (the I-2 invariant: tokio outbound only / sync ractor inbound) | Designed in `.claude/plans/compile-time-consumer-binding-v1.md` D-RACTOR-SUPERVISOR-5 (~400 LOC `supervisor.rs` sketched); maps 1:1 onto `cognitive-shader-driver/src/grpc.rs` 8 methods | `TD-RACTOR-SUPERVISOR-5` (TECH_DEBT.md:1779); `anatomy-realtime-v1.md` W11; `compile-time-consumer-binding-v1.md` §2.2 |
+
+**Why they're complementary, not competitive:**
+
+- **Path A (thinking-engine) gives the *contents*** of each authorize/dispatch/ingest decision (role projection vectors, persona identity, awareness DTO that rides alongside merkle audit roots).
+- **Path B (ractor) gives the *topology*** that runs Path A's primitives under crash-isolated supervision (one actor per consumer/super-domain, restart strategy, compile-time-typed messaging).
+
+Together they form the runtime: **`CallcenterSupervisor` (ractor) owns N consumer actors → each actor calls `UnifiedBridge::authorize_*` → which projects through `thinking-engine::role_tables + persona + awareness_dto` → emits a chained `UnifiedAuditEvent` carrying both `merkle_root` AND `awareness_root`**. The supervisor handles backpressure, restarts, and the I-2 BBB seam (no tokio inside actor handlers). The thinking-engine provides the cognitive contents the supervisor's typed messages carry.
+
+**Compile-time manifest convergence (Pattern E + Pattern F):** the `/modules/<name>/manifest.yaml` PostNuke-style declaration carries `(G, version, entity_types, rbac_policy, action_capabilities, stack_profile, actor_type, thinking_styles)`. The `actor_type` field gates Path B (which ractor handler arm boots for this consumer). The `thinking_styles` field gates Path A (which projection vectors from `thinking-engine::role_tables` this actor's authorize-flow uses). **One manifest entry per consumer compile-time-resolves both substrate paths.** Adding a new consumer = drop a manifest + add a Cargo dep + write ~30 LOC of `impl Consumer for FooActor` glue. Zero edits to `lance-graph-contract` after the build-script lands.
+
+**Implication for the plan:** the cognition-bridge PR proposed in `IDEAS.md` 2026-05-13 should NOT ship in isolation; it should ship **alongside** the ractor supervisor (D-RACTOR-SUPERVISOR-5) and the manifest build-script (D-MANIFEST-MODULES-4) as **a single Pattern E+F+thinking-engine integration cascade** — three deliverables, three PRs, sequenced (manifest → supervisor → cognition-bridge composes against both).
+
+**Concrete cascade ordering:**
+
+1. **D-MANIFEST-MODULES-4** (PostNuke-style `/modules/<name>/manifest.yaml` + build-script generating the compile-time `MODULES: [ConsumerEntry; N]` static). Zero edits to `lance-graph-contract` afterwards.
+2. **D-RACTOR-SUPERVISOR-5** (`CallcenterSupervisor` ractor consuming the compile-time module table; 8-arm typed message handler mapped from `cognitive-shader-driver/src/grpc.rs`). Each consumer = one actor spawned on boot with I-2 crash isolation.
+3. **Cognition-bridge** (new module wrapping `thinking-engine::role_tables + persona + awareness_dto` behind a callcenter-side trait). Composes against the supervisor's per-consumer actor address; each `authorize_*` call routes through the actor and emits an audit event carrying both `merkle_root` and `awareness_root`.
+
+This cascade collapses **D-SDR-13 + D-SDR-15 + D-SDR-17 + D-RACTOR-SUPERVISOR-5 + D-MANIFEST-MODULES-4** (5 separate deliverables, originally ~830 LOC scaffolded clean-room) into a **3-PR cascade ~900 LOC composed against thinking-engine**. The LOC delta is small; the **architectural** payoff is huge — `lance-graph-callcenter` finally becomes what its name has promised since day one (telephony switching, supervised processes, per-line crash isolation), and the cognitive substrate finally has a runtime home.
+
+**The ball that mustn't drop, restated:** the May 1 → May 13 transcript arc accumulated this two-paths-converging finding without ever capturing it as a single epiphany. Future sessions without this entry would re-derive Path A xor Path B in isolation (~30-turn rediscovery tax) and miss the manifest-driven convergence that makes both paths cheap together.
+
+Cross-ref: `EPIPHANIES.md` 2026-05-13 thinking-engine finding (Path A); `TECH_DEBT.md` `TD-RACTOR-SUPERVISOR-5` + `TD-MANIFEST-MODULES-4` + `TD-THINKING-ENGINE-UNWIRED-1`; `.claude/plans/compile-time-consumer-binding-v1.md` (Pattern E + Pattern F design); `.claude/plans/anatomy-realtime-v1.md` (W11 ractor supervisor demo gate); `ARCHITECTURE_ENTROPY_LEDGER.md:517` (Pattern F design-phase row).
+
 ## 2026-05-13 — FINDING: `thinking-engine` is a 582 KB dormant substrate that closes most of §16-§19 when wired
 
 **Status:** FINDING
