@@ -664,7 +664,7 @@ impl CypherQuery {
         let semiring = HdrSemiring::XorBundle;
         let graph = TypedGraph::new(0);
 
-        match compile_to_blasgraph(&logical_plan, &graph, &semiring) {
+        match compile_to_blasgraph(&_logical_plan, &graph, &semiring) {
             Ok(matrix) => {
                 // Convert matrix entries to RecordBatch
                 let mut sources = Vec::new();
