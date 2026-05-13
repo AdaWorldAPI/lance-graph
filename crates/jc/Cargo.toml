@@ -5,9 +5,28 @@ edition = "2021"
 description = "Jirak-Cartan: five-pillar proof-in-code for binary-Hamming causal field computation"
 license = "Apache-2.0"
 
-# Zero deps — standalone, like deepnsm and bgz17.
+# Zero EXTERNAL deps in production — standalone, like deepnsm and bgz17.
 # The proof is the proof regardless of SIMD path.
-# ndarray can be added later for acceleration; the core math is pure Rust.
+# Workspace-sibling path-deps are opt-in via features (see [features] below).
+
+# Optional workspace-sibling deps — gated by feature flags to preserve
+# the default zero-dep build. `cargo build` (default) gives a fully
+# standalone JC; `cargo build --features hambly-lyons` activates Pillar 11
+# by pulling in the sigker workspace sibling.
+[dependencies]
+sigker = { path = "../sigker", optional = true }
+
+[features]
+# Default build is zero-dep — honors the standalone constitution.
+default = []
+# Activates Pillar 11 (Hambly-Lyons signature uniqueness) by pulling in the
+# sigker workspace sibling. See `src/hambly_lyons.rs` for the probe + the
+# DEFERRED fallback used when the feature is off.
+hambly-lyons = ["dep:sigker"]
+
+# Dev-only deps for cross-crate bridge examples (production stays zero-dep).
+[dev-dependencies]
+lance-graph-contract = { path = "../lance-graph-contract" }
 
 [[example]]
 name = "prove_it"
@@ -17,3 +36,24 @@ name = "sigma_probe"
 
 [[example]]
 name = "probe_p1"
+
+[[example]]
+name = "osint_edge_traversal"
+
+[[example]]
+name = "splat_to_ewa_bridge"
+
+[[example]]
+name = "splat_triangle_count"
+
+[[example]]
+name = "splat_lpa_label_propagation"
+
+[[example]]
+name = "splat_louvain_modularity"
+
+[[example]]
+name = "splat_jaccard_adamic_adar"
+
+[[example]]
+name = "splat_perturbationslernen"

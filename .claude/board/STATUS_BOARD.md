@@ -281,6 +281,41 @@ pattern IS the Supabase-shape transcode approach).
 
 ---
 
+## grammar-foundry-followup-v1 — Wire stubs to existing tissue
+
+Plan: `.claude/plans/grammar-foundry-followup-v1.md`. Session 2026-04-29.
+Six explicit stubs in PRs #275-#283 + 1 keystone (LF-12 Pipeline DAG). 13 PRs total in 3 waves.
+
+### Wave 1 — no deps (parallel)
+
+| D-id | Title | Status | Notes |
+|---|---|---|---|
+| PR-S1 | LF-12 Pipeline DAG: `UnifiedStep.depends_on` + topological executor | **Queued** | Keystone. Unblocks F4, G2, G6 |
+| PR-F1 | PolicyRewriter UDF wrap: `RedactionMode` executors (closes `policy.rs:122`) | **Queued** | Unblocks F2, F5 |
+| PR-F3 | Audit log Lance-backed writer (closes `lib.rs:100`) | **Queued** | |
+| PR-F6 | `dn_path.rs` real scent via CAM-PQ (closes `dn_path.rs:53`) | **Queued** | Risk: bgz-tensor dep |
+| PR-G1 | Triangle bridge real Causality footprint (closes `triangle_bridge.rs:90,221`) | **Queued** | |
+| PR-G3 | ContextChain real `Binary16K` fingerprint (closes `context_chain.rs:345`) | **Queued** | |
+| PR-G4 | verb_table seed 10/12 families (closes empty `default_table()` rows) | **Queued** | |
+| PR-G5 | AriGraph episodic unbundle/rebundle (per `integration-plan-grammar-crystal-arigraph.md`) | **Queued** | |
+
+### Wave 2 — depends on Wave 1
+
+| D-id | Title | Status | Notes |
+|---|---|---|---|
+| PR-F2 | RowEncryption + DifferentialPrivacy executors (closes `policy.rs:147,181`) | **Queued** | After F1; needs key-mgmt ADR |
+| PR-F4 | PostgREST → DataFusion dispatch (closes `EchoHandler` stub) | **Queued** | After S1 |
+| PR-F5 | `audit_from_plan()` helper (closes `orchestration.rs:202` `unimplemented!`) | **Queued** | After F1 |
+| PR-G2 | Disambiguator wiring at parser boundary + FailureTicket emission | **Queued** | After S1 |
+
+### Wave 3 — depends on Waves 1+2
+
+| D-id | Title | Status | Notes |
+|---|---|---|---|
+| PR-G6 | Animal Farm harness real run (D10 from PR #243) | **Queued** | After G1+G2+G3; text licensing needed |
+
+---
+
 ## unified-integration-v1 — PersonaHub × ONNX × Archetype × MM-CoT × RoleDB
 
 Plan: `.claude/plans/unified-integration-v1.md`. Session 2026-04-23.
@@ -294,7 +329,27 @@ Plan: `.claude/plans/unified-integration-v1.md`. Session 2026-04-23.
 | DU-4 | MM-CoT stage split: add `rationale_phase: bool` to `CognitiveEventRow`; surface `FacultyDescriptor.is_asymmetric()` in projected RecordBatch | **Shipped** (Phase A: 2026-04-23 `a05979e`; Phase B: 2026-04-24) | Phase A: field exists. Phase B: `set_faculty_context()` on `LanceMembrane` wires `rationale_phase` from `AtomicBool`; orchestration layer calls it with `FacultyDescriptor::is_asymmetric()` + stage. Column is live, not ghost. |
 | DU-5 | Board hygiene: DU-0 through DU-4 registered; INTEGRATION_PLANS.md + LATEST_STATE.md updated | **Shipped** (2026-04-23, commit `a05979e`) | Plan corrections + precision-tier §18 + father-grandfather concept committed in follow-up. |
 
+## splat-osint-ingestion-v1 — Splat contract + EWA OSINT bridge
+
+Active plan, 7 deliverables (D-SPLAT-1..7) staged across 6 PRs of the
+`gaussian-splat-cam-plane-workaround.md` doc-sequence. PR 1+2 in flight
+on branch `claude/splat-osint-ingestion`.
+Plan path: `.claude/plans/2026-05-06-splat-osint-ingestion-v1.md`.
+
+| D-id | Title | Status | PR / Evidence |
+|---|---|---|---|
+| D-SPLAT-1 | `crates/lance-graph-contract/src/splat.rs` — `SplatChannel`, `CamPlaneSplat`, `SplatPlaneSet`, `AwarenessPlane16K`, `CamSplatCertificate`, `SplatDecision`, `TriadicProjection`, `ReasoningWitness64` + 10 unit tests | **In PR** | branch `claude/splat-osint-ingestion` |
+| D-SPLAT-2 | `crates/jc/examples/osint_edge_traversal.rs` — EWA-Sandwich Σ-push-forward demo for OSINT 5-hop chain, side-by-side vs naive convolution | **In PR** | branch `claude/splat-osint-ingestion` |
+| D-SPLAT-3 | `witness_to_splat()` deterministic conversion (PR 2 of doc-sequence) | **In PR** | branch `claude/phase-3b-witness-to-splat` |
+| D-SPLAT-4 | Splat deposition into BindSpace columns via `MergeMode::AlphaFrontToBack` lanes (PR 3 of doc-sequence) | **Queued** | — |
+| D-SPLAT-5 | `PlanarSplatBundle4096` with local/short/medium/long bands (PR 4 of doc-sequence) | **Queued** | — |
+| D-SPLAT-6 | Semantic-CAM-distance integration — survivor tile selection vs splatted pressure planes (PR 5 of doc-sequence) | **Queued** | — |
+| D-SPLAT-7 | Replay fallback — exact 4096-cycle ThoughtCycleSoA replay slice when certificate insufficient (PR 6 of doc-sequence) | **Queued** | — |
+
+Cross-ref: SPLAT-1 row in `ARCHITECTURE_ENTROPY_LEDGER.md` (Aspirational → Wired stage 1, entropy 4 → 2).
+
 ---
+
 
 ## Update protocol
 

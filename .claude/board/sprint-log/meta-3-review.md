@@ -37,180 +37,92 @@ the right shape; it's just smaller than ambition.
 `Operation::Write { predicate }` (true). Neither path reaches
 `Operation::Act { action }`.
 
-This means actions like:
-- `Diagnosis.classify` / `finalize` / `retract`
-- `Prescription.issue` / `renew` / `revoke`
-- `Anamnese.append` (the ONLY mutation path for Anamnese per BMV-Ä §57)
-- `Ueberweisung.send` / `accept` / `decline`
-- `Patient.merge` / `anonymize` / `delete`
-
-...cannot be gated through `MedCareMembraneGate`. The orchestration
-layer must call `medcare_rbac::Policy::evaluate(role, entity,
-Operation::Act { action })` directly.
+This means actions like Diagnosis.classify/finalize/retract,
+Prescription.issue/renew/revoke, Anamnese.append (the ONLY mutation
+path for Anamnese per BMV-Ä §57), Ueberweisung.send/accept/decline,
+Patient.merge/anonymize/delete cannot be gated through
+`MedCareMembraneGate`. The orchestration layer must call
+`medcare_rbac::Policy::evaluate(role, entity, Operation::Act { action })`
+directly.
 
 **This is intentional from PR #29's design** — the upstream
 `MembraneGate` trait shape is `(commit: bool)` only. But it's a
 substantial v1 limit that medcare's append-only Anamnese semantic
 relies on.
 
-**Super-helpful solution.** Add an explicit doc note to gate.rs
-module head:
-
-```rust
-//! # Action operations not gated here
-//!
-//! `MedCareMembraneGate` routes only Read/Write per upstream's
-//! `(gate_commit: bool)` shape. Action operations (`Diagnosis.classify`,
-//! `Prescription.issue`, `Anamnese.append`, etc.) must go through
-//! `medcare_rbac::Policy::evaluate(role, entity, Operation::Act
-//! { action })` at the orchestration layer.
-//!
-//! This is by upstream design — `MembraneGate::should_emit` is the
-//! wire-shape of "is this projection allowed to leave the membrane",
-//! which is a Read/Write question. Action authorization (issue this
-//! prescription, finalize this diagnosis) is an orchestration-layer
-//! concern that fires before the eventual Read/Write projection.
-```
-
-**Action.** Update gate.rs doc — small follow-up commit. Or carry
-this into the sprint summary as documented v1 limit.
+**Action.** Add explicit doc note to gate.rs module head explaining
+the action-routing constraint. Document orchestration layer as the
+right home for action gating.
 
 ---
 
 ## HIGH #2 — BtM Escalate "limitation documented" tests are too weak
 
 **Finding.** W12's regulatory tests for the BtM/finalize/anonymize
-limitation:
+limitation use `decision.is_allowed()`. If a future commit lands the
+Escalate wrapping, `decision` becomes `Escalate { reason: "..." }`,
+which is NOT `is_allowed()`, so the test FAILS. That's the desired
+flip — but the failure message will be cryptic.
+
+**Solution.** Tighten the assertion:
 
 ```rust
-#[test]
-fn btm_escalate_path_documented_as_v1_limitation() {
-    let gate = MedCareMembraneGate::from_medcare_policy("doctor", "Prescription");
-    let decision = gate.evaluate(true);
-    assert!(decision.is_allowed());  // ← too loose
-}
-```
-
-`is_allowed()` returns true only for `AccessDecision::Allow`. If a
-future commit lands the Escalate wrapping (the documented future
-behavior), `decision` becomes `Escalate { reason: "..." }`, which is
-NOT `is_allowed()`, so the test FAILS. That's the desired flip — the
-test fails until the spec is updated.
-
-But the failure message will be cryptic: "expected true, got false".
-The reader has to figure out whether is_allowed false means Deny,
-Escalate, or some other variant.
-
-**Super-helpful solution.** Tighten the assertion:
-
-```rust
-#[test]
-fn btm_escalate_path_documented_as_v1_limitation() {
-    let gate = MedCareMembraneGate::from_medcare_policy("doctor", "Prescription");
-    let decision = gate.evaluate(true);
-    // v1: Allow uniformly (gate doesn't see btm_flag).
-    // FUTURE: when row-context lands, this should become
-    // AccessDecision::Escalate { reason: "BtM second signature required" }
-    // for btm_flag=true rows. This explicit assert_eq! makes the future
-    // flip a clear test failure: "expected Allow, got Escalate { ... }"
-    // is much more readable than "expected true, got false".
-    assert_eq!(decision, AccessDecision::Allow);
-}
+// FUTURE: when row-context lands, this should become
+// AccessDecision::Escalate { reason: "BtM second signature required" }
+assert_eq!(decision, AccessDecision::Allow);
 ```
 
 This applies to all three v1-limitation tests (BtM, finalize/retract,
-anonymize). Same pattern.
-
-**Action.** Optional W12-revision-2 to tighten three assertions. Not
-blocking — the loose assertions still flip when future changes land.
-But the failure message clarity matters for someone diagnosing a CI
-break six months from now.
+anonymize). Not blocking — the loose assertions still flip when future
+changes land, just with cryptic failure messages.
 
 ---
 
 ## MEDIUM #3 — Three name paths for `Policy`
 
-**Finding.** Same `Policy` type reachable via:
+Same `Policy` type reachable via:
 - `medcare_rbac::policy::Policy` (canonical home)
 - `medcare_realtime::gate::Policy` (re-exported via `pub use`)
 - `medcare_realtime::Policy` (lib.rs crate-root re-export)
 
-Compilation-equivalent. Cognition-confusing. Future "import Policy"
-may grab any of three depending on which path the IDE auto-suggests.
-
-**Super-helpful solution.** Pick one canonical path; document others
-as legacy aliases. Recommended canonical: `medcare_realtime::Policy`
-(crate-root) — same as smb-realtime's pattern. Other two paths stay
-for backward-compat but aren't documented as primary.
-
-**Action.** Backlog. Doc-only update; no behavior change.
+Compilation-equivalent. Cognition-confusing. Recommended canonical:
+`medcare_realtime::Policy` (crate-root) — same as smb-realtime's
+pattern. Backlog; doc-only update.
 
 ---
 
 ## MEDIUM #4 — No bench harness for 20-200 ns claim
 
-**Finding.** Gate doc claims "decisions run at L1 inner speed
-(~20-200 ns)". v1 has zero benchmarks validating this.
+Gate doc claims "decisions run at L1 inner speed (~20-200 ns)". v1
+has zero benchmarks validating this.
 
-**Super-helpful solution.** Backlog item: `gate-bench-v1` follow-up
-adding `criterion`-based microbenchmarks for:
-- `should_emit(_, _, _, true)` — allow path
-- `should_emit(_, _, _, true)` — deny path (unknown role)
-- `should_emit(_, _, _, false)` — read path
-- `evaluate(true)` (Escalate path when future row-context lands)
-
-Targets: <500 ns p99 for current sync impl. If we can't hit that, the
-"20-200 ns" claim in the topology doc needs revision.
+**Solution.** Backlog item: `gate-bench-v1` follow-up adding
+`criterion`-based microbenchmarks. Targets: <500 ns p99 for current
+sync impl.
 
 ---
 
 ## LOW #5 — TD-MEMBRANE-FIRST-VS-ANY untested
 
-**Finding.** PR #29 caveat #3 says `writable_predicates.first()` may
-deny when "any" should allow IF predicate-specific RLS conditions
-exist. medcare-realtime carries the caveat forward in module-head
-docs but writes no test.
-
-**Super-helpful solution.** Backlog: when a real divergence case is
-identified (e.g. a Patient predicate where `Operation::Write { predicate }`
-has different RLS conditions per predicate), write a regression test.
-v1 doesn't have such a case, so the test would be vacuous.
+PR #29 caveat #3 carries forward in module-head docs but writes no
+test. Backlog: when a real divergence case is identified, write a
+regression test. v1 doesn't have such a case.
 
 ---
 
 ## Sprint-wide closure assessment
 
 **Round 1 (medcare-rbac):** Solid. 26 tests, 2 CRITICAL fixes applied
-in revision-2. Surface mirrors lance-graph-rbac with medcare entities.
+in revision-2.
 
 **Round 2 (medcare-realtime skeleton):** Solid. 5 tests, 1 CRITICAL
-casing fix + HIPAA-grade values applied in W7-revision-2. Workspace
-registration clean.
+casing fix + HIPAA-grade values applied in W7-revision-2.
 
 **Round 3 (MedCareMembraneGate):** Solid. 33 tests across gate.rs +
-integration.rs + regulatory.rs. Two HIGH gaps (action ops unreachable,
-v1-limit assertions loose) are honest documentation issues, not
-correctness blockers.
+integration.rs + regulatory.rs.
 
 **Total tests:** 64 across all three crates (medcare-rbac 26 +
 medcare-realtime 38).
-
-**Compilation expectation:** medcare-rs root `cargo build` should
-work assuming:
-1. lance-graph submodule symlink is functional (vendor/lance-graph)
-2. lance-graph workspace builds (lance-graph-contract +
-   lance-graph-callcenter + medcare-rbac symbol resolution)
-3. `StepDomain::Medcare` profile values match upstream (verified
-   in W7-rev2)
-
-If any of (1)/(2) fails on a fresh checkout, that's a vendor/submodule
-hygiene issue — not a sprint deliverable issue.
-
-**Recommended follow-up sprint scope (smaller than this one):**
-1. Apply HIGH #1 doc note (5 min)
-2. Apply HIGH #2 assertion tighten (10 min)
-3. Bench harness for gate decisions (HIGH-MEDIUM, ~2 hours)
-4. Action-operation orchestration layer wrapper (HIGH-HIGH, half day)
 
 ---
 

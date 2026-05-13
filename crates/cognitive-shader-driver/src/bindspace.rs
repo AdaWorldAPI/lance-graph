@@ -10,7 +10,10 @@
 //! The `cycle` column uses `Vsa16kF32` carrier (16,384 × f32 = 64 KB per row)
 //! for algebraic operations; other planes remain `u64 × 256`.
 
+use std::sync::Arc;
+
 use lance_graph_contract::cognitive_shader::{ColumnWindow, MetaFilter, MetaWord};
+use lance_graph_ontology::OntologyRegistry;
 
 pub const WORDS_PER_FP: usize = 256;
 pub const WIDTH_BITS: usize = WORDS_PER_FP * 64;
@@ -163,7 +166,10 @@ impl MetaColumn {
 /// u64 temporal + u16 expert. All separate column buffers.
 ///
 /// Mutations go through CollapseGate (lance-graph-contract::collapse_gate).
-#[derive(Debug)]
+///
+/// `Debug` is implemented manually because `OntologyRegistry` does not derive
+/// `Debug` (it holds interior mutability and large hydrated tables); the
+/// registry slot is rendered as a presence flag only.
 pub struct BindSpace {
     pub len: usize,
     pub fingerprints: FingerprintColumns,
@@ -175,6 +181,37 @@ pub struct BindSpace {
     /// Column H: per-row entity type binding (Foundry Object Type equivalent).
     /// 0 = untyped. Non-zero = 1-based index into `Ontology.schemas`.
     pub entity_type: Box<[u16]>,
+    /// Optional handle to the ontology registry (Phase 7, v4 plan).
+    ///
+    /// READ-ONLY access only. The driver consults this registry to resolve
+    /// `entity_type` indices into named OGIT schemas, semantic types, and
+    /// namespace bridges. The shader never mutates the registry — mutation
+    /// flows through `OntologyRegistry::append_mapping` on a separately-owned
+    /// `Arc`, never through `BindSpace`.
+    ///
+    /// FUTURE WORK (NOT this session's deliverable): downstream calibration
+    /// improvements will let the MUL gate pick ontology-aware trust
+    /// thresholds — e.g. Compliance edges → Plateau-only commit, Healthcare
+    /// edges → stricter trust calibration. The MUL gate logic in
+    /// `driver.rs:271-320` and the CausalEdge64 emission path are unchanged
+    /// in this PR; only the registry handle is wired.
+    pub ontology: Option<Arc<OntologyRegistry>>,
+}
+
+impl std::fmt::Debug for BindSpace {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BindSpace")
+            .field("len", &self.len)
+            .field("fingerprints", &self.fingerprints)
+            .field("edges", &self.edges)
+            .field("qualia", &self.qualia)
+            .field("meta", &self.meta)
+            .field("temporal", &self.temporal)
+            .field("expert", &self.expert)
+            .field("entity_type", &self.entity_type)
+            .field("ontology", &self.ontology.as_ref().map(|_| "<OntologyRegistry>"))
+            .finish()
+    }
 }
 
 impl BindSpace {
@@ -189,7 +226,23 @@ impl BindSpace {
             temporal: vec![0u64; len].into_boxed_slice(),
             expert: vec![0u16; len].into_boxed_slice(),
             entity_type: vec![0u16; len].into_boxed_slice(),
+            ontology: None,
         }
+    }
+
+    /// Attach a read-only ontology registry handle. Phase 7 (v4 plan).
+    ///
+    /// The registry is shared via `Arc` — multiple `BindSpace` instances and
+    /// the orchestration bridge can hold the same registry. Mutation of the
+    /// registry (TTL hydration, mapping proposals) happens on the original
+    /// `OntologyRegistry` owner; this handle is read-only by convention.
+    pub fn set_ontology(&mut self, registry: Arc<OntologyRegistry>) {
+        self.ontology = Some(registry);
+    }
+
+    /// Read-only view of the attached ontology registry, if any.
+    pub fn ontology(&self) -> Option<&Arc<OntologyRegistry>> {
+        self.ontology.as_ref()
     }
 
     /// Total byte footprint (sum across all columns).
@@ -437,6 +490,19 @@ mod tests {
             .build();
         assert_eq!(bs.entity_type[0], 5, "push_typed should set entity_type");
         assert_eq!(bs.entity_type[1], 0, "push should default to 0");
+    }
+
+    #[test]
+    fn ontology_handle_attaches_and_reads_back() {
+        // Phase 7 (v4 plan): BindSpace holds an Option<Arc<OntologyRegistry>>
+        // for read-only registry access. This test asserts the wiring; it
+        // does NOT test ontology semantics (those live in the
+        // lance-graph-ontology crate's own tests).
+        let mut bs = BindSpace::zeros(4);
+        assert!(bs.ontology().is_none(), "default must be None");
+        let reg = Arc::new(OntologyRegistry::new_in_memory());
+        bs.set_ontology(reg);
+        assert!(bs.ontology().is_some(), "after set_ontology must be Some");
     }
 
     #[test]

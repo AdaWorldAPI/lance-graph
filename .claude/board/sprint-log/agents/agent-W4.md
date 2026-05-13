@@ -74,6 +74,5 @@ datafusion-integration-gv0BF` branch of medcare-rs.
 - ✅ All 11 tests fire happy + counter paths
 - ✅ medcare_policy() pinning test (count = 4 roles)
 - ✅ Loop-over-entities tests catch missing-permission drift
-- ⚠️ No test for Operation::Act on unknown action (e.g. doctor.evaluate
-  with Action="invent-an-action") — should rely on can_act returning
-  false via slice contains. *Edge case; defer to Meta-1 verdict.*
+- ⚠️ No test for Operation::Act on unknown action — should rely on
+  can_act returning false via slice contains. *Defer to Meta-1 verdict.*

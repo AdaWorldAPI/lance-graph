@@ -441,6 +441,96 @@ impl SchemaExpander for Ontology {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ObjectView + NotificationSpec — Foundry parity primitives (D-PARITY-V2-4)
+//
+// LF-22/23 surface for Q2 Object Explorer. CONTRACT primitives only — POD
+// shapes consumed by the future D-PARITY-V2-7 renderer. No logic here.
+//
+// **Zone classification**: Zone 1 (BindSpace SoA, inside the BBB).
+// MUST NOT carry `serde::Serialize` — matches `MulThresholdProfile` pattern
+// (Wave 2). See `.claude/knowledge/soa-dto-dependency-ledger.md`.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Which Q2 panel template renders an object.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum DisplayTemplate {
+    Card,
+    Detail,
+    Summary,
+}
+
+/// One predicate column projected into an `ObjectView`.
+/// `predicate_iri` matches the predicate string on `ExpandedTriple`/`MappingRow`;
+/// `label` is the display string (English; locale resolution happens in Q2).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FieldRef {
+    pub predicate_iri: String,
+    pub label: String,
+}
+
+impl FieldRef {
+    pub fn new(predicate_iri: impl Into<String>, label: impl Into<String>) -> Self {
+        Self { predicate_iri: predicate_iri.into(), label: label.into() }
+    }
+}
+
+/// Foundry "Object View" — a per-Schema render spec for the Object Explorer.
+/// `fields` enumerates which `MappingRow` predicates to surface, in order.
+/// `primary_label` names the predicate that becomes the row's headline
+/// (e.g. `"name"`, `"title"`); `None` falls back to the first field.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ObjectView {
+    pub display_template: DisplayTemplate,
+    pub fields: Vec<FieldRef>,
+    pub primary_label: Option<String>,
+}
+
+impl ObjectView {
+    pub fn new(display_template: DisplayTemplate, fields: Vec<FieldRef>) -> Self {
+        Self { display_template, fields, primary_label: None }
+    }
+}
+
+/// What event fires a notification.
+/// `ThresholdCrossed` is the Foundry "metric crossed" trigger; the threshold
+/// value lives in the consumer (D-PARITY-V2-7), not in this contract surface.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum NotificationTrigger {
+    Created,
+    Updated,
+    Deleted,
+    ThresholdCrossed,
+}
+
+/// Where the notification body is delivered.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum NotificationChannel {
+    Inline,
+    Webhook,
+    Email,
+}
+
+/// Foundry "Notification" — one trigger × channel × body template.
+/// `template` is a free-form string (e.g. handlebars-style); rendering is
+/// the consumer's job.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NotificationSpec {
+    pub trigger: NotificationTrigger,
+    pub channel: NotificationChannel,
+    pub template: String,
+}
+
+impl NotificationSpec {
+    pub fn new(
+        trigger: NotificationTrigger,
+        channel: NotificationChannel,
+        template: impl Into<String>,
+    ) -> Self {
+        Self { trigger, channel, template: template.into() }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

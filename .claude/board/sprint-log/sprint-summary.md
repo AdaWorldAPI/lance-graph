@@ -186,56 +186,6 @@ Smaller than this sprint. ~half-day of work:
 
 ---
 
-## Branch state at sprint closure
-
-### medcare-rs (`claude/lance-datafusion-integration-gv0BF`)
-
-```
-6152f9a [W12] tests/regulatory.rs
-cec95f5 [W11] tests/integration.rs
-9c54342 [W10] lib.rs gate re-export
-702e863 [W9]  src/gate.rs
-c135084 [W7-rev2] stack.rs StepDomain::Medcare casing + HIPAA values
-4f1bb79 [W8]  workspace Cargo.toml registration
-ffa6c18 [W7]  src/stack.rs (initial — superseded by rev2)
-609e8a4 [W6]  src/lib.rs (gate exports deferred to W10)
-4beee0c [W5]  Cargo.toml medcare-realtime
-5eff98e [W4-rev2] policy.rs receptionist test fix
-ffa3860 [W3-rev2] role.rs CRITICAL #1+#2 fixes
-860d58e [W4]  policy.rs (initial)
-bdb86ba [W3]  role.rs (initial)
-49f377c [W3]  permission.rs
-2fdace7 [W2]  access.rs
-7b91459 [W2]  lib.rs
-5b06da8 [W1]  medcare-rbac/Cargo.toml
-2816c2e (main) — branch root
-```
-
-### lance-graph (`claude/lance-datafusion-integration-gv0BF`)
-
-```
-a7576355 [M3]  meta-3-review.md (Verdict: SHIP)
-55602351 [W12-log]
-4f179417 [W11-log]
-238d85cb [W10-log]
-8923d7c2 [W9-log]
-42c9888f [M2]  meta-2-review.md (CRITICAL: casing fix path)
-b9a12339 [W8-log]
-b12e33e6 [W7-log]
-8b525f4f [W6-log]
-67e0da43 [W5-log]
-dfad2043 [M1]  meta-1-review.md (2 CRITICAL fixes required)
-32189362 [W4-log]
-ad7c4ae2 [W3-log]
-c1b62334 [W2-log]
-f4ea4bad [W1-log]
-f41180f1 SPRINT_LOG.md scaffolding init
-929a7439 MEDCARE_POLICY_GAP.md (pre-sprint scoping doc)
-... earlier commits in branch ...
-```
-
----
-
 ## Sign-off
 
 **3 stages, 12 workers, 3 metas, 4 critical fixes, 64 tests, 1 closed

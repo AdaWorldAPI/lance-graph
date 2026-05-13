@@ -33,6 +33,9 @@ use lance_graph_contract::cognitive_shader::{
 
 use crate::bindspace::{BindSpace, QUALIA_DIMS, WORDS_PER_FP};
 
+#[cfg(feature = "with-engine")]
+use thinking_engine::dto::BusDto;
+
 // ═══════════════════════════════════════════════════════════════════════════
 // StreamDto → BindSpace (sensor output populates content fingerprints)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -152,6 +155,221 @@ impl EngineBusBridge {
             cycle_count: bus.resonance.cycles_used,
             converged: bus.gate.is_flow(),
         }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// D-PARITY-V2-3: BusDto → BindSpace (the Tier-2 → Tier-3 transition)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Per `.claude/knowledge/soa-dto-dependency-ledger.md` Tier 2 → Tier 3 path:
+//   ThinkingEngine.commit() → BusDto → ShaderDispatch.encode → BindSpace SoA
+//
+// The 5 BusDto fields (codebook_index, energy, top_k[8], cycle_count,
+// converged) collapse onto a single BindSpace row across these columns:
+//
+//   codebook_index + top_k indices  →  cycle column (Vsa16kF32, via Binary16K)
+//   energy + top_k energies         →  qualia[0..9]
+//   cycle_count (saturated u6)      →  MetaWord.free_e
+//   converged                       →  MetaWord.awareness (3 = flow, 1 = held)
+//   codebook_index (low byte)       →  MetaWord.nars_f (commit confidence)
+//   style ordinal (caller picks)    →  MetaWord.thinking
+//
+// Mapping choice (EPIPHANY): the canonical encode is positional bit-set
+// over Binary16K, projected to Vsa16kF32 via the existing
+// `binary16k_to_vsa16k_bipolar`. Each codebook index `idx` (u16) sets
+// `bit (idx % 16384)` in a `[u64; 256]` Binary16K accumulator. The accumulator
+// is then routed through `BindSpace::write_cycle_fingerprint`, which is the
+// canonical entry point per CLAUDE.md (it converts to Vsa16kF32 internally).
+//
+// This re-uses the existing path — no new column structures, no BindSpace
+// touch (Wave 3 owns those). Per `lab-vs-canonical-surface.md` we extend the
+// canonical surface, not invent a sibling.
+
+#[cfg(feature = "with-engine")]
+const NARS_F_FROM_INDEX_LOW: bool = true;
+#[cfg(feature = "with-engine")]
+const TOP_K_ENERGY_BASE_DIM: usize = 1; // qualia[0] = headline energy, [1..9] = top_k energies
+
+/// Encode a BusDto's codebook_index + top_k indices as a `[u64; WORDS_PER_FP]`
+/// Binary16K accumulator. Each index sets one bit at `idx % WIDTH_BITS`.
+/// `top_k` entries with energy ≤ 0.0 are skipped (zero-energy = no support).
+#[cfg(feature = "with-engine")]
+fn busdto_to_binary16k(bus: &BusDto) -> [u64; WORDS_PER_FP] {
+    let width_bits = WORDS_PER_FP * 64;
+    let mut bits = [0u64; WORDS_PER_FP];
+    let mut set_bit = |idx: u16| {
+        let pos = (idx as usize) % width_bits;
+        bits[pos / 64] |= 1u64 << (pos % 64);
+    };
+    // Headline: codebook_index always sets a bit (BusDto IS a committed thought).
+    set_bit(bus.codebook_index);
+    // Top-K supporters: only those with positive energy contribute a bit.
+    for &(idx, e) in bus.top_k.iter() {
+        if e > 0.0 {
+            set_bit(idx);
+        }
+    }
+    bits
+}
+
+/// Wire `cognitive-shader-driver::engine_bridge` to consume `BusDto`
+/// directly — the Tier 2 → Tier 3 transition (D-PARITY-V2-3).
+///
+/// Encodes the BusDto into BindSpace row `row` across:
+/// - `cycle` column (Vsa16kF32 via Binary16K bits)
+/// - `qualia` column (headline energy + 8 top_k energies in dims 0..9)
+/// - `meta` column (style + awareness + nars_f + nars_c + free_e)
+/// - `expert` column (cycle_count low byte)
+///
+/// `style_ord` is the caller-picked style ordinal (0..=11). `BusDto`
+/// itself does not carry a style; that's the caller's dispatch concern.
+///
+/// Returns the row written.
+#[cfg(feature = "with-engine")]
+pub fn dispatch_busdto(
+    bs: &mut BindSpace,
+    row: usize,
+    bus: &BusDto,
+    style_ord: u8,
+) -> usize {
+    assert!(row < bs.len, "dispatch_busdto: row {row} out of bounds {}", bs.len);
+
+    // [1] cycle column — codebook_index + top_k indices as Binary16K → Vsa16kF32.
+    let bits = busdto_to_binary16k(bus);
+    bs.write_cycle_fingerprint(row, &bits);
+
+    // [2] qualia column — energies as continuous payload (lossless f32 store).
+    //     qualia[0]   = headline energy
+    //     qualia[1..9] = top_k energies (positions 1-based to keep dim 0 = headline)
+    //     qualia[9]   = codebook_index headline (codex P2 fix 2026-05-07)
+    //     qualia[10..18] = zeroed (reserved for downstream qualia / classification dist)
+    //
+    // The codebook_index headline goes into qualia[9] explicitly so the
+    // round-trip is bit-exact even when codebook_index collides with or
+    // is larger than any positive-energy top_k index. Previously the
+    // decoder relied on `set_bits.iter().next()` which always returned
+    // the LOWEST set bit; for `codebook_index = 1234` with positive
+    // top_k containing 777, the recovered headline was 777 instead of
+    // 1234. f32 represents any integer in [0, 2^24] exactly, so the
+    // u16 codebook_index round-trips losslessly through f32.
+    let mut q = [0.0f32; QUALIA_DIMS];
+    q[0] = bus.energy;
+    for (i, &(_idx, e)) in bus.top_k.iter().enumerate().take(8) {
+        q[TOP_K_ENERGY_BASE_DIM + i] = e;
+    }
+    q[9] = bus.codebook_index as f32;
+    bs.qualia.set(row, &q);
+
+    // [3] meta column — packed dispatch state.
+    //     thinking = caller's style ordinal
+    //     awareness = converged ? FLOW(3) : HOLD(1)
+    //     nars_f    = low byte of codebook_index (commit confidence proxy)
+    //     nars_c    = clamp(energy * 255, 0, 255)
+    //     free_e    = saturating cycle_count (6-bit)
+    let awareness = if bus.converged { 3u8 } else { 1u8 };
+    let nars_f = if NARS_F_FROM_INDEX_LOW {
+        (bus.codebook_index & 0xFF) as u8
+    } else {
+        0
+    };
+    let nars_c = (bus.energy * 255.0).clamp(0.0, 255.0) as u8;
+    let free_e = bus.cycle_count.min(63) as u8;
+    bs.meta.set(row, MetaWord::new(style_ord, awareness, nars_f, nars_c, free_e));
+
+    // [4] expert column — cycle_count (full u16 fidelity, lossless).
+    bs.expert[row] = bus.cycle_count;
+
+    row
+}
+
+/// Inverse of `dispatch_busdto`: unbind a BindSpace row back to a `BusDto`.
+///
+/// Round-trip recovery:
+///  - `cycle_count`  — bit-exact from `expert[row]`.
+///  - `converged`    — bit-exact from `meta.awareness >= 3`.
+///  - `energy` + `top_k[*].energy` — bit-exact from qualia f32 store.
+///  - `codebook_index` — bit-exact for the headline index, since it was
+///    always emitted by `busdto_to_binary16k` (the headline bit is
+///    guaranteed-set; we recover it via top_k[0].idx, which the caller
+///    encoded redundantly). Falls back to lowest-set bit if top_k[0] is
+///    zero-valued.
+///  - `top_k[*].idx` — bit-exact for the SUBSET that had positive energy at
+///    encode (those indices became set bits). Indices with energy ≤ 0 at
+///    encode produced no bit; their original values are not recoverable.
+///
+/// Tolerance: bit-exact for codebook_index, top_k indices with positive
+/// energy at encode, energies (f32 in qualia), cycle_count, converged.
+/// LOSSY for top_k entries with non-positive energy at encode.
+#[cfg(feature = "with-engine")]
+pub fn unbind_busdto(bs: &BindSpace, row: usize) -> BusDto {
+    assert!(row < bs.len, "unbind_busdto: row {row} out of bounds {}", bs.len);
+
+    // [1] qualia → energy + top_k energies.
+    let q = bs.qualia.row(row);
+    let energy = q[0];
+    let mut top_k = [(0u16, 0.0f32); 8];
+    for i in 0..8 {
+        top_k[i].1 = q[TOP_K_ENERGY_BASE_DIM + i];
+    }
+
+    // [2] cycle column → recover indices from set bits.
+    //     Project Vsa16kF32 back to Binary16K (sign threshold → bit).
+    let cycle = bs.fingerprints.cycle_row(row);
+    let mut cycle_arr = [0.0f32; crate::bindspace::FLOATS_PER_VSA];
+    cycle_arr.copy_from_slice(cycle);
+    let bits = lance_graph_contract::crystal::vsa16k_to_binary16k_threshold(&cycle_arr);
+    let set_bits: Vec<u16> = (0..(WORDS_PER_FP * 64))
+        .filter(|&pos| bits[pos / 64] & (1u64 << (pos % 64)) != 0)
+        .map(|pos| pos as u16)
+        .collect();
+
+    // [3] Reconstruct top_k indices in the slots where the encoder set them.
+    //     codex P2 fix (2026-05-07): the headline (codebook_index) is now
+    //     stored explicitly in qualia[9] at encode, so we read it back
+    //     directly rather than guessing from set_bits.iter().next() (which
+    //     returned the LOWEST set bit, not the original headline, when
+    //     codebook_index collided with or exceeded any positive-energy
+    //     top_k index). The set_bits iterator now feeds only the
+    //     non-headline top_k slots.
+    let codebook_index = q[9] as u16;
+    let mut bit_iter = set_bits.iter().copied().filter(|&b| b != codebook_index);
+    // For each positive-energy top_k slot at encode, attach the next set bit.
+    // We can't perfectly recover ordering for ties; we use the natural ascending
+    // bit order, which matches the encoder's deterministic walk for distinct indices.
+    // Note: the headline often equals top_k[0].idx — rebuild that match first.
+    if top_k[0].1 > 0.0 {
+        top_k[0].0 = codebook_index;
+    }
+    // Fill remaining positive-energy top_k slots from the remaining set bits.
+    // Skip the headline bit if top_k[0] used it. (bit_iter already filters
+    // out codebook_index above, so no second filter pass is needed.)
+    let remaining: Vec<u16> = bit_iter.collect();
+    let mut r = remaining.into_iter();
+    let skip_head = top_k[0].1 > 0.0;
+    for slot in top_k.iter_mut().skip(if skip_head { 1 } else { 0 }) {
+        if slot.1 > 0.0 {
+            if let Some(b) = r.next() {
+                slot.0 = b;
+            }
+        }
+    }
+    // If top_k[0].1 was non-positive but the encoder always sets the headline,
+    // we still recovered codebook_index above — it's authoritative.
+
+    // [4] meta column → converged.
+    let m = bs.meta.get(row);
+    let converged = m.awareness() >= 3;
+
+    // [5] expert column → cycle_count (full u16 fidelity, no saturation loss).
+    let cycle_count = bs.expert[row];
+
+    BusDto {
+        codebook_index,
+        energy,
+        top_k,
+        cycle_count,
+        converged,
     }
 }
 
