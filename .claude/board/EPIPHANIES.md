@@ -65,6 +65,23 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-05-13 — DECISION: sprint-7 meta OQ-7-2 + OQ-7-3 resolved — AuditSink trait unification
+
+Post-sprint-7 implementation, Opus meta surfaced a critical cross-impl risk (CC-7-1) and two open questions blocking the sprint-7 PR open:
+
+- **OQ-7-2: AuditSink trait split.** `UnifiedBridge::audit_sink` was typed `Arc<dyn UnifiedAuditSink>` (D-SDR-4 placeholder trait at `unified_audit.rs:314`); sprint-7 W6 production sinks (`JsonlAuditSink`, `LanceAuditSink`, `CompositeSink`) implement `Arc<dyn AuditSink>` (new trait at `audit_sink/mod.rs:45`). The two traits had different signatures (`emit(&event)` vs `emit(event) -> Result<>`). W6 sinks shipped orphaned from the bridge. **Resolution: full migrate, drop UnifiedAuditSink, no adapter.** Per CLAUDE.md "no abstractions beyond what the task requires" — an adapter is permanent overhead to avoid one-time call-site churn. Landed in commit `bc530a4`. 6 files touched; `UnifiedAuditEvent::canonical_bytes` byte layout unchanged (still 26 bytes).
+
+- **OQ-7-3: UnifiedBridge::new() default sink behavior.** MedCare-rs sprint-2 item 5 expects "JSONL primary + optional Lance projection". **Resolution: keep `NoopAuditSink` as new() default; add ergonomic constructor `UnifiedBridge::with_jsonl_audit(super_domain, salt, base_path)` for explicit opt-in.** Silent default writes to disk are a surprise (the path would be implicit, log volume unbounded). Opt-in via the new constructor is more honest. MedCare-rs consumers wire JSONL when they construct the bridge; default-noop doesn't prevent that pattern. Available under `#[cfg(feature = "jsonl")]`.
+
+Also confirmed non-blocking:
+
+- **OQ-7-1: RoleGroup count.** MedCare-rs#119 ships 6 RoleGroups (Physician, Nurse, Cashier, Researcher, HipaaAudit, Admin); end-state matches our lance-graph decision regardless of "add 4" wording in the earlier EPIPHANY (4 additions = Nurse + 3 renames). No code change needed.
+- **W3 LifecycleAuditEvent ↔ W6 CompositeSink routing.** `LifecycleAuditEvent` (18 bytes) is intentionally separate from `UnifiedAuditEvent` (26 bytes) per sprint-5-6 meta CC-2 fix. They do NOT share the AuditSink trait — supervisor lifecycle audit is a parallel chain by design. If a future need to unify them surfaces, that's its own spec.
+
+Cross-ref: `.claude/board/sprint-log-7/meta-review.md` §1+§3, commit `bc530a4` (the trait migration).
+
+---
+
 ## 2026-05-13 — DECISION: 4 PR #365 blocking OQs resolved — sprint-7 implementation can begin
 
 Post-#365 cross-session triage with the medcare-rs session resolved all four user-decision Open Questions that the Opus meta-review flagged as blocking sprint-7 implementation:
