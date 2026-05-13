@@ -65,6 +65,70 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-05-13 — CORRECTION-OF sprint-4 framing: most worker specs partially duplicated existing `.claude/plans/` corpus — sprint-5 MUST grep `.claude/plans/*.md` before spawning any worker
+
+**Status:** FINDING (user surfaced prior plans 2026-05-13 evening)
+
+Sprint-4 spawned 12 workers to convert 11 TD rows into PR-ready specs. **Discovered post-hoc that most architectural specs duplicated existing plan-tier docs already on the branch.** The workers did not grep `.claude/plans/` before drafting.
+
+**Duplication audit:**
+
+| Sprint-4 worker spec | Prior plan that already covered it | Duplication |
+|---|---|---|
+| W1 `sprint-4-execution-plan.md` (24 KB) | `unified-ogit-architecture-v1.md` (30 KB, 15 patterns A-O, master) | High |
+| W4 `td-super-domain-subcrates.md` (21 KB) | `super-domain-rbac-tenancy-v1.md` (86 KB / 1387 lines, canonical PR #363 spec) + `foundry-roadmap-unified-smb-medcare-v1.md` | High |
+| W11 `fma-heart-click-smoke.md` (28 KB) | `anatomy-realtime-v1.md` (19 KB, the proof-of-vision plan) + `lance-graph-rdf-fma-snomed-v1.md` | High |
+| W6 `td-thinking-engine-wire.md` (21 KB) | `jc-pillars-runtime-wiring-v1.md` + ERRATUM | Medium (composition map added value) |
+| (today's splat thrash) | `tetrahedral-epiphany-splat-integration-v1.md` + `2026-05-06-splat-osint-ingestion-v1.md` (ACTIVE) + `jc-pillars-runtime-wiring-v1.md` | High |
+
+**What sprint-4 DID add (the real value):**
+- W3 API drift deprecation playbook — no prior plan covered this
+- W7 D-SDR PR release plan — captures concrete next-PR (PR-A on top of #363) with SHAs
+- W8 audit Lance/JSONL sink spec — prior plans mention LanceAuditSink as substrate but no implementation spec
+- W10 slot u8→u16 widen + bridge-err audit — surgical fixes; no prior plan
+- W12 cross-repo PR graph — sprint sequencing artifact
+- W9 family hydration — surgical fix; no prior plan
+
+**The lesson at THREE layers today:**
+1. **Math layer:** one kernel `Σ' = J·Σ·Jᵀ`, three Jacobians (camera projection / edge step / radial decay) — not three separate "splat" concepts
+2. **Substrate layer:** `ndarray::hpc::renderer` already exists with 60fps double-buffer + EWA-splat projection; no new render crate needed
+3. **Plan layer:** `.claude/plans/*.md` has 30+ plans already covering the architectural surface; worker subagents must grep before drafting
+
+**Sprint-5 mandatory read-order fix:**
+
+Before spawning ANY worker on a spec touching FMA / OGIT / super-domain / RBAC / splat / EWA / Pillar-N / cognitive shader / consumer crate / audit / thinking-engine:
+
+```
+1. ls .claude/plans/ | head -40        # see all 30+ plan files
+2. cat .claude/plans/unified-ogit-architecture-v1.md      # the 15-pattern master plan (A-O)
+3. cat .claude/plans/anatomy-realtime-v1.md               # the FMA proof-of-vision plan
+4. cat .claude/plans/super-domain-rbac-tenancy-v1.md      # the canonical RBAC/tenancy spec (1387 lines)
+5. cat .claude/plans/jc-pillars-runtime-wiring-v1.md      # the JC pillar stack (pillars 5/5+/5++/6/7)
+6. cat .claude/plans/foundry-roadmap-unified-smb-medcare-v1.md  # consumer crate roadmap
+7. cat .claude/plans/compile-time-consumer-binding-v1.md  # Pattern E (manifest modules) + F (ractor supervisor)
+8. cat .claude/plans/ogit-g-context-bundle-v1.md          # Tier-1 SPO-G slot + ContextBundle + GenericBridge
+9. cat .claude/plans/2026-05-06-splat-osint-ingestion-v1.md  # ACTIVE splat-OSINT plan
+10. cat .claude/plans/tetrahedral-epiphany-splat-integration-v1.md  # SPOW tetrahedral grid + splat integration
+11. cat .claude/plans/lance-graph-rdf-fma-snomed-v1.md    # FMA + SNOMED + RadLex named-graph ingest
+12. grep -l "<topic>" .claude/plans/    # find any topic-specific plans
+```
+
+Worker prompts must include: "Before drafting, read these specific plan files: [...]. Cite them or explain why your spec adds value beyond them."
+
+**Sprint-5 priority stack — REVISED against the real plan corpus:**
+
+The Tier 0-4 stack from earlier today still holds for TD coverage, BUT the deliverable framing changes:
+
+- **Tier 0** (PR follow-up, ~1 day) — UNCHANGED. PR-A composes the existing 3 commits on top of PR #363; SHAs already captured in W7's spec.
+- **Tier 1** (substrate, ~1 week) — W10 + W8 + W9 are still the right surgical fixes. **But** they need to be reframed as DELTA against `super-domain-rbac-tenancy-v1.md §13` (D-SDR-3..5 already named there). Each PR should cite §X of that plan.
+- **Tier 2** (composable wiring, ~2 weeks) — W4 and W6 should NOT use the sprint-4 specs as-is. Both must be rewritten as DELTA against existing plans:
+  - W4: against `super-domain-rbac-tenancy-v1.md §14` (meta-bridge extraction, woa retrofit, hubspot/hiro templates already named) + `foundry-roadmap-unified-smb-medcare-v1.md` (LF-3 critical path)
+  - W6: against `jc-pillars-runtime-wiring-v1.md` (the pillar wiring already plans the thinking-engine composition)
+- **Tier 3** (FMA convergence) — W11's spec should be REPLACED with citations to `anatomy-realtime-v1.md` (already the proof-of-vision plan) + `lance-graph-rdf-fma-snomed-v1.md` (already the FMA ingest plan). Sprint-4 W11 spec keeps its drug-knowledge crosswalk + two-tier-ingest patches as additions to those plans.
+- **Tier 4** (perf) — W5 unchanged; no prior plan duplication.
+
+**The honest meta-pattern:** I generated three classes of correction today (math/substrate/plan) for the same root cause — conjecturing before grepping. The fix is not "be more careful next time" — it's "the worker prompt template MUST include a mandatory read-order section pointing at `.claude/plans/`, and that section must be a hard precondition to spec writing." Update worker prompt templates for sprint-5.
+
 ## 2026-05-13 — UNIFICATION: Gaussian-splat + EWA-Sandwich is ONE kernel (`Σ' = J·Σ·Jᵀ`) applied to THREE Jacobians across the workspace — render, graph propagation, perturbation field
 
 **Status:** FINDING (corrects the same-day three-meanings-of-splat entry that wrongly split them apart; user-corrected 2026-05-13)
