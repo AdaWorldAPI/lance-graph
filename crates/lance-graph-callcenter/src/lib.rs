@@ -162,3 +162,15 @@ pub mod family_table;
 pub use family_table::{
     FamilyEntry, OgitFamilyTable, OwlCharacteristics, PerFamilyCodebook, SchemaKind,
 };
+
+// D-SDR-4 (super-domain-rbac-tenancy-v1 §13.3) — merkle-chained audit log
+// for UnifiedBridge::authorize() decisions. Each emitted event chains off
+// the prior event's merkle root + a per-super-domain salt (§13.4
+// hard-lock — cross-domain audit logs unlinkable). Tampering with any
+// past event is detectable by `verify_chain`. Production sinks (JSONL +
+// Lance) land in D-SDR-4b; wiring into authorize() is D-SDR-5.
+pub mod unified_audit;
+pub use unified_audit::{
+    verify_chain, AuditChain, AuditMerkleRoot, AuthDecision, AuthOp, NoopUnifiedAuditSink,
+    UnifiedAuditEvent, UnifiedAuditSink,
+};
