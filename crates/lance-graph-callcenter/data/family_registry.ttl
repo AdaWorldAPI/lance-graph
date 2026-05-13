@@ -177,3 +177,101 @@ ogit:OsintIntelSources
     a ogit:FamilyNamespace ;
     ogit.meta:superDomain "Osint" ;
     ogit.meta:familyId    "114"^^xsd:unsignedByte .
+
+# ── SMB Foundry-shape basins 0x80..=0x82 ─────────────────────────────────────
+# OQ-4 resolution (locked 2026-05-13): ogit.SMB: (no sub-namespace) is reserved
+# for the 3 Foundry-shape entities (Customer, Invoice, TaxDeclaration).
+# registry.enumerate("SMB") must return exactly 3.
+
+ogit:SmbFoundryCustomer
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB" ;
+    ogit.meta:familyId    "128"^^xsd:unsignedByte .
+
+ogit:SmbFoundryInvoice
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB" ;
+    ogit.meta:familyId    "129"^^xsd:unsignedByte .
+
+ogit:SmbFoundryTaxDeclaration
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB" ;
+    ogit.meta:familyId    "130"^^xsd:unsignedByte .
+
+# ── SMB BSON-shape basins 0xA0..=0xAD ────────────────────────────────────────
+# OQ-4 resolution (locked 2026-05-13): ogit.SMB.bson: sub-namespace carries the
+# 14 BSON-shape entities.  Slot range 0xA0..=0xAD (160..=173) is unconflicted
+# with all prior ranges (Healthcare 0x10-0x19, Science 0x20-0x27,
+# Genetics 0x30-0x35, QuantumPhysics 0x40-0x43, TicketTool 0x50-0x56,
+# WorkOrderBilling 0x60-0x63, OSINT 0x70-0x72, SMB-Foundry 0x80-0x82).
+# registry.enumerate("SMB.bson") returns exactly 14; enumerate("SMB") stays 3.
+
+ogit:SmbBsonCustomer
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB.bson" ;
+    ogit.meta:familyId    "160"^^xsd:unsignedByte .
+
+ogit:SmbBsonRechnung
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB.bson" ;
+    ogit.meta:familyId    "161"^^xsd:unsignedByte .
+
+ogit:SmbBsonMahnung
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB.bson" ;
+    ogit.meta:familyId    "162"^^xsd:unsignedByte .
+
+ogit:SmbBsonSchuldner
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB.bson" ;
+    ogit.meta:familyId    "163"^^xsd:unsignedByte .
+
+ogit:SmbBsonDokument
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB.bson" ;
+    ogit.meta:familyId    "164"^^xsd:unsignedByte .
+
+ogit:SmbBsonBank
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB.bson" ;
+    ogit.meta:familyId    "165"^^xsd:unsignedByte .
+
+ogit:SmbBsonFibu
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB.bson" ;
+    ogit.meta:familyId    "166"^^xsd:unsignedByte .
+
+ogit:SmbBsonSteuer
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB.bson" ;
+    ogit.meta:familyId    "167"^^xsd:unsignedByte .
+
+ogit:SmbBsonLieferant
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB.bson" ;
+    ogit.meta:familyId    "168"^^xsd:unsignedByte .
+
+ogit:SmbBsonMitarbeiter
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB.bson" ;
+    ogit.meta:familyId    "169"^^xsd:unsignedByte .
+
+ogit:SmbBsonAuftrag
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB.bson" ;
+    ogit.meta:familyId    "170"^^xsd:unsignedByte .
+
+ogit:SmbBsonAngebot
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB.bson" ;
+    ogit.meta:familyId    "171"^^xsd:unsignedByte .
+
+ogit:SmbBsonZahlung
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB.bson" ;
+    ogit.meta:familyId    "172"^^xsd:unsignedByte .
+
+ogit:SmbBsonArtikel
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB.bson" ;
+    ogit.meta:familyId    "173"^^xsd:unsignedByte .

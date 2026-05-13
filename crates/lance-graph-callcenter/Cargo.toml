@@ -10,6 +10,8 @@ build = "build.rs"
 
 [dependencies]
 lance-graph-contract = { path = "../lance-graph-contract" }
+# D-SDR-4b audit sinks — always available for the trait + CompositeSink
+log = "0.4"
 # PR-F1 — CognitiveBridgeGate: UnifiedBridgeGate wraps UnifiedBridge and
 # implements the trait from thinking-engine. Direction: callcenter → thinking-engine.
 # The reverse dep (thinking-engine → callcenter) is forbidden to avoid circular deps.
@@ -33,10 +35,22 @@ lance       = { version = "=4.0.0",  optional = true }
 datafusion  = { version = "52", optional = true, default-features = false, features = ["unicode_expressions"] }
 
 # [realtime] — version watcher, Phoenix channel shapes, WebSocket
-tokio            = { version = "1", features = ["sync"], optional = true }
+tokio            = { version = "1", features = ["sync", "rt-multi-thread", "macros", "time"], optional = true }
 tokio-tungstenite = { version = "0.24", optional = true }
 serde            = { version = "1", features = ["derive"], optional = true }
 serde_json       = { version = "1", optional = true }
+
+# [jsonl] — JsonlAuditSink: serde_json + chrono + flate2
+# (chrono and flate2 are non-default optional; serde_json is shared with realtime)
+chrono           = { version = "0.4", features = ["serde"], optional = true }
+flate2           = { version = "1", optional = true }
+
+# [lance-sink] — LanceAuditSink: arrow-array + arrow-schema + lance + tokio runtime
+arrow-array      = { version = "57", optional = true }
+arrow-schema     = { version = "57", optional = true }
+
+# verify binary — clap (only needed when building the bin)
+clap             = { version = "4", features = ["derive"], optional = true }
 
 # [audit-log] — Lance-backed audit writer needs futures for stream collect
 futures      = { version = "0.3", optional = true }
@@ -52,6 +66,13 @@ async-trait = "0.1"
 
 [features]
 default  = []
+# D-SDR-4b — JsonlAuditSink (plain text fallback). Non-default.
+jsonl    = ["dep:serde_json", "dep:chrono", "dep:flate2"]
+# D-SDR-4b — LanceAuditSink (columnar primary). Non-default.
+# Enables arrow-array + arrow-schema + lance + tokio rt-multi-thread.
+lance-sink = ["dep:arrow-array", "dep:arrow-schema", "dep:arrow", "dep:lance", "dep:tokio", "dep:serde_json", "dep:futures"]
+# D-SDR-4b — audit-verify CLI binary. Requires lance-sink + jsonl.
+audit-verify-bin = ["lance-sink", "jsonl", "dep:clap"]
 persist  = ["dep:arrow", "dep:lance"]
 query-lite = ["dep:datafusion", "dep:arrow"]
 query    = ["query-lite", "datafusion/default"]
@@ -93,6 +114,11 @@ _internal_test_serialize_poison = ["dep:serde"]
 # `std::process::exit(1)`. Direct builds of this crate also activate strict
 # mode automatically (`CARGO_PKG_NAME == "lance-graph-callcenter"`).
 zone-check-strict = []
+
+[[bin]]
+name = "audit-verify"
+path = "src/bin/audit_verify.rs"
+required-features = ["audit-verify-bin"]
 
 [build-dependencies]
 # D-CASCADE-V1-1 — syn parses the four Zone 1 / Zone 2 source files at build

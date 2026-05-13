@@ -189,3 +189,16 @@ pub use unified_audit::{
     verify_chain, AuditChain, AuditMerkleRoot, AuthDecision, AuthOp, HydrationRefreshAudit,
     NoopUnifiedAuditSink, UnifiedAuditEvent, UnifiedAuditSink,
 };
+
+// D-SDR-4b — Production audit sinks: LanceAuditSink (columnar) and
+// JsonlAuditSink (plain text). CompositeSink broadcasts to N sinks with
+// per-sink failure isolation. The verify binary walks stored events and
+// recomputes the merkle chain for tamper detection.
+pub mod audit_sink;
+pub use audit_sink::{AuditError, AuditSink, CompositeSink, FanoutMode, MerkleRoot};
+
+#[cfg(feature = "jsonl")]
+pub use audit_sink::JsonlAuditSink;
+
+#[cfg(feature = "lance-sink")]
+pub use audit_sink::LanceAuditSink;

@@ -22,9 +22,9 @@ mod tests {
     use std::sync::Arc;
 
     use lance_graph_callcenter::super_domain::SuperDomain;
-    use lance_graph_callcenter::unified_audit::UnifiedAuditSink;
     use lance_graph_callcenter::unified_bridge::{TenantId, UnifiedBridge};
     use lance_graph_contract::property::{Marking, PrefetchDepth, Schema};
+    use lance_graph_ontology::bridge::NamespaceBridge;
     use lance_graph_ontology::namespace::OgitUri;
     use lance_graph_ontology::proposal::{MappingProposal, MappingProposalKind};
     use lance_graph_ontology::OntologyRegistry;
@@ -86,7 +86,7 @@ mod tests {
                 kind: MappingProposalKind::Entity {
                     schema: Schema::builder("Patient").required("patient_id").build(),
                 },
-                marking: Marking::Confidential,
+                marking: Marking::Pii, // closest to "Confidential" in the Marking enum
                 confidence: 1.0,
                 source_uri: "test://medcare-fixture".to_string(),
                 checksum: "checksum-medcare-patient".to_string(),
@@ -103,18 +103,10 @@ mod tests {
         let registry = seed_medcare_registry();
         let bridge = Arc::new(MedcareBridge::new(registry).unwrap());
 
-        // Empty registry for A4 / bridge-blank path
-        let empty_registry = Arc::new(OntologyRegistry::new_in_memory());
-        // MedcareBridge::new will fail if Healthcare ns is absent, so use
-        // a StubBridge equivalent — but MedcareBridge only exists for seeded
-        // registries. Per meta-review W12 guidance: construct the blank bridge
-        // over a registry that HAS the Healthcare namespace seeded (so
-        // construction succeeds) but does NOT have the entity "Patient", so
-        // row() returns BridgeError. We seed the namespace-only by appending a
-        // dummy entity under a different name, then looking up the absent one.
+        // Blank bridge: Healthcare namespace seeded with a dummy entity so
+        // MedcareBridge::new() succeeds, but "Patient" is absent.
+        // This exercises A4 (BridgeError on unknown entity emits no audit).
         let blank_registry = Arc::new(OntologyRegistry::new_in_memory());
-        // Seed one dummy row so the namespace exists (needed for MedcareBridge
-        // construction, which calls namespace_id("Healthcare")).
         let dummy_uri = OgitUri::parse("ogit.Healthcare:DummyForBlank").unwrap();
         blank_registry
             .append_mapping(MappingProposal {
@@ -142,8 +134,8 @@ mod tests {
             MEDCARE_FIXTURE.role_that_can_read,
             MEDCARE_FIXTURE.canonical_name,
         ));
-        // For MedcareBridge: public_name == canonical_name so the "deny on alias" test
-        // is trivially the same as "deny on wrong name". We use a different wrong name.
+        // For MedcareBridge: public_name == canonical_name so the "deny on alias"
+        // test uses a completely wrong name to demonstrate the deny path.
         let policy_deny = Arc::new(alias_deny_policy(
             MEDCARE_FIXTURE.role_that_can_read,
             "WRONG_ALIAS",
@@ -159,11 +151,7 @@ mod tests {
             MEDCARE_FIXTURE.role_that_can_read,
             TenantId(1),
         )
-        .with_audit_chain(
-            MEDCARE_FIXTURE.super_domain,
-            0xC0FFEE_MEDCARE,
-            sink_allow.clone(),
-        );
+        .with_audit_chain(MEDCARE_FIXTURE.super_domain, 0xC0FF_EE01_u64, sink_allow.clone());
 
         let bridge_deny = UnifiedBridge::new(
             bridge.clone(),
@@ -171,11 +159,7 @@ mod tests {
             MEDCARE_FIXTURE.role_that_can_read,
             TenantId(1),
         )
-        .with_audit_chain(
-            MEDCARE_FIXTURE.super_domain,
-            0xC0FFEE_MEDCARE,
-            sink_deny.clone(),
-        );
+        .with_audit_chain(MEDCARE_FIXTURE.super_domain, 0xC0FF_EE01_u64, sink_deny.clone());
 
         let bridge_blank = UnifiedBridge::new(
             blank_bridge,
@@ -183,11 +167,7 @@ mod tests {
             MEDCARE_FIXTURE.role_that_can_read,
             TenantId(1),
         )
-        .with_audit_chain(
-            MEDCARE_FIXTURE.super_domain,
-            0xC0FFEE_MEDCARE,
-            sink_blank.clone(),
-        );
+        .with_audit_chain(MEDCARE_FIXTURE.super_domain, 0xC0FF_EE01_u64, sink_blank.clone());
 
         assert_consumer_conformance(
             &bridge_allow,
@@ -279,7 +259,7 @@ mod tests {
             SMB_FIXTURE.role_that_can_read,
             TenantId(1),
         )
-        .with_audit_chain(SMB_FIXTURE.super_domain, 0xC0FFEE_SMB, sink_allow.clone());
+        .with_audit_chain(SMB_FIXTURE.super_domain, 0xC0FF_EE02_u64, sink_allow.clone());
 
         let bridge_blank = UnifiedBridge::new(
             blank_bridge,
@@ -287,9 +267,9 @@ mod tests {
             SMB_FIXTURE.role_that_can_read,
             TenantId(1),
         )
-        .with_audit_chain(SMB_FIXTURE.super_domain, 0xC0FFEE_SMB, sink_blank.clone());
+        .with_audit_chain(SMB_FIXTURE.super_domain, 0xC0FF_EE02_u64, sink_blank.clone());
 
-        // OgitBridge: public_name == canonical_name (no alias gap), so bridge_deny = None
+        // OgitBridge: public_name == canonical_name (no alias gap), bridge_deny = None
         assert_consumer_conformance(
             &bridge_allow,
             None,
@@ -341,7 +321,8 @@ mod tests {
         let registry = seed_woa_registry();
         let bridge = Arc::new(WoaBridge::new(registry).unwrap());
 
-        // Blank bridge: WorkOrder namespace exists but no "WorkOrder" alias row
+        // Blank bridge: WorkOrder namespace seeded with a dummy entity so
+        // WoaBridge::new() succeeds, but "WorkOrder" alias is absent.
         let blank_registry = Arc::new(OntologyRegistry::new_in_memory());
         let dummy_uri = OgitUri::parse("ogit.WorkOrder:DummyForBlank").unwrap();
         blank_registry
@@ -366,7 +347,8 @@ mod tests {
         let sink_blank: Arc<RecordingSink> = Arc::new(RecordingSink::default());
         let sink_deny: Arc<RecordingSink> = Arc::new(RecordingSink::default());
 
-        // A5 WoaBridge: policy keyed on canonical "Order" grants; keyed on alias "WorkOrder" denies.
+        // A5 WoaBridge: policy keyed on canonical "Order" grants;
+        // policy keyed on alias "WorkOrder" denies.
         let policy_allow =
             Arc::new(canonical_allow_policy(WOA_FIXTURE.role_that_can_read, "Order"));
         let policy_deny_on_alias =
@@ -380,7 +362,7 @@ mod tests {
             WOA_FIXTURE.role_that_can_read,
             TenantId(1),
         )
-        .with_audit_chain(WOA_FIXTURE.super_domain, 0xC0FFEE_WOA, sink_allow.clone());
+        .with_audit_chain(WOA_FIXTURE.super_domain, 0xC0FF_EE03_u64, sink_allow.clone());
 
         let bridge_deny = UnifiedBridge::new(
             bridge.clone(),
@@ -388,7 +370,7 @@ mod tests {
             WOA_FIXTURE.role_that_can_read,
             TenantId(1),
         )
-        .with_audit_chain(WOA_FIXTURE.super_domain, 0xC0FFEE_WOA, sink_deny.clone());
+        .with_audit_chain(WOA_FIXTURE.super_domain, 0xC0FF_EE03_u64, sink_deny.clone());
 
         let bridge_blank = UnifiedBridge::new(
             blank_bridge,
@@ -396,7 +378,7 @@ mod tests {
             WOA_FIXTURE.role_that_can_read,
             TenantId(1),
         )
-        .with_audit_chain(WOA_FIXTURE.super_domain, 0xC0FFEE_WOA, sink_blank.clone());
+        .with_audit_chain(WOA_FIXTURE.super_domain, 0xC0FF_EE03_u64, sink_blank.clone());
 
         assert_consumer_conformance(
             &bridge_allow,
@@ -448,7 +430,7 @@ mod tests {
         // static HUBSPOT_FIXTURE: ConformanceFixture = ConformanceFixture {
         //     public_name: "Contact",
         //     canonical_name: "Contact",
-        //     super_domain: SuperDomain::Unknown,   // TBD discriminant — assigned before un-ignore
+        //     super_domain: SuperDomain::Unknown,   // TBD discriminant
         //     role_that_can_read: "sales_rep",
         //     is_active: false,  // scaffold: Unknown is acceptable
         // };
@@ -460,13 +442,13 @@ mod tests {
     // ═══════════════════════════════════════════════════════════════════════
 
     /// Minimal stub bridge for self-test and negative-test purposes.
-    /// Locks to a synthetic NamespaceId(1); resolves any name it was seeded with.
+    /// Locks to a synthetic NamespaceId; resolves any name it was seeded with.
     struct StubBridge {
         registry: Arc<OntologyRegistry>,
         g_lock: lance_graph_ontology::namespace::NamespaceId,
     }
 
-    impl lance_graph_ontology::bridge::NamespaceBridge for StubBridge {
+    impl NamespaceBridge for StubBridge {
         fn bridge_id(&self) -> &'static str {
             "stub"
         }
@@ -478,21 +460,19 @@ mod tests {
         }
     }
 
-    fn make_stub_bridge_with_entity(
-        namespace: &str,
-        ns_ogit_uri: &str,
-        entity_public_name: &str,
-        entity_canonical_name: &str,
-        bridge_id: &'static str,
+    /// Seed a registry with one entity and return a StubBridge locked to that namespace.
+    fn make_stub_bridge(
+        namespace: &'static str,
+        entity_public_name: &'static str,
+        entity_canonical_name: &'static str,
     ) -> StubBridge {
         let registry = Arc::new(OntologyRegistry::new_in_memory());
-        let ogit_uri_str = format!("ogit.{}:{}", namespace, entity_canonical_name);
-        let uri = OgitUri::parse(&ogit_uri_str).unwrap();
-        let _ = ns_ogit_uri; // unused; namespace is derived from uri namespace part
+        let uri_str = format!("ogit.{}:{}", namespace, entity_canonical_name);
+        let uri = OgitUri::parse(&uri_str).unwrap();
         registry
             .append_mapping(MappingProposal {
                 public_name: entity_public_name.to_string(),
-                bridge_id: bridge_id.to_string(),
+                bridge_id: "stub".to_string(),
                 ogit_uri: uri,
                 namespace: namespace.to_string(),
                 kind: MappingProposalKind::Entity {
@@ -511,26 +491,18 @@ mod tests {
         StubBridge { registry, g_lock }
     }
 
-    #[test]
-    fn self_test_mock_bridge_all_assertions_pass() {
-        // Build a correctly-implemented stub bridge; all 10 assertions should pass.
-        let bridge = Arc::new(make_stub_bridge_with_entity(
-            "SelfTest",
-            "ogit.SelfTest:Widget",
-            "Widget",  // public_name == canonical_name (no alias)
-            "Widget",
-            "stub",
-        ));
-
-        // Blank bridge: namespace seeded with dummy but "Widget" is absent
-        let empty_registry = Arc::new(OntologyRegistry::new_in_memory());
-        let dummy_uri = OgitUri::parse("ogit.SelfTest:Dummy").unwrap();
-        empty_registry
+    /// Seed a registry with a dummy entity only (so namespace_id succeeds but
+    /// the test entity is absent — used for the blank/A4 path).
+    fn make_blank_stub_bridge(namespace: &'static str) -> StubBridge {
+        let registry = Arc::new(OntologyRegistry::new_in_memory());
+        let uri_str = format!("ogit.{}:Dummy", namespace);
+        let uri = OgitUri::parse(&uri_str).unwrap();
+        registry
             .append_mapping(MappingProposal {
                 public_name: "__dummy__".to_string(),
                 bridge_id: "stub".to_string(),
-                ogit_uri: dummy_uri,
-                namespace: "SelfTest".to_string(),
+                ogit_uri: uri,
+                namespace: namespace.to_string(),
                 kind: MappingProposalKind::Entity {
                     schema: Schema::builder("Dummy").required("id").build(),
                 },
@@ -541,11 +513,14 @@ mod tests {
                 created_by: "self-test".to_string(),
             })
             .unwrap();
-        let blank_g_lock = empty_registry.namespace_id("SelfTest").unwrap();
-        let blank_bridge = Arc::new(StubBridge {
-            registry: empty_registry,
-            g_lock: blank_g_lock,
-        });
+        let g_lock = registry.namespace_id(namespace).unwrap();
+        StubBridge { registry, g_lock }
+    }
+
+    #[test]
+    fn self_test_mock_bridge_all_assertions_pass() {
+        let bridge = Arc::new(make_stub_bridge("SelfTest", "Widget", "Widget"));
+        let blank_bridge = Arc::new(make_blank_stub_bridge("SelfTest"));
 
         let sink_allow: Arc<RecordingSink> = Arc::new(RecordingSink::default());
         let sink_blank: Arc<RecordingSink> = Arc::new(RecordingSink::default());
@@ -580,24 +555,12 @@ mod tests {
     // Negative tests — each assertion catches a deliberately-broken bridge
     // ═══════════════════════════════════════════════════════════════════════
 
-    /// A1 negative: canonical_bytes length is the canonical 26; the struct
-    /// cannot return a wrong-length array (it's [u8; 26] at the type level),
-    /// so A1 failures manifest as wrong field-offset values. We test this by
-    /// checking a known good event's offsets rather than by breaking the type.
     #[test]
     fn negative_a9_wrong_role_hash_is_caught() {
-        // Construct a bridge with role "tester" but ask fnv1a_str("OTHER_ROLE").
-        // The harness checks actor_role_hash == fnv1a_str(fixture.role_that_can_read).
-        // If we pass a fixture with a DIFFERENT role_name, the hash won't match.
+        // Construct a bridge with role "role_a"; verify its hash differs from "role_b".
         use lance_graph_contract::hash::fnv1a_str;
 
-        let bridge = Arc::new(make_stub_bridge_with_entity(
-            "NegTest",
-            "ogit.NegTest:Thing",
-            "Thing",
-            "Thing",
-            "stub",
-        ));
+        let bridge = Arc::new(make_stub_bridge("NegTest", "Thing", "Thing"));
         let sink: Arc<RecordingSink> = Arc::new(RecordingSink::default());
         let policy = Arc::new(canonical_allow_policy("role_a", "Thing"));
         let unified = UnifiedBridge::new(bridge, policy, "role_a", TenantId(1))
@@ -610,7 +573,8 @@ mod tests {
         assert_eq!(events.len(), 1);
 
         // role_a hash must match
-        assert_eq!(events[0].actor_role_hash, fnv1a_str("role_a"));
+        assert_eq!(events[0].actor_role_hash, fnv1a_str("role_a"),
+            "A9 negative: actor_role_hash must equal fnv1a_str('role_a')");
         // role_b hash must NOT match
         assert_ne!(events[0].actor_role_hash, fnv1a_str("role_b"),
             "A9 negative: hash for 'role_a' must differ from hash for 'role_b'");
@@ -619,26 +583,11 @@ mod tests {
     #[test]
     fn negative_a4_blank_bridge_emits_no_event_on_unknown_entity() {
         // A BridgeError on unknown entity must not emit an audit event.
-        let empty_registry = Arc::new(OntologyRegistry::new_in_memory());
-        // Don't seed any entity; namespace also absent → NotInScope
+        let blank_bridge = Arc::new(make_blank_stub_bridge("NegTest4"));
         let sink: Arc<RecordingSink> = Arc::new(RecordingSink::default());
-
-        // Use the WoaBridge which requires WorkOrder namespace. With an empty
-        // registry, WoaBridge::new() fails, so we use the StubBridge instead
-        // (which returns NotInScope for any unseen public_name).
-        // A StubBridge with g_lock=NamespaceId(0) simulates an unregistered namespace.
-        let stub_bridge = StubBridge {
-            registry: empty_registry,
-            g_lock: lance_graph_ontology::namespace::NamespaceId(0),
-        };
-        let policy = Arc::new(canonical_allow_policy("tester", "Widget"));
-        let unified = UnifiedBridge::new(
-            Arc::new(stub_bridge),
-            policy,
-            "tester",
-            TenantId(1),
-        )
-        .with_audit_chain(SuperDomain::WorkOrderBilling, 0, sink.clone());
+        let policy = Arc::new(canonical_allow_policy("tester", "Thing"));
+        let unified = UnifiedBridge::new(blank_bridge, policy, "tester", TenantId(1))
+            .with_audit_chain(SuperDomain::WorkOrderBilling, 0, sink.clone());
 
         let result = unified.authorize_read("__nonexistent__", PrefetchDepth::Identity);
         assert!(result.is_err(), "A4 negative: expect BridgeError for unknown entity");
@@ -650,29 +599,17 @@ mod tests {
     }
 
     #[test]
-    fn negative_a8_wrong_tenant_detected() {
+    fn negative_a8_tenant_isolation_verified() {
         // Two bridges with different TenantId values must emit distinct tenant fields.
-        let bridge_1 = Arc::new(make_stub_bridge_with_entity(
-            "TenantTest",
-            "ogit.TenantTest:Item",
-            "Item",
-            "Item",
-            "stub",
-        ));
-        let bridge_42 = Arc::new(make_stub_bridge_with_entity(
-            "TenantTest",
-            "ogit.TenantTest:Item",
-            "Item",
-            "Item",
-            "stub",
-        ));
+        let bridge_1 = Arc::new(make_stub_bridge("TenantTest", "Item", "Item"));
+        let bridge_42 = Arc::new(make_stub_bridge("TenantTest", "Item", "Item"));
         let sink_1: Arc<RecordingSink> = Arc::new(RecordingSink::default());
         let sink_42: Arc<RecordingSink> = Arc::new(RecordingSink::default());
 
-        let policy = Arc::new(canonical_allow_policy("tester", "Item"));
+        let policy1 = Arc::new(canonical_allow_policy("tester", "Item"));
         let policy2 = Arc::new(canonical_allow_policy("tester", "Item"));
 
-        let unified_1 = UnifiedBridge::new(bridge_1, policy, "tester", TenantId(1))
+        let unified_1 = UnifiedBridge::new(bridge_1, policy1, "tester", TenantId(1))
             .with_audit_chain(SuperDomain::WorkOrderBilling, 0, sink_1.clone());
         let unified_42 = UnifiedBridge::new(bridge_42, policy2, "tester", TenantId(42))
             .with_audit_chain(SuperDomain::WorkOrderBilling, 0, sink_42.clone());
@@ -683,12 +620,38 @@ mod tests {
         let events_1 = sink_1.snapshot();
         let events_42 = sink_42.snapshot();
 
-        assert_eq!(events_1[0].tenant, TenantId(1), "A8 negative: TenantId(1) bridge must emit tenant=1");
-        assert_eq!(events_42[0].tenant, TenantId(42), "A8 negative: TenantId(42) bridge must emit tenant=42");
-        assert_ne!(
-            events_1[0].tenant,
-            events_42[0].tenant,
-            "A8 negative: tenant fields must be distinct for different TenantIds"
-        );
+        assert_eq!(events_1[0].tenant, TenantId(1),
+            "A8 negative: TenantId(1) bridge must emit tenant=1");
+        assert_eq!(events_42[0].tenant, TenantId(42),
+            "A8 negative: TenantId(42) bridge must emit tenant=42");
+        assert_ne!(events_1[0].tenant, events_42[0].tenant,
+            "A8 negative: tenant fields must be distinct for different TenantIds");
+    }
+
+    #[test]
+    fn negative_a3_merkle_chain_advances() {
+        // Verify merkle chain property directly on a stub bridge.
+        use lance_graph_callcenter::unified_audit::AuditMerkleRoot;
+
+        let bridge = Arc::new(make_stub_bridge("MerkleTest", "Node", "Node"));
+        let sink: Arc<RecordingSink> = Arc::new(RecordingSink::default());
+        let policy = Arc::new(canonical_allow_policy("tester", "Node"));
+        let unified = UnifiedBridge::new(bridge, policy, "tester", TenantId(1))
+            .with_audit_chain(SuperDomain::WorkOrderBilling, 0xBEEF, sink.clone());
+
+        let _ = unified.authorize_read("Node", PrefetchDepth::Identity).unwrap();
+        let _ = unified.authorize_read("Node", PrefetchDepth::Identity).unwrap();
+        let _ = unified.authorize_read("Node", PrefetchDepth::Identity).unwrap();
+
+        let events = sink.snapshot();
+        assert_eq!(events.len(), 3);
+        assert_ne!(events[0].merkle_root, events[1].merkle_root,
+            "A3 negative: consecutive roots must differ");
+        assert_ne!(events[1].merkle_root, events[2].merkle_root,
+            "A3 negative: consecutive roots must differ");
+        for ev in &events {
+            assert_ne!(ev.merkle_root, AuditMerkleRoot::GENESIS,
+                "A3 negative: roots must not equal GENESIS after advance");
+        }
     }
 }

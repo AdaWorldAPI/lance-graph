@@ -194,7 +194,7 @@ mod tests {
     use lance_graph_ontology::OntologyRegistry;
     use lance_graph_rbac::policy::smb_policy;
 
-    use crate::unified_bridge::UnifiedBridge;
+    use crate::unified_bridge::{TenantId, UnifiedBridge};
     use crate::unified_audit::{UnifiedAuditEvent, UnifiedAuditSink};
     use crate::super_domain::SuperDomain as SD;
     use thinking_engine::bridge_gate::{CognitiveBridgeGate, CognitiveOpKind, CognitiveAuthResult};
@@ -342,7 +342,6 @@ mod tests {
         use lance_graph_rbac::permission::PermissionSpec;
         use lance_graph_rbac::role::Role;
         use lance_graph_rbac::policy::Policy;
-        use crate::unified_audit::AuditMerkleRoot;
 
         // Build a registry with "Document" → "Doc" canonical entity.
         let registry = Arc::new(OntologyRegistry::new_in_memory());
@@ -391,8 +390,8 @@ mod tests {
 
         let gate = UnifiedBridgeGate::new(bridge);
 
-        // Same-tenant retrieval of "Document" with depth 2 (Detail).
-        let result = gate.authorize_retrieval(10, "Document", 2);
+        // Same-tenant retrieval of "Document" with depth 1 (Detail).
+        let result = gate.authorize_retrieval(10, "Document", 1);
         assert_eq!(result, CognitiveAuthResult::Allow, "policy should allow reader→Doc");
 
         // Exactly 1 audit event emitted by UnifiedBridge.

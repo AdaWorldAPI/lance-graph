@@ -66,19 +66,15 @@ pub enum HydrationError {
 
 /// Controls how `new_hydrated` behaves when the sanity gate fails.
 #[derive(Clone, Debug)]
+#[derive(Default)]
 pub enum HydrationPolicy {
     /// Fail the constructor if the merged map has fewer than `min` distinct
     /// non-Unknown domains. Default for binary entrypoints.
     RequireMinDomains { min: usize },
     /// Log a warning and continue with whatever seed data is available.
     /// Default for tests and library consumers.
+    #[default]
     BestEffort,
-}
-
-impl Default for HydrationPolicy {
-    fn default() -> Self {
-        HydrationPolicy::BestEffort
-    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -287,6 +283,12 @@ pub fn current_generation() -> u64 {
 
 /// Map a `superDomain` literal string to a `SuperDomain` enum variant.
 /// Returns `None` for unrecognised names (treated as Unknown — omitted).
+///
+/// OQ-4 resolution (locked 2026-05-13): `"SMB"` maps to `WorkOrderBilling`
+/// (covers the 3 Foundry-shape entities under `ogit.SMB:`). `"SMB.bson"` also
+/// maps to `WorkOrderBilling` (covers the 14 BSON-shape entities under
+/// `ogit.SMB.bson:`). Both sub-namespaces share the same super-domain;
+/// the namespace string discriminates them in `OntologyRegistry::enumerate`.
 fn parse_super_domain_name(name: &str) -> Option<SuperDomain> {
     match name.trim() {
         "Healthcare" => Some(SuperDomain::Healthcare),
@@ -296,6 +298,12 @@ fn parse_super_domain_name(name: &str) -> Option<SuperDomain> {
         "TicketTool" => Some(SuperDomain::TicketTool),
         "WorkOrderBilling" => Some(SuperDomain::WorkOrderBilling),
         "Osint" => Some(SuperDomain::Osint),
+        // OQ-4: Foundry-shape SMB (ogit.SMB:) and BSON-shape SMB (ogit.SMB.bson:)
+        // both belong to WorkOrderBilling at the super-domain level.
+        // The split between the two surface shapes is enforced by the
+        // `OgitFamily` slot assignment (0x80..=0x82 vs 0xA0..=0xAD) and
+        // by `registry.enumerate("SMB")` vs `registry.enumerate("SMB.bson")`.
+        "SMB" | "SMB.bson" => Some(SuperDomain::WorkOrderBilling),
         _ => None,
     }
 }
@@ -390,5 +398,129 @@ mod tests {
         let mut map = HashMap::new();
         load_overlay(&mut map, None).unwrap();
         assert!(map.is_empty());
+    }
+
+    // ── U6 — SMB Foundry-shape entries parse correctly (OQ-4 resolution) ──
+    //
+    // The seed TTL declares 3 entries under superDomain "SMB" (Foundry-shape,
+    // `ogit.SMB:` namespace, family IDs 128..=130).  They must map to
+    // WorkOrderBilling and must NOT bleed into the SMB.bson group.
+    #[test]
+    fn family_smb_foundry_maps_to_work_order_billing() {
+        let map = load_seed(SEED_TTL).expect("seed must parse cleanly");
+
+        // Family IDs 128, 129, 130 — SMB Foundry-shape (0x80..=0x82)
+        assert_eq!(
+            map.get(&128).copied(),
+            Some(SuperDomain::WorkOrderBilling),
+            "SMB Foundry Customer (0x80=128) must map to WorkOrderBilling"
+        );
+        assert_eq!(
+            map.get(&129).copied(),
+            Some(SuperDomain::WorkOrderBilling),
+            "SMB Foundry Invoice (0x81=129) must map to WorkOrderBilling"
+        );
+        assert_eq!(
+            map.get(&130).copied(),
+            Some(SuperDomain::WorkOrderBilling),
+            "SMB Foundry TaxDeclaration (0x82=130) must map to WorkOrderBilling"
+        );
+    }
+
+    // ── U7 — SMB BSON-shape entries parse correctly (OQ-4 resolution) ─────
+    //
+    // The seed TTL declares 14 entries under superDomain "SMB.bson" (BSON-shape,
+    // `ogit.SMB.bson:` namespace, family IDs 160..=173 = 0xA0..=0xAD).
+    // All must map to WorkOrderBilling; no slot collision with Foundry entries.
+    #[test]
+    fn family_smb_bson_maps_to_work_order_billing() {
+        let map = load_seed(SEED_TTL).expect("seed must parse cleanly");
+
+        // All 14 BSON-shape slots 0xA0..=0xAD (160..=173) must be WorkOrderBilling.
+        for id in 160u8..=173u8 {
+            assert_eq!(
+                map.get(&id).copied(),
+                Some(SuperDomain::WorkOrderBilling),
+                "SMB BSON slot {id} (0x{id:02X}) must map to WorkOrderBilling"
+            );
+        }
+    }
+
+    // ── U8 — Foundry and BSON slots are disjoint (no contamination) ────────
+    //
+    // OQ-4 guarantee: `registry.enumerate("SMB")` returns exactly 3 Foundry
+    // entities; `registry.enumerate("SMB.bson")` returns the 14 BSON entities.
+    // At the family-table level this maps to non-overlapping slot ranges.
+    #[test]
+    fn family_smb_foundry_and_bson_slots_are_disjoint() {
+        let map = load_seed(SEED_TTL).expect("seed must parse cleanly");
+
+        // Foundry slots: 128..=130
+        let foundry_ids: std::collections::HashSet<u8> = (128u8..=130u8).collect();
+        // BSON slots: 160..=173
+        let bson_ids: std::collections::HashSet<u8> = (160u8..=173u8).collect();
+
+        // Disjoint check
+        let overlap: std::collections::HashSet<u8> =
+            foundry_ids.intersection(&bson_ids).copied().collect();
+        assert!(
+            overlap.is_empty(),
+            "SMB Foundry and BSON slot ranges must not overlap; got overlap: {overlap:?}"
+        );
+
+        // Both ranges exist in the map
+        for &id in &foundry_ids {
+            assert!(
+                map.contains_key(&id),
+                "SMB Foundry slot {id} missing from seed map"
+            );
+        }
+        for &id in &bson_ids {
+            assert!(
+                map.contains_key(&id),
+                "SMB BSON slot {id} missing from seed map"
+            );
+        }
+    }
+
+    // ── U9 — parse_family_registry handles both ogit.SMB: and ogit.SMB.bson: ──
+    //
+    // Regression against namespace contamination: passing a minimal inline TTL
+    // containing one SMB Foundry entry and one SMB.bson entry through
+    // `parse_family_registry()` must yield exactly 2 distinct entries with
+    // different family IDs.
+    #[test]
+    fn family_parse_both_smb_namespaces_from_inline_ttl() {
+        const INLINE: &str = r#"
+@prefix ogit:      <http://www.purl.org/ogit/> .
+@prefix ogit.meta: <http://www.purl.org/ogit/meta/> .
+@prefix xsd:       <http://www.w3.org/2001/XMLSchema#> .
+
+ogit:SmbFoundryCustomer
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB" ;
+    ogit.meta:familyId    "128"^^xsd:unsignedByte .
+
+ogit:SmbBsonCustomer
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB.bson" ;
+    ogit.meta:familyId    "160"^^xsd:unsignedByte .
+"#;
+        let entries = lance_graph_ontology::parse_family_registry(INLINE.as_bytes())
+            .expect("inline SMB TTL must parse cleanly");
+
+        assert_eq!(entries.len(), 2, "expected exactly 2 entries");
+
+        // Sort is guaranteed by parse_family_registry (sorts by family_id).
+        assert_eq!(entries[0].family_id, 128);
+        assert_eq!(entries[0].super_domain_name, "SMB");
+        assert_eq!(entries[1].family_id, 160);
+        assert_eq!(entries[1].super_domain_name, "SMB.bson");
+
+        // Both map to WorkOrderBilling via load_seed logic
+        let sd_foundry = parse_super_domain_name(&entries[0].super_domain_name);
+        let sd_bson = parse_super_domain_name(&entries[1].super_domain_name);
+        assert_eq!(sd_foundry, Some(SuperDomain::WorkOrderBilling));
+        assert_eq!(sd_bson, Some(SuperDomain::WorkOrderBilling));
     }
 }

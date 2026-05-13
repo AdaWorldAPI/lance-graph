@@ -420,7 +420,7 @@ pub fn parse_ttl_directory_with_provenance(
                 .next()
                 .and_then(|c| c.as_os_str().to_str())
                 .unwrap_or("");
-            if !namespace_filter.iter().any(|f| *f == ns) {
+            if !namespace_filter.contains(&ns) {
                 return Ok(());
             }
         }
@@ -465,9 +465,9 @@ pub fn ttl_root_checksum(root: &Path) -> Result<String> {
             source,
         })?;
         h.update(p.to_string_lossy().as_bytes());
-        h.update(&[0u8]);
+        h.update([0u8]);
         h.update(&bytes);
-        h.update(&[0u8]);
+        h.update([0u8]);
     }
     Ok(format!("{:x}", h.finalize()))
 }
@@ -783,7 +783,7 @@ pub fn parse_family_registry(
 
     let mut entries = Vec::new();
 
-    for (_subject, props) in &by_subject {
+    for props in by_subject.values() {
         // A family namespace subject must carry BOTH predicates.
         let super_domain_name = match lookup_literal(props, OGIT_META_SUPER_DOMAIN) {
             Some(s) => s.to_string(),

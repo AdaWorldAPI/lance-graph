@@ -16,16 +16,21 @@ thiserror = "1"
 tracing   = "0.1"
 
 # Supervisor feature: ractor actor tree (one-for-one, per-G slot)
-ractor            = { version = "0.14", optional = true, default-features = false, features = ["tokio-runtime"] }
+ractor            = { version = "0.14", optional = true, default-features = false, features = ["tokio_runtime"] }
 static_assertions = { version = "1", optional = true }
+# tokio is needed at the outbound boundary for spawn/sleep in the respawn backoff path.
+# Per I-2: tokio::spawn is ONLY at the supervisor's outbound boundary; consumer handler
+# bodies must not import tokio::spawn / tokio::select! / tokio::sync::Mutex directly.
+tokio             = { version = "1", features = ["rt", "time", "macros"], optional = true }
 
 # supervisor-lifecycle-audit: LifecycleAuditEvent emission (SEPARATE from UnifiedAuditEvent)
 # Feature-gated; default off to avoid audit noise in dev/test environments.
 # Production deployments enable: lance-graph-supervisor = { features = ["supervisor-lifecycle-audit"] }
 [features]
 default = []
-supervisor = ["dep:ractor", "dep:static_assertions"]
+supervisor = ["dep:ractor", "dep:static_assertions", "dep:tokio"]
 supervisor-lifecycle-audit = ["supervisor"]
 
 [dev-dependencies]
-tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+tokio             = { version = "1", features = ["rt-multi-thread", "macros"] }
+static_assertions = "1"

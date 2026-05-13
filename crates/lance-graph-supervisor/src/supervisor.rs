@@ -154,7 +154,6 @@ impl CallcenterSupervisor
     }
 }
 
-#[ractor::async_trait]
 impl Actor for CallcenterSupervisor
 {
     type Msg       = SupervisorMsg;
@@ -335,7 +334,7 @@ impl Actor for CallcenterSupervisor
     ) -> Result<(), ActorProcessingErr>
     {
         if let SupervisionEvent::ActorTerminated(cell, _, reason) = evt {
-            let actor_id = cell.get_id().id();
+            let actor_id = cell.get_id().pid();
             if let Some(&(g, version)) = state.reverse_index.get(&actor_id) {
                 tracing::warn!(
                     g,
@@ -386,7 +385,7 @@ async fn spawn_consumer_actor(
         ActorProcessingErr::from(format!("spawn consumer_g_{} failed: {e}", entry.g))
     })?;
 
-    let actor_id = actor_ref.get_id().id();
+    let actor_id = actor_ref.get_id().pid();
     state.slots.insert(
         (entry.g, entry.version),
         ConsumerSlot {
@@ -411,7 +410,6 @@ pub struct StubConsumerActor
 
 pub struct StubConsumerState;
 
-#[ractor::async_trait]
 impl Actor for StubConsumerActor
 {
     type Msg       = ConsumerEnvelope;

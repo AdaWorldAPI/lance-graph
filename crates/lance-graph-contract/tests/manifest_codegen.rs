@@ -1,17 +1,16 @@
-/// Integration tests for the build.rs manifest codegen.
-///
-/// Covers:
-/// 1. Idempotency — running the build twice produces byte-identical output
-/// 2. Error paths:
-///    a. Malformed YAML
-///    b. Duplicate G slot
-///    c. Duplicate entity-type code
-///    d. Non-inert manifest with no actor block
-///    e. Unresolved inherits_from
-/// 3. Runtime lookup via binary_search (known keys resolve correctly)
+//! Integration tests for the build.rs manifest codegen.
+//!
+//! Covers:
+//! 1. Idempotency — running the build twice produces byte-identical output
+//! 2. Error paths:
+//!    a. Malformed YAML
+//!    b. Duplicate G slot
+//!    c. Duplicate entity-type code
+//!    d. Non-inert manifest with no actor block
+//!    e. Unresolved inherits_from
+//! 3. Runtime lookup via binary_search (known keys resolve correctly)
 
 use std::path::PathBuf;
-use std::process::Command;
 
 // ---------------------------------------------------------------------------
 // Helper: path to the build.rs we want to test by running as a subprocess
@@ -40,10 +39,9 @@ fn workspace_root() -> PathBuf {
 /// parse + validate pipeline used by build.rs.
 mod validator {
     use std::collections::{BTreeMap, HashMap};
-    use std::path::{Path, PathBuf};
+    use std::path::PathBuf;
 
     use serde::Deserialize;
-    use serde_yaml;
 
     const CANONICAL_SLOTS: &[(&str, u32)] = &[
         ("DOLCE", 0),
@@ -64,6 +62,7 @@ mod validator {
 
     #[derive(Debug, Deserialize)]
     #[serde(deny_unknown_fields)]
+    #[allow(dead_code)] // mirror of build.rs ManifestRaw — fields exist for parse-validate symmetry
     pub struct ManifestRaw {
         pub ogit_g: String,
         pub version: u32,
@@ -78,6 +77,7 @@ mod validator {
     }
 
     #[derive(Debug, Deserialize)]
+    #[allow(dead_code)]
     pub struct StackProfileRaw {
         pub audit_retention_days: Option<u32>,
         pub requires_fail_closed: Option<bool>,
@@ -88,6 +88,7 @@ mod validator {
 
     #[derive(Debug, Deserialize)]
     #[serde(deny_unknown_fields)]
+    #[allow(dead_code)]
     pub struct ActorRaw {
         #[serde(rename = "crate")]
         pub crate_name: String,
@@ -105,6 +106,8 @@ mod validator {
             .map_err(|e| format!("entity_type code '{s}': {e}"))
     }
 
+    #[derive(Debug)]
+    #[allow(dead_code)]
     pub struct ValidatedEntry {
         pub g_slot: u32,
         pub domain_name: String,

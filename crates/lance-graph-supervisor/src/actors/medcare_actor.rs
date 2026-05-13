@@ -19,7 +19,7 @@ use ractor::{Actor, ActorProcessingErr, ActorRef};
 use tracing;
 
 use crate::consumer_msg::{
-    ConsumerEnvelope, ConsumerReply, HealthStatus,
+    ConsumerEnvelope, HealthStatus,
 };
 
 /// G-slot constant for MedCare.
@@ -44,7 +44,6 @@ pub struct MedcareState
 /// (sprint-8). The actor name is always `"consumer_g_2"` — survives respawn.
 pub struct MedcareConsumerActor;
 
-#[ractor::async_trait]
 impl Actor for MedcareConsumerActor
 {
     type Msg       = ConsumerEnvelope;

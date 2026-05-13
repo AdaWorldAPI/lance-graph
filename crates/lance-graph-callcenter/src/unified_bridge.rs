@@ -423,6 +423,8 @@ impl<B: NamespaceBridge> UnifiedBridge<B> {
             actor_role_hash: self.actor_role_hash,
             // overwritten by AuditChain::advance
             merkle_root: AuditMerkleRoot::GENESIS,
+            // overwritten by AuditChain::advance (D-SDR-4b prev_merkle field)
+            prev_merkle: AuditMerkleRoot::GENESIS,
         };
         let stamped = chain.advance(event);
         drop(chain);
@@ -604,9 +606,11 @@ fn reload_family_table_inner(
         "seed".to_string()
     };
 
-    // updated_count = map entries on first boot (prev_gen==0), else map.len()
-    // as a conservative upper bound (we don't diff generations).
-    let updated_count = if prev_gen == 0 { map.len() as u32 } else { map.len() as u32 };
+    // updated_count = map.len() as a conservative upper bound regardless of
+    // prev_gen (we don't diff generations). prev_gen kept in signature for
+    // future per-generation diffing if added.
+    let _ = prev_gen;
+    let updated_count = map.len() as u32;
 
     Ok(HydrationRefreshAudit::now(new_gen, updated_count, source_label))
 }

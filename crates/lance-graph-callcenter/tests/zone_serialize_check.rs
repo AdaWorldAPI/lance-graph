@@ -15,18 +15,16 @@
 
 #[test]
 fn zone1_zone2_have_no_serialize_derives() {
-    // Reaching this assertion means cargo::error did NOT fire during build.
+    // Reaching this test means cargo::error did NOT fire during build.
     // That is the contract: build script aborts → tests can't run → CI red.
-    // Tests run → the Zone 1/2 surface stayed clean.
-    assert!(true, "build.rs zone_serialize_check passed");
+    // Tests run → the Zone 1/2 surface stayed clean. No runtime assertion
+    // needed — the test merely compiling-and-running IS the assertion.
 }
 
 #[test]
 fn zone3_types_remain_unrestricted() {
     // Sanity that Zone 3 types (transcode / postgrest / phoenix / drain /
     // supabase) are NOT scanned. The build script intentionally only inspects
-    // four files; anything outside those paths is unaffected. We assert this
-    // by simply confirming the crate built at all — if the scan accidentally
-    // flagged a Zone 3 Serialize, the build would have aborted upstream.
-    assert!(true, "Zone 3 Serialize derives are not scanned");
+    // four files; anything outside those paths is unaffected. The crate
+    // building at all is the positive evidence.
 }

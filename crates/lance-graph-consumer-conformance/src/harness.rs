@@ -23,7 +23,7 @@ use std::sync::Arc;
 
 use lance_graph_callcenter::super_domain::SuperDomain;
 use lance_graph_callcenter::unified_audit::{
-    AuditMerkleRoot, AuthDecision, AuthOp, UnifiedAuditEvent, UnifiedAuditSink,
+    AuditMerkleRoot, UnifiedAuditEvent, UnifiedAuditSink,
 };
 use lance_graph_callcenter::unified_bridge::{TenantId, UnifiedBridge};
 use lance_graph_contract::hash::fnv1a_str;

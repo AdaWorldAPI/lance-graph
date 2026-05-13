@@ -171,6 +171,12 @@ pub struct UnifiedAuditEvent
     /// Computed by [`AuditChain::advance`] at emission; equals
     /// `AuditMerkleRoot::chain(prev_root, salt, self.canonical_bytes())`.
     pub merkle_root: AuditMerkleRoot,
+    /// Merkle root of the immediately preceding event in this chain.
+    /// `AuditMerkleRoot::GENESIS` for the first event.
+    /// Excluded from `canonical_bytes()` — it is the prior chain output,
+    /// not an input; including it would create a circular dependency.
+    /// D-SDR-4b field; populated by `AuditChain::advance()`.
+    pub prev_merkle: AuditMerkleRoot,
 }
 
 impl UnifiedAuditEvent
@@ -238,8 +244,15 @@ impl AuditChain
 
     /// Stamp `event.merkle_root` with the chained hash and update
     /// `self.last_root`. Returns the freshly-stamped event for emission.
+    ///
+    /// D-SDR-4b: captures `self.last_root` into `event.prev_merkle` BEFORE
+    /// chaining so the prior root is available for single-event spot-checks
+    /// in `verify-jsonl` / `verify-lance` without scanning from genesis.
+    /// `prev_merkle` is NOT included in `canonical_bytes()` — that would
+    /// create a circular dependency.
     pub fn advance(&mut self, mut event: UnifiedAuditEvent) -> UnifiedAuditEvent
     {
+        event.prev_merkle = self.last_root;   // capture BEFORE chaining
         let new_root = AuditMerkleRoot::chain(self.last_root, self.salt, &event.canonical_bytes());
         event.merkle_root = new_root;
         self.last_root = new_root;
@@ -366,6 +379,7 @@ mod tests
             decision: AuthDecision::Allow,
             actor_role_hash: 0xCAFE_BABE_DEAD_BEEF,
             merkle_root: AuditMerkleRoot::GENESIS, // overwritten by chain.advance
+            prev_merkle: AuditMerkleRoot::GENESIS, // overwritten by chain.advance
         }
     }
 
