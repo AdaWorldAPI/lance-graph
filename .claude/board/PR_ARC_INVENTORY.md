@@ -35,6 +35,49 @@
 
 ---
 
+## #365 — specs(sprint-5-6): 13-worker parallel batch + Opus meta review (merged 2026-05-13)
+
+**Confidence (2026-05-13):** governance-only PR, no `.rs` / `Cargo.toml` changes. CI green (format / clippy / build / test / coverage — no code touched). **Status:** Merged to `main`.
+
+**Added:**
+- **13 PR-ready specs at `.claude/specs/`** (~300 KB total):
+  - W1 `pr-d3a-lance-audit-sink.md` (27 KB, B-grade) — Arrow 12-column schema with `FixedSizeBinary(3)` owl_identity, super_domain × date partitioning, buffered emit + flush-at-1024/5s.
+  - W2 `pr-d3b-jsonl-and-verify.md` (27 KB, **A-grade**) — JsonlAuditSink + CompositeSink + verify CLI (3 subcommands, exit codes 0-3, owl_identity as 6-char lowercase hex).
+  - W3 `pr-d4-family-hydration.md` (16 KB, B-grade) — TTL hydration of FAMILY_TO_SUPER_DOMAIN via `parse_family_registry()` (new parser entry per W3 OQ-1 recommendation).
+  - W4 `sprint-5-ci-matrix.md` (21 KB, B-grade) — 6 blocking gates + target matrix; ndarray#142 SIGILL gate rules R-HW-1..4.
+  - W5 `sprint-5-pr-graph.md` (16 KB, **A-grade**) — Sprint-5 retrospective + 4-PR adjacent-landings dependency graph + sprint-6 unblock map.
+  - W6 `pr-e1-medcare-super-domain.md` (26 KB, B-grade) — MedCare finalisation gap analysis, ~900 LOC across 6 deliverables (E1-1..E1-6).
+  - W7 `pr-e2-smb-retrofit.md` (11 KB, B-grade) — 5-site bypass inventory in smb-office-rs, 3-batch incremental retrofit plan.
+  - W8 `pr-e3-woa-rs-extract.md` (27 KB, B-grade) — 3-subcrate woa-rs extraction (woa-rbac/realtime/analytics), `WorkOrderBilling` super_domain, ~950 LOC.
+  - W9 `pr-f1-thinking-engine-wire.md` (16 KB, B-grade) — `CognitiveBridgeGate` trait in thinking-engine + `UnifiedBridgeGate<B>` wrapper in callcenter; 3 cross-tenant op categories gated, pure math stays pure.
+  - W10 `pr-g1-manifest-modules.md` (27 KB, C-grade) — build.rs YAML→Rust codegen for consumer manifests; **needs §4.3 rewrite** from `phf::Map` to sorted-slice + binary search per zero-dep invariant.
+  - W11 `pr-g2-ractor-supervisor.md` (25 KB, C-grade) — Per-G actor topology, one-for-one supervision, ractor 0.14; **needs separate `LifecycleAuditEvent`** to keep `AuthOp` byte-layout stable.
+  - W12 `sprint-6-conformance-test.md` (26 KB, **A-grade**) — Cross-crate `assert_consumer_conformance<B: NamespaceBridge>()` harness with 10 contract assertions (A1-A10).
+  - W13 `pr-ogit-ttl-smb-hydration.md` (35 KB, post-meta addendum) — OGIT/NTO/SMB TTL deliverable bridging from `smb-office-rs:main:.claude/board/OGIT_TTL_INVENTORY.md`; 3 §E recommended answers (use `ogit.SMB.bson:` sub-namespace, `ogit:marking` per-property triples, no custom semantic types).
+- **24 KB Opus meta review** at `.claude/board/sprint-log-5-6/meta-review.md` (M1 per-worker + M2 cross-spec synthesis combined). 8 sections incl. per-spec critical defects, cross-spec contradictions (CC-1..CC-N), dependency graph, sequencing recommendation, coverage gaps, open-question triage, code-review readiness verdict, sprint-5/6 cohesion synthesis.
+- **14 A2A scratchpads** at `.claude/board/sprint-log-5-6/agents/agent-W{1..13,META}.md` (append-only blackboard, one per worker via `tee -a`).
+- **`.claude/settings.json`** — `Write/Edit(.claude/board/sprint-log-5-6/**)` allowlist entries (initial worker batch hit permission denial; respawn batch after fix landed clean).
+
+**Locked:**
+- **CCA2A 12+1+1 pattern works at scale.** 12 parallel Sonnet workers + 1 post-meta Sonnet worker + 1 Opus meta agent in one sprint produced ~300 KB of PR-ready specs in under an hour wall-clock. Worker-prompt template from sprint-5-through-9-roadmap-v1.md held — mandatory 12-step read-order prevented duplication. 3 workers needed respawns (W1/W4/W8) for permission reasons, root-caused to missing settings.json entries — locked: every new sprint-log-N directory needs explicit `Write/Edit/Bash(tee -a)` allowlist entries before workers spawn.
+- **Spec-quality grading scale (A/B/C/D/F)** established by Opus meta — to be reused across future sprint meta reviews.
+- **PR-and-merge-first philosophy for spec corpora:** C-grade specs ship as-is into the spec PR; their fixes happen in the implementation PR alongside the actual code. Saves a meta-iteration round-trip.
+
+**Deferred:**
+- **4 blocking OQs** (PR body checkboxes — user decision needed before sprint-7 implementation workers fire):
+  - OQ-1 (W3): TTL family-registry parser entry — W3 recommends new `parse_family_registry()` API.
+  - OQ-2 (W10): `phf::Map` vs sorted-slice + binary search — meta recommends sorted-slice (zero-dep invariant).
+  - OQ-3 (W6): `medcare_rbac::Role` migration to canonical `RoleGroup` vs bridge — affects E1-1 LOC ±30%.
+  - OQ-4 (W13 §E.1): OGIT/NTO/SMB BSON namespace — W13 recommends `ogit.SMB.bson:` sub-namespace.
+- Sprint-6 W5/W6 (hiro-rs / hubspot-rs scaffolds) — blocked on repo-creation decision (separate repos vs monorepo subcrates).
+- Sprint-5 W2 (PR-A spec) absorbed into PR #364; W3/W4 absorbed into MedCare-rs#112 + smb-office-rs#31 commits; W5/W10 made moot by widening choice in PR #364.
+
+**Docs:**
+- `.claude/specs/` — 13 new PR-ready specs.
+- `.claude/board/sprint-log-5-6/` — SPRINT_LOG roster + meta-review + 14 agent scratchpads.
+
+---
+
 ## #364 — D-SDR-3/4/5 + sprint-log-4 governance + sprint 5-9 roadmap + codex P1/P2 fixes (merged 2026-05-13)
 
 **Confidence (2026-05-13):** merged clean, all 5 CI checks green on `c8176cb`. Codex review threads auto-marked Outdated by GitHub after the surgical fixes shipped pre-merge. **Status:** Merged to `main`. **Adjacent landings (2026-05-13):** MedCare-rs#112 (PR-B, UnifiedBridge<MedcareBridge> + medcare-rbac + medcare-realtime substrate, +2963 LOC across 17 files) and smb-office-rs#31 (PR-C, UnifiedBridge<OgitBridge> wiring, +111 LOC) both **merged** the same day, closing the sprint-5 cross-repo coordinated landing for D-SDR-5's `UnifiedBridge` surface. Substrate this PR shipped is now consumed end-to-end by both MedCare and smb-office.
