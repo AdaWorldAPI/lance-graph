@@ -158,7 +158,10 @@ impl GrBType {
 
     /// Check if this is an HDR type
     pub fn is_hdr(&self) -> bool {
-        matches!(self, GrBType::HdrVector | GrBType::HdrDistance | GrBType::HdrSimilarity)
+        matches!(
+            self,
+            GrBType::HdrVector | GrBType::HdrDistance | GrBType::HdrSimilarity
+        )
     }
 }
 

@@ -34,10 +34,10 @@
 //! expensive popcount cascade even starts.
 
 use super::schema::{
-    AniLevels, NarsTruth, NarsBudget, EdgeTypeMarker, NodeTypeMarker, NodeKind,
-    InlineQValues, InlineRewards, NeighborBloom, GraphMetrics, SchemaSidecar,
+    AniLevels, EdgeTypeMarker, GraphMetrics, InlineQValues, InlineRewards, NarsBudget, NarsTruth,
+    NeighborBloom, NodeKind, NodeTypeMarker, SchemaSidecar,
 };
-use super::{VECTOR_WORDS, NUM_BLOCKS, BITS_PER_BLOCK, SEMANTIC_BLOCKS, SCHEMA_BLOCK_START};
+use super::{BITS_PER_BLOCK, NUM_BLOCKS, SCHEMA_BLOCK_START, SEMANTIC_BLOCKS, VECTOR_WORDS};
 
 // ============================================================================
 // BLOCK MASK: Which blocks participate in distance computation
@@ -257,12 +257,18 @@ impl SchemaQuery {
 
         // ANI filter: read words[208..209] (128 bits)
         if let Some(ref ani) = self.ani_filter {
-            let ani_packed = candidate_words[base] as u128
-                | ((candidate_words[base + 1] as u128) << 64);
+            let ani_packed =
+                candidate_words[base] as u128 | ((candidate_words[base + 1] as u128) << 64);
             let levels = AniLevels::unpack(ani_packed);
             let level_vals = [
-                levels.reactive, levels.memory, levels.analogy, levels.planning,
-                levels.meta, levels.social, levels.creative, levels.r#abstract,
+                levels.reactive,
+                levels.memory,
+                levels.analogy,
+                levels.planning,
+                levels.meta,
+                levels.social,
+                levels.creative,
+                levels.r#abstract,
             ];
             if ani.min_level as usize >= 8 {
                 return false;
@@ -277,10 +283,14 @@ impl SchemaQuery {
         // NARS filter: read word[210] (lower 32 bits = truth)
         if let Some(ref nars) = self.nars_filter {
             let truth = NarsTruth::unpack(candidate_words[base + 2] as u32);
-            if let Some(min_f) = nars.min_frequency && truth.f() < min_f {
+            if let Some(min_f) = nars.min_frequency
+                && truth.f() < min_f
+            {
                 return false;
             }
-            if let Some(min_c) = nars.min_confidence && truth.c() < min_c {
+            if let Some(min_c) = nars.min_confidence
+                && truth.c() < min_c
+            {
                 return false;
             }
             // Budget: upper 32 bits of word[210] → lower 64 bits
@@ -334,7 +344,9 @@ impl SchemaQuery {
                     rewards.rewards[i + 4] = ((rw1 >> (i * 16)) & 0xFFFF) as u16 as i16;
                 }
 
-                if let Some(min_avg) = rl.min_avg_reward && rewards.average() < min_avg {
+                if let Some(min_avg) = rl.min_avg_reward
+                    && rewards.average() < min_avg
+                {
                     return false;
                 }
                 if rl.positive_trend && rewards.trend() <= 0.0 {
@@ -348,16 +360,24 @@ impl SchemaQuery {
             let block15_base = base + 32;
             let metrics = GraphMetrics::unpack(candidate_words[block15_base + 8]);
 
-            if let Some(min_pr) = graph.min_pagerank && metrics.pagerank < min_pr {
+            if let Some(min_pr) = graph.min_pagerank
+                && metrics.pagerank < min_pr
+            {
                 return false;
             }
-            if let Some(max_h) = graph.max_hop && metrics.hop_to_root > max_h {
+            if let Some(max_h) = graph.max_hop
+                && metrics.hop_to_root > max_h
+            {
                 return false;
             }
-            if let Some(cid) = graph.cluster_id && metrics.cluster_id != cid {
+            if let Some(cid) = graph.cluster_id
+                && metrics.cluster_id != cid
+            {
                 return false;
             }
-            if let Some(min_d) = graph.min_degree && metrics.degree < min_d {
+            if let Some(min_d) = graph.min_degree
+                && metrics.degree < min_d
+            {
                 return false;
             }
         }
@@ -440,12 +460,11 @@ impl SchemaQuery {
             }
 
             // Level 1: Block-masked distance with threshold
-            let dist = match self.masked_distance_with_threshold(
-                query, candidate, current_threshold,
-            ) {
-                Some(d) => d,
-                None => continue,
-            };
+            let dist =
+                match self.masked_distance_with_threshold(query, candidate, current_threshold) {
+                    Some(d) => d,
+                    None => continue,
+                };
 
             // Insert into results (maintain sorted order)
             let result = SchemaSearchResult {
@@ -567,7 +586,10 @@ pub fn rl_routing_score(distance: u32, q_value: f32, alpha: f32) -> f32 {
 /// writes it to the output words.
 pub fn nars_revision_inline(a_words: &[u64], b_words: &[u64], out_words: &mut [u64]) {
     let base = SchemaSidecar::WORD_OFFSET;
-    if a_words.len() < VECTOR_WORDS || b_words.len() < VECTOR_WORDS || out_words.len() < VECTOR_WORDS {
+    if a_words.len() < VECTOR_WORDS
+        || b_words.len() < VECTOR_WORDS
+        || out_words.len() < VECTOR_WORDS
+    {
         return;
     }
 
@@ -578,7 +600,11 @@ pub fn nars_revision_inline(a_words: &[u64], b_words: &[u64], out_words: &mut [u
     // Preserve budget from higher-priority input
     let budget_a = NarsBudget::unpack((a_words[base + 2] >> 32) as u64);
     let budget_b = NarsBudget::unpack((b_words[base + 2] >> 32) as u64);
-    let budget = if budget_a.priority >= budget_b.priority { budget_a } else { budget_b };
+    let budget = if budget_a.priority >= budget_b.priority {
+        budget_a
+    } else {
+        budget_b
+    };
 
     out_words[base + 2] = revised.pack() as u64 | ((budget.pack() as u64) << 32);
 }
@@ -666,7 +692,9 @@ pub fn schema_bind(a: &[u64], b: &[u64]) -> Vec<u64> {
         kind: node_a.kind, // preserve primary kind
         subtype: node_a.subtype ^ node_b.subtype,
         provenance: node_a.provenance ^ node_b.provenance,
-    }.pack() as u64) << 32;
+    }
+    .pack() as u64)
+        << 32;
 
     // Block 14: RL state — preserve from primary operand (a)
     let block14_base = base + 16;
@@ -730,7 +758,9 @@ pub fn bloom_accelerated_search(
 
         // Level 1: Block-masked distance with threshold
         let raw_dist = match schema_query.masked_distance_with_threshold(
-            query, candidate, current_threshold,
+            query,
+            candidate,
+            current_threshold,
         ) {
             Some(d) => d,
             None => continue,
@@ -759,7 +789,8 @@ pub fn bloom_accelerated_search(
 
         if results.len() > k {
             results.truncate(k);
-            current_threshold = results.last()
+            current_threshold = results
+                .last()
                 .map(|r| r.raw_distance.max(r.effective_distance))
                 .unwrap_or(u32::MAX);
         }
@@ -811,7 +842,9 @@ pub fn rl_guided_search(
         }
 
         let dist = match schema_query.masked_distance_with_threshold(
-            query, candidate, schema_query.max_distance.unwrap_or(u32::MAX),
+            query,
+            candidate,
+            schema_query.max_distance.unwrap_or(u32::MAX),
         ) {
             Some(d) => d,
             None => continue,
@@ -887,12 +920,8 @@ pub fn schema_merge(primary: &[u64], secondary: &[u64]) -> Vec<u64> {
     let base = SchemaSidecar::WORD_OFFSET;
 
     // Block 13: ANI levels — element-wise max
-    let ani_a = AniLevels::unpack(
-        primary[base] as u128 | ((primary[base + 1] as u128) << 64),
-    );
-    let ani_b = AniLevels::unpack(
-        secondary[base] as u128 | ((secondary[base + 1] as u128) << 64),
-    );
+    let ani_a = AniLevels::unpack(primary[base] as u128 | ((primary[base + 1] as u128) << 64));
+    let ani_b = AniLevels::unpack(secondary[base] as u128 | ((secondary[base + 1] as u128) << 64));
     let ani_merged = AniLevels {
         reactive: ani_a.reactive.max(ani_b.reactive),
         memory: ani_a.memory.max(ani_b.memory),
@@ -953,16 +982,17 @@ pub fn schema_merge(primary: &[u64], secondary: &[u64]) -> Vec<u64> {
     }
 
     // Block 14: STDP + Hebbian — preserve from primary
-    out[(4 + block14_base)..(16 + block14_base)].copy_from_slice(&primary[(4 + block14_base)..(16 + block14_base)]);
+    out[(4 + block14_base)..(16 + block14_base)]
+        .copy_from_slice(&primary[(4 + block14_base)..(16 + block14_base)]);
 
     // Block 15: DN address — preserve from primary
     let block15_base = base + 32;
-    out[block15_base..(4 + block15_base)].copy_from_slice(&primary[block15_base..(4 + block15_base)]);
+    out[block15_base..(4 + block15_base)]
+        .copy_from_slice(&primary[block15_base..(4 + block15_base)]);
 
     // Block 15: Bloom filter — OR (union of known neighbors)
     for w in 0..4 {
-        out[block15_base + 4 + w] = primary[block15_base + 4 + w]
-            | secondary[block15_base + 4 + w];
+        out[block15_base + 4 + w] = primary[block15_base + 4 + w] | secondary[block15_base + 4 + w];
     }
 
     // Block 15: Graph metrics — merge intelligently
@@ -1092,7 +1122,10 @@ mod tests {
         let words = make_test_words();
         // All filters pass together
         let query = SchemaQuery::new()
-            .with_ani(AniFilter { min_level: 3, min_activation: 100 })
+            .with_ani(AniFilter {
+                min_level: 3,
+                min_activation: 100,
+            })
             .with_nars(NarsFilter {
                 min_frequency: Some(0.5),
                 min_confidence: Some(0.3),
@@ -1129,7 +1162,7 @@ mod tests {
         let mut a = vec![0u64; VECTOR_WORDS];
         let b = vec![0u64; VECTOR_WORDS];
         a[0] = 0xFFFF; // 16 bits in semantic
-        a[210] = 0xFF;  // 8 bits in schema
+        a[210] = 0xFF; // 8 bits in schema
 
         let query = SchemaQuery::new().with_block_mask(BlockMask::ALL);
         let dist = query.masked_distance(&a, &b);
@@ -1177,8 +1210,10 @@ mod tests {
         let refs: Vec<&[u64]> = candidates.iter().map(|c| c.as_slice()).collect();
         let query_words = vec![0u64; VECTOR_WORDS];
 
-        let query = SchemaQuery::new()
-            .with_ani(AniFilter { min_level: 3, min_activation: 50 });
+        let query = SchemaQuery::new().with_ani(AniFilter {
+            min_level: 3,
+            min_activation: 50,
+        });
 
         let results = query.search(&refs, &query_words, 10);
 
@@ -1237,7 +1272,7 @@ mod tests {
 
         // ANI: element-wise max
         assert_eq!(result_schema.ani_levels.planning, 500); // max(500, 300)
-        assert_eq!(result_schema.ani_levels.meta, 400);     // max(100, 400)
+        assert_eq!(result_schema.ani_levels.meta, 400); // max(100, 400)
 
         // NARS: revision should increase confidence
         assert!(result_schema.nars_truth.c() > 0.5 || result_schema.nars_truth.c() > 0.3);
@@ -1302,12 +1337,12 @@ mod tests {
         let refs: Vec<&[u64]> = candidates.iter().map(|c| c.as_slice()).collect();
         let query_words = vec![0u64; VECTOR_WORDS];
 
-        let schema_query = SchemaQuery::new()
-            .with_ani(AniFilter { min_level: 3, min_activation: 100 });
+        let schema_query = SchemaQuery::new().with_ani(AniFilter {
+            min_level: 3,
+            min_activation: 100,
+        });
 
-        let results = bloom_accelerated_search(
-            &refs, &query_words, 999, 10, 0.5, &schema_query,
-        );
+        let results = bloom_accelerated_search(&refs, &query_words, 999, 10, 0.5, &schema_query);
 
         assert_eq!(results.len(), 2);
         // Candidate 0 is a bloom neighbor, should get distance bonus
@@ -1328,14 +1363,17 @@ mod tests {
         let refs: Vec<&[u64]> = candidates.iter().map(|c| c.as_slice()).collect();
         let query_words = vec![0u64; VECTOR_WORDS];
 
-        let schema_query = SchemaQuery::new()
-            .with_ani(AniFilter { min_level: 3, min_activation: 500 });
+        let schema_query = SchemaQuery::new().with_ani(AniFilter {
+            min_level: 3,
+            min_activation: 500,
+        });
 
-        let results = bloom_accelerated_search(
-            &refs, &query_words, 999, 10, 0.5, &schema_query,
+        let results = bloom_accelerated_search(&refs, &query_words, 999, 10, 0.5, &schema_query);
+
+        assert!(
+            results.is_empty(),
+            "Should filter out candidates failing predicates"
         );
-
-        assert!(results.is_empty(), "Should filter out candidates failing predicates");
     }
 
     // === RL-guided search tests ===
@@ -1366,14 +1404,16 @@ mod tests {
         let schema_query = SchemaQuery::new();
 
         // alpha=0.5: balanced between distance and Q-value
-        let results = rl_guided_search(
-            &refs, &query_words, 10, 0.5, &schema_query,
-        );
+        let results = rl_guided_search(&refs, &query_words, 10, 0.5, &schema_query);
 
         assert_eq!(results.len(), 2);
         // With same distance, candidate 0 (high Q) should rank better (lower composite)
-        assert!(results[0].q_value > results[1].q_value,
-            "Higher Q should rank first: {} vs {}", results[0].q_value, results[1].q_value);
+        assert!(
+            results[0].q_value > results[1].q_value,
+            "Higher Q should rank first: {} vs {}",
+            results[0].q_value,
+            results[1].q_value
+        );
         assert!(results[0].composite_score <= results[1].composite_score);
     }
 
@@ -1395,9 +1435,7 @@ mod tests {
         let query_words = vec![0u64; VECTOR_WORDS];
 
         // alpha=0.0: purely Q-based. But both have Q=0, so distance still matters in tie-break
-        let results = rl_guided_search(
-            &refs, &query_words, 10, 0.0, &SchemaQuery::new(),
-        );
+        let results = rl_guided_search(&refs, &query_words, 10, 0.0, &SchemaQuery::new());
         assert_eq!(results.len(), 2);
     }
 
@@ -1430,11 +1468,11 @@ mod tests {
         // Secondary schema
         let mut ss = SchemaSidecar::default();
         ss.ani_levels.planning = 500; // higher
-        ss.ani_levels.meta = 50;      // lower
+        ss.ani_levels.meta = 50; // lower
         ss.nars_truth = NarsTruth::from_floats(0.6, 0.3);
-        ss.metrics.pagerank = 600;     // lower
-        ss.metrics.hop_to_root = 2;    // closer to root
-        ss.metrics.degree = 7;         // higher
+        ss.metrics.pagerank = 600; // lower
+        ss.metrics.hop_to_root = 2; // closer to root
+        ss.metrics.degree = 7; // higher
         ss.neighbors.insert(20);
         ss.q_values.set_q(0, 0.4);
         ss.write_to_words(&mut secondary);
@@ -1443,24 +1481,45 @@ mod tests {
         let ms = SchemaSidecar::read_from_words(&merged);
 
         // Semantic blocks from primary
-        assert_eq!(merged[0], 0xDEADBEEF, "Semantic bits should come from primary");
+        assert_eq!(
+            merged[0], 0xDEADBEEF,
+            "Semantic bits should come from primary"
+        );
         assert_eq!(merged[1], 0xCAFEBABE);
 
         // ANI: element-wise max
-        assert_eq!(ms.ani_levels.planning, 500, "ANI should take max: max(300,500)=500");
-        assert_eq!(ms.ani_levels.meta, 100, "ANI should take max: max(100,50)=100");
+        assert_eq!(
+            ms.ani_levels.planning, 500,
+            "ANI should take max: max(300,500)=500"
+        );
+        assert_eq!(
+            ms.ani_levels.meta, 100,
+            "ANI should take max: max(100,50)=100"
+        );
 
         // NARS: revision (combined evidence increases confidence)
-        assert!(ms.nars_truth.c() > 0.0, "Revised confidence should be positive");
+        assert!(
+            ms.nars_truth.c() > 0.0,
+            "Revised confidence should be positive"
+        );
 
         // Metrics: max pagerank, min hop, max degree
-        assert_eq!(ms.metrics.pagerank, 800, "Pagerank should take max: max(800,600)=800");
+        assert_eq!(
+            ms.metrics.pagerank, 800,
+            "Pagerank should take max: max(800,600)=800"
+        );
         assert_eq!(ms.metrics.hop_to_root, 2, "Hop should take min: min(5,2)=2");
         assert_eq!(ms.metrics.degree, 7, "Degree should take max: max(3,7)=7");
 
         // Bloom: OR (union)
-        assert!(bloom_might_be_neighbors(&merged, 10), "Should contain primary's neighbors");
-        assert!(bloom_might_be_neighbors(&merged, 20), "Should contain secondary's neighbors");
+        assert!(
+            bloom_might_be_neighbors(&merged, 10),
+            "Should contain primary's neighbors"
+        );
+        assert!(
+            bloom_might_be_neighbors(&merged, 20),
+            "Should contain secondary's neighbors"
+        );
     }
 
     #[test]
@@ -1479,8 +1538,11 @@ mod tests {
 
         let merged = schema_merge(&primary, &secondary);
         for i in 0..208 {
-            assert_eq!(merged[i], 0xAAAAAAAAAAAAAAAA,
-                "Word {} should come from primary", i);
+            assert_eq!(
+                merged[i], 0xAAAAAAAAAAAAAAAA,
+                "Word {} should come from primary",
+                i
+            );
         }
     }
 }

@@ -23,11 +23,13 @@
 //! GraphBLAS enables efficient BFS/PageRank/similarity traversals.
 
 use crate::bitpack::BitpackedVector;
-#[allow(unused_imports)] // DnTree, DnNode, DnEdge, WellKnown reserved for mindmap-to-dntree traversal wiring
-use crate::dntree::{TreeAddr, DnTree, DnNode, DnEdge, CogVerb, VerbCategory, WellKnown};
-#[allow(unused_imports)] // Semiring reserved for custom semiring composition in mindmap traversal
-use crate::graphblas::{GrBMatrix, GrBVector, HdrSemiring, Semiring};
+#[allow(unused_imports)]
+// DnTree, DnNode, DnEdge, WellKnown reserved for mindmap-to-dntree traversal wiring
+use crate::dntree::{CogVerb, DnEdge, DnNode, DnTree, TreeAddr, VerbCategory, WellKnown};
 use crate::graphblas::types::{GrBIndex, HdrScalar};
+#[allow(unused_imports)]
+// Semiring reserved for custom semiring composition in mindmap traversal
+use crate::graphblas::{GrBMatrix, GrBVector, HdrSemiring, Semiring};
 use crate::hamming::hamming_distance_scalar;
 use std::collections::HashMap;
 
@@ -204,7 +206,8 @@ impl GrBMindmap {
     pub fn add_sibling(&mut self, existing: &TreeAddr, label: &str) -> GrBIndex {
         if let Some(parent) = existing.parent() {
             // Find next available branch
-            let used_branches: Vec<u8> = self.nodes
+            let used_branches: Vec<u8> = self
+                .nodes
                 .iter()
                 .filter(|n| n.addr.parent().as_ref() == Some(&parent))
                 .filter_map(|n| n.addr.branch(parent.depth() as usize))
@@ -217,7 +220,8 @@ impl GrBMindmap {
             self.add_child(&parent, next_branch, label)
         } else {
             // Root sibling - create parallel root
-            let addr = TreeAddr::from_string(&format!("/{}", label.to_lowercase().replace(' ', "_")));
+            let addr =
+                TreeAddr::from_string(&format!("/{}", label.to_lowercase().replace(' ', "_")));
             self.add_node_at(addr, label)
         }
     }
@@ -247,7 +251,9 @@ impl GrBMindmap {
 
         // Set in category-specific matrix
         if let Some(mat) = self.adjacency.get_mut(&category) {
-            let from_fp = self.nodes.get(from as usize)
+            let from_fp = self
+                .nodes
+                .get(from as usize)
                 .map(|n| n.fingerprint.clone())
                 .unwrap_or_else(BitpackedVector::zero);
             mat.set(from, to, HdrScalar::Vector(from_fp));
@@ -258,7 +264,8 @@ impl GrBMindmap {
             (self.nodes.get(from as usize), self.nodes.get(to as usize))
         {
             // Edge = from ⊗ verb ⊗ to
-            from_node.fingerprint
+            from_node
+                .fingerprint
                 .xor(&verb.to_fingerprint())
                 .xor(&to_node.fingerprint)
         } else {
@@ -266,7 +273,8 @@ impl GrBMindmap {
         };
 
         self.combined_adj.set(from, to, HdrScalar::Vector(edge_fp));
-        self.weights.set(from, to, HdrScalar::Distance(weight as u32));
+        self.weights
+            .set(from, to, HdrScalar::Distance(weight as u32));
     }
 
     /// Connect by addresses
@@ -327,7 +335,9 @@ impl GrBMindmap {
         let mut frontier = GrBVector::new(self.size);
 
         // Initialize
-        let source_fp = self.nodes.get(source as usize)
+        let source_fp = self
+            .nodes
+            .get(source as usize)
             .map(|n| n.fingerprint.clone())
             .unwrap_or_else(BitpackedVector::zero);
         frontier.set_vector(source, source_fp);
@@ -353,7 +363,8 @@ impl GrBMindmap {
         }
 
         // Collect results
-        visited.iter()
+        visited
+            .iter()
             .filter_map(|(idx, val)| {
                 if let HdrScalar::Distance(d) = val {
                     Some((idx, *d))
@@ -399,7 +410,9 @@ impl GrBMindmap {
         }
 
         // Return sorted
-        let mut results: Vec<_> = rank.iter().enumerate()
+        let mut results: Vec<_> = rank
+            .iter()
+            .enumerate()
             .map(|(i, &r)| (i as GrBIndex, r))
             .collect();
         results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
@@ -424,7 +437,9 @@ impl GrBMindmap {
             if let Some(node) = self.nodes.get_mut(idx as usize) {
                 node.activation = act;
             }
-            let fp = self.nodes.get(idx as usize)
+            let fp = self
+                .nodes
+                .get(idx as usize)
                 .map(|n| n.fingerprint.clone())
                 .unwrap_or_else(BitpackedVector::zero);
             activation.set_vector(idx, fp);
@@ -433,7 +448,10 @@ impl GrBMindmap {
         // Iterate spreading
         for _ in 0..iterations {
             // next = A^T * activation (spread to neighbors)
-            let next = self.combined_adj.transpose().mxv(&activation, &self.semiring);
+            let next = self
+                .combined_adj
+                .transpose()
+                .mxv(&activation, &self.semiring);
 
             // Apply decay and update
             for (idx, _) in next.iter() {
@@ -453,7 +471,8 @@ impl GrBMindmap {
 
     /// Find most similar nodes to query fingerprint
     pub fn find_similar(&self, query: &BitpackedVector, k: usize) -> Vec<(GrBIndex, u32)> {
-        let mut results: Vec<_> = self.fp_index
+        let mut results: Vec<_> = self
+            .fp_index
             .iter()
             .map(|(fp, idx)| (*idx, hamming_distance_scalar(query, fp)))
             .collect();
@@ -467,12 +486,11 @@ impl GrBMindmap {
     pub fn find_similar_to(&self, label: &str, k: usize) -> Vec<(&str, u32)> {
         if let Some(&idx) = self.label_to_idx.get(label) {
             if let Some(node) = self.nodes.get(idx as usize) {
-                return self.find_similar(&node.fingerprint, k + 1)
+                return self
+                    .find_similar(&node.fingerprint, k + 1)
                     .into_iter()
                     .filter(|(i, _)| *i != idx) // Exclude self
-                    .filter_map(|(i, d)| {
-                        self.nodes.get(i as usize).map(|n| (n.label.as_str(), d))
-                    })
+                    .filter_map(|(i, d)| self.nodes.get(i as usize).map(|n| (n.label.as_str(), d)))
                     .take(k)
                     .collect();
             }
@@ -481,7 +499,11 @@ impl GrBMindmap {
     }
 
     /// Pattern match: find edges matching pattern fingerprint
-    pub fn pattern_match(&self, pattern: &BitpackedVector, threshold: u32) -> Vec<(GrBIndex, GrBIndex, u32)> {
+    pub fn pattern_match(
+        &self,
+        pattern: &BitpackedVector,
+        threshold: u32,
+    ) -> Vec<(GrBIndex, GrBIndex, u32)> {
         let mut matches = Vec::new();
 
         for entry in self.combined_adj.iter() {
@@ -506,8 +528,9 @@ impl GrBMindmap {
         if let Some(node) = self.node(idx) {
             self.nodes
                 .iter()
-                .filter(|n| node.addr.is_ancestor_of(&n.addr) &&
-                           n.addr.depth() == node.addr.depth() + 1)
+                .filter(|n| {
+                    node.addr.is_ancestor_of(&n.addr) && n.addr.depth() == node.addr.depth() + 1
+                })
                 .map(|n| n.index)
                 .collect()
         } else {
@@ -563,7 +586,11 @@ impl GrBMindmap {
                 .iter()
                 .filter(|(idx, _)| bfs_result.iter().any(|(i, _)| i == idx))
                 .min_by_key(|(idx, _)| {
-                    bfs_result.iter().find(|(i, _)| i == idx).map(|(_, d)| *d).unwrap_or(u32::MAX)
+                    bfs_result
+                        .iter()
+                        .find(|(i, _)| i == idx)
+                        .map(|(_, d)| *d)
+                        .unwrap_or(u32::MAX)
                 })
             {
                 path.push(*prev);
@@ -618,10 +645,7 @@ impl GrBMindmap {
         let mut md = String::new();
 
         // Find root nodes (depth 1)
-        let mut roots: Vec<_> = self.nodes
-            .iter()
-            .filter(|n| n.addr.depth() == 1)
-            .collect();
+        let mut roots: Vec<_> = self.nodes.iter().filter(|n| n.addr.depth() == 1).collect();
         roots.sort_by_key(|n| n.index);
 
         for root in roots {
@@ -670,7 +694,8 @@ impl GrBMindmap {
 
     /// Get most important nodes
     pub fn most_important(&self, k: usize) -> Vec<(&str, f32)> {
-        let mut nodes: Vec<_> = self.nodes
+        let mut nodes: Vec<_> = self
+            .nodes
             .iter()
             .map(|n| (n.label.as_str(), n.importance))
             .collect();
@@ -682,7 +707,8 @@ impl GrBMindmap {
 
     /// Get most activated nodes
     pub fn most_activated(&self, k: usize) -> Vec<(&str, f32)> {
-        let mut nodes: Vec<_> = self.nodes
+        let mut nodes: Vec<_> = self
+            .nodes
             .iter()
             .filter(|n| n.activation > 0.0)
             .map(|n| (n.label.as_str(), n.activation))
@@ -724,10 +750,12 @@ impl MindmapBuilder {
             self.mindmap.add_node_at(addr.clone(), label);
 
             // Connect to parent
-            if let (Some(&from), Some(&to)) =
-                (self.mindmap.addr_to_idx.get(&addr), self.mindmap.addr_to_idx.get(&current))
-            {
-                self.mindmap.connect_indices(from, CogVerb::PART_OF, to, 1.0);
+            if let (Some(&from), Some(&to)) = (
+                self.mindmap.addr_to_idx.get(&addr),
+                self.mindmap.addr_to_idx.get(&current),
+            ) {
+                self.mindmap
+                    .connect_indices(from, CogVerb::PART_OF, to, 1.0);
             }
 
             self.current = Some(addr);
@@ -744,10 +772,12 @@ impl MindmapBuilder {
                 self.mindmap.add_node_at(addr.clone(), label);
 
                 // Connect to parent
-                if let (Some(&from), Some(&to)) =
-                    (self.mindmap.addr_to_idx.get(&addr), self.mindmap.addr_to_idx.get(&parent))
-                {
-                    self.mindmap.connect_indices(from, CogVerb::PART_OF, to, 1.0);
+                if let (Some(&from), Some(&to)) = (
+                    self.mindmap.addr_to_idx.get(&addr),
+                    self.mindmap.addr_to_idx.get(&parent),
+                ) {
+                    self.mindmap
+                        .connect_indices(from, CogVerb::PART_OF, to, 1.0);
                 }
 
                 self.current = Some(addr);
@@ -784,7 +814,9 @@ impl MindmapBuilder {
     }
 
     fn next_branch(&self, parent: &TreeAddr) -> u8 {
-        let used: Vec<u8> = self.mindmap.nodes
+        let used: Vec<u8> = self
+            .mindmap
+            .nodes
             .iter()
             .filter(|n| n.addr.parent().as_ref() == Some(parent))
             .filter_map(|n| n.addr.branch(parent.depth() as usize))
@@ -802,12 +834,12 @@ mod tests {
     fn test_mindmap_builder() {
         let mindmap = MindmapBuilder::new("Machine Learning")
             .branch("Supervised")
-                .branch("Classification")
-                .sibling("Regression")
+            .branch("Classification")
+            .sibling("Regression")
             .up()
             .sibling("Unsupervised")
-                .branch("Clustering")
-                .sibling("Dimensionality Reduction")
+            .branch("Clustering")
+            .sibling("Dimensionality Reduction")
             .up()
             .sibling("Reinforcement")
             .link("Classification", CogVerb::SIMILAR_TO, "Regression")
@@ -826,11 +858,11 @@ mod tests {
     fn test_bfs() {
         let mindmap = MindmapBuilder::new("Root")
             .branch("A")
-                .branch("A1")
-                .sibling("A2")
+            .branch("A1")
+            .sibling("A2")
             .up()
             .sibling("B")
-                .branch("B1")
+            .branch("B1")
             .build();
 
         let root_idx = mindmap.node_by_label("Root").unwrap().index;
@@ -844,11 +876,11 @@ mod tests {
     fn test_similarity() {
         let mindmap = MindmapBuilder::new("Animals")
             .branch("Mammals")
-                .branch("Cat")
-                .sibling("Dog")
+            .branch("Cat")
+            .sibling("Dog")
             .up()
             .sibling("Birds")
-                .branch("Eagle")
+            .branch("Eagle")
             .build();
 
         // Cat and Dog should be more similar (same parent) than Cat and Eagle

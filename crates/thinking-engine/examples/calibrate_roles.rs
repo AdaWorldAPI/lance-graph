@@ -203,10 +203,7 @@ fn main() {
         let out_dir = format!(
             "{}/{}-calibrated",
             codebook_root,
-            md.src_path
-                .split('/')
-                .last()
-                .unwrap_or(&md.name)
+            md.src_path.split('/').last().unwrap_or(&md.name)
         );
         std::fs::create_dir_all(&out_dir).ok();
 
@@ -277,7 +274,13 @@ fn main() {
             };
             println!(
                 "    {:<14} entropy: {:.4} → {:.4}  ({}{:.4})  {}×{}",
-                role.name, entropy_before, entropy_after, arrow, delta.abs(), role.n, role.n,
+                role.name,
+                entropy_before,
+                entropy_after,
+                arrow,
+                delta.abs(),
+                role.n,
+                role.n,
             );
 
             total_saved += 1;
@@ -321,7 +324,11 @@ fn main() {
                 .copied()
                 .unwrap_or(0.0),
         );
-        std::fs::write(format!("{}/calibration_profile.json", out_dir), &profile_json).ok();
+        std::fs::write(
+            format!("{}/calibration_profile.json", out_dir),
+            &profile_json,
+        )
+        .ok();
     }
 
     println!();
@@ -331,7 +338,10 @@ fn main() {
         total_saved,
         model_data.len()
     );
-    println!("Profile size: {} bytes per model", CalibrationProfile::byte_size());
+    println!(
+        "Profile size: {} bytes per model",
+        CalibrationProfile::byte_size()
+    );
     println!("Output: /tmp/codebooks/*-roles-f16-calibrated/");
     println!("════════════════════════════════════════");
 }

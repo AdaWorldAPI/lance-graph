@@ -21,7 +21,7 @@
 //!          → ~1 cycle per 64 bits with AVX-512
 //! ```
 
-use crate::bitpack::{BitpackedVector, VectorRef, VECTOR_WORDS, VECTOR_BITS};
+use crate::bitpack::{BitpackedVector, VECTOR_BITS, VECTOR_WORDS, VectorRef};
 #[allow(unused_imports)] // Ordering used by downstream comparison operators
 use std::cmp::Ordering;
 
@@ -119,7 +119,9 @@ impl StackedPopcount {
     /// Variance of per-word counts (indicates uniformity of difference)
     pub fn variance(&self) -> f32 {
         let mean = self.total as f32 / VECTOR_WORDS as f32;
-        let sum_sq: f32 = self.per_word.iter()
+        let sum_sq: f32 = self
+            .per_word
+            .iter()
             .map(|&c| {
                 let diff = c as f32 - mean;
                 diff * diff
@@ -341,8 +343,7 @@ impl HammingEngine {
         b: &BitpackedVector,
         threshold: u32,
     ) -> Option<u32> {
-        StackedPopcount::compute_with_threshold(a, b, threshold)
-            .map(|s| s.total)
+        StackedPopcount::compute_with_threshold(a, b, threshold).map(|s| s.total)
     }
 
     /// Quick exposure check
@@ -361,9 +362,7 @@ impl HammingEngine {
         query: &BitpackedVector,
         candidates: &[BitpackedVector],
     ) -> Vec<u32> {
-        candidates.iter()
-            .map(|c| self.distance(query, c))
-            .collect()
+        candidates.iter().map(|c| self.distance(query, c)).collect()
     }
 
     /// Compute distances with parallel processing
@@ -375,7 +374,8 @@ impl HammingEngine {
     ) -> Vec<u32> {
         use rayon::prelude::*;
 
-        candidates.par_iter()
+        candidates
+            .par_iter()
             .map(|c| hamming_distance_scalar(query, c))
             .collect()
     }
@@ -387,7 +387,8 @@ impl HammingEngine {
         candidates: &[BitpackedVector],
         k: usize,
     ) -> Vec<(usize, u32)> {
-        let mut results: Vec<(usize, u32)> = candidates.iter()
+        let mut results: Vec<(usize, u32)> = candidates
+            .iter()
             .enumerate()
             .map(|(i, c)| (i, self.distance(query, c)))
             .collect();
@@ -409,12 +410,10 @@ impl HammingEngine {
         candidates: &[BitpackedVector],
         threshold: u32,
     ) -> Vec<(usize, u32)> {
-        candidates.iter()
+        candidates
+            .iter()
             .enumerate()
-            .filter_map(|(i, c)| {
-                self.distance_threshold(query, c, threshold)
-                    .map(|d| (i, d))
-            })
+            .filter_map(|(i, c)| self.distance_threshold(query, c, threshold).map(|d| (i, d)))
             .collect()
     }
 
@@ -427,14 +426,16 @@ impl HammingEngine {
         quick_threshold: f32,
     ) -> Vec<(usize, u32)> {
         // Phase 1: Quick exposure filter
-        let survivors: Vec<usize> = candidates.iter()
+        let survivors: Vec<usize> = candidates
+            .iter()
             .enumerate()
             .filter(|(_, c)| !self.quick_check(query, c).definitely_far(quick_threshold))
             .map(|(i, _)| i)
             .collect();
 
         // Phase 2: Exact distance on survivors
-        let mut results: Vec<(usize, u32)> = survivors.iter()
+        let mut results: Vec<(usize, u32)> = survivors
+            .iter()
             .map(|&i| (i, self.distance(query, &candidates[i])))
             .collect();
 
@@ -571,8 +572,8 @@ mod simd_x86 {
 
             // 4-bit lookup table for popcount
             let lookup = _mm256_setr_epi8(
-                0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,
-                0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,
+                0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3,
+                2, 3, 3, 4,
             );
             let low_mask = _mm256_set1_epi8(0x0f);
 
@@ -696,10 +697,7 @@ pub fn hamming_distance_simd(a: &BitpackedVector, b: &BitpackedVector) -> u32 {
 // ============================================================================
 
 /// Process 8 candidates against 1 query (optimized batch)
-pub fn batch_hamming_8(
-    query: &BitpackedVector,
-    candidates: &[BitpackedVector; 8],
-) -> [u32; 8] {
+pub fn batch_hamming_8(query: &BitpackedVector, candidates: &[BitpackedVector; 8]) -> [u32; 8] {
     let mut results = [0u32; 8];
     for (i, c) in candidates.iter().enumerate() {
         results[i] = hamming_distance_scalar(query, c);

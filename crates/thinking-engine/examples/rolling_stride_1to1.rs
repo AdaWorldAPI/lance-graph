@@ -15,12 +15,12 @@ const N_PAIRS: usize = 10_000;
 
 /// Role name, expected table dimension.
 const ROLES: &[(&str, usize)] = &[
-    ("attn_q",      1024),
-    ("attn_k",      1024),
-    ("attn_v",      1024),
+    ("attn_q", 1024),
+    ("attn_k", 1024),
+    ("attn_v", 1024),
     ("attn_output", 1024),
-    ("ffn_up",      1024),
-    ("ffn_down",    4096),
+    ("ffn_up", 1024),
+    ("ffn_down", 4096),
 ];
 
 fn main() {
@@ -47,22 +47,34 @@ fn main() {
 
         let n = (table.len() as f64).sqrt() as usize;
         if n * n != table.len() {
-            eprintln!("SKIP {} — table size {} is not a perfect square", role, table.len());
+            eprintln!(
+                "SKIP {} — table size {} is not a perfect square",
+                role,
+                table.len()
+            );
             continue;
         }
 
         println!("════════════════════════════════════════════════════════════");
-        println!("Role: {}  ({}×{} = {:.1} MB)",
-            role, n, n, table.len() as f64 / 1_000_000.0);
+        println!(
+            "Role: {}  ({}×{} = {:.1} MB)",
+            role,
+            n,
+            n,
+            table.len() as f64 / 1_000_000.0
+        );
         println!("════════════════════════════════════════════════════════════");
         println!();
         println!("  Stride │ New Size │ Table Bytes │ Spearman ρ │    Time");
         println!("  ───────┼──────────┼─────────────┼────────────┼─────────");
 
-        let results: Vec<StrideResult> = STRIDES.iter()
+        let results: Vec<StrideResult> = STRIDES
+            .iter()
             .filter_map(|&stride| {
                 let sub_n = n / stride;
-                if sub_n < 4 { return None; }
+                if sub_n < 4 {
+                    return None;
+                }
                 Some(run_stride(&table, n, stride))
             })
             .collect();
@@ -75,15 +87,23 @@ fn main() {
             } else {
                 format!("{} B", r.table_bytes)
             };
-            println!("  {:>6} │ {:>8} │ {:>11} │ {:>10.6} │ {:>6.1}ms",
-                r.stride, format!("{}×{}", r.sub_n, r.sub_n),
-                bytes_display, r.spearman, r.time_ms);
+            println!(
+                "  {:>6} │ {:>8} │ {:>11} │ {:>10.6} │ {:>6.1}ms",
+                r.stride,
+                format!("{}×{}", r.sub_n, r.sub_n),
+                bytes_display,
+                r.spearman,
+                r.time_ms
+            );
         }
         println!();
 
         // Find knee: first stride where Spearman drops below 0.99
         if let Some(knee) = results.iter().find(|r| r.spearman < 0.99) {
-            println!("  → Knee at stride {} (ρ = {:.4})", knee.stride, knee.spearman);
+            println!(
+                "  → Knee at stride {} (ρ = {:.4})",
+                knee.stride, knee.spearman
+            );
         } else {
             println!("  → No knee found — ρ ≥ 0.99 at all strides");
         }
@@ -91,8 +111,10 @@ fn main() {
         // Compression ratio at stride 32 (or max)
         if let Some(last) = results.last() {
             let ratio = (n * n) as f64 / last.table_bytes as f64;
-            println!("  → Max compression: {:.0}× at stride {} (ρ = {:.4})",
-                ratio, last.stride, last.spearman);
+            println!(
+                "  → Max compression: {:.0}× at stride {} (ρ = {:.4})",
+                ratio, last.stride, last.spearman
+            );
         }
         println!();
 
@@ -107,10 +129,14 @@ fn main() {
 
     // Header
     print!("  {:>12}", "Stride →");
-    for &s in STRIDES { print!(" {:>8}", s); }
+    for &s in STRIDES {
+        print!(" {:>8}", s);
+    }
     println!();
     print!("  {:>12}", "");
-    for _ in STRIDES { print!(" {:>8}", "────────"); }
+    for _ in STRIDES {
+        print!(" {:>8}", "────────");
+    }
     println!();
 
     // Rows
@@ -128,16 +154,23 @@ fn main() {
     println!();
 
     // Most/least compressible
-    let mut at_stride_8: Vec<(&str, f64)> = all_results.iter()
+    let mut at_stride_8: Vec<(&str, f64)> = all_results
+        .iter()
         .filter_map(|(role, results)| {
-            results.iter().find(|r| r.stride == 8).map(|r| (*role, r.spearman))
+            results
+                .iter()
+                .find(|r| r.stride == 8)
+                .map(|r| (*role, r.spearman))
         })
         .collect();
     at_stride_8.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
 
     if !at_stride_8.is_empty() {
         println!("  At stride 8:");
-        println!("    Most  compressible: {} (ρ = {:.4})", at_stride_8[0].0, at_stride_8[0].1);
+        println!(
+            "    Most  compressible: {} (ρ = {:.4})",
+            at_stride_8[0].0, at_stride_8[0].1
+        );
         if at_stride_8.len() > 1 {
             let last = at_stride_8.last().unwrap();
             println!("    Least compressible: {} (ρ = {:.4})", last.0, last.1);
@@ -174,7 +207,8 @@ fn run_stride(table: &[u8], n: usize, stride: usize) -> StrideResult {
     let pairs = deterministic_pairs(max_idx, N_PAIRS);
 
     // Collect (full_dist, sub_dist) for each pair — parallel
-    let dists: Vec<(f64, f64)> = pairs.par_iter()
+    let dists: Vec<(f64, f64)> = pairs
+        .par_iter()
         .map(|&(i, j)| {
             let full_dist = table[i * n + j] as f64;
 
@@ -224,7 +258,9 @@ fn deterministic_pairs(n: usize, count: usize) -> Vec<(usize, usize)> {
 
 fn spearman_corr(x: &[f64], y: &[f64]) -> f64 {
     let n = x.len().min(y.len());
-    if n < 2 { return 0.0; }
+    if n < 2 {
+        return 0.0;
+    }
     let rx = ranks(&x[..n]);
     let ry = ranks(&y[..n]);
     pearson_corr(&rx, &ry)
@@ -232,7 +268,9 @@ fn spearman_corr(x: &[f64], y: &[f64]) -> f64 {
 
 fn pearson_corr(x: &[f64], y: &[f64]) -> f64 {
     let n = x.len().min(y.len());
-    if n < 2 { return 0.0; }
+    if n < 2 {
+        return 0.0;
+    }
     let mx = x[..n].iter().sum::<f64>() / n as f64;
     let my = y[..n].iter().sum::<f64>() / n as f64;
     let (mut cov, mut vx, mut vy) = (0.0f64, 0.0f64, 0.0f64);
@@ -244,7 +282,11 @@ fn pearson_corr(x: &[f64], y: &[f64]) -> f64 {
         vy += dy * dy;
     }
     let d = (vx * vy).sqrt();
-    if d < 1e-12 { 0.0 } else { cov / d }
+    if d < 1e-12 {
+        0.0
+    } else {
+        cov / d
+    }
 }
 
 fn ranks(v: &[f64]) -> Vec<f64> {

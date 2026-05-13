@@ -17,7 +17,7 @@
 //! The 33% correction lives HERE — raw Up vs silu(gate)×Up.
 
 use crate::bf16_engine::BF16ThinkingEngine;
-use bgz_tensor::stacked_n::{ClamCodebook, bf16_to_f32};
+use bgz_tensor::stacked_n::{bf16_to_f32, ClamCodebook};
 use ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd;
 
 /// SiLU activation: x / (1 + exp(-x))
@@ -29,7 +29,9 @@ fn silu(x: f32) -> f32 {
 /// Apply silu(gate) elementwise to a role vector.
 /// Returns the gate-modulated activation: silu(gate[k]) × role[k]
 pub fn gate_modulate(gate_f32: &[f32], role_f32: &[f32]) -> Vec<f32> {
-    gate_f32.iter().zip(role_f32)
+    gate_f32
+        .iter()
+        .zip(role_f32)
         .map(|(&g, &r)| silu(g) * r)
         .collect()
 }
@@ -55,8 +57,11 @@ pub fn build_gate_modulated_table(
     role_codebook: &ClamCodebook,
 ) -> BF16ThinkingEngine {
     let n = role_codebook.entries.len();
-    assert_eq!(n, gate_codebook.entries.len(),
-        "gate and role codebooks must have same centroid count");
+    assert_eq!(
+        n,
+        gate_codebook.entries.len(),
+        "gate and role codebooks must have same centroid count"
+    );
     assert_eq!(
         gate_codebook.entries[0].stacked.samples_per_dim,
         role_codebook.entries[0].stacked.samples_per_dim,
@@ -148,7 +153,9 @@ impl LayerTables {
             if delta > 0.001 {
                 cells_changed += 1;
                 total_delta += delta;
-                if delta > max_delta { max_delta = delta; }
+                if delta > max_delta {
+                    max_delta = delta;
+                }
             }
         }
 
@@ -157,7 +164,11 @@ impl LayerTables {
             cells_changed,
             cells_total: total,
             change_pct: cells_changed as f32 / total as f32 * 100.0,
-            mean_delta: if cells_changed > 0 { total_delta / cells_changed as f64 } else { 0.0 },
+            mean_delta: if cells_changed > 0 {
+                total_delta / cells_changed as f64
+            } else {
+                0.0
+            },
             max_delta,
         }
     }
@@ -175,9 +186,11 @@ pub struct GateModulationStats {
 
 impl std::fmt::Display for GateModulationStats {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Gate modulation: {}/{} cells changed ({:.1}%), mean Δ={:.4}, max Δ={:.4}",
-            self.cells_changed, self.cells_total, self.change_pct,
-            self.mean_delta, self.max_delta)
+        write!(
+            f,
+            "Gate modulation: {}/{} cells changed ({:.1}%), mean Δ={:.4}, max Δ={:.4}",
+            self.cells_changed, self.cells_total, self.change_pct, self.mean_delta, self.max_delta
+        )
     }
 }
 
@@ -186,19 +199,26 @@ mod tests {
     use super::*;
 
     fn make_test_codebook(n: usize, spd: usize, seed: u64) -> ClamCodebook {
-        use bgz_tensor::stacked_n::{StackedN, f32_to_bf16};
-        let entries: Vec<bgz_tensor::stacked_n::CodebookEntry> = (0..n).map(|i| {
-            let data: Vec<u16> = (0..17 * spd).map(|d| {
-                let v = ((i as f64 * 0.1 + d as f64 * 0.03 + seed as f64 * 0.01)
-                    .sin() * 0.5) as f32;
-                f32_to_bf16(v)
-            }).collect();
-            bgz_tensor::stacked_n::CodebookEntry {
-                stacked: StackedN { samples_per_dim: spd, data },
-                population: 100,
-                radius: 0.5,
-            }
-        }).collect();
+        use bgz_tensor::stacked_n::{f32_to_bf16, StackedN};
+        let entries: Vec<bgz_tensor::stacked_n::CodebookEntry> = (0..n)
+            .map(|i| {
+                let data: Vec<u16> = (0..17 * spd)
+                    .map(|d| {
+                        let v = ((i as f64 * 0.1 + d as f64 * 0.03 + seed as f64 * 0.01).sin()
+                            * 0.5) as f32;
+                        f32_to_bf16(v)
+                    })
+                    .collect();
+                bgz_tensor::stacked_n::CodebookEntry {
+                    stacked: StackedN {
+                        samples_per_dim: spd,
+                        data,
+                    },
+                    population: 100,
+                    radius: 0.5,
+                }
+            })
+            .collect();
 
         ClamCodebook {
             entries,
@@ -222,7 +242,9 @@ mod tests {
         let role = vec![1.0f32; 10];
         let result = gate_modulate(&gate, &role);
         // silu(0) = 0 → all masked
-        for &v in &result { assert!(v.abs() < 1e-6); }
+        for &v in &result {
+            assert!(v.abs() < 1e-6);
+        }
     }
 
     #[test]
@@ -231,7 +253,9 @@ mod tests {
         let role = vec![1.0f32; 10];
         let result = gate_modulate(&gate, &role);
         // silu(5) ≈ 4.97 → nearly passes through
-        for &v in &result { assert!(v > 4.0); }
+        for &v in &result {
+            assert!(v > 4.0);
+        }
     }
 
     #[test]
@@ -262,11 +286,19 @@ mod tests {
 
         let mut diffs = 0;
         for i in 0..16 * 16 {
-            if raw_t[i] != mod_t[i] { diffs += 1; }
+            if raw_t[i] != mod_t[i] {
+                diffs += 1;
+            }
         }
-        assert!(diffs > 0, "gate modulation should change at least some entries");
-        eprintln!("Gate modulation changed {}/256 entries ({:.1}%)",
-            diffs, diffs as f32 / 256.0 * 100.0);
+        assert!(
+            diffs > 0,
+            "gate modulation should change at least some entries"
+        );
+        eprintln!(
+            "Gate modulation changed {}/256 entries ({:.1}%)",
+            diffs,
+            diffs as f32 / 256.0 * 100.0
+        );
     }
 
     #[test]

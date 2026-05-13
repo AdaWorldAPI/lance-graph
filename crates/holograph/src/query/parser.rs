@@ -154,13 +154,13 @@ pub enum Predicate {
 /// Comparison operators
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CompareOp {
-    Eq,       // =
-    Ne,       // <>
-    Lt,       // <
-    Le,       // <=
-    Gt,       // >
-    Ge,       // >=
-    Contains, // CONTAINS
+    Eq,         // =
+    Ne,         // <>
+    Lt,         // <
+    Le,         // <=
+    Gt,         // >
+    Ge,         // >=
+    Contains,   // CONTAINS
     StartsWith, // STARTS WITH
     EndsWith,   // ENDS WITH
     In,         // IN
@@ -188,9 +188,16 @@ pub enum Expr {
     /// Vector operation
     VectorOp(Box<VectorOp>),
     /// Arithmetic
-    Arithmetic { left: Box<Expr>, op: ArithOp, right: Box<Expr> },
+    Arithmetic {
+        left: Box<Expr>,
+        op: ArithOp,
+        right: Box<Expr>,
+    },
     /// Case expression
-    Case { whens: Vec<(Predicate, Expr)>, else_expr: Option<Box<Expr>> },
+    Case {
+        whens: Vec<(Predicate, Expr)>,
+        else_expr: Option<Box<Expr>>,
+    },
 }
 
 /// Arithmetic operators
@@ -233,7 +240,10 @@ pub enum VectorOp {
     Resonance { vector: Expr, query: Expr },
 
     /// CLEANUP(vec) - Map to nearest clean concept
-    Cleanup { vector: Expr, memory: Option<String> },
+    Cleanup {
+        vector: Expr,
+        memory: Option<String>,
+    },
 
     /// BUNDLE(vec1, vec2, ...) - Majority vote bundling
     Bundle { vectors: Vec<Expr> },
@@ -335,15 +345,14 @@ impl QueryParser {
                 self.pos += 1;
             } else if self.input[self.pos..].starts_with("//") {
                 // Skip line comment
-                while self.pos < self.input.len() &&
-                      self.input.chars().nth(self.pos) != Some('\n') {
+                while self.pos < self.input.len() && self.input.chars().nth(self.pos) != Some('\n')
+                {
                     self.pos += 1;
                 }
             } else if self.input[self.pos..].starts_with("/*") {
                 // Skip block comment
                 self.pos += 2;
-                while self.pos < self.input.len() - 1 &&
-                      !self.input[self.pos..].starts_with("*/") {
+                while self.pos < self.input.len() - 1 && !self.input[self.pos..].starts_with("*/") {
                     self.pos += 1;
                 }
                 self.pos += 2;
@@ -429,7 +438,7 @@ impl QueryParser {
                     self.pos += kw.len();
                     Ok(QueryType::BoundRetrieval)
                 }
-                _ => Ok(QueryType::Match) // Default
+                _ => Ok(QueryType::Match), // Default
             }
         } else {
             Err(ParseError::UnexpectedEnd)
@@ -451,8 +460,11 @@ impl QueryParser {
 
             // Check for another MATCH
             self.skip_whitespace();
-            if !self.try_consume_keyword("MATCH") &&
-               !self.peek_keyword().map_or(false, |k| k.eq_ignore_ascii_case("OPTIONAL")) {
+            if !self.try_consume_keyword("MATCH")
+                && !self
+                    .peek_keyword()
+                    .map_or(false, |k| k.eq_ignore_ascii_case("OPTIONAL"))
+            {
                 break;
             }
         }
@@ -475,7 +487,8 @@ impl QueryParser {
         while self.pos < self.input.len() {
             if let Some(kw) = self.peek_keyword() {
                 let kw_upper = kw.to_uppercase();
-                if matches!(kw_upper.as_str(),
+                if matches!(
+                    kw_upper.as_str(),
                     "WHERE" | "RETURN" | "WITH" | "ORDER" | "LIMIT" | "MATCH" | "OPTIONAL"
                 ) {
                     break;
@@ -557,8 +570,9 @@ impl QueryParser {
             // Parse limit number
             self.skip_whitespace();
             let start = self.pos;
-            while self.pos < self.input.len() &&
-                  self.input.chars().nth(self.pos).unwrap().is_ascii_digit() {
+            while self.pos < self.input.len()
+                && self.input.chars().nth(self.pos).unwrap().is_ascii_digit()
+            {
                 self.pos += 1;
             }
             if self.pos > start {
@@ -635,9 +649,7 @@ mod tests {
 
     #[test]
     fn test_basic_match() {
-        let mut parser = QueryParser::new(
-            "MATCH (n:Person) RETURN n"
-        );
+        let mut parser = QueryParser::new("MATCH (n:Person) RETURN n");
         let ast = parser.parse().unwrap();
         assert_eq!(ast.query_type, QueryType::Match);
     }
@@ -645,7 +657,7 @@ mod tests {
     #[test]
     fn test_vector_search() {
         let mut parser = QueryParser::new(
-            "VECTOR SEARCH (n) WHERE n.embedding ~> $query < 0.3 RETURN n LIMIT 10"
+            "VECTOR SEARCH (n) WHERE n.embedding ~> $query < 0.3 RETURN n LIMIT 10",
         );
         let ast = parser.parse().unwrap();
         assert_eq!(ast.query_type, QueryType::VectorSearch);
@@ -654,9 +666,7 @@ mod tests {
 
     #[test]
     fn test_bound_retrieval() {
-        let mut parser = QueryParser::new(
-            "UNBIND edge USING verb, known RETURN result"
-        );
+        let mut parser = QueryParser::new("UNBIND edge USING verb, known RETURN result");
         let ast = parser.parse().unwrap();
         assert_eq!(ast.query_type, QueryType::BoundRetrieval);
     }

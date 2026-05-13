@@ -52,7 +52,7 @@ impl L4Experience {
             let base = byte_idx * 8;
             let mut byte = 0u8;
             // MSB-first packing: bit 7 = first element in the group.
-            byte |= ((centroid[base]     > 0.0) as u8) << 7;
+            byte |= ((centroid[base] > 0.0) as u8) << 7;
             byte |= ((centroid[base + 1] > 0.0) as u8) << 6;
             byte |= ((centroid[base + 2] > 0.0) as u8) << 5;
             byte |= ((centroid[base + 3] > 0.0) as u8) << 4;
@@ -197,8 +197,7 @@ impl L4Experience {
         let mut buf = [0u8; ACCUM_LEN];
         f.read_exact(&mut buf)?;
         // Reinterpret u8 → i8.
-        let accum: [i8; ACCUM_LEN] =
-            unsafe { std::mem::transmute(buf) };
+        let accum: [i8; ACCUM_LEN] = unsafe { std::mem::transmute(buf) };
         Ok(Self { accum })
     }
 

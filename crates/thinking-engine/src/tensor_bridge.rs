@@ -31,11 +31,10 @@ impl EmbeddingOutput {
             EmbeddingOutput::I8(v) => v.iter().map(|&x| x as f32 / 127.0).collect(),
             EmbeddingOutput::U8(v) => v.iter().map(|&x| (x as f32 - 128.0) / 127.0).collect(),
             #[cfg(feature = "calibration")]
-            EmbeddingOutput::Tensor(t) => {
-                t.flatten_all()
-                    .and_then(|t| t.to_vec1::<f32>())
-                    .unwrap_or_default()
-            }
+            EmbeddingOutput::Tensor(t) => t
+                .flatten_all()
+                .and_then(|t| t.to_vec1::<f32>())
+                .unwrap_or_default(),
         }
     }
 
@@ -43,18 +42,17 @@ impl EmbeddingOutput {
     pub fn to_i8(&self) -> Vec<i8> {
         match self {
             EmbeddingOutput::I8(v) => v.clone(),
-            EmbeddingOutput::F32(v) => v.iter()
+            EmbeddingOutput::F32(v) => v
+                .iter()
                 .map(|&x| (x * 127.0).round().clamp(-128.0, 127.0) as i8)
                 .collect(),
-            EmbeddingOutput::U8(v) => v.iter()
-                .map(|&x| (x as i16 - 128) as i8)
-                .collect(),
+            EmbeddingOutput::U8(v) => v.iter().map(|&x| (x as i16 - 128) as i8).collect(),
             #[cfg(feature = "calibration")]
-            EmbeddingOutput::Tensor(t) => {
-                self.to_f32().iter()
-                    .map(|&x| (x * 127.0).round().clamp(-128.0, 127.0) as i8)
-                    .collect()
-            }
+            EmbeddingOutput::Tensor(t) => self
+                .to_f32()
+                .iter()
+                .map(|&x| (x * 127.0).round().clamp(-128.0, 127.0) as i8)
+                .collect(),
         }
     }
 
@@ -62,18 +60,17 @@ impl EmbeddingOutput {
     pub fn to_u8(&self) -> Vec<u8> {
         match self {
             EmbeddingOutput::U8(v) => v.clone(),
-            EmbeddingOutput::F32(v) => v.iter()
+            EmbeddingOutput::F32(v) => v
+                .iter()
                 .map(|&x| ((x * 127.0 + 128.0).round().clamp(0.0, 255.0)) as u8)
                 .collect(),
-            EmbeddingOutput::I8(v) => v.iter()
-                .map(|&x| (x as i16 + 128) as u8)
-                .collect(),
+            EmbeddingOutput::I8(v) => v.iter().map(|&x| (x as i16 + 128) as u8).collect(),
             #[cfg(feature = "calibration")]
-            EmbeddingOutput::Tensor(_) => {
-                self.to_f32().iter()
-                    .map(|&x| ((x * 127.0 + 128.0).round().clamp(0.0, 255.0)) as u8)
-                    .collect()
-            }
+            EmbeddingOutput::Tensor(_) => self
+                .to_f32()
+                .iter()
+                .map(|&x| ((x * 127.0 + 128.0).round().clamp(0.0, 255.0)) as u8)
+                .collect(),
         }
     }
 
@@ -105,7 +102,10 @@ pub struct EmbeddingBatch {
 
 impl EmbeddingBatch {
     pub fn new(source: &str) -> Self {
-        Self { embeddings: Vec::new(), source: source.into() }
+        Self {
+            embeddings: Vec::new(),
+            source: source.into(),
+        }
     }
 
     pub fn push(&mut self, emb: EmbeddingOutput) {

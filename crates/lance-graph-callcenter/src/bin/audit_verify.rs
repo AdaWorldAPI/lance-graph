@@ -152,14 +152,14 @@ fn jsonl_to_canonical_bytes(r: &JsonlRecord) -> Result<[u8; 26], String> {
 /// Parse a 6-char lowercase hex string to `[u8; 3]`.
 fn parse_owl_hex(hex: &str) -> Result<[u8; 3], String> {
     if hex.len() != 6 {
-        return Err(format!("owl_identity hex must be 6 chars, got {}", hex.len()));
+        return Err(format!(
+            "owl_identity hex must be 6 chars, got {}",
+            hex.len()
+        ));
     }
-    let b0 = u8::from_str_radix(&hex[0..2], 16)
-        .map_err(|e| format!("owl[0] parse: {e}"))?;
-    let b1 = u8::from_str_radix(&hex[2..4], 16)
-        .map_err(|e| format!("owl[1] parse: {e}"))?;
-    let b2 = u8::from_str_radix(&hex[4..6], 16)
-        .map_err(|e| format!("owl[2] parse: {e}"))?;
+    let b0 = u8::from_str_radix(&hex[0..2], 16).map_err(|e| format!("owl[0] parse: {e}"))?;
+    let b1 = u8::from_str_radix(&hex[2..4], 16).map_err(|e| format!("owl[1] parse: {e}"))?;
+    let b2 = u8::from_str_radix(&hex[4..6], 16).map_err(|e| format!("owl[2] parse: {e}"))?;
     Ok([b0, b1, b2])
 }
 
@@ -175,15 +175,15 @@ fn merkle_salt_for(super_domain: u8) -> u64 {
     // We don't have a direct super_domain → entry lookup by u8 here, so we
     // use a simple constant table matching the SuperDomain enum.
     match super_domain {
-        0 => 0u64,                    // Unknown
-        1 => 0xCAFE_DEAD_BABE_0001,   // Healthcare
-        2 => 0xCAFE_DEAD_BABE_0002,   // Science
-        3 => 0xCAFE_DEAD_BABE_0003,   // Genetics
-        4 => 0xCAFE_DEAD_BABE_0004,   // QuantumPhysics
-        5 => 0xCAFE_DEAD_BABE_0005,   // TicketTool
-        6 => 0xCAFE_DEAD_BABE_0006,   // WorkOrderBilling
-        7 => 0xCAFE_DEAD_BABE_0007,   // Osint
-        8 => 0xCAFE_DEAD_BABE_0008,   // System
+        0 => 0u64,                  // Unknown
+        1 => 0xCAFE_DEAD_BABE_0001, // Healthcare
+        2 => 0xCAFE_DEAD_BABE_0002, // Science
+        3 => 0xCAFE_DEAD_BABE_0003, // Genetics
+        4 => 0xCAFE_DEAD_BABE_0004, // QuantumPhysics
+        5 => 0xCAFE_DEAD_BABE_0005, // TicketTool
+        6 => 0xCAFE_DEAD_BABE_0006, // WorkOrderBilling
+        7 => 0xCAFE_DEAD_BABE_0007, // Osint
+        8 => 0xCAFE_DEAD_BABE_0008, // System
         _ => 0u64,
     }
 }
@@ -337,7 +337,11 @@ fn run_verify_jsonl(args: VerifyJsonlArgs) -> i32 {
     }
     println!("  final root: {final_root}");
 
-    if breaks > 0 { 1 } else { 0 }
+    if breaks > 0 {
+        1
+    } else {
+        0
+    }
 }
 
 // ── verify-lance ──────────────────────────────────────────────────────────────
@@ -351,17 +355,14 @@ fn run_verify_lance(args: VerifyLanceArgs) -> i32 {
         return 2;
     }
 
-    let seed_root = match resolve_seed_root(
-        &args.global,
-        &base_path,
-        "audit/_checkpoint.lance.json",
-    ) {
-        Ok(r) => r,
-        Err(e) => {
-            eprintln!("verify-lance: seed root error: {e}");
-            return 2;
-        }
-    };
+    let seed_root =
+        match resolve_seed_root(&args.global, &base_path, "audit/_checkpoint.lance.json") {
+            Ok(r) => r,
+            Err(e) => {
+                eprintln!("verify-lance: seed root error: {e}");
+                return 2;
+            }
+        };
 
     let rt = match tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -403,10 +404,7 @@ async fn run_verify_lance_async(
         let sd_path = audit_dir.join(&sd_entry);
         for date_entry in walkdir(&sd_path, "date=") {
             let date_name = date_entry.to_string_lossy().to_string();
-            let date_str = date_name
-                .strip_prefix("date=")
-                .unwrap_or("")
-                .to_string();
+            let date_str = date_name.strip_prefix("date=").unwrap_or("").to_string();
 
             // Date range filter.
             if !date_in_range(&date_str, &opts.since, opts.until.as_deref()) {
@@ -521,7 +519,8 @@ fn run_cross_verify(args: CrossVerifyArgs) -> i32 {
     let lance_base = args.lance_path.clone().unwrap_or_else(|| base_path.clone());
 
     // Collect JSONL events.
-    let jsonl_events: Vec<(u32, u64, u64)> = match collect_jsonl_merkles(&jsonl_base, &args.global) {
+    let jsonl_events: Vec<(u32, u64, u64)> = match collect_jsonl_merkles(&jsonl_base, &args.global)
+    {
         Ok(v) => v,
         Err(e) => {
             eprintln!("cross-verify: JSONL collection error: {e}");
@@ -577,7 +576,11 @@ fn run_cross_verify(args: CrossVerifyArgs) -> i32 {
         println!("  First Lance-only merkle: {}", lance_only[0]);
     }
 
-    if diverge { 3 } else { 0 }
+    if diverge {
+        3
+    } else {
+        0
+    }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -598,13 +601,12 @@ fn resolve_seed_root(
     checkpoint_rel: &str,
 ) -> Result<u64, String> {
     if let Some(ref hex) = opts.seed_root {
-        return u64::from_str_radix(hex, 16)
-            .map_err(|e| format!("--seed-root hex parse: {e}"));
+        return u64::from_str_radix(hex, 16).map_err(|e| format!("--seed-root hex parse: {e}"));
     }
     let cp_path = base_path.join(checkpoint_rel);
     if cp_path.exists() {
-        let content = std::fs::read_to_string(&cp_path)
-            .map_err(|e| format!("checkpoint read: {e}"))?;
+        let content =
+            std::fs::read_to_string(&cp_path).map_err(|e| format!("checkpoint read: {e}"))?;
         let v: serde_json::Value =
             serde_json::from_str(&content).map_err(|e| format!("checkpoint JSON: {e}"))?;
         let root_str = v["last_merkle_root"]
@@ -642,7 +644,10 @@ fn date_in_range(date_str: &str, since: &str, until: Option<&str>) -> bool {
 
 /// Collect all JSONL files under `<base_path>/audit/<tenant?>/<date>.jsonl`
 /// matching the global opts date range and tenant filter.
-fn collect_jsonl_files(base_path: &std::path::Path, opts: &GlobalOpts) -> Result<Vec<PathBuf>, String> {
+fn collect_jsonl_files(
+    base_path: &std::path::Path,
+    opts: &GlobalOpts,
+) -> Result<Vec<PathBuf>, String> {
     let audit_dir = base_path.join("audit");
     let mut files = Vec::new();
 
@@ -662,7 +667,9 @@ fn collect_jsonl_files(base_path: &std::path::Path, opts: &GlobalOpts) -> Result
                     }
                 }
                 let tenant_dir = audit_dir.join(&*name_str);
-                let Ok(trd) = std::fs::read_dir(&tenant_dir) else { continue };
+                let Ok(trd) = std::fs::read_dir(&tenant_dir) else {
+                    continue;
+                };
                 for tentry in trd.flatten() {
                     let tname = tentry.file_name().to_string_lossy().to_string();
                     if tname.ends_with(".jsonl") {
@@ -725,12 +732,14 @@ fn collect_jsonl_merkles(
     let files = collect_jsonl_files(base_path, opts)?;
     let mut result = Vec::new();
     for path in files {
-        let content = std::fs::read_to_string(&path)
-            .map_err(|e| format!("read {:?}: {e}", path))?;
+        let content =
+            std::fs::read_to_string(&path).map_err(|e| format!("read {:?}: {e}", path))?;
         for line in content.lines() {
-            if line.trim().is_empty() { continue; }
-            let v: serde_json::Value = serde_json::from_str(line)
-                .map_err(|e| format!("JSON parse: {e}"))?;
+            if line.trim().is_empty() {
+                continue;
+            }
+            let v: serde_json::Value =
+                serde_json::from_str(line).map_err(|e| format!("JSON parse: {e}"))?;
             let r = parse_jsonl_record(&v)?;
             let ts: u64 = r.timestamp_us_str.parse().unwrap_or(0);
             let em: u64 = r.event_merkle_str.parse().unwrap_or(0);
@@ -763,8 +772,8 @@ fn lance_batch_to_records(
     batch: &arrow_array::RecordBatch,
     _sd_raw: u8,
 ) -> Result<Vec<LanceRecord>, String> {
-    use arrow_array::{FixedSizeBinaryArray, UInt32Array, UInt64Array, UInt8Array};
     use arrow_array::Array;
+    use arrow_array::{FixedSizeBinaryArray, UInt32Array, UInt64Array, UInt8Array};
 
     macro_rules! col_u64 {
         ($name:expr) => {{
@@ -809,7 +818,10 @@ fn lance_batch_to_records(
     for i in 0..n {
         let owl_bytes = owl_col.value(i);
         if owl_bytes.len() != 3 {
-            return Err(format!("owl_identity row {i} has {} bytes != 3", owl_bytes.len()));
+            return Err(format!(
+                "owl_identity row {i} has {} bytes != 3",
+                owl_bytes.len()
+            ));
         }
         records.push(LanceRecord {
             timestamp_us: ts_col.value(i),
@@ -860,10 +872,7 @@ async fn collect_lance_merkles(
         let sd_path = audit_dir.join(&sd_entry);
         for date_entry in walkdir(&sd_path, "date=") {
             let date_name = date_entry.to_string_lossy().to_string();
-            let date_str = date_name
-                .strip_prefix("date=")
-                .unwrap_or("")
-                .to_string();
+            let date_str = date_name.strip_prefix("date=").unwrap_or("").to_string();
 
             if !date_in_range(&date_str, &opts.since, opts.until.as_deref()) {
                 continue;
@@ -891,7 +900,9 @@ async fn collect_lance_merkles(
             for batch in &batches {
                 for rec in lance_batch_to_records(batch, sd_raw)? {
                     if let Some(tid) = opts.tenant {
-                        if rec.tenant_id != tid { continue; }
+                        if rec.tenant_id != tid {
+                            continue;
+                        }
                     }
                     result.push((rec.tenant_id, rec.timestamp_us, rec.event_merkle));
                 }

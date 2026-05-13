@@ -54,18 +54,17 @@
 //!
 //! Output: JSON report at `.claude/knowledge/certification/hhtld_qwen3tts17b.json`
 
-use ndarray::hpc::safetensors::read_safetensors_header;
-use ndarray::hpc::gguf::{GgmlType, TensorInfo};
-use bgz_tensor::projection::Base17;
-use bgz_tensor::palette::WeightPalette;
 use bgz_tensor::hhtl_cache::{HhtlCache, RouteAction};
+use bgz_tensor::hhtl_d::build_hip_families;
 use bgz_tensor::hhtl_d::HhtlDTensor;
+use bgz_tensor::palette::WeightPalette;
+use bgz_tensor::projection::Base17;
 use bgz_tensor::quality::{pearson, spearman};
 use bgz_tensor::shared_palette::{
-    PaletteGroupKey, classify_role, classify_component,
-    is_encodable, effective_shape,
+    classify_component, classify_role, effective_shape, is_encodable, PaletteGroupKey,
 };
-use bgz_tensor::hhtl_d::build_hip_families;
+use ndarray::hpc::gguf::{GgmlType, TensorInfo};
+use ndarray::hpc::safetensors::read_safetensors_header;
 
 use std::collections::HashMap;
 use std::fs::File;
@@ -87,7 +86,9 @@ const SAMPLE_ROWS: usize = 500;
 /// Cronbach α = how well both halves agree on pairwise distances.
 fn cronbach_alpha(rows: &[Base17]) -> f64 {
     let n = rows.len();
-    if n < 10 { return 0.0; }
+    if n < 10 {
+        return 0.0;
+    }
 
     let n_pairs = n * (n - 1) / 2;
     let mut half_a = Vec::with_capacity(n_pairs);
@@ -117,40 +118,52 @@ fn cronbach_alpha(rows: &[Base17]) -> f64 {
     let var_b = variance(&half_b);
     let var_total = variance(&total);
 
-    if var_total < 1e-12 { return 0.0; }
+    if var_total < 1e-12 {
+        return 0.0;
+    }
     2.0 * (1.0 - (var_a + var_b) / var_total)
 }
 
 fn variance(v: &[f64]) -> f64 {
     let n = v.len() as f64;
-    if n < 2.0 { return 0.0; }
+    if n < 2.0 {
+        return 0.0;
+    }
     let mean = v.iter().sum::<f64>() / n;
     v.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (n - 1.0)
 }
 
 /// Top-k recall: fraction of true k-nearest neighbors found by the encoding.
 fn top_k_recall_matrix(
-    ground_truth: &[Vec<f64>],  // N×N distance matrix
-    encoded: &[Vec<f64>],       // N×N distance matrix
+    ground_truth: &[Vec<f64>], // N×N distance matrix
+    encoded: &[Vec<f64>],      // N×N distance matrix
     k: usize,
 ) -> f64 {
     let n = ground_truth.len();
-    if n <= k { return 1.0; }
+    if n <= k {
+        return 1.0;
+    }
 
     let mut total_recall = 0.0;
     for i in 0..n {
         // True top-k neighbors (lowest distance)
-        let mut gt_indexed: Vec<(usize, f64)> = ground_truth[i].iter()
-            .enumerate().filter(|&(j, _)| j != i)
-            .map(|(j, &d)| (j, d)).collect();
+        let mut gt_indexed: Vec<(usize, f64)> = ground_truth[i]
+            .iter()
+            .enumerate()
+            .filter(|&(j, _)| j != i)
+            .map(|(j, &d)| (j, d))
+            .collect();
         gt_indexed.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
         let true_topk: std::collections::HashSet<usize> =
             gt_indexed.iter().take(k).map(|&(j, _)| j).collect();
 
         // Encoded top-k
-        let mut enc_indexed: Vec<(usize, f64)> = encoded[i].iter()
-            .enumerate().filter(|&(j, _)| j != i)
-            .map(|(j, &d)| (j, d)).collect();
+        let mut enc_indexed: Vec<(usize, f64)> = encoded[i]
+            .iter()
+            .enumerate()
+            .filter(|&(j, _)| j != i)
+            .map(|(j, &d)| (j, d))
+            .collect();
         enc_indexed.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
         let enc_topk: std::collections::HashSet<usize> =
             enc_indexed.iter().take(k).map(|&(j, _)| j).collect();
@@ -175,7 +188,11 @@ fn cosine_f32(a: &[f32], b: &[f32]) -> f64 {
         nb += y * y;
     }
     let denom = (na * nb).sqrt();
-    if denom < 1e-15 { 0.0 } else { dot / denom }
+    if denom < 1e-15 {
+        0.0
+    } else {
+        dot / denom
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -192,7 +209,7 @@ struct RoleReport {
     // Base17 level: decode via Base17::to_f32()
     base17_cos_mean: f64,
     base17_cos_min: f64,
-    base17_cos_p5: f64,   // 5th percentile
+    base17_cos_p5: f64, // 5th percentile
 
     // Palette level: decode via centroid Base17::to_f32()
     palette_cos_mean: f64,
@@ -233,9 +250,7 @@ fn probe_role(
     let n_cols = if n > 0 { rows[0].len() } else { 0 };
 
     // ─── Level 1: Base17 fold → reconstruct → cosine ───
-    let base17_rows: Vec<Base17> = rows.iter()
-        .map(|r| Base17::from_f32(r))
-        .collect();
+    let base17_rows: Vec<Base17> = rows.iter().map(|r| Base17::from_f32(r)).collect();
 
     let mut b17_cosines: Vec<f64> = Vec::with_capacity(n);
     for i in 0..n {
@@ -246,12 +261,13 @@ fn probe_role(
 
     let base17_cos_mean = b17_cosines.iter().sum::<f64>() / n.max(1) as f64;
     let base17_cos_min = b17_cosines.first().copied().unwrap_or(0.0);
-    let base17_cos_p5 = b17_cosines.get(n * 5 / 100).copied().unwrap_or(base17_cos_min);
+    let base17_cos_p5 = b17_cosines
+        .get(n * 5 / 100)
+        .copied()
+        .unwrap_or(base17_cos_min);
 
     // ─── Level 2: Palette centroid → reconstruct → cosine ───
-    let assignments: Vec<u8> = base17_rows.iter()
-        .map(|b| cache.nearest(b).0)
-        .collect();
+    let assignments: Vec<u8> = base17_rows.iter().map(|b| cache.nearest(b).0).collect();
 
     let mut pal_cosines: Vec<f64> = Vec::with_capacity(n);
     for i in 0..n {
@@ -263,7 +279,10 @@ fn probe_role(
 
     let palette_cos_mean = pal_cosines.iter().sum::<f64>() / n.max(1) as f64;
     let palette_cos_min = pal_cosines.first().copied().unwrap_or(0.0);
-    let palette_cos_p5 = pal_cosines.get(n * 5 / 100).copied().unwrap_or(palette_cos_min);
+    let palette_cos_p5 = pal_cosines
+        .get(n * 5 / 100)
+        .copied()
+        .unwrap_or(palette_cos_min);
 
     // ─── Level 3: HHTL-D (centroid + polarity * residual * gamma) ───
     // Decode: centroid_f32 + polarity * slot_v_f32 * gamma_restore
@@ -275,7 +294,9 @@ fn probe_role(
         let centroid_f32 = centroid.to_f32(n_cols);
 
         // Compute residual: L1 distance normalized by centroid magnitude
-        let centroid_mag: f64 = centroid.dims.iter()
+        let centroid_mag: f64 = centroid
+            .dims
+            .iter()
             .map(|&d| (d as f64).abs())
             .sum::<f64>()
             .max(1.0);
@@ -287,9 +308,15 @@ fn probe_role(
             let mut max_dim = 0i32;
             for d in 0..17 {
                 let diff = base17_rows[i].dims[d] as i32 - centroid.dims[d] as i32;
-                if diff.abs() > max_dim.abs() { max_dim = diff; }
+                if diff.abs() > max_dim.abs() {
+                    max_dim = diff;
+                }
             }
-            if max_dim >= 0 { 1.0f32 } else { -1.0f32 }
+            if max_dim >= 0 {
+                1.0f32
+            } else {
+                -1.0f32
+            }
         };
 
         // Reconstruct: centroid + polarity * residual * gamma
@@ -305,15 +332,22 @@ fn probe_role(
 
     let hhtld_cos_mean = hhtld_cosines.iter().sum::<f64>() / n.max(1) as f64;
     let hhtld_cos_min = hhtld_cosines.first().copied().unwrap_or(0.0);
-    let hhtld_cos_p5 = hhtld_cosines.get(n * 5 / 100).copied().unwrap_or(hhtld_cos_min);
+    let hhtld_cos_p5 = hhtld_cosines
+        .get(n * 5 / 100)
+        .copied()
+        .unwrap_or(hhtld_cos_min);
 
     // ─── MatVec fidelity: ||W·x - W_decoded·x|| / ||W·x|| ───
     // Random unit vector x, compute W·x with original vs decoded
     let mut rng = 0x12345678u64;
-    let x_vec: Vec<f32> = (0..n_cols).map(|_| {
-        rng = rng.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
-        ((rng >> 33) as f32 / (1u64 << 31) as f32) * 2.0 - 1.0
-    }).collect();
+    let x_vec: Vec<f32> = (0..n_cols)
+        .map(|_| {
+            rng = rng
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            ((rng >> 33) as f32 / (1u64 << 31) as f32) * 2.0 - 1.0
+        })
+        .collect();
     // Normalize x
     let x_norm: f32 = x_vec.iter().map(|v| v * v).sum::<f32>().sqrt().max(1e-10);
     let x_unit: Vec<f32> = x_vec.iter().map(|v| v / x_norm).collect();
@@ -330,9 +364,18 @@ fn probe_role(
         }
     }
 
-    let diff_norm: f64 = wx_orig.iter().zip(&wx_decoded)
-        .map(|(a, b)| (a - b).powi(2)).sum::<f64>().sqrt();
-    let orig_norm: f64 = wx_orig.iter().map(|a| a.powi(2)).sum::<f64>().sqrt().max(1e-15);
+    let diff_norm: f64 = wx_orig
+        .iter()
+        .zip(&wx_decoded)
+        .map(|(a, b)| (a - b).powi(2))
+        .sum::<f64>()
+        .sqrt();
+    let orig_norm: f64 = wx_orig
+        .iter()
+        .map(|a| a.powi(2))
+        .sum::<f64>()
+        .sqrt()
+        .max(1e-15);
     let matvec_rel_error = diff_norm / orig_norm;
 
     // ─── Level 4: Fisher z pairwise table ───
@@ -365,11 +408,17 @@ fn probe_role(
     let mut fz_cosines = Vec::with_capacity(n_fz_pairs);
 
     for _ in 0..n_fz_pairs {
-        rng = rng.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        rng = rng
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         let ia = (rng >> 33) as usize % n;
-        rng = rng.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        rng = rng
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         let ib = (rng >> 33) as usize % n;
-        if ia == ib { continue; }
+        if ia == ib {
+            continue;
+        }
 
         let true_cos = cosine_f32(&rows[ia], &rows[ib]);
         let fz_cos = fz.lookup_f32(assignments[ia], assignments[ib]);
@@ -379,20 +428,31 @@ fn probe_role(
 
     let fisher_z_spearman = if true_cosines.len() > 10 {
         spearman(&true_cosines, &fz_cosines)
-    } else { 0.0 };
+    } else {
+        0.0
+    };
 
     let fisher_z_restore_err = if !true_cosines.is_empty() {
-        true_cosines.iter().zip(&fz_cosines)
+        true_cosines
+            .iter()
+            .zip(&fz_cosines)
             .map(|(t, f)| (*t - *f).abs())
-            .sum::<f64>() / true_cosines.len() as f64
-    } else { 0.0 };
+            .sum::<f64>()
+            / true_cosines.len() as f64
+    } else {
+        0.0
+    };
 
     // ─── Pass/fail ───
     let mut failures = Vec::new();
     // Per-row reconstruction (expected to fail — documented)
-    if base17_cos_mean < 0.990 { failures.push(format!("Base17 cos={:.4} < 0.990", base17_cos_mean)); }
+    if base17_cos_mean < 0.990 {
+        failures.push(format!("Base17 cos={:.4} < 0.990", base17_cos_mean));
+    }
     // Fisher z pairwise (the real metric)
-    if fisher_z_spearman < 0.995 { failures.push(format!("Fisher z ρ={:.4} < 0.995", fisher_z_spearman)); }
+    if fisher_z_spearman < 0.995 {
+        failures.push(format!("Fisher z ρ={:.4} < 0.995", fisher_z_spearman));
+    }
 
     RoleReport {
         role: role.to_string(),
@@ -417,12 +477,18 @@ fn probe_role(
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let st_path = if args.len() > 1 { &args[1] }
-    else { "/home/user/models/Qwen3-TTS-12Hz-1.7B-Base/model.safetensors" };
+    let st_path = if args.len() > 1 {
+        &args[1]
+    } else {
+        "/home/user/models/Qwen3-TTS-12Hz-1.7B-Base/model.safetensors"
+    };
 
     println!("═══ HHTL-D QUALITY CERTIFICATION ═══");
     println!("  Model: {}", st_path);
-    println!("  Sample: {} rows per role, {} centroids", SAMPLE_ROWS, N_CENTROIDS);
+    println!(
+        "  Sample: {} rows per role, {} centroids",
+        SAMPLE_ROWS, N_CENTROIDS
+    );
     println!();
 
     // Parse header
@@ -433,10 +499,14 @@ fn main() {
     // Group by role
     let mut role_tensors: HashMap<(String, String), Vec<&TensorInfo>> = HashMap::new();
     for tensor in &header.tensors {
-        if !tensor.name.ends_with("weight") { continue; }
+        if !tensor.name.ends_with("weight") {
+            continue;
+        }
         let shape: Vec<usize> = tensor.dimensions.iter().map(|&d| d as usize).collect();
         let size = shape.iter().product::<usize>() * 2; // BF16
-        if !is_encodable(&shape, size) { continue; }
+        if !is_encodable(&shape, size) {
+            continue;
+        }
         let comp = classify_component(&tensor.name).to_string();
         let role = classify_role(&tensor.name).to_string();
         role_tensors.entry((comp, role)).or_default().push(tensor);
@@ -456,40 +526,59 @@ fn main() {
         // Read rows from first tensor in group (up to SAMPLE_ROWS)
         let tensor = tensors[0];
         let n_rows = (tensor.dimensions[0] as usize).min(SAMPLE_ROWS);
-        let n_cols = if tensor.dimensions.len() > 1 { tensor.dimensions[1] as usize } else { 1 };
+        let n_cols = if tensor.dimensions.len() > 1 {
+            tensor.dimensions[1] as usize
+        } else {
+            1
+        };
         let elem_size: usize = match tensor.dtype {
             GgmlType::BF16 | GgmlType::F16 => 2,
             GgmlType::F32 => 4,
             _ => continue,
         };
 
-        reader.seek(SeekFrom::Start(header.tensor_data_offset + tensor.offset)).unwrap();
+        reader
+            .seek(SeekFrom::Start(header.tensor_data_offset + tensor.offset))
+            .unwrap();
         let mut raw = vec![0u8; n_rows * n_cols * elem_size];
-        if reader.read_exact(&mut raw).is_err() { continue; }
+        if reader.read_exact(&mut raw).is_err() {
+            continue;
+        }
 
-        let f32_rows: Vec<Vec<f32>> = (0..n_rows).map(|r| {
-            (0..n_cols).map(|c| {
-                let idx = r * n_cols + c;
-                match tensor.dtype {
-                    GgmlType::BF16 => {
-                        let bits = u16::from_le_bytes([raw[idx*2], raw[idx*2+1]]);
-                        f32::from_bits((bits as u32) << 16)
-                    }
-                    GgmlType::F16 => {
-                        let bits = u16::from_le_bytes([raw[idx*2], raw[idx*2+1]]);
-                        ndarray::hpc::gguf::f16_to_f32(bits)
-                    }
-                    GgmlType::F32 => {
-                        f32::from_le_bytes([raw[idx*4], raw[idx*4+1], raw[idx*4+2], raw[idx*4+3]])
-                    }
-                    _ => 0.0,
-                }
-            }).collect()
-        }).collect();
+        let f32_rows: Vec<Vec<f32>> = (0..n_rows)
+            .map(|r| {
+                (0..n_cols)
+                    .map(|c| {
+                        let idx = r * n_cols + c;
+                        match tensor.dtype {
+                            GgmlType::BF16 => {
+                                let bits = u16::from_le_bytes([raw[idx * 2], raw[idx * 2 + 1]]);
+                                f32::from_bits((bits as u32) << 16)
+                            }
+                            GgmlType::F16 => {
+                                let bits = u16::from_le_bytes([raw[idx * 2], raw[idx * 2 + 1]]);
+                                ndarray::hpc::gguf::f16_to_f32(bits)
+                            }
+                            GgmlType::F32 => f32::from_le_bytes([
+                                raw[idx * 4],
+                                raw[idx * 4 + 1],
+                                raw[idx * 4 + 2],
+                                raw[idx * 4 + 3],
+                            ]),
+                            _ => 0.0,
+                        }
+                    })
+                    .collect()
+            })
+            .collect();
 
         // Build palette from these rows
         let base17_rows: Vec<Base17> = f32_rows.iter().map(|r| Base17::from_f32(r)).collect();
-        let sample = if base17_rows.len() > 4096 { &base17_rows[..4096] } else { &base17_rows[..] };
+        let sample = if base17_rows.len() > 4096 {
+            &base17_rows[..4096]
+        } else {
+            &base17_rows[..]
+        };
         let wp = WeightPalette::build(sample, N_CENTROIDS);
         let hip = build_hip_families(&wp.entries);
         let cache = HhtlCache::from_palette(wp);
@@ -497,15 +586,24 @@ fn main() {
         let report = probe_role(role, comp, &f32_rows, &cache, &hip);
 
         let pass_str = if report.pass { "PASS" } else { "FAIL" };
-        println!("│ {:12} │ {:8} │ {:.4} │ {:.4} │ {:.5} │ {:.4} │ {:6} │",
-            report.role, report.component,
+        println!(
+            "│ {:12} │ {:8} │ {:.4} │ {:.4} │ {:.5} │ {:.4} │ {:6} │",
+            report.role,
+            report.component,
             report.base17_cos_mean,
-            report.fisher_z_spearman, report.fisher_z_restore_err,
-            report.matvec_rel_error, pass_str);
+            report.fisher_z_spearman,
+            report.fisher_z_restore_err,
+            report.matvec_rel_error,
+            pass_str
+        );
 
         if !report.failures.is_empty() {
             for f in &report.failures {
-                println!("│   ⚠ {}{}│", f, " ".repeat(60usize.saturating_sub(f.len() + 5)));
+                println!(
+                    "│   ⚠ {}{}│",
+                    f,
+                    " ".repeat(60usize.saturating_sub(f.len() + 5))
+                );
             }
         }
 

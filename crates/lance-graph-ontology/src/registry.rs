@@ -197,8 +197,16 @@ impl OntologyRegistry {
             AppendOutcome::Inserted(handle) => Ok(handle),
             AppendOutcome::Idempotent => {
                 // Resolve back the existing handle.
-                let bridge_id = state.rows.last().map(|r| r.bridge_id.clone()).unwrap_or_default();
-                let public_name = state.rows.last().map(|r| r.public_name.clone()).unwrap_or_default();
+                let bridge_id = state
+                    .rows
+                    .last()
+                    .map(|r| r.bridge_id.clone())
+                    .unwrap_or_default();
+                let public_name = state
+                    .rows
+                    .last()
+                    .map(|r| r.public_name.clone())
+                    .unwrap_or_default();
                 let key = (bridge_id, public_name);
                 let idx = *state
                     .by_bridge_name
@@ -281,9 +289,13 @@ impl OntologyRegistry {
     /// [`crate::ttl_parse::parse_with_provenance`] — no re-walk).
     pub fn attach_provenance(&self, bundle: &ProvenanceBundle) -> bool {
         let mut s = self.inner.write().unwrap();
-        s.by_uri.get(&bundle.entity_uri).copied().map(|idx| {
-            s.rows[idx as usize].attribute_sources = bundle.attribute_sources.clone();
-        }).is_some()
+        s.by_uri
+            .get(&bundle.entity_uri)
+            .copied()
+            .map(|idx| {
+                s.rows[idx as usize].attribute_sources = bundle.attribute_sources.clone();
+            })
+            .is_some()
     }
 
     /// Attach a `ThinkingStyle` (D-PARITY-V2-12) to the row at `ogit_uri`.
@@ -293,15 +305,22 @@ impl OntologyRegistry {
         style: lance_graph_contract::thinking::ThinkingStyle,
     ) -> bool {
         let mut s = self.inner.write().unwrap();
-        s.by_uri.get(ogit_uri).copied().map(|idx| {
-            s.rows[idx as usize].thinking_style = Some(style);
-        }).is_some()
+        s.by_uri
+            .get(ogit_uri)
+            .copied()
+            .map(|idx| {
+                s.rows[idx as usize].thinking_style = Some(style);
+            })
+            .is_some()
     }
 
     /// Resolve a `BindSpace.entity_type` index to its row (D-CASCADE-V1-7).
     pub fn enumerate_first_with_entity_type_id(&self, entity_type_id: u16) -> Option<MappingRow> {
         let s = self.inner.read().unwrap();
-        s.rows.iter().find(|r| r.schema_ptr.entity_type_id() == entity_type_id).cloned()
+        s.rows
+            .iter()
+            .find(|r| r.schema_ptr.entity_type_id() == entity_type_id)
+            .cloned()
     }
 
     /// Export the registry to an OGIT-shaped TTL fragment for the named
@@ -346,11 +365,7 @@ enum AppendOutcome {
 }
 
 impl RegistryState {
-    fn append(
-        &mut self,
-        proposal: MappingProposal,
-        sem: &SemanticTypeMap,
-    ) -> AppendOutcome {
+    fn append(&mut self, proposal: MappingProposal, sem: &SemanticTypeMap) -> AppendOutcome {
         let key = (proposal.bridge_id.clone(), proposal.public_name.clone());
         if let Some(existing) = self.by_bridge_name.get(&key) {
             let row = &self.rows[*existing as usize];
@@ -385,8 +400,7 @@ impl RegistryState {
         let ctx_id = SEED_NAMESPACE_REGISTRY
             .get(&proposal.namespace)
             .unwrap_or(0);
-        let schema_ptr = SchemaPtr::new(namespace_id, entity_type_id, kind)
-            .with_context_id(ctx_id);
+        let schema_ptr = SchemaPtr::new(namespace_id, entity_type_id, kind).with_context_id(ctx_id);
 
         let semantic_type = match &proposal.kind {
             MappingProposalKind::Attribute { semantic_type, .. } => semantic_type.clone(),
@@ -394,11 +408,17 @@ impl RegistryState {
         };
         // D-CASCADE-V1-7: derive subject/object/entity-type strings
         // (META-NUDGE-1); codec/qualia/thinking attach via `attach_*`.
-        let entity_name = proposal.ogit_uri.name().unwrap_or(&proposal.public_name).to_string();
+        let entity_name = proposal
+            .ogit_uri
+            .name()
+            .unwrap_or(&proposal.public_name)
+            .to_string();
         let (subject_type, object_type, entity_type_ref) = match &proposal.kind {
-            MappingProposalKind::Edge { link } => {
-                (link.subject_type.to_string(), link.object_type.to_string(), String::new())
-            }
+            MappingProposalKind::Edge { link } => (
+                link.subject_type.to_string(),
+                link.object_type.to_string(),
+                String::new(),
+            ),
             MappingProposalKind::Attribute { .. } => (String::new(), String::new(), entity_name),
             MappingProposalKind::Entity { schema } => {
                 (String::new(), String::new(), schema.name.to_string())
@@ -445,7 +465,10 @@ impl RegistryState {
     #[cfg_attr(not(feature = "lance-cache"), allow(dead_code))]
     fn absorb_row(&mut self, row: MappingRow) {
         let key = (row.bridge_id.clone(), row.public_name.clone());
-        if !self.by_namespace.contains_key(row.ogit_uri.namespace().unwrap_or("")) {
+        if !self
+            .by_namespace
+            .contains_key(row.ogit_uri.namespace().unwrap_or(""))
+        {
             let ns = row.ogit_uri.namespace().unwrap_or("").to_string();
             if !ns.is_empty() {
                 self.by_namespace.insert(ns.clone(), row.namespace_id);
@@ -505,7 +528,9 @@ mod tests {
     #[test]
     fn append_and_resolve() {
         let reg = OntologyRegistry::new_in_memory();
-        let h = reg.append_mapping(proposal("ogit.Network:IPAddress")).unwrap();
+        let h = reg
+            .append_mapping(proposal("ogit.Network:IPAddress"))
+            .unwrap();
         assert_eq!(reg.len(), 1);
         let resolved = reg.resolve("ogit", "ogit.Network:IPAddress").unwrap();
         assert_eq!(resolved, h.schema_ptr);
@@ -516,18 +541,26 @@ mod tests {
     #[test]
     fn idempotent_double_append() {
         let reg = OntologyRegistry::new_in_memory();
-        reg.append_mapping(proposal("ogit.Network:IPAddress")).unwrap();
-        let h = reg.append_mapping(proposal("ogit.Network:IPAddress")).unwrap();
+        reg.append_mapping(proposal("ogit.Network:IPAddress"))
+            .unwrap();
+        let h = reg
+            .append_mapping(proposal("ogit.Network:IPAddress"))
+            .unwrap();
         // Same checksum → idempotent: reuses the existing row.
         assert_eq!(reg.len(), 1);
-        assert_eq!(reg.resolve("ogit", "ogit.Network:IPAddress").unwrap(), h.schema_ptr);
+        assert_eq!(
+            reg.resolve("ogit", "ogit.Network:IPAddress").unwrap(),
+            h.schema_ptr
+        );
     }
 
     #[test]
     fn enumerate_groups_by_namespace() {
         let reg = OntologyRegistry::new_in_memory();
-        reg.append_mapping(proposal("ogit.Network:IPAddress")).unwrap();
-        reg.append_mapping(proposal("ogit.Network:MACAddress")).unwrap();
+        reg.append_mapping(proposal("ogit.Network:IPAddress"))
+            .unwrap();
+        reg.append_mapping(proposal("ogit.Network:MACAddress"))
+            .unwrap();
         reg.append_mapping(proposal("ogit.Auth:Account")).unwrap();
         assert_eq!(reg.enumerate("Network").len(), 2);
         assert_eq!(reg.enumerate("Auth").len(), 1);

@@ -11,64 +11,64 @@ use super::*;
 // ============================================================================
 
 /// ANI / Consciousness: 4 words (256 bits)
-pub const M_ANI_BASE: usize = 0;       // level(u8) + mask(u8) + activation(u16) + L1-L4(4×u8)
-pub const M_ANI_EXT: usize = 1;        // L5-L7(3×u8) + cycle(u16) + flags(u8) + tau(u8)
-pub const M_NARS_TRUTH: usize = 2;     // freq(u16) + conf(u16) + pos_ev(u16) + neg_ev(u16)
-pub const M_NARS_EXT: usize = 3;       // horizon(u16) + expectation(u16) + reserved(u32)
+pub const M_ANI_BASE: usize = 0; // level(u8) + mask(u8) + activation(u16) + L1-L4(4×u8)
+pub const M_ANI_EXT: usize = 1; // L5-L7(3×u8) + cycle(u16) + flags(u8) + tau(u8)
+pub const M_NARS_TRUTH: usize = 2; // freq(u16) + conf(u16) + pos_ev(u16) + neg_ev(u16)
+pub const M_NARS_EXT: usize = 3; // horizon(u16) + expectation(u16) + reserved(u32)
 
 /// Qualia: 2 words — top 8 of 18 channels at u16 precision
-pub const M_QUALIA_A: usize = 4;       // valence, arousal, dominance, novelty
-pub const M_QUALIA_B: usize = 5;       // certainty, urgency, depth, salience
+pub const M_QUALIA_A: usize = 4; // valence, arousal, dominance, novelty
+pub const M_QUALIA_B: usize = 5; // certainty, urgency, depth, salience
 
 /// GEL + Kernel: 2 words
-pub const M_GEL: usize = 6;            // pc(u16) + stack(u8) + flags(u8) + verb(u8) + phase(u8) + reserved(u16)
-pub const M_KERNEL: usize = 7;         // integration(u16) + mode(u8) + epoch(u8) + reserved(u32)
+pub const M_GEL: usize = 6; // pc(u16) + stack(u8) + flags(u8) + verb(u8) + phase(u8) + reserved(u16)
+pub const M_KERNEL: usize = 7; // integration(u16) + mode(u8) + epoch(u8) + reserved(u32)
 
 /// DN Tree: 3 words
-pub const M_DN_PARENT: usize = 8;      // parent(u16) + depth(u8) + rung(u8) + sigma(u8) + type(u8) + flags(u16)
-pub const M_DN_META: usize = 9;        // label_hash(u32) + access_count(u16) + ttl(u16)
-pub const M_DN_TIME: usize = 10;       // created(u32) + last_access_delta(u16) + reserved(u16)
+pub const M_DN_PARENT: usize = 8; // parent(u16) + depth(u8) + rung(u8) + sigma(u8) + type(u8) + flags(u16)
+pub const M_DN_META: usize = 9; // label_hash(u32) + access_count(u16) + ttl(u16)
+pub const M_DN_TIME: usize = 10; // created(u32) + last_access_delta(u16) + reserved(u16)
 
 /// Inline edges: 16 words = 64 edges (4 packed per word)
-pub const M_EDGE_START: usize = 13;    // edges 0-3
-pub const M_EDGE_END: usize = 29;      // edges 60-63
+pub const M_EDGE_START: usize = 13; // edges 0-3
+pub const M_EDGE_END: usize = 29; // edges 60-63
 pub const M_EDGE_WORDS: usize = 16;
 pub const M_EDGES_PER_WORD: usize = 4;
 pub const M_MAX_INLINE_EDGES: usize = M_EDGE_WORDS * M_EDGES_PER_WORD; // 64
 
 /// Edge overflow metadata: 2 words
 pub const M_EDGE_OVERFLOW: usize = 29; // count(u8) + flag(u8) + table_addr(u16) + version(u16) + reserved(u16)
-pub const M_EDGE_DEGREE: usize = 30;   // in_deg(u16) + out_deg(u16) + bidi(u16) + reserved(u16)
+pub const M_EDGE_DEGREE: usize = 30; // in_deg(u16) + out_deg(u16) + bidi(u16) + reserved(u16)
 
 /// Schema version
-pub const M_VERSION: usize = 31;       // version at bits[56-63], dim_flags at bits[48-55]
+pub const M_VERSION: usize = 31; // version at bits[56-63], dim_flags at bits[48-55]
 
 /// RL / Decision: 8 words
-pub const M_RL_BASE: usize = 32;       // Q-values, rewards, TD error, policy (words 32-39)
+pub const M_RL_BASE: usize = 32; // Q-values, rewards, TD error, policy (words 32-39)
 
 /// Bloom filter: 8 words = 512-bit bloom (better FP rate than 256-bit)
-pub const M_BLOOM_BASE: usize = 40;    // words 40-47
+pub const M_BLOOM_BASE: usize = 40; // words 40-47
 
 /// Graph metrics: 16 words (full precision)
-pub const M_GRAPH_BASE: usize = 48;    // words 48-63
+pub const M_GRAPH_BASE: usize = 48; // words 48-63
 
 /// Qualia overflow: full 18D at f32 (9 words)
-pub const M_QUALIA_FULL: usize = 64;   // words 64-72 (18 × f32 / 8 bytes per word = 9 words)
+pub const M_QUALIA_FULL: usize = 64; // words 64-72 (18 × f32 / 8 bytes per word = 9 words)
 
 /// 7-Layer markers: 16 words (full LayerMarker state)
-pub const M_LAYER_BASE: usize = 80;    // words 80-95
+pub const M_LAYER_BASE: usize = 80; // words 80-95
 
 /// Rung history: 16 words (condensed shift events)
-pub const M_RUNG_HISTORY: usize = 96;  // words 96-111
+pub const M_RUNG_HISTORY: usize = 96; // words 96-111
 
 /// Dimensional flags: which XYZ dimensions are populated
-pub const M_DIM_FLAGS: usize = 112;    // word 112: x_active(u8) + y_active(u8) + z_active(u8) + reserved
+pub const M_DIM_FLAGS: usize = 112; // word 112: x_active(u8) + y_active(u8) + z_active(u8) + reserved
 
 /// Reserved: words 113-126
 pub const M_RESERVED_START: usize = 113;
 
 /// Checksum + version flags: last word
-pub const M_CHECKSUM: usize = 127;     // checksum(u32) + reserved(u24) + version_flags(u8)
+pub const M_CHECKSUM: usize = 127; // checksum(u32) + reserved(u24) + version_flags(u8)
 
 // ============================================================================
 // SCHEMA SIDECAR
@@ -232,14 +232,12 @@ impl HoloSchema {
             | ((self.sigma as u64) << 32)
             | ((self.node_type as u64) << 40)
             | ((self.flags as u64) << 48);
-        meta[M_DN_META] = (self.label_hash as u64)
-            | ((self.access_count as u64) << 32);
+        meta[M_DN_META] = (self.label_hash as u64) | ((self.access_count as u64) << 32);
 
         // Edge overflow
-        meta[M_EDGE_OVERFLOW] = (self.inline_edge_count as u64)
-            | ((self.overflow_flag as u64) << 8);
-        meta[M_EDGE_DEGREE] = (self.in_degree as u64)
-            | ((self.out_degree as u64) << 16);
+        meta[M_EDGE_OVERFLOW] =
+            (self.inline_edge_count as u64) | ((self.overflow_flag as u64) << 8);
+        meta[M_EDGE_DEGREE] = (self.in_degree as u64) | ((self.out_degree as u64) << 16);
 
         // Version (preserve other bits in the word)
         meta[M_VERSION] = (meta[M_VERSION] & 0x0000_FFFF_FFFF_FFFF)
@@ -346,7 +344,10 @@ mod tests {
         assert_eq!(recovered.ani_level, 7);
         assert_eq!(recovered.layer_mask, 0b0111_1111);
         assert_eq!(recovered.peak_activation, 42000);
-        assert_eq!(recovered.layer_confidence, [200, 180, 160, 140, 120, 100, 80]);
+        assert_eq!(
+            recovered.layer_confidence,
+            [200, 180, 160, 140, 120, 100, 80]
+        );
         assert_eq!(recovered.cycle, 12345);
         assert_eq!(recovered.consciousness_flags, 0xAB);
         assert_eq!(recovered.tau, 200);
@@ -354,7 +355,10 @@ mod tests {
         assert_eq!(recovered.nars_confidence, 60000);
         assert_eq!(recovered.nars_pos_evidence, 100);
         assert_eq!(recovered.nars_neg_evidence, 50);
-        assert_eq!(recovered.qualia, [10000, 20000, 30000, 40000, 50000, 60000, 5000, 15000]);
+        assert_eq!(
+            recovered.qualia,
+            [10000, 20000, 30000, 40000, 50000, 60000, 5000, 15000]
+        );
         assert_eq!(recovered.parent_addr, 0x8042);
         assert_eq!(recovered.depth, 3);
         assert_eq!(recovered.rung, 5);
@@ -405,8 +409,12 @@ mod tests {
         let edges = HoloSchema::read_edges(&meta);
         assert_eq!(edges.len(), 8);
         for i in 0..8 {
-            assert_eq!(edges[i], ((i + 1) as u8, (0x80 + i) as u8),
-                "Edge {} mismatch", i);
+            assert_eq!(
+                edges[i],
+                ((i + 1) as u8, (0x80 + i) as u8),
+                "Edge {} mismatch",
+                i
+            );
         }
     }
 
@@ -448,8 +456,11 @@ mod tests {
 
         // Verify dimensions untouched
         for i in 0..Z_END {
-            assert_eq!(v[i], 0xAAAA_BBBB_CCCC_DDDD,
-                "Dimension word {} corrupted by schema write", i);
+            assert_eq!(
+                v[i], 0xAAAA_BBBB_CCCC_DDDD,
+                "Dimension word {} corrupted by schema write",
+                i
+            );
         }
     }
 
@@ -468,6 +479,9 @@ mod tests {
         assert_eq!((meta[M_VERSION] >> 56) & 0xFF, 0xFE);
         assert_eq!((meta[M_VERSION] >> 48) & 0xFF, 0x07);
         // Lower 48 bits preserved
-        assert_eq!(meta[M_VERSION] & 0x0000_FFFF_FFFF_FFFF, 0x0000_1234_5678_9ABC);
+        assert_eq!(
+            meta[M_VERSION] & 0x0000_FFFF_FFFF_FFFF,
+            0x0000_1234_5678_9ABC
+        );
     }
 }

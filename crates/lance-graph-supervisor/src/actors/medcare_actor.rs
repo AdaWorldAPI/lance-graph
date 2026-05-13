@@ -18,9 +18,7 @@
 use ractor::{Actor, ActorProcessingErr, ActorRef};
 use tracing;
 
-use crate::consumer_msg::{
-    ConsumerEnvelope, HealthStatus,
-};
+use crate::consumer_msg::{ConsumerEnvelope, HealthStatus};
 
 /// G-slot constant for MedCare.
 pub const MEDCARE_G: u32 = 2;
@@ -29,8 +27,7 @@ pub const MEDCARE_VERSION: u32 = 1;
 
 // ─── Actor state ──────────────────────────────────────────────────────────────
 
-pub struct MedcareState
-{
+pub struct MedcareState {
     /// Number of requests handled since spawn (diagnostic only for skeleton).
     pub handled: u64,
 }
@@ -44,25 +41,23 @@ pub struct MedcareState
 /// (sprint-8). The actor name is always `"consumer_g_2"` — survives respawn.
 pub struct MedcareConsumerActor;
 
-impl Actor for MedcareConsumerActor
-{
-    type Msg       = ConsumerEnvelope;
-    type State     = MedcareState;
+impl Actor for MedcareConsumerActor {
+    type Msg = ConsumerEnvelope;
+    type State = MedcareState;
     type Arguments = ();
 
     async fn pre_start(
         &self,
         _myself: ActorRef<Self::Msg>,
-        _args:   Self::Arguments,
-    ) -> Result<Self::State, ActorProcessingErr>
-    {
+        _args: Self::Arguments,
+    ) -> Result<Self::State, ActorProcessingErr> {
         let salt_hex = std::env::var("MEDCARE_AUDIT_SALT").unwrap_or_else(|_| "0".to_string());
         let salt = u64::from_str_radix(salt_hex.trim_start_matches("0x"), 16).unwrap_or(0);
 
         tracing::info!(
-            g           = MEDCARE_G,
-            version     = MEDCARE_VERSION,
-            audit_salt  = format!("{salt:#018x}"),
+            g = MEDCARE_G,
+            version = MEDCARE_VERSION,
+            audit_salt = format!("{salt:#018x}"),
             "MedcareConsumerActor pre_start"
         );
 
@@ -75,10 +70,9 @@ impl Actor for MedcareConsumerActor
     async fn handle(
         &self,
         _myself: ActorRef<Self::Msg>,
-        msg:     Self::Msg,
-        state:   &mut Self::State,
-    ) -> Result<(), ActorProcessingErr>
-    {
+        msg: Self::Msg,
+        state: &mut Self::State,
+    ) -> Result<(), ActorProcessingErr> {
         state.handled += 1;
 
         match msg {
@@ -90,8 +84,8 @@ impl Actor for MedcareConsumerActor
 
             ConsumerEnvelope::Dispatch(req) => {
                 tracing::debug!(
-                    g         = MEDCARE_G,
-                    tenant    = req.tenant_id,
+                    g = MEDCARE_G,
+                    tenant = req.tenant_id,
                     "MedcareConsumerActor: Dispatch (stub — wiring TODO)"
                 );
                 // TODO: route through UnifiedBridge::authorize(AuthOp::Act, ...)
@@ -100,9 +94,9 @@ impl Actor for MedcareConsumerActor
 
             ConsumerEnvelope::Ingest(req) => {
                 tracing::debug!(
-                    g         = MEDCARE_G,
-                    tenant    = req.tenant_id,
-                    records   = req.records.len(),
+                    g = MEDCARE_G,
+                    tenant = req.tenant_id,
+                    records = req.records.len(),
                     "MedcareConsumerActor: Ingest (stub)"
                 );
             }
@@ -118,18 +112,24 @@ impl Actor for MedcareConsumerActor
 
             ConsumerEnvelope::Styles(req) => {
                 tracing::debug!(
-                    g      = MEDCARE_G,
+                    g = MEDCARE_G,
                     tenant = req.tenant_id,
                     "MedcareConsumerActor: Styles (stub)"
                 );
             }
 
             ConsumerEnvelope::Tensors(_req) => {
-                tracing::debug!(g = MEDCARE_G, "MedcareConsumerActor: Tensors lab arm (stub)");
+                tracing::debug!(
+                    g = MEDCARE_G,
+                    "MedcareConsumerActor: Tensors lab arm (stub)"
+                );
             }
 
             ConsumerEnvelope::Calibrate(_req) => {
-                tracing::debug!(g = MEDCARE_G, "MedcareConsumerActor: Calibrate lab arm (stub)");
+                tracing::debug!(
+                    g = MEDCARE_G,
+                    "MedcareConsumerActor: Calibrate lab arm (stub)"
+                );
             }
 
             ConsumerEnvelope::Probe(_req) => {
@@ -142,10 +142,9 @@ impl Actor for MedcareConsumerActor
 }
 
 /// Helper: build a `HealthStatus` for the medcare actor.
-pub fn medcare_health(handled: u64) -> HealthStatus
-{
+pub fn medcare_health(handled: u64) -> HealthStatus {
     HealthStatus {
-        ok:     true,
+        ok: true,
         detail: format!("MedcareConsumerActor ok; handled={handled}"),
     }
 }

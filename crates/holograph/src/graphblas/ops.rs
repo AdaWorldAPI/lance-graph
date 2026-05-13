@@ -3,14 +3,14 @@
 //! High-level operations following the GraphBLAS C API specification,
 //! adapted for HDR computing with bitpacked vectors.
 
-use crate::bitpack::BitpackedVector;
-use super::matrix::GrBMatrix;
-use super::vector::GrBVector;
-#[allow(unused_imports)] // GRB_ALL reserved for full-index mask in mxv/vxm
-use super::types::{GrBIndex, HdrScalar, GRB_ALL};
-use super::semiring::{Semiring, HdrSemiring};
-use super::descriptor::Descriptor;
 use super::GrBInfo;
+use super::descriptor::Descriptor;
+use super::matrix::GrBMatrix;
+use super::semiring::{HdrSemiring, Semiring};
+#[allow(unused_imports)] // GRB_ALL reserved for full-index mask in mxv/vxm
+use super::types::{GRB_ALL, GrBIndex, HdrScalar};
+use super::vector::GrBVector;
+use crate::bitpack::BitpackedVector;
 
 // ============================================================================
 // MATRIX-MATRIX OPERATIONS
@@ -510,7 +510,8 @@ pub fn grb_extract_matrix(
                     let masked = if desc.is_mask_complemented() {
                         m.get(new_row_idx, new_col_idx).is_none()
                     } else {
-                        m.get(new_row_idx, new_col_idx).map_or(false, |v| v.to_bool())
+                        m.get(new_row_idx, new_col_idx)
+                            .map_or(false, |v| v.to_bool())
                     };
                     if !masked {
                         continue;
@@ -575,11 +576,7 @@ fn apply_vector_mask(result: &GrBVector, mask: &GrBVector, desc: &Descriptor) ->
 /// BFS traversal using HDR semiring
 ///
 /// Returns vector of bound paths from source to each reachable node.
-pub fn hdr_bfs(
-    adj: &mut GrBMatrix,
-    source: GrBIndex,
-    max_depth: usize,
-) -> GrBVector {
+pub fn hdr_bfs(adj: &mut GrBMatrix, source: GrBIndex, max_depth: usize) -> GrBVector {
     let n = adj.nrows();
     let semiring = HdrSemiring::BindFirst;
 
@@ -616,11 +613,7 @@ pub fn hdr_bfs(
 /// Single-source shortest semantic path
 ///
 /// Uses Hamming distance as edge weight, finds minimum distance paths.
-pub fn hdr_sssp(
-    adj: &mut GrBMatrix,
-    source: GrBIndex,
-    max_iters: usize,
-) -> GrBVector {
+pub fn hdr_sssp(adj: &mut GrBMatrix, source: GrBIndex, max_iters: usize) -> GrBVector {
     let n = adj.nrows();
     let semiring = HdrSemiring::HammingMin;
 
@@ -649,11 +642,7 @@ pub fn hdr_sssp(
 /// PageRank-style importance using HDR bundling
 ///
 /// Accumulates "influence" vectors through bundling.
-pub fn hdr_pagerank(
-    adj: &mut GrBMatrix,
-    _damping: f32,
-    max_iters: usize,
-) -> GrBVector {
+pub fn hdr_pagerank(adj: &mut GrBMatrix, _damping: f32, max_iters: usize) -> GrBVector {
     let n = adj.nrows();
     let semiring = HdrSemiring::XorBundle;
 

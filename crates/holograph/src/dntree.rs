@@ -475,13 +475,30 @@ impl CogVerb {
     /// Get verb name
     pub fn name(&self) -> &'static str {
         match self.0 {
-            0 => "IS_A", 1 => "PART_OF", 2 => "CONTAINS", 3 => "HAS_PROPERTY",
-            4 => "INSTANCE_OF", 5 => "SUBCLASS_OF", 6 => "SIMILAR_TO", 7 => "OPPOSITE_OF",
-            24 => "CAUSES", 25 => "ENABLES", 26 => "PREVENTS", 27 => "TRANSFORMS",
-            48 => "BEFORE", 49 => "AFTER", 56 => "DURING",
-            72 => "KNOWS", 73 => "BELIEVES", 74 => "INFERS",
-            96 => "DOES", 97 => "INTENDS", 98 => "CHOOSES",
-            120 => "SEES", 125 => "FEELS", 126 => "ENJOYS",
+            0 => "IS_A",
+            1 => "PART_OF",
+            2 => "CONTAINS",
+            3 => "HAS_PROPERTY",
+            4 => "INSTANCE_OF",
+            5 => "SUBCLASS_OF",
+            6 => "SIMILAR_TO",
+            7 => "OPPOSITE_OF",
+            24 => "CAUSES",
+            25 => "ENABLES",
+            26 => "PREVENTS",
+            27 => "TRANSFORMS",
+            48 => "BEFORE",
+            49 => "AFTER",
+            56 => "DURING",
+            72 => "KNOWS",
+            73 => "BELIEVES",
+            74 => "INFERS",
+            96 => "DOES",
+            97 => "INTENDS",
+            98 => "CHOOSES",
+            120 => "SEES",
+            125 => "FEELS",
+            126 => "ENJOYS",
             _ => "VERB",
         }
     }
@@ -598,7 +615,11 @@ impl DnEdge {
     }
 
     /// Recover 'to' from edge, verb, and from
-    pub fn recover_to(edge_fp: &BitpackedVector, from: &TreeAddr, verb: &CogVerb) -> BitpackedVector {
+    pub fn recover_to(
+        edge_fp: &BitpackedVector,
+        from: &TreeAddr,
+        verb: &CogVerb,
+    ) -> BitpackedVector {
         // to = edge ⊗ from ⊗ verb (XOR is self-inverse)
         let from_fp = from.to_fingerprint();
         let verb_fp = verb.to_fingerprint();
@@ -606,7 +627,11 @@ impl DnEdge {
     }
 
     /// Recover 'from' from edge, verb, and to
-    pub fn recover_from(edge_fp: &BitpackedVector, verb: &CogVerb, to: &TreeAddr) -> BitpackedVector {
+    pub fn recover_from(
+        edge_fp: &BitpackedVector,
+        verb: &CogVerb,
+        to: &TreeAddr,
+    ) -> BitpackedVector {
         let verb_fp = verb.to_fingerprint();
         let to_fp = to.to_fingerprint();
         edge_fp.xor(&verb_fp).xor(&to_fp)
@@ -645,7 +670,8 @@ impl DnTree {
 
     /// Add node
     pub fn add_node(&mut self, node: DnNode) {
-        self.node_index.push((node.fingerprint.clone(), node.addr.clone()));
+        self.node_index
+            .push((node.fingerprint.clone(), node.addr.clone()));
         self.nodes.insert(node.addr.clone(), node);
     }
 
@@ -653,7 +679,8 @@ impl DnTree {
     pub fn add_addr(&mut self, addr: TreeAddr) -> &mut DnNode {
         if !self.nodes.contains_key(&addr) {
             let node = DnNode::new(addr.clone());
-            self.node_index.push((node.fingerprint.clone(), addr.clone()));
+            self.node_index
+                .push((node.fingerprint.clone(), addr.clone()));
             self.nodes.insert(addr.clone(), node);
         }
         self.nodes.get_mut(&addr).unwrap()
@@ -676,23 +703,21 @@ impl DnTree {
         self.add_addr(edge.to.clone());
 
         // Store in adjacency
-        self.forward
-            .entry(edge.from.clone())
-            .or_default()
-            .push((edge.verb, edge.to.clone(), edge.weight));
+        self.forward.entry(edge.from.clone()).or_default().push((
+            edge.verb,
+            edge.to.clone(),
+            edge.weight,
+        ));
 
-        self.reverse
-            .entry(edge.to.clone())
-            .or_default()
-            .push((edge.verb, edge.from.clone(), edge.weight));
+        self.reverse.entry(edge.to.clone()).or_default().push((
+            edge.verb,
+            edge.from.clone(),
+            edge.weight,
+        ));
 
         // Store fingerprint for search
-        self.edge_fingerprints.push((
-            edge.fingerprint,
-            edge.from,
-            edge.verb,
-            edge.to,
-        ));
+        self.edge_fingerprints
+            .push((edge.fingerprint, edge.from, edge.verb, edge.to));
     }
 
     /// Connect two addresses with verb
@@ -721,7 +746,11 @@ impl DnTree {
     }
 
     /// Get edges filtered by verb category
-    pub fn edges_by_category(&self, addr: &TreeAddr, category: VerbCategory) -> Vec<(&CogVerb, &TreeAddr)> {
+    pub fn edges_by_category(
+        &self,
+        addr: &TreeAddr,
+        category: VerbCategory,
+    ) -> Vec<(&CogVerb, &TreeAddr)> {
         self.outgoing(addr)
             .iter()
             .filter(|(v, _, _)| v.category() == category)
@@ -755,9 +784,7 @@ impl DnTree {
             self.nodes
                 .keys()
                 .filter(|a| {
-                    *a != addr
-                        && a.depth() == addr.depth()
-                        && a.parent().as_ref() == Some(&parent)
+                    *a != addr && a.depth() == addr.depth() && a.parent().as_ref() == Some(&parent)
                 })
                 .collect()
         } else {
@@ -799,7 +826,8 @@ impl DnTree {
 
     /// Find K nearest nodes
     pub fn find_k_nearest(&self, query: &BitpackedVector, k: usize) -> Vec<(&TreeAddr, u32)> {
-        let mut results: Vec<_> = self.node_index
+        let mut results: Vec<_> = self
+            .node_index
             .iter()
             .map(|(fp, addr)| (addr, hamming_distance_scalar(query, fp)))
             .collect();
@@ -825,7 +853,10 @@ impl DnTree {
     }
 
     /// Find nearest edge by fingerprint
-    pub fn find_nearest_edge(&self, query: &BitpackedVector) -> Option<(&TreeAddr, &CogVerb, &TreeAddr, u32)> {
+    pub fn find_nearest_edge(
+        &self,
+        query: &BitpackedVector,
+    ) -> Option<(&TreeAddr, &CogVerb, &TreeAddr, u32)> {
         let mut best = None;
         let mut best_dist = u32::MAX;
 
@@ -887,7 +918,8 @@ impl DnTree {
 
     /// Get most activated nodes
     pub fn most_activated(&self, k: usize) -> Vec<(&TreeAddr, f32)> {
-        let mut activated: Vec<_> = self.nodes
+        let mut activated: Vec<_> = self
+            .nodes
             .iter()
             .filter(|(_, n)| n.activation > 0.0)
             .map(|(addr, n)| (addr, n.activation))

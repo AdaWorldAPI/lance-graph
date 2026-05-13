@@ -20,13 +20,13 @@ use crate::engine::ThinkingEngine;
 use crate::layered::CausalEdge64;
 
 // Bach counterpoint channel indices
-pub const CH_BECOMES: u8 = 0;     // voice crossing — identity shifts
-pub const CH_CAUSES: u8 = 1;      // diminution — one causes the other
-pub const CH_SUPPORTS: u8 = 2;    // parallel motion — same direction
-pub const CH_REFINES: u8 = 3;     // contrary motion — opposite, sharpening
-pub const CH_GROUNDS: u8 = 4;     // oblique motion — one stable, other moves
-pub const CH_ABSTRACTS: u8 = 5;   // augmentation — slower, broader
-pub const CH_RELATES: u8 = 6;     // imitation — echo, repetition
+pub const CH_BECOMES: u8 = 0; // voice crossing — identity shifts
+pub const CH_CAUSES: u8 = 1; // diminution — one causes the other
+pub const CH_SUPPORTS: u8 = 2; // parallel motion — same direction
+pub const CH_REFINES: u8 = 3; // contrary motion — opposite, sharpening
+pub const CH_GROUNDS: u8 = 4; // oblique motion — one stable, other moves
+pub const CH_ABSTRACTS: u8 = 5; // augmentation — slower, broader
+pub const CH_RELATES: u8 = 6; // imitation — echo, repetition
 pub const CH_CONTRADICTS: u8 = 7; // dissonance — tritone, unresolved
 
 /// One atom in the cascade with its accumulated truth.
@@ -120,10 +120,16 @@ pub fn classify_transition(
 ) -> Transition {
     let sim = if (from as usize) < n && (to as usize) < n {
         table[from as usize * n + to as usize]
-    } else { 128 };
+    } else {
+        128
+    };
 
     let above_floor = sim.saturating_sub(floor) as f32 / (255.0 - floor as f32).max(1.0);
-    let energy_ratio = if from_energy > 1e-10 { to_energy / from_energy } else { 1.0 };
+    let energy_ratio = if from_energy > 1e-10 {
+        to_energy / from_energy
+    } else {
+        1.0
+    };
 
     let mut edge = CausalEdge64::new();
 
@@ -168,7 +174,12 @@ pub fn classify_transition(
         0.5 // neutral
     };
 
-    Transition { from_atom: from, to_atom: to, edge, dissonance }
+    Transition {
+        from_atom: from,
+        to_atom: to,
+        edge,
+        dissonance,
+    }
 }
 
 /// Compute the full dissonance profile from cascade stages.
@@ -186,15 +197,33 @@ pub fn measure_dissonance(
         let to = &stages[i + 1];
 
         // Primary transition: dominant focus atom to next dominant
-        let from_atom = from.focus.first().map(|a| (a.index, a.energy)).unwrap_or((0, 0.0));
-        let to_atom = to.focus.first().map(|a| (a.index, a.energy)).unwrap_or((0, 0.0));
+        let from_atom = from
+            .focus
+            .first()
+            .map(|a| (a.index, a.energy))
+            .unwrap_or((0, 0.0));
+        let to_atom = to
+            .focus
+            .first()
+            .map(|a| (a.index, a.energy))
+            .unwrap_or((0, 0.0));
 
-        let t = classify_transition(table, n, from_atom.0, to_atom.0, from_atom.1, to_atom.1, floor);
+        let t = classify_transition(
+            table,
+            n,
+            from_atom.0,
+            to_atom.0,
+            from_atom.1,
+            to_atom.1,
+            floor,
+        );
         per_stage.push(t.dissonance);
         transitions.push(t);
     }
 
-    let total_dissonance = if per_stage.is_empty() { 0.0 } else {
+    let total_dissonance = if per_stage.is_empty() {
+        0.0
+    } else {
         per_stage.iter().sum::<f32>() / per_stage.len() as f32
     };
 
@@ -207,13 +236,22 @@ pub fn measure_dissonance(
 
     // Check for Rachmaninov suspension: high sustained then sudden drop
     let suspension = per_stage.len() >= 3 && {
-        let high_count = per_stage.iter().take(per_stage.len() - 1)
-            .filter(|&&d| d > 0.4).count();
+        let high_count = per_stage
+            .iter()
+            .take(per_stage.len() - 1)
+            .filter(|&&d| d > 0.4)
+            .count();
         let last = *per_stage.last().unwrap_or(&0.0);
         high_count >= 2 && last < 0.2
     };
 
-    DissonanceProfile { transitions, total_dissonance, per_stage, resolved, suspension }
+    DissonanceProfile {
+        transitions,
+        total_dissonance,
+        per_stage,
+        resolved,
+        suspension,
+    }
 }
 
 /// The domino cascade engine.
@@ -236,7 +274,8 @@ pub struct DominoCascade<'a> {
 
 impl<'a> DominoCascade<'a> {
     pub fn new(engine: &'a ThinkingEngine, centroid_counts: &[u32]) -> Self {
-        let idf: Vec<f32> = centroid_counts.iter()
+        let idf: Vec<f32> = centroid_counts
+            .iter()
             .map(|&c| 1.0 / (1.0 + (c.max(1) as f32).ln()))
             .collect();
         // Pad if needed
@@ -269,7 +308,8 @@ impl<'a> DominoCascade<'a> {
         let floor = self.engine.floor;
 
         // Initial query: the perturbed centroids
-        let mut query: Vec<(u16, f32)> = initial_centroids.iter()
+        let mut query: Vec<(u16, f32)> = initial_centroids
+            .iter()
             .map(|&c| (c, self.idf.get(c as usize).copied().unwrap_or(1.0)))
             .collect();
 
@@ -317,22 +357,33 @@ impl<'a> DominoCascade<'a> {
 
             // For each query atom, scan its row
             for &(q_idx, q_energy) in &query {
-                if (q_idx as usize) >= n { continue; }
+                if (q_idx as usize) >= n {
+                    continue;
+                }
                 let row = &table[q_idx as usize * n..(q_idx as usize + 1) * n];
 
                 // Compute row statistics for 3σ threshold
-                let above_floor: Vec<(usize, u8)> = row.iter().enumerate()
+                let above_floor: Vec<(usize, u8)> = row
+                    .iter()
+                    .enumerate()
                     .filter(|(j, &v)| *j != q_idx as usize && v > floor)
                     .map(|(j, &v)| (j, v))
                     .collect();
 
-                if above_floor.is_empty() { continue; }
+                if above_floor.is_empty() {
+                    continue;
+                }
 
                 let mean: f32 = above_floor.iter().map(|(_, v)| *v as f32).sum::<f32>()
                     / above_floor.len() as f32;
-                let variance: f32 = above_floor.iter()
-                    .map(|(_, v)| { let d = *v as f32 - mean; d * d })
-                    .sum::<f32>() / above_floor.len() as f32;
+                let variance: f32 = above_floor
+                    .iter()
+                    .map(|(_, v)| {
+                        let d = *v as f32 - mean;
+                        d * d
+                    })
+                    .sum::<f32>()
+                    / above_floor.len() as f32;
                 let std = variance.sqrt().max(0.1);
                 let _threshold_3sigma = mean + 3.0 * std;
 
@@ -357,9 +408,11 @@ impl<'a> DominoCascade<'a> {
             }
 
             // Deduplicate neighbors (sum energies for same atom)
-            let mut deduped: std::collections::HashMap<u16, CascadeAtom> = std::collections::HashMap::new();
+            let mut deduped: std::collections::HashMap<u16, CascadeAtom> =
+                std::collections::HashMap::new();
             for atom in all_neighbors {
-                deduped.entry(atom.index)
+                deduped
+                    .entry(atom.index)
                     .and_modify(|existing| {
                         existing.energy += atom.energy;
                         existing.frequency = existing.frequency.max(atom.frequency);
@@ -372,19 +425,18 @@ impl<'a> DominoCascade<'a> {
             neighbors.sort_by(|a, b| b.energy.partial_cmp(&a.energy).unwrap());
 
             // Split into focus (top-K), promoted (NARS pass), contradictions
-            let focus: Vec<CascadeAtom> = neighbors.iter()
-                .take(self.top_k)
-                .cloned()
-                .collect();
+            let focus: Vec<CascadeAtom> = neighbors.iter().take(self.top_k).cloned().collect();
 
-            let promoted: Vec<CascadeAtom> = neighbors.iter()
+            let promoted: Vec<CascadeAtom> = neighbors
+                .iter()
                 .skip(self.top_k)
                 .filter(|a| a.confidence > self.conf_threshold && a.frequency > 0.5)
                 .take(self.top_k * 2) // limit promoted count
                 .cloned()
                 .collect();
 
-            let contradictions: Vec<CascadeAtom> = neighbors.iter()
+            let contradictions: Vec<CascadeAtom> = neighbors
+                .iter()
                 .filter(|a| a.confidence > self.conf_threshold && a.frequency < self.contra_freq)
                 .take(self.top_k)
                 .cloned()
@@ -393,7 +445,8 @@ impl<'a> DominoCascade<'a> {
             // ── Compute cognitive markers ──
 
             // Staunen (wonder): focus atoms never visited before + strong connection
-            let staunen = focus.iter()
+            let staunen = focus
+                .iter()
                 .filter(|a| visit_count.get(&a.index).copied().unwrap_or(0) == 0)
                 .map(|a| a.frequency * a.confidence)
                 .sum::<f32>()
@@ -402,13 +455,15 @@ impl<'a> DominoCascade<'a> {
             // Wisdom: atoms that appear via multiple independent query paths
             // (appeared in focus of previous stage AND current stage from different queries)
             let wisdom = if stage > 0 {
-                let prev_focus: std::collections::HashSet<u16> = stages[stage - 1].focus.iter()
-                    .map(|a| a.index).collect();
-                let curr_focus: std::collections::HashSet<u16> = focus.iter()
-                    .map(|a| a.index).collect();
+                let prev_focus: std::collections::HashSet<u16> =
+                    stages[stage - 1].focus.iter().map(|a| a.index).collect();
+                let curr_focus: std::collections::HashSet<u16> =
+                    focus.iter().map(|a| a.index).collect();
                 let convergent = prev_focus.intersection(&curr_focus).count();
                 convergent as f32 / self.top_k.max(1) as f32
-            } else { 0.0 };
+            } else {
+                0.0
+            };
 
             // Epiphany: previous stage had contradiction, this stage resolves
             let epiphany = if stage > 0 && !stages[stage - 1].contradictions.is_empty() {
@@ -416,12 +471,18 @@ impl<'a> DominoCascade<'a> {
                 let curr_contra = contradictions.len() as f32;
                 if curr_contra < prev_contra * 0.5 {
                     (prev_contra - curr_contra) / prev_contra.max(1.0)
-                } else { 0.0 }
-            } else { 0.0 };
+                } else {
+                    0.0
+                }
+            } else {
+                0.0
+            };
 
             // Truth: accumulated NARS across focus atoms
-            let truth_freq = focus.iter().map(|a| a.frequency).sum::<f32>() / focus.len().max(1) as f32;
-            let truth_conf = focus.iter().map(|a| a.confidence).sum::<f32>() / focus.len().max(1) as f32;
+            let truth_freq =
+                focus.iter().map(|a| a.frequency).sum::<f32>() / focus.len().max(1) as f32;
+            let truth_conf =
+                focus.iter().map(|a| a.confidence).sum::<f32>() / focus.len().max(1) as f32;
 
             let markers = CognitiveMarkers {
                 staunen,
@@ -441,20 +502,26 @@ impl<'a> DominoCascade<'a> {
             stages.push(result);
 
             // Build Q for next stage: focus + promoted
-            query = focus.iter().chain(promoted.iter())
+            query = focus
+                .iter()
+                .chain(promoted.iter())
                 .map(|a| (a.index, a.energy))
                 .collect();
 
             // Stop if focus is stable (same atoms as previous stage)
             if stage > 0 {
-                let prev_focus: std::collections::HashSet<u16> = stages[stage - 1].focus.iter()
-                    .map(|a| a.index).collect();
-                let curr_focus: std::collections::HashSet<u16> = stages[stage].focus.iter()
-                    .map(|a| a.index).collect();
-                if prev_focus == curr_focus { break; }
+                let prev_focus: std::collections::HashSet<u16> =
+                    stages[stage - 1].focus.iter().map(|a| a.index).collect();
+                let curr_focus: std::collections::HashSet<u16> =
+                    stages[stage].focus.iter().map(|a| a.index).collect();
+                if prev_focus == curr_focus {
+                    break;
+                }
             }
 
-            if query.is_empty() { break; }
+            if query.is_empty() {
+                break;
+            }
         }
 
         stages
@@ -463,7 +530,8 @@ impl<'a> DominoCascade<'a> {
     /// Run cascade and return the dominant atom + its chain + dissonance profile.
     pub fn think(&self, centroids: &[u16]) -> (u16, Vec<StageResult>, DissonanceProfile) {
         let stages = self.cascade(centroids);
-        let dominant = stages.last()
+        let dominant = stages
+            .last()
             .and_then(|s| s.focus.first())
             .map(|a| a.index)
             .unwrap_or(0);
@@ -534,18 +602,30 @@ mod tests {
         // Should produce multiple stages (domino ripple)
         assert!(stages.len() >= 2, "cascade should ripple at least 2 stages");
         // Focus should shift as the ripple propagates
-        let s0_focus: std::collections::HashSet<u16> = stages[0].focus.iter().map(|a| a.index).collect();
-        let s1_focus: std::collections::HashSet<u16> = stages[1].focus.iter().map(|a| a.index).collect();
+        let s0_focus: std::collections::HashSet<u16> =
+            stages[0].focus.iter().map(|a| a.index).collect();
+        let s1_focus: std::collections::HashSet<u16> =
+            stages[1].focus.iter().map(|a| a.index).collect();
         // At least some overlap (continuity) but not identical (exploration)
         let overlap = s0_focus.intersection(&s1_focus).count();
-        eprintln!("stage0 focus: {:?}, stage1 focus: {:?}, overlap: {}",
-            s0_focus, s1_focus, overlap);
+        eprintln!(
+            "stage0 focus: {:?}, stage1 focus: {:?}, overlap: {}",
+            s0_focus, s1_focus, overlap
+        );
         assert!(s1_focus.len() > 0, "stage 1 should have focus atoms");
         // Dissonance should be computed
-        assert!(!dissonance.transitions.is_empty(), "should have transitions");
+        assert!(
+            !dissonance.transitions.is_empty(),
+            "should have transitions"
+        );
         assert!(dissonance.total_dissonance >= 0.0 && dissonance.total_dissonance <= 1.0);
-        eprintln!("dissonance: total={:.3} per_stage={:?} resolved={} suspension={}",
-            dissonance.total_dissonance, dissonance.per_stage, dissonance.resolved, dissonance.suspension);
+        eprintln!(
+            "dissonance: total={:.3} per_stage={:?} resolved={} suspension={}",
+            dissonance.total_dissonance,
+            dissonance.per_stage,
+            dissonance.resolved,
+            dissonance.suspension
+        );
     }
 
     #[test]
@@ -554,9 +634,15 @@ mod tests {
         let mut table = vec![0u8; 16];
         table[0 * 4 + 1] = 250; // atom 0 → atom 1: very similar
         table[1 * 4 + 0] = 250;
-        for i in 0..4 { table[i * 4 + i] = 255; }
+        for i in 0..4 {
+            table[i * 4 + i] = 255;
+        }
         let t = classify_transition(&table, 4, 0, 1, 1.0, 1.0, 0);
-        assert!(t.dissonance < 0.1, "high similarity should be consonant, got {}", t.dissonance);
+        assert!(
+            t.dissonance < 0.1,
+            "high similarity should be consonant, got {}",
+            t.dissonance
+        );
         assert!(t.edge.get_channel(CH_SUPPORTS) > 0, "should be SUPPORTS");
     }
 
@@ -566,9 +652,18 @@ mod tests {
         let mut table = vec![128u8; 16];
         table[0 * 4 + 1] = 50; // atom 0 → atom 1: below floor
         table[1 * 4 + 0] = 50;
-        for i in 0..4 { table[i * 4 + i] = 255; }
+        for i in 0..4 {
+            table[i * 4 + i] = 255;
+        }
         let t = classify_transition(&table, 4, 0, 1, 1.0, 1.0, 128);
-        assert!(t.dissonance > 0.5, "below floor should be dissonant, got {}", t.dissonance);
-        assert!(t.edge.get_channel(CH_CONTRADICTS) > 0, "should have CONTRADICTS");
+        assert!(
+            t.dissonance > 0.5,
+            "below floor should be dissonant, got {}",
+            t.dissonance
+        );
+        assert!(
+            t.edge.get_channel(CH_CONTRADICTS) > 0,
+            "should have CONTRADICTS"
+        );
     }
 }

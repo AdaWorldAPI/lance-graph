@@ -55,16 +55,16 @@
 //!     -- /path/to/model.safetensors
 //! ```
 
-use ndarray::hpc::safetensors::read_safetensors_header;
-use ndarray::hpc::gguf::{GgmlType, TensorInfo};
 use bgz_tensor::quality::spearman;
+use ndarray::hpc::gguf::{GgmlType, TensorInfo};
+use ndarray::hpc::safetensors::read_safetensors_header;
 
 use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::time::Instant;
 
-const N_SAMPLE: usize = 200;  // rows to sample (200×200 = 40K pairs)
-const N_LAYERS: usize = 33;   // transformer depth
+const N_SAMPLE: usize = 200; // rows to sample (200×200 = 40K pairs)
+const N_LAYERS: usize = 33; // transformer depth
 
 // ═══════════════════════════════════════════════════════════════════
 // Correction methods
@@ -178,7 +178,7 @@ fn restore_turboquant(q: i8, gain_a: f64, gain_b: f64) -> f64 {
 /// MLP, layernorm. But the attention chain is the part where score
 /// quantization bias compounds.
 fn simulate_chain(
-    scores: &[Vec<f64>],  // N×N score matrix
+    scores: &[Vec<f64>], // N×N score matrix
     n_layers: usize,
 ) -> Vec<Vec<f64>> {
     let n = scores.len();
@@ -235,8 +235,11 @@ fn upper_triangle(m: &[Vec<f64>]) -> Vec<f64> {
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let st_path = if args.len() > 1 { &args[1] }
-    else { "/home/user/models/Qwen3-TTS-12Hz-1.7B-Base/model.safetensors" };
+    let st_path = if args.len() > 1 {
+        &args[1]
+    } else {
+        "/home/user/models/Qwen3-TTS-12Hz-1.7B-Base/model.safetensors"
+    };
 
     println!("═══ TURBOQUANT CORRECTION PROBE ═══");
     println!("  Does QJL unbiasing survive {} layers?", N_LAYERS);
@@ -246,27 +249,44 @@ fn main() {
     let header = read_safetensors_header(&mut reader).expect("parse");
 
     // Find a representative attention projection (q_proj from talker layer 0)
-    let target = header.tensors.iter()
+    let target = header
+        .tensors
+        .iter()
         .find(|t| t.name.contains("layers.0.self_attn.q_proj") && t.name.ends_with("weight"))
-        .or_else(|| header.tensors.iter().find(|t| t.name.contains("q_proj") && t.name.ends_with("weight")))
+        .or_else(|| {
+            header
+                .tensors
+                .iter()
+                .find(|t| t.name.contains("q_proj") && t.name.ends_with("weight"))
+        })
         .expect("find q_proj");
 
     println!("[1] Target: {} {:?}", target.name, target.dimensions);
 
     let n_rows = (target.dimensions[0] as usize).min(N_SAMPLE);
-    let n_cols = if target.dimensions.len() > 1 { target.dimensions[1] as usize } else { 1 };
+    let n_cols = if target.dimensions.len() > 1 {
+        target.dimensions[1] as usize
+    } else {
+        1
+    };
 
-    reader.seek(SeekFrom::Start(header.tensor_data_offset + target.offset)).unwrap();
+    reader
+        .seek(SeekFrom::Start(header.tensor_data_offset + target.offset))
+        .unwrap();
     let mut raw = vec![0u8; n_rows * n_cols * 2]; // BF16
     reader.read_exact(&mut raw).unwrap();
 
-    let rows: Vec<Vec<f32>> = (0..n_rows).map(|r| {
-        (0..n_cols).map(|c| {
-            let idx = r * n_cols + c;
-            let bits = u16::from_le_bytes([raw[idx*2], raw[idx*2+1]]);
-            f32::from_bits((bits as u32) << 16)
-        }).collect()
-    }).collect();
+    let rows: Vec<Vec<f32>> = (0..n_rows)
+        .map(|r| {
+            (0..n_cols)
+                .map(|c| {
+                    let idx = r * n_cols + c;
+                    let bits = u16::from_le_bytes([raw[idx * 2], raw[idx * 2 + 1]]);
+                    f32::from_bits((bits as u32) << 16)
+                })
+                .collect()
+        })
+        .collect();
 
     println!("  {} rows × {} cols loaded", rows.len(), n_cols);
 
@@ -277,7 +297,11 @@ fn main() {
     let mut norms = vec![0.0f64; n];
 
     for i in 0..n {
-        norms[i] = rows[i].iter().map(|&x| (x as f64).powi(2)).sum::<f64>().sqrt();
+        norms[i] = rows[i]
+            .iter()
+            .map(|&x| (x as f64).powi(2))
+            .sum::<f64>()
+            .sqrt();
     }
 
     for i in 0..n {
@@ -296,15 +320,23 @@ fn main() {
     // Cosine statistics
     let gt_upper = upper_triangle(&gt_cos);
     let cos_mean: f64 = gt_upper.iter().sum::<f64>() / gt_upper.len() as f64;
-    let cos_std: f64 = (gt_upper.iter().map(|&c| (c - cos_mean).powi(2)).sum::<f64>()
-        / gt_upper.len() as f64).sqrt();
-    println!("  Cosine range: [{:.4}, {:.4}], mean={:.4}, std={:.4}",
+    let cos_std: f64 = (gt_upper
+        .iter()
+        .map(|&c| (c - cos_mean).powi(2))
+        .sum::<f64>()
+        / gt_upper.len() as f64)
+        .sqrt();
+    println!(
+        "  Cosine range: [{:.4}, {:.4}], mean={:.4}, std={:.4}",
         gt_upper.iter().cloned().fold(f64::INFINITY, f64::min),
         gt_upper.iter().cloned().fold(f64::NEG_INFINITY, f64::max),
-        cos_mean, cos_std);
+        cos_mean,
+        cos_std
+    );
 
     // Fisher z calibration
-    let z_values: Vec<f64> = gt_upper.iter()
+    let z_values: Vec<f64> = gt_upper
+        .iter()
         .map(|&c| c.clamp(-0.9999, 0.9999).atanh())
         .collect();
     let z_min = z_values.iter().cloned().fold(f64::INFINITY, f64::min);
@@ -317,44 +349,52 @@ fn main() {
     let methods: Vec<(&str, Vec<Vec<f64>>)> = vec![
         ("direct_i8", {
             let mut m = vec![vec![0.0; n]; n];
-            for i in 0..n { m[i][i] = 1.0;
-                for j in (i+1)..n {
+            for i in 0..n {
+                m[i][i] = 1.0;
+                for j in (i + 1)..n {
                     let q = quantize_direct_i8(gt_cos[i][j]);
                     let r = restore_direct_i8(q);
-                    m[i][j] = r; m[j][i] = r;
+                    m[i][j] = r;
+                    m[j][i] = r;
                 }
             }
             m
         }),
         ("fisher_z", {
             let mut m = vec![vec![0.0; n]; n];
-            for i in 0..n { m[i][i] = 1.0;
-                for j in (i+1)..n {
+            for i in 0..n {
+                m[i][i] = 1.0;
+                for j in (i + 1)..n {
                     let q = quantize_fisher_z(gt_cos[i][j], z_min, z_range);
                     let r = restore_fisher_z(q, z_min, z_range);
-                    m[i][j] = r; m[j][i] = r;
+                    m[i][j] = r;
+                    m[j][i] = r;
                 }
             }
             m
         }),
         ("qjl_corrected", {
             let mut m = vec![vec![0.0; n]; n];
-            for i in 0..n { m[i][i] = 1.0;
-                for j in (i+1)..n {
+            for i in 0..n {
+                m[i][i] = 1.0;
+                for j in (i + 1)..n {
                     let q = quantize_qjl_i8(gt_cos[i][j]);
                     let r = restore_qjl_i8(q);
-                    m[i][j] = r; m[j][i] = r;
+                    m[i][j] = r;
+                    m[j][i] = r;
                 }
             }
             m
         }),
         ("turboquant", {
             let mut m = vec![vec![0.0; n]; n];
-            for i in 0..n { m[i][i] = 1.0;
-                for j in (i+1)..n {
+            for i in 0..n {
+                m[i][i] = 1.0;
+                for j in (i + 1)..n {
                     let q = quantize_turboquant(gt_cos[i][j], norms[i], norms[j]);
                     let r = restore_turboquant(q, norms[i], norms[j]);
-                    m[i][j] = r; m[j][i] = r;
+                    m[i][j] = r;
+                    m[j][i] = r;
                 }
             }
             m
@@ -363,68 +403,100 @@ fn main() {
 
     // ─── Static quality (before chain) ─────────────────────────────
     println!("\n[4] Static quality (single layer)...");
-    println!("  {:16} │ Spearman ρ │ Pearson r  │ MAE        │ Max err    │ Bias", "Method");
+    println!(
+        "  {:16} │ Spearman ρ │ Pearson r  │ MAE        │ Max err    │ Bias",
+        "Method"
+    );
     println!("  ─────────────────┼────────────┼────────────┼────────────┼────────────┼──────────");
 
     for (name, encoded) in &methods {
         let enc_upper = upper_triangle(encoded);
         let rho = spearman(&gt_upper, &enc_upper);
         let r = bgz_tensor::quality::pearson(&gt_upper, &enc_upper);
-        let mae: f64 = gt_upper.iter().zip(&enc_upper)
+        let mae: f64 = gt_upper
+            .iter()
+            .zip(&enc_upper)
             .map(|(&g, &e)| (g - e).abs())
-            .sum::<f64>() / gt_upper.len() as f64;
-        let max_err: f64 = gt_upper.iter().zip(&enc_upper)
+            .sum::<f64>()
+            / gt_upper.len() as f64;
+        let max_err: f64 = gt_upper
+            .iter()
+            .zip(&enc_upper)
             .map(|(&g, &e)| (g - e).abs())
             .fold(0.0, f64::max);
         // Bias: mean(encoded - gt). Positive = overestimates, negative = underestimates.
-        let bias: f64 = gt_upper.iter().zip(&enc_upper)
+        let bias: f64 = gt_upper
+            .iter()
+            .zip(&enc_upper)
             .map(|(&g, &e)| e - g)
-            .sum::<f64>() / gt_upper.len() as f64;
+            .sum::<f64>()
+            / gt_upper.len() as f64;
 
-        println!("  {:16} │ {:10.6} │ {:10.6} │ {:10.6} │ {:10.6} │ {:+.6}",
-            name, rho, r, mae, max_err, bias);
+        println!(
+            "  {:16} │ {:10.6} │ {:10.6} │ {:10.6} │ {:10.6} │ {:+.6}",
+            name, rho, r, mae, max_err, bias
+        );
     }
 
     // ─── Chain simulation ──────────────────────────────────────────
     // Simulate at reduced size (chain is O(n²) per layer, 33 layers)
     let chain_n = n.min(50);
-    println!("\n[5] Chain simulation ({} rows × {} layers)...", chain_n, N_LAYERS);
+    println!(
+        "\n[5] Chain simulation ({} rows × {} layers)...",
+        chain_n, N_LAYERS
+    );
 
     // Ground truth chain
-    let gt_small: Vec<Vec<f64>> = gt_cos[..chain_n].iter()
-        .map(|row| row[..chain_n].to_vec()).collect();
+    let gt_small: Vec<Vec<f64>> = gt_cos[..chain_n]
+        .iter()
+        .map(|row| row[..chain_n].to_vec())
+        .collect();
     let gt_chain = simulate_chain(&gt_small, N_LAYERS);
     let gt_chain_upper = upper_triangle(&gt_chain);
 
-    println!("  {:16} │ Chain ρ    │ Chain r    │ Chain bias │ Drift/layer", "Method");
+    println!(
+        "  {:16} │ Chain ρ    │ Chain r    │ Chain bias │ Drift/layer",
+        "Method"
+    );
     println!("  ─────────────────┼────────────┼────────────┼────────────┼────────────");
 
     for (name, encoded) in &methods {
-        let enc_small: Vec<Vec<f64>> = encoded[..chain_n].iter()
-            .map(|row| row[..chain_n].to_vec()).collect();
+        let enc_small: Vec<Vec<f64>> = encoded[..chain_n]
+            .iter()
+            .map(|row| row[..chain_n].to_vec())
+            .collect();
 
         let enc_chain = simulate_chain(&enc_small, N_LAYERS);
         let enc_chain_upper = upper_triangle(&enc_chain);
 
         let chain_rho = spearman(&gt_chain_upper, &enc_chain_upper);
         let chain_r = bgz_tensor::quality::pearson(&gt_chain_upper, &enc_chain_upper);
-        let chain_bias: f64 = gt_chain_upper.iter().zip(&enc_chain_upper)
+        let chain_bias: f64 = gt_chain_upper
+            .iter()
+            .zip(&enc_chain_upper)
             .map(|(&g, &e)| e - g)
-            .sum::<f64>() / gt_chain_upper.len() as f64;
+            .sum::<f64>()
+            / gt_chain_upper.len() as f64;
 
         // Also measure drift at intermediate layers
         let enc_mid = simulate_chain(&enc_small, N_LAYERS / 2);
         let gt_mid = simulate_chain(&gt_small, N_LAYERS / 2);
-        let mid_bias: f64 = upper_triangle(&gt_mid).iter()
+        let mid_bias: f64 = upper_triangle(&gt_mid)
+            .iter()
             .zip(upper_triangle(&enc_mid).iter())
             .map(|(&g, &e)| e - g)
-            .sum::<f64>() / (chain_n * (chain_n - 1) / 2) as f64;
+            .sum::<f64>()
+            / (chain_n * (chain_n - 1) / 2) as f64;
         let drift_per_layer = if N_LAYERS > 0 {
             chain_bias / N_LAYERS as f64
-        } else { 0.0 };
+        } else {
+            0.0
+        };
 
-        println!("  {:16} │ {:10.6} │ {:10.6} │ {:+10.6} │ {:+10.8}",
-            name, chain_rho, chain_r, chain_bias, drift_per_layer);
+        println!(
+            "  {:16} │ {:10.6} │ {:10.6} │ {:+10.6} │ {:+10.8}",
+            name, chain_rho, chain_r, chain_bias, drift_per_layer
+        );
     }
 
     // ─── Progressive chain depth ───────────────────────────────────
@@ -432,15 +504,21 @@ fn main() {
     let checkpoints = [1, 5, 10, 20, 33];
 
     print!("  {:16}", "Method");
-    for &cp in &checkpoints { print!(" │ L={:2}", cp); }
+    for &cp in &checkpoints {
+        print!(" │ L={:2}", cp);
+    }
     println!();
     print!("  ─────────────────");
-    for _ in &checkpoints { print!("─┼────────"); }
+    for _ in &checkpoints {
+        print!("─┼────────");
+    }
     println!();
 
     for (name, encoded) in &methods {
-        let enc_small: Vec<Vec<f64>> = encoded[..chain_n].iter()
-            .map(|row| row[..chain_n].to_vec()).collect();
+        let enc_small: Vec<Vec<f64>> = encoded[..chain_n]
+            .iter()
+            .map(|row| row[..chain_n].to_vec())
+            .collect();
 
         print!("  {:16}", name);
         for &cp in &checkpoints {

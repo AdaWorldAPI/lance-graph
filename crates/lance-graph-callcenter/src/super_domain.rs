@@ -43,8 +43,7 @@ use crate::unified_bridge::OgitFamily;
 /// first-class business-named activation roots with formal cross-walks.
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum SuperDomain
-{
+pub enum SuperDomain {
     #[default]
     Unknown = 0,
     /// FMA, SNOMED, ICD10, RxNorm, LOINC, RadLex, MONDO, HPO, DRON, CHEBI
@@ -77,20 +76,16 @@ pub enum SuperDomain
     System = 8,
 }
 
-impl SuperDomain
-{
-    pub const fn raw(self) -> u8
-    {
+impl SuperDomain {
+    pub const fn raw(self) -> u8 {
         self as u8
     }
 
-    pub const fn is_known(self) -> bool
-    {
+    pub const fn is_known(self) -> bool {
         !matches!(self, SuperDomain::Unknown)
     }
 
-    pub const fn as_str(self) -> &'static str
-    {
+    pub const fn as_str(self) -> &'static str {
         match self {
             SuperDomain::Unknown => "Unknown",
             SuperDomain::Healthcare => "Healthcare",
@@ -112,8 +107,7 @@ impl SuperDomain
 /// 1 byte. DOLCE upper marker (compressed; only low bits used).
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
-pub enum DolceMarker
-{
+pub enum DolceMarker {
     #[default]
     Unknown = 0,
     Endurant = 1,
@@ -129,8 +123,7 @@ pub enum DolceMarker
 /// 4 cross-walk pointers — one per upper standard. Each optional.
 /// Consulted only when interop with an external system is requested.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct MetaAnchors
-{
+pub struct MetaAnchors {
     /// e.g. `Some("PhysicalSystem")`
     pub foundry_object_type: Option<&'static str>,
     /// e.g. `Some("BiomedicalOntology")`
@@ -141,8 +134,7 @@ pub struct MetaAnchors
     pub wikidata_qid: Option<u64>,
 }
 
-impl MetaAnchors
-{
+impl MetaAnchors {
     pub const EMPTY: Self = Self {
         foundry_object_type: None,
         owl_upper_class: None,
@@ -159,8 +151,7 @@ impl MetaAnchors
 /// (audit log retention, key-rotation cadence, redaction defaults).
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
-pub enum ComplianceRegime
-{
+pub enum ComplianceRegime {
     #[default]
     None = 0,
     /// Healthcare
@@ -188,8 +179,7 @@ pub enum ComplianceRegime
 /// follow-up commit — the minimum-viable shape ships the routing +
 /// compliance fields now so `FAMILY_TO_SUPER_DOMAIN` lookups work.
 #[derive(Clone, Copy, Debug)]
-pub struct SuperDomainEntry
-{
+pub struct SuperDomainEntry {
     pub super_domain: SuperDomain,
     /// Basins this super domain spans (10-30 per domain typically).
     pub basins: &'static [OgitFamily],
@@ -200,20 +190,17 @@ pub struct SuperDomainEntry
     pub compliance: ComplianceRegime,
 }
 
-impl SuperDomainEntry
-{
+impl SuperDomainEntry {
     /// Activation drill-down: super domain → constituent basins.
     /// Used by spreading-activation queries ("anything in Healthcare").
     #[inline]
-    pub fn activate(&self) -> &'static [OgitFamily]
-    {
+    pub fn activate(&self) -> &'static [OgitFamily] {
         self.basins
     }
 
     /// Cross-walk: this super domain's anchor in an external upper ontology.
     #[inline]
-    pub fn cross_walk(&self) -> &MetaAnchors
-    {
+    pub fn cross_walk(&self) -> &MetaAnchors {
         &self.meta
     }
 }
@@ -338,8 +325,7 @@ pub const SUPER_DOMAINS: &[SuperDomainEntry] = &[
 /// New call sites should prefer this over `super_domain_for_family` so they
 /// can distinguish "table not ready" from "genuinely Unknown".
 #[inline]
-pub fn try_resolve(family: OgitFamily) -> Result<SuperDomain, crate::hydration::HydrationError>
-{
+pub fn try_resolve(family: OgitFamily) -> Result<SuperDomain, crate::hydration::HydrationError> {
     crate::hydration::try_resolve(family)
 }
 
@@ -353,55 +339,47 @@ pub fn try_resolve(family: OgitFamily) -> Result<SuperDomain, crate::hydration::
 /// Code that needs to distinguish "not initialised" from "Unknown" should
 /// call `try_resolve` directly.
 #[inline]
-pub fn super_domain_for_family(family: OgitFamily) -> SuperDomain
-{
+pub fn super_domain_for_family(family: OgitFamily) -> SuperDomain {
     crate::hydration::try_resolve(family).unwrap_or(SuperDomain::Unknown)
 }
 
 /// Lookup the `SuperDomainEntry` for a super domain.
 #[inline]
-pub fn super_domain_entry(sd: SuperDomain) -> &'static SuperDomainEntry
-{
+pub fn super_domain_entry(sd: SuperDomain) -> &'static SuperDomainEntry {
     &SUPER_DOMAINS[sd as usize]
 }
 
 #[cfg(test)]
-mod tests
-{
+mod tests {
     use super::*;
 
     #[test]
-    fn super_domain_known_predicate()
-    {
+    fn super_domain_known_predicate() {
         assert!(!SuperDomain::Unknown.is_known());
         assert!(SuperDomain::Healthcare.is_known());
         assert!(SuperDomain::TicketTool.is_known());
     }
 
     #[test]
-    fn super_domain_raw_matches_repr_u8()
-    {
+    fn super_domain_raw_matches_repr_u8() {
         assert_eq!(SuperDomain::Unknown.raw(), 0);
         assert_eq!(SuperDomain::Healthcare.raw(), 1);
         assert_eq!(SuperDomain::Osint.raw(), 7);
     }
 
     #[test]
-    fn super_domain_as_str_matches_variant()
-    {
+    fn super_domain_as_str_matches_variant() {
         assert_eq!(SuperDomain::Healthcare.as_str(), "Healthcare");
         assert_eq!(SuperDomain::WorkOrderBilling.as_str(), "WorkOrderBilling");
     }
 
     #[test]
-    fn super_domain_default_is_unknown()
-    {
+    fn super_domain_default_is_unknown() {
         assert_eq!(SuperDomain::default(), SuperDomain::Unknown);
     }
 
     #[test]
-    fn super_domains_table_indexed_by_enum_variant()
-    {
+    fn super_domains_table_indexed_by_enum_variant() {
         // The static SUPER_DOMAINS table must be ordered such that
         // `SUPER_DOMAINS[sd as usize].super_domain == sd` for every variant.
         // This is the contract `super_domain_entry()` relies on.
@@ -421,17 +399,27 @@ mod tests
     }
 
     #[test]
-    fn super_domain_entry_carries_expected_compliance()
-    {
-        assert_eq!(super_domain_entry(SuperDomain::Healthcare).compliance, ComplianceRegime::Hipaa);
-        assert_eq!(super_domain_entry(SuperDomain::WorkOrderBilling).compliance, ComplianceRegime::Sox);
-        assert_eq!(super_domain_entry(SuperDomain::Osint).compliance, ComplianceRegime::OsintClearance);
-        assert_eq!(super_domain_entry(SuperDomain::QuantumPhysics).compliance, ComplianceRegime::ItarEar);
+    fn super_domain_entry_carries_expected_compliance() {
+        assert_eq!(
+            super_domain_entry(SuperDomain::Healthcare).compliance,
+            ComplianceRegime::Hipaa
+        );
+        assert_eq!(
+            super_domain_entry(SuperDomain::WorkOrderBilling).compliance,
+            ComplianceRegime::Sox
+        );
+        assert_eq!(
+            super_domain_entry(SuperDomain::Osint).compliance,
+            ComplianceRegime::OsintClearance
+        );
+        assert_eq!(
+            super_domain_entry(SuperDomain::QuantumPhysics).compliance,
+            ComplianceRegime::ItarEar
+        );
     }
 
     #[test]
-    fn meta_anchors_empty_const()
-    {
+    fn meta_anchors_empty_const() {
         let m = MetaAnchors::EMPTY;
         assert!(m.foundry_object_type.is_none());
         assert!(m.owl_upper_class.is_none());
@@ -440,11 +428,16 @@ mod tests
     }
 
     #[test]
-    fn family_to_super_domain_unclassified_defaults_to_unknown()
-    {
+    fn family_to_super_domain_unclassified_defaults_to_unknown() {
         // Without hydration the table is all-Unknown.
         assert_eq!(super_domain_for_family(OgitFamily(1)), SuperDomain::Unknown);
-        assert_eq!(super_domain_for_family(OgitFamily(42)), SuperDomain::Unknown);
-        assert_eq!(super_domain_for_family(OgitFamily(255)), SuperDomain::Unknown);
+        assert_eq!(
+            super_domain_for_family(OgitFamily(42)),
+            SuperDomain::Unknown
+        );
+        assert_eq!(
+            super_domain_for_family(OgitFamily(255)),
+            SuperDomain::Unknown
+        );
     }
 }

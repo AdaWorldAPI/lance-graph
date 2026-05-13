@@ -41,12 +41,12 @@
 #[cfg(test)]
 mod tests {
     use crate::bitpack::BitpackedVector;
-    use crate::navigator::{Navigator, CypherArg, CypherYield};
+    use crate::navigator::{CypherArg, CypherYield, Navigator};
+    use crate::width_16k::VECTOR_WORDS;
+    use crate::width_16k::compat;
     use crate::width_16k::schema::*;
     use crate::width_16k::search::*;
-    use crate::width_16k::compat;
     use crate::width_16k::xor_bubble::*;
-    use crate::width_16k::VECTOR_WORDS;
 
     // =====================================================================
     // SCENARIO 1: Social Graph with NARS Trust Propagation
@@ -103,7 +103,10 @@ mod tests {
         // ----- Test 1: Schema predicate search -----
         // Find socially capable nodes with high trust
         let query = SchemaQuery::new()
-            .with_ani(AniFilter { min_level: 5, min_activation: 200 }) // social level >= 200
+            .with_ani(AniFilter {
+                min_level: 5,
+                min_activation: 200,
+            }) // social level >= 200
             .with_nars(NarsFilter {
                 min_frequency: Some(0.6),
                 min_confidence: Some(0.3),
@@ -116,18 +119,35 @@ mod tests {
                 min_degree: None,
             });
 
-        assert!(query.passes_predicates(&alice_16k), "Alice should pass: social=500, f=0.9, pagerank=800");
-        assert!(query.passes_predicates(&bob_16k), "Bob should pass: social=300, f=0.7, pagerank=600");
+        assert!(
+            query.passes_predicates(&alice_16k),
+            "Alice should pass: social=500, f=0.9, pagerank=800"
+        );
+        assert!(
+            query.passes_predicates(&bob_16k),
+            "Bob should pass: social=300, f=0.7, pagerank=600"
+        );
         // Carol has social=200 >= 200 (passes ANI), f=0.6 >= 0.6, c=0.4 >= 0.3 (passes NARS),
         // pagerank=400 >= 300 (passes graph) → she passes all predicates
-        assert!(query.passes_predicates(&carol_16k), "Carol passes: social=200 >= threshold");
+        assert!(
+            query.passes_predicates(&carol_16k),
+            "Carol passes: social=200 >= threshold"
+        );
 
         // ----- Test 2: NARS trust deduction -----
         // Alice→Bob trust × Bob→Carol trust = Alice→Carol transitive trust
         let deduced = nars_deduction_inline(&alice_16k, &bob_16k);
         // f = 0.9 × 0.7 ≈ 0.63, c = 0.63 × 0.8 × 0.5 ≈ 0.25
-        assert!(deduced.f() > 0.5, "Transitive trust frequency should be decent: {}", deduced.f());
-        assert!(deduced.c() < 0.5, "Transitive confidence should attenuate: {}", deduced.c());
+        assert!(
+            deduced.f() > 0.5,
+            "Transitive trust frequency should be decent: {}",
+            deduced.f()
+        );
+        assert!(
+            deduced.c() < 0.5,
+            "Transitive confidence should attenuate: {}",
+            deduced.c()
+        );
 
         // ----- Test 3: NARS revision (combining evidence) -----
         let mut revised = alice_16k.clone();
@@ -136,11 +156,20 @@ mod tests {
         // Revision should increase confidence (combining independent evidence)
         let _alice_orig = SchemaSidecar::read_from_words(&alice_16k);
         // Not always true that revision > original confidence, but revised should be reasonable
-        assert!(revised_schema.nars_truth.c() > 0.0, "Revised confidence should be positive");
+        assert!(
+            revised_schema.nars_truth.c() > 0.0,
+            "Revised confidence should be positive"
+        );
 
         // ----- Test 4: Bloom filter neighbor check -----
-        assert!(bloom_might_be_neighbors(&alice_16k, 1002), "Alice knows Bob");
-        assert!(bloom_might_be_neighbors(&alice_16k, 1003), "Alice knows Carol");
+        assert!(
+            bloom_might_be_neighbors(&alice_16k, 1002),
+            "Alice knows Bob"
+        );
+        assert!(
+            bloom_might_be_neighbors(&alice_16k, 1003),
+            "Alice knows Carol"
+        );
         // Unknown person - very low false positive probability
         let _unknown_likely_absent = !bloom_might_be_neighbors(&alice_16k, 99999);
         // Can't assert definitively due to FPR, but it's very likely false
@@ -157,7 +186,11 @@ mod tests {
         // ----- Test 6: RL routing score -----
         let (_best_action, best_q) = read_best_q(&alice_16k);
         let routing = rl_routing_score(1000, best_q, 0.2);
-        assert!(routing >= 0.0 && routing <= 1.0, "Routing score in [0,1]: {}", routing);
+        assert!(
+            routing >= 0.0 && routing <= 1.0,
+            "Routing score in [0,1]: {}",
+            routing
+        );
     }
 
     // =====================================================================
@@ -178,11 +211,16 @@ mod tests {
         let paris = BitpackedVector::random(300);
 
         // ----- Cypher: Create edge via bind3 -----
-        let yields = nav.cypher_call("hdr.bind3", &[
-            CypherArg::Vector(france.clone()),
-            CypherArg::Vector(capital_of.clone()),
-            CypherArg::Vector(paris.clone()),
-        ]).unwrap();
+        let yields = nav
+            .cypher_call(
+                "hdr.bind3",
+                &[
+                    CypherArg::Vector(france.clone()),
+                    CypherArg::Vector(capital_of.clone()),
+                    CypherArg::Vector(paris.clone()),
+                ],
+            )
+            .unwrap();
 
         let edge = match &yields[0] {
             CypherYield::Vector(_, v) => v.clone(),
@@ -190,11 +228,16 @@ mod tests {
         };
 
         // ----- Cypher: Retrieve france from edge + verb + target -----
-        let yields = nav.cypher_call("hdr.retrieve", &[
-            CypherArg::Vector(edge.clone()),
-            CypherArg::Vector(capital_of.clone()),
-            CypherArg::Vector(paris.clone()),
-        ]).unwrap();
+        let yields = nav
+            .cypher_call(
+                "hdr.retrieve",
+                &[
+                    CypherArg::Vector(edge.clone()),
+                    CypherArg::Vector(capital_of.clone()),
+                    CypherArg::Vector(paris.clone()),
+                ],
+            )
+            .unwrap();
 
         let recovered = match &yields[0] {
             CypherYield::Vector(_, v) => v.clone(),
@@ -205,11 +248,16 @@ mod tests {
         // ----- Cypher: Compute analogy -----
         // france:paris :: germany:?
         let germany = BitpackedVector::random(400);
-        let yields = nav.cypher_call("hdr.analogy", &[
-            CypherArg::Vector(france.clone()),
-            CypherArg::Vector(paris.clone()),
-            CypherArg::Vector(germany.clone()),
-        ]).unwrap();
+        let yields = nav
+            .cypher_call(
+                "hdr.analogy",
+                &[
+                    CypherArg::Vector(france.clone()),
+                    CypherArg::Vector(paris.clone()),
+                    CypherArg::Vector(germany.clone()),
+                ],
+            )
+            .unwrap();
 
         let berlin_estimate = match &yields[0] {
             CypherYield::Vector(_, v) => v.clone(),
@@ -218,41 +266,54 @@ mod tests {
         // Verify analogy property: france ⊕ paris = berlin_estimate ⊕ germany
         let transform_a = france.xor(&paris);
         let transform_b = berlin_estimate.xor(&germany);
-        assert_eq!(transform_a, transform_b, "Analogy should preserve the transform");
+        assert_eq!(
+            transform_a, transform_b,
+            "Analogy should preserve the transform"
+        );
 
         // ----- Cypher: Hamming distance -----
-        let yields = nav.cypher_call("hdr.hamming", &[
-            CypherArg::Vector(france.clone()),
-            CypherArg::Vector(france.clone()),
-        ]).unwrap();
+        let yields = nav
+            .cypher_call(
+                "hdr.hamming",
+                &[
+                    CypherArg::Vector(france.clone()),
+                    CypherArg::Vector(france.clone()),
+                ],
+            )
+            .unwrap();
         if let CypherYield::Int(_, dist) = &yields[0] {
             assert_eq!(*dist, 0, "Self-distance should be zero");
         }
 
         // ----- Cypher: Schema procedures -----
         // ANI levels
-        let yields = nav.cypher_call("hdr.aniLevels", &[
-            CypherArg::Vector(france.clone()),
-        ]).unwrap();
+        let yields = nav
+            .cypher_call("hdr.aniLevels", &[CypherArg::Vector(france.clone())])
+            .unwrap();
         assert_eq!(yields.len(), 9, "Should return dominant + 8 levels");
 
         // NARS truth
-        let yields = nav.cypher_call("hdr.narsTruth", &[
-            CypherArg::Vector(france.clone()),
-        ]).unwrap();
+        let yields = nav
+            .cypher_call("hdr.narsTruth", &[CypherArg::Vector(france.clone())])
+            .unwrap();
         assert_eq!(yields.len(), 2, "Should return frequency + confidence");
 
         // Best action
-        let yields = nav.cypher_call("hdr.bestAction", &[
-            CypherArg::Vector(france.clone()),
-        ]).unwrap();
+        let yields = nav
+            .cypher_call("hdr.bestAction", &[CypherArg::Vector(france.clone())])
+            .unwrap();
         assert_eq!(yields.len(), 2, "Should return action + q_value");
 
         // Schema bind
-        let yields = nav.cypher_call("hdr.schemaBind", &[
-            CypherArg::Vector(france.clone()),
-            CypherArg::Vector(paris.clone()),
-        ]).unwrap();
+        let yields = nav
+            .cypher_call(
+                "hdr.schemaBind",
+                &[
+                    CypherArg::Vector(france.clone()),
+                    CypherArg::Vector(paris.clone()),
+                ],
+            )
+            .unwrap();
         assert!(!yields.is_empty(), "Schema bind should return result");
 
         // Error handling
@@ -283,10 +344,13 @@ mod tests {
 
         // ----- GNN: 1-hop message passing on node 1 -----
         // Node 1 receives from node 0 (via edge_01) and node 2 (via edge_12)
-        let result = nav.gnn_message_pass(&node1, &[
-            (node0.clone(), edge_01.clone()),
-            (node2.clone(), edge_12.clone()),
-        ]);
+        let result = nav.gnn_message_pass(
+            &node1,
+            &[
+                (node0.clone(), edge_01.clone()),
+                (node2.clone(), edge_12.clone()),
+            ],
+        );
         assert_ne!(result, node1, "Message passing should change the embedding");
 
         // ----- GNN: Multi-hop (2 layers) -----
@@ -299,7 +363,10 @@ mod tests {
             (node3.clone(), edge_23.clone()),
         ];
         let multi_hop = nav.gnn_multi_hop(&node1, &[layer0, layer1]);
-        assert_ne!(multi_hop, node1, "Multi-hop should produce different embedding");
+        assert_ne!(
+            multi_hop, node1,
+            "Multi-hop should produce different embedding"
+        );
         assert_ne!(multi_hop, result, "2-hop should differ from 1-hop");
 
         // ----- SNN: STDP + Hebbian weight update -----
@@ -322,7 +389,11 @@ mod tests {
         // Decay all weights (homeostatic regulation)
         hebbian.decay(0.95);
         let w0 = hebbian.weight(0);
-        assert!(w0 > 0.0 && w0 < 1.0, "Weight should be positive after decay: {}", w0);
+        assert!(
+            w0 > 0.0 && w0 < 1.0,
+            "Weight should be positive after decay: {}",
+            w0
+        );
 
         // ----- SNN: Inline Q-values for RL-guided routing -----
         let mut q = InlineQValues::default();
@@ -371,7 +442,9 @@ mod tests {
             let mut words = vec![0u64; VECTOR_WORDS];
             let mut r = seed;
             for w in &mut words {
-                r ^= r << 13; r ^= r >> 7; r ^= r << 17;
+                r ^= r << 13;
+                r ^= r >> 7;
+                r ^= r << 17;
                 *w = r;
             }
             words
@@ -382,7 +455,7 @@ mod tests {
         let child1 = {
             let mut w = root.clone();
             w[0] ^= 0xFFFF; // Flip 16 bits in word 0
-            w[5] ^= 0xFF;   // Flip 8 bits in word 5
+            w[5] ^= 0xFF; // Flip 8 bits in word 5
             w
         };
         let child2 = {
@@ -401,15 +474,26 @@ mod tests {
         let chain = DeltaChain::from_path(&path);
 
         assert_eq!(chain.depth(), 4);
-        assert!(chain.avg_sparsity() > 0.9, "Adjacent centroids should be >90% sparse: {}", chain.avg_sparsity());
+        assert!(
+            chain.avg_sparsity() > 0.9,
+            "Adjacent centroids should be >90% sparse: {}",
+            chain.avg_sparsity()
+        );
 
         let ratio = chain.compressed_bytes() as f32 / chain.uncompressed_bytes() as f32;
-        assert!(ratio < 0.3, "Should achieve >3x compression: ratio={}", ratio);
+        assert!(
+            ratio < 0.3,
+            "Should achieve >3x compression: ratio={}",
+            ratio
+        );
 
         // Verify lossless reconstruction
         let reconstructed = chain.reconstruct(3);
-        assert_eq!(&reconstructed[..VECTOR_WORDS], &leaf[..VECTOR_WORDS],
-            "Delta chain should reconstruct leaf losslessly");
+        assert_eq!(
+            &reconstructed[..VECTOR_WORDS],
+            &leaf[..VECTOR_WORDS],
+            "Delta chain should reconstruct leaf losslessly"
+        );
 
         // ----- XOR Write Cache -----
         let mut cache = XorWriteCache::new(1_048_576); // 1MB threshold
@@ -432,7 +516,11 @@ mod tests {
         // Read through cache: applies delta on-the-fly
         let read = cache.read_through(42, &leaf);
         assert!(!read.is_clean(), "Should be patched");
-        assert_eq!(read.words()[0], new_leaf[0], "Patched read should match new leaf");
+        assert_eq!(
+            read.words()[0],
+            new_leaf[0],
+            "Patched read should match new leaf"
+        );
 
         // Clean read for uncached vector
         let clean = cache.read_through(99, &root);
@@ -459,7 +547,11 @@ mod tests {
         cancel_cache.record_delta(1, d.clone());
         cancel_cache.record_delta(1, d); // XOR with self = identity
         let cancel_read = cancel_cache.read_through(1, &leaf);
-        assert_eq!(cancel_read.words()[0], leaf[0], "Double-apply should cancel");
+        assert_eq!(
+            cancel_read.words()[0],
+            leaf[0],
+            "Double-apply should cancel"
+        );
 
         // Flush
         assert!(!cache.should_flush(), "Below 1MB threshold");
@@ -481,7 +573,9 @@ mod tests {
             let mut words = vec![0u64; VECTOR_WORDS];
             let mut r = seed;
             for w in &mut words {
-                r ^= r << 13; r ^= r >> 7; r ^= r << 17;
+                r ^= r << 13;
+                r ^= r >> 7;
+                r ^= r << 17;
                 *w = r;
             }
             words
@@ -495,8 +589,11 @@ mod tests {
         let mut parent_exact = old_leaf.clone();
         let mut bubble_exact = XorBubble::from_leaf_change(&old_leaf, &new_leaf, 1);
         bubble_exact.apply_to_parent(&mut parent_exact, 42);
-        assert_eq!(&parent_exact[..VECTOR_WORDS], &new_leaf[..VECTOR_WORDS],
-            "Fanout=1 should be exact update");
+        assert_eq!(
+            &parent_exact[..VECTOR_WORDS],
+            &new_leaf[..VECTOR_WORDS],
+            "Fanout=1 should be exact update"
+        );
 
         // ----- Attenuated bubble (fanout=16) -----
         let mut parent_approx = old_leaf.clone();
@@ -507,7 +604,11 @@ mod tests {
             .map(|w| (parent_approx[w] ^ old_leaf[w]).count_ones())
             .sum();
         // With fanout=16, expect ~32/16 = 2 bits changed (probabilistic)
-        assert!(changed_bits <= 32, "Attenuated: expect few bits changed, got {}", changed_bits);
+        assert!(
+            changed_bits <= 32,
+            "Attenuated: expect few bits changed, got {}",
+            changed_bits
+        );
 
         // ----- Bubble exhaustion -----
         let mut bubble_deep = XorBubble::from_leaf_change(&old_leaf, &new_leaf, 16);
@@ -515,7 +616,10 @@ mod tests {
         for _ in 0..20 {
             bubble_deep.apply_to_parent(&mut dummy, 42);
         }
-        assert!(bubble_deep.is_exhausted(), "Should exhaust after many levels");
+        assert!(
+            bubble_deep.is_exhausted(),
+            "Should exhaust after many levels"
+        );
     }
 
     // =====================================================================
@@ -537,10 +641,16 @@ mod tests {
         // Distance is preserved
         let dist_10k = crate::hamming::hamming_distance_scalar(&v1, &v2);
         let dist_cross = compat::cross_width_distance(&v1, &v2_16k);
-        assert_eq!(dist_10k, dist_cross, "Cross-width distance should match 10K distance");
+        assert_eq!(
+            dist_10k, dist_cross,
+            "Cross-width distance should match 10K distance"
+        );
 
         let dist_16k = compat::full_distance_16k(&v1_16k, &v2_16k);
-        assert_eq!(dist_10k, dist_16k, "16K distance of zero-extended should match 10K");
+        assert_eq!(
+            dist_10k, dist_16k,
+            "16K distance of zero-extended should match 10K"
+        );
 
         // ----- Truncate roundtrip -----
         let v1_back = compat::truncate(&v1_16k);
@@ -549,7 +659,10 @@ mod tests {
         // ----- XOR fold vs truncate (when extra words are zero) -----
         let folded = compat::xor_fold(&v1_16k);
         let truncated = compat::truncate(&v1_16k);
-        assert_eq!(folded, truncated, "Fold = truncate when extra words are zero");
+        assert_eq!(
+            folded, truncated,
+            "Fold = truncate when extra words are zero"
+        );
 
         // ----- XOR fold with non-zero schema -----
         let mut v1_with_schema = v1_16k;
@@ -560,18 +673,23 @@ mod tests {
 
         let folded_schema = compat::xor_fold(&v1_with_schema);
         let trunc_schema = compat::truncate(&v1_with_schema);
-        assert_ne!(folded_schema, trunc_schema,
-            "Fold should differ from truncate when schema blocks are non-zero");
+        assert_ne!(
+            folded_schema, trunc_schema,
+            "Fold should differ from truncate when schema blocks are non-zero"
+        );
 
         // ----- Batch migration -----
-        let batch: Vec<BitpackedVector> = (0..5)
-            .map(|i| BitpackedVector::random(i as u64))
-            .collect();
+        let batch: Vec<BitpackedVector> =
+            (0..5).map(|i| BitpackedVector::random(i as u64)).collect();
         let migrated = compat::migrate_batch(&batch);
         assert_eq!(migrated.len(), 5);
 
         for (orig, m16k) in batch.iter().zip(migrated.iter()) {
-            assert_eq!(*orig, compat::truncate(m16k), "Batch migration should be lossless");
+            assert_eq!(
+                *orig,
+                compat::truncate(m16k),
+                "Batch migration should be lossless"
+            );
         }
 
         // Batch migration with schema
@@ -604,8 +722,8 @@ mod tests {
             schema.ani_levels.planning = (i * 100) as u16;
             schema.ani_levels.social = ((100 - i) * 50) as u16;
             schema.nars_truth = NarsTruth::from_floats(
-                (i as f32) / 100.0,           // frequency increases
-                ((100 - i) as f32) / 200.0,   // confidence decreases
+                (i as f32) / 100.0,         // frequency increases
+                ((100 - i) as f32) / 200.0, // confidence decreases
             );
             schema.metrics.pagerank = (i * 10) as u16;
             schema.metrics.degree = (i % 20) as u8;
@@ -632,7 +750,10 @@ mod tests {
 
         // ----- Schema-filtered search (selective) -----
         let selective_query = SchemaQuery::new()
-            .with_ani(AniFilter { min_level: 3, min_activation: 5000 }) // planning > 5000 → only top ~50
+            .with_ani(AniFilter {
+                min_level: 3,
+                min_activation: 5000,
+            }) // planning > 5000 → only top ~50
             .with_nars(NarsFilter {
                 min_frequency: Some(0.5), // f > 0.5 → only i > 50
                 min_confidence: None,
@@ -651,16 +772,18 @@ mod tests {
         // (Can't guarantee exact count due to predicate interaction)
 
         // ----- Cluster-specific search -----
-        let cluster_query = SchemaQuery::new()
-            .with_graph(GraphFilter {
-                min_pagerank: None,
-                max_hop: None,
-                cluster_id: Some(5), // Only cluster 5 (i=50..59)
-                min_degree: None,
-            });
+        let cluster_query = SchemaQuery::new().with_graph(GraphFilter {
+            min_pagerank: None,
+            max_hop: None,
+            cluster_id: Some(5), // Only cluster 5 (i=50..59)
+            min_degree: None,
+        });
 
         let cluster_results = cluster_query.search(&refs, &query_words, 10);
-        assert!(cluster_results.len() <= 10, "Should return at most 10 from cluster 5");
+        assert!(
+            cluster_results.len() <= 10,
+            "Should return at most 10 from cluster 5"
+        );
 
         // ----- Block-masked distance comparison -----
         // Semantic-only distance vs full distance
@@ -671,8 +794,12 @@ mod tests {
         let d_all = all_query.masked_distance(&query_words, &candidates[50]);
 
         // Full distance includes schema blocks, so may be larger
-        assert!(d_all >= d_semantic,
-            "Full distance should be >= semantic-only: {} vs {}", d_all, d_semantic);
+        assert!(
+            d_all >= d_semantic,
+            "Full distance should be >= semantic-only: {} vs {}",
+            d_all,
+            d_semantic
+        );
     }
 
     // =====================================================================
@@ -687,17 +814,13 @@ mod tests {
         let nav = Navigator::new();
 
         // 3-node graph: 0→1→2 with unique edges
-        let nodes: Vec<BitpackedVector> = (0..3)
-            .map(|i| BitpackedVector::random(i * 100))
-            .collect();
+        let nodes: Vec<BitpackedVector> =
+            (0..3).map(|i| BitpackedVector::random(i * 100)).collect();
         let edge_01 = BitpackedVector::random(1001);
         let edge_12 = BitpackedVector::random(1002);
 
         // Adjacency structure: (row, col, edge_fingerprint)
-        let edges = vec![
-            (0, 1, edge_01.clone()),
-            (1, 2, edge_12.clone()),
-        ];
+        let edges = vec![(0, 1, edge_01.clone()), (1, 2, edge_12.clone())];
 
         // SpMV: output[i] = bundle(edge[i,j] XOR input[j])
         let output = nav.graphblas_spmv(&edges, &nodes, 3);
@@ -757,11 +880,13 @@ mod tests {
         assert_eq!(get_result.path.domain, "graphs");
 
         // ----- MGET (batch) -----
-        let results = nav.dn_mget(&[
-            "graphs:semantic:3:7:42",
-            "graphs:semantic:3:7:43",
-            "graphs:semantic:3:8:1",
-        ]).unwrap();
+        let results = nav
+            .dn_mget(&[
+                "graphs:semantic:3:7:42",
+                "graphs:semantic:3:7:43",
+                "graphs:semantic:3:8:1",
+            ])
+            .unwrap();
         assert_eq!(results.len(), 3);
 
         // ----- TreeAddr conversion -----
@@ -782,16 +907,27 @@ mod tests {
 
         // Fill ALL fields
         schema.ani_levels = AniLevels {
-            reactive: 100, memory: 200, analogy: 300, planning: 400,
-            meta: 500, social: 600, creative: 700, r#abstract: 800,
+            reactive: 100,
+            memory: 200,
+            analogy: 300,
+            planning: 400,
+            meta: 500,
+            social: 600,
+            creative: 700,
+            r#abstract: 800,
         };
         schema.nars_truth = NarsTruth::from_floats(0.85, 0.72);
         schema.nars_budget = NarsBudget::from_floats(0.9, 0.5, 0.7);
         schema.edge_type = EdgeTypeMarker {
-            verb_id: 42, direction: 1, weight: 200, flags: 0b1111,
+            verb_id: 42,
+            direction: 1,
+            weight: 200,
+            flags: 0b1111,
         };
         schema.node_type = NodeTypeMarker {
-            kind: NodeKind::Concept as u8, subtype: 3, provenance: 0xABCD,
+            kind: NodeKind::Concept as u8,
+            subtype: 3,
+            provenance: 0xABCD,
         };
         schema.q_values.set_q(0, 0.9);
         schema.q_values.set_q(5, -0.5);
@@ -815,8 +951,12 @@ mod tests {
         schema.neighbors.insert(400);
         schema.neighbors.insert(500);
         schema.metrics = GraphMetrics {
-            pagerank: 42000, hop_to_root: 5, cluster_id: 999,
-            degree: 15, in_degree: 7, out_degree: 8,
+            pagerank: 42000,
+            hop_to_root: 5,
+            cluster_id: 999,
+            degree: 15,
+            in_degree: 7,
+            out_degree: 8,
         };
 
         // Write and read back
@@ -895,35 +1035,40 @@ mod tests {
         let query_words = compat::zero_extend(&query_v).to_vec();
         let refs: Vec<&[u64]> = candidates.iter().map(|c| c.as_slice()).collect();
 
-        let schema_query = SchemaQuery::new()
-            .with_ani(AniFilter { min_level: 3, min_activation: 100 });
+        let schema_query = SchemaQuery::new().with_ani(AniFilter {
+            min_level: 3,
+            min_activation: 100,
+        });
 
         // ----- Bloom-accelerated search -----
-        let bloom_results = bloom_accelerated_search(
-            &refs, &query_words, source_id, 5, 0.3, &schema_query,
-        );
+        let bloom_results =
+            bloom_accelerated_search(&refs, &query_words, source_id, 5, 0.3, &schema_query);
         assert!(!bloom_results.is_empty(), "Should find some results");
         assert!(bloom_results.len() <= 5, "Should respect k limit");
 
         // Check that bloom neighbors get a bonus
         for r in &bloom_results {
             if r.is_bloom_neighbor {
-                assert!(r.effective_distance <= r.raw_distance,
-                    "Bloom neighbors should have bonus: eff={} raw={}", r.effective_distance, r.raw_distance);
+                assert!(
+                    r.effective_distance <= r.raw_distance,
+                    "Bloom neighbors should have bonus: eff={} raw={}",
+                    r.effective_distance,
+                    r.raw_distance
+                );
             }
         }
 
         // ----- RL-guided search -----
-        let rl_results = rl_guided_search(
-            &refs, &query_words, 5, 0.3, &schema_query,
-        );
+        let rl_results = rl_guided_search(&refs, &query_words, 5, 0.3, &schema_query);
         assert!(!rl_results.is_empty(), "Should find RL results");
         assert!(rl_results.len() <= 5);
 
         // Results should be sorted by composite score
         for w in rl_results.windows(2) {
-            assert!(w[0].composite_score <= w[1].composite_score,
-                "Results should be sorted by composite score");
+            assert!(
+                w[0].composite_score <= w[1].composite_score,
+                "Results should be sorted by composite score"
+            );
         }
     }
 
@@ -971,11 +1116,20 @@ mod tests {
         let ms = SchemaSidecar::read_from_words(&merged);
 
         // ANI: element-wise max
-        assert_eq!(ms.ani_levels.social, 700, "Social should be max(700,300)=700");
-        assert_eq!(ms.ani_levels.planning, 600, "Planning should be max(200,600)=600");
+        assert_eq!(
+            ms.ani_levels.social, 700,
+            "Social should be max(700,300)=700"
+        );
+        assert_eq!(
+            ms.ani_levels.planning, 600,
+            "Planning should be max(200,600)=600"
+        );
 
         // NARS: revision combines evidence → confidence should be reasonable
-        assert!(ms.nars_truth.f() > 0.0, "Merged frequency should be positive");
+        assert!(
+            ms.nars_truth.f() > 0.0,
+            "Merged frequency should be positive"
+        );
 
         // Metrics: max pagerank, min hop, max degree
         assert_eq!(ms.metrics.pagerank, 800, "Pagerank: max(500,800)=800");
@@ -983,14 +1137,22 @@ mod tests {
         assert_eq!(ms.metrics.degree, 8, "Degree: max(3,8)=8");
 
         // Bloom: union of neighbors from both instances
-        assert!(bloom_might_be_neighbors(&merged, 100), "Should know neighbor 100 from A");
-        assert!(bloom_might_be_neighbors(&merged, 300), "Should know neighbor 300 from B");
+        assert!(
+            bloom_might_be_neighbors(&merged, 100),
+            "Should know neighbor 100 from A"
+        );
+        assert!(
+            bloom_might_be_neighbors(&merged, 300),
+            "Should know neighbor 300 from B"
+        );
 
         // Semantic content preserved from primary (A)
         let truncated_a = compat::truncate_slice(&instance_a).unwrap();
         let truncated_merged = compat::truncate_slice(&merged).unwrap();
-        assert_eq!(truncated_a, truncated_merged,
-            "Semantic content should be preserved from primary");
+        assert_eq!(
+            truncated_a, truncated_merged,
+            "Semantic content should be preserved from primary"
+        );
     }
 
     // =====================================================================

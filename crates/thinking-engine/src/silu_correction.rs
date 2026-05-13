@@ -69,10 +69,10 @@ pub struct CorrectionSample {
 ///   4. linear_cos = cosine(centroid_i, centroid_j)
 ///   5. correction = true_cos - linear_cos
 pub fn generate_training_data(
-    gate_centroids: &[Vec<f32>],  // N × dim (gate weight centroids)
-    up_centroids: &[Vec<f32>],    // N × dim (up weight centroids)
-    centroids: &[Vec<f32>],       // N × dim (raw embedding centroids)
-    probes: &[Vec<f32>],          // P × dim (probe vectors, can be centroids themselves)
+    gate_centroids: &[Vec<f32>], // N × dim (gate weight centroids)
+    up_centroids: &[Vec<f32>],   // N × dim (up weight centroids)
+    centroids: &[Vec<f32>],      // N × dim (raw embedding centroids)
+    probes: &[Vec<f32>],         // P × dim (probe vectors, can be centroids themselves)
 ) -> Vec<CorrectionSample> {
     let n = centroids.len();
     let p = probes.len();
@@ -133,7 +133,9 @@ fn cosine_f32(a: &[f32], b: &[f32]) -> f32 {
         norm_b += (b[i] as f64).powi(2);
     }
     let denom = (norm_a * norm_b).sqrt();
-    if denom < 1e-12 { return 0.0; }
+    if denom < 1e-12 {
+        return 0.0;
+    }
     (dot / denom) as f32
 }
 
@@ -152,8 +154,10 @@ pub fn gate_modulate_centroids(
 ) -> Vec<Vec<f32>> {
     match policy {
         GatePolicy::Raw => centroids.to_vec(),
-        GatePolicy::GateModulated => {
-            centroids.iter().enumerate().map(|(i, centroid)| {
+        GatePolicy::GateModulated => centroids
+            .iter()
+            .enumerate()
+            .map(|(i, centroid)| {
                 let gate = &gate_weights[i.min(gate_weights.len() - 1)];
                 let dim = centroid.len().min(gate.len());
                 let mut modulated = vec![0.0f32; dim];
@@ -161,8 +165,8 @@ pub fn gate_modulate_centroids(
                     modulated[k] = centroid[k] * silu(gate[k]);
                 }
                 modulated
-            }).collect()
-        }
+            })
+            .collect(),
     }
 }
 
@@ -170,11 +174,7 @@ pub fn gate_modulate_centroids(
 ///
 /// corrections[i * n + j] = learned correction from ONNX model.
 /// table[i * n + j] = HDR CDF-encoded cosine + correction.
-pub fn apply_corrections(
-    table: &mut [u8],
-    corrections: &[f32],
-    n: usize,
-) {
+pub fn apply_corrections(table: &mut [u8], corrections: &[f32], n: usize) {
     assert_eq!(table.len(), n * n);
     assert_eq!(corrections.len(), n * n);
 
@@ -212,8 +212,13 @@ pub fn correction_stats(samples: &[CorrectionSample]) -> CorrectionStats {
     let n = samples.len();
     if n == 0 {
         return CorrectionStats {
-            count: 0, mean_abs: 0.0, max_abs: 0.0, mean: 0.0,
-            std_dev: 0.0, material_fraction: 0.0, large_fraction: 0.0,
+            count: 0,
+            mean_abs: 0.0,
+            max_abs: 0.0,
+            mean: 0.0,
+            std_dev: 0.0,
+            material_fraction: 0.0,
+            large_fraction: 0.0,
         };
     }
     let corrections: Vec<f32> = samples.iter().map(|s| s.correction).collect();
@@ -242,7 +247,7 @@ mod tests {
     #[test]
     fn test_silu_values() {
         assert!((silu(0.0) - 0.0).abs() < 1e-6);
-        assert!(silu(5.0) > 4.9);   // ≈ x for large positive
+        assert!(silu(5.0) > 4.9); // ≈ x for large positive
         assert!(silu(-5.0).abs() < 0.04); // ≈ 0 for large negative
         assert!((silu(0.1) - 0.052).abs() < 0.01); // decision boundary region
     }
@@ -255,7 +260,10 @@ mod tests {
         assert!(pos > 0.0);
         assert!(neg < 0.0);
         // The ratio matters more than absolute values
-        assert!((pos - (-neg)).abs() < 0.001, "silu should be approximately odd near 0");
+        assert!(
+            (pos - (-neg)).abs() < 0.001,
+            "silu should be approximately odd near 0"
+        );
     }
 
     #[test]
@@ -294,28 +302,26 @@ mod tests {
 
         // Check SiLU effect: negative gate should suppress, positive should pass
         // gate[1] = -0.5 → silu(-0.5) ≈ -0.19 → centroid[1] = 2.0 * -0.19 ≈ -0.38
-        assert!(modulated[0][1].abs() < centroids[0][1].abs(),
-            "negative gate should suppress: {} vs {}", modulated[0][1], centroids[0][1]);
+        assert!(
+            modulated[0][1].abs() < centroids[0][1].abs(),
+            "negative gate should suppress: {} vs {}",
+            modulated[0][1],
+            centroids[0][1]
+        );
         // gate[3] = 0.01 → silu(0.01) ≈ 0.005 → nearly zero
-        assert!(modulated[0][3].abs() < 0.1,
-            "near-zero gate should nearly suppress: {}", modulated[0][3]);
+        assert!(
+            modulated[0][3].abs() < 0.1,
+            "near-zero gate should nearly suppress: {}",
+            modulated[0][3]
+        );
     }
 
     #[test]
     fn test_generate_training_data() {
         let dim = 4;
-        let centroids = vec![
-            vec![1.0, 0.0, 0.0, 0.0],
-            vec![0.0, 1.0, 0.0, 0.0],
-        ];
-        let gates = vec![
-            vec![0.5, 0.1, -0.3, 0.8],
-            vec![-0.2, 0.7, 0.1, -0.1],
-        ];
-        let ups = vec![
-            vec![1.0, 1.0, 1.0, 1.0],
-            vec![1.0, 1.0, 1.0, 1.0],
-        ];
+        let centroids = vec![vec![1.0, 0.0, 0.0, 0.0], vec![0.0, 1.0, 0.0, 0.0]];
+        let gates = vec![vec![0.5, 0.1, -0.3, 0.8], vec![-0.2, 0.7, 0.1, -0.1]];
+        let ups = vec![vec![1.0, 1.0, 1.0, 1.0], vec![1.0, 1.0, 1.0, 1.0]];
         // Use centroids as probes
         let samples = generate_training_data(&gates, &ups, &centroids, &centroids);
 
@@ -323,15 +329,20 @@ mod tests {
         assert_eq!(samples.len(), 8);
 
         // Self-correction should be small (same centroid, same activation)
-        let self_correction = samples.iter()
+        let self_correction = samples
+            .iter()
             .filter(|s| s.centroid_i == s.centroid_j)
             .map(|s| s.correction.abs())
             .sum::<f32>();
         // Self-pairs should have near-zero correction (cos with itself = 1.0 both ways)
 
         let stats = correction_stats(&samples);
-        eprintln!("Correction stats: mean_abs={:.4}, max_abs={:.4}, material={:.1}%",
-            stats.mean_abs, stats.max_abs, stats.material_fraction * 100.0);
+        eprintln!(
+            "Correction stats: mean_abs={:.4}, max_abs={:.4}, material={:.1}%",
+            stats.mean_abs,
+            stats.max_abs,
+            stats.material_fraction * 100.0
+        );
     }
 
     #[test]
@@ -367,8 +378,14 @@ mod tests {
         eprintln!("  Mean |Δ|:   {:.4}", stats.mean_abs);
         eprintln!("  Max |Δ|:    {:.4}", stats.max_abs);
         eprintln!("  Std dev:    {:.4}", stats.std_dev);
-        eprintln!("  Material:   {:.1}% (|Δ| > 0.01)", stats.material_fraction * 100.0);
-        eprintln!("  Large:      {:.1}% (|Δ| > 0.1)", stats.large_fraction * 100.0);
+        eprintln!(
+            "  Material:   {:.1}% (|Δ| > 0.01)",
+            stats.material_fraction * 100.0
+        );
+        eprintln!(
+            "  Large:      {:.1}% (|Δ| > 0.1)",
+            stats.large_fraction * 100.0
+        );
 
         // With narrow gate, corrections should be material
         assert!(stats.count > 0);
@@ -379,15 +396,27 @@ mod tests {
         let n = 4;
         let mut table = vec![128u8; n * n]; // baseline
         let mut corrections = vec![0.0f32; n * n];
-        corrections[0] = 0.5;   // large positive correction
-        corrections[3] = -0.3;  // negative correction
-        corrections[5] = 0.01;  // tiny correction
+        corrections[0] = 0.5; // large positive correction
+        corrections[3] = -0.3; // negative correction
+        corrections[5] = 0.01; // tiny correction
 
         apply_corrections(&mut table, &corrections, n);
 
-        assert!((table[0] as i32 - 192).abs() <= 1, "expected ~192, got {}", table[0]);  // 128 + 0.5*128 = 192
-        assert!((table[3] as i32 - 90).abs() <= 2, "expected ~90, got {}", table[3]);   // 128 - 0.3*128 ≈ 90
-        assert!((table[5] as i32 - 129).abs() <= 1, "expected ~129, got {}", table[5]);  // 128 + 0.01*128 ≈ 129
-        assert_eq!(table[1], 128);  // unchanged (correction = 0)
+        assert!(
+            (table[0] as i32 - 192).abs() <= 1,
+            "expected ~192, got {}",
+            table[0]
+        ); // 128 + 0.5*128 = 192
+        assert!(
+            (table[3] as i32 - 90).abs() <= 2,
+            "expected ~90, got {}",
+            table[3]
+        ); // 128 - 0.3*128 ≈ 90
+        assert!(
+            (table[5] as i32 - 129).abs() <= 1,
+            "expected ~129, got {}",
+            table[5]
+        ); // 128 + 0.01*128 ≈ 129
+        assert_eq!(table[1], 128); // unchanged (correction = 0)
     }
 }

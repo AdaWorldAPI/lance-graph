@@ -584,9 +584,9 @@ mod tests {
     #[test]
     fn cam_splat_certificate_decide_prefetch_when_only_forecast() {
         let cert = CamSplatCertificate {
-            support_pressure_q8: 10,        // below floor
+            support_pressure_q8: 10, // below floor
             contradiction_pressure_q8: 10,
-            forecast_pressure_q8: 200,      // > 128
+            forecast_pressure_q8: 200, // > 128
             entropy_budget_remaining_q8: 64,
             exact_replay_required: false,
             ..Default::default()
