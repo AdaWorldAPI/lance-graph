@@ -13,6 +13,12 @@ pub struct CallCounter {
     pub nan_count: AtomicU64,
 }
 
+impl Default for CallCounter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CallCounter {
     pub const fn new() -> Self {
         Self {

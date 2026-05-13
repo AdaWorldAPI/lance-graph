@@ -215,14 +215,14 @@ pub fn compute_heel(batch: &RecordBatch) -> ndarray::hpc::bgz17_bridge::Base17 {
     let mut sums = [0.0f64; 17];
     for row in 0..n_rows {
         let offset = row * 17;
-        for d in 0..17 {
-            sums[d] += values.value(offset + d) as f64;
+        for (d, sum) in sums.iter_mut().enumerate() {
+            *sum += values.value(offset + d) as f64;
         }
     }
     let mut dims = [0i16; 17];
     if n_rows > 0 {
-        for d in 0..17 {
-            dims[d] = (sums[d] / n_rows as f64).round() as i16;
+        for (d, sum) in sums.iter().enumerate() {
+            dims[d] = (sum / n_rows as f64).round() as i16;
         }
     }
     ndarray::hpc::bgz17_bridge::Base17 { dims }

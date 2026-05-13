@@ -195,11 +195,11 @@ fn test_scope_roundtrip_properties() {
     }
 
     // All non-self edges should be non-zero (random triples are distinct)
-    for i in 0..n {
+    for (i, nbr) in neighborhoods.iter().enumerate() {
         for j in 0..n {
             if i != j {
                 assert_ne!(
-                    neighborhoods[i].entries[j], 0,
+                    nbr.entries[j], 0,
                     "Non-self edge ({},{}) should be non-zero",
                     i, j
                 );

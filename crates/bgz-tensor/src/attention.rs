@@ -426,8 +426,8 @@ mod tests {
         let rows: Vec<Base17> = (0..n)
             .map(|i| {
                 let mut dims = [0i16; 17];
-                for d in 0..17 {
-                    dims[d] = ((i * 97 + d * 31) % 512) as i16 - 256;
+                for (d, val) in dims.iter_mut().enumerate() {
+                    *val = ((i * 97 + d * 31) % 512) as i16 - 256;
                 }
                 Base17 { dims }
             })
@@ -460,8 +460,8 @@ mod tests {
         let mut rows: Vec<Base17> = (0..31)
             .map(|i| {
                 let mut dims = [0i16; 17];
-                for d in 0..17 {
-                    dims[d] = ((i * 97 + d * 31) % 512) as i16 - 256;
+                for (d, val) in dims.iter_mut().enumerate() {
+                    *val = ((i * 97 + d * 31) % 512) as i16 - 256;
                 }
                 Base17 { dims }
             })

@@ -134,6 +134,7 @@ impl GraphSensorium {
     }
 
     /// Compute from raw statistics (when you don't have direct graph access).
+    #[allow(clippy::too_many_arguments)] // all 11 stats are distinct, no natural grouping
     pub fn compute(
         active_triplets: usize,
         contradictions: usize,
@@ -198,7 +199,7 @@ impl GraphSensorium {
             plasticity_flux,
             deduction_yield,
             episodic_saturation,
-            active_triplets: active_triplets,
+            active_triplets,
             total_entities,
             contradictions,
         }
@@ -438,7 +439,7 @@ mod tests {
 
     #[test]
     fn test_suggested_bias_resolve() {
-        let mut signals =
+        let signals =
             GraphSensorium::compute(100, 40, &[10, 10, 30, 30, 20], 1, 10, 20, 50, 2, 20, 5, 20);
         assert_eq!(signals.suggested_bias(), GraphBias::Resolve);
     }

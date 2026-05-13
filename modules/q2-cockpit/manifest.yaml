@@ -1,0 +1,29 @@
+ogit_g: GOTHAM
+version: 1
+domain_name: q2-cockpit
+inert_when_consumer_absent: false
+
+entity_types:
+  WorkOrder:   u16=300
+  Asset:       u16=301
+  SiteVisit:   u16=302
+  Report:      u16=303
+
+rbac_policy: q2_policy
+
+stack_profile:
+  audit_retention_days: 730
+  requires_fail_closed: false
+  escalation: human
+
+action_capabilities:
+  assign_order:  direct
+  close_order:   escalate
+  read_asset:    permit
+
+actor:
+  crate: q2-cockpit-rs
+  type: Q2CockpitActor
+  message_type: Q2CockpitMessage
+
+inherits_from: dolce

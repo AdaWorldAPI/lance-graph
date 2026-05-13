@@ -65,6 +65,42 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-05-13 — DECISION: sprint-7 meta OQ-7-2 + OQ-7-3 resolved — AuditSink trait unification
+
+Post-sprint-7 implementation, Opus meta surfaced a critical cross-impl risk (CC-7-1) and two open questions blocking the sprint-7 PR open:
+
+- **OQ-7-2: AuditSink trait split.** `UnifiedBridge::audit_sink` was typed `Arc<dyn UnifiedAuditSink>` (D-SDR-4 placeholder trait at `unified_audit.rs:314`); sprint-7 W6 production sinks (`JsonlAuditSink`, `LanceAuditSink`, `CompositeSink`) implement `Arc<dyn AuditSink>` (new trait at `audit_sink/mod.rs:45`). The two traits had different signatures (`emit(&event)` vs `emit(event) -> Result<>`). W6 sinks shipped orphaned from the bridge. **Resolution: full migrate, drop UnifiedAuditSink, no adapter.** Per CLAUDE.md "no abstractions beyond what the task requires" — an adapter is permanent overhead to avoid one-time call-site churn. Landed in commit `bc530a4`. 6 files touched; `UnifiedAuditEvent::canonical_bytes` byte layout unchanged (still 26 bytes).
+
+- **OQ-7-3: UnifiedBridge::new() default sink behavior.** MedCare-rs sprint-2 item 5 expects "JSONL primary + optional Lance projection". **Resolution: keep `NoopAuditSink` as new() default; add ergonomic constructor `UnifiedBridge::with_jsonl_audit(super_domain, salt, base_path)` for explicit opt-in.** Silent default writes to disk are a surprise (the path would be implicit, log volume unbounded). Opt-in via the new constructor is more honest. MedCare-rs consumers wire JSONL when they construct the bridge; default-noop doesn't prevent that pattern. Available under `#[cfg(feature = "jsonl")]`.
+
+Also confirmed non-blocking:
+
+- **OQ-7-1: RoleGroup count.** MedCare-rs#119 ships 6 RoleGroups (Physician, Nurse, Cashier, Researcher, HipaaAudit, Admin); end-state matches our lance-graph decision regardless of "add 4" wording in the earlier EPIPHANY (4 additions = Nurse + 3 renames). No code change needed.
+- **W3 LifecycleAuditEvent ↔ W6 CompositeSink routing.** `LifecycleAuditEvent` (18 bytes) is intentionally separate from `UnifiedAuditEvent` (26 bytes) per sprint-5-6 meta CC-2 fix. They do NOT share the AuditSink trait — supervisor lifecycle audit is a parallel chain by design. If a future need to unify them surfaces, that's its own spec.
+
+Cross-ref: `.claude/board/sprint-log-7/meta-review.md` §1+§3, commit `bc530a4` (the trait migration).
+
+---
+
+## 2026-05-13 — DECISION: 4 PR #365 blocking OQs resolved — sprint-7 implementation can begin
+
+Post-#365 cross-session triage with the medcare-rs session resolved all four user-decision Open Questions that the Opus meta-review flagged as blocking sprint-7 implementation:
+
+- **OQ-1 (W3) TTL family-registry parser entry → new `parse_family_registry()` API.** Keeps `parse_ttl_directory_with_provenance` focused on ontology TTL; family-registry TTL is a different schema; mixing them via overload-by-naming is the wrong abstraction.
+- **OQ-2 (W10) `MANIFEST_METADATA` storage → sorted-slice + binary search.** `lance-graph-contract` zero-dep invariant in CLAUDE.md is iron. `phf` would be the first non-build dep on the contract crate. Binary search on sorted-slice is O(log n) and zero-dep. The C-grade meta finding for `pr-g1-manifest-modules.md §4.3` resolves by this change.
+- **OQ-3 (W6) `medcare_rbac::Role` migration → direct migration (rename `doctor → physician`, add `nurse / cashier / researcher / hipaa_audit`).** Per CLAUDE.md "Don't introduce abstractions beyond what the task requires." A bridge adapter is a permanent abstraction to avoid one-time call-site churn — wrong tradeoff. `super-domain-rbac-tenancy-v1.md §14` made canonical RoleGroups primary; aligning is mandatory, not optional. E1-1 LOC stays at ~180. medcare-rs session eats the call-site churn.
+- **OQ-4 (W13 §E.1) OGIT/NTO/SMB BSON namespace → `ogit.SMB.bson:` sub-namespace.** `registry.enumerate("SMB")` must return exactly 3 Foundry entities; mixing BSON into the same namespace breaks the `smb_projects_three_entities` test and corrupts the `OntologyRegistry` index.
+
+Cross-session boundary clarified (lance-graph side ↔ medcare-rs side):
+- **lance-graph (this session):** sprint-7 implementation fleet for W3 family-hydration (the cascade unblocker), W10 manifest-modules (with sorted-slice fix), W11 ractor-supervisor (with `LifecycleAuditEvent` split per meta CC-2), W12 conformance crate, W1 LanceAuditSink, W2 JsonlAuditSink + verify CLI, W9 thinking-engine wire.
+- **medcare-rs session:** PR-α (`MedcareOntology::from_registry` red-build fix), PR-β' (E1-1 wire `medcare_healthcare_policy()` + direct migration per OQ-3), PR-γ (FingerprintCodec re-export fold — Pattern N anti-pattern at `medcare-analytics/src/soa_mapping.rs`; ~20 LOC scope, delete enum + re-export from `lance_graph_contract::cam` / `bgz17`), PR-δ (AUTH_LEGACY_TRIPLEDES_MIGRATION audit vs PR #363 §18, doc-only).
+- **Both deferred:** E1-5 (HIPAA hard-lock cross-domain matrix, D-SDR-17, ~60 LOC) → sprint-8 compliance owns. E1-6 (JWT middleware stub for `praxis_id`, ~150 LOC) → blocked on DM-7 (`RlsRewriter::rewrite(LogicalPlan, &ActorContext)` per foundry-roadmap §2).
+- **E1-3 / E1-4** (`MedCareStack` composition + audit emission) → cascade-unblocks once W3 lands `parse_family_registry()` + seeds `OgitFamilyTable` for Healthcare basins 0x10..=0x19.
+
+Cross-ref: `.claude/board/sprint-log-5-6/meta-review.md` §6 (OQ triage), PR #365 body (OQs as checkboxes), `super-domain-rbac-tenancy-v1.md §14`.
+
+---
+
 ## 2026-05-13 — CORRECTION-OF sprint-4 framing: most worker specs partially duplicated existing `.claude/plans/` corpus — sprint-5 MUST grep `.claude/plans/*.md` before spawning any worker
 
 **Status:** FINDING (user surfaced prior plans 2026-05-13 evening)

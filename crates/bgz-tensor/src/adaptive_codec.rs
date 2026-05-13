@@ -401,10 +401,10 @@ mod tests {
         );
 
         // Passthrough rows should reconstruct exactly
-        for i in 0..tensor.n_rows {
+        for (i, row_data) in rows.iter().enumerate().take(tensor.n_rows) {
             if tensor.rows[i].precision == RowPrecision::Passthrough {
                 let recon = tensor.reconstruct_row(i);
-                let cos = cosine_f32_to_f64_simd(&rows[i], &recon);
+                let cos = cosine_f32_to_f64_simd(row_data, &recon);
                 assert!(
                     (cos - 1.0).abs() < 1e-6,
                     "passthrough row {} cos={}",

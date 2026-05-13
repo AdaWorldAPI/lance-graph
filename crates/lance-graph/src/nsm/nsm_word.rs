@@ -241,12 +241,12 @@ fn build_synthetic_matrix(vocab_size: usize) -> WordDistanceMatrix {
     let mut state = 0xCAFE_BABE_DEAD_BEEFu64;
     for i in 0..n {
         let mut v = vec![0.0f32; dim];
-        for d in 0..dim {
+        for val in v.iter_mut() {
             state ^= state << 13;
             state ^= state >> 7;
             state ^= state << 17;
             // Mix rank info with pseudo-random to get synthetic embeddings
-            v[d] = (i as f32 * 0.01) + ((state & 0xFFFF) as f32 / 65536.0) * 0.5;
+            *val = (i as f32 * 0.01) + ((state & 0xFFFF) as f32 / 65536.0) * 0.5;
         }
         vectors.push(v);
     }
@@ -456,7 +456,7 @@ mod tests {
         assert!(result.is_some());
         let (prime, sim) = result.unwrap();
         assert!(!prime.is_empty());
-        assert!(sim >= 0.0 && sim <= 1.0);
+        assert!((0.0..=1.0).contains(&sim));
     }
 
     #[test]

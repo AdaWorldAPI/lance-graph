@@ -1,0 +1,13 @@
+ogit_g: FMA
+version: 1
+domain_name: fma
+inert_when_consumer_absent: true
+
+entity_types: {}
+
+rbac_policy: ~
+stack_profile: ~
+action_capabilities: {}
+actor: ~
+
+inherits_from: dolce

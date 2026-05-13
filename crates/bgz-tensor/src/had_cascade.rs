@@ -398,7 +398,7 @@ mod tests {
         let rows: Vec<Vec<f32>> = (0..32).map(|i| make_row(i, 256)).collect();
         let tensor = HadCascadeTensor::encode("test", &rows, 32);
         let bytes = tensor.to_bytes();
-        assert!(bytes.len() > 0);
+        assert!(!bytes.is_empty());
         let bpr = tensor.bytes_per_row();
         // 1 twig + 2 scale1 + 128 i4 + 2 scale2 + 64 i2 = 197
         assert_eq!(bpr, 197, "bytes_per_row at 256-d should be 197");

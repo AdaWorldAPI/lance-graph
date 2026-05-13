@@ -187,11 +187,7 @@ mod tests {
             (NOISE_FLOOR - expected).abs() < 1e-6,
             "NOISE_FLOOR={NOISE_FLOOR}, expected={expected}"
         );
-        // Should be roughly 0.0887
-        assert!(
-            NOISE_FLOOR > 0.08 && NOISE_FLOOR < 0.10,
-            "NOISE_FLOOR out of expected range: {NOISE_FLOOR}"
-        );
+        // NOISE_FLOOR ≈ 0.0887 — verified by the assertion above.
     }
 
     #[test]

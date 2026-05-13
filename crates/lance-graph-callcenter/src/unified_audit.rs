@@ -3,7 +3,7 @@
 //!
 //! Each `UnifiedBridge::authorize()` call that materially gates access
 //! (Deny / Escalate / Audit-required Allow) emits one `UnifiedAuditEvent`
-//! through a `UnifiedAuditSink`. Events form a chain: the merkle root of
+//! through an `AuditSink` (see `crate::audit_sink`). Events form a chain: the merkle root of
 //! event N includes the merkle root of event N-1 plus a per-super-domain
 //! `merkle_salt` (§13.4 hard-lock — cross-domain audit logs are
 //! unlinkable). Tampering with any past event is detectable by chain
@@ -24,9 +24,9 @@
 //! durable record   (JSON Lines / Lance dataset / no-op)
 //! ```
 //!
-//! D-SDR-4 scope: type system + chain mechanics + `NoopUnifiedAuditSink`
+//! D-SDR-4 scope: type system + chain mechanics + sink trait
 //! reference impl + tamper detection helper. Production sinks
-//! (`JsonLinesUnifiedAuditSink`, `LanceUnifiedAuditSink`) are D-SDR-4b.
+//! (`JsonlAuditSink`, `LanceAuditSink` in `crate::audit_sink`) are D-SDR-4b/sprint-7.
 //! Wiring into `UnifiedBridge::authorize()` is D-SDR-5.
 //!
 //! ## Separate from `crate::audit`
@@ -171,6 +171,12 @@ pub struct UnifiedAuditEvent
     /// Computed by [`AuditChain::advance`] at emission; equals
     /// `AuditMerkleRoot::chain(prev_root, salt, self.canonical_bytes())`.
     pub merkle_root: AuditMerkleRoot,
+    /// Merkle root of the immediately preceding event in this chain.
+    /// `AuditMerkleRoot::GENESIS` for the first event.
+    /// Excluded from `canonical_bytes()` — it is the prior chain output,
+    /// not an input; including it would create a circular dependency.
+    /// D-SDR-4b field; populated by `AuditChain::advance()`.
+    pub prev_merkle: AuditMerkleRoot,
 }
 
 impl UnifiedAuditEvent
@@ -238,8 +244,15 @@ impl AuditChain
 
     /// Stamp `event.merkle_root` with the chained hash and update
     /// `self.last_root`. Returns the freshly-stamped event for emission.
+    ///
+    /// D-SDR-4b: captures `self.last_root` into `event.prev_merkle` BEFORE
+    /// chaining so the prior root is available for single-event spot-checks
+    /// in `verify-jsonl` / `verify-lance` without scanning from genesis.
+    /// `prev_merkle` is NOT included in `canonical_bytes()` — that would
+    /// create a circular dependency.
     pub fn advance(&mut self, mut event: UnifiedAuditEvent) -> UnifiedAuditEvent
     {
+        event.prev_merkle = self.last_root;   // capture BEFORE chaining
         let new_root = AuditMerkleRoot::chain(self.last_root, self.salt, &event.canonical_bytes());
         event.merkle_root = new_root;
         self.last_root = new_root;
@@ -248,33 +261,50 @@ impl AuditChain
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// UnifiedAuditSink — pluggable persistence
+// HydrationRefreshAudit — emitted on every FAMILY_TABLE reload
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Sink trait — pluggable persistence backend. Implementations:
-/// - `NoopUnifiedAuditSink` (this module) — discards events; default for
-///   tests and `audit_required = false` policies.
-/// - `JsonLinesUnifiedAuditSink` (D-SDR-4b) — appends to a JSONL file.
-/// - `LanceUnifiedAuditSink` (D-SDR-4b) — appends to a Lance dataset,
-///   indexed by `(tenant, super_domain, ts_unix_ms)`.
-pub trait UnifiedAuditSink: Send + Sync
-{
-    /// Persist one event. **Must not block on I/O** for >1ms — the
-    /// authorize() hot path calls this synchronously. Production sinks
-    /// buffer asynchronously and flush on a separate task.
-    fn emit(&self, event: &UnifiedAuditEvent);
+/// Audit event emitted whenever `FAMILY_TABLE` is reloaded (on first boot or
+/// on a hot-reload triggered by `BridgeHandle::reload_family_table()`).
+///
+/// Per spec §3.2 — consumers can observe `generation` to change-detect
+/// without racing on the table lock.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HydrationRefreshAudit {
+    /// Wall-clock timestamp in milliseconds since UNIX epoch of the reload.
+    pub ts_unix_ms: u64,
+    /// Generation counter after the reload. Starts at 1; incremented on each
+    /// subsequent reload.
+    pub generation: u64,
+    /// Number of family_id → SuperDomain mappings that changed or were newly
+    /// set relative to the prior generation. Zero on the first boot (no prior
+    /// to compare against).
+    pub updated_count: u32,
+    /// Human-readable description of the source(s) that contributed to this
+    /// reload (e.g. `"seed"`, `"seed+overlay:/etc/ogit/family"`).
+    pub source: String,
 }
 
-/// No-op sink — discards every event. Use as the default sink when
-/// `super_domain.audit_required = false` (no compliance regime requires
-/// audit), or in tests.
-#[derive(Clone, Copy, Debug, Default)]
-pub struct NoopUnifiedAuditSink;
-
-impl UnifiedAuditSink for NoopUnifiedAuditSink
-{
-    fn emit(&self, _event: &UnifiedAuditEvent) {}
+impl HydrationRefreshAudit {
+    /// Build a `HydrationRefreshAudit` from the current wall clock.
+    pub fn now(generation: u64, updated_count: u32, source: impl Into<String>) -> Self {
+        let ts_unix_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
+        Self {
+            ts_unix_ms,
+            generation,
+            updated_count,
+            source: source.into(),
+        }
+    }
 }
+
+// The audit sink trait + NoopAuditSink moved to crate::audit_sink in
+// sprint-7 (OQ-7-2 locked 2026-05-13). UnifiedAuditSink and
+// NoopUnifiedAuditSink were the D-SDR-4 placeholders; production
+// consumers use `AuditSink` from `crate::audit_sink` directly.
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Chain verification — tamper detection
@@ -325,6 +355,7 @@ mod tests
             decision: AuthDecision::Allow,
             actor_role_hash: 0xCAFE_BABE_DEAD_BEEF,
             merkle_root: AuditMerkleRoot::GENESIS, // overwritten by chain.advance
+            prev_merkle: AuditMerkleRoot::GENESIS, // overwritten by chain.advance
         }
     }
 
@@ -439,12 +470,12 @@ mod tests
     }
 
     #[test]
-    fn noop_sink_swallows_events()
-    {
-        let sink = NoopUnifiedAuditSink;
+    fn noop_sink_swallows_events() {
+        use crate::audit_sink::{AuditSink, NoopAuditSink};
+        let sink = NoopAuditSink;
         let mut chain = AuditChain::new(SuperDomain::Healthcare, 0xC0FFEE);
         let ev = chain.advance(fresh_event());
-        sink.emit(&ev); // doesn't panic, doesn't observe — by design
+        sink.emit(ev).expect("noop never errors"); // doesn't observe — by design
     }
 
     #[test]

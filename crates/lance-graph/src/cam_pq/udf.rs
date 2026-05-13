@@ -20,7 +20,7 @@ use arrow::array::{Array, ArrayRef, FixedSizeBinaryArray, Float32Array};
 use arrow::datatypes::DataType;
 use datafusion::logical_expr::{ScalarUDF, Signature, Volatility};
 use datafusion::physical_plan::ColumnarValue;
-use std::sync::{Arc, LazyLock};
+use std::sync::Arc;
 
 use crate::datafusion_planner::vector_ops;
 

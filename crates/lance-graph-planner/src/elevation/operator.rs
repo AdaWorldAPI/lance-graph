@@ -272,7 +272,7 @@ mod tests {
             .with_level(ElevationLevel::Cascade, Box::new(DummyLevel::new(50)))
             .with_level(ElevationLevel::Batch, Box::new(DummyLevel::new(10)));
 
-        let result = op.execute().unwrap();
+        let _result = op.execute().unwrap();
         // Should have elevated past Scan (500 > 100 threshold)
         assert!(op.final_level() > ElevationLevel::Scan);
         assert!(op.elevation_count() >= 1);
@@ -290,7 +290,7 @@ mod tests {
             .with_level(ElevationLevel::Scan, Box::new(DummyLevel::new(100)))
             .with_level(ElevationLevel::Cascade, Box::new(DummyLevel::new(100)));
 
-        let result = op.execute();
+        let _result = op.execute();
         // Should stop at Cascade ceiling even though trigger says elevate
         assert!(op.final_level() <= ElevationLevel::Cascade);
     }

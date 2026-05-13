@@ -125,6 +125,7 @@ impl SpoBuilder {
     /// On failure (one or more Required predicates missing) returns a
     /// [`FailureTicket`] carrying the missing predicate names; nothing
     /// is inserted and the staged set is preserved for retry.
+    #[allow(clippy::result_large_err)] // FailureTicket is intentionally rich for diagnostics
     pub fn commit_validated(&mut self, store: &mut SpoStore) -> Result<usize, FailureTicket> {
         let missing = self.validate();
         if !missing.is_empty() {

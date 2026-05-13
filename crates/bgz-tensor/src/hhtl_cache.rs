@@ -631,7 +631,7 @@ mod tests {
 
         let size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
         // 4 magic + 2 k + 256×34 entries + 256×256×2 distances + 256×256×1 routes + 256×4 radii
-        let expected = 4 + 2 + 256 * 34 + 256 * 256 * 2 + 256 * 256 * 1 + 256 * 4;
+        let expected = 4 + 2 + 256 * 34 + 256 * 256 * 2 + 256 * 256 + 256 * 4;
         assert_eq!(
             size, expected as u64,
             "expected {expected} bytes, got {size}"

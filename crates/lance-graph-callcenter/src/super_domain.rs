@@ -61,6 +61,20 @@ pub enum SuperDomain
     WorkOrderBilling = 6,
     /// Maltego, intel sources, social graph
     Osint = 7,
+    /// Cross-domain system / infrastructure events (PR-G2, CC-3 fix).
+    ///
+    /// Used by `CallcenterSupervisor` to emit actor lifecycle audit events
+    /// (`LifecycleAuditEvent`) without polluting domain-partitioned chains.
+    ///
+    /// **CC-3 exemption:** `System` is NOT subject to the §13.4 hard-lock
+    /// partner matrix. The hard-lock matrix governs _peer domain_ cross-
+    /// authorization (e.g. Healthcare actor touching WorkOrderBilling data).
+    /// The `System` super domain is the governance umbrella that sits above
+    /// all peer domains; it has no "partner" domains to lock out.
+    ///
+    /// Production deployments must ensure the supervisor's `AuditChain` for
+    /// `SuperDomain::System` uses a distinct salt from all peer domain chains.
+    System = 8,
 }
 
 impl SuperDomain
@@ -86,6 +100,7 @@ impl SuperDomain
             SuperDomain::TicketTool => "TicketTool",
             SuperDomain::WorkOrderBilling => "WorkOrderBilling",
             SuperDomain::Osint => "Osint",
+            SuperDomain::System => "System",
         }
     }
 }
@@ -302,27 +317,45 @@ pub const SUPER_DOMAINS: &[SuperDomainEntry] = &[
         label: "OSINT",
         compliance: ComplianceRegime::OsintClearance,
     },
+    // PR-G2 (CC-3 fix): SuperDomain::System — cross-domain infrastructure events.
+    // Exempt from the §13.4 hard-lock matrix; see variant doc for rationale.
+    SuperDomainEntry {
+        super_domain: SuperDomain::System,
+        basins: &[],
+        meta: MetaAnchors::EMPTY,
+        label: "System",
+        compliance: ComplianceRegime::None,
+    },
 ];
 
-/// Reverse lookup: `OgitFamily` (basin) → `SuperDomain` it belongs to.
+/// Attempt to resolve an OGIT basin to its `SuperDomain`.
 ///
-/// Single-member by default (per spec §3.4 tradeoff): each basin picks one
-/// primary super domain; cross-cutting basins (e.g., HPO/MONDO straddling
-/// Healthcare ↔ Genetics) explicitly activate multiple super-domain
-/// entries when queried.
+/// Returns `Err(HydrationError::TableNotInitialized)` if
+/// `UnifiedBridge::new_hydrated()` has not yet committed the table. Returns
+/// `Ok(SuperDomain::Unknown)` for any basin that is unclassified in the TTL
+/// seed.
 ///
-/// Populated at hydration time by `NamespaceRegistry::seed_defaults()`;
-/// `Unknown` is the safe default for basins not yet classified.
-static FAMILY_TO_SUPER_DOMAIN: [SuperDomain; 256] = [SuperDomain::Unknown; 256];
+/// New call sites should prefer this over `super_domain_for_family` so they
+/// can distinguish "table not ready" from "genuinely Unknown".
+#[inline]
+pub fn try_resolve(family: OgitFamily) -> Result<SuperDomain, crate::hydration::HydrationError>
+{
+    crate::hydration::try_resolve(family)
+}
 
 /// Lookup the super domain for a given OGIT basin.
 ///
-/// Returns `SuperDomain::Unknown` for unclassified basins. The mapping is
-/// seeded at hydration time; until then this always returns Unknown.
+/// Backward-compatible shim over `try_resolve`. Returns `SuperDomain::Unknown`
+/// for any basin that is unclassified **or** if the table has not yet been
+/// initialised (pre-boot / unit-test context). Never panics.
+///
+/// Production code that can tolerate the result ambiguity should use this.
+/// Code that needs to distinguish "not initialised" from "Unknown" should
+/// call `try_resolve` directly.
 #[inline]
 pub fn super_domain_for_family(family: OgitFamily) -> SuperDomain
 {
-    FAMILY_TO_SUPER_DOMAIN[family.raw() as usize]
+    crate::hydration::try_resolve(family).unwrap_or(SuperDomain::Unknown)
 }
 
 /// Lookup the `SuperDomainEntry` for a super domain.
@@ -381,6 +414,7 @@ mod tests
             SuperDomain::TicketTool,
             SuperDomain::WorkOrderBilling,
             SuperDomain::Osint,
+            SuperDomain::System,
         ] {
             assert_eq!(super_domain_entry(sd).super_domain, sd);
         }

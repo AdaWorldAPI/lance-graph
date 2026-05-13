@@ -50,7 +50,7 @@ pub fn scan_stack(config: &ScanConfig) -> StackDiagnosis {
         total_dead += repo_diag.total_dead;
         total_stub += repo_diag.total_stub;
         total_nan_risk += repo_diag.total_nan_risk;
-        total_files += repo_diag.modules.iter().map(|m| m.functions.len()).count();
+        total_files += repo_diag.modules.len();
         repos.push(repo_diag);
     }
 
@@ -85,7 +85,7 @@ fn scan_repo(name: &str, path: &Path, skip_dirs: &[String]) -> RepoDiagnosis {
         .filter_map(|e| e.ok())
     {
         let fpath = entry.path();
-        if fpath.extension().map_or(true, |ext| ext != "rs") {
+        if fpath.extension().is_none_or(|ext| ext != "rs") {
             continue;
         }
         if let Ok(content) = std::fs::read_to_string(fpath) {
@@ -204,9 +204,7 @@ fn extract_functions(
         let is_stub = detect_stub(&body, &return_type);
         let has_nan_risk = detect_nan_risk(&body, &return_type);
 
-        let state = if has_todo || has_unimplemented {
-            NeuronState::Dead
-        } else if has_panic && body_loc <= 5 {
+        let state = if has_todo || has_unimplemented || (has_panic && body_loc <= 5) {
             NeuronState::Dead
         } else if is_stub {
             NeuronState::Stub

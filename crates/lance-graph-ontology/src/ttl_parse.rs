@@ -420,7 +420,7 @@ pub fn parse_ttl_directory_with_provenance(
                 .next()
                 .and_then(|c| c.as_os_str().to_str())
                 .unwrap_or("");
-            if !namespace_filter.iter().any(|f| *f == ns) {
+            if !namespace_filter.contains(&ns) {
                 return Ok(());
             }
         }
@@ -465,9 +465,9 @@ pub fn ttl_root_checksum(root: &Path) -> Result<String> {
             source,
         })?;
         h.update(p.to_string_lossy().as_bytes());
-        h.update(&[0u8]);
+        h.update([0u8]);
         h.update(&bytes);
-        h.update(&[0u8]);
+        h.update([0u8]);
     }
     Ok(format!("{:x}", h.finalize()))
 }
@@ -720,6 +720,93 @@ fn leak_static(s: &str) -> &'static str {
 /// `ogit:allowed` constraint expansion.
 #[allow(dead_code)]
 const _RESERVED: &[&str] = &[OGIT_NODE, OGIT_SCOPE, RDFS_LABEL];
+
+// ── Family registry predicates (OQ-1 resolution, 2026-05-13) ────────────────
+// These predicates are ONLY used by `parse_family_registry()`. They do NOT
+// appear in the entity/verb/attribute proposal paths so keeping them here
+// (rather than polluting the shared constant pool) preserves separation.
+
+const OGIT_META_SUPER_DOMAIN: &str = "http://www.purl.org/ogit/meta/superDomain";
+const OGIT_META_FAMILY_ID: &str = "http://www.purl.org/ogit/meta/familyId";
+
+/// One row returned by [`parse_family_registry`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FamilyRegistryEntry {
+    /// The raw basin id (`OgitFamily::raw()` = one byte).
+    pub family_id: u8,
+    /// The super-domain variant name, e.g. `"Healthcare"`.
+    pub super_domain_name: String,
+}
+
+/// Parse a family-registry TTL byte-slice and return all
+/// `(family_id, super_domain_name)` pairs declared via
+/// `ogit.meta:familyId` + `ogit.meta:superDomain`.
+///
+/// This is the OQ-1 option (c) resolution: a thin dedicated entry point that
+/// only looks for the two family-registry predicates. It does NOT feed into
+/// the `MappingProposal` stream and does NOT touch the existing
+/// `parse_ttl_directory_with_provenance` surface.
+///
+/// Returns `Err(HydrationFailure)` only on a hard parse error (oxttl I/O).
+/// Individual subjects that lack one or both predicates are silently skipped.
+pub fn parse_family_registry(
+    ttl_bytes: &[u8],
+) -> std::result::Result<Vec<FamilyRegistryEntry>, crate::proposal::HydrationFailure> {
+    use oxttl::TurtleParser;
+
+    let parser = TurtleParser::new()
+        .with_base_iri("http://www.purl.org/ogit/")
+        .map_err(|e| crate::proposal::HydrationFailure {
+            source: "<inline>".to_string(),
+            reason: format!("base IRI: {e}"),
+        })?
+        .for_slice(ttl_bytes);
+
+    // Collect all triples into a by-subject map.
+    let mut by_subject: HashMap<String, Vec<(String, RdfValue)>> = HashMap::new();
+    for item in parser {
+        match item {
+            Ok(t) => {
+                let s = subject_to_string(&t.subject);
+                let p = t.predicate.as_str().to_string();
+                let o = term_to_value(&t.object);
+                by_subject.entry(s).or_default().push((p, o));
+            }
+            Err(e) => {
+                return Err(crate::proposal::HydrationFailure {
+                    source: "<inline>".to_string(),
+                    reason: format!("oxttl: {e}"),
+                });
+            }
+        }
+    }
+
+    let mut entries = Vec::new();
+
+    for props in by_subject.values() {
+        // A family namespace subject must carry BOTH predicates.
+        let super_domain_name = match lookup_literal(props, OGIT_META_SUPER_DOMAIN) {
+            Some(s) => s.to_string(),
+            None => continue,
+        };
+        let family_id_str = match lookup_literal(props, OGIT_META_FAMILY_ID) {
+            Some(s) => s,
+            None => continue,
+        };
+        let family_id: u8 = match family_id_str.trim().parse::<u8>() {
+            Ok(id) => id,
+            Err(_) => continue, // malformed numeric — skip gracefully
+        };
+        entries.push(FamilyRegistryEntry {
+            family_id,
+            super_domain_name,
+        });
+    }
+
+    // Sort by family_id for deterministic output.
+    entries.sort_by_key(|e| e.family_id);
+    Ok(entries)
+}
 
 #[cfg(test)]
 mod tests {
