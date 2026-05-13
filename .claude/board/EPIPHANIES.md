@@ -65,6 +65,22 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-05-13 — CONJECTURE: Gaussian-splat prerendered buffer is the Amiga-demoscene escape hatch for hydrating the 75K-entity FMA anatomy into q2's 3D view
+
+**Status:** CONJECTURE (not yet wired; no prior art found in lance-graph / ndarray / q2 grep for `gaussian|splat|prerender|demoscene|amiga`)
+
+The naive heart-click smoke test (W11 spec) hits a runtime wall: rendering 75K anatomical entities live in q2's WebGL/WebGPU context is not interactive-grade. The escape hatch is the Amiga demoscene tactic — **prerender once, replay cheaply**:
+
+- **Source:** FMA OWL → entity geometry (mesh or implicit) → 3DGS (3D Gaussian Splatting) scene as a single static splat cloud.
+- **Camera trajectory:** prerender 30–300 seconds × 30–60 fps = **900–18,000 frames** of camera fly-through covering all canonical viewpoints (whole-body, organ-system close-ups, heart, brain, skeleton).
+- **EWA-Sandwich filter:** Heckbert's Elliptical Weighted Average resampling filter as a three-pass sandwich (prefilter → splat-projection → postfilter) gives anti-aliased composition between layers. Used in modern 3DGS pipelines for the same reason demoscene used precomputed dithering tables: defer the math to author-time.
+- **Stream:** q2 graph-notebook subscribes to a splat-frame stream (Arrow Flight or WebSocket) and renders from the buffer. Heart-click = seek-to-heart-camera-position in the buffer, NOT live 75K-entity render.
+- **Hybrid:** SPO edge graph (lance-graph) still drives the click semantics + audit chain + drug-knowledge crosswalk; the splat buffer is JUST the visual rendering layer. The two-tier ingest (CSV-quick + OWL-full) gates which buffer is loadable.
+
+Cross-ref: FMA smoke test spec `.claude/specs/fma-heart-click-smoke.md`; the splat-buffer approach is an OPTIONAL acceleration tier (Tier-3 alongside Tier-1 CSV / Tier-2 OWL). Likely candidate crate locations: `crates/lance-graph-callcenter/render/` or new `crates/lance-graph-splat-buffer/`; uses `ndarray::simd` for splat projection (cross-flag W5).
+
+Open questions: (a) is 3DGS the right algorithm or do we want surfels / point-cloud variants? (b) where does the prerender job run — CI nightly, or one-shot offline tool? (c) buffer storage format — raw Arrow batches, MP4-like temporal codec, or splat-native (.splat / .ply)? (d) does EWA-Sandwich live in ndarray (SIMD-friendly) or in q2 (renderer-adjacent)?
+
 ## 2026-05-13 — FINDING: FMA (75K-entity human anatomy OWL ontology) is the canonical smoke-test for the entire OGIT ↔ OSINT ↔ Palantir/Neo4j ↔ q2 route — dual-test for edge propagation AND Healthcare super-domain
 
 **Status:** FINDING (anchors the demo-able milestone for the whole integration arc)

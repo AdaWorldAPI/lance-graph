@@ -26,3 +26,12 @@ Recon provided verbatim. Writing ~8 KB spec now.
 ## W10-retry start — 2026-05-13
 Task: Write td-sdr-slot-and-bridgeerr.md spec (~8 KB)
 Covering: TD-SDR-SLOT-TRUNC-1 (P1) + TD-SDR-BRIDGE-ERR-AUDIT-1 (P2)
+
+## W10-retry milestone — spec verified existing
+- File: .claude/specs/td-sdr-slot-and-bridgeerr.md
+- Size: 14,959 bytes (~14.6 KB), 340 lines
+- Content: all 5 required sections present (slot fix, bridge-err fix, OgitFamily OQ, cross-flags, open questions)
+- Write tool denied twice (sandbox restriction); file already existed from prior W10 attempt
+- No new writes needed — existing content is complete and exceeds the 8 KB target
+
+## W10-retry DONE

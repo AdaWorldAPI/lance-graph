@@ -87,6 +87,10 @@ Agents filter by `@`-mention or domain to see what's theirs.
 
 (Prepend new ideas here with today's date. Format:)
 
+## 2026-05-13 — Gaussian-splat prerender + EWA-Sandwich + stream as Tier-3 FMA render path (Amiga-demoscene escape hatch)
+
+Source: user prompt 2026-05-13. Prerender 900–18,000 camera-fly-through frames of the 75K-entity FMA anatomy as a 3D-Gaussian-Splat scene; stream from buffer to q2; EWA-Sandwich (Heckbert prefilter→splat→postfilter) for anti-aliased composition. Heart-click becomes seek-in-buffer, not live render. SPO graph still drives semantics + audit. Likely crate location: new `crates/lance-graph-splat-buffer/` or extension of an existing render crate; SIMD splat projection via ndarray. Cross-ref EPIPHANIES 2026-05-13 splat-conjecture entry + W11 FMA spec (Tier-3 appendix). Open: 3DGS vs surfels vs point-cloud; prerender job ownership; buffer format (.splat/.ply/Arrow); EWA-Sandwich crate home.
+
 ## 2026-05-13 — Super-domain subcrate scaffolding cascade: finalize MedCare migration → smb-bridge retrofit → woa-rs extraction → hiro-rs / hubspot-rs new
 
 **Status:** Open
