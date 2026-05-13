@@ -124,11 +124,11 @@ pub fn generative_batch(
 /// anomalous regions get more bits, stable regions get fewer.
 pub fn anomaly_to_layer(anomaly_score: f32) -> crate::Precision {
     if anomaly_score > 0.75 {
-        crate::Precision::Base    // 102 bytes — can't trust palette
+        crate::Precision::Base // 102 bytes — can't trust palette
     } else if anomaly_score > 0.5 {
         crate::Precision::Palette // 3 bytes — palette with correction
     } else {
-        crate::Precision::Scent   // 1 byte — scent is sufficient
+        crate::Precision::Scent // 1 byte — scent is sufficient
     }
 }
 
@@ -176,14 +176,26 @@ mod tests {
 
     #[test]
     fn test_correction_factor_neutral() {
-        let lfd = LfdProfile { lfd: 2.0, lfd_median: 2.0, anomaly_score: 0.0 };
+        let lfd = LfdProfile {
+            lfd: 2.0,
+            lfd_median: 2.0,
+            anomaly_score: 0.0,
+        };
         let f = correction_factor(&lfd, 0.3);
-        assert!((f - 1.0).abs() < 0.01, "At median LFD, correction should be ~1.0: {}", f);
+        assert!(
+            (f - 1.0).abs() < 0.01,
+            "At median LFD, correction should be ~1.0: {}",
+            f
+        );
     }
 
     #[test]
     fn test_correction_factor_high_lfd() {
-        let lfd = LfdProfile { lfd: 4.0, lfd_median: 2.0, anomaly_score: 0.5 };
+        let lfd = LfdProfile {
+            lfd: 4.0,
+            lfd_median: 2.0,
+            anomaly_score: 0.5,
+        };
         let f = correction_factor(&lfd, 0.3);
         assert!(f > 1.0, "High LFD should increase distance: {}", f);
         assert!(f < 2.0, "Should be clamped below 2.0: {}", f);
@@ -191,7 +203,11 @@ mod tests {
 
     #[test]
     fn test_correction_factor_low_lfd() {
-        let lfd = LfdProfile { lfd: 0.5, lfd_median: 2.0, anomaly_score: 0.0 };
+        let lfd = LfdProfile {
+            lfd: 0.5,
+            lfd_median: 2.0,
+            anomaly_score: 0.0,
+        };
         let f = correction_factor(&lfd, 0.3);
         assert!(f < 1.0, "Low LFD should decrease distance: {}", f);
         assert!(f >= 0.5, "Should be clamped above 0.5: {}", f);
@@ -199,7 +215,11 @@ mod tests {
 
     #[test]
     fn test_generative_distance_identity() {
-        let lfd = LfdProfile { lfd: 2.0, lfd_median: 2.0, anomaly_score: 0.0 };
+        let lfd = LfdProfile {
+            lfd: 2.0,
+            lfd_median: 2.0,
+            anomaly_score: 0.0,
+        };
         let raw = 1000u32;
         let corrected = generative_distance(raw, &lfd, 0.3);
         assert_eq!(corrected, raw, "At neutral LFD, no correction");
@@ -217,9 +237,18 @@ mod tests {
         let palette_d = vec![(0, 100), (1, 200), (2, 300)];
         let exact_d = vec![(0, 100), (1, 200), (2, 300)];
         let lfds = vec![
-            LfdProfile { lfd: 2.0, lfd_median: 2.0, anomaly_score: 0.0 }; 3
+            LfdProfile {
+                lfd: 2.0,
+                lfd_median: 2.0,
+                anomaly_score: 0.0
+            };
+            3
         ];
         let l = mismatch_penalty(&palette_d, &exact_d, &lfds, 0.0);
-        assert!((l - 1.0).abs() < 0.01, "Perfect match should give L≈1.0: {}", l);
+        assert!(
+            (l - 1.0).abs() < 0.01,
+            "Perfect match should give L≈1.0: {}",
+            l
+        );
     }
 }

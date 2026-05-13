@@ -38,35 +38,55 @@ impl PlasticityState {
 
     /// Is the S-plane hot (plastic)?
     #[inline]
-    pub fn s_hot(self) -> bool { self.0 & 0b001 != 0 }
+    pub fn s_hot(self) -> bool {
+        self.0 & 0b001 != 0
+    }
     /// Is the P-plane hot?
     #[inline]
-    pub fn p_hot(self) -> bool { self.0 & 0b010 != 0 }
+    pub fn p_hot(self) -> bool {
+        self.0 & 0b010 != 0
+    }
     /// Is the O-plane hot?
     #[inline]
-    pub fn o_hot(self) -> bool { self.0 & 0b100 != 0 }
+    pub fn o_hot(self) -> bool {
+        self.0 & 0b100 != 0
+    }
 
     /// Freeze the S-plane.
     #[inline]
-    pub fn freeze_s(self) -> Self { Self(self.0 & !0b001) }
+    pub fn freeze_s(self) -> Self {
+        Self(self.0 & !0b001)
+    }
     /// Freeze the P-plane.
     #[inline]
-    pub fn freeze_p(self) -> Self { Self(self.0 & !0b010) }
+    pub fn freeze_p(self) -> Self {
+        Self(self.0 & !0b010)
+    }
     /// Freeze the O-plane.
     #[inline]
-    pub fn freeze_o(self) -> Self { Self(self.0 & !0b100) }
+    pub fn freeze_o(self) -> Self {
+        Self(self.0 & !0b100)
+    }
 
     /// Heat the S-plane.
     #[inline]
-    pub fn heat_s(self) -> Self { Self(self.0 | 0b001) }
+    pub fn heat_s(self) -> Self {
+        Self(self.0 | 0b001)
+    }
     /// Heat the P-plane.
     #[inline]
-    pub fn heat_p(self) -> Self { Self(self.0 | 0b010) }
+    pub fn heat_p(self) -> Self {
+        Self(self.0 | 0b010)
+    }
     /// Heat the O-plane.
     #[inline]
-    pub fn heat_o(self) -> Self { Self(self.0 | 0b100) }
+    pub fn heat_o(self) -> Self {
+        Self(self.0 | 0b100)
+    }
 
     /// Number of hot (plastic) planes.
     #[inline]
-    pub fn hot_count(self) -> u8 { self.0.count_ones() as u8 }
+    pub fn hot_count(self) -> u8 {
+        self.0.count_ones() as u8
+    }
 }

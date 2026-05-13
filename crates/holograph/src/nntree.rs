@@ -48,9 +48,9 @@ pub struct NnTreeConfig {
 impl Default for NnTreeConfig {
     fn default() -> Self {
         Self {
-            max_children: 16,     // 16-way branching
-            max_leaf_size: 64,    // Leaves hold up to 64 items
-            search_beam: 4,       // Check top 4 candidates per level
+            max_children: 16,  // 16-way branching
+            max_leaf_size: 64, // Leaves hold up to 64 items
+            search_beam: 4,    // Check top 4 candidates per level
             use_bundling: true,
         }
     }
@@ -150,10 +150,13 @@ impl NnTree {
         let root = TreeAddr::root();
 
         let mut nodes = HashMap::new();
-        nodes.insert(root.clone(), NnNode::Leaf {
-            addr: root.clone(),
-            items: Vec::new(),
-        });
+        nodes.insert(
+            root.clone(),
+            NnNode::Leaf {
+                addr: root.clone(),
+                items: Vec::new(),
+            },
+        );
 
         Self {
             config,
@@ -262,10 +265,13 @@ impl NnTree {
             let child_addr = addr.child(i as u8);
             children.push(child_addr.clone());
 
-            self.nodes.insert(child_addr.clone(), NnNode::Leaf {
-                addr: child_addr,
-                items: cluster,
-            });
+            self.nodes.insert(
+                child_addr.clone(),
+                NnNode::Leaf {
+                    addr: child_addr,
+                    items: cluster,
+                },
+            );
         }
 
         // Convert current leaf to internal node
@@ -274,27 +280,34 @@ impl NnTree {
             BitpackedVector::bundle(&refs)
         };
 
-        self.nodes.insert(addr.clone(), NnNode::Internal {
-            centroid,
-            addr: addr.clone(),
-            children,
-            count: items.len(),
-        });
+        self.nodes.insert(
+            addr.clone(),
+            NnNode::Internal {
+                centroid,
+                addr: addr.clone(),
+                children,
+                count: items.len(),
+            },
+        );
     }
 
     /// Cluster items into k groups using k-means-like approach
-    fn cluster_items(&self, items: &[(u64, BitpackedVector)], k: usize) -> Vec<Vec<(u64, BitpackedVector)>> {
+    fn cluster_items(
+        &self,
+        items: &[(u64, BitpackedVector)],
+        k: usize,
+    ) -> Vec<Vec<(u64, BitpackedVector)>> {
         if items.len() <= k {
-            return items.iter()
+            return items
+                .iter()
                 .map(|(id, fp)| vec![(*id, fp.clone())])
                 .collect();
         }
 
         // Initialize centroids by sampling
         let step = items.len() / k;
-        let mut centroids: Vec<BitpackedVector> = (0..k)
-            .map(|i| items[i * step].1.clone())
-            .collect();
+        let mut centroids: Vec<BitpackedVector> =
+            (0..k).map(|i| items[i * step].1.clone()).collect();
 
         // Run a few iterations of k-means
         let mut clusters = vec![Vec::new(); k];
@@ -341,7 +354,8 @@ impl NnTree {
 
         while let Some(addr) = current {
             // Collect child data before mutating
-            let child_data = if let Some(NnNode::Internal { children, .. }) = self.nodes.get(&addr) {
+            let child_data = if let Some(NnNode::Internal { children, .. }) = self.nodes.get(&addr)
+            {
                 let child_addrs: Vec<_> = children.clone();
                 let child_fps: Vec<BitpackedVector> = child_addrs
                     .iter()
@@ -359,7 +373,10 @@ impl NnTree {
             };
 
             if let Some((child_fps, new_count)) = child_data {
-                if let Some(NnNode::Internal { centroid, count, .. }) = self.nodes.get_mut(&addr) {
+                if let Some(NnNode::Internal {
+                    centroid, count, ..
+                }) = self.nodes.get_mut(&addr)
+                {
                     let refs: Vec<&BitpackedVector> = child_fps.iter().collect();
                     *centroid = BitpackedVector::bundle(&refs);
                     *count = new_count;
@@ -436,7 +453,9 @@ impl NnTree {
                         }
                     }
                 }
-                Some(NnNode::Internal { children, centroid, .. }) => {
+                Some(NnNode::Internal {
+                    children, centroid, ..
+                }) => {
                     // Prune: skip subtree if centroid is too far
                     // (heuristic: centroid distance - max_radius)
                     let centroid_dist = hamming_distance_scalar(query, centroid);
@@ -497,16 +516,15 @@ impl NnTree {
 
     /// Batch insert multiple fingerprints
     pub fn insert_batch(&mut self, fingerprints: &[BitpackedVector]) -> Vec<u64> {
-        fingerprints.iter()
+        fingerprints
+            .iter()
             .map(|fp| self.insert(fp.clone()))
             .collect()
     }
 
     /// Batch search for multiple queries
     pub fn search_batch(&self, queries: &[BitpackedVector], k: usize) -> Vec<Vec<(u64, u32)>> {
-        queries.iter()
-            .map(|q| self.search(q, k))
-            .collect()
+        queries.iter().map(|q| self.search(q, k)).collect()
     }
 
     // ========================================================================
@@ -540,7 +558,9 @@ impl NnTree {
 
     /// Average items per leaf
     pub fn avg_leaf_size(&self) -> f32 {
-        let leaves: Vec<_> = self.nodes.values()
+        let leaves: Vec<_> = self
+            .nodes
+            .values()
             .filter_map(|n| match n {
                 NnNode::Leaf { items, .. } => Some(items.len()),
                 _ => None,
@@ -584,9 +604,11 @@ pub struct TreeStats {
 
 impl std::fmt::Display for TreeStats {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "NnTree[{} items, depth={}, {} internal, {} leaves, avg leaf={:.1}]",
-            self.total_items, self.depth, self.internal_nodes,
-            self.leaf_nodes, self.avg_leaf_size)
+        write!(
+            f,
+            "NnTree[{} items, depth={}, {} internal, {} leaves, avg leaf={:.1}]",
+            self.total_items, self.depth, self.internal_nodes, self.leaf_nodes, self.avg_leaf_size
+        )
     }
 }
 
@@ -638,7 +660,8 @@ impl SparseNnTree {
 
     /// Compact: move cold items to cold storage
     pub fn compact(&mut self) -> Vec<u64> {
-        let cold_ids: Vec<u64> = self.access_counts
+        let cold_ids: Vec<u64> = self
+            .access_counts
             .iter()
             .filter(|(_, count)| **count < self.access_threshold)
             .map(|(id, _)| *id)
@@ -749,16 +772,12 @@ mod tests {
     fn test_batch_operations() {
         let mut tree = NnTree::new();
 
-        let fps: Vec<_> = (0..100)
-            .map(|i| BitpackedVector::random(i))
-            .collect();
+        let fps: Vec<_> = (0..100).map(|i| BitpackedVector::random(i)).collect();
 
         let ids = tree.insert_batch(&fps);
         assert_eq!(ids.len(), 100);
 
-        let queries: Vec<_> = (0..5)
-            .map(|i| BitpackedVector::random(i * 20))
-            .collect();
+        let queries: Vec<_> = (0..5).map(|i| BitpackedVector::random(i * 20)).collect();
 
         let results = tree.search_batch(&queries, 3);
         assert_eq!(results.len(), 5);

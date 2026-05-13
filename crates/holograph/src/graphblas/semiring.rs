@@ -15,10 +15,10 @@
 //! | SIMILARITY_MAX | Max | Similarity | 0.0 | - | Best match |
 //! | RESONANCE | BestMatch | Bind | empty | empty | Query expansion |
 
+#[allow(unused_imports)] // GrBMonoid reserved for custom monoid construction
+use super::types::{GrBBinaryOp, GrBMonoid, HdrScalar};
 use crate::bitpack::BitpackedVector;
 use crate::hamming::{hamming_distance_scalar, hamming_to_similarity};
-#[allow(unused_imports)] // GrBMonoid reserved for custom monoid construction
-use super::types::{HdrScalar, GrBMonoid, GrBBinaryOp};
 
 /// A semiring defines the algebraic operations for matrix computation
 pub trait Semiring: Clone + Send + Sync {
@@ -65,9 +65,7 @@ pub enum HdrSemiring {
 
     /// Bind multiply, Best resonance add
     /// Good for: query expansion with cleanup
-    Resonance {
-        threshold: f32,
-    },
+    Resonance { threshold: f32 },
 
     /// AND multiply, OR add (traditional boolean)
     /// Good for: reachability queries
@@ -129,10 +127,8 @@ impl Semiring for HdrSemiring {
                     (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => {
                         HdrScalar::Vector(BitpackedVector::bundle(&[va, vb]))
                     }
-                    (HdrScalar::Vector(v), HdrScalar::Empty) |
-                    (HdrScalar::Empty, HdrScalar::Vector(v)) => {
-                        HdrScalar::Vector(v.clone())
-                    }
+                    (HdrScalar::Vector(v), HdrScalar::Empty)
+                    | (HdrScalar::Empty, HdrScalar::Vector(v)) => HdrScalar::Vector(v.clone()),
                     _ => HdrScalar::Empty,
                 }
             }
@@ -168,7 +164,9 @@ impl Semiring for HdrSemiring {
                 }
             }
 
-            HdrSemiring::Resonance { threshold: _threshold } => {
+            HdrSemiring::Resonance {
+                threshold: _threshold,
+            } => {
                 // Best matching vector above threshold
                 match (a, b) {
                     (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => {
@@ -195,9 +193,7 @@ impl Semiring for HdrSemiring {
             HdrSemiring::XorXor => {
                 // XOR add (field arithmetic)
                 match (a, b) {
-                    (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => {
-                        HdrScalar::Vector(va.xor(vb))
-                    }
+                    (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => HdrScalar::Vector(va.xor(vb)),
                     (HdrScalar::Vector(v), _) | (_, HdrScalar::Vector(v)) => {
                         HdrScalar::Vector(v.clone())
                     }
@@ -205,21 +201,19 @@ impl Semiring for HdrSemiring {
                 }
             }
 
-            HdrSemiring::Custom { add_op, .. } => {
-                apply_binary_op(*add_op, a, b)
-            }
+            HdrSemiring::Custom { add_op, .. } => apply_binary_op(*add_op, a, b),
         }
     }
 
     fn multiply(&self, a: &HdrScalar, b: &HdrScalar) -> HdrScalar {
         match self {
-            HdrSemiring::XorBundle | HdrSemiring::BindFirst |
-            HdrSemiring::XorXor | HdrSemiring::Resonance { .. } => {
+            HdrSemiring::XorBundle
+            | HdrSemiring::BindFirst
+            | HdrSemiring::XorXor
+            | HdrSemiring::Resonance { .. } => {
                 // XOR binding
                 match (a, b) {
-                    (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => {
-                        HdrScalar::Vector(va.xor(vb))
-                    }
+                    (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => HdrScalar::Vector(va.xor(vb)),
                     _ => HdrScalar::Empty,
                 }
             }
@@ -250,36 +244,26 @@ impl Semiring for HdrSemiring {
                 HdrScalar::Bool(a.to_bool() && b.to_bool())
             }
 
-            HdrSemiring::Custom { mult_op, .. } => {
-                apply_binary_op(*mult_op, a, b)
-            }
+            HdrSemiring::Custom { mult_op, .. } => apply_binary_op(*mult_op, a, b),
         }
     }
 
     fn is_zero(&self, a: &HdrScalar) -> bool {
         match self {
-            HdrSemiring::XorBundle | HdrSemiring::XorXor => {
-                match a {
-                    HdrScalar::Vector(v) => v.popcount() == 0,
-                    HdrScalar::Empty => true,
-                    _ => false,
-                }
-            }
-            HdrSemiring::BindFirst | HdrSemiring::Resonance { .. } => {
-                a.is_empty()
-            }
+            HdrSemiring::XorBundle | HdrSemiring::XorXor => match a {
+                HdrScalar::Vector(v) => v.popcount() == 0,
+                HdrScalar::Empty => true,
+                _ => false,
+            },
+            HdrSemiring::BindFirst | HdrSemiring::Resonance { .. } => a.is_empty(),
             HdrSemiring::HammingMin => {
                 matches!(a, HdrScalar::Distance(d) if *d == u32::MAX)
             }
             HdrSemiring::SimilarityMax => {
                 matches!(a, HdrScalar::Similarity(s) if *s == 0.0)
             }
-            HdrSemiring::BooleanAndOr => {
-                !a.to_bool()
-            }
-            HdrSemiring::Custom { .. } => {
-                a.is_empty()
-            }
+            HdrSemiring::BooleanAndOr => !a.to_bool(),
+            HdrSemiring::Custom { .. } => a.is_empty(),
         }
     }
 
@@ -303,84 +287,56 @@ fn apply_binary_op(op: GrBBinaryOp, a: &HdrScalar, b: &HdrScalar) -> HdrScalar {
         GrBBinaryOp::First => a.clone(),
         GrBBinaryOp::Second => b.clone(),
 
-        GrBBinaryOp::HdrBind => {
-            match (a, b) {
-                (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => {
-                    HdrScalar::Vector(va.xor(vb))
-                }
-                _ => HdrScalar::Empty,
-            }
-        }
+        GrBBinaryOp::HdrBind => match (a, b) {
+            (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => HdrScalar::Vector(va.xor(vb)),
+            _ => HdrScalar::Empty,
+        },
 
-        GrBBinaryOp::HdrBundle => {
-            match (a, b) {
-                (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => {
-                    HdrScalar::Vector(BitpackedVector::bundle(&[va, vb]))
-                }
-                (HdrScalar::Vector(v), _) | (_, HdrScalar::Vector(v)) => {
-                    HdrScalar::Vector(v.clone())
-                }
-                _ => HdrScalar::Empty,
+        GrBBinaryOp::HdrBundle => match (a, b) {
+            (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => {
+                HdrScalar::Vector(BitpackedVector::bundle(&[va, vb]))
             }
-        }
+            (HdrScalar::Vector(v), _) | (_, HdrScalar::Vector(v)) => HdrScalar::Vector(v.clone()),
+            _ => HdrScalar::Empty,
+        },
 
-        GrBBinaryOp::HdrHamming => {
-            match (a, b) {
-                (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => {
-                    HdrScalar::Distance(hamming_distance_scalar(va, vb))
-                }
-                _ => HdrScalar::Distance(u32::MAX),
+        GrBBinaryOp::HdrHamming => match (a, b) {
+            (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => {
+                HdrScalar::Distance(hamming_distance_scalar(va, vb))
             }
-        }
+            _ => HdrScalar::Distance(u32::MAX),
+        },
 
-        GrBBinaryOp::HdrSimilarity => {
-            match (a, b) {
-                (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => {
-                    let dist = hamming_distance_scalar(va, vb);
-                    HdrScalar::Similarity(hamming_to_similarity(dist))
-                }
-                _ => HdrScalar::Similarity(0.0),
+        GrBBinaryOp::HdrSimilarity => match (a, b) {
+            (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => {
+                let dist = hamming_distance_scalar(va, vb);
+                HdrScalar::Similarity(hamming_to_similarity(dist))
             }
-        }
+            _ => HdrScalar::Similarity(0.0),
+        },
 
-        GrBBinaryOp::Min => {
-            match (a, b) {
-                (HdrScalar::Distance(da), HdrScalar::Distance(db)) => {
-                    HdrScalar::Distance((*da).min(*db))
-                }
-                (HdrScalar::Int(ia), HdrScalar::Int(ib)) => {
-                    HdrScalar::Int((*ia).min(*ib))
-                }
-                (HdrScalar::Float(fa), HdrScalar::Float(fb)) => {
-                    HdrScalar::Float(fa.min(*fb))
-                }
-                _ => a.clone(),
+        GrBBinaryOp::Min => match (a, b) {
+            (HdrScalar::Distance(da), HdrScalar::Distance(db)) => {
+                HdrScalar::Distance((*da).min(*db))
             }
-        }
+            (HdrScalar::Int(ia), HdrScalar::Int(ib)) => HdrScalar::Int((*ia).min(*ib)),
+            (HdrScalar::Float(fa), HdrScalar::Float(fb)) => HdrScalar::Float(fa.min(*fb)),
+            _ => a.clone(),
+        },
 
-        GrBBinaryOp::Max => {
-            match (a, b) {
-                (HdrScalar::Similarity(sa), HdrScalar::Similarity(sb)) => {
-                    HdrScalar::Similarity(sa.max(*sb))
-                }
-                (HdrScalar::Int(ia), HdrScalar::Int(ib)) => {
-                    HdrScalar::Int((*ia).max(*ib))
-                }
-                (HdrScalar::Float(fa), HdrScalar::Float(fb)) => {
-                    HdrScalar::Float(fa.max(*fb))
-                }
-                _ => a.clone(),
+        GrBBinaryOp::Max => match (a, b) {
+            (HdrScalar::Similarity(sa), HdrScalar::Similarity(sb)) => {
+                HdrScalar::Similarity(sa.max(*sb))
             }
-        }
+            (HdrScalar::Int(ia), HdrScalar::Int(ib)) => HdrScalar::Int((*ia).max(*ib)),
+            (HdrScalar::Float(fa), HdrScalar::Float(fb)) => HdrScalar::Float(fa.max(*fb)),
+            _ => a.clone(),
+        },
 
         GrBBinaryOp::Plus => {
             match (a, b) {
-                (HdrScalar::Int(ia), HdrScalar::Int(ib)) => {
-                    HdrScalar::Int(ia.wrapping_add(*ib))
-                }
-                (HdrScalar::Float(fa), HdrScalar::Float(fb)) => {
-                    HdrScalar::Float(fa + fb)
-                }
+                (HdrScalar::Int(ia), HdrScalar::Int(ib)) => HdrScalar::Int(ia.wrapping_add(*ib)),
+                (HdrScalar::Float(fa), HdrScalar::Float(fb)) => HdrScalar::Float(fa + fb),
                 (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => {
                     // Plus on vectors = bundle
                     HdrScalar::Vector(BitpackedVector::bundle(&[va, vb]))
@@ -391,12 +347,8 @@ fn apply_binary_op(op: GrBBinaryOp, a: &HdrScalar, b: &HdrScalar) -> HdrScalar {
 
         GrBBinaryOp::Times => {
             match (a, b) {
-                (HdrScalar::Int(ia), HdrScalar::Int(ib)) => {
-                    HdrScalar::Int(ia.wrapping_mul(*ib))
-                }
-                (HdrScalar::Float(fa), HdrScalar::Float(fb)) => {
-                    HdrScalar::Float(fa * fb)
-                }
+                (HdrScalar::Int(ia), HdrScalar::Int(ib)) => HdrScalar::Int(ia.wrapping_mul(*ib)),
+                (HdrScalar::Float(fa), HdrScalar::Float(fb)) => HdrScalar::Float(fa * fb),
                 (HdrScalar::Vector(va), HdrScalar::Vector(vb)) => {
                     // Times on vectors = AND
                     HdrScalar::Vector(va.and(vb))
@@ -405,25 +357,15 @@ fn apply_binary_op(op: GrBBinaryOp, a: &HdrScalar, b: &HdrScalar) -> HdrScalar {
             }
         }
 
-        GrBBinaryOp::LOr => {
-            HdrScalar::Bool(a.to_bool() || b.to_bool())
-        }
+        GrBBinaryOp::LOr => HdrScalar::Bool(a.to_bool() || b.to_bool()),
 
-        GrBBinaryOp::LAnd => {
-            HdrScalar::Bool(a.to_bool() && b.to_bool())
-        }
+        GrBBinaryOp::LAnd => HdrScalar::Bool(a.to_bool() && b.to_bool()),
 
-        GrBBinaryOp::LXor => {
-            HdrScalar::Bool(a.to_bool() ^ b.to_bool())
-        }
+        GrBBinaryOp::LXor => HdrScalar::Bool(a.to_bool() ^ b.to_bool()),
 
-        GrBBinaryOp::Eq => {
-            HdrScalar::Bool(a == b)
-        }
+        GrBBinaryOp::Eq => HdrScalar::Bool(a == b),
 
-        GrBBinaryOp::Ne => {
-            HdrScalar::Bool(a != b)
-        }
+        GrBBinaryOp::Ne => HdrScalar::Bool(a != b),
 
         _ => HdrScalar::Empty,
     }

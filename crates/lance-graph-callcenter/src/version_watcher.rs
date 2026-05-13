@@ -87,19 +87,11 @@ impl LanceVersionWatcher {
         // skip intermediate). Receivers waking on cond will read the
         // new version, then read latest — also fine.
         {
-            let mut latest = self
-                .inner
-                .latest
-                .write()
-                .unwrap_or_else(|e| e.into_inner());
+            let mut latest = self.inner.latest.write().unwrap_or_else(|e| e.into_inner());
             *latest = Arc::new(row);
         }
         {
-            let mut v = self
-                .inner
-                .version
-                .lock()
-                .unwrap_or_else(|e| e.into_inner());
+            let mut v = self.inner.version.lock().unwrap_or_else(|e| e.into_inner());
             *v = v.wrapping_add(1);
         }
         self.inner.cond.notify_all();
@@ -115,11 +107,7 @@ impl LanceVersionWatcher {
     /// intermediate revisions and observe only the most recent one.
     pub fn subscribe(&self) -> WatchReceiver {
         self.inner.receivers.fetch_add(1, Ordering::AcqRel);
-        let seen = *self
-            .inner
-            .version
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let seen = *self.inner.version.lock().unwrap_or_else(|e| e.into_inner());
         WatchReceiver {
             inner: Arc::clone(&self.inner),
             seen,
@@ -153,13 +141,7 @@ pub struct WatchReceiver {
 impl WatchReceiver {
     /// Snapshot of the latest bumped row. Cheap clone of an `Arc`.
     pub fn current(&self) -> Arc<CognitiveEventRow> {
-        Arc::clone(
-            &self
-                .inner
-                .latest
-                .read()
-                .unwrap_or_else(|e| e.into_inner()),
-        )
+        Arc::clone(&self.inner.latest.read().unwrap_or_else(|e| e.into_inner()))
     }
 
     /// Block until a bump newer than `self.seen` arrives, return the
@@ -168,11 +150,7 @@ impl WatchReceiver {
     /// Spurious wakeups are filtered by the version comparison (the
     /// `wait_while` predicate only returns when version != seen).
     pub fn wait_changed(&mut self) -> Arc<CognitiveEventRow> {
-        let v = self
-            .inner
-            .version
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let v = self.inner.version.lock().unwrap_or_else(|e| e.into_inner());
         let v = self
             .inner
             .cond
@@ -186,11 +164,7 @@ impl WatchReceiver {
     /// Like [`wait_changed`] but with a timeout. Returns `None` when the
     /// timeout fires before a bump arrives.
     pub fn wait_changed_timeout(&mut self, timeout: Duration) -> Option<Arc<CognitiveEventRow>> {
-        let v = self
-            .inner
-            .version
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let v = self.inner.version.lock().unwrap_or_else(|e| e.into_inner());
         let (v, result) = self
             .inner
             .cond
@@ -209,11 +183,7 @@ impl WatchReceiver {
     /// than `self.seen` is available, otherwise `None`. Updates `seen`
     /// when it returns `Some`.
     pub fn try_changed(&mut self) -> Option<Arc<CognitiveEventRow>> {
-        let v = self
-            .inner
-            .version
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let v = self.inner.version.lock().unwrap_or_else(|e| e.into_inner());
         if *v == self.seen {
             None
         } else {

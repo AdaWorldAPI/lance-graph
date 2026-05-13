@@ -34,12 +34,24 @@ pub enum LayerId {
 impl LayerId {
     pub fn as_u8(&self) -> u8 {
         match self {
-            Self::L1 => 1, Self::L2 => 2, Self::L3 => 3, Self::L4 => 4, Self::L5 => 5,
-            Self::L6 => 6, Self::L7 => 7, Self::L8 => 8, Self::L9 => 9, Self::L10 => 10,
+            Self::L1 => 1,
+            Self::L2 => 2,
+            Self::L3 => 3,
+            Self::L4 => 4,
+            Self::L5 => 5,
+            Self::L6 => 6,
+            Self::L7 => 7,
+            Self::L8 => 8,
+            Self::L9 => 9,
+            Self::L10 => 10,
         }
     }
-    pub fn is_single_agent(&self) -> bool { self.as_u8() <= 5 }
-    pub fn is_multi_agent(&self) -> bool { self.as_u8() > 5 }
+    pub fn is_single_agent(&self) -> bool {
+        self.as_u8() <= 5
+    }
+    pub fn is_multi_agent(&self) -> bool {
+        self.as_u8() > 5
+    }
 }
 
 /// 12 thinking styles with calibrated parameters.
@@ -47,18 +59,18 @@ impl LayerId {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
 pub enum ThinkingStyle {
     #[default]
-    Deliberate,     // balanced default
-    Analytical,     // tight focus, few branches
-    Convergent,     // narrowing toward answer
-    Systematic,     // methodical coverage
-    Creative,       // wide exploration, many branches
-    Divergent,      // actively seeking alternatives
-    Exploratory,    // maximum breadth
-    Focused,        // single-point attention
-    Diffuse,        // soft attention, peripheral
-    Peripheral,     // edge detection, anomalies
-    Intuitive,      // fast pattern match, trust experience
-    Metacognitive,  // thinking about thinking
+    Deliberate, // balanced default
+    Analytical,    // tight focus, few branches
+    Convergent,    // narrowing toward answer
+    Systematic,    // methodical coverage
+    Creative,      // wide exploration, many branches
+    Divergent,     // actively seeking alternatives
+    Exploratory,   // maximum breadth
+    Focused,       // single-point attention
+    Diffuse,       // soft attention, peripheral
+    Peripheral,    // edge detection, anomalies
+    Intuitive,     // fast pattern match, trust experience
+    Metacognitive, // thinking about thinking
 }
 
 /// Parameters that modulate cascade behavior per style.
@@ -80,44 +92,125 @@ impl ThinkingStyle {
     /// Get calibrated parameters for this style.
     pub fn params(&self) -> StyleParams {
         match self {
-            Self::Analytical    => StyleParams { resonance_threshold: 0.85, fan_out: 3,  exploration: 0.05, speed: 0.1, collapse_bias: -0.10 },
-            Self::Convergent    => StyleParams { resonance_threshold: 0.75, fan_out: 4,  exploration: 0.10, speed: 0.3, collapse_bias: -0.05 },
-            Self::Systematic    => StyleParams { resonance_threshold: 0.70, fan_out: 5,  exploration: 0.10, speed: 0.2, collapse_bias:  0.00 },
-            Self::Creative      => StyleParams { resonance_threshold: 0.35, fan_out: 12, exploration: 0.80, speed: 0.5, collapse_bias:  0.15 },
-            Self::Divergent     => StyleParams { resonance_threshold: 0.40, fan_out: 10, exploration: 0.70, speed: 0.4, collapse_bias:  0.10 },
-            Self::Exploratory   => StyleParams { resonance_threshold: 0.30, fan_out: 15, exploration: 0.90, speed: 0.6, collapse_bias:  0.20 },
-            Self::Focused       => StyleParams { resonance_threshold: 0.90, fan_out: 1,  exploration: 0.00, speed: 0.2, collapse_bias: -0.15 },
-            Self::Diffuse       => StyleParams { resonance_threshold: 0.45, fan_out: 8,  exploration: 0.40, speed: 0.5, collapse_bias:  0.05 },
-            Self::Peripheral    => StyleParams { resonance_threshold: 0.20, fan_out: 20, exploration: 0.60, speed: 0.7, collapse_bias:  0.25 },
-            Self::Intuitive     => StyleParams { resonance_threshold: 0.50, fan_out: 3,  exploration: 0.30, speed: 0.9, collapse_bias:  0.00 },
-            Self::Deliberate    => StyleParams { resonance_threshold: 0.70, fan_out: 7,  exploration: 0.20, speed: 0.1, collapse_bias: -0.05 },
-            Self::Metacognitive => StyleParams { resonance_threshold: 0.50, fan_out: 5,  exploration: 0.30, speed: 0.3, collapse_bias:  0.00 },
+            Self::Analytical => StyleParams {
+                resonance_threshold: 0.85,
+                fan_out: 3,
+                exploration: 0.05,
+                speed: 0.1,
+                collapse_bias: -0.10,
+            },
+            Self::Convergent => StyleParams {
+                resonance_threshold: 0.75,
+                fan_out: 4,
+                exploration: 0.10,
+                speed: 0.3,
+                collapse_bias: -0.05,
+            },
+            Self::Systematic => StyleParams {
+                resonance_threshold: 0.70,
+                fan_out: 5,
+                exploration: 0.10,
+                speed: 0.2,
+                collapse_bias: 0.00,
+            },
+            Self::Creative => StyleParams {
+                resonance_threshold: 0.35,
+                fan_out: 12,
+                exploration: 0.80,
+                speed: 0.5,
+                collapse_bias: 0.15,
+            },
+            Self::Divergent => StyleParams {
+                resonance_threshold: 0.40,
+                fan_out: 10,
+                exploration: 0.70,
+                speed: 0.4,
+                collapse_bias: 0.10,
+            },
+            Self::Exploratory => StyleParams {
+                resonance_threshold: 0.30,
+                fan_out: 15,
+                exploration: 0.90,
+                speed: 0.6,
+                collapse_bias: 0.20,
+            },
+            Self::Focused => StyleParams {
+                resonance_threshold: 0.90,
+                fan_out: 1,
+                exploration: 0.00,
+                speed: 0.2,
+                collapse_bias: -0.15,
+            },
+            Self::Diffuse => StyleParams {
+                resonance_threshold: 0.45,
+                fan_out: 8,
+                exploration: 0.40,
+                speed: 0.5,
+                collapse_bias: 0.05,
+            },
+            Self::Peripheral => StyleParams {
+                resonance_threshold: 0.20,
+                fan_out: 20,
+                exploration: 0.60,
+                speed: 0.7,
+                collapse_bias: 0.25,
+            },
+            Self::Intuitive => StyleParams {
+                resonance_threshold: 0.50,
+                fan_out: 3,
+                exploration: 0.30,
+                speed: 0.9,
+                collapse_bias: 0.00,
+            },
+            Self::Deliberate => StyleParams {
+                resonance_threshold: 0.70,
+                fan_out: 7,
+                exploration: 0.20,
+                speed: 0.1,
+                collapse_bias: -0.05,
+            },
+            Self::Metacognitive => StyleParams {
+                resonance_threshold: 0.50,
+                fan_out: 5,
+                exploration: 0.30,
+                speed: 0.3,
+                collapse_bias: 0.00,
+            },
         }
     }
 
     /// Butterfly sensitivity: noise tolerance (low = sensitive to small changes).
     pub fn butterfly_sensitivity(&self) -> f32 {
         match self {
-            Self::Peripheral    => 0.10,
-            Self::Exploratory   => 0.15,
-            Self::Creative      => 0.20,
-            Self::Diffuse       => 0.25,
-            Self::Intuitive     => 0.30,
-            Self::Divergent     => 0.35,
+            Self::Peripheral => 0.10,
+            Self::Exploratory => 0.15,
+            Self::Creative => 0.20,
+            Self::Diffuse => 0.25,
+            Self::Intuitive => 0.30,
+            Self::Divergent => 0.35,
             Self::Metacognitive => 0.40,
-            Self::Deliberate    => 0.50,
-            Self::Systematic    => 0.60,
-            Self::Convergent    => 0.70,
-            Self::Analytical    => 0.80,
-            Self::Focused       => 0.90,
+            Self::Deliberate => 0.50,
+            Self::Systematic => 0.60,
+            Self::Convergent => 0.70,
+            Self::Analytical => 0.80,
+            Self::Focused => 0.90,
         }
     }
 
     pub fn all() -> &'static [ThinkingStyle] {
         &[
-            Self::Deliberate, Self::Analytical, Self::Convergent, Self::Systematic,
-            Self::Creative, Self::Divergent, Self::Exploratory, Self::Focused,
-            Self::Diffuse, Self::Peripheral, Self::Intuitive, Self::Metacognitive,
+            Self::Deliberate,
+            Self::Analytical,
+            Self::Convergent,
+            Self::Systematic,
+            Self::Creative,
+            Self::Divergent,
+            Self::Exploratory,
+            Self::Focused,
+            Self::Diffuse,
+            Self::Peripheral,
+            Self::Intuitive,
+            Self::Metacognitive,
         ]
     }
 }
@@ -146,9 +239,13 @@ pub const SD_BLOCK_THRESHOLD: f32 = 0.35;
 impl GateState {
     /// Evaluate gate from standard deviation of candidate scores.
     pub fn from_sd(sd: f32) -> Self {
-        if sd < SD_FLOW_THRESHOLD { Self::Flow }
-        else if sd > SD_BLOCK_THRESHOLD { Self::Block }
-        else { Self::Hold }
+        if sd < SD_FLOW_THRESHOLD {
+            Self::Flow
+        } else if sd > SD_BLOCK_THRESHOLD {
+            Self::Block
+        } else {
+            Self::Hold
+        }
     }
 
     /// Evaluate with style bias.
@@ -166,7 +263,7 @@ impl GateState {
 #[repr(u8)]
 pub enum RungLevel {
     #[default]
-    Surface = 0,        // literal, immediate
+    Surface = 0, // literal, immediate
     Shallow = 1,        // simple inference
     Contextual = 2,     // situation-dependent
     Analogical = 3,     // metaphor, similarity
@@ -179,13 +276,21 @@ pub enum RungLevel {
 }
 
 impl RungLevel {
-    pub fn as_u8(&self) -> u8 { *self as u8 }
+    pub fn as_u8(&self) -> u8 {
+        *self as u8
+    }
 
     pub fn from_u8(n: u8) -> Self {
         match n {
-            0 => Self::Surface, 1 => Self::Shallow, 2 => Self::Contextual,
-            3 => Self::Analogical, 4 => Self::Abstract, 5 => Self::Structural,
-            6 => Self::Counterfactual, 7 => Self::Meta, 8 => Self::Recursive,
+            0 => Self::Surface,
+            1 => Self::Shallow,
+            2 => Self::Contextual,
+            3 => Self::Analogical,
+            4 => Self::Abstract,
+            5 => Self::Structural,
+            6 => Self::Counterfactual,
+            7 => Self::Meta,
+            8 => Self::Recursive,
             _ => Self::Transcendent,
         }
     }
@@ -253,7 +358,9 @@ impl MetaCognition {
 
     /// Current Brier score (calibration error). 0 = perfect, 1 = worst.
     pub fn brier_score(&self) -> f32 {
-        if self.prediction_count == 0 { return 0.5; }
+        if self.prediction_count == 0 {
+            return 0.5;
+        }
         self.brier_sum / self.prediction_count as f32
     }
 
@@ -265,9 +372,16 @@ impl MetaCognition {
     /// Assess current meta-cognitive state.
     pub fn assess(&self, current_confidence: f32, gate: GateState) -> MetaAssessment {
         let variance = if self.confidence_history.len() > 1 {
-            let mean: f32 = self.confidence_history.iter().sum::<f32>() / self.confidence_history.len() as f32;
-            self.confidence_history.iter().map(|c| (c - mean).powi(2)).sum::<f32>() / self.confidence_history.len() as f32
-        } else { 0.5 };
+            let mean: f32 =
+                self.confidence_history.iter().sum::<f32>() / self.confidence_history.len() as f32;
+            self.confidence_history
+                .iter()
+                .map(|c| (c - mean).powi(2))
+                .sum::<f32>()
+                / self.confidence_history.len() as f32
+        } else {
+            0.5
+        };
 
         let meta_confidence = (1.0 - variance).clamp(0.0, 1.0);
         let brier = self.brier_score();
@@ -321,9 +435,9 @@ mod tests {
 
     #[test]
     fn rung_elevation() {
-        assert!(RungLevel::should_elevate(3, 0.0, 0));  // sustained block
-        assert!(RungLevel::should_elevate(0, 0.2, 0));  // high free energy
-        assert!(RungLevel::should_elevate(0, 0.0, 5));  // deep cascade
+        assert!(RungLevel::should_elevate(3, 0.0, 0)); // sustained block
+        assert!(RungLevel::should_elevate(0, 0.2, 0)); // high free energy
+        assert!(RungLevel::should_elevate(0, 0.0, 5)); // deep cascade
         assert!(!RungLevel::should_elevate(1, 0.05, 2)); // none triggered
     }
 
@@ -350,7 +464,9 @@ mod tests {
 
     #[test]
     fn butterfly_ordering() {
-        assert!(ThinkingStyle::Peripheral.butterfly_sensitivity() <
-                ThinkingStyle::Focused.butterfly_sensitivity());
+        assert!(
+            ThinkingStyle::Peripheral.butterfly_sensitivity()
+                < ThinkingStyle::Focused.butterfly_sensitivity()
+        );
     }
 }

@@ -41,9 +41,9 @@
 //! node along the path, reveals how much credit that node deserves.
 
 use crate::bitpack::{BitpackedVector, VECTOR_BITS, VECTOR_WORDS};
-use crate::hamming::hamming_distance_scalar;
 use crate::crystal_dejavu::{Coord5D, SigmaBand};
-use crate::epiphany::{EpiphanyZone, TWO_SIGMA, THREE_SIGMA};
+use crate::epiphany::{EpiphanyZone, THREE_SIGMA, TWO_SIGMA};
+use crate::hamming::hamming_distance_scalar;
 use std::collections::HashMap;
 
 // ============================================================================
@@ -73,11 +73,7 @@ impl RewardSignal {
     /// Positive rewards create a mask that, when XORed with the target,
     /// produces a vector closer to the query (reinforcing the association).
     /// Negative rewards produce a vector farther from query (weakening it).
-    pub fn from_scalar(
-        query: &BitpackedVector,
-        target: &BitpackedVector,
-        reward: f32,
-    ) -> Self {
+    pub fn from_scalar(query: &BitpackedVector, target: &BitpackedVector, reward: f32) -> Self {
         let reward = reward.clamp(-1.0, 1.0);
         let distance = hamming_distance_scalar(query, target);
         let band = SigmaBand::from_distance(distance);
@@ -238,8 +234,7 @@ impl HebbianMatrix {
         for weight in self.weights.values_mut() {
             *weight *= self.decay;
         }
-        self.weights
-            .retain(|_, w| *w > self.prune_threshold);
+        self.weights.retain(|_, w| *w > self.prune_threshold);
     }
 
     /// Total number of active connections
@@ -420,7 +415,9 @@ impl PolicyGradient {
 
         // Cap Q-table: evict entries with smallest absolute Q-values
         if self.q_table.len() > MAX_Q_TABLE_SIZE {
-            let mut entries: Vec<_> = self.q_table.iter()
+            let mut entries: Vec<_> = self
+                .q_table
+                .iter()
                 .map(|(k, &v)| (k.clone(), v.abs()))
                 .collect();
             entries.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
@@ -543,7 +540,8 @@ impl RewardTracker {
         // Prune near-zero entries to prevent unbounded growth
         self.node_rewards.retain(|_, r| r.abs() > 0.001);
         // Also prune visit counts for removed nodes
-        self.node_visits.retain(|k, _| self.node_rewards.contains_key(k));
+        self.node_visits
+            .retain(|k, _| self.node_rewards.contains_key(k));
     }
 }
 
@@ -663,7 +661,8 @@ impl RlEngine {
 
     /// Get crystal cell with highest accumulated reward
     pub fn best_crystal_cells(&self, k: usize) -> Vec<(usize, f32)> {
-        let mut cells: Vec<(usize, f32)> = self.crystal_rewards.iter().map(|(&c, &r)| (c, r)).collect();
+        let mut cells: Vec<(usize, f32)> =
+            self.crystal_rewards.iter().map(|(&c, &r)| (c, r)).collect();
         cells.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         cells.truncate(k);
         cells
@@ -830,8 +829,12 @@ impl CausalRlAgent {
     fn hash_sa(state: &BitpackedVector, action: &BitpackedVector) -> u64 {
         let sw = state.words();
         let aw = action.words();
-        sw[0] ^ aw[0] ^ sw[1].rotate_left(32) ^ aw[1].rotate_left(32)
-            ^ sw[78].rotate_left(16) ^ aw[78].rotate_left(48)
+        sw[0]
+            ^ aw[0]
+            ^ sw[1].rotate_left(32)
+            ^ aw[1].rotate_left(32)
+            ^ sw[78].rotate_left(16)
+            ^ aw[78].rotate_left(48)
     }
 
     /// Store an intervention (Rung 2: "I did A in state S and got O")
@@ -900,11 +903,7 @@ impl CausalRlAgent {
     ///
     /// Unlike standard Q-learning which uses correlation,
     /// this queries only from interventional data.
-    pub fn q_value_causal(
-        &self,
-        state: &BitpackedVector,
-        action: &BitpackedVector,
-    ) -> f32 {
+    pub fn q_value_causal(&self, state: &BitpackedVector, action: &BitpackedVector) -> f32 {
         let hash = Self::hash_sa(state, action);
         if let Some(&cached) = self.q_cache.get(&hash) {
             return cached;
@@ -1432,7 +1431,12 @@ mod tests {
         );
         let after = engine.block_weights[3];
 
-        assert!(after > before, "Block 3 weight should increase: {} -> {}", before, after);
+        assert!(
+            after > before,
+            "Block 3 weight should increase: {} -> {}",
+            before,
+            after
+        );
     }
 
     // ================================================================
@@ -1452,7 +1456,10 @@ mod tests {
 
         // Q-value should be non-zero now
         let q = agent.q_value_causal(&state, &action);
-        assert!(q > 0.0, "Q-value should be positive after positive intervention");
+        assert!(
+            q > 0.0,
+            "Q-value should be positive after positive intervention"
+        );
     }
 
     #[test]

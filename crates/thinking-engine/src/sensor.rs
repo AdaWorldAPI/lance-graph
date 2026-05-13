@@ -214,7 +214,9 @@ impl SensorBank {
         }
         let total: f32 = engine.energy.iter().sum();
         if total > 1e-10 {
-            for e in &mut engine.energy { *e /= total; }
+            for e in &mut engine.energy {
+                *e /= total;
+            }
         }
     }
 }
@@ -317,8 +319,7 @@ mod tests {
 
         let acts = bank.fire_all();
         // Index 10: 1.0, Index 20: 0.5 + 0.3 = 0.8, Index 30: 0.7.
-        let map: std::collections::HashMap<u16, f32> =
-            acts.into_iter().collect();
+        let map: std::collections::HashMap<u16, f32> = acts.into_iter().collect();
         assert!((map[&10] - 1.0).abs() < 1e-10);
         assert!((map[&20] - 0.8).abs() < 1e-10);
         assert!((map[&30] - 0.7).abs() < 1e-10);

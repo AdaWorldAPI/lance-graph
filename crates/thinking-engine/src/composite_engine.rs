@@ -29,15 +29,24 @@ impl CompositeResult {
     pub fn summary(&self) -> String {
         let mut s = format!("Composite: {} lenses\n", self.per_lens.len());
         for (name, peaks, cycles) in &self.per_lens {
-            let top3: Vec<String> = peaks.iter().take(3)
+            let top3: Vec<String> = peaks
+                .iter()
+                .take(3)
                 .map(|(idx, e)| format!("{}:{:.3}", idx, e))
                 .collect();
-            s.push_str(&format!("  {} ({} cycles): [{}]\n",
-                name, cycles, top3.join(", ")));
+            s.push_str(&format!(
+                "  {} ({} cycles): [{}]\n",
+                name,
+                cycles,
+                top3.join(", ")
+            ));
         }
         s.push_str("Superposed top-5:\n");
         for (atom, energy, count) in self.superposed.iter().take(5) {
-            s.push_str(&format!("  atom {} = {:.3} ({} lenses)\n", atom, energy, count));
+            s.push_str(&format!(
+                "  atom {} = {:.3} ({} lenses)\n",
+                atom, energy, count
+            ));
         }
         for (a, b, agree) in &self.agreement {
             s.push_str(&format!("  {} × {} = {:.0}%\n", a, b, agree * 100.0));
@@ -115,7 +124,8 @@ impl CompositeEngine {
             per_lens.push((name.clone(), res.top_k, res.cycle_count));
         }
 
-        let mut superposed: Vec<(u16, f32, usize)> = all_peaks.into_iter()
+        let mut superposed: Vec<(u16, f32, usize)> = all_peaks
+            .into_iter()
             .map(|(atom, (energy, count))| (atom, energy, count))
             .collect();
         superposed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
@@ -123,12 +133,18 @@ impl CompositeEngine {
         let mut agreement = Vec::new();
         for i in 0..per_lens.len() {
             for j in (i + 1)..per_lens.len() {
-                let a_set: Vec<u16> = per_lens[i].1.iter()
+                let a_set: Vec<u16> = per_lens[i]
+                    .1
+                    .iter()
                     .filter(|&&(_, e)| e > 1e-10)
-                    .map(|&(idx, _)| idx).collect();
-                let b_set: Vec<u16> = per_lens[j].1.iter()
+                    .map(|&(idx, _)| idx)
+                    .collect();
+                let b_set: Vec<u16> = per_lens[j]
+                    .1
+                    .iter()
                     .filter(|&&(_, e)| e > 1e-10)
-                    .map(|&(idx, _)| idx).collect();
+                    .map(|&(idx, _)| idx)
+                    .collect();
                 let overlap = a_set.iter().filter(|p| b_set.contains(p)).count();
                 let max_len = a_set.len().max(b_set.len()).max(1);
                 agreement.push((
@@ -139,7 +155,11 @@ impl CompositeEngine {
             }
         }
 
-        CompositeResult { per_lens, superposed, agreement }
+        CompositeResult {
+            per_lens,
+            superposed,
+            agreement,
+        }
     }
 
     /// Reset all lenses.
@@ -164,8 +184,8 @@ impl Default for CompositeEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::jina_lens::JINA_HDR_TABLE;
     use crate::bge_m3_lens::BGE_M3_HDR_TABLE;
+    use crate::jina_lens::JINA_HDR_TABLE;
     use crate::reranker_lens::RERANKER_HDR_TABLE;
 
     #[test]
@@ -182,7 +202,8 @@ mod tests {
         comp.add_u8_lens("jina-u8", JINA_HDR_TABLE.to_vec());
 
         // BF16 lens from converted u8
-        let bf16_table: Vec<u16> = RERANKER_HDR_TABLE.iter()
+        let bf16_table: Vec<u16> = RERANKER_HDR_TABLE
+            .iter()
             .map(|&v| bgz_tensor::stacked_n::f32_to_bf16((v as f32 - 128.0) / 127.0))
             .collect();
         comp.add_bf16_lens("reranker-bf16", bf16_table);

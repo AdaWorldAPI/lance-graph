@@ -6,8 +6,6 @@
 //! Consumer API: SpiralAddr, NeuronPrint (AoS, ergonomic).
 //! Search internals: SpiralIndex, NeuronIndex (SoA, SIMD-batched).
 
-use std::f64::consts::GOLDEN_RATIO;
-
 // ═══════════════════════════════════════════════════════════════════════════
 // SpiralAddr: repr(C), validated, 6 bytes guaranteed
 // ═══════════════════════════════════════════════════════════════════════════
@@ -27,7 +25,9 @@ impl SpiralAddr {
     /// Validated constructor. Returns None if stride==0 or end < start.
     #[inline]
     pub fn new(start: u16, end: u16, stride: u16) -> Option<Self> {
-        if stride == 0 || end < start { return None; }
+        if stride == 0 || end < start {
+            return None;
+        }
         Some(Self { start, end, stride })
     }
 
@@ -60,11 +60,23 @@ impl SpiralAddr {
 
 /// Tensor role — detected from stride, not stored.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum TensorRole { Gate, V, Down, QK, Up, Other }
+pub enum TensorRole {
+    Gate,
+    V,
+    Down,
+    QK,
+    Up,
+    Other,
+}
 
 /// Thinking scale — from gate stride.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ThinkingScale { Exploiting, Focused, Exploring, Abstract }
+pub enum ThinkingScale {
+    Exploiting,
+    Focused,
+    Exploring,
+    Abstract,
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Three-finger coarse distance: INTEGER ONLY, zero float, zero data access
@@ -72,14 +84,21 @@ pub enum ThinkingScale { Exploiting, Focused, Exploring, Abstract }
 
 /// Coarse distance band.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum CoarseBand { Foveal, Near, Maybe, Reject }
+pub enum CoarseBand {
+    Foveal,
+    Near,
+    Maybe,
+    Reject,
+}
 
 /// HEEL: 3 integer comparisons. No float. No data access.
 /// Integer-scaled overlap: `overlap * 10 > max_len * 8` not `overlap / max_len > 0.8`.
 #[inline]
 pub fn coarse_band(a: SpiralAddr, b: SpiralAddr) -> CoarseBand {
     // Finger 2 first (cheapest reject)
-    if a.stride != b.stride { return CoarseBand::Reject; }
+    if a.stride != b.stride {
+        return CoarseBand::Reject;
+    }
 
     // Finger 1: offset
     let offset = a.start.abs_diff(b.start);
@@ -89,16 +108,26 @@ pub fn coarse_band(a: SpiralAddr, b: SpiralAddr) -> CoarseBand {
     let hi = a.end.min(b.end);
 
     if lo > hi {
-        return if offset >= 100 { CoarseBand::Reject } else { CoarseBand::Maybe };
+        return if offset >= 100 {
+            CoarseBand::Reject
+        } else {
+            CoarseBand::Maybe
+        };
     }
 
     let overlap = (hi - lo) as u32;
     let max_len = ((a.end - a.start) as u32).max((b.end - b.start) as u32);
-    if max_len == 0 { return CoarseBand::Maybe; }
+    if max_len == 0 {
+        return CoarseBand::Maybe;
+    }
 
     // Integer-scaled thresholds
-    if offset <= 2 && overlap * 10 > max_len * 8 { return CoarseBand::Foveal; }
-    if offset <= 16 && overlap * 10 > max_len * 5 { return CoarseBand::Near; }
+    if offset <= 2 && overlap * 10 > max_len * 8 {
+        return CoarseBand::Foveal;
+    }
+    if offset <= 16 && overlap * 10 > max_len * 5 {
+        return CoarseBand::Near;
+    }
     CoarseBand::Maybe
 }
 
@@ -111,11 +140,11 @@ pub fn coarse_band(a: SpiralAddr, b: SpiralAddr) -> CoarseBand {
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct NeuronPrint {
-    pub q:    SpiralAddr,
-    pub k:    SpiralAddr,
-    pub v:    SpiralAddr,
+    pub q: SpiralAddr,
+    pub k: SpiralAddr,
+    pub v: SpiralAddr,
     pub gate: SpiralAddr,
-    pub up:   SpiralAddr,
+    pub up: SpiralAddr,
     pub down: SpiralAddr,
 }
 const _: () = assert!(core::mem::size_of::<NeuronPrint>() == 36);
@@ -128,7 +157,7 @@ impl NeuronPrint {
             0..=2 => ThinkingScale::Exploiting,
             3..=4 => ThinkingScale::Focused,
             5..=8 => ThinkingScale::Exploring,
-            _     => ThinkingScale::Abstract,
+            _ => ThinkingScale::Abstract,
         }
     }
 
@@ -143,12 +172,20 @@ impl NeuronPrint {
     pub fn coarse_band(&self, other: &NeuronPrint) -> CoarseBand {
         let mut worst = CoarseBand::Foveal;
         for (a, b) in [
-            (self.q, other.q), (self.k, other.k), (self.v, other.v),
-            (self.gate, other.gate), (self.up, other.up), (self.down, other.down),
+            (self.q, other.q),
+            (self.k, other.k),
+            (self.v, other.v),
+            (self.gate, other.gate),
+            (self.up, other.up),
+            (self.down, other.down),
         ] {
             let band = coarse_band(a, b);
-            if band > worst { worst = band; }
-            if worst == CoarseBand::Reject { return CoarseBand::Reject; } // early exit
+            if band > worst {
+                worst = band;
+            }
+            if worst == CoarseBand::Reject {
+                return CoarseBand::Reject;
+            } // early exit
         }
         worst
     }
@@ -167,7 +204,13 @@ pub struct SpiralIndex {
 }
 
 impl SpiralIndex {
-    pub fn new() -> Self { Self { start: Vec::new(), end: Vec::new(), stride: Vec::new() } }
+    pub fn new() -> Self {
+        Self {
+            start: Vec::new(),
+            end: Vec::new(),
+            stride: Vec::new(),
+        }
+    }
 
     pub fn push(&mut self, addr: SpiralAddr) {
         self.start.push(addr.start);
@@ -175,11 +218,19 @@ impl SpiralIndex {
         self.stride.push(addr.stride);
     }
 
-    pub fn len(&self) -> usize { self.start.len() }
-    pub fn is_empty(&self) -> bool { self.start.is_empty() }
+    pub fn len(&self) -> usize {
+        self.start.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.start.is_empty()
+    }
 
     pub fn addr(&self, idx: usize) -> SpiralAddr {
-        SpiralAddr { start: self.start[idx], end: self.end[idx], stride: self.stride[idx] }
+        SpiralAddr {
+            start: self.start[idx],
+            end: self.end[idx],
+            stride: self.stride[idx],
+        }
     }
 
     /// HEEL filter: return bitmask of survivors against a query address.
@@ -214,17 +265,27 @@ pub struct NeuronIndex {
 impl NeuronIndex {
     pub fn new() -> Self {
         Self {
-            q: SpiralIndex::new(), k: SpiralIndex::new(), v: SpiralIndex::new(),
-            gate: SpiralIndex::new(), up: SpiralIndex::new(), down: SpiralIndex::new(),
+            q: SpiralIndex::new(),
+            k: SpiralIndex::new(),
+            v: SpiralIndex::new(),
+            gate: SpiralIndex::new(),
+            up: SpiralIndex::new(),
+            down: SpiralIndex::new(),
         }
     }
 
     pub fn push(&mut self, np: NeuronPrint) {
-        self.q.push(np.q); self.k.push(np.k); self.v.push(np.v);
-        self.gate.push(np.gate); self.up.push(np.up); self.down.push(np.down);
+        self.q.push(np.q);
+        self.k.push(np.k);
+        self.v.push(np.v);
+        self.gate.push(np.gate);
+        self.up.push(np.up);
+        self.down.push(np.down);
     }
 
-    pub fn len(&self) -> usize { self.q.len() }
+    pub fn len(&self) -> usize {
+        self.q.len()
+    }
 
     /// HEEL: AND survivor masks across all 6 roles.
     /// Returns indices of candidates that survive ALL roles.
@@ -269,7 +330,11 @@ const fn precompute_phi_offsets<const N: usize>() -> [u16; N] {
 #[inline]
 pub fn hip_sample(addr: SpiralAddr, source: &[u16]) -> f32 {
     let idx = addr.start as usize;
-    if idx < source.len() { f32::from_bits((source[idx] as u32) << 16) } else { 0.0 }
+    if idx < source.len() {
+        f32::from_bits((source[idx] as u32) << 16)
+    } else {
+        0.0
+    }
 }
 
 /// TWIG: 4 samples into stack array. No allocation.
@@ -281,7 +346,9 @@ pub fn hydrate_4(addr: SpiralAddr, source: &[u16]) -> [f32; 4] {
     let mut i = 0;
     while i < 4 {
         let idx = base + i * step + PHI4[i] as usize;
-        if idx < source.len() { out[i] = f32::from_bits((source[idx] as u32) << 16); }
+        if idx < source.len() {
+            out[i] = f32::from_bits((source[idx] as u32) << 16);
+        }
         i += 1;
     }
     out
@@ -296,7 +363,9 @@ pub fn hydrate_8(addr: SpiralAddr, source: &[u16]) -> [f32; 8] {
     let mut i = 0;
     while i < 8 {
         let idx = base + i * step + PHI8[i] as usize;
-        if idx < source.len() { out[i] = f32::from_bits((source[idx] as u32) << 16); }
+        if idx < source.len() {
+            out[i] = f32::from_bits((source[idx] as u32) << 16);
+        }
         i += 1;
     }
     out
@@ -311,7 +380,9 @@ pub fn hydrate_16(addr: SpiralAddr, source: &[u16]) -> [f32; 16] {
     let mut i = 0;
     while i < 16 {
         let idx = base + i * step + PHI16[i] as usize;
-        if idx < source.len() { out[i] = f32::from_bits((source[idx] as u32) << 16); }
+        if idx < source.len() {
+            out[i] = f32::from_bits((source[idx] as u32) << 16);
+        }
         i += 1;
     }
     out
@@ -319,26 +390,51 @@ pub fn hydrate_16(addr: SpiralAddr, source: &[u16]) -> [f32; 16] {
 
 /// LEAF: full row hydration. ONLY place Vec is acceptable. ~0.1% reach here.
 pub fn leaf_hydrate(source: &[u16]) -> Vec<f32> {
-    source.iter().map(|&x| f32::from_bits((x as u32) << 16)).collect()
+    source
+        .iter()
+        .map(|&x| f32::from_bits((x as u32) << 16))
+        .collect()
 }
 
 /// Cosine on fixed-size stack array. f32. SIMD-friendly.
 #[inline]
 pub fn cosine_f32_8(a: &[f32; 8], b: &[f32; 8]) -> f32 {
-    let mut dot = 0.0f32; let mut na = 0.0f32; let mut nb = 0.0f32;
+    let mut dot = 0.0f32;
+    let mut na = 0.0f32;
+    let mut nb = 0.0f32;
     let mut i = 0;
-    while i < 8 { dot += a[i]*b[i]; na += a[i]*a[i]; nb += b[i]*b[i]; i += 1; }
+    while i < 8 {
+        dot += a[i] * b[i];
+        na += a[i] * a[i];
+        nb += b[i] * b[i];
+        i += 1;
+    }
     let denom = (na * nb).sqrt();
-    if denom < 1e-12 { 0.0 } else { dot / denom }
+    if denom < 1e-12 {
+        0.0
+    } else {
+        dot / denom
+    }
 }
 
 #[inline]
 pub fn cosine_f32_16(a: &[f32; 16], b: &[f32; 16]) -> f32 {
-    let mut dot = 0.0f32; let mut na = 0.0f32; let mut nb = 0.0f32;
+    let mut dot = 0.0f32;
+    let mut na = 0.0f32;
+    let mut nb = 0.0f32;
     let mut i = 0;
-    while i < 16 { dot += a[i]*b[i]; na += a[i]*a[i]; nb += b[i]*b[i]; i += 1; }
+    while i < 16 {
+        dot += a[i] * b[i];
+        na += a[i] * a[i];
+        nb += b[i] * b[i];
+        i += 1;
+    }
     let denom = (na * nb).sqrt();
-    if denom < 1e-12 { 0.0 } else { dot / denom }
+    if denom < 1e-12 {
+        0.0
+    } else {
+        dot / denom
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -362,8 +458,8 @@ mod tests {
     #[test]
     fn validated_constructor() {
         assert!(SpiralAddr::new(20, 44, 8).is_some());
-        assert!(SpiralAddr::new(20, 44, 0).is_none());  // stride=0
-        assert!(SpiralAddr::new(44, 20, 8).is_none());  // end < start
+        assert!(SpiralAddr::new(20, 44, 0).is_none()); // stride=0
+        assert!(SpiralAddr::new(44, 20, 8).is_none()); // end < start
     }
 
     #[test]
@@ -443,7 +539,9 @@ mod tests {
             up: SpiralAddr::new_unchecked(20, 28, 2),
             down: SpiralAddr::new_unchecked(20, 36, 4),
         };
-        for _ in 0..100 { idx.push(np); }
+        for _ in 0..100 {
+            idx.push(np);
+        }
         assert_eq!(idx.len(), 100);
     }
 
@@ -475,7 +573,9 @@ mod tests {
 
     #[test]
     fn hydrate_8_no_alloc() {
-        let source: Vec<u16> = (0..1000).map(|i| ((i as f32 * 0.1).to_bits() >> 16) as u16).collect();
+        let source: Vec<u16> = (0..1000)
+            .map(|i| ((i as f32 * 0.1).to_bits() >> 16) as u16)
+            .collect();
         let addr = SpiralAddr::new_unchecked(10, 74, 8);
         let vals = hydrate_8(addr, &source);
         let mag: f32 = vals.iter().map(|v| v.abs()).sum();

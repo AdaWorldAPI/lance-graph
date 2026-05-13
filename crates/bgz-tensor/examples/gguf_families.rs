@@ -9,7 +9,7 @@
 //!
 //! Usage: cargo run --manifest-path crates/bgz-tensor/Cargo.toml --example gguf_families -- /path/to/model.gguf
 
-use bgz_tensor::stacked_n::{bf16_to_f32, cosine_f32_slice, f32_to_bf16, ClamCodebook, StackedN};
+use bgz_tensor::stacked_n::{bf16_to_f32, cosine_f32_slice, ClamCodebook, StackedN};
 use bgz_tensor::variance::Role;
 use std::collections::HashMap;
 use std::io::{Read, Seek, SeekFrom};
@@ -275,7 +275,7 @@ fn parse_gguf_header<R: Read + Seek>(r: &mut R) -> Result<GgufHeader, String> {
     // Version
     r.read_exact(&mut buf4).map_err(|e| e.to_string())?;
     let version = u32::from_le_bytes(buf4);
-    if version < 2 || version > 3 {
+    if !(2..=3).contains(&version) {
         return Err(format!("unsupported version: {}", version));
     }
 
@@ -334,7 +334,7 @@ fn parse_gguf_header<R: Read + Seek>(r: &mut R) -> Result<GgufHeader, String> {
     // Data starts at next alignment boundary (default: 32 bytes)
     let pos = r.stream_position().map_err(|e| e.to_string())?;
     let align = 32u64;
-    let data_offset = (pos + align - 1) / align * align;
+    let data_offset = pos.div_ceil(align) * align;
 
     Ok(GgufHeader {
         tensors,
@@ -371,7 +371,7 @@ fn skip_gguf_value<R: Read + Seek>(r: &mut R, vtype: u32) -> Result<(), String> 
         2 | 3 => {
             r.read_exact(&mut [0u8; 2]).map_err(|e| e.to_string())?;
         } // uint16/int16
-        4 | 5 | 6 => {
+        4..=6 => {
             r.read_exact(&mut buf4).map_err(|e| e.to_string())?;
         } // uint32/int32/float32
         8 => {
@@ -391,7 +391,7 @@ fn skip_gguf_value<R: Read + Seek>(r: &mut R, vtype: u32) -> Result<(), String> 
                 skip_gguf_value(r, elem_type)?;
             }
         }
-        10 | 11 | 12 => {
+        10..=12 => {
             r.read_exact(&mut buf8).map_err(|e| e.to_string())?;
         } // uint64/int64/float64
         _ => return Err(format!("unknown GGUF value type: {}", vtype)),
@@ -435,7 +435,7 @@ fn read_tensor_f32<R: Read + Seek>(
         8 => {
             // Q8_0: blocks of 32 int8 values + f16 scale
             let block_size = 32;
-            let n_blocks = (n + block_size - 1) / block_size;
+            let n_blocks = n.div_ceil(block_size);
             let bytes_per_block = 2 + 32; // f16 scale + 32 int8 values
             let mut buf = vec![0u8; n_blocks * bytes_per_block];
             r.read_exact(&mut buf).map_err(|e| e.to_string())?;

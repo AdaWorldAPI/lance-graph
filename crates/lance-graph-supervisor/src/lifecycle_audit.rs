@@ -35,8 +35,7 @@
 /// Which lifecycle event happened to the actor.
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum LifecycleEventType
-{
+pub enum LifecycleEventType {
     /// Consumer actor was spawned (initial start or respawn after crash).
     ActorStart = 0,
     /// Consumer actor stopped gracefully (supervisor-initiated Shutdown).
@@ -45,10 +44,8 @@ pub enum LifecycleEventType
     ActorRestart = 2,
 }
 
-impl LifecycleEventType
-{
-    pub const fn as_u8(self) -> u8
-    {
+impl LifecycleEventType {
+    pub const fn as_u8(self) -> u8 {
         self as u8
     }
 }
@@ -57,25 +54,22 @@ impl LifecycleEventType
 /// `AuditMerkleRoot`. Stored independently; may be chained in a future
 /// supervisor-specific audit chain (sprint-8 hardening).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct LifecycleAuditEvent
-{
+pub struct LifecycleAuditEvent {
     /// Opaque actor identifier. In ractor, this is the numeric part of `ActorId`.
-    pub actor_id:     u64,
+    pub actor_id: u64,
     /// G-slot index this actor owns (0..255 in current topology; u8 is fine).
-    pub g_slot:       u8,
+    pub g_slot: u8,
     /// Wall-clock timestamp in **microseconds** since UNIX epoch. Higher
     /// resolution than `UnifiedAuditEvent::ts_unix_ms` (milliseconds) because
     /// lifecycle events are rare and the extra resolution aids post-hoc analysis.
     pub timestamp_us: u64,
-    pub event_type:   LifecycleEventType,
+    pub event_type: LifecycleEventType,
 }
 
-impl LifecycleAuditEvent
-{
+impl LifecycleAuditEvent {
     /// Canonical 18-byte representation. Layout documented in module doc.
     /// SEPARATE from `UnifiedAuditEvent::canonical_bytes` (26 bytes).
-    pub fn canonical_bytes(&self) -> [u8; 18]
-    {
+    pub fn canonical_bytes(&self) -> [u8; 18] {
         let mut out = [0u8; 18];
         out[0..8].copy_from_slice(&self.actor_id.to_le_bytes());
         out[8..16].copy_from_slice(&self.timestamp_us.to_le_bytes());
@@ -86,8 +80,7 @@ impl LifecycleAuditEvent
 }
 
 /// Sink trait for lifecycle audit events. Pluggable; default is `NoopLifecycleSink`.
-pub trait LifecycleAuditSink: Send + Sync
-{
+pub trait LifecycleAuditSink: Send + Sync {
     fn emit(&self, event: &LifecycleAuditEvent);
 }
 
@@ -96,27 +89,28 @@ pub trait LifecycleAuditSink: Send + Sync
 #[derive(Clone, Copy, Debug, Default)]
 pub struct NoopLifecycleSink;
 
-impl LifecycleAuditSink for NoopLifecycleSink
-{
+impl LifecycleAuditSink for NoopLifecycleSink {
     fn emit(&self, _event: &LifecycleAuditEvent) {}
 }
 
 #[cfg(test)]
-mod tests
-{
+mod tests {
     use super::*;
 
     #[test]
-    fn lifecycle_audit_event_canonical_bytes_is_18()
-    {
+    fn lifecycle_audit_event_canonical_bytes_is_18() {
         let ev = LifecycleAuditEvent {
-            actor_id:     0xDEAD_BEEF_CAFE_1234,
-            g_slot:       2,
+            actor_id: 0xDEAD_BEEF_CAFE_1234,
+            g_slot: 2,
             timestamp_us: 1_700_000_000_000_000,
-            event_type:   LifecycleEventType::ActorStart,
+            event_type: LifecycleEventType::ActorStart,
         };
         let b = ev.canonical_bytes();
-        assert_eq!(b.len(), 18, "LifecycleAuditEvent canonical_bytes must be 18 bytes");
+        assert_eq!(
+            b.len(),
+            18,
+            "LifecycleAuditEvent canonical_bytes must be 18 bytes"
+        );
         // actor_id at [0..8]
         assert_eq!(&b[0..8], &0xDEAD_BEEF_CAFE_1234u64.to_le_bytes());
         // timestamp_us at [8..16]
@@ -128,8 +122,7 @@ mod tests
     }
 
     #[test]
-    fn lifecycle_canonical_bytes_does_not_collide_with_unified_audit_26_bytes()
-    {
+    fn lifecycle_canonical_bytes_does_not_collide_with_unified_audit_26_bytes() {
         // Regression: LifecycleAuditEvent is 18 bytes, UnifiedAuditEvent is 26.
         // This test encodes the separation contract so a future refactor cannot
         // accidentally unify the two layouts.
@@ -141,14 +134,13 @@ mod tests
     }
 
     #[test]
-    fn noop_lifecycle_sink_does_not_panic()
-    {
+    fn noop_lifecycle_sink_does_not_panic() {
         let sink = NoopLifecycleSink;
         let ev = LifecycleAuditEvent {
-            actor_id:     1,
-            g_slot:       0,
+            actor_id: 1,
+            g_slot: 0,
             timestamp_us: 1_000_000,
-            event_type:   LifecycleEventType::ActorStop,
+            event_type: LifecycleEventType::ActorStop,
         };
         sink.emit(&ev);
     }

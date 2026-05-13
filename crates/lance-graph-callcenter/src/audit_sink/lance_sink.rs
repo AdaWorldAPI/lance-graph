@@ -18,8 +18,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use arrow_array::{
-    Array, BinaryArray, RecordBatch, StringArray,
-    UInt32Array, UInt64Array, UInt8Array,
+    Array, BinaryArray, RecordBatch, StringArray, UInt32Array, UInt64Array, UInt8Array,
 };
 use arrow_schema::{DataType, Field, Schema};
 
@@ -35,18 +34,18 @@ pub const LANCE_FLUSH_THRESHOLD: usize = 1024;
 /// Returns the canonical 12-column Arrow schema for the audit dataset.
 pub fn audit_event_schema() -> Arc<Schema> {
     Arc::new(Schema::new(vec![
-        Field::new("timestamp_us",    DataType::UInt64,              false),
-        Field::new("tenant_id",       DataType::UInt32,              false),
-        Field::new("super_domain",    DataType::UInt8,               false),
-        Field::new("family_id",       DataType::UInt8,               false),
-        Field::new("owl_identity",    DataType::FixedSizeBinary(3),  false),
-        Field::new("action",          DataType::UInt8,               false),
-        Field::new("decision",        DataType::UInt8,               false),
-        Field::new("actor_role_hash", DataType::UInt64,              false),
-        Field::new("prev_merkle",     DataType::UInt64,              false),
-        Field::new("event_merkle",    DataType::UInt64,              false),
-        Field::new("payload",         DataType::Binary,              true),
-        Field::new("date_partition",  DataType::Utf8,                false),
+        Field::new("timestamp_us", DataType::UInt64, false),
+        Field::new("tenant_id", DataType::UInt32, false),
+        Field::new("super_domain", DataType::UInt8, false),
+        Field::new("family_id", DataType::UInt8, false),
+        Field::new("owl_identity", DataType::FixedSizeBinary(3), false),
+        Field::new("action", DataType::UInt8, false),
+        Field::new("decision", DataType::UInt8, false),
+        Field::new("actor_role_hash", DataType::UInt64, false),
+        Field::new("prev_merkle", DataType::UInt64, false),
+        Field::new("event_merkle", DataType::UInt64, false),
+        Field::new("payload", DataType::Binary, true),
+        Field::new("date_partition", DataType::Utf8, false),
     ]))
 }
 
@@ -66,8 +65,7 @@ impl LanceAuditSink {
     /// Create a new `LanceAuditSink` rooted at `base_path`.
     pub fn new(base_path: impl Into<PathBuf>) -> Result<Self, AuditError> {
         let base_path = base_path.into();
-        std::fs::create_dir_all(base_path.join("audit"))
-            .map_err(AuditError::Io)?;
+        std::fs::create_dir_all(base_path.join("audit")).map_err(AuditError::Io)?;
 
         let rt = Arc::new(
             tokio::runtime::Builder::new_multi_thread()
@@ -80,7 +78,9 @@ impl LanceAuditSink {
 
         Ok(Self {
             base_path,
-            buffer: Arc::new(std::sync::Mutex::new(Vec::with_capacity(LANCE_FLUSH_THRESHOLD))),
+            buffer: Arc::new(std::sync::Mutex::new(Vec::with_capacity(
+                LANCE_FLUSH_THRESHOLD,
+            ))),
             last_root: Arc::new(std::sync::Mutex::new(0u64)),
             rt,
         })
@@ -155,8 +155,7 @@ impl AuditSink for LanceAuditSink {
         });
         std::fs::write(
             &tmp,
-            serde_json::to_string(&json)
-                .map_err(|e| AuditError::Serialize(e.to_string()))?,
+            serde_json::to_string(&json).map_err(|e| AuditError::Serialize(e.to_string()))?,
         )?;
         std::fs::rename(tmp, live)?; // atomic on POSIX
         Ok(())
@@ -252,7 +251,8 @@ fn build_record_batch(
             use arrow_array::builder::FixedSizeBinaryBuilder;
             let mut builder = FixedSizeBinaryBuilder::with_capacity(n, 3);
             for chunk in owl_identity_buf.chunks(3) {
-                builder.append_value(chunk)
+                builder
+                    .append_value(chunk)
                     .map_err(|e| AuditError::Arrow(e.to_string()))?;
             }
             Arc::new(builder.finish())
@@ -267,8 +267,7 @@ fn build_record_batch(
         Arc::new(StringArray::from(date_partition)),
     ];
 
-    RecordBatch::try_new(schema.clone(), arrays)
-        .map_err(|e| AuditError::Arrow(e.to_string()))
+    RecordBatch::try_new(schema.clone(), arrays).map_err(|e| AuditError::Arrow(e.to_string()))
 }
 
 /// Write one `RecordBatch` to the Lance partition at
@@ -282,8 +281,8 @@ async fn write_batch_to_lance(
     std::fs::create_dir_all(&dir)?;
     let uri = format!("file://{}", dir.display());
 
-    use lance::dataset::InsertBuilder;
     use lance::dataset::write::{WriteMode, WriteParams};
+    use lance::dataset::InsertBuilder;
 
     let params = WriteParams {
         mode: WriteMode::Append,

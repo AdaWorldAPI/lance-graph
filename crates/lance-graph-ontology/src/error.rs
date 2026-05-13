@@ -37,7 +37,9 @@ pub enum Error {
     #[error("toml decode error in semantic types: {0}")]
     TomlDecode(String),
 
-    #[error("checksum mismatch for `{0}` — TTL fragment changed but registry says it is idempotent")]
+    #[error(
+        "checksum mismatch for `{0}` — TTL fragment changed but registry says it is idempotent"
+    )]
     ChecksumMismatch(String),
 
     #[error("hydration produced 0 mappings from {0:?} — refusing to commit an empty registry")]

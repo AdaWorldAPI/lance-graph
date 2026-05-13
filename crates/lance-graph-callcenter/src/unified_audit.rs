@@ -49,17 +49,14 @@ use crate::unified_bridge::{OwlIdentity, TenantId};
 /// into the audit record (which must be `'static` / owned for sinking).
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum AuthOp
-{
+pub enum AuthOp {
     Read = 0,
     Write = 1,
     Act = 2,
 }
 
-impl AuthOp
-{
-    pub const fn as_u8(self) -> u8
-    {
+impl AuthOp {
+    pub const fn as_u8(self) -> u8 {
         self as u8
     }
 }
@@ -72,18 +69,15 @@ impl AuthOp
 /// `AccessDecision` shape but lifetime-free for durable storage.
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum AuthDecision
-{
+pub enum AuthDecision {
     Allow = 0,
     Deny = 1,
     Escalate = 2,
     BridgeError = 3,
 }
 
-impl AuthDecision
-{
-    pub const fn as_u8(self) -> u8
-    {
+impl AuthDecision {
+    pub const fn as_u8(self) -> u8 {
         self as u8
     }
 }
@@ -100,16 +94,14 @@ impl AuthDecision
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct AuditMerkleRoot(pub u64);
 
-impl AuditMerkleRoot
-{
+impl AuditMerkleRoot {
     /// The chain's seed root — used when no prior event exists.
     pub const GENESIS: Self = Self(0xa5a5_a5a5_a5a5_a5a5);
 
     /// Chain operator: advance the merkle root by hashing `prev_root` +
     /// `salt` + `entry_bytes`. Uses FNV-1a 64-bit (deterministic across
     /// platforms / Rust versions — safe to persist + cross-binary verify).
-    pub fn chain(prev_root: Self, salt: u64, entry_bytes: &[u8]) -> Self
-    {
+    pub fn chain(prev_root: Self, salt: u64, entry_bytes: &[u8]) -> Self {
         let mut h: u64 = 0xcbf2_9ce4_8422_2325; // FNV-1a 64 offset basis
         h = fnv_step(h, &prev_root.0.to_le_bytes());
         h = fnv_step(h, &salt.to_le_bytes());
@@ -118,15 +110,13 @@ impl AuditMerkleRoot
     }
 
     #[inline]
-    pub const fn raw(self) -> u64
-    {
+    pub const fn raw(self) -> u64 {
         self.0
     }
 }
 
 #[inline]
-fn fnv_step(mut h: u64, bytes: &[u8]) -> u64
-{
+fn fnv_step(mut h: u64, bytes: &[u8]) -> u64 {
     const PRIME: u64 = 0x0000_0100_0000_01B3;
     for &b in bytes {
         h ^= b as u64;
@@ -143,8 +133,7 @@ fn fnv_step(mut h: u64, bytes: &[u8]) -> u64
 /// `AuditChain::advance(...)` at emission time; it carries the
 /// chain-integrity bind to the prior event + the per-super-domain salt.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct UnifiedAuditEvent
-{
+pub struct UnifiedAuditEvent {
     /// Wall-clock timestamp in milliseconds since UNIX epoch. Quantized to
     /// ms so the canonical-bytes representation is byte-deterministic
     /// across Rust / C# emitters (per §15.2 cross-language determinism
@@ -179,14 +168,12 @@ pub struct UnifiedAuditEvent
     pub prev_merkle: AuditMerkleRoot,
 }
 
-impl UnifiedAuditEvent
-{
+impl UnifiedAuditEvent {
     /// Canonical byte representation used as input to `AuditMerkleRoot::chain`.
     /// Field order is fixed; little-endian for all integers; no padding.
     /// **`merkle_root` is excluded** — it's the OUTPUT of the chain, not
     /// an input.
-    pub fn canonical_bytes(&self) -> [u8; 8 + 4 + 1 + 3 + 1 + 1 + 8]
-    {
+    pub fn canonical_bytes(&self) -> [u8; 8 + 4 + 1 + 3 + 1 + 1 + 8] {
         let mut out = [0u8; 26];
         out[0..8].copy_from_slice(&self.ts_unix_ms.to_le_bytes());
         out[8..12].copy_from_slice(&self.tenant.raw().to_le_bytes());
@@ -207,8 +194,7 @@ impl UnifiedAuditEvent
 /// can chain off it. Construct one per super-domain context the
 /// `UnifiedBridge` operates against.
 #[derive(Clone, Copy, Debug)]
-pub struct AuditChain
-{
+pub struct AuditChain {
     pub super_domain: SuperDomain,
     /// Per-super-domain salt — looked up from the super-domain registry
     /// (`SuperDomainEntry::merkle_salt` once D-SDR-4 wires it in via the
@@ -218,12 +204,10 @@ pub struct AuditChain
     pub last_root: AuditMerkleRoot,
 }
 
-impl AuditChain
-{
+impl AuditChain {
     /// Construct a fresh chain seeded at `GENESIS` for the given super
     /// domain + salt.
-    pub fn new(super_domain: SuperDomain, salt: u64) -> Self
-    {
+    pub fn new(super_domain: SuperDomain, salt: u64) -> Self {
         Self {
             super_domain,
             salt,
@@ -233,8 +217,7 @@ impl AuditChain
 
     /// Resume a chain from a known prior root (e.g. on process restart
     /// after reading the last persisted event's root).
-    pub fn resume(super_domain: SuperDomain, salt: u64, last_root: AuditMerkleRoot) -> Self
-    {
+    pub fn resume(super_domain: SuperDomain, salt: u64, last_root: AuditMerkleRoot) -> Self {
         Self {
             super_domain,
             salt,
@@ -250,9 +233,8 @@ impl AuditChain
     /// in `verify-jsonl` / `verify-lance` without scanning from genesis.
     /// `prev_merkle` is NOT included in `canonical_bytes()` — that would
     /// create a circular dependency.
-    pub fn advance(&mut self, mut event: UnifiedAuditEvent) -> UnifiedAuditEvent
-    {
-        event.prev_merkle = self.last_root;   // capture BEFORE chaining
+    pub fn advance(&mut self, mut event: UnifiedAuditEvent) -> UnifiedAuditEvent {
+        event.prev_merkle = self.last_root; // capture BEFORE chaining
         let new_root = AuditMerkleRoot::chain(self.last_root, self.salt, &event.canonical_bytes());
         event.merkle_root = new_root;
         self.last_root = new_root;
@@ -325,8 +307,7 @@ pub fn verify_chain(
     start_root: AuditMerkleRoot,
     salt: u64,
     events: &[UnifiedAuditEvent],
-) -> Result<AuditMerkleRoot, usize>
-{
+) -> Result<AuditMerkleRoot, usize> {
     let mut prev = start_root;
     for (i, ev) in events.iter().enumerate() {
         let expected = AuditMerkleRoot::chain(prev, salt, &ev.canonical_bytes());
@@ -339,13 +320,11 @@ pub fn verify_chain(
 }
 
 #[cfg(test)]
-mod tests
-{
+mod tests {
     use super::*;
     use crate::unified_bridge::OgitFamily;
 
-    fn fresh_event() -> UnifiedAuditEvent
-    {
+    fn fresh_event() -> UnifiedAuditEvent {
         UnifiedAuditEvent {
             ts_unix_ms: 1_700_000_000_000,
             tenant: TenantId(42),
@@ -360,8 +339,7 @@ mod tests
     }
 
     #[test]
-    fn merkle_root_chain_is_deterministic()
-    {
+    fn merkle_root_chain_is_deterministic() {
         let bytes = [1u8, 2, 3, 4];
         let a = AuditMerkleRoot::chain(AuditMerkleRoot::GENESIS, 0x1234, &bytes);
         let b = AuditMerkleRoot::chain(AuditMerkleRoot::GENESIS, 0x1234, &bytes);
@@ -369,8 +347,7 @@ mod tests
     }
 
     #[test]
-    fn merkle_root_chain_depends_on_salt()
-    {
+    fn merkle_root_chain_depends_on_salt() {
         let bytes = [1u8, 2, 3, 4];
         let a = AuditMerkleRoot::chain(AuditMerkleRoot::GENESIS, 0x1234, &bytes);
         let b = AuditMerkleRoot::chain(AuditMerkleRoot::GENESIS, 0x5678, &bytes);
@@ -378,17 +355,18 @@ mod tests
     }
 
     #[test]
-    fn merkle_root_chain_depends_on_prior()
-    {
+    fn merkle_root_chain_depends_on_prior() {
         let bytes = [1u8, 2, 3, 4];
         let a = AuditMerkleRoot::chain(AuditMerkleRoot::GENESIS, 0x1234, &bytes);
         let b = AuditMerkleRoot::chain(AuditMerkleRoot(0xDEADBEEF), 0x1234, &bytes);
-        assert_ne!(a, b, "different prior roots must produce different new roots");
+        assert_ne!(
+            a, b,
+            "different prior roots must produce different new roots"
+        );
     }
 
     #[test]
-    fn audit_chain_advance_stamps_event_and_updates_state()
-    {
+    fn audit_chain_advance_stamps_event_and_updates_state() {
         let mut chain = AuditChain::new(SuperDomain::Healthcare, 0xC0FFEE);
         let ev = chain.advance(fresh_event());
 
@@ -397,8 +375,7 @@ mod tests
     }
 
     #[test]
-    fn audit_chain_two_events_chain_through()
-    {
+    fn audit_chain_two_events_chain_through() {
         let mut chain = AuditChain::new(SuperDomain::Healthcare, 0xC0FFEE);
         let e1 = chain.advance(fresh_event());
         let e2 = chain.advance(UnifiedAuditEvent {
@@ -410,8 +387,7 @@ mod tests
     }
 
     #[test]
-    fn verify_chain_accepts_genuine_chain()
-    {
+    fn verify_chain_accepts_genuine_chain() {
         let mut chain = AuditChain::new(SuperDomain::Healthcare, 0xC0FFEE);
         let events: Vec<UnifiedAuditEvent> = (0..5)
             .map(|i| {
@@ -428,8 +404,7 @@ mod tests
     }
 
     #[test]
-    fn verify_chain_detects_tampered_event_in_middle()
-    {
+    fn verify_chain_detects_tampered_event_in_middle() {
         let mut chain = AuditChain::new(SuperDomain::Healthcare, 0xC0FFEE);
         let mut events: Vec<UnifiedAuditEvent> = (0..5)
             .map(|i| {
@@ -447,12 +422,14 @@ mod tests
 
         let err = verify_chain(AuditMerkleRoot::GENESIS, 0xC0FFEE, &events)
             .expect_err("tampered chain should fail verification");
-        assert_eq!(err, 2, "verification should fail at index 2 (the tampered event)");
+        assert_eq!(
+            err, 2,
+            "verification should fail at index 2 (the tampered event)"
+        );
     }
 
     #[test]
-    fn verify_chain_detects_wrong_salt()
-    {
+    fn verify_chain_detects_wrong_salt() {
         let mut chain = AuditChain::new(SuperDomain::Healthcare, 0xC0FFEE);
         let events: Vec<UnifiedAuditEvent> = (0..3)
             .map(|i| {
@@ -479,8 +456,7 @@ mod tests
     }
 
     #[test]
-    fn canonical_bytes_round_trips_field_order()
-    {
+    fn canonical_bytes_round_trips_field_order() {
         let ev = fresh_event();
         let bytes = ev.canonical_bytes();
 

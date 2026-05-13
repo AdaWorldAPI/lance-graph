@@ -152,10 +152,8 @@ impl LanceWriter {
         let path_str = path.to_string_lossy().to_string();
         // Meta is a single-row table — overwrite.
         let stream = futures::stream::iter(vec![Ok(batch)]);
-        let reader = arrow::record_batch::RecordBatchIterator::new(
-            stream.into_inner_unwrap_iter(),
-            schema,
-        );
+        let reader =
+            arrow::record_batch::RecordBatchIterator::new(stream.into_inner_unwrap_iter(), schema);
         let write_params = WriteParams {
             mode: WriteMode::Overwrite,
             ..Default::default()
@@ -197,8 +195,10 @@ fn rows_to_record_batch(rows: &[MappingRow]) -> Result<RecordBatch> {
     let namespace_id: Vec<u8> = rows.iter().map(|r| r.namespace_id.raw()).collect();
     let schema_ptr: Vec<u32> = rows.iter().map(|r| r.schema_ptr.raw()).collect();
     let kind: Vec<&str> = rows.iter().map(|r| r.kind.as_str()).collect();
-    let semantic_type: Vec<String> =
-        rows.iter().map(|r| semantic_type_label(&r.semantic_type)).collect();
+    let semantic_type: Vec<String> = rows
+        .iter()
+        .map(|r| semantic_type_label(&r.semantic_type))
+        .collect();
     let marking: Vec<&str> = rows.iter().map(|r| marking_label(r.marking)).collect();
     let confidence: Vec<f32> = rows.iter().map(|r| r.confidence).collect();
     let created_at: Vec<i64> = rows.iter().map(|r| r.created_at_us).collect();

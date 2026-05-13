@@ -2,10 +2,10 @@
 //!
 //! Sparse vector of HDR scalars with GraphBLAS-compatible operations.
 
-use crate::bitpack::BitpackedVector;
-use super::types::{GrBIndex, HdrScalar, GrBType};
+use super::semiring::{HdrSemiring, Semiring};
 use super::sparse::SparseVec;
-use super::semiring::{Semiring, HdrSemiring};
+use super::types::{GrBIndex, GrBType, HdrScalar};
+use crate::bitpack::BitpackedVector;
 
 /// GraphBLAS Vector
 ///
@@ -337,9 +337,8 @@ impl GrBVector {
 
     /// Bundle all vectors (majority voting)
     pub fn bundle_all(&self) -> Option<BitpackedVector> {
-        let vecs: Vec<&BitpackedVector> = self.iter()
-            .filter_map(|(_, val)| val.as_vector())
-            .collect();
+        let vecs: Vec<&BitpackedVector> =
+            self.iter().filter_map(|(_, val)| val.as_vector()).collect();
 
         if vecs.is_empty() {
             None

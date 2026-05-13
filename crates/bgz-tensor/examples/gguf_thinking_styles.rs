@@ -23,7 +23,7 @@ fn main() {
             println!("--- Jina v3 ({} tensors) ---\n", header.tensors.len());
             let mut role_fingerprints: HashMap<&str, Vec<ThinkingStyleFingerprint>> =
                 HashMap::new();
-            let mut role_spectra: HashMap<&str, Vec<TransformSpectrum>> = HashMap::new();
+            let mut _role_spectra: HashMap<&str, Vec<TransformSpectrum>> = HashMap::new();
             let mut up_rows: Vec<Vec<f32>> = Vec::new();
             let mut down_rows: Vec<Vec<f32>> = Vec::new();
 
@@ -357,7 +357,7 @@ fn parse_gguf_header<R: Read + Seek>(r: &mut R) -> Result<GgufHeader, String> {
     let pos = r.stream_position().map_err(|e| e.to_string())?;
     Ok(GgufHeader {
         tensors,
-        data_offset: (pos + 31) / 32 * 32,
+        data_offset: (pos + 31).div_ceil(32),
     })
 }
 
@@ -383,7 +383,7 @@ fn skip_val<R: Read + Seek>(r: &mut R, vt: u32) -> Result<(), String> {
         2 | 3 => {
             r.read_exact(&mut [0u8; 2]).map_err(|e| e.to_string())?;
         }
-        4 | 5 | 6 => {
+        4..=6 => {
             r.read_exact(&mut b4).map_err(|e| e.to_string())?;
         }
         8 => {
@@ -401,7 +401,7 @@ fn skip_val<R: Read + Seek>(r: &mut R, vt: u32) -> Result<(), String> {
                 skip_val(r, et)?;
             }
         }
-        10 | 11 | 12 => {
+        10..=12 => {
             r.read_exact(&mut b8).map_err(|e| e.to_string())?;
         }
         _ => return Err(format!("unknown vtype {}", vt)),
@@ -427,7 +427,7 @@ fn read_tensor_f32<R: Read + Seek>(
                 .collect())
         }
         8 => {
-            let nb = (n + 31) / 32;
+            let nb = n.div_ceil(32);
             let bpb = 34;
             let mut buf = vec![0u8; nb * bpb];
             r.read_exact(&mut buf).map_err(|e| e.to_string())?;

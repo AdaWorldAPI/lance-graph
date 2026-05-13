@@ -10,9 +10,9 @@
 //! cargo run --release --manifest-path crates/thinking-engine/Cargo.toml \
 //!   --example build_codebook_index
 
-use std::io::{Read, Seek, SeekFrom};
-use rayon::prelude::*;
 use ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd;
+use rayon::prelude::*;
+use std::io::{Read, Seek, SeekFrom};
 use thinking_engine::codebook_index::CodebookIndex;
 
 const VOCAB_SIZE: usize = 250_002;
@@ -27,45 +27,64 @@ fn main() {
 
     // ── Step 1: Find and open BGE-M3 GGUF ─────────────────────────────────
     println!("[1] Locating BGE-M3 F16 GGUF in /tmp/hf_cache ...");
-    let gguf_path = find_bge_m3_gguf()
-        .expect("BGE-M3 F16 GGUF not found in /tmp/hf_cache");
+    let gguf_path = find_bge_m3_gguf().expect("BGE-M3 F16 GGUF not found in /tmp/hf_cache");
     println!("  Found: {}", gguf_path);
 
-    let mut file = std::fs::File::open(&gguf_path)
-        .expect("Failed to open GGUF file");
-    let header = parse_gguf_header(&mut file)
-        .expect("Failed to parse GGUF header");
+    let mut file = std::fs::File::open(&gguf_path).expect("Failed to open GGUF file");
+    let header = parse_gguf_header(&mut file).expect("Failed to parse GGUF header");
     println!("  Tensors: {}", header.tensors.len());
 
     // ── Step 2: Read blk.23.attn_q.weight (1024 × 1024, F16) ─────────────
-    println!("\n[2] Reading blk.23.attn_q.weight ({} × {}) ...", TABLE_ROWS, HIDDEN_DIM);
-    let attn_q = header.tensors.iter()
-        .find(|t| t.name.contains("blk.23") && t.name.contains("attn_q") && t.name.contains("weight"))
+    println!(
+        "\n[2] Reading blk.23.attn_q.weight ({} × {}) ...",
+        TABLE_ROWS, HIDDEN_DIM
+    );
+    let attn_q = header
+        .tensors
+        .iter()
+        .find(|t| {
+            t.name.contains("blk.23") && t.name.contains("attn_q") && t.name.contains("weight")
+        })
         .expect("blk.23.attn_q.weight not found in GGUF");
-    println!("  Tensor: {} (dtype={}, dims={:?})", attn_q.name, attn_q.dtype, attn_q.dims);
+    println!(
+        "  Tensor: {} (dtype={}, dims={:?})",
+        attn_q.name, attn_q.dtype, attn_q.dims
+    );
     assert!(
         attn_q.dtype == 1 || attn_q.dtype == 30,
         "Expected F16 (1) or BF16 (30), got dtype={}",
         attn_q.dtype
     );
 
-    let attn_q_data = read_tensor_f32(&mut file, &header, attn_q)
-        .expect("Failed to read attn_q tensor");
+    let attn_q_data =
+        read_tensor_f32(&mut file, &header, attn_q).expect("Failed to read attn_q tensor");
     let attn_q_rows = attn_q.dims[0] as usize;
     let attn_q_cols: usize = attn_q.dims[1..].iter().map(|&d| d as usize).product();
-    println!("  Shape: {} rows × {} cols, {} floats total",
-        attn_q_rows, attn_q_cols, attn_q_data.len());
+    println!(
+        "  Shape: {} rows × {} cols, {} floats total",
+        attn_q_rows,
+        attn_q_cols,
+        attn_q_data.len()
+    );
     assert_eq!(attn_q_rows, TABLE_ROWS, "Expected {} rows", TABLE_ROWS);
 
     // ── Step 3: Read token_embd.weight (250002 × 1024, F16) ──────────────
-    println!("\n[3] Reading token_embd.weight ({} × {}) ...", VOCAB_SIZE, HIDDEN_DIM);
-    let embd = header.tensors.iter()
+    println!(
+        "\n[3] Reading token_embd.weight ({} × {}) ...",
+        VOCAB_SIZE, HIDDEN_DIM
+    );
+    let embd = header
+        .tensors
+        .iter()
         .find(|t| t.name.contains("token_embd") && t.name.contains("weight"))
         .expect("token_embd.weight not found in GGUF");
-    println!("  Tensor: {} (dtype={}, dims={:?})", embd.name, embd.dtype, embd.dims);
+    println!(
+        "  Tensor: {} (dtype={}, dims={:?})",
+        embd.name, embd.dtype, embd.dims
+    );
 
-    let embd_data = read_tensor_f32(&mut file, &header, embd)
-        .expect("Failed to read token_embd tensor");
+    let embd_data =
+        read_tensor_f32(&mut file, &header, embd).expect("Failed to read token_embd tensor");
 
     // GGUF stores embedding as [hidden_dim, vocab_size] — need to handle both layouts
     let (embd_rows, embd_cols) = if embd.dims[0] as usize == VOCAB_SIZE {
@@ -79,8 +98,12 @@ fn main() {
     } else {
         panic!("Unexpected embedding dims: {:?}", embd.dims);
     };
-    println!("  Logical shape: {} tokens × {} hidden_dim, {} floats total",
-        embd_rows, embd_cols, embd_data.len());
+    println!(
+        "  Logical shape: {} tokens × {} hidden_dim, {} floats total",
+        embd_rows,
+        embd_cols,
+        embd_data.len()
+    );
     assert_eq!(embd_rows, VOCAB_SIZE, "Expected {} tokens", VOCAB_SIZE);
     assert_eq!(embd_cols, HIDDEN_DIM, "Expected {} hidden_dim", HIDDEN_DIM);
 
@@ -88,8 +111,10 @@ fn main() {
     // This is O(N) once and makes the parallel search cache-friendly
     let is_transposed = embd.dims[0] as usize == HIDDEN_DIM;
     let embd_data = if is_transposed {
-        println!("  Transposing embedding in-memory ({} × {} → {} × {}) ...",
-            HIDDEN_DIM, VOCAB_SIZE, VOCAB_SIZE, HIDDEN_DIM);
+        println!(
+            "  Transposing embedding in-memory ({} × {} → {} × {}) ...",
+            HIDDEN_DIM, VOCAB_SIZE, VOCAB_SIZE, HIDDEN_DIM
+        );
         let start = std::time::Instant::now();
         let mut transposed = vec![0.0f32; VOCAB_SIZE * HIDDEN_DIM];
         for d in 0..HIDDEN_DIM {
@@ -106,20 +131,29 @@ fn main() {
     // ── Step 4: Pre-normalize centroid rows (attn_q) ──────────────────────
     println!("\n[4] Pre-normalizing {} centroid rows ...", TABLE_ROWS);
     let start = std::time::Instant::now();
-    let centroids: Vec<Vec<f32>> = (0..TABLE_ROWS).map(|r| {
-        let row = &attn_q_data[r * attn_q_cols..(r + 1) * attn_q_cols];
-        let norm = row.iter().map(|v| (*v as f64) * (*v as f64)).sum::<f64>().sqrt();
-        if norm < 1e-12 {
-            vec![0.0f32; attn_q_cols]
-        } else {
-            let inv = (1.0 / norm) as f32;
-            row.iter().map(|v| v * inv).collect()
-        }
-    }).collect();
+    let centroids: Vec<Vec<f32>> = (0..TABLE_ROWS)
+        .map(|r| {
+            let row = &attn_q_data[r * attn_q_cols..(r + 1) * attn_q_cols];
+            let norm = row
+                .iter()
+                .map(|v| (*v as f64) * (*v as f64))
+                .sum::<f64>()
+                .sqrt();
+            if norm < 1e-12 {
+                vec![0.0f32; attn_q_cols]
+            } else {
+                let inv = (1.0 / norm) as f32;
+                row.iter().map(|v| v * inv).collect()
+            }
+        })
+        .collect();
     println!("  Done in {:.1}ms", start.elapsed().as_secs_f64() * 1000.0);
 
     // ── Step 5: For each token embedding, find nearest centroid ────────────
-    println!("\n[5] Finding nearest centroid for each of {} tokens (chunked, 2 threads) ...", VOCAB_SIZE);
+    println!(
+        "\n[5] Finding nearest centroid for each of {} tokens (chunked, 2 threads) ...",
+        VOCAB_SIZE
+    );
     let start = std::time::Instant::now();
 
     // Process in chunks to show progress and avoid process kill
@@ -134,8 +168,14 @@ fn main() {
                 let tok_row = &embd_data[tok_id * embd_cols..(tok_id + 1) * embd_cols];
 
                 // Pre-normalize
-                let norm = tok_row.iter().map(|v| (*v as f64) * (*v as f64)).sum::<f64>().sqrt();
-                if norm < 1e-12 { return 0u16; }
+                let norm = tok_row
+                    .iter()
+                    .map(|v| (*v as f64) * (*v as f64))
+                    .sum::<f64>()
+                    .sqrt();
+                if norm < 1e-12 {
+                    return 0u16;
+                }
                 let inv = (1.0 / norm) as f32;
                 let tok_normed: Vec<f32> = tok_row.iter().map(|v| v * inv).collect();
 
@@ -143,8 +183,11 @@ fn main() {
                 let mut best_idx = 0u16;
                 let mut best_dot = f32::NEG_INFINITY;
                 for (c_idx, centroid) in centroids.iter().enumerate() {
-                    let dot: f32 = tok_normed.iter().zip(centroid.iter())
-                        .map(|(a, b)| a * b).sum();
+                    let dot: f32 = tok_normed
+                        .iter()
+                        .zip(centroid.iter())
+                        .map(|(a, b)| a * b)
+                        .sum();
                     if dot > best_dot {
                         best_dot = dot;
                         best_idx = c_idx as u16;
@@ -159,13 +202,18 @@ fn main() {
         }
         let elapsed = start.elapsed().as_secs_f64();
         let pct = (chunk_end as f64 / embd_rows as f64) * 100.0;
-        println!("  [{:>6}/{:>6}] {:.0}%  {:.1}s", chunk_end, embd_rows, pct, elapsed);
+        println!(
+            "  [{:>6}/{:>6}] {:.0}%  {:.1}s",
+            chunk_end, embd_rows, pct, elapsed
+        );
     }
 
     let elapsed = start.elapsed();
-    println!("  Done in {:.2}s ({:.0} tokens/sec)",
+    println!(
+        "  Done in {:.2}s ({:.0} tokens/sec)",
         elapsed.as_secs_f64(),
-        VOCAB_SIZE as f64 / elapsed.as_secs_f64());
+        VOCAB_SIZE as f64 / elapsed.as_secs_f64()
+    );
 
     // ── Step 6: Build CodebookIndex and save ──────────────────────────────
     println!("\n[6] Building CodebookIndex and saving ...");
@@ -173,11 +221,17 @@ fn main() {
 
     let out_dir = "/tmp/codebooks/bge-m3-roles-f16";
     let out_path = std::path::Path::new(out_dir).join("codebook_index.u16");
-    codebook.save(&out_path).expect("Failed to save codebook index");
+    codebook
+        .save(&out_path)
+        .expect("Failed to save codebook index");
 
     let file_size = std::fs::metadata(&out_path).map(|m| m.len()).unwrap_or(0);
-    println!("  Saved: {} ({} bytes, {:.1} KB)",
-        out_path.display(), file_size, file_size as f64 / 1024.0);
+    println!(
+        "  Saved: {} ({} bytes, {:.1} KB)",
+        out_path.display(),
+        file_size,
+        file_size as f64 / 1024.0
+    );
 
     // ── Step 7: Print stats ───────────────────────────────────────────────
     println!("\n═══════════════════════════════════════════════════════");
@@ -187,8 +241,12 @@ fn main() {
     let unique = codebook.unique_centroids();
     println!("  Vocab size:       {}", codebook.len());
     println!("  Table rows:       {}", codebook.table_size());
-    println!("  Unique centroids: {} / {} ({:.1}%)",
-        unique, TABLE_ROWS, unique as f64 / TABLE_ROWS as f64 * 100.0);
+    println!(
+        "  Unique centroids: {} / {} ({:.1}%)",
+        unique,
+        TABLE_ROWS,
+        unique as f64 / TABLE_ROWS as f64 * 100.0
+    );
 
     let counts = codebook.centroid_counts();
     let max_count = *counts.iter().max().unwrap_or(&0);
@@ -196,10 +254,15 @@ fn main() {
     let empty_centroids = counts.iter().filter(|&&c| c == 0).count();
     let mean_count = codebook.len() as f64 / TABLE_ROWS as f64;
 
-    println!("  Tokens/centroid:  min={}, max={}, mean={:.1}",
-        min_count, max_count, mean_count);
-    println!("  Empty centroids:  {} ({:.1}%)",
-        empty_centroids, empty_centroids as f64 / TABLE_ROWS as f64 * 100.0);
+    println!(
+        "  Tokens/centroid:  min={}, max={}, mean={:.1}",
+        min_count, max_count, mean_count
+    );
+    println!(
+        "  Empty centroids:  {} ({:.1}%)",
+        empty_centroids,
+        empty_centroids as f64 / TABLE_ROWS as f64 * 100.0
+    );
 
     // Histogram: bucket sizes
     let mut histogram = std::collections::BTreeMap::new();
@@ -223,24 +286,34 @@ fn main() {
     }
 
     // Top-10 most popular centroids
-    let mut indexed_counts: Vec<(usize, u32)> = counts.iter().enumerate()
-        .map(|(i, &c)| (i, c))
-        .collect();
+    let mut indexed_counts: Vec<(usize, u32)> =
+        counts.iter().enumerate().map(|(i, &c)| (i, c)).collect();
     indexed_counts.sort_by(|a, b| b.1.cmp(&a.1));
     println!("\n  Top-10 most popular centroids:");
     for (i, (centroid, count)) in indexed_counts.iter().take(10).enumerate() {
-        println!("    #{}: centroid {:>4} → {} tokens", i + 1, centroid, count);
+        println!(
+            "    #{}: centroid {:>4} → {} tokens",
+            i + 1,
+            centroid,
+            count
+        );
     }
 
     // Bottom-10 (least used, excluding empty)
-    let mut nonempty: Vec<(usize, u32)> = indexed_counts.iter()
+    let mut nonempty: Vec<(usize, u32)> = indexed_counts
+        .iter()
         .filter(|(_, c)| *c > 0)
         .copied()
         .collect();
     nonempty.sort_by(|a, b| a.1.cmp(&b.1));
     println!("\n  Bottom-10 least popular (non-empty) centroids:");
     for (i, (centroid, count)) in nonempty.iter().take(10).enumerate() {
-        println!("    #{}: centroid {:>4} → {} tokens", i + 1, centroid, count);
+        println!(
+            "    #{}: centroid {:>4} → {} tokens",
+            i + 1,
+            centroid,
+            count
+        );
     }
 
     println!("\n═══════════════════════════════════════════════════════");
@@ -255,11 +328,21 @@ fn main() {
     println!("═══════════════════════════════════════════════════════\n");
 
     // ── Step 8: Read blk.23.ffn_down.weight (4096 × 1024, F16) ──────────────
-    println!("[8] Reading blk.23.ffn_down.weight ({} × {}) ...", FFN_DOWN_ROWS, HIDDEN_DIM);
-    let ffn_down = header.tensors.iter()
-        .find(|t| t.name.contains("blk.23") && t.name.contains("ffn_down") && t.name.contains("weight"))
+    println!(
+        "[8] Reading blk.23.ffn_down.weight ({} × {}) ...",
+        FFN_DOWN_ROWS, HIDDEN_DIM
+    );
+    let ffn_down = header
+        .tensors
+        .iter()
+        .find(|t| {
+            t.name.contains("blk.23") && t.name.contains("ffn_down") && t.name.contains("weight")
+        })
         .expect("blk.23.ffn_down.weight not found in GGUF");
-    println!("  Tensor: {} (dtype={}, dims={:?})", ffn_down.name, ffn_down.dtype, ffn_down.dims);
+    println!(
+        "  Tensor: {} (dtype={}, dims={:?})",
+        ffn_down.name, ffn_down.dtype, ffn_down.dims
+    );
     assert!(
         ffn_down.dtype == 1 || ffn_down.dtype == 30,
         "Expected F16 (1) or BF16 (30), got dtype={}",
@@ -267,34 +350,53 @@ fn main() {
     );
 
     // Re-open file to re-seek (file handle was used for embeddings above)
-    let mut file = std::fs::File::open(&gguf_path)
-        .expect("Failed to re-open GGUF file");
-    let ffn_down_data = read_tensor_f32(&mut file, &header, ffn_down)
-        .expect("Failed to read ffn_down tensor");
+    let mut file = std::fs::File::open(&gguf_path).expect("Failed to re-open GGUF file");
+    let ffn_down_data =
+        read_tensor_f32(&mut file, &header, ffn_down).expect("Failed to read ffn_down tensor");
     let ffn_down_rows = ffn_down.dims[0] as usize;
     let ffn_down_cols: usize = ffn_down.dims[1..].iter().map(|&d| d as usize).product();
-    println!("  Shape: {} rows × {} cols, {} floats total",
-        ffn_down_rows, ffn_down_cols, ffn_down_data.len());
-    assert_eq!(ffn_down_rows, FFN_DOWN_ROWS, "Expected {} rows", FFN_DOWN_ROWS);
+    println!(
+        "  Shape: {} rows × {} cols, {} floats total",
+        ffn_down_rows,
+        ffn_down_cols,
+        ffn_down_data.len()
+    );
+    assert_eq!(
+        ffn_down_rows, FFN_DOWN_ROWS,
+        "Expected {} rows",
+        FFN_DOWN_ROWS
+    );
     assert_eq!(ffn_down_cols, HIDDEN_DIM, "Expected {} cols", HIDDEN_DIM);
 
     // ── Step 9: Pre-normalize ffn_down centroid rows ─────────────────────────
-    println!("\n[9] Pre-normalizing {} ffn_down centroid rows ...", FFN_DOWN_ROWS);
+    println!(
+        "\n[9] Pre-normalizing {} ffn_down centroid rows ...",
+        FFN_DOWN_ROWS
+    );
     let start = std::time::Instant::now();
-    let ffn_centroids: Vec<Vec<f32>> = (0..FFN_DOWN_ROWS).map(|r| {
-        let row = &ffn_down_data[r * ffn_down_cols..(r + 1) * ffn_down_cols];
-        let norm = row.iter().map(|v| (*v as f64) * (*v as f64)).sum::<f64>().sqrt();
-        if norm < 1e-12 {
-            vec![0.0f32; ffn_down_cols]
-        } else {
-            let inv = (1.0 / norm) as f32;
-            row.iter().map(|v| v * inv).collect()
-        }
-    }).collect();
+    let ffn_centroids: Vec<Vec<f32>> = (0..FFN_DOWN_ROWS)
+        .map(|r| {
+            let row = &ffn_down_data[r * ffn_down_cols..(r + 1) * ffn_down_cols];
+            let norm = row
+                .iter()
+                .map(|v| (*v as f64) * (*v as f64))
+                .sum::<f64>()
+                .sqrt();
+            if norm < 1e-12 {
+                vec![0.0f32; ffn_down_cols]
+            } else {
+                let inv = (1.0 / norm) as f32;
+                row.iter().map(|v| v * inv).collect()
+            }
+        })
+        .collect();
     println!("  Done in {:.1}ms", start.elapsed().as_secs_f64() * 1000.0);
 
     // ── Step 10: For each token embedding, find nearest ffn_down centroid ────
-    println!("\n[10] Finding nearest ffn_down centroid for each of {} tokens (chunked, rayon) ...", VOCAB_SIZE);
+    println!(
+        "\n[10] Finding nearest ffn_down centroid for each of {} tokens (chunked, rayon) ...",
+        VOCAB_SIZE
+    );
     let start = std::time::Instant::now();
 
     let chunk_size = 25000;
@@ -308,8 +410,14 @@ fn main() {
                 let tok_row = &embd_data[tok_id * HIDDEN_DIM..(tok_id + 1) * HIDDEN_DIM];
 
                 // Pre-normalize
-                let norm = tok_row.iter().map(|v| (*v as f64) * (*v as f64)).sum::<f64>().sqrt();
-                if norm < 1e-12 { return 0u16; }
+                let norm = tok_row
+                    .iter()
+                    .map(|v| (*v as f64) * (*v as f64))
+                    .sum::<f64>()
+                    .sqrt();
+                if norm < 1e-12 {
+                    return 0u16;
+                }
                 let inv = (1.0 / norm) as f32;
                 let tok_normed: Vec<f32> = tok_row.iter().map(|v| v * inv).collect();
 
@@ -317,8 +425,11 @@ fn main() {
                 let mut best_idx = 0u16;
                 let mut best_dot = f32::NEG_INFINITY;
                 for (c_idx, centroid) in ffn_centroids.iter().enumerate() {
-                    let dot: f32 = tok_normed.iter().zip(centroid.iter())
-                        .map(|(a, b)| a * b).sum();
+                    let dot: f32 = tok_normed
+                        .iter()
+                        .zip(centroid.iter())
+                        .map(|(a, b)| a * b)
+                        .sum();
                     if dot > best_dot {
                         best_dot = dot;
                         best_idx = c_idx as u16;
@@ -333,13 +444,18 @@ fn main() {
         }
         let elapsed = start.elapsed().as_secs_f64();
         let pct = (chunk_end as f64 / VOCAB_SIZE as f64) * 100.0;
-        println!("  [{:>6}/{:>6}] {:.0}%  {:.1}s", chunk_end, VOCAB_SIZE, pct, elapsed);
+        println!(
+            "  [{:>6}/{:>6}] {:.0}%  {:.1}s",
+            chunk_end, VOCAB_SIZE, pct, elapsed
+        );
     }
 
     let elapsed = start.elapsed();
-    println!("  Done in {:.2}s ({:.0} tokens/sec)",
+    println!(
+        "  Done in {:.2}s ({:.0} tokens/sec)",
         elapsed.as_secs_f64(),
-        VOCAB_SIZE as f64 / elapsed.as_secs_f64());
+        VOCAB_SIZE as f64 / elapsed.as_secs_f64()
+    );
 
     // ── Step 11: Build CodebookIndex and save (ffn_down) ─────────────────────
     println!("\n[11] Building ffn_down CodebookIndex and saving ...");
@@ -348,11 +464,19 @@ fn main() {
     let ffn_out_dir = "/tmp/codebooks/bge-m3-roles-f16/ffn_down";
     std::fs::create_dir_all(ffn_out_dir).expect("Failed to create ffn_down output dir");
     let ffn_out_path = std::path::Path::new(ffn_out_dir).join("codebook_index.u16");
-    ffn_codebook.save(&ffn_out_path).expect("Failed to save ffn_down codebook index");
+    ffn_codebook
+        .save(&ffn_out_path)
+        .expect("Failed to save ffn_down codebook index");
 
-    let file_size = std::fs::metadata(&ffn_out_path).map(|m| m.len()).unwrap_or(0);
-    println!("  Saved: {} ({} bytes, {:.1} KB)",
-        ffn_out_path.display(), file_size, file_size as f64 / 1024.0);
+    let file_size = std::fs::metadata(&ffn_out_path)
+        .map(|m| m.len())
+        .unwrap_or(0);
+    println!(
+        "  Saved: {} ({} bytes, {:.1} KB)",
+        ffn_out_path.display(),
+        file_size,
+        file_size as f64 / 1024.0
+    );
 
     // ── Step 12: Print ffn_down stats ────────────────────────────────────────
     println!("\n═══════════════════════════════════════════════════════");
@@ -362,8 +486,12 @@ fn main() {
     let unique = ffn_codebook.unique_centroids();
     println!("  Vocab size:       {}", ffn_codebook.len());
     println!("  Table rows:       {}", ffn_codebook.table_size());
-    println!("  Unique centroids: {} / {} ({:.1}%)",
-        unique, FFN_DOWN_ROWS, unique as f64 / FFN_DOWN_ROWS as f64 * 100.0);
+    println!(
+        "  Unique centroids: {} / {} ({:.1}%)",
+        unique,
+        FFN_DOWN_ROWS,
+        unique as f64 / FFN_DOWN_ROWS as f64 * 100.0
+    );
 
     let counts = ffn_codebook.centroid_counts();
     let max_count = *counts.iter().max().unwrap_or(&0);
@@ -371,10 +499,15 @@ fn main() {
     let empty_centroids = counts.iter().filter(|&&c| c == 0).count();
     let mean_count = ffn_codebook.len() as f64 / FFN_DOWN_ROWS as f64;
 
-    println!("  Tokens/centroid:  min={}, max={}, mean={:.1}",
-        min_count, max_count, mean_count);
-    println!("  Empty centroids:  {} ({:.1}%)",
-        empty_centroids, empty_centroids as f64 / FFN_DOWN_ROWS as f64 * 100.0);
+    println!(
+        "  Tokens/centroid:  min={}, max={}, mean={:.1}",
+        min_count, max_count, mean_count
+    );
+    println!(
+        "  Empty centroids:  {} ({:.1}%)",
+        empty_centroids,
+        empty_centroids as f64 / FFN_DOWN_ROWS as f64 * 100.0
+    );
 
     // Histogram: bucket sizes
     let mut histogram = std::collections::BTreeMap::new();
@@ -398,28 +531,42 @@ fn main() {
     }
 
     // Top-10 most popular centroids
-    let mut indexed_counts: Vec<(usize, u32)> = counts.iter().enumerate()
-        .map(|(i, &c)| (i, c))
-        .collect();
+    let mut indexed_counts: Vec<(usize, u32)> =
+        counts.iter().enumerate().map(|(i, &c)| (i, c)).collect();
     indexed_counts.sort_by(|a, b| b.1.cmp(&a.1));
     println!("\n  Top-10 most popular centroids:");
     for (i, (centroid, count)) in indexed_counts.iter().take(10).enumerate() {
-        println!("    #{}: centroid {:>4} → {} tokens", i + 1, centroid, count);
+        println!(
+            "    #{}: centroid {:>4} → {} tokens",
+            i + 1,
+            centroid,
+            count
+        );
     }
 
     // Bottom-10 (least used, excluding empty)
-    let mut nonempty: Vec<(usize, u32)> = indexed_counts.iter()
+    let mut nonempty: Vec<(usize, u32)> = indexed_counts
+        .iter()
         .filter(|(_, c)| *c > 0)
         .copied()
         .collect();
     nonempty.sort_by(|a, b| a.1.cmp(&b.1));
     println!("\n  Bottom-10 least popular (non-empty) centroids:");
     for (i, (centroid, count)) in nonempty.iter().take(10).enumerate() {
-        println!("    #{}: centroid {:>4} → {} tokens", i + 1, centroid, count);
+        println!(
+            "    #{}: centroid {:>4} → {} tokens",
+            i + 1,
+            centroid,
+            count
+        );
     }
 
     println!("\n═══════════════════════════════════════════════════════");
-    println!("  DONE (ffn_down): {} → {}", gguf_path, ffn_out_path.display());
+    println!(
+        "  DONE (ffn_down): {} → {}",
+        gguf_path,
+        ffn_out_path.display()
+    );
     println!("═══════════════════════════════════════════════════════");
 }
 
@@ -430,12 +577,18 @@ fn find_bge_m3_gguf() -> Option<String> {
     let entries = std::fs::read_dir(base).ok()?;
     for entry in entries.flatten() {
         let p = entry.path();
-        if !p.is_dir() { continue; }
+        if !p.is_dir() {
+            continue;
+        }
         let name = p.file_name()?.to_string_lossy().to_string();
-        if !name.contains("models--") { continue; }
+        if !name.contains("models--") {
+            continue;
+        }
         // Look for bge-m3 (case insensitive)
         let lower = name.to_lowercase();
-        if !lower.contains("bge") || !lower.contains("m3") { continue; }
+        if !lower.contains("bge") || !lower.contains("m3") {
+            continue;
+        }
 
         let snap = p.join("snapshots");
         if let Ok(snaps) = std::fs::read_dir(&snap) {
@@ -444,16 +597,31 @@ fn find_bge_m3_gguf() -> Option<String> {
                     for f in files.flatten() {
                         let fp = f.path();
                         let fname = fp.to_string_lossy().to_string();
-                        if !fname.ends_with(".gguf") { continue; }
+                        if !fname.ends_with(".gguf") {
+                            continue;
+                        }
                         // Skip quantized — we need F16
-                        if fname.contains("Q8_0") || fname.contains("Q4_K")
-                            || fname.contains("Q2_K") || fname.contains("Q5_K") {
+                        if fname.contains("Q8_0")
+                            || fname.contains("Q4_K")
+                            || fname.contains("Q2_K")
+                            || fname.contains("Q5_K")
+                        {
                             continue;
                         }
                         let real = std::fs::read_link(&fp)
-                            .map(|r| if r.is_relative() { fp.parent().unwrap().join(r) } else { r })
+                            .map(|r| {
+                                if r.is_relative() {
+                                    fp.parent().unwrap().join(r)
+                                } else {
+                                    r
+                                }
+                            })
                             .unwrap_or(fp.clone());
-                        if real.exists() && std::fs::metadata(&real).map(|m| m.len() > 1000).unwrap_or(false) {
+                        if real.exists()
+                            && std::fs::metadata(&real)
+                                .map(|m| m.len() > 1000)
+                                .unwrap_or(false)
+                        {
                             return Some(real.to_string_lossy().to_string());
                         }
                     }
@@ -512,10 +680,19 @@ fn parse_gguf_header<R: Read + Seek>(r: &mut R) -> Result<GgufHeader, String> {
         r.read_exact(&mut b8).map_err(|e| e.to_string())?;
         let offset = u64::from_le_bytes(b8);
         let n_elements: u64 = dims.iter().product();
-        tensors.push(TensorMeta { name, dims, dtype, offset, n_elements });
+        tensors.push(TensorMeta {
+            name,
+            dims,
+            dtype,
+            offset,
+            n_elements,
+        });
     }
     let pos = r.stream_position().map_err(|e| e.to_string())?;
-    Ok(GgufHeader { tensors, data_offset: (pos + 31) / 32 * 32 })
+    Ok(GgufHeader {
+        tensors,
+        data_offset: (pos + 31) / 32 * 32,
+    })
 }
 
 fn skip_kv<R: Read + Seek>(r: &mut R) -> Result<(), String> {
@@ -565,47 +742,74 @@ fn skip_val<R: Read + Seek>(r: &mut R, vt: u32) -> Result<(), String> {
     Ok(())
 }
 
-fn read_tensor_f32<R: Read + Seek>(r: &mut R, h: &GgufHeader, t: &TensorMeta) -> Result<Vec<f32>, String> {
-    r.seek(SeekFrom::Start(h.data_offset + t.offset)).map_err(|e| e.to_string())?;
+fn read_tensor_f32<R: Read + Seek>(
+    r: &mut R,
+    h: &GgufHeader,
+    t: &TensorMeta,
+) -> Result<Vec<f32>, String> {
+    r.seek(SeekFrom::Start(h.data_offset + t.offset))
+        .map_err(|e| e.to_string())?;
     let n = t.dims.iter().product::<u64>() as usize;
     match t.dtype {
         0 => {
             // F32
             let mut buf = vec![0u8; n * 4];
             r.read_exact(&mut buf).map_err(|e| e.to_string())?;
-            Ok(buf.chunks_exact(4).map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]])).collect())
+            Ok(buf
+                .chunks_exact(4)
+                .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+                .collect())
         }
         1 => {
             // F16
             let mut buf = vec![0u8; n * 2];
             r.read_exact(&mut buf).map_err(|e| e.to_string())?;
-            Ok(buf.chunks_exact(2).map(|c| {
-                let bits = u16::from_le_bytes([c[0], c[1]]);
-                let s = ((bits >> 15) & 1) as u32;
-                let e = ((bits >> 10) & 0x1F) as u32;
-                let f = (bits & 0x3FF) as u32;
-                if e == 0 {
-                    if f == 0 { f32::from_bits(s << 31) }
-                    else {
-                        let v = f as f32 / 1024.0 * 2.0f32.powi(-14);
-                        if s == 1 { -v } else { v }
+            Ok(buf
+                .chunks_exact(2)
+                .map(|c| {
+                    let bits = u16::from_le_bytes([c[0], c[1]]);
+                    let s = ((bits >> 15) & 1) as u32;
+                    let e = ((bits >> 10) & 0x1F) as u32;
+                    let f = (bits & 0x3FF) as u32;
+                    if e == 0 {
+                        if f == 0 {
+                            f32::from_bits(s << 31)
+                        } else {
+                            let v = f as f32 / 1024.0 * 2.0f32.powi(-14);
+                            if s == 1 {
+                                -v
+                            } else {
+                                v
+                            }
+                        }
+                    } else if e == 31 {
+                        if f == 0 {
+                            if s == 1 {
+                                f32::NEG_INFINITY
+                            } else {
+                                f32::INFINITY
+                            }
+                        } else {
+                            f32::NAN
+                        }
+                    } else {
+                        f32::from_bits((s << 31) | ((e + 127 - 15) << 23) | (f << 13))
                     }
-                } else if e == 31 {
-                    if f == 0 { if s == 1 { f32::NEG_INFINITY } else { f32::INFINITY } }
-                    else { f32::NAN }
-                } else {
-                    f32::from_bits((s << 31) | ((e + 127 - 15) << 23) | (f << 13))
-                }
-            }).collect())
+                })
+                .collect())
         }
         30 => {
             // BF16
             let mut buf = vec![0u8; n * 2];
             r.read_exact(&mut buf).map_err(|e| e.to_string())?;
-            Ok(buf.chunks_exact(2).map(|c| {
-                f32::from_bits((u16::from_le_bytes([c[0], c[1]]) as u32) << 16)
-            }).collect())
+            Ok(buf
+                .chunks_exact(2)
+                .map(|c| f32::from_bits((u16::from_le_bytes([c[0], c[1]]) as u32) << 16))
+                .collect())
         }
-        _ => Err(format!("unsupported dtype {} — only F16(1)/BF16(30)/F32(0)", t.dtype)),
+        _ => Err(format!(
+            "unsupported dtype {} — only F16(1)/BF16(30)/F32(0)",
+            t.dtype
+        )),
     }
 }

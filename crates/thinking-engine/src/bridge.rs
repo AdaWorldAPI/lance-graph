@@ -83,11 +83,7 @@ pub fn build_spiral_distance_table(addresses: &[SpiralAddress], n: usize) -> Vec
 ///
 /// Executes `SpiralWalk::execute` for each address against the shared `source`
 /// vector, then returns the walk-level cosine similarity as f64.
-pub fn hydrate_and_cosine(
-    addr_a: &SpiralAddress,
-    addr_b: &SpiralAddress,
-    source: &[f32],
-) -> f64 {
+pub fn hydrate_and_cosine(addr_a: &SpiralAddress, addr_b: &SpiralAddress, source: &[f32]) -> f64 {
     let walk_a = SpiralWalk::execute(addr_a, source);
     let walk_b = SpiralWalk::execute(addr_b, source);
     walk_a.cosine(&walk_b)
@@ -196,7 +192,11 @@ mod tests {
         let n = addrs.len();
         let table = build_spiral_distance_table(&addrs, n);
         for i in 0..n {
-            assert_eq!(table[i * n + i], 255, "diagonal must be 255 (self-similarity)");
+            assert_eq!(
+                table[i * n + i],
+                255,
+                "diagonal must be 255 (self-similarity)"
+            );
         }
     }
 
@@ -226,10 +226,7 @@ mod tests {
     #[test]
     fn distance_table_reject_is_zero() {
         // Different stride -> Reject -> 0
-        let addrs = vec![
-            SpiralAddress::new(20, 8, 4),
-            SpiralAddress::new(20, 2, 4),
-        ];
+        let addrs = vec![SpiralAddress::new(20, 8, 4), SpiralAddress::new(20, 2, 4)];
         let table = build_spiral_distance_table(&addrs, 2);
         assert_eq!(table[0 * 2 + 1], 0, "different stride should be Reject=0");
         assert_eq!(table[1 * 2 + 0], 0, "symmetric Reject=0");
@@ -305,9 +302,11 @@ mod tests {
         // After enrichment, no Maybe entries should remain
         for &(i, j) in &maybe_before {
             assert_ne!(
-                table[i * n + j], 128,
+                table[i * n + j],
+                128,
                 "Maybe entry at ({}, {}) should have been replaced",
-                i, j
+                i,
+                j
             );
         }
 
@@ -341,7 +340,8 @@ mod tests {
 
         // Reject entry should be unchanged
         assert_eq!(
-            table[0 * n + 1], reject_val,
+            table[0 * n + 1],
+            reject_val,
             "Reject entry should not be modified by enrichment"
         );
     }

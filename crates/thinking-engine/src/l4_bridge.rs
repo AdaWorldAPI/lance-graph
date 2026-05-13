@@ -43,12 +43,16 @@ pub fn commit_to_l4(
     l4: &mut L4Experience,
     reward_scale: i8,
 ) -> usize {
-    let peaks: Vec<(u16, f32)> = bus.top_k.iter()
+    let peaks: Vec<(u16, f32)> = bus
+        .top_k
+        .iter()
         .filter(|&&(_, e)| e > 0.01)
         .cloned()
         .collect();
 
-    if peaks.len() < 2 { return 0; }
+    if peaks.len() < 2 {
+        return 0;
+    }
 
     let mut learned = 0usize;
 
@@ -63,10 +67,14 @@ pub fn commit_to_l4(
         // Distance table rows as centroid proxies, centered around zero.
         let row_a: Vec<f32> = distance_table
             [idx_a as usize * table_size..(idx_a as usize + 1) * table_size]
-            .iter().map(|&v| v as f32 - 128.0).collect();
+            .iter()
+            .map(|&v| v as f32 - 128.0)
+            .collect();
         let row_b: Vec<f32> = distance_table
             [idx_b as usize * table_size..(idx_b as usize + 1) * table_size]
-            .iter().map(|&v| v as f32 - 128.0).collect();
+            .iter()
+            .map(|&v| v as f32 - 128.0)
+            .collect();
 
         let bin_a = L4Experience::binarize(&row_a);
         let bin_b = L4Experience::binarize(&row_b);
@@ -75,7 +83,8 @@ pub fn commit_to_l4(
         // Reward proportional to geometric mean of peak energies.
         let pair_energy = (energy_a * energy_b).sqrt();
         let reward = (pair_energy * reward_scale as f32)
-            .round().clamp(-128.0, 127.0) as i8;
+            .round()
+            .clamp(-128.0, 127.0) as i8;
 
         if reward != 0 {
             l4.learn(&bound, reward);
@@ -96,12 +105,16 @@ pub fn recognize_thought(
     table_size: usize,
     l4: &L4Experience,
 ) -> i32 {
-    let peaks: Vec<(u16, f32)> = bus.top_k.iter()
+    let peaks: Vec<(u16, f32)> = bus
+        .top_k
+        .iter()
         .filter(|&&(_, e)| e > 0.01)
         .cloned()
         .collect();
 
-    if peaks.len() < 2 { return 0; }
+    if peaks.len() < 2 {
+        return 0;
+    }
 
     let mut total_score: i32 = 0;
     let mut pairs = 0;
@@ -116,10 +129,14 @@ pub fn recognize_thought(
 
         let row_a: Vec<f32> = distance_table
             [idx_a as usize * table_size..(idx_a as usize + 1) * table_size]
-            .iter().map(|&v| v as f32 - 128.0).collect();
+            .iter()
+            .map(|&v| v as f32 - 128.0)
+            .collect();
         let row_b: Vec<f32> = distance_table
             [idx_b as usize * table_size..(idx_b as usize + 1) * table_size]
-            .iter().map(|&v| v as f32 - 128.0).collect();
+            .iter()
+            .map(|&v| v as f32 - 128.0)
+            .collect();
 
         let bin_a = L4Experience::binarize(&row_a);
         let bin_b = L4Experience::binarize(&row_b);
@@ -129,7 +146,11 @@ pub fn recognize_thought(
         pairs += 1;
     }
 
-    if pairs > 0 { total_score / pairs } else { 0 }
+    if pairs > 0 {
+        total_score / pairs
+    } else {
+        0
+    }
 }
 
 /// Generate sensor bias weights from L4 experience.
@@ -148,7 +169,9 @@ pub fn bias_from_l4(
     let n = codebook_indices.len();
     let mut weights = vec![1.0f32; n];
 
-    if n < 2 { return weights; }
+    if n < 2 {
+        return weights;
+    }
 
     for i in 0..n {
         let j = if i + 1 < n { i + 1 } else { 0 };
@@ -156,14 +179,18 @@ pub fn bias_from_l4(
         let idx_a = codebook_indices[i] as usize;
         let idx_b = codebook_indices[j] as usize;
 
-        if idx_a >= table_size || idx_b >= table_size { continue; }
+        if idx_a >= table_size || idx_b >= table_size {
+            continue;
+        }
 
-        let row_a: Vec<f32> = distance_table
-            [idx_a * table_size..(idx_a + 1) * table_size]
-            .iter().map(|&v| v as f32 - 128.0).collect();
-        let row_b: Vec<f32> = distance_table
-            [idx_b * table_size..(idx_b + 1) * table_size]
-            .iter().map(|&v| v as f32 - 128.0).collect();
+        let row_a: Vec<f32> = distance_table[idx_a * table_size..(idx_a + 1) * table_size]
+            .iter()
+            .map(|&v| v as f32 - 128.0)
+            .collect();
+        let row_b: Vec<f32> = distance_table[idx_b * table_size..(idx_b + 1) * table_size]
+            .iter()
+            .map(|&v| v as f32 - 128.0)
+            .collect();
 
         let bin_a = L4Experience::binarize(&row_a);
         let bin_b = L4Experience::binarize(&row_b);
@@ -187,8 +214,14 @@ mod tests {
             codebook_index: 50,
             energy: 0.3,
             top_k: [
-                (50, 0.30), (52, 0.25), (54, 0.20), (100, 0.10),
-                (130, 0.08), (200, 0.05), (10, 0.01), (1, 0.01),
+                (50, 0.30),
+                (52, 0.25),
+                (54, 0.20),
+                (100, 0.10),
+                (130, 0.08),
+                (200, 0.05),
+                (10, 0.01),
+                (1, 0.01),
             ],
             cycle_count: 7,
             converged: true,
@@ -223,8 +256,12 @@ mod tests {
         }
 
         let score_after = recognize_thought(&bus, JINA_HDR_TABLE, 256, &l4);
-        assert!(score_after > score_before,
-            "recognition should increase: before={} after={}", score_before, score_after);
+        assert!(
+            score_after > score_before,
+            "recognition should increase: before={} after={}",
+            score_before,
+            score_after
+        );
     }
 
     #[test]
@@ -234,7 +271,11 @@ mod tests {
 
         let weights_before = bias_from_l4(&indices, JINA_HDR_TABLE, 256, &l4);
         for &w in &weights_before {
-            assert!((w - 1.0).abs() < 0.01, "initial weight should be ~1.0, got {}", w);
+            assert!(
+                (w - 1.0).abs() < 0.01,
+                "initial weight should be ~1.0, got {}",
+                w
+            );
         }
 
         let bus = make_test_bus();
@@ -244,7 +285,11 @@ mod tests {
 
         let weights_after = bias_from_l4(&indices, JINA_HDR_TABLE, 256, &l4);
         let any_changed = weights_after.iter().any(|&w| (w - 1.0).abs() > 0.01);
-        assert!(any_changed, "weights should change after learning: {:?}", weights_after);
+        assert!(
+            any_changed,
+            "weights should change after learning: {:?}",
+            weights_after
+        );
     }
 
     #[test]
@@ -255,8 +300,16 @@ mod tests {
         let bus = BusDto {
             codebook_index: 0,
             energy: 1.0,
-            top_k: [(0, 1.0), (0, 0.0), (0, 0.0), (0, 0.0),
-                     (0, 0.0), (0, 0.0), (0, 0.0), (0, 0.0)],
+            top_k: [
+                (0, 1.0),
+                (0, 0.0),
+                (0, 0.0),
+                (0, 0.0),
+                (0, 0.0),
+                (0, 0.0),
+                (0, 0.0),
+                (0, 0.0),
+            ],
             cycle_count: 1,
             converged: true,
         };

@@ -6,9 +6,9 @@
 //! MomentDto     — complete snapshot: resonance + qualia + agent state
 //! ```
 
-use crate::meaning_axes::{HdrResonance, Archetype, AxisActivation, Viscosity};
-use crate::cognitive_stack::{ThinkingStyle, GateState, RungLevel};
+use crate::cognitive_stack::{GateState, RungLevel, ThinkingStyle};
 use crate::ghosts::GhostType;
+use crate::meaning_axes::{Archetype, AxisActivation, HdrResonance, Viscosity};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // RESONANCE DTO — the gestalt + user model
@@ -20,7 +20,6 @@ use crate::ghosts::GhostType;
 #[derive(Clone, Debug)]
 pub struct ResonanceDto {
     // ── Multi-perspective agreement ──
-
     /// 3D resonance: subject/predicate/object perspectives.
     pub hdr: HdrResonance,
     /// Which perspective dominates.
@@ -33,7 +32,6 @@ pub struct ResonanceDto {
     pub gate: GateState,
 
     // ── Field state ──
-
     /// How the agreement field is evolving.
     pub gestalt_state: GestaltState,
     /// Disagreement level (0.0 = full agreement, 1.0 = full disagreement).
@@ -44,7 +42,6 @@ pub struct ResonanceDto {
     pub total_energy: f32,
 
     // ── Inferred user state ──
-
     /// Inferred user cognitive style (from conversation pattern).
     pub user_style: ThinkingStyle,
     /// Inferred user engagement level (0.0–1.0).
@@ -79,8 +76,8 @@ impl ResonanceDto {
     ) -> Self {
         // Map multi-lens agreement to I/Thou/It resonance
         let hdr = HdrResonance::new(
-            lens_agreement,                           // I: how aligned am I with this input
-            1.0 - dissonance,                         // Thou: how harmonious is our exchange
+            lens_agreement,   // I: how aligned am I with this input
+            1.0 - dissonance, // Thou: how harmonious is our exchange
             field.total_energy / field.amplitudes.len().max(1) as f32, // It: how much signal exists
         );
 
@@ -95,9 +92,13 @@ impl ResonanceDto {
         };
 
         // User model: infer from the resonance pattern
-        let user_style = if dissonance < 0.1 { ThinkingStyle::Analytical }
-            else if dissonance > 0.3 { ThinkingStyle::Creative }
-            else { ThinkingStyle::Deliberate };
+        let user_style = if dissonance < 0.1 {
+            ThinkingStyle::Analytical
+        } else if dissonance > 0.3 {
+            ThinkingStyle::Creative
+        } else {
+            ThinkingStyle::Deliberate
+        };
         let user_engagement = lens_agreement;
         let user_valence = 1.0 - dissonance * 2.0;
 
@@ -129,7 +130,6 @@ impl ResonanceDto {
 #[derive(Clone, Debug)]
 pub struct QualiaDto {
     // ── Semantic axes ──
-
     /// Full 48D semantic axis activation.
     pub axes: AxisActivation,
     /// Dominant axis family (osgood/physical/emotional/...).
@@ -138,7 +138,6 @@ pub struct QualiaDto {
     pub compact_17d: [f32; 17],
 
     // ── Classification (10 families) ──
-
     /// Primary classification family.
     pub primary_family: String,
     /// Primary match strength (0.0–1.0).
@@ -151,7 +150,6 @@ pub struct QualiaDto {
     pub blend: String,
 
     // ── Processing texture ──
-
     /// Processing fluidity.
     pub viscosity: Viscosity,
     /// Sentiment (-1.0 to 1.0).
@@ -166,7 +164,6 @@ pub struct QualiaDto {
     pub clarity: f32,
 
     // ── Persistent traces ──
-
     /// Active persistent trace types and their intensities.
     pub traces: Vec<(GhostType, f32)>,
     /// Unresolved conflict detected.
@@ -185,22 +182,25 @@ impl QualiaDto {
 
         // Build 48-axis activation from 17D (reverse ICC — approximate)
         let mut axes = AxisActivation::neutral();
-        axes.values[0] = qualia.dims[1];   // good↔bad ← valence
-        axes.values[1] = qualia.dims[12];  // strong↔weak ← assertion
-        axes.values[2] = qualia.dims[0];   // active↔passive ← arousal
-        axes.values[7] = qualia.dims[3];   // hot↔cold ← warmth
-        axes.values[9] = qualia.dims[7];   // fast↔slow ← velocity
-        axes.values[20] = qualia.dims[4];  // certain↔uncertain ← clarity
+        axes.values[0] = qualia.dims[1]; // good↔bad ← valence
+        axes.values[1] = qualia.dims[12]; // strong↔weak ← assertion
+        axes.values[2] = qualia.dims[0]; // active↔passive ← arousal
+        axes.values[7] = qualia.dims[3]; // hot↔cold ← warmth
+        axes.values[9] = qualia.dims[7]; // fast↔slow ← velocity
+        axes.values[20] = qualia.dims[4]; // certain↔uncertain ← clarity
         axes.values[24] = -qualia.dims[2]; // happy↔sad ← inverse tension
         axes.values[25] = 1.0 - qualia.dims[2]; // calm↔anxious ← inverse tension
-        axes.values[26] = qualia.dims[3];  // loving↔hateful ← warmth
+        axes.values[26] = qualia.dims[3]; // loving↔hateful ← warmth
         axes.values[37] = qualia.dims[16]; // whole↔partial ← integration
 
-        let overlay = blend.split(" + ").nth(1)
+        let overlay = blend
+            .split(" + ")
+            .nth(1)
             .and_then(|s| s.split(" = ").next())
             .unwrap_or("neutral");
 
-        let traces: Vec<(GhostType, f32)> = ghost_summary.iter()
+        let traces: Vec<(GhostType, f32)> = ghost_summary
+            .iter()
             .map(|(_, gt, intensity)| (*gt, *intensity))
             .collect();
 
@@ -213,7 +213,11 @@ impl QualiaDto {
             overlay_family: overlay.to_string(),
             overlay_intensity: o_intensity,
             blend: blend.split(" = ").last().unwrap_or("uncharted").to_string(),
-            viscosity: if qualia.dims[2] > 0.5 { Viscosity::Honey } else { Viscosity::Oil },
+            viscosity: if qualia.dims[2] > 0.5 {
+                Viscosity::Honey
+            } else {
+                Viscosity::Oil
+            },
             valence: qualia.dims[1],
             arousal: qualia.dims[0],
             tension: qualia.dims[2],

@@ -44,7 +44,9 @@
 //! Output: JSON report at `.claude/knowledge/certification/jina-v5-small_7lane.json`.
 
 #[cfg(not(feature = "calibration"))]
-fn main() { eprintln!("Requires --features calibration"); }
+fn main() {
+    eprintln!("Requires --features calibration");
+}
 
 #[cfg(feature = "calibration")]
 fn main() {
@@ -104,8 +106,11 @@ fn main() {
     // NaN scan stage 1: reference matrix.
     let nan_in_ref = ref_upper.iter().filter(|v| v.is_nan()).count();
     if nan_in_ref > 0 {
-        eprintln!("  NaN in reference matrix: {} / {} values. Halting.",
-            nan_in_ref, ref_upper.len());
+        eprintln!(
+            "  NaN in reference matrix: {} / {} values. Halting.",
+            nan_in_ref,
+            ref_upper.len()
+        );
         std::process::exit(2);
     }
     let ref_min = ref_upper.iter().copied().fold(f64::INFINITY, f64::min);
@@ -113,7 +118,10 @@ fn main() {
     let ref_mean = ref_upper.iter().sum::<f64>() / ref_upper.len() as f64;
     println!(
         "  {} pairs, cos ∈ [{:.6}, {:.6}], mean {:.6}",
-        ref_upper.len(), ref_min, ref_max, ref_mean
+        ref_upper.len(),
+        ref_min,
+        ref_max,
+        ref_mean
     );
 
     // Accumulators for the JSON report.
@@ -122,35 +130,47 @@ fn main() {
     // ─── Step 2: Lane 1 — u8 CDF (percentile rank) ───
     println!("\n[2] Lane 1: u8 CDF (percentile rank)");
     let lane1 = read_lane_u8(&format!(
-        "{}/distance_table_{}x{}.u8", DATA_DIR, N_CENT, N_CENT
+        "{}/distance_table_{}x{}.u8",
+        DATA_DIR, N_CENT, N_CENT
     ));
     let lane1_upper = upper_triangular_u8(&lane1, N_CENT);
     assert_eq!(lane1_upper.len(), N_PAIRS_UPPER);
     lanes.push(measure_lane(
-        "lane_1_u8_cdf", "spearman", TARGET_RANK,
-        &ref_upper, &lane1_upper,
+        "lane_1_u8_cdf",
+        "spearman",
+        TARGET_RANK,
+        &ref_upper,
+        &lane1_upper,
     ));
 
     // ─── Step 3: Lane 2 — i8 direct ───
     println!("\n[3] Lane 2: i8 direct (round(cos × 127))");
     let lane2 = read_lane_i8(&format!(
-        "{}/distance_table_{}x{}.i8", DATA_DIR, N_CENT, N_CENT
+        "{}/distance_table_{}x{}.i8",
+        DATA_DIR, N_CENT, N_CENT
     ));
     let lane2_upper = upper_triangular_i8(&lane2, N_CENT);
     lanes.push(measure_lane(
-        "lane_2_i8_direct", "pearson", TARGET_COMPRESSED,
-        &ref_upper, &lane2_upper,
+        "lane_2_i8_direct",
+        "pearson",
+        TARGET_COMPRESSED,
+        &ref_upper,
+        &lane2_upper,
     ));
 
     // ─── Step 4: Lane 3 — u8 γ+φ (CDF after gamma+phi) ───
     println!("\n[4] Lane 3: u8 γ+φ (CDF after gamma+phi)");
     let lane3 = read_lane_u8(&format!(
-        "{}/distance_table_{}x{}.gamma_phi.u8", DATA_DIR, N_CENT, N_CENT
+        "{}/distance_table_{}x{}.gamma_phi.u8",
+        DATA_DIR, N_CENT, N_CENT
     ));
     let lane3_upper = upper_triangular_u8(&lane3, N_CENT);
     lanes.push(measure_lane(
-        "lane_3_u8_gamma_phi", "spearman", TARGET_RANK,
-        &ref_upper, &lane3_upper,
+        "lane_3_u8_gamma_phi",
+        "spearman",
+        TARGET_RANK,
+        &ref_upper,
+        &lane3_upper,
     ));
 
     // ─── Step 5: Lane 4 — i8 γ+φ signed ───
@@ -163,12 +183,16 @@ fn main() {
     // any monotone map. Same rationale as Lanes 1 and 3.
     println!("\n[5] Lane 4: i8 γ+φ signed");
     let lane4 = read_lane_i8(&format!(
-        "{}/distance_table_{}x{}.gamma_phi.i8", DATA_DIR, N_CENT, N_CENT
+        "{}/distance_table_{}x{}.gamma_phi.i8",
+        DATA_DIR, N_CENT, N_CENT
     ));
     let lane4_upper = upper_triangular_i8(&lane4, N_CENT);
     lanes.push(measure_lane(
-        "lane_4_i8_gamma_phi_signed", "spearman", TARGET_RANK,
-        &ref_upper, &lane4_upper,
+        "lane_4_i8_gamma_phi_signed",
+        "spearman",
+        TARGET_RANK,
+        &ref_upper,
+        &lane4_upper,
     ));
 
     // ─── Step 6: Lane 5 — SiLU delta (informational) ───
@@ -195,7 +219,9 @@ fn main() {
     }
     println!(
         "  L2 norm = {:.6}, max |delta| = {:.6} ({} elements)",
-        lane5_l2_norm, lane5_max_abs, lane5_f32.len()
+        lane5_l2_norm,
+        lane5_max_abs,
+        lane5_f32.len()
     );
 
     // ─── Step 7: Lane 6 — BF16 RNE (atomic clock) ───
@@ -213,8 +239,10 @@ fn main() {
     // ≥ 0.9999 at 4 decimal places.
     println!("\n[7] Lane 6: BF16 RNE (atomic clock lab-BF16 lane)");
     let lane6_bytes = std::fs::read(format!(
-        "{}/distance_table_{}x{}.bf16", DATA_DIR, N_CENT, N_CENT
-    )).unwrap_or_else(|e| {
+        "{}/distance_table_{}x{}.bf16",
+        DATA_DIR, N_CENT, N_CENT
+    ))
+    .unwrap_or_else(|e| {
         eprintln!("  FAILED to read lane 6: {}", e);
         std::process::exit(1);
     });
@@ -229,7 +257,10 @@ fn main() {
     // NaN scan stage 2: BF16-decoded values.
     let nan_in_lane6 = lane6_upper.iter().filter(|v| v.is_nan()).count();
     if nan_in_lane6 > 0 {
-        eprintln!("  NaN in lane 6 after BF16 decode: {} values. Halting.", nan_in_lane6);
+        eprintln!(
+            "  NaN in lane 6 after BF16 decode: {} values. Halting.",
+            nan_in_lane6
+        );
         std::process::exit(2);
     }
 
@@ -243,9 +274,8 @@ fn main() {
     let spearman = quality::spearman(&ref_upper, &lane6_upper);
     let ref_z = z_score_normalize(&ref_upper);
     let lane6_z = z_score_normalize(&lane6_upper);
-    let cronbach_a = thinking_engine::cronbach::cronbach_alpha(
-        &[ref_z.as_slice(), lane6_z.as_slice()]
-    );
+    let cronbach_a =
+        thinking_engine::cronbach::cronbach_alpha(&[ref_z.as_slice(), lane6_z.as_slice()]);
     let lane6_verdict = if pearson >= TARGET_LAB_BF16
         && spearman >= TARGET_LAB_BF16
         && (cronbach_a as f64) >= TARGET_LAB_BF16
@@ -256,18 +286,33 @@ fn main() {
     };
     println!(
         "  Pearson r       = {:.4}  target {:.4}  [{}]",
-        pearson, TARGET_LAB_BF16,
-        if pearson >= TARGET_LAB_BF16 { "pass" } else { "FAIL" }
+        pearson,
+        TARGET_LAB_BF16,
+        if pearson >= TARGET_LAB_BF16 {
+            "pass"
+        } else {
+            "FAIL"
+        }
     );
     println!(
         "  Spearman ρ      = {:.4}  target {:.4}  [{}]",
-        spearman, TARGET_LAB_BF16,
-        if spearman >= TARGET_LAB_BF16 { "pass" } else { "FAIL" }
+        spearman,
+        TARGET_LAB_BF16,
+        if spearman >= TARGET_LAB_BF16 {
+            "pass"
+        } else {
+            "FAIL"
+        }
     );
     println!(
         "  Cronbach α      = {:.4}  target {:.4}  [{}]",
-        cronbach_a, TARGET_LAB_BF16,
-        if (cronbach_a as f64) >= TARGET_LAB_BF16 { "pass" } else { "FAIL" }
+        cronbach_a,
+        TARGET_LAB_BF16,
+        if (cronbach_a as f64) >= TARGET_LAB_BF16 {
+            "pass"
+        } else {
+            "FAIL"
+        }
     );
     println!("  overall lane 6 : {}", lane6_verdict);
     lanes.push(LaneReport {
@@ -287,26 +332,30 @@ fn main() {
     let drift_upper = upper_triangular_u8(&lane7, N_CENT);
     let drift_sum: f64 = drift_upper.iter().sum();
     let drift_mean = drift_sum / drift_upper.len().max(1) as f64;
-    let drift_max = drift_upper
-        .iter()
-        .copied()
-        .fold(0.0f64, f64::max);
+    let drift_max = drift_upper.iter().copied().fold(0.0f64, f64::max);
     println!(
         "  mean = {:.2}, max = {:.2}  (u8 encoding of drift × 2550)",
         drift_mean, drift_max
     );
 
     // ─── Step 9: Overall verdict ───
-    let required_lanes = ["lane_1_u8_cdf", "lane_2_i8_direct",
-                          "lane_3_u8_gamma_phi", "lane_4_i8_gamma_phi_signed",
-                          "lane_6_bf16_rne"];
+    let required_lanes = [
+        "lane_1_u8_cdf",
+        "lane_2_i8_direct",
+        "lane_3_u8_gamma_phi",
+        "lane_4_i8_gamma_phi_signed",
+        "lane_6_bf16_rne",
+    ];
     let overall = lanes
         .iter()
         .filter(|l| required_lanes.contains(&l.name.as_str()))
         .all(|l| l.verdict == "PASS");
 
     println!("\n═══════════════════════════════════════════════════════════");
-    println!("  OVERALL VERDICT: {}", if overall { "PASS" } else { "FAIL" });
+    println!(
+        "  OVERALL VERDICT: {}",
+        if overall { "PASS" } else { "FAIL" }
+    );
     println!("═══════════════════════════════════════════════════════════");
     for l in &lanes {
         println!(
@@ -356,7 +405,11 @@ fn main() {
         "  drift:   Pearson {:.2e}   Spearman {:.2e}   [{}]",
         preheat_pearson_drift,
         preheat_spearman_drift,
-        if preheat_reproducible { "PASS" } else { "DRIFT" }
+        if preheat_reproducible {
+            "PASS"
+        } else {
+            "DRIFT"
+        }
     );
 
     // ─── Step 11: Bootstrap confidence intervals on primary metrics ───
@@ -391,13 +444,7 @@ fn main() {
             N_BOOTSTRAP,
             bootstrap_seed.wrapping_add(name.len() as u64),
         );
-        bootstrap_cis.push((
-            name.to_string(),
-            primary.to_string(),
-            point,
-            lo,
-            hi,
-        ));
+        bootstrap_cis.push((name.to_string(), primary.to_string(), point, lo, hi));
         println!(
             "  {:30} primary {} = {:.4}  95% CI [{:.4}, {:.4}]",
             name, primary, point, lo, hi
@@ -495,34 +542,37 @@ fn main() {
                 "spearman" => quality::spearman(&ref_sub, &lane_sub),
                 _ => f64::NAN,
             };
-            if !v.is_nan() { jk_vals.push(v); }
+            if !v.is_nan() {
+                jk_vals.push(v);
+            }
         }
         let jk_n = jk_vals.len() as f64;
         let jk_mean = jk_vals.iter().sum::<f64>() / jk_n.max(1.0);
-        let jk_var = jk_vals
-            .iter()
-            .map(|&v| (v - jk_mean).powi(2))
-            .sum::<f64>()
+        let jk_var = jk_vals.iter().map(|&v| (v - jk_mean).powi(2)).sum::<f64>()
             * ((jk_n - 1.0) / jk_n.max(1.0));
         let jk_se = jk_var.sqrt();
         let jk_lo_3 = point - k_3sigma * jk_se;
         let jk_hi_3 = point + k_3sigma * jk_se;
 
-        println!(
-            "  {:30} {} point={:.6}",
-            name, primary, point
-        );
+        println!("  {:30} {} point={:.6}", name, primary, point);
         println!(
             "      Fisher 2σ CI  [{:.6}, {:.6}]  (half-width {:.2e})",
-            lo_2, hi_2, (hi_2 - lo_2) / 2.0
+            lo_2,
+            hi_2,
+            (hi_2 - lo_2) / 2.0
         );
         println!(
             "      Fisher 3σ CI  [{:.6}, {:.6}]  (half-width {:.2e})",
-            lo_3, hi_3, (hi_3 - lo_3) / 2.0
+            lo_3,
+            hi_3,
+            (hi_3 - lo_3) / 2.0
         );
         println!(
             "      Jackknife 3σ  [{:.6}, {:.6}]  SE_jk={:.2e}  {} centroids",
-            jk_lo_3, jk_hi_3, jk_se, jk_vals.len()
+            jk_lo_3,
+            jk_hi_3,
+            jk_se,
+            jk_vals.len()
         );
 
         fisher_and_jackknife.push(FisherJackknifeRow {
@@ -565,7 +615,9 @@ fn main() {
                 "spearman" => quality::spearman(&ref_sub, &lane_sub),
                 _ => f64::NAN,
             };
-            if !v.is_nan() { jk_vals.push(v); }
+            if !v.is_nan() {
+                jk_vals.push(v);
+            }
         }
         jk_vectors.push(jk_vals);
     }
@@ -631,10 +683,7 @@ fn main() {
         let jk_row = &fisher_and_jackknife[lane_idx];
         let fisher_2_width = jk_row.fisher_2sigma_hi - jk_row.fisher_2sigma_lo;
         let bca_2_width = row.bca_2sigma_hi - row.bca_2sigma_lo;
-        println!(
-            "  {:30} {} point={:.6}",
-            name, primary, row.point,
-        );
+        println!("  {:30} {} point={:.6}", name, primary, row.point,);
         println!(
             "      Fisher 2σ CI  [{:.6}, {:.6}]  width={:.2e}",
             jk_row.fisher_2sigma_lo, jk_row.fisher_2sigma_hi, fisher_2_width,
@@ -706,18 +755,23 @@ fn main() {
     const CHAODA_FLAG_FRACTION: f64 = 0.10;
     let n_to_flag = ((N_CENT as f64) * CHAODA_FLAG_FRACTION).round() as usize;
     let mut ranked: Vec<&ndarray::hpc::clam::AnomalyScore> = anomaly.iter().collect();
-    ranked.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
-    let flag_score_cutoff: f64 = ranked.get(n_to_flag.saturating_sub(1))
+    ranked.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    let flag_score_cutoff: f64 = ranked
+        .get(n_to_flag.saturating_sub(1))
         .map(|a| a.score)
         .unwrap_or(f64::NAN);
-    let flagged: std::collections::HashSet<usize> = ranked
-        .iter()
-        .take(n_to_flag)
-        .map(|a| a.index)
-        .collect();
+    let flagged: std::collections::HashSet<usize> =
+        ranked.iter().take(n_to_flag).map(|a| a.index).collect();
     let n_flagged = flagged.len();
     let lfd_min = anomaly.iter().map(|a| a.lfd).fold(f64::INFINITY, f64::min);
-    let lfd_max = anomaly.iter().map(|a| a.lfd).fold(f64::NEG_INFINITY, f64::max);
+    let lfd_max = anomaly
+        .iter()
+        .map(|a| a.lfd)
+        .fold(f64::NEG_INFINITY, f64::max);
     let lfd_mean = anomaly.iter().map(|a| a.lfd).sum::<f64>() / (N_CENT.max(1) as f64);
     println!(
         "  ClamTree leaves={}  mean_leaf_radius={:.4}  LFD [{:.4}, {:.4}]  mean={:.4}",
@@ -750,12 +804,12 @@ fn main() {
         for (name, lane_data, primary) in &lane_primary_data {
             let lane_filt: Vec<f64> = keep.iter().map(|&q| lane_data[q]).collect();
             let raw = match *primary {
-                "pearson"  => quality::pearson(&ref_upper, lane_data),
+                "pearson" => quality::pearson(&ref_upper, lane_data),
                 "spearman" => quality::spearman(&ref_upper, lane_data),
                 _ => f64::NAN,
             };
             let filt = match *primary {
-                "pearson"  => quality::pearson(&ref_filt, &lane_filt),
+                "pearson" => quality::pearson(&ref_filt, &lane_filt),
                 "spearman" => quality::spearman(&ref_filt, &lane_filt),
                 _ => f64::NAN,
             };
@@ -827,7 +881,7 @@ fn main() {
             ref_min_full + t * naive_ulp
         })
         .collect();
-    let naive_pearson  = quality::pearson(&ref_upper, &naive_u8_rt);
+    let naive_pearson = quality::pearson(&ref_upper, &naive_u8_rt);
     let naive_spearman = quality::spearman(&ref_upper, &naive_u8_rt);
     let naive_max_err: f64 = ref_upper
         .iter()
@@ -890,8 +944,7 @@ fn main() {
     // Reproduce the encoder's Lane 3/4 calibration formula on ref_upper.
     // This matches seven_lane_encoder.rs lines 226-229 exactly so the
     // profile we test against is the same one the encoder uses.
-    let cos_abs_mean: f64 = ref_upper.iter().map(|c| c.abs()).sum::<f64>()
-        / ref_upper.len() as f64;
+    let cos_abs_mean: f64 = ref_upper.iter().map(|c| c.abs()).sum::<f64>() / ref_upper.len() as f64;
     let cos_abs_max: f64 = ref_upper.iter().map(|c| c.abs()).fold(0.0_f64, f64::max);
     let role_gamma_f32 = cos_abs_mean as f32;
     let phi_scale_f32 = (cos_abs_max as f32).max(0.01);
@@ -909,12 +962,10 @@ fn main() {
     let gp_roundtrip: Vec<f64> = ref_upper
         .iter()
         .map(|&c| {
-            let encoded = bgz_tensor::gamma_phi::gamma_phi_encode(
-                c as f32, role_gamma_f32, phi_scale_f32
-            );
-            let decoded = bgz_tensor::gamma_phi::gamma_phi_decode(
-                encoded, role_gamma_f32, phi_scale_f32
-            );
+            let encoded =
+                bgz_tensor::gamma_phi::gamma_phi_encode(c as f32, role_gamma_f32, phi_scale_f32);
+            let decoded =
+                bgz_tensor::gamma_phi::gamma_phi_decode(encoded, role_gamma_f32, phi_scale_f32);
             decoded as f64
         })
         .collect();
@@ -928,10 +979,10 @@ fn main() {
         .map(|(&r, &d)| (r - d).abs())
         .collect();
     let gp_max_abs_err = gp_abs_errors.iter().copied().fold(0.0_f64, f64::max);
-    let gp_mean_abs_err = gp_abs_errors.iter().sum::<f64>()
-        / gp_abs_errors.len().max(1) as f64;
+    let gp_mean_abs_err = gp_abs_errors.iter().sum::<f64>() / gp_abs_errors.len().max(1) as f64;
     let gp_rms_err = (gp_abs_errors.iter().map(|&e| e * e).sum::<f64>()
-        / gp_abs_errors.len().max(1) as f64).sqrt();
+        / gp_abs_errors.len().max(1) as f64)
+        .sqrt();
 
     // Fisher z 3σ CI on the γ+φ round-trip Pearson, same method as Step 11b.
     let gp_r_clamped = gp_pearson.clamp(-0.999999, 0.999999);
@@ -962,11 +1013,13 @@ fn main() {
     // `gp_ρ - lane_ρ` in the near-1 regime where we operate, so the
     // reported numbers are correct; only the framing needed fixing
     // per math review v2.4.
-    let lane3_spearman = lanes.iter()
+    let lane3_spearman = lanes
+        .iter()
         .find(|l| l.name == "lane_3_u8_gamma_phi")
         .map(|l| l.spearman)
         .unwrap_or(f64::NAN);
-    let lane4_spearman = lanes.iter()
+    let lane4_spearman = lanes
+        .iter()
         .find(|l| l.name == "lane_4_i8_gamma_phi_signed")
         .map(|l| l.spearman)
         .unwrap_or(f64::NAN);
@@ -974,9 +1027,7 @@ fn main() {
     // Numerically identical to `gp_ρ - lane_ρ`, framing is what differs.
     let lane3_quantize_cost_1mr = (1.0 - lane3_spearman) - (1.0 - gp_spearman);
     let lane4_quantize_cost_1mr = (1.0 - lane4_spearman) - (1.0 - gp_spearman);
-    println!(
-        "  decomposition (in (1-ρ) space, additive for independent errors):"
-    );
+    println!("  decomposition (in (1-ρ) space, additive for independent errors):");
     println!(
         "     γ+φ alone Spearman          = {:.6}  (lossless projection floor)",
         gp_spearman
@@ -1021,21 +1072,18 @@ fn main() {
     println!("\n[11d] Reality-anchor pairs (interpretable ground truth anchors)");
 
     // Identify the anchor pair indices in ref_upper.
-    let mut sorted_with_idx: Vec<(usize, f64)> = ref_upper
-        .iter()
-        .enumerate()
-        .map(|(i, &v)| (i, v))
-        .collect();
+    let mut sorted_with_idx: Vec<(usize, f64)> =
+        ref_upper.iter().enumerate().map(|(i, &v)| (i, v)).collect();
     sorted_with_idx.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
     let n = sorted_with_idx.len();
     let anchor_defs: Vec<(&'static str, usize)> = vec![
-        ("most_distant",  sorted_with_idx[0].0),
-        ("tail_low_p01",  sorted_with_idx[(n * 1) / 100].0),
-        ("q1_pair",       sorted_with_idx[n / 4].0),
-        ("median_pair",   sorted_with_idx[n / 2].0),
-        ("q3_pair",       sorted_with_idx[(3 * n) / 4].0),
+        ("most_distant", sorted_with_idx[0].0),
+        ("tail_low_p01", sorted_with_idx[(n * 1) / 100].0),
+        ("q1_pair", sorted_with_idx[n / 4].0),
+        ("median_pair", sorted_with_idx[n / 2].0),
+        ("q3_pair", sorted_with_idx[(3 * n) / 4].0),
         ("tail_high_p99", sorted_with_idx[(n * 99) / 100].0),
-        ("most_similar",  sorted_with_idx[n - 1].0),
+        ("most_similar", sorted_with_idx[n - 1].0),
     ];
 
     #[derive(Debug)]
@@ -1141,14 +1189,22 @@ fn main() {
     );
     let pair_bands: Vec<u8> = ref_pseudo_l1.iter().map(|&d| bel.classify(d)).collect();
     let mut per_band_counts = [0usize; 12];
-    for &b in &pair_bands { per_band_counts[b.min(11) as usize] += 1; }
+    for &b in &pair_bands {
+        per_band_counts[b.min(11) as usize] += 1;
+    }
     println!("  band counts: {:?}", per_band_counts);
     let band_breakdown: Vec<BandBreakdownRow> = (0..12)
         .map(|band_idx| {
             let ref_in_band: Vec<f64> = ref_upper
                 .iter()
                 .zip(pair_bands.iter())
-                .filter_map(|(&r, &b)| if b as usize == band_idx { Some(r) } else { None })
+                .filter_map(|(&r, &b)| {
+                    if b as usize == band_idx {
+                        Some(r)
+                    } else {
+                        None
+                    }
+                })
                 .collect();
             let per_lane: Vec<(String, f64)> = lane_primary_data
                 .iter()
@@ -1156,7 +1212,13 @@ fn main() {
                     let lane_in_band: Vec<f64> = lane_data
                         .iter()
                         .zip(pair_bands.iter())
-                        .filter_map(|(&v, &b)| if b as usize == band_idx { Some(v) } else { None })
+                        .filter_map(|(&v, &b)| {
+                            if b as usize == band_idx {
+                                Some(v)
+                            } else {
+                                None
+                            }
+                        })
                         .collect();
                     let m = if ref_in_band.len() >= 2 {
                         match *primary {
@@ -1180,7 +1242,9 @@ fn main() {
         })
         .collect();
     for row in &band_breakdown {
-        if row.count < 2 { continue; }
+        if row.count < 2 {
+            continue;
+        }
         print!(
             "  band {:2} [{:>6}, {:>6}) n={:>5}  ",
             row.band, row.lo, row.hi, row.count
@@ -1272,12 +1336,19 @@ fn main() {
     for &b in &ring_to_band {
         rings_per_band[(b as usize).min(11)] += 1;
     }
-    println!("  ring → band mapping: rings per Belichtungsmesser band = {:?}", rings_per_band);
+    println!(
+        "  ring → band mapping: rings per Belichtungsmesser band = {:?}",
+        rings_per_band
+    );
     let fine_band_idx: Vec<u8> = ref_pseudo_l1
         .iter()
         .map(|&d| {
-            if d < fine_edges[0] { return 0u8; }
-            if d >= fine_edges[fine_n_bands] { return (fine_n_bands - 1) as u8; }
+            if d < fine_edges[0] {
+                return 0u8;
+            }
+            if d >= fine_edges[fine_n_bands] {
+                return (fine_n_bands - 1) as u8;
+            }
             // Linear search is fine for 120 bands on 32640 pairs
             // (~4M comparisons, sub-millisecond total).
             let mut b = 0u8;
@@ -1291,7 +1362,9 @@ fn main() {
         })
         .collect();
     let mut fine_counts = vec![0usize; fine_n_bands];
-    for &b in &fine_band_idx { fine_counts[b as usize] += 1; }
+    for &b in &fine_band_idx {
+        fine_counts[b as usize] += 1;
+    }
     let min_fine = *fine_counts.iter().min().unwrap_or(&0);
     let max_fine = *fine_counts.iter().max().unwrap_or(&0);
     let nonempty_bands = fine_counts.iter().filter(|&&c| c > 0).count();
@@ -1309,12 +1382,24 @@ fn main() {
         let ref_in: Vec<f64> = ref_upper
             .iter()
             .zip(fine_band_idx.iter())
-            .filter_map(|(&r, &b)| if b as usize == band_idx { Some(r) } else { None })
+            .filter_map(|(&r, &b)| {
+                if b as usize == band_idx {
+                    Some(r)
+                } else {
+                    None
+                }
+            })
             .collect();
         let lane_in: Vec<f64> = lane6_upper
             .iter()
             .zip(fine_band_idx.iter())
-            .filter_map(|(&v, &b)| if b as usize == band_idx { Some(v) } else { None })
+            .filter_map(|(&v, &b)| {
+                if b as usize == band_idx {
+                    Some(v)
+                } else {
+                    None
+                }
+            })
             .collect();
         if ref_in.len() >= 2 {
             fine_lane6_pearsons[band_idx] = quality::pearson(&ref_in, &lane_in);
@@ -1351,7 +1436,10 @@ fn main() {
         .count();
     println!(
         "  Lane 6 Pearson across {} bands: min {:.4}, max {:.4} (range {:.4})",
-        fine_n_bands, fine_min_p, fine_max_p, fine_max_p - fine_min_p
+        fine_n_bands,
+        fine_min_p,
+        fine_max_p,
+        fine_max_p - fine_min_p
     );
     println!(
         "  {} bands ≥ 0.999, {} bands ≥ 0.99, {} bands < 0.50 (ill-conditioned narrow slice)",
@@ -1400,16 +1488,16 @@ fn main() {
     for (name, lane_data, _primary) in &lane_primary_data {
         let mut resolved_here = 0usize;
         for i in 0..N_PAIRS_UPPER {
-            if cumulative_resolved[i] { continue; }
+            if cumulative_resolved[i] {
+                continue;
+            }
             // Simple rule: if the lane_data value at i is outside its
             // band's [lo, hi] midpoint zone, the pair is resolved.
             let band_idx = pair_bands[i] as usize;
             let band = &bel.bands[band_idx];
             let band_mid = (band.lo + band.hi) / 2;
             // Scale the lane value to pseudo-L1 for comparison (rough).
-            let scaled = (lane_data[i] * distance_scale / 255.0)
-                .max(0.0)
-                .round() as u32;
+            let scaled = (lane_data[i] * distance_scale / 255.0).max(0.0).round() as u32;
             if scaled < band.lo || scaled >= band.hi {
                 // outside current band → pair resolved by this lane
                 cumulative_resolved[i] = true;
@@ -1504,7 +1592,11 @@ fn main() {
         "  measured: mean = {:.6}, max = {:.6}  [{}]",
         drift_mean_f64,
         drift_max_f64,
-        if within_bound { "within bound" } else { "EXCEEDS bound (note: u8 encoding saturates at ~0.100)" }
+        if within_bound {
+            "within bound"
+        } else {
+            "EXCEEDS bound (note: u8 encoding saturates at ~0.100)"
+        }
     );
 
     // ─── Step 16: Write JSON report ───
@@ -1827,7 +1919,8 @@ fn main() {
     std::fs::write(
         &json_path,
         serde_json::to_string_pretty(&report).unwrap_or_default(),
-    ).unwrap_or_else(|e| {
+    )
+    .unwrap_or_else(|e| {
         eprintln!("FAILED to write report: {}", e);
     });
 
@@ -1931,16 +2024,19 @@ fn measure_lane(
     // practice when items are on different measurement scales.
     let ref_z: Vec<f32> = z_score_normalize(reference);
     let lane_z: Vec<f32> = z_score_normalize(lane);
-    let cronbach_a = thinking_engine::cronbach::cronbach_alpha(
-        &[ref_z.as_slice(), lane_z.as_slice()]
-    ) as f64;
+    let cronbach_a =
+        thinking_engine::cronbach::cronbach_alpha(&[ref_z.as_slice(), lane_z.as_slice()]) as f64;
 
     let metric_value = match primary {
         "pearson" => pearson,
         "spearman" => spearman,
         _ => pearson.min(spearman).min(cronbach_a),
     };
-    let verdict = if metric_value >= target { "PASS" } else { "FAIL" };
+    let verdict = if metric_value >= target {
+        "PASS"
+    } else {
+        "FAIL"
+    };
 
     println!(
         "  Pearson {:.4}  Spearman {:.4}  Cronbach {:.4}  [primary {}: {:.4} target {:.4}] [{}]",
@@ -2116,12 +2212,12 @@ fn round6(v: f64) -> f64 {
 fn erf(x: f64) -> f64 {
     let sign = if x < 0.0 { -1.0 } else { 1.0 };
     let x = x.abs();
-    let a1 =  0.254_829_592_f64;
+    let a1 = 0.254_829_592_f64;
     let a2 = -0.284_496_736_f64;
-    let a3 =  1.421_413_741_f64;
+    let a3 = 1.421_413_741_f64;
     let a4 = -1.453_152_027_f64;
-    let a5 =  1.061_405_429_f64;
-    let p  =  0.327_591_1_f64;
+    let a5 = 1.061_405_429_f64;
+    let p = 0.327_591_1_f64;
     let t = 1.0 / (1.0 + p * x);
     let y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * (-x * x).exp();
     sign * y
@@ -2139,17 +2235,17 @@ fn phi(x: f64) -> f64 {
 fn phi_inv(p: f64) -> f64 {
     let a = [
         -3.969_683_028_665_376e+01_f64,
-         2.209_460_984_245_205e+02_f64,
+        2.209_460_984_245_205e+02_f64,
         -2.759_285_104_469_687e+02_f64,
-         1.383_577_518_672_690e+02_f64,
+        1.383_577_518_672_690e+02_f64,
         -3.066_479_806_614_716e+01_f64,
-         2.506_628_277_459_239e+00_f64,
+        2.506_628_277_459_239e+00_f64,
     ];
     let b = [
         -5.447_609_879_822_406e+01_f64,
-         1.615_858_368_580_409e+02_f64,
+        1.615_858_368_580_409e+02_f64,
         -1.556_989_798_598_866e+02_f64,
-         6.680_131_188_771_972e+01_f64,
+        6.680_131_188_771_972e+01_f64,
         -1.328_068_155_288_572e+01_f64,
     ];
     let c = [
@@ -2157,19 +2253,23 @@ fn phi_inv(p: f64) -> f64 {
         -3.223_964_580_411_365e-01_f64,
         -2.400_758_277_161_838e+00_f64,
         -2.549_732_539_343_734e+00_f64,
-         4.374_664_141_464_968e+00_f64,
-         2.938_163_982_698_783e+00_f64,
+        4.374_664_141_464_968e+00_f64,
+        2.938_163_982_698_783e+00_f64,
     ];
     let d = [
-         7.784_695_709_041_462e-03_f64,
-         3.224_671_290_700_398e-01_f64,
-         2.445_134_137_142_996e+00_f64,
-         3.754_408_661_907_416e+00_f64,
+        7.784_695_709_041_462e-03_f64,
+        3.224_671_290_700_398e-01_f64,
+        2.445_134_137_142_996e+00_f64,
+        3.754_408_661_907_416e+00_f64,
     ];
-    let p_low  = 0.02425_f64;
+    let p_low = 0.02425_f64;
     let p_high = 1.0 - p_low;
-    if p <= 0.0 { return f64::NEG_INFINITY; }
-    if p >= 1.0 { return f64::INFINITY; }
+    if p <= 0.0 {
+        return f64::NEG_INFINITY;
+    }
+    if p >= 1.0 {
+        return f64::INFINITY;
+    }
     if p < p_low {
         let q = (-2.0 * p.ln()).sqrt();
         (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5])
@@ -2317,12 +2417,12 @@ fn bca_bootstrap_ci(
     // BCa adjusted percentiles at k_sigma ∈ {2.0, 3.0}.
     let bca_at = |k_sigma: f64| -> (f64, f64, f64, f64) {
         let z_lo = -k_sigma;
-        let z_hi =  k_sigma;
+        let z_hi = k_sigma;
         let a1 = phi(z0 + (z0 + z_lo) / (1.0 - acceleration * (z0 + z_lo)));
         let a2 = phi(z0 + (z0 + z_hi) / (1.0 - acceleration * (z0 + z_hi)));
         let last = samples.len() as isize - 1;
         let idx1 = ((a1 * b).floor() as isize).max(0).min(last) as usize;
-        let idx2 = ((a2 * b).ceil()  as isize).max(0).min(last) as usize;
+        let idx2 = ((a2 * b).ceil() as isize).max(0).min(last) as usize;
         (samples[idx1], samples[idx2], a1, a2)
     };
     let (lo2, hi2, a1_2, a2_2) = bca_at(2.0);

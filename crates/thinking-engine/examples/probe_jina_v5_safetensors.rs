@@ -59,14 +59,11 @@ use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
 
-const SAFETENSORS_PATH: &str =
-    "crates/thinking-engine/data/jina-v5-onnx/model.safetensors";
-const TOKENIZER_PATH: &str =
-    "crates/thinking-engine/data/jina-v5-tokenizer.json";
+const SAFETENSORS_PATH: &str = "crates/thinking-engine/data/jina-v5-onnx/model.safetensors";
+const TOKENIZER_PATH: &str = "crates/thinking-engine/data/jina-v5-tokenizer.json";
 const ONNX_PATH: &str = "crates/thinking-engine/data/jina-v5-onnx/model.onnx";
 const JINA_V5_7LANE_DIR: &str = "crates/thinking-engine/data/jina-v5-7lane";
-const JINA_V5_CODEBOOK_DIR: &str =
-    "crates/thinking-engine/data/jina-v5-codebook";
+const JINA_V5_CODEBOOK_DIR: &str = "crates/thinking-engine/data/jina-v5-codebook";
 
 /// Fixed seed for the deterministic calibration pair sampler. DO NOT CHANGE
 /// without a pinned reason — every downstream certification report cites
@@ -75,8 +72,7 @@ const PAIR_SAMPLER_SEED: u64 = 0x9E37_79B9_7F4A_7C15; // 2^64 * φ fraction
 
 /// Fixed calibration sentence used for the tokenizer determinism check.
 /// Pinned; not a parameter.
-const CALIBRATION_SENTENCE: &str =
-    "The wound is the place where the light enters you.";
+const CALIBRATION_SENTENCE: &str = "The wound is the place where the light enters you.";
 
 /// Expected vocabulary size per config_candle.json.
 const EXPECTED_VOCAB_SIZE: usize = 151936;
@@ -133,15 +129,12 @@ fn main() {
         // values we require exact payload preservation since NaN != NaN and
         // the whole point is reproducibility.
         if reference_f32.is_nan() {
-            if !ndarray_f32.is_nan()
-                || ndarray_f32.to_bits() != reference_f32.to_bits()
-            {
+            if !ndarray_f32.is_nan() || ndarray_f32.to_bits() != reference_f32.to_bits() {
                 mismatches.push((bits, ndarray_f32, reference_f32));
             }
         } else if ndarray_f32.to_bits() != reference_f32.to_bits() {
             mismatches.push((bits, ndarray_f32, reference_f32));
         }
-
     }
 
     println!("    Pattern distribution:");
@@ -150,21 +143,14 @@ fn main() {
     println!("      Normals            : {:>6}", normal_tested);
     println!("      Infinities (±∞)    : {:>6}", inf_tested);
     println!("      NaN payloads       : {:>6}", nan_tested);
-    let total_classified =
-        zero_tested + subnormal_tested + normal_tested + inf_tested + nan_tested;
+    let total_classified = zero_tested + subnormal_tested + normal_tested + inf_tested + nan_tested;
     println!("      Total tested       : {:>6}", total_classified);
     println!();
 
     if mismatches.is_empty() {
-        println!(
-            "    ✓ PROVEN LOSSLESS: all 65,536 F16 bit patterns round-trip"
-        );
-        println!(
-            "      bit-exact through ndarray::hpc::gguf::f16_to_f32."
-        );
-        println!(
-            "      Method pinned as atomic-clock upcast primitive.\n"
-        );
+        println!("    ✓ PROVEN LOSSLESS: all 65,536 F16 bit patterns round-trip");
+        println!("      bit-exact through ndarray::hpc::gguf::f16_to_f32.");
+        println!("      Method pinned as atomic-clock upcast primitive.\n");
     } else {
         println!(
             "    ✗ LOSSY: {} mismatches detected (first 10 shown):",
@@ -173,16 +159,17 @@ fn main() {
         for (bits, ndarray_val, reference_val) in mismatches.iter().take(10) {
             println!(
                 "      F16 0x{:04x}: ndarray={:.8e} (bits 0x{:08x}),",
-                bits, ndarray_val, ndarray_val.to_bits()
+                bits,
+                ndarray_val,
+                ndarray_val.to_bits()
             );
             println!(
                 "                   reference={:.8e} (bits 0x{:08x})",
-                reference_val, reference_val.to_bits()
+                reference_val,
+                reference_val.to_bits()
             );
         }
-        println!(
-            "\n    METHOD NOT ATOMIC-CLOCK LOSSLESS. Halting probe."
-        );
+        println!("\n    METHOD NOT ATOMIC-CLOCK LOSSLESS. Halting probe.");
         std::process::exit(1);
     }
 
@@ -230,10 +217,7 @@ fn main() {
         "    {:<60} {:>10} {:>24} {:>14}",
         "Name", "Dtype", "Shape", "Bytes"
     );
-    println!(
-        "    {:-<60} {:->10} {:->24} {:->14}",
-        "", "", "", ""
-    );
+    println!("    {:-<60} {:->10} {:->24} {:->14}", "", "", "", "");
 
     let mut entries: Vec<(String, GgmlType, Vec<u64>, u64)> = header
         .tensors
@@ -395,9 +379,7 @@ fn main() {
             "    ⚠ VOCAB MISMATCH: tokenizer {} vs config/embed {} (delta = {})",
             vocab_size, EXPECTED_VOCAB_SIZE, delta
         );
-        println!(
-            "      Almost certainly fine-tune-trimmed vocabulary: Jina v5 kept the"
-        );
+        println!("      Almost certainly fine-tune-trimmed vocabulary: Jina v5 kept the");
         println!(
             "      embedding matrix at {} rows for alignment but the tokenizer only",
             EXPECTED_VOCAB_SIZE
@@ -436,7 +418,10 @@ fn main() {
         CALIBRATION_SENTENCE,
         ids_a.len()
     );
-    println!("      First 8 token IDs: {:?}\n", &ids_a[..ids_a.len().min(8)]);
+    println!(
+        "      First 8 token IDs: {:?}\n",
+        &ids_a[..ids_a.len().min(8)]
+    );
 
     // ─── Step 6: ONNX / GGUF truth-anchor presence ───
     //
@@ -451,13 +436,9 @@ fn main() {
 
     let gguf_paths = find_jina_v5_gguf();
     if gguf_paths.is_empty() {
-        println!(
-            "    ✗ MISSING: Jina v5 GGUF (Pipeline 1 GGUF-world codebook)"
-        );
+        println!("    ✗ MISSING: Jina v5 GGUF (Pipeline 1 GGUF-world codebook)");
         println!("      Searched: /home/user/**/*.gguf with 'jina' in name");
-        println!(
-            "      Download: e.g. `jinaai/jina-embeddings-v5-small-*.gguf` from HuggingFace"
-        );
+        println!("      Download: e.g. `jinaai/jina-embeddings-v5-small-*.gguf` from HuggingFace");
     } else {
         for p in &gguf_paths {
             let size = std::fs::metadata(p).map(|m| m.len()).unwrap_or(0);
@@ -554,15 +535,26 @@ fn main() {
     );
     println!(
         "    ONNX anchor               : {}",
-        if Path::new(ONNX_PATH).exists() { "✓ on disk" } else { "✗ missing (Pipeline 2 blocked)" }
+        if Path::new(ONNX_PATH).exists() {
+            "✓ on disk"
+        } else {
+            "✗ missing (Pipeline 2 blocked)"
+        }
     );
     println!(
         "    GGUF anchor               : {}",
-        if !gguf_paths.is_empty() { "✓ on disk" } else { "✗ missing (Pipeline 1 GGUF-side blocked)" }
+        if !gguf_paths.is_empty() {
+            "✓ on disk"
+        } else {
+            "✗ missing (Pipeline 1 GGUF-side blocked)"
+        }
     );
     println!("    Existing 7-lane artifact  : ⚠ exists but lane 6 used truncation (regenerate via SIMD RNE)");
     println!("    Existing 4096² table      : ⚠ exists, provenance not yet certified against F32 reference");
-    println!("    Deterministic pair sampler: ✓ seed 0x{:016X}, 1000 pairs reproducible", PAIR_SAMPLER_SEED);
+    println!(
+        "    Deterministic pair sampler: ✓ seed 0x{:016X}, 1000 pairs reproducible",
+        PAIR_SAMPLER_SEED
+    );
     println!();
     println!("    READY TO CERTIFY:");
     println!("      Pipeline 1 (safetensors-derived): YES — F32 reference can be");
@@ -591,12 +583,7 @@ fn splitmix64(state: &mut u64) -> u64 {
 /// Report whether a file exists at the given path, with size if it does.
 fn report_file_presence(label: &str, path: &str) {
     match std::fs::metadata(path) {
-        Ok(m) => println!(
-            "    ✓ {:50}: {} ({})",
-            label,
-            path,
-            format_bytes(m.len())
-        ),
+        Ok(m) => println!("    ✓ {:50}: {} ({})", label, path, format_bytes(m.len())),
         Err(_) => println!("    ✗ {:50}: MISSING ({})", label, path),
     }
 }
@@ -604,10 +591,7 @@ fn report_file_presence(label: &str, path: &str) {
 /// Locate any Jina v5 GGUF file on disk. Returns empty vec if none found.
 /// Search is shallow — only checks the thinking-engine data directory.
 fn find_jina_v5_gguf() -> Vec<String> {
-    let roots = [
-        "crates/thinking-engine/data",
-        "crates/bgz-tensor/data",
-    ];
+    let roots = ["crates/thinking-engine/data", "crates/bgz-tensor/data"];
     let mut matches = Vec::new();
     for root in &roots {
         if let Ok(entries) = std::fs::read_dir(root) {
@@ -654,7 +638,11 @@ fn inventory_artifact_dir(path: &str, label: &str) {
     for e in entries.flatten() {
         let p = e.path();
         if p.is_file() {
-            let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("?").to_string();
+            let name = p
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("?")
+                .to_string();
             let size = e.metadata().map(|m| m.len()).unwrap_or(0);
             files.push((name, size));
         }
@@ -673,18 +661,10 @@ fn inventory_artifact_dir(path: &str, label: &str) {
     if let Ok(meta_json) = std::fs::read_to_string(&meta_path) {
         let has_truncation_glitch = meta_json.contains("f32_to_bf16_truncate");
         if has_truncation_glitch {
-            println!(
-                "      ⚠ GLITCH: lane_6_bf16_direct encoding is `f32_to_bf16_truncate`."
-            );
-            println!(
-                "        This is plain mantissa truncation, NOT round-to-nearest-even."
-            );
-            println!(
-                "        Drifts by ~1 ULP from hardware `_mm512_cvtneps_pbh` on ~50%"
-            );
-            println!(
-                "        of values. Regenerate via SIMD RNE before using this file as"
-            );
+            println!("      ⚠ GLITCH: lane_6_bf16_direct encoding is `f32_to_bf16_truncate`.");
+            println!("        This is plain mantissa truncation, NOT round-to-nearest-even.");
+            println!("        Drifts by ~1 ULP from hardware `_mm512_cvtneps_pbh` on ~50%");
+            println!("        of values. Regenerate via SIMD RNE before using this file as");
             println!("        a certification reference.");
         }
         // Also surface role_gamma / phi_scale if present — useful for the

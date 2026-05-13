@@ -101,26 +101,30 @@ mod tests {
     use crate::BASE_DIM;
 
     fn make_palette(k: usize) -> Palette {
-        let entries = (0..k).map(|i| {
-            let mut dims = [0i16; BASE_DIM];
-            for d in 0..BASE_DIM {
-                dims[d] = ((i * 97 + d * 31) % 512) as i16 - 256;
-            }
-            Base17 { dims }
-        }).collect();
+        let entries = (0..k)
+            .map(|i| {
+                let mut dims = [0i16; BASE_DIM];
+                for d in 0..BASE_DIM {
+                    dims[d] = ((i * 97 + d * 31) % 512) as i16 - 256;
+                }
+                Base17 { dims }
+            })
+            .collect();
         Palette { entries }
     }
 
     #[test]
     fn test_compose_identity() {
         // Build a palette that includes an actual zero entry for exact identity
-        let mut entries: Vec<Base17> = (0..31).map(|i| {
-            let mut dims = [0i16; BASE_DIM];
-            for d in 0..BASE_DIM {
-                dims[d] = ((i * 97 + d * 31) % 512) as i16 - 256;
-            }
-            Base17 { dims }
-        }).collect();
+        let mut entries: Vec<Base17> = (0..31)
+            .map(|i| {
+                let mut dims = [0i16; BASE_DIM];
+                for d in 0..BASE_DIM {
+                    dims[d] = ((i * 97 + d * 31) % 512) as i16 - 256;
+                }
+                Base17 { dims }
+            })
+            .collect();
         entries.push(Base17::zero()); // entry 31 is exact zero
         let pal = Palette { entries };
 
@@ -131,8 +135,11 @@ mod tests {
         // compose(a, identity) = a when identity is exact zero
         for a in 0..32u8 {
             let composed = sr.compose(a, id);
-            assert_eq!(composed, a,
-                "compose({}, identity={}) should equal {} but got {}", a, id, a, composed);
+            assert_eq!(
+                composed, a,
+                "compose({}, identity={}) should equal {} but got {}",
+                a, id, a, composed
+            );
         }
     }
 
@@ -148,9 +155,16 @@ mod tests {
                 // Should be close to a (quantization error possible)
                 let dist = sr.distance(a, abb);
                 // Allow some quantization slack (palette approximation)
-                assert!(dist < 10000,
+                assert!(
+                    dist < 10000,
                     "compose(compose({}, {}), {}) = {}, dist to {} = {}",
-                    a, b, b, abb, a, dist);
+                    a,
+                    b,
+                    b,
+                    abb,
+                    a,
+                    dist
+                );
             }
         }
     }

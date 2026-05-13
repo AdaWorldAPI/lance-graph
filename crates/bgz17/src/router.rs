@@ -62,31 +62,23 @@ pub enum Route {
 /// bgz17 handles single-hop similarity when palette exists (≥ 32 edges).
 /// blasgraph handles multi-hop / semiring operations.
 /// ndarray cascade handles bootstrap before palette is built.
-pub fn route_query(
-    edge_count: usize,
-    has_clam_tree: bool,
-    search_type: &SearchType,
-) -> Route {
+pub fn route_query(edge_count: usize, has_clam_tree: bool, search_type: &SearchType) -> Route {
     match search_type {
         // Single-hop similarity: bgz17 if palette exists
         SearchType::Knn { .. } | SearchType::Range { .. } => {
             if edge_count < 32 {
                 Route::NdarrayCascade // Not enough edges for palette
             } else {
-                Route::Bgz17Layered  // Palette + optional base refinement
+                Route::Bgz17Layered // Palette + optional base refinement
             }
         }
 
         // Multi-hop: must use blasgraph semirings
         // Palette can't compose paths — needs BitVec XOR as multiply
-        SearchType::Bfs { .. } | SearchType::Sssp => {
-            Route::BlasGraph
-        }
+        SearchType::Bfs { .. } | SearchType::Sssp => Route::BlasGraph,
 
         // Semiring algebra: requires vector operations
-        SearchType::SemiringOp => {
-            Route::BlasGraph
-        }
+        SearchType::SemiringOp => Route::BlasGraph,
 
         // Anomaly detection: CHAODA needs full LFD from CLAM tree
         SearchType::AnomalyDetect => {
@@ -168,15 +160,25 @@ impl SimdGuidance {
             ("cascade::query Stroke 1", "scent byte XOR (1B)", "~128×"),
             ("cascade::query Stroke 2", "palette lookup (3B)", "~10,000×"),
             ("clam_search::rho_nn", "palette on 3B edges", "~10,000×"),
-            ("clam_compress::hamming_to_compressed", "XOR-diff on 102B Base17", "~20×"),
+            (
+                "clam_compress::hamming_to_compressed",
+                "XOR-diff on 102B Base17",
+                "~20×",
+            ),
         ]
     }
 
     /// Which ndarray hot paths remain unchanged (fallback).
     pub fn unchanged_paths() -> &'static [(&'static str, &'static str)] {
         &[
-            ("bitwise::hamming_distance_raw", "Still needed for Layer 3 exact fallback"),
-            ("grb_mxm inner product", "Needs BitVec XOR — bgz17 has no vector to XOR"),
+            (
+                "bitwise::hamming_distance_raw",
+                "Still needed for Layer 3 exact fallback",
+            ),
+            (
+                "grb_mxm inner product",
+                "Needs BitVec XOR — bgz17 has no vector to XOR",
+            ),
         ]
     }
 }

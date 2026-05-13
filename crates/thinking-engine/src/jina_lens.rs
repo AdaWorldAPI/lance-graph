@@ -34,7 +34,8 @@
 /// two CLAM-sampled centroid averages of token embeddings.
 ///
 /// 64 KB = fits in L2 cache. No file I/O. No allocation.
-pub static JINA_HDR_TABLE: &[u8; 256 * 256] = include_bytes!("../data/jina-v3-hdr/distance_table_256x256.u8");
+pub static JINA_HDR_TABLE: &[u8; 256 * 256] =
+    include_bytes!("../data/jina-v3-hdr/distance_table_256x256.u8");
 
 /// Token → centroid codebook index. 250,002 entries × u16 = 488 KB.
 /// Maps each Jina/XLM-RoBERTa BPE token ID to its nearest CLAM centroid.
@@ -85,7 +86,8 @@ pub fn jina_think(
 ) -> (u16, Vec<u16>, crate::domino::DissonanceProfile) {
     let centroids = jina_lookup_many(token_ids);
     let (dom, stages, dis) = cascade.think(&centroids);
-    let chain: Vec<u16> = stages.iter()
+    let chain: Vec<u16> = stages
+        .iter()
         .filter_map(|s| s.focus.first().map(|a| a.index))
         .collect();
     (dom, chain, dis)
@@ -108,7 +110,12 @@ mod tests {
     #[test]
     fn diagonal_is_255() {
         for i in 0..256 {
-            assert_eq!(JINA_HDR_TABLE[i * 256 + i], 255, "diagonal[{}] should be 255", i);
+            assert_eq!(
+                JINA_HDR_TABLE[i * 256 + i],
+                255,
+                "diagonal[{}] should be 255",
+                i
+            );
         }
     }
 
@@ -116,7 +123,12 @@ mod tests {
     fn lookup_in_range() {
         for token_id in [0, 100, 1000, 50000, 200000, 249999] {
             let centroid = jina_lookup(token_id);
-            assert!(centroid < 256, "centroid {} out of range for token {}", centroid, token_id);
+            assert!(
+                centroid < 256,
+                "centroid {} out of range for token {}",
+                centroid,
+                token_id
+            );
         }
     }
 
@@ -124,18 +136,37 @@ mod tests {
     fn distance_symmetric() {
         for a in [0u16, 50, 100, 200, 255] {
             for b in [0u16, 50, 100, 200, 255] {
-                assert_eq!(jina_distance(a, b), jina_distance(b, a),
-                    "distance({},{}) != distance({},{})", a, b, b, a);
+                assert_eq!(
+                    jina_distance(a, b),
+                    jina_distance(b, a),
+                    "distance({},{}) != distance({},{})",
+                    a,
+                    b,
+                    b,
+                    a
+                );
             }
         }
     }
 
     #[test]
     fn hdr_table_has_variance() {
-        let avg = JINA_HDR_TABLE.iter().map(|&v| v as f64).sum::<f64>() / JINA_HDR_TABLE.len() as f64;
-        let std = (JINA_HDR_TABLE.iter().map(|&v| { let d = v as f64 - avg; d * d })
-            .sum::<f64>() / JINA_HDR_TABLE.len() as f64).sqrt();
-        assert!(std > 50.0, "HDR table std={:.1} — should be >50 (was 73.6 at build)", std);
+        let avg =
+            JINA_HDR_TABLE.iter().map(|&v| v as f64).sum::<f64>() / JINA_HDR_TABLE.len() as f64;
+        let std = (JINA_HDR_TABLE
+            .iter()
+            .map(|&v| {
+                let d = v as f64 - avg;
+                d * d
+            })
+            .sum::<f64>()
+            / JINA_HDR_TABLE.len() as f64)
+            .sqrt();
+        assert!(
+            std > 50.0,
+            "HDR table std={:.1} — should be >50 (was 73.6 at build)",
+            std
+        );
     }
 
     #[test]

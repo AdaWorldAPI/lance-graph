@@ -28,8 +28,22 @@ fn main() {
     let jina_ok = jina_tok.is_some();
     let rr_ok = reranker_tok.is_some();
 
-    eprintln!("  Jina v3 tokenizer:   {}", if jina_ok { "LOADED (XLM-RoBERTa 250K)" } else { "FALLBACK (hash)" });
-    eprintln!("  Reranker tokenizer:  {}", if rr_ok { "LOADED (Qwen2 151K)" } else { "FALLBACK (hash)" });
+    eprintln!(
+        "  Jina v3 tokenizer:   {}",
+        if jina_ok {
+            "LOADED (XLM-RoBERTa 250K)"
+        } else {
+            "FALLBACK (hash)"
+        }
+    );
+    eprintln!(
+        "  Reranker tokenizer:  {}",
+        if rr_ok {
+            "LOADED (Qwen2 151K)"
+        } else {
+            "FALLBACK (hash)"
+        }
+    );
     eprintln!();
 
     // ── Calibration corpus: 4 tiers × 4 pairs = 16 pairs ──────────
@@ -76,12 +90,8 @@ fn main() {
     let mut reranker_dists = Vec::new();
 
     for (i, (a, b)) in pairs.iter().enumerate() {
-        let (a_ids_jina, b_ids_jina) = tokenize_pair(
-            a, b, jina_tok.as_ref(), 250_002,
-        );
-        let (a_ids_rr, b_ids_rr) = tokenize_pair(
-            a, b, reranker_tok.as_ref(), 151_936,
-        );
+        let (a_ids_jina, b_ids_jina) = tokenize_pair(a, b, jina_tok.as_ref(), 250_002);
+        let (a_ids_rr, b_ids_rr) = tokenize_pair(a, b, reranker_tok.as_ref(), 151_936);
 
         // Jina: domino cascade, compare focus atom overlap
         let jina_sim = think_similarity(
@@ -100,9 +110,15 @@ fn main() {
         reranker_dists.push(rr_sim);
 
         let tok_type = if jina_ok { "BPE" } else { "hash" };
-        eprintln!("  [{:2}] jina={:.3} rr={:.3} [{}] | \"{}...\" ↔ \"{}...\"",
-            i, jina_sim, rr_sim, tok_type,
-            &a[..a.len().min(40)], &b[..b.len().min(40)]);
+        eprintln!(
+            "  [{:2}] jina={:.3} rr={:.3} [{}] | \"{}...\" ↔ \"{}...\"",
+            i,
+            jina_sim,
+            rr_sim,
+            tok_type,
+            &a[..a.len().min(40)],
+            &b[..b.len().min(40)]
+        );
     }
 
     // ── Ground truth (expert-assigned, tiered) ─────────────────────
@@ -110,12 +126,9 @@ fn main() {
 
     let api_ground_truth: Vec<f32> = vec![
         // TIER 1 — paraphrase / near-identical
-        0.88, 0.72, 0.93, 0.95,
-        // TIER 2 — metaphorical / thematic resonance
-        0.58, 0.52, 0.68, 0.72,
-        // TIER 3 — loosely related domain
-        0.42, 0.25, 0.18, 0.30,
-        // TIER 4 — unrelated domains
+        0.88, 0.72, 0.93, 0.95, // TIER 2 — metaphorical / thematic resonance
+        0.58, 0.52, 0.68, 0.72, // TIER 3 — loosely related domain
+        0.42, 0.25, 0.18, 0.30, // TIER 4 — unrelated domains
         0.04, 0.03, 0.05, 0.06,
     ];
 
@@ -140,10 +153,15 @@ fn main() {
     eprintln!("    ρ < 0.80:  broken");
 
     for (name, rho) in [("Jina", rho_jina), ("Reranker", rho_reranker)] {
-        let status = if rho > 0.998 { "TRUTH ANCHOR" }
-            else if rho > 0.95 { "USABLE (needs ICC)" }
-            else if rho > 0.80 { "WEAK" }
-            else { "BROKEN" };
+        let status = if rho > 0.998 {
+            "TRUTH ANCHOR"
+        } else if rho > 0.95 {
+            "USABLE (needs ICC)"
+        } else if rho > 0.80 {
+            "WEAK"
+        } else {
+            "BROKEN"
+        };
         eprintln!("  {} → {}", name, status);
     }
 
@@ -154,19 +172,35 @@ fn main() {
         let (jina_slope, jina_intercept) = linear_fit(&jina_dists, &api_ground_truth);
         let (rr_slope, rr_intercept) = linear_fit(&reranker_dists, &api_ground_truth);
 
-        eprintln!("  Jina ICC:     corrected = {:.3} × baked + {:.3}", jina_slope, jina_intercept);
-        eprintln!("  Reranker ICC: corrected = {:.3} × baked + {:.3}", rr_slope, rr_intercept);
+        eprintln!(
+            "  Jina ICC:     corrected = {:.3} × baked + {:.3}",
+            jina_slope, jina_intercept
+        );
+        eprintln!(
+            "  Reranker ICC: corrected = {:.3} × baked + {:.3}",
+            rr_slope, rr_intercept
+        );
 
-        let jina_corrected: Vec<f32> = jina_dists.iter()
-            .map(|&d| (d * jina_slope + jina_intercept).clamp(0.0, 1.0)).collect();
-        let rr_corrected: Vec<f32> = reranker_dists.iter()
-            .map(|&d| (d * rr_slope + rr_intercept).clamp(0.0, 1.0)).collect();
+        let jina_corrected: Vec<f32> = jina_dists
+            .iter()
+            .map(|&d| (d * jina_slope + jina_intercept).clamp(0.0, 1.0))
+            .collect();
+        let rr_corrected: Vec<f32> = reranker_dists
+            .iter()
+            .map(|&d| (d * rr_slope + rr_intercept).clamp(0.0, 1.0))
+            .collect();
 
         let rho_jina_c = spearman(&jina_corrected, &api_ground_truth);
         let rho_rr_c = spearman(&rr_corrected, &api_ground_truth);
 
-        eprintln!("  After ICC: Jina ρ = {:.4} (was {:.4})", rho_jina_c, rho_jina);
-        eprintln!("  After ICC: Reranker ρ = {:.4} (was {:.4})", rho_rr_c, rho_reranker);
+        eprintln!(
+            "  After ICC: Jina ρ = {:.4} (was {:.4})",
+            rho_jina_c, rho_jina
+        );
+        eprintln!(
+            "  After ICC: Reranker ρ = {:.4} (was {:.4})",
+            rho_rr_c, rho_reranker
+        );
     }
 
     eprintln!("\n═══════════════════════════════════════════════════════════");
@@ -220,14 +254,20 @@ fn load_reranker_tokenizer() -> Option<tokenizers::Tokenizer> {
     }
 
     // Try from_pretrained
-    eprintln!("  [reranker] Downloading tokenizer from jinaai/jina-reranker-v2-base-multilingual...");
-    match tokenizers::Tokenizer::from_pretrained("jinaai/jina-reranker-v2-base-multilingual", None) {
+    eprintln!(
+        "  [reranker] Downloading tokenizer from jinaai/jina-reranker-v2-base-multilingual..."
+    );
+    match tokenizers::Tokenizer::from_pretrained("jinaai/jina-reranker-v2-base-multilingual", None)
+    {
         Ok(tok) => {
             eprintln!("  [reranker] Downloaded successfully.");
             Some(tok)
         }
         Err(e) => {
-            eprintln!("  [reranker] Failed to download: {}. Using hash fallback.", e);
+            eprintln!(
+                "  [reranker] Failed to download: {}. Using hash fallback.",
+                e
+            );
             None
         }
     }
@@ -243,17 +283,27 @@ fn tokenize_pair(
     if let Some(tok) = tokenizer {
         let enc_a = tok.encode(a, true).expect("tokenize failed");
         let enc_b = tok.encode(b, true).expect("tokenize failed");
-        let ids_a: Vec<u32> = enc_a.get_ids().iter()
-            .map(|&id| id.min(vocab_size - 1)).collect();
-        let ids_b: Vec<u32> = enc_b.get_ids().iter()
-            .map(|&id| id.min(vocab_size - 1)).collect();
+        let ids_a: Vec<u32> = enc_a
+            .get_ids()
+            .iter()
+            .map(|&id| id.min(vocab_size - 1))
+            .collect();
+        let ids_b: Vec<u32> = enc_b
+            .get_ids()
+            .iter()
+            .map(|&id| id.min(vocab_size - 1))
+            .collect();
         (ids_a, ids_b)
     } else {
         // Hash fallback (last resort, gives garbage ρ)
-        let ids_a: Vec<u32> = a.split_whitespace()
-            .map(|w| simple_hash(w) % vocab_size).collect();
-        let ids_b: Vec<u32> = b.split_whitespace()
-            .map(|w| simple_hash(w) % vocab_size).collect();
+        let ids_a: Vec<u32> = a
+            .split_whitespace()
+            .map(|w| simple_hash(w) % vocab_size)
+            .collect();
+        let ids_b: Vec<u32> = b
+            .split_whitespace()
+            .map(|w| simple_hash(w) % vocab_size)
+            .collect();
         (ids_a, ids_b)
     }
 }
@@ -278,24 +328,34 @@ fn think_similarity(
     let (_, stages_b, _) = cascade.think(centroids_b);
 
     // Collect all focus atoms across stages
-    let atoms_a: std::collections::HashSet<u16> = stages_a.iter()
+    let atoms_a: std::collections::HashSet<u16> = stages_a
+        .iter()
         .flat_map(|s| s.focus.iter().map(|a| a.index))
         .collect();
-    let atoms_b: std::collections::HashSet<u16> = stages_b.iter()
+    let atoms_b: std::collections::HashSet<u16> = stages_b
+        .iter()
         .flat_map(|s| s.focus.iter().map(|a| a.index))
         .collect();
 
-    if atoms_a.is_empty() || atoms_b.is_empty() { return 0.0; }
+    if atoms_a.is_empty() || atoms_b.is_empty() {
+        return 0.0;
+    }
 
     // Jaccard: |A ∩ B| / |A ∪ B|
     let intersection = atoms_a.intersection(&atoms_b).count() as f32;
     let union = atoms_a.union(&atoms_b).count() as f32;
-    if union > 0.0 { intersection / union } else { 0.0 }
+    if union > 0.0 {
+        intersection / union
+    } else {
+        0.0
+    }
 }
 
 fn spearman(a: &[f32], b: &[f32]) -> f32 {
     let n = a.len().min(b.len());
-    if n < 2 { return 0.0; }
+    if n < 2 {
+        return 0.0;
+    }
     let rank_a = ranks(a);
     let rank_b = ranks(b);
     let mean_a = rank_a.iter().sum::<f32>() / n as f32;
@@ -311,12 +371,15 @@ fn spearman(a: &[f32], b: &[f32]) -> f32 {
         den_b += db * db;
     }
     let den = (den_a * den_b).sqrt();
-    if den > 1e-10 { num / den } else { 0.0 }
+    if den > 1e-10 {
+        num / den
+    } else {
+        0.0
+    }
 }
 
 fn ranks(values: &[f32]) -> Vec<f32> {
-    let mut indexed: Vec<(usize, f32)> = values.iter().enumerate()
-        .map(|(i, &v)| (i, v)).collect();
+    let mut indexed: Vec<(usize, f32)> = values.iter().enumerate().map(|(i, &v)| (i, v)).collect();
     indexed.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
     let mut result = vec![0.0f32; values.len()];
     for (rank, &(orig_idx, _)) in indexed.iter().enumerate() {
@@ -342,6 +405,8 @@ fn linear_fit(x: &[f32], y: &[f32]) -> (f32, f32) {
 
 fn simple_hash(word: &str) -> u32 {
     let mut h: u64 = 0x9e3779b97f4a7c15;
-    for b in word.bytes() { h = h.wrapping_mul(31).wrapping_add(b as u64); }
+    for b in word.bytes() {
+        h = h.wrapping_mul(31).wrapping_add(b as u64);
+    }
     h as u32
 }

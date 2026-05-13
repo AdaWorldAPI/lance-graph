@@ -31,20 +31,23 @@ fn make_registry(n: usize) -> (OntologyRegistry, Vec<String>) {
             ogit_uri: parsed,
             namespace: ns,
             kind: MappingProposalKind::Entity {
-                schema: Schema::builder(Box::leak(name.into_boxed_str())).required("id").build(),
+                schema: Schema::builder(Box::leak(name.into_boxed_str()))
+                    .required("id")
+                    .build(),
             },
             marking: Marking::Internal,
             confidence: 1.0,
             source_uri: format!("bench://{uri}"),
             checksum: format!("ck-{i}"),
             created_by: "bench".into(),
-        }).unwrap();
+        })
+        .unwrap();
         names.push(uri);
     }
     (reg, names)
 }
 
-fn p99(samples: &mut Vec<u128>) -> u128 {
+fn p99(samples: &mut [u128]) -> u128 {
     samples.sort_unstable();
     let idx = ((samples.len() as f64) * 0.99).round() as usize;
     samples[idx.min(samples.len() - 1)]
@@ -52,7 +55,9 @@ fn p99(samples: &mut Vec<u128>) -> u128 {
 
 fn main() {
     let (reg, names) = make_registry(N_ROWS);
-    for _ in 0..1024 { let _ = reg.resolve_uri(&names[0]); }
+    for _ in 0..1024 {
+        let _ = reg.resolve_uri(&names[0]);
+    }
 
     let mut reg_samples = Vec::with_capacity(N_ITERS);
     for i in 0..N_ITERS {
@@ -77,5 +82,8 @@ fn main() {
     println!("registry  p99 = {p_reg} ns");
     println!("sparql_px p99 = {p_sparql} ns");
     println!("ratio (sparql/registry) = {ratio:.1}x");
-    println!("target >= 100x: {}", if ratio >= 100.0 { "PASS" } else { "FAIL" });
+    println!(
+        "target >= 100x: {}",
+        if ratio >= 100.0 { "PASS" } else { "FAIL" }
+    );
 }

@@ -202,18 +202,20 @@ pub fn batch_spo_distance(
 mod tests {
     use super::*;
     use crate::base17::Base17;
-    use crate::palette::Palette;
     use crate::distance_matrix::{DistanceMatrix, SpoDistanceMatrices};
+    use crate::palette::Palette;
     use crate::BASE_DIM;
 
     fn make_palette(k: usize) -> Palette {
-        let entries = (0..k).map(|i| {
-            let mut dims = [0i16; BASE_DIM];
-            for d in 0..BASE_DIM {
-                dims[d] = ((i * 97 + d * 31) % 512) as i16 - 256;
-            }
-            Base17 { dims }
-        }).collect();
+        let entries = (0..k)
+            .map(|i| {
+                let mut dims = [0i16; BASE_DIM];
+                for d in 0..BASE_DIM {
+                    dims[d] = ((i * 97 + d * 31) % 512) as i16 - 256;
+                }
+                Base17 { dims }
+            })
+            .collect();
         Palette { entries }
     }
 
@@ -231,8 +233,11 @@ mod tests {
         // Verify against individual lookups
         for (i, &cand) in candidates.iter().enumerate() {
             let expected = dm.distance(query, cand);
-            assert_eq!(batch_out[i], expected,
-                "Mismatch at candidate {}: batch={} scalar={}", cand, batch_out[i], expected);
+            assert_eq!(
+                batch_out[i], expected,
+                "Mismatch at candidate {}: batch={} scalar={}",
+                cand, batch_out[i], expected
+            );
         }
     }
 

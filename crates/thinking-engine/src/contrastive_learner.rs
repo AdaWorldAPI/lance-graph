@@ -50,7 +50,12 @@ impl ContrastiveLearner {
     pub fn new(table: Vec<f32>, alpha: f32) -> Self {
         let len = table.len();
         let size = (len as f64).sqrt() as usize;
-        assert_eq!(size * size, len, "table must be square (got {} elements)", len);
+        assert_eq!(
+            size * size,
+            len,
+            "table must be square (got {} elements)",
+            len
+        );
         Self {
             table,
             size,
@@ -149,8 +154,11 @@ mod tests {
 
         // After update: 0.5 + 0.1 * (0.9 - 0.5) = 0.54
         let idx = 1 * 4 + 2;
-        assert!((learner.table[idx] - 0.54).abs() < 1e-6,
-            "table[1][2] was {}", learner.table[idx]);
+        assert!(
+            (learner.table[idx] - 0.54).abs() < 1e-6,
+            "table[1][2] was {}",
+            learner.table[idx]
+        );
     }
 
     #[test]
@@ -161,8 +169,12 @@ mod tests {
 
         let val_03 = learner.table[0 * 4 + 3];
         let val_30 = learner.table[3 * 4 + 0];
-        assert!((val_03 - val_30).abs() < 1e-6,
-            "symmetry broken: [0][3]={} vs [3][0]={}", val_03, val_30);
+        assert!(
+            (val_03 - val_30).abs() < 1e-6,
+            "symmetry broken: [0][3]={} vs [3][0]={}",
+            val_03,
+            val_30
+        );
     }
 
     #[test]
@@ -188,14 +200,21 @@ mod tests {
         let mut prev_error = f32::MAX;
         for _ in 0..30 {
             let err = learner.update_pair(1, 2, target);
-            assert!(err <= prev_error + 1e-7,
-                "MAE not decreasing: {} > {}", err, prev_error);
+            assert!(
+                err <= prev_error + 1e-7,
+                "MAE not decreasing: {} > {}",
+                err,
+                prev_error
+            );
             prev_error = err;
         }
 
         // After 30 updates at alpha=0.3, error = 0.9 * (1-0.3)^30 ≈ 0.00002
-        assert!(prev_error < 0.01,
-            "error still large after 30 updates: {}", prev_error);
+        assert!(
+            prev_error < 0.01,
+            "error still large after 30 updates: {}",
+            prev_error
+        );
     }
 
     #[test]
@@ -213,13 +232,21 @@ mod tests {
         // All started at 0.5; targets range 0.3..0.9.
         // Mean target = 0.6, so mean |target - 0.5| = mean of deviations.
         assert!(mean_err > 0.0, "mean error should be positive");
-        assert!(mean_err < 0.5, "mean error unreasonably large: {}", mean_err);
+        assert!(
+            mean_err < 0.5,
+            "mean error unreasonably large: {}",
+            mean_err
+        );
 
         // Check symmetry for one neighbor.
         let val_42_100 = learner.table[42 * size + 100];
         let val_100_42 = learner.table[100 * size + 42];
-        assert!((val_42_100 - val_100_42).abs() < 1e-6,
-            "fan-out broke symmetry: {} vs {}", val_42_100, val_100_42);
+        assert!(
+            (val_42_100 - val_100_42).abs() < 1e-6,
+            "fan-out broke symmetry: {} vs {}",
+            val_42_100,
+            val_100_42
+        );
 
         // Verify update count: 16 neighbors = 16 update_pair calls.
         assert_eq!(learner.stats().update_count, 16);
@@ -239,8 +266,11 @@ mod tests {
 
         let s1 = learner.stats();
         assert_eq!(s1.update_count, 2);
-        assert!((s1.mean_absolute_error - 0.6).abs() < 1e-6,
-            "MAE was {}", s1.mean_absolute_error);
+        assert!(
+            (s1.mean_absolute_error - 0.6).abs() < 1e-6,
+            "MAE was {}",
+            s1.mean_absolute_error
+        );
     }
 
     #[test]

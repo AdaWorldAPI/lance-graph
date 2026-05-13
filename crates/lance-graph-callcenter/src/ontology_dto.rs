@@ -21,8 +21,8 @@ use lance_graph_contract::ontology::{EntityTypeId, Label, Locale, Ontology};
 use lance_graph_contract::property::{
     ActionTrigger, Cardinality, Marking, PropertyKind, SemanticType,
 };
-use lance_graph_ontology::{MappingRow, OntologyRegistry, SchemaPtr};
 use lance_graph_ontology::namespace::SchemaKind;
+use lance_graph_ontology::{MappingRow, OntologyRegistry, SchemaPtr};
 
 /// External-facing ontology view. Projects the registry through a locale
 /// lens, stripping internal implementation details.
@@ -192,11 +192,7 @@ impl OntologyDto {
 fn entity_dto(row: &MappingRow) -> EntityTypeDto {
     let SchemaPtr { .. } = row.schema_ptr; // structural binding only
     let id = row.schema_ptr.entity_type_id();
-    let name = row
-        .ogit_uri
-        .name()
-        .unwrap_or(&row.public_name)
-        .to_string();
+    let name = row.ogit_uri.name().unwrap_or(&row.public_name).to_string();
     // D-CASCADE-V1-7 / META-NUDGE-1: surface the per-attribute provenance
     // pairs threaded onto MappingRow as one PropertyDto per pair. The
     // marking + semantic_type come from the entity row itself; per-property
@@ -237,11 +233,7 @@ fn action_dto(row: &MappingRow) -> ActionTypeDto {
     ActionTypeDto {
         name: row.public_name.clone(),
         entity_type: row.entity_type_ref.clone(),
-        target_predicate: row
-            .ogit_uri
-            .name()
-            .unwrap_or(&row.public_name)
-            .to_string(),
+        target_predicate: row.ogit_uri.name().unwrap_or(&row.public_name).to_string(),
         trigger: "manual",
     }
 }
@@ -361,18 +353,45 @@ mod tests {
 
     fn smb_registry() -> OntologyRegistry {
         let reg = OntologyRegistry::new_in_memory();
-        reg.append_mapping(entity_proposal("smb", "Customer", "ogit.SMB:Customer")).unwrap();
-        reg.append_mapping(entity_proposal("smb", "Invoice", "ogit.SMB:Invoice")).unwrap();
-        reg.append_mapping(entity_proposal("smb", "TaxDeclaration", "ogit.SMB:TaxDeclaration")).unwrap();
+        reg.append_mapping(entity_proposal("smb", "Customer", "ogit.SMB:Customer"))
+            .unwrap();
+        reg.append_mapping(entity_proposal("smb", "Invoice", "ogit.SMB:Invoice"))
+            .unwrap();
+        reg.append_mapping(entity_proposal(
+            "smb",
+            "TaxDeclaration",
+            "ogit.SMB:TaxDeclaration",
+        ))
+        .unwrap();
         reg
     }
 
     fn medcare_registry() -> OntologyRegistry {
         let reg = OntologyRegistry::new_in_memory();
-        reg.append_mapping(entity_proposal("medcare", "Patient", "ogit.Healthcare:Patient")).unwrap();
-        reg.append_mapping(entity_proposal("medcare", "Diagnosis", "ogit.Healthcare:Diagnosis")).unwrap();
-        reg.append_mapping(entity_proposal("medcare", "LabResult", "ogit.Healthcare:LabResult")).unwrap();
-        reg.append_mapping(entity_proposal("medcare", "Prescription", "ogit.Healthcare:Prescription")).unwrap();
+        reg.append_mapping(entity_proposal(
+            "medcare",
+            "Patient",
+            "ogit.Healthcare:Patient",
+        ))
+        .unwrap();
+        reg.append_mapping(entity_proposal(
+            "medcare",
+            "Diagnosis",
+            "ogit.Healthcare:Diagnosis",
+        ))
+        .unwrap();
+        reg.append_mapping(entity_proposal(
+            "medcare",
+            "LabResult",
+            "ogit.Healthcare:LabResult",
+        ))
+        .unwrap();
+        reg.append_mapping(entity_proposal(
+            "medcare",
+            "Prescription",
+            "ogit.Healthcare:Prescription",
+        ))
+        .unwrap();
         reg
     }
 
@@ -398,13 +417,7 @@ mod tests {
     #[test]
     fn unknown_namespace_yields_empty_dto() {
         let reg = OntologyRegistry::new_in_memory();
-        let dto = OntologyDto::project(
-            &reg,
-            "Nonexistent",
-            "x",
-            Label::en_only("x"),
-            Locale::En,
-        );
+        let dto = OntologyDto::project(&reg, "Nonexistent", "x", Label::en_only("x"), Locale::En);
         assert!(dto.entity_types.is_empty());
         assert!(dto.link_types.is_empty());
         assert!(dto.action_types.is_empty());

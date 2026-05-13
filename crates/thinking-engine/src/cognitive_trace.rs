@@ -4,17 +4,17 @@
 //! Reproducible, debuggable, replayable.
 
 use crate::domino::StageResult;
-use crate::superposition::{SuperpositionField, ThinkingStyle};
 use crate::qualia::Qualia17D;
+use crate::superposition::{SuperpositionField, ThinkingStyle};
 
 /// One SPO triple extracted from the superposition field.
 #[derive(Clone, Debug)]
 pub struct SpoTriple {
-    pub subject: u16,       // centroid index
+    pub subject: u16,            // centroid index
     pub predicate: &'static str, // relationship type
-    pub object: u16,        // centroid index
-    pub frequency: f32,     // NARS frequency (how strong)
-    pub confidence: f32,    // NARS confidence (how agreed between lenses)
+    pub object: u16,             // centroid index
+    pub frequency: f32,          // NARS frequency (how strong)
+    pub confidence: f32,         // NARS confidence (how agreed between lenses)
 }
 
 /// Complete cognitive trace from input to thought.
@@ -86,7 +86,9 @@ impl CognitiveTrace {
                 let d_bge = bge_dist_fn(a, b);
                 let agreement = 1.0 - (d_jina as f32 - d_bge as f32).abs() / 255.0;
 
-                if agreement < agreement_threshold { continue; }
+                if agreement < agreement_threshold {
+                    continue;
+                }
 
                 // Determine predicate from distance value
                 let avg_dist = (d_jina as f32 + d_bge as f32) / 2.0;
@@ -130,10 +132,16 @@ impl CognitiveTrace {
             .open(path)?;
 
         for triple in &self.spo_triples {
-            writeln!(file, "{}\t{}\t{}\t{:.3}\t{:.3}\t{}",
-                triple.subject, triple.predicate, triple.object,
-                triple.frequency, triple.confidence,
-                self.input.replace('\t', " ").replace('\n', " "))?;
+            writeln!(
+                file,
+                "{}\t{}\t{}\t{:.3}\t{:.3}\t{}",
+                triple.subject,
+                triple.predicate,
+                triple.object,
+                triple.frequency,
+                triple.confidence,
+                self.input.replace('\t', " ").replace('\n', " ")
+            )?;
         }
         Ok(())
     }
@@ -147,8 +155,12 @@ impl CognitiveTrace {
             if self.lens_results.len() >= 2 {
                 if self.lens_results[0].dominant == self.lens_results[1].dominant {
                     "CONVERGE"
-                } else { "DIVERGE" }
-            } else { "SINGLE" },
+                } else {
+                    "DIVERGE"
+                }
+            } else {
+                "SINGLE"
+            },
             self.confidence * 100.0,
             self.dissonance,
             self.spo_triples.len(),
@@ -173,7 +185,10 @@ mod tests {
         // 10↔20: agreement = 1 - |200-190|/255 = 0.96 → included as highest confidence
         assert!(!triples.is_empty());
         // Find the 10↔20 triple (should be highest confidence)
-        let t10_20 = triples.iter().find(|t| t.subject == 10 && t.object == 20).unwrap();
+        let t10_20 = triples
+            .iter()
+            .find(|t| t.subject == 10 && t.object == 20)
+            .unwrap();
         assert_eq!(t10_20.predicate, "RELATED"); // avg 195 > 150
         assert!(t10_20.confidence > 0.9);
     }

@@ -65,12 +65,7 @@ impl CausalNetwork {
 
         for &edge_id in path {
             let weight = self.edges[edge_id];
-            current = current.forward(
-                weight,
-                &self.compose_s,
-                &self.compose_p,
-                &self.compose_o,
-            );
+            current = current.forward(weight, &self.compose_s, &self.compose_p, &self.compose_o);
             hops.push(current);
         }
 
@@ -103,16 +98,12 @@ impl CausalNetwork {
         let mut q = query;
         q.set_causal_mask(pearl_level);
 
-        let mut results: Vec<(usize, u32)> = self.edges
+        let mut results: Vec<(usize, u32)> = self
+            .edges
             .iter()
             .enumerate()
             .map(|(i, &edge)| {
-                let d = q.causal_distance(
-                    edge,
-                    &self.dist_s,
-                    &self.dist_p,
-                    &self.dist_o,
-                );
+                let d = q.causal_distance(edge, &self.dist_s, &self.dist_p, &self.dist_o);
                 (i, d)
             })
             .collect();
@@ -131,7 +122,9 @@ impl CausalNetwork {
 
         for (i, &edge) in self.edges.iter().enumerate() {
             // Check if this edge has enough evidence
-            if edge.confidence() < 0.5 { continue; }
+            if edge.confidence() < 0.5 {
+                continue;
+            }
 
             // Compare direction at S_O (association) vs _PO (intervention)
             // We need to query neighbors at both levels to get directions.
@@ -157,7 +150,8 @@ impl CausalNetwork {
     ///
     /// Returns edges with the same SPO indices sorted by temporal index.
     pub fn evidence_trail(&self, s: u8, p: u8, o: u8) -> Vec<&CausalEdge64> {
-        let mut trail: Vec<&CausalEdge64> = self.edges
+        let mut trail: Vec<&CausalEdge64> = self
+            .edges
             .iter()
             .filter(|e| e.s_idx() == s && e.p_idx() == p && e.o_idx() == o)
             .collect();
@@ -170,11 +164,7 @@ impl CausalNetwork {
     ///
     /// Takes a patient edge (S known) and an alternative treatment archetype,
     /// composes them through the compose table, returns predicted outcome.
-    pub fn counterfactual(
-        &self,
-        patient_edge: CausalEdge64,
-        alternative_p: u8,
-    ) -> CausalEdge64 {
+    pub fn counterfactual(&self, patient_edge: CausalEdge64, alternative_p: u8) -> CausalEdge64 {
         // Create a hypothetical edge with the alternative predicate
         let mut hypothetical = patient_edge;
         hypothetical.set_p_idx(alternative_p);
@@ -202,7 +192,9 @@ impl CausalNetwork {
         }
 
         // Majority vote for outcome archetype
-        let best_o = o_votes.iter().enumerate()
+        let best_o = o_votes
+            .iter()
+            .enumerate()
             .max_by_key(|&(_, &v)| v)
             .map(|(i, _)| i as u8)
             .unwrap_or(hypothetical.o_idx());
@@ -220,7 +212,11 @@ impl CausalNetwork {
     pub fn stats(&self) -> NetworkStats {
         let total = self.edges.len();
         let frozen = self.edges.iter().filter(|e| e.is_frozen()).count();
-        let hot = self.edges.iter().filter(|e| e.plasticity() == PlasticityState::ALL_HOT).count();
+        let hot = self
+            .edges
+            .iter()
+            .filter(|e| e.plasticity() == PlasticityState::ALL_HOT)
+            .count();
         let high_conf = self.edges.iter().filter(|e| e.confidence() > 0.7).count();
         let interventional = self.edges.iter().filter(|e| e.is_interventional()).count();
         let counterfactual = self.edges.iter().filter(|e| e.is_counterfactual()).count();

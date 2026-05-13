@@ -55,7 +55,7 @@
 //! Delta-encoding the schema blocks separately gives additional 2-3×
 //! compression on top of the semantic delta encoding.
 
-use super::{VECTOR_WORDS, SCHEMA_BLOCK_START};
+use super::{SCHEMA_BLOCK_START, VECTOR_WORDS};
 use std::sync::RwLock;
 
 /// Maximum depth for delta chains (prevents unbounded memory from degenerate paths)
@@ -364,8 +364,12 @@ impl XorBubble {
             }
         } else {
             // Probabilistic: mask delta bits by attenuation
-            let mut rng = seed.wrapping_mul(0x9E3779B97F4A7C15).wrapping_add(self.levels_propagated as u64);
-            if rng == 0 { rng = 1; } // xorshift64 degenerates on zero seed
+            let mut rng = seed
+                .wrapping_mul(0x9E3779B97F4A7C15)
+                .wrapping_add(self.levels_propagated as u64);
+            if rng == 0 {
+                rng = 1;
+            } // xorshift64 degenerates on zero seed
             for w in 0..VECTOR_WORDS.min(parent_words.len()) {
                 if self.delta_words[w] == 0 {
                     continue;
@@ -381,7 +385,9 @@ impl XorBubble {
 
     /// Current probability that a delta bit survives to this level.
     pub fn current_probability(&self) -> f32 {
-        self.attenuation.powi(self.levels_propagated as i32).max(0.001)
+        self.attenuation
+            .powi(self.levels_propagated as i32)
+            .max(0.001)
     }
 
     /// How many bits are still active in the delta.
@@ -410,7 +416,9 @@ fn probabilistic_mask(delta: u64, prob: f32, rng: &mut u64) -> u64 {
         return 0;
     }
     // Guard against degenerate xorshift seed
-    if *rng == 0 { *rng = 1; }
+    if *rng == 0 {
+        *rng = 1;
+    }
 
     let threshold = (prob * u32::MAX as f32) as u32;
     let mut mask = 0u64;
@@ -873,7 +881,11 @@ mod tests {
         let delta = XorDelta::compute(&base, &similar);
 
         // With only 50 bit flips across 256 words, most words are unchanged
-        assert!(delta.sparsity() > 0.5, "Expected sparse delta, got sparsity={}", delta.sparsity());
+        assert!(
+            delta.sparsity() > 0.5,
+            "Expected sparse delta, got sparsity={}",
+            delta.sparsity()
+        );
         assert!(delta.compression_ratio() < 0.8, "Expected good compression");
     }
 
@@ -960,7 +972,11 @@ mod tests {
             .map(|w| (parent[w] ^ old_leaf[w]).count_ones())
             .sum();
         // Probabilistic: expect ~1 bit changed (16/16), allow 0-5
-        assert!(changed <= 16, "Expected attenuated change, got {} bits", changed);
+        assert!(
+            changed <= 16,
+            "Expected attenuated change, got {} bits",
+            changed
+        );
     }
 
     #[test]
@@ -1001,7 +1017,11 @@ mod tests {
 
         let refs: Vec<&[u64]> = vec![&v0, &v1, &v2];
         let ratio = estimate_compression(&refs);
-        assert!(ratio < 1.0, "Similar vectors should compress well: ratio={}", ratio);
+        assert!(
+            ratio < 1.0,
+            "Similar vectors should compress well: ratio={}",
+            ratio
+        );
     }
 
     // === XOR Write Cache tests ===
@@ -1105,8 +1125,12 @@ mod tests {
         let chain = DeltaChain::from_path(&refs);
 
         // Should be capped at MAX_CHAIN_DEPTH
-        assert_eq!(chain.depth(), MAX_CHAIN_DEPTH,
-            "Chain depth should be capped at MAX_CHAIN_DEPTH={}", MAX_CHAIN_DEPTH);
+        assert_eq!(
+            chain.depth(),
+            MAX_CHAIN_DEPTH,
+            "Chain depth should be capped at MAX_CHAIN_DEPTH={}",
+            MAX_CHAIN_DEPTH
+        );
 
         // Reconstruction should still work for capped depth
         let r0 = chain.reconstruct(0);
@@ -1120,7 +1144,10 @@ mod tests {
         let mask = probabilistic_mask(0xFFFF_FFFF_FFFF_FFFF, 0.5, &mut rng);
         // After the fix, rng should have been bumped to 1 before xorshift
         // The mask should not be all-zeros (with p=0.5 and delta=all-ones)
-        assert_ne!(rng, 0, "RNG should not remain at 0 after probabilistic_mask");
+        assert_ne!(
+            rng, 0,
+            "RNG should not remain at 0 after probabilistic_mask"
+        );
         // mask can be anything but degenerate all-zero with full delta and p=0.5 is unlikely
     }
 

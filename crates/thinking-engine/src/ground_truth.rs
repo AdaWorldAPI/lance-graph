@@ -33,9 +33,8 @@ pub mod calibration {
     impl GroundTruthEmbedding {
         /// Cosine similarity with another embedding.
         pub fn cosine(&self, other: &GroundTruthEmbedding) -> f32 {
-            ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd(
-                &self.embedding, &other.embedding
-            ) as f32
+            ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd(&self.embedding, &other.embedding)
+                as f32
         }
     }
 
@@ -101,7 +100,10 @@ pub mod calibration {
             GroundTruthSource::ExpertAssigned => {
                 // No embeddings available — return empty corpus
                 // Caller should use expert-assigned scores instead
-                CalibrationCorpus { model, pairs: vec![] }
+                CalibrationCorpus {
+                    model,
+                    pairs: vec![],
+                }
             }
             GroundTruthSource::Precomputed { file_path } => {
                 // Load pre-computed embeddings from file
@@ -113,7 +115,10 @@ pub mod calibration {
                 // TODO: wire candle forward pass here
                 eprintln!("WARNING: candle forward pass not yet wired. Returning empty corpus.");
                 eprintln!("  Use GroundTruthSource::Precomputed with pre-computed embeddings.");
-                CalibrationCorpus { model, pairs: vec![] }
+                CalibrationCorpus {
+                    model,
+                    pairs: vec![],
+                }
             }
         }
     }
@@ -128,11 +133,15 @@ pub mod calibration {
             Ok(c) => c,
             Err(e) => {
                 eprintln!("Failed to load precomputed embeddings: {}", e);
-                return CalibrationCorpus { model, pairs: vec![] };
+                return CalibrationCorpus {
+                    model,
+                    pairs: vec![],
+                };
             }
         };
 
-        let embeddings: Vec<Vec<f32>> = content.lines()
+        let embeddings: Vec<Vec<f32>> = content
+            .lines()
             .map(|line| {
                 line.split_whitespace()
                     .filter_map(|v| v.parse::<f32>().ok())
@@ -145,7 +154,9 @@ pub mod calibration {
         for (i, (a, b)) in pairs.iter().enumerate() {
             let idx_a = i * 2;
             let idx_b = i * 2 + 1;
-            if idx_b >= embeddings.len() { break; }
+            if idx_b >= embeddings.len() {
+                break;
+            }
 
             let emb_a = &embeddings[idx_a];
             let emb_b = &embeddings[idx_b];
@@ -154,7 +165,11 @@ pub mod calibration {
             let dot: f32 = emb_a.iter().zip(emb_b).map(|(x, y)| x * y).sum();
             let na: f32 = emb_a.iter().map(|x| x * x).sum::<f32>().sqrt();
             let nb: f32 = emb_b.iter().map(|x| x * x).sum::<f32>().sqrt();
-            let cosine = if na > 1e-10 && nb > 1e-10 { dot / (na * nb) } else { 0.0 };
+            let cosine = if na > 1e-10 && nb > 1e-10 {
+                dot / (na * nb)
+            } else {
+                0.0
+            };
 
             ground_truth_pairs.push(GroundTruthPair {
                 text_a: a.to_string(),
@@ -166,15 +181,15 @@ pub mod calibration {
             });
         }
 
-        CalibrationCorpus { model, pairs: ground_truth_pairs }
+        CalibrationCorpus {
+            model,
+            pairs: ground_truth_pairs,
+        }
     }
 
     /// Compare baked lens distances against ground truth cosines.
     /// Returns Spearman ρ.
-    pub fn spearman_vs_ground_truth(
-        baked_distances: &[f32],
-        corpus: &CalibrationCorpus,
-    ) -> f32 {
+    pub fn spearman_vs_ground_truth(baked_distances: &[f32], corpus: &CalibrationCorpus) -> f32 {
         let gt = corpus.cosines();
         if gt.len() != baked_distances.len() || gt.len() < 2 {
             return 0.0;
@@ -187,7 +202,9 @@ pub mod calibration {
 /// Spearman rank correlation between two f32 slices.
 pub fn spearman_rank_correlation(a: &[f32], b: &[f32]) -> f32 {
     let n = a.len().min(b.len());
-    if n < 2 { return 0.0; }
+    if n < 2 {
+        return 0.0;
+    }
     let rank_a = ranks(a);
     let rank_b = ranks(b);
     let mean_a = rank_a.iter().sum::<f32>() / n as f32;
@@ -203,12 +220,15 @@ pub fn spearman_rank_correlation(a: &[f32], b: &[f32]) -> f32 {
         den_b += db * db;
     }
     let den = (den_a * den_b).sqrt();
-    if den > 1e-10 { num / den } else { 0.0 }
+    if den > 1e-10 {
+        num / den
+    } else {
+        0.0
+    }
 }
 
 fn ranks(values: &[f32]) -> Vec<f32> {
-    let mut indexed: Vec<(usize, f32)> = values.iter().enumerate()
-        .map(|(i, &v)| (i, v)).collect();
+    let mut indexed: Vec<(usize, f32)> = values.iter().enumerate().map(|(i, &v)| (i, v)).collect();
     indexed.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
     let mut result = vec![0.0f32; values.len()];
     for (rank, &(orig_idx, _)) in indexed.iter().enumerate() {
@@ -226,7 +246,11 @@ mod tests {
         let a = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let b = vec![10.0, 20.0, 30.0, 40.0, 50.0];
         let rho = spearman_rank_correlation(&a, &b);
-        assert!((rho - 1.0).abs() < 1e-4, "perfect correlation should be ~1.0, got {}", rho);
+        assert!(
+            (rho - 1.0).abs() < 1e-4,
+            "perfect correlation should be ~1.0, got {}",
+            rho
+        );
     }
 
     #[test]
@@ -234,7 +258,11 @@ mod tests {
         let a = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let b = vec![50.0, 40.0, 30.0, 20.0, 10.0];
         let rho = spearman_rank_correlation(&a, &b);
-        assert!((rho - (-1.0)).abs() < 1e-4, "inverse should be ~-1.0, got {}", rho);
+        assert!(
+            (rho - (-1.0)).abs() < 1e-4,
+            "inverse should be ~-1.0, got {}",
+            rho
+        );
     }
 
     #[test]
@@ -253,12 +281,16 @@ mod tests {
         #[test]
         fn ground_truth_cosine_identical() {
             let a = GroundTruthEmbedding {
-                text: "hello".into(), model: ModelId::JinaV5,
-                embedding: vec![1.0, 0.0, 0.0], normalized: true,
+                text: "hello".into(),
+                model: ModelId::JinaV5,
+                embedding: vec![1.0, 0.0, 0.0],
+                normalized: true,
             };
             let b = GroundTruthEmbedding {
-                text: "hello".into(), model: ModelId::JinaV5,
-                embedding: vec![1.0, 0.0, 0.0], normalized: true,
+                text: "hello".into(),
+                model: ModelId::JinaV5,
+                embedding: vec![1.0, 0.0, 0.0],
+                normalized: true,
             };
             assert!((a.cosine(&b) - 1.0).abs() < 1e-6);
         }
@@ -267,7 +299,9 @@ mod tests {
         fn empty_corpus_from_expert() {
             let pairs = vec![("a", "b")];
             let corpus = build_corpus_from_pairs(
-                &pairs, ModelId::JinaV5, &GroundTruthSource::ExpertAssigned,
+                &pairs,
+                ModelId::JinaV5,
+                &GroundTruthSource::ExpertAssigned,
             );
             assert!(corpus.is_empty());
         }

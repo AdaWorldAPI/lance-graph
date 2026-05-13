@@ -109,11 +109,7 @@ impl RaBitQEncoding {
     /// 4. Sign-quantize → binary code
     /// 5. Compute dot_correction scalar
     /// 6. Assign palette index via nearest lookup
-    pub fn encode(
-        vector: &[f32],
-        rotation: &OrthogonalMatrix,
-        palette: &Palette,
-    ) -> Self {
+    pub fn encode(vector: &[f32], rotation: &OrthogonalMatrix, palette: &Palette) -> Self {
         let d = rotation.dim;
         assert!(vector.len() >= d);
 
@@ -151,10 +147,18 @@ impl RaBitQEncoding {
         // Step 6: palette assignment (use binary popcount profile as proxy)
         // For now, assign to entry 0 if palette is empty
         let palette_edge = if palette.is_empty() {
-            PaletteEdge { s_idx: 0, p_idx: 0, o_idx: 0 }
+            PaletteEdge {
+                s_idx: 0,
+                p_idx: 0,
+                o_idx: 0,
+            }
         } else {
             // Use first palette entry as default (full integration needs Base17 conversion)
-            PaletteEdge { s_idx: 0, p_idx: 0, o_idx: 0 }
+            PaletteEdge {
+                s_idx: 0,
+                p_idx: 0,
+                o_idx: 0,
+            }
         };
 
         RaBitQEncoding {
@@ -248,7 +252,10 @@ mod tests {
                 assert!(
                     (dot - expected).abs() < 1e-4,
                     "R×R^T[{},{}] = {}, expected {}",
-                    i, j, dot, expected
+                    i,
+                    j,
+                    dot,
+                    expected
                 );
             }
         }
@@ -301,7 +308,8 @@ mod tests {
         assert!(
             self_dist <= cross_dist,
             "self-distance {} should be ≤ cross-distance {}",
-            self_dist, cross_dist
+            self_dist,
+            cross_dist
         );
     }
 
@@ -317,7 +325,10 @@ mod tests {
         let enc2 = RaBitQEncoding::encode(&v2, &rot, &palette);
 
         let dist = enc1.distance_rabitq(&enc2);
-        assert!(dist > 0.0, "different vectors should have positive distance");
+        assert!(
+            dist > 0.0,
+            "different vectors should have positive distance"
+        );
     }
 
     #[test]
@@ -338,7 +349,14 @@ mod tests {
         };
 
         // With lfd == lfd_median, correction factor = 1.0
-        let dist = enc1.distance_corrected(&enc2, &DistanceMatrix { data: vec![0; 1], k: 1 }, &lfd);
+        let dist = enc1.distance_corrected(
+            &enc2,
+            &DistanceMatrix {
+                data: vec![0; 1],
+                k: 1,
+            },
+            &lfd,
+        );
         // Should be 0.0 since both palette indices are 0 and dm[0,0] = 0
         assert!(dist.abs() < 1e-6);
     }

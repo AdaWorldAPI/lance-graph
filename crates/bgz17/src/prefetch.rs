@@ -65,8 +65,12 @@ pub fn batch_palette_distance_prefetch(
 
         // Compute distance for current candidate
         let d = matrices.spo_distance(
-            query.s_idx, query.p_idx, query.o_idx,
-            candidates[i].s_idx, candidates[i].p_idx, candidates[i].o_idx,
+            query.s_idx,
+            query.p_idx,
+            query.o_idx,
+            candidates[i].s_idx,
+            candidates[i].p_idx,
+            candidates[i].o_idx,
         );
         results.push(d);
     }
@@ -93,7 +97,11 @@ fn prefetch_matrix_row(matrix: &DistanceMatrix, row: u8) {
         }
         #[cfg(target_arch = "aarch64")]
         unsafe {
-            std::arch::aarch64::_prefetch(ptr as *const i8, std::arch::aarch64::_PREFETCH_READ, std::arch::aarch64::_PREFETCH_LOCALITY3);
+            std::arch::aarch64::_prefetch(
+                ptr as *const i8,
+                std::arch::aarch64::_PREFETCH_READ,
+                std::arch::aarch64::_PREFETCH_LOCALITY3,
+            );
         }
         // On other architectures: no-op. The matrix is small enough that
         // hardware prefetch usually handles it anyway.
@@ -133,8 +141,12 @@ pub fn batch_palette_distance_lfd_corrected(
 
         // Raw palette distance (centroid rule)
         let d_raw = matrices.spo_distance(
-            query.s_idx, query.p_idx, query.o_idx,
-            candidates[i].s_idx, candidates[i].p_idx, candidates[i].o_idx,
+            query.s_idx,
+            query.p_idx,
+            query.o_idx,
+            candidates[i].s_idx,
+            candidates[i].p_idx,
+            candidates[i].o_idx,
         ) as f64;
 
         // LFD correction (generative decompression)
@@ -185,13 +197,16 @@ pub struct PrefetchStats {
 impl PrefetchStats {
     /// Prefetch coverage: fraction of lookups that were prefetched.
     pub fn coverage(&self) -> f64 {
-        if self.total_lookups == 0 { return 0.0; }
+        if self.total_lookups == 0 {
+            return 0.0;
+        }
         self.prefetched_lookups as f64 / self.total_lookups as f64
     }
 
     /// Layer termination distribution.
     pub fn layer_distribution(&self) -> (f64, f64, f64) {
-        let total = (self.layer_0_resolved + self.layer_1_resolved + self.layer_2_resolved).max(1) as f64;
+        let total =
+            (self.layer_0_resolved + self.layer_1_resolved + self.layer_2_resolved).max(1) as f64;
         (
             self.layer_0_resolved as f64 / total,
             self.layer_1_resolved as f64 / total,
@@ -253,8 +268,12 @@ pub fn prefetch_layered_search(
         let (idx, _) = candidates[ci];
         let pe = &palette_edges[idx];
         let d = matrices.spo_distance(
-            query_palette.s_idx, query_palette.p_idx, query_palette.o_idx,
-            pe.s_idx, pe.p_idx, pe.o_idx,
+            query_palette.s_idx,
+            query_palette.p_idx,
+            query_palette.o_idx,
+            pe.s_idx,
+            pe.p_idx,
+            pe.o_idx,
         );
 
         if d <= palette_threshold || refined.len() < k {
@@ -290,24 +309,36 @@ mod tests {
     use crate::base17::{Base17, SpoBase17};
     use crate::palette::Palette;
 
-    fn make_test_data(n: usize) -> (SpoDistanceMatrices, Vec<u8>, Vec<PaletteEdge>, Vec<SpoBase17>) {
-        let edges: Vec<SpoBase17> = (0..n).map(|i| {
-            let make_base = |seed: usize| {
-                let mut dims = [0i16; 17];
-                for d in 0..17 { dims[d] = ((seed * 97 + d * 31) % 512) as i16 - 256; }
-                Base17 { dims }
-            };
-            SpoBase17 {
-                subject: make_base(i * 3),
-                predicate: make_base(i * 3 + 1),
-                object: make_base(i * 3 + 2),
-            }
-        }).collect();
+    fn make_test_data(
+        n: usize,
+    ) -> (
+        SpoDistanceMatrices,
+        Vec<u8>,
+        Vec<PaletteEdge>,
+        Vec<SpoBase17>,
+    ) {
+        let edges: Vec<SpoBase17> = (0..n)
+            .map(|i| {
+                let make_base = |seed: usize| {
+                    let mut dims = [0i16; 17];
+                    for d in 0..17 {
+                        dims[d] = ((seed * 97 + d * 31) % 512) as i16 - 256;
+                    }
+                    Base17 { dims }
+                };
+                SpoBase17 {
+                    subject: make_base(i * 3),
+                    predicate: make_base(i * 3 + 1),
+                    object: make_base(i * 3 + 2),
+                }
+            })
+            .collect();
 
         let (s_pal, p_pal, o_pal) = Palette::build_spo(&edges, 32, 5);
         let matrices = SpoDistanceMatrices::build(&s_pal, &p_pal, &o_pal);
 
-        let palette_edges: Vec<PaletteEdge> = edges.iter()
+        let palette_edges: Vec<PaletteEdge> = edges
+            .iter()
             .map(|e| PaletteEdge {
                 s_idx: s_pal.nearest(&e.subject),
                 p_idx: p_pal.nearest(&e.predicate),
@@ -328,15 +359,26 @@ mod tests {
 
         // Compare prefetched vs non-prefetched
         let prefetched = batch_palette_distance_prefetch(&matrices, query, &palette_edges);
-        let direct: Vec<u32> = palette_edges.iter()
-            .map(|pe| matrices.spo_distance(
-                query.s_idx, query.p_idx, query.o_idx,
-                pe.s_idx, pe.p_idx, pe.o_idx))
+        let direct: Vec<u32> = palette_edges
+            .iter()
+            .map(|pe| {
+                matrices.spo_distance(
+                    query.s_idx,
+                    query.p_idx,
+                    query.o_idx,
+                    pe.s_idx,
+                    pe.p_idx,
+                    pe.o_idx,
+                )
+            })
             .collect();
 
         assert_eq!(prefetched, direct, "Prefetch must not change results");
         assert_eq!(prefetched[0], 0, "Self-distance must be 0");
-        println!("  Batch prefetch: {} edges, results identical ✓", palette_edges.len());
+        println!(
+            "  Batch prefetch: {} edges, results identical ✓",
+            palette_edges.len()
+        );
     }
 
     #[test]
@@ -346,8 +388,8 @@ mod tests {
 
         // Uniform LFD → no correction
         let lfds = vec![2.0; 100];
-        let corrected = batch_palette_distance_lfd_corrected(
-            &matrices, query, &palette_edges, &lfds, 2.0, 0.2);
+        let corrected =
+            batch_palette_distance_lfd_corrected(&matrices, query, &palette_edges, &lfds, 2.0, 0.2);
 
         let raw = batch_palette_distance_prefetch(&matrices, query, &palette_edges);
 
@@ -357,13 +399,24 @@ mod tests {
         // High LFD → distances should increase
         let high_lfds: Vec<f64> = (0..100).map(|i| 2.0 + i as f64 * 0.05).collect();
         let corrected_high = batch_palette_distance_lfd_corrected(
-            &matrices, query, &palette_edges, &high_lfds, 2.0, 0.2);
+            &matrices,
+            query,
+            &palette_edges,
+            &high_lfds,
+            2.0,
+            0.2,
+        );
 
         let mut increased = 0;
         for i in 1..100 {
-            if corrected_high[i] >= raw[i] { increased += 1; }
+            if corrected_high[i] >= raw[i] {
+                increased += 1;
+            }
         }
-        println!("  LFD correction: {}/99 distances increased with high LFD ✓", increased);
+        println!(
+            "  LFD correction: {}/99 distances increased with high LFD ✓",
+            increased
+        );
         assert!(increased > 50, "High LFD should increase most distances");
     }
 
@@ -382,9 +435,9 @@ mod tests {
             query_scent,
             query_palette,
             query_base,
-            10,     // k
-            4,      // scent_threshold
-            50000,  // palette_threshold
+            10,    // k
+            4,     // scent_threshold
+            50000, // palette_threshold
         );
 
         assert!(!results.is_empty());
@@ -397,7 +450,10 @@ mod tests {
         println!("    Layer 0 (scent prune):   {:>5.1}%", l0 * 100.0);
         println!("    Layer 1 (palette prune):  {:>5.1}%", l1 * 100.0);
         println!("    Layer 2 (base resolve):   {:>5.1}%", l2 * 100.0);
-        println!("    Prefetch coverage:        {:>5.1}%", stats.coverage() * 100.0);
+        println!(
+            "    Prefetch coverage:        {:>5.1}%",
+            stats.coverage() * 100.0
+        );
         println!("    Total lookups:            {}", stats.total_lookups);
         println!("    Results returned:         {}", results.len());
 
@@ -424,26 +480,44 @@ mod tests {
 
         // Prefetch layered search
         let (results, stats) = prefetch_layered_search(
-            &matrices, &scents, &palette_edges, &base_patterns,
-            scents[0], query_palette, query_base,
-            10, 6, 100000,
+            &matrices,
+            &scents,
+            &palette_edges,
+            &base_patterns,
+            scents[0],
+            query_palette,
+            query_base,
+            10,
+            6,
+            100000,
         );
         let top10_layered: Vec<usize> = results.iter().map(|&(i, _)| i).collect();
 
         // Count overlap
-        let overlap = top10_layered.iter()
+        let overlap = top10_layered
+            .iter()
             .filter(|i| top10_brute.contains(i))
             .count();
 
-        println!("  Ranking overlap (prefetch vs brute force): {}/10", overlap);
+        println!(
+            "  Ranking overlap (prefetch vs brute force): {}/10",
+            overlap
+        );
         println!("    Brute:   {:?}", top10_brute);
         println!("    Layered: {:?}", top10_layered);
-        println!("    Stats: {} total lookups, {:.1}% prefetch coverage",
-            stats.total_lookups, stats.coverage() * 100.0);
+        println!(
+            "    Stats: {} total lookups, {:.1}% prefetch coverage",
+            stats.total_lookups,
+            stats.coverage() * 100.0
+        );
 
         // Top-1 must always match (self-distance = 0)
         assert_eq!(results[0].0, 0);
         // At least 7/10 overlap is acceptable for palette compression
-        assert!(overlap >= 5, "Expected at least 5/10 overlap, got {}", overlap);
+        assert!(
+            overlap >= 5,
+            "Expected at least 5/10 overlap, got {}",
+            overlap
+        );
     }
 }
