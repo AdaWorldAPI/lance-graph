@@ -37,7 +37,7 @@
 
 ## #364 — D-SDR-3/4/5 + sprint-log-4 governance + sprint 5-9 roadmap + codex P1/P2 fixes (merged 2026-05-13)
 
-**Confidence (2026-05-13):** merged clean, all 5 CI checks green on `c8176cb`. Codex review threads auto-marked Outdated by GitHub after the surgical fixes shipped pre-merge. **Status:** Merged to `main`.
+**Confidence (2026-05-13):** merged clean, all 5 CI checks green on `c8176cb`. Codex review threads auto-marked Outdated by GitHub after the surgical fixes shipped pre-merge. **Status:** Merged to `main`. **Adjacent landings (2026-05-13):** MedCare-rs#112 (PR-B, UnifiedBridge<MedcareBridge> + medcare-rbac + medcare-realtime substrate, +2963 LOC across 17 files) and smb-office-rs#31 (PR-C, UnifiedBridge<OgitBridge> wiring, +111 LOC) both **merged** the same day, closing the sprint-5 cross-repo coordinated landing for D-SDR-5's `UnifiedBridge` surface. Substrate this PR shipped is now consumed end-to-end by both MedCare and smb-office.
 
 **Added:**
 - **D-SDR-3** (`2c3e87d`, ~300 LOC): `OgitFamilyTable` + `FamilyEntry` per-family codebook (inline label + schema + verbs per `super-domain-rbac-tenancy-v1.md §3.3`).
