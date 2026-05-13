@@ -87,6 +87,263 @@ Agents filter by `@`-mention or domain to see what's theirs.
 
 (Prepend new ideas here with today's date. Format:)
 
+## 2026-05-13 — CORRECTION-OF previous same-day splat row: split into two distinct ideas (arch + render)
+
+Earlier this session conflated EWA-Sandwich with a Gaussian-splat anatomical renderer. Per user 2026-05-13 follow-up + source confirmation: EWA-Sandwich is **Pillar 6** of the JC pillars framework — Σ push-forward `M·Σ·Mᵀ` for multi-hop edge propagation in the SPD cone. Already implemented at `crates/jc/src/ewa_sandwich.rs` (450 LOC) + `crates/lance-graph-contract/src/sigma_propagation.rs` (488 LOC) + `crates/jc/examples/osint_edge_traversal.rs` + `crates/jc/examples/splat_perturbationslernen.rs`. Not a new idea — an existing certified pillar. See EPIPHANIES 2026-05-13 CORRECTION-OF entry.
+
+## 2026-05-13 — EXECUTION PATH: prerendered cinematic stored as palette-indexed frames in LanceDB (16-color demoscene point is the sweet spot)
+
+Concrete delivery path for the sales-asset cinematic (sized 2026-05-13 per user):
+
+**Frame budget at 1280×720:**
+
+| Palette | bits/px | bytes/frame | 900 frames (30 s @ 30 fps) | 18,000 frames (300 s @ 60 fps) |
+|---|---|---|---|---|
+| 4-color | 2 | 230 KB | 207 MB | 4.1 GB |
+| 16-color | 4 | 460 KB | 415 MB | 8.3 GB |
+| 256-color | 8 | 921 KB | 829 MB | 16.5 GB |
+
+All four points fit Lance trivially. Columnar compression on palette indices (RLE-like) typically adds 3-5× shrink → 16-color 30s cinematic = **~80-150 MB after compression**.
+
+**Lance schema (sketch):**
+
+```rust
+// One row per frame; shared palette stored once in a separate small table
+struct FrameRow {
+    frame_id: u32,                  // monotone
+    timestamp_us: u64,              // playback time
+    indices: LargeBinary,           // 4-bit-packed nibble buffer, 1280×720×4/8 = 460KB
+    keyframe: bool,                 // true for cinematic chapter boundaries
+}
+
+struct PaletteRow {
+    palette_id: u8,                 // usually just 0 for "the cyan demo palette"
+    rgba: FixedSizeBinary,          // 16 × u32 = 64 bytes
+    name: Utf8,                     // "cyan-demoscene-v1"
+}
+```
+
+**Why Lance beats the alternatives for THIS use case:**
+
+| Alternative | Verdict | Reason |
+|---|---|---|
+| **LanceDB frame rows** | ✅ chosen | Already in stack; columnar streaming; versioning ("v2 of intro reel"); random-access seek for chapter buttons; time-travel queries; palette discipline IS the demoscene aesthetic; nibble-packed indices are AVX2-friendly (60 fps playback trivially decoded) |
+| **Rust game engine** (bevy/fyrox/ggez) | ❌ wrong tool | Live engines; re-derive what `ndarray::hpc::renderer` already does. Use for live interaction phase, NOT prerender storage. |
+| **Quarto** | ⚠️ wrong layer | Quarto is for the pitch deck AROUND the cinematic. Embed the rendered output; don't make Quarto the renderer. |
+| **Unity WebGL** | ⚠️ wrong dep | Adds non-Rust runtime + 20-100 MB WebGL bundle for the user. Justifiable only if interactive 3D, but live renderer + WebGPU already covers that. |
+
+**Why 16-color is the sweet spot:**
+1. 415 MB raw / ~80-150 MB compressed for 30 s @ 30 fps — small enough for a single release artifact (similar to bgz7 Qwen3.5 release pattern)
+2. 4-bit nibble-packed indices = `_mm256_unpack` decodes 64 pixels per AVX2 instruction → playback hot loop fits in `ndarray::simd` dispatch table for free
+3. Forced palette discipline → coherent cyan/teal/white glow → demoscene look comes from the constraint, not a separate art pass
+4. Shared palette across all frames: store ONE PaletteRow + N FrameRows → another 10× metadata compression
+5. Aesthetically authentic: Amiga AGA used 256 colors but the best demoscene WOW productions (Andromeda, Sanity, Spaceballs) milked 16/32-color palettes for maximum impact
+
+**4-color point** is too restrictive for body anatomy (skin gradients lose definition). **256-color point** is overkill — kills the demoscene constraint and bloats the artifact for no visual win.
+
+**Build pipeline:**
+1. Offline tool reads scripted camera trajectory + procedural T-pose entity positions (FMA SPO not required for cinematic; see prior REFRAME entry)
+2. Renders frames at higher quality (path tracing / accumulation / anti-aliasing) — slow but offline
+3. Color-quantize each frame to the curated 16-color cyan/teal palette via Floyd-Steinberg dithering
+4. Write to Lance with the schema above; one PaletteRow + N FrameRows
+5. Q2 cockpit playback hook: `cinematic_player.play("intro-v1")` → streams frame rows → decode nibbles → AVX2 unpack to RGBA → blit to canvas at 30/60 fps
+
+**Replaces / complements:**
+- Replaces the storage-format open question in the REFRAME entry (was: Arrow batches / MP4 / .splat / custom temporal-delta — now answered: Lance with palette-indexed schema)
+- Complements: still uses the live `ndarray::hpc::renderer` for the post-cinematic interaction phase; handoff contract unchanged
+- New open: temporal-delta codec on top of palette indices? Probably not worth complexity; raw frames compress fine via Lance's existing zstd/lz4
+
+## 2026-05-13 — REFRAME: holographic cinematic is a SALES asset (customer-conversation hook), not a product feature — owner = demo budget, NOT sprint-5
+
+User clarification 2026-05-13: the holographic projection + prerender cinematic exists to "get customers hooked" — it's conversion-funnel eye candy, not a maintained product capability. This re-prioritizes everything in the two entries below this one.
+
+| Dimension | Reframed value |
+|---|---|
+| Purpose | Open every customer demo with a 60-90 s cyan-glow anatomical fly-through that lands on the heart-click moment as the transition to live substrate |
+| Success metric | Minutes-shaved off "explain what we do" before the prospect leans forward; demo-to-second-meeting conversion rate |
+| Cost | ~500 LOC one-shot prerender tool + 1 week trajectory hand-curation + render-farm time |
+| Owner | Demo / marketing budget — NOT sprint-5 engineering scope |
+| Substrate dependency | **Zero in either direction.** The prerender is opaque pixels; it doesn't gate the D-SDR / Pillar-6 / FMA / UnifiedBridge work, and they don't gate it. |
+| Risk if wrong | Zero technical, low brand — one-shot, can be re-rendered with new trajectory |
+| Priority vs sprint-5 specs | **Lower.** Sprint-5 substrate work (W4 super-domain subcrates, W6 thinking-engine wire, W10 slot widen, W11 FMA spec, W8 audit sink) is the actual product. The cinematic is the wrapper. |
+
+**Build path when funded:** parallel track to sprint-5, owned by whoever runs customer demos. Shipping order:
+1. Hand-script the camera trajectory + layer-reveal beats (storyboard, ~half-day)
+2. Stand up the prerender tool against current `ndarray::hpc::renderer` even before FMA SPO is loaded — fake the entity positions with a procedural T-pose seeder; the cinematic doesn't need real anatomy data, just convincing visuals
+3. Render farm pass: 30-60 fps, 60-90 s, anti-aliased + bloom (~hours, depending on cluster)
+4. Bundle the resulting .mp4 / .splat-stream as a release artifact + embed in demo cockpit at session-start
+
+**What this kills from earlier in this file:** the elaborate handoff-contract, transition-clip library, and outro-share features below ARE STILL VALID for a v2 customer-facing product feature, but are NOT sprint-5 / sprint-6 work. They're a v1.x demo enhancement when sales asks for them.
+
+**The substrate work that matters in sprint-5 stands unchanged:** sprint-4 specs already cover the actual product surface. The cinematic just decorates it. Don't let the WOW seduce engineering hours away from the audit chain.
+
+## 2026-05-13 — RECONCILIATION: Amiga-demoscene prerender + live 60fps renderer compose as cutscene-plus-gameplay, NOT competing alternatives
+
+Today's prior thrashing wrongly framed prerender vs live as either/or. **Both are right, for different phases.** Classic AAA game pattern: prerendered cinematics for WOW + live engine for interaction. The FMA holographic demo gets the same split:
+
+| Phase | Substrate | Frames | Role |
+|---|---|---|---|
+| **Intro cinematic** | Prerendered frame stream (demoscene-grade) | 900-18000 (30-300s @ 30-60fps) | Camera fly-through full-body → cardiovascular → heart; layer reveals; system showcases. Hand-crafted, every frame perfect. Zero runtime compute. THIS IS THE WOW. |
+| **Hand-off** | Last prerender frame == first live frame | 1 | Alignment contract: prerender exit camera + entity positions match live `RenderFrame` initial state. |
+| **Live interaction** | `ndarray::hpc::renderer` 60fps double-buffer + Pillar 6 propagation | indefinite | User rotates, hovers, clicks. EWA-splat live render. Heart-click triggers Pillar 6 wave. |
+| **Transition cinematics** | Short prerendered clips | 60-300 (1-5s) | "Switch to nervous system" → peel-transition clip → hand back to live in new layer state. Library of ~20 precomputed clips. |
+| **Outro / share** | Capture live session to splat stream | variable | User clicks "share this view" → record N seconds of live render → publish. |
+
+**Build implications:**
+- Prerender pipeline: offline tool that runs the live renderer through scripted camera trajectories at higher per-frame compute (path tracing, accumulation, anti-aliasing) and dumps frames to a streamable format. ~500 LOC tool. Probably new crate `crates/fma-cinematic` or extension to a render binary.
+- Handoff contract: `RenderFrame::from_prerender_final_state(stream)` constructor that seeds positions/velocities/camera from the prerender's last frame metadata. ~100 LOC.
+- Transition clip library: 10-20 hand-curated clips for system switches, organ-zoom, ghost-mode toggle. Stored as `.splat-stream` files in a release artifact (similar to the bgz7 Qwen3.5 release pattern).
+- Storage format candidates: (a) raw Arrow batches of `RenderFrame` snapshots, (b) MP4 with custom video codec, (c) `.splat`/`.ply` 3DGS native, (d) custom temporal-delta codec exploiting the front/back buffer's small per-frame deltas.
+
+**Lesson learned:** when conjecturing an alternative substrate, ask "is this a different phase of the same UX, or actually a competing implementation?" The prerender vs live thrash today was a false dichotomy that wasted three correction cycles in EPIPHANIES. Cross-ref EPIPHANIES 2026-05-13 unification entry (one kernel, three Jacobians) — same lesson at the math layer.
+
+## 2026-05-13 — Sci-fi presentation vision: transparent holographic human-body projection for q2 (Tony Stark / Star Trek sickbay aesthetic) — emerges naturally from the unified Σ-push-forward kernel
+
+The sci-fi UX target for the FMA heart-click demo: a transparent, glowing, layered holographic projection of the human body the user can rotate, peel, and probe. **The technical substrate already produces this look** without a separate volumetric renderer — the unified Gaussian-splat + EWA-Sandwich kernel (see EPIPHANIES 2026-05-13 unification entry) gives every component for free:
+
+| Sci-fi property | Substrate that delivers it |
+|---|---|
+| Soft glow, semi-transparency | Per-node 3D Gaussian splat → EWA projection has built-in alpha falloff (no separate transparency shader) |
+| Volumetric / cloud-like body | Additive blending of 75K splats in frag shader (`ndarray::hpc::renderer` front-buffer → q2 WebGPU) |
+| Pulsing scan wave on heart-click | Pillar 6 Σ push-forward along anatomy edges; readout = per-node Σ-displacement; render as bloom intensity |
+| Peelable layers (skeletal / cardiovascular / nervous) | `SuperDomain::Healthcare` family slice filter on the SPO subset feeding the render frame |
+| Real-time rotation, 60fps | Already canonical (`cached_splat(DT_60)`, double-buffer atomic swap) |
+| Click-to-probe with audible feedback | UnifiedBridge<MedcareBridge> auth + audit chain (W11 spec) + thinking-engine intent classification (W6 spec) → q2 surfaces SPO neighbors + drug-knowledge crosswalk |
+| Cyan/teal Stark palette | q2 frontend concern (CSS / shader uniform); no backend impact |
+
+**What's actually new versus what's wiring:**
+- **NEW (small):** q2 frontend shader — additive Gaussian-splat fragment shader with bloom + cyan palette; ~200 LOC of WGSL/GLSL
+- **NEW (small):** FMA → RenderFrame seeder that picks initial 3D positions from anatomical "canonical pose" (one-shot offline job; head up, arms out, T-pose; ~300 LOC)
+- **NEW (tiny):** edge highlight protocol — when Pillar 6 propagates Σ outward from heart, the per-node Σ-displacement is written to a `highlight: Vec<f32>` SoA column in RenderFrame; shader reads it as bloom intensity
+- **WIRING ONLY:** ndarray::hpc::renderer (exists), Pillar 6 EWA-Sandwich (exists), UnifiedBridge auth (exists post D-SDR-5), MedcareBridge specialisation (W4 sprint-4 spec), thinking-engine intent (W6 sprint-4 spec), drug-knowledge crosswalk (MedCare-rs 2026-05-05 release)
+
+**Sprint-5 candidate PRs (in order):**
+1. FMA canonical-pose seeder → `RenderFrame` (lance-graph or new fma-render crate)
+2. `highlight: Vec<f32>` column addition to RenderFrame + Σ-displacement write-back from Pillar 6 (ndarray)
+3. q2 frontend Gaussian-splat shader (additive blending, bloom, cyan palette)
+4. Heart-click integration test: click → Cypher → SPO neighbors → Pillar 6 Σ propagation → highlight column update → next render frame shows pulse wave
+
+Open: (a) per-system layer toggle (skeletal/cardiovascular/etc) ergonomics in q2 cockpit; (b) audio cue layer — Web Audio API triggered on highlight peak? (c) hover-vs-click semantics — hover preview should be free since renderer streams 60fps anyway.
+
+## 2026-05-13 — CORRECTION-OF the just-above 3DGS-prerender row: ndarray ALREADY ships the 60fps SIMD double-buffer renderer (`ndarray::hpc::renderer`) — no prerender needed for FMA heart-click
+
+Per user-supplied source pointer to `ndarray/src/hpc/renderer.rs:1` ("SIMD-accelerated double-buffer renderer for SPO graph visualization … hardware-acceleration mothership for q2 cockpit / Palantir Gotham / Neo4j-style visual rendering"). Front/back LazyLock<RwLock<RenderFrame>> swap via AtomicUsize, F32x16::mul_add force integration, `cached_splat(DT_60)` canonical-tick optimization, SoA layout (positions+velocities+charges+fingerprints). Sprint-5 FMA pickup: seed `RenderFrame` from FMA SPO triples (positions from layout algorithm; fingerprints from VSA encoding); run force-directed integration at 60fps; q2 reads `front` buffer via REST/SSE; heart-click = Cypher → SPO neighbor query → frame update. The Tier-3 prerender escape hatch is DEFERRED — only worth doing if 75K-entity live integration is measured to fail. See EPIPHANIES 2026-05-13 ndarray-renderer FINDING entry.
+
+## 2026-05-13 — Separate-and-orthogonal: 3D Gaussian-Splat prerender buffer as Tier-3 FMA render path for q2 (Amiga-demoscene escape hatch)
+
+Distinct from EWA-Sandwich (which is graph covariance math, see correction above). Prerender 900–18,000 camera-fly-through frames of the 75K-entity FMA anatomy as a 3DGS scene; stream from buffer to q2; heart-click = seek-in-buffer, not live 75K-entity render. SPO graph still drives click semantics + audit + drug-knowledge crosswalk; splat buffer is the visual layer only. Open: 3DGS vs surfels vs point-cloud; prerender job ownership (CI nightly vs one-shot); buffer format (.splat/.ply/Arrow temporal codec); crate home — probably new `crates/lance-graph-render-buffer/` rather than reusing `jc` since the math overlap is only the kernel name.
+
+## 2026-05-13 — Super-domain subcrate scaffolding cascade: finalize MedCare migration → smb-bridge retrofit → woa-rs extraction → hiro-rs / hubspot-rs new
+
+**Status:** Open
+**Priority:** P1 (sequenced after Pattern E+F+cognition cascade lands, which provides the manifest schema each subcrate registers under)
+**Scope:** crate:medcare-analytics crate:medcare-bridge crate:medcare-realtime crate:smb-bridge crate:woa-rs crate:hiro-rs crate:hubspot-rs D-SDR-8 D-SDR-9 D-SDR-21 D-SDR-22 domain:super-domain domain:consumer-scaffolding
+
+Captures the 2026-05-13 super-domain-as-subcrate finding. Per-`SuperDomain` enum variant gets its own specialised subcrate; Tier C (D-SDR-8/9) is not "consumer crate scaffolding" generically — it's specifically **super-domain subcrate scaffolding**.
+
+**Sequenced PRs:**
+
+**PR 1 — MedCare migration finalization (Healthcare super-domain proof case)** — touches `MedCare-rs/crates/medcare-analytics + medcare-bridge + medcare-realtime`.
+
+1. Push `medcare-analytics/src/unified_bridge_wiring.rs` (commit `31e999b`, currently local-only).
+2. Deprecate `medcare-analytics/src/column_mask_bridge.rs` in favour of `unified_bridge_wiring.rs` + `UnifiedBridge::with_audit_chain(SuperDomain::Healthcare, salt, JsonLinesAuditSink::healthcare())`.
+3. Decide: keep `medcare-bridge` as a separate crate (current) or fold its `MedcareBridge` mapper into a `medcare-analytics::bridge` submodule? **Recommended:** fold + re-export from `medcare-analytics::bridge`, keeping `medcare-bridge` as a `pub use medcare_analytics::bridge::*` re-export shim for downstream consumers during the migration window.
+4. Publish a single `medcare-rs::healthcare` re-export (`pub use medcare_analytics::bridge::*; pub use medcare_realtime::*` etc.) that downstream consumers import as one symbol.
+5. Add the `/modules/healthcare/manifest.yaml` entry (per Pattern E) declaring `(G=Healthcare, version=V1, entity_types=..., rbac_policy=medcare_policy, action_capabilities=..., stack_profile=hipaa, actor_type=HealthcareActor, thinking_styles=[Clinical, Diagnostic, Procedural])`. Build-script ingests it into the compile-time `MODULES` table.
+6. ~250 LOC + 2 deprecation comments + 1 manifest YAML + 4 integration tests.
+
+**PR 2 — smb-bridge retrofit (WorkOrderBilling super-domain)** — touches `smb-office-rs/crates/smb-bridge`.
+
+1. Push commit `342f601` (currently local-only).
+2. Same migration shape as PR 1 but smaller (smb-bridge is already a single-crate consumer). Replace `auth-rls` standalone path with `UnifiedBridge::with_audit_chain(SuperDomain::WorkOrderBilling, ...)`.
+3. Add `/modules/work-order-billing/manifest.yaml` entry.
+4. ~150 LOC + 1 manifest + 3 integration tests.
+
+**PR 3 — woa-rs extraction (existing WoaBridge → super-domain subcrate)** — moves `lance-graph-ontology::bridges::woa_bridge.rs` out into a new `/home/user/woa-rs` subcrate behind `MetaBridge` (post-D-SDR-19). Add `/modules/work-order-app/manifest.yaml`. ~200 LOC migration + 3 tests.
+
+**PR 4 — hiro-rs new subcrate (TicketTool/Hiro super-domain slot, D-SDR-8 refined)** — `HiroBridge::from_registry()` + absorbs OSLC-* with provenance lineage per §5. Manifest declares `super_domain=TicketTool`. Composes against Pattern E+F+cognition cascade. ~150 LOC + 1 manifest + 3 tests.
+
+**PR 5 — hubspot-rs new subcrate (TicketTool/HubSpot super-domain slot, D-SDR-9 refined)** — `HubspotBridge::from_registry()` + CRM vocabulary. Manifest declares `super_domain=TicketTool` (note: TicketTool basin holds multiple slot variants; D-SDR-7 OGIT TTL fork PR distinguishes Hiro vs HubSpot entity types). ~150 LOC + 1 manifest + 3 tests.
+
+**Sequencing rationale:** PR 1 (medcare) must finalize before PR 4/5 (new subcrates), otherwise hiro-rs / hubspot-rs scaffold against a half-migrated pattern and accumulate a second-order dedup row in the entropy ledger. PR 2/3 (smb-bridge + woa-rs) can interleave with PR 1 since they touch independent repos.
+
+**Dependency on Pattern E+F+cognition cascade:** each PR's manifest entry consumes the schema defined in D-MANIFEST-MODULES-4. The cascade ideally lands first; if scheduling forces overlap, the manifest files in this idea can be authored as drafts and the build-script rejects them with a clear error until D-MANIFEST-MODULES-4 lands.
+
+**Open sub-questions:**
+
+- For the Hiro / HubSpot slot distinction within `SuperDomain::TicketTool` — does the enum need to split (e.g. `TicketToolHiro` + `TicketToolHubspot` as separate variants) or is one variant sufficient with the slot disambiguating? Recommended: keep one variant; D-SDR-7 TTL fork-PR holds the entity-type-level distinction.
+- For the WorkOrderBilling / WoA / smb-bridge overlap — both smb-bridge and woa-rs declare `super_domain=WorkOrderBilling`. Is that the right factoring, or should WoA get its own `SuperDomain::WorkOrderApp` variant? Recommended: one super-domain (WorkOrderBilling), two consumer subcrates (smb + woa) that the manifest disambiguates via `actor_type`.
+- For MedCareV2 (C# overlay, per §18): does it consume `medcare-rs::healthcare` via Arrow Flight SQL (Phase 5+) or via HTTP+JSON (Tier H M2-M6)? Recommended: HTTP+JSON first (D-SDR-35..39), Flight SQL when Phase 5 starts.
+
+Cross-ref: `EPIPHANIES.md` 2026-05-13 super-domain subcrate finding; `EPIPHANIES.md` 2026-05-13 Pattern E+F+cognition cascade (this idea's prerequisite); `TECH_DEBT.md` TD-SUPER-DOMAIN-SUBCRATES-1 (today) + TD-SDR-CONSUMER-PUSH-1 (PR 1/2 are this row's payoff); spec `super-domain-rbac-tenancy-v1` §3.4 + §3.6 + §3.7 + §4 + §8 Tier C; `MedCare-rs/crates/medcare-analytics/src/unified_bridge_wiring.rs`; `smb-office-rs/crates/smb-bridge/src/unified_bridge_wiring.rs`.
+
+---
+
+## 2026-05-13 — Pattern E+F+cognition cascade: ship manifest + ractor supervisor + thinking-engine bridge together (3-PR sequence)
+
+**Status:** Open
+**Priority:** P0 (architectural — every later D-SDR ships against the wrong substrate until this lands)
+**Scope:** @callcenter-membrane @truth-architect crate:lance-graph-callcenter crate:thinking-engine D-MANIFEST-MODULES-4 D-RACTOR-SUPERVISOR-5 D-SDR-13 D-SDR-15 D-SDR-17 D-SDR-19 domain:cognition domain:topology domain:auth
+
+Captures the 2026-05-13 two-paths-converging finding (`EPIPHANIES.md`). The wire-thinking-engine idea below carried Path A only; Path B (ractor supervisor) is the other half. Ship them as a single cascade, in order:
+
+**PR 1 — D-MANIFEST-MODULES-4** (PostNuke `/modules/<name>/manifest.yaml` + build-script). Generates compile-time `MODULES: [ConsumerEntry; N]` static carrying `(G, version, entity_types, rbac_policy, action_capabilities, stack_profile, actor_type, thinking_styles)` per consumer. Zero edits to `lance-graph-contract` after this. ~250 LOC + build-script + 3 manifest entries (medcare, smb, woa) + 4 tests.
+
+**PR 2 — D-RACTOR-SUPERVISOR-5** (`crates/lance-graph-callcenter/src/supervisor.rs`, ~400 LOC). `CallcenterSupervisor` ractor consuming the compile-time `MODULES` table, spawning each active consumer on boot, routing typed messages to the right addr — all in ractor sync mode (I-2: tokio outbound only / sync ractor inbound). 8-arm handler mapped 1:1 from `cognitive-shader-driver/src/grpc.rs` (dispatch / ingest / qualia / styles / health / tensors / calibrate / probe). Per-consumer crash isolation + restart strategy. ~5 integration tests covering boot, dispatch, crash-restart, and the I-2 BBB seam.
+
+**PR 3 — `cognition_bridge`** (`crates/lance-graph-callcenter/src/cognition_bridge.rs`, ~300 LOC). Composes Path A (thinking-engine substrate) against Path B (the per-consumer actor address from PR 2). Exposes `RoleProjection::for_role`, `ActorPersona::from_jwt`, `AwarenessFrame::project` on the actor's handler boundary. `UnifiedBridge::authorize_*` extension `with_cognition(...)` builder makes the cognitive surface optional; audit events carry `awareness_root: u64` in addition to `merkle_root`. ~5 integration tests covering each authorize op × Allow/Deny/Escalate.
+
+**Net deliverable collapse:** D-MANIFEST-MODULES-4 + D-RACTOR-SUPERVISOR-5 + D-SDR-13 + D-SDR-15 + D-SDR-17 (originally 5× scaffolded clean-room ≈ ~830 LOC + 23 tests) → 3-PR cascade ≈ ~950 LOC + 14 tests **composed against thinking-engine** instead of duplicating it. Architectural payoff: `lance-graph-callcenter` becomes the telephony-switching supervisor its name has promised since day one, cognitive substrate has a runtime home, and adding a new consumer = drop a manifest + add a Cargo dep + ~30 LOC glue.
+
+**Sub-questions to resolve in PR 1's review:**
+
+- Does the manifest build-script live in `lance-graph-callcenter/build.rs` or a new `lance-graph-modules` crate? (Probably the latter to keep callcenter's compile graph clean.)
+- Does the `thinking_styles: Vec<ThinkingStyleId>` manifest field reference contract-canonical (36) styles or the planner's 12-ord projection? (Probably contract-canonical; `ord_to_thinking_style` driver.rs:677 handles the down-projection.)
+- For BBB enforcement: does the `actor_type` enum gate which ractor handler shape the consumer gets (compile-time-typed dispatch), or does the supervisor dispatch dynamically with a trait object? (Sketch suggests compile-time-typed; let's confirm.)
+- For Pattern F sync-mode invariant: how do we test the I-2 seam? Probably a compile-fail test asserting `tokio::spawn` cannot be called inside a handler body. `crates/lance-graph-callcenter/tests/zone_serialize_check.rs` is the prior-art template for compile-fail invariant tests.
+
+**Open follow-ups (out of cascade scope, queued for after merge):**
+
+- D-SDR-25 (DriftDetectionBridge) composes against `thinking-engine::ground_truth` + `cronbach` once PR 3 lands.
+- D-SDR-26 (determinism rules) composes against `thinking-engine::reencode_safety` (x256-proven byte-determinism).
+- D-PARITY-V2-3..12 (DTO ladder rest) composes against `thinking-engine::tensor_bridge` + `meaning_axes` + `superposition`.
+
+Cross-ref: `EPIPHANIES.md` 2026-05-13 two-paths-converging finding; `TECH_DEBT.md` TD-RACTOR-SUPERVISOR-5 + TD-MANIFEST-MODULES-4 + TD-THINKING-ENGINE-UNWIRED-1; `.claude/plans/compile-time-consumer-binding-v1.md` Pattern E+F design; `.claude/plans/anatomy-realtime-v1.md` W11 gate; `.claude/handovers/2026-05-13-0855-brainstorm-arc-synthesis.md` §6 priority-ordered next steps (this cascade promotes to Phase 0.5 — before D-SDR-13/15/17).
+
+---
+
+## 2026-05-13 — Wire `thinking-engine` into UnifiedBridge — collapse D-SDR-13/15/17 into one bridge module
+
+**Status:** Open
+**Priority:** P1 (highest leverage in the workspace per `EPIPHANIES.md` 2026-05-13 thinking-engine finding)
+**Scope:** @callcenter-membrane @truth-architect crate:thinking-engine crate:lance-graph-callcenter D-SDR-13 D-SDR-15 D-SDR-17 D-SDR-19 domain:auth domain:cognition
+
+The thinking-engine crate (48 modules, 16,211 LOC, 582 KB) is shipped and indexed in `CLAUDE.md § Thinking Engine` but consumed by zero callcenter-side code. The §16-§19 spec's outstanding D-SDR deliverables map cleanly onto its existing modules (see the table in the 2026-05-13 epiphany).
+
+**Proposed wiring (single PR ~300 LOC, ~3-5 integration tests):**
+
+1. **New module `lance-graph-callcenter::cognition_bridge`** — thin adapter exposing:
+   - `RoleProjection::for_role(actor_role: &str) -> Vsa16kF32` — wraps `thinking_engine::role_tables::*`
+   - `ActorPersona::from_jwt(claims: &JwtClaims) -> PersonaCard` — wraps `thinking_engine::persona::*`
+   - `AwarenessFrame::project(decision: &AccessDecision, persona: &PersonaCard) -> AwarenessDto` — wraps `thinking_engine::awareness_dto`
+2. **`UnifiedBridge::authorize_*` extension** — optional `with_cognition(cognition_bridge: Arc<CognitionBridge>)` builder. When set, the audit event carries an `awareness_root: u64` (FNV-1a of `AwarenessDto::canonical_bytes`) in addition to `merkle_root`. Backward-compatible: noop bridge stays default.
+3. **`Policy::evaluate` extension** — receives the `RoleProjection` fingerprint alongside `actor_role: &str`. Allows role permissions to be authored against canonical role fingerprints (cross-tenant role aliasing) without disturbing the existing canonical-name pathway. Policy evaluator uses cosine resonance against the codebook when string match misses.
+4. **Hard-lock matrix (D-SDR-17) implementation** — leverages `osint_bridge.rs` from thinking-engine for the OSINT-side projection that the Healthcare ↔ OSINT crypto barrier needs to recognise. Static partner table lives in `lance-graph-callcenter::super_domain::HARD_LOCK_PARTNERS`.
+5. **DP role (D-SDR-15)** — leverages `contrastive_learner.rs` + `cronbach.rs` from thinking-engine for the ε-bounded noise + k-anonymity floor primitives.
+
+**Net deliverable collapse:** D-SDR-13 + D-SDR-15 + D-SDR-17 (originally 3× ~80-150 LOC = ~310 LOC + 13 tests) → 1× cognition-bridge PR (~300 LOC + 5 tests) that composes the thinking-engine substrate. Net LOC savings ~10-15%, but the **architectural** gain is much larger: every downstream D-SDR (Tier F MetaBridge, Tier H LanceProbe endpoints) gets the cognitive surface for free instead of re-scaffolding it.
+
+**Open sub-questions:**
+- Does `thinking-engine::contract_bridge` already expose the right shape, or does it need a new trait fan-out?
+- Which of the 48 modules belong in the "Layer 2 role catalogue" per `I-VSA-IDENTITIES`, and which are "Layer 3 content stores" that should stay behind a YAML registry?
+- Does the `cognitive-shader-driver` runtime expect `thinking-engine` to live on the **internal SoA side** of the BBB? If yes, the CognitionBridge needs to mediate through the BBB seam, not call `thinking-engine` directly.
+
+Cross-ref: `EPIPHANIES.md` 2026-05-13 thinking-engine finding; `TECH_DEBT.md` TD-THINKING-ENGINE-UNWIRED-1; `.claude/handovers/2026-05-13-0855-brainstorm-arc-synthesis.md`; `CLAUDE.md § Thinking Engine`; `.claude/knowledge/lab-vs-canonical-surface.md`.
+
+---
+
+(Prepend new ideas here with today's date. Format:)
+
 ```
 ## YYYY-MM-DD — <short title>
 **Status:** Open

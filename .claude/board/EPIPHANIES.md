@@ -65,6 +65,675 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-05-13 — CORRECTION-OF sprint-4 framing: most worker specs partially duplicated existing `.claude/plans/` corpus — sprint-5 MUST grep `.claude/plans/*.md` before spawning any worker
+
+**Status:** FINDING (user surfaced prior plans 2026-05-13 evening)
+
+Sprint-4 spawned 12 workers to convert 11 TD rows into PR-ready specs. **Discovered post-hoc that most architectural specs duplicated existing plan-tier docs already on the branch.** The workers did not grep `.claude/plans/` before drafting.
+
+**Duplication audit:**
+
+| Sprint-4 worker spec | Prior plan that already covered it | Duplication |
+|---|---|---|
+| W1 `sprint-4-execution-plan.md` (24 KB) | `unified-ogit-architecture-v1.md` (30 KB, 15 patterns A-O, master) | High |
+| W4 `td-super-domain-subcrates.md` (21 KB) | `super-domain-rbac-tenancy-v1.md` (86 KB / 1387 lines, canonical PR #363 spec) + `foundry-roadmap-unified-smb-medcare-v1.md` | High |
+| W11 `fma-heart-click-smoke.md` (28 KB) | `anatomy-realtime-v1.md` (19 KB, the proof-of-vision plan) + `lance-graph-rdf-fma-snomed-v1.md` | High |
+| W6 `td-thinking-engine-wire.md` (21 KB) | `jc-pillars-runtime-wiring-v1.md` + ERRATUM | Medium (composition map added value) |
+| (today's splat thrash) | `tetrahedral-epiphany-splat-integration-v1.md` + `2026-05-06-splat-osint-ingestion-v1.md` (ACTIVE) + `jc-pillars-runtime-wiring-v1.md` | High |
+
+**What sprint-4 DID add (the real value):**
+- W3 API drift deprecation playbook — no prior plan covered this
+- W7 D-SDR PR release plan — captures concrete next-PR (PR-A on top of #363) with SHAs
+- W8 audit Lance/JSONL sink spec — prior plans mention LanceAuditSink as substrate but no implementation spec
+- W10 slot u8→u16 widen + bridge-err audit — surgical fixes; no prior plan
+- W12 cross-repo PR graph — sprint sequencing artifact
+- W9 family hydration — surgical fix; no prior plan
+
+**The lesson at THREE layers today:**
+1. **Math layer:** one kernel `Σ' = J·Σ·Jᵀ`, three Jacobians (camera projection / edge step / radial decay) — not three separate "splat" concepts
+2. **Substrate layer:** `ndarray::hpc::renderer` already exists with 60fps double-buffer + EWA-splat projection; no new render crate needed
+3. **Plan layer:** `.claude/plans/*.md` has 30+ plans already covering the architectural surface; worker subagents must grep before drafting
+
+**Sprint-5 mandatory read-order fix:**
+
+Before spawning ANY worker on a spec touching FMA / OGIT / super-domain / RBAC / splat / EWA / Pillar-N / cognitive shader / consumer crate / audit / thinking-engine:
+
+```
+1. ls .claude/plans/ | head -40        # see all 30+ plan files
+2. cat .claude/plans/unified-ogit-architecture-v1.md      # the 15-pattern master plan (A-O)
+3. cat .claude/plans/anatomy-realtime-v1.md               # the FMA proof-of-vision plan
+4. cat .claude/plans/super-domain-rbac-tenancy-v1.md      # the canonical RBAC/tenancy spec (1387 lines)
+5. cat .claude/plans/jc-pillars-runtime-wiring-v1.md      # the JC pillar stack (pillars 5/5+/5++/6/7)
+6. cat .claude/plans/foundry-roadmap-unified-smb-medcare-v1.md  # consumer crate roadmap
+7. cat .claude/plans/compile-time-consumer-binding-v1.md  # Pattern E (manifest modules) + F (ractor supervisor)
+8. cat .claude/plans/ogit-g-context-bundle-v1.md          # Tier-1 SPO-G slot + ContextBundle + GenericBridge
+9. cat .claude/plans/2026-05-06-splat-osint-ingestion-v1.md  # ACTIVE splat-OSINT plan
+10. cat .claude/plans/tetrahedral-epiphany-splat-integration-v1.md  # SPOW tetrahedral grid + splat integration
+11. cat .claude/plans/lance-graph-rdf-fma-snomed-v1.md    # FMA + SNOMED + RadLex named-graph ingest
+12. grep -l "<topic>" .claude/plans/    # find any topic-specific plans
+```
+
+Worker prompts must include: "Before drafting, read these specific plan files: [...]. Cite them or explain why your spec adds value beyond them."
+
+**Sprint-5 priority stack — REVISED against the real plan corpus:**
+
+The Tier 0-4 stack from earlier today still holds for TD coverage, BUT the deliverable framing changes:
+
+- **Tier 0** (PR follow-up, ~1 day) — UNCHANGED. PR-A composes the existing 3 commits on top of PR #363; SHAs already captured in W7's spec.
+- **Tier 1** (substrate, ~1 week) — W10 + W8 + W9 are still the right surgical fixes. **But** they need to be reframed as DELTA against `super-domain-rbac-tenancy-v1.md §13` (D-SDR-3..5 already named there). Each PR should cite §X of that plan.
+- **Tier 2** (composable wiring, ~2 weeks) — W4 and W6 should NOT use the sprint-4 specs as-is. Both must be rewritten as DELTA against existing plans:
+  - W4: against `super-domain-rbac-tenancy-v1.md §14` (meta-bridge extraction, woa retrofit, hubspot/hiro templates already named) + `foundry-roadmap-unified-smb-medcare-v1.md` (LF-3 critical path)
+  - W6: against `jc-pillars-runtime-wiring-v1.md` (the pillar wiring already plans the thinking-engine composition)
+- **Tier 3** (FMA convergence) — W11's spec should be REPLACED with citations to `anatomy-realtime-v1.md` (already the proof-of-vision plan) + `lance-graph-rdf-fma-snomed-v1.md` (already the FMA ingest plan). Sprint-4 W11 spec keeps its drug-knowledge crosswalk + two-tier-ingest patches as additions to those plans.
+- **Tier 4** (perf) — W5 unchanged; no prior plan duplication.
+
+**The honest meta-pattern:** I generated three classes of correction today (math/substrate/plan) for the same root cause — conjecturing before grepping. The fix is not "be more careful next time" — it's "the worker prompt template MUST include a mandatory read-order section pointing at `.claude/plans/`, and that section must be a hard precondition to spec writing." Update worker prompt templates for sprint-5.
+
+## 2026-05-13 — UNIFICATION: Gaussian-splat + EWA-Sandwich is ONE kernel (`Σ' = J·Σ·Jᵀ`) applied to THREE Jacobians across the workspace — render, graph propagation, perturbation field
+
+**Status:** FINDING (corrects the same-day three-meanings-of-splat entry that wrongly split them apart; user-corrected 2026-05-13)
+
+The previous entry framed "three meanings of splat" as three unrelated primitives that happen to share a name. **Wrong.** They are three applications of one mathematical kernel — the Σ push-forward of a Gaussian (mean + covariance ellipsoid) through an affine map:
+
+```
+Σ' = J · Σ · Jᵀ
+```
+
+Same math (Heckbert's EWA sandwich form). Three different Jacobians J. Three different deliverables, all unified by the kernel:
+
+| Application | Jacobian J | Σ semantics | Deliverable |
+|---|---|---|---|
+| **Render** | Camera projection (3D→2D image) | Per-node position+covariance (covariance derived from VSA fingerprint structure) | `ndarray::hpc::renderer` — 60fps SIMD double-buffer renderer for q2 cockpit / Palantir Gotham / Neo4j-style 3D graph visualization |
+| **Graph propagation** | Edge step (node→neighbor) | Node-state covariance Σ pushed forward along multi-hop paths | `crates/jc/src/ewa_sandwich.rs` (450 LOC) + `crates/lance-graph-contract/src/sigma_propagation.rs` (488 LOC) — Pillar 6 PSD-preservation cert (10000/10000 hops, CV tightness 1.467×, Köstenberger-Stark rate) |
+| **Perturbation field** | Spatial radial decay (query→neighborhood) | Query-as-Gaussian-deposit; Σ pushed outward through the spatial field | `crates/jc/examples/splat_perturbationslernen.rs` (445 LOC) — context-search-as-perturbation probe; rows crossing α-saturation are the "found context" |
+
+**Why this matters architecturally:**
+1. The renderer is NOT separate-and-orthogonal to EWA-Sandwich — it's the visualization tier of the same kernel. The per-node 3D Gaussian splat that `renderer.rs` projects to the q2 viewport is the same Gaussian whose covariance Σ propagates through Pillar 6 when you traverse an edge.
+2. The 75K-entity FMA heart-click demo gets ALL THREE for free from the same kernel:
+   - Render: 60fps live EWA-splat projection of FMA-anatomy Gaussians (no prerender needed)
+   - Click semantics: SPO neighbor query → Pillar 6 multi-hop Σ propagation along anatomy edges (heart → vessels → systemic circulation)
+   - Search by feel: heart-click as perturbation deposit; α-saturation readout finds "anatomically related context" without explicit MATCH-Cypher
+3. The "Amiga demoscene prerender" escape hatch I conjectured is wrong on two axes: (a) the live path already works because the substrate is SIMD-accelerated; (b) even if it failed at scale, the right escape is reducing the per-node Σ rank, not prerendering, because the kernel is the unification point.
+
+**ndarray + jc + lance-graph composition** (the three crates each own one Jacobian):
+- `ndarray::hpc::renderer` owns the camera-projection Jacobian + SIMD double-buffer
+- `crates/jc` owns the edge-step Jacobian + PSD certification
+- `lance-graph-contract::sigma_propagation` owns the type-level surface that both renderers and graph traversers depend on
+
+This is the same "compose, don't rebuild" pattern surfaced in W6 (thinking-engine wire-up): the workspace's substrate is denser than any single subagent's read window. Sprint-5 reconciliation pass must add `ndarray::hpc::renderer` + the JC pillar stack as MANDATORY READS for any spec touching FMA, q2 cockpit, multi-hop edge propagation, or covariance-based context search.
+
+Cross-ref: previous same-day splat-conjecture entry (`Gaussian-splat prerendered buffer`) — DEFERRED, since the live kernel composition already covers the use cases; W11 FMA spec needs a sprint-5 patch citing the unified kernel as its math basis; `.claude/plans/jc-pillars-runtime-wiring-v1.md` + ERRATUM define the full pillar stack (5/5+/5++/6/7) the renderer composes with.
+
+## 2026-05-13 — FINDING: `ndarray::hpc::renderer` is the canonical 60fps SIMD double-buffer renderer for q2 — the FMA heart-click 3D anatomy view already has its render substrate, no prerender needed
+
+**Status:** FINDING (confirmed in source — `/home/user/ndarray/src/hpc/renderer.rs`, 995 LOC)
+
+Earlier same-day conjectures (the "Amiga demoscene prerender" idea) assumed q2 needed a prerendered Gaussian-splat buffer because live rendering of 75K FMA entities would be too expensive. **Wrong premise:** ndarray already ships the renderer.
+
+The renderer architecture (from the doc-comment at `/home/user/ndarray/src/hpc/renderer.rs:1-44`):
+- **SIMD-accelerated double-buffer** for "SPO graph visualization … hardware-acceleration mothership for q2 cockpit / Palantir Gotham / Neo4j-style visual rendering"
+- Double-buffer pattern: `front: LazyLock<RwLock<RenderFrame>>` (readers via REST/SSE) ↔ `back: LazyLock<RwLock<RenderFrame>>` (shader cycle writes); atomic swap via `AtomicUsize`
+- Per-tier SIMD dispatch: AVX-512 / AVX2 / AMX / NEON / scalar — `F32x16::mul_add` for force integration on the hot path
+- 60fps canonical tick via `cached_splat(DT_60)` — `F32x16::splat(1.0/60.0)` cached via `LazyLock` so the integration loop avoids re-broadcasting dt
+- SoA frame: positions, velocities, charges, fingerprints (VSA_WORDS·N · u64) — 64-byte aligned, all capacities multiple of `PREFERRED_F32_LANES`
+
+The FMA heart-click flow becomes:
+1. FMA OWL → SPO triples in lance-graph (W11 spec)
+2. SPO → `RenderFrame` (positions seeded from entity layout, fingerprints from VSA encoding)
+3. ndarray::hpc::renderer integrates at 60fps (force-directed layout converges)
+4. q2 cockpit reads `front` buffer via REST/SSE
+5. Heart-click = q2 sends Cypher to lance-graph → UnifiedBridge auth → SPO neighbor query → render frame updates highlighted subgraph
+
+This kills three earlier same-day conjectures simultaneously:
+- "Need to prerender 900-18000 frames" — NO, live 60fps already works
+- "Need new `crates/lance-graph-render-buffer/`" — NO, the substrate is `ndarray::hpc::renderer`
+- "Gaussian-splat rendering as Tier-3 escape hatch" — DEFERRED; only worth doing if the 60fps live path is measured to fail on 75K entities (which it might, but measure first)
+
+**Three meanings of "splat" in this workspace** (NONE are 3DGS scene rendering — that's a fourth thing that doesn't exist here):
+1. `ndarray::simd::F32x16::splat(dt)` — SIMD scalar→vector broadcast (`_mm512_set1_ps`); `cached_splat` caches it for canonical 60/30/15 fps tick rates
+2. `crates/jc/src/ewa_sandwich.rs` — Pillar 6 Σ push-forward `M·Σ·Mᵀ` for multi-hop edge propagation (PSD-preservation cert)
+3. `crates/jc/examples/splat_perturbationslernen.rs` — perturbation-learning probe; uses EWA-Sandwich to splat a query INTO the spatial field, measures covariance displacement
+
+**Architectural lesson for sprint-5:** when the workspace already has a load-bearing substrate (ndarray's renderer, jc's pillars), the right move is "compose, don't rebuild" — same lesson as W6's thinking-engine wire-up spec applied to a different substrate. The FMA spec needs a patch citing `ndarray::hpc::renderer::RenderFrame` as the canonical render target; this kills its current vague "q2 3D anatomy render" handwave.
+
+Cross-ref: ndarray CLAUDE.md "ndarray = hardware (SIMD, Palette, Base17, …)" architecture rule; W11 FMA spec (needs Tier-3 section rewrite — splat-prerender is a deferred speculation, not a deliverable); IDEAS.md 2026-05-13 splat row (needs second correction).
+
+## 2026-05-13 — CORRECTION-OF earlier same-day splat-conjecture: EWA-Sandwich is Pillar 6 (Σ push-forward `M·Σ·Mᵀ` for multi-hop edge propagation), NOT a Gaussian-splat renderer
+
+**Status:** FINDING (confirmed in source — `crates/jc/src/ewa_sandwich.rs`, `crates/lance-graph-contract/src/sigma_propagation.rs`, plans `.claude/plans/jc-pillars-runtime-wiring-v1.md` + ERRATUM)
+
+Earlier today (entry below) I conjectured EWA-Sandwich was Heckbert's classical Elliptical Weighted Average splat filter applied to anatomical 3D rendering. **Wrong.** In this workspace EWA-Sandwich is the **mathematical backbone of multi-hop covariance propagation in graph edge paths**, certifying that arbitrary-depth traversal stays in the SPD cone.
+
+The math:
+```
+Σ_n = M_n · M_{n-1} · ... · M_1 · Σ_0 · M_1ᵀ · ... · M_{n-1}ᵀ · M_nᵀ
+```
+where `M_k = sqrt(Σ_k)` is the step-Jacobian of the k-th edge. Same kernel as Heckbert (`Σ' = J·Σ·Jᵀ`), different role.
+
+**Pillar 6 in the JC framework certifies two things simultaneously:**
+1. **PSD-preservation:** Σ_n stays SPD for all n (proven 10,000/10,000 hops in the probe)
+2. **Convergence rate:** `‖log(Σ_n) − E[log(Σ_n)]‖_F^2` concentrates at Köstenberger-Stark rate (CV tightness 1.467×) — meaning the path itself shapes propagation instead of every hop adding noise
+
+**Why this matters:**
+- Plain Gaussian convolution gives O(n) error growth — Σ_n's variance scales with path length, signal lost by depth >5
+- EWA-Sandwich gives **bounded** Σ_n with geometric error control iff M_k contractive
+- This makes multi-hop graph queries meaningful at any depth — the "can't-stop-thinking loop" has mathematical ground under it
+
+**Architectural composition (full pillar stack):**
+- Pillar 5 (Jirak 2016) — scalar Berry-Esseen under weak dependence
+- Pillar 5+ (Köstenberger-Stark) — Σ-tensor concentration
+- Pillar 5++ (DZ) — Hilbert-space extension
+- **Pillar 6 (EWA-Sandwich)** — multi-hop SPD propagation
+- Pillar 7 (α-saturation) — settling criterion for the "Perturbationslernen" probe (query as perturbation injected into the spatial field; EWA-Sandwich propagates Σ outward; rows crossing α-saturation are the found context)
+
+**Plus PR #288** (Σ-codebook viability probe, R² = 0.9949) ruled out the CausalEdge64 8→16 byte expansion that would have halved the HighHeelBGZ 240-edge container limit. The 256-entry codebook with 1-byte sidecar is sufficient.
+
+Cross-ref: `crates/jc/examples/osint_edge_traversal.rs` (canonical OSINT-route demo using Pillar 6), `crates/jc/examples/splat_perturbationslernen.rs` (the "splat" of the perturbation-learning probe — covariance-ellipsoid displacement, NOT 3D rendering), `IDEAS.md` 2026-05-13 splat entry (now corrected — split into two distinct ideas: the Pillar 6 architectural fact, and the separate-and-orthogonal q2-3D-render speculation).
+
+## 2026-05-13 — CONJECTURE: Gaussian-splat prerendered buffer is the Amiga-demoscene escape hatch for hydrating the 75K-entity FMA anatomy into q2's 3D view
+
+**Status:** CONJECTURE (not yet wired; no prior art found in lance-graph / ndarray / q2 grep for `gaussian|splat|prerender|demoscene|amiga`)
+
+The naive heart-click smoke test (W11 spec) hits a runtime wall: rendering 75K anatomical entities live in q2's WebGL/WebGPU context is not interactive-grade. The escape hatch is the Amiga demoscene tactic — **prerender once, replay cheaply**:
+
+- **Source:** FMA OWL → entity geometry (mesh or implicit) → 3DGS (3D Gaussian Splatting) scene as a single static splat cloud.
+- **Camera trajectory:** prerender 30–300 seconds × 30–60 fps = **900–18,000 frames** of camera fly-through covering all canonical viewpoints (whole-body, organ-system close-ups, heart, brain, skeleton).
+- **EWA-Sandwich filter:** Heckbert's Elliptical Weighted Average resampling filter as a three-pass sandwich (prefilter → splat-projection → postfilter) gives anti-aliased composition between layers. Used in modern 3DGS pipelines for the same reason demoscene used precomputed dithering tables: defer the math to author-time.
+- **Stream:** q2 graph-notebook subscribes to a splat-frame stream (Arrow Flight or WebSocket) and renders from the buffer. Heart-click = seek-to-heart-camera-position in the buffer, NOT live 75K-entity render.
+- **Hybrid:** SPO edge graph (lance-graph) still drives the click semantics + audit chain + drug-knowledge crosswalk; the splat buffer is JUST the visual rendering layer. The two-tier ingest (CSV-quick + OWL-full) gates which buffer is loadable.
+
+Cross-ref: FMA smoke test spec `.claude/specs/fma-heart-click-smoke.md`; the splat-buffer approach is an OPTIONAL acceleration tier (Tier-3 alongside Tier-1 CSV / Tier-2 OWL). Likely candidate crate locations: `crates/lance-graph-callcenter/render/` or new `crates/lance-graph-splat-buffer/`; uses `ndarray::simd` for splat projection (cross-flag W5).
+
+Open questions: (a) is 3DGS the right algorithm or do we want surfels / point-cloud variants? (b) where does the prerender job run — CI nightly, or one-shot offline tool? (c) buffer storage format — raw Arrow batches, MP4-like temporal codec, or splat-native (.splat / .ply)? (d) does EWA-Sandwich live in ndarray (SIMD-friendly) or in q2 (renderer-adjacent)?
+
+## 2026-05-13 — FINDING: FMA (75K-entity human anatomy OWL ontology) is the canonical smoke-test for the entire OGIT ↔ OSINT ↔ Palantir/Neo4j ↔ q2 route — dual-test for edge propagation AND Healthcare super-domain
+
+**Status:** FINDING (anchors the demo-able milestone for the whole integration arc)
+
+User instruction 2026-05-13: "remember the show-off to wire FMA 70K human anatomy as on-screen rendering — smoke test for both neo4j-ish edges propagation AND healthcare". This pins the **demo-able milestone** that the entire integration plan (D-SDR-* + Pattern E+F+cognition cascade + super-domain subcrate cascade + q2 wiring + EWA-Sandwich proof) is converging towards.
+
+**FMA (Foundational Model of Anatomy):**
+
+- **75,000 anatomical classes + 168 properties** (`anatomy-realtime-v1.md` §1).
+- OWL-formatted ontology — directly exercises our `OgitFamilyTable` codebook lookup at scale (way above the 256-slot-per-family cap, so it forces the OGIT addressing to demonstrate multi-basin coordination).
+- Public dataset (no HIPAA constraints on FMA itself; the **enforcement smoke-test** is wrapping it under `SuperDomain::Healthcare` to prove the auth pipeline works at scale).
+- Already targeted as `G=FMA_V1` ContextBundle in `anatomy-realtime-v1.md` PR-ANATOMY-1 (OWL hydrator for FMA).
+
+**Why FMA is the right smoke-test (dual purpose):**
+
+1. **Neo4j-ish edges propagation test** — 168 properties × 75K entities = the multi-hop graph traversal benchmark. The EWA-Sandwich Σ-push-forward (Pillar 6 PR #289, certified 10000/10000 PSD-preservation) replaces Neo4j-style edge traversal for "show everything connected to the heart" queries (`anatomy-realtime-v1.md` row 6 + 7). **If FMA's heart-connected substructure resolves correctly via EWA-Sandwich, the Neo4j substitute is operationally proven.**
+2. **Healthcare super-domain test** — wrap the FMA registry under `UnifiedBridge<MedcareBridge>::with_audit_chain(SuperDomain::Healthcare, salt, JsonLinesAuditSink::healthcare())`. Every FMA query emits a chained `UnifiedAuditEvent` carrying `merkle_root` + (after cognition-bridge lands) `awareness_root`. **If FMA queries under the Healthcare authorize-pipeline produce the right policy/audit/role-projection chain at scale, the medcare super-domain subcrate is operationally proven.**
+3. **Visual rendering test** — q2 cockpit-server renders FMA in 3D with anatomical labels overlaid + cross-section (`anatomy-realtime-v1.md` row 7 — "Realtime 3D render with FMA labels"). Tests `q2::notebook-render` + Pattern H (`p64-bridge::CognitiveShader` dispatches per-G program). **If the heart-click-to-rendered-anatomy round-trip works, Palantir-Gotham-parity visual surface is operationally proven.**
+
+**The smoke test as one continuous demo:**
+
+```
+User opens q2 notebook → writes Cypher cell:
+    MATCH (h:Heart)-[r*1..5]-(connected) RETURN h, r, connected
+
+q2::notebook-query (polyglot parser)
+    → lance-graph-planner Strategy #1 (CypherParse)
+    → UnifiedLogicalPlan with 5-hop * traversal
+    → UnifiedBridge<MedcareBridge>::authorize_read(canonical='Heart', PrefetchDepth::Multihop(5))
+       ├─ SuperDomain::Healthcare salt applied to AuditChain
+       ├─ Policy::evaluate("clinician", "Heart", Operation::Read{depth:Multihop(5)}) → Allow
+       ├─ UnifiedAuditEvent emitted with merkle_root + awareness_root
+       └─ EwaSandwichTraversal::propagate_5hop(heart_id, Sigma_FMA) → multi-hop Σ in 1 vector pass
+    → DataFusion ScanExec over Lance dataset with G=FMA_V1
+       ├─ batch-decorated with DolceMarker (Endurant for body parts, Quality for properties)
+       ├─ Path C (ndarray::simd::gather_u8) for per-row super-domain annotation
+       └─ thinking-engine projection per row (RoleProjection::for_role("clinician"))
+    → Arrow RecordBatch with ~thousands of heart-connected anatomical entities
+    → q2::notebook-render (3D anatomy view + labels + cross-section)
+    → User clicks "show everything connected to the heart"
+    → Real-time graph propagation visible on screen
+```
+
+**This demo touches ALL THREE substrate paths (Path A thinking-engine + Path B ractor + Path C ndarray::simd) AND all integration plan deliverables:**
+
+- D-SDR-1..5 (UnifiedBridge with audit emission) — every query carries the auth/audit pipeline
+- D-SDR-3b (TTL hydration baker) — FMA TTL → OgitFamilyTable populated
+- D-ONTO-V5-3 (Healthcare TTL transcode) — `OGIT/NTO/Healthcare/{entities,verbs}/*.ttl` includes FMA
+- D-ANATOMY-1..7 from `anatomy-realtime-v1.md` — the demo pipeline itself
+- D-SPLAT-1..7 from splat-osint-ingestion (EWA-Sandwich edge propagation)
+- D-PARITY-V2-* (DTO ladder for Foundry-parity visual)
+- Q2-1.1..Q2-1.7 + Q2-2.x (q2 bridge + Cypher console)
+- Pattern E manifest entry: `/modules/healthcare/manifest.yaml` declares FMA as part of Healthcare super-domain
+- Pattern F ractor: CallcenterSupervisor spawns HealthcareActor on boot
+- thinking-engine wiring: cognition_bridge projects clinician role through `role_tables`
+
+**Implication for the integration plan:**
+
+The FMA demo is the **integration gate** for Phase-C of `anatomy-realtime-v1.md` ("End of this phase = the system is demoable end-to-end"). Every deliverable in the active plans (`super-domain-rbac-tenancy-v1`, `palantir-parity-cascade-v2`, `splat-osint-ingestion-v1`, `lance-graph-ontology-v5`, `anatomy-realtime-v1`, `compile-time-consumer-binding-v1`, `ogit-cascade-supabase-callcenter-v1`) converges towards this demo. **A working FMA-heart-click demo is the proof that the integration plan stands up under real-world workload.**
+
+**Sequencing the FMA smoke-test as the convergence anchor:**
+
+1. **Phase 0** (current sprint, this week): follow-up PR for D-SDR-3..5 + consumer-side push of medcare-rs `unified_bridge_wiring`.
+2. **Phase 0.5** (next 1-2 sprints): Pattern E+F+cognition cascade (manifest + ractor + cognition-bridge) — establishes the runtime topology FMA queries will route through.
+3. **Phase 1** (next 1-2 sprints, parallel with 0.5): D-ONTO-V5-3 (Healthcare TTL transcode) + D-SDR-3b (TTL hydration baker) → `OgitFamilyTable` populated from FMA TTL.
+4. **Phase 2** (after 0.5+1): PR-ANATOMY-1 OWL hydrator + PR-ANATOMY-2 ContextBundle lookup + PR-ANATOMY-3 (`anatomy-realtime-v1.md` Phase B Hydrators).
+5. **Phase 3** (after 2, parallel with Tier H LanceProbe wiring): D-SPLAT-1..7 (EWA-Sandwich contract types + `osint_edge_traversal.rs` demo refactored as `fma_edge_traversal.rs`).
+6. **Phase 4** (after 3): PR-ANATOMY-4 (Q2 3D view) + PR-ANATOMY-5 (medical vocab) + Q2-2.x Cypher console wiring. **End of Phase 4 = demoable FMA smoke-test.**
+
+**The ball that mustn't drop:** without an explicit smoke-test anchor, the integration plan is a list of deliverables without a definition of "done at integration scope". The FMA demo provides that definition. Every PR review can ask "does this move us closer to the heart-click demo?" — if yes, ship; if no, re-scope. This entry pins the anchor so future sessions don't lose sight of it.
+
+Cross-ref: `.claude/plans/anatomy-realtime-v1.md` (the full Phase A-D plan with FMA as Pattern A target); `.claude/plans/lance-graph-ontology-v5.md` D-ONTO-V5-3 (Healthcare TTL transcode includes FMA); `.claude/plans/2026-05-06-splat-osint-ingestion-v1.md` D-SPLAT-1..7 (EWA-Sandwich primitives); `.claude/plans/q2-foundry-integration-v1.md` Q2-1.1..Q2-1.7 (q2 cockpit + Cypher console); `EPIPHANIES.md` 2026-05-13 OGIT-OSINT-Palantir/Neo4j-q2 route (this entry anchors that route's smoke-test); `IDEAS.md` 2026-05-13 super-domain subcrate scaffolding cascade (medcare PR 1 is the Healthcare path FMA rides on); `TECH_DEBT.md` TD-Q2-STUBS-DEDUP-1 (q2's lance-graph + ndarray stubs need to be re-exports for the demo to compile against canonical crates).
+
+## 2026-05-13 — FINDING: the OGIT ↔ OSINT ↔ Palantir Gotham / Neo4j route runs through q2 — q2 is the external graph-notebook consumer (Tier C super-domain subcrate equivalent)
+
+**Status:** FINDING (closes a Q2-shaped hole left open across multiple plans)
+
+User instruction 2026-05-13: "add q2 to MCP scope, access via pygithub, wire the OGIT ↔ OSINT ↔ Palantir Gotham / Neo4j route". q2 is already in the MCP scope per the session prompt (`adaworldapi/q2`); access verified via `mcp__github__get_file_contents` on `README.md`. The discovery: **q2 IS the external graph-notebook consumer for the entire integration plan** — what hubspot-rs / hiro-rs / woa-rs are to Tier C, q2 is for the visual + interactive + polyglot-query slot.
+
+**q2's relevant inventory (from its README + workspace):**
+
+| q2 component | What it provides | Maps onto OGIT ↔ OSINT ↔ Palantir/Neo4j route |
+|---|---|---|
+| `crates/stubs/notebook-query` | Cypher / Gremlin / SPARQL polyglot query execution (stub — to be replaced with full impl) | The **external query surface** that lowers polyglot graph queries onto our DataFusion plan via `lance-graph-planner` 16 strategies |
+| `crates/stubs/lance-graph` (q2's local stub) | Graph storage with vertex/edge CRUD (stub) | Should re-export `AdaWorldAPI/lance-graph` instead of carrying its own stub — current stub is what they put together as a placeholder |
+| `crates/stubs/notebook-runtime` | Reactive cell DAG with dependency tracking | The **execution surface** that runs polyglot cells against the OGIT spine and reacts to graph changes (Supabase realtime path per `ogit-cascade-supabase-callcenter-v1`) |
+| `crates/stubs/notebook-render` | HTML rendering for graphs / tables / charts | The **visual surface** that renders Palantir-Gotham-equivalent graph views (per `palantir-parity-cascade-v2` § Q2-2.x) |
+| `crates/stubs/q2-ndarray` | SIMD array operations stub | Should re-export `AdaWorldAPI/ndarray` instead — same dedup logic as the lance-graph stub |
+| `crates/cockpit-server` | Q2 cockpit UI server | The **operator surface** for Foundry/Gotham parity (Q2 cockpit was always the Foundry-parity target per `palantir-parity-cascade-v2` Foundry-status table: IN PROGRESS) |
+| `crates/aiwar-ingest` | AI War cloud dataset pipeline | The **data ingest** surface that exercises the OSINT super-domain — the `aiwar` repo is the external dataset; `neo4j-rs` is the backend; aiwar-ingest is the q2-side ingest |
+| Related repo `neo4j-rs` (`AdaWorldAPI/neo4j-rs`) | Graph database backend | The **substrate** that the EWA-Sandwich proof (Pillar 6 PR #289) substitutes for via splat-osint-ingestion-v1 |
+| Related repo `aiwar-neo4j-harvest` | Graph data pipeline | The migration source for legacy Neo4j data → Lance |
+| Related repo `aiwar` | AI War Cloud dataset | The reference OSINT-shape dataset |
+
+**The full route, end-to-end:**
+
+```
+External user opens q2 notebook
+    │ writes Cypher / Gremlin / SPARQL cell
+    ▼
+q2::notebook-query (polyglot parser)
+    │ via lance-graph-planner Strategy #1-4 (CypherParse / GqlParse / GremlinParse / SparqlParse)
+    ▼
+lance-graph-planner Unified Logical Plan (ArenaIR + DPJoinEnum + ...)
+    │ applies PolicyRewriter chain (RowFilter + ColumnMask + RowEncryption + DP + Audit)
+    │ via UnifiedBridge<Q2Bridge>::authorize_read (super_domain = TBD — likely Osint for aiwar-shape data, TicketTool for cockpit-server)
+    ▼
+DataFusion ScanExec over Lance datasets
+    │ per-row identity = TenantId u32 + OwlIdentity u16 (6 bytes)
+    │ batch-decorated with DolceMarker / Foundry ObjectType via Path C (ndarray::simd gather)
+    │ thinking-engine projection (Path A) carries awareness frame alongside merkle audit
+    │ ractor supervisor (Path B) routes per-actor per-super-domain crash isolation
+    ▼
+Arrow RecordBatch result → q2::notebook-render
+    │ visualises as graph (Palantir-Gotham-equivalent) / table / chart
+    │ reactive cell DAG (notebook-runtime) listens for Supabase realtime cognitive_event updates
+    ▼
+External user sees Foundry/Gotham-parity surface backed by the OGIT super-domain stack
+```
+
+**Where the route is already partly wired:**
+
+- `palantir-parity-cascade-v2.md` table cites: "Cypher / Workshop console → Q2 Cypher Console (polyglot) → Q2-2.x (QUEUED)". The console design exists; Q2-2.x is queued behind the Foundry parity capstone.
+- `q2-foundry-integration-v1.md` Q2-1.1..Q2-1.7 (referenced in `lance-graph-ontology-v5.md` D-ONTO-V5-5) defines q2's foundry-shape entities (Quarto / Neo4j / Gotham equivalents) that get a TTL transcode under `OGIT/NTO/Q2/`.
+- `lance-graph-ontology-v5.md` D-ONTO-V5-5 ships `OGIT/NTO/Q2/{entities,verbs}/*.ttl` + `crates/lance-graph-ontology/src/bridges/q2_bridge.rs` (NEW, ~45 LOC mirroring `medcare_bridge.rs`). q2 binary holds an `Arc<OntologyRegistry>` and resolves `Workshop`, `Vertex`, `Doctemplate` via the `Q2Bridge`.
+- `2026-05-06-splat-osint-ingestion-v1.md` ships the `crates/jc/examples/osint_edge_traversal.rs` demo proving EWA-Sandwich Σ-push-forward as the Neo4j-edge-traversal substitute — Pillar 6 PR #289 certified the math.
+
+**Where the route has gaps:**
+
+1. **q2's local `lance-graph` stub is a duplicate.** It should `pub use lance_graph::*` from `AdaWorldAPI/lance-graph` (this repo) instead of carrying its own placeholder. Closing this dedup needs a q2-side PR that adds `lance-graph = { path = "../../../lance-graph" }` to q2's workspace + replaces the stub with re-exports.
+2. **q2's local `q2-ndarray` stub is a duplicate.** Same logic — should `pub use ndarray::*` from `AdaWorldAPI/ndarray`.
+3. **`notebook-query` polyglot dispatcher is unwired.** Today it's a stub; the wiring point is `lance-graph-planner::api::PolyglotDetector` (Strategy #1-4 fan-out). One PR adds the bridge.
+4. **Q2Bridge (D-ONTO-V5-5) needs the TTL+bridge work.** Currently queued; ~45 LOC + a ~10-entity TTL transcode under `OGIT/NTO/Q2/`. Blocked on `AdaWorldAPI/OGIT` MCP scope expansion (same blocker as D-SDR-6/7 for hiro/hubspot).
+5. **OSINT super-domain wiring.** The thinking-engine ships `osint_bridge.rs`; the q2 `aiwar-ingest` consumes OSINT-shape data. Wiring point: `UnifiedBridge<AiwarBridge>::with_audit_chain(SuperDomain::Osint, ...)`. Needs the manifest-driven boot (Pattern E) + ractor handler (Pattern F) — the Pattern E+F+cognition cascade unblocks this.
+6. **Palantir Gotham parity at the visual surface.** `palantir-parity-cascade-v2` D-PARITY-V2-3..12 ship the DTO ladder; Q2-2.x ships the cockpit visualisation. Without these, the Cypher console renders generic graphs, not Foundry-parity Workshop views.
+7. **Neo4j route via EWA-Sandwich.** Math is certified (Pillar 6 PR #289); splat-osint-ingestion-v1 D-SPLAT-1..7 ships the contract types + demo example. Wiring point: q2 cells that traverse multi-hop edges call into `osint_edge_traversal.rs`'s `EwaSandwichTraversal` rather than directly issuing 5-hop Cypher against neo4j-rs. **This is the migration of the aiwar workload off neo4j-rs onto lance-graph.**
+
+**Implication for the integration plan:**
+
+q2 is the **8th consumer subcrate slot** alongside the 5 super-domain subcrates (medcare-rs / smb-office-rs / woa-rs / hiro-rs / hubspot-rs) + 2 super-domain root crates (osint substrate via thinking-engine::osint_bridge / aiwar-ingest). The Tier C scope grows from 5 to 8:
+
+| # | Super-domain | Consumer subcrate | Existing repo / planned | Activation root | Compliance |
+|---|---|---|---|---|---|
+| 1 | Healthcare | medcare-rs::healthcare | exists, mid-migration | HIPAA |  |
+| 2 | WorkOrderBilling (SMB) | smb-office-rs::smb-bridge | exists, mid-migration | SOX/PCI-DSS |  |
+| 3 | WorkOrderBilling (WoA) | woa-rs (planned extraction) | woa_bridge.rs in lance-graph-ontology today | SOX |  |
+| 4 | TicketTool (Hiro) | hiro-rs (new) | D-SDR-8 | (TBD) |  |
+| 5 | TicketTool (HubSpot) | hubspot-rs (new) | D-SDR-9 | PCI-DSS billing |  |
+| 6 | **Osint** | **aiwar-ingest (in q2 workspace)** | `AdaWorldAPI/q2/crates/aiwar-ingest` exists | OSINT clearance |  |
+| 7 | **(cross-cutting visual)** | **q2::cockpit-server + notebook-* crates** | `AdaWorldAPI/q2/crates/cockpit-server + crates/stubs/*` | (cross-cutting — visual is per-super-domain) |  |
+| 8 | (related research) | `neo4j-rs` + `aiwar-neo4j-harvest` + `aiwar` | external Adapt repos | OSINT clearance |  |
+
+**The ball that mustn't drop:** q2 was being treated as one of many "external tools that consume lance-graph" — but with this finding it's clear q2 is a **core consumer subcrate** that ships the cockpit visual surface AND the OSINT ingest pipeline AND the polyglot query notebook. Plus its own stubs need to be replaced with re-exports from the canonical crates. Without this entry, the next session would scaffold q2 wiring as a generic external integration and miss the super-domain subcrate framing.
+
+Cross-ref: `q2/README.md` (the inventory); `q2/crates/aiwar-ingest`, `q2/crates/cockpit-server`, `q2/crates/stubs/notebook-*`; `q2-foundry-integration-v1.md` Q2-1.1..Q2-1.7; `lance-graph-ontology-v5.md` D-ONTO-V5-5; `palantir-parity-cascade-v2.md` Q2-2.x; `2026-05-06-splat-osint-ingestion-v1.md` D-SPLAT-1..7; `EPIPHANIES.md` 2026-05-13 super-domain subcrate finding (this extends the 5-subcrate table to 8 slots); `IDEAS.md` 2026-05-13 super-domain subcrate scaffolding cascade (q2 slot adds PR 6+7+8 to the cascade); `TECH_DEBT.md` TD-Q2-STUBS-DEDUP-1 (today).
+
+## 2026-05-13 — CLARIFICATION: the OGIT hierarchy is NOT strictly nested — SuperDomain × OGIT-basin × OWL-leaf × DOLCE-leaf are partially orthogonal axes
+
+**Status:** FINDING (clarifies spec §1-§2 "4-level hierarchy" framing)
+
+The `super-domain-rbac-tenancy-v1` §1-§2 framing presents a **4-level hierarchy** (MetaAnchors → SuperDomain → OgitBasin → WithinBasinSlot). User correction 2026-05-13: that framing is partially misleading because OWL slot and DOLCE marker are **orthogonal axes**, not strictly nested sub-trees.
+
+**The actual axis structure:**
+
+| Axis | Cardinality | What it carries | Nesting relation |
+|---|---|---|---|
+| **SuperDomain** | 8 starter values, 256 cap (1 byte) | Activation root + compliance regime + role matrix + hard-lock partners + audit chain salt | Coarse partition; each SuperDomain claims a subset of OGIT basins (`FAMILY_TO_SUPER_DOMAIN: [SuperDomain; 256]` reverse lookup) |
+| **OGIT basin** | 256 (1 byte, `OgitFamily`) | Family-level ontology pointer (Healthcare, Order, Patient, ...) | Many-to-one assignment to SuperDomain; per-family codebook (`OgitFamilyTable`) lives at this level |
+| **OWL leaf** | 256 within each basin (1 byte slot, high byte of `OwlIdentity`) | Within-basin entity identity (`OwlIdentity = (family, slot)` packed u16). **ORTHOGONAL** to other basins' slots — slot 7 in Healthcare and slot 7 in Order are unrelated identities, NOT a shared concept | Per-basin leaf; the "orthogonality" is operational (different family ⇒ different codebook ⇒ different lookup table) |
+| **DOLCE marker** | 4 starter variants (Endurant / Perdurant / Quality / Abstract, `DolceMarker(u8)`) | Upper-ontology classification cross-cutting OGIT — a Healthcare:Patient and an Order:LineItem might both be `Endurant`, while Healthcare:Procedure and Order:Refund are both `Perdurant` | **SEPARATE ORTHOGONAL AXIS** — not a sub-tree of OGIT; lives in `MetaAnchors` per `SuperDomainEntry` and per `FamilyEntry`. Used for upper-ontology reasoning that cross-cuts basin boundaries |
+| Wikidata QID / Foundry ObjectType / OWL upper class | (open) | Cross-walks to external upper ontologies | Same orthogonal status as DOLCE — `MetaAnchors` is a multi-axis cross-walk record, not a strictly nested hierarchy |
+
+**Why the orthogonality matters:**
+
+1. **OWL slot orthogonality is the address-space hygiene rule.** Slot `n` in basin A and slot `n` in basin B are distinct identities; the `OgitFamilyTable::lookup(owl)` debug-asserts on family match for exactly this reason. Aliasing slots across basins (e.g., "slot 7 means 'top-priority' everywhere") is the bug that destroys the addressing model.
+
+2. **DOLCE-axis orthogonality is what enables cross-domain upper-ontology reasoning.** A DataFusion query like "find all `Endurant` rows across Healthcare AND WorkOrderBilling tenants" works because `DolceMarker` is a column dimension orthogonal to OGIT basin. If DOLCE were nested under OGIT, this would require 256 separate scans + a union; orthogonal makes it one masked-predicate scan.
+
+3. **MetaAnchors is multi-axis, not single-tree.** §3.5's `MetaAnchors { foundry_object_type, owl_upper_class, dolce_marker, wikidata_qid }` is four orthogonal cross-walks per `FamilyEntry`. The "4-level hierarchy" framing collapses them visually but the data is a flat record of independent classifications.
+
+**Implication for the address layout in §3:**
+
+The 6-byte per-row identity (`TenantId u32 + OwlIdentity u16`) addresses one axis (OWL = family × slot). The DOLCE marker + Foundry ObjectType + Wikidata QID are **column-side metadata** carried per-row by joining against the per-family codebook (`OgitFamilyTable::lookup(owl).meta_anchors`). They are NOT part of per-row identity; they are batch-decorable annotations that DataFusion ScanExec can produce in one gather pass (Path C / `ndarray::simd::gather_u8`).
+
+**Implication for query masked-predicate composition (§3.10):**
+
+The single masked-predicate that enforces tenant + super-domain + role + slot in one vector pass (§3.10) operates on `TenantId u32 + OwlIdentity u16`. **DOLCE / Wikidata / Foundry filters are a separate masked-predicate** that joins against the family table's `MetaAnchors` column — cheap because `MetaAnchors` is inline (D-SDR-3 inline codebook, one cache line per slot) but architecturally distinct from the identity-axis predicate.
+
+**Implication for `SuperDomain` cap (256 vs 8 starters):**
+
+The 1-byte `SuperDomain` field has 256-value capacity but only 8 starters today. The remaining 248 are reserved for future super-domain partitions that **may need their own activation roots** without disturbing the OGIT basin assignment. Example: splitting `Science` into `LifeScience` and `PhysicalScience` doesn't require renumbering OGIT basins; it just claims another `SuperDomain` slot and updates `FAMILY_TO_SUPER_DOMAIN` for the relevant basins.
+
+**The ball that mustn't drop:** future sessions reading the §1-§2 "4-level hierarchy" framing without this clarification will conflate strict nesting with orthogonality, which leads to bad query plans (sequential scans instead of orthogonal masked-predicates) and bad address-layout decisions (collapsing DOLCE into OGIT). This entry pins the axis-structure intuition.
+
+Cross-ref: spec `super-domain-rbac-tenancy-v1` §1-§2 (hierarchy framing this clarifies), §3.1-§3.5 (DTOs), §3.10 (DataFusion lowering); `crates/lance-graph-callcenter/src/super_domain.rs` (`MetaAnchors` + `DolceMarker` + `SuperDomainEntry`); `crates/lance-graph-callcenter/src/family_table.rs` (`OgitFamilyTable` + `FamilyEntry::meta_anchors`); `EPIPHANIES.md` 2026-05-13 6-byte OGIT identity finding (this clarifies what the 6 bytes do NOT carry).
+
+## 2026-05-13 — FINDING: in-flight bridge migration causes API drift that breaks consumers mid-air; need an explicit deprecation path before D-SDR-5 ripples downstream
+
+**Status:** FINDING (warning + actionable mitigation)
+
+User report 2026-05-13: medcare-rs is failing during the in-flight migration of `medcare-analytics + medcare-bridge → UnifiedBridge` because the API surface keeps shifting between D-SDR-1 (initial `UnifiedBridge::new`) → Codex P2 fix (canonical entity type) → D-SDR-5 (new `with_audit_chain` builders + audit emission). Each commit adds methods and changes return shapes; downstream consumers compiling against successive HEADs of the source crate see drift faster than they can adapt.
+
+**The drift sources, concretely:**
+
+1. **D-SDR-1 starter** (PR #363) introduced `UnifiedBridge::new(bridge, policy, actor_role, tenant) -> Self` and `authorize_read/write/act(public_name, depth/...) -> Result<EntityRef, AuthError>`. medcare-rs `unified_bridge_wiring.rs` (commit `31e999b`) was authored against this surface.
+2. **Codex P2 fix** (commit `421e71e` in PR #363) changed `authorize_*` internals to resolve canonical OGIT entity type via `bridge.row()` — **public signature unchanged** but the `Policy::evaluate` contract changed (now keyed on canonical name not alias). Policy authors had to update their role permissions.
+3. **D-SDR-5** (commit `dc9e081`, unmerged) added new methods: `with_audit_chain(super_domain, salt, sink)`, `with_audit_chain_resume(super_domain, salt, last_root, sink)`, `audit_root() -> AuditMerkleRoot`. **Backward-compatible** (defaults to `NoopUnifiedAuditSink` + GENESIS) but downstream code that called `UnifiedBridge::new` and never set up audit silently disables compliance.
+
+**The fail-mid-air pattern:**
+
+Consumer migration spans multiple PRs over multiple days. If the source crate's API changes between consumer-PR-1 (which adopts the starter shape) and consumer-PR-2 (which finalizes the migration), the consumer's clippy-clean PR-1 starts failing CI when rebased onto post-D-SDR-5 source. The error message ("missing `with_audit_chain` call → compliance disabled") only surfaces if there's a lint or a runtime assertion; without one, the migration silently ships with audit disabled.
+
+**Mitigation — the consumer-side stability contract:**
+
+1. **Pin migration source SHA on the consumer-side branch.** medcare-rs's `claude/lance-datafusion-integration-gv0BF` branch should depend on lance-graph at the **#363 merge SHA** (`421e71e`) during the migration window, not at `main` HEAD. Pinning to a SHA insulates the consumer from intra-migration source drift. Unpin after the consumer's migration PR merges.
+2. **Add a `must_use` lint on `UnifiedBridge::new` output until audit is configured.** Force consumers to either call `.with_audit_chain(...)` or `.allow_no_audit()` (an explicit opt-out for non-compliance scenarios — tests, local dev). Without this, the default no-op audit is a silent compliance gap.
+3. **Add a `#[deprecated]` annotation on `column_mask_bridge.rs`** in medcare-analytics the moment `unified_bridge_wiring.rs` lands as the canonical path. Forces all downstream callers to migrate within one deprecation cycle.
+4. **Ship a `lance-graph-callcenter::migration` module** with re-exports of stable consumer-facing types. Consumers import from `migration::*` during the migration window; the module's contract is "this surface does not change between minor versions". Internal source moves freely; the migration surface is a versioned contract.
+5. **The follow-up PR for D-SDR-3..5 should include a `CHANGELOG.md` entry** with explicit consumer-migration notes (the `with_audit_chain` builder, the canonical-name policy contract, the `actor_role_hash` audit field). Without this, every consumer's first failure forces a transcript-grep to figure out what changed.
+
+**Implication for the integration plan:**
+
+The 5-PR super-domain subcrate scaffolding cascade (per IDEAS.md 2026-05-13) MUST sequence consumer migrations against pinned source SHAs. PR 1 (medcare migration finalization) pins to the D-SDR-3..5 follow-up PR's merge SHA; PR 2 (smb-bridge) pins to PR 1's merge SHA; etc. Each consumer migration unpins after its PR lands, then waits for the next stable source SHA before kicking off the next consumer.
+
+**The ball that mustn't drop:** API drift across an in-flight migration is the kind of failure that doesn't show up in code review (the source PR is clippy-clean, the consumer PR is clippy-clean against its source SHA) — it only shows up when CI runs against `main` HEAD. The mitigation above (SHA pinning + must_use + deprecation annotations + migration surface module + CHANGELOG) is operational discipline, not new code. This entry exists so the next session adopts the discipline rather than re-discovering the failure mode.
+
+Cross-ref: `EPIPHANIES.md` 2026-05-13 super-domain subcrate finding (the migration target); `TECH_DEBT.md` TD-API-DRIFT-MIDFLIGHT-1 (today) + TD-SDR-CONSUMER-PUSH-1 (the consumer PRs that this drift affects); `IDEAS.md` 2026-05-13 super-domain subcrate scaffolding cascade (the sequencing that mitigates this).
+
+## 2026-05-13 — CORRECTION-OF earlier 2026-05-13 entries framing §16-§19 as "outstanding deliverables" — most was already delivered in PRs #355-#363+
+
+**Status:** CORRECTION
+
+The earlier 2026-05-13 epiphany entries (`thinking-engine` finding, two-paths-converging finding) framed `super-domain-rbac-tenancy-v1` §16-§19 as outstanding architectural work awaiting wiring. **That framing under-counts what has already shipped.**
+
+The PR arc #355 → #363 (2026-05-07 → 2026-05-13, ~7 days of sprint-2 / sprint-3 work) delivered most of the §16-§19 substrate:
+
+| PR | Branch | What it shipped |
+|---|---|---|
+| #355 | `claude/create-graph-ontology-crate-gkuJG` | `lance-graph-ontology` crate as the ontology home — SPO-1 + TTL-PROBE-5 closures, 8 new entropy-ledger rows, the Per-row-context cluster. The ontology surface that §17's DataFusion-on-LanceDB plans against. |
+| #356 | `claude/integrate-lance-graph-bridge-ikDO5` | `lance-graph-bridge` integration — the bridge surface §14 harvests from. |
+| #358 | `claude/unified-ogit-architecture-synthesis` | Unified-OGIT architecture synthesis document — codifies the Zone 1/2/3 + DataFusion-on-LanceDB framing that §16 + §17 build on. |
+| #359 | `claude/tier-0-canonical-pattern-letters-fix` | Tier-0 canonical Pattern letter assignment fix — pattern E (manifest) and F (ractor supervisor) labels stabilised. |
+| **#360** | `claude/tier-1-implementation-specs` | **Tier-1 implementation specs — including `pr-e-1-manifest-modules.md` and `pr-f-1-ractor-supervisor.md` (the same Pattern E + Pattern F that the 2026-05-13 "two-paths-converging" finding references). The ractor-supervisor design DOES exist as a shipped spec, not just a sketch.** |
+| #361 | `claude/sprint-3-spec-defect-fixes-v2` | Spec defect fixes — pr-e-1 and pr-f-1 corrections (commits `3865328` + `87cafe3`). |
+| #362 | `claude/sprint-3-rescope-substrate-recognition` | Sprint-3 rescope: substrate recognition reframes (THINK-1, HEEL-1, ADJ-THINK-1, CRYSTAL-1, CAM-DIST-1) — entropy ledger contracted by ~11. This is where the "consult-before-guess" recognition pass identified shipped substrate vs aspirational. **The thinking-engine 582 KB finding (the dormant cognitive substrate) is a continuation of this same recognition arc.** |
+| **#363** | `claude/lance-datafusion-integration-gv0BF` | `super-domain-rbac-tenancy-v1` spec authoring (§1-§19) + D-SDR-1 + D-SDR-2 + Codex P2 fix. The spec itself is shipped; D-SDR-3..5 stack as follow-up commits. |
+
+**Net correction:**
+
+- **§16 (Zone 3 boundary)** — designed across #355 + #358; not just words but actual ontology crate (#355) and integration surface (#356). Outstanding implementation gap: `cognition_bridge` + the manifest plumbing.
+- **§17 (DataFusion-on-LanceDB)** — designed and substrate-shipped across #355 + #356 + #358. Outstanding: D-SDR-31..34 (Phase 5+ Arrow Flight SQL) and HTTP+JSON endpoints (Tier H D-SDR-35..39). Note: §18.9 already corrected this — Flight SQL is Phase 5+, NOT immediate.
+- **§18 (MedCare reality check)** — empirical inspection only; no PR was needed because the finding was "what exists is enough, don't reshape". The D-SDR-35..39 endpoint gap remains for Tier H.
+- **§19 (build invariants)** — already enforced in `Cargo.toml` (workspace pins) and CI gate (`cargo clippy -- -D warnings`); not net-new work but a codification of existing rules.
+
+**Implication for the handover docs:** the 2026-05-13-0852 status handover and 2026-05-13-0855 brainstorm synthesis correctly cite #363 as the source PR for D-SDR-1/2 but **under-cite #355/#356/#358/#360/#362** as the broader §16-§19 substrate delivery. A future session reading those handovers without this correction would over-estimate the remaining work.
+
+**What this changes for next-step prioritisation:**
+
+- Pattern E + Pattern F are **shipped as specs** (#360, #361). Implementation is the gap — the `IDEAS.md` 2026-05-13 Pattern E+F+cognition cascade should be re-anchored to those spec files as its source, not as net-new design.
+- The "highest leverage" claim in the thinking-engine finding stands, but the architectural pre-work (Pattern E manifest schema, Pattern F ractor handler shape) is already specified in #360 — the cascade is **implementation**, not design+implementation.
+- D-SDR-3..5 (committed but unmerged) are the natural continuation of the #355 → #363 arc; the follow-up PR is anchoring the next step in the sprint sequence, not opening a new arc.
+
+**The ball that mustn't drop, restated:** the integration plan is FURTHER ALONG than the §16-§19 framing suggested. Sprint-2 + sprint-3 + the super-domain spec authoring (#355 → #363) shipped the architectural substrate; the remaining work is composition + implementation of designs that exist. This is a **morale + scope** correction, not just bookkeeping.
+
+Cross-ref: PRs #355, #356, #358, #359, #360, #361, #362, #363 (all merged); `.claude/plans/pr-e-1-manifest-modules.md` (if it lives at that path post-#360; otherwise grep INTEGRATION_PLANS.md for the canonical location); `.claude/plans/pr-f-1-ractor-supervisor.md`; `.claude/board/INTEGRATION_PLANS.md` sprint-2 + sprint-3 entries (`## 2026-05-07 — Unified OGIT Architecture plans` + `## 2026-05-12 — Sprint-3: Tier-1 Implementation Specs`).
+
+## 2026-05-13 — FINDING: each `SuperDomain` is its own specialised subcrate; consumer crates ARE the super-domain implementations (medcare-rs / smb-office-rs / hubspot-rs / hiro-rs / woa-rs)
+
+**Status:** FINDING
+
+The Tier C "consumer crate scaffolding" framing of `super-domain-rbac-tenancy-v1` §8 (D-SDR-8 hiro-rs, D-SDR-9 hubspot-rs) misses what the design is actually pointing at: **each `SuperDomain` activation root IS the subcrate that specialises the unified surface for its compliance regime, role matrix, and ontology basin.** The mapping is 1:1:
+
+| `SuperDomain` enum variant | Specialised subcrate | Compliance | Current status |
+|---|---|---|---|
+| `Healthcare` | `MedCare-rs/crates/medcare-analytics` + `medcare-realtime` + `medcare-bridge` → finalize merge into a single super-domain subcrate consuming `UnifiedBridge<MedcareBridge>` | HIPAA | In-flight: `unified_bridge_wiring.rs` committed locally (`31e999b`), unpushed; medcare-analytics + medcare-bridge migration NOT yet finalized — the wiring exists but the crates still carry separate auth paths (`column_mask_bridge.rs` co-exists with new `unified_bridge_wiring.rs`). |
+| `WorkOrderBilling` | `smb-office-rs/crates/smb-bridge` → continues as the super-domain subcrate consuming `UnifiedBridge<OgitBridge>` | SOX / PCI-DSS | In-flight: `342f601` committed locally, unpushed. |
+| `TicketTool` (Hiro slot) | NEW crate `/home/user/hiro-rs` (D-SDR-8) — absorbs OSLC-* with lineage; specialises `UnifiedBridge<HiroBridge>` for the ticketing super-domain | (TBD — OSLC defines it) | Not started. |
+| `TicketTool` (HubSpot slot) | NEW crate `/home/user/hubspot-rs` (D-SDR-9) — CRM vocabulary; specialises `UnifiedBridge<HubspotBridge>` | PCI-DSS billing | Not started. |
+| `WorkOrderBilling` (WoA slot) | `/home/user/woa-rs` — work-order-application subcrate consuming a `WoaBridge` retrofitted to the meta-bridge surface (§14.2) | SOX | Existing bridge (`woa_bridge.rs` in lance-graph-ontology); needs retrofit to MetaBridge + extracted into woa-rs subcrate. |
+| `Science` | (TBD) | OSINT clearance / ITAR-EAR | Aspirational — D-SDR-2 SUPER_DOMAINS slot only. |
+| `Genetics` | (TBD) | GINA / GDPR Art 9(2)(i) | Aspirational. |
+| `QuantumPhysics` | (TBD) | ITAR-EAR | Aspirational. |
+| `Osint` | `cognitive-shader-driver` already ships `osint_bridge`; subcrate TBD | OSINT clearance | Bridge exists; super-domain subcrate not yet promoted. |
+
+**Why super-domain = subcrate is the right factoring:**
+
+1. **Compliance is per-super-domain, not per-bridge.** HIPAA controls (§164.312) bind to Healthcare; SOX §404 + PCI-DSS Reqs 3+7+10 bind to WorkOrderBilling. The certification stub (D-SDR-11) is naturally per-super-domain, which means it's per-subcrate.
+2. **Role matrices are per-super-domain.** §4.3 illustrates Healthcare's full role matrix (clinician / nurse / billing-clerk / researcher / etc.); WorkOrderBilling has a different shape (technician / dispatcher / accountant / etc.). Per-super-domain subcrates own their role tables (Layer-2 role catalogue per `I-VSA-IDENTITIES`).
+3. **Hard-lock partners are per-super-domain.** §13.4 Healthcare ↔ OSINT crypto barrier needs both ends to publish their `merkle_salt` constant; living in separate subcrates makes the barrier real (compile-time-separated symbol tables).
+4. **Audit JSONL files are per-super-domain.** D-SDR-10's `JsonLinesAuditSink` writes to disk paths the super-domain owns; cross-super-domain audit chains are unlinkable by design. Owning the sink config in the per-super-domain subcrate enforces this.
+5. **Compile-time manifest entries are per-super-domain.** Pattern E (`/modules/<name>/manifest.yaml`) one-per-consumer is one-per-super-domain in practice; the `super_domain` field gates which `SuperDomain` enum variant the actor binds to at boot.
+6. **MedCare-rs migration is the canonical case.** `medcare-analytics + medcare-realtime + medcare-bridge` are currently three crates within MedCare-rs; finalizing the merge into a single Healthcare-super-domain subcrate (or a coherent crate cluster behind a single `UnifiedBridge<MedcareBridge>` re-export) is the demonstration migration that proves the pattern.
+
+**The medcare migration gap that must close:**
+
+- `medcare-analytics/src/unified_bridge_wiring.rs` exists (107 LOC, `lance-phase2-rbac` feature) and constructs `UnifiedBridge<MedcareBridge>`.
+- `medcare-analytics/src/column_mask_bridge.rs` still exists as the prior auth path.
+- `medcare-bridge` crate is a separate crate that holds the `MedcareBridge` ontology mapper.
+- Three crates / two auth paths / no single Healthcare-super-domain re-export.
+- **Finalization step:** (a) deprecate `column_mask_bridge.rs` in favour of `unified_bridge_wiring.rs` + `UnifiedBridge::with_audit_chain(SuperDomain::Healthcare, salt, JsonLinesAuditSink::healthcare())`; (b) decide whether to keep `medcare-bridge` as a separate crate or fold it into `medcare-analytics` behind a `bridge` module; (c) publish a single `medcare-rs::healthcare` re-export that downstream consumers import.
+
+**Implication for the integration plan:** Tier C grows from 2 deliverables (D-SDR-8 hiro-rs, D-SDR-9 hubspot-rs) to **5 super-domain subcrates** (medcare migration finalization + smb-bridge retrofit + woa-rs extraction + hiro-rs new + hubspot-rs new). The medcare migration is the **proof case** — it must finalize before D-SDR-8/9 ship, otherwise hiro-rs and hubspot-rs scaffold against a half-migrated pattern.
+
+**The ball that mustn't drop, restated:** the consumer crate scaffolding work (Tier C) and the super-domain layer (D-SDR-2) are not two separate workstreams — they're the same workstream. Per-super-domain subcrates ARE Tier C. Without this entry, the next session would scaffold hiro-rs/hubspot-rs as generic consumer crates and miss the per-super-domain specialisation (compliance, role matrix, hard-lock partner, audit sink) that the SuperDomain enum already encodes.
+
+Cross-ref: spec `super-domain-rbac-tenancy-v1` §3.4 (SuperDomain), §3.6 (role groups), §3.7 (compliance regime), §4 (consumer-to-basin mapping), §8 Tier C; `MedCare-rs/crates/medcare-analytics/src/unified_bridge_wiring.rs` (the in-flight pattern); `smb-office-rs/crates/smb-bridge/src/unified_bridge_wiring.rs` (parallel pattern); `TECH_DEBT.md` TD-SUPER-DOMAIN-SUBCRATES-1 (new today); `IDEAS.md` 2026-05-13 super-domain subcrate scaffolding cascade.
+
+## 2026-05-13 — FINDING: THREE complementary substrate paths converge in `lance-graph-callcenter` — thinking-engine + ractor + ndarray::simd (correction-of two-paths entry)
+
+**Status:** FINDING (extends the same-day two-paths-converging entry)
+
+The two-paths finding below identifies Path A (thinking-engine cognition) and Path B (ractor sync supervisor). User correction 2026-05-13: **there is a third path — `ndarray::simd` SIMD compute** — that is the canonical compute substrate every batch operation in callcenter routes through. The three paths are orthogonal and complementary:
+
+| Path | Substrate | What it provides | Status |
+|---|---|---|---|
+| **A — `thinking-engine`** | Cognition content (582 KB / 48 modules) | Per-row decision *contents*: role projection, persona, qualia, awareness DTO, lenses, codebook lookup | Shipped, unwired (TD-THINKING-ENGINE-UNWIRED-1) |
+| **B — `ractor` supervisor** | Runtime topology (sync, I-2 BBB) | Per-actor *supervision*: crash isolation, restart strategy, compile-time-typed messaging, manifest-driven boot | Spec shipped (#360 pr-f-1), implementation owed (TD-RACTOR-SUPERVISOR-5) |
+| **C — `ndarray::simd`** | SIMD compute (canonical per §19.2) | Per-batch *compute*: `LazyLock<Tier>` dispatch across SSE2/AVX2/AVX512/NEON/AMX, batch fingerprint ops, distance kernels, BLAS L1/L2/L3 | Shipped + already canonical across workspace; callcenter consumer-side wiring still scalar-per-row in some paths |
+
+**Why C is the third path, not "just SIMD":**
+
+`ndarray::simd` is **not** a transparent acceleration layer — it's a substrate with its own conventions:
+
+- **Canonical dispatch pattern**: `static TIER: LazyLock<Tier> = LazyLock::new(simd_caps)`. Every batch hot-path imports and dispatches through this; ad-hoc `#[cfg(target_arch=...)]` is the anti-pattern.
+- **Carrier types are SIMD-shaped**: `Vsa16kF32` (64 KB), `Vsa16kBF16` (32 KB AMX-accelerated), `Vsa16kI8` (16 KB quantized), `Binary16K` (2 KB Hamming) — each has a paired SIMD operator family. Picking the wrong carrier costs a register reshuffle on every op.
+- **Distance kernels live in ndarray::simd**: `xor_fold`, `cosine_simd`, `batch_palette_distance` — callers in callcenter / planner / cognitive-shader-driver consume these; never reimplement.
+- **Spec §19.2 makes it canonical**: "ndarray::simd is the canonical SIMD path" — the `LazyLock<Tier>` dispatch pattern is already shipped; just import. No new code.
+
+**Where callcenter still has scalar paths that should route through Path C:**
+
+- `unified_audit.rs::AuditChain::advance` — single-event FNV-1a chain; per-row is intrinsically scalar (right call). **But** `verify_chain` over a batch of N audit events is a batch operation that today loops scalar; SIMD batch FNV-1a could speed cold-storage audit verification ~8×.
+- `family_table.rs::OgitFamilyTable::lookup` — single-row array index; intrinsically scalar (right). **But** a batch-lookup `lookup_batch(owls: &[OwlIdentity]) -> Vec<Option<&FamilyEntry>>` for DataFusion-side row decoration would benefit from gather instructions.
+- `super_domain.rs::FAMILY_TO_SUPER_DOMAIN[basin]` — single-byte lookup. Right for per-row. For a batch lowering of `ScanExec → SuperDomain[]` annotation, `ndarray::simd::gather_u8` exists.
+- `unified_bridge.rs::canonical_entity_type` — per-row string slice. Right scalar. **But** the OGIT-URI parsing across a batch (post-#355 ontology crate) wants batch parsing primitives.
+- D-SDR-25 future drift-bridge comparisons — `MerkleRoot` batch XOR-fold across cross-impl rows is the canonical Path C consumer. §19.7 already notes this.
+
+**Why the three paths together close the loop:**
+
+```
+ractor supervisor (Path B)
+    │ owns N consumer actors per super-domain manifest
+    │ routes typed messages with sync I-2 BBB enforcement
+    ▼
+UnifiedBridge::authorize_* (Path B handler arm)
+    │ projects role/persona/awareness through thinking-engine (Path A)
+    │ ↓
+    │ resolves canonical OGIT entity type from row (single-row scalar)
+    │ evaluates Policy + emits chained UnifiedAuditEvent
+    │ ↓
+DataFusion ScanExec batch decode (Path C consumer)
+    │ batch-annotates SuperDomain via FAMILY_TO_SUPER_DOMAIN gather
+    │ batch FNV-1a verifies audit chain on cold-read
+    │ batch CAM-PQ distance via ndarray::simd kernels
+    ▼
+Per-row decision arrives at the actor handler with all three substrates' value already projected.
+```
+
+**Implication for the IDEAS.md cascade:** the Pattern E+F+cognition cascade (3-PR sequence) should explicitly call out which batch paths route through `ndarray::simd` and which stay scalar. Per-row authorize hot path: scalar (correct). Batch decoration / drift / audit verification: route through Path C. Reviewers should reject PRs that hand-roll SIMD or scalar-loop across what `ndarray::simd` already exposes — §19.2 anti-pattern.
+
+**The ball that mustn't drop:** Path C is older and more taken-for-granted than A or B, which is exactly why a future session can forget it. The spec §19.2 text is one paragraph; the **architectural mandate** is that every batch path in callcenter consumer code (callcenter / medcare-rs / smb-office-rs / future hiro-rs / hubspot-rs / woa-rs) imports from `ndarray::simd` rather than rolling its own. This entry exists so the discipline survives the next session.
+
+Cross-ref: `CLAUDE.md § ndarray Integration Policy`; spec `super-domain-rbac-tenancy-v1` §19.2 + §19.7; `EPIPHANIES.md` two-paths-converging entry (this finding extends to three); `TECH_DEBT.md` TD-THINKING-ENGINE-UNWIRED-1 + TD-RACTOR-SUPERVISOR-5; `.claude/knowledge/vsa-switchboard-architecture.md` (Layer-1 switchboard carriers are the Path-C carrier types); `crates/lance-graph/` and `crates/lance-graph-callcenter/` for current consumer-side scalar paths that should batch through Path C.
+
+## 2026-05-13 — FINDING: `lance-graph-callcenter` has TWO complementary substrate paths waiting to be wired — thinking-engine (cognition) + ractor (runtime topology)
+
+**Status:** FINDING
+
+The 2026-05-13 thinking-engine finding (below) names one dormant substrate path that closes §16-§19. There is a **second, orthogonal** substrate path already designed and tech-debt-tracked: the **ractor supervisor** path that closes the runtime topology side. Both converge in `lance-graph-callcenter` — and both must be wired together, not picked one-or-the-other.
+
+| Path | What it solves | Status | Cross-ref |
+|---|---|---|---|
+| **A — `thinking-engine` substrate** (582 KB, 48 modules) | Cognitive surface: role projection, persona, qualia, awareness DTO, lenses, codebook lookup, ground-truth calibration | Indexed in `CLAUDE.md § Thinking Engine`; consumed by zero callcenter code | `TD-THINKING-ENGINE-UNWIRED-1`; `IDEAS.md` 2026-05-13 wire-thinking-engine |
+| **B — `ractor` supervisor** (designed, not yet built) | Runtime topology: sync actor supervision, per-consumer crash isolation, compile-time manifest-driven boot, typed message contracts (the I-2 invariant: tokio outbound only / sync ractor inbound) | Designed in `.claude/plans/compile-time-consumer-binding-v1.md` D-RACTOR-SUPERVISOR-5 (~400 LOC `supervisor.rs` sketched); maps 1:1 onto `cognitive-shader-driver/src/grpc.rs` 8 methods | `TD-RACTOR-SUPERVISOR-5` (TECH_DEBT.md:1779); `anatomy-realtime-v1.md` W11; `compile-time-consumer-binding-v1.md` §2.2 |
+
+**Why they're complementary, not competitive:**
+
+- **Path A (thinking-engine) gives the *contents*** of each authorize/dispatch/ingest decision (role projection vectors, persona identity, awareness DTO that rides alongside merkle audit roots).
+- **Path B (ractor) gives the *topology*** that runs Path A's primitives under crash-isolated supervision (one actor per consumer/super-domain, restart strategy, compile-time-typed messaging).
+
+Together they form the runtime: **`CallcenterSupervisor` (ractor) owns N consumer actors → each actor calls `UnifiedBridge::authorize_*` → which projects through `thinking-engine::role_tables + persona + awareness_dto` → emits a chained `UnifiedAuditEvent` carrying both `merkle_root` AND `awareness_root`**. The supervisor handles backpressure, restarts, and the I-2 BBB seam (no tokio inside actor handlers). The thinking-engine provides the cognitive contents the supervisor's typed messages carry.
+
+**Compile-time manifest convergence (Pattern E + Pattern F):** the `/modules/<name>/manifest.yaml` PostNuke-style declaration carries `(G, version, entity_types, rbac_policy, action_capabilities, stack_profile, actor_type, thinking_styles)`. The `actor_type` field gates Path B (which ractor handler arm boots for this consumer). The `thinking_styles` field gates Path A (which projection vectors from `thinking-engine::role_tables` this actor's authorize-flow uses). **One manifest entry per consumer compile-time-resolves both substrate paths.** Adding a new consumer = drop a manifest + add a Cargo dep + write ~30 LOC of `impl Consumer for FooActor` glue. Zero edits to `lance-graph-contract` after the build-script lands.
+
+**Implication for the plan:** the cognition-bridge PR proposed in `IDEAS.md` 2026-05-13 should NOT ship in isolation; it should ship **alongside** the ractor supervisor (D-RACTOR-SUPERVISOR-5) and the manifest build-script (D-MANIFEST-MODULES-4) as **a single Pattern E+F+thinking-engine integration cascade** — three deliverables, three PRs, sequenced (manifest → supervisor → cognition-bridge composes against both).
+
+**Concrete cascade ordering:**
+
+1. **D-MANIFEST-MODULES-4** (PostNuke-style `/modules/<name>/manifest.yaml` + build-script generating the compile-time `MODULES: [ConsumerEntry; N]` static). Zero edits to `lance-graph-contract` afterwards.
+2. **D-RACTOR-SUPERVISOR-5** (`CallcenterSupervisor` ractor consuming the compile-time module table; 8-arm typed message handler mapped from `cognitive-shader-driver/src/grpc.rs`). Each consumer = one actor spawned on boot with I-2 crash isolation.
+3. **Cognition-bridge** (new module wrapping `thinking-engine::role_tables + persona + awareness_dto` behind a callcenter-side trait). Composes against the supervisor's per-consumer actor address; each `authorize_*` call routes through the actor and emits an audit event carrying both `merkle_root` and `awareness_root`.
+
+This cascade collapses **D-SDR-13 + D-SDR-15 + D-SDR-17 + D-RACTOR-SUPERVISOR-5 + D-MANIFEST-MODULES-4** (5 separate deliverables, originally ~830 LOC scaffolded clean-room) into a **3-PR cascade ~900 LOC composed against thinking-engine**. The LOC delta is small; the **architectural** payoff is huge — `lance-graph-callcenter` finally becomes what its name has promised since day one (telephony switching, supervised processes, per-line crash isolation), and the cognitive substrate finally has a runtime home.
+
+**The ball that mustn't drop, restated:** the May 1 → May 13 transcript arc accumulated this two-paths-converging finding without ever capturing it as a single epiphany. Future sessions without this entry would re-derive Path A xor Path B in isolation (~30-turn rediscovery tax) and miss the manifest-driven convergence that makes both paths cheap together.
+
+Cross-ref: `EPIPHANIES.md` 2026-05-13 thinking-engine finding (Path A); `TECH_DEBT.md` `TD-RACTOR-SUPERVISOR-5` + `TD-MANIFEST-MODULES-4` + `TD-THINKING-ENGINE-UNWIRED-1`; `.claude/plans/compile-time-consumer-binding-v1.md` (Pattern E + Pattern F design); `.claude/plans/anatomy-realtime-v1.md` (W11 ractor supervisor demo gate); `ARCHITECTURE_ENTROPY_LEDGER.md:517` (Pattern F design-phase row).
+
+## 2026-05-13 — FINDING: `thinking-engine` is a 582 KB dormant substrate that closes most of §16-§19 when wired
+
+**Status:** FINDING
+
+`crates/thinking-engine/` is **48 source modules, 16,211 LOC, 582 KB of Rust** sitting in the workspace and cited by 6 plans (`anatomy-realtime-v1`, `cam-pq-production-wiring-v1`, `unified-integration-v1`, `unified-ogit-architecture-v1`, `palantir-parity-cascade-v2`, `super-domain-rbac-tenancy-v1`) but **not yet wired into the §16-§19 spine** of the super-domain-rbac-tenancy work. The dormant surface maps onto the integration plan's outstanding deliverables with surprising directness:
+
+| thinking-engine module | Wires into | Closes |
+|---|---|---|
+| `role_tables.rs` | SuperDomain RBAC role surface | D-SDR-2/§3.6 role groups (per-role projection already SIMD-shaped) |
+| `osint_bridge.rs` | `SuperDomain::Osint` activation root | §13.4 Healthcare ↔ OSINT hard-lock implementation side |
+| `persona.rs` + `qualia.rs` + `ghosts.rs` + `world_model.rs` | Cognitive identity surface | PersonaHub / actor-context auth (D-SDR-7 future + Tier H) |
+| `centroid_labels.rs` + `codebook_index.rs` + `lookup.rs` | `OgitFamilyTable` hydration | D-SDR-3b (TTL-baked codebook), inline label→fingerprint resolution |
+| `bf16_engine.rs` + `f32_engine.rs` + `signed_engine.rs` + `composite_engine.rs` + `dual_engine.rs` + `layered.rs` + `domino.rs` | Precision-tier dispatch on the canonical surface | §19 `ndarray::simd` canonical SIMD path consumer-side |
+| `awareness_dto.rs` + `cognitive_stack.rs` + `cognitive_trace.rs` | UnifiedStep `OrchestrationBridge` contract | §17 DataFusion-on-LanceDB Phase 2 cognitive trace persistence |
+| `meaning_axes.rs` + `superposition.rs` + `tensor_bridge.rs` | SoA columnar reads | palantir-parity-cascade-v2 D-PARITY-V2-3..12 |
+| `prime_fingerprint.rs` + `spiral_segment.rs` + `tokenizer_registry.rs` + `pooling.rs` | Encoding tier of the codec stack | encoding-ecosystem.md surface → DataFusion UDFs |
+| `jina_lens.rs` + `bge_m3_lens.rs` + `reranker_lens.rs` + `sensor.rs` | Per-model sensing surface (Jina v5 / BGE-M3 / Reranker v3) | Phase 5+ Arrow Flight SQL sensor endpoints |
+| `ground_truth.rs` + `reencode_safety.rs` + `cronbach.rs` + `contrastive_learner.rs` | Quality / calibration | drift-bridge D-SDR-25 + cross-language determinism D-SDR-26 |
+| `inference_backend.rs` + `bridge.rs` + `contract_bridge.rs` + `l4_bridge.rs` | Bridge surface taxonomy | MetaBridge harvest D-SDR-18/19 (the bridge templates already exist as Rust traits, not just designs) |
+| `silu_correction.rs` + `semantic_chunker.rs` + `auto_detect.rs` + `builder.rs` | Composition glue | UnifiedBridge consumer composition surface |
+
+**Implication for the plan:** the §16-§19 architecture (Zone 3 boundary + DataFusion-on-LanceDB + build invariants) does NOT require new cognitive substrate. The substrate is shipped. What's owed is the wiring from `UnifiedBridge::authorize_*` → `OrchestrationBridge` → `thinking-engine::*` paths. **This is the highest leverage move in the workspace** — much higher than D-SDR-13..17 in isolation, because each of those deliverables can compose against thinking-engine primitives instead of being scaffolded from scratch.
+
+**Concrete framing:** treat thinking-engine as the **Layer-2 role-catalogue substrate** (per `I-VSA-IDENTITIES` iron rule) that UnifiedBridge's authorize-flow projects through. The bridge already owns: `OgitFamily` (basin pointer), `OwlIdentity` (per-row slot), `Policy::evaluate` (role-keyed decision), `UnifiedAuditEvent` (chained merkle). What it needs from thinking-engine: `role_tables` (the per-role projection vector that turns a role-name into an identity fingerprint), `persona` (actor identity in VSA carrier), `awareness_dto` (the cognitive state that rides alongside the authorize decision). Wiring them = D-SDR-13 / D-SDR-17 / D-SDR-15 collapse into a single ~300 LOC bridge module instead of three separate ~80-150 LOC deliverables.
+
+**The ball that must not drop:** the previous session accumulated this finding across the §16-§19 brainstorming arc; without an explicit harvest entry, the next session would re-derive it from scratch (~30-turn rediscovery tax). This entry exists so it does not recur. See follow-up idea entry in `IDEAS.md` and `TD-THINKING-ENGINE-UNWIRED-1` in `TECH_DEBT.md`.
+
+Cross-ref: `crates/thinking-engine/src/` (48 modules); `CLAUDE.md § Thinking Engine`; plans listed above; this session's `.claude/transcript/` archive (search for `thinking[_ -]?engine` — 103 mentions across the May 1 → May 13 main-window arc).
+
+## 2026-05-13 — FINDING: Tier A (D-SDR-1..5) composes onto shipped PolicyRewriter chain — §13.1 thesis confirmed in code
+
+**Status:** FINDING
+
+The super-domain-rbac-tenancy-v1 §13.1 thesis ("compositor is already shipped: `lance-graph-callcenter::policy::PolicyRewriter`") survived contact with implementation. D-SDR-5 (`dc9e081`) wires `UnifiedBridge::authorize_read/write/act` through `Policy::evaluate` against the canonical OGIT entity type, emits one chained `UnifiedAuditEvent` per call via `Mutex<AuditChain>` (FNV-1a merkle 64-bit) into a swappable `Arc<dyn UnifiedAuditSink>`, and maps the resulting `AccessDecision` onto the `Result<EntityRef, AuthError>` surface — all without introducing a parallel enforcement path. `BridgeError` short-circuits before audit emission (D-SDR-5 minimum). 5 new tests cover Allow/Deny emission, bridge-error short-circuit, chain advance across calls, and resume from prior root. 96/96 lib tests green; clippy `-D warnings` clean on lib + tests.
+
+The ~30% LOC reduction lever §13.1 promised did materialize for Tier A — `authorize_*` is ~10 lines per method because the chain handles row filtering / column masking / DP / encryption. **Consequence for Tier B+ design:** D-SDR-13..17 (merkle salt HKDF, audit JSONL, DP role, encrypted view, hard-lock matrix) all slot into the existing `OptimizerRule` chain as additional rewriters, NEVER as standalone authorization paths.
+
+Cross-ref: `.claude/handovers/2026-05-13-0852-d-sdr-tier-a-complete-tier-b-and-beyond-pending.md`, commits `2c3e87d` (D-SDR-3), `1d0157f` (D-SDR-4), `dc9e081` (D-SDR-5).
+
+## 2026-05-13 — CORRECTION-OF spec §17.2 (Arrow Flight SQL as immediate path) — HTTP+JSON over JWT is M2-M6; Flight SQL is Phase 5+
+
+**Status:** CORRECTION
+
+Spec §17.3 framed Arrow Flight SQL as the cross-language wire layer that replaces custom Protobuf IDL. Empirical inspection of MedCare-rs + MedCareV2 (§18) revealed the LanceProbe coordination doc (`MedCare-rs/docs/CSHARP_HANDOFF_PROMPT.md` on branch `claude/csharp-handoff-docs-L3DF0`) targets HTTP+JSON over JWT for M2-M6 milestones. **Arrow Flight SQL stays the end-state but is Phase 5+ migration**, not the immediate path. D-SDR-31..34 don't unblock M2; D-SDR-35..39 do (HTTP+JSON endpoints in medcare-rs). The architecture-level claim ("no custom IDL; Arrow Flight SQL + Substrait extension types is the right wire layer") survives — the **sequencing** was wrong.
+
+Cross-ref: spec §18.9 row "Custom Protobuf IDL → Arrow Flight SQL"; D-SDR-31..34 (Phase 5+) vs D-SDR-35..39 (immediate).
+
+## 2026-05-13 — CORRECTION-OF spec §16.4 (3DES rewrap pipeline) — the "3DES" is broken-single-DES; Argon2 backfill replaces AES-GCM rewrap
+
+**Status:** CORRECTION
+
+Spec §16.4 described D-SDR-27 as a decrypt-3DES → AES-256-GCM rewrap pipeline. §18.5 empirical inspection of MedCare's `MySQL_Connect.cs` revealed the "3DES" is NOT standard 3DES:
+
+- Single 3DES cipher invocation (not a 3-cipher chain)
+- 128-bit truncated key (out of the 168-bit 3DES key space)
+- ECB-equivalent (no IV chaining)
+- Zero IV
+- Hardcoded password table indexed by the first character of the ciphertext
+
+Effectively single DES with a broken KDF. **D-SDR-27's scope drops** from ~200 LOC rewrap to **~80 LOC carry-forward** + 2 integration tests. The `u_pwd` column is the only confirmed callsite; ciphertext is carried forward unchanged and Argon2 backfill happens on successful legacy login. **3DES → AES-GCM rewrap is REMOVED from the plan entirely.** Open question (§18.10): which other columns call `EncryptMessage()`/`DecryptMessage()` in `MySQL_Connect.cs` — likely few or none.
+
+Cross-ref: spec §18.5/§18.6; `MedCare-rs/docs/AUTH_LEGACY_TRIPLEDES_MIGRATION.md` (DRAFT).
+
+## 2026-05-13 — FINDING: Codex P2 review (canonical entity type vs bridge alias) — policy must NOT couple to consumer-facing aliases
+
+**Status:** FINDING
+
+Codex P2 reviewer caught a leak in the initial D-SDR-1 surface: `authorize_*` originally passed the bridge-side alias (`public_name`, e.g. `"WorkOrder"`) to `Policy::evaluate`. This means a Policy keyed against the canonical OGIT entity type (`"Order"` from `ogit.WorkOrder:Order`) wouldn't grant access through the alias, and conversely an alias-keyed Policy would silently couple consumer naming to authorization. Fix in commit `421e71e` (in #363): `authorize_*` now resolves the row via `bridge.row(public_name)?`, extracts `row.ogit_uri.name()` as the canonical entity type via `canonical_entity_type()`, and passes THAT to `Policy::evaluate`. Two regression tests pin the contract: `unified_bridge_evaluates_policy_against_canonical_entity_type` + `unified_bridge_does_not_honor_alias_keyed_policy`.
+
+**Iron rule:** Policy authorship is against canonical OGIT names exactly once; bridges that resolve to the same canonical type all honor the grant regardless of consumer-facing public_name.
+
+Cross-ref: PR #363, commit `421e71e`; `crates/lance-graph-callcenter/src/unified_bridge.rs:62` (`canonical_entity_type`).
+
+## 2026-05-13 — FINDING: LanceProbe IS the drift bridge — design effort wasn't needed; wiring effort IS
+
+**Status:** FINDING
+
+Spec §15 designed `DriftDetectionBridge`/`DriftableOutput`/`DivergentRow` as a clean-room drift bridge concept. §18 empirical inspection found `LanceProbe` already exists in MedCareV2 with 8 scaffolded components (Phase M1 done). The clean-room design and `LanceProbe` are 1:1 isomorphic on field shape. **The drift bridge is wiring effort, not design effort.** Concrete Rust-side gap = 5 endpoints (D-SDR-35..39) + 1 reduced import tool (D-SDR-27) + 1 Argon2 fallback flag (D-SDR-38) ≈ ~700 LOC + tests. Tier F deliverable count collapsed from ~12 nominal items to **7 concrete items** through this finding.
+
+Cross-ref: spec §18.1/§18.2; `MedCare-rs/docs/CSHARP_HANDOFF_PROMPT.md` (branch `claude/csharp-handoff-docs-L3DF0`).
+
+## 2026-05-13 — FINDING: Per-row OGIT identity = 6 bytes total (TenantId u32 + OwlIdentity u16) — addressable domain ≤ 256 entries per family
+
+**Status:** FINDING
+
+Implementation (`unified_bridge.rs` + `super_domain.rs` + `family_table.rs`) confirms the §3 sizing claim: every row in the OGIT-addressed surface carries **`TenantId: u32 + OwlIdentity: u16 = 6 bytes`**. `OwlIdentity` high byte = `OgitFamily` basin (Level-2 pointer); low byte = within-basin slot (Level-3). Inline per-family codebook (`OgitFamilyTable` with 256-slot dense `[Option<FamilyEntry>; 256]`) carries label URI + `SchemaKind` + `OwlCharacteristics` + `DolceMarker` + axiom blob + provenance + outgoing verbs — INLINE, one cache line per occupied slot, no sidecar. Lookup is O(1) array index; `lookup(owl)` debug-asserts family match. SGO meta (>256 entries) explicitly excluded from runtime addressing (§9.3).
+
+**Implication:** `owl_from_schema_ptr()` truncates `SchemaPtr::entity_type_id()` (u16) to 8-bit slot for audit emission. This is lossless within the addressable domain. If a basin ever needs >256 entries, the entire 8-bit slot abstraction breaks — re-check when any basin approaches the cap.
+
+Cross-ref: spec §3.1-§3.3; `crates/lance-graph-callcenter/src/{unified_bridge,super_domain,family_table}.rs`.
+
 ## 2026-04-30 — FINDING: Wave-1 follow-up shipped (PRs #300-#306) — 3,156 LOC, full LOC audit confirms 0 lost from #275-#283 recovery
 
 **Status:** FINDING

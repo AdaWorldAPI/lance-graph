@@ -150,3 +150,27 @@ pub use super_domain::{
     super_domain_entry, super_domain_for_family, ComplianceRegime, DolceMarker, MetaAnchors,
     SuperDomain, SuperDomainEntry, SUPER_DOMAINS,
 };
+
+// D-SDR-3 (super-domain-rbac-tenancy-v1 §3.3) — per-family codebook table.
+// Each OGIT basin carries a 256-slot dense `OgitFamilyTable` indexed by
+// `OwlIdentity::slot()`; each occupied slot holds `FamilyEntry` (label
+// URI + SchemaKind + OwlCharacteristics + DolceMarker + axiom_blob +
+// provenance + outgoing verbs) INLINE. No sidecar, no join — one
+// cache-line per slot. Hot-path lookup is O(1) array index
+// (sub-microsecond). Bake-time population from TTL hydration is D-SDR-3b.
+pub mod family_table;
+pub use family_table::{
+    FamilyEntry, OgitFamilyTable, OwlCharacteristics, PerFamilyCodebook, SchemaKind,
+};
+
+// D-SDR-4 (super-domain-rbac-tenancy-v1 §13.3) — merkle-chained audit log
+// for UnifiedBridge::authorize() decisions. Each emitted event chains off
+// the prior event's merkle root + a per-super-domain salt (§13.4
+// hard-lock — cross-domain audit logs unlinkable). Tampering with any
+// past event is detectable by `verify_chain`. Production sinks (JSONL +
+// Lance) land in D-SDR-4b; wiring into authorize() is D-SDR-5.
+pub mod unified_audit;
+pub use unified_audit::{
+    verify_chain, AuditChain, AuditMerkleRoot, AuthDecision, AuthOp, NoopUnifiedAuditSink,
+    UnifiedAuditEvent, UnifiedAuditSink,
+};
