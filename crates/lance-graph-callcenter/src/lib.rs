@@ -129,3 +129,24 @@ pub mod policy;
 // **single deliberate transition bandaid**: `parallelbetrieb` for the
 // MySQL ↔ DataFusion ↔ SPO reconciler. See `transcode/mod.rs`.
 pub mod transcode;
+
+// D-SDR-1 (super-domain-rbac-tenancy-v1 §3.9 + §13.1) — UnifiedBridge
+// composes a per-namespace `NamespaceBridge` (g-locked ontology lookup) with
+// an RBAC `Policy` (role-based access decisions) and a `TenantId` (multi-
+// tenant Chinese wall tag). Single entry point consumers import; richer
+// surface (super-domain routing, role groups with FieldRedactionMask, merkle
+// audit chain) lands in follow-up commits.
+pub mod unified_bridge;
+pub use unified_bridge::{AuthError, OgitFamily, OwlIdentity, TenantId, UnifiedBridge};
+
+// D-SDR-2 (super-domain-rbac-tenancy-v1 §3.4-§3.7) — SuperDomain layer.
+// Activation root above OGIT basins (1 byte; 8 starter values; 256 cap)
+// plus MetaAnchors (Foundry/OWL/DOLCE/Wikidata cross-walks), ComplianceRegime
+// (HIPAA/SOX/PCI-DSS/GDPR/OSINT/ITAR), and the FAMILY_TO_SUPER_DOMAIN
+// reverse lookup. The UnifiedBridge::authorize() wiring against these
+// types lands as D-SDR-5; this module is type-system-only.
+pub mod super_domain;
+pub use super_domain::{
+    super_domain_entry, super_domain_for_family, ComplianceRegime, DolceMarker, MetaAnchors,
+    SuperDomain, SuperDomainEntry, SUPER_DOMAINS,
+};
