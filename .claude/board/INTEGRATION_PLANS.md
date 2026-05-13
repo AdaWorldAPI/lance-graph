@@ -36,6 +36,19 @@
 
 ---
 
+## v1 — Super-Domain RBAC + Multi-Tenancy (authored 2026-05-13)
+
+**Author:** main thread (Opus 4.7 1M), session 2026-05-13 (branch `claude/lance-datafusion-integration-gv0BF`)
+**Status:** Active
+**Scope:** 4-level addressing hierarchy (meta-anchors → super domain → OGIT basin → within-basin slot) with explicit byte-sized DTOs, RBAC + multi-tenant Chinese walls wired onto the super-domain boundary. 6 bytes per row (4-byte `TenantId` + 2-byte `OwlIdentity`), inline per-family codebook with label+schema+verbs, single masked DataFusion predicate enforces tenant + super-domain + role + slot in one vector pass. Foundry-parity selling point at the enforcement surface, sub-microsecond hot path. Locks the 2-consumer ticket-system constraint (`hiro-rs` absorbs OSLC-* off-label, `hubspot-rs` is fresh basin) and collapses 4 OSLC-* namespaces into a single Hiro basin with provenance lineage.
+**Path:** `.claude/plans/super-domain-rbac-tenancy-v1.md`
+**Deliverables:** D-SDR-1..D-SDR-12 (Tier A DTOs / Tier B TTL namespaces / Tier C consumer crates / Tier D compliance + audit / Tier E cross-tenant federation Phase 2)
+**Substrate:** Builds on shipped `lance-graph-ontology::namespace::SchemaPtr`, `bridges::OgitBridge` + `BridgeFromRegistry`, `holograph::dntree::WellKnown` (promoted to `SuperDomain` enum), `lance-graph-callcenter::dn_path::DnPath` compression chain, `bgz-tensor::HhtlDEntry` bit-packed-hierarchy pattern, `lance-graph-contract::cam` CAM-PQ codec contract.
+**Cross-ref:** `palantir-parity-cascade-v2.md` (this spec adds the enforcement surface), `lance-graph-ontology-v5.md` (this spec sits above v5; v5 unchanged), `GLUE_LAYER_OGIT_TO_OWL_SPEC.md` (source for OWL property characteristics bitfield).
+**Open questions:** Foundry ObjectType cross-walk targets, Wikidata QID mappings, audit format choice (JSON Lines / CloudEvents / OTel), DEK rotation cadence, escalation UX, HPO/MONDO multi-member confirmation, slot 0xFF schema-only convention.
+
+---
+
 ## v1 — LF Integration Mapping (authored 2026-04-25)
 
 **Author:** main thread (Opus 4.7 1M), session 2026-04-25 (branch claude/scenario-world-facade)
