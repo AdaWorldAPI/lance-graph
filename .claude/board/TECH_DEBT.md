@@ -66,6 +66,356 @@ filter discipline — agents pull their own debt by `@`-mention.
 (Seeded with known deferrals from recent PRs. New items PREPEND
 with today's date.)
 
+## 2026-05-13 — TD-Q2-STUBS-DEDUP-1: q2 carries local `lance-graph` + `q2-ndarray` stubs that must be replaced with re-exports from the canonical crates before FMA demo can compile
+
+**Status:** Open
+**Priority:** P1 (blocks FMA smoke-test compilation against canonical OGIT pipeline)
+**Scope:** crate:q2 crate:lance-graph crate:ndarray D-ONTO-V5-5 Q2-1.x Q2-2.x domain:dedup domain:consumer-scaffolding
+**Introduced by:** q2 placed stubs at `crates/stubs/lance-graph` + `crates/stubs/q2-ndarray` as placeholders during initial workspace bring-up
+**Payoff estimate:** 1 PR to q2 workspace adding `lance-graph = { path = "../../../lance-graph" }` and `ndarray = { path = "../../../ndarray" }` to Cargo.toml + replacing each stub with `pub use <canonical>::*;` re-exports + adjusting any local API calls — ~60 LOC + 2 integration tests proving the FMA query path works against canonical crates.
+
+### What
+
+q2's `crates/stubs/lance-graph` and `crates/stubs/q2-ndarray` are placeholder crates inside the q2 workspace, written before the canonical `AdaWorldAPI/lance-graph` and `AdaWorldAPI/ndarray` were ready. The stubs ship minimal vertex/edge CRUD + basic SIMD ops respectively, but the canonical crates are now mature:
+
+- `AdaWorldAPI/lance-graph` = 22 crates / 250+ tests / Cypher+GQL+Gremlin+SPARQL parsers / 16 planner strategies / SPO triple store / CAM-PQ codec / DataFusion convergence (this repo).
+- `AdaWorldAPI/ndarray` = SIMD foundation (`Fingerprint<256>`, CAM-PQ codec, CLAM tree, BLAS L1/L2/L3, ZeckF64, HDR cascade, jitson/Cranelift JIT).
+
+Until the stubs are replaced with re-exports, `q2::notebook-query` cannot dispatch to `lance-graph-planner` strategies, `q2::aiwar-ingest` cannot use the canonical `OGIT::FamilyTable` lookup, and `q2::cockpit-server` cannot render Foundry-parity views against the same SoA the OGIT pipeline produces.
+
+### Why this debt matters
+
+1. **FMA smoke-test cannot compile** against the canonical pipeline until q2 imports from `AdaWorldAPI/lance-graph`. The 75K-entity dataset needs the real planner + Cypher parser + EWA-Sandwich substrate.
+2. **Polyglot query dispatch is unwired.** `q2::notebook-query` stub returns `unimplemented!()` for Cypher/Gremlin/SPARQL; the real dispatcher lives at `lance-graph-planner::api::PolyglotDetector` + Strategy #1-4.
+3. **Cockpit-server cannot project SoA data** because `q2::lance-graph` stub doesn't ship the BindSpace SoA columns; the canonical lance-graph does.
+4. **Pattern E manifest cannot include q2** because q2's local lance-graph isn't the same type universe as the rest of the workspace's lance-graph — the manifest's `actor_type` field would point at the wrong type definitions.
+
+### The PR shape
+
+A single q2-side PR (~60 LOC + 2 tests):
+
+1. **Cargo.toml** (q2 workspace root):
+   ```toml
+   [workspace.dependencies]
+   lance-graph = { path = "../lance-graph" }
+   ndarray = { path = "../ndarray", default-features = false }
+   ```
+2. **`crates/stubs/lance-graph/src/lib.rs`** → replace contents with `pub use lance_graph::*;` (or delete the stub and update Cargo.lock).
+3. **`crates/stubs/q2-ndarray/src/lib.rs`** → replace with `pub use ndarray::*;`.
+4. **Adjust any in-q2 call sites** that depended on the stub's narrower API surface. The README claims the stubs are "minimal vertex/edge CRUD + zeros/ones/matmul" so the canonical APIs are strict supersets; call-site adjustments should be additive (more functionality, no breaking renames).
+5. **2 integration tests:**
+   - `q2_lance_graph_canonical_test.rs`: instantiates `lance_graph::OntologyRegistry::new_in_memory()` from inside q2's notebook-query crate — proves type-universe coherence.
+   - `q2_ndarray_simd_dispatch_test.rs`: calls `ndarray::simd::cosine_simd` from q2-ndarray re-export — proves the canonical SIMD path is reachable.
+
+### Payoff
+
+After this PR lands: (a) FMA smoke-test pipeline compiles against canonical crates, (b) q2's manifest entry (under Pattern E) can declare q2 actors against the right types, (c) the `palantir-parity-cascade-v2` Q2-2.x Cypher console wiring becomes mechanical (just dispatch `lance-graph-planner::Strategy` through `notebook-query`).
+
+### Risk if left open
+
+The FMA smoke-test cannot ship because the compilation surfaces don't match. Every q2-side PR that lands against the stubs accumulates a dedup PR against canonical that has to be revisited later. Same risk class as `TD-SUPER-DOMAIN-SUBCRATES-1`: half-migrated consumer scaffolding compounds entropy.
+
+### Cross-references
+
+- `EPIPHANIES.md` 2026-05-13 OGIT-OSINT-Palantir/Neo4j-q2 route finding (the harvested observation)
+- `EPIPHANIES.md` 2026-05-13 FMA smoke-test anchor (the convergence target this debt blocks)
+- `IDEAS.md` 2026-05-13 super-domain subcrate scaffolding cascade (q2 wiring is PR 6+7+8 of an extended cascade)
+- `q2/README.md` (the Quarto 2 inventory naming both stubs)
+- `.claude/plans/q2-foundry-integration-v1.md` Q2-1.1..Q2-1.7 (the cockpit + Cypher console design)
+- `.claude/plans/lance-graph-ontology-v5.md` D-ONTO-V5-5 (Q2Bridge + `OGIT/NTO/Q2/*.ttl`)
+- `.claude/plans/anatomy-realtime-v1.md` PR-ANATOMY-1..7 (the FMA demo pipeline)
+
+---
+
+## 2026-05-13 — TD-API-DRIFT-MIDFLIGHT-1: consumer migrations failing mid-air due to D-SDR-1..5 API drift on the source crate
+
+**Status:** Open
+**Priority:** P0 (consumer PRs blocked TODAY — medcare-rs reports failures during in-flight migration)
+**Scope:** crate:lance-graph-callcenter crate:medcare-analytics crate:smb-bridge D-SDR-3 D-SDR-4 D-SDR-5 domain:migration domain:api-stability
+**Introduced by:** Successive D-SDR-1..5 commits adding methods/builders to `UnifiedBridge` faster than consumers can adapt
+**Payoff estimate:** ~80 LOC operational discipline (SHA pinning + must_use lint + deprecation annotations + migration module re-exports) + 1 CHANGELOG entry per source-crate PR
+
+### What
+
+Between D-SDR-1 (PR #363 starter) → Codex P2 fix → D-SDR-3 (family table) → D-SDR-4 (audit) → D-SDR-5 (wired authorize + new builders), the `UnifiedBridge` API surface grew in 5 steps over 7 days. Consumer-side migrations (medcare-rs commit `31e999b`, smb-office-rs commit `342f601`) were authored against the starter shape and now fail when rebased onto the D-SDR-5 HEAD because:
+
+1. `Policy::evaluate` contract changed (alias → canonical entity type) — silent semantic shift; existing alias-keyed policies stop matching.
+2. New `with_audit_chain(...)` builders are not auto-invoked — default is `NoopUnifiedAuditSink` + GENESIS chain, which **silently disables compliance** for consumers who don't explicitly opt in.
+3. New `actor_role_hash` field on `UnifiedAuditEvent` is `Copy`-derived; tests using `event.clone()` get a clippy warning that breaks `-D warnings` CI gates.
+4. The new D-SDR-3 `OgitFamilyTable` is exported from `lib.rs` but is the type system layer-2; consumers that re-export from `lance_graph_callcenter::*` glob get the new symbol surface which may collide with their own `FamilyEntry` types.
+
+### The 5-step mitigation (operational discipline, not new code)
+
+1. **Pin migration source SHA on consumer-side branches.** medcare-rs + smb-office-rs `claude/lance-datafusion-integration-gv0BF` branches should depend on lance-graph at the post-#363 merge SHA (`421e71e`) during the migration window, NOT at `main` HEAD. Unpin after the consumer migration PR lands.
+2. **Add `#[must_use]` lint on `UnifiedBridge::new` output until audit is configured.** Force consumers to either call `.with_audit_chain(...)` or `.allow_no_audit()` (explicit opt-out for tests/local-dev).
+3. **`#[deprecated]` annotation on `column_mask_bridge.rs`** in medcare-analytics the moment `unified_bridge_wiring.rs` lands as canonical.
+4. **Ship `lance-graph-callcenter::migration` module** with re-exports of stable consumer-facing types. Consumers import from `migration::*` during the migration window; this surface does NOT change between minor versions. Internal source moves freely; the migration surface is a versioned contract.
+5. **CHANGELOG.md entry per source-crate PR** with explicit consumer-migration notes (each builder, contract shift, audit field). Without this, every consumer's first failure forces a transcript-grep.
+
+### Payoff
+
+Pre-empts the next iteration of the same failure mode when D-SDR-13/15/17 (or the Pattern E+F+cognition cascade) lands. The 5-PR super-domain subcrate scaffolding cascade explicitly sequences consumer migrations against pinned source SHAs (IDEAS.md 2026-05-13). Once the mitigation is in place + the cascade adopts it, consumer-side breakage during multi-PR migrations stops being a recurring problem.
+
+### Risk if left open
+
+Every multi-PR source-crate migration breaks consumers mid-air. The next failure will happen during the Pattern E+F+cognition cascade (manifest + ractor supervisor + cognition_bridge land as 3 sequential PRs over multiple days, with consumers needing to track each). Without SHA-pinning + must_use + deprecation discipline, that cascade also breaks medcare-rs / smb-office-rs / future hiro/hubspot/woa subcrates the same way D-SDR-1..5 just did.
+
+### Cross-references
+
+- `EPIPHANIES.md` 2026-05-13 in-flight bridge migration drift finding (the harvested observation)
+- `EPIPHANIES.md` 2026-05-13 super-domain subcrate finding (the migration target this drift breaks)
+- `IDEAS.md` 2026-05-13 super-domain subcrate scaffolding cascade (the sequencing discipline)
+- `TECH_DEBT.md` TD-SDR-CONSUMER-PUSH-1 (the consumer PRs currently affected) + TD-SUPER-DOMAIN-SUBCRATES-1 (the migration target)
+- spec `super-domain-rbac-tenancy-v1` §3.9 (authorize 4-stage flow that drifted between D-SDR-1 and D-SDR-5)
+
+---
+
+## 2026-05-13 — TD-SUPER-DOMAIN-SUBCRATES-1: consumer crates (medcare-analytics + medcare-bridge + smb-bridge + future hiro-rs/hubspot-rs/woa-rs) carry parallel auth paths and are not yet super-domain-specialised subcrates
+
+**Status:** Open
+**Priority:** P1 (medcare migration finalization is P0 within this row — it's the proof case)
+**Scope:** crate:medcare-analytics crate:medcare-bridge crate:medcare-realtime crate:smb-bridge crate:woa-rs crate:hiro-rs crate:hubspot-rs D-SDR-8 D-SDR-9 D-SDR-21 D-SDR-22 D-SDR-23 domain:super-domain domain:consumer-scaffolding
+**Introduced by:** super-domain-rbac-tenancy-v1 §3.4 (SuperDomain) + §8 Tier C scaffolding gap
+**Payoff estimate:** 5-PR cascade (see IDEAS.md 2026-05-13 super-domain subcrate scaffolding cascade); ~900 LOC total across MedCare-rs + smb-office-rs + woa-rs + hiro-rs + hubspot-rs
+
+### What
+
+Tier C of the spec frames consumer-crate scaffolding generically (D-SDR-8 hiro-rs, D-SDR-9 hubspot-rs). The 2026-05-13 super-domain subcrate finding reframes this: **each `SuperDomain` enum variant IS the specialised subcrate** that owns its compliance regime (HIPAA / SOX / PCI-DSS / etc.), role matrix (§4.3 illustrates Healthcare's), hard-lock partner declarations (§13.4 Healthcare ↔ OSINT), and audit JSONL sink config.
+
+Current state of the 5 consumer subcrate slots:
+
+| SuperDomain | Subcrate(s) | Status | Gap |
+|---|---|---|---|
+| Healthcare | medcare-analytics + medcare-bridge + medcare-realtime (3 crates in MedCare-rs) | In-flight | `unified_bridge_wiring.rs` exists (commit `31e999b` local-unpushed) but `column_mask_bridge.rs` still co-exists as parallel auth path; 3-crate split needs collapsing to a single `medcare-rs::healthcare` re-export |
+| WorkOrderBilling (SMB slot) | smb-office-rs/crates/smb-bridge | In-flight | commit `342f601` local-unpushed; auth-rls path still standalone, not yet under UnifiedBridge |
+| WorkOrderBilling (WoA slot) | (would be /home/user/woa-rs) | Not started | woa_bridge.rs lives in lance-graph-ontology; needs extraction + MetaBridge retrofit |
+| TicketTool (Hiro slot) | (would be /home/user/hiro-rs, D-SDR-8) | Not started | OGIT/NTO/Hiro TTL also needed (D-SDR-6, blocked on OGIT MCP scope) |
+| TicketTool (HubSpot slot) | (would be /home/user/hubspot-rs, D-SDR-9) | Not started | Same MCP scope blocker (D-SDR-7) |
+
+### Why this debt matters
+
+1. **Parallel auth paths confuse migration.** medcare-analytics currently exposes both `column_mask_bridge` and `unified_bridge_wiring`; downstream consumers don't know which is canonical. Migration must finalize before D-SDR-8/9 ship, otherwise new subcrates scaffold against a half-migrated pattern.
+2. **Per-super-domain config has nowhere to live.** Compliance certification (D-SDR-11), audit sink paths (D-SDR-10/14), hard-lock partner declarations (D-SDR-17), DP epsilon defaults (D-SDR-15) all need a per-super-domain home. Today they'd land in `lance-graph-callcenter` (wrong scope), `lance-graph-rbac` (wrong layer), or scattered across consumer crates.
+3. **Manifest convergence requires it.** Pattern E (D-MANIFEST-MODULES-4) declares one manifest per consumer. If consumers aren't super-domain-specialised, the manifest's `super_domain` field becomes redundant and the per-super-domain compile-time invariants (hard-lock crypto barriers, audit chain salts) can't be enforced.
+
+### Payoff
+
+`.claude/board/IDEAS.md` 2026-05-13 super-domain subcrate scaffolding cascade lays out the 5-PR sequence. Status flips to Paid when all 5 subcrates exist with single auth paths and per-super-domain manifest entries. **PR 1 (MedCare migration finalization) is P0 within this row** — it's the proof case that defines the pattern for PR 2-5.
+
+### Risk if left open
+
+Every Tier C/F/H deliverable that ships against a non-super-domain-specialised consumer crate widens the dedup surface and creates a second-order entropy ledger row. Hiro-rs / hubspot-rs scaffolded clean-room (without the medcare migration finalized as proof) would each ship their own `column_mask_bridge`-equivalent legacy auth path that future PRs would need to retire.
+
+### Cross-references
+
+- `EPIPHANIES.md` 2026-05-13 super-domain subcrate finding (the harvested observation)
+- `IDEAS.md` 2026-05-13 super-domain subcrate scaffolding cascade (the proposed 5-PR sequence)
+- `TECH_DEBT.md` TD-SDR-CONSUMER-PUSH-1 (the medcare + smb push gap that PR 1+2 of this cascade close)
+- `TECH_DEBT.md` TD-THINKING-ENGINE-UNWIRED-1 + TD-RACTOR-SUPERVISOR-5 (the substrate cascade this rides on top of)
+- spec `super-domain-rbac-tenancy-v1` §3.4, §3.6, §3.7, §4, §8 Tier C, §14.2 (bridge templates)
+
+---
+
+## 2026-05-13 — TD-SIMD-CALLCENTER-BATCH-PATHS-1: callcenter consumer-side batch paths still scalar-loop where `ndarray::simd` is canonical (§19.2)
+
+**Status:** Open
+**Priority:** P2 (per-row hot path is intentionally scalar; debt is on **batch** paths only)
+**Scope:** crate:lance-graph-callcenter crate:medcare-analytics crate:smb-bridge crate:thinking-engine D-SDR-25 D-SDR-26 D-PARITY-V2-* domain:simd domain:performance
+**Introduced by:** super-domain-rbac-tenancy-v1 §19.2 + §19.7 (canonical SIMD path mandate); pre-existing scalar loops in consumer code
+**Payoff estimate:** ~5 batch hot-spots × ~40 LOC each = ~200 LOC + 5 micro-benchmarks; per-spot speedup 4-8× on AVX2/AVX512/NEON
+
+### What
+
+Spec §19.2 mandates `ndarray::simd` as the canonical SIMD path. The `LazyLock<Tier>` dispatch pattern is already shipped; consumers just import. But several callcenter consumer-side **batch** paths still hand-roll scalar loops where SIMD primitives exist. The per-row hot path is correctly scalar (§19.2 — per-row authorize doesn't benefit from SIMD); the debt is exclusively on batch paths:
+
+| Batch hot-spot | Today (scalar) | `ndarray::simd` primitive that should replace it | Notes |
+|---|---|---|---|
+| `unified_audit::verify_chain` over N events | Scalar FNV-1a loop | `ndarray::simd::batch_fnv1a` (or hand-roll if absent) | Cold-storage audit verification; ~8× speedup expected |
+| Batch `OgitFamilyTable::lookup` over N rows | Per-row array index | `ndarray::simd::gather_u8` / scatter-gather | DataFusion ScanExec row decoration |
+| Batch `FAMILY_TO_SUPER_DOMAIN` annotation | Per-row byte index | Same gather pattern | Same use case as above |
+| D-SDR-25 (future) `DriftDetectionBridge::compare` batch MerkleRoot XOR-fold | (not yet written) | `ndarray::simd::xor_fold` | §19.7 explicitly calls this out |
+| D-SDR-26 (future) determinism rule batch byte-comparison | (not yet written) | `ndarray::simd::byte_eq_mask` | `reencode_safety.rs` from thinking-engine likely already has this |
+
+### Payoff
+
+Per spot: ~40 LOC replacement + 1 micro-benchmark proving the speedup. Total ~200 LOC + 5 benchmarks. The architectural payoff is larger than the LOC count suggests — the discipline (route batches through `ndarray::simd`, reject hand-rolled SIMD or scalar loops in review) becomes enforceable once the in-crate examples exist.
+
+### Risk if left open
+
+Every new batch path written by an agent (or human) defaults to scalar-loop because that's the easy thing. Reviewers can cite §19.2 to push back, but without concrete in-crate examples of the canonical pattern, agents re-derive scalar loops. Each scalar-loop batch hot-spot is a future entropy-ledger row.
+
+### Cross-references
+
+- spec `super-domain-rbac-tenancy-v1` §19.2 (canonical SIMD path mandate) + §19.7 (D-SDR-25 explicitly cites `ndarray::simd::xor_fold`)
+- `EPIPHANIES.md` 2026-05-13 three-paths-converging finding (Path C is this debt's substrate)
+- `CLAUDE.md § ndarray Integration Policy`
+- `crates/lance-graph-callcenter/src/{unified_audit,family_table,super_domain,unified_bridge}.rs` (the per-row paths that have batch siblings to add)
+
+---
+
+## 2026-05-13 — TD-THINKING-ENGINE-UNWIRED-1: 582 KB cognitive substrate dormant; §16-§19 deliverables scaffolded clean-room instead of composed
+
+**Status:** Open
+**Priority:** P1 (architectural debt — every downstream D-SDR pays the cost until cleared)
+**Scope:** crate:thinking-engine crate:lance-graph-callcenter D-SDR-13 D-SDR-15 D-SDR-17 D-SDR-19 D-SDR-25 D-SDR-26 D-PARITY-V2-3..12 domain:cognition domain:auth domain:dedup
+**Introduced by:** (pre-existing — thinking-engine landed across many PRs over 2026-Q1 / Q2; the debt is the **non-wiring** of it into the super-domain RBAC + UnifiedBridge path)
+**Payoff estimate:** ~300 LOC + 5 integration tests for the initial cognition-bridge PR (collapses D-SDR-13/15/17 into one module); downstream LOC savings ~10-15% per consumer; **architectural** savings much larger — every downstream D-SDR composes the cognitive surface for free.
+
+### What
+
+`crates/thinking-engine/` ships 48 modules / 16,211 LOC / 582 KB of Rust covering: precision-tier engines (BF16/F32/signed/composite/dual/layered/domino), encoding (prime_fingerprint, spiral_segment, tokenizer_registry, pooling), sensing (jina_lens, bge_m3_lens, reranker_lens, sensor), cognition (cognitive_stack, ghosts, persona, qualia, world_model, awareness_dto), calibration (cronbach, ground_truth, reencode_safety, contrastive_learner), bridges (bridge, contract_bridge, l4_bridge, l4, tensor_bridge), algebra (meaning_axes, superposition), and domain-specific surfaces (osint_bridge, role_tables, centroid_labels, codebook_index, lookup).
+
+It is indexed in `CLAUDE.md § Thinking Engine` and cited by 6 plans (`anatomy-realtime-v1`, `cam-pq-production-wiring-v1`, `unified-integration-v1`, `unified-ogit-architecture-v1`, `palantir-parity-cascade-v2`, `super-domain-rbac-tenancy-v1`) but consumed by **zero callcenter-side code**. The super-domain RBAC + UnifiedBridge work (D-SDR-1..5) ships against `lance-graph-rbac::Policy` and the local `unified_audit` module, not against thinking-engine's `role_tables` + `persona` + `awareness_dto`.
+
+**The debt is the wiring gap**, not the substrate. Each unwired downstream D-SDR carries a clean-room scaffolding cost that should compose against thinking-engine instead:
+
+| Deliverable | Clean-room LOC (current plan) | With thinking-engine composition | thinking-engine module(s) it leans on |
+|---|---|---|---|
+| D-SDR-13 (HKDF per super-domain) | ~80 + 4 tests | ~30 + 2 tests | `role_tables`, `persona` |
+| D-SDR-15 (DifferentialPrivacy role) | ~150 + 5 tests | ~70 + 3 tests | `contrastive_learner`, `cronbach`, `reencode_safety` |
+| D-SDR-17 (hard-lock partner matrix) | ~60 + 4 tests | ~40 + 2 tests | `osint_bridge`, `persona` |
+| D-SDR-19 (MetaBridge trait extraction) | ~150 | ~80 | `bridge`, `contract_bridge`, `l4_bridge` (existing bridge taxonomy) |
+| D-SDR-25 (DriftDetectionBridge) | ~150 + 4 tests | ~80 + 3 tests | `ground_truth`, `cronbach` |
+| D-SDR-26 (determinism test suite) | ~120 + 6 tests | ~60 + 3 tests | `reencode_safety` (x256-proven byte-determinism) |
+| D-PARITY-V2-3..12 (DTO ladder rest) | ~600 | ~350 | `tensor_bridge`, `meaning_axes`, `superposition` |
+
+Net: ~1,310 LOC scaffolded clean-room vs ~710 LOC composed; **~45% LOC saved** plus an architectural collapse where future cognitive consumers can read the thinking-engine surface directly instead of duplicating it.
+
+### Payoff
+
+`.claude/board/IDEAS.md` 2026-05-13 entry "Wire `thinking-engine` into UnifiedBridge" carries the concrete wiring proposal (cognition_bridge module + 5 integration test classes). Single PR ~300 LOC closes the architectural gap. Status flips to Paid when the PR merges; downstream D-SDR rows update to cite the composed thinking-engine modules as backing implementation.
+
+### Risk if left open
+
+Every Tier B+/F+/H deliverable that ships clean-room widens the duplication surface against thinking-engine and creates a future dedup pass (entropy ledger gets a new row each round). The Mandatory Board-Hygiene Rule's anti-pattern ("retroactive hygiene as separate cleanup commit") applies architecturally: if we don't compose against thinking-engine **now**, every later PR ships duplicate cognitive code and a TECH_DEBT.md row for the duplication.
+
+### Cross-references
+
+- `EPIPHANIES.md` 2026-05-13 thinking-engine finding (the harvested observation)
+- `IDEAS.md` 2026-05-13 wire-thinking-engine entry (the proposed PR)
+- `.claude/handovers/2026-05-13-0855-brainstorm-arc-synthesis.md` §6 (priority-ordered next steps)
+- `CLAUDE.md § Thinking Engine` (the index that already exists)
+- `.claude/knowledge/lab-vs-canonical-surface.md` (read before designing the bridge — avoid the System-1 trap of adding another REST endpoint instead of extending the canonical bridge)
+- `.claude/knowledge/vsa-switchboard-architecture.md` (Layer-2 role catalogue framing per `I-VSA-IDENTITIES`)
+
+---
+
+## 2026-05-13 — TD-SDR-PR-FOLLOWUP-1: 5 commits stacked on merged main, no follow-up PR opened
+
+**Status:** Open
+**Priority:** P0
+**Scope:** D-SDR-3 D-SDR-4 D-SDR-5 domain:governance
+**Introduced by:** D-SDR-3..5 committed 2026-05-13 after #363 merge (3e94a27, 2c3e87d, 1d0157f, dabd510, dc9e081)
+**Payoff estimate:** 1× PR creation + board hygiene updates in same commit; ~15 minutes
+
+### What
+
+Five commits on `claude/lance-datafusion-integration-gv0BF` sit ahead of merged `main`. PR #363 (D-SDR-1+2 + Codex fix) merged at `421e71e`; subsequent commits (`3e94a27` knowledge inbox, `2c3e87d` D-SDR-3, `1d0157f` D-SDR-4, `dabd510` lockfile, `dc9e081` D-SDR-5) are pushed but no follow-up PR exists.
+
+The Mandatory Board-Hygiene Rule requires this PR to update `LATEST_STATE.md` (Contract Inventory), `STATUS_BOARD.md` (D-SDR-3..5 rows), `PR_ARC_INVENTORY.md` (PREPEND entries for #363 and the new PR), and `INTEGRATION_PLANS.md` (status correction line, already done) in the same commit.
+
+### Payoff
+
+Phase 0 step 1+2 in `.claude/handovers/2026-05-13-0855-brainstorm-arc-synthesis.md`. Unblocks consumer-side PRs (TD-SDR-CONSUMER-PUSH-1).
+
+---
+
+## 2026-05-13 — TD-SDR-CONSUMER-PUSH-1: medcare-rs + smb-office-rs UnifiedBridge wirings committed locally, NOT pushed
+
+**Status:** Open
+**Priority:** P0
+**Scope:** consumer-side D-SDR-1 wiring domain:auth
+**Introduced by:** medcare-rs `31e999b` + smb-office-rs `342f601` (both local, 2026-05-13)
+**Payoff estimate:** 2× git push + 2× PR creation; ~5 minutes work each
+
+### What
+
+Both consumer-side wirings exist as committed local changes on their `claude/lance-datafusion-integration-gv0BF` branches but neither has been pushed and neither has an open PR. The lance-graph follow-up PR (D-SDR-3..5) is the natural anchor — push consumer PRs in parallel with it. Both crates compile against the merged-#363 `UnifiedBridge`; nothing in the unmerged D-SDR-3..5 changes the public surface they consume.
+
+### Payoff
+
+Phase 0 step 3 in `.claude/handovers/2026-05-13-0855-brainstorm-arc-synthesis.md`. Trivial work blocked only on the lance-graph follow-up PR being opened first.
+
+---
+
+## 2026-05-13 — TD-SDR-AUDIT-PERSIST-1: UnifiedAuditEvent emits to in-memory chain only; no Lance/JSONL sink yet
+
+**Status:** Open
+**Priority:** P1
+**Scope:** @callcenter-membrane D-SDR-10 D-SDR-14 domain:audit
+**Introduced by:** D-SDR-4 (`1d0157f`) + D-SDR-5 (`dc9e081`)
+**Payoff estimate:** ~200 LOC + 7 tests (D-SDR-10 JSONL sink ~80 LOC + 1 test; D-SDR-14 replay-verify schema ~120 LOC + 6 tests)
+
+### What
+
+`UnifiedAuditSink` trait is shipped with a `NoopUnifiedAuditSink` default. The merkle chain (`AuditChain`) advances correctly and stamps each `UnifiedAuditEvent` with the chained `AuditMerkleRoot`, but nothing persists to disk. `with_audit_chain` + `with_audit_chain_resume` builders accept any `Arc<dyn UnifiedAuditSink>` — the persistent implementations are owed.
+
+D-SDR-10 ships `JsonLinesAuditSink` (append one canonical JSON record per event). D-SDR-14 ships the replay-time `verify_chain` integration so a JSONL file can be audited post-hoc for tamper detection. Without these, audit emission has zero compliance value despite the merkle chain being correct.
+
+### Payoff
+
+D-SDR-10 + D-SDR-14 are listed as next-priority work in `.claude/handovers/2026-05-13-0855-brainstorm-arc-synthesis.md` §6 Phase 1. Self-contained, no external blockers.
+
+---
+
+## 2026-05-13 — TD-SDR-FAMILY-HYDRATION-1: `FAMILY_TO_SUPER_DOMAIN` reverse lookup is all-`Unknown` until TTL hydration
+
+**Status:** Open
+**Priority:** P1
+**Scope:** @callcenter-membrane D-SDR-3b D-SDR-6 D-SDR-7 domain:ontology
+**Introduced by:** D-SDR-2 (`17987ce` in #363)
+**Payoff estimate:** Depends on D-SDR-6/7 (OGIT TTL fork PRs) + a TTL → static table generator; ~150 LOC for the generator + the populated tables.
+
+### What
+
+`super_domain.rs` ships `FAMILY_TO_SUPER_DOMAIN: [SuperDomain; 256]` as a static reverse lookup, but every entry is `SuperDomain::Unknown` until OGIT TTL hydration. Consequence in `unified_bridge.rs::emit_audit`: every `UnifiedAuditEvent::super_domain` is currently `Unknown` regardless of the row's actual family. The chain's `super_domain` (configured via `with_audit_chain`) drives merkle salting correctly; the event field itself is the unhydrated default.
+
+The 5 new D-SDR-5 audit tests assert this explicitly (`assert_eq!(events[0].super_domain, SuperDomain::Unknown)` with a comment citing this debt row).
+
+### Payoff
+
+D-SDR-3b (TTL hydration baker) plus the OGIT fork PRs (D-SDR-6 Hiro entities, D-SDR-7 HubSpot entities) populate the reverse-lookup at bake time. Currently both blocked on `AdaWorldAPI/OGIT` MCP scope expansion.
+
+---
+
+## 2026-05-13 — TD-SDR-SLOT-TRUNC-1: `owl_from_schema_ptr` silently truncates 16-bit entity_type_id to 8-bit slot
+
+**Status:** Open
+**Priority:** P2
+**Scope:** @callcenter-membrane domain:ontology
+**Introduced by:** D-SDR-5 (`dc9e081`)
+**Payoff estimate:** ~5 LOC for a `debug_assert!`; larger refactor (widen `OwlIdentity` or partition basin) deferred until needed.
+
+### What
+
+`owl_from_schema_ptr(ptr) -> OwlIdentity` truncates `SchemaPtr::entity_type_id() (u16)` to 8 bits via `(id & 0xFF) as u8`. Lossless within the §16 addressable domain (≤256 entries per family; SGO meta excluded from runtime addressing per §9.3) but **silently truncating** for any basin that exceeds the cap. The debug build will not catch the overflow; the truncation just folds high-byte slots onto low-byte slots, causing audit + policy lookups to alias.
+
+### Payoff
+
+Add a `debug_assert!(ptr.entity_type_id() < 256, ...)` to surface the overflow before silent aliasing. Status check should run when any basin's `FamilyEntry` count crosses ~200.
+
+---
+
+## 2026-05-13 — TD-SDR-BRIDGE-ERR-AUDIT-1: `BridgeError` short-circuits before audit emission — no probe-detection signal
+
+**Status:** Open
+**Priority:** P3
+**Scope:** @callcenter-membrane D-SDR-5b domain:audit
+**Introduced by:** D-SDR-5 (`dc9e081`)
+**Payoff estimate:** ~30 LOC + 2 tests (emit a `BridgeError`-tagged `UnifiedAuditEvent` with `AuthDecision::BridgeError` before propagating the error)
+
+### What
+
+`UnifiedBridge::authorize_*` returns `BridgeError` before reaching policy evaluation when `bridge.row(public_name)` fails (e.g., unknown public name). Currently NO audit event fires on this path — the rationale (D-SDR-5 minimum, spec §3.9 text) is that bad input names aren't authentication decisions, they're invalid requests. **But this means probing attacks (enumerating valid vs invalid names through unauthenticated traffic) leave no audit trace.**
+
+`AuthDecision::BridgeError = 3` variant is already defined in `unified_audit.rs` for this future enrichment.
+
+### Payoff
+
+Emit the audit event before short-circuit; cost is ~30 LOC + tests for the two new paths. Revisit when an SOC2/probing-detection requirement surfaces.
+
+---
+
 ## 2026-04-30 — TD-BGZ-TESTS-1: 5 pre-existing bgz-tensor test failures shipped with PR #308
 
 **Status:** Open

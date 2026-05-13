@@ -5155,10 +5155,12 @@ name = "ndarray"
 version = "0.17.2"
 dependencies = [
  "blake3",
+ "fractal",
  "matrixmultiply",
  "num-complex",
  "num-integer",
  "num-traits",
+ "p64",
  "portable-atomic",
  "portable-atomic-util",
  "rawpointer",

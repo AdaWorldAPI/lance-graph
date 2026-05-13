@@ -34,13 +34,22 @@
 //! }
 //! ```
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use std::time::{SystemTime, UNIX_EPOCH};
 
+use lance_graph_contract::hash::fnv1a_str;
 use lance_graph_contract::property::PrefetchDepth;
 use lance_graph_ontology::bridge::{BridgeError, EntityRef, NamespaceBridge};
+use lance_graph_ontology::namespace::SchemaPtr;
 use lance_graph_ontology::proposal::MappingRow;
 use lance_graph_rbac::access::AccessDecision;
 use lance_graph_rbac::policy::{Operation, Policy};
+
+use crate::super_domain::SuperDomain;
+use crate::unified_audit::{
+    AuditChain, AuditMerkleRoot, AuthDecision, AuthOp, NoopUnifiedAuditSink, UnifiedAuditEvent,
+    UnifiedAuditSink,
+};
 
 /// Extract the canonical ontology entity type name from a resolved
 /// [`MappingRow`], for use as the [`Policy::evaluate`] key.
@@ -90,55 +99,73 @@ impl OgitFamily
 // OwlIdentity — Level-3 per-row identity (§3.2)
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// 2 bytes. BF16-shaped container (interpreted as named bit-fields, not
-/// literal floating-point semantics).
-/// High 8 bits = `OgitFamily` (the precise heel pointer / "mantissa").
-/// Low  8 bits = within-family slot (the OWL/consumer's own identity).
+/// 3 bytes when serialized: 1-byte `OgitFamily` (the precise heel
+/// pointer / "mantissa") + 2-byte within-family slot (the OWL /
+/// consumer's own identity). Widened from the original 2-byte
+/// (family u8 + slot u8) layout after PR #364 review surfaced that
+/// `RegistryState::append` allocates entity-type IDs globally as `u16`
+/// so any registry with ≥256 entries would alias slot collisions
+/// across distinct authorized entities.
+///
+/// In-memory representation is two named fields (4 bytes with
+/// alignment). On-wire layout in `UnifiedAuditEvent::canonical_bytes`
+/// is the deterministic 3-byte sequence `[family, slot_le_lo,
+/// slot_le_hi]`.
+///
 /// This is what rides on every LanceDB row.
-#[repr(transparent)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct OwlIdentity(pub u16);
+pub struct OwlIdentity {
+    family: OgitFamily,
+    slot: u16,
+}
 
 impl OwlIdentity
 {
-    pub const UNKNOWN: Self = Self(0);
+    pub const UNKNOWN: Self = Self {
+        family: OgitFamily(0),
+        slot: 0,
+    };
 
     #[inline]
-    pub const fn new(family: OgitFamily, slot: u8) -> Self
+    pub const fn new(family: OgitFamily, slot: u16) -> Self
     {
-        Self(((family.0 as u16) << 8) | slot as u16)
+        Self { family, slot }
     }
 
     #[inline]
     pub const fn family(self) -> OgitFamily
     {
-        OgitFamily((self.0 >> 8) as u8)
+        self.family
     }
 
     #[inline]
-    pub const fn slot(self) -> u8
+    pub const fn slot(self) -> u16
     {
-        (self.0 & 0xFF) as u8
+        self.slot
     }
 
+    /// Deterministic on-wire form: `[family u8, slot_lo u8, slot_hi u8]`.
+    /// Used by `UnifiedAuditEvent::canonical_bytes` so the merkle chain
+    /// hashes a byte-stable representation across Rust / C# emitters.
     #[inline]
-    pub const fn raw(self) -> u16
+    pub const fn to_canonical_bytes(self) -> [u8; 3]
     {
-        self.0
+        let slot = self.slot.to_le_bytes();
+        [self.family.0, slot[0], slot[1]]
     }
 
     /// Bitmask predicate Cypher MATCH lowers to. No string lookup.
     #[inline]
     pub const fn is_family(self, f: OgitFamily) -> bool
     {
-        self.family().0 == f.0
+        self.family.0 == f.0
     }
 
     /// Within-family slot predicate.
     #[inline]
-    pub const fn is_slot(self, s: u8) -> bool
+    pub const fn is_slot(self, s: u16) -> bool
     {
-        self.slot() == s
+        self.slot == s
     }
 }
 
@@ -215,11 +242,30 @@ pub struct UnifiedBridge<B: NamespaceBridge> {
     bridge: Arc<B>,
     policy: Arc<Policy>,
     actor_role: &'static str,
+    /// FNV-1a digest of `actor_role`. Cached at construction so each
+    /// `authorize_*` call stamps audit events with a fixed-size identifier
+    /// (the `&'static str` doesn't fit into a `Copy` audit record).
+    actor_role_hash: u64,
     tenant: TenantId,
+    /// Audit sink — every `authorize_*` call that reaches the policy
+    /// evaluation step emits one `UnifiedAuditEvent`. Default is
+    /// `NoopUnifiedAuditSink` (zero overhead, no persistence). Swap via
+    /// [`Self::with_audit_chain`].
+    audit_sink: Arc<dyn UnifiedAuditSink>,
+    /// Merkle-chained audit advancer. Holds the prior event's root +
+    /// per-super-domain salt so each new event chains off it. Mutex
+    /// guards the `last_root` advance under concurrent `authorize_*`
+    /// callers; contention is bounded (each event mutates once).
+    audit_chain: Mutex<AuditChain>,
 }
 
 impl<B: NamespaceBridge> UnifiedBridge<B> {
     /// Construct a new unified bridge.
+    ///
+    /// Defaults audit to `NoopUnifiedAuditSink` + a chain anchored at
+    /// `SuperDomain::Unknown` with salt 0. Call
+    /// [`Self::with_audit_chain`] to swap in a real sink + the
+    /// super-domain-specific salt before authorization traffic starts.
     pub fn new(
         bridge: Arc<B>,
         policy: Arc<Policy>,
@@ -230,8 +276,41 @@ impl<B: NamespaceBridge> UnifiedBridge<B> {
             bridge,
             policy,
             actor_role,
+            actor_role_hash: fnv1a_str(actor_role),
             tenant,
+            audit_sink: Arc::new(NoopUnifiedAuditSink),
+            audit_chain: Mutex::new(AuditChain::new(SuperDomain::Unknown, 0)),
         }
+    }
+
+    /// Builder: swap in a real `UnifiedAuditSink` + the super-domain's
+    /// `merkle_salt` (§13.4 — cross-domain audit logs unlinkable). Resets
+    /// the chain to GENESIS; pass a resume root via
+    /// [`Self::with_audit_chain_resume`] if continuing a persisted chain.
+    pub fn with_audit_chain(
+        mut self,
+        super_domain: SuperDomain,
+        salt: u64,
+        sink: Arc<dyn UnifiedAuditSink>,
+    ) -> Self {
+        self.audit_sink = sink;
+        self.audit_chain = Mutex::new(AuditChain::new(super_domain, salt));
+        self
+    }
+
+    /// Builder: like [`Self::with_audit_chain`] but resumes from a known
+    /// prior root (e.g. on process restart after reading the last
+    /// persisted event's root).
+    pub fn with_audit_chain_resume(
+        mut self,
+        super_domain: SuperDomain,
+        salt: u64,
+        last_root: AuditMerkleRoot,
+        sink: Arc<dyn UnifiedAuditSink>,
+    ) -> Self {
+        self.audit_sink = sink;
+        self.audit_chain = Mutex::new(AuditChain::resume(super_domain, salt, last_root));
+        self
     }
 
     /// Returns the underlying namespace bridge.
@@ -249,6 +328,14 @@ impl<B: NamespaceBridge> UnifiedBridge<B> {
         self.tenant
     }
 
+    /// Returns the current merkle root of the audit chain (the root that
+    /// the next emitted event will chain off of). Useful for persisting
+    /// chain state at shutdown so [`Self::with_audit_chain_resume`] can
+    /// pick up where we left off.
+    pub fn audit_root(&self) -> AuditMerkleRoot {
+        self.audit_chain.lock().unwrap().last_root
+    }
+
     // ── Authorization ─────────────────────────────────────────────────────────
 
     /// Resolve `public_name` through the bridge then evaluate read access at
@@ -261,6 +348,13 @@ impl<B: NamespaceBridge> UnifiedBridge<B> {
     /// canonical OGIT names is honored regardless of which bridge / public
     /// alias the caller used, and consumer-facing aliases stay decoupled
     /// from policy authorship.
+    ///
+    /// On policy evaluation reaching, one `UnifiedAuditEvent` is emitted
+    /// through the configured `UnifiedAuditSink` carrying tenant +
+    /// super-domain + owl + decision. **`BridgeError` short-circuits
+    /// before audit** — bad input names aren't auth decisions, they're
+    /// invalid requests (D-SDR-5 minimum; revisit if probing detection
+    /// becomes a need).
     pub fn authorize_read(
         &self,
         public_name: &str,
@@ -268,13 +362,14 @@ impl<B: NamespaceBridge> UnifiedBridge<B> {
     ) -> Result<EntityRef, AuthError> {
         let row = self.bridge.row(public_name)?;
         let canonical = canonical_entity_type(&row, public_name);
-        self.evaluate(canonical, Operation::Read { depth })?;
-        Ok(EntityRef { schema_ptr: row.schema_ptr })
+        let decision = self.policy.evaluate(self.actor_role, canonical, Operation::Read { depth });
+        self.emit_audit(&row.schema_ptr, AuthOp::Read, decision_of(&decision));
+        map_decision(decision, row.schema_ptr)
     }
 
     /// Resolve `public_name` then evaluate write access on `predicate`.
     /// Policy keys on the canonical ontology entity type — see
-    /// [`Self::authorize_read`] for details.
+    /// [`Self::authorize_read`] for the canonical-name + audit contract.
     pub fn authorize_write(
         &self,
         public_name: &str,
@@ -282,13 +377,14 @@ impl<B: NamespaceBridge> UnifiedBridge<B> {
     ) -> Result<EntityRef, AuthError> {
         let row = self.bridge.row(public_name)?;
         let canonical = canonical_entity_type(&row, public_name);
-        self.evaluate(canonical, Operation::Write { predicate })?;
-        Ok(EntityRef { schema_ptr: row.schema_ptr })
+        let decision = self.policy.evaluate(self.actor_role, canonical, Operation::Write { predicate });
+        self.emit_audit(&row.schema_ptr, AuthOp::Write, decision_of(&decision));
+        map_decision(decision, row.schema_ptr)
     }
 
     /// Resolve `public_name` then evaluate action access on `action`.
     /// Policy keys on the canonical ontology entity type — see
-    /// [`Self::authorize_read`] for details.
+    /// [`Self::authorize_read`] for the canonical-name + audit contract.
     pub fn authorize_act(
         &self,
         public_name: &str,
@@ -296,17 +392,94 @@ impl<B: NamespaceBridge> UnifiedBridge<B> {
     ) -> Result<EntityRef, AuthError> {
         let row = self.bridge.row(public_name)?;
         let canonical = canonical_entity_type(&row, public_name);
-        self.evaluate(canonical, Operation::Act { action })?;
-        Ok(EntityRef { schema_ptr: row.schema_ptr })
+        let decision = self.policy.evaluate(self.actor_role, canonical, Operation::Act { action });
+        self.emit_audit(&row.schema_ptr, AuthOp::Act, decision_of(&decision));
+        map_decision(decision, row.schema_ptr)
     }
 
-    fn evaluate(&self, entity_type: &str, op: Operation<'_>) -> Result<(), AuthError> {
-        match self.policy.evaluate(self.actor_role, entity_type, op) {
-            AccessDecision::Allow => Ok(()),
-            AccessDecision::Deny { reason } => Err(AuthError::Denied(reason)),
-            AccessDecision::Escalate { reason } => Err(AuthError::Escalation(reason)),
-        }
+    /// Stamp an audit event for the resolved row + op + decision through
+    /// the merkle chain and emit to the configured sink.
+    fn emit_audit(&self, schema_ptr: &SchemaPtr, op: AuthOp, decision: AuthDecision) {
+        let owl = owl_from_schema_ptr(schema_ptr);
+        // Hold the chain lock across stamping so the event's super_domain
+        // and the chain it commits into are guaranteed to agree.
+        // FAMILY_TO_SUPER_DOMAIN is an all-Unknown static today (the family
+        // → super-domain hydration table lands in sprint 5); until then,
+        // trust the super_domain the caller wired into the chain via
+        // with_audit_chain(...) as the single source of truth.
+        let mut chain = match self.audit_chain.lock() {
+            Ok(g) => g,
+            // Mutex poisoned by a panicking holder — keep audit emission
+            // best-effort by advancing through the poisoned guard.
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        let event = UnifiedAuditEvent {
+            ts_unix_ms: now_unix_ms(),
+            tenant: self.tenant,
+            super_domain: chain.super_domain,
+            owl,
+            op,
+            decision,
+            actor_role_hash: self.actor_role_hash,
+            // overwritten by AuditChain::advance
+            merkle_root: AuditMerkleRoot::GENESIS,
+        };
+        let stamped = chain.advance(event);
+        drop(chain);
+        self.audit_sink.emit(&stamped);
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// D-SDR-5 plumbing helpers (free functions, no UnifiedBridge::evaluate)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Map an `AccessDecision` to the lifetime-free `AuthDecision` tag stored
+/// in audit records.
+#[inline]
+fn decision_of(d: &AccessDecision) -> AuthDecision {
+    match d {
+        AccessDecision::Allow => AuthDecision::Allow,
+        AccessDecision::Deny { .. } => AuthDecision::Deny,
+        AccessDecision::Escalate { .. } => AuthDecision::Escalate,
+    }
+}
+
+/// Map an `AccessDecision` (consumed) to the public `Result<EntityRef,
+/// AuthError>` surface. `Allow` produces an `EntityRef` from the
+/// already-resolved `SchemaPtr`; `Deny`/`Escalate` propagate the reason
+/// through `AuthError`.
+#[inline]
+fn map_decision(
+    d: AccessDecision,
+    schema_ptr: SchemaPtr,
+) -> Result<EntityRef, AuthError> {
+    match d {
+        AccessDecision::Allow => Ok(EntityRef { schema_ptr }),
+        AccessDecision::Deny { reason } => Err(AuthError::Denied(reason)),
+        AccessDecision::Escalate { reason } => Err(AuthError::Escalation(reason)),
+    }
+}
+
+/// Project a `SchemaPtr` (canonical OGIT pointer with 8-bit namespace +
+/// 16-bit entity-type) onto the 3-byte `OwlIdentity` carried in audit
+/// events. `entity_type_id` flows through full-width to `slot` — no
+/// truncation, no aliasing across the 256-entity boundary.
+#[inline]
+fn owl_from_schema_ptr(ptr: &SchemaPtr) -> OwlIdentity {
+    let family = OgitFamily(ptr.namespace_id().raw());
+    let slot = ptr.entity_type_id();
+    OwlIdentity::new(family, slot)
+}
+
+/// Current wall-clock time in milliseconds since UNIX epoch — used as the
+/// `ts_unix_ms` field on audit events. Saturates to `u64::MAX` if the
+/// system clock is set absurdly far in the future (~292M years).
+fn now_unix_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis().min(u64::MAX as u128) as u64)
+        .unwrap_or(0)
 }
 
 #[cfg(test)]
@@ -471,5 +644,125 @@ mod tests {
             .authorize_read("WorkOrder", PrefetchDepth::Detail)
             .expect_err("policy keyed on alias 'WorkOrder' should NOT grant access; canonical is 'Order'");
         assert!(matches!(err, AuthError::Denied(_)), "got: {err:?}");
+    }
+
+    // ── D-SDR-5: audit emission tests ─────────────────────────────────────────
+
+    /// Recording sink — captures every emitted event for assertions.
+    #[derive(Default)]
+    struct RecordingSink {
+        events: std::sync::Mutex<Vec<UnifiedAuditEvent>>,
+    }
+
+    impl RecordingSink {
+        fn snapshot(&self) -> Vec<UnifiedAuditEvent> {
+            self.events.lock().unwrap().clone()
+        }
+    }
+
+    impl UnifiedAuditSink for RecordingSink {
+        fn emit(&self, event: &UnifiedAuditEvent) {
+            self.events.lock().unwrap().push(*event);
+        }
+    }
+
+    #[test]
+    fn authorize_read_emits_allow_audit_event() {
+        let bridge = alias_test_bridge();
+        let policy = Arc::new(policy_with_role("clerk", "Order"));
+        let sink: Arc<RecordingSink> = Arc::new(RecordingSink::default());
+        let unified = UnifiedBridge::new(bridge, policy, "clerk", TenantId(7))
+            .with_audit_chain(SuperDomain::WorkOrderBilling, 0xDEAD_BEEF, sink.clone());
+
+        let _ = unified
+            .authorize_read("WorkOrder", PrefetchDepth::Detail)
+            .expect("allow");
+
+        let events = sink.snapshot();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].decision, AuthDecision::Allow);
+        assert_eq!(events[0].op, AuthOp::Read);
+        assert_eq!(events[0].tenant, TenantId(7));
+        // Event super_domain is stamped from the configured AuditChain so
+        // compliance partitioning works before FAMILY_TO_SUPER_DOMAIN is
+        // hydrated (D-SDR-3b, sprint 5).
+        assert_eq!(events[0].super_domain, SuperDomain::WorkOrderBilling);
+        assert_ne!(events[0].merkle_root, AuditMerkleRoot::GENESIS);
+    }
+
+    #[test]
+    fn authorize_read_emits_deny_audit_event() {
+        // Policy keyed on the alias → canonical lookup denies; audit still fires.
+        let bridge = alias_test_bridge();
+        let policy = Arc::new(policy_with_role("clerk", "WorkOrder"));
+        let sink: Arc<RecordingSink> = Arc::new(RecordingSink::default());
+        let unified = UnifiedBridge::new(bridge, policy, "clerk", TenantId(7))
+            .with_audit_chain(SuperDomain::WorkOrderBilling, 0, sink.clone());
+
+        let _ = unified
+            .authorize_read("WorkOrder", PrefetchDepth::Detail)
+            .expect_err("deny");
+
+        let events = sink.snapshot();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].decision, AuthDecision::Deny);
+    }
+
+    #[test]
+    fn bridge_error_short_circuits_before_audit() {
+        // Stub registry empty → bridge.row returns NotInScope → no audit.
+        let sink: Arc<RecordingSink> = Arc::new(RecordingSink::default());
+        let registry = Arc::new(OntologyRegistry::new_in_memory());
+        let bridge = Arc::new(StubBridge { registry });
+        let policy = Arc::new(smb_policy());
+        let unified = UnifiedBridge::new(bridge, policy, "accountant", TenantId(1))
+            .with_audit_chain(SuperDomain::Unknown, 0, sink.clone());
+
+        let _ = unified
+            .authorize_read("Customer", PrefetchDepth::Identity)
+            .expect_err("bridge error");
+
+        assert!(sink.snapshot().is_empty(), "no audit on bridge error");
+    }
+
+    #[test]
+    fn audit_chain_advances_across_calls() {
+        let bridge = alias_test_bridge();
+        let policy = Arc::new(policy_with_role("clerk", "Order"));
+        let sink: Arc<RecordingSink> = Arc::new(RecordingSink::default());
+        let unified = UnifiedBridge::new(bridge, policy, "clerk", TenantId(1))
+            .with_audit_chain(SuperDomain::WorkOrderBilling, 42, sink.clone());
+
+        let r0 = unified.audit_root();
+        let _ = unified.authorize_read("WorkOrder", PrefetchDepth::Detail);
+        let r1 = unified.audit_root();
+        let _ = unified.authorize_read("WorkOrder", PrefetchDepth::Detail);
+        let r2 = unified.audit_root();
+
+        assert_ne!(r0, r1);
+        assert_ne!(r1, r2);
+        let events = sink.snapshot();
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0].merkle_root, r1);
+        assert_eq!(events[1].merkle_root, r2);
+    }
+
+    #[test]
+    fn with_audit_chain_resume_picks_up_from_prior_root() {
+        let bridge = alias_test_bridge();
+        let policy = Arc::new(policy_with_role("clerk", "Order"));
+        let sink: Arc<RecordingSink> = Arc::new(RecordingSink::default());
+        let prior = AuditMerkleRoot(0xCAFE_F00D);
+        let unified = UnifiedBridge::new(bridge, policy, "clerk", TenantId(1))
+            .with_audit_chain_resume(
+                SuperDomain::WorkOrderBilling,
+                7,
+                prior,
+                sink.clone(),
+            );
+
+        assert_eq!(unified.audit_root(), prior);
+        let _ = unified.authorize_read("WorkOrder", PrefetchDepth::Detail);
+        assert_ne!(unified.audit_root(), prior);
     }
 }
