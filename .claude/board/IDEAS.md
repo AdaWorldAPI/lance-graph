@@ -87,6 +87,52 @@ Agents filter by `@`-mention or domain to see what's theirs.
 
 (Prepend new ideas here with today's date. Format:)
 
+## 2026-05-13 — Super-domain subcrate scaffolding cascade: finalize MedCare migration → smb-bridge retrofit → woa-rs extraction → hiro-rs / hubspot-rs new
+
+**Status:** Open
+**Priority:** P1 (sequenced after Pattern E+F+cognition cascade lands, which provides the manifest schema each subcrate registers under)
+**Scope:** crate:medcare-analytics crate:medcare-bridge crate:medcare-realtime crate:smb-bridge crate:woa-rs crate:hiro-rs crate:hubspot-rs D-SDR-8 D-SDR-9 D-SDR-21 D-SDR-22 domain:super-domain domain:consumer-scaffolding
+
+Captures the 2026-05-13 super-domain-as-subcrate finding. Per-`SuperDomain` enum variant gets its own specialised subcrate; Tier C (D-SDR-8/9) is not "consumer crate scaffolding" generically — it's specifically **super-domain subcrate scaffolding**.
+
+**Sequenced PRs:**
+
+**PR 1 — MedCare migration finalization (Healthcare super-domain proof case)** — touches `MedCare-rs/crates/medcare-analytics + medcare-bridge + medcare-realtime`.
+
+1. Push `medcare-analytics/src/unified_bridge_wiring.rs` (commit `31e999b`, currently local-only).
+2. Deprecate `medcare-analytics/src/column_mask_bridge.rs` in favour of `unified_bridge_wiring.rs` + `UnifiedBridge::with_audit_chain(SuperDomain::Healthcare, salt, JsonLinesAuditSink::healthcare())`.
+3. Decide: keep `medcare-bridge` as a separate crate (current) or fold its `MedcareBridge` mapper into a `medcare-analytics::bridge` submodule? **Recommended:** fold + re-export from `medcare-analytics::bridge`, keeping `medcare-bridge` as a `pub use medcare_analytics::bridge::*` re-export shim for downstream consumers during the migration window.
+4. Publish a single `medcare-rs::healthcare` re-export (`pub use medcare_analytics::bridge::*; pub use medcare_realtime::*` etc.) that downstream consumers import as one symbol.
+5. Add the `/modules/healthcare/manifest.yaml` entry (per Pattern E) declaring `(G=Healthcare, version=V1, entity_types=..., rbac_policy=medcare_policy, action_capabilities=..., stack_profile=hipaa, actor_type=HealthcareActor, thinking_styles=[Clinical, Diagnostic, Procedural])`. Build-script ingests it into the compile-time `MODULES` table.
+6. ~250 LOC + 2 deprecation comments + 1 manifest YAML + 4 integration tests.
+
+**PR 2 — smb-bridge retrofit (WorkOrderBilling super-domain)** — touches `smb-office-rs/crates/smb-bridge`.
+
+1. Push commit `342f601` (currently local-only).
+2. Same migration shape as PR 1 but smaller (smb-bridge is already a single-crate consumer). Replace `auth-rls` standalone path with `UnifiedBridge::with_audit_chain(SuperDomain::WorkOrderBilling, ...)`.
+3. Add `/modules/work-order-billing/manifest.yaml` entry.
+4. ~150 LOC + 1 manifest + 3 integration tests.
+
+**PR 3 — woa-rs extraction (existing WoaBridge → super-domain subcrate)** — moves `lance-graph-ontology::bridges::woa_bridge.rs` out into a new `/home/user/woa-rs` subcrate behind `MetaBridge` (post-D-SDR-19). Add `/modules/work-order-app/manifest.yaml`. ~200 LOC migration + 3 tests.
+
+**PR 4 — hiro-rs new subcrate (TicketTool/Hiro super-domain slot, D-SDR-8 refined)** — `HiroBridge::from_registry()` + absorbs OSLC-* with provenance lineage per §5. Manifest declares `super_domain=TicketTool`. Composes against Pattern E+F+cognition cascade. ~150 LOC + 1 manifest + 3 tests.
+
+**PR 5 — hubspot-rs new subcrate (TicketTool/HubSpot super-domain slot, D-SDR-9 refined)** — `HubspotBridge::from_registry()` + CRM vocabulary. Manifest declares `super_domain=TicketTool` (note: TicketTool basin holds multiple slot variants; D-SDR-7 OGIT TTL fork PR distinguishes Hiro vs HubSpot entity types). ~150 LOC + 1 manifest + 3 tests.
+
+**Sequencing rationale:** PR 1 (medcare) must finalize before PR 4/5 (new subcrates), otherwise hiro-rs / hubspot-rs scaffold against a half-migrated pattern and accumulate a second-order dedup row in the entropy ledger. PR 2/3 (smb-bridge + woa-rs) can interleave with PR 1 since they touch independent repos.
+
+**Dependency on Pattern E+F+cognition cascade:** each PR's manifest entry consumes the schema defined in D-MANIFEST-MODULES-4. The cascade ideally lands first; if scheduling forces overlap, the manifest files in this idea can be authored as drafts and the build-script rejects them with a clear error until D-MANIFEST-MODULES-4 lands.
+
+**Open sub-questions:**
+
+- For the Hiro / HubSpot slot distinction within `SuperDomain::TicketTool` — does the enum need to split (e.g. `TicketToolHiro` + `TicketToolHubspot` as separate variants) or is one variant sufficient with the slot disambiguating? Recommended: keep one variant; D-SDR-7 TTL fork-PR holds the entity-type-level distinction.
+- For the WorkOrderBilling / WoA / smb-bridge overlap — both smb-bridge and woa-rs declare `super_domain=WorkOrderBilling`. Is that the right factoring, or should WoA get its own `SuperDomain::WorkOrderApp` variant? Recommended: one super-domain (WorkOrderBilling), two consumer subcrates (smb + woa) that the manifest disambiguates via `actor_type`.
+- For MedCareV2 (C# overlay, per §18): does it consume `medcare-rs::healthcare` via Arrow Flight SQL (Phase 5+) or via HTTP+JSON (Tier H M2-M6)? Recommended: HTTP+JSON first (D-SDR-35..39), Flight SQL when Phase 5 starts.
+
+Cross-ref: `EPIPHANIES.md` 2026-05-13 super-domain subcrate finding; `EPIPHANIES.md` 2026-05-13 Pattern E+F+cognition cascade (this idea's prerequisite); `TECH_DEBT.md` TD-SUPER-DOMAIN-SUBCRATES-1 (today) + TD-SDR-CONSUMER-PUSH-1 (PR 1/2 are this row's payoff); spec `super-domain-rbac-tenancy-v1` §3.4 + §3.6 + §3.7 + §4 + §8 Tier C; `MedCare-rs/crates/medcare-analytics/src/unified_bridge_wiring.rs`; `smb-office-rs/crates/smb-bridge/src/unified_bridge_wiring.rs`.
+
+---
+
 ## 2026-05-13 — Pattern E+F+cognition cascade: ship manifest + ractor supervisor + thinking-engine bridge together (3-PR sequence)
 
 **Status:** Open

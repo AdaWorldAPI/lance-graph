@@ -65,6 +65,213 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-05-13 — CLARIFICATION: the OGIT hierarchy is NOT strictly nested — SuperDomain × OGIT-basin × OWL-leaf × DOLCE-leaf are partially orthogonal axes
+
+**Status:** FINDING (clarifies spec §1-§2 "4-level hierarchy" framing)
+
+The `super-domain-rbac-tenancy-v1` §1-§2 framing presents a **4-level hierarchy** (MetaAnchors → SuperDomain → OgitBasin → WithinBasinSlot). User correction 2026-05-13: that framing is partially misleading because OWL slot and DOLCE marker are **orthogonal axes**, not strictly nested sub-trees.
+
+**The actual axis structure:**
+
+| Axis | Cardinality | What it carries | Nesting relation |
+|---|---|---|---|
+| **SuperDomain** | 8 starter values, 256 cap (1 byte) | Activation root + compliance regime + role matrix + hard-lock partners + audit chain salt | Coarse partition; each SuperDomain claims a subset of OGIT basins (`FAMILY_TO_SUPER_DOMAIN: [SuperDomain; 256]` reverse lookup) |
+| **OGIT basin** | 256 (1 byte, `OgitFamily`) | Family-level ontology pointer (Healthcare, Order, Patient, ...) | Many-to-one assignment to SuperDomain; per-family codebook (`OgitFamilyTable`) lives at this level |
+| **OWL leaf** | 256 within each basin (1 byte slot, high byte of `OwlIdentity`) | Within-basin entity identity (`OwlIdentity = (family, slot)` packed u16). **ORTHOGONAL** to other basins' slots — slot 7 in Healthcare and slot 7 in Order are unrelated identities, NOT a shared concept | Per-basin leaf; the "orthogonality" is operational (different family ⇒ different codebook ⇒ different lookup table) |
+| **DOLCE marker** | 4 starter variants (Endurant / Perdurant / Quality / Abstract, `DolceMarker(u8)`) | Upper-ontology classification cross-cutting OGIT — a Healthcare:Patient and an Order:LineItem might both be `Endurant`, while Healthcare:Procedure and Order:Refund are both `Perdurant` | **SEPARATE ORTHOGONAL AXIS** — not a sub-tree of OGIT; lives in `MetaAnchors` per `SuperDomainEntry` and per `FamilyEntry`. Used for upper-ontology reasoning that cross-cuts basin boundaries |
+| Wikidata QID / Foundry ObjectType / OWL upper class | (open) | Cross-walks to external upper ontologies | Same orthogonal status as DOLCE — `MetaAnchors` is a multi-axis cross-walk record, not a strictly nested hierarchy |
+
+**Why the orthogonality matters:**
+
+1. **OWL slot orthogonality is the address-space hygiene rule.** Slot `n` in basin A and slot `n` in basin B are distinct identities; the `OgitFamilyTable::lookup(owl)` debug-asserts on family match for exactly this reason. Aliasing slots across basins (e.g., "slot 7 means 'top-priority' everywhere") is the bug that destroys the addressing model.
+
+2. **DOLCE-axis orthogonality is what enables cross-domain upper-ontology reasoning.** A DataFusion query like "find all `Endurant` rows across Healthcare AND WorkOrderBilling tenants" works because `DolceMarker` is a column dimension orthogonal to OGIT basin. If DOLCE were nested under OGIT, this would require 256 separate scans + a union; orthogonal makes it one masked-predicate scan.
+
+3. **MetaAnchors is multi-axis, not single-tree.** §3.5's `MetaAnchors { foundry_object_type, owl_upper_class, dolce_marker, wikidata_qid }` is four orthogonal cross-walks per `FamilyEntry`. The "4-level hierarchy" framing collapses them visually but the data is a flat record of independent classifications.
+
+**Implication for the address layout in §3:**
+
+The 6-byte per-row identity (`TenantId u32 + OwlIdentity u16`) addresses one axis (OWL = family × slot). The DOLCE marker + Foundry ObjectType + Wikidata QID are **column-side metadata** carried per-row by joining against the per-family codebook (`OgitFamilyTable::lookup(owl).meta_anchors`). They are NOT part of per-row identity; they are batch-decorable annotations that DataFusion ScanExec can produce in one gather pass (Path C / `ndarray::simd::gather_u8`).
+
+**Implication for query masked-predicate composition (§3.10):**
+
+The single masked-predicate that enforces tenant + super-domain + role + slot in one vector pass (§3.10) operates on `TenantId u32 + OwlIdentity u16`. **DOLCE / Wikidata / Foundry filters are a separate masked-predicate** that joins against the family table's `MetaAnchors` column — cheap because `MetaAnchors` is inline (D-SDR-3 inline codebook, one cache line per slot) but architecturally distinct from the identity-axis predicate.
+
+**Implication for `SuperDomain` cap (256 vs 8 starters):**
+
+The 1-byte `SuperDomain` field has 256-value capacity but only 8 starters today. The remaining 248 are reserved for future super-domain partitions that **may need their own activation roots** without disturbing the OGIT basin assignment. Example: splitting `Science` into `LifeScience` and `PhysicalScience` doesn't require renumbering OGIT basins; it just claims another `SuperDomain` slot and updates `FAMILY_TO_SUPER_DOMAIN` for the relevant basins.
+
+**The ball that mustn't drop:** future sessions reading the §1-§2 "4-level hierarchy" framing without this clarification will conflate strict nesting with orthogonality, which leads to bad query plans (sequential scans instead of orthogonal masked-predicates) and bad address-layout decisions (collapsing DOLCE into OGIT). This entry pins the axis-structure intuition.
+
+Cross-ref: spec `super-domain-rbac-tenancy-v1` §1-§2 (hierarchy framing this clarifies), §3.1-§3.5 (DTOs), §3.10 (DataFusion lowering); `crates/lance-graph-callcenter/src/super_domain.rs` (`MetaAnchors` + `DolceMarker` + `SuperDomainEntry`); `crates/lance-graph-callcenter/src/family_table.rs` (`OgitFamilyTable` + `FamilyEntry::meta_anchors`); `EPIPHANIES.md` 2026-05-13 6-byte OGIT identity finding (this clarifies what the 6 bytes do NOT carry).
+
+## 2026-05-13 — FINDING: in-flight bridge migration causes API drift that breaks consumers mid-air; need an explicit deprecation path before D-SDR-5 ripples downstream
+
+**Status:** FINDING (warning + actionable mitigation)
+
+User report 2026-05-13: medcare-rs is failing during the in-flight migration of `medcare-analytics + medcare-bridge → UnifiedBridge` because the API surface keeps shifting between D-SDR-1 (initial `UnifiedBridge::new`) → Codex P2 fix (canonical entity type) → D-SDR-5 (new `with_audit_chain` builders + audit emission). Each commit adds methods and changes return shapes; downstream consumers compiling against successive HEADs of the source crate see drift faster than they can adapt.
+
+**The drift sources, concretely:**
+
+1. **D-SDR-1 starter** (PR #363) introduced `UnifiedBridge::new(bridge, policy, actor_role, tenant) -> Self` and `authorize_read/write/act(public_name, depth/...) -> Result<EntityRef, AuthError>`. medcare-rs `unified_bridge_wiring.rs` (commit `31e999b`) was authored against this surface.
+2. **Codex P2 fix** (commit `421e71e` in PR #363) changed `authorize_*` internals to resolve canonical OGIT entity type via `bridge.row()` — **public signature unchanged** but the `Policy::evaluate` contract changed (now keyed on canonical name not alias). Policy authors had to update their role permissions.
+3. **D-SDR-5** (commit `dc9e081`, unmerged) added new methods: `with_audit_chain(super_domain, salt, sink)`, `with_audit_chain_resume(super_domain, salt, last_root, sink)`, `audit_root() -> AuditMerkleRoot`. **Backward-compatible** (defaults to `NoopUnifiedAuditSink` + GENESIS) but downstream code that called `UnifiedBridge::new` and never set up audit silently disables compliance.
+
+**The fail-mid-air pattern:**
+
+Consumer migration spans multiple PRs over multiple days. If the source crate's API changes between consumer-PR-1 (which adopts the starter shape) and consumer-PR-2 (which finalizes the migration), the consumer's clippy-clean PR-1 starts failing CI when rebased onto post-D-SDR-5 source. The error message ("missing `with_audit_chain` call → compliance disabled") only surfaces if there's a lint or a runtime assertion; without one, the migration silently ships with audit disabled.
+
+**Mitigation — the consumer-side stability contract:**
+
+1. **Pin migration source SHA on the consumer-side branch.** medcare-rs's `claude/lance-datafusion-integration-gv0BF` branch should depend on lance-graph at the **#363 merge SHA** (`421e71e`) during the migration window, not at `main` HEAD. Pinning to a SHA insulates the consumer from intra-migration source drift. Unpin after the consumer's migration PR merges.
+2. **Add a `must_use` lint on `UnifiedBridge::new` output until audit is configured.** Force consumers to either call `.with_audit_chain(...)` or `.allow_no_audit()` (an explicit opt-out for non-compliance scenarios — tests, local dev). Without this, the default no-op audit is a silent compliance gap.
+3. **Add a `#[deprecated]` annotation on `column_mask_bridge.rs`** in medcare-analytics the moment `unified_bridge_wiring.rs` lands as the canonical path. Forces all downstream callers to migrate within one deprecation cycle.
+4. **Ship a `lance-graph-callcenter::migration` module** with re-exports of stable consumer-facing types. Consumers import from `migration::*` during the migration window; the module's contract is "this surface does not change between minor versions". Internal source moves freely; the migration surface is a versioned contract.
+5. **The follow-up PR for D-SDR-3..5 should include a `CHANGELOG.md` entry** with explicit consumer-migration notes (the `with_audit_chain` builder, the canonical-name policy contract, the `actor_role_hash` audit field). Without this, every consumer's first failure forces a transcript-grep to figure out what changed.
+
+**Implication for the integration plan:**
+
+The 5-PR super-domain subcrate scaffolding cascade (per IDEAS.md 2026-05-13) MUST sequence consumer migrations against pinned source SHAs. PR 1 (medcare migration finalization) pins to the D-SDR-3..5 follow-up PR's merge SHA; PR 2 (smb-bridge) pins to PR 1's merge SHA; etc. Each consumer migration unpins after its PR lands, then waits for the next stable source SHA before kicking off the next consumer.
+
+**The ball that mustn't drop:** API drift across an in-flight migration is the kind of failure that doesn't show up in code review (the source PR is clippy-clean, the consumer PR is clippy-clean against its source SHA) — it only shows up when CI runs against `main` HEAD. The mitigation above (SHA pinning + must_use + deprecation annotations + migration surface module + CHANGELOG) is operational discipline, not new code. This entry exists so the next session adopts the discipline rather than re-discovering the failure mode.
+
+Cross-ref: `EPIPHANIES.md` 2026-05-13 super-domain subcrate finding (the migration target); `TECH_DEBT.md` TD-API-DRIFT-MIDFLIGHT-1 (today) + TD-SDR-CONSUMER-PUSH-1 (the consumer PRs that this drift affects); `IDEAS.md` 2026-05-13 super-domain subcrate scaffolding cascade (the sequencing that mitigates this).
+
+## 2026-05-13 — CORRECTION-OF earlier 2026-05-13 entries framing §16-§19 as "outstanding deliverables" — most was already delivered in PRs #355-#363+
+
+**Status:** CORRECTION
+
+The earlier 2026-05-13 epiphany entries (`thinking-engine` finding, two-paths-converging finding) framed `super-domain-rbac-tenancy-v1` §16-§19 as outstanding architectural work awaiting wiring. **That framing under-counts what has already shipped.**
+
+The PR arc #355 → #363 (2026-05-07 → 2026-05-13, ~7 days of sprint-2 / sprint-3 work) delivered most of the §16-§19 substrate:
+
+| PR | Branch | What it shipped |
+|---|---|---|
+| #355 | `claude/create-graph-ontology-crate-gkuJG` | `lance-graph-ontology` crate as the ontology home — SPO-1 + TTL-PROBE-5 closures, 8 new entropy-ledger rows, the Per-row-context cluster. The ontology surface that §17's DataFusion-on-LanceDB plans against. |
+| #356 | `claude/integrate-lance-graph-bridge-ikDO5` | `lance-graph-bridge` integration — the bridge surface §14 harvests from. |
+| #358 | `claude/unified-ogit-architecture-synthesis` | Unified-OGIT architecture synthesis document — codifies the Zone 1/2/3 + DataFusion-on-LanceDB framing that §16 + §17 build on. |
+| #359 | `claude/tier-0-canonical-pattern-letters-fix` | Tier-0 canonical Pattern letter assignment fix — pattern E (manifest) and F (ractor supervisor) labels stabilised. |
+| **#360** | `claude/tier-1-implementation-specs` | **Tier-1 implementation specs — including `pr-e-1-manifest-modules.md` and `pr-f-1-ractor-supervisor.md` (the same Pattern E + Pattern F that the 2026-05-13 "two-paths-converging" finding references). The ractor-supervisor design DOES exist as a shipped spec, not just a sketch.** |
+| #361 | `claude/sprint-3-spec-defect-fixes-v2` | Spec defect fixes — pr-e-1 and pr-f-1 corrections (commits `3865328` + `87cafe3`). |
+| #362 | `claude/sprint-3-rescope-substrate-recognition` | Sprint-3 rescope: substrate recognition reframes (THINK-1, HEEL-1, ADJ-THINK-1, CRYSTAL-1, CAM-DIST-1) — entropy ledger contracted by ~11. This is where the "consult-before-guess" recognition pass identified shipped substrate vs aspirational. **The thinking-engine 582 KB finding (the dormant cognitive substrate) is a continuation of this same recognition arc.** |
+| **#363** | `claude/lance-datafusion-integration-gv0BF` | `super-domain-rbac-tenancy-v1` spec authoring (§1-§19) + D-SDR-1 + D-SDR-2 + Codex P2 fix. The spec itself is shipped; D-SDR-3..5 stack as follow-up commits. |
+
+**Net correction:**
+
+- **§16 (Zone 3 boundary)** — designed across #355 + #358; not just words but actual ontology crate (#355) and integration surface (#356). Outstanding implementation gap: `cognition_bridge` + the manifest plumbing.
+- **§17 (DataFusion-on-LanceDB)** — designed and substrate-shipped across #355 + #356 + #358. Outstanding: D-SDR-31..34 (Phase 5+ Arrow Flight SQL) and HTTP+JSON endpoints (Tier H D-SDR-35..39). Note: §18.9 already corrected this — Flight SQL is Phase 5+, NOT immediate.
+- **§18 (MedCare reality check)** — empirical inspection only; no PR was needed because the finding was "what exists is enough, don't reshape". The D-SDR-35..39 endpoint gap remains for Tier H.
+- **§19 (build invariants)** — already enforced in `Cargo.toml` (workspace pins) and CI gate (`cargo clippy -- -D warnings`); not net-new work but a codification of existing rules.
+
+**Implication for the handover docs:** the 2026-05-13-0852 status handover and 2026-05-13-0855 brainstorm synthesis correctly cite #363 as the source PR for D-SDR-1/2 but **under-cite #355/#356/#358/#360/#362** as the broader §16-§19 substrate delivery. A future session reading those handovers without this correction would over-estimate the remaining work.
+
+**What this changes for next-step prioritisation:**
+
+- Pattern E + Pattern F are **shipped as specs** (#360, #361). Implementation is the gap — the `IDEAS.md` 2026-05-13 Pattern E+F+cognition cascade should be re-anchored to those spec files as its source, not as net-new design.
+- The "highest leverage" claim in the thinking-engine finding stands, but the architectural pre-work (Pattern E manifest schema, Pattern F ractor handler shape) is already specified in #360 — the cascade is **implementation**, not design+implementation.
+- D-SDR-3..5 (committed but unmerged) are the natural continuation of the #355 → #363 arc; the follow-up PR is anchoring the next step in the sprint sequence, not opening a new arc.
+
+**The ball that mustn't drop, restated:** the integration plan is FURTHER ALONG than the §16-§19 framing suggested. Sprint-2 + sprint-3 + the super-domain spec authoring (#355 → #363) shipped the architectural substrate; the remaining work is composition + implementation of designs that exist. This is a **morale + scope** correction, not just bookkeeping.
+
+Cross-ref: PRs #355, #356, #358, #359, #360, #361, #362, #363 (all merged); `.claude/plans/pr-e-1-manifest-modules.md` (if it lives at that path post-#360; otherwise grep INTEGRATION_PLANS.md for the canonical location); `.claude/plans/pr-f-1-ractor-supervisor.md`; `.claude/board/INTEGRATION_PLANS.md` sprint-2 + sprint-3 entries (`## 2026-05-07 — Unified OGIT Architecture plans` + `## 2026-05-12 — Sprint-3: Tier-1 Implementation Specs`).
+
+## 2026-05-13 — FINDING: each `SuperDomain` is its own specialised subcrate; consumer crates ARE the super-domain implementations (medcare-rs / smb-office-rs / hubspot-rs / hiro-rs / woa-rs)
+
+**Status:** FINDING
+
+The Tier C "consumer crate scaffolding" framing of `super-domain-rbac-tenancy-v1` §8 (D-SDR-8 hiro-rs, D-SDR-9 hubspot-rs) misses what the design is actually pointing at: **each `SuperDomain` activation root IS the subcrate that specialises the unified surface for its compliance regime, role matrix, and ontology basin.** The mapping is 1:1:
+
+| `SuperDomain` enum variant | Specialised subcrate | Compliance | Current status |
+|---|---|---|---|
+| `Healthcare` | `MedCare-rs/crates/medcare-analytics` + `medcare-realtime` + `medcare-bridge` → finalize merge into a single super-domain subcrate consuming `UnifiedBridge<MedcareBridge>` | HIPAA | In-flight: `unified_bridge_wiring.rs` committed locally (`31e999b`), unpushed; medcare-analytics + medcare-bridge migration NOT yet finalized — the wiring exists but the crates still carry separate auth paths (`column_mask_bridge.rs` co-exists with new `unified_bridge_wiring.rs`). |
+| `WorkOrderBilling` | `smb-office-rs/crates/smb-bridge` → continues as the super-domain subcrate consuming `UnifiedBridge<OgitBridge>` | SOX / PCI-DSS | In-flight: `342f601` committed locally, unpushed. |
+| `TicketTool` (Hiro slot) | NEW crate `/home/user/hiro-rs` (D-SDR-8) — absorbs OSLC-* with lineage; specialises `UnifiedBridge<HiroBridge>` for the ticketing super-domain | (TBD — OSLC defines it) | Not started. |
+| `TicketTool` (HubSpot slot) | NEW crate `/home/user/hubspot-rs` (D-SDR-9) — CRM vocabulary; specialises `UnifiedBridge<HubspotBridge>` | PCI-DSS billing | Not started. |
+| `WorkOrderBilling` (WoA slot) | `/home/user/woa-rs` — work-order-application subcrate consuming a `WoaBridge` retrofitted to the meta-bridge surface (§14.2) | SOX | Existing bridge (`woa_bridge.rs` in lance-graph-ontology); needs retrofit to MetaBridge + extracted into woa-rs subcrate. |
+| `Science` | (TBD) | OSINT clearance / ITAR-EAR | Aspirational — D-SDR-2 SUPER_DOMAINS slot only. |
+| `Genetics` | (TBD) | GINA / GDPR Art 9(2)(i) | Aspirational. |
+| `QuantumPhysics` | (TBD) | ITAR-EAR | Aspirational. |
+| `Osint` | `cognitive-shader-driver` already ships `osint_bridge`; subcrate TBD | OSINT clearance | Bridge exists; super-domain subcrate not yet promoted. |
+
+**Why super-domain = subcrate is the right factoring:**
+
+1. **Compliance is per-super-domain, not per-bridge.** HIPAA controls (§164.312) bind to Healthcare; SOX §404 + PCI-DSS Reqs 3+7+10 bind to WorkOrderBilling. The certification stub (D-SDR-11) is naturally per-super-domain, which means it's per-subcrate.
+2. **Role matrices are per-super-domain.** §4.3 illustrates Healthcare's full role matrix (clinician / nurse / billing-clerk / researcher / etc.); WorkOrderBilling has a different shape (technician / dispatcher / accountant / etc.). Per-super-domain subcrates own their role tables (Layer-2 role catalogue per `I-VSA-IDENTITIES`).
+3. **Hard-lock partners are per-super-domain.** §13.4 Healthcare ↔ OSINT crypto barrier needs both ends to publish their `merkle_salt` constant; living in separate subcrates makes the barrier real (compile-time-separated symbol tables).
+4. **Audit JSONL files are per-super-domain.** D-SDR-10's `JsonLinesAuditSink` writes to disk paths the super-domain owns; cross-super-domain audit chains are unlinkable by design. Owning the sink config in the per-super-domain subcrate enforces this.
+5. **Compile-time manifest entries are per-super-domain.** Pattern E (`/modules/<name>/manifest.yaml`) one-per-consumer is one-per-super-domain in practice; the `super_domain` field gates which `SuperDomain` enum variant the actor binds to at boot.
+6. **MedCare-rs migration is the canonical case.** `medcare-analytics + medcare-realtime + medcare-bridge` are currently three crates within MedCare-rs; finalizing the merge into a single Healthcare-super-domain subcrate (or a coherent crate cluster behind a single `UnifiedBridge<MedcareBridge>` re-export) is the demonstration migration that proves the pattern.
+
+**The medcare migration gap that must close:**
+
+- `medcare-analytics/src/unified_bridge_wiring.rs` exists (107 LOC, `lance-phase2-rbac` feature) and constructs `UnifiedBridge<MedcareBridge>`.
+- `medcare-analytics/src/column_mask_bridge.rs` still exists as the prior auth path.
+- `medcare-bridge` crate is a separate crate that holds the `MedcareBridge` ontology mapper.
+- Three crates / two auth paths / no single Healthcare-super-domain re-export.
+- **Finalization step:** (a) deprecate `column_mask_bridge.rs` in favour of `unified_bridge_wiring.rs` + `UnifiedBridge::with_audit_chain(SuperDomain::Healthcare, salt, JsonLinesAuditSink::healthcare())`; (b) decide whether to keep `medcare-bridge` as a separate crate or fold it into `medcare-analytics` behind a `bridge` module; (c) publish a single `medcare-rs::healthcare` re-export that downstream consumers import.
+
+**Implication for the integration plan:** Tier C grows from 2 deliverables (D-SDR-8 hiro-rs, D-SDR-9 hubspot-rs) to **5 super-domain subcrates** (medcare migration finalization + smb-bridge retrofit + woa-rs extraction + hiro-rs new + hubspot-rs new). The medcare migration is the **proof case** — it must finalize before D-SDR-8/9 ship, otherwise hiro-rs and hubspot-rs scaffold against a half-migrated pattern.
+
+**The ball that mustn't drop, restated:** the consumer crate scaffolding work (Tier C) and the super-domain layer (D-SDR-2) are not two separate workstreams — they're the same workstream. Per-super-domain subcrates ARE Tier C. Without this entry, the next session would scaffold hiro-rs/hubspot-rs as generic consumer crates and miss the per-super-domain specialisation (compliance, role matrix, hard-lock partner, audit sink) that the SuperDomain enum already encodes.
+
+Cross-ref: spec `super-domain-rbac-tenancy-v1` §3.4 (SuperDomain), §3.6 (role groups), §3.7 (compliance regime), §4 (consumer-to-basin mapping), §8 Tier C; `MedCare-rs/crates/medcare-analytics/src/unified_bridge_wiring.rs` (the in-flight pattern); `smb-office-rs/crates/smb-bridge/src/unified_bridge_wiring.rs` (parallel pattern); `TECH_DEBT.md` TD-SUPER-DOMAIN-SUBCRATES-1 (new today); `IDEAS.md` 2026-05-13 super-domain subcrate scaffolding cascade.
+
+## 2026-05-13 — FINDING: THREE complementary substrate paths converge in `lance-graph-callcenter` — thinking-engine + ractor + ndarray::simd (correction-of two-paths entry)
+
+**Status:** FINDING (extends the same-day two-paths-converging entry)
+
+The two-paths finding below identifies Path A (thinking-engine cognition) and Path B (ractor sync supervisor). User correction 2026-05-13: **there is a third path — `ndarray::simd` SIMD compute** — that is the canonical compute substrate every batch operation in callcenter routes through. The three paths are orthogonal and complementary:
+
+| Path | Substrate | What it provides | Status |
+|---|---|---|---|
+| **A — `thinking-engine`** | Cognition content (582 KB / 48 modules) | Per-row decision *contents*: role projection, persona, qualia, awareness DTO, lenses, codebook lookup | Shipped, unwired (TD-THINKING-ENGINE-UNWIRED-1) |
+| **B — `ractor` supervisor** | Runtime topology (sync, I-2 BBB) | Per-actor *supervision*: crash isolation, restart strategy, compile-time-typed messaging, manifest-driven boot | Spec shipped (#360 pr-f-1), implementation owed (TD-RACTOR-SUPERVISOR-5) |
+| **C — `ndarray::simd`** | SIMD compute (canonical per §19.2) | Per-batch *compute*: `LazyLock<Tier>` dispatch across SSE2/AVX2/AVX512/NEON/AMX, batch fingerprint ops, distance kernels, BLAS L1/L2/L3 | Shipped + already canonical across workspace; callcenter consumer-side wiring still scalar-per-row in some paths |
+
+**Why C is the third path, not "just SIMD":**
+
+`ndarray::simd` is **not** a transparent acceleration layer — it's a substrate with its own conventions:
+
+- **Canonical dispatch pattern**: `static TIER: LazyLock<Tier> = LazyLock::new(simd_caps)`. Every batch hot-path imports and dispatches through this; ad-hoc `#[cfg(target_arch=...)]` is the anti-pattern.
+- **Carrier types are SIMD-shaped**: `Vsa16kF32` (64 KB), `Vsa16kBF16` (32 KB AMX-accelerated), `Vsa16kI8` (16 KB quantized), `Binary16K` (2 KB Hamming) — each has a paired SIMD operator family. Picking the wrong carrier costs a register reshuffle on every op.
+- **Distance kernels live in ndarray::simd**: `xor_fold`, `cosine_simd`, `batch_palette_distance` — callers in callcenter / planner / cognitive-shader-driver consume these; never reimplement.
+- **Spec §19.2 makes it canonical**: "ndarray::simd is the canonical SIMD path" — the `LazyLock<Tier>` dispatch pattern is already shipped; just import. No new code.
+
+**Where callcenter still has scalar paths that should route through Path C:**
+
+- `unified_audit.rs::AuditChain::advance` — single-event FNV-1a chain; per-row is intrinsically scalar (right call). **But** `verify_chain` over a batch of N audit events is a batch operation that today loops scalar; SIMD batch FNV-1a could speed cold-storage audit verification ~8×.
+- `family_table.rs::OgitFamilyTable::lookup` — single-row array index; intrinsically scalar (right). **But** a batch-lookup `lookup_batch(owls: &[OwlIdentity]) -> Vec<Option<&FamilyEntry>>` for DataFusion-side row decoration would benefit from gather instructions.
+- `super_domain.rs::FAMILY_TO_SUPER_DOMAIN[basin]` — single-byte lookup. Right for per-row. For a batch lowering of `ScanExec → SuperDomain[]` annotation, `ndarray::simd::gather_u8` exists.
+- `unified_bridge.rs::canonical_entity_type` — per-row string slice. Right scalar. **But** the OGIT-URI parsing across a batch (post-#355 ontology crate) wants batch parsing primitives.
+- D-SDR-25 future drift-bridge comparisons — `MerkleRoot` batch XOR-fold across cross-impl rows is the canonical Path C consumer. §19.7 already notes this.
+
+**Why the three paths together close the loop:**
+
+```
+ractor supervisor (Path B)
+    │ owns N consumer actors per super-domain manifest
+    │ routes typed messages with sync I-2 BBB enforcement
+    ▼
+UnifiedBridge::authorize_* (Path B handler arm)
+    │ projects role/persona/awareness through thinking-engine (Path A)
+    │ ↓
+    │ resolves canonical OGIT entity type from row (single-row scalar)
+    │ evaluates Policy + emits chained UnifiedAuditEvent
+    │ ↓
+DataFusion ScanExec batch decode (Path C consumer)
+    │ batch-annotates SuperDomain via FAMILY_TO_SUPER_DOMAIN gather
+    │ batch FNV-1a verifies audit chain on cold-read
+    │ batch CAM-PQ distance via ndarray::simd kernels
+    ▼
+Per-row decision arrives at the actor handler with all three substrates' value already projected.
+```
+
+**Implication for the IDEAS.md cascade:** the Pattern E+F+cognition cascade (3-PR sequence) should explicitly call out which batch paths route through `ndarray::simd` and which stay scalar. Per-row authorize hot path: scalar (correct). Batch decoration / drift / audit verification: route through Path C. Reviewers should reject PRs that hand-roll SIMD or scalar-loop across what `ndarray::simd` already exposes — §19.2 anti-pattern.
+
+**The ball that mustn't drop:** Path C is older and more taken-for-granted than A or B, which is exactly why a future session can forget it. The spec §19.2 text is one paragraph; the **architectural mandate** is that every batch path in callcenter consumer code (callcenter / medcare-rs / smb-office-rs / future hiro-rs / hubspot-rs / woa-rs) imports from `ndarray::simd` rather than rolling its own. This entry exists so the discipline survives the next session.
+
+Cross-ref: `CLAUDE.md § ndarray Integration Policy`; spec `super-domain-rbac-tenancy-v1` §19.2 + §19.7; `EPIPHANIES.md` two-paths-converging entry (this finding extends to three); `TECH_DEBT.md` TD-THINKING-ENGINE-UNWIRED-1 + TD-RACTOR-SUPERVISOR-5; `.claude/knowledge/vsa-switchboard-architecture.md` (Layer-1 switchboard carriers are the Path-C carrier types); `crates/lance-graph/` and `crates/lance-graph-callcenter/` for current consumer-side scalar paths that should batch through Path C.
+
 ## 2026-05-13 — FINDING: `lance-graph-callcenter` has TWO complementary substrate paths waiting to be wired — thinking-engine (cognition) + ractor (runtime topology)
 
 **Status:** FINDING
