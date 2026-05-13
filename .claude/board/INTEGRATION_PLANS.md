@@ -37,6 +37,24 @@
 
 ---
 
+## 2026-05-13 — Status correction: `super-domain-rbac-tenancy-v1` Tier A nearly complete; follow-up PR + Tier B+ harvest
+
+- **Plan:** `.claude/plans/super-domain-rbac-tenancy-v1.md` (§1-§19, ~1387 lines)
+- **Source PR (merged):** [`AdaWorldAPI/lance-graph#363`](https://github.com/AdaWorldAPI/lance-graph/pull/363) — D-SDR-1 + D-SDR-2 + spec + Codex P2 canonical-name fix; merged at sha `421e71e`, 2026-05-13 07:24Z.
+- **Working branch:** `claude/lance-datafusion-integration-gv0BF` (5 commits ahead of `main` post-#363; **follow-up PR not yet opened**).
+- **Status:** Active.
+- **Tier A (D-SDR-1..5):** D-SDR-1+2 SHIPPED via #363; D-SDR-3 (`2c3e87d`, family codebook) + D-SDR-4 (`1d0157f`, merkle audit) + D-SDR-5 (`dc9e081`, wired authorize_*) committed but unmerged. 96/96 lib tests green; clippy `-D warnings` clean.
+- **Consumer wirings:** `medcare-rs` commit `31e999b` + `smb-office-rs` commit `342f601` local, both unpushed.
+- **Tier B onward:** NOT STARTED. D-SDR-6 + D-SDR-7 blocked on `AdaWorldAPI/OGIT` MCP scope. D-SDR-27 column inventory blocked on `AdaWorldAPI/MedCare` + `MedCareV2` MCP scope. D-SDR-35..39 unblock LanceProbe M2-M6 in medcare-rs.
+- **Spec refinements absorbed (§13-§19):** D-SDR-5 composes onto shipped `PolicyRewriter` chain (~30% LOC reduction lever); §18 collapsed Tier F from ~12 nominal items to **5 endpoints + 1 reduced import tool** (~700 LOC). The "3DES" is broken-single-DES (128-bit truncated, ECB-equivalent, zero IV) → Argon2 backfill on login replaces AES-GCM rewrap. MedCareV2 is overlay-only; LanceProbe IS the drift bridge.
+- **Build invariants (§19):** rust 1.94.1 stable; `lance =4.0.0`; `lancedb 0.27.2`; `ndarray::simd` canonical SIMD path; `cargo clippy -- -D warnings` merge gate.
+- **Companion docs:** `.claude/handovers/2026-05-13-0852-d-sdr-tier-a-complete-tier-b-and-beyond-pending.md` (formal status), `.claude/handovers/2026-05-13-0855-brainstorm-arc-synthesis.md` (the brainstorming arc + verdicts + outlook + priority-ordered next steps).
+- **Scrubbed transcripts:** `.claude/transcript/` (79 jsonl main-window-only, 15 MB raw + 4.5 MB zip, 2026-05-01 → 2026-05-13).
+- **Resolves ledger rows:** D-SDR addressing layer adds 4 new contract modules (`unified_bridge`, `super_domain`, `family_table`, `unified_audit`) to `lance-graph-callcenter`; updates `CONTRACT-INV-1` (stale Contract Inventory in `LATEST_STATE.md`) pending the follow-up PR's hygiene update.
+- **Next deliverables (priority ordered):** (1) follow-up PR for D-SDR-3..5 + governance hygiene + consumer-side push; (2) self-contained D-SDR-13 (HKDF per super-domain), D-SDR-17 (hard-lock matrix), D-SDR-10 (`JsonLinesAuditSink`), D-SDR-14 (audit replay schema); (3) Tier F harvest D-SDR-18+19 (`MetaBridge` extraction); (4) LanceProbe wiring D-SDR-35..39 once MCP scope expands.
+
+---
+
 ## palantir-parity-cascade-v2 — Foundry/Gotham parity capstone + DTO ladder (authored 2026-05-07)
 
 - **Plan:** `.claude/plans/palantir-parity-cascade-v2.md`

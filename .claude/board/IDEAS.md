@@ -87,6 +87,38 @@ Agents filter by `@`-mention or domain to see what's theirs.
 
 (Prepend new ideas here with today's date. Format:)
 
+## 2026-05-13 — Wire `thinking-engine` into UnifiedBridge — collapse D-SDR-13/15/17 into one bridge module
+
+**Status:** Open
+**Priority:** P1 (highest leverage in the workspace per `EPIPHANIES.md` 2026-05-13 thinking-engine finding)
+**Scope:** @callcenter-membrane @truth-architect crate:thinking-engine crate:lance-graph-callcenter D-SDR-13 D-SDR-15 D-SDR-17 D-SDR-19 domain:auth domain:cognition
+
+The thinking-engine crate (48 modules, 16,211 LOC, 582 KB) is shipped and indexed in `CLAUDE.md § Thinking Engine` but consumed by zero callcenter-side code. The §16-§19 spec's outstanding D-SDR deliverables map cleanly onto its existing modules (see the table in the 2026-05-13 epiphany).
+
+**Proposed wiring (single PR ~300 LOC, ~3-5 integration tests):**
+
+1. **New module `lance-graph-callcenter::cognition_bridge`** — thin adapter exposing:
+   - `RoleProjection::for_role(actor_role: &str) -> Vsa16kF32` — wraps `thinking_engine::role_tables::*`
+   - `ActorPersona::from_jwt(claims: &JwtClaims) -> PersonaCard` — wraps `thinking_engine::persona::*`
+   - `AwarenessFrame::project(decision: &AccessDecision, persona: &PersonaCard) -> AwarenessDto` — wraps `thinking_engine::awareness_dto`
+2. **`UnifiedBridge::authorize_*` extension** — optional `with_cognition(cognition_bridge: Arc<CognitionBridge>)` builder. When set, the audit event carries an `awareness_root: u64` (FNV-1a of `AwarenessDto::canonical_bytes`) in addition to `merkle_root`. Backward-compatible: noop bridge stays default.
+3. **`Policy::evaluate` extension** — receives the `RoleProjection` fingerprint alongside `actor_role: &str`. Allows role permissions to be authored against canonical role fingerprints (cross-tenant role aliasing) without disturbing the existing canonical-name pathway. Policy evaluator uses cosine resonance against the codebook when string match misses.
+4. **Hard-lock matrix (D-SDR-17) implementation** — leverages `osint_bridge.rs` from thinking-engine for the OSINT-side projection that the Healthcare ↔ OSINT crypto barrier needs to recognise. Static partner table lives in `lance-graph-callcenter::super_domain::HARD_LOCK_PARTNERS`.
+5. **DP role (D-SDR-15)** — leverages `contrastive_learner.rs` + `cronbach.rs` from thinking-engine for the ε-bounded noise + k-anonymity floor primitives.
+
+**Net deliverable collapse:** D-SDR-13 + D-SDR-15 + D-SDR-17 (originally 3× ~80-150 LOC = ~310 LOC + 13 tests) → 1× cognition-bridge PR (~300 LOC + 5 tests) that composes the thinking-engine substrate. Net LOC savings ~10-15%, but the **architectural** gain is much larger: every downstream D-SDR (Tier F MetaBridge, Tier H LanceProbe endpoints) gets the cognitive surface for free instead of re-scaffolding it.
+
+**Open sub-questions:**
+- Does `thinking-engine::contract_bridge` already expose the right shape, or does it need a new trait fan-out?
+- Which of the 48 modules belong in the "Layer 2 role catalogue" per `I-VSA-IDENTITIES`, and which are "Layer 3 content stores" that should stay behind a YAML registry?
+- Does the `cognitive-shader-driver` runtime expect `thinking-engine` to live on the **internal SoA side** of the BBB? If yes, the CognitionBridge needs to mediate through the BBB seam, not call `thinking-engine` directly.
+
+Cross-ref: `EPIPHANIES.md` 2026-05-13 thinking-engine finding; `TECH_DEBT.md` TD-THINKING-ENGINE-UNWIRED-1; `.claude/handovers/2026-05-13-0855-brainstorm-arc-synthesis.md`; `CLAUDE.md § Thinking Engine`; `.claude/knowledge/lab-vs-canonical-surface.md`.
+
+---
+
+(Prepend new ideas here with today's date. Format:)
+
 ```
 ## YYYY-MM-DD — <short title>
 **Status:** Open

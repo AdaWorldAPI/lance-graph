@@ -65,6 +65,97 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-05-13 — FINDING: `thinking-engine` is a 582 KB dormant substrate that closes most of §16-§19 when wired
+
+**Status:** FINDING
+
+`crates/thinking-engine/` is **48 source modules, 16,211 LOC, 582 KB of Rust** sitting in the workspace and cited by 6 plans (`anatomy-realtime-v1`, `cam-pq-production-wiring-v1`, `unified-integration-v1`, `unified-ogit-architecture-v1`, `palantir-parity-cascade-v2`, `super-domain-rbac-tenancy-v1`) but **not yet wired into the §16-§19 spine** of the super-domain-rbac-tenancy work. The dormant surface maps onto the integration plan's outstanding deliverables with surprising directness:
+
+| thinking-engine module | Wires into | Closes |
+|---|---|---|
+| `role_tables.rs` | SuperDomain RBAC role surface | D-SDR-2/§3.6 role groups (per-role projection already SIMD-shaped) |
+| `osint_bridge.rs` | `SuperDomain::Osint` activation root | §13.4 Healthcare ↔ OSINT hard-lock implementation side |
+| `persona.rs` + `qualia.rs` + `ghosts.rs` + `world_model.rs` | Cognitive identity surface | PersonaHub / actor-context auth (D-SDR-7 future + Tier H) |
+| `centroid_labels.rs` + `codebook_index.rs` + `lookup.rs` | `OgitFamilyTable` hydration | D-SDR-3b (TTL-baked codebook), inline label→fingerprint resolution |
+| `bf16_engine.rs` + `f32_engine.rs` + `signed_engine.rs` + `composite_engine.rs` + `dual_engine.rs` + `layered.rs` + `domino.rs` | Precision-tier dispatch on the canonical surface | §19 `ndarray::simd` canonical SIMD path consumer-side |
+| `awareness_dto.rs` + `cognitive_stack.rs` + `cognitive_trace.rs` | UnifiedStep `OrchestrationBridge` contract | §17 DataFusion-on-LanceDB Phase 2 cognitive trace persistence |
+| `meaning_axes.rs` + `superposition.rs` + `tensor_bridge.rs` | SoA columnar reads | palantir-parity-cascade-v2 D-PARITY-V2-3..12 |
+| `prime_fingerprint.rs` + `spiral_segment.rs` + `tokenizer_registry.rs` + `pooling.rs` | Encoding tier of the codec stack | encoding-ecosystem.md surface → DataFusion UDFs |
+| `jina_lens.rs` + `bge_m3_lens.rs` + `reranker_lens.rs` + `sensor.rs` | Per-model sensing surface (Jina v5 / BGE-M3 / Reranker v3) | Phase 5+ Arrow Flight SQL sensor endpoints |
+| `ground_truth.rs` + `reencode_safety.rs` + `cronbach.rs` + `contrastive_learner.rs` | Quality / calibration | drift-bridge D-SDR-25 + cross-language determinism D-SDR-26 |
+| `inference_backend.rs` + `bridge.rs` + `contract_bridge.rs` + `l4_bridge.rs` | Bridge surface taxonomy | MetaBridge harvest D-SDR-18/19 (the bridge templates already exist as Rust traits, not just designs) |
+| `silu_correction.rs` + `semantic_chunker.rs` + `auto_detect.rs` + `builder.rs` | Composition glue | UnifiedBridge consumer composition surface |
+
+**Implication for the plan:** the §16-§19 architecture (Zone 3 boundary + DataFusion-on-LanceDB + build invariants) does NOT require new cognitive substrate. The substrate is shipped. What's owed is the wiring from `UnifiedBridge::authorize_*` → `OrchestrationBridge` → `thinking-engine::*` paths. **This is the highest leverage move in the workspace** — much higher than D-SDR-13..17 in isolation, because each of those deliverables can compose against thinking-engine primitives instead of being scaffolded from scratch.
+
+**Concrete framing:** treat thinking-engine as the **Layer-2 role-catalogue substrate** (per `I-VSA-IDENTITIES` iron rule) that UnifiedBridge's authorize-flow projects through. The bridge already owns: `OgitFamily` (basin pointer), `OwlIdentity` (per-row slot), `Policy::evaluate` (role-keyed decision), `UnifiedAuditEvent` (chained merkle). What it needs from thinking-engine: `role_tables` (the per-role projection vector that turns a role-name into an identity fingerprint), `persona` (actor identity in VSA carrier), `awareness_dto` (the cognitive state that rides alongside the authorize decision). Wiring them = D-SDR-13 / D-SDR-17 / D-SDR-15 collapse into a single ~300 LOC bridge module instead of three separate ~80-150 LOC deliverables.
+
+**The ball that must not drop:** the previous session accumulated this finding across the §16-§19 brainstorming arc; without an explicit harvest entry, the next session would re-derive it from scratch (~30-turn rediscovery tax). This entry exists so it does not recur. See follow-up idea entry in `IDEAS.md` and `TD-THINKING-ENGINE-UNWIRED-1` in `TECH_DEBT.md`.
+
+Cross-ref: `crates/thinking-engine/src/` (48 modules); `CLAUDE.md § Thinking Engine`; plans listed above; this session's `.claude/transcript/` archive (search for `thinking[_ -]?engine` — 103 mentions across the May 1 → May 13 main-window arc).
+
+## 2026-05-13 — FINDING: Tier A (D-SDR-1..5) composes onto shipped PolicyRewriter chain — §13.1 thesis confirmed in code
+
+**Status:** FINDING
+
+The super-domain-rbac-tenancy-v1 §13.1 thesis ("compositor is already shipped: `lance-graph-callcenter::policy::PolicyRewriter`") survived contact with implementation. D-SDR-5 (`dc9e081`) wires `UnifiedBridge::authorize_read/write/act` through `Policy::evaluate` against the canonical OGIT entity type, emits one chained `UnifiedAuditEvent` per call via `Mutex<AuditChain>` (FNV-1a merkle 64-bit) into a swappable `Arc<dyn UnifiedAuditSink>`, and maps the resulting `AccessDecision` onto the `Result<EntityRef, AuthError>` surface — all without introducing a parallel enforcement path. `BridgeError` short-circuits before audit emission (D-SDR-5 minimum). 5 new tests cover Allow/Deny emission, bridge-error short-circuit, chain advance across calls, and resume from prior root. 96/96 lib tests green; clippy `-D warnings` clean on lib + tests.
+
+The ~30% LOC reduction lever §13.1 promised did materialize for Tier A — `authorize_*` is ~10 lines per method because the chain handles row filtering / column masking / DP / encryption. **Consequence for Tier B+ design:** D-SDR-13..17 (merkle salt HKDF, audit JSONL, DP role, encrypted view, hard-lock matrix) all slot into the existing `OptimizerRule` chain as additional rewriters, NEVER as standalone authorization paths.
+
+Cross-ref: `.claude/handovers/2026-05-13-0852-d-sdr-tier-a-complete-tier-b-and-beyond-pending.md`, commits `2c3e87d` (D-SDR-3), `1d0157f` (D-SDR-4), `dc9e081` (D-SDR-5).
+
+## 2026-05-13 — CORRECTION-OF spec §17.2 (Arrow Flight SQL as immediate path) — HTTP+JSON over JWT is M2-M6; Flight SQL is Phase 5+
+
+**Status:** CORRECTION
+
+Spec §17.3 framed Arrow Flight SQL as the cross-language wire layer that replaces custom Protobuf IDL. Empirical inspection of MedCare-rs + MedCareV2 (§18) revealed the LanceProbe coordination doc (`MedCare-rs/docs/CSHARP_HANDOFF_PROMPT.md` on branch `claude/csharp-handoff-docs-L3DF0`) targets HTTP+JSON over JWT for M2-M6 milestones. **Arrow Flight SQL stays the end-state but is Phase 5+ migration**, not the immediate path. D-SDR-31..34 don't unblock M2; D-SDR-35..39 do (HTTP+JSON endpoints in medcare-rs). The architecture-level claim ("no custom IDL; Arrow Flight SQL + Substrait extension types is the right wire layer") survives — the **sequencing** was wrong.
+
+Cross-ref: spec §18.9 row "Custom Protobuf IDL → Arrow Flight SQL"; D-SDR-31..34 (Phase 5+) vs D-SDR-35..39 (immediate).
+
+## 2026-05-13 — CORRECTION-OF spec §16.4 (3DES rewrap pipeline) — the "3DES" is broken-single-DES; Argon2 backfill replaces AES-GCM rewrap
+
+**Status:** CORRECTION
+
+Spec §16.4 described D-SDR-27 as a decrypt-3DES → AES-256-GCM rewrap pipeline. §18.5 empirical inspection of MedCare's `MySQL_Connect.cs` revealed the "3DES" is NOT standard 3DES:
+
+- Single 3DES cipher invocation (not a 3-cipher chain)
+- 128-bit truncated key (out of the 168-bit 3DES key space)
+- ECB-equivalent (no IV chaining)
+- Zero IV
+- Hardcoded password table indexed by the first character of the ciphertext
+
+Effectively single DES with a broken KDF. **D-SDR-27's scope drops** from ~200 LOC rewrap to **~80 LOC carry-forward** + 2 integration tests. The `u_pwd` column is the only confirmed callsite; ciphertext is carried forward unchanged and Argon2 backfill happens on successful legacy login. **3DES → AES-GCM rewrap is REMOVED from the plan entirely.** Open question (§18.10): which other columns call `EncryptMessage()`/`DecryptMessage()` in `MySQL_Connect.cs` — likely few or none.
+
+Cross-ref: spec §18.5/§18.6; `MedCare-rs/docs/AUTH_LEGACY_TRIPLEDES_MIGRATION.md` (DRAFT).
+
+## 2026-05-13 — FINDING: Codex P2 review (canonical entity type vs bridge alias) — policy must NOT couple to consumer-facing aliases
+
+**Status:** FINDING
+
+Codex P2 reviewer caught a leak in the initial D-SDR-1 surface: `authorize_*` originally passed the bridge-side alias (`public_name`, e.g. `"WorkOrder"`) to `Policy::evaluate`. This means a Policy keyed against the canonical OGIT entity type (`"Order"` from `ogit.WorkOrder:Order`) wouldn't grant access through the alias, and conversely an alias-keyed Policy would silently couple consumer naming to authorization. Fix in commit `421e71e` (in #363): `authorize_*` now resolves the row via `bridge.row(public_name)?`, extracts `row.ogit_uri.name()` as the canonical entity type via `canonical_entity_type()`, and passes THAT to `Policy::evaluate`. Two regression tests pin the contract: `unified_bridge_evaluates_policy_against_canonical_entity_type` + `unified_bridge_does_not_honor_alias_keyed_policy`.
+
+**Iron rule:** Policy authorship is against canonical OGIT names exactly once; bridges that resolve to the same canonical type all honor the grant regardless of consumer-facing public_name.
+
+Cross-ref: PR #363, commit `421e71e`; `crates/lance-graph-callcenter/src/unified_bridge.rs:62` (`canonical_entity_type`).
+
+## 2026-05-13 — FINDING: LanceProbe IS the drift bridge — design effort wasn't needed; wiring effort IS
+
+**Status:** FINDING
+
+Spec §15 designed `DriftDetectionBridge`/`DriftableOutput`/`DivergentRow` as a clean-room drift bridge concept. §18 empirical inspection found `LanceProbe` already exists in MedCareV2 with 8 scaffolded components (Phase M1 done). The clean-room design and `LanceProbe` are 1:1 isomorphic on field shape. **The drift bridge is wiring effort, not design effort.** Concrete Rust-side gap = 5 endpoints (D-SDR-35..39) + 1 reduced import tool (D-SDR-27) + 1 Argon2 fallback flag (D-SDR-38) ≈ ~700 LOC + tests. Tier F deliverable count collapsed from ~12 nominal items to **7 concrete items** through this finding.
+
+Cross-ref: spec §18.1/§18.2; `MedCare-rs/docs/CSHARP_HANDOFF_PROMPT.md` (branch `claude/csharp-handoff-docs-L3DF0`).
+
+## 2026-05-13 — FINDING: Per-row OGIT identity = 6 bytes total (TenantId u32 + OwlIdentity u16) — addressable domain ≤ 256 entries per family
+
+**Status:** FINDING
+
+Implementation (`unified_bridge.rs` + `super_domain.rs` + `family_table.rs`) confirms the §3 sizing claim: every row in the OGIT-addressed surface carries **`TenantId: u32 + OwlIdentity: u16 = 6 bytes`**. `OwlIdentity` high byte = `OgitFamily` basin (Level-2 pointer); low byte = within-basin slot (Level-3). Inline per-family codebook (`OgitFamilyTable` with 256-slot dense `[Option<FamilyEntry>; 256]`) carries label URI + `SchemaKind` + `OwlCharacteristics` + `DolceMarker` + axiom blob + provenance + outgoing verbs — INLINE, one cache line per occupied slot, no sidecar. Lookup is O(1) array index; `lookup(owl)` debug-asserts family match. SGO meta (>256 entries) explicitly excluded from runtime addressing (§9.3).
+
+**Implication:** `owl_from_schema_ptr()` truncates `SchemaPtr::entity_type_id()` (u16) to 8-bit slot for audit emission. This is lossless within the addressable domain. If a basin ever needs >256 entries, the entire 8-bit slot abstraction breaks — re-check when any basin approaches the cap.
+
+Cross-ref: spec §3.1-§3.3; `crates/lance-graph-callcenter/src/{unified_bridge,super_domain,family_table}.rs`.
+
 ## 2026-04-30 — FINDING: Wave-1 follow-up shipped (PRs #300-#306) — 3,156 LOC, full LOC audit confirms 0 lost from #275-#283 recovery
 
 **Status:** FINDING
