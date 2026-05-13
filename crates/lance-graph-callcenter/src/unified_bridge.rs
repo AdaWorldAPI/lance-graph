@@ -45,7 +45,7 @@ use lance_graph_ontology::proposal::MappingRow;
 use lance_graph_rbac::access::AccessDecision;
 use lance_graph_rbac::policy::{Operation, Policy};
 
-use crate::super_domain::{super_domain_for_family, SuperDomain};
+use crate::super_domain::SuperDomain;
 use crate::unified_audit::{
     AuditChain, AuditMerkleRoot, AuthDecision, AuthOp, NoopUnifiedAuditSink, UnifiedAuditEvent,
     UnifiedAuditSink,
@@ -383,11 +383,22 @@ impl<B: NamespaceBridge> UnifiedBridge<B> {
     /// the merkle chain and emit to the configured sink.
     fn emit_audit(&self, schema_ptr: &SchemaPtr, op: AuthOp, decision: AuthDecision) {
         let owl = owl_from_schema_ptr(schema_ptr);
-        let super_domain = super_domain_for_family(owl.family());
+        // Hold the chain lock across stamping so the event's super_domain
+        // and the chain it commits into are guaranteed to agree.
+        // FAMILY_TO_SUPER_DOMAIN is an all-Unknown static today (the family
+        // → super-domain hydration table lands in sprint 5); until then,
+        // trust the super_domain the caller wired into the chain via
+        // with_audit_chain(...) as the single source of truth.
+        let mut chain = match self.audit_chain.lock() {
+            Ok(g) => g,
+            // Mutex poisoned by a panicking holder — keep audit emission
+            // best-effort by advancing through the poisoned guard.
+            Err(poisoned) => poisoned.into_inner(),
+        };
         let event = UnifiedAuditEvent {
             ts_unix_ms: now_unix_ms(),
             tenant: self.tenant,
-            super_domain,
+            super_domain: chain.super_domain,
             owl,
             op,
             decision,
@@ -395,13 +406,8 @@ impl<B: NamespaceBridge> UnifiedBridge<B> {
             // overwritten by AuditChain::advance
             merkle_root: AuditMerkleRoot::GENESIS,
         };
-        let stamped = match self.audit_chain.lock() {
-            Ok(mut chain) => chain.advance(event),
-            // Mutex poisoned by a panicking holder — fall back to advancing
-            // through the poisoned guard so audit emission stays best-effort
-            // (we'd rather have a slightly-off chain than skip the event).
-            Err(poisoned) => poisoned.into_inner().advance(event),
-        };
+        let stamped = chain.advance(event);
+        drop(chain);
         self.audit_sink.emit(&stamped);
     }
 }
@@ -661,10 +667,10 @@ mod tests {
         assert_eq!(events[0].decision, AuthDecision::Allow);
         assert_eq!(events[0].op, AuthOp::Read);
         assert_eq!(events[0].tenant, TenantId(7));
-        // Event super_domain comes from FAMILY_TO_SUPER_DOMAIN reverse lookup,
-        // which is all-`Unknown` until TTL hydration (D-SDR-3b). The chain's
-        // configured super-domain/salt drives merkle hashing, not this field.
-        assert_eq!(events[0].super_domain, SuperDomain::Unknown);
+        // Event super_domain is stamped from the configured AuditChain so
+        // compliance partitioning works before FAMILY_TO_SUPER_DOMAIN is
+        // hydrated (D-SDR-3b, sprint 5).
+        assert_eq!(events[0].super_domain, SuperDomain::WorkOrderBilling);
         assert_ne!(events[0].merkle_root, AuditMerkleRoot::GENESIS);
     }
 
