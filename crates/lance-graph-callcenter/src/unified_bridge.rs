@@ -38,8 +38,22 @@ use std::sync::Arc;
 
 use lance_graph_contract::property::PrefetchDepth;
 use lance_graph_ontology::bridge::{BridgeError, EntityRef, NamespaceBridge};
+use lance_graph_ontology::proposal::MappingRow;
 use lance_graph_rbac::access::AccessDecision;
 use lance_graph_rbac::policy::{Operation, Policy};
+
+/// Extract the canonical ontology entity type name from a resolved
+/// [`MappingRow`], for use as the [`Policy::evaluate`] key.
+///
+/// `row.ogit_uri` carries the canonical OGIT URI (e.g.
+/// `ogit.WorkOrder:Order`); `OgitUri::name()` is the local part
+/// (`Order`). Falls back to `public_name` if the URI somehow lacks a
+/// name part — a malformed URI shouldn't silently bypass the alias
+/// resolution, but it shouldn't break authorization either.
+fn canonical_entity_type<'a>(row: &'a MappingRow, public_name: &'a str) -> &'a str
+{
+    row.ogit_uri.name().unwrap_or(public_name)
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // OgitFamily — Level-2 basin pointer (§3.1 of super-domain-rbac-tenancy-v1)
@@ -240,36 +254,50 @@ impl<B: NamespaceBridge> UnifiedBridge<B> {
     /// Resolve `public_name` through the bridge then evaluate read access at
     /// `depth`. Returns the resolved `EntityRef` on `Allow`, `AuthError` on
     /// `Deny` / `Escalate` / bridge resolution failure.
+    ///
+    /// **Policy evaluation keys on the canonical ontology entity type
+    /// (e.g. `Order` for `ogit.WorkOrder:Order`), not the bridge-side
+    /// `public_name` alias.** This means a `Policy` authored against
+    /// canonical OGIT names is honored regardless of which bridge / public
+    /// alias the caller used, and consumer-facing aliases stay decoupled
+    /// from policy authorship.
     pub fn authorize_read(
         &self,
         public_name: &str,
         depth: PrefetchDepth,
     ) -> Result<EntityRef, AuthError> {
-        let entity = self.bridge.entity(public_name)?;
-        self.evaluate(public_name, Operation::Read { depth })?;
-        Ok(entity)
+        let row = self.bridge.row(public_name)?;
+        let canonical = canonical_entity_type(&row, public_name);
+        self.evaluate(canonical, Operation::Read { depth })?;
+        Ok(EntityRef { schema_ptr: row.schema_ptr })
     }
 
     /// Resolve `public_name` then evaluate write access on `predicate`.
+    /// Policy keys on the canonical ontology entity type — see
+    /// [`Self::authorize_read`] for details.
     pub fn authorize_write(
         &self,
         public_name: &str,
         predicate: &str,
     ) -> Result<EntityRef, AuthError> {
-        let entity = self.bridge.entity(public_name)?;
-        self.evaluate(public_name, Operation::Write { predicate })?;
-        Ok(entity)
+        let row = self.bridge.row(public_name)?;
+        let canonical = canonical_entity_type(&row, public_name);
+        self.evaluate(canonical, Operation::Write { predicate })?;
+        Ok(EntityRef { schema_ptr: row.schema_ptr })
     }
 
     /// Resolve `public_name` then evaluate action access on `action`.
+    /// Policy keys on the canonical ontology entity type — see
+    /// [`Self::authorize_read`] for details.
     pub fn authorize_act(
         &self,
         public_name: &str,
         action: &str,
     ) -> Result<EntityRef, AuthError> {
-        let entity = self.bridge.entity(public_name)?;
-        self.evaluate(public_name, Operation::Act { action })?;
-        Ok(entity)
+        let row = self.bridge.row(public_name)?;
+        let canonical = canonical_entity_type(&row, public_name);
+        self.evaluate(canonical, Operation::Act { action })?;
+        Ok(EntityRef { schema_ptr: row.schema_ptr })
     }
 
     fn evaluate(&self, entity_type: &str, op: Operation<'_>) -> Result<(), AuthError> {
@@ -347,5 +375,101 @@ mod tests {
             .authorize_read("Customer", PrefetchDepth::Identity)
             .unwrap_err();
         assert!(matches!(err, AuthError::Bridge(_)));
+    }
+
+    // ── Alias vs canonical-name resolution (Codex P2 review fix) ──────────────
+
+    /// Bridge that locks to a real namespace + uses a real registry, so
+    /// `bridge.row()` resolves and returns a `MappingRow` carrying the
+    /// canonical OGIT URI. Used by the alias-resolution tests below.
+    struct WoaLikeBridge {
+        registry: Arc<OntologyRegistry>,
+        g_lock: lance_graph_ontology::namespace::NamespaceId,
+    }
+
+    impl NamespaceBridge for WoaLikeBridge {
+        fn bridge_id(&self) -> &'static str {
+            "woa"
+        }
+        fn registry(&self) -> &OntologyRegistry {
+            &self.registry
+        }
+        fn g_lock(&self) -> lance_graph_ontology::namespace::NamespaceId {
+            self.g_lock
+        }
+    }
+
+    /// Build a registry with a single mapping where `public_name` ("WorkOrder",
+    /// the bridge-side alias) differs from the canonical OGIT URI's name part
+    /// ("Order"). Returns the bridge that resolves it.
+    fn alias_test_bridge() -> Arc<WoaLikeBridge> {
+        use lance_graph_contract::property::{Marking, Schema};
+        use lance_graph_ontology::namespace::OgitUri;
+        use lance_graph_ontology::proposal::{MappingProposal, MappingProposalKind};
+
+        let registry = Arc::new(OntologyRegistry::new_in_memory());
+        let canonical_uri = OgitUri::parse("ogit.WorkOrder:Order").unwrap();
+        let proposal = MappingProposal {
+            public_name: "WorkOrder".to_string(),
+            bridge_id: "woa".to_string(),
+            ogit_uri: canonical_uri,
+            namespace: "WorkOrder".to_string(),
+            kind: MappingProposalKind::Entity {
+                schema: Schema::builder("Order").required("id").build(),
+            },
+            marking: Marking::Internal,
+            confidence: 1.0,
+            source_uri: "test://woa-alias".to_string(),
+            checksum: "checksum-woa-alias".to_string(),
+            created_by: "test".to_string(),
+        };
+        registry.append_mapping(proposal).unwrap();
+        let g_lock = registry.namespace_id("WorkOrder").unwrap();
+        Arc::new(WoaLikeBridge { registry, g_lock })
+    }
+
+    fn policy_with_role(role_name: &'static str, entity_type: &'static str) -> Policy {
+        use lance_graph_rbac::permission::PermissionSpec;
+        use lance_graph_rbac::role::Role;
+        Policy::new("alias-test")
+            .with_role(
+                Role::new(role_name)
+                    .with_permission(PermissionSpec::read_at(entity_type, PrefetchDepth::Detail)),
+            )
+    }
+
+    #[test]
+    fn unified_bridge_evaluates_policy_against_canonical_entity_type() {
+        // Caller invokes `authorize_read("WorkOrder", ...)` — the bridge-side
+        // alias. Policy is authored against the canonical OGIT entity type
+        // "Order" (e.g. shared across multiple bridges that all resolve to
+        // the same canonical type). The fix: policy must see "Order", not
+        // "WorkOrder".
+        let bridge = alias_test_bridge();
+        let policy = Arc::new(policy_with_role("clerk", "Order"));
+        let unified = UnifiedBridge::new(bridge, policy, "clerk", TenantId(1));
+
+        let entity = unified
+            .authorize_read("WorkOrder", PrefetchDepth::Detail)
+            .expect("policy keyed on canonical 'Order' should grant alias 'WorkOrder' access");
+        assert_eq!(entity.schema_ptr.namespace_id().raw(), 1, "g-lock honored");
+    }
+
+    #[test]
+    fn unified_bridge_does_not_honor_alias_keyed_policy() {
+        // Inverse case: a policy keyed on the bridge-side alias "WorkOrder"
+        // does NOT grant access through the canonical-name evaluation path.
+        // This is the deliberate decoupling — consumer-facing aliases stay
+        // separate from policy authorship; policy authors write canonical
+        // OGIT names once and any bridge that resolves to them honors the
+        // grant.
+        let bridge = alias_test_bridge();
+        let policy = Arc::new(policy_with_role("clerk", "WorkOrder"));
+        let unified = UnifiedBridge::new(bridge, policy, "clerk", TenantId(1));
+
+        let err = unified
+            .authorize_read("WorkOrder", PrefetchDepth::Detail)
+            .expect_err("policy keyed on alias 'WorkOrder' should NOT grant access; canonical is 'Order'");
+        assert!(matches!(err, AuthError::Denied(_)), "got: {err:?}");
     }
 }
