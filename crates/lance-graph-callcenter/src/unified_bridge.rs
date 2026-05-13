@@ -42,6 +42,93 @@ use lance_graph_rbac::access::AccessDecision;
 use lance_graph_rbac::policy::{Operation, Policy};
 
 // ═══════════════════════════════════════════════════════════════════════════
+// OgitFamily — Level-2 basin pointer (§3.1 of super-domain-rbac-tenancy-v1)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// 1 byte. Identifies which OGIT family (basin) a row belongs to.
+/// 256 families max; ~75 used today (per `RECON_ONTOLOGY_CRATE.md` §1.9).
+/// Pure address. No reasoning, no string lookup.
+///
+/// High byte of `OwlIdentity`. Bitmask compare against this is the
+/// sub-microsecond hot-path predicate Cypher MATCH lowers to.
+#[repr(transparent)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct OgitFamily(pub u8);
+
+impl OgitFamily
+{
+    pub const UNKNOWN: Self = Self(0);
+
+    #[inline]
+    pub const fn raw(self) -> u8
+    {
+        self.0
+    }
+
+    #[inline]
+    pub const fn is_known(self) -> bool
+    {
+        self.0 != 0
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// OwlIdentity — Level-3 per-row identity (§3.2)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// 2 bytes. BF16-shaped container (interpreted as named bit-fields, not
+/// literal floating-point semantics).
+/// High 8 bits = `OgitFamily` (the precise heel pointer / "mantissa").
+/// Low  8 bits = within-family slot (the OWL/consumer's own identity).
+/// This is what rides on every LanceDB row.
+#[repr(transparent)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct OwlIdentity(pub u16);
+
+impl OwlIdentity
+{
+    pub const UNKNOWN: Self = Self(0);
+
+    #[inline]
+    pub const fn new(family: OgitFamily, slot: u8) -> Self
+    {
+        Self(((family.0 as u16) << 8) | slot as u16)
+    }
+
+    #[inline]
+    pub const fn family(self) -> OgitFamily
+    {
+        OgitFamily((self.0 >> 8) as u8)
+    }
+
+    #[inline]
+    pub const fn slot(self) -> u8
+    {
+        (self.0 & 0xFF) as u8
+    }
+
+    #[inline]
+    pub const fn raw(self) -> u16
+    {
+        self.0
+    }
+
+    /// Bitmask predicate Cypher MATCH lowers to. No string lookup.
+    #[inline]
+    pub const fn is_family(self, f: OgitFamily) -> bool
+    {
+        self.family().0 == f.0
+    }
+
+    /// Within-family slot predicate.
+    #[inline]
+    pub const fn is_slot(self, s: u8) -> bool
+    {
+        self.slot() == s
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // TenantId — multi-tenant Chinese wall (§3.8 of super-domain-rbac-tenancy-v1)
 // ═══════════════════════════════════════════════════════════════════════════
 
