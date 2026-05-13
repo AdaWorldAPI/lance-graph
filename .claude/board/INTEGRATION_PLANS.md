@@ -34,6 +34,83 @@
 - **Status** — **mutable**: Active / Shipped / Superseded / Deferred / Abandoned
 - **Confidence** — **mutable**: Working / Partial / Broken — see PR #N
 
+
+---
+
+## palantir-parity-cascade-v2 — Foundry/Gotham parity capstone + DTO ladder (authored 2026-05-07)
+
+- **Plan:** `.claude/plans/palantir-parity-cascade-v2.md`
+- **Companion knowledge:** `.claude/knowledge/soa-dto-dependency-ledger.md` (the SoA DTO entropy ledger; ships with this plan).
+- **Author + date:** main thread (Opus 4.7 1M), 2026-05-07 (immediately after PR #352 merge).
+- **Status:** Active.
+- **Scope:** Integration capstone over 4 prior Foundry parity docs (`q2-foundry-integration-v1`, `lf-integration-mapping-v1`, `foundry-consumer-parity-v1`, `medcare-foundry-vision`) and v1 cascade Pillar 0. **Pillar 0 carry-forward**: Foundry parity IS SoA-as-canon parity — Column H (`EntityTypeId: u16`, PR #272 SHIPPED) is already the Foundry Object Type bridge; v2 just makes the SoA carry the Foundry-equivalent shape, NOT duplicate the table set. **DTO ladder finding (2026-05-07 audit)**: `StreamDto`, `ResonanceDto`, `BusDto` all live in `thinking-engine::dto.rs` (Tiers 0/1/2), upstream of contract. 22 DTOs classified across 3 buckets: 9 bare-metal, 7 SoA-glue, 6 bridge-projection (3 OPEN re-classifications). **Business Logic ↔ Thinking-style ↔ OGIT triangle**: each business operation has 3 faces (`thinking_style: ThinkingStyle` dispatch, `ogit_verb: TTL`, `ogit_entities[]: TTL`); v2 D-PARITY-V2-2 ships the routing table.
+- **Originating context:** main-thread requests 2026-05-07: (a) updated roadmap with Foundry/Gotham parity; (b) SoA DTO dependency-graph / entropy ledger to classify bare-metal vs SoA-glue (StreamDto, BusDto, ResonanceDto); (c) cognitive-shader-driver internal vs lance-graph-callcenter external O(1) mapping; (d) Business Logic Thinking-style OGIT mapping later.
+- **Resolves ledger rows:** none directly. **Hardens** v1 D-CASCADE-V1-7 (codec cascade column population) via the explicit ledger entry tracking the "OPEN" status of each cascade column.
+- **Branch:** `claude/create-graph-ontology-crate-gkuJG`. PR target: `AdaWorldAPI/lance-graph` base=`main`.
+- **Confidence (2026-05-07):** Pre-execution. Pillar 0 carry-forward is right per existing PR #272 (Column H is the bridge already). Top-3 ranked: D-PARITY-V2-1 (DTO ledger — ships with this plan), D-PARITY-V2-2 (triangle ledger — ships with this plan), D-PARITY-V2-3 (BusDto bridge into engine_bridge.rs).
+- **Cross-plan deps:** v1 D-CASCADE-V1-2 (`SchemaPtr.context_id`) → v2 D-PARITY-V2-4 (`Schema::ObjectView`); v1 D-CASCADE-V1-7 (codec cascade columns) → v2 D-PARITY-V2-12 (`SchemaPtr.thinking_style`); v5 D-9 (`MulThresholdProfile`) → v2 D-PARITY-V2-12 (column extension).
+- **Foundry parity status snapshot:** SHIPPED — Column H (PR #272), audit trail, RBAC/RLS, PostgREST. IN PROGRESS — Q2 cockpit. QUEUED — LF-12 Pipeline DAG, LF-20 FunctionSpec, LF-22/23 ObjectView/Notification, LF-50 ModelRegistry.
+- **Out of v2 scope:** CRDT scenario branching (Column F already exists; UI affordance is v3), Foundry Marketplace/Compass, Foundry Code Repositories, Vertex/Workshop UX (covered by `q2-foundry-integration-v1`), Foundry-export-format ingest.
+
+---
+
+## ogit-cascade-supabase-callcenter-v1 — OGIT SPO-G + Supabase realtime + Zone 1/2/3 (authored 2026-05-07)
+
+- **Plan:** `.claude/plans/ogit-cascade-supabase-callcenter-v1.md`
+- **Author + date:** main thread (Opus 4.7 1M), 2026-05-07.
+- **Status:** Active.
+- **Scope:** 15 deliverables across `lance-graph-callcenter`, `lance-graph-ontology`, AdaWorldAPI/OGIT (extension fork), and a future `lance-graph-rdf` consumer. Pillar 0 (the holy-grail click): `OntologyRegistry` IS the SoA; per-domain schema (Healthcare, WorkOrder, SMB, CallCenter, Medical) IS the DTO + name→row index. Codec cascade per row: identity Vsa16kF32 → CAM-PQ 6 B → Base17 34 B → palette key 4 B → Scent 1 B → qualia/meta/edge columns. Every step O(1). Pillar 1: OGIT as universal SPO-G lingua franca with `ontology_context_id: u32` per named graph. Pillar 2: Zone 1 (BindSpace, no Serialize) / Zone 2 (Arrow scalar membrane, BBB invariant) / Zone 3 (Supabase RPC, REST, transcode — the only emission point). Pillar 3: smb-bridge + medcare-bridge collapse to 2-line projections over `OntologyRegistry::enumerate(ns)`. Pillar 4: BioPortal arsenal — 10 namespace stubs under `OGIT/NTO/Medical/{ICD10CM,RxNorm,LOINC,FMA,RadLex,SNOMED,MONDO,HPO,DRON,CHEBI}/` carrying provenance + license + size, with full ingestion gated on `lance-graph-rdf-fma-snomed-v1`.
+- **Originating context:** main-thread question 2026-05-07: *"should the lance-graph-ontology be the SoA and the schema the DTO + index?"* — answered YES, with the codec cascade chain making it content-addressable through every encoding tier (the holy grail). User-supplied references: `MedCare-rs/.MYSQL/Struktur.sql` (104 tables, 5 dominant prefixes) and `MedCare-rs/releases/tag/bioportal-ontologies-2026-05-05` (25 bundles, ~2.4 GB).
+- **Resolves ledger rows:** none directly. **Hardens** v5's D-9 (`MulThresholdProfile` becomes `ontology_context_id`-aware, so medical thresholds are stricter than callcenter thresholds). **Locks down** the BBB membrane doctrine from `callcenter-membrane-v1.md` § 10.9 with a `cert-officer` static check (D-CASCADE-V1-1).
+- **Branch:** `claude/create-graph-ontology-crate-gkuJG` (continues the v4/v5 thread). PR target: `AdaWorldAPI/lance-graph` base=`main`. OGIT-fork PRs land under the same branch on the OGIT-fork side.
+- **Confidence (2026-05-07):** Pre-execution. Pillar 0 is the only architectural commitment that admits no rollback — and it is right per the existing `LazyLock<&OntologyRegistry>` pattern in `lance-graph-ontology/src/bridges/`. Top-3 ranked: D-CASCADE-V1-1, D-CASCADE-V1-2, D-CASCADE-V1-3 (no upstream blockers).
+- **Cross-plan deps:** v5 D-9 (`MulThresholdProfile`), `lance-graph-rdf-fma-snomed-v1` (`SemanticQuad`), `supabase-subscriber-v1` (DM-4 watcher / DM-6 drain), `callcenter-membrane-v1` § 10.9 (BBB iron rule).
+- **Out of v1 scope (deferrals):** full SNOMED CT import (license-gated; BioPortal release ships only 666 KB partial), full DRON / CHEBI import (size unclear-payoff; revisit after D-CASCADE-V1-11 measures cascade), n8n-rs / crewai-rust consumption of new SoA columns (separate plan), bgz-tensor attention layer integration (orthogonal).
+
+---
+
+## lance-graph-ontology-v5 — post-merge follow-ons (authored 2026-05-07)
+
+- **Plan:** `.claude/plans/lance-graph-ontology-v5.md`
+- **Author + date:** integration-lead (Opus 4.7 1M), 2026-05-07
+- **Status:** Active
+- **Scope:** Picks up where v4 (`claude/create-graph-ontology-crate-gkuJG`, OGIT#1 merged) left off. 15 deliverables ranked by leverage / cost: D-ONTO-V5-1 (dcterms:source provenance, closes TTL-PROBE-5), D-ONTO-V5-2 (`arigraph::SpoBridge::promote_to_spo`, closes SPO-1), D-ONTO-V5-3 (Healthcare TTL transcode), D-ONTO-V5-4 (smb-ontology export-only, NOT migration — brutal-honest reversal, ratified by main thread 2026-05-07), D-ONTO-V5-5 (q2 TTL transcode), D-ONTO-V5-6/7 (MySQL/MSSQL `SchemaSource` impls), D-ONTO-V5-8 (customer admin form, owned by woa-rs surface), D-ONTO-V5-9 (ontology-aware MUL trust thresholds — registry as namespace-keyed lookup), D-ONTO-V5-10 (callcenter-bridge, deferred until SUBJECT-DTO-1 lands), D-ONTO-V5-11 (woa-rs 80/20 binary cut), D-ONTO-V5-12 (MUL publishers — Brier/damage/sandbox), D-ONTO-V5-13 (hydration parallelism), D-ONTO-V5-14 (Lance dictionary load probe), D-ONTO-V5-15 (in-memory → Lance-backed cutover).
+- **Originating context:** v4 OGIT#1 merge (15 entities + 12 verbs in `NTO/WorkOrder/`, master); 36 ontology tests pass; cognitive-shader-driver wired (read-only registry attachment).
+- **Resolves ledger rows:** TTL-PROBE-5 (D-ONTO-V5-1), SPO-1 (D-ONTO-V5-2 70+245). Partial leverage on MUL-ASSESS-1 (registry as namespace-keyed threshold table). No leverage on TRUST-1 / FLOW-1 / COMPASS-1 / PARSER-1 (out of scope; the ontology crate has no influence on enum consolidation or the cypher cold/hot split).
+- **Branch:** `claude/onto-v5-<D-id>` per deliverable; OGIT-fork PRs per namespace transcode. Upstream `almatoai/OGIT` is never PR'd (ratified 2026-05-07).
+- **Confidence (2026-05-07):** Pre-execution. Plan reviews v4's outputs as FINDING-grade and v5's deferrals as honestly-deferred (not punted). Next-3 ranked: D-ONTO-V5-1, D-ONTO-V5-9, D-ONTO-V5-2.
+- **Cross-ref:** `.claude/RECON_ONTOLOGY_CRATE.md`, `.claude/DECISION_SPO_ARIGRAPH.md`, `.claude/knowledge/ontology-registry.md`, `sql-spo-ontology-bridge-v1.md` (partially superseded), `foundry-roadmap-unified-smb-medcare-v1.md` (adjacent).
+- **Ratifications (main-thread, 2026-05-07):** Q1 smb-ontology export-only — RATIFIED (consistent with v4 "preserved as native fallback"; not a contradiction). Q2 D-9 above D-2 ordering — RATIFIED (registry has zero behavioral consumer until V5-9 lands; SPO L1/L2 cache works without the bridge fn today). Q3 `MulThresholdProfile` location — RATIFIED in `lance-graph-contract` (zero-dep canonical home; co-located with `MulAssessment`). Q4 OGIT-fork upstream PR rule — RATIFIED (AdaWorldAPI/OGIT extension fork only; never PR back to almatoai/OGIT).
+
+---
+
+## splat-osint-ingestion-v1 — Splat contract + EWA OSINT bridge (authored 2026-05-06)
+
+- **Plan:** `.claude/plans/2026-05-06-splat-osint-ingestion-v1.md`
+- **Author + date:** Claude (for Jan), 2026-05-06
+- **Status:** Active (PR 1+2 of 6 in flight)
+- **Scope:** SPLAT-1 ledger row Aspirational -> Wired (x1). Materialise SplatChannel/CamPlaneSplat/SplatPlaneSet/CamSplatCertificate in lance-graph-contract; demonstrate EWA-sandwich Sigma-push-forward as neo4j-edge-traversal substitute via crates/jc/examples/osint_edge_traversal.rs.
+- **Originating question:** q2 PR #35 review
+- **Resolves ledger rows:** SPLAT-1 (entropy 4 -> 2, Aspirational -> Wired stage 1).
+- **Branch:** claude/splat-osint-ingestion
+- **Confidence (2026-05-06):** Working (math certified by Pillar 6 PR #289).
+
+---
+
+## v1 — Grammar + Foundry Follow-up (authored 2026-04-29)
+
+**Author:** main thread (Opus 4.7), session 2026-04-29
+**Status:** Active
+**Scope:** Wire the stubs and scaffolds shipped in PRs #275-#283 to existing tissue. Six explicit `stub`/`skeleton`/`placeholder`/`unimplemented!` markers in the merged code (verified by grep) name what remains. 13 PRs across two parallel tracks (6 Foundry + 6 Grammar) sharing one keystone (LF-12 Pipeline DAG). All deliverables target `main` directly; no stacking PRs (avoids the merge-order orphaning that bit #281/#283 → #284/#285).
+**Path:** `.claude/plans/grammar-foundry-followup-v1.md`
+**Deliverables:** PR-S1 (Pipeline DAG keystone), PR-F1..F6 (Foundry: PolicyRewriter UDF wrap, Encrypt+DP, Lance audit, PostgREST dispatch, audit_from_plan, dn_path scent), PR-G1..G6 (Grammar: Triangle causality, Disambiguator wiring, ContextChain fp, verb_table seed, AriGraph unbundle, Animal Farm real run).
+**Cross-refs:**
+- `lf-integration-mapping-v1.md` — LF-12 keystone rationale (PR-S1)
+- `foundry-roadmap.md` — original PR-1..PR-5 (PR-1/PR-2 shipped as #278/#280; PR-3..PR-5 ship as PR-F1..F4 here)
+- `integration-plan-grammar-crystal-arigraph.md` — original AriGraph follow-up (now ships as PR-G5)
+- `grammar-landscape.md` — case inventories that PR-G4 consumes
+**Open decisions:** (1) PR-F2 encryption key management (KMS? in-process? user-supplied?); (2) PR-G6 Animal Farm text licensing; (3) PR-F6 bgz-tensor → callcenter dep; (4) PR-G4 ownership.
+
 ---
 
 ## v1 — Super-Domain RBAC + Multi-Tenancy (authored 2026-05-13)
@@ -235,3 +312,57 @@ Phases 2–4 queued.
 **Scope:** Map the shared Foundry parity surface consumed by both smb-office-rs and medcare-rs. Resolve 5 callcenter UNKNOWNs (consumer-validated). Document the DataFusion/SQL groundtruth pattern. Identify shared build priorities (DM-8 PostgREST is P-0 for both). Ontology unification: one contract shape, two domain-specific instances.
 **Path:** `.claude/plans/foundry-consumer-parity-v1.md`
 **Cross-ref:** `smb-office-rs/docs/foundry-parity-checklist.md` (45 LF chunks); `medcare-rs` callcenter-as-owner architecture; `q2-foundry-integration-v1.md`; `lf-integration-mapping-v1.md`; `callcenter-membrane-v1.md` (UNKNOWNs resolved)
+
+## 2026-05-07 — Status annotation: `sql-spo-ontology-bridge-v1` partially superseded
+
+**Status:** Active (partially superseded by `lance-graph-ontology` crate, 2026-05-07)
+**Note:** The `SchemaExpander` proposed in `sql-spo-ontology-bridge-v1` already shipped in earlier work, and the new `lance-graph-ontology` crate (commit `4cf9a26`, branch `claude/create-graph-ontology-crate-gkuJG`) consumes it as its sole bridge surface. The plan's Phase 4 (NARS cold sink) and `promote_to_spo` writer bridge remain owned by the original plan. Recon + decision for the new crate: `.claude/RECON_ONTOLOGY_CRATE.md` + `.claude/DECISION_SPO_ARIGRAPH.md` (prior commit `edef321`). Federated two-layer cache (Option B): SPO + ARiGraph triplet_graph are not duplicates by design; entropy-ledger rows 70 + 245 cite the L1/L2 cache pair. APPEND-ONLY annotation; original plan entry not edited.
+
+---
+
+## 2026-05-07 — Unified OGIT Architecture plans (sprint-2)
+
+Sprint-2 (12-agent + meta) synthesized 15 architectural patterns (A-O) into a layered plan-doc structure. ~80% of the architecture is already shipped in workspace; the plan-docs name and expose what exists + the ~20% remaining wiring work.
+
+### Master plan-doc
+
+- **`unified-ogit-architecture-v1.md`** (Active) — master synthesis covering all 15 patterns A-O, Tier 0-4 structure. The single document future sessions read first to understand the unified architecture and its current state. Cross-references the 3 sub-plans below and the proof-of-vision.
+
+### Tier 1 — G-overlay wiring (Patterns A+B+C+E)
+
+- **`ogit-g-context-bundle-v1.md`** (Active) — concrete plan for Patterns A (SPO-G u32 slot), B (ContextBundle typed surface), C (GenericBridge dispatching per-G ConsumerPointer). Threads G through existing primitives. Closes TD-OGIT-G-SLOT-1, TD-CONTEXT-BUNDLE-2, TD-GENERIC-BRIDGE-3.
+
+### Tier 2 — Supervised consumer mesh (Patterns E+F)
+
+- **`compile-time-consumer-binding-v1.md`** (Active) — concrete plan for `/modules/<name>/manifest.yaml` build-script glue (Pattern E) + ractor supervisor port from gRPC service trait shape (Pattern F). Closes TD-MANIFEST-MODULES-4, TD-RACTOR-SUPERVISOR-5.
+
+### Proof of vision
+
+- **`anatomy-realtime-v1.md`** (Active) — end-to-end demo: hydrate FMA (75K-class anatomy ontology) via OWL hydrator + ingest medical scan (DICOM) + render in Q2 cockpit with realtime anatomy-graph overlay. Exercises every pillar (Splat, EWA-Sandwich, α-saturation, OGIT-G, Generic Bridge, medcare-rs RBAC, ractor supervisor). Multi-PR; ~5-7 PRs spread over weeks. Closes TD-ANATOMY-DEMO-8.
+
+### Pre-existing plans reframed by sprint-2
+
+These existing plans absorb cleanly into the new architecture and remain in scope:
+- `lance-graph-ontology-v5.md` — Pillar 0 work (already merged via PR #355); the OGIT registry is the Pattern B carrier.
+- `palantir-parity-cascade-v2.md` — Foundry-equivalent surface; ConsumerPointer + actor shape lands its deliverables.
+- `ogit-cascade-supabase-callcenter-v1.md` — already merged via PR #355; GenericBridge replaces the per-callcenter scaffolding.
+- `callcenter-membrane-v1.md` — DM-2/DM-3 still in flight; supervisor shape (Pattern F) defines how they compose.
+
+### Plans deferred / aspirational
+
+- Tier 4 (Pattern K: JIT circular compilation via cranelift) — captured as TD-CIRCULAR-COMPILATION-7; aspirational only.
+
+### Cross-references
+
+- `.claude/plans/unified-ogit-architecture-v1.md` (W1 — master synthesis)
+- `.claude/knowledge/tier-0-pattern-recognition.md` (W2 — code → pattern map)
+- `.claude/patterns.md` (W3 — appended Pattern Recognition Framework section)
+- `.claude/board/EPIPHANIES.md` (W4 — 17 architectural epiphanies appended)
+- `.claude/board/TECH_DEBT.md` (W5 — 11 TD entries appended)
+- `.claude/board/ARCHITECTURE_ENTROPY_LEDGER.md` (W6 — 5 reframes + 15-pattern absorption table)
+- `.claude/board/ARCHITECTURE_ENTROPY_LEDGER_RESOLVED.md` (W7 — RECOGNITION-1 row)
+- `.claude/board/LATEST_STATE.md` (W9 — sprint-2 deliverables added to Recently Shipped)
+
+### Sprint-2 governance
+
+This sprint was orchestrated as 12 worker agents + 1 meta agent on branch `claude/unified-ogit-architecture-synthesis`. CCA2A pattern: per-agent append-only logs in `.claude/board/sprint-log-2/agents/agent-W*.md`; meta review in `.claude/board/sprint-log-2/meta-1-review.md`; sprint summary in `.claude/board/sprint-log-2/sprint-summary.md`.

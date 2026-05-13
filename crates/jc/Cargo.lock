@@ -5,3 +5,15 @@ version = 4
 [[package]]
 name = "jc"
 version = "0.1.0"
+dependencies = [
+ "lance-graph-contract",
+ "sigker",
+]
+
+[[package]]
+name = "lance-graph-contract"
+version = "0.1.0"
+
+[[package]]
+name = "sigker"
+version = "0.1.0"

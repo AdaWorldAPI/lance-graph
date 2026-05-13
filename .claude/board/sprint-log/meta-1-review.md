@@ -115,64 +115,10 @@ entities for triage.
 
 **Super-helpful solution (apply as W3-revision-2):**
 
-```rust
-pub fn receptionist() -> Role {
-    use lance_graph_contract::property::PrefetchDepth;
-    // MFA needs Identity-read on clinical entities for safe scheduling:
-    // - Patient.allergies (anaphylaxis check)
-    // - Diagnosis.icd10_code (triage relevant conditions)
-    // - LabResult.status (don't schedule lab draw if one is pending)
-    // Full clinical content (Anamnese narrative, LabResult value) stays
-    // gated to Doctor/Auditor.
-    Role::new("receptionist")
-        .with_permission(PermissionSpec::full(
-            "Patient",
-            &["phone", "email", "address"],
-            &[],
-        ))
-        .with_permission(PermissionSpec::read_at("Patient", PrefetchDepth::Identity))
-        .with_permission(PermissionSpec::read_at("Diagnosis", PrefetchDepth::Identity))
-        .with_permission(PermissionSpec::read_at("LabResult", PrefetchDepth::Identity))
-        .with_permission(PermissionSpec::read_at("Ueberweisung", PrefetchDepth::Detail))
-}
-```
-
-**Caveat for the implementer.** The above has TWO `Patient` permissions —
-one with Full demographics + one with Identity. The current
-`Role::permission_for` returns the FIRST matching entity, so order
-matters. Either:
-
-- (a) Reorder so Identity comes first (loses demographic writes)
-- (b) Merge into a single PermissionSpec with `max_depth: Detail` and
-  the 3 demographic writable predicates
-- (c) Extend `Role::permission_for` to merge across multiple matches
-
-The cleanest fix is **(b) — merge into a single PermissionSpec**:
-
-```rust
-.with_permission(PermissionSpec {
-    entity_type: "Patient",
-    max_depth: PrefetchDepth::Detail,  // demographics ARE Detail
-    writable_predicates: &["phone", "email", "address"],
-    allowed_actions: &[],
-})
-.with_permission(PermissionSpec::read_at("Patient", PrefetchDepth::Identity))  // remove this — covered by Detail
-```
-
-Wait — Detail subsumes Identity (per the can_read_at impl `depth <= max_depth`).
-So the single-permission form already covers Identity-read on Patient:
-
-```rust
-.with_permission(PermissionSpec {
-    entity_type: "Patient",
-    max_depth: PrefetchDepth::Detail,
-    writable_predicates: &["phone", "email", "address"],
-    allowed_actions: &[],
-})
-.with_permission(PermissionSpec::read_at("Diagnosis", PrefetchDepth::Identity))
-.with_permission(PermissionSpec::read_at("LabResult", PrefetchDepth::Identity))
-.with_permission(PermissionSpec::read_at("Ueberweisung", PrefetchDepth::Detail))
-```
+Merge into a single PermissionSpec on Patient with `max_depth: Detail`
+and the 3 demographic writable predicates (Detail subsumes Identity
+per `can_read_at` impl `depth <= max_depth`). Add Identity-read on
+Diagnosis + LabResult.
 
 Plus update test `receptionist_demographics_only` — it currently
 asserts NO clinical reads. After the fix, it should assert "Identity
@@ -181,38 +127,17 @@ clinical reads, no Full clinical reads, no clinical writes".
 **Why this is critical, not high.** A v1 ship with Receptionist
 clinical-blind ships a workflow-breaking RBAC design that real MFAs
 will route around (probably by sharing Doctor credentials — exactly
-the scenario RBAC exists to prevent). Fixing later means re-auditing
-real-world deployments.
+the scenario RBAC exists to prevent).
 
 ---
 
 ## HIGH #3 — Diagnosis finalize/retract should be Escalate
 
-**Finding.** W3 grants doctor:
-
-```rust
-PermissionSpec::full(
-    "Diagnosis",
-    &["icd10_code", "severity", "onset_date", "status", "notes"],
-    &["classify", "finalize", "retract"],
-)
-```
-
-`finalize` is the moment of medical-legal commitment. Once a
-diagnosis is finalized, it's the basis for billing, pharmacy claims,
-and insurance disputes. `retract` is rolling that commitment back —
-non-trivial action that affects downstream claims.
-
-Current code returns Allow for both. Clinical governance norm: at
-minimum log the action; ideally require attending-physician second
-signature or audit-team review.
-
-**Super-helpful solution (defer to Round 3 gate.rs).** The role-level
-permission grants the underlying capability; the gate.rs decision
-layer wraps `finalize` and `retract` actions with Escalate when
-clinical governance config requires it. v1 default could be Allow
-(matches current behaviour), but the gate API surface accepts a
-governance-config struct that flips Escalate on. Cleanly extends.
+**Finding.** W3 grants doctor full Diagnosis with actions classify,
+finalize, retract. `finalize` is the moment of medical-legal
+commitment; `retract` is rolling that commitment back. Current code
+returns Allow for both. Clinical governance norm: at minimum log the
+action; ideally require attending-physician second signature.
 
 **Action.** No Round 1 revision needed. Round 3 gate impl (W9) must
 implement the wrapping; W12 test must verify.
@@ -221,32 +146,22 @@ implement the wrapping; W12 test must verify.
 
 ## HIGH #4 — admin.anonymize is GDPR Art.17 territory
 
-**Finding.** Admin role has action `anonymize` on Patient. Anonymization
-is irreversible per GDPR Article 17. Allowing it via simple Allow
-means the admin can permanently destroy a patient record's identity
-binding — no recovery, no audit, no second-eye check.
+**Finding.** Admin role has action `anonymize` on Patient.
+Anonymization is irreversible per GDPR Article 17. Allowing it via
+simple Allow means the admin can permanently destroy a patient
+record's identity binding.
 
-The same concern applies to `merge` (which logically deletes the
-secondary record) and `delete` everywhere.
-
-**Super-helpful solution (defer to Round 3 gate.rs).** Same pattern as
-#3 — the role grants capability, the gate decision layer wraps with
-Escalate (require data-protection-officer signoff). Document the
-escalation expectation in the role doc.
-
-**Action.** No Round 1 revision needed. Round 3 gate impl must include
-this in the wrapping. Add `data_protection_officer` role to v2
-backlog.
+**Action.** Defer to Round 3 gate.rs. Same pattern as #3 — the role
+grants capability, the gate decision layer wraps with Escalate.
 
 ---
 
 ## MEDIUM #5–#7 — Missing entities (Termin, Recall, ePA)
 
 **Defer to v2 entity-catalogue extension.** Each is real but each is
-non-blocking for Round 2/3. Capture in TECH_DEBT.md / IDEAS.md so
-the gap is visible.
+non-blocking for Round 2/3. Capture in TECH_DEBT.md / IDEAS.md.
 
-**Quick recommended prioritization:**
+Quick recommended prioritization:
 - Termin (appointment scheduling) — P-1 (Receptionist's primary tool)
 - ePA (elektronische Patientenakte) — P-2 (regulatory mandate)
 - Recall/Erinnerung — P-3 (Krebsvorsorge tracking)
@@ -261,36 +176,31 @@ expects an "every-access-logged" trail.
 
 **Solution.** Round 3 gate.rs `MedCareMembraneGate::evaluate` wraps
 `policy.evaluate` and emits an audit entry to `lance-graph-callcenter`'s
-AuditSink (when audit-log feature is on). Doesn't block Round 2.
+AuditSink (when audit-log feature is on).
 
 ---
 
 ## LOW #9-#10 — Defer
 
 - #9 PKV/GKV modulation: real but most deployments are GKV-only
-- #10 dynamic reason strings: needs tracing integration; v2 with
-  proper observability story
+- #10 dynamic reason strings: needs tracing integration; v2
 
 ---
 
-## Round 2 implications
+## Round 2 + 3 implications
 
-W5 (medcare-realtime/Cargo.toml) needs `medcare-rbac = { workspace = true }` dep.
+W8 (workspace Cargo.toml update) needs medcare-rbac + medcare-realtime
+as members + workspace.dependencies entries.
 
-W8 (workspace Cargo.toml update) needs:
-- `members = [..., "crates/medcare-rbac", "crates/medcare-realtime"]`
-- `[workspace.dependencies] medcare-rbac = { path = "crates/medcare-rbac" }`
+W9 (gate.rs) MUST implement Escalate wrapping for:
+- Prescription.issue when btm_flag=true → Escalate "BtM second signature required"
+- Diagnosis.finalize / retract → Escalate "clinical governance review"
+- Patient.anonymize / merge / delete → Escalate "data-protection-officer signoff"
 
-## Round 3 implications
-
-- W9 (gate.rs) MUST implement Escalate wrapping for:
-  - Prescription.issue when btm_flag=true → Escalate "BtM second signature required"
-  - Diagnosis.finalize / retract → Escalate "clinical governance review" (gated by config; default Allow)
-  - Patient.anonymize / merge / delete → Escalate "data-protection-officer signoff"
-- W12 (§73 SGB V test) MUST cover:
-  - Doctor without Ueberweisung row CANNOT read another Doctor's Patient
-  - Doctor with active Ueberweisung CAN read referred Patient at Detail
-  - BtM-flagged Prescription.issue returns Escalate (not Allow)
+W12 (§73 SGB V test) MUST cover:
+- Doctor without Ueberweisung row CANNOT read another Doctor's Patient
+- Doctor with active Ueberweisung CAN read referred Patient at Detail
+- BtM-flagged Prescription.issue returns Escalate (not Allow)
 
 ---
 
@@ -299,55 +209,3 @@ W8 (workspace Cargo.toml update) needs:
 The two CRITICAL findings get a follow-up commit on the same Round-1
 medcare-rbac surface. After that lands, Round 1 is closed and Round 2
 opens.
-
-Concrete diff for revision-2:
-
-```diff
- pub fn doctor() -> Role {
-     Role::new("doctor")
-         // ...
-         .with_permission(PermissionSpec::full(
-             "Anamnese",
--            &[
--                "complaint",
--                "family_history",
--                "social_history",
--                "medication_history",
--            ],
-+            &[],  // append-only via action; no predicate writes
-             &["append"],
-         ))
-         // ...
- }
-
- pub fn receptionist() -> Role {
-     use lance_graph_contract::property::PrefetchDepth;
-+    // MFA needs Identity-read on clinical entities for safe
-+    // scheduling: Patient.allergies, Diagnosis.icd10_code, LabResult.status.
-     Role::new("receptionist")
--        .with_permission(PermissionSpec::full(
--            "Patient",
--            &["phone", "email", "address"],
--            &[],
--        ))
--        .with_permission(PermissionSpec::read_at(
--            "Ueberweisung",
--            PrefetchDepth::Detail,
--        ))
-+        .with_permission(PermissionSpec {
-+            entity_type: "Patient",
-+            max_depth: PrefetchDepth::Detail,
-+            writable_predicates: &["phone", "email", "address"],
-+            allowed_actions: &[],
-+        })
-+        .with_permission(PermissionSpec::read_at("Diagnosis", PrefetchDepth::Identity))
-+        .with_permission(PermissionSpec::read_at("LabResult", PrefetchDepth::Identity))
-+        .with_permission(PermissionSpec::read_at("Ueberweisung", PrefetchDepth::Detail))
- }
-```
-
-Plus test fixes:
-- `receptionist_demographics_only` → split into `receptionist_demographics_writable`
-  + `receptionist_clinical_identity_read_only`
-
-Apply as W3-revision-2.

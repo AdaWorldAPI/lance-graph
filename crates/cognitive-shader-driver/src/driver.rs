@@ -39,7 +39,7 @@ use lance_graph_contract::collapse_gate::{GateDecision, MergeMode, ALPHA_SATURAT
 use lance_graph_contract::grammar::free_energy::{FreeEnergy, EPIPHANY_MARGIN};
 use lance_graph_contract::grammar::inference::NarsInference;
 use lance_graph_contract::grammar::thinking_styles::{GrammarStyleAwareness, ParamKey, ParseOutcome};
-use lance_graph_contract::mul::{MulAssessment, SituationInput};
+use lance_graph_contract::mul::{MulAssessment, MulThresholdProfile, SituationInput};
 use lance_graph_contract::thinking::ThinkingStyle;
 use p64_bridge::cognitive_shader::CognitiveShader;
 
@@ -302,14 +302,30 @@ impl ShaderDriver {
         };
         let mul = MulAssessment::compute(&situation);
 
+        // D-CASCADE-V1-7: ctx_id resolves via BindSpace.entity_type +
+        // optional OntologyRegistry handle; per-row context column is
+        // Wave-3.5 follow-up (gate is one-per-dispatch today).
+        let ctx_id: u32 = passed_rows.first().copied().and_then(|r| {
+            let etid = self.bindspace.entity_type[r as usize];
+            if etid == 0 { return None; }
+            self.bindspace.ontology().and_then(|reg| {
+                reg.enumerate_first_with_entity_type_id(etid)
+                    .map(|row| row.ontology_context_id())
+            })
+        }).unwrap_or(0);
+        let profile = MulThresholdProfile::for_context(ctx_id);
+        let trust_below_floor = (mul.trust.value as f32) < profile.trust_min;
+
         // Gate decision: catastrophic F blocks; MUL veto on
-        // unskilled-overconfident downgrades any would-be Flow to Hold;
-        // epiphany holds (preserve the contradiction); homeostasis flows.
+        // unskilled-overconfident OR sub-profile trust downgrades any
+        // would-be Flow to Hold; epiphany holds (preserve the contradiction);
+        // homeostasis flows.
         let gate = if free_energy.is_catastrophic() {
             GateDecision::BLOCK
-        } else if mul.is_unskilled_overconfident() {
+        } else if mul.is_unskilled_overconfident() || trust_below_floor {
             // MUL veto: the system "feels confident" while DK / trust
-            // textures flag the gap. Hold rather than commit.
+            // textures flag the gap, OR trust falls below the
+            // ontology-context profile's floor. Hold rather than commit.
             GateDecision::HOLD
         } else if is_epiphany {
             GateDecision::HOLD

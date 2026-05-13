@@ -70,6 +70,7 @@ pub mod scenario;
 pub mod sensorium;
 pub mod sigma_propagation;
 pub mod sla;
+pub mod splat;
 pub mod tax;
 pub mod thinking;
 pub mod world_map;

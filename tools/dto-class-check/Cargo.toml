@@ -1,0 +1,14 @@
+[package]
+name = "dto-class-check"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "D-PARITY-V2-10: CI gate that asserts every workspace *Dto/*Row/*Filter/*Step/*Slot/*Bridge/*Intent/*Event type carries a `// classification:` doc comment matching the soa-dto-dependency-ledger."
+
+[[bin]]
+name = "dto-class-check"
+path = "src/main.rs"
+
+[dependencies]
+syn = { version = "2", features = ["full", "parsing", "extra-traits"] }
+walkdir = "2"
