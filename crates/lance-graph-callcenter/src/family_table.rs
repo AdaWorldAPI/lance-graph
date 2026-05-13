@@ -1,24 +1,30 @@
 //! Per-family codebook table — inline label + schema + verbs per OGIT slot
 //! (per `.claude/plans/super-domain-rbac-tenancy-v1.md` §3.3 / D-SDR-3).
 //!
-//! Each OGIT family (basin) carries its own `OgitFamilyTable` — a 256-slot
-//! dense array indexed by `OwlIdentity::slot()`. Each occupied slot holds
-//! the label URI, schema kind (Entity / Edge / Attribute), OWL property
-//! characteristics, DOLCE upper marker, axiom blob, dcterms:source
-//! provenance, and outgoing-verb slot list **inline** — no sidecar table,
-//! no join, one cache-line per slot.
+//! Each OGIT family (basin) carries its own `OgitFamilyTable` — a sparse
+//! map indexed by `OwlIdentity::slot()` (u16, full registry width). Each
+//! occupied slot holds the label URI, schema kind (Entity / Edge /
+//! Attribute), OWL property characteristics, DOLCE upper marker, axiom
+//! blob, dcterms:source provenance, and outgoing-verb slot list
+//! **inline** — no sidecar table, no join, one cache-line per slot.
 //!
 //! Per the spec's brutal-honest correction (§16.5 + §17.4): inline storage
 //! is the Foundry-parity-shaped surface; the earlier sidecar sketch was
 //! Neo4j-shaped and rejected.
 //!
+//! The original D-SDR-3 sketch used `[Option<FamilyEntry>; 256]`; PR #364
+//! review surfaced that registry IDs allocate globally as u16, so a dense
+//! 256-slot table would alias slot collisions across distinct entities.
+//! The dense array is therefore replaced by a `HashMap<u16, FamilyEntry>`
+//! preserving O(1) lookup while honoring the full slot domain.
+//!
 //! ## Hot path
 //!
 //! ```text
-//! caller's OwlIdentity (u16)
+//! caller's OwlIdentity (family u8 + slot u16)
 //!     │
 //!     ▼ table.lookup(owl)
-//! &FamilyEntry  ← one array index (`entries[owl.slot()]`)
+//! &FamilyEntry  ← one hash probe (`entries.get(&owl.slot())`)
 //!     │
 //!     ├─ label_uri:     &'static str    (display / audit)
 //!     ├─ kind:          SchemaKind      (Entity / Edge / Attribute)
@@ -32,6 +38,8 @@
 //! D-SDR-3 scope: type system + lookup method. Bake-time population from TTL
 //! hydration is D-SDR-3b (lance-graph-ontology side). `PerFamilyCodebook` is
 //! a placeholder for the per-family CAM-PQ centroids (D-SDR-3c).
+
+use std::collections::HashMap;
 
 use crate::super_domain::DolceMarker;
 use crate::unified_bridge::{OgitFamily, OwlIdentity};
@@ -191,33 +199,35 @@ pub struct PerFamilyCodebook;
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// One table per OGIT family. Lives in static memory after hydration —
-/// 256-slot dense array, slot index IS `OwlIdentity::slot()`. Each slot
-/// holds a `FamilyEntry` (label + schema + verbs inline) or `None`.
+/// sparse `HashMap<u16, FamilyEntry>` keyed by `OwlIdentity::slot()`.
+/// Each occupied slot holds a `FamilyEntry` (label + schema + verbs
+/// inline).
 ///
-/// Typical size: ~50-200 KB per family depending on slot occupancy + axiom
-/// blob sizes. With ~75 active basins on a hydrated registry, the resident
-/// set is ~5-15 MB. Lookups are O(1) array index (sub-microsecond).
+/// Typical size scales with occupied-slot count, not the u16 keyspace:
+/// ~50-200 KB per family depending on entry count + axiom blob sizes.
+/// With ~75 active basins on a hydrated registry, the resident set is
+/// ~5-15 MB. Lookups are O(1) hash probes (sub-microsecond).
 pub struct OgitFamilyTable
 {
     pub family: OgitFamily,
-    pub entries: [Option<FamilyEntry>; 256],
+    pub entries: HashMap<u16, FamilyEntry>,
     pub codebook: PerFamilyCodebook,
 }
 
 impl OgitFamilyTable
 {
     /// Construct an empty table for the given family. Hydration populates
-    /// `entries[i]` as TTL classes / properties are discovered.
+    /// `entries` as TTL classes / properties are discovered.
     pub fn empty(family: OgitFamily) -> Self
     {
         Self {
             family,
-            entries: [None; 256],
+            entries: HashMap::new(),
             codebook: PerFamilyCodebook,
         }
     }
 
-    /// Hot-path lookup: O(1) array index. Sub-microsecond.
+    /// Hot-path lookup: O(1) hash probe. Sub-microsecond.
     ///
     /// `debug_assert`s that the `OwlIdentity` belongs to this family — in
     /// release builds the assertion is elided, so callers MUST ensure the
@@ -232,7 +242,7 @@ impl OgitFamilyTable
             owl.family().raw(),
             self.family.raw(),
         );
-        self.entries[owl.slot() as usize].as_ref()
+        self.entries.get(&owl.slot())
     }
 
     /// Resolve to the canonical label URI for a slot, e.g.
@@ -270,27 +280,27 @@ impl OgitFamilyTable
 
     /// Insert / overwrite a slot. Used by hydration; runtime code stays
     /// read-only against `&OgitFamilyTable`.
-    pub fn set(&mut self, slot: u8, entry: FamilyEntry)
+    pub fn set(&mut self, slot: u16, entry: FamilyEntry)
     {
-        self.entries[slot as usize] = Some(entry);
+        self.entries.insert(slot, entry);
     }
 
     /// Drop a slot's entry. Used by retraction during re-hydration.
-    pub fn clear(&mut self, slot: u8)
+    pub fn clear(&mut self, slot: u16)
     {
-        self.entries[slot as usize] = None;
+        self.entries.remove(&slot);
     }
 
-    /// Number of occupied slots in this table. O(256) scan; not a hot path.
+    /// Number of occupied slots in this table. O(1).
     pub fn len(&self) -> usize
     {
-        self.entries.iter().filter(|e| e.is_some()).count()
+        self.entries.len()
     }
 
     /// True when no slots are occupied.
     pub fn is_empty(&self) -> bool
     {
-        self.entries.iter().all(|e| e.is_none())
+        self.entries.is_empty()
     }
 }
 
@@ -395,6 +405,23 @@ mod tests
             t.set(slot, FamilyEntry::plain_entity("ogit.Test:Multi"));
         }
         assert_eq!(t.len(), 5);
+    }
+
+    #[test]
+    fn slot_keyspace_distinguishes_high_ids()
+    {
+        // PR #364 review: registry IDs allocate globally as u16, so slots
+        // that differ by 256 used to alias under the old u8 truncation.
+        // Lock that two slots in the upper half of the keyspace stay
+        // distinct after the widening.
+        let mut t = OgitFamilyTable::empty(TEST_FAMILY);
+        t.set(7, FamilyEntry::plain_entity("ogit.Test:Low"));
+        t.set(7 + 256, FamilyEntry::plain_entity("ogit.Test:High"));
+        let low = t.lookup(OwlIdentity::new(TEST_FAMILY, 7));
+        let high = t.lookup(OwlIdentity::new(TEST_FAMILY, 7 + 256));
+        assert_eq!(low.unwrap().label_uri, "ogit.Test:Low");
+        assert_eq!(high.unwrap().label_uri, "ogit.Test:High");
+        assert_eq!(t.len(), 2);
     }
 
     #[test]

@@ -155,8 +155,10 @@ pub struct UnifiedAuditEvent
     /// Super domain the OGIT basin belongs to (looked up via
     /// `FAMILY_TO_SUPER_DOMAIN` at emit time).
     pub super_domain: SuperDomain,
-    /// 2-byte OwlIdentity = `(family, slot)` — the per-row identity that
-    /// was authorized.
+    /// 3-byte OwlIdentity = `(family u8, slot u16)` — the per-row
+    /// identity that was authorized. Slot is full-width since PR #364
+    /// review surfaced that registry IDs are globally u16 and would
+    /// alias under the prior u8 truncation.
     pub owl: OwlIdentity,
     /// Read / Write / Act.
     pub op: AuthOp,
@@ -177,16 +179,16 @@ impl UnifiedAuditEvent
     /// Field order is fixed; little-endian for all integers; no padding.
     /// **`merkle_root` is excluded** — it's the OUTPUT of the chain, not
     /// an input.
-    pub fn canonical_bytes(&self) -> [u8; 8 + 4 + 1 + 2 + 1 + 1 + 8]
+    pub fn canonical_bytes(&self) -> [u8; 8 + 4 + 1 + 3 + 1 + 1 + 8]
     {
-        let mut out = [0u8; 25];
+        let mut out = [0u8; 26];
         out[0..8].copy_from_slice(&self.ts_unix_ms.to_le_bytes());
         out[8..12].copy_from_slice(&self.tenant.raw().to_le_bytes());
         out[12] = self.super_domain.raw();
-        out[13..15].copy_from_slice(&self.owl.raw().to_le_bytes());
-        out[15] = self.op.as_u8();
-        out[16] = self.decision.as_u8();
-        out[17..25].copy_from_slice(&self.actor_role_hash.to_le_bytes());
+        out[13..16].copy_from_slice(&self.owl.to_canonical_bytes());
+        out[16] = self.op.as_u8();
+        out[17] = self.decision.as_u8();
+        out[18..26].copy_from_slice(&self.actor_role_hash.to_le_bytes());
         out
     }
 }
@@ -455,9 +457,9 @@ mod tests
         assert_eq!(&bytes[0..8], &ev.ts_unix_ms.to_le_bytes());
         assert_eq!(&bytes[8..12], &ev.tenant.raw().to_le_bytes());
         assert_eq!(bytes[12], ev.super_domain.raw());
-        assert_eq!(&bytes[13..15], &ev.owl.raw().to_le_bytes());
-        assert_eq!(bytes[15], ev.op.as_u8());
-        assert_eq!(bytes[16], ev.decision.as_u8());
-        assert_eq!(&bytes[17..25], &ev.actor_role_hash.to_le_bytes());
+        assert_eq!(&bytes[13..16], &ev.owl.to_canonical_bytes());
+        assert_eq!(bytes[16], ev.op.as_u8());
+        assert_eq!(bytes[17], ev.decision.as_u8());
+        assert_eq!(&bytes[18..26], &ev.actor_role_hash.to_le_bytes());
     }
 }
