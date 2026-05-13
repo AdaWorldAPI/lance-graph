@@ -65,6 +65,40 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-05-13 — FINDING: `ndarray::hpc::renderer` is the canonical 60fps SIMD double-buffer renderer for q2 — the FMA heart-click 3D anatomy view already has its render substrate, no prerender needed
+
+**Status:** FINDING (confirmed in source — `/home/user/ndarray/src/hpc/renderer.rs`, 995 LOC)
+
+Earlier same-day conjectures (the "Amiga demoscene prerender" idea) assumed q2 needed a prerendered Gaussian-splat buffer because live rendering of 75K FMA entities would be too expensive. **Wrong premise:** ndarray already ships the renderer.
+
+The renderer architecture (from the doc-comment at `/home/user/ndarray/src/hpc/renderer.rs:1-44`):
+- **SIMD-accelerated double-buffer** for "SPO graph visualization … hardware-acceleration mothership for q2 cockpit / Palantir Gotham / Neo4j-style visual rendering"
+- Double-buffer pattern: `front: LazyLock<RwLock<RenderFrame>>` (readers via REST/SSE) ↔ `back: LazyLock<RwLock<RenderFrame>>` (shader cycle writes); atomic swap via `AtomicUsize`
+- Per-tier SIMD dispatch: AVX-512 / AVX2 / AMX / NEON / scalar — `F32x16::mul_add` for force integration on the hot path
+- 60fps canonical tick via `cached_splat(DT_60)` — `F32x16::splat(1.0/60.0)` cached via `LazyLock` so the integration loop avoids re-broadcasting dt
+- SoA frame: positions, velocities, charges, fingerprints (VSA_WORDS·N · u64) — 64-byte aligned, all capacities multiple of `PREFERRED_F32_LANES`
+
+The FMA heart-click flow becomes:
+1. FMA OWL → SPO triples in lance-graph (W11 spec)
+2. SPO → `RenderFrame` (positions seeded from entity layout, fingerprints from VSA encoding)
+3. ndarray::hpc::renderer integrates at 60fps (force-directed layout converges)
+4. q2 cockpit reads `front` buffer via REST/SSE
+5. Heart-click = q2 sends Cypher to lance-graph → UnifiedBridge auth → SPO neighbor query → render frame updates highlighted subgraph
+
+This kills three earlier same-day conjectures simultaneously:
+- "Need to prerender 900-18000 frames" — NO, live 60fps already works
+- "Need new `crates/lance-graph-render-buffer/`" — NO, the substrate is `ndarray::hpc::renderer`
+- "Gaussian-splat rendering as Tier-3 escape hatch" — DEFERRED; only worth doing if the 60fps live path is measured to fail on 75K entities (which it might, but measure first)
+
+**Three meanings of "splat" in this workspace** (NONE are 3DGS scene rendering — that's a fourth thing that doesn't exist here):
+1. `ndarray::simd::F32x16::splat(dt)` — SIMD scalar→vector broadcast (`_mm512_set1_ps`); `cached_splat` caches it for canonical 60/30/15 fps tick rates
+2. `crates/jc/src/ewa_sandwich.rs` — Pillar 6 Σ push-forward `M·Σ·Mᵀ` for multi-hop edge propagation (PSD-preservation cert)
+3. `crates/jc/examples/splat_perturbationslernen.rs` — perturbation-learning probe; uses EWA-Sandwich to splat a query INTO the spatial field, measures covariance displacement
+
+**Architectural lesson for sprint-5:** when the workspace already has a load-bearing substrate (ndarray's renderer, jc's pillars), the right move is "compose, don't rebuild" — same lesson as W6's thinking-engine wire-up spec applied to a different substrate. The FMA spec needs a patch citing `ndarray::hpc::renderer::RenderFrame` as the canonical render target; this kills its current vague "q2 3D anatomy render" handwave.
+
+Cross-ref: ndarray CLAUDE.md "ndarray = hardware (SIMD, Palette, Base17, …)" architecture rule; W11 FMA spec (needs Tier-3 section rewrite — splat-prerender is a deferred speculation, not a deliverable); IDEAS.md 2026-05-13 splat row (needs second correction).
+
 ## 2026-05-13 — CORRECTION-OF earlier same-day splat-conjecture: EWA-Sandwich is Pillar 6 (Σ push-forward `M·Σ·Mᵀ` for multi-hop edge propagation), NOT a Gaussian-splat renderer
 
 **Status:** FINDING (confirmed in source — `crates/jc/src/ewa_sandwich.rs`, `crates/lance-graph-contract/src/sigma_propagation.rs`, plans `.claude/plans/jc-pillars-runtime-wiring-v1.md` + ERRATUM)
