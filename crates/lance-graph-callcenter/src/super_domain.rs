@@ -12,10 +12,11 @@
 //!     1 byte; RBAC trust boundary + compliance regime + activation routing
 //!
 //! Level 2 — OGIT BASIN                           (per-codebook unit)
-//!     1 byte (high byte of OwlIdentity); see `unified_bridge::OgitFamily`
+//!     1 byte (`OwlIdentity::family`); see `unified_bridge::OgitFamily`
 //!
 //! Level 3 — WITHIN-BASIN SLOT                    (the row identity)
-//!     1 byte (low byte of OwlIdentity)
+//!     2 bytes (`OwlIdentity::slot`, widened from u8 after PR #364
+//!     review — registry IDs are globally u16)
 //! ```
 //!
 //! D-SDR-2 scope: type system + `FAMILY_TO_SUPER_DOMAIN` reverse-lookup.

@@ -99,55 +99,73 @@ impl OgitFamily
 // OwlIdentity — Level-3 per-row identity (§3.2)
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// 2 bytes. BF16-shaped container (interpreted as named bit-fields, not
-/// literal floating-point semantics).
-/// High 8 bits = `OgitFamily` (the precise heel pointer / "mantissa").
-/// Low  8 bits = within-family slot (the OWL/consumer's own identity).
+/// 3 bytes when serialized: 1-byte `OgitFamily` (the precise heel
+/// pointer / "mantissa") + 2-byte within-family slot (the OWL /
+/// consumer's own identity). Widened from the original 2-byte
+/// (family u8 + slot u8) layout after PR #364 review surfaced that
+/// `RegistryState::append` allocates entity-type IDs globally as `u16`
+/// so any registry with ≥256 entries would alias slot collisions
+/// across distinct authorized entities.
+///
+/// In-memory representation is two named fields (4 bytes with
+/// alignment). On-wire layout in `UnifiedAuditEvent::canonical_bytes`
+/// is the deterministic 3-byte sequence `[family, slot_le_lo,
+/// slot_le_hi]`.
+///
 /// This is what rides on every LanceDB row.
-#[repr(transparent)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct OwlIdentity(pub u16);
+pub struct OwlIdentity {
+    family: OgitFamily,
+    slot: u16,
+}
 
 impl OwlIdentity
 {
-    pub const UNKNOWN: Self = Self(0);
+    pub const UNKNOWN: Self = Self {
+        family: OgitFamily(0),
+        slot: 0,
+    };
 
     #[inline]
-    pub const fn new(family: OgitFamily, slot: u8) -> Self
+    pub const fn new(family: OgitFamily, slot: u16) -> Self
     {
-        Self(((family.0 as u16) << 8) | slot as u16)
+        Self { family, slot }
     }
 
     #[inline]
     pub const fn family(self) -> OgitFamily
     {
-        OgitFamily((self.0 >> 8) as u8)
+        self.family
     }
 
     #[inline]
-    pub const fn slot(self) -> u8
+    pub const fn slot(self) -> u16
     {
-        (self.0 & 0xFF) as u8
+        self.slot
     }
 
+    /// Deterministic on-wire form: `[family u8, slot_lo u8, slot_hi u8]`.
+    /// Used by `UnifiedAuditEvent::canonical_bytes` so the merkle chain
+    /// hashes a byte-stable representation across Rust / C# emitters.
     #[inline]
-    pub const fn raw(self) -> u16
+    pub const fn to_canonical_bytes(self) -> [u8; 3]
     {
-        self.0
+        let slot = self.slot.to_le_bytes();
+        [self.family.0, slot[0], slot[1]]
     }
 
     /// Bitmask predicate Cypher MATCH lowers to. No string lookup.
     #[inline]
     pub const fn is_family(self, f: OgitFamily) -> bool
     {
-        self.family().0 == f.0
+        self.family.0 == f.0
     }
 
     /// Within-family slot predicate.
     #[inline]
-    pub const fn is_slot(self, s: u8) -> bool
+    pub const fn is_slot(self, s: u16) -> bool
     {
-        self.slot() == s
+        self.slot == s
     }
 }
 
@@ -444,15 +462,13 @@ fn map_decision(
 }
 
 /// Project a `SchemaPtr` (canonical OGIT pointer with 8-bit namespace +
-/// 16-bit entity-type) onto the 2-byte `OwlIdentity` carried in audit
-/// events. The entity-type id is truncated to 8 bits — per the §16
-/// reality check, namespaces with >256 entries (SGO meta) are excluded
-/// from the runtime addressing layer, so the truncation is lossless for
-/// the addressable domain (D-SDR-5 minimum).
+/// 16-bit entity-type) onto the 3-byte `OwlIdentity` carried in audit
+/// events. `entity_type_id` flows through full-width to `slot` — no
+/// truncation, no aliasing across the 256-entity boundary.
 #[inline]
 fn owl_from_schema_ptr(ptr: &SchemaPtr) -> OwlIdentity {
     let family = OgitFamily(ptr.namespace_id().raw());
-    let slot = (ptr.entity_type_id() & 0xFF) as u8;
+    let slot = ptr.entity_type_id();
     OwlIdentity::new(family, slot)
 }
 
