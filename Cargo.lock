@@ -2953,13 +2953,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fractal"
-version = "0.1.0"
-dependencies = [
- "libm",
-]
-
-[[package]]
 name = "fs4"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4362,9 +4355,11 @@ dependencies = [
  "lance",
  "lance-graph-contract",
  "lance-graph-ontology",
+ "lance-graph-rbac",
  "serde",
  "serde_json",
  "syn 2.0.117",
+ "thiserror 1.0.69",
  "tokio",
  "tokio-tungstenite 0.24.0",
  "tower-http 0.5.2",
@@ -5157,6 +5152,8 @@ dependencies = [
  "num-complex",
  "num-integer",
  "num-traits",
+ "p64",
+ "phyllotactic-manifold",
  "portable-atomic",
  "portable-atomic-util",
  "rawpointer",
@@ -5551,7 +5548,7 @@ dependencies = [
 name = "p64"
 version = "0.1.0"
 dependencies = [
- "fractal",
+ "phyllotactic-manifold",
 ]
 
 [[package]]
@@ -5722,6 +5719,10 @@ checksum = "06005508882fb681fd97892ecff4b7fd0fee13ef1aa569f8695dae7ab9099981"
 dependencies = [
  "siphasher",
 ]
+
+[[package]]
+name = "phyllotactic-manifold"
+version = "0.1.0"
 
 [[package]]
 name = "pin-project"
