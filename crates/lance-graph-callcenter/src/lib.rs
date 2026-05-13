@@ -187,7 +187,7 @@ pub use cognitive_bridge_gate::UnifiedBridgeGate;
 pub mod unified_audit;
 pub use unified_audit::{
     verify_chain, AuditChain, AuditMerkleRoot, AuthDecision, AuthOp, HydrationRefreshAudit,
-    NoopUnifiedAuditSink, UnifiedAuditEvent, UnifiedAuditSink,
+    UnifiedAuditEvent,
 };
 
 // D-SDR-4b — Production audit sinks: LanceAuditSink (columnar) and

@@ -47,9 +47,9 @@ use lance_graph_rbac::policy::{Operation, Policy};
 
 use crate::super_domain::SuperDomain;
 use crate::unified_audit::{
-    AuditChain, AuditMerkleRoot, AuthDecision, AuthOp, NoopUnifiedAuditSink, UnifiedAuditEvent,
-    UnifiedAuditSink,
+    AuditChain, AuditMerkleRoot, AuthDecision, AuthOp, UnifiedAuditEvent,
 };
+use crate::audit_sink::{AuditSink, NoopAuditSink};
 
 /// Extract the canonical ontology entity type name from a resolved
 /// [`MappingRow`], for use as the [`Policy::evaluate`] key.
@@ -249,9 +249,9 @@ pub struct UnifiedBridge<B: NamespaceBridge> {
     tenant: TenantId,
     /// Audit sink — every `authorize_*` call that reaches the policy
     /// evaluation step emits one `UnifiedAuditEvent`. Default is
-    /// `NoopUnifiedAuditSink` (zero overhead, no persistence). Swap via
+    /// `NoopAuditSink` (zero overhead, no persistence). Swap via
     /// [`Self::with_audit_chain`].
-    audit_sink: Arc<dyn UnifiedAuditSink>,
+    audit_sink: Arc<dyn AuditSink>,
     /// Merkle-chained audit advancer. Holds the prior event's root +
     /// per-super-domain salt so each new event chains off it. Mutex
     /// guards the `last_root` advance under concurrent `authorize_*`
@@ -262,7 +262,7 @@ pub struct UnifiedBridge<B: NamespaceBridge> {
 impl<B: NamespaceBridge> UnifiedBridge<B> {
     /// Construct a new unified bridge.
     ///
-    /// Defaults audit to `NoopUnifiedAuditSink` + a chain anchored at
+    /// Defaults audit to `NoopAuditSink` + a chain anchored at
     /// `SuperDomain::Unknown` with salt 0. Call
     /// [`Self::with_audit_chain`] to swap in a real sink + the
     /// super-domain-specific salt before authorization traffic starts.
@@ -278,12 +278,12 @@ impl<B: NamespaceBridge> UnifiedBridge<B> {
             actor_role,
             actor_role_hash: fnv1a_str(actor_role),
             tenant,
-            audit_sink: Arc::new(NoopUnifiedAuditSink),
+            audit_sink: Arc::new(NoopAuditSink),
             audit_chain: Mutex::new(AuditChain::new(SuperDomain::Unknown, 0)),
         }
     }
 
-    /// Builder: swap in a real `UnifiedAuditSink` + the super-domain's
+    /// Builder: swap in a real `AuditSink` + the super-domain's
     /// `merkle_salt` (§13.4 — cross-domain audit logs unlinkable). Resets
     /// the chain to GENESIS; pass a resume root via
     /// [`Self::with_audit_chain_resume`] if continuing a persisted chain.
@@ -291,7 +291,7 @@ impl<B: NamespaceBridge> UnifiedBridge<B> {
         mut self,
         super_domain: SuperDomain,
         salt: u64,
-        sink: Arc<dyn UnifiedAuditSink>,
+        sink: Arc<dyn AuditSink>,
     ) -> Self {
         self.audit_sink = sink;
         self.audit_chain = Mutex::new(AuditChain::new(super_domain, salt));
@@ -306,11 +306,28 @@ impl<B: NamespaceBridge> UnifiedBridge<B> {
         super_domain: SuperDomain,
         salt: u64,
         last_root: AuditMerkleRoot,
-        sink: Arc<dyn UnifiedAuditSink>,
+        sink: Arc<dyn AuditSink>,
     ) -> Self {
         self.audit_sink = sink;
         self.audit_chain = Mutex::new(AuditChain::resume(super_domain, salt, last_root));
         self
+    }
+
+    /// Ergonomic constructor: wire a `JsonlAuditSink` at `base_path` as
+    /// the primary audit destination. Per OQ-7-3 (locked 2026-05-13):
+    /// `new()` defaults to `NoopAuditSink`; this constructor is the
+    /// explicit opt-in for the production "JSONL primary + optional Lance
+    /// projection" pattern (MedCare-rs sprint-2 item 5). Only available
+    /// when the `jsonl` feature is enabled.
+    #[cfg(feature = "jsonl")]
+    pub fn with_jsonl_audit(
+        self,
+        super_domain: SuperDomain,
+        salt: u64,
+        base_path: impl Into<std::path::PathBuf>,
+    ) -> std::io::Result<Self> {
+        let sink = Arc::new(crate::audit_sink::JsonlAuditSink::new(base_path.into())?);
+        Ok(self.with_audit_chain(super_domain, salt, sink))
     }
 
     /// Returns the underlying namespace bridge.
@@ -350,7 +367,7 @@ impl<B: NamespaceBridge> UnifiedBridge<B> {
     /// from policy authorship.
     ///
     /// On policy evaluation reaching, one `UnifiedAuditEvent` is emitted
-    /// through the configured `UnifiedAuditSink` carrying tenant +
+    /// through the configured `AuditSink` carrying tenant +
     /// super-domain + owl + decision. **`BridgeError` short-circuits
     /// before audit** — bad input names aren't auth decisions, they're
     /// invalid requests (D-SDR-5 minimum; revisit if probing detection
@@ -428,7 +445,10 @@ impl<B: NamespaceBridge> UnifiedBridge<B> {
         };
         let stamped = chain.advance(event);
         drop(chain);
-        self.audit_sink.emit(&stamped);
+        // Best-effort: audit emission failures must not block the authorize
+        // hot path. Sinks are responsible for their own buffering/backpressure
+        // (see audit_sink::{JsonlAuditSink, LanceAuditSink} BestEffort mode).
+        let _ = self.audit_sink.emit(stamped);
     }
 }
 
@@ -821,9 +841,16 @@ mod tests {
         }
     }
 
-    impl UnifiedAuditSink for RecordingSink {
-        fn emit(&self, event: &UnifiedAuditEvent) {
-            self.events.lock().unwrap().push(*event);
+    impl AuditSink for RecordingSink {
+        fn emit(&self, event: UnifiedAuditEvent) -> Result<(), crate::audit_sink::AuditError> {
+            self.events.lock().unwrap().push(event);
+            Ok(())
+        }
+        fn flush(&self) -> Result<crate::audit_sink::MerkleRoot, crate::audit_sink::AuditError> {
+            Ok(0)
+        }
+        fn checkpoint(&self) -> Result<(), crate::audit_sink::AuditError> {
+            Ok(())
         }
     }
 

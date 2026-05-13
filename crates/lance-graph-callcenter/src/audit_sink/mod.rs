@@ -1,13 +1,14 @@
-//! D-SDR-4b audit sink infrastructure.
+//! D-SDR-4b audit sink infrastructure — the canonical sink trait.
 //!
-//! Defines the `AuditSink` trait and `AuditError` enum used by both
-//! `LanceAuditSink` (columnar) and `JsonlAuditSink` (plain text) as
-//! production persistence sinks for `UnifiedAuditEvent`.
+//! Defines the `AuditSink` trait, `AuditError` enum, and `NoopAuditSink`
+//! used by `UnifiedBridge` and the production sinks (`LanceAuditSink`
+//! columnar, `JsonlAuditSink` plain text).
 //!
-//! The legacy `UnifiedAuditSink` in `unified_audit.rs` takes `&UnifiedAuditEvent`
-//! and returns `()`. This module introduces `AuditSink` as the D-SDR-4b
-//! production interface: `emit()` returns `Result<_, AuditError>`, and
-//! `flush()` + `checkpoint()` provide durability guarantees.
+//! Per OQ-7-2 (locked 2026-05-13): this is the ONLY audit sink trait.
+//! The earlier `UnifiedAuditSink` shim from D-SDR-4 was migrated to this
+//! interface in sprint-7. `emit()` returns `Result<_, AuditError>` and
+//! moves the event (not `&event`); `flush()` + `checkpoint()` provide
+//! durability guarantees that the legacy trait lacked.
 
 use crate::unified_audit::UnifiedAuditEvent;
 
@@ -52,6 +53,26 @@ pub trait AuditSink: Send + Sync {
 
     /// Write an atomic checkpoint (last flushed merkle root + timestamp).
     fn checkpoint(&self) -> Result<(), AuditError>;
+}
+
+/// No-op sink — discards every event. Default for `UnifiedBridge::new()`
+/// when `super_domain.audit_required = false` (no compliance regime requires
+/// audit), and for tests. Per OQ-7-3 (locked 2026-05-13): silent default;
+/// explicit opt-in to durable sinks via `UnifiedBridge::with_jsonl_audit()` /
+/// `with_audit_chain()`.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct NoopAuditSink;
+
+impl AuditSink for NoopAuditSink {
+    fn emit(&self, _event: UnifiedAuditEvent) -> Result<(), AuditError> {
+        Ok(())
+    }
+    fn flush(&self) -> Result<MerkleRoot, AuditError> {
+        Ok(0)
+    }
+    fn checkpoint(&self) -> Result<(), AuditError> {
+        Ok(())
+    }
 }
 
 pub mod composite;

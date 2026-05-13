@@ -22,9 +22,8 @@
 use std::sync::Arc;
 
 use lance_graph_callcenter::super_domain::SuperDomain;
-use lance_graph_callcenter::unified_audit::{
-    AuditMerkleRoot, UnifiedAuditEvent, UnifiedAuditSink,
-};
+use lance_graph_callcenter::audit_sink::{AuditError, AuditSink, MerkleRoot};
+use lance_graph_callcenter::unified_audit::{AuditMerkleRoot, UnifiedAuditEvent};
 use lance_graph_callcenter::unified_bridge::{TenantId, UnifiedBridge};
 use lance_graph_contract::hash::fnv1a_str;
 use lance_graph_contract::property::PrefetchDepth;
@@ -59,9 +58,16 @@ impl RecordingSink {
     }
 }
 
-impl UnifiedAuditSink for RecordingSink {
-    fn emit(&self, event: &UnifiedAuditEvent) {
-        self.events.lock().unwrap().push(*event);
+impl AuditSink for RecordingSink {
+    fn emit(&self, event: UnifiedAuditEvent) -> Result<(), AuditError> {
+        self.events.lock().unwrap().push(event);
+        Ok(())
+    }
+    fn flush(&self) -> Result<MerkleRoot, AuditError> {
+        Ok(0)
+    }
+    fn checkpoint(&self) -> Result<(), AuditError> {
+        Ok(())
     }
 }
 

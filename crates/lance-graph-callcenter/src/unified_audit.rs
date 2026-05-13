@@ -3,7 +3,7 @@
 //!
 //! Each `UnifiedBridge::authorize()` call that materially gates access
 //! (Deny / Escalate / Audit-required Allow) emits one `UnifiedAuditEvent`
-//! through a `UnifiedAuditSink`. Events form a chain: the merkle root of
+//! through an `AuditSink` (see `crate::audit_sink`). Events form a chain: the merkle root of
 //! event N includes the merkle root of event N-1 plus a per-super-domain
 //! `merkle_salt` (§13.4 hard-lock — cross-domain audit logs are
 //! unlinkable). Tampering with any past event is detectable by chain
@@ -24,9 +24,9 @@
 //! durable record   (JSON Lines / Lance dataset / no-op)
 //! ```
 //!
-//! D-SDR-4 scope: type system + chain mechanics + `NoopUnifiedAuditSink`
+//! D-SDR-4 scope: type system + chain mechanics + sink trait
 //! reference impl + tamper detection helper. Production sinks
-//! (`JsonLinesUnifiedAuditSink`, `LanceUnifiedAuditSink`) are D-SDR-4b.
+//! (`JsonlAuditSink`, `LanceAuditSink` in `crate::audit_sink`) are D-SDR-4b/sprint-7.
 //! Wiring into `UnifiedBridge::authorize()` is D-SDR-5.
 //!
 //! ## Separate from `crate::audit`
@@ -301,34 +301,10 @@ impl HydrationRefreshAudit {
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// UnifiedAuditSink — pluggable persistence
-// ═══════════════════════════════════════════════════════════════════════════
-
-/// Sink trait — pluggable persistence backend. Implementations:
-/// - `NoopUnifiedAuditSink` (this module) — discards events; default for
-///   tests and `audit_required = false` policies.
-/// - `JsonLinesUnifiedAuditSink` (D-SDR-4b) — appends to a JSONL file.
-/// - `LanceUnifiedAuditSink` (D-SDR-4b) — appends to a Lance dataset,
-///   indexed by `(tenant, super_domain, ts_unix_ms)`.
-pub trait UnifiedAuditSink: Send + Sync
-{
-    /// Persist one event. **Must not block on I/O** for >1ms — the
-    /// authorize() hot path calls this synchronously. Production sinks
-    /// buffer asynchronously and flush on a separate task.
-    fn emit(&self, event: &UnifiedAuditEvent);
-}
-
-/// No-op sink — discards every event. Use as the default sink when
-/// `super_domain.audit_required = false` (no compliance regime requires
-/// audit), or in tests.
-#[derive(Clone, Copy, Debug, Default)]
-pub struct NoopUnifiedAuditSink;
-
-impl UnifiedAuditSink for NoopUnifiedAuditSink
-{
-    fn emit(&self, _event: &UnifiedAuditEvent) {}
-}
+// The audit sink trait + NoopAuditSink moved to crate::audit_sink in
+// sprint-7 (OQ-7-2 locked 2026-05-13). UnifiedAuditSink and
+// NoopUnifiedAuditSink were the D-SDR-4 placeholders; production
+// consumers use `AuditSink` from `crate::audit_sink` directly.
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Chain verification — tamper detection
@@ -494,12 +470,12 @@ mod tests
     }
 
     #[test]
-    fn noop_sink_swallows_events()
-    {
-        let sink = NoopUnifiedAuditSink;
+    fn noop_sink_swallows_events() {
+        use crate::audit_sink::{AuditSink, NoopAuditSink};
+        let sink = NoopAuditSink;
         let mut chain = AuditChain::new(SuperDomain::Healthcare, 0xC0FFEE);
         let ev = chain.advance(fresh_event());
-        sink.emit(&ev); // doesn't panic, doesn't observe — by design
+        sink.emit(ev).expect("noop never errors"); // doesn't observe — by design
     }
 
     #[test]
