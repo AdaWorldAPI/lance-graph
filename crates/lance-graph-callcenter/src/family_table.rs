@@ -256,7 +256,7 @@ impl OgitFamilyTable
     pub fn is_functional(&self, owl: OwlIdentity) -> bool
     {
         self.lookup(owl)
-            .map_or(false, |e| e.owl_characteristics.is_functional())
+            .is_some_and(|e| e.owl_characteristics.is_functional())
     }
 
     /// Does this slot carry the `Transitive` OWL characteristic? Used by
@@ -265,7 +265,7 @@ impl OgitFamilyTable
     pub fn is_transitive(&self, owl: OwlIdentity) -> bool
     {
         self.lookup(owl)
-            .map_or(false, |e| e.owl_characteristics.is_transitive())
+            .is_some_and(|e| e.owl_characteristics.is_transitive())
     }
 
     /// Insert / overwrite a slot. Used by hydration; runtime code stays
