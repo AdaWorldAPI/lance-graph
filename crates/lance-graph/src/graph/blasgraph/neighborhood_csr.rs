@@ -105,10 +105,10 @@ impl ScentCsr {
     pub fn spmv(&self, x: &[f32]) -> Vec<f32> {
         assert_eq!(x.len(), self.ncols);
         let mut y = vec![0.0f32; self.nrows];
-        for i in 0..self.nrows {
+        for (i, yi) in y.iter_mut().enumerate() {
             let range = self.row_range(i);
             for idx in range {
-                y[i] += self.values[idx] as f32 * x[self.col_indices[idx]];
+                *yi += self.values[idx] as f32 * x[self.col_indices[idx]];
             }
         }
         y

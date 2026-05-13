@@ -107,6 +107,7 @@ pub fn zeckf64_from_distances(ds: u32, dp: u32, d_o: u32, sign: bool) -> u64 {
 
 /// Pack 8 bytes into a u64 (little-endian byte order: byte0 is LSB).
 #[inline]
+#[allow(clippy::too_many_arguments)] // 8 bytes → 1 u64, no grouping possible
 fn pack_bytes(b0: u8, b1: u8, b2: u8, b3: u8, b4: u8, b5: u8, b6: u8, b7: u8) -> u64 {
     (b0 as u64)
         | ((b1 as u64) << 8)
@@ -169,7 +170,7 @@ pub fn bands(edge: u64) -> u8 {
 /// - 7 = S__ distance quantile
 #[inline]
 pub fn resolution(edge: u64, byte_n: u8) -> u8 {
-    debug_assert!(byte_n >= 1 && byte_n <= 7, "byte_n must be 1..=7");
+    debug_assert!((1..=7).contains(&byte_n), "byte_n must be 1..=7");
     (edge >> (byte_n * 8)) as u8
 }
 
@@ -367,11 +368,8 @@ mod tests {
         let t2 = random_triple(400, 500, 600);
         let edge = zeckf64((&t1.0, &t1.1, &t1.2), (&t2.0, &t2.1, &t2.2), false);
 
-        // Verify all bytes are within [0, 255] (trivially true for u8)
-        for i in 0..8 {
-            let byte_val = ((edge >> (i * 8)) & 0xFF) as u8;
-            assert!(byte_val <= 255);
-        }
+        // All bytes are within [0, 255] — trivially true for u8; no assertion needed.
+        let _: [u8; 8] = std::array::from_fn(|i| ((edge >> (i * 8)) & 0xFF) as u8);
 
         // Verify progressive view is consistent
         let u16_view = progressive_u16(edge);
@@ -449,8 +447,8 @@ mod tests {
         let hood = compute_neighborhood(0, &planes);
         assert_eq!(hood.len(), 10);
         assert_eq!(hood[0], 0); // no self-edge
-        for j in 1..10 {
-            assert_ne!(hood[j], 0); // should have edges to all others
+        for edge in &hood[1..10] {
+            assert_ne!(*edge, 0); // should have edges to all others
         }
     }
 

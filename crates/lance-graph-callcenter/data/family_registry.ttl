@@ -1,0 +1,277 @@
+@prefix ogit:      <http://www.purl.org/ogit/> .
+@prefix ogit.meta: <http://www.purl.org/ogit/meta/> .
+@prefix xsd:       <http://www.w3.org/2001/XMLSchema#> .
+
+# ── Healthcare basins 0x10..=0x19 ────────────────────────────────────────────
+# These are the basins E1-2 (medcare-rs) depends on: FMA, SNOMED, ICD10,
+# RxNorm, LOINC, MONDO, HPO, DRON, CHEBI, RadLex.
+
+ogit:HealthcareFMA
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "Healthcare" ;
+    ogit.meta:familyId    "16"^^xsd:unsignedByte .
+
+ogit:HealthcareSNOMED
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "Healthcare" ;
+    ogit.meta:familyId    "17"^^xsd:unsignedByte .
+
+ogit:HealthcareICD10
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "Healthcare" ;
+    ogit.meta:familyId    "18"^^xsd:unsignedByte .
+
+ogit:HealthcareRxNorm
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "Healthcare" ;
+    ogit.meta:familyId    "19"^^xsd:unsignedByte .
+
+ogit:HealthcareLOINC
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "Healthcare" ;
+    ogit.meta:familyId    "20"^^xsd:unsignedByte .
+
+ogit:HealthcareMONDO
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "Healthcare" ;
+    ogit.meta:familyId    "21"^^xsd:unsignedByte .
+
+ogit:HealthcareHPO
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "Healthcare" ;
+    ogit.meta:familyId    "22"^^xsd:unsignedByte .
+
+ogit:HealthcareDRON
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "Healthcare" ;
+    ogit.meta:familyId    "23"^^xsd:unsignedByte .
+
+ogit:HealthcareCHEBI
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "Healthcare" ;
+    ogit.meta:familyId    "24"^^xsd:unsignedByte .
+
+ogit:HealthcareRadLex
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "Healthcare" ;
+    ogit.meta:familyId    "25"^^xsd:unsignedByte .
+
+# ── Science basins 0x20..=0x27 ───────────────────────────────────────────────
+
+ogit:SciencePhysics
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "Science" ;
+    ogit.meta:familyId    "32"^^xsd:unsignedByte .
+
+ogit:ScienceChemistry
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "Science" ;
+    ogit.meta:familyId    "33"^^xsd:unsignedByte .
+
+ogit:ScienceMath
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "Science" ;
+    ogit.meta:familyId    "34"^^xsd:unsignedByte .
+
+ogit:ScienceMaterials
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "Science" ;
+    ogit.meta:familyId    "35"^^xsd:unsignedByte .
+
+# ── Genetics basins 0x30..=0x35 ──────────────────────────────────────────────
+
+ogit:GeneticsGenes
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "Genetics" ;
+    ogit.meta:familyId    "48"^^xsd:unsignedByte .
+
+ogit:GeneticsSequences
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "Genetics" ;
+    ogit.meta:familyId    "49"^^xsd:unsignedByte .
+
+ogit:GeneticsExpression
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "Genetics" ;
+    ogit.meta:familyId    "50"^^xsd:unsignedByte .
+
+ogit:GeneticsGO
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "Genetics" ;
+    ogit.meta:familyId    "51"^^xsd:unsignedByte .
+
+# ── QuantumPhysics basins 0x40..=0x43 ────────────────────────────────────────
+
+ogit:QuantumCore
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "QuantumPhysics" ;
+    ogit.meta:familyId    "64"^^xsd:unsignedByte .
+
+ogit:QuantumCircuit
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "QuantumPhysics" ;
+    ogit.meta:familyId    "65"^^xsd:unsignedByte .
+
+# ── TicketTool basins 0x50..=0x56 ────────────────────────────────────────────
+
+ogit:TicketHiro
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "TicketTool" ;
+    ogit.meta:familyId    "80"^^xsd:unsignedByte .
+
+ogit:TicketHubSpot
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "TicketTool" ;
+    ogit.meta:familyId    "81"^^xsd:unsignedByte .
+
+ogit:TicketServiceNow
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "TicketTool" ;
+    ogit.meta:familyId    "82"^^xsd:unsignedByte .
+
+ogit:TicketJira
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "TicketTool" ;
+    ogit.meta:familyId    "83"^^xsd:unsignedByte .
+
+ogit:TicketZendesk
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "TicketTool" ;
+    ogit.meta:familyId    "84"^^xsd:unsignedByte .
+
+# ── WorkOrderBilling basins 0x60..=0x67 ──────────────────────────────────────
+
+ogit:WorkOrderCore
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "WorkOrderBilling" ;
+    ogit.meta:familyId    "96"^^xsd:unsignedByte .
+
+ogit:BillingCore
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "WorkOrderBilling" ;
+    ogit.meta:familyId    "97"^^xsd:unsignedByte .
+
+ogit:SMBAccounting
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "WorkOrderBilling" ;
+    ogit.meta:familyId    "98"^^xsd:unsignedByte .
+
+ogit:MRORepair
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "WorkOrderBilling" ;
+    ogit.meta:familyId    "99"^^xsd:unsignedByte .
+
+# ── OSINT basins 0x70..=0x74 ─────────────────────────────────────────────────
+
+ogit:OsintMaltego
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "Osint" ;
+    ogit.meta:familyId    "112"^^xsd:unsignedByte .
+
+ogit:OsintSocialGraph
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "Osint" ;
+    ogit.meta:familyId    "113"^^xsd:unsignedByte .
+
+ogit:OsintIntelSources
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "Osint" ;
+    ogit.meta:familyId    "114"^^xsd:unsignedByte .
+
+# ── SMB Foundry-shape basins 0x80..=0x82 ─────────────────────────────────────
+# OQ-4 resolution (locked 2026-05-13): ogit.SMB: (no sub-namespace) is reserved
+# for the 3 Foundry-shape entities (Customer, Invoice, TaxDeclaration).
+# registry.enumerate("SMB") must return exactly 3.
+
+ogit:SmbFoundryCustomer
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB" ;
+    ogit.meta:familyId    "128"^^xsd:unsignedByte .
+
+ogit:SmbFoundryInvoice
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB" ;
+    ogit.meta:familyId    "129"^^xsd:unsignedByte .
+
+ogit:SmbFoundryTaxDeclaration
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB" ;
+    ogit.meta:familyId    "130"^^xsd:unsignedByte .
+
+# ── SMB BSON-shape basins 0xA0..=0xAD ────────────────────────────────────────
+# OQ-4 resolution (locked 2026-05-13): ogit.SMB.bson: sub-namespace carries the
+# 14 BSON-shape entities.  Slot range 0xA0..=0xAD (160..=173) is unconflicted
+# with all prior ranges (Healthcare 0x10-0x19, Science 0x20-0x27,
+# Genetics 0x30-0x35, QuantumPhysics 0x40-0x43, TicketTool 0x50-0x56,
+# WorkOrderBilling 0x60-0x63, OSINT 0x70-0x72, SMB-Foundry 0x80-0x82).
+# registry.enumerate("SMB.bson") returns exactly 14; enumerate("SMB") stays 3.
+
+ogit:SmbBsonCustomer
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB.bson" ;
+    ogit.meta:familyId    "160"^^xsd:unsignedByte .
+
+ogit:SmbBsonRechnung
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB.bson" ;
+    ogit.meta:familyId    "161"^^xsd:unsignedByte .
+
+ogit:SmbBsonMahnung
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB.bson" ;
+    ogit.meta:familyId    "162"^^xsd:unsignedByte .
+
+ogit:SmbBsonSchuldner
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB.bson" ;
+    ogit.meta:familyId    "163"^^xsd:unsignedByte .
+
+ogit:SmbBsonDokument
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB.bson" ;
+    ogit.meta:familyId    "164"^^xsd:unsignedByte .
+
+ogit:SmbBsonBank
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB.bson" ;
+    ogit.meta:familyId    "165"^^xsd:unsignedByte .
+
+ogit:SmbBsonFibu
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB.bson" ;
+    ogit.meta:familyId    "166"^^xsd:unsignedByte .
+
+ogit:SmbBsonSteuer
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB.bson" ;
+    ogit.meta:familyId    "167"^^xsd:unsignedByte .
+
+ogit:SmbBsonLieferant
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB.bson" ;
+    ogit.meta:familyId    "168"^^xsd:unsignedByte .
+
+ogit:SmbBsonMitarbeiter
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB.bson" ;
+    ogit.meta:familyId    "169"^^xsd:unsignedByte .
+
+ogit:SmbBsonAuftrag
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB.bson" ;
+    ogit.meta:familyId    "170"^^xsd:unsignedByte .
+
+ogit:SmbBsonAngebot
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB.bson" ;
+    ogit.meta:familyId    "171"^^xsd:unsignedByte .
+
+ogit:SmbBsonZahlung
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB.bson" ;
+    ogit.meta:familyId    "172"^^xsd:unsignedByte .
+
+ogit:SmbBsonArtikel
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "SMB.bson" ;
+    ogit.meta:familyId    "173"^^xsd:unsignedByte .

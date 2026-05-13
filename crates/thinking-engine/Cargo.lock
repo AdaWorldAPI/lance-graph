@@ -1545,8 +1545,6 @@ dependencies = [
  "num-complex",
  "num-integer",
  "num-traits",
- "p64",
- "phyllotactic-manifold",
  "portable-atomic",
  "portable-atomic-util",
  "rawpointer",
@@ -1696,13 +1694,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
-name = "p64"
-version = "0.1.0"
-dependencies = [
- "phyllotactic-manifold",
-]
-
-[[package]]
 name = "paste"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1713,10 +1704,6 @@ name = "percent-encoding"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
-
-[[package]]
-name = "phyllotactic-manifold"
-version = "0.1.0"
 
 [[package]]
 name = "pin-project-lite"

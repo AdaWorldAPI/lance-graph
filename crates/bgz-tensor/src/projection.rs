@@ -512,10 +512,10 @@ mod tests {
         // Round-trip f32→Base17→f32→Base17 should give identical Base17,
         // and the DISTANCE RANKING between vectors must be preserved.
         let weights_a: Vec<f32> = (0..4096)
-            .map(|i| ((i as f32 * 0.017).sin() * 0.5))
+            .map(|i| (i as f32 * 0.017).sin() * 0.5)
             .collect();
         let weights_b: Vec<f32> = (0..4096)
-            .map(|i| ((i as f32 * 0.031).cos() * 0.8))
+            .map(|i| (i as f32 * 0.031).cos() * 0.8)
             .collect();
 
         let b17_a = Base17::from_f32(&weights_a);

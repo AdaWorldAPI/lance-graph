@@ -58,3 +58,4 @@ pub use proposal::{
 };
 pub use registry::OntologyRegistry;
 pub use schema_source::SchemaSource;
+pub use ttl_parse::{parse_family_registry, FamilyRegistryEntry};

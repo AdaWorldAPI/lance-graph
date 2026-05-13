@@ -224,7 +224,7 @@ mod tests {
         }
         let q = make_vec(7, dim); // query similar to key 7
         let brute = cache.brute_attention(&q);
-        let (cascade_scores, cascade_idx) = cache.cascade_attention(&q, 8);
+        let (_cascade_scores, cascade_idx) = cache.cascade_attention(&q, 8);
 
         let brute_best = brute
             .iter()

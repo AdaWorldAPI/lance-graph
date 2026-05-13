@@ -47,9 +47,9 @@ use lance_graph_rbac::policy::{Operation, Policy};
 
 use crate::super_domain::SuperDomain;
 use crate::unified_audit::{
-    AuditChain, AuditMerkleRoot, AuthDecision, AuthOp, NoopUnifiedAuditSink, UnifiedAuditEvent,
-    UnifiedAuditSink,
+    AuditChain, AuditMerkleRoot, AuthDecision, AuthOp, UnifiedAuditEvent,
 };
+use crate::audit_sink::{AuditSink, NoopAuditSink};
 
 /// Extract the canonical ontology entity type name from a resolved
 /// [`MappingRow`], for use as the [`Policy::evaluate`] key.
@@ -249,9 +249,9 @@ pub struct UnifiedBridge<B: NamespaceBridge> {
     tenant: TenantId,
     /// Audit sink — every `authorize_*` call that reaches the policy
     /// evaluation step emits one `UnifiedAuditEvent`. Default is
-    /// `NoopUnifiedAuditSink` (zero overhead, no persistence). Swap via
+    /// `NoopAuditSink` (zero overhead, no persistence). Swap via
     /// [`Self::with_audit_chain`].
-    audit_sink: Arc<dyn UnifiedAuditSink>,
+    audit_sink: Arc<dyn AuditSink>,
     /// Merkle-chained audit advancer. Holds the prior event's root +
     /// per-super-domain salt so each new event chains off it. Mutex
     /// guards the `last_root` advance under concurrent `authorize_*`
@@ -262,7 +262,7 @@ pub struct UnifiedBridge<B: NamespaceBridge> {
 impl<B: NamespaceBridge> UnifiedBridge<B> {
     /// Construct a new unified bridge.
     ///
-    /// Defaults audit to `NoopUnifiedAuditSink` + a chain anchored at
+    /// Defaults audit to `NoopAuditSink` + a chain anchored at
     /// `SuperDomain::Unknown` with salt 0. Call
     /// [`Self::with_audit_chain`] to swap in a real sink + the
     /// super-domain-specific salt before authorization traffic starts.
@@ -278,12 +278,12 @@ impl<B: NamespaceBridge> UnifiedBridge<B> {
             actor_role,
             actor_role_hash: fnv1a_str(actor_role),
             tenant,
-            audit_sink: Arc::new(NoopUnifiedAuditSink),
+            audit_sink: Arc::new(NoopAuditSink),
             audit_chain: Mutex::new(AuditChain::new(SuperDomain::Unknown, 0)),
         }
     }
 
-    /// Builder: swap in a real `UnifiedAuditSink` + the super-domain's
+    /// Builder: swap in a real `AuditSink` + the super-domain's
     /// `merkle_salt` (§13.4 — cross-domain audit logs unlinkable). Resets
     /// the chain to GENESIS; pass a resume root via
     /// [`Self::with_audit_chain_resume`] if continuing a persisted chain.
@@ -291,7 +291,7 @@ impl<B: NamespaceBridge> UnifiedBridge<B> {
         mut self,
         super_domain: SuperDomain,
         salt: u64,
-        sink: Arc<dyn UnifiedAuditSink>,
+        sink: Arc<dyn AuditSink>,
     ) -> Self {
         self.audit_sink = sink;
         self.audit_chain = Mutex::new(AuditChain::new(super_domain, salt));
@@ -306,11 +306,28 @@ impl<B: NamespaceBridge> UnifiedBridge<B> {
         super_domain: SuperDomain,
         salt: u64,
         last_root: AuditMerkleRoot,
-        sink: Arc<dyn UnifiedAuditSink>,
+        sink: Arc<dyn AuditSink>,
     ) -> Self {
         self.audit_sink = sink;
         self.audit_chain = Mutex::new(AuditChain::resume(super_domain, salt, last_root));
         self
+    }
+
+    /// Ergonomic constructor: wire a `JsonlAuditSink` at `base_path` as
+    /// the primary audit destination. Per OQ-7-3 (locked 2026-05-13):
+    /// `new()` defaults to `NoopAuditSink`; this constructor is the
+    /// explicit opt-in for the production "JSONL primary + optional Lance
+    /// projection" pattern (MedCare-rs sprint-2 item 5). Only available
+    /// when the `jsonl` feature is enabled.
+    #[cfg(feature = "jsonl")]
+    pub fn with_jsonl_audit(
+        self,
+        super_domain: SuperDomain,
+        salt: u64,
+        base_path: impl Into<std::path::PathBuf>,
+    ) -> std::io::Result<Self> {
+        let sink = Arc::new(crate::audit_sink::JsonlAuditSink::new(base_path.into())?);
+        Ok(self.with_audit_chain(super_domain, salt, sink))
     }
 
     /// Returns the underlying namespace bridge.
@@ -350,7 +367,7 @@ impl<B: NamespaceBridge> UnifiedBridge<B> {
     /// from policy authorship.
     ///
     /// On policy evaluation reaching, one `UnifiedAuditEvent` is emitted
-    /// through the configured `UnifiedAuditSink` carrying tenant +
+    /// through the configured `AuditSink` carrying tenant +
     /// super-domain + owl + decision. **`BridgeError` short-circuits
     /// before audit** — bad input names aren't auth decisions, they're
     /// invalid requests (D-SDR-5 minimum; revisit if probing detection
@@ -423,10 +440,15 @@ impl<B: NamespaceBridge> UnifiedBridge<B> {
             actor_role_hash: self.actor_role_hash,
             // overwritten by AuditChain::advance
             merkle_root: AuditMerkleRoot::GENESIS,
+            // overwritten by AuditChain::advance (D-SDR-4b prev_merkle field)
+            prev_merkle: AuditMerkleRoot::GENESIS,
         };
         let stamped = chain.advance(event);
         drop(chain);
-        self.audit_sink.emit(&stamped);
+        // Best-effort: audit emission failures must not block the authorize
+        // hot path. Sinks are responsible for their own buffering/backpressure
+        // (see audit_sink::{JsonlAuditSink, LanceAuditSink} BestEffort mode).
+        let _ = self.audit_sink.emit(stamped);
     }
 }
 
@@ -480,6 +502,165 @@ fn now_unix_ms() -> u64 {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis().min(u64::MAX as u128) as u64)
         .unwrap_or(0)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BridgeConfig — boot-time configuration for TTL hydration
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Configuration for `UnifiedBridge::new_hydrated`.
+///
+/// `Default::default()` gives safe library-mode settings:
+/// - No overlay directory (seed-only hydration)
+/// - `BestEffort` hydration policy (never fail-hard)
+/// - No background refresh (restart-only)
+#[derive(Clone, Debug, Default)]
+pub struct BridgeConfig {
+    /// Optional directory containing override TTL files. If set and the
+    /// directory exists, its `.ttl` files are parsed and merged on top of
+    /// the compiled-in seed. Missing or empty directories are silently
+    /// accepted (soft-warn semantics per spec §2.2).
+    pub ttl_overlay_dir: Option<std::path::PathBuf>,
+
+    /// Hydration failure policy. Binary entrypoints should set
+    /// `RequireMinDomains { min: 5 }`; library / test consumers use
+    /// `BestEffort`.
+    pub hydration_policy: crate::hydration::HydrationPolicy,
+
+    /// Background refresh interval. `None` = restart-only (default).
+    /// `Some(d)` = reload every `d` in a background task.
+    pub ttl_refresh_interval: Option<std::time::Duration>,
+}
+
+impl BridgeConfig {
+    /// Strict binary-mode config: require ≥5 distinct domains, no overlay.
+    pub fn strict() -> Self {
+        Self {
+            hydration_policy: crate::hydration::HydrationPolicy::RequireMinDomains { min: 5 },
+            ..Default::default()
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BridgeHandle — post-hydration control surface
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Returned alongside the `UnifiedBridge` by `UnifiedBridge::new_hydrated`.
+/// Exposes the hydration control surface: generation counter, manual reload,
+/// and (future) background-refresh task handle.
+#[derive(Clone, Debug)]
+pub struct BridgeHandle {
+    config: BridgeConfig,
+}
+
+impl BridgeHandle {
+    fn new(config: BridgeConfig) -> Self {
+        Self { config }
+    }
+
+    /// Current `FAMILY_TABLE` generation. Starts at 1 after the first
+    /// hydration; incremented on every hot-reload. Returns 0 if the table
+    /// has not been initialised (should not happen after `new_hydrated`).
+    pub fn family_table_generation(&self) -> u64 {
+        crate::hydration::current_generation()
+    }
+
+    /// Manually trigger a family table reload from the same seed + overlay
+    /// configuration used at construction.
+    ///
+    /// Emits a `HydrationRefreshAudit` event (returned) on success.
+    /// Returns `Err(HydrationError)` if the reload fails under the
+    /// configured `HydrationPolicy`.
+    pub fn reload_family_table(
+        &self,
+    ) -> Result<crate::unified_audit::HydrationRefreshAudit, crate::hydration::HydrationError>
+    {
+        reload_family_table_inner(&self.config)
+    }
+}
+
+/// Inner reload logic — shared between `BridgeHandle::reload_family_table`
+/// and the background refresh task spawned by `new_hydrated`.
+fn reload_family_table_inner(
+    config: &BridgeConfig,
+) -> Result<crate::unified_audit::HydrationRefreshAudit, crate::hydration::HydrationError>
+{
+    use crate::hydration::{commit, load_overlay, load_seed, sanity_gate, HydrationPolicy, HydrationSourceSet, SEED_TTL};
+    use crate::unified_audit::HydrationRefreshAudit;
+
+    let mut map = load_seed(SEED_TTL)?;
+    let has_overlay = config.ttl_overlay_dir.is_some();
+    load_overlay(&mut map, config.ttl_overlay_dir.as_deref())?;
+
+    match &config.hydration_policy {
+        HydrationPolicy::RequireMinDomains { min } => {
+            sanity_gate(&map, *min)?;
+        }
+        HydrationPolicy::BestEffort => {
+            // sanity-gate failure is a warning, not an abort
+            if let Err(e) = sanity_gate(&map, 5) {
+                eprintln!("[hydration] WARN: {e}");
+            }
+        }
+    }
+
+    let source = HydrationSourceSet {
+        seed: true,
+        overlay_dir: config.ttl_overlay_dir.clone(),
+    };
+    let prev_gen = crate::hydration::current_generation();
+    commit(&map, source);
+    let new_gen = crate::hydration::current_generation();
+
+    let source_label = if has_overlay {
+        format!(
+            "seed+overlay:{}",
+            config
+                .ttl_overlay_dir
+                .as_deref()
+                .map(|p| p.display().to_string())
+                .unwrap_or_default()
+        )
+    } else {
+        "seed".to_string()
+    };
+
+    // updated_count = map.len() as a conservative upper bound regardless of
+    // prev_gen (we don't diff generations). prev_gen kept in signature for
+    // future per-generation diffing if added.
+    let _ = prev_gen;
+    let updated_count = map.len() as u32;
+
+    Ok(HydrationRefreshAudit::now(new_gen, updated_count, source_label))
+}
+
+impl<B: NamespaceBridge> UnifiedBridge<B> {
+    /// Production constructor: hydrates `FAMILY_TABLE` from the compiled-in
+    /// seed TTL, optionally merges an overlay directory, then returns the
+    /// bridge + a `BridgeHandle` for subsequent reload/monitoring.
+    ///
+    /// Callers that do not need TTL hydration (unit tests, minimal setups)
+    /// should use `UnifiedBridge::new` instead.
+    pub fn new_hydrated(
+        bridge: Arc<B>,
+        policy: Arc<Policy>,
+        actor_role: &'static str,
+        tenant: TenantId,
+        config: BridgeConfig,
+    ) -> Result<(Self, BridgeHandle), crate::hydration::HydrationError>
+    {
+        let audit_event = reload_family_table_inner(&config)?;
+        // Log the hydration event — in production this would go through the
+        // configured audit sink. For now we use eprintln for visibility.
+        eprintln!(
+            "[hydration] INFO: FAMILY_TABLE generation={} updated={} source={}",
+            audit_event.generation, audit_event.updated_count, audit_event.source
+        );
+        let handle = BridgeHandle::new(config);
+        let bridge = Self::new(bridge, policy, actor_role, tenant);
+        Ok((bridge, handle))
+    }
 }
 
 #[cfg(test)]
@@ -660,9 +841,16 @@ mod tests {
         }
     }
 
-    impl UnifiedAuditSink for RecordingSink {
-        fn emit(&self, event: &UnifiedAuditEvent) {
-            self.events.lock().unwrap().push(*event);
+    impl AuditSink for RecordingSink {
+        fn emit(&self, event: UnifiedAuditEvent) -> Result<(), crate::audit_sink::AuditError> {
+            self.events.lock().unwrap().push(event);
+            Ok(())
+        }
+        fn flush(&self) -> Result<crate::audit_sink::MerkleRoot, crate::audit_sink::AuditError> {
+            Ok(0)
+        }
+        fn checkpoint(&self) -> Result<(), crate::audit_sink::AuditError> {
+            Ok(())
         }
     }
 

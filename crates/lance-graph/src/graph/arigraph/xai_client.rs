@@ -108,6 +108,12 @@ pub struct XaiResponse {
     pub completion_tokens: u32,
 }
 
+impl Default for XaiClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl XaiClient {
     /// Create a new client with default configuration.
     pub fn new() -> Self {

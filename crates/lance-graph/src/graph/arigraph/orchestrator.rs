@@ -362,6 +362,7 @@ pub struct GraphSensorium {
 
 impl GraphSensorium {
     /// Compute from raw graph statistics.
+    #[allow(clippy::too_many_arguments)] // all 11 stats are distinct, no natural grouping
     pub fn compute(
         active_triplets: usize,
         contradictions: usize,
@@ -718,6 +719,12 @@ impl TopologyEdge {
 pub struct StyleTopology {
     /// Edges keyed by (from, to).
     edges: HashMap<(AgentStyle, AgentStyle), TopologyEdge>,
+}
+
+impl Default for StyleTopology {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl StyleTopology {

@@ -983,7 +983,6 @@ mod tests {
     /// Helper to create a FixedSizeBinaryArray from byte vectors
     fn create_binary_array(vectors: Vec<Vec<u8>>) -> ArrayRef {
         use arrow::array::FixedSizeBinaryArray;
-        let byte_len = vectors[0].len() as i32;
         let arr =
             FixedSizeBinaryArray::try_from_iter(vectors.iter().map(|v| v.as_slice())).unwrap();
         Arc::new(arr) as ArrayRef

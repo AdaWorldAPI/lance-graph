@@ -508,7 +508,7 @@ mod tests {
     #[test]
     fn test_causal_distance_all_planes() {
         let mut dist = SpoDistances::new_zero();
-        dist.s_table[1 * 256 + 2] = 100;
+        dist.s_table[256 + 2] = 100;
         dist.p_table[3 * 256 + 4] = 200;
         dist.o_table[5 * 256 + 6] = 300;
 
@@ -542,7 +542,7 @@ mod tests {
     #[test]
     fn test_all_projections() {
         let mut dist = SpoDistances::new_zero();
-        dist.s_table[1 * 256 + 2] = 100;
+        dist.s_table[256 + 2] = 100;
         dist.p_table[3 * 256 + 4] = 200;
         dist.o_table[5 * 256 + 6] = 300;
 
@@ -698,7 +698,7 @@ mod tests {
     fn test_style_score_analytical_vs_creative() {
         let mut dist = SpoDistances::new_zero();
         // Set up distances so that SPO-level distance is high (counterfactual relevant)
-        dist.s_table[1 * 256 + 2] = 10000;
+        dist.s_table[256 + 2] = 10000;
         dist.p_table[3 * 256 + 4] = 10000;
         dist.o_table[5 * 256 + 6] = 10000;
 

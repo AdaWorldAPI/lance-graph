@@ -660,7 +660,7 @@ mod tests {
             .collect();
 
         let mut search = CamSearch::new(codebook);
-        search.prepare_query(&vec![0.5; 24]);
+        search.prepare_query(&[0.5; 24]);
 
         let cam_data: Vec<[u8; 6]> = (0..1000)
             .map(|i| {

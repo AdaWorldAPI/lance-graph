@@ -52,5 +52,5 @@ fn poison_pill_inert_without_feature() {
     // Default build: the violating struct is not even compiled. This
     // confirms the feature gate keeps the violation out of the default
     // build surface.
-    assert!(true, "_internal_test_serialize_poison feature is OFF");
+    // Feature is OFF — reaching this point IS the assertion.
 }

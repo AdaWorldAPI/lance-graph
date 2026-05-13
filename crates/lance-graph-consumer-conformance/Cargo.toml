@@ -1,0 +1,23 @@
+[package]
+name = "lance-graph-consumer-conformance"
+version = "0.1.0"
+edition = "2021"
+publish = false   # internal CI gate — not published to crates.io
+
+[lib]
+# This crate has no runtime-only library surface; all logic lives under
+# `#[cfg(test)]` or in the `harness` module used exclusively from tests.
+# Declaring a lib target keeps the crate structure standard.
+
+[dependencies]
+# The conformance harness imports UnifiedBridge, AuditChain, SuperDomain etc.
+lance-graph-callcenter = { path = "../lance-graph-callcenter" }
+# NamespaceBridge trait + bridge implementations (MedcareBridge, OgitBridge, WoaBridge)
+lance-graph-ontology = { path = "../lance-graph-ontology" }
+# fnv1a_str, PrefetchDepth
+lance-graph-contract = { path = "../lance-graph-contract" }
+# Policy, Role, PermissionSpec for per-consumer test fixtures
+lance-graph-rbac = { path = "../lance-graph-rbac" }
+
+[features]
+consumer-conformance = []   # feature gate for CI matrix inclusion

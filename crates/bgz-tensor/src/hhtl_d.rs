@@ -581,7 +581,7 @@ mod tests {
 
     #[test]
     fn entries_bulk_roundtrip() {
-        let entries = vec![
+        let entries = [
             HhtlDEntry::new(HeelBasin::QK, 3, 100, true, 0x4000),
             HhtlDEntry::new(HeelBasin::FFN, 12, 200, false, 0x3F80),
         ];
@@ -628,7 +628,7 @@ mod tests {
 
     #[test]
     fn project_row_nonzero() {
-        let row: Vec<f32> = (0..2048).map(|i| (i as f32 * 0.01 - 10.0)).collect();
+        let row: Vec<f32> = (0..2048).map(|i| i as f32 * 0.01 - 10.0).collect();
         let b17 = Base17::from_f32(&row);
         let mag: i64 = b17.dims.iter().map(|&d| (d as i64).abs()).sum();
         assert!(mag > 0, "projection should be nonzero");
@@ -726,9 +726,9 @@ mod tests {
         // Reconstruct and measure per-row cosine. Expect ≥ 0.95 on average.
         let mut min_c: f64 = 1.0;
         let mut sum_c = 0.0f64;
-        for i in 0..n {
+        for (i, row) in rows.iter().enumerate().take(n) {
             let recon = t.reconstruct_row(i, cols);
-            let c = cosine_f32(&rows[i], &recon);
+            let c = cosine_f32(row, &recon);
             if c < min_c {
                 min_c = c;
             }
@@ -772,8 +772,8 @@ mod tests {
 
         let decoded = HhtlDTensor::slot_l_from_bytes(&bytes);
         assert_eq!(decoded.len(), n);
-        for i in 0..n {
-            assert_eq!(decoded[i], t.slot_l.as_ref().unwrap()[i]);
+        for (decoded_val, expected_val) in decoded.iter().zip(t.slot_l.as_ref().unwrap().iter()) {
+            assert_eq!(decoded_val, expected_val);
         }
     }
 

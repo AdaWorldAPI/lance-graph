@@ -238,8 +238,8 @@ mod tests {
         (0..n)
             .map(|i| {
                 let mut dims = [0i16; 17];
-                for d in 0..17 {
-                    dims[d] = base + ((i * 7 + d * 3) % 100) as i16;
+                for (d, val) in dims.iter_mut().enumerate() {
+                    *val = base + ((i * 7 + d * 3) % 100) as i16;
                 }
                 (role, Base17 { dims })
             })

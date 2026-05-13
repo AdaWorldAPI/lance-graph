@@ -1,0 +1,3 @@
+2026-05-13 S7-W2 pr-g1-manifest-modules: build.rs codegen implemented (sorted-slice + binary_search, zero runtime deps); 6 manifests created; 8 tests pass; cargo check clean.
+2026-05-13T16:34:18Z S7-W4 lance-graph-consumer-conformance: new crate with generic assert_consumer_conformance<B>, A1-A10 assertions, E1/E2/E3 consumer fixtures (all pass), E4/E5 #[ignore] scaffolds, negative tests; fixed supervisor ractor feature typo; cargo test -p lance-graph-consumer-conformance: 8 passed, 2 ignored, 0 failed
+S7-W5 | 2026-05-13 | DONE | PR-F1 CognitiveBridgeGate: new bridge_gate.rs (thinking-engine) + cognitive_bridge_gate.rs (callcenter) + UnifiedBridgeGate<B> with Chinese-wall; 329 thinking-engine tests + 114 callcenter tests all pass.

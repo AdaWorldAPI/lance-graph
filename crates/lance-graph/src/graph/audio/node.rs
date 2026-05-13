@@ -6,8 +6,8 @@
 //!   - 6B SpiralAddress (start, stride, length as u16)
 //!   - 1B palette index (VoiceCodebook archetype)
 //!   - 1B route hint (RouteAction for HHTL cascade skip)
-//!   ─────────────────────────────────────────────────────
-//!   Total: 60 bytes per node. Fits in one cache line.
+//!
+//! Total: 60 bytes per node. Fits in one cache line.
 //!
 //! The SpiralAddress maps band energies to highheelbgz:
 //!   stride = TensorRole = voice character
@@ -46,6 +46,7 @@ impl AudioNode {
     pub const BYTE_SIZE: usize = 60;
 
     /// Build from raw audio frame bytes + metadata.
+    #[allow(clippy::too_many_arguments)] // all 8 parts map directly to struct fields
     pub fn from_parts(
         band_energies: [u16; 21],
         pvq_summary: [u8; 6],

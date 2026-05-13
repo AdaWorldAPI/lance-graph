@@ -21,7 +21,7 @@ use std::collections::HashMap;
 use crate::graph::blasgraph::matrix::GrBMatrix;
 use crate::graph::blasgraph::semiring::HdrSemiring;
 use crate::graph::blasgraph::sparse::CooStorage;
-use crate::graph::blasgraph::typed_graph::{apply_truth_gate, BlasGraphHit, TypedGraph};
+use crate::graph::blasgraph::typed_graph::{apply_truth_gate, TypedGraph};
 use crate::graph::blasgraph::types::BitVec;
 use crate::graph::spo::store::SpoStore;
 use crate::graph::spo::truth::{TruthGate, TruthValue};
@@ -168,7 +168,7 @@ impl GraphRouter {
             .map(|h| GraphHit {
                 source: h.source,
                 target: h.target,
-                distance: h.value.popcount() as u32,
+                distance: h.value.popcount(),
                 truth: h.truth,
                 backend: Backend::Blasgraph,
             })
@@ -200,7 +200,7 @@ impl GraphRouter {
                 hits.push(GraphHit {
                     source: r,
                     target: c,
-                    distance: v.popcount() as u32,
+                    distance: v.popcount(),
                     truth,
                     backend: Backend::Blasgraph,
                 });

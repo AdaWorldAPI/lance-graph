@@ -1,0 +1,31 @@
+ogit_g: SMB
+version: 1
+domain_name: smb-office
+inert_when_consumer_absent: false
+
+entity_types:
+  Customer:   u16=200
+  Invoice:    u16=201
+  TaxDecl:    u16=202
+  Document:   u16=203
+  Contact:    u16=204
+
+rbac_policy: smb_policy
+
+stack_profile:
+  audit_retention_days: 3650
+  requires_fail_closed: false
+  escalation: human
+
+action_capabilities:
+  send_mahnung:    escalate
+  classify_tax:    direct
+  read_invoice:    permit
+  read_customer:   permit
+
+actor:
+  crate: smb-office-rs
+  type: SmbOfficeActor
+  message_type: SmbOfficeMessage
+
+inherits_from: dolce

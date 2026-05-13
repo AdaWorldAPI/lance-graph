@@ -62,3 +62,7 @@ pub mod prime_fingerprint;
 pub mod contrastive_learner;
 pub mod osint_bridge;
 // ripple.rs deleted: wave simulation wrong, replaced by VSA bundle in prime_fingerprint.rs
+
+// PR-F1 — CognitiveBridgeGate: cross-tenant authorization injection point.
+// No lance-graph-callcenter dep. PassthroughGate is the standalone default.
+pub mod bridge_gate;
