@@ -65,6 +65,41 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-05-13 — UNIFICATION: Gaussian-splat + EWA-Sandwich is ONE kernel (`Σ' = J·Σ·Jᵀ`) applied to THREE Jacobians across the workspace — render, graph propagation, perturbation field
+
+**Status:** FINDING (corrects the same-day three-meanings-of-splat entry that wrongly split them apart; user-corrected 2026-05-13)
+
+The previous entry framed "three meanings of splat" as three unrelated primitives that happen to share a name. **Wrong.** They are three applications of one mathematical kernel — the Σ push-forward of a Gaussian (mean + covariance ellipsoid) through an affine map:
+
+```
+Σ' = J · Σ · Jᵀ
+```
+
+Same math (Heckbert's EWA sandwich form). Three different Jacobians J. Three different deliverables, all unified by the kernel:
+
+| Application | Jacobian J | Σ semantics | Deliverable |
+|---|---|---|---|
+| **Render** | Camera projection (3D→2D image) | Per-node position+covariance (covariance derived from VSA fingerprint structure) | `ndarray::hpc::renderer` — 60fps SIMD double-buffer renderer for q2 cockpit / Palantir Gotham / Neo4j-style 3D graph visualization |
+| **Graph propagation** | Edge step (node→neighbor) | Node-state covariance Σ pushed forward along multi-hop paths | `crates/jc/src/ewa_sandwich.rs` (450 LOC) + `crates/lance-graph-contract/src/sigma_propagation.rs` (488 LOC) — Pillar 6 PSD-preservation cert (10000/10000 hops, CV tightness 1.467×, Köstenberger-Stark rate) |
+| **Perturbation field** | Spatial radial decay (query→neighborhood) | Query-as-Gaussian-deposit; Σ pushed outward through the spatial field | `crates/jc/examples/splat_perturbationslernen.rs` (445 LOC) — context-search-as-perturbation probe; rows crossing α-saturation are the "found context" |
+
+**Why this matters architecturally:**
+1. The renderer is NOT separate-and-orthogonal to EWA-Sandwich — it's the visualization tier of the same kernel. The per-node 3D Gaussian splat that `renderer.rs` projects to the q2 viewport is the same Gaussian whose covariance Σ propagates through Pillar 6 when you traverse an edge.
+2. The 75K-entity FMA heart-click demo gets ALL THREE for free from the same kernel:
+   - Render: 60fps live EWA-splat projection of FMA-anatomy Gaussians (no prerender needed)
+   - Click semantics: SPO neighbor query → Pillar 6 multi-hop Σ propagation along anatomy edges (heart → vessels → systemic circulation)
+   - Search by feel: heart-click as perturbation deposit; α-saturation readout finds "anatomically related context" without explicit MATCH-Cypher
+3. The "Amiga demoscene prerender" escape hatch I conjectured is wrong on two axes: (a) the live path already works because the substrate is SIMD-accelerated; (b) even if it failed at scale, the right escape is reducing the per-node Σ rank, not prerendering, because the kernel is the unification point.
+
+**ndarray + jc + lance-graph composition** (the three crates each own one Jacobian):
+- `ndarray::hpc::renderer` owns the camera-projection Jacobian + SIMD double-buffer
+- `crates/jc` owns the edge-step Jacobian + PSD certification
+- `lance-graph-contract::sigma_propagation` owns the type-level surface that both renderers and graph traversers depend on
+
+This is the same "compose, don't rebuild" pattern surfaced in W6 (thinking-engine wire-up): the workspace's substrate is denser than any single subagent's read window. Sprint-5 reconciliation pass must add `ndarray::hpc::renderer` + the JC pillar stack as MANDATORY READS for any spec touching FMA, q2 cockpit, multi-hop edge propagation, or covariance-based context search.
+
+Cross-ref: previous same-day splat-conjecture entry (`Gaussian-splat prerendered buffer`) — DEFERRED, since the live kernel composition already covers the use cases; W11 FMA spec needs a sprint-5 patch citing the unified kernel as its math basis; `.claude/plans/jc-pillars-runtime-wiring-v1.md` + ERRATUM define the full pillar stack (5/5+/5++/6/7) the renderer composes with.
+
 ## 2026-05-13 — FINDING: `ndarray::hpc::renderer` is the canonical 60fps SIMD double-buffer renderer for q2 — the FMA heart-click 3D anatomy view already has its render substrate, no prerender needed
 
 **Status:** FINDING (confirmed in source — `/home/user/ndarray/src/hpc/renderer.rs`, 995 LOC)
