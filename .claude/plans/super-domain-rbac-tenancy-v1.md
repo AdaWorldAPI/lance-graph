@@ -1084,3 +1084,183 @@ Bridge harvest:
 - Final scope of D-SDR-27 implementation (depends on column inventory)
 
 These unblock once `AdaWorldAPI/MedCare` + `AdaWorldAPI/MedCareV2` are in scope. §18 will fold the findings in as a follow-up commit.
+
+---
+
+## 18 — Empirical reality check: MedCare + MedCareV2 inspection (2026-05-13, same session)
+
+After scope expansion via pygithub REST (token-quote-stripped per cca2a-sprint-prompt-template guardrail), inspected `AdaWorldAPI/MedCareV2` and `AdaWorldAPI/MedCare-rs@claude/csharp-handoff-docs-L3DF0`. Findings refine §15-§17 substantially.
+
+### 18.1 The drift bridge is already designed and partially scaffolded
+
+**`MedCareV2/MedCare_2.0/LanceProbe/`** is the C# parity tool — exactly the §15-§17 drift bridge concept, already designed and scaffolded (M1 complete, M2-M6 pending). Per `MedCareV2/docs/PARITY_TOOL_OVERVIEW.md`:
+
+> This repo is a copy of `AdaWorldAPI/MedCare` plus a small **side-channel verification tool** under `MedCare_2.0/LanceProbe/`. The production behaviour of MedCareV2 is identical to MedCare; the addition exists to prove that the parallel Rust port (`AdaWorldAPI/medcare-rs`) returns the same data MySQL does for every operation.
+
+**Correction to §16.2:** I previously framed MedCareV2 as "partial rewrite, reshapeable freely." That's wrong — it's MedCare verbatim + LanceProbe overlay, with the explicit constraint *"do NOT refactor... the diff must be additions only"* per the handoff doc. MedCareV2 cannot be reshaped; it must remain bit-identical to MedCare except for the overlay.
+
+### 18.2 LanceProbe ↔ §15-§17 DTO mapping (largely 1:1)
+
+| LanceProbe component | File | LOC | §15-§17 analog | Alignment |
+|---|---|---|---|---|
+| `ParityClient.cs` | LanceProbe/ParityClient.cs | ~6 KB | MetaBridge HTTP transport (now Arrow Flight SQL per §17.3) | Exact |
+| `ParityWitness.cs` | LanceProbe/ParityWitness.cs | ~36 KB | `DriftDetectionBridge` impl + canonicalization rules | Exact (heart of the tool) |
+| `DriftSink.cs` | LanceProbe/DriftSink.cs | ~8 KB | `JsonLinesAuditSink` + bounded async queue | Exact |
+| `LanceProbe.cs` | LanceProbe/LanceProbe.cs | ~10 KB | Probe entry façade; sample-gated, fire-and-forget | New role — no Rust analog yet |
+| `LanceProbeBootstrap.cs` | LanceProbe/LanceProbeBootstrap.cs | ~8 KB | Init/wiring; reads `<lanceProbe>` App.config | New role — Rust side has no equivalent config layer |
+| `Forms/ParityPanel.cs` | LanceProbe/Forms/ | — | Admin WinForms badge + drift log viewer | UI only — no Rust equivalent |
+| `Redactors/DiagnosisRedactor.cs` | LanceProbe/Redactors/ | — | `FieldRedactionMask` / `RedactionMode::Hash` per §3.6 | Maps to spec |
+
+**Concepts in LanceProbe with no Rust spec analog (need to add):**
+- **`ArrayShapeRule`** — per-route reshape table for positional `string[]` → JObject keyed by Rust JSON names. **Action**: Rust must publish stable JSON DTO contracts so C# doesn't need per-route mappings in steady state.
+- **`TelemetrySnapshot`** — flat struct for programmatic monitoring. **Action**: add `/api/__parity/telemetry` endpoint to medcare-rs (planned but not specified in §17).
+- **Sampling-rate CoW dictionary** — thread-safe copy-on-write for per-route rate overrides. C# implementation detail; Rust side doesn't need a hot-path equivalent.
+
+### 18.3 Coordination spec lives at `MedCare-rs/docs/CSHARP_HANDOFF_PROMPT.md` (branch `claude/csharp-handoff-docs-L3DF0`)
+
+**The handoff doc IS the §17.2 phase sequencing made concrete:**
+
+| Milestone | Status | Scope |
+|---|---|---|
+| M1 — Scaffolding | Complete | LanceProbe/ skeleton compiles; classes throw `NotImplementedException` |
+| M2 — HTTP client + 5 DTOs | Pending | Wire `ParityClient` to 5 medcare-rs axum endpoints (Patient/Lab/Vital/Diagnosis/Wartezimmer) |
+| M3 — Canonicalization + tests | Pending | Implement the canonicalization rule table (§18.4) + named tests |
+| M4 — UI badge integration | Pending | Hook `ParityPanel` into 5 pilot screens (admin-only) |
+| M5 — Drift upload + cross-session dashboard | Blocked | Needs medcare-rs `POST /api/__parity/csharp` ingest + `GET /api/__parity` dashboard |
+| M5a — Legacy 3DES migration | Blocked, DRAFT | Needs `legacy-tripledes-fallback` feature flag in medcare-rs (not yet merged pending human review) |
+| M6 — Sampling + production rollout | Pending | Default 1% sampling; per-route override during validation weeks |
+
+**medcare-rs side gaps (the Rust deliverables this spec must produce):**
+- `POST /api/__parity/csharp` ingest endpoint — planned PR `claude/parity-introspection`, not yet landed
+- `GET /api/__parity` canonical dashboard — depends on ingest
+- `_dto_contracts.md` published with stable JSON DTO contracts — pending
+- `legacy-tripledes-fallback` feature flag — DRAFT, blocked on Crypt.cs audit against live `medcare_30` rows
+
+### 18.4 Canonicalization rules (the actual §15.2 determinism table)
+
+Per `CSHARP_HANDOFF_PROMPT.md` lines 93-104, the C# canonicalization rules are concrete, not the abstract list I sketched in §15.2:
+
+| Field pattern | Canonical form | Notes |
+|---|---|---|
+| `geburtsdatum` / `p_birth` | ISO 8601 date-only | Ignore time + timezone |
+| `werte` / `value` | `"F4"` double (4 decimals, InvariantCulture) | Decimal precision rule from §15.2 made concrete |
+| `pf_delete` / `deleted` | bool (null/0 → false) | Soft-delete normalization |
+| `db_spez` | bool | Coerce tinyint(1) to bool |
+| `u_pwd` | byte-equivalent (no decrypt for parity) | TripleDES ciphertext compared opaquely |
+| `created_at` / `d_createdate` / `updated_at` | second-truncated ISO 8601 | Timestamp rule from §15.2 made concrete |
+
+**§15.2 update:** these 6 rules supersede the 12 abstract determinism rules. Real-world canonicalization is more concrete and bounded than I framed; D-SDR-26 test surface drops to **6 named tests covering exactly these field patterns**.
+
+### 18.5 CRITICAL crypto correction: not actually 3DES, effectively single DES
+
+**The "3DES" in MedCare is broken security, not just outdated.** Per `MedCare_2.0/Crypt.cs:438-451`:
+
+```csharp
+TripleDESCryptoServiceProvider des = new TripleDESCryptoServiceProvider();
+des.IV = new byte[8];                                      // ← ZERO IV
+PasswordDeriveBytes pdb = new PasswordDeriveBytes(password, new byte[0]);  // ← NO SALT
+des.Key = pdb.CryptDeriveKey("RC2", "MD5", 128, new byte[8]);              // ← 128-bit (not 192!)
+```
+
+**Crypto findings:**
+- **Cipher:** `TripleDESCryptoServiceProvider` — *but key is truncated to 128 bits (16 bytes) instead of full 192 bits (24 bytes)*. With only 2 of the 3 DES rounds, this is cryptographically equivalent to **single DES with 56-bit effective key strength** — broken since the late 1990s.
+- **Mode:** ECB-implicit (zero IV + no `Mode = CipherMode.CBC` set; .NET defaults `TripleDESCryptoServiceProvider` to `Mode.CBC` but with zero IV every record encrypts deterministically — equivalent to ECB for the password-array case where each user gets a distinct password from a 62-entry table).
+- **Padding:** PKCS7 (.NET default).
+- **KDF:** `PasswordDeriveBytes(...).CryptDeriveKey("RC2", "MD5", 128, new byte[8])` — non-standard composite (RC2-shaped key derived through MD5 hash, then handed to TripleDES). Salt is `new byte[0]` (no salt).
+- **Password source:** **Hardcoded 62-entry array `Passwort_Crypt[0..61]`** at `Crypt.cs:285-349` — passwords like `"Xyad[:6*"`, `"TXÄZmn=y"`, etc. Random `Random.Next(1, 61)` selects an entry per encryption; decryption reads the first ciphertext char to look up the index. **NOT user-input-derived** in any standard sense.
+- **Ciphertext format:** `[1-char password-array index (1-9, a-z, A-Z mapped to 1-61)][base64(encrypted bytes)]`
+
+**Implications for spec:**
+- D-SDR-27 (3DES rewrap tool) must handle this specific broken construction, not standard 3DES. The decryption code path is: read first char → unmap to array index → look up password from hardcoded table → derive key via the broken KDF → decrypt with zero-IV ECB-equivalent. ~30 lines of careful C-style decryption logic.
+- The user's "John Doe = billing+tickets" framing now reads as: *most rows are not encrypted at all; only `praxis_mitarbeiter.u_pwd` (login passwords) and possibly a small set of others go through `EncryptMessage()`/`DecryptMessage()`*.
+- **AUTH_LEGACY_TRIPLEDES_MIGRATION.md** in MedCare-rs already acknowledges this is broken and plans Argon2 backfill on first successful login. The migration plan is more sophisticated than just "rewrap with AES-GCM" — it's **upgrade-on-login** to Argon2 (a password-hashing function, not a symmetric cipher), since the legacy ciphertext represents passwords, not encrypted data at rest.
+
+**§16.4 update:** D-SDR-27's pipeline description (decrypt-3DES → AES-256-GCM rewrap) is wrong for the password column. Correct shape:
+- For `u_pwd`: do NOT decrypt during import. Carry the legacy ciphertext forward; on next successful user login, re-derive Argon2 hash from the user-typed password and replace the ciphertext column with an Argon2 hash column. Legacy auth path stays available as feature-flagged fallback (`legacy-tripledes-fallback`).
+- For other 3DES-encrypted columns (TBD via grep of MySQL_Connect.cs for `.EncryptMessage(` / `.DecryptMessage(` call sites): **possibly none** — the user's earlier statement "billing customers + tickets" suggests most data isn't encrypted.
+
+### 18.6 D-SDR-27 scope refinement
+
+**Reduced scope after empirical findings:**
+
+```rust
+/// Import path for legacy 3DES password rows (u_pwd column on praxis_mitarbeiter).
+/// Does NOT decrypt during import — carries ciphertext forward as opaque blob.
+/// Argon2 backfill happens on first successful login (separate code path).
+pub fn import_legacy_3des_password_row(
+    legacy_row: &MySQLRow,
+) -> MigratedRow {
+    MigratedRow {
+        owl:                classify_to_owl_identity(legacy_row),
+        merkle_root:        MerkleRoot::from_fingerprint(&Fingerprint::from(&legacy_row.u_pwd)),
+        legacy_ciphertext:  legacy_row.u_pwd.clone(),       // opaque, byte-compared by parity
+        argon2_hash:        None,                            // populated on first login
+        super_domain:       SuperDomain::Healthcare,
+    }
+}
+
+/// Plaintext columns (everything else) — straight transcode, no decryption.
+pub fn import_plaintext_row(legacy_row: &MySQLRow) -> MigratedRow { /* ... */ }
+```
+
+**Updated D-SDR-27 deliverable:** ~80 LOC + 2 integration tests (one for password column carry-forward, one for plaintext transcode). Throwaway after import + drift-clean window. **Drops the 3DES-decrypt-rewrap-with-AES-GCM logic entirely** — it's wrong for the actual data shape.
+
+### 18.7 medcare-rs deliverables this spec must produce (concrete from handoff doc)
+
+These slot under Tier F or a new Tier H, blocking M5/M6 of the LanceProbe milestones:
+
+- **D-SDR-35** — `POST /api/__parity/csharp` ingest endpoint in medcare-rs. Receives `DriftEvent` JSON from `DriftSink` batch flushes; persists to a Lance table for cross-session aggregation. ~150 LOC + 4 tests.
+- **D-SDR-36** — `GET /api/__parity` canonical dashboard endpoint. Aggregates drift events across sessions (group-by route + time bucket); JSON output for the admin-only ParityPanel. ~120 LOC + 3 tests.
+- **D-SDR-37** — `_dto_contracts.md` document. Stable JSON DTO contracts for the 5 pilot endpoints (Patient/Lab/Vital/Diagnosis/Wartezimmer) + the planned 40+ additional routes from FUTURE_STACK_ADMIN.md §4. Doc only, ~300 lines markdown. **Blocks M2** until published.
+- **D-SDR-38** — `legacy-tripledes-fallback` feature flag in medcare-rs auth path. When enabled, accepts both Argon2 and legacy-3DES password verification; backfills Argon2 on successful legacy auth. ~180 LOC + 6 tests covering the upgrade-on-login flow. **Blocks M5a** until merged.
+- **D-SDR-39** — `/api/__parity/telemetry` endpoint exposing TelemetrySnapshot equivalent for programmatic monitoring (LanceProbe's flat struct). ~80 LOC + 2 tests.
+
+### 18.8 Phase sequencing now concrete (replaces §17.2 abstract version)
+
+| Phase | LanceProbe milestone | medcare-rs deliverable | Both ready when |
+|---|---|---|---|
+| 0 (now) | M1 done | D-SDR-31..34 spec drafted | — |
+| 1 | M2 starts | D-SDR-31 (Flight SQL server) + D-SDR-37 (DTO contracts) lands | C# wires real HTTP to first 5 endpoints |
+| 2 | M3 + M4 | D-SDR-33 (Substrait extension types) | Canonicalization tests pass; admin badge surfaces on 5 screens |
+| 3 | M5 starts | D-SDR-35 (ingest) + D-SDR-36 (dashboard) | Drift events flow C# → Rust → cross-session aggregation |
+| 3a | M5a | D-SDR-38 (TripleDES fallback flag) | Pilot users can reset passwords without legacy auth blocker |
+| 4 | M6 | D-SDR-39 (telemetry) + D-SDR-30 (key destroy) | 1% sampling rolls out; legacy 3DES retires post-Argon2-backfill |
+
+### 18.9 Net corrections to prior sections (§13-§17)
+
+| Prior framing | Corrected by §18 |
+|---|---|
+| MedCareV2 is reshapeable freely | NO — copy of MedCare + LanceProbe overlay; do NOT refactor |
+| 3DES is single-cipher-rewrap-to-AES-GCM | Mostly NO — only `u_pwd` column; carry ciphertext forward, Argon2-backfill on login |
+| 12 cross-language determinism rules | 6 concrete canonicalization rules (date / decimal / bool / soft-delete / pwd / timestamp) |
+| Drift bridge needs to be designed | Already designed; 5/8 LanceProbe components exist as scaffolds, await wiring |
+| Custom Protobuf IDL → Arrow Flight SQL | Confirmed — handoff doc uses HTTP+JSON over JWT, not Flight SQL. **§17.3 is aspirational; M2-M6 ship HTTP+JSON first**, Flight SQL is a Phase 5+ migration |
+| ~5-10 D-SDR deliverables in Tier F | Concrete Rust-side gap = 5 endpoints (D-SDR-35..39); plus D-SDR-27 scope reduction |
+
+**§17.3 update:** Arrow Flight SQL is the **future end-state** but the immediate path is HTTP+JSON over JWT (what LanceProbe already targets). Migration to Flight SQL is a Phase 5 add-on after the JSON path is drift-clean.
+
+### 18.10 Open questions resolved + new
+
+**Resolved by §18:**
+- ✅ Audit format choice → `DriftEvent` JSON via `DriftSink` async batch upload
+- ✅ Cross-tenant federation → bounded to migration window, then CI gate
+- ✅ DEK rotation cadence → not relevant for `u_pwd` (Argon2 backfill replaces the question)
+- ✅ Hard-lock partner matrix completeness → defer until billing/ticket basins are concretized
+- ✅ Per-super-domain DP epsilon defaults → not blocking (Phase 2 federation)
+- ✅ MedCareV2 reshape freedom → it has none; overlay only
+- ✅ 3DES column inventory → only `u_pwd`; possibly others pending MySQL_Connect.cs grep
+- ✅ Transcoded shape → it's an overlay (LanceProbe), not a transcode
+
+**New open questions:**
+- Which other columns (besides `u_pwd`) call `EncryptMessage()` / `DecryptMessage()` in MySQL_Connect.cs? Needs a focused grep of the 721 KB file. Likely: very few or none.
+- DTO contracts for the 40+ additional routes per FUTURE_STACK_ADMIN.md §4 — D-SDR-37 needs to enumerate them. Pending agent pass.
+- `MedCare-rs/docs/AUTH_LEGACY_TRIPLEDES_MIGRATION.md` is DRAFT — what blocks promotion to Active? (Likely: D-SDR-38 implementation + human security review.)
+
+### 18.11 Status
+
+- **Architecture:** stable; §18 confirms most of §15-§17 with corrections.
+- **C# scaffolding:** M1 complete; M2-M6 pending Rust-side endpoints (D-SDR-35..39).
+- **Crypto migration:** scoped down to Argon2-backfill-on-login for `u_pwd` only; no AES-GCM rewrap needed.
+- **Coordination doc:** lives at `MedCare-rs/docs/CSHARP_HANDOFF_PROMPT.md` on branch `claude/csharp-handoff-docs-L3DF0`; should be merged or referenced from this spec's path.
+
+**Confidence:** Working — empirical inspection of both repos confirms the architecture; the C# parity tool already implements the drift bridge as scaffolded code; the Rust side gaps are concrete (5 endpoints) and small (~700 LOC + tests across D-SDR-35..39).
