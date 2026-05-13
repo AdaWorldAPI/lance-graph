@@ -12,6 +12,10 @@ build = "build.rs"
 lance-graph-contract = { path = "../lance-graph-contract" }
 # D-CASCADE-V1-3 — bridge collapse: factories project from the canonical SoA.
 lance-graph-ontology = { path = "../lance-graph-ontology" }
+# D-SDR-1 (super-domain-rbac-tenancy-v1 §3.9 + §13.1) — UnifiedBridge composes
+# the per-namespace ontology bridge with the RBAC Policy + TenantId.
+lance-graph-rbac = { path = "../lance-graph-rbac" }
+thiserror = "1"
 
 # [persist] — Arrow RecordBatch + Lance dataset ops
 arrow       = { version = "57", optional = true }
