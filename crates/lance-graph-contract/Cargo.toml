@@ -1,0 +1,30 @@
+[package]
+name = "lance-graph-contract"
+version = "0.1.0"
+edition = "2021"
+description = "Thin contract crate: traits + types for lance-graph consumers (ladybug-rs, crewai-rust, n8n-rs)"
+license = "Apache-2.0"
+keywords = ["lance", "graph", "contract", "orchestration", "thinking"]
+build = "build.rs"
+
+[dependencies]
+# Zero dependencies by design — this is a trait-only crate.
+# Consumers depend on this; implementations depend on lance-graph-planner.
+
+[build-dependencies]
+# serde_yaml: used ONLY in build.rs to parse modules/*/manifest.yaml.
+# This does NOT become a runtime dep of the crate.
+serde_yaml = "0.9"
+serde = { version = "1", features = ["derive"] }
+glob = "0.3"
+
+[dev-dependencies]
+# Used in manifest_codegen tests to replicate validation logic in-process.
+serde_yaml = "0.9"
+serde = { version = "1", features = ["derive"] }
+
+[features]
+# A-unlock-stepdomain — `step_trajectory_hash` forward stub for the E4
+# cross-PR bridge between PR #278 audit log + PR #279 grammar trajectory.
+# No-op alias today; concrete impl lands once the bridge PR ships.
+trajectory-audit = []

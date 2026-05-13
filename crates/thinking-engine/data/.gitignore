@@ -1,0 +1,27 @@
+*.onnx
+*.onnx_data
+tokenizer.json
+*-tokenizer.json
+
+# Large model data — use GitHub Releases or stream from HF
+# Only the 3 baked lenses (jina-v3, bge-m3, reranker) stay in git
+Qwopus3.5-27B-v3-BF16-silu/
+Qwen3-5-4B-BF16-hdr/
+Qwen3-5-9B-BF16-hdr/
+Qwen3-5-9B-BF16-sixpack-l20/
+CompendiumLabs_bge-m3-hdr/
+bartowski_reader-lm-1.5b-hdr/
+codebooks/
+f16-role-tables/
+xlm-roberta-de/
+*-5lane/
+*-dual/
+jina-v5-onnx/
+modernbert-onnx/
+# Keep tables + index, ignore large f32 matrices
+jina-v5-codebook/cosine_matrix_*.f32
+jina-v5-codebook/distance_table_4096x4096.u8
+jina-v5-codebook/codebook_index_4096.u16
+jina-v5-codebook/clam_16384_assignments_50000.npy
+qwen3-vl-embedding/
+*-7lane/

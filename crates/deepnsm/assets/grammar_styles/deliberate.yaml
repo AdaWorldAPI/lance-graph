@@ -1,0 +1,22 @@
+# (starter prior — tune empirically)
+# Deliberate: slow, methodical, full TEKAMOLO required, both-direction replay.
+style: deliberate
+nars:
+  primary: Deduction
+  fallback: Revision
+morphology:
+  tables: [english_svo, finnish_case_table, german_case_table, russian_case_table]
+  agglutinative_mode: false
+tekamolo:
+  priority: [temporal, kausal, modal, lokal]
+  require_fillable: true
+markov:
+  radius: 5
+  kernel: gaussian
+  replay: both_and_compare
+spo_causal:
+  pearl_mask: 0x07
+  ambiguity_tolerance: 0.10
+coverage:
+  local_threshold: 0.92
+  escalate_below: 0.85

@@ -1,0 +1,16 @@
+ogit_g: CRM
+version: 1
+domain_name: hubspo
+inert_when_consumer_absent: true
+
+entity_types:
+  Lead:       u16=400
+  Deal:       u16=401
+  Contact:    u16=402
+
+rbac_policy: ~
+stack_profile: ~
+action_capabilities: {}
+actor: ~
+
+inherits_from: dolce

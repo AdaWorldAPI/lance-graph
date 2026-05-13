@@ -1,0 +1,8 @@
+[package]
+name = "lance-graph-rbac"
+version = "0.1.0"
+edition = "2021"
+description = "Role-based access control for the Ada cognitive stack"
+
+[dependencies]
+lance-graph-contract = { path = "../lance-graph-contract" }

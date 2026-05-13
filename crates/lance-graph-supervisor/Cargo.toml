@@ -1,0 +1,36 @@
+[package]
+name = "lance-graph-supervisor"
+version = "0.1.0"
+edition = "2021"
+description = "ractor-supervised actor tree for the callcenter membrane (PR-G2, TD-RACTOR-SUPERVISOR-5)"
+
+# Implementation worker: S7-W3 (sprint-log-7)
+# Spec: .claude/specs/pr-g2-ractor-supervisor.md
+# CC-2 fix: LifecycleAuditEvent is SEPARATE from UnifiedAuditEvent/AuthOp — no byte-layout pollution.
+# CC-3 fix: SuperDomain::System is added and documented as exempt from the hard-lock matrix.
+
+[dependencies]
+lance-graph-callcenter = { path = "../lance-graph-callcenter" }
+lance-graph-contract   = { path = "../lance-graph-contract" }
+thiserror = "1"
+tracing   = "0.1"
+
+# Supervisor feature: ractor actor tree (one-for-one, per-G slot)
+ractor            = { version = "0.14", optional = true, default-features = false, features = ["tokio_runtime"] }
+static_assertions = { version = "1", optional = true }
+# tokio is needed at the outbound boundary for spawn/sleep in the respawn backoff path.
+# Per I-2: tokio::spawn is ONLY at the supervisor's outbound boundary; consumer handler
+# bodies must not import tokio::spawn / tokio::select! / tokio::sync::Mutex directly.
+tokio             = { version = "1", features = ["rt", "time", "macros"], optional = true }
+
+# supervisor-lifecycle-audit: LifecycleAuditEvent emission (SEPARATE from UnifiedAuditEvent)
+# Feature-gated; default off to avoid audit noise in dev/test environments.
+# Production deployments enable: lance-graph-supervisor = { features = ["supervisor-lifecycle-audit"] }
+[features]
+default = []
+supervisor = ["dep:ractor", "dep:static_assertions", "dep:tokio"]
+supervisor-lifecycle-audit = ["supervisor"]
+
+[dev-dependencies]
+tokio             = { version = "1", features = ["rt-multi-thread", "macros"] }
+static_assertions = "1"

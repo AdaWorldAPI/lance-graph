@@ -1,0 +1,19 @@
+ogit_g: DOLCE
+version: 1
+domain_name: dolce
+inert_when_consumer_absent: true
+
+entity_types:
+  Endurant:     u16=1
+  Perdurant:    u16=2
+  Quality:      u16=3
+  Abstract:     u16=4
+  SocialObject: u16=5
+  Information:  u16=6
+  SocialAct:    u16=7
+
+rbac_policy: ~
+stack_profile: ~
+action_capabilities: {}
+actor: ~
+inherits_from: ~

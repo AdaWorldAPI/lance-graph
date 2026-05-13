@@ -1,0 +1,83 @@
+[package]
+name = "lance-graph"
+version = "0.5.4"
+edition = "2021"
+license = "Apache-2.0"
+authors = ["Lance Devs <dev@lancedb.com>"]
+repository = "https://github.com/lancedb/lance-graph"
+readme = "README.md"
+description = "Graph query engine for Lance datasets with Cypher support"
+keywords = ["lance", "graph", "cypher", "query", "datafusion"]
+categories = ["database", "data-structures", "science"]
+
+[dependencies]
+arrow = { version = "57", features = ["prettyprint"] }
+arrow-array = "57"
+arrow-schema = "57"
+chrono = "0.4"
+async-trait = "0.1"
+datafusion = { version = "52", default-features = false, features = [
+    "nested_expressions",
+    "regex_expressions",
+    "unicode_expressions",
+    "crypto_expressions",
+    "encoding_expressions",
+    "datetime_expressions",
+    "string_expressions",
+    "parquet",
+] }
+datafusion-common = "52"
+datafusion-expr = "52"
+datafusion-sql = "52"
+datafusion-functions-aggregate = "52"
+futures = "0.3"
+lance-graph-catalog = { path = "../lance-graph-catalog", version = "0.5.4" }
+lance-graph-contract = { path = "../lance-graph-contract" }
+lance = "=4.0.0"
+lance-linalg = "=4.0.0"
+lance-namespace = "=4.0.0"
+lancedb = { version = "=0.27.2", optional = true, default-features = false }
+nom = "7.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+snafu = "0.8"
+deltalake = { version = "0.31", features = ["datafusion", "s3", "azure", "gcs"], optional = true }
+url = { version = "2", optional = true }
+
+# AdaWorldAPI/ndarray fork with 55 HPC modules (Fingerprint, CAM-PQ, CLAM, BLAS, ZeckF64)
+# Source: https://github.com/AdaWorldAPI/ndarray
+ndarray = { path = "../../../ndarray", optional = true, default-features = false, features = ["std", "hpc-extras"] }
+
+# Unified query planner (MUL, thinking, strategies, CAM-PQ scan)
+lance-graph-planner = { path = "../lance-graph-planner", optional = true }
+
+# bgz17: palette semiring codec (0 deps, 121 tests)
+bgz17 = { path = "../bgz17", optional = true }
+
+# bgz-tensor: attention as table lookup, SimilarityTable, variance audit
+bgz-tensor = { path = "../bgz-tensor", optional = true }
+
+[features]
+default = ["unity-catalog", "delta", "ndarray-hpc", "planner", "bgz17-codec", "tensor-codec"]
+unity-catalog = ["lance-graph-catalog/unity-catalog"]
+delta = ["dep:deltalake", "dep:url"]
+# lancedb: high-level table/connection API (Python/JS SDK equivalent in Rust).
+# Enables LanceDB-compatible connection strings, table management, and the
+# vector search API surface that third-party tooling (DuckDB ext, Polars) expects.
+lancedb-sdk = ["dep:lancedb"]
+# ndarray-hpc: use AdaWorldAPI/ndarray for Fingerprint<256>, CAM-PQ, CLAM, BLAS, ZeckF64.
+# Disable for minimal builds (CI, wasm, embedded) — falls back to standalone ndarray_bridge.rs.
+ndarray-hpc = ["dep:ndarray"]
+# planner: wire lance-graph-planner for query classification, thinking styles, MUL gate.
+planner = ["dep:lance-graph-planner"]
+# bgz17-codec: palette semiring, HHTL distance matrix, SPO tripartite search.
+bgz17-codec = ["dep:bgz17"]
+# tensor-codec: attention as table lookup, SimilarityTable, Belichtungsmesser, variance audit.
+tensor-codec = ["dep:bgz-tensor"]
+
+[dev-dependencies]
+futures = "0.3"
+lance-arrow = "=4.0.0"
+lance-index = "=4.0.0"
+tempfile = "3"
+tokio = { version = "1.37", features = ["macros", "rt-multi-thread"] }

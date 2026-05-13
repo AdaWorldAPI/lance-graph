@@ -1,0 +1,22 @@
+# (starter prior — tune empirically)
+# Divergent: broad fan-out, counterfactuals welcome, full pearl mask.
+style: divergent
+nars:
+  primary: CounterfactualSynthesis
+  fallback: Synthesis
+morphology:
+  tables: [english_svo, finnish_case_table, russian_case_table, turkish_aggl]
+  agglutinative_mode: true
+tekamolo:
+  priority: [modal, kausal, lokal, temporal]
+  require_fillable: false
+markov:
+  radius: 5
+  kernel: mexican_hat
+  replay: both_and_compare
+spo_causal:
+  pearl_mask: 0xFF
+  ambiguity_tolerance: 0.45
+coverage:
+  local_threshold: 0.65
+  escalate_below: 0.45
