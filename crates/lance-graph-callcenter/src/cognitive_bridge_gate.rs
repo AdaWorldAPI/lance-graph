@@ -195,7 +195,8 @@ mod tests {
     use lance_graph_rbac::policy::smb_policy;
 
     use crate::unified_bridge::{TenantId, UnifiedBridge};
-    use crate::unified_audit::{UnifiedAuditEvent, UnifiedAuditSink};
+    use crate::audit_sink::{AuditError, AuditSink, MerkleRoot};
+    use crate::unified_audit::UnifiedAuditEvent;
     use crate::super_domain::SuperDomain as SD;
     use thinking_engine::bridge_gate::{CognitiveBridgeGate, CognitiveOpKind, CognitiveAuthResult};
 
@@ -230,10 +231,13 @@ mod tests {
     impl RecordingSink {
         fn count(&self) -> usize { self.events.lock().unwrap().len() }
     }
-    impl UnifiedAuditSink for RecordingSink {
-        fn emit(&self, event: &UnifiedAuditEvent) {
-            self.events.lock().unwrap().push(*event);
+    impl AuditSink for RecordingSink {
+        fn emit(&self, event: UnifiedAuditEvent) -> Result<(), AuditError> {
+            self.events.lock().unwrap().push(event);
+            Ok(())
         }
+        fn flush(&self) -> Result<MerkleRoot, AuditError> { Ok(0) }
+        fn checkpoint(&self) -> Result<(), AuditError> { Ok(()) }
     }
 
     // ── Chinese-wall tests ───────────────────────────────────────────────────
