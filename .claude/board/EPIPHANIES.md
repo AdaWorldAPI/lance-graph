@@ -65,6 +65,162 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-05-13 — FINDING: FMA (75K-entity human anatomy OWL ontology) is the canonical smoke-test for the entire OGIT ↔ OSINT ↔ Palantir/Neo4j ↔ q2 route — dual-test for edge propagation AND Healthcare super-domain
+
+**Status:** FINDING (anchors the demo-able milestone for the whole integration arc)
+
+User instruction 2026-05-13: "remember the show-off to wire FMA 70K human anatomy as on-screen rendering — smoke test for both neo4j-ish edges propagation AND healthcare". This pins the **demo-able milestone** that the entire integration plan (D-SDR-* + Pattern E+F+cognition cascade + super-domain subcrate cascade + q2 wiring + EWA-Sandwich proof) is converging towards.
+
+**FMA (Foundational Model of Anatomy):**
+
+- **75,000 anatomical classes + 168 properties** (`anatomy-realtime-v1.md` §1).
+- OWL-formatted ontology — directly exercises our `OgitFamilyTable` codebook lookup at scale (way above the 256-slot-per-family cap, so it forces the OGIT addressing to demonstrate multi-basin coordination).
+- Public dataset (no HIPAA constraints on FMA itself; the **enforcement smoke-test** is wrapping it under `SuperDomain::Healthcare` to prove the auth pipeline works at scale).
+- Already targeted as `G=FMA_V1` ContextBundle in `anatomy-realtime-v1.md` PR-ANATOMY-1 (OWL hydrator for FMA).
+
+**Why FMA is the right smoke-test (dual purpose):**
+
+1. **Neo4j-ish edges propagation test** — 168 properties × 75K entities = the multi-hop graph traversal benchmark. The EWA-Sandwich Σ-push-forward (Pillar 6 PR #289, certified 10000/10000 PSD-preservation) replaces Neo4j-style edge traversal for "show everything connected to the heart" queries (`anatomy-realtime-v1.md` row 6 + 7). **If FMA's heart-connected substructure resolves correctly via EWA-Sandwich, the Neo4j substitute is operationally proven.**
+2. **Healthcare super-domain test** — wrap the FMA registry under `UnifiedBridge<MedcareBridge>::with_audit_chain(SuperDomain::Healthcare, salt, JsonLinesAuditSink::healthcare())`. Every FMA query emits a chained `UnifiedAuditEvent` carrying `merkle_root` + (after cognition-bridge lands) `awareness_root`. **If FMA queries under the Healthcare authorize-pipeline produce the right policy/audit/role-projection chain at scale, the medcare super-domain subcrate is operationally proven.**
+3. **Visual rendering test** — q2 cockpit-server renders FMA in 3D with anatomical labels overlaid + cross-section (`anatomy-realtime-v1.md` row 7 — "Realtime 3D render with FMA labels"). Tests `q2::notebook-render` + Pattern H (`p64-bridge::CognitiveShader` dispatches per-G program). **If the heart-click-to-rendered-anatomy round-trip works, Palantir-Gotham-parity visual surface is operationally proven.**
+
+**The smoke test as one continuous demo:**
+
+```
+User opens q2 notebook → writes Cypher cell:
+    MATCH (h:Heart)-[r*1..5]-(connected) RETURN h, r, connected
+
+q2::notebook-query (polyglot parser)
+    → lance-graph-planner Strategy #1 (CypherParse)
+    → UnifiedLogicalPlan with 5-hop * traversal
+    → UnifiedBridge<MedcareBridge>::authorize_read(canonical='Heart', PrefetchDepth::Multihop(5))
+       ├─ SuperDomain::Healthcare salt applied to AuditChain
+       ├─ Policy::evaluate("clinician", "Heart", Operation::Read{depth:Multihop(5)}) → Allow
+       ├─ UnifiedAuditEvent emitted with merkle_root + awareness_root
+       └─ EwaSandwichTraversal::propagate_5hop(heart_id, Sigma_FMA) → multi-hop Σ in 1 vector pass
+    → DataFusion ScanExec over Lance dataset with G=FMA_V1
+       ├─ batch-decorated with DolceMarker (Endurant for body parts, Quality for properties)
+       ├─ Path C (ndarray::simd::gather_u8) for per-row super-domain annotation
+       └─ thinking-engine projection per row (RoleProjection::for_role("clinician"))
+    → Arrow RecordBatch with ~thousands of heart-connected anatomical entities
+    → q2::notebook-render (3D anatomy view + labels + cross-section)
+    → User clicks "show everything connected to the heart"
+    → Real-time graph propagation visible on screen
+```
+
+**This demo touches ALL THREE substrate paths (Path A thinking-engine + Path B ractor + Path C ndarray::simd) AND all integration plan deliverables:**
+
+- D-SDR-1..5 (UnifiedBridge with audit emission) — every query carries the auth/audit pipeline
+- D-SDR-3b (TTL hydration baker) — FMA TTL → OgitFamilyTable populated
+- D-ONTO-V5-3 (Healthcare TTL transcode) — `OGIT/NTO/Healthcare/{entities,verbs}/*.ttl` includes FMA
+- D-ANATOMY-1..7 from `anatomy-realtime-v1.md` — the demo pipeline itself
+- D-SPLAT-1..7 from splat-osint-ingestion (EWA-Sandwich edge propagation)
+- D-PARITY-V2-* (DTO ladder for Foundry-parity visual)
+- Q2-1.1..Q2-1.7 + Q2-2.x (q2 bridge + Cypher console)
+- Pattern E manifest entry: `/modules/healthcare/manifest.yaml` declares FMA as part of Healthcare super-domain
+- Pattern F ractor: CallcenterSupervisor spawns HealthcareActor on boot
+- thinking-engine wiring: cognition_bridge projects clinician role through `role_tables`
+
+**Implication for the integration plan:**
+
+The FMA demo is the **integration gate** for Phase-C of `anatomy-realtime-v1.md` ("End of this phase = the system is demoable end-to-end"). Every deliverable in the active plans (`super-domain-rbac-tenancy-v1`, `palantir-parity-cascade-v2`, `splat-osint-ingestion-v1`, `lance-graph-ontology-v5`, `anatomy-realtime-v1`, `compile-time-consumer-binding-v1`, `ogit-cascade-supabase-callcenter-v1`) converges towards this demo. **A working FMA-heart-click demo is the proof that the integration plan stands up under real-world workload.**
+
+**Sequencing the FMA smoke-test as the convergence anchor:**
+
+1. **Phase 0** (current sprint, this week): follow-up PR for D-SDR-3..5 + consumer-side push of medcare-rs `unified_bridge_wiring`.
+2. **Phase 0.5** (next 1-2 sprints): Pattern E+F+cognition cascade (manifest + ractor + cognition-bridge) — establishes the runtime topology FMA queries will route through.
+3. **Phase 1** (next 1-2 sprints, parallel with 0.5): D-ONTO-V5-3 (Healthcare TTL transcode) + D-SDR-3b (TTL hydration baker) → `OgitFamilyTable` populated from FMA TTL.
+4. **Phase 2** (after 0.5+1): PR-ANATOMY-1 OWL hydrator + PR-ANATOMY-2 ContextBundle lookup + PR-ANATOMY-3 (`anatomy-realtime-v1.md` Phase B Hydrators).
+5. **Phase 3** (after 2, parallel with Tier H LanceProbe wiring): D-SPLAT-1..7 (EWA-Sandwich contract types + `osint_edge_traversal.rs` demo refactored as `fma_edge_traversal.rs`).
+6. **Phase 4** (after 3): PR-ANATOMY-4 (Q2 3D view) + PR-ANATOMY-5 (medical vocab) + Q2-2.x Cypher console wiring. **End of Phase 4 = demoable FMA smoke-test.**
+
+**The ball that mustn't drop:** without an explicit smoke-test anchor, the integration plan is a list of deliverables without a definition of "done at integration scope". The FMA demo provides that definition. Every PR review can ask "does this move us closer to the heart-click demo?" — if yes, ship; if no, re-scope. This entry pins the anchor so future sessions don't lose sight of it.
+
+Cross-ref: `.claude/plans/anatomy-realtime-v1.md` (the full Phase A-D plan with FMA as Pattern A target); `.claude/plans/lance-graph-ontology-v5.md` D-ONTO-V5-3 (Healthcare TTL transcode includes FMA); `.claude/plans/2026-05-06-splat-osint-ingestion-v1.md` D-SPLAT-1..7 (EWA-Sandwich primitives); `.claude/plans/q2-foundry-integration-v1.md` Q2-1.1..Q2-1.7 (q2 cockpit + Cypher console); `EPIPHANIES.md` 2026-05-13 OGIT-OSINT-Palantir/Neo4j-q2 route (this entry anchors that route's smoke-test); `IDEAS.md` 2026-05-13 super-domain subcrate scaffolding cascade (medcare PR 1 is the Healthcare path FMA rides on); `TECH_DEBT.md` TD-Q2-STUBS-DEDUP-1 (q2's lance-graph + ndarray stubs need to be re-exports for the demo to compile against canonical crates).
+
+## 2026-05-13 — FINDING: the OGIT ↔ OSINT ↔ Palantir Gotham / Neo4j route runs through q2 — q2 is the external graph-notebook consumer (Tier C super-domain subcrate equivalent)
+
+**Status:** FINDING (closes a Q2-shaped hole left open across multiple plans)
+
+User instruction 2026-05-13: "add q2 to MCP scope, access via pygithub, wire the OGIT ↔ OSINT ↔ Palantir Gotham / Neo4j route". q2 is already in the MCP scope per the session prompt (`adaworldapi/q2`); access verified via `mcp__github__get_file_contents` on `README.md`. The discovery: **q2 IS the external graph-notebook consumer for the entire integration plan** — what hubspot-rs / hiro-rs / woa-rs are to Tier C, q2 is for the visual + interactive + polyglot-query slot.
+
+**q2's relevant inventory (from its README + workspace):**
+
+| q2 component | What it provides | Maps onto OGIT ↔ OSINT ↔ Palantir/Neo4j route |
+|---|---|---|
+| `crates/stubs/notebook-query` | Cypher / Gremlin / SPARQL polyglot query execution (stub — to be replaced with full impl) | The **external query surface** that lowers polyglot graph queries onto our DataFusion plan via `lance-graph-planner` 16 strategies |
+| `crates/stubs/lance-graph` (q2's local stub) | Graph storage with vertex/edge CRUD (stub) | Should re-export `AdaWorldAPI/lance-graph` instead of carrying its own stub — current stub is what they put together as a placeholder |
+| `crates/stubs/notebook-runtime` | Reactive cell DAG with dependency tracking | The **execution surface** that runs polyglot cells against the OGIT spine and reacts to graph changes (Supabase realtime path per `ogit-cascade-supabase-callcenter-v1`) |
+| `crates/stubs/notebook-render` | HTML rendering for graphs / tables / charts | The **visual surface** that renders Palantir-Gotham-equivalent graph views (per `palantir-parity-cascade-v2` § Q2-2.x) |
+| `crates/stubs/q2-ndarray` | SIMD array operations stub | Should re-export `AdaWorldAPI/ndarray` instead — same dedup logic as the lance-graph stub |
+| `crates/cockpit-server` | Q2 cockpit UI server | The **operator surface** for Foundry/Gotham parity (Q2 cockpit was always the Foundry-parity target per `palantir-parity-cascade-v2` Foundry-status table: IN PROGRESS) |
+| `crates/aiwar-ingest` | AI War cloud dataset pipeline | The **data ingest** surface that exercises the OSINT super-domain — the `aiwar` repo is the external dataset; `neo4j-rs` is the backend; aiwar-ingest is the q2-side ingest |
+| Related repo `neo4j-rs` (`AdaWorldAPI/neo4j-rs`) | Graph database backend | The **substrate** that the EWA-Sandwich proof (Pillar 6 PR #289) substitutes for via splat-osint-ingestion-v1 |
+| Related repo `aiwar-neo4j-harvest` | Graph data pipeline | The migration source for legacy Neo4j data → Lance |
+| Related repo `aiwar` | AI War Cloud dataset | The reference OSINT-shape dataset |
+
+**The full route, end-to-end:**
+
+```
+External user opens q2 notebook
+    │ writes Cypher / Gremlin / SPARQL cell
+    ▼
+q2::notebook-query (polyglot parser)
+    │ via lance-graph-planner Strategy #1-4 (CypherParse / GqlParse / GremlinParse / SparqlParse)
+    ▼
+lance-graph-planner Unified Logical Plan (ArenaIR + DPJoinEnum + ...)
+    │ applies PolicyRewriter chain (RowFilter + ColumnMask + RowEncryption + DP + Audit)
+    │ via UnifiedBridge<Q2Bridge>::authorize_read (super_domain = TBD — likely Osint for aiwar-shape data, TicketTool for cockpit-server)
+    ▼
+DataFusion ScanExec over Lance datasets
+    │ per-row identity = TenantId u32 + OwlIdentity u16 (6 bytes)
+    │ batch-decorated with DolceMarker / Foundry ObjectType via Path C (ndarray::simd gather)
+    │ thinking-engine projection (Path A) carries awareness frame alongside merkle audit
+    │ ractor supervisor (Path B) routes per-actor per-super-domain crash isolation
+    ▼
+Arrow RecordBatch result → q2::notebook-render
+    │ visualises as graph (Palantir-Gotham-equivalent) / table / chart
+    │ reactive cell DAG (notebook-runtime) listens for Supabase realtime cognitive_event updates
+    ▼
+External user sees Foundry/Gotham-parity surface backed by the OGIT super-domain stack
+```
+
+**Where the route is already partly wired:**
+
+- `palantir-parity-cascade-v2.md` table cites: "Cypher / Workshop console → Q2 Cypher Console (polyglot) → Q2-2.x (QUEUED)". The console design exists; Q2-2.x is queued behind the Foundry parity capstone.
+- `q2-foundry-integration-v1.md` Q2-1.1..Q2-1.7 (referenced in `lance-graph-ontology-v5.md` D-ONTO-V5-5) defines q2's foundry-shape entities (Quarto / Neo4j / Gotham equivalents) that get a TTL transcode under `OGIT/NTO/Q2/`.
+- `lance-graph-ontology-v5.md` D-ONTO-V5-5 ships `OGIT/NTO/Q2/{entities,verbs}/*.ttl` + `crates/lance-graph-ontology/src/bridges/q2_bridge.rs` (NEW, ~45 LOC mirroring `medcare_bridge.rs`). q2 binary holds an `Arc<OntologyRegistry>` and resolves `Workshop`, `Vertex`, `Doctemplate` via the `Q2Bridge`.
+- `2026-05-06-splat-osint-ingestion-v1.md` ships the `crates/jc/examples/osint_edge_traversal.rs` demo proving EWA-Sandwich Σ-push-forward as the Neo4j-edge-traversal substitute — Pillar 6 PR #289 certified the math.
+
+**Where the route has gaps:**
+
+1. **q2's local `lance-graph` stub is a duplicate.** It should `pub use lance_graph::*` from `AdaWorldAPI/lance-graph` (this repo) instead of carrying its own placeholder. Closing this dedup needs a q2-side PR that adds `lance-graph = { path = "../../../lance-graph" }` to q2's workspace + replaces the stub with re-exports.
+2. **q2's local `q2-ndarray` stub is a duplicate.** Same logic — should `pub use ndarray::*` from `AdaWorldAPI/ndarray`.
+3. **`notebook-query` polyglot dispatcher is unwired.** Today it's a stub; the wiring point is `lance-graph-planner::api::PolyglotDetector` (Strategy #1-4 fan-out). One PR adds the bridge.
+4. **Q2Bridge (D-ONTO-V5-5) needs the TTL+bridge work.** Currently queued; ~45 LOC + a ~10-entity TTL transcode under `OGIT/NTO/Q2/`. Blocked on `AdaWorldAPI/OGIT` MCP scope expansion (same blocker as D-SDR-6/7 for hiro/hubspot).
+5. **OSINT super-domain wiring.** The thinking-engine ships `osint_bridge.rs`; the q2 `aiwar-ingest` consumes OSINT-shape data. Wiring point: `UnifiedBridge<AiwarBridge>::with_audit_chain(SuperDomain::Osint, ...)`. Needs the manifest-driven boot (Pattern E) + ractor handler (Pattern F) — the Pattern E+F+cognition cascade unblocks this.
+6. **Palantir Gotham parity at the visual surface.** `palantir-parity-cascade-v2` D-PARITY-V2-3..12 ship the DTO ladder; Q2-2.x ships the cockpit visualisation. Without these, the Cypher console renders generic graphs, not Foundry-parity Workshop views.
+7. **Neo4j route via EWA-Sandwich.** Math is certified (Pillar 6 PR #289); splat-osint-ingestion-v1 D-SPLAT-1..7 ships the contract types + demo example. Wiring point: q2 cells that traverse multi-hop edges call into `osint_edge_traversal.rs`'s `EwaSandwichTraversal` rather than directly issuing 5-hop Cypher against neo4j-rs. **This is the migration of the aiwar workload off neo4j-rs onto lance-graph.**
+
+**Implication for the integration plan:**
+
+q2 is the **8th consumer subcrate slot** alongside the 5 super-domain subcrates (medcare-rs / smb-office-rs / woa-rs / hiro-rs / hubspot-rs) + 2 super-domain root crates (osint substrate via thinking-engine::osint_bridge / aiwar-ingest). The Tier C scope grows from 5 to 8:
+
+| # | Super-domain | Consumer subcrate | Existing repo / planned | Activation root | Compliance |
+|---|---|---|---|---|---|
+| 1 | Healthcare | medcare-rs::healthcare | exists, mid-migration | HIPAA |  |
+| 2 | WorkOrderBilling (SMB) | smb-office-rs::smb-bridge | exists, mid-migration | SOX/PCI-DSS |  |
+| 3 | WorkOrderBilling (WoA) | woa-rs (planned extraction) | woa_bridge.rs in lance-graph-ontology today | SOX |  |
+| 4 | TicketTool (Hiro) | hiro-rs (new) | D-SDR-8 | (TBD) |  |
+| 5 | TicketTool (HubSpot) | hubspot-rs (new) | D-SDR-9 | PCI-DSS billing |  |
+| 6 | **Osint** | **aiwar-ingest (in q2 workspace)** | `AdaWorldAPI/q2/crates/aiwar-ingest` exists | OSINT clearance |  |
+| 7 | **(cross-cutting visual)** | **q2::cockpit-server + notebook-* crates** | `AdaWorldAPI/q2/crates/cockpit-server + crates/stubs/*` | (cross-cutting — visual is per-super-domain) |  |
+| 8 | (related research) | `neo4j-rs` + `aiwar-neo4j-harvest` + `aiwar` | external Adapt repos | OSINT clearance |  |
+
+**The ball that mustn't drop:** q2 was being treated as one of many "external tools that consume lance-graph" — but with this finding it's clear q2 is a **core consumer subcrate** that ships the cockpit visual surface AND the OSINT ingest pipeline AND the polyglot query notebook. Plus its own stubs need to be replaced with re-exports from the canonical crates. Without this entry, the next session would scaffold q2 wiring as a generic external integration and miss the super-domain subcrate framing.
+
+Cross-ref: `q2/README.md` (the inventory); `q2/crates/aiwar-ingest`, `q2/crates/cockpit-server`, `q2/crates/stubs/notebook-*`; `q2-foundry-integration-v1.md` Q2-1.1..Q2-1.7; `lance-graph-ontology-v5.md` D-ONTO-V5-5; `palantir-parity-cascade-v2.md` Q2-2.x; `2026-05-06-splat-osint-ingestion-v1.md` D-SPLAT-1..7; `EPIPHANIES.md` 2026-05-13 super-domain subcrate finding (this extends the 5-subcrate table to 8 slots); `IDEAS.md` 2026-05-13 super-domain subcrate scaffolding cascade (q2 slot adds PR 6+7+8 to the cascade); `TECH_DEBT.md` TD-Q2-STUBS-DEDUP-1 (today).
+
 ## 2026-05-13 — CLARIFICATION: the OGIT hierarchy is NOT strictly nested — SuperDomain × OGIT-basin × OWL-leaf × DOLCE-leaf are partially orthogonal axes
 
 **Status:** FINDING (clarifies spec §1-§2 "4-level hierarchy" framing)

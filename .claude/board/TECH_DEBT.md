@@ -66,6 +66,67 @@ filter discipline — agents pull their own debt by `@`-mention.
 (Seeded with known deferrals from recent PRs. New items PREPEND
 with today's date.)
 
+## 2026-05-13 — TD-Q2-STUBS-DEDUP-1: q2 carries local `lance-graph` + `q2-ndarray` stubs that must be replaced with re-exports from the canonical crates before FMA demo can compile
+
+**Status:** Open
+**Priority:** P1 (blocks FMA smoke-test compilation against canonical OGIT pipeline)
+**Scope:** crate:q2 crate:lance-graph crate:ndarray D-ONTO-V5-5 Q2-1.x Q2-2.x domain:dedup domain:consumer-scaffolding
+**Introduced by:** q2 placed stubs at `crates/stubs/lance-graph` + `crates/stubs/q2-ndarray` as placeholders during initial workspace bring-up
+**Payoff estimate:** 1 PR to q2 workspace adding `lance-graph = { path = "../../../lance-graph" }` and `ndarray = { path = "../../../ndarray" }` to Cargo.toml + replacing each stub with `pub use <canonical>::*;` re-exports + adjusting any local API calls — ~60 LOC + 2 integration tests proving the FMA query path works against canonical crates.
+
+### What
+
+q2's `crates/stubs/lance-graph` and `crates/stubs/q2-ndarray` are placeholder crates inside the q2 workspace, written before the canonical `AdaWorldAPI/lance-graph` and `AdaWorldAPI/ndarray` were ready. The stubs ship minimal vertex/edge CRUD + basic SIMD ops respectively, but the canonical crates are now mature:
+
+- `AdaWorldAPI/lance-graph` = 22 crates / 250+ tests / Cypher+GQL+Gremlin+SPARQL parsers / 16 planner strategies / SPO triple store / CAM-PQ codec / DataFusion convergence (this repo).
+- `AdaWorldAPI/ndarray` = SIMD foundation (`Fingerprint<256>`, CAM-PQ codec, CLAM tree, BLAS L1/L2/L3, ZeckF64, HDR cascade, jitson/Cranelift JIT).
+
+Until the stubs are replaced with re-exports, `q2::notebook-query` cannot dispatch to `lance-graph-planner` strategies, `q2::aiwar-ingest` cannot use the canonical `OGIT::FamilyTable` lookup, and `q2::cockpit-server` cannot render Foundry-parity views against the same SoA the OGIT pipeline produces.
+
+### Why this debt matters
+
+1. **FMA smoke-test cannot compile** against the canonical pipeline until q2 imports from `AdaWorldAPI/lance-graph`. The 75K-entity dataset needs the real planner + Cypher parser + EWA-Sandwich substrate.
+2. **Polyglot query dispatch is unwired.** `q2::notebook-query` stub returns `unimplemented!()` for Cypher/Gremlin/SPARQL; the real dispatcher lives at `lance-graph-planner::api::PolyglotDetector` + Strategy #1-4.
+3. **Cockpit-server cannot project SoA data** because `q2::lance-graph` stub doesn't ship the BindSpace SoA columns; the canonical lance-graph does.
+4. **Pattern E manifest cannot include q2** because q2's local lance-graph isn't the same type universe as the rest of the workspace's lance-graph — the manifest's `actor_type` field would point at the wrong type definitions.
+
+### The PR shape
+
+A single q2-side PR (~60 LOC + 2 tests):
+
+1. **Cargo.toml** (q2 workspace root):
+   ```toml
+   [workspace.dependencies]
+   lance-graph = { path = "../lance-graph" }
+   ndarray = { path = "../ndarray", default-features = false }
+   ```
+2. **`crates/stubs/lance-graph/src/lib.rs`** → replace contents with `pub use lance_graph::*;` (or delete the stub and update Cargo.lock).
+3. **`crates/stubs/q2-ndarray/src/lib.rs`** → replace with `pub use ndarray::*;`.
+4. **Adjust any in-q2 call sites** that depended on the stub's narrower API surface. The README claims the stubs are "minimal vertex/edge CRUD + zeros/ones/matmul" so the canonical APIs are strict supersets; call-site adjustments should be additive (more functionality, no breaking renames).
+5. **2 integration tests:**
+   - `q2_lance_graph_canonical_test.rs`: instantiates `lance_graph::OntologyRegistry::new_in_memory()` from inside q2's notebook-query crate — proves type-universe coherence.
+   - `q2_ndarray_simd_dispatch_test.rs`: calls `ndarray::simd::cosine_simd` from q2-ndarray re-export — proves the canonical SIMD path is reachable.
+
+### Payoff
+
+After this PR lands: (a) FMA smoke-test pipeline compiles against canonical crates, (b) q2's manifest entry (under Pattern E) can declare q2 actors against the right types, (c) the `palantir-parity-cascade-v2` Q2-2.x Cypher console wiring becomes mechanical (just dispatch `lance-graph-planner::Strategy` through `notebook-query`).
+
+### Risk if left open
+
+The FMA smoke-test cannot ship because the compilation surfaces don't match. Every q2-side PR that lands against the stubs accumulates a dedup PR against canonical that has to be revisited later. Same risk class as `TD-SUPER-DOMAIN-SUBCRATES-1`: half-migrated consumer scaffolding compounds entropy.
+
+### Cross-references
+
+- `EPIPHANIES.md` 2026-05-13 OGIT-OSINT-Palantir/Neo4j-q2 route finding (the harvested observation)
+- `EPIPHANIES.md` 2026-05-13 FMA smoke-test anchor (the convergence target this debt blocks)
+- `IDEAS.md` 2026-05-13 super-domain subcrate scaffolding cascade (q2 wiring is PR 6+7+8 of an extended cascade)
+- `q2/README.md` (the Quarto 2 inventory naming both stubs)
+- `.claude/plans/q2-foundry-integration-v1.md` Q2-1.1..Q2-1.7 (the cockpit + Cypher console design)
+- `.claude/plans/lance-graph-ontology-v5.md` D-ONTO-V5-5 (Q2Bridge + `OGIT/NTO/Q2/*.ttl`)
+- `.claude/plans/anatomy-realtime-v1.md` PR-ANATOMY-1..7 (the FMA demo pipeline)
+
+---
+
 ## 2026-05-13 — TD-API-DRIFT-MIDFLIGHT-1: consumer migrations failing mid-air due to D-SDR-1..5 API drift on the source crate
 
 **Status:** Open
