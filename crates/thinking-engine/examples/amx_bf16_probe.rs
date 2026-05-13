@@ -13,7 +13,7 @@
 
 use ndarray::hpc::amx_matmul::amx_available;
 use ndarray::hpc::bf16_tile_gemm::bf16_tile_gemm_16x16;
-use ndarray::simd::{F32x16, f32_to_bf16_batch, bf16_to_f32_batch};
+use ndarray::simd::{bf16_to_f32_batch, f32_to_bf16_batch, F32x16};
 
 /// Scalar BF16-truncated reference using F32x16 + mul_add FMA
 /// (canonical ndarray "array_window" idiom).
@@ -21,8 +21,10 @@ fn ref_gemm_f32x16(a: &[f32], b: &[f32], c: &mut [f32], m: usize, n: usize, k: u
     for i in 0..m {
         for j in 0..n {
             let mut col = vec![0.0f32; k];
-            for kk in 0..k { col[kk] = b[kk * n + j]; }
-            let row = &a[i * k .. i * k + k];
+            for kk in 0..k {
+                col[kk] = b[kk * n + j];
+            }
+            let row = &a[i * k..i * k + k];
             let mut acc = F32x16::splat(0.0);
             for (rc, cc) in row.chunks_exact(16).zip(col.chunks_exact(16)) {
                 acc = F32x16::from_slice(rc).mul_add(F32x16::from_slice(cc), acc);
@@ -34,7 +36,11 @@ fn ref_gemm_f32x16(a: &[f32], b: &[f32], c: &mut [f32], m: usize, n: usize, k: u
 
 fn main() {
     println!("═══ bf16_tile_gemm polyfill probe ═══");
-    let path = if amx_available() { "AMX (TDPBF16PS)" } else { "AVX-512 F32x16 fallback" };
+    let path = if amx_available() {
+        "AMX (TDPBF16PS)"
+    } else {
+        "AVX-512 F32x16 fallback"
+    };
     println!("  Dispatch path: {}", path);
 
     const M: usize = 16;
@@ -46,11 +52,12 @@ fn main() {
     let mut b_f32 = vec![0.0f32; K * N];
     for i in 0..a_f32.len() {
         a_f32[i] = (((i as i32).wrapping_mul(1103515245).wrapping_add(12345) >> 8) as f32
-                    / 2147483648.0).clamp(-1.0, 1.0);
+            / 2147483648.0)
+            .clamp(-1.0, 1.0);
     }
     for i in 0..b_f32.len() {
-        b_f32[i] = (((i as i32).wrapping_mul(69069).wrapping_add(1) >> 8) as f32
-                    / 2147483648.0).clamp(-1.0, 1.0);
+        b_f32[i] = (((i as i32).wrapping_mul(69069).wrapping_add(1) >> 8) as f32 / 2147483648.0)
+            .clamp(-1.0, 1.0);
     }
 
     // Quantize inputs to bf16 (the GEMM operands)
@@ -78,7 +85,9 @@ fn main() {
     let mut sum_sq_err = 0.0f64;
     for i in 0..(M * N) {
         let e = (c[i] - c_ref[i]).abs();
-        if e > max_abs { max_abs = e; }
+        if e > max_abs {
+            max_abs = e;
+        }
         sum_sq_err += (e as f64) * (e as f64);
     }
     let rmse = (sum_sq_err / (M * N) as f64).sqrt();
@@ -86,7 +95,11 @@ fn main() {
     println!("  rmse      = {:.6}", rmse);
 
     let pass = max_abs < 1e-2;
-    println!("\n  {} (threshold max |err| < 1e-2)",
-        if pass { "★ PASS" } else { "✗ FAIL" });
-    if !pass { std::process::exit(1); }
+    println!(
+        "\n  {} (threshold max |err| < 1e-2)",
+        if pass { "★ PASS" } else { "✗ FAIL" }
+    );
+    if !pass {
+        std::process::exit(1);
+    }
 }

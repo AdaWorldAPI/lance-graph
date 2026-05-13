@@ -17,18 +17,17 @@
 //!     --manifest-path crates/thinking-engine/Cargo.toml
 //! ```
 
+use bgz_tensor::hhtl_cache::HhtlCache;
 use ndarray::hpc::audio::bands;
-use ndarray::hpc::audio::voice::{VoiceArchetype, VoiceCodebook, VoiceFrame, RvqFrame};
 use ndarray::hpc::audio::phase::PhaseDescriptor;
 use ndarray::hpc::audio::synth;
-use bgz_tensor::hhtl_cache::HhtlCache;
+use ndarray::hpc::audio::voice::{RvqFrame, VoiceArchetype, VoiceCodebook, VoiceFrame};
 use std::time::Instant;
 
 const CODES_PATH: &str = "/home/user/models/qwen3-tts-0.6b/codebooks/cascade_audio_codes.bin";
 const CODEBOOK_DIR: &str = "/home/user/models/qwen3-tts-0.6b/codebooks";
 const WAV_PATH: &str = "/home/user/models/cascade_output.wav";
 const SAMPLE_RATE: u32 = 24000;
-
 
 fn main() {
     println!("═══ TTS WAV SYNTHESIZER (synth.rs pipeline) ═══\n");
@@ -37,8 +36,13 @@ fn main() {
     let hhtl_path = format!("{}/code_predictor_gate_proj_hhtl.bgz", CODEBOOK_DIR);
     let palette_cache = match HhtlCache::deserialize(&hhtl_path) {
         Ok(c) => {
-            println!("[1] HHTL cache loaded: k={}, gamma=[{:.4},{:.4},{:.4}]",
-                c.k(), c.gamma_meta[0], c.gamma_meta[1], c.gamma_meta[2]);
+            println!(
+                "[1] HHTL cache loaded: k={}, gamma=[{:.4},{:.4},{:.4}]",
+                c.k(),
+                c.gamma_meta[0],
+                c.gamma_meta[1],
+                c.gamma_meta[2]
+            );
             c
         }
         Err(e) => {
@@ -74,40 +78,54 @@ fn main() {
 
     // Step 3: Convert 16-byte cascade codes → VoiceFrame (21 bytes)
     // Cascade: [16 × u8] → RvqFrame { archetype, coarse[8], fine[8] } + PhaseDescriptor
-    let codebook = VoiceCodebook { entries: (0..256).map(|_| VoiceArchetype::zero()).collect() };
-    let voice_frames: Vec<VoiceFrame> = (0..n_frames).map(|i| {
-        let offset = i * 16;
-        let codes = &code_bytes[offset..offset + 16];
-        // Map: code[0] = archetype, codes[1..9] = coarse, codes[9..16]+pad = fine
-        let mut coarse = [0u8; 8];
-        let mut fine = [0u8; 8];
-        coarse.copy_from_slice(&codes[0..8]);
-        fine[..7].copy_from_slice(&codes[8..15]);
-        fine[7] = codes[15];
+    let codebook = VoiceCodebook {
+        entries: (0..256).map(|_| VoiceArchetype::zero()).collect(),
+    };
+    let voice_frames: Vec<VoiceFrame> = (0..n_frames)
+        .map(|i| {
+            let offset = i * 16;
+            let codes = &code_bytes[offset..offset + 16];
+            // Map: code[0] = archetype, codes[1..9] = coarse, codes[9..16]+pad = fine
+            let mut coarse = [0u8; 8];
+            let mut fine = [0u8; 8];
+            coarse.copy_from_slice(&codes[0..8]);
+            fine[..7].copy_from_slice(&codes[8..15]);
+            fine[7] = codes[15];
 
-        VoiceFrame {
-            rvq: RvqFrame {
-                archetype: codes[0],
-                coarse,
-                fine,
-            },
-            phase: PhaseDescriptor {
-                bytes: [codes[1], codes[5], codes[9], codes[13]],
-            },
-        }
-    }).collect();
+            VoiceFrame {
+                rvq: RvqFrame {
+                    archetype: codes[0],
+                    coarse,
+                    fine,
+                },
+                phase: PhaseDescriptor {
+                    bytes: [codes[1], codes[5], codes[9], codes[13]],
+                },
+            }
+        })
+        .collect();
     println!("[3] Converted to {} VoiceFrames", voice_frames.len());
 
     // Step 4: Synthesize using synth.rs (overlap-add, phase modulation, the works)
     let t0 = Instant::now();
     let pcm = synth::synthesize(&voice_frames, &codebook, &coarse_centroids, SAMPLE_RATE);
-    println!("[4] Synthesized {} samples in {:?} ({:.2}s at {}Hz)",
-        pcm.len(), t0.elapsed(), pcm.len() as f64 / SAMPLE_RATE as f64, SAMPLE_RATE);
+    println!(
+        "[4] Synthesized {} samples in {:?} ({:.2}s at {}Hz)",
+        pcm.len(),
+        t0.elapsed(),
+        pcm.len() as f64 / SAMPLE_RATE as f64,
+        SAMPLE_RATE
+    );
 
     // Step 5: Write WAV using synth.rs (proper normalization + header)
     let wav = synth::write_wav(&pcm, SAMPLE_RATE);
     std::fs::write(WAV_PATH, &wav).expect("write WAV");
-    println!("[5] WAV written: {} ({} bytes, {:.1} KB)", WAV_PATH, wav.len(), wav.len() as f64 / 1024.0);
+    println!(
+        "[5] WAV written: {} ({} bytes, {:.1} KB)",
+        WAV_PATH,
+        wav.len(),
+        wav.len() as f64 / 1024.0
+    );
 
     // Validate
     if let Ok((sr, n)) = synth::validate_wav(&wav) {

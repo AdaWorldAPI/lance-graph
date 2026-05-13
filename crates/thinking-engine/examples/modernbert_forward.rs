@@ -7,7 +7,7 @@
 
 #[cfg(feature = "calibration")]
 fn main() {
-    use candle_core::{Device, DType, IndexOp, Tensor};
+    use candle_core::{DType, Device, IndexOp, Tensor};
     use candle_nn::VarBuilder;
     use candle_transformers::models::modernbert;
 
@@ -19,12 +19,14 @@ fn main() {
     let dtype = DType::F32;
 
     // Load config
-    let config_str = std::fs::read_to_string(
-        "crates/thinking-engine/data/modernbert-onnx/config.json"
-    ).expect("config.json");
+    let config_str =
+        std::fs::read_to_string("crates/thinking-engine/data/modernbert-onnx/config.json")
+            .expect("config.json");
     let config: modernbert::Config = serde_json::from_str(&config_str).expect("parse config");
-    println!("[1] Config: {} layers, {} hidden, {} vocab, GeGLU({})",
-        config.num_hidden_layers, config.hidden_size, config.vocab_size, config.intermediate_size);
+    println!(
+        "[1] Config: {} layers, {} hidden, {} vocab, GeGLU({})",
+        config.num_hidden_layers, config.hidden_size, config.vocab_size, config.intermediate_size
+    );
 
     // Load safetensors
     let model_path = "crates/thinking-engine/data/modernbert-onnx/model.safetensors";
@@ -40,8 +42,9 @@ fn main() {
 
     // Load tokenizer
     let tokenizer = tokenizers::Tokenizer::from_file(
-        "crates/thinking-engine/data/modernbert-onnx/tokenizer.json"
-    ).expect("tokenizer");
+        "crates/thinking-engine/data/modernbert-onnx/tokenizer.json",
+    )
+    .expect("tokenizer");
     println!("[4] Tokenizer: OLMo BPE (50K vocab)");
 
     // Test texts
@@ -63,12 +66,16 @@ fn main() {
         let ids = enc.get_ids();
         let n_tokens = ids.len();
 
-        let input_ids = Tensor::new(ids, &device).expect("tensor")
-            .unsqueeze(0).expect("batch");
+        let input_ids = Tensor::new(ids, &device)
+            .expect("tensor")
+            .unsqueeze(0)
+            .expect("batch");
 
         // Attention mask: all 1s (no padding)
-        let mask = Tensor::ones_like(&input_ids).expect("mask")
-            .to_dtype(DType::F32).expect("mask dtype");
+        let mask = Tensor::ones_like(&input_ids)
+            .expect("mask")
+            .to_dtype(DType::F32)
+            .expect("mask dtype");
 
         // Forward (no KV cache, stateless encoder)
         let hidden = model.forward(&input_ids, &mask).expect("forward");
@@ -76,17 +83,42 @@ fn main() {
         // Try BOTH pooling strategies
         // CLS: first token (BERT convention)
         let cls = hidden.i((0, 0)).expect("cls");
-        let cls_norm = cls.sqr().expect("s").sum_all().expect("s").sqrt().expect("s");
-        let cls_emb: Vec<f32> = cls.broadcast_div(&cls_norm).expect("n").to_vec1().expect("v");
+        let cls_norm = cls
+            .sqr()
+            .expect("s")
+            .sum_all()
+            .expect("s")
+            .sqrt()
+            .expect("s");
+        let cls_emb: Vec<f32> = cls
+            .broadcast_div(&cls_norm)
+            .expect("n")
+            .to_vec1()
+            .expect("v");
 
         // MEAN: average of ALL tokens (sentence-transformers convention)
         let mean = hidden.i(0).expect("batch").mean(0).expect("mean");
-        let mean_norm = mean.sqr().expect("s").sum_all().expect("s").sqrt().expect("s");
-        let mean_emb: Vec<f32> = mean.broadcast_div(&mean_norm).expect("n").to_vec1().expect("v");
+        let mean_norm = mean
+            .sqr()
+            .expect("s")
+            .sum_all()
+            .expect("s")
+            .sqrt()
+            .expect("s");
+        let mean_emb: Vec<f32> = mean
+            .broadcast_div(&mean_norm)
+            .expect("n")
+            .to_vec1()
+            .expect("v");
 
         let label = if text.len() > 50 { &text[..50] } else { text };
-        println!("  [{}/{}] {} tokens  \"{}\"",
-            i+1, texts.len(), n_tokens, label);
+        println!(
+            "  [{}/{}] {} tokens  \"{}\"",
+            i + 1,
+            texts.len(),
+            n_tokens,
+            label
+        );
 
         embeddings.push((cls_emb, mean_emb));
     }
@@ -104,21 +136,67 @@ fn main() {
     println!("  {:>20}  {:>8}  {:>8}", "Pair", "CLS", "MEAN");
     println!("  {:─>20}  {:─>8}  {:─>8}", "", "", "");
     for &(a, b, label) in &pairs {
-        let cos_cls: f32 = embeddings[a].0.iter().zip(&embeddings[b].0).map(|(x,y)| x*y).sum();
-        let cos_mean: f32 = embeddings[a].1.iter().zip(&embeddings[b].1).map(|(x,y)| x*y).sum();
+        let cos_cls: f32 = embeddings[a]
+            .0
+            .iter()
+            .zip(&embeddings[b].0)
+            .map(|(x, y)| x * y)
+            .sum();
+        let cos_mean: f32 = embeddings[a]
+            .1
+            .iter()
+            .zip(&embeddings[b].1)
+            .map(|(x, y)| x * y)
+            .sum();
         println!("  {:>20}  {:>8.4}  {:>8.4}", label, cos_cls, cos_mean);
     }
 
-    let cls_rr: f32 = embeddings[0].0.iter().zip(&embeddings[1].0).map(|(x,y)| x*y).sum();
-    let cls_rt: f32 = embeddings[0].0.iter().zip(&embeddings[3].0).map(|(x,y)| x*y).sum();
-    let mean_rr: f32 = embeddings[0].1.iter().zip(&embeddings[1].1).map(|(x,y)| x*y).sum();
-    let mean_rt: f32 = embeddings[0].1.iter().zip(&embeddings[3].1).map(|(x,y)| x*y).sum();
+    let cls_rr: f32 = embeddings[0]
+        .0
+        .iter()
+        .zip(&embeddings[1].0)
+        .map(|(x, y)| x * y)
+        .sum();
+    let cls_rt: f32 = embeddings[0]
+        .0
+        .iter()
+        .zip(&embeddings[3].0)
+        .map(|(x, y)| x * y)
+        .sum();
+    let mean_rr: f32 = embeddings[0]
+        .1
+        .iter()
+        .zip(&embeddings[1].1)
+        .map(|(x, y)| x * y)
+        .sum();
+    let mean_rt: f32 = embeddings[0]
+        .1
+        .iter()
+        .zip(&embeddings[3].1)
+        .map(|(x, y)| x * y)
+        .sum();
 
     println!("\n═══════════════════════════════════════════════════════════");
-    println!("  CLS pooling:  Rumi↔Rumi={:.4} vs Rumi↔TCP={:.4} → {}",
-        cls_rr, cls_rt, if cls_rr > cls_rt + 0.05 {"DISCRIMINATES"} else {"no"});
-    println!("  MEAN pooling: Rumi↔Rumi={:.4} vs Rumi↔TCP={:.4} → {}",
-        mean_rr, mean_rt, if mean_rr > mean_rt + 0.05 {"DISCRIMINATES"} else {"no"});
+    println!(
+        "  CLS pooling:  Rumi↔Rumi={:.4} vs Rumi↔TCP={:.4} → {}",
+        cls_rr,
+        cls_rt,
+        if cls_rr > cls_rt + 0.05 {
+            "DISCRIMINATES"
+        } else {
+            "no"
+        }
+    );
+    println!(
+        "  MEAN pooling: Rumi↔Rumi={:.4} vs Rumi↔TCP={:.4} → {}",
+        mean_rr,
+        mean_rt,
+        if mean_rr > mean_rt + 0.05 {
+            "DISCRIMINATES"
+        } else {
+            "no"
+        }
+    );
     println!("═══════════════════════════════════════════════════════════");
 }
 

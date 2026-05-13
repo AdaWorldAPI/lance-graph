@@ -100,7 +100,9 @@ pub fn compute_superposition(
     let mut all_atoms: HashMap<u16, Vec<u32>> = HashMap::new();
     for visits in lens_visits {
         for (&atom, &_count) in *visits {
-            all_atoms.entry(atom).or_insert_with(|| vec![0; lens_visits.len()]);
+            all_atoms
+                .entry(atom)
+                .or_insert_with(|| vec![0; lens_visits.len()]);
         }
     }
     for (i, visits) in lens_visits.iter().enumerate() {
@@ -118,17 +120,19 @@ pub fn compute_superposition(
     let mut total_energy = 0.0f32;
 
     for (&atom, counts) in &all_atoms {
-        if (atom as usize) >= n_atoms { continue; }
+        if (atom as usize) >= n_atoms {
+            continue;
+        }
 
         // Product of all lens visit counts (geometric mean for normalization)
-        let product: f32 = counts.iter()
-            .map(|&c| c as f32)
-            .product();
+        let product: f32 = counts.iter().map(|&c| c as f32).product();
 
         // Normalize by number of lenses (geometric mean)
         let amplitude = if product > 0.0 {
             product.powf(1.0 / n_lenses)
-        } else { 0.0 };
+        } else {
+            0.0
+        };
 
         amplitudes[atom as usize] = amplitude;
         if amplitude > 0.0 {
@@ -140,7 +144,12 @@ pub fn compute_superposition(
     resonant_atoms.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
     let n_resonant = resonant_atoms.len();
 
-    SuperpositionField { amplitudes, resonant_atoms, total_energy, n_resonant }
+    SuperpositionField {
+        amplitudes,
+        resonant_atoms,
+        total_energy,
+        n_resonant,
+    }
 }
 
 /// Detect thinking style from the superposition pattern.
@@ -153,7 +162,9 @@ pub fn detect_style(
     let _resonant_fraction = field.n_resonant as f32 / n_atoms.max(1) as f32;
 
     // Gate: only count atoms above threshold
-    let gated_count = field.resonant_atoms.iter()
+    let gated_count = field
+        .resonant_atoms
+        .iter()
         .filter(|(_, amp)| *amp > thresholds.gate_threshold)
         .count();
     let gated_fraction = gated_count as f32 / n_atoms.max(1) as f32;
@@ -183,25 +194,30 @@ pub fn superposition_cascade(
     thresholds: &StyleThresholds,
 ) -> (SuperpositionField, ThinkingStyle, Vec<u16>) {
     // Build visit maps from cascade stages
-    let visit_maps: Vec<HashMap<u16, u32>> = lens_stages.iter().map(|stages| {
-        let mut visits: HashMap<u16, u32> = HashMap::new();
-        for stage in *stages {
-            for atom in &stage.focus {
-                *visits.entry(atom.index).or_insert(0) += 1;
+    let visit_maps: Vec<HashMap<u16, u32>> = lens_stages
+        .iter()
+        .map(|stages| {
+            let mut visits: HashMap<u16, u32> = HashMap::new();
+            for stage in *stages {
+                for atom in &stage.focus {
+                    *visits.entry(atom.index).or_insert(0) += 1;
+                }
+                for atom in &stage.promoted {
+                    *visits.entry(atom.index).or_insert(0) += 1;
+                }
             }
-            for atom in &stage.promoted {
-                *visits.entry(atom.index).or_insert(0) += 1;
-            }
-        }
-        visits
-    }).collect();
+            visits
+        })
+        .collect();
 
     let visit_refs: Vec<&HashMap<u16, u32>> = visit_maps.iter().collect();
     let field = compute_superposition(&visit_refs, n_atoms);
     let style = detect_style(&field, n_atoms, avg_dissonance, thresholds);
 
     // Gated atoms: only those above threshold, sorted by amplitude
-    let gated: Vec<u16> = field.resonant_atoms.iter()
+    let gated: Vec<u16> = field
+        .resonant_atoms
+        .iter()
         .filter(|(_, amp)| *amp > thresholds.gate_threshold)
         .map(|(atom, _)| *atom)
         .collect();
@@ -273,7 +289,13 @@ mod tests {
 
     #[test]
     fn style_display() {
-        assert_eq!(format!("{}", ThinkingStyle::Analytical), "analytical (focused, decisive)");
-        assert_eq!(format!("{}", ThinkingStyle::Emotional), "emotional (tension-engaged)");
+        assert_eq!(
+            format!("{}", ThinkingStyle::Analytical),
+            "analytical (focused, decisive)"
+        );
+        assert_eq!(
+            format!("{}", ThinkingStyle::Emotional),
+            "emotional (tension-engaged)"
+        );
     }
 }

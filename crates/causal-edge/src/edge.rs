@@ -183,7 +183,11 @@ impl CausalEdge64 {
     #[inline]
     pub fn evidence_weight(self) -> f32 {
         let c = self.confidence();
-        if c >= 0.999 { f32::MAX } else { c / (1.0 - c) }
+        if c >= 0.999 {
+            f32::MAX
+        } else {
+            c / (1.0 - c)
+        }
     }
 
     /// Set frequency (u8).
@@ -258,15 +262,21 @@ impl CausalEdge64 {
 
     /// Is the S-plane active in the current causal projection?
     #[inline(always)]
-    pub fn s_active(self) -> bool { (self.0 >> CAUSAL_SHIFT) & 0b100 != 0 }
+    pub fn s_active(self) -> bool {
+        (self.0 >> CAUSAL_SHIFT) & 0b100 != 0
+    }
 
     /// Is the P-plane active in the current causal projection?
     #[inline(always)]
-    pub fn p_active(self) -> bool { (self.0 >> CAUSAL_SHIFT) & 0b010 != 0 }
+    pub fn p_active(self) -> bool {
+        (self.0 >> CAUSAL_SHIFT) & 0b010 != 0
+    }
 
     /// Is the O-plane active in the current causal projection?
     #[inline(always)]
-    pub fn o_active(self) -> bool { (self.0 >> CAUSAL_SHIFT) & 0b001 != 0 }
+    pub fn o_active(self) -> bool {
+        (self.0 >> CAUSAL_SHIFT) & 0b001 != 0
+    }
 
     // ─── Direction Triad ────────────────────────────────────────────
 
@@ -280,21 +290,26 @@ impl CausalEdge64 {
     /// Set direction triad.
     #[inline]
     pub fn set_direction(&mut self, d: u8) {
-        self.0 = (self.0 & !(BITS3_MASK << DIR_SHIFT))
-            | (((d as u64) & BITS3_MASK) << DIR_SHIFT);
+        self.0 = (self.0 & !(BITS3_MASK << DIR_SHIFT)) | (((d as u64) & BITS3_MASK) << DIR_SHIFT);
     }
 
     /// Is the subject plane pathological (dim0 negative)?
     #[inline(always)]
-    pub fn s_pathological(self) -> bool { self.direction() & 0b001 != 0 }
+    pub fn s_pathological(self) -> bool {
+        self.direction() & 0b001 != 0
+    }
 
     /// Is the predicate plane pathological?
     #[inline(always)]
-    pub fn p_pathological(self) -> bool { self.direction() & 0b010 != 0 }
+    pub fn p_pathological(self) -> bool {
+        self.direction() & 0b010 != 0
+    }
 
     /// Is the outcome plane pathological?
     #[inline(always)]
-    pub fn o_pathological(self) -> bool { self.direction() & 0b100 != 0 }
+    pub fn o_pathological(self) -> bool {
+        self.direction() & 0b100 != 0
+    }
 
     // ─── Inference Type ─────────────────────────────────────────────
 
@@ -424,9 +439,8 @@ impl CausalEdge64 {
         };
 
         // 3. Causal mask: AND (only planes active in BOTH survive)
-        let mask_out = CausalMask::from_bits(
-            (self.causal_mask() as u8) & (weight.causal_mask() as u8),
-        );
+        let mask_out =
+            CausalMask::from_bits((self.causal_mask() as u8) & (weight.causal_mask() as u8));
 
         // 4. Temporal: latest of the two
         let t_out = self.temporal().max(weight.temporal());
@@ -494,9 +508,15 @@ impl CausalEdge64 {
                 new_plast = PlasticityState::ALL_FROZEN;
             } else if c_new > 0.7 {
                 // Moderate confidence: freeze planes with low error
-                if observation.s_idx() == self.s_idx() { new_plast = new_plast.freeze_s(); }
-                if observation.p_idx() == self.p_idx() { new_plast = new_plast.freeze_p(); }
-                if observation.o_idx() == self.o_idx() { new_plast = new_plast.freeze_o(); }
+                if observation.s_idx() == self.s_idx() {
+                    new_plast = new_plast.freeze_s();
+                }
+                if observation.p_idx() == self.p_idx() {
+                    new_plast = new_plast.freeze_p();
+                }
+                if observation.o_idx() == self.o_idx() {
+                    new_plast = new_plast.freeze_o();
+                }
             }
             self.set_plasticity(new_plast);
         }
@@ -523,8 +543,7 @@ impl CausalEdge64 {
     /// Requires SPO mask AND confidence > threshold.
     #[inline]
     pub fn counterfactual_ready(self, confidence_threshold: f32) -> bool {
-        self.causal_mask() == CausalMask::SPO
-            && self.confidence() >= confidence_threshold
+        self.causal_mask() == CausalMask::SPO && self.confidence() >= confidence_threshold
     }
 
     /// Clinical concern level: count of pathological planes.
@@ -563,13 +582,16 @@ mod tests {
     #[test]
     fn test_roundtrip() {
         let edge = CausalEdge64::pack(
-            143, 7, 201,           // SPO palette indices
-            209, 181,              // f=0.82, c=0.71
-            CausalMask::PO,        // interventional level
-            0b101,                 // S and O pathological
+            143,
+            7,
+            201, // SPO palette indices
+            209,
+            181,            // f=0.82, c=0.71
+            CausalMask::PO, // interventional level
+            0b101,          // S and O pathological
             InferenceType::Deduction,
             PlasticityState::S_HOT,
-            42,                    // temporal index
+            42, // temporal index
         );
 
         assert_eq!(edge.s_idx(), 143);
@@ -587,14 +609,28 @@ mod tests {
     #[test]
     fn test_forward_deduction_attenuates() {
         let input = CausalEdge64::pack(
-            10, 20, 30, 204, 178, // f=0.80, c=0.70
-            CausalMask::SPO, 0, InferenceType::Deduction,
-            PlasticityState::ALL_HOT, 1,
+            10,
+            20,
+            30,
+            204,
+            178, // f=0.80, c=0.70
+            CausalMask::SPO,
+            0,
+            InferenceType::Deduction,
+            PlasticityState::ALL_HOT,
+            1,
         );
         let weight = CausalEdge64::pack(
-            40, 50, 60, 229, 204, // f=0.90, c=0.80
-            CausalMask::SPO, 0, InferenceType::Deduction,
-            PlasticityState::ALL_FROZEN, 2,
+            40,
+            50,
+            60,
+            229,
+            204, // f=0.90, c=0.80
+            CausalMask::SPO,
+            0,
+            InferenceType::Deduction,
+            PlasticityState::ALL_FROZEN,
+            2,
         );
 
         // Dummy compose tables (identity for test)
@@ -602,38 +638,67 @@ mod tests {
         let result = input.forward(weight, &compose, &compose, &compose);
 
         // Deduction: f_out = f_in * f_w ≈ 0.80 * 0.90 = 0.72
-        assert!(result.frequency() < input.frequency(),
-            "Deduction should attenuate frequency: got {}", result.frequency());
+        assert!(
+            result.frequency() < input.frequency(),
+            "Deduction should attenuate frequency: got {}",
+            result.frequency()
+        );
         // Confidence should also attenuate
-        assert!(result.confidence() < input.confidence(),
-            "Deduction should attenuate confidence: got {}", result.confidence());
+        assert!(
+            result.confidence() < input.confidence(),
+            "Deduction should attenuate confidence: got {}",
+            result.confidence()
+        );
     }
 
     #[test]
     fn test_learn_increases_confidence() {
         let mut edge = CausalEdge64::pack(
-            10, 20, 30, 204, 127, // f=0.80, c=0.50
-            CausalMask::SPO, 0, InferenceType::Revision,
-            PlasticityState::ALL_HOT, 1,
+            10,
+            20,
+            30,
+            204,
+            127, // f=0.80, c=0.50
+            CausalMask::SPO,
+            0,
+            InferenceType::Revision,
+            PlasticityState::ALL_HOT,
+            1,
         );
         let observation = CausalEdge64::pack(
-            10, 20, 30, 204, 127, // same frequency, same confidence
-            CausalMask::SPO, 0, InferenceType::Revision,
-            PlasticityState::ALL_HOT, 2,
+            10,
+            20,
+            30,
+            204,
+            127, // same frequency, same confidence
+            CausalMask::SPO,
+            0,
+            InferenceType::Revision,
+            PlasticityState::ALL_HOT,
+            2,
         );
 
         let c_before = edge.confidence();
         edge.learn(observation, 3);
-        assert!(edge.confidence() > c_before,
-            "Learning from agreeing evidence should increase confidence");
+        assert!(
+            edge.confidence() > c_before,
+            "Learning from agreeing evidence should increase confidence"
+        );
     }
 
     #[test]
     fn test_causal_mask_projection() {
         let edge = CausalEdge64::pack(
-            10, 20, 30, 200, 200,
-            CausalMask::PO, 0, InferenceType::Deduction,
-            PlasticityState::ALL_FROZEN, 0,
+            10,
+            20,
+            30,
+            200,
+            200,
+            CausalMask::PO,
+            0,
+            InferenceType::Deduction,
+            PlasticityState::ALL_FROZEN,
+            0,
         );
 
         // Interventional: P and O active, S inactive
@@ -646,34 +711,60 @@ mod tests {
     #[test]
     fn test_temporal_in_msb_gives_sort_order() {
         let early = CausalEdge64::pack(
-            10, 20, 30, 200, 200,
-            CausalMask::SPO, 0, InferenceType::Revision,
-            PlasticityState::ALL_HOT, 100,
+            10,
+            20,
+            30,
+            200,
+            200,
+            CausalMask::SPO,
+            0,
+            InferenceType::Revision,
+            PlasticityState::ALL_HOT,
+            100,
         );
         let late = CausalEdge64::pack(
-            10, 20, 30, 200, 200,
-            CausalMask::SPO, 0, InferenceType::Revision,
-            PlasticityState::ALL_HOT, 200,
+            10,
+            20,
+            30,
+            200,
+            200,
+            CausalMask::SPO,
+            0,
+            InferenceType::Revision,
+            PlasticityState::ALL_HOT,
+            200,
         );
 
         // Temporal is in MSBs → native u64 sort gives temporal ordering
-        assert!(late.0 > early.0,
-            "Later temporal index should produce larger u64");
+        assert!(
+            late.0 > early.0,
+            "Later temporal index should produce larger u64"
+        );
     }
 
     #[test]
     fn test_size() {
-        assert_eq!(std::mem::size_of::<CausalEdge64>(), 8,
-            "CausalEdge64 must be exactly 8 bytes");
+        assert_eq!(
+            std::mem::size_of::<CausalEdge64>(),
+            8,
+            "CausalEdge64 must be exactly 8 bytes"
+        );
     }
 
     // ─── matches_causal: query-side Pearl 2³ predicate (TD-INT-7) ────
 
     fn make_edge(mask: CausalMask) -> CausalEdge64 {
         CausalEdge64::pack(
-            10, 20, 30, 200, 200,
-            mask, 0, InferenceType::Deduction,
-            PlasticityState::ALL_FROZEN, 0,
+            10,
+            20,
+            30,
+            200,
+            200,
+            mask,
+            0,
+            InferenceType::Deduction,
+            PlasticityState::ALL_FROZEN,
+            0,
         )
     }
 
@@ -693,12 +784,18 @@ mod tests {
         // query_mask is a strict subset of edge_mask: must match.
         // SPO (0b111) contains PO (0b011), SO (0b101), SP (0b110), S, P, O.
         let edge = make_edge(CausalMask::SPO);
-        assert!(edge.matches_causal(CausalMask::PO as u8),
-            "SPO edge should match PO query (PO bits are subset of SPO)");
-        assert!(edge.matches_causal(CausalMask::SO as u8),
-            "SPO edge should match SO query");
-        assert!(edge.matches_causal(CausalMask::P as u8),
-            "SPO edge should match single-plane P query");
+        assert!(
+            edge.matches_causal(CausalMask::PO as u8),
+            "SPO edge should match PO query (PO bits are subset of SPO)"
+        );
+        assert!(
+            edge.matches_causal(CausalMask::SO as u8),
+            "SPO edge should match SO query"
+        );
+        assert!(
+            edge.matches_causal(CausalMask::P as u8),
+            "SPO edge should match single-plane P query"
+        );
         assert!(edge.matches_causal_mask(CausalMask::S));
 
         // PO (0b011) contains O (0b001) and P (0b010), but NOT S (0b100).
@@ -713,10 +810,14 @@ mod tests {
         // SO edge (0b101) does NOT have the P plane (0b010).
         let edge_so = make_edge(CausalMask::SO);
         assert!(!edge_so.matches_causal(CausalMask::P as u8));
-        assert!(!edge_so.matches_causal(CausalMask::PO as u8),
-            "SO edge must not match PO query — P bit is missing");
-        assert!(!edge_so.matches_causal_mask(CausalMask::SPO),
-            "SO edge must not match SPO query — P bit is missing");
+        assert!(
+            !edge_so.matches_causal(CausalMask::PO as u8),
+            "SO edge must not match PO query — P bit is missing"
+        );
+        assert!(
+            !edge_so.matches_causal_mask(CausalMask::SPO),
+            "SO edge must not match SPO query — P bit is missing"
+        );
 
         // P-only edge (0b010) does NOT match SO query (0b101).
         let edge_p = make_edge(CausalMask::P);
@@ -731,14 +832,24 @@ mod tests {
         // This is the documented semantics: zero is the predicate-true element
         // of the bit lattice (no requirements means nothing to fail).
         for variant in [
-            CausalMask::None, CausalMask::O, CausalMask::P, CausalMask::PO,
-            CausalMask::S, CausalMask::SO, CausalMask::SP, CausalMask::SPO,
+            CausalMask::None,
+            CausalMask::O,
+            CausalMask::P,
+            CausalMask::PO,
+            CausalMask::S,
+            CausalMask::SO,
+            CausalMask::SP,
+            CausalMask::SPO,
         ] {
             let edge = make_edge(variant);
-            assert!(edge.matches_causal(0),
-                "zero query_mask must match edge with mask {variant:?}");
-            assert!(edge.matches_causal_mask(CausalMask::None),
-                "CausalMask::None query must match edge with mask {variant:?}");
+            assert!(
+                edge.matches_causal(0),
+                "zero query_mask must match edge with mask {variant:?}"
+            );
+            assert!(
+                edge.matches_causal_mask(CausalMask::None),
+                "CausalMask::None query must match edge with mask {variant:?}"
+            );
         }
     }
 

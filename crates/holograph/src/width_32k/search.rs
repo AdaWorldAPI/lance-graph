@@ -30,9 +30,12 @@
 //! Like 16K bloom search, but with per-dimension distance + 512-bit bloom.
 
 #[allow(unused_imports)] // HoloTrace and ProbeResult used by downstream search plumbing
-use super::holographic::{HoloVector, HoloTrace, ProbeResult};
-#[allow(unused_imports)] // HoloSchema, M_RL_BASE, M_VERSION reserved for schema negotiation surface
-use super::schema::{HoloSchema, M_ANI_BASE, M_NARS_TRUTH, M_BLOOM_BASE, M_GRAPH_BASE, M_RL_BASE, M_VERSION};
+use super::holographic::{HoloTrace, HoloVector, ProbeResult};
+#[allow(unused_imports)]
+// HoloSchema, M_RL_BASE, M_VERSION reserved for schema negotiation surface
+use super::schema::{
+    HoloSchema, M_ANI_BASE, M_BLOOM_BASE, M_GRAPH_BASE, M_NARS_TRUTH, M_RL_BASE, M_VERSION,
+};
 use super::*;
 
 // ============================================================================
@@ -42,9 +45,9 @@ use super::*;
 /// Which dimension to operate on.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Dimension {
-    X,  // Content / What
-    Y,  // Context / Where
-    Z,  // Relation / How
+    X, // Content / What
+    Y, // Context / Where
+    Z, // Relation / How
 }
 
 impl Dimension {
@@ -75,19 +78,39 @@ pub struct DimWeights {
 
 impl DimWeights {
     /// Content-focused: mostly X, some Y, little Z
-    pub const CONTENT: Self = Self { wx: 0.7, wy: 0.2, wz: 0.1 };
+    pub const CONTENT: Self = Self {
+        wx: 0.7,
+        wy: 0.2,
+        wz: 0.1,
+    };
 
     /// Context-focused: mostly Y
-    pub const CONTEXT: Self = Self { wx: 0.2, wy: 0.7, wz: 0.1 };
+    pub const CONTEXT: Self = Self {
+        wx: 0.2,
+        wy: 0.7,
+        wz: 0.1,
+    };
 
     /// Relation-focused: mostly Z
-    pub const RELATION: Self = Self { wx: 0.1, wy: 0.2, wz: 0.7 };
+    pub const RELATION: Self = Self {
+        wx: 0.1,
+        wy: 0.2,
+        wz: 0.7,
+    };
 
     /// Equal weight across all dimensions
-    pub const BALANCED: Self = Self { wx: 1.0 / 3.0, wy: 1.0 / 3.0, wz: 1.0 / 3.0 };
+    pub const BALANCED: Self = Self {
+        wx: 1.0 / 3.0,
+        wy: 1.0 / 3.0,
+        wz: 1.0 / 3.0,
+    };
 
     /// Content + Context (ignore relation)
-    pub const SEMANTIC: Self = Self { wx: 0.5, wy: 0.5, wz: 0.0 };
+    pub const SEMANTIC: Self = Self {
+        wx: 0.5,
+        wy: 0.5,
+        wz: 0.0,
+    };
 
     /// Custom weights.
     pub const fn new(wx: f64, wy: f64, wz: f64) -> Self {
@@ -275,10 +298,14 @@ impl DimSearchQuery {
             let freq = freq_u16 as f32 / 65535.0;
             let conf = conf_u16 as f32 / 65535.0;
             if let Some(min_f) = nars.min_frequency {
-                if freq < min_f { return false; }
+                if freq < min_f {
+                    return false;
+                }
             }
             if let Some(min_c) = nars.min_confidence {
-                if conf < min_c { return false; }
+                if conf < min_c {
+                    return false;
+                }
             }
         }
 
@@ -290,16 +317,24 @@ impl DimSearchQuery {
             let cluster = ((w >> 24) & 0xFFFF) as u16;
             let degree = ((w >> 40) & 0xFF) as u8;
             if let Some(min_pr) = graph.min_pagerank {
-                if pagerank < min_pr { return false; }
+                if pagerank < min_pr {
+                    return false;
+                }
             }
             if let Some(max_h) = graph.max_hop {
-                if hop > max_h { return false; }
+                if hop > max_h {
+                    return false;
+                }
             }
             if let Some(cid) = graph.cluster_id {
-                if cluster != cid { return false; }
+                if cluster != cid {
+                    return false;
+                }
             }
             if let Some(min_d) = graph.min_degree {
-                if degree < min_d { return false; }
+                if degree < min_d {
+                    return false;
+                }
             }
         }
 
@@ -313,12 +348,7 @@ impl DimSearchQuery {
     /// to eliminate candidates before computing the remaining two dimensions
     /// (32 more iterations). For asymmetric weights (wx=0.7, wy=0.2, wz=0.1),
     /// this eliminates ~80% of candidates at 1/3 the SIMD cost.
-    pub fn search(
-        &self,
-        candidates: &[&[u64]],
-        query: &[u64],
-        k: usize,
-    ) -> Vec<DimSearchResult> {
+    pub fn search(&self, candidates: &[&[u64]], query: &[u64], k: usize) -> Vec<DimSearchResult> {
         let mut results: Vec<DimSearchResult> = Vec::with_capacity(k + 1);
         let mut threshold = self.max_distance.unwrap_or(f64::MAX);
         let dominant = self.weights.dominant();
@@ -361,7 +391,10 @@ impl DimSearchQuery {
 
             if results.len() > k {
                 results.truncate(k);
-                threshold = results.last().map(|r| r.weighted_distance).unwrap_or(f64::MAX);
+                threshold = results
+                    .last()
+                    .map(|r| r.weighted_distance)
+                    .unwrap_or(f64::MAX);
             }
         }
 
@@ -410,9 +443,9 @@ pub enum ProbeTarget {
 /// - RecoverX: "What content has relation Z in context Y?"
 pub fn probe_search(
     candidates: &[&[u64]],
-    dim_a: &[u64],      // First known dimension (128 words)
-    dim_b: &[u64],      // Second known dimension (128 words)
-    target: &[u64],     // Target for the recovered dimension (128 words)
+    dim_a: &[u64],  // First known dimension (128 words)
+    dim_b: &[u64],  // Second known dimension (128 words)
+    target: &[u64], // Target for the recovered dimension (128 words)
     probe: ProbeTarget,
     k: usize,
 ) -> Vec<ProbeSearchResult> {
@@ -438,11 +471,11 @@ pub fn probe_search(
         // Build the candidate's full trace: candidate_X ⊕ candidate_Y ⊕ candidate_Z
         let mut recovered = vec![0u64; DIM_WORDS];
         for i in 0..DIM_WORDS {
-            let trace_word = candidate[X_START + i]
-                ^ candidate[Y_START + i]
-                ^ candidate[Z_START + i];
+            let trace_word =
+                candidate[X_START + i] ^ candidate[Y_START + i] ^ candidate[Z_START + i];
             // Probe: recovered = trace ⊕ dim_a ⊕ dim_b
-            recovered[i] = trace_word ^ dim_a[i.min(dim_a.len() - 1)] ^ dim_b[i.min(dim_b.len() - 1)];
+            recovered[i] =
+                trace_word ^ dim_a[i.min(dim_a.len() - 1)] ^ dim_b[i.min(dim_b.len() - 1)];
         }
 
         // Distance between recovered dimension and target
@@ -531,7 +564,9 @@ pub fn bloom_dimensional_search(
         let weighted = weighted_from_tri(dx, dy, dz, &dim_query.weights);
 
         if let Some(max) = dim_query.max_distance {
-            if weighted > max { continue; }
+            if weighted > max {
+                continue;
+            }
         }
 
         let is_neighbor = bloom_might_be_neighbor(candidate, source_id);
@@ -604,7 +639,11 @@ pub fn single_dim_search(
             None => continue,
         };
 
-        let result = SingleDimResult { index: idx, distance: dist, dimension: dim };
+        let result = SingleDimResult {
+            index: idx,
+            distance: dist,
+            dimension: dim,
+        };
 
         let pos = results.partition_point(|r| r.distance <= dist);
         results.insert(pos, result);
@@ -638,14 +677,14 @@ pub struct SingleDimResult {
 /// operates per-axis (content shift, context shift, relation shift).
 pub fn analogy_search(
     candidates: &[&[u64]],
-    a: &HoloVector,     // Source
-    b: &HoloVector,     // Source target
-    c: &HoloVector,     // Analogy query
+    a: &HoloVector, // Source
+    b: &HoloVector, // Source target
+    c: &HoloVector, // Analogy query
     weights: DimWeights,
     k: usize,
 ) -> Vec<DimSearchResult> {
     // Analogy vector: c ⊕ (a ⊕ b) = c ⊕ delta(a→b)
-    let delta = a.bind(b);    // a ⊕ b = transform
+    let delta = a.bind(b); // a ⊕ b = transform
     let analogy = c.bind(&delta); // c ⊕ transform = expected answer
 
     let query = DimSearchQuery::new(weights);
@@ -672,8 +711,8 @@ fn dim_hamming(a: &[u64], b: &[u64]) -> u32 {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::holographic::HoloVector;
+    use super::*;
 
     fn random_holo(seed: u64) -> HoloVector {
         let mut v = HoloVector::zero();
@@ -729,9 +768,12 @@ mod tests {
         // They should differ (different weighting of same distances)
         // (Unless dx == dy == dz by coincidence, which is astronomically unlikely)
         if dx != dy {
-            assert!((content_dist - context_dist).abs() > 0.01,
+            assert!(
+                (content_dist - context_dist).abs() > 0.01,
                 "Different weights should produce different distances: content={}, context={}",
-                content_dist, context_dist);
+                content_dist,
+                context_dist
+            );
         }
     }
 
@@ -778,7 +820,10 @@ mod tests {
         let search = DimSearchQuery::new(DimWeights::CONTENT);
         let results = search.search(&candidates, &query.words, 2);
 
-        assert_eq!(results[0].index, 1, "Content-weighted should prefer close-X candidate");
+        assert_eq!(
+            results[0].index, 1,
+            "Content-weighted should prefer close-X candidate"
+        );
     }
 
     #[test]
@@ -794,7 +839,10 @@ mod tests {
         v.words[META_START + M_NARS_TRUTH] = freq_u16 | (conf_u16 << 16);
 
         let query = DimSearchQuery::new(DimWeights::BALANCED)
-            .with_ani(AniFilter { min_level: 3, min_activation: 200 })
+            .with_ani(AniFilter {
+                min_level: 3,
+                min_activation: 200,
+            })
             .with_nars(NarsFilter {
                 min_frequency: Some(0.7),
                 min_confidence: Some(0.5),
@@ -809,8 +857,10 @@ mod tests {
         let ani_word: u64 = 2 | (100u64 << 16); // level=2 (too low)
         v.words[META_START + M_ANI_BASE] = ani_word;
 
-        let query = DimSearchQuery::new(DimWeights::BALANCED)
-            .with_ani(AniFilter { min_level: 3, min_activation: 50 });
+        let query = DimSearchQuery::new(DimWeights::BALANCED).with_ani(AniFilter {
+            min_level: 3,
+            min_activation: 50,
+        });
 
         assert!(!query.passes_predicates(&v.words));
     }
@@ -842,7 +892,10 @@ mod tests {
         );
 
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0].distance, 0, "Perfect recovery: no noise with single trace");
+        assert_eq!(
+            results[0].distance, 0,
+            "Perfect recovery: no noise with single trace"
+        );
     }
 
     #[test]
@@ -881,7 +934,10 @@ mod tests {
         );
 
         assert_eq!(results.len(), 2);
-        assert_eq!(results[0].index, 0, "v1 (Z=0) should match target Z=0 better");
+        assert_eq!(
+            results[0].index, 0,
+            "v1 (Z=0) should match target Z=0 better"
+        );
         assert_eq!(results[0].distance, 0);
         assert!(results[1].distance > 0);
     }
@@ -938,18 +994,14 @@ mod tests {
 
         let candidates: Vec<&[u64]> = vec![&queen.words, &d1.words, &d2.words];
 
-        let results = analogy_search(
-            &candidates,
-            &king,
-            &male,
-            &female,
-            DimWeights::BALANCED,
-            1,
-        );
+        let results = analogy_search(&candidates, &king, &male, &female, DimWeights::BALANCED, 1);
 
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].index, 0, "Queen should be the analogical answer");
-        assert_eq!(results[0].weighted_distance, 0.0, "Perfect analogy = zero distance");
+        assert_eq!(
+            results[0].weighted_distance, 0.0,
+            "Perfect analogy = zero distance"
+        );
     }
 
     #[test]

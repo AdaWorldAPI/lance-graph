@@ -77,7 +77,9 @@ impl SpiralSegment {
             let gamma = g_int as f32 * 0.01; // 0.01 to 3.0
             let seg = Self::new(anfang, ende, stride, gamma);
 
-            let max_err = values.iter().enumerate()
+            let max_err = values
+                .iter()
+                .enumerate()
                 .map(|(i, &v)| (seg.reconstruct(i) - v).abs())
                 .fold(0.0f32, f32::max);
 
@@ -109,7 +111,10 @@ impl SpiralRow {
         // Try single segment first
         let (seg, err) = SpiralSegment::fit(values);
         if err <= max_error {
-            return Self { segments: vec![seg], self_distance };
+            return Self {
+                segments: vec![seg],
+                self_distance,
+            };
         }
 
         // Split into sub-segments where error is high
@@ -132,7 +137,10 @@ impl SpiralRow {
             start = best_end;
         }
 
-        Self { segments, self_distance }
+        Self {
+            segments,
+            self_distance,
+        }
     }
 
     /// Reconstruct full row from segments.
@@ -143,7 +151,9 @@ impl SpiralRow {
         for seg in &self.segments {
             let seg_len = seg.stride as usize;
             for local_pos in 0..seg_len {
-                if global_pos >= n { break; }
+                if global_pos >= n {
+                    break;
+                }
                 result.push(seg.reconstruct(local_pos));
                 global_pos += 1;
             }
@@ -214,7 +224,9 @@ impl SpiralTable {
             let decoded = self.rows[i].decode(n - 1);
             let mut j_out = 0;
             for j in 0..n {
-                if j == i { continue; }
+                if j == i {
+                    continue;
+                }
                 if j_out < decoded.len() {
                     table[i * n + j] = f32_to_bf16(decoded[j_out]);
                 }
@@ -234,14 +246,28 @@ mod tests {
     fn single_segment_linear() {
         let values: Vec<f32> = (0..10).map(|i| i as f32 * 0.1).collect();
         let (seg, err) = SpiralSegment::fit(&values);
-        eprintln!("Linear fit: gamma={:.2}, err={:.4}", bf16_to_f32(seg.gamma), err);
+        eprintln!(
+            "Linear fit: gamma={:.2}, err={:.4}",
+            bf16_to_f32(seg.gamma),
+            err
+        );
         // BF16 truncation of anfang/ende adds ~0.008 per endpoint
-        assert!(err < 0.1, "linear values should fit within BF16 range: err={}", err);
+        assert!(
+            err < 0.1,
+            "linear values should fit within BF16 range: err={}",
+            err
+        );
 
         // Reconstruct
         for (i, &v) in values.iter().enumerate() {
             let r = seg.reconstruct(i);
-            assert!((r - v).abs() < 0.1, "pos {}: expected {:.3}, got {:.3}", i, v, r);
+            assert!(
+                (r - v).abs() < 0.1,
+                "pos {}: expected {:.3}, got {:.3}",
+                i,
+                v,
+                r
+            );
         }
     }
 
@@ -252,16 +278,26 @@ mod tests {
         let (seg, err) = SpiralSegment::fit(&values);
         let gamma = bf16_to_f32(seg.gamma);
         eprintln!("Curved fit: gamma={:.2}, err={:.4}", gamma, err);
-        assert!(gamma > 1.0, "exponential curve should have gamma > 1: {}", gamma);
+        assert!(
+            gamma > 1.0,
+            "exponential curve should have gamma > 1: {}",
+            gamma
+        );
     }
 
     #[test]
     fn row_single_segment() {
         let values: Vec<f32> = (0..255).map(|i| (i as f32 - 128.0) / 127.0).collect();
         let row = SpiralRow::encode(&values, 1.0, 0.05);
-        eprintln!("Single segment row: {} segments, {} bytes",
-            row.segments.len(), row.byte_size());
-        assert!(row.segments.len() <= 3, "linear-ish row should need few segments");
+        eprintln!(
+            "Single segment row: {} segments, {} bytes",
+            row.segments.len(),
+            row.byte_size()
+        );
+        assert!(
+            row.segments.len() <= 3,
+            "linear-ish row should need few segments"
+        );
     }
 
     #[test]
@@ -269,10 +305,16 @@ mod tests {
         // Non-monotonic: needs multiple segments
         let values: Vec<f32> = (0..255).map(|i| ((i as f32 * 0.1).sin() * 0.5)).collect();
         let row = SpiralRow::encode(&values, 1.0, 0.05);
-        eprintln!("Multi segment row: {} segments, {} bytes",
-            row.segments.len(), row.byte_size());
+        eprintln!(
+            "Multi segment row: {} segments, {} bytes",
+            row.segments.len(),
+            row.byte_size()
+        );
         // Sine wave needs several segments
-        assert!(row.segments.len() > 1, "sine wave should need multiple segments");
+        assert!(
+            row.segments.len() > 1,
+            "sine wave should need multiple segments"
+        );
     }
 
     #[test]
@@ -283,7 +325,9 @@ mod tests {
         for i in 0..n {
             table[i * n + i] = f32_to_bf16(1.0);
             for j in 0..n {
-                if i == j { continue; }
+                if i == j {
+                    continue;
+                }
                 let dist = (i as f32 - j as f32).abs() / n as f32;
                 table[i * n + j] = f32_to_bf16(1.0 - dist);
             }
@@ -293,8 +337,14 @@ mod tests {
         let ratio = spiral.compression_ratio(n);
         let avg_seg = spiral.avg_segments();
 
-        eprintln!("Table {}×{}: {:.1}× compression, {:.1} avg segments/row, {} bytes",
-            n, n, ratio, avg_seg, spiral.byte_size());
+        eprintln!(
+            "Table {}×{}: {:.1}× compression, {:.1} avg segments/row, {} bytes",
+            n,
+            n,
+            ratio,
+            avg_seg,
+            spiral.byte_size()
+        );
         // With BF16 precision and 0.01 threshold, many rows need multiple segments
         assert!(ratio > 1.0, "should compress at least 1×: {:.1}×", ratio);
     }
@@ -306,7 +356,9 @@ mod tests {
         for i in 0..n {
             table[i * n + i] = f32_to_bf16(1.0);
             for j in 0..n {
-                if i == j { continue; }
+                if i == j {
+                    continue;
+                }
                 let cos = 1.0 - (i as f32 - j as f32).abs() / n as f32;
                 table[i * n + j] = f32_to_bf16(cos);
             }
@@ -321,7 +373,9 @@ mod tests {
             let orig = bf16_to_f32(table[i]);
             let recon = bf16_to_f32(decoded[i]);
             let diff = (orig - recon).abs();
-            if diff > max_diff { max_diff = diff; }
+            if diff > max_diff {
+                max_diff = diff;
+            }
         }
         eprintln!("Roundtrip max error: {:.4} (threshold: 0.02)", max_diff);
         assert!(max_diff < 0.05, "roundtrip error too high: {:.4}", max_diff);
@@ -335,7 +389,9 @@ mod tests {
         for i in 0..n {
             table[i * n + i] = f32_to_bf16(1.0);
             for j in 0..n {
-                if i == j { continue; }
+                if i == j {
+                    continue;
+                }
                 table[i * n + j] = f32_to_bf16(0.5 + (i as f32 * 0.01) - (j as f32 * 0.005));
             }
         }
@@ -352,16 +408,30 @@ mod tests {
             let d1 = bf16_to_f32(decoded1[i]);
             let d2 = bf16_to_f32(decoded2[i]);
             let diff = (d1 - d2).abs();
-            if diff > max_diff { max_diff = diff; }
+            if diff > max_diff {
+                max_diff = diff;
+            }
         }
-        eprintln!("Re-encode drift: {:.6} (should be < BF16 truncation 0.008)", max_diff);
-        assert!(max_diff < 0.01,
-            "spiral re-encode should be near-idempotent: drift={:.6}", max_diff);
+        eprintln!(
+            "Re-encode drift: {:.6} (should be < BF16 truncation 0.008)",
+            max_diff
+        );
+        assert!(
+            max_diff < 0.01,
+            "spiral re-encode should be near-idempotent: drift={:.6}",
+            max_diff
+        );
 
         // Compression should be same both times
-        eprintln!("  encode 1: {} bytes, {:.1} avg segments",
-            spiral1.byte_size(), spiral1.avg_segments());
-        eprintln!("  encode 2: {} bytes, {:.1} avg segments",
-            spiral2.byte_size(), spiral2.avg_segments());
+        eprintln!(
+            "  encode 1: {} bytes, {:.1} avg segments",
+            spiral1.byte_size(),
+            spiral1.avg_segments()
+        );
+        eprintln!(
+            "  encode 2: {} bytes, {:.1} avg segments",
+            spiral2.byte_size(),
+            spiral2.avg_segments()
+        );
     }
 }

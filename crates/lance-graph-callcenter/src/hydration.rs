@@ -65,8 +65,7 @@ pub enum HydrationError {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Controls how `new_hydrated` behaves when the sanity gate fails.
-#[derive(Clone, Debug)]
-#[derive(Default)]
+#[derive(Clone, Debug, Default)]
 pub enum HydrationPolicy {
     /// Fail the constructor if the merged map has fewer than `min` distinct
     /// non-Unknown domains. Default for binary entrypoints.
@@ -109,7 +108,11 @@ pub struct FamilyTableInner {
 }
 
 impl FamilyTableInner {
-    fn from_map(map: &HashMap<u8, SuperDomain>, generation: u64, source: HydrationSourceSet) -> Self {
+    fn from_map(
+        map: &HashMap<u8, SuperDomain>,
+        generation: u64,
+        source: HydrationSourceSet,
+    ) -> Self {
         let mut table = [SuperDomain::Unknown; 256];
         for (&id, &sd) in map {
             table[id as usize] = sd;
@@ -138,9 +141,8 @@ pub static FAMILY_TABLE: OnceLock<Arc<RwLock<FamilyTableInner>>> = OnceLock::new
 /// Parse the inline seed TTL bytes and return a `HashMap<u8, SuperDomain>`.
 /// Fails hard on parse error (the seed is compiled in; any failure is a bug).
 pub fn load_seed(ttl: &str) -> Result<HashMap<u8, SuperDomain>, HydrationError> {
-    let entries = parse_family_registry(ttl.as_bytes()).map_err(|f| HydrationError::SeedParseFailed {
-        reason: f.reason,
-    })?;
+    let entries = parse_family_registry(ttl.as_bytes())
+        .map_err(|f| HydrationError::SeedParseFailed { reason: f.reason })?;
     let mut map = HashMap::new();
     for entry in entries {
         if let Some(sd) = parse_super_domain_name(&entry.super_domain_name) {
@@ -263,7 +265,9 @@ pub fn commit(map: &HashMap<u8, SuperDomain>, source: HydrationSourceSet) {
 /// not yet committed the table. Returns `Ok(SuperDomain::Unknown)` for any
 /// unclassified family id.
 pub fn try_resolve(family: OgitFamily) -> Result<SuperDomain, HydrationError> {
-    let arc = FAMILY_TABLE.get().ok_or(HydrationError::TableNotInitialized)?;
+    let arc = FAMILY_TABLE
+        .get()
+        .ok_or(HydrationError::TableNotInitialized)?;
     let guard = arc.read().unwrap();
     Ok(guard.table[family.raw() as usize])
 }
@@ -379,7 +383,10 @@ mod tests {
         map.insert(3, SuperDomain::Genetics);
         map.insert(4, SuperDomain::QuantumPhysics);
         match sanity_gate(&map, 5) {
-            Err(HydrationError::InsufficientDomains { found: 4, required: 5 }) => {}
+            Err(HydrationError::InsufficientDomains {
+                found: 4,
+                required: 5,
+            }) => {}
             other => panic!("expected InsufficientDomains(4, 5), got {:?}", other),
         }
     }
@@ -389,7 +396,10 @@ mod tests {
     fn family_load_overlay_missing_dir_is_ok() {
         let mut map = HashMap::new();
         load_overlay(&mut map, Some(Path::new("/nonexistent_xyz_123"))).unwrap();
-        assert!(map.is_empty(), "no entries should be added from missing dir");
+        assert!(
+            map.is_empty(),
+            "no entries should be added from missing dir"
+        );
     }
 
     // ── U5b — load_overlay with None is soft-ok ──────────────────────────

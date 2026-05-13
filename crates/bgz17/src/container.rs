@@ -296,10 +296,7 @@ impl CrystalTriple {
 }
 
 /// Pack up to 8 SPO crystal triples into W128-143.
-pub fn pack_spo_crystal(
-    container: &mut [u64; CONTAINER_WORDS],
-    triples: &[CrystalTriple],
-) {
+pub fn pack_spo_crystal(container: &mut [u64; CONTAINER_WORDS], triples: &[CrystalTriple]) {
     let n = triples.len().min(CrystalTriple::MAX_CRYSTAL_TRIPLES);
     // Zero the region first
     for w in W_SPO_CRYSTAL_START..=W_SPO_CRYSTAL_END {
@@ -309,12 +306,10 @@ pub fn pack_spo_crystal(
         let bytes = triples[i].to_bytes();
         // Each triple is 16 bytes = 2 words
         let w_off = i * 2;
-        container[W_SPO_CRYSTAL_START + w_off] = u64::from_le_bytes(
-            bytes[0..8].try_into().unwrap(),
-        );
-        container[W_SPO_CRYSTAL_START + w_off + 1] = u64::from_le_bytes(
-            bytes[8..16].try_into().unwrap(),
-        );
+        container[W_SPO_CRYSTAL_START + w_off] =
+            u64::from_le_bytes(bytes[0..8].try_into().unwrap());
+        container[W_SPO_CRYSTAL_START + w_off + 1] =
+            u64::from_le_bytes(bytes[8..16].try_into().unwrap());
     }
 }
 
@@ -363,22 +358,31 @@ impl InlineEdge {
     /// Unpack 4 edges from one u64 word.
     pub fn unpack4(word: u64) -> [InlineEdge; 4] {
         [
-            InlineEdge { verb: (word & 0xFF) as u8, target: ((word >> 8) & 0xFF) as u8 },
-            InlineEdge { verb: ((word >> 16) & 0xFF) as u8, target: ((word >> 24) & 0xFF) as u8 },
-            InlineEdge { verb: ((word >> 32) & 0xFF) as u8, target: ((word >> 40) & 0xFF) as u8 },
-            InlineEdge { verb: ((word >> 48) & 0xFF) as u8, target: ((word >> 56) & 0xFF) as u8 },
+            InlineEdge {
+                verb: (word & 0xFF) as u8,
+                target: ((word >> 8) & 0xFF) as u8,
+            },
+            InlineEdge {
+                verb: ((word >> 16) & 0xFF) as u8,
+                target: ((word >> 24) & 0xFF) as u8,
+            },
+            InlineEdge {
+                verb: ((word >> 32) & 0xFF) as u8,
+                target: ((word >> 40) & 0xFF) as u8,
+            },
+            InlineEdge {
+                verb: ((word >> 48) & 0xFF) as u8,
+                target: ((word >> 56) & 0xFF) as u8,
+            },
         ]
     }
 }
 
 /// Pack extended edges into W224-239 (up to 64 edges).
 /// These are OVERFLOW edges beyond the 64 in W16-31.
-pub fn pack_extended_edges(
-    container: &mut [u64; CONTAINER_WORDS],
-    edges: &[InlineEdge],
-) {
+pub fn pack_extended_edges(container: &mut [u64; CONTAINER_WORDS], edges: &[InlineEdge]) {
     let n_words = (W_EXT_EDGES_END - W_EXT_EDGES_START) + 1; // 16
-    // Zero the region
+                                                             // Zero the region
     for w in W_EXT_EDGES_START..=W_EXT_EDGES_END {
         container[w] = 0;
     }
@@ -486,9 +490,23 @@ mod tests {
 
     fn make_spo() -> SpoBase17 {
         SpoBase17 {
-            subject: Base17 { dims: [100, -200, 300, -400, 500, -600, 700, -800, 900, -1000, 1100, -1200, 1300, -1400, 1500, -1600, 1700] },
-            predicate: Base17 { dims: [-50, 150, -250, 350, -450, 550, -650, 750, -850, 950, -1050, 1150, -1250, 1350, -1450, 1550, -1650] },
-            object: Base17 { dims: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170] },
+            subject: Base17 {
+                dims: [
+                    100, -200, 300, -400, 500, -600, 700, -800, 900, -1000, 1100, -1200, 1300,
+                    -1400, 1500, -1600, 1700,
+                ],
+            },
+            predicate: Base17 {
+                dims: [
+                    -50, 150, -250, 350, -450, 550, -650, 750, -850, 950, -1050, 1150, -1250, 1350,
+                    -1450, 1550, -1650,
+                ],
+            },
+            object: Base17 {
+                dims: [
+                    10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170,
+                ],
+            },
         }
     }
 
@@ -503,7 +521,11 @@ mod tests {
 
     #[test]
     fn test_palette_word_roundtrip() {
-        let edge = PaletteEdge { s_idx: 42, p_idx: 128, o_idx: 255 };
+        let edge = PaletteEdge {
+            s_idx: 42,
+            p_idx: 128,
+            o_idx: 255,
+        };
         let tq = 200u8;
         let mut container = [0u64; CONTAINER_WORDS];
         pack_palette_word(&mut container, edge, tq);
@@ -515,7 +537,11 @@ mod tests {
     #[test]
     fn test_full_annex_roundtrip() {
         let spo = make_spo();
-        let edge = PaletteEdge { s_idx: 7, p_idx: 99, o_idx: 200 };
+        let edge = PaletteEdge {
+            s_idx: 7,
+            p_idx: 99,
+            o_idx: 200,
+        };
         let tq = 150u8;
         let mut container = [0u64; CONTAINER_WORDS];
         pack_annex(&mut container, &spo, edge, tq);
@@ -529,7 +555,11 @@ mod tests {
     fn test_annex_does_not_clobber_neighbors() {
         let mut container = [0xDEAD_BEEF_CAFE_BABEu64; CONTAINER_WORDS];
         let spo = make_spo();
-        let edge = PaletteEdge { s_idx: 1, p_idx: 2, o_idx: 3 };
+        let edge = PaletteEdge {
+            s_idx: 1,
+            p_idx: 2,
+            o_idx: 3,
+        };
         pack_annex(&mut container, &spo, edge, 42);
 
         // W111 (before annex) untouched
@@ -566,14 +596,26 @@ mod tests {
     fn test_spo_crystal_roundtrip() {
         let triples = vec![
             CrystalTriple {
-                s_idx: 10, p_idx: 20, o_idx: 30, flags: 0x01,
-                distance: 1234, weight: 5678,
-                source: 100, target: 200, reserved: 0,
+                s_idx: 10,
+                p_idx: 20,
+                o_idx: 30,
+                flags: 0x01,
+                distance: 1234,
+                weight: 5678,
+                source: 100,
+                target: 200,
+                reserved: 0,
             },
             CrystalTriple {
-                s_idx: 40, p_idx: 50, o_idx: 60, flags: 0x02,
-                distance: 4321, weight: 8765,
-                source: 300, target: 400, reserved: 0,
+                s_idx: 40,
+                p_idx: 50,
+                o_idx: 60,
+                flags: 0x02,
+                distance: 4321,
+                weight: 8765,
+                source: 300,
+                target: 400,
+                reserved: 0,
             },
         ];
         let mut container = [0u64; CONTAINER_WORDS];
@@ -586,11 +628,19 @@ mod tests {
 
     #[test]
     fn test_spo_crystal_max_8() {
-        let triples: Vec<CrystalTriple> = (0..10).map(|i| CrystalTriple {
-            s_idx: i as u8, p_idx: i as u8, o_idx: i as u8, flags: 1,
-            distance: i as u16 * 100, weight: i as u16 * 10,
-            source: i as u16, target: i as u16 + 1, reserved: 0,
-        }).collect();
+        let triples: Vec<CrystalTriple> = (0..10)
+            .map(|i| CrystalTriple {
+                s_idx: i as u8,
+                p_idx: i as u8,
+                o_idx: i as u8,
+                flags: 1,
+                distance: i as u16 * 100,
+                weight: i as u16 * 10,
+                source: i as u16,
+                target: i as u16 + 1,
+                reserved: 0,
+            })
+            .collect();
 
         let mut container = [0u64; CONTAINER_WORDS];
         pack_spo_crystal(&mut container, &triples);
@@ -603,10 +653,12 @@ mod tests {
 
     #[test]
     fn test_extended_edges_roundtrip() {
-        let edges: Vec<InlineEdge> = (1..=20).map(|i| InlineEdge {
-            verb: i as u8,
-            target: (i * 3) as u8,
-        }).collect();
+        let edges: Vec<InlineEdge> = (1..=20)
+            .map(|i| InlineEdge {
+                verb: i as u8,
+                target: (i * 3) as u8,
+            })
+            .collect();
 
         let mut container = [0u64; CONTAINER_WORDS];
         pack_extended_edges(&mut container, &edges);
@@ -619,10 +671,12 @@ mod tests {
 
     #[test]
     fn test_extended_edges_max_64() {
-        let edges: Vec<InlineEdge> = (1..=64).map(|i| InlineEdge {
-            verb: i as u8,
-            target: 255 - i as u8,
-        }).collect();
+        let edges: Vec<InlineEdge> = (1..=64)
+            .map(|i| InlineEdge {
+                verb: i as u8,
+                target: 255 - i as u8,
+            })
+            .collect();
 
         let mut container = [0u64; CONTAINER_WORDS];
         pack_extended_edges(&mut container, &edges);
@@ -640,9 +694,15 @@ mod tests {
         let spo = make_spo();
         pack_base17_annex(&mut container, &spo);
         let triples = vec![CrystalTriple {
-            s_idx: 1, p_idx: 2, o_idx: 3, flags: 0xFF,
-            distance: 999, weight: 111,
-            source: 5, target: 10, reserved: 0,
+            s_idx: 1,
+            p_idx: 2,
+            o_idx: 3,
+            flags: 0xFF,
+            distance: 999,
+            weight: 111,
+            source: 5,
+            target: 10,
+            reserved: 0,
         }];
         pack_spo_crystal(&mut container, &triples);
 
@@ -670,14 +730,26 @@ mod tests {
 
         // Pack different Base17 patterns
         let spo_a = SpoBase17 {
-            subject: Base17 { dims: [1000; BASE_DIM] },
-            predicate: Base17 { dims: [2000; BASE_DIM] },
-            object: Base17 { dims: [3000; BASE_DIM] },
+            subject: Base17 {
+                dims: [1000; BASE_DIM],
+            },
+            predicate: Base17 {
+                dims: [2000; BASE_DIM],
+            },
+            object: Base17 {
+                dims: [3000; BASE_DIM],
+            },
         };
         let spo_b = SpoBase17 {
-            subject: Base17 { dims: [-1000; BASE_DIM] },
-            predicate: Base17 { dims: [-2000; BASE_DIM] },
-            object: Base17 { dims: [-3000; BASE_DIM] },
+            subject: Base17 {
+                dims: [-1000; BASE_DIM],
+            },
+            predicate: Base17 {
+                dims: [-2000; BASE_DIM],
+            },
+            object: Base17 {
+                dims: [-3000; BASE_DIM],
+            },
         };
         pack_base17_annex(&mut c1, &spo_a);
         pack_base17_annex(&mut c2, &spo_b);
@@ -693,7 +765,10 @@ mod tests {
         for &pos in &positions {
             hamming += (c1[pos] ^ c2[pos]).count_ones();
         }
-        assert!(hamming > 0, "stride-16 sample should discriminate different Base17 patterns");
+        assert!(
+            hamming > 0,
+            "stride-16 sample should discriminate different Base17 patterns"
+        );
     }
 
     #[test]
@@ -709,10 +784,22 @@ mod tests {
     #[test]
     fn test_inline_edge_pack4_roundtrip() {
         let edges = [
-            InlineEdge { verb: 1, target: 10 },
-            InlineEdge { verb: 2, target: 20 },
-            InlineEdge { verb: 3, target: 30 },
-            InlineEdge { verb: 4, target: 40 },
+            InlineEdge {
+                verb: 1,
+                target: 10,
+            },
+            InlineEdge {
+                verb: 2,
+                target: 20,
+            },
+            InlineEdge {
+                verb: 3,
+                target: 30,
+            },
+            InlineEdge {
+                verb: 4,
+                target: 40,
+            },
         ];
         let packed = InlineEdge::pack4(&edges);
         let unpacked = InlineEdge::unpack4(packed);
@@ -724,7 +811,11 @@ mod tests {
         // Verify the format tags decode to readable ASCII
         let bgz_bytes = FORMAT_BGZ17_ANNEX.to_le_bytes();
         let cog_bytes = FORMAT_COGREC_8K.to_le_bytes();
-        assert!(bgz_bytes.iter().all(|&b| b.is_ascii_alphanumeric() || b == b'_'));
-        assert!(cog_bytes.iter().all(|&b| b.is_ascii_alphanumeric() || b == b'_'));
+        assert!(bgz_bytes
+            .iter()
+            .all(|&b| b.is_ascii_alphanumeric() || b == b'_'));
+        assert!(cog_bytes
+            .iter()
+            .all(|&b| b.is_ascii_alphanumeric() || b == b'_'));
     }
 }

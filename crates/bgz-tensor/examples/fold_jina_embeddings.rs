@@ -5,7 +5,7 @@
 //!
 //! cargo run --manifest-path crates/bgz-tensor/Cargo.toml --example fold_jina_embeddings
 
-use bgz_tensor::euler_fold::{clam_group, euler_gamma_fold, euler_gamma_unfold, gate_test};
+use bgz_tensor::euler_fold::{clam_group, gate_test};
 use bgz_tensor::neuron_hetero::ThinkingStyleFingerprint;
 use bgz_tensor::stacked_n::cosine_f32_slice;
 

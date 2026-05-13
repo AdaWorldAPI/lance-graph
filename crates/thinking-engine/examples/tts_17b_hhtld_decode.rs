@@ -18,8 +18,8 @@
 //!     -- /path/to/model_hhtld.safetensors
 //! ```
 
-use bgz_tensor::projection::{Base17, BASE_DIM};
 use bgz_tensor::hhtl_d::HhtlDEntry;
+use bgz_tensor::projection::{Base17, BASE_DIM};
 use bgz_tensor::stacked_n::bf16_to_f32;
 
 use std::fs::File;
@@ -41,8 +41,12 @@ fn parse_hhtld_header(reader: &mut BufReader<File>) -> (serde_json::Value, u64) 
 }
 
 /// Read a raw tensor blob from the safetensors file.
-fn read_tensor_bytes(reader: &mut BufReader<File>, header: &serde_json::Value,
-                     data_offset: u64, tensor_name: &str) -> Option<Vec<u8>> {
+fn read_tensor_bytes(
+    reader: &mut BufReader<File>,
+    header: &serde_json::Value,
+    data_offset: u64,
+    tensor_name: &str,
+) -> Option<Vec<u8>> {
     let entry = header.get(tensor_name)?;
     let offsets = entry.get("data_offsets")?.as_array()?;
     let begin = offsets[0].as_u64()? as u64;
@@ -87,10 +91,8 @@ fn rehydrate_row(entry: &HhtlDEntry, palette: &[Base17]) -> Base17 {
     let sign = if entry.polarity() { 1.0 } else { -1.0 };
 
     // Apply residual correction: centroid + sign * residual * |centroid|
-    let centroid_mag: f64 = centroid.dims.iter()
-        .map(|&d| (d as f64).abs())
-        .sum::<f64>()
-        / BASE_DIM as f64;
+    let centroid_mag: f64 =
+        centroid.dims.iter().map(|&d| (d as f64).abs()).sum::<f64>() / BASE_DIM as f64;
 
     let mut dims = [0i16; 17];
     for d in 0..BASE_DIM {
@@ -108,7 +110,8 @@ fn discover_roles(header: &serde_json::Value) -> Vec<String> {
         None => return Vec::new(),
     };
 
-    let mut roles: Vec<String> = obj.keys()
+    let mut roles: Vec<String> = obj
+        .keys()
         .filter(|k| k.ends_with(".hhtld_entries"))
         .map(|k| k.trim_end_matches(".hhtld_entries").to_string())
         .collect();
@@ -135,18 +138,43 @@ fn main() {
 
     // Print metadata
     if let Some(meta) = header.get("__metadata__") {
-        println!("    Encoding:    {}", meta.get("encoding").and_then(|v| v.as_str()).unwrap_or("?"));
-        println!("    Original:    {}", meta.get("original_model").and_then(|v| v.as_str()).unwrap_or("?"));
-        println!("    Palette k:   {}", meta.get("palette_k").and_then(|v| v.as_str()).unwrap_or("?"));
-        println!("    Entries:     {}", meta.get("total_entries").and_then(|v| v.as_str()).unwrap_or("?"));
-        println!("    Compression: {}:1", meta.get("compression_ratio").and_then(|v| v.as_str()).unwrap_or("?"));
+        println!(
+            "    Encoding:    {}",
+            meta.get("encoding").and_then(|v| v.as_str()).unwrap_or("?")
+        );
+        println!(
+            "    Original:    {}",
+            meta.get("original_model")
+                .and_then(|v| v.as_str())
+                .unwrap_or("?")
+        );
+        println!(
+            "    Palette k:   {}",
+            meta.get("palette_k")
+                .and_then(|v| v.as_str())
+                .unwrap_or("?")
+        );
+        println!(
+            "    Entries:     {}",
+            meta.get("total_entries")
+                .and_then(|v| v.as_str())
+                .unwrap_or("?")
+        );
+        println!(
+            "    Compression: {}:1",
+            meta.get("compression_ratio")
+                .and_then(|v| v.as_str())
+                .unwrap_or("?")
+        );
     }
     println!("    Parsed in {:?}", t0.elapsed());
 
     // ─── Step 2: Discover and load roles ───────────────────────────────
     let roles = discover_roles(&header);
     println!("\n[2] Found {} encoded roles:", roles.len());
-    for r in &roles { println!("    {}", r); }
+    for r in &roles {
+        println!("    {}", r);
+    }
 
     // ─── Step 3: Rehydrate each role ───────────────────────────────────
     println!("\n[3] Rehydrating weight matrices...");
@@ -157,18 +185,26 @@ fn main() {
 
         // Load entries
         let entries_key = format!("{}.hhtld_entries", role_name);
-        let entries_bytes = match read_tensor_bytes(&mut reader, &header, data_offset, &entries_key) {
+        let entries_bytes = match read_tensor_bytes(&mut reader, &header, data_offset, &entries_key)
+        {
             Some(b) => b,
-            None => { eprintln!("    MISS: {}", entries_key); continue; }
+            None => {
+                eprintln!("    MISS: {}", entries_key);
+                continue;
+            }
         };
         let entries = bgz_tensor::hhtl_d::HhtlDTensor::entries_from_bytes(&entries_bytes);
         let n_rows = entries.len();
 
         // Load palette
         let palette_key = format!("{}.palette", role_name);
-        let palette_bytes = match read_tensor_bytes(&mut reader, &header, data_offset, &palette_key) {
+        let palette_bytes = match read_tensor_bytes(&mut reader, &header, data_offset, &palette_key)
+        {
             Some(b) => b,
-            None => { eprintln!("    MISS: {}", palette_key); continue; }
+            None => {
+                eprintln!("    MISS: {}", palette_key);
+                continue;
+            }
         };
         let palette = decode_palette(&palette_bytes);
 
@@ -182,54 +218,62 @@ fn main() {
 
         // Load original shape
         let shape_key = format!("{}.original_shape", role_name);
-        let shape = if let Some(sb) = read_tensor_bytes(&mut reader, &header, data_offset, &shape_key) {
-            let r = u32::from_le_bytes([sb[0], sb[1], sb[2], sb[3]]) as usize;
-            let c = u32::from_le_bytes([sb[4], sb[5], sb[6], sb[7]]) as usize;
-            [r, c]
-        } else {
-            [n_rows, 0]
-        };
+        let shape =
+            if let Some(sb) = read_tensor_bytes(&mut reader, &header, data_offset, &shape_key) {
+                let r = u32::from_le_bytes([sb[0], sb[1], sb[2], sb[3]]) as usize;
+                let c = u32::from_le_bytes([sb[4], sb[5], sb[6], sb[7]]) as usize;
+                [r, c]
+            } else {
+                [n_rows, 0]
+            };
 
         // Rehydrate all rows
-        let rehydrated: Vec<Base17> = entries.iter()
-            .map(|e| rehydrate_row(e, &palette))
-            .collect();
+        let rehydrated: Vec<Base17> = entries.iter().map(|e| rehydrate_row(e, &palette)).collect();
         total_rehydrated_rows += n_rows;
 
         // Compute route statistics for this role
-        let (n_skip, n_attend, n_compose, n_escalate) = if let (Some(rb), Some(db)) = (&route_bytes, &dist_bytes) {
-            let k = palette.len();
-            let mut skip = 0usize;
-            let mut attend = 0usize;
-            let mut compose = 0usize;
-            let mut escalate = 0usize;
-            for a in 0..k {
-                for b in 0..k {
-                    match rb[a * k + b] {
-                        0 => skip += 1,
-                        1 => attend += 1,
-                        2 => compose += 1,
-                        3 => escalate += 1,
-                        _ => {}
+        let (n_skip, n_attend, n_compose, n_escalate) =
+            if let (Some(rb), Some(db)) = (&route_bytes, &dist_bytes) {
+                let k = palette.len();
+                let mut skip = 0usize;
+                let mut attend = 0usize;
+                let mut compose = 0usize;
+                let mut escalate = 0usize;
+                for a in 0..k {
+                    for b in 0..k {
+                        match rb[a * k + b] {
+                            0 => skip += 1,
+                            1 => attend += 1,
+                            2 => compose += 1,
+                            3 => escalate += 1,
+                            _ => {}
+                        }
                     }
                 }
-            }
-            (skip, attend, compose, escalate)
-        } else {
-            (0, 0, 0, 0)
-        };
+                (skip, attend, compose, escalate)
+            } else {
+                (0, 0, 0, 0)
+            };
 
         // Basin distribution
         let mut basin_counts = [0usize; 4];
         for e in &entries {
             let b = e.heel_basin() as usize;
-            if b < 4 { basin_counts[b] += 1; }
+            if b < 4 {
+                basin_counts[b] += 1;
+            }
         }
 
-        println!("    {}: {} rows (orig {}×{}), palette k={}, skip={:.0}% ({:?})",
-            role_name, n_rows, shape[0], shape[1], palette.len(),
+        println!(
+            "    {}: {} rows (orig {}×{}), palette k={}, skip={:.0}% ({:?})",
+            role_name,
+            n_rows,
+            shape[0],
+            shape[1],
+            palette.len(),
             n_skip as f64 / (palette.len() * palette.len()).max(1) as f64 * 100.0,
-            t0.elapsed());
+            t0.elapsed()
+        );
 
         // Verify self-consistency: centroid → lookup → same centroid
         let mut mismatches = 0usize;
@@ -244,7 +288,10 @@ fn main() {
             }
         }
         if mismatches > 0 {
-            println!("      ⚠ {} / 100 centroid mismatches after rehydration", mismatches);
+            println!(
+                "      ⚠ {} / 100 centroid mismatches after rehydration",
+                mismatches
+            );
         }
 
         // Load Fisher z table (v2 encoding)
@@ -256,20 +303,32 @@ fn main() {
             let self_cos = fz.lookup_f32(0, 0);
             // Cross-centroid: sample a few
             let cross_cos = if k > 1 { fz.lookup_f32(0, 1) } else { 0.0 };
-            println!("      Fisher z: {} entries, gamma=[{:.4}, {:.4}], self_cos={:.4}, cross_cos={:.4}",
-                k * k, fz.gamma.z_min, fz.gamma.z_range, self_cos, cross_cos);
+            println!(
+                "      Fisher z: {} entries, gamma=[{:.4}, {:.4}], self_cos={:.4}, cross_cos={:.4}",
+                k * k,
+                fz.gamma.z_min,
+                fz.gamma.z_range,
+                self_cos,
+                cross_cos
+            );
         }
     }
 
     // ─── Step 4: Check passthrough tensors ─────────────────────────────
-    let passthrough: Vec<String> = header.as_object()
-        .map(|o| o.keys()
-            .filter(|k| k.starts_with("passthrough."))
-            .cloned()
-            .collect())
+    let passthrough: Vec<String> = header
+        .as_object()
+        .map(|o| {
+            o.keys()
+                .filter(|k| k.starts_with("passthrough."))
+                .cloned()
+                .collect()
+        })
         .unwrap_or_default();
 
-    println!("\n[4] Passthrough tensors (norms, embeddings): {}", passthrough.len());
+    println!(
+        "\n[4] Passthrough tensors (norms, embeddings): {}",
+        passthrough.len()
+    );
     for pt in &passthrough {
         if let Some(entry) = header.get(pt) {
             let offsets = entry.get("data_offsets").and_then(|o| o.as_array());

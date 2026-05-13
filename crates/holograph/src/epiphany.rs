@@ -112,8 +112,8 @@ impl EpiphanyZone {
     pub fn activation(&self) -> f32 {
         match self {
             EpiphanyZone::Identity => 1.0,
-            EpiphanyZone::Epiphany => 0.7,  // Strong but not overwhelming
-            EpiphanyZone::Penumbra => 0.3,  // Worth noting
+            EpiphanyZone::Epiphany => 0.7, // Strong but not overwhelming
+            EpiphanyZone::Penumbra => 0.3, // Worth noting
             EpiphanyZone::Noise => 0.0,
             EpiphanyZone::Antipode => -0.5, // Negative correlation interesting
         }
@@ -183,7 +183,8 @@ impl CentroidStats {
                 let diff = d as f32 - mean_radius;
                 diff * diff
             })
-            .sum::<f32>() / count as f32;
+            .sum::<f32>()
+            / count as f32;
         let radius_std = variance.sqrt();
 
         let max_radius = distances.iter().copied().max().unwrap_or(0);
@@ -267,10 +268,14 @@ impl AdaptiveThreshold {
 
         // Find threshold that maximizes separation
         let good_max = self.good_distances.iter().copied().max().unwrap_or(0);
-        let good_mean: f32 = self.good_distances.iter().sum::<u32>() as f32
-            / self.good_distances.len() as f32;
+        let good_mean: f32 =
+            self.good_distances.iter().sum::<u32>() as f32 / self.good_distances.len() as f32;
 
-        let bad_min = self.bad_distances.iter().copied().min()
+        let bad_min = self
+            .bad_distances
+            .iter()
+            .copied()
+            .min()
             .unwrap_or(VECTOR_BITS as u32);
 
         // Optimal threshold is midpoint between good_max and bad_min
@@ -441,7 +446,8 @@ impl EpiphanyEngine {
 
         // Sort by confidence, then by zone significance
         discoveries.sort_by(|a, b| {
-            b.confidence.partial_cmp(&a.confidence)
+            b.confidence
+                .partial_cmp(&a.confidence)
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
 
@@ -489,22 +495,21 @@ impl EpiphanyEngine {
 
     /// Analyze cluster health
     pub fn cluster_health(&self, cluster_id: u64) -> Option<ClusterHealth> {
-        self.cluster_stats.get(&cluster_id).map(|stats| {
-            ClusterHealth {
+        self.cluster_stats
+            .get(&cluster_id)
+            .map(|stats| ClusterHealth {
                 is_tight: stats.is_tight(),
                 is_epiphany_zone: stats.is_epiphany_cluster(),
                 sigma_ratio: stats.sigma_ratio,
                 suggested_split: stats.sigma_ratio > 2.5,
                 suggested_merge: stats.sigma_ratio < 0.3,
-            }
-        })
+            })
     }
 
     /// Get discovery statistics
     pub fn stats(&self) -> EpiphanyStats {
-        let zone_counts: HashMap<EpiphanyZone, usize> = self.discoveries
-            .iter()
-            .fold(HashMap::new(), |mut acc, d| {
+        let zone_counts: HashMap<EpiphanyZone, usize> =
+            self.discoveries.iter().fold(HashMap::new(), |mut acc, d| {
                 *acc.entry(d.zone).or_insert(0) += 1;
                 acc
             });
@@ -518,10 +523,22 @@ impl EpiphanyEngine {
 
         EpiphanyStats {
             total_discoveries: self.discoveries.len(),
-            identity_count: zone_counts.get(&EpiphanyZone::Identity).copied().unwrap_or(0),
-            epiphany_count: zone_counts.get(&EpiphanyZone::Epiphany).copied().unwrap_or(0),
-            penumbra_count: zone_counts.get(&EpiphanyZone::Penumbra).copied().unwrap_or(0),
-            antipode_count: zone_counts.get(&EpiphanyZone::Antipode).copied().unwrap_or(0),
+            identity_count: zone_counts
+                .get(&EpiphanyZone::Identity)
+                .copied()
+                .unwrap_or(0),
+            epiphany_count: zone_counts
+                .get(&EpiphanyZone::Epiphany)
+                .copied()
+                .unwrap_or(0),
+            penumbra_count: zone_counts
+                .get(&EpiphanyZone::Penumbra)
+                .copied()
+                .unwrap_or(0),
+            antipode_count: zone_counts
+                .get(&EpiphanyZone::Antipode)
+                .copied()
+                .unwrap_or(0),
             average_confidence: avg_confidence,
             current_threshold: self.threshold.threshold(),
             threshold_confidence: self.threshold.confidence(),
@@ -621,22 +638,23 @@ impl ResonanceCalibrator {
         let variance: f32 = distances
             .iter()
             .map(|&d| (d as f32 - mean).powi(2))
-            .sum::<f32>() / distances.len() as f32;
+            .sum::<f32>()
+            / distances.len() as f32;
         let data_std = variance.sqrt();
 
         // The "sweet spot": leaf size where intra-cluster variance ≈ target_sigma
         // Larger leaves = more variance, smaller = less
         // Empirical formula: leaf_size ≈ (data_std / target_sigma)^2 * base_size
         let variance_ratio = data_std / (self.target_sigma * HAMMING_STD_DEV as f32);
-        let optimal_leaf_size = ((variance_ratio * variance_ratio) * 32.0)
-            .clamp(8.0, 256.0) as usize;
+        let optimal_leaf_size =
+            ((variance_ratio * variance_ratio) * 32.0).clamp(8.0, 256.0) as usize;
 
         // Branching factor: balance between depth and breadth
         // Higher variance data needs more branches for discrimination
         let optimal_branches = if data_std > HAMMING_STD_DEV as f32 * 1.5 {
             32 // High variance: more branches
         } else if data_std < HAMMING_STD_DEV as f32 * 0.5 {
-            8  // Low variance: fewer branches
+            8 // Low variance: fewer branches
         } else {
             16 // Normal
         };
@@ -794,11 +812,7 @@ mod tests {
 
         let random = BitpackedVector::random(999); // Far
 
-        let candidates = vec![
-            (1, similar),
-            (2, related),
-            (3, random),
-        ];
+        let candidates = vec![(1, similar), (2, related), (3, random)];
 
         let discoveries = engine.search(&query, &candidates, 10);
 

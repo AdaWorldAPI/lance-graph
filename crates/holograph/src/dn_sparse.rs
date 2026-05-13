@@ -64,10 +64,10 @@
 //! | Snapshot read | MVCC overhead | delta merge | **delta merge O(1)** |
 
 use crate::bitpack::{BitpackedVector, VECTOR_BITS, VECTOR_WORDS};
-use crate::hamming::{hamming_distance_scalar, Belichtung, StackedPopcount};
-use crate::epiphany::{ONE_SIGMA, TWO_SIGMA, THREE_SIGMA};
 use crate::dntree::CogVerb;
-use std::collections::{HashMap, HashSet, BTreeMap};
+use crate::epiphany::{ONE_SIGMA, THREE_SIGMA, TWO_SIGMA};
+use crate::hamming::{Belichtung, StackedPopcount, hamming_distance_scalar};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 
 /// Count how many 64-bit words differ at all between two vectors.
@@ -352,9 +352,12 @@ impl PackedDn {
         let d = self.depth();
         // Mask to compare only the first `d` bytes
         let shift = 64 - d as u32 * 8;
-        let mask = if shift >= 64 { 0 } else { !0u64 << (64 - d as u32 * 8) };
-        (self.0 & mask) == (other.0 & mask)
-            && self.0 != other.0 // not equal, strictly ancestor
+        let mask = if shift >= 64 {
+            0
+        } else {
+            !0u64 << (64 - d as u32 * 8)
+        };
+        (self.0 & mask) == (other.0 & mask) && self.0 != other.0 // not equal, strictly ancestor
     }
 
     /// Shared prefix length (common ancestor depth)
@@ -465,7 +468,11 @@ pub fn hierarchical_fingerprint(dn: PackedDn) -> BitpackedVector {
 
         // Copy only the bits in this level's zone
         let start_bit = level * zone_size;
-        let end_bit = if level == 6 { VECTOR_BITS } else { (level + 1) * zone_size };
+        let end_bit = if level == 6 {
+            VECTOR_BITS
+        } else {
+            (level + 1) * zone_size
+        };
 
         for bit in start_bit..end_bit {
             if zone_vec.get_bit(bit) {
@@ -596,7 +603,8 @@ impl NodeSlot {
         let all_dns: Vec<PackedDn> = std::iter::once(primary_dn)
             .chain(self.aliases.iter().copied())
             .collect();
-        let fps: Vec<BitpackedVector> = all_dns.iter()
+        let fps: Vec<BitpackedVector> = all_dns
+            .iter()
             .map(|dn| hierarchical_fingerprint(*dn))
             .collect();
         let refs: Vec<&BitpackedVector> = fps.iter().collect();
@@ -767,7 +775,8 @@ impl DnNodeStore {
             self.fp_dirty = false;
         }
 
-        let mut results: Vec<(PackedDn, u32)> = self.fingerprints
+        let mut results: Vec<(PackedDn, u32)> = self
+            .fingerprints
             .iter()
             .map(|(dn, fp)| (*dn, hamming_distance_scalar(query, fp)))
             .collect();
@@ -862,7 +871,12 @@ impl DnCsr {
         }
         row_ptrs.push(col_dns.len() as u32);
 
-        Self { row_dns, row_ptrs, col_dns, edges }
+        Self {
+            row_dns,
+            row_ptrs,
+            col_dns,
+            edges,
+        }
     }
 
     /// Find position of a source DN via binary search. O(log n).
@@ -887,7 +901,10 @@ impl DnCsr {
     }
 
     /// Iterator over outgoing edges from a source DN. O(log n + degree).
-    pub fn outgoing_iter(&self, src: PackedDn) -> impl Iterator<Item = (PackedDn, EdgeDescriptor)> + '_ {
+    pub fn outgoing_iter(
+        &self,
+        src: PackedDn,
+    ) -> impl Iterator<Item = (PackedDn, EdgeDescriptor)> + '_ {
         let range = if let Some(pos) = self.find_row(src) {
             let start = self.row_ptrs[pos] as usize;
             let end = self.row_ptrs[pos + 1] as usize;
@@ -926,7 +943,10 @@ impl DnCsr {
     /// This is the graphBLAS-killer operation. Because row_dns is sorted
     /// hierarchically, all rows in a subtree are CONTIGUOUS. One binary
     /// search finds the start, another finds the end.
-    pub fn subtree_edges(&self, root: PackedDn) -> impl Iterator<Item = (PackedDn, PackedDn, EdgeDescriptor)> + '_ {
+    pub fn subtree_edges(
+        &self,
+        root: PackedDn,
+    ) -> impl Iterator<Item = (PackedDn, PackedDn, EdgeDescriptor)> + '_ {
         let (lo, hi) = root.subtree_range();
 
         // Binary search for range boundaries
@@ -1038,12 +1058,24 @@ pub struct BooleanBfs;
 
 impl DnSemiring for BooleanBfs {
     type Value = bool;
-    fn zero(&self) -> bool { false }
-    fn multiply(&self, _edge: EdgeDescriptor, input: &bool, _: Option<&BitpackedVector>, _: Option<&BitpackedVector>) -> bool {
+    fn zero(&self) -> bool {
+        false
+    }
+    fn multiply(
+        &self,
+        _edge: EdgeDescriptor,
+        input: &bool,
+        _: Option<&BitpackedVector>,
+        _: Option<&BitpackedVector>,
+    ) -> bool {
         *input // if source is in frontier, destination is reachable
     }
-    fn add(&self, a: &bool, b: &bool) -> bool { *a || *b }
-    fn is_zero(&self, val: &bool) -> bool { !val }
+    fn add(&self, a: &bool, b: &bool) -> bool {
+        *a || *b
+    }
+    fn is_zero(&self, val: &bool) -> bool {
+        !val
+    }
 }
 
 /// HDR Path Binding — accumulate XOR-bound path fingerprints during BFS
@@ -1059,7 +1091,9 @@ pub struct HdrPathBind;
 impl DnSemiring for HdrPathBind {
     type Value = BitpackedVector;
 
-    fn zero(&self) -> BitpackedVector { BitpackedVector::zero() }
+    fn zero(&self) -> BitpackedVector {
+        BitpackedVector::zero()
+    }
 
     fn multiply(
         &self,
@@ -1096,7 +1130,9 @@ pub struct HammingMinPlus;
 impl DnSemiring for HammingMinPlus {
     type Value = u32;
 
-    fn zero(&self) -> u32 { u32::MAX }
+    fn zero(&self) -> u32 {
+        u32::MAX
+    }
 
     fn multiply(
         &self,
@@ -1115,8 +1151,12 @@ impl DnSemiring for HammingMinPlus {
         input.saturating_add(edge_dist)
     }
 
-    fn add(&self, a: &u32, b: &u32) -> u32 { (*a).min(*b) }
-    fn is_zero(&self, val: &u32) -> bool { *val == u32::MAX }
+    fn add(&self, a: &u32, b: &u32) -> u32 {
+        (*a).min(*b)
+    }
+    fn is_zero(&self, val: &u32) -> bool {
+        *val == u32::MAX
+    }
 }
 
 /// PageRank contribution — damped rank propagation
@@ -1132,7 +1172,9 @@ pub struct PageRankSemiring {
 impl DnSemiring for PageRankSemiring {
     type Value = f32;
 
-    fn zero(&self) -> f32 { 0.0 }
+    fn zero(&self) -> f32 {
+        0.0
+    }
 
     fn multiply(
         &self,
@@ -1145,8 +1187,12 @@ impl DnSemiring for PageRankSemiring {
         self.damping * input * edge.weight()
     }
 
-    fn add(&self, a: &f32, b: &f32) -> f32 { a + b }
-    fn is_zero(&self, val: &f32) -> bool { *val == 0.0 }
+    fn add(&self, a: &f32, b: &f32) -> f32 {
+        a + b
+    }
+    fn is_zero(&self, val: &f32) -> bool {
+        *val == 0.0
+    }
 }
 
 /// Resonance Max — find strongest semantic resonance through edges
@@ -1164,7 +1210,9 @@ pub struct ResonanceMax {
 impl DnSemiring for ResonanceMax {
     type Value = u32;
 
-    fn zero(&self) -> u32 { 0 }
+    fn zero(&self) -> u32 {
+        0
+    }
 
     fn multiply(
         &self,
@@ -1186,8 +1234,12 @@ impl DnSemiring for ResonanceMax {
         }
     }
 
-    fn add(&self, a: &u32, b: &u32) -> u32 { (*a).max(*b) }
-    fn is_zero(&self, val: &u32) -> bool { *val == 0 }
+    fn add(&self, a: &u32, b: &u32) -> u32 {
+        (*a).max(*b)
+    }
+    fn is_zero(&self, val: &u32) -> bool {
+        *val == 0
+    }
 }
 
 // ── Cascaded Semirings: Belichtungsmesser + StackedPopcount ────────────────
@@ -1308,7 +1360,9 @@ impl CascadedHammingMinPlus {
 impl DnSemiring for CascadedHammingMinPlus {
     type Value = u32;
 
-    fn zero(&self) -> u32 { u32::MAX }
+    fn zero(&self) -> u32 {
+        u32::MAX
+    }
 
     fn multiply(
         &self,
@@ -1343,7 +1397,7 @@ impl DnSemiring for CascadedHammingMinPlus {
                 // Remaining budget: how much distance can this edge add
                 // before the total path exceeds usefulness?
                 match StackedPopcount::compute_with_threshold(s, d, self.radius) {
-                    None => return u32::MAX, // exceeded radius mid-computation
+                    None => return u32::MAX,        // exceeded radius mid-computation
                     Some(stacked) => stacked.total, // exact distance for survivors
                 }
             }
@@ -1353,8 +1407,12 @@ impl DnSemiring for CascadedHammingMinPlus {
         input.saturating_add(edge_dist)
     }
 
-    fn add(&self, a: &u32, b: &u32) -> u32 { (*a).min(*b) }
-    fn is_zero(&self, val: &u32) -> bool { *val == u32::MAX }
+    fn add(&self, a: &u32, b: &u32) -> u32 {
+        (*a).min(*b)
+    }
+    fn is_zero(&self, val: &u32) -> bool {
+        *val == u32::MAX
+    }
 }
 
 /// Cascaded Resonance Max — same as ResonanceMax but with Belichtung
@@ -1432,7 +1490,9 @@ impl CascadedResonanceMax {
 impl DnSemiring for CascadedResonanceMax {
     type Value = u32;
 
-    fn zero(&self) -> u32 { 0 }
+    fn zero(&self) -> u32 {
+        0
+    }
 
     fn multiply(
         &self,
@@ -1460,9 +1520,7 @@ impl DnSemiring for CascadedResonanceMax {
                 }
 
                 // ── Level 2: StackedPopcount with threshold ──
-                match StackedPopcount::compute_with_threshold(
-                    &edge_fp, &self.query, self.radius,
-                ) {
+                match StackedPopcount::compute_with_threshold(&edge_fp, &self.query, self.radius) {
                     None => 0, // exceeded radius = not resonant enough
                     Some(stacked) => {
                         // ── Level 3: exact resonance from surviving distance ──
@@ -1474,8 +1532,12 @@ impl DnSemiring for CascadedResonanceMax {
         }
     }
 
-    fn add(&self, a: &u32, b: &u32) -> u32 { (*a).max(*b) }
-    fn is_zero(&self, val: &u32) -> bool { *val == 0 }
+    fn add(&self, a: &u32, b: &u32) -> u32 {
+        (*a).max(*b)
+    }
+    fn is_zero(&self, val: &u32) -> bool {
+        *val == 0
+    }
 }
 
 // ── Semiring-powered Matrix-Vector Multiply on DnCsr ────────────────────────
@@ -1525,7 +1587,8 @@ impl DnCsr {
                 let contribution = semiring.multiply(edge, input_val, src_fp, dst_fp);
 
                 if !semiring.is_zero(&contribution) {
-                    result.entry(dst)
+                    result
+                        .entry(dst)
                         .and_modify(|existing| {
                             *existing = semiring.add(existing, &contribution);
                         })
@@ -1577,7 +1640,8 @@ impl DnCsr {
                 let contribution = semiring.multiply(edge, input_val, src_fp, dst_fp);
 
                 if !semiring.is_zero(&contribution) {
-                    result.entry(dst)
+                    result
+                        .entry(dst)
                         .and_modify(|existing| {
                             *existing = semiring.add(existing, &contribution);
                         })
@@ -1751,8 +1815,7 @@ impl DeltaDnMatrix {
 
     /// Number of edges (approximate: doesn't account for deltas precisely)
     pub fn nnz_approx(&self) -> usize {
-        self.main.nnz()
-            + self.delta_plus.values().map(|v| v.len()).sum::<usize>()
+        self.main.nnz() + self.delta_plus.values().map(|v| v.len()).sum::<usize>()
             - self.delta_minus.len()
     }
 
@@ -1762,7 +1825,10 @@ impl DeltaDnMatrix {
     }
 
     /// Subtree edges from main CSR (delta-unaware for bulk operations)
-    pub fn subtree_edges_main(&self, root: PackedDn) -> impl Iterator<Item = (PackedDn, PackedDn, EdgeDescriptor)> + '_ {
+    pub fn subtree_edges_main(
+        &self,
+        root: PackedDn,
+    ) -> impl Iterator<Item = (PackedDn, PackedDn, EdgeDescriptor)> + '_ {
         self.main.subtree_edges(root)
     }
 }
@@ -1854,7 +1920,11 @@ impl DnGraph {
         self.add_node(child_dn, label);
 
         // Auto-connect child → parent with PART_OF
-        self.add_edge(child_dn, parent, EdgeDescriptor::new(CogVerb::PART_OF, 1.0, 0));
+        self.add_edge(
+            child_dn,
+            parent,
+            EdgeDescriptor::new(CogVerb::PART_OF, 1.0, 0),
+        );
 
         Some(child_dn)
     }
@@ -1862,7 +1932,9 @@ impl DnGraph {
     /// Remove a node and all its edges. O(degree).
     pub fn remove_node(&mut self, dn: PackedDn) {
         // Remove all outgoing edges
-        let outgoing: Vec<_> = self.forward.outgoing(dn)
+        let outgoing: Vec<_> = self
+            .forward
+            .outgoing(dn)
             .iter()
             .map(|(dst, _)| *dst)
             .collect();
@@ -1871,7 +1943,9 @@ impl DnGraph {
         }
 
         // Remove all incoming edges
-        let incoming: Vec<_> = self.reverse.outgoing(dn)
+        let incoming: Vec<_> = self
+            .reverse
+            .outgoing(dn)
             .iter()
             .map(|(src, _)| *src)
             .collect();
@@ -1921,7 +1995,8 @@ impl DnGraph {
 
         // Also add to verb-specific matrix
         let verb_cat = edge.verb().category() as u8;
-        self.typed_adj.entry(verb_cat)
+        self.typed_adj
+            .entry(verb_cat)
             .or_default()
             .add_edge(src, dst, edge);
 
@@ -1960,7 +2035,11 @@ impl DnGraph {
     }
 
     /// Get edges of a specific verb category. O(log n + degree).
-    pub fn edges_by_verb_category(&self, src: PackedDn, category: u8) -> Vec<(PackedDn, EdgeDescriptor)> {
+    pub fn edges_by_verb_category(
+        &self,
+        src: PackedDn,
+        category: u8,
+    ) -> Vec<(PackedDn, EdgeDescriptor)> {
         if let Some(mat) = self.typed_adj.get(&category) {
             mat.outgoing(src)
         } else {
@@ -2036,7 +2115,9 @@ impl DnGraph {
                     }
                 }
             }
-            if next.is_empty() { break; }
+            if next.is_empty() {
+                break;
+            }
             frontier = next;
         }
 
@@ -2058,7 +2139,8 @@ impl DnGraph {
         let mut rank: HashMap<PackedDn, f32> = all_dns.iter().map(|&dn| (dn, 1.0 / n)).collect();
 
         for _ in 0..iterations {
-            let mut new_rank: HashMap<PackedDn, f32> = all_dns.iter().map(|&dn| (dn, base)).collect();
+            let mut new_rank: HashMap<PackedDn, f32> =
+                all_dns.iter().map(|&dn| (dn, base)).collect();
 
             for &src in &all_dns {
                 let edges = self.outgoing(src);
@@ -2163,7 +2245,8 @@ impl DnGraph {
     /// Useful for subtree-level similarity comparison.
     pub fn subtree_fingerprint(&self, root: PackedDn) -> BitpackedVector {
         let dns = self.subtree(root);
-        let fps: Vec<Arc<BitpackedVector>> = dns.iter()
+        let fps: Vec<Arc<BitpackedVector>> = dns
+            .iter()
             .filter_map(|dn| self.nodes.get(*dn).map(|s| s.fingerprint.clone()))
             .collect();
         let refs: Vec<&BitpackedVector> = fps.iter().map(|a| a.as_ref()).collect();
@@ -2181,7 +2264,8 @@ impl DnGraph {
     /// Collect fingerprint references for the semiring to use.
     /// Returns a HashMap that the mxv can borrow from.
     fn fingerprint_map(&self) -> HashMap<PackedDn, Arc<BitpackedVector>> {
-        self.nodes.iter()
+        self.nodes
+            .iter()
             .map(|(&dn, slot)| (dn, slot.fingerprint.clone()))
             .collect()
     }
@@ -2259,11 +2343,7 @@ impl DnGraph {
     /// Semiring-powered PageRank (iterative mxv).
     ///
     /// Each iteration: rank = damping * (A^T * rank_normalized) + base
-    pub fn semiring_pagerank(
-        &self,
-        damping: f32,
-        iterations: usize,
-    ) -> HashMap<PackedDn, f32> {
+    pub fn semiring_pagerank(&self, damping: f32, iterations: usize) -> HashMap<PackedDn, f32> {
         let fps = self.fingerprint_map();
         let semiring = PageRankSemiring { damping };
         let n = self.nodes.len() as f32;
@@ -2274,9 +2354,7 @@ impl DnGraph {
 
         // Initialize: equal rank for all nodes
         let all_dns: Vec<PackedDn> = self.nodes.iter().map(|(&dn, _)| dn).collect();
-        let mut rank: HashMap<PackedDn, f32> = all_dns.iter()
-            .map(|&dn| (dn, 1.0 / n))
-            .collect();
+        let mut rank: HashMap<PackedDn, f32> = all_dns.iter().map(|&dn| (dn, 1.0 / n)).collect();
 
         for _ in 0..iterations {
             // Normalize by out-degree
@@ -2314,7 +2392,9 @@ impl DnGraph {
         query: &BitpackedVector,
         max_depth: usize,
     ) -> HashMap<PackedDn, u32> {
-        let semiring = ResonanceMax { query: query.clone() };
+        let semiring = ResonanceMax {
+            query: query.clone(),
+        };
         self.semiring_traverse(source, 0u32, &semiring, max_depth)
     }
 
@@ -2411,9 +2491,8 @@ impl DnGraph {
     ) -> Option<(BitpackedVector, u32, f32)> {
         // Phase 1: Broad sweep to collect weak signals
         let broad_radius = VECTOR_BITS as u32 / 3; // ~3333 = 33% different
-        let broad_results = self.cascaded_resonance_traverse(
-            source, query, broad_radius, max_depth,
-        );
+        let broad_results =
+            self.cascaded_resonance_traverse(source, query, broad_radius, max_depth);
 
         // Phase 2: Compute edge fingerprints for nodes with nonzero resonance
         let mut weak_fps: Vec<BitpackedVector> = Vec::new();
@@ -2440,16 +2519,15 @@ impl DnGraph {
         // Phase 3: Orthogonal superposition cleaning
         // XOR each with query to get difference signals, then majority vote
         let threshold = weak_fps.len() / 2;
-        let deltas: Vec<BitpackedVector> = weak_fps.iter()
-            .map(|fp| query.xor(fp))
-            .collect();
+        let deltas: Vec<BitpackedVector> = weak_fps.iter().map(|fp| query.xor(fp)).collect();
 
         let mut cleaned_delta = BitpackedVector::zero();
         for word_idx in 0..VECTOR_WORDS {
             let mut result_word = 0u64;
             for bit in 0..64 {
                 let mask = 1u64 << bit;
-                let votes: usize = deltas.iter()
+                let votes: usize = deltas
+                    .iter()
                     .filter(|d| d.words()[word_idx] & mask != 0)
                     .count();
                 if votes > threshold {
@@ -2481,9 +2559,15 @@ impl DnGraph {
     // STATISTICS
     // ========================================================================
 
-    pub fn num_nodes(&self) -> usize { self.nodes.len() }
-    pub fn num_edges(&self) -> usize { self.forward.nnz_approx() }
-    pub fn is_dirty(&self) -> bool { self.forward.is_dirty() }
+    pub fn num_nodes(&self) -> usize {
+        self.nodes.len()
+    }
+    pub fn num_edges(&self) -> usize {
+        self.forward.nnz_approx()
+    }
+    pub fn is_dirty(&self) -> bool {
+        self.forward.is_dirty()
+    }
 }
 
 // ============================================================================
@@ -2492,7 +2576,12 @@ impl DnGraph {
 
 impl std::fmt::Display for DnGraph {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "DnGraph {{ nodes: {}, edges: {} }}", self.num_nodes(), self.num_edges())?;
+        writeln!(
+            f,
+            "DnGraph {{ nodes: {}, edges: {} }}",
+            self.num_nodes(),
+            self.num_edges()
+        )?;
 
         // Show node tree
         let mut dns: Vec<(&PackedDn, &NodeSlot)> = self.nodes.iter().collect();
@@ -2631,9 +2720,9 @@ mod tests {
         let mut store = DnNodeStore::new();
 
         // Build: /domain/tree/branch/twig/leaf
-        let dns: Vec<PackedDn> = (0..5).map(|i| {
-            PackedDn::new(&(0..=i).map(|j| j as u8).collect::<Vec<_>>())
-        }).collect();
+        let dns: Vec<PackedDn> = (0..5)
+            .map(|i| PackedDn::new(&(0..=i).map(|j| j as u8).collect::<Vec<_>>()))
+            .collect();
 
         for (i, &dn) in dns.iter().enumerate() {
             store.insert(dn, NodeSlot::new(dn, format!("level_{}", i)));
@@ -2755,9 +2844,12 @@ mod tests {
         let cat_eagle_dist = hamming_distance_scalar(&cat_fp, &eagle_fp);
 
         // Siblings should be closer than cousins in hierarchical fingerprints
-        assert!(cat_dog_dist < cat_eagle_dist,
+        assert!(
+            cat_dog_dist < cat_eagle_dist,
             "Siblings should be closer: cat-dog={} vs cat-eagle={}",
-            cat_dog_dist, cat_eagle_dist);
+            cat_dog_dist,
+            cat_eagle_dist
+        );
     }
 
     #[test]
@@ -2789,7 +2881,10 @@ mod tests {
 
         // Recovered B should exactly match B's fingerprint
         let dist = hamming_distance_scalar(&recovered_b, &b_fp);
-        assert_eq!(dist, 0, "XOR unbinding should perfectly recover the endpoint");
+        assert_eq!(
+            dist, 0,
+            "XOR unbinding should perfectly recover the endpoint"
+        );
     }
 
     #[test]
@@ -2829,8 +2924,16 @@ mod tests {
         let dist_marine = hamming_distance_scalar(&slot.fingerprint, &marine_fp);
 
         // Both should be relatively close (bundle preserves majority bits)
-        assert!(dist_mammal < 5000, "Bundle should be close to mammal path: {}", dist_mammal);
-        assert!(dist_marine < 5000, "Bundle should be close to marine path: {}", dist_marine);
+        assert!(
+            dist_mammal < 5000,
+            "Bundle should be close to mammal path: {}",
+            dist_mammal
+        );
+        assert!(
+            dist_marine < 5000,
+            "Bundle should be close to marine path: {}",
+            dist_marine
+        );
     }
 
     #[test]
@@ -2853,8 +2956,12 @@ mod tests {
         // Hub should have highest rank
         let hub_rank = ranks[&hub];
         let a_rank = ranks[&a];
-        assert!(hub_rank > a_rank,
-            "Hub should rank higher: hub={} vs a={}", hub_rank, a_rank);
+        assert!(
+            hub_rank > a_rank,
+            "Hub should rank higher: hub={} vs a={}",
+            hub_rank,
+            a_rank
+        );
     }
 
     // ====================================================================
@@ -2928,7 +3035,10 @@ mod tests {
         // Each node should have a non-zero path fingerprint
         assert!(path_fps.contains_key(&b));
         let b_path_fp = &path_fps[&b];
-        assert!(b_path_fp.popcount() > 0, "Path fingerprint should be non-zero");
+        assert!(
+            b_path_fp.popcount() > 0,
+            "Path fingerprint should be non-zero"
+        );
     }
 
     #[test]
@@ -2953,12 +3063,13 @@ mod tests {
 
         // B's edge should resonate more strongly with the CAUSES query
         // than C's edge (which is SIMILAR_TO)
-        if let (Some(&b_res), Some(&c_res)) =
-            (resonance_result.get(&b), resonance_result.get(&c))
-        {
-            assert!(b_res > c_res,
+        if let (Some(&b_res), Some(&c_res)) = (resonance_result.get(&b), resonance_result.get(&c)) {
+            assert!(
+                b_res > c_res,
                 "CAUSES edge should resonate more with CAUSES query: B={} vs C={}",
-                b_res, c_res);
+                b_res,
+                c_res
+            );
         }
     }
 
@@ -2982,8 +3093,12 @@ mod tests {
         let hub_rank = ranks.get(&hub).copied().unwrap_or(0.0);
         let a_rank = ranks.get(&a).copied().unwrap_or(0.0);
 
-        assert!(hub_rank > a_rank,
-            "Hub should rank higher in semiring PR: hub={} vs a={}", hub_rank, a_rank);
+        assert!(
+            hub_rank > a_rank,
+            "Hub should rank higher in semiring PR: hub={} vs a={}",
+            hub_rank,
+            a_rank
+        );
     }
 
     #[test]
@@ -3027,16 +3142,22 @@ mod tests {
         };
 
         // Same nodes reached
-        assert_eq!(full.len(), cascaded.len(),
+        assert_eq!(
+            full.len(),
+            cascaded.len(),
             "Passthrough cascade should reach same nodes: full={} vs cascaded={}",
-            full.len(), cascaded.len());
+            full.len(),
+            cascaded.len()
+        );
 
         // Same distances
         for (dn, dist) in &full {
             let cascaded_dist = cascaded.get(dn).copied().unwrap_or(u32::MAX);
-            assert_eq!(*dist, cascaded_dist,
+            assert_eq!(
+                *dist, cascaded_dist,
                 "Distance mismatch at {}: full={} vs cascaded={}",
-                dn, dist, cascaded_dist);
+                dn, dist, cascaded_dist
+            );
         }
     }
 
@@ -3059,9 +3180,12 @@ mod tests {
 
         // Tight should reach fewer or equal nodes
         // (nodes separated by Hamming > 50 are unreachable)
-        assert!(tight.len() <= full.len(),
+        assert!(
+            tight.len() <= full.len(),
             "Tight cascade should reach ≤ full: tight={} vs full={}",
-            tight.len(), full.len());
+            tight.len(),
+            full.len()
+        );
     }
 
     #[test]
@@ -3084,10 +3208,8 @@ mod tests {
 
         // Broad cascaded (radius = 5000, very permissive)
         let broad = {
-            let semiring = CascadedResonanceMax::with_radius(
-                target.clone(),
-                VECTOR_BITS as u32 / 2,
-            );
+            let semiring =
+                CascadedResonanceMax::with_radius(target.clone(), VECTOR_BITS as u32 / 2);
             graph.semiring_traverse(a, 0u32, &semiring, 1)
         };
 
@@ -3118,8 +3240,11 @@ mod tests {
         // with the specific edge fingerprint. B's resonance should be 0
         // (or B not in results at all).
         let b_res = tight.get(&b).copied().unwrap_or(0);
-        assert!(b_res == 0,
-            "Random query should not resonate tightly: b_res={}", b_res);
+        assert!(
+            b_res == 0,
+            "Random query should not resonate tightly: b_res={}",
+            b_res
+        );
     }
 
     #[test]

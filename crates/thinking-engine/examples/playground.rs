@@ -10,7 +10,7 @@
 //!   Cycles: 5 (fast) → 20 (deep)
 //!   Top-K: how many peaks to show
 
-use thinking_engine::jina_lens::{JINA_HDR_TABLE, jina_lookup_many, JINA_N_CENTROIDS};
+use thinking_engine::jina_lens::{jina_lookup_many, JINA_HDR_TABLE, JINA_N_CENTROIDS};
 
 fn main() {
     println!("═══════════════════════════════════════════════════════════");
@@ -43,7 +43,10 @@ fn main() {
     let top_k = 5;
 
     println!("{:>50}  T=0.1   T=0.3   T=0.7   T=1.0   T=1.5", "Text");
-    println!("{:─>50}  {:─>7}  {:─>7}  {:─>7}  {:─>7}  {:─>7}", "", "", "", "", "", "");
+    println!(
+        "{:─>50}  {:─>7}  {:─>7}  {:─>7}  {:─>7}  {:─>7}",
+        "", "", "", "", "", ""
+    );
 
     for text in &texts {
         // Tokenize
@@ -56,7 +59,8 @@ fn main() {
             // Jina v3 baked lens
             jina_lookup_many(&token_ids)
         } else {
-            token_ids.iter()
+            token_ids
+                .iter()
                 .map(|&id| codebook.get(id as usize).copied().unwrap_or(0))
                 .collect()
         };
@@ -117,12 +121,20 @@ fn main() {
         let cents_a: Vec<u16> = if codebook.is_empty() {
             jina_lookup_many(enc_a.get_ids())
         } else {
-            enc_a.get_ids().iter().map(|&id| codebook.get(id as usize).copied().unwrap_or(0)).collect()
+            enc_a
+                .get_ids()
+                .iter()
+                .map(|&id| codebook.get(id as usize).copied().unwrap_or(0))
+                .collect()
         };
         let cents_b: Vec<u16> = if codebook.is_empty() {
             jina_lookup_many(enc_b.get_ids())
         } else {
-            enc_b.get_ids().iter().map(|&id| codebook.get(id as usize).copied().unwrap_or(0)).collect()
+            enc_b
+                .get_ids()
+                .iter()
+                .map(|&id| codebook.get(id as usize).copied().unwrap_or(0))
+                .collect()
         };
 
         let mut eng_a = thinking_engine::engine::ThinkingEngine::new(table.clone());
@@ -137,10 +149,21 @@ fn main() {
 
         let cos = ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd(&energy_a, &energy_b);
 
-        let label_a = if text_a.len() > 30 { &text_a[..30] } else { text_a };
-        let label_b = if text_b.len() > 30 { &text_b[..30] } else { text_b };
+        let label_a = if text_a.len() > 30 {
+            &text_a[..30]
+        } else {
+            text_a
+        };
+        let label_b = if text_b.len() > 30 {
+            &text_b[..30]
+        } else {
+            text_b
+        };
 
-        println!("  {:>20}  {:>30}↔{:<30}  {:.4}", label, label_a, label_b, cos);
+        println!(
+            "  {:>20}  {:>30}↔{:<30}  {:.4}",
+            label, label_a, label_b, cos
+        );
     }
 
     println!("\n═══════════════════════════════════════════════════════════");
@@ -151,9 +174,9 @@ fn main() {
 
 fn load_tokenizer() -> tokenizers::Tokenizer {
     // Try Jina v5 Qwen3 first
-    if let Ok(t) = tokenizers::Tokenizer::from_file(
-        "crates/thinking-engine/data/jina-v5-onnx/tokenizer.json"
-    ) {
+    if let Ok(t) =
+        tokenizers::Tokenizer::from_file("crates/thinking-engine/data/jina-v5-onnx/tokenizer.json")
+    {
         return t;
     }
     // Try from_pretrained
@@ -168,11 +191,23 @@ fn load_best_available() -> (Vec<u16>, Vec<u8>, usize, String) {
     let cb_path = "crates/thinking-engine/data/jina-v5-codebook/codebook_index.u16";
     let tb_path = "crates/thinking-engine/data/jina-v5-codebook/distance_table_256x256.u8";
     if let (Ok(cb_data), Ok(tb_data)) = (std::fs::read(cb_path), std::fs::read(tb_path)) {
-        let codebook: Vec<u16> = cb_data.chunks_exact(2)
-            .map(|c| u16::from_le_bytes([c[0], c[1]])).collect();
-        return (codebook, tb_data, 256, "Jina v5 codebook (256 centroids)".into());
+        let codebook: Vec<u16> = cb_data
+            .chunks_exact(2)
+            .map(|c| u16::from_le_bytes([c[0], c[1]]))
+            .collect();
+        return (
+            codebook,
+            tb_data,
+            256,
+            "Jina v5 codebook (256 centroids)".into(),
+        );
     }
 
     // Fall back to baked Jina v3 lens
-    (vec![], JINA_HDR_TABLE.to_vec(), JINA_N_CENTROIDS, "Jina v3 HDR baked (256 centroids)".into())
+    (
+        vec![],
+        JINA_HDR_TABLE.to_vec(),
+        JINA_N_CENTROIDS,
+        "Jina v3 HDR baked (256 centroids)".into(),
+    )
 }

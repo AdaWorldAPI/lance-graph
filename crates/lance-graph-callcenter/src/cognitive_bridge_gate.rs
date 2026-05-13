@@ -35,16 +35,14 @@
 //! path (the bridge never sees them). A separate counter is kept for
 //! observability via `chinese_wall_deny_count()`.
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 
-use lance_graph_ontology::bridge::NamespaceBridge;
 use lance_graph_contract::property::PrefetchDepth;
+use lance_graph_ontology::bridge::NamespaceBridge;
 
 use crate::unified_bridge::UnifiedBridge;
-use thinking_engine::bridge_gate::{
-    CognitiveAuthResult, CognitiveBridgeGate, CognitiveOpKind,
-};
+use thinking_engine::bridge_gate::{CognitiveAuthResult, CognitiveBridgeGate, CognitiveOpKind};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PrefetchDepth helper — avoids exposing lance-graph-contract in thinking-engine
@@ -120,11 +118,13 @@ impl<B: NamespaceBridge> UnifiedBridgeGate<B> {
     /// `Err(AuthError::Escalation)` → Escalate.
     /// `Err(AuthError::Bridge(_))` → Deny (unknown entity is not a grant).
     #[inline]
-    fn map_bridge_result<T>(result: Result<T, crate::unified_bridge::AuthError>) -> CognitiveAuthResult {
+    fn map_bridge_result<T>(
+        result: Result<T, crate::unified_bridge::AuthError>,
+    ) -> CognitiveAuthResult {
         match result {
-            Ok(_)                                             => CognitiveAuthResult::Allow,
+            Ok(_) => CognitiveAuthResult::Allow,
             Err(crate::unified_bridge::AuthError::Escalation(_)) => CognitiveAuthResult::Escalate,
-            Err(_)                                            => CognitiveAuthResult::Deny,
+            Err(_) => CognitiveAuthResult::Deny,
         }
     }
 }
@@ -153,11 +153,7 @@ impl<B: NamespaceBridge + Send + Sync> CognitiveBridgeGate for UnifiedBridgeGate
     ///
     /// Always uses `PrefetchDepth::Detail` (the persona archetype record
     /// requires the full slot to determine which qualia vector applies).
-    fn authorize_persona_switch(
-        &self,
-        tenant_id: u32,
-        _mode: u8,
-    ) -> CognitiveAuthResult {
+    fn authorize_persona_switch(&self, tenant_id: u32, _mode: u8) -> CognitiveAuthResult {
         if !self.same_tenant(tenant_id) {
             return self.chinese_wall_deny();
         }
@@ -177,9 +173,9 @@ impl<B: NamespaceBridge + Send + Sync> CognitiveBridgeGate for UnifiedBridgeGate
             return self.chinese_wall_deny();
         }
         let op_name = match op_kind {
-            CognitiveOpKind::L6Delegation   => "L6Delegation",
-            CognitiveOpKind::L8Integration  => "L8Integration",
-            CognitiveOpKind::QualiaWrite    => "QualiaWrite",
+            CognitiveOpKind::L6Delegation => "L6Delegation",
+            CognitiveOpKind::L8Integration => "L8Integration",
+            CognitiveOpKind::QualiaWrite => "QualiaWrite",
             CognitiveOpKind::MetaWordCommit => "MetaWordCommit",
         };
         Self::map_bridge_result(self.bridge.authorize_act("CognitiveStack", op_name))
@@ -194,11 +190,11 @@ mod tests {
     use lance_graph_ontology::OntologyRegistry;
     use lance_graph_rbac::policy::smb_policy;
 
-    use crate::unified_bridge::{TenantId, UnifiedBridge};
     use crate::audit_sink::{AuditError, AuditSink, MerkleRoot};
-    use crate::unified_audit::UnifiedAuditEvent;
     use crate::super_domain::SuperDomain as SD;
-    use thinking_engine::bridge_gate::{CognitiveBridgeGate, CognitiveOpKind, CognitiveAuthResult};
+    use crate::unified_audit::UnifiedAuditEvent;
+    use crate::unified_bridge::{TenantId, UnifiedBridge};
+    use thinking_engine::bridge_gate::{CognitiveAuthResult, CognitiveBridgeGate, CognitiveOpKind};
 
     // ── StubBridge (mirrors unified_bridge tests) ────────────────────────────
 
@@ -207,8 +203,12 @@ mod tests {
     }
 
     impl lance_graph_ontology::bridge::NamespaceBridge for StubBridge {
-        fn bridge_id(&self) -> &'static str { "stub" }
-        fn registry(&self) -> &OntologyRegistry { &self.registry }
+        fn bridge_id(&self) -> &'static str {
+            "stub"
+        }
+        fn registry(&self) -> &OntologyRegistry {
+            &self.registry
+        }
         fn g_lock(&self) -> lance_graph_ontology::namespace::NamespaceId {
             lance_graph_ontology::namespace::NamespaceId(1)
         }
@@ -229,15 +229,21 @@ mod tests {
         events: std::sync::Mutex<Vec<UnifiedAuditEvent>>,
     }
     impl RecordingSink {
-        fn count(&self) -> usize { self.events.lock().unwrap().len() }
+        fn count(&self) -> usize {
+            self.events.lock().unwrap().len()
+        }
     }
     impl AuditSink for RecordingSink {
         fn emit(&self, event: UnifiedAuditEvent) -> Result<(), AuditError> {
             self.events.lock().unwrap().push(event);
             Ok(())
         }
-        fn flush(&self) -> Result<MerkleRoot, AuditError> { Ok(0) }
-        fn checkpoint(&self) -> Result<(), AuditError> { Ok(()) }
+        fn flush(&self) -> Result<MerkleRoot, AuditError> {
+            Ok(0)
+        }
+        fn checkpoint(&self) -> Result<(), AuditError> {
+            Ok(())
+        }
     }
 
     // ── Chinese-wall tests ───────────────────────────────────────────────────
@@ -328,7 +334,10 @@ mod tests {
     fn gate_usable_as_dyn_trait() {
         let gate: Arc<dyn CognitiveBridgeGate> = Arc::new(make_gate(TenantId(42)));
         // Cross-tenant → Deny via Chinese wall.
-        assert_eq!(gate.authorize_retrieval(99, "Document", 0), CognitiveAuthResult::Deny);
+        assert_eq!(
+            gate.authorize_retrieval(99, "Document", 0),
+            CognitiveAuthResult::Deny
+        );
     }
 
     // ── Audit emission: cross-tenant retrieval ───────────────────────────────
@@ -344,8 +353,8 @@ mod tests {
         use lance_graph_ontology::namespace::OgitUri;
         use lance_graph_ontology::proposal::{MappingProposal, MappingProposalKind};
         use lance_graph_rbac::permission::PermissionSpec;
-        use lance_graph_rbac::role::Role;
         use lance_graph_rbac::policy::Policy;
+        use lance_graph_rbac::role::Role;
 
         // Build a registry with "Document" → "Doc" canonical entity.
         let registry = Arc::new(OntologyRegistry::new_in_memory());
@@ -372,34 +381,50 @@ mod tests {
             g_lock: lance_graph_ontology::namespace::NamespaceId,
         }
         impl lance_graph_ontology::bridge::NamespaceBridge for RealBridge {
-            fn bridge_id(&self) -> &'static str { "test" }
-            fn registry(&self) -> &OntologyRegistry { &self.registry }
-            fn g_lock(&self) -> lance_graph_ontology::namespace::NamespaceId { self.g_lock }
+            fn bridge_id(&self) -> &'static str {
+                "test"
+            }
+            fn registry(&self) -> &OntologyRegistry {
+                &self.registry
+            }
+            fn g_lock(&self) -> lance_graph_ontology::namespace::NamespaceId {
+                self.g_lock
+            }
         }
 
         // Policy: "reader" may read "Doc" at Detail.
-        let policy = Policy::new("test")
-            .with_role(
-                Role::new("reader")
-                    .with_permission(PermissionSpec::read_at("Doc", PrefetchDepth::Detail)),
-            );
+        let policy = Policy::new("test").with_role(
+            Role::new("reader")
+                .with_permission(PermissionSpec::read_at("Doc", PrefetchDepth::Detail)),
+        );
 
         let sink = Arc::new(RecordingSink::default());
-        let bridge = Arc::new(UnifiedBridge::new(
-            Arc::new(RealBridge { registry, g_lock }),
-            Arc::new(policy),
-            "reader",
-            TenantId(10),
-        ).with_audit_chain(SD::WorkOrderBilling, 0, sink.clone()));
+        let bridge = Arc::new(
+            UnifiedBridge::new(
+                Arc::new(RealBridge { registry, g_lock }),
+                Arc::new(policy),
+                "reader",
+                TenantId(10),
+            )
+            .with_audit_chain(SD::WorkOrderBilling, 0, sink.clone()),
+        );
 
         let gate = UnifiedBridgeGate::new(bridge);
 
         // Same-tenant retrieval of "Document" with depth 1 (Detail).
         let result = gate.authorize_retrieval(10, "Document", 1);
-        assert_eq!(result, CognitiveAuthResult::Allow, "policy should allow reader→Doc");
+        assert_eq!(
+            result,
+            CognitiveAuthResult::Allow,
+            "policy should allow reader→Doc"
+        );
 
         // Exactly 1 audit event emitted by UnifiedBridge.
-        assert_eq!(sink.count(), 1, "same-tenant allowed op must emit 1 audit event");
+        assert_eq!(
+            sink.count(),
+            1,
+            "same-tenant allowed op must emit 1 audit event"
+        );
         // Chinese wall NOT triggered.
         assert_eq!(gate.chinese_wall_deny_count(), 0);
     }
@@ -413,12 +438,19 @@ mod tests {
         let registry = Arc::new(OntologyRegistry::new_in_memory());
         let bridge_inner = Arc::new(StubBridge { registry });
         let policy = Arc::new(smb_policy());
-        let unified = Arc::new(UnifiedBridge::new(bridge_inner, policy, "accountant", TenantId(1))
-            .with_audit_chain(SD::Unknown, 0, sink.clone()));
+        let unified =
+            Arc::new(
+                UnifiedBridge::new(bridge_inner, policy, "accountant", TenantId(1))
+                    .with_audit_chain(SD::Unknown, 0, sink.clone()),
+            );
         let gate = UnifiedBridgeGate::new(unified);
 
         let _ = gate.authorize_retrieval(2, "Document", 0); // cross-tenant
-        assert_eq!(sink.count(), 0, "Chinese wall deny must not emit audit via UnifiedBridge");
+        assert_eq!(
+            sink.count(),
+            0,
+            "Chinese wall deny must not emit audit via UnifiedBridge"
+        );
         assert_eq!(gate.chinese_wall_deny_count(), 1);
     }
 
@@ -431,8 +463,11 @@ mod tests {
         let registry = Arc::new(OntologyRegistry::new_in_memory());
         let bridge_inner = Arc::new(StubBridge { registry });
         let policy = Arc::new(smb_policy());
-        let unified = Arc::new(UnifiedBridge::new(bridge_inner, policy, "accountant", TenantId(1))
-            .with_audit_chain(SD::Unknown, 0, sink.clone()));
+        let unified =
+            Arc::new(
+                UnifiedBridge::new(bridge_inner, policy, "accountant", TenantId(1))
+                    .with_audit_chain(SD::Unknown, 0, sink.clone()),
+            );
         let gate = UnifiedBridgeGate::new(unified);
 
         // Pure codebook lookups — gate never called.

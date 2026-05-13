@@ -221,14 +221,8 @@ unmapped = "PlainText"
             map.lookup("ogit.WorkOrder:LogbookEntry.createdAt"),
             SemanticType::Date(DatePrecision::DateTime)
         );
-        assert_eq!(
-            map.lookup("ogit.WorkOrder:User.email"),
-            SemanticType::Email
-        );
-        assert_eq!(
-            map.lookup("ogit.WorkOrder:User.phone"),
-            SemanticType::Phone
-        );
+        assert_eq!(map.lookup("ogit.WorkOrder:User.email"), SemanticType::Email);
+        assert_eq!(map.lookup("ogit.WorkOrder:User.phone"), SemanticType::Phone);
         // Picture / PasswordEntry
         assert_eq!(
             map.lookup("ogit.WorkOrder:Picture.dateiname"),

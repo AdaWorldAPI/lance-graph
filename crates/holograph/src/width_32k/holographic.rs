@@ -35,7 +35,9 @@ pub struct HoloTrace {
 impl HoloVector {
     /// Create a zero vector.
     pub fn zero() -> Self {
-        Self { words: [0u64; VECTOR_WORDS] }
+        Self {
+            words: [0u64; VECTOR_WORDS],
+        }
     }
 
     /// Create from raw words.
@@ -117,9 +119,8 @@ impl HoloVector {
     pub fn bind_xyz(&self) -> HoloTrace {
         let mut binding = vec![0u64; DIM_WORDS];
         for i in 0..DIM_WORDS {
-            binding[i] = self.words[X_START + i]
-                ^ self.words[Y_START + i]
-                ^ self.words[Z_START + i];
+            binding[i] =
+                self.words[X_START + i] ^ self.words[Y_START + i] ^ self.words[Z_START + i];
         }
         HoloTrace { binding }
     }
@@ -208,7 +209,9 @@ impl HoloVector {
     /// of storing multiple associations in one vector.
     pub fn bundle_traces(traces: &[HoloTrace]) -> HoloTrace {
         if traces.is_empty() {
-            return HoloTrace { binding: vec![0u64; DIM_WORDS] };
+            return HoloTrace {
+                binding: vec![0u64; DIM_WORDS],
+            };
         }
         if traces.len() == 1 {
             return traces[0].clone();
@@ -221,7 +224,8 @@ impl HoloVector {
             let mut result_word = 0u64;
             for bit in 0..64 {
                 let mask = 1u64 << bit;
-                let count = traces.iter()
+                let count = traces
+                    .iter()
                     .filter(|t| t.binding.get(word_idx).copied().unwrap_or(0) & mask != 0)
                     .count();
                 if count > threshold {
@@ -351,7 +355,9 @@ mod tests {
     fn test_rng(seed: u64) -> impl FnMut() -> u64 {
         let mut state = seed;
         move || {
-            if state == 0 { state = 1; }
+            if state == 0 {
+                state = 1;
+            }
             state ^= state << 13;
             state ^= state >> 7;
             state ^= state << 17;
@@ -423,22 +429,34 @@ mod tests {
         // Recover Z given X and Y
         let result = HoloVector::probe_for_z(&trace.binding, v.x(), v.y());
         for i in 0..DIM_WORDS {
-            assert_eq!(result.recovered[i], v.z()[i],
-                "Perfect recovery of Z failed at word {}", i);
+            assert_eq!(
+                result.recovered[i],
+                v.z()[i],
+                "Perfect recovery of Z failed at word {}",
+                i
+            );
         }
 
         // Recover Y given X and Z
         let result = HoloVector::probe_for_y(&trace.binding, v.x(), v.z());
         for i in 0..DIM_WORDS {
-            assert_eq!(result.recovered[i], v.y()[i],
-                "Perfect recovery of Y failed at word {}", i);
+            assert_eq!(
+                result.recovered[i],
+                v.y()[i],
+                "Perfect recovery of Y failed at word {}",
+                i
+            );
         }
 
         // Recover X given Y and Z
         let result = HoloVector::probe_for_x(&trace.binding, v.y(), v.z());
         for i in 0..DIM_WORDS {
-            assert_eq!(result.recovered[i], v.x()[i],
-                "Perfect recovery of X failed at word {}", i);
+            assert_eq!(
+                result.recovered[i],
+                v.x()[i],
+                "Perfect recovery of X failed at word {}",
+                i
+            );
         }
     }
 
@@ -446,18 +464,18 @@ mod tests {
     fn test_superposition_recovery_with_noise() {
         // Store 5 traces via bundling. Recovery is approximate (noisy).
         let mut rng = test_rng(999);
-        let traces: Vec<_> = (0..5).map(|i| {
-            let v = random_holo(100 + i);
-            v.bind_xyz()
-        }).collect();
+        let traces: Vec<_> = (0..5)
+            .map(|i| {
+                let v = random_holo(100 + i);
+                v.bind_xyz()
+            })
+            .collect();
 
         let superposition = HoloVector::bundle_traces(&traces);
 
         // Probe with the first vector's X and Y to recover its Z
         let v0 = random_holo(100);
-        let result = HoloVector::probe_for_z(
-            &superposition.binding, v0.x(), v0.y()
-        );
+        let result = HoloVector::probe_for_z(&superposition.binding, v0.x(), v0.y());
 
         // With 5 traces in 8K bits, recovery should be noisy but correlated
         let expected_z = v0.z();
@@ -467,8 +485,11 @@ mod tests {
         }
         let match_rate = matching_bits as f64 / DIM_BITS as f64;
         // With 5 traces, majority vote gives >60% bit accuracy
-        assert!(match_rate > 0.55,
-            "Superposition recovery too noisy: {:.1}% matching", match_rate * 100.0);
+        assert!(
+            match_rate > 0.55,
+            "Superposition recovery too noisy: {:.1}% matching",
+            match_rate * 100.0
+        );
     }
 
     #[test]
@@ -484,12 +505,24 @@ mod tests {
         let expected = DIM_BITS as u32 / 2;
         let tolerance = 3 * DIM_SIGMA_APPROX; // 3 sigma
 
-        assert!((dx as i64 - expected as i64).unsigned_abs() < tolerance as u64,
-            "X distance {} far from expected {}", dx, expected);
-        assert!((dy as i64 - expected as i64).unsigned_abs() < tolerance as u64,
-            "Y distance {} far from expected {}", dy, expected);
-        assert!((dz as i64 - expected as i64).unsigned_abs() < tolerance as u64,
-            "Z distance {} far from expected {}", dz, expected);
+        assert!(
+            (dx as i64 - expected as i64).unsigned_abs() < tolerance as u64,
+            "X distance {} far from expected {}",
+            dx,
+            expected
+        );
+        assert!(
+            (dy as i64 - expected as i64).unsigned_abs() < tolerance as u64,
+            "Y distance {} far from expected {}",
+            dy,
+            expected
+        );
+        assert!(
+            (dz as i64 - expected as i64).unsigned_abs() < tolerance as u64,
+            "Z distance {} far from expected {}",
+            dz,
+            expected
+        );
     }
 
     #[test]
@@ -515,8 +548,11 @@ mod tests {
         let delta = original.xor_delta(&modified);
         let recovered = original.apply_delta(&delta);
 
-        assert_eq!(recovered.distance_total(&modified), 0,
-            "XOR delta roundtrip failed");
+        assert_eq!(
+            recovered.distance_total(&modified),
+            0,
+            "XOR delta roundtrip failed"
+        );
     }
 
     #[test]
@@ -538,10 +574,15 @@ mod tests {
         b.meta_mut()[0] ^= 0xFFFF_FFFF_FFFF_FFFF;
         b.meta_mut()[50] ^= 0xFFFF_FFFF_FFFF_FFFF;
 
-        assert_eq!(a.distance_semantic(&b), 0,
-            "Metadata change affected semantic distance");
-        assert!(a.distance_total(&b) > 0,
-            "Metadata change should affect total distance");
+        assert_eq!(
+            a.distance_semantic(&b),
+            0,
+            "Metadata change affected semantic distance"
+        );
+        assert!(
+            a.distance_total(&b) > 0,
+            "Metadata change should affect total distance"
+        );
     }
 
     #[test]
@@ -598,8 +639,11 @@ mod tests {
         //        = royalty ⊕ throne ⊕ female
         //        = queen_trace
         for i in 0..DIM_WORDS {
-            assert_eq!(analogy[i], queen_trace.binding[i],
-                "Analogical reasoning failed at word {}", i);
+            assert_eq!(
+                analogy[i], queen_trace.binding[i],
+                "Analogical reasoning failed at word {}",
+                i
+            );
         }
     }
 
@@ -609,17 +653,15 @@ mod tests {
         let mut match_rates = Vec::new();
 
         for n in [1, 5, 10, 30, 50, 90] {
-            let traces: Vec<_> = (0..n).map(|i| {
-                random_holo(1000 + i as u64).bind_xyz()
-            }).collect();
+            let traces: Vec<_> = (0..n)
+                .map(|i| random_holo(1000 + i as u64).bind_xyz())
+                .collect();
 
             let superposition = HoloVector::bundle_traces(&traces);
 
             // Probe for the first trace
             let v0 = random_holo(1000);
-            let result = HoloVector::probe_for_z(
-                &superposition.binding, v0.x(), v0.y()
-            );
+            let result = HoloVector::probe_for_z(&superposition.binding, v0.x(), v0.y());
 
             let expected_z = v0.z();
             let matching: u32 = (0..DIM_WORDS)
@@ -630,13 +672,18 @@ mod tests {
         }
 
         // Single trace should be perfect
-        assert!(match_rates[0].1 > 0.99, "Single trace recovery should be ~100%");
+        assert!(
+            match_rates[0].1 > 0.99,
+            "Single trace recovery should be ~100%"
+        );
         // Recovery should degrade as traces increase
         for i in 1..match_rates.len() {
             // Allow some noise but trend should be downward
             if match_rates[i].0 > 10 {
-                assert!(match_rates[i].1 < match_rates[0].1,
-                    "Recovery should degrade with more traces");
+                assert!(
+                    match_rates[i].1 < match_rates[0].1,
+                    "Recovery should degrade with more traces"
+                );
             }
         }
     }

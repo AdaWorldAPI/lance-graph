@@ -34,7 +34,10 @@ pub fn reranker_lookup(token_id: u32) -> u16 {
     let idx = (token_id as usize).min(RERANKER_VOCAB_SIZE - 1);
     let offset = idx * 2;
     if offset + 1 < RERANKER_CODEBOOK_INDEX.len() {
-        u16::from_le_bytes([RERANKER_CODEBOOK_INDEX[offset], RERANKER_CODEBOOK_INDEX[offset + 1]])
+        u16::from_le_bytes([
+            RERANKER_CODEBOOK_INDEX[offset],
+            RERANKER_CODEBOOK_INDEX[offset + 1],
+        ])
     } else {
         0
     }
@@ -65,7 +68,8 @@ pub fn reranker_think(
 ) -> (u16, Vec<u16>, crate::domino::DissonanceProfile) {
     let centroids = reranker_lookup_many(token_ids);
     let (dom, stages, dis) = cascade.think(&centroids);
-    let chain: Vec<u16> = stages.iter()
+    let chain: Vec<u16> = stages
+        .iter()
         .filter_map(|s| s.focus.first().map(|a| a.index))
         .collect();
     (dom, chain, dis)
@@ -75,10 +79,7 @@ pub fn reranker_think(
 ///
 /// Cross-encoder style: encode both texts, compare centroid activations.
 /// Higher score = more relevant. Uses domino cascade for multi-hop comparison.
-pub fn reranker_relevance(
-    query_ids: &[u32],
-    document_ids: &[u32],
-) -> f32 {
+pub fn reranker_relevance(query_ids: &[u32], document_ids: &[u32]) -> f32 {
     let q_centroids = reranker_lookup_many(query_ids);
     let d_centroids = reranker_lookup_many(document_ids);
 
@@ -90,13 +91,19 @@ pub fn reranker_relevance(
         let mut best = 0u8;
         for &dc in &d_centroids {
             let dist = reranker_distance(qc, dc);
-            if dist > best { best = dist; }
+            if dist > best {
+                best = dist;
+            }
         }
         total_score += best as f32 / 255.0;
         pairs += 1;
     }
 
-    if pairs > 0 { total_score / pairs as f32 } else { 0.0 }
+    if pairs > 0 {
+        total_score / pairs as f32
+    } else {
+        0.0
+    }
 }
 
 /// Compare two texts using Jina v3 embedding + reranker cross-validation.
@@ -118,7 +125,11 @@ pub fn cross_model_eval(
             jina_pairs += 1;
         }
     }
-    let jina_score = if jina_pairs > 0 { jina_sim / jina_pairs as f32 } else { 0.0 };
+    let jina_score = if jina_pairs > 0 {
+        jina_sim / jina_pairs as f32
+    } else {
+        0.0
+    };
 
     // Reranker relevance (asymmetric: query → document)
     let reranker_score = reranker_relevance(text_a_reranker_ids, text_b_reranker_ids);
@@ -161,8 +172,12 @@ mod tests {
     #[test]
     fn diagonal_is_255() {
         for i in 0..256 {
-            assert_eq!(RERANKER_HDR_TABLE[i * 256 + i], 255,
-                "diagonal[{}] should be 255", i);
+            assert_eq!(
+                RERANKER_HDR_TABLE[i * 256 + i],
+                255,
+                "diagonal[{}] should be 255",
+                i
+            );
         }
     }
 
@@ -170,7 +185,12 @@ mod tests {
     fn lookup_in_range() {
         for token_id in [0, 100, 1000, 50000, 100000, 151935] {
             let centroid = reranker_lookup(token_id);
-            assert!(centroid < 256, "centroid {} out of range for token {}", centroid, token_id);
+            assert!(
+                centroid < 256,
+                "centroid {} out of range for token {}",
+                centroid,
+                token_id
+            );
         }
     }
 
@@ -187,9 +207,14 @@ mod tests {
     fn hdr_table_has_variance() {
         let avg = RERANKER_HDR_TABLE.iter().map(|&v| v as f64).sum::<f64>()
             / RERANKER_HDR_TABLE.len() as f64;
-        let std = (RERANKER_HDR_TABLE.iter()
-            .map(|&v| { let d = v as f64 - avg; d * d })
-            .sum::<f64>() / RERANKER_HDR_TABLE.len() as f64)
+        let std = (RERANKER_HDR_TABLE
+            .iter()
+            .map(|&v| {
+                let d = v as f64 - avg;
+                d * d
+            })
+            .sum::<f64>()
+            / RERANKER_HDR_TABLE.len() as f64)
             .sqrt();
         assert!(std > 50.0, "HDR table std={:.1} — should be >50", std);
     }

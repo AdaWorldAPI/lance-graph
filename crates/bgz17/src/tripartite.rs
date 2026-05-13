@@ -41,7 +41,13 @@ pub fn cross_plane_matrix(pal_a: &Palette, pal_b: &Palette, threshold: u32) -> S
         row_ptr.push(col_idx.len());
     }
 
-    ScalarCsr { nrows, ncols, row_ptr, col_idx, vals }
+    ScalarCsr {
+        nrows,
+        ncols,
+        row_ptr,
+        col_idx,
+        vals,
+    }
 }
 
 /// The SP_, S_O, _PO cross-plane interaction matrices.
@@ -60,12 +66,7 @@ pub struct CrossPlaneMatrices {
 
 impl CrossPlaneMatrices {
     /// Build all three cross-plane matrices from palettes.
-    pub fn build(
-        s_pal: &Palette,
-        p_pal: &Palette,
-        o_pal: &Palette,
-        threshold: u32,
-    ) -> Self {
+    pub fn build(s_pal: &Palette, p_pal: &Palette, o_pal: &Palette, threshold: u32) -> Self {
         CrossPlaneMatrices {
             sp: cross_plane_matrix(s_pal, p_pal, threshold),
             so: cross_plane_matrix(s_pal, o_pal, threshold),
@@ -78,7 +79,9 @@ impl CrossPlaneMatrices {
     pub fn nearest_predicates(&self, s_idx: u8, top_k: usize) -> Vec<(u8, f32)> {
         let mut results: Vec<(u8, f32)> = Vec::new();
         let row = s_idx as usize;
-        if row >= self.sp.nrows { return results; }
+        if row >= self.sp.nrows {
+            return results;
+        }
 
         let start = self.sp.row_ptr[row];
         let end = self.sp.row_ptr[row + 1];
@@ -119,7 +122,9 @@ impl CrossPlaneMatrices {
 /// Extract row distances as a HashMap for sparse lookup.
 fn row_distances(csr: &ScalarCsr, row: usize) -> std::collections::HashMap<usize, f32> {
     let mut map = std::collections::HashMap::new();
-    if row >= csr.nrows { return map; }
+    if row >= csr.nrows {
+        return map;
+    }
     let start = csr.row_ptr[row];
     let end = csr.row_ptr[row + 1];
     for idx in start..end {
@@ -133,11 +138,15 @@ mod tests {
     use super::*;
 
     fn make_palette(k: usize, seed: usize) -> Palette {
-        let entries = (0..k).map(|i| {
-            let mut dims = [0i16; 17];
-            for d in 0..17 { dims[d] = ((i * 97 + d * 31 + seed * 53) % 512) as i16 - 256; }
-            Base17 { dims }
-        }).collect();
+        let entries = (0..k)
+            .map(|i| {
+                let mut dims = [0i16; 17];
+                for d in 0..17 {
+                    dims[d] = ((i * 97 + d * 31 + seed * 53) % 512) as i16 - 256;
+                }
+                Base17 { dims }
+            })
+            .collect();
         Palette { entries }
     }
 

@@ -65,9 +65,15 @@ pub fn edge_to_layer_mask(edge: &CausalEdge64) -> u8 {
     let mut mask = 0u8;
 
     // Pearl's causal mask → predicate layers
-    if causal & 1 != 0 { mask |= 1 << CAUSES; }
-    if causal & 2 != 0 { mask |= 1 << ENABLES; }
-    if causal & 4 != 0 { mask |= 1 << CONTRADICTS; }
+    if causal & 1 != 0 {
+        mask |= 1 << CAUSES;
+    }
+    if causal & 2 != 0 {
+        mask |= 1 << ENABLES;
+    }
+    if causal & 4 != 0 {
+        mask |= 1 << CONTRADICTS;
+    }
 
     // Inference type → predicate layer
     mask |= match infer {
@@ -130,8 +136,8 @@ pub const BECOMES: usize = 7;
 #[derive(Debug, Clone, Copy)]
 pub struct StyleParams {
     pub layer_mask: u8,
-    pub combine: u8,     // 0=Union, 1=Intersection, 2=Majority, 3=Weighted
-    pub contra: u8,      // 0=Suppress, 1=Ignore, 2=Invert, 3=Tension
+    pub combine: u8, // 0=Union, 1=Intersection, 2=Majority, 3=Weighted
+    pub contra: u8,  // 0=Suppress, 1=Ignore, 2=Invert, 3=Tension
     pub density_target: f32,
     pub name: &'static str,
 }
@@ -161,21 +167,93 @@ pub mod contra {
 static STYLES: LazyLock<[StyleParams; 12]> = LazyLock::new(|| {
     [
         // ── Convergent cluster ──
-        StyleParams { layer_mask: 0b0111_0111, combine: combine::INTERSECTION, contra: contra::SUPPRESS, density_target: 0.05, name: "analytical" },
-        StyleParams { layer_mask: 0b0011_0111, combine: combine::INTERSECTION, contra: contra::SUPPRESS, density_target: 0.04, name: "convergent" },
-        StyleParams { layer_mask: 0b0111_1111, combine: combine::INTERSECTION, contra: contra::SUPPRESS, density_target: 0.03, name: "systematic" },
+        StyleParams {
+            layer_mask: 0b0111_0111,
+            combine: combine::INTERSECTION,
+            contra: contra::SUPPRESS,
+            density_target: 0.05,
+            name: "analytical",
+        },
+        StyleParams {
+            layer_mask: 0b0011_0111,
+            combine: combine::INTERSECTION,
+            contra: contra::SUPPRESS,
+            density_target: 0.04,
+            name: "convergent",
+        },
+        StyleParams {
+            layer_mask: 0b0111_1111,
+            combine: combine::INTERSECTION,
+            contra: contra::SUPPRESS,
+            density_target: 0.03,
+            name: "systematic",
+        },
         // ── Divergent cluster ──
-        StyleParams { layer_mask: 0b1111_1111, combine: combine::UNION,        contra: contra::IGNORE,   density_target: 0.40, name: "creative" },
-        StyleParams { layer_mask: 0b1000_1001, combine: combine::UNION,        contra: contra::INVERT,   density_target: 0.30, name: "divergent" },
-        StyleParams { layer_mask: 0b1111_1111, combine: combine::UNION,        contra: contra::IGNORE,   density_target: 0.50, name: "exploratory" },
+        StyleParams {
+            layer_mask: 0b1111_1111,
+            combine: combine::UNION,
+            contra: contra::IGNORE,
+            density_target: 0.40,
+            name: "creative",
+        },
+        StyleParams {
+            layer_mask: 0b1000_1001,
+            combine: combine::UNION,
+            contra: contra::INVERT,
+            density_target: 0.30,
+            name: "divergent",
+        },
+        StyleParams {
+            layer_mask: 0b1111_1111,
+            combine: combine::UNION,
+            contra: contra::IGNORE,
+            density_target: 0.50,
+            name: "exploratory",
+        },
         // ── Attention cluster ──
-        StyleParams { layer_mask: 0b0000_0011, combine: combine::INTERSECTION, contra: contra::SUPPRESS, density_target: 0.02, name: "focused" },
-        StyleParams { layer_mask: 0b0111_0111, combine: combine::MAJORITY,     contra: contra::TENSION,  density_target: 0.20, name: "diffuse" },
-        StyleParams { layer_mask: 0b1110_0000, combine: combine::UNION,        contra: contra::IGNORE,   density_target: 0.35, name: "peripheral" },
+        StyleParams {
+            layer_mask: 0b0000_0011,
+            combine: combine::INTERSECTION,
+            contra: contra::SUPPRESS,
+            density_target: 0.02,
+            name: "focused",
+        },
+        StyleParams {
+            layer_mask: 0b0111_0111,
+            combine: combine::MAJORITY,
+            contra: contra::TENSION,
+            density_target: 0.20,
+            name: "diffuse",
+        },
+        StyleParams {
+            layer_mask: 0b1110_0000,
+            combine: combine::UNION,
+            contra: contra::IGNORE,
+            density_target: 0.35,
+            name: "peripheral",
+        },
         // ── Speed cluster ──
-        StyleParams { layer_mask: 0b0000_0001, combine: combine::UNION,        contra: contra::IGNORE,   density_target: 0.50, name: "intuitive" },
-        StyleParams { layer_mask: 0b0111_1111, combine: combine::WEIGHTED,     contra: contra::SUPPRESS, density_target: 0.08, name: "deliberate" },
-        StyleParams { layer_mask: 0b1110_0000, combine: combine::MAJORITY,     contra: contra::TENSION,  density_target: 0.10, name: "metacognitive" },
+        StyleParams {
+            layer_mask: 0b0000_0001,
+            combine: combine::UNION,
+            contra: contra::IGNORE,
+            density_target: 0.50,
+            name: "intuitive",
+        },
+        StyleParams {
+            layer_mask: 0b0111_1111,
+            combine: combine::WEIGHTED,
+            contra: contra::SUPPRESS,
+            density_target: 0.08,
+            name: "deliberate",
+        },
+        StyleParams {
+            layer_mask: 0b1110_0000,
+            combine: combine::MAJORITY,
+            contra: contra::TENSION,
+            density_target: 0.10,
+            name: "metacognitive",
+        },
     ]
 });
 
@@ -189,7 +267,10 @@ pub fn style_by_ordinal(ord: usize) -> &'static StyleParams {
 #[inline]
 pub fn style_by_name(name: &str) -> &'static StyleParams {
     let lower = name.to_lowercase();
-    STYLES.iter().find(|s| s.name == lower.as_str()).unwrap_or(&STYLES[0])
+    STYLES
+        .iter()
+        .find(|s| s.name == lower.as_str())
+        .unwrap_or(&STYLES[0])
 }
 
 /// All 12 styles as a slice.
@@ -213,12 +294,12 @@ pub fn all_styles() -> &'static [StyleParams; 12] {
 /// ```
 pub fn semiring_to_modes(semiring_name: &str) -> (u8, u8) {
     match semiring_name {
-        "BOOLEAN"           => (combine::INTERSECTION, contra::SUPPRESS),
-        "HAMMING_MIN"       => (combine::WEIGHTED,     contra::TENSION),
-        "SIMILARITY_MAX"    => (combine::MAJORITY,     contra::SUPPRESS),
-        "XOR_BUNDLE"        => (combine::UNION,        contra::INVERT),
-        "TRUTH_PROPAGATING" => (combine::WEIGHTED,     contra::TENSION),
-        _                   => (combine::MAJORITY,     contra::SUPPRESS),
+        "BOOLEAN" => (combine::INTERSECTION, contra::SUPPRESS),
+        "HAMMING_MIN" => (combine::WEIGHTED, contra::TENSION),
+        "SIMILARITY_MAX" => (combine::MAJORITY, contra::SUPPRESS),
+        "XOR_BUNDLE" => (combine::UNION, contra::INVERT),
+        "TRUTH_PROPAGATING" => (combine::WEIGHTED, contra::TENSION),
+        _ => (combine::MAJORITY, contra::SUPPRESS),
     }
 }
 
@@ -293,12 +374,7 @@ pub mod cognitive_shader {
         /// ```
         ///
         /// Returns hits sorted by distance ascending.
-        pub fn cascade(
-            &self,
-            query: u8,
-            radius: u16,
-            layer_mask: u8,
-        ) -> Vec<CascadeHit> {
+        pub fn cascade(&self, query: u8, radius: u16, layer_mask: u8) -> Vec<CascadeHit> {
             let block_row = query as usize / 4;
             if block_row >= 64 {
                 return Vec::new();
@@ -456,21 +532,21 @@ mod tests {
     #[test]
     fn edge_to_palette_addressing() {
         let edge = CausalEdge64::pack(
-            10,                          // S
-            5,                           // P
-            20,                          // O
-            200,                         // frequency
-            150,                         // confidence
-            CausalMask::SO,              // causal: S+O active (association)
-            0,                           // direction
-            InferenceType::Deduction,    // inference
+            10,                            // S
+            5,                             // P
+            20,                            // O
+            200,                           // frequency
+            150,                           // confidence
+            CausalMask::SO,                // causal: S+O active (association)
+            0,                             // direction
+            InferenceType::Deduction,      // inference
             PlasticityState::from_bits(0), // plasticity
-            0,                           // temporal
+            0,                             // temporal
         );
 
         let (row, col) = edge_to_block(&edge);
-        assert_eq!(row, 2);  // 10/4
-        assert_eq!(col, 5);  // 20/4
+        assert_eq!(row, 2); // 10/4
+        assert_eq!(col, 5); // 20/4
 
         let (f, c) = edge_nars_f32(&edge);
         assert!((f - 200.0 / 255.0).abs() < 0.01);
@@ -486,37 +562,57 @@ mod tests {
     fn batch_edges_to_rows() {
         use causal_edge::edge::InferenceType;
         let infer_types = [
-            InferenceType::Deduction, InferenceType::Induction,
-            InferenceType::Abduction, InferenceType::Revision,
+            InferenceType::Deduction,
+            InferenceType::Induction,
+            InferenceType::Abduction,
+            InferenceType::Revision,
             InferenceType::Synthesis,
         ];
 
-        let edges: Vec<CausalEdge64> = (0..50).map(|i| {
-            CausalEdge64::pack(
-                ((i * 7) % 256) as u8,
-                0,
-                ((i * 13 + 3) % 256) as u8,
-                128, 128,
-                CausalMask::from_bits((i % 7) as u8),
-                0,
-                infer_types[i % 5],
-                PlasticityState::from_bits(0),
-                0,
-            )
-        }).collect();
+        let edges: Vec<CausalEdge64> = (0..50)
+            .map(|i| {
+                CausalEdge64::pack(
+                    ((i * 7) % 256) as u8,
+                    0,
+                    ((i * 13 + 3) % 256) as u8,
+                    128,
+                    128,
+                    CausalMask::from_bits((i % 7) as u8),
+                    0,
+                    infer_types[i % 5],
+                    PlasticityState::from_bits(0),
+                    0,
+                )
+            })
+            .collect();
 
         let rows = edges_to_palette_rows(&edges);
         let nnz: u32 = rows.iter().map(|r| r.count_ones()).sum();
-        eprintln!("50 edges → {} non-zero palette bits ({:.1}% density)", nnz, nnz as f64 / 4096.0 * 100.0);
+        eprintln!(
+            "50 edges → {} non-zero palette bits ({:.1}% density)",
+            nnz,
+            nnz as f64 / 4096.0 * 100.0
+        );
         assert!(nnz > 0);
 
         let layers = edges_to_layered_rows(&edges);
         for z in 0..8 {
             let bits: u32 = layers[z].iter().map(|r| r.count_ones()).sum();
             if bits > 0 {
-                eprintln!("  Layer {z} ({:12}): {} bits",
-                    ["CAUSES","ENABLES","SUPPORTS","CONTRADICTS","REFINES","ABSTRACTS","GROUNDS","BECOMES"][z],
-                    bits);
+                eprintln!(
+                    "  Layer {z} ({:12}): {} bits",
+                    [
+                        "CAUSES",
+                        "ENABLES",
+                        "SUPPORTS",
+                        "CONTRADICTS",
+                        "REFINES",
+                        "ABSTRACTS",
+                        "GROUNDS",
+                        "BECOMES"
+                    ][z],
+                    bits
+                );
             }
         }
     }
@@ -525,8 +621,10 @@ mod tests {
     fn thinking_style_lazylock() {
         for i in 0..12 {
             let s = style_by_ordinal(i);
-            eprintln!("{:<14} layers={:08b} combine={} contra={} density={:.2}",
-                s.name, s.layer_mask, s.combine, s.contra, s.density_target);
+            eprintln!(
+                "{:<14} layers={:08b} combine={} contra={} density={:.2}",
+                s.name, s.layer_mask, s.combine, s.contra, s.density_target
+            );
         }
 
         let a = style_by_name("analytical");
@@ -555,18 +653,21 @@ mod tests {
         use bgz17::palette_semiring::PaletteSemiring;
 
         // Build a small palette: 16 entries with distinct Base17 patterns
-        let entries: Vec<Base17> = (0..16).map(|i| {
-            let mut dims = [0i16; 17];
-            dims[0] = (i * 100) as i16;  // spread on dim 0
-            dims[1] = ((i * 37) % 200) as i16;
-            Base17 { dims }
-        }).collect();
+        let entries: Vec<Base17> = (0..16)
+            .map(|i| {
+                let mut dims = [0i16; 17];
+                dims[0] = (i * 100) as i16; // spread on dim 0
+                dims[1] = ((i * 37) % 200) as i16;
+                Base17 { dims }
+            })
+            .collect();
         let palette = Palette { entries };
         let semiring = PaletteSemiring::build(&palette);
 
         // Build layered mask: CAUSES connects neighbors, ENABLES connects every other
         let mut planes = [[0u64; 64]; 8];
-        for i in 0..4 {  // 16 entries / 4 = 4 blocks
+        for i in 0..4 {
+            // 16 entries / 4 = 4 blocks
             // CAUSES: each block connects to next block
             if i + 1 < 4 {
                 planes[CAUSES][i] |= 1u64 << (i + 1);
@@ -588,16 +689,21 @@ mod tests {
         eprintln!("Query: archetype 0, radius=5000, all layers");
         eprintln!("Hits: {}", hits.len());
         for hit in &hits {
-            eprintln!("  target={:3} dist={:5} predicates={:08b}", 
-                hit.target, hit.distance, hit.predicates);
+            eprintln!(
+                "  target={:3} dist={:5} predicates={:08b}",
+                hit.target, hit.distance, hit.predicates
+            );
         }
 
         assert!(!hits.is_empty(), "Should find at least one hit");
         // All distances should be from bgz17 lookup, not POPCNT
         for hit in &hits {
             let expected_dist = semiring.distance(0, hit.target);
-            assert_eq!(hit.distance, expected_dist, 
-                "Distance should match bgz17 O(1) lookup for target {}", hit.target);
+            assert_eq!(
+                hit.distance, expected_dist,
+                "Distance should match bgz17 O(1) lookup for target {}",
+                hit.target
+            );
         }
 
         // Memory footprint
@@ -614,19 +720,21 @@ mod tests {
         use bgz17::palette::Palette;
         use bgz17::palette_semiring::PaletteSemiring;
 
-        let entries: Vec<Base17> = (0..16).map(|i| {
-            let mut dims = [0i16; 17];
-            dims[0] = (i * 100) as i16;
-            dims[1] = ((i * 37) % 200) as i16;
-            Base17 { dims }
-        }).collect();
+        let entries: Vec<Base17> = (0..16)
+            .map(|i| {
+                let mut dims = [0i16; 17];
+                dims[0] = (i * 100) as i16;
+                dims[1] = ((i * 37) % 200) as i16;
+                Base17 { dims }
+            })
+            .collect();
         let palette = Palette { entries };
         let semiring = PaletteSemiring::build(&palette);
 
         // Chain: 0→1 (CAUSES), 1→2 (ENABLES), 2→3 (ENABLES)
         let mut planes = [[0u64; 64]; 8];
-        planes[CAUSES][0] = 0b0010;   // block 0 → block 1
-        planes[ENABLES][0] = 0b0100;  // block 0 → block 2
+        planes[CAUSES][0] = 0b0010; // block 0 → block 1
+        planes[ENABLES][0] = 0b0100; // block 0 → block 2
         planes[ENABLES][0] |= 0b1000; // block 0 → block 3
 
         let b = CognitiveShader::new(planes, &semiring);

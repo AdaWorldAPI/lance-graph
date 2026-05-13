@@ -153,7 +153,10 @@ fn malformed_ttl_yields_hydration_failure() {
         "expected at least one HydrationFailure, got clean report"
     );
     assert!(
-        report.failures.iter().any(|f| f.source.contains("Thing.ttl")),
+        report
+            .failures
+            .iter()
+            .any(|f| f.source.contains("Thing.ttl")),
         "malformed file must appear in failures: {:?}",
         report.failures
     );
@@ -202,7 +205,10 @@ fn entity_with_empty_attribute_lists_registers() {
     let stub = registry
         .resolve_uri("ogit.Empty:Stub")
         .expect("stub resolves by URI");
-    assert!(stub.namespace_id().is_known(), "namespace G must be assigned");
+    assert!(
+        stub.namespace_id().is_known(),
+        "namespace G must be assigned"
+    );
     assert_eq!(
         registry.namespace_id("Empty"),
         Some(stub.namespace_id()),
@@ -317,7 +323,10 @@ fn base_declaration_does_not_break_parser() {
     let item = registry
         .resolve_uri("ogit.BaseDecl:Item")
         .expect("item resolves by URI");
-    assert!(item.namespace_id().is_known(), "namespace G must be assigned");
+    assert!(
+        item.namespace_id().is_known(),
+        "namespace G must be assigned"
+    );
     assert_eq!(
         registry.namespace_id("BaseDecl"),
         Some(item.namespace_id()),
@@ -354,8 +363,8 @@ ogit.Provenance:Tracked
 
 #[test]
 fn dcterms_source_is_currently_dropped() {
-    use lance_graph_ontology::ttl_parse::TtlSource;
     use lance_graph_ontology::semantic_types::SemanticTypeMap;
+    use lance_graph_ontology::ttl_parse::TtlSource;
 
     let path = std::path::PathBuf::from("dcterms_probe.ttl");
     let src = TtlSource::from_bytes(path.clone(), DCTERMS_SOURCE_TTL.as_bytes().to_vec());

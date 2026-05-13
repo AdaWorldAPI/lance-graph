@@ -45,7 +45,11 @@ impl SpiralAddress {
     pub const BYTE_SIZE_U16: usize = 6;
 
     pub fn new(start: u32, stride: u32, length: u32) -> Self {
-        Self { start, stride, length }
+        Self {
+            start,
+            stride,
+            length,
+        }
     }
 
     /// Total samples this address will read: BASE_DIM × length.
@@ -81,10 +85,10 @@ impl SpiralAddress {
 /// Coarse distance band from address geometry alone.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum CoarseBand {
-    Foveal,     // nearly identical walk
-    Near,       // overlapping walks, same stride
-    Maybe,      // need to hydrate to decide
-    Reject,     // definitely different (disjoint or different stride)
+    Foveal, // nearly identical walk
+    Near,   // overlapping walks, same stride
+    Maybe,  // need to hydrate to decide
+    Reject, // definitely different (disjoint or different stride)
 }
 
 impl SpiralAddress {
@@ -125,10 +129,16 @@ impl SpiralAddress {
         let e2 = other.end();
         let lo = self.start.max(other.start);
         let hi = e1.min(e2);
-        if lo > hi { return 0.0; }
+        if lo > hi {
+            return 0.0;
+        }
         let overlap = (hi - lo) as f32;
         let max_len = (e1 - self.start).max(e2 - other.start) as f32;
-        if max_len < 1.0 { 0.0 } else { overlap / max_len }
+        if max_len < 1.0 {
+            0.0
+        } else {
+            overlap / max_len
+        }
     }
 }
 
@@ -140,11 +150,11 @@ impl SpiralAddress {
 /// No data access — the stride IS the role.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TensorRole {
-    Gate,   // stride 8: coarse routing, big picture
-    V,      // stride 5: content retrieval
-    Down,   // stride 4: compression, summarizing
-    QK,     // stride 3: attention query/key (must match)
-    Up,     // stride 2: fine expansion
+    Gate, // stride 8: coarse routing, big picture
+    V,    // stride 5: content retrieval
+    Down, // stride 4: compression, summarizing
+    QK,   // stride 3: attention query/key (must match)
+    Up,   // stride 2: fine expansion
     Other,
 }
 
@@ -165,10 +175,10 @@ impl SpiralAddress {
 /// Thinking scale from gate stride.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ThinkingScale {
-    Exploiting,  // stride 1-2: fine-grained, local
-    Focused,     // stride 3-4: careful, detailed
-    Exploring,   // stride 5-8: broad, routing
-    Abstract,    // stride 9+: meta-level
+    Exploiting, // stride 1-2: fine-grained, local
+    Focused,    // stride 3-4: careful, detailed
+    Exploring,  // stride 5-8: broad, routing
+    Abstract,   // stride 9+: meta-level
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -178,12 +188,12 @@ pub enum ThinkingScale {
 /// 36-byte neuron identity. Stride encodes role + thinking style + transform.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct NeuronPrint {
-    pub q:    SpiralAddress,   // stride=3
-    pub k:    SpiralAddress,   // stride=3 (must match Q)
-    pub v:    SpiralAddress,   // stride=5
-    pub gate: SpiralAddress,   // stride=8 → thinking style
-    pub up:   SpiralAddress,   // stride=2
-    pub down: SpiralAddress,   // stride=4 → ratio with Up = effective rank
+    pub q: SpiralAddress,    // stride=3
+    pub k: SpiralAddress,    // stride=3 (must match Q)
+    pub v: SpiralAddress,    // stride=5
+    pub gate: SpiralAddress, // stride=8 → thinking style
+    pub up: SpiralAddress,   // stride=2
+    pub down: SpiralAddress, // stride=4 → ratio with Up = effective rank
 }
 
 impl NeuronPrint {
@@ -195,7 +205,7 @@ impl NeuronPrint {
             0..=2 => ThinkingScale::Exploiting,
             3..=4 => ThinkingScale::Focused,
             5..=8 => ThinkingScale::Exploring,
-            _     => ThinkingScale::Abstract,
+            _ => ThinkingScale::Abstract,
         }
     }
 
@@ -248,7 +258,9 @@ impl SpiralWalk {
         for bi in 0..BASE_DIM {
             for s in 0..len {
                 let octave = addr.start as usize + bi + s * addr.stride as usize;
-                if octave >= n_oct { break; }
+                if octave >= n_oct {
+                    break;
+                }
 
                 let pos = SpiralAddress::phi_position(bi, octave);
                 let dim = octave * BASE_DIM + pos;
@@ -278,7 +290,11 @@ impl SpiralWalk {
             }
         }
         let denom = (na * nb).sqrt();
-        if denom < 1e-12 { 0.0 } else { dot / denom }
+        if denom < 1e-12 {
+            0.0
+        } else {
+            dot / denom
+        }
     }
 
     /// L1 distance between two walks (hydrated).
@@ -296,7 +312,10 @@ impl SpiralWalk {
 
     /// Flatten to f32 vector (for external comparison).
     pub fn to_f32(&self) -> Vec<f32> {
-        self.samples.iter().flat_map(|s| s.iter().copied()).collect()
+        self.samples
+            .iter()
+            .flat_map(|s| s.iter().copied())
+            .collect()
     }
 }
 
@@ -327,7 +346,11 @@ pub fn address_overlap(a: &SpiralAddress, b: &SpiralAddress) -> f64 {
         .collect();
     let intersection = a_octaves.intersection(&b_octaves).count();
     let union = a_octaves.union(&b_octaves).count();
-    if union == 0 { 0.0 } else { intersection as f64 / union as f64 }
+    if union == 0 {
+        0.0
+    } else {
+        intersection as f64 / union as f64
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -351,8 +374,8 @@ impl SpiralPalette {
         // 16 start values × 16 stride values = 256 entries
         for si in 0..16 {
             for sti in 0..16 {
-                let start = 10 + si * 4;      // 10, 14, 18, ..., 70
-                let stride = 2 + sti * 2;     // 2, 4, 6, ..., 32
+                let start = 10 + si * 4; // 10, 14, 18, ..., 70
+                let stride = 2 + sti * 2; // 2, 4, 6, ..., 32
                 entries.push(SpiralAddress::new(start as u32, stride as u32, 4));
             }
         }
@@ -366,7 +389,9 @@ impl SpiralPalette {
         for (i, addr) in self.entries.iter().enumerate() {
             let walk = SpiralWalk::execute(addr, weights);
             // Use the walk's self-magnitude as proxy for coverage quality
-            let mag: f64 = walk.samples.iter()
+            let mag: f64 = walk
+                .samples
+                .iter()
                 .flat_map(|s| s.iter())
                 .map(|v| (*v as f64).abs())
                 .sum();
@@ -397,13 +422,17 @@ pub fn calibrate(
     lengths: &[u32],
 ) -> (SpiralAddress, f64) {
     let n = vectors.len().min(30);
-    if n < 2 { return (SpiralAddress::new(20, 8, 4), 0.0); }
+    if n < 2 {
+        return (SpiralAddress::new(20, 8, 4), 0.0);
+    }
 
     // Ground truth pairwise cosines
     let mut gt = Vec::new();
-    for i in 0..n { for j in (i+1)..n {
-        gt.push(cosine_f32(&vectors[i], &vectors[j]));
-    }}
+    for i in 0..n {
+        for j in (i + 1)..n {
+            gt.push(cosine_f32(&vectors[i], &vectors[j]));
+        }
+    }
 
     let mut best_addr = SpiralAddress::new(20, 8, 4);
     let mut best_spearman = f64::NEG_INFINITY;
@@ -412,13 +441,16 @@ pub fn calibrate(
         for start in start_range.clone() {
             for stride in stride_range.clone() {
                 let addr = SpiralAddress::new(start, stride, len);
-                let walks: Vec<SpiralWalk> = vectors[..n].iter()
+                let walks: Vec<SpiralWalk> = vectors[..n]
+                    .iter()
                     .map(|v| SpiralWalk::execute(&addr, v))
                     .collect();
                 let mut walk_cos = Vec::new();
-                for i in 0..n { for j in (i+1)..n {
-                    walk_cos.push(walks[i].cosine(&walks[j]));
-                }}
+                for i in 0..n {
+                    for j in (i + 1)..n {
+                        walk_cos.push(walks[i].cosine(&walks[j]));
+                    }
+                }
 
                 let sp = spearman(&gt, &walk_cos);
                 if sp > best_spearman {
@@ -437,18 +469,33 @@ pub fn calibrate(
 // ═══════════════════════════════════════════════════════════════════════════
 
 #[inline]
-fn frac(x: f64) -> f64 { x - x.floor() }
+fn frac(x: f64) -> f64 {
+    x - x.floor()
+}
 
 fn cosine_f32(a: &[f32], b: &[f32]) -> f64 {
     let n = a.len().min(b.len());
-    let mut dot = 0.0f64; let mut na = 0.0f64; let mut nb = 0.0f64;
-    for i in 0..n { dot += a[i] as f64 * b[i] as f64; na += (a[i] as f64).powi(2); nb += (b[i] as f64).powi(2); }
-    let d = (na * nb).sqrt(); if d < 1e-12 { 0.0 } else { dot / d }
+    let mut dot = 0.0f64;
+    let mut na = 0.0f64;
+    let mut nb = 0.0f64;
+    for i in 0..n {
+        dot += a[i] as f64 * b[i] as f64;
+        na += (a[i] as f64).powi(2);
+        nb += (b[i] as f64).powi(2);
+    }
+    let d = (na * nb).sqrt();
+    if d < 1e-12 {
+        0.0
+    } else {
+        dot / d
+    }
 }
 
 fn spearman(x: &[f64], y: &[f64]) -> f64 {
     let n = x.len().min(y.len());
-    if n < 2 { return 0.0; }
+    if n < 2 {
+        return 0.0;
+    }
     let rank_x = ranks(&x[..n]);
     let rank_y = ranks(&y[..n]);
     pearson(&rank_x, &rank_y)
@@ -456,12 +503,27 @@ fn spearman(x: &[f64], y: &[f64]) -> f64 {
 
 fn pearson(x: &[f64], y: &[f64]) -> f64 {
     let n = x.len().min(y.len());
-    if n < 2 { return 0.0; }
+    if n < 2 {
+        return 0.0;
+    }
     let mx = x[..n].iter().sum::<f64>() / n as f64;
     let my = y[..n].iter().sum::<f64>() / n as f64;
-    let mut cov = 0.0f64; let mut vx = 0.0f64; let mut vy = 0.0f64;
-    for i in 0..n { let dx = x[i] - mx; let dy = y[i] - my; cov += dx*dy; vx += dx*dx; vy += dy*dy; }
-    let d = (vx * vy).sqrt(); if d < 1e-12 { 0.0 } else { cov / d }
+    let mut cov = 0.0f64;
+    let mut vx = 0.0f64;
+    let mut vy = 0.0f64;
+    for i in 0..n {
+        let dx = x[i] - mx;
+        let dy = y[i] - my;
+        cov += dx * dy;
+        vx += dx * dx;
+        vy += dy * dy;
+    }
+    let d = (vx * vy).sqrt();
+    if d < 1e-12 {
+        0.0
+    } else {
+        cov / d
+    }
 }
 
 fn ranks(values: &[f64]) -> Vec<f64> {
@@ -472,9 +534,13 @@ fn ranks(values: &[f64]) -> Vec<f64> {
     let mut i = 0;
     while i < n {
         let mut j = i + 1;
-        while j < n && (indexed[j].1 - indexed[i].1).abs() < 1e-12 { j += 1; }
+        while j < n && (indexed[j].1 - indexed[i].1).abs() < 1e-12 {
+            j += 1;
+        }
         let avg = (i + j) as f64 / 2.0 + 0.5;
-        for k in i..j { result[indexed[k].0] = avg; }
+        for k in i..j {
+            result[indexed[k].0] = avg;
+        }
         i = j;
     }
     result
@@ -489,7 +555,9 @@ mod tests {
     use super::*;
 
     fn make_vec(seed: usize, dim: usize) -> Vec<f32> {
-        (0..dim).map(|d| ((d * 97 + seed * 31) as f32 % 200.0 - 100.0) * 0.01).collect()
+        (0..dim)
+            .map(|d| ((d * 97 + seed * 31) as f32 % 200.0 - 100.0) * 0.01)
+            .collect()
     }
 
     #[test]
@@ -508,7 +576,12 @@ mod tests {
         let addr = SpiralAddress::new(20, 8, 4);
         let walk = SpiralWalk::execute(&addr, &v);
         assert_eq!(walk.samples.len(), BASE_DIM);
-        let mag: f64 = walk.samples.iter().flat_map(|s| s.iter()).map(|v| v.abs() as f64).sum();
+        let mag: f64 = walk
+            .samples
+            .iter()
+            .flat_map(|s| s.iter())
+            .map(|v| v.abs() as f64)
+            .sum();
         assert!(mag > 0.0, "walk should extract nonzero values");
     }
 
@@ -557,7 +630,11 @@ mod tests {
         let a = SpiralAddress::new(0, 1, 2);
         let b = SpiralAddress::new(100, 1, 2);
         let ov = address_overlap(&a, &b);
-        assert!(ov < 0.5, "far-apart addresses should have low overlap: {}", ov);
+        assert!(
+            ov < 0.5,
+            "far-apart addresses should have low overlap: {}",
+            ov
+        );
     }
 
     // ── Three-finger tests ──────────────────────────────────────────
@@ -594,8 +671,11 @@ mod tests {
         let a = SpiralAddress::new(20, 8, 4);
         let b = SpiralAddress::new(25, 8, 4);
         let band = a.coarse_band(&b);
-        assert!(band == CoarseBand::Near || band == CoarseBand::Maybe,
-            "nearby same-stride should be Near or Maybe: {:?}", band);
+        assert!(
+            band == CoarseBand::Near || band == CoarseBand::Maybe,
+            "nearby same-stride should be Near or Maybe: {:?}",
+            band
+        );
     }
 
     // ── Role detection ──────────────────────────────────────────────
@@ -628,11 +708,11 @@ mod tests {
     #[test]
     fn neuron_print_self_foveal() {
         let np = NeuronPrint {
-            q:    SpiralAddress::new(20, 3, 4),
-            k:    SpiralAddress::new(20, 3, 4),
-            v:    SpiralAddress::new(20, 5, 4),
+            q: SpiralAddress::new(20, 3, 4),
+            k: SpiralAddress::new(20, 3, 4),
+            v: SpiralAddress::new(20, 5, 4),
             gate: SpiralAddress::new(20, 8, 4),
-            up:   SpiralAddress::new(20, 2, 4),
+            up: SpiralAddress::new(20, 2, 4),
             down: SpiralAddress::new(20, 4, 4),
         };
         assert_eq!(np.coarse_band(&np), CoarseBand::Foveal);
@@ -641,9 +721,12 @@ mod tests {
     #[test]
     fn neuron_print_different_gate_rejects() {
         let a = NeuronPrint {
-            q: SpiralAddress::new(20, 3, 4), k: SpiralAddress::new(20, 3, 4),
-            v: SpiralAddress::new(20, 5, 4), gate: SpiralAddress::new(20, 8, 4),
-            up: SpiralAddress::new(20, 2, 4), down: SpiralAddress::new(20, 4, 4),
+            q: SpiralAddress::new(20, 3, 4),
+            k: SpiralAddress::new(20, 3, 4),
+            v: SpiralAddress::new(20, 5, 4),
+            gate: SpiralAddress::new(20, 8, 4),
+            up: SpiralAddress::new(20, 2, 4),
+            down: SpiralAddress::new(20, 4, 4),
         };
         let b = NeuronPrint {
             gate: SpiralAddress::new(200, 8, 4), // distant gate
@@ -655,9 +738,12 @@ mod tests {
     #[test]
     fn thinking_scale_from_gate() {
         let np = NeuronPrint {
-            q: SpiralAddress::new(0, 3, 1), k: SpiralAddress::new(0, 3, 1),
-            v: SpiralAddress::new(0, 5, 1), gate: SpiralAddress::new(0, 8, 1),
-            up: SpiralAddress::new(0, 2, 1), down: SpiralAddress::new(0, 4, 1),
+            q: SpiralAddress::new(0, 3, 1),
+            k: SpiralAddress::new(0, 3, 1),
+            v: SpiralAddress::new(0, 5, 1),
+            gate: SpiralAddress::new(0, 8, 1),
+            up: SpiralAddress::new(0, 2, 1),
+            down: SpiralAddress::new(0, 4, 1),
         };
         assert_eq!(np.thinking_scale(), ThinkingScale::Exploring);
         assert_eq!(np.effective_rank(), 2.0); // down(4) / up(2)
@@ -672,20 +758,26 @@ mod tests {
         let a_fov = SpiralAddress::new(20, 8, 4);
         let b_fov = SpiralAddress::new(21, 8, 4);
         assert_eq!(a_fov.coarse_band(&b_fov), CoarseBand::Foveal);
-        let cos_fov = SpiralWalk::execute(&a_fov, &source).cosine(&SpiralWalk::execute(&b_fov, &source));
+        let cos_fov =
+            SpiralWalk::execute(&a_fov, &source).cosine(&SpiralWalk::execute(&b_fov, &source));
 
         // Reject: different stride → should have low or random cosine
         let a_rej = SpiralAddress::new(20, 8, 4);
         let b_rej = SpiralAddress::new(20, 2, 4);
         assert_eq!(a_rej.coarse_band(&b_rej), CoarseBand::Reject);
-        let cos_rej = SpiralWalk::execute(&a_rej, &source).cosine(&SpiralWalk::execute(&b_rej, &source));
+        let cos_rej =
+            SpiralWalk::execute(&a_rej, &source).cosine(&SpiralWalk::execute(&b_rej, &source));
 
         eprintln!("Foveal pair cosine: {:.4}", cos_fov);
         eprintln!("Reject pair cosine: {:.4}", cos_rej);
 
         // Foveal should have HIGHER cosine than Reject
-        assert!(cos_fov > cos_rej || cos_rej.abs() < 0.5,
-            "Foveal cosine ({:.4}) should exceed Reject ({:.4})", cos_fov, cos_rej);
+        assert!(
+            cos_fov > cos_rej || cos_rej.abs() < 0.5,
+            "Foveal cosine ({:.4}) should exceed Reject ({:.4})",
+            cos_fov,
+            cos_rej
+        );
     }
 
     #[test]
@@ -707,7 +799,9 @@ mod tests {
         let (best, spearman) = calibrate(&vecs, 10..30, 4..12, &[4]);
         assert!(best.start >= 10 && best.start < 30);
         assert!(best.stride >= 4 && best.stride < 12);
-        eprintln!("Best: start={}, stride={}, length={}, spearman={:.4}",
-            best.start, best.stride, best.length, spearman);
+        eprintln!(
+            "Best: start={}, stride={}, length={}, spearman={:.4}",
+            best.start, best.stride, best.length, spearman
+        );
     }
 }

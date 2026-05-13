@@ -37,32 +37,30 @@
 //! └─────────────────────────────────────────────────────────────┘
 //! ```
 
-use std::sync::Arc;
-use std::path::Path;
+use arrow::array::ArrayBuilder;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
-use arrow::array::ArrayBuilder;
+use std::path::Path;
+use std::sync::Arc;
 
-#[allow(unused_imports)] // BinaryArray, TimestampMicrosecondArray reserved for metadata column reads
+#[allow(unused_imports)]
+// BinaryArray, TimestampMicrosecondArray reserved for metadata column reads
 use arrow::array::{
-    ArrayRef, FixedSizeBinaryArray, FixedSizeBinaryBuilder,
-    UInt64Array, UInt64Builder, BinaryArray, BinaryBuilder,
-    TimestampMicrosecondArray, TimestampMicrosecondBuilder,
+    ArrayRef, BinaryArray, BinaryBuilder, FixedSizeBinaryArray, FixedSizeBinaryBuilder,
+    TimestampMicrosecondArray, TimestampMicrosecondBuilder, UInt64Array, UInt64Builder,
 };
 use arrow::datatypes::{DataType, Field, Schema, TimeUnit};
-use arrow::record_batch::RecordBatch;
 use arrow::ipc::reader::FileReader;
 use arrow::ipc::writer::FileWriter;
+use arrow::record_batch::RecordBatch;
 
-#[allow(unused_imports)] // VectorRef, VECTOR_BYTES, VECTOR_WORDS reserved for zero-copy Arrow column access
+#[allow(unused_imports)]
+// VectorRef, VECTOR_BYTES, VECTOR_WORDS reserved for zero-copy Arrow column access
 use crate::bitpack::{
-    BitpackedVector, VectorRef, VectorSlice,
-    VECTOR_BITS, VECTOR_BYTES, VECTOR_WORDS, PADDED_VECTOR_BYTES,
+    BitpackedVector, PADDED_VECTOR_BYTES, VECTOR_BITS, VECTOR_BYTES, VECTOR_WORDS, VectorRef,
+    VectorSlice,
 };
-use crate::hamming::{
-    Belichtung, StackedPopcount, hamming_distance_ref,
-    hamming_to_similarity,
-};
+use crate::hamming::{Belichtung, StackedPopcount, hamming_distance_ref, hamming_to_similarity};
 use crate::hdr_cascade::HdrCascade;
 use crate::{HdrError, Result};
 
@@ -250,7 +248,10 @@ impl VectorBatchBuilder {
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             ids: UInt64Builder::with_capacity(capacity),
-            fingerprints: FixedSizeBinaryBuilder::with_capacity(capacity, PADDED_VECTOR_BYTES as i32),
+            fingerprints: FixedSizeBinaryBuilder::with_capacity(
+                capacity,
+                PADDED_VECTOR_BYTES as i32,
+            ),
             metadata: BinaryBuilder::with_capacity(capacity, 256),
             timestamps: TimestampMicrosecondBuilder::with_capacity(capacity),
             next_id: 0,
@@ -269,7 +270,8 @@ impl VectorBatchBuilder {
         self.next_id += 1;
 
         self.ids.append_value(id);
-        self.fingerprints.append_value(&vector.to_padded_bytes())
+        self.fingerprints
+            .append_value(&vector.to_padded_bytes())
             .map_err(|e| HdrError::Storage(format!("Failed to append fingerprint: {}", e)))?;
         self.metadata.append_value(b"{}");
         self.timestamps.append_value(current_timestamp_micros());
@@ -283,7 +285,8 @@ impl VectorBatchBuilder {
         self.next_id += 1;
 
         self.ids.append_value(id);
-        self.fingerprints.append_value(&vector.to_padded_bytes())
+        self.fingerprints
+            .append_value(&vector.to_padded_bytes())
             .map_err(|e| HdrError::Storage(format!("Failed to append fingerprint: {}", e)))?;
         self.metadata.append_value(metadata);
         self.timestamps.append_value(current_timestamp_micros());
@@ -294,7 +297,8 @@ impl VectorBatchBuilder {
     /// Add a vector with specific ID
     pub fn add_with_id(&mut self, id: u64, vector: &BitpackedVector) -> Result<()> {
         self.ids.append_value(id);
-        self.fingerprints.append_value(&vector.to_padded_bytes())
+        self.fingerprints
+            .append_value(&vector.to_padded_bytes())
             .map_err(|e| HdrError::Storage(format!("Failed to append fingerprint: {}", e)))?;
         self.metadata.append_value(b"{}");
         self.timestamps.append_value(current_timestamp_micros());
@@ -313,7 +317,8 @@ impl VectorBatchBuilder {
                 Arc::new(self.metadata.finish()) as ArrayRef,
                 Arc::new(self.timestamps.finish()) as ArrayRef,
             ],
-        ).map_err(|e| HdrError::Storage(format!("Failed to create RecordBatch: {}", e)))?;
+        )
+        .map_err(|e| HdrError::Storage(format!("Failed to create RecordBatch: {}", e)))?;
 
         VectorBatch::from_record_batch(batch)
     }
@@ -397,11 +402,13 @@ impl ArrowStore {
             .map_err(|e| HdrError::Storage(format!("Failed to create writer: {}", e)))?;
 
         for batch in &self.batches {
-            writer.write(batch.as_record_batch())
+            writer
+                .write(batch.as_record_batch())
                 .map_err(|e| HdrError::Storage(format!("Failed to write batch: {}", e)))?;
         }
 
-        writer.finish()
+        writer
+            .finish()
             .map_err(|e| HdrError::Storage(format!("Failed to finish writing: {}", e)))?;
 
         Ok(())
@@ -543,12 +550,11 @@ impl ArrowBatchSearch {
                 }
 
                 // Level 1: StackedPopcount with threshold (~157 cycles, zero copy)
-                let stacked = match StackedPopcount::compute_with_threshold_ref(
-                    query, &slice, radius,
-                ) {
-                    Some(s) => s,
-                    None => continue, // ~80% of survivors filtered
-                };
+                let stacked =
+                    match StackedPopcount::compute_with_threshold_ref(query, &slice, radius) {
+                        Some(s) => s,
+                        None => continue, // ~80% of survivors filtered
+                    };
 
                 // Survivor: exact distance already computed by stacked
                 let distance = stacked.total;
@@ -593,12 +599,11 @@ impl ArrowBatchSearch {
                 }
 
                 // Level 1: StackedPopcount with threshold
-                let stacked = match StackedPopcount::compute_with_threshold_ref(
-                    query, &slice, radius,
-                ) {
-                    Some(s) => s,
-                    None => continue,
-                };
+                let stacked =
+                    match StackedPopcount::compute_with_threshold_ref(query, &slice, radius) {
+                        Some(s) => s,
+                        None => continue,
+                    };
 
                 let id = batch.get_id(row_idx).unwrap_or(0);
                 results.push(BatchSearchResult {
@@ -654,12 +659,11 @@ impl ArrowBatchSearch {
                     continue;
                 }
 
-                let stacked = match StackedPopcount::compute_with_threshold(
-                    target, &unbound, radius,
-                ) {
-                    Some(s) => s,
-                    None => continue,
-                };
+                let stacked =
+                    match StackedPopcount::compute_with_threshold(target, &unbound, radius) {
+                        Some(s) => s,
+                        None => continue,
+                    };
 
                 let id = batch.get_id(row_idx).unwrap_or(0);
                 results.push(BatchSearchResult {
@@ -685,19 +689,19 @@ impl ArrowBatchSearch {
 #[cfg(feature = "datafusion-storage")]
 pub mod datafusion {
     use super::*;
-    use ::datafusion::prelude::*;
-    use ::datafusion::datasource::MemTable;
-    #[allow(unused_imports)] // ScalarUDF, Volatility, create_udf reserved for UDF registration surface
-    use ::datafusion::logical_expr::{
-        ScalarUDF, Volatility,
-        create_udf,
-    };
-    #[allow(unused_imports)] // ArrowDataType, ArrowField reserved for UDF return-type declarations
-    use ::datafusion::arrow::datatypes::{DataType as ArrowDataType, Field as ArrowField};
-    #[allow(unused_imports)] // DFFixedSizeBinaryArray reserved for UDF fingerprint column access
+    #[allow(unused_imports)]
+    // DFFixedSizeBinaryArray reserved for UDF fingerprint column access
     use ::datafusion::arrow::array::{
-        UInt32Array, Float32Array, FixedSizeBinaryArray as DFFixedSizeBinaryArray,
+        FixedSizeBinaryArray as DFFixedSizeBinaryArray, Float32Array, UInt32Array,
     };
+    #[allow(unused_imports)]
+    // ArrowDataType, ArrowField reserved for UDF return-type declarations
+    use ::datafusion::arrow::datatypes::{DataType as ArrowDataType, Field as ArrowField};
+    use ::datafusion::datasource::MemTable;
+    #[allow(unused_imports)]
+    // ScalarUDF, Volatility, create_udf reserved for UDF registration surface
+    use ::datafusion::logical_expr::{ScalarUDF, Volatility, create_udf};
+    use ::datafusion::prelude::*;
     use arrow::array::Array;
 
     /// Create a DataFusion context with zero-copy vector search UDFs
@@ -740,7 +744,8 @@ pub mod datafusion {
     ) -> Result<()> {
         let schema = Arc::new(create_schema());
 
-        let batches: Vec<RecordBatch> = store.batches
+        let batches: Vec<RecordBatch> = store
+            .batches
             .iter()
             .map(|b| b.as_record_batch().clone())
             .collect();
@@ -755,14 +760,15 @@ pub mod datafusion {
     }
 
     /// Execute a SQL query with vector search
-    pub async fn query_vectors(
-        ctx: &SessionContext,
-        sql: &str,
-    ) -> Result<Vec<RecordBatch>> {
-        let df = ctx.sql(sql).await
+    pub async fn query_vectors(ctx: &SessionContext, sql: &str) -> Result<Vec<RecordBatch>> {
+        let df = ctx
+            .sql(sql)
+            .await
             .map_err(|e| HdrError::Query(format!("SQL error: {}", e)))?;
 
-        let batches = df.collect().await
+        let batches = df
+            .collect()
+            .await
             .map_err(|e| HdrError::Query(format!("Execution error: {}", e)))?;
 
         Ok(batches)
@@ -799,9 +805,7 @@ pub mod datafusion {
 
                     // Level 1: Stacked with threshold
                     if thresh < u32::MAX {
-                        match StackedPopcount::compute_with_threshold_ref(
-                            query, &slice, thresh,
-                        ) {
+                        match StackedPopcount::compute_with_threshold_ref(query, &slice, thresh) {
                             Some(s) => distances.push(s.total),
                             None => distances.push(u32::MAX),
                         }
@@ -825,7 +829,8 @@ pub mod datafusion {
         let ham_thresh = threshold.map(|t| ((1.0 - t) * VECTOR_BITS as f32) as u32);
         let distances = column_hamming_distance(fingerprints, query, ham_thresh);
 
-        let sims: Vec<f32> = distances.iter()
+        let sims: Vec<f32> = distances
+            .iter()
             .map(|d| match d {
                 Some(d) if d < u32::MAX => hamming_to_similarity(d),
                 _ => 0.0,
@@ -848,9 +853,17 @@ pub mod datafusion {
 fn create_schema() -> Schema {
     Schema::new(vec![
         Field::new(FIELD_ID, DataType::UInt64, false),
-        Field::new(FIELD_FINGERPRINT, DataType::FixedSizeBinary(PADDED_VECTOR_BYTES as i32), false),
+        Field::new(
+            FIELD_FINGERPRINT,
+            DataType::FixedSizeBinary(PADDED_VECTOR_BYTES as i32),
+            false,
+        ),
         Field::new(FIELD_METADATA, DataType::Binary, true),
-        Field::new(FIELD_CREATED_AT, DataType::Timestamp(TimeUnit::Microsecond, None), false),
+        Field::new(
+            FIELD_CREATED_AT,
+            DataType::Timestamp(TimeUnit::Microsecond, None),
+            false,
+        ),
     ])
 }
 

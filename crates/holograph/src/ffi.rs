@@ -41,14 +41,16 @@
 //! hdr_from_graphblas(adj, &edges, &n_edges);
 //! ```
 
-use std::ffi::{c_char, c_void, CStr, CString};
+use std::ffi::{CStr, CString, c_char, c_void};
 use std::ptr;
 use std::slice;
 
-use crate::bitpack::{BitpackedVector, VECTOR_BYTES, VECTOR_WORDS, VECTOR_BITS, PADDED_VECTOR_BYTES};
-use crate::hamming::{hamming_distance_scalar, hamming_to_similarity, StackedPopcount, Belichtung};
+use crate::bitpack::{
+    BitpackedVector, PADDED_VECTOR_BYTES, VECTOR_BITS, VECTOR_BYTES, VECTOR_WORDS,
+};
+use crate::hamming::{Belichtung, StackedPopcount, hamming_distance_scalar, hamming_to_similarity};
 use crate::hdr_cascade::{HdrCascade, MexicanHat, SearchResult};
-use crate::resonance::{VectorField, Resonator, BoundEdge};
+use crate::resonance::{BoundEdge, Resonator, VectorField};
 
 // ============================================================================
 // OPAQUE TYPES
@@ -251,14 +253,15 @@ pub extern "C" fn hdr_vector_bind(a: *const HdrVector, b: *const HdrVector) -> *
     let va = unsafe { &(*a).inner };
     let vb = unsafe { &(*b).inner };
 
-    Box::into_raw(Box::new(HdrVector {
-        inner: va.xor(vb),
-    }))
+    Box::into_raw(Box::new(HdrVector { inner: va.xor(vb) }))
 }
 
 /// Unbind: bound ⊗ key = result (A ⊗ B ⊗ B = A)
 #[no_mangle]
-pub extern "C" fn hdr_vector_unbind(bound: *const HdrVector, key: *const HdrVector) -> *mut HdrVector {
+pub extern "C" fn hdr_vector_unbind(
+    bound: *const HdrVector,
+    key: *const HdrVector,
+) -> *mut HdrVector {
     // Same as bind (XOR is self-inverse)
     hdr_vector_bind(bound, key)
 }
@@ -291,7 +294,8 @@ pub extern "C" fn hdr_vector_bundle(vecs: *const *const HdrVector, count: usize)
     }
 
     let slice = unsafe { slice::from_raw_parts(vecs, count) };
-    let inner_vecs: Vec<&BitpackedVector> = slice.iter()
+    let inner_vecs: Vec<&BitpackedVector> = slice
+        .iter()
         .filter_map(|&p| {
             if p.is_null() {
                 None
@@ -401,7 +405,7 @@ pub extern "C" fn hdr_stacked_popcount_threshold(
             }
             0
         }
-        None => 1 // Exceeded threshold
+        None => 1, // Exceeded threshold
     }
 }
 
@@ -612,7 +616,7 @@ pub extern "C" fn hdr_resonator_resonate(
             }
             0
         }
-        None => 1 // No match found
+        None => 1, // No match found
     }
 }
 

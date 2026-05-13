@@ -3,15 +3,15 @@
 //! Executes parsed queries against the HDR store using DataFusion
 //! or direct vector operations.
 
-use std::sync::Arc;
 use crate::bitpack::BitpackedVector;
 #[allow(unused_imports)] // SearchResult reserved for typed cascade search result handling
 use crate::hdr_cascade::{HdrCascade, SearchResult};
-use crate::resonance::{VectorField, Resonator};
+use crate::resonance::{Resonator, VectorField};
 use crate::storage::ArrowStore;
 use crate::{HdrError, Result};
+use std::sync::Arc;
 
-use super::parser::{QueryAst, QueryType, VectorOp, Expr, PropertyValue};
+use super::parser::{Expr, PropertyValue, QueryAst, QueryType, VectorOp};
 
 /// Query execution result
 #[derive(Debug, Clone)]
@@ -319,9 +319,8 @@ impl QueryExecutor {
                 Ok(ResultValue::Float(sim as f64))
             }
             VectorOp::Bundle { vectors } => {
-                let vecs: Result<Vec<BitpackedVector>> = vectors.iter()
-                    .map(|e| self.eval_to_vector(e))
-                    .collect();
+                let vecs: Result<Vec<BitpackedVector>> =
+                    vectors.iter().map(|e| self.eval_to_vector(e)).collect();
                 let vecs = vecs?;
                 let refs: Vec<&BitpackedVector> = vecs.iter().collect();
                 Ok(ResultValue::Vector(BitpackedVector::bundle(&refs)))
@@ -353,35 +352,63 @@ impl QueryExecutor {
                 }
                 Ok(ResultValue::Vector(v))
             }
-            VectorOp::CascadeSearch { query, k, threshold: _ } => {
+            VectorOp::CascadeSearch {
+                query,
+                k,
+                threshold: _,
+            } => {
                 let vquery = self.eval_to_vector(query)?;
                 if let Some(cascade) = &self.cascade {
                     let results = cascade.search(&vquery, *k);
-                    let list: Vec<ResultValue> = results.into_iter()
-                        .map(|r| ResultValue::Map(
-                            [
-                                ("index".to_string(), ResultValue::Int(r.index as i64)),
-                                ("distance".to_string(), ResultValue::Int(r.distance as i64)),
-                                ("similarity".to_string(), ResultValue::Float(r.similarity as f64)),
-                            ].into_iter().collect()
-                        ))
+                    let list: Vec<ResultValue> = results
+                        .into_iter()
+                        .map(|r| {
+                            ResultValue::Map(
+                                [
+                                    ("index".to_string(), ResultValue::Int(r.index as i64)),
+                                    ("distance".to_string(), ResultValue::Int(r.distance as i64)),
+                                    (
+                                        "similarity".to_string(),
+                                        ResultValue::Float(r.similarity as f64),
+                                    ),
+                                ]
+                                .into_iter()
+                                .collect(),
+                            )
+                        })
                         .collect();
                     Ok(ResultValue::List(list))
                 } else {
                     Ok(ResultValue::List(vec![]))
                 }
             }
-            VectorOp::Voyager { query, radius, stack_size } => {
+            VectorOp::Voyager {
+                query,
+                radius,
+                stack_size,
+            } => {
                 let vquery = self.eval_to_vector(query)?;
                 if let Some(cascade) = &self.cascade {
-                    if let Some(result) = cascade.voyager_deep_field(&vquery, *radius, *stack_size) {
+                    if let Some(result) = cascade.voyager_deep_field(&vquery, *radius, *stack_size)
+                    {
                         return Ok(ResultValue::Map(
                             [
                                 ("star".to_string(), ResultValue::Vector(result.star)),
-                                ("cleaned_distance".to_string(), ResultValue::Int(result.cleaned_distance as i64)),
-                                ("signal_strength".to_string(), ResultValue::Float(result.signal_strength as f64)),
-                                ("noise_reduction".to_string(), ResultValue::Float(result.noise_reduction as f64)),
-                            ].into_iter().collect()
+                                (
+                                    "cleaned_distance".to_string(),
+                                    ResultValue::Int(result.cleaned_distance as i64),
+                                ),
+                                (
+                                    "signal_strength".to_string(),
+                                    ResultValue::Float(result.signal_strength as f64),
+                                ),
+                                (
+                                    "noise_reduction".to_string(),
+                                    ResultValue::Float(result.noise_reduction as f64),
+                                ),
+                            ]
+                            .into_iter()
+                            .collect(),
                         ));
                     }
                 }
@@ -408,7 +435,10 @@ impl QueryExecutor {
     fn get_param_vector(&self, name: &str) -> Result<BitpackedVector> {
         match self.parameters.get(name) {
             Some(ResultValue::Vector(v)) => Ok(v.clone()),
-            Some(_) => Err(HdrError::Query(format!("Parameter {} is not a vector", name))),
+            Some(_) => Err(HdrError::Query(format!(
+                "Parameter {} is not a vector",
+                name
+            ))),
             None => Err(HdrError::Query(format!("Missing parameter: {}", name))),
         }
     }
@@ -421,16 +451,16 @@ impl QueryExecutor {
                 // TODO: property access
                 Err(HdrError::Query("Property access not implemented".into()))
             }
-            Expr::Literal(PropertyValue::Vector(bytes)) => {
-                BitpackedVector::from_bytes(bytes)
-            }
-            Expr::VectorOp(op) => {
-                match self.execute_vector_op(op)? {
-                    ResultValue::Vector(v) => Ok(v),
-                    _ => Err(HdrError::Query("Vector operation did not return vector".into())),
-                }
-            }
-            _ => Err(HdrError::Query("Cannot convert expression to vector".into())),
+            Expr::Literal(PropertyValue::Vector(bytes)) => BitpackedVector::from_bytes(bytes),
+            Expr::VectorOp(op) => match self.execute_vector_op(op)? {
+                ResultValue::Vector(v) => Ok(v),
+                _ => Err(HdrError::Query(
+                    "Vector operation did not return vector".into(),
+                )),
+            },
+            _ => Err(HdrError::Query(
+                "Cannot convert expression to vector".into(),
+            )),
         }
     }
 }
@@ -449,8 +479,7 @@ mod tests {
             cascade.add(BitpackedVector::random(i as u64 + 100));
         }
 
-        let executor = QueryExecutor::new()
-            .with_cascade(Arc::new(cascade));
+        let executor = QueryExecutor::new().with_cascade(Arc::new(cascade));
 
         let ast = QueryAst {
             query_type: QueryType::VectorSearch,

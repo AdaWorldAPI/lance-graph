@@ -173,7 +173,7 @@ fn main() {
     let roles_needed = [Role::Q, Role::Up, Role::Down]; // K/V/Gate may be missing from Jina
     let available: Vec<Role> = roles_needed
         .iter()
-        .filter(|r| role_rows.get(r).map_or(false, |v| !v.is_empty()))
+        .filter(|r| role_rows.get(r).is_some_and(|v| !v.is_empty()))
         .copied()
         .collect();
 
@@ -199,7 +199,7 @@ fn main() {
         );
 
         let mut all_pearsons: Vec<f64> = Vec::new();
-        for neuron in 0..test_count {
+        for (neuron, _) in (0..test_count).enumerate() {
             let members: Vec<Vec<f32>> = available
                 .iter()
                 .map(|r| {

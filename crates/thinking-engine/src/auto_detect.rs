@@ -46,11 +46,12 @@ pub struct DetectedModel {
 
 /// Detect architecture from a config.json content string.
 pub fn detect_from_config_json(json_str: &str) -> Result<DetectedModel, String> {
-    let parsed: serde_json::Value = serde_json::from_str(json_str)
-        .map_err(|e| format!("invalid config.json: {}", e))?;
+    let parsed: serde_json::Value =
+        serde_json::from_str(json_str).map_err(|e| format!("invalid config.json: {}", e))?;
 
     // Architecture detection: check "architectures" array or "model_type"
-    let arch_str = parsed.get("architectures")
+    let arch_str = parsed
+        .get("architectures")
         .and_then(|a| a.as_array())
         .and_then(|a| a.first())
         .and_then(|v| v.as_str())
@@ -61,25 +62,32 @@ pub fn detect_from_config_json(json_str: &str) -> Result<DetectedModel, String> 
         s if s.contains("XLMRoberta") || s.contains("xlm-roberta") => Architecture::XlmRoberta,
         s if s.contains("Qwen") || s.contains("qwen") => Architecture::Qwen,
         s if s.contains("ModernBert") || s.contains("modernbert") => Architecture::ModernBert,
-        s if s.contains("CLIPVision") || s.contains("ViT") || s.contains("clip") => Architecture::ClipVit,
+        s if s.contains("CLIPVision") || s.contains("ViT") || s.contains("clip") => {
+            Architecture::ClipVit
+        }
         s if s.contains("Bert") || s.contains("bert") => Architecture::Bert,
         s if s.contains("JinaBert") => Architecture::XlmRoberta, // Jina BERT = modified XLM-RoBERTa
         other => Architecture::Unknown(other.into()),
     };
 
-    let vocab_size = parsed.get("vocab_size")
+    let vocab_size = parsed
+        .get("vocab_size")
         .and_then(|v| v.as_u64())
         .unwrap_or(0) as usize;
-    let hidden_dim = parsed.get("hidden_size")
+    let hidden_dim = parsed
+        .get("hidden_size")
         .and_then(|v| v.as_u64())
         .unwrap_or(0) as usize;
-    let num_layers = parsed.get("num_hidden_layers")
+    let num_layers = parsed
+        .get("num_hidden_layers")
         .and_then(|v| v.as_u64())
         .unwrap_or(0) as usize;
-    let num_heads = parsed.get("num_attention_heads")
+    let num_heads = parsed
+        .get("num_attention_heads")
         .and_then(|v| v.as_u64())
         .unwrap_or(0) as usize;
-    let num_experts = parsed.get("num_experts")
+    let num_experts = parsed
+        .get("num_experts")
         .and_then(|v| v.as_u64())
         .map(|v| v as usize);
 
@@ -93,7 +101,8 @@ pub fn detect_from_config_json(json_str: &str) -> Result<DetectedModel, String> 
         _ => None,
     };
 
-    let name = parsed.get("_name_or_path")
+    let name = parsed
+        .get("_name_or_path")
         .or_else(|| parsed.get("model_type"))
         .and_then(|v| v.as_str())
         .unwrap_or("unknown")
@@ -116,7 +125,8 @@ pub fn detect_from_config_json(json_str: &str) -> Result<DetectedModel, String> 
 /// Detect architecture from GGUF metadata key-value pairs.
 /// GGUF stores metadata as typed KV pairs in the header.
 pub fn detect_from_gguf_metadata(metadata: &HashMap<String, String>) -> DetectedModel {
-    let arch = metadata.get("general.architecture")
+    let arch = metadata
+        .get("general.architecture")
         .or_else(|| metadata.get("general.name"))
         .cloned()
         .unwrap_or_default();
@@ -131,27 +141,36 @@ pub fn detect_from_gguf_metadata(metadata: &HashMap<String, String>) -> Detected
         Architecture::Unknown(arch.clone())
     };
 
-    let vocab_size = metadata.get("tokenizer.ggml.tokens")
+    let vocab_size = metadata
+        .get("tokenizer.ggml.tokens")
         .and_then(|v| v.parse().ok())
-        .or_else(|| metadata.get("bert.token_count").and_then(|v| v.parse().ok()))
+        .or_else(|| {
+            metadata
+                .get("bert.token_count")
+                .and_then(|v| v.parse().ok())
+        })
         .unwrap_or(0);
 
-    let hidden_dim = metadata.get("bert.embedding_length")
+    let hidden_dim = metadata
+        .get("bert.embedding_length")
         .or_else(|| metadata.get("qwen2.embedding_length"))
         .and_then(|v| v.parse().ok())
         .unwrap_or(0);
 
-    let num_layers = metadata.get("bert.block_count")
+    let num_layers = metadata
+        .get("bert.block_count")
         .or_else(|| metadata.get("qwen2.block_count"))
         .and_then(|v| v.parse().ok())
         .unwrap_or(0);
 
-    let num_heads = metadata.get("bert.attention.head_count")
+    let num_heads = metadata
+        .get("bert.attention.head_count")
         .or_else(|| metadata.get("qwen2.attention.head_count"))
         .and_then(|v| v.parse().ok())
         .unwrap_or(0);
 
-    let num_experts = metadata.get("qwen2.expert_count")
+    let num_experts = metadata
+        .get("qwen2.expert_count")
         .and_then(|v| v.parse().ok());
 
     let name = metadata.get("general.name").cloned().unwrap_or_default();

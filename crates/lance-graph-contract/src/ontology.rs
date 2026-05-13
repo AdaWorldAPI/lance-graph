@@ -471,7 +471,10 @@ pub struct FieldRef {
 
 impl FieldRef {
     pub fn new(predicate_iri: impl Into<String>, label: impl Into<String>) -> Self {
-        Self { predicate_iri: predicate_iri.into(), label: label.into() }
+        Self {
+            predicate_iri: predicate_iri.into(),
+            label: label.into(),
+        }
     }
 }
 
@@ -488,7 +491,11 @@ pub struct ObjectView {
 
 impl ObjectView {
     pub fn new(display_template: DisplayTemplate, fields: Vec<FieldRef>) -> Self {
-        Self { display_template, fields, primary_label: None }
+        Self {
+            display_template,
+            fields,
+            primary_label: None,
+        }
     }
 }
 
@@ -527,7 +534,11 @@ impl NotificationSpec {
         channel: NotificationChannel,
         template: impl Into<String>,
     ) -> Self {
-        Self { trigger, channel, template: template.into() }
+        Self {
+            trigger,
+            channel,
+            template: template.into(),
+        }
     }
 }
 

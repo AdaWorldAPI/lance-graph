@@ -22,23 +22,23 @@
 /// The 17 QPL dimensions, in canonical order.
 /// Each maps to a specific convergence observable.
 pub const DIMS_17D: [&str; 17] = [
-    "arousal",       // 0:  total energy magnitude (calm ↔ activated)
-    "valence",       // 1:  constructive - contradiction edges (negative ↔ positive)
-    "tension",       // 2:  1 - convergence_speed (released ↔ tense)
-    "warmth",        // 3:  overlap ratio of peaks (cold ↔ warm)
-    "clarity",       // 4:  1 / cycles_to_converge (foggy ↔ crystal)
-    "boundary",      // 5:  hamming(L4_A, L4_B) / 16384 (merged ↔ separate)
-    "depth",         // 6:  max tier used / 3 (surface ↔ deep)
-    "velocity",      // 7:  total cycles across tiers (slow ↔ fast)
-    "entropy",       // 8:  shannon entropy of energy (ordered ↔ chaotic)
-    "coherence",     // 9:  max(energy) / mean(energy) (fragmented ↔ unified)
-    "intimacy",      // 10: 1 - boundary (distant ↔ close)
-    "presence",      // 11: energy at current state index (absent ↔ here-now)
-    "assertion",     // 12: energy gradient slope (passive ↔ active)
-    "receptivity",   // 13: count(energy > threshold) / N (closed ↔ open)
-    "groundedness",  // 14: L4 recognition / 127 (floating ↔ rooted)
-    "expansion",     // 15: spread of top-k peaks (contracted ↔ spacious)
-    "integration",   // 16: convergence delta last cycle (fragmented ↔ whole)
+    "arousal",      // 0:  total energy magnitude (calm ↔ activated)
+    "valence",      // 1:  constructive - contradiction edges (negative ↔ positive)
+    "tension",      // 2:  1 - convergence_speed (released ↔ tense)
+    "warmth",       // 3:  overlap ratio of peaks (cold ↔ warm)
+    "clarity",      // 4:  1 / cycles_to_converge (foggy ↔ crystal)
+    "boundary",     // 5:  hamming(L4_A, L4_B) / 16384 (merged ↔ separate)
+    "depth",        // 6:  max tier used / 3 (surface ↔ deep)
+    "velocity",     // 7:  total cycles across tiers (slow ↔ fast)
+    "entropy",      // 8:  shannon entropy of energy (ordered ↔ chaotic)
+    "coherence",    // 9:  max(energy) / mean(energy) (fragmented ↔ unified)
+    "intimacy",     // 10: 1 - boundary (distant ↔ close)
+    "presence",     // 11: energy at current state index (absent ↔ here-now)
+    "assertion",    // 12: energy gradient slope (passive ↔ active)
+    "receptivity",  // 13: count(energy > threshold) / N (closed ↔ open)
+    "groundedness", // 14: L4 recognition / 127 (floating ↔ rooted)
+    "expansion",    // 15: spread of top-k peaks (contracted ↔ spacious)
+    "integration",  // 16: convergence delta last cycle (fragmented ↔ whole)
 ];
 
 /// A 17D qualia coordinate. This IS the feeling.
@@ -100,23 +100,27 @@ impl Qualia17D {
         let assertion = snap_l3.last_delta.min(1.0);
 
         let dims = [
-            total_energy.min(1.0),                                          // 0: arousal
+            total_energy.min(1.0), // 0: arousal
             (snap_l3.constructive_edges as f32 - snap_l3.contradiction_edges as f32) / total_edges, // 1: valence
-            (1.0 - convergence_speed).clamp(0.0, 1.0),                     // 2: tension
-            peaks_overlap.clamp(0.0, 1.0),                                  // 3: warmth
-            convergence_speed.clamp(0.0, 1.0),                              // 4: clarity
-            0.5,                                                            // 5: boundary (needs L4 pair)
-            1.0,                                                            // 6: depth (L3 = max)
-            snap_l3.cycles as f32 / 10.0,                                   // 7: velocity
-            shannon_entropy(&snap_l3.energy) / (n.max(1.0).ln()),           // 8: entropy (normalized)
-            if mean_energy > 1e-10 { max_energy / mean_energy / n } else { 0.0 }, // 9: coherence
-            peaks_overlap.clamp(0.0, 1.0),                                  // 10: intimacy ≈ warmth
-            snap_l3.peaks.first().map(|p| p.1).unwrap_or(0.0),             // 11: presence
-            assertion,                                                      // 12: assertion
-            (active / n).clamp(0.0, 1.0),                                   // 13: receptivity
-            (l4_recognition as f32 / 127.0).clamp(-1.0, 1.0),              // 14: groundedness
-            peak_spread,                                                    // 15: expansion
-            (1.0 - snap_l3.last_delta).clamp(0.0, 1.0),                    // 16: integration
+            (1.0 - convergence_speed).clamp(0.0, 1.0), // 2: tension
+            peaks_overlap.clamp(0.0, 1.0),             // 3: warmth
+            convergence_speed.clamp(0.0, 1.0),         // 4: clarity
+            0.5,                                       // 5: boundary (needs L4 pair)
+            1.0,                                       // 6: depth (L3 = max)
+            snap_l3.cycles as f32 / 10.0,              // 7: velocity
+            shannon_entropy(&snap_l3.energy) / (n.max(1.0).ln()), // 8: entropy (normalized)
+            if mean_energy > 1e-10 {
+                max_energy / mean_energy / n
+            } else {
+                0.0
+            }, // 9: coherence
+            peaks_overlap.clamp(0.0, 1.0),             // 10: intimacy ≈ warmth
+            snap_l3.peaks.first().map(|p| p.1).unwrap_or(0.0), // 11: presence
+            assertion,                                 // 12: assertion
+            (active / n).clamp(0.0, 1.0),              // 13: receptivity
+            (l4_recognition as f32 / 127.0).clamp(-1.0, 1.0), // 14: groundedness
+            peak_spread,                               // 15: expansion
+            (1.0 - snap_l3.last_delta).clamp(0.0, 1.0), // 16: integration
         ];
 
         Self { dims }
@@ -132,33 +136,39 @@ impl Qualia17D {
         let active = energy.iter().filter(|&&e| e > 0.001).count() as f32;
 
         // Top-5 peaks
-        let mut indexed: Vec<(usize, f32)> = energy.iter()
-            .enumerate().map(|(i, &e)| (i, e)).collect();
+        let mut indexed: Vec<(usize, f32)> =
+            energy.iter().enumerate().map(|(i, &e)| (i, e)).collect();
         indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         let peaks: Vec<(usize, f32)> = indexed.into_iter().take(5).collect();
 
         let peak_spread = if peaks.len() >= 2 {
             (peaks[0].0 as f32 - peaks.last().unwrap().0 as f32).abs() / n.max(1.0)
-        } else { 0.0 };
+        } else {
+            0.0
+        };
 
         let dims = [
-            total.min(1.0),                                                 // arousal
-            0.5,                                                            // valence (no edges)
-            (1.0 - 1.0 / engine.cycles.max(1) as f32).clamp(0.0, 1.0),    // tension
-            0.5,                                                            // warmth (no pair)
-            (1.0 / engine.cycles.max(1) as f32).clamp(0.0, 1.0),          // clarity
-            0.5,                                                            // boundary
-            1.0,                                                            // depth
-            engine.cycles as f32 / 10.0,                                    // velocity
-            shannon_entropy(energy) / (n.max(1.0).ln()),                    // entropy
-            if mean_e > 1e-10 { max_e / mean_e / n } else { 0.0 },        // coherence
-            0.5,                                                            // intimacy
-            peaks.first().map(|p| p.1).unwrap_or(0.0),                    // presence
-            0.0,                                                            // assertion
-            (active / n).clamp(0.0, 1.0),                                  // receptivity
-            0.0,                                                            // groundedness
-            peak_spread,                                                    // expansion
-            1.0,                                                            // integration
+            total.min(1.0),                                            // arousal
+            0.5,                                                       // valence (no edges)
+            (1.0 - 1.0 / engine.cycles.max(1) as f32).clamp(0.0, 1.0), // tension
+            0.5,                                                       // warmth (no pair)
+            (1.0 / engine.cycles.max(1) as f32).clamp(0.0, 1.0),       // clarity
+            0.5,                                                       // boundary
+            1.0,                                                       // depth
+            engine.cycles as f32 / 10.0,                               // velocity
+            shannon_entropy(energy) / (n.max(1.0).ln()),               // entropy
+            if mean_e > 1e-10 {
+                max_e / mean_e / n
+            } else {
+                0.0
+            }, // coherence
+            0.5,                                                       // intimacy
+            peaks.first().map(|p| p.1).unwrap_or(0.0),                 // presence
+            0.0,                                                       // assertion
+            (active / n).clamp(0.0, 1.0),                              // receptivity
+            0.0,                                                       // groundedness
+            peak_spread,                                               // expansion
+            1.0,                                                       // integration
         ];
 
         Self { dims }
@@ -193,14 +203,18 @@ impl Qualia17D {
                 }
             }
             h / n.max(1.0).ln()
-        } else { 0.0 };
+        } else {
+            0.0
+        };
 
         // Spread: how far apart are the resonant atoms?
         let spread = if field.resonant_atoms.len() >= 2 {
             let max_idx = field.resonant_atoms.iter().map(|a| a.0).max().unwrap_or(0) as f32;
             let min_idx = field.resonant_atoms.iter().map(|a| a.0).min().unwrap_or(0) as f32;
             (max_idx - min_idx) / n
-        } else { 0.0 };
+        } else {
+            0.0
+        };
 
         // Style modulation
         let assertion = match style {
@@ -212,23 +226,27 @@ impl Qualia17D {
         };
 
         let dims = [
-            energy_norm.min(1.0),                              // 0: arousal — total interference energy
-            lens_agreement,                                     // 1: valence — agreement IS positivity
-            avg_dissonance,                                     // 2: tension — dissonance IS tension
-            lens_agreement * (1.0 - avg_dissonance),           // 3: warmth — agreement without tension
-            (1.0 - sup_entropy).clamp(0.0, 1.0),              // 4: clarity — low entropy = focused
-            (1.0 - lens_agreement).clamp(0.0, 1.0),           // 5: boundary — disagreement = separate
-            resonant_frac.min(1.0),                            // 6: depth — more resonant = deeper
-            max_amp.min(1.0),                                  // 7: velocity — peak amplitude
-            sup_entropy,                                        // 8: entropy — superposition spread
-            if resonant_frac > 0.01 { max_amp / (energy_norm.max(0.01) * n) } else { 0.0 }, // 9: coherence
-            lens_agreement * resonant_frac,                    // 10: intimacy — agreement × depth
-            max_amp.min(1.0),                                  // 11: presence — peak exists
-            assertion,                                          // 12: assertion — from thinking style
-            resonant_frac,                                     // 13: receptivity — how much of field is open
-            (1.0 - avg_dissonance) * lens_agreement,           // 14: groundedness — agreement without turbulence
-            spread,                                             // 15: expansion — spatial spread of resonance
-            (1.0 - avg_dissonance).clamp(0.0, 1.0),           // 16: integration — resolved = integrated
+            energy_norm.min(1.0), // 0: arousal — total interference energy
+            lens_agreement,       // 1: valence — agreement IS positivity
+            avg_dissonance,       // 2: tension — dissonance IS tension
+            lens_agreement * (1.0 - avg_dissonance), // 3: warmth — agreement without tension
+            (1.0 - sup_entropy).clamp(0.0, 1.0), // 4: clarity — low entropy = focused
+            (1.0 - lens_agreement).clamp(0.0, 1.0), // 5: boundary — disagreement = separate
+            resonant_frac.min(1.0), // 6: depth — more resonant = deeper
+            max_amp.min(1.0),     // 7: velocity — peak amplitude
+            sup_entropy,          // 8: entropy — superposition spread
+            if resonant_frac > 0.01 {
+                max_amp / (energy_norm.max(0.01) * n)
+            } else {
+                0.0
+            }, // 9: coherence
+            lens_agreement * resonant_frac, // 10: intimacy — agreement × depth
+            max_amp.min(1.0),     // 11: presence — peak exists
+            assertion,            // 12: assertion — from thinking style
+            resonant_frac,        // 13: receptivity — how much of field is open
+            (1.0 - avg_dissonance) * lens_agreement, // 14: groundedness — agreement without turbulence
+            spread,                                  // 15: expansion — spatial spread of resonance
+            (1.0 - avg_dissonance).clamp(0.0, 1.0),  // 16: integration — resolved = integrated
         ];
 
         Self { dims }
@@ -241,15 +259,26 @@ impl Qualia17D {
         let primary_intensity = (1.0 - p_dist / 2.0).clamp(0.0, 1.0);
 
         // Find second-nearest family for the overlay
-        let mut families: Vec<(&str, f32)> = FAMILY_CENTROIDS.iter()
+        let mut families: Vec<(&str, f32)> = FAMILY_CENTROIDS
+            .iter()
             .map(|(name, centroid)| {
-                let d = self.dims.iter().zip(centroid).map(|(a, b)| (a - b) * (a - b)).sum::<f32>().sqrt();
+                let d = self
+                    .dims
+                    .iter()
+                    .zip(centroid)
+                    .map(|(a, b)| (a - b) * (a - b))
+                    .sum::<f32>()
+                    .sqrt();
                 (*name, d)
-            }).collect();
+            })
+            .collect();
         families.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
 
         let overlay = families.get(1).map(|f| f.0).unwrap_or("neutral");
-        let overlay_intensity = families.get(1).map(|f| (1.0 - f.1 / 2.0).clamp(0.0, 1.0)).unwrap_or(0.0);
+        let overlay_intensity = families
+            .get(1)
+            .map(|f| (1.0 - f.1 / 2.0).clamp(0.0, 1.0))
+            .unwrap_or(0.0);
 
         // Name the blend
         let blend = match (primary, overlay) {
@@ -270,17 +299,28 @@ impl Qualia17D {
             _ => "uncharted",
         };
 
-        let blend_name = format!("{} {:.0}% + {} {:.0}% = {}",
-            primary, primary_intensity * 100.0,
-            overlay, overlay_intensity * 100.0,
-            blend);
+        let blend_name = format!(
+            "{} {:.0}% + {} {:.0}% = {}",
+            primary,
+            primary_intensity * 100.0,
+            overlay,
+            overlay_intensity * 100.0,
+            blend
+        );
 
-        (primary, overlay, blend_name, (primary_intensity, overlay_intensity))
+        (
+            primary,
+            overlay,
+            blend_name,
+            (primary_intensity, overlay_intensity),
+        )
     }
 
     /// Distance to another qualia point (Euclidean in 17D).
     pub fn distance(&self, other: &Self) -> f32 {
-        self.dims.iter().zip(&other.dims)
+        self.dims
+            .iter()
+            .zip(&other.dims)
             .map(|(a, b)| (a - b) * (a - b))
             .sum::<f32>()
             .sqrt()
@@ -290,7 +330,10 @@ impl Qualia17D {
     pub fn nearest_family(&self) -> (&'static str, f32) {
         let mut best = ("unknown", f32::INFINITY);
         for (name, centroid) in FAMILY_CENTROIDS {
-            let d = self.dims.iter().zip(centroid.iter())
+            let d = self
+                .dims
+                .iter()
+                .zip(centroid.iter())
                 .map(|(a, b)| (a - b) * (a - b))
                 .sum::<f32>()
                 .sqrt();
@@ -303,7 +346,11 @@ impl Qualia17D {
 
     /// Dimension name and value pairs.
     pub fn named(&self) -> Vec<(&'static str, f32)> {
-        DIMS_17D.iter().zip(&self.dims).map(|(&n, &v)| (n, v)).collect()
+        DIMS_17D
+            .iter()
+            .zip(&self.dims)
+            .map(|(&n, &v)| (n, v))
+            .collect()
     }
 
     /// Is this a dissonant state? (Bach's tritone / unresolved tension)
@@ -346,33 +393,46 @@ impl Qualia17D {
     /// Returns (mode_name, stride, confidence).
     /// The stride maps directly to highheelbgz::TensorRole.
     pub fn to_mode(&self) -> (&'static str, u32, f32) {
-        let arousal    = self.dims[0];
-        let valence    = self.dims[1];
-        let tension    = self.dims[2];
-        let warmth     = self.dims[3];
-        let clarity    = self.dims[4];
-        let velocity   = self.dims[7];
-        let entropy    = self.dims[8];
+        let arousal = self.dims[0];
+        let valence = self.dims[1];
+        let tension = self.dims[2];
+        let warmth = self.dims[3];
+        let clarity = self.dims[4];
+        let velocity = self.dims[7];
+        let entropy = self.dims[8];
 
         // Score each mode by how well the qualia matches its character
         let scores = [
             // Ionian: bright, confident → high valence, low tension
-            ("ionian",     8u32, valence * (1.0 - tension) * arousal),
+            ("ionian", 8u32, valence * (1.0 - tension) * arousal),
             // Dorian: warm, reflective → high warmth, moderate tension
-            ("dorian",     5,    warmth * (0.5 + 0.5 * (1.0 - (tension - 0.4).abs() * 2.0).max(0.0))),
+            (
+                "dorian",
+                5,
+                warmth * (0.5 + 0.5 * (1.0 - (tension - 0.4).abs() * 2.0).max(0.0)),
+            ),
             // Phrygian: dark, exotic → high tension, low warmth
-            ("phrygian",   3,    tension * (1.0 - warmth) * (1.0 - valence)),
+            ("phrygian", 3, tension * (1.0 - warmth) * (1.0 - valence)),
             // Lydian: dreamy, floating → high clarity, low tension
-            ("lydian",     2,    clarity * (1.0 - tension) * (1.0 - arousal * 0.5)),
+            (
+                "lydian",
+                2,
+                clarity * (1.0 - tension) * (1.0 - arousal * 0.5),
+            ),
             // Mixolydian: driving, bluesy → high velocity, moderate tension
-            ("mixolydian", 4,    velocity * arousal * (0.5 + 0.5 * tension)),
+            ("mixolydian", 4, velocity * arousal * (0.5 + 0.5 * tension)),
             // Aeolian: sad minor → low valence, moderate warmth
-            ("aeolian",    3,    (1.0 - valence) * warmth * (1.0 - arousal * 0.5)),
+            (
+                "aeolian",
+                3,
+                (1.0 - valence) * warmth * (1.0 - arousal * 0.5),
+            ),
             // Locrian: unstable → high tension, high entropy
-            ("locrian",    8,    tension * entropy * (1.0 - clarity)),
+            ("locrian", 8, tension * entropy * (1.0 - clarity)),
         ];
 
-        let (name, stride, confidence) = scores.iter()
+        let (name, stride, confidence) = scores
+            .iter()
             .max_by(|a, b| a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal))
             .copied()
             .unwrap_or(("ionian", 8, 0.0));
@@ -416,8 +476,8 @@ impl Qualia17D {
         }
 
         // Spectral regions
-        let low: f32 = energies[0..5].iter().sum::<f32>() / total;    // 0-1000 Hz
-        let mid: f32 = energies[5..12].iter().sum::<f32>() / total;   // 1000-3000 Hz
+        let low: f32 = energies[0..5].iter().sum::<f32>() / total; // 0-1000 Hz
+        let mid: f32 = energies[5..12].iter().sum::<f32>() / total; // 1000-3000 Hz
         let high: f32 = energies[12..21].iter().sum::<f32>() / total; // 3000-24000 Hz
 
         // Spectral tilt: positive = bright (high > low), negative = dark
@@ -435,7 +495,8 @@ impl Qualia17D {
         let norm_entropy = band_entropy / max_entropy;
 
         // Peak band (dominant frequency region)
-        let peak_band = energies.iter()
+        let peak_band = energies
+            .iter()
             .enumerate()
             .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
             .map(|(i, _)| i)
@@ -447,23 +508,23 @@ impl Qualia17D {
         let active_bands = energies.iter().filter(|&&e| e > threshold).count() as f32 / 21.0;
 
         let dims = [
-            (total / 10.0).min(1.0),                         // 0: arousal — total spectral energy
-            tilt.clamp(0.0, 1.0),                             // 1: valence — bright = positive
-            (1.0 - mid * 3.0).clamp(0.0, 1.0),              // 2: tension — weak mid = unresolved
-            (mid * 3.0).clamp(0.0, 1.0),                     // 3: warmth — mid energy = warm
-            (1.0 - norm_entropy).clamp(0.0, 1.0),            // 4: clarity — low entropy = focused
-            (1.0 - active_bands).clamp(0.0, 1.0),            // 5: boundary — few bands = isolated
-            (low * 3.0).clamp(0.0, 1.0),                     // 6: depth — bass = deep
-            (high * 4.0).clamp(0.0, 1.0),                    // 7: velocity — treble = fast
-            norm_entropy.clamp(0.0, 1.0),                     // 8: entropy — spectral spread
-            (1.0 - norm_entropy).clamp(0.0, 1.0),            // 9: coherence — focused = coherent
-            (mid * 2.0 * (1.0 - high)).clamp(0.0, 1.0),     // 10: intimacy — warm without sharpness
-            peak_position,                                     // 11: presence — where the peak is
-            (high * 3.0).clamp(0.0, 1.0),                    // 12: assertion — treble = assertive
-            active_bands.clamp(0.0, 1.0),                     // 13: receptivity — broad spectrum = open
-            (low * 2.0 * (1.0 - high)).clamp(0.0, 1.0),     // 14: groundedness — bass without air
-            active_bands.clamp(0.0, 1.0),                     // 15: expansion — spectral spread
-            (1.0 - (low - high).abs()).clamp(0.0, 1.0),      // 16: integration — balanced spectrum
+            (total / 10.0).min(1.0),              // 0: arousal — total spectral energy
+            tilt.clamp(0.0, 1.0),                 // 1: valence — bright = positive
+            (1.0 - mid * 3.0).clamp(0.0, 1.0),    // 2: tension — weak mid = unresolved
+            (mid * 3.0).clamp(0.0, 1.0),          // 3: warmth — mid energy = warm
+            (1.0 - norm_entropy).clamp(0.0, 1.0), // 4: clarity — low entropy = focused
+            (1.0 - active_bands).clamp(0.0, 1.0), // 5: boundary — few bands = isolated
+            (low * 3.0).clamp(0.0, 1.0),          // 6: depth — bass = deep
+            (high * 4.0).clamp(0.0, 1.0),         // 7: velocity — treble = fast
+            norm_entropy.clamp(0.0, 1.0),         // 8: entropy — spectral spread
+            (1.0 - norm_entropy).clamp(0.0, 1.0), // 9: coherence — focused = coherent
+            (mid * 2.0 * (1.0 - high)).clamp(0.0, 1.0), // 10: intimacy — warm without sharpness
+            peak_position,                        // 11: presence — where the peak is
+            (high * 3.0).clamp(0.0, 1.0),         // 12: assertion — treble = assertive
+            active_bands.clamp(0.0, 1.0),         // 13: receptivity — broad spectrum = open
+            (low * 2.0 * (1.0 - high)).clamp(0.0, 1.0), // 14: groundedness — bass without air
+            active_bands.clamp(0.0, 1.0),         // 15: expansion — spectral spread
+            (1.0 - (low - high).abs()).clamp(0.0, 1.0), // 16: integration — balanced spectrum
         ];
 
         Self { dims }
@@ -484,53 +545,91 @@ impl Qualia17D {
         match family {
             "emberglow" => {
                 // Warm: boost 800-2500 Hz (formant region)
-                for i in 4..=10 { w[i] = 1.3; }
+                for i in 4..=10 {
+                    w[i] = 1.3;
+                }
             }
             "woodwarm" => {
                 // Grounded: boost bass + low-mid
-                for i in 0..=6 { w[i] = 1.2; }
-                for i in 15..=20 { w[i] = 0.85; }
+                for i in 0..=6 {
+                    w[i] = 1.2;
+                }
+                for i in 15..=20 {
+                    w[i] = 0.85;
+                }
             }
             "steelwind" => {
                 // Sharp: boost presence (2-5 kHz)
-                for i in 10..=14 { w[i] = 1.4; }
-                for i in 0..=3 { w[i] = 0.8; }
+                for i in 10..=14 {
+                    w[i] = 1.4;
+                }
+                for i in 0..=3 {
+                    w[i] = 0.8;
+                }
             }
             "oceandrift" => {
                 // Flowing: gentle mid, soft treble
-                for i in 6..=12 { w[i] = 1.1; }
-                for i in 16..=20 { w[i] = 0.9; }
+                for i in 6..=12 {
+                    w[i] = 1.1;
+                }
+                for i in 16..=20 {
+                    w[i] = 0.9;
+                }
             }
             "frostbite" => {
                 // Cold: boost treble, cut warmth
-                for i in 14..=20 { w[i] = 1.3; }
-                for i in 4..=8 { w[i] = 0.7; }
+                for i in 14..=20 {
+                    w[i] = 1.3;
+                }
+                for i in 4..=8 {
+                    w[i] = 0.7;
+                }
             }
             "sunburst" => {
                 // Bright: broadband boost, emphasis on harmonics
-                for i in 0..=20 { w[i] = 1.1; }
-                for i in 8..=14 { w[i] = 1.3; }
+                for i in 0..=20 {
+                    w[i] = 1.1;
+                }
+                for i in 8..=14 {
+                    w[i] = 1.3;
+                }
             }
             "nightshade" => {
                 // Dark: deep bass, soft everything else
-                for i in 0..=4 { w[i] = 1.4; }
-                for i in 10..=20 { w[i] = 0.7; }
+                for i in 0..=4 {
+                    w[i] = 1.4;
+                }
+                for i in 10..=20 {
+                    w[i] = 0.7;
+                }
             }
             "thornrose" => {
                 // Tense: mid emphasis + presence peak
-                for i in 6..=8 { w[i] = 1.3; }
+                for i in 6..=8 {
+                    w[i] = 1.3;
+                }
                 w[13] = 1.4; // sibilance spike
             }
             "velvetdusk" => {
                 // Soft: gentle roll-off, warm low-mid
-                for i in 2..=8 { w[i] = 1.15; }
-                for i in 14..=20 { w[i] = 0.8; }
+                for i in 2..=8 {
+                    w[i] = 1.15;
+                }
+                for i in 14..=20 {
+                    w[i] = 0.8;
+                }
             }
             "stormbreak" => {
                 // Aggressive: mid-scoop + treble + bass
-                for i in 0..=3 { w[i] = 1.3; }
-                for i in 6..=10 { w[i] = 0.8; }  // mid scoop
-                for i in 14..=20 { w[i] = 1.3; }
+                for i in 0..=3 {
+                    w[i] = 1.3;
+                }
+                for i in 6..=10 {
+                    w[i] = 0.8;
+                } // mid scoop
+                for i in 14..=20 {
+                    w[i] = 1.3;
+                }
             }
             _ => {} // neutral
         }
@@ -582,28 +681,28 @@ impl Qualia17D {
 /// Nonverbal vocal qualities and their QPL dim coverage.
 /// Used for completeness verification: every quality must map to ≥1 dim.
 pub const VOCAL_QUALITY_MAP: [(&str, &[usize]); 22] = [
-    ("pitch_register",  &[0, 6]),       // arousal + depth
-    ("loudness",        &[0, 12]),      // arousal + assertion
-    ("speaking_rate",   &[7]),          // velocity
-    ("breathiness",     &[4, 5]),       // clarity⁻¹ + boundary
-    ("nasality",        &[3]),          // warmth⁻¹
-    ("vocal_fry",       &[2, 14]),      // tension + groundedness
-    ("vibrato",         &[8, 15]),      // entropy + expansion
-    ("whisper",         &[5, 10]),      // boundary + intimacy
-    ("sarcasm",         &[1, 2]),       // valence ↔ tension mismatch
-    ("hesitation",      &[16, 12]),     // integration⁻¹ + assertion⁻¹
-    ("confidence",      &[12, 4, 14]), // assertion + clarity + groundedness
-    ("sadness",         &[1, 7]),       // valence⁻¹ + velocity⁻¹
-    ("anger",           &[0, 2, 12]),   // arousal + tension + assertion
-    ("surprise",        &[0, 15]),      // arousal + expansion
-    ("fear",            &[2, 4]),       // tension + clarity⁻¹
-    ("joy",             &[1, 3, 0]),    // valence + warmth + arousal
-    ("tenderness",      &[3, 10]),      // warmth + intimacy
-    ("authority",       &[14, 12]),     // groundedness + assertion
-    ("contempt",        &[5, 12]),      // boundary + assertion
-    ("awe",             &[6, 13]),      // depth + receptivity
-    ("focus",           &[9, 4]),       // coherence + clarity — single dominant harmonic
-    ("immediacy",       &[11, 0, 7]),   // presence + arousal + velocity — here-now energy
+    ("pitch_register", &[0, 6]),  // arousal + depth
+    ("loudness", &[0, 12]),       // arousal + assertion
+    ("speaking_rate", &[7]),      // velocity
+    ("breathiness", &[4, 5]),     // clarity⁻¹ + boundary
+    ("nasality", &[3]),           // warmth⁻¹
+    ("vocal_fry", &[2, 14]),      // tension + groundedness
+    ("vibrato", &[8, 15]),        // entropy + expansion
+    ("whisper", &[5, 10]),        // boundary + intimacy
+    ("sarcasm", &[1, 2]),         // valence ↔ tension mismatch
+    ("hesitation", &[16, 12]),    // integration⁻¹ + assertion⁻¹
+    ("confidence", &[12, 4, 14]), // assertion + clarity + groundedness
+    ("sadness", &[1, 7]),         // valence⁻¹ + velocity⁻¹
+    ("anger", &[0, 2, 12]),       // arousal + tension + assertion
+    ("surprise", &[0, 15]),       // arousal + expansion
+    ("fear", &[2, 4]),            // tension + clarity⁻¹
+    ("joy", &[1, 3, 0]),          // valence + warmth + arousal
+    ("tenderness", &[3, 10]),     // warmth + intimacy
+    ("authority", &[14, 12]),     // groundedness + assertion
+    ("contempt", &[5, 12]),       // boundary + assertion
+    ("awe", &[6, 13]),            // depth + receptivity
+    ("focus", &[9, 4]),           // coherence + clarity — single dominant harmonic
+    ("immediacy", &[11, 0, 7]),   // presence + arousal + velocity — here-now energy
 ];
 
 /// Verify that all 17 QPL dimensions are covered by at least one
@@ -636,16 +735,66 @@ fn shannon_entropy(energy: &[f32]) -> f32 {
 
 /// 10 QPL family centroids (17D each).
 pub const FAMILY_CENTROIDS: [(&str, [f32; 17]); 10] = [
-    ("emberglow",  [0.5, 0.8, 0.2, 0.9, 0.5, 0.3, 0.6, 0.2, 0.3, 0.7, 0.7, 0.8, 0.3, 0.7, 0.6, 0.5, 0.6]),
-    ("woodwarm",   [0.4, 0.7, 0.2, 0.7, 0.6, 0.4, 0.5, 0.1, 0.2, 0.8, 0.5, 0.9, 0.4, 0.6, 0.9, 0.3, 0.7]),
-    ("steelwind",  [0.6, 0.5, 0.4, 0.2, 0.9, 0.7, 0.4, 0.6, 0.3, 0.8, 0.2, 0.7, 0.7, 0.3, 0.5, 0.4, 0.6]),
-    ("oceandrift", [0.4, 0.6, 0.1, 0.5, 0.4, 0.2, 0.7, 0.3, 0.5, 0.5, 0.4, 0.6, 0.1, 0.9, 0.4, 0.6, 0.5]),
-    ("frostbite",  [0.7, 0.4, 0.6, 0.1, 0.8, 0.9, 0.3, 0.7, 0.4, 0.7, 0.1, 0.6, 0.6, 0.2, 0.6, 0.3, 0.5]),
-    ("sunburst",   [0.8, 0.9, 0.3, 0.6, 0.7, 0.3, 0.4, 0.7, 0.5, 0.6, 0.5, 0.8, 0.6, 0.5, 0.5, 0.9, 0.6]),
-    ("nightshade", [0.5, 0.5, 0.4, 0.3, 0.3, 0.6, 0.9, 0.2, 0.6, 0.4, 0.4, 0.5, 0.3, 0.6, 0.5, 0.4, 0.4]),
-    ("thornrose",  [0.7, 0.6, 0.7, 0.5, 0.5, 0.5, 0.7, 0.4, 0.5, 0.5, 0.8, 0.7, 0.4, 0.6, 0.4, 0.5, 0.5]),
-    ("velvetdusk", [0.3, 0.6, 0.2, 0.6, 0.4, 0.4, 0.6, 0.1, 0.4, 0.6, 0.6, 0.7, 0.2, 0.7, 0.5, 0.4, 0.6]),
-    ("stormbreak", [0.9, 0.7, 0.8, 0.4, 0.5, 0.6, 0.5, 0.9, 0.7, 0.4, 0.4, 0.8, 0.8, 0.4, 0.4, 0.7, 0.5]),
+    (
+        "emberglow",
+        [
+            0.5, 0.8, 0.2, 0.9, 0.5, 0.3, 0.6, 0.2, 0.3, 0.7, 0.7, 0.8, 0.3, 0.7, 0.6, 0.5, 0.6,
+        ],
+    ),
+    (
+        "woodwarm",
+        [
+            0.4, 0.7, 0.2, 0.7, 0.6, 0.4, 0.5, 0.1, 0.2, 0.8, 0.5, 0.9, 0.4, 0.6, 0.9, 0.3, 0.7,
+        ],
+    ),
+    (
+        "steelwind",
+        [
+            0.6, 0.5, 0.4, 0.2, 0.9, 0.7, 0.4, 0.6, 0.3, 0.8, 0.2, 0.7, 0.7, 0.3, 0.5, 0.4, 0.6,
+        ],
+    ),
+    (
+        "oceandrift",
+        [
+            0.4, 0.6, 0.1, 0.5, 0.4, 0.2, 0.7, 0.3, 0.5, 0.5, 0.4, 0.6, 0.1, 0.9, 0.4, 0.6, 0.5,
+        ],
+    ),
+    (
+        "frostbite",
+        [
+            0.7, 0.4, 0.6, 0.1, 0.8, 0.9, 0.3, 0.7, 0.4, 0.7, 0.1, 0.6, 0.6, 0.2, 0.6, 0.3, 0.5,
+        ],
+    ),
+    (
+        "sunburst",
+        [
+            0.8, 0.9, 0.3, 0.6, 0.7, 0.3, 0.4, 0.7, 0.5, 0.6, 0.5, 0.8, 0.6, 0.5, 0.5, 0.9, 0.6,
+        ],
+    ),
+    (
+        "nightshade",
+        [
+            0.5, 0.5, 0.4, 0.3, 0.3, 0.6, 0.9, 0.2, 0.6, 0.4, 0.4, 0.5, 0.3, 0.6, 0.5, 0.4, 0.4,
+        ],
+    ),
+    (
+        "thornrose",
+        [
+            0.7, 0.6, 0.7, 0.5, 0.5, 0.5, 0.7, 0.4, 0.5, 0.5, 0.8, 0.7, 0.4, 0.6, 0.4, 0.5, 0.5,
+        ],
+    ),
+    (
+        "velvetdusk",
+        [
+            0.3, 0.6, 0.2, 0.6, 0.4, 0.4, 0.6, 0.1, 0.4, 0.6, 0.6, 0.7, 0.2, 0.7, 0.5, 0.4, 0.6,
+        ],
+    ),
+    (
+        "stormbreak",
+        [
+            0.9, 0.7, 0.8, 0.4, 0.5, 0.6, 0.5, 0.9, 0.7, 0.4, 0.4, 0.8, 0.8, 0.4, 0.4, 0.7, 0.5,
+        ],
+    ),
 ];
 
 #[cfg(test)]
@@ -656,7 +805,9 @@ mod tests {
     fn qualia_nearest_family() {
         // High warmth, presence, valence → should be emberglow or sunburst
         let q = Qualia17D {
-            dims: [0.5, 0.8, 0.2, 0.9, 0.5, 0.3, 0.6, 0.2, 0.3, 0.7, 0.7, 0.8, 0.3, 0.7, 0.6, 0.5, 0.6],
+            dims: [
+                0.5, 0.8, 0.2, 0.9, 0.5, 0.3, 0.6, 0.2, 0.3, 0.7, 0.7, 0.8, 0.3, 0.7, 0.6, 0.5, 0.6,
+            ],
         };
         let (family, dist) = q.nearest_family();
         assert_eq!(family, "emberglow");
@@ -666,12 +817,16 @@ mod tests {
     #[test]
     fn qualia_dissonance() {
         let dissonant = Qualia17D {
-            dims: [0.5, 0.3, 0.9, 0.2, 0.3, 0.5, 0.5, 0.5, 0.8, 0.3, 0.2, 0.5, 0.5, 0.5, 0.3, 0.5, 0.1],
+            dims: [
+                0.5, 0.3, 0.9, 0.2, 0.3, 0.5, 0.5, 0.5, 0.8, 0.3, 0.2, 0.5, 0.5, 0.5, 0.3, 0.5, 0.1,
+            ],
         };
         assert!(dissonant.is_dissonant());
 
         let consonant = Qualia17D {
-            dims: [0.5, 0.8, 0.1, 0.8, 0.9, 0.3, 0.5, 0.2, 0.2, 0.9, 0.8, 0.9, 0.3, 0.7, 0.8, 0.4, 0.9],
+            dims: [
+                0.5, 0.8, 0.1, 0.8, 0.9, 0.3, 0.5, 0.2, 0.2, 0.9, 0.8, 0.9, 0.3, 0.7, 0.8, 0.4, 0.9,
+            ],
         };
         assert!(!consonant.is_dissonant());
     }
@@ -684,8 +839,16 @@ mod tests {
 
     #[test]
     fn feeling_derivative_tension_rising() {
-        let prev = Qualia17D { dims: [0.5, 0.5, 0.3, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5] };
-        let curr = Qualia17D { dims: [0.5, 0.5, 0.8, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5] };
+        let prev = Qualia17D {
+            dims: [
+                0.5, 0.5, 0.3, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5,
+            ],
+        };
+        let curr = Qualia17D {
+            dims: [
+                0.5, 0.5, 0.8, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5,
+            ],
+        };
         assert!(curr.feeling_derivative(&prev) > 0.0); // tension rising
     }
 
@@ -694,18 +857,33 @@ mod tests {
         // THE key test: every QPL dim must be referenced by at least one
         // vocal quality. An uncovered dim = data falls through the grid.
         let uncovered = verify_grid_completeness();
-        assert!(uncovered.is_empty(),
+        assert!(
+            uncovered.is_empty(),
             "Grid has holes! Uncovered dims: {:?} ({})",
             uncovered,
-            uncovered.iter().map(|&i| DIMS_17D[i]).collect::<Vec<_>>().join(", "));
+            uncovered
+                .iter()
+                .map(|&i| DIMS_17D[i])
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
     }
 
     #[test]
     fn every_vocal_quality_has_dims() {
         for (quality, dims) in &VOCAL_QUALITY_MAP {
-            assert!(!dims.is_empty(), "Vocal quality '{}' has no QPL dims", quality);
+            assert!(
+                !dims.is_empty(),
+                "Vocal quality '{}' has no QPL dims",
+                quality
+            );
             for &d in *dims {
-                assert!(d < 17, "Vocal quality '{}' references invalid dim {}", quality, d);
+                assert!(
+                    d < 17,
+                    "Vocal quality '{}' references invalid dim {}",
+                    quality,
+                    d
+                );
             }
         }
     }
@@ -714,12 +892,17 @@ mod tests {
     fn roundtrip_band_to_qualia_to_mode() {
         // A warm mid-heavy spectrum → qualia → mode should give Dorian or Ionian
         let mut energies = [0.1f32; 21];
-        for i in 5..12 { energies[i] = 1.5; } // strong 1-3 kHz
+        for i in 5..12 {
+            energies[i] = 1.5;
+        } // strong 1-3 kHz
         let q = Qualia17D::from_band_energies(&energies);
         let (mode, stride, _) = q.to_mode();
         // Warm spectrum should NOT produce Locrian or Phrygian
-        assert!(mode != "locrian" && mode != "phrygian",
-            "Warm spectrum produced dark mode: {}", mode);
+        assert!(
+            mode != "locrian" && mode != "phrygian",
+            "Warm spectrum produced dark mode: {}",
+            mode
+        );
         assert!(stride <= 8, "Invalid stride: {}", stride);
     }
 
@@ -727,23 +910,38 @@ mod tests {
     fn qualia_to_mode_bright() {
         // High valence, low tension → should be Ionian (bright major)
         let bright = Qualia17D {
-            dims: [0.8, 0.9, 0.1, 0.6, 0.7, 0.3, 0.4, 0.5, 0.3, 0.6, 0.5, 0.8, 0.5, 0.5, 0.5, 0.5, 0.6],
+            dims: [
+                0.8, 0.9, 0.1, 0.6, 0.7, 0.3, 0.4, 0.5, 0.3, 0.6, 0.5, 0.8, 0.5, 0.5, 0.5, 0.5, 0.6,
+            ],
         };
         let (mode, stride, confidence) = bright.to_mode();
-        assert_eq!(mode, "ionian", "Bright qualia should map to Ionian, got {}", mode);
+        assert_eq!(
+            mode, "ionian",
+            "Bright qualia should map to Ionian, got {}",
+            mode
+        );
         assert_eq!(stride, 8, "Ionian stride should be 8 (Gate)");
-        assert!(confidence > 0.1, "Should have some confidence: {}", confidence);
+        assert!(
+            confidence > 0.1,
+            "Should have some confidence: {}",
+            confidence
+        );
     }
 
     #[test]
     fn qualia_to_mode_dark() {
         // High tension, low warmth, low valence → should be Phrygian or Locrian
         let dark = Qualia17D {
-            dims: [0.6, 0.2, 0.9, 0.1, 0.3, 0.7, 0.5, 0.3, 0.8, 0.3, 0.2, 0.5, 0.5, 0.5, 0.3, 0.5, 0.1],
+            dims: [
+                0.6, 0.2, 0.9, 0.1, 0.3, 0.7, 0.5, 0.3, 0.8, 0.3, 0.2, 0.5, 0.5, 0.5, 0.3, 0.5, 0.1,
+            ],
         };
         let (mode, _stride, _confidence) = dark.to_mode();
-        assert!(mode == "phrygian" || mode == "locrian",
-            "Dark tense qualia should map to Phrygian or Locrian, got {}", mode);
+        assert!(
+            mode == "phrygian" || mode == "locrian",
+            "Dark tense qualia should map to Phrygian or Locrian, got {}",
+            mode
+        );
     }
 
     #[test]
@@ -752,7 +950,12 @@ mod tests {
         let channels = q.to_voice_channels();
         // All dims at 0.5 → all channels should be ~0 (center)
         for (i, &c) in channels.iter().enumerate() {
-            assert!(c.abs() < 2, "Channel {} should be near zero for centered qualia: {}", i, c);
+            assert!(
+                c.abs() < 2,
+                "Channel {} should be near zero for centered qualia: {}",
+                i,
+                c
+            );
         }
     }
 
@@ -760,9 +963,15 @@ mod tests {
     fn qualia_from_band_energies_warm() {
         // Strong mid-frequency energy → should produce warm qualia
         let mut energies = [0.1f32; 21];
-        for i in 5..12 { energies[i] = 1.0; } // boost 1000-3000 Hz
+        for i in 5..12 {
+            energies[i] = 1.0;
+        } // boost 1000-3000 Hz
         let q = Qualia17D::from_band_energies(&energies);
-        assert!(q.dims[3] > 0.5, "Strong mid energy should produce warmth: {}", q.dims[3]);
+        assert!(
+            q.dims[3] > 0.5,
+            "Strong mid energy should produce warmth: {}",
+            q.dims[3]
+        );
     }
 
     #[test]
@@ -771,7 +980,13 @@ mod tests {
             let q = Qualia17D { dims: centroid };
             let weights = q.family_band_weights();
             for (i, &w) in weights.iter().enumerate() {
-                assert!(w > 0.0, "Family {} band {} weight should be > 0: {}", name, i, w);
+                assert!(
+                    w > 0.0,
+                    "Family {} band {} weight should be > 0: {}",
+                    name,
+                    i,
+                    w
+                );
             }
         }
     }
@@ -785,7 +1000,12 @@ mod tests {
         let q = Qualia17D::from_engine(&engine);
         // All dims should be in [0, 1] or close
         for (i, &d) in q.dims.iter().enumerate() {
-            assert!(d >= -1.1 && d <= 1.1, "dim {} = {} out of range", DIMS_17D[i], d);
+            assert!(
+                d >= -1.1 && d <= 1.1,
+                "dim {} = {} out of range",
+                DIMS_17D[i],
+                d
+            );
         }
     }
 }

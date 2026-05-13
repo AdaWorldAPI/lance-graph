@@ -32,7 +32,11 @@ impl PaletteEdge {
 
     /// Deserialize from 3 bytes.
     pub fn from_bytes(b: &[u8; 3]) -> Self {
-        PaletteEdge { s_idx: b[0], p_idx: b[1], o_idx: b[2] }
+        PaletteEdge {
+            s_idx: b[0],
+            p_idx: b[1],
+            o_idx: b[2],
+        }
     }
 }
 
@@ -108,7 +112,9 @@ impl Palette {
     pub fn build(patterns: &[Base17], k: usize, max_iter: usize) -> Self {
         let k = k.min(MAX_PALETTE_SIZE).min(patterns.len());
         if k == 0 {
-            return Palette { entries: Vec::new() };
+            return Palette {
+                entries: Vec::new(),
+            };
         }
 
         // Initialize centroids: k-means++ style (first = random, rest = farthest)
@@ -160,7 +166,9 @@ impl Palette {
 
             let mut changed = false;
             for c in 0..k {
-                if counts[c] == 0 { continue; }
+                if counts[c] == 0 {
+                    continue;
+                }
                 let mut new_dims = [0i16; 17];
                 for d in 0..17 {
                     new_dims[d] = (new_centroids[c][d] / counts[c] as i64) as i16;
@@ -172,7 +180,9 @@ impl Palette {
                 }
             }
 
-            if !changed { break; }
+            if !changed {
+                break;
+            }
         }
 
         Palette { entries: centroids }
@@ -190,7 +200,9 @@ impl Palette {
     pub fn from_sigma_bands(patterns: &[Base17], k: usize) -> Self {
         let k = k.min(MAX_PALETTE_SIZE).min(patterns.len());
         if k == 0 {
-            return Palette { entries: Vec::new() };
+            return Palette {
+                entries: Vec::new(),
+            };
         }
 
         // Sort patterns by L1 distance from the centroid (global mean)
@@ -265,7 +277,9 @@ impl PaletteDistanceTable {
     }
 
     /// Number of active entries (≤ 256).
-    pub fn size(&self) -> usize { self.size }
+    pub fn size(&self) -> usize {
+        self.size
+    }
 
     /// Distance between two PaletteEdges (sum of S + P + O distances).
     #[inline]
@@ -276,7 +290,9 @@ impl PaletteDistanceTable {
     }
 
     /// Memory footprint in bytes.
-    pub fn byte_size(&self) -> usize { self.table.len() * 2 }
+    pub fn byte_size(&self) -> usize {
+        self.table.len() * 2
+    }
 }
 
 /// Palette resolution: trade compression vs accuracy.
@@ -331,13 +347,15 @@ mod tests {
     use super::*;
 
     fn make_patterns(n: usize) -> Vec<Base17> {
-        (0..n).map(|i| {
-            let mut dims = [0i16; 17];
-            for d in 0..17 {
-                dims[d] = ((i * 7 + d * 13) % 256) as i16 - 128;
-            }
-            Base17 { dims }
-        }).collect()
+        (0..n)
+            .map(|i| {
+                let mut dims = [0i16; 17];
+                for d in 0..17 {
+                    dims[d] = ((i * 7 + d * 13) % 256) as i16 - 128;
+                }
+                Base17 { dims }
+            })
+            .collect()
     }
 
     #[test]
@@ -377,7 +395,11 @@ mod tests {
 
     #[test]
     fn test_palette_edge_bytes() {
-        let pe = PaletteEdge { s_idx: 42, p_idx: 128, o_idx: 255 };
+        let pe = PaletteEdge {
+            s_idx: 42,
+            p_idx: 128,
+            o_idx: 255,
+        };
         let bytes = pe.to_bytes();
         let pe2 = PaletteEdge::from_bytes(&bytes);
         assert_eq!(pe, pe2);
@@ -385,13 +407,34 @@ mod tests {
 
     #[test]
     fn test_palette_resolution_auto_select() {
-        assert_eq!(PaletteResolution::auto_select(10), PaletteResolution::Quarter64);
-        assert_eq!(PaletteResolution::auto_select(99), PaletteResolution::Quarter64);
-        assert_eq!(PaletteResolution::auto_select(100), PaletteResolution::Half128);
-        assert_eq!(PaletteResolution::auto_select(500), PaletteResolution::Half128);
-        assert_eq!(PaletteResolution::auto_select(1000), PaletteResolution::Half128);
-        assert_eq!(PaletteResolution::auto_select(1001), PaletteResolution::Full256);
-        assert_eq!(PaletteResolution::auto_select(10000), PaletteResolution::Full256);
+        assert_eq!(
+            PaletteResolution::auto_select(10),
+            PaletteResolution::Quarter64
+        );
+        assert_eq!(
+            PaletteResolution::auto_select(99),
+            PaletteResolution::Quarter64
+        );
+        assert_eq!(
+            PaletteResolution::auto_select(100),
+            PaletteResolution::Half128
+        );
+        assert_eq!(
+            PaletteResolution::auto_select(500),
+            PaletteResolution::Half128
+        );
+        assert_eq!(
+            PaletteResolution::auto_select(1000),
+            PaletteResolution::Half128
+        );
+        assert_eq!(
+            PaletteResolution::auto_select(1001),
+            PaletteResolution::Full256
+        );
+        assert_eq!(
+            PaletteResolution::auto_select(10000),
+            PaletteResolution::Full256
+        );
     }
 
     #[test]
@@ -437,21 +480,28 @@ mod tests {
         let kmeans = Palette::build(&patterns, 32, 10);
 
         // Both should produce reasonable assignments
-        let total_dist_sigma: u64 = patterns.iter().map(|p| {
-            let idx = sigma.nearest(p);
-            p.l1(&sigma.entries[idx as usize]) as u64
-        }).sum();
+        let total_dist_sigma: u64 = patterns
+            .iter()
+            .map(|p| {
+                let idx = sigma.nearest(p);
+                p.l1(&sigma.entries[idx as usize]) as u64
+            })
+            .sum();
 
-        let total_dist_kmeans: u64 = patterns.iter().map(|p| {
-            let idx = kmeans.nearest(p);
-            p.l1(&kmeans.entries[idx as usize]) as u64
-        }).sum();
+        let total_dist_kmeans: u64 = patterns
+            .iter()
+            .map(|p| {
+                let idx = kmeans.nearest(p);
+                p.l1(&kmeans.entries[idx as usize]) as u64
+            })
+            .sum();
 
         // Sigma-band should be within 5× of k-means (it's training-free)
         assert!(
             total_dist_sigma < total_dist_kmeans * 5,
             "sigma {} should be within 5× of kmeans {}",
-            total_dist_sigma, total_dist_kmeans
+            total_dist_sigma,
+            total_dist_kmeans
         );
     }
 
@@ -465,10 +515,13 @@ mod tests {
 
         // Total assignment distance should decrease with iterations
         let total_dist = |pal: &Palette| -> u64 {
-            patterns.iter().map(|p| {
-                let idx = pal.nearest(p);
-                p.l1(&pal.entries[idx as usize]) as u64
-            }).sum::<u64>()
+            patterns
+                .iter()
+                .map(|p| {
+                    let idx = pal.nearest(p);
+                    p.l1(&pal.entries[idx as usize]) as u64
+                })
+                .sum::<u64>()
         };
 
         let d1 = total_dist(&p1);

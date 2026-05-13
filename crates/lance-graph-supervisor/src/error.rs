@@ -4,8 +4,7 @@ use thiserror::Error;
 
 /// Errors returned by the `CallcenterSupervisor`.
 #[derive(Clone, Debug, Error, PartialEq, Eq)]
-pub enum SupervisorErr
-{
+pub enum SupervisorErr {
     /// The requested G slot exists in the manifest but has no active consumer
     /// (`consumer_pointer = None`, `inert_when_consumer_absent = true`).
     /// SPARQL queries against inert triples route through `OntologyRegistry`

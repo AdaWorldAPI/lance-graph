@@ -40,26 +40,18 @@ mod tests {
 
     /// Build a `Policy` that grants `role_name` read-only access to `canonical_entity`.
     fn canonical_allow_policy(role_name: &'static str, canonical_entity: &'static str) -> Policy {
-        Policy::new("conformance-allow")
-            .with_role(
-                Role::new(role_name).with_permission(PermissionSpec::read_at(
-                    canonical_entity,
-                    PrefetchDepth::Identity,
-                )),
-            )
+        Policy::new("conformance-allow").with_role(Role::new(role_name).with_permission(
+            PermissionSpec::read_at(canonical_entity, PrefetchDepth::Identity),
+        ))
     }
 
     /// Build a `Policy` that grants `role_name` read-only access to
     /// `alias_entity` — note this is the ALIAS, NOT the canonical name. Used
     /// for the A5 deny-on-alias-keyed-policy test.
     fn alias_deny_policy(role_name: &'static str, alias_entity: &'static str) -> Policy {
-        Policy::new("conformance-deny-alias")
-            .with_role(
-                Role::new(role_name).with_permission(PermissionSpec::read_at(
-                    alias_entity,
-                    PrefetchDepth::Identity,
-                )),
-            )
+        Policy::new("conformance-deny-alias").with_role(Role::new(role_name).with_permission(
+            PermissionSpec::read_at(alias_entity, PrefetchDepth::Identity),
+        ))
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -70,7 +62,7 @@ mod tests {
         public_name: "Patient",
         canonical_name: "Patient", // ogit.Healthcare:Patient -> local = "Patient"
         super_domain: SuperDomain::Healthcare,
-        role_that_can_read: "physician",  // OQ-3 direct migration consumed by MedCare-rs#119
+        role_that_can_read: "physician", // OQ-3 direct migration consumed by MedCare-rs#119
         is_active: true,
     };
 
@@ -151,7 +143,11 @@ mod tests {
             MEDCARE_FIXTURE.role_that_can_read,
             TenantId(1),
         )
-        .with_audit_chain(MEDCARE_FIXTURE.super_domain, 0xC0FF_EE01_u64, sink_allow.clone());
+        .with_audit_chain(
+            MEDCARE_FIXTURE.super_domain,
+            0xC0FF_EE01_u64,
+            sink_allow.clone(),
+        );
 
         let bridge_deny = UnifiedBridge::new(
             bridge.clone(),
@@ -159,7 +155,11 @@ mod tests {
             MEDCARE_FIXTURE.role_that_can_read,
             TenantId(1),
         )
-        .with_audit_chain(MEDCARE_FIXTURE.super_domain, 0xC0FF_EE01_u64, sink_deny.clone());
+        .with_audit_chain(
+            MEDCARE_FIXTURE.super_domain,
+            0xC0FF_EE01_u64,
+            sink_deny.clone(),
+        );
 
         let bridge_blank = UnifiedBridge::new(
             blank_bridge,
@@ -167,7 +167,11 @@ mod tests {
             MEDCARE_FIXTURE.role_that_can_read,
             TenantId(1),
         )
-        .with_audit_chain(MEDCARE_FIXTURE.super_domain, 0xC0FF_EE01_u64, sink_blank.clone());
+        .with_audit_chain(
+            MEDCARE_FIXTURE.super_domain,
+            0xC0FF_EE01_u64,
+            sink_blank.clone(),
+        );
 
         assert_consumer_conformance(
             &bridge_allow,
@@ -259,7 +263,11 @@ mod tests {
             SMB_FIXTURE.role_that_can_read,
             TenantId(1),
         )
-        .with_audit_chain(SMB_FIXTURE.super_domain, 0xC0FF_EE02_u64, sink_allow.clone());
+        .with_audit_chain(
+            SMB_FIXTURE.super_domain,
+            0xC0FF_EE02_u64,
+            sink_allow.clone(),
+        );
 
         let bridge_blank = UnifiedBridge::new(
             blank_bridge,
@@ -267,7 +275,11 @@ mod tests {
             SMB_FIXTURE.role_that_can_read,
             TenantId(1),
         )
-        .with_audit_chain(SMB_FIXTURE.super_domain, 0xC0FF_EE02_u64, sink_blank.clone());
+        .with_audit_chain(
+            SMB_FIXTURE.super_domain,
+            0xC0FF_EE02_u64,
+            sink_blank.clone(),
+        );
 
         // OgitBridge: public_name == canonical_name (no alias gap), bridge_deny = None
         assert_consumer_conformance(
@@ -285,8 +297,8 @@ mod tests {
     // ═══════════════════════════════════════════════════════════════════════
 
     const WOA_FIXTURE: ConformanceFixture = ConformanceFixture {
-        public_name: "WorkOrder",    // bridge alias
-        canonical_name: "Order",     // OGIT canonical local name
+        public_name: "WorkOrder", // bridge alias
+        canonical_name: "Order",  // OGIT canonical local name
         super_domain: SuperDomain::WorkOrderBilling,
         role_that_can_read: "dispatcher",
         is_active: true,
@@ -349,12 +361,18 @@ mod tests {
 
         // A5 WoaBridge: policy keyed on canonical "Order" grants;
         // policy keyed on alias "WorkOrder" denies.
-        let policy_allow =
-            Arc::new(canonical_allow_policy(WOA_FIXTURE.role_that_can_read, "Order"));
-        let policy_deny_on_alias =
-            Arc::new(alias_deny_policy(WOA_FIXTURE.role_that_can_read, "WorkOrder"));
-        let policy_blank =
-            Arc::new(canonical_allow_policy(WOA_FIXTURE.role_that_can_read, "Order"));
+        let policy_allow = Arc::new(canonical_allow_policy(
+            WOA_FIXTURE.role_that_can_read,
+            "Order",
+        ));
+        let policy_deny_on_alias = Arc::new(alias_deny_policy(
+            WOA_FIXTURE.role_that_can_read,
+            "WorkOrder",
+        ));
+        let policy_blank = Arc::new(canonical_allow_policy(
+            WOA_FIXTURE.role_that_can_read,
+            "Order",
+        ));
 
         let bridge_allow = UnifiedBridge::new(
             bridge.clone(),
@@ -362,7 +380,11 @@ mod tests {
             WOA_FIXTURE.role_that_can_read,
             TenantId(1),
         )
-        .with_audit_chain(WOA_FIXTURE.super_domain, 0xC0FF_EE03_u64, sink_allow.clone());
+        .with_audit_chain(
+            WOA_FIXTURE.super_domain,
+            0xC0FF_EE03_u64,
+            sink_allow.clone(),
+        );
 
         let bridge_deny = UnifiedBridge::new(
             bridge.clone(),
@@ -378,7 +400,11 @@ mod tests {
             WOA_FIXTURE.role_that_can_read,
             TenantId(1),
         )
-        .with_audit_chain(WOA_FIXTURE.super_domain, 0xC0FF_EE03_u64, sink_blank.clone());
+        .with_audit_chain(
+            WOA_FIXTURE.super_domain,
+            0xC0FF_EE03_u64,
+            sink_blank.clone(),
+        );
 
         assert_consumer_conformance(
             &bridge_allow,
@@ -537,9 +563,17 @@ mod tests {
         let policy_blank = Arc::new(canonical_allow_policy("tester", "Widget"));
 
         let bridge_allow = UnifiedBridge::new(bridge.clone(), policy_allow, "tester", TenantId(1))
-            .with_audit_chain(SuperDomain::WorkOrderBilling, 0xDEAD_BEEF, sink_allow.clone());
+            .with_audit_chain(
+                SuperDomain::WorkOrderBilling,
+                0xDEAD_BEEF,
+                sink_allow.clone(),
+            );
         let bridge_blank = UnifiedBridge::new(blank_bridge, policy_blank, "tester", TenantId(1))
-            .with_audit_chain(SuperDomain::WorkOrderBilling, 0xDEAD_BEEF, sink_blank.clone());
+            .with_audit_chain(
+                SuperDomain::WorkOrderBilling,
+                0xDEAD_BEEF,
+                sink_blank.clone(),
+            );
 
         assert_consumer_conformance(
             &bridge_allow,
@@ -563,8 +597,11 @@ mod tests {
         let bridge = Arc::new(make_stub_bridge("NegTest", "Thing", "Thing"));
         let sink: Arc<RecordingSink> = Arc::new(RecordingSink::default());
         let policy = Arc::new(canonical_allow_policy("role_a", "Thing"));
-        let unified = UnifiedBridge::new(bridge, policy, "role_a", TenantId(1))
-            .with_audit_chain(SuperDomain::WorkOrderBilling, 0, sink.clone());
+        let unified = UnifiedBridge::new(bridge, policy, "role_a", TenantId(1)).with_audit_chain(
+            SuperDomain::WorkOrderBilling,
+            0,
+            sink.clone(),
+        );
 
         let _ = unified
             .authorize_read("Thing", PrefetchDepth::Identity)
@@ -573,11 +610,17 @@ mod tests {
         assert_eq!(events.len(), 1);
 
         // role_a hash must match
-        assert_eq!(events[0].actor_role_hash, fnv1a_str("role_a"),
-            "A9 negative: actor_role_hash must equal fnv1a_str('role_a')");
+        assert_eq!(
+            events[0].actor_role_hash,
+            fnv1a_str("role_a"),
+            "A9 negative: actor_role_hash must equal fnv1a_str('role_a')"
+        );
         // role_b hash must NOT match
-        assert_ne!(events[0].actor_role_hash, fnv1a_str("role_b"),
-            "A9 negative: hash for 'role_a' must differ from hash for 'role_b'");
+        assert_ne!(
+            events[0].actor_role_hash,
+            fnv1a_str("role_b"),
+            "A9 negative: hash for 'role_a' must differ from hash for 'role_b'"
+        );
     }
 
     #[test]
@@ -590,7 +633,10 @@ mod tests {
             .with_audit_chain(SuperDomain::WorkOrderBilling, 0, sink.clone());
 
         let result = unified.authorize_read("__nonexistent__", PrefetchDepth::Identity);
-        assert!(result.is_err(), "A4 negative: expect BridgeError for unknown entity");
+        assert!(
+            result.is_err(),
+            "A4 negative: expect BridgeError for unknown entity"
+        );
         assert!(
             sink.is_empty(),
             "A4 negative: no audit event must be emitted on BridgeError; got {} events",
@@ -614,18 +660,30 @@ mod tests {
         let unified_42 = UnifiedBridge::new(bridge_42, policy2, "tester", TenantId(42))
             .with_audit_chain(SuperDomain::WorkOrderBilling, 0, sink_42.clone());
 
-        let _ = unified_1.authorize_read("Item", PrefetchDepth::Identity).unwrap();
-        let _ = unified_42.authorize_read("Item", PrefetchDepth::Identity).unwrap();
+        let _ = unified_1
+            .authorize_read("Item", PrefetchDepth::Identity)
+            .unwrap();
+        let _ = unified_42
+            .authorize_read("Item", PrefetchDepth::Identity)
+            .unwrap();
 
         let events_1 = sink_1.snapshot();
         let events_42 = sink_42.snapshot();
 
-        assert_eq!(events_1[0].tenant, TenantId(1),
-            "A8 negative: TenantId(1) bridge must emit tenant=1");
-        assert_eq!(events_42[0].tenant, TenantId(42),
-            "A8 negative: TenantId(42) bridge must emit tenant=42");
-        assert_ne!(events_1[0].tenant, events_42[0].tenant,
-            "A8 negative: tenant fields must be distinct for different TenantIds");
+        assert_eq!(
+            events_1[0].tenant,
+            TenantId(1),
+            "A8 negative: TenantId(1) bridge must emit tenant=1"
+        );
+        assert_eq!(
+            events_42[0].tenant,
+            TenantId(42),
+            "A8 negative: TenantId(42) bridge must emit tenant=42"
+        );
+        assert_ne!(
+            events_1[0].tenant, events_42[0].tenant,
+            "A8 negative: tenant fields must be distinct for different TenantIds"
+        );
     }
 
     #[test]
@@ -636,22 +694,38 @@ mod tests {
         let bridge = Arc::new(make_stub_bridge("MerkleTest", "Node", "Node"));
         let sink: Arc<RecordingSink> = Arc::new(RecordingSink::default());
         let policy = Arc::new(canonical_allow_policy("tester", "Node"));
-        let unified = UnifiedBridge::new(bridge, policy, "tester", TenantId(1))
-            .with_audit_chain(SuperDomain::WorkOrderBilling, 0xBEEF, sink.clone());
+        let unified = UnifiedBridge::new(bridge, policy, "tester", TenantId(1)).with_audit_chain(
+            SuperDomain::WorkOrderBilling,
+            0xBEEF,
+            sink.clone(),
+        );
 
-        let _ = unified.authorize_read("Node", PrefetchDepth::Identity).unwrap();
-        let _ = unified.authorize_read("Node", PrefetchDepth::Identity).unwrap();
-        let _ = unified.authorize_read("Node", PrefetchDepth::Identity).unwrap();
+        let _ = unified
+            .authorize_read("Node", PrefetchDepth::Identity)
+            .unwrap();
+        let _ = unified
+            .authorize_read("Node", PrefetchDepth::Identity)
+            .unwrap();
+        let _ = unified
+            .authorize_read("Node", PrefetchDepth::Identity)
+            .unwrap();
 
         let events = sink.snapshot();
         assert_eq!(events.len(), 3);
-        assert_ne!(events[0].merkle_root, events[1].merkle_root,
-            "A3 negative: consecutive roots must differ");
-        assert_ne!(events[1].merkle_root, events[2].merkle_root,
-            "A3 negative: consecutive roots must differ");
+        assert_ne!(
+            events[0].merkle_root, events[1].merkle_root,
+            "A3 negative: consecutive roots must differ"
+        );
+        assert_ne!(
+            events[1].merkle_root, events[2].merkle_root,
+            "A3 negative: consecutive roots must differ"
+        );
         for ev in &events {
-            assert_ne!(ev.merkle_root, AuditMerkleRoot::GENESIS,
-                "A3 negative: roots must not equal GENESIS after advance");
+            assert_ne!(
+                ev.merkle_root,
+                AuditMerkleRoot::GENESIS,
+                "A3 negative: roots must not equal GENESIS after advance"
+            );
         }
     }
 }

@@ -4,27 +4,32 @@
 //! cargo run --release --manifest-path crates/thinking-engine/Cargo.toml \
 //!   --example thousand_iterations
 
+use std::collections::HashMap;
 use thinking_engine::codebook_index::CodebookIndex;
 use thinking_engine::engine::ThinkingEngine;
-use std::collections::HashMap;
 
 fn main() {
     println!("═══ 1000-ITERATION CASCADE EXPERIMENT ═══\n");
 
     // Load everything
-    let tokenizer = tokenizers::Tokenizer::from_file("/tmp/bge-m3-tokenizer.json")
-        .expect("tokenizer");
+    let tokenizer =
+        tokenizers::Tokenizer::from_file("/tmp/bge-m3-tokenizer.json").expect("tokenizer");
     let codebook = CodebookIndex::load(
         std::path::Path::new("/tmp/codebooks/bge-m3-roles-f16/codebook_index.u16"),
-        1024, "bge-m3".into(),
-    ).expect("codebook");
+        1024,
+        "bge-m3".into(),
+    )
+    .expect("codebook");
     let table = std::fs::read("/tmp/codebooks/bge-m3-roles-f16/semantic_distance_1024x1024.u8")
-        .or_else(|_| std::fs::read("/tmp/codebooks/bge-m3-roles-f16/attn_q/distance_table_1024x1024.u8"))
+        .or_else(|_| {
+            std::fs::read("/tmp/codebooks/bge-m3-roles-f16/attn_q/distance_table_1024x1024.u8")
+        })
         .expect("table");
     let n = 1024usize;
 
     let centroid_counts = codebook.centroid_counts();
-    let idf: Vec<f32> = centroid_counts.iter()
+    let idf: Vec<f32> = centroid_counts
+        .iter()
         .map(|&c| 1.0 / (1.0 + (c.max(1) as f32).ln()))
         .collect();
 
@@ -49,9 +54,8 @@ fn main() {
 
         // ── EXPERIMENT A: 1000 iterations, 3σ ONLY ──
         println!("\n  [A] 1000 iterations, 3σ focus only:");
-        let (visited_3s, edges_3s, top_atoms_3s) = run_cascade(
-            &centroids, table_ref, n, floor, &idf, 1000, true,
-        );
+        let (visited_3s, edges_3s, top_atoms_3s) =
+            run_cascade(&centroids, table_ref, n, floor, &idf, 1000, true);
         println!("    Unique atoms visited: {}", visited_3s.len());
         println!("    Edges discovered: {}", edges_3s.len());
         println!("    Top-10 by visit count:");
@@ -63,9 +67,8 @@ fn main() {
 
         // ── EXPERIMENT B: 1000 iterations, full context ──
         println!("\n  [B] 1000 iterations, full context (no 3σ filter):");
-        let (visited_full, edges_full, top_atoms_full) = run_cascade(
-            &centroids, table_ref, n, floor, &idf, 1000, false,
-        );
+        let (visited_full, edges_full, top_atoms_full) =
+            run_cascade(&centroids, table_ref, n, floor, &idf, 1000, false);
         println!("    Unique atoms visited: {}", visited_full.len());
         println!("    Edges discovered: {}", edges_full.len());
         println!("    Top-10 by visit count:");
@@ -76,11 +79,26 @@ fn main() {
         }
 
         // ── Compare A vs B ──
-        let only_3s: Vec<u16> = visited_3s.keys().filter(|k| !visited_full.contains_key(k)).cloned().collect();
-        let only_full: Vec<u16> = visited_full.keys().filter(|k| !visited_3s.contains_key(k)).cloned().collect();
-        let shared = visited_3s.keys().filter(|k| visited_full.contains_key(k)).count();
-        println!("\n  [A vs B] shared={} only_3σ={} only_full={}",
-            shared, only_3s.len(), only_full.len());
+        let only_3s: Vec<u16> = visited_3s
+            .keys()
+            .filter(|k| !visited_full.contains_key(k))
+            .cloned()
+            .collect();
+        let only_full: Vec<u16> = visited_full
+            .keys()
+            .filter(|k| !visited_3s.contains_key(k))
+            .cloned()
+            .collect();
+        let shared = visited_3s
+            .keys()
+            .filter(|k| visited_full.contains_key(k))
+            .count();
+        println!(
+            "\n  [A vs B] shared={} only_3σ={} only_full={}",
+            shared,
+            only_3s.len(),
+            only_full.len()
+        );
 
         // ── EXPERIMENT C: Feed into 64×64 resonance ──
         println!("\n  [C] 64×64 resonance from top-64 survivors:");
@@ -123,17 +141,32 @@ fn main() {
         let avg64 = table_64.iter().map(|&v| v as f64).sum::<f64>() / table_64.len() as f64;
         let mut sorted64 = table_64.clone();
         sorted64.sort_unstable();
-        let std64 = (table_64.iter().map(|&v| { let d = v as f64 - avg64; d * d }).sum::<f64>() / table_64.len() as f64).sqrt();
-        println!("    64×64 table: min={} max={} avg={:.1} std={:.1}", min64, max64, avg64, std64);
+        let std64 = (table_64
+            .iter()
+            .map(|&v| {
+                let d = v as f64 - avg64;
+                d * d
+            })
+            .sum::<f64>()
+            / table_64.len() as f64)
+            .sqrt();
+        println!(
+            "    64×64 table: min={} max={} avg={:.1} std={:.1}",
+            min64, max64, avg64, std64
+        );
 
         // Run ThinkingEngine on the 64×64 sub-table
         let mut engine64 = ThinkingEngine::new(table_64);
         println!("    64×64 engine floor: {}", engine64.floor);
 
         // Perturb with the original centroids mapped to 64-space
-        let centroid_to_64: HashMap<u16, u16> = atoms64.iter().enumerate()
-            .map(|(i, &a)| (a, i as u16)).collect();
-        let mapped: Vec<u16> = centroids.iter()
+        let centroid_to_64: HashMap<u16, u16> = atoms64
+            .iter()
+            .enumerate()
+            .map(|(i, &a)| (a, i as u16))
+            .collect();
+        let mapped: Vec<u16> = centroids
+            .iter()
             .filter_map(|c| centroid_to_64.get(c).copied())
             .collect();
 
@@ -141,33 +174,60 @@ fn main() {
             println!("    ⚠ No input centroids map to the top-64. Skipping resonance.");
         } else {
             engine64.perturb(&mapped);
-            println!("    Perturbed {} atoms (of {} tokens)", mapped.len(), centroids.len());
+            println!(
+                "    Perturbed {} atoms (of {} tokens)",
+                mapped.len(),
+                centroids.len()
+            );
 
             // Think 10 cycles
             for cycle in 0..10 {
                 let prev = engine64.energy.clone();
                 engine64.cycle();
-                let delta: f32 = engine64.energy.iter().zip(&prev)
-                    .map(|(a, b)| (a - b).abs()).sum();
+                let delta: f32 = engine64
+                    .energy
+                    .iter()
+                    .zip(&prev)
+                    .map(|(a, b)| (a - b).abs())
+                    .sum();
                 let active = engine64.energy.iter().filter(|&&e| e > 0.001).count();
                 let max_e = engine64.energy.iter().cloned().fold(0.0f32, f32::max);
-                let max_idx = engine64.energy.iter().enumerate()
-                    .max_by(|a, b| a.1.partial_cmp(b.1).unwrap()).map(|(i, _)| i).unwrap_or(0);
-                let real_atom = if max_idx < atoms64.len() { atoms64[max_idx] } else { 0 };
+                let max_idx = engine64
+                    .energy
+                    .iter()
+                    .enumerate()
+                    .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+                    .map(|(i, _)| i)
+                    .unwrap_or(0);
+                let real_atom = if max_idx < atoms64.len() {
+                    atoms64[max_idx]
+                } else {
+                    0
+                };
                 if cycle == 0 || cycle == 4 || cycle == 9 || delta < 0.001 {
                     println!("    cycle {:>2}: delta={:.4} active={:>2}/64 peak=slot {} (atom {}, e={:.4})",
                         cycle + 1, delta, active, max_idx, real_atom, max_e);
                 }
-                if delta < 0.001 { break; }
+                if delta < 0.001 {
+                    break;
+                }
             }
 
             // Top-5 in 64-space mapped back to real atoms
-            let mut indexed: Vec<(usize, f32)> = engine64.energy.iter()
-                .enumerate().map(|(i, &e)| (i, e)).collect();
+            let mut indexed: Vec<(usize, f32)> = engine64
+                .energy
+                .iter()
+                .enumerate()
+                .map(|(i, &e)| (i, e))
+                .collect();
             indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
             println!("    Resonance top-5:");
             for &(slot, e) in indexed.iter().take(5) {
-                let real = if slot < atoms64.len() { atoms64[slot] } else { 0 };
+                let real = if slot < atoms64.len() {
+                    atoms64[slot]
+                } else {
+                    0
+                };
                 println!("      slot {:>2} → atom {:>4}: {:.4}", slot, real, e);
             }
         }
@@ -195,7 +255,8 @@ fn run_cascade(
     let mut edge_set: std::collections::HashSet<(u16, u16)> = std::collections::HashSet::new();
 
     // Initial query
-    let mut query: Vec<(u16, f32)> = initial.iter()
+    let mut query: Vec<(u16, f32)> = initial
+        .iter()
         .map(|&c| {
             let w = idf.get(c as usize).copied().unwrap_or(1.0);
             (c, w)
@@ -203,29 +264,45 @@ fn run_cascade(
         .collect();
     // Dedup
     let mut merged: HashMap<u16, f32> = HashMap::new();
-    for (idx, w) in &query { *merged.entry(*idx).or_insert(0.0) += w; }
+    for (idx, w) in &query {
+        *merged.entry(*idx).or_insert(0.0) += w;
+    }
     query = merged.into_iter().collect();
 
     for _iter in 0..iterations {
         let mut neighbors: Vec<(u16, f32)> = Vec::new();
 
         for &(q_idx, q_energy) in &query {
-            if (q_idx as usize) >= n { continue; }
+            if (q_idx as usize) >= n {
+                continue;
+            }
             *visited.entry(q_idx).or_insert(0) += 1;
 
             let row = &table[q_idx as usize * n..(q_idx as usize + 1) * n];
 
-            let above: Vec<(usize, u8)> = row.iter().enumerate()
+            let above: Vec<(usize, u8)> = row
+                .iter()
+                .enumerate()
                 .filter(|(j, &v)| *j != q_idx as usize && v > floor)
                 .map(|(j, &v)| (j, v))
                 .collect();
 
-            if above.is_empty() { continue; }
+            if above.is_empty() {
+                continue;
+            }
 
             if strict_3sigma {
                 // 3σ: only top few
-                let mean: f32 = above.iter().map(|(_, v)| *v as f32).sum::<f32>() / above.len() as f32;
-                let var: f32 = above.iter().map(|(_, v)| { let d = *v as f32 - mean; d * d }).sum::<f32>() / above.len() as f32;
+                let mean: f32 =
+                    above.iter().map(|(_, v)| *v as f32).sum::<f32>() / above.len() as f32;
+                let var: f32 = above
+                    .iter()
+                    .map(|(_, v)| {
+                        let d = *v as f32 - mean;
+                        d * d
+                    })
+                    .sum::<f32>()
+                    / above.len() as f32;
                 let std = var.sqrt().max(0.1);
                 let thresh = mean + 3.0 * std;
 
@@ -238,7 +315,9 @@ fn run_cascade(
                         neighbors.push((j as u16, freq * q_energy * conf * novelty));
 
                         let edge = (q_idx.min(j as u16), q_idx.max(j as u16));
-                        if edge_set.insert(edge) { edges.push(edge); }
+                        if edge_set.insert(edge) {
+                            edges.push(edge);
+                        }
                     }
                 }
             } else {
@@ -251,19 +330,25 @@ fn run_cascade(
                     neighbors.push((j as u16, freq * q_energy * conf * novelty));
 
                     let edge = (q_idx.min(j as u16), q_idx.max(j as u16));
-                    if edge_set.insert(edge) { edges.push(edge); }
+                    if edge_set.insert(edge) {
+                        edges.push(edge);
+                    }
                 }
             }
         }
 
         // Dedup neighbors, keep top-K
         let mut deduped: HashMap<u16, f32> = HashMap::new();
-        for (idx, w) in &neighbors { *deduped.entry(*idx).or_insert(0.0) += w; }
+        for (idx, w) in &neighbors {
+            *deduped.entry(*idx).or_insert(0.0) += w;
+        }
         let mut sorted: Vec<(u16, f32)> = deduped.into_iter().collect();
         sorted.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
         sorted.truncate(top_k);
 
-        if sorted.is_empty() { break; }
+        if sorted.is_empty() {
+            break;
+        }
         query = sorted;
     }
 

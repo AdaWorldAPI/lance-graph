@@ -21,8 +21,8 @@
 
 use std::sync::Arc;
 
-use lance_graph_callcenter::super_domain::SuperDomain;
 use lance_graph_callcenter::audit_sink::{AuditError, AuditSink, MerkleRoot};
+use lance_graph_callcenter::super_domain::SuperDomain;
 use lance_graph_callcenter::unified_audit::{AuditMerkleRoot, UnifiedAuditEvent};
 use lance_graph_callcenter::unified_bridge::{TenantId, UnifiedBridge};
 use lance_graph_contract::hash::fnv1a_str;
@@ -165,14 +165,22 @@ pub fn assert_consumer_conformance<B: NamespaceBridge>(
             &ev.tenant.raw().to_le_bytes(),
             "A1: bytes[8..12] must be tenant LE"
         );
-        assert_eq!(bytes[12], ev.super_domain.raw(), "A1: bytes[12] must be super_domain");
+        assert_eq!(
+            bytes[12],
+            ev.super_domain.raw(),
+            "A1: bytes[12] must be super_domain"
+        );
         assert_eq!(
             &bytes[13..16],
             &ev.owl.to_canonical_bytes(),
             "A1: bytes[13..16] must be owl_identity canonical bytes"
         );
         assert_eq!(bytes[16], ev.op.as_u8(), "A1: bytes[16] must be op");
-        assert_eq!(bytes[17], ev.decision.as_u8(), "A1: bytes[17] must be decision");
+        assert_eq!(
+            bytes[17],
+            ev.decision.as_u8(),
+            "A1: bytes[17] must be decision"
+        );
         assert_eq!(
             &bytes[18..26],
             &ev.actor_role_hash.to_le_bytes(),
@@ -191,13 +199,11 @@ pub fn assert_consumer_conformance<B: NamespaceBridge>(
 
     // A3: merkle chain strictly advances
     assert_ne!(
-        events[0].merkle_root,
-        events[1].merkle_root,
+        events[0].merkle_root, events[1].merkle_root,
         "A3: merkle root must advance between calls (events[0] == events[1])"
     );
     assert_ne!(
-        events[1].merkle_root,
-        events[2].merkle_root,
+        events[1].merkle_root, events[2].merkle_root,
         "A3: merkle root must advance between calls (events[1] == events[2])"
     );
     // All three must differ from GENESIS (A3: genesis root must not reappear
@@ -270,7 +276,8 @@ pub fn assert_consumer_conformance<B: NamespaceBridge>(
             assert!(
                 deny_result.is_err(),
                 "A5: policy keyed on alias '{}' must deny when canonical is '{}'; got Ok",
-                fixture.public_name, fixture.canonical_name
+                fixture.public_name,
+                fixture.canonical_name
             );
         }
         // In both cases, bridge_allow (policy keyed on canonical name) already
@@ -305,7 +312,8 @@ pub fn assert_consumer_conformance<B: NamespaceBridge>(
     assert!(
         row_result.is_ok(),
         "A7: bridge.row('{}') must succeed after seeding the registry; got {:?}",
-        fixture.public_name, row_result
+        fixture.public_name,
+        row_result
     );
 }
 

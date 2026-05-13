@@ -24,7 +24,7 @@
 //!    1B       1B        6B          Variable
 //! ```
 
-use std::io::{Read, Write, Result as IoResult};
+use std::io::{Read, Result as IoResult, Write};
 
 // ============================================================================
 // STORAGE FORMAT
@@ -71,17 +71,23 @@ pub struct StorageFlags {
 }
 
 impl StorageFlags {
-    pub const ACTIVE: u8      = 0b0000_0001;
-    pub const VERIFIED: u8    = 0b0000_0010;
-    pub const LOCKED: u8      = 0b0000_0100;
-    pub const COMPRESSED: u8  = 0b0000_1000;
-    pub const HAS_EDGE: u8    = 0b0001_0000;
-    pub const HAS_CHILDREN: u8= 0b0010_0000;
-    pub const TOMBSTONE: u8   = 0b1000_0000;
+    pub const ACTIVE: u8 = 0b0000_0001;
+    pub const VERIFIED: u8 = 0b0000_0010;
+    pub const LOCKED: u8 = 0b0000_0100;
+    pub const COMPRESSED: u8 = 0b0000_1000;
+    pub const HAS_EDGE: u8 = 0b0001_0000;
+    pub const HAS_CHILDREN: u8 = 0b0010_0000;
+    pub const TOMBSTONE: u8 = 0b1000_0000;
 
-    pub fn is_active(&self) -> bool { self.bits & Self::ACTIVE != 0 }
-    pub fn is_compressed(&self) -> bool { self.bits & Self::COMPRESSED != 0 }
-    pub fn has_edge(&self) -> bool { self.bits & Self::HAS_EDGE != 0 }
+    pub fn is_active(&self) -> bool {
+        self.bits & Self::ACTIVE != 0
+    }
+    pub fn is_compressed(&self) -> bool {
+        self.bits & Self::COMPRESSED != 0
+    }
+    pub fn has_edge(&self) -> bool {
+        self.bits & Self::HAS_EDGE != 0
+    }
 }
 
 /// 128-bit metadata block
@@ -477,13 +483,14 @@ pub enum TransportPayload {
 impl TransportMessage {
     /// Estimate wire size
     pub fn wire_size(&self) -> usize {
-        TransportHeader::BYTES + match &self.payload {
-            TransportPayload::Full(words) => words.len() * 8,
-            TransportPayload::Delta(d) => d.size(),
-            TransportPayload::Sparse(s) => 2 + s.active.len() * 2,
-            TransportPayload::Query { .. } => 6,
-            TransportPayload::Error(s) => 2 + s.len(),
-        }
+        TransportHeader::BYTES
+            + match &self.payload {
+                TransportPayload::Full(words) => words.len() * 8,
+                TransportPayload::Delta(d) => d.size(),
+                TransportPayload::Sparse(s) => 2 + s.active.len() * 2,
+                TransportPayload::Query { .. } => 6,
+                TransportPayload::Error(s) => 2 + s.len(),
+            }
     }
 }
 
@@ -592,7 +599,8 @@ pub fn choose_compression(
 
     // If we have a base and similarity is high, use XOR delta
     if let Some(base) = base {
-        let distance: u32 = fingerprint.iter()
+        let distance: u32 = fingerprint
+            .iter()
             .zip(base.iter())
             .map(|(a, b)| (a ^ b).count_ones())
             .sum();
@@ -657,16 +665,18 @@ mod tests {
         let decoded = delta.decode(&base);
         assert_eq!(decoded, target.to_vec());
 
-        println!("Compression ratio: {:.2}%",
-            delta.compression_ratio(1024) * 100.0);
+        println!(
+            "Compression ratio: {:.2}%",
+            delta.compression_ratio(1024) * 100.0
+        );
     }
 
     #[test]
     fn test_sparse_encoding() {
         // Create sparse fingerprint (10% density)
         let mut dense = vec![0u64; 16];
-        dense[0] = 0x0000_00FF;  // 8 bits
-        dense[8] = 0xFF00_0000;  // 8 bits
+        dense[0] = 0x0000_00FF; // 8 bits
+        dense[8] = 0xFF00_0000; // 8 bits
 
         let sparse = SparsePayload::encode(&dense, 1024);
 
@@ -689,7 +699,13 @@ mod tests {
         };
 
         assert_eq!(choose_compression(&full, None, 1024), CompressionType::None);
-        assert_eq!(choose_compression(&sparse, None, 1024), CompressionType::Sparse);
-        assert_eq!(choose_compression(&similar, Some(&full), 1024), CompressionType::XorDelta);
+        assert_eq!(
+            choose_compression(&sparse, None, 1024),
+            CompressionType::Sparse
+        );
+        assert_eq!(
+            choose_compression(&similar, Some(&full), 1024),
+            CompressionType::XorDelta
+        );
     }
 }

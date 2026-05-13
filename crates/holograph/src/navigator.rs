@@ -52,17 +52,17 @@
 
 use std::sync::Arc;
 
-use crate::bitpack::{BitpackedVector, VectorRef, VectorSlice, VECTOR_BITS};
+use crate::bitpack::{BitpackedVector, VECTOR_BITS, VectorRef, VectorSlice};
+use crate::epiphany::TWO_SIGMA;
 use crate::hamming::{
-    Belichtung, StackedPopcount,
-    hamming_distance_ref, hamming_distance_scalar, hamming_to_similarity,
+    Belichtung, StackedPopcount, hamming_distance_ref, hamming_distance_scalar,
+    hamming_to_similarity,
 };
 use crate::resonance::Resonator;
-use crate::epiphany::TWO_SIGMA;
 use crate::{HdrError, Result};
 
 #[cfg(feature = "datafusion-storage")]
-use crate::storage::{ArrowStore, VectorBatch, ArrowBatchSearch, BatchSearchResult};
+use crate::storage::{ArrowBatchSearch, ArrowStore, BatchSearchResult, VectorBatch};
 
 // ============================================================================
 // NAVIGATOR: The unified zero-copy surface
@@ -154,14 +154,14 @@ impl Navigator {
     /// ```
     #[cfg(feature = "datafusion-storage")]
     pub fn search(&self, query: &BitpackedVector, k: Option<usize>) -> Result<Vec<NavResult>> {
-        let store = self.store.as_ref()
+        let store = self
+            .store
+            .as_ref()
             .ok_or_else(|| HdrError::Query("No store attached".into()))?;
 
         let k = k.unwrap_or(self.default_k);
         let batches = self.collect_batches(store);
-        let results = ArrowBatchSearch::cascaded_knn(
-            &batches, query, k, self.default_radius,
-        );
+        let results = ArrowBatchSearch::cascaded_knn(&batches, query, k, self.default_radius);
 
         Ok(results.into_iter().map(NavResult::from_batch).collect())
     }
@@ -174,7 +174,9 @@ impl Navigator {
     /// ```
     #[cfg(feature = "datafusion-storage")]
     pub fn within(&self, query: &BitpackedVector, radius: Option<u32>) -> Result<Vec<NavResult>> {
-        let store = self.store.as_ref()
+        let store = self
+            .store
+            .as_ref()
             .ok_or_else(|| HdrError::Query("No store attached".into()))?;
 
         let radius = radius.unwrap_or(self.default_radius);
@@ -269,14 +271,14 @@ impl Navigator {
         target: &BitpackedVector,
         k: Option<usize>,
     ) -> Result<Vec<NavResult>> {
-        let store = self.store.as_ref()
+        let store = self
+            .store
+            .as_ref()
             .ok_or_else(|| HdrError::Query("No store attached".into()))?;
 
         let k = k.unwrap_or(self.default_k);
         let batches = self.collect_batches(store);
-        let results = ArrowBatchSearch::bind_search(
-            &batches, key, target, k, self.default_radius,
-        );
+        let results = ArrowBatchSearch::bind_search(&batches, key, target, k, self.default_radius);
 
         Ok(results.into_iter().map(NavResult::from_batch).collect())
     }
@@ -401,11 +403,7 @@ impl Navigator {
     /// CALL hdr.analogy($a, $b, $c) YIELD result
     /// CALL hdr.neighbors($node, 0.8) YIELD neighbor, similarity
     /// ```
-    pub fn cypher_call(
-        &self,
-        procedure: &str,
-        args: &[CypherArg],
-    ) -> Result<Vec<CypherYield>> {
+    pub fn cypher_call(&self, procedure: &str, args: &[CypherArg]) -> Result<Vec<CypherYield>> {
         match procedure {
             "hdr.bind" | "hdr.xor" => {
                 let (a, b) = Self::extract_two_vectors(args)?;
@@ -485,8 +483,8 @@ impl Navigator {
                 crate::width_16k::search::nars_revision_inline(&a16, &b16, &mut out);
 
                 let schema = crate::width_16k::schema::SchemaSidecar::read_from_words(&out);
-                let result = crate::width_16k::compat::truncate_slice(&out)
-                    .unwrap_or_else(|| a.clone());
+                let result =
+                    crate::width_16k::compat::truncate_slice(&out).unwrap_or_else(|| a.clone());
 
                 Ok(vec![
                     CypherYield::Vector("result".into(), result),
@@ -503,8 +501,8 @@ impl Navigator {
                 let b16 = self.extend_to_16k(&b);
 
                 let bound = crate::width_16k::search::schema_bind(&a16, &b16);
-                let result = crate::width_16k::compat::truncate_slice(&bound)
-                    .unwrap_or_else(|| a.xor(&b));
+                let result =
+                    crate::width_16k::compat::truncate_slice(&bound).unwrap_or_else(|| a.xor(&b));
 
                 Ok(vec![CypherYield::Vector("result".into(), result)])
             }
@@ -570,9 +568,13 @@ impl Navigator {
                     _ => return Err(HdrError::Query("Expected vector + int arguments".into())),
                 };
                 let w16 = self.extend_to_16k(&v);
-                let is_neighbor = crate::width_16k::search::bloom_might_be_neighbors(&w16, target_id);
+                let is_neighbor =
+                    crate::width_16k::search::bloom_might_be_neighbors(&w16, target_id);
 
-                Ok(vec![CypherYield::Bool("might_be_neighbors".into(), is_neighbor)])
+                Ok(vec![CypherYield::Bool(
+                    "might_be_neighbors".into(),
+                    is_neighbor,
+                )])
             }
 
             // Best Q-value action from inline RL state
@@ -596,8 +598,8 @@ impl Navigator {
                 let b16 = self.extend_to_16k(&b);
 
                 let merged = crate::width_16k::search::schema_merge(&a16, &b16);
-                let result = crate::width_16k::compat::truncate_slice(&merged)
-                    .unwrap_or_else(|| a.clone());
+                let result =
+                    crate::width_16k::compat::truncate_slice(&merged).unwrap_or_else(|| a.clone());
 
                 Ok(vec![CypherYield::Vector("result".into(), result)])
             }
@@ -640,20 +642,22 @@ impl Navigator {
         let _old_radius = self.default_radius;
         // ef_search maps to cascade radius: higher ef = broader search
         let results = if let Some(ef) = ef_search {
-            let store = self.store.as_ref()
+            let store = self
+                .store
+                .as_ref()
                 .ok_or_else(|| HdrError::Query("No store attached".into()))?;
             let batches = self.collect_batches(store);
             ArrowBatchSearch::cascaded_knn(&batches, query, k, ef)
         } else {
-            let store = self.store.as_ref()
+            let store = self
+                .store
+                .as_ref()
                 .ok_or_else(|| HdrError::Query("No store attached".into()))?;
             let batches = self.collect_batches(store);
             ArrowBatchSearch::cascaded_knn(&batches, query, k, self.default_radius)
         };
 
-        Ok(results.into_iter()
-            .map(|r| (r.id, r.similarity))
-            .collect())
+        Ok(results.into_iter().map(|r| (r.id, r.similarity)).collect())
     }
 
     // ========================================================================
@@ -683,7 +687,8 @@ impl Navigator {
         }
 
         // Phase 1: Compute messages (XOR-bind each neighbor with its edge)
-        let messages: Vec<BitpackedVector> = neighbor_edges.iter()
+        let messages: Vec<BitpackedVector> = neighbor_edges
+            .iter()
             .map(|(neighbor, edge)| neighbor.xor(edge))
             .collect();
 
@@ -827,7 +832,7 @@ impl Navigator {
     pub fn graphblas_spmv(
         &self,
         edges: &[(usize, usize, BitpackedVector)], // (row, col, edge_fingerprint)
-        input: &[BitpackedVector],                   // input vector per column
+        input: &[BitpackedVector],                 // input vector per column
         nrows: usize,
     ) -> Vec<BitpackedVector> {
         let mut output: Vec<Vec<BitpackedVector>> = vec![Vec::new(); nrows];
@@ -841,14 +846,17 @@ impl Navigator {
         }
 
         // ⊕ operation: bundle (majority vote) per row
-        output.into_iter().map(|messages| {
-            if messages.is_empty() {
-                BitpackedVector::zero()
-            } else {
-                let refs: Vec<&BitpackedVector> = messages.iter().collect();
-                BitpackedVector::bundle(&refs)
-            }
-        }).collect()
+        output
+            .into_iter()
+            .map(|messages| {
+                if messages.is_empty() {
+                    BitpackedVector::zero()
+                } else {
+                    let refs: Vec<&BitpackedVector> = messages.iter().collect();
+                    BitpackedVector::bundle(&refs)
+                }
+            })
+            .collect()
     }
 
     /// GraphBLAS-style SpGEMM with filter (masked multiply).
@@ -887,14 +895,17 @@ impl Navigator {
             output[*row].push(message);
         }
 
-        output.into_iter().map(|messages| {
-            if messages.is_empty() {
-                None
-            } else {
-                let refs: Vec<&BitpackedVector> = messages.iter().collect();
-                Some(BitpackedVector::bundle(&refs))
-            }
-        }).collect()
+        output
+            .into_iter()
+            .map(|messages| {
+                if messages.is_empty() {
+                    None
+                } else {
+                    let refs: Vec<&BitpackedVector> = messages.iter().collect();
+                    Some(BitpackedVector::bundle(&refs))
+                }
+            })
+            .collect()
     }
 
     // ========================================================================
@@ -956,10 +967,12 @@ impl Navigator {
     }
 
     fn extract_vector_list(args: &[CypherArg]) -> Result<Vec<BitpackedVector>> {
-        args.iter().map(|a| match a {
-            CypherArg::Vector(v) => Ok(v.clone()),
-            _ => Err(HdrError::Query("All arguments must be vectors".into())),
-        }).collect()
+        args.iter()
+            .map(|a| match a {
+                CypherArg::Vector(v) => Ok(v.clone()),
+                _ => Err(HdrError::Query("All arguments must be vectors".into())),
+            })
+            .collect()
     }
 
     /// Collect VectorBatch references from store
@@ -1057,11 +1070,7 @@ pub struct ZeroCopyCursor<'a> {
 #[cfg(feature = "datafusion-storage")]
 impl<'a> ZeroCopyCursor<'a> {
     /// Create a cursor that scans a batch with zero-copy cascade filtering.
-    pub fn new(
-        batch: &'a VectorBatch,
-        query: &'a BitpackedVector,
-        min_similarity: f32,
-    ) -> Self {
+    pub fn new(batch: &'a VectorBatch, query: &'a BitpackedVector, min_similarity: f32) -> Self {
         let max_distance = ((1.0 - min_similarity) * VECTOR_BITS as f32) as u32;
         Self {
             batch,
@@ -1093,7 +1102,9 @@ impl<'a> ZeroCopyCursor<'a> {
 
             // Level 1: StackedPopcount with threshold
             let stacked = match StackedPopcount::compute_with_threshold_ref(
-                self.query, &slice, self.max_distance,
+                self.query,
+                &slice,
+                self.max_distance,
             ) {
                 Some(s) => s,
                 None => continue,
@@ -1159,10 +1170,7 @@ impl DnPath {
     /// - `domain:tree:1:2:3` (colon-separated)
     /// - `hdr://domain:tree:1:2:3` (with protocol prefix)
     pub fn parse(address: &str) -> Result<Self> {
-        let addr = address
-            .trim()
-            .strip_prefix("hdr://")
-            .unwrap_or(address);
+        let addr = address.trim().strip_prefix("hdr://").unwrap_or(address);
 
         let parts: Vec<&str> = addr.split(':').collect();
         if parts.is_empty() {
@@ -1174,7 +1182,8 @@ impl DnPath {
 
         // Try to parse numeric child indices (skip domain and tree name)
         let child_indices: Vec<u8> = if segments.len() >= 2 {
-            segments[1..].iter()
+            segments[1..]
+                .iter()
                 .filter_map(|s| s.parse::<u8>().ok())
                 .collect()
         } else {
@@ -1216,7 +1225,8 @@ impl DnPath {
     pub fn matches_prefix(&self, pattern: &str) -> bool {
         let pattern = pattern.strip_prefix("hdr://").unwrap_or(pattern);
         if let Some(prefix) = pattern.strip_suffix('*') {
-            self.to_redis_key().starts_with(prefix.trim_end_matches(':'))
+            self.to_redis_key()
+                .starts_with(prefix.trim_end_matches(':'))
         } else {
             self.to_redis_key() == pattern
         }
@@ -1358,10 +1368,12 @@ mod tests {
         let a = BitpackedVector::random(1);
         let b = BitpackedVector::random(2);
 
-        let yields = nav.cypher_call("hdr.bind", &[
-            CypherArg::Vector(a.clone()),
-            CypherArg::Vector(b.clone()),
-        ]).unwrap();
+        let yields = nav
+            .cypher_call(
+                "hdr.bind",
+                &[CypherArg::Vector(a.clone()), CypherArg::Vector(b.clone())],
+            )
+            .unwrap();
 
         if let CypherYield::Vector(name, result) = &yields[0] {
             assert_eq!(name, "result");
@@ -1376,10 +1388,12 @@ mod tests {
         let nav = Navigator::new();
         let v = BitpackedVector::random(42);
 
-        let yields = nav.cypher_call("hdr.hamming", &[
-            CypherArg::Vector(v.clone()),
-            CypherArg::Vector(v.clone()),
-        ]).unwrap();
+        let yields = nav
+            .cypher_call(
+                "hdr.hamming",
+                &[CypherArg::Vector(v.clone()), CypherArg::Vector(v.clone())],
+            )
+            .unwrap();
 
         if let CypherYield::Int(name, dist) = &yields[0] {
             assert_eq!(name, "distance");
@@ -1395,11 +1409,16 @@ mod tests {
         let paris = BitpackedVector::random(30);
         let edge = france.xor(&capital).xor(&paris);
 
-        let yields = nav.cypher_call("hdr.retrieve", &[
-            CypherArg::Vector(edge),
-            CypherArg::Vector(capital),
-            CypherArg::Vector(paris),
-        ]).unwrap();
+        let yields = nav
+            .cypher_call(
+                "hdr.retrieve",
+                &[
+                    CypherArg::Vector(edge),
+                    CypherArg::Vector(capital),
+                    CypherArg::Vector(paris),
+                ],
+            )
+            .unwrap();
 
         if let CypherYield::Vector(_, result) = &yields[0] {
             assert_eq!(*result, france);
@@ -1447,12 +1466,8 @@ mod tests {
         let nav = Navigator::new();
         let node = BitpackedVector::random(1);
 
-        let layer0 = vec![
-            (BitpackedVector::random(10), BitpackedVector::random(11)),
-        ];
-        let layer1 = vec![
-            (BitpackedVector::random(20), BitpackedVector::random(21)),
-        ];
+        let layer0 = vec![(BitpackedVector::random(10), BitpackedVector::random(11))];
+        let layer1 = vec![(BitpackedVector::random(20), BitpackedVector::random(21))];
 
         let result = nav.gnn_multi_hop(&node, &[layer0, layer1]);
 
@@ -1470,15 +1485,9 @@ mod tests {
 
         let edge_01 = BitpackedVector::random(100);
         let edge_10 = BitpackedVector::random(101);
-        let edges = vec![
-            (0, 1, edge_01.clone()),
-            (1, 0, edge_10.clone()),
-        ];
+        let edges = vec![(0, 1, edge_01.clone()), (1, 0, edge_10.clone())];
 
-        let input = vec![
-            BitpackedVector::random(1),
-            BitpackedVector::random(2),
-        ];
+        let input = vec![BitpackedVector::random(1), BitpackedVector::random(2)];
 
         let output = nav.graphblas_spmv(&edges, &input, 2);
 
@@ -1496,14 +1505,8 @@ mod tests {
         // Row 0 receives two edges
         let e1 = BitpackedVector::random(100);
         let e2 = BitpackedVector::random(101);
-        let edges = vec![
-            (0, 0, e1.clone()),
-            (0, 1, e2.clone()),
-        ];
-        let input = vec![
-            BitpackedVector::random(1),
-            BitpackedVector::random(2),
-        ];
+        let edges = vec![(0, 0, e1.clone()), (0, 1, e2.clone())];
+        let input = vec![BitpackedVector::random(1), BitpackedVector::random(2)];
 
         let output = nav.graphblas_spmv(&edges, &input, 1);
 
@@ -1521,10 +1524,7 @@ mod tests {
         let query = BitpackedVector::random(42);
         let close_edge = BitpackedVector::random(42); // Same seed → similar
         let far_edge = BitpackedVector::random(99999);
-        let edges = vec![
-            (0, 0, close_edge.clone()),
-            (0, 1, far_edge.clone()),
-        ];
+        let edges = vec![(0, 0, close_edge.clone()), (0, 1, far_edge.clone())];
         let input = vec![
             BitpackedVector::zero(), // XOR with zero = edge itself
             BitpackedVector::zero(),
@@ -1550,10 +1550,12 @@ mod tests {
         let a = BitpackedVector::random(1);
         let b = BitpackedVector::random(2);
 
-        let yields = nav.cypher_call("hdr.narsRevision", &[
-            CypherArg::Vector(a),
-            CypherArg::Vector(b),
-        ]).unwrap();
+        let yields = nav
+            .cypher_call(
+                "hdr.narsRevision",
+                &[CypherArg::Vector(a), CypherArg::Vector(b)],
+            )
+            .unwrap();
 
         // Should return result + frequency + confidence
         assert!(yields.len() >= 3);
@@ -1568,10 +1570,12 @@ mod tests {
         let a = BitpackedVector::random(10);
         let b = BitpackedVector::random(20);
 
-        let yields = nav.cypher_call("hdr.schemaBind", &[
-            CypherArg::Vector(a),
-            CypherArg::Vector(b),
-        ]).unwrap();
+        let yields = nav
+            .cypher_call(
+                "hdr.schemaBind",
+                &[CypherArg::Vector(a), CypherArg::Vector(b)],
+            )
+            .unwrap();
 
         if let CypherYield::Vector(name, _) = &yields[0] {
             assert_eq!(name, "result");
@@ -1583,9 +1587,9 @@ mod tests {
         let nav = Navigator::new();
         let v = BitpackedVector::random(42);
 
-        let yields = nav.cypher_call("hdr.aniLevels", &[
-            CypherArg::Vector(v),
-        ]).unwrap();
+        let yields = nav
+            .cypher_call("hdr.aniLevels", &[CypherArg::Vector(v)])
+            .unwrap();
 
         // Should return dominant + 8 level values
         assert_eq!(yields.len(), 9);
@@ -1599,9 +1603,9 @@ mod tests {
         let nav = Navigator::new();
         let v = BitpackedVector::random(42);
 
-        let yields = nav.cypher_call("hdr.narsTruth", &[
-            CypherArg::Vector(v),
-        ]).unwrap();
+        let yields = nav
+            .cypher_call("hdr.narsTruth", &[CypherArg::Vector(v)])
+            .unwrap();
 
         assert_eq!(yields.len(), 2);
     }
@@ -1611,9 +1615,9 @@ mod tests {
         let nav = Navigator::new();
         let v = BitpackedVector::random(42);
 
-        let yields = nav.cypher_call("hdr.graphMetrics", &[
-            CypherArg::Vector(v),
-        ]).unwrap();
+        let yields = nav
+            .cypher_call("hdr.graphMetrics", &[CypherArg::Vector(v)])
+            .unwrap();
 
         assert_eq!(yields.len(), 6);
     }
@@ -1623,10 +1627,12 @@ mod tests {
         let nav = Navigator::new();
         let v = BitpackedVector::random(42);
 
-        let yields = nav.cypher_call("hdr.mightBeNeighbors", &[
-            CypherArg::Vector(v),
-            CypherArg::Int(100),
-        ]).unwrap();
+        let yields = nav
+            .cypher_call(
+                "hdr.mightBeNeighbors",
+                &[CypherArg::Vector(v), CypherArg::Int(100)],
+            )
+            .unwrap();
 
         if let CypherYield::Bool(name, _) = &yields[0] {
             assert_eq!(name, "might_be_neighbors");
@@ -1638,9 +1644,9 @@ mod tests {
         let nav = Navigator::new();
         let v = BitpackedVector::random(42);
 
-        let yields = nav.cypher_call("hdr.bestAction", &[
-            CypherArg::Vector(v),
-        ]).unwrap();
+        let yields = nav
+            .cypher_call("hdr.bestAction", &[CypherArg::Vector(v)])
+            .unwrap();
 
         assert_eq!(yields.len(), 2);
         if let CypherYield::Int(name, _) = &yields[0] {
@@ -1709,11 +1715,13 @@ mod tests {
     #[test]
     fn test_dn_mget() {
         let nav = Navigator::new();
-        let results = nav.dn_mget(&[
-            "graphs:semantic:3:7:42",
-            "graphs:semantic:3:7:43",
-            "graphs:semantic:3:8:1",
-        ]).unwrap();
+        let results = nav
+            .dn_mget(&[
+                "graphs:semantic:3:7:42",
+                "graphs:semantic:3:7:43",
+                "graphs:semantic:3:8:1",
+            ])
+            .unwrap();
         assert_eq!(results.len(), 3);
     }
 
@@ -1727,10 +1735,12 @@ mod tests {
         let a = BitpackedVector::random(1);
         let b = BitpackedVector::random(2);
 
-        let yields = nav.cypher_call("hdr.schemaMerge", &[
-            CypherArg::Vector(a),
-            CypherArg::Vector(b),
-        ]).unwrap();
+        let yields = nav
+            .cypher_call(
+                "hdr.schemaMerge",
+                &[CypherArg::Vector(a), CypherArg::Vector(b)],
+            )
+            .unwrap();
 
         assert_eq!(yields.len(), 1);
         if let CypherYield::Vector(name, _v) = &yields[0] {
@@ -1745,9 +1755,9 @@ mod tests {
         let nav = Navigator::new();
         let v = BitpackedVector::random(42);
 
-        let yields = nav.cypher_call("hdr.schemaVersion", &[
-            CypherArg::Vector(v),
-        ]).unwrap();
+        let yields = nav
+            .cypher_call("hdr.schemaVersion", &[CypherArg::Vector(v)])
+            .unwrap();
 
         assert_eq!(yields.len(), 1);
         if let CypherYield::Int(name, _ver) = &yields[0] {

@@ -10,9 +10,9 @@
 //! This is the SMOKE TEST before calibration. If this fails,
 //! the 7-lane encoding and ONNX ICC are measuring noise.
 
-use thinking_engine::jina_lens::{JINA_HDR_TABLE, jina_lookup_many, JINA_N_CENTROIDS};
-use thinking_engine::signed_engine::SignedThinkingEngine;
+use thinking_engine::jina_lens::{jina_lookup_many, JINA_HDR_TABLE, JINA_N_CENTROIDS};
 use thinking_engine::pooling::Pooling;
+use thinking_engine::signed_engine::SignedThinkingEngine;
 
 fn main() {
     println!("═══════════════════════════════════════════════════════════");
@@ -21,15 +21,19 @@ fn main() {
 
     // Load real XLM-RoBERTa tokenizer
     let tok = match tokenizers::Tokenizer::from_file(
-        "crates/thinking-engine/data/jina-v3-hdr/tokenizer.json"
+        "crates/thinking-engine/data/jina-v3-hdr/tokenizer.json",
     ) {
         Ok(t) => t,
-        Err(e) => { eprintln!("Tokenizer failed: {}. Aborting.", e); return; }
+        Err(e) => {
+            eprintln!("Tokenizer failed: {}. Aborting.", e);
+            return;
+        }
     };
     println!("Tokenizer: XLM-RoBERTa 250K loaded\n");
 
     // Build signed engine from Jina HDR table
-    let signed_table: Vec<i8> = JINA_HDR_TABLE.iter()
+    let signed_table: Vec<i8> = JINA_HDR_TABLE
+        .iter()
         .map(|&v| (v as i16 - 128) as i8)
         .collect();
     // NOTE: This is from_unsigned (CDF rank relabeling, not true signed).
@@ -44,7 +48,8 @@ fn main() {
     };
 
     // Calibration pairs (4 tiers)
-    let pairs: Vec<(&str, &str, &str)> = vec![
+    let pairs: Vec<(&str, &str, &str)> =
+        vec![
         // TIER 1 — should be MOST similar
         ("The wound is the place where the light enters you",
          "Where there is ruin there is hope for a treasure",
@@ -72,9 +77,14 @@ fn main() {
          "CRISPR↔Bach"),
     ];
 
-    println!("  {:>20}  {:>8}  {:>8}  {:>8}  {:>6}  {:>6}",
-        "Pair", "Jaccard", "Cos(E)", "TopK∩", "Inhib", "Cycles");
-    println!("  {:─>20}  {:─>8}  {:─>8}  {:─>8}  {:─>6}  {:─>6}", "", "", "", "", "", "");
+    println!(
+        "  {:>20}  {:>8}  {:>8}  {:>8}  {:>6}  {:>6}",
+        "Pair", "Jaccard", "Cos(E)", "TopK∩", "Inhib", "Cycles"
+    );
+    println!(
+        "  {:─>20}  {:─>8}  {:─>8}  {:─>8}  {:─>6}  {:─>6}",
+        "", "", "", "", "", ""
+    );
 
     let mut results: Vec<(String, f32, f32, usize)> = Vec::new();
 
@@ -104,10 +114,10 @@ fn main() {
         let inhib_b = engine.total_inhibitions;
 
         // Compare: Jaccard of pooled atoms
-        let atoms_a: std::collections::HashSet<u16> = pooled_a.atoms.iter()
-            .map(|&(idx, _)| idx).collect();
-        let atoms_b: std::collections::HashSet<u16> = pooled_b.atoms.iter()
-            .map(|&(idx, _)| idx).collect();
+        let atoms_a: std::collections::HashSet<u16> =
+            pooled_a.atoms.iter().map(|&(idx, _)| idx).collect();
+        let atoms_b: std::collections::HashSet<u16> =
+            pooled_b.atoms.iter().map(|&(idx, _)| idx).collect();
         let intersection = atoms_a.intersection(&atoms_b).count();
         let union = atoms_a.union(&atoms_b).count().max(1);
         let jaccard = intersection as f32 / union as f32;
@@ -116,17 +126,27 @@ fn main() {
         let dot: f32 = energy_a.iter().zip(&energy_b).map(|(a, b)| a * b).sum();
         let na: f32 = energy_a.iter().map(|x| x * x).sum::<f32>().sqrt();
         let nb: f32 = energy_b.iter().map(|x| x * x).sum::<f32>().sqrt();
-        let cos_e = if na > 1e-10 && nb > 1e-10 { dot / (na * nb) } else { 0.0 };
+        let cos_e = if na > 1e-10 && nb > 1e-10 {
+            dot / (na * nb)
+        } else {
+            0.0
+        };
 
         // Compare: top-k overlap
         let top_a: Vec<u16> = pooled_a.atoms.iter().take(5).map(|&(idx, _)| idx).collect();
         let top_b: Vec<u16> = pooled_b.atoms.iter().take(5).map(|&(idx, _)| idx).collect();
         let topk_overlap = top_a.iter().filter(|x| top_b.contains(x)).count();
 
-        println!("  {:>20}  {:>8.3}  {:>8.3}  {:>5}/5  {:>6}  {:>3}+{:<3}",
-            label, jaccard, cos_e, topk_overlap,
+        println!(
+            "  {:>20}  {:>8.3}  {:>8.3}  {:>5}/5  {:>6}  {:>3}+{:<3}",
+            label,
+            jaccard,
+            cos_e,
+            topk_overlap,
             (inhib_a + inhib_b) / 2,
-            pooled_a.atoms.len(), pooled_b.atoms.len());
+            pooled_a.atoms.len(),
+            pooled_b.atoms.len()
+        );
 
         results.push((label.to_string(), jaccard, cos_e, topk_overlap));
     }
