@@ -757,3 +757,330 @@ RoleGroup {
 - **D-SDR-17** — Hard-lock partner matrix as static table + predicate-time enforcement in `authorize()`. ~60 LOC + 4 tests covering each documented pair.
 
 **Status:** Refinements are additive to the §1-§12 architecture. No prior DTO removed; all existing fields stay. Merkle/audit/hard-lock weave through the existing 4-stage flow as policy-rewriter composition rather than parallel paths.
+
+---
+
+## 14 — Harvest + Templates + Cross-Language Migration (2026-05-13, same session)
+
+The meta-bridge is **extracted from shipped code, not designed clean-room.** Three-step rhythm:
+
+### 14.1 Harvest
+
+`crates/lance-graph-ontology/src/bridges/medcare_bridge.rs` (Healthcare, HIPAA-aware) and `sharepoint_bridge.rs` / `smb_bridge.rs` (WorkOrderBilling, SMB-shaped) are the **canonical pattern source**. Both have absorbed real consumer constraints — HIPAA boundary handling, SharePoint auth quirks — that a clean-room rewrite would lose.
+
+### 14.2 Templates (NEW + retrofit bridges)
+
+| Bridge | Status | Pattern source | Notes |
+|---|---|---|---|
+| `woa_bridge.rs` | EXISTS — retrofit | mirrors medcare structure | smallest delta — lift to meta-bridge surface |
+| `hubspot_bridge.rs` | NEW | medcare (HIPAA-style boundary) | touches PCI-DSS billing slots, mirrors PHI discipline |
+| `hiro_bridge.rs` | NEW | sharepoint (off-label tolerance) | absorbs OSLC-* with provenance lineage |
+
+Each ~45 LOC after the meta-pattern is extracted.
+
+### 14.3 Migration of existing consumers
+
+- `MedCare-rs` → retrofit to meta-bridge (lowest risk — it's the harvest source)
+- `smb-office-rs` → retrofit (same)
+- `MedCareV2 C#` → reshape freely (per §16/§17, MedCareV2 is a partial rewrite, not a retrofit constraint)
+
+### 14.4 Tier F deliverables
+
+- **D-SDR-18** — Archaeology pass: `git log -p` `medcare_bridge.rs` + `sharepoint_bridge.rs` + `woa_bridge.rs`, extract fix-commits as named tests in `meta_bridge::tests`. Captures latent fixes that aren't documented as patterns. ~1 day.
+- **D-SDR-19** — `MetaBridge` trait + `BridgeFromRegistry` extension absorbing the harvested patterns. ~150 LOC.
+- **D-SDR-20** — **SUPERSEDED by §17.2 — see Arrow Flight SQL endpoint instead of custom Protobuf IDL.**
+
+### 14.5 Tier G migrations
+
+- **D-SDR-21** — `MedCare-rs` retrofit to `MetaBridge` (zero behavior change).
+- **D-SDR-22** — `smb-office-rs` retrofit (zero behavior change).
+- **D-SDR-23** — `MedCareV2 C#` aligned to `MetaBridge` via Arrow Flight SQL client (per §17).
+
+---
+
+## 15 — Multi-Implementation Drift Detection (2026-05-13, same session)
+
+> **Note:** This section's framing was substantially refined by §16 (Zone 3 boundary placement) and §17 (LanceDB convergence). Read §16+§17 as the controlling architecture; §15 is preserved here as the design arc that surfaced the byte-determinism concerns.
+
+### 15.1 Three implementations under one contract
+
+```rust
+pub struct MetaBridgeVersion {
+    pub major: u8,    // wire-incompatible
+    pub minor: u8,    // wire-compatible additions
+    pub patch: u8,    // bug-fix (allowed to differ between drift partners)
+}
+
+#[repr(u8)]
+pub enum BridgeImpl {
+    RustNative   = 0,    // MedCare-rs (authoritative)
+    CSharpNative = 1,    // MedCareV2 (parallelbetrieb during migration window)
+    MySQLAdapter = 2,    // legacy adapter — DROPPED in §17 (one-shot import only)
+}
+
+pub struct DriftableOutput {
+    pub version:        MetaBridgeVersion,
+    pub source:         BridgeImpl,
+    pub owl_identities: Vec<OwlIdentity>,   // sorted ascending by raw u16
+    pub fingerprints:   Vec<MerkleRoot>,    // parallel to owl_identities
+    pub canonical_hash: u64,                // FNV-1a over interleaved (id, merkle) pairs
+}
+
+pub trait DriftDetectionBridge {
+    fn compare(&self, query: &Query) -> DriftReport;
+}
+
+pub struct DriftReport {
+    pub equivalent:        bool,
+    pub canonical_hashes:  Vec<(BridgeImpl, u64)>,
+    pub divergent_rows:    Vec<DivergentRow>,
+    pub timestamp:         u64,
+}
+
+pub struct DivergentRow {
+    pub owl:               OwlIdentity,
+    pub per_impl_merkle:   Vec<(BridgeImpl, MerkleRoot)>,
+    pub canonical_winner:  BridgeImpl,         // RustNative wins ties
+}
+```
+
+### 15.2 Cross-language byte-determinism rules
+
+| Source | Rust default | C# default | Determinism rule |
+|---|---|---|---|
+| Hash map iteration | randomized | insertion order | **Always sort** before producing `DriftableOutput` |
+| f32/f64 summation | left-fold | left-fold | **Use Kahan summation** for any cross-impl FP aggregate |
+| Timestamp granularity | `Instant` (nanoseconds) | `DateTime` (100 ns ticks) | **Quantize to milliseconds** before MerkleRoot |
+| String hashing | `DefaultHasher` (SipHash) | `string.GetHashCode()` (random per process) | **Always FNV-1a** for cross-boundary hashes |
+| Integer overflow | wrapping in release | checked in debug | **`wrapping_*` everywhere** in `DriftableOutput` derivation |
+| Unicode normalization | NFC default | NFC default | **Assert NFC at boundary** |
+| Decimal arithmetic | `f64` | `decimal` (128-bit) | **String-encoded decimals** for monetary slots |
+
+**Reduction in §16:** Zone 3 placement (Arrow IPC + Supabase RPC) handles 4 of these 7 rules at the wire-format level. Remaining surface = decimal arithmetic + timestamps + side-channel aggregation.
+
+### 15.3 Tier deliverables (§15 originals; revised by §16/§17)
+
+- **D-SDR-24** — `MySQLAdapterBridge` impl. **DROPPED in §16/§17** — replaced by D-SDR-27 one-shot import; the MySQL adapter doesn't live alongside the new system long-term.
+- **D-SDR-25** — `DriftDetectionBridge` impl + `JsonLinesDriftSink` for divergence events + dashboards. **Demoted in §17** to Phase-2 dual-write window only; retires after Phase 4 cutover.
+- **D-SDR-26** — Determinism rule test suite. **Reduced in §16** from 12 rules to ~3 rules (decimal + timestamp + FP aggregate).
+
+### 15.4 Brutal-honest tradeoff (preserved as design arc)
+
+Original framing: byte-determinism is hard to retrofit; if existing `medcare_bridge.rs` produces non-deterministic output anywhere (HashMap iteration, FP order in vector ops), the harvest pass surfaces this as the highest-priority bug to fix before extracting the meta-bridge. Otherwise the drift bridge produces false-positive divergence events on identical inputs, destroying operational trust in the drift signal.
+
+**Updated by §17:** Because the Phase 4 end-state is "single LanceDB store accessed via Flight SQL", the drift bridge is bounded to the Phase 2-3 migration window. Determinism failures become migration-window incidents (recoverable) rather than perpetual production drift (unrecoverable). 2-3 days of determinism archaeology stays as a budget item but the consequence severity drops.
+
+---
+
+## 16 — Zone 3 Drift Boundary + Two-Track Migration (2026-05-13, same session)
+
+### 16.1 Zone 3 placement collapses determinism rules
+
+MedCare-rs ingests via Zone 3 (Supabase RPC / REST / transcode per the workspace's zone discipline) — the drift comparison happens on serialized wire payloads (Arrow IPC + Supabase RPC), not on internal `BindSpace` state. Most §15.2 rules collapse:
+
+| §15.2 rule | Status at Zone 3 |
+|---|---|
+| Hash map iteration | Resolved — Arrow column order is part of IPC framing |
+| String hashing | Resolved — wire-level string identity is byte-equal |
+| Unicode normalization | Already NFC-asserted at Zone 3 boundary |
+| f32/f64 summation | Still applies if pre-Zone-3 aggregation occurs |
+| Decimal arithmetic | Still applies for monetary slots |
+| Timestamp granularity | Still applies |
+
+Determinism test surface (D-SDR-26) shrinks from ~12 rules to ~3 rules.
+
+### 16.2 Pre-prod posture (corrected per user clarification)
+
+**Nothing is in production yet.** No live parallelbetrieb, no production drift to manage:
+
+- Legacy `MedCare` (the original C# code, MySQL+3DES) — pre-prod
+- `MedCareV2` (partial C# rewrite, reshapeable) — pre-prod
+- `MedCare-rs` (Rust) — pre-prod
+- Goal: single one-shot import of MySQL+3DES into the new stores; drift bridge demoted to import sanity check + CI gate
+
+### 16.3 Two-track migration model
+
+| Track | Payload | Volume | Migration shape |
+|---|---|---|---|
+| **John Doe** | billing + tickets (live in separate WoA / Hiro databases, NOT in MedCare MySQL) | ~95%+ of customer rows | Standard ETL through Zone 3. Maps to `hubspot_bridge` + `hiro_bridge`. No 3DES decrypt step. |
+| **3DES PHI** | Healthcare clinical data (MedCare MySQL) | small high-stakes subset (specific PHI columns: name, DOB, contact, free-text diagnosis) | Decrypt 3DES → AES-256-GCM with per-tenant DEK × per-super-domain HKDF context. One-shot import tool. |
+
+### 16.4 3DES rewrap pipeline (single cipher, well-known algorithm)
+
+```rust
+/// One-shot import of 3DES-encrypted MySQL rows into the new stores.
+/// Runs once during pre-prod cutover; throwaway tool after.
+pub fn import_3des_row(
+    mysql_row:           &MySQLRow,
+    legacy_3des_key:     &TripleDesKey,    // legacy key, destroyed after import
+    target_tenant_dek:   &KeyHandle,
+    target_super_domain: SuperDomain,
+) -> Result<MigratedRow> {
+    // 1. Decrypt 3DES (well-known algorithm, no surprises)
+    let plaintext = three_des_decrypt(&mysql_row.ciphertext, legacy_3des_key)?;
+
+    // 2. Compute MerkleRoot for drift-bridge sanity check
+    let merkle = MerkleRoot::from_fingerprint(&Fingerprint::from(&plaintext));
+
+    // 3. Re-encrypt with per-tenant × per-super-domain AES-256-GCM
+    let derived = hkdf_derive(target_tenant_dek, target_super_domain.as_hkdf_context());
+    let new_ciphertext = aes_256_gcm_encrypt(&plaintext, &derived, random_nonce())?;
+
+    Ok(MigratedRow {
+        owl:          classify_to_owl_identity(&plaintext),
+        merkle_root:  merkle,                 // cleartext beside ciphertext
+        ciphertext:   new_ciphertext,
+        super_domain: target_super_domain,
+    })
+}
+```
+
+### 16.5 MerkleRoot-cleartext-beside-ciphertext (key insight)
+
+Each row stores `(ciphertext, merkle_root_cleartext)` side-by-side. Consequences:
+
+- **Drift bridge compares MerkleRoots without ever decrypting** in steady-state production. No privileged plaintext access role needed for drift detection itself.
+- Encryption uses **random nonces** (modern best practice) — no need for deterministic AEAD like AES-GCM-SIV.
+- MerkleRoot is computed against fingerprint content (the `Fingerprint` type from `crates/lance-graph/src/graph/fingerprint.rs`), so it's a one-way hash — doesn't reveal plaintext, only enables equality comparison.
+- **Trust boundary:** anyone who can write a row needs key access (to encrypt). Anyone who can run drift detection only needs MerkleRoot read access. Read-only drift role is unprivileged from PHI perspective.
+
+### 16.6 Tier F additions (replaces §15's drift-as-production-infra deliverables)
+
+- **D-SDR-27** — 3DES → AES-256-GCM rewrap one-shot tool. ~120 LOC + 2 integration tests against 3DES test vectors. **Throwaway after import succeeds + sanity-check window.**
+- **D-SDR-28** — MerkleRoot-cleartext-beside-ciphertext storage layout in MedCare-rs + MedCareV2 stores. ~80 LOC × 2 + 2 tests verifying MerkleRoot consistency across the boundary.
+- **D-SDR-29** — Two-track import runner: PHI rows (3DES) → D-SDR-27, John Doe rows → standard transcode. ~100 LOC + 2 tests.
+- **D-SDR-30** — Legacy 3DES key handling: hold under audit during import; **destroy on successful import + sanity-check verification**. ~30 LOC + 1-page governance doc.
+
+### 16.7 MedCare MySQL Struktur reality check
+
+The actual schema (`MedCare-rs/.MYSQL/Struktur.sql`, 90 KB, 104 tables) confirms the architecture:
+
+| Prefix | Count | Role |
+|---|---|---|
+| `pf_*` | 38 | Patient file (diagnosis, allergy, vaccination, vital, lab, operation, therapy) |
+| `combo_*` | 29 | Lookup dimensions (anrede=salutation, rasse=race, spez=specialty, drugs, morbidity) |
+| `praxis_*` | 12 | Clinic config (patient, mitarbeiter=staff, license, waitingroom) |
+| `glob_*` | 9 | Global (formular, mail, update, user_right) |
+| `pat_*`, `file_*`, `pdf_*` | 4+4+2 | Patient combinations, attachments, exports |
+| Other | 6 | tpk, customerdb, f_2_3, etc. |
+
+**Schema observations:**
+- All columns are `VARCHAR(250)` / `TEXT` / `DATETIME` — no `BLOB` or `VARBINARY`. **3DES encryption is application-layer, not at-rest in column types.** Encrypted columns hold opaque base64-encoded ciphertext as strings.
+- MySQL TDE is OFF (`DEFAULT ENCRYPTION='N'`).
+- Schema is purely clinical — billing/tickets are NOT in this database; they live in WoA / Hiro / HubSpot schemas separately.
+- The 38 `pf_*` tables are SUBSTRUCTURE of one Patient entity (allergies, vitals, diagnoses), not 38 distinct OGIT entities.
+- Healthcare basin slot count estimate: **~5-8 core clinical entities + ~10-15 verbs + ~29 OWL enumerations rolled into slots = ~30-50 slots used**, well within the 256-slot per-basin ceiling.
+
+**D-SDR-27 implementation gap:** the one-shot import tool needs MedCare's C# app source for the column→3DES key mapping (which specific VARCHAR columns are 3DES-encrypted with which derived key). Pending MCP scope expansion to `AdaWorldAPI/MedCare` + `AdaWorldAPI/MedCareV2`.
+
+---
+
+## 17 — DataFusion SQL inside LanceDB as unified persistence + access (2026-05-13, same session)
+
+### 17.1 Convergence architecture
+
+```
+              ┌────────────────────────────────┐
+              │  LanceDB (single source)       │
+              │  + DataFusion logical plans    │
+              └──────────────┬─────────────────┘
+                             │
+                ┌────────────┴────────────┐
+                │                         │
+       ┌────────▼────────┐       ┌────────▼────────┐
+       │  MedCare-rs     │       │  MedCareV2 C#   │
+       │  (in-process    │       │  (Arrow Flight  │
+       │   DataFusion)   │       │   SQL gRPC)     │
+       └─────────────────┘       └─────────────────┘
+```
+
+### 17.2 Phase sequencing
+
+| Phase | State | Drift bridge role |
+|---|---|---|
+| 0 (now) | MySQL+3DES is source. MedCareV2 + MedCare-rs both pre-prod. | n/a — no live drift |
+| 1 | D-SDR-27..30 import: MySQL+3DES → LanceDB (single-shot, throwaway). | n/a — one-time import sanity check |
+| 2 | MedCare-rs reads/writes LanceDB natively. MedCareV2 C# dual-writes via Flight SQL. | Active: compare Arrow batches across paths |
+| 3 | Drift-clean window confirms parity. | Active: gate cutover decision |
+| 4 | MedCareV2's prior store retires. LanceDB = single source of truth. | Retires — drift bridge becomes CI gate only |
+
+### 17.3 Arrow Flight SQL replaces custom Protobuf IDL (D-SDR-20 resolution)
+
+Earlier draft proposed a custom Protobuf IDL with Rust prost + C# Grpc.Tools. **Redundant** — Arrow Flight SQL already has a defined gRPC schema (`Flight.proto` + Substrait for the logical plan layer). The DTOs from §3 (`OgitFamily`, `OwlIdentity`, `RoleGroup`, etc.) become **Arrow column metadata + Substrait extension types**, not bespoke message definitions.
+
+### 17.4 Drift detection at Flight SQL boundary
+
+```rust
+/// Drift comparison at the Flight SQL boundary.
+/// Both clients fetch the same query result; we compare MerkleRoots
+/// of the Arrow batches they each received and processed.
+pub struct ArrowBatchDriftSignal {
+    pub query_hash:        u64,                            // FNV-1a of canonical query string
+    pub per_client_merkle: Vec<(BridgeImpl, MerkleRoot)>,  // one per client implementation
+    pub batch_row_count:   u64,
+    pub timestamp:         u64,
+}
+```
+
+Drift can only come from:
+- **Client serialization** — Arrow IPC is byte-deterministic; rare
+- **Post-deserialization processing** — MedCareV2 C# applying a transform MedCare-rs doesn't; this IS the drift surface
+- **Logical-plan divergence** — only if MedCareV2 builds plans on its own; if it just submits raw SQL/Cypher, this evaporates
+
+### 17.5 Tier F replacements (supersedes §15+§16 drift infrastructure)
+
+- **D-SDR-31** — Arrow Flight SQL endpoint server in `lance-graph`. Wraps the existing DataFusion catalog. ~150 LOC + 4 integration tests. Replaces D-SDR-20 custom-IDL plan.
+- **D-SDR-32** — C# `Apache.Arrow.Flight.Sql` client wrapper for MedCareV2 with auth header carrying `TenantContext.encryption_key` handle. ~80 LOC + 2 tests against the D-SDR-31 server. Lands inside MedCareV2's source tree.
+- **D-SDR-33** — Substrait extension types for `OwlIdentity` + `MerkleRoot` + `SuperDomain` so plans containing these types serialize cleanly across the Flight SQL wire. ~120 LOC + 3 tests.
+- **D-SDR-34** — Phase-2 dual-write coordination: `DriftDetectionBridge` operates against Flight SQL `GetFlightInfo` + `DoGet` to compare per-client MerkleRoots over identical queries. ~150 LOC + 4 integration tests covering the Phase 2 dual-write window.
+
+### 17.6 Dropped from earlier scope
+
+- ~~Custom Protobuf IDL (D-SDR-20 original)~~ — Arrow Flight SQL handles the wire layer
+- ~~Multi-trustee key escrow (D-SDR-30 expanded)~~ — no live system to coordinate; one-shot 3DES import retires keys cleanly
+- ~~Persistent production drift infrastructure~~ — drift bridge bounded to Phase 2-3 cutover window
+- ~~`MySQLAdapterBridge` (D-SDR-24)~~ — replaced by D-SDR-27 one-shot import
+- ~~C-ABI FFI option for hot-path C# access~~ — Flight SQL is the single bridge
+- ~~"3 unknown ciphers" question~~ — single 3DES, single decryption step
+
+### 17.7 Net architecture summary (after §13 + §14 + §15 + §16 + §17)
+
+```
+Per-row data:
+    LanceDB row carries: tenant_id u32 + owl_id u16 + ciphertext + merkle_root (cleartext)
+    Total per-row identity: 6 bytes; merkle ~8 bytes; payload variable.
+
+Access layer:
+    Cypher / SPARQL / Gremlin / SQL → DataFusion logical plan → LanceDB scan
+    Both clients (Rust direct, C# via Flight SQL) hit the same plan layer.
+
+RBAC enforcement:
+    PolicyRewriter chain in lance-graph-callcenter::policy
+    (RowFilter + ColumnMask + RowEncryption + DifferentialPrivacy + Audit)
+    composed by UnifiedBridge::authorize() 4-stage flow.
+
+Drift detection:
+    Phase 2-3 only. Compares ArrowBatchDriftSignal across clients.
+    Retires after Phase 4 cutover; demoted to CI gate.
+
+Migration:
+    One-shot D-SDR-27..30 (MySQL+3DES → LanceDB).
+    Throwaway tool. 3DES keys destroyed on completion.
+
+Cross-language surface:
+    Arrow Flight SQL gRPC (no custom IDL).
+    Substrait extension types for OwlIdentity + MerkleRoot + SuperDomain.
+
+Bridge harvest:
+    medcare_bridge.rs + sharepoint_bridge.rs as canonical pattern source.
+    woa_bridge.rs retrofit; hiro_bridge.rs + hubspot_bridge.rs new templates.
+    ~45 LOC each after MetaBridge extraction.
+```
+
+### 17.8 Open questions deferred to §18 (pending MCP scope expansion)
+
+- 3DES column inventory for `MedCare` (which VARCHAR columns are encrypted with which derived key)
+- Transcoded shape that already accounts for SQL import + app-layer decryption per user note
+- Final scope of D-SDR-27 implementation (depends on column inventory)
+
+These unblock once `AdaWorldAPI/MedCare` + `AdaWorldAPI/MedCareV2` are in scope. §18 will fold the findings in as a follow-up commit.
