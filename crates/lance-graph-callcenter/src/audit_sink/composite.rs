@@ -1,10 +1,11 @@
 //! CompositeSink — broadcast writes to N child sinks with per-sink failure
-//! isolation. Production canonical config:
+//! isolation. Production canonical config (per MedCare-rs sprint-2 audit-sink
+//! decision: JSONL primary + optional Lance projection):
 //!
 //! ```ignore
 //! CompositeSink::new(vec![
-//!     Box::new(LanceAuditSink::new(&base_path)?),   // primary
-//!     Box::new(JsonlAuditSink::new(&base_path)?),   // fallback
+//!     Box::new(JsonlAuditSink::new(&base_path)?),   // primary (durable, line-oriented)
+//!     Box::new(LanceAuditSink::new(&base_path)?),   // optional projection (analytical query)
 //! ], FanoutMode::BestEffort)
 //! ```
 
