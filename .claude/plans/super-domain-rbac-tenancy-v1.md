@@ -1264,3 +1264,79 @@ These slot under Tier F or a new Tier H, blocking M5/M6 of the LanceProbe milest
 - **Coordination doc:** lives at `MedCare-rs/docs/CSHARP_HANDOFF_PROMPT.md` on branch `claude/csharp-handoff-docs-L3DF0`; should be merged or referenced from this spec's path.
 
 **Confidence:** Working — empirical inspection of both repos confirms the architecture; the C# parity tool already implements the drift bridge as scaffolded code; the Rust side gaps are concrete (5 endpoints) and small (~700 LOC + tests across D-SDR-35..39).
+
+---
+
+## 19 — Build invariants + SIMD strategy (2026-05-13, same session)
+
+### 19.1 Pinned versions
+
+All Rust deliverables (D-SDR-1..39) sit on the following workspace pins, already established by PR #275 + per `Cargo.toml`:
+
+```toml
+rust-version = "1.94.1"            # MSRV; 1.94 stabilizes portable_simd patterns ndarray::simd uses
+lance        = "=4.0.0"            # exact pin per Cargo.toml
+lancedb      = "0.27.2"            # caret per Cargo.toml; PR #275 introduced
+```
+
+**Implication for the spec:** D-SDR-28 (MerkleRoot-beside-ciphertext storage layout) targets `lance =4.0.0` schema; D-SDR-31 (Arrow Flight SQL endpoint) targets `lancedb 0.27.2` exposure of the DataFusion catalog. No floating versions; no surprise minor-version bumps mid-implementation.
+
+### 19.2 ndarray::simd is the canonical SIMD path
+
+All vectorized operations across the spec use **`ndarray::simd`** from the workspace's vendored ndarray fork at `/home/user/ndarray`. Not raw `std::simd`, not `packed_simd`, not hand-rolled platform intrinsics. One SIMD path; one set of tests; one cross-platform behavior contract.
+
+**Hot-path operations that should use `ndarray::simd`:**
+
+| Op | DTO | SIMD pattern |
+|---|---|---|
+| Per-row `OwlIdentity` bitmask scans (Cypher MATCH lowering) | `OwlIdentity` (§3.2) | masked u16 compare, vectorized over a column |
+| Batch `MerkleRoot` computation across rows | `MerkleRoot` (§13.3) | parallel XOR-fold over fingerprint slices |
+| `BitSet256` bitwise ops (role redaction mask) | `BitSet256` (§3.6) | 4×u64 SIMD AND/OR/contains-bit |
+| Per-family codebook PQ centroid distance | `OgitFamilyTable.codebook` (§3.3) | `ndarray::simd` Hamming/L2 (already shipped in `ndarray::hpc`) |
+| Canonicalization rule application across batch | §18.4 rules | vectorized string comparison + decimal normalization |
+| DataFusion predicate vector composition | `UnifiedBridge::authorize` (§3.9) | 3-stage masked predicate combine into one bool vector |
+| `ArrowBatchDriftSignal` MerkleRoot-of-batch | §17.4 | XOR-fold over the batch's interleaved (id, merkle) pairs |
+
+**Tier A LOC reduction:** several DTO method bodies that I sketched as scalar loops collapse to `ndarray::simd` one-liners. D-SDR-1..3 estimated LOC drops by ~15-25% (the scalar fallback paths are no longer needed as separate code).
+
+### 19.3 ndarray as mandatory dep (deferred workstream)
+
+Per user directive: **`ndarray` should be a mandatory dep of `lance-graph`, not the current optional `ndarray-hpc` feature.** Currently:
+
+```toml
+# Current (lance-graph/Cargo.toml — to be retired)
+[features]
+default = ["unity-catalog", "delta", "ndarray-hpc"]
+ndarray-hpc = ["dep:ndarray"]
+
+# Target (post-migration)
+[dependencies]
+ndarray = { path = "../../../ndarray", default-features = false }
+# (no feature gate; always present)
+```
+
+**This is a separate concurrent workstream**, not blocking any D-SDR-* deliverable in this spec. **Status per CLAUDE.md**: Phase 3 IN PROGRESS already includes "Wire ndarray as default dep (Cargo.toml change + `ndarray-hpc` feature flag)" — this spec's directive **promotes** that to "make ndarray mandatory, retire the feature flag." No-op for the architecture; it just removes the `#[cfg(feature = "ndarray-hpc")]` branches.
+
+**All D-SDR-* deliverables in this spec assume ndarray is present** (i.e., as if the Phase 3 + new mandatory-promotion workstream has landed). If Tier A ships before the mandatory-promotion lands, the deliverables sit behind `#[cfg(feature = "ndarray-hpc")]` temporarily; once the feature flag retires, the cfg gates are deleted (mechanical change).
+
+### 19.4 Sequencing impact (none for D-SDR-* shipping order)
+
+The mandatory-ndarray promotion is **decoupled** from this spec's deliverables:
+
+| Workstream | Owner | Blocks D-SDR-*? |
+|---|---|---|
+| Promote ndarray from `ndarray-hpc` feature → mandatory dep | Phase 3 (concurrent) | No — Tier A ships behind feature flag in interim |
+| Retire `blasgraph/ndarray_bridge.rs` standalone fallbacks | Post-promotion cleanup | No — fallbacks were never used by D-SDR-* code |
+| Retire `#[cfg(feature = "ndarray-hpc")]` gates from D-SDR-* | Mechanical post-promotion | No — one-shot find/replace |
+
+### 19.5 Brutal-honest tradeoff
+
+`ndarray::simd` adds a workspace-internal dep coupling: lance-graph's MSRV moves in lockstep with ndarray's. Today both are Rust 1.94.1; if ndarray jumps MSRV, lance-graph + all consumers (medcare-rs, smb-office-rs, hiro-rs, hubspot-rs) jump too. This is acceptable because the workspace already treats ndarray as the SIMD foundation per CLAUDE.md ("ndarray = The Foundation (SIMD, GEMM, HPC, ...)"); the alternative (every crate independently picking a SIMD strategy) was already rejected.
+
+The version pinning (lance =4.0.0, lancedb 0.27.2, rust 1.94.1) is **stricter** than the rest of the workspace asks for, which is correct for this spec's deliverables since they touch the storage layer + Flight SQL endpoint where minor-version drift would cause real bugs.
+
+### 19.6 Status
+
+- **Pinned versions:** stable; no action needed beyond using them in `Cargo.toml` for new crates (woa-rs/hubspot-rs/hiro-rs).
+- **`ndarray::simd` adoption:** assumed baseline for all D-SDR-* deliverables; no separate deliverable needed.
+- **Mandatory ndarray promotion:** **NOT in this spec's scope.** Tracked as Phase 3 + post-Phase-3 cleanup workstream. This spec ships against either world (with cfg-gates as transient overhead until promotion lands).
