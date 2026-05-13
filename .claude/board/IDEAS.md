@@ -91,6 +91,68 @@ Agents filter by `@`-mention or domain to see what's theirs.
 
 Earlier this session conflated EWA-Sandwich with a Gaussian-splat anatomical renderer. Per user 2026-05-13 follow-up + source confirmation: EWA-Sandwich is **Pillar 6** of the JC pillars framework — Σ push-forward `M·Σ·Mᵀ` for multi-hop edge propagation in the SPD cone. Already implemented at `crates/jc/src/ewa_sandwich.rs` (450 LOC) + `crates/lance-graph-contract/src/sigma_propagation.rs` (488 LOC) + `crates/jc/examples/osint_edge_traversal.rs` + `crates/jc/examples/splat_perturbationslernen.rs`. Not a new idea — an existing certified pillar. See EPIPHANIES 2026-05-13 CORRECTION-OF entry.
 
+## 2026-05-13 — EXECUTION PATH: prerendered cinematic stored as palette-indexed frames in LanceDB (16-color demoscene point is the sweet spot)
+
+Concrete delivery path for the sales-asset cinematic (sized 2026-05-13 per user):
+
+**Frame budget at 1280×720:**
+
+| Palette | bits/px | bytes/frame | 900 frames (30 s @ 30 fps) | 18,000 frames (300 s @ 60 fps) |
+|---|---|---|---|---|
+| 4-color | 2 | 230 KB | 207 MB | 4.1 GB |
+| 16-color | 4 | 460 KB | 415 MB | 8.3 GB |
+| 256-color | 8 | 921 KB | 829 MB | 16.5 GB |
+
+All four points fit Lance trivially. Columnar compression on palette indices (RLE-like) typically adds 3-5× shrink → 16-color 30s cinematic = **~80-150 MB after compression**.
+
+**Lance schema (sketch):**
+
+```rust
+// One row per frame; shared palette stored once in a separate small table
+struct FrameRow {
+    frame_id: u32,                  // monotone
+    timestamp_us: u64,              // playback time
+    indices: LargeBinary,           // 4-bit-packed nibble buffer, 1280×720×4/8 = 460KB
+    keyframe: bool,                 // true for cinematic chapter boundaries
+}
+
+struct PaletteRow {
+    palette_id: u8,                 // usually just 0 for "the cyan demo palette"
+    rgba: FixedSizeBinary,          // 16 × u32 = 64 bytes
+    name: Utf8,                     // "cyan-demoscene-v1"
+}
+```
+
+**Why Lance beats the alternatives for THIS use case:**
+
+| Alternative | Verdict | Reason |
+|---|---|---|
+| **LanceDB frame rows** | ✅ chosen | Already in stack; columnar streaming; versioning ("v2 of intro reel"); random-access seek for chapter buttons; time-travel queries; palette discipline IS the demoscene aesthetic; nibble-packed indices are AVX2-friendly (60 fps playback trivially decoded) |
+| **Rust game engine** (bevy/fyrox/ggez) | ❌ wrong tool | Live engines; re-derive what `ndarray::hpc::renderer` already does. Use for live interaction phase, NOT prerender storage. |
+| **Quarto** | ⚠️ wrong layer | Quarto is for the pitch deck AROUND the cinematic. Embed the rendered output; don't make Quarto the renderer. |
+| **Unity WebGL** | ⚠️ wrong dep | Adds non-Rust runtime + 20-100 MB WebGL bundle for the user. Justifiable only if interactive 3D, but live renderer + WebGPU already covers that. |
+
+**Why 16-color is the sweet spot:**
+1. 415 MB raw / ~80-150 MB compressed for 30 s @ 30 fps — small enough for a single release artifact (similar to bgz7 Qwen3.5 release pattern)
+2. 4-bit nibble-packed indices = `_mm256_unpack` decodes 64 pixels per AVX2 instruction → playback hot loop fits in `ndarray::simd` dispatch table for free
+3. Forced palette discipline → coherent cyan/teal/white glow → demoscene look comes from the constraint, not a separate art pass
+4. Shared palette across all frames: store ONE PaletteRow + N FrameRows → another 10× metadata compression
+5. Aesthetically authentic: Amiga AGA used 256 colors but the best demoscene WOW productions (Andromeda, Sanity, Spaceballs) milked 16/32-color palettes for maximum impact
+
+**4-color point** is too restrictive for body anatomy (skin gradients lose definition). **256-color point** is overkill — kills the demoscene constraint and bloats the artifact for no visual win.
+
+**Build pipeline:**
+1. Offline tool reads scripted camera trajectory + procedural T-pose entity positions (FMA SPO not required for cinematic; see prior REFRAME entry)
+2. Renders frames at higher quality (path tracing / accumulation / anti-aliasing) — slow but offline
+3. Color-quantize each frame to the curated 16-color cyan/teal palette via Floyd-Steinberg dithering
+4. Write to Lance with the schema above; one PaletteRow + N FrameRows
+5. Q2 cockpit playback hook: `cinematic_player.play("intro-v1")` → streams frame rows → decode nibbles → AVX2 unpack to RGBA → blit to canvas at 30/60 fps
+
+**Replaces / complements:**
+- Replaces the storage-format open question in the REFRAME entry (was: Arrow batches / MP4 / .splat / custom temporal-delta — now answered: Lance with palette-indexed schema)
+- Complements: still uses the live `ndarray::hpc::renderer` for the post-cinematic interaction phase; handoff contract unchanged
+- New open: temporal-delta codec on top of palette indices? Probably not worth complexity; raw frames compress fine via Lance's existing zstd/lz4
+
 ## 2026-05-13 — REFRAME: holographic cinematic is a SALES asset (customer-conversation hook), not a product feature — owner = demo budget, NOT sprint-5
 
 User clarification 2026-05-13: the holographic projection + prerender cinematic exists to "get customers hooked" — it's conversion-funnel eye candy, not a maintained product capability. This re-prioritizes everything in the two entries below this one.
