@@ -385,7 +385,7 @@ mod tests {
     fn make_similar_vectors(n: usize, dim: usize, base_cos: f64) -> Vec<Vec<f32>> {
         // Start with a base vector, perturb slightly
         let base: Vec<f32> = (0..dim)
-            .map(|d| ((d as f32 * 0.01).sin() * 0.5 + (d as f32 * 0.003).cos() * 0.3))
+            .map(|d| (d as f32 * 0.01).sin() * 0.5 + (d as f32 * 0.003).cos() * 0.3)
             .collect();
 
         let noise_scale = (1.0 - base_cos).sqrt() as f32;

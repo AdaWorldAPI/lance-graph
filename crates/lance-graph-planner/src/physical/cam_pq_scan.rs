@@ -187,10 +187,10 @@ mod tests {
 
     fn make_distance_tables() -> [[f32; 256]; 6] {
         let mut dt = [[0.0f32; 256]; 6];
-        for s in 0..6 {
-            for c in 0..256 {
+        for (s, subspace) in dt.iter_mut().enumerate() {
+            for (c, val) in subspace.iter_mut().enumerate() {
                 // Distance increases with centroid index
-                dt[s][c] = c as f32 * (s as f32 + 1.0) * 0.1;
+                *val = c as f32 * (s as f32 + 1.0) * 0.1;
             }
         }
         dt

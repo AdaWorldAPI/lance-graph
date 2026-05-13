@@ -424,7 +424,7 @@ mod tests {
         // Small values should get more resolution in gamma space
         let small = gamma_encode(0.001, 0.15);
         let medium = gamma_encode(0.15, 0.15);
-        let large = gamma_encode(1.5, 0.15);
+        let _large = gamma_encode(1.5, 0.15);
 
         // In linear space: small/medium = 0.001/0.15 = 0.007
         // In gamma space: the ratio should be larger (shadows expanded)
@@ -451,7 +451,7 @@ mod tests {
             let ratio = vals[i] as f64 / vals[i - 1] as f64;
             // φ-spacing means ratios approach φ, never rational
             let nearest_int_ratio = ratio.round();
-            let irrationality = (ratio - nearest_int_ratio).abs();
+            let _irrationality = (ratio - nearest_int_ratio).abs();
             // Not a strong test, but verifies non-degeneracy
             assert!(vals[i] != vals[i - 1], "adjacent phi values must differ");
         }

@@ -353,7 +353,7 @@ mod tests {
     fn explicit_override_uses_only_named_strategies() {
         let planner =
             PlannerAwareness::with_explicit(vec!["cypher_parse".into(), "arena_ir".into()]);
-        let result = planner.plan_auto("MATCH (n) RETURN n");
+        let _result = planner.plan_auto("MATCH (n) RETURN n");
 
         // plan_auto uses Auto selector, but with_explicit sets Explicit
         // Let's use plan_full instead with a default situation

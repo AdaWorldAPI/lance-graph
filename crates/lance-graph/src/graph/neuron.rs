@@ -46,18 +46,14 @@ impl NeuronPrint {
     /// Bundle all 6 roles into a single 34-byte holographic fingerprint.
     /// The gestalt contains all roles in superposition.
     pub fn bundle(&self) -> Base17 {
+        let roles = [&self.q, &self.k, &self.v, &self.gate, &self.up, &self.down];
         let mut dims = [0i32; 17];
-        for d in 0..17 {
-            dims[d] = self.q.dims[d] as i32
-                + self.k.dims[d] as i32
-                + self.v.dims[d] as i32
-                + self.gate.dims[d] as i32
-                + self.up.dims[d] as i32
-                + self.down.dims[d] as i32;
+        for (d, slot) in dims.iter_mut().enumerate() {
+            *slot = roles.iter().map(|r| r.dims[d] as i32).sum();
         }
         let mut out = [0i16; 17];
-        for d in 0..17 {
-            out[d] = (dims[d] / 6).clamp(-32768, 32767) as i16;
+        for (out_d, &dim) in out.iter_mut().zip(dims.iter()) {
+            *out_d = (dim / 6).clamp(-32768, 32767) as i16;
         }
         Base17 { dims: out }
     }

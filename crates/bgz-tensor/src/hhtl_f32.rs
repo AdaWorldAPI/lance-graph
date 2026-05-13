@@ -400,11 +400,11 @@ mod tests {
 
         let mut sum_plain = 0.0f64;
         let mut sum_leaf = 0.0f64;
-        for i in 0..n {
+        for (i, row) in rows.iter().enumerate().take(n) {
             let rec_plain = t_plain.reconstruct_row(i, cols);
             let rec_leaf = t_leaf.reconstruct_row(i, cols);
-            sum_plain += cosine(&rows[i], &rec_plain);
-            sum_leaf += cosine(&rows[i], &rec_leaf);
+            sum_plain += cosine(row, &rec_plain);
+            sum_leaf += cosine(row, &rec_leaf);
         }
         let avg_plain = sum_plain / n as f64;
         let avg_leaf = sum_leaf / n as f64;

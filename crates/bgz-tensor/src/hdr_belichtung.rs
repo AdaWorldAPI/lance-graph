@@ -432,7 +432,7 @@ mod tests {
 
         let cascade = PaletteCascade::calibrate(&[50, 100, 150, 200, 250]);
 
-        let (results, stats) =
+        let (_results, stats) =
             run_palette_cascade(&queries, &keys, &q_idx, &k_idx, &table, &cascade, 100);
 
         assert_eq!(stats.total_pairs, 4);

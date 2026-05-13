@@ -260,8 +260,8 @@ mod tests {
 
     fn make_base17(seed: usize) -> Base17 {
         let mut dims = [0i16; 17];
-        for d in 0..17 {
-            dims[d] = ((seed * 97 + d * 31) % 512) as i16 - 256;
+        for (d, val) in dims.iter_mut().enumerate() {
+            *val = ((seed * 97 + d * 31) % 512) as i16 - 256;
         }
         Base17 { dims }
     }
@@ -286,7 +286,7 @@ mod tests {
     #[test]
     fn cascade_eliminates_most() {
         let n = 32;
-        let q_bases: Vec<Base17> = (0..n).map(|i| make_base17(i)).collect();
+        let q_bases: Vec<Base17> = (0..n).map(make_base17).collect();
         let k_bases: Vec<Base17> = (0..n).map(|i| make_base17(i + 1000)).collect();
 
         let all_rows: Vec<Base17> = q_bases.iter().chain(k_bases.iter()).cloned().collect();
@@ -317,7 +317,7 @@ mod tests {
     #[test]
     fn cascade_stats_add_up() {
         let n = 16;
-        let bases: Vec<Base17> = (0..n).map(|i| make_base17(i)).collect();
+        let bases: Vec<Base17> = (0..n).map(make_base17).collect();
         let palette = WeightPalette::build(&bases, 8);
         let idx = palette.assign_all(&bases);
         let table = crate::attention::AttentionTable::build(&palette);

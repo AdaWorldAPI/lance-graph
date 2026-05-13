@@ -169,7 +169,7 @@ impl EpisodicMemory {
                     report.max_hardness = hardness;
                 }
                 for t in &ep.triplets {
-                    facts.push((ep.fingerprint.clone(), t.clone()));
+                    facts.push((ep.fingerprint, t.clone()));
                     report.facts_emitted += 1;
                 }
             }
@@ -242,7 +242,7 @@ impl EpisodicMemory {
                     _ => {}
                 }
             }
-            return best.map(|(i, _)| i);
+            best.map(|(i, _)| i)
         }
 
         #[cfg(not(feature = "ndarray-hpc"))]

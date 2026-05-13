@@ -141,10 +141,10 @@ impl RoleVectors {
         };
         let mut vectors = [[0u8; ROLE_VECTOR_BYTES]; NUM_ROLES];
 
-        for role in 0..NUM_ROLES {
-            for byte in 0..ROLE_VECTOR_BYTES {
+        for role_vec in &mut vectors {
+            for byte in role_vec.iter_mut() {
                 state = xorshift64(state);
-                vectors[role][byte] = (state & 0xFF) as u8;
+                *byte = (state & 0xFF) as u8;
             }
         }
 
@@ -419,7 +419,7 @@ mod tests {
         // Rank 50 (cat) should find some nearest prime
         let (prime_rank, sim) = enc.nearest_prime(50);
         assert!(prime_rank < 63);
-        assert!(sim >= 0.0 && sim <= 1.0);
+        assert!((0.0..=1.0).contains(&sim));
     }
 
     #[test]

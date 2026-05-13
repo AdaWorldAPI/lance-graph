@@ -276,7 +276,7 @@ mod tests {
         let candidates = vec![make_node(5, 1, 0x3C00), make_node(5, 2, 0x3C00)];
         // Route table: palette 0→1 = Skip, palette 0→2 = Attend
         let mut route_table = vec![1u8; 256 * 256]; // default Attend
-        route_table[0 * 256 + 1] = 0; // Skip
+        route_table[1] = 0; // Skip: palette 0→1
 
         let results = cascade_search(&query, &candidates, &route_table, 256, 1000);
         assert!(!results[0].1.attend, "Route Skip should not attend");

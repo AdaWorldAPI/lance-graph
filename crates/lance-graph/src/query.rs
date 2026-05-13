@@ -648,7 +648,7 @@ impl CypherQuery {
 
         // Phase 2: Graph logical plan
         let mut logical_planner = LogicalPlanner::new(config);
-        let logical_plan = logical_planner.plan(&semantic.ast)?;
+        let _logical_plan = logical_planner.plan(&semantic.ast)?;
 
         // Phase 3: BlasGraph compilation (not yet wired to input data)
         // Return an explicit error rather than silently producing empty results
@@ -673,7 +673,7 @@ impl CypherQuery {
                 for (r, c, v) in matrix.iter() {
                     sources.push(r as u64);
                     targets.push(c as u64);
-                    distances.push(v.popcount() as u32);
+                    distances.push(v.popcount());
                 }
 
                 let schema = arrow::datatypes::Schema::new(vec![

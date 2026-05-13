@@ -392,9 +392,10 @@ mod tests {
 
     #[test]
     fn hydrate_roundtrip() {
+        #[allow(clippy::approx_constant)] // 3.14 is intentional test value, not π
         let original: Vec<f32> = vec![1.0, -2.0, 0.5, 3.14, -0.001];
         let enc = StackedN::from_f32(&original, 4);
-        let hydrated = enc.hydrate_f32();
+        let _hydrated = enc.hydrate_f32();
         // BF16→f32 loses mantissa bits (7-bit mantissa vs 23-bit).
         // Relative error ≈ 2^-7 ≈ 0.8% for normal values.
         // Golden-step maps input dims to base positions, so hydrated[0]

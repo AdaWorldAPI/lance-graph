@@ -10,8 +10,6 @@
 //! **CRITICAL:** TruthGate filtering happens AFTER matrix traversal, not during.
 //! The planner produces candidate positions. Then `apply_truth_gate` filters.
 
-use std::collections::HashMap;
-
 use crate::graph::blasgraph::descriptor::GrBDesc;
 use crate::graph::blasgraph::matrix::GrBMatrix;
 use crate::graph::blasgraph::semiring::Semiring;
@@ -186,6 +184,7 @@ mod tests {
     use crate::graph::blasgraph::semiring::HdrSemiring;
     use crate::graph::blasgraph::typed_graph::{apply_truth_gate, TypedGraph};
     use crate::graph::spo::truth::{TruthGate, TruthValue};
+    use std::collections::HashMap;
 
     fn make_test_graph() -> TypedGraph {
         // 4 nodes: 0=Jan(Person), 1=Ada(Person,Engineer), 2=Max(Person,Engineer), 3=Eve(Person)

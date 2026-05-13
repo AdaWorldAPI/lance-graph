@@ -133,7 +133,7 @@ mod tests {
             Band::Reject,
         ] {
             let sel = band_selectivity(band);
-            assert!(sel >= 0.0 && sel <= 1.0, "selectivity out of range: {sel}");
+            assert!((0.0..=1.0).contains(&sel), "selectivity out of range: {sel}");
         }
     }
 

@@ -711,7 +711,7 @@ impl TripletGraph {
             }
         }
         // Not found — add as new
-        self.add_triplets(&[observation.clone()]);
+        self.add_triplets(std::slice::from_ref(&observation));
     }
 }
 
