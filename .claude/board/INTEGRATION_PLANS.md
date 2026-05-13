@@ -47,6 +47,8 @@
 **Cross-ref:** `palantir-parity-cascade-v2.md` (this spec adds the enforcement surface), `lance-graph-ontology-v5.md` (this spec sits above v5; v5 unchanged), `GLUE_LAYER_OGIT_TO_OWL_SPEC.md` (source for OWL property characteristics bitfield).
 **Open questions:** Foundry ObjectType cross-walk targets, Wikidata QID mappings, audit format choice (JSON Lines / CloudEvents / OTel), DEK rotation cadence, escalation UX, HPO/MONDO multi-member confirmation, slot 0xFF schema-only convention.
 
+**Correction (2026-05-13):** §13 refinements added (same session). (a) Enforcement composes onto shipped `lance-graph-callcenter::policy::PolicyRewriter` chain + `PolicyKind` taxonomy (RowFilter/ColumnMask/RowEncryption/DifferentialPrivacy/Audit) rather than introducing parallel path — ~30% Tier A LOC reduction. (b) Cross-tenant federation upgraded to A+B+C all accepted; Option C (`EncryptedViewAggregate`) viable now via LanceDB transparent encrypted views, not 2027+ R&D. (c) Audit chain integrity built-in via `MerkleRoot::from_fingerprint` + `ClamPath` from `graph/spo/merkle.rs` (the merkle/DN-path mixing already shipped). (d) Hard-lock requirement formalized: Healthcare ↔ OSINT (and 3 other pairs) get 3 layers of defense — predicate + per-super-domain merkle salt + super-domain-scoped HKDF key derivation. (e) `researcher` role hardened to anonymized-projection-only with k-anonymity floor + DP noise injection on aggregates. New deliverables D-SDR-13..17 added. Open questions on audit format + cross-tenant federation RESOLVED; new open questions on hard-lock partner matrix + per-super-domain DP epsilon + merkle salt rotation cadence.
+
 ---
 
 ## v1 — LF Integration Mapping (authored 2026-04-25)

@@ -577,3 +577,183 @@ A is the conservative HIPAA-defensible default. B is the practical compromise fo
 ## 12 — One-line summary
 
 > 4-level hierarchy (meta-anchor → super domain → OGIT basin → slot), 6 bytes per row (4-byte tenant + 2-byte OWL identity), inline per-family codebook with label+schema+verbs, single masked predicate enforces tenant + super-domain + role + slot in one DataFusion vector pass. Foundry parity at the enforcement surface, sub-microsecond hot path.
+
+---
+
+## 13 — Refinements (2026-05-13, same session)
+
+Post-draft user feedback surfaced four substrate facts and two requirement upgrades. All folded in as additive corrections — the §3 DTOs, §8 deliverables, and §12 summary remain valid; this section makes the underlying compositor explicit and tightens the federation + hard-lock policy.
+
+### 13.1 The compositor is already shipped: `lance-graph-callcenter::policy`
+
+The 4-stage `UnifiedBridge::authorize()` (§3.9) is **not** a new enforcement layer — it composes against `lance-graph-callcenter/src/policy.rs`'s shipped `PolicyRewriter` trait + `PolicyKind` taxonomy:
+
+```rust
+pub enum PolicyKind {
+    RowFilter,            // tenant + super-domain + basin bitmask predicates
+    ColumnMask,           // per-slot RedactionMask (Null/Constant/Hash/Truncate)
+    RowEncryption,        // per-tenant DEK at LanceDB column level
+    DifferentialPrivacy,  // k-anonymity aggregate noise (federation Option B)
+    Audit,                // side-channel emission per access
+}
+```
+
+The 4 stages map 1:1 to `PolicyKind` variants:
+
+| `authorize()` stage | `PolicyKind` |
+|---|---|
+| 1. Chinese wall (tenant) | `RowFilter` (existing `RlsRewriter` as ancestor) |
+| 2. Super-domain | `RowFilter` (additional predicate, same rewriter chain) |
+| 3. Role group | `ColumnMask` (drives slot-level visibility per `RedactionMode`) |
+| 4. Slot redaction | `ColumnMask` + `RowEncryption` (when `clearance_floor ≥ Confidential`) |
+| Audit emission | `Audit` (composed last) |
+
+**Consequence:** Tier A deliverables (D-SDR-1..5) **wire onto the existing `PolicyRewriter` chain** rather than introducing a parallel enforcement path. ~30% LOC reduction on Tier A. The DataFusion `OptimizerRule` machinery already handles the predicate-vector composition described in §3.10.
+
+### 13.2 LanceDB transparent encryption upgrades Option C from R&D to viable
+
+Earlier framing of cross-tenant federation (§6) classified Option C (homomorphic-encryption aggregate) as a 2027+ R&D track. **Correction:** LanceDB ships **transparent encrypted views** at the column level — the engine scans/filters/aggregates over encrypted columns without decrypting full rows, with key access gated by tenant DEK. This is the substrate Option C needs without bespoke FHE primitives.
+
+**Updated federation policy:**
+
+```rust
+#[repr(u8)]
+pub enum FederationPolicy {
+    PureWall              = 0,   // default — no cross-tenant queries
+    KAnonymityAggregate   = 1,   // Phase 2 — k ≥ 5 via PolicyKind::DifferentialPrivacy
+    EncryptedViewAggregate = 2,  // Phase 2-3 — LanceDB transparent encrypted view + per-tenant DEK
+                                  //   (was Option C, now viable; not slow)
+}
+```
+
+**Tier E (D-SDR-12) scope expands:** ship A+B together as Phase 2; add Phase 3 EncryptedViewAggregate path that lifts the k-anonymity threshold for tenants whose data column is encrypted at rest with their own DEK (the engine aggregates over ciphertext when the operation is sum/count/avg with bounded sensitivity).
+
+### 13.3 Merkle + ClamPath integration: audit chain + hard-lock attestation
+
+`crates/lance-graph/src/graph/spo/merkle.rs` ships:
+
+```rust
+pub struct MerkleRoot(pub u64);              // XOR-fold hash of fingerprint content
+impl MerkleRoot {
+    pub fn from_fingerprint(fp: &Fingerprint) -> Self { /* ... */ }
+}
+
+pub struct ClamPath {                         // hierarchical DN address
+    pub path: String,                         // "agent:test:node"
+    pub depth: u32,
+}
+```
+
+**The merkle/DN-path mixing the user remembered is here** — `MerkleRoot` stamps content, `ClamPath` carries the hierarchical address (the same shape as `DnPath` from `lance-graph-callcenter::dn_path`).
+
+**Wire into the spec:**
+
+- **Audit chain integrity:** every `AuditEntry` (Tier D, D-SDR-10) carries the `MerkleRoot` of the row at access time. A second access produces a new merkle root; the audit log records both, so HIPAA reviewers can detect post-hoc tampering (the merkle would not validate against the recorded fingerprint).
+- **Hard-lock attestation (§13.4):** the cryptographic separation between Healthcare and OSINT super domains is attested by **distinct merkle root salts per super domain**. A row whose merkle root validates against the OSINT salt cannot validate against the Healthcare salt, so a leaked row is provably mis-routed at integrity-check time even if the predicate filter is misconfigured.
+
+**Updated `AuditEntry` shape** (Tier D refinement):
+
+```rust
+pub struct AuditEntry {
+    pub tenant:           TenantId,
+    pub super_domain:     SuperDomain,
+    pub actor_role:       &'static str,
+    pub owl:              OwlIdentity,
+    pub op:               u8,                 // PermissionSet bit
+    pub merkle_root:      MerkleRoot,         // NEW: fingerprint at access time
+    pub clam_path:        ClamPath,           // NEW: hierarchical DN address
+    pub timestamp:        u64,
+    pub super_domain_salt: u64,                // NEW: per-super-domain merkle salt
+}
+```
+
+### 13.4 Hard-lock requirement: Healthcare ↔ OSINT crypto barrier
+
+**HIPAA compliance and clinical staff trust require a guarantee stronger than predicate filtering between patient history and OSINT.** The user's framing: "doctors will want to know that patient history and OSINT are hard lock."
+
+**Updated DTO:**
+
+```rust
+pub struct SuperDomainEntry {
+    // ... fields as in §3.4 ...
+    pub merkle_salt:        u64,                          // NEW: per-super-domain integrity salt
+    pub hard_lock_partners: &'static [SuperDomain],       // NEW: explicit cryptographic separation
+}
+```
+
+**Per-super-domain hard-lock matrix (initial):**
+
+| Super domain | `hard_lock_partners` (cannot share rows or be queried jointly under any role) |
+|---|---|
+| `Healthcare` | `[OSINT]` |
+| `OSINT` | `[Healthcare]` |
+| `WorkOrderBilling` | `[OSINT]` (financial confidentiality) |
+| `Science` (when ITAR-tagged) | `[OSINT]` (export control vs intel) |
+
+**Enforcement mechanism (3 layers of defense):**
+
+1. **Predicate-time:** `authorize()` rejects any query whose `super_domain_target` is in the actor's `hard_lock_partners` list, even if the actor has the source super domain authorized.
+2. **Integrity-time:** different `merkle_salt` per super domain. A misconfigured query that bypasses (1) cannot validate cross-domain merkle roots.
+3. **Encryption-time:** rows in a hard-locked super domain are encrypted with super-domain-scoped key derivation (per-tenant DEK × per-super-domain HKDF info string). A leaked row decrypts only with both the tenant DEK *and* the super-domain context — neither alone suffices.
+
+**Sales narrative refresh:**
+
+> "Patient history and OSINT are hard-locked. Three layers of defense — predicate, merkle salt, key derivation. A clinician's bridge cannot construct a query that joins patient records with intel; the optimizer rejects it, the merkle would not validate, and the encryption keys won't combine. HIPAA reviewers see a cryptographically attested separation, not a policy promise."
+
+### 13.5 Research role: anonymized projection only
+
+**The `researcher` role from §4.3 is upgraded to a hard requirement, not a configuration knob.** Per user: "research using anonymized."
+
+**Updated `researcher` role definition:**
+
+```rust
+RoleGroup {
+    role_name:       "researcher",
+    permissions:     PermissionSet(PermissionSet::READ),  // no WRITE, no EXPORT, no REDACT_LIFT
+    clearance_floor: ClearanceLevel(1),                   // Restricted; never elevated
+    audit_required:  true,                                 // every access logged with k-anonymity check
+    redaction_mask:  FieldRedactionMask {
+        readable_slots: BIT_SET_DEIDENTIFIED_ONLY,   // only de-identified slots visible
+        writable_slots: BitSet256([0; 4]),            // empty — researchers never write
+        redacted_slots: BIT_SET_DIRECT_IDENTIFIERS,   // name, SSN, DOB, MRN, address — all hashed
+    },
+},
+```
+
+**Composes with `PolicyKind::DifferentialPrivacy`:** when the researcher role queries an aggregate, the optimizer chain auto-injects DP noise per the differential-privacy parameter `ε` configured at the super-domain level (`SuperDomainEntry.dp_epsilon: f32`, NEW field).
+
+**Three additive constraints for the researcher role:**
+
+1. **Field-level:** direct identifiers always hashed (k-anonymity-style pseudonymization).
+2. **Row-level:** queries over <k=5 rows error out with `RbacError::KAnonymityViolation` rather than returning thin slices.
+3. **Aggregate-level:** when the federated-aggregation gate (§13.2) is enabled, cross-tenant aggregates pass through the encrypted-view path — researcher never sees any tenant's raw values, even pseudonymized.
+
+### 13.6 Net architecture diff vs §1-§12
+
+| Aspect | §1-§12 baseline | §13 refinement |
+|---|---|---|
+| Enforcement mechanism | New 4-stage `authorize()` | Composes onto shipped `PolicyRewriter` chain in `lance-graph-callcenter::policy` |
+| Federation | A+B accepted, C deferred to 2027+ | A+B+C all accepted; C uses LanceDB transparent encrypted view |
+| Audit format | TBD (open question) | `AuditEntry` carries `MerkleRoot + ClamPath + super_domain_salt`; tamper-detection built in |
+| Cross-domain leakage | Predicate filter + per-tenant DEK | + per-super-domain merkle salt + super-domain-scoped key derivation = 3 layers |
+| Researcher role | Optional configuration | Hard requirement: anonymized projection + k-anonymity floor + DP noise on aggregates |
+| Hard-lock pairs | Not specified | Healthcare ↔ OSINT, WorkOrderBilling ↔ OSINT, Science(ITAR) ↔ OSINT |
+
+### 13.7 Updated open questions (§10 carry-over + new)
+
+- ~~**Audit format choice**~~ — RESOLVED in §13.3: `AuditEntry` shape with merkle + ClamPath + salt. JSON Lines for serialization, OTel optional bridge.
+- ~~**Cross-tenant federation**~~ — RESOLVED in §13.2: A+B+C all accepted.
+- **Hard-lock partner matrix** — confirm the initial 4 pairs in §13.4 are correct; any additional pairs (e.g., Genetics ↔ OSINT?) before locking.
+- **Per-super-domain DP epsilon defaults** — `dp_epsilon` per super domain (Healthcare = 1.0? OSINT = 0.1?) needs statistician-level review.
+- **Merkle salt rotation** — quarterly per-super-domain salt rotation for audit-chain unforgeability; aligns with DEK rotation cadence.
+- **K-anonymity floor for `researcher`** — k=5 default; per-super-domain override needed (Healthcare typically k=10 for rare-condition research).
+
+### 13.8 Tier additions
+
+- **D-SDR-13** — `merkle_salt` field on `SuperDomainEntry` + per-super-domain HKDF context derivation in `TenantContext::encryption_key`. ~80 LOC + 4 integration tests covering hard-lock crypto barrier.
+- **D-SDR-14** — `AuditEntry` updated schema (merkle + ClamPath + salt) + `JsonLinesAuditSink` impl that includes integrity verification on replay. ~120 LOC + 6 tests including post-hoc tamper detection.
+- **D-SDR-15** — `PolicyKind::DifferentialPrivacy` activation for `researcher` role: aggregate-only enforcement + ε-bounded noise injection + k-anonymity floor check. ~150 LOC + 5 tests.
+- **D-SDR-16** — `EncryptedViewAggregate` federation policy: LanceDB transparent encrypted view bridge for cross-tenant aggregate. ~200 LOC + 4 integration tests against an actual encrypted column.
+- **D-SDR-17** — Hard-lock partner matrix as static table + predicate-time enforcement in `authorize()`. ~60 LOC + 4 tests covering each documented pair.
+
+**Status:** Refinements are additive to the §1-§12 architecture. No prior DTO removed; all existing fields stay. Merkle/audit/hard-lock weave through the existing 4-stage flow as policy-rewriter composition rather than parallel paths.
