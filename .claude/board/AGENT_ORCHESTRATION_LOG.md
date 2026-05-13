@@ -1065,3 +1065,7 @@ W9 | sprint-log-5-6 | S6-W7 | 2026-05-13 | DONE | .claude/specs/pr-f1-thinking-e
 ## W4 — 2026-05-13 — sprint-5-ci-matrix spec complete
 
 **Worker:** W4 (S5-W11) | **Spec:** `.claude/specs/sprint-5-ci-matrix.md` (21 KB, 12 sections) | **Status:** DONE. Defines 6 blocking gates (GG-1 to GG-6), feature matrix FC-1 to FC-CC, hardware R-HW-1 to R-HW-4 (ndarray#142 VBMI SIGILL mitigation), coverage floors per crate, audit-sink integration job, consumer-conformance gate aligned with W12 (GG-6, `--test-threads=1`). Delta: `rust-test.yml` adds 2 jobs + coverage flag; `build.yml` adds beta toolchain advisory entry. No new workflow files.
+
+## W1 / sprint-log-5-6 / 2026-05-13
+Agent W1 delivered `.claude/specs/pr-d3a-lance-audit-sink.md` (~27 KB, 515 lines): Arrow schema (12 columns, FixedSizeBinary(3) owl_identity aligned with W2 §1.5), super_domain x date partitioning with §13.4 hard-lock justification, LanceAuditSink write path (emit/flush/checkpoint + fsync contract), cross-verify alignment with W2's three verify subcommands, failure modes (partial write / partition skew / schema migration), LOC estimate ~550, and DELTA closing anatomy-realtime-v1.md §step-8 aspirational gap.
+2026-05-13 W8 sprint-log-5-6 S6-W4: wrote .claude/specs/pr-e3-woa-rs-extract.md (~950 LOC woa-rs 3-subcrate spec: woa-rbac/woa-realtime/woa-analytics, WorkOrderBilling super-domain, SOX §404 tests, UnifiedBridge<WoaBridge> wiring, migration path from smb-office-rs customer-woa-bin)
