@@ -129,6 +129,7 @@ Both gaps are smb-ontology-side fixes, independent of OGIT TTL.
 | `SchemaExpander` trait | smb-realtime's SPO bridge (`expand_smb_entity`) uses `Ontology::expand_entity`. If SchemaExpander moves to `MappingRow`, smb-realtime adapts. |
 | `CachedOntology::new(Ontology)` legacy path | Currently retained for smb-realtime's `smb_cached_ontology()`. If deprecated, smb-realtime needs `CachedOntology::from_registry(&OntologyRegistry, namespace)`. |
 | `Policy::evaluate(role, entity, Operation)` | smb-realtime's `SmbMembraneGate` (PR #29) wraps this. Entity keys passed are the Foundry-shape names (`Customer`, `Invoice`, `TaxDeclaration`). |
+| `UnifiedBridge<B>` + `TenantId` (lance-graph PR #364 D-SDR-1..5) | smb-bridge wired `smb_unified_bridge(registry, namespace, role, tenant) -> UnifiedBridge<OgitBridge>` per smb-office-rs PR #31. Currently locked to `OgitBridge`; when a dedicated `SmbBridge` (`OGIT/NTO/SMB/` namespace) lands in `lance-graph-ontology::bridges`, the constructor type-param swaps — call sites unchanged. The new `authorize_read/write/act` path is complementary to the legacy `SmbMembraneGate`/`CachedOntology` surface; both coexist until SMB's TTL hydrates the registry. |
 | `Locale` enum additions | smb-realtime's DTO cache projects every `Locale` eagerly; growing the enum forces cache init updates. |
 | TTL hydrator (`hydrate_once_sync`) input format | Decides what OGIT TTL must carry for SMB (see Section 2 for the shape). |
 
@@ -150,6 +151,9 @@ When `OntologyRegistry::hydrate_once_sync(ttl_root)` populates the
 
 ---
 
-**Last updated:** 2026-05-12, pairs with smb-office-rs commit `611c147`.
-Update when SMB schema changes in smb-ontology or when lance-graph's
-registry projection contract shifts.
+**Last updated:** 2026-05-13, pairs with smb-office-rs main at `074ce9b`
+(PRs #29 + #30 + #31 merged: `SmbMembraneGate` + `OGIT_TTL_INVENTORY` +
+`UnifiedBridge<OgitBridge>` wiring) and lance-graph main at `da156eb`
+(PR #364 D-SDR-1..5 super-domain + UnifiedBridge surface). Update when
+SMB schema changes in smb-ontology or when lance-graph's registry
+projection contract shifts.
