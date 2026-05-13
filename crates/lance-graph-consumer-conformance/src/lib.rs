@@ -70,7 +70,7 @@ mod tests {
         public_name: "Patient",
         canonical_name: "Patient", // ogit.Healthcare:Patient -> local = "Patient"
         super_domain: SuperDomain::Healthcare,
-        role_that_can_read: "doctor",
+        role_that_can_read: "physician",  // OQ-3 direct migration consumed by MedCare-rs#119
         is_active: true,
     };
 
