@@ -91,6 +91,34 @@ Agents filter by `@`-mention or domain to see what's theirs.
 
 Earlier this session conflated EWA-Sandwich with a Gaussian-splat anatomical renderer. Per user 2026-05-13 follow-up + source confirmation: EWA-Sandwich is **Pillar 6** of the JC pillars framework — Σ push-forward `M·Σ·Mᵀ` for multi-hop edge propagation in the SPD cone. Already implemented at `crates/jc/src/ewa_sandwich.rs` (450 LOC) + `crates/lance-graph-contract/src/sigma_propagation.rs` (488 LOC) + `crates/jc/examples/osint_edge_traversal.rs` + `crates/jc/examples/splat_perturbationslernen.rs`. Not a new idea — an existing certified pillar. See EPIPHANIES 2026-05-13 CORRECTION-OF entry.
 
+## 2026-05-13 — Sci-fi presentation vision: transparent holographic human-body projection for q2 (Tony Stark / Star Trek sickbay aesthetic) — emerges naturally from the unified Σ-push-forward kernel
+
+The sci-fi UX target for the FMA heart-click demo: a transparent, glowing, layered holographic projection of the human body the user can rotate, peel, and probe. **The technical substrate already produces this look** without a separate volumetric renderer — the unified Gaussian-splat + EWA-Sandwich kernel (see EPIPHANIES 2026-05-13 unification entry) gives every component for free:
+
+| Sci-fi property | Substrate that delivers it |
+|---|---|
+| Soft glow, semi-transparency | Per-node 3D Gaussian splat → EWA projection has built-in alpha falloff (no separate transparency shader) |
+| Volumetric / cloud-like body | Additive blending of 75K splats in frag shader (`ndarray::hpc::renderer` front-buffer → q2 WebGPU) |
+| Pulsing scan wave on heart-click | Pillar 6 Σ push-forward along anatomy edges; readout = per-node Σ-displacement; render as bloom intensity |
+| Peelable layers (skeletal / cardiovascular / nervous) | `SuperDomain::Healthcare` family slice filter on the SPO subset feeding the render frame |
+| Real-time rotation, 60fps | Already canonical (`cached_splat(DT_60)`, double-buffer atomic swap) |
+| Click-to-probe with audible feedback | UnifiedBridge<MedcareBridge> auth + audit chain (W11 spec) + thinking-engine intent classification (W6 spec) → q2 surfaces SPO neighbors + drug-knowledge crosswalk |
+| Cyan/teal Stark palette | q2 frontend concern (CSS / shader uniform); no backend impact |
+
+**What's actually new versus what's wiring:**
+- **NEW (small):** q2 frontend shader — additive Gaussian-splat fragment shader with bloom + cyan palette; ~200 LOC of WGSL/GLSL
+- **NEW (small):** FMA → RenderFrame seeder that picks initial 3D positions from anatomical "canonical pose" (one-shot offline job; head up, arms out, T-pose; ~300 LOC)
+- **NEW (tiny):** edge highlight protocol — when Pillar 6 propagates Σ outward from heart, the per-node Σ-displacement is written to a `highlight: Vec<f32>` SoA column in RenderFrame; shader reads it as bloom intensity
+- **WIRING ONLY:** ndarray::hpc::renderer (exists), Pillar 6 EWA-Sandwich (exists), UnifiedBridge auth (exists post D-SDR-5), MedcareBridge specialisation (W4 sprint-4 spec), thinking-engine intent (W6 sprint-4 spec), drug-knowledge crosswalk (MedCare-rs 2026-05-05 release)
+
+**Sprint-5 candidate PRs (in order):**
+1. FMA canonical-pose seeder → `RenderFrame` (lance-graph or new fma-render crate)
+2. `highlight: Vec<f32>` column addition to RenderFrame + Σ-displacement write-back from Pillar 6 (ndarray)
+3. q2 frontend Gaussian-splat shader (additive blending, bloom, cyan palette)
+4. Heart-click integration test: click → Cypher → SPO neighbors → Pillar 6 Σ propagation → highlight column update → next render frame shows pulse wave
+
+Open: (a) per-system layer toggle (skeletal/cardiovascular/etc) ergonomics in q2 cockpit; (b) audio cue layer — Web Audio API triggered on highlight peak? (c) hover-vs-click semantics — hover preview should be free since renderer streams 60fps anyway.
+
 ## 2026-05-13 — CORRECTION-OF the just-above 3DGS-prerender row: ndarray ALREADY ships the 60fps SIMD double-buffer renderer (`ndarray::hpc::renderer`) — no prerender needed for FMA heart-click
 
 Per user-supplied source pointer to `ndarray/src/hpc/renderer.rs:1` ("SIMD-accelerated double-buffer renderer for SPO graph visualization … hardware-acceleration mothership for q2 cockpit / Palantir Gotham / Neo4j-style visual rendering"). Front/back LazyLock<RwLock<RenderFrame>> swap via AtomicUsize, F32x16::mul_add force integration, `cached_splat(DT_60)` canonical-tick optimization, SoA layout (positions+velocities+charges+fingerprints). Sprint-5 FMA pickup: seed `RenderFrame` from FMA SPO triples (positions from layout algorithm; fingerprints from VSA encoding); run force-directed integration at 60fps; q2 reads `front` buffer via REST/SSE; heart-click = Cypher → SPO neighbor query → frame update. The Tier-3 prerender escape hatch is DEFERRED — only worth doing if 75K-entity live integration is measured to fail. See EPIPHANIES 2026-05-13 ndarray-renderer FINDING entry.
