@@ -357,7 +357,15 @@ fn parse_gguf_header<R: Read + Seek>(r: &mut R) -> Result<GgufHeader, String> {
     let pos = r.stream_position().map_err(|e| e.to_string())?;
     Ok(GgufHeader {
         tensors,
-        data_offset: (pos + 31).div_ceil(32),
+        // data_offset is the BYTE OFFSET of the tensor payload, rounded
+        // up to a 32-byte boundary. `pos.div_ceil(32) * 32` matches the
+        // GGUF spec (align-32) and the parallel parsers in
+        // gguf_euler_fold.rs / gguf_families.rs / gamma_phi_gguf.rs.
+        // (chatgpt-codex catch on PR #367: the earlier `(pos + 31).div_ceil(32)`
+        // dropped the `* 32` byte-scaling — that returned the 32-byte
+        // block COUNT, off by a factor of 32, causing tensor reads to
+        // seek into the header.)
+        data_offset: pos.div_ceil(32) * 32,
     })
 }
 
