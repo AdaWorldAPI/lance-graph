@@ -150,3 +150,15 @@ pub use super_domain::{
     super_domain_entry, super_domain_for_family, ComplianceRegime, DolceMarker, MetaAnchors,
     SuperDomain, SuperDomainEntry, SUPER_DOMAINS,
 };
+
+// D-SDR-3 (super-domain-rbac-tenancy-v1 §3.3) — per-family codebook table.
+// Each OGIT basin carries a 256-slot dense `OgitFamilyTable` indexed by
+// `OwlIdentity::slot()`; each occupied slot holds `FamilyEntry` (label
+// URI + SchemaKind + OwlCharacteristics + DolceMarker + axiom_blob +
+// provenance + outgoing verbs) INLINE. No sidecar, no join — one
+// cache-line per slot. Hot-path lookup is O(1) array index
+// (sub-microsecond). Bake-time population from TTL hydration is D-SDR-3b.
+pub mod family_table;
+pub use family_table::{
+    FamilyEntry, OgitFamilyTable, OwlCharacteristics, PerFamilyCodebook, SchemaKind,
+};
