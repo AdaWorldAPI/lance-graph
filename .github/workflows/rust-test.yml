@@ -1,0 +1,118 @@
+name: Rust Tests
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    paths:
+      - crates/**
+      - Cargo.toml
+      - Cargo.lock
+      - .github/workflows/rust-test.yml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-C debuginfo=1 -C target-cpu=x86-64-v3"
+  RUST_BACKTRACE: "1"
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: lance-graph
+    strategy:
+      matrix:
+        toolchain:
+          - stable
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: lance-graph
+      - name: Checkout AdaWorldAPI/ndarray (sibling dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: AdaWorldAPI/ndarray
+          # ndarray master now exports wht_f32, kmeans, squared_l2,
+          # dequantize_i8_to_f32, quantize_f32_to_i2, dequantize_i2_to_f32
+          # publicly (ndarray PR #115, merged 2026-04-30). Pin retired.
+          path: ndarray
+      - name: Setup rust toolchain
+        run: |
+          rustup toolchain install ${{ matrix.toolchain }}
+          rustup default ${{ matrix.toolchain }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "lance-graph-deps"
+          workspaces: |
+            lance-graph/crates/lance-graph
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y protobuf-compiler
+      - name: Build tests
+        run: cargo test --manifest-path crates/lance-graph/Cargo.toml --no-run
+      - name: Run unit tests
+        run: cargo test --manifest-path crates/lance-graph/Cargo.toml --lib
+      - name: Run doc tests
+        run: cargo test --manifest-path crates/lance-graph/Cargo.toml --doc
+      # lance-graph-contract is the zero-dep trait crate every workspace
+      # consumer (planner, callcenter, shader-driver, ...) depends on.
+      # Its clippy gate (style.yml) catches type errors but does NOT
+      # execute tests, so a logically-broken assertion can ship green —
+      # PR #322's `log_norm_growth_negative_when_m_attenuates` slipped
+      # through exactly this way and was caught only after merge.
+      # Adding the test gate here closes that hole. Cost is minimal:
+      # zero-dep crate, ~1 s build + <1 s test execution, reuses the
+      # already-installed toolchain and Swatinem cache from above.
+      - name: Run contract unit tests
+        run: cargo test --manifest-path crates/lance-graph-contract/Cargo.toml --lib
+
+  test-with-coverage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: lance-graph
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: lance-graph
+      - name: Checkout AdaWorldAPI/ndarray (sibling dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: AdaWorldAPI/ndarray
+          # ndarray master now exports wht_f32, kmeans, squared_l2,
+          # dequantize_i8_to_f32, quantize_f32_to_i2, dequantize_i2_to_f32
+          # publicly (ndarray PR #115, merged 2026-04-30). Pin retired.
+          path: ndarray
+      - name: Setup rust toolchain
+        run: |
+          rustup toolchain install stable
+          rustup default stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "lance-graph-deps"
+          workspaces: |
+            lance-graph/crates/lance-graph
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y protobuf-compiler
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Run tests with coverage
+        run: |
+          cargo llvm-cov --manifest-path crates/lance-graph/Cargo.toml --lcov --output-path lcov.info
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: lcov.info
+          flags: rust-unittests
+          fail_ci_if_error: false

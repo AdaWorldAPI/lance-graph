@@ -1,0 +1,49 @@
+[package]
+name = "thinking-engine"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.94"
+license = "Apache-2.0"
+publish = false
+description = """
+16M RISC Thought Engine: 4096² distance table + MatVec cycle = thought.
+
+Models are sensors. The matrix is the brain. DTOs are the bus.
+One MatVec per cycle. 10 cycles per thought. ~7 ms on CPU.
+"""
+
+[dependencies]
+ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
+bgz-tensor = { path = "../bgz-tensor" }
+highheelbgz = { path = "../highheelbgz" }
+tokenizers = { version = "0.22", optional = true, features = ["http"] }
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+
+# Calibration: candle for forward pass ground truth + SiLU training
+candle-core = { version = "0.9", optional = true }
+candle-nn = { version = "0.9", optional = true }
+candle-transformers = { version = "0.9", optional = true }
+hf-hub = { version = "0.4", optional = true }
+
+[features]
+default = ["tokenizer"]
+tokenizer = ["dep:tokenizers"]
+calibration = ["dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:hf-hub", "tokenizer"]
+# Lab / R&D probes — experimental codec candidates. Must not ship in main.
+lab = ["bgz-tensor/lab"]
+
+[dev-dependencies]
+rayon = "1.10"
+tokenizers = { version = "0.22", features = ["http"] }
+safetensors = "0.4"
+half = "2.4"
+# bgz17 is the local workspace crate that holds the RaBitQ-compat
+# binary quantization used by the family-codebook bake examples.
+# Path dep per the workspace "Zero EXTERNAL (crates.io) dependencies"
+# rule — internal crates are free to cross-link.
+bgz17 = { path = "../bgz17" }
+
+# [patch.crates-io]
+# tokenizers = { path = "../../../tokenizers/tokenizers" }
+# NOTE: commented out — requires local tokenizers clone. Uncomment when available.

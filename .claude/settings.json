@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Edit(**/*.md)",
+      "Edit(**/*.rs)",
+      "Edit(**/*.toml)",
+      "Write(**/*.md)",
+      "Write(**/*.rs)",
+      "Write(**/*.toml)",
+      "Bash(tee -a:*)",
+      "Bash(tee -a .claude/board/:*)",
+      "Bash(tee -a .claude/knowledge/:*)",
+      "Bash(tee -a .claude/handovers/:*)",
+      "Bash(tee -a .claude/plans/:*)",
+      "Bash(tee -a .claude/agents/:*)",
+      "Bash(tee -a .claude/skills/:*)",
+      "Bash(tee -a .claude/prompts/:*)",
+      "Bash(tee -a .claude/board/AGENT_LOG.md:*)",
+      "Bash(cat >> .claude/board/:*)",
+      "Bash(cat >> .claude/knowledge/:*)",
+      "Bash(cat >> .claude/handovers/:*)",
+      "Bash(cat >> .claude/plans/:*)",
+      "Bash(cat >> .claude/agents/:*)",
+      "Bash(cat >> .claude/skills/:*)",
+      "Bash(cat >> .claude/prompts/:*)",
+      "Bash(cat >>:*)",
+      "Bash(cat >> .claude/board/AGENT_LOG.md:*)",
+      "Bash(git push -u origin:*)",
+      "Bash(git fetch origin:*)",
+      "Bash(git pull origin:*)",
+      "Bash(git checkout:*)",
+      "Bash(git checkout -b:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git status:*)",
+      "Bash(git branch:*)",
+      "Bash(cargo test:*)",
+      "Bash(cargo check:*)",
+      "Bash(cargo run:*)",
+      "Bash(ls:*)",
+      "Bash(wc:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "mcp__github__create_pull_request"
+    ],
+    "ask": [],
+    "deny": [
+      "Edit(CLAUDE.md)",
+      "Edit(**/CLAUDE.md)",
+      "Write(CLAUDE.md)",
+      "Write(**/CLAUDE.md)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push --force-with-lease:*)",
+      "Bash(git branch -D:*)",
+      "Bash(git branch --delete:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(rm:*)",
+      "Bash(rm -rf:*)",
+      "Bash(rm -fr:*)",
+      "Bash(git rm:*)",
+      "Bash(find:* -delete:*)",
+      "Bash(find:* -exec rm:*)",
+      "Bash(> .claude/board/:*)",
+      "Bash(> .claude/knowledge/:*)",
+      "Bash(echo > .claude/board/:*)",
+      "Bash(echo > .claude/knowledge/:*)",
+      "mcp__github__merge_pull_request",
+      "mcp__github__delete_file",
+      "mcp__github__enable_pr_auto_merge",
+      "mcp__github__fork_repository",
+      "mcp__github__create_repository"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/session-start.sh"
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/post-compact.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,4 @@
+*.gguf
+*.safetensors
+config.json
+tokenizer.json

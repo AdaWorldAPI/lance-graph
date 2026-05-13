@@ -1,0 +1,22 @@
+# Phase 0 baseline — single candidate with defaults.
+# Reproduces PR #220's setup (6 subspaces × 256 centroids × identity rotation)
+# for regression testing. Expected: ICC ≈ 0.195 mean when D2.2 lands real
+# decode-and-compare; Phase 0 stub returns top1_rate = 0.0 + stub:true.
+name: pr220_baseline
+tensor_path: models/qwen3-tts-0.6b/q_proj.safetensors
+grid:
+  subspaces: [6]
+  centroids: [256]
+  residual_depths: [0]
+  rotations:
+    - { kind: identity }
+  distances: [AdcU8]
+  lane_widths: [F32x16]
+  residual_centroids: 256
+  calibration_rows: 2048
+  measurement_rows: 512
+  seed: 42
+measure:
+  - reconstruction_icc_held_out
+  - token_agreement_top1
+label: "pr220 baseline regression"
