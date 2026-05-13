@@ -200,7 +200,9 @@ q2::notebook-query
 
 ### EWA-Sandwich edge propagation
 
-EWA = Efficient Weighted Adjacency. The Heart subgraph is traversed via:
+**CORRECTION (post-sprint-write):** EWA = Elliptical Weighted Average (Heckbert), not "Efficient Weighted Adjacency". EWA-Sandwich is **Pillar 6** of the JC pillars framework — Σ push-forward `M·Σ·Mᵀ` along multi-hop edge paths certifying PSD-preservation + Köstenberger-Stark concentration rate. Already implemented at `crates/jc/src/ewa_sandwich.rs` (450 LOC) + `crates/lance-graph-contract/src/sigma_propagation.rs` (488 LOC). See `.claude/plans/jc-pillars-runtime-wiring-v1.md` + ERRATUM, and `crates/jc/examples/osint_edge_traversal.rs` for the canonical OSINT-route demo. PR #288 (Σ-codebook viability, R² = 0.9949) certifies the 256-entry codebook + 1-byte sidecar (rules out CausalEdge64 8→16 expansion).
+
+The Heart subgraph is traversed via:
 
 1. `graph/spo/` SPO triple store -- exact triple lookups for `PART_OF` / `ARTERIAL_SUPPLY` edges.
 2. `graph/blasgraph/` -- sparse CSR adjacency matrix for k-hop neighborhood expansion (up to 2 hops per Cypher `*1..2` pattern).

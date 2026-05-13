@@ -87,9 +87,13 @@ Agents filter by `@`-mention or domain to see what's theirs.
 
 (Prepend new ideas here with today's date. Format:)
 
-## 2026-05-13 — Gaussian-splat prerender + EWA-Sandwich + stream as Tier-3 FMA render path (Amiga-demoscene escape hatch)
+## 2026-05-13 — CORRECTION-OF previous same-day splat row: split into two distinct ideas (arch + render)
 
-Source: user prompt 2026-05-13. Prerender 900–18,000 camera-fly-through frames of the 75K-entity FMA anatomy as a 3D-Gaussian-Splat scene; stream from buffer to q2; EWA-Sandwich (Heckbert prefilter→splat→postfilter) for anti-aliased composition. Heart-click becomes seek-in-buffer, not live render. SPO graph still drives semantics + audit. Likely crate location: new `crates/lance-graph-splat-buffer/` or extension of an existing render crate; SIMD splat projection via ndarray. Cross-ref EPIPHANIES 2026-05-13 splat-conjecture entry + W11 FMA spec (Tier-3 appendix). Open: 3DGS vs surfels vs point-cloud; prerender job ownership; buffer format (.splat/.ply/Arrow); EWA-Sandwich crate home.
+Earlier this session conflated EWA-Sandwich with a Gaussian-splat anatomical renderer. Per user 2026-05-13 follow-up + source confirmation: EWA-Sandwich is **Pillar 6** of the JC pillars framework — Σ push-forward `M·Σ·Mᵀ` for multi-hop edge propagation in the SPD cone. Already implemented at `crates/jc/src/ewa_sandwich.rs` (450 LOC) + `crates/lance-graph-contract/src/sigma_propagation.rs` (488 LOC) + `crates/jc/examples/osint_edge_traversal.rs` + `crates/jc/examples/splat_perturbationslernen.rs`. Not a new idea — an existing certified pillar. See EPIPHANIES 2026-05-13 CORRECTION-OF entry.
+
+## 2026-05-13 — Separate-and-orthogonal: 3D Gaussian-Splat prerender buffer as Tier-3 FMA render path for q2 (Amiga-demoscene escape hatch)
+
+Distinct from EWA-Sandwich (which is graph covariance math, see correction above). Prerender 900–18,000 camera-fly-through frames of the 75K-entity FMA anatomy as a 3DGS scene; stream from buffer to q2; heart-click = seek-in-buffer, not live 75K-entity render. SPO graph still drives click semantics + audit + drug-knowledge crosswalk; splat buffer is the visual layer only. Open: 3DGS vs surfels vs point-cloud; prerender job ownership (CI nightly vs one-shot); buffer format (.splat/.ply/Arrow temporal codec); crate home — probably new `crates/lance-graph-render-buffer/` rather than reusing `jc` since the math overlap is only the kernel name.
 
 ## 2026-05-13 — Super-domain subcrate scaffolding cascade: finalize MedCare migration → smb-bridge retrofit → woa-rs extraction → hiro-rs / hubspot-rs new
 

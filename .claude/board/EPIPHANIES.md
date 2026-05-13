@@ -65,6 +65,38 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-05-13 — CORRECTION-OF earlier same-day splat-conjecture: EWA-Sandwich is Pillar 6 (Σ push-forward `M·Σ·Mᵀ` for multi-hop edge propagation), NOT a Gaussian-splat renderer
+
+**Status:** FINDING (confirmed in source — `crates/jc/src/ewa_sandwich.rs`, `crates/lance-graph-contract/src/sigma_propagation.rs`, plans `.claude/plans/jc-pillars-runtime-wiring-v1.md` + ERRATUM)
+
+Earlier today (entry below) I conjectured EWA-Sandwich was Heckbert's classical Elliptical Weighted Average splat filter applied to anatomical 3D rendering. **Wrong.** In this workspace EWA-Sandwich is the **mathematical backbone of multi-hop covariance propagation in graph edge paths**, certifying that arbitrary-depth traversal stays in the SPD cone.
+
+The math:
+```
+Σ_n = M_n · M_{n-1} · ... · M_1 · Σ_0 · M_1ᵀ · ... · M_{n-1}ᵀ · M_nᵀ
+```
+where `M_k = sqrt(Σ_k)` is the step-Jacobian of the k-th edge. Same kernel as Heckbert (`Σ' = J·Σ·Jᵀ`), different role.
+
+**Pillar 6 in the JC framework certifies two things simultaneously:**
+1. **PSD-preservation:** Σ_n stays SPD for all n (proven 10,000/10,000 hops in the probe)
+2. **Convergence rate:** `‖log(Σ_n) − E[log(Σ_n)]‖_F^2` concentrates at Köstenberger-Stark rate (CV tightness 1.467×) — meaning the path itself shapes propagation instead of every hop adding noise
+
+**Why this matters:**
+- Plain Gaussian convolution gives O(n) error growth — Σ_n's variance scales with path length, signal lost by depth >5
+- EWA-Sandwich gives **bounded** Σ_n with geometric error control iff M_k contractive
+- This makes multi-hop graph queries meaningful at any depth — the "can't-stop-thinking loop" has mathematical ground under it
+
+**Architectural composition (full pillar stack):**
+- Pillar 5 (Jirak 2016) — scalar Berry-Esseen under weak dependence
+- Pillar 5+ (Köstenberger-Stark) — Σ-tensor concentration
+- Pillar 5++ (DZ) — Hilbert-space extension
+- **Pillar 6 (EWA-Sandwich)** — multi-hop SPD propagation
+- Pillar 7 (α-saturation) — settling criterion for the "Perturbationslernen" probe (query as perturbation injected into the spatial field; EWA-Sandwich propagates Σ outward; rows crossing α-saturation are the found context)
+
+**Plus PR #288** (Σ-codebook viability probe, R² = 0.9949) ruled out the CausalEdge64 8→16 byte expansion that would have halved the HighHeelBGZ 240-edge container limit. The 256-entry codebook with 1-byte sidecar is sufficient.
+
+Cross-ref: `crates/jc/examples/osint_edge_traversal.rs` (canonical OSINT-route demo using Pillar 6), `crates/jc/examples/splat_perturbationslernen.rs` (the "splat" of the perturbation-learning probe — covariance-ellipsoid displacement, NOT 3D rendering), `IDEAS.md` 2026-05-13 splat entry (now corrected — split into two distinct ideas: the Pillar 6 architectural fact, and the separate-and-orthogonal q2-3D-render speculation).
+
 ## 2026-05-13 — CONJECTURE: Gaussian-splat prerendered buffer is the Amiga-demoscene escape hatch for hydrating the 75K-entity FMA anatomy into q2's 3D view
 
 **Status:** CONJECTURE (not yet wired; no prior art found in lance-graph / ndarray / q2 grep for `gaussian|splat|prerender|demoscene|amiga`)
