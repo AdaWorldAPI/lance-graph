@@ -1,9 +1,12 @@
 [toolchain]
 channel = "1.95.0"
-# Pinned to 1.94.1 (latest 1.94 patch, 2026-03-25). 1.95 turned several
-# previously-safe patterns into denied lints (e.g. unnecessary_sort_by)
-# without sufficient value to justify the churn — bump explicitly when
-# a future version is reviewed, never auto-track stable.
+# Pinned to 1.95.0 (bumped from 1.94.1 in PR #367, 2026-05-13). Aligns
+# with bevy (edition 2024 → 1.95 MSRV) and ndarray (bumped in parallel
+# per LATEST_STATE 2026-05-13). 1.95 added clippy lints
+# (`clippy::manual_checked_ops`, `clippy::unnecessary_sort_by`,
+# `clippy::len_zero` cleanups) that PR #367 + #368 closed across the
+# workspace. Never auto-track `stable` — bump explicitly when a future
+# version is reviewed and workspace clippy passes clean.
 #
 # rustfmt + clippy are mandatory CI components and must be present
 # whenever the pinned channel is installed. Without this, `cargo fmt`
