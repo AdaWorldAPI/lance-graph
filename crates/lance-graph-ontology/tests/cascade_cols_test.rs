@@ -86,5 +86,11 @@ fn link_and_entity_type_id_resolution() {
         .enumerate_first_with_entity_type_id(h.schema_ptr.entity_type_id())
         .unwrap();
     assert_eq!(resolved.public_name, "Patient");
-    assert_eq!(resolved.ontology_context_id(), 0);
+    // Healthcare is seeded to ontology_context_id = 2 in
+    // NamespaceRegistry::seed_defaults() — the Codex P1 fix in PR #364
+    // makes RegistryState::append stamp the seeded id onto SchemaPtr so
+    // the MulThresholdProfile MEDICAL/CALLCENTER lookup at
+    // driver.rs:303-321 actually fires for Healthcare rows. The
+    // previous `== 0` was written before that fix landed.
+    assert_eq!(resolved.ontology_context_id(), 2);
 }
