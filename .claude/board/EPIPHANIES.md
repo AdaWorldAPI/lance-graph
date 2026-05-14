@@ -65,6 +65,54 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-05-14 — E-CE64-MB-1..10: CausalEdge64-mailbox + sparse-rename composition (10 epiphanies)
+
+10 epiphanies from the recursive-fresh-eyes architectural pass culminating in `.claude/plans/causaledge64-mailbox-rename-soa-v1.md`. Branch: `claude/resolve-pr-369-conflicts-ozMXd`. PR #370 in flight. Each epiphany is composition, not invention — every piece had existing plan/spec authoring before this session.
+
+### E-CE64-MB-1 — Universal sparse-rename pattern (CPU-shaped, load-bearing)
+
+Every architectural identity (G = OGIT domain, W = witness palette, style = ThinkingStyle/cognitive primitive/verb, truth = qualia band) renames to a hot-path slot via per-session-ephemeral `AttentionMask` SoA. Cold form lives unbounded in AriGraph / OGIT / contract. Physical form is 2-8 bit slot in CausalEdge64. **Per-session different rename tables = per-session different focus-of-attention.** Same 5-bit G means different domains in different sessions because the rename table differs. Same pattern as CPU register renaming, SSA register allocation, and TLB virtual-to-physical mapping. Closes a class of "type duplication" debt by collapsing 4 TrustTexture copies + 4 ThinkingStyle copies into one canonical field with documented projection lenses. Cross-ref: `.claude/plans/causaledge64-mailbox-rename-soa-v1.md` §2.
+
+### E-CE64-MB-2 — Role-as-mailbox retires Vsa16kF32 as universal carrier
+
+The 47 `LazyLock<RoleKey>` slice catalogue allocations across Vsa16kF32 (~3 MB if all materialized) collapse to 47 typed mailbox kinds (~50 KB). `vsa_bind(role_key, content)` becomes `mailbox::dispatch(content)` — a method call into the role-typed compartment. `vsa_bundle` (Σ across role keys) becomes witness aggregation in AriGraph. `vsa_permute` (positional braiding) becomes the mailbox's `TemporalWindow` lifecycle. Slice geometry (SUBJECT[0..4K) / PREDICATE[4K..8K) / etc.) becomes mailbox identity — no need for 16K float slots when 47 typed mailbox kinds suffice. **Vsa16kF32 retreats to its honest role: single-cycle Markov-bundle carrier for grammar parsing role-binding, dropped at cycle end.** No cumulative state in Vsa16kF32 anywhere. Cumulative state lives in AriGraph SPO-G quads + EdgeColumn CausalEdge64 emissions. Strengthens I-VSA-IDENTITIES iron rule. Cross-ref: §9 E-CE64-MB-2.
+
+### E-CE64-MB-3 — Christmas-tree AriGraph decoration via SPO-G + ghost edges
+
+Compartment epiphanies emit directly to AriGraph as SPO-G quads (G = OGIT domain pointer). Unresolved hole-forms from SPOW tetrahedron emit as ghost edges at Pearl rung 3 (counterfactual) or rung 7 (full-cf). Ghosts hibernate in AriGraph until evidence arrives. **AriGraph IS the long-term memory; the rename table is the working memory.** Eviction-from-working-memory ≠ deletion-from-long-term-memory. The mind always decorates; the tree never resets. New evidence on an evicted domain rebinds a fresh slot, potentially re-evicting another, and the ghost edges in AriGraph immediately reactivate as candidate hole-fills. Cross-ref: `oxigraph-arigraph-cognitive-shader-soa-merge-v1.md` §8 SPOW tetrahedron + §9 Gaussian splat hole-board.
+
+### E-CE64-MB-4 — Ownership-typed compartments make UB a compile error
+
+Each MailboxSoA row owns its delta buffer; BindSpace columns are `Arc`-shared with `BindSpaceView<'_>` zero-copy borrows and CollapseGate as single point of mutation. Cross-compartment communication can only flow as CausalEdge64 emissions (Copy, 8 bytes). The borrow checker **rejects** any code that tries to alias mutable BindSpace columns across compartments. **Race conditions at 200ns cycle speed become compile errors, not runtime bugs.** This is the same property Erlang's "share nothing" actors give you, but enforced statically by Rust's type system rather than dynamically by the runtime.
+
+### E-CE64-MB-5 — Particle/wave duality in Rust semantics (not metaphor)
+
+Particle = the owned compartment row in MailboxSoA (discrete, type-safe, Drop-managed lifecycle bounded by `TemporalWindow`). Wave = the CausalEdge64 emission rippling through EdgeColumn (BindSpace Column D) and decorating AriGraph SPO-G quads (continuous influence, non-local, no shared mutable state across compartments). **Both fall out of the same single rule: compartments own, AriGraph aggregates, CausalEdge64 crosses.** Not a metaphor — a structural property of the type system. The mailbox is a particle because the borrow checker forces it; the witness is a wave because AriGraph SPO-G quads + ghost edges make non-local influence the only cross-compartment path.
+
+### E-CE64-MB-6 — The gRPC service shape IS the ractor message protocol
+
+`crates/cognitive-shader-driver/src/grpc.rs` (LAB-ONLY behind `--features grpc`) defines `Dispatch(DispatchRequest) -> CrystalResponse` over tonic. **That IS the ractor mailbox handler shape.** Same Request/Response pair, same typed payload (`ShaderDispatch` + `CrystalResponse`), same no-shared-state contract. The transport varies: tonic gRPC (Zone-3 boundary), InMemoryMailbox via par-tile (cycle-speed Zone-1), TokioMailbox via existing `CallcenterSupervisor` (Zone-2 µs-ms), SupabaseSubMailbox (Zone-3 egress wrapper). **One protocol, four backings, transport-agnostic.** Reuse, don't invent. The lab-only gRPC service becomes the production ractor protocol simply by adding non-gRPC backings.
+
+### E-CE64-MB-7 — Truth qualia is 2 bits with 4 consumer lenses
+
+`TrustTexture` (Crystalline/Solid/Fuzzy/Murky-or-Dissonant), Wisdom markers, Staunen depth, MUL `GateDecision` (Proceed/Sandbox/Compass) are **four consumer-lens projections of the same 2-bit physical field**. Same byte position in CausalEdge64. Same architectural identity in `lance-graph-contract::mul::TrustTexture`. Different semantic vocabulary per consumer. Consolidates 4 type duplications into one canonical field with documented projection rules. Cross-ref: `.claude/plans/causaledge64-mailbox-rename-soa-v1.md` §2 lens table.
+
+### E-CE64-MB-8 — Σ10 Rubicon dispatching IS the substrate-tier router
+
+The named Σ1-Σ10 tier doctrine from `linguistic-epiphanies-2026-04-19.md` E21 (10 tiers × edge-type STATIC/EMERGENT/TWIG/EPIPHANY × Pearl rung 1-5 × theta repair/growth) finally gets a runtime dispatcher: `SigmaTierRouter` maps incoming compartment-spawn requests to the correct mailbox backing by tier band. Σ1-Σ5 STATIC reflexes → TokioMailbox (Zone 2). Σ6 EMERGENT + Σ7-Σ8 TWIG branching → InMemoryMailbox (Zone 1 cycle-speed). Σ9-Σ10 EPIPHANY → escalate to L4 `lance-graph-planner` strategy registry. **Wires what was previously documented-but-unwired.**
+
+### E-CE64-MB-9 — JIT pipeline closes Gap 3 from THINKING_ORCHESTRATION_WIRING
+
+The "FieldModulation → ScanParams → JitTemplate → Cranelift → KernelHandle" pipeline that exists across 3 repos but was never executed end-to-end: compartment-spawn IS the call site. Spawn message includes style-slot index; AttentionMask resolves to architectural ThinkingStyle; if `KernelHandle` cached, dispatch immediately; if not, JIT-compile via `crates/lance-graph-planner/src/strategy/jit_compile.rs` from YAML descriptor and cache. **End-to-end finally fires.** Gap 1 (Contract Not Consumed) also closes because the 8-bit style slot rename collapses the 12 vs 36 ThinkingStyle copies into one canonical form.
+
+### E-CE64-MB-10 — Plasticity emerges naturally from MailboxSoA columns
+
+Every successful emission increments `plasticity_counters[(role, G)]` co-occurrence bit-counter on the MailboxSoA. Spawn priors next cycle bias toward high-count pairings — Hebbian "fired together wired together." Counterfactual ghosts emit at low-counter slots (synaptic pruning). Pruning triggers (thinking-budget-exhausted, outcome-sufficient, XOR-cancel-with-sibling) fire from existing elevation `should_elevate()` + MUL `GateDecision::Proceed` + CollapseGate XOR-zero. **No new mechanism — just SoA columns + LRU on AttentionMask + bit-counter increment on emission + existing elevation/MUL/CollapseGate composed.** Two clocks naturally separated: fast (per-emission bit-counter) + slow (NARS truth-revise at AriGraph commit).
+
+**Composition gate**: all 10 epiphanies above are realized by the 7-PR composition in `.claude/plans/causaledge64-mailbox-rename-soa-v1.md` §7. None require new architectural authoring — every piece had a named plan or spec before this session. The work is sequencing + the `par-tile` crate apex + the Σ-tier dispatcher.
+
+---
+
 ## 2026-05-13 — DECISION: sprint-7 meta OQ-7-2 + OQ-7-3 resolved — AuditSink trait unification
 
 Post-sprint-7 implementation, Opus meta surfaced a critical cross-impl risk (CC-7-1) and two open questions blocking the sprint-7 PR open:
