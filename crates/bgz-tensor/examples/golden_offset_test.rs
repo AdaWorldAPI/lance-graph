@@ -223,7 +223,7 @@ fn main() {
 /// A: Current i16 path — integer stride, FP_SCALE=256
 fn project_i16_integer_stride(weights: &[f32], stride: usize, offset: usize) -> [i16; BASE_DIM] {
     let n = weights.len();
-    let n_oct = (n + BASE_DIM - 1) / BASE_DIM;
+    let n_oct = n.div_ceil(BASE_DIM);
     let mut sum = [0.0f64; BASE_DIM];
     let mut count = [0u32; BASE_DIM];
     for oct in 0..n_oct {
@@ -250,7 +250,7 @@ fn project_i16_integer_stride(weights: &[f32], stride: usize, offset: usize) -> 
 /// B: i32 with integer stride — more precision, same grid
 fn project_i32_integer_stride(weights: &[f32], stride: usize, offset: usize) -> [i32; BASE_DIM] {
     let n = weights.len();
-    let n_oct = (n + BASE_DIM - 1) / BASE_DIM;
+    let n_oct = n.div_ceil(BASE_DIM);
     let mut sum = [0.0f64; BASE_DIM];
     let mut count = [0u32; BASE_DIM];
     for oct in 0..n_oct {
@@ -277,7 +277,7 @@ fn project_i32_integer_stride(weights: &[f32], stride: usize, offset: usize) -> 
 /// C/D/E/H: i32 with actual φ fractional stepping + variable offset
 fn project_i32_phi_fractional(weights: &[f32], offset: usize) -> [i32; BASE_DIM] {
     let n = weights.len();
-    let n_oct = (n + BASE_DIM - 1) / BASE_DIM;
+    let n_oct = n.div_ceil(BASE_DIM);
     let mut sum = [0.0f64; BASE_DIM];
     let mut count = [0u32; BASE_DIM];
     for oct in 0..n_oct {
@@ -306,7 +306,7 @@ fn project_i32_phi_fractional(weights: &[f32], offset: usize) -> [i32; BASE_DIM]
 /// F/G: i32 with φ fractional + offset + skip (sparse sampling)
 fn project_i32_phi_skip(weights: &[f32], offset: usize, skip: usize) -> [i32; BASE_DIM] {
     let n = weights.len();
-    let n_oct = (n + BASE_DIM - 1) / BASE_DIM;
+    let n_oct = n.div_ceil(BASE_DIM);
     let step = skip.max(1);
     let mut sum = [0.0f64; BASE_DIM];
     let mut count = [0u32; BASE_DIM];

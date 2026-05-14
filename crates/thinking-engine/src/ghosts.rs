@@ -34,14 +34,14 @@
 /// Ghost types — lingering cognitive traces with asymptotic decay.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum GhostType {
-    Affinity,    // pull toward connection
-    Epiphany,    // residual clarity
-    Somatic,     // body-felt echo
-    Staunen,     // persistent wonder
-    Wisdom,      // deep knowing
-    Thought,     // won't let go
-    Grief,       // loss reshapes topology
-    Boundary,    // discovered limit
+    Affinity, // pull toward connection
+    Epiphany, // residual clarity
+    Somatic,  // body-felt echo
+    Staunen,  // persistent wonder
+    Wisdom,   // deep knowing
+    Thought,  // won't let go
+    Grief,    // loss reshapes topology
+    Boundary, // discovered limit
 }
 
 impl std::fmt::Display for GhostType {
@@ -64,8 +64,8 @@ impl std::fmt::Display for GhostType {
 pub struct Ghost {
     pub atom: u16,
     pub ghost_type: GhostType,
-    pub intensity: f32,    // 0.0 = fully decayed, 1.0 = just created
-    pub created_at: u64,   // thought cycle when created
+    pub intensity: f32,      // 0.0 = fully decayed, 1.0 = just created
+    pub created_at: u64,     // thought cycle when created
     pub source_text: String, // what created this ghost (for debug)
 }
 
@@ -139,13 +139,17 @@ impl GhostField {
         let mut max_intensity = 0.0f32;
 
         for ghost in &self.ghosts {
-            if ghost.atom != atom { continue; }
+            if ghost.atom != atom {
+                continue;
+            }
 
             // Asymptotic decay: intensity * decay_rate^(cycles_since_creation)
             let age = (self.cycle - ghost.created_at) as f32;
             let decayed = ghost.intensity * self.decay_rate.powf(age);
 
-            if decayed < 0.001 { continue; } // effectively dead
+            if decayed < 0.001 {
+                continue;
+            } // effectively dead
 
             total += decayed;
             if decayed > max_intensity {
@@ -162,7 +166,9 @@ impl GhostField {
     pub fn prediction(&self, n_atoms: usize) -> Vec<f32> {
         let mut pred = vec![0.0f32; n_atoms];
         for ghost in &self.ghosts {
-            if (ghost.atom as usize) >= n_atoms { continue; }
+            if (ghost.atom as usize) >= n_atoms {
+                continue;
+            }
             let age = (self.cycle - ghost.created_at) as f32;
             let decayed = ghost.intensity * self.decay_rate.powf(age);
             if decayed > 0.001 {
@@ -172,7 +178,9 @@ impl GhostField {
         // Normalize to [0, 1] range
         let max_pred = pred.iter().cloned().fold(0.0f32, f32::max);
         if max_pred > 0.001 {
-            for p in &mut pred { *p /= max_pred; }
+            for p in &mut pred {
+                *p /= max_pred;
+            }
         }
         pred
     }
@@ -202,19 +210,28 @@ impl GhostField {
 
     /// Number of active ghosts.
     pub fn active_count(&self) -> usize {
-        self.ghosts.iter().filter(|g| {
-            let age = (self.cycle - g.created_at) as f32;
-            g.intensity * self.decay_rate.powf(age) > 0.001
-        }).count()
+        self.ghosts
+            .iter()
+            .filter(|g| {
+                let age = (self.cycle - g.created_at) as f32;
+                g.intensity * self.decay_rate.powf(age) > 0.001
+            })
+            .count()
     }
 
     /// Ghost summary for display.
     pub fn summary(&self) -> Vec<(u16, GhostType, f32)> {
-        let mut active: Vec<(u16, GhostType, f32)> = self.ghosts.iter()
+        let mut active: Vec<(u16, GhostType, f32)> = self
+            .ghosts
+            .iter()
             .filter_map(|g| {
                 let age = (self.cycle - g.created_at) as f32;
                 let decayed = g.intensity * self.decay_rate.powf(age);
-                if decayed > 0.01 { Some((g.atom, g.ghost_type, decayed)) } else { None }
+                if decayed > 0.01 {
+                    Some((g.atom, g.ghost_type, decayed))
+                } else {
+                    None
+                }
             })
             .collect();
         active.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap());
@@ -233,7 +250,10 @@ mod tests {
         field.imprint(
             &[(42, 0.8)],
             &crate::superposition::ThinkingStyle::Intuitive,
-            0.0, 0.0, 0.0, "test",
+            0.0,
+            0.0,
+            0.0,
+            "test",
         );
         let (bias_0, _) = field.bias(42);
         assert!(bias_0 > 0.7);
@@ -242,7 +262,7 @@ mod tests {
         field.cycle += 10;
         let (bias_10, _) = field.bias(42);
         assert!(bias_10 < bias_0); // decayed
-        assert!(bias_10 > 0.1);   // but not dead
+        assert!(bias_10 > 0.1); // but not dead
     }
 
     #[test]
@@ -251,12 +271,15 @@ mod tests {
         field.imprint(
             &[(10, 0.9), (20, 0.7), (30, 0.5)],
             &crate::superposition::ThinkingStyle::Creative,
-            0.0, 0.0, 0.0, "previous thought",
+            0.0,
+            0.0,
+            0.0,
+            "previous thought",
         );
         let pred = field.prediction(256);
         assert!(pred[10] > pred[20]); // 10 was strongest
         assert!(pred[20] > pred[30]); // 20 was next
-        assert_eq!(pred[100], 0.0);   // 100 was never activated
+        assert_eq!(pred[100], 0.0); // 100 was never activated
     }
 
     #[test]
@@ -265,7 +288,10 @@ mod tests {
         field.imprint(
             &[(10, 1.0)],
             &crate::superposition::ThinkingStyle::Analytical,
-            0.0, 0.0, 0.0, "test",
+            0.0,
+            0.0,
+            0.0,
+            "test",
         );
         // Actual matches prediction
         let mut actual = vec![0.0f32; 64];
@@ -286,7 +312,10 @@ mod tests {
         field.imprint(
             &[(42, 0.8)],
             &crate::superposition::ThinkingStyle::Diffuse,
-            0.8, 0.0, 0.0, "wonder",
+            0.8,
+            0.0,
+            0.0,
+            "wonder",
         );
         let (_, ghost_type) = field.bias(42);
         assert_eq!(ghost_type, Some(GhostType::Staunen));
@@ -298,7 +327,10 @@ mod tests {
         field.imprint(
             &[(42, 0.01)], // very weak
             &crate::superposition::ThinkingStyle::Diffuse,
-            0.0, 0.0, 0.0, "weak",
+            0.0,
+            0.0,
+            0.0,
+            "weak",
         );
         field.cycle += 100; // age a lot
         field.prune();

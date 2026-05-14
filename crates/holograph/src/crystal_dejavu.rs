@@ -36,9 +36,10 @@
 //! This is captured as accumulated evidence across the ±3σ range.
 
 use crate::bitpack::{BitpackedVector, VECTOR_BITS};
+#[allow(unused_imports)]
+// EpiphanyZone and HAMMING_STD_DEV reserved for zone-aware déjà vu scoring
+use crate::epiphany::{EpiphanyZone, HAMMING_STD_DEV, ONE_SIGMA, THREE_SIGMA, TWO_SIGMA};
 use crate::hamming::hamming_distance_scalar;
-#[allow(unused_imports)] // EpiphanyZone and HAMMING_STD_DEV reserved for zone-aware déjà vu scoring
-use crate::epiphany::{EpiphanyZone, ONE_SIGMA, TWO_SIGMA, THREE_SIGMA, HAMMING_STD_DEV};
 use std::collections::HashMap;
 
 // ============================================================================
@@ -58,9 +59,7 @@ impl Coord5D {
     /// Create from dimensions
     pub fn new(d0: u8, d1: u8, d2: u8, d3: u8, d4: u8) -> Self {
         Self {
-            dims: [
-                d0 % 5, d1 % 5, d2 % 5, d3 % 5, d4 % 5
-            ],
+            dims: [d0 % 5, d1 % 5, d2 % 5, d3 % 5, d4 % 5],
         }
     }
 
@@ -85,7 +84,8 @@ impl Coord5D {
 
     /// Manhattan distance to another coordinate
     pub fn distance(&self, other: &Self) -> u32 {
-        self.dims.iter()
+        self.dims
+            .iter()
             .zip(other.dims.iter())
             .map(|(&a, &b)| (a as i32 - b as i32).unsigned_abs())
             .sum()
@@ -132,7 +132,8 @@ impl ProjectionMatrix {
             let mut row = Vec::with_capacity(input_dim);
             for _ in 0..input_dim {
                 // LFSR step
-                state = state.wrapping_mul(6364136223846793005)
+                state = state
+                    .wrapping_mul(6364136223846793005)
                     .wrapping_add(1442695040888963407);
 
                 // Map to [-1, 1] range
@@ -158,10 +159,7 @@ impl ProjectionMatrix {
 
         for (dim, row) in self.weights.iter().enumerate() {
             // Dot product
-            let sum: f32 = embedding.iter()
-                .zip(row.iter())
-                .map(|(e, w)| e * w)
-                .sum();
+            let sum: f32 = embedding.iter().zip(row.iter()).map(|(e, w)| e * w).sum();
 
             // Tanh normalization to [-1, 1], then map to [0, 5)
             let normalized = (sum + self.bias[dim]).tanh();
@@ -227,8 +225,8 @@ impl CrystalCell {
         // Update qualia (running average)
         if let Some(q) = qualia {
             for i in 0..8 {
-                self.qualia[i] = (self.qualia[i] * (self.count - 1) as f32 + q[i])
-                    / self.count as f32;
+                self.qualia[i] =
+                    (self.qualia[i] * (self.count - 1) as f32 + q[i]) / self.count as f32;
             }
         }
     }
@@ -289,7 +287,8 @@ impl SentenceCrystal {
             }
             self.cache_order.push(text.to_string());
         }
-        self.embedding_cache.insert(text.to_string(), embedding.clone());
+        self.embedding_cache
+            .insert(text.to_string(), embedding.clone());
 
         // Project to crystal coordinate
         let coord = self.projection.project(&embedding);
@@ -299,7 +298,10 @@ impl SentenceCrystal {
         let fp = self.embedding_to_fingerprint(&embedding);
 
         // Create or update cell
-        let cell = self.cells.entry(idx).or_insert_with(|| CrystalCell::new(coord));
+        let cell = self
+            .cells
+            .entry(idx)
+            .or_insert_with(|| CrystalCell::new(coord));
         cell.add(fp, None);
 
         coord
@@ -322,13 +324,17 @@ impl SentenceCrystal {
             }
             self.cache_order.push(text.to_string());
         }
-        self.embedding_cache.insert(text.to_string(), embedding.clone());
+        self.embedding_cache
+            .insert(text.to_string(), embedding.clone());
 
         let coord = self.projection.project(&embedding);
         let idx = coord.to_index();
 
         let fp = self.embedding_to_fingerprint(&embedding);
-        let cell = self.cells.entry(idx).or_insert_with(|| CrystalCell::new(coord));
+        let cell = self
+            .cells
+            .entry(idx)
+            .or_insert_with(|| CrystalCell::new(coord));
         cell.add(fp, Some(qualia));
 
         coord
@@ -370,7 +376,8 @@ impl SentenceCrystal {
 
         let neighbors = coord.neighborhood(radius);
 
-        let mut results: Vec<_> = neighbors.iter()
+        let mut results: Vec<_> = neighbors
+            .iter()
             .filter_map(|c| self.cells.get(&c.to_index()))
             .map(|cell| (cell, cell.similarity(&query_fp)))
             .filter(|(_, sim)| *sim > 0.5)
@@ -399,13 +406,13 @@ impl SentenceCrystal {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum SigmaBand {
     /// Within 1σ: strong signal
-    Inner,     // 0 - 50
+    Inner, // 0 - 50
     /// 1σ to 2σ: moderate signal
-    Middle,    // 50 - 100
+    Middle, // 50 - 100
     /// 2σ to 3σ: weak signal
-    Outer,     // 100 - 150
+    Outer, // 100 - 150
     /// Beyond 3σ: noise (still tracked for anti-patterns)
-    Beyond,    // > 150
+    Beyond, // > 150
 }
 
 impl SigmaBand {
@@ -532,7 +539,8 @@ impl DejaVuRL {
     pub fn observe(&mut self, id: u64, distance: u32) {
         let band = SigmaBand::from_distance(distance);
 
-        let obs = self.observations
+        let obs = self
+            .observations
             .entry(id)
             .or_insert_with(|| DejaVuObservation::new(id, self.current_pass));
         obs.observe(band, self.current_pass);
@@ -566,7 +574,9 @@ impl DejaVuRL {
         }
 
         // Collect and rank by déjà vu strength
-        let mut results: Vec<_> = self.observations.iter()
+        let mut results: Vec<_> = self
+            .observations
+            .iter()
             .map(|(&id, obs)| (id, obs.deja_vu_strength))
             .filter(|(_, strength)| *strength > 0.1)
             .collect();
@@ -577,7 +587,8 @@ impl DejaVuRL {
 
     /// Get strong déjà vu candidates
     pub fn strong_deja_vu(&self) -> Vec<&DejaVuObservation> {
-        self.observations.values()
+        self.observations
+            .values()
             .filter(|obs| obs.is_strong_deja_vu())
             .collect()
     }
@@ -625,14 +636,18 @@ impl DejaVuRL {
     /// Get observation statistics
     pub fn stats(&self) -> DejaVuStats {
         let total_obs = self.observations.len();
-        let strong_count = self.observations.values()
+        let strong_count = self
+            .observations
+            .values()
             .filter(|o| o.is_strong_deja_vu())
             .count();
 
         let avg_strength = if total_obs > 0 {
-            self.observations.values()
+            self.observations
+                .values()
                 .map(|o| o.deja_vu_strength)
-                .sum::<f32>() / total_obs as f32
+                .sum::<f32>()
+                / total_obs as f32
         } else {
             0.0
         };
@@ -894,9 +909,7 @@ impl SuperpositionCleaner {
     /// Clean multiple signals and return consistent components
     pub fn clean_bundle(&self, signals: &[&BitpackedVector]) -> BitpackedVector {
         // Clean each signal individually
-        let cleaned: Vec<BitpackedVector> = signals.iter()
-            .map(|s| self.clean(s).cleaned)
-            .collect();
+        let cleaned: Vec<BitpackedVector> = signals.iter().map(|s| self.clean(s).cleaned).collect();
 
         // Bundle the cleaned signals
         let refs: Vec<&BitpackedVector> = cleaned.iter().collect();
@@ -908,8 +921,8 @@ impl SuperpositionCleaner {
         let marker = self.truth_markers.get(&expected_id);
 
         if let Some(m) = marker {
-            let similarity = 1.0 - (hamming_distance_scalar(signal, &m.fingerprint) as f32
-                / VECTOR_BITS as f32);
+            let similarity =
+                1.0 - (hamming_distance_scalar(signal, &m.fingerprint) as f32 / VECTOR_BITS as f32);
 
             ValidationResult {
                 is_valid: similarity > 0.8 && m.is_true(),
@@ -981,12 +994,15 @@ impl CrystalDejaVuTruth {
         let query_fp = self.crystal.embedding_to_fingerprint(query_embedding);
 
         // Convert candidates to fingerprints
-        let candidate_fps: Vec<(u64, BitpackedVector)> = candidates.iter()
+        let candidate_fps: Vec<(u64, BitpackedVector)> = candidates
+            .iter()
             .map(|(id, emb)| (*id, self.crystal.embedding_to_fingerprint(emb)))
             .collect();
 
         // Run multipass déjà vu search
-        let deja_vu_results = self.deja_vu.multipass_search(&query_fp, &candidate_fps, num_passes);
+        let deja_vu_results = self
+            .deja_vu
+            .multipass_search(&query_fp, &candidate_fps, num_passes);
 
         // Clean and validate results
         let mut results = Vec::new();

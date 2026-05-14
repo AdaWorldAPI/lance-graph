@@ -129,19 +129,21 @@ impl TypedPaletteGraph {
 mod tests {
     use super::*;
     use crate::base17::Base17;
+    use crate::distance_matrix::SpoDistanceMatrices;
     use crate::palette::Palette;
     use crate::palette_semiring::SpoPaletteSemiring;
-    use crate::distance_matrix::SpoDistanceMatrices;
     use crate::BASE_DIM;
 
     fn make_palette(k: usize) -> Palette {
-        let entries = (0..k).map(|i| {
-            let mut dims = [0i16; BASE_DIM];
-            for d in 0..BASE_DIM {
-                dims[d] = ((i * 97 + d * 31) % 512) as i16 - 256;
-            }
-            Base17 { dims }
-        }).collect();
+        let entries = (0..k)
+            .map(|i| {
+                let mut dims = [0i16; BASE_DIM];
+                for d in 0..BASE_DIM {
+                    dims[d] = ((i * 97 + d * 31) % 512) as i16 - 256;
+                }
+                Base17 { dims }
+            })
+            .collect();
         Palette { entries }
     }
 
@@ -163,12 +165,12 @@ mod tests {
     #[test]
     fn test_add_relation_and_label() {
         let mut g = make_graph(16);
-        let pe = PaletteEdge { s_idx: 1, p_idx: 2, o_idx: 3 };
-        let mat = PaletteMatrix::from_triples(4, 4, &[
-            (0, 1, pe),
-            (1, 2, pe),
-            (2, 3, pe),
-        ]);
+        let pe = PaletteEdge {
+            s_idx: 1,
+            p_idx: 2,
+            o_idx: 3,
+        };
+        let mat = PaletteMatrix::from_triples(4, 4, &[(0, 1, pe), (1, 2, pe), (2, 3, pe)]);
         g.add_relation("knows", mat);
         g.add_label("person", &[0, 1, 2, 3]);
 
@@ -179,12 +181,12 @@ mod tests {
     #[test]
     fn test_traverse_produces_mxm() {
         let mut g = make_graph(16);
-        let pe = PaletteEdge { s_idx: 1, p_idx: 2, o_idx: 3 };
-        let mat = PaletteMatrix::from_triples(4, 4, &[
-            (0, 1, pe),
-            (1, 2, pe),
-            (2, 3, pe),
-        ]);
+        let pe = PaletteEdge {
+            s_idx: 1,
+            p_idx: 2,
+            o_idx: 3,
+        };
+        let mat = PaletteMatrix::from_triples(4, 4, &[(0, 1, pe), (1, 2, pe), (2, 3, pe)]);
         g.add_relation("knows", mat);
 
         let result = g.traverse("knows").expect("traverse should return Some");
@@ -192,22 +194,28 @@ mod tests {
         assert!(result.get(0, 2).is_some(), "2-hop path 0→1→2 should exist");
         assert!(result.get(1, 3).is_some(), "2-hop path 1→2→3 should exist");
         // No 2-hop from 2→? beyond 3, and 3 has no outgoing
-        assert!(result.get(0, 1).is_none(), "direct 1-hop should not be in 2-hop result");
+        assert!(
+            result.get(0, 1).is_none(),
+            "direct 1-hop should not be in 2-hop result"
+        );
     }
 
     #[test]
     fn test_multi_hop_chains() {
         let mut g = make_graph(16);
-        let pe_a = PaletteEdge { s_idx: 1, p_idx: 2, o_idx: 3 };
-        let pe_b = PaletteEdge { s_idx: 4, p_idx: 5, o_idx: 6 };
+        let pe_a = PaletteEdge {
+            s_idx: 1,
+            p_idx: 2,
+            o_idx: 3,
+        };
+        let pe_b = PaletteEdge {
+            s_idx: 4,
+            p_idx: 5,
+            o_idx: 6,
+        };
 
-        let mat_a = PaletteMatrix::from_triples(4, 4, &[
-            (0, 1, pe_a),
-            (1, 2, pe_a),
-        ]);
-        let mat_b = PaletteMatrix::from_triples(4, 4, &[
-            (2, 3, pe_b),
-        ]);
+        let mat_a = PaletteMatrix::from_triples(4, 4, &[(0, 1, pe_a), (1, 2, pe_a)]);
+        let mat_b = PaletteMatrix::from_triples(4, 4, &[(2, 3, pe_b)]);
         g.add_relation("knows", mat_a);
         g.add_relation("likes", mat_b);
 
@@ -215,8 +223,13 @@ mod tests {
         // Actually: knows gives 0→1, 1→2. Then likes gives 2→3.
         // knows∘likes: for each (i,k) in knows and (k,j) in likes: i→j
         // (0,1) in knows, (1,?) in likes: none. (1,2) in knows, (2,3) in likes: 1→3.
-        let result = g.multi_hop(&["knows", "likes"]).expect("multi_hop should return Some");
-        assert!(result.get(1, 3).is_some(), "path 1→2→3 via knows∘likes should exist");
+        let result = g
+            .multi_hop(&["knows", "likes"])
+            .expect("multi_hop should return Some");
+        assert!(
+            result.get(1, 3).is_some(),
+            "path 1→2→3 via knows∘likes should exist"
+        );
     }
 
     #[test]
@@ -228,11 +241,12 @@ mod tests {
     #[test]
     fn test_to_distance_csr() {
         let mut g = make_graph(16);
-        let pe = PaletteEdge { s_idx: 1, p_idx: 2, o_idx: 3 };
-        let mat = PaletteMatrix::from_triples(4, 4, &[
-            (0, 1, pe),
-            (1, 2, pe),
-        ]);
+        let pe = PaletteEdge {
+            s_idx: 1,
+            p_idx: 2,
+            o_idx: 3,
+        };
+        let mat = PaletteMatrix::from_triples(4, 4, &[(0, 1, pe), (1, 2, pe)]);
         g.add_relation("knows", mat);
 
         let csr = g.to_distance_csr("knows").expect("should return Some");

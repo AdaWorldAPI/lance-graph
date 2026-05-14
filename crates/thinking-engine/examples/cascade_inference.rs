@@ -15,8 +15,8 @@
 //!     --manifest-path crates/thinking-engine/Cargo.toml \
 //!     -- /path/to/model.safetensors
 
-use ndarray::hpc::safetensors::read_safetensors_header;
 use ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd;
+use ndarray::hpc::safetensors::read_safetensors_header;
 use ndarray::simd::bf16_to_f32_batch;
 
 use std::fs::File;
@@ -34,17 +34,23 @@ fn load_tensor(path: &str, substr: &str) -> Option<(Vec<Vec<f32>>, String, usize
     let n_cols: usize = t.dimensions.iter().skip(1).map(|&d| d as usize).product();
     let sample = N_SAMPLE.min(n_rows);
     let stride = n_rows.max(1) / sample;
-    reader.seek(SeekFrom::Start(header.tensor_data_offset + t.offset)).ok()?;
+    reader
+        .seek(SeekFrom::Start(header.tensor_data_offset + t.offset))
+        .ok()?;
     let mut raw = vec![0u8; n_rows * n_cols * 2];
     reader.read_exact(&mut raw).ok()?;
-    let u16s: Vec<u16> = raw.chunks_exact(2).map(|c| u16::from_le_bytes([c[0], c[1]])).collect();
+    let u16s: Vec<u16> = raw
+        .chunks_exact(2)
+        .map(|c| u16::from_le_bytes([c[0], c[1]]))
+        .collect();
     let mut f32_data = vec![0.0f32; u16s.len()];
     bf16_to_f32_batch(&u16s, &mut f32_data);
     let rows: Vec<Vec<f32>> = (0..sample)
         .map(|i| {
             let ri = (i * stride).min(n_rows - 1);
             f32_data[ri * n_cols..(ri + 1) * n_cols].to_vec()
-        }).collect();
+        })
+        .collect();
     Some((rows, t.name.clone(), n_rows, n_cols))
 }
 
@@ -60,18 +66,23 @@ fn sign_fingerprint(row: &[f32]) -> Vec<u64> {
 }
 
 fn hamming_distance(a: &[u64], b: &[u64]) -> u32 {
-    a.iter().zip(b.iter()).map(|(x, y)| (x ^ y).count_ones()).sum()
+    a.iter()
+        .zip(b.iter())
+        .map(|(x, y)| (x ^ y).count_ones())
+        .sum()
 }
 
 fn argmax(v: &[f64]) -> usize {
-    v.iter().enumerate()
+    v.iter()
+        .enumerate()
         .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
         .map(|(i, _)| i)
         .unwrap_or(0)
 }
 
 fn main() {
-    let path = std::env::args().nth(1)
+    let path = std::env::args()
+        .nth(1)
         .expect("usage: cascade_inference <model.safetensors>");
 
     println!("# Cascade Inference — Original Weights + HDR Popcount");
@@ -99,9 +110,7 @@ fn main() {
         let n = rows.len();
 
         // Precompute fingerprints for all "key" rows
-        let fingerprints: Vec<Vec<u64>> = rows.iter()
-            .map(|r| sign_fingerprint(r))
-            .collect();
+        let fingerprints: Vec<Vec<u64>> = rows.iter().map(|r| sign_fingerprint(r)).collect();
 
         // Simulate attention: each "query" tests against all "keys"
         let n_queries = 32.min(n);
@@ -112,9 +121,7 @@ fn main() {
         let mut brute_argmaxes = Vec::with_capacity(n_queries);
         for qi in 0..n_queries {
             let q = &rows[qi];
-            let scores: Vec<f64> = rows.iter()
-                .map(|k| cosine_f32_to_f64_simd(q, k))
-                .collect();
+            let scores: Vec<f64> = rows.iter().map(|k| cosine_f32_to_f64_simd(q, k)).collect();
             brute_argmaxes.push(argmax(&scores));
         }
         let brute_us = t_brute.elapsed().as_micros();
@@ -129,7 +136,9 @@ fn main() {
             let q_fp = sign_fingerprint(q);
 
             // Level 1: Hamming sweep — find top-k closest fingerprints
-            let mut dists: Vec<(usize, u32)> = fingerprints.iter().enumerate()
+            let mut dists: Vec<(usize, u32)> = fingerprints
+                .iter()
+                .enumerate()
                 .map(|(i, fp)| (i, hamming_distance(&q_fp, fp)))
                 .collect();
             dists.sort_unstable_by_key(|&(_, d)| d);
@@ -141,27 +150,41 @@ fn main() {
             let mut best_cos = f64::NEG_INFINITY;
             for &si in &survivors {
                 let cos = cosine_f32_to_f64_simd(q, &rows[si]);
-                if cos > best_cos { best_cos = cos; best_idx = si; }
+                if cos > best_cos {
+                    best_cos = cos;
+                    best_idx = si;
+                }
             }
             cascade_argmaxes.push(best_idx);
         }
         let cascade_us = t_cascade.elapsed().as_micros();
 
         // Compare results
-        let argmax_match = brute_argmaxes.iter().zip(cascade_argmaxes.iter())
-            .filter(|(a, b)| a == b).count();
+        let argmax_match = brute_argmaxes
+            .iter()
+            .zip(cascade_argmaxes.iter())
+            .filter(|(a, b)| a == b)
+            .count();
         let match_rate = argmax_match as f64 / n_queries as f64;
         let rejection = 1.0 - (total_survivors as f64 / (n_queries * n) as f64);
-        let speedup = if cascade_us > 0 { brute_us as f64 / cascade_us as f64 } else { 0.0 };
+        let speedup = if cascade_us > 0 {
+            brute_us as f64 / cascade_us as f64
+        } else {
+            0.0
+        };
 
         let short = &name[name.len().saturating_sub(35)..];
-        println!("| {} | {}×{} | {:.1} | {:.1} | {:.1}x | {:.1}% | {:.0}% |",
-            short, n, n_cols,
+        println!(
+            "| {} | {}×{} | {:.1} | {:.1} | {:.1}x | {:.1}% | {:.0}% |",
+            short,
+            n,
+            n_cols,
             brute_us as f64 / 1000.0,
             cascade_us as f64 / 1000.0,
             speedup,
             rejection * 100.0,
-            match_rate * 100.0);
+            match_rate * 100.0
+        );
     }
 
     println!();

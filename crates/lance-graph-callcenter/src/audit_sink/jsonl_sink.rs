@@ -15,11 +15,11 @@
 //! ```
 
 use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::fs::OpenOptions;
 use std::io::Write as IoWrite;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use std::collections::VecDeque;
 
 use chrono::Utc;
 
@@ -90,10 +90,7 @@ impl AuditSink for JsonlAuditSink {
 
         // 3. For each group, rotate if needed, then append.
         for ((tenant_id, date), group_events) in &grouped {
-            let dir = self
-                .base_path
-                .join("audit")
-                .join(tenant_id.to_string());
+            let dir = self.base_path.join("audit").join(tenant_id.to_string());
             std::fs::create_dir_all(&dir)?;
             if *date < today {
                 rotate_if_uncompressed(&dir, *date);
@@ -111,10 +108,7 @@ impl AuditSink for JsonlAuditSink {
         }
 
         // 4. Update last_root from final event.
-        let final_root = events
-            .last()
-            .map(|e| e.merkle_root.raw())
-            .unwrap_or(0);
+        let final_root = events.last().map(|e| e.merkle_root.raw()).unwrap_or(0);
         *self
             .last_root
             .lock()
@@ -137,8 +131,7 @@ impl AuditSink for JsonlAuditSink {
         });
         std::fs::write(
             &tmp,
-            serde_json::to_string(&json)
-                .map_err(|e| AuditError::Serialize(e.to_string()))?,
+            serde_json::to_string(&json).map_err(|e| AuditError::Serialize(e.to_string()))?,
         )?;
         std::fs::rename(tmp, live)?; // atomic on POSIX
         Ok(())
@@ -158,9 +151,7 @@ fn group_by_tenant_date(
         let date = chrono::DateTime::from_timestamp(secs, 0)
             .map(|dt| dt.date_naive())
             .unwrap_or_else(|| Utc::now().date_naive());
-        map.entry((ev.tenant.raw(), date))
-            .or_default()
-            .push(ev);
+        map.entry((ev.tenant.raw(), date)).or_default().push(ev);
     }
     map
 }
@@ -207,7 +198,8 @@ fn rotate_if_uncompressed(dir: &std::path::Path, date: chrono::NaiveDate) {
         use std::io::Read;
         match (std::fs::File::open(&src_c), std::fs::File::create(&dst_c)) {
             (Ok(mut input), Ok(output)) => {
-                let mut encoder = flate2::write::GzEncoder::new(output, flate2::Compression::default());
+                let mut encoder =
+                    flate2::write::GzEncoder::new(output, flate2::Compression::default());
                 let mut buf = vec![0u8; 65536];
                 loop {
                     match input.read(&mut buf) {

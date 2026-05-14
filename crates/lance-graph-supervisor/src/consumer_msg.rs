@@ -17,8 +17,7 @@
 /// Lab-only arms (`Tensors`, `Calibrate`, `Probe`) are always-present but
 /// documented as lab-only via doc comments (see spec §13 Open Q 3).
 #[derive(Clone, Debug)]
-pub enum ConsumerEnvelope
-{
+pub enum ConsumerEnvelope {
     Dispatch(DispatchRequest),
     Ingest(IngestRequest),
     Health,
@@ -38,8 +37,7 @@ pub enum ConsumerEnvelope
 
 /// Typed reply payload crossing from consumer actor → caller.
 #[derive(Clone, Debug)]
-pub enum ConsumerReply
-{
+pub enum ConsumerReply {
     Crystal(CrystalResponse),
     Ingest(IngestAck),
     Health(HealthStatus),
@@ -56,119 +54,107 @@ pub enum ConsumerReply
 // replace these with the actual gRPC proto-generated types (stripped of tonic).
 
 #[derive(Clone, Debug)]
-pub struct DispatchRequest
-{
-    pub tenant_id:  u32,
-    pub payload:    Vec<u8>,
+pub struct DispatchRequest {
+    pub tenant_id: u32,
+    pub payload: Vec<u8>,
 }
 
 #[derive(Clone, Debug)]
-pub struct IngestRequest
-{
-    pub tenant_id:  u32,
-    pub records:    Vec<Vec<u8>>,
+pub struct IngestRequest {
+    pub tenant_id: u32,
+    pub records: Vec<Vec<u8>>,
 }
 
 #[derive(Clone, Debug)]
-pub struct QualiaRequest
-{
-    pub tenant_id:  u32,
+pub struct QualiaRequest {
+    pub tenant_id: u32,
     pub qualia_key: String,
 }
 
 #[derive(Clone, Debug)]
-pub struct StylesRequest
-{
-    pub tenant_id:  u32,
-    pub style_ids:  Vec<u32>,
+pub struct StylesRequest {
+    pub tenant_id: u32,
+    pub style_ids: Vec<u32>,
 }
 
 /// Lab-only: raw tensor payload.
 #[derive(Clone, Debug)]
-pub struct TensorsRequest
-{
+pub struct TensorsRequest {
     pub data: Vec<f32>,
 }
 
 /// Lab-only: calibration parameters.
 #[derive(Clone, Debug)]
-pub struct CalibrateRequest
-{
+pub struct CalibrateRequest {
     pub params: Vec<u8>,
 }
 
 /// Lab-only: probe / introspection request.
 #[derive(Clone, Debug)]
-pub struct ProbeRequest
-{
+pub struct ProbeRequest {
     pub probe_id: u32,
 }
 
 // ─── Response types ───────────────────────────────────────────────────────────
 
 #[derive(Clone, Debug)]
-pub struct CrystalResponse
-{
+pub struct CrystalResponse {
     pub tenant_id: u32,
-    pub result:    Vec<u8>,
+    pub result: Vec<u8>,
 }
 
 #[derive(Clone, Debug)]
-pub struct IngestAck
-{
+pub struct IngestAck {
     pub accepted: u32,
     pub rejected: u32,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct HealthStatus
-{
-    pub ok:     bool,
+pub struct HealthStatus {
+    pub ok: bool,
     pub detail: String,
 }
 
-impl HealthStatus
-{
-    pub fn healthy() -> Self
-    {
-        Self { ok: true, detail: "ok".to_string() }
+impl HealthStatus {
+    pub fn healthy() -> Self {
+        Self {
+            ok: true,
+            detail: "ok".to_string(),
+        }
     }
 
-    pub fn unhealthy(detail: impl Into<String>) -> Self
-    {
-        Self { ok: false, detail: detail.into() }
+    pub fn unhealthy(detail: impl Into<String>) -> Self {
+        Self {
+            ok: false,
+            detail: detail.into(),
+        }
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct Qualia17DResponse
-{
+pub struct Qualia17DResponse {
     pub values: [f32; 17],
 }
 
 #[derive(Clone, Debug)]
-pub struct StyleList
-{
+pub struct StyleList {
     pub style_ids: Vec<u32>,
 }
 
 /// Lab-only: tensor response.
 #[derive(Clone, Debug)]
-pub struct TensorsResponse
-{
+pub struct TensorsResponse {
     pub data: Vec<f32>,
 }
 
 /// Lab-only: calibration result.
 #[derive(Clone, Debug)]
-pub struct CalibrateResponse
-{
+pub struct CalibrateResponse {
     pub ok: bool,
 }
 
 /// Lab-only: probe response.
 #[derive(Clone, Debug)]
-pub struct ProbeResponse
-{
+pub struct ProbeResponse {
     pub payload: Vec<u8>,
 }

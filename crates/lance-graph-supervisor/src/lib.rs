@@ -46,7 +46,9 @@ pub use consumer_msg::{
     Qualia17DResponse, QualiaRequest, StyleList, StylesRequest, TensorsRequest, TensorsResponse,
 };
 pub use error::SupervisorErr;
-pub use lifecycle_audit::{LifecycleAuditEvent, LifecycleAuditSink, LifecycleEventType, NoopLifecycleSink};
+pub use lifecycle_audit::{
+    LifecycleAuditEvent, LifecycleAuditSink, LifecycleEventType, NoopLifecycleSink,
+};
 
 // ─── supervisor feature — ractor actor tree ───────────────────────────────────
 

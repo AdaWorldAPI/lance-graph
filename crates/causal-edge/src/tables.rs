@@ -78,7 +78,11 @@ impl NarsTables {
                 let w1 = c1 / (1.0 - c1);
                 let w2 = c2 / (1.0 - c2);
                 let ws = w1 + w2;
-                let c_rev = if ws > f32::EPSILON { ws / (ws + 1.0) } else { 0.0 };
+                let c_rev = if ws > f32::EPSILON {
+                    ws / (ws + 1.0)
+                } else {
+                    0.0
+                };
                 let c_rev_u8 = (c_rev * 255.0).round().min(255.0) as u8;
 
                 let mut table = [0u16; 256 * 256];
@@ -92,8 +96,7 @@ impl NarsTables {
                             0.5
                         };
                         let f_rev_u8 = (f_rev * 255.0).round().min(255.0) as u8;
-                        table[f1_u as usize * 256 + f2_u as usize] =
-                            pack_truth(f_rev_u8, c_rev_u8);
+                        table[f1_u as usize * 256 + f2_u as usize] = pack_truth(f_rev_u8, c_rev_u8);
                     }
                 }
                 revision.push(table);
@@ -155,7 +158,10 @@ mod tests {
         // Two sources agree at f=0.8 → revised f should be near 0.8
         let result = tables.revise(204, 127, 204, 127); // f=0.8, c=0.5
         let f_out = unpack_f(result) as f32 / 255.0;
-        assert!((f_out - 0.8).abs() < 0.05,
-            "Revision of agreeing f=0.8 should stay near 0.8, got {}", f_out);
+        assert!(
+            (f_out - 0.8).abs() < 0.05,
+            "Revision of agreeing f=0.8 should stay near 0.8, got {}",
+            f_out
+        );
     }
 }

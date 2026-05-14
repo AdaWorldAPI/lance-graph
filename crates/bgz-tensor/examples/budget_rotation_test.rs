@@ -160,11 +160,11 @@ fn budget_project(
     use_phi: bool,
 ) -> [[f32; 4]; BASE_DIM] {
     let n = weights.len();
-    let n_oct = (n + BASE_DIM - 1) / BASE_DIM;
+    let n_oct = n.div_ceil(BASE_DIM);
     let mut result = [[0.0f32; 4]; BASE_DIM];
 
-    for bi in 0..BASE_DIM {
-        for s in 0..samples.min(4) {
+    for (bi, row) in result.iter_mut().enumerate() {
+        for (s, cell) in row.iter_mut().enumerate().take(samples.min(4)) {
             let octave = start + bi + s * stride;
             if octave >= n_oct {
                 continue;
@@ -179,7 +179,7 @@ fn budget_project(
 
             let dim = octave * BASE_DIM + pos;
             if dim < n {
-                result[bi][s] = weights[dim];
+                *cell = weights[dim];
             }
         }
     }
@@ -195,11 +195,11 @@ fn budget_project_n(
     use_phi: bool,
 ) -> [[f32; 8]; BASE_DIM] {
     let n = weights.len();
-    let n_oct = (n + BASE_DIM - 1) / BASE_DIM;
+    let n_oct = n.div_ceil(BASE_DIM);
     let mut result = [[0.0f32; 8]; BASE_DIM];
 
-    for bi in 0..BASE_DIM {
-        for s in 0..samples.min(8) {
+    for (bi, row) in result.iter_mut().enumerate() {
+        for (s, cell) in row.iter_mut().enumerate().take(samples.min(8)) {
             let octave = start + bi + s * stride;
             if octave >= n_oct {
                 continue;
@@ -211,7 +211,7 @@ fn budget_project_n(
             };
             let dim = octave * BASE_DIM + pos;
             if dim < n {
-                result[bi][s] = weights[dim];
+                *cell = weights[dim];
             }
         }
     }
@@ -229,18 +229,18 @@ fn budget_split_project(weights: &[f32]) -> [[f32; 4]; BASE_DIM] {
         let start_dim = window[0];
         let end_dim = window[1];
         let slice = &weights[start_dim..end_dim];
-        let slice_octaves = (slice.len() + BASE_DIM - 1) / BASE_DIM;
+        let slice_octaves = slice.len().div_ceil(BASE_DIM);
 
         // Each budget fills one sample slot across all 17 dims
         if budget >= 4 {
             break;
         }
-        for bi in 0..BASE_DIM {
+        for (bi, row) in result.iter_mut().enumerate() {
             let octave = off % slice_octaves.max(1);
             let pos = (frac((bi + off) as f64 * GOLDEN_RATIO) * BASE_DIM as f64) as usize;
             let dim = octave * BASE_DIM + pos;
             if dim < slice.len() {
-                result[bi][budget] = slice[dim];
+                row[budget] = slice[dim];
             }
         }
     }

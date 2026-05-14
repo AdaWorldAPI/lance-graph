@@ -41,8 +41,8 @@
 //! ```
 
 use crate::bitpack::BitpackedVector;
-use crate::hamming::hamming_distance_scalar;
 use crate::dntree::TreeAddr;
+use crate::hamming::hamming_distance_scalar;
 use std::collections::HashMap;
 
 // ============================================================================
@@ -61,18 +61,40 @@ impl SlotKeys {
 
         // Generate orthogonal-ish slot keys from reserved seeds
         let slot_names = [
-            "name", "type", "label", "description",
-            "created", "modified", "author", "version",
-            "rung", "qualia", "truth", "confidence",
-            "parent", "children", "source", "target",
-            "weight", "count", "score", "rank",
-            "slot_0", "slot_1", "slot_2", "slot_3",
-            "slot_4", "slot_5", "slot_6", "slot_7",
+            "name",
+            "type",
+            "label",
+            "description",
+            "created",
+            "modified",
+            "author",
+            "version",
+            "rung",
+            "qualia",
+            "truth",
+            "confidence",
+            "parent",
+            "children",
+            "source",
+            "target",
+            "weight",
+            "count",
+            "score",
+            "rank",
+            "slot_0",
+            "slot_1",
+            "slot_2",
+            "slot_3",
+            "slot_4",
+            "slot_5",
+            "slot_6",
+            "slot_7",
         ];
 
         for (i, name) in slot_names.iter().enumerate() {
             // Use golden ratio multiplier for good distribution
-            let seed = 0x510714E7BA5E0000_u64.wrapping_add((i as u64).wrapping_mul(0x9E3779B97F4A7C15));
+            let seed =
+                0x510714E7BA5E0000_u64.wrapping_add((i as u64).wrapping_mul(0x9E3779B97F4A7C15));
             slots.insert(name.to_string(), BitpackedVector::random(seed));
         }
 
@@ -177,12 +199,7 @@ impl SlotEncodedNode {
     }
 
     /// Add/update an attribute
-    pub fn set_attribute(
-        &mut self,
-        slot_name: &str,
-        value: BitpackedVector,
-        slot_keys: &SlotKeys,
-    ) {
+    pub fn set_attribute(&mut self, slot_name: &str, value: BitpackedVector, slot_keys: &SlotKeys) {
         if let Some(slot_key) = slot_keys.get(slot_name) {
             // Remove old value if exists
             if let Some(old_value) = self.attributes.get(slot_name) {
@@ -395,8 +412,10 @@ impl NumericEncoder {
         let base = BitpackedVector::random(base_seed.wrapping_mul(0x9E3779B97F4A7C15));
 
         // Add "blur" from nearby values for soft boundaries
-        let blur1 = BitpackedVector::random(((quantized - 1) as u64).wrapping_mul(0x9E3779B97F4A7C15));
-        let blur2 = BitpackedVector::random(((quantized + 1) as u64).wrapping_mul(0x9E3779B97F4A7C15));
+        let blur1 =
+            BitpackedVector::random(((quantized - 1) as u64).wrapping_mul(0x9E3779B97F4A7C15));
+        let blur2 =
+            BitpackedVector::random(((quantized + 1) as u64).wrapping_mul(0x9E3779B97F4A7C15));
 
         // Combine: base dominates, neighbors add similarity
         let refs = [&base, &base, &base, &blur1, &blur2];
@@ -477,7 +496,11 @@ impl NodeBuilder {
     /// Add boolean attribute
     pub fn with_bool(mut self, slot: &str, value: bool) -> Self {
         // True/False as distinct fingerprints
-        let seed = if value { 0x74AE5EED00000001 } else { 0xFA15E5EED0000000 };
+        let seed = if value {
+            0x74AE5EED00000001
+        } else {
+            0xFA15E5EED0000000
+        };
         let fp = BitpackedVector::random(seed);
         self.attributes.push((slot.to_string(), fp));
         self
@@ -485,7 +508,8 @@ impl NodeBuilder {
 
     /// Build the node
     pub fn build(self) -> SlotEncodedNode {
-        let attrs: Vec<(&str, BitpackedVector)> = self.attributes
+        let attrs: Vec<(&str, BitpackedVector)> = self
+            .attributes
             .iter()
             .map(|(k, v)| (k.as_str(), v.clone()))
             .collect();
@@ -506,7 +530,7 @@ pub mod comparison {
     #[derive(Clone, Debug)]
     pub struct ExternalNode {
         pub addr: TreeAddr,
-        pub fingerprint: BitpackedVector,  // From addr only
+        pub fingerprint: BitpackedVector, // From addr only
         // Metadata stored separately:
         pub name: String,
         pub node_type: String,
@@ -517,8 +541,8 @@ pub mod comparison {
     #[derive(Clone, Debug)]
     pub struct InternalNode {
         pub addr: TreeAddr,
-        pub fingerprint: BitpackedVector,  // Includes all attributes!
-        // No separate fields - everything is in the fingerprint
+        pub fingerprint: BitpackedVector, // Includes all attributes!
+                                          // No separate fields - everything is in the fingerprint
     }
 
     /// Comparison results
@@ -608,8 +632,8 @@ mod tests {
         let mut enc = StringEncoder::new();
 
         let fp1 = enc.encode("hello");
-        let fp2 = enc.encode("hello");  // Same string
-        let fp3 = enc.encode("world");  // Different string
+        let fp2 = enc.encode("hello"); // Same string
+        let fp3 = enc.encode("world"); // Different string
 
         // Same string = same fingerprint
         assert_eq!(hamming_distance_scalar(&fp1, &fp2), 0);
@@ -623,7 +647,7 @@ mod tests {
         let enc = NumericEncoder::new(0.1);
 
         let fp1 = enc.encode(1.0);
-        let fp2 = enc.encode(1.05);  // Close
+        let fp2 = enc.encode(1.05); // Close
         let fp3 = enc.encode(100.0); // Far
 
         // Close values should have lower distance

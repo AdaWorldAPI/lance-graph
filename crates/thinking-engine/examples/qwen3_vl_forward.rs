@@ -4,7 +4,7 @@
 
 #[cfg(feature = "calibration")]
 fn main() {
-    use candle_core::{Device, DType, IndexOp, Tensor};
+    use candle_core::{DType, Device, IndexOp, Tensor};
     use candle_nn::VarBuilder;
     use candle_transformers::models::qwen3;
 
@@ -16,9 +16,9 @@ fn main() {
     let dtype = DType::F32;
 
     // Config — need to extract text_config from the VL config
-    let config_str = std::fs::read_to_string(
-        "crates/thinking-engine/data/qwen3-vl-embedding/config.json"
-    ).expect("config.json");
+    let config_str =
+        std::fs::read_to_string("crates/thinking-engine/data/qwen3-vl-embedding/config.json")
+            .expect("config.json");
     let full_config: serde_json::Value = serde_json::from_str(&config_str).expect("parse");
 
     // Build Qwen3 config from VL config fields
@@ -41,16 +41,23 @@ fn main() {
         hidden_act: candle_nn::Activation::Silu,
     };
 
-    println!("[1] Config: {} layers, {} hidden, {} vocab, head_dim={}",
-        config.num_hidden_layers, config.hidden_size, config.vocab_size, config.head_dim);
-    println!("    q_proj expected: {}×{}", config.num_attention_heads * config.head_dim, config.hidden_size);
+    println!(
+        "[1] Config: {} layers, {} hidden, {} vocab, head_dim={}",
+        config.num_hidden_layers, config.hidden_size, config.vocab_size, config.head_dim
+    );
+    println!(
+        "    q_proj expected: {}×{}",
+        config.num_attention_heads * config.head_dim,
+        config.hidden_size
+    );
 
     // Load safetensors — strip "model.language_model." prefix for candle Qwen3
     let model_path = "crates/thinking-engine/data/qwen3-vl-embedding/model.safetensors";
     println!("[2] Loading safetensors (4 GB)...");
     let vb = unsafe {
         VarBuilder::from_mmaped_safetensors(&[model_path], dtype, &device).expect("load")
-    }.rename_f(|name| {
+    }
+    .rename_f(|name| {
         // candle asks for "model.X" → file has "model.language_model.X"
         if let Some(rest) = name.strip_prefix("model.") {
             format!("model.language_model.{rest}")
@@ -65,8 +72,9 @@ fn main() {
 
     // Tokenizer
     let tokenizer = tokenizers::Tokenizer::from_file(
-        "crates/thinking-engine/data/qwen3-vl-embedding/tokenizer.json"
-    ).expect("tokenizer");
+        "crates/thinking-engine/data/qwen3-vl-embedding/tokenizer.json",
+    )
+    .expect("tokenizer");
     println!("[4] Tokenizer: Qwen3 BPE (151K vocab)");
 
     let texts = vec![
@@ -79,7 +87,10 @@ fn main() {
         "Gradient descent minimizes the loss function",
     ];
 
-    println!("[5] Computing 2048D embeddings for {} texts...\n", texts.len());
+    println!(
+        "[5] Computing 2048D embeddings for {} texts...\n",
+        texts.len()
+    );
     let mut embeddings: Vec<Vec<f32>> = Vec::new();
 
     for (i, text) in texts.iter().enumerate() {
@@ -88,13 +99,16 @@ fn main() {
         let ids = enc.get_ids();
         let n_tokens = ids.len();
 
-        let input_ids = Tensor::new(ids, &device).expect("tensor")
-            .unsqueeze(0).expect("batch");
+        let input_ids = Tensor::new(ids, &device)
+            .expect("tensor")
+            .unsqueeze(0)
+            .expect("batch");
 
         // Fresh model per text (avoid KV cache)
         let vb_fresh = unsafe {
             VarBuilder::from_mmaped_safetensors(&[model_path], dtype, &device).expect("reload")
-        }.rename_f(|name| {
+        }
+        .rename_f(|name| {
             if let Some(rest) = name.strip_prefix("model.") {
                 format!("model.language_model.{rest}")
             } else {
@@ -107,13 +121,25 @@ fn main() {
 
         // Last-token pooling
         let last = hidden.i((0, n_tokens - 1)).expect("last");
-        let norm = last.sqr().expect("s").sum_all().expect("s").sqrt().expect("s");
+        let norm = last
+            .sqr()
+            .expect("s")
+            .sum_all()
+            .expect("s")
+            .sqrt()
+            .expect("s");
         let emb: Vec<f32> = last.broadcast_div(&norm).expect("n").to_vec1().expect("v");
 
         let label = if text.len() > 50 { &text[..50] } else { text };
-        println!("  [{}/{}] {} tokens → {}D  |emb|={:.4}  \"{}\"",
-            i+1, texts.len(), n_tokens, emb.len(),
-            emb.iter().map(|x| x*x).sum::<f32>().sqrt(), label);
+        println!(
+            "  [{}/{}] {} tokens → {}D  |emb|={:.4}  \"{}\"",
+            i + 1,
+            texts.len(),
+            n_tokens,
+            emb.len(),
+            emb.iter().map(|x| x * x).sum::<f32>().sqrt(),
+            label
+        );
 
         embeddings.push(emb);
     }
@@ -130,28 +156,51 @@ fn main() {
     ];
 
     for &(a, b, label) in &pairs {
-        let cos: f32 = embeddings[a].iter().zip(&embeddings[b]).map(|(x,y)| x*y).sum();
+        let cos: f32 = embeddings[a]
+            .iter()
+            .zip(&embeddings[b])
+            .map(|(x, y)| x * y)
+            .sum();
         println!("  {:>20}  {:.4}", label, cos);
     }
 
-    let rr: f32 = embeddings[0].iter().zip(&embeddings[1]).map(|(x,y)| x*y).sum();
-    let rt: f32 = embeddings[0].iter().zip(&embeddings[3]).map(|(x,y)| x*y).sum();
+    let rr: f32 = embeddings[0]
+        .iter()
+        .zip(&embeddings[1])
+        .map(|(x, y)| x * y)
+        .sum();
+    let rt: f32 = embeddings[0]
+        .iter()
+        .zip(&embeddings[3])
+        .map(|(x, y)| x * y)
+        .sum();
 
     println!("\n═══════════════════════════════════════════════════════════");
     if rr > rt + 0.02 {
-        println!("  Qwen3-VL DISCRIMINATES! Rumi↔Rumi ({:.4}) > Rumi↔TCP ({:.4})", rr, rt);
+        println!(
+            "  Qwen3-VL DISCRIMINATES! Rumi↔Rumi ({:.4}) > Rumi↔TCP ({:.4})",
+            rr, rt
+        );
         let jina_gap = 0.512 - 0.384;
         let vl_gap = rr - rt;
         if vl_gap > jina_gap {
-            println!("  BETTER than Jina v5 (gap {:.4} vs {:.4})!", vl_gap, jina_gap);
+            println!(
+                "  BETTER than Jina v5 (gap {:.4} vs {:.4})!",
+                vl_gap, jina_gap
+            );
         } else {
             println!("  Gap {:.4} vs Jina v5 gap {:.4}", vl_gap, jina_gap);
         }
     } else {
-        println!("  No discrimination. Rumi↔Rumi ({:.4}) ≈ Rumi↔TCP ({:.4})", rr, rt);
+        println!(
+            "  No discrimination. Rumi↔Rumi ({:.4}) ≈ Rumi↔TCP ({:.4})",
+            rr, rt
+        );
     }
     println!("═══════════════════════════════════════════════════════════");
 }
 
 #[cfg(not(feature = "calibration"))]
-fn main() { eprintln!("Requires --features calibration"); }
+fn main() {
+    eprintln!("Requires --features calibration");
+}

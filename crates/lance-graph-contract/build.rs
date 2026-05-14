@@ -136,14 +136,14 @@ fn main() {
         .parent()
         .expect("crates/ dir must have a parent (workspace root)");
 
-    let modules_glob = workspace_root.join("modules").join("*").join("manifest.yaml");
+    let modules_glob = workspace_root
+        .join("modules")
+        .join("*")
+        .join("manifest.yaml");
 
     // Emit rerun triggers
     let workspace_cargo = workspace_root.join("Cargo.toml");
-    println!(
-        "cargo:rerun-if-changed={}",
-        workspace_cargo.display()
-    );
+    println!("cargo:rerun-if-changed={}", workspace_cargo.display());
 
     // Collect manifest paths, sort lexicographically for determinism
     let mut paths: Vec<PathBuf> = glob::glob(modules_glob.to_str().unwrap())
@@ -161,12 +161,8 @@ fn main() {
     for path in &paths {
         let src = std::fs::read_to_string(path)
             .unwrap_or_else(|e| panic!("cannot read {}: {e}", path.display()));
-        let raw: ManifestRaw = serde_yaml::from_str(&src).unwrap_or_else(|e| {
-            panic!(
-                "manifest parse error in {}:\n  {e}",
-                path.display()
-            )
-        });
+        let raw: ManifestRaw = serde_yaml::from_str(&src)
+            .unwrap_or_else(|e| panic!("manifest parse error in {}:\n  {e}", path.display()));
         raw_manifests.push((path.clone(), raw));
     }
 
@@ -250,9 +246,8 @@ fn main() {
 
         // Parse entity type codes + check global uniqueness
         for (entity_name, code_str) in &raw.entity_types {
-            let code = parse_entity_code(code_str).unwrap_or_else(|e| {
-                panic!("{}: {}", path.display(), e)
-            });
+            let code =
+                parse_entity_code(code_str).unwrap_or_else(|e| panic!("{}: {}", path.display(), e));
             if let Some((prev_name, prev_path)) = seen_entity_codes.get(&code) {
                 panic!(
                     "entity-type code collision: u16={} is declared by\n\
@@ -309,9 +304,8 @@ fn main() {
         // Parse stack profile
         let (audit_days, fail_closed, escalation_str) = if let Some(sp) = &raw.stack_profile {
             let esc_raw = sp.escalation.as_deref().unwrap_or("deny");
-            let esc = parse_escalation(esc_raw).unwrap_or_else(|e| {
-                panic!("{}: {}", path.display(), e)
-            });
+            let esc =
+                parse_escalation(esc_raw).unwrap_or_else(|e| panic!("{}: {}", path.display(), e));
             (
                 sp.audit_retention_days.unwrap_or(0),
                 sp.requires_fail_closed.unwrap_or(false),
@@ -382,15 +376,16 @@ fn emit_ogit_namespace(out_dir: &Path, manifests: &[Manifest]) {
 
     // ALL_G_SLOTS
     let slots: Vec<String> = manifests.iter().map(|m| m.g_slot.to_string()).collect();
-    out.push_str("/// All G slots registered across all manifests (inert + active), sorted ascending.\n");
+    out.push_str(
+        "/// All G slots registered across all manifests (inert + active), sorted ascending.\n",
+    );
     out.push_str(&format!(
         "pub const ALL_G_SLOTS: &[u32] = &[{}];\n",
         slots.join(", ")
     ));
 
     let path = out_dir.join("ogit_namespace.rs");
-    std::fs::write(&path, &out)
-        .unwrap_or_else(|e| panic!("cannot write {}: {e}", path.display()));
+    std::fs::write(&path, &out).unwrap_or_else(|e| panic!("cannot write {}: {e}", path.display()));
 }
 
 // ---------------------------------------------------------------------------
@@ -452,8 +447,7 @@ fn emit_manifest_metadata(out_dir: &Path, manifests: &[Manifest]) {
     out.push_str("];\n");
 
     let path = out_dir.join("manifest_metadata.rs");
-    std::fs::write(&path, &out)
-        .unwrap_or_else(|e| panic!("cannot write {}: {e}", path.display()));
+    std::fs::write(&path, &out).unwrap_or_else(|e| panic!("cannot write {}: {e}", path.display()));
 }
 
 // ---------------------------------------------------------------------------

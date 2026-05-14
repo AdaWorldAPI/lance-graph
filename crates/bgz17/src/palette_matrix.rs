@@ -8,8 +8,8 @@
 //! The compose operation uses PaletteSemiring compose tables to combine
 //! edges: path(a→b) + path(b→c) = compose(a→b, b→c) per S/P/O plane.
 
-use crate::palette::PaletteEdge;
 use crate::distance_matrix::SpoDistanceMatrices;
+use crate::palette::PaletteEdge;
 use crate::scalar_sparse::ScalarCsr;
 
 /// Sparse CSR matrix with PaletteEdge values (3 bytes per entry).
@@ -74,7 +74,14 @@ impl PaletteMatrix {
 
         let nnz = triples.len();
         let mut col_idx = vec![0usize; nnz];
-        let mut vals = vec![PaletteEdge { s_idx: 0, p_idx: 0, o_idx: 0 }; nnz];
+        let mut vals = vec![
+            PaletteEdge {
+                s_idx: 0,
+                p_idx: 0,
+                o_idx: 0
+            };
+            nnz
+        ];
         let mut offsets = vec![0usize; nrows];
 
         for &(r, c, pe) in triples {
@@ -84,7 +91,13 @@ impl PaletteMatrix {
             offsets[r] += 1;
         }
 
-        PaletteMatrix { nrows, ncols, row_ptr, col_idx, vals }
+        PaletteMatrix {
+            nrows,
+            ncols,
+            row_ptr,
+            col_idx,
+            vals,
+        }
     }
 
     /// Matrix-matrix multiply under palette semiring.
@@ -137,10 +150,24 @@ impl PaletteMatrix {
 
                     match &best[j] {
                         None => {
-                            best[j] = Some((PaletteEdge { s_idx: cs, p_idx: cp, o_idx: co }, dist));
+                            best[j] = Some((
+                                PaletteEdge {
+                                    s_idx: cs,
+                                    p_idx: cp,
+                                    o_idx: co,
+                                },
+                                dist,
+                            ));
                         }
                         Some((_, prev_dist)) if dist < *prev_dist => {
-                            best[j] = Some((PaletteEdge { s_idx: cs, p_idx: cp, o_idx: co }, dist));
+                            best[j] = Some((
+                                PaletteEdge {
+                                    s_idx: cs,
+                                    p_idx: cp,
+                                    o_idx: co,
+                                },
+                                dist,
+                            ));
                         }
                         _ => {}
                     }
@@ -157,7 +184,13 @@ impl PaletteMatrix {
             row_ptr.push(col_idx.len());
         }
 
-        PaletteMatrix { nrows, ncols, row_ptr, col_idx, vals }
+        PaletteMatrix {
+            nrows,
+            ncols,
+            row_ptr,
+            col_idx,
+            vals,
+        }
     }
 
     /// Convert to ScalarCsr using distance matrices.
@@ -198,28 +231,54 @@ impl PaletteMatrix {
 mod tests {
     use super::*;
     use crate::base17::Base17;
+    use crate::distance_matrix::SpoDistanceMatrices;
     use crate::palette::Palette;
     use crate::palette_semiring::PaletteSemiring;
-    use crate::distance_matrix::SpoDistanceMatrices;
     use crate::BASE_DIM;
 
     fn make_palette(k: usize) -> Palette {
-        let entries = (0..k).map(|i| {
-            let mut dims = [0i16; BASE_DIM];
-            for d in 0..BASE_DIM {
-                dims[d] = ((i * 97 + d * 31) % 512) as i16 - 256;
-            }
-            Base17 { dims }
-        }).collect();
+        let entries = (0..k)
+            .map(|i| {
+                let mut dims = [0i16; BASE_DIM];
+                for d in 0..BASE_DIM {
+                    dims[d] = ((i * 97 + d * 31) % 512) as i16 - 256;
+                }
+                Base17 { dims }
+            })
+            .collect();
         Palette { entries }
     }
 
     #[test]
     fn test_from_triples() {
         let triples = vec![
-            (0, 1, PaletteEdge { s_idx: 1, p_idx: 2, o_idx: 3 }),
-            (0, 2, PaletteEdge { s_idx: 4, p_idx: 5, o_idx: 6 }),
-            (1, 0, PaletteEdge { s_idx: 7, p_idx: 8, o_idx: 9 }),
+            (
+                0,
+                1,
+                PaletteEdge {
+                    s_idx: 1,
+                    p_idx: 2,
+                    o_idx: 3,
+                },
+            ),
+            (
+                0,
+                2,
+                PaletteEdge {
+                    s_idx: 4,
+                    p_idx: 5,
+                    o_idx: 6,
+                },
+            ),
+            (
+                1,
+                0,
+                PaletteEdge {
+                    s_idx: 7,
+                    p_idx: 8,
+                    o_idx: 9,
+                },
+            ),
         ];
         let pm = PaletteMatrix::from_triples(3, 3, &triples);
         assert_eq!(pm.nnz(), 3);
@@ -236,26 +295,37 @@ mod tests {
         let sr = PaletteSemiring::build(&pal);
         let dm = SpoDistanceMatrices::build(&pal, &pal, &pal);
 
-        let pe_01 = PaletteEdge { s_idx: 1, p_idx: 2, o_idx: 3 };
-        let pe_12 = PaletteEdge { s_idx: 4, p_idx: 5, o_idx: 6 };
+        let pe_01 = PaletteEdge {
+            s_idx: 1,
+            p_idx: 2,
+            o_idx: 3,
+        };
+        let pe_12 = PaletteEdge {
+            s_idx: 4,
+            p_idx: 5,
+            o_idx: 6,
+        };
 
-        let a = PaletteMatrix::from_triples(3, 3, &[
-            (0, 1, pe_01),
-        ]);
-        let b = PaletteMatrix::from_triples(3, 3, &[
-            (1, 2, pe_12),
-        ]);
+        let a = PaletteMatrix::from_triples(3, 3, &[(0, 1, pe_01)]);
+        let b = PaletteMatrix::from_triples(3, 3, &[(1, 2, pe_12)]);
 
         let c = PaletteMatrix::mxm(
-            &a, &b,
-            &sr.compose_table, &sr.compose_table, &sr.compose_table,
-            sr.k, &dm,
+            &a,
+            &b,
+            &sr.compose_table,
+            &sr.compose_table,
+            &sr.compose_table,
+            sr.k,
+            &dm,
         );
 
         // Should have exactly one entry: 0→2
         assert_eq!(c.nnz(), 1);
         let result = c.get(0, 2);
-        assert!(result.is_some(), "2-hop path 0→1→2 should produce entry at (0,2)");
+        assert!(
+            result.is_some(),
+            "2-hop path 0→1→2 should produce entry at (0,2)"
+        );
 
         // Verify the composed edge matches manual computation
         let expected_s = sr.compose(pe_01.s_idx, pe_12.s_idx);
@@ -272,10 +342,30 @@ mod tests {
         let pal = make_palette(16);
         let dm = SpoDistanceMatrices::build(&pal, &pal, &pal);
 
-        let pm = PaletteMatrix::from_triples(3, 3, &[
-            (0, 1, PaletteEdge { s_idx: 1, p_idx: 2, o_idx: 3 }),
-            (1, 2, PaletteEdge { s_idx: 4, p_idx: 5, o_idx: 6 }),
-        ]);
+        let pm = PaletteMatrix::from_triples(
+            3,
+            3,
+            &[
+                (
+                    0,
+                    1,
+                    PaletteEdge {
+                        s_idx: 1,
+                        p_idx: 2,
+                        o_idx: 3,
+                    },
+                ),
+                (
+                    1,
+                    2,
+                    PaletteEdge {
+                        s_idx: 4,
+                        p_idx: 5,
+                        o_idx: 6,
+                    },
+                ),
+            ],
+        );
 
         let csr = pm.to_distance_csr(&dm);
         assert_eq!(csr.nnz(), 2);

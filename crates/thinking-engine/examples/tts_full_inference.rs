@@ -3,8 +3,8 @@
 //! No cascade, no shortcuts. Real transformer forward pass on all 33 layers.
 //! Loads weights from safetensors, runs in pure Rust.
 
-use ndarray::hpc::safetensors::read_safetensors_header;
 use ndarray::hpc::audio::synth;
+use ndarray::hpc::safetensors::read_safetensors_header;
 use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::time::Instant;
@@ -24,54 +24,104 @@ const SAMPLE_RATE: u32 = 24000;
 
 fn read_tensor(r: &mut BufReader<File>, h: &ndarray::hpc::gguf::GgufFile, name: &str) -> Vec<f32> {
     let t = match h.tensors.iter().find(|t| t.name == name) {
-        Some(t) => t, None => { eprintln!("MISS: {}", name); return vec![]; }
+        Some(t) => t,
+        None => {
+            eprintln!("MISS: {}", name);
+            return vec![];
+        }
     };
     let n: usize = t.dimensions.iter().map(|&d| d as usize).product();
-    r.seek(SeekFrom::Start(h.tensor_data_offset + t.offset)).unwrap();
+    r.seek(SeekFrom::Start(h.tensor_data_offset + t.offset))
+        .unwrap();
     let mut raw = vec![0u8; n * 2]; // BF16
     r.read_exact(&mut raw).unwrap();
-    raw.chunks_exact(2).map(|c| f32::from_bits((u16::from_le_bytes([c[0], c[1]]) as u32) << 16)).collect()
+    raw.chunks_exact(2)
+        .map(|c| f32::from_bits((u16::from_le_bytes([c[0], c[1]]) as u32) << 16))
+        .collect()
 }
 
 fn rms_norm(x: &mut [f32], w: &[f32], dim: usize) {
     let len = x.len() / dim;
     for i in 0..len {
-        let s = &x[i*dim..(i+1)*dim];
-        let rms = (s.iter().map(|v| v*v).sum::<f32>() / dim as f32 + 1e-6).sqrt();
+        let s = &x[i * dim..(i + 1) * dim];
+        let rms = (s.iter().map(|v| v * v).sum::<f32>() / dim as f32 + 1e-6).sqrt();
         let inv = 1.0 / rms;
-        for d in 0..dim { x[i*dim+d] *= inv * w.get(d).copied().unwrap_or(1.0); }
+        for d in 0..dim {
+            x[i * dim + d] *= inv * w.get(d).copied().unwrap_or(1.0);
+        }
     }
 }
 
-fn silu(x: f32) -> f32 { x / (1.0 + (-x).exp()) }
+fn silu(x: f32) -> f32 {
+    x / (1.0 + (-x).exp())
+}
 
 fn matmul(a: &[f32], b: &[f32], m: usize, k: usize, n: usize) -> Vec<f32> {
     let mut c = vec![0.0f32; m * n];
-    for i in 0..m { for j in 0..n { let mut s = 0.0f32;
-        for p in 0..k { s += a[i*k+p] * b[j*k+p]; } c[i*n+j] = s; } }
+    for i in 0..m {
+        for j in 0..n {
+            let mut s = 0.0f32;
+            for p in 0..k {
+                s += a[i * k + p] * b[j * k + p];
+            }
+            c[i * n + j] = s;
+        }
+    }
     c
 }
 
 fn softmax(x: &mut [f32]) {
     let mx = x.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
     let mut s = 0.0f32;
-    for v in x.iter_mut() { *v = (*v - mx).exp(); s += *v; }
+    for v in x.iter_mut() {
+        *v = (*v - mx).exp();
+        s += *v;
+    }
     let inv = 1.0 / s.max(1e-10);
-    for v in x.iter_mut() { *v *= inv; }
+    for v in x.iter_mut() {
+        *v *= inv;
+    }
 }
 
 /// Run one transformer layer (Qwen3 style with GQA + QK norm).
 fn transformer_layer(
-    hidden: &mut Vec<f32>, n: usize, dim: usize,
-    reader: &mut BufReader<File>, header: &ndarray::hpc::gguf::GgufFile,
+    hidden: &mut Vec<f32>,
+    n: usize,
+    dim: usize,
+    reader: &mut BufReader<File>,
+    header: &ndarray::hpc::gguf::GgufFile,
     prefix: &str,
 ) {
-    let ln1 = read_tensor(reader, header, &format!("{}.input_layernorm.weight", prefix));
-    let qw = read_tensor(reader, header, &format!("{}.self_attn.q_proj.weight", prefix));
-    let kw = read_tensor(reader, header, &format!("{}.self_attn.k_proj.weight", prefix));
-    let vw = read_tensor(reader, header, &format!("{}.self_attn.v_proj.weight", prefix));
-    let ow = read_tensor(reader, header, &format!("{}.self_attn.o_proj.weight", prefix));
-    let ln2 = read_tensor(reader, header, &format!("{}.post_attention_layernorm.weight", prefix));
+    let ln1 = read_tensor(
+        reader,
+        header,
+        &format!("{}.input_layernorm.weight", prefix),
+    );
+    let qw = read_tensor(
+        reader,
+        header,
+        &format!("{}.self_attn.q_proj.weight", prefix),
+    );
+    let kw = read_tensor(
+        reader,
+        header,
+        &format!("{}.self_attn.k_proj.weight", prefix),
+    );
+    let vw = read_tensor(
+        reader,
+        header,
+        &format!("{}.self_attn.v_proj.weight", prefix),
+    );
+    let ow = read_tensor(
+        reader,
+        header,
+        &format!("{}.self_attn.o_proj.weight", prefix),
+    );
+    let ln2 = read_tensor(
+        reader,
+        header,
+        &format!("{}.post_attention_layernorm.weight", prefix),
+    );
     let gw = read_tensor(reader, header, &format!("{}.mlp.gate_proj.weight", prefix));
     let uw = read_tensor(reader, header, &format!("{}.mlp.up_proj.weight", prefix));
     let dw = read_tensor(reader, header, &format!("{}.mlp.down_proj.weight", prefix));
@@ -92,30 +142,44 @@ fn transformer_layer(
             for j in 0..=i {
                 let mut d = 0.0f32;
                 for dd in 0..HEAD_DIM {
-                    d += q[i*N_HEADS*HEAD_DIM + h*HEAD_DIM + dd]
-                       * k[j*N_KV_HEADS*HEAD_DIM + kv*HEAD_DIM + dd];
+                    d += q[i * N_HEADS * HEAD_DIM + h * HEAD_DIM + dd]
+                        * k[j * N_KV_HEADS * HEAD_DIM + kv * HEAD_DIM + dd];
                 }
-                scores[i*n+j] = d / (HEAD_DIM as f32).sqrt();
+                scores[i * n + j] = d / (HEAD_DIM as f32).sqrt();
             }
-            for j in (i+1)..n { scores[i*n+j] = f32::NEG_INFINITY; }
-            softmax(&mut scores[i*n..(i+1)*n]);
+            for j in (i + 1)..n {
+                scores[i * n + j] = f32::NEG_INFINITY;
+            }
+            softmax(&mut scores[i * n..(i + 1) * n]);
         }
-        for i in 0..n { for dd in 0..HEAD_DIM { let mut s = 0.0f32;
-            for j in 0..n { s += scores[i*n+j] * v[j*N_KV_HEADS*HEAD_DIM + kv*HEAD_DIM + dd]; }
-            attn_out[i*N_HEADS*HEAD_DIM + h*HEAD_DIM + dd] = s; } }
+        for i in 0..n {
+            for dd in 0..HEAD_DIM {
+                let mut s = 0.0f32;
+                for j in 0..n {
+                    s += scores[i * n + j] * v[j * N_KV_HEADS * HEAD_DIM + kv * HEAD_DIM + dd];
+                }
+                attn_out[i * N_HEADS * HEAD_DIM + h * HEAD_DIM + dd] = s;
+            }
+        }
     }
 
     let o = matmul(&attn_out, &ow, n, N_HEADS * HEAD_DIM, dim);
-    for i in 0..hidden.len() { hidden[i] += o.get(i).copied().unwrap_or(0.0); }
+    for i in 0..hidden.len() {
+        hidden[i] += o.get(i).copied().unwrap_or(0.0);
+    }
 
     let mut normed2 = hidden.clone();
     rms_norm(&mut normed2, &ln2, dim);
     let gate = matmul(&normed2, &gw, n, dim, INTER);
     let up = matmul(&normed2, &uw, n, dim, INTER);
     let mut mlp = vec![0.0f32; n * INTER];
-    for i in 0..n*INTER { mlp[i] = silu(gate[i]) * up[i]; }
+    for i in 0..n * INTER {
+        mlp[i] = silu(gate[i]) * up[i];
+    }
     let mlp_out = matmul(&mlp, &dw, n, INTER, dim);
-    for i in 0..hidden.len() { hidden[i] += mlp_out.get(i).copied().unwrap_or(0.0); }
+    for i in 0..hidden.len() {
+        hidden[i] += mlp_out.get(i).copied().unwrap_or(0.0);
+    }
 }
 
 fn main() {
@@ -144,8 +208,11 @@ fn main() {
             hidden[i * HIDDEN + d] = te.get(idx * TEXT_HIDDEN + d).copied().unwrap_or(0.0);
         }
     }
-    println!("[2] Embedded in {:?}, RMS={:.4}", t0.elapsed(),
-        (hidden.iter().map(|v| v*v).sum::<f32>() / hidden.len() as f32).sqrt());
+    println!(
+        "[2] Embedded in {:?}, RMS={:.4}",
+        t0.elapsed(),
+        (hidden.iter().map(|v| v * v).sum::<f32>() / hidden.len() as f32).sqrt()
+    );
 
     // 28 talker layers
     for layer in 0..28 {
@@ -153,8 +220,13 @@ fn main() {
         let prefix = format!("talker.model.layers.{}", layer);
         transformer_layer(&mut hidden, n, HIDDEN, &mut reader, &header, &prefix);
         if layer % 7 == 6 || layer == 27 {
-            let rms = (hidden.iter().map(|v| v*v).sum::<f32>() / hidden.len() as f32).sqrt();
-            println!("[3] Talker layer {}: RMS={:.4} ({:?})", layer, rms, t0.elapsed());
+            let rms = (hidden.iter().map(|v| v * v).sum::<f32>() / hidden.len() as f32).sqrt();
+            println!(
+                "[3] Talker layer {}: RMS={:.4} ({:?})",
+                layer,
+                rms,
+                t0.elapsed()
+            );
         }
     }
 
@@ -168,27 +240,43 @@ fn main() {
     // Take argmax per frame → codec token → embed into code_predictor
     let logits = matmul(&hidden, &codec_head, n, HIDDEN, 3072);
     // For each frame, argmax → token ID, then embed via codec_embedding.0
-    let ce0 = read_tensor(&mut reader, &header, "talker.code_predictor.model.codec_embedding.0.weight");
+    let ce0 = read_tensor(
+        &mut reader,
+        &header,
+        "talker.code_predictor.model.codec_embedding.0.weight",
+    );
     for f in 0..n {
-        let mut best = 0usize; let mut best_l = f32::NEG_INFINITY;
+        let mut best = 0usize;
+        let mut best_l = f32::NEG_INFINITY;
         for t in 0..3072 {
-            if logits[f * 3072 + t] > best_l { best_l = logits[f * 3072 + t]; best = t; }
+            if logits[f * 3072 + t] > best_l {
+                best_l = logits[f * 3072 + t];
+                best = t;
+            }
         }
         let idx = best.min(CODEBOOK_SIZE - 1);
         for d in 0..HIDDEN {
             hidden[f * HIDDEN + d] = ce0.get(idx * HIDDEN + d).copied().unwrap_or(0.0);
         }
     }
-    println!("[3.5] codec_head + re-embed: RMS={:.4} ({:?})",
-        (hidden.iter().map(|v| v*v).sum::<f32>() / hidden.len() as f32).sqrt(), t0.elapsed());
+    println!(
+        "[3.5] codec_head + re-embed: RMS={:.4} ({:?})",
+        (hidden.iter().map(|v| v * v).sum::<f32>() / hidden.len() as f32).sqrt(),
+        t0.elapsed()
+    );
 
     // 5 code_predictor layers
     for layer in 0..5 {
         let t0 = Instant::now();
         let prefix = format!("talker.code_predictor.model.layers.{}", layer);
         transformer_layer(&mut hidden, n, HIDDEN, &mut reader, &header, &prefix);
-        let rms = (hidden.iter().map(|v| v*v).sum::<f32>() / hidden.len() as f32).sqrt();
-        println!("[4] CP layer {}: RMS={:.4} ({:?})", layer, rms, t0.elapsed());
+        let rms = (hidden.iter().map(|v| v * v).sum::<f32>() / hidden.len() as f32).sqrt();
+        println!(
+            "[4] CP layer {}: RMS={:.4} ({:?})",
+            layer,
+            rms,
+            t0.elapsed()
+        );
     }
 
     // Autoregressive generation: 128 steps
@@ -200,15 +288,21 @@ fn main() {
     let mut lm_heads: Vec<Vec<f32>> = Vec::new();
     let mut cp_embeds: Vec<Vec<f32>> = Vec::new();
     for g in 0..15 {
-        lm_heads.push(read_tensor(&mut reader, &header,
-            &format!("talker.code_predictor.lm_head.{}.weight", g)));
-        cp_embeds.push(read_tensor(&mut reader, &header,
-            &format!("talker.code_predictor.model.codec_embedding.{}.weight", g)));
+        lm_heads.push(read_tensor(
+            &mut reader,
+            &header,
+            &format!("talker.code_predictor.lm_head.{}.weight", g),
+        ));
+        cp_embeds.push(read_tensor(
+            &mut reader,
+            &header,
+            &format!("talker.code_predictor.model.codec_embedding.{}.weight", g),
+        ));
     }
 
     // Start from last token's hidden state
     let mut gen_hidden = vec![0.0f32; HIDDEN];
-    gen_hidden.copy_from_slice(&hidden[(n-1)*HIDDEN..n*HIDDEN]);
+    gen_hidden.copy_from_slice(&hidden[(n - 1) * HIDDEN..n * HIDDEN]);
 
     let mut all_codec_tokens: Vec<[u8; 16]> = Vec::new();
     let t0 = Instant::now();
@@ -227,12 +321,20 @@ fn main() {
         let mut frame_tokens = [0u8; 16];
         for g in 0..15 {
             let lm = &lm_heads[g];
-            if lm.is_empty() { continue; }
-            let mut best = 0u16; let mut best_l = f32::NEG_INFINITY;
+            if lm.is_empty() {
+                continue;
+            }
+            let mut best = 0u16;
+            let mut best_l = f32::NEG_INFINITY;
             for t in 0..CODEBOOK_SIZE {
                 let mut l = 0.0f32;
-                for d in 0..HIDDEN { l += h[d] * lm[t*HIDDEN+d]; }
-                if l > best_l { best_l = l; best = t as u16; }
+                for d in 0..HIDDEN {
+                    l += h[d] * lm[t * HIDDEN + d];
+                }
+                if l > best_l {
+                    best_l = l;
+                    best = t as u16;
+                }
             }
             frame_tokens[g] = (best % 256) as u8;
         }
@@ -245,22 +347,33 @@ fn main() {
             let code = frame_tokens[g] as usize;
             let code = code.min(CODEBOOK_SIZE - 1);
             if ce.len() >= (code + 1) * HIDDEN {
-                for d in 0..HIDDEN { gen_hidden[d] += ce[code * HIDDEN + d]; }
+                for d in 0..HIDDEN {
+                    gen_hidden[d] += ce[code * HIDDEN + d];
+                }
             }
         }
 
         if step % 32 == 0 || step == n_gen_steps - 1 {
-            let rms = (h.iter().map(|v| v*v).sum::<f32>() / h.len() as f32).sqrt();
-            println!("    Step {}: tokens={:?} RMS={:.4}", step, &frame_tokens[..4], rms);
+            let rms = (h.iter().map(|v| v * v).sum::<f32>() / h.len() as f32).sqrt();
+            println!(
+                "    Step {}: tokens={:?} RMS={:.4}",
+                step,
+                &frame_tokens[..4],
+                rms
+            );
         }
     }
-    println!("    Generated {} frames in {:?}", all_codec_tokens.len(), t0.elapsed());
+    println!(
+        "    Generated {} frames in {:?}",
+        all_codec_tokens.len(),
+        t0.elapsed()
+    );
 
     // Flatten codec tokens
     let n_frames = all_codec_tokens.len();
     let mut codec_tokens = vec![0u8; n_frames * 16];
     for (i, frame) in all_codec_tokens.iter().enumerate() {
-        codec_tokens[i*16..(i+1)*16].copy_from_slice(frame);
+        codec_tokens[i * 16..(i + 1) * 16].copy_from_slice(frame);
     }
     println!("[5] Codec tokens frame 0: {:?}", &codec_tokens[..16]);
 
@@ -282,34 +395,64 @@ fn main() {
     let cb_size = 2048usize;
 
     // Load 16 RVQ codebooks
-    let load_cb = |r: &mut BufReader<File>, h: &ndarray::hpc::gguf::GgufFile, emb_name: &str, usage_name: &str| -> Vec<f32> {
+    let load_cb = |r: &mut BufReader<File>,
+                   h: &ndarray::hpc::gguf::GgufFile,
+                   emb_name: &str,
+                   usage_name: &str|
+     -> Vec<f32> {
         let emb_t = h.tensors.iter().find(|t| t.name == emb_name);
         let usage_t = h.tensors.iter().find(|t| t.name == usage_name);
         if let (Some(et), Some(ut)) = (emb_t, usage_t) {
             let ne: usize = et.dimensions.iter().map(|&d| d as usize).product();
             let nu: usize = ut.dimensions.iter().map(|&d| d as usize).product();
-            r.seek(SeekFrom::Start(h.tensor_data_offset + et.offset)).unwrap();
+            r.seek(SeekFrom::Start(h.tensor_data_offset + et.offset))
+                .unwrap();
             let mut raw = vec![0u8; ne * 4];
             r.read_exact(&mut raw).unwrap();
-            let emb: Vec<f32> = raw.chunks_exact(4).map(|c| f32::from_le_bytes([c[0],c[1],c[2],c[3]])).collect();
-            r.seek(SeekFrom::Start(h.tensor_data_offset + ut.offset)).unwrap();
+            let emb: Vec<f32> = raw
+                .chunks_exact(4)
+                .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+                .collect();
+            r.seek(SeekFrom::Start(h.tensor_data_offset + ut.offset))
+                .unwrap();
             let mut raw2 = vec![0u8; nu * 4];
             r.read_exact(&mut raw2).unwrap();
-            let usage: Vec<f32> = raw2.chunks_exact(4).map(|c| f32::from_le_bytes([c[0],c[1],c[2],c[3]])).collect();
+            let usage: Vec<f32> = raw2
+                .chunks_exact(4)
+                .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+                .collect();
             let mut cb = vec![0.0f32; cb_size * cb_dim];
-            for i in 0..cb_size { let u = usage[i].max(1.0);
-                for d in 0..cb_dim { cb[i*cb_dim+d] = emb[i*cb_dim+d] / u; } }
+            for i in 0..cb_size {
+                let u = usage[i].max(1.0);
+                for d in 0..cb_dim {
+                    cb[i * cb_dim + d] = emb[i * cb_dim + d] / u;
+                }
+            }
             cb
-        } else { vec![0.0f32; cb_size * cb_dim] }
+        } else {
+            vec![0.0f32; cb_size * cb_dim]
+        }
     };
 
-    codebooks.push(load_cb(&mut st_reader, &st_header,
+    codebooks.push(load_cb(
+        &mut st_reader,
+        &st_header,
         "decoder.quantizer.rvq_first.vq.layers.0._codebook.embedding_sum",
-        "decoder.quantizer.rvq_first.vq.layers.0._codebook.cluster_usage"));
+        "decoder.quantizer.rvq_first.vq.layers.0._codebook.cluster_usage",
+    ));
     for i in 0..15 {
-        codebooks.push(load_cb(&mut st_reader, &st_header,
-            &format!("decoder.quantizer.rvq_rest.vq.layers.{}._codebook.embedding_sum", i),
-            &format!("decoder.quantizer.rvq_rest.vq.layers.{}._codebook.cluster_usage", i)));
+        codebooks.push(load_cb(
+            &mut st_reader,
+            &st_header,
+            &format!(
+                "decoder.quantizer.rvq_rest.vq.layers.{}._codebook.embedding_sum",
+                i
+            ),
+            &format!(
+                "decoder.quantizer.rvq_rest.vq.layers.{}._codebook.cluster_usage",
+                i
+            ),
+        ));
     }
 
     // RVQ lookup
@@ -317,11 +460,13 @@ fn main() {
     let mut latent = vec![0.0f32; n_frames * cb_dim];
     for f in 0..n_frames {
         for g in 0..n_cb {
-            let code = (codec_tokens[f*16+g] as usize).min(cb_size-1);
-            for d in 0..cb_dim { latent[f*cb_dim+d] += codebooks[g][code*cb_dim+d]; }
+            let code = (codec_tokens[f * 16 + g] as usize).min(cb_size - 1);
+            for d in 0..cb_dim {
+                latent[f * cb_dim + d] += codebooks[g][code * cb_dim + d];
+            }
         }
     }
-    let lat_rms = (latent.iter().map(|v| v*v).sum::<f32>() / latent.len() as f32).sqrt();
+    let lat_rms = (latent.iter().map(|v| v * v).sum::<f32>() / latent.len() as f32).sqrt();
     println!("    Latent RMS: {:.4}", lat_rms);
 
     // Simple output: write latent directly as PCM (each frame → 256 samples)
@@ -334,7 +479,12 @@ fn main() {
     }
     let wav = synth::write_wav(&pcm, SAMPLE_RATE);
     std::fs::write(WAV_PATH, &wav).expect("write WAV");
-    println!("[7] WAV: {} ({} bytes, {:.2}s)", WAV_PATH, wav.len(), pcm.len() as f64 / SAMPLE_RATE as f64);
+    println!(
+        "[7] WAV: {} ({} bytes, {:.2}s)",
+        WAV_PATH,
+        wav.len(),
+        pcm.len() as f64 / SAMPLE_RATE as f64
+    );
 
     println!("\n═══ DONE ═══");
 }

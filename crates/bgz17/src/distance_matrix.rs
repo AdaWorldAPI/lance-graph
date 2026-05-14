@@ -114,9 +114,12 @@ impl SpoDistanceMatrices {
         let sc = (ds < threshold) as u8;
         let pc = (dp < threshold) as u8;
         let oc = (d_o < threshold) as u8;
-        sc | (pc << 1) | (oc << 2)
-            | ((sc & pc) << 3) | ((sc & oc) << 4)
-            | ((pc & oc) << 5) | ((sc & pc & oc) << 6)
+        sc | (pc << 1)
+            | (oc << 2)
+            | ((sc & pc) << 3)
+            | ((sc & oc) << 4)
+            | ((pc & oc) << 5)
+            | ((sc & pc & oc) << 6)
     }
 
     /// Total byte size of all three matrices.
@@ -132,11 +135,15 @@ mod tests {
     use crate::palette::Palette;
 
     fn make_palette(k: usize) -> Palette {
-        let entries = (0..k).map(|i| {
-            let mut dims = [0i16; 17];
-            for d in 0..17 { dims[d] = ((i * 97 + d * 31) % 512) as i16 - 256; }
-            Base17 { dims }
-        }).collect();
+        let entries = (0..k)
+            .map(|i| {
+                let mut dims = [0i16; 17];
+                for d in 0..17 {
+                    dims[d] = ((i * 97 + d * 31) % 512) as i16 - 256;
+                }
+                Base17 { dims }
+            })
+            .collect();
         Palette { entries }
     }
 
@@ -145,7 +152,12 @@ mod tests {
         let pal = make_palette(32);
         let dm = DistanceMatrix::build(&pal);
         for i in 0..32 {
-            assert_eq!(dm.distance(i, i), 0, "Self-distance must be 0 for entry {}", i);
+            assert_eq!(
+                dm.distance(i, i),
+                0,
+                "Self-distance must be 0 for entry {}",
+                i
+            );
         }
     }
 

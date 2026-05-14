@@ -4,8 +4,7 @@
 //! This test file is a compile-time check — no runtime assertions needed.
 
 #[cfg(feature = "supervisor")]
-mod compile_checks
-{
+mod compile_checks {
     use static_assertions::assert_impl_all;
 
     use lance_graph_supervisor::{ConsumerEnvelope, ConsumerReply, SupervisorErr};
@@ -20,8 +19,7 @@ mod compile_checks
     assert_impl_all!(LifecycleAuditEvent: Send, Sync);
 
     #[test]
-    fn static_send_sync_assertions_compile()
-    {
+    fn static_send_sync_assertions_compile() {
         // Presence of this test confirms the assert_impl_all! macros above
         // did not prevent compilation — i.e., all types are Send + Sync.
     }

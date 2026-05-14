@@ -12,7 +12,14 @@ fn check_runs_and_scans_workspace() {
     assert!(stdout.contains("scanned:"), "stdout: {stdout}");
     let n: usize = stdout
         .lines()
-        .find_map(|l| l.strip_prefix("scanned: ").and_then(|s| s.split(' ').next()).and_then(|s| s.trim_end_matches(';').parse().ok()))
+        .find_map(|l| {
+            l.strip_prefix("scanned: ")
+                .and_then(|s| s.split(' ').next())
+                .and_then(|s| s.trim_end_matches(';').parse().ok())
+        })
         .unwrap_or(0);
-    assert!(n >= 22, "expected >= 22 scanned types, got {n}; stdout: {stdout}");
+    assert!(
+        n >= 22,
+        "expected >= 22 scanned types, got {n}; stdout: {stdout}"
+    );
 }

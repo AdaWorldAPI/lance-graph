@@ -42,8 +42,8 @@ fn make_events(n: usize, salt: u64) -> Vec<UnifiedAuditEvent> {
 #[cfg(feature = "jsonl")]
 mod jsonl_tests {
     use super::*;
-    use lance_graph_callcenter::JsonlAuditSink;
     use lance_graph_callcenter::audit_sink::jsonl_sink::serialize_event;
+    use lance_graph_callcenter::JsonlAuditSink;
 
     /// Round-trip 100 events through JsonlAuditSink, flush, then parse back
     /// and verify merkle integrity.
@@ -64,7 +64,10 @@ mod jsonl_tests {
 
         // Read back JSONL files and verify.
         let jsonl_files: Vec<_> = find_jsonl_files(&dir);
-        assert!(!jsonl_files.is_empty(), "at least one JSONL file should exist");
+        assert!(
+            !jsonl_files.is_empty(),
+            "at least one JSONL file should exist"
+        );
 
         let mut parsed: Vec<serde_json::Value> = Vec::new();
         for path in &jsonl_files {
@@ -102,11 +105,7 @@ mod jsonl_tests {
             cb[18..26].copy_from_slice(&arh.to_le_bytes());
 
             let expected = AuditMerkleRoot::chain(prev, salt, &cb);
-            assert_eq!(
-                expected.raw(),
-                event_merkle,
-                "chain break at JSONL row {i}"
-            );
+            assert_eq!(expected.raw(), event_merkle, "chain break at JSONL row {i}");
             prev = expected;
         }
     }
@@ -143,24 +142,35 @@ mod jsonl_tests {
         let owl_field = v["owl_identity"].as_str().unwrap();
         assert_eq!(owl_field.len(), 6, "owl_identity must be 6 chars");
         assert!(
-            owl_field.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()),
+            owl_field
+                .chars()
+                .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()),
             "owl_identity must be lowercase hex"
         );
         assert_eq!(owl_field, expected_hex);
 
         // timestamp_us must be a decimal string, not a JSON number.
-        assert!(v["timestamp_us"].is_string(), "timestamp_us must be a string");
+        assert!(
+            v["timestamp_us"].is_string(),
+            "timestamp_us must be a string"
+        );
         let ts: u64 = v["timestamp_us"].as_str().unwrap().parse().unwrap();
         assert_eq!(ts, ev.ts_unix_ms * 1000);
 
         // actor_role_hash, prev_merkle, event_merkle must be decimal strings.
-        assert!(v["actor_role_hash"].is_string(), "actor_role_hash must be string");
+        assert!(
+            v["actor_role_hash"].is_string(),
+            "actor_role_hash must be string"
+        );
         assert!(v["prev_merkle"].is_string(), "prev_merkle must be string");
         assert!(v["event_merkle"].is_string(), "event_merkle must be string");
 
         // family_id must match owl_identity first byte.
         let family_id = v["family_id"].as_u64().unwrap() as u8;
-        assert_eq!(family_id, owl_bytes[0], "family_id must match owl_identity[0]");
+        assert_eq!(
+            family_id, owl_bytes[0],
+            "family_id must match owl_identity[0]"
+        );
 
         // payload must be null.
         assert!(v["payload"].is_null(), "payload must be null");
@@ -172,7 +182,9 @@ mod jsonl_tests {
         let dir = tempdir();
         let sink = JsonlAuditSink::new(&dir).unwrap();
         let events = make_events(3, 0x1234);
-        for ev in &events { sink.emit(*ev).unwrap(); }
+        for ev in &events {
+            sink.emit(*ev).unwrap();
+        }
         sink.flush().unwrap();
         sink.checkpoint().unwrap();
 
@@ -200,31 +212,32 @@ mod jsonl_tests {
 #[cfg(feature = "lance-sink")]
 mod lance_tests {
     use super::*;
-    use lance_graph_callcenter::LanceAuditSink;
-    use lance_graph_callcenter::audit_sink::lance_sink::audit_event_schema;
     use arrow_schema::{DataType, Schema};
+    use lance_graph_callcenter::audit_sink::lance_sink::audit_event_schema;
+    use lance_graph_callcenter::LanceAuditSink;
 
     /// Verify the canonical Arrow schema has 12 columns with the right types.
     #[test]
     fn lance_schema_column_names_and_types() {
         let schema = audit_event_schema();
         let expected: &[(&str, DataType)] = &[
-            ("timestamp_us",    DataType::UInt64),
-            ("tenant_id",       DataType::UInt32),
-            ("super_domain",    DataType::UInt8),
-            ("family_id",       DataType::UInt8),
-            ("owl_identity",    DataType::FixedSizeBinary(3)),
-            ("action",          DataType::UInt8),
-            ("decision",        DataType::UInt8),
+            ("timestamp_us", DataType::UInt64),
+            ("tenant_id", DataType::UInt32),
+            ("super_domain", DataType::UInt8),
+            ("family_id", DataType::UInt8),
+            ("owl_identity", DataType::FixedSizeBinary(3)),
+            ("action", DataType::UInt8),
+            ("decision", DataType::UInt8),
             ("actor_role_hash", DataType::UInt64),
-            ("prev_merkle",     DataType::UInt64),
-            ("event_merkle",    DataType::UInt64),
-            ("payload",         DataType::Binary),
-            ("date_partition",  DataType::Utf8),
+            ("prev_merkle", DataType::UInt64),
+            ("event_merkle", DataType::UInt64),
+            ("payload", DataType::Binary),
+            ("date_partition", DataType::Utf8),
         ];
         assert_eq!(schema.fields().len(), 12, "schema must have 12 columns");
         for (name, dtype) in expected {
-            let field = schema.field_with_name(name)
+            let field = schema
+                .field_with_name(name)
                 .unwrap_or_else(|_| panic!("column {name} not found in schema"));
             assert_eq!(field.data_type(), dtype, "column {name} has wrong type");
         }
@@ -262,17 +275,22 @@ mod lance_tests {
             let mut total_rows = 0usize;
             for sd_entry in std::fs::read_dir(&audit_dir).unwrap().flatten() {
                 let sd_path = sd_entry.path();
-                if !sd_path.is_dir() { continue; }
+                if !sd_path.is_dir() {
+                    continue;
+                }
                 for date_entry in std::fs::read_dir(&sd_path).unwrap().flatten() {
                     let date_path = date_entry.path();
-                    if !date_path.is_dir() { continue; }
+                    if !date_path.is_dir() {
+                        continue;
+                    }
                     let uri = format!("file://{}", date_path.display());
                     let dataset = match lance::dataset::Dataset::open(&uri).await {
                         Ok(ds) => ds,
                         Err(_) => continue,
                     };
                     let stream = dataset.scan().try_into_stream().await.unwrap();
-                    let batches: Vec<arrow_array::RecordBatch> = stream.try_collect().await.unwrap();
+                    let batches: Vec<arrow_array::RecordBatch> =
+                        stream.try_collect().await.unwrap();
 
                     for batch in &batches {
                         // Verify all expected columns are present.
@@ -378,7 +396,9 @@ mod composite_tests {
         }
         fn checkpoint(&self) -> Result<(), AuditError> {
             if self.fail {
-                return Err(AuditError::ChannelFull("simulated checkpoint failure".into()));
+                return Err(AuditError::ChannelFull(
+                    "simulated checkpoint failure".into(),
+                ));
             }
             Ok(())
         }
@@ -396,8 +416,12 @@ mod composite_tests {
                 self.0.lock().unwrap().push(event);
                 Ok(())
             }
-            fn flush(&self) -> Result<u64, AuditError> { Ok(0) }
-            fn checkpoint(&self) -> Result<(), AuditError> { Ok(()) }
+            fn flush(&self) -> Result<u64, AuditError> {
+                Ok(0)
+            }
+            fn checkpoint(&self) -> Result<(), AuditError> {
+                Ok(())
+            }
         }
 
         let sink = CompositeSink::new(
@@ -415,7 +439,10 @@ mod composite_tests {
         }
 
         let received = good_events.lock().unwrap().len();
-        assert_eq!(received, 5, "good sink must receive all 5 events even when bad sink fails");
+        assert_eq!(
+            received, 5,
+            "good sink must receive all 5 events even when bad sink fails"
+        );
     }
 
     /// FailFast: when sink[0] fails, sink[1] is NOT called.
@@ -430,8 +457,12 @@ mod composite_tests {
                 self.0.lock().unwrap().push(event);
                 Ok(())
             }
-            fn flush(&self) -> Result<u64, AuditError> { Ok(0) }
-            fn checkpoint(&self) -> Result<(), AuditError> { Ok(()) }
+            fn flush(&self) -> Result<u64, AuditError> {
+                Ok(0)
+            }
+            fn checkpoint(&self) -> Result<(), AuditError> {
+                Ok(())
+            }
         }
 
         let sink = CompositeSink::new(
@@ -446,7 +477,10 @@ mod composite_tests {
         let result = sink.emit(ev);
         assert!(result.is_err(), "FailFast should propagate the error");
         let received = good_events.lock().unwrap().len();
-        assert_eq!(received, 0, "FailFast should not call subsequent sinks after error");
+        assert_eq!(
+            received, 0,
+            "FailFast should not call subsequent sinks after error"
+        );
     }
 
     /// BestEffort: two good sinks — both receive events in declaration order.
@@ -461,8 +495,12 @@ mod composite_tests {
                 self.0.lock().unwrap().push(event.ts_unix_ms);
                 Ok(())
             }
-            fn flush(&self) -> Result<u64, AuditError> { Ok(0) }
-            fn checkpoint(&self) -> Result<(), AuditError> { Ok(()) }
+            fn flush(&self) -> Result<u64, AuditError> {
+                Ok(0)
+            }
+            fn checkpoint(&self) -> Result<(), AuditError> {
+                Ok(())
+            }
         }
 
         let sink = CompositeSink::new(
@@ -492,15 +530,15 @@ mod composite_tests {
 #[cfg(all(feature = "lance-sink", feature = "jsonl"))]
 mod cross_verify_tests {
     use super::*;
-    use lance_graph_callcenter::{JsonlAuditSink, LanceAuditSink};
     use lance_graph_callcenter::audit_sink::jsonl_sink::serialize_event;
+    use lance_graph_callcenter::{JsonlAuditSink, LanceAuditSink};
 
     /// Write the same 20-event chain to both sinks and verify that all
     /// event_merkle values agree between JSONL and Lance.
     #[test]
     fn cross_verify_same_chain_agrees() {
-        use futures::TryStreamExt as _;
         use arrow_array::UInt64Array;
+        use futures::TryStreamExt as _;
 
         let dir = tempdir();
         let jsonl_sink = JsonlAuditSink::new(&dir).unwrap();
@@ -521,7 +559,9 @@ mod cross_verify_tests {
             for path in find_jsonl_files(&dir) {
                 let content = std::fs::read_to_string(&path).unwrap();
                 for line in content.lines() {
-                    if line.trim().is_empty() { continue; }
+                    if line.trim().is_empty() {
+                        continue;
+                    }
                     let rec: serde_json::Value = serde_json::from_str(line).unwrap();
                     let em: u64 = rec["event_merkle"].as_str().unwrap().parse().unwrap();
                     v.push(em);
@@ -540,19 +580,25 @@ mod cross_verify_tests {
             let mut v = Vec::new();
             for sd_entry in std::fs::read_dir(&audit_dir).unwrap().flatten() {
                 let sd_path = sd_entry.path();
-                if !sd_path.is_dir() { continue; }
+                if !sd_path.is_dir() {
+                    continue;
+                }
                 for date_entry in std::fs::read_dir(&sd_path).unwrap().flatten() {
                     let date_path = date_entry.path();
-                    if !date_path.is_dir() { continue; }
+                    if !date_path.is_dir() {
+                        continue;
+                    }
                     let uri = format!("file://{}", date_path.display());
                     let dataset = match lance::dataset::Dataset::open(&uri).await {
                         Ok(ds) => ds,
                         Err(_) => continue,
                     };
                     let stream = dataset.scan().try_into_stream().await.unwrap();
-                    let batches: Vec<arrow_array::RecordBatch> = stream.try_collect().await.unwrap();
+                    let batches: Vec<arrow_array::RecordBatch> =
+                        stream.try_collect().await.unwrap();
                     for batch in &batches {
-                        let em_col = batch.column_by_name("event_merkle")
+                        let em_col = batch
+                            .column_by_name("event_merkle")
                             .and_then(|c| c.as_any().downcast_ref::<UInt64Array>())
                             .expect("event_merkle column");
                         for i in 0..em_col.len() {
@@ -603,7 +649,9 @@ fn find_jsonl_files(base: &std::path::Path) -> Vec<std::path::PathBuf> {
 
 #[allow(dead_code)]
 fn collect_jsonl_recursive(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
-    let Ok(rd) = std::fs::read_dir(dir) else { return };
+    let Ok(rd) = std::fs::read_dir(dir) else {
+        return;
+    };
     for entry in rd.flatten() {
         let path = entry.path();
         if path.is_dir() {

@@ -18,10 +18,10 @@
 
 /// First 64 primes.
 const PRIMES: [usize; 64] = [
-    2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71,
-    73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151,
-    157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233,
-    239, 241, 251, 257, 263, 269, 271, 277, 281, 283, 293, 307, 311,
+    2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97,
+    101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193,
+    197, 199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271, 277, 281, 283, 293, 307,
+    311,
 ];
 
 /// Compute prime fingerprint from a weight vector.
@@ -35,14 +35,18 @@ const PRIMES: [usize; 64] = [
 /// 64 primes → 64 bits = u64.
 pub fn prime_fingerprint_64(weights: &[f32]) -> u64 {
     let n = weights.len();
-    if n == 0 { return 0; }
+    if n == 0 {
+        return 0;
+    }
 
     let mut bits = 0u64;
 
     for (k, &p) in PRIMES.iter().enumerate().take(64) {
-        if p >= n { break; } // prime larger than vector → skip
+        if p >= n {
+            break;
+        } // prime larger than vector → skip
 
-        let mut on_sum = 0.0f64;  // positions divisible by p
+        let mut on_sum = 0.0f64; // positions divisible by p
         let mut off_sum = 0.0f64; // positions NOT divisible by p
         let mut on_count = 0u32;
         let mut off_count = 0u32;
@@ -58,8 +62,16 @@ pub fn prime_fingerprint_64(weights: &[f32]) -> u64 {
         }
 
         // Normalize by count to avoid size bias
-        let on_mean = if on_count > 0 { on_sum / on_count as f64 } else { 0.0 };
-        let off_mean = if off_count > 0 { off_sum / off_count as f64 } else { 0.0 };
+        let on_mean = if on_count > 0 {
+            on_sum / on_count as f64
+        } else {
+            0.0
+        };
+        let off_mean = if off_count > 0 {
+            off_sum / off_count as f64
+        } else {
+            0.0
+        };
 
         if on_mean > off_mean {
             bits |= 1 << k;
@@ -94,8 +106,16 @@ pub fn prime_fingerprint_additive(weights: &[f32]) -> Vec<f32> {
             }
         }
 
-        let on_mean = if on_count > 0 { on_sum / on_count as f64 } else { 0.0 };
-        let off_mean = if off_count > 0 { off_sum / off_count as f64 } else { 0.0 };
+        let on_mean = if on_count > 0 {
+            on_sum / on_count as f64
+        } else {
+            0.0
+        };
+        let off_mean = if off_count > 0 {
+            off_sum / off_count as f64
+        } else {
+            0.0
+        };
 
         strengths[k] = (on_mean - off_mean) as f32;
     }
@@ -106,7 +126,9 @@ pub fn prime_fingerprint_additive(weights: &[f32]) -> Vec<f32> {
 /// Reconstruct value as additive prime combination.
 /// value = Σ strength[k] × prime[k]
 pub fn prime_additive_value(strengths: &[f32]) -> f64 {
-    strengths.iter().enumerate()
+    strengths
+        .iter()
+        .enumerate()
         .map(|(k, &s)| s as f64 * PRIMES[k] as f64)
         .sum()
 }
@@ -123,7 +145,11 @@ pub fn prime_cosine(a: &[f32], b: &[f32]) -> f32 {
     let dot: f32 = a[..n].iter().zip(&b[..n]).map(|(x, y)| x * y).sum();
     let na: f32 = a[..n].iter().map(|x| x * x).sum::<f32>().sqrt();
     let nb: f32 = b[..n].iter().map(|x| x * x).sum::<f32>().sqrt();
-    if na > 1e-10 && nb > 1e-10 { dot / (na * nb) } else { 0.0 }
+    if na > 1e-10 && nb > 1e-10 {
+        dot / (na * nb)
+    } else {
+        0.0
+    }
 }
 
 /// Bundle perturbation: VSA majority-vote over prime fingerprints.
@@ -135,19 +161,18 @@ pub fn prime_cosine(a: &[f32], b: &[f32]) -> f32 {
 /// The bundle IS the interference pattern:
 ///   Bits where majority agree = constructive (shared prime properties)
 ///   Bits where minority = destructive (unique properties, suppressed)
-pub fn bundle_perturb(
-    energy: &mut [f32],
-    source_fingerprints: &[u64],
-    all_fingerprints: &[u64],
-) {
+pub fn bundle_perturb(energy: &mut [f32], source_fingerprints: &[u64], all_fingerprints: &[u64]) {
     let n_sources = source_fingerprints.len();
-    if n_sources == 0 { return; }
+    if n_sources == 0 {
+        return;
+    }
 
     // Majority vote: for each bit, count how many sources have it set
     let threshold = n_sources / 2;
     let mut bundle = 0u64;
     for bit in 0..64 {
-        let count = source_fingerprints.iter()
+        let count = source_fingerprints
+            .iter()
             .filter(|&&fp| fp & (1 << bit) != 0)
             .count();
         if count > threshold {
@@ -169,7 +194,9 @@ pub fn bundle_perturb(
     let total: f32 = energy.iter().sum();
     if total > 1e-10 {
         let inv = 1.0 / total;
-        for e in energy.iter_mut() { *e *= inv; }
+        for e in energy.iter_mut() {
+            *e *= inv;
+        }
     }
 }
 
@@ -177,7 +204,11 @@ pub fn bundle_perturb(
 pub fn bundle_analysis(source_fingerprints: &[u64]) -> BundlePattern {
     let n = source_fingerprints.len();
     if n == 0 {
-        return BundlePattern { constructive: vec![], destructive: vec![], bundle: 0 };
+        return BundlePattern {
+            constructive: vec![],
+            destructive: vec![],
+            bundle: 0,
+        };
     }
 
     let threshold = n / 2;
@@ -186,7 +217,8 @@ pub fn bundle_analysis(source_fingerprints: &[u64]) -> BundlePattern {
     let mut destructive = Vec::new();
 
     for bit in 0..64u32 {
-        let count = source_fingerprints.iter()
+        let count = source_fingerprints
+            .iter()
             .filter(|&&fp| fp & (1 << bit) != 0)
             .count();
         if count > threshold {
@@ -197,7 +229,11 @@ pub fn bundle_analysis(source_fingerprints: &[u64]) -> BundlePattern {
         }
     }
 
-    BundlePattern { constructive, destructive, bundle }
+    BundlePattern {
+        constructive,
+        destructive,
+        bundle,
+    }
 }
 
 /// Result of bundle analysis.
@@ -250,18 +286,28 @@ mod tests {
     #[test]
     fn even_odd_pattern() {
         // w[even] = 1.0, w[odd] = 0.0 → strong prime-2 signal
-        let w: Vec<f32> = (0..1024).map(|i| if i % 2 == 0 { 1.0 } else { 0.0 }).collect();
+        let w: Vec<f32> = (0..1024)
+            .map(|i| if i % 2 == 0 { 1.0 } else { 0.0 })
+            .collect();
         let fp = prime_fingerprint_64(&w);
-        assert!(fp & 1 == 1, "bit 0 (prime 2) should be set for even/odd pattern");
+        assert!(
+            fp & 1 == 1,
+            "bit 0 (prime 2) should be set for even/odd pattern"
+        );
         eprintln!("Even/odd: {:064b} ({} bits set)", fp, fp.count_ones());
     }
 
     #[test]
     fn triple_pattern() {
         // w[i%3==0] = 1.0, rest = 0.0 → strong prime-3 signal
-        let w: Vec<f32> = (0..1024).map(|i| if i % 3 == 0 { 1.0 } else { 0.0 }).collect();
+        let w: Vec<f32> = (0..1024)
+            .map(|i| if i % 3 == 0 { 1.0 } else { 0.0 })
+            .collect();
         let fp = prime_fingerprint_64(&w);
-        assert!(fp & 2 == 2, "bit 1 (prime 3) should be set for triple pattern");
+        assert!(
+            fp & 2 == 2,
+            "bit 1 (prime 3) should be set for triple pattern"
+        );
         eprintln!("Triple: {:064b} ({} bits set)", fp, fp.count_ones());
     }
 
@@ -273,7 +319,11 @@ mod tests {
         let fp2 = prime_fingerprint_64(&w2);
         let dist = prime_hamming(fp1, fp2);
         eprintln!("Similar vectors: hamming={}/64", dist);
-        assert!(dist < 16, "similar vectors should have low hamming: {}", dist);
+        assert!(
+            dist < 16,
+            "similar vectors should have low hamming: {}",
+            dist
+        );
     }
 
     #[test]
@@ -286,7 +336,11 @@ mod tests {
         eprintln!("Opposite vectors: hamming={}/64", dist);
         // Negation flips the sign of on_mean - off_mean for each prime
         // So ALL bits should flip → hamming should be high
-        assert!(dist > 32, "opposite vectors should have high hamming: {}", dist);
+        assert!(
+            dist > 32,
+            "opposite vectors should have high hamming: {}",
+            dist
+        );
     }
 
     #[test]
@@ -294,7 +348,11 @@ mod tests {
         let w: Vec<f32> = (0..256).map(|i| (i as f32 * 0.05).sin() * 0.5).collect();
         let strengths = prime_fingerprint_additive(&w);
         let reconstructed = prime_additive_value(&strengths);
-        eprintln!("Additive value: {:.4} from {} primes", reconstructed, strengths.len());
+        eprintln!(
+            "Additive value: {:.4} from {} primes",
+            reconstructed,
+            strengths.len()
+        );
         // The additive value is a weighted sum — not the original vector
         // but a SIGNATURE of it in prime-frequency space
         assert!(strengths.len() > 0);
@@ -308,18 +366,24 @@ mod tests {
         let s2 = prime_fingerprint_additive(&w2);
         let cos = prime_cosine(&s1, &s2);
         eprintln!("Additive cosine (similar): {:.4}", cos);
-        assert!(cos > 0.9, "similar vectors should have high prime-cosine: {}", cos);
+        assert!(
+            cos > 0.9,
+            "similar vectors should have high prime-cosine: {}",
+            cos
+        );
     }
 
     #[test]
     fn distance_table_from_fingerprints() {
-        let vectors: Vec<Vec<f32>> = (0..16).map(|i| {
-            (0..256).map(|d| ((i * 7 + d * 3) as f32 * 0.01).sin()).collect()
-        }).collect();
-
-        let fingerprints: Vec<u64> = vectors.iter()
-            .map(|w| prime_fingerprint_64(w))
+        let vectors: Vec<Vec<f32>> = (0..16)
+            .map(|i| {
+                (0..256)
+                    .map(|d| ((i * 7 + d * 3) as f32 * 0.01).sin())
+                    .collect()
+            })
             .collect();
+
+        let fingerprints: Vec<u64> = vectors.iter().map(|w| prime_fingerprint_64(w)).collect();
 
         let table = build_prime_distance_table(&fingerprints);
         assert_eq!(table.len(), 16 * 16);
@@ -338,8 +402,12 @@ mod tests {
 
         let storage = 16 * 8; // 16 fingerprints × 8 bytes
         let full_table = 16 * 16 * 4; // 16×16 f32
-        eprintln!("Fingerprints: {} bytes vs full table: {} bytes = {:.0}× compression",
-            storage, full_table, full_table as f32 / storage as f32);
+        eprintln!(
+            "Fingerprints: {} bytes vs full table: {} bytes = {:.0}× compression",
+            storage,
+            full_table,
+            full_table as f32 / storage as f32
+        );
     }
 
     #[test]
@@ -349,35 +417,52 @@ mod tests {
         let fp3 = 0b1010_1110u64;
         // Bit 1: 1+0+1 = 2/3 → set. Bit 2: 0+1+1 = 2/3 → set.
         let pattern = bundle_analysis(&[fp1, fp2, fp3]);
-        assert!(pattern.bundle & 0b1010_0010 != 0, // bits where all 3 agree
-            "bundle should have majority bits set");
+        assert!(
+            pattern.bundle & 0b1010_0010 != 0, // bits where all 3 agree
+            "bundle should have majority bits set"
+        );
         assert!(pattern.constructive.len() > 0);
     }
 
     #[test]
     fn bundle_perturb_activates_similar() {
         // Create fingerprints for 16 "centroids"
-        let fingerprints: Vec<u64> = (0..16).map(|i| {
-            let w: Vec<f32> = (0..256).map(|d| ((i * 7 + d * 3) as f32 * 0.01).sin()).collect();
-            prime_fingerprint_64(&w)
-        }).collect();
+        let fingerprints: Vec<u64> = (0..16)
+            .map(|i| {
+                let w: Vec<f32> = (0..256)
+                    .map(|d| ((i * 7 + d * 3) as f32 * 0.01).sin())
+                    .collect();
+                prime_fingerprint_64(&w)
+            })
+            .collect();
 
         let mut energy = vec![0.0f32; 16];
         // Perturb with sources 0 and 1 (should be similar)
-        bundle_perturb(&mut energy, &[fingerprints[0], fingerprints[1]], &fingerprints);
+        bundle_perturb(
+            &mut energy,
+            &[fingerprints[0], fingerprints[1]],
+            &fingerprints,
+        );
 
         // Atoms similar to the bundle should have more energy
-        assert!(energy.iter().any(|&e| e > 0.0), "some atoms should be activated");
+        assert!(
+            energy.iter().any(|&e| e > 0.0),
+            "some atoms should be activated"
+        );
         let total: f32 = energy.iter().sum();
         assert!((total - 1.0).abs() < 0.01, "should be normalized");
     }
 
     #[test]
     fn bundle_vs_point_perturbation() {
-        let fingerprints: Vec<u64> = (0..64).map(|i| {
-            let w: Vec<f32> = (0..256).map(|d| ((i * 11 + d * 5) as f32 * 0.01).sin()).collect();
-            prime_fingerprint_64(&w)
-        }).collect();
+        let fingerprints: Vec<u64> = (0..64)
+            .map(|i| {
+                let w: Vec<f32> = (0..256)
+                    .map(|d| ((i * 11 + d * 5) as f32 * 0.01).sin())
+                    .collect();
+                prime_fingerprint_64(&w)
+            })
+            .collect();
 
         // Point perturbation: only 2 atoms active
         let mut energy_point = vec![0.0f32; 64];
@@ -387,14 +472,24 @@ mod tests {
 
         // Bundle perturbation: interference pattern
         let mut energy_bundle = vec![0.0f32; 64];
-        bundle_perturb(&mut energy_bundle, &[fingerprints[10], fingerprints[50]], &fingerprints);
+        bundle_perturb(
+            &mut energy_bundle,
+            &[fingerprints[10], fingerprints[50]],
+            &fingerprints,
+        );
         let bundle_active = energy_bundle.iter().filter(|&&e| e > 0.01).count();
 
-        eprintln!("Point: {} active, Bundle: {} active", point_active, bundle_active);
+        eprintln!(
+            "Point: {} active, Bundle: {} active",
+            point_active, bundle_active
+        );
         // Bundle should activate atoms that share properties with BOTH sources
-        assert!(bundle_active > point_active,
+        assert!(
+            bundle_active > point_active,
             "bundle should activate more atoms through interference: {} vs {}",
-            bundle_active, point_active);
+            bundle_active,
+            point_active
+        );
     }
 
     #[test]
@@ -404,8 +499,13 @@ mod tests {
         assert_eq!(PRIMES[6], 17, "7th prime should be 17 = BASE_DIM");
 
         // Vector with strong 17-periodicity
-        let w: Vec<f32> = (0..1024).map(|i| if i % 17 == 0 { 1.0 } else { 0.0 }).collect();
+        let w: Vec<f32> = (0..1024)
+            .map(|i| if i % 17 == 0 { 1.0 } else { 0.0 })
+            .collect();
         let fp = prime_fingerprint_64(&w);
-        assert!(fp & (1 << 6) != 0, "bit 6 (prime 17) should be set for 17-periodic vector");
+        assert!(
+            fp & (1 << 6) != 0,
+            "bit 6 (prime 17) should be set for 17-periodic vector"
+        );
     }
 }

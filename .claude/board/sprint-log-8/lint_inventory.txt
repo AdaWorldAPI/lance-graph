@@ -1,0 +1,42 @@
+crates/bgz-tensor/examples/variance_audit.rs:212:18 | error: the loop variable `d` is used to index `dims`
+crates/bgz-tensor/examples/budget_rotation_test.rs:238:19 | error: the loop variable `bi` is used to index `result`
+crates/bgz-tensor/examples/budget_rotation_test.rs:202:18 | error: the loop variable `s` is used to index `result`
+crates/bgz-tensor/examples/golden_offset_test.rs:253:17 | error: manually reimplementing `div_ceil`
+crates/bgz-tensor/examples/gguf_euler_fold.rs:202:23 | error: the loop variable `neuron` is used to index `role_rows`
+crates/bgz-tensor/examples/full_pipeline.rs:365:4 | error: function `truncate` is never used
+crates/bgz-tensor/examples/gguf_families.rs:374:9 | error: this OR pattern can be rewritten using a range
+crates/bgz-tensor/examples/gguf_euler_fold.rs:280:22 | error: the loop variable `j` is used to index `members`
+crates/bgz-tensor/examples/gguf_families.rs:337:23 | error: manually reimplementing `div_ceil`
+crates/bgz-tensor/examples/gguf_thinking_styles.rs:404:9 | error: this OR pattern can be rewritten using a range
+crates/bgz-tensor/examples/full_pipeline.rs:247:22 | error: the loop variable `d` is used to index `dims`
+crates/bgz-tensor/examples/budget_rotation_test.rs:232:29 | error: manually reimplementing `div_ceil`
+crates/bgz-tensor/examples/golden_offset_test.rs:309:17 | error: manually reimplementing `div_ceil`
+crates/bgz-tensor/examples/gamma_phi_gguf.rs:380:9 | error: this OR pattern can be rewritten using a range
+crates/bgz-tensor/examples/variance_audit.rs:200:18 | error: the loop variable `d` is used to index `dims`
+crates/bgz-tensor/examples/gguf_euler_fold.rs:443:22 | error: manually reimplementing `div_ceil`
+crates/bgz-tensor/examples/gamma_phi_gguf.rs:423:22 | error: manually reimplementing `div_ceil`
+crates/bgz-tensor/examples/calibrate_from_jina.rs:64:44 | error: you are using an explicit closure for copying elements
+crates/bgz-tensor/examples/variance_audit.rs:182:18 | error: the loop variable `d` is used to index `dims`
+crates/bgz-tensor/examples/gguf_thinking_styles.rs:430:22 | error: manually reimplementing `div_ceil`
+crates/bgz-tensor/examples/gguf_families.rs:394:9 | error: this OR pattern can be rewritten using a range
+crates/bgz-tensor/examples/budget_rotation_test.rs:166:15 | error: the loop variable `bi` is used to index `result`
+crates/bgz-tensor/examples/gguf_euler_fold.rs:373:22 | error: manually reimplementing `div_ceil`
+crates/bgz-tensor/examples/fold_jina_embeddings.rs:8:42 | error: unused imports: `euler_gamma_fold` and `euler_gamma_unfold`
+crates/bgz-tensor/examples/golden_offset_test.rs:280:17 | error: manually reimplementing `div_ceil`
+crates/bgz-tensor/examples/gguf_families.rs:12:60 | error: unused import: `f32_to_bf16`
+crates/bgz-tensor/examples/gguf_thinking_styles.rs:386:9 | error: this OR pattern can be rewritten using a range
+crates/bgz-tensor/examples/variance_audit.rs:191:18 | error: the loop variable `d` is used to index `dims`
+crates/bgz-tensor/examples/gguf_thinking_styles.rs:360:22 | error: manually reimplementing `div_ceil`
+crates/bgz-tensor/examples/variance_audit.rs:221:18 | error: the loop variable `d` is used to index `dims`
+crates/bgz-tensor/examples/bgz7_hydration_quality.rs:107:30 | error: the loop variable `d` is used to index `sums`
+crates/bgz-tensor/examples/gguf_families.rs:438:28 | error: manually reimplementing `div_ceil`
+crates/bgz-tensor/examples/gamma_phi_gguf.rs:398:9 | error: this OR pattern can be rewritten using a range
+crates/bgz-tensor/examples/gguf_euler_fold.rs:399:9 | error: this OR pattern can be rewritten using a range
+crates/bgz-tensor/examples/bgz7_hydration_quality.rs:78:17 | error: unused variable: `r`
+crates/bgz-tensor/examples/gguf_euler_fold.rs:176:21 | error: this `map_or` can be simplified
+crates/bgz-tensor/examples/budget_rotation_test.rs:201:15 | error: the loop variable `bi` is used to index `result`
+crates/bgz-tensor/examples/gguf_euler_fold.rs:417:9 | error: this OR pattern can be rewritten using a range
+crates/bgz-tensor/examples/gguf_thinking_styles.rs:26:17 | error: unused variable: `role_spectra`
+crates/lance-graph-contract/src/orchestration_mode.rs:416:5 | error: consider using `sort_by_key`
+crates/bgz-tensor/examples/budget_rotation_test.rs:167:18 | error: the loop variable `s` is used to index `result`
+crates/bgz-tensor/examples/budget_rotation_test.rs:198:17 | error: manually reimplementing `div_ceil`

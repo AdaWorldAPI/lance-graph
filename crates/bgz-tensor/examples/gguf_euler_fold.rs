@@ -173,7 +173,7 @@ fn main() {
     let roles_needed = [Role::Q, Role::Up, Role::Down]; // K/V/Gate may be missing from Jina
     let available: Vec<Role> = roles_needed
         .iter()
-        .filter(|r| role_rows.get(r).map_or(false, |v| !v.is_empty()))
+        .filter(|r| role_rows.get(r).is_some_and(|v| !v.is_empty()))
         .copied()
         .collect();
 
@@ -199,7 +199,7 @@ fn main() {
         );
 
         let mut all_pearsons: Vec<f64> = Vec::new();
-        for neuron in 0..test_count {
+        for (neuron, _) in role_rows[&available[0]].iter().enumerate().take(test_count) {
             let members: Vec<Vec<f32>> = available
                 .iter()
                 .map(|r| {
@@ -277,9 +277,9 @@ fn main() {
 
             // Sample recovery quality
             let test_count = members.len().min(4);
-            for j in 0..test_count {
+            for (j, member) in members.iter().enumerate().take(test_count) {
                 let recovered = euler_gamma_unfold(&folded, j);
-                let enc_orig = bgz_tensor::StackedN::from_f32(&members[j], 32);
+                let enc_orig = bgz_tensor::StackedN::from_f32(member, 32);
                 let orig_h = enc_orig.hydrate_f32();
                 let r = bgz_tensor::quality::pearson(
                     &orig_h.iter().map(|&v| v as f64).collect::<Vec<_>>(),
@@ -370,7 +370,7 @@ fn parse_gguf_header<R: Read + Seek>(r: &mut R) -> Result<GgufHeader, String> {
     let pos = r.stream_position().map_err(|e| e.to_string())?;
     Ok(GgufHeader {
         tensors,
-        data_offset: (pos + 31) / 32 * 32,
+        data_offset: pos.div_ceil(32) * 32,
     })
 }
 
@@ -396,7 +396,7 @@ fn skip_val<R: Read + Seek>(r: &mut R, vt: u32) -> Result<(), String> {
         2 | 3 => {
             r.read_exact(&mut [0u8; 2]).map_err(|e| e.to_string())?;
         }
-        4 | 5 | 6 => {
+        4..=6 => {
             r.read_exact(&mut b4).map_err(|e| e.to_string())?;
         }
         8 => {
@@ -414,7 +414,7 @@ fn skip_val<R: Read + Seek>(r: &mut R, vt: u32) -> Result<(), String> {
                 skip_val(r, et)?;
             }
         }
-        10 | 11 | 12 => {
+        10..=12 => {
             r.read_exact(&mut b8).map_err(|e| e.to_string())?;
         }
         _ => return Err(format!("unknown vtype {}", vt)),
@@ -440,7 +440,7 @@ fn read_tensor_f32<R: Read + Seek>(
                 .collect())
         }
         8 => {
-            let nb = (n + 31) / 32;
+            let nb = n.div_ceil(32);
             let bpb = 34;
             let mut buf = vec![0u8; nb * bpb];
             r.read_exact(&mut buf).map_err(|e| e.to_string())?;

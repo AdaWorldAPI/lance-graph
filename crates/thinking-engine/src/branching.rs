@@ -19,11 +19,11 @@ pub const BRANCH: usize = 4;
 
 /// Layer sizes: 64 → 256 → 4096.
 pub const L1: usize = 64;
-pub const L2: usize = L1 * BRANCH;       // 256
+pub const L2: usize = L1 * BRANCH; // 256
 pub const L3: usize = L2 * BRANCH * BRANCH; // 4096 (256 × 16)
 
 /// L3 children per L2 parent.
-pub const L3_PER_L2: usize = L3 / L2;    // 16
+pub const L3_PER_L2: usize = L3 / L2; // 16
 
 /// One thinking layer: distance table + energy vector.
 /// Operates as a vector unit: all lanes compute in parallel.
@@ -37,14 +37,19 @@ struct Layer<const N: usize> {
 impl<const N: usize> Layer<N> {
     fn new(table: Vec<u8>) -> Self {
         assert_eq!(table.len(), N * N);
-        Self { table, energy: vec![0.0; N] }
+        Self {
+            table,
+            energy: vec![0.0; N],
+        }
     }
 
     /// MatVec on this layer. All N lanes compute in parallel.
     fn compute(&mut self) {
         let mut next = vec![0.0f64; N];
         for i in 0..N {
-            if self.energy[i] < 1e-15 { continue; }
+            if self.energy[i] < 1e-15 {
+                continue;
+            }
             let row = i * N;
             let e_i = self.energy[i];
             for j in 0..N {
@@ -52,7 +57,11 @@ impl<const N: usize> Layer<N> {
             }
         }
         let total: f64 = next.iter().sum();
-        if total > 1e-15 { for e in &mut next { *e /= total; } }
+        if total > 1e-15 {
+            for e in &mut next {
+                *e /= total;
+            }
+        }
         self.energy = next;
     }
 }
@@ -88,16 +97,18 @@ impl BranchingEngine {
         for &idx in indices {
             let i = idx as usize;
             if i < L3 {
-                self.l1.energy[i / (L3 / L1)] += 1.0;       // map to L1
-                self.l2.energy[i / L3_PER_L2] += 1.0;       // map to L2
+                self.l1.energy[i / (L3 / L1)] += 1.0; // map to L1
+                self.l2.energy[i / L3_PER_L2] += 1.0; // map to L2
                 if let Some(ref mut l3) = self.l3 {
-                    l3.energy[i] += 1.0;                     // direct L3
+                    l3.energy[i] += 1.0; // direct L3
                 }
             }
         }
         normalize(&mut self.l1.energy);
         normalize(&mut self.l2.energy);
-        if let Some(ref mut l3) = self.l3 { normalize(&mut l3.energy); }
+        if let Some(ref mut l3) = self.l3 {
+            normalize(&mut l3.energy);
+        }
     }
 
     /// One cycle: L1 compute → branch to L2 → L2 compute → branch to L3 → L3 compute.
@@ -147,9 +158,16 @@ impl BranchingEngine {
         for _ in 0..max_cycles {
             let prev = self.l1.energy.clone();
             self.cycle();
-            let delta: f64 = self.l1.energy.iter().zip(&prev)
-                .map(|(a, b)| (a - b).abs()).sum();
-            if delta < 0.001 { break; }
+            let delta: f64 = self
+                .l1
+                .energy
+                .iter()
+                .zip(&prev)
+                .map(|(a, b)| (a - b).abs())
+                .sum();
+            if delta < 0.001 {
+                break;
+            }
         }
         BranchResult {
             cycles: self.cycles,
@@ -160,15 +178,23 @@ impl BranchingEngine {
     }
 
     /// Direct access to energy vectors.
-    pub fn energy_l1(&self) -> &[f64] { &self.l1.energy }
-    pub fn energy_l2(&self) -> &[f64] { &self.l2.energy }
-    pub fn energy_l3(&self) -> Option<&[f64]> { self.l3.as_ref().map(|l| l.energy.as_slice()) }
+    pub fn energy_l1(&self) -> &[f64] {
+        &self.l1.energy
+    }
+    pub fn energy_l2(&self) -> &[f64] {
+        &self.l2.energy
+    }
+    pub fn energy_l3(&self) -> Option<&[f64]> {
+        self.l3.as_ref().map(|l| l.energy.as_slice())
+    }
 
     /// Reset all layers.
     pub fn reset(&mut self) {
         self.l1.energy.fill(0.0);
         self.l2.energy.fill(0.0);
-        if let Some(ref mut l3) = self.l3 { l3.energy.fill(0.0); }
+        if let Some(ref mut l3) = self.l3 {
+            l3.energy.fill(0.0);
+        }
         self.cycles = 0;
     }
 }
@@ -184,12 +210,15 @@ pub struct BranchResult {
 
 fn normalize(v: &mut [f64]) {
     let total: f64 = v.iter().sum();
-    if total > 1e-15 { for e in v.iter_mut() { *e /= total; } }
+    if total > 1e-15 {
+        for e in v.iter_mut() {
+            *e /= total;
+        }
+    }
 }
 
 fn top_k(energy: &[f64], k: usize) -> Vec<(usize, f64)> {
-    let mut indexed: Vec<(usize, f64)> = energy.iter().enumerate()
-        .map(|(i, &e)| (i, e)).collect();
+    let mut indexed: Vec<(usize, f64)> = energy.iter().enumerate().map(|(i, &e)| (i, e)).collect();
     indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
     indexed.into_iter().take(k).collect()
 }
@@ -242,9 +271,15 @@ mod tests {
 
         // After cycle: L1 computation + branching should activate more L2 lanes
         let active_l2_after = e.energy_l2().iter().filter(|&&x| x > 0.001).count();
-        assert!(active_l2_after > 0, "L2 should have active lanes after branching");
+        assert!(
+            active_l2_after > 0,
+            "L2 should have active lanes after branching"
+        );
 
-        eprintln!("L2 active before: {}, after: {}", active_l2_before, active_l2_after);
+        eprintln!(
+            "L2 active before: {}, after: {}",
+            active_l2_before, active_l2_after
+        );
     }
 
     #[test]
@@ -262,8 +297,8 @@ mod tests {
     #[test]
     fn branching_4x4_structure() {
         // Verify: L1[i] → L2[i*4..i*4+3]
-        assert_eq!(L2, L1 * BRANCH);           // 256 = 64 × 4
-        assert_eq!(L3, L2 * L3_PER_L2);        // 4096 = 256 × 16
+        assert_eq!(L2, L1 * BRANCH); // 256 = 64 × 4
+        assert_eq!(L3, L2 * L3_PER_L2); // 4096 = 256 × 16
         assert_eq!(L1 * BRANCH, 256);
         assert_eq!(L2 * L3_PER_L2, 4096);
 
@@ -276,7 +311,10 @@ mod tests {
     #[test]
     fn branching_with_l3() {
         let mut e = BranchingEngine::new(
-            make_table::<L1>(), make_table::<L2>(), Some(make_table::<L3>()));
+            make_table::<L1>(),
+            make_table::<L2>(),
+            Some(make_table::<L3>()),
+        );
         e.perturb(&[1000, 1010, 1020]);
 
         let result = e.think(10);
@@ -288,9 +326,27 @@ mod tests {
 
     #[test]
     fn memory_budget_branching() {
-        eprintln!("L1: {} × {} = {} bytes ({} KB)", L1, L1, L1*L1, L1*L1/1024);
-        eprintln!("L2: {} × {} = {} bytes ({} KB)", L2, L2, L2*L2, L2*L2/1024);
-        eprintln!("L3: {} × {} = {} bytes ({} MB)", L3, L3, L3*L3, L3*L3/(1024*1024));
+        eprintln!(
+            "L1: {} × {} = {} bytes ({} KB)",
+            L1,
+            L1,
+            L1 * L1,
+            L1 * L1 / 1024
+        );
+        eprintln!(
+            "L2: {} × {} = {} bytes ({} KB)",
+            L2,
+            L2,
+            L2 * L2,
+            L2 * L2 / 1024
+        );
+        eprintln!(
+            "L3: {} × {} = {} bytes ({} MB)",
+            L3,
+            L3,
+            L3 * L3,
+            L3 * L3 / (1024 * 1024)
+        );
         eprintln!("Branch factor: {}", BRANCH);
         eprintln!("L1→L2 children: {}", BRANCH);
         eprintln!("L2→L3 children: {}", L3_PER_L2);

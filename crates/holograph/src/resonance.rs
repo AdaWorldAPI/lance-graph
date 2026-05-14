@@ -29,8 +29,8 @@
 //! - **Resonance**: Match noisy vector to clean concept (cleanup memory)
 
 #[allow(unused_imports)] // VECTOR_WORDS reserved for per-word resonance scoring
-use crate::bitpack::{BitpackedVector, VECTOR_WORDS, VECTOR_BITS};
-use crate::hamming::{hamming_distance_scalar, hamming_to_similarity, StackedPopcount};
+use crate::bitpack::{BitpackedVector, VECTOR_BITS, VECTOR_WORDS};
+use crate::hamming::{StackedPopcount, hamming_distance_scalar, hamming_to_similarity};
 use std::collections::HashMap;
 
 // ============================================================================
@@ -254,7 +254,12 @@ impl BoundEdge {
     /// Create from components
     pub fn new(src: BitpackedVector, verb: BitpackedVector, dst: BitpackedVector) -> Self {
         let binding = src.xor(&verb).xor(&dst);
-        Self { binding, src, verb, dst }
+        Self {
+            binding,
+            src,
+            verb,
+            dst,
+        }
     }
 
     /// Create from just the binding and verb (lazy edge)
@@ -410,7 +415,8 @@ impl Resonator {
 
     /// Find k-best matches
     pub fn resonate_k(&self, noisy: &BitpackedVector, k: usize) -> Vec<ResonanceResult> {
-        let mut results: Vec<_> = self.concepts
+        let mut results: Vec<_> = self
+            .concepts
             .iter()
             .enumerate()
             .map(|(i, c)| {
@@ -461,7 +467,10 @@ impl Resonator {
 
         for (i, concept) in self.concepts.iter().enumerate() {
             // Use stacked popcount with early termination
-            if let Some(stacked) = StackedPopcount::compute_with_threshold(noisy, concept, best_dist) && stacked.total < best_dist {
+            if let Some(stacked) =
+                StackedPopcount::compute_with_threshold(noisy, concept, best_dist)
+                && stacked.total < best_dist
+            {
                 best_dist = stacked.total;
                 best_idx = i;
             }
@@ -529,10 +538,7 @@ pub fn encode_sequence(items: &[BitpackedVector]) -> BitpackedVector {
 /// Probe sequence for item at position
 ///
 /// Returns approximate match if item was at that position
-pub fn probe_sequence(
-    sequence: &BitpackedVector,
-    position: usize,
-) -> BitpackedVector {
+pub fn probe_sequence(sequence: &BitpackedVector, position: usize) -> BitpackedVector {
     let base = BitpackedVector::random(0xDEADBEEF);
     let pos_vector = base.rotate_words(position);
     sequence.xor(&pos_vector)
@@ -546,11 +552,7 @@ pub fn probe_sequence(
 ///
 /// Uses the transformation vector: T = unbind(B, A)
 /// Then applies: ? = bind(C, T)
-pub fn analogy(
-    a: &BitpackedVector,
-    b: &BitpackedVector,
-    c: &BitpackedVector,
-) -> BitpackedVector {
+pub fn analogy(a: &BitpackedVector, b: &BitpackedVector, c: &BitpackedVector) -> BitpackedVector {
     // T = B ⊗ A (the transformation from A to B)
     let transform = b.xor(a);
     // ? = C ⊗ T (apply transformation to C)

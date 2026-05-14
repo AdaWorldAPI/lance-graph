@@ -23,9 +23,9 @@
 //! ```
 
 use crate::base17::{Base17, SpoBase17};
-use crate::palette::{Palette, PaletteEdge};
 use crate::distance_matrix::SpoDistanceMatrices;
 use crate::layered::LayeredScope;
+use crate::palette::{Palette, PaletteEdge};
 
 /// Complete bgz17 scope: everything needed for layered search.
 pub struct Bgz17Scope {
@@ -49,15 +49,12 @@ impl Bgz17Scope {
     ///
     /// `planes`: Vec of (subject, predicate, object) as i8[16384] each.
     /// `k`: palette size (max 256).
-    pub fn build(
-        scope_id: u64,
-        planes: &[(Vec<i8>, Vec<i8>, Vec<i8>)],
-        k: usize,
-    ) -> Self {
+    pub fn build(scope_id: u64, planes: &[(Vec<i8>, Vec<i8>, Vec<i8>)], k: usize) -> Self {
         let edge_count = planes.len();
 
         // Step 1: Encode all planes to Base17
-        let base_patterns: Vec<SpoBase17> = planes.iter()
+        let base_patterns: Vec<SpoBase17> = planes
+            .iter()
             .map(|(s, p, o)| SpoBase17::encode(s, p, o))
             .collect();
 
@@ -68,7 +65,8 @@ impl Bgz17Scope {
         let matrices = SpoDistanceMatrices::build(&pal_s, &pal_p, &pal_o);
 
         // Step 4: Encode all edges to palette indices
-        let palette_indices: Vec<PaletteEdge> = base_patterns.iter()
+        let palette_indices: Vec<PaletteEdge> = base_patterns
+            .iter()
             .map(|bp| PaletteEdge {
                 s_idx: pal_s.nearest(&bp.subject),
                 p_idx: pal_p.nearest(&bp.predicate),
@@ -89,9 +87,7 @@ impl Bgz17Scope {
             }
         };
 
-        let scent: Vec<u8> = base_patterns.iter()
-            .map(|bp| centroid.scent(bp))
-            .collect();
+        let scent: Vec<u8> = base_patterns.iter().map(|bp| centroid.scent(bp)).collect();
 
         Bgz17Scope {
             scope_id,
@@ -158,7 +154,9 @@ fn scope_centroid(patterns: &[SpoBase17]) -> SpoBase17 {
 
     let to_base = |sum: &[i64; 17]| -> Base17 {
         let mut dims = [0i16; 17];
-        for d in 0..17 { dims[d] = (sum[d] / n) as i16; }
+        for d in 0..17 {
+            dims[d] = (sum[d] / n) as i16;
+        }
         Base17 { dims }
     };
 
@@ -177,7 +175,9 @@ mod tests {
         let mut v = vec![0i8; 16384];
         let mut s = seed;
         for x in v.iter_mut() {
-            s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            s = s
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
             *x = (s >> 33) as i8;
         }
         v
@@ -186,7 +186,13 @@ mod tests {
     #[test]
     fn test_build_scope() {
         let planes: Vec<(Vec<i8>, Vec<i8>, Vec<i8>)> = (0..100)
-            .map(|i| (random_plane(i * 3), random_plane(i * 3 + 1), random_plane(i * 3 + 2)))
+            .map(|i| {
+                (
+                    random_plane(i * 3),
+                    random_plane(i * 3 + 1),
+                    random_plane(i * 3 + 2),
+                )
+            })
             .collect();
 
         let scope = Bgz17Scope::build(1, &planes, 32);
@@ -197,18 +203,28 @@ mod tests {
         assert_eq!(scope.scent.len(), 100);
 
         println!("Scope storage:");
-        println!("  Total:   {} bytes ({:.0}:1 vs full planes)",
+        println!(
+            "  Total:   {} bytes ({:.0}:1 vs full planes)",
             scope.total_bytes(),
-            (100 * 6144) as f64 / scope.total_bytes() as f64);
-        println!("  Compact: {} bytes ({:.0}:1 vs full planes)",
+            (100 * 6144) as f64 / scope.total_bytes() as f64
+        );
+        println!(
+            "  Compact: {} bytes ({:.0}:1 vs full planes)",
             scope.compact_bytes(),
-            (100 * 6144) as f64 / scope.compact_bytes() as f64);
+            (100 * 6144) as f64 / scope.compact_bytes() as f64
+        );
     }
 
     #[test]
     fn test_layered_search_from_scope() {
         let planes: Vec<(Vec<i8>, Vec<i8>, Vec<i8>)> = (0..50)
-            .map(|i| (random_plane(i * 3), random_plane(i * 3 + 1), random_plane(i * 3 + 2)))
+            .map(|i| {
+                (
+                    random_plane(i * 3),
+                    random_plane(i * 3 + 1),
+                    random_plane(i * 3 + 2),
+                )
+            })
             .collect();
 
         let scope = Bgz17Scope::build(1, &planes, 16);

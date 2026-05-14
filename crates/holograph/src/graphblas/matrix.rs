@@ -2,21 +2,21 @@
 //!
 //! Sparse matrix of HDR vectors with GraphBLAS-compatible operations.
 
-#[allow(unused_imports)] // Arc reserved for shared matrix ownership in concurrent access
-use std::sync::Arc;
+#[allow(unused_imports)] // GrBInfo reserved for matrix metadata queries
+use super::GrBInfo;
+#[allow(unused_imports)] // Descriptor reserved for operation modifiers (transpose, complement)
+use super::descriptor::Descriptor;
+use super::semiring::{HdrSemiring, Semiring};
+#[allow(unused_imports)] // SparseFormat reserved for format-switching logic
+use super::sparse::{CooStorage, CsrStorage, SparseEntry, SparseFormat};
+#[allow(unused_imports)] // GRB_ALL reserved for whole-matrix masking operations
+use super::types::{GRB_ALL, GrBIndex, GrBType, HdrScalar};
+use super::vector::GrBVector;
 use crate::bitpack::BitpackedVector;
 #[allow(unused_imports)] // HdrError and Result reserved for fallible matrix operations
 use crate::{HdrError, Result};
-#[allow(unused_imports)] // GRB_ALL reserved for whole-matrix masking operations
-use super::types::{GrBIndex, HdrScalar, GrBType, GRB_ALL};
-#[allow(unused_imports)] // SparseFormat reserved for format-switching logic
-use super::sparse::{CooStorage, CsrStorage, SparseFormat, SparseEntry};
-use super::semiring::{Semiring, HdrSemiring};
-use super::vector::GrBVector;
-#[allow(unused_imports)] // Descriptor reserved for operation modifiers (transpose, complement)
-use super::descriptor::Descriptor;
-#[allow(unused_imports)] // GrBInfo reserved for matrix metadata queries
-use super::GrBInfo;
+#[allow(unused_imports)] // Arc reserved for shared matrix ownership in concurrent access
+use std::sync::Arc;
 
 /// GraphBLAS Matrix
 ///
@@ -169,7 +169,9 @@ impl GrBMatrix {
     /// Ensure COO format (for modification)
     fn ensure_coo(&mut self) {
         if matches!(self.storage, MatrixStorage::Csr(_)) {
-            if let MatrixStorage::Csr(csr) = std::mem::replace(&mut self.storage, MatrixStorage::Empty) {
+            if let MatrixStorage::Csr(csr) =
+                std::mem::replace(&mut self.storage, MatrixStorage::Empty)
+            {
                 self.storage = MatrixStorage::Coo(csr.to_coo());
             }
         }
@@ -178,7 +180,9 @@ impl GrBMatrix {
     /// Ensure CSR format (for computation)
     fn ensure_csr(&mut self) {
         if matches!(self.storage, MatrixStorage::Coo(_)) {
-            if let MatrixStorage::Coo(coo) = std::mem::replace(&mut self.storage, MatrixStorage::Empty) {
+            if let MatrixStorage::Coo(coo) =
+                std::mem::replace(&mut self.storage, MatrixStorage::Empty)
+            {
                 self.storage = MatrixStorage::Csr(coo.to_csr());
             }
         }
@@ -245,11 +249,7 @@ impl GrBMatrix {
     }
 
     /// Extract submatrix
-    pub fn extract(
-        &self,
-        row_indices: &[GrBIndex],
-        col_indices: &[GrBIndex],
-    ) -> GrBMatrix {
+    pub fn extract(&self, row_indices: &[GrBIndex], col_indices: &[GrBIndex]) -> GrBMatrix {
         let nrows = row_indices.len() as GrBIndex;
         let ncols = col_indices.len() as GrBIndex;
         let mut result = GrBMatrix::new(nrows, ncols);
@@ -359,7 +359,8 @@ impl GrBMatrix {
                         let product = semiring.multiply(a_ik, b_kj);
 
                         // Add to accumulator: c_ij ⊕= product
-                        row_accum.entry(j)
+                        row_accum
+                            .entry(j)
                             .and_modify(|acc| *acc = semiring.add(acc, &product))
                             .or_insert(product);
                     }
@@ -505,7 +506,11 @@ struct CsrIter<'a> {
 
 impl<'a> CsrIter<'a> {
     fn new(csr: &'a CsrStorage) -> Self {
-        Self { csr, row: 0, col_idx: 0 }
+        Self {
+            csr,
+            row: 0,
+            col_idx: 0,
+        }
     }
 }
 

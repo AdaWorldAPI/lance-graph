@@ -17,7 +17,7 @@
 #[cfg(feature = "tensor")]
 use bgz_tensor::stacked_n::StackedN;
 
-use crate::{SpiralAddress, SpiralWalk, CoarseBand};
+use crate::{CoarseBand, SpiralAddress, SpiralWalk};
 
 /// Convert a SpiralWalk's samples into a StackedN encoding.
 ///
@@ -254,8 +254,7 @@ mod tests {
         let candidate_addrs: Vec<SpiralAddress> = (0..10)
             .map(|i| SpiralAddress::new(20 + i, 2, 4)) // stride=2 != 8
             .collect();
-        let candidate_sources: Vec<Vec<f32>> =
-            (1..=10).map(|i| make_vec(i, dim)).collect();
+        let candidate_sources: Vec<Vec<f32>> = (1..=10).map(|i| make_vec(i, dim)).collect();
         let source_refs: Vec<&[f32]> = candidate_sources.iter().map(|v| v.as_slice()).collect();
 
         let results = cascade_search(&query_addr, &candidate_addrs, &source_refs, 4);
@@ -281,8 +280,7 @@ mod tests {
             SpiralAddress::new(200, 8, 4), // far away, same stride -> reject (disjoint)
             SpiralAddress::new(23, 8, 4),  // nearby, same stride -> survive
         ];
-        let candidate_sources: Vec<Vec<f32>> =
-            (1..=5).map(|i| make_vec(i, dim)).collect();
+        let candidate_sources: Vec<Vec<f32>> = (1..=5).map(|i| make_vec(i, dim)).collect();
         let source_refs: Vec<&[f32]> = candidate_sources.iter().map(|v| v.as_slice()).collect();
 
         let results = cascade_search(&query_addr, &candidate_addrs, &source_refs, 4);
@@ -318,11 +316,9 @@ mod tests {
         let query_addr = SpiralAddress::new(20, 8, 4);
 
         // Several candidates with same stride, nearby starts
-        let candidate_addrs: Vec<SpiralAddress> = (0..5)
-            .map(|i| SpiralAddress::new(20 + i, 8, 4))
-            .collect();
-        let candidate_sources: Vec<Vec<f32>> =
-            (0..5).map(|i| make_vec(i * 10, dim)).collect();
+        let candidate_addrs: Vec<SpiralAddress> =
+            (0..5).map(|i| SpiralAddress::new(20 + i, 8, 4)).collect();
+        let candidate_sources: Vec<Vec<f32>> = (0..5).map(|i| make_vec(i * 10, dim)).collect();
         let source_refs: Vec<&[f32]> = candidate_sources.iter().map(|v| v.as_slice()).collect();
 
         let results = cascade_search(&query_addr, &candidate_addrs, &source_refs, 4);
@@ -390,9 +386,9 @@ mod tests {
         let s8 = addr_to_stacked(&addr, &source, 8);
         let s16 = addr_to_stacked(&addr, &source, 16);
 
-        assert_eq!(s4.byte_size(), BASE_DIM * 4 * 2);   // 136 bytes
-        assert_eq!(s8.byte_size(), BASE_DIM * 8 * 2);   // 272 bytes
-        assert_eq!(s16.byte_size(), BASE_DIM * 16 * 2);  // 544 bytes
+        assert_eq!(s4.byte_size(), BASE_DIM * 4 * 2); // 136 bytes
+        assert_eq!(s8.byte_size(), BASE_DIM * 8 * 2); // 272 bytes
+        assert_eq!(s16.byte_size(), BASE_DIM * 16 * 2); // 544 bytes
     }
 
     #[test]

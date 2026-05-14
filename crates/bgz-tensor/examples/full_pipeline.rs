@@ -62,7 +62,7 @@ fn main() {
     ] {
         match std::fs::read_to_string(path) {
             Ok(json) => {
-                let text_refs: Vec<&str> = texts.iter().copied().collect();
+                let text_refs: Vec<&str> = texts.to_vec();
                 match bgz_tensor::jina::parse_jina_response(&json, &text_refs) {
                     Ok(embs) => {
                         println!("Loaded {} embeddings from {}", embs.len(), path);
@@ -244,7 +244,7 @@ fn main() {
         .map(|enc| {
             // Collapse stacked to Base17 by averaging samples per dim
             let mut dims = [0i16; 17];
-            for d in 0..17 {
+            for (d, slot) in dims.iter_mut().enumerate() {
                 let start = d * 16;
                 let end = start + 16;
                 let mean: f64 = enc.data[start..end]
@@ -252,7 +252,7 @@ fn main() {
                     .map(|&b| bgz_tensor::stacked_n::bf16_to_f32(b) as f64)
                     .sum::<f64>()
                     / 16.0;
-                dims[d] = (mean * 256.0).round().clamp(-32768.0, 32767.0) as i16;
+                *slot = (mean * 256.0).round().clamp(-32768.0, 32767.0) as i16;
             }
             bgz_tensor::Base17 { dims }
         })
@@ -362,6 +362,7 @@ fn main() {
     println!("\n=== PIPELINE COMPLETE ===");
 }
 
+#[allow(dead_code)]
 fn truncate(s: &str, max: usize) -> String {
     if s.len() <= max {
         s.to_string()

@@ -104,7 +104,7 @@ impl CausalMask {
         // but _PO shows positive effect (O healthy under P),
         // Simpson's Paradox is present.
         let so_o_path = so_direction & 0b100 != 0; // O pathological in S_O
-        let po_o_path = po_direction & 0b100 != 0;  // O pathological in _PO
+        let po_o_path = po_direction & 0b100 != 0; // O pathological in _PO
         so_o_path != po_o_path // disagree → Simpson's
     }
 }

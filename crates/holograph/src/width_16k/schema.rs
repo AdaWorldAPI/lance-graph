@@ -50,10 +50,17 @@ impl AniLevels {
     /// Dominant reasoning level (highest activation)
     pub fn dominant(&self) -> u8 {
         let levels = [
-            self.reactive, self.memory, self.analogy, self.planning,
-            self.meta, self.social, self.creative, self.r#abstract,
+            self.reactive,
+            self.memory,
+            self.analogy,
+            self.planning,
+            self.meta,
+            self.social,
+            self.creative,
+            self.r#abstract,
         ];
-        levels.iter()
+        levels
+            .iter()
             .enumerate()
             .max_by_key(|(_, v)| **v)
             .map(|(i, _)| i as u8)
@@ -245,10 +252,18 @@ impl EdgeTypeMarker {
         }
     }
 
-    pub fn is_temporal(&self) -> bool { self.flags & 1 != 0 }
-    pub fn is_causal(&self) -> bool { self.flags & 2 != 0 }
-    pub fn is_hierarchical(&self) -> bool { self.flags & 4 != 0 }
-    pub fn is_associative(&self) -> bool { self.flags & 8 != 0 }
+    pub fn is_temporal(&self) -> bool {
+        self.flags & 1 != 0
+    }
+    pub fn is_causal(&self) -> bool {
+        self.flags & 2 != 0
+    }
+    pub fn is_hierarchical(&self) -> bool {
+        self.flags & 4 != 0
+    }
+    pub fn is_associative(&self) -> bool {
+        self.flags & 8 != 0
+    }
 }
 
 /// Node kind classification
@@ -291,9 +306,7 @@ impl NodeTypeMarker {
     pub const BITS: usize = 32;
 
     pub fn pack(&self) -> u32 {
-        (self.kind as u32)
-            | ((self.subtype as u32) << 8)
-            | ((self.provenance as u32) << 16)
+        (self.kind as u32) | ((self.subtype as u32) << 8) | ((self.provenance as u32) << 16)
     }
 
     pub fn unpack(packed: u32) -> Self {
@@ -340,7 +353,8 @@ impl InlineQValues {
 
     /// Best action (argmax)
     pub fn best_action(&self) -> usize {
-        self.values.iter()
+        self.values
+            .iter()
             .enumerate()
             .max_by_key(|(_, v)| **v)
             .map(|(i, _)| i)
@@ -756,8 +770,8 @@ impl SchemaSidecar {
         words[block15_base + 8] = self.metrics.pack();
 
         // Version byte: written to top 8 bits of word[base+15] (end of block 13 padding)
-        words[base + Self::VERSION_WORD_OFFSET] =
-            (words[base + Self::VERSION_WORD_OFFSET] & Self::ANI_WORD0_MASK)
+        words[base + Self::VERSION_WORD_OFFSET] = (words[base + Self::VERSION_WORD_OFFSET]
+            & Self::ANI_WORD0_MASK)
             | ((Self::SCHEMA_VERSION as u64) << 56);
     }
 

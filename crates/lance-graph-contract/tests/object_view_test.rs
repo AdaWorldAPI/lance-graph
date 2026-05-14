@@ -56,6 +56,9 @@ fn notification_spec_created_webhook() {
 #[test]
 fn notification_trigger_and_channel_variants_distinct() {
     assert_ne!(NotificationTrigger::Created, NotificationTrigger::Updated);
-    assert_ne!(NotificationTrigger::Deleted, NotificationTrigger::ThresholdCrossed);
+    assert_ne!(
+        NotificationTrigger::Deleted,
+        NotificationTrigger::ThresholdCrossed
+    );
     assert_ne!(NotificationChannel::Inline, NotificationChannel::Email);
 }

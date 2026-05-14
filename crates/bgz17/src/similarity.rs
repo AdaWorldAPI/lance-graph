@@ -31,7 +31,11 @@ impl SimilarityTable {
             let z = (mu_f - distance as f32) / sigma_f;
             *entry = 1.0 / (1.0 + (-z).exp());
         }
-        Self { table, bucket_width, max_distance }
+        Self {
+            table,
+            bucket_width,
+            max_distance,
+        }
     }
 
     /// Build from empirical CDF (reservoir samples).
@@ -43,7 +47,14 @@ impl SimilarityTable {
         let n = samples.len();
         let mu = samples[n / 2]; // median as mu
         let mean = samples.iter().map(|&s| s as f64).sum::<f64>() / n as f64;
-        let var = samples.iter().map(|&s| { let d = s as f64 - mean; d * d }).sum::<f64>() / n as f64;
+        let var = samples
+            .iter()
+            .map(|&s| {
+                let d = s as f64 - mean;
+                d * d
+            })
+            .sum::<f64>()
+            / n as f64;
         let _sigma = var.sqrt() as u32;
 
         let max_distance = 2 * mu;
@@ -58,13 +69,19 @@ impl SimilarityTable {
             *entry = 1.0 - cdf; // similarity = 1 - CDF
         }
 
-        Self { table, bucket_width, max_distance }
+        Self {
+            table,
+            bucket_width,
+            max_distance,
+        }
     }
 
     /// Lookup similarity for a raw distance. O(1).
     #[inline(always)]
     pub fn similarity(&self, distance: u32) -> f32 {
-        if distance >= self.max_distance { return 0.0; }
+        if distance >= self.max_distance {
+            return 0.0;
+        }
         let bucket = (distance / self.bucket_width).min(255) as usize;
         self.table[bucket]
     }
@@ -77,9 +94,15 @@ impl SimilarityTable {
         }
     }
 
-    pub fn bucket_width(&self) -> u32 { self.bucket_width }
-    pub fn max_distance(&self) -> u32 { self.max_distance }
-    pub fn table(&self) -> &[f32; 256] { &self.table }
+    pub fn bucket_width(&self) -> u32 {
+        self.bucket_width
+    }
+    pub fn max_distance(&self) -> u32 {
+        self.max_distance
+    }
+    pub fn table(&self) -> &[f32; 256] {
+        &self.table
+    }
 }
 
 #[cfg(test)]
@@ -103,7 +126,13 @@ mod tests {
         let mut prev = 1.1f32;
         for d in (0..2000).step_by(10) {
             let s = table.similarity(d);
-            assert!(s <= prev + 0.01, "not monotone at d={}: {} > {}", d, s, prev);
+            assert!(
+                s <= prev + 0.01,
+                "not monotone at d={}: {} > {}",
+                d,
+                s,
+                prev
+            );
             prev = s;
         }
     }

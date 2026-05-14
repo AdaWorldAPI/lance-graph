@@ -118,9 +118,7 @@ mod validator {
 
     /// Validate a set of (path, yaml_str) pairs using the same rules
     /// as build.rs. Returns Ok(entries) or Err(message).
-    pub fn validate_manifests(
-        pairs: &[(PathBuf, String)],
-    ) -> Result<Vec<ValidatedEntry>, String> {
+    pub fn validate_manifests(pairs: &[(PathBuf, String)]) -> Result<Vec<ValidatedEntry>, String> {
         // Parse
         let mut raw_list: Vec<(PathBuf, ManifestRaw)> = Vec::new();
         for (path, src) in pairs {
@@ -234,7 +232,14 @@ fn load_canonical_manifests() -> Vec<(PathBuf, String)> {
     let root = workspace_root();
     let modules = root.join("modules");
     let mut pairs = Vec::new();
-    for name in &["dolce", "medcare", "smb-office", "q2-cockpit", "fma", "hubspo"] {
+    for name in &[
+        "dolce",
+        "medcare",
+        "smb-office",
+        "q2-cockpit",
+        "fma",
+        "hubspo",
+    ] {
         let path = modules.join(name).join("manifest.yaml");
         let src = std::fs::read_to_string(&path)
             .unwrap_or_else(|e| panic!("cannot read {}: {e}", path.display()));
@@ -276,11 +281,17 @@ fn test_idempotency() {
     let meta_bytes = std::fs::read(&meta).expect("read manifest_metadata.rs");
 
     assert!(!ns_bytes.is_empty(), "ogit_namespace.rs must not be empty");
-    assert!(!meta_bytes.is_empty(), "manifest_metadata.rs must not be empty");
+    assert!(
+        !meta_bytes.is_empty(),
+        "manifest_metadata.rs must not be empty"
+    );
 
     // Compare content against a second read (same file, same bytes).
     let ns_bytes2 = std::fs::read(&ogit_ns).expect("re-read ogit_namespace.rs");
-    assert_eq!(ns_bytes, ns_bytes2, "ogit_namespace.rs bytes must be stable");
+    assert_eq!(
+        ns_bytes, ns_bytes2,
+        "ogit_namespace.rs bytes must be stable"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -301,7 +312,10 @@ action_capabilities: {}
 actor: ~
 inherits_from: ~
 "#;
-    let pairs = vec![(PathBuf::from("fake/dolce/manifest.yaml"), bad_yaml.to_string())];
+    let pairs = vec![(
+        PathBuf::from("fake/dolce/manifest.yaml"),
+        bad_yaml.to_string(),
+    )];
     let result = validate_manifests(&pairs);
     assert!(
         result.is_err(),
@@ -347,13 +361,13 @@ inherits_from: ~
 "#;
     let pairs = vec![
         (PathBuf::from("fake/dolce/manifest.yaml"), dolce.to_string()),
-        (PathBuf::from("fake/dolce-v2/manifest.yaml"), dolce2.to_string()),
+        (
+            PathBuf::from("fake/dolce-v2/manifest.yaml"),
+            dolce2.to_string(),
+        ),
     ];
     let result = validate_manifests(&pairs);
-    assert!(
-        result.is_err(),
-        "duplicate G slot DOLCE must be rejected"
-    );
+    assert!(result.is_err(), "duplicate G slot DOLCE must be rejected");
     let msg = result.unwrap_err();
     assert!(
         msg.contains("duplicate G slot") || msg.contains("DOLCE"),
@@ -396,7 +410,10 @@ inherits_from: dolce
 "#;
     let pairs = vec![
         (PathBuf::from("fake/dolce/manifest.yaml"), dolce.to_string()),
-        (PathBuf::from("fake/medcare/manifest.yaml"), medcare.to_string()),
+        (
+            PathBuf::from("fake/medcare/manifest.yaml"),
+            medcare.to_string(),
+        ),
     ];
     let result = validate_manifests(&pairs);
     assert!(
@@ -480,10 +497,7 @@ inherits_from: nonexistent-domain
         medcare.to_string(),
     )];
     let result = validate_manifests(&pairs);
-    assert!(
-        result.is_err(),
-        "unresolved inherits_from must be rejected"
-    );
+    assert!(result.is_err(), "unresolved inherits_from must be rejected");
     let msg = result.unwrap_err();
     assert!(
         msg.contains("inherits_from") || msg.contains("resolve"),

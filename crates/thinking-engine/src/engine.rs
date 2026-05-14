@@ -154,7 +154,7 @@
 //!   FIX 4: GPU Vulkan compute shader: ~10μs per cycle (see GPU design doc)
 //! ```
 
-use crate::dto::{ResonanceDto, BusDto};
+use crate::dto::{BusDto, ResonanceDto};
 use ndarray::hpc::heel_f64x8::cosine_f64_simd;
 use ndarray::simd::F32x16;
 use ndarray::simd_amx;
@@ -204,8 +204,12 @@ impl ThinkingEngine {
     pub fn new(distance_table: Vec<u8>) -> Self {
         let total = distance_table.len();
         let size = (total as f64).sqrt() as usize;
-        assert_eq!(size * size, total,
-            "distance table length {} is not a perfect square", total);
+        assert_eq!(
+            size * size,
+            total,
+            "distance table length {} is not a perfect square",
+            total
+        );
         assert!(size >= 4, "need at least 4 atoms");
 
         // Compute 1σ floor (74th percentile) — kills 74% of noise,
@@ -312,7 +316,9 @@ impl ThinkingEngine {
 
         for i in 0..k {
             let e_i = self.energy[i];
-            if e_i < 1e-10 { continue; }
+            if e_i < 1e-10 {
+                continue;
+            }
 
             let row = &self.distance_table[i * k..(i + 1) * k];
             let e_scaled = e_i * scale;
@@ -346,7 +352,10 @@ impl ThinkingEngine {
                         d.mul_add(ei, acc).copy_to_slice(&mut next[base..base + 16]);
                     }};
                 }
-                do_lane!(0); do_lane!(1); do_lane!(2); do_lane!(3);
+                do_lane!(0);
+                do_lane!(1);
+                do_lane!(2);
+                do_lane!(3);
                 j += 64;
             }
             while j < k {
@@ -360,7 +369,9 @@ impl ThinkingEngine {
         let total: f32 = next.iter().sum();
         if total > 1e-10 {
             let inv = 1.0 / total;
-            for e in &mut next { *e *= inv; }
+            for e in &mut next {
+                *e *= inv;
+            }
         }
 
         self.energy = next;
@@ -389,11 +400,17 @@ impl ThinkingEngine {
             }
             if exp_sum > 1e-10 {
                 let inv = 1.0 / exp_sum;
-                for e in &mut self.energy { *e *= inv; }
+                for e in &mut self.energy {
+                    *e *= inv;
+                }
             }
 
-            let delta: f32 = self.energy.iter().zip(&prev)
-                .map(|(a, b)| (a - b).abs()).sum();
+            let delta: f32 = self
+                .energy
+                .iter()
+                .zip(&prev)
+                .map(|(a, b)| (a - b).abs())
+                .sum();
             if delta < self.convergence_threshold {
                 break;
             }
@@ -408,8 +425,12 @@ impl ThinkingEngine {
             let prev = self.energy.clone();
             self.cycle();
 
-            let delta: f32 = self.energy.iter().zip(&prev)
-                .map(|(a, b)| (a - b).abs()).sum();
+            let delta: f32 = self
+                .energy
+                .iter()
+                .zip(&prev)
+                .map(|(a, b)| (a - b).abs())
+                .sum();
             if delta < self.convergence_threshold {
                 break;
             }
@@ -464,7 +485,9 @@ impl ThinkingEngine {
         let total: f32 = next.iter().sum();
         if total > 1e-10 {
             let inv = 1.0 / total;
-            for e in &mut next { *e *= inv; }
+            for e in &mut next {
+                *e *= inv;
+            }
         }
 
         self.energy = next;
@@ -478,9 +501,7 @@ impl ThinkingEngine {
     pub fn cycle_auto(&mut self) {
         #[cfg(target_arch = "x86_64")]
         {
-            if is_x86_feature_detected!("avx512vnni")
-                || is_x86_feature_detected!("avxvnniint8")
-            {
+            if is_x86_feature_detected!("avx512vnni") || is_x86_feature_detected!("avxvnniint8") {
                 self.cycle_vnni();
                 return;
             }
@@ -498,7 +519,9 @@ impl ThinkingEngine {
         let total: f32 = self.energy.iter().sum();
         if total > 1e-10 {
             let inv = 1.0 / total;
-            for e in &mut self.energy { *e *= inv; }
+            for e in &mut self.energy {
+                *e *= inv;
+            }
         }
     }
 
@@ -521,7 +544,9 @@ impl ThinkingEngine {
     }
 
     /// Access the distance table.
-    pub fn distance_table_ref(&self) -> &[u8] { &self.distance_table }
+    pub fn distance_table_ref(&self) -> &[u8] {
+        &self.distance_table
+    }
 
     /// Entropy of current energy distribution.
     pub fn entropy(&self) -> f32 {
@@ -549,7 +574,9 @@ pub fn quantize_energy_f32_to_i8(energy: &[f32], output: &mut [i8]) {
     let n = energy.len().min(output.len());
     let max_e = energy[..n].iter().cloned().fold(0.0f32, f32::max);
     if max_e < 1e-15 {
-        for o in output[..n].iter_mut() { *o = 0; }
+        for o in output[..n].iter_mut() {
+            *o = 0;
+        }
         return;
     }
     let scale = 127.0 / max_e;
@@ -566,7 +593,7 @@ mod tests {
         let mut table = vec![128u8; k * k];
         for i in 0..k {
             table[i * k + i] = 255; // self = max
-            // Create some structure: nearby indices are similar
+                                    // Create some structure: nearby indices are similar
             for j in 0..k {
                 let dist = (i as i64 - j as i64).unsigned_abs() as usize;
                 if dist < 50 {
@@ -628,8 +655,10 @@ mod tests {
         assert!(resonance.top_k[0].1 > 0.0); // dominant peak exists
 
         eprintln!("Converged in {} cycles", resonance.cycle_count);
-        eprintln!("Top peak: index={}, energy={:.4}",
-            resonance.top_k[0].0, resonance.top_k[0].1);
+        eprintln!(
+            "Top peak: index={}, energy={:.4}",
+            resonance.top_k[0].0, resonance.top_k[0].1
+        );
         eprintln!("Entropy: {:.4}", engine.entropy());
         eprintln!("Active atoms: {}", engine.active_count(0.001));
     }
@@ -644,7 +673,10 @@ mod tests {
 
         let bus = engine.commit();
         assert!(bus.energy > 0.0);
-        eprintln!("Committed: index={}, energy={:.4}", bus.codebook_index, bus.energy);
+        eprintln!(
+            "Committed: index={}, energy={:.4}",
+            bus.codebook_index, bus.energy
+        );
     }
 
     #[test]
@@ -678,8 +710,10 @@ mod tests {
 
         // Both perturbation sites should have influenced the result
         assert!(resonance.top_k[0].1 > 0.0);
-        eprintln!("After dual perturbation: {} peaks above 0.01",
-            engine.active_count(0.01));
+        eprintln!(
+            "After dual perturbation: {} peaks above 0.01",
+            engine.active_count(0.01)
+        );
     }
 
     #[test]
@@ -698,9 +732,13 @@ mod tests {
 
     #[test]
     fn build_distance_table_symmetric() {
-        let centroids: Vec<Vec<f64>> = (0..100).map(|i| {
-            (0..64).map(|d| ((i * 97 + d * 31) as f64 % 200.0 - 100.0) * 0.01).collect()
-        }).collect();
+        let centroids: Vec<Vec<f64>> = (0..100)
+            .map(|i| {
+                (0..64)
+                    .map(|d| ((i * 97 + d * 31) as f64 % 200.0 - 100.0) * 0.01)
+                    .collect()
+            })
+            .collect();
 
         let table = ThinkingEngine::build_distance_table(&centroids);
         assert_eq!(table.len(), 100 * 100);
@@ -708,9 +746,17 @@ mod tests {
         // Symmetric
         for i in 0..100 {
             for j in 0..100 {
-                assert_eq!(table[i * 100 + j], table[j * 100 + i],
+                assert_eq!(
+                    table[i * 100 + j],
+                    table[j * 100 + i],
                     "table[{},{}]={} != table[{},{}]={}",
-                    i, j, table[i * 100 + j], j, i, table[j * 100 + i]);
+                    i,
+                    j,
+                    table[i * 100 + j],
+                    j,
+                    i,
+                    table[j * 100 + i]
+                );
             }
         }
 

@@ -161,11 +161,10 @@ impl NeuronQuery {
             total += d.l1(&neuron.down);
             count += 1;
         }
-        if count > 0 {
-            total / count
-        } else {
-            u32::MAX
-        }
+        // checked_div (clippy::manual_checked_ops, 1.95): the `count > 0`
+        // guard short-circuits when no neurons match, so checked_div's None
+        // arm maps to the `u32::MAX` sentinel for "no neighbors".
+        total.checked_div(count).unwrap_or(u32::MAX)
     }
 
     /// How many roles are active in this query.

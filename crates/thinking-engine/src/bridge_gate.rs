@@ -41,9 +41,9 @@ pub enum CognitiveOpKind {
 impl std::fmt::Display for CognitiveOpKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::L6Delegation   => write!(f, "L6Delegation"),
-            Self::L8Integration  => write!(f, "L8Integration"),
-            Self::QualiaWrite    => write!(f, "QualiaWrite"),
+            Self::L6Delegation => write!(f, "L6Delegation"),
+            Self::L8Integration => write!(f, "L8Integration"),
+            Self::QualiaWrite => write!(f, "QualiaWrite"),
             Self::MetaWordCommit => write!(f, "MetaWordCommit"),
         }
     }
@@ -95,7 +95,7 @@ pub enum CognitiveBridgeError {
 impl std::fmt::Display for CognitiveBridgeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Denied    => write!(f, "cognitive bridge: access denied"),
+            Self::Denied => write!(f, "cognitive bridge: access denied"),
             Self::Escalation => write!(f, "cognitive bridge: escalation required"),
         }
     }
@@ -109,8 +109,8 @@ impl std::error::Error for CognitiveBridgeError {}
 #[inline]
 pub fn auth_to_result(result: CognitiveAuthResult) -> Result<(), CognitiveBridgeError> {
     match result {
-        CognitiveAuthResult::Allow    => Ok(()),
-        CognitiveAuthResult::Deny     => Err(CognitiveBridgeError::Denied),
+        CognitiveAuthResult::Allow => Ok(()),
+        CognitiveAuthResult::Deny => Err(CognitiveBridgeError::Denied),
         CognitiveAuthResult::Escalate => Err(CognitiveBridgeError::Escalation),
     }
 }
@@ -145,11 +145,7 @@ pub trait CognitiveBridgeGate: Send + Sync {
     /// `mode` is the `PersonaMode` ordinal (avoids coupling to the enum):
     /// `0 = Work`, `1 = Personal`, `2 = Hybrid`. Called before the mode is
     /// committed; returning `Deny` / `Escalate` leaves the persona unchanged.
-    fn authorize_persona_switch(
-        &self,
-        tenant_id: u32,
-        mode: u8,
-    ) -> CognitiveAuthResult;
+    fn authorize_persona_switch(&self, tenant_id: u32, mode: u8) -> CognitiveAuthResult;
 
     /// Category C — L6 fan-out or L8 integration across tenant boundaries.
     fn authorize_cognitive_op(
@@ -172,7 +168,12 @@ pub struct PassthroughGate;
 
 impl CognitiveBridgeGate for PassthroughGate {
     #[inline]
-    fn authorize_retrieval(&self, _tenant_id: u32, _entity_type: &str, _depth: u8) -> CognitiveAuthResult {
+    fn authorize_retrieval(
+        &self,
+        _tenant_id: u32,
+        _entity_type: &str,
+        _depth: u8,
+    ) -> CognitiveAuthResult {
         CognitiveAuthResult::Allow
     }
 
@@ -182,7 +183,11 @@ impl CognitiveBridgeGate for PassthroughGate {
     }
 
     #[inline]
-    fn authorize_cognitive_op(&self, _tenant_id: u32, _op_kind: CognitiveOpKind) -> CognitiveAuthResult {
+    fn authorize_cognitive_op(
+        &self,
+        _tenant_id: u32,
+        _op_kind: CognitiveOpKind,
+    ) -> CognitiveAuthResult {
         CognitiveAuthResult::Allow
     }
 }
@@ -197,7 +202,12 @@ pub struct DenyAllGate;
 
 impl CognitiveBridgeGate for DenyAllGate {
     #[inline]
-    fn authorize_retrieval(&self, _tenant_id: u32, _entity_type: &str, _depth: u8) -> CognitiveAuthResult {
+    fn authorize_retrieval(
+        &self,
+        _tenant_id: u32,
+        _entity_type: &str,
+        _depth: u8,
+    ) -> CognitiveAuthResult {
         CognitiveAuthResult::Deny
     }
 
@@ -207,7 +217,11 @@ impl CognitiveBridgeGate for DenyAllGate {
     }
 
     #[inline]
-    fn authorize_cognitive_op(&self, _tenant_id: u32, _op_kind: CognitiveOpKind) -> CognitiveAuthResult {
+    fn authorize_cognitive_op(
+        &self,
+        _tenant_id: u32,
+        _op_kind: CognitiveOpKind,
+    ) -> CognitiveAuthResult {
         CognitiveAuthResult::Deny
     }
 }
@@ -220,20 +234,47 @@ mod tests {
     #[test]
     fn passthrough_allows_all() {
         let gate = PassthroughGate;
-        assert_eq!(gate.authorize_retrieval(1, "Document", 0), CognitiveAuthResult::Allow);
-        assert_eq!(gate.authorize_persona_switch(1, 0), CognitiveAuthResult::Allow);
-        assert_eq!(gate.authorize_cognitive_op(1, CognitiveOpKind::L6Delegation), CognitiveAuthResult::Allow);
-        assert_eq!(gate.authorize_cognitive_op(1, CognitiveOpKind::L8Integration), CognitiveAuthResult::Allow);
-        assert_eq!(gate.authorize_cognitive_op(1, CognitiveOpKind::QualiaWrite), CognitiveAuthResult::Allow);
-        assert_eq!(gate.authorize_cognitive_op(1, CognitiveOpKind::MetaWordCommit), CognitiveAuthResult::Allow);
+        assert_eq!(
+            gate.authorize_retrieval(1, "Document", 0),
+            CognitiveAuthResult::Allow
+        );
+        assert_eq!(
+            gate.authorize_persona_switch(1, 0),
+            CognitiveAuthResult::Allow
+        );
+        assert_eq!(
+            gate.authorize_cognitive_op(1, CognitiveOpKind::L6Delegation),
+            CognitiveAuthResult::Allow
+        );
+        assert_eq!(
+            gate.authorize_cognitive_op(1, CognitiveOpKind::L8Integration),
+            CognitiveAuthResult::Allow
+        );
+        assert_eq!(
+            gate.authorize_cognitive_op(1, CognitiveOpKind::QualiaWrite),
+            CognitiveAuthResult::Allow
+        );
+        assert_eq!(
+            gate.authorize_cognitive_op(1, CognitiveOpKind::MetaWordCommit),
+            CognitiveAuthResult::Allow
+        );
     }
 
     #[test]
     fn deny_all_denies_all() {
         let gate = DenyAllGate;
-        assert_eq!(gate.authorize_retrieval(1, "Document", 0), CognitiveAuthResult::Deny);
-        assert_eq!(gate.authorize_persona_switch(1, 2), CognitiveAuthResult::Deny);
-        assert_eq!(gate.authorize_cognitive_op(1, CognitiveOpKind::L8Integration), CognitiveAuthResult::Deny);
+        assert_eq!(
+            gate.authorize_retrieval(1, "Document", 0),
+            CognitiveAuthResult::Deny
+        );
+        assert_eq!(
+            gate.authorize_persona_switch(1, 2),
+            CognitiveAuthResult::Deny
+        );
+        assert_eq!(
+            gate.authorize_cognitive_op(1, CognitiveOpKind::L8Integration),
+            CognitiveAuthResult::Deny
+        );
     }
 
     #[test]
@@ -243,12 +284,18 @@ mod tests {
 
     #[test]
     fn auth_to_result_deny() {
-        assert_eq!(auth_to_result(CognitiveAuthResult::Deny), Err(CognitiveBridgeError::Denied));
+        assert_eq!(
+            auth_to_result(CognitiveAuthResult::Deny),
+            Err(CognitiveBridgeError::Denied)
+        );
     }
 
     #[test]
     fn auth_to_result_escalate() {
-        assert_eq!(auth_to_result(CognitiveAuthResult::Escalate), Err(CognitiveBridgeError::Escalation));
+        assert_eq!(
+            auth_to_result(CognitiveAuthResult::Escalate),
+            Err(CognitiveBridgeError::Escalation)
+        );
     }
 
     #[test]
@@ -289,7 +336,8 @@ mod tests {
         assert!(result.is_ok(), "PassthroughGate must allow persona switch");
 
         // Category C: cognitive op
-        let result = auth_to_result(gate.authorize_cognitive_op(tenant_id, CognitiveOpKind::L6Delegation));
+        let result =
+            auth_to_result(gate.authorize_cognitive_op(tenant_id, CognitiveOpKind::L6Delegation));
         assert!(result.is_ok(), "PassthroughGate must allow L6 delegation");
     }
 

@@ -2,7 +2,7 @@
 name = "lance-graph-osint"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.94"
+rust-version = "1.95"
 description = "OSINT intelligence pipeline: Jina Reader → NARS triplets → AriGraph → Palette routing. No external LLM API."
 license = "Apache-2.0"
 

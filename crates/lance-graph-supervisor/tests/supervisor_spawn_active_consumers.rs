@@ -4,25 +4,47 @@
 //! Spec: pr-g2-ractor-supervisor.md §2.1-§2.2 (Option A inert skipping).
 
 #[cfg(feature = "supervisor")]
-mod tests
-{
+mod tests {
     use lance_graph_supervisor::{CallcenterSupervisor, ModuleEntry, SupervisorMsg};
     use ractor::Actor;
 
-    fn module_table() -> Vec<ModuleEntry>
-    {
+    fn module_table() -> Vec<ModuleEntry> {
         vec![
-            ModuleEntry { g: 0, version: 1, mailbox_capacity: None, is_active: false }, // DOLCE — inert
-            ModuleEntry { g: 2, version: 1, mailbox_capacity: None, is_active: true  }, // Healthcare
-            ModuleEntry { g: 3, version: 1, mailbox_capacity: None, is_active: true  }, // GOTHAM
-            ModuleEntry { g: 4, version: 1, mailbox_capacity: None, is_active: true  }, // SMB
-            ModuleEntry { g: 5, version: 1, mailbox_capacity: None, is_active: false }, // FMA — inert
+            ModuleEntry {
+                g: 0,
+                version: 1,
+                mailbox_capacity: None,
+                is_active: false,
+            }, // DOLCE — inert
+            ModuleEntry {
+                g: 2,
+                version: 1,
+                mailbox_capacity: None,
+                is_active: true,
+            }, // Healthcare
+            ModuleEntry {
+                g: 3,
+                version: 1,
+                mailbox_capacity: None,
+                is_active: true,
+            }, // GOTHAM
+            ModuleEntry {
+                g: 4,
+                version: 1,
+                mailbox_capacity: None,
+                is_active: true,
+            }, // SMB
+            ModuleEntry {
+                g: 5,
+                version: 1,
+                mailbox_capacity: None,
+                is_active: false,
+            }, // FMA — inert
         ]
     }
 
     #[tokio::test]
-    async fn supervisor_spawns_exactly_3_active_children()
-    {
+    async fn supervisor_spawns_exactly_3_active_children() {
         let supervisor = CallcenterSupervisor::new(module_table());
         let (actor_ref, handle) = Actor::spawn(None, supervisor, ())
             .await
@@ -39,7 +61,10 @@ mod tests
             .unwrap();
 
         let live_count = summary.children.iter().filter(|c| c.is_live).count();
-        assert_eq!(live_count, 3, "expected 3 live children (G=2,3,4); got {live_count}");
+        assert_eq!(
+            live_count, 3,
+            "expected 3 live children (G=2,3,4); got {live_count}"
+        );
 
         let inert_count = summary.children.iter().filter(|c| !c.is_live).count();
         assert_eq!(inert_count, 2, "G=0 and G=5 should be inert (not live)");

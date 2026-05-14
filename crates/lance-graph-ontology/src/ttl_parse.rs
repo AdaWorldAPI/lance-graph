@@ -472,17 +472,11 @@ pub fn ttl_root_checksum(root: &Path) -> Result<String> {
     Ok(format!("{:x}", h.finalize()))
 }
 
-fn walk_ttl_files(
-    root: &Path,
-    visit: &mut dyn FnMut(&Path) -> Result<()>,
-) -> Result<()> {
+fn walk_ttl_files(root: &Path, visit: &mut dyn FnMut(&Path) -> Result<()>) -> Result<()> {
     if !root.exists() {
         return Err(Error::Io {
             path: root.to_path_buf(),
-            source: std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                "TTL root does not exist",
-            ),
+            source: std::io::Error::new(std::io::ErrorKind::NotFound, "TTL root does not exist"),
         });
     }
     let mut stack = vec![root.to_path_buf()];
@@ -598,7 +592,12 @@ fn classify(props: &[(String, RdfValue)]) -> SubjectKind {
             }
         }
     }
-    match (is_class, subclass_of_entity, subclass_of_verb, is_attribute_class) {
+    match (
+        is_class,
+        subclass_of_entity,
+        subclass_of_verb,
+        is_attribute_class,
+    ) {
         (true, true, _, _) => SubjectKind::Entity,
         (true, _, true, _) => SubjectKind::Verb,
         (_, _, _, true) => SubjectKind::Attribute,
@@ -633,10 +632,7 @@ fn build_entity_schema(
             if is_required {
                 builder = builder.property(PropertySpec::required(leaked));
             } else {
-                builder = builder.property(PropertySpec::optional(
-                    leaked,
-                    CodecRoute::Passthrough,
-                ));
+                builder = builder.property(PropertySpec::optional(leaked, CodecRoute::Passthrough));
             }
         }
     }

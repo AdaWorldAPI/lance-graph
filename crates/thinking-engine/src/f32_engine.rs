@@ -8,7 +8,7 @@
 //! Think cycle: signed MatVec with ReLU + normalization.
 //! No floor heuristic. No threshold. Full signed accumulation.
 
-use crate::dto::{ResonanceDto, BusDto};
+use crate::dto::{BusDto, ResonanceDto};
 
 /// F32 thinking engine. Distance table at full f32 precision.
 pub struct F32ThinkingEngine {
@@ -36,9 +36,11 @@ impl F32ThinkingEngine {
         let total = distance_table.len();
         let size = (total as f64).sqrt() as usize;
         assert_eq!(
-            size * size, total,
+            size * size,
+            total,
             "f32 table length {} is not a perfect square (sqrt ~ {})",
-            total, (total as f64).sqrt()
+            total,
+            (total as f64).sqrt()
         );
         assert!(size >= 2, "need at least 2 atoms, got {}", size);
 
@@ -63,7 +65,12 @@ impl F32ThinkingEngine {
         let mut table = vec![0.0f32; n * n];
 
         for i in 0..n {
-            assert_eq!(centroids[i].len(), dim, "centroid {} has wrong dimension", i);
+            assert_eq!(
+                centroids[i].len(),
+                dim,
+                "centroid {} has wrong dimension",
+                i
+            );
             table[i * n + i] = 1.0; // self-similarity
 
             for j in (i + 1)..n {
@@ -141,7 +148,12 @@ impl F32ThinkingEngine {
         }
 
         // Convergence: L1 delta
-        let delta: f32 = self.energy.iter().zip(&next).map(|(a, b)| (a - b).abs()).sum();
+        let delta: f32 = self
+            .energy
+            .iter()
+            .zip(&next)
+            .map(|(a, b)| (a - b).abs())
+            .sum();
 
         self.energy = next;
         self.cycles += 1;
@@ -181,7 +193,12 @@ impl F32ThinkingEngine {
             }
         }
 
-        let delta: f32 = self.energy.iter().zip(&next).map(|(a, b)| (a - b).abs()).sum();
+        let delta: f32 = self
+            .energy
+            .iter()
+            .zip(&next)
+            .map(|(a, b)| (a - b).abs())
+            .sum();
 
         self.energy = next;
         self.cycles += 1;
@@ -285,7 +302,9 @@ impl SparseBranchGraph {
         for i in 0..n {
             let row = &cosines[i * n..(i + 1) * n];
             // Collect (value, index) pairs, excluding self
-            let mut pairs: Vec<(f32, u32)> = row.iter().enumerate()
+            let mut pairs: Vec<(f32, u32)> = row
+                .iter()
+                .enumerate()
                 .filter(|&(j, _)| j != i)
                 .map(|(j, &v)| (v, j as u32))
                 .collect();
@@ -297,7 +316,12 @@ impl SparseBranchGraph {
             values.push(pairs.iter().map(|p| p.0).collect());
         }
 
-        Self { indices, values, n, k }
+        Self {
+            indices,
+            values,
+            n,
+            k,
+        }
     }
 
     /// Sparse softmax thinking on the branch graph.
@@ -316,7 +340,9 @@ impl SparseBranchGraph {
         let total: f32 = energy.iter().sum();
         if total > 1e-10 {
             let inv = 1.0 / total;
-            for e in &mut energy { *e *= inv; }
+            for e in &mut energy {
+                *e *= inv;
+            }
         }
 
         // Think
@@ -324,7 +350,9 @@ impl SparseBranchGraph {
             let mut next = vec![0.0f32; n];
 
             for i in 0..n {
-                if energy[i] < 1e-15 { continue; }
+                if energy[i] < 1e-15 {
+                    continue;
+                }
                 for ki in 0..self.k.min(self.indices[i].len()) {
                     let j = self.indices[i][ki] as usize;
                     next[j] += self.values[i][ki] * energy[i];
@@ -340,7 +368,9 @@ impl SparseBranchGraph {
             }
             if exp_sum > 1e-10 {
                 let inv = 1.0 / exp_sum;
-                for e in &mut next { *e *= inv; }
+                for e in &mut next {
+                    *e *= inv;
+                }
             }
 
             energy = next;
@@ -485,7 +515,8 @@ mod tests {
         let peak_c = engine_c.top_k(1)[0].0;
 
         // At least two of three should be distinct (no single attractor)
-        let distinct = (peak_a != peak_b) as u8 + (peak_b != peak_c) as u8 + (peak_a != peak_c) as u8;
+        let distinct =
+            (peak_a != peak_b) as u8 + (peak_b != peak_c) as u8 + (peak_a != peak_c) as u8;
         assert!(
             distinct >= 2,
             "attractor collapse: all inputs converge to same peak: a={}, b={}, c={}",

@@ -10,27 +10,33 @@
 
 use std::time::Instant;
 
-const N_EXPERTS: usize = 4096;    // total experts (input codebook)
-const N_INTERNAL: usize = 256;    // expert internal resolution (per-layer)
-const N_LAYERS: usize = 64;       // total layers
-const TOP_K: usize = 128;         // experts that fire per token
-const EXPERT_DEPTH: usize = 4;    // internal cycles per expert
-const MAX_TOKENS: usize = 30;     // max tokens to generate
+const N_EXPERTS: usize = 4096; // total experts (input codebook)
+const N_INTERNAL: usize = 256; // expert internal resolution (per-layer)
+const N_LAYERS: usize = 64; // total layers
+const TOP_K: usize = 128; // experts that fire per token
+const EXPERT_DEPTH: usize = 4; // internal cycles per expert
+const MAX_TOKENS: usize = 30; // max tokens to generate
 
 fn main() {
     let t0 = Instant::now();
     let dd = "crates/thinking-engine/data/Qwopus3.5-27B-v3-BF16-silu";
 
     eprintln!("═══════════════════════════════════════════════════════════");
-    eprintln!("  Qwopus 27B — Mixture of {} Experts, Top-{} Sparse", N_EXPERTS, TOP_K);
+    eprintln!(
+        "  Qwopus 27B — Mixture of {} Experts, Top-{} Sparse",
+        N_EXPERTS, TOP_K
+    );
     eprintln!("═══════════════════════════════════════════════════════════\n");
 
-    let tokenizer = tokenizers::Tokenizer::from_file(format!("{}/tokenizer.json", dd)).expect("tok");
+    let tokenizer =
+        tokenizers::Tokenizer::from_file(format!("{}/tokenizer.json", dd)).expect("tok");
 
     // 4096-centroid assignments (expert routing)
     let asgn4k: Vec<u16> = std::fs::read(format!("{}/token_embd_assignments_4096_248320.u16", dd))
-        .expect("asgn4k").chunks_exact(2)
-        .map(|c| u16::from_le_bytes([c[0], c[1]])).collect();
+        .expect("asgn4k")
+        .chunks_exact(2)
+        .map(|c| u16::from_le_bytes([c[0], c[1]]))
+        .collect();
 
     // 4096×4096 router table
     let router = std::fs::read(format!("{}/token_embd_4096x4096.u8", dd)).expect("router");
@@ -38,8 +44,10 @@ fn main() {
 
     // 256-centroid assignments (for internal expert routing)
     let asgn256: Vec<u16> = std::fs::read(format!("{}/token_embd_assignments_248320.u16", dd))
-        .expect("asgn256").chunks_exact(2)
-        .map(|c| u16::from_le_bytes([c[0], c[1]])).collect();
+        .expect("asgn256")
+        .chunks_exact(2)
+        .map(|c| u16::from_le_bytes([c[0], c[1]]))
+        .collect();
 
     // Layer tables (expert internals)
     let mut layers: Vec<[Vec<u8>; 4]> = Vec::new();
@@ -69,8 +77,15 @@ fn main() {
         let enc = tokenizer.encode(prompt.to_string(), false).expect("enc");
         let prompt_ids: Vec<u32> = enc.get_ids().to_vec();
 
-        let mut context_4k: Vec<usize> = prompt_ids.iter()
-            .map(|&id| if (id as usize) < asgn4k.len() { asgn4k[id as usize] as usize } else { 0 })
+        let mut context_4k: Vec<usize> = prompt_ids
+            .iter()
+            .map(|&id| {
+                if (id as usize) < asgn4k.len() {
+                    asgn4k[id as usize] as usize
+                } else {
+                    0
+                }
+            })
             .collect();
 
         let mut ghost = vec![0.0f32; N_EXPERTS];
@@ -92,11 +107,10 @@ fn main() {
             let routed = mv_n(&router, &expert_energy, N_EXPERTS);
 
             // ═══ PHASE 1: TOP-K EXPERT SELECTION ═══
-            let mut ranked: Vec<(usize, f32)> = routed.iter().enumerate()
-                .map(|(i, &e)| (i, e)).collect();
+            let mut ranked: Vec<(usize, f32)> =
+                routed.iter().enumerate().map(|(i, &e)| (i, e)).collect();
             ranked.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
-            let active_experts: Vec<(usize, f32)> = ranked.iter()
-                .take(TOP_K).cloned().collect();
+            let active_experts: Vec<(usize, f32)> = ranked.iter().take(TOP_K).cloned().collect();
 
             // ═══ PHASE 2: EXPERT DEEP PROCESSING ═══
             // Each active expert runs EXPERT_DEPTH cycles through its layers
@@ -131,7 +145,9 @@ fn main() {
                         let mut a = state.clone();
                         rn_n(&mut a, N_INTERNAL);
                         a = mv_n(at, &a, N_INTERNAL);
-                        for i in 0..N_INTERNAL { state[i] += a[i] * 0.1; }
+                        for i in 0..N_INTERNAL {
+                            state[i] += a[i] * 0.1;
+                        }
 
                         // Gate-modulated FFN
                         let mut f = state.clone();
@@ -143,7 +159,9 @@ fn main() {
                             gd[i] = (g[i] / (1.0 + (-g[i] * 0.01).exp())) * u[i];
                         }
                         let d = mv_n(dn, &gd, N_INTERNAL);
-                        for i in 0..N_INTERNAL { state[i] += d[i] * 0.1; }
+                        for i in 0..N_INTERNAL {
+                            state[i] += d[i] * 0.1;
+                        }
                     }
 
                     // Expert contributes its output weighted by its routing score
@@ -171,7 +189,9 @@ fn main() {
                 let energy = expert_outputs[i];
                 for k in 0..(N_EXPERTS / N_INTERNAL) {
                     let eidx = i + k * N_INTERNAL;
-                    if eidx < N_EXPERTS { output_4k[eidx] = energy; }
+                    if eidx < N_EXPERTS {
+                        output_4k[eidx] = energy;
+                    }
                 }
             }
             // Refine with router topology
@@ -180,43 +200,62 @@ fn main() {
 
             // Free energy
             let mut fe = 0.0f32;
-            for i in 0..N_EXPERTS { fe += (output_4k[i] - ghost[i]).powi(2); }
+            for i in 0..N_EXPERTS {
+                fe += (output_4k[i] - ghost[i]).powi(2);
+            }
             fe = (fe / N_EXPERTS as f32).sqrt();
 
             // Winner
-            let mut peaks: Vec<(usize, f32)> = output_4k.iter().enumerate()
-                .map(|(i, &e)| (i, e)).collect();
+            let mut peaks: Vec<(usize, f32)> =
+                output_4k.iter().enumerate().map(|(i, &e)| (i, e)).collect();
             peaks.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
             let winner = peaks[0].0;
 
             // Token lookup with temperature sampling
             let matching: Vec<u32> = (0..asgn4k.len().min(tokenizer.get_vocab_size(true)))
                 .filter(|&t| asgn4k[t] as usize == winner)
-                .map(|t| t as u32).collect();
+                .map(|t| t as u32)
+                .collect();
 
             // Pick token by position in cluster (pseudo-frequency weighting)
             let token_idx = if matching.len() > 1 {
                 // Use energy ratio to index into cluster
                 let ratio = (peaks[0].1 / (peaks[0].1 + peaks[1].1 + 0.001)).clamp(0.0, 0.99);
                 (ratio * matching.len() as f32) as usize
-            } else { 0 };
+            } else {
+                0
+            };
 
-            let tid = matching.get(token_idx).or(matching.first()).copied().unwrap_or(0);
-            let tok = tokenizer.id_to_token(tid).unwrap_or_else(|| "?".to_string());
+            let tid = matching
+                .get(token_idx)
+                .or(matching.first())
+                .copied()
+                .unwrap_or(0);
+            let tok = tokenizer
+                .id_to_token(tid)
+                .unwrap_or_else(|| "?".to_string());
             let display = tok.replace("Ġ", " ").replace("Ċ", "\n");
 
             eprint!("{}", display);
             generated.push(display.clone());
 
             // Update ghost + context
-            for i in 0..N_EXPERTS { ghost[i] = ghost[i] * 0.7 + output_4k[i] * 0.3; }
+            for i in 0..N_EXPERTS {
+                ghost[i] = ghost[i] * 0.7 + output_4k[i] * 0.3;
+            }
             context_4k.push(winner);
 
             // Stop conditions
             if step % 10 == 0 {
                 eprintln!();
-                eprintln!("    [step {:2}] fe={:.4} experts={} winner=c{} \"{}\"",
-                    step, fe, active_experts.len(), winner, display.trim());
+                eprintln!(
+                    "    [step {:2}] fe={:.4} experts={} winner=c{} \"{}\"",
+                    step,
+                    fe,
+                    active_experts.len(),
+                    winner,
+                    display.trim()
+                );
             }
 
             if (step > 5 && fe < 0.05) || display.contains('\n') || step >= MAX_TOKENS - 1 {
@@ -231,21 +270,41 @@ fn main() {
     }
 
     eprintln!("═══════════════════════════════════════════════════════════");
-    eprintln!("  {:.1}s | {} experts × top-{} × {} internal × {} groups",
-        t0.elapsed().as_secs_f64(), N_EXPERTS, TOP_K, N_INTERNAL, 4);
+    eprintln!(
+        "  {:.1}s | {} experts × top-{} × {} internal × {} groups",
+        t0.elapsed().as_secs_f64(),
+        N_EXPERTS,
+        TOP_K,
+        N_INTERNAL,
+        4
+    );
     eprintln!("═══════════════════════════════════════════════════════════\n");
 }
 
 fn mv_n(t: &[u8], e: &[f32], n: usize) -> Vec<f32> {
     let mut o = vec![0.0f32; n];
-    for i in 0..n { if e[i].abs() < 1e-8 { continue; }
-        let r = &t[i*n..(i+1)*n];
-        for j in 0..n { o[j] += (r[j] as f32 - 128.0) * e[i]; } }
+    for i in 0..n {
+        if e[i].abs() < 1e-8 {
+            continue;
+        }
+        let r = &t[i * n..(i + 1) * n];
+        for j in 0..n {
+            o[j] += (r[j] as f32 - 128.0) * e[i];
+        }
+    }
     o
 }
 fn rn_n(v: &mut [f32], n: usize) {
-    let r = (v[..n].iter().map(|x| x*x).sum::<f32>() / n as f32).sqrt();
-    if r > 1e-8 { for x in v[..n].iter_mut() { *x /= r; } }
+    let r = (v[..n].iter().map(|x| x * x).sum::<f32>() / n as f32).sqrt();
+    if r > 1e-8 {
+        for x in v[..n].iter_mut() {
+            *x /= r;
+        }
+    }
 }
-fn ld(p: &str) -> Vec<u8> { std::fs::read(p).unwrap_or_else(|_| vec![128u8; N_INTERNAL*N_INTERNAL]) }
-fn ldo(p: &str) -> Option<Vec<u8>> { std::fs::read(p).ok() }
+fn ld(p: &str) -> Vec<u8> {
+    std::fs::read(p).unwrap_or_else(|_| vec![128u8; N_INTERNAL * N_INTERNAL])
+}
+fn ldo(p: &str) -> Option<Vec<u8>> {
+    std::fs::read(p).ok()
+}

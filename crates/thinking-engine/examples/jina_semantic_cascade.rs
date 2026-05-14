@@ -8,8 +8,8 @@
 //!   --example jina_semantic_cascade
 
 use std::collections::HashMap;
-use thinking_engine::engine::ThinkingEngine;
 use thinking_engine::domino::DominoCascade;
+use thinking_engine::engine::ThinkingEngine;
 
 const JINA_KEY: &str = "jina_b7b1d172a2c74ad2a95e2069d07d8bb9TayVx4WjQF0VWWDmx4xl32VbrHAc";
 
@@ -21,50 +21,50 @@ fn main() {
     // Each becomes one row in the table, with real Jina embeddings.
     let atoms: Vec<&str> = vec![
         // Animals / nature
-        "cat",                          // 0
-        "dog",                          // 1
-        "ocean",                        // 2
-        "fire",                         // 3
-        "light",                        // 4
-        "darkness",                     // 5
-        "wound",                        // 6
-        "healing",                      // 7
+        "cat",      // 0
+        "dog",      // 1
+        "ocean",    // 2
+        "fire",     // 3
+        "light",    // 4
+        "darkness", // 5
+        "wound",    // 6
+        "healing",  // 7
         // Emotions
-        "joy",                          // 8
-        "grief",                        // 9
-        "love",                         // 10
-        "fear",                         // 11
-        "anger",                        // 12
-        "peace",                        // 13
-        "wonder",                       // 14
-        "longing",                      // 15
+        "joy",     // 8
+        "grief",   // 9
+        "love",    // 10
+        "fear",    // 11
+        "anger",   // 12
+        "peace",   // 13
+        "wonder",  // 14
+        "longing", // 15
         // Abstract / intellectual
-        "quantum physics",              // 16
-        "stock market",                 // 17
-        "mathematics",                  // 18
-        "silence",                      // 19
-        "God",                          // 20
-        "language",                     // 21
-        "translation",                  // 22
-        "truth",                        // 23
+        "quantum physics", // 16
+        "stock market",    // 17
+        "mathematics",     // 18
+        "silence",         // 19
+        "God",             // 20
+        "language",        // 21
+        "translation",     // 22
+        "truth",           // 23
         // Body / material
-        "drop of water",               // 24
-        "the entire ocean",            // 25
-        "a flame burning",             // 26
-        "an open wound",               // 27
-        "morning light",               // 28
-        "empty room",                  // 29
-        "warm embrace",                // 30
-        "cold wind",                   // 31
+        "drop of water",    // 24
+        "the entire ocean", // 25
+        "a flame burning",  // 26
+        "an open wound",    // 27
+        "morning light",    // 28
+        "empty room",       // 29
+        "warm embrace",     // 30
+        "cold wind",        // 31
         // Rumi-specific
-        "the wound is where light enters",     // 32
-        "you are the ocean in a drop",         // 33
-        "silence is the language of God",      // 34
-        "set your life on fire",               // 35
+        "the wound is where light enters", // 32
+        "you are the ocean in a drop",     // 33
+        "silence is the language of God",  // 34
+        "set your life on fire",           // 35
         // Test sentences (these will be the queries)
-        "The cat sat on the mat",              // 36
-        "The stock market crashed today",      // 37
-        "I feel deeply sad about losing someone", // 38
+        "The cat sat on the mat",                   // 36
+        "The stock market crashed today",           // 37
+        "I feel deeply sad about losing someone",   // 38
         "Pure overwhelming joy flooded through me", // 39
     ];
     let n = atoms.len();
@@ -73,7 +73,11 @@ fn main() {
     // ── Step 2: Embed ALL atoms via Jina v3 ──
     println!("[2] Embedding {} atoms via Jina v3 API...", n);
     let embeddings = jina_embed_batch(&atoms);
-    println!("  Got {} embeddings × {}D", embeddings.len(), embeddings[0].len());
+    println!(
+        "  Got {} embeddings × {}D",
+        embeddings.len(),
+        embeddings[0].len()
+    );
 
     // ── Step 3: Build N×N cosine distance table ──
     println!("[3] Building {}×{} semantic distance table...", n, n);
@@ -82,18 +86,29 @@ fn main() {
     let mut max_cos = -1.0f32;
 
     // Pre-normalize
-    let normed: Vec<Vec<f32>> = embeddings.iter().map(|e| {
-        let norm = e.iter().map(|v| v * v).sum::<f32>().sqrt();
-        if norm < 1e-10 { e.clone() } else { e.iter().map(|v| v / norm).collect() }
-    }).collect();
+    let normed: Vec<Vec<f32>> = embeddings
+        .iter()
+        .map(|e| {
+            let norm = e.iter().map(|v| v * v).sum::<f32>().sqrt();
+            if norm < 1e-10 {
+                e.clone()
+            } else {
+                e.iter().map(|v| v / norm).collect()
+            }
+        })
+        .collect();
 
     for i in 0..n {
         table[i * n + i] = 255;
-        for j in (i+1)..n {
+        for j in (i + 1)..n {
             let dot: f32 = normed[i].iter().zip(&normed[j]).map(|(a, b)| a * b).sum();
             let cos = dot.clamp(-1.0, 1.0);
-            if cos < min_cos { min_cos = cos; }
-            if cos > max_cos { max_cos = cos; }
+            if cos < min_cos {
+                min_cos = cos;
+            }
+            if cos > max_cos {
+                max_cos = cos;
+            }
             let u = (((cos + 1.0) / 2.0) * 255.0).round() as u8;
             table[i * n + j] = u;
             table[j * n + i] = u;
@@ -103,8 +118,19 @@ fn main() {
 
     // Table stats
     let avg = table.iter().map(|&v| v as f64).sum::<f64>() / table.len() as f64;
-    let std = (table.iter().map(|&v| { let d = v as f64 - avg; d * d }).sum::<f64>() / table.len() as f64).sqrt();
-    println!("  avg={:.1} std={:.1} — compare: attn_q std=8.4, semantic embed std=6.8", avg, std);
+    let std = (table
+        .iter()
+        .map(|&v| {
+            let d = v as f64 - avg;
+            d * d
+        })
+        .sum::<f64>()
+        / table.len() as f64)
+        .sqrt();
+    println!(
+        "  avg={:.1} std={:.1} — compare: attn_q std=8.4, semantic embed std=6.8",
+        avg, std
+    );
 
     // Print interesting pairs
     println!("\n  Key semantic distances:");
@@ -161,22 +187,44 @@ fn main() {
 
     for (atom_idx, label) in &queries {
         let (dominant, stages, dissonance) = cascade.think(&[*atom_idx as u16]);
-        let chain: Vec<&str> = stages.iter()
+        let chain: Vec<&str> = stages
+            .iter()
             .filter_map(|s| s.focus.first())
-            .map(|a| if (a.index as usize) < n { atoms[a.index as usize] } else { "?" })
+            .map(|a| {
+                if (a.index as usize) < n {
+                    atoms[a.index as usize]
+                } else {
+                    "?"
+                }
+            })
             .collect();
-        let dominant_name = if (dominant as usize) < n { atoms[dominant as usize] } else { "?" };
+        let dominant_name = if (dominant as usize) < n {
+            atoms[dominant as usize]
+        } else {
+            "?"
+        };
 
         println!("  \"{}\"", label);
-        println!("    → {} (atom {})  chain: {:?}", dominant_name, dominant, chain);
-        println!("    dissonance: {:.3}  resolved: {}",
-            dissonance.total_dissonance, dissonance.resolved);
+        println!(
+            "    → {} (atom {})  chain: {:?}",
+            dominant_name, dominant, chain
+        );
+        println!(
+            "    dissonance: {:.3}  resolved: {}",
+            dissonance.total_dissonance, dissonance.resolved
+        );
         for stage in &stages {
             let m = &stage.markers;
             let mut flags = Vec::new();
-            if m.staunen > 0.01 { flags.push(format!("✨{:.2}", m.staunen)); }
-            if m.wisdom > 0.01 { flags.push(format!("🦉{:.2}", m.wisdom)); }
-            if m.epiphany > 0.01 { flags.push(format!("💡{:.2}", m.epiphany)); }
+            if m.staunen > 0.01 {
+                flags.push(format!("✨{:.2}", m.staunen));
+            }
+            if m.wisdom > 0.01 {
+                flags.push(format!("🦉{:.2}", m.wisdom));
+            }
+            if m.epiphany > 0.01 {
+                flags.push(format!("💡{:.2}", m.epiphany));
+            }
             if !flags.is_empty() {
                 println!("    stage {}: {}", stage.stage, flags.join(" "));
             }
@@ -188,7 +236,11 @@ fn main() {
     // Summary
     println!("═══ SUMMARY ═══");
     let unique: std::collections::HashSet<u16> = results.iter().map(|r| r.0).collect();
-    println!("  {} queries → {} unique peaks", results.len(), unique.len());
+    println!(
+        "  {} queries → {} unique peaks",
+        results.len(),
+        unique.len()
+    );
     for (dom, name) in &results {
         println!("    atom {:>2} = {}", dom, name);
     }
@@ -208,10 +260,14 @@ fn jina_embed_batch(texts: &[&str]) -> Vec<Vec<f32>> {
 
         let output = std::process::Command::new("curl")
             .args(&[
-                "-s", "https://api.jina.ai/v1/embeddings",
-                "-H", &format!("Authorization: Bearer {}", JINA_KEY),
-                "-H", "Content-Type: application/json",
-                "-d", &body,
+                "-s",
+                "https://api.jina.ai/v1/embeddings",
+                "-H",
+                &format!("Authorization: Bearer {}", JINA_KEY),
+                "-H",
+                "Content-Type: application/json",
+                "-d",
+                &body,
             ])
             .output()
             .expect("curl failed");
@@ -225,7 +281,8 @@ fn jina_embed_batch(texts: &[&str]) -> Vec<Vec<f32>> {
                 let abs = start + arr_start;
                 if let Some(arr_end) = resp[abs..].find(']') {
                     let arr = &resp[abs + 1..abs + arr_end];
-                    let values: Vec<f32> = arr.split(',')
+                    let values: Vec<f32> = arr
+                        .split(',')
                         .filter_map(|s| s.trim().parse::<f32>().ok())
                         .collect();
                     if values.len() == 1024 {
