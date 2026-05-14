@@ -40,11 +40,22 @@ impl DualResult {
              Entropy: {}={:.3} {}={:.3}\n\
              {}-unique: {:?}\n\
              {}-unique: {:?}",
-            self.label_a, self.label_b, self.agreement * 100.0, shared,
-            self.label_a, self.convergence_a, self.label_b, self.convergence_b,
-            self.label_a, self.entropy_a, self.label_b, self.entropy_b,
-            self.label_a, self.unique_a,
-            self.label_b, self.unique_b,
+            self.label_a,
+            self.label_b,
+            self.agreement * 100.0,
+            shared,
+            self.label_a,
+            self.convergence_a,
+            self.label_b,
+            self.convergence_b,
+            self.label_a,
+            self.entropy_a,
+            self.label_b,
+            self.entropy_b,
+            self.label_a,
+            self.unique_a,
+            self.label_b,
+            self.unique_b,
         )
     }
 }
@@ -59,27 +70,25 @@ pub struct DualEngine {
 
 impl DualEngine {
     /// Create from any two BuiltEngines.
-    pub fn new(
-        label_a: &str, engine_a: BuiltEngine,
-        label_b: &str, engine_b: BuiltEngine,
-    ) -> Self {
+    pub fn new(label_a: &str, engine_a: BuiltEngine, label_b: &str, engine_b: BuiltEngine) -> Self {
         Self {
-            engine_a, engine_b,
-            label_a: label_a.into(), label_b: label_b.into(),
+            engine_a,
+            engine_b,
+            label_a: label_a.into(),
+            label_b: label_b.into(),
         }
     }
 
     /// Compare u8 CDF vs BF16 from the same source table.
     pub fn u8_vs_bf16(table: Vec<u8>) -> Self {
-        let bf16_cosines: Vec<f32> = table.iter()
-            .map(|&v| (v as f32 - 128.0) / 127.0)
-            .collect();
+        let bf16_cosines: Vec<f32> = table.iter().map(|&v| (v as f32 - 128.0) / 127.0).collect();
         let size = (table.len() as f64).sqrt() as usize;
         Self {
             engine_a: BuiltEngine::Unsigned(crate::engine::ThinkingEngine::new(table)),
-            engine_b: BuiltEngine::BF16(
-                crate::bf16_engine::BF16ThinkingEngine::from_f32_cosines(&bf16_cosines, size)
-            ),
+            engine_b: BuiltEngine::BF16(crate::bf16_engine::BF16ThinkingEngine::from_f32_cosines(
+                &bf16_cosines,
+                size,
+            )),
             label_a: "u8-CDF".into(),
             label_b: "BF16".into(),
         }
@@ -99,12 +108,18 @@ impl DualEngine {
         let res_a = ResonanceDto::from_energy_f32(self.engine_a.energy(), self.engine_a.cycles());
         let res_b = ResonanceDto::from_energy_f32(self.engine_b.energy(), self.engine_b.cycles());
 
-        let a_indices: Vec<u16> = res_a.top_k.iter()
+        let a_indices: Vec<u16> = res_a
+            .top_k
+            .iter()
             .filter(|&&(_, e)| e > 1e-10)
-            .map(|&(idx, _)| idx).collect();
-        let b_indices: Vec<u16> = res_b.top_k.iter()
+            .map(|&(idx, _)| idx)
+            .collect();
+        let b_indices: Vec<u16> = res_b
+            .top_k
+            .iter()
             .filter(|&&(_, e)| e > 1e-10)
-            .map(|&(idx, _)| idx).collect();
+            .map(|&(idx, _)| idx)
+            .collect();
 
         let overlap = a_indices.iter().filter(|p| b_indices.contains(p)).count();
         let max_len = a_indices.len().max(b_indices.len()).max(1);
@@ -113,20 +128,36 @@ impl DualEngine {
             peaks_a: res_a.top_k,
             peaks_b: res_b.top_k,
             agreement: overlap as f32 / max_len as f32,
-            unique_a: a_indices.iter().filter(|p| !b_indices.contains(p)).cloned().collect(),
-            unique_b: b_indices.iter().filter(|p| !a_indices.contains(p)).cloned().collect(),
+            unique_a: a_indices
+                .iter()
+                .filter(|p| !b_indices.contains(p))
+                .cloned()
+                .collect(),
+            unique_b: b_indices
+                .iter()
+                .filter(|p| !a_indices.contains(p))
+                .cloned()
+                .collect(),
             convergence_a: res_a.cycle_count,
             convergence_b: res_b.cycle_count,
             entropy_a: {
                 let e = self.engine_a.energy();
                 let mut h = 0.0f32;
-                for &v in e { if v > 1e-10 { h -= v * v.ln(); } }
+                for &v in e {
+                    if v > 1e-10 {
+                        h -= v * v.ln();
+                    }
+                }
                 h
             },
             entropy_b: {
                 let e = self.engine_b.energy();
                 let mut h = 0.0f32;
-                for &v in e { if v > 1e-10 { h -= v * v.ln(); } }
+                for &v in e {
+                    if v > 1e-10 {
+                        h -= v * v.ln();
+                    }
+                }
                 h
             },
             label_a: self.label_a.clone(),
@@ -178,8 +209,12 @@ mod tests {
     fn dual_custom_engines() {
         let table = make_test_table(64);
         let dual = DualEngine::new(
-            "unsigned", BuiltEngine::Unsigned(crate::engine::ThinkingEngine::new(table.clone())),
-            "signed", BuiltEngine::Signed(crate::signed_engine::SignedThinkingEngine::from_unsigned(&table)),
+            "unsigned",
+            BuiltEngine::Unsigned(crate::engine::ThinkingEngine::new(table.clone())),
+            "signed",
+            BuiltEngine::Signed(crate::signed_engine::SignedThinkingEngine::from_unsigned(
+                &table,
+            )),
         );
         assert_eq!(dual.label_a, "unsigned");
         assert_eq!(dual.label_b, "signed");

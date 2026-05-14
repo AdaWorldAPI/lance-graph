@@ -52,16 +52,15 @@ impl ModelId {
     /// Tries local ONNX dirs first, then HDR dirs, then from_pretrained fallback.
     pub fn tokenizer_path(self) -> &'static str {
         match self {
-            ModelId::JinaV3 | ModelId::BgeM3 | ModelId::ClipVision =>
-                "crates/thinking-engine/data/jina-v3-hdr/tokenizer.json",
-            ModelId::Reranker =>
-                "crates/thinking-engine/data/jina-v5-onnx/tokenizer.json", // Qwen3 (same as v5)
-            ModelId::ReaderLm | ModelId::Qwopus =>
-                "crates/thinking-engine/data/Qwopus3.5-27B-v3-BF16-silu/tokenizer.json", // Qwen2
-            ModelId::JinaV5 =>
-                "crates/thinking-engine/data/jina-v5-onnx/tokenizer.json",
-            ModelId::ModernBert =>
-                "crates/thinking-engine/data/modernbert-onnx/tokenizer.json",
+            ModelId::JinaV3 | ModelId::BgeM3 | ModelId::ClipVision => {
+                "crates/thinking-engine/data/jina-v3-hdr/tokenizer.json"
+            }
+            ModelId::Reranker => "crates/thinking-engine/data/jina-v5-onnx/tokenizer.json", // Qwen3 (same as v5)
+            ModelId::ReaderLm | ModelId::Qwopus => {
+                "crates/thinking-engine/data/Qwopus3.5-27B-v3-BF16-silu/tokenizer.json"
+            } // Qwen2
+            ModelId::JinaV5 => "crates/thinking-engine/data/jina-v5-onnx/tokenizer.json",
+            ModelId::ModernBert => "crates/thinking-engine/data/modernbert-onnx/tokenizer.json",
         }
     }
 
@@ -130,7 +129,9 @@ pub struct TokenizerRegistry {
 impl TokenizerRegistry {
     /// Create empty registry.
     pub fn new() -> Self {
-        Self { entries: Vec::new() }
+        Self {
+            entries: Vec::new(),
+        }
     }
 
     /// Load a tokenizer for a model. Tries local file first, then from_pretrained.
@@ -157,16 +158,25 @@ impl TokenizerRegistry {
                 self.entries.push((model, tok));
                 Ok(())
             }
-            Err(e) => Err(format!("[{}] Failed to load tokenizer: {}", model.name(), e)),
+            Err(e) => Err(format!(
+                "[{}] Failed to load tokenizer: {}",
+                model.name(),
+                e
+            )),
         }
     }
 
     /// Load all known models. Returns list of failures.
     pub fn load_all(&mut self) -> Vec<String> {
         let models = [
-            ModelId::JinaV3, ModelId::BgeM3, ModelId::Reranker,
-            ModelId::JinaV5, ModelId::ReaderLm, ModelId::Qwopus,
-            ModelId::ModernBert, ModelId::ClipVision,
+            ModelId::JinaV3,
+            ModelId::BgeM3,
+            ModelId::Reranker,
+            ModelId::JinaV5,
+            ModelId::ReaderLm,
+            ModelId::Qwopus,
+            ModelId::ModernBert,
+            ModelId::ClipVision,
         ];
         let mut failures = Vec::new();
         for m in models {
@@ -179,7 +189,8 @@ impl TokenizerRegistry {
 
     /// Tokenize text through a specific model's tokenizer.
     pub fn encode(&self, model: ModelId, text: &str) -> Option<Vec<u32>> {
-        self.entries.iter()
+        self.entries
+            .iter()
             .find(|(m, _)| *m == model)
             .and_then(|(_, tok)| tok.encode(text, true).ok())
             .map(|enc| enc.get_ids().to_vec())
@@ -187,9 +198,12 @@ impl TokenizerRegistry {
 
     /// Tokenize text through ALL loaded models. Returns (model, token_ids) pairs.
     pub fn encode_all(&self, text: &str) -> Vec<(ModelId, Vec<u32>)> {
-        self.entries.iter()
+        self.entries
+            .iter()
             .filter_map(|(model, tok)| {
-                tok.encode(text, true).ok().map(|enc| (*model, enc.get_ids().to_vec()))
+                tok.encode(text, true)
+                    .ok()
+                    .map(|enc| (*model, enc.get_ids().to_vec()))
             })
             .collect()
     }
@@ -234,16 +248,14 @@ pub struct CrossModelTokens {
 }
 
 /// Tokenize a corpus through all models for cross-model evaluation.
-pub fn tokenize_corpus(
-    registry: &TokenizerRegistry,
-    texts: &[&str],
-) -> Vec<CrossModelTokens> {
-    texts.iter().map(|&text| {
-        CrossModelTokens {
+pub fn tokenize_corpus(registry: &TokenizerRegistry, texts: &[&str]) -> Vec<CrossModelTokens> {
+    texts
+        .iter()
+        .map(|&text| CrossModelTokens {
             text: text.to_string(),
             tokens: registry.encode_all(text),
-        }
-    }).collect()
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -284,11 +296,19 @@ mod tests {
         // These should exist after downloading in this session
         if let Some(path) = ModelId::JinaV5.onnx_path() {
             let exists = std::path::Path::new(path).exists();
-            eprintln!("Jina v5 ONNX: {} → {}", path, if exists { "EXISTS" } else { "NOT FOUND" });
+            eprintln!(
+                "Jina v5 ONNX: {} → {}",
+                path,
+                if exists { "EXISTS" } else { "NOT FOUND" }
+            );
         }
         if let Some(path) = ModelId::ModernBert.onnx_path() {
             let exists = std::path::Path::new(path).exists();
-            eprintln!("ModernBERT ONNX: {} → {}", path, if exists { "EXISTS" } else { "NOT FOUND" });
+            eprintln!(
+                "ModernBERT ONNX: {} → {}",
+                path,
+                if exists { "EXISTS" } else { "NOT FOUND" }
+            );
         }
     }
 
@@ -300,8 +320,10 @@ mod tests {
                 if let Ok(json_str) = std::fs::read_to_string(path) {
                     let detected = crate::auto_detect::detect_from_config_json(&json_str);
                     match detected {
-                        Ok(d) => eprintln!("{:?}: arch={:?}, hidden={}, layers={}, vocab={}",
-                            model, d.architecture, d.hidden_dim, d.num_layers, d.vocab_size),
+                        Ok(d) => eprintln!(
+                            "{:?}: arch={:?}, hidden={}, layers={}, vocab={}",
+                            model, d.architecture, d.hidden_dim, d.num_layers, d.vocab_size
+                        ),
                         Err(e) => eprintln!("{:?}: detect failed: {}", model, e),
                     }
                 }
@@ -318,7 +340,11 @@ mod tests {
         if v5.is_ok() {
             let tokens = reg.encode(ModelId::JinaV5, "The wound is where the light enters");
             if let Some(ids) = tokens {
-                eprintln!("Jina v5: {} tokens, first 5: {:?}", ids.len(), &ids[..ids.len().min(5)]);
+                eprintln!(
+                    "Jina v5: {} tokens, first 5: {:?}",
+                    ids.len(),
+                    &ids[..ids.len().min(5)]
+                );
             }
         }
 
@@ -327,15 +353,27 @@ mod tests {
         if mb.is_ok() {
             let tokens = reg.encode(ModelId::ModernBert, "The wound is where the light enters");
             if let Some(ids) = tokens {
-                eprintln!("ModernBERT: {} tokens, first 5: {:?}", ids.len(), &ids[..ids.len().min(5)]);
+                eprintln!(
+                    "ModernBERT: {} tokens, first 5: {:?}",
+                    ids.len(),
+                    &ids[..ids.len().min(5)]
+                );
             }
         }
 
         // If both loaded: different tokenizers should produce different token counts
         if reg.is_loaded(ModelId::JinaV5) && reg.is_loaded(ModelId::ModernBert) {
-            let v5_ids = reg.encode(ModelId::JinaV5, "Gradient descent minimizes loss").unwrap();
-            let mb_ids = reg.encode(ModelId::ModernBert, "Gradient descent minimizes loss").unwrap();
-            eprintln!("Same text: Jina v5={} tokens, ModernBERT={} tokens", v5_ids.len(), mb_ids.len());
+            let v5_ids = reg
+                .encode(ModelId::JinaV5, "Gradient descent minimizes loss")
+                .unwrap();
+            let mb_ids = reg
+                .encode(ModelId::ModernBert, "Gradient descent minimizes loss")
+                .unwrap();
+            eprintln!(
+                "Same text: Jina v5={} tokens, ModernBERT={} tokens",
+                v5_ids.len(),
+                mb_ids.len()
+            );
             // Different vocab sizes (151K vs 50K) → different token counts likely
         }
     }
@@ -358,8 +396,12 @@ mod tests {
             assert!(!ids.is_empty());
             // All IDs should be within vocab range
             for &id in &ids {
-                assert!(id < ModelId::JinaV3.vocab_size(),
-                    "token {} exceeds vocab {}", id, ModelId::JinaV3.vocab_size());
+                assert!(
+                    id < ModelId::JinaV3.vocab_size(),
+                    "token {} exceeds vocab {}",
+                    id,
+                    ModelId::JinaV3.vocab_size()
+                );
             }
         }
         // OK if fails (tokenizer not on disk in CI)
@@ -381,7 +423,10 @@ mod tests {
         let result = reg.load(ModelId::JinaV5);
         if result.is_ok() {
             assert!(reg.is_loaded(ModelId::JinaV5));
-            let tokens = reg.encode(ModelId::JinaV5, "Gradient descent minimizes the loss function");
+            let tokens = reg.encode(
+                ModelId::JinaV5,
+                "Gradient descent minimizes the loss function",
+            );
             assert!(tokens.is_some());
         }
     }
@@ -401,8 +446,16 @@ mod tests {
             assert_ne!(rr.len(), 0);
             // XLM-RoBERTa and Qwen2 have different vocabularies
             // Token IDs almost certainly differ
-            eprintln!("Jina v3: {} tokens {:?}", jina.len(), &jina[..jina.len().min(10)]);
-            eprintln!("Reranker: {} tokens {:?}", rr.len(), &rr[..rr.len().min(10)]);
+            eprintln!(
+                "Jina v3: {} tokens {:?}",
+                jina.len(),
+                &jina[..jina.len().min(10)]
+            );
+            eprintln!(
+                "Reranker: {} tokens {:?}",
+                rr.len(),
+                &rr[..rr.len().min(10)]
+            );
         }
     }
 

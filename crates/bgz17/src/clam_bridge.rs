@@ -140,8 +140,7 @@ impl Bgz17Metric {
         let pe_a = &self.palette_edges[a];
         let pe_b = &self.palette_edges[b];
         let palette_dist = self.matrices.spo_distance(
-            pe_a.s_idx, pe_a.p_idx, pe_a.o_idx,
-            pe_b.s_idx, pe_b.p_idx, pe_b.o_idx,
+            pe_a.s_idx, pe_a.p_idx, pe_a.o_idx, pe_b.s_idx, pe_b.p_idx, pe_b.o_idx,
         ) as u64;
 
         // For CLAM tree construction we need consistent distances.
@@ -182,7 +181,9 @@ impl Bgz17Metric {
 struct SplitMix64(u64);
 
 impl SplitMix64 {
-    fn new(seed: u64) -> Self { Self(seed) }
+    fn new(seed: u64) -> Self {
+        Self(seed)
+    }
     fn next_u64(&mut self) -> u64 {
         self.0 = self.0.wrapping_add(0x9E3779B97F4A7C15);
         let mut z = self.0;
@@ -224,7 +225,9 @@ pub struct Bgz17Cluster {
 
 impl Bgz17Cluster {
     #[inline]
-    pub fn is_leaf(&self) -> bool { self.left.is_none() }
+    pub fn is_leaf(&self) -> bool {
+        self.left.is_none()
+    }
 
     #[inline]
     pub fn delta_plus(&self, dist_to_center: u64) -> u64 {
@@ -259,7 +262,9 @@ impl Bgz17ClamTree {
             Self::partition(
                 &metric,
                 &mut indices,
-                0, n, 0,
+                0,
+                n,
+                0,
                 min_cluster_size.max(1),
                 &mut nodes,
                 &mut rng,
@@ -334,7 +339,9 @@ impl Bgz17ClamTree {
         for (i, &wi) in working.iter().enumerate() {
             let d = metric.distance(center_idx, wi);
             distances.push(d);
-            if d > radius { radius = d; }
+            if d > radius {
+                radius = d;
+            }
             if d > left_pole_dist {
                 left_pole_dist = d;
                 left_pole_local = i;
@@ -389,20 +396,30 @@ impl Bgz17ClamTree {
             right: None,
         });
 
-        let should_split = n > min_card
-            && depth < 256
-            && radius > 0
-            && split > 0
-            && split < n;
+        let should_split = n > min_card && depth < 256 && radius > 0 && split > 0 && split < n;
 
         if should_split {
             let left_idx = Self::partition(
-                metric, indices, start, start + split, depth + 1, min_card, nodes, rng,
+                metric,
+                indices,
+                start,
+                start + split,
+                depth + 1,
+                min_card,
+                nodes,
+                rng,
             );
             nodes[node_idx].left = Some(left_idx);
 
             let right_idx = Self::partition(
-                metric, indices, start + split, end, depth + 1, min_card, nodes, rng,
+                metric,
+                indices,
+                start + split,
+                end,
+                depth + 1,
+                min_card,
+                nodes,
+                rng,
             );
             nodes[node_idx].right = Some(right_idx);
         }
@@ -436,8 +453,12 @@ impl Bgz17ClamTree {
                     }
                 }
             } else {
-                if let Some(left) = cluster.left { stack.push(left); }
-                if let Some(right) = cluster.right { stack.push(right); }
+                if let Some(left) = cluster.left {
+                    stack.push(left);
+                }
+                if let Some(right) = cluster.right {
+                    stack.push(right);
+                }
             }
         }
 
@@ -452,7 +473,9 @@ impl Bgz17ClamTree {
         }
         let root = &self.nodes[0];
         let mut rho = root.radius / root.cardinality.max(1) as u64;
-        if rho == 0 { rho = 1; }
+        if rho == 0 {
+            rho = 1;
+        }
 
         loop {
             let hits = self.rho_nn(query_idx, rho);
@@ -495,7 +518,9 @@ impl Bgz17ClamTree {
         while let Some(&Reverse((d_minus, node_idx))) = queue.peek() {
             if hits.len() >= k {
                 if let Some(&(worst, _)) = hits.peek() {
-                    if worst <= d_minus { break; }
+                    if worst <= d_minus {
+                        break;
+                    }
                 }
             }
 
@@ -524,7 +549,9 @@ impl Bgz17ClamTree {
 
                     if hits.len() >= k {
                         if let Some(&(worst, _)) = hits.peek() {
-                            if child_d_minus > worst { continue; }
+                            if child_d_minus > worst {
+                                continue;
+                            }
                         }
                     }
                     queue.push(Reverse((child_d_minus, *child_idx)));
@@ -542,7 +569,8 @@ impl Bgz17ClamTree {
         let mut dists: Vec<(usize, u64)> = (0..self.metric.edge_count)
             .map(|i| {
                 // Use base17 L1 for ground truth (most precise layer available)
-                let d = self.metric.base_patterns[query_idx].l1(&self.metric.base_patterns[i]) as u64;
+                let d =
+                    self.metric.base_patterns[query_idx].l1(&self.metric.base_patterns[i]) as u64;
                 (i, d)
             })
             .collect();
@@ -572,7 +600,9 @@ mod tests {
         let mut v = vec![0i8; 16384];
         let mut s = seed;
         for x in v.iter_mut() {
-            s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            s = s
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
             *x = (s >> 33) as i8;
         }
         v
@@ -599,7 +629,12 @@ mod tests {
 
         // Self-distance should be 0
         for i in 0..20 {
-            assert_eq!(metric.distance(i, i), 0, "self-distance of edge {} should be 0", i);
+            assert_eq!(
+                metric.distance(i, i),
+                0,
+                "self-distance of edge {} should be 0",
+                i
+            );
         }
     }
 
@@ -614,7 +649,8 @@ mod tests {
                     metric.distance(i, j),
                     metric.distance(j, i),
                     "distance({}, {}) should be symmetric",
-                    i, j
+                    i,
+                    j
                 );
             }
         }
@@ -629,7 +665,11 @@ mod tests {
         assert_eq!(tree.reordered.len(), 50);
         assert!(tree.num_leaves > 0, "tree should have leaves");
 
-        println!("Bgz17ClamTree: {} nodes, {} leaves", tree.nodes.len(), tree.num_leaves);
+        println!(
+            "Bgz17ClamTree: {} nodes, {} leaves",
+            tree.nodes.len(),
+            tree.num_leaves
+        );
     }
 
     #[test]
@@ -639,7 +679,10 @@ mod tests {
 
         // Query edge 0 at rho=0 should find itself
         let hits = tree.rho_nn(0, 0);
-        assert!(!hits.is_empty(), "rho_nn(0, 0) should find at least the query");
+        assert!(
+            !hits.is_empty(),
+            "rho_nn(0, 0) should find at least the query"
+        );
         assert_eq!(hits[0].0, 0, "first hit should be edge 0");
         assert_eq!(hits[0].1, 0, "self-distance should be 0");
     }
@@ -664,9 +707,11 @@ mod tests {
         let dfs_result = tree.knn_dfs_sieve(query_idx, k);
 
         assert_eq!(
-            dfs_result.len(), k,
+            dfs_result.len(),
+            k,
             "DFS sieve should return {} hits, got {}",
-            k, dfs_result.len()
+            k,
+            dfs_result.len()
         );
 
         // The k-th distance should match brute-force k-th distance
@@ -756,7 +801,10 @@ mod tests {
             }
         );
 
-        assert!(stats.total_calls > 0, "should have made some distance calls");
+        assert!(
+            stats.total_calls > 0,
+            "should have made some distance calls"
+        );
     }
 
     #[test]

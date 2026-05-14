@@ -15,7 +15,7 @@
 //! L4 is already i8. With signed L1-L3, the entire stack is uniform.
 //! VNNI hardware: i8x i8->i32 = VPDPBSSD = native instruction.
 
-use crate::dto::{ResonanceDto, BusDto};
+use crate::dto::{BusDto, ResonanceDto};
 use ndarray::hpc::heel_f64x8::cosine_f64_simd;
 use ndarray::simd::F32x16;
 
@@ -62,16 +62,23 @@ impl SignedThinkingEngine {
     pub fn new(distance_table: Vec<i8>) -> Self {
         let total = distance_table.len();
         let size = (total as f64).sqrt() as usize;
-        assert_eq!(size * size, total,
-            "distance table length {} is not a perfect square", total);
+        assert_eq!(
+            size * size,
+            total,
+            "distance table length {} is not a perfect square",
+            total
+        );
         assert!(size >= 4, "need at least 4 atoms");
 
         // Count sign distribution
         let mut pos = 0usize;
         let mut neg = 0usize;
         for &v in &distance_table {
-            if v > 0 { pos += 1; }
-            else if v < 0 { neg += 1; }
+            if v > 0 {
+                pos += 1;
+            } else if v < 0 {
+                neg += 1;
+            }
         }
         let non_zero = (pos + neg).max(1);
         let ei_ratio = pos as f32 / non_zero as f32;
@@ -107,9 +114,7 @@ impl SignedThinkingEngine {
     /// This method exists for quick comparison experiments only.
     /// DO NOT use for production calibration.
     pub fn from_unsigned(table: &[u8]) -> Self {
-        let signed: Vec<i8> = table.iter()
-            .map(|&v| (v as i16 - 128) as i8)
-            .collect();
+        let signed: Vec<i8> = table.iter().map(|&v| (v as i16 - 128) as i8).collect();
         Self::new(signed)
     }
 
@@ -123,10 +128,17 @@ impl SignedThinkingEngine {
     /// through CDF u8 → relabel → i8, which DESTROYS sign information.
     /// Only this method and build_signed_table() produce real signed tables.
     pub fn from_f32_cosines(cosines: &[f32], size: usize) -> Self {
-        assert_eq!(cosines.len(), size * size,
+        assert_eq!(
+            cosines.len(),
+            size * size,
             "cosine matrix must be {}×{} = {}, got {}",
-            size, size, size * size, cosines.len());
-        let signed: Vec<i8> = cosines.iter()
+            size,
+            size,
+            size * size,
+            cosines.len()
+        );
+        let signed: Vec<i8> = cosines
+            .iter()
             .map(|&c| (c * 127.0).round().clamp(-128.0, 127.0) as i8)
             .collect();
         Self::new(signed)
@@ -164,7 +176,9 @@ impl SignedThinkingEngine {
 
         for i in 0..k {
             let e_i = self.energy[i];
-            if e_i < 1e-10 { continue; }
+            if e_i < 1e-10 {
+                continue;
+            }
 
             let row = &self.distance_table[i * k..(i + 1) * k];
             let e_scaled = e_i * inv_127;
@@ -176,21 +190,32 @@ impl SignedThinkingEngine {
                     ($off:expr) => {{
                         let base = j + $off * 16;
                         let d = F32x16::from_array([
-                            row[base] as f32,      row[base + 1] as f32,
-                            row[base + 2] as f32,  row[base + 3] as f32,
-                            row[base + 4] as f32,  row[base + 5] as f32,
-                            row[base + 6] as f32,  row[base + 7] as f32,
-                            row[base + 8] as f32,  row[base + 9] as f32,
-                            row[base + 10] as f32, row[base + 11] as f32,
-                            row[base + 12] as f32, row[base + 13] as f32,
-                            row[base + 14] as f32, row[base + 15] as f32,
+                            row[base] as f32,
+                            row[base + 1] as f32,
+                            row[base + 2] as f32,
+                            row[base + 3] as f32,
+                            row[base + 4] as f32,
+                            row[base + 5] as f32,
+                            row[base + 6] as f32,
+                            row[base + 7] as f32,
+                            row[base + 8] as f32,
+                            row[base + 9] as f32,
+                            row[base + 10] as f32,
+                            row[base + 11] as f32,
+                            row[base + 12] as f32,
+                            row[base + 13] as f32,
+                            row[base + 14] as f32,
+                            row[base + 15] as f32,
                         ]);
                         let acc = F32x16::from_slice(&next[base..base + 16]);
                         let ei = F32x16::splat(e_scaled);
                         d.mul_add(ei, acc).copy_to_slice(&mut next[base..base + 16]);
                     }};
                 }
-                do_lane!(0); do_lane!(1); do_lane!(2); do_lane!(3);
+                do_lane!(0);
+                do_lane!(1);
+                do_lane!(2);
+                do_lane!(3);
                 j += 64;
             }
             // Scalar tail
@@ -215,7 +240,9 @@ impl SignedThinkingEngine {
         let total: f32 = next.iter().sum();
         if total > 1e-10 {
             let inv = 1.0 / total;
-            for e in &mut next { *e *= inv; }
+            for e in &mut next {
+                *e *= inv;
+            }
         }
 
         self.energy = next;
@@ -240,7 +267,9 @@ impl SignedThinkingEngine {
 
         for i in 0..k {
             let e_i = self.energy[i];
-            if e_i < 1e-10 { continue; }
+            if e_i < 1e-10 {
+                continue;
+            }
 
             let row = &self.distance_table[i * k..(i + 1) * k];
             let e_scaled = e_i * inv_127;
@@ -251,21 +280,32 @@ impl SignedThinkingEngine {
                     ($off:expr) => {{
                         let base = j + $off * 16;
                         let d = F32x16::from_array([
-                            row[base] as f32,      row[base + 1] as f32,
-                            row[base + 2] as f32,  row[base + 3] as f32,
-                            row[base + 4] as f32,  row[base + 5] as f32,
-                            row[base + 6] as f32,  row[base + 7] as f32,
-                            row[base + 8] as f32,  row[base + 9] as f32,
-                            row[base + 10] as f32, row[base + 11] as f32,
-                            row[base + 12] as f32, row[base + 13] as f32,
-                            row[base + 14] as f32, row[base + 15] as f32,
+                            row[base] as f32,
+                            row[base + 1] as f32,
+                            row[base + 2] as f32,
+                            row[base + 3] as f32,
+                            row[base + 4] as f32,
+                            row[base + 5] as f32,
+                            row[base + 6] as f32,
+                            row[base + 7] as f32,
+                            row[base + 8] as f32,
+                            row[base + 9] as f32,
+                            row[base + 10] as f32,
+                            row[base + 11] as f32,
+                            row[base + 12] as f32,
+                            row[base + 13] as f32,
+                            row[base + 14] as f32,
+                            row[base + 15] as f32,
                         ]);
                         let acc = F32x16::from_slice(&next[base..base + 16]);
                         let ei = F32x16::splat(e_scaled);
                         d.mul_add(ei, acc).copy_to_slice(&mut next[base..base + 16]);
                     }};
                 }
-                do_lane!(0); do_lane!(1); do_lane!(2); do_lane!(3);
+                do_lane!(0);
+                do_lane!(1);
+                do_lane!(2);
+                do_lane!(3);
                 j += 64;
             }
             while j < k {
@@ -277,7 +317,10 @@ impl SignedThinkingEngine {
         // CLAMP: inhibited atoms die
         let mut inhibited = 0usize;
         for e in &mut next {
-            if *e < 0.0 { *e = 0.0; inhibited += 1; }
+            if *e < 0.0 {
+                *e = 0.0;
+                inhibited += 1;
+            }
         }
         self.inhibited_last_cycle = inhibited;
         self.total_inhibitions += inhibited;
@@ -297,7 +340,9 @@ impl SignedThinkingEngine {
         // Normalize
         if exp_sum > 1e-10 {
             let inv = 1.0 / exp_sum;
-            for e in &mut next { *e *= inv; }
+            for e in &mut next {
+                *e *= inv;
+            }
         }
 
         self.energy = next;
@@ -310,8 +355,12 @@ impl SignedThinkingEngine {
             let prev = self.energy.clone();
             self.cycle_with_temperature(temperature);
 
-            let delta: f32 = self.energy.iter().zip(&prev)
-                .map(|(a, b)| (a - b).abs()).sum();
+            let delta: f32 = self
+                .energy
+                .iter()
+                .zip(&prev)
+                .map(|(a, b)| (a - b).abs())
+                .sum();
             if delta < self.convergence_threshold {
                 break;
             }
@@ -325,8 +374,12 @@ impl SignedThinkingEngine {
             let prev = self.energy.clone();
             self.cycle();
 
-            let delta: f32 = self.energy.iter().zip(&prev)
-                .map(|(a, b)| (a - b).abs()).sum();
+            let delta: f32 = self
+                .energy
+                .iter()
+                .zip(&prev)
+                .map(|(a, b)| (a - b).abs())
+                .sum();
             if delta < self.convergence_threshold {
                 break;
             }
@@ -344,7 +397,9 @@ impl SignedThinkingEngine {
         let total: f32 = self.energy.iter().sum();
         if total > 1e-10 {
             let inv = 1.0 / total;
-            for e in &mut self.energy { *e *= inv; }
+            for e in &mut self.energy {
+                *e *= inv;
+            }
         }
     }
 
@@ -369,7 +424,9 @@ impl SignedThinkingEngine {
     }
 
     /// Access the signed distance table.
-    pub fn distance_table_ref(&self) -> &[i8] { &self.distance_table }
+    pub fn distance_table_ref(&self) -> &[i8] {
+        &self.distance_table
+    }
 
     /// Entropy of current energy distribution.
     pub fn entropy(&self) -> f32 {
@@ -412,7 +469,9 @@ mod tests {
         for i in 0..k {
             table[i * k + i] = 127; // self = max excitation
             for j in 0..k {
-                if i == j { continue; }
+                if i == j {
+                    continue;
+                }
                 let dist = (i as i64 - j as i64).unsigned_abs() as usize;
                 if dist < 30 {
                     // Near neighbors: excitatory (positive)
@@ -443,10 +502,10 @@ mod tests {
         // u8=0 -> i8=-128, u8=128 -> i8=0, u8=255 -> i8=127
         // Need at least 4×4 = 16 entries (min 4 atoms)
         let mut unsigned = vec![128u8; 16]; // 4×4, all orthogonal
-        unsigned[0] = 0;    // [0][0] -> -128
-        unsigned[1] = 128;  // [0][1] -> 0
-        unsigned[2] = 255;  // [0][2] -> 127
-        unsigned[3] = 64;   // [0][3] -> -64
+        unsigned[0] = 0; // [0][0] -> -128
+        unsigned[1] = 128; // [0][1] -> 0
+        unsigned[2] = 255; // [0][2] -> 127
+        unsigned[3] = 64; // [0][3] -> -64
         let engine = SignedThinkingEngine::from_unsigned(&unsigned);
         let table = engine.distance_table_ref();
         assert_eq!(table[0], -128);
@@ -475,8 +534,10 @@ mod tests {
         engine.perturb(&[10, 200]);
         engine.cycle();
 
-        assert!(engine.inhibited_last_cycle > 0,
-            "Expected inhibition with distant atoms, got 0 inhibitions");
+        assert!(
+            engine.inhibited_last_cycle > 0,
+            "Expected inhibition with distant atoms, got 0 inhibitions"
+        );
     }
 
     #[test]
@@ -518,15 +579,22 @@ mod tests {
     fn ei_ratio_computed() {
         let table = make_signed_test_table(256);
         let engine = SignedThinkingEngine::new(table);
-        assert!(engine.ei_ratio > 0.0 && engine.ei_ratio < 1.0,
-            "E/I ratio should be between 0 and 1, got {}", engine.ei_ratio);
+        assert!(
+            engine.ei_ratio > 0.0 && engine.ei_ratio < 1.0,
+            "E/I ratio should be between 0 and 1, got {}",
+            engine.ei_ratio
+        );
     }
 
     #[test]
     fn build_signed_table_symmetric() {
-        let centroids: Vec<Vec<f64>> = (0..64).map(|i| {
-            (0..32).map(|d| ((i * 97 + d * 31) as f64 % 200.0 - 100.0) * 0.01).collect()
-        }).collect();
+        let centroids: Vec<Vec<f64>> = (0..64)
+            .map(|i| {
+                (0..32)
+                    .map(|d| ((i * 97 + d * 31) as f64 % 200.0 - 100.0) * 0.01)
+                    .collect()
+            })
+            .collect();
 
         let table = SignedThinkingEngine::build_signed_table(&centroids);
         assert_eq!(table.len(), 64 * 64);
@@ -534,8 +602,15 @@ mod tests {
         for i in 0..64 {
             assert_eq!(table[i * 64 + i], 127, "diagonal should be 127");
             for j in 0..64 {
-                assert_eq!(table[i * 64 + j], table[j * 64 + i],
-                    "table[{},{}] != table[{},{}]", i, j, j, i);
+                assert_eq!(
+                    table[i * 64 + j],
+                    table[j * 64 + i],
+                    "table[{},{}] != table[{},{}]",
+                    i,
+                    j,
+                    j,
+                    i
+                );
             }
         }
     }

@@ -13,8 +13,8 @@
 //!     -- /path/to/model.safetensors
 
 use bgz_tensor::had_cascade::{HadCascadeTensor, TensorRegime};
-use ndarray::hpc::safetensors::read_safetensors_header;
 use ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd;
+use ndarray::hpc::safetensors::read_safetensors_header;
 use ndarray::simd::bf16_to_f32_batch;
 
 use std::collections::HashMap;
@@ -30,10 +30,15 @@ fn load_tensor(path: &str, tensor_name: &str) -> Option<(Vec<Vec<f32>>, usize, u
     let n_rows = t.dimensions[0] as usize;
     let n_cols: usize = t.dimensions.iter().skip(1).map(|&d| d as usize).product();
     let n = n_rows * n_cols;
-    reader.seek(SeekFrom::Start(header.tensor_data_offset + t.offset)).ok()?;
+    reader
+        .seek(SeekFrom::Start(header.tensor_data_offset + t.offset))
+        .ok()?;
     let mut raw = vec![0u8; n * 2];
     reader.read_exact(&mut raw).ok()?;
-    let u16s: Vec<u16> = raw.chunks_exact(2).map(|c| u16::from_le_bytes([c[0], c[1]])).collect();
+    let u16s: Vec<u16> = raw
+        .chunks_exact(2)
+        .map(|c| u16::from_le_bytes([c[0], c[1]]))
+        .collect();
     let mut f32_data = vec![0.0f32; u16s.len()];
     bf16_to_f32_batch(&u16s, &mut f32_data);
     let rows: Vec<Vec<f32>> = (0..n_rows)
@@ -46,7 +51,9 @@ fn list_weight_tensors(path: &str) -> Vec<(String, usize, usize)> {
     let file = File::open(path).expect("open");
     let mut reader = BufReader::new(file);
     let header = read_safetensors_header(&mut reader).expect("parse");
-    header.tensors.iter()
+    header
+        .tensors
+        .iter()
         .filter(|t| t.name.contains("weight") && t.dimensions.len() >= 2)
         .map(|t| {
             let n_rows = t.dimensions[0] as usize;
@@ -57,13 +64,15 @@ fn list_weight_tensors(path: &str) -> Vec<(String, usize, usize)> {
 }
 
 fn matmul_row(x: &[f32], weight_rows: &[Vec<f32>]) -> Vec<f32> {
-    weight_rows.iter().map(|w| {
-        x.iter().zip(w.iter()).map(|(a, b)| a * b).sum()
-    }).collect()
+    weight_rows
+        .iter()
+        .map(|w| x.iter().zip(w.iter()).map(|(a, b)| a * b).sum())
+        .collect()
 }
 
 fn argmax(v: &[f32]) -> usize {
-    v.iter().enumerate()
+    v.iter()
+        .enumerate()
         .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
         .map(|(i, _)| i)
         .unwrap_or(0)
@@ -71,15 +80,23 @@ fn argmax(v: &[f32]) -> usize {
 
 fn rms_diff(a: &[f32], b: &[f32]) -> f64 {
     let n = a.len().min(b.len());
-    if n == 0 { return 0.0; }
-    let sum: f64 = a.iter().zip(b.iter())
-        .map(|(x, y)| { let d = *x as f64 - *y as f64; d * d })
+    if n == 0 {
+        return 0.0;
+    }
+    let sum: f64 = a
+        .iter()
+        .zip(b.iter())
+        .map(|(x, y)| {
+            let d = *x as f64 - *y as f64;
+            d * d
+        })
         .sum();
     (sum / n as f64).sqrt()
 }
 
 fn main() {
-    let path = std::env::args().nth(1)
+    let path = std::env::args()
+        .nth(1)
         .expect("usage: had_cascade_inference_test <model.safetensors>");
 
     println!("# HadCascade Inference Validation");
@@ -111,27 +128,41 @@ fn main() {
     // Sample subset of tensors (one per layer type)
     let sample_tensors: Vec<_> = {
         let mut seen_types = HashMap::new();
-        tensors.iter().filter(|(name, n_rows, n_cols)| {
-            if *n_rows > 50000 { return false; } // skip huge embeddings
-            let type_key = name.rsplit('.').next().unwrap_or(name).to_string();
-            let layer_key = if name.contains(".0.") {
-                type_key.clone()
-            } else {
-                format!("{}_{}", type_key, name.matches('.').count())
-            };
-            if seen_types.contains_key(&layer_key) { return false; }
-            seen_types.insert(layer_key, true);
-            true
-        }).take(20).collect()
+        tensors
+            .iter()
+            .filter(|(name, n_rows, n_cols)| {
+                if *n_rows > 50000 {
+                    return false;
+                } // skip huge embeddings
+                let type_key = name.rsplit('.').next().unwrap_or(name).to_string();
+                let layer_key = if name.contains(".0.") {
+                    type_key.clone()
+                } else {
+                    format!("{}_{}", type_key, name.matches('.').count())
+                };
+                if seen_types.contains_key(&layer_key) {
+                    return false;
+                }
+                seen_types.insert(layer_key, true);
+                true
+            })
+            .take(20)
+            .collect()
     };
 
     for (name, n_rows, n_cols) in &sample_tensors {
-        let Some((rows, _, _)) = load_tensor(&path, name) else { continue };
+        let Some((rows, _, _)) = load_tensor(&path, name) else {
+            continue;
+        };
         let regime = TensorRegime::from_role(name);
 
         if !regime.should_compress() {
-            println!("| {} | Index | {}×{} | PASS (passthrough) | 0 | 1.0000 | 0 |",
-                &name[name.len().saturating_sub(45)..], n_rows, n_cols);
+            println!(
+                "| {} | Index | {}×{} | PASS (passthrough) | 0 | 1.0000 | 0 |",
+                &name[name.len().saturating_sub(45)..],
+                n_rows,
+                n_cols
+            );
             continue;
         }
 
@@ -150,16 +181,20 @@ fn main() {
         let mut cos_i8 = 0.0f64;
 
         for t in 0..n_test_inputs {
-            let x: Vec<f32> = (0..*n_cols).map(|d| {
-                ((d * 97 + t * 31 + 17) as f64 * 0.618).sin() as f32 * 0.1
-            }).collect();
+            let x: Vec<f32> = (0..*n_cols)
+                .map(|d| ((d * 97 + t * 31 + 17) as f64 * 0.618).sin() as f32 * 0.1)
+                .collect();
 
             let y_orig = matmul_row(&x, &rows);
             let y_r4 = matmul_row(&x, &recon_i4);
             let y_r8 = matmul_row(&x, &recon_i8);
 
-            if argmax(&y_orig) == argmax(&y_r4) { match_i4 += 1; }
-            if argmax(&y_orig) == argmax(&y_r8) { match_i8 += 1; }
+            if argmax(&y_orig) == argmax(&y_r4) {
+                match_i4 += 1;
+            }
+            if argmax(&y_orig) == argmax(&y_r8) {
+                match_i8 += 1;
+            }
             cos_i4 += cosine_f32_to_f64_simd(&y_orig, &y_r4);
             cos_i8 += cosine_f32_to_f64_simd(&y_orig, &y_r8);
         }
@@ -173,21 +208,32 @@ fn main() {
         total_argmax_match += match_i8; // track i8 as primary
         total_tensors += 1;
 
-        if rate_i8 < 1.0 { failed_tensors.push(name.clone()); }
+        if rate_i8 < 1.0 {
+            failed_tensors.push(name.clone());
+        }
 
         let short_name = &name[name.len().saturating_sub(40)..];
-        println!("| {} | {}×{} | {:.0}% | {:.4} | {:.0}% | {:.4} | {:.0} |",
-            short_name, n_rows, n_cols,
-            rate_i4 * 100.0, avg_cos_i4,
-            rate_i8 * 100.0, avg_cos_i8,
-            encode_ms);
+        println!(
+            "| {} | {}×{} | {:.0}% | {:.4} | {:.0}% | {:.4} | {:.0} |",
+            short_name,
+            n_rows,
+            n_cols,
+            rate_i4 * 100.0,
+            avg_cos_i4,
+            rate_i8 * 100.0,
+            avg_cos_i8,
+            encode_ms
+        );
     }
 
     println!();
-    println!("**Summary**: {}/{} argmax tests passed ({:.2}%) across {} tensors",
-        total_argmax_match, total_argmax_tests,
+    println!(
+        "**Summary**: {}/{} argmax tests passed ({:.2}%) across {} tensors",
+        total_argmax_match,
+        total_argmax_tests,
         total_argmax_match as f64 / total_argmax_tests.max(1) as f64 * 100.0,
-        total_tensors);
+        total_tensors
+    );
     if !failed_tensors.is_empty() {
         println!("**Failed tensors**: {}", failed_tensors.join(", "));
     }
@@ -204,10 +250,10 @@ fn main() {
     println!();
 
     // Find the codec head / output projection tensors
-    let codec_head_tensors: Vec<_> = tensors.iter()
+    let codec_head_tensors: Vec<_> = tensors
+        .iter()
         .filter(|(name, _, _)| {
-            name.contains("code_predictor") && !name.contains("embed")
-                && name.contains("weight")
+            name.contains("code_predictor") && !name.contains("embed") && name.contains("weight")
         })
         .take(5)
         .collect();
@@ -215,7 +261,10 @@ fn main() {
     if codec_head_tensors.is_empty() {
         println!("No codec head tensors found — skipping phase coherence test.");
     } else {
-        println!("Testing {} codec head tensors for phase-critical argmax stability:", codec_head_tensors.len());
+        println!(
+            "Testing {} codec head tensors for phase-critical argmax stability:",
+            codec_head_tensors.len()
+        );
         println!();
 
         // For codec head tensors, test with MANY random inputs to find edge cases
@@ -224,7 +273,9 @@ fn main() {
         let mut phase_match = 0usize;
 
         for (name, n_rows, n_cols) in &codec_head_tensors {
-            let Some((rows, _, _)) = load_tensor(&path, name) else { continue };
+            let Some((rows, _, _)) = load_tensor(&path, name) else {
+                continue;
+            };
             let regime = TensorRegime::from_role(name);
 
             let (test_rows, label) = if regime.should_compress() {
@@ -236,9 +287,9 @@ fn main() {
 
             let mut matches = 0;
             for t in 0..n_phase_tests {
-                let x: Vec<f32> = (0..*n_cols).map(|d| {
-                    ((d * 53 + t * 97 + 7) as f64 * 0.314).sin() as f32 * 0.05
-                }).collect();
+                let x: Vec<f32> = (0..*n_cols)
+                    .map(|d| ((d * 53 + t * 97 + 7) as f64 * 0.314).sin() as f32 * 0.05)
+                    .collect();
                 let y_orig = matmul_row(&x, &rows);
                 let y_recon = matmul_row(&x, &test_rows);
                 if argmax(&y_orig) == argmax(&y_recon) {
@@ -251,15 +302,31 @@ fn main() {
             phase_match += matches;
 
             let short = &name[name.len().saturating_sub(50)..];
-            let icon = if rate >= 1.0 { "PASS" } else if rate > 0.99 { "WARN" } else { "FAIL" };
-            println!("  {} [{}] {}: {}/{} argmax match ({:.1}%)",
-                icon, label, short, matches, n_phase_tests, rate * 100.0);
+            let icon = if rate >= 1.0 {
+                "PASS"
+            } else if rate > 0.99 {
+                "WARN"
+            } else {
+                "FAIL"
+            };
+            println!(
+                "  {} [{}] {}: {}/{} argmax match ({:.1}%)",
+                icon,
+                label,
+                short,
+                matches,
+                n_phase_tests,
+                rate * 100.0
+            );
         }
 
         println!();
-        println!("**Phase coherence**: {}/{} codec-head argmax stable ({:.2}%)",
-            phase_match, phase_total,
-            phase_match as f64 / phase_total.max(1) as f64 * 100.0);
+        println!(
+            "**Phase coherence**: {}/{} codec-head argmax stable ({:.2}%)",
+            phase_match,
+            phase_total,
+            phase_match as f64 / phase_total.max(1) as f64 * 100.0
+        );
 
         // Explain waveform implications
         println!();
@@ -279,9 +346,15 @@ fn main() {
             println!("**Result: all codec-head argmax tests passed — waveform phase safe.**");
         } else {
             let flip_rate = 1.0 - phase_match as f64 / phase_total.max(1) as f64;
-            println!("**Result: {:.2}% argmax flips in codec head — expect audible artifacts.**", flip_rate * 100.0);
-            println!("At 75 tokens/sec, {:.1}% flips = ~{:.0} clicks per second of audio.",
-                flip_rate * 100.0, flip_rate * 75.0);
+            println!(
+                "**Result: {:.2}% argmax flips in codec head — expect audible artifacts.**",
+                flip_rate * 100.0
+            );
+            println!(
+                "At 75 tokens/sec, {:.1}% flips = ~{:.0} clicks per second of audio.",
+                flip_rate * 100.0,
+                flip_rate * 75.0
+            );
         }
     }
 }

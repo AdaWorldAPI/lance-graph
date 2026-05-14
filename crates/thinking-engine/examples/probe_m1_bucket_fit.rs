@@ -196,7 +196,10 @@ fn main() {
     println!("- cosine off-diag mean (density indicator): {:.4}", cmean);
     println!("### 1-cos legacy");
     let (ldmin, ldmax, ldmean) = matrix_stats(&dist_legacy);
-    println!("- min: {:.4}, max: {:.4}, mean: {:.4}", ldmin, ldmax, ldmean);
+    println!(
+        "- min: {:.4}, max: {:.4}, mean: {:.4}",
+        ldmin, ldmax, ldmean
+    );
     println!();
 
     // -------- 2. Run the four methods (per truth-architect + savant-research) --------
@@ -218,13 +221,20 @@ fn main() {
 
     println!("## Method 2: Agglomerative hierarchical (average linkage) with k=16");
     let (labels_agg, merge_distances) = agglomerative_average_linkage(&dist, N, K);
-    println!("- final {} merge distances: {:?}", K.min(merge_distances.len()), &merge_distances[merge_distances.len().saturating_sub(K)..]);
+    println!(
+        "- final {} merge distances: {:?}",
+        K.min(merge_distances.len()),
+        &merge_distances[merge_distances.len().saturating_sub(K)..]
+    );
     let depth_jump_ratio = if merge_distances.len() >= 2 {
         merge_distances[merge_distances.len() - 1] / merge_distances[0].max(1e-6)
     } else {
         0.0
     };
-    println!("- depth jump ratio (last/first merge): {:.2}x", depth_jump_ratio);
+    println!(
+        "- depth jump ratio (last/first merge): {:.2}x",
+        depth_jump_ratio
+    );
     results.push(("agglomerative", labels_agg));
 
     println!("## Method 3: Binary CLAM at depth 4 (recursive pole split, 16 leaves)");
@@ -294,7 +304,10 @@ fn main() {
         let median = runs[runs.len() / 2];
         let balance = cluster_balance(&last_labels, k_test);
         let wb = within_between_ratio(&dist, N, &last_labels, k_test);
-        println!("| {} | {:.4} | {:.2} | {:.4} |", k_test, median, balance, wb);
+        println!(
+            "| {} | {:.4} | {:.2} | {:.4} |",
+            k_test, median, balance, wb
+        );
         k_sweep_results.push((k_test, median));
     }
     println!();
@@ -342,8 +355,14 @@ fn main() {
 
     println!("### Cronbach's α (internal consistency of silhouette assessment)");
     println!();
-    println!("- α over all 4 methods (incl. random baseline): **{:.4}**", alpha_all);
-    println!("- α over 3 real methods (excluding random): **{:.4}**", alpha_no_random);
+    println!(
+        "- α over all 4 methods (incl. random baseline): **{:.4}**",
+        alpha_all
+    );
+    println!(
+        "- α over 3 real methods (excluding random): **{:.4}**",
+        alpha_no_random
+    );
     println!();
     println!("Interpretation thresholds:");
     println!("  α > 0.9  — excellent inter-method reliability (structure is robust)");
@@ -390,7 +409,10 @@ fn main() {
     };
     println!();
     println!("- Mean ARI over all pairs: {:.4}", ari_mean_all);
-    println!("- Mean ARI over real-method pairs only: **{:.4}**", ari_mean_real);
+    println!(
+        "- Mean ARI over real-method pairs only: **{:.4}**",
+        ari_mean_real
+    );
     println!("- Variance of real-method ARI: {:.4}", ari_var_real);
     println!();
 
@@ -402,20 +424,24 @@ fn main() {
     println!("and not independent (ARI → 0, one method is noise). The band [0.3, 0.7] was");
     println!("proposed as the signature of a real multi-resolution manifold.");
     println!();
-    let creative_supported = alpha_no_random > 0.5
-        && ari_mean_real > 0.2
-        && ari_mean_real < 0.85;
+    let creative_supported = alpha_no_random > 0.5 && ari_mean_real > 0.2 && ari_mean_real < 0.85;
     if creative_supported {
         println!("**Creative agent claim: SUPPORTED**");
         println!("- α over real methods {:.4} > 0.5 ✓", alpha_no_random);
-        println!("- Mean ARI {:.4} in partial-agreement band [0.2, 0.85] ✓", ari_mean_real);
+        println!(
+            "- Mean ARI {:.4} in partial-agreement band [0.2, 0.85] ✓",
+            ari_mean_real
+        );
         println!();
         println!("Methods give overlapping-but-not-identical views → multi-sieve stacking");
         println!("is empirically justified. Probe M1-multi (5-sieve version with ring lens)");
         println!("is the correct follow-on.");
     } else {
         println!("**Creative agent claim: NOT SUPPORTED (by this probe)**");
-        println!("- α over real methods {:.4} (threshold 0.5)", alpha_no_random);
+        println!(
+            "- α over real methods {:.4} (threshold 0.5)",
+            alpha_no_random
+        );
         println!("- Mean ARI {:.4} (band [0.2, 0.85])", ari_mean_real);
         println!();
         if alpha_no_random <= 0.5 {
@@ -464,8 +490,14 @@ fn main() {
             name, s, b, w, g, v
         );
     }
-    let pass_count = method_verdicts.iter().filter(|(.., v)| *v == "PASS").count();
-    let fail_count = method_verdicts.iter().filter(|(.., v)| *v == "FAIL").count();
+    let pass_count = method_verdicts
+        .iter()
+        .filter(|(.., v)| *v == "PASS")
+        .count();
+    let fail_count = method_verdicts
+        .iter()
+        .filter(|(.., v)| *v == "FAIL")
+        .count();
     let uncertain_count = method_verdicts
         .iter()
         .filter(|(.., v)| *v == "UNCERTAIN")
@@ -489,30 +521,66 @@ fn main() {
     let lens_count = 7;
     let mut lens_pass = 0_usize;
     let mut lens_flags: Vec<(&'static str, bool, String)> = Vec::new();
-    let best_sil = method_verdicts.iter().map(|(_, s, ..)| *s).fold(f32::NEG_INFINITY, f32::max);
-    let best_bal = method_verdicts.iter().map(|(_, _, b, ..)| *b).fold(f32::INFINITY, f32::min);
+    let best_sil = method_verdicts
+        .iter()
+        .map(|(_, s, ..)| *s)
+        .fold(f32::NEG_INFINITY, f32::max);
+    let best_bal = method_verdicts
+        .iter()
+        .map(|(_, _, b, ..)| *b)
+        .fold(f32::INFINITY, f32::min);
     let best_gap = best_sil - random_silhouette;
     let lens1 = best_sil > 0.2;
     lens_flags.push(("silhouette > 0.2", lens1, format!("{:.4}", best_sil)));
-    if lens1 { lens_pass += 1; }
+    if lens1 {
+        lens_pass += 1;
+    }
     let lens2 = best_bal < 3.0;
     lens_flags.push(("balance < 3.0", lens2, format!("{:.2}", best_bal)));
-    if lens2 { lens_pass += 1; }
+    if lens2 {
+        lens_pass += 1;
+    }
     let lens3 = best_gap > 0.15;
     lens_flags.push(("absolute gap > 0.15", lens3, format!("{:.4}", best_gap)));
-    if lens3 { lens_pass += 1; }
+    if lens3 {
+        lens_pass += 1;
+    }
     let lens4 = k16_in_peak_band;
-    lens_flags.push(("k=16 in k-sweep peak band", lens4, format!("peak={}", peak_k)));
-    if lens4 { lens_pass += 1; }
+    lens_flags.push((
+        "k=16 in k-sweep peak band",
+        lens4,
+        format!("peak={}", peak_k),
+    ));
+    if lens4 {
+        lens_pass += 1;
+    }
     let lens5 = alpha_no_random > 0.5;
-    lens_flags.push(("Cronbach α (real methods) > 0.5", lens5, format!("{:.4}", alpha_no_random)));
-    if lens5 { lens_pass += 1; }
+    lens_flags.push((
+        "Cronbach α (real methods) > 0.5",
+        lens5,
+        format!("{:.4}", alpha_no_random),
+    ));
+    if lens5 {
+        lens_pass += 1;
+    }
     let lens6 = ari_mean_real > 0.2 && ari_mean_real < 0.85;
-    lens_flags.push(("Mean ARI in partial-agreement band", lens6, format!("{:.4}", ari_mean_real)));
-    if lens6 { lens_pass += 1; }
+    lens_flags.push((
+        "Mean ARI in partial-agreement band",
+        lens6,
+        format!("{:.4}", ari_mean_real),
+    ));
+    if lens6 {
+        lens_pass += 1;
+    }
     let lens7 = all_agree;
-    lens_flags.push(("All real methods agree on direction", lens7, format!("{}", all_agree)));
-    if lens7 { lens_pass += 1; }
+    lens_flags.push((
+        "All real methods agree on direction",
+        lens7,
+        format!("{}", all_agree),
+    ));
+    if lens7 {
+        lens_pass += 1;
+    }
 
     println!("### Cross-lens consensus matrix");
     println!();
@@ -535,20 +603,33 @@ fn main() {
     if conflict {
         println!("## RESULT: CONFLICT-DETECTED");
         println!();
-        println!("Per-method verdicts disagree ({} PASS, {} FAIL, {} UNCERTAIN).",
-                 pass_count, fail_count, uncertain_count);
-        println!("Cross-lens consensus is mid-range ({}/{}).", lens_pass, lens_count);
+        println!(
+            "Per-method verdicts disagree ({} PASS, {} FAIL, {} UNCERTAIN).",
+            pass_count, fail_count, uncertain_count
+        );
+        println!(
+            "Cross-lens consensus is mid-range ({}/{}).",
+            lens_pass, lens_count
+        );
         println!();
         println!("### All-lens values (use all, not hierarchical autopilot)");
         println!();
         for (name, ok, val) in &lens_flags {
-            println!("- {}: {} ({})", name, val, if *ok { "pass" } else { "fail" });
+            println!(
+                "- {}: {} ({})",
+                name,
+                val,
+                if *ok { "pass" } else { "fail" }
+            );
         }
         println!();
         println!("### Per-method details");
         println!();
         for (name, s, b, w, v) in &method_verdicts {
-            println!("- **{}**: silhouette={:.4}, balance={:.2}, wb={:.4} → {}", name, s, b, w, v);
+            println!(
+                "- **{}**: silhouette={:.4}, balance={:.2}, wb={:.4} → {}",
+                name, s, b, w, v
+            );
         }
         println!();
         println!("### Interpretation");
@@ -580,7 +661,10 @@ fn main() {
         println!("- Within/between: {:.4}", wb);
         println!("- Random baseline silhouette: {:.4}", random_silhouette);
         println!("- Absolute gap (sil_real − sil_random): {:.4}", sil_gap);
-        println!("- Within/between improvement over random: {:.2}x", wb_improvement);
+        println!(
+            "- Within/between improvement over random: {:.2}x",
+            wb_improvement
+        );
         println!();
 
         let pass_sil = sil > 0.2;
@@ -619,7 +703,10 @@ fn main() {
             println!();
             println!("- PASS validates Slot D BIT LAYOUT, not the Pareto frontier.");
             println!("  Bucketing fidelity is a different axis from ρ measurement.");
-            println!("- Winning method was {}, not necessarily CLAM. The canonical", name);
+            println!(
+                "- Winning method was {}, not necessarily CLAM. The canonical",
+                name
+            );
             println!("  terrain doc's 'Slot D = CLAM tree path' wording should be");
             println!("  corrected to 'Slot D = {} tree path'.", name);
             println!("- This probe used the 256×256 cosine matrix only, NOT the");
@@ -636,10 +723,16 @@ fn main() {
                 println!("- balance {:.2} > 5.0 ✗", balance);
             }
             if fail_gap {
-                println!("- absolute gap {:.4} < 0.05 (clustering is noise) ✗", sil_gap);
+                println!(
+                    "- absolute gap {:.4} < 0.05 (clustering is noise) ✗",
+                    sil_gap
+                );
             }
             if fail_k_peak {
-                println!("- k-sweep peak at k={} (not 16), k=16 outside peak band ✗", peak_k);
+                println!(
+                    "- k-sweep peak at k={} (not 16), k=16 outside peak band ✗",
+                    peak_k
+                );
             }
             println!();
             println!("### Interpretation");
@@ -665,7 +758,10 @@ fn main() {
             println!("- silhouette {:.4} (pass > 0.2, fail < 0.1)", sil);
             println!("- balance {:.2} (pass < 3.0, fail > 5.0)", balance);
             println!("- absolute gap {:.4} (pass > 0.15, fail < 0.05)", sil_gap);
-            println!("- k-sweep peak: k={}, k=16 in band: {}", peak_k, k16_in_peak_band);
+            println!(
+                "- k-sweep peak: k={}, k=16 in band: {}",
+                peak_k, k16_in_peak_band
+            );
             println!();
             println!("### Recommendation");
             println!();
@@ -915,11 +1011,7 @@ fn kmedoids_pam(dist: &[f32], n: usize, k: usize, max_iters: usize, seed: u64) -
 /// Agglomerative hierarchical clustering with average linkage.
 /// Starts with n singleton clusters, merges until k clusters remain.
 /// Returns (labels, merge_distances) so the caller can measure hierarchy depth.
-fn agglomerative_average_linkage(
-    dist: &[f32],
-    n: usize,
-    k: usize,
-) -> (Vec<usize>, Vec<f32>) {
+fn agglomerative_average_linkage(dist: &[f32], n: usize, k: usize) -> (Vec<usize>, Vec<f32>) {
     // Cluster membership: cluster_id -> Vec<point_idx>
     let mut clusters: Vec<Vec<usize>> = (0..n).map(|i| vec![i]).collect();
     let mut merge_distances: Vec<f32> = Vec::new();

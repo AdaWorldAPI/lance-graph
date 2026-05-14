@@ -25,10 +25,10 @@
 
 #[cfg(feature = "calibration")]
 fn main() {
-    use candle_core::{Device, DType, Tensor, IndexOp};
+    use candle_core::{DType, Device, IndexOp, Tensor};
     use candle_nn::VarBuilder;
-    use candle_transformers::models::qwen2;
     use candle_transformers::generation::LogitsProcessor;
+    use candle_transformers::models::qwen2;
 
     let device = Device::Cpu;
     let dtype = DType::F32;
@@ -38,26 +38,29 @@ fn main() {
     println!("═══════════════════════════════════════════════════════════\n");
 
     // ═══ Step 1: Load config ═══
-    let config_str = std::fs::read_to_string("data/readerlm-v2/config_candle.json")
-        .expect("config_candle.json");
-    let config: qwen2::Config = serde_json::from_str(&config_str)
-        .expect("parse config");
-    println!("[1] Config: {} layers, {}D hidden, {} vocab, {} heads, {} KV heads",
-        config.num_hidden_layers, config.hidden_size, config.vocab_size,
-        config.num_attention_heads, config.num_key_value_heads);
+    let config_str =
+        std::fs::read_to_string("data/readerlm-v2/config_candle.json").expect("config_candle.json");
+    let config: qwen2::Config = serde_json::from_str(&config_str).expect("parse config");
+    println!(
+        "[1] Config: {} layers, {}D hidden, {} vocab, {} heads, {} KV heads",
+        config.num_hidden_layers,
+        config.hidden_size,
+        config.vocab_size,
+        config.num_attention_heads,
+        config.num_key_value_heads
+    );
 
     // ═══ Step 2: Load tokenizer ═══
     println!("[2] Loading tokenizer...");
-    let tokenizer = tokenizers::Tokenizer::from_file("data/readerlm-v2/tokenizer.json")
-        .expect("tokenizer");
+    let tokenizer =
+        tokenizers::Tokenizer::from_file("data/readerlm-v2/tokenizer.json").expect("tokenizer");
 
     // ═══ Step 3: Load model ═══
     println!("[3] Loading model (2.9 GB BF16 → F32)...");
     let t0 = std::time::Instant::now();
     let vb = unsafe {
-        VarBuilder::from_mmaped_safetensors(
-            &["data/readerlm-v2/model.safetensors"], dtype, &device
-        ).expect("load safetensors")
+        VarBuilder::from_mmaped_safetensors(&["data/readerlm-v2/model.safetensors"], dtype, &device)
+            .expect("load safetensors")
     };
     let mut model = qwen2::ModelForCausalLM::new(&config, vb).expect("build model");
     println!("    Loaded in {:.1}s", t0.elapsed().as_secs_f64());
@@ -117,7 +120,8 @@ then fix the break, either disabling a gene or inserting new genetic material.</
             .unsqueeze(0)
             .expect("batch");
 
-        let logits = model.forward(&input, all_tokens.len() - 1)
+        let logits = model
+            .forward(&input, all_tokens.len() - 1)
             .expect("forward");
         let logits = logits.flatten_all().expect("flatten");
         next_token = logits_processor.sample(&logits).expect("sample");
@@ -137,8 +141,12 @@ then fix the break, either disabling a gene or inserting new genetic material.</
 
     let elapsed = t0.elapsed().as_secs_f64();
     let generated = all_tokens.len() - input_ids.len();
-    println!("\n    Generated {} tokens in {:.1}s ({:.1} tok/s)",
-        generated, elapsed, generated as f64 / elapsed);
+    println!(
+        "\n    Generated {} tokens in {:.1}s ({:.1} tok/s)",
+        generated,
+        elapsed,
+        generated as f64 / elapsed
+    );
 
     // ═══ Step 6: Decode output ═══
     let output_tokens = &all_tokens[input_ids.len()..];
@@ -151,7 +159,10 @@ then fix the break, either disabling a gene or inserting new genetic material.</
 
     // ═══ Step 7: Extract token IDs for thinking engine ═══
     let output_token_ids: Vec<u32> = output_tokens.to_vec();
-    println!("\n[7] Thinking engine input: {} tokens from ReaderLM output", output_token_ids.len());
+    println!(
+        "\n[7] Thinking engine input: {} tokens from ReaderLM output",
+        output_token_ids.len()
+    );
     println!("    These tokens go into codebook_index.u16 → centroid IDs → softmax thinking");
     println!("    Vocab 151936 = same as Jina v5 codebook (shared Qwen tokenizer family)");
 
@@ -159,4 +170,6 @@ then fix the break, either disabling a gene or inserting new genetic material.</
 }
 
 #[cfg(not(feature = "calibration"))]
-fn main() { eprintln!("Requires --features calibration"); }
+fn main() {
+    eprintln!("Requires --features calibration");
+}

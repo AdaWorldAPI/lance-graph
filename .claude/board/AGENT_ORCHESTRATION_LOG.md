@@ -1075,3 +1075,148 @@ W13 | 2026-05-13 | pr-ogit-ttl-smb-hydration.md | DONE | 35009 bytes | §E: (1) 
 S7-W3 2026-05-13: Implemented lance-graph-supervisor crate (PR-G2/TD-RACTOR-SUPERVISOR-5): CallcenterSupervisor with ractor per-G actors, one-for-one supervision, backoff 100ms→30s, LifecycleAuditEvent separate from UnifiedAuditEvent (CC-2 fix), SuperDomain::System added with hard-lock exemption (CC-3 fix), all tests green, canonical_bytes 26-byte regression confirmed.
 2026-05-13 17:14 | S7-W6 | D3A+D3B | DONE | Files: audit_sink/{mod,composite,jsonl_sink,lance_sink}.rs + bin/audit_verify.rs | Tests: 11 new (11 pass) + 118 existing (all pass) | cargo check lance-sink,jsonl: OK | cargo test: 11/11 pass | cargo build audit-verify: OK
 2026-05-13 sprint-log-7 META (Opus 4.7): cross-implementation review across 7 worker outputs — 3A/3B/1B-minus, 32 KB at .claude/board/sprint-log-7/meta-review.md; single must-fix CC-7-1 (UnifiedAuditSink vs AuditSink trait split blocks W6 from bridge); 3-PR split recommended (A scaffold+W2+W3+W4, B hydration W1+W7, C gate+sinks W5+W6 with trait-family fix).
+
+---
+
+## W9 (folds-imports) — 2026-05-13
+
+**Agent:** W9 | **Branch:** `claude/lance-graph-1.95-bump`
+
+**Fix applied:** `crates/bgz-tensor/examples/fold_jina_embeddings.rs:8`
+- Removed `euler_gamma_fold, euler_gamma_unfold` from the `use bgz_tensor::euler_fold::{...}` import. These two symbols were imported but never used in the file.
+
+**bgz-tensor src/ scan:** lint_inventory.txt has zero entries for `bgz-tensor/src/**`. No additional fixes needed.
+
+**Verification:** ndarray/blake3 pre-existing compile failure prevents clippy from running in this environment. Fix is syntactically correct. W12 is the definitive gate.
+
+---
+
+## Sprint-log-8 — W5 variance-audit (2026-05-13)
+
+**Agent:** W5 (variance-audit)
+**File:** `crates/bgz-tensor/examples/variance_audit.rs`
+**Lints fixed:** 6 x `needless_range_loop` (lines 173, 182, 191, 200, 212, 221)
+**Pattern:** `for d in 0..17 { dims[d] = expr(i,d); }` -> `for (d, out) in dims.iter_mut().enumerate() { *out = expr(i,d); }` across all 6 role simulation blocks (Q/K/V/Gate/Up/Down).
+**Verification:** clippy blocked by pre-existing ndarray/blake3 compile error (confirmed pre-existing via git stash test). rustfmt check exits 0.
+**Status:** COMPLETE
+
+## W3 gguf-families — 2026-05-13
+
+**Agent:** W3 (gguf-families)
+**Sprint:** sprint-log-8 (lance-graph 1.95 bump)
+**File:** `crates/bgz-tensor/examples/gguf_families.rs`
+**Outcome:** COMPLETE
+
+Fixed 5 lint sites:
+- `unused_import: f32_to_bf16` (line 12) — removed from import
+- `manual_div_ceil` (line 337) — `(pos + align - 1) / align * align` → `pos.div_ceil(align) * align`
+- `manual_range_patterns` (line 374) — `4 | 5 | 6` → `4..=6`
+- `manual_range_patterns` (line 394) — `10 | 11 | 12` → `10..=12`
+- `manual_div_ceil` (line 438) — `(n + block_size - 1) / block_size` → `n.div_ceil(block_size)`
+
+Verification blocked by pre-existing ndarray/blake3 environment issue (same as W5). `rustfmt --check` exits 0.
+
+---
+
+## Sprint-log-8 — lance-graph 1.95 bump fleet | W6 golden-offset | 2026-05-13
+
+**Agent:** W6 (golden-offset)
+**Files owned:**
+- `crates/bgz-tensor/examples/golden_offset_test.rs`
+- `crates/bgz-tensor/examples/calibrate_from_jina.rs`
+
+**Fixes applied:**
+- 4x `manual_div_ceil`: `(n + BASE_DIM - 1) / BASE_DIM` -> `n.div_ceil(BASE_DIM)` in all four projection functions (lines 226, 253, 280, 309)
+- 1x `map_clone`: `texts.iter().map(|s| *s).collect()` -> `texts.iter().copied().collect()` (line 64)
+
+**Verification:** Blocked by pre-existing ndarray compile error — blake3 crate used in
+ndarray/src/hpc/{seal,merkle_tree,plane,vsa}.rs without `cfg(feature = "hpc-extras")` guard.
+This was present before W6 ran (original clippy_1.95_full.log was captured from cached build).
+Code changes are correct and complete per lint cookbook.
+
+**Blocker for W12:** ndarray/src/hpc/mod.rs needs `#[cfg(feature = "hpc-extras")]` guards on
+`pub mod seal;` and `pub mod merkle_tree;` before workspace-wide clippy can succeed.
+
+---
+
+## W2 — gguf-euler — 2026-05-13
+
+**Agent:** W2 (gguf-euler)
+**File:** `crates/bgz-tensor/examples/gguf_euler_fold.rs`
+**Status:** COMPLETE
+
+Fixed all 7 lint sites:
+- L176 `unnecessary_map_or`: `.map_or(false, |v| !v.is_empty())` → `.is_some_and(|v| !v.is_empty())`
+- L202 `needless_range_loop`: neuron loop → `role_rows[&available[0]].iter().enumerate().take(test_count)`
+- L280 `needless_range_loop`: j loop → `members.iter().enumerate().take(test_count)` with `member` replacing `members[j]`
+- L373 `manual_div_ceil`: `(pos + 31) / 32 * 32` → `pos.div_ceil(32) * 32`
+- L399 `manual_range_patterns`: `4 | 5 | 6` → `4..=6`
+- L417 `manual_range_patterns`: `10 | 11 | 12` → `10..=12`
+- L443 `manual_div_ceil`: `(n + 31) / 32` → `n.div_ceil(32)`
+
+`rustfmt --check` exits 0. Full clippy blocked by pre-existing ndarray/blake3 error (same as W3/W5).
+$(date -u +"%Y-%m-%dT%H:%M") | sprint-log-8 | W1 budget-rotation | sonnet | crates/bgz-tensor/examples/budget_rotation_test.rs | 8 sites fixed | cargo clippy passes
+2026-05-13T19:31 | sprint-log-8 | W1 budget-rotation | sonnet | crates/bgz-tensor/examples/budget_rotation_test.rs | 8 sites fixed | cargo clippy passes
+
+---
+
+## W4 — gguf-thinking — 2026-05-13
+
+**Agent:** W4 (gguf-thinking)
+**File:** `crates/bgz-tensor/examples/gguf_thinking_styles.rs`
+**Status:** COMPLETE
+
+Fixed all 5 lint sites (6 sites in MANIFEST counts the two div_ceil as separate; one unused_variable + two manual_div_ceil + two manual_range_patterns):
+- L26 `unused_variable: role_spectra`: `let mut role_spectra` → `let mut _role_spectra`
+- L360 `manual_div_ceil`: `(pos + 31) / 32 * 32` → `(pos + 31).div_ceil(32)`
+- L386 `manual_range_patterns`: `4 | 5 | 6` → `4..=6`
+- L404 `manual_range_patterns`: `10 | 11 | 12` → `10..=12`
+- L430 `manual_div_ceil`: `(n + 31) / 32` → `n.div_ceil(32)`
+
+`rustfmt --check` exits 0. Full clippy blocked by pre-existing ndarray/blake3 error (same as W2/W3/W5/W6).
+
+---
+
+## W7 — gamma-phi — 2026-05-13
+
+**Agent:** W7 (gamma-phi)
+**File:** `crates/bgz-tensor/examples/gamma_phi_gguf.rs`
+**Status:** COMPLETE
+
+Fixed 4 lint sites (lint_inventory.txt listed 3; 4th found in clippy_1.95_deny.log):
+- L356 `manual_div_ceil`: `(pos + 31) / 32 * 32` → `pos.div_ceil(32) * 32`
+- L380 `manual_range_patterns`: `4 | 5 | 6` → `4..=6`
+- L398 `manual_range_patterns`: `10 | 11 | 12` → `10..=12`
+- L423 `manual_div_ceil`: `(n + 31) / 32` → `n.div_ceil(32)`
+
+`rustup run 1.95.0 cargo clippy --workspace --example gamma_phi_gguf -- -D warnings` exits 0. Isolated `-p bgz-tensor` form blocked by pre-existing ndarray blake3 feature-gating bug (same as W2/W3/W4/W5/W6).
+
+---
+
+## W10 — contract-holograph — 2026-05-13
+
+Fixed 5 lint sites across 3 crates (lance-graph-contract, holograph, highheelbgz):
+
+1. `orchestration_mode.rs:416` `unnecessary_sort_by`: `sort_by(|a,b| b.pearl_level.cmp(&a.pearl_level))` -> `sort_by_key(|h| Reverse(h.pearl_level))` + `use std::cmp::Reverse`
+2. `navigator.rs:55` `unused_import: VectorSlice`: moved to `#[cfg(feature="datafusion-storage")]` at top level + explicit `use crate::bitpack::VectorSlice` in `#[cfg(test)] mod tests`
+3. `simd_hardened.rs:9` `unused_import: GOLDEN_RATIO`: removed (use site already has hardcoded literal)
+4. `source.rs:11` `unused_import: BASE_DIM`: removed from top-level import; added `use crate::BASE_DIM` inside `#[cfg(test)] mod tests`
+5. `rehydrate.rs:101` `unused_variable: gamma`: prefixed `_gamma`
+
+All three crates exit 0 under `rustup run 1.95.0 cargo clippy -p <crate> --all-targets -- -D warnings` (holograph lib+tests clean; hamming_bench criterion dep error pre-existing).
+
+---
+## [W12] [DONE] verify — sprint-log-8 post-fleet verification
+
+**D-id(s):** sprint-log-8 gate
+**Files claimed/touched:** .claude/board/sprint-log-8/verify_results.log, .claude/board/sprint-log-8/agents/agent-W12.md
+**Notes:** fmt PASS; clippy FAIL (3 sites, 2 unassigned crates); test BLOCKED (disk full).
+
+Detail:
+- fmt: exit 0 — workspace clean
+- clippy: 3 remaining errors not covered by any fleet agent:
+    lance-graph-planner/strategy/gremlin_parse.rs:626,651 (collapsible_match)
+    lance-graph-ontology/benches/o1_probe.rs:50 (ptr_arg)
+  Plus W8 scope (full_pipeline.rs + bgz7_hydration_quality.rs) has ~5 unfixed sites.
+- test: /dev/vda at 100% (68 MB free); datafusion/parquet compile aborted.
+- Missing agent reports: W8, W10 (W10 code in working tree, uncommitted).

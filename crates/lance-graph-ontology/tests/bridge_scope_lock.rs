@@ -99,13 +99,16 @@ fn medcare_bridge_rejects_workorder_entity_by_uri() {
     let bridge = MedcareBridge::new(registry).unwrap();
     let uri = OgitUri::parse("ogit.WorkOrder:Order").unwrap();
     let result = bridge.entity_by_uri(&uri);
-    assert!(result.is_err(), "expected scope lock to refuse, got {result:?}");
+    assert!(
+        result.is_err(),
+        "expected scope lock to refuse, got {result:?}"
+    );
 }
 
 #[test]
 fn woa_bridge_public_name_aliases_via_append() {
-    use lance_graph_ontology::{MappingProposal, MappingProposalKind};
     use lance_graph_contract::property::{Marking, Schema};
+    use lance_graph_ontology::{MappingProposal, MappingProposalKind};
     let registry = make_registry();
 
     // A tenant adds a public-name alias for its locked namespace's
@@ -137,8 +140,6 @@ fn ogit_bridge_per_namespace_works() {
     let healthcare_bridge = OgitBridge::for_namespace(registry, "Healthcare").unwrap();
     assert_ne!(work_order_bridge.g_lock(), healthcare_bridge.g_lock());
     let _ = work_order_bridge
-        .entity_by_uri(
-            &lance_graph_ontology::OgitUri::parse("ogit.WorkOrder:Order").unwrap(),
-        )
+        .entity_by_uri(&lance_graph_ontology::OgitUri::parse("ogit.WorkOrder:Order").unwrap())
         .expect("URI-based resolution within the same namespace");
 }

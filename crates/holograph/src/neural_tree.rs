@@ -57,11 +57,11 @@
 //! - Stacked popcount = activation assessment
 //! ```
 
-use crate::bitpack::{BitpackedVector, VectorRef, VECTOR_WORDS};
-use crate::hamming::{hamming_distance_scalar, StackedPopcount, Belichtung};
+use crate::bitpack::{BitpackedVector, VECTOR_WORDS, VectorRef};
 use crate::crystal_dejavu::Coord5D;
-use crate::epiphany::{EpiphanyZone, THREE_SIGMA};
 use crate::dntree::TreeAddr;
+use crate::epiphany::{EpiphanyZone, THREE_SIGMA};
+use crate::hamming::{Belichtung, StackedPopcount, hamming_distance_scalar};
 use std::collections::HashMap;
 
 // ============================================================================
@@ -176,10 +176,7 @@ impl NeuralProfile {
         for b in 0..NUM_BLOCKS {
             let start = b * WORDS_PER_BLOCK;
             let end = ((b + 1) * WORDS_PER_BLOCK).min(VECTOR_WORDS);
-            let block_sum: u32 = stacked.per_word[start..end]
-                .iter()
-                .map(|&c| c as u32)
-                .sum();
+            let block_sum: u32 = stacked.per_word[start..end].iter().map(|&c| c as u32).sum();
             let max_act = stacked.per_word[start..end]
                 .iter()
                 .copied()
@@ -341,10 +338,7 @@ impl NeuralTreeNode {
         for b in 0..NUM_BLOCKS {
             let start = b * WORDS_PER_BLOCK;
             let end = ((b + 1) * WORDS_PER_BLOCK).min(VECTOR_WORDS);
-            self.block_signature[b] = stacked[start..end]
-                .iter()
-                .map(|&c| c as u16)
-                .sum();
+            self.block_signature[b] = stacked[start..end].iter().map(|&c| c as u16).sum();
         }
     }
 
@@ -582,8 +576,7 @@ impl HierarchicalNeuralTree {
                                 }
                             } else {
                                 // Fine: exact Hamming
-                                let dist =
-                                    hamming_distance_scalar(fingerprint, &child.centroid);
+                                let dist = hamming_distance_scalar(fingerprint, &child.centroid);
                                 if dist < best_score {
                                     best_score = dist;
                                     best_child = child_addr.clone();
@@ -746,10 +739,7 @@ impl HierarchicalNeuralTree {
         for b in 0..NUM_BLOCKS {
             let start = b * WORDS_PER_BLOCK;
             let end = ((b + 1) * WORDS_PER_BLOCK).min(VECTOR_WORDS);
-            query_blocks[b] = query_stacked[start..end]
-                .iter()
-                .map(|&c| c as u16)
-                .sum();
+            query_blocks[b] = query_stacked[start..end].iter().map(|&c| c as u16).sum();
         }
 
         // Crystal coordinate for attention routing
@@ -782,7 +772,10 @@ impl HierarchicalNeuralTree {
 
                         // Level 1: Stacked popcount with early termination
                         let threshold = if results.len() >= k {
-                            results.last().map(|r: &NeuralSearchResult| r.distance).unwrap_or(u32::MAX)
+                            results
+                                .last()
+                                .map(|r: &NeuralSearchResult| r.distance)
+                                .unwrap_or(u32::MAX)
                         } else {
                             THREE_SIGMA
                         };
@@ -845,8 +838,7 @@ impl HierarchicalNeuralTree {
                                 };
 
                                 // Hebbian bonus: well-traveled paths get priority
-                                let hebbian_discount =
-                                    (10.0 / child.hebbian_weight) as u32;
+                                let hebbian_discount = (10.0 / child.hebbian_weight) as u32;
 
                                 block_dist + crystal_bonus + hebbian_discount
                             } else {
@@ -987,8 +979,7 @@ impl HierarchicalNeuralTree {
         let avg_hebbian = if self.nodes.is_empty() {
             1.0
         } else {
-            self.nodes.values().map(|n| n.hebbian_weight).sum::<f32>()
-                / self.nodes.len() as f32
+            self.nodes.values().map(|n| n.hebbian_weight).sum::<f32>() / self.nodes.len() as f32
         };
 
         let crystal_cells_used = self.crystal_cells.len();
@@ -1003,7 +994,8 @@ impl HierarchicalNeuralTree {
             total_pruned: self.total_pruned,
             total_block_filtered: self.total_block_filtered,
             prune_rate: if self.total_searches > 0 {
-                self.total_pruned as f32 / (self.total_searches as f32 * self.total_items as f32).max(1.0)
+                self.total_pruned as f32
+                    / (self.total_searches as f32 * self.total_items as f32).max(1.0)
             } else {
                 0.0
             },
@@ -1137,8 +1129,9 @@ mod tests {
         let mut tree = HierarchicalNeuralTree::new();
 
         // Insert 100 vectors
-        let vectors: Vec<BitpackedVector> =
-            (0..100).map(|i| BitpackedVector::random(i as u64)).collect();
+        let vectors: Vec<BitpackedVector> = (0..100)
+            .map(|i| BitpackedVector::random(i as u64))
+            .collect();
         for (i, v) in vectors.iter().enumerate() {
             tree.insert_with_id(i as u64, v.clone());
         }

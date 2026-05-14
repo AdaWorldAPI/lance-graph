@@ -121,8 +121,12 @@ impl TierEngine {
     pub fn new(distance_table: Vec<u8>, name: &str) -> Self {
         let total = distance_table.len();
         let size = (total as f32).sqrt() as usize;
-        assert_eq!(size * size, total,
-            "distance table length {} is not a perfect square", total);
+        assert_eq!(
+            size * size,
+            total,
+            "distance table length {} is not a perfect square",
+            total
+        );
         let engine = ThinkingEngine::new(distance_table.clone());
         Self {
             engine,
@@ -139,12 +143,16 @@ impl TierEngine {
 
     /// Get top-k peaks from current energy, sorted descending by energy.
     pub fn top_k(&self, k: usize) -> Vec<(u16, f32)> {
-        let mut indexed: Vec<(usize, f32)> = self.engine.energy.iter()
+        let mut indexed: Vec<(usize, f32)> = self
+            .engine
+            .energy
+            .iter()
             .enumerate()
             .map(|(i, &e)| (i, e))
             .collect();
         indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-        indexed.iter()
+        indexed
+            .iter()
             .take(k)
             .map(|&(i, e)| (i as u16, e))
             .collect()
@@ -277,7 +285,8 @@ impl LayeredEngine {
         } else {
             1
         };
-        let l1_indices: Vec<u16> = codebook_indices.iter()
+        let l1_indices: Vec<u16> = codebook_indices
+            .iter()
             .map(|&idx| {
                 let mapped = (idx as usize) / scale.max(1);
                 mapped.min(l1_size.saturating_sub(1)) as u16
@@ -296,7 +305,8 @@ impl LayeredEngine {
         } else {
             1
         };
-        let l2_edges: Vec<(u16, CausalEdge64)> = l1_edges.iter()
+        let l2_edges: Vec<(u16, CausalEdge64)> = l1_edges
+            .iter()
             .map(|&(idx, edge)| {
                 let scaled = (idx as usize * l1_to_l2).min(l2_size.saturating_sub(1));
                 (scaled as u16, edge)
@@ -312,7 +322,8 @@ impl LayeredEngine {
         } else {
             1
         };
-        let l3_edges: Vec<(u16, CausalEdge64)> = l2_edges_out.iter()
+        let l3_edges: Vec<(u16, CausalEdge64)> = l2_edges_out
+            .iter()
             .map(|&(idx, edge)| {
                 let scaled = (idx as usize * l2_to_l3).min(l3_size.saturating_sub(1));
                 (scaled as u16, edge)
@@ -386,8 +397,12 @@ mod tests {
         }
         // Read back all 8 channels.
         for ch in 0..8u8 {
-            assert_eq!(edge.get_channel(ch), (ch + 1) * 30,
-                "channel {} mismatch", ch);
+            assert_eq!(
+                edge.get_channel(ch),
+                (ch + 1) * 30,
+                "channel {} mismatch",
+                ch
+            );
         }
     }
 
@@ -453,8 +468,10 @@ mod tests {
 
         // All edges should have positive CAUSES channel.
         for &(_target, edge) in &edges {
-            assert!(edge.get_channel(CHANNEL_CAUSES) > 0,
-                "emitted edge should have positive CAUSES strength");
+            assert!(
+                edge.get_channel(CHANNEL_CAUSES) > 0,
+                "emitted edge should have positive CAUSES strength"
+            );
         }
     }
 
@@ -471,10 +488,14 @@ mod tests {
         tier.apply_edges(&[(3, edge), (5, edge)]);
 
         // Targets 3 and 5 should have positive energy.
-        assert!(tier.engine().energy[3] > 0.0,
-            "target 3 should have energy after constructive edge");
-        assert!(tier.engine().energy[5] > 0.0,
-            "target 5 should have energy after constructive edge");
+        assert!(
+            tier.engine().energy[3] > 0.0,
+            "target 3 should have energy after constructive edge"
+        );
+        assert!(
+            tier.engine().energy[5] > 0.0,
+            "target 5 should have energy after constructive edge"
+        );
         // They should have equal energy (same edge applied).
         let diff = (tier.engine().energy[3] - tier.engine().energy[5]).abs();
         assert!(diff < 1e-10, "same edges should produce same energy");
@@ -497,8 +518,12 @@ mod tests {
 
         // Energy at 3 should decrease (clamped to zero, then renormalized).
         let after = tier.engine().energy[3];
-        assert!(after < initial,
-            "contradiction should reduce energy: before={}, after={}", initial, after);
+        assert!(
+            after < initial,
+            "contradiction should reduce energy: before={}, after={}",
+            initial,
+            after
+        );
     }
 
     // ── LayeredEngine tests ──

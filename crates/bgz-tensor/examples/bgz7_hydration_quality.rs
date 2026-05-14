@@ -68,14 +68,14 @@ fn main() {
                 u32::from_le_bytes([data[pos], data[pos + 1], data[pos + 2], data[pos + 3]])
                     as usize;
             pos += 4;
-            let n_cols =
+            let _n_cols =
                 u32::from_le_bytes([data[pos], data[pos + 1], data[pos + 2], data[pos + 3]])
                     as usize;
             pos += 4;
 
             let role = Role::from_name(&name);
 
-            for r in 0..n_rows {
+            for _r in 0..n_rows {
                 if pos + 34 > data.len() {
                     break;
                 }
@@ -104,13 +104,13 @@ fn main() {
                 let n = rows.len() as i64;
                 let mut sums = [0i64; 17];
                 for (_, b) in rows {
-                    for d in 0..17 {
-                        sums[d] += b.dims[d] as i64;
+                    for (d, slot) in sums.iter_mut().enumerate() {
+                        *slot += b.dims[d] as i64;
                     }
                 }
                 let mut dims = [0i16; 17];
-                for d in 0..17 {
-                    dims[d] = (sums[d] / n) as i16;
+                for (slot, s) in dims.iter_mut().zip(sums.iter()) {
+                    *slot = (s / n) as i16;
                 }
                 let centroid = Base17 { dims };
                 println!(

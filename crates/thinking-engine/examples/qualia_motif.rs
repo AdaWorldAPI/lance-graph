@@ -24,9 +24,15 @@ fn main() {
     println!("[1] Loading TextToThought (BGE-M3 tokenizer + codebook + distance table)...");
     let mut ttt = match TextToThought::load_bge_m3() {
         Ok(t) => {
-            println!("    Loaded: table={}x{}, model={}", t.table_size, t.table_size, t.model);
+            println!(
+                "    Loaded: table={}x{}, model={}",
+                t.table_size, t.table_size, t.model
+            );
             let (cb_len, cb_unique) = t.codebook_stats();
-            println!("    Codebook: {} tokens -> {} unique centroids", cb_len, cb_unique);
+            println!(
+                "    Codebook: {} tokens -> {} unique centroids",
+                cb_len, cb_unique
+            );
             println!("    Vocab: {} BPE tokens\n", t.vocab_size());
             t
         }
@@ -55,7 +61,10 @@ fn main() {
         "She laughed with relief and petted the cat.",
     ];
 
-    println!("[2] Processing {} sentences through text -> thought -> qualia...\n", sentences.len());
+    println!(
+        "[2] Processing {} sentences through text -> thought -> qualia...\n",
+        sentences.len()
+    );
 
     // ── Step 3: Process each sentence ─────────────────────────────────────
     let mut qualia_seq: Vec<Qualia17D> = Vec::new();
@@ -88,17 +97,8 @@ fn main() {
         };
 
         let top_dims = top_three_dims(&q);
-        println!(
-            "  S{}: {:<12} ({}){}",
-            i + 1,
-            family,
-            top_dims,
-            arrow,
-        );
-        println!(
-            "       \"{}\"",
-            text,
-        );
+        println!("  S{}: {:<12} ({}){}", i + 1, family, top_dims, arrow,);
+        println!("       \"{}\"", text,);
         println!(
             "       {} tokens, {} unique atoms, {:.0}us | family dist={:.3}",
             result.token_count, result.unique_atoms, result.think_micros as f64, family_dist,

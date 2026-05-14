@@ -12,7 +12,7 @@
 //!
 //! Built from StackedN::cosine() via ClamCodebook, matching bgz-tensor pipeline.
 
-use crate::dto::{ResonanceDto, BusDto};
+use crate::dto::{BusDto, ResonanceDto};
 use bgz_tensor::stacked_n::{bf16_to_f32, f32_to_bf16};
 use ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd;
 use ndarray::simd::F32x16;
@@ -46,8 +46,12 @@ impl BF16ThinkingEngine {
     pub fn new(distance_table: Vec<u16>) -> Self {
         let total = distance_table.len();
         let size = (total as f64).sqrt() as usize;
-        assert_eq!(size * size, total,
-            "BF16 table length {} is not a perfect square", total);
+        assert_eq!(
+            size * size,
+            total,
+            "BF16 table length {} is not a perfect square",
+            total
+        );
         assert!(size >= 4, "need at least 4 atoms");
 
         Self {
@@ -65,18 +69,14 @@ impl BF16ThinkingEngine {
     /// cosine [-1.0, +1.0] → BF16 (truncate mantissa, 1 ULP loss).
     pub fn from_f32_cosines(cosines: &[f32], size: usize) -> Self {
         assert_eq!(cosines.len(), size * size);
-        let table: Vec<u16> = cosines.iter()
-            .map(|&c| f32_to_bf16(c))
-            .collect();
+        let table: Vec<u16> = cosines.iter().map(|&c| f32_to_bf16(c)).collect();
         Self::new(table)
     }
 
     /// Build BF16 table from f64 pairwise cosines (e.g. from StackedN::cosine()).
     pub fn from_f64_cosines(cosines: &[f64], size: usize) -> Self {
         assert_eq!(cosines.len(), size * size);
-        let table: Vec<u16> = cosines.iter()
-            .map(|&c| f32_to_bf16(c as f32))
-            .collect();
+        let table: Vec<u16> = cosines.iter().map(|&c| f32_to_bf16(c as f32)).collect();
         Self::new(table)
     }
 
@@ -88,9 +88,9 @@ impl BF16ThinkingEngine {
         for i in 0..n {
             table[i * n + i] = f32_to_bf16(1.0); // self = max
             for j in (i + 1)..n {
-                let cos = codebook.entries[i].stacked.cosine(
-                    &codebook.entries[j].stacked
-                );
+                let cos = codebook.entries[i]
+                    .stacked
+                    .cosine(&codebook.entries[j].stacked);
                 let bf16 = f32_to_bf16(cos as f32);
                 table[i * n + j] = bf16;
                 table[j * n + i] = bf16;
@@ -108,10 +108,10 @@ impl BF16ThinkingEngine {
     /// table[i][j] = mean(cos(token ∈ bucket_i, token ∈ bucket_j))
     /// NOT: table[i][j] = cos(centroid_i, centroid_j)
     pub fn from_mean_pair_cosines(
-        embeddings: &[Vec<f32>],  // all token embeddings (normalized)
-        assignments: &[u16],       // token → bucket mapping
+        embeddings: &[Vec<f32>], // all token embeddings (normalized)
+        assignments: &[u16],     // token → bucket mapping
         n_centroids: usize,
-        samples_per_pair: usize,   // how many token pairs to sample per bucket pair
+        samples_per_pair: usize, // how many token pairs to sample per bucket pair
     ) -> Self {
         let mut table = vec![f32_to_bf16(0.0); n_centroids * n_centroids];
 
@@ -162,7 +162,8 @@ impl BF16ThinkingEngine {
         if data.len() % 2 != 0 {
             return Err("BF16 table must have even byte count".into());
         }
-        let table: Vec<u16> = data.chunks_exact(2)
+        let table: Vec<u16> = data
+            .chunks_exact(2)
             .map(|c| u16::from_le_bytes([c[0], c[1]]))
             .collect();
         Ok(Self::new(table))
@@ -170,7 +171,9 @@ impl BF16ThinkingEngine {
 
     /// Save BF16 table to file.
     pub fn save(&self, path: &std::path::Path) -> Result<(), String> {
-        let bytes: Vec<u8> = self.distance_table.iter()
+        let bytes: Vec<u8> = self
+            .distance_table
+            .iter()
             .flat_map(|&v| v.to_le_bytes())
             .collect();
         std::fs::write(path, &bytes).map_err(|e| format!("write: {}", e))
@@ -186,7 +189,9 @@ impl BF16ThinkingEngine {
 
         for i in 0..k {
             let e_i = self.energy[i];
-            if e_i < 1e-10 { continue; }
+            if e_i < 1e-10 {
+                continue;
+            }
 
             let row = &self.distance_table[i * k..(i + 1) * k];
 
@@ -198,21 +203,32 @@ impl BF16ThinkingEngine {
                         let base = j + $off * 16;
                         // BF16 → f32: lossless bit shift
                         let d = F32x16::from_array([
-                            bf16_to_f32(row[base]),      bf16_to_f32(row[base + 1]),
-                            bf16_to_f32(row[base + 2]),  bf16_to_f32(row[base + 3]),
-                            bf16_to_f32(row[base + 4]),  bf16_to_f32(row[base + 5]),
-                            bf16_to_f32(row[base + 6]),  bf16_to_f32(row[base + 7]),
-                            bf16_to_f32(row[base + 8]),  bf16_to_f32(row[base + 9]),
-                            bf16_to_f32(row[base + 10]), bf16_to_f32(row[base + 11]),
-                            bf16_to_f32(row[base + 12]), bf16_to_f32(row[base + 13]),
-                            bf16_to_f32(row[base + 14]), bf16_to_f32(row[base + 15]),
+                            bf16_to_f32(row[base]),
+                            bf16_to_f32(row[base + 1]),
+                            bf16_to_f32(row[base + 2]),
+                            bf16_to_f32(row[base + 3]),
+                            bf16_to_f32(row[base + 4]),
+                            bf16_to_f32(row[base + 5]),
+                            bf16_to_f32(row[base + 6]),
+                            bf16_to_f32(row[base + 7]),
+                            bf16_to_f32(row[base + 8]),
+                            bf16_to_f32(row[base + 9]),
+                            bf16_to_f32(row[base + 10]),
+                            bf16_to_f32(row[base + 11]),
+                            bf16_to_f32(row[base + 12]),
+                            bf16_to_f32(row[base + 13]),
+                            bf16_to_f32(row[base + 14]),
+                            bf16_to_f32(row[base + 15]),
                         ]);
                         let acc = F32x16::from_slice(&next[base..base + 16]);
                         let ei = F32x16::splat(e_i);
                         d.mul_add(ei, acc).copy_to_slice(&mut next[base..base + 16]);
                     }};
                 }
-                do_lane!(0); do_lane!(1); do_lane!(2); do_lane!(3);
+                do_lane!(0);
+                do_lane!(1);
+                do_lane!(2);
+                do_lane!(3);
                 j += 64;
             }
             while j < k {
@@ -224,7 +240,10 @@ impl BF16ThinkingEngine {
         // Clamp: inhibited atoms die
         let mut inhibited = 0usize;
         for e in &mut next {
-            if *e < 0.0 { *e = 0.0; inhibited += 1; }
+            if *e < 0.0 {
+                *e = 0.0;
+                inhibited += 1;
+            }
         }
         self.inhibited_last_cycle = inhibited;
         self.total_inhibitions += inhibited;
@@ -233,7 +252,9 @@ impl BF16ThinkingEngine {
         let total: f32 = next.iter().sum();
         if total > 1e-10 {
             let inv = 1.0 / total;
-            for e in &mut next { *e *= inv; }
+            for e in &mut next {
+                *e *= inv;
+            }
         }
 
         self.energy = next;
@@ -255,7 +276,9 @@ impl BF16ThinkingEngine {
         }
         if exp_sum > 1e-10 {
             let inv = 1.0 / exp_sum;
-            for e in &mut self.energy { *e *= inv; }
+            for e in &mut self.energy {
+                *e *= inv;
+            }
         }
     }
 
@@ -264,9 +287,15 @@ impl BF16ThinkingEngine {
         for _ in 0..max_cycles {
             let prev = self.energy.clone();
             self.cycle();
-            let delta: f32 = self.energy.iter().zip(&prev)
-                .map(|(a, b)| (a - b).abs()).sum();
-            if delta < self.convergence_threshold { break; }
+            let delta: f32 = self
+                .energy
+                .iter()
+                .zip(&prev)
+                .map(|(a, b)| (a - b).abs())
+                .sum();
+            if delta < self.convergence_threshold {
+                break;
+            }
         }
         ResonanceDto::from_energy_f32(&self.energy, self.cycles)
     }
@@ -276,9 +305,15 @@ impl BF16ThinkingEngine {
         for _ in 0..max_cycles {
             let prev = self.energy.clone();
             self.cycle_with_temperature(temperature);
-            let delta: f32 = self.energy.iter().zip(&prev)
-                .map(|(a, b)| (a - b).abs()).sum();
-            if delta < self.convergence_threshold { break; }
+            let delta: f32 = self
+                .energy
+                .iter()
+                .zip(&prev)
+                .map(|(a, b)| (a - b).abs())
+                .sum();
+            if delta < self.convergence_threshold {
+                break;
+            }
         }
         ResonanceDto::from_energy_f32(&self.energy, self.cycles)
     }
@@ -293,7 +328,9 @@ impl BF16ThinkingEngine {
         let total: f32 = self.energy.iter().sum();
         if total > 1e-10 {
             let inv = 1.0 / total;
-            for e in &mut self.energy { *e *= inv; }
+            for e in &mut self.energy {
+                *e *= inv;
+            }
         }
     }
 
@@ -318,13 +355,17 @@ impl BF16ThinkingEngine {
     }
 
     /// Access the BF16 distance table.
-    pub fn distance_table_ref(&self) -> &[u16] { &self.distance_table }
+    pub fn distance_table_ref(&self) -> &[u16] {
+        &self.distance_table
+    }
 
     /// Entropy.
     pub fn entropy(&self) -> f32 {
         let mut h = 0.0f32;
         for &e in &self.energy {
-            if e > 1e-10 { h -= e * e.ln(); }
+            if e > 1e-10 {
+                h -= e * e.ln();
+            }
         }
         h
     }
@@ -341,9 +382,13 @@ impl BF16ThinkingEngine {
         let mut zero = 0usize;
         for &v in &self.distance_table {
             let f = bf16_to_f32(v);
-            if f > 0.0 { pos += 1; }
-            else if f < 0.0 { neg += 1; }
-            else { zero += 1; }
+            if f > 0.0 {
+                pos += 1;
+            } else if f < 0.0 {
+                neg += 1;
+            } else {
+                zero += 1;
+            }
         }
         (pos, neg, zero)
     }
@@ -358,7 +403,9 @@ mod tests {
         for i in 0..k {
             table[i * k + i] = f32_to_bf16(1.0); // self = max
             for j in 0..k {
-                if i == j { continue; }
+                if i == j {
+                    continue;
+                }
                 let dist = (i as i64 - j as i64).unsigned_abs() as usize;
                 if dist < 20 {
                     // Near: positive (excitation)
@@ -398,8 +445,10 @@ mod tests {
         let mut engine = BF16ThinkingEngine::new(table);
         engine.perturb(&[5, 50]); // near + far = should produce inhibition
         engine.cycle();
-        assert!(engine.inhibited_last_cycle > 0,
-            "BF16 table with real negatives should produce inhibition");
+        assert!(
+            engine.inhibited_last_cycle > 0,
+            "BF16 table with real negatives should produce inhibition"
+        );
     }
 
     #[test]
@@ -428,9 +477,12 @@ mod tests {
 
         // Low T should concentrate energy (fewer active atoms)
         // High T should spread energy (more active atoms)
-        assert!(low_active <= high_active + 5,
+        assert!(
+            low_active <= high_active + 5,
             "low T ({}) should have ≤ active atoms than high T ({})",
-            low_active, high_active);
+            low_active,
+            high_active
+        );
     }
 
     #[test]
@@ -473,8 +525,11 @@ mod tests {
         assert_eq!(engine.size, 8);
 
         // Verify roundtrip: f32 → BF16 → f32 ≈ original
-        let table_f32: Vec<f32> = engine.distance_table.iter()
-            .map(|&v| bf16_to_f32(v)).collect();
+        let table_f32: Vec<f32> = engine
+            .distance_table
+            .iter()
+            .map(|&v| bf16_to_f32(v))
+            .collect();
         for i in 0..n * n {
             let diff = (cosines[i] - table_f32[i]).abs();
             assert!(diff < 0.01, "BF16 roundtrip error {} at index {}", diff, i);
@@ -484,30 +539,36 @@ mod tests {
     #[test]
     fn bf16_mean_pair_table() {
         // 16 "tokens" assigned to 4 buckets
-        let embeddings: Vec<Vec<f32>> = (0..16).map(|i| {
-            let mut v = vec![0.0f32; 32];
-            // Tokens in same bucket have similar embeddings
-            let bucket = i / 4;
-            for d in 0..32 {
-                v[d] = ((bucket * 10 + d) as f32 * 0.1 + i as f32 * 0.01).sin();
-            }
-            // Normalize
-            let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
-            if norm > 1e-10 { for x in &mut v { *x /= norm; } }
-            v
-        }).collect();
+        let embeddings: Vec<Vec<f32>> = (0..16)
+            .map(|i| {
+                let mut v = vec![0.0f32; 32];
+                // Tokens in same bucket have similar embeddings
+                let bucket = i / 4;
+                for d in 0..32 {
+                    v[d] = ((bucket * 10 + d) as f32 * 0.1 + i as f32 * 0.01).sin();
+                }
+                // Normalize
+                let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+                if norm > 1e-10 {
+                    for x in &mut v {
+                        *x /= norm;
+                    }
+                }
+                v
+            })
+            .collect();
         let assignments: Vec<u16> = (0..16).map(|i| (i / 4) as u16).collect();
 
-        let engine = BF16ThinkingEngine::from_mean_pair_cosines(
-            &embeddings, &assignments, 4, 10,
-        );
+        let engine = BF16ThinkingEngine::from_mean_pair_cosines(&embeddings, &assignments, 4, 10);
         assert_eq!(engine.size, 4);
 
         // Same-bucket distance should be high (tokens are similar)
         let table = engine.distance_table_ref();
         for i in 0..4 {
-            assert!((bf16_to_f32(table[i * 4 + i]) - 1.0).abs() < 0.01,
-                "diagonal should be ~1.0");
+            assert!(
+                (bf16_to_f32(table[i * 4 + i]) - 1.0).abs() < 0.01,
+                "diagonal should be ~1.0"
+            );
         }
 
         // Cross-bucket distances should exist and vary

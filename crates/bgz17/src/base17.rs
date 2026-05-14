@@ -4,7 +4,7 @@
 //! via golden-step traversal (step=11, covers all 17 positions).
 //! Stored as i16 fixed-point (×256) for sub-unit precision.
 
-use crate::{BASE_DIM, FULL_DIM, FP_SCALE, GOLDEN_STEP};
+use crate::{BASE_DIM, FP_SCALE, FULL_DIM, GOLDEN_STEP};
 
 /// Golden-step position table.
 const GOLDEN_POS: [u8; BASE_DIM] = {
@@ -78,7 +78,13 @@ impl Base17 {
         let mut d = 0u32;
         for i in 0..BASE_DIM {
             let diff = (self.dims[i] as i32 - other.dims[i] as i32).unsigned_abs();
-            let weight = if i == 0 { 20 } else if i < 7 { 3 } else { 1 };
+            let weight = if i == 0 {
+                20
+            } else if i < 7 {
+                3
+            } else {
+                1
+            };
             d += diff * weight;
         }
         d
@@ -98,7 +104,9 @@ impl Base17 {
 
     /// All-zero pattern (identity for xor_bind).
     pub fn zero() -> Self {
-        Base17 { dims: [0i16; BASE_DIM] }
+        Base17 {
+            dims: [0i16; BASE_DIM],
+        }
     }
 
     /// XOR bind: path composition in hyperdimensional space.
@@ -219,9 +227,12 @@ impl SpoBase17 {
         let sc = (ds < threshold) as u8;
         let pc = (dp < threshold) as u8;
         let oc = (d_o < threshold) as u8;
-        sc | (pc << 1) | (oc << 2)
-            | ((sc & pc) << 3) | ((sc & oc) << 4)
-            | ((pc & oc) << 5) | ((sc & pc & oc) << 6)
+        sc | (pc << 1)
+            | (oc << 2)
+            | ((sc & pc) << 3)
+            | ((sc & oc) << 4)
+            | ((pc & oc) << 5)
+            | ((sc & pc & oc) << 6)
     }
 
     /// Compute full ZeckF64 u64 from base patterns.
@@ -233,13 +244,19 @@ impl SpoBase17 {
         let sc = (ds < threshold) as u8;
         let pc = (dp < threshold) as u8;
         let oc = (d_o < threshold) as u8;
-        let byte0 = sc | (pc << 1) | (oc << 2)
-            | ((sc & pc) << 3) | ((sc & oc) << 4)
-            | ((pc & oc) << 5) | ((sc & pc & oc) << 6);
+        let byte0 = sc
+            | (pc << 1)
+            | (oc << 2)
+            | ((sc & pc) << 3)
+            | ((sc & oc) << 4)
+            | ((pc & oc) << 5)
+            | ((sc & pc & oc) << 6);
 
         let q1 = |d: u32| ((d as u64 * 255) / max).min(255) as u8;
         let q2 = |a: u32, b: u32| (((a as u64 + b as u64) * 255) / (2 * max)).min(255) as u8;
-        let q3 = |a: u32, b: u32, c: u32| (((a as u64 + b as u64 + c as u64) * 255) / (3 * max)).min(255) as u8;
+        let q3 = |a: u32, b: u32, c: u32| {
+            (((a as u64 + b as u64 + c as u64) * 255) / (3 * max)).min(255) as u8
+        };
 
         (byte0 as u64)
             | ((q3(ds, dp, d_o) as u64) << 8)
@@ -259,37 +276,63 @@ mod tests {
     #[test]
     fn test_golden_coverage() {
         let mut seen = [false; BASE_DIM];
-        for &p in &GOLDEN_POS { seen[p as usize] = true; }
+        for &p in &GOLDEN_POS {
+            seen[p as usize] = true;
+        }
         assert!(seen.iter().all(|&s| s));
     }
 
     #[test]
     fn test_l1_self_zero() {
-        let a = Base17 { dims: [100, -50, 0, 127, -128, 1, -1, 50, 25, -25, 0, 0, 0, 0, 0, 0, 0] };
+        let a = Base17 {
+            dims: [
+                100, -50, 0, 127, -128, 1, -1, 50, 25, -25, 0, 0, 0, 0, 0, 0, 0,
+            ],
+        };
         assert_eq!(a.l1(&a), 0);
     }
 
     #[test]
     fn test_l1_symmetric() {
-        let a = Base17 { dims: [100; BASE_DIM] };
-        let b = Base17 { dims: [-100; BASE_DIM] };
+        let a = Base17 {
+            dims: [100; BASE_DIM],
+        };
+        let b = Base17 {
+            dims: [-100; BASE_DIM],
+        };
         assert_eq!(a.l1(&b), b.l1(&a));
     }
 
     #[test]
     fn test_spo_self_scent() {
         let edge = SpoBase17 {
-            subject: Base17 { dims: [100; BASE_DIM] },
-            predicate: Base17 { dims: [-50; BASE_DIM] },
-            object: Base17 { dims: [25; BASE_DIM] },
+            subject: Base17 {
+                dims: [100; BASE_DIM],
+            },
+            predicate: Base17 {
+                dims: [-50; BASE_DIM],
+            },
+            object: Base17 {
+                dims: [25; BASE_DIM],
+            },
         };
         assert_eq!(edge.scent(&edge) & 0x7F, 0x7F);
     }
 
     #[test]
     fn test_xor_bind_self_inverse() {
-        let a = Base17 { dims: [100, -200, 300, -400, 500, -600, 700, -800, 900, -1000, 1100, -1200, 1300, -1400, 1500, -1600, 1700] };
-        let b = Base17 { dims: [-50, 150, -250, 350, -450, 550, -650, 750, -850, 950, -1050, 1150, -1250, 1350, -1450, 1550, -1650] };
+        let a = Base17 {
+            dims: [
+                100, -200, 300, -400, 500, -600, 700, -800, 900, -1000, 1100, -1200, 1300, -1400,
+                1500, -1600, 1700,
+            ],
+        };
+        let b = Base17 {
+            dims: [
+                -50, 150, -250, 350, -450, 550, -650, 750, -850, 950, -1050, 1150, -1250, 1350,
+                -1450, 1550, -1650,
+            ],
+        };
         let bound = a.xor_bind(&b);
         let recovered = bound.xor_bind(&b);
         assert_eq!(a, recovered, "xor_bind must be its own inverse");
@@ -297,39 +340,62 @@ mod tests {
 
     #[test]
     fn test_xor_bind_identity() {
-        let a = Base17 { dims: [100, -200, 300, -400, 500, -600, 700, -800, 900, -1000, 1100, -1200, 1300, -1400, 1500, -1600, 1700] };
+        let a = Base17 {
+            dims: [
+                100, -200, 300, -400, 500, -600, 700, -800, 900, -1000, 1100, -1200, 1300, -1400,
+                1500, -1600, 1700,
+            ],
+        };
         let zero = Base17::zero();
         assert_eq!(a.xor_bind(&zero), a, "xor_bind with zero must be identity");
     }
 
     #[test]
     fn test_bundle_single() {
-        let a = Base17 { dims: [100; BASE_DIM] };
+        let a = Base17 {
+            dims: [100; BASE_DIM],
+        };
         let result = Base17::bundle(&[&a]);
         assert_eq!(result, a);
     }
 
     #[test]
     fn test_bundle_majority() {
-        let pos = Base17 { dims: [100; BASE_DIM] };
-        let neg = Base17 { dims: [-100; BASE_DIM] };
+        let pos = Base17 {
+            dims: [100; BASE_DIM],
+        };
+        let neg = Base17 {
+            dims: [-100; BASE_DIM],
+        };
         // 2 positive + 1 negative → majority is positive
         let result = Base17::bundle(&[&pos, &pos, &neg]);
         for d in 0..BASE_DIM {
-            assert!(result.dims[d] > 0, "dim {} should be positive from majority vote", d);
+            assert!(
+                result.dims[d] > 0,
+                "dim {} should be positive from majority vote",
+                d
+            );
         }
     }
 
     #[test]
     fn test_permute_identity() {
-        let a = Base17 { dims: [1, -2, 3, -4, 5, -6, 7, -8, 9, -10, 11, -12, 13, -14, 15, -16, 17] };
+        let a = Base17 {
+            dims: [
+                1, -2, 3, -4, 5, -6, 7, -8, 9, -10, 11, -12, 13, -14, 15, -16, 17,
+            ],
+        };
         assert_eq!(a.permute(0), a, "permute(0) must be identity");
         assert_eq!(a.permute(BASE_DIM), a, "permute(17) must wrap to identity");
     }
 
     #[test]
     fn test_permute_cyclic() {
-        let a = Base17 { dims: [1, -2, 3, -4, 5, -6, 7, -8, 9, -10, 11, -12, 13, -14, 15, -16, 17] };
+        let a = Base17 {
+            dims: [
+                1, -2, 3, -4, 5, -6, 7, -8, 9, -10, 11, -12, 13, -14, 15, -16, 17,
+            ],
+        };
         let shifted = a.permute(1);
         // shifted[0] = a[1], shifted[1] = a[2], ...
         for i in 0..BASE_DIM {
@@ -339,7 +405,11 @@ mod tests {
 
     #[test]
     fn test_byte_roundtrip() {
-        let a = Base17 { dims: [1, -2, 3, -4, 5, -6, 7, -8, 9, -10, 11, -12, 13, -14, 15, -16, 17] };
+        let a = Base17 {
+            dims: [
+                1, -2, 3, -4, 5, -6, 7, -8, 9, -10, 11, -12, 13, -14, 15, -16, 17,
+            ],
+        };
         let bytes = a.to_bytes();
         let b = Base17::from_bytes(&bytes);
         assert_eq!(a, b);
@@ -360,20 +430,31 @@ mod tests {
         // Sign diff should be 20× the mantissa diff
         assert_eq!(d_sign, 100 * 20);
         assert_eq!(d_mant, 100 * 1);
-        assert!(d_sign > d_mant * 10, "sign should dominate: {} vs {}", d_sign, d_mant);
+        assert!(
+            d_sign > d_mant * 10,
+            "sign should dominate: {} vs {}",
+            d_sign,
+            d_mant
+        );
     }
 
     #[test]
     fn test_l1_weighted_self_zero() {
-        let a = Base17 { dims: [100, -50, 30, 0, 10, -20, 40, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] };
+        let a = Base17 {
+            dims: [100, -50, 30, 0, 10, -20, 40, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        };
         assert_eq!(a.l1_weighted(&a), 0);
     }
 
     #[test]
     fn test_l1_weighted_geq_l1() {
         // Weighted L1 should be >= plain L1 (all weights >= 1)
-        let a = Base17 { dims: [100, -50, 30, 0, 10, -20, 40, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] };
-        let b = Base17 { dims: [-50, 30, 0, 10, -20, 40, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100] };
+        let a = Base17 {
+            dims: [100, -50, 30, 0, 10, -20, 40, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        };
+        let b = Base17 {
+            dims: [-50, 30, 0, 10, -20, 40, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100],
+        };
         assert!(a.l1_weighted(&b) >= a.l1(&b));
     }
 }

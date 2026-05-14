@@ -27,11 +27,11 @@
 //! Each vector addresses 512 billion data points via XYZ superposition.
 //! That's ~128 data points per byte of physical storage.
 
-use super::{VECTOR_WORDS as WORDS_32K, DIM_WORDS, X_START, Y_START, Z_START, META_START};
 use super::holographic::HoloVector;
 use super::schema::HoloSchema;
+use super::{DIM_WORDS, META_START, VECTOR_WORDS as WORDS_32K, X_START, Y_START, Z_START};
 use crate::bitpack::{BitpackedVector, VECTOR_WORDS as WORDS_10K};
-use crate::width_16k::{VECTOR_WORDS as WORDS_16K};
+use crate::width_16k::VECTOR_WORDS as WORDS_16K;
 
 // ============================================================================
 // 10K → 32K: Zero-extend into X + Y[0..28]
@@ -85,10 +85,7 @@ pub fn from_16k(words_16k: &[u64; WORDS_16K]) -> HoloVector {
 ///
 /// Reads the 16K SchemaSidecar, converts relevant fields to HoloSchema,
 /// and writes it into the 32K metadata block.
-pub fn from_16k_with_schema(
-    words_16k: &[u64; WORDS_16K],
-    schema: &HoloSchema,
-) -> HoloVector {
+pub fn from_16k_with_schema(words_16k: &[u64; WORDS_16K], schema: &HoloSchema) -> HoloVector {
     let mut holo = from_16k(words_16k);
     schema.write_to_meta(holo.meta_mut());
     holo
@@ -218,7 +215,10 @@ pub fn migrate_batch_10k_with_schema(
     vectors: &[BitpackedVector],
     schema: &HoloSchema,
 ) -> Vec<HoloVector> {
-    vectors.iter().map(|v| from_10k_with_schema(v, schema)).collect()
+    vectors
+        .iter()
+        .map(|v| from_10k_with_schema(v, schema))
+        .collect()
 }
 
 // ============================================================================
@@ -236,13 +236,16 @@ mod tests {
 
         // First 256 words should match
         for w in 0..WORDS_10K {
-            assert_eq!(v.words()[w], holo.words[w],
-                "Word {} mismatch after 10K→32K", w);
+            assert_eq!(
+                v.words()[w],
+                holo.words[w],
+                "Word {} mismatch after 10K→32K",
+                w
+            );
         }
         // Rest should be zero
         for w in WORDS_10K..WORDS_32K {
-            assert_eq!(holo.words[w], 0,
-                "Word {} should be zero after 10K→32K", w);
+            assert_eq!(holo.words[w], 0, "Word {} should be zero after 10K→32K", w);
         }
     }
 
@@ -258,10 +261,10 @@ mod tests {
     fn test_16k_to_32k_layout() {
         // Create a 16K vector with known data
         let mut words_16k = [0u64; WORDS_16K];
-        words_16k[0] = 0xAAAA;     // First word of first 128 (→ X[0])
-        words_16k[127] = 0xBBBB;   // Last word of first 128 (→ X[127])
-        words_16k[128] = 0xCCCC;   // First word of second 128 (→ Y[0])
-        words_16k[255] = 0xDDDD;   // Last word of second 128 (→ Y[127])
+        words_16k[0] = 0xAAAA; // First word of first 128 (→ X[0])
+        words_16k[127] = 0xBBBB; // Last word of first 128 (→ X[127])
+        words_16k[128] = 0xCCCC; // First word of second 128 (→ Y[0])
+        words_16k[255] = 0xDDDD; // Last word of second 128 (→ Y[127])
 
         let holo = from_16k(&words_16k);
 
@@ -296,8 +299,11 @@ mod tests {
         let recovered = to_16k(&holo);
 
         for w in 0..WORDS_16K {
-            assert_eq!(words_16k[w], recovered[w],
-                "16K→32K→16K roundtrip failed at word {}", w);
+            assert_eq!(
+                words_16k[w], recovered[w],
+                "16K→32K→16K roundtrip failed at word {}",
+                w
+            );
         }
     }
 
@@ -305,8 +311,8 @@ mod tests {
     fn test_xor_fold_to_16k_differs_from_truncate() {
         // Create a HoloVector with non-zero Z and metadata
         let mut holo = HoloVector::zero();
-        holo.words[0] = 0xDEAD;       // X[0]
-        holo.words[Z_START] = 0xBEEF;  // Z[0] — should fold into X[0]
+        holo.words[0] = 0xDEAD; // X[0]
+        holo.words[Z_START] = 0xBEEF; // Z[0] — should fold into X[0]
         holo.words[META_START] = 0xCAFE; // Meta[0] — should fold into Y[0]
 
         let truncated = to_16k(&holo);
@@ -338,8 +344,11 @@ mod tests {
         let folded = xor_fold_to_16k(&holo);
 
         for w in 0..WORDS_16K {
-            assert_eq!(truncated[w], folded[w],
-                "Fold should equal truncate when Z/meta are zero (word {})", w);
+            assert_eq!(
+                truncated[w], folded[w],
+                "Fold should equal truncate when Z/meta are zero (word {})",
+                w
+            );
         }
     }
 
@@ -362,8 +371,11 @@ mod tests {
     fn test_cross_width_distance_10k_self() {
         let v = BitpackedVector::random(42);
         let holo = from_10k(&v);
-        assert_eq!(distance_10k_32k(&v, &holo), 0,
-            "10K vector should have distance 0 to its own 32K extension");
+        assert_eq!(
+            distance_10k_32k(&v, &holo),
+            0,
+            "10K vector should have distance 0 to its own 32K extension"
+        );
     }
 
     #[test]
@@ -378,8 +390,11 @@ mod tests {
         }
 
         let holo = from_16k(&words_16k);
-        assert_eq!(distance_16k_32k(&words_16k, &holo), 0,
-            "16K vector should have distance 0 to its own 32K extension");
+        assert_eq!(
+            distance_16k_32k(&words_16k, &holo),
+            0,
+            "16K vector should have distance 0 to its own 32K extension"
+        );
     }
 
     #[test]
@@ -400,31 +415,31 @@ mod tests {
 
     #[test]
     fn test_batch_migration_10k() {
-        let vectors: Vec<BitpackedVector> = (0..5)
-            .map(|i| BitpackedVector::random(i as u64))
-            .collect();
+        let vectors: Vec<BitpackedVector> =
+            (0..5).map(|i| BitpackedVector::random(i as u64)).collect();
         let migrated = migrate_batch_10k(&vectors);
         assert_eq!(migrated.len(), 5);
 
         for (orig, holo) in vectors.iter().zip(migrated.iter()) {
-            assert_eq!(*orig, to_10k(holo),
-                "Batch 10K→32K→10K roundtrip failed");
+            assert_eq!(*orig, to_10k(holo), "Batch 10K→32K→10K roundtrip failed");
         }
     }
 
     #[test]
     fn test_batch_migration_16k() {
-        let vectors: Vec<[u64; WORDS_16K]> = (0..5).map(|seed| {
-            let mut words = [0u64; WORDS_16K];
-            let mut state = seed as u64 + 1;
-            for w in words.iter_mut() {
-                state ^= state << 13;
-                state ^= state >> 7;
-                state ^= state << 17;
-                *w = state;
-            }
-            words
-        }).collect();
+        let vectors: Vec<[u64; WORDS_16K]> = (0..5)
+            .map(|seed| {
+                let mut words = [0u64; WORDS_16K];
+                let mut state = seed as u64 + 1;
+                for w in words.iter_mut() {
+                    state ^= state << 13;
+                    state ^= state >> 7;
+                    state ^= state << 17;
+                    *w = state;
+                }
+                words
+            })
+            .collect();
 
         let migrated = migrate_batch_16k(&vectors);
         assert_eq!(migrated.len(), 5);
@@ -432,8 +447,7 @@ mod tests {
         for (orig, holo) in vectors.iter().zip(migrated.iter()) {
             let recovered = to_16k(holo);
             for w in 0..WORDS_16K {
-                assert_eq!(orig[w], recovered[w],
-                    "Batch 16K→32K→16K roundtrip failed");
+                assert_eq!(orig[w], recovered[w], "Batch 16K→32K→16K roundtrip failed");
             }
         }
     }
@@ -447,7 +461,10 @@ mod tests {
         let million_records_bytes = 1_000_000u64 * record_size as u64;
         let gb = million_records_bytes / (1024 * 1024 * 1024);
         // 4,000,000,000 / 1,073,741,824 ≈ 3.72 GB
-        assert!(gb >= 3 && gb <= 4,
-            "1M records should be ~4GB, got {}GB", gb);
+        assert!(
+            gb >= 3 && gb <= 4,
+            "1M records should be ~4GB, got {}GB",
+            gb
+        );
     }
 }

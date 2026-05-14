@@ -27,25 +27,25 @@
 //! Layer 2 used for decision-boundary cases. Layer 3 almost never loaded.
 
 pub mod base17;
-pub mod palette;
+pub mod bridge;
+pub mod clam_bridge;
+pub mod container;
 pub mod distance_matrix;
-pub mod tripartite;
+pub mod generative;
 pub mod layered;
+pub mod palette;
+pub mod palette_csr;
+pub mod palette_matrix;
+pub mod palette_semiring;
+pub mod prefetch;
+pub mod rabitq_compat;
+pub mod router;
 pub mod scalar_sparse;
 pub mod scope;
-pub mod bridge;
-pub mod generative;
-pub mod prefetch;
-pub mod clam_bridge;
-pub mod router;
-pub mod container;
-pub mod palette_semiring;
-pub mod palette_matrix;
-pub mod palette_csr;
 pub mod simd;
-pub mod rabitq_compat;
-pub mod typed_palette_graph;
 pub mod similarity;
+pub mod tripartite;
+pub mod typed_palette_graph;
 
 /// Maximum palette size per plane.
 pub const MAX_PALETTE_SIZE: usize = 256;

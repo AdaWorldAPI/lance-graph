@@ -2,7 +2,7 @@
 //!
 //! Convert GQL Alchemy syntax to DataFusion SQL and RedisGraph Cypher.
 
-use super::parser::{QueryAst, QueryType, VectorOp, Expr, PropertyValue};
+use super::parser::{Expr, PropertyValue, QueryAst, QueryType, VectorOp};
 
 /// Transpile to DataFusion SQL
 pub struct CypherTranspiler {
@@ -31,16 +31,10 @@ impl CypherTranspiler {
     /// Transpile AST to DataFusion SQL
     pub fn to_sql(&self, ast: &QueryAst) -> String {
         match ast.query_type {
-            QueryType::Match | QueryType::VectorSearch => {
-                self.match_to_sql(ast)
-            }
-            QueryType::Create => {
-                self.create_to_sql(ast)
-            }
-            QueryType::BoundRetrieval => {
-                self.bound_retrieval_to_sql(ast)
-            }
-            _ => String::new()
+            QueryType::Match | QueryType::VectorSearch => self.match_to_sql(ast),
+            QueryType::Create => self.create_to_sql(ast),
+            QueryType::BoundRetrieval => self.bound_retrieval_to_sql(ast),
+            _ => String::new(),
         }
     }
 
@@ -74,7 +68,11 @@ impl CypherTranspiler {
                 VectorOp::Similarity { a: _, b: _ } => {
                     sql.push_str(" /* vector_similarity(...) */");
                 }
-                VectorOp::CascadeSearch { query: _, k, threshold } => {
+                VectorOp::CascadeSearch {
+                    query: _,
+                    k,
+                    threshold,
+                } => {
                     sql.push_str(&format!(
                         " /* cascade_search(query, {}, {:?}) */",
                         k, threshold
@@ -105,65 +103,95 @@ impl CypherTranspiler {
     pub fn vector_op_to_sql(&self, op: &VectorOp) -> String {
         match op {
             VectorOp::Bind { a, b } => {
-                format!("vector_bind({}, {})",
+                format!(
+                    "vector_bind({}, {})",
                     self.expr_to_sql(a),
-                    self.expr_to_sql(b))
+                    self.expr_to_sql(b)
+                )
             }
             VectorOp::Unbind { bound, key } => {
-                format!("vector_unbind({}, {})",
+                format!(
+                    "vector_unbind({}, {})",
                     self.expr_to_sql(bound),
-                    self.expr_to_sql(key))
+                    self.expr_to_sql(key)
+                )
             }
             VectorOp::Bind3 { src, verb, dst } => {
-                format!("vector_bind3({}, {}, {})",
+                format!(
+                    "vector_bind3({}, {}, {})",
                     self.expr_to_sql(src),
                     self.expr_to_sql(verb),
-                    self.expr_to_sql(dst))
+                    self.expr_to_sql(dst)
+                )
             }
             VectorOp::Resonance { vector, query } => {
-                format!("vector_resonance({}, {})",
+                format!(
+                    "vector_resonance({}, {})",
                     self.expr_to_sql(vector),
-                    self.expr_to_sql(query))
+                    self.expr_to_sql(query)
+                )
             }
             VectorOp::Cleanup { vector, memory } => {
                 let mem = memory.as_deref().unwrap_or("default");
-                format!("vector_cleanup({}, '{}')",
-                    self.expr_to_sql(vector), mem)
+                format!("vector_cleanup({}, '{}')", self.expr_to_sql(vector), mem)
             }
             VectorOp::Bundle { vectors } => {
-                let args: Vec<_> = vectors.iter()
-                    .map(|v| self.expr_to_sql(v))
-                    .collect();
+                let args: Vec<_> = vectors.iter().map(|v| self.expr_to_sql(v)).collect();
                 format!("vector_bundle({})", args.join(", "))
             }
             VectorOp::Hamming { a, b } => {
-                format!("hamming_distance({}, {})",
+                format!(
+                    "hamming_distance({}, {})",
                     self.expr_to_sql(a),
-                    self.expr_to_sql(b))
+                    self.expr_to_sql(b)
+                )
             }
             VectorOp::Similarity { a, b } => {
-                format!("vector_similarity({}, {})",
+                format!(
+                    "vector_similarity({}, {})",
                     self.expr_to_sql(a),
-                    self.expr_to_sql(b))
+                    self.expr_to_sql(b)
+                )
             }
             VectorOp::Permute { vector, positions } => {
-                format!("vector_permute({}, {})",
-                    self.expr_to_sql(vector), positions)
+                format!(
+                    "vector_permute({}, {})",
+                    self.expr_to_sql(vector),
+                    positions
+                )
             }
-            VectorOp::CascadeSearch { query, k, threshold } => {
+            VectorOp::CascadeSearch {
+                query,
+                k,
+                threshold,
+            } => {
                 let thresh = threshold.map_or("NULL".to_string(), |t| t.to_string());
-                format!("cascade_search({}, {}, {})",
-                    self.expr_to_sql(query), k, thresh)
+                format!(
+                    "cascade_search({}, {}, {})",
+                    self.expr_to_sql(query),
+                    k,
+                    thresh
+                )
             }
-            VectorOp::Voyager { query, radius, stack_size } => {
-                format!("voyager_search({}, {}, {})",
-                    self.expr_to_sql(query), radius, stack_size)
+            VectorOp::Voyager {
+                query,
+                radius,
+                stack_size,
+            } => {
+                format!(
+                    "voyager_search({}, {}, {})",
+                    self.expr_to_sql(query),
+                    radius,
+                    stack_size
+                )
             }
             VectorOp::Analogy { a, b, c } => {
-                format!("vector_analogy({}, {}, {})",
+                format!(
+                    "vector_analogy({}, {}, {})",
                     self.expr_to_sql(a),
                     self.expr_to_sql(b),
-                    self.expr_to_sql(c))
+                    self.expr_to_sql(c)
+                )
             }
         }
     }
@@ -174,9 +202,7 @@ impl CypherTranspiler {
             Expr::Variable(name) => name.clone(),
             Expr::Property { var, prop } => format!("{}.{}", var, prop),
             Expr::Function { name, args } => {
-                let arg_strs: Vec<_> = args.iter()
-                    .map(|a| self.expr_to_sql(a))
-                    .collect();
+                let arg_strs: Vec<_> = args.iter().map(|a| self.expr_to_sql(a)).collect();
                 format!("{}({})", name, arg_strs.join(", "))
             }
             Expr::VectorOp(op) => self.vector_op_to_sql(op),
@@ -189,8 +215,12 @@ impl CypherTranspiler {
                     super::parser::ArithOp::Mod => "%",
                     super::parser::ArithOp::Pow => "^",
                 };
-                format!("({} {} {})",
-                    self.expr_to_sql(left), op_str, self.expr_to_sql(right))
+                format!(
+                    "({} {} {})",
+                    self.expr_to_sql(left),
+                    op_str,
+                    self.expr_to_sql(right)
+                )
             }
             Expr::Case { whens, else_expr } => {
                 let mut sql = "CASE".to_string();
@@ -219,23 +249,22 @@ impl CypherTranspiler {
             }
             PropertyValue::Map(m) => {
                 // JSON object
-                let pairs: Vec<_> = m.iter()
+                let pairs: Vec<_> = m
+                    .iter()
                     .map(|(k, v)| format!("'{}': {}", k, self.value_to_sql(v)))
                     .collect();
                 format!("{{{}}}", pairs.join(", "))
             }
             PropertyValue::Vector(bytes) => {
                 // Hex encode vector
-                let hex: String = bytes.iter()
-                    .map(|b| format!("{:02x}", b))
-                    .collect();
+                let hex: String = bytes.iter().map(|b| format!("{:02x}", b)).collect();
                 format!("X'{}'", hex)
             }
-            PropertyValue::Parameter(name) => {
-                self.parameters.get(name)
-                    .cloned()
-                    .unwrap_or_else(|| format!("${}", name))
-            }
+            PropertyValue::Parameter(name) => self
+                .parameters
+                .get(name)
+                .cloned()
+                .unwrap_or_else(|| format!("${}", name)),
         }
     }
 }
@@ -264,7 +293,10 @@ impl GqlTranspiler {
         vector_functions.insert("CLEANUP".to_string(), "hdr.cleanup".to_string());
         vector_functions.insert("HAMMING".to_string(), "hdr.hamming".to_string());
         vector_functions.insert("SIMILARITY".to_string(), "hdr.similarity".to_string());
-        vector_functions.insert("CASCADE_SEARCH".to_string(), "hdr.cascadeSearch".to_string());
+        vector_functions.insert(
+            "CASCADE_SEARCH".to_string(),
+            "hdr.cascadeSearch".to_string(),
+        );
         vector_functions.insert("VOYAGER".to_string(), "hdr.voyagerSearch".to_string());
         vector_functions.insert("BUNDLE".to_string(), "hdr.bundle".to_string());
         vector_functions.insert("ANALOGY".to_string(), "hdr.analogy".to_string());
@@ -279,7 +311,7 @@ impl GqlTranspiler {
             QueryType::VectorSearch => self.vector_search_to_cypher(ast),
             QueryType::BoundRetrieval => self.bound_retrieval_to_cypher(ast),
             QueryType::Create => self.create_to_cypher(ast),
-            _ => String::new()
+            _ => String::new(),
         }
     }
 
@@ -338,21 +370,33 @@ impl GqlTranspiler {
     pub fn vector_op_to_cypher(&self, op: &VectorOp) -> String {
         match op {
             VectorOp::Bind { a, b } => {
-                format!("hdr.bind({}, {})",
+                format!(
+                    "hdr.bind({}, {})",
                     self.expr_to_cypher(a),
-                    self.expr_to_cypher(b))
+                    self.expr_to_cypher(b)
+                )
             }
             VectorOp::Unbind { bound, key } => {
-                format!("hdr.unbind({}, {})",
+                format!(
+                    "hdr.unbind({}, {})",
                     self.expr_to_cypher(bound),
-                    self.expr_to_cypher(key))
+                    self.expr_to_cypher(key)
+                )
             }
-            VectorOp::CascadeSearch { query, k, threshold } => {
+            VectorOp::CascadeSearch {
+                query,
+                k,
+                threshold,
+            } => {
                 let thresh = threshold.map_or("null".to_string(), |t| t.to_string());
-                format!("hdr.cascadeSearch({}, {}, {})",
-                    self.expr_to_cypher(query), k, thresh)
+                format!(
+                    "hdr.cascadeSearch({}, {}, {})",
+                    self.expr_to_cypher(query),
+                    k,
+                    thresh
+                )
             }
-            _ => "/* unsupported vector op */".to_string()
+            _ => "/* unsupported vector op */".to_string(),
         }
     }
 
@@ -362,7 +406,7 @@ impl GqlTranspiler {
             Expr::Variable(name) => name.clone(),
             Expr::Property { var, prop } => format!("{}.{}", var, prop),
             Expr::VectorOp(op) => self.vector_op_to_cypher(op),
-            _ => "...".to_string()
+            _ => "...".to_string(),
         }
     }
 
@@ -374,7 +418,7 @@ impl GqlTranspiler {
             PropertyValue::Float(f) => f.to_string(),
             PropertyValue::String(s) => format!("'{}'", s.replace('\'', "\\'")),
             PropertyValue::Parameter(name) => format!("${}", name),
-            _ => "null".to_string()
+            _ => "null".to_string(),
         }
     }
 }

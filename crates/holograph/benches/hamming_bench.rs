@@ -1,10 +1,9 @@
 //! Benchmarks for HDR Hamming operations
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId, Throughput};
+use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
 use holograph::{
-    BitpackedVector, HdrCascade, VectorField, Resonator,
-    hamming::{hamming_distance_scalar, StackedPopcount, Belichtung, HammingEngine},
-    VECTOR_BITS,
+    BitpackedVector, HdrCascade, Resonator, VECTOR_BITS, VectorField,
+    hamming::{Belichtung, HammingEngine, StackedPopcount, hamming_distance_scalar},
 };
 
 fn random_vectors(count: usize, seed_offset: u64) -> Vec<BitpackedVector> {
@@ -22,9 +21,7 @@ fn bench_hamming_distance(c: &mut Criterion) {
     group.throughput(Throughput::Elements(1));
 
     group.bench_function("scalar", |bencher| {
-        bencher.iter(|| {
-            hamming_distance_scalar(black_box(&a), black_box(&b))
-        });
+        bencher.iter(|| hamming_distance_scalar(black_box(&a), black_box(&b)));
     });
 
     group.finish();
@@ -39,21 +36,16 @@ fn bench_stacked_popcount(c: &mut Criterion) {
     group.throughput(Throughput::Elements(1));
 
     group.bench_function("full", |bencher| {
-        bencher.iter(|| {
-            StackedPopcount::compute(black_box(&a), black_box(&b))
-        });
+        bencher.iter(|| StackedPopcount::compute(black_box(&a), black_box(&b)));
     });
 
     group.bench_function("with_threshold_pass", |bencher| {
-        bencher.iter(|| {
-            StackedPopcount::compute_with_threshold(black_box(&a), black_box(&b), 10000)
-        });
+        bencher
+            .iter(|| StackedPopcount::compute_with_threshold(black_box(&a), black_box(&b), 10000));
     });
 
     group.bench_function("with_threshold_fail", |bencher| {
-        bencher.iter(|| {
-            StackedPopcount::compute_with_threshold(black_box(&a), black_box(&b), 100)
-        });
+        bencher.iter(|| StackedPopcount::compute_with_threshold(black_box(&a), black_box(&b), 100));
     });
 
     group.finish();
@@ -65,9 +57,7 @@ fn bench_belichtung(c: &mut Criterion) {
     let b = BitpackedVector::random(2);
 
     c.bench_function("belichtung_meter", |bencher| {
-        bencher.iter(|| {
-            Belichtung::meter(black_box(&a), black_box(&b))
-        });
+        bencher.iter(|| Belichtung::meter(black_box(&a), black_box(&b)));
     });
 }
 
@@ -79,23 +69,17 @@ fn bench_binding(c: &mut Criterion) {
     let mut group = c.benchmark_group("binding");
 
     group.bench_function("bind", |bencher| {
-        bencher.iter(|| {
-            black_box(&a).xor(black_box(&b))
-        });
+        bencher.iter(|| black_box(&a).xor(black_box(&b)));
     });
 
     let bound = a.xor(&b);
     group.bench_function("unbind", |bencher| {
-        bencher.iter(|| {
-            black_box(&bound).xor(black_box(&b))
-        });
+        bencher.iter(|| black_box(&bound).xor(black_box(&b)));
     });
 
     let c_vec = BitpackedVector::random(3);
     group.bench_function("bind3", |bencher| {
-        bencher.iter(|| {
-            black_box(&a).xor(black_box(&b)).xor(black_box(&c_vec))
-        });
+        bencher.iter(|| black_box(&a).xor(black_box(&b)).xor(black_box(&c_vec)));
     });
 
     group.finish();
@@ -111,23 +95,17 @@ fn bench_bundle(c: &mut Criterion) {
 
     group.bench_function("3_vectors", |bencher| {
         let refs: Vec<_> = vecs_3.iter().collect();
-        bencher.iter(|| {
-            BitpackedVector::bundle(black_box(&refs))
-        });
+        bencher.iter(|| BitpackedVector::bundle(black_box(&refs)));
     });
 
     group.bench_function("7_vectors", |bencher| {
         let refs: Vec<_> = vecs_7.iter().collect();
-        bencher.iter(|| {
-            BitpackedVector::bundle(black_box(&refs))
-        });
+        bencher.iter(|| BitpackedVector::bundle(black_box(&refs)));
     });
 
     group.bench_function("16_vectors", |bencher| {
         let refs: Vec<_> = vecs_16.iter().collect();
-        bencher.iter(|| {
-            BitpackedVector::bundle(black_box(&refs))
-        });
+        bencher.iter(|| BitpackedVector::bundle(black_box(&refs)));
     });
 
     group.finish();
@@ -153,9 +131,7 @@ fn bench_cascade_search(c: &mut Criterion) {
             BenchmarkId::new("k10", size),
             &(cascade, query),
             |bencher, (cascade, query)| {
-                bencher.iter(|| {
-                    cascade.search(black_box(query), 10)
-                });
+                bencher.iter(|| cascade.search(black_box(query), 10));
             },
         );
     }
@@ -167,12 +143,12 @@ fn bench_cascade_search(c: &mut Criterion) {
 fn bench_batch_hamming(c: &mut Criterion) {
     let engine = HammingEngine::new();
     let query = BitpackedVector::random(1);
-    let candidates: Vec<_> = (0..1000).map(|i| BitpackedVector::random(i + 100)).collect();
+    let candidates: Vec<_> = (0..1000)
+        .map(|i| BitpackedVector::random(i + 100))
+        .collect();
 
     c.bench_function("batch_1000_distances", |bencher| {
-        bencher.iter(|| {
-            engine.batch_distances(black_box(&query), black_box(&candidates))
-        });
+        bencher.iter(|| engine.batch_distances(black_box(&query), black_box(&candidates)));
     });
 }
 
@@ -180,21 +156,17 @@ fn bench_batch_hamming(c: &mut Criterion) {
 fn bench_knn(c: &mut Criterion) {
     let engine = HammingEngine::new();
     let query = BitpackedVector::random(1);
-    let candidates: Vec<_> = (0..10000).map(|i| BitpackedVector::random(i + 100)).collect();
+    let candidates: Vec<_> = (0..10000)
+        .map(|i| BitpackedVector::random(i + 100))
+        .collect();
 
     let mut group = c.benchmark_group("knn");
     group.throughput(Throughput::Elements(10000));
 
     for k in [10, 50, 100] {
-        group.bench_with_input(
-            BenchmarkId::new("k", k),
-            &k,
-            |bencher, &k| {
-                bencher.iter(|| {
-                    engine.knn(black_box(&query), black_box(&candidates), k)
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("k", k), &k, |bencher, &k| {
+            bencher.iter(|| engine.knn(black_box(&query), black_box(&candidates), k));
+        });
     }
 
     group.finish();
@@ -212,9 +184,7 @@ fn bench_resonator(c: &mut Criterion) {
     let query = BitpackedVector::random(500); // Should match entry 400
 
     c.bench_function("resonator_1000", |bencher| {
-        bencher.iter(|| {
-            resonator.resonate(black_box(&query))
-        });
+        bencher.iter(|| resonator.resonate(black_box(&query)));
     });
 }
 
@@ -223,9 +193,7 @@ fn bench_vector_creation(c: &mut Criterion) {
     let mut group = c.benchmark_group("vector_creation");
 
     group.bench_function("zero", |bencher| {
-        bencher.iter(|| {
-            BitpackedVector::zero()
-        });
+        bencher.iter(|| BitpackedVector::zero());
     });
 
     group.bench_function("random", |bencher| {
@@ -238,9 +206,7 @@ fn bench_vector_creation(c: &mut Criterion) {
 
     let data = b"Hello, world! This is test data for hashing.";
     group.bench_function("from_hash", |bencher| {
-        bencher.iter(|| {
-            BitpackedVector::from_hash(black_box(data))
-        });
+        bencher.iter(|| BitpackedVector::from_hash(black_box(data)));
     });
 
     group.finish();
@@ -253,22 +219,16 @@ fn bench_memory(c: &mut Criterion) {
     let mut group = c.benchmark_group("memory");
 
     group.bench_function("clone", |bencher| {
-        bencher.iter(|| {
-            black_box(&v).clone()
-        });
+        bencher.iter(|| black_box(&v).clone());
     });
 
     group.bench_function("to_bytes", |bencher| {
-        bencher.iter(|| {
-            black_box(&v).to_bytes()
-        });
+        bencher.iter(|| black_box(&v).to_bytes());
     });
 
     let bytes = v.to_bytes();
     group.bench_function("from_bytes", |bencher| {
-        bencher.iter(|| {
-            BitpackedVector::from_bytes(black_box(&bytes))
-        });
+        bencher.iter(|| BitpackedVector::from_bytes(black_box(&bytes)));
     });
 
     group.finish();

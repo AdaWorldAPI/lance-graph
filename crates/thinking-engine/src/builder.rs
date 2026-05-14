@@ -9,11 +9,11 @@
 //!     .build();
 //! ```
 
-use crate::engine::ThinkingEngine;
-use crate::signed_engine::SignedThinkingEngine;
 use crate::bf16_engine::BF16ThinkingEngine;
+use crate::engine::ThinkingEngine;
 use crate::f32_engine::F32ThinkingEngine;
 use crate::pooling::Pooling;
+use crate::signed_engine::SignedThinkingEngine;
 
 /// Temperature configuration for the thinking cycle.
 ///
@@ -33,11 +33,21 @@ use crate::pooling::Pooling;
 pub struct Temperature(pub f32);
 
 impl Temperature {
-    pub fn standard() -> Self { Self(1.0) }
-    pub fn analytical() -> Self { Self(0.1) }
-    pub fn creative() -> Self { Self(1.5) }
-    pub fn balanced() -> Self { Self(0.7) }
-    pub fn focused() -> Self { Self(0.05) }
+    pub fn standard() -> Self {
+        Self(1.0)
+    }
+    pub fn analytical() -> Self {
+        Self(0.1)
+    }
+    pub fn creative() -> Self {
+        Self(1.5)
+    }
+    pub fn balanced() -> Self {
+        Self(0.7)
+    }
+    pub fn focused() -> Self {
+        Self(0.05)
+    }
 
     pub fn from_preset(preset: ThinkingPreset) -> Self {
         match preset {
@@ -50,7 +60,9 @@ impl Temperature {
 }
 
 impl Default for Temperature {
-    fn default() -> Self { Self::standard() }
+    fn default() -> Self {
+        Self::standard()
+    }
 }
 
 /// Thinking style presets — map to temperature + pooling.
@@ -174,19 +186,35 @@ impl BuiltEngine {
 
     pub fn think(&mut self, max_cycles: usize) {
         match self {
-            BuiltEngine::Unsigned(e) => { e.think(max_cycles); }
-            BuiltEngine::Signed(e) => { e.think(max_cycles); }
-            BuiltEngine::BF16(e) => { e.think(max_cycles); }
-            BuiltEngine::F32(e) => { e.think(max_cycles); }
+            BuiltEngine::Unsigned(e) => {
+                e.think(max_cycles);
+            }
+            BuiltEngine::Signed(e) => {
+                e.think(max_cycles);
+            }
+            BuiltEngine::BF16(e) => {
+                e.think(max_cycles);
+            }
+            BuiltEngine::F32(e) => {
+                e.think(max_cycles);
+            }
         }
     }
 
     pub fn think_with_temperature(&mut self, max_cycles: usize, temperature: f32) {
         match self {
-            BuiltEngine::Unsigned(e) => { e.think_with_temperature(max_cycles, temperature); }
-            BuiltEngine::Signed(e) => { e.think_with_temperature(max_cycles, temperature); }
-            BuiltEngine::BF16(e) => { e.think_with_temperature(max_cycles, temperature); }
-            BuiltEngine::F32(e) => { e.think_with_temperature(max_cycles, temperature); }
+            BuiltEngine::Unsigned(e) => {
+                e.think_with_temperature(max_cycles, temperature);
+            }
+            BuiltEngine::Signed(e) => {
+                e.think_with_temperature(max_cycles, temperature);
+            }
+            BuiltEngine::BF16(e) => {
+                e.think_with_temperature(max_cycles, temperature);
+            }
+            BuiltEngine::F32(e) => {
+                e.think_with_temperature(max_cycles, temperature);
+            }
         }
     }
 }
@@ -294,31 +322,27 @@ impl ThinkingEngineBuilder {
                     // CORRECT path: real cosine signs preserved via direct f32→i8 quantization.
                     let size = (cosines.len() as f64).sqrt() as usize;
                     BuiltEngine::Signed(
-                        crate::signed_engine::SignedThinkingEngine::from_f32_cosines(cosines, size)
+                        crate::signed_engine::SignedThinkingEngine::from_f32_cosines(cosines, size),
                     )
                 } else {
                     // FALLBACK: CDF rank shift produces fake signs (u8-128 → i8).
                     // This path is DEPRECATED. Provide raw_cosines() for real signed tables.
-                    BuiltEngine::Signed(
-                        crate::signed_engine::SignedThinkingEngine::from_unsigned(&table)
-                    )
+                    BuiltEngine::Signed(crate::signed_engine::SignedThinkingEngine::from_unsigned(
+                        &table,
+                    ))
                 }
             }
             TableType::BF16 => {
                 // Convert u8 HDR lens to BF16: u8[0,255] → f32[-1,+1] → BF16
                 // This is a TEMPORARY path until BF16 lenses are baked directly.
-                let cosines: Vec<f32> = table.iter()
-                    .map(|&v| (v as f32 - 128.0) / 127.0)
-                    .collect();
+                let cosines: Vec<f32> = table.iter().map(|&v| (v as f32 - 128.0) / 127.0).collect();
                 let size = (table.len() as f64).sqrt() as usize;
                 BuiltEngine::BF16(BF16ThinkingEngine::from_f32_cosines(&cosines, size))
             }
             TableType::F32 => {
                 // Convert u8 HDR lens to f32: u8[0,255] → f32[-1,+1].
                 // Full precision — no BF16 truncation, no CDF rank relabeling.
-                let cosines: Vec<f32> = table.iter()
-                    .map(|&v| (v as f32 - 128.0) / 127.0)
-                    .collect();
+                let cosines: Vec<f32> = table.iter().map(|&v| (v as f32 - 128.0) / 127.0).collect();
                 BuiltEngine::F32(F32ThinkingEngine::new(cosines))
             }
         };
@@ -370,7 +394,9 @@ impl ConfiguredEngine {
             self.engine.think_with_temperature(self.max_cycles, t);
         }
 
-        let bus = self.pooling.to_bus(self.engine.energy(), self.engine.cycles());
+        let bus = self
+            .pooling
+            .to_bus(self.engine.energy(), self.engine.cycles());
 
         // Notify all sinks
         for sink in &self.sinks {
@@ -394,7 +420,10 @@ impl ConfiguredEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::{Arc, atomic::{AtomicU32, Ordering}};
+    use std::sync::{
+        atomic::{AtomicU32, Ordering},
+        Arc,
+    };
 
     #[test]
     fn builder_jina_unsigned() {
@@ -507,7 +536,9 @@ mod tests {
     #[test]
     fn builder_custom_table() {
         let mut table = vec![128u8; 64 * 64];
-        for i in 0..64 { table[i * 64 + i] = 255; }
+        for i in 0..64 {
+            table[i * 64 + i] = 255;
+        }
 
         let engine = ThinkingEngineBuilder::new()
             .lens(Lens::Custom(table))
@@ -529,10 +560,14 @@ mod tests {
         let mut engine = ThinkingEngineBuilder::new()
             .lens(Lens::Jina)
             .on_commit(move |bus| {
-                log1.lock().unwrap().push(format!("sink1:{}", bus.codebook_index));
+                log1.lock()
+                    .unwrap()
+                    .push(format!("sink1:{}", bus.codebook_index));
             })
             .on_commit(move |bus| {
-                log2.lock().unwrap().push(format!("sink2:{}", bus.codebook_index));
+                log2.lock()
+                    .unwrap()
+                    .push(format!("sink2:{}", bus.codebook_index));
             })
             .build()
             .unwrap();

@@ -45,11 +45,9 @@ use lance_graph_ontology::proposal::MappingRow;
 use lance_graph_rbac::access::AccessDecision;
 use lance_graph_rbac::policy::{Operation, Policy};
 
-use crate::super_domain::SuperDomain;
-use crate::unified_audit::{
-    AuditChain, AuditMerkleRoot, AuthDecision, AuthOp, UnifiedAuditEvent,
-};
 use crate::audit_sink::{AuditSink, NoopAuditSink};
+use crate::super_domain::SuperDomain;
+use crate::unified_audit::{AuditChain, AuditMerkleRoot, AuthDecision, AuthOp, UnifiedAuditEvent};
 
 /// Extract the canonical ontology entity type name from a resolved
 /// [`MappingRow`], for use as the [`Policy::evaluate`] key.
@@ -59,8 +57,7 @@ use crate::audit_sink::{AuditSink, NoopAuditSink};
 /// (`Order`). Falls back to `public_name` if the URI somehow lacks a
 /// name part — a malformed URI shouldn't silently bypass the alias
 /// resolution, but it shouldn't break authorization either.
-fn canonical_entity_type<'a>(row: &'a MappingRow, public_name: &'a str) -> &'a str
-{
+fn canonical_entity_type<'a>(row: &'a MappingRow, public_name: &'a str) -> &'a str {
     row.ogit_uri.name().unwrap_or(public_name)
 }
 
@@ -78,19 +75,16 @@ fn canonical_entity_type<'a>(row: &'a MappingRow, public_name: &'a str) -> &'a s
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct OgitFamily(pub u8);
 
-impl OgitFamily
-{
+impl OgitFamily {
     pub const UNKNOWN: Self = Self(0);
 
     #[inline]
-    pub const fn raw(self) -> u8
-    {
+    pub const fn raw(self) -> u8 {
         self.0
     }
 
     #[inline]
-    pub const fn is_known(self) -> bool
-    {
+    pub const fn is_known(self) -> bool {
         self.0 != 0
     }
 }
@@ -119,28 +113,24 @@ pub struct OwlIdentity {
     slot: u16,
 }
 
-impl OwlIdentity
-{
+impl OwlIdentity {
     pub const UNKNOWN: Self = Self {
         family: OgitFamily(0),
         slot: 0,
     };
 
     #[inline]
-    pub const fn new(family: OgitFamily, slot: u16) -> Self
-    {
+    pub const fn new(family: OgitFamily, slot: u16) -> Self {
         Self { family, slot }
     }
 
     #[inline]
-    pub const fn family(self) -> OgitFamily
-    {
+    pub const fn family(self) -> OgitFamily {
         self.family
     }
 
     #[inline]
-    pub const fn slot(self) -> u16
-    {
+    pub const fn slot(self) -> u16 {
         self.slot
     }
 
@@ -148,23 +138,20 @@ impl OwlIdentity
     /// Used by `UnifiedAuditEvent::canonical_bytes` so the merkle chain
     /// hashes a byte-stable representation across Rust / C# emitters.
     #[inline]
-    pub const fn to_canonical_bytes(self) -> [u8; 3]
-    {
+    pub const fn to_canonical_bytes(self) -> [u8; 3] {
         let slot = self.slot.to_le_bytes();
         [self.family.0, slot[0], slot[1]]
     }
 
     /// Bitmask predicate Cypher MATCH lowers to. No string lookup.
     #[inline]
-    pub const fn is_family(self, f: OgitFamily) -> bool
-    {
+    pub const fn is_family(self, f: OgitFamily) -> bool {
         self.family.0 == f.0
     }
 
     /// Within-family slot predicate.
     #[inline]
-    pub const fn is_slot(self, s: u16) -> bool
-    {
+    pub const fn is_slot(self, s: u16) -> bool {
         self.slot == s
     }
 }
@@ -379,7 +366,9 @@ impl<B: NamespaceBridge> UnifiedBridge<B> {
     ) -> Result<EntityRef, AuthError> {
         let row = self.bridge.row(public_name)?;
         let canonical = canonical_entity_type(&row, public_name);
-        let decision = self.policy.evaluate(self.actor_role, canonical, Operation::Read { depth });
+        let decision = self
+            .policy
+            .evaluate(self.actor_role, canonical, Operation::Read { depth });
         self.emit_audit(&row.schema_ptr, AuthOp::Read, decision_of(&decision));
         map_decision(decision, row.schema_ptr)
     }
@@ -394,7 +383,9 @@ impl<B: NamespaceBridge> UnifiedBridge<B> {
     ) -> Result<EntityRef, AuthError> {
         let row = self.bridge.row(public_name)?;
         let canonical = canonical_entity_type(&row, public_name);
-        let decision = self.policy.evaluate(self.actor_role, canonical, Operation::Write { predicate });
+        let decision =
+            self.policy
+                .evaluate(self.actor_role, canonical, Operation::Write { predicate });
         self.emit_audit(&row.schema_ptr, AuthOp::Write, decision_of(&decision));
         map_decision(decision, row.schema_ptr)
     }
@@ -402,14 +393,12 @@ impl<B: NamespaceBridge> UnifiedBridge<B> {
     /// Resolve `public_name` then evaluate action access on `action`.
     /// Policy keys on the canonical ontology entity type — see
     /// [`Self::authorize_read`] for the canonical-name + audit contract.
-    pub fn authorize_act(
-        &self,
-        public_name: &str,
-        action: &str,
-    ) -> Result<EntityRef, AuthError> {
+    pub fn authorize_act(&self, public_name: &str, action: &str) -> Result<EntityRef, AuthError> {
         let row = self.bridge.row(public_name)?;
         let canonical = canonical_entity_type(&row, public_name);
-        let decision = self.policy.evaluate(self.actor_role, canonical, Operation::Act { action });
+        let decision = self
+            .policy
+            .evaluate(self.actor_role, canonical, Operation::Act { action });
         self.emit_audit(&row.schema_ptr, AuthOp::Act, decision_of(&decision));
         map_decision(decision, row.schema_ptr)
     }
@@ -472,10 +461,7 @@ fn decision_of(d: &AccessDecision) -> AuthDecision {
 /// already-resolved `SchemaPtr`; `Deny`/`Escalate` propagate the reason
 /// through `AuthError`.
 #[inline]
-fn map_decision(
-    d: AccessDecision,
-    schema_ptr: SchemaPtr,
-) -> Result<EntityRef, AuthError> {
+fn map_decision(d: AccessDecision, schema_ptr: SchemaPtr) -> Result<EntityRef, AuthError> {
     match d {
         AccessDecision::Allow => Ok(EntityRef { schema_ptr }),
         AccessDecision::Deny { reason } => Err(AuthError::Denied(reason)),
@@ -574,8 +560,7 @@ impl BridgeHandle {
     /// configured `HydrationPolicy`.
     pub fn reload_family_table(
         &self,
-    ) -> Result<crate::unified_audit::HydrationRefreshAudit, crate::hydration::HydrationError>
-    {
+    ) -> Result<crate::unified_audit::HydrationRefreshAudit, crate::hydration::HydrationError> {
         reload_family_table_inner(&self.config)
     }
 }
@@ -584,9 +569,10 @@ impl BridgeHandle {
 /// and the background refresh task spawned by `new_hydrated`.
 fn reload_family_table_inner(
     config: &BridgeConfig,
-) -> Result<crate::unified_audit::HydrationRefreshAudit, crate::hydration::HydrationError>
-{
-    use crate::hydration::{commit, load_overlay, load_seed, sanity_gate, HydrationPolicy, HydrationSourceSet, SEED_TTL};
+) -> Result<crate::unified_audit::HydrationRefreshAudit, crate::hydration::HydrationError> {
+    use crate::hydration::{
+        commit, load_overlay, load_seed, sanity_gate, HydrationPolicy, HydrationSourceSet, SEED_TTL,
+    };
     use crate::unified_audit::HydrationRefreshAudit;
 
     let mut map = load_seed(SEED_TTL)?;
@@ -632,7 +618,11 @@ fn reload_family_table_inner(
     let _ = prev_gen;
     let updated_count = map.len() as u32;
 
-    Ok(HydrationRefreshAudit::now(new_gen, updated_count, source_label))
+    Ok(HydrationRefreshAudit::now(
+        new_gen,
+        updated_count,
+        source_label,
+    ))
 }
 
 impl<B: NamespaceBridge> UnifiedBridge<B> {
@@ -648,8 +638,7 @@ impl<B: NamespaceBridge> UnifiedBridge<B> {
         actor_role: &'static str,
         tenant: TenantId,
         config: BridgeConfig,
-    ) -> Result<(Self, BridgeHandle), crate::hydration::HydrationError>
-    {
+    ) -> Result<(Self, BridgeHandle), crate::hydration::HydrationError> {
         let audit_event = reload_family_table_inner(&config)?;
         // Log the hydration event — in production this would go through the
         // configured audit sink. For now we use eprintln for visibility.
@@ -785,11 +774,10 @@ mod tests {
     fn policy_with_role(role_name: &'static str, entity_type: &'static str) -> Policy {
         use lance_graph_rbac::permission::PermissionSpec;
         use lance_graph_rbac::role::Role;
-        Policy::new("alias-test")
-            .with_role(
-                Role::new(role_name)
-                    .with_permission(PermissionSpec::read_at(entity_type, PrefetchDepth::Detail)),
-            )
+        Policy::new("alias-test").with_role(
+            Role::new(role_name)
+                .with_permission(PermissionSpec::read_at(entity_type, PrefetchDepth::Detail)),
+        )
     }
 
     #[test]
@@ -823,7 +811,9 @@ mod tests {
 
         let err = unified
             .authorize_read("WorkOrder", PrefetchDepth::Detail)
-            .expect_err("policy keyed on alias 'WorkOrder' should NOT grant access; canonical is 'Order'");
+            .expect_err(
+                "policy keyed on alias 'WorkOrder' should NOT grant access; canonical is 'Order'",
+            );
         assert!(matches!(err, AuthError::Denied(_)), "got: {err:?}");
     }
 
@@ -859,8 +849,11 @@ mod tests {
         let bridge = alias_test_bridge();
         let policy = Arc::new(policy_with_role("clerk", "Order"));
         let sink: Arc<RecordingSink> = Arc::new(RecordingSink::default());
-        let unified = UnifiedBridge::new(bridge, policy, "clerk", TenantId(7))
-            .with_audit_chain(SuperDomain::WorkOrderBilling, 0xDEAD_BEEF, sink.clone());
+        let unified = UnifiedBridge::new(bridge, policy, "clerk", TenantId(7)).with_audit_chain(
+            SuperDomain::WorkOrderBilling,
+            0xDEAD_BEEF,
+            sink.clone(),
+        );
 
         let _ = unified
             .authorize_read("WorkOrder", PrefetchDepth::Detail)
@@ -884,8 +877,11 @@ mod tests {
         let bridge = alias_test_bridge();
         let policy = Arc::new(policy_with_role("clerk", "WorkOrder"));
         let sink: Arc<RecordingSink> = Arc::new(RecordingSink::default());
-        let unified = UnifiedBridge::new(bridge, policy, "clerk", TenantId(7))
-            .with_audit_chain(SuperDomain::WorkOrderBilling, 0, sink.clone());
+        let unified = UnifiedBridge::new(bridge, policy, "clerk", TenantId(7)).with_audit_chain(
+            SuperDomain::WorkOrderBilling,
+            0,
+            sink.clone(),
+        );
 
         let _ = unified
             .authorize_read("WorkOrder", PrefetchDepth::Detail)
@@ -918,8 +914,11 @@ mod tests {
         let bridge = alias_test_bridge();
         let policy = Arc::new(policy_with_role("clerk", "Order"));
         let sink: Arc<RecordingSink> = Arc::new(RecordingSink::default());
-        let unified = UnifiedBridge::new(bridge, policy, "clerk", TenantId(1))
-            .with_audit_chain(SuperDomain::WorkOrderBilling, 42, sink.clone());
+        let unified = UnifiedBridge::new(bridge, policy, "clerk", TenantId(1)).with_audit_chain(
+            SuperDomain::WorkOrderBilling,
+            42,
+            sink.clone(),
+        );
 
         let r0 = unified.audit_root();
         let _ = unified.authorize_read("WorkOrder", PrefetchDepth::Detail);
@@ -942,12 +941,7 @@ mod tests {
         let sink: Arc<RecordingSink> = Arc::new(RecordingSink::default());
         let prior = AuditMerkleRoot(0xCAFE_F00D);
         let unified = UnifiedBridge::new(bridge, policy, "clerk", TenantId(1))
-            .with_audit_chain_resume(
-                SuperDomain::WorkOrderBilling,
-                7,
-                prior,
-                sink.clone(),
-            );
+            .with_audit_chain_resume(SuperDomain::WorkOrderBilling, 7, prior, sink.clone());
 
         assert_eq!(unified.audit_root(), prior);
         let _ = unified.authorize_read("WorkOrder", PrefetchDepth::Detail);

@@ -21,11 +21,18 @@ pub enum Pooling {
     /// Top K peaks. Multiple simultaneous thoughts.
     TopK(usize),
     /// Ghost-weighted: multiply energy by experience weights before pooling.
-    Weighted { weights: Vec<f32>, inner: Box<Pooling> },
+    Weighted {
+        weights: Vec<f32>,
+        inner: Box<Pooling>,
+    },
     /// Nucleus sampling (top-p) with temperature. Stochastic, anti-collapse.
     /// Temperature scales logits before softmax. top_p truncates the nucleus.
     /// seed makes it reproducible (None = use entropy from energy).
-    Nucleus { temperature: f32, top_p: f32, seed: Option<u64> },
+    Nucleus {
+        temperature: f32,
+        top_p: f32,
+        seed: Option<u64>,
+    },
 }
 
 /// Result of pooling the energy vector.
@@ -50,9 +57,11 @@ impl Pooling {
             Pooling::ArgMax => pool_argmax(energy),
             Pooling::Mean { threshold } => pool_mean(energy, *threshold),
             Pooling::TopK(k) => pool_topk(energy, *k),
-            Pooling::Nucleus { temperature, top_p, seed } => {
-                pool_nucleus(energy, *temperature, *top_p, *seed)
-            }
+            Pooling::Nucleus {
+                temperature,
+                top_p,
+                seed,
+            } => pool_nucleus(energy, *temperature, *top_p, *seed),
             Pooling::Weighted { weights, inner } => {
                 let mut weighted = energy.to_vec();
                 for (i, e) in weighted.iter_mut().enumerate() {
@@ -63,7 +72,9 @@ impl Pooling {
                 // Re-normalize
                 let total: f32 = weighted.iter().sum();
                 if total > 1e-10 {
-                    for e in &mut weighted { *e /= total; }
+                    for e in &mut weighted {
+                        *e /= total;
+                    }
                 }
                 let mut result = inner.pool(&weighted);
                 result.strategy = format!("Weighted({})", result.strategy);
@@ -109,7 +120,9 @@ fn pool_argmax(energy: &[f32]) -> PooledResult {
 }
 
 fn pool_mean(energy: &[f32], threshold: f32) -> PooledResult {
-    let mut active: Vec<(u16, f32)> = energy.iter().enumerate()
+    let mut active: Vec<(u16, f32)> = energy
+        .iter()
+        .enumerate()
         .filter(|(_, &e)| e > threshold)
         .map(|(i, &e)| (i as u16, e))
         .collect();
@@ -143,16 +156,23 @@ fn pool_mean(energy: &[f32], threshold: f32) -> PooledResult {
         atoms: active,
         strategy: "Mean".into(),
         entropy,
-        concentration: if total > 1e-10 { active_sum / total } else { 0.0 },
+        concentration: if total > 1e-10 {
+            active_sum / total
+        } else {
+            0.0
+        },
     }
 }
 
 fn pool_topk(energy: &[f32], k: usize) -> PooledResult {
-    let mut indexed: Vec<(u16, f32)> = energy.iter().enumerate()
+    let mut indexed: Vec<(u16, f32)> = energy
+        .iter()
+        .enumerate()
         .map(|(i, &e)| (i as u16, e))
         .collect();
     indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-    let selected: Vec<(u16, f32)> = indexed.into_iter()
+    let selected: Vec<(u16, f32)> = indexed
+        .into_iter()
         .take(k)
         .filter(|&(_, e)| e > 1e-10)
         .collect();
@@ -175,13 +195,19 @@ fn pool_topk(energy: &[f32], k: usize) -> PooledResult {
         atoms: selected,
         strategy: format!("TopK({})", k),
         entropy,
-        concentration: if total > 1e-10 { selected_sum / total } else { 0.0 },
+        concentration: if total > 1e-10 {
+            selected_sum / total
+        } else {
+            0.0
+        },
     }
 }
 
 fn pool_nucleus(energy: &[f32], temperature: f32, top_p: f32, seed: Option<u64>) -> PooledResult {
     // Sort by energy descending
-    let mut indexed: Vec<(u16, f32)> = energy.iter().enumerate()
+    let mut indexed: Vec<(u16, f32)> = energy
+        .iter()
+        .enumerate()
         .map(|(i, &e)| (i as u16, e))
         .filter(|(_, e)| *e > 1e-10)
         .collect();
@@ -189,14 +215,18 @@ fn pool_nucleus(energy: &[f32], temperature: f32, top_p: f32, seed: Option<u64>)
 
     if indexed.is_empty() {
         return PooledResult {
-            primary: (0, 0.0), atoms: vec![], strategy: "Nucleus".into(),
-            entropy: 0.0, concentration: 0.0,
+            primary: (0, 0.0),
+            atoms: vec![],
+            strategy: "Nucleus".into(),
+            entropy: 0.0,
+            concentration: 0.0,
         };
     }
 
     // Apply temperature: scale logits then softmax
     let temp = temperature.max(0.01);
-    let scaled: Vec<f32> = indexed.iter()
+    let scaled: Vec<f32> = indexed
+        .iter()
         .map(|&(_, e)| (e.ln().max(-20.0) / temp).exp())
         .collect();
     let total_scaled: f32 = scaled.iter().sum();
@@ -208,7 +238,9 @@ fn pool_nucleus(energy: &[f32], temperature: f32, top_p: f32, seed: Option<u64>)
     for (i, &p) in probs.iter().enumerate() {
         cumsum += p;
         nucleus.push((indexed[i].0, p));
-        if cumsum >= top_p { break; }
+        if cumsum >= top_p {
+            break;
+        }
     }
 
     // Sample from the nucleus using a simple deterministic hash
@@ -229,11 +261,14 @@ fn pool_nucleus(energy: &[f32], temperature: f32, top_p: f32, seed: Option<u64>)
 
     let mut entropy = 0.0f32;
     for &(_, p) in &nucleus {
-        if p > 1e-10 { entropy -= p * p.ln(); }
+        if p > 1e-10 {
+            entropy -= p * p.ln();
+        }
     }
 
     // Map back to energy scale for the atoms
-    let atoms: Vec<(u16, f32)> = nucleus.iter()
+    let atoms: Vec<(u16, f32)> = nucleus
+        .iter()
         .map(|&(idx, _)| {
             let orig_energy = energy[idx as usize];
             (idx, orig_energy)
@@ -313,7 +348,8 @@ mod tests {
         let result = Pooling::Weighted {
             weights,
             inner: Box::new(Pooling::ArgMax),
-        }.pool(&energy);
+        }
+        .pool(&energy);
 
         // Atom 100 should now dominate (0.10 * 10 = 1.0 vs 0.30 * 0.01 = 0.003)
         assert_eq!(result.primary.0, 100);
@@ -336,7 +372,8 @@ mod tests {
             temperature: 1.0,
             top_p: 0.9,
             seed: Some(42),
-        }.pool(&energy);
+        }
+        .pool(&energy);
         // Should select from the nucleus (top atoms by energy)
         assert!(!result.atoms.is_empty());
         assert!(result.primary.1 > 0.0);
@@ -350,25 +387,37 @@ mod tests {
             temperature: 0.1,
             top_p: 0.9,
             seed: Some(42),
-        }.pool(&energy);
+        }
+        .pool(&energy);
         let r_high = Pooling::Nucleus {
             temperature: 2.0,
             top_p: 0.9,
             seed: Some(42),
-        }.pool(&energy);
+        }
+        .pool(&energy);
         // Low temperature should have fewer atoms in nucleus (more concentrated)
-        assert!(r_low.atoms.len() <= r_high.atoms.len() + 1,
+        assert!(
+            r_low.atoms.len() <= r_high.atoms.len() + 1,
             "low temp {} atoms vs high temp {} atoms",
-            r_low.atoms.len(), r_high.atoms.len());
+            r_low.atoms.len(),
+            r_high.atoms.len()
+        );
     }
 
     #[test]
     fn nucleus_deterministic_with_seed() {
         let energy = make_energy();
-        let p = Pooling::Nucleus { temperature: 0.8, top_p: 0.9, seed: Some(123) };
+        let p = Pooling::Nucleus {
+            temperature: 0.8,
+            top_p: 0.9,
+            seed: Some(123),
+        };
         let r1 = p.pool(&energy);
         let r2 = p.pool(&energy);
-        assert_eq!(r1.primary.0, r2.primary.0, "same seed should give same result");
+        assert_eq!(
+            r1.primary.0, r2.primary.0,
+            "same seed should give same result"
+        );
     }
 
     #[test]

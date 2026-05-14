@@ -43,7 +43,8 @@ fn edge(pred: &str, s: &'static str, o: &'static str) -> MappingProposalKind {
 fn columns_default_then_attach_round_trips() {
     // Gap 1: column-presence + AttributeProvenance round-trip + ThinkingStyle.
     let reg = OntologyRegistry::new_in_memory();
-    reg.append_mapping(proposal("ogit.WorkOrder:Customer", entity("Customer"))).unwrap();
+    reg.append_mapping(proposal("ogit.WorkOrder:Customer", entity("Customer")))
+        .unwrap();
     let row = reg.row_for_uri("ogit.WorkOrder:Customer").unwrap();
     assert_eq!(row.identity_codec, IdentityCodec::default());
     assert_eq!(row.qualia_meta, QualiaMeta::default());
@@ -69,13 +70,18 @@ fn columns_default_then_attach_round_trips() {
 fn link_and_entity_type_id_resolution() {
     // Gap 2 (driver.rs:311) + Gap 3 (META-NUDGE-1).
     let reg = OntologyRegistry::new_in_memory();
-    reg.append_mapping(proposal("ogit.WorkOrder:assignedTo", edge("assignedTo", "Order", "User")))
-        .unwrap();
+    reg.append_mapping(proposal(
+        "ogit.WorkOrder:assignedTo",
+        edge("assignedTo", "Order", "User"),
+    ))
+    .unwrap();
     let row = reg.row_for_uri("ogit.WorkOrder:assignedTo").unwrap();
     assert_eq!(row.subject_type, "Order");
     assert_eq!(row.object_type, "User");
 
-    let h = reg.append_mapping(proposal("ogit.Healthcare:Patient", entity("Patient"))).unwrap();
+    let h = reg
+        .append_mapping(proposal("ogit.Healthcare:Patient", entity("Patient")))
+        .unwrap();
     let resolved = reg
         .enumerate_first_with_entity_type_id(h.schema_ptr.entity_type_id())
         .unwrap();

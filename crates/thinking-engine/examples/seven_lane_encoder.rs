@@ -25,7 +25,10 @@ fn main() {
     const N_CENTROIDS: usize = 256;
 
     let args: Vec<String> = std::env::args().collect();
-    let model_key = args.get(1).map(|s| s.as_str()).unwrap_or("qwen3-vl-embedding");
+    let model_key = args
+        .get(1)
+        .map(|s| s.as_str())
+        .unwrap_or("qwen3-vl-embedding");
 
     let (safetensors_path, embed_prefix, hidden_dim_expected) = match model_key {
         "qwen3-vl-embedding" => (
@@ -44,7 +47,10 @@ fn main() {
             1024usize, // talker hidden_size (rows=2048 × cols=1024)
         ),
         other => {
-            eprintln!("Unknown model: {}. Use: qwen3-vl-embedding | jina-v5 | qwen3-tts", other);
+            eprintln!(
+                "Unknown model: {}. Use: qwen3-vl-embedding | jina-v5 | qwen3-tts",
+                other
+            );
             return;
         }
     };
@@ -81,44 +87,71 @@ fn main() {
     let shape = embed_tensor.shape();
     let vocab_size = shape[0];
     let hidden_dim = shape[1];
-    println!("  Tensor: {} shape=[{}, {}] dtype={:?}",
-        embed_prefix, vocab_size, hidden_dim, embed_tensor.dtype());
-    assert_eq!(hidden_dim, hidden_dim_expected,
-        "Hidden dim mismatch: got {} expected {}", hidden_dim, hidden_dim_expected);
+    println!(
+        "  Tensor: {} shape=[{}, {}] dtype={:?}",
+        embed_prefix,
+        vocab_size,
+        hidden_dim,
+        embed_tensor.dtype()
+    );
+    assert_eq!(
+        hidden_dim, hidden_dim_expected,
+        "Hidden dim mismatch: got {} expected {}",
+        hidden_dim, hidden_dim_expected
+    );
 
     // Convert BF16/F32 → f32
     let embeddings: Vec<f32> = match embed_tensor.dtype() {
-        safetensors::Dtype::BF16 => {
-            embed_tensor.data().chunks_exact(2).map(|c| {
-                f32::from_bits((u16::from_le_bytes([c[0], c[1]]) as u32) << 16)
-            }).collect()
-        }
-        safetensors::Dtype::F32 => {
-            embed_tensor.data().chunks_exact(4).map(|c| {
-                f32::from_le_bytes([c[0], c[1], c[2], c[3]])
-            }).collect()
-        }
-        safetensors::Dtype::F16 => {
-            embed_tensor.data().chunks_exact(2).map(|c| {
+        safetensors::Dtype::BF16 => embed_tensor
+            .data()
+            .chunks_exact(2)
+            .map(|c| f32::from_bits((u16::from_le_bytes([c[0], c[1]]) as u32) << 16))
+            .collect(),
+        safetensors::Dtype::F32 => embed_tensor
+            .data()
+            .chunks_exact(4)
+            .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+            .collect(),
+        safetensors::Dtype::F16 => embed_tensor
+            .data()
+            .chunks_exact(2)
+            .map(|c| {
                 let bits = u16::from_le_bytes([c[0], c[1]]);
                 half::f16::from_bits(bits).to_f32()
-            }).collect()
-        }
+            })
+            .collect(),
         dt => {
             eprintln!("Unsupported dtype: {:?}", dt);
             std::process::exit(1);
         }
     };
-    println!("  Loaded {} embeddings in {:.1}s", vocab_size, start.elapsed().as_secs_f64());
+    println!(
+        "  Loaded {} embeddings in {:.1}s",
+        vocab_size,
+        start.elapsed().as_secs_f64()
+    );
 
     // Step 2: Normalize
-    println!("[2] Normalizing {} tokens × {} dims...", vocab_size, hidden_dim);
-    let normed: Vec<Vec<f32>> = (0..vocab_size).map(|v| {
-        let row = &embeddings[v * hidden_dim..(v + 1) * hidden_dim];
-        let norm = row.iter().map(|x| (*x as f64) * (*x as f64)).sum::<f64>().sqrt();
-        if norm < 1e-12 { vec![0.0f32; hidden_dim] }
-        else { let inv = (1.0 / norm) as f32; row.iter().map(|x| x * inv).collect() }
-    }).collect();
+    println!(
+        "[2] Normalizing {} tokens × {} dims...",
+        vocab_size, hidden_dim
+    );
+    let normed: Vec<Vec<f32>> = (0..vocab_size)
+        .map(|v| {
+            let row = &embeddings[v * hidden_dim..(v + 1) * hidden_dim];
+            let norm = row
+                .iter()
+                .map(|x| (*x as f64) * (*x as f64))
+                .sum::<f64>()
+                .sqrt();
+            if norm < 1e-12 {
+                vec![0.0f32; hidden_dim]
+            } else {
+                let inv = (1.0 / norm) as f32;
+                row.iter().map(|x| x * inv).collect()
+            }
+        })
+        .collect();
 
     // Step 3: CLAM greedy centroid selection
     println!("[3] CLAM {} centroids...", N_CENTROIDS);
@@ -130,31 +163,50 @@ fn main() {
         min_dist[v] = 1.0 - dot as f64;
     }
     for _k in 1..N_CENTROIDS.min(vocab_size) {
-        let next = min_dist.iter().enumerate()
+        let next = min_dist
+            .iter()
+            .enumerate()
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
-            .map(|(i, _)| i).unwrap_or(0);
+            .map(|(i, _)| i)
+            .unwrap_or(0);
         selected.push(next);
         for v in 0..vocab_size {
-            let dot: f32 = normed[v].iter().zip(&normed[next]).map(|(a, b)| a * b).sum();
+            let dot: f32 = normed[v]
+                .iter()
+                .zip(&normed[next])
+                .map(|(a, b)| a * b)
+                .sum();
             let d = 1.0 - dot as f64;
-            if d < min_dist[v] { min_dist[v] = d; }
+            if d < min_dist[v] {
+                min_dist[v] = d;
+            }
         }
     }
-    println!("  {} centroids in {:.1}s", selected.len(), start.elapsed().as_secs_f64());
+    println!(
+        "  {} centroids in {:.1}s",
+        selected.len(),
+        start.elapsed().as_secs_f64()
+    );
 
     // Step 4: Assign tokens to centroids
     println!("[4] Assigning {} tokens...", vocab_size);
     let start = std::time::Instant::now();
     let centroid_vecs: Vec<&[f32]> = selected.iter().map(|&i| normed[i].as_slice()).collect();
-    let assignments: Vec<u16> = (0..vocab_size).into_par_iter().map(|v| {
-        let mut best = 0u16;
-        let mut best_dot = f32::NEG_INFINITY;
-        for (c, &cen) in centroid_vecs.iter().enumerate() {
-            let dot: f32 = normed[v].iter().zip(cen).map(|(a, b)| a * b).sum();
-            if dot > best_dot { best_dot = dot; best = c as u16; }
-        }
-        best
-    }).collect();
+    let assignments: Vec<u16> = (0..vocab_size)
+        .into_par_iter()
+        .map(|v| {
+            let mut best = 0u16;
+            let mut best_dot = f32::NEG_INFINITY;
+            for (c, &cen) in centroid_vecs.iter().enumerate() {
+                let dot: f32 = normed[v].iter().zip(cen).map(|(a, b)| a * b).sum();
+                if dot > best_dot {
+                    best_dot = dot;
+                    best = c as u16;
+                }
+            }
+            best
+        })
+        .collect();
     println!("  Done in {:.1}s", start.elapsed().as_secs_f64());
 
     // Step 5: Average centroids + pairwise cosines
@@ -164,23 +216,41 @@ fn main() {
     for (v, &c) in assignments.iter().enumerate() {
         counts[c as usize] += 1;
         let row = &embeddings[v * hidden_dim..(v + 1) * hidden_dim];
-        for d in 0..hidden_dim { sums[c as usize][d] += row[d] as f64; }
+        for d in 0..hidden_dim {
+            sums[c as usize][d] += row[d] as f64;
+        }
     }
-    let centroids_avg: Vec<Vec<f32>> = (0..n_cent).map(|c| {
-        if counts[c] == 0 { return vec![0.0f32; hidden_dim]; }
-        let n = counts[c] as f64;
-        let avg: Vec<f32> = sums[c].iter().map(|&s| (s / n) as f32).collect();
-        let norm = avg.iter().map(|v| (*v as f64) * (*v as f64)).sum::<f64>().sqrt();
-        if norm < 1e-12 { vec![0.0f32; hidden_dim] }
-        else { let inv = (1.0 / norm) as f32; avg.iter().map(|v| v * inv).collect() }
-    }).collect();
+    let centroids_avg: Vec<Vec<f32>> = (0..n_cent)
+        .map(|c| {
+            if counts[c] == 0 {
+                return vec![0.0f32; hidden_dim];
+            }
+            let n = counts[c] as f64;
+            let avg: Vec<f32> = sums[c].iter().map(|&s| (s / n) as f32).collect();
+            let norm = avg
+                .iter()
+                .map(|v| (*v as f64) * (*v as f64))
+                .sum::<f64>()
+                .sqrt();
+            if norm < 1e-12 {
+                vec![0.0f32; hidden_dim]
+            } else {
+                let inv = (1.0 / norm) as f32;
+                avg.iter().map(|v| v * inv).collect()
+            }
+        })
+        .collect();
 
     let mut all_cos: Vec<f32> = Vec::new();
     let mut raw_cos = vec![0.0f32; n_cent * n_cent];
     for i in 0..n_cent {
         raw_cos[i * n_cent + i] = 1.0;
-        for j in (i+1)..n_cent {
-            let dot: f32 = centroids_avg[i].iter().zip(&centroids_avg[j]).map(|(a, b)| a * b).sum();
+        for j in (i + 1)..n_cent {
+            let dot: f32 = centroids_avg[i]
+                .iter()
+                .zip(&centroids_avg[j])
+                .map(|(a, b)| a * b)
+                .sum();
             let cos = dot.clamp(-1.0, 1.0);
             raw_cos[i * n_cent + j] = cos;
             raw_cos[j * n_cent + i] = cos;
@@ -191,13 +261,16 @@ fn main() {
     let cos_min = all_cos.first().copied().unwrap_or(0.0);
     let cos_max = all_cos.last().copied().unwrap_or(1.0);
     let cos_mean: f32 = all_cos.iter().sum::<f32>() / all_cos.len().max(1) as f32;
-    println!("[5] Cosine: [{:.4}, {:.4}] mean={:.4}", cos_min, cos_max, cos_mean);
+    println!(
+        "[5] Cosine: [{:.4}, {:.4}] mean={:.4}",
+        cos_min, cos_max, cos_mean
+    );
 
     // ═══ LANE 1: u8 CDF (percentile rank) ═══
     let mut lane1_u8 = vec![0u8; n_cent * n_cent];
     for i in 0..n_cent {
         lane1_u8[i * n_cent + i] = 255;
-        for j in (i+1)..n_cent {
+        for j in (i + 1)..n_cent {
             let cos = raw_cos[i * n_cent + j];
             let rank = all_cos.partition_point(|&c| c <= cos);
             let pct = rank as f32 / all_cos.len() as f32;
@@ -214,28 +287,37 @@ fn main() {
     let mut zero_count = 0usize;
     for i in 0..n_cent {
         lane2_i8[i * n_cent + i] = 127;
-        for j in (i+1)..n_cent {
+        for j in (i + 1)..n_cent {
             let cos = raw_cos[i * n_cent + j];
             let val = (cos * 127.0).round().clamp(-128.0, 127.0) as i8;
             lane2_i8[i * n_cent + j] = val;
             lane2_i8[j * n_cent + i] = val;
-            if val > 0 { pos_count += 1; }
-            else if val < 0 { neg_count += 1; }
-            else { zero_count += 1; }
+            if val > 0 {
+                pos_count += 1;
+            } else if val < 0 {
+                neg_count += 1;
+            } else {
+                zero_count += 1;
+            }
         }
     }
     let total_pairs = pos_count + neg_count + zero_count;
-    let ei_ratio = if total_pairs > 0 { pos_count as f32 / total_pairs as f32 } else { 0.5 };
+    let ei_ratio = if total_pairs > 0 {
+        pos_count as f32 / total_pairs as f32
+    } else {
+        0.5
+    };
 
     // ═══ LANE 3: u8 γ+φ (golden ratio redistribution) ═══
-    let cos_abs_mean: f32 = all_cos.iter().map(|c| c.abs()).sum::<f32>() / all_cos.len().max(1) as f32;
+    let cos_abs_mean: f32 =
+        all_cos.iter().map(|c| c.abs()).sum::<f32>() / all_cos.len().max(1) as f32;
     let cos_abs_max: f32 = all_cos.iter().map(|c| c.abs()).fold(0.0f32, f32::max);
     let role_gamma = cos_abs_mean;
     let phi_scale = cos_abs_max.max(0.01);
 
     let mut gp_encoded: Vec<f32> = Vec::new();
     for i in 0..n_cent {
-        for j in (i+1)..n_cent {
+        for j in (i + 1)..n_cent {
             let cos = raw_cos[i * n_cent + j];
             let sign = cos.signum();
             let mag = cos.abs();
@@ -253,7 +335,7 @@ fn main() {
     let mut gp_idx = 0;
     for i in 0..n_cent {
         lane3_gp_u8[i * n_cent + i] = 255;
-        for j in (i+1)..n_cent {
+        for j in (i + 1)..n_cent {
             let val = gp_encoded[gp_idx];
             let rank = gp_sorted.partition_point(|&c| c <= val);
             let pct = rank as f32 / gp_sorted.len() as f32;
@@ -267,12 +349,16 @@ fn main() {
     // ═══ LANE 4: i8 γ+φ signed ═══
     let mut lane4_gp_i8 = vec![0i8; n_cent * n_cent];
     gp_idx = 0;
-    let max_gp = gp_sorted.last().copied().unwrap_or(1.0).abs()
+    let max_gp = gp_sorted
+        .last()
+        .copied()
+        .unwrap_or(1.0)
+        .abs()
         .max(gp_sorted.first().copied().unwrap_or(-1.0).abs())
         .max(0.01);
     for i in 0..n_cent {
         lane4_gp_i8[i * n_cent + i] = 127;
-        for j in (i+1)..n_cent {
+        for j in (i + 1)..n_cent {
             let val = gp_encoded[gp_idx];
             let normalized = val / max_gp;
             let i8_val = (normalized * 127.0).round().clamp(-128.0, 127.0) as i8;
@@ -324,43 +410,55 @@ fn main() {
 
     // Simple spiral: sample every stride-th dimension, reconstruct via interpolation
     let spiral_stride = 11usize; // GOLDEN_STEP
-    let reconstructed: Vec<Vec<f32>> = centroids_avg.iter().map(|centroid| {
-        // Sample at golden stride
-        let samples: Vec<(usize, f32)> = (0..hidden_dim)
-            .step_by(spiral_stride)
-            .map(|d| (d, centroid[d]))
-            .collect();
-        // Reconstruct by linear interpolation between samples
-        let mut recon = vec![0.0f32; hidden_dim];
-        for w in samples.windows(2) {
-            let (d0, v0) = w[0];
-            let (d1, v1) = w[1];
-            for d in d0..=d1 {
-                let t = (d - d0) as f32 / (d1 - d0).max(1) as f32;
-                recon[d] = v0 * (1.0 - t) + v1 * t;
+    let reconstructed: Vec<Vec<f32>> = centroids_avg
+        .iter()
+        .map(|centroid| {
+            // Sample at golden stride
+            let samples: Vec<(usize, f32)> = (0..hidden_dim)
+                .step_by(spiral_stride)
+                .map(|d| (d, centroid[d]))
+                .collect();
+            // Reconstruct by linear interpolation between samples
+            let mut recon = vec![0.0f32; hidden_dim];
+            for w in samples.windows(2) {
+                let (d0, v0) = w[0];
+                let (d1, v1) = w[1];
+                for d in d0..=d1 {
+                    let t = (d - d0) as f32 / (d1 - d0).max(1) as f32;
+                    recon[d] = v0 * (1.0 - t) + v1 * t;
+                }
             }
-        }
-        // Fill tail (after last sample)
-        if let Some(&(last_d, last_v)) = samples.last() {
-            for d in last_d..hidden_dim {
-                recon[d] = last_v;
+            // Fill tail (after last sample)
+            if let Some(&(last_d, last_v)) = samples.last() {
+                for d in last_d..hidden_dim {
+                    recon[d] = last_v;
+                }
             }
-        }
-        // Normalize reconstructed
-        let norm = recon.iter().map(|x| (*x as f64) * (*x as f64)).sum::<f64>().sqrt();
-        if norm > 1e-12 {
-            let inv = (1.0 / norm) as f32;
-            for v in &mut recon { *v *= inv; }
-        }
-        recon
-    }).collect();
+            // Normalize reconstructed
+            let norm = recon
+                .iter()
+                .map(|x| (*x as f64) * (*x as f64))
+                .sum::<f64>()
+                .sqrt();
+            if norm > 1e-12 {
+                let inv = (1.0 / norm) as f32;
+                for v in &mut recon {
+                    *v *= inv;
+                }
+            }
+            recon
+        })
+        .collect();
 
     for i in 0..n_cent {
         lane7_spiral_drift[i * n_cent + i] = 0; // zero drift for self
-        for j in (i+1)..n_cent {
+        for j in (i + 1)..n_cent {
             let cos_orig = raw_cos[i * n_cent + j];
-            let cos_recon: f32 = reconstructed[i].iter().zip(&reconstructed[j])
-                .map(|(a, b)| a * b).sum();
+            let cos_recon: f32 = reconstructed[i]
+                .iter()
+                .zip(&reconstructed[j])
+                .map(|(a, b)| a * b)
+                .sum();
             let drift = (cos_orig - cos_recon).abs();
             // Scale drift to u8: 0=no drift, 255=max drift
             // Typical drift is < 0.1, so scale by 10× then clamp
@@ -368,7 +466,9 @@ fn main() {
             lane7_spiral_drift[i * n_cent + j] = u;
             lane7_spiral_drift[j * n_cent + i] = u;
             total_drift += drift as f64;
-            if drift > max_drift { max_drift = drift; }
+            if drift > max_drift {
+                max_drift = drift;
+            }
         }
     }
     let n_pairs = n_cent * (n_cent - 1) / 2;
@@ -377,17 +477,45 @@ fn main() {
     // ═══ PRINT SUMMARY ═══
     let t_avg = lane1_u8.iter().map(|&v| v as f64).sum::<f64>() / lane1_u8.len() as f64;
     println!("\n[6] 7-Lane Encoding Summary:");
-    println!("  Lane 1: u8 CDF           {:>5} KB  avg={:.1}", lane1_u8.len() / 1024, t_avg);
-    println!("  Lane 2: i8 direct        {:>5} KB  E/I={:.1}% pos={} neg={} zero={}",
-        lane2_i8.len() / 1024, ei_ratio * 100.0, pos_count, neg_count, zero_count);
-    println!("  Lane 3: u8 γ+φ           {:>5} KB  γ={:.4} φ={:.4}",
-        lane3_gp_u8.len() / 1024, role_gamma, phi_scale);
-    println!("  Lane 4: i8 γ+φ signed    {:>5} KB", lane4_gp_i8.len() / 1024);
-    println!("  Lane 5: SiLU deltas      {:>5} KB  (zeros, token_embd)", lane5_silu.len() * 4 / 1024);
-    println!("  Lane 6: BF16 direct      {:>5} KB  max_err={:.6}",
-        lane6_bf16.len() * 2 / 1024, bf16_max_err);
-    println!("  Lane 7: spiral drift     {:>5} KB  stride={} avg={:.4} max={:.4}",
-        lane7_spiral_drift.len() / 1024, spiral_stride, avg_drift, max_drift);
+    println!(
+        "  Lane 1: u8 CDF           {:>5} KB  avg={:.1}",
+        lane1_u8.len() / 1024,
+        t_avg
+    );
+    println!(
+        "  Lane 2: i8 direct        {:>5} KB  E/I={:.1}% pos={} neg={} zero={}",
+        lane2_i8.len() / 1024,
+        ei_ratio * 100.0,
+        pos_count,
+        neg_count,
+        zero_count
+    );
+    println!(
+        "  Lane 3: u8 γ+φ           {:>5} KB  γ={:.4} φ={:.4}",
+        lane3_gp_u8.len() / 1024,
+        role_gamma,
+        phi_scale
+    );
+    println!(
+        "  Lane 4: i8 γ+φ signed    {:>5} KB",
+        lane4_gp_i8.len() / 1024
+    );
+    println!(
+        "  Lane 5: SiLU deltas      {:>5} KB  (zeros, token_embd)",
+        lane5_silu.len() * 4 / 1024
+    );
+    println!(
+        "  Lane 6: BF16 direct      {:>5} KB  max_err={:.6}",
+        lane6_bf16.len() * 2 / 1024,
+        bf16_max_err
+    );
+    println!(
+        "  Lane 7: spiral drift     {:>5} KB  stride={} avg={:.4} max={:.4}",
+        lane7_spiral_drift.len() / 1024,
+        spiral_stride,
+        avg_drift,
+        max_drift
+    );
 
     // ═══ SAVE ═══
     let model_name = model_key.replace("/", "-");
@@ -401,16 +529,48 @@ fn main() {
         format!("crates/thinking-engine/data/{}-7lane", model_name),
     ] {
         std::fs::create_dir_all(&dir).ok();
-        std::fs::write(format!("{}/distance_table_{}x{}.u8", dir, n_cent, n_cent), &lane1_u8).ok();
-        std::fs::write(format!("{}/distance_table_{}x{}.i8", dir, n_cent, n_cent),
-            unsafe { std::slice::from_raw_parts(lane2_i8.as_ptr() as *const u8, lane2_i8.len()) }).ok();
-        std::fs::write(format!("{}/distance_table_{}x{}.gamma_phi.u8", dir, n_cent, n_cent), &lane3_gp_u8).ok();
-        std::fs::write(format!("{}/distance_table_{}x{}.gamma_phi.i8", dir, n_cent, n_cent),
-            unsafe { std::slice::from_raw_parts(lane4_gp_i8.as_ptr() as *const u8, lane4_gp_i8.len()) }).ok();
-        std::fs::write(format!("{}/silu_deltas_{}x{}.f32", dir, n_cent, n_cent), &silu_bytes).ok();
-        std::fs::write(format!("{}/distance_table_{}x{}.bf16", dir, n_cent, n_cent), &bf16_bytes).ok();
-        std::fs::write(format!("{}/spiral_drift_{}x{}.u8", dir, n_cent, n_cent), &lane7_spiral_drift).ok();
-        std::fs::write(format!("{}/cosine_matrix_{}x{}.f32", dir, n_cent, n_cent), &f32_bytes).ok();
+        std::fs::write(
+            format!("{}/distance_table_{}x{}.u8", dir, n_cent, n_cent),
+            &lane1_u8,
+        )
+        .ok();
+        std::fs::write(
+            format!("{}/distance_table_{}x{}.i8", dir, n_cent, n_cent),
+            unsafe { std::slice::from_raw_parts(lane2_i8.as_ptr() as *const u8, lane2_i8.len()) },
+        )
+        .ok();
+        std::fs::write(
+            format!("{}/distance_table_{}x{}.gamma_phi.u8", dir, n_cent, n_cent),
+            &lane3_gp_u8,
+        )
+        .ok();
+        std::fs::write(
+            format!("{}/distance_table_{}x{}.gamma_phi.i8", dir, n_cent, n_cent),
+            unsafe {
+                std::slice::from_raw_parts(lane4_gp_i8.as_ptr() as *const u8, lane4_gp_i8.len())
+            },
+        )
+        .ok();
+        std::fs::write(
+            format!("{}/silu_deltas_{}x{}.f32", dir, n_cent, n_cent),
+            &silu_bytes,
+        )
+        .ok();
+        std::fs::write(
+            format!("{}/distance_table_{}x{}.bf16", dir, n_cent, n_cent),
+            &bf16_bytes,
+        )
+        .ok();
+        std::fs::write(
+            format!("{}/spiral_drift_{}x{}.u8", dir, n_cent, n_cent),
+            &lane7_spiral_drift,
+        )
+        .ok();
+        std::fs::write(
+            format!("{}/cosine_matrix_{}x{}.f32", dir, n_cent, n_cent),
+            &f32_bytes,
+        )
+        .ok();
         std::fs::write(format!("{}/codebook_index.u16", dir), &idx_bytes).ok();
 
         let metadata = serde_json::json!({
@@ -436,8 +596,11 @@ fn main() {
             "negative_pairs": neg_count,
             "zero_pairs": zero_count,
         });
-        std::fs::write(format!("{}/encoding_metadata.json", dir),
-            serde_json::to_string_pretty(&metadata).unwrap()).ok();
+        std::fs::write(
+            format!("{}/encoding_metadata.json", dir),
+            serde_json::to_string_pretty(&metadata).unwrap(),
+        )
+        .ok();
     }
 
     println!("\n[7] Saved to /tmp/codebooks/{}-7lane/", model_name);
@@ -451,4 +614,6 @@ fn main() {
 // See lance-graph/CLAUDE.md § Certification Process.
 
 #[cfg(not(feature = "calibration"))]
-fn main() { eprintln!("Requires --features calibration"); }
+fn main() {
+    eprintln!("Requires --features calibration");
+}

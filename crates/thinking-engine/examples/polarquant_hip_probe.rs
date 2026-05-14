@@ -17,11 +17,11 @@
 //!     --manifest-path crates/thinking-engine/Cargo.toml \
 //!     -- /path/to/model.safetensors
 
-use bgz_tensor::hhtl_d::build_hip_families;
 use bgz_tensor::hhtl_cache::HhtlCache;
+use bgz_tensor::hhtl_d::build_hip_families;
 use bgz_tensor::projection::Base17;
-use ndarray::hpc::safetensors::read_safetensors_header;
 use ndarray::hpc::gguf::GgmlType;
+use ndarray::hpc::safetensors::read_safetensors_header;
 use ndarray::simd::bf16_to_f32_batch;
 
 use std::collections::HashMap;
@@ -37,23 +37,33 @@ fn load_rows(path: &str) -> Vec<Vec<f32>> {
     let file = File::open(path).expect("open");
     let mut reader = BufReader::new(file);
     let header = read_safetensors_header(&mut reader).expect("parse");
-    let t = header.tensors.iter().find(|t| t.name.contains(TARGET)).expect("tensor");
+    let t = header
+        .tensors
+        .iter()
+        .find(|t| t.name.contains(TARGET))
+        .expect("tensor");
     let n: usize = t.dimensions.iter().map(|&d| d as usize).product();
     let n_rows = t.dimensions[0] as usize;
     let n_cols: usize = t.dimensions.iter().skip(1).map(|&d| d as usize).product();
-    reader.seek(SeekFrom::Start(header.tensor_data_offset + t.offset)).unwrap();
+    reader
+        .seek(SeekFrom::Start(header.tensor_data_offset + t.offset))
+        .unwrap();
     let mut raw = vec![0u8; n * 2];
     reader.read_exact(&mut raw).unwrap();
     let f32_data: Vec<f32> = match t.dtype {
         GgmlType::BF16 => {
-            let u16s: Vec<u16> = raw.chunks_exact(2).map(|c| u16::from_le_bytes([c[0], c[1]])).collect();
+            let u16s: Vec<u16> = raw
+                .chunks_exact(2)
+                .map(|c| u16::from_le_bytes([c[0], c[1]]))
+                .collect();
             let mut out = vec![0.0f32; u16s.len()];
             bf16_to_f32_batch(&u16s, &mut out);
             out
         }
-        _ => raw.chunks_exact(2).map(|c| {
-            ndarray::hpc::gguf::f16_to_f32(u16::from_le_bytes([c[0], c[1]]))
-        }).collect(),
+        _ => raw
+            .chunks_exact(2)
+            .map(|c| ndarray::hpc::gguf::f16_to_f32(u16::from_le_bytes([c[0], c[1]])))
+            .collect(),
     };
     let stride = n_rows.max(1) / N_SAMPLE.min(n_rows);
     (0..N_SAMPLE.min(n_rows))
@@ -65,18 +75,29 @@ fn load_rows(path: &str) -> Vec<Vec<f32>> {
 }
 
 fn cosine(a: &[f32], b: &[f32]) -> f64 {
-    let mut dot = 0.0f64; let mut na = 0.0f64; let mut nb = 0.0f64;
+    let mut dot = 0.0f64;
+    let mut na = 0.0f64;
+    let mut nb = 0.0f64;
     for i in 0..a.len().min(b.len()) {
-        let x = a[i] as f64; let y = b[i] as f64;
-        dot += x * y; na += x * x; nb += y * y;
+        let x = a[i] as f64;
+        let y = b[i] as f64;
+        dot += x * y;
+        na += x * x;
+        nb += y * y;
     }
     let d = (na * nb).sqrt();
-    if d < 1e-15 { 0.0 } else { dot / d }
+    if d < 1e-15 {
+        0.0
+    } else {
+        dot / d
+    }
 }
 
 fn unit_normalize(row: &[f32]) -> Vec<f32> {
     let norm: f32 = row.iter().map(|x| x * x).sum::<f32>().sqrt();
-    if norm < 1e-12 { return row.to_vec(); }
+    if norm < 1e-12 {
+        return row.to_vec();
+    }
     row.iter().map(|x| x / norm).collect()
 }
 
@@ -89,11 +110,18 @@ fn within_family_nn_recall(rows: &[Vec<f32>], families: &[u8], n_families: usize
         let mut best_j = 0usize;
         let mut best_cos = f64::NEG_INFINITY;
         for j in 0..n {
-            if j == i { continue; }
+            if j == i {
+                continue;
+            }
             let c = cosine(&rows[i], &rows[j]);
-            if c > best_cos { best_cos = c; best_j = j; }
+            if c > best_cos {
+                best_cos = c;
+                best_j = j;
+            }
         }
-        if families[i] == families[best_j] { same_family += 1; }
+        if families[i] == families[best_j] {
+            same_family += 1;
+        }
     }
     same_family as f64 / n as f64
 }
@@ -108,9 +136,17 @@ fn build_hip_families_polarquant(palette: &[Base17], rows: &[Vec<f32>]) -> Vec<u
     let norm_palette: Vec<Base17> = if norm_b17.len() >= PALETTE_K {
         // Use the same indices as the original palette (approximation: the
         // palette centroids are the same rows, just normalized).
-        palette.iter().enumerate().map(|(i, _)| {
-            if i < norm_b17.len() { norm_b17[i].clone() } else { Base17::zero() }
-        }).collect()
+        palette
+            .iter()
+            .enumerate()
+            .map(|(i, _)| {
+                if i < norm_b17.len() {
+                    norm_b17[i].clone()
+                } else {
+                    Base17::zero()
+                }
+            })
+            .collect()
     } else {
         norm_b17.clone()
     };
@@ -119,14 +155,20 @@ fn build_hip_families_polarquant(palette: &[Base17], rows: &[Vec<f32>]) -> Vec<u
 }
 
 fn main() {
-    let path = std::env::args().nth(1).expect("usage: polarquant_hip_probe <model.safetensors>");
+    let path = std::env::args()
+        .nth(1)
+        .expect("usage: polarquant_hip_probe <model.safetensors>");
     println!("═══ PolarQuant HIP Family Probe (P7) ═══");
     println!("  Model: {}", path);
     println!("  Target: {}", TARGET);
 
     let t0 = Instant::now();
     let rows = load_rows(&path);
-    println!("  Loaded {} rows in {:.2}s", rows.len(), t0.elapsed().as_secs_f32());
+    println!(
+        "  Loaded {} rows in {:.2}s",
+        rows.len(),
+        t0.elapsed().as_secs_f32()
+    );
 
     // Build Base17 palette + cache
     let base17_rows: Vec<Base17> = rows.iter().map(|r| Base17::from_f32(r)).collect();
@@ -140,15 +182,23 @@ fn main() {
     let hip_polar = build_hip_families_polarquant(&cache.palette.entries, &rows);
 
     // Assign each row to its nearest centroid → get family label per row
-    let row_families_base17: Vec<u8> = rows.iter().enumerate().map(|(i, _)| {
-        let (ci, _) = cache.nearest(&base17_rows[i]);
-        hip_base17[ci as usize]
-    }).collect();
+    let row_families_base17: Vec<u8> = rows
+        .iter()
+        .enumerate()
+        .map(|(i, _)| {
+            let (ci, _) = cache.nearest(&base17_rows[i]);
+            hip_base17[ci as usize]
+        })
+        .collect();
 
-    let row_families_polar: Vec<u8> = rows.iter().enumerate().map(|(i, _)| {
-        let (ci, _) = cache.nearest(&base17_rows[i]);
-        hip_polar[ci as usize]
-    }).collect();
+    let row_families_polar: Vec<u8> = rows
+        .iter()
+        .enumerate()
+        .map(|(i, _)| {
+            let (ci, _) = cache.nearest(&base17_rows[i]);
+            hip_polar[ci as usize]
+        })
+        .collect();
 
     // Measure within-family NN recall for both
     let recall_base17 = within_family_nn_recall(&rows, &row_families_base17, 16);
@@ -157,22 +207,34 @@ fn main() {
     // Family distribution analysis
     let mut dist_b17 = HashMap::new();
     let mut dist_pol = HashMap::new();
-    for &f in &row_families_base17 { *dist_b17.entry(f).or_insert(0usize) += 1; }
-    for &f in &row_families_polar { *dist_pol.entry(f).or_insert(0usize) += 1; }
+    for &f in &row_families_base17 {
+        *dist_b17.entry(f).or_insert(0usize) += 1;
+    }
+    for &f in &row_families_polar {
+        *dist_pol.entry(f).or_insert(0usize) += 1;
+    }
 
     println!("\n═══ RESULTS ═══");
     println!("  Method                  │ Within-family NN recall │ Families used");
     println!("  ────────────────────────┼─────────────────────────┼──────────────");
-    println!("  Base17 L1 (current)     │ {:>22.4}% │ {}/16",
-        recall_base17 * 100.0, dist_b17.len());
-    println!("  PolarQuant normalized   │ {:>22.4}% │ {}/16",
-        recall_polar * 100.0, dist_pol.len());
+    println!(
+        "  Base17 L1 (current)     │ {:>22.4}% │ {}/16",
+        recall_base17 * 100.0,
+        dist_b17.len()
+    );
+    println!(
+        "  PolarQuant normalized   │ {:>22.4}% │ {}/16",
+        recall_polar * 100.0,
+        dist_pol.len()
+    );
 
     let improvement = recall_polar - recall_base17;
     println!("\n  Delta: {:+.4}%", improvement * 100.0);
 
     if improvement > 0.05 {
-        println!("  ★ PolarQuant families are BETTER — adopt gain-shape split in build_hip_families");
+        println!(
+            "  ★ PolarQuant families are BETTER — adopt gain-shape split in build_hip_families"
+        );
     } else if improvement > 0.0 {
         println!("  ◐ PolarQuant marginal improvement — may not be worth the complexity");
     } else {

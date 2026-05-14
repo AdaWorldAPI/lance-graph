@@ -21,9 +21,15 @@ fn main() {
     // ── Step 1: Load tokenizer ──
     let tokenizer_path = "crates/thinking-engine/data/jina-v5-onnx/tokenizer.json";
     let tokenizer = match tokenizers::Tokenizer::from_file(tokenizer_path) {
-        Ok(t) => { println!("[1] Tokenizer: loaded Qwen3 BPE from {}", tokenizer_path); t }
+        Ok(t) => {
+            println!("[1] Tokenizer: loaded Qwen3 BPE from {}", tokenizer_path);
+            t
+        }
         Err(e) => {
-            eprintln!("FAILED: tokenizer not found at {}. Download with:", tokenizer_path);
+            eprintln!(
+                "FAILED: tokenizer not found at {}. Download with:",
+                tokenizer_path
+            );
             eprintln!("  HF_TOKEN=... curl -o {} https://huggingface.co/jinaai/jina-embeddings-v5-text-small-text-matching/resolve/main/tokenizer.json", tokenizer_path);
             eprintln!("Error: {}", e);
             return;
@@ -31,7 +37,8 @@ fn main() {
     };
 
     // ── Step 2: Calibration corpus (Rumi, Tagore, STS-B, OSINT) ──
-    let pairs = vec![
+    let pairs =
+        vec![
         // TIER 1 — near-identical
         ("The wound is the place where the light enters you",
          "Where there is ruin there is hope for a treasure"),
@@ -65,7 +72,12 @@ fn main() {
 
     println!("[3] Tokenized {} texts:", all_tokens.len());
     for (i, (text, ids)) in all_tokens.iter().enumerate() {
-        println!("  [{:2}] {} tokens: \"{}...\"", i, ids.len(), &text[..text.len().min(50)]);
+        println!(
+            "  [{:2}] {} tokens: \"{}...\"",
+            i,
+            ids.len(),
+            &text[..text.len().min(50)]
+        );
     }
 
     // ── Step 4: Check for safetensors / ONNX model ──
@@ -76,12 +88,27 @@ fn main() {
     let has_onnx = std::path::Path::new(onnx_path).exists();
 
     println!("\n[4] Model files:");
-    println!("  safetensors: {} {}", safetensors_path, if has_safetensors { "EXISTS" } else { "NOT FOUND" });
-    println!("  onnx:        {} {}", onnx_path, if has_onnx { "EXISTS" } else { "NOT FOUND" });
+    println!(
+        "  safetensors: {} {}",
+        safetensors_path,
+        if has_safetensors {
+            "EXISTS"
+        } else {
+            "NOT FOUND"
+        }
+    );
+    println!(
+        "  onnx:        {} {}",
+        onnx_path,
+        if has_onnx { "EXISTS" } else { "NOT FOUND" }
+    );
 
     if !has_safetensors && !has_onnx {
         eprintln!("\nNO MODEL FOUND. Download one of:");
-        eprintln!("  safetensors (for candle): curl -o {} ...", safetensors_path);
+        eprintln!(
+            "  safetensors (for candle): curl -o {} ...",
+            safetensors_path
+        );
         eprintln!("  onnx (for ort/rten):      already downloaded if model.onnx exists");
         eprintln!("\nCannot compute ground truth embeddings without a model.");
         eprintln!("Falling back to token-overlap similarity as PROXY ground truth.\n");
@@ -109,19 +136,30 @@ fn main() {
 
         computed_sims.push(token_sim);
 
-        let label = format!("\"{}...\" ↔ \"{}...\"",
-            &a[..a.len().min(15)], &b[..b.len().min(15)]);
-        println!("  {:>40}  {:>8.3}  {:>8.2}", label, token_sim, expected[idx]);
+        let label = format!(
+            "\"{}...\" ↔ \"{}...\"",
+            &a[..a.len().min(15)],
+            &b[..b.len().min(15)]
+        );
+        println!(
+            "  {:>40}  {:>8.3}  {:>8.2}",
+            label, token_sim, expected[idx]
+        );
     }
 
     // ── Step 6: Spearman ρ ──
     println!("\n[6] Spearman ρ (token-overlap proxy vs expert):");
-    let rho = spearman(&computed_sims, &expected.iter().map(|&x| x as f32).collect::<Vec<_>>());
+    let rho = spearman(
+        &computed_sims,
+        &expected.iter().map(|&x| x as f32).collect::<Vec<_>>(),
+    );
     println!("  ρ = {:.4}", rho);
     if rho > 0.7 {
         println!("  → Token overlap correlates with expert judgment. Proxy is USABLE.");
     } else {
-        println!("  → Token overlap does NOT correlate. Need real embeddings (model forward pass).");
+        println!(
+            "  → Token overlap does NOT correlate. Need real embeddings (model forward pass)."
+        );
     }
 
     // ── Step 7: Compare with baked Reranker lens ──
@@ -137,13 +175,20 @@ fn main() {
         reranker_sims.push(rel);
     }
 
-    let rho_reranker = spearman(&reranker_sims, &expected.iter().map(|&x| x as f32).collect::<Vec<_>>());
+    let rho_reranker = spearman(
+        &reranker_sims,
+        &expected.iter().map(|&x| x as f32).collect::<Vec<_>>(),
+    );
     println!("  Reranker ρ vs expert = {:.4}", rho_reranker);
     let rho_token_vs_reranker = spearman(&computed_sims, &reranker_sims);
-    println!("  Token-overlap ρ vs Reranker = {:.4}", rho_token_vs_reranker);
+    println!(
+        "  Token-overlap ρ vs Reranker = {:.4}",
+        rho_token_vs_reranker
+    );
 
     // ── Step 8: Compare with 5-lane i8 table (if available) ──
-    let i8_path = "crates/thinking-engine/data/jina-reranker-v3-BF16-5lane/distance_table_256x256.i8";
+    let i8_path =
+        "crates/thinking-engine/data/jina-reranker-v3-BF16-5lane/distance_table_256x256.i8";
     if std::path::Path::new(i8_path).exists() {
         println!("\n[8] Real i8 signed table from BF16 stream:");
         let i8_data = std::fs::read(i8_path).unwrap();
@@ -166,12 +211,16 @@ fn main() {
 
 fn spearman(a: &[f32], b: &[f32]) -> f32 {
     let n = a.len().min(b.len());
-    if n < 2 { return 0.0; }
+    if n < 2 {
+        return 0.0;
+    }
     let rank = |v: &[f32]| -> Vec<f32> {
         let mut indexed: Vec<(usize, f32)> = v.iter().enumerate().map(|(i, &x)| (i, x)).collect();
         indexed.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
         let mut ranks = vec![0.0f32; v.len()];
-        for (rank, &(idx, _)) in indexed.iter().enumerate() { ranks[idx] = rank as f32; }
+        for (rank, &(idx, _)) in indexed.iter().enumerate() {
+            ranks[idx] = rank as f32;
+        }
         ranks
     };
     let ra = rank(a);
@@ -189,5 +238,9 @@ fn spearman(a: &[f32], b: &[f32]) -> f32 {
         db += y * y;
     }
     let den = (da * db).sqrt();
-    if den > 1e-10 { num / den } else { 0.0 }
+    if den > 1e-10 {
+        num / den
+    } else {
+        0.0
+    }
 }

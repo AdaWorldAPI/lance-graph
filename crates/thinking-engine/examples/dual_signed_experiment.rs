@@ -9,10 +9,10 @@
 //!
 //! Run: cargo run --example dual_signed_experiment
 
-use thinking_engine::jina_lens::JINA_HDR_TABLE;
-use thinking_engine::reranker_lens::RERANKER_HDR_TABLE;
 use thinking_engine::bge_m3_lens::BGE_M3_HDR_TABLE;
 use thinking_engine::dual_engine::DualEngine;
+use thinking_engine::jina_lens::JINA_HDR_TABLE;
+use thinking_engine::reranker_lens::RERANKER_HDR_TABLE;
 use thinking_engine::signed_engine::SignedThinkingEngine;
 
 fn run_lens_experiment(name: &str, table: &[u8], cos_range: &str) {
@@ -21,9 +21,7 @@ fn run_lens_experiment(name: &str, table: &[u8], cos_range: &str) {
     println!("===============================================================");
 
     // Sign distribution
-    let signed_table: Vec<i8> = table.iter()
-        .map(|&v| (v as i16 - 128) as i8)
-        .collect();
+    let signed_table: Vec<i8> = table.iter().map(|&v| (v as i16 - 128) as i8).collect();
     let stats = SignedThinkingEngine::new(signed_table);
     println!("{}", stats.sign_stats());
     drop(stats);
@@ -61,16 +59,31 @@ fn run_lens_experiment(name: &str, table: &[u8], cos_range: &str) {
 
     // Per-lens verdict
     let avg_agree = (r1.agreement + r2.agreement + r3.agreement + r4.agreement) / 4.0;
-    let avg_inhib = (r1.total_inhibitions + r2.total_inhibitions
-        + r3.total_inhibitions + r4.total_inhibitions) as f32 / 4.0;
-    let faster = if (r1.convergence_signed + r2.convergence_signed
-        + r3.convergence_signed + r4.convergence_signed)
-        < (r1.convergence_unsigned + r2.convergence_unsigned
-        + r3.convergence_unsigned + r4.convergence_unsigned)
-    { "SIGNED" } else { "UNSIGNED" };
+    let avg_inhib =
+        (r1.total_inhibitions + r2.total_inhibitions + r3.total_inhibitions + r4.total_inhibitions)
+            as f32
+            / 4.0;
+    let faster = if (r1.convergence_signed
+        + r2.convergence_signed
+        + r3.convergence_signed
+        + r4.convergence_signed)
+        < (r1.convergence_unsigned
+            + r2.convergence_unsigned
+            + r3.convergence_unsigned
+            + r4.convergence_unsigned)
+    {
+        "SIGNED"
+    } else {
+        "UNSIGNED"
+    };
 
-    println!("\n  >> {} avg agreement: {:.0}%, avg inhibitions: {:.0}, faster: {}",
-        name, avg_agree * 100.0, avg_inhib, faster);
+    println!(
+        "\n  >> {} avg agreement: {:.0}%, avg inhibitions: {:.0}, faster: {}",
+        name,
+        avg_agree * 100.0,
+        avg_inhib,
+        faster
+    );
     println!();
 }
 
@@ -82,11 +95,7 @@ fn main() {
     println!("################################################################");
     println!();
 
-    run_lens_experiment(
-        "Jina v3",
-        JINA_HDR_TABLE,
-        "cos[-0.067, 0.234]",
-    );
+    run_lens_experiment("Jina v3", JINA_HDR_TABLE, "cos[-0.067, 0.234]");
 
     run_lens_experiment(
         "Jina Reranker v3 BF16",
@@ -94,11 +103,7 @@ fn main() {
         "cos[-0.886, +0.826] WIDEST",
     );
 
-    run_lens_experiment(
-        "BGE-M3",
-        BGE_M3_HDR_TABLE,
-        "multilingual baseline",
-    );
+    run_lens_experiment("BGE-M3", BGE_M3_HDR_TABLE, "multilingual baseline");
 
     println!("################################################################");
     println!("#  FINAL VERDICT                                               #");

@@ -2,32 +2,32 @@
 // against ASCII identifiers like `o` in unrelated modules.
 #![allow(confusable_idents)]
 // Stylistic lints suppressed at crate level — intentional patterns throughout holograph:
-#![allow(clippy::collapsible_if)]           // Nested if-let guards read more clearly expanded
-#![allow(clippy::unnecessary_cast)]         // Explicit casts document intended bit-width at pack/unpack boundaries
-#![allow(clippy::redundant_closure)]        // Explicit closures clarify generic map/filter intent
-#![allow(clippy::single_char_add_str)]      // push_str("\n") is consistent with other push_str calls
-#![allow(clippy::map_entry)]                // contains_key+insert is clearer for conditional insertion with side-effects
-#![allow(clippy::unnecessary_map_or)]       // map_or(false, ...) reads more explicitly than is_some_and
-#![allow(clippy::manual_div_ceil)]          // Explicit (n + d - 1) / d is clearer at bitpack boundaries
-#![allow(clippy::manual_is_multiple_of)]    // Explicit n % d == 0 is more widely understood
-#![allow(clippy::borrowed_box)]             // Box<dyn ...> borrows are used deliberately in iterator impls
-#![allow(clippy::needless_range_loop)]      // Index loops used when multiple arrays are indexed in parallel
-#![allow(clippy::large_enum_variant)]       // Variant size differences are acceptable for infrequently-cloned enums
-#![allow(clippy::too_many_arguments)]       // RL/cascade functions naturally have many parameters
-#![allow(clippy::result_large_err)]         // HdrError is a string-carrying enum; boxing adds indirection
-#![allow(clippy::derivable_impls)]          // Explicit Default impls document the chosen default variant
-#![allow(non_snake_case)]                    // GraphBLAS naming conventions use CamelCase modules
-#![allow(clippy::manual_clamp)]             // Explicit min/max chains are easier to read at call site
-#![allow(clippy::let_and_return)]           // Named return bindings document intent before return
-#![allow(clippy::manual_range_contains)]    // Explicit lo <= x && x <= hi reads more clearly
+#![allow(clippy::collapsible_if)] // Nested if-let guards read more clearly expanded
+#![allow(clippy::unnecessary_cast)] // Explicit casts document intended bit-width at pack/unpack boundaries
+#![allow(clippy::redundant_closure)] // Explicit closures clarify generic map/filter intent
+#![allow(clippy::single_char_add_str)] // push_str("\n") is consistent with other push_str calls
+#![allow(clippy::map_entry)] // contains_key+insert is clearer for conditional insertion with side-effects
+#![allow(clippy::unnecessary_map_or)] // map_or(false, ...) reads more explicitly than is_some_and
+#![allow(clippy::manual_div_ceil)] // Explicit (n + d - 1) / d is clearer at bitpack boundaries
+#![allow(clippy::manual_is_multiple_of)] // Explicit n % d == 0 is more widely understood
+#![allow(clippy::borrowed_box)] // Box<dyn ...> borrows are used deliberately in iterator impls
+#![allow(clippy::needless_range_loop)] // Index loops used when multiple arrays are indexed in parallel
+#![allow(clippy::large_enum_variant)] // Variant size differences are acceptable for infrequently-cloned enums
+#![allow(clippy::too_many_arguments)] // RL/cascade functions naturally have many parameters
+#![allow(clippy::result_large_err)] // HdrError is a string-carrying enum; boxing adds indirection
+#![allow(clippy::derivable_impls)] // Explicit Default impls document the chosen default variant
+#![allow(non_snake_case)] // GraphBLAS naming conventions use CamelCase modules
+#![allow(clippy::manual_clamp)] // Explicit min/max chains are easier to read at call site
+#![allow(clippy::let_and_return)] // Named return bindings document intent before return
+#![allow(clippy::manual_range_contains)] // Explicit lo <= x && x <= hi reads more clearly
 #![allow(clippy::needless_borrows_for_generic_args)] // Explicit &path borrows document borrow intent
-#![allow(clippy::manual_ok_or)]             // Explicit match on Ok/Err is clearer for error context
-#![allow(clippy::get_first)]               // .get(0) is consistent with .get(n) at other indices
-#![allow(clippy::should_implement_trait)]   // next() methods on cursors intentionally differ from Iterator
-#![allow(clippy::manual_memcpy)]            // Explicit loops are used when partial-range copies are interleaved
-#![allow(dropping_references)]               // Explicit drop() calls document intentional scope termination
-#![allow(clippy::needless_lifetimes)]       // Explicit lifetimes document borrow relationships
-#![allow(overlapping_range_endpoints)]       // Overlapping match ranges use first-match semantics intentionally
+#![allow(clippy::manual_ok_or)] // Explicit match on Ok/Err is clearer for error context
+#![allow(clippy::get_first)] // .get(0) is consistent with .get(n) at other indices
+#![allow(clippy::should_implement_trait)] // next() methods on cursors intentionally differ from Iterator
+#![allow(clippy::manual_memcpy)] // Explicit loops are used when partial-range copies are interleaved
+#![allow(dropping_references)] // Explicit drop() calls document intentional scope termination
+#![allow(clippy::needless_lifetimes)] // Explicit lifetimes document borrow relationships
+#![allow(overlapping_range_endpoints)] // Overlapping match ranges use first-match semantics intentionally
 
 //! # Holograph — 3D Holographic HDR Bitpacked Vector Search
 //!
@@ -91,13 +91,13 @@ pub mod width_32k;
 // === Core primitives ===
 pub mod bitpack;
 pub mod hamming;
-pub mod resonance;
 pub mod hdr_cascade;
+pub mod resonance;
 
 // === Graph foundations ===
+pub mod dn_sparse;
 pub mod dntree;
 pub mod nntree;
-pub mod dn_sparse;
 pub mod storage_transport;
 
 // === Encoding & representation ===
@@ -105,8 +105,8 @@ pub mod representation;
 pub mod slot_encoding;
 
 // === AI/ML extensions ===
-pub mod epiphany;
 pub mod crystal_dejavu;
+pub mod epiphany;
 pub mod neural_tree;
 pub mod rl_ops;
 pub mod sentence_crystal;
@@ -120,9 +120,9 @@ pub mod graphblas;
 #[cfg(feature = "datafusion-storage")]
 pub mod mindmap;
 #[cfg(feature = "datafusion-storage")]
-pub mod storage;
-#[cfg(feature = "datafusion-storage")]
 pub mod query;
+#[cfg(feature = "datafusion-storage")]
+pub mod storage;
 
 // === FFI (gated) ===
 #[cfg(feature = "ffi")]
@@ -133,66 +133,60 @@ pub mod ffi;
 // ========================================================================
 
 pub use bitpack::{
-    BitpackedVector, VectorRef, VectorSlice,
-    VECTOR_BITS, VECTOR_WORDS, VECTOR_BYTES,
-    PADDED_VECTOR_BYTES, PADDED_VECTOR_WORDS,
-    xor_ref,
+    BitpackedVector, PADDED_VECTOR_BYTES, PADDED_VECTOR_WORDS, VECTOR_BITS, VECTOR_BYTES,
+    VECTOR_WORDS, VectorRef, VectorSlice, xor_ref,
 };
 pub use hamming::{HammingEngine, StackedPopcount, hamming_distance_ref};
-pub use resonance::{VectorField, Resonator, BoundEdge};
 pub use hdr_cascade::{HdrCascade, MexicanHat, SearchResult};
+pub use resonance::{BoundEdge, Resonator, VectorField};
 
 // ========================================================================
 // Re-exports: Graph
 // ========================================================================
 
-pub use dntree::{TreeAddr, DnTree, DnNode, DnEdge, CogVerb, VerbCategory};
-pub use nntree::{NnTree, NnTreeConfig, SparseNnTree};
 pub use dn_sparse::{
-    PackedDn, DnGraph, DnNodeStore, DnCsr, DeltaDnMatrix,
-    NodeSlot, EdgeDescriptor, hierarchical_fingerprint, xor_bind_fingerprint,
-    DnSemiring, BooleanBfs, HdrPathBind, HammingMinPlus, PageRankSemiring, ResonanceMax,
-    CascadedHammingMinPlus, CascadedResonanceMax,
+    BooleanBfs, CascadedHammingMinPlus, CascadedResonanceMax, DeltaDnMatrix, DnCsr, DnGraph,
+    DnNodeStore, DnSemiring, EdgeDescriptor, HammingMinPlus, HdrPathBind, NodeSlot, PackedDn,
+    PageRankSemiring, ResonanceMax, hierarchical_fingerprint, xor_bind_fingerprint,
 };
+pub use dntree::{CogVerb, DnEdge, DnNode, DnTree, TreeAddr, VerbCategory};
+pub use nntree::{NnTree, NnTreeConfig, SparseNnTree};
 
 // ========================================================================
 // Re-exports: Encoding
 // ========================================================================
 
-pub use representation::{GradedVector, StackedBinary, SparseHdr};
-pub use slot_encoding::{SlotEncodedNode, SlotKeys, NodeBuilder, StringEncoder};
+pub use representation::{GradedVector, SparseHdr, StackedBinary};
+pub use slot_encoding::{NodeBuilder, SlotEncodedNode, SlotKeys, StringEncoder};
 
 // ========================================================================
 // Re-exports: AI/ML
 // ========================================================================
 
-pub use epiphany::{EpiphanyEngine, EpiphanyZone, CentroidStats, ResonanceCalibrator};
 pub use crystal_dejavu::{
-    SentenceCrystal, Coord5D, CrystalCell,
-    DejaVuRL, DejaVuObservation, SigmaBand,
-    TruthMarker, SuperpositionCleaner, CrystalDejaVuTruth,
+    Coord5D, CrystalCell, CrystalDejaVuTruth, DejaVuObservation, DejaVuRL, SentenceCrystal,
+    SigmaBand, SuperpositionCleaner, TruthMarker,
 };
+pub use epiphany::{CentroidStats, EpiphanyEngine, EpiphanyZone, ResonanceCalibrator};
 pub use neural_tree::{
-    HierarchicalNeuralTree, NeuralTreeNode, NeuralTreeConfig, NeuralProfile,
-    NeuralSearchResult, NeuralTreeStats, CrystalAttention, NeuralLayer, NeuralBlock,
-    NUM_BLOCKS, WORDS_PER_BLOCK, BITS_PER_BLOCK,
+    BITS_PER_BLOCK, CrystalAttention, HierarchicalNeuralTree, NUM_BLOCKS, NeuralBlock, NeuralLayer,
+    NeuralProfile, NeuralSearchResult, NeuralTreeConfig, NeuralTreeNode, NeuralTreeStats,
+    WORDS_PER_BLOCK,
 };
 pub use rl_ops::{
-    RewardSignal, HebbianMatrix, PolicyGradient, RewardTracker, RlEngine, RlStats,
-    SearchState, SearchAction, Intervention, Counterfactual, CausalRlAgent, CausalChainLink,
-    StdpRule, PlasticityEngine,
+    CausalChainLink, CausalRlAgent, Counterfactual, HebbianMatrix, Intervention, PlasticityEngine,
+    PolicyGradient, RewardSignal, RewardTracker, RlEngine, RlStats, SearchAction, SearchState,
+    StdpRule,
 };
-pub use sentence_crystal::{
-    SemanticCrystal, SemanticEncoding, LearningCell, LearningCrystal,
-};
+pub use sentence_crystal::{LearningCell, LearningCrystal, SemanticCrystal, SemanticEncoding};
 
 // ========================================================================
 // Re-exports: Navigator
 // ========================================================================
 
-pub use navigator::{Navigator, NavResult, CypherArg, CypherYield};
 #[cfg(feature = "datafusion-storage")]
 pub use navigator::ZeroCopyCursor;
+pub use navigator::{CypherArg, CypherYield, NavResult, Navigator};
 
 // ========================================================================
 // Re-exports: DataFusion-gated
@@ -203,7 +197,7 @@ pub use graphblas::{GrBMatrix, GrBVector, HdrSemiring, Semiring};
 #[cfg(feature = "datafusion-storage")]
 pub use mindmap::{GrBMindmap, MindmapBuilder, MindmapNode, NodeType};
 #[cfg(feature = "datafusion-storage")]
-pub use storage::{ArrowStore, VectorBatch, ArrowBatchSearch, BatchSearchResult};
+pub use storage::{ArrowBatchSearch, ArrowStore, BatchSearchResult, VectorBatch};
 
 // ========================================================================
 // Error types

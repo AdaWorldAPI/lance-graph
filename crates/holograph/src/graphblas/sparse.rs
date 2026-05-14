@@ -3,18 +3,17 @@
 //! Provides COO (Coordinate) and CSR (Compressed Sparse Row) storage
 //! backed by Arrow arrays for zero-copy interoperability.
 
-use std::sync::Arc;
 use arrow::array::{
-    UInt64Array, UInt64Builder, FixedSizeBinaryArray, FixedSizeBinaryBuilder,
-    ArrayRef, Array,
+    Array, ArrayRef, FixedSizeBinaryArray, FixedSizeBinaryBuilder, UInt64Array, UInt64Builder,
 };
 use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
+use std::sync::Arc;
 
-#[allow(unused_imports)] // VECTOR_BYTES reserved for Arrow serialization path
-use crate::bitpack::{BitpackedVector, VECTOR_BYTES, PADDED_VECTOR_BYTES};
-use crate::{HdrError, Result};
 use super::types::{GrBIndex, HdrScalar};
+#[allow(unused_imports)] // VECTOR_BYTES reserved for Arrow serialization path
+use crate::bitpack::{BitpackedVector, PADDED_VECTOR_BYTES, VECTOR_BYTES};
+use crate::{HdrError, Result};
 
 /// Sparse storage format
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -149,11 +148,9 @@ impl CooStorage {
         let mut indices: Vec<usize> = (0..self.nnz()).collect();
 
         // Sort indices by (row, col)
-        indices.sort_by(|&a, &b| {
-            match self.rows[a].cmp(&self.rows[b]) {
-                std::cmp::Ordering::Equal => self.cols[a].cmp(&self.cols[b]),
-                other => other,
-            }
+        indices.sort_by(|&a, &b| match self.rows[a].cmp(&self.rows[b]) {
+            std::cmp::Ordering::Equal => self.cols[a].cmp(&self.cols[b]),
+            other => other,
         });
 
         // Reorder arrays
@@ -211,17 +208,20 @@ impl CooStorage {
     pub fn to_arrow(&self) -> Result<RecordBatch> {
         let mut row_builder = UInt64Builder::with_capacity(self.nnz());
         let mut col_builder = UInt64Builder::with_capacity(self.nnz());
-        let mut val_builder = FixedSizeBinaryBuilder::with_capacity(self.nnz(), PADDED_VECTOR_BYTES as i32);
+        let mut val_builder =
+            FixedSizeBinaryBuilder::with_capacity(self.nnz(), PADDED_VECTOR_BYTES as i32);
 
         for i in 0..self.nnz() {
             row_builder.append_value(self.rows[i]);
             col_builder.append_value(self.cols[i]);
 
             if let HdrScalar::Vector(v) = &self.values[i] {
-                val_builder.append_value(&v.to_padded_bytes())
+                val_builder
+                    .append_value(&v.to_padded_bytes())
                     .map_err(|e| HdrError::Storage(e.to_string()))?;
             } else {
-                val_builder.append_value(&vec![0u8; PADDED_VECTOR_BYTES])
+                val_builder
+                    .append_value(&vec![0u8; PADDED_VECTOR_BYTES])
                     .map_err(|e| HdrError::Storage(e.to_string()))?;
             }
         }
@@ -229,7 +229,11 @@ impl CooStorage {
         let schema = Arc::new(Schema::new(vec![
             Field::new("row", DataType::UInt64, false),
             Field::new("col", DataType::UInt64, false),
-            Field::new("value", DataType::FixedSizeBinary(PADDED_VECTOR_BYTES as i32), false),
+            Field::new(
+                "value",
+                DataType::FixedSizeBinary(PADDED_VECTOR_BYTES as i32),
+                false,
+            ),
         ]));
 
         RecordBatch::try_new(
@@ -239,22 +243,26 @@ impl CooStorage {
                 Arc::new(col_builder.finish()) as ArrayRef,
                 Arc::new(val_builder.finish()) as ArrayRef,
             ],
-        ).map_err(|e| HdrError::Storage(e.to_string()))
+        )
+        .map_err(|e| HdrError::Storage(e.to_string()))
     }
 
     /// Create from Arrow RecordBatch
     pub fn from_arrow(batch: &RecordBatch, nrows: GrBIndex, ncols: GrBIndex) -> Result<Self> {
-        let rows = batch.column(0)
+        let rows = batch
+            .column(0)
             .as_any()
             .downcast_ref::<UInt64Array>()
             .ok_or_else(|| HdrError::Storage("Invalid row column".into()))?;
 
-        let cols = batch.column(1)
+        let cols = batch
+            .column(1)
             .as_any()
             .downcast_ref::<UInt64Array>()
             .ok_or_else(|| HdrError::Storage("Invalid col column".into()))?;
 
-        let values = batch.column(2)
+        let values = batch
+            .column(2)
             .as_any()
             .downcast_ref::<FixedSizeBinaryArray>()
             .ok_or_else(|| HdrError::Storage("Invalid value column".into()))?;
@@ -339,7 +347,8 @@ impl CsrStorage {
         let start = self.row_ptr.get(row as usize).copied().unwrap_or(0) as usize;
         let end = self.row_ptr.get(row as usize + 1).copied().unwrap_or(0) as usize;
 
-        self.col_idx[start..end].iter()
+        self.col_idx[start..end]
+            .iter()
             .zip(self.values[start..end].iter())
             .map(|(&col, val)| (col, val))
     }
@@ -453,13 +462,18 @@ impl SparseVec {
 
     /// Iterator over (index, value) pairs
     pub fn iter(&self) -> impl Iterator<Item = (GrBIndex, &HdrScalar)> {
-        self.indices.iter().zip(self.values.iter()).map(|(&i, v)| (i, v))
+        self.indices
+            .iter()
+            .zip(self.values.iter())
+            .map(|(&i, v)| (i, v))
     }
 
     /// Sort by index
     #[allow(dead_code)] // future wiring: pre-sort for CSR conversion
     pub fn sort(&mut self) {
-        let mut pairs: Vec<_> = self.indices.iter()
+        let mut pairs: Vec<_> = self
+            .indices
+            .iter()
             .zip(self.values.iter())
             .map(|(&i, v)| (i, v.clone()))
             .collect();

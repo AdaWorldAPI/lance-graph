@@ -4,17 +4,23 @@
 //! Simulates autoregressive inference: tokens accumulate in KV cache,
 //! each new token queries all cached K entries via cascade.
 
-use bgz_tensor::turboquant_kv::{TurboQuantKvCache, TurboQuantEntry};
+use bgz_tensor::turboquant_kv::{TurboQuantEntry, TurboQuantKvCache};
 use ndarray::hpc::heel_f64x8::cosine_f32_to_f64_simd;
 
 use std::time::Instant;
 
 fn make_vec(seed: usize, dim: usize) -> Vec<f32> {
-    (0..dim).map(|d| ((d * 97 + seed * 31 + 17) as f64 * 0.618).sin() as f32 * 0.1).collect()
+    (0..dim)
+        .map(|d| ((d * 97 + seed * 31 + 17) as f64 * 0.618).sin() as f32 * 0.1)
+        .collect()
 }
 
 fn argmax_f64(v: &[f64]) -> usize {
-    v.iter().enumerate().max_by(|a, b| a.1.partial_cmp(b.1).unwrap()).map(|(i, _)| i).unwrap_or(0)
+    v.iter()
+        .enumerate()
+        .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+        .map(|(i, _)| i)
+        .unwrap_or(0)
 }
 
 fn main() {
@@ -24,7 +30,9 @@ fn main() {
     let dims = [256, 512, 1024];
     let seq_lens = [64, 256, 512, 1024];
 
-    println!("| Dim | SeqLen | BF16 KV | TQ KV | Ratio | Brute ms | Cascade ms | Speedup | Argmax |");
+    println!(
+        "| Dim | SeqLen | BF16 KV | TQ KV | Ratio | Brute ms | Cascade ms | Speedup | Argmax |"
+    );
     println!("|---|---|---|---|---|---|---|---|---|");
 
     for &dim in &dims {
@@ -64,20 +72,30 @@ fn main() {
             }
             let cascade_us = t_cascade.elapsed().as_micros();
 
-            let argmax_match = brute_results.iter().zip(cascade_results.iter())
-                .filter(|(a, b)| a == b).count();
+            let argmax_match = brute_results
+                .iter()
+                .zip(cascade_results.iter())
+                .filter(|(a, b)| a == b)
+                .count();
             let match_pct = argmax_match as f64 / n_queries as f64 * 100.0;
-            let speedup = if cascade_us > 0 { brute_us as f64 / cascade_us as f64 } else { 0.0 };
+            let speedup = if cascade_us > 0 {
+                brute_us as f64 / cascade_us as f64
+            } else {
+                0.0
+            };
 
-            println!("| {} | {} | {} KB | {} KB | {:.1}x | {:.2} | {:.2} | {:.1}x | {:.0}% |",
-                dim, seq_len,
+            println!(
+                "| {} | {} | {} KB | {} KB | {:.1}x | {:.2} | {:.2} | {:.1}x | {:.0}% |",
+                dim,
+                seq_len,
                 stats.bf16_bytes / 1024,
                 stats.compressed_bytes / 1024,
                 stats.compression_ratio,
                 brute_us as f64 / 1000.0,
                 cascade_us as f64 / 1000.0,
                 speedup,
-                match_pct);
+                match_pct
+            );
         }
     }
 

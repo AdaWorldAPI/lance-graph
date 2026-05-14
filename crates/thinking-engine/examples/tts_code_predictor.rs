@@ -22,17 +22,28 @@ const INTER: usize = 3072;
 const N_LAYERS: usize = 5;
 const CODEBOOK_SIZE: usize = 2048;
 
-fn read_tensor(reader: &mut BufReader<File>, header: &ndarray::hpc::gguf::GgufFile, name: &str) -> Vec<f32> {
+fn read_tensor(
+    reader: &mut BufReader<File>,
+    header: &ndarray::hpc::gguf::GgufFile,
+    name: &str,
+) -> Vec<f32> {
     let tensor = match header.tensors.iter().find(|t| t.name == name) {
         Some(t) => t,
-        None => { eprintln!("MISSING: {}", name); return vec![]; }
+        None => {
+            eprintln!("MISSING: {}", name);
+            return vec![];
+        }
     };
     let n: usize = tensor.dimensions.iter().map(|&d| d as usize).product();
-    reader.seek(SeekFrom::Start(header.tensor_data_offset + tensor.offset)).unwrap();
+    reader
+        .seek(SeekFrom::Start(header.tensor_data_offset + tensor.offset))
+        .unwrap();
     // BF16
     let mut raw = vec![0u8; n * 2];
     reader.read_exact(&mut raw).unwrap();
-    raw.chunks_exact(2).map(|c| f32::from_bits((u16::from_le_bytes([c[0], c[1]]) as u32) << 16)).collect()
+    raw.chunks_exact(2)
+        .map(|c| f32::from_bits((u16::from_le_bytes([c[0], c[1]]) as u32) << 16))
+        .collect()
 }
 
 fn rms_norm(x: &mut [f32], weight: &[f32], dim: usize) {
@@ -47,7 +58,9 @@ fn rms_norm(x: &mut [f32], weight: &[f32], dim: usize) {
     }
 }
 
-fn silu(x: f32) -> f32 { x / (1.0 + (-x).exp()) }
+fn silu(x: f32) -> f32 {
+    x / (1.0 + (-x).exp())
+}
 
 fn matmul(a: &[f32], b: &[f32], m: usize, k: usize, n: usize) -> Vec<f32> {
     // a: [m, k], b: [n, k] (transposed — weight matrices are [out, in])
@@ -67,9 +80,14 @@ fn matmul(a: &[f32], b: &[f32], m: usize, k: usize, n: usize) -> Vec<f32> {
 fn softmax(x: &mut [f32]) {
     let max = x.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
     let mut sum = 0.0f32;
-    for v in x.iter_mut() { *v = (*v - max).exp(); sum += *v; }
+    for v in x.iter_mut() {
+        *v = (*v - max).exp();
+        sum += *v;
+    }
     let inv = 1.0 / sum.max(1e-10);
-    for v in x.iter_mut() { *v *= inv; }
+    for v in x.iter_mut() {
+        *v *= inv;
+    }
 }
 
 fn main() {
@@ -89,8 +107,11 @@ fn main() {
     let t0 = Instant::now();
     let mut codec_embeds: Vec<Vec<f32>> = Vec::new();
     for g in 0..15 {
-        let ce = read_tensor(&mut reader, &header,
-            &format!("talker.code_predictor.model.codec_embedding.{}.weight", g));
+        let ce = read_tensor(
+            &mut reader,
+            &header,
+            &format!("talker.code_predictor.model.codec_embedding.{}.weight", g),
+        );
         codec_embeds.push(ce);
     }
     println!("[3] Loaded 15 codec_embeddings in {:?}", t0.elapsed());
@@ -110,8 +131,10 @@ fn main() {
             }
         }
     }
-    println!("    Initial hidden RMS: {:.4} (sum of 15 embeddings)",
-        (hidden.iter().map(|v| v * v).sum::<f32>() / hidden.len() as f32).sqrt());
+    println!(
+        "    Initial hidden RMS: {:.4} (sum of 15 embeddings)",
+        (hidden.iter().map(|v| v * v).sum::<f32>() / hidden.len() as f32).sqrt()
+    );
 
     // Run 5 transformer layers
     for layer in 0..N_LAYERS {
@@ -119,15 +142,51 @@ fn main() {
         let prefix = format!("talker.code_predictor.model.layers.{}", layer);
 
         // Load weights
-        let ln1_w = read_tensor(&mut reader, &header, &format!("{}.input_layernorm.weight", prefix));
-        let q_w = read_tensor(&mut reader, &header, &format!("{}.self_attn.q_proj.weight", prefix));
-        let k_w = read_tensor(&mut reader, &header, &format!("{}.self_attn.k_proj.weight", prefix));
-        let v_w = read_tensor(&mut reader, &header, &format!("{}.self_attn.v_proj.weight", prefix));
-        let o_w = read_tensor(&mut reader, &header, &format!("{}.self_attn.o_proj.weight", prefix));
-        let ln2_w = read_tensor(&mut reader, &header, &format!("{}.post_attention_layernorm.weight", prefix));
-        let gate_w = read_tensor(&mut reader, &header, &format!("{}.mlp.gate_proj.weight", prefix));
-        let up_w = read_tensor(&mut reader, &header, &format!("{}.mlp.up_proj.weight", prefix));
-        let down_w = read_tensor(&mut reader, &header, &format!("{}.mlp.down_proj.weight", prefix));
+        let ln1_w = read_tensor(
+            &mut reader,
+            &header,
+            &format!("{}.input_layernorm.weight", prefix),
+        );
+        let q_w = read_tensor(
+            &mut reader,
+            &header,
+            &format!("{}.self_attn.q_proj.weight", prefix),
+        );
+        let k_w = read_tensor(
+            &mut reader,
+            &header,
+            &format!("{}.self_attn.k_proj.weight", prefix),
+        );
+        let v_w = read_tensor(
+            &mut reader,
+            &header,
+            &format!("{}.self_attn.v_proj.weight", prefix),
+        );
+        let o_w = read_tensor(
+            &mut reader,
+            &header,
+            &format!("{}.self_attn.o_proj.weight", prefix),
+        );
+        let ln2_w = read_tensor(
+            &mut reader,
+            &header,
+            &format!("{}.post_attention_layernorm.weight", prefix),
+        );
+        let gate_w = read_tensor(
+            &mut reader,
+            &header,
+            &format!("{}.mlp.gate_proj.weight", prefix),
+        );
+        let up_w = read_tensor(
+            &mut reader,
+            &header,
+            &format!("{}.mlp.up_proj.weight", prefix),
+        );
+        let down_w = read_tensor(
+            &mut reader,
+            &header,
+            &format!("{}.mlp.down_proj.weight", prefix),
+        );
 
         // Pre-attention RMSNorm
         let mut normed = hidden.clone();
@@ -148,11 +207,12 @@ fn main() {
             // Compute attention scores for this head
             let mut scores = vec![0.0f32; n_frames * n_frames];
             for i in 0..n_frames {
-                for j in 0..=i { // causal mask
+                for j in 0..=i {
+                    // causal mask
                     let mut dot = 0.0f32;
                     for d in 0..HEAD_DIM {
                         dot += q[i * N_HEADS * HEAD_DIM + h * HEAD_DIM + d]
-                             * k[j * N_KV_HEADS * HEAD_DIM + kv_h * HEAD_DIM + d];
+                            * k[j * N_KV_HEADS * HEAD_DIM + kv_h * HEAD_DIM + d];
                     }
                     scores[i * n_frames + j] = dot / (HEAD_DIM as f32).sqrt();
                 }
@@ -170,7 +230,7 @@ fn main() {
                     let mut sum = 0.0f32;
                     for j in 0..n_frames {
                         sum += scores[i * n_frames + j]
-                             * v[j * N_KV_HEADS * HEAD_DIM + kv_h * HEAD_DIM + d];
+                            * v[j * N_KV_HEADS * HEAD_DIM + kv_h * HEAD_DIM + d];
                     }
                     attn_out[i * N_HEADS * HEAD_DIM + h * HEAD_DIM + d] = sum;
                 }
@@ -181,7 +241,9 @@ fn main() {
         let o_out = matmul(&attn_out, &o_w, n_frames, N_HEADS * HEAD_DIM, HIDDEN);
 
         // Residual
-        for i in 0..hidden.len() { hidden[i] += o_out.get(i).copied().unwrap_or(0.0); }
+        for i in 0..hidden.len() {
+            hidden[i] += o_out.get(i).copied().unwrap_or(0.0);
+        }
 
         // Post-attention RMSNorm
         let mut normed2 = hidden.clone();
@@ -197,7 +259,9 @@ fn main() {
         let mlp_out = matmul(&mlp_hidden, &down_w, n_frames, INTER, HIDDEN);
 
         // Residual
-        for i in 0..hidden.len() { hidden[i] += mlp_out.get(i).copied().unwrap_or(0.0); }
+        for i in 0..hidden.len() {
+            hidden[i] += mlp_out.get(i).copied().unwrap_or(0.0);
+        }
 
         let rms = (hidden.iter().map(|v| v * v).sum::<f32>() / hidden.len() as f32).sqrt();
         println!("    Layer {}: RMS={:.4} ({:?})", layer, rms, t0.elapsed());
@@ -208,9 +272,14 @@ fn main() {
     let mut all_tokens: Vec<u8> = Vec::new(); // [n_frames × 16] — u8 for file compat
 
     for g in 0..15 {
-        let lm = read_tensor(&mut reader, &header,
-            &format!("talker.code_predictor.lm_head.{}.weight", g));
-        if lm.is_empty() { continue; }
+        let lm = read_tensor(
+            &mut reader,
+            &header,
+            &format!("talker.code_predictor.lm_head.{}.weight", g),
+        );
+        if lm.is_empty() {
+            continue;
+        }
 
         for f in 0..n_frames {
             let h = &hidden[f * HIDDEN..(f + 1) * HIDDEN];
@@ -221,7 +290,10 @@ fn main() {
                 for d in 0..HIDDEN {
                     logit += h[d] * lm[tok * HIDDEN + d];
                 }
-                if logit > best_logit { best_logit = logit; best = tok as u16; }
+                if logit > best_logit {
+                    best_logit = logit;
+                    best = tok as u16;
+                }
             }
             all_tokens.push((best % 256) as u8);
         }
@@ -231,12 +303,21 @@ fn main() {
         all_tokens.push(0);
     }
 
-    println!("    Frame 0 tokens: {:?}",
-        &all_tokens[..16.min(all_tokens.len())].iter().map(|&t| t as u16).collect::<Vec<_>>());
+    println!(
+        "    Frame 0 tokens: {:?}",
+        &all_tokens[..16.min(all_tokens.len())]
+            .iter()
+            .map(|&t| t as u16)
+            .collect::<Vec<_>>()
+    );
 
     // Save real codec tokens
     std::fs::write(OUTPUT_PATH, &all_tokens).expect("write tokens");
-    println!("[5] Saved {} real codec tokens to {}", all_tokens.len(), OUTPUT_PATH);
+    println!(
+        "[5] Saved {} real codec tokens to {}",
+        all_tokens.len(),
+        OUTPUT_PATH
+    );
 
     println!("\n═══ DONE — run tts_decode_speech with real_codec_tokens.bin ═══");
 }

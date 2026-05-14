@@ -11,9 +11,9 @@
 //! }
 //! ```
 
-use crate::cognitive_stack::{ThinkingStyle, GateState};
-use crate::meaning_axes::{HdrResonance, Archetype, Viscosity};
+use crate::cognitive_stack::{GateState, ThinkingStyle};
 use crate::ghosts::GhostType;
+use crate::meaning_axes::{Archetype, HdrResonance, Viscosity};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SELF STATE — the agent's internal awareness
@@ -182,7 +182,9 @@ impl WorldModelDto {
 
         let (primary, _p_dist) = qualia.nearest_family();
         let (_, _, blend_name, _) = qualia.emotional_blend();
-        let overlay = blend_name.split(" + ").nth(1)
+        let overlay = blend_name
+            .split(" + ")
+            .nth(1)
             .and_then(|s| s.split(" = ").next())
             .unwrap_or("neutral");
         let blend = blend_name.split(" = ").last().unwrap_or("uncharted");
@@ -192,9 +194,13 @@ impl WorldModelDto {
                 style: agent.current_style,
                 rung: agent.current_rung.as_u8(),
                 gate: hdr.gate(),
-                viscosity: if free_energy < 0.05 { Viscosity::Ice }
-                    else if free_energy < 0.15 { Viscosity::Oil }
-                    else { Viscosity::Water },
+                viscosity: if free_energy < 0.05 {
+                    Viscosity::Ice
+                } else if free_energy < 0.15 {
+                    Viscosity::Oil
+                } else {
+                    Viscosity::Water
+                },
                 confidence: lens_agreement,
                 calibration_error,
                 should_acknowledge_limits: calibration_error > 0.2 && lens_agreement < 0.4,
@@ -203,9 +209,13 @@ impl WorldModelDto {
                 thought_count: agent.thought_count,
             },
             user_state: UserState {
-                style: if dissonance < 0.1 { ThinkingStyle::Analytical }
-                    else if dissonance > 0.3 { ThinkingStyle::Creative }
-                    else { ThinkingStyle::Deliberate },
+                style: if dissonance < 0.1 {
+                    ThinkingStyle::Analytical
+                } else if dissonance > 0.3 {
+                    ThinkingStyle::Creative
+                } else {
+                    ThinkingStyle::Deliberate
+                },
                 engagement: lens_agreement,
                 valence: (1.0 - dissonance * 2.0).clamp(-1.0, 1.0),
                 depth: if dissonance > 0.2 { 5 } else { 2 },
@@ -239,11 +249,20 @@ impl WorldModelDto {
 
 impl std::fmt::Display for WorldModelDto {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "Self[{} r{} {:?} FE={:.2}] User[{} e={:.1}] Field[{:?} d={:.2}] Ctx[{} {}]",
-            self.self_state.style, self.self_state.rung, self.self_state.gate, self.self_state.free_energy,
-            self.user_state.style, self.user_state.engagement,
-            self.field_state.gestalt, self.field_state.dissonance,
-            self.context_state.primary_family, self.context_state.blend)
+        write!(
+            f,
+            "Self[{} r{} {:?} FE={:.2}] User[{} e={:.1}] Field[{:?} d={:.2}] Ctx[{} {}]",
+            self.self_state.style,
+            self.self_state.rung,
+            self.self_state.gate,
+            self.self_state.free_energy,
+            self.user_state.style,
+            self.user_state.engagement,
+            self.field_state.gestalt,
+            self.field_state.dissonance,
+            self.context_state.primary_family,
+            self.context_state.blend
+        )
     }
 }
 
@@ -260,9 +279,15 @@ mod tests {
     #[test]
     fn self_state_copy() {
         let s = SelfState {
-            style: ThinkingStyle::Analytical, rung: 3, gate: GateState::Flow,
-            viscosity: Viscosity::Oil, confidence: 0.8, calibration_error: 0.1,
-            should_acknowledge_limits: false, trace_count: 5, free_energy: 0.05,
+            style: ThinkingStyle::Analytical,
+            rung: 3,
+            gate: GateState::Flow,
+            viscosity: Viscosity::Oil,
+            confidence: 0.8,
+            calibration_error: 0.1,
+            should_acknowledge_limits: false,
+            trace_count: 5,
+            free_energy: 0.05,
             thought_count: 42,
         };
         let s2 = s; // Copy
@@ -272,8 +297,11 @@ mod tests {
     #[test]
     fn user_state_copy() {
         let u = UserState {
-            style: ThinkingStyle::Creative, engagement: 0.9, valence: 0.5,
-            depth: 5, model_confidence: 0.7,
+            style: ThinkingStyle::Creative,
+            engagement: 0.9,
+            valence: 0.5,
+            depth: 5,
+            model_confidence: 0.7,
         };
         let u2 = u;
         assert!(u2.engagement > 0.8);
@@ -283,27 +311,45 @@ mod tests {
     fn display_format() {
         let w = WorldModelDto {
             self_state: SelfState {
-                style: ThinkingStyle::Deliberate, rung: 2, gate: GateState::Hold,
-                viscosity: Viscosity::Honey, confidence: 0.6, calibration_error: 0.15,
-                should_acknowledge_limits: false, trace_count: 10, free_energy: 0.12,
+                style: ThinkingStyle::Deliberate,
+                rung: 2,
+                gate: GateState::Hold,
+                viscosity: Viscosity::Honey,
+                confidence: 0.6,
+                calibration_error: 0.15,
+                should_acknowledge_limits: false,
+                trace_count: 10,
+                free_energy: 0.12,
                 thought_count: 100,
             },
             user_state: UserState {
-                style: ThinkingStyle::Analytical, engagement: 0.8, valence: 0.3,
-                depth: 4, model_confidence: 0.6,
+                style: ThinkingStyle::Analytical,
+                engagement: 0.8,
+                valence: 0.3,
+                depth: 4,
+                model_confidence: 0.6,
             },
             field_state: FieldState {
                 gestalt: GestaltState::Crystallizing,
                 hdr: HdrResonance::new(0.8, 0.7, 0.6),
-                dominant: Archetype::Guardian, dissonance: 0.1,
-                n_resonant: 20, total_energy: 5.0,
-                is_divergent: false, is_converged: false,
+                dominant: Archetype::Guardian,
+                dissonance: 0.1,
+                n_resonant: 20,
+                total_energy: 5.0,
+                is_divergent: false,
+                is_converged: false,
             },
             context_state: ContextState {
-                primary_family: "emberglow".into(), overlay_family: "steelwind".into(),
-                blend: "steady-flame".into(), arousal: 0.6, tension: 0.2,
-                warmth: 0.8, clarity: 0.7, dominant_trace: None,
-                spo_count: 15, has_conflict: false,
+                primary_family: "emberglow".into(),
+                overlay_family: "steelwind".into(),
+                blend: "steady-flame".into(),
+                arousal: 0.6,
+                tension: 0.2,
+                warmth: 0.8,
+                clarity: 0.7,
+                dominant_trace: None,
+                spo_count: 15,
+                has_conflict: false,
             },
         };
         let s = format!("{}", w);

@@ -41,10 +41,8 @@
 //! └─────────────────────────────────────────────────────────────────┘
 //! ```
 
-use crate::bitpack::{BitpackedVector, VECTOR_WORDS, VECTOR_BITS};
-use crate::hamming::{
-    hamming_distance_scalar, hamming_to_similarity, Belichtung, StackedPopcount,
-};
+use crate::bitpack::{BitpackedVector, VECTOR_BITS, VECTOR_WORDS};
+use crate::hamming::{Belichtung, StackedPopcount, hamming_distance_scalar, hamming_to_similarity};
 
 // ============================================================================
 // CONSTANTS
@@ -293,9 +291,9 @@ pub struct HdrCascade {
     /// Quality tracker for adaptive search
     tracker: QualityTracker,
     /// Cascade thresholds
-    threshold_l0: f32,   // Belichtung: max fraction
-    threshold_l1: u32,   // 1-bit: max differing words
-    threshold_l2: u32,   // Stacked: max distance
+    threshold_l0: f32, // Belichtung: max fraction
+    threshold_l1: u32, // 1-bit: max differing words
+    threshold_l2: u32, // Stacked: max distance
     /// Batch size for Rubicon processing
     batch_size: usize,
 }
@@ -387,9 +385,9 @@ impl HdrCascade {
             }
 
             // Level 2: Stacked popcount with threshold
-            if let Some(stacked) = StackedPopcount::compute_with_threshold(
-                query, fp, self.threshold_l2,
-            ) {
+            if let Some(stacked) =
+                StackedPopcount::compute_with_threshold(query, fp, self.threshold_l2)
+            {
                 candidates.push(SearchResult::with_hat(idx, stacked.total, &self.hat));
             }
         }
@@ -575,10 +573,7 @@ pub fn superposition_clean(
     let threshold = n / 2;
 
     // XOR each candidate with query to get the "difference signal"
-    let deltas: Vec<_> = weak_candidates
-        .iter()
-        .map(|c| query.xor(c))
-        .collect();
+    let deltas: Vec<_> = weak_candidates.iter().map(|c| query.xor(c)).collect();
 
     // Componentwise majority vote (VSA bundle)
     let mut cleaned_delta = BitpackedVector::zero();
@@ -696,7 +691,8 @@ impl AlienSearch {
 
     /// Set Mexican hat parameters
     pub fn set_mexican_hat(&mut self, excite: u32, inhibit: u32) {
-        self.cascade.set_mexican_hat(MexicanHat::new(excite, inhibit));
+        self.cascade
+            .set_mexican_hat(MexicanHat::new(excite, inhibit));
     }
 
     /// Add fingerprint to index
@@ -732,11 +728,7 @@ impl AlienSearch {
     }
 
     /// Search returning only similarity scores (float-like API)
-    pub fn search_similarity(
-        &mut self,
-        query: &BitpackedVector,
-        k: usize,
-    ) -> Vec<(usize, f32)> {
+    pub fn search_similarity(&mut self, query: &BitpackedVector, k: usize) -> Vec<(usize, f32)> {
         self.search(query, k)
             .into_iter()
             .map(|r| (r.index, r.similarity))
@@ -744,11 +736,7 @@ impl AlienSearch {
     }
 
     /// Search with Mexican hat discrimination
-    pub fn search_discriminate(
-        &mut self,
-        query: &BitpackedVector,
-        k: usize,
-    ) -> Vec<(usize, f32)> {
+    pub fn search_discriminate(&mut self, query: &BitpackedVector, k: usize) -> Vec<(usize, f32)> {
         self.cascade
             .search_discriminate(query, k)
             .into_iter()

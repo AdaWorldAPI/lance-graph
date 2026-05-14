@@ -11,8 +11,8 @@
 //! at Layer 0-1. Only decision-boundary cases need Layer 2-3.
 
 use crate::base17::SpoBase17;
-use crate::palette::PaletteEdge;
 use crate::distance_matrix::SpoDistanceMatrices;
+use crate::palette::PaletteEdge;
 
 /// A search hit with layered distance information.
 #[derive(Clone, Debug)]
@@ -85,8 +85,12 @@ impl LayeredScope {
         for hit in candidates.iter_mut() {
             let pe = &self.palette_edges[hit.position];
             let d = self.distance_matrices.spo_distance(
-                query.s_idx, query.p_idx, query.o_idx,
-                pe.s_idx, pe.p_idx, pe.o_idx,
+                query.s_idx,
+                query.p_idx,
+                query.o_idx,
+                pe.s_idx,
+                pe.p_idx,
+                pe.o_idx,
             );
             hit.palette_distance = Some(d);
             hit.best_distance = d;
@@ -167,12 +171,19 @@ impl std::fmt::Display for StorageBreakdown {
         let full_plane_bytes = self.edge_count * 6144;
         writeln!(f, "Layered Scope Storage ({} edges)", self.edge_count)?;
         writeln!(f, "  Layer 0 (scent):   {:>8} bytes", self.scent_bytes)?;
-        writeln!(f, "  Layer 1 (palette): {:>8} bytes (edges) + {:>8} bytes (matrices)",
-            self.palette_bytes, self.matrix_bytes)?;
+        writeln!(
+            f,
+            "  Layer 1 (palette): {:>8} bytes (edges) + {:>8} bytes (matrices)",
+            self.palette_bytes, self.matrix_bytes
+        )?;
         writeln!(f, "  Layer 2 (base):    {:>8} bytes", self.base_bytes)?;
         writeln!(f, "  Total:             {:>8} bytes", self.total_bytes)?;
         writeln!(f, "  Full planes:       {:>8} bytes", full_plane_bytes)?;
-        writeln!(f, "  Compression:       {:>8.0}:1", full_plane_bytes as f64 / self.total_bytes as f64)
+        writeln!(
+            f,
+            "  Compression:       {:>8.0}:1",
+            full_plane_bytes as f64 / self.total_bytes as f64
+        )
     }
 }
 
@@ -184,25 +195,30 @@ mod tests {
 
     fn make_test_scope(n_edges: usize) -> (LayeredScope, SpoBase17, PaletteEdge) {
         // Generate synthetic edges
-        let edges: Vec<SpoBase17> = (0..n_edges).map(|i| {
-            let make_base = |seed: usize| {
-                let mut dims = [0i16; 17];
-                for d in 0..17 { dims[d] = ((seed * 97 + d * 31) % 512) as i16 - 256; }
-                Base17 { dims }
-            };
-            SpoBase17 {
-                subject: make_base(i * 3),
-                predicate: make_base(i * 3 + 1),
-                object: make_base(i * 3 + 2),
-            }
-        }).collect();
+        let edges: Vec<SpoBase17> = (0..n_edges)
+            .map(|i| {
+                let make_base = |seed: usize| {
+                    let mut dims = [0i16; 17];
+                    for d in 0..17 {
+                        dims[d] = ((seed * 97 + d * 31) % 512) as i16 - 256;
+                    }
+                    Base17 { dims }
+                };
+                SpoBase17 {
+                    subject: make_base(i * 3),
+                    predicate: make_base(i * 3 + 1),
+                    object: make_base(i * 3 + 2),
+                }
+            })
+            .collect();
 
         // Build palettes
         let (s_pal, p_pal, o_pal) = Palette::build_spo(&edges, 32, 5);
         let matrices = SpoDistanceMatrices::build(&s_pal, &p_pal, &o_pal);
 
         // Encode all edges
-        let palette_edges: Vec<PaletteEdge> = edges.iter()
+        let palette_edges: Vec<PaletteEdge> = edges
+            .iter()
             .map(|e| PaletteEdge {
                 s_idx: s_pal.nearest(&e.subject),
                 p_idx: p_pal.nearest(&e.predicate),
@@ -212,9 +228,7 @@ mod tests {
 
         // Compute scent bytes (self-referential for testing)
         let query = edges[0].clone();
-        let scent: Vec<u8> = edges.iter()
-            .map(|e| query.scent(e))
-            .collect();
+        let scent: Vec<u8> = edges.iter().map(|e| query.scent(e)).collect();
 
         let query_palette = PaletteEdge {
             s_idx: s_pal.nearest(&query.subject),
@@ -242,9 +256,9 @@ mod tests {
             query_scent,
             &query_palette,
             &query_base,
-            50,   // scent candidates
-            20,   // palette candidates
-            10,   // base candidates
+            50, // scent candidates
+            20, // palette candidates
+            10, // base candidates
         );
 
         assert!(!results.is_empty());

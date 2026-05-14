@@ -34,7 +34,6 @@
 //! - [`cycle_accumulator`] — Per-cadence flush gate; absorbs the L1↔L3
 //!   speed ratio. Distinct from `collapse_gate` per topology I-4.
 
-pub mod manifest;
 pub mod a2a_blackboard;
 pub mod auth;
 pub mod cam;
@@ -54,6 +53,7 @@ pub mod high_heel;
 pub mod jit;
 pub mod literal_graph;
 pub mod mail;
+pub mod manifest;
 pub mod mul;
 pub mod nars;
 pub mod ocr;

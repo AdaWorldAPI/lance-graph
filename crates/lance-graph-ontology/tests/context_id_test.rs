@@ -102,8 +102,7 @@ fn namespace_registry_can_round_trip_through_schema_ptr() {
     // Build a SchemaPtr in the Healthcare context and an attribute SchemaPtr
     // in the ICD10CM context — they MUST be distinguishable by context.
     let hc_ptr = SchemaPtr::new(NamespaceId(2), 42, SchemaKind::Entity).with_context_id(healthcare);
-    let icd_ptr =
-        SchemaPtr::new(NamespaceId(2), 42, SchemaKind::Entity).with_context_id(icd10);
+    let icd_ptr = SchemaPtr::new(NamespaceId(2), 42, SchemaKind::Entity).with_context_id(icd10);
 
     // Same packed bits, different ontology_context_id => different SchemaPtr.
     assert_eq!(hc_ptr.raw(), icd_ptr.raw());
