@@ -29,6 +29,7 @@ use crate::dn_path::DnPath;
 /// 2. Get a role — `role: ExternalRole` stamped at construction.
 /// 3. Get a place — `dn: DnPath` is the deterministic address.
 /// 4. Translate — `LanceMembrane::ingest()` converts this to `UnifiedStep`.
+// classification: bare-metal
 #[derive(Clone, Debug)]
 pub struct ExternalIntent {
     /// Which external family is sending this event.
@@ -107,6 +108,7 @@ impl ExternalIntent {
 /// `FacultyDescriptor.inbound_style` (Stage 1) vs `outbound_style` (Stage 2).
 /// Phase A: always false (single-stage emission). Phase B: wired from the
 /// faculty dispatcher when `FacultyDescriptor::is_asymmetric()` is true.
+// classification: bare-metal
 #[derive(Clone, Debug, Default)]
 pub struct CognitiveEventRow {
     // ── Identity columns (§ 4 schema, § 10.11 metadata address bus) ──

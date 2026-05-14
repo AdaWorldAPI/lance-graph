@@ -21,7 +21,7 @@ tokio = { version = "1", features = ["rt", "sync"] }
 tracing = "0.1"
 
 # Hardware acceleration layer (mandatory)
-ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
+ndarray = { path = "../../../ndarray", default-features = false, features = ["std", "hpc-extras"] }
 
 # Causal edge protocol (CausalEdge64, NarsTables, Pearl hierarchy)
 causal-edge = { path = "../causal-edge" }

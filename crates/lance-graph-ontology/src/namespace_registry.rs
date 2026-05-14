@@ -60,6 +60,32 @@ impl NamespaceRegistry {
     /// | `Medical/HPO` | 17 | BioPortal stub |
     /// | `Medical/DRON` | 18 | BioPortal stub |
     /// | `Medical/CHEBI` | 19 | BioPortal stub |
+    ///
+    /// ## Why `SMB.bson` is intentionally absent
+    ///
+    /// `SMB = 0` is the export-only Foundry namespace covering the 3
+    /// Foundry-shape OGIT entities (`ogit.SMB:Customer`, `ogit.SMB:Invoice`,
+    /// `ogit.SMB:TaxDeclaration`). Their slot range is `0x80..=0x82`.
+    ///
+    /// `SMB.bson` is **not** a separate registry namespace and therefore does
+    /// not appear in this table. The 14 BSON-shape entities (slots
+    /// `0xA0..=0xAD`) live exclusively at the **family-table layer**: they are
+    /// declared in `lance-graph-callcenter/data/family_registry.ttl` under
+    /// `ogit.meta:superDomain "SMB.bson"` and are resolved by
+    /// `lance-graph-callcenter::hydration::parse_super_domain_name` (which
+    /// maps both `"SMB"` and `"SMB.bson"` to `SuperDomain::WorkOrderBilling`).
+    /// That function is the canonical home of the BSON-vs-Foundry distinction.
+    ///
+    /// Consequence: `OntologyRegistry::enumerate("SMB.bson")` returns an empty
+    /// `Vec` (no `MappingRow` carries namespace `"SMB.bson"` in the
+    /// OntologyRegistry); `NamespaceRegistry::seed_defaults().get("SMB.bson")`
+    /// returns `None`. Both are correct and intentional.
+    ///
+    /// Cross-references:
+    /// - `lance-graph-callcenter/data/family_registry.ttl` lines 201..=277
+    ///   (BSON slots `0xA0..=0xAD`)
+    /// - `lance-graph-callcenter::hydration::parse_super_domain_name`
+    /// - OQ-4 resolution in PR #366 / EPIPHANIES 2026-05-13 sprint-7 meta entry
     pub fn seed_defaults() -> Self {
         let mut ids = HashMap::with_capacity(16);
         // Live cognitive namespaces.
@@ -169,5 +195,40 @@ mod tests {
         assert_eq!(r.allocate("CallCenter"), 6);
         // Next allocation skips again.
         assert_eq!(r.allocate("Splat"), 7);
+    }
+
+    /// Regression: `SMB.bson` is intentionally absent from `seed_defaults`.
+    ///
+    /// The BSON-vs-Foundry distinction lives at the family-table layer
+    /// (`lance-graph-callcenter/data/family_registry.ttl`, slots 0xA0..=0xAD)
+    /// and in `parse_super_domain_name`, NOT in the OntologyRegistry namespace
+    /// table. Adding `SMB.bson` here would be a design violation (OQ-4,
+    /// PR #366 / EPIPHANIES 2026-05-13 sprint-7 meta entry).
+    #[test]
+    fn seed_defaults_does_not_contain_smb_bson() {
+        let r = NamespaceRegistry::seed_defaults();
+        assert_eq!(
+            r.get("SMB.bson"),
+            None,
+            "SMB.bson must not be a NamespaceRegistry entry; \
+             BSON shape lives at the family-table layer (OQ-4)"
+        );
+    }
+
+    /// Regression: `OntologyRegistry::enumerate("SMB.bson")` returns empty
+    /// because no `MappingRow` is registered under namespace `"SMB.bson"`.
+    ///
+    /// The 14 BSON-shape entities in `family_registry.ttl` are callcenter
+    /// family-table entries, not OntologyRegistry `MappingRow`s. A fresh
+    /// (un-hydrated) registry must return an empty vec for the string.
+    #[test]
+    fn enumerate_smb_bson_returns_empty_on_fresh_registry() {
+        use crate::OntologyRegistry;
+        let reg = OntologyRegistry::new_in_memory();
+        assert!(
+            reg.enumerate("SMB.bson").is_empty(),
+            "enumerate(\"SMB.bson\") must be empty; BSON shape is not an \
+             OntologyRegistry namespace (OQ-4, sprint-7 W7)"
+        );
     }
 }

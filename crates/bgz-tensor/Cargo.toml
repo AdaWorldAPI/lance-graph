@@ -22,7 +22,7 @@ manifold clustering, then replaces matmul with precomputed distance table lookup
 # bgz-tensor is the consumer — it uses ndarray's kernels, does not reimplement them.
 # NOT optional — both live in same binary.
 [dependencies]
-ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
+ndarray = { path = "../../../ndarray", default-features = false, features = ["std", "hpc-extras"] }
 holograph = { path = "../holograph", default-features = false }
 lance-graph-contract = { path = "../lance-graph-contract", optional = true }
 serde = { version = "1", features = ["derive"], optional = true }

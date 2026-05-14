@@ -182,8 +182,11 @@ impl OntologyRegistry {
             let writer = LanceWriter::open_or_create(lance_path).await?;
             let rows: Vec<MappingRow> = self.inner.read().unwrap().rows.clone();
             writer.flush(&rows).await?;
-            if let Some(cs) = &self.inner.read().unwrap().last_root_checksum {
-                writer.set_last_root_checksum(cs).await?;
+            // Clone the checksum out of the read guard before the await so
+            // clippy::await_holding_lock stays green.
+            let last_checksum = self.inner.read().unwrap().last_root_checksum.clone();
+            if let Some(cs) = last_checksum {
+                writer.set_last_root_checksum(&cs).await?;
             }
         }
         Ok(report)

@@ -1,0 +1,16 @@
+[workspace]
+# Empty [workspace] table makes this a self-contained workspace root so that
+# `cargo build` from within this directory (or via --manifest-path) does not
+# walk up to the lance-graph parent workspace.
+
+[package]
+name = "zone-poison-fixture"
+version = "0.1.0"
+edition = "2021"
+# Excluded from the parent workspace; built only by the subprocess
+# compile-fail probe in zone_serialize_check_compile_fail.rs.
+
+[dependencies]
+
+[build-dependencies]
+syn = { version = "2", features = ["full", "parsing"] }
