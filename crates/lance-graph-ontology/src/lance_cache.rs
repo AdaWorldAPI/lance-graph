@@ -33,6 +33,34 @@ use std::sync::Arc;
 const DICTIONARY_NAME: &str = "ontology_dictionary";
 const META_NAME: &str = "ontology_meta";
 
+// Why this exists (read before proposing a migration path):
+//
+// `ontology_dictionary` is a CACHE of hydrated TTL, keyed in the meta table
+// by `ttl_root_checksum`. The TTL files on disk are the source of truth;
+// this Lance dataset is a fast-path projection so hydration doesn't re-parse
+// on every boot. BindSpace (FingerprintColumns / QualiaColumn / MetaColumn /
+// EdgeColumn) is the live runtime SoA and is unrelated — it never lands here.
+//
+// Because we're cache, not source-of-truth, schema evolution does NOT need
+// a per-version migration ladder. On version mismatch we invalidate (delete
+// the cache directory) and let hydration re-derive from TTL. That eliminates
+// a class of "silent default-fill smuggles synthesized zeros into the
+// codebook" bugs at the cost of one cold rebuild on the first boot after a
+// version bump. Cold rebuild is acceptable; codebook contamination is not.
+//
+// "Unknown" version (newer than this binary expects, e.g. a feature branch
+// wrote v3 columns we don't know about) is also invalidated — forward-incompat
+// datasets get a clean rebuild rather than corrupting the running binary's
+// view of the codebook.
+//
+// **Rule for the next editor:** if you change `dictionary_schema()` in any
+// way (add / remove / rename / retype a column), bump `SCHEMA_VERSION` in
+// the same commit. The `schema_version_pinned` unit test fails loudly
+// otherwise — that's the compile-adjacent guard. The runtime guard is
+// `LanceWriter::open_or_create`, which checks the on-disk version against
+// this constant and invalidates on any mismatch.
+pub const SCHEMA_VERSION: u32 = 2;
+
 pub struct LanceWriter {
     base: PathBuf,
 }
@@ -43,9 +71,66 @@ impl LanceWriter {
             path: path.to_path_buf(),
             source,
         })?;
-        Ok(Self {
+        let writer = Self {
             base: path.to_path_buf(),
-        })
+        };
+        writer.invalidate_if_stale_schema().await?;
+        Ok(writer)
+    }
+
+    // Read the persisted `schema_version` from the meta table. Returns:
+    //   Ok(Some(n)) — meta exists and the column was readable
+    //   Ok(None)    — meta dir is absent (fresh install) OR the column is
+    //                 missing / unreadable (pre-versioning v1 deployment,
+    //                 or a corrupted meta file — both treated as "stale,
+    //                 invalidate" by the caller)
+    async fn read_schema_version(&self) -> Result<Option<u32>> {
+        let path = self.meta_path();
+        if !path.exists() {
+            return Ok(None);
+        }
+        let path_str = path.to_string_lossy().to_string();
+        let dataset = match Dataset::open(&path_str).await {
+            Ok(d) => d,
+            Err(_) => return Ok(None),
+        };
+        let mut stream = match dataset.scan().try_into_stream().await {
+            Ok(s) => s,
+            Err(_) => return Ok(None),
+        };
+        use futures::StreamExt;
+        if let Some(batch) = stream.next().await {
+            let Ok(batch) = batch else { return Ok(None) };
+            let Some(col) = batch.column_by_name("schema_version") else {
+                return Ok(None);
+            };
+            let Some(arr) = col.as_any().downcast_ref::<UInt32Array>() else {
+                return Ok(None);
+            };
+            if arr.len() > 0 {
+                return Ok(Some(arr.value(0)));
+            }
+        }
+        Ok(None)
+    }
+
+    // On version mismatch, drop the cache so the next hydration rebuilds
+    // from TTL. See the module-level reasoning comment above `SCHEMA_VERSION`
+    // for why we invalidate instead of migrating.
+    async fn invalidate_if_stale_schema(&self) -> Result<()> {
+        let on_disk = self.read_schema_version().await?;
+        if on_disk == Some(SCHEMA_VERSION) {
+            return Ok(());
+        }
+        for sub in [self.dictionary_path(), self.meta_path()] {
+            if sub.exists() {
+                std::fs::remove_dir_all(&sub).map_err(|source| Error::Io {
+                    path: sub.clone(),
+                    source,
+                })?;
+            }
+        }
+        Ok(())
     }
 
     pub fn dictionary_path(&self) -> PathBuf {
@@ -132,6 +217,9 @@ impl LanceWriter {
     }
 
     pub async fn set_last_root_checksum(&self, checksum: &str) -> Result<()> {
+        // `schema_version` is the cache-coherence handshake — read on open
+        // by `invalidate_if_stale_schema` to decide whether the on-disk
+        // dictionary is still meaningful to this binary.
         let schema = Arc::new(ArrowSchema::new(vec![
             Field::new("ttl_root_checksum", DataType::Utf8, false),
             Field::new(
@@ -140,12 +228,14 @@ impl LanceWriter {
                 false,
             ),
             Field::new("crate_version", DataType::Utf8, false),
+            Field::new("schema_version", DataType::UInt32, false),
         ]));
         let now = chrono_micros();
         let cols: Vec<ArrayRef> = vec![
             Arc::new(StringArray::from(vec![checksum])),
             Arc::new(TimestampMicrosecondArray::from(vec![now])),
             Arc::new(StringArray::from(vec![env!("CARGO_PKG_VERSION")])),
+            Arc::new(UInt32Array::from(vec![SCHEMA_VERSION])),
         ];
         let batch = RecordBatch::try_new(schema.clone(), cols)
             .map_err(|e| Error::Arrow(format!("meta batch: {e}")))?;
@@ -192,11 +282,15 @@ fn dictionary_schema() -> Arc<ArrowSchema> {
         Field::new("base17_head", DataType::FixedSizeBinary(8), false),
         Field::new("palette_key", DataType::UInt32, false),
         Field::new("scent", DataType::UInt8, false),
-        // QualiaMeta — Pillar-0 dispatch bundle
+        // QualiaMeta — Pillar-0 dispatch bundle.
+        // Item nullability mirrors what `FixedSizeListBuilder<Float32Builder>`
+        // produces by default (nullable items). We never actually write nulls,
+        // but the schema has to agree with the builder for `RecordBatch::try_new`
+        // to accept the column. The outer list field stays non-null.
         Field::new(
             "qualia",
             DataType::FixedSizeList(
-                Arc::new(Field::new("item", DataType::Float32, false)),
+                Arc::new(Field::new("item", DataType::Float32, true)),
                 18,
             ),
             false,
@@ -844,5 +938,139 @@ mod tests {
         let r = back.remove(0);
         assert_eq!(r.thinking_style, None, "None thinking_style must survive round-trip");
         assert!(r.attribute_sources.is_empty(), "empty attribute_sources must survive round-trip");
+    }
+
+    // Pins the schema field-set against `SCHEMA_VERSION`. If you change
+    // `dictionary_schema()` without bumping `SCHEMA_VERSION`, this test
+    // fails — that's the compile-adjacent guard for the cache-coherence
+    // contract. To fix: bump `SCHEMA_VERSION` in lance_cache.rs and update
+    // the `expected` list below with the new field set (printed on failure).
+    #[test]
+    fn schema_version_pinned() {
+        let schema = dictionary_schema();
+        let actual: Vec<(String, String, bool)> = schema
+            .fields()
+            .iter()
+            .map(|f| (f.name().clone(), format!("{:?}", f.data_type()), f.is_nullable()))
+            .collect();
+        // Pinned to SCHEMA_VERSION = 2.
+        let expected: Vec<(&str, &str, bool)> = vec![
+            ("bridge_id", "Utf8", false),
+            ("public_name", "Utf8", false),
+            ("ogit_uri", "Utf8", false),
+            ("namespace_id", "UInt8", false),
+            ("schema_ptr", "UInt32", false),
+            ("kind", "Utf8", false),
+            ("semantic_type", "Utf8", false),
+            ("marking", "Utf8", false),
+            ("confidence", "Float32", false),
+            ("created_at", "Timestamp(Microsecond, None)", false),
+            ("created_by", "Utf8", false),
+            ("source_uri", "Utf8", false),
+            ("active", "Boolean", false),
+            ("checksum", "Utf8", false),
+            ("cam_pq_code", "FixedSizeBinary(6)", false),
+            ("base17_head", "FixedSizeBinary(8)", false),
+            ("palette_key", "UInt32", false),
+            ("scent", "UInt8", false),
+            // qualia data_type debug format depends on arrow internals; the
+            // round-trip tests catch any drift in item nullability, so here
+            // we only assert the column name and outer nullability.
+            ("qualia", "__skip__", false),
+            ("codec_meta", "UInt32", false),
+            ("codec_edge", "UInt64", false),
+            ("thinking_style", "Utf8", true),
+            ("attribute_sources_enc", "Utf8", false),
+            ("subject_type", "Utf8", false),
+            ("object_type", "Utf8", false),
+            ("entity_type_ref", "Utf8", false),
+        ];
+        assert_eq!(
+            actual.len(),
+            expected.len(),
+            "column count drifted from SCHEMA_VERSION = {SCHEMA_VERSION}; bump the constant and update this pin. actual = {actual:#?}",
+        );
+        for (i, ((a_name, a_type, a_null), (e_name, e_type, e_null))) in
+            actual.iter().zip(expected.iter()).enumerate()
+        {
+            assert_eq!(a_name.as_str(), *e_name, "column {i} name drifted");
+            assert_eq!(
+                *a_null, *e_null,
+                "column {i} ({e_name}) outer-nullability drifted from SCHEMA_VERSION = {SCHEMA_VERSION}",
+            );
+            if *e_type != "__skip__" {
+                assert_eq!(
+                    a_type.as_str(),
+                    *e_type,
+                    "column {i} ({e_name}) type drifted from SCHEMA_VERSION = {SCHEMA_VERSION}; bump the constant and update this pin",
+                );
+            }
+        }
+    }
+
+    // Runtime guard test: a meta table written by a binary that did NOT
+    // know about `schema_version` (the v1 pre-versioning shape) must cause
+    // `open_or_create` to wipe the cache directory so hydration rebuilds
+    // from TTL. Same path covers "future v3 wrote columns we don't know".
+    #[tokio::test]
+    async fn stale_meta_invalidates_cache_dir() {
+        let tmp = std::env::temp_dir().join(format!(
+            "lance_cache_invalidate_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).unwrap();
+        let writer = LanceWriter::open_or_create(&tmp).await.unwrap();
+
+        // Plant a fake v1-shaped meta (no schema_version column) and a
+        // dictionary dir; opening again must remove both.
+        let v1_meta_schema = Arc::new(ArrowSchema::new(vec![
+            Field::new("ttl_root_checksum", DataType::Utf8, false),
+            Field::new(
+                "last_hydrated_at",
+                DataType::Timestamp(TimeUnit::Microsecond, None),
+                false,
+            ),
+            Field::new("crate_version", DataType::Utf8, false),
+        ]));
+        let batch = RecordBatch::try_new(
+            v1_meta_schema.clone(),
+            vec![
+                Arc::new(StringArray::from(vec!["pretend_v1_checksum"])),
+                Arc::new(TimestampMicrosecondArray::from(vec![0i64])),
+                Arc::new(StringArray::from(vec!["0.0.0"])),
+            ],
+        )
+        .unwrap();
+        let reader = arrow::record_batch::RecordBatchIterator::new(
+            vec![Ok(batch)].into_iter(),
+            v1_meta_schema,
+        );
+        Dataset::write(
+            reader,
+            writer.meta_path().to_string_lossy().as_ref(),
+            Some(WriteParams {
+                mode: WriteMode::Overwrite,
+                ..Default::default()
+            }),
+        )
+        .await
+        .unwrap();
+        std::fs::create_dir_all(writer.dictionary_path()).unwrap();
+        std::fs::write(writer.dictionary_path().join("sentinel"), b"x").unwrap();
+
+        // Re-open: the stale meta (no schema_version) must trigger
+        // invalidation of both dictionary and meta directories.
+        let _writer2 = LanceWriter::open_or_create(&tmp).await.unwrap();
+        assert!(
+            !writer.dictionary_path().exists(),
+            "stale schema must wipe dictionary_path"
+        );
+        assert!(
+            !writer.meta_path().exists(),
+            "stale schema must wipe meta_path"
+        );
+
+        let _ = std::fs::remove_dir_all(&tmp);
     }
 }
