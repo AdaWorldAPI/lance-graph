@@ -1,3 +1,9 @@
+// Skip under Miri — the whole file uses `tempfile::tempdir()` +
+// `std::fs::create_dir_all/write` to stage TTL fixtures on disk, and Miri's
+// isolation blocks `mkdir`/`open`. Stable and nightly without Miri run it
+// normally.
+#![cfg(not(miri))]
+
 //! Bridge scope-lock test.
 //!
 //! Verifies that a `WoaBridge` cannot resolve a `Healthcare` entity, and
