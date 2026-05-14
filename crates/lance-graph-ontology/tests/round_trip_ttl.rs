@@ -1,3 +1,7 @@
+// Skip under Miri — fixture is written to disk via tempfile + std::fs; Miri
+// isolation blocks the syscalls. Stable runs it normally.
+#![cfg(not(miri))]
+
 //! End-to-end TTL hydration test.
 //!
 //! Builds a tiny TTL fixture, writes it to a tempdir, hydrates the

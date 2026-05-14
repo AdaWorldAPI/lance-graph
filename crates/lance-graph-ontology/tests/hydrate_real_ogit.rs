@@ -1,3 +1,8 @@
+// Skip under Miri — entire file reads the on-disk OGIT fork via std::fs;
+// Miri isolation blocks the syscalls. Stable runs it normally; the test
+// even skips gracefully when OGIT_FORK_PATH is unset.
+#![cfg(not(miri))]
+
 //! Hydrate against the actual `AdaWorldAPI/OGIT` fork.
 //!
 //! Runs only when `OGIT_FORK_PATH` is set to a directory containing the
