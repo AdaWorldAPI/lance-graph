@@ -623,6 +623,11 @@ mod tests {
     }
 
     #[test]
+    // Miri can't enter `std::fs` under its default isolation (sensible —
+    // host filesystem access would let Miri-checked code escape the
+    // sandbox). This test reads a real on-disk graph fixture, so it's
+    // not a Miri target. Stable / nightly without Miri still run it.
+    #[cfg_attr(miri, ignore)]
     fn test_real_aiwar_graph() {
         let json_path = "/root/data/aiwar_graph.json";
         let json = match std::fs::read_to_string(json_path) {

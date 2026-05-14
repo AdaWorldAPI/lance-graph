@@ -32,6 +32,10 @@ fn customer_ttl_path() -> Option<std::path::PathBuf> {
 }
 
 #[test]
+// Reads `Customer.ttl` from /home/user/OGIT via `statx`; Miri's isolation
+// blocks the syscall. Stable runs it normally; the test even skips
+// gracefully when the file isn't present.
+#[cfg_attr(miri, ignore)]
 fn dcterms_source_attribute_pairs_surface_for_customer() {
     let Some(path) = customer_ttl_path() else {
         eprintln!("SKIP: Customer.ttl not found at /home/user/OGIT (set OGIT_FORK_PATH)");

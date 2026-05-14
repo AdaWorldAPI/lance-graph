@@ -488,6 +488,15 @@ impl RegistryState {
 }
 
 fn now_micros() -> i64 {
+    // Miri's default isolation blocks `clock_gettime(REALTIME)`, so any test
+    // that walks through the append path under Miri would abort. Timestamps
+    // aren't meaningful inside the sandbox anyway — return a deterministic
+    // sentinel so register/replay logic stays exercise-able under Miri.
+    #[cfg(miri)]
+    {
+        return 0;
+    }
+    #[cfg(not(miri))]
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_micros() as i64)

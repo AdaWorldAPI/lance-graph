@@ -253,6 +253,10 @@ fn load_canonical_manifests() -> Vec<(PathBuf, String)> {
 // ---------------------------------------------------------------------------
 
 #[test]
+// Reads the on-disk canonical manifests + codegen output; Miri's isolation
+// blocks `std::fs::read*`. The other tests in this file use in-memory YAML
+// strings and run clean under Miri.
+#[cfg_attr(miri, ignore)]
 fn test_idempotency() {
     // Parse the same manifests twice; produce the same codegen output both times.
     let pairs = load_canonical_manifests();

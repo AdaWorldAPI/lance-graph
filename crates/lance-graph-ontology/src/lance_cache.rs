@@ -647,11 +647,19 @@ fn parse_semantic_type_label(s: &str) -> SemanticType {
 }
 
 fn chrono_micros() -> i64 {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_micros() as i64)
-        .unwrap_or(0)
+    // Miri sandbox bypass — see `registry::now_micros` for rationale.
+    #[cfg(miri)]
+    {
+        return 0;
+    }
+    #[cfg(not(miri))]
+    {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_micros() as i64)
+            .unwrap_or(0)
+    }
 }
 
 // ── ThinkingStyle label round-trip ──────────────────────────────────────────
