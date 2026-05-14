@@ -1,0 +1,1 @@
+W6 2026-05-14 DONE: pr-ce64-mb-5-mailbox-soa-attentionmask.md (47678 B) — AttentionMask SoA + AttentionMaskActor ractor + MailboxSoA<N> + BindSpaceView<'_> + sequence diagram + 9 tests + risk matrix. 3 new OQs: OQ-N (sizing), OQ-SHADOW (cycle-speed shadow table), OQ-BCAST-SIZE (broadcast capacity). Plans: causaledge64-mailbox-rename-soa-v1 §4+§5+§7.
