@@ -37,6 +37,49 @@
 
 ---
 
+## causaledge64-mailbox-rename-soa-v1 — CausalEdge64 mailbox + sparse-rename SoA composition (authored 2026-05-14)
+
+- **Plan:** `.claude/plans/causaledge64-mailbox-rename-soa-v1.md`
+- **Author + date:** main thread (Opus 4.7 1M), 2026-05-14, branch `claude/resolve-pr-369-conflicts-ozMXd`.
+- **Status:** Active (draft, pre-execution).
+- **Scope:** Compose 5 already-authored plans + Σ10 Rubicon doctrine + 1 genuine ndarray-side gap into a single substrate where ractor mailboxes carry CausalEdge64 emissions, share BindSpace via zero-copy views, communicate cross-compartment via SPOW witnesses persisted to AriGraph SPO-G quads, and rename architectural identities (OGIT domain / witness palette / thinking style / truth) into 5-8 bit physical slots via session-ephemeral `AttentionMask` rename SoA. Result: ownership-typed reasoning compartments with compile-time UB-impossibility, ~1.5 KB per compartment, supporting ~24K parallel thoughts at 200ns cycle speed across ≤32 active OGIT domains.
+- **Deliverables (immutable, 9 D-ids across 7 PRs):**
+  - D-CE64-MB-1 — CausalEdge64 v2 layout extension (G:5, W:6, truth:2 reclaim from reserved 13 bits) in `crates/causal-edge/`
+  - D-CE64-MB-2 — PAL8 round-trip regression test (v1 ↔ v2 binary compat)
+  - D-CE64-MB-3 — NarsTables LUT regression test (key-bearing bits 0-50 unchanged)
+  - D-CE64-MB-4 — `AttentionMask` SoA + LRU eviction + broadcast notifications in `crates/par-tile/`
+  - D-CE64-MB-5 — `AttentionMaskActor` ractor singleton wrapping rename tables
+  - D-CE64-MB-6 — Property tests for rename round-trip + LRU + eviction broadcast
+  - D-CE64-MB-7 — `MailboxSoA<N>` + lifecycle methods (`push_row`, `dispatch_cycle`, `drop_row`) in `crates/par-tile/`
+  - D-CE64-MB-8 — `BindSpaceView<'_>` with row-range + column-mask filter (zero-copy borrow into shared `Arc<BindSpace>`)
+  - D-CE64-MB-9 — Property tests for spawn-dispatch-prune + XOR-cancel + plasticity counter + intent gate strictness
+- **PR sequencing (7 PRs):**
+  - PR-CE64-MB-1: `par-tile` crate apex (~1500 LOC, new crate, no consumers yet)
+  - PR-CE64-MB-2: CausalEdge64 v2 layout (~400 LOC, binary compat critical)
+  - PR-CE64-MB-3: BindSpace Columns E/F/G/H per `bindspace-columns-v1` Phase 2 (~800 LOC)
+  - PR-CE64-MB-4: SPO-G quad mode + ghost-edge persistence in AriGraph per `ogit-g-context-bundle-v1` D-OGIT-G-1 (~600 LOC)
+  - PR-CE64-MB-5: MailboxSoA + AttentionMaskActor cross-crate wiring (~1200 LOC)
+  - PR-CE64-MB-6: SigmaTierRouter + cycle-speed InMemoryMailbox backing + Σ10 Rubicon dispatcher (~1500 LOC, new dispatcher, replaces ad-hoc paths)
+  - PR-CE64-MB-7: Bevy `NdarrayCullPlugin` proof plugin (~500 LOC bevy side)
+- **Composes (deps):** `bindspace-columns-v1` (Phase 2 implementation) · `oxigraph-arigraph-cognitive-shader-soa-merge-v1` (SPOW §8 + Gaussian splat §9 + 64²/256²/4096² planes) · `ogit-g-context-bundle-v1` (D-OGIT-G-1 SPO-G u32 slot) · `pr-g2-ractor-supervisor` (Tokio shape shipped #366 S7-W3) · `pr-j-1-int4-32d-atoms` (cold-start K-NN fallback) · `thought-cycle-soa-awareness-integration-v1` (AwarenessPlane16K / GrammarMarkovLens64 / ReasoningWitness64 / ThoughtCycleSoA factoring) · `tetrahedral-epiphany-splat-integration-v1` (Gaussian splat integration) · `jc-pillars-runtime-wiring-v1` (JC Pillar 10/11 math kernels).
+- **Doctrine anchors:** Σ10 Rubicon Tier Architecture (`linguistic-epiphanies-2026-04-19.md` E21 — 10 tiers × edge-type × Pearl rung × theta mode); VSA switchboard three-layer architecture (`.claude/knowledge/vsa-switchboard-architecture.md`); lab-vs-canonical-surface (`.claude/knowledge/lab-vs-canonical-surface.md` — Wire DTO Zone 3 only); encoding-ecosystem (`.claude/knowledge/encoding-ecosystem.md` — palette/CAM-PQ/HHTL cascade roles).
+- **Closes / unblocks:**
+  - PR #355 deferred Tier B: FIX-4 (codebook_index bit-collision via 256² PaletteSemiring binning), FIX-5 (`trust_below_floor` wiring test via Column H landing), per-row `BindSpace.context_ids` for `driver.rs:311` (Column H = `TypeColumn: EntityTypeId u16`).
+  - `THINKING_ORCHESTRATION_WIRING.md` Gap 1 (Contract Not Consumed — 12 vs 36 ThinkingStyle) via AttentionMask 8-bit-slot rename collapse.
+  - `THINKING_ORCHESTRATION_WIRING.md` Gap 3 (JIT pipeline never executed end-to-end) — compartment-spawn consumes `KernelHandle` from `lance-graph-planner::strategy::jit_compile`.
+  - `THINKING_ORCHESTRATION_WIRING.md` Gap 4 (Elevation not connected to execution) — SigmaTierRouter IS the runtime elevation policy.
+  - TD-INT4-32D-ATOMS-6 (cold-start proximity) — OQ-4 K-NN fallback path.
+  - TD-THINKING-ENGINE-UNWIRED-1 (582 KB cognitive substrate dormant) — `BindSpaceView` references resolve thinking-engine encode/decode + lens stack on demand.
+  - Type-duplication debt (TrustTexture 4 copies, ThinkingStyle 4 copies) — via lens-collapse + 8-bit-slot rename.
+- **Iron rule compliance:** I-SUBSTRATE-MARKOV preserved (Vsa16kF32 retreats to single-cycle Markov bundle; cumulative state moves to AriGraph SPO-G + CausalEdge64); I-NOISE-FLOOR-JIRAK noted as σ-threshold OQ at sign-off; I-VSA-IDENTITIES strengthened (Vsa16kF32 no longer universal-carrier means content-bundling temptation is removed); I1 preserved (CollapseGate single point of mutation); method-on-carrier discipline preserved (no new free functions).
+- **Open design questions (OQ-1 through OQ-8 in §11):** Σ-tier banding policy (OQ-1), ghost-edge NARS decay vs fixed-rung (OQ-2), plasticity granularity (OQ-3), INT4-32D cold-start wiring (OQ-4), rayon vendor decision (OQ-5), Vsa16kF32 final residence (OQ-6), AwarenessColumn sizing (OQ-7), SpoWitness shape variants (OQ-8).
+- **Confidence (2026-05-14):** Pre-execution. Architecture is composition of named-and-reviewed pieces, not new invention. Risk concentrates in §3 CausalEdge64 bit-layout reclaim (must not break PAL8 serialization or NarsTables LUT layout — explicit regression tests D-CE64-MB-2 + D-CE64-MB-3 gate the merge).
+- **Cross-PR refs:** PR #355 (Pillar 0 + cascade columns SHIPPED), PR #366 (sprint-7 + Tokio ractor shape SHIPPED), PR #369 (Tier-A close + lance_cache schema bump SHIPPED), PR #370 (schema versioning + cfg(miri) bypasses + Miri sweep — in-flight on `claude/resolve-pr-369-conflicts-ozMXd` branch).
+- **Blast radius (§10):** New code in 5 crates (par-tile NEW + causal-edge / cognitive-shader-driver / lance-graph-supervisor / lance-graph::arigraph extensions). Zone 3 surface (postgrest / drain / grpc / supabase-realtime) completely unchanged. `lance-graph-callcenter` Zone-2 surface unchanged except `CallcenterSupervisor` gains `SigmaTierRouter` sub-actor. **Supabase realtime transcode logic complemented, not retired.**
+- **Recursive-eyes acknowledgments:** 3rd pair (bevy session — diamond dep graph + Slice↔Plane bridge + NdarrayCullPlugin proof-first); 4th pair (semantic naming over shape, `MultiLaneColumn` already named, 5-Layer Stack already named); 5th pair (Vsa16kF32 single-purpose correction, two-shape ractor framing, INT4-32D as North Star); 6th pair (ephemeral BindSpace + role-as-mailbox + space-time-collapse + external-intent gate + Ractor-SoA + Think-as-reference); 7th pair (CausalEdge64-as-emission-carrier + truth-collapse + 24K parallel thoughts via 32-slot session-ephemeral sparse rename + 12/34/144 hot-context pattern + zone-naming clarification).
+
+---
+
 ## 2026-05-13 — Status correction: `super-domain-rbac-tenancy-v1` Tier A nearly complete; follow-up PR + Tier B+ harvest
 
 - **Plan:** `.claude/plans/super-domain-rbac-tenancy-v1.md` (§1-§19, ~1387 lines)
