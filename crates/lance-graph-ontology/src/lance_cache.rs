@@ -107,7 +107,7 @@ impl LanceWriter {
             let Some(arr) = col.as_any().downcast_ref::<UInt32Array>() else {
                 return Ok(None);
             };
-            if arr.len() > 0 {
+            if !arr.is_empty() {
                 return Ok(Some(arr.value(0)));
             }
         }
