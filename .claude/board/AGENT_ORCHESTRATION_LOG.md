@@ -1220,3 +1220,13 @@ Detail:
   Plus W8 scope (full_pipeline.rs + bgz7_hydration_quality.rs) has ~5 unfixed sites.
 - test: /dev/vda at 100% (68 MB free); datafusion/parquet compile aborted.
 - Missing agent reports: W8, W10 (W10 code in working tree, uncommitted).
+
+## [W3 sprint-log-10] 2026-05-14 — PAL8 + NarsTables regression spec
+
+**Agent:** W3 (pal8-nars-regression, Sonnet, sprint-log-10 CCA2A)
+**Deliverables:** D-CE64-MB-2 + D-CE64-MB-3 spec
+**Output:** `.claude/specs/pr-ce64-mb-2-pal8-nars-regression.md` (32 KB)
+**Plans cited:** `causaledge64-mailbox-rename-soa-v1.md` §3
+**Key finding:** `edge.rs` has no unused bits in 51-63 (plan's "13 reserved bits" does not match impl — plasticity at 49-51, temporal at 52-63). W2 must resolve reclaim strategy before implementation. Tests written against functional accessor properties, not raw bit positions.
+**Status:** SPEC DRAFT complete. Tests: 6 gating + 1 ignored property test. CI extension: 3 new steps in rust-test.yml.
+W4 | 2026-05-14 | pr-ce64-mb-3-bindspace-efgh.md | ~14 KB | Plans: bindspace-columns-v1 §1-§5, causaledge64 §6-§7 | COMPLETE | Closes PR355#6 + FIX-5 + Phase2 | OQ: BindSpaceView placement (par-tile vs driver)
