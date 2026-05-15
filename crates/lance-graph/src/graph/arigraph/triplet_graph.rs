@@ -616,6 +616,136 @@ impl TripletGraph {
 }
 
 // ============================================================================
+// Pearl rung-2 intervention (do-calculus)
+// ============================================================================
+
+/// Context tag for a counterfactual SPO-G quad.
+///
+/// The G slot in SPO-G quads carries the mechanism / regime label that
+/// lets downstream NARS revision distinguish interventional facts from
+/// observational ones (Causal de Finetti — §3.1 of the curriculum doc).
+///
+/// The canonical Pearl-rung dispatch enum is
+/// `lance_graph_planner::thinking::NarsInferenceType::Intervention`
+/// (landed by W3 in `nars_dispatch.rs`).  `ContextTag` is the
+/// AriGraph-local tag that rides in the SPO-G G-slot; it mirrors that
+/// enum at the data layer without creating a dep on the planner crate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ContextTag {
+    /// Observed fact — normal SPO triple recorded from the environment.
+    Observation,
+    /// Interventional fact — produced by `do(subject, predicate, value)`.
+    ///
+    /// Corresponds to Pearl rung 2 (do-calculus).  Downstream NARS revision
+    /// MUST treat this with lower prior weight than an observation: the truth
+    /// value is a hypothetical hard assignment, not evidential.
+    ///
+    /// The planner-layer analogue is
+    /// `NarsInferenceType::Intervention` (confidence modifier 0.85,
+    /// routes to `DnTreeFull { beam: 8 }`).
+    Intervention,
+}
+
+impl ContextTag {
+    /// Raw G-slot sentinel byte used when writing to a packed SPO-G quad.
+    ///
+    /// Value `0xFF` is reserved for `Intervention`; `0x00` is `Observation`.
+    pub const INTERVENTION_RAW_G: u8 = 0xFF;
+    /// Raw G-slot value for `Observation`.
+    pub const OBSERVATION_RAW_G: u8 = 0x00;
+
+    /// Return the raw G-slot byte for this tag.
+    pub fn raw_g(self) -> u8 {
+        match self {
+            ContextTag::Observation => Self::OBSERVATION_RAW_G,
+            ContextTag::Intervention => Self::INTERVENTION_RAW_G,
+        }
+    }
+}
+
+/// A counterfactual SPO-G quad: a `Triplet` paired with a `ContextTag`.
+///
+/// Produced by [`TripletGraph::intervene_on`] — represents what the world
+/// *would* look like if `(subject, predicate)` were forced to take
+/// `new_object` (Pearl rung 2: do-calculus).  The original graph is NOT
+/// mutated; this quad is a separate, caller-owned value intended to be
+/// appended to a shadow / counterfactual store.
+///
+/// The `context` field is always [`ContextTag::Intervention`] for quads
+/// produced by `intervene_on`; its `raw_g()` byte (`0xFF`) can be written
+/// directly into a packed SPO-G bitfield when integrating with
+/// `CausalEdge64` in PR-LL-2.
+#[derive(Debug, Clone)]
+pub struct CounterfactualSpoG {
+    /// The substituted triple `(subject, predicate, new_object)`.
+    pub triplet: Triplet,
+    /// Context tag — always `ContextTag::Intervention` for quads produced
+    /// by `intervene_on`.
+    pub context: ContextTag,
+}
+
+impl TripletGraph {
+    /// Produce a counterfactual SPO-G replay via Pearl rung-2 do-calculus.
+    ///
+    /// Substitutes any matching `(subject, predicate, _)` triple in `self`
+    /// with `(subject, predicate, new_object)` and tags the result with
+    /// [`ContextTag::Intervention`].  The **original graph is NOT modified** —
+    /// the caller receives a new [`CounterfactualSpoG`] to append to a
+    /// shadow/counterfactual store.
+    ///
+    /// If no matching `(subject, predicate)` pair exists in the graph the
+    /// method still constructs and returns the counterfactual triple, because
+    /// do-calculus assertions are unconditional assignments, not conditional
+    /// updates (cf. Pearl 2000, §3).
+    ///
+    /// # Pearl rung mapping
+    ///
+    /// - Rung 1 (observe): [`TripletGraph::get_associated`] — P(Y | X)
+    /// - **Rung 2 (intervene): this method — P(Y | do(X))**
+    /// - Rung 3 (counterfactual): abduction → `intervene_on` → forward
+    ///   deduction via [`TripletGraph::infer_deductions`]
+    ///
+    ///
+    /// # Arguments
+    ///
+    /// * `subject`    — entity name of the subject to intervene on
+    /// * `predicate`  — relation label of the predicate to intervene on
+    /// * `new_object` — the value to substitute (Pearl's `do(X = x)`)
+    pub fn intervene_on(
+        &self,
+        subject: &str,
+        predicate: &str,
+        new_object: &str,
+    ) -> CounterfactualSpoG {
+        // 1. Pick the timestamp from the most-recent matching triple, or use
+        //    the graph's latest timestamp so the counterfactual is logically
+        //    "now".  Fallback to 0 when the graph is empty.
+        let base_timestamp = self
+            .triplets
+            .iter()
+            .filter(|t| !t.is_deleted()
+                && t.subject == subject
+                && t.relation == predicate)
+            .map(|t| t.timestamp)
+            .max()
+            .or_else(|| self.triplets.iter().map(|t| t.timestamp).max())
+            .unwrap_or(0);
+
+        // 2. Construct the substituted triple (s, p, new_object).
+        //    Truth: certain — an intervention is a hard assignment,
+        //    not probabilistic evidence.
+        let triplet = Triplet::new(subject, new_object, predicate, base_timestamp);
+
+        // 3. Tag with ContextTag::Intervention (G slot = 0xFF sentinel
+        //    until W3's NarsInferenceType::Intervention is available).
+        CounterfactualSpoG {
+            triplet,
+            context: ContextTag::Intervention,
+        }
+    }
+}
+
+// ============================================================================
 // NARS inference integration (from adaworldapi/ndarray hpc/nars.rs)
 // ============================================================================
 

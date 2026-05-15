@@ -161,13 +161,25 @@ impl SpoDistances {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Inference {
-    Deduction = 0,   // A→B, B→C ⊢ A→C
-    Induction = 1,   // A→B, A→C ⊢ B→C
-    Abduction = 2,   // A→B, C→B ⊢ A→C
-    Revision = 3,    // merge evidence
-    Analogy = 4,     // A→B, C≈A ⊢ C→B
-    Resemblance = 5, // A≈B, A≈C ⊢ B≈C
-    Synthesis = 6,   // complementary merge
+    Deduction = 0,      // A→B, B→C ⊢ A→C
+    Induction = 1,      // A→B, A→C ⊢ B→C
+    Abduction = 2,      // A→B, C→B ⊢ A→C
+    Revision = 3,       // merge evidence
+    Analogy = 4,        // A→B, C≈A ⊢ C→B
+    Resemblance = 5,    // A≈B, A≈C ⊢ B≈C
+    Synthesis = 6,      // complementary merge
+    /// Pearl rung 2: do-calculus intervention.
+    /// Surgically severs the causal mechanism and forces a variable to a value.
+    /// Routes through MASK_PO (Predicate + Object planes) — the interventional
+    /// projection P(Y | do(X)) excludes the Subject confounding plane.
+    /// Confidence modifier: 0.85 (TUNED-LATER per PR-LL-4 GRPO data).
+    Intervention = 7,
+    /// Pearl rung 3: counterfactual reasoning via abduce→intervene→predict.
+    /// Routes through MASK_SPO (all three planes) — full counterfactual
+    /// P(Y_x = y | X = x', Y = y') requires subject, predicate, and object.
+    /// Confidence modifier: 0.70 (TUNED-LATER; lower than Intervention due to
+    /// compounded uncertainty across the 3-step chain).
+    Counterfactual = 8,
 }
 
 // ── NARS Inference on SpoHeads ──
@@ -206,6 +218,30 @@ pub fn nars_infer(a: &SpoHead, b: &SpoHead, rule: Inference) -> Truth {
         Inference::Synthesis => {
             let f = (fa + fb) / 2.0;
             let c = (ca + cb) / 2.0;
+            Truth::new(f, c)
+        }
+        // Pearl rung 2: Intervention — do-calculus mechanism surgery.
+        // Truth semantics: abduction form (infer cause from effect) with the
+        // confidence modifier 0.85 applied to reflect mechanism-surgery uncertainty.
+        // MASK_PO is the preferred Pearl mask (see `inference_to_pearl_mask`).
+        // Implemented as Abduction ×0.85 confidence modifier.
+        // TUNED-LATER: replace with dedicated do-calculus truth function once
+        // PR-LL-4 GRPO training data provides empirical calibration.
+        Inference::Intervention => {
+            let w = fb * ca * cb;
+            let c = (w / (w + 1.0)) * 0.85;
+            Truth::new(fa, c)
+        }
+        // Pearl rung 3: Counterfactual — abduce→intervene→predict chain.
+        // Truth semantics: deduction form with the confidence modifier 0.70 to
+        // reflect compounded uncertainty across the 3-step chain.
+        // MASK_SPO is the preferred Pearl mask (see `inference_to_pearl_mask`).
+        // Implemented as Deduction ×0.70 confidence modifier.
+        // TUNED-LATER: replace with dedicated 3-step chain truth function once
+        // PR-LL-4 GRPO training data provides empirical calibration.
+        Inference::Counterfactual => {
+            let f = fa * fb;
+            let c = (fa * fb * ca * cb) * 0.70;
             Truth::new(f, c)
         }
     }
@@ -262,6 +298,99 @@ pub fn metacognitive_style() -> StyleVector {
     // Confounder (SP_) weighted — am I confusing correlation with causation?
 }
 
+/// Intervention style: Pearl rung 2 — do-calculus traversal.
+///
+/// Weights the _PO mask (MASK_PO = 0b011, index 6) highest because
+/// P(Y | do(X)) severs the subject confounding plane and reasons only
+/// through the predicate-to-object causal mechanism. Secondary weight
+/// on _P_ (MASK_P = 0b010, index 2) for predicate-marginal evidence.
+///
+/// Weight vector indices → Pearl masks:
+///   [0] MASK_NONE, [1] MASK_S, [2] MASK_P, [3] MASK_O,
+///   [4] MASK_SP,   [5] MASK_SO, [6] MASK_PO, [7] MASK_SPO
+///
+/// Starting calibration — TUNED-LATER once PR-LL-4 GRPO training data
+/// provides empirical ground truth for do-calculus mask selection.
+pub fn intervention_style() -> StyleVector {
+    StyleVector {
+        name: "intervention",
+        weights: [0.0, 0.0, 0.15, 0.15, 0.0, 0.05, 0.50, 0.15],
+    }
+    //         ___   S__   _P_   __O   SP_   S_O  _PO   SPO
+    // _PO (interventional) weighted highest: do(X) severs S confounding.
+    // SPO kept at 0.15 as counterfactual residue; S_O at 0.05 for
+    // association fallback when do-calculus degrades gracefully.
+}
+
+/// Counterfactual style: Pearl rung 3 — abduce→intervene→predict chain.
+///
+/// Weights MASK_SPO (index 7) highest because the full counterfactual
+/// P(Y_x = y | X = x', Y = y') requires all three SPO planes to be
+/// active — subject (background context abduction), predicate (mechanism
+/// surgery), and object (outcome prediction). Secondary weight on _PO
+/// (MASK_PO, index 6) for the intervene sub-step and __O (MASK_O, index 3)
+/// for the predict sub-step.
+///
+/// Weight vector indices → Pearl masks: same ordering as above.
+///
+/// Starting calibration — TUNED-LATER once PR-LL-4 GRPO training data
+/// provides empirical ground truth for 3-step chain mask selection.
+pub fn counterfactual_style() -> StyleVector {
+    StyleVector {
+        name: "counterfactual",
+        weights: [0.0, 0.05, 0.05, 0.10, 0.0, 0.05, 0.25, 0.50],
+    }
+    //         ___   S__   _P_   __O   SP_   S_O   _PO  SPO
+    // SPO weighted at 0.50: all-planes counterfactual query.
+    // _PO at 0.25: intervene sub-step.
+    // __O at 0.10: predict sub-step (outcome plane).
+    // S__ at 0.05: abduce sub-step (background context plane).
+}
+
+/// Map a local `Inference` type to the preferred Pearl mask for causal distance.
+///
+/// Returns the u8 mask value that selects which SPO planes to weight for
+/// a given inference type. Consumers can use this mask directly with
+/// `SpoDistances::causal_distance()` or route through the matching
+/// `StyleVector` via `inference_to_style()`.
+///
+/// `Intervention` → MASK_PO (0b011): do(X) severs the subject plane.
+/// `Counterfactual` → MASK_SPO (0b111): full rung-3 query uses all planes.
+/// All other types → MASK_SPO by default (full evidence).
+///
+/// TODO(PR-LL-4): Tune mask overrides for Deduction (MASK_SO, association),
+/// Induction (MASK_SP, confounder surface), Abduction (MASK_PO or SPO).
+pub fn inference_to_pearl_mask(rule: Inference) -> u8 {
+    match rule {
+        // Pearl rung 2: intervention surgically removes subject confounding.
+        Inference::Intervention => MASK_PO,
+        // Pearl rung 3: counterfactual needs all three planes active.
+        Inference::Counterfactual => MASK_SPO,
+        // All other types default to full SPO mask (conservative).
+        Inference::Deduction
+        | Inference::Induction
+        | Inference::Abduction
+        | Inference::Revision
+        | Inference::Analogy
+        | Inference::Resemblance
+        | Inference::Synthesis => MASK_SPO,
+    }
+}
+
+/// Map a local `Inference` type to the matching `StyleVector`.
+///
+/// `Intervention` and `Counterfactual` route to their dedicated Pearl-mask-aware
+/// style vectors. All other types fall through to analytical (full-coverage default).
+pub fn inference_to_style(rule: Inference) -> StyleVector {
+    match rule {
+        Inference::Intervention => intervention_style(),
+        Inference::Counterfactual => counterfactual_style(),
+        // TODO(PR-LL-4): Add per-type style routing for Deduction, Induction,
+        // Abduction, Revision once GRPO training data is available.
+        _ => analytical_style(),
+    }
+}
+
 /// Score a candidate using a style vector.
 pub fn style_score(
     candidate: &SpoHead,
@@ -314,7 +443,29 @@ impl NarsEngine {
     }
 
     /// Hot path: SpoHead → CausalEdge64 for protocol transport.
+    ///
+    /// Maps the SpoHead's `inference` byte to the causal-edge `InferenceType`,
+    /// including the new Pearl rung 2 (`Intervention = 7`) and rung 3
+    /// (`Counterfactual = 8`) variants introduced in W1/W3.
     pub fn to_causal_edge(&self, head: &SpoHead) -> CausalEdge64 {
+        // Map local `Inference` discriminant to the protocol `InferenceType`.
+        // W1 added Intervention=5 and Counterfactual=6 to causal-edge's enum;
+        // our local Inference has them as 7/8 respectively, so we must translate.
+        let infer_type = match head.inference {
+            0 => causal_edge::edge::InferenceType::Deduction,
+            1 => causal_edge::edge::InferenceType::Induction,
+            2 => causal_edge::edge::InferenceType::Abduction,
+            3 => causal_edge::edge::InferenceType::Revision,
+            4 => causal_edge::edge::InferenceType::Synthesis,
+            // Pearl rung 2: Intervention (local=7 → protocol=5)
+            7 => causal_edge::edge::InferenceType::Intervention,
+            // Pearl rung 3: Counterfactual (local=8 → protocol=6)
+            8 => causal_edge::edge::InferenceType::Counterfactual,
+            // Analogy (4), Resemblance (5), Synthesis (6) — map to Synthesis as best fit.
+            // 5, 6 in old local enum were Resemblance/Synthesis; handled here:
+            5 | 6 => causal_edge::edge::InferenceType::Synthesis,
+            _ => causal_edge::edge::InferenceType::Deduction,
+        };
         CausalEdge64::pack(
             head.s_idx,
             head.p_idx,
@@ -323,8 +474,7 @@ impl NarsEngine {
             head.conf,
             CausalMask::from_bits(head.pearl),
             0, // direction
-            // InferenceType::from_bits is private; use Deduction as default
-            causal_edge::edge::InferenceType::Deduction,
+            infer_type,
             PlasticityState::from_bits(0b111), // all hot
             head.temporal as u16,
         )
@@ -691,6 +841,152 @@ mod tests {
         assert!(
             t.confidence > 0.0,
             "abduction confidence should be positive"
+        );
+    }
+
+    #[test]
+    fn test_nars_intervention_and_counterfactual() {
+        let a = SpoHead {
+            s_idx: 0,
+            p_idx: 0,
+            o_idx: 0,
+            freq: 204,
+            conf: 178,
+            pearl: MASK_PO, // Intervention uses PO mask
+            inference: 7,   // Inference::Intervention
+            temporal: 0,
+        };
+        let b = SpoHead {
+            s_idx: 0,
+            p_idx: 0,
+            o_idx: 0,
+            freq: 229,
+            conf: 204,
+            pearl: MASK_SPO, // Counterfactual uses SPO mask
+            inference: 8,    // Inference::Counterfactual
+            temporal: 0,
+        };
+
+        // Intervention truth: confidence should be capped by 0.85 modifier
+        let t_int = nars_infer(&a, &b, Inference::Intervention);
+        assert!(
+            (t_int.frequency - a.frequency()).abs() < 0.01,
+            "Intervention frequency should be fa = {}, got {}",
+            a.frequency(),
+            t_int.frequency
+        );
+        assert!(
+            t_int.confidence < a.confidence(),
+            "Intervention confidence should be attenuated: got {}",
+            t_int.confidence
+        );
+
+        // Counterfactual truth: confidence further attenuated by 0.70 modifier
+        let t_cf = nars_infer(&a, &b, Inference::Counterfactual);
+        assert!(
+            t_cf.confidence < t_int.confidence,
+            "Counterfactual confidence should be lower than Intervention: {} vs {}",
+            t_cf.confidence,
+            t_int.confidence
+        );
+
+        // Pearl mask routing
+        assert_eq!(
+            inference_to_pearl_mask(Inference::Intervention),
+            MASK_PO,
+            "Intervention should route to MASK_PO"
+        );
+        assert_eq!(
+            inference_to_pearl_mask(Inference::Counterfactual),
+            MASK_SPO,
+            "Counterfactual should route to MASK_SPO"
+        );
+    }
+
+    #[test]
+    fn test_intervention_style_weights_po_highest() {
+        let style = intervention_style();
+        // MASK_PO is at index 6 in ALL_MASKS
+        let po_weight = style.weights[6];
+        for (i, &w) in style.weights.iter().enumerate() {
+            if i != 6 {
+                assert!(
+                    po_weight >= w,
+                    "intervention_style: PO weight ({}) should be >= weights[{}] ({})",
+                    po_weight,
+                    i,
+                    w
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_counterfactual_style_weights_spo_highest() {
+        let style = counterfactual_style();
+        // MASK_SPO is at index 7 in ALL_MASKS
+        let spo_weight = style.weights[7];
+        for (i, &w) in style.weights.iter().enumerate() {
+            if i != 7 {
+                assert!(
+                    spo_weight >= w,
+                    "counterfactual_style: SPO weight ({}) should be >= weights[{}] ({})",
+                    spo_weight,
+                    i,
+                    w
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_to_causal_edge_maps_intervention_and_counterfactual() {
+        let dist = SpoDistances::new_zero();
+        let engine = NarsEngine::new(dist);
+
+        let int_head = SpoHead {
+            s_idx: 5,
+            p_idx: 10,
+            o_idx: 15,
+            freq: 200,
+            conf: 180,
+            pearl: MASK_PO,
+            inference: 7, // Intervention
+            temporal: 1,
+        };
+        let cf_head = SpoHead {
+            s_idx: 5,
+            p_idx: 10,
+            o_idx: 15,
+            freq: 200,
+            conf: 180,
+            pearl: MASK_SPO,
+            inference: 8, // Counterfactual
+            temporal: 2,
+        };
+
+        let int_edge = engine.to_causal_edge(&int_head);
+        let cf_edge = engine.to_causal_edge(&cf_head);
+
+        assert_eq!(
+            int_edge.inference_type(),
+            causal_edge::edge::InferenceType::Intervention,
+            "SpoHead inference=7 should map to Intervention"
+        );
+        assert_eq!(
+            cf_edge.inference_type(),
+            causal_edge::edge::InferenceType::Counterfactual,
+            "SpoHead inference=8 should map to Counterfactual"
+        );
+
+        // Verify causal masks are preserved
+        assert!(
+            int_edge.p_active() && int_edge.o_active() && !int_edge.s_active(),
+            "Intervention edge should have PO mask"
+        );
+        assert!(
+            cf_edge.s_active() && cf_edge.p_active() && cf_edge.o_active(),
+            "Counterfactual edge should have SPO mask"
         );
     }
 

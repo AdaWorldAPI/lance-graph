@@ -50,6 +50,15 @@ impl NarsInference {
     }
 
     /// Maps from the thinking layer's NarsInferenceType to the data layer's NarsInference.
+    ///
+    /// Pearl rung 2 (Intervention) maps to `Abduction` here because mechanism
+    /// surgery still requires DN-tree traversal to reach the target node; the
+    /// distinction is expressed at the `QueryStrategy` level by the planner.
+    ///
+    /// Pearl rung 3 (Counterfactual) maps to `Abduction` for the same reason —
+    /// the 3-step chain's first step (abduce latent context) dominates semiring
+    /// selection; the intervene + predict sub-steps compose Intervention +
+    /// Deduction strategies at the caller.
     pub fn from_thinking_type(t: crate::thinking::NarsInferenceType) -> Self {
         match t {
             crate::thinking::NarsInferenceType::Deduction => Self::Deduction,
@@ -57,6 +66,10 @@ impl NarsInference {
             crate::thinking::NarsInferenceType::Abduction => Self::Abduction,
             crate::thinking::NarsInferenceType::Revision => Self::Revision,
             crate::thinking::NarsInferenceType::Synthesis => Self::Synthesis,
+            // Route Pearl rungs through Abduction semiring; planner QueryStrategy
+            // carries the do-calculus / 3-step distinction (W2 will extend further).
+            crate::thinking::NarsInferenceType::Intervention => Self::Abduction,
+            crate::thinking::NarsInferenceType::Counterfactual => Self::Abduction,
         }
     }
 }

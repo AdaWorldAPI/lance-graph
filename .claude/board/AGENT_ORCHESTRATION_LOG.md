@@ -1230,3 +1230,10 @@ Detail:
 **Key finding:** `edge.rs` has no unused bits in 51-63 (plan's "13 reserved bits" does not match impl — plasticity at 49-51, temporal at 52-63). W2 must resolve reclaim strategy before implementation. Tests written against functional accessor properties, not raw bit positions.
 **Status:** SPEC DRAFT complete. Tests: 6 gating + 1 ignored property test. CI extension: 3 new steps in rust-test.yml.
 W4 | 2026-05-14 | pr-ce64-mb-3-bindspace-efgh.md | ~14 KB | Plans: bindspace-columns-v1 §1-§5, causaledge64 §6-§7 | COMPLETE | Closes PR355#6 + FIX-5 + Phase2 | OQ: BindSpaceView placement (par-tile vs driver)
+
+W6 LL1 | 2026-05-14T20:00 | doc-update | sonnet (main-backfill due to old-perm snapshot) | knowledge/causal-edge-64-spo-variant.md + EPIPHANIES PREPEND | E-LL-1-INTERVENE entry added | governance only
+
+W1 LL1 | 2026-05-15T19:25 | nars-variants | sonnet | nars_dispatch.rs | Intervention + Counterfactual added | cargo check passes
+
+W4 LL1 | 2026-05-15T19:29 | arigraph-intervene | sonnet | triplet_graph.rs | intervene_on added | cargo check passes | depends-on-W3: no (W3 already landed NarsInferenceType::Intervention)
+W2 nars-engine-dispatch [PR-LL-1] — added intervention_style(MASK_PO=0.50), counterfactual_style(MASK_SPO=0.50), inference_to_pearl_mask(), inference_to_style(), nars_infer arms, to_causal_edge dispatch; 4 new tests; cargo check exit 0
