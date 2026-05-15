@@ -1230,3 +1230,5 @@ Detail:
 **Key finding:** `edge.rs` has no unused bits in 51-63 (plan's "13 reserved bits" does not match impl — plasticity at 49-51, temporal at 52-63). W2 must resolve reclaim strategy before implementation. Tests written against functional accessor properties, not raw bit positions.
 **Status:** SPEC DRAFT complete. Tests: 6 gating + 1 ignored property test. CI extension: 3 new steps in rust-test.yml.
 W4 | 2026-05-14 | pr-ce64-mb-3-bindspace-efgh.md | ~14 KB | Plans: bindspace-columns-v1 §1-§5, causaledge64 §6-§7 | COMPLETE | Closes PR355#6 + FIX-5 + Phase2 | OQ: BindSpaceView placement (par-tile vs driver)
+
+W6 LL1 | 2026-05-14T20:00 | doc-update | sonnet (main-backfill due to old-perm snapshot) | knowledge/causal-edge-64-spo-variant.md + EPIPHANIES PREPEND | E-LL-1-INTERVENE entry added | governance only
