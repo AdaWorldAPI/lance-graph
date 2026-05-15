@@ -35,7 +35,7 @@
 
 ---
 
-## #[NEXT] — gov: retire 4 superseded orphan branches (deletion audit-trail) (merged 2026-05-15)
+## #379 — gov: retire 4 superseded orphan branches (deletion audit-trail) (merged 2026-05-15)
 
 **Confidence (2026-05-15):** governance-only branch-retirement audit. No code, no spec, no plan — just documents the lifecycle close of 4 orphan branches whose content was absorbed into `main` via parallel paths (PR #364/#365/#366 sprint-7 etc.) and which therefore no longer have any unique unmerged content worth surfacing. **Verification methodology:** for each retired branch, ran `git diff --shortstat origin/main...$branch` AND `git diff` on suspected unique files. Three branches showed zero-byte diff (content fully absorbed); one branch (`phase-3b-witness-to-splat`) showed nominal "18 files / +3943 / −1" diff but per-file inspection proved every line-level delta was either (a) rustfmt-1.95.0 whitespace drift vs the pre-bump branch, or (b) stale "Last updated" metadata regression in `LATEST_STATE.md`. None of the four branches had a recoverable unique-content payload worth a PR.
 
