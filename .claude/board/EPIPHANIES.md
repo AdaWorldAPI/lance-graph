@@ -1,3 +1,25 @@
+## 2026-05-14 — E-LL-CURRICULUM-1 — neurosymbolic + RLVR + causal learning layer (8-paper synthesis)
+
+**Status:** PROPOSAL (curriculum doc landed; 5-PR roadmap ratification pending)
+
+**Click:** The stack already has the substrate for *self-improvement*. PR #372 landed AriGraph SPO-G + CausalEdge64 v2 + Σ-tier router + MailboxSoA — all five doctrinal pieces of (probabilistic programs × structural causal models × multi-environment grouped data × explicit conditional dispatch × Bayesian belief). What's missing is **the learning loop on top**: a deterministic verifier (NARS), a Goldilocks data generator (Opt-Sym shape), a continuous program-latent optimizer (LPN shape), an RL trainer (GRPO shape), and a Σ9-Σ10 deductive prover (LINC shape). Each maps to one existing-or-near-existing stack component; the curriculum (this doc) is the joint reading that names which paper supplies which verb. Reading load: ~6 hours across 4 tiers. PR roadmap: 5 PRs (LL-1 NARS intervene/CFG verbs → LL-2 ICM column + Opt-Sym generator → LL-3 hybrid TextGrad/LPN style optimizer → LL-4 GRPO trainer crate → LL-5 LINC bridge + conformal CFG).
+
+**Stack alignment table:** Causal de Finetti ↔ AriGraph SPO-G (live); LPN ↔ StyleVectors (live, underused); LINC ↔ Σ9-Σ10 → L4 (live shell, no prover); Executable CFG ↔ Pearl 2³ in NarsEngine (live in name, missing verbs); Opt-Sym ↔ data_gen module (missing); Conformal CFG ↔ safety wrap (missing); TextGrad ↔ style optimizer (missing); GRPO ↔ trainer (missing).
+
+**Doctrinal claim:** Stack's NARS truth + I-SUBSTRATE-MARKOV gives a *strictly stronger* deterministic verifier than Opt-Sym's LLM verifier — graded confidence ∈ [0,1] is better than binary pass/fail as a GRPO reward. Stack's `StyleVectors` is *already* an LPN-style continuous latent space; LPN's gradient-at-inference is the missing operator. The MUL gate is *already* the LINC dispatch shape; LINC just fills the L4 slot. Each of the 8 papers maps to a verb the stack named but didn't ship.
+
+**Doc location:** `.claude/knowledge/neurosymbolic-rlvr-causal-curriculum-v1.md` (~600 lines, 12 sections). Cross-refs to causal-edge-64-* triad, cognitive-shader-driver-thinking-engine-reunification, encoding-ecosystem (mandatory), lab-vs-canonical-surface (mandatory), bf16-hhtl-terrain (probe queue).
+
+**Open questions (6) gated before sprint fan-out:** reward shape (graded vs binary), TextGrad optimizer (local vs frontier), prover choice (Z3 vs HOL Light), style-pool location (contract vs separate), ICM-invariance update protocol, Σ-tier-as-difficulty probe.
+
+**Iron rule audit:** Six rules (I-SUBSTRATE-MARKOV, I-NOISE-FLOOR-JIRAK, I-VSA-IDENTITIES, I1, method-on-carrier, AGI-as-glove SoA) all satisfied — synthesized styles are IDENTITY fingerprints (not content), Conformal CFG uses Jirak bounds (not classical Berry-Esseen), all four new capabilities are methods on existing carriers, BindSpace stays read-only with the new IcmInvarianceColumn gated through CollapseGate.
+
+**Predecessor:** PR #371/#372 (causaledge64-mailbox-rename-soa-v1) substrate.
+
+**Successor:** PR-LL-1 through PR-LL-5 (this curriculum is the spec).
+
+---
+
 # Epiphanies — Append-Only Log (date-prefixed)
 
 > **APPEND-ONLY.** Every epiphany, realization, correction, or
