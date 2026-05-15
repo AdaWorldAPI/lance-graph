@@ -210,6 +210,12 @@ fn planner_nars_to_contract(n: crate::thinking::NarsInferenceType) -> InferenceT
         P::Abduction => InferenceType::Abduction,
         P::Revision => InferenceType::Revision,
         P::Synthesis => InferenceType::Synthesis,
+        // Pearl rungs 2 and 3 — contract InferenceType will gain matching variants in
+        // a follow-up PR (W2/meta-r1 scope).  Until then, bridge to Abduction so that
+        // the contract's semiring selection picks DN-tree traversal, which is the
+        // closest structural analogue to do-calculus mechanism surgery.
+        P::Intervention => InferenceType::Abduction,
+        P::Counterfactual => InferenceType::Abduction,
     }
 }
 

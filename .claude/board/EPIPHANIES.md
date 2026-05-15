@@ -1,3 +1,17 @@
+## 2026-05-14 — E-LL-1-INTERVENE — NARS Intervention/Counterfactual verbs land
+
+**Status:** SHIPPED (PR-LL-1 from curriculum §6.1)
+
+**Click:** Pearl 2³ rungs (association/intervention/counterfactual) were named-but-not-dispatched in nars_engine — `NarsInferenceType` had 5 variants none of which encoded interventional reasoning. PR-LL-1 closes that gap with two additive variants in `lance-graph-planner::thinking::nars_dispatch::NarsInferenceType`, threaded through Pearl 2³ dispatch in `cache::nars_engine`, and a new `TripletGraph::intervene_on()` method that produces counterfactual SPO-G tagged with `G::Intervention` (from causal-edge).
+
+**Doctrinal claim:** Intervention is now a first-class verb in the stack, not a name. The MUL gate's free-energy signal now has a vocabulary for distinguishing "system is unsure about observation" (high F, NARS Abduction) from "system is being asked to reason counterfactually" (high F, NARS Counterfactual). Downstream consumers (MedCare-rs treatment proposals, q2 cockpit what-if queries, OSINT corroboration) can now disambiguate.
+
+**Predecessor:** PR #373 (curriculum v1).
+
+**Successor:** PR-LL-2 (ICM-invariance column + Opt-Sym generator) consumes the new G slot tagging.
+
+---
+
 ## 2026-05-14 — E-LL-CURRICULUM-1 — neurosymbolic + RLVR + causal learning layer (8-paper synthesis)
 
 **Status:** PROPOSAL (curriculum doc landed; 5-PR roadmap ratification pending)

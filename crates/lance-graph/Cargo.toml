@@ -81,3 +81,5 @@ lance-arrow = "=4.0.0"
 lance-index = "=4.0.0"
 tempfile = "3"
 tokio = { version = "1.37", features = ["macros", "rt-multi-thread"] }
+causal-edge = { path = "../causal-edge" }
+lance-graph-planner = { path = "../lance-graph-planner" }
