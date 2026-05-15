@@ -35,6 +35,67 @@
 
 ---
 
+## #372 — specs(sprint-10): 12-worker CCA2A fleet + meta-review (governance only) (merged 2026-05-14)
+
+**Confidence (2026-05-14):** governance-only merged clean (no `.rs` changes; CI N/A for spec-only PR). **Status:** Merged to `main` (commit `9fa206d`). Mirrors PR #365 pattern (spec sprint preceding a future implementation wave; sprint-11 = implementation, blocked on user ratifications). 7 commits on the merged branch: 3 themed this session (`5c68a2e` specs + `abc2706` board hygiene + `11ae222` knowledge docs) + 4 prior scaffolding commits.
+
+**Added:**
+- **11 PR-ready sprint-10 worker specs** (~370 KB) at `.claude/specs/`:
+  - **W1** `pr-ce64-mb-1-par-tile-crate` — new substrate crate `par-tile`, `Mailbox<T>` trait + 3 backings (Tokio / InMem / SupabaseSub), `AttentionMask` SoA with LRU eviction, `BindSpaceView` via `NonNull<u8>` (dep-isolation), dep-guard build.rs. ~1425 LOC source + 540 LOC tests.
+  - **W2** `pr-ce64-mb-2-causaledge64-v2` — proposed v2 layout with G/W/truth-band lens; **OQ-LAYOUT-1 BLOCKER** finding (parent plan §3 "13 reserved bits 51-63" don't exist in shipped `edge.rs`); 5 reclaim options (A-E) for user ratification.
+  - **W3** `pr-ce64-mb-2-pal8-nars-regression` — defensive functional tests (accessor-based, not bit-positional) → remain valid post-OQ-LAYOUT-1 regardless of which Option ratifies.
+  - **W4** `pr-ce64-mb-3-bindspace-efgh` — BindSpace columns E/F/G/H, Column H entity_type already wired (PR #272), MergeMode::Superposition documented; AwareOp D-F4/D-F5 stubbed as no-op (deferred to sprint-12+).
+  - **W5** `pr-ce64-mb-4-arigraph-spo-g` — Triplet schema extension with `g: u32`, `pearl_rung: u8`, `witness_ref: u64`; new `ghost.rs` module (GhostStore + GhostReactivationEvent + nars_revise_ghosts); `SpoWitness64` (Copy, 8 B) + `SpoWitnessChain<32>`; SCHEMA_VERSION 2→3 migration.
+  - **W6** `pr-ce64-mb-5-mailbox-soa-attentionmask` — `MailboxSoA<N>` + `AttentionMaskActor` (single tick per cycle invariant); 9 tests + sequence diagram + risk matrix.
+  - **W7** `pr-ce64-mb-6-sigma-tier-router` — `SigmaTierRouter` ractor actor (6 msg variants) + 10-tier banding table + INT4-32D K-NN cold-start fallback + Hebbian plasticity rollup at drop_row + 3-trigger pruning + `KernelHandleCache` (closes THINKING_ORCHESTRATION_WIRING.md Gap 3) + Σ9-Σ10 EPIPHANY escalation with 1024-entry backpressure. 30 tests, 4 benches.
+  - **W8** `pr-ndarray-miri-complete` — Miri coverage growth target: ~760 → ~1550 (3 mechanisms across ndarray + new pure-Rust crates + expanded lance-graph Miri scope).
+  - **W9** `pr-ce64-mb-7-bevy-cull-plugin` — bevy 0.14 cull plugin proof-PR; producer-side cull_system + spawn_system + 12 tests + 4 benches.
+  - **W10** `sprint-10-pr-dep-graph` — 8 PRs across 6 waves with parallel-landability table + 6 cross-spec consistency checks (C-1..C-6).
+  - **W11** `sprint-10-test-plan` — unified test plan + Miri growth target + proptest Miri runtime guidance.
+  - **W12** `sprint-10-execution-plan` — sprint-11 fleet definition + post-merge governance + worker prompt template (CCA2A protocol).
+- **Sprint-10 Opus meta-review** (~28 KB) at `.claude/board/sprint-log-10/meta-review.md`:
+  - Sprint grade: **B+** (substrate-level CausalEdge64 plan/code-gap finding = CSI-1, the central value-add)
+  - Per-worker grades: W2/W3/W5/W8/W10/W11/W12 = A/A−; W1/W6/W7/W9 = B+; W4 = B−
+  - **6 cross-spec inconsistencies (CSI-1..CSI-6)** surfaced with resolution paths; 3 are BLOCKERs for sprint-11 spawn (CSI-1 user ratification; CSI-2 W6 CompartmentReport patch; CSI-3 W10 dep-graph PR-J1 prerequisite)
+  - **5 cross-cutting epiphanies (E-META-1..E-META-5)**: specs-against-source > specs-against-plan; late-spec coordination gap; scratchpad discipline bimodal; 4 BindSpace columns + Σ-tier band = AGI-as-glove API; diamond dep graph holds
+  - Sprint-11 spawn decision: **NO** until 5 spec patches + 4 user ratifications (CSI-1 + parent plan OQ-1/3/5)
+  - Adjusted wave sequence: add Wave 0.5 `PR-J1-INT4-32D-ATOMS` before Wave 1
+- **11 sprint-log-10 worker scratchpads** at `.claude/board/sprint-log-10/agents/agent-W{1..12}.md` (W3 was prior-committed at `6fd4e8c`) — CCA2A Layer-2 blackboard artifacts; each itemizes mandatory reads + design decisions + OQs surfaced.
+- **8 knowledge docs** (~123 KB) at `.claude/knowledge/`:
+  - `causal-edge-64-spo-variant.md` — `causal-edge::CausalEdge64` (SPO-palette layout: S/P/O palette + NARS f/c + Pearl mask + direction + inference + plasticity + temporal)
+  - `causal-edge-64-thinking-engine-variant.md` — `thinking_engine::layered::CausalEdge64` (8 channels × 8 bits: BECOMES / CAUSES / SUPPORTS / REFINES / GROUNDS / ABSTRACTS / RELATES / CONTRADICTS)
+  - `causal-edge-64-synergies-and-pr-trajectory.md` — what each variant does BETTER + thinking-engine function mapping + reunification Options R-1 (CausalEdge128) / R-2 (paired tuple) / R-3 (transcode at L3 commit, recommended)
+  - `spo-schema-and-mailbox-sidecar.md` — SPO-G vs SPO-W (witness tetrahedron per oxigraph-arigraph plan §8) vs both; time-as-sidecar correction; ractor mailbox payload per Σ-tier
+  - `spo-ontology-format-stack.md` — 3×16Kbit → ZeckBF17 → Base17 → PaletteEdge/CAM-PQ → Scent → CausalEdge64 ladder with selection matrix
+  - `ogit-owl-dolce-ontology-compartments.md` — OGIT (domain content) + OWL (axioms) + DOLCE (orthogonal categorical scaffold); 8-channel ↔ OWL axiom near-isomorphism (SUPPORTS↔sameAs, REFINES↔subClassOf-down, etc.)
+  - `cognitive-shader-driver-thinking-engine-reunification.md` — **p64 drift origin pinpointed** at `crates/lance-graph-planner/src/cache/convergence.rs:18-22 #[allow(unused_imports)]` annotation (wiring started, never finished — the smoking gun)
+  - `splat-shader-rayon-struct-method-vision.md` — splat ops fleet + ndarray struct methods + rayon work-stealing + computational entropy reduction + 5-sprint reunification arc
+- **AGENT_ORCHESTRATION_LOG.md** modification recording the sprint-log-10 12-worker fleet run + main-thread W7/W9 backfill + meta-review.
+
+**Locked:**
+- **Sprint-10 = the spec sprint half** of the alternating spec/implementation pattern (parallel to PR #365 sprint-5-6 specs → PR #366 sprint-7 implementation). Sprint-11 = the implementation wave (separate PR; gated on user ratifications).
+- **Dual `CausalEdge64` types FINDING (E-META-7)**: `causal_edge::CausalEdge64` (SPO-palette in `crates/causal-edge/src/edge.rs:60`) ≠ `thinking_engine::layered::CausalEdge64` (8-channel cascade in `crates/thinking-engine/src/layered.rs:45`). Same name, different bit semantics, different consumers. Reunification per Option R-3 (transcode at L3 commit) recommended.
+- **Three-zone hot-path mental model** (corrects prior "AriGraph reads = µs cold-path joins" framing): Zone-1 (thinking-engine MatVec 200-500 ns + AriGraph `entity_index` HashMap O(1) ~20-200 ns); Zone-2 (blasgraph + neighborhood cascade HEEL→HIP→TWIG→LEAF, 20-1200 µs); Zone-3 (DataFusion / lance-graph-planner cold path, >1 ms).
+- **p64 convergence drift origin** pinpointed at `crates/lance-graph-planner/src/cache/convergence.rs:18-22` — the `#[allow(unused_imports)] // CausalEdge64 intended for hot-path convergence wiring` annotation is the smoking gun. Wiring started, never finished; thinking-engine's 8-channel variant was reinvented locally (`crates/thinking-engine/src/layered.rs:45`) instead of imported here.
+- **CCA2A 12-worker pattern** validated at sprint-10 scale: 11 worker specs + 1 meta-review across 12 Sonnet workers + 1 Opus meta in parallel, with 2 main-thread backfill specs (W7 + W9) for workers not spawned. Worker scratchpads = CCA2A Layer-2 blackboard.
+- **Meta-review-first sprint discipline**: surface CSI / OQ / cross-spec drift via Opus meta BEFORE implementation spawn; don't let drift propagate into impl PRs.
+
+**Deferred:**
+- **Sprint-11 implementation wave** — needs 5 pre-spawn spec patches (CSI-2 through CSI-6) + 4 user ratifications (CSI-1 bit-reclaim Option + parent plan OQ-1 Σ-tier banding + OQ-3 plasticity granularity + OQ-5 rayon vendor).
+- **`Think` carrier struct unification** — collapse thinking-engine cascade + cognitive-shader-driver SoA into one carrier (per `splat-shader-rayon-struct-method-vision.md` sprint-12+ 5-sprint arc).
+- **Splat shader op fleet** (`splat_gaussian`, `score_hole_closure`, `replay_coherence`, `emit_if_epiphany`) — sprint-13+ per CONJECTURE in `splat-shader-rayon-struct-method-vision.md`.
+- **OWL DOLCE / OntologyFilter wiring** into thinking-engine `emit_causal_edges_filtered` — sprint-12+ per `ogit-owl-dolce-ontology-compartments.md` §6.
+- **PR-J1-INT4-32D-ATOMS** (codebook for sprint-11 Wave 5 SigmaTierRouter cold-start) — must land as Wave 0.5 prerequisite.
+
+**Docs:**
+- `.claude/specs/` — 11 new sprint-10 worker specs (~370 KB).
+- `.claude/board/sprint-log-10/meta-review.md` — Opus cross-spec meta-review (~28 KB).
+- `.claude/board/sprint-log-10/agents/agent-W{1..12}.md` — 11 new + 1 prior-committed worker scratchpads.
+- `.claude/knowledge/` — 8 new architecture reference docs (~123 KB), all with `READ BY:` headers.
+- `.claude/board/AGENT_ORCHESTRATION_LOG.md` — sprint-log-10 fleet-run entry.
+
+---
+
 ## #366 — impl(sprint-7): 7-worker implementation wave for sprint-5/6 specs + AuditSink trait unification (merged 2026-05-13)
 
 **Confidence (2026-05-13):** merged clean. Workspace `cargo clippy --workspace --tests --no-deps -- -D warnings` exits 0; all sprint-7 worker tests pass; `UnifiedAuditEvent::canonical_bytes` 26-byte invariant preserved across the OQ-7-2 trait migration. **Status:** Merged to `main` (commit `3a85ec0`). **Adjacent landings (2026-05-13):** MedCare-rs sprint-1 10-PR sweep (#113 Finding 1 `MedcareOntology::from_registry` → PR-α / #114 FingerprintCodec re-export fold Pattern N → PR-γ / #115 AUTH_LEGACY_TRIPLEDES_MIGRATION cipher reality → PR-δ / #116 ALL_SCHEMAS 4→7 mirrors OGIT PR #3 → Finding 2 / #117 SPRINT5_READINESS_RECON / #118 ndarray hpc-extras investigation upstream-blocked / **#119 medcare_healthcare_policy + 6 RoleGroups consumes our `0d725d4` OQ-3 direct-migration decision** / #120 governance board + tier-0 / #121 sprint-1 meta-retrospective with §8 sprint-2 5-PR queue / #122 codex P2 path-fix). All merged the same day. MedCare-rs sprint-2 is now ready on user "go" — 5 PRs queued, item 5 (Audit-sink decision: JSONL primary + optional Lance projection) consumes this PR's `UnifiedBridge::with_jsonl_audit()` ergonomic constructor.

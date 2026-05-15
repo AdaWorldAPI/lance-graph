@@ -351,6 +351,71 @@ Cross-ref: SPLAT-1 row in `ARCHITECTURE_ENTROPY_LEDGER.md` (Aspirational → Wir
 ---
 
 
+## causaledge64-mailbox-rename-soa-v1 — sprint-10 spec corpus + sprint-11 impl queue
+
+Active integration plan. Specs shipped via PR #372 (merged 2026-05-14, governance-only).
+Plan path: `.claude/plans/causaledge64-mailbox-rename-soa-v1.md`.
+
+### Sprint-10 — spec sprint (12 CCA2A workers + Opus meta) — Shipped
+
+| D-id | Title | Status | PR / Evidence |
+|---|---|---|---|
+| D-CE64-MB-1 | par-tile crate apex + Mailbox<T> + 3 backings + AttentionMask SoA + BindSpaceView | **Spec shipped** | #372 — `pr-ce64-mb-1-par-tile-crate.md` (W1) |
+| D-CE64-MB-2 | CausalEdge64 v2 layout proposal + OQ-LAYOUT-1 BLOCKER finding | **Spec shipped** | #372 — `pr-ce64-mb-2-causaledge64-v2.md` (W2) |
+| D-CE64-MB-2-regress | PAL8 / NARS regression tests (accessor-based, post-OQ-LAYOUT-1) | **Spec shipped** | #372 — `pr-ce64-mb-2-pal8-nars-regression.md` (W3) |
+| D-CE64-MB-3 | BindSpace E/F/G/H column extension | **Spec shipped** | #372 — `pr-ce64-mb-3-bindspace-efgh.md` (W4) |
+| D-CE64-MB-4 | AriGraph SPO-G + ghost edges + SpoWitnessChain + SCHEMA_VERSION 2→3 | **Spec shipped** | #372 — `pr-ce64-mb-4-arigraph-spo-g.md` (W5) |
+| D-CE64-MB-5 | MailboxSoA<N> + AttentionMaskActor (single tick per cycle) | **Spec shipped** | #372 — `pr-ce64-mb-5-mailbox-soa-attentionmask.md` (W6) |
+| D-CE64-MB-6 | SigmaTierRouter + banding + INT4-32D cold-start + Hebbian plasticity + KernelHandle cache + Σ9-10 escalation | **Spec shipped** | #372 — `pr-ce64-mb-6-sigma-tier-router.md` (W7) |
+| D-CE64-MB-7 | bevy 0.14 cull plugin proof-PR | **Spec shipped** | #372 — `pr-ce64-mb-7-bevy-cull-plugin.md` (W9) |
+| D-NDARRAY-MIRI-COMPLETE | Miri coverage ~760 → ~1550 | **Spec shipped** | #372 — `pr-ndarray-miri-complete.md` (W8) |
+| D-SPRINT-10-DEPGRAPH | 8 PRs × 6 waves + parallel-landability + cross-spec consistency checks | **Spec shipped** | #372 — `sprint-10-pr-dep-graph.md` (W10) |
+| D-SPRINT-10-TESTPLAN | Unified test plan + Miri growth target + proptest Miri runtime | **Spec shipped** | #372 — `sprint-10-test-plan.md` (W11) |
+| D-SPRINT-10-EXECPLAN | Sprint-11 fleet definition + post-merge governance + worker prompt template | **Spec shipped** | #372 — `sprint-10-execution-plan.md` (W12) |
+| D-SPRINT-10-META | Opus meta-review (CSI-1..6 + E-META-1..5 + sprint-11 gate decision) | **Shipped** | #372 — `.claude/board/sprint-log-10/meta-review.md` |
+
+### Sprint-11 — implementation wave — Queued (blocked)
+
+| D-id | Title | Status | PR / Evidence |
+|---|---|---|---|
+| D-CE64-MB-1-impl | par-tile crate impl (W1 → code) | **Queued** | blocked on OQ-5 user ratification (rayon vendor) |
+| D-CE64-MB-2-impl | CausalEdge64 v2 layout impl (W2 → code) | **Queued** | blocked on CSI-1 user ratification (which Option A/B/C/D/E for bit reclaim) |
+| D-CE64-MB-2-regress-impl | PAL8 / NARS regression test impl (W3 → code) | **Queued** | blocked on D-CE64-MB-2-impl |
+| D-CE64-MB-3-impl | BindSpace E/F/G/H impl (W4 → code) | **Queued** | blocked on D-CE64-MB-1-impl |
+| D-CE64-MB-4-impl | AriGraph SPO-G + ghosts impl (W5 → code) | **Queued** | blocked on D-CE64-MB-2-impl |
+| D-CE64-MB-5-impl | MailboxSoA + AttentionMaskActor impl (W6 → code) | **Queued** | blocked on OQ-3 user ratification (plasticity granularity) + CSI-2 spec patch (g_slot_at_drop field) |
+| D-CE64-MB-6-impl | SigmaTierRouter impl (W7 → code) | **Queued** | blocked on OQ-1 user ratification (Σ4-Σ5 banding) + CSI-3 spec patch (PR-J1 Wave 0.5 prerequisite) |
+| D-CE64-MB-7-impl | bevy cull plugin impl (W9 → code) | **Queued** | blocked on D-CE64-MB-1-impl + CSI-4 spec patch (BindSpaceView::empty_static() ctor in W1) |
+| D-NDARRAY-MIRI-COMPLETE-impl | Miri coverage impl (W8 → code) | **Queued** | independent; can spawn first |
+| D-PR-J1-INT4-32D-ATOMS | INT4-32D codebook for SigmaTierRouter cold-start | **Queued** | new Wave 0.5 prerequisite; not in original W10 dep graph |
+| D-CSI-2 | W6 CompartmentReport `g_slot_at_drop: u8` field patch | **Queued** | small spec edit; pre-sprint-11 |
+| D-CSI-3 | W10 dep graph PR-J1 Wave 0.5 row patch | **Queued** | small spec edit; pre-sprint-11 |
+| D-CSI-4 | W1 spec `BindSpaceView::empty_static()` + `from_arc()` constructors | **Queued** | small spec edit; pre-sprint-11 |
+| D-CSI-5 | W1 spec move `SigmaTier` to `lance-graph-contract::orchestration` | **Queued** | small spec edit; pre-sprint-11 |
+| D-CSI-6 | W11 test-count drift reconciliation | **Queued** | small spec edit; pre-sprint-11 |
+
+### User-ratification gates (block sprint-11 spawn)
+
+| Gate | Wave blocked | Resolution path |
+|---|---|---|
+| **CSI-1** — CausalEdge64 bit-reclaim Option (A/B/C/D/E) | Wave 2 (D-CE64-MB-2-impl) | User picks; meta-review recommends Option C-conservative (drop temporal + G-slot, allocate W-slot + lens) |
+| **OQ-1** — Σ4-Σ5 banding (Tokio reflex vs InMem cycle-speed) | Wave 5 (D-CE64-MB-6-impl) | Default Tokio is safe-to-ship; ratification only PROMOTES |
+| **OQ-3** — Plasticity update granularity (bit-counter per emission + NARS revise at AriGraph commit) | Wave 4 (D-CE64-MB-5-impl) | Tentative resolution recorded; user formal-acknowledge |
+| **OQ-5** — Rayon vendor decision (std::thread::scope first vs vendored-rayon) | Wave 1 (D-CE64-MB-1-impl) | Tentative defer; user formal-acknowledge |
+
+### Reunification track (sprint-12+)
+
+| D-id | Title | Status | PR / Evidence |
+|---|---|---|---|
+| D-REUNIFY-1 | Acknowledge dual `CausalEdge64` types in TYPE_DUPLICATION_MAP + LATEST_STATE + EPIPHANIES | **Shipped** | this commit (post-merge #372 board-hygiene tail) |
+| D-REUNIFY-2 | 8-channel → SPO transcoder spec at thinking-engine L3 commit boundary | **Backlog** | per Option R-3; sprint-12+ |
+| D-REUNIFY-3 | `Think` carrier struct prototype unifying thinking-engine cascade + cognitive-shader-driver SoA | **Backlog** | per `.claude/knowledge/splat-shader-rayon-struct-method-vision.md` sprint-12 |
+| D-REUNIFY-4 | Splat op fleet (`splat_gaussian`, `score_hole_closure`, `replay_coherence`, `emit_if_epiphany`) as methods on `Think` | **Backlog** | sprint-13+ |
+| D-REUNIFY-5 | rayon work-stealing par_* method variants | **Backlog** | sprint-14+ |
+| D-REUNIFY-6 | OWL DOLCE / OntologyFilter wiring into `emit_causal_edges_filtered` | **Backlog** | sprint-15+ |
+
+---
+
 ## Update protocol
 
 When a deliverable ships:

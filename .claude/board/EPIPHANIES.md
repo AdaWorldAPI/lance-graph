@@ -87,6 +87,34 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-05-14 — E-META-7 (FINDING): dual `CausalEdge64` types in workspace + p64 drift origin pinpointed + three-zone hot-path model
+
+**Status:** FINDING (verified 2026-05-14 against shipped source; recorded in PR #372 merge commit `9fa206d`).
+
+Three coupled findings surfaced during sprint-10 meta-review + post-research correction of the hot-path mental model.
+
+**1. Dual `CausalEdge64` types** (not in `docs/TYPE_DUPLICATION_MAP.md` prior to this entry):
+- `causal_edge::CausalEdge64` at `crates/causal-edge/src/edge.rs:60` — SPO-palette layout (S/P/O palette indices + NARS f/c + Pearl 2³ mask + direction + inference type + plasticity + temporal)
+- `thinking_engine::layered::CausalEdge64` at `crates/thinking-engine/src/layered.rs:45` — 8-channel cascade (BECOMES / CAUSES / SUPPORTS / REFINES / GROUNDS / ABSTRACTS / RELATES / CONTRADICTS, each 1 byte)
+
+Same name, different bit semantics, different consumers. Reunification path = Option R-3 (transcode 8-channel → SPO at L3 commit). See `.claude/knowledge/causal-edge-64-spo-variant.md` + `.claude/knowledge/causal-edge-64-thinking-engine-variant.md` + `.claude/knowledge/causal-edge-64-synergies-and-pr-trajectory.md`.
+
+**2. p64 drift origin pinpointed.** `crates/lance-graph-planner/src/cache/convergence.rs:18-22`:
+```rust
+#[allow(unused_imports)] // CausalEdge64 intended for hot-path convergence wiring
+use super::nars_engine::{CausalEdge64, SpoHead, MASK_SPO};
+```
+The convergence wiring was started and never finished. The `nars_engine::CausalEdge64` re-export is the SPO-palette variant; the thinking-engine 8-channel variant was reinvented locally at `crates/thinking-engine/src/layered.rs:45` instead of imported here. **This `#[allow(unused_imports)]` annotation is the smoking gun** for where the dual-variant drift formalized.
+
+**3. Three-zone hot-path mental model** (corrects "AriGraph reads = µs cold-path joins" framing):
+- **Zone-1** (cycle-speed, 200-500 ns): thinking-engine MatVec → top-k atoms → `emit_causal_edges` 8-channel emission; AriGraph `entity_index: HashMap<String, Vec<usize>>` lookup is O(1) ~20-200 ns (NOT cold).
+- **Zone-2** (SPO-as-3D-vector ANN, 20-1200 µs): blasgraph + neighborhood cascade HEEL → HIP → TWIG → LEAF via `zeckf64()`.
+- **Zone-3** (DataFusion cold path, >1 ms): `lance-graph-planner` columnar joins for offline analytics; NOT touched by cognitive dispatch.
+
+Cross-ref: `.claude/knowledge/cognitive-shader-driver-thinking-engine-reunification.md` (5-step reunification plan); `.claude/knowledge/splat-shader-rayon-struct-method-vision.md` (sprint-12+ 5-sprint arc).
+
+---
+
 ## 2026-05-14 — E-CE64-MB-1..10: CausalEdge64-mailbox + sparse-rename composition (10 epiphanies)
 
 10 epiphanies from the recursive-fresh-eyes architectural pass culminating in `.claude/plans/causaledge64-mailbox-rename-soa-v1.md`. Branch: `claude/resolve-pr-369-conflicts-ozMXd`. PR #370 in flight. Each epiphany is composition, not invention — every piece had existing plan/spec authoring before this session.

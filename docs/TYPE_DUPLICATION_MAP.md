@@ -167,6 +167,37 @@ Plus related types:
 **Impact**: Five different adjacency representations with no shared interface.
 **Epiphany**: All of these could implement a single `AdjacencyView` trait from the contract crate.
 
+## 13. CausalEdge64 (Two Distinct Types, Same Name)
+
+**Two copies — and unlike #1-#12, these are NOT semantically equivalent variants of the same concept. Different bit layouts, different consumers, different roles. Surfaced 2026-05-14 in PR #372 meta-review.**
+
+| # | Location | Type Name | Layout | Role |
+|---|----------|-----------|--------|------|
+| 1 | `lance-graph/crates/causal-edge/src/edge.rs:60` | `CausalEdge64` (SPO-palette variant) | bits 0-7 S idx, 8-15 P idx, 16-23 O idx, 24-31 NARS frequency, 32-39 NARS confidence, 40-42 Pearl 2³ mask, 43-45 direction triad, 46-48 inference type, 49-51 plasticity, 52-63 temporal | NARS / Pearl / palette compose primitive; per-row payload of `cognitive-shader-driver::BindSpace::EdgeColumn`; used by `lance-graph-planner::cache::nars_engine`; commit unit at AriGraph SPO promotion |
+| 2 | `lance-graph/crates/thinking-engine/src/layered.rs:45` | `CausalEdge64` (8-channel cascade variant) | 8 channels × 8 bits each: 0 BECOMES, 1 CAUSES, 2 SUPPORTS, 3 REFINES, 4 GROUNDS, 5 ABSTRACTS, 6 RELATES, 7 CONTRADICTS | Cascade dispatch payload between L1 (routing) → L2 (role resonance) → L3 (full thought) tier engines; emitted by `TierEngine::emit_causal_edges`; consumed by `TierEngine::apply_edges` |
+
+**Critical distinction — NOT a candidate for direct dedup:**
+
+These represent **different cognitive operations** rendered into the same u64 register width with the same name by coincidence (and lack of cross-crate review). The SPO variant carries (S, P, O, truth, mask, …) — self-contained statements. The 8-channel variant carries (target u16 separately) + 8 cognitive operators — strength vectors over a separate addressing. Source/target are **not** in the u64 for the 8-channel variant (`layered.rs:88-89`).
+
+**Drift origin:** `lance-graph/crates/lance-graph-planner/src/cache/convergence.rs:18-22` documents the intended unification ("CausalEdge64 intended for hot-path convergence wiring") via `#[allow(unused_imports)]` — wiring started, never finished. The 8-channel variant was reinvented locally in thinking-engine rather than imported from `causal-edge`.
+
+**Impact**: Same name in two crates is a footgun. Sprint-10 v2 work (`causaledge64-mailbox-rename-soa-v1`) targets the SPO-palette variant only; the 8-channel variant is out of scope. Future use of `CausalEdge64` must qualify by crate to avoid confusion.
+
+**Fix**: Reunification per Option R-3 (recommended) — keep both at their respective tiers; transcode 8-channel → SPO at the thinking-engine L3 commit boundary. Mapping per `.claude/knowledge/causal-edge-64-synergies-and-pr-trajectory.md` §6.3:
+- BECOMES → `InferenceType::Synthesis` (transformative resonance)
+- CAUSES → `InferenceType::Deduction` (forward chain)
+- SUPPORTS → `InferenceType::Revision` positive (truth corroboration)
+- REFINES → `InferenceType::Abduction` (specialization)
+- GROUNDS → `InferenceType::Synthesis` (foundational basis — grouped with BECOMES + RELATES per canonical source; whether GROUNDS deserves a dedicated `InferenceType::Abduction` mapping for "foundational basis = abductive justification" semantics is an open design question for the sprint-12+ transcoder spec)
+- ABSTRACTS → `InferenceType::Induction` (upward generalization)
+- RELATES → `InferenceType::Synthesis` (lateral relation)
+- CONTRADICTS → `InferenceType::Revision` negative (refutation, lowers c)
+
+Full design: `.claude/knowledge/causal-edge-64-spo-variant.md` + `.claude/knowledge/causal-edge-64-thinking-engine-variant.md` + `.claude/knowledge/causal-edge-64-synergies-and-pr-trajectory.md` + `.claude/knowledge/cognitive-shader-driver-thinking-engine-reunification.md`.
+
+---
+
 ## Summary: Duplication Heat Map
 
 ```
