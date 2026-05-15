@@ -189,7 +189,7 @@ These represent **different cognitive operations** rendered into the same u64 re
 - CAUSES → `InferenceType::Deduction` (forward chain)
 - SUPPORTS → `InferenceType::Revision` positive (truth corroboration)
 - REFINES → `InferenceType::Abduction` (specialization)
-- GROUNDS → `InferenceType::Abduction` (foundational basis)
+- GROUNDS → `InferenceType::Synthesis` (foundational basis — grouped with BECOMES + RELATES per canonical source; whether GROUNDS deserves a dedicated `InferenceType::Abduction` mapping for "foundational basis = abductive justification" semantics is an open design question for the sprint-12+ transcoder spec)
 - ABSTRACTS → `InferenceType::Induction` (upward generalization)
 - RELATES → `InferenceType::Synthesis` (lateral relation)
 - CONTRADICTS → `InferenceType::Revision` negative (refutation, lowers c)
