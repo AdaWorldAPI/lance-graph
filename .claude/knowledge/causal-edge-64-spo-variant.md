@@ -327,3 +327,17 @@ See `causal-edge-64-synergies-and-pr-trajectory.md` §4 for the full bit-reclaim
 ---
 
 *Last verified: 2026-05-14 against shipped `crates/causal-edge/src/edge.rs` + `pearl.rs` + `plasticity.rs` + `convergence.rs`.*
+
+## Recent additions (PR-LL-1 — 2026-05-14)
+
+The G slot taxonomy gains two new generators: `Intervention` and
+`Counterfactual` (sprint-log-LL1). The verbs land via PR-LL-1 — the first
+PR in the learning-layer curriculum sequence (`.claude/knowledge/neurosymbolic-rlvr-causal-curriculum-v1.md`
+§3.5, §6.1). Coordination entries in `AGENT_ORCHESTRATION_LOG.md` under
+the W1/W3/W4 lines.
+
+Downstream effect: `AriGraph::intervene_on(subject, predicate, value)`
+produces an SPO-G triple tagged with `G::Intervention`. NARS dispatch
+(via `lance-graph-planner::thinking::nars_dispatch::NarsInferenceType`)
+now distinguishes interventional reasoning from observational reasoning
+as first-class verbs (Pearl 2³ rungs 2 and 3).
