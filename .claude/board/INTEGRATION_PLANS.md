@@ -1,3 +1,70 @@
+## 2026-05-14 — neurosymbolic-rlvr-causal-curriculum-v1 (LL-CURRICULUM)
+
+**Status:** Active (PROPOSAL — curriculum landed, 5-PR roadmap ratification pending §7 OQs)
+**Confidence:** High (composition of published methods + existing substrate; no novel research)
+**Plan file:** `.claude/knowledge/neurosymbolic-rlvr-causal-curriculum-v1.md`
+**Predecessor:** `causaledge64-mailbox-rename-soa-v1` (PR #372 — landed)
+
+### Scope
+
+8-paper curriculum + 5-PR implementation roadmap for the stack's learning layer. Composes Schölkopf-style structural causal models, MIT-style Bayesian program learning, Solar-Lezama × Tenenbaum neurosymbolic dispatch (LINC), and DeepSeekMath-style RLVR into one substrate that turns the existing `Think` struct (post-PR #372) into a self-improving system.
+
+### What this composes
+
+- **Causal de Finetti** (Guo+Schölkopf 2022, arXiv:2203.15756) → AriGraph SPO-G grouping doctrine
+- **LPN** (Bonnet 2024, arXiv:2411.08706) → `StyleVectors` test-time gradient adaptation
+- **LINC** (Olausson+Solar-Lezama+Tenenbaum 2023, arXiv:2310.15164) → Σ9-Σ10 EPIPHANY classical-prover dispatch
+- **Executable Counterfactuals** (Vashishtha 2025, arXiv:2510.01539) → Pearl 2³ trainable verbs + RL>SFT for OOD
+- **Conformal CFG** (Farzaneh 2026, arXiv:2601.20090) → calibrated counterfactual sets for MedCare-rs / q2 safety
+- **TextGrad** (Yuksekgonul 2024, arXiv:~2406.07496) → closed-loop style optimizer (textual gradient)
+- **Opt-Sym** (Yeo+Solar-Lezama 2026) → symbolic-space adaptive data generation
+- **GRPO/DeepSeekMath** (Shao 2024, arXiv:2402.03300) → RLVR trainer algorithm
+
+### 5-PR sequencing (this curriculum doc is governance only; the 5 implementation PRs follow)
+
+| # | Scope | LOC | Risk |
+|---|---|---|---|
+| PR-LL-1 | NARS Intervention/Counterfactual InferenceType variants + AriGraph::intervene_on | ~200 | Low (additive to enum) |
+| PR-LL-2 | ICM-invariance BindSpace column + `lance-graph-planner::data_gen` (Opt-Sym generator) | ~800 | Med (new SoA column + new module) |
+| PR-LL-3 | Hybrid TextGrad/LPN `style_synthesize` (numerical + textual gradient on StyleVector) | ~400 | Med (closes Gap 1) |
+| PR-LL-4 | `crates/lance-graph-trainer/` (GRPO loop, candle/burn-backed) | ~800 | High (new training crate, ~2 weeks prep work) |
+| PR-LL-5 | `crates/linc-bridge/` (Z3 prover + conformal CFG wrap) | ~600 | Med (new crate, external dep on z3-rs) |
+
+Sequential: each PR is a precondition for the next. PR-LL-4 requires ~2 weeks of separate Qwen3-head-via-candle prep work before fan-out.
+
+### Closes / unblocks
+
+- `THINKING_ORCHESTRATION_WIRING.md` **Gap 1** (Contract Not Consumed — 12 vs 36 ThinkingStyle) → PR-LL-3 learns the missing 24 from runtime trajectories
+- `THINKING_ORCHESTRATION_WIRING.md` **Gap 4** (Elevation not connected) → SigmaTierRouter consumes PR-LL-3's free-energy gradient as elevation signal
+- **Pearl 2³ named-but-not-dispatched** → PR-LL-1 makes intervene/counterfactual first-class verbs
+- **L4 planner shell empty** → PR-LL-5 fills with LINC dispatch + conformal calibration
+- **TD-LEARNING-LOOP-MISSING** (implicit; no doc exists for the unwired GRPO trainer) → PR-LL-4
+
+### Blast radius
+
+- **New crates:** `lance-graph-trainer` + `linc-bridge` (~1400 LOC together)
+- **Crates modified:** `lance-graph-planner` (data_gen + style_synthesize modules), `causal-edge` (Intervention/Counterfactual variants), `lance-graph-contract` (StylePoolProvider trait per OQ-LL-4)
+- **Zone 3 surface UNCHANGED**
+- **External deps added:** `z3-rs` (PR-LL-5), `candle` or `burn` (PR-LL-4) — both gated behind feature flags
+- **ndarray side:** UNCHANGED (the curriculum stays on the thinking-side of the doctrinal split)
+
+### Open Questions (6 — ratify before sprint fan-out)
+
+OQ-LL-1 reward shape (graded NARS confidence vs binary) · OQ-LL-2 TextGrad optimizer location (local Qwen3 vs frontier API) · OQ-LL-3 prover choice (Z3 vs Prover9 vs HOL Light) · OQ-LL-4 style-pool location (contract vs separate) · OQ-LL-5 ICM-invariance update protocol · OQ-LL-6 Σ-tier-as-difficulty probe (hot-path latency)
+
+### Iron rule compliance
+
+| Rule | Status |
+|---|---|
+| I-SUBSTRATE-MARKOV | All synthesized trajectories pass Chapman-Kolmogorov test in PR-LL-2 verify step |
+| I-NOISE-FLOOR-JIRAK | PR-LL-5 conformal calibration uses Jirak-derived bounds, not classical Berry-Esseen |
+| I-VSA-IDENTITIES | `style_synthesize` produces identity fingerprints; content stays in YAML registries |
+| I1 BindSpace read-only | `IcmInvarianceColumn` writes go through `CollapseGate::bundle` |
+| Method-on-carrier | All 4 new capabilities are methods on existing carriers |
+| AGI-as-glove SoA | Synthesized styles land in `StyleColumn` extension; no new layer |
+
+---
+
 # Integration Plans — Versioned Index
 
 > **APPEND-ONLY.** Every integration plan ever authored for this
