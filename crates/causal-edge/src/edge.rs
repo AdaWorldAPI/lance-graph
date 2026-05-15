@@ -19,9 +19,13 @@ pub enum InferenceType {
     Revision = 3,
     /// Combine complementary evidence across domains.
     Synthesis = 4,
+    /// Do-calculus intervention: fix a variable by external action (Pearl's do-operator).
+    /// Signals that the edge represents an interventional distribution P(Y | do(X=x)).
+    Intervention = 5,
+    /// Counterfactual: reason about what would have happened under a different world.
+    /// Requires SPO mask + high confidence (see [`CausalEdge64::counterfactual_ready`]).
+    Counterfactual = 6,
     /// Reserved for future inference types.
-    Reserved5 = 5,
-    Reserved6 = 6,
     Reserved7 = 7,
 }
 
@@ -34,8 +38,8 @@ impl InferenceType {
             2 => Self::Abduction,
             3 => Self::Revision,
             4 => Self::Synthesis,
-            5 => Self::Reserved5,
-            6 => Self::Reserved6,
+            5 => Self::Intervention,
+            6 => Self::Counterfactual,
             _ => Self::Reserved7,
         }
     }
