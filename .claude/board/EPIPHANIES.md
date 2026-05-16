@@ -1,3 +1,42 @@
+## 2026-05-16 — E-SIMD-SWEEP-1 — PR #398 was the 5th violation, not the first; the SIMD source-of-truth invariant is retroactive
+
+**Status:** FINDING
+
+**Click:** The `simd-savant` agent's first PRE-MERGE audit of `origin/main` (`/home/user/lance-graph` at `8d321ff` Merge PR #396 era, post-sprint-13 W-I batch) surfaced **158 raw-intrinsic violations across 5 consumer crates** + **3 missing primitives** in `ndarray::simd` that block clean remediation. PR #398 (sprint-13 W-I1 retry, D-CSV-13b i4 SIMD batch dispatch) inlined raw `_mm512_*` (x86_64) and `vld1q_u64` (aarch64) intrinsics in `crates/lance-graph-contract/src/mul.rs` — and was the **5th instance**, not the first. The four prior instances (`blasgraph/types.rs`, `blasgraph/ndarray_bridge.rs`, `holograph/hamming.rs`, `bgz17/src/simd.rs`, plus a partial 5th in `thinking-engine/src/engine.rs:504`) shipped before the `simd-savant` rule was declared. Codex P1 finding on PR #398 (NEON OOB at `len==2`) is a direct consequence of AP-SIMD-5 (unchecked pointer-load), an anti-pattern the prior 4 violators also carry.
+
+**Doctrinal claim:** The SIMD source-of-truth invariant — **all SIMD through `ndarray::simd` via the polyfill (`simd.rs` + `simd_ops.rs` > `simd_{type}.rs`)** — is **retroactive**, not just forward. The `simd-savant` card (added in PR #399, 2026-05-16) was written AFTER the violations existed but BEFORE they were swept. Each pre-existing violation has a *distinct* missing-primitive blocker against ndarray, which is why no single sweep PR can cover them. The right cadence is one ndarray PR per missing primitive (wave W1a), then one consumer PR per migration (wave W1b), gated and sequenced.
+
+**Violation inventory (from `simd-savant` PRE-MERGE audit 2026-05-16):**
+
+- **AP-SIMD-1 (raw `_mm*`):** 117 occurrences
+- **AP-SIMD-2 (raw `vld1q_*` / NEON):** 8 occurrences (3 call sites in `holograph/hamming.rs` + 5 ancillary)
+- **AP-SIMD-3 (custom `is_*_feature_detected!`):** 13 occurrences
+- **AP-SIMD-4 (arch cfg + intrinsic body):** 7 occurrences
+- **AP-SIMD-5 (unchecked ptr-load):** 19 occurrences
+- **AP-SIMD-6 (missing scalar fallback):** 0 occurrences (all paths have scalar floor — good)
+- **AP-SIMD-7 (duplicated wrapper):** 2 occurrences (nibble-popcount LUT hand-rolled twice in `blasgraph/ndarray_bridge.rs:252,299` — already in `ndarray::simd::U8x64::nibble_popcount_lut()`)
+- **AP-SIMD-8 (custom dispatch table):** 13 occurrences (`SimdLevel` + `detect_simd()` in `bgz17/src/simd.rs`)
+
+**Total: 158 violations across 5 consumer crates.**
+
+**Missing primitives** (must be added to ndarray before consumer remediation can complete):
+
+- `TD-NDARRAY-SIMD-UNPACK-I4-16D` — `I8x16::from_i4_packed_u64` + `batch_packed_i4_16<E, F>` closure-batch
+- `TD-NDARRAY-SIMD-SATURATING-ABS-I8` — `I8x16::saturating_abs` (closes codex P2 i8::MIN divergence)
+- `TD-NDARRAY-SIMD-GATHER` — `U16x8::gather_u16` (palette lookup, currently raw `_mm256_i32gather_epi32` in `bgz17`)
+- `TD-NDARRAY-SIMD-PREFETCH` — cross-arch `prefetch_read_t0` (no-op on unsupported)
+- `TD-NDARRAY-SIMD-POPCOUNT-U64` — `U64x8::popcnt` (lane-wise 64-bit popcount; currently raw `_mm512_popcnt_epi64` in `holograph` + `blasgraph`)
+
+**Lesson:** The "narrow scope" recommendation from the PP-14 convergence-architect run was correct for the mul.rs follow-up considered in isolation, but the audit reveals the broader pattern: **5 consumer crates established the raw-intrinsic precedent over multiple prior sessions; the simd-savant invariant retroactively reclassifies them all as TD-SIMD-SWEEP-W1..W4 (plus the thinking-engine partial as W5)**. The right architectural move is the W1a + W1b two-wave plan documented in `.claude/knowledge/ndarray-vertical-simd-alien-magic.md`, not a per-PR scramble.
+
+**Doctrinal counterpart:** This finding is the SIMD-domain analogue of `E-META-10` / `I-LEGACY-API-FEATURE-GATED` (the v1-API-under-v2-feature pattern that codex caught 5 times in sprint-11). Same shape: a single rule, multiple historical violations, retroactive sweep needed. Same response: invariant in CLAUDE.md / agent card, codex/savant as the pre-merge gate, follow-up wave to close the back-catalogue.
+
+**Strategic angle — sigker as the Index-regime third lane:** `crates/sigker` (path-signature codec) currently has **zero raw intrinsics, zero `ndarray` dep** — it's the cleanest exemplar of "domain crate composes via closures" we have today. The W1.5 wave (deferred, gated on `jc Pillar 11` activation) will add 3 more ndarray primitives (signature-PDE-sweep, randomized-projection, lyndon-pack) when sigker is benchmarked at production carrier widths. Sigker bypasses the `I-NOISE-FLOOR-JIRAK` iron rule for path data via Hambly-Lyons 2010 uniqueness — Index regime, not Argmax. The vertical-SIMD surface must be designed broad enough to absorb sigker's needs from W1a onward.
+
+**Cross-ref:** `.claude/agents/simd-savant.md` (the invariant + AP-SIMD-1..8 catalogue); `.claude/knowledge/ndarray-vertical-simd-alien-magic.md` (the canonical wave plan + per-workload surface table); `.claude/board/TECH_DEBT.md` (5 W1a + 3 W1.5 `TD-NDARRAY-SIMD-*` entries); PR #399 (introduced the simd-savant + autoattended-pattern); PR #398 codex P1/P2 findings (NEON OOB + i8::MIN divergence — symptoms of the broader pattern); `crates/sigker/src/lib.rs` (the W1.5 consumer); CLAUDE.md § `I-NOISE-FLOOR-JIRAK` (the iron rule that sigker bypasses).
+
+---
+
 ## 2026-05-16 — E-META-8 — "Edit" / "Write" / "MultiEdit" as bare permission rules are no-ops; subagents do not inherit allow rules
 
 **Status:** FINDING

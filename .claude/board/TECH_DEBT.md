@@ -13,6 +13,162 @@
 ---
 
 
+### TD-NDARRAY-SIMD-UNPACK-I4-16D (W1a-#1)
+
+- **Severity:** P1 (blocks mul.rs follow-up + future i4-packed codec consumers)
+- **Surfaced in:** `simd-savant` PRE-MERGE audit 2026-05-16; PP-14 convergence-architect §SYNERGY 2 (see `.claude/knowledge/ndarray-vertical-simd-alien-magic.md`)
+- **Status:** Open
+- **Description:** `ndarray::simd` exposes `I8x16` / `I8x32` / `I8x64` typed wrappers and `dot_i8` / `min_i8` / `max_i8` / `add_i8` slice ops, but has no primitive for "unpack 16 signed nibbles from a `u64` into `I8x16` with sign-extension" — exactly the operation `crates/lance-graph-contract/src/mul.rs::i4_eval::batch` needs for any `QualiaI4_16D(u64)`-packed batch dispatch. PR #398 worked around it by inlining raw `_mm512_*` and `vld1q_u64` intrinsics (AP-SIMD-1/2 violations).
+- **Required API surface (file as parallel PR against `adaworldapi/ndarray` master):**
+  - `impl I8x16 { pub fn from_i4_packed_u64(packed: u64) -> Self; }` — AVX-512 via `_mm512_cvtepi8_epi16` + nibble shuffle; NEON via `vshl_n_s8`; scalar fused-loop fallback.
+  - `impl I8x16 { pub fn lane_i8<const N: usize>(self) -> i8; }` — const-folded lane extract.
+  - `pub fn batch_packed_i4_16<E, F>(packed: &[u64], aux: &[i8], out: &mut [E], f: F) where F: Fn(I8x16, i8) -> E + Sync + Send;` — runtime-dispatched batch with scalar fallback, bounds-aware tail.
+- **Cross-ref:** `.claude/knowledge/ndarray-vertical-simd-alien-magic.md` §W1a #1; EPIPHANIES.md E-SIMD-SWEEP-1; `crates/lance-graph-contract/src/mul.rs::i4_eval::batch`; PR #398 codex P1 (NEON OOB at `len==2`, closed by polyfill bounds-aware load).
+
+---
+
+### TD-NDARRAY-SIMD-SATURATING-ABS-I8 (W1a-#2)
+
+- **Severity:** P1 (closes codex P2 i8::MIN divergence on PR #398 by giving consumers a single source-of-truth for hardware-semantics abs)
+- **Surfaced in:** PR #398 codex P2 review; PP-16 preflight-drift-auditor verdict "Direction B" 2026-05-16
+- **Status:** Open
+- **Description:** Scalar path in `mul.rs` uses `signed_mantissa.unsigned_abs() as i8`, which wraps `i8::MIN = -128` back to `-128i8` (the cast `u8 → i8` doesn't saturate), then `-128 ≤ 1` is true → wrongly classifies as `ValleyOfDespair`. AVX-512 `_mm512_abs_epi8` saturates `i8::MIN → 127` by ISA semantics (VPABSB), correctly NOT triggering `ValleyOfDespair`. Spec line 233 of `pr-sprint-13-simd-i4.md`: `|signed_mantissa| ≤ 1 → ValleyOfDespair` represents weak rule signal, NOT sign-extreme. Direction B (scalar is buggy, AVX-512 is correct) is canonical.
+- **Required API surface:**
+  - `impl I8x16 { pub fn saturating_abs(self) -> Self; }` — AVX-512 `_mm512_abs_epi8` (saturates by ISA); NEON `vqabsq_s8`; scalar `i8::saturating_abs` fused loop.
+  - `impl I8x32 { pub fn saturating_abs(self) -> Self; }` (parity)
+- **Cross-ref:** `.claude/knowledge/ndarray-vertical-simd-alien-magic.md` §W1a #2; EPIPHANIES.md E-SIMD-SWEEP-1; PR #398 codex P2.
+
+---
+
+### TD-NDARRAY-SIMD-GATHER (W1a-#3)
+
+- **Severity:** P1 (blocks `bgz17/src/simd.rs` migration off raw `_mm256_i32gather_epi32`)
+- **Surfaced in:** `simd-savant` PRE-MERGE audit 2026-05-16 (location: `crates/bgz17/src/simd.rs:88`)
+- **Status:** Open
+- **Description:** `bgz17` uses `_mm256_i32gather_epi32` directly for palette lookup (8 u16 indices → values). `ndarray::simd` exposes no gather primitive — the polyfill needs `U16x8::gather_u16` or a dedicated `palette_lookup_u8x8` helper. Dominant palette-stream workload primitive; missing it forces every palette consumer to reinvent gather.
+- **Required API surface:**
+  - `impl U16x8 { pub fn gather_u16(indices: U16x8, table: &[u16]) -> Self; }` — AVX2 `_mm256_i32gather_epi32` + downcast; NEON scalar loop (no native gather); scalar `indices.iter().map(|&i| table[i])`.
+  - `pub fn palette_lookup_u8x8(idx_v: U16x8, lut: &[u8]) -> U8x8;` — adjacent helper for byte-valued palette lookups.
+- **Cross-ref:** `.claude/knowledge/ndarray-vertical-simd-alien-magic.md` §W1a #3 + per-workload table "Palette L1-L4"; EPIPHANIES.md E-SIMD-SWEEP-1; `crates/bgz17/src/simd.rs:88`.
+
+---
+
+### TD-NDARRAY-SIMD-PREFETCH (W1a-#4)
+
+- **Severity:** P2 (perf-only; closes 2 AP-SIMD-1 violations in `bgz17/src/prefetch.rs`)
+- **Surfaced in:** `simd-savant` PRE-MERGE audit 2026-05-16 (locations: `crates/bgz17/src/prefetch.rs:96` x86 `_mm_prefetch`, `:100` aarch64 `_prefetch`)
+- **Status:** Open
+- **Description:** `bgz17/prefetch.rs` issues `_mm_prefetch` (x86) and `_prefetch` (aarch64) directly. `ndarray::simd` has no prefetch hint API — the polyfill needs cross-arch `prefetch_read_t0` / `_t1` / `_t2` helpers that no-op on unsupported targets.
+- **Required API surface:**
+  - `pub fn prefetch_read_t0(ptr: *const u8);` — AVX `_mm_prefetch(_, _MM_HINT_T0)`; NEON `__builtin_prefetch(_, 0, 3)`-equivalent; no-op on unsupported. (Or wrap `core::intrinsics::prefetch_read_data` once stable.)
+  - `pub fn prefetch_read_t1(ptr: *const u8);` (locality hint = 2)
+  - `pub fn prefetch_read_t2(ptr: *const u8);` (locality hint = 1)
+- **Cross-ref:** `.claude/knowledge/ndarray-vertical-simd-alien-magic.md` §W1a #4; EPIPHANIES.md E-SIMD-SWEEP-1; `crates/bgz17/src/prefetch.rs:96,100`.
+
+---
+
+### TD-NDARRAY-SIMD-POPCOUNT-U64 (W1a-#5)
+
+- **Severity:** P1 (blocks holograph/hamming + blasgraph hamming migration off raw `_mm512_popcnt_epi64`)
+- **Surfaced in:** `simd-savant` PRE-MERGE audit 2026-05-16 (locations: `crates/holograph/src/hamming.rs:530,567,637,638`; `crates/lance-graph/src/graph/blasgraph/types.rs:440,484`; `crates/lance-graph/src/graph/blasgraph/ndarray_bridge.rs:245`)
+- **Status:** Open
+- **Description:** `holograph/hamming.rs` and `lance-graph/blasgraph/types.rs` use `_mm512_popcnt_epi64` for 64-bit lane popcounts on AVX-512 VPOPCNTDQ. `ndarray::hpc::bitwise::popcount_raw` covers the slice case (already exposed) but there is no `ndarray::simd::U64x8::popcnt()` lane-wise method. Consumers fall back to raw intrinsics.
+- **Required API surface:**
+  - `impl U64x8 { pub fn popcnt(self) -> Self; }` — AVX-512 `_mm512_popcnt_epi64` (VPOPCNTDQ); NEON `vcntq_u8` + horizontal-sum; scalar `u64::count_ones` fused loop.
+  - `impl U64x8 { pub fn xor_popcount(self, other: Self) -> u64; }` — convenience for Hamming distance reduction.
+  - `impl U64x4 { pub fn popcnt(self) -> Self; }` (AVX2 parity)
+- **Cross-ref:** `.claude/knowledge/ndarray-vertical-simd-alien-magic.md` §W1a #5 + per-workload table "Hamming over u64 lanes"; EPIPHANIES.md E-SIMD-SWEEP-1; `crates/holograph/src/hamming.rs:530,567`; `crates/lance-graph/src/graph/blasgraph/types.rs:440,484`.
+
+---
+
+### TD-NDARRAY-SIMD-SIGNATURE-PDE-SWEEP (W1.5-#6, DEFERRED)
+
+- **Severity:** P3 (deferred; activates when sigker is benchmarked at production carrier widths)
+- **Surfaced in:** sigker architectural review 2026-05-16; `.claude/knowledge/ndarray-vertical-simd-alien-magic.md` §W1.5
+- **Status:** Deferred (gated on `jc Pillar 11` activation per `crates/sigker/src/lib.rs:42-47`)
+- **Description:** sigker computes signature kernel `〈S(X), S(Y)〉` via Goursat PDE (depth-∞ in O(T₁·T₂) flops, no signature materialization). This is a 2D banded grid sweep over `F32x16` state with a kernel-eval closure per step — the dominant primitive for any path-signature workload. Currently scalar Rust in `sigker::kernel`. Activation requires `jc Pillar 11` (Hambly-Lyons signature uniqueness) certification.
+- **Required API surface (when activated):**
+  - `pub fn signature_pde_sweep<F>(x: &[F32x16], y: &[F32x16], kernel_fn: F) -> f32 where F: Fn(F32x16, F32x16) -> F32x16;` — Goursat 2D sweep, closure-parameterized kernel, banded update.
+- **Cross-ref:** `crates/sigker/src/lib.rs:42-47`; `crates/sigker/src/kernel.rs`; CLAUDE.md `I-NOISE-FLOOR-JIRAK` (sigker bypasses).
+
+---
+
+### TD-NDARRAY-SIMD-RANDOMIZED-PROJECTION (W1.5-#7, DEFERRED)
+
+- **Severity:** P3 (deferred; gated on `jc Pillar 11`)
+- **Surfaced in:** sigker architectural review 2026-05-16
+- **Status:** Deferred
+- **Description:** sigker's randomized signatures (Cuchiero-Schmocker-Teichmann 2021 universality) are fixed-width finite-dim projections of the path signature. The hot path is a Gaussian-random-matrix-vector update with `F32x16` state — same shape as W1a-#1 closure-batch primitive, different lane type.
+- **Required API surface (when activated):**
+  - `impl F32x16 { pub fn random_proj_step(state: Self, seed: u64, depth: u32) -> Self; }` — single-step Gaussian projection update.
+  - `pub fn batch_randomized_signature<F>(paths: &[F32x16], out: &mut [F32x16], step_fn: F) where F: Fn(F32x16) -> F32x16;`
+- **Cross-ref:** `crates/sigker/src/randomized.rs`; `.claude/knowledge/ndarray-vertical-simd-alien-magic.md` §W1.5 #7.
+
+---
+
+### TD-NDARRAY-SIMD-LYNDON-PACK (W1.5-#8, DEFERRED)
+
+- **Severity:** P3 (deferred; gated on `jc Pillar 11`)
+- **Surfaced in:** sigker architectural review 2026-05-16
+- **Status:** Deferred
+- **Description:** Log-signatures compress the truncated signature into the Lyndon basis of the free Lie algebra (7-13× compression, lossless). The pack/unpack primitives operate on `I16x16` state with combinatorial-index awareness.
+- **Required API surface (when activated):**
+  - `impl I16x16 { pub fn lyndon_pack(self, basis_idx: u8) -> Self; }`
+  - `pub fn lyndon_unpack_batch(packed: &[I16x16], basis: &LyndonBasis, out: &mut [I16x16]);`
+- **Cross-ref:** `crates/sigker/src/log_signature.rs`; `.claude/knowledge/ndarray-vertical-simd-alien-magic.md` §W1.5 #8.
+
+---
+
+### TD-SIMD-SWEEP-W1 (consumer migration — holograph)
+
+- **Severity:** P2 (Open; gated on W1a-#5 `TD-NDARRAY-SIMD-POPCOUNT-U64` merge)
+- **Surfaced in:** `simd-savant` audit 2026-05-16
+- **Status:** Open
+- **Description:** `crates/holograph/src/hamming.rs` carries 24 raw-intrinsic ops across 3 cfg-gated blocks (AVX-512 VPOPCNTDQ, AVX-2 fallback, NEON). Migration consumes `U64x8::popcnt`, `U64x8::xor_popcount`, `U64x8::from_slice` (bounds-aware load) and routes the runtime dispatch through `ndarray::hpc::bitwise::hamming_distance_raw`.
+- **Cross-ref:** `crates/holograph/src/hamming.rs:508-650`; TD-NDARRAY-SIMD-POPCOUNT-U64.
+
+---
+
+### TD-SIMD-SWEEP-W2 (consumer migration — blasgraph/types + ndarray_bridge)
+
+- **Severity:** P2 (Open; gated on W1a-#5 + retire `U8x64::nibble_popcount_lut` duplicate)
+- **Surfaced in:** `simd-savant` audit 2026-05-16
+- **Status:** Open
+- **Description:** `crates/lance-graph/src/graph/blasgraph/types.rs` (22 raw ops) + `ndarray_bridge.rs` (60 raw ops, plus 2 AP-SIMD-7 duplicate LUTs) — Hamming + popcount workload over palette CSR/CSC. Migration consumes `U64x8::popcnt`, existing `U8x64::nibble_popcount_lut`, and `ndarray::hpc::bitwise::hamming_distance_raw`.
+- **Cross-ref:** `crates/lance-graph/src/graph/blasgraph/{types.rs:440-506, ndarray_bridge.rs:149-299}`; TD-NDARRAY-SIMD-POPCOUNT-U64.
+
+---
+
+### TD-SIMD-SWEEP-W3 (consumer migration — bgz17/simd + prefetch)
+
+- **Severity:** P2 (Open; gated on W1a-#3 + W1a-#4 merge)
+- **Surfaced in:** `simd-savant` audit 2026-05-16
+- **Status:** Open
+- **Description:** `crates/bgz17/src/simd.rs` (7 raw ops + AP-SIMD-3 hand-rolled `SimdLevel` enum + AP-SIMD-8 custom dispatch table `detect_simd()`) + `prefetch.rs` (2 raw ops, x86 + aarch64). Migration consumes `U16x8::gather_u16`, `palette_lookup_u8x8`, `prefetch_read_t0/t1/t2`, and retires `SimdLevel` (polyfill handles tier internally).
+- **Cross-ref:** `crates/bgz17/src/{simd.rs:17-88, prefetch.rs:96-100}`; TD-NDARRAY-SIMD-GATHER, TD-NDARRAY-SIMD-PREFETCH.
+
+---
+
+### TD-SIMD-SWEEP-W4 (consumer migration — lance-graph-contract mul.rs follow-up)
+
+- **Severity:** P0 (Open; PR #398 follow-up; gated on W1a-#1 + W1a-#2 merge)
+- **Surfaced in:** PR #398 codex P1 (NEON OOB at `len==2`) + codex P2 (i8::MIN scalar/SIMD divergence) + `simd-savant` audit
+- **Status:** Open
+- **Description:** `crates/lance-graph-contract/src/mul.rs::i4_eval::batch` carries the 5 batch fns from PR #398 with raw `_mm512_*` and `vld1q_u64` intrinsics. Migration consumes `I8x16::from_i4_packed_u64`, `I8x16::saturating_abs`, `batch_packed_i4_16<E, F>`, hoists the `batch_classify_qualia<E, F>` generic (per PP-14 §SYNERGY 1), and closes codex P1 (polyfill bounds-aware load) + codex P2 (Direction B, scalar fixed via `saturating_abs`).
+- **Cross-ref:** PR #398; `crates/lance-graph-contract/src/mul.rs` `mod batch` under `pub mod i4_eval`; TD-NDARRAY-SIMD-UNPACK-I4-16D + TD-NDARRAY-SIMD-SATURATING-ABS-I8.
+
+---
+
+### TD-SIMD-SWEEP-W5 (consumer migration — thinking-engine VNNI dispatch)
+
+- **Severity:** P3 (Open; smallest of the sweep, single line)
+- **Surfaced in:** `simd-savant` audit 2026-05-16 (location: `crates/thinking-engine/src/engine.rs:504`)
+- **Status:** Open
+- **Description:** `thinking-engine/src/engine.rs:504` uses `is_x86_feature_detected!("avx512vnni")` for VNNI cycle dispatch. The crate already imports `ndarray::simd_amx` at line 160; should route through that dispatch path instead.
+- **Cross-ref:** `crates/thinking-engine/src/engine.rs:504,160`; `/home/user/ndarray/src/simd_amx.rs`.
+
+---
+
 ### TD-LEGACY-API-FEATURE-GATED-RESOLVED-1
 
 - **Severity:** N/A (RESOLVED 2026-05-16)
