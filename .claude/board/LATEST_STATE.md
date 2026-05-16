@@ -152,7 +152,7 @@ Types live in `crates/cognitive-shader-driver/src/wire.rs` behind `--features se
 
 **Queued Work — sprint-13 (specs being drafted in the sprint-13-preflight fleet on this branch):**
 
-- **D-CSV-13b** — SIMD vectorization of D-CSV-8 i4 MUL evaluation (AVX-512 + NEON intrinsics; ~150-300 LOC per ISA; 4-8× throughput gain over PR #387 scalar path). Spec being drafted by PP-6.
+- **D-CSV-13b** — SIMD vectorization of D-CSV-8 i4 MUL evaluation. **IN PR (sprint-13/W-I1 salvage)** on branch `claude/sprint-13-w-i1-salvage`. AVX-512F+BW path runtime-dispatched via cached `simd_caps()` (zero ndarray dep); NEON path correctness-only per spec §7; scalar fallback. Bench on Skylake-AVX512 host: 8.7× dk / 7.4× trust / 5.2× flow / 10.2× gate_disc / 3.1× mul_assess at batch 1024 — all SHIP gates met. `#[repr(u8)]` discriminants locked on `DkPosition`/`TrustTexture`/`FlowState` per spec §5 (I-LEGACY-API-FEATURE-GATED). 449 lance-graph-contract tests green including 5 new SIMD-vs-scalar parity tests over 10 sizes.
 - **D-CSV-14** — on-Think method migration for D-CSV-12 splat ops (struct-method surface per L-20 lock; depends on D-CSV-11 ndarray streaming PR #147). Spec being drafted by PP-4.
 - **D-CSV-16** — NEW sprint-13 entry. Spec being drafted by PP-5.
 - **D-CSV-17** — NEW sprint-13 entry. Spec being drafted by PP-3.

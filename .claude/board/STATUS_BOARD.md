@@ -463,7 +463,7 @@ Consolidates sprint-10 architectural decisions before context dilution.
 | D-id | Title | Status | PR / Evidence |
 |---|---|---|---|
 | D-CSV-13 | Batch i4 scalar MUL (paired with D-CSV-8 SIMD-readiness) | **Shipped** | PR #388 merge `77f2d26` (W-G3 batch i4 scalar) |
-| D-CSV-13b | SIMD vectorization of D-CSV-8 i4 MUL evaluation (AVX-512 + NEON intrinsics) | **Queued (PP-6 spec drafting)** | sprint-13 preflight; ~150-300 LOC per ISA |
+| D-CSV-13b | SIMD vectorization of D-CSV-8 i4 MUL evaluation (AVX-512 + NEON intrinsics) | **In PR (sprint-13/W-I1 salvage)** | branch `claude/sprint-13-w-i1-salvage`; AVX-512F+BW dispatch via `simd_caps()`; bench on Skylake-AVX512 host = 8.7× dk / 7.4× trust / 5.2× flow / 10.2× gate_disc / 3.1× mul_assess at batch 1024 — all SHIP gates met; 5 SIMD-vs-scalar parity tests over 10 sizes green |
 | D-CSV-14 | On-Think method migration for D-CSV-12 splat ops (struct-method surface per L-20) | **Queued (PP-4 spec drafting)** | sprint-13; depends on D-CSV-11 streaming substrate (shipped via ndarray #147) |
 | D-CSV-15 | Σ10 Jirak-derived threshold (TD-SIGMA-TIER-THRESHOLDS-1 resolution) | **In PR (#390 W-G4 Jirak threshold)** | sprint-12 Wave G partial; full VAMPE coupled-revival deferred sprint-13+ |
 | D-CSV-16 | NEW sprint-13 entry | **Queued (PP-5 spec drafting)** | sprint-13 preflight |
