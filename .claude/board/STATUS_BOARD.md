@@ -427,33 +427,47 @@ Consolidates sprint-10 architectural decisions before context dilution.
 | D-id | Title | Status | PR / Evidence |
 |---|---|---|---|
 | D-CSV-1 | `causal-edge` crate v2 layout (signed mantissa, W-slot, lens, drop temporal) | **Shipped** | PR #383 merge `03bd175`; OQ-CSV-2 ratified to 6 bits (default) |
-| D-CSV-2 | `QualiaI4_16D` type in `lance-graph-contract::qualia` + f32↔i4 migration helpers | **In PR** | branch `claude/sprint-11-wave-b-qualia-i4` (PR #384); OQ-CSV-1 ratified to Option α (canonical convergence-observable vocab; drop dim 16 "integration") |
+| D-CSV-2 | `QualiaI4_16D` type in `lance-graph-contract::qualia` + f32↔i4 migration helpers | **Shipped** | PR #384 merge `0751a8b`; OQ-CSV-1 ratified to Option α (canonical convergence-observable vocab; drop dim 16 "integration") |
 | D-CSV-3 | InferenceType signed-mantissa expansion (absorbs PR-LL-1 Intervention/Counterfactual into canonical edge enum) | **Shipped** | PR #383 merge `03bd175`, paired with D-CSV-1 in same crate |
-| D-CSV-4 | `CollapseGateEmission` wire format spec + impl per plan §8 | **Shipped** | PR #383 merge `03bd175`, contract crate (Vec instead of SmallVec to preserve zero-dep) |
+| D-CSV-4 | `CollapseGateEmission` wire format spec + impl per plan §8 | **Shipped** | PR #383 merge `03bd175`, contract crate (Vec instead of SmallVec to preserve zero-dep — TD-COLLAPSE-GATE-SMALLVEC-1) |
 
 ### Phase B — Storage & dispatch path (sprint-11)
 
 | D-id | Title | Status | PR / Evidence |
 |---|---|---|---|
-| D-CSV-5a | QualiaColumn migration phase 5a — sibling `QualiaI4Column` add + double-write (no read-side change) | **In PR** | branch `claude/sprint-11-wave-c-qualia-i4-column`; OQ-CSV-4 ratified to sibling-cutover (default); 5b cutover follows in separate PR |
-| D-CSV-5b | QualiaColumn migration phase 5b — flip readers to i4, drop f32 column, drop f32 push arg | **Queued** | depends on D-CSV-5a merge + downstream reader audit |
-| D-CSV-6 | `WitnessCorpus` (CAM-PQ-indexed) replaces `SpoWitnessChain<32>` | **Queued** | depends on D-CSV-4; elevates CAM-PQ wiring to Wave 3 hard prerequisite |
-| D-CSV-7 | MailboxSoA integration: W-slot referencing + per-row plasticity accumulator + apply_edges | **Queued** | depends on D-CSV-1, D-CSV-4 |
+| D-CSV-5a | QualiaColumn migration phase 5a — sibling `QualiaI4Column` add + double-write (no read-side change) | **Shipped** | PR #385 merge `6f58418`; OQ-CSV-4 ratified to sibling-cutover (default); 5b cutover follows in separate PR |
+| D-CSV-5b | QualiaColumn migration phase 5b — flip readers to i4, drop f32 column, drop f32 push arg | **In PR (#390 W-G1)** | sprint-12 Wave G fleet; depends on D-CSV-5a (merged) + downstream reader audit |
+| D-CSV-6a | `WitnessCorpus` partial (W-slot anchor + chain invariant; sorted by emission cycle, drop-oldest truncation) | **Shipped** | PR #386 merge `33110c8` (paired with D-CSV-7) |
+| D-CSV-6b | `WitnessCorpus` full (CAM-PQ-indexed, unbounded, salience decay) | **In PR (#390 W-G2)** | sprint-12 Wave G fleet; depends on D-CSV-6a (merged) |
+| D-CSV-7 | MailboxSoA integration: W-slot referencing + per-row plasticity accumulator + apply_edges | **Shipped** | PR #386 merge `33110c8` (paired with D-CSV-6a) |
 
 ### Phase C — Reasoning path (sprint-12)
 
 | D-id | Title | Status | PR / Evidence |
 |---|---|---|---|
-| D-CSV-8 | MUL evaluation in integer SIMD: DK/TrustTexture/FlowState/GateDecision consume i4 qualia + signed mantissa | **Queued** | depends on D-CSV-2 + D-CSV-3 |
-| D-CSV-9 | 8-channel ↔ SPO-palette transcoder (Option R-3) at thinking-engine L3 commit boundary | **Queued** | depends on D-CSV-3 |
-| D-CSV-10 | Σ-tier Rubicon-resonance dispatch in `SigmaTierRouter`: ΔF + resonance threshold → Σ10 commit | **Queued** | depends on D-CSV-7 + D-CSV-8; blocked on OQ-CSV-6 (Jirak-derived threshold) |
+| D-CSV-8 | MUL evaluation in integer SIMD: DK/TrustTexture/FlowState/GateDecision consume i4 qualia + signed mantissa | **Shipped** | PR #387 merge `e042c70` (scalar i4 path; AVX-512/NEON deferred → D-CSV-13/13b sprint-13 per TD-D-CSV-8-SIMD-1) |
+| D-CSV-9 | 8-channel ↔ SPO-palette transcoder (Option R-3) at thinking-engine L3 commit boundary | **Shipped** | PR #387 merge `e042c70` (paired with D-CSV-8) |
+| D-CSV-10 | Σ-tier Rubicon-resonance dispatch in `SigmaTierRouter`: ΔF + resonance threshold → Σ10 commit | **In PR (#388 W-F1)** | sprint-12 Wave F; sigma-tier-router crate present in workspace post-Wave G #390 cargo metadata (hand-tuned threshold per OQ-CSV-6; Jirak-derived → D-CSV-15 sprint-13+) |
 
-### Phase D — Streaming infrastructure (sprint-13+)
+### Phase D — Streaming infrastructure (sprint-12 productization)
 
 | D-id | Title | Status | PR / Evidence |
 |---|---|---|---|
-| D-CSV-11 | Vertical streaming structs in ndarray: `QualiaStream`, `InferenceStream`, `SplatFieldStream` + `par_*` rayon variants | **Queued** | new ndarray surface; coordinate with upstream PR #116 hpc-extras gap |
-| D-CSV-12 | Splat shader op fleet (`splat_gaussian`, `score_hole_closure`, `replay_coherence`, `emit_if_epiphany`) as methods on `Think` carrier | **Queued** | depends on D-CSV-11 |
+| D-CSV-11a | Vertical streaming structs in ndarray: `QualiaStream` / `QualiaI4Row` | **Shipped** | ndarray PR #147 merge `d867b1c` |
+| D-CSV-11b | Vertical streaming structs in ndarray: `InferenceStream` / `InferenceRow` | **Shipped** | ndarray PR #147 merge `d867b1c` |
+| D-CSV-11c | Vertical streaming structs in ndarray: `SplatFieldStream` (+ `par_*` rayon variants deferred to sprint-14+ behind `parallel` feature) | **Shipped** | ndarray PR #147 merge `d867b1c`; `par_*` rayon variants deferred (Queued sprint-14+) |
+| D-CSV-12 | Splat shader op fleet (`splat_gaussian`, `score_hole_closure`, `replay_coherence`, `emit_if_epiphany`) — scalar standalone ops | **Shipped** | PR #388 merge `77f2d26` (W-F7 scalar; on-Think method migration → D-CSV-14 sprint-13) |
+
+### Phase E — Sprint-12/13 new entries (NEW in v2 + sprint-13 preflight)
+
+| D-id | Title | Status | PR / Evidence |
+|---|---|---|---|
+| D-CSV-13 | Batch i4 scalar MUL (paired with D-CSV-8 SIMD-readiness) | **Shipped** | PR #388 merge `77f2d26` (W-G3 batch i4 scalar) |
+| D-CSV-13b | SIMD vectorization of D-CSV-8 i4 MUL evaluation (AVX-512 + NEON intrinsics) | **Queued (PP-6 spec drafting)** | sprint-13 preflight; ~150-300 LOC per ISA |
+| D-CSV-14 | On-Think method migration for D-CSV-12 splat ops (struct-method surface per L-20) | **Queued (PP-4 spec drafting)** | sprint-13; depends on D-CSV-11 streaming substrate (shipped via ndarray #147) |
+| D-CSV-15 | Σ10 Jirak-derived threshold (TD-SIGMA-TIER-THRESHOLDS-1 resolution) | **In PR (#390 W-G4 Jirak threshold)** | sprint-12 Wave G partial; full VAMPE coupled-revival deferred sprint-13+ |
+| D-CSV-16 | NEW sprint-13 entry | **Queued (PP-5 spec drafting)** | sprint-13 preflight |
+| D-CSV-17 | NEW sprint-13 entry | **Queued (PP-3 spec drafting)** | sprint-13 preflight |
 
 ### Open-question gates (block specific D-CSV-* spawns)
 
