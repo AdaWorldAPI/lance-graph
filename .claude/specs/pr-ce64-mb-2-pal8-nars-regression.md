@@ -98,23 +98,28 @@ crates/causal-edge/tests/pal8_round_trip.rs  (NEW)
 
 > PAL8 deserializers reading v1 PAL8 see G=0, W=0, truth=00 (Crystalline) — the correct default. Existing PAL8 files round-trip without re-encoding. Mandatory test: deserialize-v1-encode-v2 produces byte-identical output when the new fields are zero.
 
-In v1, the reclaimed positions are zero by definition. In v2, they carry G/W/truth semantics. The round-trip test proves that a v1-encoded edge (all new-field bits = 0) decodes correctly under v2 accessors and re-encodes byte-identically.
+In v1, bits 52-63 belonged to the temporal field. In v2, those bits are reclaimed for W
+(53-58), truth-band lens (59-60), and spare (61-63) per L-2. **A v1 edge with temporal = 0
+is the only safe binary-migration case** — any non-zero temporal value aliases the new
+fields. The round-trip test below covers the safe case; a paired version-gate test
+(`pal8_v1_nonzero_temporal_is_blocked_by_version_gate`) covers the unsafe case to prove
+why PAL8 deserialization MUST gate on a version byte.
 
 ### Test 1: `pal8_v1_v2_round_trip_zero_default`
 
 ```rust
-/// Regression gate for PR-CE64-MB-2: v1 to v2 binary compatibility.
+/// Regression gate for PR-CE64-MB-2: v1 to v2 binary compatibility (safe migration case).
 ///
-/// A CausalEdge64 encoded by the v1 encoder (all new-field positions = 0)
-/// must decode via v2 accessors as G=0, W=0, truth=TrustTexture::Crystalline
-/// and re-encode to byte-identical output. Any drift in bit positions between
-/// W2's encoder and the v1 zero-field positions fails this test.
+/// A v1-encoded CausalEdge64 with temporal = 0 (the only safe migration path)
+/// must decode under v2 accessors as W=0, truth=Crystalline, spare=0 and
+/// re-encode to byte-identical output. v1 edges with non-zero temporal are NOT
+/// binary-compatible — they require the version gate (see the paired test below).
 #[test]
 fn pal8_v1_v2_round_trip_zero_default() {
-    // Step 1: Construct a v1-shaped CausalEdge64.
-    // The v1 encoder does not know about G/W/truth fields; it writes only
-    // S/P/O, NARS, Pearl, direction, inference, plasticity, temporal.
-    // All reclaimed bits are implicitly zero.
+    // Step 1: Construct a v1-shaped CausalEdge64 with temporal = 0.
+    // The v1 encoder writes S/P/O, NARS, Pearl, direction, inference,
+    // plasticity, temporal. With temporal = 0, bits 52-63 are all zero —
+    // these are exactly the bits v2 reclaimed for W/lens/spare.
     let v1_edge = CausalEdge64::pack(
         42, 17, 200,        // s_idx, p_idx, o_idx
         204, 178,           // frequency (~0.80), confidence (~0.70)
@@ -122,68 +127,122 @@ fn pal8_v1_v2_round_trip_zero_default() {
         0b010,              // direction triad
         InferenceType::Deduction,
         PlasticityState::S_HOT,
-        1023,               // temporal (12-bit mid-range)
+        0,                  // temporal = 0 (the only safe v1 value for binary migration)
     );
 
     // Step 2: Under v2 feature flag, assert new fields read as zero/default.
     #[cfg(feature = "causal-edge-v2-layout")]
     {
-        assert_eq!(v1_edge.g_slot(), 0,
-            "v1-encoded edge must read G=0 under v2 accessors \
-             (reclaimed bits were zero in v1)");
         assert_eq!(v1_edge.w_slot(), 0,
-            "v1-encoded edge must read W=0 under v2 accessors");
+            "v1-encoded edge with temporal=0 must read W=0 under v2 accessors \
+             (reclaimed bits 53-58 were zero in v1 with temporal=0)");
         assert_eq!(v1_edge.truth(), TrustTexture::Crystalline,
-            "v1-encoded edge must read truth=Crystalline (00) under v2 accessors");
+            "v1-encoded edge with temporal=0 must read truth=Crystalline (00) under v2 accessors");
+        assert_eq!(v1_edge.spare(), 0,
+            "v1-encoded edge with temporal=0 must read spare=0 under v2 accessors");
     }
 
     // Step 3: Re-encode via v2 setters with zero/default new fields.
     #[cfg(feature = "causal-edge-v2-layout")]
     {
         let mut v2_edge = v1_edge;
-        v2_edge.set_g_slot(0);
         v2_edge.set_w_slot(0);
         v2_edge.set_truth(TrustTexture::Crystalline);
+        v2_edge.set_spare(0);
 
         // Step 4: Assert byte-identical output.
-        // set_*(0) and set_truth(Crystalline=0b00) are no-ops on a zero-initialized field.
+        // set_w_slot(0), set_truth(Crystalline=0b00), set_spare(0) are no-ops
+        // on bits already at zero, so the raw u64 must round-trip exactly.
         assert_eq!(v1_edge.0, v2_edge.0,
-            "v2-re-encoded edge with zero new fields must be byte-identical to v1 input.\n\
+            "v2-re-encoded edge with zero new fields must be byte-identical to v1-with-temporal=0.\n\
              Raw v1={:#018x}, v2={:#018x}.\n\
              Non-zero delta indicates bit-position drift in W2 layout: \
-             G_MASK or W_MASK or TRUTH_MASK overlaps a v1 non-zero field.",
+             W_MASK or TRUTH_MASK or SPARE_MASK overlaps a v1 lower-half field (S/P/O/freq/conf/causal/dir/inference/plasticity).",
             v1_edge.0, v2_edge.0);
     }
 
-    // Step 5 (always): baseline field integrity check.
+    // Step 5 (always): baseline field integrity check on v1 fields preserved in v2.
     assert_eq!(v1_edge.s_idx(), 42);
     assert_eq!(v1_edge.p_idx(), 17);
     assert_eq!(v1_edge.o_idx(), 200);
     assert_eq!(v1_edge.frequency_u8(), 204);
     assert_eq!(v1_edge.confidence_u8(), 178);
-    assert_eq!(v1_edge.temporal(), 1023);
+    // NB: v2 has NO temporal() accessor — temporal was dropped per L-2.
 }
 ```
 
-**Failure analysis:** If this test fails, the most likely cause is that W2's G/W/truth bit masks overlap with the temporal field (TEMPORAL_SHIFT=52, BITS12_MASK). Check `(G_MASK << G_SHIFT) & (BITS12_MASK << TEMPORAL_SHIFT) == 0` and the same for W/truth.
+**Failure analysis:** If this test fails on the byte-identical assertion, W2's W/lens/spare
+masks overlap with a v1 lower-half field (S/P/O/freq/conf/causal/dir/inference/plasticity).
+Check `(W_MASK | TRUTH_MASK | SPARE_MASK) & (S_MASK | P_MASK | O_MASK | FREQ_MASK |
+CONF_MASK | CAUSAL_MASK | DIR_MASK | INFER_MASK | PLAST_MASK) == 0`.
+
+### Test 1b: `pal8_v1_nonzero_temporal_is_blocked_by_version_gate`
+
+```rust
+/// Regression gate for PR-CE64-MB-2: v1 non-zero temporal CANNOT round-trip under v2.
+///
+/// A v1-encoded CausalEdge64 with non-zero temporal sets bits 52-63 that v2 has
+/// reclaimed for W/lens/spare. Under v2 decode (without a version gate), those
+/// bits alias W/truth/spare and produce garbage. This test asserts the corruption
+/// is observable (proving why a PAL8 version gate is mandatory) and that the v2
+/// PAL8 reader refuses to decode a v1 binary blob lacking a version byte.
+#[test]
+#[cfg(feature = "causal-edge-v2-layout")]
+fn pal8_v1_nonzero_temporal_is_blocked_by_version_gate() {
+    // Construct a v1 edge with temporal = 1023 (0x3FF — bits 52-61 set under
+    // v1 TEMPORAL_SHIFT=52). This is the unsafe-migration case.
+    let v1_edge = CausalEdge64::pack(
+        42, 17, 200, 204, 178,
+        CausalMask::PO, 0b010,
+        InferenceType::Deduction,
+        PlasticityState::S_HOT,
+        1023,
+    );
+
+    // Under v2 decode the v1 temporal bits alias the new fields:
+    //   bit 52       → no v2 field (v2 plasticity ends at bit 52 inclusive)
+    //   bits 53-58   → W slot
+    //   bits 59-60   → truth-band lens
+    //   bits 61-63   → spare
+    // With temporal=0x3FF (bits 52-61 set), v2 must observe non-zero W or truth.
+    let w = v1_edge.w_slot();
+    let truth_raw = v1_edge.truth_raw();
+    assert!(
+        w != 0 || truth_raw != 0,
+        "v1 temporal=1023 must produce non-zero W or truth under v2 decode \
+         (proves the version gate is necessary; got w={w}, truth_raw={truth_raw})"
+    );
+
+    // PAL8 deserializer MUST refuse to decode a v1 binary blob under the v2 reader
+    // without an explicit version byte. (PalDecodeError is defined by the PAL8 module
+    // landed alongside this regression; see W3 scratchpad for the version-gate sketch.)
+    let v1_blob: [u8; 8] = v1_edge.0.to_le_bytes();
+    let decoded = pal8::decode_v2(&v1_blob);
+    assert!(
+        matches!(decoded, Err(pal8::PalDecodeError::MissingVersionByte)),
+        "PAL8 v2 reader must reject v1 binary blobs without a version byte; got {decoded:?}"
+    );
+}
+```
 
 ### Test 2: `pal8_v2_v2_round_trip_all_fields`
 
 ```rust
 /// Regression gate for PR-CE64-MB-2: v2 full-field round-trip.
 ///
-/// Construct a CausalEdge64 with all v2 fields set to non-zero specific values,
-/// encode via v2, decode via v2, assert field-by-field equality.
+/// Construct a CausalEdge64 with all v2 reclaim-zone fields set to non-zero
+/// specific values, encode via v2, decode via v2, assert field-by-field equality.
 /// Also asserts field isolation: toggling one v2 field must not corrupt others.
 #[test]
 #[cfg(feature = "causal-edge-v2-layout")]
 fn pal8_v2_v2_round_trip_all_fields() {
     // Target v2 field values (non-zero, non-max to catch off-by-one):
-    //   G=15  (5-bit mid-range, 0b01111)
-    //   W=42  (6-bit mid-range, 0b101010)
-    //   truth=Fuzzy (2-bit value = 0b10)
+    //   inference mantissa = -3 (signed i4, bits 46-49)
+    //   W = 42 (6-bit mid-range, 0b101010, bits 53-58)
+    //   truth = Fuzzy (0b10, bits 59-60)
+    //   spare = 0b101 (3-bit non-symmetric, bits 61-63)
     //
-    // Existing fields use non-trivial values to exercise non-zero bit interaction:
+    // v2 pack signature has NO temporal parameter (L-2: dropped).
     let mut edge = CausalEdge64::pack(
         100, 50, 200,           // s, p, o
         180, 150,               // freq, conf
@@ -191,13 +250,13 @@ fn pal8_v2_v2_round_trip_all_fields() {
         0b110,                  // direction
         InferenceType::Induction,
         PlasticityState::ALL_HOT,
-        2048,                   // temporal
     );
-    edge.set_g_slot(15);
+    edge.set_inference_mantissa(-3);
     edge.set_w_slot(42);
     edge.set_truth(TrustTexture::Fuzzy);
+    edge.set_spare(0b101);
 
-    // Assert all existing fields survive:
+    // Assert all v1-preserved fields survive:
     assert_eq!(edge.s_idx(), 100,               "s_idx must survive v2 round-trip");
     assert_eq!(edge.p_idx(), 50,                "p_idx must survive v2 round-trip");
     assert_eq!(edge.o_idx(), 200,               "o_idx must survive v2 round-trip");
@@ -205,49 +264,64 @@ fn pal8_v2_v2_round_trip_all_fields() {
     assert_eq!(edge.confidence_u8(), 150,       "confidence must survive v2 round-trip");
     assert_eq!(edge.causal_mask(), CausalMask::SPO, "causal mask must survive");
     assert_eq!(edge.direction(), 0b110,         "direction must survive v2 round-trip");
-    assert_eq!(edge.inference_type(), InferenceType::Induction, "inference must survive");
     assert_eq!(edge.plasticity(), PlasticityState::ALL_HOT, "plasticity must survive");
-    assert_eq!(edge.temporal(), 2048,           "temporal must survive v2 round-trip");
 
-    // Assert v2 fields decode correctly:
-    assert_eq!(edge.g_slot(), 15,
-        "g_slot must round-trip: G=15 written, {} read", edge.g_slot());
+    // Assert v2 reclaim-zone fields decode correctly:
+    assert_eq!(edge.inference_mantissa(), -3,
+        "inference_mantissa must round-trip signed: -3 written, {} read",
+        edge.inference_mantissa());
     assert_eq!(edge.w_slot(), 42,
         "w_slot must round-trip: W=42 written, {} read", edge.w_slot());
     assert_eq!(edge.truth(), TrustTexture::Fuzzy,
         "truth band must round-trip: Fuzzy written, {:?} read", edge.truth());
+    assert_eq!(edge.spare(), 0b101,
+        "spare must round-trip: 0b101 written, {:#05b} read", edge.spare());
 
-    // Field isolation: toggling one v2 field must not corrupt others.
-    let mut edge_g0 = edge;
-    edge_g0.set_g_slot(0);
-    assert_eq!(edge_g0.w_slot(), 42,
-        "w_slot must survive g_slot clear");
-    assert_eq!(edge_g0.truth(), TrustTexture::Fuzzy,
-        "truth must survive g_slot clear");
-    assert_eq!(edge_g0.temporal(), 2048,
-        "temporal must survive g_slot clear");
+    // Field isolation: toggling one v2 reclaim-zone field must not corrupt others.
+    let mut edge_m0 = edge;
+    edge_m0.set_inference_mantissa(0);
+    assert_eq!(edge_m0.w_slot(), 42,
+        "w_slot must survive mantissa clear");
+    assert_eq!(edge_m0.truth(), TrustTexture::Fuzzy,
+        "truth must survive mantissa clear");
+    assert_eq!(edge_m0.spare(), 0b101,
+        "spare must survive mantissa clear");
+    assert_eq!(edge_m0.plasticity(), PlasticityState::ALL_HOT,
+        "plasticity (bits 50-52) must survive mantissa (bits 46-49) clear");
 
     let mut edge_w0 = edge;
     edge_w0.set_w_slot(0);
-    assert_eq!(edge_w0.g_slot(), 15,
-        "g_slot must survive w_slot clear");
+    assert_eq!(edge_w0.inference_mantissa(), -3,
+        "inference_mantissa must survive w_slot clear");
     assert_eq!(edge_w0.truth(), TrustTexture::Fuzzy,
         "truth must survive w_slot clear");
-    assert_eq!(edge_w0.temporal(), 2048,
-        "temporal must survive w_slot clear");
+    assert_eq!(edge_w0.spare(), 0b101,
+        "spare must survive w_slot clear");
 
     let mut edge_t0 = edge;
     edge_t0.set_truth(TrustTexture::Crystalline);
-    assert_eq!(edge_t0.g_slot(), 15,
-        "g_slot must survive truth clear");
+    assert_eq!(edge_t0.inference_mantissa(), -3,
+        "inference_mantissa must survive truth clear");
     assert_eq!(edge_t0.w_slot(), 42,
         "w_slot must survive truth clear");
-    assert_eq!(edge_t0.temporal(), 2048,
-        "temporal must survive truth clear");
+    assert_eq!(edge_t0.spare(), 0b101,
+        "spare must survive truth clear");
+
+    let mut edge_s0 = edge;
+    edge_s0.set_spare(0);
+    assert_eq!(edge_s0.inference_mantissa(), -3,
+        "inference_mantissa must survive spare clear");
+    assert_eq!(edge_s0.w_slot(), 42,
+        "w_slot must survive spare clear");
+    assert_eq!(edge_s0.truth(), TrustTexture::Fuzzy,
+        "truth must survive spare clear");
 }
 ```
 
-**Failure analysis:** If isolation checks fail (e.g. setting `g_slot=0` corrupts `w_slot`), the bit masks overlap. Check `(G_MASK << G_SHIFT) & (W_MASK << W_SHIFT) == 0` and all pairwise mask intersections.
+**Failure analysis:** If isolation checks fail (e.g. setting `w_slot=0` corrupts `truth`),
+the bit masks overlap. Check pairwise `(INFER_MASK | W_MASK | TRUTH_MASK | SPARE_MASK)`
+intersections and that each mask is contained within its declared `[lo .. hi]` range
+from layout.rs.
 
 ### Test 3: `pal8_round_trip_arbitrary` (property test, initially ignored)
 
@@ -264,37 +338,38 @@ fn pal8_round_trip_arbitrary() {
 
     fn round_trips(raw: u64) -> bool {
         let edge = CausalEdge64(raw);
-        let g = edge.g_slot();
+        let m = edge.inference_mantissa();
         let w = edge.w_slot();
         let truth = edge.truth();
+        let spare = edge.spare();
         let s = edge.s_idx();
         let p = edge.p_idx();
         let o = edge.o_idx();
         let freq = edge.frequency_u8();
         let conf = edge.confidence_u8();
-        let temporal = edge.temporal();
 
         // Re-encode the fields we can set and verify round-trip for those fields.
+        // v2 has no temporal() / set_temporal() (L-2) and no g_slot() / set_g_slot() (L-3).
         let mut e2 = CausalEdge64(0);
         e2.set_s_idx(s);
         e2.set_p_idx(p);
         e2.set_o_idx(o);
         e2.set_frequency_u8(freq);
         e2.set_confidence_u8(conf);
-        e2.set_temporal(temporal);
-        e2.set_g_slot(g);
+        e2.set_inference_mantissa(m);
         e2.set_w_slot(w);
         e2.set_truth(truth);
+        e2.set_spare(spare);
 
-        e2.g_slot() == g
+        e2.inference_mantissa() == m
             && e2.w_slot() == w
             && e2.truth() == truth
+            && e2.spare() == spare
             && e2.s_idx() == s
             && e2.p_idx() == p
             && e2.o_idx() == o
             && e2.frequency_u8() == freq
             && e2.confidence_u8() == conf
-            && e2.temporal() == temporal
     }
 
     quickcheck(round_trips as fn(u64) -> bool);
@@ -321,21 +396,28 @@ crates/lance-graph-planner/tests/nars_tables_invariant.rs  (NEW)
 
 ### NarsTables background
 
-`NarsTables` in `crates/causal-edge/src/tables.rs` precomputes NARS inference as 256x256 lookup tables keyed on `u8` frequency and confidence values. `NarsEngine::from_causal_edge` extracts only `s_idx`, `p_idx`, `o_idx`, `freq`, `conf`, `pearl`, `inference`, `temporal` from a `CausalEdge64` — it does NOT extract G/W/truth. The parent plan §3 compatibility constraint C2:
+`NarsTables` in `crates/causal-edge/src/tables.rs` precomputes NARS inference as 256x256
+lookup tables keyed on `u8` frequency and confidence values. Under v2, `NarsEngine::from_causal_edge`
+extracts only `s_idx`, `p_idx`, `o_idx`, `freq`, `conf`, `pearl`, and the new
+`inference_mantissa` (i4) from a `CausalEdge64` — it does NOT extract W / truth / spare,
+and there is no `temporal` accessor in v2 (L-2 dropped it). The parent plan §3
+compatibility constraint C2 (updated to reflect the Option F layout):
 
-> New bits 51-63 are not LUT-key-bearing. LUT unchanged.
+> Bits 46-49 (signed mantissa) and 50-52 (plasticity) feed the LUT key paths;
+> bits 53-63 (W / lens / spare) are NOT LUT-key-bearing. LUT geometry unchanged.
 
-The regression tests confirm this holds after W2 adds the G/W/truth accessors.
+The regression tests confirm this holds after W2 adds the v2 reclaim-zone accessors.
 
 ### Test 1: `nars_tables_lut_key_unchanged_across_layouts`
 
 ```rust
-/// Regression gate: NarsTables LUT key isolation from v2 fields.
+/// Regression gate: NarsTables LUT key isolation from v2 reclaim-zone fields.
 ///
-/// A CausalEdge64 with v2 fields set to maximum values (g=31, w=63, truth=Murky)
-/// must produce the SAME LUT query result as the same edge with v2 fields zeroed.
-/// Divergence indicates G/W/truth bits bled into frequency/confidence extraction
-/// in NarsEngine::from_causal_edge or CausalEdge64::frequency_u8/confidence_u8.
+/// A CausalEdge64 with v2 reclaim-zone fields set to maximum values
+/// (w=63, truth=Murky, spare=0b111) must produce the SAME LUT query result as
+/// the same edge with those fields zeroed. Divergence indicates W/truth/spare
+/// bits bled into frequency/confidence extraction in NarsEngine::from_causal_edge
+/// or CausalEdge64::frequency_u8/confidence_u8.
 #[test]
 fn nars_tables_lut_key_unchanged_across_layouts() {
     use lance_graph_planner::cache::nars_engine::{NarsEngine, SpoDistances};
@@ -346,7 +428,7 @@ fn nars_tables_lut_key_unchanged_across_layouts() {
     let dist = SpoDistances::new_zero();
     let engine = NarsEngine::new(dist);
 
-    // Base v1-style edge with known field values
+    // Base v2 edge with known field values (v2 pack signature: no temporal param).
     let base_edge = CausalEdge64::pack(
         100, 50, 200,
         180, 150,
@@ -354,7 +436,6 @@ fn nars_tables_lut_key_unchanged_across_layouts() {
         0,
         InferenceType::Deduction,
         PlasticityState::ALL_FROZEN,
-        512,
     );
 
     let base_head = engine.from_causal_edge(base_edge);
@@ -364,13 +445,13 @@ fn nars_tables_lut_key_unchanged_across_layouts() {
         base_head.freq, base_head.conf
     );
 
-    // Augment with maximum v2 field values
+    // Augment with maximum v2 reclaim-zone field values
     #[cfg(feature = "causal-edge-v2-layout")]
     {
         let mut v2_edge = base_edge;
-        v2_edge.set_g_slot(31);   // maximum 5-bit: 0b11111
-        v2_edge.set_w_slot(63);   // maximum 6-bit: 0b111111
+        v2_edge.set_w_slot(63);                 // maximum 6-bit: 0b111111
         v2_edge.set_truth(TrustTexture::Murky); // maximum 2-bit: 0b11
+        v2_edge.set_spare(0b111);               // maximum 3-bit: 0b111
 
         let v2_head = engine.from_causal_edge(v2_edge);
         let v2_deduction = engine.tables.deduce(v2_head.freq, v2_head.freq);
@@ -456,10 +537,11 @@ fn nars_tables_lut_size_unchanged() {
 ### Test 3: `nars_engine_to_from_causal_edge_isolates_new_fields`
 
 ```rust
-/// Regression gate: NarsEngine conversion must not propagate v2 fields.
+/// Regression gate: NarsEngine conversion must not propagate v2 reclaim-zone fields.
 ///
-/// to_causal_edge(from_causal_edge(edge)) must zero the new fields because
-/// SpoHead does not carry G/W/truth — it writes only the 7 core fields.
+/// to_causal_edge(from_causal_edge(edge)) must zero the W/truth/spare fields because
+/// SpoHead does not carry them — it writes only the LUT-key-bearing fields
+/// (s/p/o/freq/conf/pearl) plus the new signed mantissa.
 #[test]
 #[cfg(feature = "causal-edge-v2-layout")]
 fn nars_engine_to_from_causal_edge_isolates_new_fields() {
@@ -471,27 +553,28 @@ fn nars_engine_to_from_causal_edge_isolates_new_fields() {
     let dist = SpoDistances::new_zero();
     let engine = NarsEngine::new(dist);
 
+    // v2 pack signature: no temporal parameter (L-2 dropped temporal).
     let mut original = CausalEdge64::pack(
         10, 20, 30, 200, 180,
-        CausalMask::PO, 0, InferenceType::Revision, PlasticityState::ALL_HOT, 100,
+        CausalMask::PO, 0, InferenceType::Revision, PlasticityState::ALL_HOT,
     );
-    original.set_g_slot(15);
     original.set_w_slot(42);
     original.set_truth(TrustTexture::Solid);
+    original.set_spare(0b101);
 
     // Round-trip via NarsEngine: edge -> SpoHead -> edge
     let head = engine.from_causal_edge(original);
     let round_tripped = engine.to_causal_edge(&head);
 
-    // The round-tripped edge must have G=0, W=0, truth=Crystalline
-    // because SpoHead does not carry these fields.
-    assert_eq!(round_tripped.g_slot(), 0,
-        "NarsEngine round-trip must zero g_slot \
-         (SpoHead does not carry G — this is correct behavior, not a loss)");
+    // The round-tripped edge must have W=0, truth=Crystalline, spare=0 because
+    // SpoHead does not carry these reclaim-zone fields.
     assert_eq!(round_tripped.w_slot(), 0,
-        "NarsEngine round-trip must zero w_slot");
+        "NarsEngine round-trip must zero w_slot \
+         (SpoHead does not carry W — this is correct behavior, not a loss)");
     assert_eq!(round_tripped.truth(), TrustTexture::Crystalline,
         "NarsEngine round-trip must reset truth to Crystalline (00)");
+    assert_eq!(round_tripped.spare(), 0,
+        "NarsEngine round-trip must zero spare");
 
     // Core fields must survive the round-trip
     assert_eq!(round_tripped.s_idx(), original.s_idx(), "s_idx must survive");
@@ -559,31 +642,32 @@ fn edge_column_layout_invariant_64b_per_row() {
         use causal_edge::edge::InferenceType;
         use causal_edge::plasticity::PlasticityState;
 
+        // v2 pack signature: no temporal parameter (L-2: dropped).
         let mut edge = CausalEdge64::pack(
             10, 20, 30, 180, 150,
             CausalMask::SPO, 0,
             InferenceType::Deduction,
             PlasticityState::ALL_FROZEN,
-            42,
         );
-        edge.set_g_slot(7);
+        edge.set_inference_mantissa(-5);
         edge.set_w_slot(15);
         edge.set_truth(TrustTexture::Solid);
+        edge.set_spare(0b110);
 
         let mut bs_rw = BindSpace::zeros(1);
         bs_rw.edges.set(0, edge.0);
         let retrieved = CausalEdge64(bs_rw.edges.get(0));
 
-        assert_eq!(retrieved.g_slot(), 7,
-            "EdgeColumn round-trip must preserve g_slot");
+        assert_eq!(retrieved.inference_mantissa(), -5,
+            "EdgeColumn round-trip must preserve signed mantissa");
         assert_eq!(retrieved.w_slot(), 15,
             "EdgeColumn round-trip must preserve w_slot");
         assert_eq!(retrieved.truth(), TrustTexture::Solid,
             "EdgeColumn round-trip must preserve truth band");
+        assert_eq!(retrieved.spare(), 0b110,
+            "EdgeColumn round-trip must preserve spare");
         assert_eq!(retrieved.s_idx(), 10,
             "EdgeColumn round-trip must preserve s_idx");
-        assert_eq!(retrieved.temporal(), 42,
-            "EdgeColumn round-trip must preserve temporal");
     }
 }
 ```
@@ -660,7 +744,7 @@ causal-edge-v2-layout = ["causal-edge/causal-edge-v2-layout"]
 | Risk | Probability | Impact | Caught by |
 |------|-------------|--------|-----------|
 | **Bit-position math error in W2's encoder** — G/W/truth masks overlap with temporal (bits 52-63) or with each other | Medium (bit-packing errors are common) | High — all serialized edges decode to wrong field values silently | `pal8_v1_v2_round_trip_zero_default` (v1 edge must read new fields as zero); `pal8_v2_v2_round_trip_all_fields` field isolation (toggling one field must not corrupt another) |
-| **LUT-key bleed** — `CausalEdge64::frequency_u8()` or `::confidence_u8()` reads from a bit position that W2's reclaim overlaps (e.g. G_SHIFT lands at 24 = FREQ_SHIFT by mistake) | Low (FREQ/CONF are far from the top bits) but catastrophic if it happens | Critical — NarsEngine produces wrong inference results for every edge with non-zero G/W/truth; silent corruption in hot path | `nars_tables_lut_key_unchanged_across_layouts` (same edge with/without v2 fields must yield identical LUT result) |
+| **LUT-key bleed** — `CausalEdge64::frequency_u8()` or `::confidence_u8()` reads from a bit position that W2's reclaim overlaps (e.g. W_SHIFT lands at 24 = FREQ_SHIFT by mistake) | Low (FREQ/CONF are at bits 24-39; reclaim is at bits 46-63) but catastrophic if it happens | Critical — NarsEngine produces wrong inference results for every edge with non-zero mantissa/W/truth/spare; silent corruption in hot path | `nars_tables_lut_key_unchanged_across_layouts` (same edge with/without v2 reclaim-zone fields must yield identical LUT result) |
 | **EdgeColumn size regression** — W2 accidentally changes `CausalEdge64` from a newtype `(u64)` to a two-word struct for some intermediate implementation | Very Low | Critical — `BindSpace` row size changes, breaking SIMD alignment, cache-line math, and all downstream consumers | `edge_column_layout_invariant_64b_per_row` (asserts `size_of::<CausalEdge64>() == 8` and `EdgeColumn::zeros(8).len() * 8 == 64`) |
 
 ---
@@ -669,20 +753,25 @@ causal-edge-v2-layout = ["causal-edge/causal-edge-v2-layout"]
 
 **Responsibility split:**
 
-- **W2** owns: v2 accessor implementations (`g_slot()`, `w_slot()`, `truth()`, setters); `G_SHIFT`, `W_SHIFT`, `TRUTH_SHIFT` constants; `causal-edge-v2-layout` feature flag Cargo wiring; `TrustTexture` re-export from `lance-graph-contract::mul`.
+- **W2** owns: v2 accessor implementations (`inference_mantissa()`, `w_slot()`, `truth()`, `spare()`, setters); `INFER_SHIFT`, `W_SHIFT`, `TRUTH_SHIFT`, `SPARE_SHIFT` constants; `causal-edge-v2-layout` feature flag Cargo wiring; `TrustTexture` re-export from `lance-graph-contract::mul`. (G-slot dropped per L-3 — no G accessor, no `G_SHIFT`.)
 - **W3** owns: the regression tests in this spec that prove W2 didn't break things; CI workflow extension; this spec file.
 
 **Bit-position TBD protocol:** W3's tests use feature-flag guards (`#[cfg(feature = "causal-edge-v2-layout")]`) so they compile and pass on the v1 codebase before W2's changes land. The `pal8_v1_v2_round_trip_zero_default` test has a non-gated section that exercises the v1 `pack()` API — this passes on both v1 and v2 builds. Meta-reviewer reconciles the concrete bit positions from W2's spec against W3's test assertions before implementation.
 
 **If W2 spec not yet produced** (as of this draft): bit-position references throughout cite "TBD — defer to W2's bit-layout table." All tests are written against functional properties of the accessor functions, not raw bit masks. They will remain correct once W2 supplies the concrete layout.
 
-**Agreement checklist (meta-reviewer task):**
+**Agreement checklist (meta-reviewer task) — v2 Option F layout:**
 
-1. W2's G range `[G_SHIFT .. G_SHIFT+5)` must not intersect temporal `[52..64)`.
-2. W2's W range `[W_SHIFT .. W_SHIFT+6)` must not intersect temporal or G.
-3. W2's truth range `[TRUTH_SHIFT .. TRUTH_SHIFT+2)` must not intersect any above.
-4. All three new ranges must be mutually disjoint.
-5. `CausalEdge64::pack()` with any arguments must produce `g_slot()=0, w_slot()=0, truth()=Crystalline` — confirmed by `pal8_v1_v2_round_trip_zero_default`.
+1. W2's INFER (mantissa) range `[46..50)` and PLAST range `[50..53)` cover the LUT-key zone.
+2. W2's W range `[53..59)`, TRUTH range `[59..61)`, and SPARE range `[61..64)` cover the
+   reclaim zone (formerly v1 temporal bits 52-63).
+3. All v2 ranges must be mutually disjoint and together with v1 fields S/P/O/freq/conf/causal/dir
+   cover bits `[0..64)` exactly once (enforced by the `const_assert_mask_coverage` compile-time
+   check in W2's `layout.rs`).
+4. `CausalEdge64::pack(..)` with the v2 9-arg signature (no temporal) must produce
+   `inference_mantissa()=0, w_slot()=0, truth()=Crystalline, spare()=0` — confirmed by
+   `pal8_v1_v2_round_trip_zero_default` for the temporal=0 v1-migration case.
+5. There is no `g_slot()` accessor and no `G_SHIFT` constant in the v2 API (L-3).
 
 ---
 
@@ -708,7 +797,7 @@ causal-edge-v2-layout = ["causal-edge/causal-edge-v2-layout"]
 
 2. **TrustTexture import path**: The tests reference `TrustTexture` from `causal_edge::TrustTexture`. If W2 re-exports it from `lance-graph-contract::mul::TrustTexture` (preferred — contract is the canonical zero-dep home), the tests need `use lance_graph_contract::mul::TrustTexture` or the re-export path. Confirm whether `causal-edge` re-exports or defines its own. Defining a new enum breaks the "contract is canonical" doctrine (CLAUDE.md §The AGI-as-glove doctrine). Recommend re-export.
 
-3. **`pack_v2()` vs setter-only API**: The tests assume W2 provides either a `pack_v2()` constructor or that `pack()` + individual setters (`set_g_slot()`, `set_w_slot()`, `set_truth()`) is the complete v2 API. The setter-only approach is simpler and avoids a new constructor signature. If W2 uses only setters, `pal8_v2_v2_round_trip_all_fields` should be revised to call `pack()` + three setters rather than a hypothetical `pack_v2()`. Meta-reviewer confirms W2's API surface before the test files are committed.
+3. **`pack_v2()` vs setter-only API**: The tests assume W2 provides either a `pack_v2()` constructor or that v2 `pack()` (9-arg, no temporal) + individual setters (`set_inference_mantissa()`, `set_w_slot()`, `set_truth()`, `set_spare()`) is the complete v2 API. The setter-only approach is simpler and avoids a new constructor signature. If W2 uses only setters, `pal8_v2_v2_round_trip_all_fields` should be revised to call `pack()` + four setters rather than a hypothetical `pack_v2()`. Meta-reviewer confirms W2's API surface before the test files are committed.
 
 ---
 

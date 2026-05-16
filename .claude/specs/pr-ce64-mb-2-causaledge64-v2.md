@@ -711,10 +711,11 @@ p64-bridge::STYLES binary codebook format: unchanged.
 
 ### Category 1 — Accessor Round-Trip (unit tests, src/v2_layout_tests.rs)
 
-```
-test_g_slot_roundtrip:
-  For g in [0, 1, 15, 31]: assert CausalEdge64::ZERO.with_g_slot(g).g_slot() == g
+Tests target the v2 fields only: signed mantissa (bits 46-49), plasticity (50-52),
+W slot (53-58), truth-band lens (59-60), spare (61-63). G-slot is absent per L-3 —
+there is no `g_slot()` / `with_g_slot()` / `set_g_slot()` accessor in v2.
 
+```
 test_w_slot_roundtrip:
   For w in [0, 1, 31, 63]: assert CausalEdge64::ZERO.with_w_slot(w).w_slot() == w
 
@@ -722,15 +723,22 @@ test_truth_roundtrip:
   For t in [Crystalline, Solid, Fuzzy, Murky]:
     assert CausalEdge64::ZERO.with_truth(t).truth() == t
 
+test_inference_mantissa_signed_roundtrip:
+  For m in [-8, -7, -1, 0, 1, 7]:  // i4 range
+    assert CausalEdge64::ZERO.with_inference_mantissa(m).inference_mantissa() == m
+  // sign preserved across pack/unpack via arithmetic right shift
+
 test_with_routing_roundtrip:
-  edge = CausalEdge64::ZERO.with_routing(17, 42, TrustTexture::Fuzzy)
-  assert edge.g_slot() == 17
+  // v2 signature: with_routing(w: u8, t: TrustTexture) — no g parameter
+  edge = CausalEdge64::ZERO.with_routing(42, TrustTexture::Fuzzy)
   assert edge.w_slot() == 42
   assert edge.truth() == TrustTexture::Fuzzy
 
 test_v2_fields_do_not_disturb_v1_fields:
-  base = CausalEdge64::pack(143, 7, 201, 209, 181, CausalMask::PO, 0b101, ...)
-  v2 = base.with_routing(5, 10, TrustTexture::Solid)
+  // v2 pack signature: no temporal parameter (L-2: dropped)
+  base = CausalEdge64::pack(143, 7, 201, 209, 181, CausalMask::PO, 0b101,
+                            InferenceType::Deduction, PlasticityState::S_HOT)
+  v2 = base.with_routing(10, TrustTexture::Solid).with_inference_mantissa(-3)
   assert v2.s_idx() == 143
   assert v2.p_idx() == 7
   assert v2.o_idx() == 201
@@ -741,24 +749,31 @@ test_v2_fields_do_not_disturb_v1_fields:
 
 test_zero_edge_v2_defaults:
   e = CausalEdge64::ZERO
-  assert e.g_slot() == 0
+  assert e.w_slot() == 0
+  assert e.truth() == TrustTexture::Crystalline
+  assert e.inference_mantissa() == 0
+  assert e.spare() == 0
+
+test_w_slot_max_no_truth_contamination:
+  e = CausalEdge64::ZERO.with_w_slot(63)
+  assert e.w_slot() == 63
+  assert e.truth() == TrustTexture::Crystalline  // bits 59-60 untouched
+
+test_truth_max_no_w_contamination:
+  e = CausalEdge64::ZERO.with_truth(TrustTexture::Murky)
+  assert e.truth_raw() == 3
+  assert e.w_slot() == 0  // bits 53-58 untouched
+
+test_spare_isolation:
+  e = CausalEdge64::ZERO.with_spare(0b111)
+  assert e.spare() == 0b111
   assert e.w_slot() == 0
   assert e.truth() == TrustTexture::Crystalline
 
-test_g_slot_max_no_w_contamination:
-  e = CausalEdge64::ZERO.with_g_slot(31)
-  assert e.g_slot() == 31
-  assert e.w_slot() == 0  // no cross-contamination
-
-test_w_slot_max_no_g_contamination:
-  e = CausalEdge64::ZERO.with_w_slot(63)
-  assert e.w_slot() == 63
-  assert e.g_slot() == 0  // no cross-contamination
-
-test_truth_max_no_spare_contamination:
-  e = CausalEdge64::ZERO.with_truth(TrustTexture::Murky)
-  assert e.truth_raw() == 3
-  assert e.w_slot() == 0  // bits 57-58 do not leak into W (bits 51-56)
+test_mantissa_no_plasticity_contamination:
+  // mantissa is bits 46-49, plasticity is bits 50-52 (shifted by +1 from v1)
+  e = CausalEdge64::ZERO.with_inference_mantissa(-1)  // all 4 mantissa bits set
+  assert e.plasticity() == PlasticityState::ALL_FROZEN  // bits 50-52 untouched
 
 test_size_unchanged:
   assert std::mem::size_of::<CausalEdge64>() == 8
@@ -788,9 +803,9 @@ Covered by test_size_unchanged. Confirm [CausalEdge64; 8] = 64 bytes = one cache
 
 | Risk | Severity | Likelihood | Mitigation |
 |---|---|---|---|
-| PAL8 version gate missing: v2 reads v1 PAL8 and returns garbage G/W/truth | HIGH | HIGH (v1 files have non-zero infer/plast/temporal by design) | Gate merge on W3's regression. Add PAL8 version byte before any v2 files are written. |
+| PAL8 version gate missing: v2 reads v1 PAL8 and returns garbage W/truth/spare | HIGH | HIGH (v1 files have non-zero plasticity/temporal by design; v1 temporal bits 52-63 now alias W/lens/spare) | Gate merge on W3's regression. Add PAL8 version byte before any v2 files are written. |
 | OQ-LAYOUT-1 resolved as Option F: G-slot dropped; mantissa 4b signed; W+truth+spare added | LOW | RESOLVED | cognitive-substrate-convergence-v1.md §6 locks the layout. Implementation may proceed. |
-| forward() reads InferenceType from bits 46-48 which are now G slot bits | HIGH | HIGH (forward() uses self.inference_type() that reads bits 46-48) | forward() must accept explicit InferenceType param. Scoped into PR-CE64-MB-2 or follow-on. |
+| forward() reads InferenceType from bits 46-48 — bits 46-49 now hold the 4b SIGNED mantissa, not the 3b unsigned InferenceType | HIGH | HIGH (forward() uses self.inference_type() that reads bits 46-48) | forward() must accept an explicit InferenceMantissa (i4) param after mantissa expansion. Scoped into PR-CE64-MB-2 or follow-on. |
 | NarsTables LUT key shift: if bits 46-51 used as LUT keys anywhere not found in survey | MEDIUM | LOW (survey found no such usage; keys are freq/conf only) | W3 regression + grep for V1_INFER_SHIFT/V1_PLAST_SHIFT usage across all crates |
 | inference_type() callers break when bits reclaimed | MEDIUM | MEDIUM (used in forward() and network.rs) | Deprecation markers + migration guide |
 | TrustTexture local copy diverges from contract canonical | LOW | LOW (byte-compatible; 2-bit enum is trivial) | Long-term: From<local::TrustTexture> for contract::TrustTexture bridge |
@@ -809,9 +824,11 @@ in crates/causal-edge/ during code survey. Is PAL8 serialization already shipped
 it a planned deliverable? If not shipped, the compat analysis in §6.1 is analyzing a planned future
 format. W3's spec is blocked on this answer.
 
-**OQ-FORWARD-REFACTOR:** forward() uses self.inference_type() which reads bits 46-48 — these become
-G slot bits under Option C. Is refactoring forward() in-scope for PR-CE64-MB-2 (accepting explicit
-InferenceType from caller), or is it a follow-on PR? Recommendation: include in PR-CE64-MB-2.
+**OQ-FORWARD-REFACTOR:** forward() uses self.inference_type() which reads bits 46-48 — under
+Option F these bits are bits 46-49 of the 4-bit SIGNED mantissa (L-4), so the old 3b-unsigned
+`InferenceType` accessor cannot survive the layout change. Is refactoring forward() in-scope
+for PR-CE64-MB-2 (accepting an explicit `InferenceMantissa` from the caller), or is it a
+follow-on PR? Recommendation: include in PR-CE64-MB-2.
 
 **OQ-ZERODEP:** Should TrustTexture be defined locally in causal-edge (preserving zero-dep
 invariant) or imported from lance-graph-contract (single canonical source, adds a dep)?
