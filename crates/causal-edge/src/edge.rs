@@ -171,12 +171,15 @@ impl CausalEdge64 {
         v |= (confidence as u64) << CONF_SHIFT;
         v |= ((causal_mask as u64) & BITS3_MASK) << CAUSAL_SHIFT;
         v |= ((direction as u64) & BITS3_MASK) << DIR_SHIFT;
-        v |= ((inference as u8 as u64) & BITS3_MASK) << INFER_SHIFT;
-        // In v2 layout, plasticity is at bit 50; in v1 it was at bit 49.
-        // We use whichever shift matches the active layout feature so that
-        // pack() + plasticity() are always consistent.
+        // v2 layout: write the signed mantissa (4 bits, bits 46-49) via the
+        // enum→mantissa mapping so that subsequent reads via inference_mantissa()
+        // + InferenceType::from_mantissa() round-trip the *semantic* meaning.
+        // Writing the raw enum discriminant into 3 bits would silently re-route
+        // Abduction(2) as Induction(+2), Revision(3) as Synthesis(+3), etc.
         #[cfg(feature = "causal-edge-v2-layout")]
         {
+            let mantissa_raw = (inference.to_mantissa() as u8) as u64 & 0xF;
+            v |= mantissa_raw << INFER_SHIFT;
             v |= ((plasticity.bits() as u64) & BITS3_MASK) << crate::layout::PLAST_SHIFT;
             // v2: temporal is IGNORED. Bits 52-63 are reclaimed for plasticity[2]
             // + W-slot + truth + spare per plan §6 Option F / L-2. Writing the
@@ -185,6 +188,7 @@ impl CausalEdge64 {
         }
         #[cfg(not(feature = "causal-edge-v2-layout"))]
         {
+            v |= ((inference as u8 as u64) & BITS3_MASK) << INFER_SHIFT;
             v |= ((plasticity.bits() as u64) & BITS3_MASK) << PLAST_SHIFT;
             v |= ((temporal as u64) & BITS12_MASK) << TEMPORAL_SHIFT;
         }
@@ -480,10 +484,28 @@ impl CausalEdge64 {
     }
 
     /// Set temporal index.
+    ///
+    /// **v2 behavior:** NO-OP. Under `causal-edge-v2-layout` (default since
+    /// 0.2.0), bits 52-63 are reclaimed for plasticity[2] + W-slot + lens +
+    /// spare per plan §6 / L-2. Writing the v1 temporal here would corrupt
+    /// the reclaim zone — same bug pattern as the v1-temporal-aliases-W3-
+    /// reclaim-zone P1 codex caught in PR #381. Temporal causality is now
+    /// structural (chain-position + AriGraph anchor); use those instead.
+    ///
+    /// Existing v1 callers (e.g. `CausalEdge64::learn`) continue to compile
+    /// — the temporal arg becomes a silent drop under v2 with the rest of
+    /// the reclaim-zone integrity preserved.
     #[inline]
     pub fn set_temporal(&mut self, t: u16) {
-        self.0 = (self.0 & !(BITS12_MASK << TEMPORAL_SHIFT))
-            | (((t as u64) & BITS12_MASK) << TEMPORAL_SHIFT);
+        #[cfg(feature = "causal-edge-v2-layout")]
+        {
+            let _ = t; // v2: bits 52-63 are W/lens/spare; do not overwrite
+        }
+        #[cfg(not(feature = "causal-edge-v2-layout"))]
+        {
+            self.0 = (self.0 & !(BITS12_MASK << TEMPORAL_SHIFT))
+                | (((t as u64) & BITS12_MASK) << TEMPORAL_SHIFT);
+        }
     }
 
     // ─── Causal Distance ────────────────────────────────────────────
@@ -533,7 +555,17 @@ impl CausalEdge64 {
         let o_out = compose_o[self.o_idx() as usize * 256 + weight.o_idx() as usize];
 
         // 2. NARS truth propagation (the "activation function")
-        let (f_out, c_out) = match weight.inference_type() {
+        // Under v2: decode the 4-bit signed mantissa (bits 46-49) and route
+        // through the same InferenceType variants. Without this, v2 edges
+        // built via `with_inference_mantissa()` route as 3-bit unsigned
+        // (e.g. -1 = 0b1111 reads as Reserved7), bypassing Abduction/
+        // Counterfactual semantics entirely.
+        #[cfg(feature = "causal-edge-v2-layout")]
+        #[allow(deprecated)] // weight.inference_type() is the v1 fallback below; v2 uses mantissa
+        let resolved_infer = InferenceType::from_mantissa(weight.inference_mantissa());
+        #[cfg(not(feature = "causal-edge-v2-layout"))]
+        let resolved_infer = weight.inference_type();
+        let (f_out, c_out) = match resolved_infer {
             InferenceType::Deduction => {
                 let f = self.frequency() * weight.frequency();
                 let c = f * self.confidence() * weight.confidence();
@@ -577,7 +609,8 @@ impl CausalEdge64 {
 
         // 5. Inherit plasticity from weight (the "learned" edge)
         //    and direction will be recomputed from composed palette entries
-        Self::pack(
+        #[allow(deprecated)] // pack() v2 path drops temporal; resolved_infer carries v2 mantissa
+        let result = Self::pack(
             s_out,
             p_out,
             o_out,
@@ -585,10 +618,17 @@ impl CausalEdge64 {
             (c_out.clamp(0.0, 1.0) * 255.0).round() as u8,
             mask_out,
             weight.direction(), // TODO: recompute from composed palette dim0 signs
-            weight.inference_type(),
+            resolved_infer,
             weight.plasticity(),
             t_out,
-        )
+        );
+        // Under v2: re-stamp the signed mantissa onto the result. pack() only
+        // writes 3 bits (v1 enum discriminant) into bits 46-48; bit 49 (the
+        // sign bit) stays 0, so negative mantissas (Abduction, Counterfactual)
+        // would lose their sign. Override here with the resolved value.
+        #[cfg(feature = "causal-edge-v2-layout")]
+        let result = result.with_inference_mantissa(resolved_infer.to_mantissa());
+        result
     }
 
     // ─── Learning (Evidence-Driven Plasticity) ──────────────────────
