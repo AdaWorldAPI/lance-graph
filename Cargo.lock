@@ -4398,6 +4398,7 @@ dependencies = [
  "async-trait",
  "bgz-tensor",
  "bgz17",
+ "bytes",
  "causal-edge",
  "chrono",
  "datafusion",

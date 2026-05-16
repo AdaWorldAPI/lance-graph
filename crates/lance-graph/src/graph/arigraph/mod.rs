@@ -12,4 +12,7 @@ pub mod retrieval;
 pub mod sensorium;
 pub mod spo_bridge;
 pub mod triplet_graph;
+pub mod witness_corpus;
 pub mod xai_client;
+
+pub use witness_corpus::{CamPqIndexPlaceholder, WitnessCorpus, WitnessEntry, WitnessId};
