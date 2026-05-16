@@ -121,6 +121,27 @@ OQ-CSV-4 ratified: sibling-column-then-cutover (Phase 5a = add sibling; Phase 5b
 | **OQ-CSV-5** Pre-computed Magnitude column | **N/A** — ratified as on-demand (1 SIMD multiply per row sweep: `coherence × valence → i8`). Not a blocking gate. | Non-blocking per plan §11 |
 | **OQ-CSV-6** Σ10 Rubicon threshold derivation | **Hand-tuned for sprint-11/12 with TECH_DEBT (TD-7)** — bands default to Σk = k × 0.10. Jirak-derived calibration (VAMPE + Jirak coupled revival) deferred to sprint-13+. | PR #387 (sigma-tier-router); TECH_DEBT.md entry |
 
+### Sprint-13 ratifications (OQ-CSV-7..16) — user-ratified 2026-05-16
+
+User batch-ratified all 10 sprint-13 spawn blockers per PP-11 Opus recommendations
+in the `.claude/board/sprint-log-13/oq-catalog.md` per protocol §3. Source:
+autoattended ratification at the post-PR-#392-merge gate-closing moment.
+
+| OQ | Outcome | Wave / evidence |
+|---|---|---|
+| **OQ-CSV-7** PP-3 rayon feature gate name | **Ratified: `parallel`** — match ndarray's existing feature naming. Avoids feature-fork in the dependency graph; every existing parallel consumer already opts into `parallel`. | Sprint-13 D-CSV-17 (W-I4) |
+| **OQ-CSV-8** PP-3 par_* iteration chunk size | **Ratified: Fixed** — **8 rows for QualiaI4** (8×8B = 64B cache line), **4 rows for SplatField** (4×16B = 64B cache line). Cache-line aligned by construction; deterministic in benches. Auto-detect deferred to sprint-14+ if tuning need surfaces. | Sprint-13 D-CSV-17 (W-I4) |
+| **OQ-CSV-9** PP-4 splat_field carrier (Think vs sibling) | **Ratified: Add `splat_field: Vec<SplatField>` to `Think`** — keeps the canonical carrier per CLAUDE.md "Thinking is a struct" doctrine. Sibling `Splat` struct would re-create the free-function-on-state anti-pattern under a new name. Cost: +24B per Think (one Vec header) when splat is unused. | Sprint-13 D-CSV-14 (W-I2) |
+| **OQ-CSV-10** PP-4 splat generation source | **Ratified: Derive from `self.cycle`** — single source of truth; no new invariant; cycle already advances on every Think step. Sub-cycle granularity deferred until use case forces it. | Sprint-13 D-CSV-14 (W-I2) |
+| **OQ-CSV-11** PP-5 SPO → 256D adapter (VSA bind vs one-hot) | **Ratified: Option A (VSA bind of role-keyed fingerprints)** — `bind(S_key, s) XOR bind(P_key, p) XOR bind(O_key, o)`. Per I-VSA-IDENTITIES iron rule: role information must survive superposition; one-hot fails this litmus. Role keys live as constants in `lance-graph-contract::vsa::roles`. Cost: 3 XOR ops per SPO insert. | Sprint-13 D-CSV-16 (W-I3) |
+| **OQ-CSV-12** PP-5 WitnessCorpus cam_pq lazy vs eager | **Ratified: Lazy via `enable_cam_pq()`** — keeps ndarray/cam_pq an optional dep behind a feature gate; HashMap-only users see zero cost. Builders that want similarity query call `corpus.enable_cam_pq()` once after construction. cam_pq state lives in `Option<CamPqState>` field; query methods early-return `None` if disabled. | Sprint-13 D-CSV-16 (W-I3) |
+| **OQ-CSV-13** PP-6 SIMD i4 runtime vs compile-time dispatch | **Ratified: Runtime dispatch via `simd_caps()`** — matches ndarray's existing pattern (cf. `ndarray::simd::caps`); single binary that adapts to host; bench-friendly. Cost: one cached `LazyLock<SimdCaps>` and a branch per call site. Branch predictor handles cost trivially after warmup. | Sprint-13 D-CSV-13b (W-I1) |
+| **OQ-CSV-14** PP-6 bench speedup floor (SHIP vs LAND) | **Ratified: SHIP gate 4× AVX-512 vs scalar; LAND gate 2×** — below 2× blocks PR; 2×–4× lands with `TD-D-CSV-13b-PERF-FLOOR-1` TECH_DEBT note and follow-up; ≥4× ships. 4× = published expectation (8-wide i4 lanes after vpcompress, ~2× horizontal-sum overhead); 2× = floor at which AVX-512 is worth the binary cost. | Sprint-13 D-CSV-13b (W-I1) |
+| **OQ-CSV-15** PP-8 worker-template-v2 workspace member edit ownership | **Ratified: WORKER edits `members =`** — W-G6 proved feasible (PR landed clean, no CSI-7 recurrence). Avoids orphan pattern at root (worker tests crate against workspace; if `members =` is wrong, worker's own `cargo test` catches it). Worker template v2 documents the required edit as a checklist item. | Sprint-13 all new-crate workers (PP-3 splat-field-types, PP-5 witness-index-cam-pq) |
+| **OQ-CSV-16** Governance: E-META-10 + iron-rules-doctrine in BOOT.md Tier-1 | **Ratified: YES, add to BOOT.md Tier-1 trigger table** — promotion was already shipped via PR #391 (4 new agent trigger rows include iron-rules-doctrine as mandatory knowledge for PP-13/14/15/16). This ratification confirms the choice. Cost: +1 read per worker session that triggers; benefit: zero iron-rule violations make it past worker self-review. | PR #391 (already shipped); this ratification confirms the design |
+
+**Effect:** sprint-13 worker fleet dispatch (Wave I) is unblocked. W-I1 (D-CSV-13b SIMD) / W-I2 (D-CSV-14 splat-on-Think) / W-I3 (D-CSV-16 WitnessIndexCamPq) / W-I4 (D-CSV-17 rayon par_*) + W-Meta-Opus may now spawn.
+
 ---
 
 ## 5. Sprint-11 Codex P1 Anti-Pattern: v1-API-Under-v2-Feature Aliasing
