@@ -806,7 +806,9 @@ pub mod i4_eval {
             use core::arch::x86_64::*;
 
             /// Extract one i4 dimension (at nibble offset `SHIFT` bits) from each
-            /// u64 lane of an 8-lane __m512i, sign-extending to i8 in the low byte.
+            /// u64 lane of an 8-lane __m512i and sign-extend across the full i64
+            /// lane so that downstream `_mm512_cmp*_epi64_mask` comparisons see
+            /// the correct signed value (negative i4s read as negative i64s).
             ///
             /// `SHIFT` must be a compile-time constant (required by `_mm512_srli_epi64`).
             ///
@@ -816,19 +818,19 @@ pub mod i4_eval {
             #[target_feature(enable = "avx512f,avx512bw")]
             #[inline]
             unsafe fn extract_dim_i8<const SHIFT: u32>(q_vec: __m512i) -> __m512i {
-                // Shift the target nibble to bits [3:0] of each i64 lane.
+                // Step 1: shift the target nibble to bits [3:0] of each i64 lane.
                 let shifted = _mm512_srli_epi64(q_vec, SHIFT);
-                // Mask to the 4-bit nibble.
+                // Step 2: mask to the 4-bit nibble; bits [63:4] of each i64 lane = 0.
                 let mask_f = _mm512_set1_epi64(0xF);
                 let nibble = _mm512_and_si512(shifted, mask_f);
-                // Sign-extend nibble from 4 bits to i8:
-                // The nibble occupies bits [3:0] of the low byte of each i64 lane.
-                // _mm512_slli_epi16 / _mm512_srai_epi16 operate on 16-bit lanes.
-                // Shift left by 12 puts the nibble sign bit (bit 3) into bit 15 (i16 sign).
-                // Arithmetic shift right by 12 sign-extends back to fill bits [15:4].
-                // Low byte (bits [7:0]) then contains the sign-extended value as i8.
-                let up = _mm512_slli_epi16(nibble, 12);
-                _mm512_srai_epi16(up, 12)
+                // Step 3: sign-extend the 4-bit value to a full i64.
+                //
+                // Shift-left by 60 lifts the nibble's bit 3 (the i4 sign bit) into
+                // bit 63 of the i64. Arithmetic shift-right by 60 then duplicates
+                // that sign bit across bits [62:4], yielding a full i64 with the
+                // correct signed value in range -8..=+7.
+                let up = _mm512_slli_epi64(nibble, 60);
+                _mm512_srai_epi64(up, 60)
             }
 
             /// Store the low byte of each i64 lane (8 bytes) into `out[0..8]`.
@@ -971,8 +973,13 @@ pub mod i4_eval {
                     let ten = extract_dim_i8::<8>(q_vec);  // DIM_TENSION=2
                     let coh = extract_dim_i8::<36>(q_vec); // DIM_COHERENCE=9
 
-                    // flow_proxy = warmth + groundedness - tension (saturating i16).
-                    let fp = _mm512_subs_epi16(_mm512_adds_epi16(war, grd), ten);
+                    // flow_proxy = warmth + groundedness - tension.
+                    //
+                    // Each input is now fully i64-sign-extended (i4 in -8..=+7),
+                    // so the sum lies in -23..=+22 — well within i64 range, no
+                    // saturation needed. Match the scalar's effective behaviour
+                    // for i4 inputs (the scalar clamps to i8, never triggered).
+                    let fp = _mm512_sub_epi64(_mm512_add_epi64(war, grd), ten);
 
                     let m_ptr = mantissas.as_ptr().add(i);
                     let man_vec = _mm512_set_epi64(
