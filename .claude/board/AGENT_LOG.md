@@ -1,3 +1,28 @@
+## [Fleet sprint-11-wave-a-impl] [IN PR] D-CSV-1 + D-CSV-3 + D-CSV-4 (branch claude/sprint-11-wave-a-impl, commit ab39d01)
+
+**D-id(s):** D-CSV-1 (causal-edge v2 layout), D-CSV-3 (signed-mantissa InferenceType expansion), D-CSV-4 (CollapseGateEmission in contract).
+
+**Workers (2 Sonnet, parallel):**
+- **W-A1** — D-CSV-1 + D-CSV-3 paired in causal-edge crate. NEW `layout.rs` (~130 LOC, all shift constants + masks + TrustTexture + compile-time _LAYOUT_COVERAGE const-assert); EXTEND `edge.rs` with v2 accessors (inference_mantissa i4-signed, w_slot, truth, spare, with_routing(w,t) — no G-slot); NEW `v2_layout_tests.rs` (16 tests covering signed-mantissa round-trip, field-isolation matrix, 2-arg with_routing, spare isolation, size_of==8). Cargo bumped 0.1.0 → 0.2.0 with `default = ["causal-edge-v2-layout"]`. `InferenceType::to_mantissa/from_mantissa` provides bidirectional v2 mapping while keeping the enum intact for v1 callers.
+- **W-A2** — D-CSV-4 in contract crate. NEW `MailboxId = u32` + `CollapseGateEmission` (Vec instead of SmallVec to preserve contract zero-dep, with documented deferral to sprint-12+ optimization). API: new/push_baton/baton_count/wire_cost_bytes (13 + 10×N) + provenance accessors. 8 tests pass.
+
+**Main-thread P0 caught in code review:** worker W-A1 left v1 `pack()` writing `temporal << 52` even under v2 feature, corrupting the new reclaim zone (bit 52 = plasticity[2], 53-58 = W, 59-60 = lens, 61-63 = spare). Same root cause as the W3 spec codex P1 from PR #381. Fixed by feature-gating the temporal write in pack() so v2 silently drops the arg; two v1-only tests (`test_roundtrip`, `test_temporal_in_msb_gives_sort_order`) gated on `#[cfg(not(feature = "causal-edge-v2-layout"))]`.
+
+**OQ ratifications absorbed:** OQ-CSV-2 = 6 bits (default per plan §11 recommendation). OQ-CSV-1 + OQ-CSV-4 deferred to Wave B (D-CSV-2 / D-CSV-5).
+
+**Test status:**
+- causal-edge v2 (default): 30 pass / 1 fail (test_build_fast — pre-existing on main, confirmed via stash-revert)
+- causal-edge v1 (no default features): 16 pass / 1 fail (same pre-existing)
+- lance-graph-contract collapse_gate: 8/8 pass
+- lance-graph-planner: compiles with 2 deprecation warnings (`inference_type()`, `temporal()`) — the intended migration signal for downstream callers
+- p64-bridge: compiles with 1 deprecation warning
+
+**Outcome:** Sprint-11 Wave A scope (Phase A substrate primitives) reaching merge gate. Wave B (D-CSV-2 QualiaI4_16D + D-CSV-5 QualiaColumn migration) blocked on OQ-CSV-1 (qualia 16D per-dim assignment) — needs qualia-engineer agent cross-check before spawn.
+
+**Pre-existing finding:** `tables::tests::test_build_fast` fails on clean main under both feature configurations; not introduced by this PR. To be filed in ISSUES.md separately.
+
+---
+
 ## [Fleet sprint-log-csv-prep] [DONE] cognitive-substrate-convergence-v1 spec patches (PR #381 merged 2026-05-16)
 
 **D-id(s):** Pre-sprint-11 spec-patch bundle for all 8 active D-CSV-* deliverables (D-CSV-1..D-CSV-7, D-CSV-11) — patches to 8 sprint-10 specs without implementation; sprint-11 implementation spawn still gated on user ratifications.
