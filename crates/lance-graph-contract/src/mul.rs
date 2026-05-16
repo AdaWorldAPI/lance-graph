@@ -70,29 +70,42 @@ pub struct TrustQualia {
 }
 
 /// Trust texture — qualitative assessment of trust.
+///
+/// **D-CSV-13b layout invariant (I-LEGACY-API-FEATURE-GATED, spec §5):**
+/// `#[repr(u8)]` with explicit discriminants. The SIMD batch path in
+/// [`i4_eval::batch`] writes raw bytes into `&mut [TrustTexture]` slices.
+/// Reordering or removing these discriminants WILL silently corrupt SIMD
+/// output; reviewers must check the SIMD LUTs in `mul.rs::batch::avx512_impl`
+/// and `batch::neon_impl` if this layout is ever changed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
 pub enum TrustTexture {
     /// Well-calibrated: felt ≈ demonstrated competence.
-    Calibrated,
+    Calibrated = 0,
     /// Overconfident: felt >> demonstrated.
-    Overconfident,
-    /// Underconfident: felt << demonstrated.
-    Underconfident,
+    Overconfident = 1,
     /// Uncertain: not enough data to assess.
-    Uncertain,
+    Uncertain = 2,
+    /// Underconfident: felt << demonstrated.
+    Underconfident = 3,
 }
 
 /// Dunning-Kruger position on the competence curve.
+///
+/// **D-CSV-13b layout invariant (I-LEGACY-API-FEATURE-GATED, spec §5):**
+/// `#[repr(u8)]` with explicit discriminants. See `TrustTexture` for the
+/// SIMD-byte-write contract.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
 pub enum DkPosition {
     /// Peak of Mount Stupid (overconfident novice).
-    MountStupid,
+    MountStupid = 0,
     /// Valley of Despair (aware of incompetence).
-    ValleyOfDespair,
+    ValleyOfDespair = 1,
     /// Slope of Enlightenment (growing competence).
-    SlopeOfEnlightenment,
+    SlopeOfEnlightenment = 2,
     /// Plateau of Sustainability (expert).
-    Plateau,
+    Plateau = 3,
 }
 
 /// Flow/homeostasis state.
@@ -105,16 +118,21 @@ pub struct Homeostasis {
 }
 
 /// Flow state (Csikszentmihalyi).
+///
+/// **D-CSV-13b layout invariant (I-LEGACY-API-FEATURE-GATED, spec §5):**
+/// `#[repr(u8)]` with explicit discriminants. See `TrustTexture` for the
+/// SIMD-byte-write contract.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
 pub enum FlowState {
-    /// Challenge >> Skill → anxiety.
-    Anxiety,
     /// Challenge ≈ Skill → flow.
-    Flow,
+    Flow = 0,
     /// Challenge << Skill → boredom.
-    Boredom,
+    Boredom = 1,
     /// Transitioning between states.
-    Transition,
+    Transition = 2,
+    /// Challenge >> Skill → anxiety.
+    Anxiety = 3,
 }
 
 /// Gate decision: should the system proceed, pause, or block?
@@ -672,6 +690,7 @@ pub mod i4_eval {
         static CAPS_CACHE: AtomicU8 = AtomicU8::new(0xFF);
 
         #[derive(Clone, Copy)]
+        #[allow(dead_code)] // each field is read only on its matching #[cfg(target_arch = ...)] dispatch branch
         struct SimdCapsShim {
             avx512f: bool,
             avx512bw: bool,
@@ -1751,6 +1770,176 @@ pub mod i4_eval {
             assert_eq!(out_gd.len(), 0);
             assert_eq!(out_ma.len(), 0);
             assert_eq!(vec_result.len(), 0);
+        }
+
+        // ── D-CSV-13b: randomised SIMD-vs-scalar parity tests ─────────────────
+        //
+        // Each test generates a deterministic pseudo-random batch (fixed seed),
+        // runs `batch::FN` (which dispatches to AVX-512 / NEON / scalar at
+        // runtime) against `batch::scalar_impl::FN` (the correctness anchor),
+        // and asserts element-wise equality.
+        //
+        // Per spec §5 (I-LEGACY-API-FEATURE-GATED): bytes must be identical
+        // between dispatch path and scalar path. On a non-SIMD host the test
+        // degenerates to "scalar == scalar" (still asserts the API surface).
+
+        /// xorshift64 — fixed-seed deterministic PRNG. No `rand` dep needed.
+        fn xorshift64(state: &mut u64) -> u64 {
+            let mut x = *state;
+            x ^= x << 13;
+            x ^= x >> 7;
+            x ^= x << 17;
+            *state = x;
+            x
+        }
+
+        /// Generate n qualia + mantissas from a fixed seed. Touches all five
+        /// dims read by the batch pipeline (valence, tension, warmth, coherence,
+        /// groundedness) so the test exercises every decision branch.
+        fn make_random_batch(n: usize, seed: u64) -> (Vec<QualiaI4_16D>, Vec<i8>) {
+            let mut s = seed;
+            let mut qualia = Vec::with_capacity(n);
+            let mut mantissas = Vec::with_capacity(n);
+            // 4-bit signed range: -8..=7
+            let i4 = |bits: u8| -> i8 { ((bits & 0xF) << 4) as i8 >> 4 };
+            for _ in 0..n {
+                let r = xorshift64(&mut s);
+                let mut q = QualiaI4_16D::ZERO;
+                q.set(1,  i4((r        & 0xF) as u8)); // valence
+                q.set(2,  i4(((r >> 4)  & 0xF) as u8)); // tension
+                q.set(3,  i4(((r >> 8)  & 0xF) as u8)); // warmth
+                q.set(9,  i4(((r >> 12) & 0xF) as u8)); // coherence
+                q.set(14, i4(((r >> 16) & 0xF) as u8)); // groundedness
+                qualia.push(q);
+                let mant = i4(((r >> 20) & 0xF) as u8);
+                mantissas.push(mant);
+            }
+            (qualia, mantissas)
+        }
+
+        /// Sizes that exercise: (a) zero, (b) size-1 (tail-only), (c) sub-MIN_BATCH
+        /// (scalar-only path on AVX-512 since min=8), (d) exact MIN_BATCH=8 (one
+        /// full SIMD chunk + no tail), (e) MIN_BATCH+1=9 (one chunk + 1 scalar
+        /// tail), (f) NEON MIN_BATCH+1=3, (g) large (forces many SIMD chunks).
+        const PARITY_SIZES: &[usize] = &[0, 1, 3, 7, 8, 9, 15, 16, 64, 1024];
+
+        #[test]
+        fn test_dk_position_batch_parity_simd_vs_scalar() {
+            for &n in PARITY_SIZES {
+                let (qualia, mantissas) = make_random_batch(n, 0xD15C_5E7D_C0DE_0001);
+                let mut out_dispatch = vec![DkPosition::MountStupid; n];
+                let mut out_scalar   = vec![DkPosition::MountStupid; n];
+                batch::dk_position_batch(&qualia, &mantissas, &mut out_dispatch);
+                batch::scalar_impl::dk_position_batch(&qualia, &mantissas, &mut out_scalar);
+                for i in 0..n {
+                    assert_eq!(
+                        out_dispatch[i], out_scalar[i],
+                        "dk_position_batch parity failure at size={} index={}: dispatch={:?} scalar={:?}",
+                        n, i, out_dispatch[i], out_scalar[i],
+                    );
+                }
+            }
+        }
+
+        #[test]
+        fn test_trust_texture_batch_parity_simd_vs_scalar() {
+            for &n in PARITY_SIZES {
+                let (qualia, _) = make_random_batch(n, 0xD15C_5E7D_C0DE_0002);
+                let mut out_dispatch = vec![TrustTexture::Uncertain; n];
+                let mut out_scalar   = vec![TrustTexture::Uncertain; n];
+                batch::trust_texture_batch(&qualia, &mut out_dispatch);
+                batch::scalar_impl::trust_texture_batch(&qualia, &mut out_scalar);
+                for i in 0..n {
+                    assert_eq!(
+                        out_dispatch[i], out_scalar[i],
+                        "trust_texture_batch parity failure at size={} index={}: dispatch={:?} scalar={:?}",
+                        n, i, out_dispatch[i], out_scalar[i],
+                    );
+                }
+            }
+        }
+
+        #[test]
+        fn test_flow_state_batch_parity_simd_vs_scalar() {
+            for &n in PARITY_SIZES {
+                let (qualia, mantissas) = make_random_batch(n, 0xD15C_5E7D_C0DE_0003);
+                let mut out_dispatch = vec![FlowState::Boredom; n];
+                let mut out_scalar   = vec![FlowState::Boredom; n];
+                batch::flow_state_batch(&qualia, &mantissas, &mut out_dispatch);
+                batch::scalar_impl::flow_state_batch(&qualia, &mantissas, &mut out_scalar);
+                for i in 0..n {
+                    assert_eq!(
+                        out_dispatch[i], out_scalar[i],
+                        "flow_state_batch parity failure at size={} index={}: dispatch={:?} scalar={:?}",
+                        n, i, out_dispatch[i], out_scalar[i],
+                    );
+                }
+            }
+        }
+
+        #[test]
+        fn test_gate_decision_disc_batch_parity_simd_vs_scalar() {
+            for &n in PARITY_SIZES {
+                let (qualia, mantissas) = make_random_batch(n, 0xD15C_5E7D_C0DE_0004);
+                let mut out_dispatch = vec![0u8; n];
+                let mut out_scalar   = vec![0u8; n];
+                batch::gate_decision_disc_batch(&qualia, &mantissas, &mut out_dispatch);
+                batch::scalar_impl::gate_decision_disc_batch(&qualia, &mantissas, &mut out_scalar);
+                for i in 0..n {
+                    assert_eq!(
+                        out_dispatch[i], out_scalar[i],
+                        "gate_decision_disc_batch parity failure at size={} index={}: dispatch={} scalar={}",
+                        n, i, out_dispatch[i], out_scalar[i],
+                    );
+                }
+                // Discriminants must be in the locked range 0=Flow, 1=Hold, 2=Block.
+                for (i, &b) in out_dispatch.iter().enumerate() {
+                    assert!(b <= 2, "out-of-range gate discriminant {} at index {}", b, i);
+                }
+            }
+        }
+
+        #[test]
+        fn test_mul_assess_batch_parity_simd_vs_scalar() {
+            let zero_assess = || MulAssessment {
+                trust: TrustQualia { value: 0.0, texture: TrustTexture::Calibrated },
+                dk_position: DkPosition::MountStupid,
+                homeostasis: Homeostasis { flow_state: FlowState::Boredom, allostatic_load: 0.0 },
+                complexity_mapped: false,
+                free_will_modifier: 0.0,
+            };
+            for &n in PARITY_SIZES {
+                let (qualia, mantissas) = make_random_batch(n, 0xD15C_5E7D_C0DE_0005);
+                let mut out_dispatch: Vec<MulAssessment> = (0..n).map(|_| zero_assess()).collect();
+                let mut out_scalar:   Vec<MulAssessment> = (0..n).map(|_| zero_assess()).collect();
+                batch::mul_assess_batch(&qualia, &mantissas, &mut out_dispatch);
+                batch::scalar_impl::mul_assess_batch(&qualia, &mantissas, &mut out_scalar);
+                for i in 0..n {
+                    assert_eq!(
+                        out_dispatch[i].dk_position, out_scalar[i].dk_position,
+                        "mul_assess_batch dk_position mismatch at size={} i={}", n, i,
+                    );
+                    assert_eq!(
+                        out_dispatch[i].trust.texture, out_scalar[i].trust.texture,
+                        "mul_assess_batch trust.texture mismatch at size={} i={}", n, i,
+                    );
+                    assert_eq!(
+                        out_dispatch[i].homeostasis.flow_state, out_scalar[i].homeostasis.flow_state,
+                        "mul_assess_batch flow_state mismatch at size={} i={}", n, i,
+                    );
+                    // f64 fields: bit-identical because both paths compute the same
+                    // scalar finalize sequence with identical inputs.
+                    assert!(
+                        (out_dispatch[i].trust.value - out_scalar[i].trust.value).abs() < 1e-12,
+                        "mul_assess_batch trust.value drift at size={} i={}: dispatch={} scalar={}",
+                        n, i, out_dispatch[i].trust.value, out_scalar[i].trust.value,
+                    );
+                    assert!(
+                        (out_dispatch[i].free_will_modifier - out_scalar[i].free_will_modifier).abs() < 1e-12,
+                        "mul_assess_batch free_will_modifier drift at size={} i={}", n, i,
+                    );
+                }
+            }
         }
     }
 }
