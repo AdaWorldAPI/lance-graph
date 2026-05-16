@@ -78,6 +78,7 @@ pub mod sla;
 pub mod splat;
 pub mod tax;
 pub mod thinking;
+pub mod vsa;
 pub mod world_map;
 pub mod world_model;
 
