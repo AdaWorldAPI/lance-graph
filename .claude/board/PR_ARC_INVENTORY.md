@@ -35,6 +35,46 @@
 
 ---
 
+## sprint-13/W-I1 — impl(sprint-13): D-CSV-13b i4 batch SIMD dispatch + tests (in PR)
+
+**Status:** In PR (branch `claude/sprint-13-w-i1-salvage`, HEAD `c9c1c79`, awaiting user merge). 4 commits on the branch: `cdc84ec` salvage W-I1 i4_eval::batch impl + criterion scaffold (recovered from cleaned worktree) → `a356e64` SIMD-vs-scalar parity tests + repr(u8) enum invariant (5 new randomised tests over 10 sizes, criterion 0.5 dev-dep, dead-code warning fix) → `d8d1437` AVX-512 dim-extract sign-extend fix (the bug that made the salvage path silently produce wrong bytes on negative thresholds) → `c9c1c79` `scalar_impl` made `#[doc(hidden)] pub` for bench access.
+
+**Confidence (2026-05-16):** salvage-and-finish run. Previous W-I1 (Sonnet) burned 134 tool uses without staging a commit; harness auto-cleaned the worktree, ~979 LOC of partial impl was recovered to the salvage branch by orchestration. This retry (Opus) commit 1 of 4 landed within 7 tool uses per the brief's "commit early, commit often" hard rule. AVX-512F+BW path is now correct (verified against scalar over 10 batch sizes × 5 fns); NEON path compiles but is correctness-only per spec §7 (no aarch64 host this session). Bench at batch 1024: 8.7×/7.4×/5.2×/10.2×/3.1× — all SHIP gates met on the Skylake-AVX512 host.
+
+### Added
+
+- `crates/lance-graph-contract/src/mul.rs::i4_eval::batch` — the SIMD dispatch module: `dk_position_batch`, `trust_texture_batch`, `flow_state_batch`, `gate_decision_disc_batch`, `gate_decision_batch` (full GateDecision; scalar-only carve-out due to `String` payloads), `mul_assess_batch`, `mul_assess_vec`. Runtime dispatch via cached `simd_caps()` (`AtomicU8` packed bits, `Ordering::Relaxed`). AVX-512F+BW intrinsics path (8 elements/iter) under `#[cfg(target_arch = "x86_64")]`. NEON intrinsics path (2 elements/iter) under `#[cfg(target_arch = "aarch64")]`. `pub(crate) #[doc(hidden)] pub mod scalar_impl` as the correctness anchor + bench baseline.
+- `crates/lance-graph-contract/src/mul.rs::GateDecision::to_disc()` — `u8` discriminant (0=Flow, 1=Hold, 2=Block) for SIMD-packable gate output.
+- 5 new randomised SIMD-vs-scalar parity tests in `mul::i4_eval::tests` covering all 5 batch fns at 10 sizes [0, 1, 3, 7, 8, 9, 15, 16, 64, 1024] (xorshift64 fixed seed, zero-dep).
+- `crates/lance-graph-contract/benches/i4_batch.rs` — criterion bench scaffold sweeping batch sizes [8, 64, 1024, 16384] for all 5 batch fns (dispatch vs scalar baseline).
+- `crates/lance-graph-contract/Cargo.toml` — `criterion = "0.5"` dev-dep matching `lance-graph-benches`; `[[bench]] name="i4_batch" harness=false`.
+
+### Locked
+
+- **Enum layout invariant (D-CSV-13b, spec §5; I-LEGACY-API-FEATURE-GATED):** `DkPosition`, `TrustTexture`, `FlowState` are `#[repr(u8)]` with explicit discriminants. The SIMD impl byte-writes into `&mut [Enum]` slices via `extract_8_lane0_bytes` — reordering or removing these discriminants WILL silently corrupt SIMD output. Discriminants locked: `DkPosition { MountStupid=0, ValleyOfDespair=1, SlopeOfEnlightenment=2, Plateau=3 }`; `TrustTexture { Calibrated=0, Overconfident=1, Uncertain=2, Underconfident=3 }`; `FlowState { Flow=0, Boredom=1, Transition=2, Anxiety=3 }`. Doc-comments on each enum cite the SIMD-byte-write contract and the LUT locations in `avx512_impl`/`neon_impl` that reviewers must check on any future layout change.
+- **GateDecision discriminant mapping (spec §5):** `GateDecision::to_disc()` returns `0=Flow, 1=Hold, 2=Block`; this is the byte mapping written by `gate_decision_disc_batch`. `GateDecision` itself cannot be `#[repr(u8)]` due to its `String` payloads — `gate_decision_batch` materializes the full enum via the scalar path.
+- **Runtime SIMD dispatch (OQ-CSV-13, spec §4):** dispatch happens via cached `simd_caps()` inside `lance-graph-contract`, NOT via an ndarray dev-dep. Preserves the contract crate's zero-dep posture. The shim is ~50 LOC and uses `is_x86_feature_detected!` / `is_aarch64_feature_detected!`.
+- **MIN_BATCH guards:** AVX-512 needs `len >= 8`; NEON needs `len >= 2`. Below those thresholds the dispatch falls through to scalar.
+
+### Deferred
+
+- **NEON cross-arch parity verification (spec §6, W-SIMD-VERIFY-1):** no aarch64 host this session; the NEON path compiled but byte-equivalence to scalar was not executed. Tracked as TD-D-CSV-13b-NEON-VERIFY-1.
+- **Multi-microarch AVX-512 perf validation (spec §8 R-2):** bench results came from a single Skylake-class Xeon. Sapphire Rapids + Zen 4 + Tiger Lake validation deferred. Tracked as TD-D-CSV-13b-MULTI-MICROARCH-1.
+- **AVX-2-only fast path (spec §1):** out of scope per spec; AVX-2 hardware falls through to scalar. Tracked as TD-SIMD-I4-AVX2-1.
+- **WASM SIMD128 + VBMI2 compressstore (spec §1, §8 R-6):** sprint-14+. The current AVX-512 path uses a scalar byte-extract from a 64-byte stack buffer instead of `_mm512_mask_compressstoreu_epi8` to preserve Skylake-X / Cascade Lake portability (no VBMI2 requirement). Tracked as TD-D-CSV-13b-VBMI2-1.
+
+### Docs
+
+- Spec `.claude/specs/pr-sprint-13-simd-i4.md` — the 982-LOC planning document covering AP1-AP8 anti-pattern catalogue, §3 per-function SIMD pseudocode, §5 semantic-equivalence iron rule, §6 test plan, §7 benchmark plan with Jirak rate citation, §8 R-1..R-10 risk matrix.
+- Doc-comments on `DkPosition`/`TrustTexture`/`FlowState` cite the D-CSV-13b layout invariant and point reviewers at the SIMD LUTs.
+- `GateDecision::to_disc()` rustdoc documents the locked byte mapping.
+
+### Confidence (2026-05-16)
+
+Salvage retry succeeded. The critical bug in the salvaged AVX-512 impl (i64-grained comparisons against negative thresholds always returning false because `extract_dim_i8` only sign-extended within i16 sub-lanes) was diagnosed and fixed surgically. All 449 lance-graph-contract tests green; SHIP gates met on this host. The pre-existing batch tests that were silently passing because they didn't reach the bug + the new randomised parity tests that DO reach it together close the I-LEGACY-API-FEATURE-GATED audit per spec §5.
+
+---
+
 ## #390 — impl(sprint-12/wave-G): D-CSV-5b cutover + D-CSV-6b WitnessCorpus index + D-CSV-13 batch + D-CSV-15 Jirak math (in PR)
 
 **Status:** In PR (branch `claude/sprint-12-wave-g-fleet`, HEAD `bad0875`, awaiting user merge). 6 commits on the branch: `7d7b537` WIP snapshot → `03ce219` W-G3 + W-G5 + W-G6 + W-G1 partial → `291878f` W-G1 driver.rs + W-G2 refinement + W-G4 Σ10 → `67c2ca8` W-G1 cutover finalization + W-G4 Jirak math correction → `4d429e3` W-Meta-Opus honest review (grade A−) + CSI-15 rename → `bad0875` cargo fmt rustfmt 1.95 CI gate.
