@@ -54,6 +54,7 @@ pub mod semantic_chunker;
 pub mod sensor;
 pub mod signed_domino;
 pub mod signed_engine;
+pub mod splat_ops;
 pub mod silu_correction;
 pub mod spiral_segment;
 pub mod superposition;
