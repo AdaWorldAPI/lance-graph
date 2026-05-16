@@ -144,13 +144,14 @@ impl ShaderDriver {
         let passed_rows = self.bindspace.meta_prefilter(req.rows, &req.meta_prefilter);
 
         // [2] Resolve style — Auto reads the qualia of the FIRST surviving row.
-        let qualia_seed = if let Some(&row) = passed_rows.first() {
-            self.bindspace.qualia.row(row as usize)
+        // D-CSV-5b: bs.qualia is now QualiaI4Column (returns QualiaI4_16D by value).
+        // Convert to f32 at the call site for auto_style::resolve(&[f32]).
+        let qualia_f32_arr: [f32; 17] = if let Some(&row) = passed_rows.first() {
+            self.bindspace.qualia.row(row as usize).to_f32_17d()
         } else {
-            // No rows passed — use default style; we'll still emit an empty cycle.
-            &[0.0f32; 18][..]
+            [0.0f32; 17]
         };
-        let style_ord = auto_style::resolve(req.style, qualia_seed);
+        let style_ord = auto_style::resolve(req.style, &qualia_f32_arr[..]);
 
         // [3] Shader cascade — bgz17 O(1) per probed block.
         // Snapshot the planes under the read lock so the cascade sees a
@@ -389,13 +390,24 @@ impl ShaderDriver {
         // Only `AlphaFrontToBack` changes the sink path; everything else
         // routes through the original code below unchanged.
         let effective_merge = req.merge_override.unwrap_or(gate.merge);
+        // D-CSV-5b: bs.qualia is now QualiaI4Column (returns QualiaI4_16D by value).
+        // alpha_front_to_back_composite expects F: Fn(u32) -> &'a [f32].
+        // Pre-materialize hit qualia as f32 so references are valid for the closure.
+        let hit_qualia_f32: Vec<(u32, [f32; 17])> = hits.iter()
+            .map(|h| (h.row, self.bindspace.qualia.row(h.row as usize).to_f32_17d()))
+            .collect();
         let alpha_composite = if effective_merge == MergeMode::AlphaFrontToBack {
             let threshold = req
                 .alpha_saturation_override
                 .unwrap_or(ALPHA_SATURATION_THRESHOLD);
             Some(alpha_front_to_back_composite(
                 &hits,
-                |row| self.bindspace.qualia.row(row as usize),
+                |row| {
+                    hit_qualia_f32.iter()
+                        .find(|(r, _)| *r == row)
+                        .map(|(_, q)| &q[..])
+                        .unwrap_or(&[][..])
+                },
                 threshold,
             ))
         } else {
