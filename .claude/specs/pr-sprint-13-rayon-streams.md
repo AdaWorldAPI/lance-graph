@@ -225,7 +225,7 @@ The ndarray `Cargo.toml` already exposes:
 This PR **re-uses the existing feature**. It does NOT add a new feature
 flag. The feature is enabled in three relevant downstream contexts:
 
-1. `cargo test --features rayon` — runs the 18 new tests in §7.
+1. `cargo test --features parallel` — runs the 18 new tests in §7.
 2. `[package.metadata.docs.rs] features = ["approx", "serde", "rayon"]` (Cargo.toml:255) — docs.rs build already includes rayon, so the new `par_*` doc-comments will render on docs.rs without further config.
 3. `[[bench]] name = "par_rayon", required-features = ["rayon"]` (Cargo.toml:122) — existing par_rayon bench already conditional on this feature; no conflict.
 
@@ -235,7 +235,7 @@ flag. The feature is enabled in three relevant downstream contexts:
 documented in Cargo.toml lines 56-60.
 
 **Why not gate behind a new `parallel` feature?** That would fragment the
-flag space — downstream consumers already write `--features rayon`
+flag space — downstream consumers already write `--features parallel`
 everywhere (par_rayon bench, docs.rs metadata). A second flag pointing at
 the same rayon dep is pure noise. The user-facing prompt mentioned
 `parallel` as a possibility; the audit shows `rayon` is the canonical
@@ -544,7 +544,7 @@ divergence in T-P-S-4 (uses `filter_energy_above` semantics):
 
 ### 7.4 Test invocation
 
-    cargo test -p ndarray --features rayon hpc::stream
+    cargo test -p ndarray --features parallel hpc::stream
 
 All 18 tests should pass on any host with ≥1 CPU; rayon falls back to
 a single-thread pool gracefully on uniprocessor builds.
@@ -557,7 +557,7 @@ a single-thread pool gracefully on uniprocessor builds.
 |---|---|---|---|
 | Rayon thread-pool init overhead dominates for small N | Med | Low — degrades to serial latency at small N | Doc-comment recommends serial `QualiaStream` for N < 1024; benchmark plumbing deferred to sprint-14 par_rayon bench |
 | `with_min_len` ignored by future rayon major version | Low | Med — chunk-boundary semantics drift | Pin rayon = "1.10.0" (already pinned in Cargo.toml); review on each rayon major bump |
-| Default-feature CI does not exercise the new tests | High | Low — that's the design; gated tests = silent dead code | Add `cargo test -p ndarray --features rayon` to the CI matrix; tracked separately as preflight-PP-4 |
+| Default-feature CI does not exercise the new tests | High | Low — that's the design; gated tests = silent dead code | Add `cargo test -p ndarray --features parallel` to the CI matrix; **co-shipped in the same ndarray PR as the par_* impl** (sprint-13 W-I4, the sonnet worker assigned D-CSV-17) — CI gate naturally belongs in the same PR as the `#[cfg(feature = "parallel")]` code it gates, not a separate planner. |
 | Pattern-C non-determinism caught by a golden-master test in lance-graph | Med | Med — flaky test triage cost | Doc-comment §6 makes the contract explicit; offending consumers must call `.with_min_len(rows.len())` |
 | `IndexedParallelIterator` return type prevents future migration to a non-rayon parallel backend | Low | High — would be SBP-breaking | Acceptable: rayon 1.x is the de facto Rust parallel standard; abstraction is premature pessimisation |
 | Cargo --no-default-features + miri build broken by accidental rayon import outside the cfg-gate | Low | High — breaks `thumbv6m-none-eabi` invariant | The `#[cfg(feature = "rayon")] use rayon::prelude::*;` placement is local to each function; verified by `cargo check --no-default-features` in §10 LOC count |
@@ -583,8 +583,10 @@ a single-thread pool gracefully on uniprocessor builds.
 - PP-4: D-CSV-14 on-Think method migration spec — co-evolves with this PR;
   the splat on-Think methods will internally call `par_splat_field_stream`
   for the fleet-evaluation hot path.
-- PP-4: CI matrix update — adds `--features rayon` to the ndarray test job
-  so the 18 new tests actually run.
+- W-I4 (sprint-13 sonnet impl worker assigned D-CSV-17): adds the
+  `--features parallel` row to ndarray's CI matrix in the same ndarray PR
+  that ships par_* — keeps the rayon gate co-located with the rayon
+  code it gates, prevents silent-dead-code drift.
 
 **Knowledge docs (READ BY):**
 
@@ -635,11 +637,11 @@ Before merging this PR:
 
 - [ ] `cargo check -p ndarray` (no rayon feature) — builds clean
 - [ ] `cargo check -p ndarray --no-default-features` — nostd build clean
-- [ ] `cargo check -p ndarray --features rayon` — rayon build clean
-- [ ] `cargo test -p ndarray --features rayon hpc::stream` — all 18 new tests pass
+- [ ] `cargo check -p ndarray --features parallel` — rayon build clean
+- [ ] `cargo test -p ndarray --features parallel hpc::stream` — all 18 new tests pass
 - [ ] `cargo test -p ndarray hpc::stream` (default) — existing scalar tests still pass; new par_tests modules are skipped
-- [ ] `cargo doc -p ndarray --features rayon` — doc-comment examples compile
-- [ ] `cargo clippy -p ndarray --features rayon -- -D warnings` — no lints
+- [ ] `cargo doc -p ndarray --features parallel` — doc-comment examples compile
+- [ ] `cargo clippy -p ndarray --features parallel -- -D warnings` — no lints
 - [ ] `cargo fmt --check` — rustfmt 1.95.0 gate
 - [ ] LATEST_STATE.md updated with D-CSV-17 entry
 - [ ] PR_ARC_INVENTORY.md PREPEND entry (Added: 3 fns / Locked: rayon feature surface / Deferred: bench tuning to sprint-14 / Docs: this spec / Confidence: HIGH)
