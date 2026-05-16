@@ -182,16 +182,20 @@ impl QualiaI4_16D {
     /// Out-of-range index returns 0 (defensive; bound check at call site preferred).
     #[inline]
     pub fn get(self, dim: usize) -> i8 {
-        if dim >= QUALIA_I4_DIMS { return 0; }
+        if dim >= QUALIA_I4_DIMS {
+            return 0;
+        }
         let raw = ((self.0 >> (dim * 4)) & 0xF) as i8;
-        (raw << 4) >> 4   // sign-extend 4 → 8 bits
+        (raw << 4) >> 4 // sign-extend 4 → 8 bits
     }
 
     /// Set the signed i4 value at dim index. Clamps `value` to −8..+7.
     /// Out-of-range index is a no-op (defensive).
     #[inline]
     pub fn set(&mut self, dim: usize, value: i8) {
-        if dim >= QUALIA_I4_DIMS { return; }
+        if dim >= QUALIA_I4_DIMS {
+            return;
+        }
         let v = value.clamp(-8, 7);
         let nibble = (v as u8 & 0xF) as u64;
         let mask = 0xFu64 << (dim * 4);
@@ -252,7 +256,7 @@ impl QualiaI4_16D {
     /// One i8 saturating multiply (SIMD-friendly).
     #[inline]
     pub fn magnitude(self) -> i8 {
-        let coherence = self.get(9);  // dim 9 in QUALIA_I4_LABELS
+        let coherence = self.get(9); // dim 9 in QUALIA_I4_LABELS
         let valence = self.get(1);
         coherence.saturating_mul(valence)
     }
@@ -332,7 +336,13 @@ mod tests {
         for &val in test_values {
             for &dim in test_dims {
                 let q = QualiaI4_16D::ZERO.with(dim, val);
-                assert_eq!(q.get(dim), val, "roundtrip failed for val={} dim={}", val, dim);
+                assert_eq!(
+                    q.get(dim),
+                    val,
+                    "roundtrip failed for val={} dim={}",
+                    val,
+                    dim
+                );
             }
         }
     }
@@ -359,29 +369,32 @@ mod tests {
     fn test_qualia_i4_from_f32_17d_roundtrip() {
         // Build a representative 17D vector with varied values
         let mut v: QualiaVector = [0.0; QUALIA_DIMS];
-        v[0]  = 0.8;   // arousal
-        v[1]  = 0.5;   // valence
-        v[2]  = 0.1;   // tension
-        v[3]  = 1.0;   // warmth
-        v[4]  = 0.0;   // clarity
-        v[5]  = 0.3;   // boundary
-        v[6]  = 0.6;   // depth
-        v[7]  = 0.7;   // velocity
-        v[8]  = 0.2;   // entropy
-        v[9]  = 0.9;   // coherence
-        v[10] = 0.4;   // intimacy
-        v[11] = 0.55;  // presence
-        v[12] = 0.15;  // assertion
-        v[13] = 0.85;  // receptivity
-        v[14] = 0.45;  // groundedness
-        v[15] = 0.65;  // expansion
-        v[16] = 0.75;  // integration — should be DROPPED
+        v[0] = 0.8; // arousal
+        v[1] = 0.5; // valence
+        v[2] = 0.1; // tension
+        v[3] = 1.0; // warmth
+        v[4] = 0.0; // clarity
+        v[5] = 0.3; // boundary
+        v[6] = 0.6; // depth
+        v[7] = 0.7; // velocity
+        v[8] = 0.2; // entropy
+        v[9] = 0.9; // coherence
+        v[10] = 0.4; // intimacy
+        v[11] = 0.55; // presence
+        v[12] = 0.15; // assertion
+        v[13] = 0.85; // receptivity
+        v[14] = 0.45; // groundedness
+        v[15] = 0.65; // expansion
+        v[16] = 0.75; // integration — should be DROPPED
 
         let packed = QualiaI4_16D::from_f32_17d(&v);
         let restored = packed.to_f32_17d();
 
         // dim 16 must be zero in the round-trip output
-        assert_eq!(restored[16], 0.0, "dim 16 (integration) must be zero after round-trip");
+        assert_eq!(
+            restored[16], 0.0,
+            "dim 16 (integration) must be zero after round-trip"
+        );
 
         // All other dims must be within quantization error
         // Positive path: max error = 1/7 ≈ 0.143; negative path: max error = 1/8 = 0.125
@@ -391,7 +404,11 @@ mod tests {
             assert!(
                 err <= epsilon,
                 "dim {} round-trip error {} exceeds epsilon {} (original={}, restored={})",
-                dim, err, epsilon, v[dim], restored[dim]
+                dim,
+                err,
+                epsilon,
+                v[dim],
+                restored[dim]
             );
         }
     }
@@ -431,5 +448,4 @@ mod tests {
         let q5 = QualiaI4_16D::ZERO;
         assert_eq!(q5.magnitude(), 0);
     }
-
 }
