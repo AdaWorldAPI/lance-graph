@@ -416,6 +416,70 @@ Plan path: `.claude/plans/causaledge64-mailbox-rename-soa-v1.md`.
 
 ---
 
+## cognitive-substrate-convergence-v1 — i4 mantissa + gapless baton + active inference
+
+Active integration plan. Authored 2026-05-15 (cross-session A2A discussion).
+Plan path: `.claude/plans/cognitive-substrate-convergence-v1.md`.
+Consolidates sprint-10 architectural decisions before context dilution.
+
+### Phase A — Substrate primitives (sprint-11)
+
+| D-id | Title | Status | PR / Evidence |
+|---|---|---|---|
+| D-CSV-1 | `causal-edge` crate v2 layout (signed mantissa, W-slot, lens, drop temporal) | **Queued** | blocked on OQ-CSV-1 + OQ-CSV-2 user ratification |
+| D-CSV-2 | `QualiaI4_16D` type in `lance-graph-contract::qualia` + f32↔i4 migration helpers | **Queued** | blocked on OQ-CSV-1 (per-dim assignment) |
+| D-CSV-3 | InferenceType signed-mantissa expansion (absorbs PR-LL-1 Intervention/Counterfactual into canonical edge enum) | **Queued** | depends on D-CSV-1 |
+| D-CSV-4 | `CollapseGateEmission` wire format spec + impl per plan §8 | **Queued** | depends on D-CSV-1 |
+
+### Phase B — Storage & dispatch path (sprint-11)
+
+| D-id | Title | Status | PR / Evidence |
+|---|---|---|---|
+| D-CSV-5 | QualiaColumn migration `[f32; 18]` → `QualiaI4_16D` (5a sibling column + 5b cutover) | **Queued** | blocked on OQ-CSV-4 phasing decision |
+| D-CSV-6 | `WitnessCorpus` (CAM-PQ-indexed) replaces `SpoWitnessChain<32>` | **Queued** | depends on D-CSV-4; elevates CAM-PQ wiring to Wave 3 hard prerequisite |
+| D-CSV-7 | MailboxSoA integration: W-slot referencing + per-row plasticity accumulator + apply_edges | **Queued** | depends on D-CSV-1, D-CSV-4 |
+
+### Phase C — Reasoning path (sprint-12)
+
+| D-id | Title | Status | PR / Evidence |
+|---|---|---|---|
+| D-CSV-8 | MUL evaluation in integer SIMD: DK/TrustTexture/FlowState/GateDecision consume i4 qualia + signed mantissa | **Queued** | depends on D-CSV-2 + D-CSV-3 |
+| D-CSV-9 | 8-channel ↔ SPO-palette transcoder (Option R-3) at thinking-engine L3 commit boundary | **Queued** | depends on D-CSV-3 |
+| D-CSV-10 | Σ-tier Rubicon-resonance dispatch in `SigmaTierRouter`: ΔF + resonance threshold → Σ10 commit | **Queued** | depends on D-CSV-7 + D-CSV-8; blocked on OQ-CSV-6 (Jirak-derived threshold) |
+
+### Phase D — Streaming infrastructure (sprint-13+)
+
+| D-id | Title | Status | PR / Evidence |
+|---|---|---|---|
+| D-CSV-11 | Vertical streaming structs in ndarray: `QualiaStream`, `InferenceStream`, `SplatFieldStream` + `par_*` rayon variants | **Queued** | new ndarray surface; coordinate with upstream PR #116 hpc-extras gap |
+| D-CSV-12 | Splat shader op fleet (`splat_gaussian`, `score_hole_closure`, `replay_coherence`, `emit_if_epiphany`) as methods on `Think` carrier | **Queued** | depends on D-CSV-11 |
+
+### Open-question gates (block specific D-CSV-* spawns)
+
+| Gate | Blocks | Recommendation |
+|---|---|---|
+| **OQ-CSV-1** Qualia 16D per-dim assignment | D-CSV-2, D-CSV-5 | Ratify proposed §7.2 layout with `qualia-engineer` agent cross-check against `thinking-engine/src/qualia.rs` |
+| **OQ-CSV-2** W-slot width 6 vs 8 bits | D-CSV-1 | Default 6 (= 64 active corpora); promote to 8 if multi-tenant SaaS demands |
+| **OQ-CSV-4** QualiaColumn migration phasing | D-CSV-5 | Default sibling-column-then-cutover (lower risk; 1 extra PR worth it) |
+| **OQ-CSV-6** Σ10 Rubicon threshold derivation | D-CSV-10 (sprint-12) | Hand-tuned acceptable for sprint-11/12 with TECH_DEBT note per `I-NOISE-FLOOR-JIRAK`; principled Jirak derivation deferred to VAMPE coupled-revival sprint-13+ |
+
+### Cross-spec patches (one bundled prep PR pre-sprint-11)
+
+| Spec | Patch | LOC |
+|---|---|---|
+| `pr-ce64-mb-2-causaledge64-v2.md` (W2) | §3 bit layout → plan §6; OQ-LAYOUT-1 resolved; signed-mantissa rationale | ~150 |
+| `pr-ce64-mb-2-pal8-nars-regression.md` (W3) | Tests parameterized on v2 layout; mantissa roundtrip + lens 4-state | ~80 |
+| `pr-ce64-mb-3-bindspace-efgh.md` (W4) | QualiaColumn migration step (D-CSV-5) cross-ref | ~40 |
+| `pr-ce64-mb-4-arigraph-spo-g.md` (W5) | `SpoWitnessChain<32>` → `WitnessCorpus`; `W5-INV-CHAIN-ORDER` invariant; W-slot semantics | ~300 |
+| `pr-ce64-mb-5-mailbox-soa-attentionmask.md` (W6) | `g_slot_at_drop` field (CSI-2); spatial-temporal accumulator semantics | ~50 |
+| `pr-ce64-mb-6-sigma-tier-router.md` (W7) | Σ10 Rubicon-resonance threshold; integer-SIMD MUL path | ~120 |
+| `sprint-10-pr-dep-graph.md` (W10) | PR-J1-INT4-32D-ATOMS + CAM-PQ wiring elevated to Wave 3 hard dep | ~50 |
+| `sprint-10-test-plan.md` (W11) | Refresh test counts for v2; i4-roundtrip + signed-mantissa-product tests | ~80 |
+
+**Total spec-patch LOC:** ~870. Bundle into `gov: sprint-10 specs patch for cognitive-substrate-convergence-v1` PR.
+
+---
+
 ## Update protocol
 
 When a deliverable ships:

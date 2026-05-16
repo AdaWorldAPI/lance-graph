@@ -1,3 +1,85 @@
+## 2026-05-15 — cognitive-substrate-convergence-v1 (CSV — i4 mantissa + gapless baton + active inference)
+
+**Status:** Active (PROPOSAL — awaits OQ-CSV-1..6 ratification before sprint-11 D-CSV-* spawn)
+**Confidence:** HIGH on architecture; MED on i4-16D qualia per-dim assignment (OQ-CSV-1); HIGH on i4-mantissa NARS (PR-LL-1 already shipped equivalent in `nars_dispatch.rs`); HIGH on gapless-baton model
+**Plan file:** `.claude/plans/cognitive-substrate-convergence-v1.md` (~46 KB, 18 sections)
+**Predecessors:** `causaledge64-mailbox-rename-soa-v1` (PR #372), `neurosymbolic-rlvr-causal-curriculum-v1` (PR #373), PR-LL-1 (PR #375)
+
+### Scope
+
+Locks the architectural decisions made during sprint-10 + the post-sprint-10 cross-session A2A discussion (2026-05-15) before context dilution. Consolidates 7 design questions that converge into ONE substrate: CausalEdge64 v2 layout + QualiaColumn quantization + CollapseGate wire format + WitnessCorpus pointer + MUL evaluation + Σ-tier Rubicon orchestration + thinking-engine ↔ SoA reunification.
+
+### The five compressions
+
+1. **Encoding** — signed i4 mantissa family across NARS / Qualia / ThinkingAtom / direction
+2. **Wire format** — discrete `Vec<(u16, CausalEdge64)>` baton tuples between mailboxes (no analog `Vsa16kF32` envelope)
+3. **Addressing** — i4 payload IS its own CAM key (content = address; 16¹⁶ ≈ 1.8×10¹⁹ unique states)
+4. **Temporal axis** — structural (chain-position + AriGraph anchor), not stored in edge
+5. **Cycle driver** — entropy-driven (free-energy gradient), not request-driven
+
+### Final CausalEdge64 v2 bit layout (plan §6)
+
+```text
+[0:23]  S/P/O palette indices  (3 × u8)
+[24:39] NARS frequency + confidence  (2 × u8)
+[40:42] Causal mask  (3b — Pearl 2³, IS the rung axis; counterfactual at 0b111 SPO)
+[43:45] Direction triad  (3b)
+[46:49] Inference mantissa  (4b SIGNED — direction × rule)
+[50:52] Plasticity flags  (3b)
+[53:58] W slot  (6b — discourse corpus root handle)  ← NEW
+[59:60] Truth-band lens  (2b — 4 lens states incl. "13% ambiguous direction")  ← NEW
+[61:63] Spare  (3b — sprint-12+ probe headroom)
+Total   64b zero unused
+```
+
+### 12 deliverables (D-CSV-1..D-CSV-12) across sprints 11-13
+
+| Phase | D-id | Title | Sprint | LOC | Risk |
+|---|---|---|---|---|---|
+| A | D-CSV-1 | `causal-edge` v2 layout per §6 | 11 | ~250 | LOW |
+| A | D-CSV-2 | `QualiaI4_16D` type + f32 ↔ i4 migration helpers | 11 | ~180 | LOW |
+| A | D-CSV-3 | InferenceType signed-mantissa expansion + absorb PR-LL-1 variants into canonical edge enum | 11 | ~120 | MED |
+| A | D-CSV-4 | `CollapseGateEmission` wire format spec + impl | 11 | ~150 | LOW |
+| B | D-CSV-5 | QualiaColumn `[f32; 18]` → `QualiaI4_16D` (5a sibling-column / 5b cutover) | 11 | ~400 | HIGH |
+| B | D-CSV-6 | `WitnessCorpus` (CAM-PQ-indexed) replaces `SpoWitnessChain<32>` | 11 | ~600 | HIGH |
+| B | D-CSV-7 | MailboxSoA integration: W-slot + plasticity accumulator + apply_edges | 11 | ~350 | MED |
+| C | D-CSV-8 | MUL evaluation in integer SIMD (i4 × i4 → i8 products) | 12 | ~500 | MED |
+| C | D-CSV-9 | 8-channel ↔ SPO-palette transcoder (Option R-3) at L3 commit | 12 | ~180 | LOW |
+| C | D-CSV-10 | Σ-tier Rubicon-resonance dispatch in SigmaTierRouter | 12 | ~250 | MED |
+| D | D-CSV-11 | Vertical streaming structs in ndarray (qualia.history, inference.trajectory, splat.evolve) | 13+ | ~700 | HIGH |
+| D | D-CSV-12 | Splat shader op fleet on i4 substrate (splat_gaussian, score_*, emit_if_epiphany) | 13+ | ~800 | MED |
+
+Total: ~4,480 LOC across 12 PRs. Cross-spec patches to sprint-10 W2/W3/W4/W5/W6/W7/W10/W11 specs estimated ~870 LOC (bundled into one sprint-11 prep PR).
+
+### What this locks (vs prior plan)
+
+- **Resolves sprint-10 meta-review CSI-1** (`.claude/board/sprint-log-10/meta-review.md`) with the definitive v2 bit layout per §6
+- **Resolves dual-CausalEdge64 finding (E-META-7)** via Option R-3 transcoder at L3 commit boundary
+- **Locks the i4 substrate family** unifying qualia + NARS mantissa + ThinkingAtom + direction into one quantization vocabulary
+- **Locks gapless-baton wire format** — no analog envelope between mailboxes; `Vsa16kF32` narrows to intra-tier Markov + crystal carrier + grammar bind/unbind testing
+- **Locks MailboxSoA semantics** as spatial-temporal meaning accumulators, not channels
+- **Locks Σ-tier Rubicon-resonance orchestration** — F-gradient driver, not request-response
+- **Locks active-inference cycle driver** — "can't stop thinking" per CLAUDE.md doctrine; entropy-of-state IS the dispatch trigger
+
+### Open questions (6) requiring user ratification
+
+1. **OQ-CSV-1** — Qualia 16D per-dim assignment (BLOCKS D-CSV-2): proposed layout in plan §7.2 needs `qualia-engineer` agent cross-check
+2. **OQ-CSV-2** — W-slot width 6 vs 8 bits (BLOCKS D-CSV-1): 6=64 corpora generous, 8=256 corpora for multi-tenant SaaS
+3. **OQ-CSV-3** — Spare bits reserved vs pre-allocated (non-blocking): default reserved
+4. **OQ-CSV-4** — QualiaColumn migration phasing (BLOCKS D-CSV-5): default sibling-then-cutover (lower risk)
+5. **OQ-CSV-5** — Pre-computed Magnitude (Staunen×Wisdom) column vs on-demand (non-blocking): default on-demand
+6. **OQ-CSV-6** — Σ10 Rubicon threshold Jirak-derived vs hand-tuned (BLOCKS D-CSV-10 sprint-12): hand-tuned acceptable per `I-NOISE-FLOOR-JIRAK` if TECH_DEBT documented
+
+### Cross-references
+
+- 12 sprint-10 specs at `.claude/specs/` (W1-W12); 11 require small spec patches per plan §12
+- 8 sprint-10 knowledge docs at `.claude/knowledge/causal-edge-64-*.md`, `spo-*.md`, `ogit-*.md`, `cognitive-shader-driver-*.md`, `splat-*.md`
+- Meta-review at `.claude/board/sprint-log-10/meta-review.md` — CSI-1 resolved by this plan's §6
+- PR #375 PR-LL-1 — Intervention/Counterfactual variants already in `nars_dispatch.rs`, this plan absorbs them into canonical edge enum
+- PR #379 — 4-branch retirement (orphan sweep) cleared the pre-condition
+
+---
+
 ## 2026-05-14 — neurosymbolic-rlvr-causal-curriculum-v1 (LL-CURRICULUM)
 
 **Status:** Active (PROPOSAL — curriculum landed, 5-PR roadmap ratification pending §7 OQs)
