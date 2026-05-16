@@ -310,8 +310,16 @@ mod tests {
         let abc_results: Vec<u64> = corpus.query(0xABC).map(|e| e.timestamp_ns).collect();
         let def_results: Vec<u64> = corpus.query(0xDEF).map(|e| e.timestamp_ns).collect();
 
-        assert_eq!(abc_results, vec![10, 20, 30], "3 ABC entries in timestamp ASC order");
-        assert_eq!(def_results, vec![15, 25], "2 DEF entries in timestamp ASC order");
+        assert_eq!(
+            abc_results,
+            vec![10, 20, 30],
+            "3 ABC entries in timestamp ASC order"
+        );
+        assert_eq!(
+            def_results,
+            vec![15, 25],
+            "2 DEF entries in timestamp ASC order"
+        );
     }
 
     // ── Test 6 ──────────────────────────────────────────────────────────────
