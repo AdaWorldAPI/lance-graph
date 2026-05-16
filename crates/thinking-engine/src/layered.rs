@@ -12,6 +12,7 @@
 
 use crate::dto::BusDto;
 use crate::engine::ThinkingEngine;
+use causal_edge::{CausalEdge64 as SpoEdge, CausalMask};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CausalEdge64: packed u64 with 7 constructive + 1 destructive channel
@@ -50,18 +51,34 @@ impl CausalEdge64 {
         CausalEdge64(0)
     }
 
-    /// Set a channel's value. `channel` must be 0..=7, `value` is 0..=255.
-    pub fn set_channel(&mut self, channel: u8, value: u8) {
+    /// Set a channel's value (u8, 0..=255). `channel` must be 0..=7.
+    pub fn set_channel_u8(&mut self, channel: u8, value: u8) {
         assert!(channel < 8, "channel must be 0..=7, got {}", channel);
         let shift = channel as u64 * 8;
         self.0 = (self.0 & !(0xFF << shift)) | ((value as u64) << shift);
     }
 
-    /// Get a channel's value.
+    /// Get a channel's value as u8 (0..=255).
     pub fn get_channel(&self, channel: u8) -> u8 {
         assert!(channel < 8, "channel must be 0..=7, got {}", channel);
         let shift = channel as u64 * 8;
         ((self.0 >> shift) & 0xFF) as u8
+    }
+
+    /// Read one channel's net_strength as i8 (SIMD-friendly bitcast).
+    /// Channel layout: byte k = channel k, k = 0..8. Each byte is a signed i8.
+    #[inline]
+    pub fn channel(&self, idx: usize) -> i8 {
+        debug_assert!(idx < 8, "channel idx must be 0..8");
+        ((self.0 >> (idx * 8)) & 0xFF) as i8
+    }
+
+    /// Set one channel's i8 net_strength. Out-of-range idx is a no-op.
+    #[inline]
+    pub fn set_channel(&mut self, idx: usize, value: i8) {
+        if idx >= 8 { return; }
+        let mask = 0xFFu64 << (idx * 8);
+        self.0 = (self.0 & !mask) | ((value as u8 as u64) << (idx * 8));
     }
 
     /// Total constructive strength: sum of channels 0..=6.
@@ -89,7 +106,7 @@ impl CausalEdge64 {
     /// They are carried alongside as the tuple key `(u16, CausalEdge64)`.
     pub fn with_source_target(_source: u16, _target: u16, strength: u8) -> Self {
         let mut e = Self::new();
-        e.set_channel(CHANNEL_CAUSES, strength);
+        e.set_channel_u8(CHANNEL_CAUSES, strength);
         e
     }
 }
@@ -97,6 +114,111 @@ impl CausalEdge64 {
 impl Default for CausalEdge64 {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Transcoder impl block (D-CSV-9, Option R-3 per plan §5 L-12)
+//
+// Collapses the 8-channel cascade form into one SPO-palette CausalEdge64
+// at the L3 commit boundary, and provides the inverse for round-trip tests.
+// ═══════════════════════════════════════════════════════════════════════════
+
+impl CausalEdge64 {
+    /// 8 channel labels for diagnostics + tests.
+    pub const CHANNEL_NAMES: [&'static str; 8] = [
+        "BECOMES", "CAUSES", "SUPPORTS", "REFINES",
+        "GROUNDS", "ABSTRACTS", "RELATES", "CONTRADICTS",
+    ];
+
+    /// Index of the dominant channel (max |net_strength|). Ties break to
+    /// the lowest index (per the L-12 rule "stable tie-break").
+    /// Returns 0 if all channels are zero (identity).
+    #[inline]
+    pub fn dominant_channel(&self) -> usize {
+        let mut best_idx = 0usize;
+        let mut best_abs: u8 = 0;
+        for i in 0..8 {
+            let v = self.channel(i);
+            let abs_v = v.unsigned_abs();
+            if abs_v > best_abs {
+                best_abs = abs_v;
+                best_idx = i;
+            }
+        }
+        best_idx
+    }
+
+    /// Count of channels with non-zero net_strength (used as
+    /// confidence proxy in the transcode).
+    #[inline]
+    pub fn active_channel_count(&self) -> u8 {
+        let mut n = 0u8;
+        for i in 0..8 { if self.channel(i) != 0 { n += 1; } }
+        n
+    }
+
+    /// Per L-12 / Option R-3: collapse this 8-channel edge into one
+    /// SPO-palette `causal_edge::CausalEdge64` at the L3 commit boundary.
+    ///
+    /// Caller supplies the (s_idx, p_idx, o_idx) palette context. The
+    /// transcoder resolves:
+    /// - Dominant channel → (mantissa slot, causal_mask) per the table
+    ///   in `cognitive-substrate-convergence-v1.md` §11 D-CSV-9
+    /// - Mantissa sign = sign of dominant channel's net_strength
+    /// - Frequency = |net_strength|/32 quantized to u8
+    /// - Confidence = active_channel_count/8 quantized to u8
+    /// - Direction triad = 0b000 (sign carried by mantissa per L-9)
+    /// - W-slot = 0, truth = Crystalline, spare = 0 (caller stamps later)
+    pub fn to_spo(&self, s_idx: u8, p_idx: u8, o_idx: u8) -> SpoEdge {
+        let dom = self.dominant_channel();
+        let net = self.channel(dom);
+        let freq_u8 = ((net.unsigned_abs() as u32 * 255 / 32).min(255)) as u8;
+        let conf_u8 = (self.active_channel_count() as u32 * 255 / 8) as u8;
+        let (mantissa_magnitude, causal_mask) = match dom {
+            0 => (1u8, CausalMask::SPO),  // BECOMES → Deduction (forward chain)
+            1 => (6u8, CausalMask::SPO),  // CAUSES → Intervention/Counterfactual (Pearl-3)
+            2 => (4u8, CausalMask::PO),   // SUPPORTS → Revision (interventional plane)
+            3 => (5u8, CausalMask::PO),   // REFINES → Synthesis
+            4 => (1u8, CausalMask::S),    // GROUNDS → Deduction (S-grounded)
+            5 => (2u8, CausalMask::P),    // ABSTRACTS → Induction
+            6 => (0u8, CausalMask::None), // RELATES → Identity/neutral
+            _ => (1u8, CausalMask::SPO),  // CONTRADICTS → Abduction (sign carries polarity)
+        };
+        let mantissa_signed: i8 = if net >= 0 {
+            mantissa_magnitude as i8
+        } else {
+            -(mantissa_magnitude as i8)
+        };
+        causal_edge::CausalEdge64::pack_v2(s_idx, p_idx, o_idx, freq_u8, conf_u8, causal_mask, 0, causal_edge::PlasticityState::ALL_FROZEN)
+            .with_inference_mantissa(mantissa_signed)
+    }
+
+    /// Inverse: project an SPO-palette edge into the 8-channel form
+    /// where the dominant channel carries the mantissa magnitude scaled
+    /// by frequency. Lossy (8 channels collapse to 1); used for round-
+    /// trip tests + debugging.
+    pub fn from_spo(spo: SpoEdge) -> Self {
+        let mantissa = spo.inference_mantissa();
+        let mag = mantissa.unsigned_abs();
+        let dom = match mag {
+            0 => 6, // RELATES (neutral)
+            1 => if mantissa >= 0 { 0 } else { 7 }, // BECOMES vs CONTRADICTS
+            2 => 5, // ABSTRACTS
+            3 => 5, // (Synthesis tilts ABSTRACTS) — matches the table tilt
+            4 => 2, // SUPPORTS
+            5 => 3, // REFINES
+            6 => 1, // CAUSES
+            _ => 0, // Reserved → fall back to BECOMES
+        };
+        let net_signed = if mantissa >= 0 {
+            (spo.frequency_u8() as i32 * 32 / 255).min(127) as i8
+        } else {
+            -((spo.frequency_u8() as i32 * 32 / 255).min(127) as i8)
+        };
+        let mut out = CausalEdge64::default();
+        out.set_channel(dom, net_signed);
+        out
     }
 }
 
@@ -191,7 +313,7 @@ impl TierEngine {
                     continue;
                 }
                 let mut edge = CausalEdge64::new();
-                edge.set_channel(CHANNEL_CAUSES, strength);
+                edge.set_channel_u8(CHANNEL_CAUSES, strength);
                 edges.push((neighbor_idx as u16, edge));
             }
         }
@@ -393,7 +515,7 @@ mod tests {
 
         // Set each channel to a distinct value.
         for ch in 0..8u8 {
-            edge.set_channel(ch, (ch + 1) * 30);
+            edge.set_channel_u8(ch, (ch + 1) * 30);
         }
         // Read back all 8 channels.
         for ch in 0..8u8 {
@@ -411,10 +533,10 @@ mod tests {
         let mut edge = CausalEdge64::new();
         // Channels 0-6 = 10 each.
         for ch in 0..7u8 {
-            edge.set_channel(ch, 10);
+            edge.set_channel_u8(ch, 10);
         }
         // Channel 7 (CONTRADICTS) = 50.
-        edge.set_channel(CHANNEL_CONTRADICTS, 50);
+        edge.set_channel_u8(CHANNEL_CONTRADICTS, 50);
 
         assert_eq!(edge.constructive_strength(), 70); // 7 * 10
         assert_eq!(edge.contradiction_strength(), 50);
@@ -425,16 +547,16 @@ mod tests {
         let mut edge = CausalEdge64::new();
         // Constructive: channels 0-6 = 20 each = 140 total.
         for ch in 0..7u8 {
-            edge.set_channel(ch, 20);
+            edge.set_channel_u8(ch, 20);
         }
         // Destructive: channel 7 = 100.
-        edge.set_channel(CHANNEL_CONTRADICTS, 100);
+        edge.set_channel_u8(CHANNEL_CONTRADICTS, 100);
         assert_eq!(edge.net_strength(), 40); // 140 - 100
 
         // Destructive dominates.
         let mut edge2 = CausalEdge64::new();
-        edge2.set_channel(CHANNEL_CAUSES, 10);
-        edge2.set_channel(CHANNEL_CONTRADICTS, 200);
+        edge2.set_channel_u8(CHANNEL_CAUSES, 10);
+        edge2.set_channel_u8(CHANNEL_CONTRADICTS, 200);
         assert_eq!(edge2.net_strength(), -190); // 10 - 200
     }
 
@@ -482,8 +604,8 @@ mod tests {
 
         // Start with zero energy, apply constructive edges.
         let mut edge = CausalEdge64::new();
-        edge.set_channel(CHANNEL_CAUSES, 100);
-        edge.set_channel(CHANNEL_SUPPORTS, 50);
+        edge.set_channel_u8(CHANNEL_CAUSES, 100);
+        edge.set_channel_u8(CHANNEL_SUPPORTS, 50);
 
         tier.apply_edges(&[(3, edge), (5, edge)]);
 
@@ -513,7 +635,7 @@ mod tests {
 
         // Apply a strongly contradicting edge to atom 3.
         let mut edge = CausalEdge64::new();
-        edge.set_channel(CHANNEL_CONTRADICTS, 255);
+        edge.set_channel_u8(CHANNEL_CONTRADICTS, 255);
         tier.apply_edges(&[(3, edge)]);
 
         // Energy at 3 should decrease (clamped to zero, then renormalized).
@@ -559,5 +681,111 @@ mod tests {
         assert_eq!(engine.l1().engine().energy.iter().sum::<f32>(), 0.0);
         assert_eq!(engine.l2().engine().energy.iter().sum::<f32>(), 0.0);
         assert_eq!(engine.l3().engine().energy.iter().sum::<f32>(), 0.0);
+    }
+}
+
+#[cfg(test)]
+mod transcoder_tests {
+    use super::*;
+    use causal_edge::CausalEdge64 as SpoEdge;
+
+    fn build_8ch_with(idx: usize, net: i8) -> CausalEdge64 {
+        let mut e = CausalEdge64::default();
+        e.set_channel(idx, net);
+        e
+    }
+
+    #[test]
+    fn test_channel_roundtrip() {
+        for idx in 0..8 {
+            for &v in &[-128i8, -1, 0, 1, 127] {
+                let e = build_8ch_with(idx, v);
+                assert_eq!(e.channel(idx), v, "channel {idx} round-trip {v}");
+            }
+        }
+    }
+
+    #[test]
+    fn test_dominant_channel_zero_default() {
+        let e = CausalEdge64::default();
+        assert_eq!(e.dominant_channel(), 0, "all-zero edge dominant idx is 0");
+        assert_eq!(e.active_channel_count(), 0);
+    }
+
+    #[test]
+    fn test_dominant_channel_picks_max_abs() {
+        let mut e = CausalEdge64::default();
+        e.set_channel(2, 30);   // SUPPORTS
+        e.set_channel(5, -100); // ABSTRACTS, larger magnitude
+        e.set_channel(7, 10);
+        assert_eq!(e.dominant_channel(), 5);
+        assert_eq!(e.active_channel_count(), 3);
+    }
+
+    #[test]
+    fn test_to_spo_becomes_dominant_forward() {
+        let e = build_8ch_with(0, 16); // BECOMES, +16 net
+        let spo = e.to_spo(10, 20, 30);
+        assert_eq!(spo.s_idx(), 10);
+        assert_eq!(spo.p_idx(), 20);
+        assert_eq!(spo.o_idx(), 30);
+        assert_eq!(spo.inference_mantissa(), 1, "BECOMES → mantissa +1 Deduction");
+        assert!(spo.frequency_u8() > 0, "non-zero net → non-zero frequency");
+    }
+
+    #[test]
+    fn test_to_spo_causes_negative_is_counterfactual() {
+        let e = build_8ch_with(1, -32); // CAUSES, negative magnitude
+        let spo = e.to_spo(1, 2, 3);
+        assert_eq!(spo.inference_mantissa(), -6, "CAUSES negative → mantissa -6 Counterfactual");
+    }
+
+    #[test]
+    fn test_to_spo_relates_neutral_mantissa_zero() {
+        let e = build_8ch_with(6, 100);  // RELATES dominant
+        let spo = e.to_spo(0, 0, 0);
+        assert_eq!(spo.inference_mantissa(), 0, "RELATES → mantissa 0 (Identity)");
+    }
+
+    #[test]
+    fn test_16_mapping_round_trip_dominant_preserved() {
+        // For each (dominant_channel, sign) pair, transcode 8ch → SPO → 8ch
+        // and assert the dominant channel index survives. The exact net_strength
+        // doesn't survive (lossy), but the dominant channel SHOULD.
+        for dom in 0..8 {
+            for &sign in &[1i8, -1i8] {
+                let e = build_8ch_with(dom, sign * 64);
+                let spo = e.to_spo(1, 1, 1);
+                let back = CausalEdge64::from_spo(spo);
+                let back_dom = back.dominant_channel();
+                // Channel mapping is many-to-one in the transcoder table; some
+                // dominant channels collapse to the same SPO mantissa slot.
+                // Per L-12, the SEMANTIC class survives, not necessarily the
+                // exact channel idx. Assert the back-channel is in the
+                // expected equivalence class for this dominant.
+                let expected_class: &[usize] = match dom {
+                    0 | 4 => &[0],     // BECOMES + GROUNDS → mantissa 1 → BECOMES on round-trip
+                    1 => &[1],         // CAUSES → mantissa 6 → CAUSES
+                    2 => &[2],         // SUPPORTS → mantissa 4 → SUPPORTS
+                    3 => &[3, 5],      // REFINES → mantissa 5 → REFINES (or ABSTRACTS in tilt)
+                    5 => &[5],         // ABSTRACTS → mantissa 2 → ABSTRACTS
+                    6 => &[6],         // RELATES → mantissa 0 → RELATES
+                    7 => &[7, 0],      // CONTRADICTS → mantissa ±1 (sign distinguishes)
+                    _ => &[],
+                };
+                assert!(
+                    expected_class.contains(&back_dom),
+                    "dom={dom} sign={sign} round-trip back_dom={back_dom} not in expected_class={expected_class:?}",
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_set_channel_out_of_range_no_op() {
+        let mut e = CausalEdge64::default();
+        e.set_channel(8, 100);
+        e.set_channel(255, 50);
+        assert_eq!(e.0, 0, "out-of-range set_channel must be a no-op");
     }
 }
