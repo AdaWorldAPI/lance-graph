@@ -1,3 +1,45 @@
+## 2026-05-16 — E-META-8 — "Edit" / "Write" / "MultiEdit" as bare permission rules are no-ops; subagents do not inherit allow rules
+
+**Status:** FINDING
+
+**Click:** The 2026-05-15 session's diagnosis that switching from `Edit(**)` / `Write(**)` to bare `Edit` / `Write` / `MultiEdit` in `.claude/settings.local.json` was the fix for permission-prompt friction was **wrong**. Bare tool-name rules are not valid permission entries in the current Claude Code parser for tools that take a file-path argument — they effectively fall through to user prompt rather than granting unrestricted access. The actually-working syntax is `Edit(**)` / `Write(**)` / `MultiEdit(**)` (or path-globbed forms like `Edit(**/*.md)` / `Edit(.claude/specs/**)` per the existing pattern in tracked `.claude/settings.json`).
+
+**Diagnostic signature:** every Edit/Write call popping for permission despite an "allow" entry in settings.local.json. If the entry has no parens (`"Edit"` rather than `"Edit(**)"`), it is the bug. The 2026-05-15 session interpreted prior `Edit(**)` failures as "parsed as exact-match for literal `**`" — that diagnosis was a Frankenstein; the actual bug was elsewhere (likely a sessions-old parser version, or the failures were tracked to a different deny rule).
+
+**Doctrinal claim:** Permission rules for path-taking tools (Edit / Write / MultiEdit / Read / Glob / Grep) **always require a path-shaped spec in parens**, even for "allow all". The schema treats them as `Tool(spec)` only; bare `Tool` is reserved for tools without scope (e.g. potentially `Read` if it has no path, or MCP tools). Treat any "tool-only" form for a path tool as a no-op and audit the settings file for that mistake first.
+
+**Cross-claim:** **Subagents do not inherit `allow` rules from session-scoped `.claude/settings.local.json`** — they only inherit deny rules. The PR #381 fleet confirmed this: 7 of 8 Sonnet workers had Edit/Write blocked even after the main thread's settings.local.json had `Edit(**)` working. Workers all had to use Python-via-Bash heredocs (Bash(python3:*) is in tracked settings.json and DOES inherit). Filed as a Claude Code SDK gap candidate.
+
+**Predecessor:** 2026-05-15 prior-session diagnostic note in `.claude/board/sprint-log-csv-prep/agents/agent-W4.md` §"Process note — permission-system fix" — claims the tool-only form fixed subagent denials. This entry corrects that claim: it fixed nothing; it just shifted the failure mode from "subagent gets denied AND main thread's rule didn't apply" to "subagent gets denied AND main thread's rule still doesn't apply but is invisible because main thread had inherited the previous-working `Edit(**)` rule from prior settings."
+
+**Lesson:** When a "permission fix" is followed by recurrence of the same friction, the fix didn't work — don't double down on the diagnostic that produced it. The Mandatory Board-Hygiene Rule's retroactive-hygiene anti-pattern applies here too: the prior session's scratchpad logged a fix-claim that this session inherited and didn't verify; the verification (rerunning Edit and observing popups) is the only ground truth.
+
+**Cross-ref:** `.claude/settings.local.json` (now uses `Edit(**)` / `Write(**)` / `MultiEdit(**)` + `Edit(**/*)` etc.); PR_ARC #381 Locked entry on permission syntax; `.claude/board/AGENT_LOG.md` 2026-05-16 fleet entry; CLAUDE.md §In-Session Orchestration Discipline (where the bare-tool-name claim should be corrected if it appears there).
+
+---
+
+## 2026-05-16 — E-META-9 — Mandatory Board-Hygiene Rule violated by PR #381; retroactive-hygiene anti-pattern observed
+
+**Status:** FINDING
+
+**Click:** PR #381 (sprint-10 spec patches) was merged 2026-05-16 without including LATEST_STATE / PR_ARC_INVENTORY / STATUS_BOARD / AGENT_LOG updates in the merged commits — exactly the retroactive-hygiene anti-pattern that CLAUDE.md §Mandatory Board-Hygiene Rule was added to prevent (after the 2026-04-20 PR #223/#224/#225 gap surfaced the same issue). This entry plus the followup board-hygiene PR (branch `claude/board-hygiene-pr-381`) are the retroactive cleanup; the cleanup itself is the symptom, not the cure.
+
+**Why it happened:** The fleet dispatch flow (8 parallel Sonnet workers patching 8 spec files in one branch) optimized for the spec-patch work. Each worker scratchpad documented its own delta, but no worker had the cross-cutting responsibility to update board files for the PR as a whole. The main thread aggregated the worker outputs into 5 commits but did not pause to draft the board-hygiene commit before pushing the final commit that opened the PR. The PR body documented the patch-level deltas but did not encode the board updates as part of the merge contract.
+
+**Doctrinal claim:** **Board-hygiene updates are a per-PR cross-cutting responsibility that fleet workflows do not naturally assign to any single worker.** The rule needs structural enforcement, not just rule-as-text in CLAUDE.md. Options:
+
+1. **Main-thread sentinel:** before opening any PR with `mcp__github__create_pull_request`, the main thread MUST verify that one of the commits on the branch touches the four board files (LATEST_STATE / PR_ARC_INVENTORY / STATUS_BOARD / AGENT_LOG) — if not, draft the hygiene commit first.
+2. **CCA2A pattern extension:** add a "W-hygiene" worker to every fleet that runs LAST and produces the hygiene commit, gated on all other workers reporting DONE.
+3. **PR-template enforcement:** GitHub PR template asks "Board files updated in this PR? (yes / no / N/A — explain)" — the answer is the merge gate, not the PR body summary.
+
+**Recommendation:** option 1 (main-thread sentinel) is cheapest and matches the existing fleet flow. Add a check to the main-thread post-fleet aggregation step.
+
+**Lesson:** the rule-as-text in CLAUDE.md is necessary but not sufficient. Cross-cutting governance responsibilities need a structural owner; in CCA2A flows the owner is the main thread, which means the main thread must encode the check explicitly (not delegate to "the workers will remember").
+
+**Cross-ref:** CLAUDE.md §Mandatory Board-Hygiene Rule; PR_ARC #381 (the violating PR); this followup PR (the retroactive cleanup); 2026-04-20 PR #223/#224/#225 gap (predecessor occurrence of the same anti-pattern).
+
+---
+
 ## 2026-05-14 — E-LL-1-INTERVENE — NARS Intervention/Counterfactual verbs land
 
 **Status:** SHIPPED (PR-LL-1 from curriculum §6.1)
