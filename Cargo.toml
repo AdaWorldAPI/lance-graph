@@ -15,6 +15,7 @@ members = [
     "crates/lance-graph-consumer-conformance",
     # PR-G2 (TD-RACTOR-SUPERVISOR-5): ractor-supervised callcenter actor tree
     "crates/lance-graph-supervisor",
+    "crates/sigma-tier-router",
 ]
 exclude = [
     # Python bindings (upstream-inherited, opt-in via --manifest-path)

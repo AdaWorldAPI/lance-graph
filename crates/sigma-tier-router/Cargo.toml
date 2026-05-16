@@ -4,8 +4,6 @@ version = "0.1.0"
 edition = "2021"
 description = "Σ-tier Rubicon-resonance dispatch: F-gradient + resonance threshold → Σ10 commit"
 
-[workspace]
-
 [dependencies]
 causal-edge          = { path = "../causal-edge" }
 lance-graph-contract = { path = "../lance-graph-contract" }
