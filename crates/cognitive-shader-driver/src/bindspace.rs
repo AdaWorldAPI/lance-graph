@@ -13,6 +13,7 @@
 use std::sync::Arc;
 
 use lance_graph_contract::cognitive_shader::{ColumnWindow, MetaFilter, MetaWord};
+use lance_graph_contract::qualia::QualiaI4_16D;
 use lance_graph_ontology::OntologyRegistry;
 
 pub const WORDS_PER_FP: usize = 256;
@@ -150,6 +151,61 @@ impl QualiaColumn {
     }
 }
 
+/// Sibling i4 column alongside QualiaColumn (D-CSV-5a double-write).
+/// Length = N rows; each entry is 8 bytes (one `QualiaI4_16D`).
+/// Column total = 8 × N bytes.
+///
+/// Written on every `push_typed` call alongside the f32 `QualiaColumn`.
+/// Reads still use the f32 `QualiaColumn` (cutover is D-CSV-5b).
+#[derive(Debug)]
+pub struct QualiaI4Column(pub Box<[QualiaI4_16D]>);
+
+impl QualiaI4Column {
+    pub fn zeros(rows: usize) -> Self {
+        Self(vec![QualiaI4_16D::ZERO; rows].into_boxed_slice())
+    }
+
+    #[inline]
+    pub fn row(&self, row: usize) -> QualiaI4_16D {
+        self.0[row]
+    }
+
+    #[inline]
+    pub fn set(&mut self, row: usize, value: QualiaI4_16D) {
+        self.0[row] = value;
+    }
+
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// Bulk-convert from an f32 `QualiaColumn`.
+    ///
+    /// Uses the flat `[k * QUALIA_DIMS .. (k+1) * QUALIA_DIMS]` slice layout
+    /// of `QualiaColumn.0` to extract each row, then calls
+    /// `QualiaI4_16D::from_f32_17d` per row.
+    pub fn from_f32(qualia_f32: &QualiaColumn) -> Self {
+        let total = qualia_f32.0.len();
+        let rows = total / QUALIA_DIMS;
+        let mut out = Vec::with_capacity(rows);
+        for k in 0..rows {
+            let slice = &qualia_f32.0[k * QUALIA_DIMS..(k + 1) * QUALIA_DIMS];
+            // from_f32_17d expects &[f32; 17]; QUALIA_DIMS may be 18, so cap at 17.
+            let mut arr = [0.0f32; 17];
+            let copy_len = slice.len().min(17);
+            arr[..copy_len].copy_from_slice(&slice[..copy_len]);
+            out.push(QualiaI4_16D::from_f32_17d(&arr));
+        }
+        Self(out.into_boxed_slice())
+    }
+}
+
 /// Packed u32 per row: thinking(6) + awareness(4) + nars_f(8) + nars_c(8) + free_e(6).
 /// One u32 load per row = the cheapest prefilter we can run.
 #[derive(Debug)]
@@ -175,6 +231,7 @@ pub struct BindSpace {
     pub fingerprints: FingerprintColumns,
     pub edges: EdgeColumn,
     pub qualia: QualiaColumn,
+    pub qualia_i4: QualiaI4Column,
     pub meta: MetaColumn,
     pub temporal: Box<[u64]>,
     pub expert: Box<[u16]>,
@@ -205,6 +262,7 @@ impl std::fmt::Debug for BindSpace {
             .field("fingerprints", &self.fingerprints)
             .field("edges", &self.edges)
             .field("qualia", &self.qualia)
+            .field("qualia_i4", &self.qualia_i4)
             .field("meta", &self.meta)
             .field("temporal", &self.temporal)
             .field("expert", &self.expert)
@@ -222,6 +280,7 @@ impl BindSpace {
             fingerprints: FingerprintColumns::zeros(len),
             edges: EdgeColumn::zeros(len),
             qualia: QualiaColumn::zeros(len),
+            qualia_i4: QualiaI4Column::zeros(len),
             meta: MetaColumn::zeros(len),
             temporal: vec![0u64; len].into_boxed_slice(),
             expert: vec![0u16; len].into_boxed_slice(),
@@ -252,11 +311,12 @@ impl BindSpace {
         let sigma_bytes = self.len; // 1 byte per row, Σ-codebook index
         let edge_bytes = self.len * 8;
         let qualia_bytes = self.len * QUALIA_DIMS * 4;
+        let qualia_i4_bytes = self.len * 8;
         let meta_bytes = self.len * 4;
         let temporal_bytes = self.len * 8;
         let expert_bytes = self.len * 2;
         let entity_type_bytes = self.len * 2;
-        content_topic_angle + cycle_bytes + sigma_bytes + edge_bytes + qualia_bytes + meta_bytes + temporal_bytes + expert_bytes + entity_type_bytes
+        content_topic_angle + cycle_bytes + sigma_bytes + edge_bytes + qualia_bytes + qualia_i4_bytes + meta_bytes + temporal_bytes + expert_bytes + entity_type_bytes
     }
 
     /// Apply MetaFilter across a row window. Returns a dense Vec of row
@@ -339,6 +399,11 @@ impl BindSpaceBuilder {
         self.bs.meta.set(row, meta);
         self.bs.edges.set(row, edge);
         self.bs.qualia.set(row, qualia);
+        // D-CSV-5a: double-write i4 sibling column.
+        // QUALIA_DIMS may be 18; from_f32_17d takes exactly 17 dims.
+        let mut q17 = [0.0f32; 17];
+        q17.copy_from_slice(&qualia[..17]);
+        self.bs.qualia_i4.set(row, QualiaI4_16D::from_f32_17d(&q17));
         self.bs.temporal[row] = temporal;
         self.bs.expert[row] = expert;
         self.bs.entity_type[row] = entity_type;
@@ -370,10 +435,10 @@ mod tests {
     fn bindspace_footprint_adds_columns() {
         let bs = BindSpace::zeros(1);
         // 3 × 2048 (content/topic/angle) + 65536 (cycle f32) + 1 (sigma u8)
-        //   + 8 (edge) + 72 (qualia 18×4) + 4 (meta) + 8 (temporal)
-        //   + 2 (expert) + 2 (entity_type)
-        // = 6144 + 65536 + 1 + 8 + 72 + 4 + 8 + 2 + 2 = 71777
-        assert_eq!(bs.byte_footprint(), 71777);
+        //   + 8 (edge) + 72 (qualia 18×4) + 8 (qualia_i4 D-CSV-5a) + 4 (meta)
+        //   + 8 (temporal) + 2 (expert) + 2 (entity_type)
+        // = 6144 + 65536 + 1 + 8 + 72 + 8 + 4 + 8 + 2 + 2 = 71785
+        assert_eq!(bs.byte_footprint(), 71785);
     }
 
     #[test]
@@ -516,4 +581,122 @@ mod tests {
         assert_eq!(bs.fingerprints.cycle_row(0)[16383], -0.5);
         assert!(bs.fingerprints.cycle_row(1).iter().all(|&v| v == 0.0));
     }
+
+    // ── D-CSV-5a: QualiaI4Column tests ─────────────────────────────────────
+
+    #[test]
+    fn test_qualia_i4_column_zeros() {
+        use lance_graph_contract::qualia::QualiaI4_16D;
+        const N: usize = 8;
+        let col = QualiaI4Column::zeros(N);
+        assert_eq!(col.len(), N);
+        for i in 0..N {
+            assert_eq!(col.row(i), QualiaI4_16D::ZERO, "row {} should be ZERO", i);
+        }
+        assert!(!col.is_empty());
+        assert!(QualiaI4Column::zeros(0).is_empty());
+    }
+
+    #[test]
+    fn test_qualia_i4_column_set_row() {
+        use lance_graph_contract::qualia::QualiaI4_16D;
+        const N: usize = 10;
+        let mut col = QualiaI4Column::zeros(N);
+        let known = QualiaI4_16D::ZERO.with(0, 3).with(9, -4).with(15, 7);
+        col.set(5, known);
+        assert_eq!(col.row(5), known, "row 5 should equal known value");
+        for i in 0..N {
+            if i != 5 {
+                assert_eq!(col.row(i), QualiaI4_16D::ZERO, "row {} should still be ZERO", i);
+            }
+        }
+    }
+
+    #[test]
+    fn test_qualia_i4_column_from_f32_parity() {
+        use lance_graph_contract::qualia::QualiaI4_16D;
+        const N: usize = 4;
+        let mut qcol = QualiaColumn::zeros(N);
+        let rows: Vec<[f32; QUALIA_DIMS]> = (0..N)
+            .map(|k| {
+                let mut arr = [0.0f32; QUALIA_DIMS];
+                for d in 0..QUALIA_DIMS {
+                    arr[d] = (k * QUALIA_DIMS + d) as f32 / (N * QUALIA_DIMS) as f32;
+                }
+                arr
+            })
+            .collect();
+        for (k, row) in rows.iter().enumerate() {
+            qcol.set(k, row);
+        }
+        let i4col = QualiaI4Column::from_f32(&qcol);
+        assert_eq!(i4col.len(), N);
+        for k in 0..N {
+            let mut arr17 = [0.0f32; 17];
+            let src = &qcol.0[k * QUALIA_DIMS..(k + 1) * QUALIA_DIMS];
+            let copy_len = src.len().min(17);
+            arr17[..copy_len].copy_from_slice(&src[..copy_len]);
+            let expected = QualiaI4_16D::from_f32_17d(&arr17);
+            assert_eq!(i4col.row(k), expected, "row {} mismatch", k);
+        }
+    }
+
+    #[test]
+    fn test_bindspace_zeros_double_column() {
+        use lance_graph_contract::qualia::QualiaI4_16D;
+        const N: usize = 5;
+        let bs = BindSpace::zeros(N);
+        assert_eq!(bs.qualia.0.len(), N * QUALIA_DIMS);
+        assert!(bs.qualia.0.iter().all(|&v| v == 0.0));
+        assert_eq!(bs.qualia_i4.len(), N);
+        for i in 0..N {
+            assert_eq!(bs.qualia_i4.row(i), QualiaI4_16D::ZERO, "i4 row {} should be ZERO", i);
+        }
+    }
+
+    #[test]
+    fn test_bindspace_byte_size_includes_i4() {
+        const N: usize = 7;
+        let bs = BindSpace::zeros(N);
+        let footprint = bs.byte_footprint();
+        let content_topic_angle = 3 * N * WORDS_PER_FP * 8;
+        let cycle_bytes = N * FLOATS_PER_VSA * 4;
+        let sigma_bytes = N;
+        let edge_bytes = N * 8;
+        let qualia_bytes = N * QUALIA_DIMS * 4;
+        let qualia_i4_bytes = N * 8;
+        let meta_bytes = N * 4;
+        let temporal_bytes = N * 8;
+        let expert_bytes = N * 2;
+        let entity_type_bytes = N * 2;
+        let expected = content_topic_angle + cycle_bytes + sigma_bytes + edge_bytes
+            + qualia_bytes + qualia_i4_bytes + meta_bytes + temporal_bytes
+            + expert_bytes + entity_type_bytes;
+        assert_eq!(footprint, expected,
+            "byte_footprint should include i4 column (8 bytes/row × {} rows = {} bytes)",
+            N, qualia_i4_bytes);
+    }
+
+    #[test]
+    fn test_bindspace_push_typed_double_write() {
+        use lance_graph_contract::qualia::QualiaI4_16D;
+        let mut qualia_arg = [0.0f32; QUALIA_DIMS];
+        for d in 0..QUALIA_DIMS {
+            qualia_arg[d] = (d + 1) as f32 / (QUALIA_DIMS + 1) as f32;
+        }
+        let content = [0u64; WORDS_PER_FP];
+        let bs = BindSpaceBuilder::new(1)
+            .push_typed(&content, MetaWord::new(1, 0, 100, 100, 0), 0, &qualia_arg, 0, 0, 0)
+            .build();
+        let f32_row = bs.qualia.row(0);
+        for d in 0..QUALIA_DIMS {
+            assert_eq!(f32_row[d], qualia_arg[d], "f32 qualia dim {} mismatch", d);
+        }
+        let mut arr17 = [0.0f32; 17];
+        arr17.copy_from_slice(&qualia_arg[..17]);
+        let expected_i4 = QualiaI4_16D::from_f32_17d(&arr17);
+        assert_eq!(bs.qualia_i4.row(0), expected_i4,
+            "i4 qualia must match QualiaI4_16D::from_f32_17d of the pushed f32 arg");
+    }
+
 }
