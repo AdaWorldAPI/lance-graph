@@ -190,8 +190,13 @@ pub use lance_graph_contract::cognitive_shader::{
 
 pub use lance_graph_contract::collapse_gate::{GateDecision, MergeMode};
 
+// D-CSV-5b: QualiaI4Column is the canonical qualia column (8 B/row, i4×16 signed).
+// QualiaColumn (f32, 72 B/row) is deprecated and will be removed in the next
+// major version. Use bs.qualia (now QualiaI4Column) for all new code.
+#[allow(deprecated)]
 pub use bindspace::{BindSpace, BindSpaceBuilder, EdgeColumn, FingerprintColumns,
-                     MetaColumn, QualiaColumn, QualiaI4Column};
+                     MetaColumn, QualiaI4Column,
+                     QualiaColumn}; // deprecated — use QualiaI4Column
 pub use driver::{CognitiveShaderBuilder, ShaderDriver};
 pub use engine_bridge::{
     EngineBusBridge, UnifiedStyle, UNIFIED_STYLES, unified_style,

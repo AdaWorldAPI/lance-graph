@@ -143,6 +143,23 @@ stay as historical references.
 
 ## Entries (reverse chronological)
 
+## 2026-05-16 — E-META-10 (FINDING): v1-API-under-v2-feature alias pattern — systematic layout-bit boundary testing required
+
+**Status (2026-05-16):** PROMOTED to iron rule `I-LEGACY-API-FEATURE-GATED` in CLAUDE.md
+following Wave F Opus honest review recommendation. Original FINDING content preserved
+below for historical context.
+
+**Status:** FINDING (surfaced sprint-11 Wave A codex review; confirmed by W-Meta-Opus sprint-12 Wave F)
+
+**Click:** Sprint-11 Wave A codex P1 review caught the same anti-pattern 5 times in one PR (PR #383): v1 API paths (accessors and setters on `CausalEdge64`) reading or writing OLD bit positions that v2 had reclaimed for plasticity[2], W-slot, lens, and spare. The same function name silently produces different semantics depending on which feature flag is active; downstream callers see corruption only at runtime on workloads that hit the reclaim zone. Wave F Opus meta-review (CSI-2) identified this as a systemic pattern, not a per-site fix.
+
+**Doctrinal claim:** Every v1 API path under a v2-layout feature must transparently route through the canonical mapping OR be feature-gated to a documented no-op with a migration pointer. Field-isolation matrix tests (writing each field, asserting all other fields unchanged) are MANDATORY when a layout reclaims previously-used bits. The codex P1 review is the canonical pre-merge gate for this pattern.
+
+**Cross-ref:** CLAUDE.md §Substrate-level iron rules → I-LEGACY-API-FEATURE-GATED; `.claude/knowledge/i4-substrate-decisions.md` §5 "Codex P1 Anti-Pattern" (5-instance catalogue); `.claude/board/sprint-log-11/meta-review-opus.md` CSI-2; sprint-log-11/meta-review.md E-META-10 original entry.
+
+---
+
+
 ## 2026-05-14 — E-META-7 (FINDING): dual `CausalEdge64` types in workspace + p64 drift origin pinpointed + three-zone hot-path model
 
 **Status:** FINDING (verified 2026-05-14 against shipped source; recorded in PR #372 merge commit `9fa206d`).

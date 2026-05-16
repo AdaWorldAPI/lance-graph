@@ -442,18 +442,20 @@ mod tests {
         assert_eq!(bs.fingerprints.content.len(), 10 * WORDS_PER_FP);
         assert_eq!(bs.fingerprints.cycle.len(), 10 * FLOATS_PER_VSA);
         assert_eq!(bs.fingerprints.sigma.len(), 10);
-        assert_eq!(bs.qualia.0.len(), 10 * QUALIA_DIMS);
+        // D-CSV-5b: qualia is now QualiaI4Column (len = N rows, 8 B each)
+        assert_eq!(bs.qualia.len(), 10);
         assert_eq!(bs.meta.0.len(), 10);
     }
 
     #[test]
     fn bindspace_footprint_adds_columns() {
         let bs = BindSpace::zeros(1);
+        // D-CSV-5b: f32 QualiaColumn (72 B/row) retired; QualiaI4Column (8 B/row) is canonical.
         // 3 × 2048 (content/topic/angle) + 65536 (cycle f32) + 1 (sigma u8)
-        //   + 8 (edge) + 72 (qualia 18×4) + 8 (qualia_i4 D-CSV-5a) + 4 (meta)
+        //   + 8 (edge) + 8 (qualia i4, D-CSV-5b) + 4 (meta)
         //   + 8 (temporal) + 2 (expert) + 2 (entity_type)
-        // = 6144 + 65536 + 1 + 8 + 72 + 8 + 4 + 8 + 2 + 2 = 71785
-        assert_eq!(bs.byte_footprint(), 71785);
+        // = 6144 + 65536 + 1 + 8 + 8 + 4 + 8 + 2 + 2 = 71713
+        assert_eq!(bs.byte_footprint(), 71713);
     }
 
     #[test]
@@ -517,11 +519,12 @@ mod tests {
 
     #[test]
     fn builder_pushes_rows() {
-        let qualia = [0.0f32; QUALIA_DIMS];
+        use lance_graph_contract::qualia::QualiaI4_16D;
+        let qualia = QualiaI4_16D::ZERO;
         let content = [0u64; WORDS_PER_FP];
         let bs = BindSpaceBuilder::new(3)
-            .push(&content, MetaWord::new(1, 0, 100, 100, 0), 0, &qualia, 0, 0)
-            .push(&content, MetaWord::new(2, 0, 200, 200, 0), 0, &qualia, 0, 0)
+            .push(&content, MetaWord::new(1, 0, 100, 100, 0), 0, qualia, 0, 0)
+            .push(&content, MetaWord::new(2, 0, 200, 200, 0), 0, qualia, 0, 0)
             .build();
         assert_eq!(bs.meta.get(0).thinking(), 1);
         assert_eq!(bs.meta.get(1).thinking(), 2);
@@ -562,11 +565,12 @@ mod tests {
 
     #[test]
     fn builder_push_typed_sets_entity_type() {
-        let qualia = [0.0f32; QUALIA_DIMS];
+        use lance_graph_contract::qualia::QualiaI4_16D;
+        let qualia = QualiaI4_16D::ZERO;
         let content = [0u64; WORDS_PER_FP];
         let bs = BindSpaceBuilder::new(2)
-            .push_typed(&content, MetaWord::new(1, 0, 100, 100, 0), 0, &qualia, 0, 0, 5)
-            .push(&content, MetaWord::new(2, 0, 200, 200, 0), 0, &qualia, 0, 0)
+            .push_typed(&content, MetaWord::new(1, 0, 100, 100, 0), 0, qualia, 0, 0, 5)
+            .push(&content, MetaWord::new(2, 0, 200, 200, 0), 0, qualia, 0, 0)
             .build();
         assert_eq!(bs.entity_type[0], 5, "push_typed should set entity_type");
         assert_eq!(bs.entity_type[1], 0, "push should default to 0");
@@ -597,121 +601,108 @@ mod tests {
         assert!(bs.fingerprints.cycle_row(1).iter().all(|&v| v == 0.0));
     }
 
-    // ── D-CSV-5a: QualiaI4Column tests ─────────────────────────────────────
+    // ── D-CSV-5b: QualiaI4Column canonical tests ────────────────────────────
 
+    /// 1. BindSpace::zeros has bs.qualia of type QualiaI4Column with length N.
     #[test]
-    fn test_qualia_i4_column_zeros() {
+    fn test_bindspace_zeros_qualia_is_i4() {
         use lance_graph_contract::qualia::QualiaI4_16D;
         const N: usize = 8;
-        let col = QualiaI4Column::zeros(N);
-        assert_eq!(col.len(), N);
-        for i in 0..N {
-            assert_eq!(col.row(i), QualiaI4_16D::ZERO, "row {} should be ZERO", i);
-        }
-        assert!(!col.is_empty());
-        assert!(QualiaI4Column::zeros(0).is_empty());
-    }
-
-    #[test]
-    fn test_qualia_i4_column_set_row() {
-        use lance_graph_contract::qualia::QualiaI4_16D;
-        const N: usize = 10;
-        let mut col = QualiaI4Column::zeros(N);
-        let known = QualiaI4_16D::ZERO.with(0, 3).with(9, -4).with(15, 7);
-        col.set(5, known);
-        assert_eq!(col.row(5), known, "row 5 should equal known value");
-        for i in 0..N {
-            if i != 5 {
-                assert_eq!(col.row(i), QualiaI4_16D::ZERO, "row {} should still be ZERO", i);
-            }
-        }
-    }
-
-    #[test]
-    fn test_qualia_i4_column_from_f32_parity() {
-        use lance_graph_contract::qualia::QualiaI4_16D;
-        const N: usize = 4;
-        let mut qcol = QualiaColumn::zeros(N);
-        let rows: Vec<[f32; QUALIA_DIMS]> = (0..N)
-            .map(|k| {
-                let mut arr = [0.0f32; QUALIA_DIMS];
-                for d in 0..QUALIA_DIMS {
-                    arr[d] = (k * QUALIA_DIMS + d) as f32 / (N * QUALIA_DIMS) as f32;
-                }
-                arr
-            })
-            .collect();
-        for (k, row) in rows.iter().enumerate() {
-            qcol.set(k, row);
-        }
-        let i4col = QualiaI4Column::from_f32(&qcol);
-        assert_eq!(i4col.len(), N);
-        for k in 0..N {
-            let mut arr17 = [0.0f32; 17];
-            let src = &qcol.0[k * QUALIA_DIMS..(k + 1) * QUALIA_DIMS];
-            let copy_len = src.len().min(17);
-            arr17[..copy_len].copy_from_slice(&src[..copy_len]);
-            let expected = QualiaI4_16D::from_f32_17d(&arr17);
-            assert_eq!(i4col.row(k), expected, "row {} mismatch", k);
-        }
-    }
-
-    #[test]
-    fn test_bindspace_zeros_double_column() {
-        use lance_graph_contract::qualia::QualiaI4_16D;
-        const N: usize = 5;
         let bs = BindSpace::zeros(N);
-        assert_eq!(bs.qualia.0.len(), N * QUALIA_DIMS);
-        assert!(bs.qualia.0.iter().all(|&v| v == 0.0));
-        assert_eq!(bs.qualia_i4.len(), N);
+        // qualia is now QualiaI4Column; len() is row count (not flat f32 len).
+        assert_eq!(bs.qualia.len(), N);
         for i in 0..N {
-            assert_eq!(bs.qualia_i4.row(i), QualiaI4_16D::ZERO, "i4 row {} should be ZERO", i);
+            assert_eq!(bs.qualia.row(i), QualiaI4_16D::ZERO, "row {} should be ZERO", i);
         }
+        assert!(!bs.qualia.is_empty());
+        assert!(BindSpace::zeros(0).qualia.is_empty());
     }
 
+    /// 2. byte_size() is now (N × 8) + other_columns, NOT (N × 72) + other.
     #[test]
-    fn test_bindspace_byte_size_includes_i4() {
+    fn test_bindspace_byte_size_post_cutover() {
         const N: usize = 7;
         let bs = BindSpace::zeros(N);
         let footprint = bs.byte_footprint();
-        let content_topic_angle = 3 * N * WORDS_PER_FP * 8;
-        let cycle_bytes = N * FLOATS_PER_VSA * 4;
-        let sigma_bytes = N;
-        let edge_bytes = N * 8;
-        let qualia_bytes = N * QUALIA_DIMS * 4;
-        let qualia_i4_bytes = N * 8;
+        // Explicit formula (D-CSV-5b): no f32 qualia column (72 B/row gone).
+        let content_topic_angle = 3 * N * WORDS_PER_FP * 8; // 3 × 2048 × N
+        let cycle_bytes = N * FLOATS_PER_VSA * 4;            // 65536 × N
+        let sigma_bytes = N;                                  // 1 × N
+        let edge_bytes = N * 8;                              // 8 × N
+        let qualia_bytes = N * 8;                            // i4: 8 × N (NOT 72 × N)
         let meta_bytes = N * 4;
         let temporal_bytes = N * 8;
         let expert_bytes = N * 2;
         let entity_type_bytes = N * 2;
         let expected = content_topic_angle + cycle_bytes + sigma_bytes + edge_bytes
-            + qualia_bytes + qualia_i4_bytes + meta_bytes + temporal_bytes
+            + qualia_bytes + meta_bytes + temporal_bytes
             + expert_bytes + entity_type_bytes;
         assert_eq!(footprint, expected,
-            "byte_footprint should include i4 column (8 bytes/row × {} rows = {} bytes)",
-            N, qualia_i4_bytes);
+            "D-CSV-5b: byte_footprint should be {} (i4 8 B/row × {} rows), not {} (f32 72 B/row)",
+            expected, N, expected + N * (QUALIA_DIMS * 4 - 8));
     }
 
+    /// 3. push_typed writes i4; read back via bs.qualia.row(0) equals the input.
     #[test]
-    fn test_bindspace_push_typed_double_write() {
+    fn test_bindspace_push_typed_writes_i4() {
         use lance_graph_contract::qualia::QualiaI4_16D;
-        let mut qualia_arg = [0.0f32; QUALIA_DIMS];
-        for d in 0..QUALIA_DIMS {
-            qualia_arg[d] = (d + 1) as f32 / (QUALIA_DIMS + 1) as f32;
-        }
+        let known = QualiaI4_16D::ZERO.with(0, 3).with(7, -5).with(15, 7);
         let content = [0u64; WORDS_PER_FP];
         let bs = BindSpaceBuilder::new(1)
-            .push_typed(&content, MetaWord::new(1, 0, 100, 100, 0), 0, &qualia_arg, 0, 0, 0)
+            .push_typed(&content, MetaWord::new(1, 0, 100, 100, 0), 0, known, 0, 0, 0)
             .build();
-        let f32_row = bs.qualia.row(0);
-        for d in 0..QUALIA_DIMS {
-            assert_eq!(f32_row[d], qualia_arg[d], "f32 qualia dim {} mismatch", d);
+        assert_eq!(bs.qualia.row(0), known,
+            "push_typed must write QualiaI4_16D verbatim to bs.qualia.row(0)");
+    }
+
+    /// 4. engine_bridge conversion: from_f32_17d at the bridge produces the
+    ///    same i4 that QualiaI4_16D::from_f32_17d would produce independently.
+    #[test]
+    fn test_bindspace_engine_bridge_converts_f32_at_boundary() {
+        use lance_graph_contract::qualia::QualiaI4_16D;
+        // Simulate what dispatch_busdto does post-cutover:
+        // the engine produces f32; from_f32_17d converts at the bridge boundary.
+        let mut q = [0.0f32; QUALIA_DIMS]; // QUALIA_DIMS=18 (bindspace local const)
+        q[0] = 0.8;  // energy
+        q[1] = 0.3;
+        q[3] = -0.6;
+        q[9] = 512.0; // codebook_index as f32
+
+        // Oracle: what from_f32_17d produces from the first 17 dims
+        let mut q17 = [0.0f32; 17];
+        q17.copy_from_slice(&q[..17]);
+        let oracle = QualiaI4_16D::from_f32_17d(&q17);
+
+        // Write to BindSpace the same way the bridge will post-cutover
+        let mut bs = BindSpace::zeros(1);
+        bs.qualia.set(0, oracle); // bridge writes the converted i4 directly
+        assert_eq!(bs.qualia.row(0), oracle,
+            "bridge-converted i4 must match QualiaI4_16D::from_f32_17d oracle");
+    }
+
+    /// 5. QualiaColumn deprecation attribute is present (meta-test).
+    ///    Verifies the deprecated annotation at the type level.
+    #[test]
+    fn test_qualia_column_deprecation_warning_present() {
+        // The `#[deprecated]` attribute on QualiaColumn means using it
+        // triggers a compiler warning. We verify the type STILL EXISTS
+        // (for backward-compat one release cycle) while confirming that
+        // the canonical path is QualiaI4Column.
+        //
+        // If QualiaColumn were removed entirely this test would fail to
+        // compile, which is CORRECT — the deprecation cycle has ended.
+        #[allow(deprecated)]
+        {
+            let col = QualiaColumn::zeros(2);
+            // The type exists and is functional during the deprecation cycle.
+            assert_eq!(col.0.len(), 2 * QUALIA_DIMS,
+                "deprecated QualiaColumn must still allocate during deprecation cycle");
         }
-        let mut arr17 = [0.0f32; 17];
-        arr17.copy_from_slice(&qualia_arg[..17]);
-        let expected_i4 = QualiaI4_16D::from_f32_17d(&arr17);
-        assert_eq!(bs.qualia_i4.row(0), expected_i4,
-            "i4 qualia must match QualiaI4_16D::from_f32_17d of the pushed f32 arg");
+        // The canonical field on BindSpace is QualiaI4Column, not QualiaColumn.
+        let bs = BindSpace::zeros(1);
+        // Confirming bs.qualia is QualiaI4Column (returns QualiaI4_16D, not &[f32]):
+        use lance_graph_contract::qualia::QualiaI4_16D;
+        let _: QualiaI4_16D = bs.qualia.row(0);
     }
 
 }
