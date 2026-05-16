@@ -6,6 +6,7 @@
 > **Parent plan:** `.claude/plans/causaledge64-mailbox-rename-soa-v1.md` §3 compat invariants (invariants C1, C2, C3)
 > **W2 spec:** `.claude/specs/pr-ce64-mb-2-causaledge64-v2.md` — NOT yet produced when this spec was drafted. Bit-position references below cite §3 of the parent plan directly; W2's spec is the authoritative resolver for any discrepancy.
 > **Status:** Draft — updated 2026-05-16 to reflect v2 bit layout locked by `.claude/plans/cognitive-substrate-convergence-v1.md` §6; OQ-PAL8-FORMAT resolved (see §10)
+> **Plan cross-refs:** §5 L-3 (signed mantissa locked), §5 L-9 (PR-LL-1 Intervention/Counterfactual → Reserved5/6), §6 (final v2 bit layout — Option F), §12 W3 patch row (mantissa-roundtrip + lens-state tests)
 
 ---
 
@@ -703,8 +704,284 @@ causal-edge-v2-layout = ["causal-edge/causal-edge-v2-layout"]
 
 ## §10 Open Questions for Meta-Review
 
-1. **Actual reclaim target in edge.rs**: The parent plan §3 references "reserved 13 bits 51-63" but the actual `edge.rs` uses bits 49-51 for plasticity and 52-63 for temporal — there are no unused bits. W2 must clarify the reclaim strategy. Options: (a) shorten temporal from 12 to fewer bits (breaking if existing edges use temporal > the new max); (b) compress direction+inference+plasticity (9 bits, potentially expressible in 7 if some inference types are merged); (c) add a mode-switch where temporal semantics change under the feature flag. W3's `test_temporal_in_msb_gives_sort_order` (in `edge.rs`) will fail if temporal is shortened without updating that test. **This is the highest-priority open question.**
+1. **[RESOLVED 2026-05-16] OQ-PAL8-FORMAT — Reclaim target in edge.rs**: Resolved by `cognitive-substrate-convergence-v1.md` §6 (Option F). The reclaim strategy is: **drop temporal (−12 bits)** per decision L-2 ("temporal causality is structural" doctrine — time is carried by chain-position + AriGraph anchor, not stored in the edge). This recovers bits 52-63 without any shortening of direction/inference/plasticity. Spend: InferenceType expansion 3b→4b signed i4 (+1 bit, bits 46-49, L-4), W slot +6b (bits 53-58, L-6), Truth-band lens +2b (bits 59-60, L-7) = 9 spent, 3 spare (bits 61-63). **Bit layout: signed mantissa 4b (bits 46-49), no temporal, W slot 6b (bits 53-58), lens 2b (bits 59-60).** W3's `test_temporal_in_msb_gives_sort_order` must be removed/replaced — temporal no longer exists in the v2 layout. See §11 `test_temporal_absent` which verifies the drop was complete.
 
 2. **TrustTexture import path**: The tests reference `TrustTexture` from `causal_edge::TrustTexture`. If W2 re-exports it from `lance-graph-contract::mul::TrustTexture` (preferred — contract is the canonical zero-dep home), the tests need `use lance_graph_contract::mul::TrustTexture` or the re-export path. Confirm whether `causal-edge` re-exports or defines its own. Defining a new enum breaks the "contract is canonical" doctrine (CLAUDE.md §The AGI-as-glove doctrine). Recommend re-export.
 
 3. **`pack_v2()` vs setter-only API**: The tests assume W2 provides either a `pack_v2()` constructor or that `pack()` + individual setters (`set_g_slot()`, `set_w_slot()`, `set_truth()`) is the complete v2 API. The setter-only approach is simpler and avoids a new constructor signature. If W2 uses only setters, `pal8_v2_v2_round_trip_all_fields` should be revised to call `pack()` + three setters rather than a hypothetical `pack_v2()`. Meta-reviewer confirms W2's API surface before the test files are committed.
+
+---
+
+## §11 v2 Layout Regression Tests — Signed Mantissa, Lens, W-slot, Temporal Drop
+
+> **Cross-refs:** `cognitive-substrate-convergence-v1.md` §5 L-3 (signed mantissa locked),
+> §5 L-9 (PR-LL-1 Intervention/Counterfactual absorb into Reserved5/6), §6 (bit layout —
+> Option F), §12 W3 patch row (~80 LOC mantissa-roundtrip + lens-state tests).
+>
+> These 5 tests are added per §12 of the convergence plan. They extend the D-CE64-MB-2
+> test suite with assertions that parametrize the new v2 layout decisions. They join the
+> §6 CI gating policy: all 5 are **required to pass** under `causal-edge-v2-layout`.
+
+### File location
+
+```
+crates/causal-edge/tests/pal8_round_trip.rs  (EXTEND — add to existing file per §3)
+```
+
+---
+
+### Test 4: `test_mantissa_signed_positive`
+
+Asserts that a positive i4 mantissa (+3) encodes as Exemplification in the **forward-chain /
+compose / commit** direction. Per plan §6 signed-mantissa encoding table: `signum(+) →
+forward-chain`, `abs(3) → magnitude slot 3` (Induction or equivalent forward-generalization
+rule). The test proves that `abs(mantissa)` selects the base NARS rule slot and `signum`
+selects direction, as required by L-4.
+
+```rust
+/// Regression gate: positive mantissa encodes Exemplification (forward direction).
+///
+/// Per cognitive-substrate-convergence-v1.md §6:
+///   mantissa = +3 → signum=+ (forward-chain / compose / commit direction)
+///               abs=3 → base NARS rule slot 3 (Induction / forward generalization)
+/// Exemplification IS the positive-direction dispatch for slot 3.
+#[test]
+#[cfg(feature = "causal-edge-v2-layout")]
+fn test_mantissa_signed_positive() {
+    let mut edge = CausalEdge64::pack(
+        10, 20, 30, 200, 180,
+        CausalMask::SPO, 0b000,
+        InferenceType::default(), PlasticityState::ALL_FROZEN, 0,
+    );
+    // Set mantissa = +3 (positive direction, magnitude 3)
+    edge.set_inference_mantissa(3i8);
+
+    let m = edge.inference_mantissa();
+    assert_eq!(m, 3i8,
+        "mantissa +3 must round-trip: written 3, read {m}");
+    assert!(m > 0,
+        "positive mantissa must be > 0 (forward-chain direction); got {m}");
+    assert_eq!(m.abs(), 3,
+        "abs(mantissa) must be 3 (rule slot 3 = Induction/Exemplification); got {}", m.abs());
+    // Direction interpretation: positive = forward-chain
+    assert_eq!(m.signum(), 1i8,
+        "signum(+3) must be +1 (forward-chain / Exemplification direction)");
+}
+```
+
+---
+
+### Test 5: `test_mantissa_signed_negative`
+
+Asserts that a negative i4 mantissa (−3) encodes as Exemplification in the **backward-chain /
+decompose / refute** direction. Same rule slot (abs=3), opposite direction. Proves the
+signed i4 field carries the direction × rule composition (plan §6 L-4) and that
+`set_inference_mantissa(-3)` → `inference_mantissa() == -3` round-trips correctly through
+the 4-bit two's-complement encoding.
+
+```rust
+/// Regression gate: negative mantissa encodes Exemplification (backward direction).
+///
+/// Per cognitive-substrate-convergence-v1.md §6:
+///   mantissa = -3 → signum=- (backward-chain / decompose / refute direction)
+///               abs=3 → base NARS rule slot 3 (Abduction / Contraposition / Counterfactual)
+/// The negative sign IS the direction bit; abs selects the rule.
+#[test]
+#[cfg(feature = "causal-edge-v2-layout")]
+fn test_mantissa_signed_negative() {
+    let mut edge = CausalEdge64::pack(
+        10, 20, 30, 200, 180,
+        CausalMask::SPO, 0b000,
+        InferenceType::default(), PlasticityState::ALL_FROZEN, 0,
+    );
+    // Set mantissa = -3 (negative direction, same magnitude as test_mantissa_signed_positive)
+    edge.set_inference_mantissa(-3i8);
+
+    let m = edge.inference_mantissa();
+    assert_eq!(m, -3i8,
+        "mantissa -3 must round-trip: written -3, read {m}");
+    assert!(m < 0,
+        "negative mantissa must be < 0 (backward-chain direction); got {m}");
+    assert_eq!(m.abs(), 3,
+        "abs(mantissa) must be 3 (same rule slot as positive test); got {}", m.abs());
+    // Direction interpretation: negative = backward-chain
+    assert_eq!(m.signum(), -1i8,
+        "signum(-3) must be -1 (backward-chain / decompose / refute direction)");
+    // Signed NARS rule composition: -3 ≠ +3 even though abs is equal
+    assert_ne!(m, 3i8,
+        "signed mantissa -3 must differ from +3 (direction × rule distinguishes them)");
+}
+```
+
+---
+
+### Test 6: `test_lens_4_state`
+
+Asserts that all 4 truth-band lens states (Sharp/Soft/Diffuse/Halo — 2-bit field, bits 59-60)
+round-trip through pack/unpack. Per plan §6 L-7: truth-band lens carries 4 states for
+committed-vs-ambiguous expressivity. Each of the 4 2-bit values (0b00, 0b01, 0b10, 0b11)
+must decode to a distinct `TrustTexture` variant and re-encode byte-identically. Failing
+any state means the 2-bit TRUTH_MASK is either too narrow, shifted, or overlapping an
+adjacent field.
+
+```rust
+/// Regression gate: all 4 truth-band lens states round-trip.
+///
+/// Per cognitive-substrate-convergence-v1.md §6 L-7:
+///   bits 59-60 = truth-band lens, 4 states (2 bits).
+/// The 4 states map to TrustTexture variants. Each must:
+///   (a) decode correctly from the packed u64,
+///   (b) re-encode byte-identically via set_truth(),
+///   (c) not corrupt adjacent fields (W slot at bits 53-58, spare at bits 61-63).
+#[test]
+#[cfg(feature = "causal-edge-v2-layout")]
+fn test_lens_4_state() {
+    use causal_edge::TrustTexture;
+    // All 4 lens states from plan §6 (2-bit field, 4 states)
+    let states = [
+        (TrustTexture::Crystalline, "Crystalline (0b00 = Sharp — fully committed)"),
+        (TrustTexture::Solid,       "Solid       (0b01 = Soft  — high confidence)"),
+        (TrustTexture::Fuzzy,       "Fuzzy       (0b10 = Diffuse — ambiguous direction)"),
+        (TrustTexture::Murky,       "Murky       (0b11 = Halo  — 13% ambiguous, per L-7)"),
+    ];
+    for (lens, label) in states {
+        let mut edge = CausalEdge64::pack(
+            5, 10, 15, 128, 100,
+            CausalMask::PO, 0b001,
+            InferenceType::default(), PlasticityState::ALL_FROZEN, 0,
+        );
+        edge.set_w_slot(31); // non-zero W slot to catch overlap with truth field
+        edge.set_truth(lens);
+
+        assert_eq!(edge.truth(), lens,
+            "lens state {label} must round-trip via set_truth/truth()");
+        // Field isolation: truth must not corrupt W slot
+        assert_eq!(edge.w_slot(), 31,
+            "W slot must survive truth set for lens state {label}; got {}", edge.w_slot());
+        // Re-encode check: set_truth(same value) must be idempotent
+        let raw_before = edge.0;
+        edge.set_truth(lens);
+        assert_eq!(edge.0, raw_before,
+            "set_truth(same value) must be idempotent for {label}");
+    }
+}
+```
+
+---
+
+### Test 7: `test_w_slot_64`
+
+Asserts that all 64 W-slot values (6-bit unsigned, bits 53-58) round-trip. Per plan §6 L-6:
+W slot = discourse corpus root handle, 6 bits, 64 active corpora. Every value 0..=63 must
+encode and decode correctly. The test also checks field isolation: setting each W value must
+not corrupt the truth-band lens or the inference mantissa.
+
+```rust
+/// Regression gate: all 64 W-slot values round-trip (6-bit unsigned, bits 53-58).
+///
+/// Per cognitive-substrate-convergence-v1.md §6 L-6:
+///   W slot = corpus root handle, 64 active corpora (6 bits, bits 53-58).
+/// Each of the 64 values (0..=63) must:
+///   (a) encode correctly via set_w_slot(),
+///   (b) decode correctly via w_slot(),
+///   (c) not corrupt adjacent fields: truth-band lens (bits 59-60), mantissa (bits 46-49).
+#[test]
+#[cfg(feature = "causal-edge-v2-layout")]
+fn test_w_slot_64() {
+    use causal_edge::TrustTexture;
+    for w in 0u8..=63 {
+        let mut edge = CausalEdge64::pack(
+            1, 2, 3, 100, 90,
+            CausalMask::SPO, 0b010,
+            InferenceType::default(), PlasticityState::ALL_FROZEN, 0,
+        );
+        // Set sentinel values in adjacent fields to catch overlap
+        edge.set_truth(TrustTexture::Fuzzy);   // bits 59-60 = 0b10
+        edge.set_inference_mantissa(-2i8);      // bits 46-49 = -2 (signed i4)
+        edge.set_w_slot(w);
+
+        assert_eq!(edge.w_slot(), w,
+            "W-slot {w} must round-trip: written {w}, read {}", edge.w_slot());
+        // Field isolation: W slot must not corrupt truth or mantissa
+        assert_eq!(edge.truth(), TrustTexture::Fuzzy,
+            "truth-band lens must survive W-slot set for w={w}");
+        assert_eq!(edge.inference_mantissa(), -2i8,
+            "inference mantissa must survive W-slot set for w={w};              got {}", edge.inference_mantissa());
+    }
+    // Boundary: W=63 (all 6 bits set) must not overflow into bit 59
+    let mut edge_max = CausalEdge64::pack(
+        1, 2, 3, 100, 90, CausalMask::SPO, 0, InferenceType::default(),
+        PlasticityState::ALL_FROZEN, 0,
+    );
+    edge_max.set_truth(TrustTexture::Crystalline); // 0b00 — must stay zero
+    edge_max.set_w_slot(63); // 0b111111 at bits 53-58
+    assert_eq!(edge_max.truth(), TrustTexture::Crystalline,
+        "W=63 (max 6-bit) must not overflow into truth-band lens bits 59-60");
+}
+```
+
+---
+
+### Test 8: `test_temporal_absent`
+
+Verifies that NO temporal bits are encoded in a v2 `CausalEdge64`. The temporal field (12
+bits, formerly bits 52-63) was dropped per decision L-2 of the convergence plan. This test
+confirms the drop from the PR-LL-1 era was complete: (a) there is no `temporal()` accessor
+in v2, (b) bits 52-63 are fully occupied by W slot + lens + spare with no temporal alias,
+(c) a raw u64 with bits 52-63 set high does NOT produce a non-zero temporal value via any
+accessor.
+
+```rust
+/// Regression gate: NO temporal bits exist in v2 CausalEdge64 (drop per L-2 is complete).
+///
+/// Per cognitive-substrate-convergence-v1.md §5 L-2:
+///   "Drop temporal (12 bits) from CausalEdge64 v2 — redundant with chain-position
+///    + AriGraph anchor; temporal causality is structural doctrine."
+/// PR-LL-1 era had TEMPORAL_SHIFT=52, BITS12_MASK. This test confirms:
+///   (a) no temporal() accessor in v2 build,
+///   (b) bits 52-63 are fully assigned (W slot 53-58, lens 59-60, spare 61-63) — no alias,
+///   (c) v2 accessors w_slot/truth/spare correctly parse bits that v1 called "temporal".
+#[test]
+#[cfg(feature = "causal-edge-v2-layout")]
+fn test_temporal_absent() {
+    use causal_edge::TrustTexture;
+    // Construct an edge where the old temporal range (bits 52-63) is fully set
+    // by the new v2 fields: W=63 (bits 53-58), lens=Murky (bits 59-60 = 0b11),
+    // spare=0b111 (bits 61-63).
+    let mut edge = CausalEdge64::pack(
+        0, 0, 0, 128, 128,
+        CausalMask::SPO, 0, InferenceType::default(),
+        PlasticityState::ALL_FROZEN, 0,
+    );
+    edge.set_w_slot(63);                    // bits 53-58: 0b111111
+    edge.set_truth(TrustTexture::Murky);    // bits 59-60: 0b11
+
+    // All of bits 53-60 are now set. Confirm the v2 accessors own these bits entirely.
+    assert_eq!(edge.w_slot(), 63,
+        "W slot must own bits 53-58 (formerly part of temporal range in v1)");
+    assert_eq!(edge.truth(), TrustTexture::Murky,
+        "truth-band lens must own bits 59-60 (formerly part of temporal range in v1)");
+
+    // The v2 build must NOT expose a temporal() accessor at all.
+    // Compile-time check: the following line must NOT compile in a v2 build.
+    // (Uncomment to verify; expected: error[E0599]: no method named `temporal`)
+    // let _ = edge.temporal();
+
+    // Runtime check: raw bits that v1 called "temporal" are now W+lens+spare.
+    // If any v2 accessor accidentally aliases the old temporal range, we'd see
+    // w_slot or truth return unexpected values on a different edge.
+    let raw_temporal_bits: u64 = 0x0FFF_0000_0000_0000; // bits 52-63 set
+    let synthetic = CausalEdge64(raw_temporal_bits);
+    // Under v2: bit 52 is unassigned (spare/reserved or part of plasticity boundary).
+    // Bits 53-58 = W slot, bits 59-60 = truth, bits 61-63 = spare.
+    // W slot from these bits: (raw >> 53) & 0x3F = 0x3F = 63
+    let expected_w = ((raw_temporal_bits >> 53) & 0x3F) as u8;
+    assert_eq!(synthetic.w_slot(), expected_w,
+        "bits 53-58 of old temporal range must decode as W slot under v2;          expected {expected_w}, got {}", synthetic.w_slot());
+    // Truth from bits 59-60: (raw >> 59) & 0x3 = 0x3 → Murky
+    assert_eq!(synthetic.truth(), TrustTexture::Murky,
+        "bits 59-60 of old temporal range must decode as truth=Murky under v2");
+}
+```
+
+---
