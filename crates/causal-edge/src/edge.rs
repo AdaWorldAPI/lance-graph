@@ -419,14 +419,45 @@ impl CausalEdge64 {
     )]
     #[inline(always)]
     pub fn inference_type(self) -> InferenceType {
-        InferenceType::from_bits(((self.0 >> INFER_SHIFT) & BITS3_MASK) as u8)
+        // v2: bits 46-49 hold a 4-bit signed mantissa. Route through from_mantissa
+        // so the v1 API contract is preserved semantically — pack(X).inference_type()
+        // round-trips to X for all v1 enum variants via the to_mantissa/from_mantissa
+        // pair (e.g. Intervention → +6 → Intervention, Counterfactual → −6 →
+        // Counterfactual, Abduction → −1 → Abduction). Reading the raw 3-bit field
+        // (the v1 layout) would silently swap variants under v2 because the
+        // discriminant numbering does not match the mantissa encoding.
+        #[cfg(feature = "causal-edge-v2-layout")]
+        {
+            // inference_mantissa() reads the 4-bit signed field via arithmetic shift
+            // sign-extension.
+            let raw = ((self.0 >> INFER_SHIFT) & 0xF) as i8;
+            let m = (raw << 4) >> 4; // sign-extend 4-bit → i8
+            InferenceType::from_mantissa(m)
+        }
+        #[cfg(not(feature = "causal-edge-v2-layout"))]
+        {
+            InferenceType::from_bits(((self.0 >> INFER_SHIFT) & BITS3_MASK) as u8)
+        }
     }
 
     /// Set inference type.
+    ///
+    /// **v2 behavior:** writes via `t.to_mantissa()` into the 4-bit signed field
+    /// (bits 46-49) so that `inference_type()` round-trips. Writing the raw v1
+    /// discriminant into 3 bits would silently corrupt the semantic (e.g.
+    /// Counterfactual=6 stored as +6 mantissa → from_mantissa(+6)=Intervention).
     #[inline]
     pub fn set_inference_type(&mut self, t: InferenceType) {
-        self.0 = (self.0 & !(BITS3_MASK << INFER_SHIFT))
-            | (((t as u8 as u64) & BITS3_MASK) << INFER_SHIFT);
+        #[cfg(feature = "causal-edge-v2-layout")]
+        {
+            let raw = (t.to_mantissa() as u8) as u64 & 0xF;
+            self.0 = (self.0 & !(0xF << INFER_SHIFT)) | (raw << INFER_SHIFT);
+        }
+        #[cfg(not(feature = "causal-edge-v2-layout"))]
+        {
+            self.0 = (self.0 & !(BITS3_MASK << INFER_SHIFT))
+                | (((t as u8 as u64) & BITS3_MASK) << INFER_SHIFT);
+        }
     }
 
     // ─── Plasticity ─────────────────────────────────────────────────
