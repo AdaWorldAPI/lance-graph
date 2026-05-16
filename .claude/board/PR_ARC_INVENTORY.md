@@ -35,6 +35,372 @@
 
 ---
 
+## #390 — impl(sprint-12/wave-G): D-CSV-5b cutover + D-CSV-6b WitnessCorpus index + D-CSV-13 batch + D-CSV-15 Jirak math (in PR)
+
+**Status:** In PR (branch `claude/sprint-12-wave-g-fleet`, HEAD `bad0875`, awaiting user merge). 6 commits on the branch: `7d7b537` WIP snapshot → `03ce219` W-G3 + W-G5 + W-G6 + W-G1 partial → `291878f` W-G1 driver.rs + W-G2 refinement + W-G4 Σ10 → `67c2ca8` W-G1 cutover finalization + W-G4 Jirak math correction → `4d429e3` W-Meta-Opus honest review (grade A−) + CSI-15 rename → `bad0875` cargo fmt rustfmt 1.95 CI gate.
+
+**Confidence (2026-05-16):** Wave G grade **A−** per W-Meta-Opus honest review. Six Sonnet workers, six in-lane deliveries, three Wave F debt items actively repaired (TD-SHADER-DRIVER-WORKSPACE-CONFLICT-1 via W-G6, E-META-10 promotion via W-G5, D-CSV-5b cutover via W-G1). The Jirak math correction (W-G4) is the standout: the worker noticed the brief was inverted ("p ≥ 4 collapses linear" was wrong; the correct Jirak 2016 statement is `n^(p/2-1)` for `p ∈ (2,3]` and `n^(-1/2)` in L^q for `p ≥ 4`), consulted CLAUDE.md's own iron rule I-NOISE-FLOOR-JIRAK, derived `Σ_k = k^(p/2) / 10^(p/2)` normalized so Σ10 = 1.0 exactly, and shipped it with 8 new tests. That is exactly the consult-don't-guess discipline this workspace's CCA2A pattern is meant to produce. Net Wave G: +28 unit tests toward the sprint-10 1550 Miri target. Two soft findings (CSI-15 naming pre-commitment for `CamPqWitnessIndex` → `WitnessIndexHashMap` rename queued sprint-13; CSI-18 iron-rules doctrine consolidation deferred) are sprint-13 housekeeping, not Wave G failures. `4d429e3` includes the rename to `WitnessIndexHashMap` per CSI-15.
+
+**Added:**
+
+- **W-G1 D-CSV-5b QualiaColumn cutover** in `crates/cognitive-shader-driver/`:
+  - `bindspace.rs`: `BindSpace.qualia` field renamed → `qualia_i4`; new BindSpaceBuilder paths convert via `QualiaI4_16D::from_f32_17d`; legacy `QualiaColumn` (Box<[f32]>) marked `#[deprecated(since = "0.2.0", note = "use QualiaI4Column directly; this f32 column was retired in D-CSV-5b cutover")]`; migration helper `QualiaI4Column::from_f32(&QualiaColumn) -> Self`. 18 tests (was 13 pre-cutover; +5 D-CSV-5b tests). All non-test/non-comment QualiaColumn references in deprecation context.
+  - `engine_bridge.rs`: `dispatch_busdto`, `write_qualia_observed`, `read_qualia_decomposed` all convert at boundary via `.to_f32_17d()` / `from_f32_17d()` — no leftover live f32 qualia writes. 10 tests.
+  - `driver.rs`: qualia reads converted at the call site; `alpha_composite` `hit_qualia_f32` pre-materialized for closure lifetime. 13 tests.
+- **W-G2 D-CSV-6b WitnessCorpus CAM-PQ HashMap surface** in `crates/lance-graph/src/graph/arigraph/witness_corpus.rs` (+422/-LOC delta in PR):
+  - `CamPqWitnessIndex` type (renamed to `WitnessIndexHashMap` in commit `4d429e3` per CSI-15) backed by `HashMap<u64, Vec<usize>>` (packed SPO → entry positions). API: `iter`, `query`, `cam_pq_search(spo, k)` (returns first k entries in chain order; no distance ranking — sprint-13+ when ndarray's codec lands), `evict_stale_before`, Arc-CoW via `Arc::make_mut`.
+  - Module registered in `arigraph/mod.rs` (`pub mod witness_corpus; pub use witness_corpus::{WitnessIndexHashMap, WitnessCorpus, WitnessEntry, WitnessId};`). 15 tests.
+- **W-G3 D-CSV-13 batch i4 evaluation API** in `crates/lance-graph-contract/src/mul.rs` (+219 LOC):
+  - 5 batch functions taking parallel `&[A]`, `&[B]`, `&mut [C]` slices with two length asserts each: `dk_position_batch`, `trust_texture_batch` (one assert — qualia-only by design), `flow_state_batch`, `gate_decision_batch`, `mul_assess_batch`. Plus `mul_assess_vec` convenience wrapper (allocates output; one assert). Zero allocations in the 5 hot-path batch functions. 8 tests (6 batch parity + 1 length-mismatch panic + 1 empty-input).
+- **W-G4 D-CSV-15 Σ-tier Jirak threshold** in `crates/sigma-tier-router/src/lib.rs` (+320 LOC delta in PR):
+  - `Default::default()` now returns Jirak-derived bands: `Σ_k = k^(p/2) / 10^(p/2)` with p=3, normalized so Σ10 = 1.0 exactly. Spot-check verified: Σ1 ≈ 0.031623, Σ5 ≈ 0.353553, Σ10 = 1.0.
+  - Hand-tuned linear values preserved as `SigmaTierBands::hand_tuned()` for backwards comparison.
+  - 12 pre-existing tests use `default_bands()` (now `#[deprecated]`) under `#[allow(deprecated)]`. 8 new Jirak tests = 20 total.
+  - Jirak 2016 citation (arxiv 1606.01617) in both module-level doc comment (line 16) and `jirak_p` method doc comment (line 100).
+- **W-G5 I-LEGACY-API-FEATURE-GATED iron-rule promotion** in `CLAUDE.md` (+63 LOC):
+  - CLAUDE.md now has FOUR iron rules: I-SUBSTRATE-MARKOV + I-NOISE-FLOOR-JIRAK + I-VSA-IDENTITIES + I-LEGACY-API-FEATURE-GATED (this PR). The new rule specifies the 5 codex P1 catches by number, mandates field-isolation matrix tests at layout-bit boundaries, and points to E-META-10 + CSI-2 + the i4-substrate-decisions knowledge doc.
+  - EPIPHANIES.md E-META-10 marked "PROMOTED to iron rule" in **Status (2026-05-16):** line — append-only discipline preserved.
+  - `TECH_DEBT.md` TD-LEGACY-API-FEATURE-GATED-RESOLVED-1 entry at the top, marking the resolution chain.
+- **W-G6 TD-SHADER-DRIVER-WORKSPACE-CONFLICT-1 fix** in `Cargo.toml` (+3/-1 LOC):
+  - Moved `crates/cognitive-shader-driver` from `exclude` to `members` with comment citing the TD ticket. Unblocks `cargo build -p cognitive-shader-driver` from workspace root.
+- **W-Meta-Opus honest review** at `.claude/board/sprint-log-11/meta-review-opus-wave-g.md` (180 lines): per-worker grades, CSI-14..18 cross-cutting findings, sprint-13 pre-spawn checklist (CSI-15 rename + CSI-7 follow-through + CSI-9 cross-repo + CSI-18 doctrine doc).
+
+**Locked:**
+
+- **D-CSV-5b cutover COMPLETE in cognitive-shader-driver**: `BindSpace.qualia_i4` is the canonical column. `QualiaColumn` (f32) is `#[deprecated]` with migration pointer. External-crate references (lance_graph_ontology, lance_graph_callcenter) are doc-only.
+- **D-CSV-6b WitnessCorpus index surface = HashMap, named `WitnessIndexHashMap`** post-CSI-15 rename. The CAM-PQ name is reserved for sprint-13+ when `ndarray::hpc::cam_pq` adds SPO witness-tuple support. CSI-15 = positive example of "rename before consumers attach is cheaper than after."
+- **D-CSV-13 batch API contract locked**: 5 `_batch` functions with two-assert discipline + 1 `_vec` convenience wrapper. AVX-512/NEON intrinsics queued sprint-13. Zero allocations in batch hot path.
+- **I-LEGACY-API-FEATURE-GATED iron rule**: v1 API paths under v2-layout features must route through canonical mapping or feature-gate to no-op with migration pointer. Field-isolation matrix tests are mandatory at layout-bit boundaries. Codified discipline, not opinion.
+- **Sigma-tier bands are Jirak-derived by default**: hand-tuned values relegated to `SigmaTierBands::hand_tuned()` namespace. Resolves OQ-CSV-6 (Jirak threshold ratification) and TD-SIGMA-TIER-THRESHOLDS-1.
+- **cognitive-shader-driver workspace conflict RESOLVED**: crate is in `members` list, no longer in `exclude`. Cargo -p works. Sister fix for sigma-tier-router (CSI-7 from Wave F) still queued separately.
+- **Meta-pattern (CSI-18)**: all four iron rules formalize "no silent drift across axis X" — substrate operator (Markov) / statistical model (Jirak) / data semantics (VSA-Identities) / API version (Legacy-API). Sprint-13 doctrinal worker should consolidate to `.claude/knowledge/iron-rules-doctrine.md`.
+
+**Deferred:**
+
+- **CSI-7 sigma-tier-router workspace fix** (sister to W-G6 but for sigma-tier-router; ~3 LOC) — sprint-13 pre-spawn hygiene.
+- **CSI-9 ndarray cross-repo PR** (register `qualia` + `splat_field` in `/home/user/ndarray/src/hpc/stream/mod.rs`; ~4 LOC) — blocker on D-CSV-11 productization; requires AdaWorldAPI/ndarray upstream coordination.
+- **CSI-18 iron-rules-doctrine knowledge doc** (~250 LOC) — sprint-13 anchor for doctrinal worker.
+- **Real CAM-PQ codec wiring** (sprint-13+ dependency on upstream ndarray work; `WitnessIndexHashMap` is the placeholder surface until then).
+- **D-CSV-13 SIMD intrinsic backing** (AVX-512 + NEON; ~150-300 LOC per ISA) — sprint-13.
+- **D-CSV-14 on-Think method migration** + **D-CSV-15 full VAMPE coupled-revival** — sprint-13+.
+
+**Docs:**
+
+- `.claude/board/sprint-log-11/meta-review-opus-wave-g.md` — 180-line W-Meta-Opus honest cross-cutting review, CSI-14..18, per-worker grades, sprint-13 pre-spawn checklist.
+- `CLAUDE.md` Substrate-level iron rules section — I-LEGACY-API-FEATURE-GATED added as fourth rule (sibling to I-SUBSTRATE-MARKOV / I-NOISE-FLOOR-JIRAK / I-VSA-IDENTITIES).
+- `.claude/board/EPIPHANIES.md` — E-META-10 Status line updated to "PROMOTED to iron rule".
+- `.claude/board/TECH_DEBT.md` — TD-LEGACY-API-FEATURE-GATED-RESOLVED-1 added.
+
+**Cross-refs:** `cognitive-substrate-convergence-v2.md` §11 D-CSV-5b/6b/13/15 rows; sprint-log-11/meta-review.md + meta-review-opus.md (Wave F predecessors); sprint-log-11/meta-review-opus-wave-g.md (this wave); EPIPHANIES E-META-10 PROMOTED; TYPE_DUPLICATION_MAP `WitnessIndexHashMap` entry; CSI-14 (W-G1 deprecation discipline OK) / CSI-15 (rename CamPqWitnessIndex → WitnessIndexHashMap) / CSI-16 (W-G3 batch API discipline OK) / CSI-17 (W-G4 Jirak spec error corrected by consult-don't-guess) / CSI-18 (four-iron-rule meta-pattern, sprint-13 doctrine).
+
+---
+
+## #389 — fix(sprint-12/wave-F): codex P2 — AttentionMaskBackend impl + canonical MailboxId import (merged 2026-05-16)
+
+**Confidence (2026-05-16):** Single-commit follow-up PR to resolve the two codex P2 findings on PR #388 that Wave F's main aggregation commit (`d4e5bbc`) did not address. Commit `98112fd` on branch `claude/sprint-12-wave-f-codex-p2-followup`. Scope: (1) implement the `AttentionMaskBackend` trait on `AttentionMaskSoA` so the splat-shader driver can dispatch through the trait surface instead of the concrete type; (2) remove the local `MailboxId = u32` shadow declared in `crates/cognitive-shader-driver/src/attention_mask.rs` (CSI-10 from Wave F meta-Opus review) and replace it with `use lance_graph_contract::collapse_gate::MailboxId;` — matching the pattern that `attention_mask_actor.rs` (W-F3) had correctly from the start. The naming/duplication gap that W-F8 already recorded in TYPE_DUPLICATION_MAP.md is now closed at the source.
+
+**Added:**
+
+- **AttentionMaskBackend trait impl on AttentionMaskSoA** in `crates/cognitive-shader-driver/src/attention_mask.rs` (~30 LOC): blanket impl over the existing struct surface; method dispatch from splat-shader driver no longer requires concrete-type knowledge.
+- **MailboxId canonical import** replacing local type alias: `crates/cognitive-shader-driver/src/attention_mask.rs:17` now uses `use lance_graph_contract::collapse_gate::MailboxId;` (~2 LOC delta). The contract crate is already a direct dep of cognitive-shader-driver, so no new edge added.
+- Test addition: trait-dispatch round-trip test verifying that `Box<dyn AttentionMaskBackend>` correctly routes `set_mask` / `get_mask` / `evict_stale` through the SoA implementation.
+
+**Locked:**
+
+- **AttentionMaskBackend is the canonical dispatch surface** — concrete `AttentionMaskSoA` is the only impl today, but downstream consumers (sigma-tier-router, splat-shader driver) target the trait. Future backends (CAM-PQ-indexed, GPU-resident) can land without touching consumer code.
+- **MailboxId duplication closed at source**: `lance_graph_contract::collapse_gate::MailboxId` is the workspace's sole declaration. CSI-10 from `sprint-log-11/meta-review-opus.md` is RESOLVED. TYPE_DUPLICATION_MAP `MailboxId×2` entry can be updated to single-canonical in sprint-13 housekeeping.
+- **Codex P2 ≠ blocker** convention: Wave F's gov commit `d4e5bbc` resolved P0 (CSI-7/8/9 registration gaps) within the same PR; P2 findings were correctly split into this follow-up PR rather than holding the main fleet. The split is the intended pattern when P2 work touches a non-blocker.
+
+**Deferred:**
+
+- **GPU-resident AttentionMaskBackend variant** — sprint-14+ when JIT lane requires it.
+- **Sprint-13 housekeeping: TYPE_DUPLICATION_MAP entry update** to mark MailboxId as single-canonical (matches workspace reality post-this-PR).
+
+**Docs:**
+
+- No new knowledge docs. The fix is referenced inline in Wave F's `meta-review-opus.md` CSI-10 finding (which is now annotated as RESOLVED in PR #389).
+
+**Cross-refs:** PR #388 (Wave F fleet, the predecessor that surfaced CSI-10); `sprint-log-11/meta-review-opus.md` CSI-10; `.claude/knowledge/i4-substrate-decisions.md` (Wave F W-F11 doc that anchors the type-decoupling discipline); TYPE_DUPLICATION_MAP.md MailboxId×2 row (now single-canonical after this PR).
+
+---
+
+## #388 — impl(sprint-12/wave-F): 12 Sonnet + 1 Opus fleet — D-CSV-10/11/12 scaffolds + AttentionMask + sprint-12 plan v2 (merged 2026-05-16)
+
+**Confidence (2026-05-16):** Wave F grade **B** per W-Meta-Opus honest review (revised down from W-F10 Sonnet draft's B+). The fleet shipped 12 worker outputs across two implementation commits (`33ba73b` partial + `f0934f9` docs + `9f5de76` plan v2) PLUS one gov commit (`d4e5bbc`) where W-Meta-Opus surfaced and main-thread fixed three P0 registration gaps (CSI-7 sigma-tier-router not in workspace members; CSI-8 attention_mask / attention_mask_actor not registered in cognitive-shader-driver lib.rs; CSI-9 qualia / splat_field stream modules not registered in ndarray hpc/stream/mod.rs — the last is cross-repo and remained open into Wave G). The sprint-11 Phase A delivery (Waves A-E, PRs #383-#387) is genuinely solid; the B grade is about Wave F **integration discipline**, not Phase A correctness. The 'main thread aggregates' worker-prompt pattern shipped files-without-wiring; CSI-7/8/9 are the cluster. Wave G (PR #390 in flight) is the discipline correction.
+
+**Added:**
+
+- **W-F1 sigma-tier-router crate (D-CSV-10 scaffold)** at `crates/sigma-tier-router/src/lib.rs` (621 LOC, 12 tests claimed / 24 #[test] markers): Σ-tier banding table + Rubicon-resonance dispatch placeholder + 10-tier band thresholds. Initially declared standalone `[workspace]` in its own Cargo.toml — CSI-7 P0 blocker; fixed in gov commit `d4e5bbc` by adding `"crates/sigma-tier-router"` to parent workspace `members`.
+- **W-F2 AttentionMask SoA core** at `crates/cognitive-shader-driver/src/attention_mask.rs` (279 LOC, 8 tests claimed / 16 #[test] markers): SoA layout for per-row attention masks + LRU eviction surface. CSI-8 P0: NOT registered in `lib.rs` initially (worker prompt said "main aggregates"); CSI-10 MED: declared `pub type MailboxId = u32` locally instead of importing from contract. CSI-8 fixed in `d4e5bbc`; CSI-10 fixed in PR #389 follow-up.
+- **W-F3 AttentionMaskActor** at `crates/cognitive-shader-driver/src/attention_mask_actor.rs` (215 LOC, 6 tests / 12 markers): single-tick-per-cycle invariant + sequence-diagram-driven actor. Correctly imports `use lance_graph_contract::collapse_gate::MailboxId;` (the right pattern W-F2 missed). CSI-8 also affected; fixed in `d4e5bbc`.
+- **W-F4 QualiaStream** at `/home/user/ndarray/src/hpc/stream/qualia.rs` (206 LOC, 6 tests / 12 markers): `QualiaI4Row` mirrors `QualiaI4_16D` (intentional circular-dep guard per file header). CSI-9 P0 cross-repo: NOT registered in `hpc/stream/mod.rs` — remained open at Wave F merge; sprint-13 ndarray cross-repo PR.
+- **W-F5 InferenceStream** at `/home/user/ndarray/src/hpc/stream/inference.rs` (223 LOC, 6 tests / 12 markers): IS registered in `mod.rs` (`pub mod inference; pub use inference::{InferenceRow, InferenceStream};`). `InferenceRow` bit-compat with `causal_edge::CausalEdge64`. **Highest-quality stream worker** because the worker actually finished the integration step — grade A−.
+- **W-F6 SplatFieldStream** at `/home/user/ndarray/src/hpc/stream/splat_field.rs` (240 LOC, 6 tests / 12 markers): `repr(C, align(16))` with `mean: u32 / variance: f32 / energy: f32 / generation: u32`. CSI-9 P0 cross-repo: same registration gap as W-F4. CSI-12 verified: bit layout IDENTICAL to W-F7's `splat_ops.rs` local def (positive finding — intentional cross-crate mirror with dep-cycle-avoidance commentary).
+- **W-F7 Splat ops fleet** at `crates/thinking-engine/src/splat_ops.rs` (291 LOC, 14 spec / 16 actual #[test] markers): local `SplatField` def with explicit "Local def to avoid the ndarray dep cycle" comment — disciplined; over-delivery (+2 tests) is rare for Sonnet — grade A.
+- **W-F8 TYPE_DUPLICATION_MAP refresh** at `docs/TYPE_DUPLICATION_MAP.md` (Wave-F section, 5 entries): TrustTexture×2 + SplatField×2 + QualiaI4×2 + InferenceRow alias + MailboxId×2. File:line cited for every entry.
+- **W-F9 TECH_DEBT + ISSUES seed sweep** at `.claude/board/TECH_DEBT.md` (8 new TD entries) + `.claude/board/ISSUES.md` (5 IS entries): TD-SHADER-DRIVER-WORKSPACE-CONFLICT, TD-TRUST-TEXTURE-DUPE, TD-D-CSV-8-SIMD-1, TD-PROTOC-ENV-SETUP, TD-SIGMA-TIER-THRESHOLDS-1, etc.
+- **W-F10 sprint-11 meta-review Sonnet draft** at `.claude/board/sprint-log-11/meta-review.md` (341 lines): per-PR grades (Waves A-E), CSI-1..6, sprint grade B+ (revised down to B by W-Meta-Opus). Format mirrors `sprint-log-10/meta-review.md`.
+- **W-F11 i4-substrate-decisions knowledge** at `.claude/knowledge/i4-substrate-decisions.md` (~200 lines): READ-BY header + OQ-CSV-1..6 ratification chain with file:line evidence.
+- **W-F12 cognitive-substrate-convergence-v2 plan** at `.claude/plans/cognitive-substrate-convergence-v2.md` (608 lines): status delta §0.1 + locked decisions §5 with sprint-11 outcome annotations + new D-CSV-13/14/15 entries. CSI-11: drifted from git on D-CSV-5a "In PR" cell (PR #385 was already merged); flagged for sprint-12 prep housekeeping.
+- **W-Meta-Opus honest review** at `.claude/board/sprint-log-11/meta-review-opus.md` (161 lines): per-worker grades fill W-F10 placeholders, CSI-7..13 surfaced via working-tree verification (not worker self-reports), sprint-12 pre-spawn checklist with CSI-7/8/9 fixes.
+- **Gov commit `d4e5bbc`**: main-thread aggregation fix for CSI-7 (add `sigma-tier-router` to parent workspace `members` + remove standalone `[workspace]` line) + CSI-8 (`pub mod attention_mask; pub mod attention_mask_actor;` added to `cognitive-shader-driver/src/lib.rs`).
+
+**Locked:**
+
+- **Wave F shipped 12 worker outputs in two commits**, then went straight to meta-review without an aggregation pass — the resulting CSI-7/8/9 cluster is the **canonical anti-pattern for "main thread aggregates" without a scheduled aggregation phase**. W-Meta-Opus §5 reflection: worker prompts that say "I write the file, main aggregates" are correct as a permission-isolation pattern but wrong as a delivery pattern unless aggregation is an explicit deliverable. Sprint-12 onwards: either workers include their lib.rs hunk OR a "Worker W-X+1: aggregate W-X1..W-X12 hunks" worker is spawned as the final wave step.
+- **CSI-12 SplatField bit-compat between W-F6 (ndarray) and W-F7 (thinking-engine)** confirmed identical: `#[repr(C, align(16))]` with `mean: u32, variance: f32, energy: f32, generation: u32` in identical order. Intentional decoupling with explicit dep-cycle-avoidance commentary is the right pattern under the current workspace topology.
+- **InferenceRow / InferenceStream are bit-compat with `causal_edge::CausalEdge64`** per W-F5 doc comments — this is the documented bridge type for streaming inference rows out of ndarray into the lance-graph contract surface.
+- **Sprint-11 meta-review format precedent**: `.claude/board/sprint-log-11/meta-review.md` (Sonnet draft) + `meta-review-opus.md` (Opus honest review) is the canonical two-file pattern. Sonnet drafts the per-PR table; Opus fills the per-worker grades + adds cross-cutting CSI findings against working-tree verification.
+- **W-F12 v2 plan is the sprint-12+ canonical convergence plan** — replaces v1 plan (kept for archival). Adds D-CSV-13 (i4 batch API), D-CSV-14 (on-Think method migration), D-CSV-15 (Jirak Σ10 threshold via VAMPE) as new sprint-12/13 deliverables.
+
+**Deferred:**
+
+- **CSI-9 cross-repo PR** (register `qualia` + `splat_field` in `/home/user/ndarray/src/hpc/stream/mod.rs`; ~4 LOC) — remained open at Wave F merge; sprint-13 ndarray coordination. D-CSV-11 productization blocker.
+- **CSI-10 MailboxId canonical import** in `attention_mask.rs` — addressed in PR #389 codex P2 follow-up.
+- **CSI-11 v2 plan drift fix** (D-CSV-5a status In PR → Shipped with commit `6f58418`) — sprint-12 prep housekeeping; resolved as part of Wave G governance.
+- **E-META-10 promotion to iron rule** (W-Meta-Opus §4 recommendation) — actioned in Wave G via W-G5 (PR #390).
+- **TD-SHADER-DRIVER-WORKSPACE-CONFLICT-1 actual fix** (move cognitive-shader-driver from `exclude` to `members`) — actioned in Wave G via W-G6.
+- **D-CSV-13 SIMD intrinsic backing**, **D-CSV-14 on-Think methods**, **D-CSV-15 VAMPE coupled-revival** — sprint-13+.
+
+**Docs:**
+
+- `.claude/board/sprint-log-11/meta-review.md` (W-F10 Sonnet draft, 341 lines).
+- `.claude/board/sprint-log-11/meta-review-opus.md` (W-Meta-Opus honest review, 161 lines).
+- `.claude/knowledge/i4-substrate-decisions.md` (W-F11, ~200 lines, READ-BY header).
+- `.claude/plans/cognitive-substrate-convergence-v2.md` (W-F12, 608 lines).
+- `docs/TYPE_DUPLICATION_MAP.md` (W-F8 Wave-F section refresh).
+- `.claude/board/TECH_DEBT.md` + `ISSUES.md` (W-F9 seed entries).
+
+**Cross-refs:** Sprint-11 meta-reviews (Sonnet + Opus); plan v2 §11 D-CSV-10/11/12/13 rows; CSI-7..13 in `meta-review-opus.md`; PR #389 (codex P2 follow-up CSI-10); PR #390 (Wave G discipline correction); EPIPHANIES E-META-10 (Wave F catch, Wave G promotion); TYPE_DUPLICATION_MAP TrustTexture×2 / SplatField×2 / QualiaI4×2 / MailboxId×2 entries.
+
+---
+
+## #387 — impl(sprint-11/wave-E): D-CSV-8 MUL i4 scalar + D-CSV-9 8-channel ↔ SPO-palette transcoder (merged 2026-05-16)
+
+**Confidence (2026-05-16):** Wave E grade **A−** per sprint-11 meta-review. Two Phase C deliverables pulled into sprint-11 from the sprint-12 schedule — early delivery. D-CSV-8 MUL i4 SIMD evaluation: scalar i4 path delivered; AVX-512/NEON vectorization deferred to TD-D-CSV-8-SIMD-1 (sprint-12 → ultimately D-CSV-13 batch API in PR #390 Wave G). D-CSV-9 8-channel ↔ SPO-palette transcoder (Option R-3 per E-META-7 reunification) at thinking-engine L3 commit boundary — full scope including `set_channel` → `set_channel_u8` rename (post-initial-commit P1 cleanup in `255a8cf`). The `set_channel` rename gap was caught post-initial-commit: old name remained as non-u8 API alongside new `set_channel_u8`; round-trip equivalence class was too narrow. Fixed via the widen-equivalence-class commit. No P0s; this was a P1 API naming cleanup. Pre-existing `calibrate_roles.rs` array-size mismatch surfaced as TD-CALIBRATE-ROLES-ARRAY-SIZE-1 (not introduced by this wave).
+
+**Added:**
+
+- **W-E1 D-CSV-8 MUL i4 scalar path** in `crates/lance-graph-contract/src/mul.rs`:
+  - Signed i4 multiplication scalar evaluation: `dk_position` (Dunning-Kruger position from confidence × calibration), `trust_texture` (qualia-only), `flow_state` (qualia × confidence), `gate_decision`, `mul_assess` paths all wired through `QualiaI4_16D`.
+  - SIMD vectorization deferred — TD-D-CSV-8-SIMD-1 (AVX-512 + NEON i4 multiply-accumulate with `is_x86_feature_detected!` / `#[target_feature]` gate; ~150-300 LOC per ISA). Scaffolded as W-G3 batch API in PR #390.
+- **W-E2 D-CSV-9 8-channel ↔ SPO-palette transcoder** (Option R-3 per E-META-7 reunification) at thinking-engine L3 commit boundary in `crates/thinking-engine/`:
+  - Transcodes the 8-channel cascade layout (thinking-engine `CausalEdge64` — BECOMES / CAUSES / SUPPORTS / REFINES / GROUNDS / ABSTRACTS / RELATES / CONTRADICTS) ↔ SPO-palette layout (causal-edge `CausalEdge64` — S/P/O palette + NARS f/c + Pearl mask + direction + inference + plasticity).
+  - Backward-compat `set_channel` API renamed to `set_channel_u8` in post-initial-commit fix `255a8cf` (codex P1 cleanup); round-trip equivalence class widened to accept the same channel value under both APIs.
+  - Resolves the E-META-7 dual `CausalEdge64` finding via the recommended Option R-3 (transcode at L3 commit boundary; do not unify the types).
+
+**Locked:**
+
+- **Phase C entry shipped ahead of sprint-12 schedule** — D-CSV-8 + D-CSV-9 were originally sprint-12 deliverables; pulled into sprint-11 because their dependency chain (D-CSV-1/2/3/4 from PRs #383/#384) was complete and the workers had bandwidth. Sprint-11 meta-review correctly flagged this as "early Phase C delivery."
+- **Option R-3 is the canonical resolution for E-META-7 dual CausalEdge64** — transcode at thinking-engine L3 commit boundary; do not unify the two types. The transcoder converts 8-channel cascade → SPO-palette at the L3 commit boundary. Both types remain in workspace under their original semantics.
+- **`set_channel_u8` is the canonical API**; bare `set_channel` was the v1 surface that survived the rename window — preserved with explicit u8 suffix to disambiguate from future channel-type variants.
+- **MUL i4 scalar path is the reference impl**; sprint-12 SIMD vectorization (D-CSV-13 W-G3 batch API in PR #390) builds on this scalar path with parallel-slice signature.
+
+**Deferred:**
+
+- **TD-D-CSV-8-SIMD-1 AVX-512/NEON vectorization** — sprint-12, ultimately addressed via D-CSV-13 batch API contract in PR #390 W-G3; SIMD intrinsic backing queued sprint-13.
+- **TD-CALIBRATE-ROLES-ARRAY-SIZE-1** (pre-existing example breakage; not introduced by this wave) — separate housekeeping PR.
+- **Direct CausalEdge64 unification** (Option R-1 CausalEdge128 or R-2 paired tuple) — explicitly NOT chosen; Option R-3 transcoder is the locked decision.
+
+**Docs:**
+
+- `.claude/knowledge/causal-edge-64-spo-variant.md` (sprint-10 knowledge doc; referenced).
+- `.claude/knowledge/causal-edge-64-thinking-engine-variant.md` (sprint-10 knowledge doc; referenced).
+- `.claude/knowledge/causal-edge-64-synergies-and-pr-trajectory.md` (sprint-10 knowledge doc; Option R-3 doctrine).
+
+**Cross-refs:** plan v1 §11 D-CSV-8/9 (Phase C entry); plan v2 §11 (sprint-12+ continuation); EPIPHANIES E-META-7 (dual CausalEdge64 finding, RESOLVED via Option R-3 in this PR); TYPE_DUPLICATION_MAP CausalEdge64×2 row (resolution path = transcoder, not unification); sprint-11 meta-review.md Wave E grade A−; TD-D-CSV-8-SIMD-1 sprint-12 follow-on.
+
+---
+
+## #386 — impl(sprint-11/wave-D): D-CSV-7 MailboxSoA + D-CSV-6a WitnessCorpus core (merged 2026-05-16)
+
+**Confidence (2026-05-16):** Wave D grade **B+** per sprint-11 meta-review. Two Phase B deliverables paired in one PR: D-CSV-7 (MailboxSoA W-slot referencing + per-row plasticity accumulator + `apply_edges`) + D-CSV-6a (WitnessCorpus CAM-PQ-indexed initial form, replacing the SpoWitnessChain<32> stub from sprint-10 W5 spec). Both depend on D-CSV-1/4 from PR #383. Pairing two MED-HIGH-risk D-ids in one PR is high density but acceptable given shared upstream dependency. DX friction surfaced (TD-PROTOC-ENV-SETUP-1, TD-SHADER-DRIVER-WORKSPACE-CONFLICT-1) — these are reproducibility gaps, not code P0s. Post-merge fix commit `344e645` addressed D-CSV-7 `last_emission_cycle u32::MAX` sentinel + lib re-export + ndarray hpc-extras feature gate. `f6a1f9f` applied cargo fmt for rustfmt 1.95.0 CI gate. The WitnessCorpus surface here is the **core** (pre-CAM-PQ-HashMap-index); D-CSV-6b productization with `WitnessIndexHashMap` ships in Wave G PR #390.
+
+**Added:**
+
+- **W-D1 D-CSV-7 MailboxSoA** in `crates/cognitive-shader-driver/` (parallel worker; main impl commit `e5f16a5`):
+  - `MailboxSoA<N>` struct: parallel arrays for `mailbox_id: [MailboxId; N]`, `w_slot_ref: [u32; N]`, `plasticity: [f32; N]`, `last_emission_cycle: [u32; N]`. W-slot referencing per v2 layout (bits 53-58 of CausalEdge64).
+  - `apply_edges` method: per-row plasticity accumulator (collapse-gate-emitted edges roll up into the row's plasticity slot at drop time).
+  - Single-tick-per-cycle invariant enforced via `last_emission_cycle` sentinel (`u32::MAX` = never emitted; commit `344e645` post-merge fix).
+  - `AttentionMaskActor` (Wave F W-F3) consumes this surface.
+- **W-D2 D-CSV-6a WitnessCorpus core** in `crates/lance-graph/src/graph/arigraph/witness_corpus.rs` (parallel worker):
+  - Replaces `SpoWitnessChain<32>` (sprint-10 W5 spec stub) with unbounded `WitnessCorpus` backed by `Arc<Vec<WitnessEntry>>`, copy-on-write via `Arc::make_mut`.
+  - `WitnessEntry { spo: u64, timestamp_ns: u64, hash: u64 }`; insert/iter/evict_stale_before API. Chain order = timestamp_ns ASC + hash tie-break (W5-INV-CHAIN-ORDER iron rule from sprint-10 spec).
+  - This PR ships the **core** Arc-CoW surface; the CAM-PQ HashMap index (`CamPqWitnessIndex` → renamed `WitnessIndexHashMap` per CSI-15) lands in Wave G PR #390 (D-CSV-6b).
+- **Fix commit `344e645`**: D-CSV-7 polish — `last_emission_cycle u32::MAX` sentinel for "never emitted" state + cognitive-shader-driver `lib.rs` re-export of `MailboxSoA` + ndarray `hpc-extras` feature gate alignment.
+- **Fix commit `f6a1f9f`**: cargo fmt applied to `witness_corpus.rs` for rustfmt 1.95.0 CI gate (parallel to the fmt commits on Waves A/B for the same CI version bump).
+
+**Locked:**
+
+- **MailboxSoA is the canonical W-slot referencing surface** — every CollapseGateEmission baton (PR #383 D-CSV-4) references a mailbox row by `MailboxId`, the mailbox row carries `w_slot_ref` pointing into the BindSpace W column (bits 53-58 of `CausalEdge64`), and `apply_edges` rolls up plasticity at drop time.
+- **`last_emission_cycle == u32::MAX` is the "never emitted" sentinel** — distinguishes "fresh row" from "emitted in cycle 0" (which is a valid state). Codified in commit `344e645`.
+- **WitnessCorpus is unbounded with Arc-CoW eviction policy** — `evict_stale_before(timestamp)` returns a new `Arc<Vec<>>` via `Arc::make_mut`; readers holding the old Arc are unaffected (W5-INV-WITNESS-UNBOUNDED iron rule).
+- **Chain order = timestamp_ns ASC + hash tie-break** (W5-INV-CHAIN-ORDER iron rule) — sprint-10 W5 spec invariant preserved at impl time.
+- **D-CSV-6a ≠ D-CSV-6b**: `a` = core surface (this PR); `b` = HashMap-backed index (Wave G PR #390). The split was correctly scoped per sprint-11 plan §11 D-CSV-6 row.
+
+**Deferred:**
+
+- **D-CSV-6b CAM-PQ HashMap index** (`WitnessIndexHashMap` query/cam_pq_search surface) — sprint-12 Wave G W-G2 (PR #390).
+- **Real CAM-PQ codec wiring** (ndarray::hpc::cam_pq for SPO witness tuples) — sprint-13+; upstream ndarray work required. HashMap is the placeholder surface until then.
+- **TD-PROTOC-ENV-SETUP-1**: `protoc` env setup gap surfaced when W-D2 had to install `protoc` manually. Reproducibility gap; SessionStart hook automation candidate for sprint-13.
+- **TD-SHADER-DRIVER-WORKSPACE-CONFLICT-1**: `cognitive-shader-driver` listed in both `members` AND `exclude` of root Cargo.toml; cargo -p doesn't work. Workaround documented; resolved in Wave G W-G6 (PR #390).
+
+**Docs:**
+
+- `.claude/knowledge/spo-schema-and-mailbox-sidecar.md` (sprint-10 W6 knowledge; consumed at impl time).
+- `.claude/specs/pr-ce64-mb-5-mailbox-soa-attentionmask.md` (sprint-10 W6 spec).
+- `.claude/specs/pr-ce64-mb-4-arigraph-spo-g.md` (sprint-10 W5 spec; WitnessCorpus design).
+
+**Cross-refs:** plan v1 §11 D-CSV-6/7 rows; sprint-11 meta-review.md Wave D grade B+; sprint-10 W5 + W6 specs; CausalEdge64 v2 layout (PR #383); CollapseGateEmission (PR #383 D-CSV-4); D-CSV-6b productization in PR #390 (Wave G W-G2); TD-PROTOC-ENV-SETUP-1; TD-SHADER-DRIVER-WORKSPACE-CONFLICT-1 (RESOLVED in PR #390 W-G6); W5-INV-CHAIN-ORDER + W5-INV-WITNESS-UNBOUNDED + W5-INV-CAM-PQ-INDEX iron rules from sprint-10 W5 spec.
+
+---
+
+## #385 — impl(sprint-11/wave-C): D-CSV-5a sibling QualiaI4Column add (merged 2026-05-16)
+
+**Confidence (2026-05-16):** Wave C grade **B+** per sprint-11 meta-review. Single-deliverable Phase B wave: D-CSV-5a (QualiaColumn migration phase 5a — sibling-column add). Adds `QualiaI4Column` ALONGSIDE the existing `QualiaColumn` with double-write on push paths; **no read-side change** in this PR. The cutover (drop f32 column, promote i4 to sole column) is D-CSV-5b, deferred to sprint-12 and shipped in Wave G PR #390. The split into 5a/5b was OQ-CSV-4 ratification (sibling-then-cutover, plan §11 default recommendation) — lower-risk than big-bang; the 1 extra PR cost was worth it. Three commits on the branch: `d88bb71` initial impl + `4847101` code recovery (W-C1 work stashed before pre-existing commit `6d5e46e`) + `e9528bb` worker-side improvements (hpc-extras feature gate alignment + `[..17]` slicing fix for the f32→i4 helper). DX friction surfaced TD-SHADER-DRIVER-WORKSPACE-CONFLICT-1 (cognitive-shader-driver listed in both `members` AND `exclude` of root Cargo.toml — cargo -p doesn't work; workaround documented, resolved in Wave G W-G6).
+
+**Added:**
+
+- **W-C1 QualiaI4Column** in `crates/cognitive-shader-driver/src/bindspace.rs` (+190 LOC source + ~100 LOC tests):
+  - `pub struct QualiaI4Column(pub Box<[QualiaI4_16D]>)` mirroring `QualiaColumn` shape (zeros / row / set / len / from_f32 methods).
+  - `BindSpace` struct extended with `pub qualia_i4: QualiaI4Column` field (sibling to existing `pub qualia: QualiaColumn`).
+  - `BindSpace::zeros` initializer extended; `byte_size()` updated to include `8 * N` for the i4 column.
+  - `BindSpaceBuilder::push_typed` double-writes via `QualiaI4_16D::from_f32_17d(qualia)` immediately after the existing `qualia.set(row, ...)`.
+  - 6 new tests in mod tests: column zeros, set_row, from_f32 parity, double-column zeros, byte_size includes i4, push_typed double-write parity.
+- `crates/cognitive-shader-driver/src/engine_bridge.rs` (+4 LOC): paired `bs.qualia_i4.set(row, QualiaI4_16D::from_f32_17d(&q))` after the engine push at line ~262.
+- `crates/cognitive-shader-driver/src/lib.rs` (+1 LOC): re-export `QualiaI4Column` alongside the existing `QualiaColumn`.
+- **Fix commit `4847101`**: code recovery — restore W-C1 work that was stashed before pre-existing commit `6d5e46e` overwrote the working tree.
+- **Fix commit `e9528bb`**: worker-side improvements — hpc-extras feature gate alignment + `[..17]` slicing for the f32→i4 helper.
+
+**Locked:**
+
+- **OQ-CSV-4 ratification: sibling-then-cutover** (plan §11 default). Lower-risk than big-bang; 1 extra PR cost worth it. Pattern: 5a adds sibling column with double-write on push, 5b flips readers + drops f32 column. Future column migrations should follow this pattern.
+- **`QualiaI4Column` is the canonical i4 column** sibling to the f32 `QualiaColumn`. Bit-compat with `QualiaI4_16D` (16 i4 lanes, dim 16 "integration" dropped per OQ-CSV-1 Option α).
+- **Double-write contract**: every f32 push path on `BindSpace` must also write the i4 column. `push_typed` is the canonical entry point; ad-hoc f32 pushes that bypass this method would create silent drift (caught by D-CSV-5b cutover tests in Wave G).
+- **`byte_size()` includes both columns** during the sibling phase — consumers calculating BindSpace memory footprint must account for both until D-CSV-5b cutover.
+
+**Deferred:**
+
+- **D-CSV-5b QualiaColumn cutover** (drop `[f32; 18]`, promote `QualiaI4_16D` to sole column) — sprint-12 Wave G W-G1 (PR #390). Reader-side flip + deprecation of `QualiaColumn`.
+- **TD-SHADER-DRIVER-WORKSPACE-CONFLICT-1**: cognitive-shader-driver workspace-membership conflict (members + exclude both list it; exclude wins; cargo -p invisible). Filed in TECH_DEBT; resolved in Wave G W-G6 (PR #390).
+- **`cargo test -p cognitive-shader-driver` validation gap**: did not work in worker environment due to the above conflict; CI ran the actual tests post-merge.
+
+**Docs:**
+
+- `.claude/specs/pr-ce64-mb-3-bindspace-efgh.md` (sprint-10 W4 spec; D-CSV-5 cross-ref at lines 42-52 with the 5a/5b phasing).
+
+**Cross-refs:** plan v1 §11 D-CSV-5 row (Phase B); plan v2 §11 D-CSV-5b row (sprint-12 cutover); sprint-11 meta-review.md Wave C grade B+; OQ-CSV-4 ratification absorbed (sibling-then-cutover); CSI-4 `SplatField` / `QualiaI4` bit-compat mirror types — D-CSV-5a is one of the two waves that demonstrated the two-type-one-shape pattern (D-CSV-8 in Wave E is the other); D-CSV-5b cutover in PR #390 Wave G; TD-SHADER-DRIVER-WORKSPACE-CONFLICT-1 (RESOLVED in PR #390 W-G6); TYPE_DUPLICATION_MAP QualiaI4×2 entry (intentional decoupling).
+
+---
+
+## #384 — impl(sprint-11/wave-B): D-CSV-2 QualiaI4_16D + OQ-CSV-1 ratification (Option α) (merged 2026-05-16)
+
+**Confidence (2026-05-16):** Wave B grade **A** per sprint-11 meta-review. Clean single-deliverable wave, good test boundary coverage, OQ ratification absorbed correctly, no naming drift. Worker W-B1 (single Sonnet) delivered D-CSV-2 alone since D-CSV-5 was blocked on PR #383 merge. **OQ-CSV-1 ratification (main-thread, autoattended): Option α** — keep the canonical convergence-observable vocab from `Qualia17D` / `QualiaVector` (arousal / valence / tension / warmth / clarity / boundary / depth / velocity / entropy / coherence / intimacy / presence / assertion / receptivity / groundedness / expansion / integration), drop dim 16 "integration" to fit 16 i4 lanes (recoverable on demand from valence + coherence + cycle-delta). Plan §7.2 proposed felt-qualia vocab (Wisdom/Trust/Hope/etc.) was a CONJECTURE per the plan footnote; cross-check against `crates/thinking-engine/src/qualia.rs` revealed the canonical surface is observables, not felt-qualia. Lower migration risk than vocab swap. **CSI-5 process observation**: the CONJECTURE footnote pattern worked — but only because the worker read the source. Plan-author worker prompts must elevate CONJECTURE flagging to dedicated `## Open Conjectures` sections rather than inline footnotes. 1 P1 (not P0) caught and fixed pre-merge: `needless_range_loop` in `to_f32_17d` (clippy gate) — fixed in `f7c8c48`. `56e7e22` applied cargo fmt for the same CI 1.95.0 gate as Waves A/D.
+
+**Added:**
+
+- **W-B1 QualiaI4_16D type** in `crates/lance-graph-contract/src/qualia.rs` (+250 LOC actual vs ~180 estimate; the +70 over estimate is accessor + magnitude + 8 tests):
+  - `QUALIA_I4_DIMS = 16`, `QUALIA_I4_LABELS` (first 16 of canonical `AXIS_LABELS`).
+  - `pub struct QualiaI4_16D(pub u64) #[repr(C, align(8))]`: 16 signed i4 lanes packed into a single u64.
+  - i4 signed accessors (`get` / `set` / `with`) with `(raw << 4) >> 4` sign-extension trick (preserves sign across the 4-bit boundary).
+  - `from_f32_17d` / `to_f32_17d` migration helpers with **asymmetric quantization**: positive `× 7.0` (7 quanta in [0, 1] mapping to i4 [1, 7]), negative `× 8.0` (8 quanta in [-1, 0] mapping to i4 [-8, -1]). Sign-symmetric in resolution per slot; asymmetric in mapping — preserves the i4 [-8, +7] full range.
+  - `magnitude()` = `coherence.saturating_mul(valence)` per §7.2 intent (saturating to prevent i8 overflow under extreme cases).
+- `crates/lance-graph-contract/src/lib.rs`: re-exports `QualiaI4_16D`, `QUALIA_I4_DIMS`, `QUALIA_I4_LABELS`.
+- **Fix commit `f7c8c48`**: clippy `needless_range_loop` satisfied in `to_f32_17d` (codex P1 + CI gate).
+- **Fix commit `56e7e22`**: cargo fmt applied to `qualia.rs` + `lib.rs` (codex P1 + CI gate, rustfmt 1.95.0).
+
+**Tests:** 14 pass / 0 fail in `cargo test -p lance-graph-contract qualia` (8 new + 6 pre-existing). **Contract crate remains zero-dep** (no new deps added by this PR).
+
+**Coverage of the 8 new tests:** size invariant (8 bytes) / zero default (all 16 dims = 0) / signed roundtrip across [-8, -7, -1, 0, 1, 7] / clamp on overflow (+100 → +7, -100 → -8) / field isolation (set dim 5, dims 4 + 6 untouched) / from_f32_17d ↔ to_f32_17d round-trip with dim 16 dropped / label alignment with canonical AXIS_LABELS[0..16] / magnitude saturating_mul on extremes.
+
+**Locked:**
+
+- **OQ-CSV-1 = Option α**: canonical convergence-observable vocab (arousal / valence / tension / warmth / clarity / boundary / depth / velocity / entropy / coherence / intimacy / presence / assertion / receptivity / groundedness / expansion). Drop dim 16 "integration" to fit 16 i4 lanes. Plan §7.2 felt-qualia vocab (Wisdom/Trust/Hope/etc.) was CONJECTURE; the canonical surface is observables.
+- **`QualiaI4_16D` is the canonical i4 qualia type** in the contract crate. 16 signed i4 lanes / `#[repr(C, align(8))]` / u64-backed. The "i4 substrate" of the cognitive convergence plan.
+- **Asymmetric quantization (×7.0 positive / ×8.0 negative) is intentional** — i4 range [-8, +7] has 8 negative slots and 7 positive slots; symmetric in resolution per slot, asymmetric in f32 mapping. Round-trip preserves sign and approximate magnitude within the i4 quantization envelope. Documented in code comment + test coverage.
+- **Magnitude = coherence × valence (saturating)** — per §7.2 plan intent; saturating-multiply prevents i8 overflow at extremes.
+- **Contract crate remains zero-dep** — no new external deps added; the i4 substrate is implementable in pure `core::primitive` + bit-twiddling.
+- **CSI-5 process observation locked**: plan-footnote-as-CONJECTURE pattern worked but only because worker cross-checked source. Sprint-12+ plan authoring should use dedicated `## Open Conjectures` sections.
+
+**Deferred:**
+
+- **OQ-CSV-4 phasing decision** (5a sibling vs 5b cutover) — addressed in Wave C (D-CSV-5a, PR #385) and Wave G (D-CSV-5b, PR #390).
+- **D-CSV-5 `QualiaColumn` migration** — blocked on PR #383 (D-CSV-1 v2 layout) merge AND requires `cognitive-shader-driver` crate access; addressed in Wave C/Wave G.
+- **Dim 16 "integration" recovery helper** — if future consumers need the dropped dim, recover from valence + coherence + cycle-delta. Not provided in this PR; sprint-12+ if needed.
+
+**Docs:**
+
+- `.claude/specs/pr-ce64-mb-3-bindspace-efgh.md` (sprint-10 W4 spec; i4-16D Magnitude note at lines 54-59 — Wisdom_i4 × Staunen_i4 → i8 SIMD multiply intent).
+- `.claude/knowledge/i4-substrate-decisions.md` (Wave F W-F11 doc; ratification chain anchored here with file:line evidence).
+
+**Cross-refs:** plan v1 §11 D-CSV-2 row (Phase A); plan v2 §11 (sprint-12+ continuation); sprint-11 meta-review.md Wave B grade A; OQ-CSV-1 ratification (Option α); CSI-5 (plan-footnote-as-CONJECTURE process observation); D-CSV-5a in PR #385 (sibling-column phase consuming this type); D-CSV-5b in PR #390 Wave G (cutover); TYPE_DUPLICATION_MAP QualiaI4×2 entry (this type + `SplatField` mirror on ndarray side, intentional decoupling).
+
+---
+
+## #383 — impl(sprint-11/wave-A): D-CSV-1 v2 layout + D-CSV-3 signed-mantissa NARS + D-CSV-4 CollapseGateEmission (merged 2026-05-16)
+
+**Confidence (2026-05-16):** Wave A grade **A−** per sprint-11 meta-review. **Three D-ids in one PR — dense but correctly scoped**: D-CSV-1 (causal-edge v2 layout) + D-CSV-3 (signed-mantissa InferenceType expansion) share the `causal-edge` crate; D-CSV-4 (CollapseGateEmission) is contract-only. **3 P0s caught by main-thread codex review and self-corrected within the wave** before merge: (1) `pack()` under v2 feature wrote `temporal << 52` corrupting W/lens/spare bits; (2) `inference_type()` under v2 returned raw discriminant not `from_mantissa()` routing; (3) `set_temporal()` + `forward()` had same v2-routing gap. All fixed in commits `42b3215` + `b44ce87`. This self-correcting behavior is the standout positive signal for sprint-11 and the empirical evidence for **E-META-10**: any v1 API path that writes to bits 49-63 under v2 must either route through canonical v2 accessor or feature-gate to no-op. E-META-10 was promoted to iron rule **I-LEGACY-API-FEATURE-GATED** in PR #390 W-G5. Pre-existing finding (NOT introduced by this PR): `tables::tests::test_build_fast` fails on clean main under both feature configurations — filed in ISSUES.md separately. `59b206b` applied rustfmt 1.95.0 to lance-graph for CI gate (parallel to the fmt commits on Waves B/C/D for same version bump).
+
+**Added:**
+
+- **W-A1 D-CSV-1 v2 layout + D-CSV-3 signed-mantissa NARS** in `crates/causal-edge/`:
+  - NEW `layout.rs` (~130 LOC, all shift constants + masks + `TrustTexture` enum + compile-time `_LAYOUT_COVERAGE` const-assert):
+    - Bits 0-45: original v1 layout (S/P/O palette + NARS f/c + Pearl mask + direction).
+    - Bits 46-49: **signed mantissa** (4b signed; sign=direction, 8 base slots, Reserved5/6 absorb PR-LL-1 Intervention/Counterfactual per L-9).
+    - Bits 50-52: plasticity (3b, shifted from v1).
+    - Bits 53-58: W-slot (6b — OQ-CSV-2 ratified to 6 per plan §11 default).
+    - Bits 59-60: truth-band lens (2b).
+    - Bits 61-63: spare (3b).
+    - `TrustTexture` enum (Crystalline / Solid / Porous / Fractured / Molten) — structural integrity of the causal edge's trust field; orthogonal to `contract::mul::TrustTexture` (Calibrated / Overconfident / Underconfident / Volatile / Frozen) — CSI-1 naming drift surfaced as TD-TRUST-TEXTURE-DUPE-1.
+  - EXTEND `edge.rs` with v2 accessors: `inference_mantissa` (i4-signed), `w_slot`, `truth`, `spare`, `with_routing(w, t)` — no G-slot per plan §6 Option F. `InferenceType::to_mantissa` / `from_mantissa` provides bidirectional v2 mapping while keeping the enum intact for v1 callers.
+  - NEW `v2_layout_tests.rs` (16 tests): field-isolation matrix per accessor (every accessor pair checked for bit bleed), signed-mantissa round-trip, 2-arg `with_routing` semantics, spare isolation, `size_of == 8`.
+  - Cargo bumped 0.1.0 → 0.2.0 with `default = ["causal-edge-v2-layout"]`.
+- **W-A2 D-CSV-4 CollapseGateEmission** in `crates/lance-graph-contract/src/collapse_gate.rs`:
+  - NEW `MailboxId = u32` (canonical type alias; later cited by Wave F W-F2/W-F3 — CSI-10 noted W-F2 redeclared locally, resolved in PR #389).
+  - NEW `CollapseGateEmission` struct: `Vec<>` instead of `SmallVec` to preserve **contract zero-dep** (with documented TD-COLLAPSE-GATE-SMALLVEC-1 deferral to sprint-12+ optimization).
+  - API: `new` / `push_baton` / `baton_count` / `wire_cost_bytes` (13 + 10×N) + provenance accessors. 8 tests pass.
+- **Fix commit `42b3215`**: codex P1 resolution — v2 `forward` / `set_temporal` / `pack` semantic-routing bugs. Feature-gate v1 temporal write in `pack()` so it is a no-op under v2; route `inference_type()` through `from_mantissa()` under v2; feature-gate v1-only tests (`test_roundtrip`, `test_temporal_in_msb_gives_sort_order`) with `#[cfg(not(feature = "causal-edge-v2-layout"))]`.
+- **Fix commit `b44ce87`**: CI test fail resolution — `inference_type()` under v2 must route through `from_mantissa()` (final piece of the E-META-10 pattern catch-and-fix).
+- **Fix commit `fd61310`**: governance — board hygiene (STATUS_BOARD D-CSV-1/3/4 → In PR + AGENT_LOG entry). The model gov commit that other waves should follow.
+- **Fix commit `59b206b`**: cargo fmt applied workspace-wide for rustfmt 1.95.0 CI gate.
+
+**Test status:**
+
+- causal-edge v2 (default): **30 pass** / 1 fail (`test_build_fast` — pre-existing on main, confirmed via stash-revert; NOT introduced by this PR).
+- causal-edge v1 (no default features): **16 pass** / 1 fail (same pre-existing).
+- lance-graph-contract collapse_gate: **8/8 pass**.
+- lance-graph-planner: compiles with 2 deprecation warnings (`inference_type()`, `temporal()`) — the intended migration signal for downstream callers.
+- p64-bridge: compiles with 1 deprecation warning.
+
+**Locked:**
+
+- **CausalEdge64 v2 layout is canonical** (plan §6 Option F): signed mantissa 4b (bits 46-49), plasticity 3b shifted to 50-52, W-slot 6b (53-58), truth-band lens 2b (59-60), spare 3b (61-63). No G-slot. No separate Pearl-3 modifier. No temporal field.
+- **OQ-CSV-2 ratified to 6 bits** for W-slot (plan §11 default).
+- **PR-LL-1 Intervention/Counterfactual absorb into mantissa slots**: `+6` = Intervention, `−6` = Counterfactual via L-9. Pearl-3 reasoning IS `causal_mask = 0b111`, not a separate bit.
+- **Counterfactual orthogonality**: `causal_mask` (3b) = which Pearl rung; mantissa (4b signed) = which NARS rule at that rung. Both fields are orthogonal; together they encode Pearl 2³ × NARS-8 = 16 distinct (rung, rule) tuples per direction.
+- **E-META-10 click (locked, promoted to iron rule in PR #390)**: any v1 API path that writes to bits 49-63 of CausalEdge64 silently corrupts the v2 reclaim zone (W-slot bits 53-58, lens bits 59-60, spare bits 61-63) when the `causal-edge-v2-layout` feature is active. Caught 4 times in one PR. Field-isolation matrix tests (16 in `v2_layout_tests.rs`) are mandatory at the layout-bit boundary.
+- **MailboxId = u32 is the contract-canonical type** (in `lance_graph_contract::collapse_gate`). Workers shadowing this locally (e.g. W-F2's `attention_mask.rs:17`) is a CSI-10 drift; resolved in PR #389.
+- **CollapseGateEmission uses `Vec<>` not `SmallVec`** to preserve contract zero-dep guarantee. SmallVec optimization is TD-COLLAPSE-GATE-SMALLVEC-1 (sprint-12+; W-F5 analysis path defined the trade-offs).
+- **Causal-edge crate is `0.2.0` with `default = ["causal-edge-v2-layout"]`** — v1 path still compilable via `--no-default-features` for backwards compat during the sprint-11/12 transition.
+
+**Deferred:**
+
+- **OQ-CSV-1 + OQ-CSV-4** — ratified in Wave B + Wave C (PRs #384 + #385).
+- **TD-TRUST-TEXTURE-DUPE-1** — `causal_edge::layout::TrustTexture` should be renamed to `EdgeTexture` or `CrystallineState` to remove the CSI-1 name collision with `contract::mul::TrustTexture`. Sprint-12 housekeeping (~1-2 hour refactor).
+- **TD-COLLAPSE-GATE-SMALLVEC-1** — SmallVec optimization for CollapseGateEmission. Two options: (a) add `smallvec` as contract dep (breaks zero-dep guarantee) or (b) feature-gate `collapse-gate-smallvec`. Wave F W-F5 analysis path picked the trade-off; sprint-12+ optional.
+- **Pre-existing `tables::tests::test_build_fast` failure** — filed in ISSUES.md separately; not introduced by this PR. Reproducible on clean main.
+
+**Docs:**
+
+- `.claude/specs/pr-ce64-mb-2-causaledge64-v2.md` (sprint-10 W2 spec; bit layout + signed mantissa rationale + counterfactual-via-mask).
+- `.claude/specs/pr-ce64-mb-2-pal8-nars-regression.md` (sprint-10 W3 spec; signed-mantissa regression tests).
+- `.claude/knowledge/causal-edge-64-spo-variant.md` (sprint-10 knowledge doc; the SPO-palette variant this PR implements).
+- `.claude/knowledge/i4-substrate-decisions.md` (Wave F W-F11 doc; ratification chain anchored here).
+
+**Cross-refs:** plan v1 §11 D-CSV-1/3/4 rows (Phase A); plan v2 §11 (sprint-12+ continuation); sprint-11 meta-review.md Wave A grade A− + CSI-1/2 findings; **E-META-10** (promoted to iron rule **I-LEGACY-API-FEATURE-GATED** in PR #390 W-G5); **CSI-1 TrustTexture×2** (TD-TRUST-TEXTURE-DUPE-1 sprint-12 housekeeping); **CSI-2 v1-API-under-v2 same-bit-aliasing pattern** (this PR is the empirical evidence); **CSI-10 MailboxId canonical** (this PR introduced the type; W-F2 redeclared locally; PR #389 resolved); TYPE_DUPLICATION_MAP TrustTexture×2 + MailboxId×2 entries; sprint-10 W2 + W3 specs (the patches that fed this implementation, completed in PR #381).
+
+---
+
 ## #381 — specs(sprint-10): cognitive-substrate-convergence-v1 prep — all 8 worker patches complete (merged 2026-05-16)
 
 **Confidence (2026-05-16):** governance-only spec-patch bundle (no `.rs`, no Cargo, no settings — only `.claude/specs/*.md` + `.claude/board/sprint-log-csv-prep/agents/agent-W*.md` scratchpads). Codex review surfaced two P1 consistency gaps mid-flight that were resolved before merge: (a) W2 spec had stale `g_slot()` / `with_g_slot()` / `set_g_slot()` accessors in §9 test plan and §10 risk matrix despite §3 declaring G-slot dropped per L-3; (b) W3 spec Test 1 (`pal8_v1_v2_round_trip_zero_default`) used `temporal = 1023` to construct the v1 edge, which under the new layout sets bits 52-61 that v2 reclaims for W (53-58), truth (59-60), and spare (61) — the test would have failed on ordinary v1 data instead of testing the intended zero-default migration contract. Both fixes landed in commit `33509ab` before user merge. 5 commits across the branch.

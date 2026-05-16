@@ -14,6 +14,13 @@
 
 | PR | Merged | Title | What it added |
 |---|---|---|---|
+| **#389** | 2026-05-16 | fix(sprint-12/wave-F): codex P2 — AttentionMaskBackend impl for AttentionMaskSoA + canonical MailboxId import | Codex P2 follow-on to PR #388. Adds `AttentionMaskBackend` trait impl for `AttentionMaskSoA` (Wave-F surface coherence) and converges duplicate `MailboxId` imports onto the canonical contract definition. Merge commit `b526485`. |
+| **#388** | 2026-05-16 | impl(sprint-12/wave-F partial): D-CSV-10 sigma-tier-router + AttentionMask + splat ops + governance (6 of 12 workers landed) | Sprint-12 Wave F fleet partial landing. **D-CSV-10** `SigmaTierRouter` crate (Rubicon-resonance ΔF + threshold → Σ10 commit, hand-tuned threshold per OQ-CSV-6, tracked as TD-SIGMA-TIER-THRESHOLDS-1); **D-CSV-12** scalar splat op fleet on i4 (`splat_gaussian`, `score_hole_closure`, `replay_coherence`, `emit_if_epiphany`); **AttentionMask** SoA + actor + backend surface; W-F8 TYPE_DUPLICATION_MAP refresh (records two-`TrustTexture` coexistence as TD-TRUST-TEXTURE-DUPE-1); W-F10 sprint-11 Opus meta-review; W-F11 i4-substrate-decisions knowledge doc; W-F12 cognitive-substrate-convergence-v2 plan draft (608 lines). Merge commit `77f2d26`. |
+| **#387** | 2026-05-16 | impl(sprint-11/wave-E): D-CSV-8 MUL i4 SIMD evaluation + D-CSV-9 8ch↔SPO transcoder | **D-CSV-8** integer MUL evaluation on `QualiaI4_16D` + signed mantissa (scalar i4 path; AVX-512/NEON deferred → D-CSV-13 sprint-12). **D-CSV-9** 8-channel ↔ SPO-palette transcoder (Option R-3) at thinking-engine L3 commit boundary; 16-mapping bidirectional round-trip; renames `set_channel` → `set_channel_u8` to widen equivalence class. Merge commit `e042c70`. |
+| **#386** | 2026-05-16 | impl(sprint-11/wave-D): D-CSV-7 MailboxSoA + D-CSV-6a WitnessCorpus core (parallel workers) | **D-CSV-7** `MailboxSoA<N>` integration: W-slot referencing + per-row plasticity accumulator + `apply_edges` for baton receipt; `last_emission_cycle` u32::MAX sentinel + lib re-export + ndarray hpc-extras feature. **D-CSV-6a** `WitnessCorpus` partial (W-slot anchor + chain invariant; sorted by emission cycle, drop-oldest truncation). Full CAM-PQ-indexed corpus (D-CSV-6b) sprint-12. Merge commit `33110c8`. |
+| **#385** | 2026-05-16 | impl(sprint-11/wave-C): D-CSV-5a sibling QualiaI4Column add (double-write, no read-side change) | **D-CSV-5a** sibling `QualiaI4Column` add to `cognitive-shader-driver::FingerprintColumns` per OQ-CSV-4 ratification (sibling-then-cutover). Double-writes f32 + i4 during sprint-11/12; cutover (D-CSV-5b) drops f32 column once consumers migrated. Worker recovery from stash + `[..17]` slicing + hpc-extras feature gate. Merge commit `6f58418`. |
+| **#384** | 2026-05-16 | impl(sprint-11/wave-B): D-CSV-2 QualiaI4_16D type + OQ-CSV-1 ratification (Option α) | **D-CSV-2** `QualiaI4_16D` 16-dim signed-i4 type in `lance-graph-contract::qualia` + f32↔i4 migration helpers (`to_f32_17d`). **OQ-CSV-1 ratified to Option α** — canonical convergence-observable vocab (arousal/valence/tension/curiosity/…); drop dim 16 "integration" placeholder. 14 unit tests pass; codex P1 + CI gate fmt fix. Merge commit `0751a8b`. |
+| **#383** | 2026-05-16 | impl(sprint-11/wave-A): D-CSV-1/3/4 — causal-edge v2 layout + InferenceType signed mantissa + CollapseGateEmission | Sprint-11 Wave A landing. **D-CSV-1** `causal-edge` crate v2 layout (signed mantissa, W-slot 6 bits per OQ-CSV-2, lens, drop temporal); feature-gated via `causal-edge-v2-layout`; crate bumped 0.1.0 → 0.2.0. **D-CSV-3** `InferenceType` signed-mantissa expansion absorbing PR-LL-1 Intervention/Counterfactual into Reserved5/6 of the canonical edge enum. **D-CSV-4** `CollapseGateEmission` wire format in contract crate (Vec instead of SmallVec to preserve zero-dep — TD-COLLAPSE-GATE-SMALLVEC-1 tracks the optimization). Merge commit `03bd175`. |
 | **#372** | 2026-05-14 | specs(sprint-10): 12-worker CCA2A fleet + meta-review (governance only) | Sprint-10 spec sprint mirroring PR #365 pattern (specs precede a separate implementation wave). **38 .md files / ~580 KB / zero .rs changes.** 11 PR-ready worker specs (~370 KB) covering par-tile crate apex, CausalEdge64 v2 layout, BindSpace E/F/G/H columns, AriGraph SPO-G + ghost edges + SpoWitnessChain, MailboxSoA + AttentionMaskActor, SigmaTierRouter + banding + plasticity + KernelHandle cache, bevy cull plugin, ndarray Miri completion, sprint-10 execution plan, PR dep graph, unified test plan. Opus meta-review (~28 KB) with sprint grade B+, 6 cross-spec inconsistencies (CSI-1..6), 5 cross-cutting epiphanies (E-META-1..5), sprint-11 spawn decision = NO until 5 spec patches + 4 user ratifications. 8 knowledge docs (~123 KB) documenting: **dual `CausalEdge64` finding** (SPO-palette variant in `causal-edge` crate ≠ 8-channel cascade variant in `thinking-engine` crate, same name different bit semantics); **p64 drift origin** pinpointed at `crates/lance-graph-planner/src/cache/convergence.rs:18-22 #[allow(unused_imports)]`; **three-zone hot-path model** (Zone-1 thinking-engine MatVec 200-500ns + AriGraph entity_index O(1), Zone-2 blasgraph+neighborhood cascade 20-1200µs, Zone-3 DataFusion >1ms); **SPOW tetrahedron + ontology-aware splat vision**; **5-sprint reunification arc** to unify thinking-engine + cognitive-shader-driver SoA. **Deferred:** sprint-11 implementation wave, `Think` carrier struct unification (sprint-12+), splat shader op fleet (sprint-13+), OWL DOLCE / OntologyFilter wiring (sprint-12+), PR-J1-INT4-32D-ATOMS as Wave 0.5 prerequisite. |
 | **#366** | 2026-05-13 | impl(sprint-7): 7-worker implementation wave + AuditSink trait unification | Sprint-7 CCA2A 6-parallel + 1-sequenced + 1-Opus-meta. **~5 KLOC across 5 crates + 2 new** (`lance-graph-supervisor`, `lance-graph-consumer-conformance`). Workers: **S7-W1** `parse_family_registry()` + Healthcare basins `0x10..=0x19` (unblocks MedCare-rs E1-2/E1-3/E1-4 cascade); **S7-W2** `lance-graph-contract/build.rs` codegen (zero-dep preserved; sorted-slice + binary_search, no phf — OQ-2); **S7-W3** ractor supervisor with separate 18-byte `LifecycleAuditEvent` (CC-2) + `SuperDomain::System` exempt (CC-3); **S7-W4** `assert_consumer_conformance` harness (A1-A10); **S7-W5** `CognitiveBridgeGate` trait + `UnifiedBridgeGate<B>` impl; **S7-W6** new `audit_sink/` module (`AuditSink` trait + `JsonlAuditSink` + `LanceAuditSink` + `CompositeSink`) + `audit_verify` CLI + `prev_merkle` field on UnifiedAuditEvent (canonical_bytes still 26 B); **S7-W7** SMB Foundry `0x80..=0x82` vs BSON `0xA0..=0xAD` disjoint slots (OQ-4). **Post-meta AuditSink trait unification** (`bc530a4`): dropped legacy `UnifiedAuditSink` D-SDR-4 placeholder, `UnifiedBridge::audit_sink: Arc<dyn AuditSink>`, added `with_jsonl_audit()` ergonomic constructor (OQ-7-2 + OQ-7-3 locked). **Pre-existing workspace lint debt** cleaned by Sonnet janitor across ~30 files in `lance-graph` core / `bgz-tensor` / planner / nsm (sprint-7 outputs guardrailed). **Opus meta verdict** at `.claude/board/sprint-log-7/meta-review.md`: 4A/2B/1B-minus/0 C/D/F. **Adjacent landings:** MedCare-rs sprint-1 10-PR sweep #113-#122 (E1-1 OQ-3 consumed our `0d725d4` decision; sprint-2 5 PRs queued). |
 | **#365** | 2026-05-13 | specs(sprint-5-6): 13-worker parallel batch + Opus meta review | Governance-only PR. **13 PR-ready specs at `.claude/specs/`** (~300 KB) from a 12-Sonnet-worker + 1-post-meta-Sonnet-worker + 1-Opus-meta-agent parallel batch. Spec grades: 3 A (W2 d3b-jsonl, W5 pr-graph, W12 conformance), 7 B, 2 C (W10 manifest-modules needs §4.3 sorted-slice rewrite; W11 ractor-supervisor needs LifecycleAuditEvent split). 24 KB Opus meta cross-spec review at `.claude/board/sprint-log-5-6/meta-review.md`. 4 blocking OQs (W3 parser entry, W10 phf vs sorted-slice, W6 Role migration, W13 BSON namespace). CCA2A 12+1+1 pattern validated at scale: ~300 KB of PR-ready output in under an hour wall-clock; 3 workers required respawns for permission denials (settings.json patched for `.claude/board/sprint-log-5-6/**`). |
@@ -91,6 +98,17 @@ Types live in `crates/cognitive-shader-driver/src/wire.rs` behind `--features se
 
 **`a2a_blackboard`**, **`collapse_gate`**, **`exploration`**, **`literal_graph`**, **`orchestration_mode`**, **`jit`**, **`nars`**, **`plan`**, **`orchestration`**, **`thinking`** (36 styles, 6 clusters), **`mul`**, **`sensorium`**, **`high_heel`**.
 
+**Sprint-11/12 D-CSV substrate types (2026-05-16, PRs #383-#389)**:
+- `lance-graph-contract::qualia`: `QualiaI4_16D` (16-dim signed-i4, 9× compression vs `[f32; 18]`), `QualiaI4Column` (sibling SoA column in cognitive-shader-driver).
+- `lance-graph-contract::collapse_gate`: `CollapseGateEmission` (Vec-of-`(u16 target, CausalEdge64)` wire format; zero-dep — SmallVec optimization deferred as TD-COLLAPSE-GATE-SMALLVEC-1).
+- `lance-graph-contract::mailbox` / `attention_mask`: `MailboxId` (canonical id type), `MailboxSoA<N>` (SoA mailbox with W-slot + plasticity accumulator + `apply_edges`), `AttentionMaskSoA`, `AttentionMaskActor`, `AttentionMaskBackend` trait.
+- `lance-graph-contract::sigma_tier`: `SigmaTierBands`, `SigmaTierRouter` (Rubicon-resonance ΔF + threshold dispatch), `DispatchOutcome`, `RestReason` (Σ-tier crate surface).
+- `lance-graph-contract::witness`: `WitnessCorpus` (CAM-PQ-indexed; D-CSV-6a partial in PR #386, full 6b sprint-12), `WitnessEntry`, `WitnessId`, `WitnessIndexHashMap` (anchor + chain invariant).
+- `cognitive-shader-driver::bindspace`: `QualiaI4Column` (sibling SoA column, D-CSV-5a).
+- `thinking-engine` + `ndarray`: `SplatField` (×2 — one in thinking-engine for Think carrier scalar ops, one in ndarray for vertical streaming).
+- `ndarray::hpc::stream` (vertical streaming structs, D-CSV-11 Wave F W-F4/5/6, productization sprint-12): `QualiaI4Row`, `QualiaStream`, `InferenceRow`, `InferenceStream`, `SplatFieldStream` (+ planned `par_*` rayon variants gated behind ndarray `parallel` feature — deferred to sprint-14+).
+
+
 ## Current AriGraph Inventory (lance-graph/src/graph/arigraph/)
 
 4696 LOC shipped, 7 modules:
@@ -113,9 +131,17 @@ Types live in `crates/cognitive-shader-driver/src/wire.rs` behind `--features se
 
 ## Active Branches (local at /home/user/lance-graph)
 
-- `claude/teleport-session-setup-wMZfb` — shipped PRs #223 (LAB-ONLY + AGI-as-SoA + I1-I10), #224 (three-part stack + thinking harvest + I11), #225 (codec-sweep plan + D0.6 CodecParamsBuilder + D0.7 precision-ladder validation). Next on this branch: board hygiene + CLAUDE.md tightening; then D0.1 / D0.2 / D0.3 / D0.5 Wire-surface code.
+**Sprint-12/13 open work (2026-05-16):**
+
+- `claude/sprint-12-wave-g-fleet` — **PR #390 OPEN** — sprint-12 Wave G follow-on. Lands the remaining D-CSV deliverables not in Wave F: **W-G1** D-CSV-5b QualiaColumn cutover (drop `[f32; 18]`, flip readers to i4); **W-G2** D-CSV-6b full CAM-PQ-indexed `WitnessCorpus` (unbounded, salience decay); **W-G3** batch i4 scalar MUL (paired w/ #388 Wave F); **W-G4** Σ10 Jirak-threshold derivation (D-CSV-15 NEW v2 entry; partial — VAMPE coupled-revival still sprint-13+).
+- `claude/sprint-13-preflight-planning` — **work in flight on this branch.** Sprint-13 preflight planning fleet (PP-3/4/5/6 spec drafts for D-CSV-13b/14/16/17). Governance + spec corpus only; no .rs changes on this branch.
+- Sibling repo `AdaWorldAPI/ndarray`: **PR #147 merged** (`d867b1c`) — vertical streaming substrate (`QualiaI4Row`, `QualiaStream`, `InferenceRow`, `InferenceStream`, `SplatFieldStream`) ships D-CSV-11. `par_*` rayon variants deferred behind `parallel` feature (sprint-14+).
+
+**Historical (post-#225 era, retained for arc reference):**
+
+- `claude/teleport-session-setup-wMZfb` — shipped PRs #223 / #224 / #225 (LAB-ONLY + AGI-as-SoA + I1-I11 + codec-sweep D0.6/D0.7).
 - `claude/deepnsm-grammar-phase1` — Phase 1 PR #210, merged into main.
-- `main` — up-to-date post #225.
+- `main` — up-to-date post #389 (sprint-12 Wave F + codex P2 follow-on).
 
 ## Active Integration Plans
 
@@ -124,28 +150,42 @@ Types live in `crates/cognitive-shader-driver/src/wire.rs` behind `--features se
 
 ## Immediate Next Work
 
-**`codec-sweep-via-lab-infra-v1` Phase 0 remainder (next up):**
+**Queued Work — sprint-13 (specs being drafted in the sprint-13-preflight fleet on this branch):**
 
-- **D0.1** Extend `WireCalibrate` + `WireTensorView` (object-oriented, 64-byte-aligned decode) (~180 LOC).
-- **D0.2** `WireTokenAgreement` endpoint stub — the I11 cert gate (~160 LOC).
+- **D-CSV-13b** — SIMD vectorization of D-CSV-8 i4 MUL evaluation (AVX-512 + NEON intrinsics; ~150-300 LOC per ISA; 4-8× throughput gain over PR #387 scalar path). Spec being drafted by PP-6.
+- **D-CSV-14** — on-Think method migration for D-CSV-12 splat ops (struct-method surface per L-20 lock; depends on D-CSV-11 ndarray streaming PR #147). Spec being drafted by PP-4.
+- **D-CSV-16** — NEW sprint-13 entry. Spec being drafted by PP-5.
+- **D-CSV-17** — NEW sprint-13 entry. Spec being drafted by PP-3.
+
+**Sprint-14+ Phase F items (Backlog):**
+
+- ndarray `parallel`-feature `par_*` rayon variants for `QualiaStream` / `InferenceStream` / `SplatFieldStream` (work-stealing).
+- D-REUNIFY-4/5/6 carryover from causaledge64-mailbox-rename-soa-v1 (splat op fleet on `Think`, par_* method variants, OWL DOLCE / OntologyFilter wiring).
+
+**`codec-sweep-via-lab-infra-v1` Phase 0 remainder (carry-over):**
+
+- **D0.1** `WireCalibrate` + `WireTensorView` (object-oriented, 64-byte-aligned decode) (~180 LOC).
+- **D0.2** `WireTokenAgreement` endpoint stub — I11 cert gate (~160 LOC).
 - **D0.3** `WireSweep` streaming endpoint + Lance append (~200 LOC).
 - **D0.5** `auto_detect.rs` reading `config.json` for `ModelFingerprint` (~140 LOC).
 - Four test gates: `kernel_contract_test`, `amx_dispatch_test` (x86_64), `wire_object_surface_test`, `no_internal_serialisation_test`.
 
-Total Phase 0 remainder: ~680 LOC, one upfront rebuild, surface freezes after.
-
 **`elegant-herding-rocket-v1` Phase 2 (still queued):**
-
-Per `.claude/plans/elegant-herding-rocket-v1.md`:
 
 - **D2** DeepNSM emits `FailureTicket` on low coverage (~150 LOC).
 - **D3** Grammar Triangle wired into DeepNSM via `triangle_bridge.rs` (~220 LOC).
 - **D5** Markov ±5 bundler with role-indexed VSA (~300 LOC).
 - **D7** NARS-tested grammar thinking styles as meta-inference policies (~260 LOC).
 
-Total ~930 LOC, one PR when it ships.
-
 ## Deferred (do NOT propose these — they're explicitly parked)
+
+**Sprint-12/13 explicit deferrals (2026-05-16):**
+
+- **TD-COLLAPSE-GATE-SMALLVEC-1** — SmallVec optimization for `CollapseGateEmission` (currently Vec to preserve contract zero-dep invariant). Revisit only if profiling shows the heap allocation is hot.
+- **TD-SIGMA-TIER-THRESHOLDS-1** — Σ10 VAMPE-coupled Jirak-derived threshold refinement (D-CSV-15). Hand-tuned acceptable through sprint-12 per `I-NOISE-FLOOR-JIRAK`; principled Jirak 2016 derivation forwarded to sprint-13+ VAMPE coupled-revival track.
+- **ndarray `parallel`-feature `par_*` rayon variants** — productized substrate ships sequentially in PR #147; rayon work-stealing wraps deferred to sprint-14+ behind an opt-in feature gate.
+
+**Long-running parks (pre-existing):**
 
 - CausalityFlow TEKAMOLO extension (modal/local/instrument + beneficiary/goal/source, 9 total) — struct change deferred until after Phase 2.
 - D8 story-context bridge, D9 ONNX arc export, D10 Animal Farm validation, D11 bundle-perturb emergence — Phase 3/4.
