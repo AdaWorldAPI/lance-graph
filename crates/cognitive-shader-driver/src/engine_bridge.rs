@@ -31,6 +31,7 @@ use lance_graph_contract::cognitive_shader::{
     StyleSelector, EmitMode,
 };
 
+use lance_graph_contract::qualia::QualiaI4_16D;
 use crate::bindspace::{BindSpace, QUALIA_DIMS, WORDS_PER_FP};
 
 #[cfg(feature = "with-engine")]
@@ -260,6 +261,9 @@ pub fn dispatch_busdto(
     }
     q[9] = bus.codebook_index as f32;
     bs.qualia.set(row, &q);
+    // D-CSV-5a: double-write the i4 sibling column alongside f32 column.
+    // Reads continue to use bs.qualia (f32); cutover is D-CSV-5b.
+    bs.qualia_i4.set(row, QualiaI4_16D::from_f32_17d(&q));
 
     // [3] meta column — packed dispatch state.
     //     thinking = caller's style ordinal
