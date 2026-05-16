@@ -188,7 +188,7 @@ pub use lance_graph_contract::cognitive_shader::{
 pub use lance_graph_contract::collapse_gate::{GateDecision, MergeMode};
 
 pub use bindspace::{BindSpace, BindSpaceBuilder, EdgeColumn, FingerprintColumns,
-                     MetaColumn, QualiaColumn};
+                     MetaColumn, QualiaColumn, QualiaI4Column};
 pub use driver::{CognitiveShaderBuilder, ShaderDriver};
 pub use engine_bridge::{
     EngineBusBridge, UnifiedStyle, UNIFIED_STYLES, unified_style,
