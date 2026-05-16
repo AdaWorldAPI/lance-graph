@@ -723,9 +723,7 @@ impl TripletGraph {
         let base_timestamp = self
             .triplets
             .iter()
-            .filter(|t| !t.is_deleted()
-                && t.subject == subject
-                && t.relation == predicate)
+            .filter(|t| !t.is_deleted() && t.subject == subject && t.relation == predicate)
             .map(|t| t.timestamp)
             .max()
             .or_else(|| self.triplets.iter().map(|t| t.timestamp).max())
