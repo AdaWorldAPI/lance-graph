@@ -1000,6 +1000,7 @@ SIBLING REPOS:
 .claude/knowledge/encoding-ecosystem.md          — MANDATORY: full encoding map, synergies, read-before-write checklist
 .claude/knowledge/frankenstein-checklist.md       — Composition failure modes (VibeTensor §7), boundary test matrix
 .claude/knowledge/lab-vs-canonical-surface.md     — MANDATORY before touching REST/gRPC/Wire DTO/endpoint/shader-lab (prevents "add another REST endpoint" hallucination)
+.claude/knowledge/autoattended-multiagent-pattern.md — MANDATORY before planning a wave with ≥4 parallel workers; 4-savant taxonomy (PP-13/14/15/16), worker iron rules, atomic-consolidation pass
 .claude/CALIBRATION_STATUS_GROUND_TRUTH.md       — OVERRIDE: read BEFORE any SESSION_*.md
 .claude/PLAN_BF16_DISTANCE_TABLES.md             — 5-phase plan for BF16 distance tables
 .claude/TECHNICAL_DEBT_SIGNED_SESSION.md          — 56% useful, 44% bypass (honest review)
