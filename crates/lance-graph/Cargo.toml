@@ -69,6 +69,11 @@ lancedb-sdk = ["dep:lancedb"]
 # ndarray-hpc: use AdaWorldAPI/ndarray for Fingerprint<256>, CAM-PQ, CLAM, BLAS, ZeckF64.
 # Disable for minimal builds (CI, wasm, embedded) — falls back to standalone ndarray_bridge.rs.
 ndarray-hpc = ["dep:ndarray"]
+# with-cam-pq: enables WitnessIndexCamPq (real ndarray::hpc::cam_pq wiring) in WitnessCorpus.
+# Requires ndarray-hpc. HashMap-only users (no with-cam-pq) pay zero cost — no ndarray dep
+# for the witness index path unless this feature is enabled.
+# OQ-CSV-12: lazy enable_cam_pq() API; WitnessCorpus::new() stays cheap.
+with-cam-pq = ["ndarray-hpc"]
 # planner: wire lance-graph-planner for query classification, thinking styles, MUL gate.
 planner = ["dep:lance-graph-planner"]
 # bgz17-codec: palette semiring, HHTL distance matrix, SPO tripartite search.
