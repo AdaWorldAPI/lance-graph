@@ -52,11 +52,19 @@
 //! Frozen planes are established clinical patterns.
 
 pub mod edge;
+pub mod layout;
 pub mod network;
 pub mod pearl;
 pub mod plasticity;
 pub mod tables;
 
+#[cfg(test)]
+mod v2_layout_tests;
+
 pub use edge::CausalEdge64;
 pub use pearl::CausalMask;
 pub use plasticity::PlasticityState;
+
+// Re-export v2 layout types under cfg for downstream consumers
+#[cfg(feature = "causal-edge-v2-layout")]
+pub use layout::TrustTexture;

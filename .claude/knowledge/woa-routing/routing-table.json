@@ -1,0 +1,5147 @@
+{
+  "generated_by": "ast harvest of app.py + woa/blueprints/*.py + woa/*.py + woa_*.py",
+  "generated_at": "2026-05-16",
+  "route_count": 514,
+  "routes": [
+    {
+      "endpoint": "system_pages.index",
+      "function": "index",
+      "path": "/",
+      "methods": "GET",
+      "source_file": "woa/blueprints/system_pages.py",
+      "line": 19,
+      "blueprint": "system_pages",
+      "cluster": "system_pages"
+    },
+    {
+      "endpoint": "abnahme.acceptance_item_bemerkung",
+      "function": "acceptance_item_bemerkung",
+      "path": "/abnahme/item/<int:iid>/bemerkung",
+      "methods": "POST",
+      "source_file": "woa/blueprints/abnahme.py",
+      "line": 50,
+      "blueprint": "abnahme",
+      "cluster": "abnahme"
+    },
+    {
+      "endpoint": "abnahme.acceptance_item_delete",
+      "function": "acceptance_item_delete",
+      "path": "/abnahme/item/<int:iid>/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/abnahme.py",
+      "line": 71,
+      "blueprint": "abnahme",
+      "cluster": "abnahme"
+    },
+    {
+      "endpoint": "abnahme.acceptance_item_update",
+      "function": "acceptance_item_update",
+      "path": "/abnahme/item/<int:iid>/update",
+      "methods": "POST",
+      "source_file": "woa/blueprints/abnahme.py",
+      "line": 26,
+      "blueprint": "abnahme",
+      "cluster": "abnahme"
+    },
+    {
+      "endpoint": "abnahme.acceptance_defect_delete",
+      "function": "acceptance_defect_delete",
+      "path": "/abnahme/mangel/<int:did>/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/abnahme.py",
+      "line": 103,
+      "blueprint": "abnahme",
+      "cluster": "abnahme"
+    },
+    {
+      "endpoint": "abnahme.acceptance_defect_toggle",
+      "function": "acceptance_defect_toggle",
+      "path": "/abnahme/mangel/<int:did>/toggle",
+      "methods": "POST",
+      "source_file": "woa/blueprints/abnahme.py",
+      "line": 89,
+      "blueprint": "abnahme",
+      "cluster": "abnahme"
+    },
+    {
+      "endpoint": "abo_rechnungen.recurring_list",
+      "function": "recurring_list",
+      "path": "/abo-rechnungen",
+      "methods": "GET",
+      "source_file": "woa/blueprints/abo_rechnungen.py",
+      "line": 31,
+      "blueprint": "abo_rechnungen",
+      "cluster": "abo_rechnungen"
+    },
+    {
+      "endpoint": "abo_rechnungen.recurring_delete",
+      "function": "recurring_delete",
+      "path": "/abo-rechnungen/<int:rid>/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/abo_rechnungen.py",
+      "line": 146,
+      "blueprint": "abo_rechnungen",
+      "cluster": "abo_rechnungen"
+    },
+    {
+      "endpoint": "abo_rechnungen.recurring_execute",
+      "function": "recurring_execute",
+      "path": "/abo-rechnungen/<int:rid>/execute",
+      "methods": "POST",
+      "source_file": "woa/blueprints/abo_rechnungen.py",
+      "line": 68,
+      "blueprint": "abo_rechnungen",
+      "cluster": "abo_rechnungen"
+    },
+    {
+      "endpoint": "abo_rechnungen.recurring_toggle",
+      "function": "recurring_toggle",
+      "path": "/abo-rechnungen/<int:rid>/toggle",
+      "methods": "POST",
+      "source_file": "woa/blueprints/abo_rechnungen.py",
+      "line": 136,
+      "blueprint": "abo_rechnungen",
+      "cluster": "abo_rechnungen"
+    },
+    {
+      "endpoint": "abo_rechnungen.recurring_add",
+      "function": "recurring_add",
+      "path": "/abo-rechnungen/neu",
+      "methods": "POST",
+      "source_file": "woa/blueprints/abo_rechnungen.py",
+      "line": 47,
+      "blueprint": "abo_rechnungen",
+      "cluster": "abo_rechnungen"
+    },
+    {
+      "endpoint": "activity.activity_delete",
+      "function": "activity_delete",
+      "path": "/activity/<int:aid>/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/activity.py",
+      "line": 19,
+      "blueprint": "activity",
+      "cluster": "activity"
+    },
+    {
+      "endpoint": "activity.activity_edit",
+      "function": "activity_edit",
+      "path": "/activity/<int:aid>/edit",
+      "methods": "POST",
+      "source_file": "woa/blueprints/activity.py",
+      "line": 33,
+      "blueprint": "activity",
+      "cluster": "activity"
+    },
+    {
+      "endpoint": "admin_blacklist_safe_mark",
+      "function": "admin_blacklist_safe_mark",
+      "path": "/admin/blacklist/<int:bid>/safe-mark",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 11213,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "admin.branding_page",
+      "function": "branding_page",
+      "path": "/admin/branding",
+      "methods": "GET",
+      "source_file": "woa/blueprints/admin.py",
+      "line": 173,
+      "blueprint": "admin",
+      "cluster": "admin"
+    },
+    {
+      "endpoint": "admin.branding_select",
+      "function": "branding_select",
+      "path": "/admin/branding/select",
+      "methods": "POST",
+      "source_file": "woa/blueprints/admin.py",
+      "line": 214,
+      "blueprint": "admin",
+      "cluster": "admin"
+    },
+    {
+      "endpoint": "admin.branding_set_name",
+      "function": "branding_set_name",
+      "path": "/admin/branding/set-name",
+      "methods": "POST",
+      "source_file": "woa/blueprints/admin.py",
+      "line": 301,
+      "blueprint": "admin",
+      "cluster": "admin"
+    },
+    {
+      "endpoint": "admin.branding_upload",
+      "function": "branding_upload",
+      "path": "/admin/branding/upload",
+      "methods": "POST",
+      "source_file": "woa/blueprints/admin.py",
+      "line": 246,
+      "blueprint": "admin",
+      "cluster": "admin"
+    },
+    {
+      "endpoint": "security_audit_list",
+      "function": "security_audit_list",
+      "path": "/admin/security-audit",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 11540,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "security_audit_detail",
+      "function": "security_audit_detail",
+      "path": "/admin/security-audit/<int:aid>",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 11736,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "security_audit_approve",
+      "function": "security_audit_approve",
+      "path": "/admin/security-audit/<int:aid>/approve",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 11875,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "security_audit_notify_sa",
+      "function": "security_audit_notify_sa",
+      "path": "/admin/security-audit/<int:aid>/notify-sa",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 11780,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "security_audit_pdf",
+      "function": "security_audit_pdf",
+      "path": "/admin/security-audit/<int:aid>/pdf",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 12035,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "security_audit_new",
+      "function": "security_audit_new",
+      "path": "/admin/security-audit/new",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 11599,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "security_audit_recent",
+      "function": "security_audit_recent",
+      "path": "/admin/security-audit/recent",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 12074,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "security_audit_summary",
+      "function": "security_audit_summary",
+      "path": "/admin/security-audit/summary",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 12145,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "admin.app_version_audit_detail_pdf",
+      "function": "app_version_audit_detail_pdf",
+      "path": "/admin/version/<int:vid>/audit-detail-pdf",
+      "methods": "GET",
+      "source_file": "woa/blueprints/admin.py",
+      "line": 140,
+      "blueprint": "admin",
+      "cluster": "admin"
+    },
+    {
+      "endpoint": "admin.app_version_audit_layperson_pdf",
+      "function": "app_version_audit_layperson_pdf",
+      "path": "/admin/version/<int:vid>/audit-layperson-pdf",
+      "methods": "GET",
+      "source_file": "woa/blueprints/admin.py",
+      "line": 155,
+      "blueprint": "admin",
+      "cluster": "admin"
+    },
+    {
+      "endpoint": "admin.app_version_change_pdf",
+      "function": "app_version_change_pdf",
+      "path": "/admin/version/<int:vid>/change-pdf",
+      "methods": "GET",
+      "source_file": "woa/blueprints/admin.py",
+      "line": 124,
+      "blueprint": "admin",
+      "cluster": "admin"
+    },
+    {
+      "endpoint": "admin.app_version_list",
+      "function": "app_version_list",
+      "path": "/admin/versions",
+      "methods": "GET",
+      "source_file": "woa/blueprints/admin.py",
+      "line": 52,
+      "blueprint": "admin",
+      "cluster": "admin"
+    },
+    {
+      "endpoint": "admin.app_version_activate",
+      "function": "app_version_activate",
+      "path": "/admin/versions/<int:vid>/activate",
+      "methods": "POST",
+      "source_file": "woa/blueprints/admin.py",
+      "line": 94,
+      "blueprint": "admin",
+      "cluster": "admin"
+    },
+    {
+      "endpoint": "admin.app_version_delete",
+      "function": "app_version_delete",
+      "path": "/admin/versions/<int:vid>/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/admin.py",
+      "line": 107,
+      "blueprint": "admin",
+      "cluster": "admin"
+    },
+    {
+      "endpoint": "admin.app_version_add",
+      "function": "app_version_add",
+      "path": "/admin/versions/add",
+      "methods": "POST",
+      "source_file": "woa/blueprints/admin.py",
+      "line": 61,
+      "blueprint": "admin",
+      "cluster": "admin"
+    },
+    {
+      "endpoint": "admin_server.woa_service_reset_update_lock",
+      "function": "woa_service_reset_update_lock",
+      "path": "/admin/woa-service/server/<int:sid>/reset-update-lock",
+      "methods": "POST",
+      "source_file": "woa/blueprints/admin_server.py",
+      "line": 26,
+      "blueprint": "admin_server",
+      "cluster": "admin_server"
+    },
+    {
+      "endpoint": "admin_server.woa_service_server_sync_info",
+      "function": "woa_service_server_sync_info",
+      "path": "/admin/woa-service/server/<int:sid>/sync-info",
+      "methods": "GET",
+      "source_file": "woa/blueprints/admin_server.py",
+      "line": 49,
+      "blueprint": "admin_server",
+      "cluster": "admin_server"
+    },
+    {
+      "endpoint": "api_search.api_article_search",
+      "function": "api_article_search",
+      "path": "/api/articles/search",
+      "methods": "GET",
+      "source_file": "woa/blueprints/api_search.py",
+      "line": 112,
+      "blueprint": "api_search",
+      "cluster": "api_search"
+    },
+    {
+      "endpoint": "caldav_autosync",
+      "function": "caldav_autosync",
+      "path": "/api/caldav-autosync",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 8183,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "caldav_reset_api",
+      "function": "caldav_reset_api",
+      "path": "/api/caldav-reset",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 1489,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "wave_i_extracted.caldav_restart_timer_api",
+      "function": "caldav_restart_timer_api",
+      "path": "/api/caldav-restart-timer",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_i_extracted.py",
+      "line": 881,
+      "blueprint": "wave_i_extracted",
+      "cluster": "wave_i_extracted"
+    },
+    {
+      "endpoint": "misc_clean_c.caldav_sync_api",
+      "function": "caldav_sync_api",
+      "path": "/api/caldav-sync",
+      "methods": "POST",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 1362,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "api_search.api_customer_workorders",
+      "function": "api_customer_workorders",
+      "path": "/api/customer/<int:cid>/workorders",
+      "methods": "GET",
+      "source_file": "woa/blueprints/api_search.py",
+      "line": 142,
+      "blueprint": "api_search",
+      "cluster": "api_search"
+    },
+    {
+      "endpoint": "api_search.api_customer_search",
+      "function": "api_customer_search",
+      "path": "/api/customers/search",
+      "methods": "GET",
+      "source_file": "woa/blueprints/api_search.py",
+      "line": 71,
+      "blueprint": "api_search",
+      "cluster": "api_search"
+    },
+    {
+      "endpoint": "api.api_dashboard_letzte",
+      "function": "api_dashboard_letzte",
+      "path": "/api/dashboard/letzte",
+      "methods": "GET",
+      "source_file": "woa/blueprints/api.py",
+      "line": 44,
+      "blueprint": "api",
+      "cluster": "api"
+    },
+    {
+      "endpoint": "api.api_dashboard_termine",
+      "function": "api_dashboard_termine",
+      "path": "/api/dashboard/termine",
+      "methods": "GET",
+      "source_file": "woa/blueprints/api.py",
+      "line": 26,
+      "blueprint": "api",
+      "cluster": "api"
+    },
+    {
+      "endpoint": "api.api_dashboard_todos",
+      "function": "api_dashboard_todos",
+      "path": "/api/dashboard/todos",
+      "methods": "GET",
+      "source_file": "woa/blueprints/api.py",
+      "line": 67,
+      "blueprint": "api",
+      "cluster": "api"
+    },
+    {
+      "endpoint": "api_search.api_ean_lookup",
+      "function": "api_ean_lookup",
+      "path": "/api/ean-lookup/<ean>",
+      "methods": "GET",
+      "source_file": "woa/blueprints/api_search.py",
+      "line": 29,
+      "blueprint": "api_search",
+      "cluster": "api_search"
+    },
+    {
+      "endpoint": "api_internal_auto_block",
+      "function": "api_internal_auto_block",
+      "path": "/api/internal/auto-block",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 11379,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "misc_clean_c.vault_get_pw",
+      "function": "vault_get_pw",
+      "path": "/api/kunden/<int:cid>/vault/<int:eid>/password",
+      "methods": "GET",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 160,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "api_master_woa.master_push_alert",
+      "function": "master_push_alert",
+      "path": "/api/master-push/alert",
+      "methods": "POST",
+      "source_file": "woa/blueprints/api_master_woa.py",
+      "line": 49,
+      "blueprint": "api_master_woa",
+      "cluster": "api_master_woa"
+    },
+    {
+      "endpoint": "master_push_blacklist",
+      "function": "master_push_blacklist",
+      "path": "/api/master-push/blacklist",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 11250,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "misc_clean_c.master_push_blacklist_event",
+      "function": "master_push_blacklist_event",
+      "path": "/api/master-push/blacklist-event",
+      "methods": "POST",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 1771,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "api_master_woa.master_push_get_public_key",
+      "function": "master_push_get_public_key",
+      "path": "/api/master-push/get-public-key",
+      "methods": "GET",
+      "source_file": "woa/blueprints/api_master_woa.py",
+      "line": 106,
+      "blueprint": "api_master_woa",
+      "cluster": "api_master_woa"
+    },
+    {
+      "endpoint": "master_push_get_rsa_public_key",
+      "function": "master_push_get_rsa_public_key",
+      "path": "/api/master-push/get-rsa-public-key",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 7405,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "misc_clean_c.master_push_health",
+      "function": "master_push_health",
+      "path": "/api/master-push/health",
+      "methods": "POST",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 977,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "misc_clean_c.master_push_heartbeat",
+      "function": "master_push_heartbeat",
+      "path": "/api/master-push/heartbeat",
+      "methods": "POST",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 1706,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "master_push_register",
+      "function": "master_push_register",
+      "path": "/api/master-push/register",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 7288,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "master_push_register_secure",
+      "function": "master_push_register_secure",
+      "path": "/api/master-push/register-secure",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 7419,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "api_master_woa.master_blacklist_pull",
+      "function": "master_blacklist_pull",
+      "path": "/api/master/blacklist-pull",
+      "methods": "GET",
+      "source_file": "woa/blueprints/api_master_woa.py",
+      "line": 123,
+      "blueprint": "api_master_woa",
+      "cluster": "api_master_woa"
+    },
+    {
+      "endpoint": "master_api.master_api_empfehlungen",
+      "function": "master_api_empfehlungen",
+      "path": "/api/master/empfehlungen",
+      "methods": "GET",
+      "source_file": "woa/blueprints/master_api.py",
+      "line": 70,
+      "blueprint": "master_api",
+      "cluster": "master_api"
+    },
+    {
+      "endpoint": "master_api_health",
+      "function": "master_api_health",
+      "path": "/api/master/health",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 6959,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "master_api.master_api_kummerkasten",
+      "function": "master_api_kummerkasten",
+      "path": "/api/master/kummerkasten",
+      "methods": "GET",
+      "source_file": "woa/blueprints/master_api.py",
+      "line": 48,
+      "blueprint": "master_api",
+      "cluster": "master_api"
+    },
+    {
+      "endpoint": "master_api.master_api_log",
+      "function": "master_api_log",
+      "path": "/api/master/log",
+      "methods": "GET",
+      "source_file": "woa/blueprints/master_api.py",
+      "line": 31,
+      "blueprint": "master_api",
+      "cluster": "master_api"
+    },
+    {
+      "endpoint": "master_api_server_list",
+      "function": "master_api_server_list",
+      "path": "/api/master/server-list",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 11234,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "master_sync_settings",
+      "function": "master_sync_settings",
+      "path": "/api/master/sync/settings",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 11345,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "master_api_version",
+      "function": "master_api_version",
+      "path": "/api/master/version",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 6968,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "master_api.master_api_watchdog",
+      "function": "master_api_watchdog",
+      "path": "/api/master/watchdog",
+      "methods": "GET",
+      "source_file": "woa/blueprints/master_api.py",
+      "line": 91,
+      "blueprint": "master_api",
+      "cluster": "master_api"
+    },
+    {
+      "endpoint": "api_search.api_tax_reserve_toggle",
+      "function": "api_tax_reserve_toggle",
+      "path": "/api/tax-reserve/toggle",
+      "methods": "POST",
+      "source_file": "woa/blueprints/api_search.py",
+      "line": 95,
+      "blueprint": "api_search",
+      "cluster": "api_search"
+    },
+    {
+      "endpoint": "woa_service_cron",
+      "function": "woa_service_cron",
+      "path": "/api/woa-service/cron",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 6488,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "woa_service_health_cron",
+      "function": "woa_service_health_cron",
+      "path": "/api/woa-service/health-cron",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 7605,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "api_master_woa.woa_service_server_notizen",
+      "function": "woa_service_server_notizen",
+      "path": "/api/woa-service/server/<int:sid>/notizen",
+      "methods": "GET",
+      "source_file": "woa/blueprints/api_master_woa.py",
+      "line": 69,
+      "blueprint": "api_master_woa",
+      "cluster": "api_master_woa"
+    },
+    {
+      "endpoint": "api_master_woa.woa_service_server_secrets",
+      "function": "woa_service_server_secrets",
+      "path": "/api/woa-service/server/<int:sid>/secrets",
+      "methods": "GET",
+      "source_file": "woa/blueprints/api_master_woa.py",
+      "line": 35,
+      "blueprint": "api_master_woa",
+      "cluster": "api_master_woa"
+    },
+    {
+      "endpoint": "api_master_woa.woa_service_server_secrets_reveal",
+      "function": "woa_service_server_secrets_reveal",
+      "path": "/api/woa-service/server/<int:sid>/secrets-reveal",
+      "methods": "POST",
+      "source_file": "woa/blueprints/api_master_woa.py",
+      "line": 78,
+      "blueprint": "api_master_woa",
+      "cluster": "api_master_woa"
+    },
+    {
+      "endpoint": "misc_clean_c.woa_service_sync_all",
+      "function": "woa_service_sync_all",
+      "path": "/api/woa-service/sync-all",
+      "methods": "GET",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 938,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "misc_clean_c.article_list",
+      "function": "article_list",
+      "path": "/artikel",
+      "methods": "GET",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 331,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "misc_clean_c.article_delete",
+      "function": "article_delete",
+      "path": "/artikel/<int:aid>/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 345,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "wave_d_pricing.article_edit",
+      "function": "article_edit",
+      "path": "/artikel/<int:aid>/edit",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/wave_d_pricing.py",
+      "line": 291,
+      "blueprint": "wave_d_pricing",
+      "cluster": "wave_d_pricing"
+    },
+    {
+      "endpoint": "article_csv_import",
+      "function": "article_csv_import",
+      "path": "/artikel/import",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 1134,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "wave_d_pricing.article_new",
+      "function": "article_new",
+      "path": "/artikel/neu",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/wave_d_pricing.py",
+      "line": 265,
+      "blueprint": "wave_d_pricing",
+      "cluster": "wave_d_pricing"
+    },
+    {
+      "endpoint": "wave_d_misc.backup_page",
+      "function": "backup_page",
+      "path": "/backup",
+      "methods": "GET",
+      "source_file": "woa/blueprints/wave_d_misc.py",
+      "line": 322,
+      "blueprint": "wave_d_misc",
+      "cluster": "wave_d_misc"
+    },
+    {
+      "endpoint": "wave_e_referral.backup_create",
+      "function": "backup_create",
+      "path": "/backup/create",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_e_referral.py",
+      "line": 731,
+      "blueprint": "wave_e_referral",
+      "cluster": "wave_e_referral"
+    },
+    {
+      "endpoint": "wave_e_referral.backup_create_software",
+      "function": "backup_create_software",
+      "path": "/backup/create-software",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_e_referral.py",
+      "line": 556,
+      "blueprint": "wave_e_referral",
+      "cluster": "wave_e_referral"
+    },
+    {
+      "endpoint": "wave_e_referral.backup_create_tenant",
+      "function": "backup_create_tenant",
+      "path": "/backup/create-tenant",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_e_referral.py",
+      "line": 1361,
+      "blueprint": "wave_e_referral",
+      "cluster": "wave_e_referral"
+    },
+    {
+      "endpoint": "wave_d_misc.backup_delete_all_software",
+      "function": "backup_delete_all_software",
+      "path": "/backup/delete-all-software",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_d_misc.py",
+      "line": 409,
+      "blueprint": "wave_d_misc",
+      "cluster": "wave_d_misc"
+    },
+    {
+      "endpoint": "wave_d_misc.backup_delete_all_tenant",
+      "function": "backup_delete_all_tenant",
+      "path": "/backup/delete-all-tenant",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_d_misc.py",
+      "line": 436,
+      "blueprint": "wave_d_misc",
+      "cluster": "wave_d_misc"
+    },
+    {
+      "endpoint": "wave_d_misc.backup_delete",
+      "function": "backup_delete",
+      "path": "/backup/delete/<filename>",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_d_misc.py",
+      "line": 373,
+      "blueprint": "wave_d_misc",
+      "cluster": "wave_d_misc"
+    },
+    {
+      "endpoint": "wave_d_misc.backup_download",
+      "function": "backup_download",
+      "path": "/backup/download/<filename>",
+      "methods": "GET",
+      "source_file": "woa/blueprints/wave_d_misc.py",
+      "line": 353,
+      "blueprint": "wave_d_misc",
+      "cluster": "wave_d_misc"
+    },
+    {
+      "endpoint": "backup_restore",
+      "function": "backup_restore",
+      "path": "/backup/restore",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 2778,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "misc_clean_b.user_list",
+      "function": "user_list",
+      "path": "/benutzer",
+      "methods": "GET",
+      "source_file": "woa/blueprints/misc_clean_b.py",
+      "line": 136,
+      "blueprint": "misc_clean_b",
+      "cluster": "misc_clean_b"
+    },
+    {
+      "endpoint": "misc_clean_c.user_delete",
+      "function": "user_delete",
+      "path": "/benutzer/<int:uid>/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 623,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "wave_g_extracted.user_edit",
+      "function": "user_edit",
+      "path": "/benutzer/<int:uid>/edit",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/wave_g_extracted.py",
+      "line": 270,
+      "blueprint": "wave_g_extracted",
+      "cluster": "wave_g_extracted"
+    },
+    {
+      "endpoint": "misc_clean_c.user_unlock",
+      "function": "user_unlock",
+      "path": "/benutzer/<int:uid>/unlock",
+      "methods": "POST",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 592,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "wave_g_extracted.user_new",
+      "function": "user_new",
+      "path": "/benutzer/neu",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/wave_g_extracted.py",
+      "line": 240,
+      "blueprint": "wave_g_extracted",
+      "cluster": "wave_g_extracted"
+    },
+    {
+      "endpoint": "misc_clean_b.caldav_restart_timer",
+      "function": "caldav_restart_timer",
+      "path": "/caldav/restart-timer",
+      "methods": "POST",
+      "source_file": "woa/blueprints/misc_clean_b.py",
+      "line": 178,
+      "blueprint": "misc_clean_b",
+      "cluster": "misc_clean_b"
+    },
+    {
+      "endpoint": "misc_clean_c.caldav_sync",
+      "function": "caldav_sync",
+      "path": "/caldav/sync",
+      "methods": "POST",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 1055,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "dashboard",
+      "function": "dashboard",
+      "path": "/dashboard",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 502,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "dashboard_dringend",
+      "function": "dashboard_dringend",
+      "path": "/dashboard/dringend",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 454,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "misc_clean_c.datenexport_page",
+      "function": "datenexport_page",
+      "path": "/datenexport",
+      "methods": "GET",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 1660,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "wave_d_misc.datenexport_csv",
+      "function": "datenexport_csv",
+      "path": "/datenexport/csv/<table>",
+      "methods": "GET",
+      "source_file": "woa/blueprints/wave_d_misc.py",
+      "line": 552,
+      "blueprint": "wave_d_misc",
+      "cluster": "wave_d_misc"
+    },
+    {
+      "endpoint": "datenexport_datev",
+      "function": "datenexport_datev",
+      "path": "/datenexport/datev",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 9516,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "wave_d_misc.datenexport_gobd",
+      "function": "datenexport_gobd",
+      "path": "/datenexport/gobd",
+      "methods": "GET",
+      "source_file": "woa/blueprints/wave_d_misc.py",
+      "line": 1174,
+      "blueprint": "wave_d_misc",
+      "cluster": "wave_d_misc"
+    },
+    {
+      "endpoint": "dokument.document_delete",
+      "function": "document_delete",
+      "path": "/dokument/<int:did>/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/dokument.py",
+      "line": 38,
+      "blueprint": "dokument",
+      "cluster": "dokument"
+    },
+    {
+      "endpoint": "dokument.document_download",
+      "function": "document_download",
+      "path": "/dokument/<int:did>/download",
+      "methods": "GET",
+      "source_file": "woa/blueprints/dokument.py",
+      "line": 23,
+      "blueprint": "dokument",
+      "cluster": "dokument"
+    },
+    {
+      "endpoint": "dokument.document_edit_desc",
+      "function": "document_edit_desc",
+      "path": "/dokument/<int:did>/edit-desc",
+      "methods": "POST",
+      "source_file": "woa/blueprints/dokument.py",
+      "line": 82,
+      "blueprint": "dokument",
+      "cluster": "dokument"
+    },
+    {
+      "endpoint": "dokument.document_toggle_an_kunde",
+      "function": "document_toggle_an_kunde",
+      "path": "/dokument/<int:did>/toggle-an-kunde",
+      "methods": "POST",
+      "source_file": "woa/blueprints/dokument.py",
+      "line": 68,
+      "blueprint": "dokument",
+      "cluster": "dokument"
+    },
+    {
+      "endpoint": "misc_clean_b.einsatz_start",
+      "function": "einsatz_start",
+      "path": "/einsatz",
+      "methods": "GET",
+      "source_file": "woa/blueprints/misc_clean_b.py",
+      "line": 40,
+      "blueprint": "misc_clean_b",
+      "cluster": "misc_clean_b"
+    },
+    {
+      "endpoint": "wave_d_pricing.einsatz_live",
+      "function": "einsatz_live",
+      "path": "/einsatz/<int:wid>",
+      "methods": "GET",
+      "source_file": "woa/blueprints/wave_d_pricing.py",
+      "line": 242,
+      "blueprint": "wave_d_pricing",
+      "cluster": "wave_d_pricing"
+    },
+    {
+      "endpoint": "misc_clean_c.einsatz_cancel",
+      "function": "einsatz_cancel",
+      "path": "/einsatz/<int:wid>/abbrechen",
+      "methods": "POST",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 225,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "misc_clean_c.einsatz_activity",
+      "function": "einsatz_activity",
+      "path": "/einsatz/<int:wid>/activity",
+      "methods": "POST",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 240,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "abnahme_more.einsatz_checkout",
+      "function": "einsatz_checkout",
+      "path": "/einsatz/<int:wid>/checkout",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/abnahme_more.py",
+      "line": 455,
+      "blueprint": "abnahme_more",
+      "cluster": "abnahme_more"
+    },
+    {
+      "endpoint": "misc_clean_c.einsatz_photo",
+      "function": "einsatz_photo",
+      "path": "/einsatz/<int:wid>/photo",
+      "methods": "POST",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 258,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "misc_clean_c.einsatz_checkin",
+      "function": "einsatz_checkin",
+      "path": "/einsatz/checkin",
+      "methods": "POST",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 201,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "wave_e_referral.settings_page",
+      "function": "settings_page",
+      "path": "/einstellungen",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/wave_e_referral.py",
+      "line": 56,
+      "blueprint": "wave_e_referral",
+      "cluster": "wave_e_referral"
+    },
+    {
+      "endpoint": "misc_extras.auto_login_tokens_page",
+      "function": "auto_login_tokens_page",
+      "path": "/einstellungen/auto-login-tokens",
+      "methods": "GET",
+      "source_file": "woa/blueprints/misc_extras.py",
+      "line": 248,
+      "blueprint": "misc_extras",
+      "cluster": "misc_extras"
+    },
+    {
+      "endpoint": "einstellungen.auto_login_token_delete",
+      "function": "auto_login_token_delete",
+      "path": "/einstellungen/auto-login-tokens/<int:tid>/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/einstellungen.py",
+      "line": 545,
+      "blueprint": "einstellungen",
+      "cluster": "einstellungen"
+    },
+    {
+      "endpoint": "einstellungen.auto_login_tokens_save",
+      "function": "auto_login_tokens_save",
+      "path": "/einstellungen/auto-login-tokens/save",
+      "methods": "POST",
+      "source_file": "woa/blueprints/einstellungen.py",
+      "line": 509,
+      "blueprint": "einstellungen",
+      "cluster": "einstellungen"
+    },
+    {
+      "endpoint": "einstellungen.avv_delete",
+      "function": "avv_delete",
+      "path": "/einstellungen/avv/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/einstellungen.py",
+      "line": 351,
+      "blueprint": "einstellungen",
+      "cluster": "einstellungen"
+    },
+    {
+      "endpoint": "misc_extras.avv_download",
+      "function": "avv_download",
+      "path": "/einstellungen/avv/download",
+      "methods": "GET",
+      "source_file": "woa/blueprints/misc_extras.py",
+      "line": 31,
+      "blueprint": "misc_extras",
+      "cluster": "misc_extras"
+    },
+    {
+      "endpoint": "einstellungen.avv_upload",
+      "function": "avv_upload",
+      "path": "/einstellungen/avv/upload",
+      "methods": "POST",
+      "source_file": "woa/blueprints/einstellungen.py",
+      "line": 308,
+      "blueprint": "einstellungen",
+      "cluster": "einstellungen"
+    },
+    {
+      "endpoint": "einstellungen.keepass_sync",
+      "function": "keepass_sync",
+      "path": "/einstellungen/keepass-sync",
+      "methods": "POST",
+      "source_file": "woa/blueprints/einstellungen.py",
+      "line": 372,
+      "blueprint": "einstellungen",
+      "cluster": "einstellungen"
+    },
+    {
+      "endpoint": "einstellungen_clean.keepass_upload",
+      "function": "keepass_upload",
+      "path": "/einstellungen/keepass-upload",
+      "methods": "POST",
+      "source_file": "woa/blueprints/einstellungen_clean.py",
+      "line": 360,
+      "blueprint": "einstellungen_clean",
+      "cluster": "einstellungen_clean"
+    },
+    {
+      "endpoint": "einstellungen_clean.admin_log_clear",
+      "function": "admin_log_clear",
+      "path": "/einstellungen/log/clear",
+      "methods": "POST",
+      "source_file": "woa/blueprints/einstellungen_clean.py",
+      "line": 107,
+      "blueprint": "einstellungen_clean",
+      "cluster": "einstellungen_clean"
+    },
+    {
+      "endpoint": "misc_extras.admin_log_download",
+      "function": "admin_log_download",
+      "path": "/einstellungen/log/download",
+      "methods": "GET",
+      "source_file": "woa/blueprints/misc_extras.py",
+      "line": 64,
+      "blueprint": "misc_extras",
+      "cluster": "misc_extras"
+    },
+    {
+      "endpoint": "einstellungen_clean.admin_log_view",
+      "function": "admin_log_view",
+      "path": "/einstellungen/log/view",
+      "methods": "GET",
+      "source_file": "woa/blueprints/einstellungen_clean.py",
+      "line": 38,
+      "blueprint": "einstellungen_clean",
+      "cluster": "einstellungen_clean"
+    },
+    {
+      "endpoint": "einstellungen.tenant_logo_delete",
+      "function": "tenant_logo_delete",
+      "path": "/einstellungen/logo/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/einstellungen.py",
+      "line": 271,
+      "blueprint": "einstellungen",
+      "cluster": "einstellungen"
+    },
+    {
+      "endpoint": "einstellungen.tenant_logo_upload",
+      "function": "tenant_logo_upload",
+      "path": "/einstellungen/logo/upload",
+      "methods": "POST",
+      "source_file": "woa/blueprints/einstellungen.py",
+      "line": 158,
+      "blueprint": "einstellungen",
+      "cluster": "einstellungen"
+    },
+    {
+      "endpoint": "einstellungen.settings_portal_save",
+      "function": "settings_portal_save",
+      "path": "/einstellungen/portal/save",
+      "methods": "POST",
+      "source_file": "woa/blueprints/einstellungen.py",
+      "line": 88,
+      "blueprint": "einstellungen",
+      "cluster": "einstellungen"
+    },
+    {
+      "endpoint": "settings_save_field",
+      "function": "settings_save_field",
+      "path": "/einstellungen/save-field",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 1394,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "einstellungen.settings_save_seq",
+      "function": "settings_save_seq",
+      "path": "/einstellungen/save-seq",
+      "methods": "POST",
+      "source_file": "woa/blueprints/einstellungen.py",
+      "line": 41,
+      "blueprint": "einstellungen",
+      "cluster": "einstellungen"
+    },
+    {
+      "endpoint": "einstellungen_clean.tenant_smtp_test",
+      "function": "tenant_smtp_test",
+      "path": "/einstellungen/smtp/test",
+      "methods": "POST",
+      "source_file": "woa/blueprints/einstellungen_clean.py",
+      "line": 126,
+      "blueprint": "einstellungen_clean",
+      "cluster": "einstellungen_clean"
+    },
+    {
+      "endpoint": "wave_d_pricing.settings_taxrate_default",
+      "function": "settings_taxrate_default",
+      "path": "/einstellungen/steuerklassen/<int:rate_id>/default",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_d_pricing.py",
+      "line": 463,
+      "blueprint": "wave_d_pricing",
+      "cluster": "wave_d_pricing"
+    },
+    {
+      "endpoint": "wave_d_pricing.settings_taxrate_delete",
+      "function": "settings_taxrate_delete",
+      "path": "/einstellungen/steuerklassen/<int:rate_id>/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_d_pricing.py",
+      "line": 507,
+      "blueprint": "wave_d_pricing",
+      "cluster": "wave_d_pricing"
+    },
+    {
+      "endpoint": "wave_d_pricing.settings_taxrate_edit",
+      "function": "settings_taxrate_edit",
+      "path": "/einstellungen/steuerklassen/<int:rate_id>/edit",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_d_pricing.py",
+      "line": 424,
+      "blueprint": "wave_d_pricing",
+      "cluster": "wave_d_pricing"
+    },
+    {
+      "endpoint": "wave_d_pricing.settings_taxrate_new",
+      "function": "settings_taxrate_new",
+      "path": "/einstellungen/steuerklassen/neu",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_d_pricing.py",
+      "line": 388,
+      "blueprint": "wave_d_pricing",
+      "cluster": "wave_d_pricing"
+    },
+    {
+      "endpoint": "einstellungen_clean.sa_test_logmail",
+      "function": "sa_test_logmail",
+      "path": "/einstellungen/superadmin/test-logmail",
+      "methods": "POST",
+      "source_file": "woa/blueprints/einstellungen_clean.py",
+      "line": 259,
+      "blueprint": "einstellungen_clean",
+      "cluster": "einstellungen_clean"
+    },
+    {
+      "endpoint": "misc_extras.sa_test_mail",
+      "function": "sa_test_mail",
+      "path": "/einstellungen/superadmin/test-mail",
+      "methods": "POST",
+      "source_file": "woa/blueprints/misc_extras.py",
+      "line": 113,
+      "blueprint": "misc_extras",
+      "cluster": "misc_extras"
+    },
+    {
+      "endpoint": "tresor_self_service_mail_editor",
+      "function": "tresor_self_service_mail_editor",
+      "path": "/einstellungen/tresor/self-service-mail",
+      "methods": "GET,POST",
+      "source_file": "app.py",
+      "line": 13185,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "einstellungen_clean.verfahrensdok_download",
+      "function": "verfahrensdok_download",
+      "path": "/einstellungen/verfahrensdokumentation",
+      "methods": "GET",
+      "source_file": "woa/blueprints/einstellungen_clean.py",
+      "line": 293,
+      "blueprint": "einstellungen_clean",
+      "cluster": "einstellungen_clean"
+    },
+    {
+      "endpoint": "einstellungen.mail_template_editor",
+      "function": "mail_template_editor",
+      "path": "/einstellungen/vorlagen/email-<kind_slug>",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/einstellungen.py",
+      "line": 567,
+      "blueprint": "einstellungen",
+      "cluster": "einstellungen"
+    },
+    {
+      "endpoint": "einstellungen_clean.watchdog_status",
+      "function": "watchdog_status",
+      "path": "/einstellungen/watchdog",
+      "methods": "GET",
+      "source_file": "woa/blueprints/einstellungen_clean.py",
+      "line": 175,
+      "blueprint": "einstellungen_clean",
+      "cluster": "einstellungen_clean"
+    },
+    {
+      "endpoint": "einstellungen_clean.watchdog_restart",
+      "function": "watchdog_restart",
+      "path": "/einstellungen/watchdog/restart",
+      "methods": "POST",
+      "source_file": "woa/blueprints/einstellungen_clean.py",
+      "line": 240,
+      "blueprint": "einstellungen_clean",
+      "cluster": "einstellungen_clean"
+    },
+    {
+      "endpoint": "wave_e_referral.referral_list",
+      "function": "referral_list",
+      "path": "/empfehlungen",
+      "methods": "GET",
+      "source_file": "woa/blueprints/wave_e_referral.py",
+      "line": 1687,
+      "blueprint": "wave_e_referral",
+      "cluster": "wave_e_referral"
+    },
+    {
+      "endpoint": "misc_clean_c.referral_propose_converted",
+      "function": "referral_propose_converted",
+      "path": "/empfehlungen/<int:lid>/propose",
+      "methods": "POST",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 1612,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "misc_clean_c.referral_withdraw_proposal",
+      "function": "referral_withdraw_proposal",
+      "path": "/empfehlungen/<int:lid>/withdraw",
+      "methods": "POST",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 1640,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "harvest_a.erechnung_download",
+      "function": "erechnung_download",
+      "path": "/erechnung/<int:wid>",
+      "methods": "GET",
+      "source_file": "woa/blueprints/harvest_a.py",
+      "line": 23,
+      "blueprint": "harvest_a",
+      "cluster": "harvest_a"
+    },
+    {
+      "endpoint": "harvest_a.erechnung_pdf",
+      "function": "erechnung_pdf",
+      "path": "/erechnung/<int:wid>/pdf",
+      "methods": "GET",
+      "source_file": "woa/blueprints/harvest_a.py",
+      "line": 46,
+      "blueprint": "harvest_a",
+      "cluster": "harvest_a"
+    },
+    {
+      "endpoint": "harvest_a.erechnung_xml",
+      "function": "erechnung_xml",
+      "path": "/erechnung/<int:wid>/xml",
+      "methods": "GET",
+      "source_file": "woa/blueprints/harvest_a.py",
+      "line": 33,
+      "blueprint": "harvest_a",
+      "cluster": "harvest_a"
+    },
+    {
+      "endpoint": "misc_clean_a.logbook_list",
+      "function": "logbook_list",
+      "path": "/fahrtenbuch",
+      "methods": "GET",
+      "source_file": "woa/blueprints/misc_clean_a.py",
+      "line": 77,
+      "blueprint": "misc_clean_a",
+      "cluster": "misc_clean_a"
+    },
+    {
+      "endpoint": "misc_clean_c.logbook_delete",
+      "function": "logbook_delete",
+      "path": "/fahrtenbuch/<int:eid>/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 355,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "wave_d_pricing.logbook_edit",
+      "function": "logbook_edit",
+      "path": "/fahrtenbuch/<int:eid>/edit",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/wave_d_pricing.py",
+      "line": 359,
+      "blueprint": "wave_d_pricing",
+      "cluster": "wave_d_pricing"
+    },
+    {
+      "endpoint": "wave_d_pricing.logbook_new",
+      "function": "logbook_new",
+      "path": "/fahrtenbuch/neu",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/wave_d_pricing.py",
+      "line": 323,
+      "blueprint": "wave_d_pricing",
+      "cluster": "wave_d_pricing"
+    },
+    {
+      "endpoint": "misc_clean_a.logbook_pdf",
+      "function": "logbook_pdf",
+      "path": "/fahrtenbuch/pdf",
+      "methods": "GET",
+      "source_file": "woa/blueprints/misc_clean_a.py",
+      "line": 96,
+      "blueprint": "misc_clean_a",
+      "cluster": "misc_clean_a"
+    },
+    {
+      "endpoint": "geraete.device_list",
+      "function": "device_list",
+      "path": "/geraete",
+      "methods": "GET",
+      "source_file": "woa/blueprints/geraete.py",
+      "line": 32,
+      "blueprint": "geraete",
+      "cluster": "geraete"
+    },
+    {
+      "endpoint": "misc_clean_a.device_detail",
+      "function": "device_detail",
+      "path": "/geraete/<int:did>",
+      "methods": "GET",
+      "source_file": "woa/blueprints/misc_clean_a.py",
+      "line": 121,
+      "blueprint": "misc_clean_a",
+      "cluster": "misc_clean_a"
+    },
+    {
+      "endpoint": "geraete.device_delete",
+      "function": "device_delete",
+      "path": "/geraete/<int:did>/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/geraete.py",
+      "line": 86,
+      "blueprint": "geraete",
+      "cluster": "geraete"
+    },
+    {
+      "endpoint": "geraete.device_edit",
+      "function": "device_edit",
+      "path": "/geraete/<int:did>/edit",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/geraete.py",
+      "line": 68,
+      "blueprint": "geraete",
+      "cluster": "geraete"
+    },
+    {
+      "endpoint": "misc_clean_a.device_qr",
+      "function": "device_qr",
+      "path": "/geraete/<int:did>/qr",
+      "methods": "GET",
+      "source_file": "woa/blueprints/misc_clean_a.py",
+      "line": 128,
+      "blueprint": "misc_clean_a",
+      "cluster": "misc_clean_a"
+    },
+    {
+      "endpoint": "geraete.device_add",
+      "function": "device_add",
+      "path": "/geraete/neu",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/geraete.py",
+      "line": 47,
+      "blueprint": "geraete",
+      "cluster": "geraete"
+    },
+    {
+      "endpoint": "system_pages.gobd_page",
+      "function": "gobd_page",
+      "path": "/gobd",
+      "methods": "GET",
+      "source_file": "woa/blueprints/system_pages.py",
+      "line": 47,
+      "blueprint": "system_pages",
+      "cluster": "system_pages"
+    },
+    {
+      "endpoint": "install.install_form",
+      "function": "install_form",
+      "path": "/install",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/install.py",
+      "line": 147,
+      "blueprint": "install",
+      "cluster": "install"
+    },
+    {
+      "endpoint": "install.install_check",
+      "function": "install_check",
+      "path": "/install/check",
+      "methods": "GET",
+      "source_file": "woa/blueprints/install.py",
+      "line": 234,
+      "blueprint": "install",
+      "cluster": "install"
+    },
+    {
+      "endpoint": "kaltakquise.kaltakquise_list",
+      "function": "kaltakquise_list",
+      "path": "/kaltakquise",
+      "methods": "GET",
+      "source_file": "woa/blueprints/kaltakquise.py",
+      "line": 72,
+      "blueprint": "kaltakquise",
+      "cluster": "kaltakquise"
+    },
+    {
+      "endpoint": "kaltakquise.kaltakquise_detail",
+      "function": "kaltakquise_detail",
+      "path": "/kaltakquise/<int:lid>",
+      "methods": "GET",
+      "source_file": "woa/blueprints/kaltakquise.py",
+      "line": 155,
+      "blueprint": "kaltakquise",
+      "cluster": "kaltakquise"
+    },
+    {
+      "endpoint": "kaltakquise.kaltakquise_activity_add",
+      "function": "kaltakquise_activity_add",
+      "path": "/kaltakquise/<int:lid>/activity",
+      "methods": "POST",
+      "source_file": "woa/blueprints/kaltakquise.py",
+      "line": 465,
+      "blueprint": "kaltakquise",
+      "cluster": "kaltakquise"
+    },
+    {
+      "endpoint": "kaltakquise.kaltakquise_delete",
+      "function": "kaltakquise_delete",
+      "path": "/kaltakquise/<int:lid>/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/kaltakquise.py",
+      "line": 482,
+      "blueprint": "kaltakquise",
+      "cluster": "kaltakquise"
+    },
+    {
+      "endpoint": "kaltakquise.kaltakquise_edit",
+      "function": "kaltakquise_edit",
+      "path": "/kaltakquise/<int:lid>/edit",
+      "methods": "POST",
+      "source_file": "woa/blueprints/kaltakquise.py",
+      "line": 169,
+      "blueprint": "kaltakquise",
+      "cluster": "kaltakquise"
+    },
+    {
+      "endpoint": "kaltakquise.kaltakquise_convert",
+      "function": "kaltakquise_convert",
+      "path": "/kaltakquise/<int:lid>/konvertieren",
+      "methods": "POST",
+      "source_file": "woa/blueprints/kaltakquise.py",
+      "line": 495,
+      "blueprint": "kaltakquise",
+      "cluster": "kaltakquise"
+    },
+    {
+      "endpoint": "kaltakquise.kaltakquise_mail_form",
+      "function": "kaltakquise_mail_form",
+      "path": "/kaltakquise/<int:lid>/mail",
+      "methods": "GET",
+      "source_file": "woa/blueprints/kaltakquise.py",
+      "line": 695,
+      "blueprint": "kaltakquise",
+      "cluster": "kaltakquise"
+    },
+    {
+      "endpoint": "kaltakquise.kaltakquise_mail_send",
+      "function": "kaltakquise_mail_send",
+      "path": "/kaltakquise/<int:lid>/mail/senden",
+      "methods": "POST",
+      "source_file": "woa/blueprints/kaltakquise.py",
+      "line": 943,
+      "blueprint": "kaltakquise",
+      "cluster": "kaltakquise"
+    },
+    {
+      "endpoint": "kaltakquise.kaltakquise_mail_test",
+      "function": "kaltakquise_mail_test",
+      "path": "/kaltakquise/<int:lid>/mail/test-send",
+      "methods": "POST",
+      "source_file": "woa/blueprints/kaltakquise.py",
+      "line": 821,
+      "blueprint": "kaltakquise",
+      "cluster": "kaltakquise"
+    },
+    {
+      "endpoint": "kaltakquise.kaltakquise_template_save",
+      "function": "kaltakquise_template_save",
+      "path": "/kaltakquise/<int:lid>/mail/vorlage-speichern",
+      "methods": "POST",
+      "source_file": "woa/blueprints/kaltakquise.py",
+      "line": 791,
+      "blueprint": "kaltakquise",
+      "cluster": "kaltakquise"
+    },
+    {
+      "endpoint": "kaltakquise.kaltakquise_newsletter_block",
+      "function": "kaltakquise_newsletter_block",
+      "path": "/kaltakquise/<int:lid>/newsletter-block",
+      "methods": "POST",
+      "source_file": "woa/blueprints/kaltakquise.py",
+      "line": 258,
+      "blueprint": "kaltakquise",
+      "cluster": "kaltakquise"
+    },
+    {
+      "endpoint": "kaltakquise.kaltakquise_status",
+      "function": "kaltakquise_status",
+      "path": "/kaltakquise/<int:lid>/status",
+      "methods": "POST",
+      "source_file": "woa/blueprints/kaltakquise.py",
+      "line": 196,
+      "blueprint": "kaltakquise",
+      "cluster": "kaltakquise"
+    },
+    {
+      "endpoint": "kaltakquise.kaltakquise_task_done",
+      "function": "kaltakquise_task_done",
+      "path": "/kaltakquise/<int:lid>/task-done",
+      "methods": "POST",
+      "source_file": "woa/blueprints/kaltakquise.py",
+      "line": 291,
+      "blueprint": "kaltakquise",
+      "cluster": "kaltakquise"
+    },
+    {
+      "endpoint": "kaltakquise.kaltakquise_campaign_list",
+      "function": "kaltakquise_campaign_list",
+      "path": "/kaltakquise/aktionen",
+      "methods": "GET",
+      "source_file": "woa/blueprints/kaltakquise.py",
+      "line": 1076,
+      "blueprint": "kaltakquise",
+      "cluster": "kaltakquise"
+    },
+    {
+      "endpoint": "kaltakquise.kaltakquise_campaign_detail",
+      "function": "kaltakquise_campaign_detail",
+      "path": "/kaltakquise/aktionen/<int:cid>",
+      "methods": "GET",
+      "source_file": "woa/blueprints/kaltakquise.py",
+      "line": 1114,
+      "blueprint": "kaltakquise",
+      "cluster": "kaltakquise"
+    },
+    {
+      "endpoint": "kaltakquise.kaltakquise_campaign_delete",
+      "function": "kaltakquise_campaign_delete",
+      "path": "/kaltakquise/aktionen/<int:cid>/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/kaltakquise.py",
+      "line": 1148,
+      "blueprint": "kaltakquise",
+      "cluster": "kaltakquise"
+    },
+    {
+      "endpoint": "kaltakquise.kaltakquise_campaign_edit",
+      "function": "kaltakquise_campaign_edit",
+      "path": "/kaltakquise/aktionen/<int:cid>/edit",
+      "methods": "POST",
+      "source_file": "woa/blueprints/kaltakquise.py",
+      "line": 1133,
+      "blueprint": "kaltakquise",
+      "cluster": "kaltakquise"
+    },
+    {
+      "endpoint": "kaltakquise.kaltakquise_campaign_remove_lead",
+      "function": "kaltakquise_campaign_remove_lead",
+      "path": "/kaltakquise/aktionen/<int:cid>/leads/<int:clid>/remove",
+      "methods": "POST",
+      "source_file": "woa/blueprints/kaltakquise.py",
+      "line": 1419,
+      "blueprint": "kaltakquise",
+      "cluster": "kaltakquise"
+    },
+    {
+      "endpoint": "kaltakquise.kaltakquise_campaign_add_leads",
+      "function": "kaltakquise_campaign_add_leads",
+      "path": "/kaltakquise/aktionen/<int:cid>/leads/add",
+      "methods": "POST",
+      "source_file": "woa/blueprints/kaltakquise.py",
+      "line": 1391,
+      "blueprint": "kaltakquise",
+      "cluster": "kaltakquise"
+    },
+    {
+      "endpoint": "kaltakquise.kaltakquise_campaign_send",
+      "function": "kaltakquise_campaign_send",
+      "path": "/kaltakquise/aktionen/<int:cid>/send",
+      "methods": "POST",
+      "source_file": "woa/blueprints/kaltakquise.py",
+      "line": 1435,
+      "blueprint": "kaltakquise",
+      "cluster": "kaltakquise"
+    },
+    {
+      "endpoint": "kaltakquise.kaltakquise_campaign_template",
+      "function": "kaltakquise_campaign_template",
+      "path": "/kaltakquise/aktionen/<int:cid>/template",
+      "methods": "GET",
+      "source_file": "woa/blueprints/kaltakquise.py",
+      "line": 1161,
+      "blueprint": "kaltakquise",
+      "cluster": "kaltakquise"
+    },
+    {
+      "endpoint": "kaltakquise.kaltakquise_campaign_template_save",
+      "function": "kaltakquise_campaign_template_save",
+      "path": "/kaltakquise/aktionen/<int:cid>/template/save",
+      "methods": "POST",
+      "source_file": "woa/blueprints/kaltakquise.py",
+      "line": 1221,
+      "blueprint": "kaltakquise",
+      "cluster": "kaltakquise"
+    },
+    {
+      "endpoint": "kaltakquise.kaltakquise_campaign_template_test",
+      "function": "kaltakquise_campaign_template_test",
+      "path": "/kaltakquise/aktionen/<int:cid>/template/test-send",
+      "methods": "POST",
+      "source_file": "woa/blueprints/kaltakquise.py",
+      "line": 1248,
+      "blueprint": "kaltakquise",
+      "cluster": "kaltakquise"
+    },
+    {
+      "endpoint": "kaltakquise.kaltakquise_campaign_new",
+      "function": "kaltakquise_campaign_new",
+      "path": "/kaltakquise/aktionen/neu",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/kaltakquise.py",
+      "line": 1088,
+      "blueprint": "kaltakquise",
+      "cluster": "kaltakquise"
+    },
+    {
+      "endpoint": "kaltakquise.kaltakquise_einstellungen",
+      "function": "kaltakquise_einstellungen",
+      "path": "/kaltakquise/einstellungen",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/kaltakquise.py",
+      "line": 1672,
+      "blueprint": "kaltakquise",
+      "cluster": "kaltakquise"
+    },
+    {
+      "endpoint": "kaltakquise.kaltakquise_import",
+      "function": "kaltakquise_import",
+      "path": "/kaltakquise/import",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/kaltakquise.py",
+      "line": 539,
+      "blueprint": "kaltakquise",
+      "cluster": "kaltakquise"
+    },
+    {
+      "endpoint": "kaltakquise.kaltakquise_import_customers",
+      "function": "kaltakquise_import_customers",
+      "path": "/kaltakquise/import-bestandskunden",
+      "methods": "POST",
+      "source_file": "woa/blueprints/kaltakquise.py",
+      "line": 371,
+      "blueprint": "kaltakquise",
+      "cluster": "kaltakquise"
+    },
+    {
+      "endpoint": "kaltakquise.kaltakquise_new",
+      "function": "kaltakquise_new",
+      "path": "/kaltakquise/neu",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/kaltakquise.py",
+      "line": 120,
+      "blueprint": "kaltakquise",
+      "cluster": "kaltakquise"
+    },
+    {
+      "endpoint": "kaltakquise.kaltakquise_scrape",
+      "function": "kaltakquise_scrape",
+      "path": "/kaltakquise/scrape",
+      "methods": "POST",
+      "source_file": "woa/blueprints/kaltakquise.py",
+      "line": 605,
+      "blueprint": "kaltakquise",
+      "cluster": "kaltakquise"
+    },
+    {
+      "endpoint": "kummerkasten.kummerkasten_list",
+      "function": "kummerkasten_list",
+      "path": "/kummerkasten",
+      "methods": "GET",
+      "source_file": "woa/blueprints/kummerkasten.py",
+      "line": 22,
+      "blueprint": "kummerkasten",
+      "cluster": "kummerkasten"
+    },
+    {
+      "endpoint": "kummerkasten.kummerkasten_delete",
+      "function": "kummerkasten_delete",
+      "path": "/kummerkasten/<int:eid>/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/kummerkasten.py",
+      "line": 121,
+      "blueprint": "kummerkasten",
+      "cluster": "kummerkasten"
+    },
+    {
+      "endpoint": "kummerkasten.kummerkasten_status",
+      "function": "kummerkasten_status",
+      "path": "/kummerkasten/<int:eid>/status",
+      "methods": "POST",
+      "source_file": "woa/blueprints/kummerkasten.py",
+      "line": 105,
+      "blueprint": "kummerkasten",
+      "cluster": "kummerkasten"
+    },
+    {
+      "endpoint": "kummerkasten.kummerkasten_add",
+      "function": "kummerkasten_add",
+      "path": "/kummerkasten/neu",
+      "methods": "POST",
+      "source_file": "woa/blueprints/kummerkasten.py",
+      "line": 58,
+      "blueprint": "kummerkasten",
+      "cluster": "kummerkasten"
+    },
+    {
+      "endpoint": "kunden_admin.customer_list",
+      "function": "customer_list",
+      "path": "/kunden",
+      "methods": "GET",
+      "source_file": "woa/blueprints/kunden_admin.py",
+      "line": 49,
+      "blueprint": "kunden_admin",
+      "cluster": "kunden_admin"
+    },
+    {
+      "endpoint": "kunden_extras.customer_detail",
+      "function": "customer_detail",
+      "path": "/kunden/<int:cid>",
+      "methods": "GET",
+      "source_file": "woa/blueprints/kunden_extras.py",
+      "line": 34,
+      "blueprint": "kunden_extras",
+      "cluster": "kunden_extras"
+    },
+    {
+      "endpoint": "kunden_admin.customer_arbeitsanweisung",
+      "function": "customer_arbeitsanweisung",
+      "path": "/kunden/<int:cid>/arbeitsanweisung",
+      "methods": "GET",
+      "source_file": "woa/blueprints/kunden_admin.py",
+      "line": 586,
+      "blueprint": "kunden_admin",
+      "cluster": "kunden_admin"
+    },
+    {
+      "endpoint": "kunden_admin.customer_delete",
+      "function": "customer_delete",
+      "path": "/kunden/<int:cid>/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/kunden_admin.py",
+      "line": 65,
+      "blueprint": "kunden_admin",
+      "cluster": "kunden_admin"
+    },
+    {
+      "endpoint": "wave_g_extracted.customer_document_add",
+      "function": "customer_document_add",
+      "path": "/kunden/<int:cid>/dokument/add",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_g_extracted.py",
+      "line": 81,
+      "blueprint": "wave_g_extracted",
+      "cluster": "wave_g_extracted"
+    },
+    {
+      "endpoint": "wave_d_pricing.customer_edit",
+      "function": "customer_edit",
+      "path": "/kunden/<int:cid>/edit",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/wave_d_pricing.py",
+      "line": 90,
+      "blueprint": "wave_d_pricing",
+      "cluster": "wave_d_pricing"
+    },
+    {
+      "endpoint": "referral_form",
+      "function": "referral_form",
+      "path": "/kunden/<int:cid>/empfehlen",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 8667,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "referral_send",
+      "function": "referral_send",
+      "path": "/kunden/<int:cid>/empfehlen/senden",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 8801,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "wave_e_referral.referral_template_test",
+      "function": "referral_template_test",
+      "path": "/kunden/<int:cid>/empfehlen/test-send",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_e_referral.py",
+      "line": 1539,
+      "blueprint": "wave_e_referral",
+      "cluster": "wave_e_referral"
+    },
+    {
+      "endpoint": "wave_e_referral.referral_template_save",
+      "function": "referral_template_save",
+      "path": "/kunden/<int:cid>/empfehlen/vorlage-speichern",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_e_referral.py",
+      "line": 1496,
+      "blueprint": "wave_e_referral",
+      "cluster": "wave_e_referral"
+    },
+    {
+      "endpoint": "kunden_extras.customer_logbook",
+      "function": "customer_logbook",
+      "path": "/kunden/<int:cid>/logbuch",
+      "methods": "GET",
+      "source_file": "woa/blueprints/kunden_extras.py",
+      "line": 51,
+      "blueprint": "kunden_extras",
+      "cluster": "kunden_extras"
+    },
+    {
+      "endpoint": "kunden_admin.customer_portal_manage",
+      "function": "customer_portal_manage",
+      "path": "/kunden/<int:cid>/portal",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/kunden_admin.py",
+      "line": 341,
+      "blueprint": "kunden_admin",
+      "cluster": "kunden_admin"
+    },
+    {
+      "endpoint": "kunden_admin.send_portal_guide",
+      "function": "send_portal_guide",
+      "path": "/kunden/<int:cid>/portal-guide",
+      "methods": "POST",
+      "source_file": "woa/blueprints/kunden_admin.py",
+      "line": 744,
+      "blueprint": "kunden_admin",
+      "cluster": "kunden_admin"
+    },
+    {
+      "endpoint": "kunden_extras.customer_direct_token_url_download",
+      "function": "customer_direct_token_url_download",
+      "path": "/kunden/<int:cid>/portal/direkt-token/<int:tid>/download.url",
+      "methods": "GET",
+      "source_file": "woa/blueprints/kunden_extras.py",
+      "line": 135,
+      "blueprint": "kunden_extras",
+      "cluster": "kunden_extras"
+    },
+    {
+      "endpoint": "kunden_extras.customer_direct_token_raw_json",
+      "function": "customer_direct_token_raw_json",
+      "path": "/kunden/<int:cid>/portal/direkt-token/<int:tid>/raw.json",
+      "methods": "GET",
+      "source_file": "woa/blueprints/kunden_extras.py",
+      "line": 92,
+      "blueprint": "kunden_extras",
+      "cluster": "kunden_extras"
+    },
+    {
+      "endpoint": "kunden_admin.customer_direct_token_revoke",
+      "function": "customer_direct_token_revoke",
+      "path": "/kunden/<int:cid>/portal/direkt-token/<int:tid>/revoke",
+      "methods": "POST",
+      "source_file": "woa/blueprints/kunden_admin.py",
+      "line": 319,
+      "blueprint": "kunden_admin",
+      "cluster": "kunden_admin"
+    },
+    {
+      "endpoint": "kunden_admin.customer_direct_token_create",
+      "function": "customer_direct_token_create",
+      "path": "/kunden/<int:cid>/portal/direkt-token/create",
+      "methods": "POST",
+      "source_file": "woa/blueprints/kunden_admin.py",
+      "line": 227,
+      "blueprint": "kunden_admin",
+      "cluster": "kunden_admin"
+    },
+    {
+      "endpoint": "kunden_admin.customer_tresor_pw_clear",
+      "function": "customer_tresor_pw_clear",
+      "path": "/kunden/<int:cid>/tresor-pw/clear",
+      "methods": "POST",
+      "source_file": "woa/blueprints/kunden_admin.py",
+      "line": 153,
+      "blueprint": "kunden_admin",
+      "cluster": "kunden_admin"
+    },
+    {
+      "endpoint": "kunden_admin.customer_tresor_pw_send_link",
+      "function": "customer_tresor_pw_send_link",
+      "path": "/kunden/<int:cid>/tresor-pw/send-link",
+      "methods": "POST",
+      "source_file": "woa/blueprints/kunden_admin.py",
+      "line": 172,
+      "blueprint": "kunden_admin",
+      "cluster": "kunden_admin"
+    },
+    {
+      "endpoint": "wave_g_extracted.customer_tresor_pw_set",
+      "function": "customer_tresor_pw_set",
+      "path": "/kunden/<int:cid>/tresor-pw/set",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_g_extracted.py",
+      "line": 336,
+      "blueprint": "wave_g_extracted",
+      "cluster": "wave_g_extracted"
+    },
+    {
+      "endpoint": "kunden_extras.vault_list",
+      "function": "vault_list",
+      "path": "/kunden/<int:cid>/vault",
+      "methods": "GET",
+      "source_file": "woa/blueprints/kunden_extras.py",
+      "line": 73,
+      "blueprint": "kunden_extras",
+      "cluster": "kunden_extras"
+    },
+    {
+      "endpoint": "kunden_admin.vault_delete",
+      "function": "vault_delete",
+      "path": "/kunden/<int:cid>/vault/<int:eid>/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/kunden_admin.py",
+      "line": 141,
+      "blueprint": "kunden_admin",
+      "cluster": "kunden_admin"
+    },
+    {
+      "endpoint": "kunden_admin.vault_save",
+      "function": "vault_save",
+      "path": "/kunden/<int:cid>/vault/save",
+      "methods": "POST",
+      "source_file": "woa/blueprints/kunden_admin.py",
+      "line": 109,
+      "blueprint": "kunden_admin",
+      "cluster": "kunden_admin"
+    },
+    {
+      "endpoint": "kunden_admin.customer_csv_import",
+      "function": "customer_csv_import",
+      "path": "/kunden/import",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/kunden_admin.py",
+      "line": 75,
+      "blueprint": "kunden_admin",
+      "cluster": "kunden_admin"
+    },
+    {
+      "endpoint": "wave_d_pricing.customer_new",
+      "function": "customer_new",
+      "path": "/kunden/neu",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/wave_d_pricing.py",
+      "line": 59,
+      "blueprint": "wave_d_pricing",
+      "cluster": "wave_d_pricing"
+    },
+    {
+      "endpoint": "kunden_admin.quick_timer_print",
+      "function": "quick_timer_print",
+      "path": "/kunden/quick-print",
+      "methods": "GET",
+      "source_file": "woa/blueprints/kunden_admin.py",
+      "line": 474,
+      "blueprint": "kunden_admin",
+      "cluster": "kunden_admin"
+    },
+    {
+      "endpoint": "kunden_admin.generate_quick_tokens",
+      "function": "generate_quick_tokens",
+      "path": "/kunden/quick-tokens",
+      "methods": "POST",
+      "source_file": "woa/blueprints/kunden_admin.py",
+      "line": 459,
+      "blueprint": "kunden_admin",
+      "cluster": "kunden_admin"
+    },
+    {
+      "endpoint": "misc_clean_c.login",
+      "function": "login",
+      "path": "/login",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 82,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "system_pages.logout",
+      "function": "logout",
+      "path": "/logout",
+      "methods": "GET",
+      "source_file": "woa/blueprints/system_pages.py",
+      "line": 24,
+      "blueprint": "system_pages",
+      "cluster": "system_pages"
+    },
+    {
+      "endpoint": "woa_masked_resolve",
+      "function": "woa_masked_resolve",
+      "path": "/m/<string:token>",
+      "methods": "GET,POST",
+      "source_file": "app.py",
+      "line": 10382,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "misc_clean_b.mahnwesen",
+      "function": "mahnwesen",
+      "path": "/mahnwesen",
+      "methods": "GET",
+      "source_file": "woa/blueprints/misc_clean_b.py",
+      "line": 58,
+      "blueprint": "misc_clean_b",
+      "cluster": "misc_clean_b"
+    },
+    {
+      "endpoint": "wave_f_misc.mahnung_bezahlt",
+      "function": "mahnung_bezahlt",
+      "path": "/mahnwesen/<int:wid>/bezahlt",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_f_misc.py",
+      "line": 378,
+      "blueprint": "wave_f_misc",
+      "cluster": "wave_f_misc"
+    },
+    {
+      "endpoint": "mahnung_senden",
+      "function": "mahnung_senden",
+      "path": "/mahnwesen/<int:wid>/mahnen",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 1251,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "misc_clean_b.tenant_list",
+      "function": "tenant_list",
+      "path": "/mandanten",
+      "methods": "GET",
+      "source_file": "woa/blueprints/misc_clean_b.py",
+      "line": 147,
+      "blueprint": "misc_clean_b",
+      "cluster": "misc_clean_b"
+    },
+    {
+      "endpoint": "mandanten.tenant_delete",
+      "function": "tenant_delete",
+      "path": "/mandanten/<int:tid>/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/mandanten.py",
+      "line": 115,
+      "blueprint": "mandanten",
+      "cluster": "mandanten"
+    },
+    {
+      "endpoint": "mandanten.tenant_edit",
+      "function": "tenant_edit",
+      "path": "/mandanten/<int:tid>/edit",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/mandanten.py",
+      "line": 31,
+      "blueprint": "mandanten",
+      "cluster": "mandanten"
+    },
+    {
+      "endpoint": "mandanten.tenant_toggle",
+      "function": "tenant_toggle",
+      "path": "/mandanten/<int:tid>/toggle",
+      "methods": "POST",
+      "source_file": "woa/blueprints/mandanten.py",
+      "line": 105,
+      "blueprint": "mandanten",
+      "cluster": "mandanten"
+    },
+    {
+      "endpoint": "mandanten.tenant_welcome_mail_resend",
+      "function": "tenant_welcome_mail_resend",
+      "path": "/mandanten/<int:tid>/welcome-mail-resend",
+      "methods": "POST",
+      "source_file": "woa/blueprints/mandanten.py",
+      "line": 353,
+      "blueprint": "mandanten",
+      "cluster": "mandanten"
+    },
+    {
+      "endpoint": "tenant_new",
+      "function": "tenant_new",
+      "path": "/mandanten/neu",
+      "methods": "GET,POST",
+      "source_file": "app.py",
+      "line": 2589,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "harvest_a.offene_einsaetze",
+      "function": "offene_einsaetze",
+      "path": "/offene-einsaetze",
+      "methods": "GET",
+      "source_file": "woa/blueprints/harvest_a.py",
+      "line": 66,
+      "blueprint": "harvest_a",
+      "cluster": "harvest_a"
+    },
+    {
+      "endpoint": "wave_f_misc.public_partner_contract_sign_form",
+      "function": "public_partner_contract_sign_form",
+      "path": "/partner-contract/sign/<token>",
+      "methods": "GET",
+      "source_file": "woa/blueprints/wave_f_misc.py",
+      "line": 674,
+      "blueprint": "wave_f_misc",
+      "cluster": "wave_f_misc"
+    },
+    {
+      "endpoint": "public_partner_contract_sign_submit",
+      "function": "public_partner_contract_sign_submit",
+      "path": "/partner-contract/sign/<token>",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 5181,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "misc_extras.public_partner_contract_sign_pdf",
+      "function": "public_partner_contract_sign_pdf",
+      "path": "/partner-contract/sign/<token>/pdf",
+      "methods": "GET",
+      "source_file": "woa/blueprints/misc_extras.py",
+      "line": 166,
+      "blueprint": "misc_extras",
+      "cluster": "misc_extras"
+    },
+    {
+      "endpoint": "misc_clean_c.picture_delete",
+      "function": "picture_delete",
+      "path": "/picture/<int:pid>/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 185,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "portal_dashboard.portal_dashboard",
+      "function": "portal_dashboard",
+      "path": "/portal",
+      "methods": "GET",
+      "source_file": "woa/blueprints/portal_dashboard.py",
+      "line": 24,
+      "blueprint": "portal_dashboard",
+      "cluster": "portal_dashboard"
+    },
+    {
+      "endpoint": "portal_misc.portal_acceptances",
+      "function": "portal_acceptances",
+      "path": "/portal/abnahmen",
+      "methods": "GET",
+      "source_file": "woa/blueprints/portal_misc.py",
+      "line": 36,
+      "blueprint": "portal_misc",
+      "cluster": "portal_misc"
+    },
+    {
+      "endpoint": "misc_clean_c.portal_auto_login",
+      "function": "portal_auto_login",
+      "path": "/portal/auto-login",
+      "methods": "GET",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 1834,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "portal_misc.portal_document_download",
+      "function": "portal_document_download",
+      "path": "/portal/dokument/<int:did>/download",
+      "methods": "GET",
+      "source_file": "woa/blueprints/portal_misc.py",
+      "line": 97,
+      "blueprint": "portal_misc",
+      "cluster": "portal_misc"
+    },
+    {
+      "endpoint": "portal_misc.portal_document_view",
+      "function": "portal_document_view",
+      "path": "/portal/dokument/<int:did>/view",
+      "methods": "GET",
+      "source_file": "woa/blueprints/portal_misc.py",
+      "line": 111,
+      "blueprint": "portal_misc",
+      "cluster": "portal_misc"
+    },
+    {
+      "endpoint": "portal_misc.portal_documents",
+      "function": "portal_documents",
+      "path": "/portal/dokumente",
+      "methods": "GET",
+      "source_file": "woa/blueprints/portal_misc.py",
+      "line": 63,
+      "blueprint": "portal_misc",
+      "cluster": "portal_misc"
+    },
+    {
+      "endpoint": "portal_info_kk.portal_info",
+      "function": "portal_info",
+      "path": "/portal/info",
+      "methods": "GET",
+      "source_file": "woa/blueprints/portal_info_kk.py",
+      "line": 39,
+      "blueprint": "portal_info_kk",
+      "cluster": "portal_info_kk"
+    },
+    {
+      "endpoint": "portal_misc.portal_account",
+      "function": "portal_account",
+      "path": "/portal/konto",
+      "methods": "GET",
+      "source_file": "woa/blueprints/portal_misc.py",
+      "line": 154,
+      "blueprint": "portal_misc",
+      "cluster": "portal_misc"
+    },
+    {
+      "endpoint": "portal_dashboard.portal_account_lock",
+      "function": "portal_account_lock",
+      "path": "/portal/konto/sperren",
+      "methods": "POST",
+      "source_file": "woa/blueprints/portal_dashboard.py",
+      "line": 102,
+      "blueprint": "portal_dashboard",
+      "cluster": "portal_dashboard"
+    },
+    {
+      "endpoint": "portal_info_kk.portal_kummerkasten",
+      "function": "portal_kummerkasten",
+      "path": "/portal/kummerkasten",
+      "methods": "GET",
+      "source_file": "woa/blueprints/portal_info_kk.py",
+      "line": 22,
+      "blueprint": "portal_info_kk",
+      "cluster": "portal_info_kk"
+    },
+    {
+      "endpoint": "portal_info_kk.portal_kummerkasten_add",
+      "function": "portal_kummerkasten_add",
+      "path": "/portal/kummerkasten/neu",
+      "methods": "POST",
+      "source_file": "woa/blueprints/portal_info_kk.py",
+      "line": 58,
+      "blueprint": "portal_info_kk",
+      "cluster": "portal_info_kk"
+    },
+    {
+      "endpoint": "portal_more.portal_logbook",
+      "function": "portal_logbook",
+      "path": "/portal/logbuch",
+      "methods": "GET",
+      "source_file": "woa/blueprints/portal_more.py",
+      "line": 19,
+      "blueprint": "portal_more",
+      "cluster": "portal_more"
+    },
+    {
+      "endpoint": "misc_clean_c.portal_login",
+      "function": "portal_login",
+      "path": "/portal/login",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 797,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "portal_misc.portal_logout",
+      "function": "portal_logout",
+      "path": "/portal/logout",
+      "methods": "GET",
+      "source_file": "woa/blueprints/portal_misc.py",
+      "line": 146,
+      "blueprint": "portal_misc",
+      "cluster": "portal_misc"
+    },
+    {
+      "endpoint": "woa_masked_resolve_portal",
+      "function": "woa_masked_resolve_portal",
+      "path": "/portal/m/<string:token>",
+      "methods": "GET,POST",
+      "source_file": "app.py",
+      "line": 10507,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "portal_dashboard.portal_change_pw",
+      "function": "portal_change_pw",
+      "path": "/portal/passwort",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/portal_dashboard.py",
+      "line": 81,
+      "blueprint": "portal_dashboard",
+      "cluster": "portal_dashboard"
+    },
+    {
+      "endpoint": "portal_stundenzettel.portal_timesheets",
+      "function": "portal_timesheets",
+      "path": "/portal/stundenzettel",
+      "methods": "GET",
+      "source_file": "woa/blueprints/portal_stundenzettel.py",
+      "line": 33,
+      "blueprint": "portal_stundenzettel",
+      "cluster": "portal_stundenzettel"
+    },
+    {
+      "endpoint": "portal_stundenzettel.portal_timesheet_delete",
+      "function": "portal_timesheet_delete",
+      "path": "/portal/stundenzettel/<int:tsid>/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/portal_stundenzettel.py",
+      "line": 179,
+      "blueprint": "portal_stundenzettel",
+      "cluster": "portal_stundenzettel"
+    },
+    {
+      "endpoint": "portal_stundenzettel.portal_timesheet_edit",
+      "function": "portal_timesheet_edit",
+      "path": "/portal/stundenzettel/<int:tsid>/edit",
+      "methods": "POST",
+      "source_file": "woa/blueprints/portal_stundenzettel.py",
+      "line": 123,
+      "blueprint": "portal_stundenzettel",
+      "cluster": "portal_stundenzettel"
+    },
+    {
+      "endpoint": "portal_stundenzettel.portal_timesheet_add",
+      "function": "portal_timesheet_add",
+      "path": "/portal/stundenzettel/neu",
+      "methods": "POST",
+      "source_file": "woa/blueprints/portal_stundenzettel.py",
+      "line": 64,
+      "blueprint": "portal_stundenzettel",
+      "cluster": "portal_stundenzettel"
+    },
+    {
+      "endpoint": "portal_more.portal_termine",
+      "function": "portal_termine",
+      "path": "/portal/termine",
+      "methods": "GET",
+      "source_file": "woa/blueprints/portal_more.py",
+      "line": 39,
+      "blueprint": "portal_more",
+      "cluster": "portal_more"
+    },
+    {
+      "endpoint": "portal_vault",
+      "function": "portal_vault",
+      "path": "/portal/tresor",
+      "methods": "GET,POST",
+      "source_file": "app.py",
+      "line": 2936,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "wave_g_extracted.portal_tresor_pw_set",
+      "function": "portal_tresor_pw_set",
+      "path": "/portal/tresor-pw-set",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/wave_g_extracted.py",
+      "line": 360,
+      "blueprint": "wave_g_extracted",
+      "cluster": "wave_g_extracted"
+    },
+    {
+      "endpoint": "portal_vorgang.portal_wo_detail",
+      "function": "portal_wo_detail",
+      "path": "/portal/vorgang/<int:wid>",
+      "methods": "GET",
+      "source_file": "woa/blueprints/portal_vorgang.py",
+      "line": 32,
+      "blueprint": "portal_vorgang",
+      "cluster": "portal_vorgang"
+    },
+    {
+      "endpoint": "portal_vorgang.portal_acceptance",
+      "function": "portal_acceptance",
+      "path": "/portal/vorgang/<int:wid>/abnahme",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/portal_vorgang.py",
+      "line": 57,
+      "blueprint": "portal_vorgang",
+      "cluster": "portal_vorgang"
+    },
+    {
+      "endpoint": "portal_vorgang.portal_acceptance_defect_add",
+      "function": "portal_acceptance_defect_add",
+      "path": "/portal/vorgang/<int:wid>/abnahme/mangel",
+      "methods": "POST",
+      "source_file": "woa/blueprints/portal_vorgang.py",
+      "line": 110,
+      "blueprint": "portal_vorgang",
+      "cluster": "portal_vorgang"
+    },
+    {
+      "endpoint": "portal_vorgang.portal_acceptance_defect_toggle",
+      "function": "portal_acceptance_defect_toggle",
+      "path": "/portal/vorgang/<int:wid>/abnahme/mangel/<int:did>/toggle",
+      "methods": "POST",
+      "source_file": "woa/blueprints/portal_vorgang.py",
+      "line": 135,
+      "blueprint": "portal_vorgang",
+      "cluster": "portal_vorgang"
+    },
+    {
+      "endpoint": "portal_vorgang.portal_acceptance_pdf",
+      "function": "portal_acceptance_pdf",
+      "path": "/portal/vorgang/<int:wid>/abnahme/pdf",
+      "methods": "GET",
+      "source_file": "woa/blueprints/portal_vorgang.py",
+      "line": 158,
+      "blueprint": "portal_vorgang",
+      "cluster": "portal_vorgang"
+    },
+    {
+      "endpoint": "wave_f_misc.portal_accept_offer",
+      "function": "portal_accept_offer",
+      "path": "/portal/vorgang/<int:wid>/accept",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_f_misc.py",
+      "line": 497,
+      "blueprint": "wave_f_misc",
+      "cluster": "wave_f_misc"
+    },
+    {
+      "endpoint": "misc_clean_c.pos_delete",
+      "function": "pos_delete",
+      "path": "/pos/<int:pid>/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 169,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "wave_d_pricing.pos_edit",
+      "function": "pos_edit",
+      "path": "/pos/<int:pid>/edit",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_d_pricing.py",
+      "line": 210,
+      "blueprint": "wave_d_pricing",
+      "cluster": "wave_d_pricing"
+    },
+    {
+      "endpoint": "misc_clean_b.quick_stunden",
+      "function": "quick_stunden",
+      "path": "/qs/<token>",
+      "methods": "GET",
+      "source_file": "woa/blueprints/misc_clean_b.py",
+      "line": 167,
+      "blueprint": "misc_clean_b",
+      "cluster": "misc_clean_b"
+    },
+    {
+      "endpoint": "qs.quick_stunden_activity",
+      "function": "quick_stunden_activity",
+      "path": "/qs/<token>/activity",
+      "methods": "POST",
+      "source_file": "woa/blueprints/qs.py",
+      "line": 71,
+      "blueprint": "qs",
+      "cluster": "qs"
+    },
+    {
+      "endpoint": "misc_extras.quick_stunden_qr",
+      "function": "quick_stunden_qr",
+      "path": "/qs/<token>/qr.png",
+      "methods": "GET",
+      "source_file": "woa/blueprints/misc_extras.py",
+      "line": 185,
+      "blueprint": "misc_extras",
+      "cluster": "misc_extras"
+    },
+    {
+      "endpoint": "qs.quick_stunden_start",
+      "function": "quick_stunden_start",
+      "path": "/qs/<token>/start",
+      "methods": "POST",
+      "source_file": "woa/blueprints/qs.py",
+      "line": 23,
+      "blueprint": "qs",
+      "cluster": "qs"
+    },
+    {
+      "endpoint": "qs.quick_stunden_stop",
+      "function": "quick_stunden_stop",
+      "path": "/qs/<token>/stop",
+      "methods": "POST",
+      "source_file": "woa/blueprints/qs.py",
+      "line": 44,
+      "blueprint": "qs",
+      "cluster": "qs"
+    },
+    {
+      "endpoint": "misc_clean_b.quick_timer",
+      "function": "quick_timer",
+      "path": "/qt/<token>",
+      "methods": "GET",
+      "source_file": "woa/blueprints/misc_clean_b.py",
+      "line": 153,
+      "blueprint": "misc_clean_b",
+      "cluster": "misc_clean_b"
+    },
+    {
+      "endpoint": "misc_clean_c.quick_timer_activity",
+      "function": "quick_timer_activity",
+      "path": "/qt/<token>/activity",
+      "methods": "POST",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 1032,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "wave_d_pricing.quick_timer_material",
+      "function": "quick_timer_material",
+      "path": "/qt/<token>/material",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_d_pricing.py",
+      "line": 542,
+      "blueprint": "wave_d_pricing",
+      "cluster": "wave_d_pricing"
+    },
+    {
+      "endpoint": "misc_extras.quick_timer_qr",
+      "function": "quick_timer_qr",
+      "path": "/qt/<token>/qr.png",
+      "methods": "GET",
+      "source_file": "woa/blueprints/misc_extras.py",
+      "line": 198,
+      "blueprint": "misc_extras",
+      "cluster": "misc_extras"
+    },
+    {
+      "endpoint": "misc_clean_c.quick_timer_start",
+      "function": "quick_timer_start",
+      "path": "/qt/<token>/start",
+      "methods": "POST",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 999,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "wave_d_pricing.quick_timer_stop",
+      "function": "quick_timer_stop",
+      "path": "/qt/<token>/stop",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_d_pricing.py",
+      "line": 571,
+      "blueprint": "wave_d_pricing",
+      "cluster": "wave_d_pricing"
+    },
+    {
+      "endpoint": "misc_clean_c.referral_track",
+      "function": "referral_track",
+      "path": "/r/<code>",
+      "methods": "GET",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 1587,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "system_pages.robots_txt_norobots",
+      "function": "robots_txt_norobots",
+      "path": "/robots.txt",
+      "methods": "GET",
+      "source_file": "woa/blueprints/system_pages.py",
+      "line": 30,
+      "blueprint": "system_pages",
+      "cluster": "system_pages"
+    },
+    {
+      "endpoint": "sa_admin_misc.sa_branche_templates_list",
+      "function": "sa_branche_templates_list",
+      "path": "/sa/branche-templates",
+      "methods": "GET",
+      "source_file": "woa/blueprints/sa_admin_misc.py",
+      "line": 409,
+      "blueprint": "sa_admin_misc",
+      "cluster": "sa_admin_misc"
+    },
+    {
+      "endpoint": "sa_admin_misc.sa_branche_template_edit",
+      "function": "sa_branche_template_edit",
+      "path": "/sa/branche-templates/<branche>/edit",
+      "methods": "GET",
+      "source_file": "woa/blueprints/sa_admin_misc.py",
+      "line": 433,
+      "blueprint": "sa_admin_misc",
+      "cluster": "sa_admin_misc"
+    },
+    {
+      "endpoint": "misc_clean_b.sa_branche_template_preview",
+      "function": "sa_branche_template_preview",
+      "path": "/sa/branche-templates/<branche>/preview",
+      "methods": "POST",
+      "source_file": "woa/blueprints/misc_clean_b.py",
+      "line": 218,
+      "blueprint": "misc_clean_b",
+      "cluster": "misc_clean_b"
+    },
+    {
+      "endpoint": "sa_admin_misc.sa_branche_template_save",
+      "function": "sa_branche_template_save",
+      "path": "/sa/branche-templates/<branche>/save",
+      "methods": "POST",
+      "source_file": "woa/blueprints/sa_admin_misc.py",
+      "line": 447,
+      "blueprint": "sa_admin_misc",
+      "cluster": "sa_admin_misc"
+    },
+    {
+      "endpoint": "wave_d_misc.sa_datenexport_csv",
+      "function": "sa_datenexport_csv",
+      "path": "/sa/datenexport/csv/<table>",
+      "methods": "GET",
+      "source_file": "woa/blueprints/wave_d_misc.py",
+      "line": 926,
+      "blueprint": "wave_d_misc",
+      "cluster": "wave_d_misc"
+    },
+    {
+      "endpoint": "sa_datenexport_datev",
+      "function": "sa_datenexport_datev",
+      "path": "/sa/datenexport/datev",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 9729,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "wave_d_misc.sa_datenexport_gobd",
+      "function": "sa_datenexport_gobd",
+      "path": "/sa/datenexport/gobd",
+      "methods": "GET",
+      "source_file": "woa/blueprints/wave_d_misc.py",
+      "line": 1580,
+      "blueprint": "wave_d_misc",
+      "cluster": "wave_d_misc"
+    },
+    {
+      "endpoint": "wave_d_misc.sa_settings_page",
+      "function": "sa_settings_page",
+      "path": "/sa/einstellungen",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/wave_d_misc.py",
+      "line": 53,
+      "blueprint": "wave_d_misc",
+      "cluster": "wave_d_misc"
+    },
+    {
+      "endpoint": "sa_admin_misc.sa_avv_delete",
+      "function": "sa_avv_delete",
+      "path": "/sa/einstellungen/avv/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/sa_admin_misc.py",
+      "line": 159,
+      "blueprint": "sa_admin_misc",
+      "cluster": "sa_admin_misc"
+    },
+    {
+      "endpoint": "misc_extras.sa_avv_download",
+      "function": "sa_avv_download",
+      "path": "/sa/einstellungen/avv/download",
+      "methods": "GET",
+      "source_file": "woa/blueprints/misc_extras.py",
+      "line": 46,
+      "blueprint": "misc_extras",
+      "cluster": "misc_extras"
+    },
+    {
+      "endpoint": "sa_admin_misc.sa_avv_upload",
+      "function": "sa_avv_upload",
+      "path": "/sa/einstellungen/avv/upload",
+      "methods": "POST",
+      "source_file": "woa/blueprints/sa_admin_misc.py",
+      "line": 113,
+      "blueprint": "sa_admin_misc",
+      "cluster": "sa_admin_misc"
+    },
+    {
+      "endpoint": "sa_admin_misc.sa_keepass_sync",
+      "function": "sa_keepass_sync",
+      "path": "/sa/einstellungen/keepass-sync",
+      "methods": "POST",
+      "source_file": "woa/blueprints/sa_admin_misc.py",
+      "line": 269,
+      "blueprint": "sa_admin_misc",
+      "cluster": "sa_admin_misc"
+    },
+    {
+      "endpoint": "sa_einstellungen.sa_keepass_upload",
+      "function": "sa_keepass_upload",
+      "path": "/sa/einstellungen/keepass-upload",
+      "methods": "POST",
+      "source_file": "woa/blueprints/sa_einstellungen.py",
+      "line": 380,
+      "blueprint": "sa_einstellungen",
+      "cluster": "sa_einstellungen"
+    },
+    {
+      "endpoint": "sa_einstellungen.sa_admin_log_clear",
+      "function": "sa_admin_log_clear",
+      "path": "/sa/einstellungen/log/clear",
+      "methods": "POST",
+      "source_file": "woa/blueprints/sa_einstellungen.py",
+      "line": 109,
+      "blueprint": "sa_einstellungen",
+      "cluster": "sa_einstellungen"
+    },
+    {
+      "endpoint": "misc_extras.sa_admin_log_download",
+      "function": "sa_admin_log_download",
+      "path": "/sa/einstellungen/log/download",
+      "methods": "GET",
+      "source_file": "woa/blueprints/misc_extras.py",
+      "line": 87,
+      "blueprint": "misc_extras",
+      "cluster": "misc_extras"
+    },
+    {
+      "endpoint": "sa_einstellungen.sa_admin_log_view",
+      "function": "sa_admin_log_view",
+      "path": "/sa/einstellungen/log/view",
+      "methods": "GET",
+      "source_file": "woa/blueprints/sa_einstellungen.py",
+      "line": 37,
+      "blueprint": "sa_einstellungen",
+      "cluster": "sa_einstellungen"
+    },
+    {
+      "endpoint": "sa_admin_misc.sa_settings_portal_save",
+      "function": "sa_settings_portal_save",
+      "path": "/sa/einstellungen/portal/save",
+      "methods": "POST",
+      "source_file": "woa/blueprints/sa_admin_misc.py",
+      "line": 40,
+      "blueprint": "sa_admin_misc",
+      "cluster": "sa_admin_misc"
+    },
+    {
+      "endpoint": "sa_einstellungen.sa_tenant_smtp_test",
+      "function": "sa_tenant_smtp_test",
+      "path": "/sa/einstellungen/smtp/test",
+      "methods": "POST",
+      "source_file": "woa/blueprints/sa_einstellungen.py",
+      "line": 131,
+      "blueprint": "sa_einstellungen",
+      "cluster": "sa_einstellungen"
+    },
+    {
+      "endpoint": "sa_einstellungen.sa_settings_test_logmail",
+      "function": "sa_settings_test_logmail",
+      "path": "/sa/einstellungen/superadmin/test-logmail",
+      "methods": "POST",
+      "source_file": "woa/blueprints/sa_einstellungen.py",
+      "line": 273,
+      "blueprint": "sa_einstellungen",
+      "cluster": "sa_einstellungen"
+    },
+    {
+      "endpoint": "misc_extras.sa_settings_test_mail",
+      "function": "sa_settings_test_mail",
+      "path": "/sa/einstellungen/superadmin/test-mail",
+      "methods": "POST",
+      "source_file": "woa/blueprints/misc_extras.py",
+      "line": 133,
+      "blueprint": "misc_extras",
+      "cluster": "misc_extras"
+    },
+    {
+      "endpoint": "sa_einstellungen.sa_verfahrensdok_download",
+      "function": "sa_verfahrensdok_download",
+      "path": "/sa/einstellungen/verfahrensdokumentation",
+      "methods": "GET",
+      "source_file": "woa/blueprints/sa_einstellungen.py",
+      "line": 310,
+      "blueprint": "sa_einstellungen",
+      "cluster": "sa_einstellungen"
+    },
+    {
+      "endpoint": "sa_einstellungen.sa_watchdog_status",
+      "function": "sa_watchdog_status",
+      "path": "/sa/einstellungen/watchdog",
+      "methods": "GET",
+      "source_file": "woa/blueprints/sa_einstellungen.py",
+      "line": 183,
+      "blueprint": "sa_einstellungen",
+      "cluster": "sa_einstellungen"
+    },
+    {
+      "endpoint": "sa_einstellungen.sa_watchdog_restart",
+      "function": "sa_watchdog_restart",
+      "path": "/sa/einstellungen/watchdog/restart",
+      "methods": "POST",
+      "source_file": "woa/blueprints/sa_einstellungen.py",
+      "line": 251,
+      "blueprint": "sa_einstellungen",
+      "cluster": "sa_einstellungen"
+    },
+    {
+      "endpoint": "sa_geoblock.sa_geoblock",
+      "function": "sa_geoblock",
+      "path": "/sa/geoblock",
+      "methods": "GET",
+      "source_file": "woa/blueprints/sa_geoblock.py",
+      "line": 30,
+      "blueprint": "sa_geoblock",
+      "cluster": "sa_geoblock"
+    },
+    {
+      "endpoint": "sa_geoblock.sa_geoblock_save",
+      "function": "sa_geoblock_save",
+      "path": "/sa/geoblock/save",
+      "methods": "POST",
+      "source_file": "woa/blueprints/sa_geoblock.py",
+      "line": 119,
+      "blueprint": "sa_geoblock",
+      "cluster": "sa_geoblock"
+    },
+    {
+      "endpoint": "sa_geoblock.sa_geoblock_stats",
+      "function": "sa_geoblock_stats",
+      "path": "/sa/geoblock/stats",
+      "methods": "GET",
+      "source_file": "woa/blueprints/sa_geoblock.py",
+      "line": 234,
+      "blueprint": "sa_geoblock",
+      "cluster": "sa_geoblock"
+    },
+    {
+      "endpoint": "wave_g_extracted.sa_geoblock_stats_mode",
+      "function": "sa_geoblock_stats_mode",
+      "path": "/sa/geoblock/stats/mode",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_g_extracted.py",
+      "line": 110,
+      "blueprint": "wave_g_extracted",
+      "cluster": "wave_g_extracted"
+    },
+    {
+      "endpoint": "wave_g_extracted.sa_geoblock_stats_watchdog_ok",
+      "function": "sa_geoblock_stats_watchdog_ok",
+      "path": "/sa/geoblock/stats/watchdog/ok",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_g_extracted.py",
+      "line": 220,
+      "blueprint": "wave_g_extracted",
+      "cluster": "wave_g_extracted"
+    },
+    {
+      "endpoint": "wave_f_misc.sa_geoblock_whitelist_list",
+      "function": "sa_geoblock_whitelist_list",
+      "path": "/sa/geoblock/whitelist",
+      "methods": "GET",
+      "source_file": "woa/blueprints/wave_f_misc.py",
+      "line": 398,
+      "blueprint": "wave_f_misc",
+      "cluster": "wave_f_misc"
+    },
+    {
+      "endpoint": "wave_f_misc.sa_geoblock_whitelist_delete",
+      "function": "sa_geoblock_whitelist_delete",
+      "path": "/sa/geoblock/whitelist/<int:eid>/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_f_misc.py",
+      "line": 447,
+      "blueprint": "wave_f_misc",
+      "cluster": "wave_f_misc"
+    },
+    {
+      "endpoint": "sa_geoblock_whitelist_add",
+      "function": "sa_geoblock_whitelist_add",
+      "path": "/sa/geoblock/whitelist/add",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 1759,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "sa_geoblock.sa_geoblock_whitelist_sync",
+      "function": "sa_geoblock_whitelist_sync",
+      "path": "/sa/geoblock/whitelist/sync",
+      "methods": "POST",
+      "source_file": "woa/blueprints/sa_geoblock.py",
+      "line": 373,
+      "blueprint": "sa_geoblock",
+      "cluster": "sa_geoblock"
+    },
+    {
+      "endpoint": "misc_clean_b.sa_handbook_features_list",
+      "function": "sa_handbook_features_list",
+      "path": "/sa/handbook-features",
+      "methods": "GET",
+      "source_file": "woa/blueprints/misc_clean_b.py",
+      "line": 206,
+      "blueprint": "misc_clean_b",
+      "cluster": "misc_clean_b"
+    },
+    {
+      "endpoint": "sa_admin_misc.sa_handbook_feature_delete",
+      "function": "sa_handbook_feature_delete",
+      "path": "/sa/handbook-features/<int:fid>/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/sa_admin_misc.py",
+      "line": 250,
+      "blueprint": "sa_admin_misc",
+      "cluster": "sa_admin_misc"
+    },
+    {
+      "endpoint": "sa_admin_misc.sa_handbook_feature_edit",
+      "function": "sa_handbook_feature_edit",
+      "path": "/sa/handbook-features/<int:fid>/edit",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/sa_admin_misc.py",
+      "line": 219,
+      "blueprint": "sa_admin_misc",
+      "cluster": "sa_admin_misc"
+    },
+    {
+      "endpoint": "sa_admin_misc.sa_handbook_feature_toggle",
+      "function": "sa_handbook_feature_toggle",
+      "path": "/sa/handbook-features/<int:fid>/toggle",
+      "methods": "POST",
+      "source_file": "woa/blueprints/sa_admin_misc.py",
+      "line": 260,
+      "blueprint": "sa_admin_misc",
+      "cluster": "sa_admin_misc"
+    },
+    {
+      "endpoint": "sa_admin_misc.sa_handbook_feature_new",
+      "function": "sa_handbook_feature_new",
+      "path": "/sa/handbook-features/neu",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/sa_admin_misc.py",
+      "line": 183,
+      "blueprint": "sa_admin_misc",
+      "cluster": "sa_admin_misc"
+    },
+    {
+      "endpoint": "sa_admin_misc.sa_onboarding_templates_list",
+      "function": "sa_onboarding_templates_list",
+      "path": "/sa/onboarding-templates",
+      "methods": "GET",
+      "source_file": "woa/blueprints/sa_admin_misc.py",
+      "line": 465,
+      "blueprint": "sa_admin_misc",
+      "cluster": "sa_admin_misc"
+    },
+    {
+      "endpoint": "sa_onboarding_template_edit",
+      "function": "sa_onboarding_template_edit",
+      "path": "/sa/onboarding-templates/<kind>/edit",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 12194,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "sa_onboarding_template_preview",
+      "function": "sa_onboarding_template_preview",
+      "path": "/sa/onboarding-templates/<kind>/preview",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 12212,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "sa_admin_misc.sa_onboarding_template_save",
+      "function": "sa_onboarding_template_save",
+      "path": "/sa/onboarding-templates/<kind>/save",
+      "methods": "POST",
+      "source_file": "woa/blueprints/sa_admin_misc.py",
+      "line": 489,
+      "blueprint": "sa_admin_misc",
+      "cluster": "sa_admin_misc"
+    },
+    {
+      "endpoint": "sa_templates_hub",
+      "function": "sa_templates_hub",
+      "path": "/sa/templates",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 12715,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "sa_templates_hub",
+      "function": "sa_templates_hub",
+      "path": "/sa/templates/<tab>",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 12715,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "wave_i_extracted.sa_partner_contract_template_edit",
+      "function": "sa_partner_contract_template_edit",
+      "path": "/sa/templates/partner-contract/edit",
+      "methods": "GET",
+      "source_file": "woa/blueprints/wave_i_extracted.py",
+      "line": 893,
+      "blueprint": "wave_i_extracted",
+      "cluster": "wave_i_extracted"
+    },
+    {
+      "endpoint": "sa_partner_contract_template_preview",
+      "function": "sa_partner_contract_template_preview",
+      "path": "/sa/templates/partner-contract/preview",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 12826,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "wave_i_extracted.sa_partner_contract_template_reset",
+      "function": "sa_partner_contract_template_reset",
+      "path": "/sa/templates/partner-contract/reset",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_i_extracted.py",
+      "line": 911,
+      "blueprint": "wave_i_extracted",
+      "cluster": "wave_i_extracted"
+    },
+    {
+      "endpoint": "sa_admin_misc.sa_partner_contract_template_save",
+      "function": "sa_partner_contract_template_save",
+      "path": "/sa/templates/partner-contract/save",
+      "methods": "POST",
+      "source_file": "woa/blueprints/sa_admin_misc.py",
+      "line": 529,
+      "blueprint": "sa_admin_misc",
+      "cluster": "sa_admin_misc"
+    },
+    {
+      "endpoint": "wave_h_extracted.sa_tv_cleanup_diagnose",
+      "function": "sa_tv_cleanup_diagnose",
+      "path": "/sa/tv-cleanup/diagnose",
+      "methods": "GET",
+      "source_file": "woa/blueprints/wave_h_extracted.py",
+      "line": 33,
+      "blueprint": "wave_h_extracted",
+      "cluster": "wave_h_extracted"
+    },
+    {
+      "endpoint": "wave_h_extracted.sa_tv_cleanup_run_now",
+      "function": "sa_tv_cleanup_run_now",
+      "path": "/sa/tv-cleanup/run-now",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_h_extracted.py",
+      "line": 150,
+      "blueprint": "wave_h_extracted",
+      "cluster": "wave_h_extracted"
+    },
+    {
+      "endpoint": "wave_h_extracted.sa_tv_cleanup_sweep_orphans",
+      "function": "sa_tv_cleanup_sweep_orphans",
+      "path": "/sa/tv-cleanup/sweep-orphans",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_h_extracted.py",
+      "line": 169,
+      "blueprint": "wave_h_extracted",
+      "cluster": "wave_h_extracted"
+    },
+    {
+      "endpoint": "misc_extras.sa_url_masking",
+      "function": "sa_url_masking",
+      "path": "/sa/url-masking",
+      "methods": "GET",
+      "source_file": "woa/blueprints/misc_extras.py",
+      "line": 156,
+      "blueprint": "misc_extras",
+      "cluster": "misc_extras"
+    },
+    {
+      "endpoint": "sa_url_masking.sa_url_masking_api_audit",
+      "function": "sa_url_masking_api_audit",
+      "path": "/sa/url-masking/api/audit",
+      "methods": "GET",
+      "source_file": "woa/blueprints/sa_url_masking.py",
+      "line": 273,
+      "blueprint": "sa_url_masking",
+      "cluster": "sa_url_masking"
+    },
+    {
+      "endpoint": "sa_url_masking.sa_url_masking_api_cleanup_legacy",
+      "function": "sa_url_masking_api_cleanup_legacy",
+      "path": "/sa/url-masking/api/cleanup-legacy",
+      "methods": "POST",
+      "source_file": "woa/blueprints/sa_url_masking.py",
+      "line": 256,
+      "blueprint": "sa_url_masking",
+      "cluster": "sa_url_masking"
+    },
+    {
+      "endpoint": "sa_url_masking.sa_url_masking_api_phases",
+      "function": "sa_url_masking_api_phases",
+      "path": "/sa/url-masking/api/phases",
+      "methods": "GET",
+      "source_file": "woa/blueprints/sa_url_masking.py",
+      "line": 112,
+      "blueprint": "sa_url_masking",
+      "cluster": "sa_url_masking"
+    },
+    {
+      "endpoint": "sa_url_masking.sa_url_masking_api_purge",
+      "function": "sa_url_masking_api_purge",
+      "path": "/sa/url-masking/api/purge/<int:tenant_id>",
+      "methods": "POST",
+      "source_file": "woa/blueprints/sa_url_masking.py",
+      "line": 221,
+      "blueprint": "sa_url_masking",
+      "cluster": "sa_url_masking"
+    },
+    {
+      "endpoint": "sa_url_masking.sa_url_masking_api_revoked",
+      "function": "sa_url_masking_api_revoked",
+      "path": "/sa/url-masking/api/revoked/<int:tenant_id>",
+      "methods": "GET",
+      "source_file": "woa/blueprints/sa_url_masking.py",
+      "line": 178,
+      "blueprint": "sa_url_masking",
+      "cluster": "sa_url_masking"
+    },
+    {
+      "endpoint": "sa_url_masking.sa_url_masking_api_rotate",
+      "function": "sa_url_masking_api_rotate",
+      "path": "/sa/url-masking/api/rotate/<int:tenant_id>",
+      "methods": "POST",
+      "source_file": "woa/blueprints/sa_url_masking.py",
+      "line": 193,
+      "blueprint": "sa_url_masking",
+      "cluster": "sa_url_masking"
+    },
+    {
+      "endpoint": "sa_url_masking.sa_url_masking_api_stats",
+      "function": "sa_url_masking_api_stats",
+      "path": "/sa/url-masking/api/stats",
+      "methods": "GET",
+      "source_file": "woa/blueprints/sa_url_masking.py",
+      "line": 77,
+      "blueprint": "sa_url_masking",
+      "cluster": "sa_url_masking"
+    },
+    {
+      "endpoint": "sa_url_masking_api_strict_status",
+      "function": "sa_url_masking_api_strict_status",
+      "path": "/sa/url-masking/api/strict-status",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 13127,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "sa_url_masking_api_strict_toggle",
+      "function": "sa_url_masking_api_strict_toggle",
+      "path": "/sa/url-masking/api/strict-toggle/<string:resource>",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 13146,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "sa_url_masking.sa_url_masking_api_tenants",
+      "function": "sa_url_masking_api_tenants",
+      "path": "/sa/url-masking/api/tenants",
+      "methods": "GET",
+      "source_file": "woa/blueprints/sa_url_masking.py",
+      "line": 30,
+      "blueprint": "sa_url_masking",
+      "cluster": "sa_url_masking"
+    },
+    {
+      "endpoint": "misc_clean_a.sammelrechnung_detail",
+      "function": "sammelrechnung_detail",
+      "path": "/sammelrechnung/<int:wid>",
+      "methods": "GET",
+      "source_file": "woa/blueprints/misc_clean_a.py",
+      "line": 38,
+      "blueprint": "misc_clean_a",
+      "cluster": "misc_clean_a"
+    },
+    {
+      "endpoint": "misc_clean_c.sammelrechnung_add",
+      "function": "sammelrechnung_add",
+      "path": "/sammelrechnung/<int:wid>/add",
+      "methods": "POST",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 279,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "sammelrechnung_generate",
+      "function": "sammelrechnung_generate",
+      "path": "/sammelrechnung/<int:wid>/generate",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 1000,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "misc_clean_a.sammelrechnung_pdf",
+      "function": "sammelrechnung_pdf",
+      "path": "/sammelrechnung/<int:wid>/pdf",
+      "methods": "GET",
+      "source_file": "woa/blueprints/misc_clean_a.py",
+      "line": 62,
+      "blueprint": "misc_clean_a",
+      "cluster": "misc_clean_a"
+    },
+    {
+      "endpoint": "misc_clean_c.sammelrechnung_remove",
+      "function": "sammelrechnung_remove",
+      "path": "/sammelrechnung/<int:wid>/remove/<int:child_id>",
+      "methods": "POST",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 307,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "system_pages.serverstatus_page",
+      "function": "serverstatus_page",
+      "path": "/serverstatus",
+      "methods": "GET",
+      "source_file": "woa/blueprints/system_pages.py",
+      "line": 65,
+      "blueprint": "system_pages",
+      "cluster": "system_pages"
+    },
+    {
+      "endpoint": "admin_security_audit_list",
+      "function": "admin_security_audit_list",
+      "path": "/serverstatus/audit",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 11568,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "admin_security_audit_detail",
+      "function": "admin_security_audit_detail",
+      "path": "/serverstatus/audit/<int:aid>",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 11756,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "admin_security_audit_approve",
+      "function": "admin_security_audit_approve",
+      "path": "/serverstatus/audit/<int:aid>/approve",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 11954,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "admin_security_audit_notify_sa",
+      "function": "admin_security_audit_notify_sa",
+      "path": "/serverstatus/audit/<int:aid>/notify-sa",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 11826,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "admin_security_audit_pdf",
+      "function": "admin_security_audit_pdf",
+      "path": "/serverstatus/audit/<int:aid>/pdf",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 12052,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "admin_security_audit_new",
+      "function": "admin_security_audit_new",
+      "path": "/serverstatus/audit/new",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 11666,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "admin_security_audit_recent",
+      "function": "admin_security_audit_recent",
+      "path": "/serverstatus/audit/recent",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 12107,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "admin_security_audit_summary",
+      "function": "admin_security_audit_summary",
+      "path": "/serverstatus/audit/summary",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 12157,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "system_pages.admin_healthstate_page",
+      "function": "admin_healthstate_page",
+      "path": "/serverstatus/healthstate",
+      "methods": "GET",
+      "source_file": "woa/blueprints/system_pages.py",
+      "line": 74,
+      "blueprint": "system_pages",
+      "cluster": "system_pages"
+    },
+    {
+      "endpoint": "wave_i_extracted.admin_healthstate_data",
+      "function": "admin_healthstate_data",
+      "path": "/serverstatus/healthstate/data",
+      "methods": "GET",
+      "source_file": "woa/blueprints/wave_i_extracted.py",
+      "line": 510,
+      "blueprint": "wave_i_extracted",
+      "cluster": "wave_i_extracted"
+    },
+    {
+      "endpoint": "misc_clean_c.statistik",
+      "function": "statistik",
+      "path": "/statistik",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 673,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "system_pages.steuerberater_page",
+      "function": "steuerberater_page",
+      "path": "/steuerberater",
+      "methods": "GET",
+      "source_file": "woa/blueprints/system_pages.py",
+      "line": 56,
+      "blueprint": "system_pages",
+      "cluster": "system_pages"
+    },
+    {
+      "endpoint": "stundenzettel.ts_overview",
+      "function": "ts_overview",
+      "path": "/stundenzettel",
+      "methods": "GET",
+      "source_file": "woa/blueprints/stundenzettel.py",
+      "line": 78,
+      "blueprint": "stundenzettel",
+      "cluster": "stundenzettel"
+    },
+    {
+      "endpoint": "stundenzettel.ts_activity_add",
+      "function": "ts_activity_add",
+      "path": "/stundenzettel/<int:eid>/activity/add",
+      "methods": "POST",
+      "source_file": "woa/blueprints/stundenzettel.py",
+      "line": 260,
+      "blueprint": "stundenzettel",
+      "cluster": "stundenzettel"
+    },
+    {
+      "endpoint": "stundenzettel.ts_delete",
+      "function": "ts_delete",
+      "path": "/stundenzettel/<int:eid>/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/stundenzettel.py",
+      "line": 231,
+      "blueprint": "stundenzettel",
+      "cluster": "stundenzettel"
+    },
+    {
+      "endpoint": "stundenzettel.ts_edit",
+      "function": "ts_edit",
+      "path": "/stundenzettel/<int:eid>/edit",
+      "methods": "POST",
+      "source_file": "woa/blueprints/stundenzettel.py",
+      "line": 191,
+      "blueprint": "stundenzettel",
+      "cluster": "stundenzettel"
+    },
+    {
+      "endpoint": "stundenzettel.ts_timer_pause",
+      "function": "ts_timer_pause",
+      "path": "/stundenzettel/<int:eid>/timer/pause",
+      "methods": "POST",
+      "source_file": "woa/blueprints/stundenzettel.py",
+      "line": 295,
+      "blueprint": "stundenzettel",
+      "cluster": "stundenzettel"
+    },
+    {
+      "endpoint": "stundenzettel.ts_timer_stop",
+      "function": "ts_timer_stop",
+      "path": "/stundenzettel/<int:eid>/timer/stop",
+      "methods": "POST",
+      "source_file": "woa/blueprints/stundenzettel.py",
+      "line": 312,
+      "blueprint": "stundenzettel",
+      "cluster": "stundenzettel"
+    },
+    {
+      "endpoint": "stundenzettel.ts_activity_delete",
+      "function": "ts_activity_delete",
+      "path": "/stundenzettel/activity/<int:aid>/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/stundenzettel.py",
+      "line": 285,
+      "blueprint": "stundenzettel",
+      "cluster": "stundenzettel"
+    },
+    {
+      "endpoint": "stundenzettel.ts_activity_edit",
+      "function": "ts_activity_edit",
+      "path": "/stundenzettel/activity/<int:aid>/edit",
+      "methods": "POST",
+      "source_file": "woa/blueprints/stundenzettel.py",
+      "line": 274,
+      "blueprint": "stundenzettel",
+      "cluster": "stundenzettel"
+    },
+    {
+      "endpoint": "stundenzettel.ts_customer",
+      "function": "ts_customer",
+      "path": "/stundenzettel/kunde/<int:cid>",
+      "methods": "GET",
+      "source_file": "woa/blueprints/stundenzettel.py",
+      "line": 100,
+      "blueprint": "stundenzettel",
+      "cluster": "stundenzettel"
+    },
+    {
+      "endpoint": "stundenzettel.ts_settle",
+      "function": "ts_settle",
+      "path": "/stundenzettel/kunde/<int:cid>/abrechnen",
+      "methods": "POST",
+      "source_file": "woa/blueprints/stundenzettel.py",
+      "line": 351,
+      "blueprint": "stundenzettel",
+      "cluster": "stundenzettel"
+    },
+    {
+      "endpoint": "stundenzettel.ts_add",
+      "function": "ts_add",
+      "path": "/stundenzettel/kunde/<int:cid>/neu",
+      "methods": "POST",
+      "source_file": "woa/blueprints/stundenzettel.py",
+      "line": 141,
+      "blueprint": "stundenzettel",
+      "cluster": "stundenzettel"
+    },
+    {
+      "endpoint": "stundenzettel.ts_pdf",
+      "function": "ts_pdf",
+      "path": "/stundenzettel/kunde/<int:cid>/pdf",
+      "methods": "GET",
+      "source_file": "woa/blueprints/stundenzettel.py",
+      "line": 366,
+      "blueprint": "stundenzettel",
+      "cluster": "stundenzettel"
+    },
+    {
+      "endpoint": "stundenzettel.ts_timer_start",
+      "function": "ts_timer_start",
+      "path": "/stundenzettel/kunde/<int:cid>/timer/start",
+      "methods": "POST",
+      "source_file": "woa/blueprints/stundenzettel.py",
+      "line": 242,
+      "blueprint": "stundenzettel",
+      "cluster": "stundenzettel"
+    },
+    {
+      "endpoint": "stundenzettel.ts_multi",
+      "function": "ts_multi",
+      "path": "/stundenzettel/multi",
+      "methods": "GET",
+      "source_file": "woa/blueprints/stundenzettel.py",
+      "line": 36,
+      "blueprint": "stundenzettel",
+      "cluster": "stundenzettel"
+    },
+    {
+      "endpoint": "stundenzettel.ts_multi_start",
+      "function": "ts_multi_start",
+      "path": "/stundenzettel/multi/start",
+      "methods": "POST",
+      "source_file": "woa/blueprints/stundenzettel.py",
+      "line": 57,
+      "blueprint": "stundenzettel",
+      "cluster": "stundenzettel"
+    },
+    {
+      "endpoint": "sa_blacklist_list",
+      "function": "sa_blacklist_list",
+      "path": "/superadmin/blacklist",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 10831,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "sa_blacklist_delete",
+      "function": "sa_blacklist_delete",
+      "path": "/superadmin/blacklist/<int:bid>/delete",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 10910,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "sa_blacklist_disable",
+      "function": "sa_blacklist_disable",
+      "path": "/superadmin/blacklist/<int:bid>/disable",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 10879,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "sa_blacklist_enable",
+      "function": "sa_blacklist_enable",
+      "path": "/superadmin/blacklist/<int:bid>/enable",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 10896,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "sa_blacklist_add",
+      "function": "sa_blacklist_add",
+      "path": "/superadmin/blacklist/add",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 10842,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "claude_memory.claude_memory_page",
+      "function": "claude_memory_page",
+      "path": "/superadmin/claude-memory",
+      "methods": "GET",
+      "source_file": "woa/blueprints/claude_memory.py",
+      "line": 35,
+      "blueprint": "claude_memory",
+      "cluster": "claude_memory"
+    },
+    {
+      "endpoint": "claude_memory.claude_memory_lessons_list",
+      "function": "claude_memory_lessons_list",
+      "path": "/superadmin/claude-memory/lessons-api",
+      "methods": "GET",
+      "source_file": "woa/blueprints/claude_memory.py",
+      "line": 105,
+      "blueprint": "claude_memory",
+      "cluster": "claude_memory"
+    },
+    {
+      "endpoint": "claude_memory.claude_memory_lessons_save",
+      "function": "claude_memory_lessons_save",
+      "path": "/superadmin/claude-memory/lessons-api",
+      "methods": "POST",
+      "source_file": "woa/blueprints/claude_memory.py",
+      "line": 121,
+      "blueprint": "claude_memory",
+      "cluster": "claude_memory"
+    },
+    {
+      "endpoint": "claude_memory.claude_memory_lessons_delete",
+      "function": "claude_memory_lessons_delete",
+      "path": "/superadmin/claude-memory/lessons-api/<int:lid>",
+      "methods": "DELETE",
+      "source_file": "woa/blueprints/claude_memory.py",
+      "line": 181,
+      "blueprint": "claude_memory",
+      "cluster": "claude_memory"
+    },
+    {
+      "endpoint": "misc_clean_c.claude_memory_lessons_export",
+      "function": "claude_memory_lessons_export",
+      "path": "/superadmin/claude-memory/lessons-export.json",
+      "methods": "GET",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 421,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "misc_clean_c.claude_memory_minibackup",
+      "function": "claude_memory_minibackup",
+      "path": "/superadmin/claude-memory/minibackup",
+      "methods": "GET",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 364,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "claude_memory.claude_memory_modul_test",
+      "function": "claude_memory_modul_test",
+      "path": "/superadmin/claude-memory/modul-test",
+      "methods": "GET",
+      "source_file": "woa/blueprints/claude_memory.py",
+      "line": 503,
+      "blueprint": "claude_memory",
+      "cluster": "claude_memory"
+    },
+    {
+      "endpoint": "claude_memory.claude_memory_sections_list",
+      "function": "claude_memory_sections_list",
+      "path": "/superadmin/claude-memory/sections-api",
+      "methods": "GET",
+      "source_file": "woa/blueprints/claude_memory.py",
+      "line": 247,
+      "blueprint": "claude_memory",
+      "cluster": "claude_memory"
+    },
+    {
+      "endpoint": "claude_memory.claude_memory_sections_save",
+      "function": "claude_memory_sections_save",
+      "path": "/superadmin/claude-memory/sections-api/<int:sid>",
+      "methods": "POST",
+      "source_file": "woa/blueprints/claude_memory.py",
+      "line": 309,
+      "blueprint": "claude_memory",
+      "cluster": "claude_memory"
+    },
+    {
+      "endpoint": "claude_memory.claude_memory_sections_move",
+      "function": "claude_memory_sections_move",
+      "path": "/superadmin/claude-memory/sections-api/<int:sid>/move",
+      "methods": "POST",
+      "source_file": "woa/blueprints/claude_memory.py",
+      "line": 541,
+      "blueprint": "claude_memory",
+      "cluster": "claude_memory"
+    },
+    {
+      "endpoint": "claude_memory.claude_memory_system_status",
+      "function": "claude_memory_system_status",
+      "path": "/superadmin/claude-memory/system-api",
+      "methods": "GET",
+      "source_file": "woa/blueprints/claude_memory.py",
+      "line": 418,
+      "blueprint": "claude_memory",
+      "cluster": "claude_memory"
+    },
+    {
+      "endpoint": "claude_memory.claude_memory_todo_get",
+      "function": "claude_memory_todo_get",
+      "path": "/superadmin/claude-memory/todo-api",
+      "methods": "GET",
+      "source_file": "woa/blueprints/claude_memory.py",
+      "line": 201,
+      "blueprint": "claude_memory",
+      "cluster": "claude_memory"
+    },
+    {
+      "endpoint": "claude_memory.claude_memory_todo_save",
+      "function": "claude_memory_todo_save",
+      "path": "/superadmin/claude-memory/todo-api",
+      "methods": "POST",
+      "source_file": "woa/blueprints/claude_memory.py",
+      "line": 217,
+      "blueprint": "claude_memory",
+      "cluster": "claude_memory"
+    },
+    {
+      "endpoint": "wave_e_referral.sa_referral_admin",
+      "function": "sa_referral_admin",
+      "path": "/superadmin/empfehlungen",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/wave_e_referral.py",
+      "line": 412,
+      "blueprint": "wave_e_referral",
+      "cluster": "wave_e_referral"
+    },
+    {
+      "endpoint": "misc_clean_c.sa_referral_pdf_regenerate",
+      "function": "sa_referral_pdf_regenerate",
+      "path": "/superadmin/empfehlungen/pdf-generieren",
+      "methods": "POST",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 561,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "misc_clean_c.sa_referral_pdf_upload",
+      "function": "sa_referral_pdf_upload",
+      "path": "/superadmin/empfehlungen/pdf-upload",
+      "methods": "POST",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 526,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "wave_e_referral.sa_referral_pdf_preview",
+      "function": "sa_referral_pdf_preview",
+      "path": "/superadmin/empfehlungen/pdf-vorschau",
+      "methods": "GET",
+      "source_file": "woa/blueprints/wave_e_referral.py",
+      "line": 537,
+      "blueprint": "wave_e_referral",
+      "cluster": "wave_e_referral"
+    },
+    {
+      "endpoint": "misc_clean_c.sa_referral_settings_save",
+      "function": "sa_referral_settings_save",
+      "path": "/superadmin/empfehlungen/settings",
+      "methods": "POST",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 497,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "sa_fw_status",
+      "function": "sa_fw_status",
+      "path": "/superadmin/firewall-status",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 11200,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "system_pages.sa_health_page",
+      "function": "sa_health_page",
+      "path": "/superadmin/health",
+      "methods": "GET",
+      "source_file": "woa/blueprints/system_pages.py",
+      "line": 86,
+      "blueprint": "system_pages",
+      "cluster": "system_pages"
+    },
+    {
+      "endpoint": "wave_i_extracted.sa_health_data",
+      "function": "sa_health_data",
+      "path": "/superadmin/health/data",
+      "methods": "GET",
+      "source_file": "woa/blueprints/wave_i_extracted.py",
+      "line": 40,
+      "blueprint": "wave_i_extracted",
+      "cluster": "wave_i_extracted"
+    },
+    {
+      "endpoint": "wave_i_extracted.sa_health_log_export",
+      "function": "sa_health_log_export",
+      "path": "/superadmin/health/log/export",
+      "methods": "GET",
+      "source_file": "woa/blueprints/wave_i_extracted.py",
+      "line": 412,
+      "blueprint": "wave_i_extracted",
+      "cluster": "wave_i_extracted"
+    },
+    {
+      "endpoint": "wave_i_extracted.sa_health_log_view",
+      "function": "sa_health_log_view",
+      "path": "/superadmin/health/log/view",
+      "methods": "GET",
+      "source_file": "woa/blueprints/wave_i_extracted.py",
+      "line": 446,
+      "blueprint": "wave_i_extracted",
+      "cluster": "wave_i_extracted"
+    },
+    {
+      "endpoint": "sa_login_audit",
+      "function": "sa_login_audit",
+      "path": "/superadmin/login-audit",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 11111,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "misc_clean_b.sa_restart_service",
+      "function": "sa_restart_service",
+      "path": "/superadmin/restart-service",
+      "methods": "POST",
+      "source_file": "woa/blueprints/misc_clean_b.py",
+      "line": 101,
+      "blueprint": "misc_clean_b",
+      "cluster": "misc_clean_b"
+    },
+    {
+      "endpoint": "wave_e_referral.sa_scope_audit",
+      "function": "sa_scope_audit",
+      "path": "/superadmin/scope-audit",
+      "methods": "GET",
+      "source_file": "woa/blueprints/wave_e_referral.py",
+      "line": 336,
+      "blueprint": "wave_e_referral",
+      "cluster": "wave_e_referral"
+    },
+    {
+      "endpoint": "wave_e_referral.sa_scope_audit_delete",
+      "function": "sa_scope_audit_delete",
+      "path": "/superadmin/scope-audit/<int:eid>/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_e_referral.py",
+      "line": 388,
+      "blueprint": "wave_e_referral",
+      "cluster": "wave_e_referral"
+    },
+    {
+      "endpoint": "wave_e_referral.sa_scope_audit_clear",
+      "function": "sa_scope_audit_clear",
+      "path": "/superadmin/scope-audit/clear",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_e_referral.py",
+      "line": 400,
+      "blueprint": "wave_e_referral",
+      "cluster": "wave_e_referral"
+    },
+    {
+      "endpoint": "sa_security_settings",
+      "function": "sa_security_settings",
+      "path": "/superadmin/security",
+      "methods": "GET,POST",
+      "source_file": "app.py",
+      "line": 10925,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "sa_security_v2",
+      "function": "sa_security_v2",
+      "path": "/superadmin/security-v2",
+      "methods": "GET,POST",
+      "source_file": "app.py",
+      "line": 11012,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "sa_security_v3",
+      "function": "sa_security_v3",
+      "path": "/superadmin/security-v3",
+      "methods": "GET,POST",
+      "source_file": "app.py",
+      "line": 11169,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "termin_vorschlag_decline",
+      "function": "termin_vorschlag_decline",
+      "path": "/termin-ablehnen/<token>",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 3538,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "termin_vorschlag_accept",
+      "function": "termin_vorschlag_accept",
+      "path": "/termin-annehmen/<token>",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 3375,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "reminder_cancel",
+      "function": "reminder_cancel",
+      "path": "/termin-stornieren-rem/<token>",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 3931,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "termin_vorschlag_cancel",
+      "function": "termin_vorschlag_cancel",
+      "path": "/termin-stornieren/<token>",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 3859,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "wave_f_misc.termin_vorschlag_ics",
+      "function": "termin_vorschlag_ics",
+      "path": "/termin-vorschlag/<token>.ics",
+      "methods": "GET",
+      "source_file": "woa/blueprints/wave_f_misc.py",
+      "line": 599,
+      "blueprint": "wave_f_misc",
+      "cluster": "wave_f_misc"
+    },
+    {
+      "endpoint": "reminder_list",
+      "function": "reminder_list",
+      "path": "/terminplaner",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 3173,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "termin_vorschlag_add",
+      "function": "termin_vorschlag_add",
+      "path": "/terminvorschlag/neu",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 3253,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "vorgaenge_ops.wo_list",
+      "function": "wo_list",
+      "path": "/vorgaenge",
+      "methods": "GET",
+      "source_file": "woa/blueprints/vorgaenge_ops.py",
+      "line": 42,
+      "blueprint": "vorgaenge_ops",
+      "cluster": "vorgaenge_ops"
+    },
+    {
+      "endpoint": "wave_f_misc.wo_detail",
+      "function": "wo_detail",
+      "path": "/vorgaenge/<int:wid>",
+      "methods": "GET",
+      "source_file": "woa/blueprints/wave_f_misc.py",
+      "line": 57,
+      "blueprint": "wave_f_misc",
+      "cluster": "wave_f_misc"
+    },
+    {
+      "endpoint": "acceptance_activate",
+      "function": "acceptance_activate",
+      "path": "/vorgaenge/<int:wid>/abnahme/aktivieren",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 898,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "abnahme_more.acceptance_deactivate",
+      "function": "acceptance_deactivate",
+      "path": "/vorgaenge/<int:wid>/abnahme/deaktivieren",
+      "methods": "POST",
+      "source_file": "woa/blueprints/abnahme_more.py",
+      "line": 50,
+      "blueprint": "abnahme_more",
+      "cluster": "abnahme_more"
+    },
+    {
+      "endpoint": "abnahme_more.acceptance_item_add",
+      "function": "acceptance_item_add",
+      "path": "/vorgaenge/<int:wid>/abnahme/item/add",
+      "methods": "POST",
+      "source_file": "woa/blueprints/abnahme_more.py",
+      "line": 108,
+      "blueprint": "abnahme_more",
+      "cluster": "abnahme_more"
+    },
+    {
+      "endpoint": "abnahme_more.acceptance_mail",
+      "function": "acceptance_mail",
+      "path": "/vorgaenge/<int:wid>/abnahme/mail",
+      "methods": "POST",
+      "source_file": "woa/blueprints/abnahme_more.py",
+      "line": 327,
+      "blueprint": "abnahme_more",
+      "cluster": "abnahme_more"
+    },
+    {
+      "endpoint": "abnahme_more.acceptance_defect_add",
+      "function": "acceptance_defect_add",
+      "path": "/vorgaenge/<int:wid>/abnahme/mangel/add",
+      "methods": "POST",
+      "source_file": "woa/blueprints/abnahme_more.py",
+      "line": 144,
+      "blueprint": "abnahme_more",
+      "cluster": "abnahme_more"
+    },
+    {
+      "endpoint": "abnahme_more.acceptance_pdf",
+      "function": "acceptance_pdf",
+      "path": "/vorgaenge/<int:wid>/abnahme/pdf",
+      "methods": "GET",
+      "source_file": "woa/blueprints/abnahme_more.py",
+      "line": 295,
+      "blueprint": "abnahme_more",
+      "cluster": "abnahme_more"
+    },
+    {
+      "endpoint": "abnahme_more.acceptance_save",
+      "function": "acceptance_save",
+      "path": "/vorgaenge/<int:wid>/abnahme/save",
+      "methods": "POST",
+      "source_file": "woa/blueprints/abnahme_more.py",
+      "line": 69,
+      "blueprint": "abnahme_more",
+      "cluster": "abnahme_more"
+    },
+    {
+      "endpoint": "abnahme_more.acceptance_sign",
+      "function": "acceptance_sign",
+      "path": "/vorgaenge/<int:wid>/abnahme/sign",
+      "methods": "POST",
+      "source_file": "woa/blueprints/abnahme_more.py",
+      "line": 167,
+      "blueprint": "abnahme_more",
+      "cluster": "abnahme_more"
+    },
+    {
+      "endpoint": "vorgaenge_ops.activity_add",
+      "function": "activity_add",
+      "path": "/vorgaenge/<int:wid>/activity/add",
+      "methods": "POST",
+      "source_file": "woa/blueprints/vorgaenge_ops.py",
+      "line": 134,
+      "blueprint": "vorgaenge_ops",
+      "cluster": "vorgaenge_ops"
+    },
+    {
+      "endpoint": "wave_f_misc.wo_delete",
+      "function": "wo_delete",
+      "path": "/vorgaenge/<int:wid>/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_f_misc.py",
+      "line": 309,
+      "blueprint": "wave_f_misc",
+      "cluster": "wave_f_misc"
+    },
+    {
+      "endpoint": "wave_g_extracted.wo_document_add",
+      "function": "wo_document_add",
+      "path": "/vorgaenge/<int:wid>/dokument/add",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_g_extracted.py",
+      "line": 43,
+      "blueprint": "wave_g_extracted",
+      "cluster": "wave_g_extracted"
+    },
+    {
+      "endpoint": "wave_d_pricing.wo_edit",
+      "function": "wo_edit",
+      "path": "/vorgaenge/<int:wid>/edit",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/wave_d_pricing.py",
+      "line": 108,
+      "blueprint": "wave_d_pricing",
+      "cluster": "wave_d_pricing"
+    },
+    {
+      "endpoint": "vorgaenge_pdf.pdf_invoice",
+      "function": "pdf_invoice",
+      "path": "/vorgaenge/<int:wid>/pdf/invoice",
+      "methods": "GET",
+      "source_file": "woa/blueprints/vorgaenge_pdf.py",
+      "line": 40,
+      "blueprint": "vorgaenge_pdf",
+      "cluster": "vorgaenge_pdf"
+    },
+    {
+      "endpoint": "vorgaenge_pdf.pdf_workorder",
+      "function": "pdf_workorder",
+      "path": "/vorgaenge/<int:wid>/pdf/workorder",
+      "methods": "GET",
+      "source_file": "woa/blueprints/vorgaenge_pdf.py",
+      "line": 30,
+      "blueprint": "vorgaenge_pdf",
+      "cluster": "vorgaenge_pdf"
+    },
+    {
+      "endpoint": "vorgaenge_pdf.pdf_xrechnung",
+      "function": "pdf_xrechnung",
+      "path": "/vorgaenge/<int:wid>/pdf/xrechnung",
+      "methods": "GET",
+      "source_file": "woa/blueprints/vorgaenge_pdf.py",
+      "line": 52,
+      "blueprint": "vorgaenge_pdf",
+      "cluster": "vorgaenge_pdf"
+    },
+    {
+      "endpoint": "vorgaenge_ops.picture_add",
+      "function": "picture_add",
+      "path": "/vorgaenge/<int:wid>/picture/add",
+      "methods": "POST",
+      "source_file": "woa/blueprints/vorgaenge_ops.py",
+      "line": 152,
+      "blueprint": "vorgaenge_ops",
+      "cluster": "vorgaenge_ops"
+    },
+    {
+      "endpoint": "wave_d_pricing.pos_add",
+      "function": "pos_add",
+      "path": "/vorgaenge/<int:wid>/pos/add",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_d_pricing.py",
+      "line": 147,
+      "blueprint": "wave_d_pricing",
+      "cluster": "wave_d_pricing"
+    },
+    {
+      "endpoint": "wave_d_pricing.pos_from_article",
+      "function": "pos_from_article",
+      "path": "/vorgaenge/<int:wid>/pos/from-article",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_d_pricing.py",
+      "line": 177,
+      "blueprint": "wave_d_pricing",
+      "cluster": "wave_d_pricing"
+    },
+    {
+      "endpoint": "abnahme_more.wo_send_email",
+      "function": "wo_send_email",
+      "path": "/vorgaenge/<int:wid>/send",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/abnahme_more.py",
+      "line": 390,
+      "blueprint": "abnahme_more",
+      "cluster": "abnahme_more"
+    },
+    {
+      "endpoint": "vorgaenge_ops.wo_sign",
+      "function": "wo_sign",
+      "path": "/vorgaenge/<int:wid>/sign",
+      "methods": "POST",
+      "source_file": "woa/blueprints/vorgaenge_ops.py",
+      "line": 173,
+      "blueprint": "vorgaenge_ops",
+      "cluster": "vorgaenge_ops"
+    },
+    {
+      "endpoint": "wave_f_misc.wo_status",
+      "function": "wo_status",
+      "path": "/vorgaenge/<int:wid>/status/<action>",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_f_misc.py",
+      "line": 105,
+      "blueprint": "wave_f_misc",
+      "cluster": "wave_f_misc"
+    },
+    {
+      "endpoint": "vorgaenge_ops.wo_update_zahlungsart",
+      "function": "wo_update_zahlungsart",
+      "path": "/vorgaenge/<int:wid>/zahlungsart",
+      "methods": "POST",
+      "source_file": "woa/blueprints/vorgaenge_ops.py",
+      "line": 112,
+      "blueprint": "vorgaenge_ops",
+      "cluster": "vorgaenge_ops"
+    },
+    {
+      "endpoint": "vorgaenge_ops.wo_new",
+      "function": "wo_new",
+      "path": "/vorgaenge/neu",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/vorgaenge_ops.py",
+      "line": 63,
+      "blueprint": "vorgaenge_ops",
+      "cluster": "vorgaenge_ops"
+    },
+    {
+      "endpoint": "wartungsvertraege.wartungsvertrag_list",
+      "function": "wartungsvertrag_list",
+      "path": "/wartungsvertraege",
+      "methods": "GET",
+      "source_file": "woa/blueprints/wartungsvertraege.py",
+      "line": 33,
+      "blueprint": "wartungsvertraege",
+      "cluster": "wartungsvertraege"
+    },
+    {
+      "endpoint": "wartungsvertraege.wartungsvertrag_delete",
+      "function": "wartungsvertrag_delete",
+      "path": "/wartungsvertraege/<int:cid>/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wartungsvertraege.py",
+      "line": 91,
+      "blueprint": "wartungsvertraege",
+      "cluster": "wartungsvertraege"
+    },
+    {
+      "endpoint": "wartungsvertraege.wartungsvertrag_toggle",
+      "function": "wartungsvertrag_toggle",
+      "path": "/wartungsvertraege/<int:cid>/toggle",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wartungsvertraege.py",
+      "line": 81,
+      "blueprint": "wartungsvertraege",
+      "cluster": "wartungsvertraege"
+    },
+    {
+      "endpoint": "wartungsvertraege.wartungsvertrag_done",
+      "function": "wartungsvertrag_done",
+      "path": "/wartungsvertraege/<int:cid>/wartung",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wartungsvertraege.py",
+      "line": 69,
+      "blueprint": "wartungsvertraege",
+      "cluster": "wartungsvertraege"
+    },
+    {
+      "endpoint": "wartungsvertraege.wartungsvertrag_add",
+      "function": "wartungsvertrag_add",
+      "path": "/wartungsvertraege/neu",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wartungsvertraege.py",
+      "line": 46,
+      "blueprint": "wartungsvertraege",
+      "cluster": "wartungsvertraege"
+    },
+    {
+      "endpoint": "reminder_list",
+      "function": "reminder_list",
+      "path": "/wiedervorlage",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 3173,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "wave_d_misc.reminder_delete",
+      "function": "reminder_delete",
+      "path": "/wiedervorlage/<int:rid>/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_d_misc.py",
+      "line": 542,
+      "blueprint": "wave_d_misc",
+      "cluster": "wave_d_misc"
+    },
+    {
+      "endpoint": "wave_d_misc.reminder_edit",
+      "function": "reminder_edit",
+      "path": "/wiedervorlage/<int:rid>/edit",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/wave_d_misc.py",
+      "line": 513,
+      "blueprint": "wave_d_misc",
+      "cluster": "wave_d_misc"
+    },
+    {
+      "endpoint": "wave_d_misc.reminder_done",
+      "function": "reminder_done",
+      "path": "/wiedervorlage/<int:rid>/erledigt",
+      "methods": "POST",
+      "source_file": "woa/blueprints/wave_d_misc.py",
+      "line": 484,
+      "blueprint": "wave_d_misc",
+      "cluster": "wave_d_misc"
+    },
+    {
+      "endpoint": "misc_clean_c.reminder_reopen",
+      "function": "reminder_reopen",
+      "path": "/wiedervorlage/<int:rid>/reopen",
+      "methods": "POST",
+      "source_file": "woa/blueprints/misc_clean_c.py",
+      "line": 930,
+      "blueprint": "misc_clean_c",
+      "cluster": "misc_clean_c"
+    },
+    {
+      "endpoint": "reminder_add",
+      "function": "reminder_add",
+      "path": "/wiedervorlage/neu",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 3209,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "woa_service_admin.woa_service_dashboard",
+      "function": "woa_service_dashboard",
+      "path": "/woa-service",
+      "methods": "GET",
+      "source_file": "woa/blueprints/woa_service_admin.py",
+      "line": 30,
+      "blueprint": "woa_service_admin",
+      "cluster": "woa_service_admin"
+    },
+    {
+      "endpoint": "woa_service_admin.woa_service_packages",
+      "function": "woa_service_packages",
+      "path": "/woa-service/pakete",
+      "methods": "GET",
+      "source_file": "woa/blueprints/woa_service_admin.py",
+      "line": 62,
+      "blueprint": "woa_service_admin",
+      "cluster": "woa_service_admin"
+    },
+    {
+      "endpoint": "woa_service_ops.woa_service_package_delete",
+      "function": "woa_service_package_delete",
+      "path": "/woa-service/pakete/<int:pid>/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/woa_service_ops.py",
+      "line": 92,
+      "blueprint": "woa_service_ops",
+      "cluster": "woa_service_ops"
+    },
+    {
+      "endpoint": "woa_service_ops.woa_service_package_save",
+      "function": "woa_service_package_save",
+      "path": "/woa-service/pakete/save",
+      "methods": "POST",
+      "source_file": "woa/blueprints/woa_service_ops.py",
+      "line": 54,
+      "blueprint": "woa_service_ops",
+      "cluster": "woa_service_ops"
+    },
+    {
+      "endpoint": "wave_h_extracted.woa_service_partners",
+      "function": "woa_service_partners",
+      "path": "/woa-service/partner",
+      "methods": "GET",
+      "source_file": "woa/blueprints/wave_h_extracted.py",
+      "line": 235,
+      "blueprint": "wave_h_extracted",
+      "cluster": "wave_h_extracted"
+    },
+    {
+      "endpoint": "woa_service_partner_contract_create_link",
+      "function": "woa_service_partner_contract_create_link",
+      "path": "/woa-service/partner/<int:pid>/contract/create-link",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 5139,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "partner_contract.woa_service_partner_contract_download",
+      "function": "woa_service_partner_contract_download",
+      "path": "/woa-service/partner/<int:pid>/contract/download",
+      "methods": "GET",
+      "source_file": "woa/blueprints/partner_contract.py",
+      "line": 102,
+      "blueprint": "partner_contract",
+      "cluster": "partner_contract"
+    },
+    {
+      "endpoint": "misc_extras.woa_service_partner_contract_download_signed",
+      "function": "woa_service_partner_contract_download_signed",
+      "path": "/woa-service/partner/<int:pid>/contract/download-signed",
+      "methods": "GET",
+      "source_file": "woa/blueprints/misc_extras.py",
+      "line": 215,
+      "blueprint": "misc_extras",
+      "cluster": "misc_extras"
+    },
+    {
+      "endpoint": "partner_contract.woa_service_partner_contract_generate",
+      "function": "woa_service_partner_contract_generate",
+      "path": "/woa-service/partner/<int:pid>/contract/generate",
+      "methods": "POST",
+      "source_file": "woa/blueprints/partner_contract.py",
+      "line": 47,
+      "blueprint": "partner_contract",
+      "cluster": "partner_contract"
+    },
+    {
+      "endpoint": "woa_service_ops.woa_service_partner_contract_mark_signed",
+      "function": "woa_service_partner_contract_mark_signed",
+      "path": "/woa-service/partner/<int:pid>/contract/mark-signed",
+      "methods": "POST",
+      "source_file": "woa/blueprints/woa_service_ops.py",
+      "line": 538,
+      "blueprint": "woa_service_ops",
+      "cluster": "woa_service_ops"
+    },
+    {
+      "endpoint": "partner_contract.woa_service_partner_contract_preview",
+      "function": "woa_service_partner_contract_preview",
+      "path": "/woa-service/partner/<int:pid>/contract/preview",
+      "methods": "GET",
+      "source_file": "woa/blueprints/partner_contract.py",
+      "line": 31,
+      "blueprint": "partner_contract",
+      "cluster": "partner_contract"
+    },
+    {
+      "endpoint": "woa_service_ops.woa_service_partner_contract_reset",
+      "function": "woa_service_partner_contract_reset",
+      "path": "/woa-service/partner/<int:pid>/contract/reset",
+      "methods": "POST",
+      "source_file": "woa/blueprints/woa_service_ops.py",
+      "line": 559,
+      "blueprint": "woa_service_ops",
+      "cluster": "woa_service_ops"
+    },
+    {
+      "endpoint": "woa_service_partner_contract_send_mail",
+      "function": "woa_service_partner_contract_send_mail",
+      "path": "/woa-service/partner/<int:pid>/contract/send-mail",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 5113,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "partner_contract.woa_service_partner_contract_upload",
+      "function": "woa_service_partner_contract_upload",
+      "path": "/woa-service/partner/<int:pid>/contract/upload",
+      "methods": "POST",
+      "source_file": "woa/blueprints/partner_contract.py",
+      "line": 122,
+      "blueprint": "partner_contract",
+      "cluster": "partner_contract"
+    },
+    {
+      "endpoint": "woa_service_ops.woa_service_partner_delete",
+      "function": "woa_service_partner_delete",
+      "path": "/woa-service/partner/<int:pid>/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/woa_service_ops.py",
+      "line": 518,
+      "blueprint": "woa_service_ops",
+      "cluster": "woa_service_ops"
+    },
+    {
+      "endpoint": "wave_h_extracted.woa_service_partner_account",
+      "function": "woa_service_partner_account",
+      "path": "/woa-service/partner/<int:pid>/konto",
+      "methods": "GET",
+      "source_file": "woa/blueprints/wave_h_extracted.py",
+      "line": 266,
+      "blueprint": "wave_h_extracted",
+      "cluster": "wave_h_extracted"
+    },
+    {
+      "endpoint": "woa_service_ops.woa_service_partner_payout",
+      "function": "woa_service_partner_payout",
+      "path": "/woa-service/partner/<int:pid>/payout",
+      "methods": "POST",
+      "source_file": "woa/blueprints/woa_service_ops.py",
+      "line": 248,
+      "blueprint": "woa_service_ops",
+      "cluster": "woa_service_ops"
+    },
+    {
+      "endpoint": "woa_service_ops.woa_service_partner_payout_mail",
+      "function": "woa_service_partner_payout_mail",
+      "path": "/woa-service/partner/<int:pid>/payout/<int:payout_id>/mail",
+      "methods": "POST",
+      "source_file": "woa/blueprints/woa_service_ops.py",
+      "line": 384,
+      "blueprint": "woa_service_ops",
+      "cluster": "woa_service_ops"
+    },
+    {
+      "endpoint": "woa_service_ops.woa_service_partner_payout_pdf",
+      "function": "woa_service_partner_payout_pdf",
+      "path": "/woa-service/partner/<int:pid>/payout/<int:payout_id>/pdf",
+      "methods": "GET",
+      "source_file": "woa/blueprints/woa_service_ops.py",
+      "line": 355,
+      "blueprint": "woa_service_ops",
+      "cluster": "woa_service_ops"
+    },
+    {
+      "endpoint": "woa_service_ops.woa_service_partner_save",
+      "function": "woa_service_partner_save",
+      "path": "/woa-service/partner/save",
+      "methods": "POST",
+      "source_file": "woa/blueprints/woa_service_ops.py",
+      "line": 422,
+      "blueprint": "woa_service_ops",
+      "cluster": "woa_service_ops"
+    },
+    {
+      "endpoint": "woa_service_run_all",
+      "function": "woa_service_run_all",
+      "path": "/woa-service/run-all",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 6468,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "woa_service_admin.woa_service_servers",
+      "function": "woa_service_servers",
+      "path": "/woa-service/server",
+      "methods": "GET",
+      "source_file": "woa/blueprints/woa_service_admin.py",
+      "line": 72,
+      "blueprint": "woa_service_admin",
+      "cluster": "woa_service_admin"
+    },
+    {
+      "endpoint": "woa_service_ops.woa_service_server_delete",
+      "function": "woa_service_server_delete",
+      "path": "/woa-service/server/<int:sid>/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/woa_service_ops.py",
+      "line": 216,
+      "blueprint": "woa_service_ops",
+      "cluster": "woa_service_ops"
+    },
+    {
+      "endpoint": "woa_service_server_health",
+      "function": "woa_service_server_health",
+      "path": "/woa-service/server/<int:sid>/health",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 7596,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "woa_service_ops.woa_service_server_push_toggle",
+      "function": "woa_service_server_push_toggle",
+      "path": "/woa-service/server/<int:sid>/push-toggle",
+      "methods": "POST",
+      "source_file": "woa/blueprints/woa_service_ops.py",
+      "line": 170,
+      "blueprint": "woa_service_ops",
+      "cluster": "woa_service_ops"
+    },
+    {
+      "endpoint": "woa_service_server_update",
+      "function": "woa_service_server_update",
+      "path": "/woa-service/server/<int:sid>/update",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 6877,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "woa_service_health_all",
+      "function": "woa_service_health_all",
+      "path": "/woa-service/server/health-all",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 7641,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "woa_service_ops.woa_service_server_save",
+      "function": "woa_service_server_save",
+      "path": "/woa-service/server/save",
+      "methods": "POST",
+      "source_file": "woa/blueprints/woa_service_ops.py",
+      "line": 107,
+      "blueprint": "woa_service_ops",
+      "cluster": "woa_service_ops"
+    },
+    {
+      "endpoint": "woa_service_ops.woa_service_update_all",
+      "function": "woa_service_update_all",
+      "path": "/woa-service/server/update-all",
+      "methods": "POST",
+      "source_file": "woa/blueprints/woa_service_ops.py",
+      "line": 892,
+      "blueprint": "woa_service_ops",
+      "cluster": "woa_service_ops"
+    },
+    {
+      "endpoint": "woa_service_ops.woa_service_update_job_cancel",
+      "function": "woa_service_update_job_cancel",
+      "path": "/woa-service/update-job/<int:job_id>/cancel",
+      "methods": "POST",
+      "source_file": "woa/blueprints/woa_service_ops.py",
+      "line": 864,
+      "blueprint": "woa_service_ops",
+      "cluster": "woa_service_ops"
+    },
+    {
+      "endpoint": "woa_service_admin.woa_service_update_status",
+      "function": "woa_service_update_status",
+      "path": "/woa-service/update-status/<int:job_id>",
+      "methods": "GET",
+      "source_file": "woa/blueprints/woa_service_admin.py",
+      "line": 115,
+      "blueprint": "woa_service_admin",
+      "cluster": "woa_service_admin"
+    },
+    {
+      "endpoint": "woa_url_security",
+      "function": "woa_url_security",
+      "path": "/woa-service/url-security",
+      "methods": "GET",
+      "source_file": "app.py",
+      "line": 10605,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "woa_url_security_emergency_purge",
+      "function": "woa_url_security_emergency_purge",
+      "path": "/woa-service/url-security/emergency-purge",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 10691,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "woa_service_ops.woa_url_security_grace_days",
+      "function": "woa_url_security_grace_days",
+      "path": "/woa-service/url-security/grace-days",
+      "methods": "POST",
+      "source_file": "woa/blueprints/woa_service_ops.py",
+      "line": 1026,
+      "blueprint": "woa_service_ops",
+      "cluster": "woa_service_ops"
+    },
+    {
+      "endpoint": "woa_url_security_revoke_token",
+      "function": "woa_url_security_revoke_token",
+      "path": "/woa-service/url-security/revoke",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 10748,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "woa_url_security_rotate",
+      "function": "woa_url_security_rotate",
+      "path": "/woa-service/url-security/rotate",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 10652,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "woa_url_security_unrevoke_token",
+      "function": "woa_url_security_unrevoke_token",
+      "path": "/woa-service/url-security/unrevoke/<string:token_hash>",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 10782,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "woa_service_admin.woa_service_contracts",
+      "function": "woa_service_contracts",
+      "path": "/woa-service/vertraege",
+      "methods": "GET",
+      "source_file": "woa/blueprints/woa_service_admin.py",
+      "line": 90,
+      "blueprint": "woa_service_admin",
+      "cluster": "woa_service_admin"
+    },
+    {
+      "endpoint": "woa_service_ops.woa_service_contract_delete",
+      "function": "woa_service_contract_delete",
+      "path": "/woa-service/vertraege/<int:cid>/delete",
+      "methods": "GET,POST",
+      "source_file": "woa/blueprints/woa_service_ops.py",
+      "line": 632,
+      "blueprint": "woa_service_ops",
+      "cluster": "woa_service_ops"
+    },
+    {
+      "endpoint": "woa_service_ops.woa_service_contract_item_delete",
+      "function": "woa_service_contract_item_delete",
+      "path": "/woa-service/vertraege/<int:cid>/item/<int:iid>/delete",
+      "methods": "POST",
+      "source_file": "woa/blueprints/woa_service_ops.py",
+      "line": 819,
+      "blueprint": "woa_service_ops",
+      "cluster": "woa_service_ops"
+    },
+    {
+      "endpoint": "woa_service_ops.woa_service_contract_item_reorder",
+      "function": "woa_service_contract_item_reorder",
+      "path": "/woa-service/vertraege/<int:cid>/item/reorder",
+      "methods": "POST",
+      "source_file": "woa/blueprints/woa_service_ops.py",
+      "line": 840,
+      "blueprint": "woa_service_ops",
+      "cluster": "woa_service_ops"
+    },
+    {
+      "endpoint": "woa_service_ops.woa_service_contract_item_save",
+      "function": "woa_service_contract_item_save",
+      "path": "/woa-service/vertraege/<int:cid>/item/save",
+      "methods": "POST",
+      "source_file": "woa/blueprints/woa_service_ops.py",
+      "line": 698,
+      "blueprint": "woa_service_ops",
+      "cluster": "woa_service_ops"
+    },
+    {
+      "endpoint": "woa_service_contract_run",
+      "function": "woa_service_contract_run",
+      "path": "/woa-service/vertraege/<int:cid>/rechnen",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 6442,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "woa_service_setup.woa_service_contract_setup",
+      "function": "woa_service_contract_setup",
+      "path": "/woa-service/vertraege/<int:cid>/setup",
+      "methods": "GET",
+      "source_file": "woa/blueprints/woa_service_setup.py",
+      "line": 136,
+      "blueprint": "woa_service_setup",
+      "cluster": "woa_service_setup"
+    },
+    {
+      "endpoint": "woa_service_setup.woa_service_setup_dns_confirm",
+      "function": "woa_service_setup_dns_confirm",
+      "path": "/woa-service/vertraege/<int:cid>/setup/dns/confirm",
+      "methods": "POST",
+      "source_file": "woa/blueprints/woa_service_setup.py",
+      "line": 388,
+      "blueprint": "woa_service_setup",
+      "cluster": "woa_service_setup"
+    },
+    {
+      "endpoint": "woa_service_setup_dns_preview",
+      "function": "woa_service_setup_dns_preview",
+      "path": "/woa-service/vertraege/<int:cid>/setup/dns/preview",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 5593,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "woa_service_setup.woa_service_setup_dns_save",
+      "function": "woa_service_setup_dns_save",
+      "path": "/woa-service/vertraege/<int:cid>/setup/dns/save",
+      "methods": "POST",
+      "source_file": "woa/blueprints/woa_service_setup.py",
+      "line": 367,
+      "blueprint": "woa_service_setup",
+      "cluster": "woa_service_setup"
+    },
+    {
+      "endpoint": "woa_service_setup_dns_send",
+      "function": "woa_service_setup_dns_send",
+      "path": "/woa-service/vertraege/<int:cid>/setup/dns/send",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 5482,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "woa_service_setup.woa_service_setup_dns_skip",
+      "function": "woa_service_setup_dns_skip",
+      "path": "/woa-service/vertraege/<int:cid>/setup/dns/skip",
+      "methods": "POST",
+      "source_file": "woa/blueprints/woa_service_setup.py",
+      "line": 408,
+      "blueprint": "woa_service_setup",
+      "cluster": "woa_service_setup"
+    },
+    {
+      "endpoint": "woa_service_setup_onboarding_preview",
+      "function": "woa_service_setup_onboarding_preview",
+      "path": "/woa-service/vertraege/<int:cid>/setup/onboarding/preview",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 5918,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "woa_service_setup.woa_service_setup_onboarding_save",
+      "function": "woa_service_setup_onboarding_save",
+      "path": "/woa-service/vertraege/<int:cid>/setup/onboarding/save",
+      "methods": "POST",
+      "source_file": "woa/blueprints/woa_service_setup.py",
+      "line": 481,
+      "blueprint": "woa_service_setup",
+      "cluster": "woa_service_setup"
+    },
+    {
+      "endpoint": "woa_service_setup_onboarding_send",
+      "function": "woa_service_setup_onboarding_send",
+      "path": "/woa-service/vertraege/<int:cid>/setup/onboarding/send",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 5965,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "woa_service_setup.woa_service_setup_onboarding_skip",
+      "function": "woa_service_setup_onboarding_skip",
+      "path": "/woa-service/vertraege/<int:cid>/setup/onboarding/skip",
+      "methods": "POST",
+      "source_file": "woa/blueprints/woa_service_setup.py",
+      "line": 500,
+      "blueprint": "woa_service_setup",
+      "cluster": "woa_service_setup"
+    },
+    {
+      "endpoint": "woa_service_setup.woa_service_contract_setup_partner_save",
+      "function": "woa_service_contract_setup_partner_save",
+      "path": "/woa-service/vertraege/<int:cid>/setup/partner/save",
+      "methods": "POST",
+      "source_file": "woa/blueprints/woa_service_setup.py",
+      "line": 42,
+      "blueprint": "woa_service_setup",
+      "cluster": "woa_service_setup"
+    },
+    {
+      "endpoint": "misc_extras.woa_service_setup_server_save",
+      "function": "woa_service_setup_server_save",
+      "path": "/woa-service/vertraege/<int:cid>/setup/server/save",
+      "methods": "POST",
+      "source_file": "woa/blueprints/misc_extras.py",
+      "line": 237,
+      "blueprint": "misc_extras",
+      "cluster": "misc_extras"
+    },
+    {
+      "endpoint": "woa_service_setup.woa_service_setup_server_skip",
+      "function": "woa_service_setup_server_skip",
+      "path": "/woa-service/vertraege/<int:cid>/setup/server/skip",
+      "methods": "POST",
+      "source_file": "woa/blueprints/woa_service_setup.py",
+      "line": 445,
+      "blueprint": "woa_service_setup",
+      "cluster": "woa_service_setup"
+    },
+    {
+      "endpoint": "woa_service_setup_server_upload",
+      "function": "woa_service_setup_server_upload",
+      "path": "/woa-service/vertraege/<int:cid>/setup/server/upload",
+      "methods": "POST",
+      "source_file": "app.py",
+      "line": 5758,
+      "blueprint": "",
+      "cluster": "app.py-monolith"
+    },
+    {
+      "endpoint": "woa_service_setup.woa_service_setup_vertrag_save",
+      "function": "woa_service_setup_vertrag_save",
+      "path": "/woa-service/vertraege/<int:cid>/setup/vertrag/save",
+      "methods": "POST",
+      "source_file": "woa/blueprints/woa_service_setup.py",
+      "line": 283,
+      "blueprint": "woa_service_setup",
+      "cluster": "woa_service_setup"
+    },
+    {
+      "endpoint": "woa_service_setup.woa_service_contract_neu",
+      "function": "woa_service_contract_neu",
+      "path": "/woa-service/vertraege/neu",
+      "methods": "POST",
+      "source_file": "woa/blueprints/woa_service_setup.py",
+      "line": 523,
+      "blueprint": "woa_service_setup",
+      "cluster": "woa_service_setup"
+    },
+    {
+      "endpoint": "woa_service_ops.woa_service_contract_save",
+      "function": "woa_service_contract_save",
+      "path": "/woa-service/vertraege/save",
+      "methods": "POST",
+      "source_file": "woa/blueprints/woa_service_ops.py",
+      "line": 583,
+      "blueprint": "woa_service_ops",
+      "cluster": "woa_service_ops"
+    }
+  ]
+}
