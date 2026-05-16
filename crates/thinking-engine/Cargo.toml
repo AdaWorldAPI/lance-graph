@@ -13,6 +13,7 @@ One MatVec per cycle. 10 cycles per thought. ~7 ms on CPU.
 """
 
 [dependencies]
+causal-edge = { path = "../causal-edge" }
 ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
 bgz-tensor = { path = "../bgz-tensor" }
 highheelbgz = { path = "../highheelbgz" }

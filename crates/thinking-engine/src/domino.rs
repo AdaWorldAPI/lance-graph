@@ -135,35 +135,35 @@ pub fn classify_transition(
 
     if above_floor > 0.8 {
         // Very similar: parallel motion (SUPPORTS)
-        edge.set_channel(CH_SUPPORTS, (above_floor * 200.0) as u8);
+        edge.set_channel_u8(CH_SUPPORTS, (above_floor * 200.0) as u8);
     } else if above_floor > 0.5 {
         // Moderately similar
         if energy_ratio > 1.2 {
             // Energy increasing: CAUSES (the first drives the second)
-            edge.set_channel(CH_CAUSES, (above_floor * 180.0) as u8);
+            edge.set_channel_u8(CH_CAUSES, (above_floor * 180.0) as u8);
         } else if energy_ratio < 0.8 {
             // Energy decreasing: GROUNDS (stabilizing)
-            edge.set_channel(CH_GROUNDS, (above_floor * 150.0) as u8);
+            edge.set_channel_u8(CH_GROUNDS, (above_floor * 150.0) as u8);
         } else {
             // Stable energy: RELATES (imitation/echo)
-            edge.set_channel(CH_RELATES, (above_floor * 160.0) as u8);
+            edge.set_channel_u8(CH_RELATES, (above_floor * 160.0) as u8);
         }
     } else if above_floor > 0.2 {
         // Weak similarity: contrary motion (REFINES) or abstraction
         if energy_ratio > 1.5 {
-            edge.set_channel(CH_ABSTRACTS, (above_floor * 120.0) as u8);
+            edge.set_channel_u8(CH_ABSTRACTS, (above_floor * 120.0) as u8);
         } else {
-            edge.set_channel(CH_REFINES, (above_floor * 130.0) as u8);
+            edge.set_channel_u8(CH_REFINES, (above_floor * 130.0) as u8);
         }
     } else if above_floor > 0.0 {
         // Very weak: identity shift (BECOMES)
-        edge.set_channel(CH_BECOMES, (above_floor * 100.0) as u8);
+        edge.set_channel_u8(CH_BECOMES, (above_floor * 100.0) as u8);
     }
 
     // Dissonance: low similarity + high confidence = contradiction
     if sim < floor {
         let contra_strength = ((floor - sim) as f32 / floor as f32 * 200.0).min(255.0) as u8;
-        edge.set_channel(CH_CONTRADICTS, contra_strength);
+        edge.set_channel_u8(CH_CONTRADICTS, contra_strength);
     }
 
     let constructive = edge.constructive_strength() as f32;

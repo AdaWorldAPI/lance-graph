@@ -294,6 +294,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "causal-edge"
+version = "0.2.0"
+
+[[package]]
 name = "cc"
 version = "1.2.59"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -721,6 +725,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb4cb245038516f5f85277875cdaa4f7d2c9a0fa0468de06ed190163b1581fcf"
 dependencies = [
  "percent-encoding",
+]
+
+[[package]]
+name = "fractal"
+version = "0.1.0"
+dependencies = [
+ "libm",
 ]
 
 [[package]]
@@ -1541,10 +1552,12 @@ name = "ndarray"
 version = "0.17.2"
 dependencies = [
  "blake3",
+ "fractal",
  "matrixmultiply",
  "num-complex",
  "num-integer",
  "num-traits",
+ "p64",
  "portable-atomic",
  "portable-atomic-util",
  "rawpointer",
@@ -1692,6 +1705,13 @@ name = "option-ext"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
+
+[[package]]
+name = "p64"
+version = "0.1.0"
+dependencies = [
+ "fractal",
+]
 
 [[package]]
 name = "paste"
@@ -2346,6 +2366,7 @@ dependencies = [
  "candle-core",
  "candle-nn",
  "candle-transformers",
+ "causal-edge",
  "half",
  "hf-hub",
  "highheelbgz",
