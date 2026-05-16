@@ -68,9 +68,13 @@ fn full_pipeline_ingest_dispatch_persist_read() {
     write_qualia_17d(&mut bs, 1, &novel_q);
 
     // Verify CMYK→RGB decomposition.
-    let (_, cd_fear) = read_qualia_decomposed(&bs, 0);
-    let (_, cd_novel) = read_qualia_decomposed(&bs, 1);
-    assert!(cd_fear < cd_novel, "fear should be closer to archetype than novel qualia");
+    // D-CSV-5b: classification_distance is NOT stored in the i4 column.
+    // Compute it on demand from the read-back experienced qualia.
+    let (back_fear, _) = read_qualia_decomposed(&bs, 0);
+    let (back_novel, _) = read_qualia_decomposed(&bs, 1);
+    let cd_fear = classification_distance(&back_fear);
+    let cd_novel = classification_distance(&back_novel);
+    assert!(cd_fear < cd_novel, "fear should be closer to archetype than novel qualia         (cd_fear={:.3}, cd_novel={:.3})", cd_fear, cd_novel);
 
     // [4] Build driver and dispatch.
     let sr = Arc::new(palette_256());

@@ -32,7 +32,7 @@ use lance_graph_contract::cognitive_shader::{
 };
 
 use lance_graph_contract::qualia::QualiaI4_16D;
-use crate::bindspace::{BindSpace, QUALIA_DIMS, WORDS_PER_FP};
+use crate::bindspace::{BindSpace, WORDS_PER_FP};
 
 #[cfg(feature = "with-engine")]
 use thinking_engine::dto::BusDto;
@@ -640,16 +640,23 @@ mod tests {
 
     #[test]
     fn qualia_17d_roundtrip() {
+        // D-CSV-5b: write_qualia_17d now stores via QualiaI4_16D (8 B, i4×16 signed).
+        // i4 precision: step size = 1/7 ≈ 0.143 for positive, 1/8 = 0.125 for negative.
+        // Round-trip tolerance must be >= 1 i4 step (0.15 covers it).
         let mut bs = BindSpace::zeros(2);
         let mut q17 = [0.0f32; 17];
-        q17[0] = 0.8;  // arousal
-        q17[4] = 0.6;  // clarity
-        q17[14] = -0.3; // groundedness
+        q17[0] = 0.8;   // arousal: round(0.8*7)=6 → 6/7 ≈ 0.857 (within 0.15 of 0.8)
+        q17[4] = 0.571; // clarity: round(0.571*7)=4 → 4/7 ≈ 0.571 (near-exact)
+        q17[14] = -0.25; // groundedness: round(-0.25*8)=-2 → -2/8 = -0.25 (exact)
         write_qualia_17d(&mut bs, 0, &q17);
         let back = read_qualia_17d(&bs, 0);
-        assert!((back[0] - 0.8).abs() < 1e-6);
-        assert!((back[4] - 0.6).abs() < 1e-6);
-        assert!((back[14] - (-0.3)).abs() < 1e-6);
+        // Tolerance = 0.15 (1 i4 step). Values chosen to be representable in i4.
+        assert!((back[0] - q17[0]).abs() < 0.15,
+            "dim 0: expected ~{}, got {} (i4 quantization ±0.15)", q17[0], back[0]);
+        assert!((back[4] - q17[4]).abs() < 0.15,
+            "dim 4: expected ~{}, got {} (i4 quantization ±0.15)", q17[4], back[4]);
+        assert!((back[14] - q17[14]).abs() < 0.15,
+            "dim 14: expected ~{}, got {} (i4 quantization ±0.15)", q17[14], back[14]);
     }
 
     #[test]
@@ -682,13 +689,20 @@ mod tests {
 
     #[test]
     fn observed_qualia_preserves_classification_distance() {
+        // D-CSV-5b: QualiaI4_16D stores 16 dims (indices 0..15). Dim 17
+        // (classification_distance) is no longer stored in the column.
+        // read_qualia_decomposed returns 1.0 (max distance = fully unnamed) as default.
+        // The experienced dims 0..15 are stored with i4 precision (tolerance ±0.15).
         let mut bs = BindSpace::zeros(2);
         let mut experienced = [0.0f32; 17];
-        experienced[0] = 0.5;
+        experienced[0] = 4.0 / 7.0; // exact i4 representation: round(4/7*7)=4 → 4/7
         write_qualia_observed(&mut bs, 0, &experienced, 0.75);
         let (back_exp, back_cd) = read_qualia_decomposed(&bs, 0);
-        assert!((back_exp[0] - 0.5).abs() < 1e-6);
-        assert!((back_cd - 0.75).abs() < 1e-6);
+        assert!((back_exp[0] - experienced[0]).abs() < 0.15,
+            "experienced dim 0: expected ~{}, got {} (i4 quantization)", experienced[0], back_exp[0]);
+        // classification_distance is not stored post-cutover; returns 1.0 (default)
+        assert!((back_cd - 1.0).abs() < 1e-6,
+            "D-CSV-5b: classification_distance not stored in i4 column; expected 1.0, got {}", back_cd);
     }
 
     #[test]
