@@ -557,7 +557,7 @@ a single-thread pool gracefully on uniprocessor builds.
 |---|---|---|---|
 | Rayon thread-pool init overhead dominates for small N | Med | Low — degrades to serial latency at small N | Doc-comment recommends serial `QualiaStream` for N < 1024; benchmark plumbing deferred to sprint-14 par_rayon bench |
 | `with_min_len` ignored by future rayon major version | Low | Med — chunk-boundary semantics drift | Pin rayon = "1.10.0" (already pinned in Cargo.toml); review on each rayon major bump |
-| Default-feature CI does not exercise the new tests | High | Low — that's the design; gated tests = silent dead code | Add `cargo test -p ndarray --features rayon` to the CI matrix; tracked separately as preflight-PP-4 |
+| Default-feature CI does not exercise the new tests | High | Low — that's the design; gated tests = silent dead code | Add `cargo test -p ndarray --features rayon` to the CI matrix; **co-shipped in the same ndarray PR as the par_* impl** (sprint-13 W-I4, the sonnet worker assigned D-CSV-17) — CI gate naturally belongs in the rayon PR, not a separate planner. |
 | Pattern-C non-determinism caught by a golden-master test in lance-graph | Med | Med — flaky test triage cost | Doc-comment §6 makes the contract explicit; offending consumers must call `.with_min_len(rows.len())` |
 | `IndexedParallelIterator` return type prevents future migration to a non-rayon parallel backend | Low | High — would be SBP-breaking | Acceptable: rayon 1.x is the de facto Rust parallel standard; abstraction is premature pessimisation |
 | Cargo --no-default-features + miri build broken by accidental rayon import outside the cfg-gate | Low | High — breaks `thumbv6m-none-eabi` invariant | The `#[cfg(feature = "rayon")] use rayon::prelude::*;` placement is local to each function; verified by `cargo check --no-default-features` in §10 LOC count |
@@ -583,8 +583,10 @@ a single-thread pool gracefully on uniprocessor builds.
 - PP-4: D-CSV-14 on-Think method migration spec — co-evolves with this PR;
   the splat on-Think methods will internally call `par_splat_field_stream`
   for the fleet-evaluation hot path.
-- PP-4: CI matrix update — adds `--features rayon` to the ndarray test job
-  so the 18 new tests actually run.
+- W-I4 (sprint-13 sonnet impl worker assigned D-CSV-17): adds the
+  `--features rayon` row to ndarray's CI matrix in the same ndarray PR
+  that ships par_* — keeps the rayon gate co-located with the rayon
+  code it gates, prevents silent-dead-code drift.
 
 **Knowledge docs (READ BY):**
 
