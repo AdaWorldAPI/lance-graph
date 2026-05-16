@@ -764,11 +764,16 @@ mod transcoder_tests {
                 // exact channel idx. Assert the back-channel is in the
                 // expected equivalence class for this dominant.
                 let expected_class: &[usize] = match dom {
-                    0 | 4 => &[0],     // BECOMES + GROUNDS → mantissa 1 → BECOMES on round-trip
-                    1 => &[1],         // CAUSES → mantissa 6 → CAUSES
-                    2 => &[2],         // SUPPORTS → mantissa 4 → SUPPORTS
-                    3 => &[3, 5],      // REFINES → mantissa 5 → REFINES (or ABSTRACTS in tilt)
-                    5 => &[5],         // ABSTRACTS → mantissa 2 → ABSTRACTS
+                    // BECOMES + GROUNDS → mantissa ±1.
+                    // Positive sign → BECOMES (0) on round-trip.
+                    // Negative sign → mantissa=-1 → from_spo maps to CONTRADICTS (7);
+                    // lossy collapse: negative-BECOMES/GROUNDS is semantically CONTRADICTS
+                    // in the SPO lattice (both carry |mantissa|=1 in the backward slot).
+                    0 | 4 => &[0, 7],
+                    1 => &[1],         // CAUSES → mantissa ±6 → CAUSES
+                    2 => &[2],         // SUPPORTS → mantissa +4 → SUPPORTS
+                    3 => &[3, 5],      // REFINES → mantissa +5 → REFINES (or ABSTRACTS in tilt)
+                    5 => &[5],         // ABSTRACTS → mantissa +2 → ABSTRACTS
                     6 => &[6],         // RELATES → mantissa 0 → RELATES
                     7 => &[7, 0],      // CONTRADICTS → mantissa ±1 (sign distinguishes)
                     _ => &[],
