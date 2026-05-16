@@ -399,7 +399,11 @@ impl BindSpaceBuilder {
         self.bs.meta.set(row, meta);
         self.bs.edges.set(row, edge);
         self.bs.qualia.set(row, qualia);
-        self.bs.qualia_i4.set(row, QualiaI4_16D::from_f32_17d(qualia));
+        // D-CSV-5a: double-write i4 sibling column.
+        // QUALIA_DIMS may be 18; from_f32_17d takes exactly 17 dims.
+        let mut q17 = [0.0f32; 17];
+        q17.copy_from_slice(&qualia[..17]);
+        self.bs.qualia_i4.set(row, QualiaI4_16D::from_f32_17d(&q17));
         self.bs.temporal[row] = temporal;
         self.bs.expert[row] = expert;
         self.bs.entity_type[row] = entity_type;
@@ -431,10 +435,10 @@ mod tests {
     fn bindspace_footprint_adds_columns() {
         let bs = BindSpace::zeros(1);
         // 3 × 2048 (content/topic/angle) + 65536 (cycle f32) + 1 (sigma u8)
-        //   + 8 (edge) + 72 (qualia 18×4) + 4 (meta) + 8 (temporal)
-        //   + 2 (expert) + 2 (entity_type)
-        // = 6144 + 65536 + 1 + 8 + 72 + 4 + 8 + 2 + 2 = 71777
-        assert_eq!(bs.byte_footprint(), 71777);
+        //   + 8 (edge) + 72 (qualia 18×4) + 8 (qualia_i4 D-CSV-5a) + 4 (meta)
+        //   + 8 (temporal) + 2 (expert) + 2 (entity_type)
+        // = 6144 + 65536 + 1 + 8 + 72 + 8 + 4 + 8 + 2 + 2 = 71785
+        assert_eq!(bs.byte_footprint(), 71785);
     }
 
     #[test]
@@ -689,8 +693,7 @@ mod tests {
             assert_eq!(f32_row[d], qualia_arg[d], "f32 qualia dim {} mismatch", d);
         }
         let mut arr17 = [0.0f32; 17];
-        let copy_len = qualia_arg.len().min(17);
-        arr17[..copy_len].copy_from_slice(&qualia_arg[..copy_len]);
+        arr17.copy_from_slice(&qualia_arg[..17]);
         let expected_i4 = QualiaI4_16D::from_f32_17d(&arr17);
         assert_eq!(bs.qualia_i4.row(0), expected_i4,
             "i4 qualia must match QualiaI4_16D::from_f32_17d of the pushed f32 arg");
