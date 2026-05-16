@@ -80,7 +80,11 @@ impl<const N: usize> MailboxSoA<N> {
             mailbox_id,
             energy: [0.0f32; N],
             plasticity_counter: [0u8; N],
-            last_emission_cycle: [0u32; N],
+            // u32::MAX is the "never emitted" sentinel. current_cycle starts at 0
+            // and advances via wrapping_add(1); in practice it never reaches
+            // u32::MAX during a session, so the first emit on any cycle is always
+            // permitted (u32::MAX != any valid cycle stamp).
+            last_emission_cycle: [u32::MAX; N],
             current_cycle: 0,
             w_slot,
             threshold,
@@ -173,7 +177,9 @@ impl<const N: usize> MailboxSoA<N> {
         }
         self.energy[row] = 0.0;
         self.plasticity_counter[row] = 0;
-        self.last_emission_cycle[row] = 0;
+        // Restore the "never emitted" sentinel so the row can emit immediately
+        // on the next cycle without triggering the same-cycle guard.
+        self.last_emission_cycle[row] = u32::MAX;
     }
 
     // ── Read-only inspectors ──────────────────────────────────────────────────
@@ -232,7 +238,10 @@ mod tests {
 
     // ── test 1: new ───────────────────────────────────────────────────────────
 
-    /// New mailbox must have all per-row state zero, correct w_slot and threshold.
+    /// New mailbox must have all per-row state initialised correctly.
+    ///
+    /// energy and plasticity_counter are zero; last_emission_cycle is u32::MAX
+    /// (the "never emitted" sentinel so cycle 0 can emit without false guard).
     #[test]
     fn test_mailbox_soa_new_zero() {
         let mb: MailboxSoA<8> = MailboxSoA::new(7, 5, 1.0);
@@ -249,8 +258,8 @@ mod tests {
             );
             assert_eq!(
                 mb.last_emission_cycle[row],
-                0,
-                "last_emission_cycle[{row}] should be 0"
+                u32::MAX,
+                "last_emission_cycle[{row}] should be u32::MAX (never-emitted sentinel)"
             );
         }
     }
