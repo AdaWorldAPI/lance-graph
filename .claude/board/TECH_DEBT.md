@@ -32,10 +32,11 @@
 - **Severity:** P1 (closes codex P2 i8::MIN divergence on PR #398 by giving consumers a single source-of-truth for hardware-semantics abs)
 - **Surfaced in:** PR #398 codex P2 review; PP-16 preflight-drift-auditor verdict "Direction B" 2026-05-16
 - **Status:** Open
-- **Description:** Scalar path in `mul.rs` uses `signed_mantissa.unsigned_abs() as i8`, which wraps `i8::MIN = -128` back to `-128i8` (the cast `u8 → i8` doesn't saturate), then `-128 ≤ 1` is true → wrongly classifies as `ValleyOfDespair`. AVX-512 `_mm512_abs_epi8` saturates `i8::MIN → 127` by ISA semantics (VPABSB), correctly NOT triggering `ValleyOfDespair`. Spec line 233 of `pr-sprint-13-simd-i4.md`: `|signed_mantissa| ≤ 1 → ValleyOfDespair` represents weak rule signal, NOT sign-extreme. Direction B (scalar is buggy, AVX-512 is correct) is canonical.
+- **Description:** Scalar path in `mul.rs` uses `signed_mantissa.unsigned_abs() as i8`, which wraps `i8::MIN = -128` back to `-128i8` (the cast `u8 → i8` doesn't saturate), then `-128 ≤ 1` is true → wrongly classifies as `ValleyOfDespair`. PR #398's AVX-512 path correctly classifies `i8::MIN` not because of VPABSB (VPABSB does NOT saturate — `abs(0x80) = 0x80`, the bit pattern is unchanged), but because the path widens i8 → i64 first and then negate-blends, where the negate of -128 (i64) is +128 (i64), comparing > 1. Spec line 233 of `pr-sprint-13-simd-i4.md`: `|signed_mantissa| ≤ 1 → ValleyOfDespair` represents weak rule signal, NOT sign-extreme. Direction B (scalar is buggy, AVX-512 outcome is correct) is canonical — but the new ndarray primitive must produce truly-saturating semantics across all three backends.
 - **Required API surface:**
-  - `impl I8x16 { pub fn saturating_abs(self) -> Self; }` — AVX-512 `_mm512_abs_epi8` (saturates by ISA); NEON `vqabsq_s8`; scalar `i8::saturating_abs` fused loop.
-  - `impl I8x32 { pub fn saturating_abs(self) -> Self; }` (parity)
+  - `impl I8x16 { pub fn saturating_abs(self) -> Self; }` — AVX-512 `_mm512_min_epu8(_mm512_abs_epi8(x), _mm512_set1_epi8(0x7f))` (VPABSB leaves `0x80 → 0x80`; VPMINUB clamps `0x80` unsigned-greater-than `0x7f` down to `0x7f`); NEON `vqabsq_s8` (the `q` suffix is hardware-saturating); scalar `i8::saturating_abs` fused loop.
+  - `impl I8x32 { pub fn saturating_abs(self) -> Self; }` (parity, same AVX-512 + clamp pattern)
+  - **Mandatory test:** assert `I8x16::saturating_abs(splat(i8::MIN))` returns `splat(i8::MAX)` on all three backends. PR #398-style widen-then-negate is NOT a correct substitute; the primitive must be saturating in the same byte-wide register without widening.
 - **Cross-ref:** `.claude/knowledge/ndarray-vertical-simd-alien-magic.md` §W1a #2; EPIPHANIES.md E-SIMD-SWEEP-1; PR #398 codex P2.
 
 ---
