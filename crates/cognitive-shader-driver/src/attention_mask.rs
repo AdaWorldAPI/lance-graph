@@ -8,13 +8,12 @@
 //! `AttentionMaskSoA` is `!Send` by design (non-atomic interior mutation).
 //! Callers that need cross-thread access must wrap in `tokio::sync::Mutex`.
 //!
-//! # Registration
-//! This file is intentionally NOT registered in `lib.rs`. The main thread
-//! adds `pub mod attention_mask;` after the sprint-12 fleet completes.
+//! # MailboxId
+//! Imports the canonical `MailboxId` alias from
+//! `lance_graph_contract::collapse_gate` (also re-exported here for ergonomic
+//! `use cognitive_shader_driver::attention_mask::MailboxId` access).
 
-/// Re-export the canonical `MailboxId` alias so this module compiles
-/// standalone without an explicit `--extern` flag.
-pub type MailboxId = u32;
+pub use lance_graph_contract::collapse_gate::MailboxId;
 
 // ── SoA row ──────────────────────────────────────────────────────────────────
 
