@@ -41,7 +41,7 @@ lance-graph-ontology = { path = "../lance-graph-ontology", default-features = fa
 p64-bridge            = { path = "../p64-bridge" }
 bgz17                 = { path = "../bgz17" }
 causal-edge           = { path = "../causal-edge" }
-ndarray               = { path = "../../../ndarray", default-features = false, features = ["std"] }
+ndarray               = { path = "../../../ndarray", default-features = false, features = ["std", "hpc-extras"] }
 
 # Optional: real thinking-engine wiring behind a feature gate, matching
 # the EmbedAnything "default = runtime only; heavy deps behind features" rule.

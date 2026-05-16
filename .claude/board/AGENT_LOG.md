@@ -1,3 +1,26 @@
+## [Fleet sprint-11-wave-c-qualia-i4-column] [IN PR] D-CSV-5a sibling QualiaI4Column add (branch claude/sprint-11-wave-c-qualia-i4-column)
+
+**D-id:** D-CSV-5a — QualiaColumn migration phase 5a (split from D-CSV-5 per OQ-CSV-4 sibling-cutover ratification). Adds `QualiaI4Column` ALONGSIDE the existing `QualiaColumn` with double-write on push paths; no read-side change. Phase 5b (separate PR after merge) flips readers + drops the f32 column.
+
+**Worker:** W-C1 (Sonnet, single worker, ~190 LOC source + ~100 LOC tests).
+
+**Branched from:** `claude/sprint-11-wave-b-qualia-i4` (PR #384) so the new `QualiaI4_16D` type is available. Will rebase onto main after PR #384 merges.
+
+**Files modified:**
+- `crates/cognitive-shader-driver/src/bindspace.rs` (+190 LOC): NEW `pub struct QualiaI4Column(pub Box<[QualiaI4_16D]>)` mirroring `QualiaColumn` shape (zeros/row/set/len/from_f32 methods); EXTEND `BindSpace` struct with `pub qualia_i4: QualiaI4Column` field; update `BindSpace::zeros` initializer; update `byte_size()` to include `8 * N` for the i4 column; update `BindSpaceBuilder::push_typed` to double-write via `QualiaI4_16D::from_f32_17d(qualia)` immediately after the existing `qualia.set(row, ...)`. 6 new tests in mod tests covering: column zeros, set_row, from_f32 parity, double-column zeros, byte_size includes i4, push_typed double-write parity.
+- `crates/cognitive-shader-driver/src/engine_bridge.rs` (+4 LOC): paired `bs.qualia_i4.set(row, QualiaI4_16D::from_f32_17d(&q))` after the engine push at line ~262.
+- `crates/cognitive-shader-driver/src/lib.rs` (+1 LOC): re-export `QualiaI4Column` alongside the existing `QualiaColumn`.
+
+**OQ-CSV-4 absorbed:** sibling-then-cutover (plan §11 default recommendation). Lower-risk than big-bang; 1 extra PR cost worth it.
+
+**Validation gap noted:** `cargo test -p cognitive-shader-driver` does not work in this environment because cognitive-shader-driver is listed in BOTH `members` AND `exclude` of the workspace `Cargo.toml` (exclude wins, the crate is reachable only via `--manifest-path`). And `--manifest-path crates/cognitive-shader-driver/Cargo.toml` hits a sibling-repo build error (`/home/user/ndarray/src/hpc/merkle_tree.rs` references unresolved `blake3` crate). Structural changes look correct (matches the spec exactly: 3 files, 6 tests, double-write pattern, no read-side change). CI will run the actual tests.
+
+**Outcome:** D-CSV-5a ready for merge. Wave D candidates next: D-CSV-6 (WitnessCorpus) and D-CSV-7 (MailboxSoA), both depend on PR #383 (D-CSV-1 + D-CSV-4) merging first.
+
+**Pending finding (worth filing in TECH_DEBT):** the cognitive-shader-driver workspace-membership conflict (members + exclude both list it) is a workspace-config bug. Current effect: the crate compiles when used as a dep transitively but is invisible to `cargo -p`. Fix is one-line: remove from the exclude list. Filed observation only — out of scope for this PR.
+
+---
+
 ## [Fleet sprint-11-wave-b-qualia-i4] [IN PR] D-CSV-2 QualiaI4_16D + OQ-CSV-1 ratification (branch claude/sprint-11-wave-b-qualia-i4)
 
 **D-id:** D-CSV-2 — `QualiaI4_16D` type in `lance-graph-contract::qualia` + f32↔i4 migration helpers (~250 LOC actual vs ~180 estimate; the +70 over estimate is accessor + magnitude + 8 tests).

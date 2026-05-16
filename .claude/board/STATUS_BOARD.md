@@ -435,7 +435,8 @@ Consolidates sprint-10 architectural decisions before context dilution.
 
 | D-id | Title | Status | PR / Evidence |
 |---|---|---|---|
-| D-CSV-5 | QualiaColumn migration `[f32; 18]` → `QualiaI4_16D` (5a sibling column + 5b cutover) | **Queued** | blocked on OQ-CSV-4 phasing decision |
+| D-CSV-5a | QualiaColumn migration phase 5a — sibling `QualiaI4Column` add + double-write (no read-side change) | **In PR** | branch `claude/sprint-11-wave-c-qualia-i4-column`; OQ-CSV-4 ratified to sibling-cutover (default); 5b cutover follows in separate PR |
+| D-CSV-5b | QualiaColumn migration phase 5b — flip readers to i4, drop f32 column, drop f32 push arg | **Queued** | depends on D-CSV-5a merge + downstream reader audit |
 | D-CSV-6 | `WitnessCorpus` (CAM-PQ-indexed) replaces `SpoWitnessChain<32>` | **Queued** | depends on D-CSV-4; elevates CAM-PQ wiring to Wave 3 hard prerequisite |
 | D-CSV-7 | MailboxSoA integration: W-slot referencing + per-row plasticity accumulator + apply_edges | **Queued** | depends on D-CSV-1, D-CSV-4 |
 
