@@ -12,6 +12,16 @@
 
 ---
 
+
+### TD-LEGACY-API-FEATURE-GATED-RESOLVED-1
+
+- **Severity:** N/A (RESOLVED 2026-05-16)
+- **Surfaced in:** sprint-11 Wave A codex review (caught the pattern 5×); confirmed by W-Meta-Opus in sprint-12 Wave F
+- **Resolution:** Promoted to iron rule `I-LEGACY-API-FEATURE-GATED` in CLAUDE.md. Future PRs touching layout-bit boundaries MUST add field-isolation matrix tests and route every v1 accessor through the canonical v2 mapping (or feature-gate to no-op with migration pointer). Codex P1 review is the canonical pre-merge gate.
+- **Cross-ref:** CLAUDE.md §Substrate-level iron rules; EPIPHANIES.md E-META-10; sprint-log-11/meta-review-opus.md CSI-2; .claude/knowledge/i4-substrate-decisions.md "Codex P1 anti-pattern" section.
+
+---
+
 ## Double-entry discipline
 
 Same pattern as `ISSUES.md`:

@@ -260,13 +260,11 @@ pub fn dispatch_busdto(
         q[TOP_K_ENERGY_BASE_DIM + i] = e;
     }
     q[9] = bus.codebook_index as f32;
-    bs.qualia.set(row, &q);
-    // D-CSV-5a: double-write the i4 sibling column alongside f32 column.
-    // Reads continue to use bs.qualia (f32); cutover is D-CSV-5b.
+    // D-CSV-5b: engine still produces f32; convert at the bridge boundary.
     // from_f32_17d expects [f32; 17]; q is [f32; QUALIA_DIMS=18].
     let mut q17 = [0.0f32; 17];
     q17.copy_from_slice(&q[..17]);
-    bs.qualia_i4.set(row, QualiaI4_16D::from_f32_17d(&q17));
+    bs.qualia.set(row, QualiaI4_16D::from_f32_17d(&q17));
 
     // [3] meta column — packed dispatch state.
     //     thinking = caller's style ordinal
@@ -313,7 +311,9 @@ pub fn unbind_busdto(bs: &BindSpace, row: usize) -> BusDto {
     assert!(row < bs.len, "unbind_busdto: row {row} out of bounds {}", bs.len);
 
     // [1] qualia → energy + top_k energies.
-    let q = bs.qualia.row(row);
+    // D-CSV-5b: bs.qualia is now QualiaI4Column; convert to f32 at the read site.
+    let q_i4 = bs.qualia.row(row);
+    let q = q_i4.to_f32_17d(); // [f32; 17] — sufficient for dims 0..9
     let energy = q[0];
     let mut top_k = [(0u16, 0.0f32); 8];
     for i in 0..8 {
@@ -407,25 +407,26 @@ pub fn write_qualia_observed(
     bs: &mut BindSpace,
     row: usize,
     experienced: &[f32; 17],
-    classification_distance: f32,
+    _classification_distance: f32,
 ) {
-    let mut q18 = [0.0f32; QUALIA_DIMS];
-    q18[..17].copy_from_slice(experienced);
-    q18[DIM_CLASSIFICATION_DISTANCE] = classification_distance;
-    bs.qualia.set(row, &q18);
+    // D-CSV-5b: qualia is now QualiaI4Column (16 dims). classification_distance
+    // (dim 17) is no longer stored in the column — it is computed on-demand
+    // via classification_distance() if needed.
+    bs.qualia.set(row, QualiaI4_16D::from_f32_17d(experienced));
 }
 
 /// Read observed qualia and decompose into experienced (17D) + classification distance.
 pub fn read_qualia_decomposed(bs: &BindSpace, row: usize) -> ([f32; 17], f32) {
-    let q18 = bs.qualia.row(row);
+    // D-CSV-5b: bs.qualia is now QualiaI4Column; convert to f32 at read site.
+    let q_i4 = bs.qualia.row(row);
+    let q17 = q_i4.to_f32_17d(); // [f32; 17]
     let mut experienced = [0.0f32; 17];
-    let n = q18.len().min(17);
-    experienced[..n].copy_from_slice(&q18[..n]);
-    let cd = if q18.len() > DIM_CLASSIFICATION_DISTANCE {
-        q18[DIM_CLASSIFICATION_DISTANCE]
-    } else {
-        1.0 // max distance = fully unnamed
-    };
+    let n = q17.len().min(17);
+    experienced[..n].copy_from_slice(&q17[..n]);
+    // DIM_CLASSIFICATION_DISTANCE = 17, beyond the i4 range (16 dims stored).
+    // Post-cutover: classification_distance is no longer stored in the column;
+    // return 1.0 (fully unnamed) as the default, or recompute via classification_distance().
+    let cd = 1.0_f32;
     (experienced, cd)
 }
 
