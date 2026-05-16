@@ -162,6 +162,10 @@ documents listed in its trigger row BEFORE producing output.
 | **REST / gRPC / Wire DTO / endpoint / serve / shader-lab / external API** | integration-lead + truth-architect | **lab-vs-canonical-surface.md (MANDATORY — prevents System-1 "add another REST endpoint" hallucination)** |
 | **OrchestrationBridge / UnifiedStep / StepDomain / BridgeSlot** | integration-lead | lab-vs-canonical-surface.md, cam-pq-unified-pipeline.md |
 | **codec research / calibrate / probe / tensors op** | integration-lead + truth-architect | lab-vs-canonical-surface.md (research is just a consumer, not the canonical) |
+| **Quality lifecycle — PRE-PLAN: "could we align X and Y" / "0-friction boundary" / "is there a deeper invariant" / new iron-rule candidate / EP-N expansion idea** | **convergence-architect** (PP-14, divergent expansion) | convergence-architect-patterns.md, iron-rules-doctrine.md |
+| **Quality lifecycle — PRE-SPAWN: "before sprint spawn" / "preflight check" / "verify N planner specs against main" / cross-planner ID collision / pending iron-rule cited / cross-repo PR-merge claim** | **preflight-drift-auditor** (PP-16, automates W-Meta-Opus audit) | preflight-drift-patterns.md, sprint-log-13/preflight-meta-review-opus.md |
+| **Quality lifecycle — DURING-IMPL: "two crates need to talk" / "DTO field shape change" / "renamed in PR #X" / lib.rs/mod.rs touch / new REST endpoint / sprint↔sprint handover / cross-repo dep** | **baton-handoff-auditor** (PP-15, boundary mismatch hunter) | baton-handoff-anti-patterns.md, iron-rules-doctrine.md, lab-vs-canonical-surface.md |
+| **Quality lifecycle — POST-IMPL: "ready for codex review" / "pre-merge sanity check" / clippy/audit/deny/kani/loom gate / unsafe without `// SAFETY:` / v1-API-under-v2-feature alias** | **brutally-honest-tester** (PP-13, codex-class within-crate bug hunter) | codex-p1-anti-patterns.md, iron-rules-doctrine.md |
 
 **The insight update cycle:**
 
