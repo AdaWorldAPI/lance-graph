@@ -1,3 +1,56 @@
+## [Fleet sprint-13-w-i1-salvage] [IN PR] D-CSV-13b i4 batch SIMD dispatch (branch claude/sprint-13-w-i1-salvage)
+
+**D-id:** D-CSV-13b — SIMD vectorization of i4 MUL evaluation. AVX-512F+BW path (8 elements/iter), NEON path (2 elements/iter), scalar fallback. Runtime dispatch via cached `simd_caps()` (`AtomicU8`); zero ndarray dep preserves contract-crate zero-dep posture.
+
+**Worker:** W-I1 retry worker (Opus, salvage continuation). Previous W-I1 burned 134 tool uses without committing; ~979 LOC of impl recovered to the salvage branch (commit `cdc84ec`) for this run to finish.
+
+**Files modified:**
+- `crates/lance-graph-contract/src/mul.rs` (+210 LOC net, ~3 surgical fixes):
+  (a) `#[repr(u8)]` with explicit discriminants on `DkPosition`/`TrustTexture`/`FlowState` per spec §5 (the salvaged SIMD impl already byte-wrote into these slices via `extract_8_lane0_bytes` — without `#[repr(u8)]` the byte writes were UB-prone);
+  (b) FIX `extract_dim_i8` to sign-extend across the full i64 lane via `_mm512_slli_epi64::<60>` + `_mm512_srai_epi64::<60>` — salvage only sign-extended within i16 sub-lanes, so every `_mm512_cmp*_epi64_mask` against a negative threshold (e.g. coherence ≤ -3) silently returned all-false, collapsing the priority chains; this is what made the pre-existing batch tests fail on the salvage branch;
+  (c) switch flow_state's `flow_proxy` arithmetic from `_mm512_adds/subs_epi16` (wrong granularity given the i64 inputs) to `_mm512_add/sub_epi64` (exact for the i4 input range -23..=+22);
+  (d) promote `mod scalar_impl` from `pub(crate)` to `#[doc(hidden)] pub` so `benches/i4_batch.rs` can baseline SIMD against scalar without going through the dispatch wrapper;
+  (e) `#[allow(dead_code)]` on `SimdCapsShim` (each field is read only on its matching `#[cfg(target_arch)]` branch — fixes the lingering warning per the retry brief);
+  (f) add 5 new randomised SIMD-vs-scalar parity tests (xorshift64 fixed seed, zero-dep) over 10 sizes [0, 1, 3, 7, 8, 9, 15, 16, 64, 1024] covering: empty / size-1 / sub-MIN_BATCH-AVX / exact MIN_BATCH-1 / exact MIN_BATCH=8 / MIN_BATCH+1 / 2×MIN-1 / 2×MIN / large / very-large.
+- `crates/lance-graph-contract/Cargo.toml`: criterion 0.5 dev-dep (matches `lance-graph-benches`) + `[[bench]] name="i4_batch" harness=false`.
+
+**Tests:** 449 lance-graph-contract tests green — 429 lib + 8 + 7 + 4 + 1 doctest. Includes:
+- 5 new `test_*_batch_parity_simd_vs_scalar` (10 sizes each × 5 fns).
+- 5 pre-existing `test_*_batch_matches_scalar` (silently FAILING on the salvage branch before fix (b)).
+- Pre-existing `test_batch_empty_input_returns_empty_output` covers size 0 on all 5 fns.
+
+**Benchmarks (Intel Xeon @ 2.10GHz, AVX-512F+BW+VBMI2 host, `cargo bench --quick --measurement-time 1`, batch=1024):**
+- `dk_position_batch`: 2.68 µs scalar / 0.31 µs dispatch = **8.7×** (SHIP gate ≥4× ✓)
+- `trust_texture_batch`: 2.28 µs / 0.31 µs = **7.4×** (SHIP ✓)
+- `flow_state_batch`: 2.44 µs / 0.47 µs = **5.2×** (SHIP ✓)
+- `gate_decision_disc_batch`: 15.25 µs / 1.49 µs = **10.2×** (SHIP ✓)
+- `mul_assess_batch`: 17.78 µs / 5.76 µs = **3.1×** (spec target ≥2.5× because the scalar f64 finalize stage bounds the speedup ✓)
+
+All SHIP gates met on this host. NEON path is correctness-only per spec §7 (cannot validate on x86_64); shape mirrors AVX-512 with `vqtbl1q_u8` table lookup + `vbslq_s8` blend.
+
+**Iron-rule citations:**
+- **I-LEGACY-API-FEATURE-GATED** (CLAUDE.md, spec §5) — explicit `#[repr(u8)] = N` discriminants + safety doc-comments lock the SIMD-byte-write contract. Reviewers must check the LUTs in `avx512_impl` and `neon_impl` whenever these enum layouts change.
+- **I-NOISE-FLOOR-JIRAK** (CLAUDE.md, spec §7) — speedups reported as point estimates with criterion CIs; no claims of statistical significance beyond that.
+
+**AP1-AP8 self-scan:**
+- AP1 (silent layout drift across feature gates) — addressed via explicit `#[repr(u8)] = N` + parity tests at 10 sizes × 5 fns; SIMD output is byte-identical to scalar.
+- AP2 (panic-prone unchecked indexing) — all SIMD inner fns iterate `while i + N <= n` with scalar tail.
+- AP3 (UB through transmute) — enum byte-writes are now safe with `#[repr(u8)]`; `transmute(disc_byte)` in `mul_assess_batch` is bounded by SIMD-produced ranges 0..=3.
+- AP4 (atomic ordering bugs) — `CAPS_CACHE: AtomicU8` uses `Ordering::Relaxed`, correct for cache-singleton init (re-probe is idempotent).
+- AP5 (missing `#[target_feature]`) — all SIMD inner fns carry `#[target_feature(enable = "avx512f,avx512bw")]` or `enable = "neon"`.
+- AP6 (incorrect SIMD dispatch fallback) — dispatch falls through to scalar when caps absent OR when `len() < MIN_BATCH`; scalar_impl is the correctness anchor.
+- AP7 (under-tested edge cases) — covered: 0, 1, sub-MIN, MIN, MIN+1, 2×MIN-1, 2×MIN, large.
+- AP8 (silent NEON divergence) — NEON path is structurally parallel to AVX-512 (`vqtbl1q_u8` + `vbslq_s8`); cross-arch parity test deferred (no aarch64 host this session).
+
+**Validation gaps disclosed:**
+- NEON path compiled but not executed (no aarch64 host); spec §6 cross-arch parity test W-SIMD-VERIFY-1 deferred. Tracked as TD-D-CSV-13b-NEON-VERIFY-1.
+- `cargo bench` ran end-to-end and SHIP gates met on the Skylake-class AVX-512 host; spec §8 R-2 multi-microarch validation (Sapphire Rapids + Zen 4 + Tiger Lake) also deferred. Tracked as TD-D-CSV-13b-MULTI-MICROARCH-1.
+- No linker bus error encountered this run.
+
+**Outcome:** D-CSV-13b ready for merge as sprint-13 W-I1.
+
+---
+
 ## [Fleet sprint-11-wave-c-qualia-i4-column] [IN PR] D-CSV-5a sibling QualiaI4Column add (branch claude/sprint-11-wave-c-qualia-i4-column)
 
 **D-id:** D-CSV-5a — QualiaColumn migration phase 5a (split from D-CSV-5 per OQ-CSV-4 sibling-cutover ratification). Adds `QualiaI4Column` ALONGSIDE the existing `QualiaColumn` with double-write on push paths; no read-side change. Phase 5b (separate PR after merge) flips readers + drops the f32 column.
