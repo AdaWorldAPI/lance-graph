@@ -70,29 +70,42 @@ pub struct TrustQualia {
 }
 
 /// Trust texture — qualitative assessment of trust.
+///
+/// **D-CSV-13b layout invariant (I-LEGACY-API-FEATURE-GATED, spec §5):**
+/// `#[repr(u8)]` with explicit discriminants. The SIMD batch path in
+/// [`i4_eval::batch`] writes raw bytes into `&mut [TrustTexture]` slices.
+/// Reordering or removing these discriminants WILL silently corrupt SIMD
+/// output; reviewers must check the SIMD LUTs in `mul.rs::batch::avx512_impl`
+/// and `batch::neon_impl` if this layout is ever changed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
 pub enum TrustTexture {
     /// Well-calibrated: felt ≈ demonstrated competence.
-    Calibrated,
+    Calibrated = 0,
     /// Overconfident: felt >> demonstrated.
-    Overconfident,
-    /// Underconfident: felt << demonstrated.
-    Underconfident,
+    Overconfident = 1,
     /// Uncertain: not enough data to assess.
-    Uncertain,
+    Uncertain = 2,
+    /// Underconfident: felt << demonstrated.
+    Underconfident = 3,
 }
 
 /// Dunning-Kruger position on the competence curve.
+///
+/// **D-CSV-13b layout invariant (I-LEGACY-API-FEATURE-GATED, spec §5):**
+/// `#[repr(u8)]` with explicit discriminants. See `TrustTexture` for the
+/// SIMD-byte-write contract.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
 pub enum DkPosition {
     /// Peak of Mount Stupid (overconfident novice).
-    MountStupid,
+    MountStupid = 0,
     /// Valley of Despair (aware of incompetence).
-    ValleyOfDespair,
+    ValleyOfDespair = 1,
     /// Slope of Enlightenment (growing competence).
-    SlopeOfEnlightenment,
+    SlopeOfEnlightenment = 2,
     /// Plateau of Sustainability (expert).
-    Plateau,
+    Plateau = 3,
 }
 
 /// Flow/homeostasis state.
@@ -105,19 +118,28 @@ pub struct Homeostasis {
 }
 
 /// Flow state (Csikszentmihalyi).
+///
+/// **D-CSV-13b layout invariant (I-LEGACY-API-FEATURE-GATED, spec §5):**
+/// `#[repr(u8)]` with explicit discriminants. See `TrustTexture` for the
+/// SIMD-byte-write contract.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
 pub enum FlowState {
-    /// Challenge >> Skill → anxiety.
-    Anxiety,
     /// Challenge ≈ Skill → flow.
-    Flow,
+    Flow = 0,
     /// Challenge << Skill → boredom.
-    Boredom,
+    Boredom = 1,
     /// Transitioning between states.
-    Transition,
+    Transition = 2,
+    /// Challenge >> Skill → anxiety.
+    Anxiety = 3,
 }
 
 /// Gate decision: should the system proceed, pause, or block?
+///
+/// Cannot be `#[repr(u8)]` because `Hold` and `Block` carry `String` payloads.
+/// Use [`GateDecision::to_disc`] for the SIMD-packable byte discriminant, or
+/// [`batch::gate_decision_disc_batch`] for bulk processing.
 #[derive(Debug, Clone)]
 pub enum GateDecision {
     /// Proceed with full autonomy.
@@ -126,6 +148,20 @@ pub enum GateDecision {
     Hold { reason: String },
     /// Block execution (require human input).
     Block { reason: String },
+}
+
+impl GateDecision {
+    /// Return the discriminant as a SIMD-packable byte (D-CSV-13b).
+    ///
+    /// Mapping is locked: 0 = Flow, 1 = Hold, 2 = Block.
+    #[inline]
+    pub fn to_disc(&self) -> u8 {
+        match self {
+            GateDecision::Flow => 0,
+            GateDecision::Hold { .. } => 1,
+            GateDecision::Block { .. } => 2,
+        }
+    }
 }
 
 /// Compass result: surface-to-meta transition detection.
@@ -626,71 +662,829 @@ pub mod i4_eval {
 
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Batch evaluation API — D-CSV-13 (sprint-12)
+    // Batch evaluation API — D-CSV-13b (sprint-13) — SIMD runtime dispatch
     // ═══════════════════════════════════════════════════════════════════════
 
-    /// Batch evaluation API for D-CSV-13.
-    /// Processes N (qualia, mantissa) pairs in one call. Shape is SIMD-friendly:
-    /// outputs are produced into pre-allocated `&mut [T]` buffers parallel to the
-    /// inputs. Sprint-13+ replaces the scalar inner loop with AVX-512 i4 lane
-    /// intrinsics; the API surface defined here is the contract that vectorization
-    /// targets.
+    /// Batch evaluation API (D-CSV-13b, Sprint-13).
+    ///
+    /// Runtime SIMD dispatch via `simd_caps()` (OQ-CSV-13). No compile-time
+    /// `cfg(target_feature)` — one binary runs on any host. Falls back to
+    /// `scalar_impl` when AVX-512BW or NEON is absent.
+    ///
+    /// # Gate-decision carve-out
+    /// `GateDecision` carries a `String` payload and cannot be `#[repr(u8)]`.
+    /// `gate_decision_disc_batch` returns a `Vec<u8>` (0=Flow, 1=Hold, 2=Block)
+    /// for SIMD-fast callers. `gate_decision_batch` returns the full
+    /// `GateDecision` with reason strings via the scalar path.
     pub mod batch {
         use super::*;
 
+        // ─────────────────────────────────────────────────────────────────────
+        // Runtime SIMD capability detection (zero-dep, OQ-CSV-13)
+        // ─────────────────────────────────────────────────────────────────────
+        use core::sync::atomic::{AtomicU8, Ordering};
+
+        /// Packed capability flags stored in a single atomic byte.
+        /// Bit 0 = avx512f, Bit 1 = avx512bw, Bit 2 = neon.
+        /// Value 0xFF = not yet probed.
+        static CAPS_CACHE: AtomicU8 = AtomicU8::new(0xFF);
+
+        #[derive(Clone, Copy)]
+        #[allow(dead_code)] // each field is read only on its matching #[cfg(target_arch = ...)] dispatch branch
+        struct SimdCapsShim {
+            avx512f: bool,
+            avx512bw: bool,
+            neon: bool,
+        }
+
+        #[cold]
+        fn probe_caps() -> SimdCapsShim {
+            let avx512f;
+            let avx512bw;
+            let neon;
+
+            #[cfg(target_arch = "x86_64")]
+            {
+                avx512f = is_x86_feature_detected!("avx512f");
+                avx512bw = is_x86_feature_detected!("avx512bw");
+                neon = false;
+            }
+            #[cfg(target_arch = "aarch64")]
+            {
+                avx512f = false;
+                avx512bw = false;
+                // NEON is mandatory on aarch64.
+                neon = is_aarch64_feature_detected!("neon");
+            }
+            #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+            {
+                avx512f = false;
+                avx512bw = false;
+                neon = false;
+            }
+
+            let bits: u8 = (avx512f as u8) | ((avx512bw as u8) << 1) | ((neon as u8) << 2);
+            CAPS_CACHE.store(bits, Ordering::Relaxed);
+            SimdCapsShim { avx512f, avx512bw, neon }
+        }
+
+        #[inline]
+        fn simd_caps() -> SimdCapsShim {
+            let bits = CAPS_CACHE.load(Ordering::Relaxed);
+            if bits == 0xFF {
+                return probe_caps();
+            }
+            SimdCapsShim {
+                avx512f:  bits & 1 != 0,
+                avx512bw: bits & 2 != 0,
+                neon:     bits & 4 != 0,
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // scalar_impl — correctness anchor, used as fallback and in tests
+        //
+        // Public so benches/i4_batch.rs can baseline SIMD speedup directly
+        // against the scalar implementation; not intended as a stable API
+        // for downstream callers (use the public dispatch wrappers below).
+        // ─────────────────────────────────────────────────────────────────────
+        #[doc(hidden)]
+        pub mod scalar_impl {
+            use super::super::*;
+            use crate::qualia::QualiaI4_16D;
+
+            pub fn dk_position_batch(
+                qualia: &[QualiaI4_16D],
+                mantissas: &[i8],
+                out: &mut [DkPosition],
+            ) {
+                for i in 0..qualia.len() {
+                    out[i] = dk_position_i4(&qualia[i], mantissas[i]);
+                }
+            }
+
+            pub fn trust_texture_batch(qualia: &[QualiaI4_16D], out: &mut [TrustTexture]) {
+                for i in 0..qualia.len() {
+                    out[i] = trust_texture_i4(&qualia[i]);
+                }
+            }
+
+            pub fn flow_state_batch(
+                qualia: &[QualiaI4_16D],
+                mantissas: &[i8],
+                out: &mut [FlowState],
+            ) {
+                for i in 0..qualia.len() {
+                    out[i] = flow_state_i4(&qualia[i], mantissas[i]);
+                }
+            }
+
+            /// Returns discriminants: 0=Flow, 1=Hold, 2=Block.
+            pub fn gate_decision_disc_batch(
+                qualia: &[QualiaI4_16D],
+                mantissas: &[i8],
+                out: &mut [u8],
+            ) {
+                for i in 0..qualia.len() {
+                    out[i] = gate_decision_i4(&qualia[i], mantissas[i]).to_disc();
+                }
+            }
+
+            pub fn mul_assess_batch(
+                qualia: &[QualiaI4_16D],
+                mantissas: &[i8],
+                out: &mut [MulAssessment],
+            ) {
+                for i in 0..qualia.len() {
+                    out[i] = mul_assess_i4(&qualia[i], mantissas[i]);
+                }
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // avx512_impl — AVX-512F + BW i4 intrinsics (D-CSV-13b)
+        // ─────────────────────────────────────────────────────────────────────
+        #[cfg(target_arch = "x86_64")]
+        pub(crate) mod avx512_impl {
+            use super::super::*;
+            use crate::qualia::QualiaI4_16D;
+            use core::arch::x86_64::*;
+
+            /// Extract one i4 dimension (at nibble offset `SHIFT` bits) from each
+            /// u64 lane of an 8-lane __m512i and sign-extend across the full i64
+            /// lane so that downstream `_mm512_cmp*_epi64_mask` comparisons see
+            /// the correct signed value (negative i4s read as negative i64s).
+            ///
+            /// `SHIFT` must be a compile-time constant (required by `_mm512_srli_epi64`).
+            ///
+            /// # SAFETY
+            /// Caller must have verified avx512f + avx512bw at runtime before calling
+            /// any function in this module.
+            #[target_feature(enable = "avx512f,avx512bw")]
+            #[inline]
+            unsafe fn extract_dim_i8<const SHIFT: u32>(q_vec: __m512i) -> __m512i {
+                // Step 1: shift the target nibble to bits [3:0] of each i64 lane.
+                let shifted = _mm512_srli_epi64(q_vec, SHIFT);
+                // Step 2: mask to the 4-bit nibble; bits [63:4] of each i64 lane = 0.
+                let mask_f = _mm512_set1_epi64(0xF);
+                let nibble = _mm512_and_si512(shifted, mask_f);
+                // Step 3: sign-extend the 4-bit value to a full i64.
+                //
+                // Shift-left by 60 lifts the nibble's bit 3 (the i4 sign bit) into
+                // bit 63 of the i64. Arithmetic shift-right by 60 then duplicates
+                // that sign bit across bits [62:4], yielding a full i64 with the
+                // correct signed value in range -8..=+7.
+                let up = _mm512_slli_epi64(nibble, 60);
+                _mm512_srai_epi64(up, 60)
+            }
+
+            /// Store the low byte of each i64 lane (8 bytes) into `out[0..8]`.
+            ///
+            /// Avoids VBMI2 `_mm512_mask_compressstoreu_epi8` — not available on
+            /// Skylake-X/Cascade Lake. Uses scalar byte-extract from a stack buffer
+            /// (spec §8 R-6, TD-D-CSV-13b-VBMI2-1).
+            ///
+            /// # SAFETY
+            /// `out` must point to at least 8 writable bytes; avx512f verified at runtime.
+            #[target_feature(enable = "avx512f")]
+            #[inline]
+            unsafe fn extract_8_lane0_bytes(result: __m512i, out: *mut u8) {
+                let mut buf = [0u8; 64];
+                _mm512_storeu_si512(buf.as_mut_ptr() as *mut __m512i, result);
+                for j in 0..8usize {
+                    *out.add(j) = buf[j * 8];
+                }
+            }
+
+            /// Batch DK position — AVX-512 path (8 elements per iteration).
+            ///
+            /// # SAFETY
+            /// avx512f + avx512bw must be verified at runtime via `simd_caps()`;
+            /// `qualia.len() == mantissas.len() == out.len()` asserted by caller;
+            /// `qualia.len() >= 8`.
+            #[target_feature(enable = "avx512f,avx512bw")]
+            pub unsafe fn dk_position_batch(
+                qualia: &[QualiaI4_16D],
+                mantissas: &[i8],
+                out: &mut [DkPosition],
+            ) {
+                let n = qualia.len();
+                let mut i = 0usize;
+                while i + 8 <= n {
+                    // SAFETY: QualiaI4_16D is repr(C, align(8)); 8 consecutive elements
+                    // occupy exactly 64 bytes — one __m512i word.
+                    let q_ptr = qualia[i..].as_ptr() as *const __m512i;
+                    let q_vec = _mm512_loadu_si512(q_ptr);
+                    let coh = extract_dim_i8::<36>(q_vec); // DIM_COHERENCE=9 → nibble shift 36
+
+                    let m_ptr = mantissas.as_ptr().add(i);
+                    let man_vec = _mm512_set_epi64(
+                        *m_ptr.add(7) as i64, *m_ptr.add(6) as i64,
+                        *m_ptr.add(5) as i64, *m_ptr.add(4) as i64,
+                        *m_ptr.add(3) as i64, *m_ptr.add(2) as i64,
+                        *m_ptr.add(1) as i64, *m_ptr.add(0) as i64,
+                    );
+                    let zero = _mm512_setzero_si512();
+                    let neg_man = _mm512_sub_epi64(zero, man_vec);
+                    let man_neg_mask = _mm512_cmplt_epi64_mask(man_vec, zero);
+                    let abs_man = _mm512_mask_blend_epi64(man_neg_mask, man_vec, neg_man);
+
+                    // Priority chain (lowest to highest):
+                    // Default = MountStupid (0)
+                    let mut disc = _mm512_setzero_si512();
+                    // ValleyOfDespair (1): coherence <= -3 OR abs_man <= 1
+                    let vod = _mm512_cmple_epi64_mask(coh, _mm512_set1_epi64(-3))
+                            | _mm512_cmple_epi64_mask(abs_man, _mm512_set1_epi64(1));
+                    disc = _mm512_mask_blend_epi64(vod, disc, _mm512_set1_epi64(1));
+                    // SlopeOfEnlightenment (2): coh >= 2 AND abs_man >= 2
+                    let soe = _mm512_cmpge_epi64_mask(coh, _mm512_set1_epi64(2))
+                            & _mm512_cmpge_epi64_mask(abs_man, _mm512_set1_epi64(2));
+                    disc = _mm512_mask_blend_epi64(soe, disc, _mm512_set1_epi64(2));
+                    // Plateau (3): coh >= 5 AND abs_man >= 4 (overrides all)
+                    let plat = _mm512_cmpge_epi64_mask(coh, _mm512_set1_epi64(5))
+                             & _mm512_cmpge_epi64_mask(abs_man, _mm512_set1_epi64(4));
+                    disc = _mm512_mask_blend_epi64(plat, disc, _mm512_set1_epi64(3));
+
+                    let out_ptr = out.as_mut_ptr().add(i) as *mut u8;
+                    extract_8_lane0_bytes(disc, out_ptr);
+                    i += 8;
+                }
+                while i < n {
+                    out[i] = super::super::dk_position_i4(&qualia[i], mantissas[i]);
+                    i += 1;
+                }
+            }
+
+            /// Batch TrustTexture — AVX-512 path (8 elements per iteration).
+            ///
+            /// # SAFETY
+            /// avx512f + avx512bw verified at runtime; lengths asserted by caller.
+            #[target_feature(enable = "avx512f,avx512bw")]
+            pub unsafe fn trust_texture_batch(qualia: &[QualiaI4_16D], out: &mut [TrustTexture]) {
+                let n = qualia.len();
+                let mut i = 0usize;
+                while i + 8 <= n {
+                    // SAFETY: QualiaI4_16D is repr(C, align(8)); 8 consecutive elements
+                    // occupy exactly 64 bytes — one __m512i word.
+                    let q_ptr = qualia[i..].as_ptr() as *const __m512i;
+                    let q_vec = _mm512_loadu_si512(q_ptr);
+                    let coh = extract_dim_i8::<36>(q_vec); // DIM_COHERENCE=9
+                    let val = extract_dim_i8::<4>(q_vec);  // DIM_VALENCE=1
+                    let ten = extract_dim_i8::<8>(q_vec);  // DIM_TENSION=2
+
+                    // Default = Calibrated (0)
+                    let mut disc = _mm512_setzero_si512();
+                    // Underconfident (3): valence <= -3
+                    let und = _mm512_cmple_epi64_mask(val, _mm512_set1_epi64(-3));
+                    disc = _mm512_mask_blend_epi64(und, disc, _mm512_set1_epi64(3));
+                    // Overconfident (1): valence >= 4 AND coherence < 5
+                    let ovc = _mm512_cmpge_epi64_mask(val, _mm512_set1_epi64(4))
+                            & _mm512_cmplt_epi64_mask(coh, _mm512_set1_epi64(5));
+                    disc = _mm512_mask_blend_epi64(ovc, disc, _mm512_set1_epi64(1));
+                    // Uncertain (2): coherence <= -3 AND tension >= 3 (highest priority)
+                    let unc = _mm512_cmple_epi64_mask(coh, _mm512_set1_epi64(-3))
+                            & _mm512_cmpge_epi64_mask(ten, _mm512_set1_epi64(3));
+                    disc = _mm512_mask_blend_epi64(unc, disc, _mm512_set1_epi64(2));
+
+                    let out_ptr = out.as_mut_ptr().add(i) as *mut u8;
+                    extract_8_lane0_bytes(disc, out_ptr);
+                    i += 8;
+                }
+                while i < n {
+                    out[i] = super::super::trust_texture_i4(&qualia[i]);
+                    i += 1;
+                }
+            }
+
+            /// Batch FlowState — AVX-512 path (8 elements per iteration).
+            ///
+            /// # SAFETY
+            /// avx512f + avx512bw verified at runtime; lengths asserted by caller.
+            #[target_feature(enable = "avx512f,avx512bw")]
+            pub unsafe fn flow_state_batch(
+                qualia: &[QualiaI4_16D],
+                mantissas: &[i8],
+                out: &mut [FlowState],
+            ) {
+                let n = qualia.len();
+                let mut i = 0usize;
+                while i + 8 <= n {
+                    // SAFETY: QualiaI4_16D is repr(C, align(8)); 8 consecutive elements
+                    // occupy exactly 64 bytes — one __m512i word.
+                    let q_ptr = qualia[i..].as_ptr() as *const __m512i;
+                    let q_vec = _mm512_loadu_si512(q_ptr);
+                    let war = extract_dim_i8::<12>(q_vec); // DIM_WARMTH=3
+                    let grd = extract_dim_i8::<56>(q_vec); // DIM_GROUNDEDNESS=14
+                    let ten = extract_dim_i8::<8>(q_vec);  // DIM_TENSION=2
+                    let coh = extract_dim_i8::<36>(q_vec); // DIM_COHERENCE=9
+
+                    // flow_proxy = warmth + groundedness - tension.
+                    //
+                    // Each input is now fully i64-sign-extended (i4 in -8..=+7),
+                    // so the sum lies in -23..=+22 — well within i64 range, no
+                    // saturation needed. Match the scalar's effective behaviour
+                    // for i4 inputs (the scalar clamps to i8, never triggered).
+                    let fp = _mm512_sub_epi64(_mm512_add_epi64(war, grd), ten);
+
+                    let m_ptr = mantissas.as_ptr().add(i);
+                    let man_vec = _mm512_set_epi64(
+                        *m_ptr.add(7) as i64, *m_ptr.add(6) as i64,
+                        *m_ptr.add(5) as i64, *m_ptr.add(4) as i64,
+                        *m_ptr.add(3) as i64, *m_ptr.add(2) as i64,
+                        *m_ptr.add(1) as i64, *m_ptr.add(0) as i64,
+                    );
+                    let zero = _mm512_setzero_si512();
+
+                    // Pre-compute Anxiety condition (applied last for highest priority).
+                    let anx = _mm512_cmple_epi64_mask(fp, _mm512_set1_epi64(-2))
+                            | (_mm512_cmplt_epi64_mask(man_vec, zero)
+                               & _mm512_cmple_epi64_mask(coh, _mm512_set1_epi64(-1)));
+
+                    // Default = Boredom (1)
+                    let mut disc = _mm512_set1_epi64(1);
+                    // Transition (2): fp >= 2 AND man > 0
+                    let tra = _mm512_cmpge_epi64_mask(fp, _mm512_set1_epi64(2))
+                            & _mm512_cmpgt_epi64_mask(man_vec, zero);
+                    disc = _mm512_mask_blend_epi64(tra, disc, _mm512_set1_epi64(2));
+                    // Flow (0): fp >= 4 AND man > 0
+                    let flow = _mm512_cmpge_epi64_mask(fp, _mm512_set1_epi64(4))
+                             & _mm512_cmpgt_epi64_mask(man_vec, zero);
+                    disc = _mm512_mask_blend_epi64(flow, disc, _mm512_set1_epi64(0));
+                    // Anxiety (3): always overrides (highest priority)
+                    disc = _mm512_mask_blend_epi64(anx, disc, _mm512_set1_epi64(3));
+
+                    let out_ptr = out.as_mut_ptr().add(i) as *mut u8;
+                    extract_8_lane0_bytes(disc, out_ptr);
+                    i += 8;
+                }
+                while i < n {
+                    out[i] = super::super::flow_state_i4(&qualia[i], mantissas[i]);
+                    i += 1;
+                }
+            }
+
+            /// Batch gate decision discriminants — AVX-512 path (8 elements per iteration).
+            ///
+            /// Gate LUT (tex_disc * 4 + flow_disc):
+            /// ```text
+            ///          Flow(0) Boredom(1) Transition(2) Anxiety(3)
+            /// Cal(0):    0        1          0             1
+            /// Ovc(1):    1        1          1             1
+            /// Unc(2):    2        2          2             2
+            /// Und(3):    0        1          0             2
+            /// ```
+            ///
+            /// # SAFETY
+            /// avx512f + avx512bw verified at runtime; lengths asserted by caller.
+            #[target_feature(enable = "avx512f,avx512bw")]
+            pub unsafe fn gate_decision_disc_batch(
+                qualia: &[QualiaI4_16D],
+                mantissas: &[i8],
+                out: &mut [u8],
+            ) {
+                // LUT index = tex_disc * 4 + flow_disc.
+                // tex: Cal=0, Ovc=1, Unc=2, Und=3; flow: Flow=0, Bor=1, Tra=2, Anx=3.
+                const LUT: [u8; 16] = [
+                    0, 1, 0, 1, // Cal
+                    1, 1, 1, 1, // Ovc
+                    2, 2, 2, 2, // Unc
+                    0, 1, 0, 2, // Und
+                ];
+                let n = qualia.len();
+                let mut i = 0usize;
+                let mut tex_disc = [0u8; 8];
+                let mut flow_disc = [0u8; 8];
+                while i + 8 <= n {
+                    // SAFETY: TrustTexture/FlowState are repr(u8); pointers derived from
+                    // properly-allocated arrays of the right size.
+                    let tex_slice = core::slice::from_raw_parts_mut(
+                        tex_disc.as_mut_ptr() as *mut TrustTexture, 8,
+                    );
+                    trust_texture_batch(&qualia[i..i + 8], tex_slice);
+                    let flow_slice = core::slice::from_raw_parts_mut(
+                        flow_disc.as_mut_ptr() as *mut FlowState, 8,
+                    );
+                    flow_state_batch(&qualia[i..i + 8], &mantissas[i..i + 8], flow_slice);
+                    for j in 0..8usize {
+                        let idx = (tex_disc[j] as usize) * 4 + (flow_disc[j] as usize);
+                        out[i + j] = LUT[idx];
+                    }
+                    i += 8;
+                }
+                while i < n {
+                    out[i] = super::super::gate_decision_i4(&qualia[i], mantissas[i]).to_disc();
+                    i += 1;
+                }
+            }
+
+            /// Batch MulAssessment — AVX-512 path.
+            ///
+            /// Uses SIMD for disc fields then scalar finalization for f64 fields.
+            ///
+            /// # SAFETY
+            /// avx512f + avx512bw verified at runtime; lengths asserted by caller.
+            #[target_feature(enable = "avx512f,avx512bw")]
+            pub unsafe fn mul_assess_batch(
+                qualia: &[QualiaI4_16D],
+                mantissas: &[i8],
+                out: &mut [MulAssessment],
+            ) {
+                let n = qualia.len();
+                let mut dk_disc = vec![0u8; n];
+                let mut tex_disc = vec![0u8; n];
+                let mut flow_disc = vec![0u8; n];
+
+                // SAFETY: DkPosition/TrustTexture/FlowState are repr(u8) with discriminants 0..3;
+                // vec storage is properly aligned and has length n.
+                dk_position_batch(
+                    qualia, mantissas,
+                    core::slice::from_raw_parts_mut(dk_disc.as_mut_ptr() as *mut DkPosition, n),
+                );
+                trust_texture_batch(
+                    qualia,
+                    core::slice::from_raw_parts_mut(tex_disc.as_mut_ptr() as *mut TrustTexture, n),
+                );
+                flow_state_batch(
+                    qualia, mantissas,
+                    core::slice::from_raw_parts_mut(flow_disc.as_mut_ptr() as *mut FlowState, n),
+                );
+
+                for i in 0..n {
+                    // SAFETY: repr(u8) enums with locked discriminants 0..3; values
+                    // were written by the SIMD functions above which only produce 0..3.
+                    let dk: DkPosition = core::mem::transmute(dk_disc[i]);
+                    let texture: TrustTexture = core::mem::transmute(tex_disc[i]);
+                    let flow: FlowState = core::mem::transmute(flow_disc[i]);
+
+                    let intensity = qualia[i].magnitude();
+                    let trust_value: f64 = match texture {
+                        TrustTexture::Calibrated => {
+                            0.75 + (intensity.clamp(0, 7) as f64 / 7.0) * 0.25
+                        }
+                        TrustTexture::Overconfident => 0.45,
+                        TrustTexture::Underconfident => 0.40,
+                        TrustTexture::Uncertain => 0.20,
+                    };
+                    let trust = TrustQualia { value: trust_value, texture };
+                    let coherence = qualia[i].get(9); // DIM_COHERENCE
+                    let complexity_mapped = coherence >= 2;
+                    let tension = qualia[i].get(2); // DIM_TENSION
+                    let allostatic_load =
+                        ((tension as i16 + 8) as f64 / 15.0).clamp(0.0, 1.0);
+                    let homeostasis = Homeostasis { flow_state: flow, allostatic_load };
+                    let dk_factor: f64 = match dk {
+                        DkPosition::MountStupid => 0.3,
+                        DkPosition::ValleyOfDespair => 0.7,
+                        DkPosition::SlopeOfEnlightenment => 0.85,
+                        DkPosition::Plateau => 1.0,
+                    };
+                    let flow_factor: f64 = match flow {
+                        FlowState::Flow => 1.0,
+                        FlowState::Transition => 0.7,
+                        FlowState::Boredom => 0.8,
+                        FlowState::Anxiety => 0.5,
+                    };
+                    let free_will_modifier =
+                        (dk_factor * trust_value * flow_factor).clamp(0.0, 1.0);
+                    out[i] = MulAssessment {
+                        trust,
+                        dk_position: dk,
+                        homeostasis,
+                        complexity_mapped,
+                        free_will_modifier,
+                    };
+                }
+            }
+        } // avx512_impl
+
+        // ─────────────────────────────────────────────────────────────────────
+        // neon_impl — ARM NEON i4 intrinsics (D-CSV-13b)
+        // ─────────────────────────────────────────────────────────────────────
+        #[cfg(target_arch = "aarch64")]
+        pub(crate) mod neon_impl {
+            use super::super::*;
+            use crate::qualia::QualiaI4_16D;
+            use core::arch::aarch64::*;
+
+            /// Extract one i4 dim from each of two u64 qualia words, sign-extend to i8.
+            ///
+            /// # SAFETY
+            /// NEON is mandatory on aarch64; caller verifies via `is_aarch64_feature_detected!`.
+            #[inline]
+            unsafe fn extract_dim_pair(
+                q0: uint64x2_t,
+                q1: uint64x2_t,
+                shift: i32,
+            ) -> (int8x16_t, int8x16_t) {
+                let mask = vdupq_n_u64(0xF);
+                let n0 = vandq_u64(vshrq_n_u64(q0, shift), mask);
+                let n1 = vandq_u64(vshrq_n_u64(q1, shift), mask);
+                let i0 = vreinterpretq_s8_u64(n0);
+                let i1 = vreinterpretq_s8_u64(n1);
+                (vshrq_n_s8(vshlq_n_s8(i0, 4), 4), vshrq_n_s8(vshlq_n_s8(i1, 4), 4))
+            }
+
+            /// Batch DK position — NEON path (2 elements per iteration).
+            ///
+            /// # SAFETY
+            /// NEON verified at runtime; `qualia.len() >= 2`; lengths asserted by caller.
+            pub unsafe fn dk_position_batch(
+                qualia: &[QualiaI4_16D],
+                mantissas: &[i8],
+                out: &mut [DkPosition],
+            ) {
+                let n = qualia.len();
+                let mut i = 0usize;
+                while i + 2 <= n {
+                    // SAFETY: QualiaI4_16D is repr(C, align(8)); &.0 is a valid *const u64.
+                    let q0 = vld1q_u64(&qualia[i].0 as *const u64);
+                    let q1 = vld1q_u64(&qualia[i + 1].0 as *const u64);
+                    let (c0, c1) = extract_dim_pair(q0, q1, 36);
+                    let coh = [vgetq_lane_s8(c0, 0), vgetq_lane_s8(c1, 0)];
+                    let abs_man = [
+                        mantissas[i].unsigned_abs() as i8,
+                        mantissas[i + 1].unsigned_abs() as i8,
+                    ];
+                    for j in 0..2 {
+                        out[i + j] = if coh[j] >= 5 && abs_man[j] >= 4 {
+                            DkPosition::Plateau
+                        } else if coh[j] >= 2 && abs_man[j] >= 2 {
+                            DkPosition::SlopeOfEnlightenment
+                        } else if coh[j] <= -3 || abs_man[j] <= 1 {
+                            DkPosition::ValleyOfDespair
+                        } else {
+                            DkPosition::MountStupid
+                        };
+                    }
+                    i += 2;
+                }
+                while i < n {
+                    out[i] = super::super::dk_position_i4(&qualia[i], mantissas[i]);
+                    i += 1;
+                }
+            }
+
+            /// Batch TrustTexture — NEON path (2 elements per iteration).
+            ///
+            /// # SAFETY
+            /// NEON verified at runtime; lengths asserted by caller.
+            pub unsafe fn trust_texture_batch(qualia: &[QualiaI4_16D], out: &mut [TrustTexture]) {
+                let n = qualia.len();
+                let mut i = 0usize;
+                while i + 2 <= n {
+                    // SAFETY: QualiaI4_16D is repr(C, align(8)); &.0 is a valid *const u64.
+                    let q0 = vld1q_u64(&qualia[i].0 as *const u64);
+                    let q1 = vld1q_u64(&qualia[i + 1].0 as *const u64);
+                    let (c0, c1) = extract_dim_pair(q0, q1, 36);
+                    let (v0, v1) = extract_dim_pair(q0, q1, 4);
+                    let (t0, t1) = extract_dim_pair(q0, q1, 8);
+                    let coh = [vgetq_lane_s8(c0, 0), vgetq_lane_s8(c1, 0)];
+                    let val = [vgetq_lane_s8(v0, 0), vgetq_lane_s8(v1, 0)];
+                    let ten = [vgetq_lane_s8(t0, 0), vgetq_lane_s8(t1, 0)];
+                    for j in 0..2 {
+                        out[i + j] = if coh[j] <= -3 && ten[j] >= 3 {
+                            TrustTexture::Uncertain
+                        } else if val[j] >= 4 && coh[j] < 5 {
+                            TrustTexture::Overconfident
+                        } else if val[j] <= -3 {
+                            TrustTexture::Underconfident
+                        } else {
+                            TrustTexture::Calibrated
+                        };
+                    }
+                    i += 2;
+                }
+                while i < n {
+                    out[i] = super::super::trust_texture_i4(&qualia[i]);
+                    i += 1;
+                }
+            }
+
+            /// Batch FlowState — NEON path (2 elements per iteration).
+            ///
+            /// # SAFETY
+            /// NEON verified at runtime; lengths asserted by caller.
+            pub unsafe fn flow_state_batch(
+                qualia: &[QualiaI4_16D],
+                mantissas: &[i8],
+                out: &mut [FlowState],
+            ) {
+                let n = qualia.len();
+                let mut i = 0usize;
+                while i + 2 <= n {
+                    // SAFETY: QualiaI4_16D is repr(C, align(8)); &.0 is a valid *const u64.
+                    let q0 = vld1q_u64(&qualia[i].0 as *const u64);
+                    let q1 = vld1q_u64(&qualia[i + 1].0 as *const u64);
+                    let (w0, w1) = extract_dim_pair(q0, q1, 12);
+                    let (g0, g1) = extract_dim_pair(q0, q1, 56);
+                    let (t0, t1) = extract_dim_pair(q0, q1, 8);
+                    let (c0, c1) = extract_dim_pair(q0, q1, 36);
+                    let war = [vgetq_lane_s8(w0, 0), vgetq_lane_s8(w1, 0)];
+                    let grd = [vgetq_lane_s8(g0, 0), vgetq_lane_s8(g1, 0)];
+                    let ten = [vgetq_lane_s8(t0, 0), vgetq_lane_s8(t1, 0)];
+                    let coh = [vgetq_lane_s8(c0, 0), vgetq_lane_s8(c1, 0)];
+                    for j in 0..2 {
+                        let fp = (war[j] as i16 + grd[j] as i16 - ten[j] as i16)
+                            .clamp(i8::MIN as i16, i8::MAX as i16) as i8;
+                        let man = mantissas[i + j];
+                        out[i + j] = if fp >= 4 && man > 0 {
+                            FlowState::Flow
+                        } else if fp <= -2 || (man < 0 && coh[j] <= -1) {
+                            FlowState::Anxiety
+                        } else if fp >= 2 && man > 0 {
+                            FlowState::Transition
+                        } else {
+                            FlowState::Boredom
+                        };
+                    }
+                    i += 2;
+                }
+                while i < n {
+                    out[i] = super::super::flow_state_i4(&qualia[i], mantissas[i]);
+                    i += 1;
+                }
+            }
+
+            /// Batch gate decision discriminants — NEON path (scalar LUT).
+            ///
+            /// # SAFETY
+            /// NEON verified at runtime; lengths asserted by caller.
+            pub unsafe fn gate_decision_disc_batch(
+                qualia: &[QualiaI4_16D],
+                mantissas: &[i8],
+                out: &mut [u8],
+            ) {
+                // Use scalar path: String allocation in gate_decision_i4 is the bottleneck,
+                // not the comparison logic. NEON benefit is in the disc functions above.
+                for i in 0..qualia.len() {
+                    out[i] = super::super::gate_decision_i4(&qualia[i], mantissas[i]).to_disc();
+                }
+            }
+
+            /// Batch MulAssessment — NEON path (scalar finalization for f64 fields).
+            ///
+            /// # SAFETY
+            /// NEON verified at runtime; lengths asserted by caller.
+            pub unsafe fn mul_assess_batch(
+                qualia: &[QualiaI4_16D],
+                mantissas: &[i8],
+                out: &mut [MulAssessment],
+            ) {
+                for i in 0..qualia.len() {
+                    out[i] = super::super::mul_assess_i4(&qualia[i], mantissas[i]);
+                }
+            }
+        } // neon_impl
+
+        // ─────────────────────────────────────────────────────────────────────
+        // Public dispatch API (OQ-CSV-13: runtime SIMD, not compile-time)
+        // ─────────────────────────────────────────────────────────────────────
+
         /// Batch DK position: `qualia.len() == mantissas.len() == out.len()` must hold.
-        /// Each output is the result of `dk_position_i4(qualia[i], mantissas[i])`.
-        /// Panics on length mismatch.
-        pub fn dk_position_batch(qualia: &[QualiaI4_16D], mantissas: &[i8], out: &mut [DkPosition]) {
+        /// Panics on length mismatch. Dispatches to AVX-512/NEON if available at runtime.
+        pub fn dk_position_batch(
+            qualia: &[QualiaI4_16D],
+            mantissas: &[i8],
+            out: &mut [DkPosition],
+        ) {
             assert_eq!(qualia.len(), mantissas.len(), "qualia/mantissas length mismatch");
             assert_eq!(qualia.len(), out.len(), "input/output length mismatch");
-            for i in 0..qualia.len() {
-                out[i] = dk_position_i4(&qualia[i], mantissas[i]);
+            let caps = simd_caps();
+            #[cfg(target_arch = "x86_64")]
+            if caps.avx512f && caps.avx512bw && qualia.len() >= 8 {
+                // SAFETY: avx512f+avx512bw verified at runtime above; lengths asserted.
+                unsafe { avx512_impl::dk_position_batch(qualia, mantissas, out) };
+                return;
             }
+            #[cfg(target_arch = "aarch64")]
+            if caps.neon && qualia.len() >= 2 {
+                // SAFETY: neon verified at runtime above; lengths asserted.
+                unsafe { neon_impl::dk_position_batch(qualia, mantissas, out) };
+                return;
+            }
+            scalar_impl::dk_position_batch(qualia, mantissas, out);
         }
 
-        /// Batch TrustTexture (qualia-only): for each qualia, compute trust_texture_i4.
+        /// Batch TrustTexture. Dispatches to AVX-512/NEON if available at runtime.
         pub fn trust_texture_batch(qualia: &[QualiaI4_16D], out: &mut [TrustTexture]) {
-            assert_eq!(qualia.len(), out.len());
-            for i in 0..qualia.len() {
-                out[i] = trust_texture_i4(&qualia[i]);
+            assert_eq!(qualia.len(), out.len(), "input/output length mismatch");
+            let caps = simd_caps();
+            #[cfg(target_arch = "x86_64")]
+            if caps.avx512f && caps.avx512bw && qualia.len() >= 8 {
+                // SAFETY: avx512f+avx512bw verified at runtime above; lengths asserted.
+                unsafe { avx512_impl::trust_texture_batch(qualia, out) };
+                return;
             }
+            #[cfg(target_arch = "aarch64")]
+            if caps.neon && qualia.len() >= 2 {
+                // SAFETY: neon verified at runtime above; lengths asserted.
+                unsafe { neon_impl::trust_texture_batch(qualia, out) };
+                return;
+            }
+            scalar_impl::trust_texture_batch(qualia, out);
         }
 
-        /// Batch FlowState: parallel arrays of qualia + mantissas → flow states.
+        /// Batch FlowState. Dispatches to AVX-512/NEON if available at runtime.
         pub fn flow_state_batch(qualia: &[QualiaI4_16D], mantissas: &[i8], out: &mut [FlowState]) {
-            assert_eq!(qualia.len(), mantissas.len());
-            assert_eq!(qualia.len(), out.len());
-            for i in 0..qualia.len() {
-                out[i] = flow_state_i4(&qualia[i], mantissas[i]);
+            assert_eq!(qualia.len(), mantissas.len(), "qualia/mantissas length mismatch");
+            assert_eq!(qualia.len(), out.len(), "input/output length mismatch");
+            let caps = simd_caps();
+            #[cfg(target_arch = "x86_64")]
+            if caps.avx512f && caps.avx512bw && qualia.len() >= 8 {
+                // SAFETY: avx512f+avx512bw verified at runtime above; lengths asserted.
+                unsafe { avx512_impl::flow_state_batch(qualia, mantissas, out) };
+                return;
             }
+            #[cfg(target_arch = "aarch64")]
+            if caps.neon && qualia.len() >= 2 {
+                // SAFETY: neon verified at runtime above; lengths asserted.
+                unsafe { neon_impl::flow_state_batch(qualia, mantissas, out) };
+                return;
+            }
+            scalar_impl::flow_state_batch(qualia, mantissas, out);
         }
 
-        /// Batch GateDecision.
-        pub fn gate_decision_batch(qualia: &[QualiaI4_16D], mantissas: &[i8], out: &mut [GateDecision]) {
-            assert_eq!(qualia.len(), mantissas.len());
-            assert_eq!(qualia.len(), out.len());
+        /// Batch gate decision discriminants: 0=Flow, 1=Hold, 2=Block.
+        ///
+        /// SIMD-fast alternative to `gate_decision_batch`. Use when reason strings
+        /// are not needed. Dispatches to AVX-512/NEON if available at runtime.
+        pub fn gate_decision_disc_batch(
+            qualia: &[QualiaI4_16D],
+            mantissas: &[i8],
+            out: &mut [u8],
+        ) {
+            assert_eq!(qualia.len(), mantissas.len(), "qualia/mantissas length mismatch");
+            assert_eq!(qualia.len(), out.len(), "input/output length mismatch");
+            let caps = simd_caps();
+            #[cfg(target_arch = "x86_64")]
+            if caps.avx512f && caps.avx512bw && qualia.len() >= 8 {
+                // SAFETY: avx512f+avx512bw verified at runtime above; lengths asserted.
+                unsafe { avx512_impl::gate_decision_disc_batch(qualia, mantissas, out) };
+                return;
+            }
+            #[cfg(target_arch = "aarch64")]
+            if caps.neon && qualia.len() >= 2 {
+                // SAFETY: neon verified at runtime above; lengths asserted.
+                unsafe { neon_impl::gate_decision_disc_batch(qualia, mantissas, out) };
+                return;
+            }
+            scalar_impl::gate_decision_disc_batch(qualia, mantissas, out);
+        }
+
+        /// Batch full GateDecision with reason strings (scalar path — Strings cannot be SIMD-packed).
+        pub fn gate_decision_batch(
+            qualia: &[QualiaI4_16D],
+            mantissas: &[i8],
+            out: &mut [GateDecision],
+        ) {
+            assert_eq!(qualia.len(), mantissas.len(), "qualia/mantissas length mismatch");
+            assert_eq!(qualia.len(), out.len(), "input/output length mismatch");
             for i in 0..qualia.len() {
                 out[i] = gate_decision_i4(&qualia[i], mantissas[i]);
             }
         }
 
-        /// Batch MulAssessment: the full pipeline.
-        pub fn mul_assess_batch(qualia: &[QualiaI4_16D], mantissas: &[i8], out: &mut [MulAssessment]) {
-            assert_eq!(qualia.len(), mantissas.len());
-            assert_eq!(qualia.len(), out.len());
-            for i in 0..qualia.len() {
-                out[i] = mul_assess_i4(&qualia[i], mantissas[i]);
+        /// Batch MulAssessment. Dispatches to AVX-512/NEON if available at runtime.
+        pub fn mul_assess_batch(
+            qualia: &[QualiaI4_16D],
+            mantissas: &[i8],
+            out: &mut [MulAssessment],
+        ) {
+            assert_eq!(qualia.len(), mantissas.len(), "qualia/mantissas length mismatch");
+            assert_eq!(qualia.len(), out.len(), "input/output length mismatch");
+            let caps = simd_caps();
+            #[cfg(target_arch = "x86_64")]
+            if caps.avx512f && caps.avx512bw && qualia.len() >= 8 {
+                // SAFETY: avx512f+avx512bw verified at runtime above; lengths asserted.
+                unsafe { avx512_impl::mul_assess_batch(qualia, mantissas, out) };
+                return;
             }
+            #[cfg(target_arch = "aarch64")]
+            if caps.neon && qualia.len() >= 2 {
+                // SAFETY: neon verified at runtime above; lengths asserted.
+                unsafe { neon_impl::mul_assess_batch(qualia, mantissas, out) };
+                return;
+            }
+            scalar_impl::mul_assess_batch(qualia, mantissas, out);
         }
 
         /// Convenience: allocate the output Vec and return it (for non-hot-path callers).
         pub fn mul_assess_vec(qualia: &[QualiaI4_16D], mantissas: &[i8]) -> Vec<MulAssessment> {
-            assert_eq!(qualia.len(), mantissas.len());
-            let mut out = Vec::with_capacity(qualia.len());
-            for i in 0..qualia.len() {
-                out.push(mul_assess_i4(&qualia[i], mantissas[i]));
-            }
+            assert_eq!(qualia.len(), mantissas.len(), "qualia/mantissas length mismatch");
+            let mut out = vec![
+                MulAssessment {
+                    trust: TrustQualia { value: 0.0, texture: TrustTexture::Calibrated },
+                    dk_position: DkPosition::MountStupid,
+                    homeostasis: Homeostasis {
+                        flow_state: FlowState::Boredom,
+                        allostatic_load: 0.0,
+                    },
+                    complexity_mapped: false,
+                    free_will_modifier: 0.0,
+                };
+                qualia.len()
+            ];
+            mul_assess_batch(qualia, mantissas, &mut out);
             out
         }
     }
@@ -988,6 +1782,176 @@ pub mod i4_eval {
             assert_eq!(out_gd.len(), 0);
             assert_eq!(out_ma.len(), 0);
             assert_eq!(vec_result.len(), 0);
+        }
+
+        // ── D-CSV-13b: randomised SIMD-vs-scalar parity tests ─────────────────
+        //
+        // Each test generates a deterministic pseudo-random batch (fixed seed),
+        // runs `batch::FN` (which dispatches to AVX-512 / NEON / scalar at
+        // runtime) against `batch::scalar_impl::FN` (the correctness anchor),
+        // and asserts element-wise equality.
+        //
+        // Per spec §5 (I-LEGACY-API-FEATURE-GATED): bytes must be identical
+        // between dispatch path and scalar path. On a non-SIMD host the test
+        // degenerates to "scalar == scalar" (still asserts the API surface).
+
+        /// xorshift64 — fixed-seed deterministic PRNG. No `rand` dep needed.
+        fn xorshift64(state: &mut u64) -> u64 {
+            let mut x = *state;
+            x ^= x << 13;
+            x ^= x >> 7;
+            x ^= x << 17;
+            *state = x;
+            x
+        }
+
+        /// Generate n qualia + mantissas from a fixed seed. Touches all five
+        /// dims read by the batch pipeline (valence, tension, warmth, coherence,
+        /// groundedness) so the test exercises every decision branch.
+        fn make_random_batch(n: usize, seed: u64) -> (Vec<QualiaI4_16D>, Vec<i8>) {
+            let mut s = seed;
+            let mut qualia = Vec::with_capacity(n);
+            let mut mantissas = Vec::with_capacity(n);
+            // 4-bit signed range: -8..=7
+            let i4 = |bits: u8| -> i8 { ((bits & 0xF) << 4) as i8 >> 4 };
+            for _ in 0..n {
+                let r = xorshift64(&mut s);
+                let mut q = QualiaI4_16D::ZERO;
+                q.set(1,  i4((r        & 0xF) as u8)); // valence
+                q.set(2,  i4(((r >> 4)  & 0xF) as u8)); // tension
+                q.set(3,  i4(((r >> 8)  & 0xF) as u8)); // warmth
+                q.set(9,  i4(((r >> 12) & 0xF) as u8)); // coherence
+                q.set(14, i4(((r >> 16) & 0xF) as u8)); // groundedness
+                qualia.push(q);
+                let mant = i4(((r >> 20) & 0xF) as u8);
+                mantissas.push(mant);
+            }
+            (qualia, mantissas)
+        }
+
+        /// Sizes that exercise: (a) zero, (b) size-1 (tail-only), (c) sub-MIN_BATCH
+        /// (scalar-only path on AVX-512 since min=8), (d) exact MIN_BATCH=8 (one
+        /// full SIMD chunk + no tail), (e) MIN_BATCH+1=9 (one chunk + 1 scalar
+        /// tail), (f) NEON MIN_BATCH+1=3, (g) large (forces many SIMD chunks).
+        const PARITY_SIZES: &[usize] = &[0, 1, 3, 7, 8, 9, 15, 16, 64, 1024];
+
+        #[test]
+        fn test_dk_position_batch_parity_simd_vs_scalar() {
+            for &n in PARITY_SIZES {
+                let (qualia, mantissas) = make_random_batch(n, 0xD15C_5E7D_C0DE_0001);
+                let mut out_dispatch = vec![DkPosition::MountStupid; n];
+                let mut out_scalar   = vec![DkPosition::MountStupid; n];
+                batch::dk_position_batch(&qualia, &mantissas, &mut out_dispatch);
+                batch::scalar_impl::dk_position_batch(&qualia, &mantissas, &mut out_scalar);
+                for i in 0..n {
+                    assert_eq!(
+                        out_dispatch[i], out_scalar[i],
+                        "dk_position_batch parity failure at size={} index={}: dispatch={:?} scalar={:?}",
+                        n, i, out_dispatch[i], out_scalar[i],
+                    );
+                }
+            }
+        }
+
+        #[test]
+        fn test_trust_texture_batch_parity_simd_vs_scalar() {
+            for &n in PARITY_SIZES {
+                let (qualia, _) = make_random_batch(n, 0xD15C_5E7D_C0DE_0002);
+                let mut out_dispatch = vec![TrustTexture::Uncertain; n];
+                let mut out_scalar   = vec![TrustTexture::Uncertain; n];
+                batch::trust_texture_batch(&qualia, &mut out_dispatch);
+                batch::scalar_impl::trust_texture_batch(&qualia, &mut out_scalar);
+                for i in 0..n {
+                    assert_eq!(
+                        out_dispatch[i], out_scalar[i],
+                        "trust_texture_batch parity failure at size={} index={}: dispatch={:?} scalar={:?}",
+                        n, i, out_dispatch[i], out_scalar[i],
+                    );
+                }
+            }
+        }
+
+        #[test]
+        fn test_flow_state_batch_parity_simd_vs_scalar() {
+            for &n in PARITY_SIZES {
+                let (qualia, mantissas) = make_random_batch(n, 0xD15C_5E7D_C0DE_0003);
+                let mut out_dispatch = vec![FlowState::Boredom; n];
+                let mut out_scalar   = vec![FlowState::Boredom; n];
+                batch::flow_state_batch(&qualia, &mantissas, &mut out_dispatch);
+                batch::scalar_impl::flow_state_batch(&qualia, &mantissas, &mut out_scalar);
+                for i in 0..n {
+                    assert_eq!(
+                        out_dispatch[i], out_scalar[i],
+                        "flow_state_batch parity failure at size={} index={}: dispatch={:?} scalar={:?}",
+                        n, i, out_dispatch[i], out_scalar[i],
+                    );
+                }
+            }
+        }
+
+        #[test]
+        fn test_gate_decision_disc_batch_parity_simd_vs_scalar() {
+            for &n in PARITY_SIZES {
+                let (qualia, mantissas) = make_random_batch(n, 0xD15C_5E7D_C0DE_0004);
+                let mut out_dispatch = vec![0u8; n];
+                let mut out_scalar   = vec![0u8; n];
+                batch::gate_decision_disc_batch(&qualia, &mantissas, &mut out_dispatch);
+                batch::scalar_impl::gate_decision_disc_batch(&qualia, &mantissas, &mut out_scalar);
+                for i in 0..n {
+                    assert_eq!(
+                        out_dispatch[i], out_scalar[i],
+                        "gate_decision_disc_batch parity failure at size={} index={}: dispatch={} scalar={}",
+                        n, i, out_dispatch[i], out_scalar[i],
+                    );
+                }
+                // Discriminants must be in the locked range 0=Flow, 1=Hold, 2=Block.
+                for (i, &b) in out_dispatch.iter().enumerate() {
+                    assert!(b <= 2, "out-of-range gate discriminant {} at index {}", b, i);
+                }
+            }
+        }
+
+        #[test]
+        fn test_mul_assess_batch_parity_simd_vs_scalar() {
+            let zero_assess = || MulAssessment {
+                trust: TrustQualia { value: 0.0, texture: TrustTexture::Calibrated },
+                dk_position: DkPosition::MountStupid,
+                homeostasis: Homeostasis { flow_state: FlowState::Boredom, allostatic_load: 0.0 },
+                complexity_mapped: false,
+                free_will_modifier: 0.0,
+            };
+            for &n in PARITY_SIZES {
+                let (qualia, mantissas) = make_random_batch(n, 0xD15C_5E7D_C0DE_0005);
+                let mut out_dispatch: Vec<MulAssessment> = (0..n).map(|_| zero_assess()).collect();
+                let mut out_scalar:   Vec<MulAssessment> = (0..n).map(|_| zero_assess()).collect();
+                batch::mul_assess_batch(&qualia, &mantissas, &mut out_dispatch);
+                batch::scalar_impl::mul_assess_batch(&qualia, &mantissas, &mut out_scalar);
+                for i in 0..n {
+                    assert_eq!(
+                        out_dispatch[i].dk_position, out_scalar[i].dk_position,
+                        "mul_assess_batch dk_position mismatch at size={} i={}", n, i,
+                    );
+                    assert_eq!(
+                        out_dispatch[i].trust.texture, out_scalar[i].trust.texture,
+                        "mul_assess_batch trust.texture mismatch at size={} i={}", n, i,
+                    );
+                    assert_eq!(
+                        out_dispatch[i].homeostasis.flow_state, out_scalar[i].homeostasis.flow_state,
+                        "mul_assess_batch flow_state mismatch at size={} i={}", n, i,
+                    );
+                    // f64 fields: bit-identical because both paths compute the same
+                    // scalar finalize sequence with identical inputs.
+                    assert!(
+                        (out_dispatch[i].trust.value - out_scalar[i].trust.value).abs() < 1e-12,
+                        "mul_assess_batch trust.value drift at size={} i={}: dispatch={} scalar={}",
+                        n, i, out_dispatch[i].trust.value, out_scalar[i].trust.value,
+                    );
+                    assert!(
+                        (out_dispatch[i].free_will_modifier - out_scalar[i].free_will_modifier).abs() < 1e-12,
+                        "mul_assess_batch free_will_modifier drift at size={} i={}", n, i,
+                    );
+                }
+            }
         }
     }
 }

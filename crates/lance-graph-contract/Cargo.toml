@@ -22,6 +22,13 @@ glob = "0.3"
 # Used in manifest_codegen tests to replicate validation logic in-process.
 serde_yaml = "0.9"
 serde = { version = "1", features = ["derive"] }
+# D-CSV-13b: criterion bench scaffold for i4_eval::batch SIMD dispatch.
+# Matches version used in crates/lance-graph-benches/Cargo.toml.
+criterion = { version = "0.5", default-features = false, features = ["html_reports"] }
+
+[[bench]]
+name = "i4_batch"
+harness = false
 
 [features]
 # A-unlock-stepdomain — `step_trajectory_hash` forward stub for the E4
