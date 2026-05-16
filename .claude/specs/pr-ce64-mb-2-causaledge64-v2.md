@@ -6,7 +6,7 @@
 > **Authoritative layout anchor:** `.claude/plans/cognitive-substrate-convergence-v1.md` §6 (SUPERSEDES parent plan §3 for bit layout)
 > **Worker:** W2 (causaledge64-v2), Sonnet, sprint-log-10
 > **Date:** 2026-05-14
-> **Patched:** 2026-05-16 (sprint-10 specs patch for cognitive-substrate-convergence-v1; OQ-LAYOUT-1 resolved)
+> **Patched:** 2026-05-16 (sprint-10 specs patch for cognitive-substrate-convergence-v1; OQ-LAYOUT-1 resolved; §"Signed Mantissa Rationale" and §"Counterfactual via causal_mask" added)
 > **Depends on:** PR-CE64-MB-1 (par-tile crate apex) — must land first so TrustTexture reference type is available
 > **Blocks:** PR-CE64-MB-5 (MailboxSoA + AttentionMaskActor wiring, which reads W/truth from CausalEdge64)
 
@@ -163,7 +163,142 @@ v2 CausalEdge64 bit layout (LSB = bit 0, MSB = bit 63):
 
 **Reclaim arithmetic (L-2, L-3, L-4, L-6, L-7):** Drop temporal(12 bits freed) → Inference mantissa expand +1, Plasticity shift 0, W-slot +6, truth-band-lens +2 = 9 bits spent + 3 spare. G-slot NOT added (L-3: redundant via SoA partition + palette family-prefix + witness corpus root).
 
+
 ---
+
+## §"Signed Mantissa Rationale"
+
+> **Added 2026-05-16 per cognitive-substrate-convergence-v1.md §6 + locked decisions L-4 and L-9.**
+
+### Why sign = direction
+
+The inference mantissa (bits 46-49, 4-bit signed i4, range −8..+7) encodes both the *direction* of
+inference and the *identity of the base NARS rule* in a single field:
+
+- **`signum(mantissa)` = chain direction:**
+  - `+` (values 0..+7): forward-chain / compose / commit direction — Deduction, Synthesis,
+    Revision-positive, Induction (forward generalization), Exemplification.
+  - `−` (values −8..−1): backward-chain / decompose / refute direction — Abduction, Contraposition,
+    Revision-negative, Analogy-negative, Counterfactual refutation.
+  - Zero (value 0): neutral / identity / no-op inference; used for bare SPO assertions with no
+    active NARS rule applied.
+
+- **`abs(mantissa)` = base NARS rule index (0..7):**
+
+  | |mantissa| | Rule name (+ direction) | Rule name (− direction) |
+  |---|---|---|
+  | 0 | Identity / neutral | Identity / neutral |
+  | 1 | Deduction | Abduction |
+  | 2 | Induction | Contraposition |
+  | 3 | Exemplification | Analogy-negative |
+  | 4 | Revision-positive | Revision-negative |
+  | 5 | Synthesis | Decomposition |
+  | 6 | Reserved5 (absorbs PR-LL-1 Intervention) | Reserved6 (absorbs PR-LL-1 Counterfactual) |
+  | 7 | Extension (future) | Intension-negative (future) |
+
+  Slots 6/7 absorb PR-LL-1's `Intervention` and `Counterfactual` variants from
+  `nars_dispatch.rs` per locked decision L-9: those variants land in `Reserved5`/`Reserved6` of the
+  canonical `causal_edge::InferenceType` enum when v2 ships. They do NOT need a separate bit; the
+  signed mantissa already encodes them at the correct magnitude slot.
+
+### Three SIMD wins from signed i4 mantissa
+
+**Win 1 — signum/abs are free in SIMD.** Computing chain direction from a signed i4 lane is a
+single arithmetic-right-shift: `direction = lane >> 3` (extracts sign bit). Computing magnitude is a
+single `abs` intrinsic (`vpabsb` on x86/AVX2, `abs` on ARM NEON). No branch, no table lookup, no
+enum discriminant comparison. Entire EdgeColumn can be swept for direction distribution in one AVX2
+pass over `[i8; N]` (pairs of 4-bit lanes packed to i8 for SIMD efficiency).
+
+**Win 2 — palette × mantissa propagation stays in register family.** The three SPO palette indices
+are u8 (bits 0-23); the mantissa is i4 (bits 46-49). Products of palette-distance lookups
+(`u8 × i4 → i8` via sign-extend + multiply) stay within the i4/i8/i16 family — no f32 conversion
+needed. Qualia dimension products (`QualiaI4_16D × InferenceMantissa`) are similarly `i4 × i4 → i8`,
+one SIMD multiply per 16-dim row. This enables the MUL evaluation (DK / TrustTexture / FlowState /
+GateDecision) to run entirely in integer SIMD per locked decision L-18.
+
+**Win 3 — 8-channel thinking-engine transcoder is a near-bitcast at L3 commit.** The
+`thinking_engine::CausalEdge64::net_strength()` already returns a signed value whose `signum()`
+maps directly to the inference mantissa sign bit, and whose magnitude maps directly to the base rule
+index (per the 8-channel → SPO-palette reunion, Option R-3 in synergies doc). The L3 commit
+transcoder (`transcode_to_spo()`) is therefore:
+
+```
+mantissa_sign  = net_strength.signum()           // forward vs backward
+mantissa_mag   = channel_to_rule_index(channel)  // which of 8 base rules
+mantissa_i4    = sign_extend(mantissa_sign * mantissa_mag, 4)
+```
+
+This is 3 arithmetic operations per edge, no table lookup, no float. The "near-bitcast" claim from
+cognitive-substrate-convergence-v1.md §3.1 is literal: both sides share the same signed integer
+algebra; the transcoder is an algebra homomorphism, not a format conversion.
+
+### PR-LL-1 absorption at Reserved5/6
+
+PR #375 (PR-LL-1) added `Intervention` and `Counterfactual` variants to `nars_dispatch.rs` only.
+Per L-9, these absorb into `Reserved5`/`Reserved6` of the canonical `causal_edge::InferenceType`
+when v2 ships. The signed mantissa already has structural slots for them:
+
+- `+6` = Intervention (forward — apply a do-calculus intervention, fix a variable)
+- `−6` = Counterfactual (backward — evaluate the Pearl-3 antecedent counterfactually)
+
+This makes PR-LL-1's dispatch path a zero-cost addition: the variants already have homes at mantissa
+magnitude 6, positive and negative. No new bits needed, no new enum discriminant collision.
+
+---
+
+## §"Counterfactual via causal_mask, NOT via separate bit"
+
+> **Added 2026-05-16 per cognitive-substrate-convergence-v1.md locked decision L-5.**
+
+### causal_mask 0b111 SPO IS Pearl-3 already
+
+The 3-bit `causal_mask` field (bits 40-42) encodes the Pearl causal hierarchy as a bitmask over the
+SPO triple:
+
+| causal_mask | Binary | Pearl rung | Semantics |
+|---|---|---|---|
+| 0b000 | S=0 P=0 O=0 | Rung 0 — Association | Observational correlation only; no causal claim |
+| 0b001 | S=0 P=0 O=1 | Rung 1 — Intervention (partial) | Object intervened upon |
+| 0b010 | S=0 P=1 O=0 | Rung 1 — Intervention (partial) | Predicate intervened upon |
+| 0b011 | S=0 P=1 O=1 | Rung 2 — Intervention (full PO) | do(P,O) applied |
+| 0b100 | S=1 P=0 O=0 | Rung 1 — Intervention (partial) | Subject intervened upon |
+| 0b101 | S=1 P=0 O=1 | Rung 2 — Intervention (full SO) | do(S,O) applied |
+| 0b110 | S=1 P=1 O=0 | Rung 2 — Intervention (full SP) | do(S,P) applied |
+| 0b111 | S=1 P=1 O=1 | **Rung 3 — Counterfactual** | Full SPO mask = "what would have happened if S had done P to O" |
+
+`causal_mask = 0b111` (all three SPO components masked) IS the Pearl-3 counterfactual operator by
+construction. The mask means: "hold S, P, and O jointly fixed in a counterfactual world." No
+separate Pearl-3 modifier bit is needed or correct — adding one would duplicate information already
+present in the mask.
+
+### Why no separate Pearl-3 modifier bit
+
+A dedicated Pearl-3 modifier bit would be:
+1. **Redundant.** `causal_mask == 0b111` is already the necessary and sufficient condition for
+   Pearl-3 semantics. Any consumer checking a hypothetical `pearl3_flag` bit should check
+   `causal_mask()` instead.
+2. **Inconsistent.** If `pearl3_flag=1` but `causal_mask != 0b111`, the edge carries contradictory
+   causal claims — an illegal state requiring extra validation logic in every consumer.
+3. **Wasteful.** The 3 spare bits (bits 61-63) are reserved for principled sprint-12+ uses
+   (Rubicon-commit marker, Markov-decay quantum, Jirak threshold). Spending one on a redundant flag
+   is the wrong trade.
+
+### 4-bit mantissa carries WHICH base rule at THAT rung
+
+The `causal_mask` axis (Pearl rung 0-3) and the `inference_mantissa` axis (NARS base rule index
+0-7) are orthogonal:
+
+- `causal_mask` answers: *at which level of Pearl's causal hierarchy does this edge operate?*
+- `mantissa` answers: *which NARS inference rule produced this edge, and in which direction?*
+
+A single edge can be simultaneously:
+- `causal_mask = 0b111` (Pearl-3 counterfactual reasoning)
+- `mantissa = −6` (PR-LL-1 Counterfactual NARS rule, backward direction)
+
+This is the full composition: the mask locates the edge in Pearl's hierarchy; the mantissa records
+the NARS algebra that generated the strength value. No additional bit is needed to express
+"counterfactual Pearl-3 via NARS Counterfactual rule" — the existing two fields together encode it
+exactly and without ambiguity.
 
 ## §3 Bit-Shift Constants Module (crates/causal-edge/src/layout.rs)
 
@@ -287,33 +422,52 @@ Read accessors: `&self` Copy methods returning Copy values.
 Setters: builder-shape `with_*` returning `Self`. Mutating `set_*` for hot-path `&mut` callers.
 All gated by `#[cfg(feature = "causal-edge-v2-layout")]`.
 
+Note: G-slot is NOT present in the v2 layout (dropped per L-3 in cognitive-substrate-convergence-v1.md).
+The `with_routing` method signature is `(w: u8, t: TrustTexture)` — no `g` parameter.
+Any prior references to `g_slot`, `with_g_slot`, `set_g_slot`, or `G_SHIFT` are stale and removed.
+
 ```rust
 #[cfg(feature = "causal-edge-v2-layout")]
 impl CausalEdge64 {
     // ── Read Accessors ──────────────────────────────────────────────────────
 
-    /// OGIT domain slot (5-bit, 0..=31). 0 = unrouted.
-    /// WARNING: returns garbage for v1-written non-zero edges (bits 46-50
-    /// were InferenceType+Plasticity in v1). Use version gate before calling
-    /// on edges of unknown provenance. CausalEdge64::ZERO -> 0 (correct default).
-    #[inline(always)]
-    pub fn g_slot(self) -> u8 {
-        use crate::layout::{G_SHIFT, BITS5_MASK};
-        ((self.0 >> G_SHIFT) & BITS5_MASK) as u8
-    }
-
-    /// Witness palette slot (6-bit, 0..=63). 0 = no witness.
-    /// Same v1-provenance caveat as g_slot().
+    /// Witness corpus root handle (6-bit, 0..=63). 0 = no corpus anchor.
+    /// WARNING: GARBAGE for non-zero v1 edges (bits 53-58 were temporal MSBs in v1).
+    /// Use version gate before calling on edges of unknown provenance.
+    /// CausalEdge64::ZERO -> 0 (correct default: no corpus).
     #[inline(always)]
     pub fn w_slot(self) -> u8 {
         use crate::layout::{W_SHIFT, BITS6_MASK};
         ((self.0 >> W_SHIFT) & BITS6_MASK) as u8
     }
 
+    /// Inference mantissa: 4-bit signed i4, range −8..+7.
+    /// sign = chain direction (+ = forward, − = backward); abs = base rule index.
+    /// See §"Signed Mantissa Rationale" for the full encoding table.
+    #[inline(always)]
+    pub fn inference_mantissa(self) -> i8 {
+        use crate::layout::{INFER_SHIFT, BITS4_MASK};
+        let raw = ((self.0 >> INFER_SHIFT) & BITS4_MASK) as u8;
+        // sign-extend 4-bit unsigned to i8
+        if raw & 0x8 != 0 { (raw | 0xF0) as i8 } else { raw as i8 }
+    }
+
+    /// Chain direction extracted from mantissa sign: 1 (forward), -1 (backward), 0 (neutral).
+    #[inline(always)]
+    pub fn inference_direction(self) -> i8 {
+        let m = self.inference_mantissa();
+        if m > 0 { 1 } else if m < 0 { -1 } else { 0 }
+    }
+
+    /// Base rule index (0..7) extracted from mantissa magnitude.
+    #[inline(always)]
+    pub fn inference_rule_index(self) -> u8 {
+        self.inference_mantissa().unsigned_abs() & 0x7
+    }
+
     /// Truth band as TrustTexture (2-bit). Returns Crystalline for ZERO edges.
-    /// WARNING: v1 edges with temporal >= 512 may read as Solid/Fuzzy/Murky.
-    /// Bits 57-58 were temporal MSBs in v1 — high-temporal v1 edges appear
-    /// contradicted in v2. Version gate required.
+    /// WARNING: v1 edges with temporal >= 128 may read as Solid/Fuzzy/Murky.
+    /// Bits 59-60 were temporal bits 7-8 in v1. Version gate required.
     #[inline(always)]
     pub fn truth(self) -> crate::layout::TrustTexture {
         use crate::layout::{TRUTH_SHIFT, BITS2_MASK, TrustTexture};
@@ -328,14 +482,6 @@ impl CausalEdge64 {
     }
 
     // ── Builder-Shape Setters (functional update, returns Self) ─────────────
-
-    /// Return new edge with G slot set. debug_assert!(g <= 31).
-    #[inline]
-    pub fn with_g_slot(self, g: u8) -> Self {
-        use crate::layout::{G_SHIFT, BITS5_MASK, G_MASK};
-        debug_assert!(g <= 31, "g_slot must fit 5 bits (0..=31), got {g}");
-        Self((self.0 & !G_MASK) | (((g as u64) & BITS5_MASK) << G_SHIFT))
-    }
 
     /// Return new edge with W slot set. debug_assert!(w <= 63).
     #[inline]
@@ -352,27 +498,28 @@ impl CausalEdge64 {
         Self((self.0 & !TRUTH_MASK) | ((t.to_bits_2() as u64 & BITS2_MASK) << TRUTH_SHIFT))
     }
 
-    /// Set G + W + truth in one mask-and-or (hot-path emit operation).
-    /// Used by MailboxSoA::dispatch_cycle() when stamping routing onto emissions.
+    /// Return new edge with signed inference mantissa set. Range −8..+7.
     #[inline]
-    pub fn with_routing(self, g: u8, w: u8, t: crate::layout::TrustTexture) -> Self {
-        use crate::layout::{G_SHIFT, W_SHIFT, TRUTH_SHIFT, BITS5_MASK, BITS6_MASK, BITS2_MASK,
-                            G_MASK, W_MASK, TRUTH_MASK};
-        debug_assert!(g <= 31 && w <= 63, "g ({g}) or w ({w}) out of range");
-        let routing = ((g as u64 & BITS5_MASK) << G_SHIFT)
-            | ((w as u64 & BITS6_MASK) << W_SHIFT)
+    pub fn with_inference_mantissa(self, m: i8) -> Self {
+        use crate::layout::{INFER_SHIFT, BITS4_MASK, INFER_MASK};
+        debug_assert!((-8..=7).contains(&m), "mantissa must be −8..+7, got {m}");
+        let raw = (m as u8) & 0xF;
+        Self((self.0 & !INFER_MASK) | ((raw as u64 & BITS4_MASK) << INFER_SHIFT))
+    }
+
+    /// Set W + truth in one mask-and-or (hot-path emit operation).
+    /// Used by MailboxSoA::dispatch_cycle() when stamping routing onto emissions.
+    /// NOTE: No `g` parameter — G-slot is absent in v2 layout (L-3).
+    #[inline]
+    pub fn with_routing(self, w: u8, t: crate::layout::TrustTexture) -> Self {
+        use crate::layout::{W_SHIFT, TRUTH_SHIFT, BITS6_MASK, BITS2_MASK, W_MASK, TRUTH_MASK};
+        debug_assert!(w <= 63, "w ({w}) out of range");
+        let routing = ((w as u64 & BITS6_MASK) << W_SHIFT)
             | ((t.to_bits_2() as u64 & BITS2_MASK) << TRUTH_SHIFT);
-        Self((self.0 & !(G_MASK | W_MASK | TRUTH_MASK)) | routing)
+        Self((self.0 & !(W_MASK | TRUTH_MASK)) | routing)
     }
 
     // ── Mutating Setters (hot-path, &mut self) ──────────────────────────────
-
-    #[inline]
-    pub fn set_g_slot(&mut self, g: u8) {
-        use crate::layout::{G_SHIFT, BITS5_MASK, G_MASK};
-        debug_assert!(g <= 31);
-        self.0 = (self.0 & !G_MASK) | (((g as u64) & BITS5_MASK) << G_SHIFT);
-    }
 
     #[inline]
     pub fn set_w_slot(&mut self, w: u8) {
@@ -386,19 +533,29 @@ impl CausalEdge64 {
         use crate::layout::{TRUTH_SHIFT, BITS2_MASK, TRUTH_MASK};
         self.0 = (self.0 & !TRUTH_MASK) | ((t.to_bits_2() as u64 & BITS2_MASK) << TRUTH_SHIFT);
     }
+
+    #[inline]
+    pub fn set_inference_mantissa(&mut self, m: i8) {
+        use crate::layout::{INFER_SHIFT, BITS4_MASK, INFER_MASK};
+        debug_assert!((-8..=7).contains(&m));
+        let raw = (m as u8) & 0xF;
+        self.0 = (self.0 & !INFER_MASK) | ((raw as u64 & BITS4_MASK) << INFER_SHIFT);
+    }
 }
 
 // v1 stub accessors (feature off) — return safe zero/Crystalline defaults
 #[cfg(not(feature = "causal-edge-v2-layout"))]
 impl CausalEdge64 {
-    #[inline(always)] pub fn g_slot(self) -> u8 { 0 }
     #[inline(always)] pub fn w_slot(self) -> u8 { 0 }
+    #[inline(always)] pub fn inference_mantissa(self) -> i8 { 0 }
+    #[inline(always)] pub fn inference_direction(self) -> i8 { 0 }
+    #[inline(always)] pub fn inference_rule_index(self) -> u8 { 0 }
     #[inline(always)] pub fn truth(self) -> TrustTexture { TrustTexture::Crystalline }
     #[inline(always)] pub fn truth_raw(self) -> u8 { 0 }
-    #[inline] pub fn with_g_slot(self, _g: u8) -> Self { self }
     #[inline] pub fn with_w_slot(self, _w: u8) -> Self { self }
     #[inline] pub fn with_truth(self, _t: TrustTexture) -> Self { self }
-    #[inline] pub fn with_routing(self, _g: u8, _w: u8, _t: TrustTexture) -> Self { self }
+    #[inline] pub fn with_inference_mantissa(self, _m: i8) -> Self { self }
+    #[inline] pub fn with_routing(self, _w: u8, _t: TrustTexture) -> Self { self }
 }
 ```
 
@@ -418,9 +575,11 @@ repository = "https://github.com/AdaWorldAPI/lance-graph"
 [features]
 default = ["causal-edge-v2-layout"]
 
-# v2 layout: G(5-bit OGIT domain slot) + W(6-bit witness slot) + truth(2-bit TrustTexture)
-# carved from reclaimed bits per causaledge64-mailbox-rename-soa-v1.md §3 (Option C ratified).
-# Off -> v1 accessor stubs return zeros (unrouted, no witness, Crystalline default).
+# v2 layout (Option F, locked 2026-05-16 by cognitive-substrate-convergence-v1.md §6):
+#   - Drop temporal(12b); expand inference 3b unsigned -> 4b signed i4; add W(6b)+truth(2b)+spare(3b)
+#   - G-slot NOT present (L-3: redundant via palette family-prefix + SoA partition + witness corpus)
+#   - mantissa sign = chain direction; abs(mantissa) = NARS base rule index (0..7)
+# Off -> v1 accessor stubs return zeros (no corpus, Crystalline, neutral mantissa).
 # Default = ON for all new builds. Opt-out for downstream compat:
 #   causal-edge = { path = "...", default-features = false }
 causal-edge-v2-layout = []
@@ -448,22 +607,20 @@ OQ-PAL8-FORMAT (see §11).
 
 **Byte-level analysis (assuming PAL8 bytes 0-7 = CausalEdge64 raw u64, little-endian):**
 
-The reclaimed bits land at these byte positions:
-- G slot (bits 46-50): bit 46-47 in byte 5 (bits 6-7), bits 48-50 in byte 6 (bits 0-2)
-- W slot (bits 51-56): bits 51-55 in byte 6 (bits 3-7), bit 56 in byte 7 bit 0
-- truth (bits 57-58): byte 7 bits 1-2
-- spare (bits 59-63): byte 7 bits 3-7
+The reclaimed bits land at these byte positions (Option F layout):
+- Mantissa bits 46-49: byte 5 bits 6-7 + byte 6 bits 0-1
+- Plasticity bits 50-52: byte 6 bits 2-4
+- W slot (bits 53-58): byte 6 bits 5-7 + byte 7 bits 0-2
+- truth (bits 59-60): byte 7 bits 3-4
+- spare (bits 61-63): byte 7 bits 5-7
 
 **v1 compat guarantee for CausalEdge64::ZERO edges:**
-If a v1 PAL8 file stores a zero-default edge, then g_slot()=0, w_slot()=0, truth()=Crystalline.
+If a v1 PAL8 file stores a zero-default edge, then w_slot()=0, truth()=Crystalline, mantissa=0.
 Correct defaults. Round-trip safe.
 
 **v1 compat HAZARD for non-zero v1 edges:**
-v1 InferenceType in bits 46-48 is NOT zero in general (Deduction=0, Induction=1, Abduction=2, ...).
-A v1 edge with InferenceType=Abduction(2) reads g_slot()=2 in v2 — NOT unrouted. GARBAGE.
-
-v1 temporal in bits 52-63: temporal=1024 (0x400) has bit 58=1 -> truth()=Fuzzy in v2. WRONG.
-v1 temporal=4095 reads truth()=Murky. This is the most dangerous hazard.
+v1 temporal in bits 52-63: temporal=128 (0x80) has bit 59=1 -> truth()=Solid/Fuzzy in v2. WRONG.
+v1 temporal=4095 reads truth()=Murky, w_slot()=garbage. This is the most dangerous hazard.
 
 **Required mitigation:** Version byte in PAL8 header to distinguish v1 from v2. W3 must implement.
 Gate merge of PR-CE64-MB-2 on W3's regression spec landing first.
@@ -497,42 +654,39 @@ p64-bridge::STYLES binary codebook format: unchanged.
 
 ## §7 Per-Method Semantics and Edge Cases
 
-### g_slot(self) -> u8
-
-- Returns 5-bit OGIT domain slot, 0..=31. 0 = "unrouted."
-- CausalEdge64::ZERO: returns 0 (correct: unrouted default).
-- v2-written edge: returns the value stamped by with_g_slot() or set_g_slot().
-- v1-written non-zero edge: GARBAGE. Bits 46-50 were InferenceType(3) + Plasticity_low(2). May be
-  any value 0..=31. Callers MUST apply a version gate before interpreting g_slot() on edges of
-  unknown provenance.
-- Atomicity: 64-bit load of self.0 is atomic on x86_64 and ARM64. No locking for single-edge reads.
-
 ### w_slot(self) -> u8
 
-- Same edge-case semantics as g_slot(). Returns 0 for ZERO edges. GARBAGE for non-zero v1 edges.
-- 6-bit range (0..=63). 0 = "no witness."
+- Returns 6-bit corpus root handle, 0..=63. 0 = "no corpus anchor."
+- CausalEdge64::ZERO: returns 0 (correct: no corpus).
+- v2-written edge: returns the value stamped by with_w_slot() or set_w_slot().
+- v1-written non-zero edge: GARBAGE. Bits 53-58 were temporal MSBs in v1.
+  Callers MUST apply a version gate before interpreting w_slot() on edges of unknown provenance.
+- Atomicity: 64-bit load of self.0 is atomic on x86_64 and ARM64. No locking for single-edge reads.
+
+### inference_mantissa(self) -> i8
+
+- Returns signed i4 in range −8..+7. Zero = neutral/identity (no NARS rule applied).
+- `signum()` = chain direction: + = forward-chain, − = backward-chain.
+- `unsigned_abs() & 0x7` = base rule index (see §"Signed Mantissa Rationale" table).
+- CausalEdge64::ZERO: returns 0 (neutral, correct default for bare SPO assertions).
+- v1 compat: bits 46-48 held 3-bit unsigned InferenceType; sign-extends cleanly to +0..+7.
+  v1 edges read as forward-direction with the original rule index. Zero regression for v1 readers
+  that only consumed positive mantissa values.
 
 ### truth(self) -> TrustTexture
 
-- Returns TrustTexture::Crystalline for CausalEdge64::ZERO (bits 57-58 = 00).
-- Most dangerous v1 hazard: bits 57-58 were temporal MSBs. v1 edges with temporal >= 512 (0x200)
-  have bit 57=1 -> reads Solid or higher. v1 edges with temporal >= 1024 (0x400) have bit 58=1
-  -> reads Fuzzy or Murky. A v1 edge with high temporal (= well-established history) appears
-  contradicted in v2. This is the worst false-positive.
+- Returns TrustTexture::Crystalline for CausalEdge64::ZERO (bits 59-60 = 00).
+- Most dangerous v1 hazard: bits 59-60 were temporal bits 7-8. v1 edges with temporal >= 128
+  (0x80) have bit 59=1 -> reads Solid or higher. A v1 edge with high temporal (= well-established
+  history) appears contradicted in v2. This is the worst false-positive.
 
-### with_g_slot(self, g: u8) -> Self
+### with_routing(self, w, t) -> Self
 
-- Builder pattern: returns new CausalEdge64 with G slot set, all other fields preserved.
-- debug_assert!(g <= 31) fires in debug on overflow; release silently masks to 5 bits.
-- Composable: edge.with_g_slot(5).with_w_slot(12).with_truth(TrustTexture::Solid).
-- Prefer with_routing() in hot-path code (single mask-and-or vs three sequential operations).
-
-### with_routing(self, g, w, t) -> Self
-
-- Single mask-and-or for all three routing fields. Hot-path emit for MailboxSoA::dispatch_cycle().
-- Used when a compartment knows its G slot (AttentionMask::lookup_g()), W slot
-  (AttentionMask::lookup_w()), and truth band (current MUL gate state).
+- Single mask-and-or for W slot and truth band. Hot-path emit for MailboxSoA::dispatch_cycle().
+- NOTE: No `g` parameter — G-slot is absent in v2 (L-3: redundant via palette family-prefix).
+- Used when a compartment knows its W slot (corpus handle) and truth band (MUL gate state).
 - v1 fields (S, P, O, freq, conf, causal, dir) are preserved unchanged.
+- Composable: `edge.with_routing(12, TrustTexture::Solid).with_inference_mantissa(-1)`.
 
 ---
 
@@ -635,7 +789,7 @@ Covered by test_size_unchanged. Confirm [CausalEdge64; 8] = 64 bytes = one cache
 | Risk | Severity | Likelihood | Mitigation |
 |---|---|---|---|
 | PAL8 version gate missing: v2 reads v1 PAL8 and returns garbage G/W/truth | HIGH | HIGH (v1 files have non-zero infer/plast/temporal by design) | Gate merge on W3's regression. Add PAL8 version byte before any v2 files are written. |
-| Option C not ratified: plan author selects different strategy, bit positions change | HIGH | MEDIUM (plan §3 and actual code do not match; adjudication required) | Implementation blocked on OQ-LAYOUT-1. Do not start until resolved. |
+| OQ-LAYOUT-1 resolved as Option F: G-slot dropped; mantissa 4b signed; W+truth+spare added | LOW | RESOLVED | cognitive-substrate-convergence-v1.md §6 locks the layout. Implementation may proceed. |
 | forward() reads InferenceType from bits 46-48 which are now G slot bits | HIGH | HIGH (forward() uses self.inference_type() that reads bits 46-48) | forward() must accept explicit InferenceType param. Scoped into PR-CE64-MB-2 or follow-on. |
 | NarsTables LUT key shift: if bits 46-51 used as LUT keys anywhere not found in survey | MEDIUM | LOW (survey found no such usage; keys are freq/conf only) | W3 regression + grep for V1_INFER_SHIFT/V1_PLAST_SHIFT usage across all crates |
 | inference_type() callers break when bits reclaimed | MEDIUM | MEDIUM (used in forward() and network.rs) | Deprecation markers + migration guide |
@@ -645,9 +799,10 @@ Covered by test_size_unchanged. Confirm [CausalEdge64; 8] = 64 bytes = one cache
 
 ## §11 Open Questions for Meta-Review
 
-**OQ-LAYOUT-1 (BLOCKER):** Parent plan §3 "current CausalEdge64 layout" does not match edge.rs.
-Which reclaim strategy (Options A-E in §0) does the plan author ratify? Spec recommends Option C.
-If another option is selected, bit positions in §2 change. Implementation cannot start until resolved.
+**OQ-LAYOUT-1 (RESOLVED 2026-05-16):** Ratified as Option F — drop temporal(12), expand inference
+3b unsigned → 4b signed i4, add W(6)+truth-band-lens(2)+spare(3), DROP G-slot entirely. Locked by
+cognitive-substrate-convergence-v1.md §6 (decisions L-2, L-3, L-4, L-6, L-7). Implementation may
+proceed. No further adjudication needed.
 
 **OQ-PAL8-FORMAT (BLOCKER for W3):** The 4101-byte PAL8 serialization implementation was NOT found
 in crates/causal-edge/ during code survey. Is PAL8 serialization already shipped elsewhere, or is
@@ -674,25 +829,32 @@ Parent plan §3 settles: G(5) + W(6) + truth(2) = 13 bits from "reserved 13 bits
 This spec's implementation-side delta:
 
 1. **Critical finding:** There are NO reserved bits in the shipped code. Reclaim requires dropping
-   InferenceType + PlasticityState + temporal. Option C recommended.
+   temporal(12 bits). Option F drops temporal, expands inference mantissa to 4b signed i4, adds W(6)
+   + truth-band-lens(2) + spare(3). G-slot NOT added (L-3).
 
-2. **Exact bit positions (Option C):** G=bits 46-50 (G_SHIFT=46), W=bits 51-56 (W_SHIFT=51),
-   truth=bits 57-58 (TRUTH_SHIFT=57), spare=bits 59-63 (SPARE_SHIFT=59).
+2. **Exact bit positions (Option F RATIFIED):** Mantissa=bits 46-49 (INFER_SHIFT=46, 4b signed),
+   Plasticity=bits 50-52 (PLAST_SHIFT=50, shifted by 1), W=bits 53-58 (W_SHIFT=53),
+   truth=bits 59-60 (TRUTH_SHIFT=59), spare=bits 61-63 (SPARE_SHIFT=61).
 
 3. **Backward compat is more fragile than plan §3 suggests:** v1 PAL8 files with non-zero temporal
-   will produce wrong truth band values in v2 reads. A version gate is mandatory.
+   will produce wrong truth band and W-slot values in v2 reads. A version gate is mandatory.
 
-4. **Three v1 fields deprecated** (not "reserved"): InferenceType, PlasticityState, temporal —
-   each formally deprecated with migration notes to AttentionMask, MailboxSoA, AriGraph.
+4. **Three v1 fields changed** (not "reserved"): temporal DROPPED; InferenceType EXPANDED to 4b
+   signed; PlasticityState SHIFTED to bits 50-52. Each formally deprecated/noted with migration
+   notes to AriGraph, signed-mantissa dispatch, and MailboxSoA.
 
 5. **forward() requires refactor:** Core hot-path composition method uses InferenceType from the
    edge; must accept it as an explicit parameter after the bit reclaim.
 
-6. **5 spare bits:** Plan §3 does not account for these. Bits 59-63 reserved for future use
-   (compartment generation counter, ghost-edge flag, style-cluster high bits).
+6. **3 spare bits:** Bits 61-63 reserved for future use (Rubicon-commit marker, Markov-decay-rate
+   quantum, I-NOISE-FLOOR-JIRAK threshold). NOT pre-allocated.
 
 7. **causal-edge version bump:** 0.1.0 to 0.2.0 (minor version; layout-breaking for non-zero v1
    edges; SEMVER-compatible for ZERO-edge callers).
+
+8. **Counterfactual is causal_mask=0b111, NOT a separate bit:** Per L-5 and §"Counterfactual via
+   causal_mask". PR-LL-1 Counterfactual variant lands at mantissa −6 (magnitude slot 6, backward
+   direction). No Pearl-3 modifier bit needed or correct.
 
 ---
 
@@ -702,10 +864,11 @@ This spec's implementation-side delta:
   W3 must audit PAL8 format for version-gate (OQ-PAL8-FORMAT). Both specs must be reviewed together.
 - **W1** (par-tile-crate): TrustTexture in par-tile AttentionMask should import from
   causal_edge::layout::TrustTexture (not contract) to keep the chain unambiguous.
-- **W4** (bindspace-efgh): BindSpaceView reads G/W/truth from EdgeColumn CausalEdge64 entries.
-  Must wait for PR-CE64-MB-2 to land first.
-- **W6** (mailbox-soa-attentionmask): MailboxSoA::dispatch_cycle() uses with_routing() to stamp
-  G/W/truth onto emissions. Must wait for PR-CE64-MB-2.
-- **Meta-reviewer (Opus):** Flag OQ-LAYOUT-1 as the sole critical implementation blocker.
-  OQ-FORWARD-REFACTOR as a secondary risk that may expand scope. All other OQs are
-  implementation-detail decisions resolvable during PR review.
+- **W4** (bindspace-efgh): BindSpaceView reads W/truth from EdgeColumn CausalEdge64 entries.
+  Must wait for PR-CE64-MB-2 to land first. Note: no G-slot in v2 layout.
+- **W6** (mailbox-soa-attentionmask): MailboxSoA::dispatch_cycle() uses with_routing(w, t) to stamp
+  W/truth onto emissions. Must wait for PR-CE64-MB-2. Note: with_routing signature changed (no `g`
+  parameter in v2; G-slot dropped per L-3).
+- **Meta-reviewer (Opus):** OQ-LAYOUT-1 is RESOLVED. OQ-FORWARD-REFACTOR is the primary remaining
+  risk that may expand scope. All other OQs are implementation-detail decisions resolvable during
+  PR review.
