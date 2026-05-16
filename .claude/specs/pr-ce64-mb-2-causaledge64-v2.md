@@ -1,16 +1,20 @@
 # PR-CE64-MB-2 — CausalEdge64 v2 Layout Extension Spec
 
-> **Status:** Draft — sprint-log-10 W2 deliverable
+> **Status:** Draft — sprint-log-10 W2 deliverable; **PATCHED 2026-05-16 per cognitive-substrate-convergence-v1.md** (plan §6 locks final v2 layout; OQ-LAYOUT-1 resolved)
 > **PR scope:** `crates/causal-edge/` in-place layout extension; ~400 LOC
 > **Parent plan:** `.claude/plans/causaledge64-mailbox-rename-soa-v1.md` §3 (primary) + §2 (truth-band lens collapse)
+> **Authoritative layout anchor:** `.claude/plans/cognitive-substrate-convergence-v1.md` §6 (SUPERSEDES parent plan §3 for bit layout)
 > **Worker:** W2 (causaledge64-v2), Sonnet, sprint-log-10
 > **Date:** 2026-05-14
+> **Patched:** 2026-05-16 (sprint-10 specs patch for cognitive-substrate-convergence-v1; OQ-LAYOUT-1 resolved)
 > **Depends on:** PR-CE64-MB-1 (par-tile crate apex) — must land first so TrustTexture reference type is available
-> **Blocks:** PR-CE64-MB-5 (MailboxSoA + AttentionMaskActor wiring, which reads G/W/truth from CausalEdge64)
+> **Blocks:** PR-CE64-MB-5 (MailboxSoA + AttentionMaskActor wiring, which reads W/truth from CausalEdge64)
 
 ---
 
 ## §0 Critical Finding — Actual vs. Plan §3 "Current" Layout Discrepancy
+
+> **RESOLUTION (2026-05-16):** OQ-LAYOUT-1 is **RESOLVED**. The cognitive-substrate-convergence-v1.md plan (§6) locks the final v2 bit layout. The recommended path is the **i4-signed-mantissa + drop-temporal + drop-G-slot** option — NOT Option C as originally recommended here. See §2 (updated) for the ratified layout and §"Signed Mantissa Rationale" for the encoding rationale. Implementation may proceed on the locked layout.
 
 **Before any implementation begins, this discrepancy must be resolved with the plan author.**
 
@@ -58,20 +62,18 @@ to be a design-phase layout that was never implemented as written. The actual sh
 
 **Resolution options (requires plan-author sign-off before implementation):**
 
-| Option | Strategy | Net bit delta | Risk |
-|---|---|---|---|
-| A | Compress temporal 12 to 4 bits; move absolute cycle to AriGraph SPO-G quad | Frees 8 bits; still need 5 more | HIGH |
-| B | Replace direction(3) + inference(3) with G(5)+W(6) | Frees 6 bits; still need 7 more | HIGH |
-| C (RECOMMENDED) | Drop temporal(12) to AriGraph; repurpose plasticity(3) for truth(2)+spare(1); G(5)+W(6) in freed 15 bits | Frees 15 bits, uses 13+2 spare | MEDIUM |
-| D | Extend to CausalEdge128 (two u64) | No reclaim needed | HIGH for EdgeColumn |
-| E | Complex split across dir+infer+plast | Complex mapping | HIGH |
+| Option | Strategy | Net bit delta | Risk | Status |
+|---|---|---|---|---|
+| A | Compress temporal 12 to 4 bits; move absolute cycle to AriGraph SPO-G quad | Frees 8 bits; still need 5 more | HIGH | Rejected |
+| B | Replace direction(3) + inference(3) with G(5)+W(6) | Frees 6 bits; still need 7 more | HIGH | Rejected |
+| C | Drop temporal(12) to AriGraph; repurpose plasticity(3) for truth(2)+spare(1); G(5)+W(6) in freed 15 bits | Frees 15 bits, uses 13+2 spare | MEDIUM | Rejected (G-slot dropped per L-3) |
+| D | Extend to CausalEdge128 (two u64) | No reclaim needed | HIGH for EdgeColumn | Rejected |
+| E | Complex split across dir+infer+plast | Complex mapping | HIGH | Rejected |
+| **F (RATIFIED)** | **Drop temporal(12); expand inference 3→4b SIGNED (i4); add W(6)+truth-band-lens(2)+spare(3); DROP G-slot entirely** | **Frees 12b; spends 10b; 3b spare** | **LOW** | **LOCKED by cognitive-substrate-convergence-v1.md §6** |
 
-**Option C is recommended.** Drop the 12-bit local temporal entirely (move to AriGraph SPO-G quad per
-plan §5 E-CE64-MB-3). Repurpose plasticity(3) as truth(2) + 1 spare; add G(5) + W(6) in the freed
-12+3=15 bits. This is backward-compatible for CausalEdge64::ZERO edges.
+**Option F is ratified** per cognitive-substrate-convergence-v1.md §6 (locked decisions L-2, L-3, L-4, L-6, L-7). Key changes from original Option C: (1) G-slot DROPPED (L-3: redundant via palette family-prefix + SoA partition + witness corpus root); (2) Inference mantissa EXPANDED to 4-bit SIGNED i4 (L-4: direction × NARS rule composition); (3) Truth-band lens 2b and W-slot 6b retained; (4) 3-bit spare for sprint-12+ headroom.
 
-**BLOCKER:** This discrepancy must be resolved before implementation. Sections below are drafted
-assuming Option C. If plan author selects a different option, the bit positions in §2 must be updated.
+**OQ-LAYOUT-1: RESOLVED.** See cognitive-substrate-convergence-v1.md §6 for the authoritative layout table. Implementation proceeds on Option F (§2 below reflects the locked layout).
 
 ---
 
@@ -82,73 +84,99 @@ rename, no version suffix. The struct name CausalEdge64 is canonical; "v2" refer
 extension, not the type.
 
 **Binary contract:** A CausalEdge64 written by a v1 binary reads correctly by a v2 binary when the
-new fields (G, W, truth) were zero in the v1-written value. For CausalEdge64::ZERO edges:
-g_slot()=0, w_slot()=0, truth()=Crystalline — the correct "unrouted, no witness, fully trusted"
-defaults. For non-zero v1 edges, the reclaimed bits will read garbage unless a version gate is
-applied (see §6.1).
+new fields (W, truth-band-lens, mantissa) were zero in the v1-written value. For CausalEdge64::ZERO
+edges: w_slot()=0, truth_lens()=0 (Crystalline), mantissa=0 — the correct "no witness, fully
+trusted, neutral inference" defaults. For non-zero v1 edges, the reclaimed bits will read garbage
+unless a version gate is applied (see §6.1).
 
-**Net bit allocation (assuming Option C is ratified):**
+**Net bit allocation (Option F — RATIFIED per cognitive-substrate-convergence-v1.md §6):**
 
 ```
 Total bits: 64
-v1 fields kept:     S(8)+P(8)+O(8)+freq(8)+conf(8)+causal(3)+dir(3) = 46 bits
-v1 fields dropped:  infer(3)+plasticity(3)+temporal(12) = 18 bits freed
-v2 new fields:      G(5)+W(6)+truth(2)+spare(5) = 18 bits consumed
-Net change:         0 (still 64 bits, no overflow)
+v1 fields kept:        S(8)+P(8)+O(8)+freq(8)+conf(8)+causal(3)+dir(3)+plasticity(3) = 49 bits
+v1 fields dropped:     temporal(12) = 12 bits freed
+v1 fields EXPANDED:    inference 3b unsigned → 4b SIGNED (net +1 bit consumed)
+v2 new fields:         W(6)+truth-band-lens(2)+spare(3) = 11 bits consumed
+Reclaim arithmetic:    12 freed − 1 (mantissa expand) − 6 (W) − 2 (lens) = 3 spare
+Net change:            0 (still 64 bits, zero unused)
 ```
 
-**Architectural rationale for each dropped field:**
-- InferenceType (3 bits, bits 46-48): subsumed by style-slot routing via AttentionMask. Inference
-  type belongs in the session-ephemeral rename table, not in every edge.
-- PlasticityState (3 bits, bits 49-51): subsumed by MailboxSoA::plasticity_counters column —
-  plasticity lives at compartment granularity, not per-edge.
-- temporal (12 bits, bits 52-63): subsumed by AriGraph SPO-G quad temporal annotation. "AriGraph IS
-  the long-term memory" (plan §3 E-CE64-MB-3). Local temporal moves to AriGraph.
+**Architectural rationale for each changed field:**
+- InferenceType 3b → 4b signed i4 (bits 46-49): EXPANDED, not dropped. Direction × NARS rule
+  composition: sign bit = forward (+) vs backward (−) chain; magnitude = base rule index (0..7).
+  Per cognitive-substrate-convergence-v1.md L-4. See §"Signed Mantissa Rationale".
+- PlasticityState (3 bits, bits 50-52): RETAINED. Per L-8: plasticity is load-bearing dispatch
+  payload; relocation costs extra Zone-1 lookup per cycle. (Bit positions shift by 1 due to mantissa
+  expansion.)
+- temporal (12 bits, bits 52-63 in v1): DROPPED. Covered by chain-position in SpoWitnessChain +
+  AriGraph Triplet.timestamp. "Temporal causality is structural" doctrine (L-2).
+- G-slot (5 bits, was proposed in Option C): NOT ADDED. Per L-3: three-way redundant via SoA
+  partition (tenant), witness corpus root (belief), palette family-prefix (ontology).
+- W-slot (6 bits, bits 53-58): NEW. Discourse corpus root handle; 64 active corpora. Per L-6.
+- Truth-band lens (2 bits, bits 59-60): NEW. 4 lens states incl. "13% ambiguous direction". Per L-7.
+- Spare (3 bits, bits 61-63): NEW. Reserved for sprint-12+ probe headroom (Rubicon-commit marker,
+  Markov-decay-rate quantum, or I-NOISE-FLOOR-JIRAK threshold storage).
 
 ---
 
-## §2 Bit-Layout Diagram — v2 Proposed (Option C)
+## §2 Bit-Layout Diagram — v2 Final (Option F — LOCKED per cognitive-substrate-convergence-v1.md §6)
 
-Cite: parent plan §3 proposed v2 column + implementation-side delta from code survey.
+> **OQ-LAYOUT-1: RESOLVED.** The layout below is the authoritative v2 bit assignment. Source of truth: cognitive-substrate-convergence-v1.md §6. No further adjudication needed.
 
 ```
 v2 CausalEdge64 bit layout (LSB = bit 0, MSB = bit 63):
 
-bit  63..59   58..57   56..51   50..46   45..43   42..40   39..32   31..24   23..16  15..8    7..0
-     +-------+--------+--------+--------+--------+--------+--------+--------+--------+-------+--------+
-     |spare  |truth   |W slot  |G slot  |dir     |causal  |conf    |freq    |O idx   |P idx  |S idx   |
-     |5 bits |2 bits  |6 bits  |5 bits  |3 bits  |3 bits  |8 bits  |8 bits  |8 bits  |8 bits |8 bits  |
-     +-------+--------+--------+--------+--------+--------+--------+--------+--------+-------+--------+
+[ 0:  7]  S palette index           u8       (256 subject archetypes)
+[ 8: 15]  P palette index           u8       (256 predicate archetypes)
+[16: 23]  O palette index           u8       (256 object archetypes)
+[24: 31]  NARS frequency            u8       (f = val/255)
+[32: 39]  NARS confidence           u8       (c = val/255)
+[40: 42]  Causal mask               3b       (Pearl 2³ — IS the rung axis; 0b111=SPO=Counterfactual)
+[43: 45]  Direction triad           3b       (sign(palette[idx].dim0) per S/P/O)
+[46: 49]  Inference mantissa        4b s     (−8..+7 signed — direction × NARS rule; see §"Signed Mantissa Rationale")
+[50: 52]  Plasticity flags          3b       (hot/cold per S/P/O plane)
+[53: 58]  W slot                    6b       ← NEW: corpus root handle (64 active corpora)
+[59: 60]  Truth-band lens           2b       ← NEW: 4 lens states (Crystalline/Solid/Fuzzy/Murky)
+[61: 63]  Spare                     3b       ← reserved headroom for sprint-12+
+                                    ───
+                                    64b      zero unused
 ```
 
-**Exact field positions (v2, Option C):**
+**Exact field positions (v2 FINAL — Option F):**
 
-| bits  | field          | count | shift | reclaimed? |
-|-------|----------------|-------|-------|------------|
-| 0-7   | S palette idx  | 8 b   | 0     | no         |
-| 8-15  | P palette idx  | 8 b   | 8     | no         |
-| 16-23 | O palette idx  | 8 b   | 16    | no         |
-| 24-31 | NARS frequency | 8 b   | 24    | no         |
-| 32-39 | NARS confidence| 8 b   | 32    | no         |
-| 40-42 | Causal mask    | 3 b   | 40    | no         |
-| 43-45 | Direction triad| 3 b   | 43    | no         |
-| 46-50 | G slot         | 5 b   | 46    | YES (from infer+plast low) |
-| 51-56 | W slot         | 6 b   | 51    | YES (from temporal low)    |
-| 57-58 | truth band     | 2 b   | 57    | YES (from temporal mid)    |
-| 59-63 | spare          | 5 b   | 59    | YES (from temporal MSBs)   |
+| bits  | field              | count | shift | change from v1         |
+|-------|--------------------|-------|-------|------------------------|
+| 0-7   | S palette idx      | 8 b   | 0     | unchanged              |
+| 8-15  | P palette idx      | 8 b   | 8     | unchanged              |
+| 16-23 | O palette idx      | 8 b   | 16    | unchanged              |
+| 24-31 | NARS frequency     | 8 b   | 24    | unchanged              |
+| 32-39 | NARS confidence    | 8 b   | 32    | unchanged              |
+| 40-42 | Causal mask        | 3 b   | 40    | unchanged              |
+| 43-45 | Direction triad    | 3 b   | 43    | unchanged              |
+| 46-49 | Inference mantissa | 4 b s | 46    | EXPANDED: 3b unsigned → 4b signed i4 (−8..+7) |
+| 50-52 | Plasticity flags   | 3 b   | 50    | SHIFTED by 1 (was 49-51 in v1) |
+| 53-58 | W slot             | 6 b   | 53    | NEW: corpus root handle |
+| 59-60 | Truth-band lens    | 2 b   | 59    | NEW: TrustTexture 4-state |
+| 61-63 | Spare              | 3 b   | 61    | NEW: reserved           |
 
-**Sum check:** 8+8+8+8+8+3+3+5+6+2+5 = 64 bits. Verified.
+**Sum check:** 8+8+8+8+8+3+3+4+3+6+2+3 = 64 bits. Verified.
+
+**Reclaim arithmetic (L-2, L-3, L-4, L-6, L-7):** Drop temporal(12 bits freed) → Inference mantissa expand +1, Plasticity shift 0, W-slot +6, truth-band-lens +2 = 9 bits spent + 3 spare. G-slot NOT added (L-3: redundant via SoA partition + palette family-prefix + witness corpus root).
 
 ---
 
 ## §3 Bit-Shift Constants Module (crates/causal-edge/src/layout.rs)
 
-New file. All shift constants, masks, TrustTexture enum, and the const_assert guard live here.
+New file. All shift constants, masks, InferenceMantissa type, TrustTexture enum, and the
+const_assert guard live here. Updated to reflect the FINAL v2 layout (Option F, locked by
+cognitive-substrate-convergence-v1.md §6). G-slot is NOT present (L-3).
 
 ```rust
-//! CausalEdge64 v2 layout constants.
+//! CausalEdge64 v2 layout constants — FINAL (Option F, locked 2026-05-16).
 //!
-//! Cite: causaledge64-mailbox-rename-soa-v1.md §3 + pr-ce64-mb-2-causaledge64-v2.md §2.
+//! Cite: cognitive-substrate-convergence-v1.md §6 (authoritative bit layout)
+//!       + pr-ce64-mb-2-causaledge64-v2.md §2 (implementation contract).
+//! OQ-LAYOUT-1: RESOLVED. G-slot dropped (L-3). Mantissa = 4b signed i4 (L-4).
 
 // v1 fields preserved (shifts unchanged from v1)
 pub const S_SHIFT:      u32 = 0;
@@ -159,52 +187,57 @@ pub const CONF_SHIFT:   u32 = 32;
 pub const CAUSAL_SHIFT: u32 = 40;
 pub const DIR_SHIFT:    u32 = 43;
 
-// v1 fields DEPRECATED (renamed V1_ for PAL8 decode cross-reference)
-#[deprecated(since = "0.2.0", note = "bits 46-48 reclaimed for G slot; use AttentionMask style routing")]
-pub const V1_INFER_SHIFT: u32 = 46;
-#[deprecated(since = "0.2.0", note = "bits 49-51 reclaimed for G slot high bits; use MailboxSoA::plasticity_counters")]
-pub const V1_PLAST_SHIFT: u32 = 49;
-#[deprecated(since = "0.2.0", note = "bits 52-63 reclaimed for W/truth/spare; use AriGraph SPO-G temporal")]
+// v1→v2 EXPANDED field (3b unsigned → 4b signed i4; shift unchanged at 46)
+/// Inference mantissa: 4-bit signed (−8..+7). sign = direction; |val| = NARS base rule index.
+/// Encodes direction × NARS rule in one field. See §"Signed Mantissa Rationale".
+/// sign = forward/backward chain direction; magnitude = base rule (Deduction=1..Reserved=7).
+pub const INFER_SHIFT:  u32 = 46;
+pub const BITS4_MASK:   u64 = 0xF;   // 4-bit unsigned mask for pack/unpack of signed i4
+pub const INFER_MASK:   u64 = BITS4_MASK << INFER_SHIFT;
+
+// v1 fields SHIFTED (plasticity: was bits 49-51 in v1, now bits 50-52 due to mantissa +1)
+pub const PLAST_SHIFT:  u32 = 50;
+
+// v1 field DEPRECATED
+#[deprecated(since = "0.2.0", note = "bits 52-63 reclaimed for W/truth/spare + mantissa expansion; time is structural (chain-position + AriGraph Triplet.timestamp)")]
 pub const V1_TEMPORAL_SHIFT: u32 = 52;
 
-// v2 new fields (reclaimed from infer + plast + temporal)
-/// 5-bit OGIT domain slot (0..=31). 0 = unrouted.
-pub const G_SHIFT:     u32 = 46;
-/// 6-bit witness palette slot (0..=63). 0 = no witness.
-pub const W_SHIFT:     u32 = 51;
-/// 2-bit truth band (TrustTexture ordinal). 0 = Crystalline (fully trusted).
-pub const TRUTH_SHIFT: u32 = 57;
-/// 5-bit spare — reserved for future use (e.g., compartment generation, ghost-edge flag).
-pub const SPARE_SHIFT: u32 = 59;
+// v2 NEW fields (reclaimed from dropped temporal 12 bits)
+/// 6-bit witness corpus root handle (0..=63). 0 = no corpus anchor. Per L-6.
+pub const W_SHIFT:      u32 = 53;
+/// 2-bit truth-band lens (TrustTexture ordinal). 0 = Crystalline. Per L-7.
+pub const TRUTH_SHIFT:  u32 = 59;
+/// 3-bit spare — reserved for sprint-12+ (Rubicon-commit marker, Markov-decay quantum,
+/// or I-NOISE-FLOOR-JIRAK threshold). Per §6 reclaim arithmetic.
+pub const SPARE_SHIFT:  u32 = 61;
 
-// Masks
+// Common masks
 pub const BYTE_MASK:  u64 = 0xFF;
 pub const BITS3_MASK: u64 = 0x7;
-pub const BITS5_MASK: u64 = 0x1F;
 pub const BITS6_MASK: u64 = 0x3F;
 pub const BITS2_MASK: u64 = 0x3;
-pub const BITS12_MASK:u64 = 0xFFF;
 
-pub const G_MASK:     u64 = BITS5_MASK << G_SHIFT;
-pub const W_MASK:     u64 = BITS6_MASK << W_SHIFT;
-pub const TRUTH_MASK: u64 = BITS2_MASK << TRUTH_SHIFT;
-pub const SPARE_MASK: u64 = BITS5_MASK << SPARE_SHIFT;
+pub const PLAST_MASK:  u64 = BITS3_MASK << PLAST_SHIFT;
+pub const W_MASK:      u64 = BITS6_MASK << W_SHIFT;
+pub const TRUTH_MASK:  u64 = BITS2_MASK << TRUTH_SHIFT;
+pub const SPARE_MASK:  u64 = BITS3_MASK << SPARE_SHIFT;
 
 // Const-assert: all 64 bits covered exactly once.
 // If this fails at compile time, the layout is inconsistent.
 const _LAYOUT_COVERAGE: () = {
-    let all: u64 = (BYTE_MASK << S_SHIFT)
-        | (BYTE_MASK << P_SHIFT)
-        | (BYTE_MASK << O_SHIFT)
-        | (BYTE_MASK << FREQ_SHIFT)
-        | (BYTE_MASK << CONF_SHIFT)
+    let all: u64 = (BYTE_MASK  << S_SHIFT)
+        | (BYTE_MASK  << P_SHIFT)
+        | (BYTE_MASK  << O_SHIFT)
+        | (BYTE_MASK  << FREQ_SHIFT)
+        | (BYTE_MASK  << CONF_SHIFT)
         | (BITS3_MASK << CAUSAL_SHIFT)
         | (BITS3_MASK << DIR_SHIFT)
-        | (BITS5_MASK << G_SHIFT)
-        | (BITS6_MASK << W_SHIFT)
-        | (BITS2_MASK << TRUTH_SHIFT)
-        | (BITS5_MASK << SPARE_SHIFT);
-    // 8+8+8+8+8+3+3+5+6+2+5 = 64
+        | (BITS4_MASK << INFER_SHIFT)  // 4b signed mantissa
+        | (BITS3_MASK << PLAST_SHIFT)  // plasticity shifted to 50-52
+        | (BITS6_MASK << W_SHIFT)      // W slot 53-58
+        | (BITS2_MASK << TRUTH_SHIFT)  // truth-band lens 59-60
+        | (BITS3_MASK << SPARE_SHIFT); // spare 61-63
+    // 8+8+8+8+8+3+3+4+3+6+2+3 = 64
     assert!(all == u64::MAX, "CausalEdge64 v2 bit layout must cover all 64 bits exactly once");
 };
 

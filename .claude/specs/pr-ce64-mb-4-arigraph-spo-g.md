@@ -1,14 +1,17 @@
-# PR-CE64-MB-4 — AriGraph SPO-G Quad Upgrade + Ghost-Edge Persistence + SpoWitnessChain
+# PR-CE64-MB-4 — AriGraph SPO-G Quad Upgrade + Ghost-Edge Persistence + WitnessCorpus
 
-> **Status:** Spec (2026-05-14) — sprint-log-10 W5 output
-> **Scope deliverable:** D-OGIT-G-1 (SPO-G quad) + ghost-edge persistence + SpoWitness64 + SpoWitnessChain<N>
+> **Status:** Spec (2026-05-14; patched 2026-05-16 per cognitive-substrate-convergence-v1.md) — sprint-log-10 W5 output
+> **Scope deliverable:** D-OGIT-G-1 (SPO-G quad) + ghost-edge persistence + SpoWitness64 + WitnessCorpus (CAM-PQ-indexed, replaces SpoWitnessChain<32>)
 > **Parent plan:** `.claude/plans/causaledge64-mailbox-rename-soa-v1.md` §6 (lance-graph::arigraph row) + §7 (PR-CE64-MB-4 entry)
+> **Architectural anchor:** `.claude/plans/cognitive-substrate-convergence-v1.md` §5 L-16, L-17 · §6 W-slot · §11 D-CSV-6 · §12 (W5 patch row)
 > **Primary references:**
 > - `.claude/plans/ogit-g-context-bundle-v1.md` §D-OGIT-G-1 — SPO-G u32 slot spec
 > - `.claude/plans/oxigraph-arigraph-cognitive-shader-soa-merge-v1.md` §1 §2 §3 §8 §9
+> - `.claude/knowledge/spo-ontology-format-stack.md` — CAM-PQ codec context; WitnessCorpus indexing
 > **Depends on:** PR-CE64-MB-1 (par-tile crate apex); can land in parallel with PR-CE64-MB-2 + PR-CE64-MB-3
-> **LOC estimate:** ~600 LOC
+> **LOC estimate:** ~900 LOC (was ~600; +~300 for WitnessCorpus design per cognitive-substrate-convergence-v1.md §12)
 > **Iron rules:** I-SUBSTRATE-MARKOV preserved · I-VSA-IDENTITIES preserved · I-NOISE-FLOOR-JIRAK noted
+> **New invariant added:** W5-INV-CHAIN-ORDER (see §3A)
 
 ---
 
@@ -32,15 +35,23 @@ parent-supervisor edges.
    Pearl rung 3 (counterfactual) or 7 (full-cf). Ghosts persist FOREVER in AriGraph;
    only the `AttentionMask` hot-slot evicts.
 
-3. **`SpoWitness64`** — u64 packed, Copy, 8 bytes. Peer mailbox edges.
+3. **`SpoWitness64`** — u64 packed, Copy, 8 bytes. Each witness becomes a corpus row in
+   `WitnessCorpus` (per L-17 of cognitive-substrate-convergence-v1.md).
 
-4. **`SpoWitnessChain<N>`** — `Box<[SpoWitness64; N]>` (default N=32). Parent-supervisor
-   + AriGraph commit edges.
+4. **`WitnessCorpus`** — CAM-PQ-indexed (via `ndarray::hpc::cam_pq`), unbounded, with
+   salience-decay eviction. Replaces the bounded `SpoWitnessChain<32>` linked-list which
+   does not scale to discourse-level reasoning (per plan L-17). Indexed lookup in ≤50 µs
+   at 1M corpus entries (D-CSV-6 benchmark target).
 
 **Out of scope for this PR:**
 - 5-bit G hot-slot in CausalEdge64 (PR-CE64-MB-2)
 - AttentionMask rename lookups (PR-CE64-MB-5)
 - SigmaTierRouter dispatch (PR-CE64-MB-6)
+
+> **NOTE (2026-05-16 patch):** `SpoWitnessChain<32>` is **retired** by this patch and replaced
+> throughout by `WitnessCorpus`. See §3A (WitnessCorpus design), §3B (W-slot semantics in
+> CausalEdge64 v2), and invariant `W5-INV-CHAIN-ORDER` below. Deliverable for `WitnessCorpus`
+> implementation is D-CSV-6 per `.claude/plans/cognitive-substrate-convergence-v1.md` §11.
 
 ---
 
@@ -86,8 +97,9 @@ pub struct Triplet {
     /// Pearl causal rung (0-7). 3 = counterfactual ghost; 7 = full-cf ghost.
     pub pearl_rung: u8,
     /// Witness reference (FNV-1a hash of (G, S_hash, P_hash, O_hash)).
-    /// 0 = no witness. Points into WitnessChainStore.
-    /// Per oxigraph-arigraph-cognitive-shader-soa-merge-v1.md §2 line ~150.
+    /// 0 = no witness. Points into WitnessCorpus (CAM-PQ-indexed, unbounded).
+    /// Per cognitive-substrate-convergence-v1.md L-17 + oxigraph-arigraph-cognitive-
+    /// shader-soa-merge-v1.md §2 line ~150.
     pub witness_ref: u64,
 }
 ```
