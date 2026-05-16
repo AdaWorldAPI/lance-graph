@@ -400,6 +400,69 @@ identities, not content.
 
 ---
 
+#### I-LEGACY-API-FEATURE-GATED (iron rule, added 2026-05-16)
+
+**Every v1 API path under a v2-layout feature must transparently route
+through the canonical mapping OR be feature-gated to a documented
+no-op with a migration pointer.**
+
+The anti-pattern: leaving a v1 accessor or setter that reads/writes the
+OLD bit positions under a v2 feature that reclaimed those bits. The same
+function name silently produces different semantics depending on which
+feature is active, and downstream callers see corruption only at runtime
+on workloads that hit the reclaim zone.
+
+Sprint-11 caught this anti-pattern **5 times** via codex review:
+
+1. `CausalEdge64::pack(..., temporal=X)` under v2 writing `temporal << 52`
+   into bits 52-63 which v2 reclaimed for plasticity[2] + W-slot + lens
+   + spare. Fix: feature-gate the temporal write to no-op under v2.
+2. `CausalEdge64::inference_type()` reading 3 unsigned bits 46-48 under
+   v2 where the actual storage is 4-bit signed mantissa at 46-49. Fix:
+   route through `from_mantissa(inference_mantissa())` under v2.
+3. `CausalEdge64::set_temporal()` writing bits 52-63 unconditionally
+   even under v2 (where those bits are W/lens/spare). Fix: feature-gate
+   the entire setter to a documented no-op under v2.
+4. `CausalEdge64::pack(..., InferenceType::Counterfactual, ...)` under
+   v2 writing the raw enum discriminant (6) into the mantissa field;
+   `inference_mantissa()` reads it as +6 → `from_mantissa(+6)` decodes
+   as Intervention (not Counterfactual). Fix: write
+   `inference.to_mantissa()` (-6 for Counterfactual) instead of the raw
+   discriminant under v2.
+5. W3 spec test `pal8_v1_v2_round_trip_zero_default` used `temporal=1023`
+   to construct a v1 edge; under v2 those bits aliased W/truth/spare and
+   the test would fail on ordinary v1 data. Fix: use `temporal=0` (the
+   only safe v1 migration value) for the round-trip and add a paired
+   `pal8_v1_nonzero_temporal_is_blocked_by_version_gate` test to assert
+   the corruption is observable (the version gate is mandatory).
+
+Consequences:
+
+- **Backward-compat shims for layout-breaking changes require
+  systematic test coverage of the layout-bit boundary.** Field-isolation
+  matrix tests (writing each field, asserting all other fields unchanged)
+  are MANDATORY when a layout reclaims previously-used bits.
+- **The same function name MUST NOT silently produce different
+  semantics under different feature flags.** If the v1 API can't route
+  to the v2 canonical mapping, feature-gate it to a no-op AND add a
+  doc-comment migration pointer to the v2 successor (e.g.
+  `inference_mantissa()`, `pack_v2()`).
+- **Layout reclaim must be paired with a version gate on serialization
+  paths.** A v1 binary blob under a v2 reader MUST refuse to decode
+  without an explicit version byte (otherwise the bit aliases silently
+  corrupt the reclaim zone).
+- **The codex P1 review is the canonical pre-merge gate for this
+  pattern.** When a PR ships v2-feature work, expect codex to flag any
+  v1 accessor that hasn't been routed through the canonical mapping.
+  Resolve before merge; don't defer.
+
+Cross-ref: `EPIPHANIES.md` E-META-10 (the original finding);
+`.claude/knowledge/i4-substrate-decisions.md` (the 5-instance catalogue);
+`.claude/board/sprint-log-11/meta-review-opus.md` CSI-2 (Opus's
+identification of the systemic pattern across Wave A).
+
+---
+
 ## Session Start — MANDATORY READS (in this order)
 
 **Start here:** `.claude/BOOT.md` — the one-page session entry point.

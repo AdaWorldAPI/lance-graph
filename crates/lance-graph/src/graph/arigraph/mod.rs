@@ -15,4 +15,4 @@ pub mod triplet_graph;
 pub mod witness_corpus;
 pub mod xai_client;
 
-pub use witness_corpus::{CamPqIndexPlaceholder, WitnessCorpus, WitnessEntry, WitnessId};
+pub use witness_corpus::{WitnessCorpus, WitnessEntry, WitnessId, WitnessIndexHashMap};

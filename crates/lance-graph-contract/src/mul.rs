@@ -624,6 +624,77 @@ pub mod i4_eval {
         }
     }
 
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Batch evaluation API — D-CSV-13 (sprint-12)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Batch evaluation API for D-CSV-13.
+    /// Processes N (qualia, mantissa) pairs in one call. Shape is SIMD-friendly:
+    /// outputs are produced into pre-allocated `&mut [T]` buffers parallel to the
+    /// inputs. Sprint-13+ replaces the scalar inner loop with AVX-512 i4 lane
+    /// intrinsics; the API surface defined here is the contract that vectorization
+    /// targets.
+    pub mod batch {
+        use super::*;
+
+        /// Batch DK position: `qualia.len() == mantissas.len() == out.len()` must hold.
+        /// Each output is the result of `dk_position_i4(qualia[i], mantissas[i])`.
+        /// Panics on length mismatch.
+        pub fn dk_position_batch(qualia: &[QualiaI4_16D], mantissas: &[i8], out: &mut [DkPosition]) {
+            assert_eq!(qualia.len(), mantissas.len(), "qualia/mantissas length mismatch");
+            assert_eq!(qualia.len(), out.len(), "input/output length mismatch");
+            for i in 0..qualia.len() {
+                out[i] = dk_position_i4(&qualia[i], mantissas[i]);
+            }
+        }
+
+        /// Batch TrustTexture (qualia-only): for each qualia, compute trust_texture_i4.
+        pub fn trust_texture_batch(qualia: &[QualiaI4_16D], out: &mut [TrustTexture]) {
+            assert_eq!(qualia.len(), out.len());
+            for i in 0..qualia.len() {
+                out[i] = trust_texture_i4(&qualia[i]);
+            }
+        }
+
+        /// Batch FlowState: parallel arrays of qualia + mantissas → flow states.
+        pub fn flow_state_batch(qualia: &[QualiaI4_16D], mantissas: &[i8], out: &mut [FlowState]) {
+            assert_eq!(qualia.len(), mantissas.len());
+            assert_eq!(qualia.len(), out.len());
+            for i in 0..qualia.len() {
+                out[i] = flow_state_i4(&qualia[i], mantissas[i]);
+            }
+        }
+
+        /// Batch GateDecision.
+        pub fn gate_decision_batch(qualia: &[QualiaI4_16D], mantissas: &[i8], out: &mut [GateDecision]) {
+            assert_eq!(qualia.len(), mantissas.len());
+            assert_eq!(qualia.len(), out.len());
+            for i in 0..qualia.len() {
+                out[i] = gate_decision_i4(&qualia[i], mantissas[i]);
+            }
+        }
+
+        /// Batch MulAssessment: the full pipeline.
+        pub fn mul_assess_batch(qualia: &[QualiaI4_16D], mantissas: &[i8], out: &mut [MulAssessment]) {
+            assert_eq!(qualia.len(), mantissas.len());
+            assert_eq!(qualia.len(), out.len());
+            for i in 0..qualia.len() {
+                out[i] = mul_assess_i4(&qualia[i], mantissas[i]);
+            }
+        }
+
+        /// Convenience: allocate the output Vec and return it (for non-hot-path callers).
+        pub fn mul_assess_vec(qualia: &[QualiaI4_16D], mantissas: &[i8]) -> Vec<MulAssessment> {
+            assert_eq!(qualia.len(), mantissas.len());
+            let mut out = Vec::with_capacity(qualia.len());
+            for i in 0..qualia.len() {
+                out.push(mul_assess_i4(&qualia[i], mantissas[i]));
+            }
+            out
+        }
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
     // Tests
     // ═══════════════════════════════════════════════════════════════════════
@@ -769,6 +840,154 @@ pub mod i4_eval {
             assert!(mul.free_will_modifier >= 0.0 && mul.free_will_modifier <= 1.0);
             // Trust value must be > 0.0 (even uncertain has 0.20 floor)
             assert!(mul.trust.value > 0.0);
+        }
+
+        // ── Batch API tests (D-CSV-13) ────────────────────────────────────
+
+        /// Helper: generate N deterministic qualia + mantissa pairs.
+        fn make_batch(n: usize) -> (Vec<QualiaI4_16D>, Vec<i8>) {
+            let pairs: &[(usize, i8, i8)] = &[
+                // (dim_coherence, set_val, mantissa)
+                (9, 7, 5),
+                (9, 5, 4),
+                (9, 3, 3),
+                (9, 2, 2),
+                (9, 0, 2),
+                (9, -1, 1),
+                (9, -3, -2),
+                (9, -5, -4),
+                (9, 6, 0),
+                (9, 1, -1),
+            ];
+            let mut qualia = Vec::with_capacity(n);
+            let mut mantissas = Vec::with_capacity(n);
+            for i in 0..n {
+                let (dim, coh, mant) = pairs[i % pairs.len()];
+                qualia.push(QualiaI4_16D::ZERO.with(dim, coh));
+                mantissas.push(mant);
+            }
+            (qualia, mantissas)
+        }
+
+        #[test]
+        fn test_dk_position_batch_matches_scalar() {
+            let (qualia, mantissas) = make_batch(10);
+            let mut out = vec![DkPosition::MountStupid; 10];
+            batch::dk_position_batch(&qualia, &mantissas, &mut out);
+            for (i, (q, &m)) in qualia.iter().zip(mantissas.iter()).enumerate() {
+                assert_eq!(out[i], dk_position_i4(q, m), "mismatch at index {}", i);
+            }
+        }
+
+        #[test]
+        fn test_trust_texture_batch_matches_scalar() {
+            let (qualia, _) = make_batch(10);
+            let mut out = vec![TrustTexture::Uncertain; 10];
+            batch::trust_texture_batch(&qualia, &mut out);
+            for (i, q) in qualia.iter().enumerate() {
+                assert_eq!(out[i], trust_texture_i4(q), "mismatch at index {}", i);
+            }
+        }
+
+        #[test]
+        fn test_flow_state_batch_matches_scalar() {
+            let (qualia, mantissas) = make_batch(10);
+            let mut out = vec![FlowState::Boredom; 10];
+            batch::flow_state_batch(&qualia, &mantissas, &mut out);
+            for (i, (q, &m)) in qualia.iter().zip(mantissas.iter()).enumerate() {
+                assert_eq!(out[i], flow_state_i4(q, m), "mismatch at index {}", i);
+            }
+        }
+
+        #[test]
+        fn test_gate_decision_batch_matches_scalar() {
+            let (qualia, mantissas) = make_batch(10);
+            let mut out: Vec<GateDecision> = (0..10).map(|_| GateDecision::Flow).collect();
+            batch::gate_decision_batch(&qualia, &mantissas, &mut out);
+            for (i, (q, &m)) in qualia.iter().zip(mantissas.iter()).enumerate() {
+                let scalar = gate_decision_i4(q, m);
+                // Compare discriminant since GateDecision carries String fields
+                assert!(
+                    matches_gate_discriminant(&out[i], &scalar),
+                    "gate decision discriminant mismatch at index {}: batch={:?} scalar={:?}",
+                    i, out[i], scalar
+                );
+            }
+        }
+
+        fn matches_gate_discriminant(a: &GateDecision, b: &GateDecision) -> bool {
+            matches!((a, b),
+                (GateDecision::Flow, GateDecision::Flow)
+                | (GateDecision::Hold { .. }, GateDecision::Hold { .. })
+                | (GateDecision::Block { .. }, GateDecision::Block { .. })
+            )
+        }
+
+        #[test]
+        fn test_mul_assess_batch_matches_scalar() {
+            let (qualia, mantissas) = make_batch(10);
+            let mut out: Vec<MulAssessment> = (0..10)
+                .map(|_| mul_assess_i4(&QualiaI4_16D::ZERO, 0))
+                .collect();
+            batch::mul_assess_batch(&qualia, &mantissas, &mut out);
+            for (i, (q, &m)) in qualia.iter().zip(mantissas.iter()).enumerate() {
+                let scalar = mul_assess_i4(q, m);
+                assert_eq!(out[i].dk_position, scalar.dk_position, "dk_position mismatch at {}", i);
+                assert_eq!(out[i].trust.texture, scalar.trust.texture, "trust.texture mismatch at {}", i);
+                assert_eq!(out[i].homeostasis.flow_state, scalar.homeostasis.flow_state, "flow_state mismatch at {}", i);
+                assert!((out[i].free_will_modifier - scalar.free_will_modifier).abs() < 1e-10,
+                    "free_will_modifier mismatch at {}", i);
+            }
+        }
+
+        #[test]
+        fn test_mul_assess_vec_allocates_correctly() {
+            let (qualia, mantissas) = make_batch(10);
+            let result = batch::mul_assess_vec(&qualia, &mantissas);
+            assert_eq!(result.len(), qualia.len(), "output length must equal input length");
+            for (i, (q, &m)) in qualia.iter().zip(mantissas.iter()).enumerate() {
+                let scalar = mul_assess_i4(q, m);
+                assert_eq!(result[i].dk_position, scalar.dk_position, "dk_position mismatch at {}", i);
+                assert_eq!(result[i].trust.texture, scalar.trust.texture, "trust.texture mismatch at {}", i);
+                assert_eq!(result[i].homeostasis.flow_state, scalar.homeostasis.flow_state, "flow_state mismatch at {}", i);
+            }
+        }
+
+        #[test]
+        fn test_batch_panic_on_length_mismatch() {
+            let qualia = vec![QualiaI4_16D::ZERO; 3];
+            let mantissas = vec![0i8; 2]; // intentional mismatch
+            let mut out = vec![DkPosition::MountStupid; 3];
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                batch::dk_position_batch(&qualia, &mantissas, &mut out);
+            }));
+            assert!(result.is_err(), "must panic on qualia/mantissas length mismatch");
+        }
+
+        #[test]
+        fn test_batch_empty_input_returns_empty_output() {
+            let qualia: Vec<QualiaI4_16D> = vec![];
+            let mantissas: Vec<i8> = vec![];
+            let mut out_dk: Vec<DkPosition> = vec![];
+            let mut out_tt: Vec<TrustTexture> = vec![];
+            let mut out_fs: Vec<FlowState> = vec![];
+            let mut out_gd: Vec<GateDecision> = vec![];
+            let mut out_ma: Vec<MulAssessment> = vec![];
+
+            // None of these should panic
+            batch::dk_position_batch(&qualia, &mantissas, &mut out_dk);
+            batch::trust_texture_batch(&qualia, &mut out_tt);
+            batch::flow_state_batch(&qualia, &mantissas, &mut out_fs);
+            batch::gate_decision_batch(&qualia, &mantissas, &mut out_gd);
+            batch::mul_assess_batch(&qualia, &mantissas, &mut out_ma);
+            let vec_result = batch::mul_assess_vec(&qualia, &mantissas);
+
+            assert_eq!(out_dk.len(), 0);
+            assert_eq!(out_tt.len(), 0);
+            assert_eq!(out_fs.len(), 0);
+            assert_eq!(out_gd.len(), 0);
+            assert_eq!(out_ma.len(), 0);
+            assert_eq!(vec_result.len(), 0);
         }
     }
 }
