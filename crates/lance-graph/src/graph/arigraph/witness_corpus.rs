@@ -629,7 +629,10 @@ mod tests {
         let timestamps: Vec<u64> = results.iter().map(|e| e.timestamp_ns).collect();
         let mut sorted = timestamps.clone();
         sorted.sort_unstable();
-        assert_eq!(timestamps, sorted, "W5-INV-CHAIN-ORDER: results must be in ASC order");
+        assert_eq!(
+            timestamps, sorted,
+            "W5-INV-CHAIN-ORDER: results must be in ASC order"
+        );
     }
 
     // ── New Test 5 ──────────────────────────────────────────────────────────
@@ -642,11 +645,36 @@ mod tests {
         let spo_b = 0xBBBB_u64;
 
         // 5 entries with timestamps 100-500
-        corpus.insert(WitnessEntry { spo: spo_a, timestamp_ns: 100, source_url: None, evidence_blob: Bytes::new() });
-        corpus.insert(WitnessEntry { spo: spo_b, timestamp_ns: 200, source_url: None, evidence_blob: Bytes::new() });
-        corpus.insert(WitnessEntry { spo: spo_a, timestamp_ns: 300, source_url: None, evidence_blob: Bytes::new() });
-        corpus.insert(WitnessEntry { spo: spo_b, timestamp_ns: 400, source_url: None, evidence_blob: Bytes::new() });
-        corpus.insert(WitnessEntry { spo: spo_a, timestamp_ns: 500, source_url: None, evidence_blob: Bytes::new() });
+        corpus.insert(WitnessEntry {
+            spo: spo_a,
+            timestamp_ns: 100,
+            source_url: None,
+            evidence_blob: Bytes::new(),
+        });
+        corpus.insert(WitnessEntry {
+            spo: spo_b,
+            timestamp_ns: 200,
+            source_url: None,
+            evidence_blob: Bytes::new(),
+        });
+        corpus.insert(WitnessEntry {
+            spo: spo_a,
+            timestamp_ns: 300,
+            source_url: None,
+            evidence_blob: Bytes::new(),
+        });
+        corpus.insert(WitnessEntry {
+            spo: spo_b,
+            timestamp_ns: 400,
+            source_url: None,
+            evidence_blob: Bytes::new(),
+        });
+        corpus.insert(WitnessEntry {
+            spo: spo_a,
+            timestamp_ns: 500,
+            source_url: None,
+            evidence_blob: Bytes::new(),
+        });
 
         // Evict entries with ts < 300 (removes ts=100, ts=200)
         let evicted = corpus.evict_stale_before(300);
@@ -655,7 +683,11 @@ mod tests {
 
         // spo_a: ts=300 and ts=500 remain
         let a_results: Vec<u64> = corpus.query(spo_a).map(|e| e.timestamp_ns).collect();
-        assert_eq!(a_results, vec![300, 500], "spo_a: ts=300 and ts=500 remain, in order");
+        assert_eq!(
+            a_results,
+            vec![300, 500],
+            "spo_a: ts=300 and ts=500 remain, in order"
+        );
 
         // spo_b: ts=400 remains
         let b_results: Vec<u64> = corpus.query(spo_b).map(|e| e.timestamp_ns).collect();
@@ -714,7 +746,11 @@ mod tests {
 
         // cam_pq_search with k=3: must return exactly 3 entries
         let results = corpus.cam_pq_search(spo, 3);
-        assert_eq!(results.len(), 3, "cam_pq_search must return exactly k=3 entries");
+        assert_eq!(
+            results.len(),
+            3,
+            "cam_pq_search must return exactly k=3 entries"
+        );
 
         // The 3 returned must be the first 3 in chain order (ts=10,20,30)
         let timestamps: Vec<u64> = results.iter().map(|e| e.timestamp_ns).collect();
@@ -722,10 +758,17 @@ mod tests {
 
         // k > total entries: returns all
         let all_results = corpus.cam_pq_search(spo, 100);
-        assert_eq!(all_results.len(), 10, "cam_pq_search(k>N) returns all N entries");
+        assert_eq!(
+            all_results.len(),
+            10,
+            "cam_pq_search(k>N) returns all N entries"
+        );
 
         // Unknown spo: returns empty
         let empty = corpus.cam_pq_search(0xDEAD, 5);
-        assert!(empty.is_empty(), "cam_pq_search on unknown spo returns empty");
+        assert!(
+            empty.is_empty(),
+            "cam_pq_search on unknown spo returns empty"
+        );
     }
 }
