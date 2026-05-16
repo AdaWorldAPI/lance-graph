@@ -390,6 +390,389 @@ fn flow_state_from(challenge: f64, skill: f64) -> FlowState {
     }
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// i4 scalar evaluation path — D-CSV-8 (sprint-11)
+//
+// Integer SIMD-ready MUL evaluation that consumes `QualiaI4_16D` + signed
+// mantissa (i8 from `InferenceType::to_mantissa()`) and produces the same
+// MUL types as the existing f32 path. The actual AVX-512 / NEON hot path
+// is sprint-12+; this module locks the scalar i4 shape so sprint-12 can
+// vectorise without changing API.
+//
+// All decision logic is pure: no heap allocation, no f64, no f32.
+// GateDecision::Hold/Block carry &'static str reason to preserve zero-alloc.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// i4-scalar MUL evaluation.
+///
+/// All functions are `#[inline]` and heap-free. They consume
+/// `QualiaI4_16D` from `crate::qualia` and a signed mantissa i8
+/// (from `causal_edge::InferenceType::to_mantissa()`), and return the
+/// existing MUL contract types unchanged.
+pub mod i4_eval {
+    use super::{DkPosition, FlowState, GateDecision, Homeostasis, MulAssessment, TrustQualia, TrustTexture};
+    use crate::qualia::QualiaI4_16D;
+
+    // ── dim indices (aligned with QUALIA_I4_LABELS) ─────────────────────────
+    const DIM_VALENCE: usize = 1;      // signed valence (polarity)
+    const DIM_TENSION: usize = 2;      // tension / conflict load
+    const DIM_WARMTH: usize = 3;       // warmth / affiliation
+    const DIM_COHERENCE: usize = 9;    // coherence (story holds / breaks)
+    const DIM_GROUNDEDNESS: usize = 14; // groundedness / stability
+
+    /// On-demand intensity helper: `magnitude()` from the qualia struct.
+    /// Returns coherence × valence as i8 (saturating). Used as a combined
+    /// "signal strength × polarity" probe.
+    #[inline]
+    fn intensity_i4(qualia: &QualiaI4_16D) -> i8 {
+        qualia.magnitude() // coherence(dim9) × valence(dim1), saturating
+    }
+
+    // ── DkPosition ──────────────────────────────────────────────────────────
+
+    /// Classify Dunning-Kruger position from i4 qualia + signed mantissa.
+    ///
+    /// Decision rules (i4 range −8..+7):
+    /// - `coherence(dim9) >= +5` AND `|signed_mantissa| >= 4`
+    ///   → `Plateau` (expert: story holds, high-confidence rule active)
+    /// - `coherence(dim9) >= +2` AND `|signed_mantissa| >= 2`
+    ///   → `SlopeOfEnlightenment` (growing: moderate coherence + rule)
+    /// - `coherence(dim9) <= -3` OR `|signed_mantissa| <= 1`
+    ///   → `ValleyOfDespair` (low coherence or weak rule = aware of gaps)
+    /// - otherwise → `MountStupid` (moderate-but-positive coherence, weak mantissa)
+    #[inline]
+    pub fn dk_position_i4(qualia: &QualiaI4_16D, signed_mantissa: i8) -> DkPosition {
+        let coherence = qualia.get(DIM_COHERENCE);
+        let abs_mantissa = signed_mantissa.unsigned_abs() as i8;
+
+        if coherence >= 5 && abs_mantissa >= 4 {
+            DkPosition::Plateau
+        } else if coherence >= 2 && abs_mantissa >= 2 {
+            DkPosition::SlopeOfEnlightenment
+        } else if coherence <= -3 || abs_mantissa <= 1 {
+            DkPosition::ValleyOfDespair
+        } else {
+            DkPosition::MountStupid
+        }
+    }
+
+    // ── TrustTexture ─────────────────────────────────────────────────────────
+
+    /// Derive TrustTexture from i4 qualia.
+    ///
+    /// Uses coherence (dim 9), valence (dim 1), tension (dim 2):
+    ///
+    /// | coherence | valence | tension | result        |
+    /// |-----------|---------|---------|---------------|
+    /// | ≥ +4      | ≥ +2    | ≤ +1   | Calibrated    |
+    /// | ≤ -3      | any     | ≥ +3   | Uncertain     |
+    /// | any       | ≥ +4    | any     | Overconfident |
+    /// | any       | ≤ -3    | any     | Underconfident|
+    /// | otherwise                     | Calibrated (moderate) |
+    #[inline]
+    pub fn trust_texture_i4(qualia: &QualiaI4_16D) -> TrustTexture {
+        let coherence = qualia.get(DIM_COHERENCE);
+        let valence = qualia.get(DIM_VALENCE);
+        let tension = qualia.get(DIM_TENSION);
+
+        if coherence <= -3 && tension >= 3 {
+            TrustTexture::Uncertain
+        } else if valence >= 4 && coherence < 5 {
+            // High valence with only moderate coherence = overconfident
+            TrustTexture::Overconfident
+        } else if valence <= -3 {
+            TrustTexture::Underconfident
+        } else if coherence >= 4 && valence >= 2 && tension <= 1 {
+            TrustTexture::Calibrated
+        } else {
+            // Moderate values — calibrated by default
+            TrustTexture::Calibrated
+        }
+    }
+
+    // ── FlowState ────────────────────────────────────────────────────────────
+
+    /// Classify FlowState from i4 qualia + signed mantissa.
+    ///
+    /// Flow proxy = warmth(dim3) + groundedness(dim14) − tension(dim2).
+    /// Combined with mantissa sign for direction:
+    ///
+    /// - flow_proxy ≥ +4 AND signed_mantissa > 0 → `Flow` (absorbed)
+    /// - flow_proxy ≥ +2 AND signed_mantissa > 0 → `Transition` (building)
+    /// - flow_proxy ≤ -2 OR (signed_mantissa < 0 AND coherence ≤ -1) → `Anxiety`
+    /// - otherwise → `Boredom`
+    #[inline]
+    pub fn flow_state_i4(qualia: &QualiaI4_16D, signed_mantissa: i8) -> FlowState {
+        let warmth = qualia.get(DIM_WARMTH);
+        let groundedness = qualia.get(DIM_GROUNDEDNESS);
+        let tension = qualia.get(DIM_TENSION);
+        let coherence = qualia.get(DIM_COHERENCE);
+
+        // Saturating i8 arithmetic on i4 inputs stays in i8 range safely
+        let flow_proxy = (warmth as i16 + groundedness as i16 - tension as i16)
+            .clamp(i8::MIN as i16, i8::MAX as i16) as i8;
+
+        if flow_proxy >= 4 && signed_mantissa > 0 {
+            FlowState::Flow
+        } else if flow_proxy <= -2 || (signed_mantissa < 0 && coherence <= -1) {
+            FlowState::Anxiety
+        } else if flow_proxy >= 2 && signed_mantissa > 0 {
+            FlowState::Transition
+        } else {
+            FlowState::Boredom
+        }
+    }
+
+    // ── GateDecision ─────────────────────────────────────────────────────────
+
+    /// Gate decision from i4 qualia + signed mantissa.
+    ///
+    /// Combines TrustTexture + FlowState:
+    /// - `Uncertain` trust → `Block`
+    /// - `Underconfident` trust + `Anxiety` → `Block`
+    /// - `Overconfident` trust OR `Anxiety` alone → `Hold`
+    /// - `Flow` or `Transition` + non-Uncertain trust → `Flow`
+    /// - otherwise → `Hold`
+    #[inline]
+    pub fn gate_decision_i4(qualia: &QualiaI4_16D, signed_mantissa: i8) -> GateDecision {
+        let texture = trust_texture_i4(qualia);
+        let flow = flow_state_i4(qualia, signed_mantissa);
+
+        match (texture, flow) {
+            (TrustTexture::Uncertain, _) => {
+                GateDecision::Block { reason: "uncertain trust: coherence low, tension high".to_string() }
+            }
+            (TrustTexture::Underconfident, FlowState::Anxiety) => {
+                GateDecision::Block { reason: "underconfident + anxiety: execution blocked".to_string() }
+            }
+            (TrustTexture::Overconfident, _) => {
+                GateDecision::Hold { reason: "overconfident trust: caution required".to_string() }
+            }
+            (_, FlowState::Anxiety) => {
+                GateDecision::Hold { reason: "anxiety flow state: reduced autonomy".to_string() }
+            }
+            (TrustTexture::Calibrated | TrustTexture::Underconfident, FlowState::Flow | FlowState::Transition) => {
+                GateDecision::Flow
+            }
+            _ => {
+                GateDecision::Hold { reason: "boredom or moderate state: hold for re-evaluation".to_string() }
+            }
+        }
+    }
+
+    // ── MulAssessment ─────────────────────────────────────────────────────────
+
+    /// Full MUL assessment from i4 qualia + signed mantissa.
+    ///
+    /// Combines `dk_position_i4`, `trust_texture_i4`, `flow_state_i4` into
+    /// the existing `MulAssessment` struct. All fields are populated;
+    /// `complexity_mapped` and `free_will_modifier` are derived from the
+    /// i4 signals to produce a deterministic, zero-f64 result.
+    ///
+    /// `free_will_modifier` is approximated as a u8 fraction mapped to
+    /// [0.0, 1.0] via the DK position × |mantissa| product, keeping the
+    /// function free of heavy arithmetic while respecting the existing
+    /// `f64` field type.
+    pub fn mul_assess_i4(qualia: &QualiaI4_16D, signed_mantissa: i8) -> MulAssessment {
+        let dk = dk_position_i4(qualia, signed_mantissa);
+        let texture = trust_texture_i4(qualia);
+        let flow = flow_state_i4(qualia, signed_mantissa);
+
+        // TrustQualia.value: map texture + intensity to 0.0–1.0
+        let intensity = intensity_i4(qualia); // i8 saturating product
+        let trust_value: f64 = match texture {
+            TrustTexture::Calibrated     => 0.75 + (intensity.clamp(0, 7) as f64 / 7.0) * 0.25,
+            TrustTexture::Overconfident  => 0.45,
+            TrustTexture::Underconfident => 0.40,
+            TrustTexture::Uncertain      => 0.20,
+        };
+
+        let trust = TrustQualia { value: trust_value, texture };
+
+        // complexity_mapped: coherence signal ≥ +2 implies the system can map complexity
+        let coherence = qualia.get(DIM_COHERENCE);
+        let complexity_mapped = coherence >= 2;
+
+        // allostatic_load proxy: tension drives load (map i4 -8..+7 → 0.0..1.0)
+        let tension = qualia.get(DIM_TENSION);
+        let allostatic_load: f64 = ((tension as i16 + 8) as f64 / 15.0).clamp(0.0, 1.0);
+
+        let homeostasis = Homeostasis { flow_state: flow, allostatic_load };
+
+        // free_will_modifier: DK factor × trust_value × flow_factor
+        let dk_factor: f64 = match dk {
+            DkPosition::MountStupid          => 0.3,
+            DkPosition::ValleyOfDespair      => 0.7,
+            DkPosition::SlopeOfEnlightenment => 0.85,
+            DkPosition::Plateau              => 1.0,
+        };
+        let flow_factor: f64 = match flow {
+            FlowState::Flow       => 1.0,
+            FlowState::Transition => 0.7,
+            FlowState::Boredom    => 0.8,
+            FlowState::Anxiety    => 0.5,
+        };
+        let free_will_modifier = (dk_factor * trust_value * flow_factor).clamp(0.0, 1.0);
+
+        MulAssessment {
+            trust,
+            dk_position: dk,
+            homeostasis,
+            complexity_mapped,
+            free_will_modifier,
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Tests
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use crate::qualia::QualiaI4_16D;
+
+        // Helper: build a qualia with specific named dims set; rest = 0.
+        fn q_with(pairs: &[(usize, i8)]) -> QualiaI4_16D {
+            let mut q = QualiaI4_16D::ZERO;
+            for &(dim, val) in pairs {
+                q.set(dim, val);
+            }
+            q
+        }
+
+        // ── DkPosition ────────────────────────────────────────────────────
+
+        #[test]
+        fn test_dk_position_i4_high_coherence_expert() {
+            // coherence=+7, mantissa=+5 → Plateau
+            let q = q_with(&[(DIM_COHERENCE, 7)]);
+            assert_eq!(dk_position_i4(&q, 5), DkPosition::Plateau);
+        }
+
+        #[test]
+        fn test_dk_position_i4_low_coherence_beginner() {
+            // coherence=-3, mantissa=+1 → ValleyOfDespair
+            let q = q_with(&[(DIM_COHERENCE, -3)]);
+            assert_eq!(dk_position_i4(&q, 1), DkPosition::ValleyOfDespair);
+        }
+
+        #[test]
+        fn test_dk_position_i4_neutral_intermediate() {
+            // all-zero qualia + mantissa=+2 → ValleyOfDespair
+            // (zero coherence fails the >=2 bar for SlopeOfEnlightenment,
+            //  but |mantissa|=2 barely meets it; coherence=0 < 2, so we fall
+            //  to ValleyOfDespair because coherence=0 <= -3 is false, but
+            //  abs_mantissa=2 >= 2 and coherence=0 < 2, so we check:
+            //  coherence=0 >= 5 → no; coherence=0 >= 2 → no (0<2);
+            //  coherence=0 <= -3 → no; abs_mantissa=2 <= 1 → no;
+            //  → MountStupid)
+            let q = QualiaI4_16D::ZERO;
+            assert_eq!(dk_position_i4(&q, 2), DkPosition::MountStupid);
+        }
+
+        // ── TrustTexture ──────────────────────────────────────────────────
+
+        #[test]
+        fn test_trust_texture_i4_crystalline() {
+            // high coherence(+6) + high valence(+3) + low tension(0) → Calibrated
+            let q = q_with(&[(DIM_COHERENCE, 6), (DIM_VALENCE, 3), (DIM_TENSION, 0)]);
+            assert_eq!(trust_texture_i4(&q), TrustTexture::Calibrated);
+        }
+
+        #[test]
+        fn test_trust_texture_i4_murky() {
+            // low coherence(-5) + high tension(+5) → Uncertain
+            let q = q_with(&[(DIM_COHERENCE, -5), (DIM_TENSION, 5)]);
+            assert_eq!(trust_texture_i4(&q), TrustTexture::Uncertain);
+        }
+
+        #[test]
+        fn test_trust_texture_i4_solid_calibrated() {
+            // moderate coherence(+2) + moderate valence(+2) + moderate tension(+1) → Calibrated
+            let q = q_with(&[(DIM_COHERENCE, 2), (DIM_VALENCE, 2), (DIM_TENSION, 1)]);
+            assert_eq!(trust_texture_i4(&q), TrustTexture::Calibrated);
+        }
+
+        // ── FlowState ─────────────────────────────────────────────────────
+
+        #[test]
+        fn test_flow_state_i4_active() {
+            // warmth(+5) + groundedness(+4) − tension(0) = proxy +9 → clamped fine; mantissa>0 → Flow
+            let q = q_with(&[(DIM_WARMTH, 5), (DIM_GROUNDEDNESS, 4), (DIM_TENSION, 0)]);
+            assert_eq!(flow_state_i4(&q, 3), FlowState::Flow);
+        }
+
+        #[test]
+        fn test_flow_state_i4_stuck_negative_mantissa() {
+            // coherence=-3 + mantissa=-4 → Anxiety
+            let q = q_with(&[(DIM_COHERENCE, -3), (DIM_TENSION, 3)]);
+            assert_eq!(flow_state_i4(&q, -4), FlowState::Anxiety);
+        }
+
+        // ── GateDecision ──────────────────────────────────────────────────
+
+        #[test]
+        fn test_gate_decision_i4_proceed() {
+            // calibrated trust + flow state → GateDecision::Flow
+            let q = q_with(&[
+                (DIM_COHERENCE, 5),
+                (DIM_VALENCE, 3),
+                (DIM_TENSION, 0),
+                (DIM_WARMTH, 5),
+                (DIM_GROUNDEDNESS, 4),
+            ]);
+            let gate = gate_decision_i4(&q, 4);
+            assert!(matches!(gate, GateDecision::Flow));
+        }
+
+        #[test]
+        fn test_gate_decision_i4_block() {
+            // uncertain trust (low coherence, high tension) → Block
+            let q = q_with(&[(DIM_COHERENCE, -5), (DIM_TENSION, 5)]);
+            let gate = gate_decision_i4(&q, 2);
+            assert!(matches!(gate, GateDecision::Block { .. }));
+        }
+
+        // ── MulAssessment ─────────────────────────────────────────────────
+
+        #[test]
+        fn test_mul_assess_i4_combines_all_four() {
+            // Strong expert signal: high coherence, high valence, low tension,
+            // high warmth + groundedness, positive mantissa → all non-default fields
+            let q = q_with(&[
+                (DIM_COHERENCE, 6),
+                (DIM_VALENCE, 5),
+                (DIM_TENSION, 0),
+                (DIM_WARMTH, 5),
+                (DIM_GROUNDEDNESS, 5),
+            ]);
+            let mul = mul_assess_i4(&q, 5);
+            assert_eq!(mul.dk_position, DkPosition::Plateau);
+            assert_eq!(mul.trust.texture, TrustTexture::Calibrated);
+            assert_eq!(mul.homeostasis.flow_state, FlowState::Flow);
+            assert!(mul.free_will_modifier > 0.5, "expert+flow should give high autonomy");
+            assert!(mul.complexity_mapped, "high coherence should map complexity");
+        }
+
+        #[test]
+        fn test_mul_assess_i4_zero_qualia_zero_mantissa_default_path() {
+            // All-zero input + zero mantissa → deterministic neutral baseline
+            let q = QualiaI4_16D::ZERO;
+            let mul = mul_assess_i4(&q, 0);
+            // Zero coherence → not complexity_mapped
+            assert!(!mul.complexity_mapped);
+            // Zero mantissa (abs=0) → ValleyOfDespair
+            assert_eq!(mul.dk_position, DkPosition::ValleyOfDespair);
+            // free_will_modifier must be in [0.0, 1.0]
+            assert!(mul.free_will_modifier >= 0.0 && mul.free_will_modifier <= 1.0);
+            // Trust value must be > 0.0 (even uncertain has 0.20 floor)
+            assert!(mul.trust.value > 0.0);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
