@@ -238,24 +238,17 @@ impl WitnessCorpus {
     /// Per W5-INV-CAM-PQ-INDEX: direct Vec iteration is forbidden in
     /// production paths.
     pub fn query(&self, spo: u64) -> impl Iterator<Item = &WitnessEntry> {
-        let positions = self.cam_pq_index.lookup(spo);
-        // positions are already in insertion order (which equals chain order
-        // because the index is rebuilt after every insert maintaining sorted vec).
-        // Collect to owned Vec so the borrow of positions does not outlive self.
-        let owned: Vec<usize> = positions.to_vec();
-        let entries_ptr: *const Vec<WitnessEntry> = &*self.entries;
-        // SAFETY: the Arc keeps entries alive for the lifetime of self;
-        // we return an iterator that borrows self implicitly via the closure.
-        // We use a safe alternative: collect positions and map through &self.entries.
-        // The `move` closure captures the owned Vec and the raw slice reference
-        // is avoided by re-borrowing through the owned positions list.
-        owned.into_iter().map(move |pos| {
-            // SAFETY: positions are always valid indices produced by rebuild_from_entries.
-            // They are only invalidated on the next insert/evict, after which the
-            // index is rebuilt. This iterator is consumed before the next mutation
-            // because &self is borrowed.
-            unsafe { &(*entries_ptr)[pos] }
-        })
+        // Collect positions to owned Vec so the borrow of cam_pq_index does not
+        // escape the iterator's lifetime — the index slice borrow ends here.
+        let positions: Vec<usize> = self.cam_pq_index.lookup(spo).to_vec();
+        // Map each position to a reference into self.entries. Positions are always
+        // valid: they are produced by rebuild_from_entries and only invalidated
+        // on the next insert/evict (which requires &mut self, preventing aliasing).
+        positions
+            .into_iter()
+            .map(|pos| &self.entries[pos])
+            .collect::<Vec<_>>()
+            .into_iter()
     }
 
     /// All entries in chain order (timestamp ASC).
