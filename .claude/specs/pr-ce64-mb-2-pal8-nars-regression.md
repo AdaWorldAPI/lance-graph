@@ -5,19 +5,26 @@
 > **Gates:** PR-CE64-MB-2 (W2's CausalEdge64 v2 layout merge). Both deliverable test suites MUST pass before the PR merges.
 > **Parent plan:** `.claude/plans/causaledge64-mailbox-rename-soa-v1.md` §3 compat invariants (invariants C1, C2, C3)
 > **W2 spec:** `.claude/specs/pr-ce64-mb-2-causaledge64-v2.md` — NOT yet produced when this spec was drafted. Bit-position references below cite §3 of the parent plan directly; W2's spec is the authoritative resolver for any discrepancy.
-> **Status:** Draft (2026-05-14)
+> **Status:** Draft — updated 2026-05-16 to reflect v2 bit layout locked by `.claude/plans/cognitive-substrate-convergence-v1.md` §6; OQ-PAL8-FORMAT resolved (see §10)
 
 ---
 
 ## §1 Test Purpose Statement
 
-These tests are **merge gates** for PR-CE64-MB-2, which extends `CausalEdge64` in-place by reclaiming bits from the reserved/reusable range to add three new fields:
+These tests are **merge gates** for PR-CE64-MB-2, which extends `CausalEdge64` in-place using the v2 bit layout locked by `cognitive-substrate-convergence-v1.md` §6 (decision L-2 through L-7). The v2 layout changes are:
 
-| Field | Bits (TBD per W2) | Reclaimed? |
-|-------|-------------------|-----------|
-| G slot (OGIT domain, 5-bit) | G_SHIFT..G_SHIFT+4 | YES |
-| W slot (witness role, 6-bit) | W_SHIFT..W_SHIFT+5 | YES |
-| truth band (TrustTexture, 2-bit) | TRUTH_SHIFT..TRUTH_SHIFT+1 | YES |
+| Field | v1 bits | v2 bits | Change |
+|-------|---------|---------|--------|
+| InferenceType | 46-48 (3b unsigned) | 46-49 (4b **signed** i4, −8..+7) | WIDENED + SIGN-EXTENDED |
+| Plasticity flags | 49-51 (3b) | 50-52 (3b) | SHIFTED by 1 bit |
+| Temporal index | 52-63 (12b) | **REMOVED** | DROPPED (L-2: now structural via chain-position) |
+| W slot (corpus root handle) | — | 53-58 (6b, 64 corpora) | NEW (L-6) |
+| Truth-band lens | — | 59-60 (2b, 4 states) | NEW (L-7) |
+| Spare | — | 61-63 (3b) | NEW reserved headroom |
+
+**Note on G slot:** G slot is NOT present in the v2 layout. Decision L-3 (cognitive-substrate-convergence-v1.md §5) dropped the G slot as 3-way redundant (tenant via SoA partition, belief via witness corpus root, ontology via palette family-prefix). Any test referencing `g_slot()` from the draft v1 spec must be removed or replaced.
+
+**Note on "PAL8" naming:** "PAL8" in this spec refers to the **u64 packed serialization form** of `CausalEdge64` (the 8-byte CausalEdge packed into a `u64` newtype). It is NOT a named Rust type — there is no `Pal8` struct in the codebase. The term appears in session knowledge at `crates/lance-graph-planner/.claude/knowledge/session_autocomplete_cache.md` to describe the 4101-byte serialized palette structure that contains CausalEdge64 values. Tests in §3 exercise the u64 round-trip properties of this packed representation.
 
 If either regression suite fails, the reclaim has broken downstream binary compatibility in one of three ways:
 
@@ -29,28 +36,50 @@ None of these are acceptable. The v2 layout extension is **in-place with zero ty
 
 ---
 
-## §2 Layout Reference (from parent plan §3 + edge.rs ground truth)
+## §2 Layout Reference (v2 — locked by cognitive-substrate-convergence-v1.md §6)
 
-**As-implemented layout in `crates/causal-edge/src/edge.rs`:**
+**AUTHORITATIVE v2 layout** (decisions L-2, L-4, L-6, L-7, L-8 from the plan):
 
 ```
-bits   field               shift const      notes
------  ------              -----------      -----
-0-7    S palette index     S_SHIFT=0        bgz17 archetype ID (u8)
-8-15   P palette index     P_SHIFT=8        same
-16-23  O palette index     O_SHIFT=16       same
-24-31  NARS frequency      FREQ_SHIFT=24    f = val/255 (u8)
-32-39  NARS confidence     CONF_SHIFT=32    c = val/255 (u8)
-40-42  causal mask         CAUSAL_SHIFT=40  Pearl 2^3 (3 bits)
-43-45  direction triad     DIR_SHIFT=43     sign(dim0) per S,P,O (3 bits)
-46-48  inference type      INFER_SHIFT=46   InferenceType (3 bits)
-49-51  plasticity flags    PLAST_SHIFT=49   hot/cold per S,P,O (3 bits)
-52-63  temporal index      TEMPORAL_SHIFT=52  12 bits, 4096 time slots
+bits   field                  shift const        notes
+-----  ------                 -----------        -----
+0-7    S palette index        S_SHIFT=0          bgz17 archetype ID (u8)
+8-15   P palette index        P_SHIFT=8          same
+16-23  O palette index        O_SHIFT=16         same
+24-31  NARS frequency         FREQ_SHIFT=24      f = val/255 (u8)
+32-39  NARS confidence        CONF_SHIFT=32      c = val/255 (u8)
+40-42  Causal mask            CAUSAL_SHIFT=40    Pearl 2³ — IS the rung axis (L-5)
+43-45  Direction triad        DIR_SHIFT=43       sign(dim0) per S,P,O (3 bits, kept per L-8)
+46-49  Inference mantissa     INFER_SHIFT=46     i4 SIGNED: −8..+7 (4 bits, L-4)
+50-52  Plasticity flags       PLAST_SHIFT=50     hot/cold per S,P,O (3 bits, kept per L-8)
+53-58  W slot                 W_SHIFT=53         corpus root handle (6 bits, 64 active corpora, L-6)
+59-60  Truth-band lens        TRUTH_SHIFT=59     4 lens states (2 bits, L-7)
+61-63  Spare                  SPARE_SHIFT=61     reserved headroom for sprint-12+
+       Temporal               REMOVED            dropped per L-2; now structural via chain-position
+       G slot (OGIT domain)   REMOVED            dropped per L-3; redundant via palette family-prefix
 ```
 
-**Key finding for W2:** The parent plan §3 describes 13 "reserved" bits 51-63. In the actual implementation, bits 49-51 are used for plasticity and bits 52-63 for temporal. There are no currently-unused bits in this u64. W2 must either (a) extend the temporal field to fewer bits (e.g. 10 bits instead of 12, freeing 2 bits at the top), (b) compress the plasticity/direction/inference triad (9 bits total, potentially reducible), or (c) find another reclaim strategy. W3's tests are written against functional properties of the v2 accessors, not specific bit positions, and remain correct regardless of W2's chosen reclaim strategy.
+**Reclaim arithmetic:** drop temporal (−12 bits) → spend on InferenceType expansion (+1 bit), W slot (+6 bits), Truth-band lens (+2 bits) = 9 spent, 3 spare. Inference mantissa expands from 3b unsigned to 4b signed i4 (L-4): `abs(mantissa)` selects the base NARS rule (8 base slots), `signum(mantissa)` selects direction (forward-chain vs backward-chain).
 
-**Bit-position TBD protocol:** All `G_SHIFT`, `W_SHIFT`, `TRUTH_SHIFT` references in code sketches below are placeholders. W2's spec resolves them. The meta-reviewer reconciles before implementation.
+**Signed mantissa encoding:**
+
+| Sign | Direction | Magnitude interpretation |
+|------|-----------|--------------------------|
+| `+` (0..+7) | forward-chain / compose / commit | Deduction, Synthesis, Revision-positive, Induction |
+| `−` (−8..−1) | backward-chain / decompose / refute | Abduction, Contraposition, Revision-negative, Counterfactual |
+
+**v1 → v2 field displacement (for PAL8 compat analysis):**
+
+| Field | v1 bits | v2 bits | Delta |
+|-------|---------|---------|-------|
+| InferenceType | 46-48 (3b unsigned) | 46-49 (4b signed) | +1 bit, sign-extended |
+| Plasticity | 49-51 | 50-52 | shifted +1 (due to InferenceType expansion) |
+| Temporal | 52-63 | GONE | reclaimed |
+| W slot | — | 53-58 | NEW |
+| Truth-band | — | 59-60 | NEW |
+| Spare | — | 61-63 | NEW |
+
+**Bit-position protocol:** Shift constants above are authoritative per plan §6. W2's implementation MUST use exactly these positions. W3's tests reference both the accessor functions AND the raw bit positions for the hazard checks.
 
 ---
 
