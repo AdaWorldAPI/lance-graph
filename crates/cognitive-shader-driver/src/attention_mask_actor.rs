@@ -33,6 +33,25 @@ pub trait AttentionMaskBackend {
     fn is_active(&self, mailbox_id: MailboxId) -> bool;
 }
 
+/// Production-backend impl: wires the sibling `attention_mask::AttentionMaskSoA`
+/// into the actor without forcing downstream consumers to write a newtype
+/// (Rust orphan rules would block them — neither the trait nor the SoA is
+/// theirs). Per codex P2 review on PR #388.
+impl AttentionMaskBackend for crate::attention_mask::AttentionMaskSoA {
+    fn touch(&mut self, mailbox_id: MailboxId, w_slot: u8) -> bool {
+        crate::attention_mask::AttentionMaskSoA::touch(self, mailbox_id, w_slot)
+    }
+    fn evict_lru(&mut self) -> Option<MailboxId> {
+        crate::attention_mask::AttentionMaskSoA::evict_lru(self)
+    }
+    fn tick(&mut self) {
+        crate::attention_mask::AttentionMaskSoA::tick(self)
+    }
+    fn is_active(&self, mailbox_id: MailboxId) -> bool {
+        crate::attention_mask::AttentionMaskSoA::is_active(self, mailbox_id)
+    }
+}
+
 pub struct AttentionMaskActor<B: AttentionMaskBackend> {
     inner: B,
     pending_evictions: Vec<MailboxId>,
