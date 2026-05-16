@@ -15,7 +15,7 @@
 //!   W5-INV-WITNESS-UNBOUNDED, W5-INV-CAM-PQ-INDEX
 //!
 //! D-CSV-6b scope (this PR — sprint-12 Wave G):
-//! - Replace CamPqIndexPlaceholder with CamPqWitnessIndex (HashMap-backed)
+//! - Replace CamPqIndexPlaceholder with WitnessIndexHashMap (HashMap-backed)
 //! - query() now uses the index instead of linear scan (O(1) expected time)
 //! - cam_pq_search(spo, k) top-k variant
 //! - evict_stale_before rebuilds index after retain
@@ -30,7 +30,7 @@
 //! directly wirable to the u64 SPO → Vec<usize> mapping needed here.
 //! HashMap gives O(1) expected-time lookups vs O(N) linear scan — preserving
 //! the cheap-query contract for downstream call sites.
-//! Track in TECH_DEBT: "CamPqWitnessIndex: upgrade HashMap to ndarray cam_pq
+//! Track in TECH_DEBT: "WitnessIndexHashMap: upgrade HashMap to ndarray cam_pq
 //! codec once upstream adds SPO witness-tuple support (cam_pq.rs or cam_index.rs)."
 
 use bytes::Bytes;
@@ -99,12 +99,12 @@ pub struct WitnessId(pub u64);
 /// **TECH_DEBT:** upgrade `by_spo` HashMap to ndarray::hpc::cam_pq once
 /// upstream adds SPO witness-tuple support. Track in TECH_DEBT.md.
 #[derive(Clone, Debug, Default)]
-pub struct CamPqWitnessIndex {
+pub struct WitnessIndexHashMap {
     /// SPO triple → list of (entry positions in WitnessCorpus.entries)
     by_spo: std::collections::HashMap<u64, Vec<usize>>,
 }
 
-impl CamPqWitnessIndex {
+impl WitnessIndexHashMap {
     /// Create a new empty index.
     pub fn new() -> Self {
         Self::default()
@@ -183,14 +183,14 @@ pub struct WitnessCorpus {
     entries: Arc<Vec<WitnessEntry>>,
     /// CAM-PQ-backed index (HashMap surface; ndarray codec upgrade sprint-13+).
     /// Per W5-INV-CAM-PQ-INDEX: this is the canonical search structure.
-    pub(crate) cam_pq_index: CamPqWitnessIndex,
+    pub(crate) cam_pq_index: WitnessIndexHashMap,
 }
 
 impl Default for WitnessCorpus {
     fn default() -> Self {
         Self {
             entries: Arc::new(Vec::new()),
-            cam_pq_index: CamPqWitnessIndex::new(),
+            cam_pq_index: WitnessIndexHashMap::new(),
         }
     }
 }
@@ -228,7 +228,7 @@ impl WitnessCorpus {
             .unwrap_or_else(|p| p);
         entries.insert(pos, entry);
         // Rebuild index: positions after `pos` all shifted by 1.
-        self.cam_pq_index = CamPqWitnessIndex::rebuild_from_entries(entries);
+        self.cam_pq_index = WitnessIndexHashMap::rebuild_from_entries(entries);
         id
     }
 
@@ -267,7 +267,7 @@ impl WitnessCorpus {
         entries.retain(|e| e.timestamp_ns >= cutoff_ns);
         let evicted = n_before - entries.len();
         if evicted > 0 {
-            self.cam_pq_index = CamPqWitnessIndex::rebuild_from_entries(entries);
+            self.cam_pq_index = WitnessIndexHashMap::rebuild_from_entries(entries);
         }
         evicted
     }
@@ -541,14 +541,14 @@ mod tests {
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    // D-CSV-6b NEW TESTS — CamPqWitnessIndex + WitnessCorpus index wiring
+    // D-CSV-6b NEW TESTS — WitnessIndexHashMap + WitnessCorpus index wiring
     // ════════════════════════════════════════════════════════════════════════
 
     // ── New Test 1 ──────────────────────────────────────────────────────────
     /// New empty index returns empty slice for any lookup.
     #[test]
     fn test_cam_pq_index_empty() {
-        let idx = CamPqWitnessIndex::new();
+        let idx = WitnessIndexHashMap::new();
         assert!(idx.is_empty());
         assert_eq!(idx.len(), 0);
         assert_eq!(idx.lookup(0xABC), &[] as &[usize]);
@@ -560,7 +560,7 @@ mod tests {
     /// insert and lookup round-trip: multiple spos, multiple positions per spo.
     #[test]
     fn test_cam_pq_index_insert_and_lookup() {
-        let mut idx = CamPqWitnessIndex::new();
+        let mut idx = WitnessIndexHashMap::new();
         idx.insert(0xABC, 0);
         idx.insert(0xABC, 2);
         idx.insert(0xDEF, 1);
@@ -575,7 +575,7 @@ mod tests {
     /// remove_at shifts positions and removes the target.
     #[test]
     fn test_cam_pq_index_remove_at_shifts_positions() {
-        let mut idx = CamPqWitnessIndex::new();
+        let mut idx = WitnessIndexHashMap::new();
         // spo=0xAAA has positions 0 and 2; spo=0xBBB has position 1
         idx.insert(0xAAA, 0);
         idx.insert(0xBBB, 1);
