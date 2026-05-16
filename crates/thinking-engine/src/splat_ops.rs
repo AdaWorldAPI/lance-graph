@@ -53,6 +53,15 @@ pub fn splat_gaussian(
 ) {
     let mut think = Think::from_field(std::mem::take(field), generation.saturating_sub(1));
     think.splat_gaussian(mean, variance, energy);
+    // For generation == 0, saturating_sub(1) underflows to 0 and the method's
+    // advance_cycle() then writes generation=1, diverging from v1 verbatim
+    // semantics. Restore by overwriting the touched splat (matched by `mean`).
+    for s in think.splat_field.iter_mut() {
+        if s.mean == mean {
+            s.generation = generation;
+            break;
+        }
+    }
     *field = think.splat_field;
 }
 
@@ -167,6 +176,28 @@ mod tests {
             think.splat_field[0].variance
         );
         assert_eq!(field_shim[0].generation, think.splat_field[0].generation);
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn deprecated_splat_gaussian_preserves_generation_zero() {
+        // Codex P2 (PR #395): caller passing generation=0 must see the v1
+        // verbatim semantics (stored generation == 0), not the off-by-one
+        // produced by Think::splat_gaussian advancing cycle from 0 → 1.
+        let mut field_push: Vec<SplatField> = Vec::new();
+        splat_gaussian(&mut field_push, 7, 1.0, 1.0, 0);
+        assert_eq!(field_push.len(), 1);
+        assert_eq!(field_push[0].generation, 0, "push path: gen=0 verbatim");
+
+        let mut field_merge: Vec<SplatField> = vec![SplatField {
+            mean: 9,
+            variance: 1.0,
+            energy: 2.0,
+            generation: 42,
+        }];
+        splat_gaussian(&mut field_merge, 9, 1.0, 3.0, 0);
+        assert_eq!(field_merge.len(), 1);
+        assert_eq!(field_merge[0].generation, 0, "merge path: gen=0 verbatim");
     }
 
     #[test]

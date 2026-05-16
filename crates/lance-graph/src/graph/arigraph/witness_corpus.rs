@@ -409,20 +409,12 @@ impl WitnessCorpus {
         evicted
     }
 
-    /// Top-k query by SPO.
+    /// Exact-match top-k query by SPO.
     ///
-    /// With `with-cam-pq` ON and cam_pq_state Some: distance-ranked via CAM-PQ ADC.
-    /// Otherwise: HashMap chain-order fallback.
+    /// Always returns entries whose `spo` exactly equals the query; never
+    /// returns unrelated neighbours. For distance-ranked nearest-neighbour
+    /// search, use `query_similar` (feature `with-cam-pq`).
     pub fn cam_pq_search(&self, spo: u64, k: usize) -> Vec<&WitnessEntry> {
-        #[cfg(feature = "with-cam-pq")]
-        if let Some(state) = self.cam_pq_state.as_ref() {
-            return state
-                .index
-                .cam_pq_search(spo, k)
-                .into_iter()
-                .filter_map(|(pos, _dist)| self.entries.get(pos))
-                .collect();
-        }
         self.cam_pq_index
             .lookup(spo)
             .iter()
@@ -977,6 +969,39 @@ mod tests {
         let idx = WitnessIndexCamPq::new(tiny_codebook(), 0xCAFE_BABE);
         assert!(idx.is_empty());
         assert_eq!(idx.len(), 0);
+    }
+
+    // Codex P2 (PR #396): cam_pq_search must remain exact-match even when
+    // CAM-PQ is enabled. ANN search lives on query_similar. Asserts that a
+    // missing SPO yields an empty result (not k unrelated neighbours) and
+    // that an existing SPO yields only its own entries.
+    #[cfg(feature = "with-cam-pq")]
+    #[test]
+    fn cam_pq_search_exact_match_when_cam_pq_enabled() {
+        let mut corpus = WitnessCorpus::new();
+        let spo_a = 0xAAAA_u64;
+        let spo_b = 0xBBBB_u64;
+        for ts in [100u64, 200, 300] {
+            corpus.insert(make_entry(spo_a, ts));
+        }
+        for ts in [10u64, 20, 30] {
+            corpus.insert(make_entry(spo_b, ts));
+        }
+        corpus.enable_cam_pq(tiny_codebook(), 0xCAFE_BABE);
+
+        let hits_a = corpus.cam_pq_search(spo_a, 5);
+        assert_eq!(hits_a.len(), 3, "must return exactly the 3 spo_a entries");
+        assert!(
+            hits_a.iter().all(|e| e.spo == spo_a),
+            "no unrelated neighbours allowed"
+        );
+
+        let missing = corpus.cam_pq_search(0xCCCC_u64, 5);
+        assert!(
+            missing.is_empty(),
+            "missing SPO must return empty, not k nearest neighbours; got {} entries",
+            missing.len()
+        );
     }
 
     // T12: feature OFF smoke — WitnessCorpus::new() and query() work.
