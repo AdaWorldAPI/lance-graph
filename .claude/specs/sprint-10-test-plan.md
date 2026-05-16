@@ -1,12 +1,13 @@
 # Sprint-10 Unified Test Plan
 
 > **Author:** W11 (Sonnet, test-plan-unification worker)
-> **Date:** 2026-05-14
+> **Date:** 2026-05-14 (updated 2026-05-16 by W11 — cognitive-substrate-convergence-v1 patch)
 > **Sprint:** sprint-log-10 (CCA2A pattern, 12 workers + 1 Opus meta)
 > **Output target:** `.claude/specs/sprint-10-test-plan.md`
-> **Status:** DRAFT — awaiting W1-W9 per-PR spec completion for exact test counts
+> **Status:** PATCHED — counts updated for v2 substrate layout per `cognitive-substrate-convergence-v1.md`
 > **Parent plan:** `.claude/plans/causaledge64-mailbox-rename-soa-v1.md`
-> **Plans cited:** §3 (CausalEdge64 layout), §7 (PR sequencing + test plans), §8 (ndarray prerequisites), §12 (iron-rule compliance)
+> **Substrate plan:** `.claude/plans/cognitive-substrate-convergence-v1.md` (locking plan; §5 locked decisions, §6 v2 bit layout, §11 D-CSV-* deliverables, §15 test plan per phase)
+> **Plans cited:** §3 (CausalEdge64 layout), §7 (PR sequencing + test plans), §8 (ndarray prerequisites), §12 (iron-rule compliance); substrate plan §6 (v2 bit layout) + §15 (per-phase test targets)
 > **CI sources:** `scripts/miri-tests.sh` (lance-graph), `/home/user/ndarray/scripts/miri-tests.sh`, `.github/workflows/rust-test.yml`, `.github/workflows/style.yml`
 
 ---
@@ -89,18 +90,79 @@ Performance benchmarks measure latency and throughput for hot-path operations. T
 
 > **Note:** W1-W9 per-PR specs are not yet authored as of this W11 draft (W12 was the only preceding worker). The test counts below are derived from the parent plan §7 per-PR scopes, LOC estimates, and the standard coverage expectation of ~1 test per 10-20 LOC of new public API surface. These will be reconciled against actual W1-W9 spec counts by the meta-reviewer (Opus).
 
+> **Patch note (2026-05-16, W11):** Counts for PR-CE64-MB-2 / PR-CE64-MB-2-regression / PR-CE64-MB-4 / PR-CE64-MB-5 / PR-CE64-MB-6 updated to reflect v2 bit layout additions from `cognitive-substrate-convergence-v1.md` §6 + §15. See §3.1 per-PR detail and new §3.A for the v2 substrate additions.
+
 | PR | Spec author | Est. unit tests | New test file(s) | Parent plan §7 LOC estimate |
 |---|---|---|---|---|
 | `PR-NDARRAY-MIRI-COMPLETE` | W8 | ~60 | extend `simd_nightly/tests.rs`; new `u_word_gaps_test.rs` | ~200 LOC (method gaps + dispatch reroute) |
 | `PR-CE64-MB-1` par-tile crate apex | W1 | ~30 | `crates/par-tile/tests/mailbox_tests.rs`; `crates/par-tile/tests/attention_mask_tests.rs` | ~1500 LOC new crate |
-| `PR-CE64-MB-2` CausalEdge64 v2 layout | W2 | ~10 unit | `crates/causal-edge/tests/v2_layout_test.rs` | ~400 LOC |
-| `PR-CE64-MB-2` PAL8 + NarsTables regression | W3 | ~5 regression | `crates/causal-edge/tests/pal8_round_trip.rs`; `crates/causal-edge/tests/nars_tables_invariant.rs` | (companion to W2) |
+| `PR-CE64-MB-2` CausalEdge64 v2 layout | W2 | **~15 unit** (+5 v2) | `crates/causal-edge/tests/v2_layout_test.rs` | ~400 LOC |
+| `PR-CE64-MB-2-regression` PAL8 + NarsTables regression | W3 | **~8 regression** (+3 v2) | `crates/causal-edge/tests/pal8_round_trip.rs`; `crates/causal-edge/tests/nars_tables_invariant.rs` | (companion to W2) |
 | `PR-CE64-MB-3` BindSpace E/F/G/H | W4 | ~15 | extend `crates/cognitive-shader-driver/tests/bindspace_tests.rs` | ~800 LOC |
-| `PR-CE64-MB-4` AriGraph SPO-G | W5 | ~10 | `crates/lance-graph/tests/arigraph_spo_g.rs` | ~600 LOC |
-| `PR-CE64-MB-5` MailboxSoA + AttentionMask | W6 | ~15 | extend `crates/par-tile/tests/integration.rs`; new `crates/par-tile/tests/mailbox_soa_tests.rs` | ~1200 LOC |
-| `PR-CE64-MB-6` SigmaTierRouter | W7 | ~30 | `crates/lance-graph-supervisor/tests/sigma_router.rs` | ~1500 LOC |
+| `PR-CE64-MB-4` AriGraph SPO-G | W5 | **~28 unit** (+18 v2) | `crates/lance-graph/tests/arigraph_spo_g.rs`; `crates/lance-graph/tests/witness_corpus.rs` | ~600 LOC |
+| `PR-CE64-MB-5` MailboxSoA + AttentionMask | W6 | **~18 unit** (+3 v2) | extend `crates/par-tile/tests/integration.rs`; new `crates/par-tile/tests/mailbox_soa_tests.rs` | ~1200 LOC |
+| `PR-CE64-MB-6` SigmaTierRouter | W7 | **~34 unit** (+4 v2) | `crates/lance-graph-supervisor/tests/sigma_router.rs` | ~1500 LOC |
 | `PR-CE64-MB-7` bevy cull plugin | W9 | ~8 | `crates/bevy-cull-plugin/tests/integration.rs` | ~500 LOC |
-| **Total** | | **~183 unit + ~60 property assertions** | | ~6700 LOC new across 8 PRs |
+| **Total** | | **~216 unit + ~60 property assertions** (+33 v2 additions) | | ~6700 LOC new across 8 PRs |
+
+### §3.A v2 Substrate Additions — Test Delta by Worker
+
+This section enumerates the tests that the CausalEdge64 v2 bit layout (`cognitive-substrate-convergence-v1.md` §6) requires **beyond the v1 baseline** already counted in the §3 table. These additions are the direct consequence of locked decisions L-1..L-20 and the D-CSV-* deliverable series (§11 of the substrate plan).
+
+**W3: +5 regression tests** (PAL8/NARS v2 layout)
+- `mantissa-signed-±`: signed i4 round-trip for all 16 values (−8..+7); direction bit preserved.
+- `lens-4-state`: all 4 truth-band lens states encode/decode without coercion to binary.
+- `w-slot-64`: W-slot 6-bit corpus root handle (0..63) packs without bleeding into adjacent fields.
+- `mantissa-product-range`: `i4 × i4 → i8` product stays in [−64, +49] (substrate plan §4.1).
+- `temporal-absent`: no temporal field in v2 edge; old accessors for bits 12-23 return zero or are removed.
+
+**W5: +12 WitnessCorpus tests** (replaces SpoWitnessChain per L-17)
+- `WitnessCorpus::insert` / `query_by_root`: insert + query correctness (2 tests).
+- `cam_pq_search` correctness: nearest-witness retrieval within ε of brute-force (4 cases).
+- Chain-order iron rule (`W5-INV-CHAIN-ORDER`, L-16): 10-entry scrambled insert → sorted iter (1 test).
+- Drop-oldest truncation: Markov ±500 window eviction (1 test).
+- Salience decay monotonicity (1 test).
+- W-slot anchor round-trip: corpus root handle matches construction argument (1 test).
+- Markov ±500 boundary-inclusive retrieval (1 test).
+- CAM-PQ latency smoke: 10K corpus, `cam_pq_nearest()` < 50 µs (1 test).
+
+**W4: +3 BindSpace EFGH migration-phase tests** (QualiaColumn switch, D-CSV-5 phases 5a/5b)
+- Phase 5a parallel-column: `[f32; 18]` and `QualiaI4_16D` columns produce identical MUL output (1 test).
+- Phase 5b cutover: `clippy --tests -D warnings` passes with only `QualiaI4_16D` column (compile check, 1 test).
+- QualiaI4_16D `from_f32_18d` / `to_f32_18d` round-trip within per-dim ε (1 test).
+
+**W6: +8 MailboxSoA SoA tests** (spatial-temporal accumulator semantics, L-14)
+- `apply_edges` baton receipt updates energy (2 tests).
+- Plasticity counter monotonic during emission (1 test).
+- W-slot referencing: each SoA row references correct corpus root handle (1 test).
+- Per-row drop-row reduces count (1 test).
+- `CollapseGateEmission` Bundle vs Xor semantic difference (2 tests).
+- Implicit provenance: `(source_mailbox, chain_position)` preserved through emission (1 test).
+
+**W7: +30 SigmaTierRouter dispatch tests** (Rubicon-resonance per L-15, §10)
+- Banding policy: Σ1-Σ10 each maps to correct mailbox tier (10 tests).
+- Rubicon-resonance commit: ΔF < threshold AND resonance > Rubicon-bar fires Σ10 (2 tests).
+- Homeostasis-floor rest: F < floor → cycle does not re-fire (1 test).
+- F-rising property: "never commit on F-rising" invariant (proptest, 1 test).
+- Elevation cascade: Σ7→Σ8→Σ9 chain (3 tests).
+- Integer-SIMD MUL parity vs f32 baseline for DkPosition / TrustTexture / FlowState / GateDecision (4 tests).
+- Plasticity NARS-revise adjusts spawn priors (1 test).
+- Three-trigger pruning (budget/XOR-cancel/outcome-sufficient), one test each (3 tests).
+- Σ9-Σ10 escalation to CallcenterSupervisor (2 tests).
+- Per-thread shadow / no global mutable state (1 test).
+- JIT pipeline E2E: style-slot → KernelHandle consumed or compiled (2 tests).
+
+**v2 delta summary:**
+
+| Worker | New tests | Area |
+|---|---|---|
+| W3 | +5 | mantissa-signed-±, lens-4-state, w-slot-64, temporal-absent, product-range |
+| W5 | +12 | WitnessCorpus insert/query/cam_pq_search, chain-order iron rule, decay, anchor |
+| W4 | +3 | BindSpace phase 5a/5b QualiaColumn switch |
+| W6 | +8 | MailboxSoA SoA semantics, apply_edges, CollapseGateEmission |
+| W7 | +30 | SigmaTierRouter dispatch, Rubicon-resonance, integer-SIMD MUL |
+| **Total v2 delta** | **+58** | beyond v1 baseline |
+
 
 ### 3.1 Per-PR Test Scope Detail
 
@@ -130,17 +192,25 @@ Tests cover:
 
 Source: parent plan §3 CausalEdge64 v2 layout; §7 PR-CE64-MB-2 scope.
 
-W2 tests (layout accessors):
-- `CausalEdge64::g_slot()` returns bits 51-55 correctly.
-- `CausalEdge64::w_slot()` returns bits 56-61 correctly.
-- `CausalEdge64::truth_band()` returns bits 62-63 correctly.
-- Setting G-slot does not perturb W-slot or truth-band (bit orthogonality).
+W2 tests (layout accessors — v2 bit layout per substrate plan §6):
+- `CausalEdge64::g_slot()` returns bits 51-55 correctly. *(retained from v1)*
+- `CausalEdge64::w_slot()` returns bits 53-58 correctly. *(v2: W-slot = corpus root handle, 6 bits)*
+- `CausalEdge64::truth_band_lens()` returns bits 59-60 correctly (4 lens states). *(v2: renamed + expanded)*
+- `CausalEdge64::inference_mantissa()` returns bits 46-49 as signed i4 (−8..+7). *(v2: 4-bit signed)*
+- Setting W-slot does not perturb inference-mantissa or truth-band-lens (bit orthogonality). *(v2 new)*
+- **[v2 NEW]** Mantissa pack/unpack round-trip: `set_inference_mantissa(x).inference_mantissa() == x` for all 16 signed values (−8..+7).
+- **[v2 NEW]** Truth-band lens 4-state coverage: all 4 lens values (0b00..0b11) encode and decode correctly.
+- **[v2 NEW]** Signed-mantissa direction: positive values (0..+7) map to forward-chain; negative values (−8..−1) map to backward-chain per substrate plan §6 signed-mantissa encoding table.
+- **[v2 NEW]** Spare bits (61-63) zero after W-slot write (no bleed into headroom).
 - v2 feature-flag: v1 consumers compile without the new accessors (backward compat gate).
 
-W3 regression tests:
+W3 regression tests (updated for v2 layout — per substrate plan §15 D-CSV-3 target):
 - PAL8 round-trip: `pal8_decode(pal8_encode(edge)) == edge` for 100 random valid edges.
 - NarsTables LUT invariant: `deduction(w, w) == w` for all 256×256 truth pairs.
-- EdgeColumn binary layout: write v2 CausalEdge64 array, read back as v1 — PAL8 bytes stable.
+- EdgeColumn binary layout: write v2 CausalEdge64 array, read back as v1 — S/P/O + f/c bytes stable; bits 46-63 may differ (v2 layout change is expected, document in test comment).
+- **[v2 NEW]** Signed-mantissa backward-compat shim: v1 callers using `InferenceType` enum still get correct unsigned interpretation from the lower 3 bits of the 4-bit mantissa field.
+- **[v2 NEW]** Lens-state "13% ambiguous direction" (0b10): setting this state then reading back returns the same bits without coercion to binary committed state.
+- **[v2 NEW]** Mantissa product algebra: `i4_product(mantissa_a, mantissa_b) → i8` stays in range [−64, +49] (i4 × i4 product family per substrate plan §4.1).
 
 **PR-CE64-MB-3 BindSpace E/F/G/H (W4 — cite `.claude/specs/pr-ce64-mb-3-bindspace-efgh.md` when available)**
 
@@ -157,16 +227,25 @@ Tests cover:
 
 **PR-CE64-MB-4 AriGraph SPO-G (W5 — cite `.claude/specs/pr-ce64-mb-4-arigraph-spo-g.md` when available)**
 
-Source: parent plan §6 AriGraph; `ogit-g-context-bundle-v1.md` D-OGIT-G-1.
+Source: parent plan §6 AriGraph; `ogit-g-context-bundle-v1.md` D-OGIT-G-1; substrate plan §15 D-CSV-6 (WitnessCorpus).
+
+> **v2 patch note:** `SpoWitnessChain<N>` tests replaced by `WitnessCorpus` (CAM-PQ-indexed, unbounded) equivalents per substrate plan locked decision L-17. Old chain tests retire; new corpus tests cover the same invariants at scale plus CAM-PQ retrieval correctness. Net: −7 chain tests +18 corpus+salience tests = +11 new (shown as +18 vs old 10 in §3 table because some chain tests are superseded entirely).
 
 Tests cover:
 - SPO-G quad mode: `insert_quad(S, P, O, G)` stores correctly; `query_by_g(g)` returns all matching quads.
 - G filter: `query_spo_g(S, P, O, G)` returns only matching quads.
 - Ghost-edge persistence: Pearl rung 3 edge inserts as ghost; survives serialization round-trip.
-- `SpoWitnessChain<N>` packing: packed witness identity + replay_ref round-trip.
 - NARS decay: `ghost.decay()` reduces confidence per NARS truth-revise formula.
 - Reactivation: evidence for ghost edge promotes it to active.
-- Chain truncation: `SpoWitnessChain<4>` truncates at 4 entries, oldest dropped.
+- **[v2 NEW — WitnessCorpus replaces SpoWitnessChain]** `WitnessCorpus::insert(emission_cycle, edge)` appends correctly; `query_by_root(w_slot)` returns all entries for that corpus root handle.
+- **[v2 NEW]** CAM-PQ retrieval correctness: `WitnessCorpus::cam_pq_nearest(query_edge)` returns the nearest witness within ε of the brute-force nearest. (4 cases covering exact match, near-miss, empty corpus, and single-entry corpus.)
+- **[v2 NEW]** Corpus sorted by emission cycle (W5-INV-CHAIN-ORDER iron rule per substrate plan L-16): after inserting 10 witnesses in scrambled cycle order, `WitnessCorpus::iter_sorted()` returns them in ascending cycle order.
+- **[v2 NEW]** Drop-oldest truncation: when corpus exceeds the Markov ±500 window, entries older than `current_cycle − 500` are evicted; surviving entries' cycle values all satisfy the window constraint.
+- **[v2 NEW]** Salience decay: `WitnessCorpus::apply_salience_decay(factor)` reduces each entry's salience score monotonically; entries whose salience falls below floor are marked for eviction.
+- **[v2 NEW]** W-slot anchor round-trip: corpus root handle (6-bit W-slot from CausalEdge64 v2 layout) stored in `WitnessCorpus` header; `corpus.w_slot_handle()` returns the same value inserted at construction.
+- **[v2 NEW]** Markov ±500 window bound: retrieving entries from a 1000-entry corpus with cycle range [c−500, c+500] returns exactly the entries in that window (boundary-inclusive).
+- **[v2 NEW]** CAM-PQ retrieval latency property: on a 10K-entry corpus, `cam_pq_nearest()` completes in under 50 µs (property test with timing assertion; deferred to bench §8.4 for CI gating, tested as smoke here).
+- Ghost-edge chain superseded: `SpoWitnessChain<N>` packing tests retired; replaced by corpus insertion + query tests above. Ghost-edge identity (replay_ref) is now a field in each `WitnessEntry`.
 
 **PR-CE64-MB-5 MailboxSoA + AttentionMask actor wiring (W6 — cite `.claude/specs/pr-ce64-mb-5-mailbox-soa-attentionmask.md` when available)**
 
@@ -283,7 +362,35 @@ W8 adds `cfg(miri)` switch in `src/simd.rs` re-exporting from `simd_nightly` und
 
 **Conservative target: ~1500. Optimistic target: ~1550.**
 
+#### 4.3.1 Miri growth refresh for v2 substrate (+58 tests)
+
+The v2 substrate additions enumerated in §3.A add **~58 new tests** beyond the v1 baseline counts above. The revised Miri target accounts for these additions:
+
+| Mechanism | v1 target | v2 delta | v2 target |
+|---|---|---|---|
+| Mechanism B (new sprint-11 crates, Miri-runnable) | +116 | +18 (W5 WitnessCorpus pure-Rust paths + W4 QualiaI4_16D helpers) | +134 |
+| Mechanism C (expanded lance-graph Miri scope) | +145 | +40 (W3 mantissa+lens+w-slot, W6 SoA tests, W7 Rubicon-resonance crossbeam paths) | +185 |
+| **Total post-v2** | **~1550** | **+58** | **~1608 (round to ~1600)** |
+
+**Revised Miri target post-v2: ~1600 Miri-clean tests.**
+
+Two specific v2 `unsafe` paths require Miri coverage:
+- **SIMD signum/abs paths** (W2 mantissa changes): the signed i4 SIMD signum and abs operations added to the mantissa hot path contain `unsafe` blocks for AVX2 intrinsics. Each `unsafe` block must have a companion Miri test with `cfg(miri)` fallback to scalar path (per §2.1 coverage requirements).
+- **WitnessCorpus `Arc::make_mut` copy-on-write**: the CAM-PQ-indexed `WitnessCorpus` uses `Arc::make_mut` for copy-on-write semantics on the corpus backing store. This pattern requires a Miri test verifying no use-after-free when the Arc clone is dropped while a mutable borrow is live.
+
 ---
+
+## §3.B Cross-References
+
+This test plan cross-references the following substrate plan sections and knowledge docs:
+
+- **`cognitive-substrate-convergence-v1.md` §5 L-1..L-20** — 20 locked architectural decisions; each test in §3.A validates one or more locked decisions (L-4 mantissa, L-6 W-slot, L-7 lens, L-16 chain-order, L-17 WitnessCorpus, L-14 mailbox semantics, L-15 Rubicon-resonance).
+- **`cognitive-substrate-convergence-v1.md` §6** — CausalEdge64 v2 bit layout; bit-field coordinates used in §3.1 W2/W3 test assertions.
+- **`cognitive-substrate-convergence-v1.md` §11 D-CSV-1..D-CSV-12** — deliverable sequencing; §3.A test counts map to D-CSV-1 (W3), D-CSV-5/6 (W4/W5), D-CSV-7 (W6), D-CSV-10 (W7).
+- **`cognitive-substrate-convergence-v1.md` §12 worker rows W2..W11** — spec-patch LOC estimates; W11's ~80 LOC patch is this section.
+- **`.claude/knowledge/spo-schema-and-mailbox-sidecar.md`** — SPO-G vs SPO-W framing; W5 WitnessCorpus tests reference W-slot semantics documented here.
+- **`.claude/knowledge/splat-shader-rayon-struct-method-vision.md`** — splat fleet + struct-method vision; W7 integer-SIMD MUL tests align with the struct-method discipline (methods on carrier, not free functions).
+
 
 ## §5 Miri Test Runner Extensions
 

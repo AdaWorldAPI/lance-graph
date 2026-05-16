@@ -1,14 +1,17 @@
-# PR-CE64-MB-4 — AriGraph SPO-G Quad Upgrade + Ghost-Edge Persistence + SpoWitnessChain
+# PR-CE64-MB-4 — AriGraph SPO-G Quad Upgrade + Ghost-Edge Persistence + WitnessCorpus
 
-> **Status:** Spec (2026-05-14) — sprint-log-10 W5 output
-> **Scope deliverable:** D-OGIT-G-1 (SPO-G quad) + ghost-edge persistence + SpoWitness64 + SpoWitnessChain<N>
+> **Status:** Spec (2026-05-14; patched 2026-05-16 per cognitive-substrate-convergence-v1.md) — sprint-log-10 W5 output
+> **Scope deliverable:** D-OGIT-G-1 (SPO-G quad) + ghost-edge persistence + SpoWitness64 + WitnessCorpus (CAM-PQ-indexed, replaces SpoWitnessChain<32>)
 > **Parent plan:** `.claude/plans/causaledge64-mailbox-rename-soa-v1.md` §6 (lance-graph::arigraph row) + §7 (PR-CE64-MB-4 entry)
+> **Architectural anchor:** `.claude/plans/cognitive-substrate-convergence-v1.md` §5 L-16, L-17 · §6 W-slot · §11 D-CSV-6 · §12 (W5 patch row)
 > **Primary references:**
 > - `.claude/plans/ogit-g-context-bundle-v1.md` §D-OGIT-G-1 — SPO-G u32 slot spec
 > - `.claude/plans/oxigraph-arigraph-cognitive-shader-soa-merge-v1.md` §1 §2 §3 §8 §9
+> - `.claude/knowledge/spo-ontology-format-stack.md` — CAM-PQ codec context; WitnessCorpus indexing
 > **Depends on:** PR-CE64-MB-1 (par-tile crate apex); can land in parallel with PR-CE64-MB-2 + PR-CE64-MB-3
-> **LOC estimate:** ~600 LOC
+> **LOC estimate:** ~900 LOC (was ~600; +~300 for WitnessCorpus design per cognitive-substrate-convergence-v1.md §12)
 > **Iron rules:** I-SUBSTRATE-MARKOV preserved · I-VSA-IDENTITIES preserved · I-NOISE-FLOOR-JIRAK noted
+> **New invariant added:** W5-INV-CHAIN-ORDER (see §3A)
 
 ---
 
@@ -32,15 +35,23 @@ parent-supervisor edges.
    Pearl rung 3 (counterfactual) or 7 (full-cf). Ghosts persist FOREVER in AriGraph;
    only the `AttentionMask` hot-slot evicts.
 
-3. **`SpoWitness64`** — u64 packed, Copy, 8 bytes. Peer mailbox edges.
+3. **`SpoWitness64`** — u64 packed, Copy, 8 bytes. Each witness becomes a corpus row in
+   `WitnessCorpus` (per L-17 of cognitive-substrate-convergence-v1.md).
 
-4. **`SpoWitnessChain<N>`** — `Box<[SpoWitness64; N]>` (default N=32). Parent-supervisor
-   + AriGraph commit edges.
+4. **`WitnessCorpus`** — CAM-PQ-indexed (via `ndarray::hpc::cam_pq`), unbounded, with
+   salience-decay eviction. Replaces the bounded `SpoWitnessChain<32>` linked-list which
+   does not scale to discourse-level reasoning (per plan L-17). Indexed lookup in ≤50 µs
+   at 1M corpus entries (D-CSV-6 benchmark target).
 
 **Out of scope for this PR:**
 - 5-bit G hot-slot in CausalEdge64 (PR-CE64-MB-2)
 - AttentionMask rename lookups (PR-CE64-MB-5)
 - SigmaTierRouter dispatch (PR-CE64-MB-6)
+
+> **NOTE (2026-05-16 patch):** `SpoWitnessChain<32>` is **retired** by this patch and replaced
+> throughout by `WitnessCorpus`. See §3A (WitnessCorpus design), §3B (W-slot semantics in
+> CausalEdge64 v2), and invariant `W5-INV-CHAIN-ORDER` below. Deliverable for `WitnessCorpus`
+> implementation is D-CSV-6 per `.claude/plans/cognitive-substrate-convergence-v1.md` §11.
 
 ---
 
@@ -86,8 +97,9 @@ pub struct Triplet {
     /// Pearl causal rung (0-7). 3 = counterfactual ghost; 7 = full-cf ghost.
     pub pearl_rung: u8,
     /// Witness reference (FNV-1a hash of (G, S_hash, P_hash, O_hash)).
-    /// 0 = no witness. Points into WitnessChainStore.
-    /// Per oxigraph-arigraph-cognitive-shader-soa-merge-v1.md §2 line ~150.
+    /// 0 = no witness. Points into WitnessCorpus (CAM-PQ-indexed, unbounded).
+    /// Per cognitive-substrate-convergence-v1.md L-17 + oxigraph-arigraph-cognitive-
+    /// shader-soa-merge-v1.md §2 line ~150.
     pub witness_ref: u64,
 }
 ```
@@ -208,49 +220,184 @@ impl SpoWitness64 {
 }
 ```
 
-### 3.3 SpoWitnessChain<N> — Owned Parent-Supervisor Form
+### 3.3 WitnessCorpus Design (replaces SpoWitnessChain<32>)
+
+> **Architectural rationale (cognitive-substrate-convergence-v1.md §5 L-17):** The bounded
+> `SpoWitnessChain<32>` linked-list does not scale to discourse-level reasoning. The `<32>` cap
+> collides with the Markov-bundle floor (√d/4 ≈ 32 items at d=16384) but not with the witness
+> corpus size needed for multi-turn discourse (hundreds of entries). Per `L-3`, the G-slot in
+> v1 CausalEdge64 was redundant: per-tenant SoA partition already encodes tenant, and palette
+> family-prefix already encodes ontological family. Witness corpus replaces `SpoWitnessChain<32>`
+> as the canonical witness-tracking structure. The W-slot in CausalEdge64 v2 is the entry pointer
+> into the corpus (corpus root handle — 64 active corpora at 6 bits per §6 of
+> cognitive-substrate-convergence-v1.md), NOT a G-slot encoding tenant.
+
+#### 3.3.1 WitnessEntry — corpus row
 
 ```rust
-/// Owned witness chain for parent-supervisor and AriGraph commit edges.
-///
-/// Default N = 32 — matches Markov bundle limit √d/4 ≈ 32 at d=16384
-/// (per CLAUDE.md "Markov bundle ≤ √d/4"). When chain exceeds N, oldest
-/// half is NARS-summarized into history_summary and chain truncates.
-///
-/// Conversion: SpoWitnessChain::from_single(w: SpoWitness64) -> Self
-/// for the common single-witness-emission path (OQ-8 parent plan).
-pub struct SpoWitnessChain<const N: usize = 32> {
-    entries: [SpoWitness64; N],
-    len: usize,
-    /// NARS-summarized epoch witness from pre-truncation period.
-    /// None until chain has overflowed once.
-    history_summary: Option<SpoWitness64>,
-}
+// crates/lance-graph/src/graph/arigraph/witness.rs (extended)
 
-impl<const N: usize> SpoWitnessChain<N> {
-    pub fn empty() -> Self { ... }
-    pub fn from_single(w: SpoWitness64) -> Self { ... }
-    pub fn push(&mut self, w: SpoWitness64) { /* truncate + NARS summarize if full */ }
-    pub fn len(&self) -> usize { self.len }
-    pub fn as_slice(&self) -> &[SpoWitness64] { &self.entries[..self.len] }
-    pub fn history_summary(&self) -> Option<SpoWitness64> { self.history_summary }
-}
-
-impl<const N: usize> From<SpoWitness64> for SpoWitnessChain<N> {
-    fn from(w: SpoWitness64) -> Self { Self::from_single(w) }
+/// A single witness row in the WitnessCorpus.
+/// Unbounded: no `<32>` cap. One entry per witnessed SPO event.
+#[derive(Debug, Clone)]
+pub struct WitnessEntry {
+    /// Packed SPO triple identity (FNV-1a of palette indices).
+    pub spo: u64,
+    /// Wall-clock nanoseconds at witness emission.
+    /// Primary sort key per W5-INV-CHAIN-ORDER.
+    pub timestamp_ns: u64,
+    /// Optional provenance URL / source document reference.
+    /// Carries identity fingerprint per I-VSA-IDENTITIES (not raw content).
+    pub source_url: Option<String>,
+    /// Arbitrary evidence blob (serialized context, citation, or proof chunk).
+    /// Content stored here; identity pointer lives in `spo` + `timestamp_ns`.
+    pub evidence_blob: bytes::Bytes,
 }
 ```
 
-`WitnessChainStore` (lives alongside `TripletGraph`):
+#### 3.3.2 WitnessCorpus — CAM-PQ-indexed store
+
 ```rust
-pub struct WitnessChainStore {
-    chains: HashMap<u64, SpoWitnessChain<32>>,
+// crates/lance-graph/src/graph/arigraph/witness.rs
+
+/// CAM-PQ-indexed witness corpus. Replaces SpoWitnessChain<32>.
+///
+/// INVARIANTS:
+///   W5-INV-CHAIN-ORDER: entries sorted by timestamp_ns ASC; same-timestamp
+///     tie-break by source_url.hash(). Insertion via Arc::make_mut (copy-on-write).
+///   W5-INV-WITNESS-UNBOUNDED: no `<32>` cap; growth bounded only by
+///     salience-decay eviction policy (WitnessCorpusPruningPolicy — D-CSV-6 sub-task).
+///   W5-INV-CAM-PQ-INDEX: cam_pq_index is the canonical search structure;
+///     direct Vec scan is reserved for Miri/test contexts.
+///
+/// Indexed lookup target: ≤50 µs at 1M corpus entries (D-CSV-6 benchmark).
+pub struct WitnessCorpus {
+    /// Sorted entry store. Arc for copy-on-write semantics on insertion.
+    pub entries: Arc<Vec<WitnessEntry>>,
+    /// CAM-PQ index over (s, p, o) triple. O(log N) point queries,
+    /// O(1) for hot subjects via palette family-prefix bucket.
+    pub cam_pq_index: CamPqIndex,
 }
-impl WitnessChainStore {
-    pub fn push_witness(&mut self, witness_ref: u64, w: SpoWitness64) { ... }
-    pub fn get_chain(&self, witness_ref: u64) -> Option<&SpoWitnessChain<32>> { ... }
+
+/// Opaque handle returned by WitnessCorpus::insert.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct WitnessId(pub u64);
+
+/// Query selector for fuzzy / family-prefix lookups.
+pub struct SpoQuery {
+    pub s: Option<u8>,      // subject palette index (None = wildcard)
+    pub p: Option<u8>,      // predicate palette index (None = wildcard)
+    pub o: Option<u8>,      // object palette index (None = wildcard)
+}
+
+impl WitnessCorpus {
+    /// Insert a new witness entry. Maintains W5-INV-CHAIN-ORDER via binary
+    /// search insertion on timestamp_ns; tie-breaks by source_url hash.
+    /// Uses Arc::make_mut for copy-on-write — cheap when refcount == 1.
+    ///
+    /// Returns WitnessId (index into sorted entries at time of insert;
+    /// stable until corpus compaction).
+    pub fn insert(
+        &mut self,
+        spo: u64,
+        timestamp_ns: u64,
+        source_url: Option<String>,
+        evidence_blob: bytes::Bytes,
+    ) -> WitnessId { ... }
+
+    /// Point query: return all entries matching this exact SPO triple,
+    /// sorted by timestamp_ns ASC (W5-INV-CHAIN-ORDER).
+    /// O(log N) via cam_pq_index; O(1) amortized for hot-subject buckets.
+    pub fn query(&self, spo: u64) -> impl Iterator<Item = &WitnessEntry> { ... }
+
+    /// Fuzzy / family-prefix lookup via CAM-PQ index. Returns top-k WitnessIds
+    /// ranked by palette family-prefix similarity (ontological family proximity).
+    /// Used when exact SPO triple not found and family-level inference is needed.
+    pub fn cam_pq_search(&self, query: SpoQuery, k: usize) -> Vec<WitnessId> { ... }
+
+    /// Evict entries whose salience has decayed below threshold.
+    /// Salience = NARS frequency × confidence × recency_weight.
+    /// Hand-tuned threshold (I-NOISE-FLOOR-JIRAK: principled derivation deferred
+    /// to D-CSV-6 sub-task WitnessCorpusPruningPolicy).
+    pub fn evict_stale(&mut self, threshold: f32) -> usize { ... }
 }
 ```
+
+#### 3.3.3 Per-tenant lookup flow (replaces G-slot tenant routing)
+
+Per `cognitive-substrate-convergence-v1.md` §5 L-3 + L-9, tenant routing no longer requires
+a dedicated G-slot in CausalEdge64. The canonical lookup flow is:
+
+```text
+1. SoA scan: identify per-tenant rows via MailboxSoA partition key
+   (tenant boundary is enforced at the SoA partition level, not via a bit in the edge)
+
+2. Palette family-prefix filter: SPO palette indices encode ontological family
+   via OGIT family-prefix convention (workspace-locked codebook per contract::manifest).
+   Triples in the same family share the upper-4-bits of their palette index.
+
+3. Witness CAM-PQ lookup: WitnessCorpus::cam_pq_search(SpoQuery { s, p, o }, k=8)
+   retrieves the k nearest witnesses in O(log N); hot subjects are O(1) via
+   family-prefix bucket already populated in cam_pq_index.
+
+4. CausalEdge64 v2 decode: W-slot (6 bits) → corpus root handle (0..63) → WitnessCorpus.
+   (W-slot is dispatch metadata, NOT epistemic confidence — that lives in NARS
+   frequency bits 24-31 and confidence bits 32-39 of CausalEdge64 v2.)
+```
+
+**Time as helper (§5 L-9):** `timestamp_ns` in `WitnessEntry` supplies causality direction
+hints without requiring a temporal bit in CausalEdge64. The `causal_mask` (3 bits, Pearl-2³)
+covers Pearl-3 counterfactual reasoning directly; temporal ordering in the corpus supplies
+the "happened-before" direction hint structurally, matching the "temporal causality is
+structural, not stored" doctrine from CLAUDE.md "The Click" §2.
+
+`WitnessCorpusStore` (lives alongside `TripletGraph`, replaces `WitnessChainStore`):
+```rust
+/// Global witness corpus store. Keyed by corpus root handle (W-slot value, 0..63).
+/// Replaces WitnessChainStore + SpoWitnessChain<32>.
+pub struct WitnessCorpusStore {
+    corpora: [Option<WitnessCorpus>; 64],
+}
+
+impl WitnessCorpusStore {
+    pub fn corpus_mut(&mut self, root: u8) -> &mut WitnessCorpus { ... }
+    pub fn corpus(&self, root: u8) -> Option<&WitnessCorpus> { ... }
+
+    /// Insert a witness into the corpus identified by root handle.
+    pub fn push_witness(
+        &mut self, root: u8,
+        spo: u64, timestamp_ns: u64,
+        source_url: Option<String>,
+        evidence_blob: bytes::Bytes,
+    ) -> WitnessId { ... }
+}
+```
+
+### 3.4 W-Slot Semantics in CausalEdge64 v2
+
+> **Source:** `cognitive-substrate-convergence-v1.md` §6 bit layout (bits 53-58) + §5 L-6.
+
+The W-slot in `CausalEdge64` v2 encodes **dispatch metadata** for the witness corpus, NOT
+epistemic confidence. The 6-bit W-slot covers three sub-fields packed within those 6 bits:
+
+| Sub-field | Width | Values | Semantics |
+|---|---|---|---|
+| **Tier** | 3 bits | `Sharp(0)` / `Wide(1)` / `Quenched(2)` / `Recall(3)` / `Compress(4)` / `Lambda(5)` + 2 reserved | Dispatch tier for corpus root access |
+| **Plasticity** | 2 bits | `Frozen(0)` / `Slow(1)` / `Fast(2)` / `Volatile(3)` | Write-plasticity of the witness corpus at this handle |
+| **State** | 1 bit | `0 = Witnessed` / `1 = Hypothetical` | Whether the associated triple has a concrete witness (`0`) or is a hypothesis pending evidence (`1`) |
+
+**Separation of concerns:**
+
+```text
+W-slot (6b, bits 53-58):  DISPATCH METADATA — tier / plasticity / hypothetical flag
+NARS frequency (8b, 24-31): EPISTEMIC CONFIDENCE — how often true
+NARS confidence (8b, 32-39): EPISTEMIC CONFIDENCE — how much evidence
+```
+
+The W-slot `State=1 (Hypothetical)` correlates with Pearl rung 3/7 ghost edges: a ghost
+emitted by `GhostStore::emit_ghost` sets `State=Hypothetical` in the outbound `CausalEdge64`;
+once `GhostStore::check_reactivation` finds concrete evidence, the corpus is updated and
+the W-slot `State` is flipped to `Witnessed`.
 
 ---
 
@@ -347,21 +494,37 @@ pub fn nars_revise_ghosts(graph: &mut TripletGraph, g: u32) { ... }
 
 ## §5 Christmas-Tree Decoration Mechanics
 
-### 5.1 Decoration Pipeline (DELTA from §9 of oxigraph plan)
+### 5.1 Decoration Pipeline — SoA Partition + WitnessCorpus Flow
+
+> **Updated 2026-05-16:** G-slot tenant routing retired per `cognitive-substrate-convergence-v1.md`
+> §5 L-3. Replaced by per-tenant SoA partition + palette family-prefix + WitnessCorpus lookup.
 
 ```
-Compartment emits CausalEdge64
+Compartment emits CausalEdge64 (v2 layout)
+    ↓
+SoA scan: tenant boundary = MailboxSoA partition key (NOT G-slot in edge)
+    ↓
+Palette family-prefix filter: SPO indices → ontological family via OGIT convention
+  (upper-4 bits of palette index encode family; workspace-locked codebook)
     ↓
 SigmaTierRouter (PR-CE64-MB-6) → AriGraph commit if intent.is_some() OR σ_tier ≥ Σ7
     ↓
 AriGraph::commit_edge(edge: CausalEdge64, mask: &AttentionMask)
-  resolve G:   mask.resolve_g(edge.g_slot()) → OgitDomainId → u32
-  resolve W:   mask.resolve_w(edge.w_slot()) → WitnessId → u64
-  resolve S/P/O: palette indices → strings via PaletteSemiring
+  resolve W-slot: edge.w_slot() → corpus root handle (0..63) → WitnessCorpusStore::corpus()
+  resolve S/P/O:  palette indices → strings via PaletteSemiring
+  resolve G:      mask.resolve_g_domain() → OgitDomainId → u32 (from SoA partition, not edge)
     ↓
 TripletGraph::add_triplets(&[Triplet { g, pearl_rung, witness_ref, ... }])
     ↓
-WitnessChainStore::push_witness(witness_ref, SpoWitness64::from(edge))
+WitnessCorpusStore::push_witness(
+    root = edge.w_slot(),
+    spo  = fnv1a(s_idx, p_idx, o_idx),
+    timestamp_ns = AriGraph::wall_clock_ns(),
+    source_url   = None,          // filled by provenance annotator if present
+    evidence_blob = Bytes::new(), // filled by evidence packager if present
+)
+    ↓
+Witness CAM-PQ index updated: cam_pq_index.insert(spo, WitnessId)
 ```
 
 ### 5.2 Context Separation Law (§3 of merge plan, load-bearing)
@@ -369,21 +532,36 @@ WitnessChainStore::push_witness(witness_ref, SpoWitness64::from(edge))
 Per `oxigraph-arigraph-cognitive-shader-soa-merge-v1.md` §3:
 
 ```
-ontology_context_id (= g: u32) = semantic domain/namespace boundary
-witness_ref (= u64 FNV-1a)     = why/how/source this assertion is supported
+ontology_context_id (= g: u32)  = semantic domain/namespace boundary (WHERE)
+witness_ref (= u64 FNV-1a)      = why/how/source this assertion is supported (WHY)
+W-slot (= 6b in CausalEdge64)   = dispatch metadata: corpus root handle + tier + plasticity (HOW)
 ```
 
 Never collapse context and witness into one field. G says WHERE. witness_ref says WHY.
-`WitnessChainStore` is indexed by `witness_ref`; `TripletGraph` is queryable by `g`.
+W-slot says HOW to retrieve it. `WitnessCorpusStore` is keyed by W-slot root handle (0..63);
+`TripletGraph` is queryable by `g`; CAM-PQ index is the search interface.
 
-### 5.3 Chain Truncation at N=32
+### 5.3 WitnessCorpus Invariants Applied at Decoration Time
 
-When `SpoWitnessChain::push` overflows N=32:
-1. NARS-summarize oldest N/2 entries → `history_summary: SpoWitness64`
-2. Compact newest N/2 entries to front
-3. Append new witness at position N/2 + 1
+When `WitnessCorpusStore::push_witness` is called during decoration:
 
-This matches the 32-bundle-limit from CLAUDE.md "Markov bundle ≤ √d/4" at d=16384.
+1. **W5-INV-CHAIN-ORDER:** Binary-search insertion keeps entries sorted by `timestamp_ns ASC`.
+   Same-timestamp tie-break uses `source_url.as_deref().map(|s| fxhash::hash(s)).unwrap_or(0)`.
+   `Arc::make_mut` is called on the inner `Vec` — copy-on-write, cheap when refcount == 1.
+
+2. **W5-INV-WITNESS-UNBOUNDED:** No truncation at insertion time. The corpus grows until
+   `WitnessCorpus::evict_stale(threshold)` is called (policy-driven, not insertion-driven).
+   This eliminates the information-loss risk of the old `SpoWitnessChain<32>` truncation.
+
+3. **W5-INV-CAM-PQ-INDEX:** After insertion, `cam_pq_index.insert(spo, WitnessId)` is called
+   to keep the index consistent. The index is the canonical search structure; raw Vec iteration
+   is reserved for Miri/test contexts only.
+
+> **Note on §5.3 replacement:** Prior `SpoWitnessChain<32>` chain-truncation at N=32 is
+> **retired**. The old policy (NARS-summarize oldest N/2 → `history_summary`) is superseded
+> by the salience-decay eviction policy in `WitnessCorpus::evict_stale`. The 32-bundle-limit
+> from CLAUDE.md "Markov bundle ≤ √d/4" applies to VSA superposition inside one cycle's
+> MatVec, NOT to the persistent witness corpus.
 
 ---
 
@@ -392,7 +570,7 @@ This matches the 32-bundle-limit from CLAUDE.md "Markov bundle ≤ √d/4" at d=
 | File | Change | LOC delta |
 |---|---|---|
 | `crates/lance-graph/src/graph/arigraph/triplet_graph.rs` | Extend `Triplet` with `g`, `pearl_rung`, `witness_ref`; add `SpoGQuad`; add `query_by_g`; update `add_triplets` dedup to include `g` | +200 LOC |
-| `crates/lance-graph/src/graph/arigraph/witness.rs` | NEW — `SpoWitness64` + `SpoWitnessChain<N>` + `WitnessChainStore` | +150 LOC |
+| `crates/lance-graph/src/graph/arigraph/witness.rs` | NEW — `SpoWitness64` + `WitnessEntry` + `WitnessCorpus` (CAM-PQ-indexed, unbounded) + `WitnessCorpusStore` | +280 LOC |
 | `crates/lance-graph/src/graph/arigraph/ghost.rs` | NEW — `GhostReason` + `GhostStore` + `GhostReactivationEvent` + `nars_revise_ghosts` | +120 LOC |
 | `crates/lance-graph/src/graph/arigraph/orchestrator.rs` | Integrate SPO-G commit path + ghost emission on temporal-window-end/budget-exhausted + GhostReactivationEvent | +80 LOC |
 | `crates/lance-graph/src/graph/arigraph/mod.rs` | `pub mod witness; pub mod ghost;` | +2 LOC |
@@ -415,11 +593,14 @@ Also write legacy triple (g=0) and assert `query_by_g(0)` returns it.
 Write quads in G=1 and G=2; query WHERE g=1; assert only G=1 quads returned.
 Query g=99; assert empty.
 
-### T3: `witness64_to_witnesschain_packing`
+### T3: `witness64_to_corpus_insertion_and_query`
 Assert `std::mem::size_of::<SpoWitness64>() == 8`.
 Construct witness, assert all accessor fields round-trip.
-Construct `SpoWitnessChain::from_single(w)`, assert `len == 1`.
-Assert chain owns its array (not borrowed).
+Construct `WitnessCorpus` (default empty). Insert 3 entries with distinct `timestamp_ns`.
+Call `WitnessCorpus::query(spo)`. Assert returned iterator yields entries in `timestamp_ns` ASC order
+(W5-INV-CHAIN-ORDER). Assert `entries.len() == 3` (W5-INV-WITNESS-UNBOUNDED — no cap).
+Call `WitnessCorpus::cam_pq_search(SpoQuery { s: Some(idx), p: None, o: None }, k=2)`.
+Assert at most 2 results, all matching subject palette index.
 
 ### T4: `ghost_persistence_after_compartment_drop`
 Spawn `GhostStore`, emit ghost in G=42, drop store (simulates compartment drop).
@@ -439,11 +620,25 @@ Add 5 non-ghost triples sharing (G=42, "alice", "knows").
 Call `nars_revise_ghosts(&mut graph, 42)`.
 Assert ghost confidence < 0.1 (decay applied).
 
-### T7: `christmas_tree_chain_truncation`
-Push 50 witnesses to `SpoWitnessChain<32>`.
-Assert `chain.len() <= 32`.
-Assert `chain.history_summary().is_some()`.
-Assert most-recent witnesses are preserved in chain.
+### T7: `witness_corpus_order_invariant`
+Construct `WitnessCorpus`. Insert 50 witnesses with shuffled `timestamp_ns` values.
+Assert `corpus.entries.len() == 50` (W5-INV-WITNESS-UNBOUNDED — no truncation).
+Assert entries are sorted by `timestamp_ns` ASC (W5-INV-CHAIN-ORDER).
+Insert 2 witnesses with the same `timestamp_ns` but different `source_url`.
+Assert tie-break order is deterministic (hash-based — same result on re-run).
+Assert CAM-PQ index has 52 entries (W5-INV-CAM-PQ-INDEX).
+
+### T8: `witness_corpus_cam_pq_lookup_performance`
+Build `WitnessCorpus` with 10_000 entries (random SPO palette indices).
+Benchmark `WitnessCorpus::query(spo)` — assert p99 < 50 µs (D-CSV-6 target).
+Benchmark `WitnessCorpus::cam_pq_search(query, k=8)` — assert p99 < 100 µs.
+(Benchmark uses `std::time::Instant`; not a criterion bench — inline perf assertion.)
+
+### T9: `witness_corpus_store_multi_root`
+Construct `WitnessCorpusStore`. Insert witnesses into root handles 0, 1, and 63.
+Assert `corpus(0)`, `corpus(1)`, `corpus(63)` each return a non-None corpus.
+Assert `corpus(2)` returns None (not inserted).
+Assert cross-root isolation: inserting into root 0 does not affect root 1.
 
 ---
 
@@ -453,7 +648,7 @@ Assert most-recent witnesses are preserved in chain.
 |---|---|---|
 | **Lance schema bump breaks existing AriGraph data** | HIGH | Add new columns with Arrow defaults (g=0, pearl_rung=0, witness_ref=0). Follow `lance_cache_invalidate_*` test pattern from `lance_cache.rs`. SCHEMA_VERSION 2→3. Update `schema_version_pinned` test. Existing rows read UNROUTED defaults. |
 | **`promote_to_spo` API break on g parameter** | HIGH | Add `promote_to_spo_g(triplet, gate, spo, g)` new function; keep original `promote_to_spo` unchanged (forwards with g=0). Zero breaking change for existing callers. |
-| **`SpoWitnessChain<N>` sizing** | MED | N=32 matches Markov bundle √d/4 limit at d=16384 (CLAUDE.md). If traces show typical chains < 8 entries, smaller N reduces footprint. If chains routinely hit 32, NARS truncation cost is visible. Ratify N=32 via OQ with W10. |
+| **`WitnessCorpus` unbounded growth** | MED | Replaces bounded `SpoWitnessChain<32>`. Growth is bounded only by `WitnessCorpusPruningPolicy` (salience-decay eviction — D-CSV-6 sub-task). Mitigations: (1) `evict_stale(threshold)` called at AriGraph-commit boundaries; (2) salience = NARS f × c × recency weight decays old entries; (3) per-tenant quota at supervisor level if needed. The `<32>` cap is NOT the mitigation — it was the problem. |
 | **NARS ghost decay rate** | MED | `1 / (1 + contradiction_count)` is hand-tuned. I-NOISE-FLOOR-JIRAK: when principled threshold needed, use Jirak 2016 rate bounds. The 0.05 confidence floor is also hand-tuned — documented in code comment per iron rule. |
 | **Pearl rung 3 vs 7 encoding** | LOW | Rung 3 = do-modified counterfactual (temporal window end); rung 7 = full-cf (budget exhausted). Matches Pearl 2^3 hierarchy in causaledge64 plan §3. `GhostReason::pearl_rung()` is single source of truth. |
 | **TripletGraph in-memory only** | MED | Ghost edges accumulate without bound in Vec. Lance-backed persistence is follow-on (OQ-W5-1). This PR establishes ghost API + in-memory semantics; next PR adds Lance persistence via `LanceWriter`. |
@@ -490,6 +685,9 @@ Avoids hash inconsistency. Confirm that `lance-graph` can depend on `lance-graph
 | **I-VSA-IDENTITIES** | Preserved. `SpoWitness64.s_idx/p_idx/o_idx` = palette indices (identities). `w_palette` = witness palette slot (identity). `witness_ref` = FNV-1a pointer (identity). No VSA superposition of content occurs in this module. |
 | **I-NOISE-FLOOR-JIRAK** | Noted. NARS ghost decay `confidence < 0.05` floor is hand-tuned (documented in code comment). When principled threshold needed: use Jirak 2016 rate bounds. Initial ghost confidence 0.1 also hand-tuned — documented. |
 | **I1 (BindSpace read-only)** | Preserved. AriGraph SPO-G quads and ghost edges are Zone-2 cold storage; not BindSpace columns. No CollapseGate involvement in AriGraph persistence. |
+| **W5-INV-CHAIN-ORDER** | **Iron rule.** `WitnessCorpus.entries` MUST be sorted by `timestamp_ns` ASC at all times. Same-timestamp tie-break is `source_url.hash()` (deterministic). Insertion uses `Arc::make_mut` + binary-search splice. Any violation causes non-deterministic causality direction — forbidden. Cross-ref: cognitive-substrate-convergence-v1.md §5 L-16. |
+| **W5-INV-WITNESS-UNBOUNDED** | **Iron rule.** `WitnessCorpus` has NO `<N>` cap. Growth is bounded only by `WitnessCorpusPruningPolicy` (salience-decay eviction — D-CSV-6 sub-task). Code that re-introduces a `<32>` or any fixed-size cap on the corpus MUST be rejected in review. Cross-ref: cognitive-substrate-convergence-v1.md §5 L-17. |
+| **W5-INV-CAM-PQ-INDEX** | **Iron rule.** `WitnessCorpus.cam_pq_index` is the canonical search structure for witness retrieval. Raw `Vec` iteration over `entries` is forbidden in production paths; acceptable only in Miri/test contexts. Every `insert()` call MUST update `cam_pq_index` atomically. Cross-ref: spo-schema-and-mailbox-sidecar.md §2.4 (W cardinality unbounded → CAM-PQ needed). |
 | **Method-on-carrier discipline** | Preserved. `TripletGraph::query_by_g`, `GhostStore::emit_ghost`, `GhostStore::pending_ghosts`, `GhostStore::check_reactivation`, `SpoWitnessChain::push`, `SpoWitnessChain::from_single` are all carrier methods. `nars_revise_ghosts` is a module-level batch utility (acceptable for batch-processing operations — not a carrier state query). |
 | **Zero-dep invariant (contract crate)** | Preserved. No new external crate deps added to `lance-graph-contract`. New types live in `lance-graph/graph/arigraph/` (not contract). |
 
@@ -507,14 +705,30 @@ Avoids hash inconsistency. Confirm that `lance-graph` can depend on `lance-graph
 - `Triplet` with `g: u32 + pearl_rung: u8 + witness_ref: u64`
 - `SpoGQuad` query result type
 - `SpoWitness64` (Copy, 8 bytes)
-- `SpoWitnessChain<N>` (default N=32)
+- `WitnessEntry` — corpus row (spo, timestamp_ns, source_url, evidence_blob)
+- `WitnessCorpus` — CAM-PQ-indexed, unbounded (replaces `SpoWitnessChain<32>`)
+- `WitnessCorpusStore` — array of 64 corpora keyed by W-slot root handle
+- `WitnessId` — opaque corpus handle (u64)
+- `SpoQuery` — fuzzy lookup selector (s/p/o wildcard)
 - `GhostReactivationEvent`
 - `GhostStore::pending_ghosts(g)` iterator
 - `nars_revise_ghosts(graph, g)` batch utility
 - `SCHEMA_VERSION` bump 2 → 3 in `lance_cache.rs`
 
+**Retired (no longer exported):**
+- `SpoWitnessChain<N>` (retired per L-17; remove all uses after this PR lands)
+- `WitnessChainStore` (replaced by `WitnessCorpusStore`)
+
+**Cross-references for downstream consumers (D-CSV-6, D-CSV-7):**
+- `cognitive-substrate-convergence-v1.md` §5 L-9, L-16, L-17 · §6 W-slot bit layout · §11 D-CSV-6 + D-CSV-7
+- `spo-schema-and-mailbox-sidecar.md` §2.4 (SPO-W cardinality + CAM-PQ rationale)
+- `CLAUDE.md` iron rule `I-VSA-IDENTITIES` (witness `source_url` and `evidence_blob` use identity fingerprints, not raw content superposition)
+
 ---
 
-*End of spec PR-CE64-MB-4 — AriGraph SPO-G Quad Upgrade.*
-*~600 LOC estimate. Plans cited: causaledge64-mailbox-rename-soa-v1.md §6+§7,*
-*ogit-g-context-bundle-v1.md §D-OGIT-G-1, oxigraph-arigraph-cognitive-shader-soa-merge-v1.md §1-§9.*
+*End of spec PR-CE64-MB-4 — AriGraph SPO-G Quad Upgrade + WitnessCorpus.*
+*~900 LOC estimate (+300 for WitnessCorpus per cognitive-substrate-convergence-v1.md §12 W5 patch row).*
+*Plans cited: causaledge64-mailbox-rename-soa-v1.md §6+§7, ogit-g-context-bundle-v1.md §D-OGIT-G-1,*
+*oxigraph-arigraph-cognitive-shader-soa-merge-v1.md §1-§9, cognitive-substrate-convergence-v1.md §5 L-3/L-6/L-9/L-16/L-17 + §6 + §11 D-CSV-6/D-CSV-7.*
+*Invariants: W5-INV-CHAIN-ORDER (iron), W5-INV-WITNESS-UNBOUNDED (iron), W5-INV-CAM-PQ-INDEX (iron).*
+*Knowledge ref: spo-schema-and-mailbox-sidecar.md · CLAUDE.md I-VSA-IDENTITIES.*
