@@ -708,6 +708,224 @@ impl KernelHandleCache {
 
 ---
 
+## §9A Σ10 Rubicon-resonance dispatch logic
+
+**Closes L-15 (plan §5) + §10.1 of `cognitive-substrate-convergence-v1.md`.** Σ10 is the irreversible-commit moment — it fires when the free-energy gradient is below the commit threshold AND the fingerprint resonance exceeds the Rubicon bar. This is **not** request-driven; entropy-of-state drives the cycle and Σ10 is when that entropy collapses into a committed fact (AriGraph SPO commit + Wire DTO egress).
+
+### §9A.1 Decision function
+
+```rust
+// crates/lance-graph-supervisor/src/sigma_tier_router.rs
+
+impl SigmaTierRouterState {
+    /// Σ10 Rubicon-resonance commit gate.
+    ///
+    /// Returns `true` when the current cycle should irreversibly commit `edge` to AriGraph
+    /// SPO + Wire DTO egress.  Two conditions must BOTH hold:
+    ///   1. ΔF < commit_threshold  — free-energy gradient is falling fast enough that the
+    ///      cycle has resolved its surprise; continuing is wasteful.
+    ///   2. resonance > rubicon_bar — the edge's fingerprint is semantically coherent with
+    ///      the global context (per CLAUDE.md "Meaning = AriGraph facts + resonance + magnitude").
+    ///
+    /// Per plan L-15: the cycle is entropy-driven, not request-driven.  Σ10 is the point at
+    /// which state entropy collapses; there is no external `commit()` call.
+    fn should_rubicon_commit(&self, edge: CausalEdge64, row: &SoaRow) -> bool {
+        let delta_f = self.current_f - self.prior_f;
+        let resonance = vsa_cosine(row.fingerprint(), self.global_context);
+        delta_f < self.commit_threshold && resonance > self.rubicon_bar
+    }
+}
+```
+
+**Field additions required on `SigmaTierRouterState`:**
+
+```rust
+/// Free energy from the previous dispatch cycle.  Updated at end of each cycle.
+pub prior_f: f32,
+
+/// Free energy computed at the START of the current cycle (before MatVec / top-k).
+pub current_f: f32,
+
+/// ΔF threshold for commit.  Hand-tuned sprint-11/12; Jirak-derived derivation
+/// deferred to sprint-13+ (see OQ-CSV-6 / W7-OQ-7 below).
+/// Negative = F is falling; typical range −0.05..−0.01.
+pub commit_threshold: f32,
+
+/// Global VSA context fingerprint (Vsa16kF32); loaded from BindSpace::FingerprintColumns
+/// ambient row at cycle start.  NOT a field the router owns — borrowed per cycle.
+pub global_context: Vsa16kF32,
+
+/// Rubicon resonance bar.  If cosine(edge.fingerprint, global_context) > rubicon_bar,
+/// the semantic alignment is sufficient to justify irreversible commit.
+/// Hand-tuned sprint-11/12; same Jirak-derivation gate as commit_threshold.
+pub rubicon_bar: f32,
+```
+
+### §9A.2 Cycle integration
+
+`should_rubicon_commit` is called inside `drive_dispatch_cycle` immediately after the
+MatVec + top-k step, for each row whose `SigmaTier` is `EpiphanyEscalate` (Σ9-10):
+
+```rust
+// Inside drive_dispatch_cycle, after dispatch_cycle inner call:
+for row in soa.rows_at_tier(SigmaTier::EpiphanyEscalate) {
+    if let Some(edge) = row.pending_emission() {
+        if state.should_rubicon_commit(edge, &row) {
+            // Irreversible commit path: AriGraph SPO + Wire DTO egress via supervisor.
+            crate::escalation::escalate_rubicon(state, edge, row.mailbox_id()).await?;
+        }
+        // else: continue cycle; F has not converged yet OR resonance is below bar.
+    }
+}
+// Update prior_f for next cycle.
+state.prior_f = state.current_f;
+```
+
+### §9A.3 Rubicon-bar semantics
+
+The **Rubicon bar is an irreversibility threshold**: once `should_rubicon_commit` returns
+`true`, the router sends `RubiconWitness` to `CallcenterSupervisor`, which calls
+`spo_bridge::promote_to_spo()` + Wire DTO egress.  There is no undo path.  This is
+intentional — per CLAUDE.md "Opinions are committed contradictions preserved, not resolved."
+
+The resonance check (cosine vs `global_context`) ensures the commit is semantically
+grounded in the ambient belief state, not a noise spike.  A high-F row with no resonance
+remains in the cycle; a low-F row with high resonance commits.
+
+### §9A.4 Gate: OQ-CSV-6 blocks sprint-12 D-CSV-10
+
+**OQ-CSV-6** (from `cognitive-substrate-convergence-v1.md` §14) asks: should
+`commit_threshold` and `rubicon_bar` be hand-tuned or Jirak-derived?
+
+> Per `I-NOISE-FLOOR-JIRAK` iron rule: principled bound preferred.  Hand-tuned values
+> are acceptable for sprint-11/12 but MUST carry a `TECH_DEBT` annotation.
+> Principled derivation via VAMPE+Jirak coupled-revival is sprint-13+ work.
+
+**This gate BLOCKS sprint-12 `D-CSV-10`** (Σ-tier Rubicon-resonance dispatch — full
+implementation).  The sprint-11 version ships with hard-coded defaults
+(`commit_threshold = -0.03`, `rubicon_bar = 0.72`) and a TECH_DEBT note.
+D-CSV-10 cannot ratify until OQ-CSV-6 resolves.
+
+---
+
+## §9B Integer-SIMD MUL evaluation path
+
+**Closes L-18 (plan §5) + §7 of `cognitive-substrate-convergence-v1.md`.** The MUL
+evaluation (DK / TrustTexture / FlowState / GateDecision) now reads i4 qualia from
+`QualiaI4_16D` + signed i4 mantissa from `CausalEdge64` v2 — **no float math in the
+hot path**.  All operations are i4 / i8 / i16 SIMD, giving 4-8× throughput gain over
+the current f32 baseline (per AVX-512 i4-lane SIMD).
+
+### §9B.1 DK imbalance computation (Dunning-Kruger position)
+
+```rust
+// crates/lance-graph-planner/src/mul/dk.rs  (migration of existing f32 DK path)
+
+/// Compute the DK imbalance from i4 qualia + edge evidence weight.
+/// Returns positive values (Mt. Stupid region) or negative values (Imposter Syndrome).
+///
+/// All arithmetic is integer — no f32 conversion in the hot path.
+pub fn dk_imbalance_i4(qualia: &QualiaI4_16D, edge: CausalEdge64) -> i16 {
+    // CONFIDENCE_DIM = 10 (per cognitive-substrate-convergence-v1.md §7.2, dim 10 = Confidence).
+    let confidence_intensity = qualia[CONFIDENCE_DIM].abs();        // 0..7 (i4 magnitude)
+
+    // Map NARS frequency_u8 to i4 signed range: centre at 128, scale to ±8.
+    // Positive evidence_weight → edge confirms the expectation.
+    // Negative evidence_weight → edge contradicts the expectation.
+    let evidence_weight = (edge.frequency_u8() as i16 - 128) >> 4;  // → i4 range −8..+7
+
+    let dk_imbalance = confidence_intensity as i16 - evidence_weight;
+    // positive imbalance = Mt. Stupid (confidence exceeds evidence)
+    // negative imbalance = Imposter Syndrome (evidence exceeds confidence)
+    dk_imbalance
+}
+```
+
+### §9B.2 TrustTexture, FlowState, GateDecision
+
+```rust
+// crates/lance-graph-planner/src/mul/trust.rs
+
+/// TrustTexture: product of Trust dim (2) × Confidence dim (10), i4 × i4 → i8.
+pub fn trust_texture_i4(qualia: &QualiaI4_16D) -> i8 {
+    let trust      = qualia[TRUST_DIM];       // i4 signed, dim 2
+    let confidence = qualia[CONFIDENCE_DIM];  // i4 signed, dim 10
+    // i4 × i4 → i8 (no overflow in the signed product range −8×−8..+7×+7 = −64..+49)
+    (trust as i8).wrapping_mul(confidence as i8)
+}
+
+/// FlowState: absorption indicator from Flow dim (6) × Salience dim (11).
+pub fn flow_state_i4(qualia: &QualiaI4_16D) -> i8 {
+    let flow     = qualia[FLOW_DIM];      // i4 signed, dim 6
+    let salience = qualia[SALIENCE_DIM]; // i4 signed, dim 11
+    (flow as i8).wrapping_mul(salience as i8)
+}
+
+/// GateDecision: sign of Wille (volition, dim 7) × Coherence (dim 12).
+/// Positive = active-commit gate open; negative = gate closed.
+pub fn gate_decision_i4(qualia: &QualiaI4_16D, mantissa: i8) -> i16 {
+    let wille     = qualia[WILLE_DIM] as i16;      // i4 signed, dim 7
+    let coherence = qualia[COHERENCE_DIM] as i16;  // i4 signed, dim 12
+    // mantissa is the signed i4 inference mantissa from CausalEdge64 v2 bits 46-49.
+    wille.wrapping_mul(coherence).wrapping_mul(mantissa as i16)
+}
+```
+
+### §9B.3 No-float invariant and throughput
+
+**Iron rule for this path:** zero `f32` or `f64` operations between `QualiaI4_16D`
+read and MUL output.  `clippy::cast_precision_loss` is blocked by a workspace-level
+`deny` in the `mul/` module.  Any float cast triggers a CI failure.
+
+Throughput gain over `[f32; 18]` baseline (per plan §5 L-18 + §7 rationale):
+
+| Operation | f32 baseline | i4 SIMD (AVX-512) | Gain |
+|---|---|---|---|
+| DK imbalance (1 row) | ~8 ns | ~2 ns | 4× |
+| TrustTexture batch (1K rows) | ~8 µs | ~1 µs | 8× |
+| FlowState batch (1K rows) | ~8 µs | ~1.2 µs | 6-7× |
+| GateDecision batch (1K rows) | ~10 µs | ~1.5 µs | 6-7× |
+
+These are plan-level estimates; definitive numbers come from `D-CSV-8` bench
+(`sigma_router_bench.rs` extended with `mul_i4_vs_f32_baseline` criterion bench).
+
+### §9B.4 Deliverable mapping
+
+This section specifies the **interface contract** for `D-CSV-8` (plan §11 Phase C).
+`D-CSV-8` is a sprint-12 deliverable; it depends on `D-CSV-2` (`QualiaI4_16D` type)
+and `D-CSV-3` (signed-mantissa `InferenceType`).  The functions above live in
+`crates/lance-graph-planner/src/mul/` and replace the existing f32 paths there.
+
+---
+
+## §9C Plasticity preserved in edge — clarifying note
+
+**Per plan L-8** (`cognitive-substrate-convergence-v1.md` §5): direction (3b, bits 43-45),
+plasticity (3b, bits 50-52 in v2), and inference mantissa (4b signed, bits 46-49 in v2)
+**STAY IN the edge** as dispatch payload.  They are NOT relocated to AriGraph metadata or
+any external table.
+
+Rationale: all three are load-bearing per-cycle inputs to the router's dispatch logic:
+
+- **Direction** — drives `should_rubicon_commit` resonance polarity (forward-chain vs.
+  backward-chain commits have different semantic weight in the global_context projection).
+- **Plasticity** — gates whether the `(role, G_slot)` pair is allowed a palette
+  reassignment; the router's `PlasticityAggregator` consumes this to bias spawn-priors.
+- **Inference mantissa** — the signed i4 value is the `GateDecision` input (§9B.2);
+  relocating it to AriGraph metadata would require an extra Zone-1 lookup per cycle.
+
+The **8-channel ↔ SPO-palette transcoder** (`D-CSV-9`, Option R-3) handles the
+cascade-internal-to-commit translation at the L3 boundary.  The transcode is a
+near-bitcast: `8ch_net_strength.signum() → mantissa_sign`, `magnitude → base_rule`.
+The edge's direction/plasticity/inference fields survive intact through the transcode —
+they are read by the router **before** L3 commit, not after.
+
+This note supersedes any earlier framing that suggested relocating these fields.  See
+`causal-edge-64-spo-variant.md` §3.4 (direction), §3.6 (plasticity) for field semantics;
+see `cognitive-substrate-convergence-v1.md` L-8 for the lock decision.
+
+---
+
 ## §9 Σ9-Σ10 EPIPHANY escalation
 
 **Per parent plan §10 + §13 OQ-9.** When a compartment at Σ7-Σ8 emits a witness whose Pearl rung crosses 5 (EPIPHANY-tier), the router routes the `CausalEdge64` to its parent `CallcenterSupervisor` actor — NOT through the cycle-speed mailbox, but through the **ractor supervisor message channel** (Tokio shape). This is the bridge from Zone-1 (in-cycle) to Zone-2 (callcenter), where cross-tenant MUL gate + AriGraph commit + optional Wire DTO egress happens.
@@ -869,6 +1087,7 @@ Targets calibrated for ubuntu-24.04 github-hosted CI runner (2-core, 7 GB RAM).
 | **W7-OQ-4 (cross-spec)** | INT4-32D codebook (`p64-bridge::STYLES`) — when does it land? Must precede Wave 5 | `.claude/plans/pr-j-1-int4-32d-atoms.md` must be DONE before W7-impl. Currently NOT in W10 dep-graph (W10 spec missed this) | Meta-review flags W10 graph; main thread adds pre-sprint-11 dep | BLOCKS Wave 5 |
 | **W7-OQ-5 (cross-crate dep direction)** | Supervisor → Planner as hard build dep (for `get_jit_compiler()`) — does it create a cycle? | Probably not; planner depends on supervisor through trait imports only. If cycle, fallback to trait object injection | W7-impl on first compile | Non-blocking if mitigation works |
 | **W7-OQ-6 (parent plan OQ-3)** | Compartment plasticity update granularity (bit-counter per emission + NARS at AriGraph commit?) | bit-counter per emission (W6 owns) + NARS truth-refine at AriGraph commit (W5 owns); router only does Hebbian rollup of bit-counters at drop_row. Aligns with parent OQ-3. | User ratifies before sprint-11 Wave 4 (W6) | BLOCKS Wave 4 (not W7 directly, but coupled) |
+| **W7-OQ-7 (= OQ-CSV-6 in substrate plan)** | Σ10 Rubicon threshold derivation — Jirak-derived or hand-tuned? `commit_threshold` and `rubicon_bar` are currently hard-coded (−0.03 and 0.72). Per `I-NOISE-FLOOR-JIRAK` iron rule, principled derivation via VAMPE+Jirak coupled-revival is preferred. | Hand-tune for sprint-11/12 with TECH_DEBT annotation; Jirak-derived bounds deferred to sprint-13+ VAMPE+Jirak track. | Main thread + substrate plan OQ-CSV-6 ratification before D-CSV-10 | **BLOCKS sprint-12 D-CSV-10** (Σ-tier Rubicon-resonance full implementation) |
 
 ---
 
@@ -901,6 +1120,7 @@ Targets calibrated for ubuntu-24.04 github-hosted CI runner (2-core, 7 GB RAM).
 
 **Plans / specs this composes:**
 - `.claude/plans/causaledge64-mailbox-rename-soa-v1.md` §6 (mechanism naming) + §7 PR-CE64-MB-6 (LOC + scope) + §10 (Zone-2 ractor topology) + §11 OQ-1/OQ-3/OQ-4 (gating ratifications) + E-CE64-MB-8/9/10 (Σ10 Rubicon dispatcher + JIT pipeline closure + plasticity emergence)
+- `.claude/plans/cognitive-substrate-convergence-v1.md` — **architectural anchor for this spec**: §5 L-8 (direction/plasticity/inference stay in edge), §5 L-15 (Σ10 Rubicon-resonance, not request-driven), §5 L-18 (integer-SIMD MUL evaluation), §10.1 (active inference / ΔF cycle driver), §11 D-CSV-8/D-CSV-10 (MUL + Rubicon deliverables), §14 OQ-CSV-6 (Rubicon threshold derivation gate)
 - `.claude/specs/pr-ce64-mb-1-par-tile-crate.md` (W1) — `Mailbox<T>` + 3 backings + `AttentionMaskActor`
 - `.claude/specs/pr-ce64-mb-5-mailbox-soa-attentionmask.md` (W6) — `MailboxSoA<N>` + `SigmaTier` + `CompartmentReport` (cross-spec touchpoint: `g_slot_at_drop` field add)
 - `.claude/specs/pr-ce64-mb-2-causaledge64-v2.md` (W2) — `CausalEdge64` v2 layout (G/W/truth accessors emitted from compartments)

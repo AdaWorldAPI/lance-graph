@@ -39,6 +39,26 @@ Non-cycle column breakdown (matching plan §1/§2 framing):
 Current non-cycle subtotal:   ~6,297 B/row
   A: FingerprintColumns (content/topic/angle)  = 6,144 B (unchanged)
   B: QualiaColumn [f32; 18]                    =    72 B (unchanged)
+     ↳ NOTE: QualiaColumn is migrating from [f32; 18] → QualiaI4_16D (8 B/row,
+       packed i4×16 signed) per cognitive-substrate-convergence-v1.md §7.2 and
+       plan decision L-10. The BindSpace E/F/G/H work in THIS spec is designed
+       to coexist with BOTH representations:
+         • Phase 5a (sibling-column): both [f32;18] and QualiaI4_16D present;
+           columns E/F/G/H access qualia via the existing f32 path unchanged.
+         • Phase 5b (post-cutover, D-CSV-5): [f32;18] dropped; columns E/F/G/H
+           must read QualiaI4_16D only. No E/F/G/H changes required at cutover
+           because qualia is accessed only through QualiaColumn accessors, not
+           packed inline.
+       See D-CSV-5 in cognitive-substrate-convergence-v1.md §11 Phase B for the
+       full migration phasing and blast-radius analysis.
+     ↳ i4-16D Magnitude computation: Under the QualiaI4_16D substrate, Magnitude
+       (qualia dim 13 per §7.2 dim-assignment table in cognitive-substrate-
+       convergence-v1.md) is NOT stored — it is computed on-demand as a single
+       SIMD multiply: Wisdom_i4 × Staunen_i4 → i8 product (one AVX-512 lane op
+       per row sweep). Per CLAUDE.md "The Click" §3 and plan §4.1: `i4 × i4 → i8`
+       stays in the integer precision family; no float conversion needed.
+       This applies post-Phase-5b cutover; during Phase-5a the f32 path
+       derives Magnitude via the existing accessor.
   C: MetaColumn u32 + sigma u8                 =     5 B (unchanged)
   D: EdgeColumn [u64; 8]                       =    64 B (unchanged)
      temporal u64 + expert u16 + entity u16    =    12 B (unchanged)
@@ -276,6 +296,18 @@ impl AwarenessColumnStore {
 (midpoint = no information) until ndarray D-F4/D-F5 impls land.
 This unblocks end-to-end wiring and CI tests without blocking on
 the ndarray follow-on PR (see OQ-W4-3 in §13).
+
+**AwareOp deferral — carry-over to sprint-12+, NOT sprint-11 scope:**
+The no-op stub `[128u8; 256]` for D-F4/D-F5 (ndarray-backed AwareOp
+per-word derivation table) is an **explicit carry-over to sprint-12+**.
+Sprint-11 will NOT implement D-F4/D-F5. The stub is intentional and
+CI-safe; replacing it with real per-word derivations requires the
+vertical streaming structs from D-CSV-11 (sprint-13+), which in turn
+depend on the `AdaWorldAPI/ndarray PR #116` hpc-extras upstream merge.
+Any sprint-11 PR touching awareness.rs MUST NOT attempt to implement
+D-F4/D-F5 — leave the stub intact and document it as TECH_DEBT pending
+D-CSV-11. See cognitive-substrate-convergence-v1.md §11 Phase D (D-CSV-11)
+and §13.6 for the ndarray coordination requirement.
 
 ---
 
@@ -801,6 +833,27 @@ Should AwareOp have a default no-op impl (returns [128u8;256]) so Column F
 is wired end-to-end before ndarray D-F4/D-F5 land? Recommend YES: unblocks
 F-2 cascade composition test without blocking on ndarray. The ndarray impls
 override the default when they arrive (PR-CE64-MB-5 or separate ndarray PR).
+The stub is explicitly scoped to sprint-12+ per the AwareOp deferral note
+in §3 above.
+
+---
+
+## §13 Cross-References
+
+**Architectural anchor plan:**
+- `.claude/plans/cognitive-substrate-convergence-v1.md` — the substrate plan
+  locking the v2 cognitive substrate this spec composes with. Specifically:
+  - §5 L-10: QualiaColumn → QualiaI4_16D decision (replaces [f32;18])
+  - §7.2: QualiaColumn column-level encoding change + dim-assignment table
+    (Wisdom=dim0, Staunen=dim1, Magnitude=dim13; computed via i4×i4→i8 SIMD)
+  - §11 D-CSV-5: Migration phasing (Phase 5a sibling-column, Phase 5b cutover)
+  - §12 row for pr-ce64-mb-3-bindspace-efgh.md: ~40 LOC patch scope
+  - §13.6: ndarray PR #116 coordination requirement for D-CSV-11 (blocks
+    AwareOp D-F4/D-F5 real impls, which are sprint-12+ carry-over)
+
+**Parent plans:**
+- `bindspace-columns-v1.md` (§1-§5, §7-§11) — column types, storage, invariants
+- `causaledge64-mailbox-rename-soa-v1.md` (§6, §7) — PR-CE64-MB-3 LOC estimate
 
 ---
 

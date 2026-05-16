@@ -562,17 +562,31 @@ impl<const N: usize> MailboxSoA<N> {
     /// Drop: reclaim a compartment row and return its plasticity report.
     /// DeltaBuffer drops here. Ghost-edge emission (if unresolved) is the
     /// caller's responsibility (W5 AriGraph spec handles ghost-edge protocol).
-    pub fn drop_row(&mut self, id: MailboxId) -> Option<CompartmentReport> {
+    ///
+    /// `g_slot_at_drop` is populated from `attention_mask.lookup_g(...)` at
+    /// drop time — callers must pass the current G-domain id for this row so
+    /// the field can be resolved synchronously. If the slot is no longer bound
+    /// (evicted between dispatch and drop), the sentinel value 255 (u8::MAX)
+    /// is used; W7's aggregator treats 255 as "G-slot unknown".
+    pub fn drop_row(
+        &mut self,
+        id:          MailboxId,
+        attention_mask: &AttentionMask,   // borrow for lookup_g call
+        g_domain_id: OgitDomainId,        // architectural id for this row's G
+    ) -> Option<CompartmentReport> {
         let slot = self.ids.iter().position(|i| *i == id)?;
         if !self.active[slot] { return None; }
         self.active[slot] = false;
         self.count -= 1;
+        // Resolve the physical G-slot active at retire time (CSI-2 fix).
+        let g_slot_at_drop = attention_mask.lookup_g(g_domain_id).unwrap_or(u8::MAX);
         let report = CompartmentReport {
             id,
-            role:         self.roles[slot],
-            plasticity:   self.plasticity_counters[slot],
-            sigma_tier:   self.sigma_tiers[slot],
-            final_budget: self.budgets[slot],
+            role:           self.roles[slot],
+            plasticity:     self.plasticity_counters[slot],
+            sigma_tier:     self.sigma_tiers[slot],
+            final_budget:   self.budgets[slot],
+            g_slot_at_drop,
         };
         // Reclaim DeltaBuffer allocation.
         self.deltas[slot] = DeltaBuffer { bytes: Box::new([0u8; 1024]) };
@@ -623,11 +637,17 @@ impl<const N: usize> MailboxSoA<N> {
 /// Returned by drop_row; carries per-compartment plasticity stats to supervisor.
 #[derive(Debug)]
 pub struct CompartmentReport {
-    pub id:           MailboxId,
-    pub role:         RoleId,
-    pub plasticity:   PlasticityCounter,
-    pub sigma_tier:   SigmaTier,
-    pub final_budget: Budget,
+    pub id:             MailboxId,
+    pub role:           RoleId,
+    pub plasticity:     PlasticityCounter,
+    pub sigma_tier:     SigmaTier,
+    pub final_budget:   Budget,
+    /// Physical G-slot index active when this compartment was retired.
+    /// Captured via `AttentionMaskActor::lookup_g(...)` at `drop_row` time.
+    /// Required by W7's `PlasticityAggregator` to key Hebbian rollups on
+    /// `(role, G_slot)` pairs (E-CE64-MB-10). Without this field every
+    /// (role) entry collapses across all G-slots, defeating the Hebbian intent.
+    pub g_slot_at_drop: u8,
 }
 
 #[derive(Debug)]
@@ -658,6 +678,111 @@ compartment spawn decisions toward high-count `(role, G)` pairings.
 Pruning heuristic: lives in SigmaTierRouter (not MailboxSoA — separation of mechanism vs policy).
 When budget pressure rises (count approaching N), SigmaTierRouter may issue early `drop_row` for
 low-plasticity compartments.
+
+---
+
+## §4.5 Mailboxes as spatial-temporal accumulators
+
+> **Anchored to:** cognitive-substrate-convergence-v1.md §9 (L-14). This section locks the
+> conceptual framing so sprint-11+ implementations do not revert to a channel/queue model.
+
+### §4.5.1 What a MailboxSoA row is NOT
+
+A `MailboxSoA<N>` row is **not** a message queue. There are no FIFO slots, no head/tail
+pointers, no ordered delivery guarantees across rows. The name "Mailbox" is historical;
+the semantic is accumulator, not postbox.
+
+### §4.5.2 What a MailboxSoA row IS
+
+Each row is a **spatial-temporal meaning accumulator** — analogous to a single biological
+neuron with many incoming synapses:
+
+- **Spatial:** multiple baton sources (`apply_edges` from several upstream CollapseGates)
+  all land into the same row's `DeltaBuffer`. They are superposed, not queued. Later reads
+  see the integrated energy, not individual messages.
+- **Temporal:** the row persists across cycles (bounded by `TemporalWindow`). Energy
+  integrates over time. The `PlasticityCounter` records the full integration history —
+  how many cycles this row has fired, not just whether it fired this cycle.
+- **Threshold crossing:** when the row's integrated energy crosses the SigmaTierRouter's
+  resonance threshold (Σ10 Rubicon), the row emits. Emission is not guaranteed per-cycle;
+  it is triggered by accumulation crossing a bound.
+
+### §4.5.3 "The thought lives in mailboxes" — literal framing
+
+Per cognitive-substrate-convergence-v1.md §9.1: **a thought IS the integration state of
+one or more mailbox rows**. Concretely:
+
+- A thought persists as long as the row's energy is above the homeostasis floor.
+- A thought commits (Σ10 Rubicon) when the resonance peak crosses the threshold AND
+  `ΔF < commit_threshold` — the irreversible-commit decision in `SigmaTierRouter`.
+- A thought is retired when `drop_row` is called; `CompartmentReport` carries its
+  integration history (`plasticity`, `g_slot_at_drop`) for Hebbian rollup.
+
+### §4.5.4 `apply_edges` — the accumulation entry point
+
+Multi-source batons from upstream `CollapseGateEmission` structs (§4.6 below) land via
+`apply_edges`. This method is intentionally **not** in `dispatch_cycle` — it is an
+inbound path, not the outbound dispatch path:
+
+```rust
+impl<const N: usize> MailboxSoA<N> {
+    /// Accept an incoming baton (from CollapseGate upstream) and integrate
+    /// its energy into the target row's DeltaBuffer.
+    /// This is the neuron's "synaptic input" — not a message enqueue.
+    /// Returns Err if target_id not found or row not active.
+    pub fn apply_edges(
+        &mut self,
+        target_id: MailboxId,
+        edges:     &[(u16, CausalEdge64)],   // discrete baton tuples (plan §8)
+    ) -> Result<usize, MailboxSoaError> {
+        let slot = self.ids.iter().position(|i| *i == target_id)
+            .ok_or(MailboxSoaError::CapacityExhausted)?;
+        if !self.active[slot] { return Err(MailboxSoaError::CapacityExhausted); }
+        // Integrate each baton into the DeltaBuffer (energy addition).
+        // Caller-side CollapseGate already resolved MergeMode; here we simply
+        // accumulate into the scratchpad bytes that dispatch_cycle will read.
+        let count = edges.len();
+        // (Actual integration: CausalEdge64 energy fields added into delta bytes.)
+        // Per I-SUBSTRATE-MARKOV: Bundle mode preserves Chapman-Kolmogorov.
+        let _ = (slot, edges);   // placeholder — full integration in impl PR
+        Ok(count)
+    }
+}
+```
+
+---
+
+## §4.6 Inter-mailbox baton wire format
+
+> **Anchored to:** cognitive-substrate-convergence-v1.md §8 (L-13) + §4.2 (gapless baton).
+
+### §4.6.1 The wire IS the baton
+
+Inter-mailbox communication uses `Vec<(u16 target, CausalEdge64)>` discrete baton tuples.
+There is **no** `Vsa16kF32` envelope between mailboxes. Per plan §4.2:
+
+> *"the baton IS the wire — no encode/decode at boundary"*
+
+A baton emitted by row A's `dispatch_cycle` is received directly by row B's `apply_edges`.
+The format does not change at the boundary. This is "gapless cognition."
+
+### §4.6.2 What `Vsa16kF32` is NOT used for (between mailboxes)
+
+| Candidate use | Correct disposition |
+|---|---|
+| Compound bundles between rows | Use `Vec<(u16, CausalEdge64)>` — receiver's `apply_edges` re-superposes via energy addition. Same algebra. |
+| Markov ±5 braiding across row boundaries | Braiding happens INSIDE one tier's MatVec; never crosses a mailbox boundary. |
+| Continuous strength values on the wire | Signed i4 mantissa (16 states) + 8-bit f/c in `CausalEdge64` is sufficient for cycle-speed dispatch. |
+
+`Vsa16kF32` is preserved for intra-tier Markov accumulation + crystal carrier + grammar
+bind/unbind testing (plan L-12). It does NOT cross mailbox boundaries.
+
+### §4.6.3 Implicit provenance
+
+Each `CollapseGateEmission` (plan §8.1) carries `source_mailbox: MailboxId` and
+`chain_position: u32` as provenance — no explicit `cycle_id` field. Receivers find the
+source mailbox and emission position via these two fields. Per plan §4.4: temporal axis
+is structural (chain-position), not stored (no temporal field in the edge).
 
 ---
 
@@ -1047,4 +1172,16 @@ D-CE64-MB-8 is shared (W4 owns `Arc<BindSpaceColumns>`; this spec owns `BindSpac
 
 ---
 
-*End of spec — PR-CE64-MB-5. Worker W6, sprint-log-10, 2026-05-14.*
+## §13 Cross-references
+
+| Document | Relationship |
+|---|---|
+| `.claude/plans/cognitive-substrate-convergence-v1.md` | **Architectural anchor** — §9 (mailbox spatial-temporal accumulator semantics, L-14), §8 + §4.2 (gapless baton wire format, L-13), §11 D-CSV-7 (MailboxSoA integration deliverable). This spec is the implementation contract for the decisions locked in that plan. |
+| `.claude/plans/causaledge64-mailbox-rename-soa-v1.md` | Parent plan §4 (AttentionMask skeleton) + §5 (MailboxSoA skeleton) + §7 (BindSpaceView) — verbatim skeletons extended here. |
+| `.claude/specs/pr-ce64-mb-1-par-tile-crate.md` (W1) | Crate apex: par-tile scaffold, `Mailbox<T>` trait, diamond dep structure. W1 stubs extended by this spec. |
+| `.claude/specs/pr-ce64-mb-3-bindspace-efgh.md` (W4) | Owns `Arc<BindSpaceColumns>`; this spec owns `BindSpaceView` as consumer. ColumnMask columns E-H defined there. |
+| `.claude/specs/pr-ce64-mb-4-arigraph-spo-g.md` (W5) | Ghost-edge protocol: unresolved compartment on `drop_row` emits ghost; W5 AriGraph owns the ghost-edge insertion path. |
+| `.claude/specs/pr-ce64-mb-6-sigma-tier-router.md` (W7) | Consumer of `CompartmentReport` (including `g_slot_at_drop`) for Hebbian rollup keyed on `(role, G_slot)`. Owns Σ10 Rubicon-resonance threshold that triggers row emission. |
+| `.claude/board/sprint-log-10/meta-review.md` | CSI-2 cross-spec blocker: `g_slot_at_drop` field required by W7 — fixed in this spec §4.2. |
+
+*End of spec — PR-CE64-MB-5. Worker W6, sprint-log-10, 2026-05-14. Patched 2026-05-16 per cognitive-substrate-convergence-v1.md §12 (W6 patch row): §4.5 mailbox accumulator semantics + §4.6 baton wire format + §13 cross-references.*
