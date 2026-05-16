@@ -35,6 +35,46 @@
 
 ---
 
+## #381 — specs(sprint-10): cognitive-substrate-convergence-v1 prep — all 8 worker patches complete (merged 2026-05-16)
+
+**Confidence (2026-05-16):** governance-only spec-patch bundle (no `.rs`, no Cargo, no settings — only `.claude/specs/*.md` + `.claude/board/sprint-log-csv-prep/agents/agent-W*.md` scratchpads). Codex review surfaced two P1 consistency gaps mid-flight that were resolved before merge: (a) W2 spec had stale `g_slot()` / `with_g_slot()` / `set_g_slot()` accessors in §9 test plan and §10 risk matrix despite §3 declaring G-slot dropped per L-3; (b) W3 spec Test 1 (`pal8_v1_v2_round_trip_zero_default`) used `temporal = 1023` to construct the v1 edge, which under the new layout sets bits 52-61 that v2 reclaims for W (53-58), truth (59-60), and spare (61) — the test would have failed on ordinary v1 data instead of testing the intended zero-default migration contract. Both fixes landed in commit `33509ab` before user merge. 5 commits across the branch.
+
+**Added:**
+
+- **8 sprint-10 spec patches** at `.claude/specs/` (~1,200 LOC delta, original estimate ~870):
+  - **W2** `pr-ce64-mb-2-causaledge64-v2.md` (+264/-101, then +61/-30 in codex fix) — OQ-LAYOUT-1 RESOLVED 2026-05-16 → plan §6 Option F; new §"Signed Mantissa Rationale" (sign=direction, 8 base slots, Reserved5/6 absorb PR-LL-1 Intervention/Counterfactual per L-9, three SIMD wins); new §"Counterfactual via causal_mask, NOT via separate bit" (Pearl-3 = 0b111 by construction); §9 test plan rewritten to drop g_slot/with_g_slot/set_g_slot/G_SHIFT and add `test_inference_mantissa_signed_roundtrip` / `test_spare_isolation` / `test_mantissa_no_plasticity_contamination`; §10 risk matrix corrected ("bits 46-48 are G slot bits" → bits 46-49 hold 4b SIGNED mantissa); §11 OQ-FORWARD-REFACTOR Option-C → Option-F.
+  - **W3** `pr-ce64-mb-2-pal8-nars-regression.md` (+279/0, then +168/-93 in codex fix) — OQ-PAL8-FORMAT RESOLVED 2026-05-16; new §11 with 5 regression tests gated on `causal-edge-v2-layout` feature (`test_mantissa_signed_positive`, `test_mantissa_signed_negative`, `test_lens_4_state`, `test_w_slot_64`, `test_temporal_absent`); §3 Test 1 rewritten to use `temporal = 0` (the only safe v1 migration value); NEW §3 Test 1b `pal8_v1_nonzero_temporal_is_blocked_by_version_gate` proving the PAL8 version gate is mandatory; §3 Tests 2/3 + §4 NarsTables + §5 EdgeColumn cleaned of `g_slot` and `temporal` references; §8 agreement checklist rewritten to Option F layout.
+  - **W4** `pr-ce64-mb-3-bindspace-efgh.md` — D-CSV-5 cross-ref at lines 42-52 (QualiaColumn migration phases 5a/5b); i4-16D Magnitude note at lines 54-59 (Wisdom_i4 × Staunen_i4 → i8 SIMD multiply); AwareOp deferral §300-310 (D-F4/D-F5 to sprint-12+, blocks on D-CSV-11 / ndarray PR #116); §13 cross-refs to `cognitive-substrate-convergence-v1.md` anchors.
+  - **W5** `pr-ce64-mb-4-arigraph-spo-g.md` (+316/-58) — `SpoWitnessChain<32>` retired; full §3.3 `WitnessCorpus` design (CAM-PQ-indexed `Arc<Vec<WitnessEntry>>` with copy-on-write via `Arc::make_mut`, unbounded, evict_stale API, time-as-helper rationale); §3.4 W-slot semantics (Tier 3b / Plasticity 2b / State 1b); §5.1-5.3 cascade rewritten (SoA scan → palette family-prefix → WitnessCorpus CAM-PQ → CausalEdge64 v2 decode); 3 new iron rules: `W5-INV-CHAIN-ORDER` (timestamp_ns ASC + hash tie-break), `W5-INV-WITNESS-UNBOUNDED`, `W5-INV-CAM-PQ-INDEX`; new §6/§7/§8/§10/§11 entries.
+  - **W6** `pr-ce64-mb-5-mailbox-soa-attentionmask.md` — `g_slot_at_drop` field for CSI-2 plus spatial-temporal accumulator semantics.
+  - **W7** `pr-ce64-mb-6-sigma-tier-router.md` — Σ10 Rubicon-resonance threshold + integer-SIMD MUL path.
+  - **W10** `sprint-10-pr-dep-graph.md` — PR-J1-INT4-32D-ATOMS + CAM-PQ wiring elevated to Wave 3 hard dep.
+  - **W11** `sprint-10-test-plan.md` (+87/0) — new §3.A enumerating +58 v2 substrate tests (W3:+5, W5:+12, W4:+3, W6:+8, W7:+30) tied to L-4/L-6/L-7/L-14..L-17; §4.3.1 Miri growth target ~1550 → ~1600 (SIMD signum/abs `unsafe` blocks + `Arc::make_mut` CoW); §3.B cross-refs.
+- **8 worker scratchpads** at `.claude/board/sprint-log-csv-prep/agents/agent-W{2,3,4,5,6,7,10,11}.md` — CCA2A Layer-2 blackboard artifacts; each itemizes mandatory reads + design decisions + open questions + process notes.
+
+**Locked:**
+
+- **Plan §6 Option F is canonical**: signed mantissa 4b (bits 46-49), plasticity 3b shifted to 50-52, W-slot 6b (53-58), truth-band lens 2b (59-60), spare 3b (61-63). No G-slot. No separate Pearl-3 modifier. No temporal field.
+- **PR-LL-1 Intervention/Counterfactual absorb into mantissa slots**: `+6` = Intervention, `−6` = Counterfactual via L-9. Pearl-3 reasoning IS `causal_mask = 0b111`, not a separate bit.
+- **Counterfactual orthogonality**: causal_mask (3b) = which Pearl rung; mantissa (4b signed) = which NARS rule at that rung; both fields are orthogonal and together encode Pearl 2³ × NARS-8 = 16 distinct (rung, rule) tuples per direction.
+- **Subagent permission isolation diagnosed**: Edit/Write/MultiEdit tools are blocked in Sonnet subagent context despite settings.local.json allows on main thread. 7 of 8 workers in this PR required Python-via-Bash heredoc fallback. Worth filing upstream as a Claude Code SDK gap (subagents inherit deny rules but not allow rules from session-scoped settings).
+- **`Edit` / `Write` / `MultiEdit` tool-only permission syntax is INVALID** in current Claude Code parser — must be `Edit(**)` / `Write(**)` / `MultiEdit(**)` with glob spec. The "tool-only form" diagnosis from the 2026-05-15 session was wrong; that bare form is not a valid permission rule (effectively a no-op that falls through to user prompt). Fixed in this branch's `.claude/settings.local.json`.
+- **WitnessCorpus replaces SpoWitnessChain<32>**: CAM-PQ-indexed, unbounded, copy-on-write via `Arc::make_mut`. G-slot retirement (L-3) is three-way redundant per palette family-prefix + SoA partition + witness corpus root.
+- **Mandatory Board-Hygiene Rule violated by PR #381 itself** — the merged PR did not include LATEST_STATE / PR_ARC_INVENTORY / STATUS_BOARD / AGENT_LOG updates in the same commit. This entry is part of the retroactive followup PR; the retroactive-hygiene pattern is the documented anti-pattern (CLAUDE.md §Mandatory Board-Hygiene Rule). Lesson logged to EPIPHANIES as E-META-8.
+
+**Deferred:**
+
+- **W3 PalDecodeError type**: the `pal8::PalDecodeError::MissingVersionByte` referenced in Test 1b is a new enum that W3 implementation work will introduce in sprint-11. The test is gated on `causal-edge-v2-layout` feature so it compiles only against the v2 build.
+- **NarsEngine `to_causal_edge` signature for v2**: the test in W3 §4 assumes round-tripping zeroes the v2 reclaim-zone fields. The actual `to_causal_edge` impl needs the v2 pack signature update (no temporal arg). Sprint-11 D-CSV-1 work.
+- **Sprint-11 implementation spawn**: still blocked on user ratifications for OQ-CSV-1 (qualia 16D per-dim assignment), OQ-CSV-2 (W-slot width 6 vs 8), OQ-CSV-4 (QualiaColumn migration phasing).
+
+**Docs:**
+
+- This entry is the canonical record. No new knowledge docs produced (8 sprint-log-csv-prep agent scratchpads are sprint-scoped operational artifacts, not Tier-1 knowledge).
+- Plan reference: `.claude/plans/cognitive-substrate-convergence-v1.md` §6 (locked layout), §5 L-2/L-3/L-4/L-6/L-7/L-8/L-9 (decisions absorbed into specs), §11 D-CSV-* (downstream sprint-11/12/13 deliverables), §12 (worker patch row matrix).
+
+---
+
 ## #379 — gov: retire 4 superseded orphan branches (deletion audit-trail) (merged 2026-05-15)
 
 **Confidence (2026-05-15):** governance-only branch-retirement audit. No code, no spec, no plan — just documents the lifecycle close of 4 orphan branches whose content was absorbed into `main` via parallel paths (PR #364/#365/#366 sprint-7 etc.) and which therefore no longer have any unique unmerged content worth surfacing. **Verification methodology:** for each retired branch, ran `git diff --shortstat origin/main...$branch` AND `git diff` on suspected unique files. Three branches showed zero-byte diff (content fully absorbed); one branch (`phase-3b-witness-to-splat`) showed nominal "18 files / +3943 / −1" diff but per-file inspection proved every line-level delta was either (a) rustfmt-1.95.0 whitespace drift vs the pre-bump branch, or (b) stale "Last updated" metadata regression in `LATEST_STATE.md`. None of the four branches had a recoverable unique-content payload worth a PR.

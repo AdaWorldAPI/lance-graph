@@ -463,20 +463,20 @@ Consolidates sprint-10 architectural decisions before context dilution.
 | **OQ-CSV-4** QualiaColumn migration phasing | D-CSV-5 | Default sibling-column-then-cutover (lower risk; 1 extra PR worth it) |
 | **OQ-CSV-6** Σ10 Rubicon threshold derivation | D-CSV-10 (sprint-12) | Hand-tuned acceptable for sprint-11/12 with TECH_DEBT note per `I-NOISE-FLOOR-JIRAK`; principled Jirak derivation deferred to VAMPE coupled-revival sprint-13+ |
 
-### Cross-spec patches (one bundled prep PR pre-sprint-11)
+### Cross-spec patches (one bundled prep PR pre-sprint-11) — **SHIPPED via PR #381 (merged 2026-05-16, commit `a7c0545`)**
 
-| Spec | Patch | LOC |
-|---|---|---|
-| `pr-ce64-mb-2-causaledge64-v2.md` (W2) | §3 bit layout → plan §6; OQ-LAYOUT-1 resolved; signed-mantissa rationale | ~150 |
-| `pr-ce64-mb-2-pal8-nars-regression.md` (W3) | Tests parameterized on v2 layout; mantissa roundtrip + lens 4-state | ~80 |
-| `pr-ce64-mb-3-bindspace-efgh.md` (W4) | QualiaColumn migration step (D-CSV-5) cross-ref | ~40 |
-| `pr-ce64-mb-4-arigraph-spo-g.md` (W5) | `SpoWitnessChain<32>` → `WitnessCorpus`; `W5-INV-CHAIN-ORDER` invariant; W-slot semantics | ~300 |
-| `pr-ce64-mb-5-mailbox-soa-attentionmask.md` (W6) | `g_slot_at_drop` field (CSI-2); spatial-temporal accumulator semantics | ~50 |
-| `pr-ce64-mb-6-sigma-tier-router.md` (W7) | Σ10 Rubicon-resonance threshold; integer-SIMD MUL path | ~120 |
-| `sprint-10-pr-dep-graph.md` (W10) | PR-J1-INT4-32D-ATOMS + CAM-PQ wiring elevated to Wave 3 hard dep | ~50 |
-| `sprint-10-test-plan.md` (W11) | Refresh test counts for v2; i4-roundtrip + signed-mantissa-product tests | ~80 |
+| Spec | Patch | LOC | Status |
+|---|---|---|---|
+| `pr-ce64-mb-2-causaledge64-v2.md` (W2) | §3 bit layout → plan §6; OQ-LAYOUT-1 resolved; signed-mantissa rationale; G-slot API stripped from test plan + risk matrix (codex P1) | ~160 actual | **Shipped** |
+| `pr-ce64-mb-2-pal8-nars-regression.md` (W3) | Tests parameterized on v2 layout; mantissa roundtrip + lens 4-state; v1-temporal=0 safe-migration fix + version-gate test (codex P1) | ~370 actual | **Shipped** |
+| `pr-ce64-mb-3-bindspace-efgh.md` (W4) | QualiaColumn migration step (D-CSV-5) cross-ref | ~40 actual | **Shipped** |
+| `pr-ce64-mb-4-arigraph-spo-g.md` (W5) | `SpoWitnessChain<32>` → `WitnessCorpus`; `W5-INV-CHAIN-ORDER` invariant; W-slot semantics | ~316 actual | **Shipped** |
+| `pr-ce64-mb-5-mailbox-soa-attentionmask.md` (W6) | `g_slot_at_drop` field (CSI-2); spatial-temporal accumulator semantics | ~50 actual | **Shipped** |
+| `pr-ce64-mb-6-sigma-tier-router.md` (W7) | Σ10 Rubicon-resonance threshold; integer-SIMD MUL path | ~120 actual | **Shipped** |
+| `sprint-10-pr-dep-graph.md` (W10) | PR-J1-INT4-32D-ATOMS + CAM-PQ wiring elevated to Wave 3 hard dep | ~50 actual | **Shipped** |
+| `sprint-10-test-plan.md` (W11) | Refresh test counts for v2; i4-roundtrip + signed-mantissa-product tests | ~87 actual | **Shipped** |
 
-**Total spec-patch LOC:** ~870. Bundle into `gov: sprint-10 specs patch for cognitive-substrate-convergence-v1` PR.
+**Total spec-patch LOC:** ~1,200 actual across 5 commits (`9bd66d9`, `f730528`, `5253c79`, `e4d15a3`, `33509ab`) merged 2026-05-16 in PR #381. Original ~870 estimate undershot W3 (codex P1 fix added ~280 LOC) and W5 (full WitnessCorpus section added ~16 LOC over estimate). All 8 workers complete. Sprint-11 spawn now unblocked on the spec-patch dimension; remaining gates: OQ-CSV-1, OQ-CSV-2, OQ-CSV-4 user ratifications.
 
 ---
 
