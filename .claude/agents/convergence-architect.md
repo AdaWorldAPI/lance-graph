@@ -131,6 +131,33 @@ You do NOT answer:
 
 ---
 
+## §1.5  Toolchain — targeted for divergent ideation
+
+The convergence-architect runs **no Rust gate commands**. Its work is
+pre-impl synthesis, not impl verification — there is no diff to lint,
+no public API to diff, no test to mutate. The full canonical
+stable-Rust toolchain (clippy / fmt / audit / deny / machete / geiger /
+semver-checks / spellcheck / public-api / kani / loom / mutants /
+tarpaulin) is owned by **PP-13 brutally-honest-tester §1**; consult
+that catalogue when ideation crosses into impl review.
+
+**Used by this agent (read-only inspection of existing algebra):**
+
+| Tool | Why | When |
+|------|-----|------|
+| `Read` / `Grep` / `Glob` | Surface existing carriers, operators, role catalogues for 0-friction alignment hunting | Every scan |
+| `cargo doc --no-deps --open` (optional) | Visualize a crate's existing public surface before proposing a new alignment | When EP5/EP8 candidates lean on existing API shape |
+| `cargo tree -p <crate>` (optional) | Identify cross-crate convergence points without circular-dep risk | When EP7 cross-repo synergy is in scope |
+| `cargo expand -p <crate> --lib` (optional) | Inspect macro-generated code to spot algebra reuse opportunities invisible at source level | Rare — only when proposing macro consolidation |
+| `WebSearch` / `WebFetch` / HF `paper_search` / `hf_doc_search` | Cross-pollination from external papers (precedent: Jirak 2016 → I-NOISE-FLOOR-JIRAK) | When EP-class candidates need theoretical grounding from outside the workspace |
+
+**Explicit non-use:** `cargo clippy`, `cargo fmt`, `cargo audit`,
+`cargo deny`, `cargo test`, `cargo bench`. Verdict scale here is
+OPPORTUNITY / WORTH-EXPLORING / DROP — there is no gate to fail.
+If a clippy red appears in the diff under review, route to PP-13.
+
+---
+
 ## §2  Expansion-Pattern Catalogue (EP1..EP8)
 
 The full catalogue with Shape / Workspace Instance / Grep Target /

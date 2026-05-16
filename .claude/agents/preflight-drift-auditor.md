@@ -199,6 +199,41 @@ for the definitive list of what is vs. what is pending-promotion.
 
 ---
 
+## §1.5 Toolchain — targeted for pre-spawn plan/spec drift verification
+
+The preflight-drift-auditor operates on **plan and spec documents** before
+any worker writes code — its toolchain is therefore **git-heavy + grep-heavy,
+cargo-light**. Within-crate code-review gates (clippy / audit / deny / fmt /
+kani / loom / mutants / tarpaulin) are owned by **PP-13 brutally-honest-tester
+§1**; cross-boundary cargo gates (check --workspace / public-api / semver-
+checks / tree / metadata / expand) are owned by **PP-15 baton-handoff-
+auditor §1.5**. Do not duplicate their work here — route forward when a
+finding crosses into impl-review or boundary-audit territory.
+
+**Used by this agent (axis-keyed verification commands):**
+
+| Tool / pattern | Axis(es) caught | Why |
+|----------------|-----------------|-----|
+| `cd /home/user/<repo> && git log master --oneline \| head -20` | Axis 1 (stale CSI claim) + Axis 4 (cross-repo PR-merge) | Verifies "PR #N merged" / "resolved via commit X" planner claims against actual repo state (PP-12 false ndarray-PR-#147 precedent) |
+| `git log --all --grep '<CSI-N>' --oneline` | Axis 1 + Axis 3 | Locate the canonical commit cited for a CSI resolution; confirms scope of fix |
+| `git show <SHA> --stat` | Axis 1 + Axis 4 + Axis 5 | Verifies cited commit actually touches the cited files (catches "fixed in commit X" claims when X is unrelated) |
+| `git diff main...HEAD -- <path>` | Axis 3 (pending-vs-canonical) + Axis 6 (iron-rule citation) | Confirms whether a cited symbol/rule lives on main or only on the current branch |
+| `mcp__github__list_pull_requests` + `mcp__github__get_commit` | Axis 4 (cross-repo PR-merge) | Verifies sibling-repo PR-merge claims when the local clone is stale |
+| `grep -rhn 'D-CSV-[0-9]\+' .claude/plans/ .claude/specs/` | Axis 2 (cross-planner D-id collision) | Surfaces every D-id assignment across the parallel planner outputs; aggregates duplicates (CSI-19 precedent) |
+| `grep -rhn 'OQ-CSV-[0-9]\+' .claude/plans/ .claude/specs/ .claude/board/` | Axis 2 (cross-planner OQ-id collision) | Same surface for OQ-ids (PP-1's OQ-CSV-7..12 vs PP-11's OQ-CSV-7..19 disagreement) |
+| `grep -n 'I-LEGACY-API-FEATURE-GATED' CLAUDE.md .claude/knowledge/iron-rules-doctrine.md` | Axis 3 + Axis 6 (iron-rule citation against main) | Confirms a cited iron rule is actually canonical, not pending-promotion (CSI-20 precedent) |
+| `grep -rn '<old-symbol>' .claude/specs/ .claude/plans/ .claude/agents/` | Axis 5 (renamed-symbol downstream drift) | Surfaces planners that still cite a pre-rename symbol (CSI-15 `CamPqIndexPlaceholder` precedent) |
+| `cargo tree -p <crate>` (occasional) | Axis 4 (cross-repo dep claim) | Verifies a planner's stated workspace-dep-graph against the actual `Cargo.toml` resolution; rare, only when a spec's claim is dep-shaped |
+
+**Explicit non-use:** `cargo clippy / fmt / audit / deny / kani / loom /
+mutants / tarpaulin / public-api / semver-checks`. The preflight agent
+runs before any code exists for those tools to operate on. If a finding
+proves to require code-side verification, surface it as a SPAWN-CAUTION
+flag with an explicit pointer "verify post-impl with PP-13" or "verify
+at boundary with PP-15."
+
+---
+
 ## §2 Preflight Drift-Pattern Catalogue — PD1..PD10
 
 The full per-pattern reference lives in

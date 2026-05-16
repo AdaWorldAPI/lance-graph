@@ -142,6 +142,36 @@ that are cited as shipped but only exist on a local branch.
 
 ---
 
+## §1.5. Toolchain — targeted for cross-boundary audit
+
+The baton-handoff-auditor runs cargo gates that **examine relationships
+between crates / modules / DTOs / repos** rather than within-crate
+correctness. For within-crate code review (clippy, audit, fmt, kani,
+loom, mutants, tarpaulin), route to **PP-13 brutally-honest-tester §1**
+— that agent owns the comprehensive 3-tier canonical list (Mandatory /
+Quality / Heavier-opt-in).
+
+**Used by this agent (boundary-class gates):**
+
+| Tool | Boundary class caught | Severity if red |
+|------|-----------------------|-----------------|
+| `cargo check --workspace --all-targets --all-features` | B2 crate↔crate, B6 lib.rs/mod.rs orphan, B7 Cargo.toml workspace — if a file/module is authored but unreachable, this fails first | **P0** (CATCH-CRITICAL) — a baton authored but not caught is the definitional drop |
+| `cargo tree -p <crate> --workspace` | B2 crate↔crate dep cycles, B8 cross-repo dep path drift; verifies sibling-repo path-deps resolve to the asserted source | **P1** if a cited dep is unresolved or cycles |
+| `cargo metadata --format-version 1 \| jq '.workspace_members'` | B7 Cargo.toml [workspace] self-declaration trap (CSI-7); confirms every member crate is actually a member, not an orphan parent | **P0** if a crate cited as workspace-member is excluded |
+| `cargo public-api --diff` | B1 DTO field-shape drift, B2 cross-crate signature mismatch; surfaces every public-API change in the diff | **P0** if a DTO consumed cross-crate changes shape without coordinated downstream update |
+| `cargo semver-checks check-release` | B9 v1-API-under-v2-feature alias (I-LEGACY-API-FEATURE-GATED precedent) — flags cross-version contract drift | **P0** on breaking change without major bump; **P1** on additive change without note |
+| `cargo machete` | B6 lib.rs/mod.rs orphan signal (unused dep often co-occurs with orphan import); B2 stale dep after a refactor | **P2** cleanup; **P1** if the unused dep is in a workspace-shipped crate |
+| `cargo expand -p <crate>` | B1 DTO shape drift hidden behind macros (derive-generated From/Into not matching declared shape) | **P1** when macro expansion is the only place the boundary mismatch is visible |
+| `git log --all --oneline -- <path>` + `mcp__github__get_commit` | B3 sprint↔sprint drift; B6 false "merged" claim verification across repos | **P0** when a cited commit/PR does not exist in the asserted ref |
+| `grep -rn '<old-symbol>' crates/ examples/ tests/ benches/ .claude/` | B2 rename-without-downstream-sweep (CSI-15 precedent — `CamPqIndexPlaceholder` → `WitnessIndexHashMap`) | **P0** if downstream callers still cite old symbol post-rename |
+
+**Explicit non-use:** within-crate `cargo clippy / fmt / audit / deny /
+kani / loom / mutants / tarpaulin` — these are PP-13's scope. This
+agent fires on **relationships**, not on the contents of any one
+crate.
+
+---
+
 ## §2. Boundary anti-pattern catalogue BAP1..BAP10
 
 The full taxonomy (grep targets, sprint instances, commit SHAs) lives

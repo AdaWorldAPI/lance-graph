@@ -164,11 +164,16 @@ is P0.
 |------|---------|------|---------|----------|
 | `kani` | YES (stable) | Per-deliverable opt-in for `#[kani::proof]` harnesses | Bounded model-checked correctness on a small input space | **P0** if a kani proof regresses on the diff |
 | `loom` | YES (lib) | Test code that exercises atomic + locked code paths | Interleaving model checker for concurrency | **P0** if a loom test regresses |
+| `cargo mutants` | `cargo install cargo-mutants` | Opt-in mutation-testing benchmark; per-deliverable for surfaces where high-confidence test coverage matters | Surviving mutants = test suite blindspots | **P2** informational unless the deliverable explicitly elevates mutation coverage to a gate |
+| `cargo tarpaulin` | `cargo install cargo-tarpaulin` (Linux only) | Opt-in line-coverage benchmark; per-deliverable | Untested lines under the diff | **P2** informational unless the deliverable explicitly elevates coverage to a gate |
 
 Kani and loom are not gate-fail-by-default tools. They run on the
 deliverables that pre-declare a kani proof or a loom test. If the diff
 modifies code under a `#[kani::proof]` or a `loom::model` test, run
-those proofs/tests and gate on the result.
+those proofs/tests and gate on the result. `cargo mutants` and
+`cargo tarpaulin` are opt-in per-deliverable measurement tools — both
+stable, both Linux-friendly; treat their output as informational
+unless the deliverable spec explicitly elevates one of them to a gate.
 
 ### 1.6 Explicit non-fit on stable (DO NOT propose)
 
