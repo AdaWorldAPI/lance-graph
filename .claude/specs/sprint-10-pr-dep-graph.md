@@ -53,7 +53,15 @@ This spec is a meta-spec: it reads the 9 worker specs (W1-W9) and produces the o
     PR-NDARRAY-MIRI-COMPLETE  (W8, ndarray sibling repo — independent)
            |
            |  unblocks Miri coverage for par-tile + bevy-cull-plugin
-           v
+           |
+    PR-J1-INT4-32D-ATOMS  (Wave 0.5, p64/p64-bridge — independent)  [CSI-3 FIX]
+           |
+           |  provides p64_bridge::STYLES codebook (INT4-32D atoms)
+           |  MUST merge before Wave 5 (ColdStartFallback::new() reads it)
+           |
+           +---------------------------------------+
+           |                                       |
+           v                                       |
     +------------------------------------------------------+
     |  WAVE 1+2 — can land in parallel                     |
     |                                                      |
@@ -64,12 +72,13 @@ This spec is a meta-spec: it reads the 9 worker specs (W1-W9) and produces the o
     +------------------------------------+-----------------+
                                          |  MB-2 merges after MB-2-test passes
                     +--------------------+------------------+
-                    |  WAVE 3 — parallel pair               |
+                    |  WAVE 3 — parallel trio               |
                     |                                       |
-                    |  PR-CE64-MB-3          PR-CE64-MB-4  |
-                    |  (W4, BindSpace E/F/G/H) (W5, AriGraph SPO-G)
-                    |  cognitive-shader-driver  arigraph/   |
-                    |  closes PR355#6+FIX-5    closes D-OGIT-G-1
+                    |  PR-CE64-MB-3    PR-CE64-MB-4    CAM-PQ wiring
+                    |  (W4, BindSpace  (W5, AriGraph   (ndarray::hpc::
+                    |   E/F/G/H)        SPO-G)          cam_pq → planner)
+                    |  shader-driver    arigraph/        D-CSV-6 hard dep
+                    |  closes FIX-5    closes D-OGIT-G-1 per L-17
                     |                                       |
                     +-----------------+---------------------+
                                       |
@@ -81,7 +90,7 @@ This spec is a meta-spec: it reads the 9 worker specs (W1-W9) and produces the o
                                       v
                     PR-CE64-MB-6  (W7, SigmaTierRouter + InMemoryMailbox)
                     lance-graph-supervisor + par-tile
-                    depends: MB-5 merged
+                    depends: MB-5 merged + PR-J1-INT4-32D-ATOMS merged (Wave 0.5)
                     gates on: OQ-1 ratification (Sigma-tier banding policy)
                                       |
                                       | soft dep (MailboxSoA sufficient for
@@ -117,6 +126,20 @@ This spec is a meta-spec: it reads the 9 worker specs (W1-W9) and produces the o
 
 Recommendation: W8 drafts ndarray spec; main thread lands ndarray PR in parallel with sprint-11 waves 1-3, not as a strict gate.
 
+### Wave 0.5 (CSI-3 FIX — independent prerequisite for Wave 5)
+
+**PR-J1-INT4-32D-ATOMS** — the INT4-32D codebook for thinking-engine STYLES and the i4 mantissa precision family foundation. This PR produces the `p64_bridge::STYLES` codebook (16 B per INT4-32D atom) that `ColdStartFallback::new()` in W7's SigmaTierRouter reads at startup. Without it, all cold-start spawn paths in Wave 5 fail at runtime with `ColdStartFailed`.
+
+**Independence:** Like PR-NDARRAY-MIRI-COMPLETE (Wave 0), PR-J1 touches a different crate (`p64`/`p64-bridge`) and has no consumers in Waves 1-4. It can land at any time independently but **MUST be merged before Wave 5 (SigmaTierRouter) spawns.**
+
+**Architectural grounding:** Per `.claude/plans/cognitive-substrate-convergence-v1.md` §5 L-6 (W-slot) and the i4 mantissa family defined in §4.1, the INT4-32D codebook is the substrate-level atom set from which the i4 signed mantissa family (NARS inference mantissa, ThinkingAtom32x4, direction triad) is derived. The `p64_bridge::STYLES` codebook encodes 32 thinking-style atoms at 4-bit precision per dimension across 32 dimensions.
+
+**Hard prerequisite for:** Wave 5 (PR-CE64-MB-6, W7 SigmaTierRouter) — specifically the `ColdStartFallback::new()` path which reads `p64_bridge::STYLES` for K-NN cold-start. Without the codebook available, Wave 5 compiles but fails at runtime.
+
+**Files touched:** `crates/p64-bridge/src/styles.rs` (atom definitions), `crates/p64/src/int4_32d.rs` (codec substrate), `crates/lance-graph-contract/src/thinking.rs` (INT4-32D type anchor if not already present).
+
+**CSI-3 resolution:** This entry directly resolves the CSI-3 blocker identified in `.claude/board/sprint-log-10/meta-review.md`.
+
 ### Wave 1 (sprint-11 kickoff — par-tile apex)
 
 **PR-CE64-MB-1 (W1, par-tile crate)** — the diamond apex. Pure new crate, no consumers yet. Can be authored and merged on its own branch before any other MB PR. Once merged, par-tile's `Mailbox<T>` trait + `InMemoryMailbox` + `AttentionMask` struct are stable.
@@ -133,18 +156,26 @@ Recommendation: W8 drafts ndarray spec; main thread lands ndarray PR in parallel
 
 **Must precede:** PR-CE64-MB-3, PR-CE64-MB-4, PR-CE64-MB-5.
 
-### Wave 3 (parallel pair — after Wave 2 merges)
+### Wave 3 (parallel trio — after Wave 2 merges)
 
-**PR-CE64-MB-3 (W4)** and **PR-CE64-MB-4 (W5)** can land **in parallel with each other.** Neither depends on the other at the type level:
+**PR-CE64-MB-3 (W4)**, **PR-CE64-MB-4 (W5)**, and **CAM-PQ wiring** can land **in parallel with each other.** None depends on the others at the type level.
 
-- PR-CE64-MB-3 adds Columns E/F/G/H + `BindSpaceView` + `CollapseGate MergeMode::Superposition` to `cognitive-shader-driver`. Does not touch arigraph.
-- PR-CE64-MB-4 adds SPO-G quad mode + ghost-edge persistence + `SpoWitnessChain<N>` to `lance-graph/arigraph`. Does not touch cognitive-shader-driver.
+**PR-CE64-MB-3 (W4):** adds Columns E/F/G/H + `BindSpaceView` + `CollapseGate MergeMode::Superposition` to `cognitive-shader-driver`. Does not touch arigraph.
+
+**PR-CE64-MB-4 (W5):** adds SPO-G quad mode + ghost-edge persistence + `SpoWitnessChain<N>` to `lance-graph/arigraph`. Does not touch cognitive-shader-driver.
 
 Both depend on causal-edge v2 (Wave 2) because both use `CausalEdge64::g_slot()` (PR-CE64-MB-3 in BindSpaceView column-mask filtering; PR-CE64-MB-4 for SPO-G quad G-slot storage).
 
-**Merge conflict risk:** Low — different crates, different modules.
+**CAM-PQ wiring (new Wave 3 entry — D-CSV-6 hard prerequisite):** Per `.claude/plans/cognitive-substrate-convergence-v1.md` §5 L-17, `WitnessCorpus` (the replacement for `SpoWitnessChain<32>`) requires CAM-PQ indexing. The CAM-PQ wiring (`ndarray::hpc::cam_pq` → `lance-graph` planner UDF operator) was listed as "Phase 3 in-progress" in CLAUDE.md §"What's IN PROGRESS". This patch **promotes it to a Wave 3 hard prerequisite** for D-CSV-6 (the `WitnessCorpus` deliverable, sprint-11 Phase B). Without CAM-PQ wiring:
+  - `WitnessCorpus::lookup(cam_key)` has no index to query.
+  - D-CSV-6 retrieval benchmarks (< 50µs target @ 1M corpus entries) are impossible without the CAM-PQ distance table operator.
+  - The W-slot (CausalEdge64 bits 53-58, per cognitive-substrate-convergence-v1 §6) is a corpus root handle into the CAM-PQ-indexed `WitnessCorpus` — the index must pre-exist.
 
-**Must precede:** PR-CE64-MB-5.
+**Files touched by CAM-PQ wiring:** `crates/lance-graph/Cargo.toml` (wire `ndarray-hpc` feature), `crates/lance-graph-planner/src/physical/cam_pq_scan_op.rs` (existing `CamPqScanOp` wired to ndarray codec), `crates/lance-graph/src/nsm_bridge.rs` (if NDArray::CamCodecContract call sites need updating). This is already partially in progress per CLAUDE.md — this wave entry promotes it from aspirational to gated.
+
+**Merge conflict risk:** Low — different crates, different modules for all three Wave 3 entries.
+
+**Must precede:** PR-CE64-MB-5 (MB-3/MB-4), and D-CSV-6 `WitnessCorpus` deliverable (CAM-PQ wiring).
 
 ### Wave 4 (sequential convergence point)
 
@@ -238,6 +269,20 @@ W5 must expose a stable `arigraph.commit_spog(s, p, o, g, witness)` surface. W6'
 
 Ghost-edge emission API `arigraph.emit_ghost(rung, s, p, o, g)` must also be stable before W7 can call it from the pruning path.
 
+### C-7: CSI-1/2/3/4/5 resolved by cognitive-substrate-convergence-v1 §5 locked decisions
+
+The five cross-spec issues flagged in `.claude/board/sprint-log-10/meta-review.md` as CSI-1 through CSI-5 are now resolved by the locked decisions in `.claude/plans/cognitive-substrate-convergence-v1.md` §5. This dep graph reflects those resolutions:
+
+| CSI | Resolution | §5 decision |
+|---|---|---|
+| **CSI-1** | CausalEdge64 bit-reclaim Option selected: C-sorted-witness + i4-mantissa-expand + i4-qualia | L-2 (drop temporal), L-4 (signed mantissa 4b), L-6 (W-slot 6b), L-7 (truth-band 2b), L-10 (QualiaI4_16D) |
+| **CSI-2** | `CompartmentReport::g_slot_at_drop` field added per W6 spec; G-slot semantics locked as tenant-via-SoA-partition (not explicit slot) | L-3 (drop G-slot proposal) |
+| **CSI-3** | PR-J1-INT4-32D-ATOMS (Wave 0.5) resolves the p64/p64-bridge codebook gap | L-4 (i4 mantissa family); PR-J1 entry in §3 ASCII graph and §8 handover table |
+| **CSI-4** | `SpoWitnessChain<32>` replaced by `WitnessCorpus` (CAM-PQ-indexed, unbounded) | L-17; CAM-PQ wiring promoted to Wave 3 hard dep (see §3 Wave 3 entry and §4 Wave 3 analysis) |
+| **CSI-5** | CollapseGate wire format locked as `Vec<(u16 target, CausalEdge64)>` — no `Vsa16kF32` across boundaries | L-13; gapless-baton model per cognitive-substrate-convergence-v1 §8 |
+
+**Implication for meta-review audit:** The C-1 through C-6 checks above remain the sprint-10 cross-spec consistency gate. C-7 documents that CSI-1..5 are no longer open blockers — they are resolved architectural decisions that sprint-11 implementation workers should treat as locked.
+
 ---
 
 ## §7 Risk Matrix (Cross-PR)
@@ -270,11 +315,12 @@ At sprint-10 end (all 12 specs land via PR #371 merge):
 | Wave | PRs | Parallelism | Gate condition |
 |---|---|---|---|
 | Wave 0 | PR-NDARRAY-MIRI-COMPLETE | Independent (ndarray repo) | None |
+| Wave 0.5 | **PR-J1-INT4-32D-ATOMS** | Independent (p64/p64-bridge crates) | None — **must merge before Wave 5** (CSI-3 fix) |
 | Wave 1 | PR-CE64-MB-1 | Yes (no consumers yet) | OQ-5 ratified |
 | Wave 2 | PR-CE64-MB-2 + MB-2-test | Yes, parallel with Wave 1 | None (in-place extension) |
-| Wave 3 | PR-CE64-MB-3 + MB-4 | Yes, parallel with each other; after Wave 2 merges | OQ-2, OQ-7, OQ-8 ratified |
+| Wave 3 | PR-CE64-MB-3 + MB-4 + CAM-PQ wiring | Yes, parallel with each other; after Wave 2 merges | OQ-2, OQ-7, OQ-8 ratified; CAM-PQ wiring unblocks D-CSV-6 |
 | Wave 4 | PR-CE64-MB-5 | No (convergence) | Waves 1-3 all merged; OQ-3 ratified |
-| Wave 5 | PR-CE64-MB-6 | No (depends Wave 4) | Wave 4 merged + OQ-1 ratified |
+| Wave 5 | PR-CE64-MB-6 | No (depends Wave 4) | Wave 4 + **Wave 0.5** merged + OQ-1 ratified |
 | Wave 6 | PR-CE64-MB-7 | Can start after Wave 4 (parallel with Wave 5) | Wave 4 merged |
 
 **Sprint-11 parallelism budget:** W1 + W2 + W3 spawn simultaneously (Waves 1+2). W4 + W5 spawn in parallel once Wave 2 merges. W6 then W7 (serial). W9 can start alongside W7 once W6 (MB-5) merges.
@@ -359,4 +405,21 @@ At sprint-10 end (all 12 specs land via PR #371 merge):
 
 ---
 
-*End of spec. This is a meta-spec — it sequences code-authoring PRs; all architecture authority remains in the parent plan and the individual worker specs W1-W9.*
+## §12 Successor Plan Reference
+
+`.claude/plans/cognitive-substrate-convergence-v1.md` is the **architectural anchor** that supersedes the sprint-10 per-PR parent plan (`.claude/plans/causaledge64-mailbox-rename-soa-v1.md`) for all design decisions behind the sprint-11+ specs. This dep graph reflects its 12 D-CSV-* deliverables (D-CSV-1 through D-CSV-12) stretching sprints 11-13.
+
+| Relationship | Details |
+|---|---|
+| **Consolidates** | Sprint-10 spec corpus (PR #372 + 8 knowledge docs) + live cross-session architectural decisions (2026-05-15) |
+| **Locks** | 20 architectural decisions (L-1 through L-20) that sprint-11+ workers must not re-derive or drift from |
+| **12 deliverables** | D-CSV-1..4 (Phase A — substrate primitives, sprint-11), D-CSV-5..7 (Phase B — storage & dispatch, sprint-11), D-CSV-8..10 (Phase C — reasoning path, sprint-12), D-CSV-11..12 (Phase D — streaming, sprint-13+) |
+| **Wave mapping** | D-CSV-1/2/4 ≈ Waves 1-2 substrate; D-CSV-3/5/6/7 ≈ Wave 3-4 extensions; D-CSV-6 is the `WitnessCorpus` deliverable elevated to Wave 3 hard dep in §3/§4 of this spec |
+| **OQ-CSV-1..6** | Six open questions (per §14 of the convergence plan) require user ratification before D-CSV-1..7 can spawn; OQ-CSV-1 (qualia dim assignment) blocks D-CSV-2; OQ-CSV-2 (W-slot width) blocks D-CSV-1 |
+| **Does NOT replace** | Per-PR specs in `.claude/specs/pr-ce64-mb-*.md` — those remain implementation-level contracts; cognitive-substrate-convergence-v1 is the design anchor behind them |
+
+**Cross-spec patch bundle:** The 8 spec patches described in cognitive-substrate-convergence-v1 §12 (including this dep graph) are to be bundled into one sprint-11 prep PR: `gov: sprint-10 specs patch for cognitive-substrate-convergence-v1`. Estimated ~870 LOC total across all 8 specs.
+
+---
+
+*End of spec. This is a meta-spec — it sequences code-authoring PRs; all architecture authority remains in the parent plan, the individual worker specs W1-W9, and the successor architectural anchor `.claude/plans/cognitive-substrate-convergence-v1.md`.*
