@@ -489,6 +489,149 @@ looks like, any blocking dependencies>
 Cross-ref: <file:line / deliverable D-id / epiphany entry>
 ```
 
+---
+
+## 2026-05-16 — TD-CAUSAL-EDGE-TEST-BUILD-FAST-1: `causal_edge::tables::tests::test_build_fast` byte_size assertion fails on clean main
+
+**Status:** Open
+**Priority:** P3
+**Scope:** crate:causal-edge domain:nars domain:tests
+**Introduced by:** Pre-existing; observed in PRs #383 / #384 review
+**Payoff estimate:** ~1 hour investigation; likely a one-line assertion update once root cause is confirmed (upstream NarsTables size expansion)
+
+### What
+
+`cargo test -p causal-edge -- tables::tests::test_build_fast` fails with a `byte_size < 256 * 1024` assertion on clean `main`. The table is larger than 256 KB after a recent NarsTables expansion; the bound is stale. Root cause is not confirmed — may be the upstream NARS table layout adding rows or an alignment change. Observed consistently across sprint-11 PRs #383 and #384; does not block any other tests.
+
+### Cross-ref
+
+- PRs #383, #384 (sprint-11 Wave F — CollapseGateEmission + D-CSV-6a)
+- `crates/causal-edge/src/tables/` (test site)
+
+---
+
+## 2026-05-16 — TD-CALIBRATE-ROLES-ARRAY-SIZE-1: `thinking-engine/examples/calibrate_roles.rs` pre-existing array-size mismatch
+
+**Status:** Open
+**Priority:** P3
+**Scope:** crate:thinking-engine domain:calibration domain:examples
+**Introduced by:** Pre-existing; surfaced during PR #387 review
+**Payoff estimate:** ~30 min; one-line array literal fix once the expected size is confirmed from the current role table
+
+### What
+
+`crates/thinking-engine/examples/calibrate_roles.rs` contains an array literal whose size does not match the current role-table dimension. The example panics at runtime (or fails to compile) when the role count changes. Affects the example only; the library and test suite are unaffected.
+
+### Cross-ref
+
+- PR #387 (sprint-11 Wave F — D-CSV-8 i4 MUL evaluation)
+- `crates/thinking-engine/examples/calibrate_roles.rs`
+
+---
+
+## 2026-05-16 — TD-SHADER-DRIVER-WORKSPACE-CONFLICT-1: `cognitive-shader-driver` members/exclude conflict breaks `-p` invocations from workspace root
+
+**Status:** Open
+**Priority:** P2
+**Scope:** crate:cognitive-shader-driver domain:dx domain:build
+**Introduced by:** Sprint-11 earlier commits; worked around via `--manifest-path`
+**Payoff estimate:** ~15 min to audit `Cargo.toml` membership declarations; resolution is adding or removing the crate from the workspace `members` list consistently
+
+### What
+
+During sprint-11, `cargo <cmd> -p cognitive-shader-driver` from the workspace root intermittently failed because the crate appeared in both `members` and `exclude` (or was absent from `members` but referenced by path). Worked around by passing `--manifest-path crates/cognitive-shader-driver/Cargo.toml`. The proper fix is a consistent declaration. DX friction only; no correctness impact.
+
+### Cross-ref
+
+- Sprint-11 Wave D/F agent logs (DX workaround notes)
+- `Cargo.toml` (workspace root) `members` + `exclude` arrays
+
+---
+
+## 2026-05-16 — TD-PROTOC-ENV-SETUP-1: lance-encoding `protoc` system binary not automated in workspace setup
+
+**Status:** Open
+**Priority:** P2
+**Scope:** crate:lance-graph domain:infra domain:build
+**Introduced by:** D-CSV-6a (W-D2 worker installed `protoc` manually during sprint-11)
+**Payoff estimate:** ~30 min — add one `apt-get install protobuf-compiler` line to workspace setup docs or a `build.rs` guard with a clear error message
+
+### What
+
+`lance-encoding` requires the `protoc` system binary for its build script. W-D2 installed it manually during D-CSV-6a; no workspace setup script or CLAUDE.md onboarding note records this step. Fresh worker environments (new clones, CI, Docker) will fail `cargo build -p lance-graph` with an opaque `protoc not found` error. The fix is either automating the install or adding a prominent setup note.
+
+Cross-ref: D-CSV-6a agent log; ISSUES.md ISSUE-X4 (lance-graph not locally compilable without protoc).
+
+---
+
+## 2026-05-16 — TD-TRUST-TEXTURE-DUPE-1: two `TrustTexture` enums coexist without disambiguation
+
+**Status:** Open
+**Priority:** P2
+**Scope:** crate:lance-graph-contract crate:causal-edge domain:types domain:dedup
+**Introduced by:** Separate sprint design decisions; surfaced during sprint-11 Wave F cross-crate review
+**Payoff estimate:** ~1-2 hours to rename one variant set and update call sites; a TYPE_DUPLICATION_MAP entry (W-F8) documents both
+
+### What
+
+Two `TrustTexture` enums coexist in the workspace:
+
+1. `contract::mul::TrustTexture` — variants: `Calibrated`, `Overconfident`, `Underconfident`, `Volatile`, `Frozen`.
+2. `causal_edge::layout::TrustTexture` — variants: `Crystalline`, `Solid`, `Porous`, `Fractured`, `Molten`.
+
+Both model "texture of trust" but use incompatible variant names; cross-crate code that imports both must fully qualify every usage. The TYPE_DUPLICATION_MAP (W-F8 deliverable) records both. Disambiguation rename is deferred to the next refactor cycle. Until then, any code that bridges MUL assessment to causal-edge layout must explicitly convert between the two.
+
+Cross-ref: `docs/TYPE_DUPLICATION_MAP.md`; `crates/lance-graph-contract/src/mul.rs`; `crates/causal-edge/src/layout.rs`.
+
+---
+
+## 2026-05-16 — TD-COLLAPSE-GATE-SMALLVEC-1: `CollapseGateEmission` uses `Vec` instead of `SmallVec`; zero-dep constraint was the tradeoff
+
+**Status:** Open
+**Priority:** P3
+**Scope:** crate:lance-graph-contract domain:perf
+**Introduced by:** PR #383 (architectural deviation note — contract crate stayed zero-dep via Vec)
+**Payoff estimate:** ~20 LOC + 1 Cargo.toml change to add `smallvec` as a dep; or feature-gate if zero-dep must be preserved
+
+### What
+
+`CollapseGateEmission` in `lance-graph-contract` uses `Vec<CollapseStep>` for the emission list. The architectural note in PR #383 flagged that `SmallVec<[CollapseStep; 4]>` would eliminate heap allocation for the common case (≤4 steps) but adding `smallvec` as a dep breaks the contract crate's zero-dep guarantee. Decision was to defer. Correctness is unaffected; this is a performance optimization for the hot path through the planner.
+
+Cross-ref: PR #383 (sprint-11); `crates/lance-graph-contract/src/` CollapseGate module.
+
+---
+
+## 2026-05-16 — TD-SIGMA-TIER-THRESHOLDS-1: SigmaTierRouter band thresholds are hand-tuned; Jirak-derived values deferred to sprint-13+
+
+**Status:** Open
+**Priority:** P2
+**Scope:** crate:lance-graph-planner domain:sigma domain:nars
+**Introduced by:** W-F1 (SigmaTierRouter, sprint-11); per I-NOISE-FLOOR-JIRAK note
+**Payoff estimate:** Requires VAMPE coupled-revival sprint (sprint-13+) to derive principled Jirak 2016 bounds; hand-tuned values are acceptable through sprint-12
+
+### What
+
+`SigmaTierRouter` (W-F1) partitions the Σ-tier band (Ω→Δ→Φ→Θ→Λ) using hand-tuned threshold constants. Per `I-NOISE-FLOOR-JIRAK` in CLAUDE.md: "hand-tuned acceptable for sprint-11 + 12 with TECH_DEBT note; principled Jirak derivation deferred to VAMPE coupled-revival sprint-13+." Classical IID Berry-Esseen is wrong for this system (weak dependence from role-key overlaps + CAM-PQ quantization); correct thresholds require Jirak 2016 (arxiv 1606.01617) `n^(p/2-1)` rate derivation. Until then, any threshold that appears too aggressive or too lenient should be treated as a calibration issue, not a design flaw.
+
+Cross-ref: CLAUDE.md `I-NOISE-FLOOR-JIRAK`; `.claude/board/EPIPHANIES.md` [FORMAL-SCAFFOLD]; Jirak 2016 (Annals of Probability 44(3) 2024-2063); `crates/lance-graph-planner/src/thinking/` SigmaTierRouter.
+
+---
+
+## 2026-05-16 — TD-D-CSV-8-SIMD-1: D-CSV-8 i4 MUL evaluation ships scalar path; AVX-512/NEON vectorization deferred to sprint-12+
+
+**Status:** Open
+**Priority:** P3
+**Scope:** crate:lance-graph-planner domain:simd domain:perf
+**Introduced by:** PR #387 (sprint-11 Wave F — D-CSV-8 i4 MUL scalar path)
+**Payoff estimate:** ~150-300 LOC of intrinsic code per ISA (AVX-512 + NEON); requires `is_x86_feature_detected!` / `#[target_feature]` gate; correctness is already proven by the scalar path
+
+### What
+
+D-CSV-8 i4 MUL evaluation shipped a correct scalar path in PR #387. The original design called for AVX-512 and NEON SIMD intrinsic vectorization for the i4 multiply-accumulate inner loop (4-8× throughput gain expected). Vectorization was deferred because: (a) the scalar path unblocked the sprint deadline, and (b) intrinsic code requires target-specific testing that was out of scope. Correctness is not affected; this is a performance gap only.
+
+Cross-ref: PR #387 (sprint-11 Wave F); spec D-CSV-8; `crates/lance-graph-planner/src/mul/` i4 evaluation module.
+
+
 ## 2026-04-24 — CognitiveEventRow ghost columns (`rationale_phase`, `dialect`) need live wiring (MM-CoT Phase B + polyglot Phase B)
 
 **Status:** Open

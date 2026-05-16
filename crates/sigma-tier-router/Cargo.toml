@@ -1,0 +1,11 @@
+[package]
+name = "sigma-tier-router"
+version = "0.1.0"
+edition = "2021"
+description = "Σ-tier Rubicon-resonance dispatch: F-gradient + resonance threshold → Σ10 commit"
+
+[dependencies]
+causal-edge          = { path = "../causal-edge" }
+lance-graph-contract = { path = "../lance-graph-contract" }
+
+[dev-dependencies]

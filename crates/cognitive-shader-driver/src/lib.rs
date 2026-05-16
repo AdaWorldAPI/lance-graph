@@ -90,6 +90,8 @@
 // re-exported from `lance-graph-contract` (see the `pub use` block below).
 // Everything below dispatches through that trait; research, planner, and
 // engine are just consumers that plug in via the bridge.
+pub mod attention_mask;
+pub mod attention_mask_actor;
 pub mod bindspace;
 pub mod driver;
 pub mod auto_style;
