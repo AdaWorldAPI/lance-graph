@@ -263,7 +263,10 @@ pub fn dispatch_busdto(
     bs.qualia.set(row, &q);
     // D-CSV-5a: double-write the i4 sibling column alongside f32 column.
     // Reads continue to use bs.qualia (f32); cutover is D-CSV-5b.
-    bs.qualia_i4.set(row, QualiaI4_16D::from_f32_17d(&q));
+    // from_f32_17d expects [f32; 17]; q is [f32; QUALIA_DIMS=18].
+    let mut q17 = [0.0f32; 17];
+    q17.copy_from_slice(&q[..17]);
+    bs.qualia_i4.set(row, QualiaI4_16D::from_f32_17d(&q17));
 
     // [3] meta column — packed dispatch state.
     //     thinking = caller's style ordinal
