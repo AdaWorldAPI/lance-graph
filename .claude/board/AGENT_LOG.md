@@ -1,3 +1,30 @@
+## [Fleet sprint-11-wave-b-qualia-i4] [IN PR] D-CSV-2 QualiaI4_16D + OQ-CSV-1 ratification (branch claude/sprint-11-wave-b-qualia-i4)
+
+**D-id:** D-CSV-2 — `QualiaI4_16D` type in `lance-graph-contract::qualia` + f32↔i4 migration helpers (~250 LOC actual vs ~180 estimate; the +70 over estimate is accessor + magnitude + 8 tests).
+
+**OQ-CSV-1 ratification (main-thread, autoattended):** Option α — keep the canonical convergence-observable vocab from `Qualia17D` / `QualiaVector` (arousal/valence/tension/warmth/clarity/boundary/depth/velocity/entropy/coherence/intimacy/presence/assertion/receptivity/groundedness/expansion/integration), drop dim 16 "integration" to fit 16 i4 lanes (recoverable on demand from valence + coherence + cycle-delta). Plan §7.2 proposed felt-qualia vocab (Wisdom/Trust/Hope/etc.) was a CONJECTURE per the plan footnote; cross-check against `crates/thinking-engine/src/qualia.rs` revealed the canonical surface is observables, not felt-qualia. Lower migration risk than vocab swap.
+
+**Worker:** W-B1 (Sonnet, single worker — D-CSV-2 alone since D-CSV-5 is blocked on PR #383 merge).
+
+**Files modified:**
+- `crates/lance-graph-contract/src/qualia.rs` (+250 LOC): `QUALIA_I4_DIMS=16`, `QUALIA_I4_LABELS` (first 16 of `AXIS_LABELS`), `pub struct QualiaI4_16D(pub u64) #[repr(C, align(8))]`, get/set/with i4 signed accessors with `(raw << 4) >> 4` sign-extension, `from_f32_17d` / `to_f32_17d` migration helpers (asymmetric quantization: positive `× 7.0`, negative `× 8.0`), `magnitude()` = `coherence.saturating_mul(valence)` per §7.2 intent.
+- `crates/lance-graph-contract/src/lib.rs`: re-exports `QualiaI4_16D`, `QUALIA_I4_DIMS`, `QUALIA_I4_LABELS`.
+
+**Tests:** 14 pass / 0 fail in `cargo test -p lance-graph-contract qualia` (8 new + 6 pre-existing). Contract crate remains zero-dep.
+
+**Coverage of the 8 new tests:**
+- size invariant (8 bytes)
+- zero default (all 16 dims = 0)
+- signed roundtrip across [-8, -7, -1, 0, 1, 7]
+- clamp on overflow (+100 → +7, -100 → -8)
+- field isolation (set dim 5, dims 4 + 6 untouched)
+- from_f32_17d ↔ to_f32_17d round-trip with dim 16 dropped
+- label alignment with canonical AXIS_LABELS[0..16]
+- magnitude saturating_mul on extremes
+
+**Outcome:** D-CSV-2 ready for merge. D-CSV-5 (QualiaColumn migration) blocked on PR #383 (D-CSV-1 v2 layout) merge AND requires `cognitive-shader-driver` crate which is referenced in CLAUDE.md but not in workspace members — investigation needed before Wave C spawn.
+
+**No P0 found in code review.** The asymmetric f32 quantization (`× 7.0` for positive vs `× 8.0` for negative) is intentional: it preserves sign-bit coverage of i4 (range −8..+7 has 7 positive slots and 8 negative slots, so f32 [0, 1] maps to 7 quanta and [-1, 0] maps to 8 quanta — symmetric in resolution per slot, asymmetric in mapping). Round-trip preserves sign and approximate magnitude within the i4 quantization envelope.
 ## [Fleet sprint-11-wave-a-impl] [IN PR] D-CSV-1 + D-CSV-3 + D-CSV-4 (branch claude/sprint-11-wave-a-impl, commit ab39d01)
 
 **D-id(s):** D-CSV-1 (causal-edge v2 layout), D-CSV-3 (signed-mantissa InferenceType expansion), D-CSV-4 (CollapseGateEmission in contract).
