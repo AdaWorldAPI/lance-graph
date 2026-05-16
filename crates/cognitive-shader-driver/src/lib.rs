@@ -95,6 +95,7 @@ pub mod driver;
 pub mod auto_style;
 pub mod engine_bridge;
 pub mod sigma_rosetta;
+pub mod mailbox_soa;
 
 // ──────────────────────────────────────────────────────────────────────
 // LAB-ONLY modules — compiled only into the shader-lab binary. Never
@@ -195,3 +196,4 @@ pub use engine_bridge::{
     ingest_codebook_indices, dispatch_from_top_k,
     write_qualia_17d, read_qualia_17d, persist_cycle,
 };
+pub use mailbox_soa::{MailboxSoA, DefaultMailboxSoA};
