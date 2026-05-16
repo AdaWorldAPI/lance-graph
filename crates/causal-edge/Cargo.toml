@@ -1,13 +1,26 @@
 [package]
 name = "causal-edge"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
-description = "CausalEdge64: 64-bit causal neuron with SPO palette, NARS truth, Pearl hierarchy, plasticity"
+description = "CausalEdge64: 64-bit causal neuron with SPO palette, NARS truth, Pearl hierarchy, v2 W/truth/mantissa layout"
 license = "MIT"
 repository = "https://github.com/AdaWorldAPI/lance-graph"
 
+[features]
+# v2 layout (Option F, locked 2026-05-16 by cognitive-substrate-convergence-v1.md §6):
+#   - Drop temporal(12b); expand inference 3b unsigned -> 4b signed i4;
+#     add W(6b) + truth-band-lens(2b) + spare(3b).
+#   - G-slot NOT present (L-3: redundant via palette family-prefix + SoA partition + witness corpus).
+#   - mantissa sign = chain direction; abs(mantissa) = NARS base rule index (0..7).
+# Default = ON for all new builds. Opt-out for downstream compat:
+#   causal-edge = { path = "...", default-features = false }
+# When OFF: v2 accessor stubs return zeros (no corpus, Crystalline, neutral mantissa).
+default = ["causal-edge-v2-layout"]
+causal-edge-v2-layout = []
+
 [dependencies]
 # No dependencies — this crate is self-contained.
-# Palette and distance matrices come from bgz17 at integration time.
+# TrustTexture is defined locally (not imported from lance-graph-contract)
+# to preserve the zero-dep invariant.
 
 [dev-dependencies]
