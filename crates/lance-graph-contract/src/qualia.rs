@@ -234,9 +234,9 @@ impl QualiaI4_16D {
     #[inline]
     pub fn to_f32_17d(self) -> QualiaVector {
         let mut out = [0.0f32; QUALIA_DIMS];
-        for dim in 0..QUALIA_I4_DIMS {
+        for (dim, slot) in out.iter_mut().enumerate().take(QUALIA_I4_DIMS) {
             let i = self.get(dim);
-            out[dim] = if i >= 0 {
+            *slot = if i >= 0 {
                 i as f32 / 7.0
             } else {
                 i as f32 / 8.0
