@@ -743,8 +743,13 @@ pub mod i4_eval {
 
         // ─────────────────────────────────────────────────────────────────────
         // scalar_impl — correctness anchor, used as fallback and in tests
+        //
+        // Public so benches/i4_batch.rs can baseline SIMD speedup directly
+        // against the scalar implementation; not intended as a stable API
+        // for downstream callers (use the public dispatch wrappers below).
         // ─────────────────────────────────────────────────────────────────────
-        pub(crate) mod scalar_impl {
+        #[doc(hidden)]
+        pub mod scalar_impl {
             use super::super::*;
             use crate::qualia::QualiaI4_16D;
 
