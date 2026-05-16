@@ -54,11 +54,12 @@ pub mod semantic_chunker;
 pub mod sensor;
 pub mod signed_domino;
 pub mod signed_engine;
-pub mod splat_ops;
 pub mod silu_correction;
 pub mod spiral_segment;
+pub mod splat_ops;
 pub mod superposition;
 pub mod tensor_bridge;
+pub mod think;
 #[cfg(feature = "tokenizer")]
 pub mod tokenizer_registry;
 pub mod world_model;
@@ -67,3 +68,7 @@ pub mod world_model;
 // PR-F1 — CognitiveBridgeGate: cross-tenant authorization injection point.
 // No lance-graph-callcenter dep. PassthroughGate is the standalone default.
 pub mod bridge_gate;
+
+// D-CSV-14 re-exports: canonical carrier + shared field type.
+pub use splat_ops::SplatField;
+pub use think::Think;
