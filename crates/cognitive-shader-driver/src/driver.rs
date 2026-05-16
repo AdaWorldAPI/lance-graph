@@ -144,13 +144,14 @@ impl ShaderDriver {
         let passed_rows = self.bindspace.meta_prefilter(req.rows, &req.meta_prefilter);
 
         // [2] Resolve style — Auto reads the qualia of the FIRST surviving row.
-        let qualia_seed = if let Some(&row) = passed_rows.first() {
-            self.bindspace.qualia.row(row as usize)
+        // D-CSV-5b: bs.qualia is now QualiaI4Column (returns QualiaI4_16D by value).
+        // Convert to f32 at the call site for auto_style::resolve(&[f32]).
+        let qualia_f32_arr: [f32; 17] = if let Some(&row) = passed_rows.first() {
+            self.bindspace.qualia.row(row as usize).to_f32_17d()
         } else {
-            // No rows passed — use default style; we'll still emit an empty cycle.
-            &[0.0f32; 18][..]
+            [0.0f32; 17]
         };
-        let style_ord = auto_style::resolve(req.style, qualia_seed);
+        let style_ord = auto_style::resolve(req.style, &qualia_f32_arr[..]);
 
         // [3] Shader cascade — bgz17 O(1) per probed block.
         // Snapshot the planes under the read lock so the cascade sees a
@@ -389,13 +390,24 @@ impl ShaderDriver {
         // Only `AlphaFrontToBack` changes the sink path; everything else
         // routes through the original code below unchanged.
         let effective_merge = req.merge_override.unwrap_or(gate.merge);
+        // D-CSV-5b: bs.qualia is now QualiaI4Column (returns QualiaI4_16D by value).
+        // alpha_front_to_back_composite expects F: Fn(u32) -> &'a [f32].
+        // Pre-materialize hit qualia as f32 so references are valid for the closure.
+        let hit_qualia_f32: Vec<(u32, [f32; 17])> = hits.iter()
+            .map(|h| (h.row, self.bindspace.qualia.row(h.row as usize).to_f32_17d()))
+            .collect();
         let alpha_composite = if effective_merge == MergeMode::AlphaFrontToBack {
             let threshold = req
                 .alpha_saturation_override
                 .unwrap_or(ALPHA_SATURATION_THRESHOLD);
             Some(alpha_front_to_back_composite(
                 &hits,
-                |row| self.bindspace.qualia.row(row as usize),
+                |row| {
+                    hit_qualia_f32.iter()
+                        .find(|(r, _)| *r == row)
+                        .map(|(_, q)| &q[..])
+                        .unwrap_or(&[][..])
+                },
                 threshold,
             ))
         } else {
@@ -736,13 +748,14 @@ mod tests {
     use lance_graph_contract::cognitive_shader::MetaWord;
 
     fn demo_bindspace() -> BindSpace {
-        let q = [0.0f32; QUALIA_DIMS];
+        use lance_graph_contract::qualia::QualiaI4_16D;
+        let q = QualiaI4_16D::ZERO;
         let content = [0u64; WORDS_PER_FP];
         BindSpaceBuilder::new(4)
-            .push(&content, MetaWord::new(1, 1, 200, 200, 5), 0, &q, 0, 0)
-            .push(&content, MetaWord::new(2, 2, 100, 100, 5), 0, &q, 0, 0)
-            .push(&content, MetaWord::new(3, 3,  50,  50, 5), 0, &q, 0, 0)
-            .push(&content, MetaWord::new(4, 4,   0,   0, 5), 0, &q, 0, 0)
+            .push(&content, MetaWord::new(1, 1, 200, 200, 5), 0, q, 0, 0)
+            .push(&content, MetaWord::new(2, 2, 100, 100, 5), 0, q, 0, 0)
+            .push(&content, MetaWord::new(3, 3,  50,  50, 5), 0, q, 0, 0)
+            .push(&content, MetaWord::new(4, 4,   0,   0, 5), 0, q, 0, 0)
             .build()
     }
 
@@ -826,11 +839,12 @@ mod tests {
     /// Build a BindSpace of `n` rows with caller-supplied content fingerprints.
     /// Meta confidence set to (200, 200) so everything passes the prefilter.
     fn bindspace_with_content(rows: &[[u64; WORDS_PER_FP]]) -> BindSpace {
-        let q = [0.0f32; QUALIA_DIMS];
+        use lance_graph_contract::qualia::QualiaI4_16D;
+        let q = QualiaI4_16D::ZERO;
         let mut builder = BindSpaceBuilder::new(rows.len());
         for (idx, content) in rows.iter().enumerate() {
             let meta = MetaWord::new((idx as u8).wrapping_add(1), (idx as u8).wrapping_add(1), 200, 200, 5);
-            builder = builder.push(content, meta, 0, &q, 0, 0);
+            builder = builder.push(content, meta, 0, q, 0, 0);
         }
         builder.build()
     }
