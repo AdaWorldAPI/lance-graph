@@ -189,11 +189,12 @@ impl QualiaI4Column {
         self.0.is_empty()
     }
 
-    /// Bulk-convert from an f32 `QualiaColumn`.
+    /// Bulk-convert from an f32 `QualiaColumn` (deprecated type).
     ///
     /// Uses the flat `[k * QUALIA_DIMS .. (k+1) * QUALIA_DIMS]` slice layout
     /// of `QualiaColumn.0` to extract each row, then calls
     /// `QualiaI4_16D::from_f32_17d` per row.
+    #[allow(deprecated)]
     pub fn from_f32(qualia_f32: &QualiaColumn) -> Self {
         let total = qualia_f32.0.len();
         let rows = total / QUALIA_DIMS;
@@ -375,7 +376,7 @@ impl BindSpaceBuilder {
     /// # Panics
     /// Panics if cursor >= capacity (F-08: bounds-checked push).
     pub fn push(
-        mut self,
+        self,
         content: &[u64],
         meta: MetaWord,
         edge: u64,

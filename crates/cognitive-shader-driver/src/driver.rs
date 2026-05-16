@@ -748,13 +748,14 @@ mod tests {
     use lance_graph_contract::cognitive_shader::MetaWord;
 
     fn demo_bindspace() -> BindSpace {
-        let q = [0.0f32; QUALIA_DIMS];
+        use lance_graph_contract::qualia::QualiaI4_16D;
+        let q = QualiaI4_16D::ZERO;
         let content = [0u64; WORDS_PER_FP];
         BindSpaceBuilder::new(4)
-            .push(&content, MetaWord::new(1, 1, 200, 200, 5), 0, &q, 0, 0)
-            .push(&content, MetaWord::new(2, 2, 100, 100, 5), 0, &q, 0, 0)
-            .push(&content, MetaWord::new(3, 3,  50,  50, 5), 0, &q, 0, 0)
-            .push(&content, MetaWord::new(4, 4,   0,   0, 5), 0, &q, 0, 0)
+            .push(&content, MetaWord::new(1, 1, 200, 200, 5), 0, q, 0, 0)
+            .push(&content, MetaWord::new(2, 2, 100, 100, 5), 0, q, 0, 0)
+            .push(&content, MetaWord::new(3, 3,  50,  50, 5), 0, q, 0, 0)
+            .push(&content, MetaWord::new(4, 4,   0,   0, 5), 0, q, 0, 0)
             .build()
     }
 
@@ -838,11 +839,12 @@ mod tests {
     /// Build a BindSpace of `n` rows with caller-supplied content fingerprints.
     /// Meta confidence set to (200, 200) so everything passes the prefilter.
     fn bindspace_with_content(rows: &[[u64; WORDS_PER_FP]]) -> BindSpace {
-        let q = [0.0f32; QUALIA_DIMS];
+        use lance_graph_contract::qualia::QualiaI4_16D;
+        let q = QualiaI4_16D::ZERO;
         let mut builder = BindSpaceBuilder::new(rows.len());
         for (idx, content) in rows.iter().enumerate() {
             let meta = MetaWord::new((idx as u8).wrapping_add(1), (idx as u8).wrapping_add(1), 200, 200, 5);
-            builder = builder.push(content, meta, 0, &q, 0, 0);
+            builder = builder.push(content, meta, 0, q, 0, 0);
         }
         builder.build()
     }
