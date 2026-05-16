@@ -22,7 +22,7 @@
 **Missing primitives** (must be added to ndarray before consumer remediation can complete):
 
 - `TD-NDARRAY-SIMD-UNPACK-I4-16D` — `I8x16::from_i4_packed_u64` + `batch_packed_i4_16<E, F>` closure-batch
-- `TD-NDARRAY-SIMD-SATURATING-ABS-I8` — `I8x16::saturating_abs` (closes codex P2 i8::MIN divergence)
+- `TD-NDARRAY-SIMD-SATURATING-ABS-I8` — `I8x16::saturating_abs` via `_mm512_min_epu8(_mm512_abs_epi8(x), 0x7f)` on AVX-512 (VPABSB alone does NOT saturate `i8::MIN`; needs VPMINUB clamp), `vqabsq_s8` on NEON, `i8::saturating_abs` scalar — closes codex P2 i8::MIN divergence
 - `TD-NDARRAY-SIMD-GATHER` — `U16x8::gather_u16` (palette lookup, currently raw `_mm256_i32gather_epi32` in `bgz17`)
 - `TD-NDARRAY-SIMD-PREFETCH` — cross-arch `prefetch_read_t0` (no-op on unsupported)
 - `TD-NDARRAY-SIMD-POPCOUNT-U64` — `U64x8::popcnt` (lane-wise 64-bit popcount; currently raw `_mm512_popcnt_epi64` in `holograph` + `blasgraph`)
