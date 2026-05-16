@@ -2,6 +2,79 @@
 
 > *Rain Man precision. If you see two things that look alike, they're listed here.*
 
+## Wave F sprint-12 additions (2026-05-16)
+
+New duplications discovered/predicted from the Wave F fleet (W-F4 through W-F8).
+
+### TrustTexture (×2) — different semantic axes `TECH_DEBT`
+
+Two enums with the same name encoding **different cognitive dimensions**:
+
+| # | Location | Line | Variants | Semantic axis |
+|---|----------|------|----------|---------------|
+| 1 | `crates/lance-graph-contract/src/mul.rs` | 74 | Calibrated / Overconfident / Underconfident / Uncertain | MUL meta-uncertainty layer (felt vs demonstrated competence) |
+| 2 | `crates/causal-edge/src/layout.rs` | 114 | Crystalline / Solid / Fuzzy / Murky | Pearl-3 epistemic lens (v2 from PR #383); discriminator = 2-bit field in CausalEdge64 |
+
+**What differs**: Completely different variant sets encoding different ontologies. `mul.rs` is a 4-way MUL assessment axis. `layout.rs` is a 4-state Pearl-3 trust signal packed into 2 bits of the CausalEdge64 layout.
+**Canonical**: NONE — both are domain-correct and should keep distinct names. Recommended path: rename one (e.g. `PearlTrustTexture` in `causal-edge`) to disambiguate.
+**TECH_DEBT**: Name collision across zero-dep crates is a footgun; sprint-13 rename target.
+
+---
+
+### SplatField (×2) — same conceptual shape, no cross-crate dep yet `TECH_DEBT`
+
+| # | Location | Line | Fields | Notes |
+|---|----------|------|--------|-------|
+| 1 | `/home/user/ndarray/src/hpc/stream/splat_field.rs` | 20 | `mean: u32, variance: f32, energy: f32, generation: u32` — 16 bytes, `repr(C, align(16))` | W-F6; ndarray producer layer; circular-dep guard — must not import contract |
+| 2 | `crates/thinking-engine/src/splat_ops.rs` | (W-F7 — pending merge) | Same shape expected | W-F7; thinking-engine consumer layer |
+
+**What differs**: Same data shape; different crate layers. ndarray cannot import contract (circular dep), so defines a local copy. thinking-engine may independently re-declare the same struct.
+**Canonical**: ndarray's `SplatField` is the producer (hardware layer). sprint-13+ unification: when ndarray gains the consumer dep or a shared `splat-types` micro-crate is introduced.
+**TECH_DEBT**: Verify W-F7 field layout matches W-F6 exactly before any cross-crate FFI.
+
+---
+
+### QualiaI4 (×2) — bit-compatible mirrors, circular dep guard `TECH_DEBT`
+
+| # | Location | Line | Type name | Notes |
+|---|----------|------|-----------|-------|
+| 1 | `crates/lance-graph-contract/src/qualia.rs` | 175 | `QualiaI4_16D(pub u64)` | Contract canonical; 16 × 4-bit signed lanes, `repr(C, align(8))`; introduced PR #384 |
+| 2 | `/home/user/ndarray/src/hpc/stream/qualia.rs` | 20 | `QualiaI4Row(pub u64)` | W-F4; "local mirror of `lance_graph_contract::qualia::QualiaI4_16D`" per file header; bit-compatible; circular-dep guard prevents import |
+
+**What differs**: Different names only — `QualiaI4_16D` (contract) vs `QualiaI4Row` (ndarray stream). Identical wire layout: `u64`, `repr(C, align(8))`.
+**Canonical**: `lance_graph_contract::qualia::QualiaI4_16D`. ndarray mirror is intentional (no circular dep allowed at producer layer).
+**Sprint-13+ consolidation**: once ndarray can safely consume from contract, replace local mirror with re-export or `From` impl.
+**TECH_DEBT**: Any layout change to `QualiaI4_16D` in contract must be manually mirrored to `QualiaI4Row` until consolidation.
+
+---
+
+### InferenceRow alias — intentional bit-compat with CausalEdge64 (SPO variant)
+
+| # | Location | Line | Type name | Notes |
+|---|----------|------|-----------|-------|
+| 1 | `crates/causal-edge/src/edge.rs` | 60 | `CausalEdge64` (SPO-palette layout) | See §13 — consumer |
+| 2 | `/home/user/ndarray/src/hpc/stream/inference.rs` | 19 | `InferenceRow(pub u64)` | W-F5; "local mirror of CausalEdge64 shape (bit-compatible with causal_edge::CausalEdge64)" per file comment; producer |
+
+**What differs**: Different names, same 64-bit u64 wrapper layout. `InferenceRow` exposes only the inference-mantissa lane (bits 46-49) and W-slot (bits 53-58) — a vertical-slice view into the same register.
+**Relationship**: INTENTIONAL — ndarray is the producer (writes `InferenceRow` rows into the EdgeColumn SoA); causal-edge is the consumer (reads them as `CausalEdge64`). The two types are the same bit pattern at the hardware boundary.
+**Canonical**: `causal_edge::CausalEdge64` (SPO-palette variant) for the full type; `InferenceRow` is the producer-side lane accessor. No consolidation needed — different abstraction levels.
+**No TECH_DEBT** for the name difference: distinct names at distinct abstraction layers is intentional. Document the bit-compat guarantee so the producer/consumer contract is explicit.
+
+---
+
+### MailboxId (×2) — shadow type alias `TECH_DEBT`
+
+| # | Location | Line | Definition | Notes |
+|---|----------|------|-----------|-------|
+| 1 | `crates/lance-graph-contract/src/collapse_gate.rs` | 136 | `pub type MailboxId = u32` | Contract canonical |
+| 2 | `crates/cognitive-shader-driver/src/attention_mask.rs` | 17 | `pub type MailboxId = u32` | Shadow alias — cognitive-shader-driver does not import contract |
+
+**What differs**: Identical definition (`u32`), two independent type aliases. No semantic divergence.
+**Canonical**: `lance_graph_contract::collapse_gate::MailboxId`. `cognitive-shader-driver` should re-export from contract rather than re-defining.
+**TECH_DEBT**: Low-severity but creates confusion when mixing types across crate boundaries; sprint-13+ cleanup via contract import in cognitive-shader-driver.
+
+---
+
 ## 1. Fingerprint / BitVec (16,384-bit binary vector)
 
 The foundational type — 256 × u64 words = 2048 bytes = 16,384 bits. **Four copies exist.**
