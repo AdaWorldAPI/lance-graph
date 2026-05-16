@@ -41,12 +41,12 @@
 
 | D-id | PR | Commit | Outcome |
 |---|---|---|---|
-| D-CSV-11 (W-F4) | #388 | `77f2d26` (merge) | `InferenceStream` shipped in ndarray `hpc/stream/inference.rs` + registered in `mod.rs` (W-F5 over-delivered: also registered `qualia` + `splat_field` mod entries). Sibling `QualiaStream` + `SplatFieldStream` files shipped (W-F4/W-F6) — CSI-9 cross-repo registration was resolved via the d4e5bbc aggregation commit. `par_*` rayon variants NOT YET SHIPPED — carries to D-CSV-17 (sprint-13). |
+| D-CSV-11 (W-F4) | #388 | `77f2d26` (merge) | `InferenceStream` shipped in ndarray `hpc/stream/inference.rs` + registered in `mod.rs` (W-F5 over-delivered: also registered `qualia` + `splat_field` mod entries). Sibling `QualiaStream` + `SplatFieldStream` files shipped (W-F4/W-F6). **CSI-7/CSI-8** (lance-graph-side lib.rs + workspace orphan) **resolved via lance-graph `d4e5bbc` aggregation commit.** **CSI-9** (ndarray-side `pub mod` registration) **resolved via ndarray PR #147 merge** — ndarray master HEAD = `e956e9d9` (verified 2026-05-16 post-PR-#391-merge). `par_*` rayon variants NOT YET SHIPPED — carries to D-CSV-17 (sprint-13). |
 | D-CSV-12 (W-F7) | #388 | `77f2d26` (merge) | `splat_ops` module in thinking-engine: `splat_gaussian`, `score_hole_closure`, `replay_coherence`, `emit_if_epiphany` as **free functions** on i4 substrate. On-Think carrier methods deferred — carries to D-CSV-14 (sprint-13). |
 
 **Wave F aggregation + codex P2 follow-up — COMPLETE:**
 
-- `d4e5bbc` — W-Meta-Opus honest review committed; CSI-7 / CSI-8 / CSI-9 integration fixes landed in single aggregation commit.
+- `d4e5bbc` — W-Meta-Opus honest review committed; CSI-7 / CSI-8 lance-graph-side integration fixes landed in single aggregation commit. **CSI-9 (cross-repo ndarray-side `pub mod` registration) was a separate ndarray-repo fix shipped via PR #147 merge (ndarray master `e956e9d9`), NOT via this lance-graph commit.**
 - PR #389 (`b526485` merge) — codex P2: `AttentionMaskBackend` trait impl for `AttentionMaskSoA` + canonical `MailboxId` import (CSI-10 closed). 14/14 attention-mask tests pass.
 
 ### §0.2 What shipped in sprint-12 Wave G (post-Wave-F continuation) 🆕 v3
@@ -395,7 +395,7 @@ D-CSV-5b sprint-13 cutover requires consumer audit. Sibling approach minimized r
 
 ### 13.8 D-CSV-11 ndarray PR coordination (HIGH → MED) [UPDATED v3]
 
-**Risk REDUCED.** Sprint-12 Wave F shipped the ndarray `hpc/stream/mod.rs` registration via the d4e5bbc aggregation commit (CSI-9 fix). Cross-repo coordination is now established; sprint-13 D-CSV-17 follows the same pattern with lower coordination cost.
+**Risk REDUCED.** Sprint-12 Wave F shipped the ndarray `hpc/stream/mod.rs` registration via the **ndarray PR #147 merge** (CSI-9 fix; ndarray master `e956e9d9`). The lance-graph-side d4e5bbc aggregation commit closed CSI-7 (workspace member) + CSI-8 (lance-graph lib.rs orphan), NOT CSI-9. Cross-repo coordination is now established; sprint-13 D-CSV-17 follows the same pattern with lower coordination cost.
 
 ### 13.9 Subagent isolation — workspace build conflicts (MED — UNCHANGED) [carries from v2]
 
@@ -415,7 +415,7 @@ ISSUE-X3. Sprint-13 fleets should `cargo clean` at sprint-start.
 
 ### 13.13 Aggregation gap (CSI-13 → CSI-18) (HIGH → LOW) [UPDATED v3] 🆕 v3
 
-**Risk REDUCED via Wave G + CSI-18.** Sprint-12 Wave F shipped CSI-7/8/9 registration gaps; the d4e5bbc aggregation commit + the PR #389 codex P2 follow-up closed them. Sprint-13 worker template v2 (PP-8) bakes the I-AGGREGATION-DISCIPLINE iron-rule candidate into the prompt template. Mechanism: every worker prompt includes "your lib.rs/mod.rs hunk OR an explicit aggregation deliverable as the wave's final worker."
+**Risk REDUCED via Wave G + CSI-18.** Sprint-12 Wave F shipped CSI-7 / CSI-8 (lance-graph-side) via the d4e5bbc aggregation commit + the PR #389 codex P2 follow-up; CSI-9 (cross-repo ndarray-side) shipped via ndarray PR #147 merge (master `e956e9d9`). Sprint-13 worker template v2 (PP-8) bakes the I-AGGREGATION-DISCIPLINE iron-rule candidate into the prompt template. Mechanism: every worker prompt includes "your lib.rs/mod.rs hunk OR an explicit aggregation deliverable as the wave's final worker."
 
 ### 13.14 Plan-git drift (CSI-11) (LOW — UNCHANGED, mitigated via I-PLAN-GIT-RECONCILE candidate) [carries from v2]
 
