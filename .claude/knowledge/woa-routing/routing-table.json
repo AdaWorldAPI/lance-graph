@@ -1,0 +1,1355 @@
+{
+  "source": "/home/user/WoA/app.py",
+  "harvested_at": "2026-05-16",
+  "harvester": "Python ast.parse via lance-graph session",
+  "route_count": 96,
+  "methods_summary": {
+    "GET": 60,
+    "POST": 59
+  },
+  "routes": [
+    {
+      "path": "/",
+      "methods": [
+        "GET"
+      ],
+      "handler": "index",
+      "decorator": "app.route",
+      "line": 219,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": []
+    },
+    {
+      "path": "/activity/<int:aid>/delete",
+      "methods": [
+        "POST"
+      ],
+      "handler": "activity_delete",
+      "decorator": "app.route",
+      "line": 985,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/api/articles/search",
+      "methods": [
+        "GET"
+      ],
+      "handler": "api_articles_search",
+      "decorator": "app.route",
+      "line": 1494,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/api/customer/<int:cid>/workorders",
+      "methods": [
+        "GET"
+      ],
+      "handler": "api_customer_workorders",
+      "decorator": "app.route",
+      "line": 2790,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/api/kunden/<int:cid>/vault/<int:eid>/password",
+      "methods": [
+        "GET"
+      ],
+      "handler": "vault_get_pw",
+      "decorator": "app.route",
+      "line": 553,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/artikel",
+      "methods": [
+        "GET"
+      ],
+      "handler": "article_list",
+      "decorator": "app.route",
+      "line": 1388,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/artikel/<int:aid>/delete",
+      "methods": [
+        "POST"
+      ],
+      "handler": "article_delete",
+      "decorator": "app.route",
+      "line": 1436,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/artikel/<int:aid>/edit",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "handler": "article_edit",
+      "decorator": "app.route",
+      "line": 1420,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/artikel/import",
+      "methods": [
+        "POST"
+      ],
+      "handler": "article_csv_import",
+      "decorator": "app.route",
+      "line": 1444,
+      "context": "create_app",
+      "docstring": "CSV-Import: Spalten: Artikelnr;Beschreibung;Preis;MwSt;Lieferant",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/artikel/neu",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "handler": "article_new",
+      "decorator": "app.route",
+      "line": 1401,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/backup",
+      "methods": [
+        "GET"
+      ],
+      "handler": "backup_page",
+      "decorator": "app.route",
+      "line": 2035,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/backup/create",
+      "methods": [
+        "POST"
+      ],
+      "handler": "backup_create",
+      "decorator": "app.route",
+      "line": 2052,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/backup/delete/<filename>",
+      "methods": [
+        "POST"
+      ],
+      "handler": "backup_delete",
+      "decorator": "app.route",
+      "line": 2152,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/backup/download/<filename>",
+      "methods": [
+        "GET"
+      ],
+      "handler": "backup_download",
+      "decorator": "app.route",
+      "line": 2140,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/backup/restore",
+      "methods": [
+        "POST"
+      ],
+      "handler": "backup_restore",
+      "decorator": "app.route",
+      "line": 2163,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/benutzer",
+      "methods": [
+        "GET"
+      ],
+      "handler": "user_list",
+      "decorator": "app.route",
+      "line": 1831,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/benutzer/<int:uid>/delete",
+      "methods": [
+        "POST"
+      ],
+      "handler": "user_delete",
+      "decorator": "app.route",
+      "line": 1875,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/benutzer/<int:uid>/edit",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "handler": "user_edit",
+      "decorator": "app.route",
+      "line": 1858,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/benutzer/neu",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "handler": "user_new",
+      "decorator": "app.route",
+      "line": 1839,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/dashboard",
+      "methods": [
+        "GET"
+      ],
+      "handler": "dashboard",
+      "decorator": "app.route",
+      "line": 280,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/einsatz",
+      "methods": [
+        "GET"
+      ],
+      "handler": "einsatz_start",
+      "decorator": "app.route",
+      "line": 1140,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/einsatz/<int:wid>",
+      "methods": [
+        "GET"
+      ],
+      "handler": "einsatz_live",
+      "decorator": "app.route",
+      "line": 1190,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/einsatz/<int:wid>/abbrechen",
+      "methods": [
+        "POST"
+      ],
+      "handler": "einsatz_cancel",
+      "decorator": "app.route",
+      "line": 1179,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/einsatz/<int:wid>/activity",
+      "methods": [
+        "POST"
+      ],
+      "handler": "einsatz_activity",
+      "decorator": "app.route",
+      "line": 1209,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/einsatz/<int:wid>/checkout",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "handler": "einsatz_checkout",
+      "decorator": "app.route",
+      "line": 1238,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/einsatz/<int:wid>/photo",
+      "methods": [
+        "POST"
+      ],
+      "handler": "einsatz_photo",
+      "decorator": "app.route",
+      "line": 1222,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/einsatz/checkin",
+      "methods": [
+        "POST"
+      ],
+      "handler": "einsatz_checkin",
+      "decorator": "app.route",
+      "line": 1156,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/einstellungen",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "handler": "settings_page",
+      "decorator": "app.route",
+      "line": 1792,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/erechnung/<int:wid>",
+      "methods": [
+        "GET"
+      ],
+      "handler": "erechnung_download",
+      "decorator": "app.route",
+      "line": 1100,
+      "context": "create_app",
+      "docstring": "\u00d6ffentliche Seite zum Download der E-Rechnung (XRechnung XML + PDF).",
+      "other_decorators": []
+    },
+    {
+      "path": "/erechnung/<int:wid>/pdf",
+      "methods": [
+        "GET"
+      ],
+      "handler": "erechnung_pdf",
+      "decorator": "app.route",
+      "line": 1122,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": []
+    },
+    {
+      "path": "/erechnung/<int:wid>/xml",
+      "methods": [
+        "GET"
+      ],
+      "handler": "erechnung_xml",
+      "decorator": "app.route",
+      "line": 1109,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": []
+    },
+    {
+      "path": "/fahrtenbuch",
+      "methods": [
+        "GET"
+      ],
+      "handler": "logbook_list",
+      "decorator": "app.route",
+      "line": 1679,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/fahrtenbuch/<int:eid>/delete",
+      "methods": [
+        "POST"
+      ],
+      "handler": "logbook_delete",
+      "decorator": "app.route",
+      "line": 1757,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/fahrtenbuch/<int:eid>/edit",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "handler": "logbook_edit",
+      "decorator": "app.route",
+      "line": 1730,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/fahrtenbuch/neu",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "handler": "logbook_new",
+      "decorator": "app.route",
+      "line": 1696,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/fahrtenbuch/pdf",
+      "methods": [
+        "GET"
+      ],
+      "handler": "logbook_pdf",
+      "decorator": "app.route",
+      "line": 1765,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/kunden",
+      "methods": [
+        "GET"
+      ],
+      "handler": "customer_list",
+      "decorator": "app.route",
+      "line": 356,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/kunden/<int:cid>",
+      "methods": [
+        "GET"
+      ],
+      "handler": "customer_detail",
+      "decorator": "app.route",
+      "line": 401,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/kunden/<int:cid>/delete",
+      "methods": [
+        "POST"
+      ],
+      "handler": "customer_delete",
+      "decorator": "app.route",
+      "line": 425,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/kunden/<int:cid>/edit",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "handler": "customer_edit",
+      "decorator": "app.route",
+      "line": 408,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/kunden/<int:cid>/logbuch",
+      "methods": [
+        "GET"
+      ],
+      "handler": "customer_logbook",
+      "decorator": "app.route",
+      "line": 436,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/kunden/<int:cid>/portal",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "handler": "customer_portal_manage",
+      "decorator": "app.route",
+      "line": 2764,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/kunden/<int:cid>/vault",
+      "methods": [
+        "GET"
+      ],
+      "handler": "vault_list",
+      "decorator": "app.route",
+      "line": 495,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/kunden/<int:cid>/vault/<int:eid>/delete",
+      "methods": [
+        "POST"
+      ],
+      "handler": "vault_delete",
+      "decorator": "app.route",
+      "line": 542,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/kunden/<int:cid>/vault/export",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "handler": "vault_export",
+      "decorator": "app.route",
+      "line": 655,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required",
+        "limiter.limit('10 per hour', methods=['POST'])"
+      ]
+    },
+    {
+      "path": "/kunden/<int:cid>/vault/import",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "handler": "vault_import",
+      "decorator": "app.route",
+      "line": 563,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required",
+        "limiter.limit('20 per hour', methods=['POST'])"
+      ]
+    },
+    {
+      "path": "/kunden/<int:cid>/vault/save",
+      "methods": [
+        "POST"
+      ],
+      "handler": "vault_save",
+      "decorator": "app.route",
+      "line": 512,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/kunden/import",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "handler": "customer_csv_import",
+      "decorator": "app.route",
+      "line": 458,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/kunden/neu",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "handler": "customer_new",
+      "decorator": "app.route",
+      "line": 371,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/login",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "handler": "login",
+      "decorator": "app.route",
+      "line": 224,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "limiter.limit('10 per minute; 50 per hour', methods=['POST'])"
+      ]
+    },
+    {
+      "path": "/logout",
+      "methods": [
+        "GET"
+      ],
+      "handler": "logout",
+      "decorator": "app.route",
+      "line": 248,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": []
+    },
+    {
+      "path": "/mahnwesen",
+      "methods": [
+        "GET"
+      ],
+      "handler": "mahnwesen",
+      "decorator": "app.route",
+      "line": 1517,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/mahnwesen/<int:wid>/bezahlt",
+      "methods": [
+        "POST"
+      ],
+      "handler": "mahnung_bezahlt",
+      "decorator": "app.route",
+      "line": 1659,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/mahnwesen/<int:wid>/mahnen",
+      "methods": [
+        "POST"
+      ],
+      "handler": "mahnung_senden",
+      "decorator": "app.route",
+      "line": 1559,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/mandanten",
+      "methods": [
+        "GET"
+      ],
+      "handler": "tenant_list",
+      "decorator": "app.route",
+      "line": 1890,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "admin_required"
+      ]
+    },
+    {
+      "path": "/mandanten/<int:tid>/delete",
+      "methods": [
+        "POST"
+      ],
+      "handler": "tenant_delete",
+      "decorator": "app.route",
+      "line": 1968,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "admin_required"
+      ]
+    },
+    {
+      "path": "/mandanten/<int:tid>/edit",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "handler": "tenant_edit",
+      "decorator": "app.route",
+      "line": 1928,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "admin_required"
+      ]
+    },
+    {
+      "path": "/mandanten/<int:tid>/toggle",
+      "methods": [
+        "POST"
+      ],
+      "handler": "tenant_toggle",
+      "decorator": "app.route",
+      "line": 1959,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "admin_required"
+      ]
+    },
+    {
+      "path": "/mandanten/neu",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "handler": "tenant_new",
+      "decorator": "app.route",
+      "line": 1896,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "admin_required"
+      ]
+    },
+    {
+      "path": "/passwort",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "handler": "change_password",
+      "decorator": "app.route",
+      "line": 254,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/picture/<int:pid>/delete",
+      "methods": [
+        "POST"
+      ],
+      "handler": "picture_delete",
+      "decorator": "app.route",
+      "line": 1011,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/portal",
+      "methods": [
+        "GET"
+      ],
+      "handler": "portal_dashboard",
+      "decorator": "app.route",
+      "line": 2636,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": []
+    },
+    {
+      "path": "/portal/logbuch",
+      "methods": [
+        "GET"
+      ],
+      "handler": "portal_logbook",
+      "decorator": "app.route",
+      "line": 2725,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": []
+    },
+    {
+      "path": "/portal/login",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "handler": "portal_login",
+      "decorator": "app.route",
+      "line": 2548,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "limiter.limit('10 per minute; 50 per hour', methods=['POST'])"
+      ]
+    },
+    {
+      "path": "/portal/logout",
+      "methods": [
+        "GET"
+      ],
+      "handler": "portal_logout",
+      "decorator": "app.route",
+      "line": 2754,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": []
+    },
+    {
+      "path": "/portal/passwort",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "handler": "portal_change_pw",
+      "decorator": "app.route",
+      "line": 2619,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": []
+    },
+    {
+      "path": "/portal/stundenzettel",
+      "methods": [
+        "GET"
+      ],
+      "handler": "portal_timesheets",
+      "decorator": "app.route",
+      "line": 2452,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": []
+    },
+    {
+      "path": "/portal/tresor",
+      "methods": [
+        "GET"
+      ],
+      "handler": "portal_vault",
+      "decorator": "app.route",
+      "line": 2742,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": []
+    },
+    {
+      "path": "/portal/vorgang/<int:wid>",
+      "methods": [
+        "GET"
+      ],
+      "handler": "portal_wo_detail",
+      "decorator": "app.route",
+      "line": 2644,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": []
+    },
+    {
+      "path": "/portal/vorgang/<int:wid>/accept",
+      "methods": [
+        "POST"
+      ],
+      "handler": "portal_accept_offer",
+      "decorator": "app.route",
+      "line": 2652,
+      "context": "create_app",
+      "docstring": "Kunde nimmt Angebot im Portal an \u2013 mit Unterschrift.",
+      "other_decorators": []
+    },
+    {
+      "path": "/pos/<int:pid>/delete",
+      "methods": [
+        "POST"
+      ],
+      "handler": "pos_delete",
+      "decorator": "app.route",
+      "line": 960,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/statistik",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "handler": "statistik",
+      "decorator": "app.route",
+      "line": 2478,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/stundenzettel",
+      "methods": [
+        "GET"
+      ],
+      "handler": "ts_overview",
+      "decorator": "app.route",
+      "line": 2241,
+      "context": "create_app",
+      "docstring": "\u00dcbersicht aller Kunden mit offenen Stunden.",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/stundenzettel/<int:eid>/delete",
+      "methods": [
+        "POST"
+      ],
+      "handler": "ts_delete",
+      "decorator": "app.route",
+      "line": 2316,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/stundenzettel/<int:eid>/edit",
+      "methods": [
+        "POST"
+      ],
+      "handler": "ts_edit",
+      "decorator": "app.route",
+      "line": 2301,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/stundenzettel/<int:eid>/timer/stop",
+      "methods": [
+        "POST"
+      ],
+      "handler": "ts_timer_stop",
+      "decorator": "app.route",
+      "line": 2343,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/stundenzettel/kunde/<int:cid>",
+      "methods": [
+        "GET"
+      ],
+      "handler": "ts_customer",
+      "decorator": "app.route",
+      "line": 2263,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/stundenzettel/kunde/<int:cid>/abrechnen",
+      "methods": [
+        "POST"
+      ],
+      "handler": "ts_settle",
+      "decorator": "app.route",
+      "line": 2356,
+      "context": "create_app",
+      "docstring": "Z\u00e4hler zur\u00fccksetzen \u2014 alle offenen Eintr\u00e4ge als abgerechnet markieren.",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/stundenzettel/kunde/<int:cid>/neu",
+      "methods": [
+        "POST"
+      ],
+      "handler": "ts_add",
+      "decorator": "app.route",
+      "line": 2278,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/stundenzettel/kunde/<int:cid>/pdf",
+      "methods": [
+        "GET"
+      ],
+      "handler": "ts_pdf",
+      "decorator": "app.route",
+      "line": 2373,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/stundenzettel/kunde/<int:cid>/timer/start",
+      "methods": [
+        "POST"
+      ],
+      "handler": "ts_timer_start",
+      "decorator": "app.route",
+      "line": 2326,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/vorgaenge",
+      "methods": [
+        "GET"
+      ],
+      "handler": "wo_list",
+      "decorator": "app.route",
+      "line": 737,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/vorgaenge/<int:wid>",
+      "methods": [
+        "GET"
+      ],
+      "handler": "wo_detail",
+      "decorator": "app.route",
+      "line": 788,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/vorgaenge/<int:wid>/activity/add",
+      "methods": [
+        "POST"
+      ],
+      "handler": "activity_add",
+      "decorator": "app.route",
+      "line": 972,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/vorgaenge/<int:wid>/delete",
+      "methods": [
+        "POST"
+      ],
+      "handler": "wo_delete",
+      "decorator": "app.route",
+      "line": 902,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/vorgaenge/<int:wid>/edit",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "handler": "wo_edit",
+      "decorator": "app.route",
+      "line": 797,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/vorgaenge/<int:wid>/pdf/invoice",
+      "methods": [
+        "GET"
+      ],
+      "handler": "pdf_invoice",
+      "decorator": "app.route",
+      "line": 1044,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/vorgaenge/<int:wid>/pdf/workorder",
+      "methods": [
+        "GET"
+      ],
+      "handler": "pdf_workorder",
+      "decorator": "app.route",
+      "line": 1034,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/vorgaenge/<int:wid>/pdf/xrechnung",
+      "methods": [
+        "GET"
+      ],
+      "handler": "pdf_xrechnung",
+      "decorator": "app.route",
+      "line": 1087,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/vorgaenge/<int:wid>/picture/add",
+      "methods": [
+        "POST"
+      ],
+      "handler": "picture_add",
+      "decorator": "app.route",
+      "line": 995,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/vorgaenge/<int:wid>/pos/add",
+      "methods": [
+        "POST"
+      ],
+      "handler": "pos_add",
+      "decorator": "app.route",
+      "line": 912,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/vorgaenge/<int:wid>/pos/from-article",
+      "methods": [
+        "POST"
+      ],
+      "handler": "pos_from_article",
+      "decorator": "app.route",
+      "line": 934,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/vorgaenge/<int:wid>/send",
+      "methods": [
+        "POST"
+      ],
+      "handler": "wo_send_email",
+      "decorator": "app.route",
+      "line": 1058,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/vorgaenge/<int:wid>/sign",
+      "methods": [
+        "POST"
+      ],
+      "handler": "wo_sign",
+      "decorator": "app.route",
+      "line": 1023,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/vorgaenge/<int:wid>/status/<action>",
+      "methods": [
+        "POST"
+      ],
+      "handler": "wo_status",
+      "decorator": "app.route",
+      "line": 827,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    },
+    {
+      "path": "/vorgaenge/neu",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "handler": "wo_new",
+      "decorator": "app.route",
+      "line": 757,
+      "context": "create_app",
+      "docstring": "",
+      "other_decorators": [
+        "login_required"
+      ]
+    }
+  ]
+}
