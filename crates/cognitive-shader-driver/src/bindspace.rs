@@ -129,15 +129,18 @@ impl EdgeColumn {
     #[inline] pub fn set(&mut self, row: usize, edge: u64) { self.0[row] = edge; }
 }
 
-/// 18 × f32 per row. Dims 0..16 = EXPERIENCED (CMYK, the QPL convergence
-/// observables: arousal, valence, tension, warmth, clarity, boundary, depth,
-/// velocity, entropy, coherence, intimacy, presence, assertion, receptivity,
-/// groundedness, expansion, integration). Dim 17 = OBSERVED: classification
-/// distance (0 = named emotion like "fear", 1 = raw unnamed like "steelwind").
-/// Contiguous `len * 18` f32.
+/// **DEPRECATED** since 0.2.0 — use `QualiaI4Column` directly.
+///
+/// The f32 column was retired in D-CSV-5b cutover. Downstream callers
+/// have one release cycle to migrate to `bs.qualia` (now `QualiaI4Column`).
+///
+/// 18 × f32 per row (legacy layout). Replaced by 8 B/row packed i4×16
+/// per cognitive-substrate-convergence-v1.md §7.2 and plan decision L-10.
+#[deprecated(since = "0.2.0", note = "use QualiaI4Column directly; this f32 column was retired in D-CSV-5b cutover")]
 #[derive(Debug)]
 pub struct QualiaColumn(pub Box<[f32]>);
 
+#[allow(deprecated)]
 impl QualiaColumn {
     pub fn zeros(len: usize) -> Self { Self(vec![0.0f32; len * QUALIA_DIMS].into_boxed_slice()) }
 
@@ -151,12 +154,13 @@ impl QualiaColumn {
     }
 }
 
-/// Sibling i4 column alongside QualiaColumn (D-CSV-5a double-write).
+/// Canonical qualia column (D-CSV-5b cutover — QualiaColumn f32 retired).
 /// Length = N rows; each entry is 8 bytes (one `QualiaI4_16D`).
-/// Column total = 8 × N bytes.
+/// Column total = 8 × N bytes (9× compression vs old [f32;18] = 72 B/row).
 ///
-/// Written on every `push_typed` call alongside the f32 `QualiaColumn`.
-/// Reads still use the f32 `QualiaColumn` (cutover is D-CSV-5b).
+/// `bs.qualia` now refers to this i4 column. Consumers use
+/// `bs.qualia.row(k)` which returns `QualiaI4_16D` (by value, Copy).
+/// For downstream f32 math call `.to_f32_17d()` at the call site.
 #[derive(Debug)]
 pub struct QualiaI4Column(pub Box<[QualiaI4_16D]>);
 
@@ -230,8 +234,9 @@ pub struct BindSpace {
     pub len: usize,
     pub fingerprints: FingerprintColumns,
     pub edges: EdgeColumn,
-    pub qualia: QualiaColumn,
-    pub qualia_i4: QualiaI4Column,
+    /// Canonical qualia column (i4-16D, D-CSV-5b). Returns `QualiaI4_16D` by value.
+    /// The old `QualiaColumn` (f32) was retired in D-CSV-5b; see `QualiaColumn` docs.
+    pub qualia: QualiaI4Column,
     pub meta: MetaColumn,
     pub temporal: Box<[u64]>,
     pub expert: Box<[u16]>,
@@ -262,7 +267,6 @@ impl std::fmt::Debug for BindSpace {
             .field("fingerprints", &self.fingerprints)
             .field("edges", &self.edges)
             .field("qualia", &self.qualia)
-            .field("qualia_i4", &self.qualia_i4)
             .field("meta", &self.meta)
             .field("temporal", &self.temporal)
             .field("expert", &self.expert)
@@ -279,8 +283,7 @@ impl BindSpace {
             len,
             fingerprints: FingerprintColumns::zeros(len),
             edges: EdgeColumn::zeros(len),
-            qualia: QualiaColumn::zeros(len),
-            qualia_i4: QualiaI4Column::zeros(len),
+            qualia: QualiaI4Column::zeros(len),
             meta: MetaColumn::zeros(len),
             temporal: vec![0u64; len].into_boxed_slice(),
             expert: vec![0u16; len].into_boxed_slice(),
@@ -310,13 +313,13 @@ impl BindSpace {
         let cycle_bytes = self.len * FLOATS_PER_VSA * 4; // f32 carrier
         let sigma_bytes = self.len; // 1 byte per row, Σ-codebook index
         let edge_bytes = self.len * 8;
-        let qualia_bytes = self.len * QUALIA_DIMS * 4;
-        let qualia_i4_bytes = self.len * 8;
+        // D-CSV-5b: qualia is now QualiaI4Column (8 B/row). f32 column (72 B/row) retired.
+        let qualia_bytes = self.len * 8;
         let meta_bytes = self.len * 4;
         let temporal_bytes = self.len * 8;
         let expert_bytes = self.len * 2;
         let entity_type_bytes = self.len * 2;
-        content_topic_angle + cycle_bytes + sigma_bytes + edge_bytes + qualia_bytes + qualia_i4_bytes + meta_bytes + temporal_bytes + expert_bytes + entity_type_bytes
+        content_topic_angle + cycle_bytes + sigma_bytes + edge_bytes + qualia_bytes + meta_bytes + temporal_bytes + expert_bytes + entity_type_bytes
     }
 
     /// Apply MetaFilter across a row window. Returns a dense Vec of row
@@ -363,12 +366,20 @@ impl BindSpaceBuilder {
     ///
     /// # Panics
     /// Panics if cursor >= capacity (F-08: bounds-checked push).
+    /// Push a row with default entity_type (0 = untyped).
+    ///
+    /// D-CSV-5b: `qualia` is now `QualiaI4_16D`. Callers that previously
+    /// supplied `&[f32; QUALIA_DIMS]` should call
+    /// `QualiaI4_16D::from_f32_17d(&q17)` at the call site.
+    ///
+    /// # Panics
+    /// Panics if cursor >= capacity (F-08: bounds-checked push).
     pub fn push(
         mut self,
         content: &[u64],
         meta: MetaWord,
         edge: u64,
-        qualia: &[f32; QUALIA_DIMS],
+        qualia: QualiaI4_16D,
         temporal: u64,
         expert: u16,
     ) -> Self {
@@ -379,12 +390,20 @@ impl BindSpaceBuilder {
     ///
     /// # Panics
     /// Panics if cursor >= capacity (F-08: bounds-checked push).
+    /// Push a row with explicit entity type (Column H) and i4 qualia.
+    ///
+    /// D-CSV-5b: `qualia` is now `QualiaI4_16D`. Callers that previously
+    /// supplied `&[f32; QUALIA_DIMS]` should call
+    /// `QualiaI4_16D::from_f32_17d(&q17)` at the call site.
+    ///
+    /// # Panics
+    /// Panics if cursor >= capacity (F-08: bounds-checked push).
     pub fn push_typed(
         mut self,
         content: &[u64],
         meta: MetaWord,
         edge: u64,
-        qualia: &[f32; QUALIA_DIMS],
+        qualia: QualiaI4_16D,
         temporal: u64,
         expert: u16,
         entity_type: u16,
@@ -398,12 +417,8 @@ impl BindSpaceBuilder {
         self.bs.fingerprints.set_content(row, content);
         self.bs.meta.set(row, meta);
         self.bs.edges.set(row, edge);
+        // D-CSV-5b: single i4 write (f32 column retired).
         self.bs.qualia.set(row, qualia);
-        // D-CSV-5a: double-write i4 sibling column.
-        // QUALIA_DIMS may be 18; from_f32_17d takes exactly 17 dims.
-        let mut q17 = [0.0f32; 17];
-        q17.copy_from_slice(&qualia[..17]);
-        self.bs.qualia_i4.set(row, QualiaI4_16D::from_f32_17d(&q17));
         self.bs.temporal[row] = temporal;
         self.bs.expert[row] = expert;
         self.bs.entity_type[row] = entity_type;
