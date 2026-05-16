@@ -32,8 +32,11 @@ with the `rayon = ["dep:rayon", "std"]` feature flag at line 148. Sprint-12
 left it unused inside `src/hpc/stream/`; sprint-13 wires it in.
 
 **New deliverable id:** D-CSV-17 — chosen to not collide with the in-flight
-D-CSV-13/14/15 entries in convergence-v2 §11, and to follow the D-CSV-16
-slot reserved by PP-2 (sprint-13 splat on-Think method migration).
+D-CSV-13/14/15 entries in convergence-v2 §11, and to follow the W-Meta-Opus
+canonical sprint-13 D-id assignment: **D-CSV-13b → PP-6 (SIMD), D-CSV-14 →
+PP-4 (splat on-Think), D-CSV-16 → PP-5 (WitnessIndexCamPq), D-CSV-17 → PP-3
+(this spec, rayon par_*)**. See `.claude/board/sprint-log-13/preflight-meta-
+review-opus.md` §2 for the reconciled per-planner table (CSI-19 cleanup).
 
 **Cross-ref table:**
 
@@ -44,7 +47,7 @@ slot reserved by PP-2 (sprint-13 splat on-Think method migration).
 | `splat_field.rs:7` | "par_splat_stream rayon variant is sprint-13+" | Same |
 | `Cargo.toml:47,148` | rayon optional dep + feature flag | Feature gate already exists |
 | convergence-v2.md §11 D-CSV-11 row | "QualiaStream, InferenceStream, SplatFieldStream + par_* rayon variants" | Parent deliverable |
-| convergence-v2.md §11 D-CSV-14 row | "on-Think method migration for D-CSV-12 splat ops" | Sibling sprint-13+ deliverable (PP-2 spec) |
+| convergence-v2.md §11 D-CSV-14 row | "on-Think method migration for D-CSV-12 splat ops" | Sibling sprint-13+ deliverable (PP-4 spec) |
 | ndarray CLAUDE.md "Data-Flow Invariants" | `&[u8]` slices, no `&mut self` during compute | Hard constraint this spec respects |
 
 ---
@@ -577,7 +580,7 @@ a single-thread pool gracefully on uniprocessor builds.
 **Sibling preflight specs (sprint-13, planned):**
 
 - PP-1: sprint-13 execution plan v3 — introduces D-CSV-17 row in §11.
-- PP-2: D-CSV-14 on-Think method migration spec — co-evolves with this PR;
+- PP-4: D-CSV-14 on-Think method migration spec — co-evolves with this PR;
   the splat on-Think methods will internally call `par_splat_field_stream`
   for the fleet-evaluation hot path.
 - PP-4: CI matrix update — adds `--features rayon` to the ndarray test job
@@ -587,7 +590,7 @@ a single-thread pool gracefully on uniprocessor builds.
 
 - `.claude/knowledge/splat-shader-rayon-struct-method-vision.md` — original
   vision for rayon + struct-method surface; this PR is the
-  rayon half (struct-method half is D-CSV-14 / PP-2).
+  rayon half (struct-method half is D-CSV-14 / PP-4).
 - `.claude/knowledge/vsa-switchboard-architecture.md` — VSA bundle
   associativity-in-expectation; underwrites the §6 pattern C safety
   argument for `Vsa16kF32`.
