@@ -16,3 +16,6 @@ pub mod witness_corpus;
 pub mod xai_client;
 
 pub use witness_corpus::{WitnessCorpus, WitnessEntry, WitnessId, WitnessIndexHashMap};
+
+#[cfg(feature = "with-cam-pq")]
+pub use witness_corpus::{spo_to_fingerprint, CamPqState, WitnessIndexCamPq};
