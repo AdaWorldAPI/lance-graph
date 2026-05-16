@@ -426,10 +426,10 @@ Consolidates sprint-10 architectural decisions before context dilution.
 
 | D-id | Title | Status | PR / Evidence |
 |---|---|---|---|
-| D-CSV-1 | `causal-edge` crate v2 layout (signed mantissa, W-slot, lens, drop temporal) | **Queued** | blocked on OQ-CSV-1 + OQ-CSV-2 user ratification |
+| D-CSV-1 | `causal-edge` crate v2 layout (signed mantissa, W-slot, lens, drop temporal) | **In PR** | branch `claude/sprint-11-wave-a-impl`, commit `ab39d01`; OQ-CSV-2 ratified to 6 bits (default) |
 | D-CSV-2 | `QualiaI4_16D` type in `lance-graph-contract::qualia` + f32↔i4 migration helpers | **Queued** | blocked on OQ-CSV-1 (per-dim assignment) |
-| D-CSV-3 | InferenceType signed-mantissa expansion (absorbs PR-LL-1 Intervention/Counterfactual into canonical edge enum) | **Queued** | depends on D-CSV-1 |
-| D-CSV-4 | `CollapseGateEmission` wire format spec + impl per plan §8 | **Queued** | depends on D-CSV-1 |
+| D-CSV-3 | InferenceType signed-mantissa expansion (absorbs PR-LL-1 Intervention/Counterfactual into canonical edge enum) | **In PR** | branch `claude/sprint-11-wave-a-impl`, paired with D-CSV-1 in same crate |
+| D-CSV-4 | `CollapseGateEmission` wire format spec + impl per plan §8 | **In PR** | branch `claude/sprint-11-wave-a-impl`, contract crate (Vec instead of SmallVec to preserve zero-dep) |
 
 ### Phase B — Storage & dispatch path (sprint-11)
 

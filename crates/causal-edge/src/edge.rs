@@ -43,6 +43,60 @@ impl InferenceType {
             _ => Self::Reserved7,
         }
     }
+
+    /// Convert to the v2 signed inference mantissa (i4, range −8..+7).
+    ///
+    /// Mapping per pr-ce64-mb-2-causaledge64-v2.md §"Signed Mantissa Rationale":
+    /// - Positive mantissa (+1..+7) = forward-chain direction.
+    /// - Negative mantissa (−1..−7) = backward-chain direction.
+    /// - Zero (0) = Identity / neutral — bare SPO assertions, no active NARS rule.
+    ///
+    /// Slot table (|mantissa| = base rule index):
+    ///   0=Identity, 1=Deduction(+)/Abduction(-), 2=Induction(+)/Contraposition(-),
+    ///   3=Exemplification(+)/Analogy-negative(-), 4=Revision+(+)/Revision-(-),
+    ///   5=Synthesis(+)/Decomposition(-),
+    ///   6=Intervention(+)/Counterfactual(-) [PR-LL-1 absorbed per L-9],
+    ///   7=Extension(+)/Intension-negative(-) [future].
+    #[inline]
+    pub fn to_mantissa(self) -> i8 {
+        match self {
+            // Forward-chain (positive mantissa)
+            Self::Deduction    => 1,
+            Self::Induction    => 2,
+            // NOTE: Abduction is backward in the signed encoding; v1 enum maps it to +3 slot
+            // for forward semantics, but in v2 signed scheme Abduction is negative direction.
+            // For v1 back-compat, Abduction here returns the forward slot (+3 = Exemplification
+            // slot). Callers must use from_mantissa() to distinguish signed direction.
+            Self::Abduction    => -1,   // backward: |1| = Abduction
+            Self::Revision     => 4,    // forward: Revision-positive slot
+            Self::Synthesis    => 5,    // forward: Synthesis slot
+            Self::Intervention => 6,    // forward: PR-LL-1 Intervention (+6 per L-9)
+            // Backward-chain (negative mantissa)
+            Self::Counterfactual => -6, // backward: PR-LL-1 Counterfactual (−6 per L-9)
+            Self::Reserved7    => 7,    // extension slot (positive, forward)
+        }
+    }
+
+    /// Construct from the v2 signed inference mantissa (i4, range −8..+7).
+    ///
+    /// Maps magnitude + sign to the closest v1 InferenceType for back-compat.
+    /// Positive values = forward-chain; negative values = backward-chain.
+    /// Zero = Identity (returns Deduction as the neutral forward-chain rule).
+    #[inline]
+    pub fn from_mantissa(m: i8) -> Self {
+        let mag = m.unsigned_abs() & 0x7; // magnitude 0..7
+        let forward = m >= 0;
+        match mag {
+            0 => Self::Deduction,    // 0 = Identity/neutral → treat as Deduction
+            1 => if forward { Self::Deduction } else { Self::Abduction },
+            2 => if forward { Self::Induction } else { Self::Abduction }, // Contraposition → Abduction
+            3 => if forward { Self::Synthesis } else { Self::Abduction }, // Exemplification / Analogy-neg
+            4 => Self::Revision,     // Revision +/- (same enum, sign distinguishes)
+            5 => if forward { Self::Synthesis } else { Self::Synthesis }, // Synthesis / Decomposition
+            6 => if forward { Self::Intervention } else { Self::Counterfactual }, // PR-LL-1 (L-9)
+            _ => Self::Reserved7,    // 7 = Extension / Intension-negative (future)
+        }
+    }
 }
 
 /// The 64-bit causal neuron.
@@ -83,7 +137,19 @@ impl CausalEdge64 {
     /// Zero edge: unknown, no evidence, no time.
     pub const ZERO: Self = Self(0);
 
-    /// Pack all fields into a CausalEdge64.
+    /// Pack all fields into a CausalEdge64 (v1 signature — retained for back-compat).
+    ///
+    /// When `causal-edge-v2-layout` is enabled:
+    /// - The inference parameter is packed as a 3-bit value into bits 46-48 (lower
+    ///   3 bits of the 4-bit mantissa field). This is compatible with v2 reads via
+    ///   `inference_mantissa()` for non-negative v1 InferenceType values (0..7).
+    /// - Plasticity is packed at v2 PLAST_SHIFT=50 (bits 50-52), not v1 PLAST_SHIFT=49.
+    /// - **The `temporal` parameter is IGNORED.** Bits 52-63 are reclaimed by v2 for
+    ///   W-slot (53-58), truth-band lens (59-60), and spare (61-63); bit 52 belongs
+    ///   to plasticity. Writing temporal into those bits would corrupt the reclaim
+    ///   zone (see plan §6 Option F, decision L-2). Use `pack_v2()` for new code.
+    ///
+    /// For new code, prefer `pack_v2()` (feature `causal-edge-v2-layout`).
     #[inline]
     pub fn pack(
         s_idx: u8,
@@ -105,9 +171,27 @@ impl CausalEdge64 {
         v |= (confidence as u64) << CONF_SHIFT;
         v |= ((causal_mask as u64) & BITS3_MASK) << CAUSAL_SHIFT;
         v |= ((direction as u64) & BITS3_MASK) << DIR_SHIFT;
-        v |= ((inference as u8 as u64) & BITS3_MASK) << INFER_SHIFT;
-        v |= ((plasticity.bits() as u64) & BITS3_MASK) << PLAST_SHIFT;
-        v |= ((temporal as u64) & BITS12_MASK) << TEMPORAL_SHIFT;
+        // v2 layout: write the signed mantissa (4 bits, bits 46-49) via the
+        // enum→mantissa mapping so that subsequent reads via inference_mantissa()
+        // + InferenceType::from_mantissa() round-trip the *semantic* meaning.
+        // Writing the raw enum discriminant into 3 bits would silently re-route
+        // Abduction(2) as Induction(+2), Revision(3) as Synthesis(+3), etc.
+        #[cfg(feature = "causal-edge-v2-layout")]
+        {
+            let mantissa_raw = (inference.to_mantissa() as u8) as u64 & 0xF;
+            v |= mantissa_raw << INFER_SHIFT;
+            v |= ((plasticity.bits() as u64) & BITS3_MASK) << crate::layout::PLAST_SHIFT;
+            // v2: temporal is IGNORED. Bits 52-63 are reclaimed for plasticity[2]
+            // + W-slot + truth + spare per plan §6 Option F / L-2. Writing the
+            // v1 temporal here would corrupt the reclaim zone; silently drop it.
+            let _ = temporal;
+        }
+        #[cfg(not(feature = "causal-edge-v2-layout"))]
+        {
+            v |= ((inference as u8 as u64) & BITS3_MASK) << INFER_SHIFT;
+            v |= ((plasticity.bits() as u64) & BITS3_MASK) << PLAST_SHIFT;
+            v |= ((temporal as u64) & BITS12_MASK) << TEMPORAL_SHIFT;
+        }
         Self(v)
     }
 
@@ -317,47 +401,142 @@ impl CausalEdge64 {
 
     // ─── Inference Type ─────────────────────────────────────────────
 
-    /// NARS inference type for this edge.
+    /// NARS inference type for this edge (v1 3-bit accessor).
+    ///
+    /// DEPRECATED since 0.2.0: In v2 layout, bits 46-49 hold a 4-bit SIGNED mantissa
+    /// (range −8..+7). This accessor reads only bits 46-48 and treats them as a 3-bit
+    /// unsigned value, which is correct for v1-written edges but WRONG for v2-written
+    /// edges where the mantissa sign bit lives in bit 49.
+    ///
+    /// Migration: use `inference_mantissa()` (feature `causal-edge-v2-layout`) and
+    /// `InferenceType::from_mantissa()` to convert. The mapping is documented in
+    /// pr-ce64-mb-2-causaledge64-v2.md §"Signed Mantissa Rationale".
+    #[deprecated(
+        since = "0.2.0",
+        note = "bits 46-49 now hold a 4-bit signed mantissa in v2 layout; \
+                use inference_mantissa() + InferenceType::from_mantissa() instead; \
+                see pr-ce64-mb-2-causaledge64-v2.md §\"Signed Mantissa Rationale\"."
+    )]
     #[inline(always)]
     pub fn inference_type(self) -> InferenceType {
-        InferenceType::from_bits(((self.0 >> INFER_SHIFT) & BITS3_MASK) as u8)
+        // v2: bits 46-49 hold a 4-bit signed mantissa. Route through from_mantissa
+        // so the v1 API contract is preserved semantically — pack(X).inference_type()
+        // round-trips to X for all v1 enum variants via the to_mantissa/from_mantissa
+        // pair (e.g. Intervention → +6 → Intervention, Counterfactual → −6 →
+        // Counterfactual, Abduction → −1 → Abduction). Reading the raw 3-bit field
+        // (the v1 layout) would silently swap variants under v2 because the
+        // discriminant numbering does not match the mantissa encoding.
+        #[cfg(feature = "causal-edge-v2-layout")]
+        {
+            // inference_mantissa() reads the 4-bit signed field via arithmetic shift
+            // sign-extension.
+            let raw = ((self.0 >> INFER_SHIFT) & 0xF) as i8;
+            let m = (raw << 4) >> 4; // sign-extend 4-bit → i8
+            InferenceType::from_mantissa(m)
+        }
+        #[cfg(not(feature = "causal-edge-v2-layout"))]
+        {
+            InferenceType::from_bits(((self.0 >> INFER_SHIFT) & BITS3_MASK) as u8)
+        }
     }
 
     /// Set inference type.
+    ///
+    /// **v2 behavior:** writes via `t.to_mantissa()` into the 4-bit signed field
+    /// (bits 46-49) so that `inference_type()` round-trips. Writing the raw v1
+    /// discriminant into 3 bits would silently corrupt the semantic (e.g.
+    /// Counterfactual=6 stored as +6 mantissa → from_mantissa(+6)=Intervention).
     #[inline]
     pub fn set_inference_type(&mut self, t: InferenceType) {
-        self.0 = (self.0 & !(BITS3_MASK << INFER_SHIFT))
-            | (((t as u8 as u64) & BITS3_MASK) << INFER_SHIFT);
+        #[cfg(feature = "causal-edge-v2-layout")]
+        {
+            let raw = (t.to_mantissa() as u8) as u64 & 0xF;
+            self.0 = (self.0 & !(0xF << INFER_SHIFT)) | (raw << INFER_SHIFT);
+        }
+        #[cfg(not(feature = "causal-edge-v2-layout"))]
+        {
+            self.0 = (self.0 & !(BITS3_MASK << INFER_SHIFT))
+                | (((t as u8 as u64) & BITS3_MASK) << INFER_SHIFT);
+        }
     }
 
     // ─── Plasticity ─────────────────────────────────────────────────
 
     /// Plasticity state for all three planes.
+    ///
+    /// In v1 layout, plasticity occupies bits 49-51 (PLAST_SHIFT=49).
+    /// In v2 layout (`causal-edge-v2-layout` feature), plasticity occupies bits 50-52
+    /// (PLAST_SHIFT=50) because the inference mantissa expanded from 3b to 4b (L-4).
     #[inline(always)]
     pub fn plasticity(self) -> PlasticityState {
-        PlasticityState::from_bits(((self.0 >> PLAST_SHIFT) & BITS3_MASK) as u8)
+        #[cfg(feature = "causal-edge-v2-layout")]
+        { PlasticityState::from_bits(((self.0 >> crate::layout::PLAST_SHIFT) & BITS3_MASK) as u8) }
+        #[cfg(not(feature = "causal-edge-v2-layout"))]
+        { PlasticityState::from_bits(((self.0 >> PLAST_SHIFT) & BITS3_MASK) as u8) }
     }
 
     /// Set plasticity state.
+    ///
+    /// Uses v2 PLAST_SHIFT=50 when `causal-edge-v2-layout` feature is enabled,
+    /// v1 PLAST_SHIFT=49 otherwise.
     #[inline]
     pub fn set_plasticity(&mut self, p: PlasticityState) {
-        self.0 = (self.0 & !(BITS3_MASK << PLAST_SHIFT))
-            | (((p.bits() as u64) & BITS3_MASK) << PLAST_SHIFT);
+        #[cfg(feature = "causal-edge-v2-layout")]
+        {
+            let shift = crate::layout::PLAST_SHIFT;
+            self.0 = (self.0 & !(BITS3_MASK << shift))
+                | (((p.bits() as u64) & BITS3_MASK) << shift);
+        }
+        #[cfg(not(feature = "causal-edge-v2-layout"))]
+        {
+            self.0 = (self.0 & !(BITS3_MASK << PLAST_SHIFT))
+                | (((p.bits() as u64) & BITS3_MASK) << PLAST_SHIFT);
+        }
     }
 
     // ─── Temporal Index ─────────────────────────────────────────────
 
     /// 12-bit temporal index (0..4095).
+    ///
+    /// DEPRECATED since 0.2.0: In v2 layout, bits 52-63 are reclaimed for
+    /// W-slot (53-58), truth-band-lens (59-60), and spare (61-63). This accessor
+    /// returns GARBAGE for v2-written edges. Temporal causality is structural:
+    /// use chain-position in SpoWitnessChain or AriGraph Triplet.timestamp instead.
+    /// See cognitive-substrate-convergence-v1.md L-2.
+    #[deprecated(
+        since = "0.2.0",
+        note = "bits 52-63 reclaimed in v2 layout; temporal is structural \
+                (SpoWitnessChain chain-position + AriGraph Triplet.timestamp); \
+                see cognitive-substrate-convergence-v1.md L-2."
+    )]
     #[inline(always)]
     pub fn temporal(self) -> u16 {
         ((self.0 >> TEMPORAL_SHIFT) & BITS12_MASK) as u16
     }
 
     /// Set temporal index.
+    ///
+    /// **v2 behavior:** NO-OP. Under `causal-edge-v2-layout` (default since
+    /// 0.2.0), bits 52-63 are reclaimed for plasticity[2] + W-slot + lens +
+    /// spare per plan §6 / L-2. Writing the v1 temporal here would corrupt
+    /// the reclaim zone — same bug pattern as the v1-temporal-aliases-W3-
+    /// reclaim-zone P1 codex caught in PR #381. Temporal causality is now
+    /// structural (chain-position + AriGraph anchor); use those instead.
+    ///
+    /// Existing v1 callers (e.g. `CausalEdge64::learn`) continue to compile
+    /// — the temporal arg becomes a silent drop under v2 with the rest of
+    /// the reclaim-zone integrity preserved.
     #[inline]
     pub fn set_temporal(&mut self, t: u16) {
-        self.0 = (self.0 & !(BITS12_MASK << TEMPORAL_SHIFT))
-            | (((t as u64) & BITS12_MASK) << TEMPORAL_SHIFT);
+        #[cfg(feature = "causal-edge-v2-layout")]
+        {
+            let _ = t; // v2: bits 52-63 are W/lens/spare; do not overwrite
+        }
+        #[cfg(not(feature = "causal-edge-v2-layout"))]
+        {
+            self.0 = (self.0 & !(BITS12_MASK << TEMPORAL_SHIFT))
+                | (((t as u64) & BITS12_MASK) << TEMPORAL_SHIFT);
+        }
     }
 
     // ─── Causal Distance ────────────────────────────────────────────
@@ -407,7 +586,17 @@ impl CausalEdge64 {
         let o_out = compose_o[self.o_idx() as usize * 256 + weight.o_idx() as usize];
 
         // 2. NARS truth propagation (the "activation function")
-        let (f_out, c_out) = match weight.inference_type() {
+        // Under v2: decode the 4-bit signed mantissa (bits 46-49) and route
+        // through the same InferenceType variants. Without this, v2 edges
+        // built via `with_inference_mantissa()` route as 3-bit unsigned
+        // (e.g. -1 = 0b1111 reads as Reserved7), bypassing Abduction/
+        // Counterfactual semantics entirely.
+        #[cfg(feature = "causal-edge-v2-layout")]
+        #[allow(deprecated)] // weight.inference_type() is the v1 fallback below; v2 uses mantissa
+        let resolved_infer = InferenceType::from_mantissa(weight.inference_mantissa());
+        #[cfg(not(feature = "causal-edge-v2-layout"))]
+        let resolved_infer = weight.inference_type();
+        let (f_out, c_out) = match resolved_infer {
             InferenceType::Deduction => {
                 let f = self.frequency() * weight.frequency();
                 let c = f * self.confidence() * weight.confidence();
@@ -451,7 +640,8 @@ impl CausalEdge64 {
 
         // 5. Inherit plasticity from weight (the "learned" edge)
         //    and direction will be recomputed from composed palette entries
-        Self::pack(
+        #[allow(deprecated)] // pack() v2 path drops temporal; resolved_infer carries v2 mantissa
+        let result = Self::pack(
             s_out,
             p_out,
             o_out,
@@ -459,10 +649,17 @@ impl CausalEdge64 {
             (c_out.clamp(0.0, 1.0) * 255.0).round() as u8,
             mask_out,
             weight.direction(), // TODO: recompute from composed palette dim0 signs
-            weight.inference_type(),
+            resolved_infer,
             weight.plasticity(),
             t_out,
-        )
+        );
+        // Under v2: re-stamp the signed mantissa onto the result. pack() only
+        // writes 3 bits (v1 enum discriminant) into bits 46-48; bit 49 (the
+        // sign bit) stays 0, so negative mantissas (Abduction, Counterfactual)
+        // would lose their sign. Override here with the resolved value.
+        #[cfg(feature = "causal-edge-v2-layout")]
+        let result = result.with_inference_mantissa(resolved_infer.to_mantissa());
+        result
     }
 
     // ─── Learning (Evidence-Driven Plasticity) ──────────────────────
@@ -562,7 +759,251 @@ impl CausalEdge64 {
     pub fn is_frozen(self) -> bool {
         self.plasticity() == PlasticityState::ALL_FROZEN
     }
+    // ─── V2 Pack ───────────────────────────────────────────────────────
+
+    /// V2 pack: construct a CausalEdge64 without temporal (dropped per L-2).
+    ///
+    /// The 12 bits formerly used by temporal are reclaimed for W-slot (53-58),
+    /// truth-band-lens (59-60), spare (61-63), and the mantissa expansion (46-49).
+    /// W-slot, truth-band, spare, and inference mantissa default to zero on pack_v2.
+    /// Set them after construction with `with_w_slot`, `with_truth`,
+    /// `with_inference_mantissa`, `with_spare`, or `with_routing`.
+    ///
+    /// Note: the v1 `pack()` retains its 9-arg signature (with `temporal`) for
+    /// back-compat and migration tests. Use `pack_v2()` for all new v2 code.
+    #[cfg(feature = "causal-edge-v2-layout")]
+    #[inline]
+    pub fn pack_v2(
+        s_idx: u8,
+        p_idx: u8,
+        o_idx: u8,
+        frequency: u8,
+        confidence: u8,
+        causal_mask: CausalMask,
+        direction: u8,
+        plasticity: PlasticityState,
+    ) -> Self {
+        use crate::layout::{S_SHIFT as LS, P_SHIFT as LP, O_SHIFT as LO,
+                            FREQ_SHIFT as LF, CONF_SHIFT as LC,
+                            CAUSAL_SHIFT as LCA, DIR_SHIFT as LD,
+                            PLAST_SHIFT as LPL, BITS3_MASK as B3};
+        let mut v: u64 = 0;
+        v |= (s_idx as u64) << LS;
+        v |= (p_idx as u64) << LP;
+        v |= (o_idx as u64) << LO;
+        v |= (frequency as u64) << LF;
+        v |= (confidence as u64) << LC;
+        v |= ((causal_mask as u64) & B3) << LCA;
+        v |= ((direction as u64) & B3) << LD;
+        // inference mantissa defaults to 0 (Identity/neutral)
+        v |= ((plasticity.bits() as u64) & B3) << LPL;
+        // W-slot, truth-band, spare default to 0
+        Self(v)
+    }
+
 }
+
+// ─── V2 Accessors and Builders ─────────────────────────────────────────────
+// All gated on `#[cfg(feature = "causal-edge-v2-layout")]`.
+// G-slot is NOT present in v2 (L-3: redundant via palette family-prefix).
+// See pr-ce64-mb-2-causaledge64-v2.md §4 for full method semantics.
+
+#[cfg(feature = "causal-edge-v2-layout")]
+impl CausalEdge64 {
+    // ── Read Accessors ──────────────────────────────────────────────────────
+
+    /// Witness corpus root handle (6-bit, 0..=63). 0 = no corpus anchor.
+    ///
+    /// WARNING: Returns GARBAGE for non-zero v1 edges — bits 53-58 were
+    /// temporal MSBs in v1. Apply a version gate before calling on edges
+    /// of unknown provenance. `CausalEdge64::ZERO` returns 0 (correct default).
+    #[inline(always)]
+    pub fn w_slot(self) -> u8 {
+        use crate::layout::{W_SHIFT, BITS6_MASK};
+        ((self.0 >> W_SHIFT) & BITS6_MASK) as u8
+    }
+
+    /// Inference mantissa: 4-bit signed i4, range −8..+7.
+    ///
+    /// sign = chain direction (+ = forward-chain, − = backward-chain).
+    /// abs = base NARS rule index (0..7). See §"Signed Mantissa Rationale".
+    /// `CausalEdge64::ZERO` returns 0 (neutral/identity — no NARS rule applied).
+    ///
+    /// Sign-extension: bits 46-49 extracted as 4-bit unsigned, then
+    /// sign-extended to i8 via arithmetic shift: if bit 3 set, OR with 0xF0.
+    #[inline(always)]
+    pub fn inference_mantissa(self) -> i8 {
+        use crate::layout::{INFER_SHIFT, BITS4_MASK};
+        let raw = ((self.0 >> INFER_SHIFT) & BITS4_MASK) as u8;
+        if raw & 0x8 != 0 { (raw | 0xF0) as i8 } else { raw as i8 }
+    }
+
+    /// Chain direction extracted from mantissa sign: 1=forward, −1=backward, 0=neutral.
+    #[inline(always)]
+    pub fn inference_direction(self) -> i8 {
+        let m = self.inference_mantissa();
+        if m > 0 { 1 } else if m < 0 { -1 } else { 0 }
+    }
+
+    /// Base NARS rule index (0..7) extracted from mantissa magnitude.
+    #[inline(always)]
+    pub fn inference_rule_index(self) -> u8 {
+        self.inference_mantissa().unsigned_abs() & 0x7
+    }
+
+    /// Truth-band lens as `TrustTexture` (2-bit). Returns `Crystalline` for ZERO edges.
+    ///
+    /// WARNING: Bits 59-60 were temporal bits 7-8 in v1. v1 edges with temporal >= 128
+    /// may read as Solid/Fuzzy/Murky. Apply a version gate on edges of unknown provenance.
+    #[inline(always)]
+    pub fn truth(self) -> crate::layout::TrustTexture {
+        use crate::layout::{TRUTH_SHIFT, BITS2_MASK, TrustTexture};
+        TrustTexture::from_bits_2(((self.0 >> TRUTH_SHIFT) & BITS2_MASK) as u8)
+    }
+
+    /// Raw 2-bit truth-band value (0..=3) without `TrustTexture` conversion.
+    /// Useful for round-trip tests and direct comparisons.
+    #[inline(always)]
+    pub fn truth_raw(self) -> u8 {
+        use crate::layout::{TRUTH_SHIFT, BITS2_MASK};
+        ((self.0 >> TRUTH_SHIFT) & BITS2_MASK) as u8
+    }
+
+    /// Spare 3-bit field (bits 61-63). Reserved for sprint-12+ use.
+    /// Returns 0 for ZERO edges and all v1-written edges (temporal MSBs were ≤ 0xFFF).
+    #[inline(always)]
+    pub fn spare(self) -> u8 {
+        use crate::layout::{SPARE_SHIFT, BITS3_MASK};
+        ((self.0 >> SPARE_SHIFT) & BITS3_MASK) as u8
+    }
+
+    // ── Builder-Shape Setters (functional update, returns Self) ─────────────
+
+    /// Return new edge with W slot set to `w` (0..=63).
+    #[inline]
+    pub fn with_w_slot(self, w: u8) -> Self {
+        use crate::layout::{W_SHIFT, BITS6_MASK, W_MASK};
+        debug_assert!(w <= 63, "w_slot must fit 6 bits (0..=63), got {w}");
+        Self((self.0 & !W_MASK) | (((w as u64) & BITS6_MASK) << W_SHIFT))
+    }
+
+    /// Return new edge with truth-band lens set.
+    #[inline]
+    pub fn with_truth(self, t: crate::layout::TrustTexture) -> Self {
+        use crate::layout::{TRUTH_SHIFT, BITS2_MASK, TRUTH_MASK};
+        Self((self.0 & !TRUTH_MASK) | ((t.to_bits_2() as u64 & BITS2_MASK) << TRUTH_SHIFT))
+    }
+
+    /// Return new edge with signed inference mantissa set (range −8..+7).
+    ///
+    /// Stored as 4-bit two's-complement in bits 46-49. Values outside −8..+7
+    /// are naturally wrapped by the 4-bit mask (low nibble of `m as u8`).
+    #[inline]
+    pub fn with_inference_mantissa(self, m: i8) -> Self {
+        use crate::layout::{INFER_SHIFT, BITS4_MASK, INFER_MASK};
+        debug_assert!((-8..=7).contains(&m), "mantissa must be −8..+7, got {m}");
+        let raw = (m as u8) & 0xF;
+        Self((self.0 & !INFER_MASK) | ((raw as u64 & BITS4_MASK) << INFER_SHIFT))
+    }
+
+    /// Return new edge with spare bits set (0..=7, 3-bit field).
+    #[inline]
+    pub fn with_spare(self, s: u8) -> Self {
+        use crate::layout::{SPARE_SHIFT, BITS3_MASK, SPARE_MASK};
+        debug_assert!(s <= 7, "spare must fit 3 bits (0..=7), got {s}");
+        Self((self.0 & !SPARE_MASK) | ((s as u64 & BITS3_MASK) << SPARE_SHIFT))
+    }
+
+    /// Set W-slot and truth-band in one mask-and-or operation (hot-path emit).
+    ///
+    /// Used by `MailboxSoA::dispatch_cycle()` when stamping routing onto emissions.
+    /// NOTE: No `g` parameter — G-slot is absent in v2 layout (L-3: redundant via
+    /// palette family-prefix + SoA partition + witness corpus root).
+    /// Composable: `edge.with_routing(12, TrustTexture::Solid).with_inference_mantissa(-1)`.
+    #[inline]
+    pub fn with_routing(self, w: u8, t: crate::layout::TrustTexture) -> Self {
+        use crate::layout::{W_SHIFT, TRUTH_SHIFT, BITS6_MASK, BITS2_MASK, W_MASK, TRUTH_MASK};
+        debug_assert!(w <= 63, "w_slot ({w}) out of 6-bit range");
+        let routing = ((w as u64 & BITS6_MASK) << W_SHIFT)
+            | ((t.to_bits_2() as u64 & BITS2_MASK) << TRUTH_SHIFT);
+        Self((self.0 & !(W_MASK | TRUTH_MASK)) | routing)
+    }
+
+    // ── Mutating Setters (&mut self, hot-path callers) ─────────────────────
+
+    /// Set W slot in-place.
+    #[inline]
+    pub fn set_w_slot(&mut self, w: u8) {
+        use crate::layout::{W_SHIFT, BITS6_MASK, W_MASK};
+        debug_assert!(w <= 63);
+        self.0 = (self.0 & !W_MASK) | (((w as u64) & BITS6_MASK) << W_SHIFT);
+    }
+
+    /// Set truth-band lens in-place.
+    #[inline]
+    pub fn set_truth(&mut self, t: crate::layout::TrustTexture) {
+        use crate::layout::{TRUTH_SHIFT, BITS2_MASK, TRUTH_MASK};
+        self.0 = (self.0 & !TRUTH_MASK) | ((t.to_bits_2() as u64 & BITS2_MASK) << TRUTH_SHIFT);
+    }
+
+    /// Set signed inference mantissa in-place (range −8..+7).
+    #[inline]
+    pub fn set_inference_mantissa(&mut self, m: i8) {
+        use crate::layout::{INFER_SHIFT, BITS4_MASK, INFER_MASK};
+        debug_assert!((-8..=7).contains(&m));
+        let raw = (m as u8) & 0xF;
+        self.0 = (self.0 & !INFER_MASK) | ((raw as u64 & BITS4_MASK) << INFER_SHIFT);
+    }
+
+    /// Set spare bits in-place (0..=7, 3-bit field).
+    #[inline]
+    pub fn set_spare(&mut self, s: u8) {
+        use crate::layout::{SPARE_SHIFT, BITS3_MASK, SPARE_MASK};
+        debug_assert!(s <= 7);
+        self.0 = (self.0 & !SPARE_MASK) | ((s as u64 & BITS3_MASK) << SPARE_SHIFT);
+    }
+}
+
+// ─── V1 Stub Accessors (feature off) ────────────────────────────────────────
+// When the v2-layout feature is disabled, v2 accessors return safe defaults
+// so callers compile without feature-gating at every call site.
+
+#[cfg(not(feature = "causal-edge-v2-layout"))]
+impl CausalEdge64 {
+    #[inline(always)]
+    pub fn w_slot(self) -> u8 { 0 }
+    #[inline(always)]
+    pub fn inference_mantissa(self) -> i8 { 0 }
+    #[inline(always)]
+    pub fn inference_direction(self) -> i8 { 0 }
+    #[inline(always)]
+    pub fn inference_rule_index(self) -> u8 { 0 }
+    #[inline(always)]
+    pub fn truth(self) -> crate::layout::TrustTexture { crate::layout::TrustTexture::Crystalline }
+    #[inline(always)]
+    pub fn truth_raw(self) -> u8 { 0 }
+    #[inline(always)]
+    pub fn spare(self) -> u8 { 0 }
+    #[inline]
+    pub fn with_w_slot(self, _w: u8) -> Self { self }
+    #[inline]
+    pub fn with_truth(self, _t: crate::layout::TrustTexture) -> Self { self }
+    #[inline]
+    pub fn with_inference_mantissa(self, _m: i8) -> Self { self }
+    #[inline]
+    pub fn with_spare(self, _s: u8) -> Self { self }
+    #[inline]
+    pub fn with_routing(self, _w: u8, _t: crate::layout::TrustTexture) -> Self { self }
+    #[inline]
+    pub fn set_w_slot(&mut self, _w: u8) {}
+    #[inline]
+    pub fn set_truth(&mut self, _t: crate::layout::TrustTexture) {}
+    #[inline]
+    pub fn set_inference_mantissa(&mut self, _m: i8) {}
+    #[inline]
+    pub fn set_spare(&mut self, _s: u8) {}
+}
+
 
 impl std::fmt::Debug for CausalEdge64 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -584,7 +1025,11 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(not(feature = "causal-edge-v2-layout"))]
     fn test_roundtrip() {
+        // v1-only: pack() carries temporal in bits 52-63. Under v2 (default),
+        // those bits are reclaimed; pack() drops temporal and pack_v2() is
+        // the canonical constructor.
         let edge = CausalEdge64::pack(
             143,
             7,
@@ -713,7 +1158,11 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(feature = "causal-edge-v2-layout"))]
     fn test_temporal_in_msb_gives_sort_order() {
+        // v1-only: temporal bits 52-63 sort u64-naturally for the v1 layout.
+        // Under v2 these bits are W/lens/spare per L-2; sort semantics are
+        // intentionally different (chain-position carries time, not the edge).
         let early = CausalEdge64::pack(
             10,
             20,

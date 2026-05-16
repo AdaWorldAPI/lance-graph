@@ -76,3 +76,6 @@ pub mod tax;
 pub mod thinking;
 pub mod world_map;
 pub mod world_model;
+
+// Re-exports for the most commonly used collapse_gate types.
+pub use collapse_gate::{CollapseGateEmission, GateDecision, MailboxId, MergeMode};

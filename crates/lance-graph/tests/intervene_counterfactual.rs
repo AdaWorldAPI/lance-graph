@@ -184,7 +184,10 @@ fn pearl_rung_distinction() {
     // At the InferenceType layer (causal-edge)
     let i = InferenceType::Intervention;
     let c = InferenceType::Counterfactual;
-    assert_ne!(i, c, "Intervention and Counterfactual must be distinct variants");
+    assert_ne!(
+        i, c,
+        "Intervention and Counterfactual must be distinct variants"
+    );
     assert_ne!(i as u8, c as u8, "Their discriminants must differ");
 
     // Intervention is rung 2 (discriminant 5), Counterfactual is rung 3 (discriminant 6)
