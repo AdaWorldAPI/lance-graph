@@ -114,6 +114,16 @@ impl TikvEdgeTableProvider {
 }
 
 // ---------------------------------------------------------------------------
+// Debug — required by TableProvider trait bound
+// ---------------------------------------------------------------------------
+
+impl std::fmt::Debug for TikvEdgeTableProvider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "TikvEdgeTableProvider {{ shape: {:?} }}", self.shape)
+    }
+}
+
+// ---------------------------------------------------------------------------
 // DataFusion TableProvider impl
 // ---------------------------------------------------------------------------
 

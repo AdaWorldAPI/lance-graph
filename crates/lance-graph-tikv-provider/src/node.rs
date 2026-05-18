@@ -111,6 +111,16 @@ impl TikvNodeTableProvider {
 }
 
 // ---------------------------------------------------------------------------
+// Debug — required by TableProvider trait bound
+// ---------------------------------------------------------------------------
+
+impl std::fmt::Debug for TikvNodeTableProvider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "TikvNodeTableProvider {{ shape: {:?} }}", self.shape)
+    }
+}
+
+// ---------------------------------------------------------------------------
 // DataFusion TableProvider impl
 // ---------------------------------------------------------------------------
 

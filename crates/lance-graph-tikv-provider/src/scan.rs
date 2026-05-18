@@ -23,9 +23,10 @@ use datafusion::error::Result as DfResult;
 use datafusion::execution::context::TaskContext;
 use datafusion::physical_expr::EquivalenceProperties;
 use datafusion::physical_plan::{
-    DisplayAs, DisplayFormatType, ExecutionMode, ExecutionPlan, PlanProperties,
+    DisplayAs, DisplayFormatType, ExecutionPlan, PlanProperties,
     SendableRecordBatchStream,
 };
+use datafusion::physical_plan::execution_plan::{EmissionType, Boundedness};
 
 // ---------------------------------------------------------------------------
 // TikvScanExec
@@ -54,9 +55,9 @@ pub(crate) struct TikvScanExec {
 
     /// Cached plan properties (partition count, equivalences, exec mode).
     ///
-    /// DataFusion requires `ExecutionPlan::properties()` to return a
-    /// `PlanProperties` reference; we cache it at construction time.
-    properties: PlanProperties,
+    /// DataFusion requires `ExecutionPlan::properties()` to return an
+    /// `Arc<PlanProperties>` reference; we cache it at construction time.
+    properties: Arc<PlanProperties>,
 }
 
 impl TikvScanExec {
@@ -69,12 +70,23 @@ impl TikvScanExec {
     /// Sprint 1 TODO: accept `snapshot`, `key_range`, `shape`, and `limit`
     /// parameters; validate partition count against TiKV region topology.
     pub(crate) fn new(schema: SchemaRef) -> Self {
-        let properties = PlanProperties::new(
+        let properties = Arc::new(PlanProperties::new(
             EquivalenceProperties::new(schema.clone()),
             datafusion::physical_plan::Partitioning::UnknownPartitioning(1),
-            ExecutionMode::Bounded,
-        );
+            EmissionType::Incremental,
+            Boundedness::Bounded,
+        ));
         Self { schema, properties }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Debug — required by ExecutionPlan trait bound
+// ---------------------------------------------------------------------------
+
+impl std::fmt::Debug for TikvScanExec {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "TikvScanExec {{ schema: {:?} }}", self.schema)
     }
 }
 
@@ -113,7 +125,7 @@ impl ExecutionPlan for TikvScanExec {
     }
 
     /// Return cached plan properties (partition count, equivalences, mode).
-    fn properties(&self) -> &PlanProperties {
+    fn properties(&self) -> &Arc<PlanProperties> {
         &self.properties
     }
 
