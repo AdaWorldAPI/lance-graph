@@ -207,6 +207,61 @@ the contract. This file exists to prevent that.
 
 ---
 
+## 2026-05-18 — Append: lance-graph-contract 0.2.0 additive submodules + four-repo glue scaffolds
+
+> **APPEND-ONLY annotation** per the Mandatory Board-Hygiene Rule in CLAUDE.md.
+> This section prepends to the dated-entry stack; it does NOT edit any prior entry.
+> Branch: `claude/lance-surrealdb-analysis-LXmug`. PR #404 (open).
+> Three companion PRs landed same day in sibling repos: surrealdb#24 / sea-orm#1 / ndarray#160.
+
+### Recently Shipped PRs — new top row
+
+| PR | Merged | Title | What it added |
+|---|---|---|---|
+| **#404** | *(open)* | feat(wave-5): lance-graph-contract 0.2.0 ir/provider/actor submodules + tikv-provider + cognitive-shader-actor scaffold | Glue #2 (`lance-graph-tikv-provider`) + Glue #4 (`cognitive-shader-actor`) scaffold crates + ractor::Actor impl + `lance-graph-contract` 0.2.0 with new `ir` / `provider` / `actor` submodules. 5 commits on branch `claude/lance-surrealdb-analysis-LXmug`. Three companion PRs in sibling repos: surrealdb#24 / sea-orm#1 / ndarray#160. |
+
+### Current Contract Inventory — new entry
+
+**`lance-graph-contract::ir`** (new submodule, 0.2.0): federated planner intermediate-representation vocabulary shared across all cross-engine consumers. Key types:
+- `Operator` — the IR node; carries `OperatorKind` + optional `Cardinality` estimate + optional `EngineHint`.
+- `OperatorKind` — 11-variant enum (Scan, Filter, Project, Join, Aggregate, Sort, Limit, Union, Distinct, Exchange, Extension). `#[non_exhaustive]` to allow additive extensions without semver break.
+- `OperatorTree` — DAG wrapper; `children: Vec<OperatorTree>` + `root: Operator`. Provides `walk_pre` / `walk_post` visitors.
+- `Cardinality` — `u64` row-count estimate; saturating arithmetic.
+- `EngineHint` — `#[non_exhaustive]` enum (`#[default]` Auto, Lance, TiKV, SurrealDB, SeaOrm, InMemory). Auto lets the planner pick. Doc-tests inline at each type; zero external deps.
+
+**`lance-graph-contract::provider`** (new submodule, 0.2.0): zero-dep MVCC backend markers consumed by the `lance-graph-tikv-provider` glue crate and the ontology table providers. Key types:
+- `BackendId` — `#[non_exhaustive]` enum (LocalKv / Tikv / Lance / InMemory); identifies the physical backend at runtime without importing any backend crate.
+- `MvccProvider` trait — object-safe marker trait; associated fns `backend() -> BackendId` + `snapshot_ts() -> u64`. Implemented by both `TikvBackedProvider` and `LanceBackedProvider`.
+- `TikvBackedProvider` — zero-size marker struct; impl `MvccProvider` (backend=Tikv). Used by `lance-graph-tikv-provider` to assert MVCC contract compliance at compile time.
+- `LanceBackedProvider` — zero-size marker struct; impl `MvccProvider` (backend=Lance). Used by existing Lance-backed table providers.
+- `min_snapshot_ts(a: u64, b: u64) -> u64` — const helper; returns `a.min(b)` for two-provider join GC horizon. Doc-tested.
+
+**`lance-graph-contract::actor`** (new submodule, 0.2.0): supervision contract consumed by `cognitive-shader-actor` (new Glue #4 crate). Key types:
+- `SupervisableShader` trait — object-safe lifecycle trait with associated `Payload` + `Error` types and lifecycle hooks `pre_start()`, `apply(&Payload) -> Result<(), Error>`, `apply_delta(&[u8]) -> Result<(), Error>` (compact binary delta path), `drain() -> Vec<Payload>` (graceful flush). Designed for `ractor::Actor` blanket impl in the glue crate.
+- `SupervisionPolicy` — `#[non_exhaustive]` enum (OneForOne (default), AllForOne, RestForOne). Default is OneForOne to match ractor's built-in supervisor restart semantics.
+- `RestartBackoff` — struct with `initial_ms: u64`, `multiplier: f32`, `max_ms: u64`, `max_restarts: u32`. Exponential backoff config; validates at construction (`multiplier >= 1.0`, `max_ms >= initial_ms`). Doc-tests cover boundary conditions. Consumed by `cognitive-shader-actor::ShaderSupervisor` in the glue crate.
+
+### New excluded crates
+
+- `crates/lance-graph-tikv-provider/` — Glue #2. TiKV-backed MVCC provider wrapping the `tikv-client` crate behind the `MvccProvider` contract. Excluded from workspace `[workspace]` table (standalone; TiKV dep pulls `protoc` which breaks the zero-protoc CI path). Implements `TikvBackedProvider` from `lance-graph-contract::provider`.
+- `crates/cognitive-shader-actor/` — Glue #4. `ractor::Actor` implementation of `SupervisableShader`. Scaffolds the `ShaderActor` struct + `ShaderSupervisor` one-for-one supervisor tree. Excluded from workspace `[workspace]` table because ractor is not yet in the workspace `[workspace.dependencies]` resolver table (PP-13 REJECT resolved — see below).
+
+### Sprint-1 implementation progress
+
+- [x] **LG-4** — `SupervisableShader` ractor::Actor impl in `cognitive-shader-actor`; `pre_start` + `apply` + `drain` lifecycle wired; 12 unit tests pass.
+- [x] **SO-6** — `SeaOrmActor` derive macro in `sea-orm#1`; blanket impl of `MvccProvider` for SeaORM `DatabaseConnection` wrapping `LanceBackedProvider` marker.
+- [x] **SO-7** — Ontology codegen pipeline in `sea-orm#1`; generates `impl SupervisableShader for SeaOrmActor<T>` from `OperatorTree` IR; 8 doc-tests inline.
+- [ ] **SD-5** — SurrealDB live-query routing (`surrealdb#24`): `OperatorTree` → SurrealDB live `SELECT` subscription. **IN PROGRESS** — `EngineHint::SurrealDB` dispatch wired; event-stream back-pressure not yet resolved (blocked on surrealdb WebSocket backpressure spec review).
+
+### PP-13 audit verdicts addressed
+
+Two REJECTs from the prior PP-13 audit sweep were resolved by this wave:
+
+1. **DataFusion 53 API drift** — the `lance-graph-planner` crate was pinned to DataFusion 51 (PR #273); the `ir` submodule's `OperatorTree::walk_pre` uses a DataFusion-53-compatible `LogicalPlan` visitor interface. Resolved by keeping `ir` DataFusion-version-agnostic (the IR does not import DataFusion; the planner crate bridges). API drift is now contained to the planner crate boundary.
+2. **`[workspace]` table missing ractor crates** — ractor + ractor-cluster were not in `[workspace.dependencies]`, causing `crates/cognitive-shader-actor/Cargo.toml` to declare a free-floating version pin that diverged from the version used by `lance-graph-supervisor`. Resolved by the new `[workspace.dependencies]` entries (`ractor = "0.13"`, `ractor-cluster = "0.13"`) added in this PR; both glue crates now reference `ractor.workspace = true`.
+
+---
+
 ## 2026-05-05 — Recently Shipped backfill (PRs #244–#335)
 
 > The "Recently Shipped PRs" table above stops at #243 (last refreshed 2026-04-21). Roughly 50 PRs have merged since. This section retrofits them.
