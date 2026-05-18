@@ -30,10 +30,11 @@ use core::time::Duration;
 /// Mirrors Erlang/OTP's classic three supervisor strategies. The
 /// `cognitive-shader-actor` crate maps these onto ractor's supervisor
 /// hierarchy; this enum is the contract vocabulary.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum SupervisionPolicy {
     /// Restart only the failed child.
+    #[default]
     OneForOne,
     /// Restart all children on any failure (use when children share state).
     OneForAll,
@@ -41,8 +42,10 @@ pub enum SupervisionPolicy {
     RestForOne,
 }
 
-impl Default for SupervisionPolicy {
-    fn default() -> Self {
+impl SupervisionPolicy {
+    /// Convenience constructor for the default policy. Equivalent to
+    /// `SupervisionPolicy::default()`, kept for call-site readability.
+    pub const fn one_for_one() -> Self {
         Self::OneForOne
     }
 }
