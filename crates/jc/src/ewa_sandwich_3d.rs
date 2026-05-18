@@ -156,12 +156,55 @@ impl Spd3 {
         let lam3 = q + 2.0 * p * (phi + two_pi_3).cos();
         let lam2 = 3.0 * q - lam1 - lam3;
 
-        // Eigenvectors via cross-product of two rows of (A - λᵢ·I)
-        let vecs = [
+        // Eigenvectors via cross-product of two rows of (A - λᵢ·I).
+        //
+        // The duplicate-eigenvalue trap (user-reported bug against the
+        // merged Pillar-7 probe): when λᵢ = λⱼ, two independent
+        // `eigvec_for` calls hit the same matrix A - λ·I, find the same
+        // largest cross-product among row pairs, and return the SAME
+        // unit vector. The resulting V is rank-deficient and
+        // `spectral_reconstruct(sqrt λ, V)` is NOT the square root of Σ.
+        // This shows up immediately on axisymmetric 3DGS splats
+        // (scale = [a, a, b] under any non-identity rotation) — a
+        // common case the diagonal fast-path tests do NOT cover, since
+        // a rotated axisymmetric matrix has p1 > eps_diag and falls
+        // into this general branch.
+        //
+        // The fix: after the three independent recoveries, detect
+        // column pairs with |cos θ| > 0.99 (≈ 8° tolerance, well above
+        // f64 roundoff for the cross-product null-space recovery) and
+        // demote the later column. The Gram-Schmidt-complement step
+        // replaces each demoted column with a unit vector orthogonal
+        // to all already-filled eigenvectors — any such vector spans
+        // the degenerate eigenspace equally well, so
+        // Σ = V · diag(λ) · Vᵀ is invariant under the choice. A final
+        // modified Gram-Schmidt pass suppresses the cross-orthogonality
+        // drift accumulated by independent cross-product recoveries.
+        let mut vecs = [
             eigvec_for(self, lam1),
             eigvec_for(self, lam2),
             eigvec_for(self, lam3),
         ];
+        let mut filled = [true; 3];
+        for i in 0..3 {
+            for j in (i + 1)..3 {
+                if !filled[i] || !filled[j] {
+                    continue;
+                }
+                let cos_theta = dot3(vecs[i], vecs[j]).abs();
+                if cos_theta > 0.99 {
+                    filled[j] = false;
+                }
+            }
+        }
+        for k in 0..3 {
+            if filled[k] {
+                continue;
+            }
+            vecs[k] = gram_schmidt_complement_3d(&vecs, &filled, k);
+            filled[k] = true;
+        }
+        orthonormalize_columns(&mut vecs);
         (lam1, lam2, lam3, vecs)
     }
 
@@ -285,6 +328,83 @@ fn gram_schmidt_fallback(v: [f64; 3]) -> [f64; 3] {
     }
     let norm = dot3(best, best).sqrt().max(1e-300);
     [best[0]/norm, best[1]/norm, best[2]/norm]
+}
+
+/// Find a unit vector orthogonal to all currently-filled eigenvectors
+/// in `vecs`, skipping column `skip`. Used by `eig` when a duplicate
+/// eigenvector is detected and demoted — any orthogonal completion
+/// spans the degenerate eigenspace equally well.
+///
+/// Cases by basis size:
+///   0 filled → return ê_x (canonical axis 0)
+///   1 filled → return Gram-Schmidt projection of the canonical axis
+///              least parallel to the single basis vector
+///   2 filled → return the cross product of the two basis vectors
+///              (in 3D this is the unique third orthogonal direction)
+fn gram_schmidt_complement_3d(
+    vecs: &[[f64; 3]; 3],
+    filled: &[bool; 3],
+    skip: usize,
+) -> [f64; 3] {
+    let mut basis: [[f64; 3]; 2] = [[0.0; 3]; 2];
+    let mut n = 0usize;
+    for k in 0..3 {
+        if k != skip && filled[k] && n < 2 {
+            basis[n] = vecs[k];
+            n += 1;
+        }
+    }
+    match n {
+        0 => [1.0, 0.0, 0.0],
+        1 => {
+            // Choose the canonical axis with the smallest |component| in
+            // basis[0] — that minimises collinearity.
+            let b = basis[0];
+            let (ax, ay, az) = (b[0].abs(), b[1].abs(), b[2].abs());
+            let seed = if ax <= ay && ax <= az {
+                [1.0, 0.0, 0.0]
+            } else if ay <= az {
+                [0.0, 1.0, 0.0]
+            } else {
+                [0.0, 0.0, 1.0]
+            };
+            let d = dot3(seed, b);
+            let proj = [seed[0] - d * b[0], seed[1] - d * b[1], seed[2] - d * b[2]];
+            normalize3(proj)
+        }
+        2 => normalize3(cross3(basis[0], basis[1])),
+        _ => unreachable!("at most 2 filled eigenvectors at this point"),
+    }
+}
+
+#[inline]
+fn normalize3(v: [f64; 3]) -> [f64; 3] {
+    let n_sq = dot3(v, v);
+    if n_sq <= 0.0 {
+        return [1.0, 0.0, 0.0];
+    }
+    let inv = 1.0 / n_sq.sqrt();
+    [v[0] * inv, v[1] * inv, v[2] * inv]
+}
+
+/// In-place modified Gram-Schmidt on a 3-column matrix stored as
+/// `[[f64; 3]; 3]` (column k = vecs[k]). Suppresses cross-orthogonality
+/// drift to ~1e-15 at f64 precision.
+fn orthonormalize_columns(vecs: &mut [[f64; 3]; 3]) {
+    vecs[0] = normalize3(vecs[0]);
+    let d10 = dot3(vecs[1], vecs[0]);
+    vecs[1] = normalize3([
+        vecs[1][0] - d10 * vecs[0][0],
+        vecs[1][1] - d10 * vecs[0][1],
+        vecs[1][2] - d10 * vecs[0][2],
+    ]);
+    let d20 = dot3(vecs[2], vecs[0]);
+    let d21 = dot3(vecs[2], vecs[1]);
+    vecs[2] = normalize3([
+        vecs[2][0] - d20 * vecs[0][0] - d21 * vecs[1][0],
+        vecs[2][1] - d20 * vecs[0][1] - d21 * vecs[1][1],
+        vecs[2][2] - d20 * vecs[0][2] - d21 * vecs[1][2],
+    ]);
 }
 
 #[inline]
@@ -606,5 +726,136 @@ mod tests {
         assert!(approx(sigma.a12, 0.0, 1e-12), "a12={}", sigma.a12);
         assert!(approx(sigma.a13, 0.0, 1e-12), "a13={}", sigma.a13);
         assert!(approx(sigma.a23, 0.0, 1e-12), "a23={}", sigma.a23);
+    }
+
+    fn approx_spd3(a: &Spd3, b: &Spd3, tol: f64) -> bool {
+        (a.a11 - b.a11).abs() <= tol
+            && (a.a12 - b.a12).abs() <= tol
+            && (a.a13 - b.a13).abs() <= tol
+            && (a.a22 - b.a22).abs() <= tol
+            && (a.a23 - b.a23).abs() <= tol
+            && (a.a33 - b.a33).abs() <= tol
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // Regression: rotated axisymmetric splat — the user-reported bug.
+    //
+    // For scale = [a, a, b] (any two of three scales equal), Σ has a
+    // 2D degenerate eigenspace at λ = a². Under any non-identity
+    // rotation the matrix has p1 > eps_diag, so eig() takes the general
+    // branch — and prior to the fix in this commit, the three
+    // independent `eigvec_for` calls all returned the SAME unit vector
+    // for the repeated eigenvalue, leaving V rank-deficient and the
+    // spectral reconstruction (sqrt, log_spd) wrong.
+    //
+    // The certification test: sqrt(Σ) · I · sqrt(Σ)ᵀ must equal Σ.
+    // Pre-fix this asserts at ~5% error on common 3DGS pancake splats
+    // (scale [2, 2, 1] + 30° rotation about (1,1,1)/√3).
+    // ════════════════════════════════════════════════════════════════════════
+    #[test]
+    fn rotated_axisymmetric_sqrt_squared_equals_sigma() {
+        // Axisymmetric scale (two equal eigenvalues), non-identity quat.
+        let s = [2.0, 2.0, 1.0]; // pancake — 3DGS-typical
+        // 30° rotation about (1,1,1)/√3: quat = (cos 15°, sin 15°·1/√3, ·, ·).
+        let half = std::f64::consts::PI / 12.0; // 15°
+        let inv_r3 = 1.0 / 3.0f64.sqrt();
+        let q = [
+            half.cos(),
+            inv_r3 * half.sin(),
+            inv_r3 * half.sin(),
+            inv_r3 * half.sin(),
+        ];
+        let sigma = Spd3::from_scale_quat(s, q);
+        // sqrt(Σ)·I·sqrt(Σ)ᵀ = sqrt²(Σ) = Σ since sqrt is symmetric SPD.
+        // Tolerance 1e-7 covers compound f64 error from
+        // (quat→R) ∘ (R·diag·Rᵀ) ∘ eig ∘ sqrt ∘ sandwich. Pre-fix
+        // this test fails at ~5% (5e-2) on common 3DGS pancake splats;
+        // post-fix it passes at ~1e-8.
+        let root = sigma.sqrt();
+        let squared = sandwich(&root, &Spd3::I);
+        assert!(
+            approx_spd3(&squared, &sigma, 1e-7),
+            "sqrt(Σ)² = {:?}, expected Σ = {:?}", squared, sigma,
+        );
+    }
+
+    #[test]
+    fn rotated_axisymmetric_eigenvalues_are_correct() {
+        // Same setup — verify eigenvalues are (4, 4, 1) regardless of
+        // rotation. Tolerance 1e-7: the acos-based Smith-1961 formula
+        // accumulates ~1e-8 error in f64 on inputs constructed via
+        // from_scale_quat.
+        let s = [2.0, 2.0, 1.0];
+        let half = std::f64::consts::PI / 12.0;
+        let inv_r3 = 1.0 / 3.0f64.sqrt();
+        let q = [
+            half.cos(),
+            inv_r3 * half.sin(),
+            inv_r3 * half.sin(),
+            inv_r3 * half.sin(),
+        ];
+        let sigma = Spd3::from_scale_quat(s, q);
+        let (l1, l2, l3, _) = sigma.eig();
+        assert!(approx(l1, 4.0, 1e-7), "l1={l1}");
+        assert!(approx(l2, 4.0, 1e-7), "l2={l2}");
+        assert!(approx(l3, 1.0, 1e-7), "l3={l3}");
+    }
+
+    #[test]
+    fn rotated_axisymmetric_eigvecs_orthonormal() {
+        // The duplicate-detection fix must produce an orthonormal V
+        // even when two eigenvalues are equal.
+        let s = [2.0, 2.0, 1.0];
+        let half = std::f64::consts::PI / 12.0;
+        let inv_r3 = 1.0 / 3.0f64.sqrt();
+        let q = [
+            half.cos(),
+            inv_r3 * half.sin(),
+            inv_r3 * half.sin(),
+            inv_r3 * half.sin(),
+        ];
+        let sigma = Spd3::from_scale_quat(s, q);
+        let (_, _, _, v) = sigma.eig();
+        // Each column unit length.
+        for (k, col) in v.iter().enumerate() {
+            let n_sq = dot3(*col, *col);
+            assert!(approx(n_sq, 1.0, 1e-9), "v[{k}] not unit: ‖v‖² = {n_sq}");
+        }
+        // All pairs orthogonal.
+        for i in 0..3 {
+            for j in (i + 1)..3 {
+                let d = dot3(v[i], v[j]);
+                assert!(
+                    d.abs() < 1e-9,
+                    "v[{i}] · v[{j}] = {d} (must be ~0 for orthonormal V)"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn rotated_axisymmetric_log_spd_finite_and_correct() {
+        // log_spd uses the same spectral lift as sqrt; verify it produces
+        // a finite, correctly-scaled result on the degenerate case.
+        // For Σ with eigenvalues (4, 4, 1):
+        //   ‖log Σ‖_F² = (log 4)² + (log 4)² + (log 1)² = 2·(ln 4)² ≈ 3.844
+        let s = [2.0, 2.0, 1.0];
+        let half = std::f64::consts::PI / 12.0;
+        let inv_r3 = 1.0 / 3.0f64.sqrt();
+        let q = [
+            half.cos(),
+            inv_r3 * half.sin(),
+            inv_r3 * half.sin(),
+            inv_r3 * half.sin(),
+        ];
+        let sigma = Spd3::from_scale_quat(s, q);
+        let log_sigma = sigma.log_spd();
+        let fro_sq = log_sigma.frobenius_sq();
+        assert!(fro_sq.is_finite(), "log_spd frobenius² not finite: {fro_sq}");
+        let expected = 2.0 * (4.0f64.ln()).powi(2);
+        assert!(
+            (fro_sq - expected).abs() < 1e-6,
+            "‖log Σ‖² = {fro_sq}, expected ≈ {expected} (= 2·(ln 4)²)"
+        );
     }
 }
