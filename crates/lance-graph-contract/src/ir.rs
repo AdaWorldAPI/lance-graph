@@ -76,7 +76,7 @@ impl fmt::Display for Cardinality {
 /// Adding a new engine is an additive enum variant — existing consumers
 /// continue to compile (they will get a `non_exhaustive`-style warning
 /// if they `match` exhaustively; mitigation: use `_ =>`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum EngineHint {
     /// Embedded LSM KV (RocksDB / SurrealKV).
@@ -92,13 +92,8 @@ pub enum EngineHint {
     /// Cognitive shader (lance-graph-cognitive crates).
     Cognitive,
     /// Engine selection is deferred to the planner's cost model.
+    #[default]
     Auto,
-}
-
-impl Default for EngineHint {
-    fn default() -> Self {
-        Self::Auto
-    }
 }
 
 /// Operator kind. The IR is intentionally coarse — it carries enough
