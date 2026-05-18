@@ -14,6 +14,8 @@
 //! 7. Concentration on Hadamard space (Köstenberger-Stark 2024)
 //! 8. Hilbert-space CLT for AR(1) (Düker-Zoubouloglou 2024)
 //! 9. EWA-sandwich Σ-push-forward along multi-hop edge paths
+//! 9b. EWA-Sandwich 3D: Σ-push-forward on symmetric 3×3 SPD covariances
+//!     (3D analogue of pillar 9; certifies J·W·Σ·Wᵀ·Jᵀ for ndarray::hpc::splat3d)
 //! 10. Nested-distance Lipschitz on Sigma DN-trees (Pflug-Pichler 2012)
 //!     — certifies CAM-PQ tree quantization preserves FreeEnergy within Lε.
 //! 11. Signature uniqueness on tree-quotient (Hambly-Lyons 2010)
@@ -37,6 +39,7 @@ pub mod precond;
 pub mod koestenberger;
 pub mod dueker_zoubouloglou;
 pub mod ewa_sandwich;
+pub mod ewa_sandwich_3d;
 pub mod pflug;
 pub mod hambly_lyons;
 
@@ -98,6 +101,7 @@ pub fn run_all_pillars() -> Vec<PillarResult> {
         ("Köstenberger-Stark: inductive mean on Hadamard 2×2 SPD", koestenberger::prove),
         ("Düker-Zoubouloglou: Hilbert-space CLT for AR(1) in ℝ^16384", dueker_zoubouloglou::prove),
         ("EWA-Sandwich: Σ-push-forward along multi-hop edge paths", ewa_sandwich::prove),
+        ("EWA-Sandwich 3D: Σ-push-forward on symmetric 3×3 SPD covariances", ewa_sandwich_3d::prove),
         ("Pflug-Pichler: nested-distance Lipschitz on Sigma DN-trees", pflug::prove),
         ("Hambly-Lyons: signature uniqueness on tree-quotient", hambly_lyons::prove),
     ];
