@@ -25,17 +25,12 @@
 //! | `ApplyDelta` | call `S::apply_delta` |
 //! | `Drain` | spin-yield while `inflight > 0`; call `S::drain`; reply; stop self |
 //!
-//! ## Sprint status
-//!
-//! All method bodies are stubs — `unimplemented!("LG-2 stub — Sprint 2")`. The
-//! `ractor::Actor` trait signatures may need adjustment once Sprint 2 confirms the
-//! exact ractor 0.14 API surface (see report for known gaps).
-//!
 //! [`SupervisableShader`]: lance_graph_contract::actor::SupervisableShader
 
 use std::sync::Arc;
 
 use lance_graph_contract::actor::SupervisableShader;
+use ractor::{Actor, ActorProcessingErr, ActorRef};
 
 use crate::messages::ShaderMessage;
 
@@ -105,104 +100,147 @@ where
 }
 
 // ---------------------------------------------------------------------------
-// ractor::Actor impl — Sprint 2 stub
+// ractor::Actor impl
 // ---------------------------------------------------------------------------
 //
-// Plan §6 names four associated types and three async lifecycle methods:
-//   type Msg = ShaderMessage<S::Payload>
-//   type State = ShaderState<S>
-//   type Arguments = Arc<S>
-//   async fn pre_start(...)  -> Result<State, ActorProcessingErr>
-//   async fn handle(...)     -> Result<(), ActorProcessingErr>
+// ractor 0.15 ships WITHOUT the `async-trait` feature in its defaults; it uses
+// native `async fn` in traits (Rust >= 1.75).  The impl below uses bare
+// `async fn` accordingly — no `#[async_trait]` macro needed.
 //
-// The exact ractor 0.14 trait signature (crate version "*" in Cargo.toml) must
-// be confirmed in Sprint 2 — in particular whether `handle` is `async fn` or
-// takes a `BoxFuture`, and whether `ActorProcessingErr` is re-exported from the
-// crate root or a sub-module. Bodies below are `unimplemented!` stubs.
-//
-// KNOWN GAP (report): ractor's `Actor` trait uses `async fn` syntax only with
-// the `async-trait` macro pre-1.75, or bare `async fn` in trait in Rust ≥ 1.75
-// with ractor ≥ 0.12. Confirm exact form before wiring.
+// Associated types:
+//   Msg       = ShaderMessage<S::Payload>
+//   State     = ShaderState<S>
+//   Arguments = Arc<S>   (the concrete shader instance is passed on spawn)
 
-#[allow(unused_variables)]
-impl<S> CognitiveShaderActor<S>
+impl<S> Actor for CognitiveShaderActor<S>
 where
     S: SupervisableShader,
     S::Error: Into<anyhow::Error>,
+    S::Payload: std::fmt::Debug,
 {
-    /// Called once by the supervisor when the actor spawns or respawns (plan §6).
+    type Msg = ShaderMessage<S::Payload>;
+    type State = ShaderState<S>;
+    type Arguments = Arc<S>;
+
+    /// Initialise actor state from the supplied shader instance.
     ///
-    /// Calls `S::pre_start` and wraps the shader in `ShaderState`. Sprint 2 will
-    /// wire this as the `ractor::Actor::pre_start` body.
-    pub fn stub_pre_start(
+    /// Calls `S::pre_start` so the shader can do one-time setup; wraps it in
+    /// `ShaderState` with `inflight = 0`.
+    async fn pre_start(
         &self,
-        shader: Arc<S>,
-    ) -> Result<ShaderState<S>, anyhow::Error> {
-        unimplemented!("LG-2 stub — Sprint 2")
+        _myself: ActorRef<Self::Msg>,
+        shader: Self::Arguments,
+    ) -> Result<Self::State, ActorProcessingErr> {
+        shader
+            .pre_start()
+            .map_err(|e| Into::<anyhow::Error>::into(e))?;
+        Ok(ShaderState {
+            shader,
+            inflight: 0,
+        })
     }
 
     /// Dispatch a single [`ShaderMessage`] onto the actor state (plan §6).
     ///
-    /// Sprint 2 wires this as the `ractor::Actor::handle` body.
-    pub fn stub_handle(
+    /// | Variant | Action |
+    /// |---|---|
+    /// | `Apply` | increment `inflight`, call `shader.apply`, decrement, reply |
+    /// | `ApplyDelta` | call `shader.apply_delta` |
+    /// | `Drain` | yield until `inflight == 0`, call `shader.drain`, reply, stop |
+    async fn handle(
         &self,
-        msg: ShaderMessage<S::Payload>,
-        state: &mut ShaderState<S>,
-    ) -> Result<(), anyhow::Error> {
-        unimplemented!("LG-2 stub — Sprint 2")
+        myself: ActorRef<Self::Msg>,
+        msg: Self::Msg,
+        state: &mut Self::State,
+    ) -> Result<(), ActorProcessingErr> {
+        match msg {
+            ShaderMessage::Apply { input, reply } => {
+                state.inflight += 1;
+                let result = state
+                    .shader
+                    .apply(input)
+                    .map(Ok)
+                    .unwrap_or_else(|e| Err(Into::<anyhow::Error>::into(e)));
+                state.inflight -= 1;
+                // Ignore send errors — the caller may have dropped its receiver.
+                let _ = reply.send(result);
+            }
+            ShaderMessage::ApplyDelta { delta } => {
+                state
+                    .shader
+                    .apply_delta(delta)
+                    .map_err(|e| Into::<anyhow::Error>::into(e))?;
+            }
+            ShaderMessage::Drain { reply } => {
+                // Spin-yield until all in-flight Apply messages finish.
+                while state.inflight > 0 {
+                    tokio::task::yield_now().await;
+                }
+                state
+                    .shader
+                    .drain()
+                    .map_err(|e| Into::<anyhow::Error>::into(e))?;
+                let _ = reply.send(());
+                myself.stop(Some("drained".into()));
+            }
+        }
+        Ok(())
     }
 }
 
-// Placeholder `ractor::Actor` impl block — commented out until Sprint 2 confirms
-// the exact ractor version and trait API. Kept here so Sprint 2 has a scaffold to
-// fill in without needing to rediscover the type layout.
-//
-// ```rust
-// #[ractor::async_trait]
-// impl<S> ractor::Actor for CognitiveShaderActor<S>
-// where
-//     S: SupervisableShader,
-//     S::Error: Into<anyhow::Error>,
-// {
-//     type Msg = ShaderMessage<S::Payload>;
-//     type State = ShaderState<S>;
-//     type Arguments = Arc<S>;
-//
-//     async fn pre_start(
-//         &self,
-//         _myself: ractor::ActorRef<Self::Msg>,
-//         shader: Self::Arguments,
-//     ) -> Result<Self::State, ractor::ActorProcessingErr> {
-//         shader.pre_start().map_err(|e| Into::<anyhow::Error>::into(e))?;
-//         Ok(ShaderState { shader, inflight: 0 })
-//     }
-//
-//     async fn handle(
-//         &self,
-//         myself: ractor::ActorRef<Self::Msg>,
-//         msg: Self::Msg,
-//         state: &mut Self::State,
-//     ) -> Result<(), ractor::ActorProcessingErr> {
-//         match msg {
-//             ShaderMessage::Apply { input, reply } => {
-//                 state.inflight += 1;
-//                 let result = state.shader.apply(input).map_err(Into::into);
-//                 state.inflight -= 1;
-//                 let _ = reply.send(result);
-//             }
-//             ShaderMessage::ApplyDelta { delta } => {
-//                 state.shader.apply_delta(delta).map_err(Into::<anyhow::Error>::into)?;
-//             }
-//             ShaderMessage::Drain { reply } => {
-//                 while state.inflight > 0 {
-//                     tokio::task::yield_now().await;
-//                 }
-//                 state.shader.drain().map_err(Into::<anyhow::Error>::into)?;
-//                 let _ = reply.send(());
-//                 myself.stop(Some("drained".into()));
-//             }
-//         }
-//         Ok(())
-//     }
-// }
-// ```
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ractor::call;
+
+    /// A minimal shader for testing: `apply` doubles the input.
+    struct Counter;
+
+    impl SupervisableShader for Counter {
+        type Payload = u32;
+        type Error = std::convert::Infallible;
+
+        fn apply(&self, payload: u32) -> Result<u32, Self::Error> {
+            Ok(payload * 2)
+        }
+    }
+
+    /// End-to-end test: spawn a `CognitiveShaderActor::<Counter>`, send an
+    /// `Apply { input: 5 }` via `ractor::call!`, assert result is `Ok(10)`,
+    /// then drain the actor cleanly.
+    #[tokio::test]
+    async fn e2e_apply_doubles_input() {
+        // Spawn the actor with a Counter instance as Arguments.
+        let (actor_ref, handle) = Actor::spawn(
+            Some("counter-test".into()),
+            CognitiveShaderActor::<Counter>::new(),
+            Arc::new(Counter),
+        )
+        .await
+        .expect("failed to spawn CognitiveShaderActor");
+
+        // RPC: Apply { input: 5 }.  The call! macro builds the reply port and
+        // passes it as the last argument to the message constructor closure.
+        let result = call!(actor_ref, |reply| ShaderMessage::Apply {
+            input: 5u32,
+            reply,
+        })
+        .expect("call! failed");
+
+        // The shader doubles the input, so 5 -> 10.
+        assert!(result.is_ok(), "apply returned Err: {:?}", result);
+        assert_eq!(result.unwrap(), 10u32);
+
+        // Drain the actor cleanly: wait for inflight to settle, then stop.
+        let drain_result = call!(actor_ref, |reply| ShaderMessage::Drain { reply })
+            .expect("drain call! failed");
+        assert_eq!(drain_result, ());
+
+        // Wait for the actor to finish.
+        handle.await.expect("actor join failed");
+    }
+}
