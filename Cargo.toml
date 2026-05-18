@@ -20,6 +20,11 @@ members = [
     "crates/cognitive-shader-driver",
 ]
 exclude = [
+    # Sprint-0 scaffold stubs from the four-repo integration plan; promote to
+    # members once their heavy deps (tikv-client, ractor) compile cleanly
+    # in the workspace. See .claude/plans/integration-plan.md §5 and §6.
+    "crates/lance-graph-tikv-provider",
+    "crates/cognitive-shader-actor",
     # Python bindings (upstream-inherited, opt-in via --manifest-path)
     "crates/lance-graph-python",
     "crates/lance-graph-codec-research",
