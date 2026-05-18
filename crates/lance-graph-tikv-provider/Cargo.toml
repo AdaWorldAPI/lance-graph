@@ -1,0 +1,29 @@
+[package]
+name = "lance-graph-tikv-provider"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Glue #2: TiKV ranges → Arrow TableProvider for lance-graph (see integration-plan.md §5)"
+keywords = ["lance", "graph", "tikv", "arrow", "datafusion"]
+
+[dependencies]
+lance-graph-contract = { version = "0.2", path = "../lance-graph-contract" }
+
+# TiKV transactional client — version pinned loosely; implement in Sprint 1.
+tikv-client = "*"
+
+# Arrow columnar memory format — matches workspace arrow = "57" usage.
+arrow-array = "*"
+arrow-schema = "*"
+
+# DataFusion query execution — matches workspace datafusion = "51" usage.
+datafusion = "*"
+
+# Async trait support.
+async-trait = "*"
+
+# Error handling.
+anyhow = "*"
+
+# Async runtime.
+tokio = { version = "*", features = ["full"] }
