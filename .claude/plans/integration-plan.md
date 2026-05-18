@@ -527,6 +527,42 @@ DEFINE FIELD since ON knows TYPE datetime;
 
 ---
 
+
+## Post-implementation reconciliation (wave-3, 2026-05-18)
+
+Shipped contract surface diverged from the §1 Contracts table sketches in
+three ways. The PP-13 savant flagged these as HOLDs; the source is better
+than the original sketch in each case, so this note pins the docs to the
+shipped reality:
+
+1. **`lance_graph_contract::provider::TikvBackedProvider`** extends
+   **`MvccProvider`** (this crate, zero-dep), NOT `datafusion::catalog::TableProvider`
+   directly. The original §1 sketch had `: TableProvider` which would have
+   forced the contract crate to pull in DataFusion as a dep — that breaks
+   the zero-dep guarantee. The shipped trait keeps the contract zero-dep;
+   any concrete `TableProvider` impl that wants the TiKV marker also
+   implements `MvccProvider`, and `TikvBackedProvider` is a refinement of
+   that marker. See `crates/lance-graph-contract/src/provider.rs:76`.
+
+2. **`lance_graph_contract::actor::SupervisableShader`** is the canonical
+   trait name (not `CognitiveShader` as in the original §6 sketch). The
+   rename avoids colliding with the existing
+   `lance_graph_contract::cognitive_shader::CognitiveShaderDriver` trait
+   surface (21KB module shipped earlier) — same crate, two distinct
+   shader concepts. `CognitiveShaderDriver` = in-process driver with
+   `ShaderDispatch` semantics; `SupervisableShader` = actor-wrapper-shaped
+   trait with `apply` / `apply_delta` / `drain` lifecycle.
+
+3. **`cognitive_shader_actor::messages::ShaderMessage<P>`** is generic
+   over a payload type `P` (instead of monomorphically using
+   `arrow_array::RecordBatch` as in the original §6 sketch). The actor
+   wrapper crate picks `RecordBatch` at instantiation time but other
+   consumers can pick alternative payloads. Better composition.
+
+All three changes were applied during wave-1 scaffolding. The plan §1
+Contracts table + §6 example should be read with these substitutions
+in mind until the table itself is rewritten.
+
 ## 10. Cross-references
 
 - **Glue #1** (surrealdb-ractor): `AdaWorldAPI/surrealdb:.claude/plans/integration-plan.md` §5
