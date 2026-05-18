@@ -1,0 +1,17 @@
+[package]
+name = "four-repo-demo"
+version = "0.1.0"
+edition = "2021"
+description = "Minimal end-to-end integration demo: cognitive-shader-actor + lance-graph-contract (ir + actor glue)"
+
+[dependencies]
+lance-graph-contract = { path = "../lance-graph-contract" }
+cognitive-shader-actor = { path = "../cognitive-shader-actor" }
+ractor = "*"
+tokio = { version = "*", features = ["full"] }
+arrow-array = "*"
+arrow-schema = "*"
+anyhow = "*"
+
+[[example]]
+name = "run_demo"
