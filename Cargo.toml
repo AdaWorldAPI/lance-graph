@@ -25,10 +25,6 @@ exclude = [
     # in the workspace. See .claude/plans/integration-plan.md §5 and §6.
     "crates/lance-graph-tikv-provider",
     "crates/cognitive-shader-actor",
-    # End-to-end integration demo (wave-5 W-INT-1). Excluded so the heavy
-    # tokio/ractor/arrow deps don't grow the workspace check; it's a
-    # standalone runnable consumer of the contract + glue crates.
-    "crates/four-repo-demo",
     "crates/four-repo-demo",
     # Python bindings (upstream-inherited, opt-in via --manifest-path)
     "crates/lance-graph-python",
