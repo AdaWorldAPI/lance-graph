@@ -33,28 +33,8 @@
 //! - [`collapse_gate`] — Per-row write airgap (`GateDecision`, `MergeMode`)
 //! - [`cycle_accumulator`] — Per-cadence flush gate; absorbs the L1↔L3
 //!   speed ratio. Distinct from `collapse_gate` per topology I-4.
-//!
-//! ## 0.2.0 — additive cross-engine vocabulary (added 2026-05-18)
-//!
-//! - [`ir`] — Federated planner IR: `Operator`, `OperatorKind`, `OperatorTree`,
-//!   `Cardinality`, `EngineHint`. Coarse cross-engine planner vocabulary;
-//!   distinct from [`plan::PlannerContract`] (lance-graph's own planner
-//!   interface) and from [`orchestration::OrchestrationBridge`] (step-level
-//!   cross-system routing).
-//! - [`provider`] — Backend provider markers: `BackendId`, `MvccProvider`,
-//!   `TikvBackedProvider`, `LanceBackedProvider`. Zero-dep marker traits
-//!   for `TableProvider` implementations (e.g. `lance-graph-tikv-provider`)
-//!   so the planner can compose snapshot-consistent reads across engines.
-//! - [`actor`] — Supervisable-shader vocabulary: `SupervisableShader`,
-//!   `SupervisionPolicy`, `RestartBackoff`. Distinct from
-//!   [`cognitive_shader::CognitiveShaderDriver`] (in-process driver
-//!   interface); consumed by the `cognitive-shader-actor` crate to wrap
-//!   shaders as `ractor::Actor`s.
-//!
-//! All three modules are pure additions; the 0.1.x surface is unchanged.
 
 pub mod a2a_blackboard;
-pub mod actor;
 pub mod auth;
 pub mod cam;
 pub mod cognitive_shader;
@@ -70,7 +50,6 @@ pub mod grammar;
 pub mod graph_render;
 pub mod hash;
 pub mod high_heel;
-pub mod ir;
 pub mod jit;
 pub mod literal_graph;
 pub mod mail;
@@ -83,7 +62,6 @@ pub mod orchestration;
 pub mod orchestration_mode;
 pub mod persona;
 pub mod plan;
-pub mod provider;
 pub mod property;
 pub mod proprioception;
 pub mod qualia;
