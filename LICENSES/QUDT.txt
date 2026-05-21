@@ -20,17 +20,17 @@ https://creativecommons.org/licenses/by/4.0/
 
 Usage in this repository
 ------------------------
-data/ontologies/qudt-core.ttl is the QUDT 2.1 core schema.
+data/ontologies/qudt-core.ttl is the QUDT 2.1 core schema (~163 classes).
 data/ontologies/qudt-units.ttl is the QUDT 2.1 units catalogue (~2900
 unit individuals).
+data/ontologies/qudt-quantitykinds.ttl is the QUDT 2.1 quantitykinds
+catalogue (~1240 quantity-kind individuals including all SI base
+quantitykinds: Length, Mass, Time, ElectricCurrent, Temperature,
+AmountOfSubstance, LuminousIntensity).
 
-Both files are hydrated together by lance-graph-ontology as the L2
+All three files are hydrated together by lance-graph-ontology as the L2
 universal quantities/units/dimensions slot OGIT::QUDT_V1, merged into a
 single ContextBundle via OwlHydrator::hydrate_many.
-
-The quantitykinds catalogue is expected at
-data/ontologies/qudt-quantitykinds.ttl when the canonical artifact is
-available; the current hydration covers core + units.
 
 Declares inherits_from: Some(OGIT::DOLCE_V1.0) and provides the
 quantity-kind, unit-binding, and dimensional-vector surface for

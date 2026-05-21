@@ -33,11 +33,12 @@ fn qudt_hydrator_smoke() {
         "QUDT inherits_from must be DOLCE"
     );
 
-    // Core schema + units catalogue → expect thousands of entities
+    // Core schema (~163 classes) + units catalogue (~2900 units) +
+    // quantitykinds catalogue (~1200 quantitykinds) → expect >4000 entities.
     let entity_count = bundle.entity_count();
     assert!(
-        entity_count > 2000,
-        "expected >2000 entities for QUDT (core+units), got {entity_count}"
+        entity_count > 4000,
+        "expected >4000 entities for QUDT (core+units+quantitykinds), got {entity_count}"
     );
 }
 
@@ -92,6 +93,40 @@ fn qudt_edge_whitelist_has_quantity_kind_binding() {
         assert!(
             edges.iter().any(|e| e == &iri),
             "qudt:{relation} must be in the cascade whitelist"
+        );
+    }
+}
+
+#[test]
+fn qudt_si_quantitykinds_resolve() {
+    // The seven SI base quantitykinds plus the most common derived ones.
+    // Downstream measurement / conversion cascades hop from a Quantity
+    // individual → its hasQuantityKind → one of these.
+    let registry = OntologyRegistry::new_in_memory();
+    hydrate_qudt(&registry).expect("QUDT hydrates");
+    let g = OGIT::QUDT_V1.0;
+    for qk in &[
+        // SI base quantitykinds
+        "Length",
+        "Mass",
+        "Time",
+        "ElectricCurrent",
+        "Temperature",
+        "AmountOfSubstance",
+        "LuminousIntensity",
+        // Common derived quantitykinds
+        "Force",
+        "Energy",
+        "Power",
+        "Pressure",
+        "Frequency",
+        "Voltage",
+        "Velocity",
+    ] {
+        let iri = format!("http://qudt.org/vocab/quantitykind/{qk}");
+        assert!(
+            registry.resolve_iri_in(g, &iri).is_some(),
+            "quantitykind:{qk} must resolve under G={g}"
         );
     }
 }
