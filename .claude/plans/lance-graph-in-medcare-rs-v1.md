@@ -127,3 +127,191 @@ Two-branch reality means every `main`-only deliverable is also a "does NOT land 
 
 > Critical path is D-LGMC-1 (unblock the lance-phase2 build by fixing `ontology_dto.rs:85`) → D-LGMC-2 (close the RLS fail-OPEN window for Treatment / Visit / VitalSign) → D-LGMC-4 (ship the `medcare_unified_bridge` constructor); the LanceProbe-side endpoints (D-LGMC-7..11) are the second-track work that unblocks the C# parity tool's M2..M6 milestones; Cypher + CAM-PQ surfaces are opt-in after the spine is stable.
 
+
+---
+
+## 8 — Parallelbetrieb already shipped + MongoDB as alternative cold path (2026-05-21, same session)
+
+User clarifications, two parts:
+
+1. **The sink-with-diff-monitoring is already shipped.** What `lance-graph-in-medcare-rs-v1.md` Phase 5 framed as "D-LGMC-7..11 to design from scratch" is mostly already in the tree. The refinement below documents the existing state and tightens the deliverable list.
+2. **MongoDB has been added as an alternative cold path** (parallel to MySQL, not replacing it). MySQL stays the permanent parity oracle per `MedCare-rs/CLAUDE.md` Iron Rule 1; MongoDB is the second cold-path option, propagated from smb-office-rs's three-layer mongo shape. The hot/cold framing for medcare-rs becomes: **hot = lance-graph-ontology + Lance projection; cold (A) = sea-orm + MySQL (legacy parity oracle); cold (B) = MongoDB (alternative).**
+
+### 8.1 What's already in the tree (parallelbetrieb infrastructure)
+
+| Layer | File | LOC | Status |
+|---|---|---:|---|
+| Upstream trait + DTOs | `lance_graph_callcenter::transcode::parallelbetrieb` | 376 | **Shipped.** `DriftKind` (Match / ValueDrift / ShapeDrift / MissingMysql / MissingLance), `DriftField`, `DriftEvent`, `Reconciler` trait, `validate_route()`. Self-framed as "the one deliberate transition bandaid." |
+| Rust-side MedCare reconciler (C1) | `medcare-analytics::mysql_reconciler::MedcareMysqlReconciler` | 461 | **Shipped, Round-1 = Patient only.** Route `/api/patient/{id}`. 11 unit tests cover Match / ValueDrift (single & multi-field) / MissingMysql / MissingLance / ShapeDrift / unsupported / malformed / extra-segments / C#-schema-parity / parser-tests. Pluggable `PatientFetcher` for testability. |
+| Sister SMB reconciler (C2) | `smb_bridge::mongo_reconciler::SmbMongoReconciler` | 395 | **Shipped, Round-1 = Customer only.** Route `/api/customer/{kdnr}`. Same `Reconciler` trait, MongoDB instead of MySQL — the cross-source pattern this plan inherits. |
+| C# parity probe | `MedCareV2/MedCare_2.0/LanceProbe/` (ParityClient + ParityWitness + DriftSink) | — | **Shipped (M1).** Same `DriftEvent.ToJson()` schema across both languages. |
+| medcare-rs ingest + dashboard | `medcare-server::routes::parity` — `POST /api/__parity/csharp` + `GET /api/__parity` | 94 | **Shipped.** 1024-event ring buffer in `OnceLock<Mutex<VecDeque>>`. Auth: any authenticated user POSTs; `GET` is admin-only. |
+| 5-phase migration narrative | `docs/medcare-umstellung.md` | 102 | **Shipped.** F1 dual-write → F2 reconciler-live (consumers still MySQL) → F3 consumers-switch → F4 features-live → F5 RBAC. MySQL is permanent witness per Iron Rule 1. |
+| CLAUDE.md Iron Rule 1 | `MedCare-rs/CLAUDE.md` § Architectural commitments | — | **Locked.** "MySQL is the permanent oracle / parity witness. It is never retired, even after F4. The reconciler witnesses every promotion gate forever." |
+
+### 8.2 What's still deferred (per source comments)
+
+- **Round-2 routes** on the existing reconciler shell: Lab / Vital / Diagnosis / Prescription. Per `mysql_reconciler.rs:7-11`: "Other routes return a `ShapeDrift` event with reason 'route not in Round-1 scope'. Lab / Vital / Diagnosis / Prescription land in follow-up PRs that all share the same `MedcareMysqlReconciler` shell — only the per-route dispatch table grows."
+- **Production query handles**: Closures inside `MedcareMysqlReconciler` are unit-tested with canned rows; production needs them to wrap `medcare_db::queries::patient::get_patient(...)` for the MySQL side + the corresponding Lance read for the SPO side.
+- **Canonicalizer table centralization**: 6 field rules (date-only, "F4" doubles, soft-delete coercion, second-truncated timestamps, German locale handling, ciphertext byte-compare for `u_pwd`) need to land in **one place** that both the Rust reconciler and the C# ParityWitness reference. Per `parallelbetrieb.rs:51`: "Land both rules in one place when the Rust query path is wired (Phase 3 of `.claude/plans/sql-spo-ontology-bridge-v1.md`)."
+- **Persistent sink**: Today's ring buffer is in-process only (`OnceLock<Mutex<VecDeque>>`, capped 1024). Per parallelbetrieb.rs doc: "The Rust side will publish to the same persistent ring buffer (`crate::audit::LanceAuditSink`) once the wiring lands."
+- **Rust-side reconciler runner**: The trait + impl exist; the **loop that periodically issues queries against both sides and feeds `Reconciler::reconcile()`** is not yet wired (deferred per `parallelbetrieb.rs:44-54`).
+
+
+### 8.3 Phase 5 deliverable corrections (D-LGMC-7..11 status update)
+
+| D-id | §5 original | §8 corrected |
+|---|---|---|
+| D-LGMC-7 | `POST /api/__parity/csharp` ingest absent — 150 LOC + 4 tests | **SHIPPED** in `medcare-server::routes::parity::ingest_csharp`. Drop from open deliverable list. Optional follow-up: verify 1024-event ring cap is right for production load + add a `purge_after: Duration` config. |
+| D-LGMC-8 | `GET /api/__parity` dashboard absent — 120 LOC + 3 tests | **SHIPPED** (same module, admin-only read of the ring buffer). Drop from open deliverable list. Optional follow-up: per-route + per-time-bucket aggregation per the original spec; today's endpoint returns the raw newest-first event stream. |
+| D-LGMC-9 | `_dto_contracts.md` for 5 pilot endpoints | **STILL OPEN.** `docs/CSHARP_HANDOFF_PROMPT.md` references the contracts but doesn't enumerate the 5 pilot endpoints' JSON shapes verbatim. Per the C# handoff this blocks LanceProbe M2. |
+| D-LGMC-10 | `legacy-tripledes-fallback` feature flag — DRAFT | **STILL DRAFT** per `docs/AUTH_LEGACY_TRIPLEDES_MIGRATION.md`. Blocks LanceProbe M5a. |
+| D-LGMC-11 | `/api/__parity/telemetry` endpoint absent | **STILL OPEN.** No telemetry endpoint today. Blocks LanceProbe M6. |
+
+### 8.4 New Phase 5b deliverables (Round-2 routes on the existing reconciler shell)
+
+Extend `MedcareMysqlReconciler` from Round-1 (Patient) to Round-2 (Lab / Vital / Diagnosis / Prescription) by growing the per-route dispatch table. Each adds ~80 LOC of canonical row type + diff impl + tests; the reconciler shell stays untouched.
+
+- **D-LGMC-15** — `CanonicalLabRow` + `LabFetcher` + `parse_lab_route("/api/lab/{id}")` + diff impl. ~80 LOC + 5 tests (match / value-drift / missing-mysql / missing-lance / shape-drift).
+- **D-LGMC-16** — `CanonicalVitalRow` + `VitalFetcher` + `parse_vital_route("/api/vital/{id}")` + diff impl. ~80 LOC + 5 tests.
+- **D-LGMC-17** — `CanonicalDiagnosisRow` + `DiagnosisFetcher` + `parse_diagnosis_route("/api/diagnosis/{id}")` + diff impl. ~80 LOC + 5 tests.
+- **D-LGMC-18** — `CanonicalPrescriptionRow` + `PrescriptionFetcher` + `parse_prescription_route("/api/prescription/{id}")` + diff impl. ~80 LOC + 5 tests.
+- **D-LGMC-19** — Production query-handle wiring: replace the closure fetchers with `medcare_db::queries::{patient,lab,vital,diagnosis,prescription}::get_*(...)` for the MySQL side + the corresponding Lance reads for the SPO side. ~150 LOC + 5 integration tests against a real MySQL fixture + Lance dataset (gated behind `--features mysql-integration lance-phase2`).
+- **D-LGMC-20** — Canonicalizer-table centralization: hoist the 6 field rules (date-only, "F4" doubles, soft-delete coercion, second-truncated timestamps, German locale, `u_pwd` ciphertext byte-compare) into a shared `lance_graph_callcenter::transcode::canonicalize` module so both the Rust reconciler and the C# ParityWitness reference the same source. ~120 LOC + 6 tests. **Upstream PR required** (Iron Rule 5).
+- **D-LGMC-21** — Persistent sink: replace the in-process ring buffer with `lance_graph_callcenter::audit::LanceAuditSink` so drift events survive restart and feed the cross-session dashboard. ~80 LOC + 3 tests covering buffer-overflow eviction + restart-recovery + concurrent-writer ordering.
+
+### 8.5 New Phase 9 — MongoDB cold path (propagated from smb-office-rs)
+
+Add MongoDB as an **alternative** cold path. MySQL stays the permanent oracle per Iron Rule 1; MongoDB is a second cold-path option for tenants / deployments where MongoDB is the system of record (or for new clinical entities authored cleanly against the OGIT TTL shape without a MySQL ancestor). Both feed the same hot path (lance-graph-ontology + Lance projection) and both are witnessed by the same parallelbetrieb reconciler.
+
+Mirror the smb-office-rs three-layer shape:
+
+| smb-office-rs (template) | medcare-rs (mirror, NEW) | Notes |
+|---|---|---|
+| `crates/smb-mongo/` (connector + `MongoImporter` + `MigrationStats`, 205 LOC, depends on workspace `mongodb` + `bson`) | `crates/medcare-mongo/` (NEW) | Same workspace deps. Importer reads clinical collections (per OGIT/NTO/Healthcare entities) into in-process cache keyed by `<entity_prefix>:<hex _id>`. |
+| `crates/smb-bridge/src/mongo.rs` (`MongoConnector` impl of `EntityStore + EntityWriter`, 313 LOC, gated `[features] mongo`) | `crates/medcare-bridge/src/mongo.rs` (NEW) | Same trait surface (`lance-graph-contract::repository::{EntityStore, EntityWriter}`); BSON wire shape carries the Healthcare-namespace entity properties from `medcare-ontology` (when that lands per D-WLG-4-equivalent for medcare). Gated `[features] mongo`. |
+| `crates/smb-bridge/src/mongo_reconciler.rs` (`SmbMongoReconciler`, 395 LOC, `Reconciler` impl) | `crates/medcare-analytics/src/mongo_reconciler.rs` (NEW) | Mirrors `mysql_reconciler.rs` 1:1: pluggable `<Entity>Fetcher` trait with `fetch_mongo(...)` + `fetch_lance(...)` methods; per-route dispatch table covering Round-1 Patient + Round-2 Lab/Vital/Diagnosis/Prescription; same `DriftEvent` JSON shape. |
+
+Concrete deliverables:
+
+- **D-LGMC-22** — `crates/medcare-mongo/` new crate. `MongoImporter::new(uri, db)` + `import_all() -> MigrationStats` covering Patient / Diagnosis / LabValue / Medication / Treatment / Visit / VitalSign collections. Mirrors `smb-mongo::MongoImporter` 1:1 with healthcare-namespace entity names. ~200 LOC + 4 tests (per-collection import sanity; full-import stats; error-bag captures per-collection failures without aborting; round-trip BSON roundtrip).
+- **D-LGMC-23** — `crates/medcare-bridge/src/mongo.rs` new module. `MongoConnector` impl of `EntityStore + EntityWriter` for the same 7 Healthcare entities. Gated `[features] mongo = ["dep:medcare-mongo", "dep:mongodb", "dep:bson"]`. ~250 LOC + 6 tests (per-entity insert / update / soft-delete / fetch-by-id / list-by-tenant / cross-collection join via Lance projection).
+- **D-LGMC-24** — `crates/medcare-analytics/src/mongo_reconciler.rs` new module. `MedcareMongoReconciler<F: PatientFetcher>` (and equivalents per Round-2 entity), `Reconciler` impl over the same trait. Same JSON wire shape as `MedcareMysqlReconciler`. ~400 LOC + 11 tests (mirrors the existing `mysql_reconciler` test suite verbatim, MongoDB substituted for MySQL). The reconciler shell is shared; only `fetch_mongo()` differs from `fetch_mysql()`.
+- **D-LGMC-25** — Cold-path selection: `medcare-server` config layer adds `cold_path: ColdPath::{MySql, Mongo}` so a deployment picks one (or both, with double-reconciler for diverse-redundancy). ~50 LOC + 2 tests (config parsing + boot-time selection).
+- **D-LGMC-26** — Dual-reconciler mode: when both cold paths are active, the runner issues queries against MySQL **and** MongoDB **and** Lance, emitting a `DriftEvent` per pair. Triple-redundancy diverges into N(N-1)/2 = 3 pairwise comparisons per query (MySQL↔Mongo, MySQL↔Lance, Mongo↔Lance). ~100 LOC + 4 tests.
+
+### 8.6 Hot/cold framing update
+
+Reframes §2 of the woa-rs sister plan (`lance-graph-in-woa-rs-v1.md` §9) for medcare-rs:
+
+| Path | Carrier | Role | Authority |
+|---|---|---|---|
+| Hot | `OgitFamilyTable` lookup + `UnifiedBridge<MedcareBridge>` 4-stage authorize + Lance projection scans | O(1) resolution / RBAC / Cypher / CAM-PQ similarity | Read-only; rebuilds from cold path on drift |
+| Cold A (legacy oracle) | sea-orm + MySQL via `medcare-db` | System of record; byte-exact row reads; DATEV-equivalent regulatory exports | **Authoritative on drift.** Permanent per Iron Rule 1. |
+| Cold B (alternative, NEW) | `medcare-bridge::mongo::MongoConnector` over MongoDB | Alternative system of record for deployments / entities authored against OGIT TTL without a MySQL ancestor | Authoritative for its own entities; reconciler witnesses MySQL↔Mongo agreement when both active |
+
+The parallelbetrieb reconciler now has three roles to triangulate:
+
+```
+                    ┌────────────────────────────┐
+                    │   Hot path                 │
+                    │   (Lance projection,       │
+                    │    via lance-graph-        │
+                    │    ontology)               │
+                    └────────────┬───────────────┘
+                                 │
+                  ┌──────────────┴──────────────┐
+                  │  Reconciler                 │
+                  │  emits DriftEvent           │
+                  │  (Match/Value/Shape/        │
+                  │   Missing*)                 │
+                  └──┬────────────────────────┬─┘
+                     │                        │
+        ┌────────────┴────────┐    ┌──────────┴───────────┐
+        │  Cold A: MySQL      │    │  Cold B: MongoDB     │
+        │  (legacy oracle,    │    │  (alternative,       │
+        │   sea-orm DTO)      │    │   medcare-bridge::    │
+        │  Iron Rule 1:       │    │   mongo)              │
+        │  permanent witness  │    │                       │
+        └─────────────────────┘    └───────────────────────┘
+```
+
+Pairwise drift comparisons in dual-reconciler mode (D-LGMC-26):
+
+1. **MySQL ↔ Lance** — already shipped via `MedcareMysqlReconciler` Round-1.
+2. **MongoDB ↔ Lance** — new via D-LGMC-24 (`MedcareMongoReconciler` Round-1 + Round-2).
+3. **MySQL ↔ MongoDB** — new via D-LGMC-26 dual-mode (compares the two cold paths directly without going through Lance).
+
+### 8.7 Sequencing impact
+
+Phases 1-7 of §2 stay; Phase 5 is reduced (D-LGMC-7+8 are shipped, drop them); Phase 5b is added (D-LGMC-15..21 — Round-2 + production wiring + persistent sink); Phase 9 is new (D-LGMC-22..26 — MongoDB cold-path propagation from smb-office-rs).
+
+```
+         ┌──────────────────────────────────────────────────────────┐
+         │ Phase 1 (D-LGMC-1)  fix ontology_dto.rs:85 build         │
+         │ critical path; nothing else compiles until this lands    │
+         └────────────────────────┬─────────────────────────────────┘
+                                  │
+              ┌───────────────────┼──────────────────────────────┐
+              │                   │                              │
+         ┌────▼──────┐   ┌────────▼────────┐         ┌───────────▼──────────┐
+         │ Phase 2   │   │ Phase 3 (LGMC-4)│         │ Phase 5 (open items) │
+         │ (LGMC-2,3)│   │ unified-bridge  │         │ (LGMC-9,10,11)       │
+         │ RLS close │   │ constructor     │         │ DTO docs + 3DES + tel│
+         └────┬──────┘   └────────┬────────┘         └──────────────────────┘
+              │                   │
+              │       ┌───────────┴────────────────┐
+              │       │                            │
+         ┌────▼───────▼───┐         ┌──────────────▼──────────────┐
+         │ Phase 4         │         │ Phase 5b (NEW)              │
+         │ (LGMC-5,6)      │         │ Round-2 reconciler + prod   │
+         │ MUL MEDICAL     │         │ wiring + persistent sink    │
+         │ + context_id    │         │ LGMC-15..21                 │
+         └─────────────────┘         └──────────────┬──────────────┘
+                                                    │
+                                          ┌─────────▼─────────────┐
+                                          │ Phase 9 (NEW)         │
+                                          │ MongoDB cold path     │
+                                          │ propagation from SMB  │
+                                          │ LGMC-22..26           │
+                                          └───────────────────────┘
+```
+
+### 8.8 Open questions
+
+1. **Why MongoDB for medcare specifically?** smb-office-rs has it because the inherited C# WinForms ERP persisted to MongoDB with German BSON field names — the cold-path mongo is the legacy data. For medcare-rs the legacy is C# + MySQL + 3DES; what's the equivalent driver for adding MongoDB? Possibilities:
+   - **New clinical entities** authored cleanly against OGIT TTL with no MySQL ancestor (Treatment / Visit / VitalSign — the 3 NEW entities D-LGMC-2 closes RLS for) — ship them on MongoDB to avoid MySQL schema migration.
+   - **Tenant choice**: some deployments prefer MongoDB ops; per-tenant config.
+   - **Foundry-shape ingest path**: external systems (FHIR / HL7 / OpenEHR feeds) land BSON natively; MongoDB is the staging area before promotion to Lance.
+   - **Other** (please clarify).
+2. **Dual-write or dual-cold-path?** If both MySQL and MongoDB are active, do writes go to both (dual-write, with the reconciler witnessing agreement) or does each entity have a single declared cold path? Affects D-LGMC-25's config shape.
+3. **Per-entity cold-path routing.** If different entities have different cold paths (Patient → MySQL, Treatment → MongoDB), the bridge's `EntityWriter::write_<Entity>(...)` needs to dispatch on entity type. Closer to a Router pattern than a single config switch.
+4. **Reconciler triple-redundancy cost.** D-LGMC-26's three pairwise comparisons triple the reconciler load per query. Acceptable for sample-gated drift detection (default 1% per `CSHARP_HANDOFF_PROMPT.md`); needs sampling-rate tuning if dual-mode is the default.
+
+### 8.9 Cross-references (additive)
+
+- `MedCare-rs/crates/medcare-analytics/src/mysql_reconciler.rs` — the working reference for D-LGMC-15..18 (Round-2 expansion) and D-LGMC-24 (mongo sister)
+- `MedCare-rs/crates/medcare-server/src/routes/parity.rs` — the shipped ingest/dashboard endpoints (drops D-LGMC-7 and D-LGMC-8)
+- `MedCare-rs/docs/medcare-umstellung.md` — the 5-phase F1-F5 narrative this plan extends
+- `MedCare-rs/docs/foundry-roadmap-unified-smb-medcare-v1.md` §4 — the smb→medcare mirror table that maps `MongoConnector` to `MySqlConnector` (D-LGMC-22..24 expand this to MongoConnector + MySqlConnector BOTH)
+- `lance-graph/crates/lance-graph-callcenter/src/transcode/parallelbetrieb.rs` — the upstream trait (D-LGMC-20 lands the canonicalize sub-module here)
+- `lance-graph/crates/lance-graph-callcenter/src/audit/` (target for D-LGMC-21 `LanceAuditSink`) — needs confirmation it ships; if absent, D-LGMC-21 first adds it upstream
+- `smb-office-rs/crates/smb-mongo/` — the L1 template D-LGMC-22 mirrors
+- `smb-office-rs/crates/smb-bridge/src/mongo.rs` — the L2 template D-LGMC-23 mirrors
+- `smb-office-rs/crates/smb-bridge/src/mongo_reconciler.rs` — the L3 template D-LGMC-24 mirrors
+
+### 8.10 Status
+
+- **Existing parallelbetrieb infrastructure:** working — Round-1 Patient reconciler + ingest/dashboard endpoints + C# probe + 5-phase narrative all shipped.
+- **Round-2 routes (D-LGMC-15..18):** not started. Mechanical extension of the existing shell (~80 LOC each).
+- **Production wiring (D-LGMC-19):** not started. Blocked on D-LGMC-1 (build fix).
+- **Canonicalizer centralization (D-LGMC-20):** not started. Upstream PR required.
+- **Persistent sink (D-LGMC-21):** not started. Depends on `LanceAuditSink` existing upstream.
+- **MongoDB cold path (D-LGMC-22..26):** not started. Mirrors three-layer smb-office-rs shape; ~1000 LOC + ~25 tests total.
+
+**Confidence:** Working. The reconciler architecture is locked + partially shipped; the MongoDB propagation has a verbatim template in smb-office-rs; the open questions in §8.8 are about scope / configuration, not architecture.
+
+### 8.11 One-line summary
+
+> Parallelbetrieb infrastructure is already shipped Round-1 (Patient on MySQL ↔ Lance, with the C# ParityWitness, ingest/dashboard endpoints, and 5-phase F1-F5 narrative). This refinement (a) acknowledges what ships, (b) reframes Phase 5 around Round-2 expansion + production wiring + persistent sink, (c) adds Phase 9 to propagate the smb-office-rs three-layer MongoDB shape into medcare-rs as an alternative cold path (alongside, not replacing, MySQL — Iron Rule 1 preserved).
+
