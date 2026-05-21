@@ -87,7 +87,7 @@ impl NamespaceRegistry {
     /// - `lance-graph-callcenter::hydration::parse_super_domain_name`
     /// - OQ-4 resolution in PR #366 / EPIPHANIES 2026-05-13 sprint-7 meta entry
     pub fn seed_defaults() -> Self {
-        let mut ids = HashMap::with_capacity(16);
+        let mut ids = HashMap::with_capacity(29);
         // Live cognitive namespaces.
         ids.insert("SMB".to_string(), 0); // export-only per v5 ratification
         ids.insert("WorkOrder".to_string(), 1);
@@ -108,6 +108,26 @@ impl NamespaceRegistry {
         ids.insert("Medical/HPO".to_string(), 17);
         ids.insert("Medical/DRON".to_string(), 18);
         ids.insert("Medical/CHEBI".to_string(), 19);
+        // Foundation/<vocab> reserved range 20..=29 (PR-bO-1..bO-5, bO-8).
+        // L1 upper ontology + L2 utility vocabularies hydrated by
+        // lance-graph-ontology::hydrators. Public OWL/RDF sources kept
+        // pristine in data/ontologies/; this registry is the local
+        // IRI ↔ context_id matching table (O(1) via lance_cache).
+        ids.insert("Foundation/DOLCE-DUL".to_string(), 20);
+        ids.insert("Foundation/OWL-Time".to_string(), 21);
+        ids.insert("Foundation/PROV-O".to_string(), 22);
+        ids.insert("Foundation/QUDT".to_string(), 23);
+        ids.insert("Foundation/schema-org".to_string(), 24);
+        ids.insert("Foundation/SKOS".to_string(), 25);
+        // FinancialAccounting/<vocab> reserved range 30..=39
+        // (PR-bO-6, bO-7, bO-13, bO-15, bO-16).
+        ids.insert("FinancialAccounting/FIBO-FND".to_string(), 30);
+        ids.insert("FinancialAccounting/FIBO-BE".to_string(), 31);
+        ids.insert("FinancialAccounting/ZUGFeRD".to_string(), 32);
+        ids.insert("FinancialAccounting/ZUGFeRD-Rules".to_string(), 33);
+        ids.insert("FinancialAccounting/SKR03".to_string(), 34);
+        ids.insert("FinancialAccounting/SKR04".to_string(), 35);
+        ids.insert("FinancialAccounting/SKR03-Bau".to_string(), 36);
         Self { ids }
     }
 
@@ -147,9 +167,12 @@ impl NamespaceRegistry {
         self.ids.iter().map(|(k, v)| (k.as_str(), *v))
     }
 
-    /// First context id that is not currently in use. Skips the seed ranges
-    /// to keep allocations dense within their family (v1 ids 0..=3 + 10..=19
-    /// occupied by `seed_defaults`; first dynamic id therefore lands at 20).
+    /// First context id that is not currently in use. Walks `0u32..` and
+    /// returns the first value not present in the registry. With the
+    /// current `seed_defaults` (16 cognitive + 13 Foundation/FinancialAccounting
+    /// entries), the seed occupies 0..=5 + 10..=19 + 20..=25 + 30..=36;
+    /// the first dynamic id therefore lands at 6 (next gap), then 7..=9,
+    /// then 26..=29, then 37+. Allocation stays dense across seed gaps.
     fn next_free_id(&self) -> u32 {
         let mut candidate: u32 = 0;
         let used: std::collections::BTreeSet<u32> = self.ids.values().copied().collect();
@@ -165,9 +188,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn seed_defaults_has_sixteen_entries() {
+    fn seed_defaults_has_twenty_nine_entries() {
         let r = NamespaceRegistry::seed_defaults();
-        assert_eq!(r.len(), 16);
+        // 6 cognitive (SMB, WorkOrder, Healthcare, Network, Email, SharePoint)
+        // + 10 Medical/* (ICD10CM..CHEBI)
+        // + 6 Foundation/* (DOLCE-DUL, OWL-Time, PROV-O, QUDT, schema-org, SKOS)
+        // + 7 FinancialAccounting/* (FIBO-FND, FIBO-BE, ZUGFeRD, ZUGFeRD-Rules,
+        //                            SKR03, SKR04, SKR03-Bau)
+        // = 29
+        assert_eq!(r.len(), 29);
     }
 
     #[test]
@@ -183,17 +212,26 @@ mod tests {
         // Medical/<sub> reserved range 10..=19.
         assert_eq!(r.get("Medical/ICD10CM"), Some(10));
         assert_eq!(r.get("Medical/CHEBI"), Some(19));
+        // Foundation/<vocab> reserved range 20..=29.
+        assert_eq!(r.get("Foundation/DOLCE-DUL"), Some(20));
+        assert_eq!(r.get("Foundation/OWL-Time"), Some(21));
+        assert_eq!(r.get("Foundation/SKOS"), Some(25));
+        // FinancialAccounting/<vocab> reserved range 30..=39.
+        assert_eq!(r.get("FinancialAccounting/FIBO-FND"), Some(30));
+        assert_eq!(r.get("FinancialAccounting/SKR03"), Some(34));
+        assert_eq!(r.get("FinancialAccounting/SKR04"), Some(35));
+        assert_eq!(r.get("FinancialAccounting/SKR03-Bau"), Some(36));
     }
 
     #[test]
     fn allocate_skips_to_first_unused_id() {
         let mut r = NamespaceRegistry::seed_defaults();
-        // 0..=5 and 10..=19 are taken; first free id is 6.
+        // Occupied: 0..=5, 10..=19, 20..=25, 30..=36. First free id is 6.
         let id = r.allocate("CallCenter");
         assert_eq!(id, 6);
         // Idempotent: re-allocate returns the same id.
         assert_eq!(r.allocate("CallCenter"), 6);
-        // Next allocation skips again.
+        // Next allocation skips again (still in 6..=9 gap).
         assert_eq!(r.allocate("Splat"), 7);
     }
 
