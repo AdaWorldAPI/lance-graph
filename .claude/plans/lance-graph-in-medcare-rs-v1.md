@@ -315,3 +315,107 @@ Phases 1-7 of §2 stay; Phase 5 is reduced (D-LGMC-7+8 are shipped, drop them); 
 
 > Parallelbetrieb infrastructure is already shipped Round-1 (Patient on MySQL ↔ Lance, with the C# ParityWitness, ingest/dashboard endpoints, and 5-phase F1-F5 narrative). This refinement (a) acknowledges what ships, (b) reframes Phase 5 around Round-2 expansion + production wiring + persistent sink, (c) adds Phase 9 to propagate the smb-office-rs three-layer MongoDB shape into medcare-rs as an alternative cold path (alongside, not replacing, MySQL — Iron Rule 1 preserved).
 
+
+---
+
+## 9 — Position vs sister consumer plans: behind on UnifiedBridge, otherwise the quickest (2026-05-21, same session)
+
+User observation: **MedCare-rs is behind on the UnifiedBridge migration and probably not yet wired to it — but other than that, it's the quickest of the three consumer plans to land.** Spelling that out:
+
+### 9.1 Work-remaining ranking across the three consumers
+
+| Consumer | Substrate maturity | UnifiedBridge constructor | Net work remaining |
+|---|---|---|---|
+| **MedCare-rs** | **Most mature.** Parallelbetrieb reconciler shipped Round-1 (Patient); `/api/__parity/csharp` ingest + `GET /api/__parity` dashboard endpoints both live; `MedcareRegistry::hydrate(...)` helper shipped; lance-phase2 build wiring shipped (except the one broken call site at `ontology_dto.rs:85`); F1-F5 migration narrative documented; LanceProbe C# parity tool M1 complete; reconciler shell tested with 11 unit tests; MySQL parity-oracle Iron Rule 1 locked. | **Absent.** `medcare_unified_bridge(registry, actor_role, tenant) -> UnifiedBridge<MedcareBridge>` does not exist (D-UB-6 = D-LGMC-4). The consumer is still on the older direct-`OntologyRegistry` + `MedcareBridge::new(...)` shape. | **Smallest.** Once D-LGMC-1 (build fix) + D-LGMC-4 (constructor) land, the remaining work is mostly Round-2 reconciler expansion (D-LGMC-15..18 ~80 LOC each) + LanceProbe-side TODOs (D-LGMC-9..11) + optional MongoDB cold path (D-LGMC-22..26). The headline gap (UnifiedBridge) is ~60 LOC + 4 tests; total Phase-1..4 closure is ~5-7 days. |
+| **smb-office-rs** | **Partial.** `smb-bridge` + `smb-ontology` crates shipped (Mongo + Lance EntityStore/EntityWriter impls; auth + RLS features wired against lance-graph-callcenter/-ontology/-rbac). `smb_unified_bridge` constructor EXISTS — but parameterised over `OgitBridge::for_namespace(...)` because `SmbBridge` doesn't exist upstream yet. | **Exists, parameterised over the wrong bridge type.** Type-parameter swap from `UnifiedBridge<OgitBridge>` to `UnifiedBridge<SmbBridge>` is a 15-LOC change (D-UB-5 / D-LGSMB-3) once D-UB-2 (SmbBridge skeleton in lance-graph-ontology) ships. | **Medium.** SmbBridge skeleton (3 days upstream) + parameter swap (15 LOC) + TTL authoring for `OGIT/NTO/SMB/` (4 days) + role groups D-SDR-2 expansion (Phase B) + Phase C tenant-type consolidation (2 days). Phase D-E opt-in. Total Phase-A..C: ~9 days. |
+| **woa-rs** | **Greenfield.** OGIT TTL vendored at `vendor/ogit/v02-harvest/`; sea-orm + MySQL writer-parity established per DualSink-Pivot 2026-05-15; RFC v02-006 (route codegen) DRAFT; NO `woa-bridge` crate; NO `woa-ontology` crate; NO `lance-graph-*` Cargo dep declared. Only existing lance-graph touch-point is `tests/ontology_cypher_round_trip.rs`. | **Absent.** `woa_unified_bridge(registry, actor_role, tenant)` would land at D-UB-4, but requires Phase 1 of `lance-graph-in-woa-rs-v1.md` (Phase 0 vendor symlink + exclude block + Phase 1 woa-bridge + woa-ontology crates) to complete first. | **Largest.** Phase 0 (1 day mechanical) + Phase 1 (3 days, crate scaffolding mirroring medcare/smb references) + Phase 2 (4 days, route-handler integration) + Phase 3 (5 days, lance-cache + Lance projection) = ~13 days for the equivalent of medcare's already-shipped baseline. Phases 4-5 opt-in. |
+
+### 9.2 Why MedCare-rs is "behind on UnifiedBridge"
+
+Concretely, the consumer pattern medcare-rs ships today (per `MedCare-rs/crates/medcare-bridge/src/registry.rs`):
+
+```rust
+// Today's shape — direct registry + direct bridge:
+pub struct MedcareRegistry {
+    pub registry: Arc<OntologyRegistry>,
+    pub bridge: MedcareBridge,
+}
+
+impl MedcareRegistry {
+    pub fn hydrate(ttl_root: impl AsRef<Path>) -> Result<Self, Error> { ... }
+}
+```
+
+Consumers (medcare-server, medcare-analytics) take `&MedcareBridge` for ontology resolution and call `registry.resolve(...)` for raw URI lookups. RBAC and tenant isolation are NOT yet composed via `UnifiedBridge::authorize` — they're handled separately by the existing `medcare-rbac` crate's row-level-security registry. There is no single 4-stage authorize call.
+
+The migration target (per D-UB-6 / D-LGMC-4) is:
+
+```rust
+// Target shape — UnifiedBridge composes registry + RBAC + tenant:
+pub fn medcare_unified_bridge(
+    registry: Arc<OntologyRegistry>,
+    actor_role: &'static str,  // physician / nurse / cashier / researcher / hipaa_audit / admin
+    tenant: TenantId,           // mapped from Praxis.id
+) -> Result<UnifiedBridge<MedcareBridge>, lance_graph_ontology::Error>;
+```
+
+Route handlers in medcare-server stop calling `medcare-rbac::rls::check(...)` + `medcare-bridge::registry.resolve(...)` separately and start calling `state.unified_bridge.authorize(owl, row_tenant, op)` (one masked-predicate combine per row, lowered to DataFusion §3.10). The 4-stage flow (chinese-wall → super-domain → role group → slot redaction) becomes one bridge call.
+
+**What "behind" means** (relative to the sister consumers): smb-office-rs has the `smb_unified_bridge` constructor in tree today (parameterised over OgitBridge as a placeholder); medcare-rs's `medcare_unified_bridge` constructor doesn't exist yet. So MedCare-rs is one constructor-and-call-site-migration behind SMB on the headline migration path.
+
+### 9.3 Why MedCare-rs is "the quickest" despite being behind
+
+The substrate gap that makes woa-rs Phase 0 + 1 expensive (vendor symlink + workspace exclude + new crate scaffolding for both `woa-bridge` and `woa-ontology`) is **already done** in MedCare-rs:
+
+- `crates/medcare-bridge/` exists ✓
+- `vendor/lance-graph/` softlink + `vendor/ndarray/` softlink + Cargo.toml exclude block exists ✓
+- `MedcareRegistry::hydrate(...)` helper exists ✓
+- `MedcareBridge` re-export from lance-graph-ontology exists ✓
+- `lance-phase2` feature flag exists ✓
+- `medcare-rbac` (sister crate, the RLS surface) exists ✓
+- LanceProbe parity tool (the C# diverse-redundancy witness) exists ✓
+- `POST /api/__parity/csharp` ingest endpoint exists ✓
+- 5-phase F1-F5 narrative documented ✓
+
+The remaining gap is **wire-up, not scaffolding**. The headline list:
+
+1. Fix `ontology_dto.rs:85` (~30 LOC).
+2. Add `medcare_unified_bridge` constructor (~60 LOC).
+3. Close RLS fail-OPEN window for Treatment/Visit/VitalSign (~80 LOC).
+4. Round-2 reconciler expansion to Lab/Vital/Diagnosis/Prescription (~320 LOC across D-LGMC-15..18, 80 LOC each).
+5. Persistent sink swap from in-process ring → `LanceAuditSink` (~80 LOC).
+
+Total: ~570 LOC + ~25 tests across 5 commits. **Plausibly a single 1-2 day session once D-LGMC-1 unblocks the build.** Compare:
+
+- smb-office-rs Phase A-C closure: ~9 days (TTL authoring is the labour-intensive part).
+- woa-rs Phase 0-3 closure: ~13 days (greenfield crate work + route-handler integration + Lance projection).
+
+### 9.4 Sequencing implication
+
+If a session needs to prove the unified-bridge story end-to-end on a single consumer, **MedCare-rs is the right target**. It demonstrates:
+
+- The full reconciler loop (MySQL ↔ Lance + drift events ↔ C# parity probe).
+- The 4-stage `UnifiedBridge::authorize` flow on a real consumer.
+- The full Lance-cache persistence + boot rehydration cycle.
+- The full handover protocol against MedCareV2 LanceProbe (the cross-language diverse-redundancy witness).
+- HIPAA-style super-domain compliance regime (the most regulated of the three, per `super-domain-rbac §3.7 ComplianceRegime::HIPAA`).
+
+Recommended micro-sprint shape for the "prove it" session: **D-LGMC-1 → D-LGMC-4 → D-LGMC-2 + D-LGMC-3 → smoke test against the LanceProbe ingest endpoint.** Four PRs, ~200 LOC, one drift-clean window confirms the parallelbetrieb end-to-end.
+
+### 9.5 Status update on §6 (revised ranking)
+
+| Phase | Original §6 status | §9 revised |
+|---|---|---|
+| Phase 1 (D-LGMC-1 — build fix) | Critical path; ~1 day | Unchanged — still the gate |
+| Phase 2 (D-LGMC-2/3 — RLS close) | Safety-critical; ~2 days | Unchanged |
+| Phase 3 (D-LGMC-4 — UnifiedBridge constructor) | ~1 day | **HEADLINE GAP** — this is the "MedCare is behind on UnifiedBridge" item the user surfaced. Sequenced after D-LGMC-1, blocking. |
+| Phase 4 (D-LGMC-5/6 — MUL MEDICAL + context_id) | ~3 days | Unchanged |
+| Phase 5 (D-LGMC-9/10/11 — DTO docs + TripleDES + telemetry) | ~4 days, some scaffolding partial | Mostly unchanged; D-LGMC-7/8 SHIPPED per §8.3 |
+| Phase 5b (D-LGMC-15..21 — Round-2 + production wiring + persistent sink) | ~5 days | Unchanged |
+| Phase 6 (D-LGMC-12/13 — Cypher/SPARQL) | ~5 days opt-in | Unchanged |
+| Phase 7 (D-LGMC-14 — CAM-PQ similarity) | ~3 days opt-in | Unchanged |
+| Phase 9 (D-LGMC-22..26 — MongoDB alt cold path) | ~6-8 days | Unchanged |
+
+### 9.6 One-line summary
+
+> MedCare-rs is behind on the UnifiedBridge migration itself (no `medcare_unified_bridge` constructor) but ahead on substrate (parallelbetrieb shipped + ingest + dashboard + MedcareRegistry + F1-F5 narrative + LanceProbe parity + lance-phase2 wiring all live). Net: smallest total remaining work of the three consumers, biggest single point-blocker (D-LGMC-1 build fix → D-LGMC-4 constructor). Best target for the "prove the unified-bridge story end-to-end" micro-sprint.
