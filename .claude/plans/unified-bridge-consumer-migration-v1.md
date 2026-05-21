@@ -284,6 +284,38 @@ The shape that earns the cost-model gains: **`inherits_from` + per-family codebo
 
 **The construction tool (hydrators) and the runtime substrate (family buckets) are co-designed:** the hydrators only earn the O(1) property because they flatten the inheritance chains at construction time; the family buckets only earn the cost-model gain because the hydrators populate them with per-slot dense entries. Neither half works alone.
 
+### 4.5 Substrate framing — CAM bar codes, NOT random bitpacking
+
+**`OwlIdentity` is a bar code, not a bitpack.** This distinction is load-bearing for the §4 design and is the principle that makes the §4.4 O(1) inheritance property hold. Spell it out before any consumer wires a path-dep:
+
+| Wrong framing (random bitpacking) | Right framing (CAM bar codes) |
+|---|---|
+| `OwlIdentity(u16)` is a u16 with arbitrary bit fields slicing into `family << 8 \| slot` for storage convenience. | `OwlIdentity(u16)` is a **content-addressable identifier** — a bar code. The high byte (family) and low byte (slot) are coordinate axes in a CAM-addressable space, not random bit positions. |
+| `FamilyEntry` is a struct packed beside the u16 because we have to put the data somewhere. | `FamilyEntry` is **what the bar code resolves to via the per-family CAM** — `OgitFamilyTable[family].entries[slot]` IS a CAM lookup, addressed by the bar code. |
+| The codebook (5-8 bit centroids per family) is a quantisation table for compression. | The codebook **IS the CAM substrate** — per-family centroids form the content-addressable space the bar code's low byte indexes into. Distance lookups (`table[code_a][code_b]`) are O(1) CAM-style comparisons, not unpacks. |
+| The 256-slot dense array is a storage-density optimization. | The 256-slot dense array **IS the per-family CAM**, sized to exactly one byte of address space; the bar code's low byte IS the array index — there is no separate "address translation" step. |
+| Hydrators "populate fields" inside FamilyEntry. | Hydrators **assign bar codes** to entries from external standards. `hydrate_dolce` issues bar codes in the `OGIT::DOLCE_V1` namespace; `hydrate_provo` issues bar codes that *inherit* (via `inherits_from`) the DOLCE addressing, so PROV-O bar codes can be CAM-compared against DOLCE bar codes without a translation step. |
+| The inherits-from chain is a parent-pointer for OWL reasoning. | The inherits-from chain **propagates content-addressability** through the hierarchy: a child family's codebook can reference the parent's CAM by u8 offset (§4.4 codebook-inheritance row) because the parent's bar code space IS embedded in the child's. |
+
+**Why this matters operationally:** the `I-VSA-IDENTITIES` iron rule (`lance-graph/CLAUDE.md`, added 2026-04-21) is the workspace-wide statement of this principle: "**VSA operates on IDENTITY fingerprints that POINT TO content. Never on content's bitpacked/quantized register itself.**" The register-loss problem (XOR-bundling CAM-PQ codes destroys the mapping back to their codebook entries) is the same failure mode this section prevents. `OwlIdentity` is a Vsa16k-shaped identity at u16 scale — the bar code addressing content in the per-family codebook. Treating it as bitpacked storage breaks the CAM property and forfeits the O(1) gain.
+
+**The four CAM tests (per `I-VSA-IDENTITIES` Test 0..3)** apply directly to the `OwlIdentity` design:
+
+- **Test 0 — register laziness.** `OwlIdentity` has a natural name (the OGIT URI `ogit.<namespace>:<type>`) AND an enum/index identity (the u16 bar code). The bar code is the right primitive at the runtime layer; the URI is the right primitive at the schema-authoring layer. Both live; both serve.
+- **Test 1 — bundle size.** Bar codes don't bundle (no VSA superposition). The §3.10 DataFusion predicate combines bar codes into a single masked compare, but the bar codes themselves stay singular. N=1 per row, well below the √d/4 ≈ 32 bundle ceiling.
+- **Test 2 — role orthogonality.** Each family's 256-slot bar-code space is disjoint from every other family's (the high byte enforces it). Within a family, slot allocations are explicit and authored by the hydrator (not collision-prone).
+- **Test 3 — cleanup codebook.** The per-family `PerFamilyCodebook` IS the cleanup codebook. After any CAM scan (e.g., similarity search via §11A.1 CAM-PQ), unbind resolves cleanly to the codebook entry.
+
+**Concrete diagnostic — how to spot the wrong framing in a PR:**
+
+- ❌ `let family = (owl.0 >> 8) as u8; let slot = (owl.0 & 0xff) as u8; do_something(family, slot)` — treating the bar code as a bitpacked u16 to be unpacked. Wrong layer; should call `owl.family().0` and `owl.slot()` which are the CAM coordinate accessors.
+- ❌ `OwlIdentity::from_parts(family, slot)` constructors used freely in business logic. Bar codes should be *issued by hydrators* and *referenced by lookups* — not constructed ad-hoc.
+- ❌ Storing `OwlIdentity` content in something other than the per-family codebook (e.g., a sidecar HashMap keyed by `OwlIdentity`). Sidecars defeat the O(1) CAM property; everything lives inline in `FamilyEntry`.
+- ✅ `bridge.entity("Customer")?.schema_ptr.entity_type_id()` resolves the public name through the registry to a bar-coded `EntityRef`; downstream code reads via the bar code as a CAM key.
+- ✅ Hydrators *issue* bar codes at boot via `OwlHydrator { starting_entity_id: 100, … }` — the integer is the CAM coordinate, not a payload.
+
+**The bar-code framing also explains why the Lance-cache persistence (§4.2) works:** the Lance dataset column store IS a CAM at rest. The per-row `(owl_id u16, tenant_id u32)` identity is the bar-coded address; the row payload (ciphertext + merkle root) is what the bar code addresses on disk; the boot-time scan reconstructs the in-memory CAM from the on-disk CAM with no semantic translation in between. The hot-path CAM and the cold-path CAM are the same shape — just different storage tiers.
+
 ---
 
 ## 5 — Deliverables
