@@ -25,6 +25,7 @@ pub mod owltime;
 pub mod provo;
 pub mod qudt;
 pub mod schemaorg;
+pub mod schematron;
 pub mod skos;
 pub mod xsd;
 pub mod zugferd;
@@ -36,6 +37,9 @@ pub use owltime::{hydrate_owltime, hydrate_owltime_from};
 pub use provo::{hydrate_provo, hydrate_provo_from};
 pub use qudt::{hydrate_qudt, hydrate_qudt_from};
 pub use schemaorg::{hydrate_schemaorg, hydrate_schemaorg_from};
+pub use schematron::SchematronHydrator;
 pub use skos::{hydrate_skos, hydrate_skos_from};
 pub use xsd::{collect_xsd_files, XsdHydrator};
-pub use zugferd::{hydrate_zugferd, hydrate_zugferd_from};
+pub use zugferd::{
+    hydrate_zugferd, hydrate_zugferd_from, hydrate_zugferd_rules, hydrate_zugferd_rules_from,
+};

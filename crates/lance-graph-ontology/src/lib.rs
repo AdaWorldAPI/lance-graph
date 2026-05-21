@@ -58,8 +58,9 @@ pub use hydrators::{
     hydrate_fibo_be, hydrate_fibo_be_from, hydrate_fibo_fnd, hydrate_fibo_fnd_from,
     hydrate_owltime, hydrate_owltime_from, hydrate_provo, hydrate_provo_from, hydrate_qudt,
     hydrate_qudt_from, hydrate_schemaorg, hydrate_schemaorg_from, hydrate_skos, hydrate_skos_from,
-    hydrate_zugferd, hydrate_zugferd_from, ContextBundle, EntityId, HydrateErr,
-    MetaStructureHydrator, OntologySlot, OwlHydrator, XsdHydrator,
+    hydrate_zugferd, hydrate_zugferd_from, hydrate_zugferd_rules, hydrate_zugferd_rules_from,
+    ContextBundle, EntityId, HydrateErr, MetaStructureHydrator, OntologySlot, OwlHydrator,
+    SchematronHydrator, XsdHydrator,
 };
 pub use namespace::{NamespaceId, OgitUri, SchemaPtr};
 pub use proposal::{

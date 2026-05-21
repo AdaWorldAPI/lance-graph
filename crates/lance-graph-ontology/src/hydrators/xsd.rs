@@ -37,6 +37,14 @@ use quick_xml::Reader;
 use super::owl::{ContextBundle, EntityId, HydrateErr, OntologySlot};
 use crate::registry::OntologyRegistry;
 
+/// Closure type for the IRI interning callback. Factored out to keep
+/// `walk_xsd`'s signature inside clippy's `type_complexity` budget.
+type InternFn<'a> = &'a mut dyn FnMut(
+    String,
+    &mut HashMap<String, EntityId>,
+    &mut EntityId,
+) -> EntityId;
+
 /// XSD hydrator. Reusable for every XSD-shaped business-document schema.
 pub struct XsdHydrator {
     pub g: u32,
@@ -105,7 +113,7 @@ fn walk_xsd(
     bytes: &[u8],
     iri_to_id: &mut HashMap<String, EntityId>,
     next_id: &mut EntityId,
-    intern: &mut dyn FnMut(String, &mut HashMap<String, EntityId>, &mut EntityId) -> EntityId,
+    intern: InternFn<'_>,
 ) -> Result<(), HydrateErr> {
     let mut reader = Reader::from_reader(bytes);
     reader.config_mut().trim_text(true);
