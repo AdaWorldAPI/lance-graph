@@ -316,6 +316,97 @@ The shape that earns the cost-model gains: **`inherits_from` + per-family codebo
 
 **The bar-code framing also explains why the Lance-cache persistence (§4.2) works:** the Lance dataset column store IS a CAM at rest. The per-row `(owl_id u16, tenant_id u32)` identity is the bar-coded address; the row payload (ciphertext + merkle root) is what the bar code addresses on disk; the boot-time scan reconstructs the in-memory CAM from the on-disk CAM with no semantic translation in between. The hot-path CAM and the cold-path CAM are the same shape — just different storage tiers.
 
+### 4.6 The authoritative spine is read-only — caching only works because writes are governed
+
+**§4.5 explained why the OGIT/OWL/DOLCE mapping CAN be cached (CAM substrate addressed by bar codes). §4.6 locks in why those caches stay clean: the authoritative spine has exactly one controlled write path. If every consumer (or every session, or every developer) could edit the spine directly, every cache would go dirty within hours — the inherits-from chain plus the per-family codebook plus the bar-code stability assumption all evaporate under uncontrolled mutation.**
+
+The substrate property and the governance property are co-load-bearing. Either alone fails:
+
+| Property | Without the other half |
+|---|---|
+| CAM substrate (§4.5) alone — no governance | Consumers cache; spine drifts under ad-hoc edits; cache invalidation thunders through `inherits_from` chains; bar codes reshuffle when parent codebooks re-fit; every consumer's runtime CAM ends up serving stale or wrong content within days |
+| Governance alone — no CAM substrate | Consumers can't cache cheaply; every lookup pays OWL-reasoning cost or chain-walks the rdfs:subClassOf graph at query time; the §4.4 O(1) gain evaporates; the spine being "authoritative" buys nothing because nobody can afford to consult it |
+
+The two halves together yield the operational property: **stable bar codes** + **clean inheritance chains** + **fast lookups** + **trust that the spine is what the spine says it is**.
+
+#### The one controlled write path
+
+```
+External standard          ──►   Producer  (hydrator / scanner /         ──►   Authoritative spine
+(DOLCE / OWL-Time /              schema scanner / admin form)                   (lance-graph-ontology
+ PROV-O / QUDT / FIBO /             │                                            registry @ OGIT::*_V1
+ SKOS / Schematron / XSD /          │  emits MappingProposal stream;             G-slots; family
+ SKR DATEV / ZUGFeRD /              │  every proposal carries                    codebooks; edge
+ future OGIT/NTO/<ns>)               │  proposal_sha256 for idempotent           whitelists)
+                                    │  dedup                                          │
+                                    │                                                 │
+                                    └─►  OntologyRegistry::append_proposals  ─────────┘
+                                              │
+                                              ▼
+                                       Lance dataset under
+                                       lance-cache feature
+                                       (cold-path CAM at rest)
+                                              │
+                                              ▼
+                                       boot-time scan → in-memory
+                                       OgitFamilyTable[OgitFamily]
+                                       (hot-path CAM)
+                                              │
+                                              ▼
+                                       Consumer bridges READ ONLY
+                                       (woa-bridge / smb-bridge /
+                                        medcare-bridge; each holds
+                                        Arc<OntologyRegistry>)
+```
+
+**Three properties this enforces:**
+
+1. **Single producer surface.** `MappingProposal` is the only DTO that lands in the registry's mutable surface. Hydrators emit them. Schema scanners (future MySQL/MSSQL inventory) emit them. Customer admin forms (future) emit them. Everything funnels through one append path — `OntologyRegistry::append_proposals` — so the write boundary is auditable and rate-controllable.
+2. **Idempotent dedup at the boundary.** Every proposal carries `proposal_sha256` (the §4.2 Lance column schema row). Re-submitting the same proposal is a no-op; the row already exists. This makes hydrator re-runs safe (boot, restart, schema refresh) without growing the dataset linearly.
+3. **Versioned G-slots.** Every hydrator stamps `OGIT::<NAME>_V1.1` (the version field on the OGIT tuple) into the bundle. When a hydrator ships a breaking change to its bundle (e.g., DOLCE adopts the canonical `Endurant → Object` rename), the new version lands at `OGIT::DOLCE_V2.0` while `OGIT::DOLCE_V1` stays available. Consumers pin a major version; cache invalidation is a controlled migration, not a silent drift.
+
+#### Why "everyone editing the spine" is the failure mode the §4.5 CAM property cannot survive
+
+Concrete failure cascade if a consumer edits the authoritative spine ad-hoc:
+
+1. Consumer A reassigns the `Customer` bar code in `OGIT::SMB_V1` from slot 17 to slot 23 (because slot 17 "felt wrong"). The reassignment lands directly in the in-memory registry, bypassing `MappingProposal`.
+2. Consumer A's cache is now correct. Consumer A's runtime CAM lookups for `Customer` resolve to slot 23 — works fine.
+3. Consumer B starts a session, boots from the Lance-cache dataset which still has slot 17 for `Customer` (the on-disk CAM was never updated; the in-memory mutation isn't reflected). Consumer B's cache has slot 17. A's runtime now shares a registry with B's runtime — they disagree on `Customer`'s bar code.
+4. Cross-consumer Cypher query (smb-bridge ↔ shared `OGIT::Network` for IP addresses) returns row 17 to A, row 23 to B. Both consumers' CAM is internally consistent but mutually incoherent.
+5. Multiply by 75 OGIT families × 256 slots each × ad-hoc edits across N consumers = the spine is no longer a spine. It's a mass of locally-true views that don't intersect cleanly.
+
+This is exactly the scenario the bookkeeping-file append-only governance (settings.json deny on Edit/Write/MultiEdit for the 8 board files; see `.claude/ATT/ACTIVATION.md` for the activation receipt) prevents at the documentation layer. §4.6 is the runtime / data-layer analogue: the same discipline applied to the OGIT/OWL/DOLCE spine.
+
+#### Enforcement surfaces
+
+Three checkpoints prevent the "everyone edits the spine" failure mode:
+
+| Layer | Mechanism | Status |
+|---|---|---|
+| Source-of-truth TTL | `AdaWorldAPI/OGIT` GitHub repo with PR-reviewed merges. Hydrators read from a checked-out clone; they never mutate the source. | Shipped (`AdaWorldAPI/OGIT` exists; hydrators read `data/ontologies/*.ttl` relative to workspace root). |
+| `OntologyRegistry` write API | Only `append_proposals` mutates the registry. Direct mutation methods don't exist. Per `lance-graph-ontology/src/lib.rs:23` — "everything funnels through one append path." | Shipped per the existing crate surface. |
+| Per-consumer bridge | `NamespaceBridge` (the trait every per-consumer bridge implements) exposes only `entity()`, `edge()`, `entity_by_uri()`, `row()` — all read-only. No `set_*` or `mutate_*` method. | Shipped per `lance-graph-ontology::bridge::NamespaceBridge`. |
+
+The new D-UB-* deliverables in §5 do not introduce new write paths. The per-consumer constructors (D-UB-4..6) take an already-hydrated `Arc<OntologyRegistry>` and hand back a `UnifiedBridge<NamespaceBridge>` — they cannot mutate the spine even if they wanted to.
+
+#### When the spine genuinely needs to change
+
+The legitimate change path goes through external-standard updates:
+
+1. Upstream standard ships a new version (e.g., DOLCE 2.0, PROV-O update, FIBO quarterly release).
+2. TTL file updated in `AdaWorldAPI/OGIT` (PR-reviewed at the source-of-truth repo).
+3. New hydrator version (e.g., `hydrate_dolce_v2`) added to `lance-graph-ontology::hydrators`, registered at `OGIT::DOLCE_V2.0`. Old `hydrate_dolce` stays for consumers pinned to `V1`.
+4. Consumers opt in to V2 at their own boot time. The Lance-cache dataset carries both versions side-by-side until consumers migrate.
+5. Once all consumers report `V2` adoption, `V1` is deprecated upstream and eventually removed.
+
+This is the same versioned-migration pattern the `I-LEGACY-API-FEATURE-GATED` iron rule prescribes for CausalEdge64 (v1 layout under v2-feature gates with documented no-op + migration pointers). Same governance, different substrate.
+
+#### Concrete TODO surfaced by this section
+
+- **D-UB-12 (NEW)** — Lock the read-only invariant in the trait surface. `lance-graph-ontology::bridge::NamespaceBridge` already exposes only read methods, but the `OntologyRegistry` struct has methods that mutate (necessarily — hydrators have to write). Document the boundary: hydrators have `&OntologyRegistry` write access at boot time; consumers receive `Arc<OntologyRegistry>` read-only after. Add `#[doc(hidden)]` or `pub(crate)` gates on the registry's mutate-shaped methods if any are currently `pub` and reachable from consumer crates. ~30 LOC + 2 tests asserting consumer crates can't call mutation methods.
+- **D-UB-13 (NEW)** — Add the proposal_sha256 idempotency test if not already present. Re-hydrating the same TTL twice should produce zero new rows in the Lance cache dataset. ~40 LOC test, no new code.
+- **D-UB-14 (NEW)** — Versioned G-slot migration smoke test. Hydrate `OGIT::DOLCE_V1` + `OGIT::DOLCE_V2` (synthetic V2 in a test fixture) into the same registry; assert consumers pinned to V1 see V1 only, consumers pinned to V2 see V2 only, no cross-contamination. ~80 LOC test, no new code.
+
 ---
 
 ## 5 — Deliverables
