@@ -41,6 +41,11 @@ const CANONICAL_SLOTS: &[(&str, u32)] = &[
     // German hybrid PDF/A-3+XML invoice format aligned with EN 16931.
     // Hydrated as IRI-interning over UN/CEFACT CII XSDs via XsdHydrator.
     ("ZUGFERD", 30),
+    // L3 e-invoicing business rules (PR-bO-15). Schematron assertion /
+    // report IDs from the ZUGFeRD validator config, plus the bracketed
+    // EN16931 / PEPPOL / CO / DE business-rule IDs from the message
+    // bodies. Hydrated via SchematronHydrator.
+    ("ZUGFERDRULES", 31),
 ];
 
 fn canonical_slot(token: &str) -> Option<u32> {

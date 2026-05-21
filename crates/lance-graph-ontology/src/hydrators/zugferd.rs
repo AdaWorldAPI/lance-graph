@@ -20,10 +20,18 @@ use std::path::{Path, PathBuf};
 use lance_graph_contract::manifest::OGIT;
 
 use super::owl::HydrateErr;
+use super::schematron::SchematronHydrator;
 use super::xsd::{collect_xsd_files, XsdHydrator};
 use crate::registry::OntologyRegistry;
 
 const ZUGFERD_DIR_RELATIVE_PATH: &str = "data/ontologies/zugferd";
+const ZUGFERD_SCH_RELATIVE_PATH: &str = "data/ontologies/zugferd/FACTUR-X_EN16931.sch";
+
+/// Stable URN prefix for the Factur-X EN16931 Schematron rule namespace.
+/// Used as the base for every interned rule / assert / report / pattern
+/// IRI. The string is not a URL — it's a stable identifier that downstream
+/// alignment can map to PEPPOL / EN16931 / FeRD rule registries.
+const ZUGFERD_SCH_BASE_IRI: &str = "urn:schematron:factur-x-1.08-en16931";
 
 /// Cascade edge whitelist for ZUGFeRD/CII. XSD doesn't have OWL-style
 /// `rdfs:subClassOf` edges natively — the type hierarchy is implicit in
@@ -93,4 +101,45 @@ fn zugferd_dir() -> PathBuf {
         .join("..")
         .join("..")
         .join(ZUGFERD_DIR_RELATIVE_PATH)
+}
+
+/// Hydrate the ZUGFeRD / Factur-X EN16931 Schematron business rules as
+/// `OGIT::ZUGFERDRULES_V1`. Walks `FACTUR-X_EN16931.sch` and interns:
+///
+/// - Every `<assert id="FX-SCH-A-...">` and `<report id="FX-SCH-R-...">` as
+///   `urn:schematron:factur-x-1.08-en16931/{assert,report}/{id}`
+/// - Every `<pattern id="...">` (if `@id` present) as
+///   `urn:schematron:factur-x-1.08-en16931/pattern/{id}`
+/// - Every bracketed EN16931 / PEPPOL / CO / DE business-rule ID found in
+///   the message text (e.g. `[BR-52]`, `[BR-CO-03]`, `[BR-DE-1]`,
+///   `[PEPPOL-EN16931-R008]`) as
+///   `urn:schematron:factur-x-1.08-en16931/rule/{rule-id}`
+///
+/// Declares `inherits_from: Some(OGIT::ZUGFERD_V1.0)` — the rule namespace
+/// is meaningless without the structural CII namespace.
+pub fn hydrate_zugferd_rules(registry: &OntologyRegistry) -> Result<u32, HydrateErr> {
+    hydrate_zugferd_rules_from(&zugferd_sch_path(), registry)
+}
+
+pub fn hydrate_zugferd_rules_from(
+    sch_path: &Path,
+    registry: &OntologyRegistry,
+) -> Result<u32, HydrateErr> {
+    let hydrator = SchematronHydrator {
+        g: OGIT::ZUGFERDRULES_V1.0,
+        version: OGIT::ZUGFERDRULES_V1.1,
+        domain_name: "zugferd-rules".to_string(),
+        inherits_from: Some(OGIT::ZUGFERD_V1.0),
+        starting_entity_id: 100,
+        base_iri: ZUGFERD_SCH_BASE_IRI.to_string(),
+    };
+    hydrator.hydrate_many(&[sch_path], registry)?;
+    Ok(OGIT::ZUGFERDRULES_V1.0)
+}
+
+fn zugferd_sch_path() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("..")
+        .join(ZUGFERD_SCH_RELATIVE_PATH)
 }
