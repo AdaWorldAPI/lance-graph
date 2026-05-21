@@ -27,6 +27,8 @@ pub mod qudt;
 pub mod schemaorg;
 pub mod schematron;
 pub mod skos;
+pub mod skr;
+pub mod skr_datev;
 pub mod xsd;
 pub mod zugferd;
 
@@ -39,6 +41,11 @@ pub use qudt::{hydrate_qudt, hydrate_qudt_from};
 pub use schemaorg::{hydrate_schemaorg, hydrate_schemaorg_from};
 pub use schematron::SchematronHydrator;
 pub use skos::{hydrate_skos, hydrate_skos_from};
+pub use skr::SkrHydrator;
+pub use skr_datev::{
+    hydrate_skr03, hydrate_skr03_bau, hydrate_skr03_bau_from, hydrate_skr03_from, hydrate_skr04,
+    hydrate_skr04_from, SKR03_BAU_IRI_PREFIX, SKR03_IRI_PREFIX, SKR04_IRI_PREFIX,
+};
 pub use xsd::{collect_xsd_files, XsdHydrator};
 pub use zugferd::{
     hydrate_zugferd, hydrate_zugferd_from, hydrate_zugferd_rules, hydrate_zugferd_rules_from,

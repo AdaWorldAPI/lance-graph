@@ -1,0 +1,34 @@
+ogit_g: SKR04
+version: 1
+domain_name: skr04
+inert_when_consumer_absent: true
+
+# DATEV SKR 04 (Abschlussgliederungsprinzip) — German chart of accounts,
+# balance-sheet-oriented family numbering aligned with HGB §266. ~1700
+# canonical 4-digit accounts. Anchor accounts declared here.
+entity_types:
+  # Family 0 — Anlagevermögen
+  Account_0100: u16=2000   # Entgeltlich erworbene Konzessionen
+  Account_0150: u16=2001   # Geschäfts- oder Firmenwert
+  Account_0200: u16=2002   # Grundstücke
+  # Family 1 — Umlaufvermögen
+  Account_1000: u16=2100   # Roh-, Hilfs- und Betriebsstoffe
+  Account_1200: u16=2101   # Forderungen aus Lieferungen und Leistungen
+  Account_1400: u16=2102   # Abziehbare Vorsteuer (canonical SKR04)
+  Account_1600: u16=2103   # Kasse
+  Account_1800: u16=2104   # Bank
+  # Family 2 — Eigenkapital
+  Account_2900: u16=2200   # Gezeichnetes Kapital
+  # Family 3 — Fremdkapital
+  Account_3300: u16=2300   # Verbindlichkeiten aus Lieferungen und Leistungen
+  # Family 4 — Erträge (revenue)
+  Account_4400: u16=2400   # Erlöse 19% USt (canonical SKR04 revenue)
+  Account_4300: u16=2401   # Erlöse 7% USt
+  # Family 5 — Materialaufwand
+  Account_5400: u16=2500   # Wareneingang 19% Vorsteuer
+
+rbac_policy: ~
+stack_profile: ~
+action_capabilities: {}
+actor: ~
+inherits_from: dolce
