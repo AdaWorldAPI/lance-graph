@@ -1,0 +1,69 @@
+ZUGFeRD / Factur-X EN 16931 e-invoicing schemas
+================================================
+
+Source
+------
+https://github.com/LandrixSoftware/validator-configuration-zugferd
+Upstream specification: https://www.ferd-net.de/standards/zugferd
+EU directive alignment: EN 16931 (semantic data model of the European
+core invoice).
+
+The schemas are based on the UN/CEFACT Cross-Industry Invoice (CII)
+XML standard, profiled for the Factur-X 1.08 EN16931 conformance
+level — the conformance level required for B2G e-invoicing across
+the EU per the eInvoicing Directive 2014/55/EU.
+
+Authors / publishers
+--------------------
+Validator configuration: Landrix Software (Apache-2.0).
+Underlying CII XSDs: UN/CEFACT (publicly available under UN/CEFACT
+Intellectual Property Policy — royalty-free use for implementation
+permitted).
+ZUGFeRD specification: Forum elektronische Rechnung Deutschland
+(FeRD).
+
+License
+-------
+The validator configuration repository at
+LandrixSoftware/validator-configuration-zugferd is licensed under
+the Apache License, Version 2.0.
+
+Usage in this repository
+------------------------
+data/ontologies/zugferd/ contains the four CII XSD files that make
+up the Factur-X 1.08 EN16931 profile:
+
+  FACTUR-X_EN16931.xsd                                  (top-level)
+  FACTUR-X_EN16931_urn_un_unece_uncefact_data_
+    standard_ReusableAggregateBusinessInformationEntity_100.xsd  (RAM types)
+  FACTUR-X_EN16931_urn_un_unece_uncefact_data_
+    standard_QualifiedDataType_100.xsd                  (QDT)
+  FACTUR-X_EN16931_urn_un_unece_uncefact_data_
+    standard_UnqualifiedDataType_100.xsd                (UDT)
+
+Plus the Schematron business-rule file `FACTUR-X_EN16931.sch` and
+the code-list database `FACTUR-X_EN16931_codedb.xml`. Neither is
+hydrated by the current XsdHydrator — they are shipped for future
+SchematronHydrator (business-rule projection) and CodeListHydrator
+(currency/unit code interning) PRs.
+
+Hydration
+---------
+Hydrated by lance-graph-ontology as the L3 e-invoicing slot
+OGIT::ZUGFERD_V1 via XsdHydrator. The hydrator walks every
+`<xs:element>` / `<xs:complexType>` / `<xs:simpleType>` /
+`<xs:attribute>` / `<xs:attributeGroup>` declaration and interns each
+as `{targetNamespace}#{name}`. Type-graph semantics (`xs:extension
+base="..."` resolution) are NOT projected into rdfs:subClassOf
+edges — that's deferred to a follow-up PR.
+
+Declares inherits_from: Some(OGIT::DOLCE_V1.0). Future alignment:
+- ram:TradePartyType ⊑ fibo-fnd:Party (FIBO Parties module)
+- ram:HeaderTradeSettlementHeaderMonetarySummationType.* ⊑
+  fibo-fnd-acc-cur:MonetaryAmount
+- ram:TradeAddressType ⊑ schema:PostalAddress
+- ram:CrossIndustryInvoiceType ⊑ schema:Invoice
+
+These alignments are NOT baked into the XSDs (they're XML schema
+constraints, not OWL axioms); they're left to downstream consumers
+that need the cross-G projection.
