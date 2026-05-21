@@ -130,3 +130,97 @@ The woa-rs `Cargo.toml` currently sets `rust-version = "1.95"`. Phase 0 either b
 
 > Five additive phases lift woa-rs from "OGIT TTL vendored, sea-orm + MySQL writer-parity" to "ontology + RBAC + Lance-third-writer with an optional Cypher/CAM-PQ surface", each step mirroring an existing pattern from smb-office-rs or MedCare-rs. Phase 0 is mechanical; Phase 1 lands the `woa-bridge` + `woa-ontology` crates; Phase 4+ is opt-in.
 
+
+---
+
+## 9 — Hot path / cold path refinement (2026-05-21, same session)
+
+User clarification: **woa-rs already has sea-orm as the DTO layer + the MySQL bridge.** The plan is to use `lance-graph-ontology` as the **hot path** and MySQL / sea-orm as the **cold path**. This refines (does not replace) §1–§8.
+
+### 9.1 What "hot path" means here
+
+The hot path is **every per-request operation that needs to identify, authorize, label, or compare an entity at O(1) or O(log n)**. Specifically:
+
+| Hot-path operation | Carrier | Why hot |
+|---|---|---|
+| "What kind of entity is this row?" — Customer vs WorkOrder vs Position vs Tenant vs User | `OgitFamilyTable.lookup(owl_id) → FamilyEntry.kind` | one masked u16 compare → one array index. Sub-microsecond. |
+| "What's the canonical OGIT URI for this row?" | `FamilyEntry.label_uri` | inline in the same `FamilyEntry`; no second fetch. |
+| "What's the rdfs:label / German UI string for this row?" | `FamilyEntry.label_uri` resolved via the OWL/DOLCE cross-walk in `MetaAnchors` | static lookup, cached at boot. |
+| "Can this actor read this row?" | `UnifiedBridge::authorize(owl, row_tenant, op)` — 4-stage masked-predicate combine | one DataFusion predicate vector. Sub-microsecond per row. |
+| "Which rows are similar to this one?" | per-entity Vsa16kF32 + CAM-PQ scan over the Lance projection | O(log n) via codebook compression; no MySQL touch. |
+| "Cross-tenant referral visibility under §73 SGB V" | `ontology_context_id` predicate (third RLS axis) | one extra masked compare in the same predicate vector. |
+| "Which permissions does this actor have on this slot?" | `RoleGroup.redaction_mask.{readable,writable,redacted}_slots[slot]` | one bit-test in a 256-bit set. |
+| "Cypher / SPARQL / Gremlin query" | `lance-graph-planner` → DataFusion plan over the Lance projection | planner's 16 strategies; CAM-PQ-aware. |
+
+**None of these hit MySQL.** They all resolve in-process from the registry (`OntologyRegistry` for the ontology surface; `Policy` for RBAC; Lance datasets under the `lance-cache` feature for persistence of the registry itself plus the per-entity projection).
+
+### 9.2 What "cold path" means here
+
+The cold path is **every operation that mutates business state OR reads a row's authoritative byte-exact value**. Specifically:
+
+| Cold-path operation | Carrier | Why cold |
+|---|---|---|
+| Insert / update / delete a Customer / WorkOrder / Position / Mahnung row | `sea-orm Entity::insert(.).exec(&db)` → MySQL | DualSink-Pivot 2026-05-15: writer-parity with the Python source is the spec. MySQL is the system of record. |
+| Read a row's exact field values (`Customer.firma`, `WorkOrder.betreff`, `Position.netto_summe`) | sea-orm `find_by_id` → MySQL | the byte-exact value is what the Python source produces; parity tests in `tests/parity/` compare row-by-row. |
+| DATEV export / X-Rechnung generation / PDF rendering | sea-orm reads → woa_pdf / datev_encoder | output must be byte-identical to Python; MySQL is the only source where this is true. |
+| Schema migration | sea-orm migrations | the migrations are the contract between MySQL versions. |
+| Bulk historical scans (audit / GoBD retention / financial year close) | sea-orm or raw SQL | reading the audit-trail authoritative state, not the hot-path projection. |
+
+**The cold path is authoritative.** When the hot path and the cold path disagree, the cold path wins. Drift detection rides on this asymmetry.
+
+### 9.3 The pipe between hot and cold
+
+Three concrete bridges:
+
+1. **Write-through projection** (D-WLG-9). Every sea-orm `Entity::insert/update/delete` on a hot-path-projected entity (Customer, WorkOrder, Position, Tenant, User) also dual-writes a Lance row via `lance-graph-contract::repository::EntityWriter`. The write is **synchronous within the same transaction boundary** for the Customer/WorkOrder/Position/Tenant/User set (the entities whose row identity needs to be visible to the next read on the same request); other entities can dual-write async.
+2. **Boot-time projection** for entities not yet write-through-projected: a one-shot scan at startup reads every row from MySQL and lands it in the Lance projection. After startup, the write-through path keeps the two in sync.
+3. **Drift reconciler** (cron job, opt-in): periodically scans both stores, compares MerkleRoots per-row (computed over the canonical fingerprint of each row's authoritative field set), emits a drift event for any mismatch. Mirrors the `ParityWitness` shape from `MedCareV2/MedCare_2.0/LanceProbe/` per `super-domain-rbac-tenancy-v1.md` §18.2. **Cold path wins on reconciliation:** the Lance projection is rebuilt from MySQL on conflict, never the other way around.
+
+### 9.4 Phase remapping (replaces §3 phase-level framing)
+
+The six phases stay; their internal framing tightens:
+
+| Phase | Hot-path delivery | Cold-path delivery |
+|---|---|---|
+| 0 (vendor + exclude) | none (mechanical) | none |
+| 1 (woa-bridge + woa-ontology) | the `OntologyRegistry` + `WoaBridge` + `UnifiedBridge<WoaBridge>` constructor (every subsequent hot-path operation rides on this) | none |
+| 2 (route-handler integration) | wire `UnifiedBridge` into route handlers as Tower middleware (`OntologyState` extension) | unchanged — sea-orm reads stay the cold-path read for byte-exact values |
+| 3 (lance-cache + Lance projection) | `lance-cache` feature persists the registry as a LanceDB column (cold-start latency drops); D-WLG-9 stands up the Lance projection of MySQL tables | sea-orm + MySQL stays authoritative; **the projection is a hot-path read replica, NOT a write replacement** |
+| 4 (Cypher / SPARQL) | `POST /api/__graph` endpoint over the planner → DataFusion → Lance projection | cold path unchanged |
+| 5 (CAM-PQ similarity) | `EntityStore::similar_to` over Lance + CAM-PQ | cold path unchanged |
+
+The **write-through synchronisation** for the Customer/WorkOrder/Position/Tenant/User set lands in Phase 3 (D-WLG-9) as part of the Lance projection. The drift reconciler is a Phase 3 follow-on or Phase 4 opt-in.
+
+### 9.5 What this means for the existing sea-orm code
+
+**Nothing changes about the existing sea-orm code path.** Every route handler that today does `Customer::find_by_id(db, id).await?` keeps doing that. The hot-path integration is **additive**: a route handler that needs ontology resolution or RBAC or similarity adds an `OntologyState` extension parameter and calls `state.bridge.authorize(...)` / `state.registry.resolve(...)`; a route handler that just reads a row's fields stays on sea-orm.
+
+The win is at **routes that today hand-roll cross-entity joins, similarity heuristics, or permission matrices**. Those routes — Mahnwesen aggregation, Stundenzettel cross-customer rollup, "find similar customers" pipelines — become Cypher queries (Phase 4) or CAM-PQ calls (Phase 5) without the hand-rolled join code. The cold-path sea-orm code stays for the byte-exact-row reads those hot-path queries reduce TO.
+
+### 9.6 Consequence for D-WLG-9 scope
+
+D-WLG-9 in §3 was framed as "Lance-side projection of WoA's MySQL tables ... woa-rs side of writer-parity." The hot/cold split tightens this:
+
+- **Lance projection is the hot-path READ replica**, not a writer-parity peer.
+- The 2026-05-15 DualSink-Pivot's "Python + Rust both write MySQL" stays the writer-parity contract; **Lance is NOT a third writer-parity peer**.
+- D-WLG-9's parity tests compare sea-orm read → MySQL → row vs. EntityStore read → Lance → row for the Customer/WorkOrder/Position/Tenant/User entity set, asserting they agree under the write-through invariant.
+- If Lance and MySQL disagree, **MySQL wins** and Lance is rebuilt from MySQL. The Lance projection is replicate, not source.
+
+### 9.7 Open questions (refines §6)
+
+1. **Sync vs async dual-write boundary.** Phase 3 needs to commit which entities sync-dual-write (request-scope-visible) vs async-dual-write (eventually-consistent). My initial pick: Customer / WorkOrder / Position / Tenant / User sync; Mahnung / Stundenzettel-Eintrag / Logbook-Eintrag / Dokument / Setting async. Needs validation against actual route-handler read-after-write patterns.
+2. **Hot-path-only entities** (entities that live only in Lance, no MySQL row). E.g., per-entity Vsa16kF32 fingerprints, CAM-PQ codebooks, drift-event log. Phase 5 onwards. These do NOT have a cold-path MySQL counterpart by design.
+3. **Cypher rewrite of mid-complexity routes.** The §6 question "is Cypher actually wanted in production" sharpens: yes for cross-entity queries that today hand-roll sea-orm joins; not yet for trivial single-entity find-by-id (those stay on sea-orm). The Phase 4 ceiling becomes "rewrite the 6-8 cross-entity queries that produce the most join code, leave the rest." That's ~1 week not ~2.
+4. **Drift reconciler cadence.** Hourly vs nightly vs continuous. Probably nightly for v1 — Phase 4 / 5 features that depend on the projection being recent (similarity search) tolerate one-day-lagged drift if the underlying business velocity is sub-daily.
+
+### 9.8 Cross-references (additive)
+
+- `woa-rs/.claude/board/Goldstaub.md` 2026-05-15 ("DualSink-Pivot") — explicitly preserved; this section refines its read-side framing, not its writer-parity contract.
+- `MedCare-rs/CLAUDE.md` § Architectural commitments #1 ("MySQL is the permanent oracle / parity witness") — the same role MySQL plays in MedCare-rs is what it plays here on the woa-rs cold path.
+- `super-domain-rbac-tenancy-v1.md` §17.7 ("Net architecture summary") — the per-row LanceDB layout (tenant_id u32 + owl_id u16 + ciphertext + merkle_root cleartext) is the hot-path projection shape this plan inherits.
+- `super-domain-rbac-tenancy-v1.md` §16.5 ("MerkleRoot-cleartext-beside-ciphertext") — the drift reconciler in §9.3 of this plan compares MerkleRoots between MySQL and Lance per-row.
+
+### 9.9 One-line summary update
+
+> lance-graph-ontology is the hot path (resolution + RBAC + label + similarity + Cypher in O(1) or O(log n) over the codebook + Lance projection); sea-orm + MySQL is the cold path (writer-parity authoritative; byte-exact row values; the projection rebuilds from MySQL on drift). The 2026-05-15 DualSink-Pivot writer-parity contract is preserved; Lance is a READ replica, not a third writer.
+
