@@ -25,11 +25,13 @@ pub mod owltime;
 pub mod provo;
 pub mod qudt;
 pub mod schemaorg;
+pub mod skos;
 
-pub use dolce::{hydrate_dolce, hydrate_dolce_from};
+pub use dolce::{hydrate_dolce, hydrate_dolce_from, hydrate_dolce_from_many};
 pub use fibo::{hydrate_fibo_be, hydrate_fibo_be_from, hydrate_fibo_fnd, hydrate_fibo_fnd_from};
 pub use owl::{ContextBundle, EntityId, HydrateErr, MetaStructureHydrator, OntologySlot, OwlHydrator};
 pub use owltime::{hydrate_owltime, hydrate_owltime_from};
 pub use provo::{hydrate_provo, hydrate_provo_from};
 pub use qudt::{hydrate_qudt, hydrate_qudt_from};
 pub use schemaorg::{hydrate_schemaorg, hydrate_schemaorg_from};
+pub use skos::{hydrate_skos, hydrate_skos_from};

@@ -1,0 +1,17 @@
+ogit_g: SKOS
+version: 1
+domain_name: skos
+inert_when_consumer_absent: true
+
+entity_types:
+  Concept:           u16=540
+  ConceptScheme:     u16=541
+  Collection:        u16=542
+  OrderedCollection: u16=543
+  Label:             u16=544
+
+rbac_policy: ~
+stack_profile: ~
+action_capabilities: {}
+actor: ~
+inherits_from: dolce

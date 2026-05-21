@@ -32,6 +32,7 @@ const CANONICAL_SLOTS: &[(&str, u32)] = &[
     ("PROVO", 11),
     ("QUDT", 12),
     ("SCHEMAORG", 13),
+    ("SKOS", 14),
     // L3 finance / business ontologies (PR-bO-6 / bO-7).
     // FIBO Foundations and FIBO Business Entities.
     ("FIBOFND", 20),
