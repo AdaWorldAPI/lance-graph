@@ -89,3 +89,81 @@ This plan owns those five items.
 
 > Promote `smb_unified_bridge` from `UnifiedBridge<OgitBridge>` to `UnifiedBridge<SmbBridge>` (the doc-comments promise this swap), ship SMB-shaped role groups (`tax_clerk` / `partner` / `client_user` / `audit_observer`) per D-SDR-2, author `OGIT/NTO/SMB/` TTL upstream, and optionally light up the Cypher + CAM-PQ surfaces over the existing Lance projection. Smallest delta of the three consumer plans; most of the substrate already ships.
 
+
+---
+
+## 7 — Position vs sister consumer plans: empty + UnifiedBridge template source (2026-05-21, same session)
+
+User correction: **smb-office-rs is effectively empty + already carries the UnifiedBridge template; that's a different "quickest" than MedCare-rs's "quickest target for end-to-end proof." smb-office-rs is the quickest *template source*, not a target for behavioural migration.** Locking the framing here.
+
+### 7.1 The empty-system property
+
+smb-office-rs is pre-production. The inherited C# WinForms ERP (`AdaWorldAPI/SMB-Office/1x1-prg`) is what currently runs in customer deployments; smb-office-rs is the Rust refactor that hasn't replaced it yet. Three concrete consequences:
+
+1. **No business data to migrate.** Unlike MedCare-rs (which has 104 MySQL tables to reconcile against, with a parity reconciler Round-1 already shipped) and woa-rs (which has live Python WoA on MySQL across Stefan's deployment), smb-office-rs has no production data flowing through it today. The MongoDB connector (`smb-mongo::MongoImporter`) reads the legacy C# BSON schema as a one-shot migration source; it doesn't witness live writes.
+2. **No reconciler imperative.** smb-office-rs's `SmbMongoReconciler` (`smb-bridge/src/mongo_reconciler.rs`, 395 LOC, Round-1 = Customer only) exists as the SISTER pattern to medcare-rs's `MedcareMysqlReconciler` — i.e., it's the **template** for the cross-source comparison, but there's no production parallelbetrieb running against it because there's nothing to compare. Once the C# WinForms cutover happens, the reconciler witnesses the dual-write window; until then, it stays in its dormant test-shape state.
+3. **No live-system constraint on type-parameter swaps.** D-LGSMB-3 (swap `UnifiedBridge<OgitBridge>` → `UnifiedBridge<SmbBridge>`) is a free 15-LOC change because no production callers exist yet. Compare medcare-rs, where the equivalent migration (D-LGMC-4 adding the constructor at all) touches the live medcare-server route handlers — same gesture, more callsite ripple.
+
+### 7.2 The UnifiedBridge template property
+
+`smb-office-rs/crates/smb-bridge/src/unified_bridge_wiring.rs::smb_unified_bridge` is **THE canonical reference** for the `<repo>_unified_bridge(...)` constructor pattern across all three consumer plans. It is:
+
+- The 90-LOC reference file (the only existing `<repo>_unified_bridge` function in any consumer crate today).
+- The artifact `unified-bridge-consumer-migration-v1.md` §3 names as the "working reference."
+- The artifact `lance-graph-in-medcare-rs-v1.md` D-LGMC-4 says to mirror when adding `medcare_unified_bridge`.
+- The artifact `lance-graph-in-woa-rs-v1.md` D-WLG-3 names as the template for the future `woa_unified_bridge`.
+- The doc-comments on lines 9-14 ("the dedicated `SmbBridge` … is not yet in `lance-graph-ontology::bridges`; once it lands the constructor here swaps the type parameter — call sites stay unchanged") + lines 16-25 (rich `auth::TenantId` ↔ transparent `callcenter::TenantId` consolidation) + lines 27-33 (post-D-SDR-2/3 shrink) are the **forward-looking design map** other consumers' constructors absorb.
+
+In short: smb-office-rs is the place where the unified-bridge pattern was first concretised; the other consumer plans copy from here.
+
+### 7.3 "Quickest" — but for template harvesting, not behavioural migration
+
+The three consumers are all in some sense "the quickest," but for different reasons:
+
+| Consumer | Quickest in this sense | Why |
+|---|---|---|
+| **MedCare-rs** | Quickest **target** for "prove the UnifiedBridge end-to-end" micro-sprint | Most-mature substrate (parallelbetrieb shipped + ingest + dashboard + F1-F5); smallest wire-up gap (~570 LOC across 5 commits to close Phase 1-4). The bridge demonstrates the full 4-stage authorize against real clinical data + HIPAA compliance regime + diverse-redundancy LanceProbe witness. |
+| **smb-office-rs** | Quickest **source** for template harvesting | Empty system (no live data to migrate); already carries the canonical `smb_unified_bridge` reference constructor + the SmbMongoReconciler sister pattern. Other consumers copy from here. The work is mostly *extracting + propagating* the template, not migrating away from a legacy system. |
+| **woa-rs** | Slowest, but **clearest scope** (greenfield) | Zero baseline means no migration / no backward-compat / no behavioural-parity constraints from prior Rust state. Phase 0 + 1 are mechanical mirror-from-templates. Cost is volume (~13 days for Phase 0-3 vs ~5-7 days for MedCare's Phase 1-4 closure), not complexity. |
+
+### 7.4 Implication for sequencing across all three consumer plans
+
+The harvest order is:
+
+```
+              ┌─────────────────────────────────────────────────┐
+              │ smb-office-rs (THIS PLAN)                       │
+              │  — Phase A ships SmbBridge upstream             │
+              │  — Phase B authors OGIT/NTO/SMB/ TTL + role     │
+              │    groups (D-SDR-2 expansion)                   │
+              │  — D-LGSMB-3 type-param swap (free, 15 LOC)     │
+              │  — Phase C tenant-type consolidation            │
+              │  → smb_unified_bridge is now the locked         │
+              │    UnifiedBridge<SmbBridge> reference           │
+              └────────────────────┬────────────────────────────┘
+                                   │ template harvest
+                ┌──────────────────┴──────────────────┐
+                │                                     │
+                ▼                                     ▼
+   ┌───────────────────────────────┐    ┌───────────────────────────────┐
+   │ MedCare-rs                    │    │ woa-rs                        │
+   │  — D-LGMC-4 add medcare_      │    │  — D-WLG-3 add woa_           │
+   │    unified_bridge by mirroring│    │    unified_bridge by mirroring│
+   │    smb_unified_bridge         │    │    smb_unified_bridge         │
+   │  — Plug into existing         │    │  — Plug into NEW woa-bridge   │
+   │    medcare-server route       │    │    crate (no existing routes) │
+   │    handlers                   │    │                                │
+   └───────────────────────────────┘    └───────────────────────────────┘
+```
+
+smb-office-rs being "empty + template-bearing" makes it the natural source for the propagation. MedCare-rs and woa-rs harvest from it; MedCare-rs first (because it has the substrate to plug into immediately), woa-rs after (because woa-rs's Phase 0 + 1 has to happen before there's anywhere to plug into).
+
+### 7.5 Status note on this plan's deliverable framing
+
+§2 of this plan still describes Phase A-E as "smb-office-rs's own work." That's accurate — those phases ship smb-office-rs's UnifiedBridge migration. The §7 reframe doesn't change those deliverables; it adds the **propagation context**: D-LGSMB-3's type-param swap unlocks the template harvest, not just smb-office-rs's own integration.
+
+The earlier §1 framing — "smb-office-rs is the most-progressed consumer of the lance-graph spine outside MedCare-rs" — is still true at the **bridge-substrate** level (smb-bridge + smb-ontology + auth + rls features shipped). §7 clarifies the **business-data** level: smb-office-rs is empty there.
+
+### 7.6 One-line summary
+
+> smb-office-rs is empty (no live business data) + already carries the canonical `smb_unified_bridge` reference constructor + the SmbMongoReconciler sister pattern. Quickest in the **template harvester** sense; MedCare-rs is quickest in the **end-to-end proof target** sense. Harvest order: smb-office-rs ships SmbBridge upstream + role groups + the type-param swap, then MedCare-rs and woa-rs copy the template by mirroring `smb_unified_bridge`.
