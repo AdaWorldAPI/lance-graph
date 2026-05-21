@@ -55,6 +55,12 @@ const CANONICAL_SLOTS: &[(&str, u32)] = &[
     // in SKR 04 but "Kasse" in SKR 03).
     ("SKR03", 40),
     ("SKR04", 41),
+    // SKR 03 Bau und Handwerk (Branchenpaket 19606) — trade-specific
+    // 6-digit extensions on top of canonical SKR 03 (Sand- und
+    // Kiesausbeute, Bauliche Anlagen, etc.). Hydrates into its OWN G
+    // slot rather than the canonical SKR03_V1 slot so mixed consumers
+    // can hold both account sets in one OntologyRegistry.
+    ("SKR03BAU", 42),
 ];
 
 fn canonical_slot(token: &str) -> Option<u32> {
