@@ -668,3 +668,14 @@ Phase A ships dedicated `SmbBridge` upstream (~50 LOC + 2 tests). Phase B author
 ### Scope
 
 Phase 1 fix the lance-phase2 build (`MedcareOntology::default()` calls broken no-arg form). Phase 2 close RLS fail-OPEN for Treatment / Visit / VitalSign. Phase 3 ship `medcare_unified_bridge` constructor. Phase 4 wire `MulThresholdProfile::MEDICAL` + `ontology_context_id` third axis (§73 SGB V Überweisung). Phase 5 unblock LanceProbe M2..M6 with the 5 medcare-rs endpoints (D-LGMC-7..11). Phases 6-7 opt-in Cypher / CAM-PQ. Two-branch reality: `main` (full lance-phase2) vs `claude/scaffold-medcare-rs-rZD5A` (lean fallback) — most deliverables land on `main` only.
+
+## 2026-05-21 — lance-graph-business-logic-poc-via-woa-rs-v1 (consolidating POC roadmap across the 4 consumer plans)
+
+**Status:** Active (Draft)
+**Confidence:** HIGH on the POC framing (per 4 predecessor plans' session-appended §§4.5-4.7 + §§8-13 refinements + 3 attached distillation docs); MED on RFC v02-006 codegen-pipeline readiness (DRAFT — emitter side may need build).
+**Plan file:** `.claude/plans/lance-graph-business-logic-poc-via-woa-rs-v1.md`
+**Predecessors:** unified-bridge-consumer-migration-v1; lance-graph-in-{woa-rs,smb-office-rs,medcare-rs}-v1; super-domain-rbac-tenancy-v1.
+
+### Scope
+
+Consolidates the 4 consumer-integration plans into a P0/P1/P2-prioritised POC roadmap. **First POC slice = woa-rs PR-5 (XRechnung visible reward)** — the moment 6 months of lance-graph substrate work produces its first customer-deliverable artefact (EN16931-conformant ZUGFeRD/Factur-X invoice via `hydrate_zugferd` + `SchematronHydrator` + `XsdHydrator`). Maps 1:1 to "First Foundry-style projection: fibo:Transaction" Phase 9 from `erp_foundry_hhtl_ontology_distillation.md`. P0 effort ~7-8 days. P1 closes parity dashboard + RLS-via-codegen-bucket + MedCare/SMB cross-consumer harvest. P2 = opt-in Cypher/similarity/MongoDB alt cold path. No new D-ids; this plan re-indexes existing D-UB-/D-WLG-/D-LGMC-/D-LGSMB- IDs by priority.
