@@ -1,0 +1,30 @@
+ogit_g: SKR03BAU
+version: 1
+domain_name: skr03-bau
+inert_when_consumer_absent: true
+
+# DATEV SKR 03 Bau und Handwerk (Branchenpaket Art.-Nr. 19606, 2026
+# edition). 6-digit account format: NNNN + 2-digit trade-specific
+# subdivision. The full Bau CSV has 1880 accounts; 210 of these are
+# trade-specific extensions (NN > 00) on top of the canonical 1623
+# 4-digit accounts that ship in OGIT::SKR03_V1.
+#
+# Hydrates into its OWN G slot (NOT SKR03_V1) so mixed consumers can
+# hold both canonical SKR 03 AND Bau extensions in one OntologyRegistry.
+#
+# Anchor accounts here are trade-specific load-bearing entries.
+entity_types:
+  # Substanzverzehr (raw-material extraction — Sand/Kies pits, quarries)
+  Account_007510: u16=4200   # Sand- und Kiesausbeute
+  Account_007511: u16=4201   # Grundstücke mit Substanzverzehr (Bau variant)
+  # Bauliche Anlagen (construction-specific buildings)
+  Account_010010: u16=4202   # Bauliche Anlagen für stationäre Fertigung
+  Account_010011: u16=4203   # Fabrikbauten (Bau variant)
+  # Bauten auf dem Bauhof (yard buildings)
+  Account_011510: u16=4204   # Bauten auf dem Bauhof
+
+rbac_policy: ~
+stack_profile: ~
+action_capabilities: {}
+actor: ~
+inherits_from: skr03

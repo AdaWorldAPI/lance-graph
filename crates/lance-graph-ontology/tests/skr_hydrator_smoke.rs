@@ -146,16 +146,24 @@ fn skr03_and_skr04_are_separate_slots() {
 }
 
 #[test]
-fn skr03_bau_extensions_hydrate_into_skr03_slot() {
-    // The Bau variant uses a SEPARATE IRI prefix (urn:datev:skr03-bau:…) so
-    // its 6-digit accounts coexist with the canonical 4-digit set. Bau
-    // extensions appear at sub-account numbers like 007510 (Sand- und
-    // Kiesausbeute), 010010 (Bauliche Anlagen für stationäre Fertigung).
+fn skr03_bau_extensions_hydrate_into_dedicated_slot() {
+    // Bau hydrates into ITS OWN G slot (OGIT::SKR03BAU_V1 = 42), NOT the
+    // canonical SKR03_V1 slot, so a caller that hydrates BOTH canonical
+    // and Bau in the same OntologyRegistry holds both bundles
+    // independently without one overwriting the other. The Bau bundle
+    // declares inherits_from: Some(OGIT::SKR03_V1.0) to make the
+    // structural dependency on canonical SKR 03 explicit.
     let registry = OntologyRegistry::new_in_memory();
     let g = hydrate_skr03_bau(&registry).expect("SKR 03 Bau hydrates");
-    assert_eq!(g, OGIT::SKR03_V1.0);
+    assert_eq!(g, OGIT::SKR03BAU_V1.0);
 
     let bundle = registry.bundle_for(g).expect("bundle");
+    assert_eq!(bundle.domain_name, "skr03-bau");
+    assert_eq!(
+        bundle.inherits_from,
+        Some(OGIT::SKR03_V1.0),
+        "Bau must inherit from canonical SKR 03"
+    );
     // 1686 in the Bau CSV. Allow a bit of slack.
     assert!(
         bundle.entity_count() >= 1600,
@@ -170,4 +178,45 @@ fn skr03_bau_extensions_hydrate_into_skr03_slot() {
             "Bau extension {ext} must resolve at {iri}"
         );
     }
+}
+
+#[test]
+fn skr03_canonical_and_bau_coexist_in_one_registry() {
+    // Regression test for the Codex P1 finding (PR #407 review):
+    // hydrate_skr03 + hydrate_skr03_bau in sequence must populate TWO
+    // distinct G slots, not overwrite each other. Before the fix the
+    // second call dropped the canonical 4-digit accounts because both
+    // hydrators registered into OGIT::SKR03_V1.
+    let registry = OntologyRegistry::new_in_memory();
+    hydrate_skr03(&registry).expect("canonical SKR 03");
+    hydrate_skr03_bau(&registry).expect("SKR 03 Bau");
+
+    let canonical = registry.bundle_for(OGIT::SKR03_V1.0).expect("canonical bundle");
+    let bau = registry.bundle_for(OGIT::SKR03BAU_V1.0).expect("Bau bundle");
+
+    // Canonical bundle: 4-digit IRI base, includes load-bearing accounts.
+    assert!(
+        canonical.resolve_iri(&format!("{SKR03_IRI_PREFIX}/1000")).is_some(),
+        "canonical SKR 03 / 1000 Kasse must still resolve after Bau hydration"
+    );
+    assert!(
+        canonical.entity_count() >= 1400,
+        "canonical SKR 03 must retain its full account set after Bau hydration"
+    );
+
+    // Bau bundle: 6-digit IRI base, includes trade-specific extensions.
+    assert!(
+        bau.resolve_iri(&format!("{SKR03_BAU_IRI_PREFIX}/007510")).is_some(),
+        "Bau extension 007510 must resolve in Bau bundle"
+    );
+
+    // Cross-resolve: Bau IRI must NOT resolve in canonical bundle and vice versa.
+    assert!(
+        canonical.resolve_iri(&format!("{SKR03_BAU_IRI_PREFIX}/007510")).is_none(),
+        "Bau IRI must not resolve in canonical SKR 03 bundle"
+    );
+    assert!(
+        bau.resolve_iri(&format!("{SKR03_IRI_PREFIX}/1000")).is_none(),
+        "canonical SKR 03 IRI must not resolve in Bau bundle"
+    );
 }

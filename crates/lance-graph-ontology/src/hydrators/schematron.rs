@@ -128,7 +128,7 @@ fn walk_sch(
                 });
             }
             Ok(Event::Eof) => break,
-            Ok(Event::Start(e)) | Ok(Event::Empty(e)) => {
+            Ok(Event::Start(e)) => {
                 let qname = e.name();
                 let local: Vec<u8> = local_name(qname.as_ref()).to_vec();
                 let id = attr_value(&e, b"id");
@@ -148,6 +148,38 @@ fn walk_sch(
                         }
                         in_assert_or_report = true;
                         current_text_buf.clear();
+                    }
+                    b"pattern" => {
+                        if let Some(id) = id.as_deref() {
+                            let iri = format!("{base_iri}/pattern/{id}");
+                            intern(iri, iri_to_id, next_id);
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            // Self-closing `<assert .../>` / `<report .../>` / `<pattern .../>`
+            // emit Event::Empty WITHOUT a matching Event::End. We MUST NOT set
+            // `in_assert_or_report = true` here — there is no text body to
+            // collect, and leaving the flag stuck true causes downstream
+            // unrelated text to be scanned as rule text and produce spurious
+            // `/rule/...` IRIs (Codex P2 finding, PR #407 review).
+            Ok(Event::Empty(e)) => {
+                let qname = e.name();
+                let local: Vec<u8> = local_name(qname.as_ref()).to_vec();
+                let id = attr_value(&e, b"id");
+                match local.as_slice() {
+                    b"assert" => {
+                        if let Some(id) = id.as_deref() {
+                            let iri = format!("{base_iri}/assert/{id}");
+                            intern(iri, iri_to_id, next_id);
+                        }
+                    }
+                    b"report" => {
+                        if let Some(id) = id.as_deref() {
+                            let iri = format!("{base_iri}/report/{id}");
+                            intern(iri, iri_to_id, next_id);
+                        }
                     }
                     b"pattern" => {
                         if let Some(id) = id.as_deref() {
@@ -347,5 +379,67 @@ mod tests {
         let s = "Each VAT breakdown [shall have] this value [BR-45] and [99] is bad.";
         let ids = extract_business_rule_ids(s);
         assert_eq!(ids, vec!["BR-45".to_string()]);
+    }
+
+    const SELF_CLOSING_SCH: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+<schema xmlns="http://purl.oclc.org/dsdl/schematron" queryBinding="xslt2">
+  <pattern id="P-empty">
+    <rule context="//foo">
+      <!-- Self-closing assert: no message body, no End event. -->
+      <assert id="A-EMPTY-001" test="bar"/>
+      <!-- After the self-closing assert, this stray text mentioning
+           [BR-99] in a non-assert/non-report context MUST NOT be
+           picked up as a rule IRI. -->
+      <bar>Stray [BR-99] text outside any assert</bar>
+      <!-- Normal Start/End assert AFTER the empty: must work as usual. -->
+      <assert id="A-NORMAL-001" test="baz">[BR-42]-Real rule.</assert>
+    </rule>
+  </pattern>
+</schema>
+"#;
+
+    #[test]
+    fn self_closing_assert_does_not_capture_later_text() {
+        // Regression test for the Codex P2 finding (PR #407 review):
+        // `<assert .../>` emits Event::Empty with no matching End. Before
+        // the fix, `in_assert_or_report` was set true and never reset,
+        // so subsequent text bodies were scanned as rule message text
+        // and produced spurious /rule/... IRIs.
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("self-closing.sch");
+        let mut f = std::fs::File::create(&path).unwrap();
+        f.write_all(SELF_CLOSING_SCH.as_bytes()).unwrap();
+        drop(f);
+
+        let reg = OntologyRegistry::new_in_memory();
+        let h = SchematronHydrator {
+            g: 6666,
+            version: 1,
+            domain_name: "self-closing".to_string(),
+            inherits_from: None,
+            starting_entity_id: 100,
+            base_iri: "urn:schematron:test".to_string(),
+        };
+        h.hydrate_many(&[&path], &reg).expect("hydrate");
+
+        let bundle = reg.bundle_for(6666).expect("bundle");
+
+        // Assert IDs from both the empty and the normal assert resolve.
+        assert!(bundle.resolve_iri("urn:schematron:test/assert/A-EMPTY-001").is_some());
+        assert!(bundle.resolve_iri("urn:schematron:test/assert/A-NORMAL-001").is_some());
+        assert!(bundle.resolve_iri("urn:schematron:test/pattern/P-empty").is_some());
+
+        // BR-42 from the NORMAL assert's body must resolve (positive control).
+        assert!(
+            bundle.resolve_iri("urn:schematron:test/rule/BR-42").is_some(),
+            "BR-42 from the normal assert's message body must resolve"
+        );
+
+        // BR-99 from text OUTSIDE any assert/report must NOT resolve.
+        assert!(
+            bundle.resolve_iri("urn:schematron:test/rule/BR-99").is_none(),
+            "BR-99 was in stray text outside an assert; must NOT have been \
+             interned as a rule IRI (this was the P2 corruption case)"
+        );
     }
 }

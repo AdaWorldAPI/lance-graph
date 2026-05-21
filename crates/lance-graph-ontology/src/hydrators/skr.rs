@@ -91,10 +91,10 @@ impl SkrHydrator {
                 continue;
             }
             let iri = format!("{}/{}", self.iri_prefix, account_number);
-            if !iri_to_id.contains_key(&iri) {
+            if let std::collections::hash_map::Entry::Vacant(slot) = iri_to_id.entry(iri) {
                 let id = next_id;
                 next_id += 1;
-                iri_to_id.insert(iri, id);
+                slot.insert(id);
             }
         }
 
