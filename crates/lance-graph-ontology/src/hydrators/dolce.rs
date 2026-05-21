@@ -27,11 +27,20 @@ use std::path::{Path, PathBuf};
 
 use lance_graph_contract::manifest::OGIT;
 
-use super::owl::{HydrateErr, MetaStructureHydrator, OwlHydrator};
+use super::owl::{HydrateErr, OwlHydrator};
 use crate::registry::OntologyRegistry;
 
 /// Where the DUL TTL artifact lives, relative to the workspace root.
 const DUL_TTL_RELATIVE_PATH: &str = "data/ontologies/dul.ttl";
+
+/// DUL extension modules: small sibling ontologies that refine the DUL
+/// upper-category surface. Each shares the `dul:` namespace and is
+/// hydrated into the same `OGIT::DOLCE_V1` bundle so downstream consumers
+/// see one transitive L1 surface.
+const DUL_EXTENSION_RELATIVE_PATHS: &[&str] = &[
+    "data/ontologies/dul-extensions/conceptualization.owl",
+    "data/ontologies/dul-extensions/lmm-l2.owl",
+];
 
 /// Edge-IRI whitelist for the DOLCE+DUL cascade.
 ///
@@ -70,21 +79,41 @@ const DOLCE_EDGE_WHITELIST: &[&str] = &[
 ///
 /// Registers a [`super::owl::ContextBundle`] at `OGIT::DOLCE_V1.0` with
 /// `inherits_from: None` (the L1 root, the only hydrator that declares no
-/// parent). Reads `data/ontologies/dul.ttl` resolved against the workspace
-/// root (the `CARGO_MANIFEST_DIR` of `lance-graph-ontology` is
-/// `crates/lance-graph-ontology`, so we walk up two levels).
+/// parent). Hydrates the canonical `data/ontologies/dul.ttl` plus the
+/// available DUL extension modules under `data/ontologies/dul-extensions/`
+/// (Conceptualization patterns, LMM_L2 lexical metamodel) into one bundle.
 ///
 /// After hydration the cascade whitelist is registered via
 /// [`OntologyRegistry::register_edge_types`].
 pub fn hydrate_dolce(registry: &OntologyRegistry) -> Result<u32, HydrateErr> {
-    let ttl_path = dul_ttl_path();
-    hydrate_dolce_from(&ttl_path, registry)
+    let dul = dul_ttl_path();
+    let extensions: Vec<PathBuf> =
+        DUL_EXTENSION_RELATIVE_PATHS.iter().map(extension_path).collect();
+    let mut paths: Vec<&Path> = Vec::with_capacity(1 + extensions.len());
+    paths.push(&dul);
+    for ext in &extensions {
+        if ext.exists() {
+            paths.push(ext.as_path());
+        }
+    }
+    hydrate_dolce_from_many(&paths, registry)
 }
 
-/// Test-friendly variant: hydrate DOLCE from an explicit path. Used by tests
-/// that ship their own fixture or want to exercise the failure path.
+/// Test-friendly variant: hydrate DOLCE from an explicit single path
+/// (typically a test fixture). Use [`hydrate_dolce_from_many`] when you want
+/// to mix the canonical DUL.ttl with extension modules.
 pub fn hydrate_dolce_from(
     ttl_path: &Path,
+    registry: &OntologyRegistry,
+) -> Result<u32, HydrateErr> {
+    hydrate_dolce_from_many(&[ttl_path], registry)
+}
+
+/// Multi-file variant: hydrate DOLCE+DUL+extensions from explicit paths.
+/// Used by [`hydrate_dolce`] to merge the canonical DUL with sibling
+/// extension modules, and by tests that need to compose a custom bundle.
+pub fn hydrate_dolce_from_many(
+    paths: &[&Path],
     registry: &OntologyRegistry,
 ) -> Result<u32, HydrateErr> {
     let hydrator = OwlHydrator {
@@ -94,7 +123,7 @@ pub fn hydrate_dolce_from(
         inherits_from: None,
         starting_entity_id: 100,
     };
-    hydrator.hydrate(ttl_path, registry)?;
+    hydrator.hydrate_many(paths, registry)?;
     registry
         .register_edge_types(OGIT::DOLCE_V1.0, DOLCE_EDGE_WHITELIST)
         .map_err(|reason| HydrateErr::Registry {
@@ -111,6 +140,13 @@ fn dul_ttl_path() -> PathBuf {
         .join("..")
         .join("..")
         .join(DUL_TTL_RELATIVE_PATH)
+}
+
+fn extension_path(rel: &&str) -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("..")
+        .join(rel)
 }
 
 #[cfg(test)]

@@ -142,18 +142,35 @@ enum Format {
     RdfXml,
 }
 
-/// Detect serialization by extension. `.rdf` → RDF/XML, everything else
-/// (`.ttl`, `.owl`, `.nt`, …) → Turtle. FIBO is the canonical RDF/XML user;
-/// DOLCE+DUL / OWL-Time / PROV-O / QUDT / schema.org are all Turtle.
-fn detect_format(path: &Path) -> Format {
+/// Detect serialization by extension first, then content sniff as a fallback.
+/// `.rdf` → RDF/XML. `.ttl` / `.nt` / `.n3` → Turtle. For ambiguous `.owl`
+/// files (which exist in both Turtle and RDF/XML form in the wild) and
+/// unknown extensions, sniff the first ~200 bytes for an XML preamble or
+/// `<rdf:RDF>` opening tag.
+fn detect_format(path: &Path, bytes: &[u8]) -> Format {
     let ext = path
         .extension()
         .and_then(|s| s.to_str())
         .unwrap_or("")
         .to_ascii_lowercase();
     match ext.as_str() {
-        "rdf" | "rdfxml" => Format::RdfXml,
-        _ => Format::Turtle,
+        "rdf" | "rdfxml" | "owx" => Format::RdfXml,
+        "ttl" | "nt" | "n3" | "trig" => Format::Turtle,
+        _ => {
+            // `.owl` and unknown extensions: sniff the head.
+            let head = &bytes[..bytes.len().min(256)];
+            // Strip leading whitespace / BOM.
+            let trimmed = head
+                .iter()
+                .position(|b| !b.is_ascii_whitespace() && *b != 0xEF && *b != 0xBB && *b != 0xBF)
+                .map(|i| &head[i..])
+                .unwrap_or(head);
+            if trimmed.starts_with(b"<?xml") || trimmed.starts_with(b"<rdf:RDF") {
+                Format::RdfXml
+            } else {
+                Format::Turtle
+            }
+        }
     }
 }
 
@@ -198,7 +215,7 @@ impl OwlHydrator {
             // to oxrdfxml; everything else (.ttl, .nt, .n3) is treated as
             // Turtle and routed to oxttl. This keeps the hydrator API
             // single-method and the bO-* series free of per-format glue.
-            match detect_format(ttl_path) {
+            match detect_format(ttl_path, &bytes) {
                 Format::RdfXml => {
                     let parser = RdfXmlParser::new().for_slice(&bytes);
                     for triple in parser {

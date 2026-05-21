@@ -44,6 +44,30 @@ are: Endurant → Object, Perdurant → Event. The four upper categories
 in DUL are: Object, Event, Quality, Abstract (all direct sub-classes
 of Entity).
 
+DUL extension modules
+---------------------
+data/ontologies/dul-extensions/ holds sibling design-pattern modules
+shipped from the same upstream Ontology Design Patterns catalogue under
+the same CC-BY 4.0 license. Both are RDF/XML rather than Turtle, so
+the OwlHydrator's `detect_format` content-sniffer routes them through
+oxrdfxml automatically.
+
+- conceptualization.owl (~8 KB): patterns for agent-conceptualization
+  relations — `knows` / `believes` / `assumes` / `adopts` plus the
+  `InternalRepresentation` class. Refines the dul:conceptualizes
+  property surface used by cognitive-shader agency cascades.
+
+- lmm-l2.owl (~32 KB): Lexical MetaModel Level 2. Adds named-entity
+  recognition surface (`NamedEntity` / `Name` / `ConceptExpression` /
+  `ConceptReference` / `ContextualExpression` / `IndividualReference`
+  / `MultipleReference` / `Gloss`). Imports LMM_L1 and IOLite by URL;
+  those imports are not followed by the hydrator (the IRIs are still
+  interned as referenced names, but the imported triples are not).
+
+Both extensions hydrate into the same OGIT::DOLCE_V1 bundle as DUL.ttl
+via OwlHydrator::hydrate_many, so downstream consumers see one
+transitive L1 surface rather than three separate G slots.
+
 Attribution
 -----------
 DOLCE+DnS Ultralite is provided by the Laboratory for Applied Ontology
