@@ -4657,6 +4657,7 @@ dependencies = [
  "oxrdf",
  "oxrdfxml",
  "oxttl",
+ "quick-xml 0.37.5",
  "sha2 0.10.9",
  "tempfile",
  "thiserror 2.0.18",

@@ -26,6 +26,8 @@ pub mod provo;
 pub mod qudt;
 pub mod schemaorg;
 pub mod skos;
+pub mod xsd;
+pub mod zugferd;
 
 pub use dolce::{hydrate_dolce, hydrate_dolce_from, hydrate_dolce_from_many};
 pub use fibo::{hydrate_fibo_be, hydrate_fibo_be_from, hydrate_fibo_fnd, hydrate_fibo_fnd_from};
@@ -35,3 +37,5 @@ pub use provo::{hydrate_provo, hydrate_provo_from};
 pub use qudt::{hydrate_qudt, hydrate_qudt_from};
 pub use schemaorg::{hydrate_schemaorg, hydrate_schemaorg_from};
 pub use skos::{hydrate_skos, hydrate_skos_from};
+pub use xsd::{collect_xsd_files, XsdHydrator};
+pub use zugferd::{hydrate_zugferd, hydrate_zugferd_from};

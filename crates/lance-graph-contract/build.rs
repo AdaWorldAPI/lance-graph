@@ -37,6 +37,10 @@ const CANONICAL_SLOTS: &[(&str, u32)] = &[
     // FIBO Foundations and FIBO Business Entities.
     ("FIBOFND", 20),
     ("FIBOBE", 21),
+    // L3 e-invoicing schemas (PR-bO-16). ZUGFeRD/Factur-X is the
+    // German hybrid PDF/A-3+XML invoice format aligned with EN 16931.
+    // Hydrated as IRI-interning over UN/CEFACT CII XSDs via XsdHydrator.
+    ("ZUGFERD", 30),
 ];
 
 fn canonical_slot(token: &str) -> Option<u32> {
