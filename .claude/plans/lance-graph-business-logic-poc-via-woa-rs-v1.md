@@ -234,3 +234,131 @@ Failure modes that DON'T count as POC failures (acceptable in a v1 POC; queued f
 ## 13 — One-line summary
 
 > The first POC slice is woa-rs PR-5 (XRechnung visible reward) — the moment 6 months of lance-graph substrate work produces its first customer-deliverable artefact. P0 effort: ~7-8 days. P1 closes immediate post-POC iteration (parity dashboard + RLS unification via codegen-bucket pivot + MedCare/SMB cross-consumer harvest). P2 lights up the opt-in Cypher / similarity / MongoDB-alt-cold-path surfaces. The L1-L4 layered ontology dependency map (per the third attached distillation doc) is post-PR-407 / 408 already covered through L4 for the German-jurisdictional path the POC exercises; gaps (UBL, ISO 20022, XBRL GL, HGB/UStG/GoBD term extraction, Odoo work-steal) are P2 / P3 fill-in work AFTER the POC ships.
+
+---
+
+## 14 — Odoo OWL glue: parallel substrate stream feeding the cognitive models (2026-05-21, same session)
+
+User strategic reframe: **the Odoo-harvested OWL glue isn't a P3 nice-to-have — it's immediately important because the cognitive models need to be built AROUND it. In the end it's the most rewarding outcome once wired into lance-graph.** §3 priority ranking put Odoo at P3 (parallel stream); §14 elevates it to **parallel substrate stream feeding the cognitive models** — running concurrent with the POC, not after.
+
+### 14.1 The structural claim
+
+The cognitive substrate (thinking-engine, NARS inference, AriGraph triplet store, BindSpace SoA, CausalEdge64, MUL gate, 16-strategy planner) is only as semantically grounded as the OWL ontology it reasons over. Bar-code substrate without semantic anchor is just identity fingerprints addressing nothing meaningful. The L1-L4 layered hydrators shipped post-PR-407 + PR-408 give us the **formal ontology spine** (DOLCE upper + OWL-Time + PROV-O + QUDT + SKOS + FIBO-FND + FIBO-BE + schema.org + SKR03/04 + ZUGFeRD); what they DON'T give us is the **operational ERP vocabulary** that the cognitive models need to reason about Partners, Accounts, Invoices, Stock Moves, Manufacturing BOMs, HR Contracts, Payslips, Projects, Tasks, Mail Threads.
+
+Odoo has 20+ years of that operational vocabulary formalized as Python models + XML data files. Re-modelling it from FIBO/UBL/XBRL-GL alone is years of work; reading Odoo's source and emitting aligned OWL/SHACL is weeks (per `b9531cf3-odoo_work_steal_distillation.md` §"Premise"). **The Odoo work-steal is the cheapest path to a comprehensive OWL substrate for the cognitive models.**
+
+### 14.2 What "OWL glue" means concretely
+
+Per the third paragraph of the Odoo distillation doc and its §"Naming convention" + §"Concrete example" — the "glue" is the **alignment TTL** that ties Odoo URIs to upstream ontology classes:
+
+```turtle
+@prefix odoo: <https://ada.world/onto/odoo#> .
+@prefix fibo: <https://spec.edmcouncil.org/fibo/ontology/...> .
+@prefix vcard: <http://www.w3.org/2006/vcard/ns#> .
+
+odoo:res.partner  owl:equivalentClass  vcard:Kind .
+odoo:res.partner.vat  owl:equivalentProperty  fibo:hasTaxIdentifier .
+odoo:res.partner.Company  owl:equivalentClass  fibo:LegalEntity .
+
+odoo:account.move  owl:equivalentClass  gl-cor:entryHeader, fibo:Transaction .
+odoo:account.account  owl:equivalentClass  skr:Konto, fibo:Account .
+odoo:account.tax  owl:equivalentClass  de:Steuerschlüssel .
+
+odoo:product.template  owl:equivalentClass  schema:Product .
+odoo:uom.uom  owl:equivalentClass  qudt:Unit .
+```
+
+The glue is what makes a row of Odoo data reasonable-about as a `fibo:LegalEntity` + `vcard:Kind` simultaneously. The cognitive shader's 16-bit DOLCE slot (high-byte upper category + low-byte DnS role) classifies via the upper ontology; the OWL glue is what lets the slot classifier *know* that a `res.partner` row IS a `fibo:LegalEntity` (Endurant + Agent) and not, say, a `schema:Event` (Perdurant + Action).
+
+### 14.3 Why building cognitive models around it matters
+
+The cognitive shader doesn't reason about strings ("res.partner"); it reasons about typed semantic objects. **The OWL glue is what types them.** Without it:
+
+| Cognitive layer | What it does WITHOUT OWL glue | What it does WITH OWL glue |
+|---|---|---|
+| **AriGraph triplet store** | Stores triples like `<row_42, has_field_named, "name">` — opaque strings | Stores triples like `<row_42:fibo:LegalEntity, foaf:name, "Stefan IT GmbH">` — typed, reasoner-friendly |
+| **NARS inference** | Operates on free-floating term identifiers; no semantic prior | Operates on FIBO-typed entities; can dispatch by `fibo:LegalEntity` vs `fibo:Counterparty` vs `vcard:Individual` |
+| **MUL gate (Dunning-Kruger + trust)** | Calibrates uncertainty against undifferentiated "row types" | Calibrates differently per super-domain (Healthcare → conservative `MulThresholdProfile::MEDICAL`; WorkOrderBilling → permissive default) — the FIBO-shaped row IS the dispatch key |
+| **16-strategy planner** | Selects strategy by query-shape heuristics | Selects strategy by query-over-FIBO-shape: a `MATCH (c:fibo:LegalEntity)` invokes different cost model than `MATCH (e:fibo:Transaction)`; the cognitive policy reads OWL types |
+| **Cognitive shader 16-bit DOLCE slot classifier** | Returns slot 0xFFFF (undefined) for every row | Returns concrete (upper category, DnS role) for every row by walking `rdfs:subClassOf*` to the DOLCE root |
+| **CausalEdge64 v2 (per `cognitive-substrate-convergence-v1.md`)** | Edges carry causal weights but no semantic identity | Edges carry causal weights AND a 16-bit DOLCE slot of source + target so SpoWitness chains can reason FIBO-typed |
+
+This is what "build cognitive models around it" means structurally. The cognitive models are *parameterised by* the OWL ontology; they read OWL types at decision points. The Odoo glue provides the operational vocabulary those decisions key against.
+
+### 14.4 The wiring path — Odoo extraction → lance-graph cognitive substrate
+
+The path from Odoo's Python source to lance-graph's cognitive runtime:
+
+```
+Odoo source tree           Odoo extractor          Per-module TTL          Alignment TTL          hydrate_odoo_*           OntologyRegistry         Cognitive substrate
+(Python + XML + CSV)       (Rust, crates/         (one per Odoo            (hand-curated +        per-module functions    (CAM-addressable        (thinking-engine,
+                            odoo-extract/)         module, e.g.             LLM-draft-then-        following the           bar codes for          NARS, MUL, planner,
+                            (~1500 LOC)            odoo/base.ttl,           reviewed; ~100s of     established bO-*        every Odoo class +     CausalEdge64,
+                                                   odoo/account.ttl,        axioms each)           pattern (~50 LOC        every alignment        AriGraph, shader)
+                                                   odoo/l10n_de_skr04.ttl)                         per hydrator)           axiom)                  consume OWL types
+                                                                                                                                                    natively at every
+                                                                                                                                                    decision point
+        │                          │                       │                       │                       │                       │                       │
+        ▼                          ▼                       ▼                       ▼                       ▼                       ▼                       ▼
+    rustpython-parser         AST walker per          One TTL per             owl:equivalentClass     OwlHydrator             per-family codebook    Reasoner-friendly
+    + quick-xml + csv         models/*.py +           module + one CSV/       owl:equivalentProperty  with inherits_from:     storage (per-OGIT      Object Type + Link
+    parse the source          XML walker per          XML-derived TTL         + per-domain            Some(OGIT::DOLCE_       per §4.7) + Lance      Type + Action Type
+    tree without              data/*.{xml,csv}        per data file           alignment files         V1.0); inherits-        cache persistence      + Function Type
+    running Odoo                                                              (odoo→fibo,             from chain                                     surface
+                                                                              odoo→ubl, odoo→skr)     propagates DOLCE
+                                                                                                      categories
+```
+
+### 14.5 Deliverables — Odoo OWL glue as parallel substrate stream
+
+Re-ranking the Odoo work-steal from `b9531cf3-odoo_work_steal_distillation.md` §"Phased roadmap aligned with the L1-L4 distillation" against the POC priorities:
+
+| D-id (NEW) | From Odoo distillation Phase | Priority | Description | Effort |
+|---|---|---|---|---|
+| **D-ODOO-1** | O0 (bootstrap extractor) | **P1** (parallel to POC P0) | `crates/odoo-extract/` skeleton: `manifest.rs` (parse __manifest__.py) + `python_ast.rs` (rustpython-parser AST walker over models/*.py) + `emit_owl.rs` (sophia TTL emitter). Round-1 = `base` module only. | ~1 weekend (1500 LOC) |
+| **D-ODOO-2** | O1 (extract `base`) | **P1** (parallel to POC P0) | Run D-ODOO-1 against `base` module → `data/ontologies/odoo/base.ttl`. ~80 fields across `res.partner` / `res.users` / `res.company` / `res.country` / `res.currency` / `res.bank` / `res.lang`. | ~1 evening |
+| **D-ODOO-3** | O2 (hand-curate alignment for `base`) | **P1** (parallel to POC P0) | `data/ontologies/odoo/alignment/odoo-to-fibo.ttl` + `odoo-to-vcard.ttl` + `odoo-to-foaf.ttl`. ~100 alignment axioms. LLM-draft-then-reviewed acceptable. | ~1 evening |
+| **D-ODOO-4** | (new) | **P1** (parallel to POC P0) | `lance-graph-ontology::hydrators::odoo::hydrate_odoo_base` following the bO-* pattern; `inherits_from: Some(OGIT::DOLCE_V1.0)`; registers edge whitelist; lands at `OGIT::ODOO_BASE_V1`. ~50 LOC + 4 tests. | ~1 day |
+| **D-ODOO-5** | O3 (extract `account`) | **P1** (parallel to POC P1) | `odoo/account.ttl` + `alignment/odoo-to-fibo-gl.ttl`. `account.move` ↔ `gl-cor:entryHeader` + `fibo:Transaction` (the dual-nature mapping per §"Important" in the doc). `account.move.line` ↔ `gl-cor:entryDetail` + `fibo:JournalEntryLine`. | ~2 evenings + ~1 day for hydrator |
+| **D-ODOO-6** | O4 (extract `l10n_de_skr03` + `l10n_de_skr04`) | **P2** (substrate already covered by `hydrate_skr03` / `hydrate_skr04` from in-tree DATEV CSV) | Refresh path: pull Odoo's `account.account.template.csv` to confirm the in-tree SKR03/04 hasn't drifted. Diff against `data/skr/SKR0[34].csv`. If drift detected, regenerate. | ~1 evening (mostly a diff job) |
+| **D-ODOO-7** | (new — for the POC) | **P1** (gated on POC PR-5) | `data/ontologies/odoo/alignment/odoo-to-zugferd.ttl` — align `account.move` (move_type=out_invoice) to ZUGFeRD/Factur-X invoice shape. The PR-5 generator can then attribute the generated XRechnung to the Odoo-typed source row. | ~1 day |
+| **D-ODOO-8** | O9 (extract product / sale / purchase / stock) | **P2** (post-POC; broader ERP coverage) | Five more per-module TTLs + alignment files. ~1 weekend per module batch. | ~1 weekend |
+| **D-ODOO-9** | O7 (Python adapter for live ingest) | **P2** (post-POC; "two-version bridge" pattern) | `odoo-ada-adapter` package: `as_rdf(record) → rdflib.Graph` for export. Allows live Odoo deployments to feed RDF directly into the lance-graph cognitive substrate. | ~3 evenings |
+| **D-ODOO-10** | O8 (end-to-end demo) | **P2** (post-POC; the rewarding end-state) | First end-to-end demo: live Odoo instance → adapter → shared ontology → Rust cognitive cascade. Cognitive shader reasons about a real Odoo `res.partner` row as `fibo:LegalEntity + vcard:Kind`. | ~1 weekend |
+
+### 14.6 Revised §3 priority ranking — Odoo elevated to P1
+
+Updated priority table (revising the §3 row that had Odoo at P3):
+
+| Priority | Plan / phase | LOC + days | Reasoning |
+|---|---|---|---|
+| **P0** | woa-rs Phase 0-3 + PR-5 (XRechnung) | ~7-8 days | POC milestone. First customer-visible artefact. |
+| **P1** | woa-rs PR-6/7 + MedCare Phase 1-3 + SMB Phase A-B | ~15-20 days | Immediate post-POC iteration + cross-consumer harvest. |
+| **P1** (RAISED FROM P3) | **Odoo OWL glue D-ODOO-1 through D-ODOO-5 + D-ODOO-7** (~5 deliverables + alignment with PR-5) | **~1 weekend + ~3 days per deliverable = ~10-12 days net** | **Parallel substrate stream feeding the cognitive models. NOT blocking on POC completion — runs concurrently.** D-ODOO-7 lands gated on PR-5 to attribute generated XRechnung to Odoo-typed source rows. |
+| **P2** | All three consumer plans' Phase 4-5 (Cypher / SPARQL / CAM-PQ opt-in) | ~10-18 days | Post-POC opt-in features. |
+| **P2** | unified-bridge D-UB-11 cross-consumer parity test | ~120 LOC + 4 tests | Regression gate. |
+| **P2** | Odoo D-ODOO-6, D-ODOO-8, D-ODOO-9, D-ODOO-10 | ~3 weekends | Broader Odoo coverage + Python adapter + end-to-end demo. |
+
+### 14.7 Why this is the most rewarding end-state
+
+Once D-ODOO-10 lands, the lance-graph cognitive substrate reasons about ERP entities natively. Concretely:
+
+- **A Cypher query** like `MATCH (c:fibo:LegalEntity)-[:fibo:hasAccount]->(a:fibo:Account) WHERE c.country = 'DE' AND a.skr_konto STARTS WITH '8'` runs across the Lance projection of Odoo-extracted ERP data + DATEV SKR04 chart + FIBO foundations. Three ontology stacks, one query.
+- **The NARS inference engine** dispatches different evidence-update rules per OWL type: a contradiction between two `fibo:Counterparty` rows triggers identity-resolution; a contradiction between a `fibo:Transaction` and its `fibo:Account` triggers double-entry validation.
+- **The MUL gate** picks `MulThresholdProfile::FINANCIAL` for FIBO-typed reasoning (per the upcoming `super-domain-rbac-tenancy-v1.md` extension), `::MEDICAL` for Healthcare, `::DEFAULT` elsewhere — keyed on the OWL super-domain.
+- **The cognitive shader's 16-bit DOLCE slot classifier** has every Odoo entity pre-classified at hydration time (per §4.4's O(1) inheritance from family buckets); the cascade activates with `slot[high_byte=Endurant.Agent, low_byte=DnS.LegalActor]` for every `res.partner` row without runtime classification cost.
+- **The Foundry-style typed-object surface** (per `f6b68582-erp_foundry_hhtl_ontology_distillation.md` §"Foundry-style semantic surface") becomes navigable across Odoo's full operational vocabulary: every `res.partner` is an Object Type with typed Link Types (`fibo:hasAccount`, `fibo:hasCounterparty`), Action Types (`BookJournalEntry`, `ReconcileBankStatement`), Function Types (`computeVATPosition`, `runningBalance`).
+
+The reward isn't "wired correctly to one app" (that's PR-5). The reward is **the cognitive substrate becomes a Palantir-Foundry-class semantic-reasoning system grounded in real ERP semantics**. PR-5 is the proof the wiring works on one route; D-ODOO-10 is the proof the wiring works on the entire ERP semantic surface.
+
+### 14.8 What this DOES NOT change
+
+- woa-rs PR-5 stays the POC milestone (§2). Odoo work-steal does not displace the customer-visible reward arc.
+- The L1-L4 layered ontology dependency map (§5) stays. Odoo extraction LANDS on top of L1-L4 via `inherits_from: Some(OGIT::DOLCE_V1.0)`; it doesn't replace any L1-L4 hydrator.
+- The §4.7 per-OGIT-G-slot storage rule applies: every Odoo per-module TTL lands at its own `OGIT::ODOO_<MODULE>_V1` slot. `odoo:base` ≠ `odoo:account` ≠ `odoo:l10n_de_skr04` at the CAM substrate.
+- The §4.6 read-only spine governance applies: Odoo extraction emits `MappingProposal` streams via `OntologyRegistry::append_proposals` (per `b9531cf3-odoo_work_steal_distillation.md` §"Extraction methodology" Path A static path); no consumer crate mutates the spine.
+
+### 14.9 One-line summary
+
+> The Odoo work-steal is the parallel substrate stream feeding the cognitive models — elevated from P3 (parallel after POC) to **P1 (parallel concurrent with POC)** because the cognitive shader, NARS engine, MUL gate, 16-strategy planner, and CausalEdge64 substrate all reason BETTER per OWL type, and Odoo is the cheapest path to a comprehensive OWL substrate covering 20+ years of ERP semantics. D-ODOO-1 through D-ODOO-5 + D-ODOO-7 ship in parallel with woa-rs PR-1..PR-5. D-ODOO-10 (live Odoo → adapter → cognitive cascade end-to-end) is the rewarding end-state — the proof the substrate reasons about the entire ERP semantic surface, not just one route.
+
