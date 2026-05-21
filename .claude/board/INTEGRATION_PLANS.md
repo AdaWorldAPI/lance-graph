@@ -618,3 +618,53 @@ This sprint was orchestrated as 12 worker agents + 1 meta agent on branch `claud
 - `.claude/board/LATEST_STATE.md` — sprint-3 entry (paired with this index update)
 - `.claude/board/TECH_DEBT.md` — TD-OGIT-G-SLOT-1 through TD-DEEPNSM-NSM-COLLAPSE-11 (the 11 entries spec'd by sprint-3)
 - `.claude/board/sprint-log-3/` — coordination directory (12 agent logs + meta-1 + sprint-summary)
+
+## 2026-05-21 — unified-bridge-consumer-migration-v1 (UnifiedBridge wiring across woa-rs / smb-office-rs / MedCare-rs)
+
+**Status:** Active (DRAFT — sister to super-domain-rbac-tenancy-v1 §3.9)
+**Confidence:** HIGH on architecture (UnifiedBridge already shipped in lance-graph-callcenter; smb_unified_bridge is the working reference); MED on the SmbBridge promotion path (depends on `OGIT/NTO/SMB/` namespace landing upstream); HIGH on the medcare critical-path (D-UB-7 / D-UB-8 are concrete and bounded).
+**Plan file:** `.claude/plans/unified-bridge-consumer-migration-v1.md`
+**Predecessors:** `super-domain-rbac-tenancy-v1` (Tier A D-SDR-1..5 + §13.1 PolicyRewriter compositor)
+
+### Scope
+
+Three consumers (woa-rs, smb-office-rs, MedCare-rs) converge to one constructor pattern: `<repo>_unified_bridge(registry, actor_role, tenant) -> Result<UnifiedBridge<NamespaceBridge>>`. CAM-codebook + schema + label + verbs from OGIT + OWL/DOLCE materialised as `OgitFamilyTable` and persisted as a LanceDB column under the `lance-cache` feature. D-UB-1..11 across three tiers; D-UB-7 (fix `ontology_dto.rs:85`) is the critical path; D-UB-8 (RLS coverage for Treatment / Visit / VitalSign) is safety-critical.
+
+---
+
+## 2026-05-21 — lance-graph-in-woa-rs-v1 (greenfield consumer integration)
+
+**Status:** Active (DRAFT — six phases, additive)
+**Confidence:** HIGH on architecture (every step mirrors MedCare-rs or smb-office-rs reference); MED on Phase-4 ceiling (Cypher/SPARQL surface may or may not be wanted in production).
+**Plan file:** `.claude/plans/lance-graph-in-woa-rs-v1.md`
+**Predecessors:** `super-domain-rbac-tenancy-v1` (substrate); `unified-bridge-consumer-migration-v1` (Tier B D-UB-4)
+
+### Scope
+
+Lift woa-rs from zero-baseline (today: OGIT TTL vendored, sea-orm + MySQL writer-parity, no lance-graph dep) to "ontology + RBAC + Lance-third-writer" via six additive phases. Phase 0 mechanical (vendor + exclude). Phase 1 lands `woa-bridge` + `woa-ontology` crates. Phases 2-3 wire route handlers + Lance projection. Phases 4-5 opt-in Cypher + CAM-PQ. Respects 2026-05-15 DualSink-Pivot (MySQL stays authoritative; Lance is a third witness).
+
+---
+
+## 2026-05-21 — lance-graph-in-smb-office-rs-v1 (consumer integration completion)
+
+**Status:** Active (DRAFT — five phases, finish what unified_bridge_wiring's doc-comments already promise)
+**Confidence:** HIGH (most substrate ships — smb-bridge + smb-ontology + auth + rls features wired; smb_unified_bridge is the working reference for the cross-consumer migration plan).
+**Plan file:** `.claude/plans/lance-graph-in-smb-office-rs-v1.md`
+**Predecessors:** `super-domain-rbac-tenancy-v1` (Tier A); `unified-bridge-consumer-migration-v1` (Tier A D-UB-2 + Tier B D-UB-5)
+
+### Scope
+
+Phase A ships dedicated `SmbBridge` upstream (~50 LOC + 2 tests). Phase B authors `OGIT/NTO/SMB/` TTL + SMB-shaped role groups (`tax_clerk` / `partner` / `client_user` / `audit_observer`) per D-SDR-2 + swaps `smb_unified_bridge` from `UnifiedBridge<OgitBridge>` to `UnifiedBridge<SmbBridge>` (15-LOC type-parameter change). Phase C consolidates rich `auth::TenantId` ↔ transparent `callcenter::TenantId`. Phases D-E opt-in Cypher / CAM-PQ. Smallest delta of the three consumer plans.
+
+---
+
+## 2026-05-21 — lance-graph-in-medcare-rs-v1 (consumer integration in flight)
+
+**Status:** Active (DRAFT — seven phases, critical path on Phase 1 + 2)
+**Confidence:** HIGH on architecture; CRITICAL on Phase 1 (lance-phase2 build is broken at `ontology_dto.rs:85` — blocks everything); SAFETY-CRITICAL on Phase 2 (3 newly-OGIT-surfaced Healthcare entities have no RLS policy → fail-OPEN bypass risk); HIGH on Phase 5 (LanceProbe-side endpoints D-LGMC-7..11 are concrete per super-domain plan §18.7).
+**Plan file:** `.claude/plans/lance-graph-in-medcare-rs-v1.md`
+**Predecessors:** `super-domain-rbac-tenancy-v1` (Tier H D-SDR-35..39); `unified-bridge-consumer-migration-v1` (Tier C D-UB-6..10); lance-graph#355 (post-PR-355 migration arc)
+
+### Scope
+
+Phase 1 fix the lance-phase2 build (`MedcareOntology::default()` calls broken no-arg form). Phase 2 close RLS fail-OPEN for Treatment / Visit / VitalSign. Phase 3 ship `medcare_unified_bridge` constructor. Phase 4 wire `MulThresholdProfile::MEDICAL` + `ontology_context_id` third axis (§73 SGB V Überweisung). Phase 5 unblock LanceProbe M2..M6 with the 5 medcare-rs endpoints (D-LGMC-7..11). Phases 6-7 opt-in Cypher / CAM-PQ. Two-branch reality: `main` (full lance-phase2) vs `claude/scaffold-medcare-rs-rZD5A` (lean fallback) — most deliverables land on `main` only.
