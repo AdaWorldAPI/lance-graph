@@ -46,6 +46,15 @@ const CANONICAL_SLOTS: &[(&str, u32)] = &[
     // EN16931 / PEPPOL / CO / DE business-rule IDs from the message
     // bodies. Hydrated via SchematronHydrator.
     ("ZUGFERDRULES", 31),
+    // L3 German chart of accounts (PR-bO-13). DATEV SKR is the de-facto
+    // canonical bookkeeping scheme for HGB-compliant German SMEs.
+    // SKR 03 uses process-oriented family numbering; SKR 04 uses
+    // balance-sheet-oriented. Each is hydrated as a separate G slot
+    // because account numbers DO NOT mean the same thing across the two
+    // schemes (e.g. account 1000 is "Roh-, Hilfs- und Betriebsstoffe"
+    // in SKR 04 but "Kasse" in SKR 03).
+    ("SKR03", 40),
+    ("SKR04", 41),
 ];
 
 fn canonical_slot(token: &str) -> Option<u32> {

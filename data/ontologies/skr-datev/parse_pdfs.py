@@ -230,10 +230,14 @@ def main():
               "DATEV SKR 04 (Art.-Nr. 11175, 2023)")
     print(f"SKR 04: {len(skr04)}")
 
-    # SKR 03 Bau has 4 logical columns; account name+number columns are at
-    # char ranges [44, 90) and [130, 200).
+    # SKR 03 Bau has 4 logical columns; account name+number columns sit at
+    # char ranges [38, 100) and [128, 200). The left boundary was 44 in an
+    # earlier revision but rows with a function-code prefix (e.g. "F 1000 00
+    # Kasse") push the account number one column LEFT — slicing at 44 cut
+    # those numbers in half and dropped them from the output. Widening to
+    # 38 catches the function code AND the first digit of the number.
     skr03_text = extract_layout_text(skr03_pdf)
-    skr03_cols = slice_columns(skr03_text, [(44, 90), (130, 200)])
+    skr03_cols = slice_columns(skr03_text, [(38, 100), (128, 200)])
     accounts03 = {}
     for col in skr03_cols:
         walk_skr03_column(col, accounts03)
