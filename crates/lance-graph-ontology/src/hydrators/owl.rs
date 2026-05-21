@@ -20,6 +20,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use oxrdfxml::RdfXmlParser;
 use oxttl::TurtleParser;
 
 use crate::registry::OntologyRegistry;
@@ -135,6 +136,27 @@ impl MetaStructureHydrator for OwlHydrator {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Format {
+    Turtle,
+    RdfXml,
+}
+
+/// Detect serialization by extension. `.rdf` → RDF/XML, everything else
+/// (`.ttl`, `.owl`, `.nt`, …) → Turtle. FIBO is the canonical RDF/XML user;
+/// DOLCE+DUL / OWL-Time / PROV-O / QUDT / schema.org are all Turtle.
+fn detect_format(path: &Path) -> Format {
+    let ext = path
+        .extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    match ext.as_str() {
+        "rdf" | "rdfxml" => Format::RdfXml,
+        _ => Format::Turtle,
+    }
+}
+
 impl OwlHydrator {
     /// Multi-file variant. Interns named IRIs across every file in
     /// `ttl_paths` into a single [`ContextBundle`] keyed by `self.g`.
@@ -171,19 +193,43 @@ impl OwlHydrator {
                 path: ttl_path.to_path_buf(),
                 source: e,
             })?;
-            let parser = TurtleParser::new().for_slice(&bytes);
-            for triple in parser {
-                let triple = triple.map_err(|e| HydrateErr::Parse {
-                    path: ttl_path.to_path_buf(),
-                    message: e.to_string(),
-                })?;
-
-                if let oxrdf::Subject::NamedNode(n) = &triple.subject {
-                    intern(n.as_str(), &mut iri_to_id, &mut next_id);
+            // Dispatch parser by file extension. `.rdf` (and `.owl` when the
+            // serialization is RDF/XML — FIBO is the canonical example) routes
+            // to oxrdfxml; everything else (.ttl, .nt, .n3) is treated as
+            // Turtle and routed to oxttl. This keeps the hydrator API
+            // single-method and the bO-* series free of per-format glue.
+            match detect_format(ttl_path) {
+                Format::RdfXml => {
+                    let parser = RdfXmlParser::new().for_slice(&bytes);
+                    for triple in parser {
+                        let triple = triple.map_err(|e| HydrateErr::Parse {
+                            path: ttl_path.to_path_buf(),
+                            message: e.to_string(),
+                        })?;
+                        if let oxrdf::Subject::NamedNode(n) = &triple.subject {
+                            intern(n.as_str(), &mut iri_to_id, &mut next_id);
+                        }
+                        intern(triple.predicate.as_str(), &mut iri_to_id, &mut next_id);
+                        if let oxrdf::Term::NamedNode(n) = &triple.object {
+                            intern(n.as_str(), &mut iri_to_id, &mut next_id);
+                        }
+                    }
                 }
-                intern(triple.predicate.as_str(), &mut iri_to_id, &mut next_id);
-                if let oxrdf::Term::NamedNode(n) = &triple.object {
-                    intern(n.as_str(), &mut iri_to_id, &mut next_id);
+                Format::Turtle => {
+                    let parser = TurtleParser::new().for_slice(&bytes);
+                    for triple in parser {
+                        let triple = triple.map_err(|e| HydrateErr::Parse {
+                            path: ttl_path.to_path_buf(),
+                            message: e.to_string(),
+                        })?;
+                        if let oxrdf::Subject::NamedNode(n) = &triple.subject {
+                            intern(n.as_str(), &mut iri_to_id, &mut next_id);
+                        }
+                        intern(triple.predicate.as_str(), &mut iri_to_id, &mut next_id);
+                        if let oxrdf::Term::NamedNode(n) = &triple.object {
+                            intern(n.as_str(), &mut iri_to_id, &mut next_id);
+                        }
+                    }
                 }
             }
         }

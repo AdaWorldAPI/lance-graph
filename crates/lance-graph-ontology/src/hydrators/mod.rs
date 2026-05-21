@@ -19,6 +19,7 @@
 //! glue + one TTL artifact.
 
 pub mod dolce;
+pub mod fibo;
 pub mod owl;
 pub mod owltime;
 pub mod provo;
@@ -26,6 +27,7 @@ pub mod qudt;
 pub mod schemaorg;
 
 pub use dolce::{hydrate_dolce, hydrate_dolce_from};
+pub use fibo::{hydrate_fibo_be, hydrate_fibo_be_from, hydrate_fibo_fnd, hydrate_fibo_fnd_from};
 pub use owl::{ContextBundle, EntityId, HydrateErr, MetaStructureHydrator, OntologySlot, OwlHydrator};
 pub use owltime::{hydrate_owltime, hydrate_owltime_from};
 pub use provo::{hydrate_provo, hydrate_provo_from};

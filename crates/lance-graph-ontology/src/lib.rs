@@ -54,7 +54,8 @@ pub mod lance_cache;
 pub use bridge::{BridgeError, NamespaceBridge};
 pub use error::Error;
 pub use hydrators::{
-    hydrate_dolce, hydrate_dolce_from, hydrate_owltime, hydrate_owltime_from, hydrate_provo,
+    hydrate_dolce, hydrate_dolce_from, hydrate_fibo_be, hydrate_fibo_be_from, hydrate_fibo_fnd,
+    hydrate_fibo_fnd_from, hydrate_owltime, hydrate_owltime_from, hydrate_provo,
     hydrate_provo_from, hydrate_qudt, hydrate_qudt_from, hydrate_schemaorg, hydrate_schemaorg_from,
     ContextBundle, EntityId, HydrateErr, MetaStructureHydrator, OntologySlot, OwlHydrator,
 };

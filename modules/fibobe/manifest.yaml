@@ -1,0 +1,23 @@
+ogit_g: FIBOBE
+version: 1
+domain_name: fibobe
+inert_when_consumer_absent: true
+
+entity_types:
+  BusinessEntity:     u16=620
+  Corporation:        u16=621
+  LimitedLiabilityCompany: u16=622
+  GeneralPartnership: u16=623
+  SoleProprietor:     u16=624
+  Trust:              u16=625
+  Cooperative:        u16=626
+  NotForProfit:       u16=627
+  CorporateBody:      u16=628
+  Ownership:          u16=629
+  Control:            u16=630
+
+rbac_policy: ~
+stack_profile: ~
+action_capabilities: {}
+actor: ~
+inherits_from: dolce
