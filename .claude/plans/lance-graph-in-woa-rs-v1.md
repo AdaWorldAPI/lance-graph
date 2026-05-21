@@ -224,3 +224,129 @@ D-WLG-9 in §3 was framed as "Lance-side projection of WoA's MySQL tables ... wo
 
 > lance-graph-ontology is the hot path (resolution + RBAC + label + similarity + Cypher in O(1) or O(log n) over the codebook + Lance projection); sea-orm + MySQL is the cold path (writer-parity authoritative; byte-exact row values; the projection rebuilds from MySQL on drift). The 2026-05-15 DualSink-Pivot writer-parity contract is preserved; Lance is a READ replica, not a third writer.
 
+
+---
+
+## 10 — Ontology-virgin at the hot path, but OGIT already in sea-orm at the cold path (2026-05-21, same session)
+
+User correction: **woa-rs is ontology-virgin at the lance-graph-ontology hot path, BUT it already has the OGIT ontology baked into sea-orm entities at the cold path.** This collapses the work-remaining estimate significantly compared to a true greenfield port.
+
+### 10.1 What's already in tree at the cold-path DTO layer
+
+`vendor/ogit/v02-harvest/entities/*.ttl` is not just vendored TTL sitting unused. It's the **source the existing sea-orm entities were generated/hand-mirrored from**. Per `woa-rs/Cargo.toml` workspace structure + `RFC v02-006` (route codegen + ontology unification, DRAFT):
+
+| Layer | woa-rs status today |
+|---|---|
+| **Source-of-truth TTL** | `vendor/ogit/v02-harvest/entities/*.ttl` + `vendor/ogit/v02-harvest/POLICY.md` (the divergence ledger) |
+| **Sea-orm entities** | Customer / WorkOrder / Position / Tenant / User / Mahnung / Logbook / Dokument / Einsatz / Stundenzettel-Eintrag etc. — all derived from the TTL, hand-edited where Python source diverged. RFC v02-006 §"Ontology unification" §"Layer table" makes the mapping explicit. |
+| **MySQL schema** | sea-orm migrations carry the column shapes. DualSink-Pivot 2026-05-15 locks Python+Rust both writing the same MySQL. |
+| **Wire DTOs** | `src/dto/*.rs` — hand-written today; future codegen from TTL per RFC v02-006 Phase 5. |
+| **lance-graph-ontology hot-path** | NOT WIRED — no `woa-bridge` crate, no `OntologyRegistry` consumption, no `UnifiedBridge<WoaBridge>` constructor. |
+
+**The "ontology virgin" framing is correct at the hot path only.** At the cold path (sea-orm + MySQL writer-parity), the OGIT ontology IS already structurally present — each sea-orm entity name + its property set + its German/English wire labels (per `ogit:label` / `rdfs:label`) maps to the TTL's `ogit.WorkOrder:*` URIs. The mapping is a hand-mirroring today (per RFC v02-006 layer-by-layer status), not a codegen output yet, but the shape is established.
+
+### 10.2 The MedCare-rs reconciler pattern transfers directly
+
+`MedcareMysqlReconciler` (`MedCare-rs/crates/medcare-analytics/src/mysql_reconciler.rs`, 461 LOC, Round-1 = Patient) uses pluggable `PatientFetcher` closures so the production wiring is one config-site away:
+
+```rust
+// medcare-rs production pattern (what's in tree):
+pub trait PatientFetcher {
+    fn fetch_mysql(&self, id: u64) -> Option<CanonicalPatientRow>;
+    fn fetch_lance(&self, id: u64) -> Option<CanonicalPatientRow>;
+}
+// Production impl wraps medcare_db::queries::patient::get_patient(...)
+```
+
+**woa-rs gets the same shape for free** because sea-orm is ergonomic and self-explanatory. The Rust port is:
+
+```rust
+// woa-rs production pattern (to write):
+pub trait CustomerFetcher {
+    fn fetch_mysql(&self, kdnr: i32) -> Option<CanonicalCustomerRow>;
+    fn fetch_lance(&self, kdnr: i32) -> Option<CanonicalCustomerRow>;
+}
+
+// Production impl wraps sea-orm:
+impl CustomerFetcher for &DbConnection {
+    fn fetch_mysql(&self, kdnr: i32) -> Option<CanonicalCustomerRow> {
+        // sea-orm find_by_id is ~3 lines; tokio block_on at the trait boundary
+        // or change the trait to async fn (preferred)
+        let row = customer::Entity::find_by_id(kdnr).one(self).await.ok().flatten()?;
+        Some(CanonicalCustomerRow {
+            kdnr: row.kdnr,
+            firma: row.firma.unwrap_or_default(),
+            // ... 7 more fields the OGIT ontology declares for Customer
+        })
+    }
+    // fetch_lance wraps the WoaConnector::find_by_id over the Lance projection
+}
+```
+
+The reconciler shell (the `parse_<route>_route` + `diff_<entity>_rows` + `build_event` machinery) is verbatim from MedCare-rs. Only the `Canonical<Entity>Row` types and the `<Entity>Fetcher` traits are per-consumer.
+
+### 10.3 Phase 1 revision — woa-bridge is not greenfield, it's a MedCare-rs port
+
+§3 Phase 1 (`D-WLG-3` woa-bridge skeleton, `D-WLG-4` woa-ontology, ~200 + 250 LOC) was framed as mirroring MedCare-rs and smb-office-rs. The §10 reframe sharpens this: **the mirror is MedCare-rs specifically**, not smb-office-rs. Reasoning:
+
+| Aspect | MedCare-rs (mirror source for woa-rs) | smb-office-rs |
+|---|---|---|
+| Cold-path store | MySQL via sea-orm | MongoDB via BSON wire shape |
+| Cold-path fetcher | `medcare_db::queries::*` (sea-orm-shaped) | `MongoConnector::scan(...)` (BSON document iter) |
+| Reconciler | `MedcareMysqlReconciler` (MySQL ↔ Lance) | `SmbMongoReconciler` (Mongo ↔ Lance) |
+| Bridge constructor | `medcare_unified_bridge` (TODO, D-LGMC-4) | `smb_unified_bridge` (shipped, parameterised over OgitBridge) |
+| Lance-cache wiring | `MedcareRegistry::hydrate_with_report(ttl_root)` returns registry + bridge + HydrationReport | `smb-bridge[lance]` feature gates the LanceConnector |
+
+woa-rs's sea-orm + MySQL shape is **homologous to MedCare-rs's medcare_db + MySQL shape.** The reconciler + constructor + registry-helper all mirror MedCare's structure with sea-orm queries substituted for `medcare_db::queries::*`. Smb-office-rs is the template SOURCE for the bridge-wiring pattern (per `lance-graph-in-smb-office-rs-v1.md` §7), but for the storage-tier MIRROR, MedCare-rs is the right reference.
+
+### 10.4 Revised effort estimate
+
+| Phase | Original §3 estimate | §10 revised |
+|---|---|---|
+| Phase 0 (vendor + exclude) | 1 day mechanical | **Unchanged** — 1 day. |
+| Phase 1 (woa-bridge + woa-ontology) | 3 days, "mirroring MedCare-rs and smb-office-rs references" | **2 days revised.** The sea-orm entity authoring is already done; Phase 1 is `WoaRegistry::hydrate()` helper (~50 LOC mirror of `MedcareRegistry`) + `woa_unified_bridge` constructor (~50 LOC mirror of `smb_unified_bridge` with `WoaBridge` type param) + `woa-ontology` declarations crate (~100 LOC; smaller than MedCare's because the entity shapes already exist in sea-orm, so the ontology crate is mostly the SemanticType + Marking + ObjectView annotations, not the entity declarations themselves). Total ~200 LOC + 4 tests. |
+| Phase 2 (route-handler integration) | 4 days, "labour-intensive" | **3 days revised.** `OntologyState` extension + Mandant↔TenantId mapping + permission↔actor_role mapping (~170 LOC + 8 tests). Fewer handlers than original framing because RFC v02-006 codegen (when it lands) will absorb most route-shape work; the manual integration is just for the routes touching the unified bridge surface (~6-8 handlers initially). |
+| Phase 3 (lance-cache + Lance projection) | 5 days | **3-4 days revised.** D-WLG-8 (`lance-cache` feature, ~100 LOC + 4 tests) unchanged. D-WLG-9 (Lance-side projection of MySQL tables) IS the WoaMysqlReconciler — NEW deliverable below, see §10.5. D-WLG-10 (RLS via `OntologyRegistry::enumerate("WorkOrder")`) unchanged. |
+| Phase 4 + 5 (Cypher / SPARQL, CAM-PQ) | 10 + 5 days opt-in | **Unchanged** — opt-in adopts the planner + CAM-PQ surfaces. |
+
+**Phase 0-3 closure revised from ~13 days to ~9-10 days** with the sea-orm OGIT shortcut + MedCare-rs reconciler pattern transfer. Phases 4-5 stay opt-in (~15 additional days if both ship).
+
+### 10.5 New deliverable — WoaMysqlReconciler
+
+- **D-WLG-15 (NEW)** — `woa-rs/crates/woa-bridge/src/mysql_reconciler.rs::WoaMysqlReconciler<F: CustomerFetcher>` mirroring `medcare-analytics::mysql_reconciler::MedcareMysqlReconciler` 1:1 with `CanonicalCustomerRow` (8-10 fields per `vendor/ogit/v02-harvest/entities/Customer.ttl`) substituted for `CanonicalPatientRow`. Same `Reconciler` trait impl, same `DriftKind` (Match / ValueDrift / ShapeDrift / MissingMysql / MissingLance), same pluggable-fetcher pattern for unit testing. Round-1 scope: `/api/customers/{kdnr}` (the WoA Kunden detail route). ~80 LOC + 11 tests (mirroring the medcare-rs reconciler test suite verbatim). **Round-2 expansion (WorkOrder / Position / Mahnung / Tenant) lands as separate ~80 LOC + 5 test PRs on the same shell.**
+- **D-WLG-16 (NEW)** — Production query-handle wiring for `WoaMysqlReconciler`'s `CustomerFetcher`: wraps `customer::Entity::find_by_id(kdnr).one(&db).await` for the MySQL side + the corresponding Lance read via `WoaConnector::find_by_id(kdnr)` for the SPO/Lance side. ~50 LOC + 2 integration tests against a real MySQL fixture + Lance dataset (gated behind `--features mysql-integration lance-phase2`).
+- **D-WLG-17 (NEW)** — `POST /api/__parity/csharp` (or equivalent — there is no C# parity tool for woa-rs yet) — actually NOT needed; woa-rs has no diverse-redundancy client like MedCareV2 LanceProbe. The reconciler's drift events sink directly to the persistent `LanceAuditSink` (or in-process ring buffer until D-LGMC-21 lands LanceAuditSink upstream). ~40 LOC + 2 tests for the drift-event dashboard endpoint `GET /api/__parity`.
+
+### 10.6 Implication for the cross-consumer harvest order (per smb-office-rs §7.4)
+
+Updated harvest diagram:
+
+```
+              ┌─────────────────────────────────────────────────┐
+              │ smb-office-rs                                   │
+              │  ships UnifiedBridge wiring template            │
+              │  (smb_unified_bridge as the reference)          │
+              └────────────────────┬────────────────────────────┘
+                                   │ pattern harvest
+                ┌──────────────────┴──────────────────┐
+                │                                     │
+                ▼                                     ▼
+   ┌───────────────────────────────┐    ┌───────────────────────────────┐
+   │ MedCare-rs                    │    │ woa-rs                        │
+   │  has: parallelbetrieb shipped │    │  has: OGIT in sea-orm; cold   │
+   │       + MysqlReconciler shell │    │       path entities established│
+   │  needs: medcare_unified_bridge│    │  needs: woa-bridge crate +    │
+   │         constructor + Phase 5b│    │         WoaMysqlReconciler    │
+   │         Round-2 expansion      │    │         (mirror MedCare      │
+   │                                │    │          MysqlReconciler 1:1)│
+   └────────────────┬───────────────┘    └───────────────────────────────┘
+                    │                                     ▲
+                    │ reconciler-pattern harvest          │
+                    └─────────────────────────────────────┘
+```
+
+**Two-axis harvest:** smb-office-rs → bridge-wiring template (`<repo>_unified_bridge`); MedCare-rs → reconciler-pattern (`<repo>MysqlReconciler` + cross-source diff). woa-rs absorbs both axes; the sea-orm cold-path it already has makes the MedCare-rs axis particularly clean to copy.
+
+### 10.7 One-line summary
+
+> woa-rs is ontology-virgin at the lance-graph-ontology hot path BUT already has OGIT baked into sea-orm entities at the cold path; the MedCare-rs MysqlReconciler pattern transfers 1:1 with sea-orm fetchers (sea-orm ergonomics + self-explaining API make this cheap). Phase 0-3 closure revised from ~13 to ~9-10 days; new D-WLG-15..17 add WoaMysqlReconciler + production wiring + drift dashboard mirroring the MedCare-rs shape.
