@@ -111,18 +111,59 @@ Hot path (every Cypher/SPARQL/Gremlin query that touches a row):
 
 **Per-row LanceDB overhead is 6 bytes** (tenant_id u32 + owl_id u16). The codebook + label + schema + verbs do NOT live on each row — they live ONCE in the static OgitFamilyTable, addressed by the 2-byte owl_id. This is the "O(1) lookup cached in lancedb column" property: the table is materialised at boot, persisted by the `lance-cache` feature so re-hydration is O(rows) once not O(rows × ttl-parse-cost), and consulted by the same masked u16 compare DataFusion lowers Cypher MATCH to (§3.10).
 
-### 4.1 OWL/DOLCE cross-walk surface
+### 4.1 OWL/DOLCE cross-walk — the source material for the OGIT mapping
 
-The `MetaAnchors` field (super-domain-rbac §3.5) on each `SuperDomainEntry` carries pointers to upper ontologies:
+**The cross-walk table below is not an interop crutch — it is the source material from which `lance-graph-ontology` *constructs* the OGIT/OWL/DOLCE mapping.** External standards (DOLCE+DUL, OWL-Time, PROV-O, QUDT, schema.org, FIBO, SKOS, …) ride in as TTL/OWL artifacts; the hydrators ingest them; the OGIT canonical classification (per-family codebook of §3.3, edge whitelists, inherits-from chain at `OGIT::*_V1` slots) is the *synthesis* that emerges. lance-graph-ontology is the construction site; the hydrators are the construction tool; the cross-walk standards are the bricks.
 
-| Cross-walk | Field | Consulted when | Populated by (concrete hydrator) |
+Direction of build:
+
+```
+External standards          →   Hydrator (consumes TTL/OWL/XSD/SKR)  →   OGIT canonical surface
+─────────────────────────       ──────────────────────────────────       ──────────────────────────────
+DOLCE+DUL.owl             ──►  hydrate_dolce                       ──►  OGIT::DOLCE_V1 bundle
+  + DUL extensions                                                       (root, inherits_from: None)
+                                                                         + 17-IRI edge whitelist
+
+OWL-Time.ttl              ──►  hydrate_owltime                     ──►  OGIT::OWLTIME_V1 bundle
+PROV-O.ttl                ──►  hydrate_provo                       ──►  OGIT::PROVO_V1 bundle
+QUDT 2.1                  ──►  hydrate_qudt                        ──►  OGIT::QUDT_V1 bundle
+schema.org.ttl            ──►  hydrate_schemaorg                   ──►  OGIT::SCHEMAORG_V1 bundle
+                                  (all four inherits_from: Some(OGIT::DOLCE_V1.0))
+
+SKOS.ttl                  ──►  hydrate_skos                        ──►  OGIT::SKOS_V1 bundle
+FIBO-FND                  ──►  hydrate_fibo_fnd                    ──►  OGIT::FIBO_FND_V1 bundle
+FIBO-BE                   ──►  hydrate_fibo_be                     ──►  OGIT::FIBO_BE_V1 bundle
+                                                                         (inherits FND, not DOLCE direct)
+
+ISO Schematron rules      ──►  SchematronHydrator                  ──►  rule-pattern bundle entries
+XSD type defs             ──►  XsdHydrator                         ──►  type-def bundle entries
+ZUGFeRD/Factur-X (EN16931)──►  hydrate_zugferd + hydrate_zugferd_rules
+                               (composes XsdHydrator + Schematron)  ──►  ZUGFeRD-specific bundle
+DATEV SKR 03/04/03-Bau    ──►  SkrHydrator + hydrate_skr*          ──►  account-hierarchy bundles
+                                                                         (SKR03_IRI_PREFIX etc.)
+
+                          The OGIT mapping IS the union of:
+                            • OGIT::*_V1 G-slots populated by the above
+                            • the inherits-from DAG that chains them
+                            • the per-family codebook (§3.3) with
+                              FamilyEntry { label_uri, kind, dolce_marker,
+                                             owl_characteristics, axiom_blob,
+                                             provenance, verbs }
+                              at every OwlIdentity slot
+```
+
+The `MetaAnchors` struct on `SuperDomainEntry` (super-domain-rbac §3.5) is the **runtime read surface** over this constructed mapping — the field shapes are:
+
+| MetaAnchors field | What it points at | Built from which hydrator's output | Read at runtime by |
 |---|---|---|---|
-| Foundry ObjectType | `foundry_object_type: Option<&'static str>` | Customer requests Foundry-shape export | Not auto-populated; manual cross-walk per `super-domain-rbac-tenancy-v1.md` §10 OQ-1. `lance_graph_ontology::hydrators::hydrate_schemaorg` and `hydrate_fibo_be` provide the upper-class anchors Foundry typically maps to. |
-| OWL upper class | `owl_upper_class: Option<&'static str>` | OWL reasoner runs over the same registry | `lance_graph_ontology::hydrators::hydrate_dolce` (L1 root, `OGIT::DOLCE_V1`, `inherits_from: None`). Resolves `rdfs:subClassOf` / `owl:equivalentClass` chains for the upper-category subsumption (Object / Event / Quality / Abstract). |
-| DOLCE marker | `dolce_marker: DolceMarker` (Endurant / Perdurant / Quality / Abstract) | Per-row philosophical-category tagging | `lance_graph_ontology::hydrators::hydrate_dolce` populates the L1 bundle; downstream hydrators (`hydrate_owltime`, `hydrate_provo`, `hydrate_qudt`, `hydrate_schemaorg`, …) `inherits_from: Some(OGIT::DOLCE_V1.0)` and align via the `dul:isClassifiedBy` / `subClassOf dul:Event|Object|Quality|Abstract` chain DOLCE preserves. **Note:** canonical DOLCE+DUL renames `Endurant → Object` and `Perdurant → Event` per the DUL header — the `DolceMarker` enum either stays on the legacy naming (with downstream consumers aware of the renaming) or migrates at the cost of one source-tree-wide find/replace. Decide before D-UB-3. |
-| Wikidata QID | `wikidata_qid: Option<u64>` | Wikidata sync / sameAs link generation | Not in the current hydrator surface — would need a `hydrate_wikidata` glue (~50 LOC) following the same `OwlHydrator { g, version, domain_name, inherits_from, starting_entity_id }` pattern. Probably deferred until a tenant explicitly requests Wikidata sync. |
+| `foundry_object_type: Option<&'static str>` | Foundry ObjectType string like `"PhysicalSystem"` | Cross-walk authored from `hydrate_schemaorg` + `hydrate_fibo_be` outputs (the upper-class anchors Foundry maps to). NO auto-population — per `super-domain-rbac-tenancy-v1.md` §10 OQ-1 ("Foundry ObjectType cross-walk targets … need product-side input"). | Foundry-shape export path; not by `authorize()`. |
+| `owl_upper_class: Option<&'static str>` | OWL upper-class IRI like `"BiomedicalOntology"` | `hydrate_dolce`'s `OGIT::DOLCE_V1` bundle (the 17-IRI cascade preserves `rdfs:subClassOf` / `owl:equivalentClass` chains). | OWL reasoner running over the registry. |
+| `dolce_marker: DolceMarker` (Endurant / Perdurant / Quality / Abstract) | DOLCE primary category at the per-row philosophical-category tag | `hydrate_dolce` populates DOLCE_V1; downstream `hydrate_owltime` / `provo` / `qudt` / `schemaorg` align via `inherits_from: Some(OGIT::DOLCE_V1.0)` + `dul:isClassifiedBy` / `rdfs:subClassOf dul:Event\|Object\|Quality\|Abstract`. **DolceMarker enum naming open question:** canonical DOLCE+DUL renamed `Endurant → Object` and `Perdurant → Event` in the DUL header — the enum variants either stay on the legacy `Endurant/Perdurant` (with downstream consumers aware of the rename) or migrate to `Object/Event`. Decide before D-UB-3 + reflect in the §4.3 hydrator inventory. | Per-row tagging in `FamilyEntry.dolce_marker`. |
+| `wikidata_qid: Option<u64>` | Wikidata QID like `Q11190` | NOT YET BUILT — no `hydrate_wikidata` hydrator exists. Adding one is ~50 LOC of `OwlHydrator { g: OGIT::WIKIDATA_V1.0, inherits_from: Some(OGIT::DOLCE_V1.0), … }` glue once a tenant requests Wikidata sync. | Wikidata sync / `sameAs` link generation. |
 
-These are **interop crutches**, not the hot path. The 4-stage `authorize()` never consults them; the per-family codebook is the runtime fast lane. OWL/DOLCE values ride in `FamilyEntry.axiom_blob` for slots that carry semantic obligations (functional / transitive / inverseFunctional / etc., per `GLUE_LAYER_OGIT_TO_OWL_SPEC.md` 1-byte bitfield).
+The `MetaAnchors` fields are **the read API over what the hydrators built**. The 4-stage `authorize()` doesn't consult them directly — it operates on `OwlIdentity` against the per-family codebook. The cross-walks are consulted when interop with an external system (Foundry export, OWL reasoner, Wikidata sync) is requested.
+
+OWL property characteristics (functional / transitive / inverseFunctional / etc., per `GLUE_LAYER_OGIT_TO_OWL_SPEC.md` 1-byte bitfield in `FamilyEntry.owl_characteristics`) flow the same way — `hydrate_dolce` + the L2/L3 hydrators preserve the OWL axioms in `FamilyEntry.axiom_blob`, and the bitfield is the runtime cache over them.
 
 ### 4.2 Lance-cache persistence (the "cached in lancedb column" property)
 
@@ -148,9 +189,9 @@ Reads are append-only; writes go through `MappingProposal::sha256()`-keyed dedup
 
 **This is what makes the codebook "O(1) cached in lancedb column":** the column store IS the cache; reads are scan-then-build-in-memory once at boot; lookups are array-index on `OwlIdentity.slot()` after.
 
-### 4.3 Hydrator inventory (post-PR #407)
+### 4.3 Hydrator inventory (post-PR #407) — the construction tool
 
-The OWL/DOLCE/OGIT cross-walk surface this plan referenced abstractly is now concrete in `lance_graph_ontology::hydrators::*` (PR #407 + the ~11 preceding feature commits). Every hydrator follows the same shape — a free function `hydrate_<name>(registry: &OntologyRegistry) -> Result<u32, HydrateErr>` that constructs an `OwlHydrator { g: OGIT::<SLOT>.0, version: OGIT::<SLOT>.1, domain_name: "<name>".to_string(), inherits_from: Option<u32>, starting_entity_id: 100 }`, calls `.hydrate(ttl_path, registry)` (or `.hydrate_many(&paths, registry)` for multi-file bundles like DOLCE+DUL+extensions), then registers an edge-IRI whitelist via `registry.register_edge_types(g, &EDGE_WHITELIST)`. The return value is the OGIT `G` slot u32 the bundle landed in.
+The hydrators that build the OGIT/OWL/DOLCE mapping (per §4.1) are now concrete in `lance_graph_ontology::hydrators::*` (PR #407 + the ~11 preceding feature commits; PR #408 wires the corresponding `NamespaceRegistry::seed_defaults` entries so the OGIT G-slots register at boot). Every hydrator follows the same shape — a free function `hydrate_<name>(registry: &OntologyRegistry) -> Result<u32, HydrateErr>` that constructs an `OwlHydrator { g: OGIT::<SLOT>.0, version: OGIT::<SLOT>.1, domain_name: "<name>".to_string(), inherits_from: Option<u32>, starting_entity_id: 100 }`, calls `.hydrate(ttl_path, registry)` (or `.hydrate_many(&paths, registry)` for multi-file bundles like DOLCE+DUL+extensions), then registers an edge-IRI whitelist via `registry.register_edge_types(g, &EDGE_WHITELIST)`. The return value is the OGIT `G` slot u32 the bundle landed in — i.e., the address of the synthesised mapping in OGIT space.
 
 **Generic substrate (the bO-* scaffold every hydrator instantiates):**
 
@@ -222,6 +263,26 @@ use lance_graph_ontology::{
   - **MedCare-rs** boots: `hydrate_dolce` + `hydrate_owltime` (Visit / Treatment chronology) + `hydrate_provo` (HIPAA audit trail) + `hydrate_qudt` (LabValue units, VitalSign measurements) + `hydrate_skos` (clinical-code thesauri — ICD-10 mappings) + future `OGIT/NTO/Healthcare` hydration.
 
 The bridge constructor never sees `OwlHydrator` directly — it sees a hydrated `OntologyRegistry`. The deployment / `main.rs` of each consumer chooses the hydration menu.
+
+### 4.4 The hydrators are the spine that makes inheritance O(1) from family buckets
+
+The shape that earns the cost-model gains: **`inherits_from` + per-family codebook + family-bucket dense array together make schema, label, and codebook inheritance O(1) at lookup time.** Spelled out:
+
+| Inheritance flavour | Substrate | Lookup cost | Pre-bake step |
+|---|---|---|---|
+| **Schema inheritance** (a `Patient` in Healthcare resolves to `dul:Object → dul:Agent → dul:PhysicalAgent` per the DOLCE chain) | Each hydrator's `inherits_from: Option<u32>` chains its OGIT G-slot to its parent. `OGIT::DOLCE_V1` is the root (None). At hydration time, `OntologyRegistry` walks the `rdfs:subClassOf` / `owl:equivalentClass` chain ONCE and **flattens** it into `FamilyEntry.axiom_blob`. | O(1) — one masked u16 compare into `OgitFamilyTable[OgitFamily.0 as usize]`, then `.entries[OwlIdentity.slot() as usize]`. **Zero chain-walks at query time.** The flattened chain rides in the static blob. | At hydration: walk the OWL/DOLCE/PROV-O `subClassOf` graph from leaf to root, materialise as `axiom_blob`. Per-family lock-in by `inherits_from`. |
+| **Label inheritance** (`rdfs:label@de` / `rdfs:label@en` propagated from parent when child lacks an override) | `hydrate_<name>` reads `rdfs:label` per-locale at TTL parse time. When a slot has no own label, the inherits-from walker copies the parent's label into `FamilyEntry.label_uri` (or `.label_de` / `.label_en` once those columns ride the FamilyEntry — see `lance-cache` schema §4.2). | O(1) — same `OgitFamilyTable` array index → `FamilyEntry.label_*` field read. **Zero parent lookup at query time.** | At hydration: per-locale label collapse during the subClassOf walk. |
+| **Codebook inheritance** (per-family centroid reuses when a slot's content distribution overlaps the parent family's) | `PerFamilyCodebook` (§3.3) is sized 5-8 bit per family; when a child family's slot range overlaps the parent's centroid space, the child's `centroid_blob` REFERENCES the parent's centroid index directly (no per-child re-quantisation). The reference is a u8 offset into the parent codebook. | O(1) — `FamilyEntry.centroid_blob` → `parent_family.codebook[centroid_idx]`. **One indirection max.** | At hydration: when a child family's content distribution is statistically close to the parent's (Jirak-aware Berry-Esseen bound per `I-NOISE-FLOOR-JIRAK`), emit a centroid-reference instead of re-fitting. |
+
+**Why family buckets, not a flat dict:** A flat OGIT URI → entry HashMap costs ~50-100ns per lookup at scale (hash + collision walk + cache miss). The 256-slot dense `[Option<FamilyEntry>; 256]` per family + the high-byte family index makes it **two array indices, both predictable, both L1-cache-resident**: ~5ns. The 20× cost difference is the headline gain from the layered substrate.
+
+**What this means for downstream consumers:**
+
+- `woa-bridge` doesn't pay the OWL-reasoning cost at every `wo_detail` query. Whatever schema / label / codebook inheritance applies to `ogit.WorkOrder:Customer` is pre-baked into the `FamilyEntry` at boot; the route handler reads one entry in one array index.
+- `medcare-bridge`'s clinical-code lookups (ICD-10 / SNOMED via `hydrate_skos`) inherit their hierarchy chain at hydration; runtime cohort queries walk only the per-row identity, never the standards' subClassOf chain.
+- `smb-bridge`'s X-Rechnung validation against ZUGFeRD Schematron rules doesn't re-parse the rule set at every invoice — the rules are baked once at boot via `hydrate_zugferd_rules` into the same family-bucket structure, and the per-invoice check is one masked predicate per rule.
+
+**The construction tool (hydrators) and the runtime substrate (family buckets) are co-designed:** the hydrators only earn the O(1) property because they flatten the inheritance chains at construction time; the family buckets only earn the cost-model gain because the hydrators populate them with per-slot dense entries. Neither half works alone.
 
 ---
 
