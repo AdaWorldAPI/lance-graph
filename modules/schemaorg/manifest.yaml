@@ -1,0 +1,22 @@
+ogit_g: SCHEMAORG
+version: 1
+domain_name: schemaorg
+inert_when_consumer_absent: true
+
+entity_types:
+  Thing:         u16=530
+  Person:        u16=531
+  Organization:  u16=532
+  Place:         u16=533
+  Event:         u16=534
+  CreativeWork:  u16=535
+  Product:       u16=536
+  Action:        u16=537
+  Intangible:    u16=538
+  LegalPerson:   u16=539
+
+rbac_policy: ~
+stack_profile: ~
+action_capabilities: {}
+actor: ~
+inherits_from: dolce

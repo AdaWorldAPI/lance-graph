@@ -1,0 +1,40 @@
+schema.org
+==========
+
+Source
+------
+https://schema.org/
+https://schema.org/version/latest/schemaorg-current-https.ttl
+
+Authors
+-------
+Google, Microsoft, Yahoo, Yandex; schema.org community (W3C Schema.org
+Community Group).
+
+License
+-------
+Creative Commons Attribution-ShareAlike 3.0 Unported (CC-BY-SA 3.0)
+https://creativecommons.org/licenses/by-sa/3.0/
+
+The schema.org schemas themselves are dedicated to the community for
+use without restriction; the schema vocabulary documentation is
+licensed under CC-BY-SA 3.0.
+
+Usage in this repository
+------------------------
+data/ontologies/schemaorg.ttl is the canonical schema.org ontology
+(current HTTPS variant, ~1400 named classes and properties), hydrated
+by lance-graph-ontology as the L3 commercial-web slot
+OGIT::SCHEMAORG_V1.
+
+Declares inherits_from: Some(OGIT::DOLCE_V1.0). Provides the
+Thing / Person / Organization / Place / Event / Product / CreativeWork
+hierarchy, plus schema.org's distinctive flexible-typing surface
+(domainIncludes / rangeIncludes) that the cognitive-shader cascade
+treats as soft domain/range constraints.
+
+Citation
+--------
+Guha, R.V., Brickley, D., Macbeth, S. (2016). "Schema.org: Evolution
+of Structured Data on the Web." Communications of the ACM, 59(2),
+44-51.

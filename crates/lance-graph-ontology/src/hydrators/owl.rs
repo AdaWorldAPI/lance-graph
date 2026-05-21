@@ -131,13 +131,25 @@ pub struct OwlHydrator {
 
 impl MetaStructureHydrator for OwlHydrator {
     fn hydrate(&self, ttl_path: &Path, registry: &OntologyRegistry) -> Result<u32, HydrateErr> {
-        let bytes = fs::read(ttl_path).map_err(|e| HydrateErr::Io {
-            path: ttl_path.to_path_buf(),
-            source: e,
-        })?;
+        self.hydrate_many(&[ttl_path], registry)
+    }
+}
 
-        let parser = TurtleParser::new().for_slice(&bytes);
-
+impl OwlHydrator {
+    /// Multi-file variant. Interns named IRIs across every file in
+    /// `ttl_paths` into a single [`ContextBundle`] keyed by `self.g`.
+    ///
+    /// Use this when an ontology ships as multiple TTL artifacts that
+    /// logically constitute one ontology — e.g. QUDT (core schema + units
+    /// catalogue + quantity-kinds catalogue), FIBO (FND + BE + … bundle),
+    /// or schema.org full + extensions. Per-file order is preserved, and
+    /// IRIs seen earlier keep their lower `EntityId` so the interning is
+    /// deterministic given the input file order.
+    pub fn hydrate_many(
+        &self,
+        ttl_paths: &[&Path],
+        registry: &OntologyRegistry,
+    ) -> Result<u32, HydrateErr> {
         let mut iri_to_id: HashMap<String, EntityId> = HashMap::new();
         let mut next_id: EntityId = self.starting_entity_id;
 
@@ -154,25 +166,25 @@ impl MetaStructureHydrator for OwlHydrator {
             id
         };
 
-        for triple in parser {
-            let triple = triple.map_err(|e| HydrateErr::Parse {
+        for ttl_path in ttl_paths {
+            let bytes = fs::read(ttl_path).map_err(|e| HydrateErr::Io {
                 path: ttl_path.to_path_buf(),
-                message: e.to_string(),
+                source: e,
             })?;
+            let parser = TurtleParser::new().for_slice(&bytes);
+            for triple in parser {
+                let triple = triple.map_err(|e| HydrateErr::Parse {
+                    path: ttl_path.to_path_buf(),
+                    message: e.to_string(),
+                })?;
 
-            // Subject: intern only named nodes; blank nodes are skipped (they
-            // don't carry stable identity across reload).
-            if let oxrdf::Subject::NamedNode(n) = &triple.subject {
-                intern(n.as_str(), &mut iri_to_id, &mut next_id);
-            }
-
-            // Predicate: always a named IRI in RDF.
-            intern(triple.predicate.as_str(), &mut iri_to_id, &mut next_id);
-
-            // Object: intern named IRIs only; literals and blank nodes are
-            // skipped (Pattern D v1; literal store lands in a follow-up).
-            if let oxrdf::Term::NamedNode(n) = &triple.object {
-                intern(n.as_str(), &mut iri_to_id, &mut next_id);
+                if let oxrdf::Subject::NamedNode(n) = &triple.subject {
+                    intern(n.as_str(), &mut iri_to_id, &mut next_id);
+                }
+                intern(triple.predicate.as_str(), &mut iri_to_id, &mut next_id);
+                if let oxrdf::Term::NamedNode(n) = &triple.object {
+                    intern(n.as_str(), &mut iri_to_id, &mut next_id);
+                }
             }
         }
 

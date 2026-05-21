@@ -1,0 +1,21 @@
+ogit_g: PROVO
+version: 1
+domain_name: provo
+inert_when_consumer_absent: true
+
+entity_types:
+  Entity:        u16=510
+  Activity:      u16=511
+  Agent:         u16=512
+  Bundle:        u16=513
+  Collection:    u16=514
+  Location:      u16=515
+  Person:        u16=516
+  Organization:  u16=517
+  SoftwareAgent: u16=518
+
+rbac_policy: ~
+stack_profile: ~
+action_capabilities: {}
+actor: ~
+inherits_from: dolce

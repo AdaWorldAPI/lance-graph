@@ -555,7 +555,15 @@ fn test_runtime_lookup_known_keys() {
 fn test_all_g_slots_sorted_and_complete() {
     use lance_graph_contract::manifest::ALL_G_SLOTS;
 
-    assert_eq!(ALL_G_SLOTS.len(), 6, "must have 6 registered slots");
+    // Slots 0..=6 are the original domain-themed canonical slots;
+    // 10..=13 are the L2 universal upper-bridge ontologies added in the
+    // PR-bO-* series (TIME / PROVO / QUDT / SCHEMAORG, each declaring
+    // `inherits_from: dolce`).
+    assert!(
+        ALL_G_SLOTS.len() >= 6,
+        "at least 6 registered slots, got {}",
+        ALL_G_SLOTS.len()
+    );
     for window in ALL_G_SLOTS.windows(2) {
         assert!(
             window[0] < window[1],
@@ -564,7 +572,7 @@ fn test_all_g_slots_sorted_and_complete() {
         );
     }
 
-    // Must contain the canonical slots we defined
+    // Must contain the original canonical slots
     for expected in [0u32, 2, 3, 4, 5, 6] {
         assert!(
             ALL_G_SLOTS.contains(&expected),
