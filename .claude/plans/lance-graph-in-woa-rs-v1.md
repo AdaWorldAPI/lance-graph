@@ -561,3 +561,89 @@ PR-7 is the moment the unified-bridge integration looks **clean** — 317 routes
 ### 12.7 One-line summary
 
 > woa-rs's integration cost is bounded by codegen-template edits, not per-handler edits. The 660 routes across 13 buckets means a single per-bucket codegen change propagates the unified-bridge authorize call to all routes in that bucket (e.g., one edit upgrades 317 tenant-scoped routes in one PR — the §11 PR-7 RLS-unification step). The DTO/SoC layer means the reconciler mirror from MedCare-rs lands at the DTO seam, not the entity seam, reusing the existing per-bucket DTO definitions. Net Phase 0-3 closure: ~7-8 days.
+
+---
+
+## 13 — woa-rs ↔ lance-graph wiring IS the POC for 6 months of lance-graph substrate (2026-05-21, same session)
+
+User strategic stakes clarification: **lance-graph was worked on Claude-Code-intensively for up to 6 months. In that entire window, the project produced no end-user visible result — only mock GUIs, dashboards, unit-test feedback, and the substrate itself. Wiring the lance-graph business-logic surface into woa-rs is therefore not just one consumer-integration plan among three; it IS the POC for the entire 6-month substrate effort.**
+
+§11 (woa = rewarding target) + §12 (codegen-bucket integration) gave the engineering and shipping framing. §13 names the strategic stakes: **everything lance-graph has built between ~late 2025 and 2026-05-21 — every iron rule, every CAM-bar-code, every hydrator, every Cypher planner strategy, every UnifiedBridge primitive — gets its first end-user visible existence proof through this wiring.** The wiring is the deliverable; the substrate is what the deliverable proves.
+
+### 13.1 What "no visible results except mock GUI" means concretely
+
+Six months of work landed:
+
+- **Substrate** (22 crates, 7 in workspace, 15 excluded/standalone) — `lance-graph-contract`, `lance-graph-planner`, `lance-graph-ontology`, `lance-graph-callcenter`, `lance-graph-rbac`, `causal-edge`, `bgz17`, `bgz-tensor`, `deepnsm`, `holograph`, `jc`, `sigker`, ndarray, …
+- **Algebra** — VSA bundling in d=10000 (Chapman-Kolmogorov semigroup), Jirak-2016 noise-floor calibration, CAM-PQ codec, 7 GraphBLAS semirings, palette-codec compression cascade, attention-as-table-lookup
+- **Cognitive stack** — 36 thinking styles, MUL (Meta-Uncertainty Layer) Dunning-Kruger + trust qualia + compass + homeostasis + gate, 16-strategy unified planner, NARS inference, AriGraph triplet store, episodic memory ±5..±500, CausalEdge64 v2 layout
+- **Substrate iron rules** — I-SUBSTRATE-MARKOV, I-NOISE-FLOOR-JIRAK, I-VSA-IDENTITIES, I-LEGACY-API-FEATURE-GATED
+- **Ontology spine** — `lance-graph-ontology` with 10+ hydrators (DOLCE, OWL-Time, PROV-O, QUDT, schema.org, SKOS, FIBO-FND, FIBO-BE, Schematron, XSD, SKR DATEV, ZUGFeRD), `OntologyRegistry`, `NamespaceBridge`, the 5 default tenant bridges (Woa, Medcare, Ogit, Spear, SharePoint)
+- **Sprints + governance** — 12-worker autoattended sprints, 4-savant ensemble (PP-13/14/15/16), CCA2A A2A pattern, ATT NLSpec activation, the entire `.claude/board/` ledger
+- **Adjacent infrastructure** — sea-orm DTOs in woa-rs, parallelbetrieb reconciler in MedCare-rs, MongoDB bridge in smb-office-rs, the OGIT TTL upstream repo
+
+**End-user visible from any of this so far: mock GUIs only.** Dashboards exist (`/admin/parity` in MedCare-rs, the LanceProbe ParityPanel in MedCareV2), but only ops sees them. The cognitive stack runs in unit tests, not in any user-facing flow. The 16-strategy planner has no production callers. The CAM-PQ codec compresses things in benchmarks. The hydrators populate registries that nothing visible consumes.
+
+This is **expected for substrate work** — the value proposition is "build the spine first, then everything else gets cheap" — but it means there is **zero end-user adoption evidence** for any of it. Every architectural decision since ~late 2025 has been bet-the-substrate without a customer-visible payoff demonstrating return.
+
+### 13.2 Why woa-rs is the POC
+
+The criteria for "this proves the substrate worked":
+
+1. **Real customer.** Stefan deploys WoA in production (per `woa-rs/CLAUDE.md` glossary). The Rust port replacing Stefan's Python WoA is the first end-user contact between the lance-graph substrate and a real person paying for the result.
+2. **Real business logic.** 660 routes, ~20 functional families (Vorgaenge, Kunden, Einsatz, Mahnwesen, Stundenzettel, Logbook, …) — not a synthetic benchmark, not a mock domain. The cognitive stack has to demonstrate it can handle invoice generation, dunning escalation, time tracking, German tax compliance.
+3. **Real visibility.** Every PR has a URL. Stefan clicks through and sees the change. The substrate either delivers — visible PDFs, visible drift dashboards, visible cohort searches — or it doesn't.
+4. **Real failure modes.** Hot/cold drift, RLS-fail-OPEN, hydrator-replay non-idempotency, codebook overflow, OWL reasoner timeouts — these stop being theoretical when there's a real customer with real data hitting real routes.
+5. **Real economic feedback.** Stefan's time saved is the metric. Did the unified bridge make adding a new tenant cheaper? Did the parallelbetrieb reconciler catch a drift bug before it shipped? Did Cypher cross-entity queries replace a hand-rolled join that took 3 days to write? The answers are observable, not asserted.
+
+The other two consumer plans don't meet these criteria yet:
+
+- **MedCare-rs** has a real C# customer (the praxis users running MedCare today) but the Rust port doesn't replace anything user-visible yet — it sits behind LanceProbe as a parity witness; the user keeps using C#. The substrate proof MedCare-rs delivers is "drift events emit cleanly", which is ops-visible but not customer-visible.
+- **smb-office-rs** is pre-prod (per §7.1 in the smb plan). No customer is exposed to it.
+
+woa-rs is the only consumer plan where landing the integration means **a customer sees lance-graph working through a route they care about**. Every other consumer is a substrate proof for an internal audience.
+
+### 13.3 Implication: PR-5 (XRechnung) is the POC milestone
+
+§11.3's PR ladder has PR-5 (HARVEST 1: SMB → XRechnung in woa-rs) as the first visible-reward step. §13 elevates: **PR-5 is the moment lance-graph stops being substrate-only and starts being a customer-deliverable system.**
+
+What lands at PR-5:
+
+- The OGIT spine is hydrated (PR-3/4).
+- The unified bridge is constructed (PR-3).
+- The CAM bar-code substrate (§4.5) is addressing real Customer rows.
+- The hydrators (`hydrate_zugferd` + `hydrate_zugferd_rules` + `SchematronHydrator` + `XsdHydrator`) are producing valid EN16931 invoices for a real workorder.
+- Stefan can issue an invoice that's electronically conformant for German Mehrwertsteuer reporting. **That's a service the C# WoA doesn't offer today.**
+
+PR-5 is the smallest possible POC slice: one route handler, one customer-visible artefact (the XRechnung XML + Factur-X PDF), demonstrating that the substrate composes end-to-end through the unified bridge into a customer-paid-for outcome.
+
+### 13.4 What success looks like
+
+For the next session(s) wiring woa-rs, success is observable in three places:
+
+| Surface | What "POC working" looks like |
+|---|---|
+| **Stefan's browser** | Clicking through `/vorgaenge/<wid>/rechnung/xrechnung` returns a downloadable EN16931 invoice. Clicking `/admin/parity` shows green/red drift status per Customer row. Cross-tenant URL-guessing returns 404 (not 403). |
+| **Stefan's accountant** | The XRechnung file imports cleanly into DATEV / X-Rechnung validation tools. The Factur-X PDF renders correctly in any conformant viewer. |
+| **lance-graph's substrate ledger** | The `.claude/board/AGENT_LOG.md` for this PR sequence carries entries saying "first customer-visible exercise of [hydrator X, planner strategy Y, unified-bridge stage Z, RLS predicate W]." Every substrate primitive that participated in PR-5 gets its first real-load test. |
+
+If any of those don't materialize: the substrate has a regression, and PR-5 surfaces it the day it ships. That's the POC's diagnostic value — not "the substrate is good" but "we can tell when the substrate isn't good, because a real customer notices."
+
+### 13.5 What this changes about plan priorities across the three consumers
+
+The PR-ladder + visible-reward + substrate-proof reasoning across §11-§13 collapses to:
+
+| Priority | Plan / phase | Reasoning |
+|---|---|---|
+| **P0** | `lance-graph-in-woa-rs-v1.md` Phase 0-3 (~7-8 days per §12.6) + §11.3 PR-5 (XRechnung visible reward) | First end-user-visible existence proof of the 6-month lance-graph substrate. POC milestone. |
+| **P1** | `lance-graph-in-woa-rs-v1.md` PR-6/7 (parity dashboard + tenant RLS unification, ~3-4 days) | Second + third visible-reward milestones; both close major substrate gaps. |
+| **P1** | `lance-graph-in-medcare-rs-v1.md` Phase 1-3 (D-LGMC-1 build fix + D-LGMC-4 unified-bridge constructor + D-LGMC-2/3 RLS, ~5-7 days per §9.3) | Engineering-completeness POC; complements PR-5 by showing the substrate also works for a HIPAA-regulated transcode (not just a web app). |
+| **P1** | `lance-graph-in-smb-office-rs-v1.md` Phase A-B (D-LGSMB-1/2/3 SmbBridge upstream + role groups, ~7 days per §2) | Template-source completion; ships the canonical `SmbBridge` type-parameter swap so the unified-bridge surface stabilizes across all consumers. |
+| **P2** | `lance-graph-in-woa-rs-v1.md` Phase 4-5 (Cypher / SPARQL / CAM-PQ opt-in) + `lance-graph-in-medcare-rs-v1.md` Phase 6-7 + `lance-graph-in-smb-office-rs-v1.md` Phase D-E | Post-POC; once PR-5 establishes the integration works, the higher-leverage substrate surfaces (Cypher playground, similarity search) land as additive features. |
+| **P2** | `unified-bridge-consumer-migration-v1.md` Tier D D-UB-11 (cross-consumer parity test) | Regression gate for the three-way harvest; lands after all three consumers' Phase 1-3 closure. |
+
+The P0 above is **one block of work** — the first POC slice — that ends at PR-5. Everything after is post-POC iteration on a proven integration.
+
+### 13.6 One-line summary
+
+> Wiring the lance-graph business-logic surface into woa-rs IS the POC for 6 months of substrate work that has shipped zero customer-visible outcomes. Every iron rule, every CAM-bar-code, every hydrator, every Cypher strategy, every UnifiedBridge primitive gets its first end-user existence proof at woa-rs PR-5 (XRechnung visible reward). The other two consumer plans (MedCare-rs end-to-end target; smb-office-rs template source) complement the POC but don't substitute for it — neither has a customer in the loop yet. PR-5 is the smallest possible POC slice: one route handler, one customer-visible artefact, demonstrating the substrate composes end-to-end into a Stefan-paid-for outcome.
