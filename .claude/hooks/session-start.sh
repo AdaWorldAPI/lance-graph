@@ -51,6 +51,14 @@ Do NOT propose any new type, module, or convention without grepping LATEST_STATE
 
 .claude/skills/cca2a/SKILL.md — read once to grok the pattern, skip re-deriving.
 
+## Engineering spec (when implementing or auditing the agent kit)
+
+.claude/ATT/ — Attractor-style NLSpecs (DoD checklists + Cross-Language/Provider parity matrices):
+  - autoattended-orchestrator-spec.md  (wave loop, 4-savant slots PP-13/14/15/16, worker iron rules, validation WAVE-001..WAVE-017)
+  - anti-skim-agent-spec.md            (Reading-Depth Ladder, Lie-Detector LD-1..5, stuck-protocol blockers, AP1..AP9 anti-patterns)
+  - agent-coordination-mcp-spec.md     (Layer-0/1/2 coordination, handover schema, append-only governance §7.2)
+.claude/ATT/ACTIVATION.md — receipt: which DoD items this repo currently satisfies + which are explicit gaps.
+
 ## Full spec
 
 CLAUDE.md at workspace root.'
