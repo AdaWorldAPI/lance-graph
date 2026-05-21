@@ -64,8 +64,20 @@ fn namespace_registry_seed_defaults_assigns_canonical_v1_ids() {
     assert_eq!(r.get("Medical/DRON"), Some(18));
     assert_eq!(r.get("Medical/CHEBI"), Some(19));
 
-    // 16 seed mappings total (6 cognitive + 10 medical).
-    assert_eq!(r.len(), 16);
+    // Foundation reserved range 20..=29 (PR-bO-1..bO-5, bO-8).
+    assert_eq!(r.get("Foundation/DOLCE-DUL"), Some(20));
+    assert_eq!(r.get("Foundation/SKOS"), Some(25));
+
+    // FinancialAccounting reserved range 30..=39 (PR-bO-6, bO-7, bO-13, bO-15, bO-16).
+    assert_eq!(r.get("FinancialAccounting/FIBO-FND"), Some(30));
+    assert_eq!(r.get("FinancialAccounting/SKR03-Bau"), Some(36));
+
+    // 29 seed mappings total:
+    //   6 cognitive (SMB / WorkOrder / Healthcare / Network / Email / SharePoint)
+    // + 10 medical (ICD10CM..CHEBI)
+    // + 6 foundation (DOLCE-DUL, OWL-Time, PROV-O, QUDT, schema-org, SKOS)
+    // + 7 financial (FIBO-FND, FIBO-BE, ZUGFeRD, ZUGFeRD-Rules, SKR03, SKR04, SKR03-Bau)
+    assert_eq!(r.len(), 29);
 }
 
 #[test]
@@ -88,7 +100,8 @@ fn namespace_registry_allocate_is_idempotent_and_dense() {
     let id2 = r.allocate("Splat");
     assert_eq!(id2, 7);
     assert_ne!(id1, id2);
-    assert_eq!(r.len(), 18);
+    // Seed (29) + 2 new allocations = 31.
+    assert_eq!(r.len(), 31);
 }
 
 #[test]
