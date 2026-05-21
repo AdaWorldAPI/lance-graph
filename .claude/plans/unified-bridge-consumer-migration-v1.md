@@ -407,6 +407,44 @@ This is the same versioned-migration pattern the `I-LEGACY-API-FEATURE-GATED` ir
 - **D-UB-13 (NEW)** — Add the proposal_sha256 idempotency test if not already present. Re-hydrating the same TTL twice should produce zero new rows in the Lance cache dataset. ~40 LOC test, no new code.
 - **D-UB-14 (NEW)** — Versioned G-slot migration smoke test. Hydrate `OGIT::DOLCE_V1` + `OGIT::DOLCE_V2` (synthetic V2 in a test fixture) into the same registry; assert consumers pinned to V1 see V1 only, consumers pinned to V2 see V2 only, no cross-contamination. ~80 LOC test, no new code.
 
+### 4.7 Default storage rule — store the CAM per-OGIT, not globally
+
+**Rule of thumb: when in doubt about where to put a CAM (codebook, fingerprint table, distance matrix, slot allocator, edge whitelist), store it per-OGIT G-slot. The OGIT G-slot is the natural sharding key; storing per-OGIT keeps everything tidy.**
+
+Concretely:
+
+| Artifact | Where it lives (per-OGIT, tidy) | NOT where it lives (global, messy) |
+|---|---|---|
+| `PerFamilyCodebook` (5-8 bit centroids per family) | One per OGIT G-slot: `OGIT::DOLCE_V1` owns its codebook; `OGIT::PROVO_V1` owns its codebook; `OGIT::HEALTHCARE_V1` (future) owns its codebook | A single workspace-wide centroid table indexed across all families |
+| `OgitFamilyTable.entries: [Option<FamilyEntry>; 256]` | One 256-slot array per OGIT G-slot. The slot byte is bar-code-local to that OGIT bundle | A flat `[Option<FamilyEntry>; 65_536]` keyed by the full `OwlIdentity` u16 |
+| Edge IRI whitelists (the 17-IRI DOLCE list; the 22-IRI PROV-O list; etc.) | Registered per OGIT G-slot via `OntologyRegistry::register_edge_types(g, &EDGE_WHITELIST)` — already shipped this way | A single workspace-wide allow-list mixing predicates from all standards |
+| Lance-cache rows (§4.2) | Partitioned by `(bridge_id, namespace)` — the column-store layout already aligns with per-OGIT storage | A single un-partitioned Lance table scanned linearly |
+| Boot-time `OntologyRegistry::hydrate_once_sync(ttl_root, &[namespace])` filter | Caller specifies which namespaces to hydrate; only those G-slots populate | Implicit global hydration of every TTL the registry can find |
+| Per-tenant DEK + per-super-domain HKDF context (super-domain-rbac §13.4 hard-lock crypto) | Salt + context derived per-super-domain (effectively per-OGIT-group); rows in different super domains are cryptographically distinct | Shared key material across super domains; hard-lock barrier evaporates |
+
+**Why this is the tidy default:**
+
+1. **Cache invalidation stays scoped.** When `hydrate_provo` runs an idempotent update against `OGIT::PROVO_V1`, only that G-slot's CAM rebuilds. DOLCE's CAM doesn't get touched. Healthcare's CAM doesn't get touched. The blast radius of any single hydrator update equals one G-slot.
+2. **Versioning is local.** `OGIT::DOLCE_V1` and `OGIT::DOLCE_V2` coexist side-by-side because their CAMs are physically separate. Consumers pin a version; migration is "consumer X moves from V1 to V2", not "the whole workspace migrates."
+3. **Hot-path locality matches read patterns.** A consumer that touches `Healthcare` + `DOLCE` + `OWL-Time` loads three G-slot CAMs, not the whole spine. Memory residency is bounded by what the consumer actually queries; cold G-slots stay on disk in the Lance dataset.
+4. **Authorship boundary aligns with cache boundary.** `hydrate_dolce` is the sole writer of `OGIT::DOLCE_V1`'s CAM. No shared-write conflicts; no concurrent-hydrator coordination required. Per-OGIT storage IS the lock granularity.
+5. **Storage layout aligns with the read-only consumer surface.** `NamespaceBridge.g_lock()` already returns the OGIT G-slot a consumer is locked to (§3.1 in this plan). The consumer's CAM working set IS the G-slot CAM. The storage layout is the read layout.
+6. **Discovery + governance + caching all share the OGIT G-slot as the unit.** A new external standard adopts a G-slot; the hydrator writes there; consumers pin and read from there; the Lance dataset partitions on it; invalidation scopes to it; cross-G-slot access requires the `inherits_from` chain explicitly. One organizational primitive, multiple consistent uses.
+
+**The opposite default (global CAM) is wrong because:**
+
+- The 256-slot bar-code address space inside any one family is local — slot 17 in DOLCE means something different from slot 17 in PROV-O. Mixing them globally would require a 65,536-slot expansion just to address what 75 × 256 = 19,200 per-family slots cover today.
+- Cross-family inheritance via `inherits_from` is **explicit**, not transitive-across-a-global-table. PROV-O's `inherits_from: Some(OGIT::DOLCE_V1.0)` is the controlled cross-reference; a global CAM would erase the discipline and let any consumer chain arbitrary lookups.
+- Updates to one family's codebook would invalidate every other family's bar codes (because their slot indices might shift). Per-OGIT storage IS the firewall.
+
+**Rule of thumb, restated for §5 deliverables:** new D-UB-* deliverables that introduce a new CAM-shaped artifact (centroid table, distance matrix, fingerprint allocator, slot dispatcher, edge whitelist, label cache) default to per-OGIT-G-slot storage unless there's a written reason in the deliverable spec why global storage is preferable. The default ALWAYS keeps things tidy; global storage requires justification.
+
+#### Cross-reference
+
+- This complements §4.6 (read-only authoritative spine + controlled write path) — §4.6 governs **who** writes; §4.7 governs **where** the writes land.
+- This complements `super-domain-rbac-tenancy-v1.md` §13.4 (hard-lock partner matrix) — per-OGIT storage is the substrate that makes per-super-domain HKDF derivation possible. Without per-OGIT CAMs, cryptographic separation between Healthcare and OSINT would have to happen at row-decryption time instead of at storage-partition time.
+- This complements `lance-graph/CLAUDE.md § Mandatory Board-Hygiene Rule` — per-board-file append-only governance is the documentation-layer analogue of per-OGIT CAM storage at the runtime layer. Same partitioning instinct.
+
 ---
 
 ## 5 — Deliverables
