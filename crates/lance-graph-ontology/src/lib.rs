@@ -39,6 +39,7 @@ pub mod bridge;
 pub mod bridges;
 pub mod error;
 pub mod foundry_map;
+pub mod hydrators;
 pub mod namespace;
 pub mod namespace_registry;
 pub mod proposal;
@@ -52,6 +53,10 @@ pub mod lance_cache;
 
 pub use bridge::{BridgeError, NamespaceBridge};
 pub use error::Error;
+pub use hydrators::{
+    hydrate_dolce, hydrate_dolce_from, ContextBundle, EntityId, HydrateErr,
+    MetaStructureHydrator, OntologySlot, OwlHydrator,
+};
 pub use namespace::{NamespaceId, OgitUri, SchemaPtr};
 pub use proposal::{
     HydrationReport, MappingHandle, MappingProposal, MappingProposalKind, MappingRow,

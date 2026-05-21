@@ -16,6 +16,7 @@
 //! functions on registry state.
 
 use crate::error::{Error, Result};
+use crate::hydrators::owl::{ContextBundle, EntityId};
 use crate::namespace::{NamespaceId, SchemaPtr};
 use crate::namespace_registry::NamespaceRegistry;
 use crate::proposal::{
@@ -54,6 +55,11 @@ struct RegistryState {
     by_namespace: HashMap<String, NamespaceId>,
     namespace_order: Vec<String>,
     last_root_checksum: Option<String>,
+    /// Pattern-D meta-structure bundles, keyed by OGIT `G` slot. Each
+    /// bundle owns the per-G IRI interning table plus the cascade edge
+    /// whitelist registered via `register_edge_types`. Populated by the
+    /// per-ontology hydrators in `crate::hydrators` (e.g. `hydrate_dolce`).
+    bundles: HashMap<u32, ContextBundle>,
 }
 
 impl OntologyRegistry {
@@ -358,6 +364,82 @@ impl OntologyRegistry {
             source,
         })?;
         Ok(())
+    }
+
+    // ── Pattern D: Meta-Structure Hydration surface ────────────────────────
+    //
+    // Per-G bundle registration + cascade edge-type whitelist. Populated by
+    // the per-ontology hydrators in `crate::hydrators` (DOLCE+DUL today;
+    // OWL-Time / PROV-O / QUDT / FIBO / schema.org / … in the bO-* series).
+
+    /// Register a Pattern-D [`ContextBundle`] at `bundle.g`. Re-registering
+    /// the same `G` slot overwrites the prior entry — bumping a version is a
+    /// new `(g, version)` tuple in `OGIT::*_V*` and a separate slot.
+    pub fn register_bundle(&self, bundle: ContextBundle) {
+        let mut state = self.inner.write().unwrap();
+        state.bundles.insert(bundle.g, bundle);
+    }
+
+    /// Clone-out the [`ContextBundle`] registered at `g`. Returns `None`
+    /// when nothing is registered yet. Cloning a `ContextBundle` is cheap:
+    /// the per-G IRI interning table lives behind an `Arc<OntologySlot>`,
+    /// so only the small fields (g, version, domain name, edge-type Vec)
+    /// allocate.
+    pub fn bundle_for(&self, g: u32) -> Option<ContextBundle> {
+        let state = self.inner.read().unwrap();
+        state.bundles.get(&g).map(|b| ContextBundle {
+            g: b.g,
+            version: b.version,
+            domain_name: b.domain_name.clone(),
+            inherits_from: b.inherits_from,
+            ontology: b.ontology.clone(),
+            edge_types: b.edge_types.clone(),
+        })
+    }
+
+    /// Append cascade-edge IRIs to the whitelist for `g`. Idempotent per
+    /// IRI: re-registering an already-known edge IRI is a no-op. Fails when
+    /// no bundle is registered yet at `g` — register the bundle first
+    /// (typically via a `hydrate_*` glue function) and then declare the
+    /// edge whitelist.
+    pub fn register_edge_types(
+        &self,
+        g: u32,
+        edges: &[&str],
+    ) -> std::result::Result<(), String> {
+        let mut state = self.inner.write().unwrap();
+        let bundle = state
+            .bundles
+            .get_mut(&g)
+            .ok_or_else(|| format!("no ContextBundle registered at G={g}"))?;
+        for e in edges {
+            if !bundle.edge_types.iter().any(|x| x == *e) {
+                bundle.edge_types.push((*e).to_string());
+            }
+        }
+        Ok(())
+    }
+
+    /// Return the cascade edge-IRI whitelist registered for `g`, or `None`
+    /// when no bundle is registered at that slot. Returns an empty vector
+    /// when a bundle exists but no edges have been declared yet.
+    pub fn edge_types_for(&self, g: u32) -> Option<Vec<String>> {
+        let state = self.inner.read().unwrap();
+        state.bundles.get(&g).map(|b| b.edge_types.clone())
+    }
+
+    /// Number of named IRIs interned under `g`. `None` when no bundle is
+    /// registered.
+    pub fn entity_count_for(&self, g: u32) -> Option<u32> {
+        let state = self.inner.read().unwrap();
+        state.bundles.get(&g).map(|b| b.entity_count())
+    }
+
+    /// Resolve an IRI under `g` to its interned `u32` entity id, or `None`
+    /// when the IRI was never seen during hydration.
+    pub fn resolve_iri_in(&self, g: u32, iri: &str) -> Option<EntityId> {
+        let state = self.inner.read().unwrap();
+        state.bundles.get(&g).and_then(|b| b.resolve_iri(iri))
     }
 }
 

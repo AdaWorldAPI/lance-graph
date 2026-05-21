@@ -1,0 +1,42 @@
+DOLCE+DnS Ultralite (DUL)
+=========================
+
+Source
+------
+http://www.ontologydesignpatterns.org/ont/dul/DUL.owl
+
+Authors
+-------
+Aldo Gangemi, Valentina Presutti, and contributors at the Laboratory for
+Applied Ontology (LOA), CNR Institute for Cognitive Sciences and
+Technologies (ISTC), Rome, Italy.
+
+License
+-------
+Creative Commons Attribution 4.0 International (CC-BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
+
+Citation
+--------
+Gangemi, A., Borgo, S., Catenacci, C., Lehmann, J., Masolo, C.,
+Presutti, V., et al. (2003-present). "DOLCE+DnS Ultralite (DUL)."
+Laboratory for Applied Ontology, CNR-ISTC.
+
+Original DOLCE foundational paper:
+Masolo, C., Borgo, S., Gangemi, A., Guarino, N., Oltramari, A. (2003).
+"WonderWeb Deliverable D18: Ontology Library (final)."
+
+Usage in this repository
+------------------------
+The file data/ontologies/dul.ttl is a curated extract of the canonical
+DOLCE+DUL ontology, hydrated by the lance-graph-ontology crate as the
+L1 upper-ontology slot OGIT::DOLCE_V1. Every downstream L2-L4 business
+ontology (OWL-Time, PROV-O, QUDT, FIBO-FND, schema.org, ...) declares
+inherits_from: Some(OGIT::DOLCE_V1.0) and resolves against this
+hydration via rdfs:subClassOf chains.
+
+Attribution
+-----------
+DOLCE+DnS Ultralite is provided by the Laboratory for Applied Ontology
+under CC-BY 4.0. The lance-graph project gratefully acknowledges the
+LOA team's foundational work on upper-category ontology engineering.

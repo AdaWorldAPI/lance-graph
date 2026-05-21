@@ -1,0 +1,1190 @@
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl:   <http://www.w3.org/2002/07/owl#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix dc:    <http://purl.org/dc/elements/1.1/> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix dul:   <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#> .
+
+# ============================================================================
+# DOLCE+DnS Ultralite (DUL) — curated extract for L1 upper-ontology hydration
+# ----------------------------------------------------------------------------
+# Source: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl>
+# License: CC-BY 4.0 (attribution in LICENSES/DOLCE.txt)
+# Authors: Aldo Gangemi, Valentina Presutti, et al. (LOA, CNR-ISTC)
+#
+# This file is a hand-curated extract of the canonical DOLCE+DUL ontology
+# targeted at the OGIT cognitive-shader 16-bit DOLCE slot (high 8 bits:
+# Endurant/Perdurant/Quality/Abstract sub-classification; low 8 bits: DnS
+# role per the Descriptions & Situations module). The canonical IRIs are
+# preserved verbatim so downstream L2-L4 ontologies (OWL-Time, PROV-O,
+# QUDT, FIBO-FND, ...) can declare `inherits_from: Some(DOLCE_V1)` and
+# resolve against this hydration via `rdfs:subClassOf` chains.
+#
+# Coverage:
+#   - 4 upper categories (Endurant, Perdurant, Quality, Abstract)
+#   - Endurant sub-tree (PhysicalObject, Agent, Organism, Artifact, ...)
+#   - Perdurant sub-tree (Event, Action, Process, Activity, ...)
+#   - Quality sub-tree (PhysicalQuality, SocialQuality, ...)
+#   - Abstract sub-tree (Region, Concept, Description, Situation)
+#   - DnS role hierarchy (Role, SocialRole, AgentRole, ...)
+#   - Load-bearing roles (Agent, Patient, Instrument, Location, TimeInterval)
+#   - Mereological, classification, role-binding, participation, temporal,
+#     and spatial property whitelists
+# ============================================================================
+
+dul: a owl:Ontology ;
+    dc:title "DOLCE+DnS Ultralite (curated extract)" ;
+    dc:creator "Aldo Gangemi" ;
+    dcterms:license <http://creativecommons.org/licenses/by/4.0/> ;
+    dcterms:source <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl> .
+
+# ============================================================================
+# UPPER CATEGORIES — the four DOLCE roots
+# ============================================================================
+
+dul:Entity a owl:Class ;
+    rdfs:label "Entity" ;
+    rdfs:comment "Anything: real, possible, or imaginary, which some modeller wants to talk about for some purpose." .
+
+dul:Endurant a owl:Class ;
+    rdfs:subClassOf dul:Entity ;
+    rdfs:label "Endurant" ;
+    rdfs:comment "Entities that exist in time and have spatial parts." .
+
+dul:Perdurant a owl:Class ;
+    rdfs:subClassOf dul:Entity ;
+    rdfs:label "Perdurant" ;
+    rdfs:comment "Entities that occur in time, also called occurrents." .
+
+dul:Quality a owl:Class ;
+    rdfs:subClassOf dul:Entity ;
+    rdfs:label "Quality" ;
+    rdfs:comment "An aspect of an entity which is dependent on its bearer." .
+
+dul:Abstract a owl:Class ;
+    rdfs:subClassOf dul:Entity ;
+    rdfs:label "Abstract" ;
+    rdfs:comment "Entities that have no spatial or temporal parameter." .
+
+# ============================================================================
+# ENDURANT SUB-HIERARCHY
+# ============================================================================
+
+dul:Object a owl:Class ;
+    rdfs:subClassOf dul:Endurant ;
+    rdfs:label "Object" .
+
+dul:PhysicalObject a owl:Class ;
+    rdfs:subClassOf dul:Object ;
+    rdfs:label "PhysicalObject" .
+
+dul:NonPhysicalObject a owl:Class ;
+    rdfs:subClassOf dul:Object ;
+    rdfs:label "NonPhysicalObject" .
+
+dul:SocialObject a owl:Class ;
+    rdfs:subClassOf dul:NonPhysicalObject ;
+    rdfs:label "SocialObject" .
+
+dul:AgentiveSocialObject a owl:Class ;
+    rdfs:subClassOf dul:SocialObject ;
+    rdfs:label "AgentiveSocialObject" .
+
+dul:NonAgentiveSocialObject a owl:Class ;
+    rdfs:subClassOf dul:SocialObject ;
+    rdfs:label "NonAgentiveSocialObject" .
+
+dul:AgentivePhysicalObject a owl:Class ;
+    rdfs:subClassOf dul:PhysicalObject ;
+    rdfs:label "AgentivePhysicalObject" .
+
+dul:NonAgentivePhysicalObject a owl:Class ;
+    rdfs:subClassOf dul:PhysicalObject ;
+    rdfs:label "NonAgentivePhysicalObject" .
+
+dul:PhysicalArtifact a owl:Class ;
+    rdfs:subClassOf dul:PhysicalObject ;
+    rdfs:label "PhysicalArtifact" .
+
+dul:DesignedArtifact a owl:Class ;
+    rdfs:subClassOf dul:PhysicalArtifact ;
+    rdfs:label "DesignedArtifact" .
+
+dul:FunctionalObject a owl:Class ;
+    rdfs:subClassOf dul:DesignedArtifact ;
+    rdfs:label "FunctionalObject" .
+
+dul:Substance a owl:Class ;
+    rdfs:subClassOf dul:NonAgentivePhysicalObject ;
+    rdfs:label "Substance" .
+
+dul:Amount a owl:Class ;
+    rdfs:subClassOf dul:Substance ;
+    rdfs:label "Amount" .
+
+dul:Agent a owl:Class ;
+    rdfs:subClassOf dul:Object ;
+    rdfs:label "Agent" ;
+    rdfs:comment "Any agentive Object, either physical (e.g. a person) or social (e.g. an organization)." .
+
+dul:PhysicalAgent a owl:Class ;
+    rdfs:subClassOf dul:Agent ;
+    rdfs:subClassOf dul:AgentivePhysicalObject ;
+    rdfs:label "PhysicalAgent" .
+
+dul:SocialAgent a owl:Class ;
+    rdfs:subClassOf dul:Agent ;
+    rdfs:subClassOf dul:AgentiveSocialObject ;
+    rdfs:label "SocialAgent" .
+
+dul:NaturalPerson a owl:Class ;
+    rdfs:subClassOf dul:PhysicalAgent ;
+    rdfs:label "NaturalPerson" .
+
+dul:Person a owl:Class ;
+    rdfs:subClassOf dul:Agent ;
+    rdfs:label "Person" .
+
+dul:Organism a owl:Class ;
+    rdfs:subClassOf dul:BiologicalObject ;
+    rdfs:label "Organism" .
+
+dul:BiologicalObject a owl:Class ;
+    rdfs:subClassOf dul:PhysicalObject ;
+    rdfs:label "BiologicalObject" .
+
+dul:Organization a owl:Class ;
+    rdfs:subClassOf dul:SocialAgent ;
+    rdfs:label "Organization" .
+
+dul:Group a owl:Class ;
+    rdfs:subClassOf dul:Collective ;
+    rdfs:label "Group" .
+
+dul:Collective a owl:Class ;
+    rdfs:subClassOf dul:SocialObject ;
+    rdfs:label "Collective" .
+
+dul:CollectiveAgent a owl:Class ;
+    rdfs:subClassOf dul:Collective ;
+    rdfs:subClassOf dul:SocialAgent ;
+    rdfs:label "CollectiveAgent" .
+
+dul:Community a owl:Class ;
+    rdfs:subClassOf dul:Collective ;
+    rdfs:label "Community" .
+
+dul:InformationObject a owl:Class ;
+    rdfs:subClassOf dul:SocialObject ;
+    rdfs:label "InformationObject" ;
+    rdfs:comment "A piece of information, such as a musical composition, a text, or a word." .
+
+dul:InformationRealization a owl:Class ;
+    rdfs:subClassOf dul:Entity ;
+    rdfs:label "InformationRealization" .
+
+dul:InformationEntity a owl:Class ;
+    rdfs:subClassOf dul:SocialObject ;
+    rdfs:label "InformationEntity" .
+
+dul:Software a owl:Class ;
+    rdfs:subClassOf dul:InformationObject ;
+    rdfs:label "Software" .
+
+dul:FormalEntity a owl:Class ;
+    rdfs:subClassOf dul:Abstract ;
+    rdfs:label "FormalEntity" .
+
+dul:Set a owl:Class ;
+    rdfs:subClassOf dul:Collection ;
+    rdfs:label "Set" .
+
+dul:Collection a owl:Class ;
+    rdfs:subClassOf dul:SocialObject ;
+    rdfs:label "Collection" .
+
+dul:Place a owl:Class ;
+    rdfs:subClassOf dul:SocialObject ;
+    rdfs:label "Place" ;
+    rdfs:comment "A symbolic location interpreted by an agent." .
+
+dul:GeographicalPlace a owl:Class ;
+    rdfs:subClassOf dul:Place ;
+    rdfs:label "GeographicalPlace" .
+
+dul:Workflow a owl:Class ;
+    rdfs:subClassOf dul:Plan ;
+    rdfs:label "Workflow" .
+
+# ============================================================================
+# PERDURANT SUB-HIERARCHY
+# ============================================================================
+
+dul:Event a owl:Class ;
+    rdfs:subClassOf dul:Perdurant ;
+    rdfs:label "Event" .
+
+dul:Process a owl:Class ;
+    rdfs:subClassOf dul:Perdurant ;
+    rdfs:label "Process" .
+
+dul:Activity a owl:Class ;
+    rdfs:subClassOf dul:Process ;
+    rdfs:label "Activity" .
+
+dul:Action a owl:Class ;
+    rdfs:subClassOf dul:Event ;
+    rdfs:label "Action" ;
+    rdfs:comment "An Event with at least one Agent that isParticipantIn it and at least one Action that isPlannedFor it." .
+
+dul:Achievement a owl:Class ;
+    rdfs:subClassOf dul:Event ;
+    rdfs:label "Achievement" .
+
+dul:Accomplishment a owl:Class ;
+    rdfs:subClassOf dul:Event ;
+    rdfs:label "Accomplishment" .
+
+dul:State a owl:Class ;
+    rdfs:subClassOf dul:Perdurant ;
+    rdfs:label "State" .
+
+dul:Stative a owl:Class ;
+    rdfs:subClassOf dul:Perdurant ;
+    rdfs:label "Stative" .
+
+dul:TemporalEntity a owl:Class ;
+    rdfs:subClassOf dul:Perdurant ;
+    rdfs:label "TemporalEntity" .
+
+dul:TimeIndexedRelation a owl:Class ;
+    rdfs:subClassOf dul:Situation ;
+    rdfs:label "TimeIndexedRelation" .
+
+dul:TimeInterval a owl:Class ;
+    rdfs:subClassOf dul:Region ;
+    rdfs:label "TimeInterval" ;
+    rdfs:comment "Any Region in a dimensional space that aims at representing time." .
+
+dul:PlanExecution a owl:Class ;
+    rdfs:subClassOf dul:Situation ;
+    rdfs:label "PlanExecution" .
+
+dul:TaskExecution a owl:Class ;
+    rdfs:subClassOf dul:Situation ;
+    rdfs:label "TaskExecution" .
+
+# ============================================================================
+# QUALITY SUB-HIERARCHY
+# ============================================================================
+
+dul:PhysicalQuality a owl:Class ;
+    rdfs:subClassOf dul:Quality ;
+    rdfs:label "PhysicalQuality" .
+
+dul:SocialQuality a owl:Class ;
+    rdfs:subClassOf dul:Quality ;
+    rdfs:label "SocialQuality" .
+
+dul:AbstractQuality a owl:Class ;
+    rdfs:subClassOf dul:Quality ;
+    rdfs:label "AbstractQuality" .
+
+dul:SpatioTemporalQuality a owl:Class ;
+    rdfs:subClassOf dul:PhysicalQuality ;
+    rdfs:label "SpatioTemporalQuality" .
+
+dul:TemporalQuality a owl:Class ;
+    rdfs:subClassOf dul:SpatioTemporalQuality ;
+    rdfs:label "TemporalQuality" .
+
+dul:SpatialQuality a owl:Class ;
+    rdfs:subClassOf dul:SpatioTemporalQuality ;
+    rdfs:label "SpatialQuality" .
+
+dul:Property a owl:Class ;
+    rdfs:subClassOf dul:Quality ;
+    rdfs:label "Property" .
+
+# ============================================================================
+# ABSTRACT SUB-HIERARCHY — Region, Concept, Description, Situation
+# ============================================================================
+
+dul:Region a owl:Class ;
+    rdfs:subClassOf dul:Abstract ;
+    rdfs:label "Region" ;
+    rdfs:comment "A space, time, value, or amount region, used to interpret a Quality." .
+
+dul:SpaceRegion a owl:Class ;
+    rdfs:subClassOf dul:Region ;
+    rdfs:label "SpaceRegion" .
+
+dul:TimeRegion a owl:Class ;
+    rdfs:subClassOf dul:Region ;
+    rdfs:label "TimeRegion" .
+
+dul:PhysicalRegion a owl:Class ;
+    rdfs:subClassOf dul:Region ;
+    rdfs:label "PhysicalRegion" .
+
+dul:SpatioTemporalRegion a owl:Class ;
+    rdfs:subClassOf dul:Region ;
+    rdfs:label "SpatioTemporalRegion" .
+
+dul:GeographicalRegion a owl:Class ;
+    rdfs:subClassOf dul:SpaceRegion ;
+    rdfs:subClassOf dul:GeographicalPlace ;
+    rdfs:label "GeographicalRegion" .
+
+dul:AmountOfMatter a owl:Class ;
+    rdfs:subClassOf dul:Region ;
+    rdfs:label "AmountOfMatter" .
+
+dul:PhysicalAttribute a owl:Class ;
+    rdfs:subClassOf dul:Region ;
+    rdfs:label "PhysicalAttribute" .
+
+dul:SocialAttribute a owl:Class ;
+    rdfs:subClassOf dul:Region ;
+    rdfs:label "SocialAttribute" .
+
+dul:UnitOfMeasure a owl:Class ;
+    rdfs:subClassOf dul:Region ;
+    rdfs:label "UnitOfMeasure" .
+
+# ── Concepts and Roles (DnS) ─────────────────────────────────────────────────
+
+dul:Concept a owl:Class ;
+    rdfs:subClassOf dul:SocialObject ;
+    rdfs:label "Concept" ;
+    rdfs:comment "A SocialObject defined in a Description, used to classify other entities." .
+
+dul:Role a owl:Class ;
+    rdfs:subClassOf dul:Concept ;
+    rdfs:label "Role" ;
+    rdfs:comment "A Concept that classifies an Object." .
+
+dul:SocialRole a owl:Class ;
+    rdfs:subClassOf dul:Role ;
+    rdfs:label "SocialRole" .
+
+dul:AgentRole a owl:Class ;
+    rdfs:subClassOf dul:Role ;
+    rdfs:label "AgentRole" .
+
+dul:PhysicalRole a owl:Class ;
+    rdfs:subClassOf dul:Role ;
+    rdfs:label "PhysicalRole" .
+
+dul:EpistemicRole a owl:Class ;
+    rdfs:subClassOf dul:Role ;
+    rdfs:label "EpistemicRole" .
+
+dul:Task a owl:Class ;
+    rdfs:subClassOf dul:Concept ;
+    rdfs:label "Task" ;
+    rdfs:comment "A Concept that classifies an Action." .
+
+dul:Method a owl:Class ;
+    rdfs:subClassOf dul:Description ;
+    rdfs:label "Method" .
+
+dul:Parameter a owl:Class ;
+    rdfs:subClassOf dul:Concept ;
+    rdfs:label "Parameter" .
+
+dul:Goal a owl:Class ;
+    rdfs:subClassOf dul:Description ;
+    rdfs:label "Goal" .
+
+dul:Norm a owl:Class ;
+    rdfs:subClassOf dul:Description ;
+    rdfs:label "Norm" .
+
+dul:Right a owl:Class ;
+    rdfs:subClassOf dul:Concept ;
+    rdfs:label "Right" .
+
+dul:Obligation a owl:Class ;
+    rdfs:subClassOf dul:Concept ;
+    rdfs:label "Obligation" .
+
+dul:Duty a owl:Class ;
+    rdfs:subClassOf dul:Concept ;
+    rdfs:label "Duty" .
+
+dul:Permission a owl:Class ;
+    rdfs:subClassOf dul:Concept ;
+    rdfs:label "Permission" .
+
+dul:Law a owl:Class ;
+    rdfs:subClassOf dul:Norm ;
+    rdfs:label "Law" .
+
+# ── Load-bearing DnS roles (cognitive shader 16-bit slot low byte) ───────────
+
+dul:Patient a owl:Class ;
+    rdfs:subClassOf dul:Concept ;
+    rdfs:label "Patient" ;
+    rdfs:comment "A Role that classifies the entity that is affected by an action." .
+
+dul:Instrument a owl:Class ;
+    rdfs:subClassOf dul:Concept ;
+    rdfs:label "Instrument" ;
+    rdfs:comment "A Role that classifies the entity used to perform an action." .
+
+dul:Location a owl:Class ;
+    rdfs:subClassOf dul:Concept ;
+    rdfs:label "Location" ;
+    rdfs:comment "A Role that classifies the entity where an event takes place." .
+
+dul:Beneficiary a owl:Class ;
+    rdfs:subClassOf dul:Concept ;
+    rdfs:label "Beneficiary" .
+
+dul:Source a owl:Class ;
+    rdfs:subClassOf dul:Concept ;
+    rdfs:label "Source" .
+
+dul:Recipient a owl:Class ;
+    rdfs:subClassOf dul:Concept ;
+    rdfs:label "Recipient" .
+
+dul:Theme a owl:Class ;
+    rdfs:subClassOf dul:Concept ;
+    rdfs:label "Theme" .
+
+dul:Experiencer a owl:Class ;
+    rdfs:subClassOf dul:Concept ;
+    rdfs:label "Experiencer" .
+
+dul:Stimulus a owl:Class ;
+    rdfs:subClassOf dul:Concept ;
+    rdfs:label "Stimulus" .
+
+# ── Description and Situation ───────────────────────────────────────────────
+
+dul:Description a owl:Class ;
+    rdfs:subClassOf dul:SocialObject ;
+    rdfs:label "Description" ;
+    rdfs:comment "A SocialObject that represents a conceptualization." .
+
+dul:Theory a owl:Class ;
+    rdfs:subClassOf dul:Description ;
+    rdfs:label "Theory" .
+
+dul:Plan a owl:Class ;
+    rdfs:subClassOf dul:Description ;
+    rdfs:label "Plan" .
+
+dul:Diagnosis a owl:Class ;
+    rdfs:subClassOf dul:Description ;
+    rdfs:label "Diagnosis" .
+
+dul:Project a owl:Class ;
+    rdfs:subClassOf dul:Description ;
+    rdfs:label "Project" .
+
+dul:Schema a owl:Class ;
+    rdfs:subClassOf dul:Description ;
+    rdfs:label "Schema" .
+
+dul:Pattern a owl:Class ;
+    rdfs:subClassOf dul:Description ;
+    rdfs:label "Pattern" .
+
+dul:Situation a owl:Class ;
+    rdfs:subClassOf dul:Entity ;
+    rdfs:label "Situation" ;
+    rdfs:comment "A relational context that satisfies a Description." .
+
+dul:Configuration a owl:Class ;
+    rdfs:subClassOf dul:Situation ;
+    rdfs:label "Configuration" .
+
+dul:Scenario a owl:Class ;
+    rdfs:subClassOf dul:Situation ;
+    rdfs:label "Scenario" .
+
+dul:Workspace a owl:Class ;
+    rdfs:subClassOf dul:Situation ;
+    rdfs:label "Workspace" .
+
+# ── Cognition / Knowledge / Belief ──────────────────────────────────────────
+
+dul:Cognition a owl:Class ;
+    rdfs:subClassOf dul:Process ;
+    rdfs:label "Cognition" .
+
+dul:Knowledge a owl:Class ;
+    rdfs:subClassOf dul:Description ;
+    rdfs:label "Knowledge" .
+
+dul:Belief a owl:Class ;
+    rdfs:subClassOf dul:Description ;
+    rdfs:label "Belief" .
+
+dul:CognitiveAgent a owl:Class ;
+    rdfs:subClassOf dul:Agent ;
+    rdfs:label "CognitiveAgent" .
+
+# ── Further specializations ─────────────────────────────────────────────────
+
+dul:NaturalObject a owl:Class ;
+    rdfs:subClassOf dul:PhysicalObject ;
+    rdfs:label "NaturalObject" .
+
+dul:NaturalSubstance a owl:Class ;
+    rdfs:subClassOf dul:Substance ;
+    rdfs:label "NaturalSubstance" .
+
+dul:Artefact a owl:Class ;
+    rdfs:subClassOf dul:DesignedArtifact ;
+    rdfs:label "Artefact" .
+
+dul:Currency a owl:Class ;
+    rdfs:subClassOf dul:SocialObject ;
+    rdfs:label "Currency" .
+
+dul:LegalEntity a owl:Class ;
+    rdfs:subClassOf dul:SocialAgent ;
+    rdfs:label "LegalEntity" .
+
+dul:Contract a owl:Class ;
+    rdfs:subClassOf dul:Description ;
+    rdfs:label "Contract" .
+
+dul:Agreement a owl:Class ;
+    rdfs:subClassOf dul:Description ;
+    rdfs:label "Agreement" .
+
+dul:Procedure a owl:Class ;
+    rdfs:subClassOf dul:Method ;
+    rdfs:label "Procedure" .
+
+dul:Strategy a owl:Class ;
+    rdfs:subClassOf dul:Plan ;
+    rdfs:label "Strategy" .
+
+dul:Algorithm a owl:Class ;
+    rdfs:subClassOf dul:Method ;
+    rdfs:label "Algorithm" .
+
+dul:Convention a owl:Class ;
+    rdfs:subClassOf dul:Description ;
+    rdfs:label "Convention" .
+
+dul:Concept_a a owl:Class ;
+    rdfs:subClassOf dul:Concept ;
+    rdfs:label "Concept_a" .
+
+dul:Token a owl:Class ;
+    rdfs:subClassOf dul:InformationRealization ;
+    rdfs:label "Token" .
+
+dul:Type a owl:Class ;
+    rdfs:subClassOf dul:InformationObject ;
+    rdfs:label "Type" .
+
+dul:Symbol a owl:Class ;
+    rdfs:subClassOf dul:InformationObject ;
+    rdfs:label "Symbol" .
+
+dul:Sign a owl:Class ;
+    rdfs:subClassOf dul:Entity ;
+    rdfs:label "Sign" .
+
+dul:Signal a owl:Class ;
+    rdfs:subClassOf dul:Entity ;
+    rdfs:label "Signal" .
+
+dul:Message a owl:Class ;
+    rdfs:subClassOf dul:InformationObject ;
+    rdfs:label "Message" .
+
+dul:Language a owl:Class ;
+    rdfs:subClassOf dul:InformationObject ;
+    rdfs:label "Language" .
+
+dul:Text a owl:Class ;
+    rdfs:subClassOf dul:InformationObject ;
+    rdfs:label "Text" .
+
+dul:Topic a owl:Class ;
+    rdfs:subClassOf dul:SocialObject ;
+    rdfs:label "Topic" .
+
+dul:Subject a owl:Class ;
+    rdfs:subClassOf dul:Concept ;
+    rdfs:label "Subject" .
+
+dul:NaturalAttribute a owl:Class ;
+    rdfs:subClassOf dul:PhysicalAttribute ;
+    rdfs:label "NaturalAttribute" .
+
+dul:SocialPerson a owl:Class ;
+    rdfs:subClassOf dul:SocialAgent ;
+    rdfs:label "SocialPerson" .
+
+# ── More Endurants (filling out the tree) ───────────────────────────────────
+
+dul:Apple a owl:Class ;
+    rdfs:subClassOf dul:NaturalObject ;
+    rdfs:label "Apple" .
+
+dul:Vehicle a owl:Class ;
+    rdfs:subClassOf dul:DesignedArtifact ;
+    rdfs:label "Vehicle" .
+
+dul:Building a owl:Class ;
+    rdfs:subClassOf dul:DesignedArtifact ;
+    rdfs:label "Building" .
+
+dul:Tool a owl:Class ;
+    rdfs:subClassOf dul:FunctionalObject ;
+    rdfs:label "Tool" .
+
+dul:Device a owl:Class ;
+    rdfs:subClassOf dul:FunctionalObject ;
+    rdfs:label "Device" .
+
+dul:Document a owl:Class ;
+    rdfs:subClassOf dul:InformationRealization ;
+    rdfs:label "Document" .
+
+dul:Book a owl:Class ;
+    rdfs:subClassOf dul:Document ;
+    rdfs:label "Book" .
+
+dul:Picture a owl:Class ;
+    rdfs:subClassOf dul:InformationRealization ;
+    rdfs:label "Picture" .
+
+dul:Sentence a owl:Class ;
+    rdfs:subClassOf dul:Text ;
+    rdfs:label "Sentence" .
+
+dul:Word a owl:Class ;
+    rdfs:subClassOf dul:Text ;
+    rdfs:label "Word" .
+
+dul:Number a owl:Class ;
+    rdfs:subClassOf dul:Abstract ;
+    rdfs:label "Number" .
+
+dul:NaturalNumber a owl:Class ;
+    rdfs:subClassOf dul:Number ;
+    rdfs:label "NaturalNumber" .
+
+dul:RealNumber a owl:Class ;
+    rdfs:subClassOf dul:Number ;
+    rdfs:label "RealNumber" .
+
+dul:Position a owl:Class ;
+    rdfs:subClassOf dul:Region ;
+    rdfs:label "Position" .
+
+dul:Length a owl:Class ;
+    rdfs:subClassOf dul:PhysicalAttribute ;
+    rdfs:label "Length" .
+
+dul:Mass a owl:Class ;
+    rdfs:subClassOf dul:PhysicalAttribute ;
+    rdfs:label "Mass" .
+
+dul:Volume a owl:Class ;
+    rdfs:subClassOf dul:PhysicalAttribute ;
+    rdfs:label "Volume" .
+
+dul:Duration a owl:Class ;
+    rdfs:subClassOf dul:TemporalQuality ;
+    rdfs:label "Duration" .
+
+dul:Date a owl:Class ;
+    rdfs:subClassOf dul:TimeRegion ;
+    rdfs:label "Date" .
+
+dul:Speed a owl:Class ;
+    rdfs:subClassOf dul:PhysicalAttribute ;
+    rdfs:label "Speed" .
+
+dul:Temperature a owl:Class ;
+    rdfs:subClassOf dul:PhysicalAttribute ;
+    rdfs:label "Temperature" .
+
+dul:Color a owl:Class ;
+    rdfs:subClassOf dul:PhysicalAttribute ;
+    rdfs:label "Color" .
+
+dul:Shape a owl:Class ;
+    rdfs:subClassOf dul:PhysicalAttribute ;
+    rdfs:label "Shape" .
+
+# ── Further Perdurants ──────────────────────────────────────────────────────
+
+dul:Communication a owl:Class ;
+    rdfs:subClassOf dul:Activity ;
+    rdfs:label "Communication" .
+
+dul:Conversation a owl:Class ;
+    rdfs:subClassOf dul:Communication ;
+    rdfs:label "Conversation" .
+
+dul:Speech a owl:Class ;
+    rdfs:subClassOf dul:Communication ;
+    rdfs:label "Speech" .
+
+dul:Reading a owl:Class ;
+    rdfs:subClassOf dul:Activity ;
+    rdfs:label "Reading" .
+
+dul:Writing a owl:Class ;
+    rdfs:subClassOf dul:Activity ;
+    rdfs:label "Writing" .
+
+dul:Movement a owl:Class ;
+    rdfs:subClassOf dul:Process ;
+    rdfs:label "Movement" .
+
+dul:Transaction a owl:Class ;
+    rdfs:subClassOf dul:Activity ;
+    rdfs:label "Transaction" .
+
+dul:Negotiation a owl:Class ;
+    rdfs:subClassOf dul:Activity ;
+    rdfs:label "Negotiation" .
+
+dul:Decision a owl:Class ;
+    rdfs:subClassOf dul:Achievement ;
+    rdfs:label "Decision" .
+
+dul:Observation a owl:Class ;
+    rdfs:subClassOf dul:Activity ;
+    rdfs:label "Observation" .
+
+dul:Measurement a owl:Class ;
+    rdfs:subClassOf dul:Observation ;
+    rdfs:label "Measurement" .
+
+dul:Computation a owl:Class ;
+    rdfs:subClassOf dul:Process ;
+    rdfs:label "Computation" .
+
+dul:Production a owl:Class ;
+    rdfs:subClassOf dul:Activity ;
+    rdfs:label "Production" .
+
+dul:Consumption a owl:Class ;
+    rdfs:subClassOf dul:Activity ;
+    rdfs:label "Consumption" .
+
+dul:Experiment a owl:Class ;
+    rdfs:subClassOf dul:Activity ;
+    rdfs:label "Experiment" .
+
+dul:GoalExecution a owl:Class ;
+    rdfs:subClassOf dul:Situation ;
+    rdfs:label "GoalExecution" .
+
+dul:Outcome a owl:Class ;
+    rdfs:subClassOf dul:Situation ;
+    rdfs:label "Outcome" .
+
+dul:Behavior a owl:Class ;
+    rdfs:subClassOf dul:Process ;
+    rdfs:label "Behavior" .
+
+dul:Habit a owl:Class ;
+    rdfs:subClassOf dul:Behavior ;
+    rdfs:label "Habit" .
+
+# ============================================================================
+# OBJECT PROPERTIES — the load-bearing whitelist
+# ============================================================================
+
+# ── Upper-category subsumption (RDF schema standards re-declared for clarity) ─
+
+# ── DnS Classification ──────────────────────────────────────────────────────
+
+dul:isClassifiedBy a owl:ObjectProperty ;
+    rdfs:label "isClassifiedBy" ;
+    rdfs:domain dul:Entity ;
+    rdfs:range dul:Concept ;
+    rdfs:comment "Relation between an Entity and a Concept that classifies it." .
+
+dul:classifies a owl:ObjectProperty ;
+    rdfs:label "classifies" ;
+    rdfs:domain dul:Concept ;
+    rdfs:range dul:Entity ;
+    owl:inverseOf dul:isClassifiedBy .
+
+# ── DnS Role-binding ────────────────────────────────────────────────────────
+
+dul:hasRole a owl:ObjectProperty ;
+    rdfs:label "hasRole" ;
+    rdfs:domain dul:Object ;
+    rdfs:range dul:Role .
+
+dul:isRoleOf a owl:ObjectProperty ;
+    rdfs:label "isRoleOf" ;
+    rdfs:domain dul:Role ;
+    rdfs:range dul:Object ;
+    owl:inverseOf dul:hasRole .
+
+dul:hasTask a owl:ObjectProperty ;
+    rdfs:label "hasTask" ;
+    rdfs:domain dul:Role ;
+    rdfs:range dul:Task .
+
+dul:isTaskOf a owl:ObjectProperty ;
+    rdfs:label "isTaskOf" ;
+    rdfs:domain dul:Task ;
+    rdfs:range dul:Role ;
+    owl:inverseOf dul:hasTask .
+
+dul:definesRole a owl:ObjectProperty ;
+    rdfs:label "definesRole" ;
+    rdfs:domain dul:Description ;
+    rdfs:range dul:Role .
+
+dul:definesTask a owl:ObjectProperty ;
+    rdfs:label "definesTask" ;
+    rdfs:domain dul:Description ;
+    rdfs:range dul:Task .
+
+dul:defines a owl:ObjectProperty ;
+    rdfs:label "defines" ;
+    rdfs:domain dul:Description ;
+    rdfs:range dul:Concept .
+
+# ── DnS Participation ───────────────────────────────────────────────────────
+
+dul:hasParticipant a owl:ObjectProperty ;
+    rdfs:label "hasParticipant" ;
+    rdfs:domain dul:Event ;
+    rdfs:range dul:Object .
+
+dul:isParticipantIn a owl:ObjectProperty ;
+    rdfs:label "isParticipantIn" ;
+    rdfs:domain dul:Object ;
+    rdfs:range dul:Event ;
+    owl:inverseOf dul:hasParticipant .
+
+dul:executesTask a owl:ObjectProperty ;
+    rdfs:label "executesTask" ;
+    rdfs:domain dul:Action ;
+    rdfs:range dul:Task .
+
+dul:isExecutedIn a owl:ObjectProperty ;
+    rdfs:label "isExecutedIn" ;
+    rdfs:domain dul:Task ;
+    rdfs:range dul:Action ;
+    owl:inverseOf dul:executesTask .
+
+# ── Description-Situation satisfaction ──────────────────────────────────────
+
+dul:satisfies a owl:ObjectProperty ;
+    rdfs:label "satisfies" ;
+    rdfs:domain dul:Situation ;
+    rdfs:range dul:Description .
+
+dul:isSatisfiedBy a owl:ObjectProperty ;
+    rdfs:label "isSatisfiedBy" ;
+    rdfs:domain dul:Description ;
+    rdfs:range dul:Situation ;
+    owl:inverseOf dul:satisfies .
+
+dul:isSettingFor a owl:ObjectProperty ;
+    rdfs:label "isSettingFor" ;
+    rdfs:domain dul:Situation ;
+    rdfs:range dul:Entity .
+
+dul:hasSetting a owl:ObjectProperty ;
+    rdfs:label "hasSetting" ;
+    rdfs:domain dul:Entity ;
+    rdfs:range dul:Situation ;
+    owl:inverseOf dul:isSettingFor .
+
+# ── Mereological (parthood) ─────────────────────────────────────────────────
+
+dul:hasPart a owl:ObjectProperty ;
+    rdfs:label "hasPart" ;
+    rdfs:domain dul:Entity ;
+    rdfs:range dul:Entity .
+
+dul:isPartOf a owl:ObjectProperty ;
+    rdfs:label "isPartOf" ;
+    rdfs:domain dul:Entity ;
+    rdfs:range dul:Entity ;
+    owl:inverseOf dul:hasPart .
+
+dul:hasProperPart a owl:ObjectProperty ;
+    rdfs:label "hasProperPart" ;
+    rdfs:subPropertyOf dul:hasPart .
+
+dul:isProperPartOf a owl:ObjectProperty ;
+    rdfs:label "isProperPartOf" ;
+    rdfs:subPropertyOf dul:isPartOf ;
+    owl:inverseOf dul:hasProperPart .
+
+dul:hasAtomicPart a owl:ObjectProperty ;
+    rdfs:label "hasAtomicPart" ;
+    rdfs:subPropertyOf dul:hasPart .
+
+dul:hasConstituent a owl:ObjectProperty ;
+    rdfs:label "hasConstituent" ;
+    rdfs:domain dul:Entity ;
+    rdfs:range dul:Entity .
+
+dul:isConstituentOf a owl:ObjectProperty ;
+    rdfs:label "isConstituentOf" ;
+    rdfs:domain dul:Entity ;
+    rdfs:range dul:Entity ;
+    owl:inverseOf dul:hasConstituent .
+
+dul:hasComponent a owl:ObjectProperty ;
+    rdfs:label "hasComponent" ;
+    rdfs:subPropertyOf dul:hasPart .
+
+dul:isComponentOf a owl:ObjectProperty ;
+    rdfs:label "isComponentOf" ;
+    rdfs:subPropertyOf dul:isPartOf ;
+    owl:inverseOf dul:hasComponent .
+
+dul:hasMember a owl:ObjectProperty ;
+    rdfs:label "hasMember" ;
+    rdfs:domain dul:Collection ;
+    rdfs:range dul:Entity .
+
+dul:isMemberOf a owl:ObjectProperty ;
+    rdfs:label "isMemberOf" ;
+    rdfs:domain dul:Entity ;
+    rdfs:range dul:Collection ;
+    owl:inverseOf dul:hasMember .
+
+# ── Temporal anchoring ──────────────────────────────────────────────────────
+
+dul:hasTimeInterval a owl:ObjectProperty ;
+    rdfs:label "hasTimeInterval" ;
+    rdfs:domain dul:Entity ;
+    rdfs:range dul:TimeInterval .
+
+dul:isObservableAt a owl:ObjectProperty ;
+    rdfs:label "isObservableAt" ;
+    rdfs:domain dul:Entity ;
+    rdfs:range dul:TimeInterval .
+
+dul:hasIntervalDate a owl:ObjectProperty ;
+    rdfs:label "hasIntervalDate" ;
+    rdfs:domain dul:TimeInterval ;
+    rdfs:range dul:Date .
+
+dul:hasEventDate a owl:ObjectProperty ;
+    rdfs:label "hasEventDate" ;
+    rdfs:domain dul:Event ;
+    rdfs:range dul:Date .
+
+dul:precedes a owl:ObjectProperty ;
+    rdfs:label "precedes" ;
+    rdfs:domain dul:Entity ;
+    rdfs:range dul:Entity .
+
+dul:follows a owl:ObjectProperty ;
+    rdfs:label "follows" ;
+    rdfs:domain dul:Entity ;
+    rdfs:range dul:Entity ;
+    owl:inverseOf dul:precedes .
+
+dul:overlaps a owl:ObjectProperty ;
+    rdfs:label "overlaps" ;
+    rdfs:domain dul:Entity ;
+    rdfs:range dul:Entity .
+
+dul:coOccurs a owl:ObjectProperty ;
+    rdfs:label "coOccurs" ;
+    rdfs:domain dul:Event ;
+    rdfs:range dul:Event .
+
+# ── Quality / Region anchoring ──────────────────────────────────────────────
+
+dul:hasQuality a owl:ObjectProperty ;
+    rdfs:label "hasQuality" ;
+    rdfs:domain dul:Entity ;
+    rdfs:range dul:Quality .
+
+dul:isQualityOf a owl:ObjectProperty ;
+    rdfs:label "isQualityOf" ;
+    rdfs:domain dul:Quality ;
+    rdfs:range dul:Entity ;
+    owl:inverseOf dul:hasQuality .
+
+dul:hasRegion a owl:ObjectProperty ;
+    rdfs:label "hasRegion" ;
+    rdfs:domain dul:Entity ;
+    rdfs:range dul:Region .
+
+dul:isRegionFor a owl:ObjectProperty ;
+    rdfs:label "isRegionFor" ;
+    rdfs:domain dul:Region ;
+    rdfs:range dul:Entity ;
+    owl:inverseOf dul:hasRegion .
+
+dul:hasParameter a owl:ObjectProperty ;
+    rdfs:label "hasParameter" ;
+    rdfs:domain dul:Concept ;
+    rdfs:range dul:Parameter .
+
+dul:isParameterFor a owl:ObjectProperty ;
+    rdfs:label "isParameterFor" ;
+    rdfs:domain dul:Parameter ;
+    rdfs:range dul:Concept ;
+    owl:inverseOf dul:hasParameter .
+
+dul:parametrizes a owl:ObjectProperty ;
+    rdfs:label "parametrizes" ;
+    rdfs:domain dul:Parameter ;
+    rdfs:range dul:Entity .
+
+# ── Spatial / location ──────────────────────────────────────────────────────
+
+dul:hasLocation a owl:ObjectProperty ;
+    rdfs:label "hasLocation" ;
+    rdfs:domain dul:Entity ;
+    rdfs:range dul:Entity .
+
+dul:isLocationOf a owl:ObjectProperty ;
+    rdfs:label "isLocationOf" ;
+    rdfs:domain dul:Entity ;
+    rdfs:range dul:Entity ;
+    owl:inverseOf dul:hasLocation .
+
+dul:near a owl:ObjectProperty ;
+    rdfs:label "near" ;
+    rdfs:domain dul:Entity ;
+    rdfs:range dul:Entity .
+
+dul:contains a owl:ObjectProperty ;
+    rdfs:label "contains" ;
+    rdfs:domain dul:Entity ;
+    rdfs:range dul:Entity .
+
+# ── Plan / execution ────────────────────────────────────────────────────────
+
+dul:realizes a owl:ObjectProperty ;
+    rdfs:label "realizes" ;
+    rdfs:domain dul:InformationRealization ;
+    rdfs:range dul:InformationObject .
+
+dul:isRealizedBy a owl:ObjectProperty ;
+    rdfs:label "isRealizedBy" ;
+    rdfs:domain dul:InformationObject ;
+    rdfs:range dul:InformationRealization ;
+    owl:inverseOf dul:realizes .
+
+dul:executes a owl:ObjectProperty ;
+    rdfs:label "executes" ;
+    rdfs:domain dul:Action ;
+    rdfs:range dul:Plan .
+
+dul:isExecutedBy a owl:ObjectProperty ;
+    rdfs:label "isExecutedBy" ;
+    rdfs:domain dul:Plan ;
+    rdfs:range dul:Action ;
+    owl:inverseOf dul:executes .
+
+dul:hasGoal a owl:ObjectProperty ;
+    rdfs:label "hasGoal" ;
+    rdfs:domain dul:Plan ;
+    rdfs:range dul:Goal .
+
+dul:isGoalOf a owl:ObjectProperty ;
+    rdfs:label "isGoalOf" ;
+    rdfs:domain dul:Goal ;
+    rdfs:range dul:Plan ;
+    owl:inverseOf dul:hasGoal .
+
+dul:hasPrecondition a owl:ObjectProperty ;
+    rdfs:label "hasPrecondition" ;
+    rdfs:domain dul:Plan ;
+    rdfs:range dul:Description .
+
+dul:hasPostcondition a owl:ObjectProperty ;
+    rdfs:label "hasPostcondition" ;
+    rdfs:domain dul:Plan ;
+    rdfs:range dul:Description .
+
+# ── Information / aboutness ─────────────────────────────────────────────────
+
+dul:isAbout a owl:ObjectProperty ;
+    rdfs:label "isAbout" ;
+    rdfs:domain dul:InformationObject ;
+    rdfs:range dul:Entity .
+
+dul:isReferenceOf a owl:ObjectProperty ;
+    rdfs:label "isReferenceOf" ;
+    rdfs:domain dul:Entity ;
+    rdfs:range dul:InformationObject .
+
+dul:expresses a owl:ObjectProperty ;
+    rdfs:label "expresses" ;
+    rdfs:domain dul:InformationObject ;
+    rdfs:range dul:SocialObject .
+
+dul:isExpressedBy a owl:ObjectProperty ;
+    rdfs:label "isExpressedBy" ;
+    rdfs:domain dul:SocialObject ;
+    rdfs:range dul:InformationObject ;
+    owl:inverseOf dul:expresses .
+
+# ── Social / membership / agency ────────────────────────────────────────────
+
+dul:actsFor a owl:ObjectProperty ;
+    rdfs:label "actsFor" ;
+    rdfs:domain dul:Agent ;
+    rdfs:range dul:SocialAgent .
+
+dul:isActedOnBy a owl:ObjectProperty ;
+    rdfs:label "isActedOnBy" ;
+    rdfs:domain dul:SocialAgent ;
+    rdfs:range dul:Agent ;
+    owl:inverseOf dul:actsFor .
+
+# ── Functional ──────────────────────────────────────────────────────────────
+
+dul:hasFunction a owl:ObjectProperty ;
+    rdfs:label "hasFunction" ;
+    rdfs:domain dul:Entity ;
+    rdfs:range dul:Description .
+
+# ── Datatype properties (for completeness) ──────────────────────────────────
+
+dul:hasDataValue a owl:DatatypeProperty ;
+    rdfs:label "hasDataValue" ;
+    rdfs:domain dul:Region ;
+    rdfs:range rdfs:Literal .
+
+dul:hasIntervalStartDate a owl:DatatypeProperty ;
+    rdfs:label "hasIntervalStartDate" ;
+    rdfs:domain dul:TimeInterval ;
+    rdfs:range xsd:dateTime .
+
+dul:hasIntervalEndDate a owl:DatatypeProperty ;
+    rdfs:label "hasIntervalEndDate" ;
+    rdfs:domain dul:TimeInterval ;
+    rdfs:range xsd:dateTime .
+
+dul:hasParameterDataValue a owl:DatatypeProperty ;
+    rdfs:label "hasParameterDataValue" ;
+    rdfs:domain dul:Parameter ;
+    rdfs:range rdfs:Literal .
+
+dul:hasAmount a owl:DatatypeProperty ;
+    rdfs:label "hasAmount" ;
+    rdfs:domain dul:Amount ;
+    rdfs:range xsd:decimal .
+
+dul:hasUnit a owl:DatatypeProperty ;
+    rdfs:label "hasUnit" ;
+    rdfs:domain dul:Quality ;
+    rdfs:range xsd:string .
