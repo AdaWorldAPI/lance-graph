@@ -1,0 +1,20 @@
+ogit_g: TIME
+version: 1
+domain_name: owltime
+inert_when_consumer_absent: true
+
+entity_types:
+  TemporalEntity:   u16=500
+  Instant:          u16=501
+  Interval:         u16=502
+  ProperInterval:   u16=503
+  DateTimeInterval: u16=504
+  DateTimeDescription: u16=505
+  Duration:         u16=506
+  TemporalDuration: u16=507
+
+rbac_policy: ~
+stack_profile: ~
+action_capabilities: {}
+actor: ~
+inherits_from: dolce

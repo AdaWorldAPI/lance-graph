@@ -26,6 +26,12 @@ const CANONICAL_SLOTS: &[(&str, u32)] = &[
     ("SMB", 4),
     ("FMA", 5),
     ("CRM", 6),
+    // L2 universal upper-bridge ontologies (PR-bO-2 .. bO-5/bO-8).
+    // Each declares `inherits_from: dolce` in its manifest.
+    ("TIME", 10),
+    ("PROVO", 11),
+    ("QUDT", 12),
+    ("SCHEMAORG", 13),
 ];
 
 fn canonical_slot(token: &str) -> Option<u32> {

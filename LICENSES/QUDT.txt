@@ -1,0 +1,43 @@
+QUDT (Quantities, Units, Dimensions and Data Types Ontologies)
+==============================================================
+
+Source
+------
+http://qudt.org/2.1/schema/qudt
+http://qudt.org/vocab/unit/
+http://qudt.org/vocab/quantitykind/
+GitHub: https://github.com/qudt/qudt-public-repo
+
+Authors
+-------
+Ralph Hodgson, Steve Ray, Paul Keller, Jack Hodges (TopQuadrant);
+NASA Ames Research Center; community contributors.
+
+License
+-------
+Creative Commons Attribution 4.0 International (CC-BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
+
+Usage in this repository
+------------------------
+data/ontologies/qudt-core.ttl is the QUDT 2.1 core schema.
+data/ontologies/qudt-units.ttl is the QUDT 2.1 units catalogue (~2900
+unit individuals).
+
+Both files are hydrated together by lance-graph-ontology as the L2
+universal quantities/units/dimensions slot OGIT::QUDT_V1, merged into a
+single ContextBundle via OwlHydrator::hydrate_many.
+
+The quantitykinds catalogue is expected at
+data/ontologies/qudt-quantitykinds.ttl when the canonical artifact is
+available; the current hydration covers core + units.
+
+Declares inherits_from: Some(OGIT::DOLCE_V1.0) and provides the
+quantity-kind, unit-binding, and dimensional-vector surface for
+downstream measurement and conversion cascades.
+
+Citation
+--------
+Hodgson, R., Keller, P. J., Hodges, J., Spivak, J. (2014). "QUDT —
+Quantities, Units, Dimensions and Data Types Ontologies."
+http://www.qudt.org

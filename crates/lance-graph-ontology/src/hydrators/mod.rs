@@ -8,14 +8,26 @@
 //!
 //! Hydrators that ship today:
 //! - [`hydrate_dolce`] — L1 upper ontology (DOLCE+DUL).
+//! - [`hydrate_owltime`] — L2 universal temporal ontology (OWL-Time).
+//! - [`hydrate_provo`] — L2 universal provenance ontology (PROV-O).
+//! - [`hydrate_qudt`] — L2 quantities/units/dimensions (QUDT 2.1).
+//! - [`hydrate_schemaorg`] — L3 commercial-web (schema.org).
 //!
-//! Hydrators that follow this scaffold (PR-bO-2 through PR-bO-16):
-//! OWL-Time, PROV-O, QUDT, SKOS, FIBO-FND, FIBO-BE, schema.org subset, XBRL
-//! GL, IFRS, UBL, ISO 20022, SKR03/SKR04, HGB / UStG, GoBD, XRechnung,
-//! ZUGFeRD. Each lands as one `hydrate_*()` glue + one TTL artifact.
+//! Hydrators that follow this scaffold (remaining bO-* series): SKOS,
+//! FIBO-FND, FIBO-BE, AEC3PO, XBRL GL, IFRS, UBL, ISO 20022, SKR03/SKR04,
+//! HGB / UStG, GoBD, XRechnung, ZUGFeRD. Each lands as one `hydrate_*()`
+//! glue + one TTL artifact.
 
 pub mod dolce;
 pub mod owl;
+pub mod owltime;
+pub mod provo;
+pub mod qudt;
+pub mod schemaorg;
 
 pub use dolce::{hydrate_dolce, hydrate_dolce_from};
 pub use owl::{ContextBundle, EntityId, HydrateErr, MetaStructureHydrator, OntologySlot, OwlHydrator};
+pub use owltime::{hydrate_owltime, hydrate_owltime_from};
+pub use provo::{hydrate_provo, hydrate_provo_from};
+pub use qudt::{hydrate_qudt, hydrate_qudt_from};
+pub use schemaorg::{hydrate_schemaorg, hydrate_schemaorg_from};
