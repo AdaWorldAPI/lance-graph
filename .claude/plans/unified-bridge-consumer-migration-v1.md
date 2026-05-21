@@ -115,12 +115,12 @@ Hot path (every Cypher/SPARQL/Gremlin query that touches a row):
 
 The `MetaAnchors` field (super-domain-rbac §3.5) on each `SuperDomainEntry` carries pointers to upper ontologies:
 
-| Cross-walk | Field | Consulted when |
-|---|---|---|
-| Foundry ObjectType | `foundry_object_type: Option<&'static str>` | Customer requests Foundry-shape export |
-| OWL upper class | `owl_upper_class: Option<&'static str>` | OWL reasoner runs over the same registry |
-| DOLCE marker | `dolce_marker: DolceMarker` (Endurant / Perdurant / Quality / Abstract) | Per-row philosophical-category tagging |
-| Wikidata QID | `wikidata_qid: Option<u64>` | Wikidata sync / sameAs link generation |
+| Cross-walk | Field | Consulted when | Populated by (concrete hydrator) |
+|---|---|---|---|
+| Foundry ObjectType | `foundry_object_type: Option<&'static str>` | Customer requests Foundry-shape export | Not auto-populated; manual cross-walk per `super-domain-rbac-tenancy-v1.md` §10 OQ-1. `lance_graph_ontology::hydrators::hydrate_schemaorg` and `hydrate_fibo_be` provide the upper-class anchors Foundry typically maps to. |
+| OWL upper class | `owl_upper_class: Option<&'static str>` | OWL reasoner runs over the same registry | `lance_graph_ontology::hydrators::hydrate_dolce` (L1 root, `OGIT::DOLCE_V1`, `inherits_from: None`). Resolves `rdfs:subClassOf` / `owl:equivalentClass` chains for the upper-category subsumption (Object / Event / Quality / Abstract). |
+| DOLCE marker | `dolce_marker: DolceMarker` (Endurant / Perdurant / Quality / Abstract) | Per-row philosophical-category tagging | `lance_graph_ontology::hydrators::hydrate_dolce` populates the L1 bundle; downstream hydrators (`hydrate_owltime`, `hydrate_provo`, `hydrate_qudt`, `hydrate_schemaorg`, …) `inherits_from: Some(OGIT::DOLCE_V1.0)` and align via the `dul:isClassifiedBy` / `subClassOf dul:Event|Object|Quality|Abstract` chain DOLCE preserves. **Note:** canonical DOLCE+DUL renames `Endurant → Object` and `Perdurant → Event` per the DUL header — the `DolceMarker` enum either stays on the legacy naming (with downstream consumers aware of the renaming) or migrates at the cost of one source-tree-wide find/replace. Decide before D-UB-3. |
+| Wikidata QID | `wikidata_qid: Option<u64>` | Wikidata sync / sameAs link generation | Not in the current hydrator surface — would need a `hydrate_wikidata` glue (~50 LOC) following the same `OwlHydrator { g, version, domain_name, inherits_from, starting_entity_id }` pattern. Probably deferred until a tenant explicitly requests Wikidata sync. |
 
 These are **interop crutches**, not the hot path. The 4-stage `authorize()` never consults them; the per-family codebook is the runtime fast lane. OWL/DOLCE values ride in `FamilyEntry.axiom_blob` for slots that carry semantic obligations (functional / transitive / inverseFunctional / etc., per `GLUE_LAYER_OGIT_TO_OWL_SPEC.md` 1-byte bitfield).
 
@@ -148,6 +148,82 @@ Reads are append-only; writes go through `MappingProposal::sha256()`-keyed dedup
 
 **This is what makes the codebook "O(1) cached in lancedb column":** the column store IS the cache; reads are scan-then-build-in-memory once at boot; lookups are array-index on `OwlIdentity.slot()` after.
 
+### 4.3 Hydrator inventory (post-PR #407)
+
+The OWL/DOLCE/OGIT cross-walk surface this plan referenced abstractly is now concrete in `lance_graph_ontology::hydrators::*` (PR #407 + the ~11 preceding feature commits). Every hydrator follows the same shape — a free function `hydrate_<name>(registry: &OntologyRegistry) -> Result<u32, HydrateErr>` that constructs an `OwlHydrator { g: OGIT::<SLOT>.0, version: OGIT::<SLOT>.1, domain_name: "<name>".to_string(), inherits_from: Option<u32>, starting_entity_id: 100 }`, calls `.hydrate(ttl_path, registry)` (or `.hydrate_many(&paths, registry)` for multi-file bundles like DOLCE+DUL+extensions), then registers an edge-IRI whitelist via `registry.register_edge_types(g, &EDGE_WHITELIST)`. The return value is the OGIT `G` slot u32 the bundle landed in.
+
+**Generic substrate (the bO-* scaffold every hydrator instantiates):**
+
+| Type | Path | Role |
+|---|---|---|
+| `OwlHydrator` | `lance_graph_ontology::hydrators::owl::OwlHydrator` | The generic struct with `g`, `version`, `domain_name`, `inherits_from`, `starting_entity_id`. Reads OWL/Turtle via the existing TTL parser, emits `MappingProposal`s into the registry. |
+| `MetaStructureHydrator` | `lance_graph_ontology::hydrators::owl::MetaStructureHydrator` (trait) | Trait the per-ontology glue implements; `OwlHydrator` is the default impl. Pattern-D meta-structure hydration. |
+| `ContextBundle` | `lance_graph_ontology::hydrators::owl::ContextBundle` | Typed bundle keyed by an OGIT `G` slot. One bundle per hydrator output. |
+| `EntityId`, `OntologySlot`, `HydrateErr` | `lance_graph_ontology::hydrators::owl::*` | Per-entity slot index inside a bundle; the error enum. |
+
+**Layered ontologies (L1 root → L4 sector):**
+
+| Layer | Hydrator function | OGIT slot | `inherits_from` | TTL artifact | Edge whitelist size |
+|---|---|---|---|---|---|
+| **L1 upper** | `hydrate_dolce` (+ `hydrate_dolce_from`, `hydrate_dolce_from_many` for tests / multi-file) | `OGIT::DOLCE_V1.0` | `None` (root) | `data/ontologies/dul.ttl` + `dul-extensions/{conceptualization.owl, lmm-l2.owl}` | 17 IRIs (rdfs:subClassOf + owl:equivalentClass/disjointWith + DnS classify/role-binding + dul:hasPart/isPartOf + dul:hasTimeInterval/isObservableAt) |
+| **L2 universal** | `hydrate_owltime` (+ `_from`) | `OGIT::OWLTIME_V1.0` | `Some(OGIT::DOLCE_V1.0)` | `data/ontologies/owltime.ttl` | — |
+| **L2 universal** | `hydrate_provo` (+ `_from`) | `OGIT::PROVO_V1.0` | `Some(OGIT::DOLCE_V1.0)` | `data/ontologies/provo.ttl` | 22 IRIs (subClassOf/subPropertyOf + 8 load-bearing PROV relations: wasGeneratedBy/used/wasDerivedFrom/wasAttributedTo/wasAssociatedWith/wasInformedBy/actedOnBehalfOf/wasInvalidatedBy + qualified* + activity-lifecycle + delegation) |
+| **L2 universal** | `hydrate_qudt` (+ `_from`) | `OGIT::QUDT_V1.0` | `Some(OGIT::DOLCE_V1.0)` | `data/ontologies/qudt/*` (+ quantitykinds catalogue, bO-4) | — |
+| **L3 commercial-web** | `hydrate_schemaorg` (+ `_from`) | `OGIT::SCHEMAORG_V1.0` | `Some(OGIT::DOLCE_V1.0)` | `data/ontologies/schemaorg.ttl` | — |
+| **Sector** | `hydrate_skos` (+ `_from`) | `OGIT::SKOS_V1.0` | `Some(OGIT::DOLCE_V1.0)` | `data/ontologies/skos.ttl` (+ DUL extension modules per bO-5) | — |
+| **Sector — finance** | `hydrate_fibo_fnd` (+ `_from`) | `OGIT::FIBO_FND_V1.0` | `Some(OGIT::DOLCE_V1.0)` | FIBO Foundations | — |
+| **Sector — finance** | `hydrate_fibo_be` (+ `_from`) | `OGIT::FIBO_BE_V1.0` | `Some(OGIT::FIBO_FND_V1.0)` | FIBO Business Entities | — |
+
+**Dedicated (non-OWL) hydrators:**
+
+| Type | Path | Domain | Role |
+|---|---|---|---|
+| `SchematronHydrator` | `lance_graph_ontology::hydrators::schematron::SchematronHydrator` | ISO Schematron rule sets | Hydrates Schematron rule patterns (asserts + reports) as ContextBundle entries; used by `hydrate_zugferd_rules` + `hydrate_zugferd_rules_from` for the EN16931 compliance rules ZUGFeRD/Factur-X invoices must satisfy. |
+| `XsdHydrator` | `lance_graph_ontology::hydrators::xsd::XsdHydrator` (+ `collect_xsd_files()` helper) | XML Schema | Hydrates XSD type definitions as ContextBundle entries; used by `hydrate_zugferd` + `hydrate_zugferd_from` for the ZUGFeRD/Factur-X EN16931 invoice schema (PR-bO-16). |
+| `SkrHydrator` | `lance_graph_ontology::hydrators::skr::SkrHydrator` | DATEV SKR charts of accounts | Hydrates the SKR account hierarchy from the CSV data files (`data/skr/SKR03.csv`, `SKR04.csv`, `SKR03_bau.csv`). Consumed by `hydrate_skr03` / `hydrate_skr04` / `hydrate_skr03_bau` (and their `_from` test variants). Three IRI-prefix constants exposed: `SKR03_IRI_PREFIX`, `SKR04_IRI_PREFIX`, `SKR03_BAU_IRI_PREFIX`. |
+
+**Re-export surface (consumers import from the crate root, not the submodule):**
+
+```rust
+// Single import for the whole hydrator surface:
+use lance_graph_ontology::{
+    // generic
+    OwlHydrator, MetaStructureHydrator, ContextBundle, EntityId, OntologySlot, HydrateErr,
+    // layered
+    hydrate_dolce, hydrate_dolce_from, hydrate_dolce_from_many,
+    hydrate_owltime, hydrate_owltime_from,
+    hydrate_provo, hydrate_provo_from,
+    hydrate_qudt, hydrate_qudt_from,
+    hydrate_schemaorg, hydrate_schemaorg_from,
+    hydrate_skos, hydrate_skos_from,
+    hydrate_fibo_fnd, hydrate_fibo_fnd_from,
+    hydrate_fibo_be, hydrate_fibo_be_from,
+    // sector + dedicated
+    SchematronHydrator,
+    XsdHydrator, collect_xsd_files,
+    SkrHydrator,
+    hydrate_skr03, hydrate_skr03_from,
+    hydrate_skr04, hydrate_skr04_from,
+    hydrate_skr03_bau, hydrate_skr03_bau_from,
+    SKR03_IRI_PREFIX, SKR04_IRI_PREFIX, SKR03_BAU_IRI_PREFIX,
+    hydrate_zugferd, hydrate_zugferd_from,
+    hydrate_zugferd_rules, hydrate_zugferd_rules_from,
+};
+```
+
+**How this plan's deliverables use the hydrator surface:**
+
+- **D-UB-1** (consumer-pattern doc) names the `hydrate_<name>(registry)` shape as the producer side of `OntologyRegistry`. Consumers do not call hydrators directly — the bridge constructor (`<repo>_unified_bridge`) takes an already-hydrated `Arc<OntologyRegistry>` and the deployment code chooses which hydrators to run at boot.
+- **D-UB-2** (`SmbBridge` skeleton) declares no hydrator dependency; SMB locks to a future `OGIT::SMB_V1` slot. Once `OGIT/NTO/SMB/` ships, an `hydrate_smb_namespace()` follows the same `OwlHydrator { inherits_from: Some(OGIT::DOLCE_V1.0), ... }` pattern.
+- **D-UB-3** (`lance_cache::ontology_cache_schema()` + `LanceCacheBootStrategy`) persists the per-hydrator `ContextBundle` output as the Lance dataset rows. Each row carries `bridge_id`, `namespace`, `public_name`, `ogit_uri`, `kind`, `dolce_marker`, `owl_characteristics`, `provenance`, `axiom_blob`, `verb_slots`, `centroid_blob` (§4.2 table) — populated by the hydrators that ran at boot.
+- **D-UB-4..6** (per-consumer constructors) all take `Arc<OntologyRegistry>` already hydrated by `hydrate_dolce` + the appropriate L2/L3/sector hydrators for that consumer's namespace. Concretely:
+  - **woa-rs** boots: `hydrate_dolce` + `hydrate_provo` (audit trails, GoBD) + `hydrate_qudt` (Mengen, Stundenzahl) + `hydrate_schemaorg` (Customer / Invoice cross-walks) + `hydrate_fibo_fnd` (financial primitives) + `hydrate_skr03`/`hydrate_skr04` (chart of accounts) + future `OGIT/NTO/WorkOrder` namespace hydration.
+  - **smb-office-rs** boots: same as woa-rs minus the WorkOrder namespace, plus `hydrate_skr03_bau` (Baugewerbe) for construction tenants and `hydrate_zugferd` + `hydrate_zugferd_rules` for X-Rechnung output validation.
+  - **MedCare-rs** boots: `hydrate_dolce` + `hydrate_owltime` (Visit / Treatment chronology) + `hydrate_provo` (HIPAA audit trail) + `hydrate_qudt` (LabValue units, VitalSign measurements) + `hydrate_skos` (clinical-code thesauri — ICD-10 mappings) + future `OGIT/NTO/Healthcare` hydration.
+
+The bridge constructor never sees `OwlHydrator` directly — it sees a hydrated `OntologyRegistry`. The deployment / `main.rs` of each consumer chooses the hydration menu.
+
+---
 
 ## 5 — Deliverables
 
