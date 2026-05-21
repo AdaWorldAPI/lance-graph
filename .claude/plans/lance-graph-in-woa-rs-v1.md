@@ -350,3 +350,112 @@ Updated harvest diagram:
 ### 10.7 One-line summary
 
 > woa-rs is ontology-virgin at the lance-graph-ontology hot path BUT already has OGIT baked into sea-orm entities at the cold path; the MedCare-rs MysqlReconciler pattern transfers 1:1 with sea-orm fetchers (sea-orm ergonomics + self-explaining API make this cheap). Phase 0-3 closure revised from ~13 to ~9-10 days; new D-WLG-15..17 add WoaMysqlReconciler + production wiring + drift dashboard mirroring the MedCare-rs shape.
+
+---
+
+## 11 — The rewarding path: woa-rs as integration target, harvesting XRechnung + parallelbetrieb (2026-05-21, same session)
+
+User strategic reframe: **MedCare-rs and smb-office-rs are transcodes that never worked as Rust** — they're pre-prod Rust ports of C# WinForms desktop apps whose UIs can't be moved to web cheaply. They compile, they pass tests, but they don't "look like anything" until the WinForms layer is replaced (a separate large effort outside this plan's scope). **woa-rs is different — it's a web application transcode** (Python/Flask → Rust/axum), which means the same kind of work that produces binaries-only feedback in MedCare/SMB produces VISIBLE WEB-UI feedback in woa. That asymmetry is what makes woa-rs the rewarding integration target.
+
+§9 (hot/cold split) + §10 (OGIT-in-sea-orm) already revised the technical effort estimate downward. §11 reframes the STRATEGIC sequencing — woa-rs is where the integration story should land first, because every PR shows up in a browser, not just in a test report.
+
+### 11.1 Three harvests, one rewarding target
+
+```
+                               woa-rs
+                  ┌──────────  (web-app target)  ──────────┐
+                  │                                         │
+                  │   already in tree:                      │
+                  │   • OGIT TTL at vendor/ogit/v02-harvest │
+                  │   • sea-orm entities mirrored from OGIT │
+                  │   • MySQL via DualSink-Pivot writer-    │
+                  │     parity                              │
+                  │   • axum + askama + tower-sessions      │
+                  │     web stack                           │
+                  │                                         │
+                  └────────────────┬────────────────────────┘
+                                   │
+                ┌──────────────────┼────────────────────────┐
+                ▼                  ▼                        ▼
+   ┌─────────────────────┐ ┌──────────────────┐ ┌─────────────────────┐
+   │ HARVEST 1 (SMB):    │ │ HARVEST 2 (Med): │ │ HARVEST 3 (in-tree):│
+   │ XRechnung pattern   │ │ parallelbetrieb  │ │ OGIT wiring         │
+   │                     │ │ reconciler       │ │                     │
+   │ source files:       │ │ source files:    │ │ source files:       │
+   │ • hydrate_zugferd   │ │ • MedcareMysql-  │ │ • vendor/ogit       │
+   │ • hydrate_zugferd_  │ │   Reconciler     │ │ • sea-orm entities  │
+   │   rules             │ │   (mysql_recon-  │ │ • lance-graph-      │
+   │ • SchematronHydrator│ │   ciler.rs, 461  │ │   ontology hydrators│
+   │ • XsdHydrator       │ │   LOC, 11 tests) │ │   (hydrate_dolce +  │
+   │ • collect_xsd_files │ │ • parallelbe-    │ │   provo + qudt +    │
+   │ • EN16931 rule set  │ │   trieb trait    │ │   schemaorg +       │
+   │                     │ │ • C# parity      │ │   fibo_fnd + skr03/ │
+   │ delivers to woa-rs: │ │   probe pattern  │ │   skr04)            │
+   │ X-Rechnung output   │ │                  │ │                     │
+   │ for Stefan's        │ │ delivers:        │ │ delivers:           │
+   │ invoices (visible   │ │ MySQL ↔ Lance    │ │ /api/__graph route  │
+   │ in browser as       │ │ drift dashboard  │ │ exposing Cypher     │
+   │ downloadable XML +  │ │ at /api/__parity │ │ over the woa        │
+   │ rendered PDF)       │ │ (visible admin   │ │ ontology (visible   │
+   │                     │ │ panel)           │ │ in browser)         │
+   └─────────────────────┘ └──────────────────┘ └─────────────────────┘
+```
+
+### 11.2 Why this is "quick and rewarding"
+
+The reward function is **time-to-visible-feedback per PR**. For each plan:
+
+| Consumer | Time-to-visible per PR | Why |
+|---|---|---|
+| **woa-rs** | **Minutes.** Every PR adds a route handler, an askama template, a database column, or a config that surfaces in the browser. PR-1 lands → smoke test against `localhost:8080/vorgaenge/123` shows the change. | It's a web app. Every change has a URL. |
+| **smb-office-rs** | Days-to-weeks. PRs land in `smb-bridge`, `smb-ontology`, `smb-mongo`, but the C# WinForms UI on the customer's desktop is what makes the change visible — and that UI isn't ours to touch. FFI smoke tests confirm linkage, not user-visible behavior. | The desktop UI is outside the port. |
+| **MedCare-rs** | Days-to-weeks. Same shape — `medcare-server` is technically axum, but the customer-facing experience is the C# WinForms MedCare app via the parity tool. Drift dashboards are admin-only and surface only when the C# probe runs. | Customer-facing surface is C#. |
+
+**This explains why §10's "MedCare is the quickest target for end-to-end proof" is true for ENGINEERING but woa-rs is the right target for DEMONSTRATION.** Engineering completeness ≠ user-visible reward. Stefan (the WoA end user, per `woa-rs/CLAUDE.md` glossary) sees the wins in his browser the day a PR lands.
+
+### 11.3 The harvest sequence — concrete PR ladder
+
+Suggested PR ladder for the "quick and rewarding" path. Each PR is one ascending integration milestone visible in the browser:
+
+| # | Source | Lands in woa-rs as | Visible in browser as |
+|---|---|---|---|
+| 1 | (greenfield) | Phase 0 vendor symlinks + workspace exclude | (build green; no UI change yet) |
+| 2 | smb-office-rs `smb-bridge` shape + MedCare-rs `MedcareRegistry` | `crates/woa-bridge/` + `crates/woa-ontology/` skeleton crates + `WoaRegistry::hydrate(...)` helper (D-WLG-3/D-WLG-4 per §3) | (build green; cargo test passes; no UI yet) |
+| 3 | smb-office-rs `unified_bridge_wiring.rs::smb_unified_bridge` | `woa_unified_bridge(registry, actor_role, tenant)` constructor (D-UB-4 per `unified-bridge-consumer-migration-v1.md`) | (`/api/v1/health` returns "ontology hydrated: WorkOrder" — first visible signal) |
+| 4 | in-tree OGIT + lance-graph-ontology hydrators | Boot-time hydration menu: `hydrate_dolce + hydrate_provo + hydrate_qudt + hydrate_schemaorg + hydrate_fibo_fnd + hydrate_skr03 + hydrate_skr04` (D-WLG-8 lance-cache feature) | (`/api/__ontology` admin route lists hydrated G-slots + entity counts per family) |
+| 5 | **HARVEST 1 (SMB):** `hydrate_zugferd` + `hydrate_zugferd_rules` + `SchematronHydrator` + `XsdHydrator` | woa-rs ZUGFeRD/Factur-X invoice generator: `POST /vorgaenge/<wid>/rechnung/xrechnung` → returns conformant XML + downloadable Factur-X PDF | **Stefan clicks "X-Rechnung erstellen" on a workorder, downloads a valid EN16931-conformant invoice. Visible reward.** |
+| 6 | **HARVEST 2 (MedCare):** `MedcareMysqlReconciler` shell + `parallelbetrieb::{Reconciler, DriftEvent, DriftField, DriftKind}` trait | `WoaMysqlReconciler<CustomerFetcher>` with sea-orm fetchers (D-WLG-15/16) + admin route `GET /api/__parity` (D-WLG-17 mirrors medcare-server's parity.rs ring buffer) | **Admin opens `/admin/parity` and sees green/red drift status per Customer row across MySQL ↔ Lance. First-class reconciler dashboard.** |
+| 7 | smb-office-rs + MedCare-rs combined: RLS via `OntologyRegistry::enumerate("WorkOrder")` (D-WLG-10) | Per-tenant row filter on every route handler; `tenant_get_or_404` becomes the unified-bridge `authorize(owl, row_tenant, Read)` call | **Cross-tenant URL-guessing returns 404 (not 403); admin sees the per-tenant scope active in the parity panel.** |
+| 8 | (opt-in) Phase 4 — lance-graph-planner Cypher endpoint | `POST /api/__graph` accepts Cypher / SPARQL / GQL | **`/admin/graph` becomes a query playground: "MATCH (c:Customer)-[:HAS_WORKORDER]->(wo:WorkOrder) WHERE wo.status = 'offen' RETURN c.firma, wo.betreff" returns results from the Lance projection.** |
+| 9 | (opt-in) Phase 5 — CAM-PQ similarity | `EntityStore::similar_to` over Lance | **`/kunden/<kdnr>/similar` returns the 10 most-similar customers by address + industry + recent-Vorgang-history. Sales-pipeline feature.** |
+
+Each rung produces a screenshot. Compare: an equivalent migration in MedCare-rs produces an audit-log entry in JSON, visible only to ops.
+
+### 11.4 What this changes about the harvest order across the three plans
+
+Previous framings:
+- §10.6 (this plan) — "two-axis harvest from smb (bridge-wiring) + MedCare (reconciler pattern)"
+- `lance-graph-in-smb-office-rs-v1.md` §7.4 — "smb ships UnifiedBridge template; MedCare + woa absorb it"
+- `lance-graph-in-medcare-rs-v1.md` §9.4 — "MedCare is the right target for end-to-end proof"
+
+§11 refines: **all three are correct, but they answer different questions.**
+
+| Question | Right target |
+|---|---|
+| "Where does the canonical `<repo>_unified_bridge` constructor pattern live?" | smb-office-rs (`smb_unified_bridge` in `unified_bridge_wiring.rs`) |
+| "Where does the canonical `<repo>MysqlReconciler` shell live?" | MedCare-rs (`MedcareMysqlReconciler` in `medcare-analytics/src/mysql_reconciler.rs`) |
+| "Where does the canonical XRechnung / ZUGFeRD invoice flow live?" | smb-office-rs (consumes `hydrate_zugferd` + `hydrate_zugferd_rules` upstream) |
+| "Where does an engineer see the unified-bridge stack working end-to-end with HIPAA + diverse-redundancy?" | MedCare-rs (highest substrate maturity; LanceProbe is the cross-language witness) |
+| "Where does the customer / end user see the unified-bridge stack at all?" | **woa-rs** (the only web app; the only consumer where every PR has a URL) |
+
+The cross-consumer harvest is **not** linear (smb → MedCare → woa). It's **fan-in to woa**: SMB ships the bridge template + the XRechnung flow; MedCare ships the reconciler shell + the parity dashboard pattern; woa-rs is the customer-facing integration target that absorbs both + adds the visible web-UI surface.
+
+### 11.5 What stays unchanged
+
+- The §9 hot/cold split framing (lance-graph-ontology hot, sea-orm + MySQL cold) stays exactly as written. The harvest path INSIDE this framing.
+- The §10 effort estimate revision (Phase 0-3 closure ~9-10 days with the OGIT-in-sea-orm shortcut) is the foundation §11's PR ladder runs on. §11 doesn't change the per-PR cost — it sequences the PRs by visible-reward.
+- D-WLG-1..17 deliverable IDs unchanged. §11 just specifies the recommended SHIPPING ORDER.
+
+### 11.6 One-line summary
+
+> woa-rs is the rewarding integration target because it's a web app — every PR shows up in a browser, not just in a test report. The harvest path is fan-in: SMB ships the `<repo>_unified_bridge` template + the XRechnung/ZUGFeRD invoice flow; MedCare ships the parallelbetrieb reconciler shell + the parity-dashboard pattern; woa-rs consumes both + adds the visible web-UI surface that Stefan can click through. Recommended PR sequence: scaffolding (1-2) → ontology hydration (3-4) → **XRechnung visible reward (5)** → **parity dashboard visible reward (6)** → tenant RLS (7) → Cypher playground (8) → similarity (9).
