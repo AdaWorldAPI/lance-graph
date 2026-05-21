@@ -1,0 +1,34 @@
+PROV-O (W3C Provenance Ontology)
+================================
+
+Source
+------
+http://www.w3.org/ns/prov
+W3C Recommendation: https://www.w3.org/TR/prov-o/
+
+Authors
+-------
+Timothy Lebo, Satya Sahoo, Deborah McGuinness (eds.); W3C Provenance
+Working Group.
+
+License
+-------
+This document is licensed under the W3C Document License.
+https://www.w3.org/Consortium/Legal/2015/doc-license
+
+The associated OWL ontology is published under the W3C Software and
+Document License (2015) and is in the public domain. See:
+https://www.w3.org/Consortium/Legal/2015/copyright-software-and-document
+
+Usage in this repository
+------------------------
+data/ontologies/provo.ttl is the canonical PROV-O ontology, hydrated by
+lance-graph-ontology as the L2 universal provenance slot OGIT::PROVO_V1.
+Declares inherits_from: Some(OGIT::DOLCE_V1.0) and provides the
+generation / derivation / attribution surface for cognitive-shader
+provenance cascade.
+
+Citation
+--------
+Lebo, T., Sahoo, S., McGuinness, D., eds. (2013). "PROV-O: The PROV
+Ontology." W3C Recommendation 30 April 2013.

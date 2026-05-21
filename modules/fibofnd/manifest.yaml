@@ -1,0 +1,24 @@
+ogit_g: FIBOFND
+version: 1
+domain_name: fibofnd
+inert_when_consumer_absent: true
+
+entity_types:
+  LegalPerson:        u16=600
+  Party:              u16=601
+  Agreement:          u16=602
+  Contract:           u16=603
+  Obligation:         u16=604
+  CurrencyAmount:     u16=605
+  MonetaryAmount:     u16=606
+  Address:            u16=607
+  Location:           u16=608
+  Document:           u16=609
+  Identifier:         u16=610
+  Date:               u16=611
+
+rbac_policy: ~
+stack_profile: ~
+action_capabilities: {}
+actor: ~
+inherits_from: dolce

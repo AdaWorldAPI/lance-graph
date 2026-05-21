@@ -13,8 +13,19 @@ lance-graph-contract = { path = "../lance-graph-contract" }
 
 # TTL parser. oxttl is the smallest streaming Turtle parser in the workspace's
 # dependency graph and matches the shape of OGIT's per-entity .ttl files.
-oxttl = "0.1"
-oxrdf = "0.2"
+# Pinned to the same oxrdf version as oxrdfxml below — duplicate-version
+# pulls of oxrdf produce confusing type mismatches at the parser boundary.
+oxttl = "0.2"
+oxrdf = "0.3"
+# RDF/XML parser. FIBO ships as RDF/XML rather than Turtle, so the
+# OwlHydrator dispatches by extension and routes .rdf / .owl-with-XML
+# content here.
+oxrdfxml = "0.2"
+
+# XML parser used by XsdHydrator (ZUGFeRD/UBL/ISO 20022 ship as XSD).
+# Already transitively present via oxrdfxml; we declare it directly so
+# the XSD-name-extraction path doesn't depend on oxrdfxml's version pin.
+quick-xml = "0.37"
 
 # Errors. thiserror keeps the public Error enum readable without serde.
 thiserror = "2"

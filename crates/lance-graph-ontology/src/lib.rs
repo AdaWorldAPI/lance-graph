@@ -39,6 +39,7 @@ pub mod bridge;
 pub mod bridges;
 pub mod error;
 pub mod foundry_map;
+pub mod hydrators;
 pub mod namespace;
 pub mod namespace_registry;
 pub mod proposal;
@@ -52,6 +53,17 @@ pub mod lance_cache;
 
 pub use bridge::{BridgeError, NamespaceBridge};
 pub use error::Error;
+pub use hydrators::{
+    collect_xsd_files, hydrate_dolce, hydrate_dolce_from, hydrate_dolce_from_many,
+    hydrate_fibo_be, hydrate_fibo_be_from, hydrate_fibo_fnd, hydrate_fibo_fnd_from,
+    hydrate_owltime, hydrate_owltime_from, hydrate_provo, hydrate_provo_from, hydrate_qudt,
+    hydrate_qudt_from, hydrate_schemaorg, hydrate_schemaorg_from, hydrate_skos, hydrate_skos_from,
+    hydrate_skr03, hydrate_skr03_bau, hydrate_skr03_bau_from, hydrate_skr03_from, hydrate_skr04,
+    hydrate_skr04_from, hydrate_zugferd, hydrate_zugferd_from, hydrate_zugferd_rules,
+    hydrate_zugferd_rules_from, ContextBundle, EntityId, HydrateErr, MetaStructureHydrator,
+    OntologySlot, OwlHydrator, SchematronHydrator, SkrHydrator, XsdHydrator,
+    SKR03_BAU_IRI_PREFIX, SKR03_IRI_PREFIX, SKR04_IRI_PREFIX,
+};
 pub use namespace::{NamespaceId, OgitUri, SchemaPtr};
 pub use proposal::{
     HydrationReport, MappingHandle, MappingProposal, MappingProposalKind, MappingRow,

@@ -1,0 +1,75 @@
+DOLCE+DnS Ultralite (DUL)
+=========================
+
+Source
+------
+http://www.ontologydesignpatterns.org/ont/dul/DUL.owl
+
+Authors
+-------
+Aldo Gangemi, Valentina Presutti, and contributors at the Laboratory for
+Applied Ontology (LOA), CNR Institute for Cognitive Sciences and
+Technologies (ISTC), Rome, Italy.
+
+License
+-------
+Creative Commons Attribution 4.0 International (CC-BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
+
+Citation
+--------
+Gangemi, A., Borgo, S., Catenacci, C., Lehmann, J., Masolo, C.,
+Presutti, V., et al. (2003-present). "DOLCE+DnS Ultralite (DUL)."
+Laboratory for Applied Ontology, CNR-ISTC.
+
+Original DOLCE foundational paper:
+Masolo, C., Borgo, S., Gangemi, A., Guarino, N., Oltramari, A. (2003).
+"WonderWeb Deliverable D18: Ontology Library (final)."
+
+Usage in this repository
+------------------------
+The file data/ontologies/dul.ttl is the canonical DOLCE+DUL ontology
+(version 4.2, Turtle serialization, ~187 KB) verbatim from the upstream
+URI above. It is hydrated by the lance-graph-ontology crate as the L1
+upper-ontology slot OGIT::DOLCE_V1. Every downstream L2-L4 business
+ontology (OWL-Time, PROV-O, QUDT, FIBO-FND, schema.org, ...) declares
+inherits_from: Some(OGIT::DOLCE_V1.0) and resolves against this
+hydration via rdfs:subClassOf chains.
+
+Note on naming: canonical DOLCE+DUL deliberately departs from the
+original DOLCE-Lite-Plus naming convention. Per the ontology header,
+"the names of classes and relations have been made more intuitive."
+The two most load-bearing renames for the cognitive-shader L1 slot
+are: Endurant → Object, Perdurant → Event. The four upper categories
+in DUL are: Object, Event, Quality, Abstract (all direct sub-classes
+of Entity).
+
+DUL extension modules
+---------------------
+data/ontologies/dul-extensions/ holds sibling design-pattern modules
+shipped from the same upstream Ontology Design Patterns catalogue under
+the same CC-BY 4.0 license. Both are RDF/XML rather than Turtle, so
+the OwlHydrator's `detect_format` content-sniffer routes them through
+oxrdfxml automatically.
+
+- conceptualization.owl (~8 KB): patterns for agent-conceptualization
+  relations — `knows` / `believes` / `assumes` / `adopts` plus the
+  `InternalRepresentation` class. Refines the dul:conceptualizes
+  property surface used by cognitive-shader agency cascades.
+
+- lmm-l2.owl (~32 KB): Lexical MetaModel Level 2. Adds named-entity
+  recognition surface (`NamedEntity` / `Name` / `ConceptExpression` /
+  `ConceptReference` / `ContextualExpression` / `IndividualReference`
+  / `MultipleReference` / `Gloss`). Imports LMM_L1 and IOLite by URL;
+  those imports are not followed by the hydrator (the IRIs are still
+  interned as referenced names, but the imported triples are not).
+
+Both extensions hydrate into the same OGIT::DOLCE_V1 bundle as DUL.ttl
+via OwlHydrator::hydrate_many, so downstream consumers see one
+transitive L1 surface rather than three separate G slots.
+
+Attribution
+-----------
+DOLCE+DnS Ultralite is provided by the Laboratory for Applied Ontology
+under CC-BY 4.0. The lance-graph project gratefully acknowledges the
+LOA team's foundational work on upper-category ontology engineering.

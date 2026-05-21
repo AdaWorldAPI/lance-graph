@@ -1,0 +1,102 @@
+ZUGFeRD / Factur-X EN 16931 e-invoicing schemas
+================================================
+
+Source
+------
+https://github.com/LandrixSoftware/validator-configuration-zugferd
+Upstream specification: https://www.ferd-net.de/standards/zugferd
+EU directive alignment: EN 16931 (semantic data model of the European
+core invoice).
+
+The schemas are based on the UN/CEFACT Cross-Industry Invoice (CII)
+XML standard, profiled for the Factur-X 1.08 EN16931 conformance
+level — the conformance level required for B2G e-invoicing across
+the EU per the eInvoicing Directive 2014/55/EU.
+
+Authors / publishers
+--------------------
+Validator configuration: Landrix Software (Apache-2.0).
+Underlying CII XSDs: UN/CEFACT (publicly available under UN/CEFACT
+Intellectual Property Policy — royalty-free use for implementation
+permitted).
+ZUGFeRD specification: Forum elektronische Rechnung Deutschland
+(FeRD).
+
+License
+-------
+The validator configuration repository at
+LandrixSoftware/validator-configuration-zugferd is licensed under
+the Apache License, Version 2.0.
+
+Usage in this repository
+------------------------
+data/ontologies/zugferd/ contains the four CII XSD files that make
+up the Factur-X 1.08 EN16931 profile:
+
+  FACTUR-X_EN16931.xsd                                  (top-level)
+  FACTUR-X_EN16931_urn_un_unece_uncefact_data_
+    standard_ReusableAggregateBusinessInformationEntity_100.xsd  (RAM types)
+  FACTUR-X_EN16931_urn_un_unece_uncefact_data_
+    standard_QualifiedDataType_100.xsd                  (QDT)
+  FACTUR-X_EN16931_urn_un_unece_uncefact_data_
+    standard_UnqualifiedDataType_100.xsd                (UDT)
+
+Plus the Schematron business-rule file `FACTUR-X_EN16931.sch` and
+the code-list database `FACTUR-X_EN16931_codedb.xml`.
+
+The `.sch` file is hydrated by SchematronHydrator (PR-bO-15) into
+the sibling slot OGIT::ZUGFERDRULES_V1 — see below. The codedb XML
+is shipped for a future CodeListHydrator PR (currency / unit / tax
+code interning), not hydrated today.
+
+Hydration
+---------
+Hydrated by lance-graph-ontology as the L3 e-invoicing slot
+OGIT::ZUGFERD_V1 via XsdHydrator. The hydrator walks every
+`<xs:element>` / `<xs:complexType>` / `<xs:simpleType>` /
+`<xs:attribute>` / `<xs:attributeGroup>` declaration and interns each
+as `{targetNamespace}#{name}`. Type-graph semantics (`xs:extension
+base="..."` resolution) are NOT projected into rdfs:subClassOf
+edges — that's deferred to a follow-up PR.
+
+Declares inherits_from: Some(OGIT::DOLCE_V1.0). Future alignment:
+- ram:TradePartyType ⊑ fibo-fnd:Party (FIBO Parties module)
+- ram:HeaderTradeSettlementHeaderMonetarySummationType.* ⊑
+  fibo-fnd-acc-cur:MonetaryAmount
+- ram:TradeAddressType ⊑ schema:PostalAddress
+- ram:CrossIndustryInvoiceType ⊑ schema:Invoice
+
+These alignments are NOT baked into the XSDs (they're XML schema
+constraints, not OWL axioms); they're left to downstream consumers
+that need the cross-G projection.
+
+ZUGFeRD business rules (PR-bO-15)
+---------------------------------
+Hydrated as OGIT::ZUGFERDRULES_V1 via SchematronHydrator. Source:
+data/ontologies/zugferd/FACTUR-X_EN16931.sch (Apache-2.0, shipped
+in this repo alongside the XSDs).
+
+The hydrator interns every Schematron `<assert id="...">` ID and
+every bracketed business-rule identifier `[BR-NN]` / `[BR-CO-NN]` /
+`[BR-DEC-NN]` / `[BR-{S,Z,E,AE,G,IC,K,L,M,O}-NN]` / `[PEPPOL-EN16931-*]`
+found in message bodies. All IRIs live under the URN base
+`urn:schematron:factur-x-1.08-en16931/{assert,report,pattern,rule}/{id}`.
+
+Inspection of the EN16931 profile finds:
+
+  - 301 distinct `<assert>` @id values (some IDs are reused across
+    patterns, so 428 assert elements collapse to 301 IRIs).
+  - 191 `<report>` elements, none with @id (Schematron-1 style;
+    their message bodies still contribute business-rule IRIs).
+  - 0 patterns and 0 phases with @id.
+  - ~209 distinct bracketed business-rule IDs spread across the
+    EN16931 / PEPPOL / DE / VAT-category extension families.
+
+Total: ~510 IRIs in OGIT::ZUGFERDRULES_V1.
+
+Deferred follow-up:
+- XPath `<rule context="..."/>` resolution into edges back to XSD
+  types (would link `urn:schematron:.../rule/BR-52` ⊑ `ram:ApplicableTradeTax`).
+- Severity (`@flag="warning|error|fatal"`) projection.
+- Phase / pattern / rule structural edges.
+- `<let>` variable resolution.
