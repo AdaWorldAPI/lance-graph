@@ -28,12 +28,21 @@ Masolo, C., Borgo, S., Gangemi, A., Guarino, N., Oltramari, A. (2003).
 
 Usage in this repository
 ------------------------
-The file data/ontologies/dul.ttl is a curated extract of the canonical
-DOLCE+DUL ontology, hydrated by the lance-graph-ontology crate as the
-L1 upper-ontology slot OGIT::DOLCE_V1. Every downstream L2-L4 business
+The file data/ontologies/dul.ttl is the canonical DOLCE+DUL ontology
+(version 4.2, Turtle serialization, ~187 KB) verbatim from the upstream
+URI above. It is hydrated by the lance-graph-ontology crate as the L1
+upper-ontology slot OGIT::DOLCE_V1. Every downstream L2-L4 business
 ontology (OWL-Time, PROV-O, QUDT, FIBO-FND, schema.org, ...) declares
 inherits_from: Some(OGIT::DOLCE_V1.0) and resolves against this
 hydration via rdfs:subClassOf chains.
+
+Note on naming: canonical DOLCE+DUL deliberately departs from the
+original DOLCE-Lite-Plus naming convention. Per the ontology header,
+"the names of classes and relations have been made more intuitive."
+The two most load-bearing renames for the cognitive-shader L1 slot
+are: Endurant → Object, Perdurant → Event. The four upper categories
+in DUL are: Object, Event, Quality, Abstract (all direct sub-classes
+of Entity).
 
 Attribution
 -----------
