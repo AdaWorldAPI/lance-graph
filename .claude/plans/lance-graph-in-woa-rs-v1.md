@@ -459,3 +459,105 @@ The cross-consumer harvest is **not** linear (smb → MedCare → woa). It's **f
 ### 11.6 One-line summary
 
 > woa-rs is the rewarding integration target because it's a web app — every PR shows up in a browser, not just in a test report. The harvest path is fan-in: SMB ships the `<repo>_unified_bridge` template + the XRechnung/ZUGFeRD invoice flow; MedCare ships the parallelbetrieb reconciler shell + the parity-dashboard pattern; woa-rs consumes both + adds the visible web-UI surface that Stefan can click through. Recommended PR sequence: scaffolding (1-2) → ontology hydration (3-4) → **XRechnung visible reward (5)** → **parity dashboard visible reward (6)** → tenant RLS (7) → Cypher playground (8) → similarity (9).
+
+---
+
+## 12 — Three-way reference asymmetry: C# scrape vs Python+SoC+DTO codegen (2026-05-21, same session)
+
+User architecture clarification: **smb-office-rs and MedCare-rs both scraped their business logic from already-working C# WinForms apps.** They have working C# references to compare against (parity-witness pattern fits naturally — LanceProbe in MedCareV2, the future SMB equivalent). **woa-rs is structurally different: it transcoded from Python (Flask/SQLAlchemy), uses reusable Separation-of-Concerns + DTO mapping, and has 660 routes already harvested from Python source via codegen into Jinja → askama templates** (per `woa-rs/rfcs/v02-006-route-codegen-and-ontology-unification.md`).
+
+This changes how the unified-bridge integration should land in woa-rs.
+
+### 12.1 The three sources, restated
+
+| Consumer | Source | Working reference today | Transcoding approach | Scale at the boundary |
+|---|---|---|---|---|
+| **smb-office-rs** | C# WinForms ERP at `AdaWorldAPI/SMB-Office/1x1-prg` | Yes — the C# app runs in customer deployments | Hand-mirror of `db_*.cs` BSON schemas + per-route logic; `mongo-schema-warden` + `transcode-auditor` agents gate parity | ~13 MongoDB collections, ~30-entity ACCEPTED list per `foundry-roadmap-unified-smb-medcare-v1.md` |
+| **MedCare-rs** | C# WinForms clinic-mgmt at `AdaWorldAPI/MedCare` | Yes — the C# app runs in praxis deployments + `MedCareV2/LanceProbe` is the cross-language parity tool | Hand-port of `pf_*`/`combo_*`/`praxis_*`/`glob_*` MySQL tables (104 total per the `MedCare-rs/.MYSQL/Struktur.sql` reality check); auth path's broken 3DES legacy carried forward via `legacy-tripledes-fallback` feature flag | 7 Healthcare OGIT entities (Patient/Diagnosis/LabValue/Medication/Treatment/Visit/VitalSign); ~30-50 codebook slots |
+| **woa-rs** | **Python Flask/SQLAlchemy** at `AdaWorldAPI/WoA` | Yes — Stefan's deployment at `stefan280879/WoA` (Python WoA on MySQL) | **Codegen + SoC + DTO architecture: 660 routes classified into 13 buckets (per RFC v02-006); per-family manifest.yaml + routes.yaml + askama templates harvested from Python source via the route-codegen pipeline** | ~660 routes across ~20 functional families (vorgaenge, kunden, einstellungen, mahnwesen, stundenzettel, einsatz, logbook, …) |
+
+The bucket scale + codegen + SoC pivot is the load-bearing structural difference. SMB has ~13 BSON collections to migrate; MedCare has ~7 Healthcare entities; **woa has ~660 routes already classified, manifest-driven, and codegen-emitting**.
+
+### 12.2 What this means for the unified-bridge integration
+
+The §11 PR ladder framed each integration step as a "handler-level" change ("Stefan clicks X-Rechnung erstellen on a workorder"). That's right at the user-visible layer; it's incomplete at the implementation layer. **The actual change for most of the 660 routes is per-BUCKET, via codegen, not per-handler.**
+
+Concretely, the RFC v02-006 bucket taxonomy:
+
+| Bucket | Routes | % | Unified-bridge integration shape |
+|---|---|---:|---|
+| `csrf_form_post_engine_call` | 194 | 29.7% | Codegen emits `state.unified_bridge.authorize(owl_id, tenant, op)?` as the first line of every generated handler |
+| `ajax_json` | 105 | 16.1% | Same — single codegen edit propagates to all 105 handlers |
+| `list_for_tenant` | 80 | 12.3% | Codegen emits the per-tenant predicate via the unified bridge's `g_lock` |
+| `form_get_post` | 55 | 8.4% | Same shape |
+| `detail_for_tenant` | 43 | 6.6% | Same shape |
+| `soft_delete` | 41 | 6.3% | Codegen emits a `Write` op authorize check |
+| `sa_admin_view` | 34 | 5.2% | Codegen emits the cross-tenant audit hook via the bridge's `AuditSink` |
+| `download_blob` | 31 | 4.7% | Codegen emits the `Read` op authorize check |
+| `pdf_render` | 22 | 3.4% | Same shape |
+| `template_get` | 22 | 3.4% | No tenant scope; codegen skips authorize when route has no entity scope |
+| `signed_link_action` | 15 | 2.3% | Codegen emits timing-safe token compare + audit hook; bridge integration on the action handler |
+| `get_redirect_shortcut` | 11 | 1.7% | Same as `template_get` |
+| **`other`** | **0** | **0.0%** | 100% bucket coverage; no manual fallback needed |
+
+**A single per-bucket codegen edit propagates the unified-bridge integration to every route in that bucket.** 194 routes get authorize-checked from one codegen template change. Compare manual per-handler integration: 194 PR commits, 194 review surfaces, 194 places to drift. The codegen is the force multiplier.
+
+### 12.3 SoC + DTO means the bridge plugs in at the right seam
+
+Separation of Concerns in woa-rs (per the existing `crates/*` layout: `decimal_money`, `skr_data`, `buchungs_validator`, `woa_pdf`, future `crates/codegen`, future `crates/woa-bridge`) means each crate has a single declared responsibility. The unified bridge plugs in at exactly one seam:
+
+```
+Route handler (codegen-emitted, per-bucket)
+    │
+    ▼
+state.unified_bridge.authorize(owl_id, tenant, op)?   ←── ONE seam, integrated via codegen template change
+    │
+    ▼
+Sea-orm Entity::find_by_id(...).await   ←── cold-path read (DTO-mapped to render context)
+    │
+    ▼
+Askama template render   ←── visible to Stefan
+```
+
+The bridge is invisible inside the bucket-generic handler. The DTO mapping from sea-orm row → render context is unchanged. The Jinja-harvested askama template is unchanged. The codegen emits the bridge call as scaffolding the bucket template requires; per-handler customization stays in the per-handler override layer (per RFC v02-006 §"Architecture" `overrides/<family>/<endpoint>.rs.tmpl`).
+
+### 12.4 PR ladder refinement — codegen-bucket pivots vs per-handler edits
+
+§11's 9-rung PR ladder is mostly right but lumps codegen-bucket changes into "per-handler" framing. Refined:
+
+| § | §11 framing | §12 refinement |
+|---|---|---|
+| PR-3 | `woa_unified_bridge(...)` constructor + `/api/v1/health` smoke | Unchanged. Constructor lives in `crates/woa-bridge`, not bucket-level. |
+| PR-4 | Boot-time hydration menu + `/api/__ontology` admin route | Unchanged. Boot-level wiring; not per-bucket. |
+| PR-5 | **HARVEST 1 (SMB): XRechnung** | Refined: lands as ONE handler in the `pdf_render` bucket (per RFC v02-006 — `wo_to_invoice` shape). The codegen-bucket integration of `pdf_render` adds `state.unified_bridge` to the handler context; the XRechnung-specific logic is the per-handler override. Visible reward unchanged (Stefan downloads invoice). |
+| PR-6 | **HARVEST 2 (MedCare): parity dashboard** | Refined: ADMIN-only route in the `sa_admin_view` bucket (cross-tenant; bridge `audit_required` is true). Codegen emits the audit hook + cross-tenant scope; per-handler override implements the WoaMysqlReconciler aggregation read. |
+| PR-7 | Tenant RLS unification | **THIS IS THE BIG ONE** — refined: ONE codegen-template change to the `list_for_tenant` (80 routes) + `detail_for_tenant` (43 routes) + `csrf_form_post_engine_call` (194 routes; tenant-scoped) buckets replaces ~317 hand-written `tenant_get_or_404(...)` call sites with `state.unified_bridge.authorize(owl_id, tenant, op)?`. One PR, ~317 routes upgraded. Cross-tenant URL-guessing returns 404 across the whole app. |
+| PR-8 | Cypher playground | Unchanged (new admin route, not a bucket integration) |
+| PR-9 | Similarity | Unchanged (new admin/sales route, not a bucket integration) |
+
+PR-7 is the moment the unified-bridge integration looks **clean** — 317 routes upgraded by a single codegen-template change, all going through the same authorize call, all auditable from one log stream, all per-tenant scoped via the bridge's `g_lock`.
+
+### 12.5 The DTO/SoC layer is the right MIRROR target for the reconciler
+
+§10's framing — "MedCare-rs MysqlReconciler pattern transfers 1:1 with sea-orm fetchers because sea-orm is ergonomic" — is correct but understates the gain. The actual mirror target is **per-bucket DTO mapping**, not per-handler:
+
+- The `CanonicalCustomerRow` shape (§10.5 D-WLG-15) is the **DTO** for the Customer entity. The reconciler diffs DTOs, not Entity rows.
+- Sea-orm `Entity::find_by_id` produces an `ActiveModel` that the bucket-generic handler then maps to a `CustomerDto` (per RFC v02-006 Layer table); the `CanonicalCustomerRow` is the deterministic projection of that DTO.
+- A `WoaMysqlReconciler` Round-2 expansion (D-WLG-15 follow-ons for WorkOrder / Position / Mahnung / Tenant / User) is **one DTO definition + one fetcher impl per entity** — and the existing DTO definitions per RFC v02-006 layer table are mostly already authored. The reconciler doesn't author entity shapes; it consumes them.
+
+### 12.6 What this changes in §10.4 effort estimates
+
+§10.4 revised Phase 0-3 closure from ~13 days to ~9-10 days based on the OGIT-in-sea-orm shortcut alone. §12 narrows further:
+
+| Phase | §10 revised | §12 refined |
+|---|---|---|
+| Phase 0 | 1 day | 1 day (unchanged) |
+| Phase 1 | 2 days | 2 days (unchanged) |
+| Phase 2 (route-handler integration) | 3 days, "~6-8 handlers initially" | **1-2 days** — the route-handler integration is largely a codegen-template-edit, not per-handler. Cost is reading + writing one bucket-template per bucket touched. ~3 buckets × 2 hours each = ~6 hours of template work + per-bucket smoke test. |
+| Phase 3 (lance-cache + Lance projection) | 3-4 days | **3 days** — D-WLG-9 (Lance projection) IS the WoaMysqlReconciler at the DTO layer; reuses the DTO shapes that already exist. |
+
+**Revised Phase 0-3 closure: ~7-8 days** (down from ~13 in original §3, then ~9-10 in §10).
+
+### 12.7 One-line summary
+
+> woa-rs's integration cost is bounded by codegen-template edits, not per-handler edits. The 660 routes across 13 buckets means a single per-bucket codegen change propagates the unified-bridge authorize call to all routes in that bucket (e.g., one edit upgrades 317 tenant-scoped routes in one PR — the §11 PR-7 RLS-unification step). The DTO/SoC layer means the reconciler mirror from MedCare-rs lands at the DTO seam, not the entity seam, reusing the existing per-bucket DTO definitions. Net Phase 0-3 closure: ~7-8 days.
