@@ -1,0 +1,32 @@
+OWL-Time (W3C Time Ontology)
+============================
+
+Source
+------
+http://www.w3.org/2006/time
+W3C Recommendation: https://www.w3.org/TR/owl-time/
+
+Authors
+-------
+Simon Cox, Chris Little (W3C Spatial Data on the Web Working Group)
+
+License
+-------
+This document is licensed under the W3C Document License.
+https://www.w3.org/Consortium/Legal/2015/doc-license
+
+The associated OWL ontology is in the public domain under the W3C
+Software and Document License (2015). See:
+https://www.w3.org/Consortium/Legal/2015/copyright-software-and-document
+
+Usage in this repository
+------------------------
+data/ontologies/time.ttl is the canonical OWL-Time ontology, hydrated by
+lance-graph-ontology as the L2 universal temporal slot OGIT::TIME_V1.
+Declares inherits_from: Some(OGIT::DOLCE_V1.0) and provides the Allen-13
+interval relation surface for cognitive-shader temporal cascade.
+
+Citation
+--------
+Cox, S. and Little, C. (2017). "Time Ontology in OWL."
+W3C Recommendation 19 October 2017.

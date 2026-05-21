@@ -1,0 +1,50 @@
+SKOS (Simple Knowledge Organization System)
+===========================================
+
+Source
+------
+http://www.w3.org/2004/02/skos/core
+http://www.w3.org/2008/05/skos-xl
+W3C Recommendation: https://www.w3.org/TR/skos-reference/
+
+Authors
+-------
+Alistair Miles, Sean Bechhofer (eds.); W3C Semantic Web Deployment
+Working Group. Contributors: Dave Beckett, Nikki Rogers, and others.
+
+License
+-------
+This document is licensed under the W3C Document License.
+https://www.w3.org/Consortium/Legal/2015/doc-license
+
+The associated OWL ontology is published under the W3C Software and
+Document License (2015) and is in the public domain. See:
+https://www.w3.org/Consortium/Legal/2015/copyright-software-and-document
+
+Usage in this repository
+------------------------
+data/ontologies/skos/skos-core.rdf is the canonical SKOS Core vocabulary
+(~32 named classes and properties).
+
+data/ontologies/skos/skos-xl.rdf is the SKOS eXtension for Labels (SKOS-XL),
+which lifts labels from literals to first-class IRIs (`skosxl:Label`
+with `skosxl:literalForm`, plus `skosxl:prefLabel` / `altLabel` /
+`hiddenLabel` / `labelRelation`).
+
+data/ontologies/skos/skos-owl1dl.rdf is an OWL-1-DL-conformant subset
+of SKOS Core (axioms that violate OWL-1-DL are removed for tools that
+require strict DL conformance). The default hydration uses Core + XL
+(not the OWL-1-DL variant) since the cognitive-shader cascade is
+schema-agnostic at the parser layer.
+
+Both Core and XL hydrate together as the L2 universal knowledge-
+organization slot OGIT::SKOS_V1, merged into a single ContextBundle
+via OwlHydrator::hydrate_many.
+
+Declares inherits_from: Some(OGIT::DOLCE_V1.0). Alignment:
+skos:Concept ⊑ dul:Concept, skos:Collection ⊑ dul:Collection.
+
+Citation
+--------
+Miles, A. and Bechhofer, S., eds. (2009). "SKOS Simple Knowledge
+Organization System Reference." W3C Recommendation 18 August 2009.

@@ -1,0 +1,24 @@
+ogit_g: ZUGFERD
+version: 1
+domain_name: zugferd
+inert_when_consumer_absent: true
+
+entity_types:
+  CrossIndustryInvoice:      u16=700
+  ExchangedDocument:         u16=701
+  ExchangedDocumentContext:  u16=702
+  SupplyChainTradeTransaction: u16=703
+  TradeParty:                u16=704
+  TradeAddress:              u16=705
+  TradeTaxRegistration:      u16=706
+  MonetaryAmount:            u16=707
+  ApplicableHeaderTradeAgreement: u16=708
+  ApplicableHeaderTradeDelivery:  u16=709
+  ApplicableHeaderTradeSettlement: u16=710
+  IncludedSupplyChainTradeLineItem: u16=711
+
+rbac_policy: ~
+stack_profile: ~
+action_capabilities: {}
+actor: ~
+inherits_from: dolce

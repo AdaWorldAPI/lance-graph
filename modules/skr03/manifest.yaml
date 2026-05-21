@@ -1,0 +1,33 @@
+ogit_g: SKR03
+version: 1
+domain_name: skr03
+inert_when_consumer_absent: true
+
+# DATEV SKR 03 (Prozessgliederungsprinzip) — German chart of accounts,
+# process-oriented family numbering. ~1500 canonical 4-digit accounts.
+# Anchor accounts declared here so external code can reference them via
+# stable u16 entity IDs.
+entity_types:
+  # Family 0 — Anlage- und Kapitalkonten (assets + capital)
+  Account_0010: u16=1000   # Entgeltlich erworbene Konzessionen
+  Account_0035: u16=1001   # Geschäfts- oder Firmenwert
+  Account_0080: u16=1002   # Bauten auf eigenen Grundstücken
+  # Family 1 — Finanz- und Privatkonten (financial + private)
+  Account_1000: u16=1100   # Kasse
+  Account_1200: u16=1101   # Bank
+  Account_1400: u16=1102   # Forderungen aus Lieferungen und Leistungen
+  Account_1576: u16=1103   # Abziehbare Vorsteuer 19%
+  # Family 3 — Wareneingang/Bestände
+  Account_3000: u16=1300   # Wareneingang
+  Account_3400: u16=1301   # Wareneingang 19% Vorsteuer
+  # Family 4 — Betriebliche Aufwendungen
+  Account_4400: u16=1400   # Reisekosten Arbeitnehmer (typical)
+  # Family 8 — Erlöse (revenues)
+  Account_8400: u16=1800   # Erlöse 19% USt (the canonical SKR03 revenue acct)
+  Account_8300: u16=1801   # Erlöse 7% USt
+
+rbac_policy: ~
+stack_profile: ~
+action_capabilities: {}
+actor: ~
+inherits_from: dolce

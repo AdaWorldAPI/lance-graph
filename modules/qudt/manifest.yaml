@@ -1,0 +1,20 @@
+ogit_g: QUDT
+version: 1
+domain_name: qudt
+inert_when_consumer_absent: true
+
+entity_types:
+  Quantity:         u16=520
+  QuantityKind:     u16=521
+  Unit:             u16=522
+  QuantityValue:    u16=523
+  Dimension:        u16=524
+  DimensionVector:  u16=525
+  SystemOfUnits:    u16=526
+  UnitSystem:       u16=527
+
+rbac_policy: ~
+stack_profile: ~
+action_capabilities: {}
+actor: ~
+inherits_from: dolce

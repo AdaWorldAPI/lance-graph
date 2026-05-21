@@ -26,6 +26,41 @@ const CANONICAL_SLOTS: &[(&str, u32)] = &[
     ("SMB", 4),
     ("FMA", 5),
     ("CRM", 6),
+    // L2 universal upper-bridge ontologies (PR-bO-2 .. bO-5/bO-8).
+    // Each declares `inherits_from: dolce` in its manifest.
+    ("TIME", 10),
+    ("PROVO", 11),
+    ("QUDT", 12),
+    ("SCHEMAORG", 13),
+    ("SKOS", 14),
+    // L3 finance / business ontologies (PR-bO-6 / bO-7).
+    // FIBO Foundations and FIBO Business Entities.
+    ("FIBOFND", 20),
+    ("FIBOBE", 21),
+    // L3 e-invoicing schemas (PR-bO-16). ZUGFeRD/Factur-X is the
+    // German hybrid PDF/A-3+XML invoice format aligned with EN 16931.
+    // Hydrated as IRI-interning over UN/CEFACT CII XSDs via XsdHydrator.
+    ("ZUGFERD", 30),
+    // L3 e-invoicing business rules (PR-bO-15). Schematron assertion /
+    // report IDs from the ZUGFeRD validator config, plus the bracketed
+    // EN16931 / PEPPOL / CO / DE business-rule IDs from the message
+    // bodies. Hydrated via SchematronHydrator.
+    ("ZUGFERDRULES", 31),
+    // L3 German chart of accounts (PR-bO-13). DATEV SKR is the de-facto
+    // canonical bookkeeping scheme for HGB-compliant German SMEs.
+    // SKR 03 uses process-oriented family numbering; SKR 04 uses
+    // balance-sheet-oriented. Each is hydrated as a separate G slot
+    // because account numbers DO NOT mean the same thing across the two
+    // schemes (e.g. account 1000 is "Roh-, Hilfs- und Betriebsstoffe"
+    // in SKR 04 but "Kasse" in SKR 03).
+    ("SKR03", 40),
+    ("SKR04", 41),
+    // SKR 03 Bau und Handwerk (Branchenpaket 19606) — trade-specific
+    // 6-digit extensions on top of canonical SKR 03 (Sand- und
+    // Kiesausbeute, Bauliche Anlagen, etc.). Hydrates into its OWN G
+    // slot rather than the canonical SKR03_V1 slot so mixed consumers
+    // can hold both account sets in one OntologyRegistry.
+    ("SKR03BAU", 42),
 ];
 
 fn canonical_slot(token: &str) -> Option<u32> {

@@ -1,0 +1,61 @@
+DATEV SKR 03 / SKR 04 — German Standard Chart of Accounts
+==========================================================
+
+Source documents
+----------------
+data/ontologies/skr-datev/ holds machine-readable CSV extracts of two
+DATEV Standardkontenrahmen ("Eigenformular") publications:
+
+  - SKR 04 generic     — DATEV Art.-Nr. 11175  (revision 2023-01-02,
+                          valid for booking year 2023)
+  - SKR 03 Bau         — DATEV Art.-Nr. 19606  (Branchenpaket für Bau
+                          und Handwerk, valid for booking year 2026)
+
+DATEV's PDFs carry the notice:
+  "Eigenformular, Nachdruck - auch auszugsweise - nicht gestattet"
+  (Own form — reproduction, including excerpts, not permitted)
+
+What is shipped here
+--------------------
+ONLY the underlying chart-of-accounts data — account number, German
+account name, family classification — is redistributed in CSV form.
+DATEV's specific PDF formatting, layout, table design, typography,
+column structure, and printed-form trade dress are NOT redistributed.
+The original PDFs themselves are NOT included in this repository.
+
+Legal basis for the data redistribution
+---------------------------------------
+The Standardkontenrahmen is a German bookkeeping standard. The
+individual account numbers (e.g. "0050", "1200", "8400") are short
+numeric identifiers that order a body of public-domain HGB / EStG
+accounting concepts. Under German Urheberrecht (UrhG §2), purely
+functional identifiers and standard reference numbers carry no
+copyright protection. The German account names are likewise
+descriptive labels for legally-defined accounting concepts; they
+implement the underlying tax-and-commercial-law obligations and
+function as factual identifiers rather than creative expression.
+
+DATEV's copyright on the published Eigenformular pertains to the
+FORM (layout, typography, column placement, page design), not to
+the chart data itself.
+
+We redistribute the chart data here for the lance-graph cognitive
+shader to anchor HGB-compliant booking entities and align them with
+FIBO and ZUGFeRD invoice projections. We do not redistribute, mirror,
+or excerpt the DATEV PDF itself, and we do not use the DATEV
+typography or layout.
+
+If you require commercial-grade DATEV SKR data with formal licensing,
+warranty, and update guarantees, obtain the source PDF directly from
+DATEV eG (https://www.datev.de) under their commercial terms.
+
+Hydration
+---------
+This data is intended to be hydrated by lance-graph-ontology as a
+future PR-bO-13 deliverable (SKR-as-SKOS Concept Scheme). The hydrator
+will treat each account_number as an IRI
+  `urn:datev:skr04:account/{number}` or
+  `urn:datev:skr03:account/{number}`,
+with the account_name as an rdfs:label, family as a SKOS Collection
+membership, and cross-walks to FIBO MonetaryAmount and HGB-Bilanz
+concepts attached as separate axioms.
