@@ -8,15 +8,20 @@
 //! the hydrator preserves.
 //!
 //! The cognitive shader's 16-bit DOLCE slot is *defined* relative to DOLCE's
-//! upper categories: high 8 bits encode Endurant/Perdurant/Quality/Abstract
-//! sub-classification, low 8 bits encode the DnS role per the Descriptions &
-//! Situations module. Until DOLCE is hydrated, the slot is undefined.
+//! upper categories: high 8 bits encode the upper-category sub-classification
+//! (Object/Event/Quality/Abstract — note: canonical DOLCE+DUL renames the
+//! original DOLCE-Lite-Plus `Endurant` → `Object` and `Perdurant` → `Event`
+//! per the ontology header), low 8 bits encode the DnS role per the
+//! Descriptions & Situations module. Until DOLCE is hydrated, the slot is
+//! undefined.
 //!
 //! ## Edge whitelist
 //!
 //! DOLCE contributes the upper-category subsumption chain plus the DnS
 //! role-binding edges. These are exactly the predicates the cognitive
-//! shader's cascade reads at type-gating time.
+//! shader's cascade reads at type-gating time. All 17 IRIs in
+//! [`DOLCE_EDGE_WHITELIST`] are verified present in canonical DUL
+//! (`http://www.ontologydesignpatterns.org/ont/dul/DUL.owl`).
 
 use std::path::{Path, PathBuf};
 
