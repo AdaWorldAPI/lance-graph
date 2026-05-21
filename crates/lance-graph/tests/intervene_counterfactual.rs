@@ -130,7 +130,12 @@ fn causal_edge_intervention_roundtrip() {
         42,
     );
 
-    let decoded = edge.inference_type();
+    // v2 migration: read via signed mantissa per causal-edge 0.2.0 deprecation.
+    // `pack(InferenceType::X, ...)` stores `X.to_mantissa()`; reading back via
+    // `from_mantissa(inference_mantissa())` round-trips the enum identity
+    // (Intervention ↔ +6, Counterfactual ↔ −6). See
+    // pr-ce64-mb-2-causaledge64-v2.md §"Signed Mantissa Rationale".
+    let decoded = causal_edge::edge::InferenceType::from_mantissa(edge.inference_mantissa());
     assert_eq!(
         decoded,
         InferenceType::Intervention,
@@ -162,7 +167,12 @@ fn causal_edge_counterfactual_roundtrip() {
         99,
     );
 
-    let decoded = edge.inference_type();
+    // v2 migration: read via signed mantissa per causal-edge 0.2.0 deprecation.
+    // `pack(InferenceType::X, ...)` stores `X.to_mantissa()`; reading back via
+    // `from_mantissa(inference_mantissa())` round-trips the enum identity
+    // (Intervention ↔ +6, Counterfactual ↔ −6). See
+    // pr-ce64-mb-2-causaledge64-v2.md §"Signed Mantissa Rationale".
+    let decoded = causal_edge::edge::InferenceType::from_mantissa(edge.inference_mantissa());
     assert_eq!(
         decoded,
         InferenceType::Counterfactual,

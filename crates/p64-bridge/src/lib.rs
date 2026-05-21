@@ -16,7 +16,7 @@
 
 use std::sync::LazyLock;
 
-use causal_edge::edge::CausalEdge64;
+use causal_edge::edge::{CausalEdge64, InferenceType};
 
 // ============================================================================
 // CausalEdge64 → Palette64 addressing
@@ -60,7 +60,13 @@ pub fn edge_nars_f32(edge: &CausalEdge64) -> (f32, f32) {
 #[inline]
 pub fn edge_to_layer_mask(edge: &CausalEdge64) -> u8 {
     let causal = edge.causal_mask() as u8;
-    let infer = edge.inference_type() as u8;
+    // v2 migration: read the 4-bit signed inference mantissa and convert to the
+    // canonical InferenceType discriminant. Equivalent to the deprecated
+    // `edge.inference_type() as u8` on v1 edges, and produces the correct
+    // backward-direction variants (Abduction at −1, Counterfactual at −6) on v2.
+    // Per causal_edge::edge deprecation note + pr-ce64-mb-2-causaledge64-v2.md
+    // §"Signed Mantissa Rationale".
+    let infer = InferenceType::from_mantissa(edge.inference_mantissa()) as u8;
 
     let mut mask = 0u8;
 

@@ -148,16 +148,27 @@ impl CausalNetwork {
 
     /// Evidence audit: trace how a specific edge's truth value evolved.
     ///
-    /// Returns edges with the same SPO indices sorted by temporal index.
+    /// Returns edges with the same SPO indices in temporal order.
+    ///
+    /// # v2 layout note
+    ///
+    /// Per cognitive-substrate-convergence-v1.md L-2, temporal is structural in
+    /// v2: the per-edge `temporal()` field is removed (bits 52-63 reclaimed).
+    /// In this `CausalNetwork`, edges are pushed to `self.edges` chronologically
+    /// via `learn_path` (which calls `learn`, monotonically advancing
+    /// `self.current_time`). Insertion order IS temporal order — `iter().filter`
+    /// preserves it, so the explicit `sort_by_key(|e| e.temporal())` that was
+    /// here in v1 is replaced by relying on the underlying ordering invariant.
+    ///
+    /// Consumers needing chronological order from a NETWORK reconstructed from
+    /// disk (where insertion order may not equal temporal order) should attach
+    /// an external timestamp index via SpoWitnessChain chain-position or
+    /// AriGraph Triplet.timestamp and sort by that.
     pub fn evidence_trail(&self, s: u8, p: u8, o: u8) -> Vec<&CausalEdge64> {
-        let mut trail: Vec<&CausalEdge64> = self
-            .edges
+        self.edges
             .iter()
             .filter(|e| e.s_idx() == s && e.p_idx() == p && e.o_idx() == o)
-            .collect();
-
-        trail.sort_by_key(|e| e.temporal());
-        trail
+            .collect()
     }
 
     /// Counterfactual query: "what if THIS patient had THAT treatment?"

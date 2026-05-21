@@ -30,7 +30,16 @@ pub enum InferenceType {
 }
 
 impl InferenceType {
+    /// Decode the v1 3-bit unsigned inference-type field (bits 46-48).
+    ///
+    /// Only used by the v1-layout fallback in [`CausalEdge64::inference_type`]
+    /// and [`CausalEdge64::pack`] when the `causal-edge-v2-layout` feature is
+    /// disabled. The v2 path uses `InferenceType::from_mantissa` over the
+    /// 4-bit signed mantissa instead (per L-4 + L-2 in
+    /// cognitive-substrate-convergence-v1.md). Allowed-dead-code under v2
+    /// because the v2 default disables the v1 read path entirely.
     #[inline]
+    #[cfg_attr(feature = "causal-edge-v2-layout", allow(dead_code))]
     fn from_bits(v: u8) -> Self {
         match v & 0b111 {
             0 => Self::Deduction,
@@ -126,6 +135,11 @@ const CONF_SHIFT: u32 = 32;
 const CAUSAL_SHIFT: u32 = 40;
 const DIR_SHIFT: u32 = 43;
 const INFER_SHIFT: u32 = 46;
+/// v1 plasticity shift (bits 49-51). v2 uses `crate::layout::PLAST_SHIFT` = 50
+/// because the inference mantissa expanded from 3b unsigned to 4b signed (L-4).
+/// Allowed-dead-code under v2 because the v2 default disables the v1 plasticity
+/// read/write paths in `plasticity()` / `set_plasticity()` / v1 `pack()`.
+#[cfg_attr(feature = "causal-edge-v2-layout", allow(dead_code))]
 const PLAST_SHIFT: u32 = 49;
 const TEMPORAL_SHIFT: u32 = 52;
 
@@ -635,8 +649,9 @@ impl CausalEdge64 {
         let mask_out =
             CausalMask::from_bits((self.causal_mask() as u8) & (weight.causal_mask() as u8));
 
-        // 4. Temporal: latest of the two
-        let t_out = self.temporal().max(weight.temporal());
+        // 4. Temporal: dropped in v2 layout per L-2 — temporal is structural
+        //    (SpoWitnessChain chain-position + AriGraph Triplet.timestamp).
+        //    Pack receives 0; v2 pack() silently drops the arg per spec §6 F.
 
         // 5. Inherit plasticity from weight (the "learned" edge)
         //    and direction will be recomputed from composed palette entries
@@ -651,7 +666,7 @@ impl CausalEdge64 {
             weight.direction(), // TODO: recompute from composed palette dim0 signs
             resolved_infer,
             weight.plasticity(),
-            t_out,
+            0, // temporal: structural in v2 — chain-position carries it
         );
         // Under v2: re-stamp the signed mantissa onto the result. pack() only
         // writes 3 bits (v1 enum discriminant) into bits 46-48; bit 49 (the
@@ -1006,6 +1021,17 @@ impl CausalEdge64 {
 
 
 impl std::fmt::Debug for CausalEdge64 {
+    /// Debug projection: SPO + NARS truth + Pearl + direction + inference + plasticity.
+    ///
+    /// v2 migration notes:
+    /// - `infer` field reads via `inference_mantissa() + InferenceType::from_mantissa()`
+    ///   per the v2 layout deprecation note. Under v1 (`causal-edge-v2-layout` off),
+    ///   `inference_mantissa()` stubs to 0 → from_mantissa(0) = Deduction; that's the
+    ///   acceptable migration cost for diagnostic Debug output, since v1 builds are
+    ///   transitional. The canonical pathway is v2 anyway.
+    /// - `t` (temporal) field DROPPED — per L-2, temporal is structural in v2
+    ///   (SpoWitnessChain chain-position + AriGraph Triplet.timestamp). The edge
+    ///   no longer carries a temporal slot, so Debug can't show one.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CausalEdge64")
             .field("spo", &(self.s_idx(), self.p_idx(), self.o_idx()))
@@ -1013,9 +1039,8 @@ impl std::fmt::Debug for CausalEdge64 {
             .field("c", &format!("{:.3}", self.confidence()))
             .field("pearl", &self.causal_mask())
             .field("dir", &format!("{:03b}", self.direction()))
-            .field("infer", &self.inference_type())
+            .field("infer", &InferenceType::from_mantissa(self.inference_mantissa()))
             .field("plast", &self.plasticity())
-            .field("t", &self.temporal())
             .finish()
     }
 }

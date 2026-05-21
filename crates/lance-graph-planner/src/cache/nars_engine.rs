@@ -481,6 +481,19 @@ impl NarsEngine {
     }
 
     /// Hot path: CausalEdge64 → SpoHead for local processing.
+    ///
+    /// v2 migration notes (per causal-edge 0.2.0 deprecations):
+    /// - `inference` field reads via `inference_mantissa() + InferenceType::from_mantissa()`
+    ///   to honor the v2 signed-mantissa encoding (bits 46-49). Direct
+    ///   `inference_type() as u8` was correct for v1's 3-bit unsigned field but
+    ///   silently misreads v2 negative mantissas (Abduction at −1, Counterfactual
+    ///   at −6) as Reserved7/etc.
+    /// - `temporal` is structural in v2 (cognitive-substrate-convergence-v1.md L-2);
+    ///   bits 52-63 are reclaimed for W-slot/lens/spare. `SpoHead.temporal` is
+    ///   set to 0 here. Callers needing chronological order must source it from
+    ///   SpoWitnessChain chain-position or AriGraph Triplet.timestamp and write
+    ///   it onto the SpoHead via a follow-up structural-temporal accessor (see
+    ///   pr-ce64-mb-4-arigraph-spo-g.md for the AriGraph-side surface).
     pub fn from_causal_edge(&self, edge: CausalEdge64) -> SpoHead {
         SpoHead {
             s_idx: edge.s_idx(),
@@ -489,8 +502,10 @@ impl NarsEngine {
             freq: edge.frequency_u8(),
             conf: edge.confidence_u8(),
             pearl: edge.causal_mask() as u8,
-            inference: edge.inference_type() as u8,
-            temporal: edge.temporal() as u8,
+            inference: causal_edge::edge::InferenceType::from_mantissa(edge.inference_mantissa()) as u8,
+            // v2: temporal moved to structural source (chain-position / Triplet.timestamp);
+            // caller responsible for populating chronological context.
+            temporal: 0,
         }
     }
 
