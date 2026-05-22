@@ -498,3 +498,192 @@ This is what makes the POC achievable in ~7-8 days net per §12.6 — the substr
 
 > Odoo and Palantir Foundry converge on a typed-object semantic surface that reduces to OWL/SHACL/SKOS+PROV-O; OGIT/OWL/DOLCE is positioned to host both as projections (Odoo via extraction + alignment; Foundry via SPARQL/SHACL projection). The long-run lessons are six: typed-object surface IS a projection not a separate ontology; operational vocabulary needs an extraction source; DOLCE-as-root is the load-bearing structural decision; alignment TTL authoring workflow matters; per-OGIT-storage + read-only-spine + CAM-bar-codes compose into a self-reinforcing pattern; PROV-O is non-optional for any regulated domain. WoA work-steals ~80% of its Customer + Tenant + User + Vorgang + Position + Logbook + Dokument entity shapes from Odoo's `base` + `account` + `mail.thread` modules; ~80% of its consumer-crate scaffolding (woa-bridge, woa-ontology, unified-bridge constructor, reconciler shell, agent ensemble) from smb-office-rs's templates. The actual invention surface is ~5 deliverables, ~250 LOC. The 6 months of lance-graph substrate + sister-consumer-plan harvest + Odoo OWL glue + RFC v02-006 codegen collectively cover ~90% of what WoA's POC PR-5 needs.
 
+
+---
+
+## 16 — WoA Python original: Odoo integration via cheap ontology schema lookup store (2026-05-21, same session)
+
+User question: how should the WoA Python original proceed when integrating Odoo, while aligning with the plans — especially around a "cheap Odoo Ontology Schema lookup store"?
+
+**Constraint reminder.** WoA Python (`AdaWorldAPI/WoA`, Stefan's deployment at localhost + Railway) is **canonical**: per `woa-rs/CLAUDE.md` Iron Rule №2, "Python is the spec; behavioural parity is the spec," and Iron Rule №5, "do not break the source repo." Stefan's Python WoA runs in production; the Rust port mirrors it. So Python-side Odoo integration must NOT change WoA's data model, NOT add Odoo runtime dependencies (`odoo-bin`, XML-RPC, ORM imports), NOT break Stefan's deployment, and MUST stay parity-safe so the Rust port can keep mirroring.
+
+The right architecture: a **build-time-extracted Python lookup module** that gives Python WoA the same ontology awareness `lance-graph-ontology::OntologyRegistry` gives the Rust side at runtime. Same TTL source feeds both; each language gets a native reader; no Odoo runtime dependency on either side.
+
+### 16.1 Architecture — the build-time-extracted Python lookup module
+
+```
+SOURCE (shared across both languages)
+─────────────────────────────────────
+lance-graph/data/ontologies/                   ← upstream OWL/TTL artifacts (post-PR-407)
+    dul.ttl, owltime.ttl, provo.ttl, qudt.ttl, schemaorg.ttl, skos.ttl,
+    fibo-fnd.ttl, fibo-be.ttl, zugferd-en16931.ttl, ...
+lance-graph/data/ontologies/odoo/              ← Odoo extraction output (D-ODOO-2)
+    base.ttl, account.ttl, l10n_de.ttl, l10n_de_skr03.ttl, l10n_de_skr04.ttl
+lance-graph/data/ontologies/odoo/alignment/    ← hand-curated alignment TTL (D-ODOO-3)
+    odoo-to-fibo.ttl, odoo-to-vcard.ttl, odoo-to-foaf.ttl, odoo-to-ubl.ttl
+lance-graph/data/ontologies/woa/               ← WoA-specific alignment (NEW)
+    woa-to-odoo.ttl, woa-to-fibo.ttl, woa-to-ogit.ttl
+
+         │
+         ▼
+RUST CONSUMER (lance-graph-ontology)            PYTHON CONSUMER (NEW — woa-ontology-lookup)
+─────────────────────────────────────            ────────────────────────────────────────────
+hydrate_dolce + hydrate_provo + ...              build_lookup.py script:
+   ↓                                                 parses the same TTL files
+OntologyRegistry @ per-OGIT G-slots                  + alignment files
+   ↓                                                 + WoA's models.py (sqlalchemy introspection)
+OwlIdentity bar codes + PerFamilyCodebook            + (optional) WoA's contracts/*.py DTOs
+   ↓                                                 ↓
+UnifiedBridge<WoaBridge>::authorize(...)         emits woa_ontology_lookup/_data.py
+   ↓                                                 with module-level constants:
+woa-rs sea-orm route handlers                       LOOKUP = { (table, col): OntologyMapping(...), ... }
+                                                     TABLE_TO_OGIT_URI = { ... }
+                                                     OGIT_URI_TO_FIBO = { ... }
+                                                     CONTEXT_JSONLD = { ... }
+                                                     ↓
+                                                 woa_ontology_lookup/__init__.py:
+                                                     pure-Python O(1) dict lookups
+                                                     no parse at request time
+                                                     ↓
+                                                 WoA Python route handlers consume:
+                                                     customer.ogit_uri()
+                                                     customer.fibo_equivalent_of('firma')
+                                                     customer.as_rdf(...)
+                                                     /api/customer/<kdnr>/rdf endpoint
+```
+
+The Python lookup module is **read-only data** generated from the same TTL files the Rust hydrators consume. Both languages get the same view. Updates flow through the source TTL → rerun build → ship a new lookup version → Python consumer upgrades. **The Python side never parses TTL at request time.**
+
+### 16.2 What "cheap" means concretely
+
+| Cost dimension | Target |
+|---|---|
+| Runtime CPU per lookup | O(1) dict access. No string parsing, no graph traversal, no Odoo XML-RPC, no SPARQL. |
+| Runtime memory | ~1-5 MB resident for the full lookup dict (~9 entity tables × ~30 fields × ~10-field mapping shape). |
+| Build-time CPU | ~5-30 s to extract once when TTL/alignment changes. Runs at `pip install` or `make ontology-lookup`. |
+| Deps added to WoA Python | **One** package: `woa-ontology-lookup`. **ZERO** additional runtime deps. Optional: `rdflib` (~2 MB) only if §16.3 P4 federation surface ships. |
+| Stefan's deployment impact | `pip install woa-ontology-lookup`. No new services, no new ports, no background workers. Flask restart. |
+| Failure modes | Lookup miss returns `None` (silent passthrough). Build-time errors caught at extraction, never at runtime. |
+
+This matches the "cheap" the user named. WoA stays a Flask+SQLAlchemy app with one extra `pip install`. No architectural surgery.
+
+### 16.3 The four-phase Python rollout
+
+Each phase ships independently. Python phases gate on Rust-side D-ODOO-* deliverables landing but ship without coordinating release cycles.
+
+| Phase | Scope | Gate | Effort | Visible result |
+|---|---|---|---|---|
+| **P1 — bootstrap** | Create `woa-ontology-lookup` Python package: skeleton + extraction script (`build_lookup.py`) consuming OGIT WoA + DOLCE + PROV-O + QUDT TTL files (already shipped post-PR-407/408). Emit `_data.py` with module-level constants. Pure read-only API in `__init__.py`. Tests on the constant shape. | None — TTL already exists in `lance-graph/data/ontologies/`. | ~1 day | `from woa_ontology_lookup import lookup`; `lookup('customer', 'firma')` returns the OGIT URI for the Customer.firma field. |
+| **P2 — Odoo integration** | Once D-ODOO-2 (Odoo `base` extraction) + D-ODOO-3 (alignment files) land in `lance-graph`, extend the build script to consume them. Adds `lookup('customer', 'firma').odoo_equivalent` etc. | D-ODOO-2 + D-ODOO-3 (Rust-side; ~1 weekend + 1 evening per §14.5). | ~1 day Python-side | `customer.odoo_equivalent_of('firma')` returns `'odoo:res.partner.name'`. Schema-parity check against Odoo's source-of-truth field names becomes a one-line lookup. |
+| **P3 — runtime integration** | Add helper methods to WoA Python's models (`models.Customer.ogit_uri()`, `.fibo_equivalent_of(field)`, `.as_jsonld_context()`). Update REST API responses to include the JSON-LD `@context` derived from the lookup. Optional: structured-logging fields carry ontology URIs alongside table/column names. | P2 done. | ~1-2 days Python-side | API responses include `"@context": { "firma": "fibo:hasLegalName", ... }`. Linked-data tools can consume WoA's REST API natively. |
+| **P4 — federation surface** | Add `/api/<entity>/<id>/rdf` endpoints that return the record as RDF triples in the shared ontology (Turtle / JSON-LD / N-Triples via content negotiation). Uses `rdflib` to emit; the lookup module supplies the predicate URIs. Optional `/sparql` read-only endpoint for federated queries. | P3 done. | ~2 days Python-side | Federated tools (linked-data clients, Foundry-shape ETL, external XBRL/XRechnung validators) consume WoA records natively. |
+
+**Total Python-side effort: ~5-6 days for all four phases.** Stefan benefits from P3 (richer API responses) even before woa-rs PR-5 ships — i.e., the Python WoA gets schema-conscious before the Rust port does anything customer-visible.
+
+
+### 16.4 The minimal package shape — concrete code skeleton
+
+```python
+# woa_ontology_lookup/__init__.py
+from ._data import LOOKUP, TABLE_TO_OGIT_URI, OGIT_URI_TO_FIBO, CONTEXT_JSONLD
+
+from dataclasses import dataclass
+from typing import Optional
+
+@dataclass(frozen=True)
+class OntologyMapping:
+    ogit_uri: str                       # canonical OGIT URI
+    fibo_equivalent: Optional[str]      # fibo-be-le-lp:LegalEntity#hasLegalName if applicable
+    odoo_equivalent: Optional[str]      # odoo:res.partner.name if applicable
+    vcard_equivalent: Optional[str]     # vcard:Kind#fn if applicable
+    schemaorg_equivalent: Optional[str]
+    label_de: str                       # German UI label
+    label_en: str                       # English UI label
+    dolce_marker: str                   # 'Endurant' | 'Perdurant' | 'Quality' | 'Abstract'
+    dns_role: Optional[str]             # DnS role classification
+
+def lookup(table: str, column: str) -> Optional[OntologyMapping]:
+    """O(1) dict access. Returns None if (table, column) is not mapped."""
+    return LOOKUP.get((table.lower(), column.lower()))
+
+def ogit_uri_for_table(table: str) -> Optional[str]:
+    return TABLE_TO_OGIT_URI.get(table.lower())
+
+def jsonld_context_for(table: str) -> dict:
+    """Returns the @context dict for a JSON-LD response for an entity of the given table."""
+    return CONTEXT_JSONLD.get(table.lower(), {})
+
+def as_rdf_triples(table: str, row: dict) -> list[tuple]:
+    """Maps a SQLAlchemy row dict to RDF triples. Optional rdflib export."""
+    # Emit one triple per mapped column; uses OntologyMapping.ogit_uri as predicate.
+    ...
+
+# woa_ontology_lookup/_data.py  (GENERATED — do not edit by hand)
+LOOKUP = {
+    ('customer', 'firma'): OntologyMapping(
+        ogit_uri='ogit.WorkOrder:Customer.legalName',
+        fibo_equivalent='fibo-be-le-lp:LegalEntity#hasLegalName',
+        odoo_equivalent='odoo:res.partner.name',
+        vcard_equivalent='vcard:Kind#fn',
+        schemaorg_equivalent='schema:Organization#legalName',
+        label_de='Firma',
+        label_en='Company name',
+        dolce_marker='Endurant',
+        dns_role='LegalIdentity',
+    ),
+    ('customer', 'kdnr'): OntologyMapping(...),
+    ('workorder', 'betreff'): OntologyMapping(...),
+    # ... ~250 entries covering Customer + WorkOrder + Position + Tenant +
+    #     User + Mahnung + Logbook + Dokument + Setting × ~30 fields each
+}
+
+TABLE_TO_OGIT_URI = {
+    'customer':   'ogit.WorkOrder:Customer',
+    'workorder':  'ogit.WorkOrder:WorkOrder',
+    'position':   'ogit.WorkOrder:Position',
+    'mandant':    'ogit.WorkOrder:Tenant',
+    # ...
+}
+
+CONTEXT_JSONLD = { ... }  # per-table @context blob
+```
+
+### 16.5 Where this lives, who owns it
+
+| Repository | Role | What lives here |
+|---|---|---|
+| **`lance-graph`** (this repo) | source-of-truth TTL + alignment + extraction script | `data/ontologies/*.ttl` (incl. Odoo extraction output once D-ODOO-2 lands); a `python/woa_ontology_lookup/` sub-tree with `build_lookup.py` that converts TTL → `_data.py`. Build artifacts versioned + published to a Python index (PyPI or private) as `woa-ontology-lookup-<sha>.tar.gz`. |
+| **`WoA`** (Python original, Stefan's source-of-truth app) | consumer | Single `requirements.txt` line: `woa-ontology-lookup~=1.0`. Use the package in models / routes / API responses. NO TTL files, NO build script — pure consumer. |
+| **`woa-rs`** (Rust port) | consumer | Already gets the same data via `lance-graph-ontology::OntologyRegistry` per the POC plan. The Python lookup module and the Rust OntologyRegistry are **two language-native readers of one source of truth**. |
+
+This matches §4.6 read-only spine governance verbatim: writes flow through `MappingProposal::sha256()`-keyed dedup into the TTL files in `lance-graph`; both languages read; neither mutates. The Python package is the Python-language reader, analogous to the Rust `OntologyRegistry` being the Rust-language reader.
+
+### 16.6 What this UNLOCKS for WoA Python
+
+Concrete payoffs Stefan sees in WoA Python BEFORE the Rust port replaces anything:
+
+1. **Schema-conscious API responses.** WoA's REST routes return JSON-LD `@context` per response, so any linked-data client (or a Foundry-style ingest pipeline) reads WoA's API output as semantic data without a separate mapping step. ~1 day of Python work after P3.
+2. **Odoo parity checks at build time.** When Odoo updates `l10n_de_skr04` and the Rust side picks up the change via D-ODOO-6, the Python lookup regenerates; any WoA field that drifts from the canonical Odoo shape is flagged at build time. CI gate.
+3. **Federation via standard tools.** `/api/customer/<kdnr>/rdf` returns Turtle / JSON-LD / N-Triples. Stefan's accountant runs an external XBRL validator or XRechnung tool against WoA output without manual format conversion. Removes a class of "but Odoo does X, WoA doesn't" friction.
+4. **Drift detection before the Rust reconciler ships.** `python manage.py check-ontology-drift` spot-checks WoA's sqlalchemy schema against the OGIT WoA TTL. New columns missing from the TTL get flagged. Catches what `WoaMysqlReconciler` would catch at runtime — but earlier.
+5. **Cognitive-model preparation.** Once the Rust side's cognitive substrate is wired (per §14.7 D-ODOO-10 end-state), Python WoA EXPORTS records via the federation surface (`/api/<entity>/<id>/rdf`) and the Rust cognitive cascade reasons about them natively. This is the "Python ERP layer + Rust core" two-version bridge from `b9531cf3-odoo_work_steal_distillation.md` §"The two-version bridge" — Python doesn't change; Rust ingests via the federation surface.
+
+### 16.7 What this does NOT do
+
+- **Does NOT change WoA Python's data model.** The lookup module is a side-table — it says what URI corresponds to a field; it doesn't change what fields exist. Iron Rule №5 (don't break the source repo) preserved.
+- **Does NOT add Odoo runtime dependencies.** No `odoo-bin`, no XML-RPC, no SQLAlchemy-on-Odoo's-PostgreSQL. Odoo information is EXTRACTED at build time and FROZEN into the Python module. Pure cache.
+- **Does NOT introduce ontology reasoning into WoA Python.** No OWL reasoner, no SPARQL engine, no SHACL validator running in the Python process. Reasoning stays in the Rust cognitive substrate where it belongs.
+- **Does NOT compete with woa-rs.** The Python lookup module and the Rust `OntologyRegistry` serve different processes; both read the same TTL. WoA Python keeps doing what it does; woa-rs ships the cognitive integration; the lookup module is shared schema awareness between them.
+
+### 16.8 Cross-references
+
+- §14.5 (D-ODOO-1..10) — the Rust-side Odoo extraction this Python phase consumes.
+- `unified-bridge-consumer-migration-v1.md` §4.2 (Lance-cache persistence) — analogous read-only spine, Rust side.
+- `unified-bridge-consumer-migration-v1.md` §4.6 (read-only spine + controlled write path) — governance applies to the Python lookup module verbatim: it reads, never mutates.
+- `unified-bridge-consumer-migration-v1.md` §4.7 (per-OGIT storage) — Python lookup is organized by table-as-G-slot-analog; one dict subset per OGIT family.
+- `b9531cf3-odoo_work_steal_distillation.md` §"The two-version bridge" — Python adapter substrate this proposal implements.
+- `woa-rs/CLAUDE.md` Iron Rule №2 + №5 — the constraint envelope this proposal stays inside.
+
+### 16.9 One-line summary
+
+> WoA Python integrates Odoo via a build-time-extracted Python lookup module (`woa-ontology-lookup`) that mirrors the TTL files Rust's `lance-graph-ontology::OntologyRegistry` already consumes — same source, two language-native readers, no Odoo runtime dependency. ~5-6 days of Python work across 4 phases delivers: schema-conscious REST API responses (JSON-LD `@context`), build-time Odoo-parity drift checks, federation surface (`/api/<entity>/<id>/rdf`) for external linked-data tools, and the substrate the Rust cognitive cascade ingests over for the two-version-bridge end-state. WoA's data model stays untouched (Iron Rule №5 preserved); Stefan's deployment gets one `pip install`. Python phases gate on Rust-side D-ODOO-2 + D-ODOO-3 landing but ship independently after.
