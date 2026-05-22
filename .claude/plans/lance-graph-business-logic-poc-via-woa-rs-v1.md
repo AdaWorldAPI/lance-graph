@@ -687,3 +687,205 @@ Concrete payoffs Stefan sees in WoA Python BEFORE the Rust port replaces anythin
 ### 16.9 One-line summary
 
 > WoA Python integrates Odoo via a build-time-extracted Python lookup module (`woa-ontology-lookup`) that mirrors the TTL files Rust's `lance-graph-ontology::OntologyRegistry` already consumes — same source, two language-native readers, no Odoo runtime dependency. ~5-6 days of Python work across 4 phases delivers: schema-conscious REST API responses (JSON-LD `@context`), build-time Odoo-parity drift checks, federation surface (`/api/<entity>/<id>/rdf`) for external linked-data tools, and the substrate the Rust cognitive cascade ingests over for the two-version-bridge end-state. WoA's data model stays untouched (Iron Rule №5 preserved); Stefan's deployment gets one `pip install`. Python phases gate on Rust-side D-ODOO-2 + D-ODOO-3 landing but ship independently after.
+
+---
+
+## 17 — Stefan's conservative ZUGFeRD/E-Rechnung path (least-invasive Python; backport to smb-office-rs x-rechnung-rs) (2026-05-21, same session)
+
+User scenario: Stefan is conservative, wants the least-invasive route, needs ZUGFeRD/E-Rechnung as per German law as a sales pitch, and would optionally like to backport synergies for the existing crates in smb-office-rs (X-Rechnung, ZUGFeRD, ELSTER, "whatever is there").
+
+### 17.1 Stefan's constraints + what already exists in tree
+
+Stefan's WoA Python stack today:
+- Web framework: Flask
+- DB: MySQL via SQLAlchemy
+- PDF: **`fpdf2==2.8.3`** (subclassed as `WoaPDF(FPDF)` in `pdf_gen.py`)
+- Optional: `weasyprint` for HTML→PDF (best-effort)
+- No ZUGFeRD / factur-x / xrechnung Python library installed yet
+
+What ships in `smb-office-rs` today (already in tree, complementary to Stefan):
+- **`crates/x-rechnung-rs/`** (73-line skeleton lib.rs, 65-line Cargo.toml) — explicitly **tenant-agnostic**; doc-comments name three planned consumers: **WoA (WT-30)** = Stefan's invoices to public-sector customers; **SIMAFPort-Rust** (future) = SAP-side BelegKopf → X-Rechnung; **SMB-Office** (future) = German Steuerberater invoices via FFI. Status: skeleton; subsequent WT-30 sub-chunks land UBL 2.1 / CII XML + PDF/A-3 hybrid + CLI bin.
+- **`crates/smb-woa/`** — contains `artikel.rs` + `customer.rs` + `auth/` modules. Stefan's WoA-vertical scaffolding inside the smb-office-rs workspace.
+- **`crates/customer-woa-bin/`** — per-customer binary targeting Stefan's deployment (per smb-office-rs's "single binary per customer" iron rule).
+
+What ships in `lance-graph` (already in tree post-PR-407/408):
+- **`hydrate_zugferd` + `hydrate_zugferd_rules`** — XSD + Schematron hydration of EN16931 invoice schema + ZUGFeRD/Factur-X compliance rules. The CII element shapes Stefan's invoices will map to.
+- **`SchematronHydrator` + `XsdHydrator`** — the substrate `hydrate_zugferd_rules` builds on.
+
+What ships in `woa-rs` (already in tree per the recent PRs #150 / #151 / #152):
+- **`crates/woa_pdf/`** with invoice-wording patterns rewritten against Python source + GoBD Pflichtangaben reference (`d74a7e7` + `5af2ca5` from the PR #152 merge). This is the future home of Rust-side PDF generation.
+
+The synergy that's structurally already-baked: **x-rechnung-rs explicitly names WoA as first tenant; smb-woa already mirrors Stefan's vertical inside the smb-office-rs workspace; woa-rs's woa_pdf carries the GoBD/Pflichtangaben pattern reference; lance-graph ships the EN16931 substrate.** The pieces are aligned; Stefan just needs to ship the Python-side artefact.
+
+### 17.2 The least-invasive Python path — `factur-x` library + ~50-LOC route
+
+**Recommended: Stefan installs `factur-x` Python library** (https://pypi.org/project/factur-x/) — purpose-built for Factur-X / ZUGFeRD generation. Pure Python; one `pip install`; runtime deps are `lxml` (already common) + `reportlab` (PDF/A-3 embedding) + `PyPDF2`/`pypdf`.
+
+Why this library specifically:
+- Maintained by Alexis de Lattre (Akretion) — **same author as the Odoo factur-x integration module** (`l10n_de_facturx`). What Odoo uses for its e-invoice support IS this library. Cross-pollination is built in.
+- Implements EN16931 + ZUGFeRD profiles BASIC / EN 16931 / EXTENDED / MINIMUM + factur-x-1.0.07 (current at writing).
+- Validates against the EN16931 XSD + ZUGFeRD Schematron rules out of the box — same rules `hydrate_zugferd_rules` parses on the Rust side; you get the same validation surface either way.
+- Generates the embedded XML AND embeds it into a PDF/A-3 in one call (`facturx.generate_facturx_from_binary(pdf_bytes, xml_bytes, ...)`).
+- Pure additive in WoA Python — Stefan's existing `WoaPDF(FPDF)` generator stays; factur-x reads its output and adds the XML + PDF/A-3 metadata layer.
+
+Concrete integration shape:
+
+```python
+# WoA Python — new file: woa/erechnung.py (~50-80 LOC)
+from facturx import generate_from_file, generate_facturx_from_binary
+from lxml import etree
+from io import BytesIO
+
+from woa.models import Vorgang, Customer
+from woa.pdf_gen import WoaPDF  # existing fpdf2 subclass
+
+# Mapping table: WoA Vorgang field → EN16931 CII element XPath.
+# This IS the spec artefact that backports into smb-office-rs/crates/x-rechnung-rs
+# WT-30 sub-chunk "SemanticType → CII element mapping (ram:*, cbc:*, cac:*)".
+# Single source of truth; one place to maintain when EN16931 evolves.
+WOA_TO_CII_MAPPING = {
+    "vorgang.beleg_nr":        "rsm:ExchangedDocument/ram:ID",
+    "vorgang.datum":           "rsm:ExchangedDocument/ram:IssueDateTime/udt:DateTimeString",
+    "vorgang.brutto_summe":    "rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:SpecifiedTradeSettlementHeaderMonetarySummation/ram:GrandTotalAmount",
+    "vorgang.netto_summe":     "rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:SpecifiedTradeSettlementHeaderMonetarySummation/ram:LineTotalAmount",
+    "vorgang.mwst_summe":      "rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeSettlement/ram:ApplicableTradeTax/ram:CalculatedAmount",
+    "customer.firma":          "rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:BuyerTradeParty/ram:Name",
+    "customer.steuernummer":   "rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:BuyerTradeParty/ram:SpecifiedTaxRegistration/ram:ID",
+    "customer.ustid":          "rsm:SupplyChainTradeTransaction/ram:ApplicableHeaderTradeAgreement/ram:BuyerTradeParty/ram:SpecifiedTaxRegistration/ram:ID[@schemeID='VA']",
+    "position.bezeichnung":    "rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedTradeProduct/ram:Name",
+    "position.menge":          "rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeDelivery/ram:BilledQuantity",
+    "position.einzelpreis":    "rsm:SupplyChainTradeTransaction/ram:IncludedSupplyChainTradeLineItem/ram:SpecifiedLineTradeAgreement/ram:NetPriceProductTradePrice/ram:ChargeAmount",
+    # ... ~30-50 more entries covering all Pflichtangaben per § 14 UStG +
+    #     GoBD invariants per the woa_pdf reference Stefan already has.
+}
+
+def build_cii_xml(vorgang: Vorgang, customer: Customer) -> bytes:
+    """Build EN16931 CII XML from WoA models. Uses lxml for XPath-based assignment."""
+    # Start from a templated EN16931 skeleton (ships with factur-x as `cii.xml.j2`)
+    # or built fresh with lxml. ~80 LOC of XPath assignment using WOA_TO_CII_MAPPING.
+    ...
+
+def render_xrechnung(vorgang_id: int) -> bytes:
+    """The one new route handler — emits a hybrid PDF/A-3 with EN16931 XML embedded."""
+    vorgang = Vorgang.query.get_or_404(vorgang_id)
+    customer = vorgang.customer
+    # 1. Render PDF as today via existing WoaPDF(FPDF) subclass:
+    pdf_bytes = WoaPDF.build(vorgang=vorgang, customer=customer).output(dest='S')
+    # 2. Build EN16931 CII XML:
+    xml_bytes = build_cii_xml(vorgang, customer)
+    # 3. Embed XML into PDF/A-3 via factur-x — output is fully compliant Factur-X:
+    facturx_pdf = generate_facturx_from_binary(
+        pdf_bytes,
+        xml_bytes,
+        check_xsd=True,                     # validate against EN16931 XSD at emit time
+        afrelationship='Data',              # PDF/A-3 attachment relationship marker
+    )
+    return facturx_pdf
+
+# In Stefan's existing blueprint registration:
+@bp.route('/vorgaenge/<int:wid>/rechnung/xrechnung', methods=['GET'])
+def xrechnung(wid):
+    pdf = render_xrechnung(wid)
+    return Response(pdf, mimetype='application/pdf',
+                    headers={'Content-Disposition': f'attachment; filename=Rechnung_{wid}.pdf'})
+```
+
+**Total Stefan-side surgery**: 1 new file (`woa/erechnung.py`, ~150 LOC); 1 line in his blueprint route registration; 1 line in `requirements.txt` (`factur-x>=3.0`). **No data model changes; no schema migration; no new services; no JVM; no Rust.** Stefan's existing PDF generator stays unchanged — factur-x reads its output and ADDS the XML + PDF/A-3 metadata layer.
+
+### 17.3 The sales pitch framing — German B-Rechnungspflicht 2025-2028
+
+The German E-Rechnungspflicht timeline (per Wachstumschancengesetz 2024 + Bundesfinanzministerium guidance):
+
+| Effective date | Obligation |
+|---|---|
+| 2025-01-01 | All German B2B businesses must be ABLE TO RECEIVE e-invoices (XRechnung / ZUGFeRD EN16931 conformant). Email + PDF stays acceptable to RECEIVE if recipient consents. |
+| 2027-01-01 | B2B businesses with > €800K annual turnover must ISSUE e-invoices for domestic B2B transactions. Paper / non-conformant PDF prohibited. |
+| 2028-01-01 | All German B2B businesses, regardless of turnover, must ISSUE e-invoices for domestic B2B. |
+
+What Stefan can pitch with the §17.2 implementation **TODAY**:
+
+- **"We're ahead of the 2027/2028 mandate by 2-3 years."** Stefan's customers (mid-market German businesses) face the same mandate. Showing them WoA already emits conformant XRechnung is differentiator.
+- **"Zero manual work for your customers."** The hybrid PDF/A-3 is a normal PDF that opens in any viewer; the embedded XML is what their accounting software / DATEV import / ELSTER UStVA picks up automatically.
+- **"EN16931-conformant validated at emit time."** `factur-x`'s `check_xsd=True` runs the same validation the official `xeinkauf.de` validator runs — Stefan's invoices are verifiably correct, not just "we tried."
+- **"Drop-in for your existing workflow."** Stefan's existing customer-facing flow (print + email) doesn't change. The same PDF Stefan already sends is now also a valid e-invoice; recipients who care about the XML extract it; others see the PDF as before.
+- **"Free upgrade path to Rust performance later."** When `x-rechnung-rs` WT-30 ships (per smb-office-rs), Stefan's Python integration backports cleanly because the WOA_TO_CII_MAPPING table is the shared spec — switch the impl, keep the table.
+
+For Stefan's specific customer base (small / mid-market German IT services per the WoA glossary), this is the kind of compliance story that converts. The cost is one feature-week of Python work; the customer-facing differentiator runs for 3+ years.
+
+### 17.4 Backport opportunity — Stefan's Python integration AS x-rechnung-rs WT-30 spec source
+
+The high-leverage move: **Stefan's `WOA_TO_CII_MAPPING` Python dict (~30-50 mapping rows) becomes the canonical spec for `smb-office-rs/crates/x-rechnung-rs/` WT-30's `SemanticType → CII element mapping (ram:*, cbc:*, cac:*)` sub-chunk** (which the existing `x-rechnung-rs/src/lib.rs:48-52` doc-comment names as sub-chunk #2).
+
+Why this is the right artefact to backport:
+
+1. **Stefan's mapping is real-customer validated.** Stefan invoices real customers; if the EN16931 XML doesn't validate against `xeinkauf.de`'s validator, his customers' accountants notice. The mapping passes the empirical test that any clean-room Rust spec authoring would have to repeat.
+2. **The mapping is language-agnostic.** It's `(WoA field name, CII XPath)` pairs. Python dict, YAML, JSON, Rust `phf::Map` — same data, different reader.
+3. **x-rechnung-rs explicitly named WoA as first tenant.** Per `x-rechnung-rs/src/lib.rs:19` doc-comment: "WoA (WT-30) — small-business invoices to public-sector customers." Stefan's work IS the WT-30 ship vehicle.
+4. **smb-woa already exists as the WoA-vertical landing zone.** `crates/smb-woa/` has `artikel.rs` + `customer.rs` + `auth/` — Stefan's vertical's Rust types live here. The mapping table goes in `crates/smb-woa/src/erechnung_mapping.rs` (or `crates/x-rechnung-rs/src/woa.rs` if x-rechnung-rs prefers consumer modules co-located).
+
+Concrete backport workflow:
+
+| # | Source artefact | Target landing | Action |
+|---|---|---|---|
+| 1 | `WOA_TO_CII_MAPPING` Python dict (from §17.2) | `crates/x-rechnung-rs/data/woa-mapping.toml` | Stefan / WoA Python ships the dict. Sonnet subagent transcribes to TOML. ~1 hour. |
+| 2 | `build_cii_xml(vorgang, customer)` Python function | `crates/x-rechnung-rs/src/cii_builder.rs` | Per-mapping-row codegen: each row gets a typed Rust struct field with a `to_cii_xpath()` method. Hand-port + tests. ~2 days. |
+| 3 | `generate_facturx_from_binary` Python call | `crates/x-rechnung-rs/src/pdf_a3_embed.rs` | Use `lopdf` or `pdf-rs` Rust crate for the PDF/A-3 embedding. ~2 days. The Python lib's algorithm (PDF/A-3 metadata + `/AFRelationship Data` marker + `/EmbeddedFiles` name tree) is documented in the factur-x source; transcribable. |
+| 4 | EN16931 XSD validation (via factur-x's `check_xsd=True`) | `crates/x-rechnung-rs/src/validate.rs` | Already partly covered by `hydrate_zugferd` in lance-graph-ontology (XSD hydration). x-rechnung-rs binds to it via lance-graph-contract::ontology::SemanticType. ~1 day. |
+| 5 | ZUGFeRD Schematron compliance rules | `crates/x-rechnung-rs/src/schematron.rs` | Already partly covered by `hydrate_zugferd_rules` + `SchematronHydrator`. Wire to consume. ~1 day. |
+| 6 | CLI binary | `crates/x-rechnung-rs/bin/x-rechnung.rs` | Per the doc-comment "subsequent WT-30 sub-chunk #4 — CLI binary (`x-rechnung` bin under `cli` feature)". ~1 day. |
+| 7 | Per-tenant WoA-mapping consumption | `crates/customer-woa-bin/src/main.rs` | Wires `smb-woa::Vorgang` → `x-rechnung-rs::generate_xrechnung(vorgang)` for Stefan's deployment. ~0.5 day. |
+
+**Total Rust backport effort**: ~1-1.5 weeks. The Python ships in days; the Rust ports the spec over weeks. Stefan never blocks on the Rust side because his Python implementation runs from day 1.
+
+### 17.5 Bidirectional value loop
+
+Two value streams flow through the same artefact:
+
+```
+Stefan ships factur-x integration         x-rechnung-rs WT-30 ports it to Rust
+in WoA Python (1 week)                    (1-1.5 weeks; multi-tenant from day 1)
+        │                                              │
+        │ produces WOA_TO_CII_MAPPING                 │ accepts the same mapping
+        │ as the EN16931 reference spec               │ as its sub-chunk #2 spec
+        │                                              │
+        └─────────────────────┬────────────────────────┘
+                              ▼
+              SAME EN16931-conformant XML output
+              (byte-identical at the wire layer)
+                              │
+                              ▼
+              ┌──────────────────────────────┐
+              │ Stefan's customers (today)   │  ◄── WoA Python emits via factur-x
+              │ SAP installations (future)   │  ◄── SIMAFPort-Rust emits via x-rechnung-rs
+              │ SMB-Office C# (future)       │  ◄── via FFI to x-rechnung-rs
+              │ Other Rust consumers (future)│  ◄── direct lib import of x-rechnung-rs
+              └──────────────────────────────┘
+```
+
+The mapping table is the convergence point. Once Stefan validates a row against real customer feedback (e.g., "the buyer's UStID needs `schemeID='VA'` per German Reverse-Charge §13b case"), the fix lands in the shared mapping; every consumer benefits.
+
+### 17.6 What NOT to do
+
+| Anti-pattern | Why not |
+|---|---|
+| Stefan reimplements EN16931 from XSD in pure-Python | Years of work; the EN16931 + ZUGFeRD Schematron + PDF/A-3 spec corpus is ~500 pages. `factur-x` Python lib is 5+ years mature; uses it. |
+| Stefan adopts Mustang (Java) via subprocess | Adds JVM runtime dep — Stefan's Railway deployment doesn't ship Java; ops complexity. Mustang's behavioural-parity advantage doesn't outweigh the deployment friction. |
+| Stefan waits for woa-rs PR-5 (the Rust XRechnung milestone) | Months-out vs days-out. Stefan ships TODAY with Python; the woa-rs path is for the engineering completeness POC (§2 of this plan), not the sales pitch. |
+| Stefan builds x-rechnung-rs WT-30 himself (Rust) before having a real Python validation baseline | Risk: ships Rust impl that fails real-customer validation. Better path: Python first, harvest spec from real-customer wins, Rust second. |
+| Stefan changes WoA Python's data model to absorb EN16931 field shapes | Iron Rule №5 — don't break the source repo. WOA_TO_CII_MAPPING is a side-table mapping existing fields; no schema change. |
+| Stefan adds direct lance-graph dependency to WoA Python | WoA Python stays canonical (Iron Rule №2). lance-graph integration is the Rust port's concern. Python-side just consumes factur-x + maintains the mapping. |
+
+### 17.7 Sequencing
+
+| Week | Stefan (WoA Python) | smb-office-rs (x-rechnung-rs) | woa-rs (woa_pdf) |
+|---|---|---|---|
+| **1** (Nov 2025?) | Install factur-x; write `woa/erechnung.py` with WOA_TO_CII_MAPPING; new route; smoke test against `xeinkauf.de` validator. **Ship to first customer.** | Track Stefan's mapping work. No code yet. | No interaction; PR #152 already landed the GoBD Pflichtangaben reference. |
+| **2** | Iterate on customer feedback (e.g., UStID `schemeID='VA'` corrections). | Sonnet subagent transcribes Stefan's Python dict to `data/woa-mapping.toml`. | — |
+| **3-4** | Marketing rollout — sales-pitch material around "EN16931-conformant, ahead of 2027 mandate." | WT-30 sub-chunks #1 (CII XML types) + #2 (mapping consumption from TOML) land. | — |
+| **5-6** | Stay on Python; absorb any further customer feedback into the mapping. | WT-30 sub-chunk #3 (PDF/A-3 embed) + #4 (CLI bin) land. `cargo run -p x-rechnung -- --woa-mapping woa-mapping.toml vorgang.json` produces byte-identical output to Stefan's Python. | woa_pdf consumes x-rechnung-rs for its own PDF generation path (when woa-rs PR-5 ships per POC §2). |
+| **7+** | Optional: Stefan swaps factur-x Python for a `subprocess` call to `x-rechnung` CLI for performance / consistency. Same mapping, same output, different runtime. Iron Rule №5 still preserved (WoA data model unchanged). | x-rechnung-rs ships v1.0; multi-tenant story (WoA + future SAP + future SMB-Office) operational. | — |
+
+### 17.8 One-line summary
+
+> Stefan's conservative path: `pip install factur-x` + 1 new Python file (`woa/erechnung.py`, ~150 LOC) + 1 new route (`POST /vorgaenge/<wid>/rechnung/xrechnung`) + 1 mapping table (`WOA_TO_CII_MAPPING` = ~30-50 `(WoA_field, CII_XPath)` rows). Ships in 1 week, no Rust dep, no JVM, no data model change (Iron Rule №5 preserved). Sales pitch: "ahead of the 2027/2028 German B-Rechnungspflicht mandate." The mapping table backports into `smb-office-rs/crates/x-rechnung-rs/` WT-30 as the canonical SemanticType → CII element spec — Stefan's real-customer-validated wire shape becomes the reference implementation for the multi-tenant Rust port (WoA + SAP + SMB-Office). Byte-identical EN16931 output across both runtimes; consumers pick the impl that fits their deployment (Python for Stefan today, Rust CLI/FFI for SAP/SMB-Office tomorrow).
+
