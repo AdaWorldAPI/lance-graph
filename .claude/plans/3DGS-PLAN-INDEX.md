@@ -1,6 +1,6 @@
 # 3DGS Implementation Plan Index — lance-graph
 
-This directory contains the lance-graph-side implementation plans for the 3DGS geospatial rebuild and the PR-X12 cross-pollination expansion.
+This directory contains the lance-graph-side implementation plans for the 3DGS geospatial rebuild, the PR-X12 cross-pollination expansion, and PhiSpiral256 SoA integration.
 
 ## lance-graph responsibility
 
@@ -16,6 +16,7 @@ This directory contains the lance-graph-side implementation plans for the 3DGS g
 - Runtime selection policy, traversal, scheduling, and certified tile decisions.
 - SplatShaderBlas / BLASGraph orchestration across bitpacked, palette, and 3DGS tiers.
 - Datalake HHTL traversal and domain adapter strategy.
+- PhiSpiral256 SoA schema placement, route-key/candidate tables, and cross-lane calibration.
 - Cross-domain raw-field fanout into ultrasound, genetics, neuronal networks, and 4x4 cognitive-shader blocks.
 - PR-X12 cross-pollination across 3DGS, GGUF/safetensors, HHTL datalakes, and SplatShaderBlas.
 
@@ -59,6 +60,22 @@ Use inline code only for short identifiers such as `lance-graph`, `TileId`, or `
 3DGS-blast-radius-application-map.md
 3DGS-domain-adapter-strategy-plan.md
 3DGS-PRX12-crosspollination-capstone.md
+```
+
+## PhiSpiral256 SoA plans
+
+```text
+PhiSpiral256-SoA-cross-system-integration-plan.md
+```
+
+This plan keeps the lanes distinct:
+
+```text
+CAM_PQ       -> meaning / semantic basin lane
+PolarQuant   -> magnitude / similarity lane
+PhiSpiral256 -> orthogonal local residual location lane
+BGZ17        -> golden offset/stride recoverable sampling skeleton
+Fisher-z     -> optional statistical angular scorer/gate after candidate ranking
 ```
 
 ## Cross-domain fanout plans
@@ -111,6 +128,18 @@ lance-graph metadata traversal over datasets/fragments/blocks
 ndarray optional field-kernel scoring/certification kernels
         ->
 certified skip / refine / hydrate decision report
+```
+
+The PhiSpiral256 SoA flow is:
+
+```text
+leaf / residual / route-key request
+        ->
+lance-graph CAM_PQ + PolarQuant + PhiSpiral256 + BGZ17 lane composition
+        ->
+ndarray PhiSpiral256 encode / neighbor / distance / calibration kernels
+        ->
+Lance/Arrow atom table + candidate table + calibration report
 ```
 
 The PR-X12 tensor-container expansion flow is:
