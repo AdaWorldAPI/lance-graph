@@ -13,6 +13,7 @@ This directory contains the lance-graph-side implementation plans for the 3DGS g
 - Graph/DataFusion/Cypher query interfaces.
 - Integration wiring to `ndarray::hpc::splat3d`, `ndarray::hpc::pillar`, and HHTL kernels.
 - Runtime selection policy, traversal, scheduling, and certified tile decisions.
+- SplatShaderBlas / BLASGraph orchestration across bitpacked, palette, and 3DGS tiers.
 - Cross-domain raw-field fanout into ultrasound, genetics, neuronal networks, and 4x4 cognitive-shader blocks.
 
 ## Markdown convention
@@ -44,6 +45,7 @@ Use inline code only for short identifiers such as `lance-graph`, `TileId`, or `
 3DGS-ArcGIS-Cesium-ingestion-plan.md
 3DGS-certified-query-render-plan.md
 3DGS-epiphany-roadmap-plan.md
+3DGS-SplatShaderBlas-BLASGraph-crosspollination-plan.md
 ```
 
 ## Cross-domain fanout plans
@@ -72,6 +74,18 @@ traversal / query / tile decision planning
 ndarray 3DGS SIMD + certification kernels
         ->
 certified render/query decision report
+```
+
+The BLAS-backed 3DGS orchestration flow is:
+
+```text
+SplatShaderBlas / BLASGraph tier selection
+        ->
+lance-graph tile/block schedule
+        ->
+ndarray EWA/SYRK/BLAS backend kernels
+        ->
+certified covariance / render decision report
 ```
 
 The 4x4 raw-field fanout flow is:
