@@ -13,6 +13,7 @@ This directory contains the lance-graph-side implementation plans for the 3DGS g
 - Graph/DataFusion/Cypher query interfaces.
 - Integration wiring to `ndarray::hpc::splat3d`, `ndarray::hpc::pillar`, and HHTL kernels.
 - Runtime selection policy, traversal, scheduling, and certified tile decisions.
+- Cross-domain raw-field fanout into ultrasound, genetics, neuronal networks, and 4x4 cognitive-shader blocks.
 
 ## Markdown convention
 
@@ -33,7 +34,7 @@ file paths when shown as groups
 
 Use inline code only for short identifiers such as `lance-graph`, `TileId`, or `3DGS-certified-query-render-plan.md`.
 
-## Plans
+## Geospatial 3DGS plans
 
 ```text
 3DGS-Cesium-feature-mapping-plan.md
@@ -43,6 +44,16 @@ Use inline code only for short identifiers such as `lance-graph`, `TileId`, or `
 3DGS-ArcGIS-Cesium-ingestion-plan.md
 3DGS-certified-query-render-plan.md
 3DGS-epiphany-roadmap-plan.md
+```
+
+## Cross-domain fanout plans
+
+```text
+3DGS-cross-pollination-raw-field-plan.md
+3DGS-ultrasound-SaMD-plan.md
+3DGS-genetics-4x4-fanout-plan.md
+3DGS-neuronal-network-4x4-plan.md
+3DGS-4x4-cognitive-shader-integration-plan.md
 ```
 
 ## Cross-repo boundary
@@ -63,4 +74,18 @@ ndarray 3DGS SIMD + certification kernels
 certified render/query decision report
 ```
 
-Central principle: keep geospatial orchestration and numerical hot paths separate, but make their DTO boundary explicit and testable.
+The 4x4 raw-field fanout flow is:
+
+```text
+raw field source
+        ->
+lance-graph provenance + graph/schema registration
+        ->
+4x4 cognitive-shader block request
+        ->
+ndarray Mat4 / Sym4 / Block4 SoA kernels
+        ->
+certified block decision report
+```
+
+Central principle: keep orchestration and numerical hot paths separate, but make their DTO boundary explicit and testable.
