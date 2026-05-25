@@ -1,6 +1,6 @@
 # 3DGS Implementation Plan Index — lance-graph
 
-This directory contains the lance-graph-side implementation plans for the 3DGS geospatial rebuild, the PR-X12 cross-pollination expansion, PhiSpiral256 SoA integration, the Cesium/BindSpace4 headstone exploration, and the BGZ17/Poincare SparseEdgeField tectonic-map line.
+This directory contains the lance-graph-side implementation plans for the 3DGS geospatial rebuild, the PR-X12 cross-pollination expansion, PhiSpiral256 SoA integration, the Cesium/BindSpace4 headstone exploration, the BGZ17/Poincare SparseEdgeField tectonic-map line, and the Palette256/3DSB/PhiSpiral attention-integration line.
 
 ## lance-graph responsibility
 
@@ -12,6 +12,7 @@ This directory contains the lance-graph-side implementation plans for the 3DGS g
 - Blender scene graph / mesh / material / camera transcode corridor.
 - Cesium/BindSpace4 L1-L4 stream bridge as a headstone/capstone exploration.
 - BGZ17/Poincare SparseEdgeField tectonic-map reconstruction as a sparse sidecar field.
+- Palette256/3DSB/PhiSpiral attention replacement as an economic semantic-spatial context packet.
 - Lance/Arrow schemas for tiles, splats, features, metadata, and certificates.
 - Graph/DataFusion/Cypher query interfaces.
 - Integration wiring to `ndarray::hpc::splat3d`, `ndarray::hpc::pillar`, and HHTL kernels.
@@ -54,6 +55,25 @@ Use inline code only for short identifiers such as `lance-graph`, `TileId`, or `
 3DGS-epiphany-roadmap-plan.md
 3DGS-SplatShaderBlas-BLASGraph-crosspollination-plan.md
 3DGS-Cesium-BindSpace4-headstone-exploration.md
+```
+
+## Palette256 / 3DSB / PhiSpiral attention plans
+
+```text
+Palette256-3DSB-PhiSpiral-attention-integration-plan.md
+```
+
+This plan captures:
+
+```text
+Palette256 cosine one-dimensional attention replacement
+3DSB / spatial-splat-block 4D local carrier
+original Poincare leaf location
+PhiSpiral256 orthogonal local residue
+OGIT / OWL / DOLCE semantic inheritance
+BGZ17 recoverable sparse traces
+GGUF / PR-X12 implicit-context headers
+CausalEdge64 mailbox trajectory candidates
 ```
 
 ## BGZ17 / Poincare sparse field plans
@@ -139,6 +159,26 @@ BindSpace4 L1-L4 sidecar stream
 ndarray 3DGS / depth / PhiSpiral / certificate kernels
         ->
 certified tile, content, residual, or render decision
+```
+
+The Palette256/3DSB/PhiSpiral attention flow is:
+
+```text
+thought / tensor block / scene block / sparse edge field
+        ->
+OGIT / OWL / DOLCE inherited domain lookup
+        ->
+CAM_PQ meaning anchor
+        ->
+Palette256 cosine attention candidate
+        ->
+3DSB local field/block carrier
+        ->
+Poincare local chart and PhiSpiral256 residual location
+        ->
+BGZ17 offset/stride recovery family
+        ->
+CausalEdge64 trajectory candidate or certified hydrate decision
 ```
 
 The BGZ17/Poincare SparseEdgeField flow is:
