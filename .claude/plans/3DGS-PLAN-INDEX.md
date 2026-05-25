@@ -1,6 +1,6 @@
 # 3DGS Implementation Plan Index — lance-graph
 
-This directory contains the lance-graph-side implementation plans for the 3DGS geospatial rebuild.
+This directory contains the lance-graph-side implementation plans for the 3DGS geospatial rebuild and the PR-X12 cross-pollination expansion.
 
 ## lance-graph responsibility
 
@@ -16,6 +16,7 @@ This directory contains the lance-graph-side implementation plans for the 3DGS g
 - SplatShaderBlas / BLASGraph orchestration across bitpacked, palette, and 3DGS tiers.
 - Datalake HHTL traversal and domain adapter strategy.
 - Cross-domain raw-field fanout into ultrasound, genetics, neuronal networks, and 4x4 cognitive-shader blocks.
+- PR-X12 cross-pollination across 3DGS, GGUF/safetensors, HHTL datalakes, and SplatShaderBlas.
 
 ## Markdown convention
 
@@ -55,6 +56,7 @@ Use inline code only for short identifiers such as `lance-graph`, `TileId`, or `
 3DGS-HHTL-datalake-traversal-plan.md
 3DGS-blast-radius-application-map.md
 3DGS-domain-adapter-strategy-plan.md
+3DGS-PRX12-crosspollination-capstone.md
 ```
 
 ## Cross-domain fanout plans
@@ -107,6 +109,20 @@ lance-graph metadata traversal over datasets/fragments/blocks
 ndarray optional field-kernel scoring/certification kernels
         ->
 certified skip / refine / hydrate decision report
+```
+
+The PR-X12 tensor-container expansion flow is:
+
+```text
+GGUF / safetensors / Lance tensor source
+        ->
+lance-graph adapter + block graph + provenance
+        ->
+PR-X12 block schedule / SplatShaderBlas-style decision
+        ->
+ndarray decode-during-GEMM / codebook / BLAS kernels
+        ->
+certified tensor decode or hydration report
 ```
 
 The 4x4 raw-field fanout flow is:
