@@ -9,6 +9,7 @@ This directory contains the lance-graph-side implementation plans for the 3DGS g
 - Cesium / 3D Tiles feature mapping.
 - 3D Tiles reader/writer/server trajectory.
 - ArcGIS and Cesium source ingestion.
+- Blender scene graph / mesh / material / camera transcode corridor.
 - Lance/Arrow schemas for tiles, splats, features, metadata, and certificates.
 - Graph/DataFusion/Cypher query interfaces.
 - Integration wiring to `ndarray::hpc::splat3d`, `ndarray::hpc::pillar`, and HHTL kernels.
@@ -37,7 +38,7 @@ file paths when shown as groups
 
 Use inline code only for short identifiers such as `lance-graph`, `TileId`, or `3DGS-certified-query-render-plan.md`.
 
-## Geospatial 3DGS plans
+## Geospatial / scene 3DGS plans
 
 ```text
 3DGS-Cesium-feature-mapping-plan.md
@@ -45,6 +46,7 @@ Use inline code only for short identifiers such as `lance-graph`, `TileId`, or `
 3DGS-Lance-Arrow-storage-plan.md
 3DGS-integration-wiring-plan.md
 3DGS-ArcGIS-Cesium-ingestion-plan.md
+3DGS-Blender-transcode-crosspollination-plan.md
 3DGS-certified-query-render-plan.md
 3DGS-epiphany-roadmap-plan.md
 3DGS-SplatShaderBlas-BLASGraph-crosspollination-plan.md
@@ -76,7 +78,7 @@ Use inline code only for short identifiers such as `lance-graph`, `TileId`, or `
 The intended flow is:
 
 ```text
-3D Tiles / ArcGIS / Cesium source
+3D Tiles / ArcGIS / Cesium / Blender source
         ->
 lance-graph ingest + Lance/Arrow metadata
         ->
