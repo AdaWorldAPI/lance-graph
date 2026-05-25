@@ -1,6 +1,6 @@
 # 3DGS Implementation Plan Index — lance-graph
 
-This directory contains the lance-graph-side implementation plans for the 3DGS geospatial rebuild, the PR-X12 cross-pollination expansion, and PhiSpiral256 SoA integration.
+This directory contains the lance-graph-side implementation plans for the 3DGS geospatial rebuild, the PR-X12 cross-pollination expansion, PhiSpiral256 SoA integration, and the Cesium/BindSpace4 headstone exploration.
 
 ## lance-graph responsibility
 
@@ -10,6 +10,7 @@ This directory contains the lance-graph-side implementation plans for the 3DGS g
 - 3D Tiles reader/writer/server trajectory.
 - ArcGIS and Cesium source ingestion.
 - Blender scene graph / mesh / material / camera transcode corridor.
+- Cesium/BindSpace4 L1-L4 stream bridge as a headstone/capstone exploration.
 - Lance/Arrow schemas for tiles, splats, features, metadata, and certificates.
 - Graph/DataFusion/Cypher query interfaces.
 - Integration wiring to `ndarray::hpc::splat3d`, `ndarray::hpc::pillar`, and HHTL kernels.
@@ -51,6 +52,7 @@ Use inline code only for short identifiers such as `lance-graph`, `TileId`, or `
 3DGS-certified-query-render-plan.md
 3DGS-epiphany-roadmap-plan.md
 3DGS-SplatShaderBlas-BLASGraph-crosspollination-plan.md
+3DGS-Cesium-BindSpace4-headstone-exploration.md
 ```
 
 ## Blast-radius and datalake plans
@@ -104,6 +106,20 @@ traversal / query / tile decision planning
 ndarray 3DGS SIMD + certification kernels
         ->
 certified render/query decision report
+```
+
+The Cesium/BindSpace4 internal stream flow is:
+
+```text
+Cesium / 3D Tiles external envelope
+        ->
+lance-graph tile/content/feature graph
+        ->
+BindSpace4 L1-L4 sidecar stream
+        ->
+ndarray 3DGS / depth / PhiSpiral / certificate kernels
+        ->
+certified tile, content, residual, or render decision
 ```
 
 The BLAS-backed 3DGS orchestration flow is:
