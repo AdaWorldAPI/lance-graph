@@ -14,28 +14,36 @@ This directory contains the lance-graph-side implementation plans for the 3DGS g
 - Integration wiring to `ndarray::hpc::splat3d`, `ndarray::hpc::pillar`, and HHTL kernels.
 - Runtime selection policy, traversal, scheduling, and certified tile decisions.
 
+## Markdown convention
+
+Program-related material should use fenced Markdown blocks so Claude Code, GitHub review, and future handovers can parse it cleanly.
+
+Use fences for:
+
+```text
+crate/module layouts
+commands
+Cargo feature sets
+Rust DTO sketches
+schema sketches
+endpoint lists
+call-flow diagrams
+file paths when shown as groups
+```
+
+Use inline code only for short identifiers such as `lance-graph`, `TileId`, or `3DGS-certified-query-render-plan.md`.
+
 ## Plans
 
-1. `3DGS-Cesium-feature-mapping-plan.md`
-   - Maps Cesium/3D Tiles concepts to Rust/Lance/Arrow/3DGS responsibilities.
-
-2. `3DGS-3D-Tiles-runtime-plan.md`
-   - Defines the 3D Tiles reader/writer/traversal/server crate trajectory.
-
-3. `3DGS-Lance-Arrow-storage-plan.md`
-   - Defines durable columnar schemas for tiles, contents, splats, features, and certificates.
-
-4. `3DGS-integration-wiring-plan.md`
-   - Defines cross-repo DTOs and call flow between `lance-graph` and `ndarray`.
-
-5. `3DGS-ArcGIS-Cesium-ingestion-plan.md`
-   - Defines ingestion from ArcGIS REST, 3D Tiles, glTF, SPZ, GeoJSON, and vector tiles.
-
-6. `3DGS-certified-query-render-plan.md`
-   - Defines the certified render/query decision layer.
-
-7. `3DGS-epiphany-roadmap-plan.md`
-   - Collects additional high-leverage directions discovered during planning.
+```text
+3DGS-Cesium-feature-mapping-plan.md
+3DGS-3D-Tiles-runtime-plan.md
+3DGS-Lance-Arrow-storage-plan.md
+3DGS-integration-wiring-plan.md
+3DGS-ArcGIS-Cesium-ingestion-plan.md
+3DGS-certified-query-render-plan.md
+3DGS-epiphany-roadmap-plan.md
+```
 
 ## Cross-repo boundary
 
