@@ -174,6 +174,19 @@ pub use family_table::{
     FamilyEntry, OgitFamilyTable, OwlCharacteristics, PerFamilyCodebook, SchemaKind,
 };
 
+// odoo → OWL → OGIT-family resolution cache (four_way_alignment_seam.md
+// addendum — "CAM encoding & O(1) odoo inheritance"). Fills the missing
+// odoo→OWL leg: a precomputed table mapping odoo class IRIs to the OWL pivot
+// `OwlIdentity` they inherit, chaining O(1) into `OgitFamilyTable`. Option B
+// (no new CAM family) — odoo aliases into existing WorkOrderBilling/SMB
+// families via baked-in equivalence; `resolve_odoo_to_family` does NO graph
+// walk at call time. `dolce_odoo` is the Seam-decision-2 suffix classifier.
+pub mod odoo_alignment;
+pub use odoo_alignment::{
+    dolce_odoo, resolve_odoo, resolve_odoo_alignment, resolve_odoo_to_family, OdooAlignment,
+    ODOO_ALIGNMENTS, SKR_ACCOUNT_CONCEPTS,
+};
+
 // PR-F1 — UnifiedBridgeGate<B>: production CognitiveBridgeGate impl.
 // Wraps UnifiedBridge<B>; Chinese-wall check fires before policy evaluation
 // on cross-tenant ops (§3.8). No dep on thinking-engine from thinking-engine.
