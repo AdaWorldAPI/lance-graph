@@ -1,3 +1,15 @@
+## 2026-05-26 — odoo-alignment-reconciliation-v1 (keep main's odoo_alignment API; close 4 harvest-exposed gaps; Savant reasoner backlog)
+
+**Status:** PROPOSAL — awaits Jan ratification. NO history rewrite / force-push until ratified (branch `claude/odoo-owl-cache` `656d335` frozen).
+**Confidence:** HIGH on "main `ecb92c0` API is canonical, drop the `656d335` duplicate"; HIGH on seed-coverage + missing-`StyleCluster` gaps; MED on new-family bytes (0x63 ProductCatalog / 0x64 AccountingPolicy / 0x90 HRFoundation) pending `data/family_registry.ttl`.
+**Plan file:** `.claude/plans/odoo-alignment-reconciliation-v1.md`
+**Origin:** handed over from the woa-rs odoo-richness session at the boundary in `woa-rs/.claude/odoo/SAVANTS.md` (15 harvest lanes L1–L15 + 25-Savant delegation roster). woa-rs side is committed/pushed on `claude/odoo-erp-posting`.
+
+### Scope
+Reconciles the two `odoo_alignment` implementations (merged-canonical vs branch duplicate), expands the seed table to the harvest's full class set, wires the inherited `ThinkingStyle` cluster that the Savant design assumes, opens the Layer-2-axiom backlog (3 new families + bespoke-axiom classes), and lists the per-`ReasoningKind` `Reasoner` impl backlog for the 25 Savants (reconciliation matching first). Local-only until Jan authorizes the rebase/push.
+
+---
+
 ## 2026-05-15 — cognitive-substrate-convergence-v1 (CSV — i4 mantissa + gapless baton + active inference)
 
 **Status:** Active (PROPOSAL — awaits OQ-CSV-1..6 ratification before sprint-11 D-CSV-* spawn)
