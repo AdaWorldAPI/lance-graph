@@ -1,3 +1,111 @@
+## 2026-05-26 — E-I4-META-1 — i4-32 thinking-style fingerprint = "thinking-about-thinking + domain"; qualia is the i4-16 64-bit atom; S-P-O is palette-pointers + Pearl-2³, not a 3×4096 identity
+
+**Status:** FINDING (design converged this session; the `ThinkingStyleI4_32D`
+type is NOT yet built — gated on the user naming the 32-dim general basis +
+general/OGIT-custom lane split). The **ndarray hardware floor is shipped** (see
+Cross-ref).
+
+**Click:** A long design session converged the cognitive-style representation.
+The capstone framing: **i4-32 is "thinking about thinking + domain"** — a
+cognitive *address* whose general lanes are the metacognitive style (HOW one is
+thinking, cross-domain) and whose OGIT-custom lanes are the domain (WHICH
+domain). Their product lands on a reusable best-practice thinking template.
+
+**The unification — 64-bit is the atom:**
+
+- `qualia` = `QualiaI4_16D(u64)` (8 B, 16 signed-i4 dims, range −8..+7) ==
+  `CausalEdge64` (8 B) in *width*. Both are the **64-bit atom**: same SoA column
+  stride (8 B), same SIMD lane (`U64x8`), same kernels → they cross-pollinate.
+- `thinking-style` = i4_32D (16 B = `u128`/`[u64;2]`, **32 signed activation
+  dims**) = **2 atoms**.
+- The shipped i4-32 unpack **subsumes** i4-16: the low 64 bits of
+  `I8x32::from_i4_packed_u128` equal `I8x16::from_i4_packed_u64` by construction
+  (atom-parity test). So the one primitive serves qualia/edge (low half) and
+  thinking (full).
+
+**32 dims = multi-activated meta-properties, bipolar-signed (NOT a pick-one
+enum):** each dim is a graded property; sign = the opposite pole
+(sarcasm `+` / sincerity `−`, irony `+` / literal `−`), magnitude = intensity,
+0 = neutral. **Opposite = one-instruction negation.** A persona/archetype is a
+*profile* (e.g. "Schopenhauer = +7 sarcasm, +pessimism, +philosophical,
+−warm"). The i4-**16D**-thinking alternative was **rejected** — 16 dims would
+force merging irony/sarcasm/etc. onto shared axes and rob their distinct poles;
+32 is the precision floor. The dims capture the *meta* (metacognition) and are
+**Jina-calibratable** (existing `thinking-engine` lens machinery —
+`jina_lens.rs`, `calibrate_lenses.rs`, Spearman ρ / ICC / Cronbach).
+
+**General / OGIT-custom split (the clean architecture):** keep the **general
+block** universal + Jina-calibrated (irony, sarcasm, care↔extraction, …) so
+K-NN similarity works *cross-domain*; let **OGIT inject domain axes into the
+custom block** (doctor↔autopsy when medical ontology active; bookkeeping / income
+tax when finance active). Domain axes are bipolar too (doctor `+` heal ↔ autopsy
+`−` post-mortem — a *same-domain* sign flip; it even rides the Abduction↔Deduction
+fanout axis). The custom lanes set by OGIT are the **explicit-binding** path
+(dispatch provable Odoo/DOLCE business logic); the general lanes are the
+**similarity fallback**. **OPEN DECISION (gates the build):** where the split is
+(e.g. 24 general + 8 custom) and the general meta-property list.
+
+**No-duplication rulings (Baton single-home discipline):**
+
+- **DK ↔ informational-trust is DERIVED, not stored.** `CausalEdge64.conf` (NARS
+  confidence, per-edge, object-level) is the single source for trust. The
+  Dunning-Kruger calibration is a *per-cycle meta-aggregate* over the edge-conf
+  distribution (the MUL already computes `DkPosition` / `TrustTexture`). It
+  lives as a **derived lane** (computed on-demand, mirroring qualia.rs
+  "magnitude = coherence × valence → i8 on demand"), NEVER as independent state
+  that could drift from `conf`.
+- **Relocating ephemeral *style* out of the crowded `CausalEdge64` v2 is
+  relocation, not duplication** — and a net plus: it decrowds the over-packed
+  u64 that caused the 5 sprint-11 I-LEGACY reclaim bugs, and upgrades style from
+  a cramped field to 32-dim resolution. **Granularity split:** `CausalEdge64` =
+  *persistent, per-edge structural truth* (committed to AriGraph); i4-32 =
+  *ephemeral, per-cycle thinking stance* (carried in the SoA grid, not stamped
+  on every edge).
+
+**S-P-O is NOT a "sneaked-in" 3×4096 identity (verified, the worry is
+unfounded):** `lance-graph-planner` `cache/nars_engine.rs::SpoHead` ("mirrors
+CausalEdge64 layout", 8 B) has `s_idx/p_idx/o_idx: u8` — **256-entry palette
+POINTERS**, not dense 4096 vectors. That is exactly the `I-VSA-IDENTITIES` Test-0
+register pattern (a natural ID indexes content; it does not bundle a
+fingerprint). The actual **2³ deconstruction** is the *separate* `pearl: u8`
+3-bit mask: `MASK_NONE` (prior) · S/P/O marginals · `MASK_SP` (confounder) ·
+`MASK_SO` Association(L1) · `MASK_PO` Intervention(L2) · `MASK_SPO`
+Counterfactual(L3). So the edge is causal-structural (pointers + rung mask +
+NARS truth + inference + temporal, all register) — **no identity smuggled →
+fine.** This `SpoHead`/ndarray SPO-palette variant has **no `style` field**,
+which confirms the style-unload target is the *other* v2-with-style variant
+(the dual/triple-`CausalEdge64` split remains the thing to watch).
+
+**The cycle (all loops close on the shipped carrier):** the SoA grid carries the
+address O(1) cycle-to-cycle → the 4-mode fanout (Abduction/Deduction/Synthesis/
+Induction; Revision = commit) explores → pattern-J K-NN over the general
+fingerprint retrieves the nearest best-practice when OGIT has no explicit binding
+→ pattern-K Cranelift JIT compiles the winning template and "sinks" it back to
+source as a compile-time primitive next build (engine exists:
+`jitson_cranelift` / `cam_pq/jitson_kernel.rs` / `contract/jit.rs`; the YAML/
+source-writeback half is the gap).
+
+**Cross-ref (shipped this session):** ndarray `src/simd_soa.rs` `SoaColumns<N>`
+multi-column SoA carrier @ `42cb7123` (zero-copy per-field lane iters + baked-in
+`CausalEdge64` accessor; O(1) `Arc`-clone cycle carry-over); ndarray i4-32 unpack
+`I8x32::from_i4_packed_u128` + `batch_packed_i4_32` across avx512/neon/scalar +
+4 simd.rs re-exports @ `8de1dcf8` (atom-parity tested, clippy/fmt clean);
+`E-BATON-1` (Baton ratification @ `dec049b`). **Cross-ref (design anchors):**
+`lance-graph-contract/src/qualia.rs` (`QualiaI4_16D`, 17D→i4-16 packing);
+`lance-graph-planner/src/cache/nars_engine.rs` (`SpoHead`, Pearl 2³ masks,
+`SpoDistances`); MUL `DkPosition`/`TrustTexture`; `.claude/patterns.md` J
+(INT4-32D Thinking Atoms) + K (Circular Compilation); ndarray
+`src/hpc/causal_diff.rs` (`CausalEdge64` SPO-palette variant: block/proj/verb/
+row/L1/freq/conf); CLAUDE.md `I-VSA-IDENTITIES` + `I-LEGACY-API-FEATURE-GATED`
+(the v2 reclaim bugs).
+
+**Next build (when basis named):** `ThinkingStyleI4_32D` (lance-graph,
+`[u64;2]`) with general lanes `0..K` + OGIT-custom lanes `K..32`, the i4-32 K-NN
+over the general block, and the DK derived-lane projection. The ndarray floor is
+ready under it.
+
+---
+
 ## 2026-05-26 — E-BATON-1 — "Baton" is the workspace's native term for the little-endian contract; it ratifies the deprecation of the singleton BindSpace and Vsa16kF32-as-carrier
 
 **Status:** FINDING (user-ratified terminology + doctrine; board-first per "Both, board first")
