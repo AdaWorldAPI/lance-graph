@@ -1,3 +1,19 @@
+## [Fleet surreal-poc Wave-A] [WIP — drafts un-reviewed] SurrealDB-on-Lance container POC, tasks 01+02
+
+**D-id:** surreal-01 (deps_substrate, lance-graph) + surreal-02 (soa_container_type, ndarray). Wave A of the 12-task `.claude/surreal/` POC — disjoint-file-scoped Sonnet agents, edit-only, shared checkout.
+
+**Workers:** 2× Sonnet (background, edit-only). Both behaved correctly under the anti-hallucination guards: task 01 left 4 `// BLOCKED:` markers instead of inventing versions/APIs; task 02 left 3 BLOCKERs (bytemuck / odd-N pad / naming).
+
+**Files (WIP, NOT yet compiled by Opus):**
+- ndarray `src/hpc/soa.rs` — `SoaContainerHeader<N>` LE `#[repr(C)]` draft (committed `547824bc` on ndarray branch).
+- lance-graph `crates/surreal_container/` scaffold + `Cargo.toml` member.
+
+**Resolved by Opus:** the lance-version "conflict" was a false alarm — workspace is canonically on **lance 4.0.0 / lancedb 0.27.2 / datafusion 52 / arrow 57 / rust 1.95** (CLAUDE.md "lance = 2" line is stale; `crates/lance-graph/Cargo.toml:36` + workspace `Cargo.toml:50-54` confirm 4.0.0, Lance-6 = future). Task-01 unblock = `surrealdb-core` git dep (`AdaWorldAPI/surrealdb`, feature `kv-lance`) + embedded `Datastore::builder().build_with_path("lance://..")` (verified from the fork's integration_tests).
+
+**Pending:** Opus review/correct/compile of both drafts → pin `SoaContainer` interface before fanning out Wave B (03/07/10) → savant meta-review (`simd-savant` + PP-13/15/16) → PR.
+
+---
+
 ## [Fleet sprint-13-w-i1-salvage] [IN PR] D-CSV-13b i4 batch SIMD dispatch (branch claude/sprint-13-w-i1-salvage)
 
 **D-id:** D-CSV-13b — SIMD vectorization of i4 MUL evaluation. AVX-512F+BW path (8 elements/iter), NEON path (2 elements/iter), scalar fallback. Runtime dispatch via cached `simd_caps()` (`AtomicU8`); zero ndarray dep preserves contract-crate zero-dep posture.
