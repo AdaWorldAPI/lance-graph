@@ -26,6 +26,7 @@ The menu is a **2D grid** — phase × DK-position → strategy. Etiquette = sof
 |---|---|---|
 | **stakes** | `marking` {Public<Internal<Pii≈Financial<Restricted} | MUL `× stakes` + anneal start-temp + gate tightness |
 | **savant** | `thinking_style: Option<ThinkingStyle>` | which persona/expert binds |
+| **capability scope** | `marking` (least-privilege) | which tools the savant may touch — `Financial`→Odoo/FIBU only (no web), `Pii`→no external, `Restricted`→explicit grant (CMA per-role tool-scoping, Marking-gated; prevents leakage / GoBD risk) |
 | **qualia prior** | `qualia_meta.qualia[18]` | wonder/tension/coherence → exploration & temperature baseline |
 | **dispatch** | `qualia_meta.meta` (MetaWord) + `.edge` (CausalEdge64) | thinking-style bits + NARS truth + Pearl 2³ seed |
 | **competence prior** | `confidence` | MUL denominator + Boole-bound start |
@@ -102,6 +103,7 @@ Cold scaffold (§2+§3) runs at temp≈0; cognition runs hot on top; the experie
 - **ractor — YES, scoped to the outer swarm.** Supervised specialist actors under `OrchestrationBridge`; ractor messages carry Batons; async boundary at the swarm layer only; the SoA Click stays inner + sync. Don't double-mailbox with the existing mailbox-as-owner (E-BATON-1).
 - **surrealdb — NO for the cognitive store** (redundant with lance-graph/AriGraph + Lance; introduces a second graph + second truth; not actually "boring stable"). **Open for the operational trace/session store only** — but prefer **SQLite/Lance** there too. **AriGraph stays the one graph.**
 - **Composition = blackboard** (`a2a_blackboard`/SoA), per ladybug's BindSpace choice; ractor supervises, blackboard composes.
+- **Managed vs self-hosted (CMA):** Claude Managed Agents (`multiagent.type:"coordinator"` + roster + `send_to_parent`) is the managed analog of our outer swarm — coordinator = Root Orchestrator, `send_to_parent` = Baton, per-role tool-scoping = Marking-gated capability scope (§1). It validates the shape but is Python/API; Layer-1 cognitive stays **self-hosted ractor/SoA** (SIMD + compile-time ownership = GoBD-immutability). CMA could back **Layer-2** (session/subagent) coordination if a managed path is wanted. Our routing is OGIT-dynamic; CMA's is static-roster — we go further.
 
 ## 6b. Domain-savant population via bridge harvest (don't hand-author accounting)
 
