@@ -1,3 +1,62 @@
+## 2026-05-26 — E-AGICHAT-DIMENSION-CONTRACT — the 32-dim basis already exists as agichat's locked 10kD allocation; ladybug-rs de-grounded it by inflating bytes→10K-bit fingerprints; the work is to RESTORE the contract on the SoA floor, not invent or port
+
+**Status:** FINDING (resolves the open `ThinkingStyleI4_32D` basis decision from E-I4-META-1; lineage + grounding map established from user-provided sources). **External design references — NOT in the GitHub-MCP allowlist; design-reference only, never a code-port target.**
+
+**Click:** A long session walking two upstream repos — `AdaWorldAPI/ladybug-rs` (Rust) and the older `AdaWorldAPI/agi-chat` (Py/TS) — settled the entire "which 32 dims / how to ground" thread. The basis was never something to invent: it is **agichat's locked 10kD dimension allocation** (`docs/CANONICAL_DIMENSION_ALLOCATION.md`, "Status: LOCKED").
+
+**Lineage (the key reframe):**
+
+> **agichat (Py/TS) = the grounded byte-contract** → **ladybug-rs (Rust) = inspired but de-grounded (inflated bytes→10K-bit VSA fingerprints) → never worked** → **workspace (ndarray+lance-graph) = restore the contract on the SoA/SIMD floor.**
+
+The user's account: ladybug-rs was "magically inspired but never informationally grounded, no LE contract"; it ran **10,000 vectors × 10,000-D** (~700 MB–1.4 GB RAM) and produced **no meaningful output — "an idealized cathedral."** The failure is mathematically forced: VSA bundle capacity is `N ≤ √d/4` (= 25 at d=10000), so resonating across 10,000 vectors is ~400× over capacity → noise (`I-NOISE-FLOOR-JIRAK`: classical stats on weakly-dependent bundles is meaningless). agichat had the *grounded* form (bytes + locked dimension ranges); ladybug-rs inflated every byte/dimension into a 10K-bit fingerprint and lost it.
+
+**THE BASIS — agichat's 33-dim ThinkingStyleVector** (`[175:208]`, detailed at `[256:320]`), which IS the i4-32 thinking-style fingerprint:
+
+- **3 Pearl** (SEE / DO / IMAGINE = association / intervention / counterfactual)
+- **9 Rung** (R1–R9, meaning-depth)
+- **5 Sigma** (Ω / Δ / Φ / Θ / Λ — the σ-tier chain)
+- **8 Operations** (abduct / deduce / induce / synthesize / preflight / escalate / transcend / model_other) — the fanout's 4 inference modes are 4 of these
+- **4 Presence** (authentic / performance / protective / absent)
+- **4 Meta** (confidence_threshold / preflight_depth / exploration / verbosity)
+
+= **33** (matches `STYLE_ENCODING.md`'s "3 Pearl + 9 Rung + 5 Σ + 8 Op + 8 spare"). Grounded form: `ThinkingStyleI4_32D` = i4 × 33 (or 32 + 1), riding the shipped ndarray i4-32 unpack.
+
+**Qualia resolved:** agichat `[2000:2018]` = **18D Qualia PCS** (arousal/valence/tension/warmth/clarity/boundary/depth/velocity/entropy/coherence/intimacy/presence/assertion/receptivity/groundedness/expansion/integration/meta_awareness) → packed to the **16 drift-locked** at `[0:16]` = `QualiaI4_16D`. The 18→17→16 history is exactly this PCS→packed reduction. (ladybug's compact form was 8 Russell channels — a further reduction.)
+
+**The dimension allocation IS a proto-LE-contract.** `CANONICAL_DIMENSION_ALLOCATION.md` locks every range and **rejects PRs #18/#19/#21 for "arbitrary dimension reallocation"** — *"DO NOT MOVE DIMENSIONS ARBITRARILY… bighorn code depends on these ranges."* That is a byte-budget with a no-arbitrary-moves invariant = the LE contract in proto-form. The grounding art = re-lock this allocation as a real `#[repr(C)]` / i4 SoA layout (which is what `SoaContainerHeader` + `SoaColumns` provide).
+
+**The 5 Canonical Invariants (agichat `thinking/index.ts`, "Resonance Grammar Spine v0.3" — the explicit gestell):**
+
+1. Addressability: O(1) via DN (Deterministic Names) + VASKey.
+2. CollapseGate: **SD** controls FLOW/HOLD/BLOCK (NOT confidence).
+3. RungShift: separate from SD; triggered by sustained-block / predictive-failure / structural-mismatch.
+4. Separation of Roles: Grammar→Graph, Overlap→VSA, Memory→LanceDB, Styles→L5.
+5. Cascade: Fork envelopes (STROKE 1) + Collapse records (STROKE 2) — the 2-stroke cycle.
+
+**Grounding map (concept → agichat contract → workspace grounded form):**
+
+| concept | agichat (grounded) | workspace grounded form |
+|---|---|---|
+| thinking-style | 33-dim TSV `[175:208]` | `ThinkingStyleI4_32D` (i4×33) |
+| qualia | 18D PCS `[2000:2018]` → 16 `[0:16]` | `QualiaI4_16D` (64-bit atom) |
+| quad-triangle | **12 bytes** (4 triangles × 3 corner-bytes) | `[u8;12]` / 1.5 atoms (NOT 10K-bit corners) |
+| texture | 8D (entropy/purity/density/bridgeness/warmth/edge/depth/flow) | `Texture8 = [i8;8]` = one 64-bit atom |
+| gestalt | Crystallizing/Contested/Dissolving/Epiphany (per-plane S/P/O CausalSaliency) | 2-bit derived field (on-demand) |
+| rung ladder | 0–9, bands 0-2/3-5/6-9 | 4-bit level + 2-bit band |
+| σ-gate | SD → FLOW/HOLD/BLOCK; `SignificanceLevel` Discovery/Strong/Evidence/Hint/Noise | 3-bit enum, **Jirak-bounded** threshold on bit-exact distance |
+| 7-level "triangle" | `PackedDn` — 7 levels × 8 bits, MSB-first (DN-tree path) | **already a `u64` atom** — adopt as-is |
+| address | DN (`PackedDn`) + VASKey | `u64` atom + `CognitiveAddress`-style `[Domain:4][Subtype:4][Index:8][Hash:48]` |
+
+**Greek-vocabulary decode (the gestell's notation, parsed by regex over ladybug-rs):** σ (140×) = the significance/calibration spine (`SignificanceLevel` ladder + SigmaGate); α/γ/β = Fixed/Learned/Discovered RL-triangle weights; τ = ThinkingStyle τ-addresses; φ = golden-ratio spiral; ρ = Spearman ρ + ρ^d braiding; ε = ε-greedy; Ω/Δ/Φ/Θ/Λ = the 5 Sigma-tier dims; ψ/Ψ = quantum hologram (research, not core).
+
+**Iron rule for this lineage:** **restore the contract; never port the carrier.** Mine agichat's *locked byte/dimension allocation + relational logic* (the gestell — hard to replicate), express each unit as a bit-exact i4/u8/u64 on the SoA floor, and never re-inflate to unbounded 10K-bit VSA resonance (the deprecated-`Vsa16kF32` / no-Baton anti-pattern that made the cathedral empty). `MulSnapshot`-packs-to-2-atoms, `CausalEdge64`, the Baton `(u16, CausalEdge64)`, and i4-32 are the grounding the upstream never had.
+
+**Cross-ref:** shipped floor — ndarray `SoaColumns<N>` @ `42cb7123`, i4-32 unpack @ `8de1dcf8`; `E-BATON-1` (`dec049b`), `E-I4-META-1` (`71ea390`). Upstream design refs (allowlist-external, read locally from user-provided sources): agichat `docs/CANONICAL_DIMENSION_ALLOCATION.md`, `docs/INT4_QUANTIZATION_ARCHITECTURE.md`, `docs/VSA_10000D_DIMENSIONS_SCHEMA.md`, `src/thinking/{index,rung-shift,quad-triangle,collapse-gate,two-stroke}.ts`; ladybug-rs `src/{mul,qualia,spectroscopy,spo,world,learning,cognitive}/*`, `crates/ladybug-contract/src/address.rs`. Iron rules invoked: `I-NOISE-FLOOR-JIRAK` (why 10K-D σ was noise), `I-VSA-IDENTITIES` (bundle identities not content), `I-SUBSTRATE-MARKOV` (N≤√d/4 capacity).
+
+**Next build (now fully specified):** `ThinkingStyleI4_32D` as the i4 quantization of the 33-dim TSV (3 Pearl + 9 Rung + 5 Σ + 8 Ops + 4 Presence + 4 Meta), general lanes fixed to that order, on the shipped i4-32 floor. No more "name the dims" — the allocation is the contract.
+
+---
+
 ## 2026-05-26 — E-I4-META-1 — i4-32 thinking-style fingerprint = "thinking-about-thinking + domain"; qualia is the i4-16 64-bit atom; S-P-O is palette-pointers + Pearl-2³, not a 3×4096 identity
 
 **Status:** FINDING (design converged this session; the `ThinkingStyleI4_32D`
