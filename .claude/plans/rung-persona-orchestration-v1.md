@@ -20,6 +20,8 @@ ladybug's INTEGRATION_PLAN is the **original**. We ground its hot/cold/feedback 
 
 The menu is a **2D grid** — phase × DK-position → strategy. Etiquette = soft transition prior (not a rigid FSM); free-energy/evidence can preempt it. Etiquette **is** the anytime graceful-degradation contract: out of time mid-curiosity → still close politely (Coda).
 
+**Front-door inheritance — stakes is the linchpin.** The request type seeds the whole profile in one O(1) step: `felt_parse(request)` yields **viscosity** (= inherited start temperature: Crystalline = cold, Plasma = hot) + **dominant axis-family** (= which savant binds), and the entity's **OGIT class** (OWL/DOLCE, O(1) CAM lookup) yields **stakes**. Stakes then drives all three together: high stakes → cold anneal start + tight MUL gate (`× stakes`, rung-mul §3) + domain savant; low stakes → hot start + loose gate + generalist. *A chat inherits temperature (hot, conversational, low-stakes); an invoice inquiry inherits the bookkeeping savant (cold, high-stakes, tight gate).* One dial — the OGIT-class stakes — sets temperature, MUL sensitivity, and capability binding at once.
+
 ## 2. The boring checklist (verify — temp≈0) = escalation work + epiphanies
 
 **The checklist is NOT a bespoke verifier — it collapses into machinery that already exists** (restore ladybug's qualia loop on our SoA). Each item is verified by the escalation+epiphany loop:
