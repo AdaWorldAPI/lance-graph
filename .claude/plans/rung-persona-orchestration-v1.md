@@ -103,6 +103,16 @@ Cold scaffold (§2+§3) runs at temp≈0; cognition runs hot on top; the experie
 - **surrealdb — NO for the cognitive store** (redundant with lance-graph/AriGraph + Lance; introduces a second graph + second truth; not actually "boring stable"). **Open for the operational trace/session store only** — but prefer **SQLite/Lance** there too. **AriGraph stays the one graph.**
 - **Composition = blackboard** (`a2a_blackboard`/SoA), per ladybug's BindSpace choice; ractor supervises, blackboard composes.
 
+## 6b. Domain-savant population via bridge harvest (don't hand-author accounting)
+
+The Financial/bookkeeping savant is **harvested, not invented** — via the existing bridge/scanner pattern (`bridges/{woa,medcare,sharepoint,spear,ogit}_bridge.rs`; `MappingProposal` from "TTL hydration + (future) scanners"; `SMB:Invoice`/`SMB:Customer` + `Marking::Financial` + `SemanticType::{InvoiceNumber,Currency,Iban,TaxId}` already seeded). Add an **`odoo_scanner` + `OdooBridge`** (sibling to `WoaBridge`, locked to a Finance namespace):
+
+- **Schema harvest (→ O(1) tables):** walk Odoo's `ir.model` / `ir.model.fields` → `MappingProposal`s. `account.move`→Invoice/JournalEntry, `account.account`→Account, `account.tax`→Tax, `res.partner`→Customer/Vendor, `account.payment`→Payment; amounts→`Currency`, VAT→`TaxId`, number→`InvoiceNumber`. `created_by="odoo_scanner_v1"`, `marking=Financial`, `thinking_style=bookkeeping savant`. Just another bridge emitting rows onto the stack (§1).
+- **Imperative engine (→ delegate, don't re-implement):** double-entry (debit=credit), tax computation, reconciliation, the invoice state machine (draft→posted→paid) are Odoo's proven, GAAP/multi-country-compliant logic. The savant **binds Odoo as a capability/MCP backend** (cf. ADK Reddit/Nano-Banana MCP) rather than re-deriving accounting — boring-stable: **Odoo IS the bookkeeping ground truth.**
+- **Honest fork:** declarative parts (field metadata, state selections, chart-of-accounts, tax tables) harvest cleanly into O(1) tables; imperative method bodies (`@api.constrains`, reconciliation matching) do NOT introspect → delegate to Odoo's API. So the bookkeeping savant = harvested OGIT Financial schema (classify/inherit) + Odoo-capability (execute).
+
+The invoice state machine (draft→posted→paid) maps to the **rung ladder / etiquette arc** for Financial requests; double-entry is a hard invariant the MUL gate enforces at `Financial` stakes.
+
 ## 7. Deliverables
 
 | D-id | title | crate | ~LOC | risk |
@@ -112,6 +122,7 @@ Cold scaffold (§2+§3) runs at temp≈0; cognition runs hot on top; the experie
 | D-PERSONA-3 | hot/cold/feedback wiring — anneal + `CrystalCodebook`→wisdom-marker cold path + Preload hydrate | planner + Lance | 240 | MED |
 | D-PERSONA-4 | macro-eval harness (scenario→trace→discover→diagnose; suspect-bridge = blasgraph betweenness; 5 rubrics from D-RUNG-MUL) | planner + Lance | 280 | HIGH |
 | D-PERSONA-5 | ractor outer-swarm runtime under `OrchestrationBridge` (batons as messages, async only at boundary) | planner | 200 | MED |
+| D-PERSONA-6 | `odoo_scanner` + `OdooBridge` — harvest Odoo `ir.model`/`ir.model.fields` → Finance-namespace `MappingProposal`s (Financial marking, Currency/TaxId/InvoiceNumber, bookkeeping `thinking_style`); bind Odoo-as-capability for imperative execution | ontology + planner | 260 | MED |
 
 ## 8. Honest gaps vs the original
 
