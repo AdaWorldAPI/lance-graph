@@ -193,6 +193,19 @@ should reference these, not recreate them:
 - **`.claude/hooks/*.sh`** — SessionStart and PostCompact hooks
   wired via `.claude/settings.json`.
 - **`.claude/skills/cca2a/`** — the A2A pattern explanation skill.
+- **`.claude/EN/`** — project-agnostic multi-agent kit (operator
+  cheat-sheet, in-session use). See `.claude/EN/README.md`.
+- **`.claude/ATT/`** — Attractor-style NLSpec restatement of the
+  same kit (engineering spec, build-time use). Three specs:
+  `autoattended-orchestrator-spec.md` (wave loop, 4-savant slots,
+  worker iron rules, validation WAVE-001..WAVE-017),
+  `anti-skim-agent-spec.md` (Reading-Depth Ladder, Lie-Detector
+  LD-1..5, stuck-protocol blockers, AP1..AP9), and
+  `agent-coordination-mcp-spec.md` (Layer-0/1/2 coordination,
+  handover schema, append-only governance §7.2). DoD checklists
+  + Cross-Language/Provider Parity Matrix at the end of each spec.
+  Activation receipt: `.claude/ATT/ACTIVATION.md`. See
+  `.claude/ATT/README.md` for the EN↔ATT relationship.
 
 Before creating a new `.claude/*.md` file, grep the existing 61
 docs and 41 prompts for the topic. Most architectural concerns have

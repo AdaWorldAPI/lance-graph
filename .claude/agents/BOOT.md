@@ -5,6 +5,43 @@ This folder contains focused agent cards for `lance-graph`.
 The goal is not to multiply personalities for decoration.
 The goal is to keep unlike architectural concerns from being flattened into one fuzzy voice.
 
+## ATT NLSpec Coupling (engineering spec for this ensemble)
+
+This file is the **operator's** view of the ensemble (which agent to wake,
+what trigger fires it, what knowledge it loads). The **engineering** view
+lives at `.claude/ATT/`, in three Attractor-style NLSpecs:
+
+| ATT spec | Governs | Anchors in this ensemble |
+|---|---|---|
+| [`.claude/ATT/autoattended-orchestrator-spec.md`](../ATT/autoattended-orchestrator-spec.md) | Wave-loop, 4-savant verdict gates, worker iron rules, DOT-graph plan format, `status.json` schema (`auto_status=false`), validation rules WAVE-001..WAVE-017. | The 4 savants (PP-13/14/15/16) below ARE the four slot-occupants. Quality-lifecycle rows in the Knowledge Activation table route work into the corresponding slot. |
+| [`.claude/ATT/anti-skim-agent-spec.md`](../ATT/anti-skim-agent-spec.md) | Reading-Depth Ladder (grep→read→thorough→fan-out), Lie-Detector LD-1..5 (sentinel / proof-of-read SHA / 3-section challenge / negative-knowledge / line-range quote), typed stuck-protocol blockers, tool-call loop detection, Tier-1/2/3 toolchains, AP1..AP9 anti-patterns. | Every worker spawned by any agent in this ensemble is subject to LD-1..5. PP-13 (`brutally-honest-tester`) owns the §8.1 Tier-1 toolchain for Rust. The Handover Protocol below is the proof-of-read carrier. |
+| [`.claude/ATT/agent-coordination-mcp-spec.md`](../ATT/agent-coordination-mcp-spec.md) | Three coordination layers (Layer-0 teleportation, Layer-1 file blackboard, Layer-2 branch pub/sub), structured handover schema, decision matrix, `BlackboardEntry`/`ProofOfRead`/`Handover`/`RequestEntry`/`AnswerEntry` schemas, append-only governance §7. | `.claude/board/AGENT_LOG.md` IS the Layer-1 blackboard. `.claude/handovers/*.md` (§ Handover Protocol below) are the Layer-3 structured handovers. The 8 append-only bookkeeping files are enforced via `.claude/settings.json` deny rules (§7.2 enforcement). |
+
+**Quality-lifecycle slot mapping** (the bottom block of the Knowledge
+Activation Protocol table below maps each lifecycle phase to one savant;
+the ATT spec calls these PP-13/14/15/16):
+
+| Lifecycle phase | This ensemble (agent card) | ATT slot | Verdict vocabulary (non-overlapping per §4.2) |
+|---|---|---|---|
+| PRE-PLAN — divergent expansion | `convergence-architect` | PP-14 | EPIPHANY / INVARIANT-CANDIDATE / WITHDRAW |
+| PRE-SPAWN — preflight drift | `preflight-drift-auditor` | PP-16 | DRIFT-BLOCK / DRIFT-WARN / DRIFT-CLEAR |
+| DURING-IMPL — boundary handoff | `baton-handoff-auditor` | PP-15 | BAP-HIT / BAP-CLEAR / OUT-OF-SCOPE |
+| POST-IMPL — within-crate bug hunt | `brutally-honest-tester` | PP-13 | FAIL / PASS / WAIVED |
+
+**Why both EN and ATT?** `.claude/EN/` is the project-agnostic operator
+cheat-sheet (prose, in-session use); `.claude/ATT/` is the same kit
+restated as NLSpec with DoD checklists, validation rules, and a
+cross-language parity matrix (build-time use). Either can stand alone;
+together they let a coding agent both *follow* the pattern in-session
+and *implement / audit* it across the 26-repo rollout. See
+[`.claude/ATT/README.md`](../ATT/README.md) for the two-document split
+rationale and the five wins adopted from `strongdm/attractor`.
+
+**ATT activation receipt** for this repo: see
+[`.claude/ATT/ACTIVATION.md`](../ATT/ACTIVATION.md) — records which
+Definition-of-Done items are currently satisfied by this ensemble and
+which are explicit gaps.
+
 ## Existing agents
 
 ### `container-architect`
