@@ -1,3 +1,30 @@
+## 2026-05-26 — rung-mul-grounding-v1 (the MUL fine-tuned into the ladder as an experience curve over the SPO 2³ NARS decomposition)
+
+**Status:** PROPOSAL (follow-on to `rung-ladder-grounding-v1`)
+**Confidence:** HIGH on structure (it is the Dunning-Kruger curve mechanized); MED on the per-projection `SpoHead` refactor; CONJECTURE on the wisdom-marker calibration readout until D-RUNG-MUL-4 tests it.
+**Plan file:** `.claude/plans/rung-mul-grounding-v1.md`
+**Predecessors:** `rung-ladder-grounding-v1` (b0ef6fa), `cognitive-substrate-convergence-v1` (CausalEdge64 v2 §6 — causal mask = Pearl 2³ IS the rung axis), `E-AGICHAT-DIMENSION-CONTRACT` (afabefd), `E-I4-META-1`.
+
+### Scope
+
+Grade the coarse integer rung ladder with the MUL, organized as an **experience curve**: every strategy ordered by the evidence level at which it becomes *necessary* — which collapses into the Dunning-Kruger curve with a mechanical trigger at each point.
+
+- **SPO 2³ corrected:** it is the **powerset of {S,P,O}** (8 evidential projections `___,S__,_P_,__O,SP_,S_O,_PO,SPO`) for causality testing through NARS **decomposition** — NOT a distance-cube/popcount. `nars_engine.rs` today computes `all_projections() -> [u32;8]` as *distances* and `SpoHead` carries *one* truth; de-grounding that to per-projection truth is D-RUNG-MUL-1.
+- **Causation = screening-off:** `S_O` strong but screened off by P (`SP_`∧`_PO`) ⇒ spurious/mediated; all projections compared to `___` for lift over base rate.
+- **Work (exploit):** decomposition + screening-off coverage, **confidence/expectation-gated (never frequency)**, AIKR-gated by `budget.quality`. Two curves over one axis: work climbs monotone, confidence is DK-shaped; **wisdom = calibration gap `|conf−competence|→0`**.
+- **Two sparse-data routes:** NaN sentinel ("no field") → cautious-exploration (Exploratory, high exploration_rate) + `ElevationLevel`↑ + **Lab request**; sparse field → gaussian splat → `FreeEnergy::compose` as the *sole* confidence source (F caps confidence ⇒ **no data ⇏ overconfidence**). Explore drive = `wonder` × `free_will_modifier` × trust.
+- **Wisdom markers:** long-term VSA-**identity** bundle (≤32 per I-VSA-IDENTITIES; truths in content store) hydrated *before the fact* as the KL prior — the curve becomes a spiral.
+
+### Deliverables
+
+D-RUNG-MUL-1 per-projection NARS truth (`SpoHead` 8 `(f,c)`, planner ~220) · D-RUNG-MUL-2 NaN→cautious-exploration+Lab gate, distinct from `c=0` (~160) · D-RUNG-MUL-3 wisdom marker (identity bundle + hydrate-as-KL-prior, contract+planner ~180) · D-RUNG-MUL-4 screening-off work + Boole/Fréchet bound + calibration-gap readout (~150) · D-RUNG-MUL-5 splat→`FreeEnergy::compose` as sole sparse-data confidence (~120).
+
+### Invariants
+
+Confidence-gated never frequency-gated (frequency alone = Mount Stupid) · Boole/Fréchet bound on conjunction confidence · no data ⇏ overconfidence (only FreeEnergy or floored-NaN may signal) · I-VSA-IDENTITIES (markers ≤32 identities, content in store) · AIKR `budget.quality` fanout cap · AGI-as-SoA (markers = column ops, not a new service) · decomposition not distance-cube. Folds into `elevation/homeostasis.rs` (MUL-L6) beside `evaluate_rung_shift`; does not fork.
+
+---
+
 ## 2026-05-26 — rung-ladder-grounding-v1 (the most-obvious first grounding of the agichat gestell)
 
 **Status:** PROPOSAL
