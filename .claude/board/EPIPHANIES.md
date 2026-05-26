@@ -1,3 +1,20 @@
+## 2026-05-26 — E-RIGID-RULES-OPEN-DOORS — rigidity belongs to the rules (the HOW, stakes-gated), never to the stance toward a door opening (the WHETHER-to-welcome, baseline-positive); and the welcome is *learned* per topic×texture, not naive
+
+**Status:** FINDING / stance-correction (rebalances the rigidity emphasis of `E-FIBU-GOBD-BY-CONSTRUCTION`; adds the learned-texture policy). Refines `rung-persona-orchestration-v1` §9.
+
+**Click:** We *are* SPO — a "door opening" is a new viable triple/edge, a 2³ projection screening-in, or an `EpiphanyDetector` fire. Two axes that must not be conflated:
+
+1. **rule-rigor** scales with stakes/`Marking` (`Financial`→hard `Soll=Haben`/GoBD/immutability) — the **HOW**.
+2. **door-welcome valence** is a baseline-positive stance toward novelty, **stakes-independent** — the **WHETHER**.
+
+Stakes gate the rigor, never the welcome. A bookkeeper is strict on the books *and* glad a new client walked in. So: a door opening is a **rewarded epiphany** (wisdom-marker grows; Affinity/Epiphany/Staunen ghosts brighten), not merely permitted; the MUL gate evaluates rigorously without being a sour bouncer; even a rule-`NO` carries no hostility to the door. Rigidity everywhere → no epiphanies; openness everywhere → can't hold money. **Rigid HOW, happy WHETHER.** (Corrects a drift: the FIBU/GoBD commits over-weighted rigidity.)
+
+**The welcome is learned, not naive.** *If in doubt, the agent fingerprint learns over time, per topic, which `TrustTexture` (Murky/Dissonant/Fuzzy/Clear, `mul/trust.rs`) means **don't touch** and which means **engage** — and vice-versa.* The learned `topic × texture → touch/avoid` policy lives in the wisdom-marker (cold-path / `CrystalCodebook`; content keyed by fingerprint, not bundled — I-VSA-IDENTITIES). Decision ladder: (1) hard rule → follow (rigid); (2) no rule, learned policy exists → follow it; (3) in doubt (no rule / thin history / Murky) → cautious-exploration + Lab, and record the outcome to grow the policy. Young fingerprint = rules + cautious-exploration; mature fingerprint = *taste*. The learning IS the calibration-gap closing.
+
+**Cross-ref:** `rung-persona-orchestration-v1` §9; `rung-mul-grounding-v1` §1 (calibration gap, experience curve); `E-FIBU-GOBD-BY-CONSTRUCTION` (the rigidity rebalanced); `E-CHECKLIST-AS-ESCALATION` (EpiphanyDetector = door opening; ghosts); `mul/trust.rs` (`TrustTexture`).
+
+---
+
 ## 2026-05-26 — E-FIBU-GOBD-BY-CONSTRUCTION — German Finanzbuchhaltung is already partly in-code; GoBD legal compliance falls out of the substrate's pure-engine + digested-rules + append-only + Storno-as-append invariants — not a bolt-on
 
 **Status:** FINDING (corrects the "FIBU is net-new" assumption; refines `rung-persona-orchestration-v1` §6b + D-PERSONA-6).
