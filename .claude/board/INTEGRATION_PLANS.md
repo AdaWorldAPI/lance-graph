@@ -1,3 +1,36 @@
+## 2026-05-26 — rung-persona-orchestration-v1 (time-bound persona orchestration: boring checklist → meta-recipe → hot/cold/feedback anneal)
+
+**Status:** PROPOSAL (sibling to `rung-mul-grounding-v1`; the time-bound + composition layer)
+**Confidence:** HIGH on structure (hot/cold/feedback = the original ladybug architecture + OpenAI macro-evals + ADK Memory Bank, converged); MED on ractor adoption + macro-eval harness (net-new).
+**Plan file:** `.claude/plans/rung-persona-orchestration-v1.md`
+**Predecessors:** `rung-mul-grounding-v1` (b4efb55), `rung-ladder-grounding-v1` (b0ef6fa), `cognitive-substrate-convergence-v1`.
+**Design refs (read-only general-web; ladybug-rs is outside GitHub-MCP scope):** ladybug-rs `INTEGRATION_PLAN.md` @177a321 §"BF16 Superposition (Hot/Cold/Feedback)" L542+ + 4-phase `[DONE]/[TODO]` gate + 3 composition modes + BindSpace-blackboard; `src/spectroscopy/detector.rs` @177a321; Claude chief-of-staff; OpenAI macro-evals; Google ADK Memory Bank.
+
+### Scope
+
+Ground (restore-on-SoA, NOT port) ladybug's hot/cold/feedback loop + phase-gate checklist + blackboard composition onto our contract/SoA floor, as the time-bound layer over the `rung-mul` experience curve.
+
+- **Two orthogonal orderings × time budget:** epistemic experience-curve (Axis A) × social etiquette arc (Axis B), arbitrated by `latency_budget` (`elevation/mod.rs:131`). 2D menu phase×DK-position; etiquette = soft prior + anytime graceful-degradation, not rigid FSM.
+- **Boring checklist (verify, temp≈0):** hard gates (contracts/SoA/store/NARS/thresholds/FreeEnergy) vs soft (capabilities/wisdom-store/eval — degrade). Continuous health invariant: red-at-runtime → let-it-crash → supervisor restart = rung-shift + NaN→Lab.
+- **Meta-recipe (compose, cold):** declarative child-spec manifest (data not code, macro-evaluable); blackboard composition on `a2a_blackboard`/SoA (per ladybug BindSpace), ractor supervises + carries Batons.
+- **Hot/cold/feedback (L542 grounding):** hot = annealed cognitive cycle; cold = macro-eval = **wisdom-marker factory** (ladybug `CrystalCodebook` "lived history" → our *distilled calibrated* marker); feedback = hydrate-before-the-fact (ADK Preload).
+- **Temperature anneal:** explore hot → exploit cold, **evidence-gated** (Boole-bound caps cooling — no premature Mount Stupid). Grounded: detector `noise_tolerance=base·(1+(1−conf)·0.5)`, `fanout=base·(1+bridgeness·0.5)` (bridgeness=macro-eval suspect-bridge=our work-metric, triple convergence).
+- **Substrate:** ractor YES (outer swarm under `OrchestrationBridge`, async only at boundary, SoA inner sync); surrealdb NO for cognitive (redundant w/ lance-graph/AriGraph, not boring; prefer SQLite/Lance operational); AriGraph = the one graph.
+
+### Deliverables
+
+D-PERSONA-1 hard/soft checklist verifier (~180) · D-PERSONA-2 meta-recipe manifest (recipe-as-data, ~150) · D-PERSONA-3 hot/cold/feedback wiring + CrystalCodebook→wisdom-marker + Preload hydrate (~240) · D-PERSONA-4 macro-eval harness (scenario→trace→discover→diagnose, suspect-bridge=blasgraph betweenness, ~280, HIGH) · D-PERSONA-5 ractor outer-swarm runtime (~200).
+
+### Honest gaps vs original
+
+ladybug `detector.rs` has NO null/dead-end/escalation ("all inputs produce valid output") → our NaN→cautious-exploration→Lab + dead-end-as-work is net-new. `CrystalCodebook` dumps lived history → we distill it into a calibrated marker (Boole-bound, ≤32 identities). ractor + etiquette arc not in original.
+
+### Invariants
+
+restore-on-SoA not port · hard/soft graceful-degradation · recipe-as-data (macro-evaluable) · evidence-gated anneal (Boole-bound cooling cap) · blackboard composition not direct calls · ractor async only at swarm boundary · no second graph · I-VSA-IDENTITIES (markers ≤32) · `latency_budget` time arbiter.
+
+---
+
 ## 2026-05-26 — rung-mul-grounding-v1 (the MUL fine-tuned into the ladder as an experience curve over the SPO 2³ NARS decomposition)
 
 **Status:** PROPOSAL (follow-on to `rung-ladder-grounding-v1`)
