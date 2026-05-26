@@ -113,6 +113,10 @@ The Financial/bookkeeping savant is **harvested, not invented** — via the exis
 
 The invoice state machine (draft→posted→paid) maps to the **rung ladder / etiquette arc** for Financial requests; double-entry is a hard invariant the MUL gate enforces at `Financial` stakes.
 
+**FIBU (German Finanzbuchhaltung) is already partly in-code — extend, don't invent.** The Financial subtree is DACH-first and developed: `contract::grammar::role_keys` has the German SMB catalogue (`KUNDE/SCHULDNER/MAHNUNG/RECHNUNG/DOKUMENT/BANK/FIBU/STEUER`, incl. `FIBU_KEY` @[13072..13584)); `contract::tax.rs` has a **pure `TaxEngine`** (`collect(rule_bundle, period, entries)`; nondeterminism = error), the **`fibu_entry`** RecordBatch (`booking_code, amount, tax_rate`), DACH `Jurisdiction {De, At, Ch}`, and a versioned + 32-byte-**digested** `RuleBundle`; `SKR04` is in the foundry roadmap; DATEV/GoBD/BaFin are flagged regulated-tenant triggers. So the Odoo harvest is **`l10n_de`-specific**: `account.account`→**SKR03/SKR04** populates `fibu_entry.booking_code`; `account.tax` (USt 19%/7%, Vorsteuer)→the `RuleBundle`; DATEV export = the wire format; the savant **binds the existing pure `TaxEngine`**.
+
+**GoBD compliance falls out of the substrate by construction — not a bolt-on.** German bookkeeping law (GoBD: *Unveränderbarkeit / Festschreibung / Nachvollziehbarkeit*) demands immutable, audit-traceable, deterministic books. The substrate already gives exactly that: the **pure** `TaxEngine` (determinism), the **digested** `RuleBundle` (audit checksum), **append-only** postings, and **Storno-as-append** (a reversal entry, never an edit/delete) = the workspace's *"committed contradictions preserved, not resolved"* + append-only boards + CausalEdge64 move-semantics. So at `Financial`/FIBU stakes the MUL gate's hard invariants are: **Soll = Haben** (double-entry), **GoBD immutability** (no edit — only Storno-append), **SKR account validity**, and **deterministic tax** (`TaxEngine` purity).
+
 ## 7. Deliverables
 
 | D-id | title | crate | ~LOC | risk |
@@ -122,7 +126,7 @@ The invoice state machine (draft→posted→paid) maps to the **rung ladder / et
 | D-PERSONA-3 | hot/cold/feedback wiring — anneal + `CrystalCodebook`→wisdom-marker cold path + Preload hydrate | planner + Lance | 240 | MED |
 | D-PERSONA-4 | macro-eval harness (scenario→trace→discover→diagnose; suspect-bridge = blasgraph betweenness; 5 rubrics from D-RUNG-MUL) | planner + Lance | 280 | HIGH |
 | D-PERSONA-5 | ractor outer-swarm runtime under `OrchestrationBridge` (batons as messages, async only at boundary) | planner | 200 | MED |
-| D-PERSONA-6 | `odoo_scanner` + `OdooBridge` — harvest Odoo `ir.model`/`ir.model.fields` → Finance-namespace `MappingProposal`s (Financial marking, Currency/TaxId/InvoiceNumber, bookkeeping `thinking_style`); bind Odoo-as-capability for imperative execution | ontology + planner | 260 | MED |
+| D-PERSONA-6 | `odoo_scanner` + `OdooBridge` — harvest Odoo **`l10n_de`** (`account.account`→SKR03/04 `booking_code`, `account.tax`→USt `RuleBundle`, DATEV export) → Finance-ns `MappingProposal`s (Financial marking, bookkeeping `thinking_style`); bind the existing pure `TaxEngine` (`tax.rs`) + Odoo-as-capability; GoBD = append-only + Storno + digest, by construction | ontology + contract + planner | 280 | MED |
 
 ## 8. Honest gaps vs the original
 
