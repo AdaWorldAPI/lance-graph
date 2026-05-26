@@ -20,7 +20,20 @@ ladybug's INTEGRATION_PLAN is the **original**. We ground its hot/cold/feedback 
 
 The menu is a **2D grid** — phase × DK-position → strategy. Etiquette = soft transition prior (not a rigid FSM); free-energy/evidence can preempt it. Etiquette **is** the anytime graceful-degradation contract: out of time mid-curiosity → still close politely (Coda).
 
-**Front-door inheritance — stakes is the linchpin.** The request type seeds the whole profile in one O(1) step: `felt_parse(request)` yields **viscosity** (= inherited start temperature: Crystalline = cold, Plasma = hot) + **dominant axis-family** (= which savant binds), and the entity's **OGIT class** (OWL/DOLCE, O(1) CAM lookup) yields **stakes**. Stakes then drives all three together: high stakes → cold anneal start + tight MUL gate (`× stakes`, rung-mul §3) + domain savant; low stakes → hot start + loose gate + generalist. *A chat inherits temperature (hot, conversational, low-stakes); an invoice inquiry inherits the bookkeeping savant (cold, high-stakes, tight gate).* One dial — the OGIT-class stakes — sets temperature, MUL sensitivity, and capability binding at once.
+**Front-door inheritance — one O(1) resolve; stakes is the linchpin.** The front door is a single O(1) step: classify the request → OGIT URI → `SchemaPtr` (resolved in the active `ontology_context_id` — the **active-schema poll**) → the `MappingRow`, which *already* carries the whole inheritable bundle (in-code at `lance-graph-ontology`):
+
+| inherit | OGIT `MappingRow` field | drives |
+|---|---|---|
+| **stakes** | `marking` {Public<Internal<Pii≈Financial<Restricted} | MUL `× stakes` + anneal start-temp + gate tightness |
+| **savant** | `thinking_style: Option<ThinkingStyle>` | which persona/expert binds |
+| **qualia prior** | `qualia_meta.qualia[18]` | wonder/tension/coherence → exploration & temperature baseline |
+| **dispatch** | `qualia_meta.meta` (MetaWord) + `.edge` (CausalEdge64) | thinking-style bits + NARS truth + Pearl 2³ seed |
+| **competence prior** | `confidence` | MUL denominator + Boole-bound start |
+| **resonance addr** | `identity_codec` (cam_pq/base17/palette/scent) | O(1) CAM-PQ similarity |
+| **semantic type** | `semantic_type` {Iban, Currency, …} | attribute interpretation (reinforces Financial stakes) |
+| **active context** | `schema_ptr.ontology_context_id` | the named-graph the resolve happens in (multi-tenant/domain) |
+
+`marking` is the linchpin: high (`Financial`/`Pii`/`Restricted`) → cold anneal start + tight MUL + domain savant; low (`Public`/`Internal`) → hot start + loose gate + generalist. *A chat → low marking → hot/conversational; an invoice inquiry → `Financial` marking (doc: "bookkeeping or tax-relevant") → bookkeeping savant, cold, tight gate.* One resolve sets temperature + MUL sensitivity + capability binding at once. (`felt_parse` viscosity/dominant-family is the *live-signal* counterpart that refines the inherited prior per-turn.)
 
 ## 2. The boring checklist (verify — temp≈0) = escalation work + epiphanies
 

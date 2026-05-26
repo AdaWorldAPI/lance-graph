@@ -17,6 +17,8 @@
 
 **Cross-ref:** `rung-mul-grounding-v1` §3 (MUL gate ratio); `rung-persona-orchestration-v1` §1 (front-door inheritance); `E-CHECKLIST-AS-ESCALATION` (felt_parse collapse-hint); `I-VSA-IDENTITIES` (CAM addressing).
 
+**RESOLVED (same session, in-code grounding — supersedes the CONJECTURE above):** OGIT is in code as `lance-graph-ontology`. `stakes = Marking` (`Public < Internal < Pii ≈ Financial < Restricted`) — an **explicit field** on the `MappingRow`, resolved O(1) via `SchemaPtr` (packed `[namespace_id:8 | entity_type_id:16 | kind:8]` + `ontology_context_id` = the active named-graph / "active schema poll"). `Financial`'s doc literally reads *"bookkeeping or tax-relevant"* → grounds invoice→bookkeeping-savant. **The full O(1) inherit-set** the front door returns from one `MappingRow`: `marking`→stakes, `thinking_style`→savant, `qualia_meta`(qualia[18]/MetaWord/CausalEdge64)→qualia+dispatch prior, `confidence`→competence prior, `identity_codec`→CAM-PQ resonance address, `semantic_type`→attribute interpretation, `ontology_context_id`→active context. Table in `rung-persona-orchestration-v1` §1.
+
 ---
 
 ## 2026-05-26 — E-CHECKLIST-AS-ESCALATION — the boring checklist is NOT a bespoke verifier; it collapses into escalation-work + epiphanies, restoring ladybug's qualia loop on the SoA floor
