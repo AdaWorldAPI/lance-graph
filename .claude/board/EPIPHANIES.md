@@ -1,3 +1,106 @@
+## 2026-05-26 — E-BATON-1 — "Baton" is the workspace's native term for the little-endian contract; it ratifies the deprecation of the singleton BindSpace and Vsa16kF32-as-carrier
+
+**Status:** FINDING (user-ratified terminology + doctrine; board-first per "Both, board first")
+
+**Provenance (why the folk term exists):** The user coined **"Baton"** as the
+intuitive name *before* they had the information-science term for it. The formal
+name is the **little-endian (LE) contract** / gapless handoff. Both name the same
+thing. This entry exists so future sessions stop re-deriving it: when you see
+"baton" in code, plans, or a savant card, it IS the LE contract — do not invent a
+parallel concept. Direct user statements anchoring this entry: *"please grep for
+'Baton' its another word for little endian contract"*; *"every mention of 'baton'
+references the non materialization and deprecation of the singleton bindspace"*;
+*"'baton' was the idea before i knew the information science term"*; *"the little
+endian contract is real / just the SoA shape is a little richer"*.
+
+**The equivalence chain (now pinned):**
+
+> **LE contract = Baton = no materialized singleton BindSpace = discrete owned
+> `(u16 target, CausalEdge64)` handoffs.**
+
+**Doctrinal claim — what "Baton" deprecates:** The Baton is not merely a transport
+optimization; it is the **negation of the singleton BindSpace as a materialized
+object**. There is no global `Vsa16kF32` register that gets read/written across
+mailbox boundaries. There are only owned, per-thought `(target, edge)` handoffs
+passing between compartments. Consequences:
+
+1. **`Vsa16kF32` is deprecated AS A CARRIER** — it does not cross mailbox
+   boundaries and there is no singleton BindSpace to materialize. Cumulative
+   cognitive state lives in **CausalEdge64 emissions + AriGraph SPO-G quads +
+   BindSpace SoA columns**, NOT in a 16k-float envelope. New work must not reach
+   for `Vsa16kF32` as an inter-mailbox carrier or universal cumulative-state vessel.
+2. **The Vsa16kF32-deprecation and the Baton model are ONE ratification, not two.**
+   If the baton is the wire, the 16k-float carrier has nothing left to carry across
+   a boundary — the deprecation is the baton's premise, not a separate decision.
+3. **`ndarray::hpc::soa::SoaContainerHeader` (pinned b5d6b206) is the on-wire SoA
+   descriptor UNDER the baton stream**, not a parallel container. The MailboxSoA
+   named-column set ("the SoA shape is a little richer") layers over that same
+   padding-free `[u64; N]` LE descriptor; batons land in and are folded over those
+   columns.
+
+**Mechanism — the mailbox-as-owner is why the baton is sound ("Rust's holy grail
+UB solution"):** The Baton is handed off between **owning mailboxes** in a rotating
+sea-star topology (a hub of ownership-typed compartments; ownership rotates as each
+`(u16, CausalEdge64)` tuple moves from one mailbox-owner to the next). Because the
+handoff is a **Rust move**, the borrow checker proves — at compile time — that no
+two compartments alias the same baton: no data race, no use-after-free, no shared
+mutable singleton to corrupt. **This is the deep reason the singleton BindSpace is
+deprecated:** a materialized global `Vsa16kF32` register would be exactly the
+shared-mutable-aliased state Rust's ownership model exists to forbid. By making the
+mailbox the single owner and the baton a moved value, **UB becomes a compile
+error** (canonical plan §9 E-CE64-MB-4) — there is no runtime aliasing check
+because there is nothing to alias. The user's framing: *"we basically invented the
+rotating sea star ractor mailbox as owner as Rust's holy grail UB solution."* (Note
+the ractor edge is async-only and lives at the membrane / Zone 2, not the
+preemptive internal core — the ownership guarantee is the type-system property, not
+a ractor runtime feature.)
+
+**Where it already lives in the tree (do NOT re-invent):**
+
+- `crates/lance-graph-contract/src/collapse_gate.rs` — `CollapseGateEmission` with
+  `batons: Vec<(u16, u64)>`, `push_baton(target, edge)`, `baton_count()`,
+  `wire_cost_bytes() = 13 + 10 * baton_count`. The `10 * baton_count` (10 B = 2 B
+  target + 8 B CausalEdge64), NOT `16384 * 4`, IS the proof that nothing
+  materializes a singleton on the wire. **This is the Baton implementation.**
+- `.claude/plans/cognitive-substrate-convergence-v1.md` / `v2.md` — "the baton IS
+  the wire… Vsa16kF32 does NOT cross mailbox boundaries… discrete `(u16 target,
+  CausalEdge64)` tuples suffice."
+- PP-15 `baton-handoff-auditor` savant (the meta-review fleet's baton auditor).
+- `.claude/plans/causaledge64-mailbox-rename-soa-v1.md` — the canonical plan that
+  already encodes the baton model; the parallel `.claude/surreal/` POC was
+  re-deriving it under different names (see `RECONCILIATION_with_canonical_plan.md`).
+
+**Contradiction flagged (P-1 doctrine, must not silently diverge):** CLAUDE.md
+§"The Click" (P-1, "read before everything else") describes cognition AS the
+element-wise multiply+add Markov bundle on `Vsa16kF32`, and §I-SUBSTRATE-MARKOV
+makes VSA-bundling the Chapman-Kolmogorov guarantee. Deprecating `Vsa16kF32` as a
+carrier contradicts the *unscoped* reading of The Click. **Resolution (this
+ratification):** The Click's bundle math is NOT wrong — it describes how a single
+`Think` resolves **locally, within one compartment, ephemerally**. What the Baton
+changes is the **scope**: the bundle is a within-compartment computation, never a
+persisted or transmitted singleton. The persisted + transmitted form is the baton
+(`Vec<(u16, CausalEdge64)>`) + the SoA columns + AriGraph SPO-G quads.
+I-SUBSTRATE-MARKOV (the math guarantee for local bundling) and I-VSA-IDENTITIES
+(bundle identities, not content) are untouched; only the cross-boundary carrier is
+deprecated. A scoping note has been added to §"The Click" pointing here.
+
+**Lesson:** A folk term with no recorded bridge to its formal name is a
+rediscovery tax (the same shape as E-SIMD-SWEEP-1's retroactive-invariant
+pattern). Record provenance the moment the equivalence is stated, not after the
+next session re-derives "what is a baton."
+
+**Cross-ref:** `crates/lance-graph-contract/src/collapse_gate.rs`
+(`CollapseGateEmission` / `push_baton` / `wire_cost_bytes`);
+`.claude/plans/cognitive-substrate-convergence-v1.md` + `v2.md`;
+`.claude/plans/causaledge64-mailbox-rename-soa-v1.md` (§5 MailboxSoA, §9 E-CE64-MB-2);
+`.claude/surreal/RECONCILIATION_with_canonical_plan.md` (Vsa16kF32-deprecation +
+LE-contract-is-real notes); `ndarray` `src/hpc/soa.rs` @ b5d6b206 (`SoaContainerHeader`,
+the on-wire LE descriptor); CLAUDE.md §"The Click" (P-1, now carries a 2026-05-26
+Baton scoping note); §I-SUBSTRATE-MARKOV + §I-VSA-IDENTITIES (untouched — local
+bundle math); PP-15 `baton-handoff-auditor`.
+
+---
+
 ## 2026-05-16 — E-SIMD-SWEEP-1 — PR #398 was the 5th violation, not the first; the SIMD source-of-truth invariant is retroactive
 
 **Status:** FINDING
