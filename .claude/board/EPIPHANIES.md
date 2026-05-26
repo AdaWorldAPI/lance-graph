@@ -1,3 +1,24 @@
+## 2026-05-26 — E-FIBU-GOBD-BY-CONSTRUCTION — German Finanzbuchhaltung is already partly in-code; GoBD legal compliance falls out of the substrate's pure-engine + digested-rules + append-only + Storno-as-append invariants — not a bolt-on
+
+**Status:** FINDING (corrects the "FIBU is net-new" assumption; refines `rung-persona-orchestration-v1` §6b + D-PERSONA-6).
+
+**Click:** "FIBU" (Finanzbuchhaltung) is **not net-new** — the Financial subtree is DACH-first and developed in-code: `contract::grammar::role_keys` has the German SMB catalogue (`KUNDE/SCHULDNER/MAHNUNG/RECHNUNG/DOKUMENT/BANK/FIBU/STEUER`, `FIBU_KEY` @[13072..13584)); `contract::tax.rs` has a **pure `TaxEngine`** (`collect(rule_bundle, period, entries)`, nondeterminism = `Err`), the **`fibu_entry`** RecordBatch (`booking_code, amount, tax_rate`), DACH `Jurisdiction {De, At, Ch}`, and a versioned + 32-byte **digested** `RuleBundle`; `SKR04` is in the foundry roadmap; DATEV/GoBD/BaFin are pre-flagged regulated-tenant triggers (`lf-integration-mapping-v1` LF-80/81). So the Odoo harvest **extends** this (`l10n_de`: SKR03/04→`booking_code`, USt→`RuleBundle`, DATEV→wire), it does not invent it.
+
+**The convergence:** German bookkeeping law **GoBD** (*Unveränderbarkeit / Festschreibung / Nachvollziehbarkeit* — immutable, audit-traceable, deterministic books) **falls out of the substrate by construction**, not as a compliance layer:
+
+| GoBD requirement | substrate invariant that already provides it |
+|---|---|
+| deterministic books | **pure `TaxEngine`** (nondeterminism = `Err`) |
+| audit checksum / rule provenance | **digested `RuleBundle`** (32-byte digest, versioned) |
+| Unveränderbarkeit (immutability) | **append-only** postings + boards + CausalEdge64 move-semantics |
+| correction = reversal, not edit | **Storno-as-append** = *"committed contradictions preserved, not resolved"* (CLAUDE.md) |
+
+So at `Financial`/FIBU stakes the MUL gate's hard invariants are: **Soll = Haben**, **GoBD immutability** (Storno-append, never edit), **SKR account validity**, **deterministic tax**. Storno is exactly the workspace's append-only-correction pattern (this very entry corrects a prior assumption by *appending*, not editing).
+
+**Cross-ref:** `rung-persona-orchestration-v1` §6b + D-PERSONA-6; `contract::tax.rs`, `contract::grammar::role_keys` (FIBU_KEY); `foundry-roadmap-unified-smb-medcare-v1` (FiBu/SKR04); `lf-integration-mapping-v1` LF-2/LF-80; `E-OGIT-STAKES-LINCHPIN` (marking=Financial→stakes).
+
+---
+
 ## 2026-05-26 — E-OGIT-STAKES-LINCHPIN — stakes is an O(1) ontological lookup (OGIT class), and it is the single dial that drives temperature + MUL sensitivity + savant binding together
 
 **Status:** FINDING (grounds the MUL gate ratio + the front-door inheritance; refines `rung-mul-grounding-v1` §3 + `rung-persona-orchestration-v1` §1). **External ref — `AdaWorldAPI/OGIT` (Open Graph of IT, `ogit.ttl`, OWL/RDF, DOLCE-aligned), NOT in GitHub-MCP allowlist; reference-only.**
