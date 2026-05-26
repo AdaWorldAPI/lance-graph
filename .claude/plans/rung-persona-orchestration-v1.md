@@ -35,6 +35,8 @@ The menu is a **2D grid** — phase × DK-position → strategy. Etiquette = sof
 
 `marking` is the linchpin: high (`Financial`/`Pii`/`Restricted`) → cold anneal start + tight MUL + domain savant; low (`Public`/`Internal`) → hot start + loose gate + generalist. *A chat → low marking → hot/conversational; an invoice inquiry → `Financial` marking (doc: "bookkeeping or tax-relevant") → bookkeeping savant, cold, tight gate.* One resolve sets temperature + MUL sensitivity + capability binding at once. (`felt_parse` viscosity/dominant-family is the *live-signal* counterpart that refines the inherited prior per-turn.)
 
+**No bespoke resolver — it's another O(1) table on the stack.** OWL/OGIT/DOLCE compile to dense lookup tables indexed by `entity_type_id` (the `SchemaPtr` dense local index, scoped by `ontology_context_id`). The inherit-set is simply additional columns / a sibling table sharing that index — the same *thinking-as-table-lookup* doctrine as `NarsTables`, the bgz-tensor attention table, and CAM-PQ distance. Adding inheritance = stacking one more O(1) table, never a graph traversal. So the "front door" deliverable is *append a column-table to the OWL/OGIT/DOLCE stack*, not *build a resolver* — D-PERSONA work is column wiring, consistent with AGI-as-SoA (new capability = new column).
+
 ## 2. The boring checklist (verify — temp≈0) = escalation work + epiphanies
 
 **The checklist is NOT a bespoke verifier — it collapses into machinery that already exists** (restore ladybug's qualia loop on our SoA). Each item is verified by the escalation+epiphany loop:
