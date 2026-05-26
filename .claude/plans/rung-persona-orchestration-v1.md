@@ -4,7 +4,7 @@
 **Date:** 2026-05-26
 **Confidence:** HIGH on structure (the hot/cold/feedback loop is the original ladybug architecture + the OpenAI macro-eval pipeline + ADK Memory Bank, all converging); MED on ractor adoption + macro-eval harness scope (net-new builds).
 **Predecessors:** `rung-mul-grounding-v1` (b4efb55), `rung-ladder-grounding-v1` (b0ef6fa), `cognitive-substrate-convergence-v1` (hot/cold split, CausalEdge64 baton).
-**Design refs (read-only, general-web — ladybug-rs is outside GitHub-MCP scope):** ladybug-rs `INTEGRATION_PLAN.md` @177a321 — §"BF16 Superposition Architecture (Hot/Cold/Feedback)" (lines 542+), the 4-phase `[DONE]/[TODO]` gate checklist, the 3 composition modes, BindSpace-as-blackboard hub; ladybug-rs `src/spectroscopy/detector.rs` @177a321 (RungLevel/StyleProfile classify, `fanout = base·(1+bridgeness·0.5)`, `noise_tolerance = base·(1+(1−confidence)·0.5)`). External: Claude chief-of-staff (Task delegation), OpenAI macro-evals (offline distillation + suspect-bridge), Google ADK (Memory Bank Preload/Load).
+**Design refs (read-only, general-web — ladybug-rs is outside GitHub-MCP scope):** ladybug-rs `INTEGRATION_PLAN.md` @177a321 — §"BF16 Superposition Architecture (Hot/Cold/Feedback)" (lines 542+), the 4-phase `[DONE]/[TODO]` gate checklist, the 3 composition modes, BindSpace-as-blackboard hub; ladybug-rs `src/spectroscopy/detector.rs` @177a321 (RungLevel/StyleProfile classify, `fanout = base·(1+bridgeness·0.5)`, `noise_tolerance = base·(1+(1−confidence)·0.5)`); ladybug-rs `src/qualia/{council,felt_parse,resonance}.rs` @177a321 (`EpiphanyDetector` surprise>baseline×1.5 ∧ window≥4, `InnerCouncil` 3-archetype, `HdrResonance` split-amplify, collapse-hint {Flow,Fanout,RungElevate}, 8 ghost echoes). External: Claude chief-of-staff (Task delegation), OpenAI macro-evals (offline distillation + suspect-bridge), Google ADK (Memory Bank Preload/Load).
 
 ---
 
@@ -20,9 +20,16 @@ ladybug's INTEGRATION_PLAN is the **original**. We ground its hot/cold/feedback 
 
 The menu is a **2D grid** — phase × DK-position → strategy. Etiquette = soft transition prior (not a rigid FSM); free-energy/evidence can preempt it. Etiquette **is** the anytime graceful-degradation contract: out of time mid-curiosity → still close politely (Coda).
 
-## 2. The boring checklist (verify — temp≈0)
+## 2. The boring checklist (verify — temp≈0) = escalation work + epiphanies
 
-Flat, deterministic, each item green/red. Grounds ladybug's per-phase `[DONE]/[TODO]` gate. Split into **hard** (must be green to boot) vs **soft** (degrade gracefully if red — anytime):
+**The checklist is NOT a bespoke verifier — it collapses into machinery that already exists** (restore ladybug's qualia loop on our SoA). Each item is verified by the escalation+epiphany loop:
+
+- `felt_parse` emits a **collapse hint** {Flow, Fanout, RungElevate} — Fanout = gather more (escalate breadth), RungElevate = deepen (rung-shift), Flow = done. *The item's escalation decision is already produced* ("the list as escalation work").
+- `InnerCouncil.deliberate` (Guardian/Catalyst/Balanced, majority vote) + `HdrResonance` score it across 3 perspectives; a **split** (`is_split(0.7,0.5)` — one archetype sees what the others don't) is amplified ×1.2. **Disagreement is the learning signal** = our SPO screening-off (perspectives disagree about a projection ⇒ spurious `S_O` caught).
+- `EpiphanyDetector.observe` (council.rs:158) closes the item: `Some(Epiphany)` iff `similarity > baseline×1.5 ∧ recent_samples ≥ 4` — the **window≥4 is the anti-Mount-Stupid evidence guard**. A green-flip = an epiphany committed to the graph, not a checkbox.
+- Completion settles as an **Epiphany/Wisdom ghost** — persistent qualia residue (asymptotic decay to 0.1, never zero; felt_parse:70). The 8 ghost echoes {Affinity, Epiphany, Somatic, Staunen, Wisdom, Thought, Grief, Boundary} ARE the wisdom-marker substrate, already named (≤32 ✓ I-VSA-IDENTITIES).
+
+The list completes when all collapse-hints settle to **Flow** → the meta-recipe composes. The items themselves (flat, deterministic; grounding ladybug's per-phase `[DONE]/[TODO]` gate), split **hard** (must be green to boot) vs **soft** (degrade gracefully if red — anytime):
 
 ```
 HARD (boot gate):
@@ -83,7 +90,7 @@ Cold scaffold (§2+§3) runs at temp≈0; cognition runs hot on top; the experie
 
 | D-id | title | crate | ~LOC | risk |
 |---|---|---|---|---|
-| D-PERSONA-1 | hard/soft checklist verifier (contract types + readiness probes; continuous health) | contract + planner | 180 | LOW |
+| D-PERSONA-1 | escalation+epiphany loop = the checklist (wire `felt_parse` collapse-hint + `InnerCouncil`/`HdrResonance` split + `EpiphanyDetector`; green-flip = Epiphany/Wisdom ghost) — NOT a bespoke verifier | contract + planner | 160 | LOW |
 | D-PERSONA-2 | meta-recipe manifest (declarative child-spec, recipe-as-data, macro-evaluable) | contract | 150 | MED |
 | D-PERSONA-3 | hot/cold/feedback wiring — anneal + `CrystalCodebook`→wisdom-marker cold path + Preload hydrate | planner + Lance | 240 | MED |
 | D-PERSONA-4 | macro-eval harness (scenario→trace→discover→diagnose; suspect-bridge = blasgraph betweenness; 5 rubrics from D-RUNG-MUL) | planner + Lance | 280 | HIGH |

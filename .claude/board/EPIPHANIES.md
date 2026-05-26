@@ -1,3 +1,22 @@
+## 2026-05-26 — E-CHECKLIST-AS-ESCALATION — the boring checklist is NOT a bespoke verifier; it collapses into escalation-work + epiphanies, restoring ladybug's qualia loop on the SoA floor
+
+**Status:** FINDING (simplifies `rung-persona-orchestration-v1` D-PERSONA-1; user-flagged collapse). **External design refs — ladybug-rs `src/qualia/{council,felt_parse,resonance}.rs` @177a321, NOT in the GitHub-MCP allowlist; reference-only, never a port target.**
+
+**Click:** The "boring checklist → meta-recipe" of `rung-persona-orchestration-v1` does not need a new verifier subsystem — the list-completion machinery already exists in ladybug's qualia loop and only needs restoring on our SoA:
+
+- **`felt_parse` emits a collapse hint** = {Flow, Fanout, RungElevate}: Fanout = gather more (escalate breadth), RungElevate = deepen (rung-shift), Flow = done. *The item's escalation decision is already produced* — "the list as escalation work" verbatim.
+- **`InnerCouncil.deliberate`** (3 archetypes Guardian/Catalyst/Balanced, majority vote) + **`HdrResonance`**: a **split** (`is_split(0.7,0.5)` — one archetype sees what the others don't) is amplified ×1.2 for epiphany detection. **Disagreement IS the learning signal** = our SPO screening-off (perspectives disagree about a projection ⇒ spurious `S_O` caught).
+- **`EpiphanyDetector.observe`** (council.rs:158): `Some(Epiphany)` iff `similarity > baseline×1.5 ∧ recent_samples ≥ 4`. The **window≥4 guard is the anti-Mount-Stupid evidence rule** (same shape as window-5 / Boole-bound — never fire on thin evidence). A green-flip = an epiphany committed to the graph, not a checkbox.
+- **Ghost echoes** = {Affinity, **Epiphany**, Somatic, **Staunen**, **Wisdom**, Thought, Grief, Boundary} — persistent qualia residue (asymptotic decay to 0.1, never zero; felt_parse:70). Epiphany/Staunen/Wisdom-as-ghosts ARE the wisdom-marker substrate, already named; **8 ghosts ≤ 32 ✓ I-VSA-IDENTITIES**. (CLAUDE.md "Magnitude = Staunen × Wisdom qualia" — the ghosts are already in The Click.)
+
+**The collapse:** list-item → collapse-hint (escalate) → council/resonance (split = discovery) → EpiphanyDetector (close, evidence-gated) → Epiphany/Wisdom ghost (persist). **Escalation IS the work; epiphanies ARE the completions; ghosts ARE the hydrating wisdom.** D-PERSONA-1 drops from "checklist verifier" to "wire the existing loop."
+
+**Honest gap (unchanged):** ladybug's `detector.rs` still has no NaN/dead-end/escalation path ("all inputs produce valid output") — our NaN→cautious-exploration→Lab remains net-new.
+
+**Cross-ref:** `rung-persona-orchestration-v1` §2+§7; `rung-mul-grounding-v1` (screening-off = split); `E-AGICHAT-DIMENSION-CONTRACT` (restore-on-SoA); `I-VSA-IDENTITIES` (8 ghosts ≤32).
+
+---
+
 ## 2026-05-26 — E-AGICHAT-DIMENSION-CONTRACT — the 32-dim basis already exists as agichat's locked 10kD allocation; ladybug-rs de-grounded it by inflating bytes→10K-bit fingerprints; the work is to RESTORE the contract on the SoA floor, not invent or port
 
 **Status:** FINDING (resolves the open `ThinkingStyleI4_32D` basis decision from E-I4-META-1; lineage + grounding map established from user-provided sources). **External design references — NOT in the GitHub-MCP allowlist; design-reference only, never a code-port target.**
