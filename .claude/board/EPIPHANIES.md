@@ -1,3 +1,24 @@
+## 2026-05-26 — E-OGIT-STAKES-LINCHPIN — stakes is an O(1) ontological lookup (OGIT class), and it is the single dial that drives temperature + MUL sensitivity + savant binding together
+
+**Status:** FINDING (grounds the MUL gate ratio + the front-door inheritance; refines `rung-mul-grounding-v1` §3 + `rung-persona-orchestration-v1` §1). **External ref — `AdaWorldAPI/OGIT` (Open Graph of IT, `ogit.ttl`, OWL/RDF, DOLCE-aligned), NOT in GitHub-MCP allowlist; reference-only.**
+
+**Click:** Two user observations are the same mechanism. (1) `MUL ≈ (risk / competence) × stakes` with `competence = f(rung-level, resonance)`. (2) "a chat inherits temperature; an invoice inquiry inherits the bookkeeping savant." The bridge: **`stakes` is not hand-assigned — it is an O(1) lookup of the request's OWL/DOLCE class in OGIT** (the ontology reframed as a CAM). And that one number drives three things at once:
+
+| request | OGIT class → stakes | inherited temp (viscosity) | MUL sensitivity | savant (dominant family) |
+|---|---|---|---|---|
+| chat | casual communicative act → low | hot (Plasma) | loose | generalist / exploratory |
+| invoice inquiry | economic object → high | cold (Crystalline) | tight (`×stakes`) | bookkeeping savant |
+
+**`felt_parse` is the front door:** viscosity = inherited start temperature, dominant axis-family = which savant binds; OGIT-class = stakes. So the inheritance the user described is `felt_parse` + an O(1) OGIT class lookup — no new dispatch layer. The MUL gate fires ∝ expected-loss / competence (DK danger zone gates hardest), with stakes ontologically grounded.
+
+**The ontology IS a graph** ⇒ OGIT lives natively as an AriGraph/SPO + CAM-PQ class layer; O(1) class address = the "3-dims-are-the-address" CAM pattern. No second store needed (AriGraph is the one graph).
+
+**Open (CONJECTURE):** whether `stakes` is an explicit OGIT annotation or derived from class position — confirm against `ogit.ttl`. README on `main` 404'd; repo-root gave only the high-level "semantic representation of all IT + business processes" description.
+
+**Cross-ref:** `rung-mul-grounding-v1` §3 (MUL gate ratio); `rung-persona-orchestration-v1` §1 (front-door inheritance); `E-CHECKLIST-AS-ESCALATION` (felt_parse collapse-hint); `I-VSA-IDENTITIES` (CAM addressing).
+
+---
+
 ## 2026-05-26 — E-CHECKLIST-AS-ESCALATION — the boring checklist is NOT a bespoke verifier; it collapses into escalation-work + epiphanies, restoring ladybug's qualia loop on the SoA floor
 
 **Status:** FINDING (simplifies `rung-persona-orchestration-v1` D-PERSONA-1; user-flagged collapse). **External design refs — ladybug-rs `src/qualia/{council,felt_parse,resonance}.rs` @177a321, NOT in the GitHub-MCP allowlist; reference-only, never a port target.**
