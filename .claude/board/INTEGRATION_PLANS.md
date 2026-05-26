@@ -1,3 +1,30 @@
+## 2026-05-26 — rung-ladder-grounding-v1 (the most-obvious first grounding of the agichat gestell)
+
+**Status:** PROPOSAL
+**Confidence:** HIGH — deterministic integer/threshold logic, zero VSA in the decision path; cleanest possible first restore.
+**Plan file:** `.claude/plans/rung-ladder-grounding-v1.md`
+**Predecessors:** `E-AGICHAT-DIMENSION-CONTRACT` (afabefd), `E-I4-META-1`, `E-BATON-1`; shipped floor ndarray `SoaColumns` (42cb7123) + i4-32 unpack (8de1dcf8).
+**Follow-on (planned, user-flagged):** `rung-mul-grounding-v1` — the **MUL fine-tuned into the ladder**: ladybug's 10-layer MUL (`MulSnapshot`) becomes the *trigger source* refining the ladder's coarse binary triggers into graded escalation (DK MountStupid → escalate; homeostasis Anxiety + allostatic-load → escalate; false-flow → escalate; gate-block reason → escalate). `elevation/homeostasis.rs` is already MUL-L6 — ladder + MUL co-finetune there.
+
+### Scope
+
+Ground agichat's **RungShift ladder** + **CollapseGate SD** as LE-contract types/logic on the SoA floor. The ladder was never inflated (ladybug-rs `rung.rs` is a faithful port) — the work is to express it as a bit-exact Pod and wire its triggers to grounded signals.
+
+- **CollapseGate:** SD over candidate scores → `FLOW(<0.15)/HOLD/BLOCK(>0.35)`; SD = dispersion, not confidence.
+- **RungShift:** rung 0-9, bands 0-2/3-5/6-9; triggers sustained-block(≥3) / predictive-failure(avg P<0.3 / window 5) / structural-mismatch → +1 (cap 9); tick-based cooldown.
+- **Grounding:** `RungState` = 16-byte `#[repr(C)]` Pod (no `Vec` — fixed `[u8;5]` P-ring; tick cooldown; u8/i4-quantized scores) in a `SoaColumns` column; `evaluate_rung_shift` PURE (no `&mut` during compute) folded into `lance-graph-planner/src/elevation/` beside `homeostasis.rs`; SD via ndarray SIMD; `GateState` into `collapse_gate.rs`.
+- **Hook:** RungLevel = the **R1-R9 dim-group** of the 33-TSV (`ThinkingStyleI4_32D`).
+
+### Deliverables
+
+D-RUNG-1 contract types (lance-graph-contract, ~150) · D-RUNG-2 pure ladder logic in `elevation/` (planner, ~200) · D-RUNG-3 `RungState` SoA column + tick update (~100) · D-RUNG-4 SD→GateState in `collapse_gate.rs` + rung→TSV-R1-R9 map (~120). Parity tests vs verbatim agichat semantics.
+
+### Invariants
+
+No `Vec`/alloc in hot Pod · no `&mut` during compute (pure evaluate, builder apply) · tick-based not wall-clock · integer rung (no float-resonance carrier — the de-grounding ladybug-rs did) · SD = dispersion not confidence · RungShift separate from SD.
+
+---
+
 ## 2026-05-15 — cognitive-substrate-convergence-v1 (CSV — i4 mantissa + gapless baton + active inference)
 
 **Status:** Active (PROPOSAL — awaits OQ-CSV-1..6 ratification before sprint-11 D-CSV-* spawn)
