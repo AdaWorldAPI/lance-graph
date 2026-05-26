@@ -174,6 +174,18 @@ pub use family_table::{
     FamilyEntry, OgitFamilyTable, OwlCharacteristics, PerFamilyCodebook, SchemaKind,
 };
 
+// Odoo → OWL → OGIT alignment cache (the "two-version bridge" leg). Static
+// seed binding odoo models (res.partner, account.move(.line), account.account,
+// product.*, SKR) to their owl:equivalentClass pivots and the foundry family
+// + slot they inherit under Option B. Single source — woa-rs skr_data consumes
+// via this dep, never mirrors. See module doc + woa-rs/.claude/odoo/BRIEFING.md.
+pub mod odoo_alignment;
+pub use odoo_alignment::{
+    dolce_odoo, resolve_odoo, resolve_odoo_entry, resolve_odoo_to_family, seed_family_table,
+    OwlPivot, FAMILY_BILLING_CORE, FAMILY_SMB_ACCOUNTING, FAMILY_SMB_FOUNDRY_CUSTOMER,
+    FAMILY_SMB_FOUNDRY_INVOICE,
+};
+
 // PR-F1 — UnifiedBridgeGate<B>: production CognitiveBridgeGate impl.
 // Wraps UnifiedBridge<B>; Chinese-wall check fires before policy evaluation
 // on cross-tenant ops (§3.8). No dep on thinking-engine from thinking-engine.
