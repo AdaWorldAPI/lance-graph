@@ -1,3 +1,28 @@
+## [Agent-A / Sonnet] [SCAFFOLD ONLY — no implementation, no commit] D-ATOM-4 — counterfactual.rs split-resolution-via-counterfactual-mantissa scaffold
+
+**D-id:** D-ATOM-4 (`atom-mailbox-substrate-v1` pillar 5 — counterfactual mantissa v2 deposit + v3 mailbox+revision).
+
+**File:** `crates/lance-graph-contract/src/counterfactual.rs` — ONE new file, doc-comment scaffold only (`///` rustdoc + `todo!()` bodies). No existing file was edited (lib.rs and escalation.rs untouched per constraint). No `cargo` run. No commit.
+
+**Confirmed (from source):**
+- `is_split` / `CouncilVerdict::split` live in `crates/lance-graph-contract/src/escalation.rs` (shipped, D-PERSONA-1).
+- `InferenceType::Counterfactual.to_mantissa() = -6` confirmed in `crates/causal-edge/src/edge.rs` line 75.
+- Mantissa accessors confirmed as `set_inference_mantissa(&mut self, i8)` and `with_inference_mantissa(self, i8) -> Self`, both feature-gated on `causal-edge-v2-layout` (no-op stubs for v1 at lines 976/992/1002 of edge.rs).
+- `CausalEdge64` is in the `causal-edge` crate (NOT a workspace member of lance-graph-contract) — zero-dep constraint requires a `trait EpisodicEdge` bridge; impl location is BLOCKED.
+
+**BLOCKED list:**
+1. `awareness.revise` signature — not found on current contract surface; referenced only in CLAUDE.md pseudo-code. Must grep `contract::grammar` / `contract::nars` / `thinking-engine` before implementing v3.
+2. `EpisodicEdge` impl location — `CausalEdge64` is in a non-workspace crate; bridge impl site is BLOCKED on workspace structure decision.
+3. `MailboxId` ghost-tier assignment policy — BLOCKED on D-PERSONA-5 (ractor outer-swarm).
+4. D-ATOM-1 `I4x32` axis type — `SplitPoles::axis` uses `u8` placeholder; BLOCKED on atom basis (D-ATOM-0).
+5. Revision tombstone Lance link — BLOCKED on D-ATOM-5 (AriGraph hot→calcify).
+
+**Scaffold covers:** `SPAWN_DISSONANCE_THRESHOLD`, `SplitPoles`, `deposit_counterfactual` (v2), `EpisodicEdge` trait, `CounterfactualMailbox` + `new`/`poll`/`cancel` (v3), `FreeEnergyComparison`, `revise_if_minority_wins` (v3), `AwarenessRevise` placeholder trait, `should_spawn_mailbox` spawn gate, `CounterfactualError`, `RevisionOutcome`.
+
+**Tests:** none (scaffold only). **Commit:** none (scaffold only — main thread wires `mod counterfactual;`).
+
+---
+
 ## [Agent-B / Sonnet] [SCAFFOLD ONLY — no implementation, no commit] D-ATOM-5 — witness_tombstone.rs memory lifecycle scaffold
 
 **D-id:** D-ATOM-5 (`atom-mailbox-substrate-v1` pillar 6 — AriGraph hot/cold/tombstone; basis-INDEPENDENT).
