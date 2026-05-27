@@ -525,6 +525,8 @@ Plan path: `.claude/plans/bindspace-singleton-to-mailbox-soa-v1.md`. Epiphany `E
 | D-MBX-3 | `ShaderDriver` holds a sea-star of mailboxes; kill the `BindSpace::zeros(4096)` singleton in `serve.rs` | cognitive-shader-driver | 160 | HIGH | **Queued** | blocked on D-MBX-2 + OQ-2 (temporal/expert fold) |
 | D-MBX-4 | death → SPO-G quad + Lance tombstone-witness (link-integrity back-pointer) | cognitive-shader-driver + Lance | 200 | HIGH | **Queued** | blocked on D-MBX-3 + Zone-2 persistence |
 | D-MBX-5 | delete `BindSpace` singleton + `Vsa16kF32` `cycle` plane; remove feature gate | cognitive-shader-driver | 80 | MED | **Queued** | blocked on D-MBX-4 + OQ-4 (CLAUDE.md "The Click" doctrinal update) |
+| D-MBX-6 | `ThoughtStruct` = transparent hot/cold view over SurrealDB container table(s) (same SoA both tiers; ~64k–256k hot ceiling, ~6 KB/thought) | cognitive-shader-driver + surreal_container | 220 | HIGH | **Queued** | blocked on D-MBX-3 + surreal_container unblock (BLOCKED A/B/C/D) or callcenter Zone-2 |
+| TD-RESONANCEDTO-DUP-1 | dedup the two `ResonanceDto` (thinking-engine) | thinking-engine | 60 | LOW | **Deferred** | user 2026-05-27 — fold into D-MBX-2 |
 
 ---
 
