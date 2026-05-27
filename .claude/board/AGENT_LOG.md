@@ -1,3 +1,9 @@
+## [Main-thread → woa-rs HANDOFF] Odoo savant AXIS-B evidence-contract scaffold (carve-out request)
+
+Wrote `.claude/odoo/savants/_SCAFFOLD-EVIDENCE-CONTRACT.md` — a self-contained handover asking the **woa-rs session** (roster/evidence-schema owner) to carve out the **4 AXIS-B slots per savant** (Arrow `EvidenceRef` schema · odoo field→signal map · property-level OWL alignment · the decision in evidence terms) so lance-graph can implement the `Reasoner` impls (D-ODOO-2 / D-ODOO-SAV-4) in one pass without cross-session ping-pong. Includes the fixed dispatch tuple for all 25 (priority-tiered) + the target `Reasoner` shape + the open dispatch-shape question (N impls vs savant-config registry). Hand-back: fill per-savant docs + note here. No code; doc only. On branch `splat3d-cpu-simd-renderer-MAOO0` (PR #416).
+
+---
+
 ## [Agent-A / Sonnet] [SCAFFOLD ONLY — no implementation, no commit] D-ATOM-4 — counterfactual.rs split-resolution-via-counterfactual-mantissa scaffold
 
 **D-id:** D-ATOM-4 (`atom-mailbox-substrate-v1` pillar 5 — counterfactual mantissa v2 deposit + v3 mailbox+revision).
@@ -80,6 +86,12 @@
 2. `jit::StyleRegistry` API extension — `StyleRegistry::get_kernel` currently accepts `ThinkingStyle` enum, not a `RecipeTemplate`. A `register_recipe` / `get_recipe_kernel` surface must be added before `RecipeTemplate::compile` and `register_recipe` can be wired. BLOCKED on that extension; all affected bodies are `todo!()`.
 
 **Constraints satisfied:** zero-dep crate; no edits to `lib.rs`, `thinking.rs`, or `jit.rs`; scaffold only (all bodies `todo!()`); `// BLOCKED:` markers placed.
+
+---
+
+## [Main-thread] [DONE — green] D-ODOO-1 Odoo savant roster + integration plan
+
+Created the lance-graph side of the woa-rs Odoo savant delegation (material: `.claude/odoo/SAVANTS.md` + L1–L15, PR #413). **`contract::savants`** — the **25-savant roster as data**: `Savant { id, name, family: Option<u8>, kind, inference, semiring, style, lane, decides }` + `SAVANTS[25]` + `savant()`/`savant_by_name()`/`unaligned()` + `query_strategy()`. `other_kind` codes for the 6 `ReasoningKind::Other(u32)`. Rides the shipped `reasoning::{Reasoner,ReasoningKind}` / `nars` / `thinking::StyleCluster` (delegation surface already existed). **3 tests green** (roster=25 unique ids, id-16-absent, lookup+dispatch, 11 `unaligned()` need axioms). Plan `odoo-savant-roster-v1.md` + INTEGRATION_PLANS prepend (D-ODOO-1 done; D-ODOO-2 Reasoner impls / D-ODOO-3 OGIT families 0x63+0x90 / D-ODOO-4 alignment axioms / D-ODOO-5 conformance queued). Synced to `main` (incl. #412/#413); 452 contract tests green.
 
 ---
 
