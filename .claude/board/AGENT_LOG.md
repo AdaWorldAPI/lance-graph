@@ -83,6 +83,12 @@
 
 ---
 
+## [Main-thread] [DONE — green] D-ODOO-1 Odoo savant roster + integration plan
+
+Created the lance-graph side of the woa-rs Odoo savant delegation (material: `.claude/odoo/SAVANTS.md` + L1–L15, PR #413). **`contract::savants`** — the **25-savant roster as data**: `Savant { id, name, family: Option<u8>, kind, inference, semiring, style, lane, decides }` + `SAVANTS[25]` + `savant()`/`savant_by_name()`/`unaligned()` + `query_strategy()`. `other_kind` codes for the 6 `ReasoningKind::Other(u32)`. Rides the shipped `reasoning::{Reasoner,ReasoningKind}` / `nars` / `thinking::StyleCluster` (delegation surface already existed). **3 tests green** (roster=25 unique ids, id-16-absent, lookup+dispatch, 11 `unaligned()` need axioms). Plan `odoo-savant-roster-v1.md` + INTEGRATION_PLANS prepend (D-ODOO-1 done; D-ODOO-2 Reasoner impls / D-ODOO-3 OGIT families 0x63+0x90 / D-ODOO-4 alignment axioms / D-ODOO-5 conformance queued). Synced to `main` (incl. #412/#413); 452 contract tests green.
+
+---
+
 ## [Main-thread] [DONE — green] the 34 tactics as 34 working Rust kernels (Elixir-like behaviour)
 
 `crates/lance-graph-contract/src/recipe_kernels.rs` (new, wired in lib.rs). One uniform
