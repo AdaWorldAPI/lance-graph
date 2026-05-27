@@ -75,6 +75,7 @@ pub mod reasoning;
 pub mod recipe_kernels;
 pub mod recipes;
 pub mod repository;
+pub mod savants;
 pub mod scenario;
 pub mod sensorium;
 pub mod sigma_propagation;

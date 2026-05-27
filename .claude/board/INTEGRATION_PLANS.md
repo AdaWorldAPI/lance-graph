@@ -17,6 +17,13 @@ D-ODOO-SAV-1/2/3 additive + low-risk → first PR (this session). D-ODOO-SAV-4 �
 
 ### Invariants
 Option B (inherit existing slots; new families are genuine basins not per-class mints; `None` stays `None` w/o honest pivot) · public OWL pristine (axioms are NEW TTL) · savant = Layer-2 catalogue · reasoner output = suggestion (guard stays in woa-rs) · impls in callcenter behind contract `Reasoner` trait.
+---
+## 2026-05-27 — odoo-savant-roster-v1 (the lance-graph side of the woa-rs Odoo savant delegation: 25 delegated reasoners)
+
+**Status:** PROPOSAL. **Plan file:** `.claude/plans/odoo-savant-roster-v1.md`. **Source:** `.claude/odoo/SAVANTS.md` + L1–L15 (PR #413). **Predecessor:** PR #412 (odoo→FIBO/SKR alignment + DOLCE classifier).
+**Scope:** 25 Odoo savants = delegated reasoners (woa-rs keeps the AXIS-A deterministic guard; the ambiguous AXIS-B core delegates to lance-graph via `reasoning::Reasoner`). Each savant = a dispatch tuple (OGIT family · `ReasoningKind` · `InferenceType` · `SemiringChoice` · `StyleCluster`).
+**Deliverables:** D-ODOO-1 roster-as-data (`contract::savants`, ✅ DONE) · D-ODOO-2 `Reasoner` impls per `ReasoningKind` · D-ODOO-3 new OGIT families `0x63 ProductCatalog` + `0x90 HRFoundation` + style wiring · D-ODOO-4 Layer-2 alignment axioms for the `None` classes (stock.*, analytic.distribution.model, account.account.tag) · D-ODOO-5 delegation call-site conformance (ReasoningContext + Arrow EvidenceRef schemas).
+**Invariants:** suggestion-only never un-guarded write (Iron Rule 7) · deterministic guard stays woa-rs · BBB-allowed crates only · tuple fully determines dispatch · business = OGIT-inherited sidecar (odoo inherits FIBO/SKR slots; 0x63/0x90 are the only new families, need ratification).
 
 ---
 
