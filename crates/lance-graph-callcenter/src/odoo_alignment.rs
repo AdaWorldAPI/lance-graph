@@ -44,6 +44,17 @@ pub const FAMILY_SMB_ACCOUNTING: OgitFamily = OgitFamily(0x62);
 pub const FAMILY_SMB_FOUNDRY_CUSTOMER: OgitFamily = OgitFamily(0x80);
 /// `ogit:SmbFoundryInvoice` — invoice / transaction document. familyId 129.
 pub const FAMILY_SMB_FOUNDRY_INVOICE: OgitFamily = OgitFamily(0x81);
+/// `ogit:ProductCatalog` — product catalogue + pricelist + UoM. familyId 100.
+///
+/// NOTE: the woa-rs `SAVANTS.md` proposal named `0x63` for this basin, but
+/// `0x63` (=99) is already `ogit:MRORepair` in `data/family_registry.ttl`.
+/// The lance-graph authoritative registry therefore assigns the next free
+/// commercial-cluster byte `0x64` (=100). (Plan odoo-savant-reasoners-v1
+/// D-ODOO-SAV-1; deviation from proposal documented there.)
+pub const FAMILY_PRODUCT_CATALOG: OgitFamily = OgitFamily(0x64);
+/// `ogit:HRFoundation` — employee / org / job / base-contract. familyId 144.
+/// Base HR data only; payroll engine is odoo Enterprise (absent).
+pub const FAMILY_HR_FOUNDATION: OgitFamily = OgitFamily(0x90);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // OwlPivot — the resolved owl:equivalentClass landing (leg 1 output)
@@ -107,10 +118,56 @@ pub fn dolce_odoo(class: &str) -> DolceMarker {
     {
         return DolceMarker::Abstract;
     }
+    if class.starts_with("uom.") {
+        // Units of measure are Qualities in DOLCE (dimensions of comparison).
+        return DolceMarker::Quality;
+    }
     if class.starts_with("res.") || class.ends_with(".account") || class.starts_with("product.") {
         return DolceMarker::Endurant;
     }
     DolceMarker::Unknown
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// family_default_style — inherited ThinkingStyle cluster per OGIT family
+// (Plan odoo-savant-reasoners-v1 D-ODOO-SAV-3). SAVANTS.md inherits each
+// savant's style from its family; this is the authoritative family→cluster map.
+// ═══════════════════════════════════════════════════════════════════════════
+
+pub use lance_graph_contract::thinking::StyleCluster;
+
+/// The default `StyleCluster` a Savant inherits from its OGIT family. Pinned
+/// per `SAVANTS.md` § "OGIT family map ... and inherited style":
+///
+/// - `0x60` WorkOrderCore       → Direct      (task execution)
+/// - `0x61` BillingCore         → Analytical  (pricing math)
+/// - `0x62` SMBAccounting       → Analytical  (ledger reasoning)
+/// - `0x64` ProductCatalog      → Analytical  (catalogue / pricing)
+/// - `0x80` SmbFoundryCustomer  → Empathic    (relationship + trust)
+/// - `0x81` SmbFoundryInvoice   → Direct      (transaction processing)
+/// - `0x90` HRFoundation        → Empathic    (people / org)
+///
+/// Returns `None` for families with no pinned default (caller proposes a
+/// cluster with rationale, per the BRIEFING delegation discipline).
+pub fn family_default_style(family: OgitFamily) -> Option<StyleCluster> {
+    match family.raw() {
+        0x60 => Some(StyleCluster::Direct),
+        0x61 => Some(StyleCluster::Analytical),
+        0x62 => Some(StyleCluster::Analytical),
+        0x64 => Some(StyleCluster::Analytical),
+        0x80 => Some(StyleCluster::Empathic),
+        0x81 => Some(StyleCluster::Direct),
+        0x90 => Some(StyleCluster::Empathic),
+        _ => None,
+    }
+}
+
+/// Both legs + style: resolve an odoo class all the way to the
+/// `StyleCluster` its inherited family carries. `None` when the class is
+/// unmapped or its family has no pinned default. O(1).
+pub fn resolve_odoo_style(class: &str) -> Option<StyleCluster> {
+    let pivot = resolve_odoo(class)?;
+    family_default_style(pivot.family)
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -220,6 +277,86 @@ static ODOO_SEED: &[OdooSeedRow] = &[
         dolce: DolceMarker::Endurant,
         label_uri: "ogit.Billing:ProductVariant",
         provenance: "odoo product.product (variant) =owl:equivalentClass=> schema:Product",
+    },
+    // ── ProductCatalog 0x64 — catalogue STRUCTURE (pricing + measurement) ──
+    // product.template / product.product stay on BillingCore (0x61): they are
+    // billable ITEMS. The pricelist / UoM concepts are catalogue STRUCTURE and
+    // get their own basin so L8's PricelistAssignmentAgent has a real family
+    // instead of None. (Deviation from SAVANTS.md noted on FAMILY_PRODUCT_CATALOG.)
+    OdooSeedRow {
+        odoo_class: "product.pricelist",
+        pivot_uri: "schema:PriceSpecification",
+        family: FAMILY_PRODUCT_CATALOG,
+        slot: 1,
+        kind: SchemaKind::Entity,
+        dolce: DolceMarker::Abstract,
+        label_uri: "ogit.ProductCatalog:Pricelist",
+        provenance: "odoo product.pricelist =owl:equivalentClass=> schema:PriceSpecification",
+    },
+    OdooSeedRow {
+        odoo_class: "product.pricelist.item",
+        pivot_uri: "schema:UnitPriceSpecification",
+        family: FAMILY_PRODUCT_CATALOG,
+        slot: 2,
+        kind: SchemaKind::Entity,
+        dolce: DolceMarker::Abstract,
+        label_uri: "ogit.ProductCatalog:PricelistRule",
+        provenance: "odoo product.pricelist.item =owl:equivalentClass=> schema:UnitPriceSpecification",
+    },
+    OdooSeedRow {
+        // uom.uom ties into the QUDT Foundation namespace (qudt:Unit) — the
+        // measurement spine the bO-4 hydrator already loads.
+        odoo_class: "uom.uom",
+        pivot_uri: "qudt:Unit",
+        family: FAMILY_PRODUCT_CATALOG,
+        slot: 3,
+        kind: SchemaKind::Entity,
+        dolce: DolceMarker::Quality,
+        label_uri: "ogit.ProductCatalog:UnitOfMeasure",
+        provenance: "odoo uom.uom =owl:equivalentClass=> qudt:Unit",
+    },
+    // ── HRFoundation 0x90 — employee / org / job / base-contract ──
+    // Payroll ENGINE is odoo Enterprise (absent): only base HR data aligns here.
+    OdooSeedRow {
+        odoo_class: "hr.employee",
+        pivot_uri: "vcard:Individual",
+        family: FAMILY_HR_FOUNDATION,
+        slot: 1,
+        kind: SchemaKind::Entity,
+        dolce: DolceMarker::Endurant,
+        label_uri: "ogit.HR:Employee",
+        provenance: "odoo hr.employee =owl:equivalentClass=> vcard:Individual",
+    },
+    OdooSeedRow {
+        odoo_class: "hr.department",
+        pivot_uri: "org:OrganizationalUnit",
+        family: FAMILY_HR_FOUNDATION,
+        slot: 2,
+        kind: SchemaKind::Entity,
+        dolce: DolceMarker::Endurant,
+        label_uri: "ogit.HR:Department",
+        provenance: "odoo hr.department =owl:equivalentClass=> org:OrganizationalUnit",
+    },
+    OdooSeedRow {
+        odoo_class: "hr.job",
+        pivot_uri: "org:Role",
+        family: FAMILY_HR_FOUNDATION,
+        slot: 3,
+        kind: SchemaKind::Entity,
+        dolce: DolceMarker::Abstract,
+        label_uri: "ogit.HR:Job",
+        provenance: "odoo hr.job =owl:equivalentClass=> org:Role",
+    },
+    OdooSeedRow {
+        // Base employment contract only — payroll computation is Enterprise.
+        odoo_class: "hr.contract",
+        pivot_uri: "fibo:Contract",
+        family: FAMILY_HR_FOUNDATION,
+        slot: 4,
+        kind: SchemaKind::Entity,
+        dolce: DolceMarker::Abstract,
+        label_uri: "ogit.HR:EmploymentContract",
+        provenance: "odoo hr.contract (base, payroll is Enterprise/absent) =owl:equivalentClass=> fibo:Contract",
     },
 ];
 
@@ -358,10 +495,12 @@ mod tests {
     #[test]
     fn unmapped_classes_return_none() {
         // The "needs a Layer-2 alignment axiom" signal — NOT a minted family.
+        // NOTE: hr.employee USED to be here but D-ODOO-SAV-1 mapped it to
+        // HRFoundation (0x90); these are the classes that genuinely stay None.
         assert!(resolve_odoo("stock.move").is_none());
         assert!(resolve_odoo("sale.order").is_none());
-        assert!(resolve_odoo("hr.employee").is_none());
         assert!(resolve_odoo("account.reconcile.model").is_none());
+        assert!(resolve_odoo("account.analytic.distribution.model").is_none());
     }
 
     #[test]
@@ -416,5 +555,150 @@ mod tests {
         // Right family, but the table was never seeded → leg-2 lookup misses.
         let table = OgitFamilyTable::empty(FAMILY_SMB_ACCOUNTING);
         assert!(resolve_odoo_to_family("account.account", &table).is_none());
+    }
+
+    // ── D-ODOO-SAV-1: ProductCatalog (0x64) + HRFoundation (0x90) basins ──
+
+    #[test]
+    fn new_family_bytes_are_free_in_registry() {
+        // ProductCatalog 0x64=100 (NOT the proposed 0x63=99 which is
+        // MRORepair); HRFoundation 0x90=144. Both must be the values the
+        // family_registry.ttl rows added in D-ODOO-SAV-1 carry.
+        assert_eq!(FAMILY_PRODUCT_CATALOG.raw(), 100);
+        assert_eq!(FAMILY_HR_FOUNDATION.raw(), 144);
+        // Guard the deviation: 0x63 (=99) is MRORepair, NOT ProductCatalog.
+        assert_ne!(FAMILY_PRODUCT_CATALOG.raw(), 0x63);
+    }
+
+    #[test]
+    fn product_catalogue_structure_resolves_to_productcatalog() {
+        // Pricing + UoM STRUCTURE lands on ProductCatalog (0x64)...
+        let pl = resolve_odoo("product.pricelist").expect("pricelist seeded");
+        assert_eq!(pl.family, FAMILY_PRODUCT_CATALOG);
+        assert_eq!(pl.pivot_uri, "schema:PriceSpecification");
+        assert_eq!(pl.dolce, DolceMarker::Abstract);
+
+        let item = resolve_odoo("product.pricelist.item").expect("pricelist item seeded");
+        assert_eq!(item.family, FAMILY_PRODUCT_CATALOG);
+
+        let uom = resolve_odoo("uom.uom").expect("uom seeded");
+        assert_eq!(uom.family, FAMILY_PRODUCT_CATALOG);
+        assert_eq!(uom.pivot_uri, "qudt:Unit"); // ties into the bO-4 QUDT namespace
+        assert_eq!(uom.dolce, DolceMarker::Quality);
+    }
+
+    #[test]
+    fn billable_items_stay_on_billing_core() {
+        // Deviation guard: product.template / product.product are billable
+        // ITEMS and MUST stay on BillingCore (0x61), NOT move to ProductCatalog.
+        assert_eq!(
+            resolve_odoo("product.template").unwrap().family,
+            FAMILY_BILLING_CORE
+        );
+        assert_eq!(
+            resolve_odoo("product.product").unwrap().family,
+            FAMILY_BILLING_CORE
+        );
+    }
+
+    #[test]
+    fn hr_base_classes_resolve_to_hrfoundation() {
+        // hr.* resolved None before D-ODOO-SAV-1; now they land on 0x90.
+        let emp = resolve_odoo("hr.employee").expect("hr.employee seeded");
+        assert_eq!(emp.family, FAMILY_HR_FOUNDATION);
+        assert_eq!(emp.pivot_uri, "vcard:Individual");
+        assert_eq!(emp.dolce, DolceMarker::Endurant);
+
+        assert_eq!(
+            resolve_odoo("hr.department").unwrap().pivot_uri,
+            "org:OrganizationalUnit"
+        );
+        assert_eq!(resolve_odoo("hr.job").unwrap().family, FAMILY_HR_FOUNDATION);
+        assert_eq!(
+            resolve_odoo("hr.contract").unwrap().pivot_uri,
+            "fibo:Contract"
+        );
+    }
+
+    #[test]
+    fn end_to_end_productcatalog_live_table() {
+        let mut table = OgitFamilyTable::empty(FAMILY_PRODUCT_CATALOG);
+        seed_family_table(&mut table);
+        assert!(!table.is_empty());
+        let (fam, slot) = resolve_odoo_to_family("uom.uom", &table).expect("live uom slot");
+        assert_eq!(fam, FAMILY_PRODUCT_CATALOG);
+        assert_eq!(slot, 3);
+    }
+
+    #[test]
+    fn end_to_end_hrfoundation_live_table() {
+        let mut table = OgitFamilyTable::empty(FAMILY_HR_FOUNDATION);
+        seed_family_table(&mut table);
+        let entry = resolve_odoo_entry("hr.employee", &table).expect("live hr.employee entry");
+        assert_eq!(entry.label_uri, "ogit.HR:Employee");
+        assert_eq!(entry.dolce_marker, DolceMarker::Endurant);
+    }
+
+    #[test]
+    fn classes_still_none_after_d1() {
+        // D-ODOO-SAV-1 added ProductCatalog + HRFoundation only. The genuinely
+        // cross-cutting classes stay None (Layer-2 axioms in D-ODOO-SAV-2, but
+        // those record semantics in TTL, not a new foundry family).
+        assert!(resolve_odoo("stock.move").is_none());
+        assert!(resolve_odoo("account.analytic.distribution.model").is_none());
+        assert!(resolve_odoo("account.account.tag").is_none());
+    }
+
+    // ── D-ODOO-SAV-3: family → inherited StyleCluster ──
+
+    #[test]
+    fn family_default_style_pins_savant_clusters() {
+        assert_eq!(
+            family_default_style(FAMILY_BILLING_CORE),
+            Some(StyleCluster::Analytical)
+        );
+        assert_eq!(
+            family_default_style(FAMILY_SMB_ACCOUNTING),
+            Some(StyleCluster::Analytical)
+        );
+        assert_eq!(
+            family_default_style(FAMILY_PRODUCT_CATALOG),
+            Some(StyleCluster::Analytical)
+        );
+        assert_eq!(
+            family_default_style(FAMILY_SMB_FOUNDRY_CUSTOMER),
+            Some(StyleCluster::Empathic)
+        );
+        assert_eq!(
+            family_default_style(FAMILY_SMB_FOUNDRY_INVOICE),
+            Some(StyleCluster::Direct)
+        );
+        assert_eq!(
+            family_default_style(FAMILY_HR_FOUNDATION),
+            Some(StyleCluster::Empathic)
+        );
+        // Unpinned family → None (caller proposes with rationale).
+        assert_eq!(family_default_style(OgitFamily(0xFE)), None);
+    }
+
+    #[test]
+    fn resolve_odoo_style_chains_class_to_cluster() {
+        // res.partner → SmbFoundryCustomer (0x80) → Empathic.
+        assert_eq!(resolve_odoo_style("res.partner"), Some(StyleCluster::Empathic));
+        // product.pricelist → ProductCatalog (0x64) → Analytical.
+        assert_eq!(
+            resolve_odoo_style("product.pricelist"),
+            Some(StyleCluster::Analytical)
+        );
+        // hr.employee → HRFoundation (0x90) → Empathic.
+        assert_eq!(resolve_odoo_style("hr.employee"), Some(StyleCluster::Empathic));
+        // unmapped class → None.
+        assert_eq!(resolve_odoo_style("stock.move"), None);
+    }
+
+    #[test]
+    fn uom_dolce_suffix_rule() {
+        assert_eq!(dolce_odoo("uom.uom"), DolceMarker::Quality);
+        assert_eq!(dolce_odoo("uom.category"), DolceMarker::Quality);
     }
 }

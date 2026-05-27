@@ -1,3 +1,25 @@
+## 2026-05-27 — odoo-savant-reasoners-v1 (lance-graph side of the Odoo richness harvest: 2 new OGIT families + Layer-2 axioms + StyleCluster wiring + 5 Reasoner impls)
+
+**Status:** PROPOSAL (picks up the cross-repo handover boundary in `.claude/odoo/SAVANTS.md` §"lance-graph handover boundary"). woa-rs defined the 25-Savant roster + delegation tuples; lance-graph implements (a) Reasoner impls, (b) 2 new families + Layer-2 alignment axioms for the `None` classes, (c) StyleCluster wiring.
+**Confidence:** HIGH on (b)/(c) — additive extensions of `odoo_alignment.rs` seed + alignment TTLs. MED on (a) — Reasoner dispatch shape (one impl per ReasoningKind vs savant-config registry) pinned but needs a review pass.
+**Plan file:** `.claude/plans/odoo-savant-reasoners-v1.md`
+**Predecessors:** PR #412 (odoo hydrator + dolce_odoo classifier + ODOO slot 50), PR #413 (briefing pack).
+**Anchored iron rules:** I-VSA-IDENTITIES (savant = Layer-2 role catalogue), AGI-as-glove, board-hygiene, Iron Rule 1 (no brain-crate in customer binary), Iron Rule 7 (verhaltens-bewahrend — reasoner output is suggestion-only).
+
+### Scope
+Group B — `0x63 ProductCatalog` (Analytical) + `0x90 HRFoundation` (Empathic) families + Layer-2 alignment axioms for `stock.*` / `account.analytic.distribution.model` / `account.account.tag` (land on existing pivot where honest, else documented `None`). Group C — `StyleCluster` per family (field-or-sidecar). Group A — `SavantConclusion` + 5 `Reasoner` impls (one per `ReasoningKind`) in lance-graph-callcenter, dispatching on evidence + family style, `InferenceType::default_strategy()` → QueryStrategy, NarsTruth evidence fusion.
+
+### Deliverables
+D-ODOO-SAV-1 two new families + seed rows + family_registry.ttl · D-ODOO-SAV-2 Layer-2 alignment axioms TTL · D-ODOO-SAV-3 StyleCluster per family · D-ODOO-SAV-4 5 Reasoner impls (gated on dispatch-shape review, own PR).
+
+### Execution
+D-ODOO-SAV-1/2/3 additive + low-risk → first PR (this session). D-ODOO-SAV-4 → follow-up PR after `/code-review` on dispatch shape. Plan + INTEGRATION_PLANS prepend land with D-ODOO-SAV-1.
+
+### Invariants
+Option B (inherit existing slots; new families are genuine basins not per-class mints; `None` stays `None` w/o honest pivot) · public OWL pristine (axioms are NEW TTL) · savant = Layer-2 catalogue · reasoner output = suggestion (guard stays in woa-rs) · impls in callcenter behind contract `Reasoner` trait.
+
+---
+
 ## 2026-05-27 — atom-mailbox-substrate-v1 (ladder-serves-mailbox: atoms→styles→personas, quorum projection, counterfactual mantissa, AriGraph hot/cold/tombstone)
 
 **Status:** PROPOSAL (implements `EPIPHANIES.md` E-LADDER-SERVES-MAILBOX; extends `rung-persona-orchestration-v1` D-PERSONA-1 downward into the atom layer and outward into the mailbox lifecycle).
