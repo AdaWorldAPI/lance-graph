@@ -1,3 +1,171 @@
+## [Agent-A / Sonnet] [SCAFFOLD ONLY — no implementation, no commit] D-ATOM-4 — counterfactual.rs split-resolution-via-counterfactual-mantissa scaffold
+
+**D-id:** D-ATOM-4 (`atom-mailbox-substrate-v1` pillar 5 — counterfactual mantissa v2 deposit + v3 mailbox+revision).
+
+**File:** `crates/lance-graph-contract/src/counterfactual.rs` — ONE new file, doc-comment scaffold only (`///` rustdoc + `todo!()` bodies). No existing file was edited (lib.rs and escalation.rs untouched per constraint). No `cargo` run. No commit.
+
+**Confirmed (from source):**
+- `is_split` / `CouncilVerdict::split` live in `crates/lance-graph-contract/src/escalation.rs` (shipped, D-PERSONA-1).
+- `InferenceType::Counterfactual.to_mantissa() = -6` confirmed in `crates/causal-edge/src/edge.rs` line 75.
+- Mantissa accessors confirmed as `set_inference_mantissa(&mut self, i8)` and `with_inference_mantissa(self, i8) -> Self`, both feature-gated on `causal-edge-v2-layout` (no-op stubs for v1 at lines 976/992/1002 of edge.rs).
+- `CausalEdge64` is in the `causal-edge` crate (NOT a workspace member of lance-graph-contract) — zero-dep constraint requires a `trait EpisodicEdge` bridge; impl location is BLOCKED.
+
+**BLOCKED list:**
+1. `awareness.revise` signature — not found on current contract surface; referenced only in CLAUDE.md pseudo-code. Must grep `contract::grammar` / `contract::nars` / `thinking-engine` before implementing v3.
+2. `EpisodicEdge` impl location — `CausalEdge64` is in a non-workspace crate; bridge impl site is BLOCKED on workspace structure decision.
+3. `MailboxId` ghost-tier assignment policy — BLOCKED on D-PERSONA-5 (ractor outer-swarm).
+4. D-ATOM-1 `I4x32` axis type — `SplitPoles::axis` uses `u8` placeholder; BLOCKED on atom basis (D-ATOM-0).
+5. Revision tombstone Lance link — BLOCKED on D-ATOM-5 (AriGraph hot→calcify).
+
+**Scaffold covers:** `SPAWN_DISSONANCE_THRESHOLD`, `SplitPoles`, `deposit_counterfactual` (v2), `EpisodicEdge` trait, `CounterfactualMailbox` + `new`/`poll`/`cancel` (v3), `FreeEnergyComparison`, `revise_if_minority_wins` (v3), `AwarenessRevise` placeholder trait, `should_spawn_mailbox` spawn gate, `CounterfactualError`, `RevisionOutcome`.
+
+**Tests:** none (scaffold only). **Commit:** none (scaffold only — main thread wires `mod counterfactual;`).
+
+---
+
+## [Agent-B / Sonnet] [SCAFFOLD ONLY — no implementation, no commit] D-ATOM-5 — witness_tombstone.rs memory lifecycle scaffold
+
+**D-id:** D-ATOM-5 (`atom-mailbox-substrate-v1` pillar 6 — AriGraph hot/cold/tombstone; basis-INDEPENDENT).
+
+**File:** `crates/lance-graph/src/graph/witness_tombstone.rs` — ONE new file, doc-comment scaffold only (`///` rustdoc + `todo!()` bodies). No existing file was edited (mod.rs and all other files untouched per constraint). No `cargo` run. No commit.
+
+**What the scaffold contains:**
+- `HotWitness` — ephemeral in-mailbox episodic working record; `///` explicitly cites E-BATON-1 (NOT a persisted singleton, never crosses mailbox boundaries).
+- `calcify(hot: &HotWitness) -> SpoRecord` — hardens a stabilised fact into the cold SPO ontology; `todo!()` body; return type references `crates/lance-graph/src/graph/spo/builder::SpoRecord` (confirmed in source).
+- `Tombstone` — cold episodic provenance written to Lance at mailbox-death; compressed payload field; `from_hot` + `persist` methods (`todo!()`); `///` notes GoBD-audit-by-construction (E-FIBU-GOBD-BY-CONSTRUCTION, append-only Lance = audit trail).
+- `WitnessLink` — back-pointer `(spo_key, mailbox_id, tombstone_lance_version)` enforcing link integrity; `new` constructor (non-`todo!()` — trivially derived from inputs); `verify` async method (`todo!()`).
+
+**BLOCKED list (do NOT guess):**
+1. Exact SPO quad constructor — `SpoRecord` + `SpoBuilder::build_edge` confirmed in `graph/spo/builder.rs` but `TruthValue` constructor + `Fingerprint` reconstruction from u64 keys unconfirmed.
+2. Lance versioned-store write API — `WriteMode::Append` availability in lance 4.0.0 unconfirmed; tombstone Arrow schema and dataset path convention not yet defined.
+3. WitnessCorpus ingestion API — `WitnessCorpus` (D-CSV-6, confirmed at `graph/arigraph/witness_corpus.rs`) holds observation provenance, not tombstone provenance; whether tombstones feed INTO it or a separate dataset is unresolved.
+4. Scent/Base17 compression entry point — `Base17` confirmed via `ndarray::hpc::bgz17_bridge::Base17` (`neuron.rs`); Scent (1-byte, `bgz17` crate) is in workspace `exclude` — dep addition required before wiring.
+
+---
+
+## [Agent-C / Sonnet] [SCAFFOLD ONLY — no implementation, no commit] D-ATOM-3 — quorum.rs per-axis quorum projection scaffold
+
+**D-id:** D-ATOM-3 (`atom-mailbox-substrate-v1` pillar 3 — quorum projection per axis).
+
+**File:** `crates/lance-graph-contract/src/quorum.rs` — ONE new file, doc-comment scaffold only (`///` rustdoc + `todo!()` bodies). No existing file was edited (lib.rs and escalation.rs untouched per constraint). No `cargo` run. No commit.
+
+**What the scaffold contains:**
+- `AxisProjection { position: i8, confidence: f32, contested: bool }` — NARS truth per axis (frequency ≈ position-normalised, confidence ≈ quorum strength); constructor helpers `settled` / `contested`; `is_contested()`, `nars_frequency()`.
+- `AxisSignal` — raw per-axis scalar inputs (trust/humility/flow/load + polarity_hint) fed to `InnerCouncil::from_signals`.
+- `quorum_project(signals: &[AxisSignal], council: &InnerCouncil) -> AxisProjection` — `todo!()` body; mechanism fully `///`-documented: aggregate InnerCouncil verdicts, derive I4 position from polarity hints, mark contested on any split.
+- `quorum_project_blackboard(_bb: &Blackboard) -> AxisProjection` — wide-quorum path; fully `BLOCKED`.
+- `ContestHandler { DropMinority | DepositMantissa | SpawnCounterfactual }` — v1/v2/v3 staging seam to D-ATOM-4; `resolve_contest(projection, handler) -> (AxisProjection, i8)` — `todo!()`.
+- 6 scaffold tests (4 non-panicking on `AxisProjection` constructors; 2 `#[should_panic(expected = "D-ATOM-3")]` for the two `todo!()` functions).
+
+**BLOCKED list:**
+- `// BLOCKED: D-ATOM-1 (parallel)` — `atoms::AxisId` / `I4x32` type + 32-dim bipolar catalogue not yet defined; all axis-identity references are `u8` placeholders.
+- `// BLOCKED: a2a_blackboard::Blackboard per-axis slice semantics` — the exact contract for which `BlackboardEntry` fields carry a per-axis vote vs per-round result, and how `Blackboard::next_round` interacts with per-axis slicing, is unclear from the source. Wide-quorum path deferred.
+
+**Tiering non-decision documented:** module doc explicitly records that E-LADDER-SERVES-MAILBOX §5 chose counterfactual-fork (D-ATOM-4) OVER quorum-tiering; this module exposes the projection + contested flag and hands off to D-ATOM-4 via `ContestHandler`.
+
+**References used:** `contract::escalation::{InnerCouncil, is_split, CouncilVerdict}` (D-PERSONA-1, shipped); `contract::a2a_blackboard::{Blackboard, BlackboardEntry}` (`support[u16;4]` + `dissonance` fields confirmed in source).
+
+---
+
+## [D-ATOM-2] [SCAFFOLD ONLY — no impl, no commit, no cargo] recipe.rs — composition layer above atoms
+
+**D-id:** D-ATOM-2 (`atom-mailbox-substrate-v1.md` deliverable table).
+**File:** `crates/lance-graph-contract/src/recipe.rs` (new, scaffold only).
+**Worker:** Sonnet scaffold agent (2026-05-27).
+
+**What was scaffolded:** `StyleRecipe` (I4-32D composition over atoms; `///` explicitly states styles are compositions, not atomic fingerprints) · `PersonaRecipe` (composition of styles + `commit_threshold`/`escalate_threshold` + `purpose` + `Beta` enum with `Cold`/`Warm`/`Annealing{start,floor}`) · `RecipeTemplate` (Cranelift/JIT hook; `///` explains WHY the recipe — not the per-atom dot — is the JIT target: a 32-D i4 dot is one SIMD sequence, overhead only amortises at the fused-recipe level; `todo!()` bodies throughout) · `register_recipe(...)` / hot-load entry (Elixir-style open/closed split; add-atom = data, add-style/persona = template; `todo!()`).
+
+**BLOCKED list (do NOT guess):**
+1. `atoms::I4x32` / `atoms::Atom` — concrete I4-32D type and atom catalogue — BLOCKED on D-ATOM-1 (being scaffolded in parallel). Stubbed as `I4x32Stub = [i8; 32]` and `AtomStub = u8`; replace with real imports once D-ATOM-1 lands.
+2. `jit::StyleRegistry` API extension — `StyleRegistry::get_kernel` currently accepts `ThinkingStyle` enum, not a `RecipeTemplate`. A `register_recipe` / `get_recipe_kernel` surface must be added before `RecipeTemplate::compile` and `register_recipe` can be wired. BLOCKED on that extension; all affected bodies are `todo!()`.
+
+**Constraints satisfied:** zero-dep crate; no edits to `lib.rs`, `thinking.rs`, or `jit.rs`; scaffold only (all bodies `todo!()`); `// BLOCKED:` markers placed.
+
+---
+
+## [Main-thread] [DONE — green] the 34 tactics as 34 working Rust kernels (Elixir-like behaviour)
+
+`crates/lance-graph-contract/src/recipe_kernels.rs` (new, wired in lib.rs). One uniform
+behaviour `trait Tactic { meta(); gate(); apply(); run() }` + **34 unit-struct
+implementations** (Rte..Hkf), each performing its characteristic op on a shared
+`ThoughtCtx` (sd/free_energy/dissonance/temperature/confidence/rung/candidates/beliefs)
+using OUR markers — CollapseGate SD thresholds (FLOW<0.15/BLOCK>0.35), Berry-Esseen noise
+floor, NARS-style contradiction, XOR self-inverse for ABBA/fusion/counterfactual. Implicit
+gating: Gate-bucket recipes skip in FLOW. Registry `kernel(id)` / `all_kernels()`. **5 tests
+green** (all 34 dispatch+run without panic & confidence stays in range; TCP prunes; CR drops
+coherence on same-topic contradiction; ICR builds the XOR counterfactual; Gate recipes skip
+in FLOW). No warnings. 446 prior contract tests unaffected. Charter D4 step 1 of "per-recipe
+evaluators" — these are deterministic kernels over a lightweight ctx; richer fingerprint
+substrate slots behind the same trait later.
+
+---
+
+## [Main-thread] [DONE — green] ada-rewrite charter + the 34-tactic recipe catalogue (working code)
+
+**Decision (charter D0):** ladybug-rs has NO relation, never will — it's the failed "empty cathedral." We rewrite on our substrate; ladybug/ada-consciousness/neo4j-rs docs are spec-references only, never deps/ports. `.claude/knowledge/ada-rewrite-charter.md` is the once-and-for-all settled-decision record (substrate, SPOQ lattice, hardware partition, 34-as-recipe-targets, build order).
+
+**Code:** `crates/lance-graph-contract/src/recipes.rs` (new, wired in lib.rs) — the **34 reasoning-tactic recipes as a working catalogue**: `Recipe {id, code, name, Tier, Mechanism, Bucket, Coverage(spo2cubed), substrate}` + `RECIPES: [Recipe;34]` + `recipe()/recipe_by_code()/by_mechanism()/causal()`. Each tagged with the OUR-substrate primitive that realizes it (composes our pieces, never ladybug). **4 tests green** (complete 34 / ids unique, lookups, only RCR+ICR are 2³-Covered, mechanism tally 6/6/8/14). 442 existing contract tests unaffected.
+
+**Next (charter D4):** per-recipe evaluators tier-by-tier (Hard-tier truth/parallel first — substrate most built), then shader-driver carrier wiring for the datapath recipes.
+
+---
+
+## [Inventory-Opus] [DONE — writes were permission-blocked; persisted by main thread] SPO-2³ workspace list inventory
+
+Catalogued **31 enumerated cognitive lists** across contract / planner / cognitive-shader-driver / thinking-engine / holograph + 3 markdown taxonomies. **2³ tally: Covered 4 / Partial 6 / Not 21** (confirms 2³ = the causal spine only — CausalMask / nars_engine masks / PearlLevel / CANONICAL_ATOMS Pearl lanes are the lattice; everything style/qualia/rung/layer/ghost/MUL is orthogonal). Gaps (reference tactics with no enumerated lance-graph home): #18 CWS, #14 M-CoT, #29/#32 intent, #16/#23/#33 meta-prompting, #12 TCA, #22/#19 dynamic-decompose, #5/#20 pruning — but ladybug-rs implements all 34 upstream. Result persisted into `.claude/knowledge/spo-2cubed-list-coverage.md`. No code edited.
+
+---
+
+## [Main-thread] [DESIGN — captured, not implemented] E-LADDER-SERVES-MAILBOX — atom/quorum/mantissa/AriGraph-hot-cold synthesis
+
+**What:** Captured a multi-turn design dialogue as `EPIPHANIES.md` E-LADDER-SERVES-MAILBOX (2026-05-27). No code; design crystallization only. Branch `claude/splat3d-cpu-simd-renderer-MAOO0`.
+
+**Six pieces:** (§1) the escalation ladder serves the **mailbox**, not the persona — persona is a Layer-2 dispatch policy per I-VSA-IDENTITIES, not a container; business/chat/OSINT = three β-policies over one substrate. (§2) 3-layer **atoms → thinking styles → persona recipes**: the 36 `contract::thinking` styles demote to **atoms** (I4-32D, 32 bipolar dims / 64 poles); styles+personas are compositions; Cranelift templates compile the *recipe*, not the atom-dot. (§3) the **quorum crux**: a dichotomy needs a quorum to project; each atom = `(I4 position, quorum-confidence)` = NARS truth per axis; splits held as Contradiction, never averaged. (§4) **wisdom↔Staunen = temperature** (self-regulated by free energy; explains the D-PERSONA-1 `WisdomMarker` 0.1 floor = min temperature). (§5) split-resolution = **counterfactual mantissa** (`CausalEdge64` −6 nibble), staged v1/v2/v3, ghost-tier test + `awareness.revise` reopen. (§6) **AriGraph hot/cold/tombstone**: ephemeral-hot in mailbox → calcify to cold SPO → tombstone-witness in versioned Lance (= GoBD audit by construction).
+
+**Honesty flags in the entry:** marked CONJECTURE/design (anchored to 4 FINDING-grade iron rules); the atom-basis derivation is the OPEN load-bearing step; NARS *type* selectors flagged as belonging in a register (Test 0), not as bipolar atoms; `WitnessCorpus` + `SigmaTierRouter` Σ-tier D-ids cited from dialogue are marked **to-verify** against the board (NOT asserted as fact).
+
+**Explicitly NOT done (pending greenlight):** D-ATOM-1..5 not queued in STATUS_BOARD (design, not deliverables yet); substrate-Markov re-scope deferred behind the [FORMAL-SCAFFOLD] dependency check; `rung-persona-orchestration-v1` → mailbox-centric rename awaits explicit go (touches D-ids). Three corrections to my own prior turns are recorded in-thread: conflated VSA-substrate Markov with episodic Markov; mis-sized MUL trust/DK as two axes (it's one); initially read the "36" as styles (it's atoms).
+
+**Tests:** none (no code). **Commit:** this entry + EPIPHANIES prepend.
+
+---
+
+## [Main-thread] [IN PROGRESS] D-PERSONA-1 — escalation+epiphany loop = the boot checklist
+
+**D-id:** D-PERSONA-1 (`rung-persona-orchestration-v1` §2 + §7). Restore-on-SoA of ladybug's qualia loop (collapse-hint + InnerCouncil/HdrResonance split + EpiphanyDetector + ghost residue) onto our contract types — NOT a bespoke verifier. Branch `claude/splat3d-cpu-simd-renderer-MAOO0`.
+
+**Worker:** main thread (Opus). No subagents spawned — single-module accumulation, kept on the main thread.
+
+**Files added:**
+- `crates/lance-graph-contract/src/escalation.rs` (zero-dep machinery): `CollapseHint` {Flow/Fanout/RungElevate} + `fanout_width`/`noise_tolerance`/`rung_delta` (ladybug `detector.rs` formulas); `Archetype` + `InnerCouncil::{deliberate, from_signals}` + `is_split(0.7,0.5)` ×1.2 split-amplify → `CouncilVerdict`; `EpiphanyDetector` (sim > baseline×1.5 ∧ window ≥ 4) → `Epiphany`; `GhostEcho` (8 named) + `WisdomMarker` (asymptotic decay → 0.1 floor); `Checklist`/`ChecklistItem` (HARD/SOFT, green-flip, `mark_red` let-it-crash). Registered in `lib.rs`.
+- `crates/lance-graph-planner/src/mul/escalation.rs` (wiring): `boot_checklist()` (§2: 6 HARD / 3 SOFT) + `verdict_from(&MulAssessment)` adapter. Registered in `mul/mod.rs`.
+
+**Reused, not reinvented (consult-before-guess):** the §1 click already lives in `contract::grammar::free_energy` (`FreeEnergy::compose`, `Resolution::{Commit,Epiphany,FailureTicket}`, homeostasis/epiphany/failure thresholds); the MUL types in `contract::mul` (TrustTexture/DkPosition/FlowState/GateDecision + i4 SIMD eval). D-PERSONA-1 adds only the per-item escalation loop on top.
+
+**Tests:** 13 green (10 contract `escalation::`, 3 planner `mul::escalation::`). Only pre-existing `nars_engine.rs` deprecation warnings, unrelated.
+
+**Board hygiene (same change):** STATUS_BOARD `rung-persona-orchestration-v1` section added (D-PERSONA-1 In progress, D-PERSONA-2..6 Queued); LATEST_STATE contract inventory `escalation` entry; TECH_DEBT TD-GHOST-ECHO-DUP-1 (GhostEcho vs thinking-engine GhostType — zero-dep forces the dup; reconcile when thinking-engine joins the workspace).
+
+**Pending:** D-PERSONA-2 (meta-recipe manifest) consumes `Checklist::all_flow` as the compose gate; D-PERSONA-3 cold-path promotes repeated `GhostEcho::Epiphany` → `Wisdom` (`WisdomMarker::promote_to_wisdom`).
+
+---
+
+## [Fleet surreal-poc Wave-A] [WIP — drafts un-reviewed] SurrealDB-on-Lance container POC, tasks 01+02
+
+**D-id:** surreal-01 (deps_substrate, lance-graph) + surreal-02 (soa_container_type, ndarray). Wave A of the 12-task `.claude/surreal/` POC — disjoint-file-scoped Sonnet agents, edit-only, shared checkout.
+
+**Workers:** 2× Sonnet (background, edit-only). Both behaved correctly under the anti-hallucination guards: task 01 left 4 `// BLOCKED:` markers instead of inventing versions/APIs; task 02 left 3 BLOCKERs (bytemuck / odd-N pad / naming).
+
+**Files (WIP, NOT yet compiled by Opus):**
+- ndarray `src/hpc/soa.rs` — `SoaContainerHeader<N>` LE `#[repr(C)]` draft (committed `547824bc` on ndarray branch).
+- lance-graph `crates/surreal_container/` scaffold + `Cargo.toml` member.
+
+**Resolved by Opus:** the lance-version "conflict" was a false alarm — workspace is canonically on **lance 4.0.0 / lancedb 0.27.2 / datafusion 52 / arrow 57 / rust 1.95** (CLAUDE.md "lance = 2" line is stale; `crates/lance-graph/Cargo.toml:36` + workspace `Cargo.toml:50-54` confirm 4.0.0, Lance-6 = future). Task-01 unblock = `surrealdb-core` git dep (`AdaWorldAPI/surrealdb`, feature `kv-lance`) + embedded `Datastore::builder().build_with_path("lance://..")` (verified from the fork's integration_tests).
+
+**Pending:** Opus review/correct/compile of both drafts → pin `SoaContainer` interface before fanning out Wave B (03/07/10) → savant meta-review (`simd-savant` + PP-13/15/16) → PR.
+
+---
+
 ## [Fleet sprint-13-w-i1-salvage] [IN PR] D-CSV-13b i4 batch SIMD dispatch (branch claude/sprint-13-w-i1-salvage)
 
 **D-id:** D-CSV-13b — SIMD vectorization of i4 MUL evaluation. AVX-512F+BW path (8 elements/iter), NEON path (2 elements/iter), scalar fallback. Runtime dispatch via cached `simd_caps()` (`AtomicU8`); zero ndarray dep preserves contract-crate zero-dep posture.
