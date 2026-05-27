@@ -11,6 +11,20 @@
 - **Persona** = `PersonaSignature { atom_bitset: u32, palette_weight, template_id }` + YAML runbook.
 - **Business / FIBU** = sidecar in the **style/persona palette** (Layer 1/3), NOT an atom dim.
 
+## These are ORTHOGONAL axes, not NARS
+
+The 32 atoms are **orthogonal cognitive dimensions** — mutually independent axes, which is exactly what I-VSA-IDENTITIES **Test 2 (role orthogonality)** requires for clean unbind. **They are NOT "NARS dims."** NARS (inference) is just *one small family* among several orthogonal families:
+
+- **inference (NARS):** deduction, induction, abduction
+- **conative:** volition↔aversion, intention, belief
+- **affective / relational:** empathy↔detachment, perspective
+- **structural ops:** synthesis↔decomposition, compression↔expansion, retrieval, clarification, comparison, classification, quantification, negation
+- **truth-maintenance:** confidence↔uncertainty, contradiction↔coherence, revision, hypothesis
+- **causal / modal:** causal, counterfactual↔factual, temporal, spatial, modal, deontic
+- **representational:** analogy, metaphor, narrative
+
+This **supersedes the earlier "24 NARS dims" budget line** — the atoms are orthogonal operations across families; NARS-inference is ~3 of 32, not 24.
+
 ## The 32 atoms + dichotomy classification
 
 The user's rule: *atoms whose opposite is already among the 32 form a signed bipolar dim; atoms whose opposite is NOT listed get the true opposite evaluated for value — if valuable it materializes the − pole, else the atom is unipolar (intensity 0–15, opposite pole spare).*
