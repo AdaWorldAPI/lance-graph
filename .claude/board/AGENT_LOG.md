@@ -1,3 +1,23 @@
+## [Main-thread] [IN PROGRESS] D-PERSONA-1 — escalation+epiphany loop = the boot checklist
+
+**D-id:** D-PERSONA-1 (`rung-persona-orchestration-v1` §2 + §7). Restore-on-SoA of ladybug's qualia loop (collapse-hint + InnerCouncil/HdrResonance split + EpiphanyDetector + ghost residue) onto our contract types — NOT a bespoke verifier. Branch `claude/splat3d-cpu-simd-renderer-MAOO0`.
+
+**Worker:** main thread (Opus). No subagents spawned — single-module accumulation, kept on the main thread.
+
+**Files added:**
+- `crates/lance-graph-contract/src/escalation.rs` (zero-dep machinery): `CollapseHint` {Flow/Fanout/RungElevate} + `fanout_width`/`noise_tolerance`/`rung_delta` (ladybug `detector.rs` formulas); `Archetype` + `InnerCouncil::{deliberate, from_signals}` + `is_split(0.7,0.5)` ×1.2 split-amplify → `CouncilVerdict`; `EpiphanyDetector` (sim > baseline×1.5 ∧ window ≥ 4) → `Epiphany`; `GhostEcho` (8 named) + `WisdomMarker` (asymptotic decay → 0.1 floor); `Checklist`/`ChecklistItem` (HARD/SOFT, green-flip, `mark_red` let-it-crash). Registered in `lib.rs`.
+- `crates/lance-graph-planner/src/mul/escalation.rs` (wiring): `boot_checklist()` (§2: 6 HARD / 3 SOFT) + `verdict_from(&MulAssessment)` adapter. Registered in `mul/mod.rs`.
+
+**Reused, not reinvented (consult-before-guess):** the §1 click already lives in `contract::grammar::free_energy` (`FreeEnergy::compose`, `Resolution::{Commit,Epiphany,FailureTicket}`, homeostasis/epiphany/failure thresholds); the MUL types in `contract::mul` (TrustTexture/DkPosition/FlowState/GateDecision + i4 SIMD eval). D-PERSONA-1 adds only the per-item escalation loop on top.
+
+**Tests:** 13 green (10 contract `escalation::`, 3 planner `mul::escalation::`). Only pre-existing `nars_engine.rs` deprecation warnings, unrelated.
+
+**Board hygiene (same change):** STATUS_BOARD `rung-persona-orchestration-v1` section added (D-PERSONA-1 In progress, D-PERSONA-2..6 Queued); LATEST_STATE contract inventory `escalation` entry; TECH_DEBT TD-GHOST-ECHO-DUP-1 (GhostEcho vs thinking-engine GhostType — zero-dep forces the dup; reconcile when thinking-engine joins the workspace).
+
+**Pending:** D-PERSONA-2 (meta-recipe manifest) consumes `Checklist::all_flow` as the compose gate; D-PERSONA-3 cold-path promotes repeated `GhostEcho::Epiphany` → `Wisdom` (`WisdomMarker::promote_to_wisdom`).
+
+---
+
 ## [Fleet surreal-poc Wave-A] [WIP — drafts un-reviewed] SurrealDB-on-Lance container POC, tasks 01+02
 
 **D-id:** surreal-01 (deps_substrate, lance-graph) + surreal-02 (soa_container_type, ndarray). Wave A of the 12-task `.claude/surreal/` POC — disjoint-file-scoped Sonnet agents, edit-only, shared checkout.

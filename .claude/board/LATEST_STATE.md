@@ -57,6 +57,8 @@ Types that EXIST — do NOT re-propose them:
 
 Full reference: `.claude/knowledge/causal-edge-64-spo-variant.md` + `.claude/knowledge/causal-edge-64-thinking-engine-variant.md` + `.claude/knowledge/causal-edge-64-synergies-and-pr-trajectory.md`. Reunification path (Option R-3): transcode 8-channel → SPO at thinking-engine L3 commit boundary; see `.claude/knowledge/cognitive-shader-driver-thinking-engine-reunification.md`.
 
+**`escalation`** (D-PERSONA-1, 2026-05-26, branch `claude/splat3d-cpu-simd-renderer-MAOO0`): the escalation+epiphany loop = the boot checklist (a *restore* of ladybug's qualia loop on our SoA — NOT a bespoke verifier). `CollapseHint` {Flow, Fanout, RungElevate} + `fanout_width` / `noise_tolerance` / `rung_delta` (ladybug `detector.rs` formulas); `Archetype` {Guardian, Catalyst, Balanced} + `InnerCouncil::{deliberate, from_signals}` + `is_split(0.7,0.5)` ×1.2 split-amplify → `CouncilVerdict`; `EpiphanyDetector::observe` (sim > baseline×1.5 ∧ window ≥ 4) → `Epiphany`; `GhostEcho` (8 named: Affinity/Epiphany/Somatic/Staunen/Wisdom/Thought/Grief/Boundary — canonical zero-dep home, mirrors `thinking_engine::ghosts::GhostType`, see TD-GHOST-ECHO-DUP-1) + `WisdomMarker` (asymptotic decay → 0.1 floor, never zero); `GateKind` {Hard, Soft} + `ChecklistItem` + `Checklist::{step, mark_red, boot_ready, all_flow, degraded}` (green-flip = Flow + epiphany; let-it-crash = `mark_red` re-escalate). Planner wiring at `lance_graph_planner::mul::escalation::{boot_checklist, verdict_from}` (§2: 6 HARD / 3 SOFT items + a `MulAssessment` → `CouncilVerdict` adapter). 13 tests (10 contract + 3 planner).
+
 ## cognitive-shader-driver Wire Surface (lab-only, post D0.1)
 
 Types live in `crates/cognitive-shader-driver/src/wire.rs` behind `--features serve`:
