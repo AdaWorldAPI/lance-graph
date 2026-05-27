@@ -15,7 +15,7 @@ The escalation ladder serves the **mailbox**, not the persona. Under it sits a t
 ## Scope (six pillars — see the epiphany for the full derivation)
 
 1. **Ladder→mailbox reframe.** Persona = Layer-2 dispatch policy (β + fan-out pattern), not a container. The D-PERSONA-1 types are already mailbox-shaped; this is a reframe, not a rebuild.
-2. **3-layer basis.** 36 `contract::thinking` styles demote to **atoms** (I4-32D, 32 bipolar dims / 64 poles); styles + personas become compositions; Cranelift templates compile the *recipe*, not the per-atom dot.
+2. **3-layer basis.** **atom** = one lane of the **LOCKED 33-dim TSV** (E-AGICHAT-DIMENSION-CONTRACT; 3 Pearl + 9 Rung + 5 Σ + 8 Ops + 4 Presence + 4 Meta) — bare-metal, not human-legible; **style** = one i4 vector over the atoms (the molecule); **persona** = composition of styles + thresholds. Cranelift templates compile the *recipe* (the object), not the atom lanes. Atoms dispatch through `cognitive-shader-driver` (which owns SIMD) — **no SIMD in the atom layer**. Business is an OGIT-inherited sidecar, not an atom.
 3. **Quorum projection.** A dichotomy needs a quorum to place a measurement between its poles; each atom value = `(I4 position, quorum-confidence)` = NARS truth per axis. Splits are Contradictions, never averaged.
 4. **Temperature axis.** wisdom↔Staunen = sampling temperature, self-regulated by free energy; the `WisdomMarker` 0.1 floor = minimum temperature (φ-1 humility). Distinct from plasticity (update-rate).
 5. **Counterfactual mantissa.** On `is_split`: commit the majority pole, fork the minority into a counterfactual mailbox retained as a `CausalEdge64` −6 nibble; ghost-tier test on β headroom; minority win → `awareness.revise`.
@@ -23,10 +23,10 @@ The escalation ladder serves the **mailbox**, not the persona. Under it sits a t
 
 ---
 
-## Decision gates (BLOCK downstream scaffolding — owner: user + `truth-architect`)
+## Decision gates
 
-- **D-ATOM-0 — the atom basis.** *What ARE the 32 bipolar dimensions?* Three routes: **(a)** ICA/PCA over the existing 36 style vectors (empirical, may be non-interpretable); **(b)** theory-driven from the 6 existing `contract::thinking` clusters (interpretable, asserted); **(c)** hybrid (seed from 6 clusters, refine against 36 for orthogonality). **Nothing in D-ATOM-1/2 can be scaffolded with real semantics until this is chosen.** Output: a named 32-dim catalogue with disjoint bipolar pole assignments.
-- **D-ATOM-0b — NARS placement.** Are `InferenceType(5)`/`QueryStrategy(5)`/`SemiringChoice(5)`/Pearl-2³ **categorical selectors in a register** (Test 0 — recommended) or **bipolar atoms**? This decides whether ~24 dims free up for continuous qualia/business atoms. Recommendation in the epiphany: register, not atoms; NARS *truth* (freq, conf) stays continuous.
+- **D-ATOM-0 — the atom basis. ✅ RESOLVED — the basis is LOCKED, not derived.** It is agichat's 33-dim TSV (`E-AGICHAT-DIMENSION-CONTRACT` / `CANONICAL_DIMENSION_ALLOCATION.md`): **3 Pearl + 9 Rung + 5 Σ + 8 Operations + 4 Presence + 4 Meta** = 33, restored on the shipped i4-32 floor. No ICA/PCA, no "demote the 36 styles" (the 36 `ThinkingStyle` ids are *styles* — vectors over the atoms — not the atoms). Catalogue committed in `contract::atoms::CANONICAL_ATOMS` + `.claude/knowledge/atom-basis-inventory.md`. Earlier "ICA/PCA over 36" framing was wrong and is retracted.
+- **Remaining sub-gates (layout, not basis):** (i) 32-vs-33 carrier reconciliation (i4-32 floor holds 32 lanes; TSV is 32+1); (ii) "8 spare" (STYLE_ENCODING) vs "4 Presence + 4 Meta" (contract body); (iii) per-group i4 sign/scale (ordinal ladders = magnitude, the few ± lanes signed). NARS is **not** ~24 atom dims — NARS-inference is 3 of the 8 Operations; the rest of the families are orthogonal (supersedes the old "24 NARS" budget line).
 
 ---
 
@@ -34,13 +34,13 @@ The escalation ladder serves the **mailbox**, not the persona. Under it sits a t
 
 | D-id | Scope | Crate / files | Depends on | Basis-dependent? |
 |---|---|---|---|---|
-| **D-ATOM-1** | atom catalogue + `I4x32` type + pack/unpack/SIMD dot | `contract::atoms` (new) | D-ATOM-0 | **YES (blocked)** |
+| **D-ATOM-1** | LOCKED 33-TSV catalogue + `I4x32` bare-metal carrier (pack/unpack only; **no SIMD** — dispatch via `cognitive-shader-driver`) | `contract::atoms` (scaffolded ✓) | D-ATOM-0 ✅ | unblocked |
 | **D-ATOM-2** | style/persona = I4-32D compositions; Cranelift recipe templates | `contract::jit` (`StyleRegistry`), `contract::thinking` (back enum with composition) | D-ATOM-1 | YES |
 | **D-ATOM-3** | quorum-projection `(position, confidence)` per axis | `contract::escalation` (`InnerCouncil`→per-axis), `contract::a2a_blackboard` | D-ATOM-1 (axis shape); mechanism semi-independent | partial |
 | **D-ATOM-4** | counterfactual mantissa: **v2** deposit `−6` on split, **v3** mailbox + `awareness.revise` | `contract::escalation`, `CausalEdge64` mantissa path | `is_split` (shipped) + mantissa (shipped) | **NO** |
 | **D-ATOM-5** | AriGraph hot→calcify→Lance tombstone-witness + link integrity | `lance-graph` core (AriGraph), Lance versioned store | — | **NO** |
 
-**Critical path:** D-ATOM-0 → D-ATOM-1 → D-ATOM-2. **Parallel-now (basis-independent):** D-ATOM-4 v2 and D-ATOM-5 can scaffold + build immediately, while D-ATOM-0 is decided. D-ATOM-3 can scaffold the trait surface now, fill axis wiring after D-ATOM-1. D-ATOM-4 v3 needs the ractor outer-swarm from `rung-persona` D-PERSONA-5.
+**Critical path:** D-ATOM-0 ✅ (locked TSV) → D-ATOM-1 (catalogue done; pack/unpack + carrier wiring remain) → D-ATOM-2 (the OO layer — the part that matters). D-ATOM-4 v2 and D-ATOM-5 are basis-independent. D-ATOM-4 v3 needs the ractor outer-swarm from `rung-persona` D-PERSONA-5. **SIMD is the `cognitive-shader-driver`'s, never the atom layer's.**
 
 ---
 
@@ -51,7 +51,7 @@ One **Sonnet** agent per deliverable, **disjoint file scopes**, **edit/write onl
 - **Agent-A → D-ATOM-4 v2** (basis-independent, smallest, safest first slice).
 - **Agent-B → D-ATOM-5** (basis-independent).
 - **Agent-C → D-ATOM-3 trait surface** (mechanism only; axis wiring `BLOCKED` on D-ATOM-1).
-- (Agent-D → D-ATOM-1, Agent-E → D-ATOM-2 spawn **only after D-ATOM-0 is decided**.)
+- D-ATOM-1 catalogue is done (locked TSV); next is the `cognitive-shader-driver` carrier wiring + pack/unpack. **D-ATOM-2 (the OO style/persona object layer) is the deliverable that matters** — that *is* the metacognition; D-ATOM-1 just has to be bare-metal-correct and out of the way.
 
 ## Execution loop (per deliverable — "scaffold → review → implement → PR → green → merge → repeat")
 
