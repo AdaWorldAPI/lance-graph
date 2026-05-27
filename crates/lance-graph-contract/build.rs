@@ -61,6 +61,14 @@ const CANONICAL_SLOTS: &[(&str, u32)] = &[
     // slot rather than the canonical SKR03_V1 slot so mixed consumers
     // can hold both account sets in one OntologyRegistry.
     ("SKR03BAU", 42),
+    // L1 odoo extraction source (four-way alignment seam). Odoo-extracted
+    // business models (res.partner, account.move, product.template, …) as
+    // OWL classes interned via OwlHydrator. Declares `inherits_from: fibofnd`
+    // and reaches the financial ontology via the `owl:equivalentClass`
+    // alignment axioms in data/ontologies/odoo/alignment/ (Seam decision 1 /
+    // Option B: odoo inherits existing FIBO/SKR slots, it does NOT get its
+    // own CAM codebook family).
+    ("ODOO", 50),
 ];
 
 fn canonical_slot(token: &str) -> Option<u32> {

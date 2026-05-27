@@ -1,0 +1,98 @@
+# Odoo core business-model ontology — Layer-1 extraction seed.
+#
+# The four-way alignment seam (woa-rs/.claude/reference/four_way_alignment_seam.md)
+# declares odoo-extracted business models as OWL classes in the `odoo:`
+# namespace. This is the hand-authored seed of the worked-example core classes;
+# the full surface is produced by the Rust odoo extractor (Python AST → TTL,
+# per odoo_work_steal_distillation §"Extraction methodology").
+#
+# Naming convention: `odoo:res.partner`, `odoo:account.move`, etc. — the odoo
+# model name verbatim. Faceted classes (`odoo:res.partner.Company`) carry the
+# `owl:equivalentClass` alignment in alignment/odoo-to-fibo.ttl.
+#
+# DOLCE category is NOT declared inline here — it is computed by the suffix
+# classifier (hydrators/dolce_odoo.rs, Seam decision 2). CAM codebook placement
+# is NOT declared either — odoo inherits existing FIBO/SKR slots via the
+# alignment axioms (Seam decision 1 / Option B).
+
+@prefix odoo: <https://ada.world/onto/odoo#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+# ── res.partner family ──────────────────────────────────────────────────────
+# The partner master record and its company / individual facets. The two
+# facets are subclasses of res.partner discriminated (in odoo) by the
+# `is_company` boolean; the alignment axioms map them onto fibo:LegalEntity
+# and vcard:Individual respectively.
+
+odoo:res.partner a owl:Class ;
+    rdfs:label "Contact"@en .
+
+odoo:res.partner.Company a owl:Class ;
+    rdfs:label "Company"@en ;
+    rdfs:subClassOf odoo:res.partner .
+
+odoo:res.partner.Individual a owl:Class ;
+    rdfs:label "Individual"@en ;
+    rdfs:subClassOf odoo:res.partner .
+
+# ── account.move family (the dual-nature journal-entry / invoice document) ───
+# account.move is BOTH a journal entry AND an invoice depending on `move_type`
+# (Seam Open-question 5). The two projections are carried as alignment axioms,
+# not as inline subclasses, mirroring the res.partner facet split.
+
+odoo:account.move a owl:Class ;
+    rdfs:label "Journal Entry"@en .
+
+odoo:account.move.line a owl:Class ;
+    rdfs:label "Journal Item"@en ;
+    rdfs:subClassOf odoo:account.move .
+
+odoo:account.account a owl:Class ;
+    rdfs:label "Account"@en .
+
+odoo:account.tax a owl:Class ;
+    rdfs:label "Tax"@en .
+
+odoo:account.journal a owl:Class ;
+    rdfs:label "Journal"@en .
+
+# ── product family ───────────────────────────────────────────────────────────
+# product.template is the master product record (despite the `.template`
+# suffix — odoo uses "template" here for the master, not a config template);
+# product.product is the sellable variant. product.category classifies them.
+
+odoo:product.product a owl:Class ;
+    rdfs:label "Product Variant"@en ;
+    rdfs:subClassOf odoo:product.template .
+
+odoo:product.template a owl:Class ;
+    rdfs:label "Product"@en .
+
+odoo:product.category a owl:Class ;
+    rdfs:label "Product Category"@en .
+
+# ── stock family (logistic events) ───────────────────────────────────────────
+
+odoo:stock.move a owl:Class ;
+    rdfs:label "Stock Move"@en .
+
+odoo:stock.picking a owl:Class ;
+    rdfs:label "Transfer"@en .
+
+# ── mail family (communication event + template) ─────────────────────────────
+
+odoo:mail.message a owl:Class ;
+    rdfs:label "Message"@en .
+
+odoo:mail.template a owl:Class ;
+    rdfs:label "Email Template"@en .
+
+# ── hr family ─────────────────────────────────────────────────────────────────
+
+odoo:hr.employee a owl:Class ;
+    rdfs:label "Employee"@en .
+
+odoo:hr.attendance a owl:Class ;
+    rdfs:label "Attendance"@en ;
+    rdfs:subClassOf odoo:hr.employee .
