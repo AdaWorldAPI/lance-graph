@@ -495,6 +495,25 @@ Consolidates sprint-10 architectural decisions before context dilution.
 
 ---
 
+## rung-persona-orchestration-v1 — time-bound persona orchestration (checklist → meta-recipe → hot/cold/feedback anneal)
+
+Active proposal. Authored 2026-05-26. Plan path:
+`.claude/plans/rung-persona-orchestration-v1.md`. Sibling/time-bound
+composition layer over `rung-mul-grounding-v1`. Grounds ladybug's
+hot/cold/feedback loop onto our contract types + SoA floor
+(restore-on-SoA, not port). Epiphany: `E-RIGID-RULES-OPEN-DOORS`.
+
+| D-id | Title | Crate(s) | ~LOC | Risk | Status | PR / Evidence |
+|---|---|---|---|---|---|---|
+| D-PERSONA-1 | escalation+epiphany loop = the checklist (`felt_parse` collapse-hint + `InnerCouncil`/`HdrResonance` split + `EpiphanyDetector`; green-flip = Epiphany/Wisdom ghost) — NOT a bespoke verifier | contract + planner | 160 | LOW | **In progress** | branch `claude/splat3d-cpu-simd-renderer-MAOO0` |
+| D-PERSONA-2 | meta-recipe manifest (declarative child-spec, recipe-as-data, macro-evaluable) | contract | 150 | MED | **Queued** | — |
+| D-PERSONA-3 | hot/cold/feedback wiring — anneal + `CrystalCodebook`→wisdom-marker cold path + Preload hydrate | planner + Lance | 240 | MED | **Queued** | — |
+| D-PERSONA-4 | macro-eval harness (scenario→trace→discover→diagnose; suspect-bridge = blasgraph betweenness; 5 rubrics from D-RUNG-MUL) | planner + Lance | 280 | HIGH | **Queued** | — |
+| D-PERSONA-5 | ractor outer-swarm runtime under `OrchestrationBridge` (batons as messages, async only at boundary) | planner | 200 | MED | **Queued** | — |
+| D-PERSONA-6 | `odoo_scanner` + `OdooBridge` — harvest Odoo `l10n_de` → Finance-ns `MappingProposal`s; bind existing `TaxEngine`; GoBD by construction | ontology + contract + planner | 280 | MED | **Queued** | — |
+
+---
+
 ## Update protocol
 
 When a deliverable ships:

@@ -1,3 +1,115 @@
+## 2026-05-27 — atom-mailbox-substrate-v1 (ladder-serves-mailbox: atoms→styles→personas, quorum projection, counterfactual mantissa, AriGraph hot/cold/tombstone)
+
+**Status:** PROPOSAL (implements `EPIPHANIES.md` E-LADDER-SERVES-MAILBOX; extends `rung-persona-orchestration-v1` D-PERSONA-1 downward into the atom layer and outward into the mailbox lifecycle).
+**Confidence:** HIGH on the mechanism→shipped-type mapping; **CONJECTURE on the atom basis (D-ATOM-0, the load-bearing unsolved decision)** and the I4-32D SIMD layout until probed.
+**Plan file:** `.claude/plans/atom-mailbox-substrate-v1.md`
+**Predecessors:** `rung-persona-orchestration-v1`, `rung-mul-grounding-v1`, `cognitive-substrate-convergence-v1`.
+**Anchored iron rules:** `I-VSA-IDENTITIES`, `E-BATON-1`, `I-LEGACY-API-FEATURE-GATED`, The Click.
+
+### Scope
+Three-layer cognitive basis under the mailbox-served ladder: **atoms (bipolar I4-32D, 32 dims / 64 poles) → thinking styles (compositions) → persona recipes (compositions + thresholds + β)**. Each atom *measured by a quorum* (`(position, confidence)` = NARS truth per axis; splits = Contradiction never averaged); split-poles *preserved as a `CausalEdge64` −6 counterfactual mantissa* (ghost-tier test → `awareness.revise`); memory *ephemeral-hot in mailbox → calcified-cold SPO + Lance tombstone-witness* (GoBD audit by construction). wisdom↔Staunen = sampling temperature (self-regulated by free energy; the `WisdomMarker` 0.1 floor = min temperature).
+
+### Decision gates (block scaffolding)
+D-ATOM-0 atom-basis route (ICA/PCA over 36 / theory-driven from 6 clusters / hybrid) · D-ATOM-0b NARS as categorical register (Test 0, recommended) vs bipolar atoms.
+
+### Deliverables
+D-ATOM-1 atom catalogue + `I4x32` type + pack/SIMD (`contract::atoms`, blocked on D-ATOM-0) · D-ATOM-2 style/persona Cranelift recipe templates (`contract::jit`/`thinking`) · D-ATOM-3 quorum-projection per axis (`contract::escalation`/`a2a_blackboard`) · D-ATOM-4 counterfactual mantissa v2 deposit / v3 mailbox+revision (basis-independent) · D-ATOM-5 AriGraph hot/calcify/tombstone (basis-independent).
+
+### Execution
+Sonnet `///`-scaffold wave (disjoint file scopes, BLOCKED-not-guess) → P2 review (`/code-review` high, ultra for D-ATOM-1/2; no literal codex binary) → implement+remove stubs → per-deliverable PR into the working branch → subscribe+autofix CI → merge → repeat. Parallel-now: D-ATOM-4 v2, D-ATOM-5 (basis-independent); D-ATOM-1/2 spawn after D-ATOM-0.
+
+### Invariants
+persona=Layer-2 (no container) · NARS type in register (Test 0) · markers ≤32 (I-VSA-IDENTITIES) · splits=Contradiction never averaged · counterfactual in separate lane · one graph · no persisted singleton (E-BATON-1) · ractor async only at swarm boundary · bounded respawn · `latency_budget` arbiter, no hot-Pod wall-clock · SIMD gated on `ndarray-vertical-simd-alien-magic.md`.
+
+---
+
+## 2026-05-26 — rung-persona-orchestration-v1 (time-bound persona orchestration: boring checklist → meta-recipe → hot/cold/feedback anneal)
+
+**Status:** PROPOSAL (sibling to `rung-mul-grounding-v1`; the time-bound + composition layer)
+**Confidence:** HIGH on structure (hot/cold/feedback = the original ladybug architecture + OpenAI macro-evals + ADK Memory Bank, converged); MED on ractor adoption + macro-eval harness (net-new).
+**Plan file:** `.claude/plans/rung-persona-orchestration-v1.md`
+**Predecessors:** `rung-mul-grounding-v1` (b4efb55), `rung-ladder-grounding-v1` (b0ef6fa), `cognitive-substrate-convergence-v1`.
+**Design refs (read-only general-web; ladybug-rs is outside GitHub-MCP scope):** ladybug-rs `INTEGRATION_PLAN.md` @177a321 §"BF16 Superposition (Hot/Cold/Feedback)" L542+ + 4-phase `[DONE]/[TODO]` gate + 3 composition modes + BindSpace-blackboard; `src/spectroscopy/detector.rs` @177a321; Claude chief-of-staff; OpenAI macro-evals; Google ADK Memory Bank.
+
+### Scope
+
+Ground (restore-on-SoA, NOT port) ladybug's hot/cold/feedback loop + phase-gate checklist + blackboard composition onto our contract/SoA floor, as the time-bound layer over the `rung-mul` experience curve.
+
+- **Two orthogonal orderings × time budget:** epistemic experience-curve (Axis A) × social etiquette arc (Axis B), arbitrated by `latency_budget` (`elevation/mod.rs:131`). 2D menu phase×DK-position; etiquette = soft prior + anytime graceful-degradation, not rigid FSM.
+- **Boring checklist (verify, temp≈0):** hard gates (contracts/SoA/store/NARS/thresholds/FreeEnergy) vs soft (capabilities/wisdom-store/eval — degrade). Continuous health invariant: red-at-runtime → let-it-crash → supervisor restart = rung-shift + NaN→Lab.
+- **Meta-recipe (compose, cold):** declarative child-spec manifest (data not code, macro-evaluable); blackboard composition on `a2a_blackboard`/SoA (per ladybug BindSpace), ractor supervises + carries Batons.
+- **Hot/cold/feedback (L542 grounding):** hot = annealed cognitive cycle; cold = macro-eval = **wisdom-marker factory** (ladybug `CrystalCodebook` "lived history" → our *distilled calibrated* marker); feedback = hydrate-before-the-fact (ADK Preload).
+- **Temperature anneal:** explore hot → exploit cold, **evidence-gated** (Boole-bound caps cooling — no premature Mount Stupid). Grounded: detector `noise_tolerance=base·(1+(1−conf)·0.5)`, `fanout=base·(1+bridgeness·0.5)` (bridgeness=macro-eval suspect-bridge=our work-metric, triple convergence).
+- **Substrate:** ractor YES (outer swarm under `OrchestrationBridge`, async only at boundary, SoA inner sync); surrealdb NO for cognitive (redundant w/ lance-graph/AriGraph, not boring; prefer SQLite/Lance operational); AriGraph = the one graph.
+
+### Deliverables
+
+D-PERSONA-1 hard/soft checklist verifier (~180) · D-PERSONA-2 meta-recipe manifest (recipe-as-data, ~150) · D-PERSONA-3 hot/cold/feedback wiring + CrystalCodebook→wisdom-marker + Preload hydrate (~240) · D-PERSONA-4 macro-eval harness (scenario→trace→discover→diagnose, suspect-bridge=blasgraph betweenness, ~280, HIGH) · D-PERSONA-5 ractor outer-swarm runtime (~200).
+
+### Honest gaps vs original
+
+ladybug `detector.rs` has NO null/dead-end/escalation ("all inputs produce valid output") → our NaN→cautious-exploration→Lab + dead-end-as-work is net-new. `CrystalCodebook` dumps lived history → we distill it into a calibrated marker (Boole-bound, ≤32 identities). ractor + etiquette arc not in original.
+
+### Invariants
+
+restore-on-SoA not port · hard/soft graceful-degradation · recipe-as-data (macro-evaluable) · evidence-gated anneal (Boole-bound cooling cap) · blackboard composition not direct calls · ractor async only at swarm boundary · no second graph · I-VSA-IDENTITIES (markers ≤32) · `latency_budget` time arbiter.
+
+---
+
+## 2026-05-26 — rung-mul-grounding-v1 (the MUL fine-tuned into the ladder as an experience curve over the SPO 2³ NARS decomposition)
+
+**Status:** PROPOSAL (follow-on to `rung-ladder-grounding-v1`)
+**Confidence:** HIGH on structure (it is the Dunning-Kruger curve mechanized); MED on the per-projection `SpoHead` refactor; CONJECTURE on the wisdom-marker calibration readout until D-RUNG-MUL-4 tests it.
+**Plan file:** `.claude/plans/rung-mul-grounding-v1.md`
+**Predecessors:** `rung-ladder-grounding-v1` (b0ef6fa), `cognitive-substrate-convergence-v1` (CausalEdge64 v2 §6 — causal mask = Pearl 2³ IS the rung axis), `E-AGICHAT-DIMENSION-CONTRACT` (afabefd), `E-I4-META-1`.
+
+### Scope
+
+Grade the coarse integer rung ladder with the MUL, organized as an **experience curve**: every strategy ordered by the evidence level at which it becomes *necessary* — which collapses into the Dunning-Kruger curve with a mechanical trigger at each point.
+
+- **SPO 2³ corrected:** it is the **powerset of {S,P,O}** (8 evidential projections `___,S__,_P_,__O,SP_,S_O,_PO,SPO`) for causality testing through NARS **decomposition** — NOT a distance-cube/popcount. `nars_engine.rs` today computes `all_projections() -> [u32;8]` as *distances* and `SpoHead` carries *one* truth; de-grounding that to per-projection truth is D-RUNG-MUL-1.
+- **Causation = screening-off:** `S_O` strong but screened off by P (`SP_`∧`_PO`) ⇒ spurious/mediated; all projections compared to `___` for lift over base rate.
+- **Work (exploit):** decomposition + screening-off coverage, **confidence/expectation-gated (never frequency)**, AIKR-gated by `budget.quality`. Two curves over one axis: work climbs monotone, confidence is DK-shaped; **wisdom = calibration gap `|conf−competence|→0`**.
+- **Two sparse-data routes:** NaN sentinel ("no field") → cautious-exploration (Exploratory, high exploration_rate) + `ElevationLevel`↑ + **Lab request**; sparse field → gaussian splat → `FreeEnergy::compose` as the *sole* confidence source (F caps confidence ⇒ **no data ⇏ overconfidence**). Explore drive = `wonder` × `free_will_modifier` × trust.
+- **Wisdom markers:** long-term VSA-**identity** bundle (≤32 per I-VSA-IDENTITIES; truths in content store) hydrated *before the fact* as the KL prior — the curve becomes a spiral.
+
+### Deliverables
+
+D-RUNG-MUL-1 per-projection NARS truth (`SpoHead` 8 `(f,c)`, planner ~220) · D-RUNG-MUL-2 NaN→cautious-exploration+Lab gate, distinct from `c=0` (~160) · D-RUNG-MUL-3 wisdom marker (identity bundle + hydrate-as-KL-prior, contract+planner ~180) · D-RUNG-MUL-4 screening-off work + Boole/Fréchet bound + calibration-gap readout (~150) · D-RUNG-MUL-5 splat→`FreeEnergy::compose` as sole sparse-data confidence (~120).
+
+### Invariants
+
+Confidence-gated never frequency-gated (frequency alone = Mount Stupid) · Boole/Fréchet bound on conjunction confidence · no data ⇏ overconfidence (only FreeEnergy or floored-NaN may signal) · I-VSA-IDENTITIES (markers ≤32 identities, content in store) · AIKR `budget.quality` fanout cap · AGI-as-SoA (markers = column ops, not a new service) · decomposition not distance-cube. Folds into `elevation/homeostasis.rs` (MUL-L6) beside `evaluate_rung_shift`; does not fork.
+
+---
+
+## 2026-05-26 — rung-ladder-grounding-v1 (the most-obvious first grounding of the agichat gestell)
+
+**Status:** PROPOSAL
+**Confidence:** HIGH — deterministic integer/threshold logic, zero VSA in the decision path; cleanest possible first restore.
+**Plan file:** `.claude/plans/rung-ladder-grounding-v1.md`
+**Predecessors:** `E-AGICHAT-DIMENSION-CONTRACT` (afabefd), `E-I4-META-1`, `E-BATON-1`; shipped floor ndarray `SoaColumns` (42cb7123) + i4-32 unpack (8de1dcf8).
+**Follow-on (planned, user-flagged):** `rung-mul-grounding-v1` — the **MUL fine-tuned into the ladder**: ladybug's 10-layer MUL (`MulSnapshot`) becomes the *trigger source* refining the ladder's coarse binary triggers into graded escalation (DK MountStupid → escalate; homeostasis Anxiety + allostatic-load → escalate; false-flow → escalate; gate-block reason → escalate). `elevation/homeostasis.rs` is already MUL-L6 — ladder + MUL co-finetune there.
+
+### Scope
+
+Ground agichat's **RungShift ladder** + **CollapseGate SD** as LE-contract types/logic on the SoA floor. The ladder was never inflated (ladybug-rs `rung.rs` is a faithful port) — the work is to express it as a bit-exact Pod and wire its triggers to grounded signals.
+
+- **CollapseGate:** SD over candidate scores → `FLOW(<0.15)/HOLD/BLOCK(>0.35)`; SD = dispersion, not confidence.
+- **RungShift:** rung 0-9, bands 0-2/3-5/6-9; triggers sustained-block(≥3) / predictive-failure(avg P<0.3 / window 5) / structural-mismatch → +1 (cap 9); tick-based cooldown.
+- **Grounding:** `RungState` = 16-byte `#[repr(C)]` Pod (no `Vec` — fixed `[u8;5]` P-ring; tick cooldown; u8/i4-quantized scores) in a `SoaColumns` column; `evaluate_rung_shift` PURE (no `&mut` during compute) folded into `lance-graph-planner/src/elevation/` beside `homeostasis.rs`; SD via ndarray SIMD; `GateState` into `collapse_gate.rs`.
+- **Hook:** RungLevel = the **R1-R9 dim-group** of the 33-TSV (`ThinkingStyleI4_32D`).
+
+### Deliverables
+
+D-RUNG-1 contract types (lance-graph-contract, ~150) · D-RUNG-2 pure ladder logic in `elevation/` (planner, ~200) · D-RUNG-3 `RungState` SoA column + tick update (~100) · D-RUNG-4 SD→GateState in `collapse_gate.rs` + rung→TSV-R1-R9 map (~120). Parity tests vs verbatim agichat semantics.
+
+### Invariants
+
+No `Vec`/alloc in hot Pod · no `&mut` during compute (pure evaluate, builder apply) · tick-based not wall-clock · integer rung (no float-resonance carrier — the de-grounding ladybug-rs did) · SD = dispersion not confidence · RungShift separate from SD.
+
+---
+
 ## 2026-05-15 — cognitive-substrate-convergence-v1 (CSV — i4 mantissa + gapless baton + active inference)
 
 **Status:** Active (PROPOSAL — awaits OQ-CSV-1..6 ratification before sprint-11 D-CSV-* spawn)

@@ -21,6 +21,24 @@ VSA carrier).
 > corrected three-layer framing and `CHANGELOG.md` for the format-
 > switch history.
 
+> **2026-05-26 Baton scoping (read with `EPIPHANIES.md` E-BATON-1):** "The
+> Click" describes how a single `Think` resolves **locally, within one
+> compartment** — the bundle is an ephemeral computation, never a persisted
+> or transmitted singleton. **`Vsa16kF32` is deprecated as a *carrier*:** it
+> does NOT cross mailbox boundaries and there is no materialized singleton
+> BindSpace. Inter-mailbox state is the **Baton** — discrete owned
+> `(u16 target, CausalEdge64)` handoffs (`CollapseGateEmission` in
+> `lance-graph-contract`; `wire_cost_bytes() = 13 + 10·baton_count`, NOT
+> `16384·4`). "Baton" is the workspace's native term for the little-endian
+> contract (the user's name for it before the information-science framing).
+> The **mailbox-as-owner** (rotating sea-star topology) is what makes the
+> handoff sound: Rust move/ownership semantics prove no aliasing / no data
+> race / no use-after-free **at compile time** — UB becomes a compile error
+> (canonical §9 E-CE64-MB-4). Cumulative state lives in CausalEdge64
+> emissions + AriGraph SPO-G quads + BindSpace SoA columns. The bundle MATH
+> here (§I-SUBSTRATE-MARKOV Chapman-Kolmogorov, §I-VSA-IDENTITIES) is
+> **untouched** — only the cross-boundary carrier is scoped out.
+
 ```
   Sentence → FSM → RoleKey_fp × content_fp   → vsa_bundle (Σ) with ρ^d braiding
                          │                         │
