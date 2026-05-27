@@ -233,6 +233,81 @@ filter discipline — agents pull their own debt by `@`-mention.
 (Seeded with known deferrals from recent PRs. New items PREPEND
 with today's date.)
 
+## 2026-05-27 — TD-ARIGRAPH-EPISODIC-FIDELITY-1: AriGraph episodic retrieval was transcoded as the RAG baseline the paper beats, not the paper's structural search
+
+**Status:** Open
+**Priority:** P1 (the transcoded substrate silently behaves as the baseline AriGraph outperforms; correctness-of-port, not a crash)
+**Scope:** crate:lance-graph domain:arigraph domain:retrieval D-CSV-6 D-CSV-7
+**Introduced by:** the Python→Rust AriGraph transcode (`crates/lance-graph/src/graph/arigraph/`, per `.claude/knowledge/integration-plan-grammar-crystal-arigraph.md` E11)
+**Payoff estimate:** Option A ~150-250 LOC in-place; Option B = D-CSV-6 (~600) + D-CSV-7 (~350), substrate change
+
+### What (ground truth: arxiv 2407.04363 §2 + Alg.1 + eq.1)
+
+The paper's world model is `G = (V_s, E_s, V_e, E_e)`: semantic vertices/edges (triplets) + episodic vertices (observations) + **episodic edges** `e^t_e = (v^t_e, E^t_s)` linking each observation to the triplets extracted at that step. Retrieval is **two-stage and structural**: semantic search returns `E^Q_s`; episodic search then scores each episode by triplet-incidence `rel(v^i_e) = (n_i / max(N_i,1)) · log(max(N_i,1))` (single-triplet observations weighted 0).
+
+The transcode diverged on **both** stages:
+- `episodic.rs::EpisodicMemory::top_k` ranks episodes by **Hamming distance between observation fingerprints** (`label_fp`) — RAG-style similarity on raw observation text, *decoupled* from the semantic hits. The structural `n_i/N_i` relevance is absent.
+- `retrieval.rs::OsintRetriever` semantic search is exact `entity_index` **name** lookup + BFS (no embedding retrieval; loses the paper's "grill"→"grilling" generalization).
+- The **episodic edge `E_e` does not exist as a structure**: the transcoded `triplet_graph.rs` `Triplet` is `{subject, object, relation, truth, timestamp}` — the W5-spec `witness_ref: u64` (the W-slot) was **dropped**. `Episode.triplets: Vec<String>` is used only for unbundle/rebundle, never retrieval.
+- Net: **three disconnected episodic/provenance representations** — `episodic.rs` (fingerprint-RAG), `witness_corpus.rs` (`WitnessIndexHashMap` spo→positions + `WitnessIndexCamPq`, wired to neither Triplet nor episodic), and the dropped W-slot.
+
+### Options (types kept in both; this is a mechanism fix, not a deletion — "fix from the beginning")
+
+- **Option A — narrow in-place eq.1 fix.** Add a triplet-id link from `Episode` to `E_s`; couple episodic search to consume `E^Q_s`; replace `top_k` fingerprint scoring with eq.1 incidence relevance (zero-weight single-triplet episodes). Keeps `Episode`/`EpisodicMemory`. Lower risk, no substrate change. **Leaves `witness_corpus.rs` still disconnected** (its own residual debt). Semantic-search embedding generalization still open.
+- **Option B — mailbox / W-slot convergence (recommended end-state; = existing plan).** Restore the W-slot on `Triplet`/`CausalEdge64` (v2 layout `[53:58]`, the "discourse corpus-root handle"); make `witness_corpus.rs` (already CAM-PQ + HashMap indexed) THE episodic store = the per-`MailboxId` "spatial-temporal meaning accumulator" (`contract::collapse_gate::MailboxId`); retire `episodic.rs`'s fingerprint-RAG. The episodic edge `E_e` = `triplet.W-slot → MailboxId`; eq.1 `n_i/N_i` falls out of `WitnessIndexHashMap::lookup(spo)` incidence. Collapses the three stores into one and stays serialization-free ("the `(source_mailbox, chain_position)` tuple is the wire"). **This is `cognitive-substrate-convergence-v1` D-CSV-6 (`WitnessCorpus`) + D-CSV-7 (`MailboxSoA` W-slot)** — already planned, HIGH risk, gated on the CSV OQ ratification.
+
+**Recommendation:** B is the architecturally-correct convergence and is already the planned direction; A is a legitimate interim that makes retrieval *faithful to the paper* without waiting on the substrate change, at the cost of leaving the `witness_corpus.rs` duplication for B to collapse later.
+
+### Cross-references
+
+- Paper source: arxiv 2407.04363 §2 "AriGraph World Model" + Alg.1 (Memory Graph Search) + eq.1 (episodic relevance).
+- `crates/lance-graph/src/graph/arigraph/{episodic.rs, retrieval.rs, triplet_graph.rs, witness_corpus.rs}`
+- `.claude/plans/cognitive-substrate-convergence-v1.md` D-CSV-6 (`WitnessCorpus` replaces `SpoWitnessChain<32>`) + D-CSV-7 (`MailboxSoA` W-slot) + §6 v2 layout `[53:58]` W slot
+- `.claude/knowledge/spo-schema-and-mailbox-sidecar.md` (SPO-W tetrahedron; `MailboxId` = meaning accumulator); `.claude/knowledge/integration-plan-grammar-crystal-arigraph.md` E11 (transcode provenance)
+
+---
+
+## 2026-05-27 — TD-JSON-SERIALIZATION-SITES-1: JSON/serde occurrences catalogued; internal-substrate serde is debt, outer-boundary ingestion is not
+
+**Status:** Open
+**Priority:** P2 (no crash; violates the single-binary no-serialization invariant where it occurs internally)
+**Scope:** crate:lance-graph crate:lance-graph-callcenter domain:serialization domain:invariant
+**Introduced by:** AriGraph transcode (serde-on-substrate) + D-SDR-4/5 audit sinks (JSON egress)
+**Payoff estimate:** substrate serde-derive strip ~per-file small; audit JSON→binary canonical_bytes is the larger item (tracked separately)
+
+### The invariant
+
+lance-graph compiles every "program" into **one statically-linked binary** — there is no internal IPC/network boundary, so serialization between in-binary parts is meaningless. The rule (BOOT.md #6): **"No JSON serialization in types. Serde stays debug-only."** Serialization is legitimate ONLY at the **outer ingestion boundary** — post-compile input that must be parsed: files / REST / a query language / external tokens. JSON is excluded everywhere else because the canonical bytes (`canonical_bytes()` / Arrow columns / the CAM bar-code) *are* the value; JSON would be a redundant second representation.
+
+### Acceptable — outer-boundary ingestion (serde correct by design, NOT debt)
+
+| Site | Boundary |
+|---|---|
+| `lance-graph/src/{ast.rs, logical_plan.rs}` | Cypher text → AST → plan IR feeding DataFusion (cold-path parse) |
+| `lance-graph/src/parameter_substitution.rs` | `HashMap<String, serde_json::Value>` query params (post-compile input) |
+| `lance-graph/src/config.rs` | TOML config load at startup |
+| `lance-graph-callcenter/src/auth.rs` | JWT claims (`serde_json::from_slice`) — JWT is base64url-JSON by RFC 7519 |
+| `lance-graph-catalog/src/unity_catalog.rs` | Databricks Unity Catalog REST (external service) |
+| `cognitive-shader-driver/src/wire.rs`, `lance-graph-callcenter/src/postgrest.rs`, `*/serve.rs` | post-compile REST ingestion points (lab/research surface per `lab-vs-canonical-surface.md`) |
+| `lance-graph-contract/src/literal_graph.rs::ingest_aiwar_json` | physical parser for an external `.json` data file (zero-dep, hand-rolled) |
+
+### Debt — internal / substrate / egress (no boundary; violates the invariant)
+
+1. **serde derived on AriGraph cognitive substrate types** — `graph/arigraph/orchestrator.rs` (`MetaOrchestrator`, `StyleTopology`, `TopologyEdge`, `MulAssessment`, `DkPosition`, `TrustTexture`, `FlowState`, `GraphSensorium`, …) and `graph/arigraph/sensorium.rs` (`GraphSensorium`/`GraphBias`/`HealingAction`/`HealingType`, also intra-crate-duplicated with orchestrator.rs) + `graph/spo/truth.rs::TruthValue`. These are hot-path substrate (transcode cruft from the Python source's dicts). The only legitimate egress is the `/mri` `OrchestratorSnapshot`/`TopologyEdgeSnapshot` DTOs — serde belongs **only** on those boundary DTOs, stripped from the core types. (CONJECTURE: the `/mri` HTTP handler that serializes the snapshot was not located this session; confirm before stripping.)
+2. **Audit log emitted as JSON** — `lance-graph-callcenter/src/audit_sink/jsonl_sink.rs` (JSON lines) and `lance_sink.rs:151` (a JSON string stuffed into an Arrow column), read back by `bin/audit_verify.rs`; reachable via `UnifiedBridge::with_jsonl_audit`. The audit event's canonical form is already the 26-byte binary `UnifiedAuditEvent::canonical_bytes()` that the merkle chain hashes — JSON is a redundant second representation. Canonical egress should be the binary append-log or typed Arrow columns, not JSON. **Reframes TD-SDR-AUDIT-PERSIST-1** (which treats the JSONL sink as owed *work*; under this invariant the JSON form itself is the debt).
+
+`serde_json` is an **optional** dep gated behind `jsonl`/`realtime`/`auth-jwt`/`lance-sink`; the default callcenter build pulls zero JSON.
+
+### Cross-references
+
+- `BOOT.md` #6 (serde-out-of-types); `.claude/knowledge/integration-plan-grammar-crystal-arigraph.md:166` ("serde kept out of types by project convention")
+- `TD-SDR-AUDIT-PERSIST-1` (the JSONL-sink-as-deliverable entry this reframes)
+- `crates/lance-graph-callcenter/src/audit_sink/{jsonl_sink.rs, lance_sink.rs}`, `bin/audit_verify.rs`, `unified_bridge.rs::with_jsonl_audit`
+- `crates/lance-graph/src/graph/arigraph/{orchestrator.rs, sensorium.rs}`, `graph/spo/truth.rs`
+
+---
+
+
 ## 2026-05-13 — TD-Q2-STUBS-DEDUP-1: q2 carries local `lance-graph` + `q2-ndarray` stubs that must be replaced with re-exports from the canonical crates before FMA demo can compile
 
 **Status:** Open
