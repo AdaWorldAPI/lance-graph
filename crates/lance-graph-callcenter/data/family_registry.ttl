@@ -161,6 +161,16 @@ ogit:MRORepair
     ogit.meta:superDomain "WorkOrderBilling" ;
     ogit.meta:familyId    "99"^^xsd:unsignedByte .
 
+# ProductCatalog 0x64 — product catalogue + pricelist + UoM basin (odoo
+# richness harvest, plan odoo-savant-reasoners-v1 D-ODOO-SAV-1). NOTE: the
+# woa-rs SAVANTS.md proposal named 0x63 for this, but 0x63=99 is already
+# MRORepair above; the lance-graph authoritative registry assigns the next
+# free commercial-cluster byte 0x64=100 instead.
+ogit:ProductCatalog
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "WorkOrderBilling" ;
+    ogit.meta:familyId    "100"^^xsd:unsignedByte .
+
 # ── OSINT basins 0x70..=0x74 ─────────────────────────────────────────────────
 
 ogit:OsintMaltego
@@ -197,6 +207,16 @@ ogit:SmbFoundryTaxDeclaration
     a ogit:FamilyNamespace ;
     ogit.meta:superDomain "SMB" ;
     ogit.meta:familyId    "130"^^xsd:unsignedByte .
+
+# ── HR basin 0x90 ────────────────────────────────────────────────────────────
+# HRFoundation 0x90 — employee / org / job / base-contract basin (odoo
+# richness harvest, plan odoo-savant-reasoners-v1 D-ODOO-SAV-1). hr.* resolve
+# None today; this basin gives them a home. Payroll ENGINE is odoo Enterprise
+# (absent) — only the hr base data/structure is aligned here.
+ogit:HRFoundation
+    a ogit:FamilyNamespace ;
+    ogit.meta:superDomain "HR" ;
+    ogit.meta:familyId    "144"^^xsd:unsignedByte .
 
 # ── SMB BSON-shape basins 0xA0..=0xAD ────────────────────────────────────────
 # OQ-4 resolution (locked 2026-05-13): ogit.SMB.bson: sub-namespace carries the

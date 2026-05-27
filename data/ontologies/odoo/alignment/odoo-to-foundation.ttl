@@ -1,0 +1,84 @@
+# Odoo → Foundation/schema/qudt/vcard/org/skos alignment axioms.
+#
+# Plan odoo-savant-reasoners-v1 D-ODOO-SAV-1 (ProductCatalog + HRFoundation
+# basins) and D-ODOO-SAV-2 (Layer-2 axioms for the classes that resolve None
+# in odoo_alignment.rs). These are NEW axioms authored on the lance-graph
+# side — the upstream public OWL vocabularies (schema.org, QUDT, vCard, W3C
+# org, SKOS) are referenced, never modified.
+#
+# Pivot choices match the Rust ODOO_SEED rows in
+# crates/lance-graph-callcenter/src/odoo_alignment.rs.
+
+@prefix odoo:   <https://ada.world/onto/odoo#> .
+@prefix owl:    <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs:   <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix schema: <https://schema.org/> .
+@prefix qudt:   <http://qudt.org/schema/qudt/> .
+@prefix vcard:  <http://www.w3.org/2006/vcard/ns#> .
+@prefix org:    <http://www.w3.org/ns/org#> .
+@prefix skos:   <http://www.w3.org/2004/02/skos/core#> .
+@prefix fibo-fnd-agr-ctr: <https://spec.edmcouncil.org/fibo/ontology/FND/Agreements/Contracts/> .
+
+# ── ProductCatalog 0x64 — catalogue STRUCTURE (pricing + measurement) ────────
+# product.template / product.product stay on schema:Product (BillingCore 0x61,
+# see odoo-to-fibo.ttl). The pricing + UoM concepts are catalogue STRUCTURE.
+
+odoo:product.pricelist
+    owl:equivalentClass schema:PriceSpecification ;
+    rdfs:comment "ProductCatalog 0x64 slot 1 — pricing rule container." .
+
+odoo:product.pricelist.item
+    owl:equivalentClass schema:UnitPriceSpecification ;
+    rdfs:subClassOf odoo:product.pricelist .
+
+odoo:uom.uom
+    owl:equivalentClass qudt:Unit ;
+    rdfs:comment "ProductCatalog 0x64 slot 3 — ties into the bO-4 QUDT measurement spine." .
+
+# ── HRFoundation 0x90 — employee / org / job / base-contract ─────────────────
+# Base HR data only; payroll ENGINE is odoo Enterprise (absent).
+
+odoo:hr.employee
+    owl:equivalentClass vcard:Individual .
+
+odoo:hr.department
+    owl:equivalentClass org:OrganizationalUnit .
+
+odoo:hr.job
+    owl:equivalentClass org:Role .
+
+odoo:hr.contract
+    owl:equivalentClass fibo-fnd-agr-ctr:Contract ;
+    rdfs:comment "Base employment contract only — payroll computation is odoo Enterprise/absent." .
+
+# ── D-ODOO-SAV-2 — Layer-2 axioms for classes that resolve None in Rust ──────
+#
+# These do NOT get a foundry family (Option B: None stays None when no honest
+# foundry pivot exists). The axioms below record the SEMANTIC alignment so a
+# future runtime SPO-G edge / reasoner can use it, without minting a family.
+
+# account.account.tag IS an honest classification concept → SKOS.
+# (Still None in resolve_odoo_to_family because SKOS is a Foundation namespace,
+#  not a foundry family — but the semantic alignment is real and recorded.)
+odoo:account.account.tag
+    owl:equivalentClass skos:Concept ;
+    rdfs:comment "Reporting/tax classification tag on accounts — a SKOS Concept, not a foundry entity. Stays None for family resolution by design." .
+
+# stock.* — genuinely cross-cutting inventory events with no honest foundry
+# pivot today. Documented None (NOT minted). All L7/L13 stock savants carry
+# family=None in SAVANTS.md and reason without an inherited style until a
+# runtime SPO-G alignment lands.
+odoo:stock.move
+    rdfs:comment "None by design: inventory move event, no honest foundry pivot. Reasoner uses family=None (proposed cluster in the savant doc), not a minted family." .
+
+odoo:stock.rule
+    rdfs:comment "None by design: procurement routing rule — cross-cutting, no foundry pivot." .
+
+odoo:stock.warehouse.orderpoint
+    rdfs:comment "None by design: reordering rule — cross-cutting, no foundry pivot." .
+
+# account.analytic.distribution.model — cost-centre distribution RULE.
+# Analytic accounting (Kostenstellen) has no honest FIBO/foundry pivot; stays
+# None. The AnalyticModelScorer savant is family=None in SAVANTS.md.
+odoo:account.analytic.distribution.model
+    rdfs:comment "None by design: cost-centre (Kostenstelle) distribution rule, no honest foundry pivot. Layer-2 axiom records the gap; no family minted." .

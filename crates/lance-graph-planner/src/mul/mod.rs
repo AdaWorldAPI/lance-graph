@@ -16,6 +16,7 @@
 
 pub mod compass;
 pub mod dk;
+pub mod escalation;
 pub mod gate;
 pub mod homeostasis;
 pub mod trust;

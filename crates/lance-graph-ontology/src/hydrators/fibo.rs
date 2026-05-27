@@ -130,7 +130,7 @@ pub fn hydrate_fibo_be_from(
         g: OGIT::FIBOBE_V1.0,
         version: OGIT::FIBOBE_V1.1,
         domain_name: "fibobe".to_string(),
-        inherits_from: Some(OGIT::DOLCE_V1.0),
+        inherits_from: Some(OGIT::FIBOFND_V1.0),
         starting_entity_id: 100,
     };
     hydrator.hydrate_many(&path_refs, registry)?;

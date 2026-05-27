@@ -44,6 +44,32 @@
 - **Deferred** — none. MedCare-rs sprint-2 item 5 (first real caller) consumes the `AuditError` signature directly; any caller needing `io::Result` interop adds a local `map_err`, not a crate-wide `From`.
 - **Docs** — EPIPHANIES E-AUDIT-1.
 - **Confidence (2026-05-27):** working — `cargo check/test -p lance-graph-callcenter --features jsonl` clean at commit time (137 tests); tree clean; zero callers depend on the old signature.
+## PR #411 — Cognitive substrate: locked 33-TSV atom layer + 34-tactic recipes + escalation loop (MERGED 2026-05-27 → main)
+
+**Status:** MERGED. Branch `claude/splat3d-cpu-simd-renderer-MAOO0` → `main`, 39 commits.
+
+**Added:**
+- `contract::escalation` (D-PERSONA-1) + `planner::mul::escalation` — `CollapseHint` / `InnerCouncil` (3-archetype split) / `EpiphanyDetector` / `GhostEcho` (8) / `WisdomMarker` (0.1 floor) / `Checklist` (HARD/SOFT). 13 tests.
+- `contract::atoms` — the **LOCKED 33-dim ThinkingStyleVector** `CANONICAL_ATOMS` (3 Pearl + 9 Rung + 5 Σ + 8 Operations + 4 Presence + 4 Meta) + `I4x32` bare-metal carrier. 3 tests.
+- `contract::recipes` — the 34 reasoning tactics as a metadata catalogue (`Recipe{Tier,Mechanism,Bucket,spo2cubed,substrate}`, `RECIPES[34]`, lookups). 4 tests.
+- `contract::recipe_kernels` — **the 34 tactics as 34 `Tactic` implementations** + registry (`kernel`/`all_kernels`) over a shared `ThoughtCtx`. 5 tests.
+- Scaffolds (un-wired, `todo!()`): `recipe.rs`/`quorum.rs`/`counterfactual.rs` (contract), `graph/witness_tombstone.rs` (core).
+
+**Locked:**
+- **D0 — ladybug-rs has NO relation and never will** (failed "empty cathedral"); rewrite-not-port; cross-repo docs (ladybug/ada-consciousness/neo4j-rs) are spec-references only, never deps/ports.
+- Execution stack **atoms → cognitive-shader-driver → SIMD** (atoms are NOT SIMD).
+- 3-layer: **atom = one pole** (bare-metal) → **style = one i4 vector** (molecule) → **persona = composition**; the OO style/persona objects are the metacognition.
+- The lattice is **SPOQ**: SPO 2³ = the causal slice (Counterfactual=`SPO`/0b111, Intervention=`_PO`); **Q (Qualia) = the 4th, affective overlay**.
+- **Business = OGIT-inherited sidecar**, not an atom.
+- Markers gate implicitly (entropy=CollapseGate SD FLOW/HOLD/BLOCK, F-floor, rung, temperature, dissonance) — the CPU clock-gating partition: **datapath / control / gate**.
+- The 34 tactics reduce to **3 mechanisms** (parallel-independence / truth-aware / structural-divergence) = the partition.
+- One uniform `Tactic` behaviour; richer fingerprint substrate slots behind the same trait without changing the 34 call sites.
+
+**Deferred:** per-recipe real-substrate evaluators (kernels are deterministic over `ThoughtCtx` today); atom `pack/unpack` via cognitive-shader-driver; the un-wired scaffolds (D-ATOM-2..5 wiring); the SPO-2³-vs-SPOQ-2⁴ lattice decision; the substrate-Markov re-scope (awaits [FORMAL-SCAFFOLD] check); the `rung-persona`→mailbox rename.
+
+**Docs:** `ada-rewrite-charter`, `atom-basis-inventory`, `spo-2cubed-list-coverage`, `34-tactics-vs-ada`, `agi-stack-cross-repo` (knowledge); `atom-mailbox-substrate-v1` (plan + INTEGRATION_PLANS); `E-LADDER-SERVES-MAILBOX` + append-only correction (EPIPHANIES); `TD-GHOST-ECHO-DUP-1` (TECH_DEBT).
+
+**Confidence (2026-05-27):** working — `lance-graph-contract` green (escalation 13 / atoms 3 / recipes 4 / recipe_kernels 5 + 446 prior), zero warnings. The kernels are the uniform deterministic layer; real-substrate upgrade is the named follow-on.
 
 ---
 

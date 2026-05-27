@@ -18,6 +18,8 @@ members = [
     "crates/sigma-tier-router",
     # TD-SHADER-DRIVER-WORKSPACE-CONFLICT-1: moved from exclude to members
     "crates/cognitive-shader-driver",
+    # 01-deps-substrate: embedded SurrealDB-on-Lance cognitive store
+    "crates/surreal_container",
 ]
 exclude = [
     # Python bindings (upstream-inherited, opt-in via --manifest-path)
@@ -39,3 +41,57 @@ exclude = [
     "crates/sigker",
 ]
 resolver = "2"
+
+# ─── Workspace-level dependency pins ────────────────────────────────────────
+#
+# Task 01 (deps_substrate) — Lance 6 / LanceDB 0.28 / surrealdb kv-lance
+#
+# BLOCKED(A): Lance 6 has not been confirmed as a published crate version.
+#   Current workspace uses `lance = "=4.0.0"`.  The spec requests "Lance 6"
+#   but crates.io only shows lance up to the 4.x series as of this writing.
+#   A fork-access human must confirm the exact semver (e.g. "=6.0.0") and
+#   whether it is published to crates.io or must be pulled from a git source.
+#   Until confirmed, leave the existing `lance = "=4.0.0"` pins in place.
+#
+# BLOCKED(B): LanceDB 0.28 has not been confirmed as published.
+#   Current workspace uses `lancedb = "=0.27.2"`.  The spec requests 0.28.
+#   A fork-access human must confirm `lancedb = "=0.28.0"` (or exact patch)
+#   is live on crates.io or a private registry, and that the DataFusion 52 /
+#   Arrow 57 transitive constraints still hold at 0.28.
+#
+# BLOCKED(C): `surrealdb` with `kv-lance` feature.
+#   Upstream surrealdb (crates.io) does NOT ship a `kv-lance` feature.  This
+#   feature lives in the AdaWorldAPI fork (core/src/kvs/lance/ per
+#   cognitive-substrate.md).  A fork-access human must supply:
+#     - the git URL of the fork (e.g. https://github.com/AdaWorldAPI/surrealdb)
+#     - the branch or tag to pin (e.g. `branch = "kv-lance-v2"`)
+#     - the exact feature flag name (confirmed: `kv-lance` from spec)
+#     - whether a published crate path or `[patch.crates-io]` override is
+#       required for workspace compilation.
+#
+# BLOCKED(D): lance-index → ndarray 0.16 transitive constraint.
+#   Lance 6 may pull lance-index which depends on ndarray 0.16.x.  The
+#   workspace currently uses AdaWorldAPI/ndarray (a path dep).  If Lance 6's
+#   transitive closure requires ndarray "0.16" from crates.io, a
+#   `[patch.crates-io]` entry must alias it to the fork path.  This must be
+#   verified by the human with access to Lance 6's full Cargo.lock.
+#
+# Placeholder [workspace.dependencies] entries are left as comments below so
+# that the draft is ready to uncomment once BLOCKED items are resolved:
+#
+#   [workspace.dependencies]
+#   # BLOCKED(A): replace "=4.0.0" with confirmed Lance 6 semver
+#   lance          = "=4.0.0"           # TODO: bump to Lance 6 once BLOCKED(A) resolved
+#   lance-linalg   = "=4.0.0"           # TODO: bump in lock-step with lance
+#   lance-index    = "=4.0.0"           # TODO: bump in lock-step; see BLOCKED(D)
+#   lance-namespace = "=4.0.0"          # TODO: bump in lock-step with lance
+#
+#   # BLOCKED(B): replace "=0.27.2" with confirmed LanceDB 0.28 semver
+#   lancedb        = "=0.27.2"          # TODO: bump to 0.28 once BLOCKED(B) resolved
+#
+#   # BLOCKED(C): replace stub with real git source + feature name
+#   # surrealdb = { git = "BLOCKED_SEE_C", branch = "BLOCKED_SEE_C", features = ["kv-lance"] }
+#
+# [patch.crates-io]
+#   # BLOCKED(D): uncomment and fill once Lance 6 ndarray transitive version known
+#   # ndarray = { path = "../../../ndarray" }

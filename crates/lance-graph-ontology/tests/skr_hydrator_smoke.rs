@@ -27,7 +27,7 @@ fn skr03_hydrator_smoke() {
         .expect("ContextBundle registered at SKR03_V1");
     assert_eq!(bundle.g, OGIT::SKR03_V1.0);
     assert_eq!(bundle.domain_name, "skr03");
-    assert_eq!(bundle.inherits_from, Some(OGIT::DOLCE_V1.0));
+    assert_eq!(bundle.inherits_from, Some(OGIT::FIBOFND_V1.0));
     assert!(
         bundle.entity_count() >= 1400,
         "expected >= 1400 canonical SKR 03 accounts, got {}",
@@ -46,7 +46,7 @@ fn skr04_hydrator_smoke() {
         .expect("ContextBundle registered at SKR04_V1");
     assert_eq!(bundle.g, OGIT::SKR04_V1.0);
     assert_eq!(bundle.domain_name, "skr04");
-    assert_eq!(bundle.inherits_from, Some(OGIT::DOLCE_V1.0));
+    assert_eq!(bundle.inherits_from, Some(OGIT::FIBOFND_V1.0));
     assert!(
         bundle.entity_count() >= 1200,
         "expected >= 1200 SKR 04 accounts, got {}",

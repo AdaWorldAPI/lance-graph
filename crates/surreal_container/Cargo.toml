@@ -1,0 +1,59 @@
+[package]
+name = "surreal_container"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+license = "Apache-2.0"
+publish = false
+description = """
+Embedded SurrealDB-on-Lance cognitive store.
+
+Opens an in-process `surrealdb` Datastore backed by the `kv-lance` storage
+engine (the AdaWorldAPI fork feature, NOT upstream surrealdb).  Provides the
+substrate that all surreal_container tasks (write, read, catalog, cache, …)
+build on.
+
+Depends on task 01 (deps_substrate) being resolved before compiling.
+"""
+
+# ── BLOCKED(C): surrealdb git source not confirmed ───────────────────────────
+#
+# The `kv-lance` feature is NOT in upstream surrealdb on crates.io.
+# It lives in the AdaWorldAPI fork (core/src/kvs/lance/{wal,memtable,flusher,mod}.rs).
+#
+# A fork-access human must supply:
+#   1. The git URL  (e.g. https://github.com/AdaWorldAPI/surrealdb)
+#   2. The branch or tag to pin (e.g. branch = "kv-lance-v2")
+#   3. Confirmation that `features = ["kv-lance"]` is the correct flag name.
+#
+# Until resolved, the surrealdb dependency below is commented out.  The
+# `[features]` section preserves the intent; the crate will not compile until
+# the BLOCKED item is filled in.
+
+[dependencies]
+# ── BLOCKED(C): uncomment and fill once fork coordinates are known ────────────
+# surrealdb = { git = "BLOCKED_SEE_C", branch = "BLOCKED_SEE_C", default-features = false, features = ["kv-lance"] }
+
+# ── BLOCKED(A)/(B): lance / lancedb version pins ─────────────────────────────
+# These are the storage-engine crates the kv-lance backend talks to directly.
+# Lance 6 is specified in the task but not yet confirmed as a published semver.
+# Current workspace uses lance = "=4.0.0" / lancedb = "=0.27.2".
+# Do NOT change these pins until BLOCKED(A) and BLOCKED(B) are resolved by a
+# fork-access human who can confirm the exact crate versions and API surface.
+lance    = "=4.0.0"   # BLOCKED(A): bump to Lance 6 once version confirmed
+lancedb  = { version = "=0.27.2", optional = true, default-features = false }  # BLOCKED(B): bump to 0.28
+
+# Runtime support (not blocked — these are well-known, confirmed versions)
+tokio    = { version = "1", features = ["rt-multi-thread", "macros"] }
+futures  = "0.3"
+snafu    = "0.8"
+
+[features]
+default = []
+# lancedb-sdk: expose the high-level LanceDB table/connection surface.
+# Optional: surreal_container can operate via raw lance without the SDK.
+lancedb-sdk = ["dep:lancedb"]
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+tempfile = "3"

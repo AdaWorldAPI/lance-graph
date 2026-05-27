@@ -14,6 +14,7 @@
 
 | PR | Merged | Title | What it added |
 |---|---|---|---|
+| **#411** | 2026-05-27 | Cognitive substrate: locked 33-TSV atom layer + 34-tactic recipes + escalation loop | **D-PERSONA-1** `contract::escalation` + `planner::mul::escalation` (CollapseHint/InnerCouncil/EpiphanyDetector/GhostEcho/WisdomMarker/Checklist, 13 tests). **`contract::atoms`** — LOCKED 33-dim TSV `CANONICAL_ATOMS` (3 Pearl + 9 Rung + 5 Σ + 8 Ops + 4 Presence + 4 Meta) + `I4x32` carrier. **`contract::recipes`** — 34-tactic metadata catalogue. **`contract::recipe_kernels`** — the 34 tactics as 34 `Tactic` impls + registry over a shared `ThoughtCtx`. Charter D0: **ladybug-rs has no relation, rewrite-not-port**; lattice is **SPOQ** (SPO 2³ causal + Q qualia overlay); business = OGIT sidecar; markers gate the datapath/control/gate partition. Green: escalation 13 / atoms 3 / recipes 4 / recipe_kernels 5 + 446 prior, no warnings. Branch `claude/splat3d-cpu-simd-renderer-MAOO0` (39 commits). See PR_ARC #411. |
 | **#389** | 2026-05-16 | fix(sprint-12/wave-F): codex P2 — AttentionMaskBackend impl for AttentionMaskSoA + canonical MailboxId import | Codex P2 follow-on to PR #388. Adds `AttentionMaskBackend` trait impl for `AttentionMaskSoA` (Wave-F surface coherence) and converges duplicate `MailboxId` imports onto the canonical contract definition. Merge commit `b526485`. |
 | **#388** | 2026-05-16 | impl(sprint-12/wave-F partial): D-CSV-10 sigma-tier-router + AttentionMask + splat ops + governance (6 of 12 workers landed) | Sprint-12 Wave F fleet partial landing. **D-CSV-10** `SigmaTierRouter` crate (Rubicon-resonance ΔF + threshold → Σ10 commit, hand-tuned threshold per OQ-CSV-6, tracked as TD-SIGMA-TIER-THRESHOLDS-1); **D-CSV-12** scalar splat op fleet on i4 (`splat_gaussian`, `score_hole_closure`, `replay_coherence`, `emit_if_epiphany`); **AttentionMask** SoA + actor + backend surface; W-F8 TYPE_DUPLICATION_MAP refresh (records two-`TrustTexture` coexistence as TD-TRUST-TEXTURE-DUPE-1); W-F10 sprint-11 Opus meta-review; W-F11 i4-substrate-decisions knowledge doc; W-F12 cognitive-substrate-convergence-v2 plan draft (608 lines). Merge commit `77f2d26`. |
 | **#387** | 2026-05-16 | impl(sprint-11/wave-E): D-CSV-8 MUL i4 SIMD evaluation + D-CSV-9 8ch↔SPO transcoder | **D-CSV-8** integer MUL evaluation on `QualiaI4_16D` + signed mantissa (scalar i4 path; AVX-512/NEON deferred → D-CSV-13 sprint-12). **D-CSV-9** 8-channel ↔ SPO-palette transcoder (Option R-3) at thinking-engine L3 commit boundary; 16-mapping bidirectional round-trip; renames `set_channel` → `set_channel_u8` to widen equivalence class. Merge commit `e042c70`. |
@@ -56,6 +57,8 @@ Types that EXIST — do NOT re-propose them:
 - `thinking_engine::layered::CausalEdge64` (`crates/thinking-engine/src/layered.rs:45`) — 8-channel cascade: BECOMES / CAUSES / SUPPORTS / REFINES / GROUNDS / ABSTRACTS / RELATES / CONTRADICTS (each 1 byte). Source/target NOT in u64 (carried as tuple key `(target: u16, edge: CausalEdge64)`). Emitted by `TierEngine::emit_causal_edges` after MatVec; consumed by downstream tiers via `apply_edges`. The unit of cognitive-cascade dispatch in the L1 → L2 → L3 thinking pipeline.
 
 Full reference: `.claude/knowledge/causal-edge-64-spo-variant.md` + `.claude/knowledge/causal-edge-64-thinking-engine-variant.md` + `.claude/knowledge/causal-edge-64-synergies-and-pr-trajectory.md`. Reunification path (Option R-3): transcode 8-channel → SPO at thinking-engine L3 commit boundary; see `.claude/knowledge/cognitive-shader-driver-thinking-engine-reunification.md`.
+
+**`escalation`** (D-PERSONA-1, 2026-05-26, branch `claude/splat3d-cpu-simd-renderer-MAOO0`): the escalation+epiphany loop = the boot checklist (a *restore* of ladybug's qualia loop on our SoA — NOT a bespoke verifier). `CollapseHint` {Flow, Fanout, RungElevate} + `fanout_width` / `noise_tolerance` / `rung_delta` (ladybug `detector.rs` formulas); `Archetype` {Guardian, Catalyst, Balanced} + `InnerCouncil::{deliberate, from_signals}` + `is_split(0.7,0.5)` ×1.2 split-amplify → `CouncilVerdict`; `EpiphanyDetector::observe` (sim > baseline×1.5 ∧ window ≥ 4) → `Epiphany`; `GhostEcho` (8 named: Affinity/Epiphany/Somatic/Staunen/Wisdom/Thought/Grief/Boundary — canonical zero-dep home, mirrors `thinking_engine::ghosts::GhostType`, see TD-GHOST-ECHO-DUP-1) + `WisdomMarker` (asymptotic decay → 0.1 floor, never zero); `GateKind` {Hard, Soft} + `ChecklistItem` + `Checklist::{step, mark_red, boot_ready, all_flow, degraded}` (green-flip = Flow + epiphany; let-it-crash = `mark_red` re-escalate). Planner wiring at `lance_graph_planner::mul::escalation::{boot_checklist, verdict_from}` (§2: 6 HARD / 3 SOFT items + a `MulAssessment` → `CouncilVerdict` adapter). 13 tests (10 contract + 3 planner).
 
 ## cognitive-shader-driver Wire Surface (lab-only, post D0.1)
 
@@ -405,3 +408,31 @@ Sprint-2 W7 → ndarray; sprint-3 W9 → ada-consciousness. Both corrected via m
 - `.claude/board/sprint-log-3/{SPRINT_LOG.md,agents/agent-W1..W12.md,meta-1-review.md,sprint-summary.md}`
 
 PR sequence: #360 → #361 → post-#360 substrate-sweep (this PR).
+
+---
+
+## APPEND-ONLY annotation — D-ODOO-1 odoo hydrator (2026-05-27)
+
+> Per the APPEND-ONLY governance rule, this section augments — does not edit — prior content. Treat as the new top-of-state. Branch: `claude/lance-graph-att-activate-Jd2iZ`.
+
+### Current Contract Inventory — new entry
+
+- **`OGIT::ODOO_V1` = (50, 1)** — new OGIT G slot (first manifest-declared slot above SKR03BAU=42). Source: `modules/odoo/manifest.yaml` (`ogit_g: ODOO`, `inherits_from: fibofnd`, 17 entity_types u16=4300..4316). Registered in `crates/lance-graph-contract/build.rs` CANONICAL_SLOTS as `("ODOO", 50)`; build regenerates `OUT_DIR/ogit_namespace.rs` accordingly.
+
+### New module surface (`lance-graph-ontology`)
+
+- **`hydrators::odoo`** — Layer-1 odoo extraction hydrator (four-way alignment seam). `hydrate_odoo(registry)` + `hydrate_odoo_from(paths, registry)`; `inherits_from: Some(OGIT::FIBOFND_V1.0)`; edge whitelist {rdfs:subClassOf, owl:equivalentClass, rdfs:subPropertyOf, owl:equivalentProperty}. Re-exported from `lib.rs`.
+- **`hydrators::dolce_odoo`** — odoo DOLCE suffix classifier (Seam decision 2, own module per Open-question 3). `pub fn classify_odoo(iri: &str) -> DolceCategory` + `pub enum DolceCategory { Endurant, Perdurant, Quality, AbstractEntity }`. Re-exported from `lib.rs`. (Doc-noted: canonical DUL renames Endurant→Object / Perdurant→Event.)
+
+### New data artifacts
+
+- `data/ontologies/odoo/odoo-core.ttl` — 17 odoo core classes (`odoo: <https://ada.world/onto/odoo#>`).
+- `data/ontologies/odoo/alignment/odoo-to-fibo.ttl` + `odoo-to-skr.ttl` — Layer-2 `owl:equivalentClass`/`owl:equivalentProperty` alignment axioms (Seam decision 1 / Option B: odoo inherits existing FIBO/SKR slots, no new CAM family).
+
+### Tests
+
+`cargo test -p lance-graph-ontology` → 127 passed / 0 failed (+7 odoo integration tests across `tests/odoo_hydrator_smoke.rs` + `tests/odoo_dolce_classifier.rs`, incl. the full 21-row seam classifier matrix; +4 lib unit tests). `cargo test -p lance-graph-contract` → 449 passed / 0 failed.
+
+### Relationship to prior art
+
+`lance-graph-callcenter::odoo_alignment` already ships a parallel `dolce_odoo()` + `DolceMarker` + `ODOO_SEED` table. This is the ontology-side counterpart (TTL hydration into `OntologyRegistry`); consistent doctrine (Option B, same pivots), distinct crate + distinct `DolceCategory` enum per task spec. Cross-crate dedup is a possible follow-up, not done here.
