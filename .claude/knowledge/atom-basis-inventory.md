@@ -12,7 +12,9 @@
 
 `ThinkingStyleI4_32D` is the *type that holds a style* (a molecule); its **individual lanes/poles are the atoms**. The groups below (Pearl/Rung/Σ/Ops/Presence/Meta) are **allocation families** — neither atoms nor molecules, just how the lanes are budgeted.
 
-**Atoms are bare-metal by design — not human-legible.** A single i4 pole means nothing to a human; that's fine. Atoms exist to be *composed into object-oriented metacognition*: a **style is an object** (a `StyleRecipe` carrying behavior over its atom-weighting), a **persona is an object** (a `PersonaRecipe` composing styles + β/thresholds). The metacognition you reason about is Kant-the-object / the-OSINT-persona-object — never "pole #37". This is the workspace's "thinking is a struct / the object speaks for itself" doctrine: the atoms are the bytes (SoA, SIMD); the **objects are the cognition**. So D-ATOM-1 builds the bare-metal lanes; **D-ATOM-2 builds the OO layer (the actual metacognition)**.
+**Atoms are bare-metal by design — not human-legible.** A single i4 pole means nothing to a human; that's fine. Atoms exist to be *composed into object-oriented metacognition*: a **style is an object** (a `StyleRecipe` carrying behavior over its atom-weighting), a **persona is an object** (a `PersonaRecipe` composing styles + β/thresholds). The metacognition you reason about is Kant-the-object / the-OSINT-persona-object — never "pole #37". This is the workspace's "thinking is a struct / the object speaks for itself" doctrine; the **objects are the cognition**.
+
+**Execution stack: `atoms → cognitive-shader-driver → SIMD`.** Atoms are NOT SIMD. Atoms **dispatch through `cognitive-shader-driver`** (the encode/decode engine that sweeps the SoA columns); the **shader-driver** is the layer that uses SIMD (ndarray i4-32). So **D-ATOM-1 defines the atoms and routes them into the shader-driver — no SIMD dot in the atom layer** (that's the driver's job, largely already built); **D-ATOM-2 builds the OO layer (the actual metacognition)** as objects dispatched through the same driver.
 
 ## The basis is LOCKED, not derived
 
