@@ -1,3 +1,43 @@
+## [Agent-C / Sonnet] [SCAFFOLD ONLY — no implementation, no commit] D-ATOM-3 — quorum.rs per-axis quorum projection scaffold
+
+**D-id:** D-ATOM-3 (`atom-mailbox-substrate-v1` pillar 3 — quorum projection per axis).
+
+**File:** `crates/lance-graph-contract/src/quorum.rs` — ONE new file, doc-comment scaffold only (`///` rustdoc + `todo!()` bodies). No existing file was edited (lib.rs and escalation.rs untouched per constraint). No `cargo` run. No commit.
+
+**What the scaffold contains:**
+- `AxisProjection { position: i8, confidence: f32, contested: bool }` — NARS truth per axis (frequency ≈ position-normalised, confidence ≈ quorum strength); constructor helpers `settled` / `contested`; `is_contested()`, `nars_frequency()`.
+- `AxisSignal` — raw per-axis scalar inputs (trust/humility/flow/load + polarity_hint) fed to `InnerCouncil::from_signals`.
+- `quorum_project(signals: &[AxisSignal], council: &InnerCouncil) -> AxisProjection` — `todo!()` body; mechanism fully `///`-documented: aggregate InnerCouncil verdicts, derive I4 position from polarity hints, mark contested on any split.
+- `quorum_project_blackboard(_bb: &Blackboard) -> AxisProjection` — wide-quorum path; fully `BLOCKED`.
+- `ContestHandler { DropMinority | DepositMantissa | SpawnCounterfactual }` — v1/v2/v3 staging seam to D-ATOM-4; `resolve_contest(projection, handler) -> (AxisProjection, i8)` — `todo!()`.
+- 6 scaffold tests (4 non-panicking on `AxisProjection` constructors; 2 `#[should_panic(expected = "D-ATOM-3")]` for the two `todo!()` functions).
+
+**BLOCKED list:**
+- `// BLOCKED: D-ATOM-1 (parallel)` — `atoms::AxisId` / `I4x32` type + 32-dim bipolar catalogue not yet defined; all axis-identity references are `u8` placeholders.
+- `// BLOCKED: a2a_blackboard::Blackboard per-axis slice semantics` — the exact contract for which `BlackboardEntry` fields carry a per-axis vote vs per-round result, and how `Blackboard::next_round` interacts with per-axis slicing, is unclear from the source. Wide-quorum path deferred.
+
+**Tiering non-decision documented:** module doc explicitly records that E-LADDER-SERVES-MAILBOX §5 chose counterfactual-fork (D-ATOM-4) OVER quorum-tiering; this module exposes the projection + contested flag and hands off to D-ATOM-4 via `ContestHandler`.
+
+**References used:** `contract::escalation::{InnerCouncil, is_split, CouncilVerdict}` (D-PERSONA-1, shipped); `contract::a2a_blackboard::{Blackboard, BlackboardEntry}` (`support[u16;4]` + `dissonance` fields confirmed in source).
+
+---
+
+## [D-ATOM-2] [SCAFFOLD ONLY — no impl, no commit, no cargo] recipe.rs — composition layer above atoms
+
+**D-id:** D-ATOM-2 (`atom-mailbox-substrate-v1.md` deliverable table).
+**File:** `crates/lance-graph-contract/src/recipe.rs` (new, scaffold only).
+**Worker:** Sonnet scaffold agent (2026-05-27).
+
+**What was scaffolded:** `StyleRecipe` (I4-32D composition over atoms; `///` explicitly states styles are compositions, not atomic fingerprints) · `PersonaRecipe` (composition of styles + `commit_threshold`/`escalate_threshold` + `purpose` + `Beta` enum with `Cold`/`Warm`/`Annealing{start,floor}`) · `RecipeTemplate` (Cranelift/JIT hook; `///` explains WHY the recipe — not the per-atom dot — is the JIT target: a 32-D i4 dot is one SIMD sequence, overhead only amortises at the fused-recipe level; `todo!()` bodies throughout) · `register_recipe(...)` / hot-load entry (Elixir-style open/closed split; add-atom = data, add-style/persona = template; `todo!()`).
+
+**BLOCKED list (do NOT guess):**
+1. `atoms::I4x32` / `atoms::Atom` — concrete I4-32D type and atom catalogue — BLOCKED on D-ATOM-1 (being scaffolded in parallel). Stubbed as `I4x32Stub = [i8; 32]` and `AtomStub = u8`; replace with real imports once D-ATOM-1 lands.
+2. `jit::StyleRegistry` API extension — `StyleRegistry::get_kernel` currently accepts `ThinkingStyle` enum, not a `RecipeTemplate`. A `register_recipe` / `get_recipe_kernel` surface must be added before `RecipeTemplate::compile` and `register_recipe` can be wired. BLOCKED on that extension; all affected bodies are `todo!()`.
+
+**Constraints satisfied:** zero-dep crate; no edits to `lib.rs`, `thinking.rs`, or `jit.rs`; scaffold only (all bodies `todo!()`); `// BLOCKED:` markers placed.
+
+---
+
 ## [Main-thread] [DESIGN — captured, not implemented] E-LADDER-SERVES-MAILBOX — atom/quorum/mantissa/AriGraph-hot-cold synthesis
 
 **What:** Captured a multi-turn design dialogue as `EPIPHANIES.md` E-LADDER-SERVES-MAILBOX (2026-05-27). No code; design crystallization only. Branch `claude/splat3d-cpu-simd-renderer-MAOO0`.
