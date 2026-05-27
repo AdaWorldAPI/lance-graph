@@ -31,4 +31,4 @@ rbac_policy: ~
 stack_profile: ~
 action_capabilities: {}
 actor: ~
-inherits_from: dolce
+inherits_from: fibofnd

@@ -83,7 +83,7 @@ pub fn hydrate_zugferd_from(
         g: OGIT::ZUGFERD_V1.0,
         version: OGIT::ZUGFERD_V1.1,
         domain_name: "zugferd".to_string(),
-        inherits_from: Some(OGIT::DOLCE_V1.0),
+        inherits_from: Some(OGIT::FIBOFND_V1.0),
         starting_entity_id: 100,
     };
     hydrator.hydrate_many(&path_refs, registry)?;

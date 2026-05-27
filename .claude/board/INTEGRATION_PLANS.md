@@ -1,3 +1,153 @@
+## 2026-05-27 — bindspace-singleton-to-mailbox-soa-v1 (dissolve the shared `Arc<BindSpace>` into per-mailbox `MailboxSoA<N>` ephemeral thoughtspace)
+
+**Status:** PROPOSAL / design (migration spec; NOT yet implemented). **Plan file:** `.claude/plans/bindspace-singleton-to-mailbox-soa-v1.md`. **Epiphany:** `E-MAILBOX-IS-BINDSPACE`.
+**Scope:** `MailboxSoA<N>` *becomes* the per-mailbox, mailbox-owned, ephemeral "thoughtspace" — the BindSpace surrogate. The singleton `ShaderDriver.bindspace: Arc<BindSpace>` (`cognitive-shader-driver/src/driver.rs:56`; one `BindSpace::zeros(4096)` in `bin/serve.rs:29`) is **dissolved**, not copied. Column map: drop the 64 KB `Vsa16kF32` `cycle` plane; own `edges`/`qualia`/`meta`/`entity_type` in the mailbox; reference content via CAM-PQ; keep `ontology` a shared `Arc`.
+**Deliverables:** D-MBX-1 add migrated columns to `MailboxSoA<N>` (feature-gated) · D-MBX-2 move `engine_bridge` per-row surface onto mailbox rows · D-MBX-3 driver holds sea-star of mailboxes (kill the singleton) · D-MBX-4 death→SPO+Lance tombstone-witness · D-MBX-5 delete `BindSpace`+`cycle` plane.
+**Gates:** `D-CE64-MB-1-impl` (par-tile) + `PR-NDARRAY-MIRI-COMPLETE` first; D-MBX-5 blocked on the CLAUDE.md "The Click"/`Vsa16kF32` doctrinal update (OQ-4).
+**Invariants:** `E-CE64-MB-4` (ownership = compile-time no-alias) · `E-BATON-1` (LE baton is the only cross-boundary state) · `I-VSA-IDENTITIES` (reference content, don't copy planes) · `I-LEGACY-API-FEATURE-GATED` (feature-gate v1 `BindSpace` accessors during S1–S4) · no double-mailbox (sync inner / ractor outer).
+
+---
+## 2026-05-27 — odoo-savant-reasoners-v1 (lance-graph side of the Odoo richness harvest: 2 new OGIT families + Layer-2 axioms + StyleCluster wiring + 5 Reasoner impls)
+
+**Status:** PROPOSAL (picks up the cross-repo handover boundary in `.claude/odoo/SAVANTS.md` §"lance-graph handover boundary"). woa-rs defined the 25-Savant roster + delegation tuples; lance-graph implements (a) Reasoner impls, (b) 2 new families + Layer-2 alignment axioms for the `None` classes, (c) StyleCluster wiring.
+**Confidence:** HIGH on (b)/(c) — additive extensions of `odoo_alignment.rs` seed + alignment TTLs. MED on (a) — Reasoner dispatch shape (one impl per ReasoningKind vs savant-config registry) pinned but needs a review pass.
+**Plan file:** `.claude/plans/odoo-savant-reasoners-v1.md`
+**Predecessors:** PR #412 (odoo hydrator + dolce_odoo classifier + ODOO slot 50), PR #413 (briefing pack).
+**Anchored iron rules:** I-VSA-IDENTITIES (savant = Layer-2 role catalogue), AGI-as-glove, board-hygiene, Iron Rule 1 (no brain-crate in customer binary), Iron Rule 7 (verhaltens-bewahrend — reasoner output is suggestion-only).
+
+### Scope
+Group B — `0x63 ProductCatalog` (Analytical) + `0x90 HRFoundation` (Empathic) families + Layer-2 alignment axioms for `stock.*` / `account.analytic.distribution.model` / `account.account.tag` (land on existing pivot where honest, else documented `None`). Group C — `StyleCluster` per family (field-or-sidecar). Group A — `SavantConclusion` + 5 `Reasoner` impls (one per `ReasoningKind`) in lance-graph-callcenter, dispatching on evidence + family style, `InferenceType::default_strategy()` → QueryStrategy, NarsTruth evidence fusion.
+
+### Deliverables
+D-ODOO-SAV-1 two new families + seed rows + family_registry.ttl · D-ODOO-SAV-2 Layer-2 alignment axioms TTL · D-ODOO-SAV-3 StyleCluster per family · D-ODOO-SAV-4 5 Reasoner impls (gated on dispatch-shape review, own PR).
+
+### Execution
+D-ODOO-SAV-1/2/3 additive + low-risk → first PR (this session). D-ODOO-SAV-4 → follow-up PR after `/code-review` on dispatch shape. Plan + INTEGRATION_PLANS prepend land with D-ODOO-SAV-1.
+
+### Invariants
+Option B (inherit existing slots; new families are genuine basins not per-class mints; `None` stays `None` w/o honest pivot) · public OWL pristine (axioms are NEW TTL) · savant = Layer-2 catalogue · reasoner output = suggestion (guard stays in woa-rs) · impls in callcenter behind contract `Reasoner` trait.
+---
+## 2026-05-27 — odoo-savant-roster-v1 (the lance-graph side of the woa-rs Odoo savant delegation: 25 delegated reasoners)
+
+**Status:** PROPOSAL. **Plan file:** `.claude/plans/odoo-savant-roster-v1.md`. **Source:** `.claude/odoo/SAVANTS.md` + L1–L15 (PR #413). **Predecessor:** PR #412 (odoo→FIBO/SKR alignment + DOLCE classifier).
+**Scope:** 25 Odoo savants = delegated reasoners (woa-rs keeps the AXIS-A deterministic guard; the ambiguous AXIS-B core delegates to lance-graph via `reasoning::Reasoner`). Each savant = a dispatch tuple (OGIT family · `ReasoningKind` · `InferenceType` · `SemiringChoice` · `StyleCluster`).
+**Deliverables:** D-ODOO-1 roster-as-data (`contract::savants`, ✅ DONE) · D-ODOO-2 `Reasoner` impls per `ReasoningKind` · D-ODOO-3 new OGIT families `0x63 ProductCatalog` + `0x90 HRFoundation` + style wiring · D-ODOO-4 Layer-2 alignment axioms for the `None` classes (stock.*, analytic.distribution.model, account.account.tag) · D-ODOO-5 delegation call-site conformance (ReasoningContext + Arrow EvidenceRef schemas).
+**Invariants:** suggestion-only never un-guarded write (Iron Rule 7) · deterministic guard stays woa-rs · BBB-allowed crates only · tuple fully determines dispatch · business = OGIT-inherited sidecar (odoo inherits FIBO/SKR slots; 0x63/0x90 are the only new families, need ratification).
+
+---
+
+## 2026-05-27 — atom-mailbox-substrate-v1 (ladder-serves-mailbox: atoms→styles→personas, quorum projection, counterfactual mantissa, AriGraph hot/cold/tombstone)
+
+**Status:** PROPOSAL (implements `EPIPHANIES.md` E-LADDER-SERVES-MAILBOX; extends `rung-persona-orchestration-v1` D-PERSONA-1 downward into the atom layer and outward into the mailbox lifecycle).
+**Confidence:** HIGH on the mechanism→shipped-type mapping; **CONJECTURE on the atom basis (D-ATOM-0, the load-bearing unsolved decision)** and the I4-32D SIMD layout until probed.
+**Plan file:** `.claude/plans/atom-mailbox-substrate-v1.md`
+**Predecessors:** `rung-persona-orchestration-v1`, `rung-mul-grounding-v1`, `cognitive-substrate-convergence-v1`.
+**Anchored iron rules:** `I-VSA-IDENTITIES`, `E-BATON-1`, `I-LEGACY-API-FEATURE-GATED`, The Click.
+
+### Scope
+Three-layer cognitive basis under the mailbox-served ladder: **atoms (bipolar I4-32D, 32 dims / 64 poles) → thinking styles (compositions) → persona recipes (compositions + thresholds + β)**. Each atom *measured by a quorum* (`(position, confidence)` = NARS truth per axis; splits = Contradiction never averaged); split-poles *preserved as a `CausalEdge64` −6 counterfactual mantissa* (ghost-tier test → `awareness.revise`); memory *ephemeral-hot in mailbox → calcified-cold SPO + Lance tombstone-witness* (GoBD audit by construction). wisdom↔Staunen = sampling temperature (self-regulated by free energy; the `WisdomMarker` 0.1 floor = min temperature).
+
+### Decision gates (block scaffolding)
+D-ATOM-0 atom-basis route (ICA/PCA over 36 / theory-driven from 6 clusters / hybrid) · D-ATOM-0b NARS as categorical register (Test 0, recommended) vs bipolar atoms.
+
+### Deliverables
+D-ATOM-1 atom catalogue + `I4x32` type + pack/SIMD (`contract::atoms`, blocked on D-ATOM-0) · D-ATOM-2 style/persona Cranelift recipe templates (`contract::jit`/`thinking`) · D-ATOM-3 quorum-projection per axis (`contract::escalation`/`a2a_blackboard`) · D-ATOM-4 counterfactual mantissa v2 deposit / v3 mailbox+revision (basis-independent) · D-ATOM-5 AriGraph hot/calcify/tombstone (basis-independent).
+
+### Execution
+Sonnet `///`-scaffold wave (disjoint file scopes, BLOCKED-not-guess) → P2 review (`/code-review` high, ultra for D-ATOM-1/2; no literal codex binary) → implement+remove stubs → per-deliverable PR into the working branch → subscribe+autofix CI → merge → repeat. Parallel-now: D-ATOM-4 v2, D-ATOM-5 (basis-independent); D-ATOM-1/2 spawn after D-ATOM-0.
+
+### Invariants
+persona=Layer-2 (no container) · NARS type in register (Test 0) · markers ≤32 (I-VSA-IDENTITIES) · splits=Contradiction never averaged · counterfactual in separate lane · one graph · no persisted singleton (E-BATON-1) · ractor async only at swarm boundary · bounded respawn · `latency_budget` arbiter, no hot-Pod wall-clock · SIMD gated on `ndarray-vertical-simd-alien-magic.md`.
+
+---
+
+## 2026-05-26 — rung-persona-orchestration-v1 (time-bound persona orchestration: boring checklist → meta-recipe → hot/cold/feedback anneal)
+
+**Status:** PROPOSAL (sibling to `rung-mul-grounding-v1`; the time-bound + composition layer)
+**Confidence:** HIGH on structure (hot/cold/feedback = the original ladybug architecture + OpenAI macro-evals + ADK Memory Bank, converged); MED on ractor adoption + macro-eval harness (net-new).
+**Plan file:** `.claude/plans/rung-persona-orchestration-v1.md`
+**Predecessors:** `rung-mul-grounding-v1` (b4efb55), `rung-ladder-grounding-v1` (b0ef6fa), `cognitive-substrate-convergence-v1`.
+**Design refs (read-only general-web; ladybug-rs is outside GitHub-MCP scope):** ladybug-rs `INTEGRATION_PLAN.md` @177a321 §"BF16 Superposition (Hot/Cold/Feedback)" L542+ + 4-phase `[DONE]/[TODO]` gate + 3 composition modes + BindSpace-blackboard; `src/spectroscopy/detector.rs` @177a321; Claude chief-of-staff; OpenAI macro-evals; Google ADK Memory Bank.
+
+### Scope
+
+Ground (restore-on-SoA, NOT port) ladybug's hot/cold/feedback loop + phase-gate checklist + blackboard composition onto our contract/SoA floor, as the time-bound layer over the `rung-mul` experience curve.
+
+- **Two orthogonal orderings × time budget:** epistemic experience-curve (Axis A) × social etiquette arc (Axis B), arbitrated by `latency_budget` (`elevation/mod.rs:131`). 2D menu phase×DK-position; etiquette = soft prior + anytime graceful-degradation, not rigid FSM.
+- **Boring checklist (verify, temp≈0):** hard gates (contracts/SoA/store/NARS/thresholds/FreeEnergy) vs soft (capabilities/wisdom-store/eval — degrade). Continuous health invariant: red-at-runtime → let-it-crash → supervisor restart = rung-shift + NaN→Lab.
+- **Meta-recipe (compose, cold):** declarative child-spec manifest (data not code, macro-evaluable); blackboard composition on `a2a_blackboard`/SoA (per ladybug BindSpace), ractor supervises + carries Batons.
+- **Hot/cold/feedback (L542 grounding):** hot = annealed cognitive cycle; cold = macro-eval = **wisdom-marker factory** (ladybug `CrystalCodebook` "lived history" → our *distilled calibrated* marker); feedback = hydrate-before-the-fact (ADK Preload).
+- **Temperature anneal:** explore hot → exploit cold, **evidence-gated** (Boole-bound caps cooling — no premature Mount Stupid). Grounded: detector `noise_tolerance=base·(1+(1−conf)·0.5)`, `fanout=base·(1+bridgeness·0.5)` (bridgeness=macro-eval suspect-bridge=our work-metric, triple convergence).
+- **Substrate:** ractor YES (outer swarm under `OrchestrationBridge`, async only at boundary, SoA inner sync); surrealdb NO for cognitive (redundant w/ lance-graph/AriGraph, not boring; prefer SQLite/Lance operational); AriGraph = the one graph.
+
+### Deliverables
+
+D-PERSONA-1 hard/soft checklist verifier (~180) · D-PERSONA-2 meta-recipe manifest (recipe-as-data, ~150) · D-PERSONA-3 hot/cold/feedback wiring + CrystalCodebook→wisdom-marker + Preload hydrate (~240) · D-PERSONA-4 macro-eval harness (scenario→trace→discover→diagnose, suspect-bridge=blasgraph betweenness, ~280, HIGH) · D-PERSONA-5 ractor outer-swarm runtime (~200).
+
+### Honest gaps vs original
+
+ladybug `detector.rs` has NO null/dead-end/escalation ("all inputs produce valid output") → our NaN→cautious-exploration→Lab + dead-end-as-work is net-new. `CrystalCodebook` dumps lived history → we distill it into a calibrated marker (Boole-bound, ≤32 identities). ractor + etiquette arc not in original.
+
+### Invariants
+
+restore-on-SoA not port · hard/soft graceful-degradation · recipe-as-data (macro-evaluable) · evidence-gated anneal (Boole-bound cooling cap) · blackboard composition not direct calls · ractor async only at swarm boundary · no second graph · I-VSA-IDENTITIES (markers ≤32) · `latency_budget` time arbiter.
+
+---
+
+## 2026-05-26 — rung-mul-grounding-v1 (the MUL fine-tuned into the ladder as an experience curve over the SPO 2³ NARS decomposition)
+
+**Status:** PROPOSAL (follow-on to `rung-ladder-grounding-v1`)
+**Confidence:** HIGH on structure (it is the Dunning-Kruger curve mechanized); MED on the per-projection `SpoHead` refactor; CONJECTURE on the wisdom-marker calibration readout until D-RUNG-MUL-4 tests it.
+**Plan file:** `.claude/plans/rung-mul-grounding-v1.md`
+**Predecessors:** `rung-ladder-grounding-v1` (b0ef6fa), `cognitive-substrate-convergence-v1` (CausalEdge64 v2 §6 — causal mask = Pearl 2³ IS the rung axis), `E-AGICHAT-DIMENSION-CONTRACT` (afabefd), `E-I4-META-1`.
+
+### Scope
+
+Grade the coarse integer rung ladder with the MUL, organized as an **experience curve**: every strategy ordered by the evidence level at which it becomes *necessary* — which collapses into the Dunning-Kruger curve with a mechanical trigger at each point.
+
+- **SPO 2³ corrected:** it is the **powerset of {S,P,O}** (8 evidential projections `___,S__,_P_,__O,SP_,S_O,_PO,SPO`) for causality testing through NARS **decomposition** — NOT a distance-cube/popcount. `nars_engine.rs` today computes `all_projections() -> [u32;8]` as *distances* and `SpoHead` carries *one* truth; de-grounding that to per-projection truth is D-RUNG-MUL-1.
+- **Causation = screening-off:** `S_O` strong but screened off by P (`SP_`∧`_PO`) ⇒ spurious/mediated; all projections compared to `___` for lift over base rate.
+- **Work (exploit):** decomposition + screening-off coverage, **confidence/expectation-gated (never frequency)**, AIKR-gated by `budget.quality`. Two curves over one axis: work climbs monotone, confidence is DK-shaped; **wisdom = calibration gap `|conf−competence|→0`**.
+- **Two sparse-data routes:** NaN sentinel ("no field") → cautious-exploration (Exploratory, high exploration_rate) + `ElevationLevel`↑ + **Lab request**; sparse field → gaussian splat → `FreeEnergy::compose` as the *sole* confidence source (F caps confidence ⇒ **no data ⇏ overconfidence**). Explore drive = `wonder` × `free_will_modifier` × trust.
+- **Wisdom markers:** long-term VSA-**identity** bundle (≤32 per I-VSA-IDENTITIES; truths in content store) hydrated *before the fact* as the KL prior — the curve becomes a spiral.
+
+### Deliverables
+
+D-RUNG-MUL-1 per-projection NARS truth (`SpoHead` 8 `(f,c)`, planner ~220) · D-RUNG-MUL-2 NaN→cautious-exploration+Lab gate, distinct from `c=0` (~160) · D-RUNG-MUL-3 wisdom marker (identity bundle + hydrate-as-KL-prior, contract+planner ~180) · D-RUNG-MUL-4 screening-off work + Boole/Fréchet bound + calibration-gap readout (~150) · D-RUNG-MUL-5 splat→`FreeEnergy::compose` as sole sparse-data confidence (~120).
+
+### Invariants
+
+Confidence-gated never frequency-gated (frequency alone = Mount Stupid) · Boole/Fréchet bound on conjunction confidence · no data ⇏ overconfidence (only FreeEnergy or floored-NaN may signal) · I-VSA-IDENTITIES (markers ≤32 identities, content in store) · AIKR `budget.quality` fanout cap · AGI-as-SoA (markers = column ops, not a new service) · decomposition not distance-cube. Folds into `elevation/homeostasis.rs` (MUL-L6) beside `evaluate_rung_shift`; does not fork.
+
+---
+
+## 2026-05-26 — rung-ladder-grounding-v1 (the most-obvious first grounding of the agichat gestell)
+
+**Status:** PROPOSAL
+**Confidence:** HIGH — deterministic integer/threshold logic, zero VSA in the decision path; cleanest possible first restore.
+**Plan file:** `.claude/plans/rung-ladder-grounding-v1.md`
+**Predecessors:** `E-AGICHAT-DIMENSION-CONTRACT` (afabefd), `E-I4-META-1`, `E-BATON-1`; shipped floor ndarray `SoaColumns` (42cb7123) + i4-32 unpack (8de1dcf8).
+**Follow-on (planned, user-flagged):** `rung-mul-grounding-v1` — the **MUL fine-tuned into the ladder**: ladybug's 10-layer MUL (`MulSnapshot`) becomes the *trigger source* refining the ladder's coarse binary triggers into graded escalation (DK MountStupid → escalate; homeostasis Anxiety + allostatic-load → escalate; false-flow → escalate; gate-block reason → escalate). `elevation/homeostasis.rs` is already MUL-L6 — ladder + MUL co-finetune there.
+
+### Scope
+
+Ground agichat's **RungShift ladder** + **CollapseGate SD** as LE-contract types/logic on the SoA floor. The ladder was never inflated (ladybug-rs `rung.rs` is a faithful port) — the work is to express it as a bit-exact Pod and wire its triggers to grounded signals.
+
+- **CollapseGate:** SD over candidate scores → `FLOW(<0.15)/HOLD/BLOCK(>0.35)`; SD = dispersion, not confidence.
+- **RungShift:** rung 0-9, bands 0-2/3-5/6-9; triggers sustained-block(≥3) / predictive-failure(avg P<0.3 / window 5) / structural-mismatch → +1 (cap 9); tick-based cooldown.
+- **Grounding:** `RungState` = 16-byte `#[repr(C)]` Pod (no `Vec` — fixed `[u8;5]` P-ring; tick cooldown; u8/i4-quantized scores) in a `SoaColumns` column; `evaluate_rung_shift` PURE (no `&mut` during compute) folded into `lance-graph-planner/src/elevation/` beside `homeostasis.rs`; SD via ndarray SIMD; `GateState` into `collapse_gate.rs`.
+- **Hook:** RungLevel = the **R1-R9 dim-group** of the 33-TSV (`ThinkingStyleI4_32D`).
+
+### Deliverables
+
+D-RUNG-1 contract types (lance-graph-contract, ~150) · D-RUNG-2 pure ladder logic in `elevation/` (planner, ~200) · D-RUNG-3 `RungState` SoA column + tick update (~100) · D-RUNG-4 SD→GateState in `collapse_gate.rs` + rung→TSV-R1-R9 map (~120). Parity tests vs verbatim agichat semantics.
+
+### Invariants
+
+No `Vec`/alloc in hot Pod · no `&mut` during compute (pure evaluate, builder apply) · tick-based not wall-clock · integer rung (no float-resonance carrier — the de-grounding ladybug-rs did) · SD = dispersion not confidence · RungShift separate from SD.
+
+---
+
 ## 2026-05-15 — cognitive-substrate-convergence-v1 (CSV — i4 mantissa + gapless baton + active inference)
 
 **Status:** Active (PROPOSAL — awaits OQ-CSV-1..6 ratification before sprint-11 D-CSV-* spawn)
@@ -618,3 +768,64 @@ This sprint was orchestrated as 12 worker agents + 1 meta agent on branch `claud
 - `.claude/board/LATEST_STATE.md` — sprint-3 entry (paired with this index update)
 - `.claude/board/TECH_DEBT.md` — TD-OGIT-G-SLOT-1 through TD-DEEPNSM-NSM-COLLAPSE-11 (the 11 entries spec'd by sprint-3)
 - `.claude/board/sprint-log-3/` — coordination directory (12 agent logs + meta-1 + sprint-summary)
+
+## 2026-05-21 — unified-bridge-consumer-migration-v1 (UnifiedBridge wiring across woa-rs / smb-office-rs / MedCare-rs)
+
+**Status:** Active (DRAFT — sister to super-domain-rbac-tenancy-v1 §3.9)
+**Confidence:** HIGH on architecture (UnifiedBridge already shipped in lance-graph-callcenter; smb_unified_bridge is the working reference); MED on the SmbBridge promotion path (depends on `OGIT/NTO/SMB/` namespace landing upstream); HIGH on the medcare critical-path (D-UB-7 / D-UB-8 are concrete and bounded).
+**Plan file:** `.claude/plans/unified-bridge-consumer-migration-v1.md`
+**Predecessors:** `super-domain-rbac-tenancy-v1` (Tier A D-SDR-1..5 + §13.1 PolicyRewriter compositor)
+
+### Scope
+
+Three consumers (woa-rs, smb-office-rs, MedCare-rs) converge to one constructor pattern: `<repo>_unified_bridge(registry, actor_role, tenant) -> Result<UnifiedBridge<NamespaceBridge>>`. CAM-codebook + schema + label + verbs from OGIT + OWL/DOLCE materialised as `OgitFamilyTable` and persisted as a LanceDB column under the `lance-cache` feature. D-UB-1..11 across three tiers; D-UB-7 (fix `ontology_dto.rs:85`) is the critical path; D-UB-8 (RLS coverage for Treatment / Visit / VitalSign) is safety-critical.
+
+---
+
+## 2026-05-21 — lance-graph-in-woa-rs-v1 (greenfield consumer integration)
+
+**Status:** Active (DRAFT — six phases, additive)
+**Confidence:** HIGH on architecture (every step mirrors MedCare-rs or smb-office-rs reference); MED on Phase-4 ceiling (Cypher/SPARQL surface may or may not be wanted in production).
+**Plan file:** `.claude/plans/lance-graph-in-woa-rs-v1.md`
+**Predecessors:** `super-domain-rbac-tenancy-v1` (substrate); `unified-bridge-consumer-migration-v1` (Tier B D-UB-4)
+
+### Scope
+
+Lift woa-rs from zero-baseline (today: OGIT TTL vendored, sea-orm + MySQL writer-parity, no lance-graph dep) to "ontology + RBAC + Lance-third-writer" via six additive phases. Phase 0 mechanical (vendor + exclude). Phase 1 lands `woa-bridge` + `woa-ontology` crates. Phases 2-3 wire route handlers + Lance projection. Phases 4-5 opt-in Cypher + CAM-PQ. Respects 2026-05-15 DualSink-Pivot (MySQL stays authoritative; Lance is a third witness).
+
+---
+
+## 2026-05-21 — lance-graph-in-smb-office-rs-v1 (consumer integration completion)
+
+**Status:** Active (DRAFT — five phases, finish what unified_bridge_wiring's doc-comments already promise)
+**Confidence:** HIGH (most substrate ships — smb-bridge + smb-ontology + auth + rls features wired; smb_unified_bridge is the working reference for the cross-consumer migration plan).
+**Plan file:** `.claude/plans/lance-graph-in-smb-office-rs-v1.md`
+**Predecessors:** `super-domain-rbac-tenancy-v1` (Tier A); `unified-bridge-consumer-migration-v1` (Tier A D-UB-2 + Tier B D-UB-5)
+
+### Scope
+
+Phase A ships dedicated `SmbBridge` upstream (~50 LOC + 2 tests). Phase B authors `OGIT/NTO/SMB/` TTL + SMB-shaped role groups (`tax_clerk` / `partner` / `client_user` / `audit_observer`) per D-SDR-2 + swaps `smb_unified_bridge` from `UnifiedBridge<OgitBridge>` to `UnifiedBridge<SmbBridge>` (15-LOC type-parameter change). Phase C consolidates rich `auth::TenantId` ↔ transparent `callcenter::TenantId`. Phases D-E opt-in Cypher / CAM-PQ. Smallest delta of the three consumer plans.
+
+---
+
+## 2026-05-21 — lance-graph-in-medcare-rs-v1 (consumer integration in flight)
+
+**Status:** Active (DRAFT — seven phases, critical path on Phase 1 + 2)
+**Confidence:** HIGH on architecture; CRITICAL on Phase 1 (lance-phase2 build is broken at `ontology_dto.rs:85` — blocks everything); SAFETY-CRITICAL on Phase 2 (3 newly-OGIT-surfaced Healthcare entities have no RLS policy → fail-OPEN bypass risk); HIGH on Phase 5 (LanceProbe-side endpoints D-LGMC-7..11 are concrete per super-domain plan §18.7).
+**Plan file:** `.claude/plans/lance-graph-in-medcare-rs-v1.md`
+**Predecessors:** `super-domain-rbac-tenancy-v1` (Tier H D-SDR-35..39); `unified-bridge-consumer-migration-v1` (Tier C D-UB-6..10); lance-graph#355 (post-PR-355 migration arc)
+
+### Scope
+
+Phase 1 fix the lance-phase2 build (`MedcareOntology::default()` calls broken no-arg form). Phase 2 close RLS fail-OPEN for Treatment / Visit / VitalSign. Phase 3 ship `medcare_unified_bridge` constructor. Phase 4 wire `MulThresholdProfile::MEDICAL` + `ontology_context_id` third axis (§73 SGB V Überweisung). Phase 5 unblock LanceProbe M2..M6 with the 5 medcare-rs endpoints (D-LGMC-7..11). Phases 6-7 opt-in Cypher / CAM-PQ. Two-branch reality: `main` (full lance-phase2) vs `claude/scaffold-medcare-rs-rZD5A` (lean fallback) — most deliverables land on `main` only.
+
+## 2026-05-21 — lance-graph-business-logic-poc-via-woa-rs-v1 (consolidating POC roadmap across the 4 consumer plans)
+
+**Status:** Active (Draft)
+**Confidence:** HIGH on the POC framing (per 4 predecessor plans' session-appended §§4.5-4.7 + §§8-13 refinements + 3 attached distillation docs); MED on RFC v02-006 codegen-pipeline readiness (DRAFT — emitter side may need build).
+**Plan file:** `.claude/plans/lance-graph-business-logic-poc-via-woa-rs-v1.md`
+**Predecessors:** unified-bridge-consumer-migration-v1; lance-graph-in-{woa-rs,smb-office-rs,medcare-rs}-v1; super-domain-rbac-tenancy-v1.
+
+### Scope
+
+Consolidates the 4 consumer-integration plans into a P0/P1/P2-prioritised POC roadmap. **First POC slice = woa-rs PR-5 (XRechnung visible reward)** — the moment 6 months of lance-graph substrate work produces its first customer-deliverable artefact (EN16931-conformant ZUGFeRD/Factur-X invoice via `hydrate_zugferd` + `SchematronHydrator` + `XsdHydrator`). Maps 1:1 to "First Foundry-style projection: fibo:Transaction" Phase 9 from `erp_foundry_hhtl_ontology_distillation.md`. P0 effort ~7-8 days. P1 closes parity dashboard + RLS-via-codegen-bucket + MedCare/SMB cross-consumer harvest. P2 = opt-in Cypher/similarity/MongoDB alt cold path. No new D-ids; this plan re-indexes existing D-UB-/D-WLG-/D-LGMC-/D-LGSMB- IDs by priority.

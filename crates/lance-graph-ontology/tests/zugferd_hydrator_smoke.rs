@@ -26,8 +26,8 @@ fn zugferd_hydrator_smoke() {
     assert_eq!(bundle.domain_name, "zugferd");
     assert_eq!(
         bundle.inherits_from,
-        Some(OGIT::DOLCE_V1.0),
-        "ZUGFeRD inherits_from must be DOLCE"
+        Some(OGIT::FIBOFND_V1.0),
+        "ZUGFeRD inherits_from must be FIBOFND (PR #416)"
     );
 
     // EN16931 profile covers 4 XSD files: top-level CrossIndustryInvoice,

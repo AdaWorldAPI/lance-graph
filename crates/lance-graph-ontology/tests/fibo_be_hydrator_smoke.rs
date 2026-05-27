@@ -21,8 +21,8 @@ fn fibo_be_hydrator_smoke() {
     assert_eq!(bundle.domain_name, "fibobe");
     assert_eq!(
         bundle.inherits_from,
-        Some(OGIT::DOLCE_V1.0),
-        "FIBO-BE inherits_from must be DOLCE"
+        Some(OGIT::FIBOFND_V1.0),
+        "FIBO-BE inherits_from must be FIBOFND (BE → FND → DOLCE, PR #416)"
     );
 
     let entity_count = bundle.entity_count();
@@ -69,13 +69,13 @@ fn fibo_be_canonical_iris_resolve() {
 }
 
 #[test]
-fn fibo_be_inherits_from_dolce() {
-    // BE declares inherits_from: dolce directly today. A future PR may
-    // chain BE → FND → DOLCE once multi-parent inheritance lands.
+fn fibo_be_inherits_from_fibofnd() {
+    // BE now chains BE → FND → DOLCE (FND itself inherits DOLCE); re-parented
+    // from dolce-direct in PR #416 (FIBU subtree under fibofnd).
     let registry = OntologyRegistry::new_in_memory();
     hydrate_fibo_be(&registry).expect("FIBO-BE hydrates");
     let bundle = registry
         .bundle_for(OGIT::FIBOBE_V1.0)
         .expect("bundle registered");
-    assert_eq!(bundle.inherits_from, Some(OGIT::DOLCE_V1.0));
+    assert_eq!(bundle.inherits_from, Some(OGIT::FIBOFND_V1.0));
 }

@@ -35,6 +35,7 @@
 //!   speed ratio. Distinct from `collapse_gate` per topology I-4.
 
 pub mod a2a_blackboard;
+pub mod atoms;
 pub mod auth;
 pub mod cam;
 pub mod cognitive_shader;
@@ -43,6 +44,7 @@ pub mod container;
 pub mod crystal;
 pub mod cycle_accumulator;
 pub mod distance;
+pub mod escalation;
 pub mod exploration;
 pub mod external_membrane;
 pub mod faculty;
@@ -70,7 +72,10 @@ pub use qualia::{
     QUALIA_DIMS, QUALIA_I4_DIMS, QUALIA_I4_LABELS, ZERO,
 };
 pub mod reasoning;
+pub mod recipe_kernels;
+pub mod recipes;
 pub mod repository;
+pub mod savants;
 pub mod scenario;
 pub mod sensorium;
 pub mod sigma_propagation;

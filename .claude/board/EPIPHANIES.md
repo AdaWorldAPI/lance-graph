@@ -1,3 +1,493 @@
+## 2026-05-27 — E-RUBICON-RACTOR — the Σ10 Rubicon commit IS the Heckhausen action-phase crossing; ractor start/stop = crossing/closing the Rubicon; Libet "free won't" = the pre-commit veto; the kanban is a SurrealDB VIEW over leading LanceDB storage
+
+**Status:** CONJECTURE / design-grounding. Names the psychological origin of the *already-shipped* Σ10 Rubicon doctrine. **Provenance note:** "Σ10 Rubicon" is canonical and implemented (`SigmaTierRouter` Rubicon-resonance dispatch, `D-CSV-10` shipped PR #388; origin `linguistic-epiphanies-2026-04-19.md` E21), but **"Libet" and "Heckhausen" appear nowhere in the board/code/transcripts** — that grounding was a different session or verbal, recorded here now.
+
+**The model.** Heckhausen/Gollwitzer's **Rubicon model of action phases**: pre-decisional *deliberation* (motivational, reversible) → **crossing the Rubicon** (intention formed = volitional, *irreversible* commitment) → pre-actional → *actional* → post-actional *evaluation*. **Libet**: the readiness potential precedes conscious decision; conscious will's role is the **veto** ("free won't") — abort before the act.
+
+**The mapping (orchestration = ractor start/stop):**
+- **Deliberation (pre-decisional)** = a mailbox accumulating energy, **no commit** — reversible; the `MailboxSoA.energy` integrates baton receipts (`apply_edges`) below threshold.
+- **Crossing the Rubicon** = the **Σ10 commit**: `ΔF < threshold AND resonance > Rubicon-bar` (`SigmaTierRouter`, D-CSV-10) → **ractor START of the actional phase** — irreversible: the baton emits (`CollapseGateEmission`), the row's contents flow through L3 to AriGraph/SPO (calcify). "Opinions are committed contradictions preserved" = post-Rubicon irreversibility.
+- **Libet veto ("free won't")** = the CollapseGate **pre-commit abort window**: a mailbox can be preempted/vetoed *before* crossing (ghost-tier preemptible to zero — `E-LADDER-SERVES-MAILBOX` §5). The veto is the only "free will" lever; the readiness potential (energy ramp) is mechanical.
+- **Post-actional evaluation → ractor STOP / die** → tombstone-witness persists (`E-LADDER-SERVES-MAILBOX` §6). Start=spawn-at-crossing, stop=evaluate-and-die is the ractor outer-swarm lifecycle (`D-PERSONA-5`, async at the boundary; inner Click stays sync).
+
+**The kanban = a SurrealDB VIEW over leading LanceDB.** The Rubicon action-phase board (deliberation | crossed/intention | actional | evaluated) is a **SurrealDB view projecting LanceDB rows** — moving a thought across columns = ractor start/stop transitions. **LanceDB is the leading storage (source of truth, append-only/versioned); SurrealDB-on-`kv-lance` is a view/query surface over it, never a separate store** (corrects any "SurrealDB-on-Lance is the cold tier" framing — the cold tier is LanceDB; SurrealDB is one view over it). See `bindspace-singleton-to-mailbox-soa-v1` §2.7.
+
+**Cross-ref:** `linguistic-epiphanies-2026-04-19.md` E21 (Σ10 Rubicon tier doctrine), `causaledge64-mailbox-rename-soa-v1` §10 + E-CE64-MB-8 (SigmaTierRouter = substrate-tier router), `cognitive-substrate-convergence-v*` (D-CSV-10 Rubicon-resonance, #388), `E-LADDER-SERVES-MAILBOX` (§1 ractor outer-swarm sync/async, §5 ghost preempt = veto, §6 tombstone), `E-MAILBOX-IS-BINDSPACE` + `bindspace-singleton-to-mailbox-soa-v1` §2.7 (LanceDB-leading / SurrealDB-view), `D-PERSONA-5` (ractor outer-swarm runtime). **Open:** whether to add a `linguistic-epiphanies` entry naming the Heckhausen/Libet origin alongside E21 (awaits go).
+
+---
+
+## 2026-05-27 — E-MAILBOX-IS-BINDSPACE — the singleton `Arc<BindSpace>` dissolves *onto* mailboxes: `MailboxSoA<N>` *becomes* the per-mailbox ephemeral thoughtspace (BindSpace surrogate), it is NOT copied per mailbox
+
+**Status:** CONJECTURE / design-ruling (migration spec authored this session; NOT yet implemented). Extends `E-BATON-1` + `E-CE64-MB-4` downward into the column layout. Plan: `.claude/plans/bindspace-singleton-to-mailbox-soa-v1.md`.
+
+**The correction:** the ask began as *"MailboxSoA has an individual **copy** of the BindSpace."* That is still a singleton (N synchronized copies = the aliasing problem `E-CE64-MB-4` kills). The ruling: **there is no global address space to copy.** `MailboxSoA<N>` *is* the BindSpace for the life of one think-arc — each mailbox **owns** its per-row SoA columns (born in the mailbox, die with it), and the shared singleton `Arc<BindSpace>` is **dissolved**, not sharded.
+
+**Current singleton (to migrate):** `crates/cognitive-shader-driver` — `ShaderDriver.bindspace: Arc<BindSpace>` (`driver.rs:56`); one `Arc::new(BindSpace::zeros(4096))` in `bin/serve.rs:29`; per-row read/write surface in `engine_bridge.rs`. `BindSpace` (`bindspace.rs:234`) carries a **64 KB/row `Vsa16kF32` `cycle` plane** (`FLOATS_PER_VSA=16384`) — 256 MB across the 4096-row singleton.
+
+**Column migration (full map in the plan §3):** `cycle` `Vsa16kF32` plane → **DROP** (ephemeral local compute, never a column — `E-BATON-1`); `content/topic/angle` dense planes → **reference** (CAM-PQ code ≤6 B), not own (`I-VSA-IDENTITIES`); `edges`(`CausalEdge64`)/`qualia`(i4-16D)/`meta`(u32)/`entity_type`(u16) → **own** in `MailboxSoA`; `temporal`/`expert` → fold into `CausalEdge64`/mailbox identity (OQ-2); **`ontology: Arc<OntologyRegistry>` STAYS shared** (cold Zone-2, read-only). Per-row hot footprint drops ~71.6 KB → ~24–30 B.
+
+**Why it's safe:** mailbox *moves* batons in (`apply_edges`) and *moves* emissions out (`CollapseGateEmission`), so the borrow checker proves no shared-mutable aliasing of the thoughtspace — the guarantee the `Arc<BindSpace>`+`CollapseGate` "read-only by convention" only enforced by discipline becomes a **compile error** (`E-CE64-MB-4`).
+
+**Gated staging (plan §6):** S1 add columns behind `mailbox-thoughtspace` feature → S2 move `engine_bridge` surface onto mailbox rows → S3 driver holds a sea-star of mailboxes (kill the 4096 singleton in `serve.rs`) → S4 death→SPO+Lance tombstone-witness → S5 delete `BindSpace`+`cycle` plane. Gated on `D-CE64-MB-1-impl` (par-tile) + `PR-NDARRAY-MIRI-COMPLETE`; S5 blocked on the CLAUDE.md "The Click" / `Vsa16kF32` doctrinal update (OQ-4, already flagged in `surreal/RECONCILIATION`).
+
+**Refinement (same session, 2026-05-27):** the per-mailbox SoA *is* **THE little-endian contract** — singular, and the **same SoA layout runs the whole vertical with no boundary re-encode**: cognitive-shader-driver `MailboxSoA` → `lance-graph-contract` LE types (`CausalEdge64`/`QualiaI4_16D`/`MetaWord`/`SoaColumns`/`entity_type`) → lance-graph storage (Lance columns / tombstone-witness); `ShaderCrystal.persisted_row` is a pointer to the same SoA row, not a serialized copy (plan §2.5). **The Ontology is NOT in the SoA and stays AS IS** — lazylock (`registry.rs:39 LazyLock<NamespaceRegistry>`) + the `ontology_dictionary` Lance **cache** (`lance_cache.rs`, TTL-sourced, drop-and-rebuild; its own header already says "BindSpace … never lands here") (plan §4). **DTO audit (plan §2.6):** `p64-bridge` already conforms (maps `CausalEdge64`/`ThinkingStyle` straight to palette, no re-encode — the template); the legacy re-encode seam is `engine_bridge.rs` `bind_busdto`/`unbind_busdto`/`busdto_to_binary16k` (collapse in S2); `thinking-engine` DTOs survive only as the `StreamDto` ingress adapter + thin read-projections (`BusDto`/`ThoughtStruct`) over the mailbox SoA; `ResonanceDto.energy` *is* `MailboxSoA.energy` (the two `ResonanceDto` defs are `TD-RESONANCEDTO-DUP-1`, **deferred**). **Hot/cold (plan §2.7):** the SoA extends past RAM — `ThoughtStruct` is *later also a transparent view into the SurrealDB ThoughtStruct container table(s)*, same SoA layout hot (mailbox) or cold (container), no RAM↔storage re-encode. Hot ceiling **~64k–256k thoughts** (64k ≈ 300–600 MB ⇒ ~6 KB/thought, dominated by the content/topic/angle Hamming planes that stay hot — dropping only the 64 KB `Vsa16kF32` plane is what makes the working set fit; **resolves OQ-1**). New deliverable D-MBX-6.
+
+**Cross-ref:** `E-BATON-1`, `E-CE64-MB-4`, `E-LADDER-SERVES-MAILBOX` (§6 tombstone-witness), `I-VSA-IDENTITIES`, `I-LEGACY-API-FEATURE-GATED` (feature-gate the v1 accessors during S1–S4), `E-CONTRACT-NO-SERIALIZE` (compile-time handshake, no membrane serialize — same byte layout to disk), `causaledge64-mailbox-rename-soa-v1` (§5 MailboxSoA), `cognitive-substrate-convergence-v1` (D-CSV-7 shipped accumulator), `TD-RESONANCEDTO-DUP-1`.
+
+---
+
+## 2026-05-27 — E-CONTRACT-NO-SERIALIZE-2 — correction to E-CONTRACT-NO-SERIALIZE (below): the audit event never leaves the inside; "serialize at the membrane" was the wrong half — audit is not membrane traffic at all
+
+**Status:** FINDING (sharpens the entry directly below; user correction via the question "why should the audit event go outside?"). The §1 half of the prior entry — *contracts compile types, never serialize; build-time serde codegen is fine* — stands. This entry replaces its "outer membrane's job" framing (board is append-only, so the prior entry is left intact and corrected here).
+
+The audit event does **not go outside**, and there is no reason for it to. It is a **cognitive-compliance witness** — a merkle-chained event (`merkle_root` / `prev_merkle`) that **calcifies into SPO + a Lance columnar tombstone** (cf. `E-LADDER-SERVES-MAILBOX` §6). It is **examined in place** — lance-graph *is* a query engine, so HIPAA §164.312(b) "audit review" is a query against the witness, not an export to a SIEM. The merkle chain is the tamper-evidence; no external append-only file is needed for integrity.
+
+- **No JSON by default.** `JsonlAuditSink` / `with_jsonl_audit` are the legacy "ship logs to Splunk" pattern this stack obsoletes — not a sanctioned boundary.
+- **The audit sink is inner, not membrane.** It belongs with the SPO/Lance tissue, behind the membrane — never in the outer client-facing layer. "Emit via the membrane sink" (prior entry's "Correct shape") was wrong.
+- **Off-box durability / external-auditor copies are an infra concern** — replicate the durable Lance/merkle artifact, or do a deliberate on-request export *action* at the storage edge. Egress as an explicit act on the artifact, never the sink's standing behavior, never the client membrane.
+
+So the lance-graph-side direction stands but with a corrected target: relocate the concrete `JsonlAuditSink` out of `lance-graph-callcenter` as an at-most-optional export adapter; callcenter keeps only the `AuditSink` trait + `UnifiedAuditEvent` type; the **canonical sink is the SPO/Lance witness projection**, not a JSON file at the membrane.
+
+Cross-ref: medcare-rs `CLAUDE.md` commitment #7 (corrected in MedCare-rs #159); prior entry `E-CONTRACT-NO-SERIALIZE` below.
+
+---
+
+## 2026-05-27 — E-CONTRACT-NO-SERIALIZE — a contract crate is a compile-time handshake (shared types + traits), NOT an outer serialization boundary; JSON emission belongs at the membrane, never on the BBB/contract surface
+
+**Status:** FINDING (architectural vow, user-stated 2026-05-27 via the medcare-rs consumer session; recorded for the next session that touches the audit-sink / bridge surface — no lance-graph code change in this entry).
+
+A contract / BBB-tier crate (`lance-graph-contract`, `lance-graph-ontology`, `lance-graph-callcenter`) exists to make producer and consumer **compile against the same types + traits** — a handshake vow. It must not turn values into JSON or any wire/file format. Serialization is the **outer membrane**'s job (on the medcare consumer side that is `medcare-realtime`, the Supabase/Foundry-equivalent boundary).
+
+On the audit surface specifically:
+
+- **Contract-appropriate (keep):** the `AuditSink` trait (the vow — "hand me typed events, I decide what to do") and the `UnifiedAuditEvent` type (the shared shape both sides build against).
+- **Violation (the smell this vow names):** `JsonlAuditSink` + `UnifiedBridge::with_jsonl_audit` living in `lance-graph-callcenter`. A contract-tier crate emitting JSONL is acting as a serialization boundary.
+- **Correct shape:** `UnifiedBridge` already takes `with_audit_chain(super_domain, salt, Arc<dyn AuditSink>)` — the trait, the handshake. The concrete JSON-emitting sink should be supplied by the membrane. Proposed direction: relocate the concrete `JsonlAuditSink` out of callcenter into a membrane/sink crate; callcenter keeps only the `AuditSink` trait + `UnifiedAuditEvent` type.
+- **NOT a violation:** build-time serde codegen — e.g. `lance-graph-contract/build.rs` parsing `modules/*/manifest.yaml` (serde_yaml) to *generate* Rust types (#412). That IS "compile types"; the crate's runtime `[dependencies]` stay serde-free.
+
+Cross-ref: medcare-rs `CLAUDE.md` commitment #7 (consumer-side record of the same vow). The medcare bridge-audit path currently leans on callcenter's JSON sink; the gate path correctly emits via the membrane sink — reworking the bridge path to match is tracked on the medcare side, not done here.
+
+---
+
+## 2026-05-27 — E-LADDER-SERVES-MAILBOX — the escalation ladder serves the *mailbox*, not the persona; atoms (bipolar I4-32D) are the bottom layer, measured by *quorum*, with split-poles preserved as a counterfactual mantissa; AriGraph is ephemeral-hot in the mailbox and calcifies to cold SPO + a Lance tombstone-witness
+
+**Status:** CONJECTURE / design-synthesis (a session design arc, anchored to four FINDING-grade iron rules below; NOT yet implemented). Refines `rung-persona-orchestration-v1` (the *name* "persona" is demoted — see §1 of this entry). Supersedes nothing; extends `E-CHECKLIST-AS-ESCALATION` (D-PERSONA-1) downward (atoms) and outward (mailbox lifecycle).
+
+**Grounded anchors (FINDING):** `I-VSA-IDENTITIES` (persona = Layer-2 catalogue; Test 0 register-laziness; bipolar ±1 role keys; Test 2/3 orthogonality+cleanup), `E-BATON-1`/Baton-scoping (mailbox-as-owner, bundle ephemeral, no persisted singleton), `I-LEGACY-API-FEATURE-GATED` (`CausalEdge64` 4-bit signed mantissa @46-49, `InferenceType::Counterfactual = to_mantissa() = −6`), The Click (Staunen×Wisdom = Contradiction magnitude; "opinions are committed contradictions preserved, not resolved"; `awareness.revise`; F<0.2 Commit / ΔF<0.05 Epiphany / F>0.8 FailureTicket).
+
+---
+
+### §1 — The ladder serves the mailbox; "persona" was mis-centered
+
+`rung-persona-orchestration-v1` framed the escalation→epiphany→ghost ladder as serving a *persona*. **Wrong primary object.** Per `I-VSA-IDENTITIES`'s own unification — *"Archetype / persona / thinking-style … are Layer-2 role catalogues; each entry gets ONE identity fingerprint; content lives in YAML; resonance dispatches to content"* — **persona is a dispatch policy, not a container.** The owned unit is the **mailbox** (mailbox-as-owner, sea-star). The ladder is *mailbox* machinery; a persona only decides *what to fan out as mailboxes* and *where the temperature/β knob sits*. The D-PERSONA-1 **types are already mailbox-shaped** (`Checklist`, `CollapseHint`, `InnerCouncil`, `GhostEcho`) — so this is a reframe + (pending) rename, not a rebuild. Three personas = three policies over one substrate:
+
+| persona | β / temperature | fan-out pattern |
+|---|---|---|
+| business | cold (exploit) | business-logic checkboxes → supervised mailboxes, **respawn-if-failed** (bounded) |
+| chat | warm (explore) | episodic persona-modeling + self-state-awareness **over witness-arcs** (never a persisted self-singleton — E-BATON-1) |
+| OSINT | **annealing** (hot→cold) | self-generated hypothesis-mailboxes; cross-style synthesis = the Layer-1 `a2a_blackboard` driven *autonomously*; provenance→NARS-confidence gates the Rubikon (untrusted sources never commit as fact); preserve `dissonance`, never average |
+
+Constraint: checkbox-as-mailbox fan-out + respawn lives at the **outer swarm boundary** (ractor, async), the inner Click stays sync — do not double-mailbox (E-BATON-1). Respawn needs a bounded supervision policy (N retries → `FailureTicket`), or crash-loop.
+
+### §2 — Three layers: atoms → thinking styles → persona recipes
+
+- **Atoms** — the bottom layer. The current `contract::thinking` "36 ThinkingStyles" are **demoted to atoms**, encoded **I4-32D**: 32 *bipolar* dimensions → **64 poles** (32−, 32+) = 16 bytes/vector. The atom set is the orthogonal basis + cleanup codebook (satisfies `I-VSA-IDENTITIES` Test 2/3, which 36 ad-hoc style-fingerprints did *not*).
+- **Thinking styles** (Kant, Schopenhauer, bookkeeping-savant) = I4-32D **compositions** over atoms.
+- **Persona recipes** = compositions of styles + thresholds, purpose, β.
+
+**JIT placement:** atoms + styles stay **I4-32D data**; the **persona recipe** is what gets templated into a Cranelift `KernelHandle` (`contract::jit` `StyleRegistry`). A 32-D i4 dot is one SIMD sequence — Cranelift overhead only amortizes at the fused-recipe level. Add-atom = data; add-style/persona = template (Elixir-style hot-load open/closed split).
+
+**Pole budget (user's allocation, with the atom-kind caveat):** the named axes that are genuinely *bipolar-continuous* — trust↔DK (one calibration axis, **not** two — see §3), wisdom↔Staunen (= temperature, §4), plasticity (rigid↔plastic), 6 hardwired business-logic dichotomies (FIBU/GoBD §6b) — are correct atoms. **But NARS inference-type / strategy / semiring are *categorical selectors*, not bipolar magnitudes** (`contract::nars` = `InferenceType(5)` + `QueryStrategy(5)` + `SemiringChoice(5)` + Pearl 2³ ≈ the "24"). By Test 0 (register-laziness) those belong in an **enum/register that gates which atoms fire**, not as poles. Allocating ~24 of 32 dims to NARS likely miscategorizes discrete selectors as continuous atoms. NARS *truth* (frequency, confidence) IS continuous → atoms; NARS *type* → register. **OPEN:** the atom-basis derivation (ICA/PCA over the 36 / theory-driven from the 6 clusters / hybrid) is the load-bearing unsolved design step. (i4 precision floor: documented tradeoff, cite `FormatBestPractices.md` Jirak; SIMD path gated on MANDATORY `ndarray-vertical-simd-alien-magic.md`.)
+
+### §3 — The crux: a dichotomy needs a *quorum* to project, and a split is not averaged
+
+A bounded dichotomy does not yield its projection for free. To place a measurement between two poles you need a **quorum**; a *split* quorum means the projection is **contested, not merely noisy**. Every one of the 32 axes inherits this — the universal cost of bipolar structure. The quorum machinery already exists: **`InnerCouncil` `is_split(0.7,0.5)` + ×1.2 split-amplify** (3-archetype vote) and the Layer-1 **`a2a_blackboard` `support[u16;4]` + `dissonance`** (wide quorum). Therefore **each I4-32D atom value is a quorum *output*, i.e. a pair `(I4 position, quorum-confidence)` = NARS truth `(frequency, confidence)` applied per axis.** A split is held as a **Contradiction, never averaged** (averaging contested state = laundering false confidence; the cardinal OSINT sin).
+
+### §4 — wisdom↔Staunen = temperature (control axis, self-regulated)
+
+This axis is *not* a measured feature like trust/DK — it is **sampling temperature** (Wisdom = low-temp/sharp/exploit; Staunen = high-temp/diffuse/explore), the same knob as the EFE explore/exploit β. It is **self-regulated by free energy** (thermostat): high surprise → Staunen → hot → wide sampling; F descends → Wisdom accrues → cools → commits. **This retroactively explains the `WisdomMarker` 0.1 floor** built in D-PERSONA-1: that floor *is the minimum temperature* — the φ-1 "permanent humility" ceiling means cognition never anneals to absolute zero. Distinct from **plasticity** (update-rate): you can run hot-but-rigid or cold-but-plastic, so both keep separate dims. Open layout question: temperature as a flat peer dim, or a **meta-atom read first** that sets the sampling sharpness for unbinding the other 31 (one-pass vs two-stage I4 sweep).
+
+### §5 — Split resolution = counterfactual mantissa (replaces quorum-tiering)
+
+On `is_split`, do **not** widen the quorum through tiers (too complex). Instead **commit the majority pole and fork the minority pole into a counterfactual-testing mailbox, retained as an episodic mantissa.** "Mantissa" is literal: the minority pole is a single `CausalEdge64` **−6 (Counterfactual) nibble** in the episodic witness — the road-not-taken costs **4 bits**, not a replay buffer (committed pole = coarse exponent / direction; counterfactual = fine mantissa / "could-have-been"). This is the mechanical form of *"contradictions preserved, not resolved"*, satisfies the counterfactual-stays-in-a-separate-lane rule (Counterfactual-tagged, never written as observed SPO truth), and IS the rung-ghost's counterfactual-learning fuel. **Loop closes via revision:** the counterfactual mailbox is **ghost-tier** (preemptible to zero, tests only on β headroom); if its test later beats the committed pole (lower F), that is a **NARS `awareness.revise`** on the original axis — the road-not-taken reopens and can overturn the verdict. **Staging:** v1 commit-majority/drop-minority → v2 deposit the −6 mantissa (contradiction-honesty for 4 bits, no spawn) → v3 full counterfactual-mailbox + revision loop. Spawn gated on dissonance/Staunen > threshold; ghost Staunen-keyed GC prunes counterfactuals that never pay.
+
+### §6 — AriGraph: ephemeral-hot in the mailbox, calcified-cold in SPO + Lance tombstone-witness
+
+AriGraph is **not a persisted singleton graph** (E-BATON-1). Its live/episodic form is **ephemeral inside the mailbox** (the working hot path). When a fact stabilizes it **calcifies into the SPO ontology** (cold, persistent). When the ephemeral mailbox dies (sea-star spawn→die→merge), its **witness persists as a tombstone in Lance**, linking the calcified cold fact back to the mailbox that committed it. This is one **compression hierarchy down the codec atlas**:
+
+```
+hot (full-fidelity ephemeral AriGraph, in mailbox)
+ → calcified semantic  (SPO-G quads, cold, Lance)            — "what is believed"
+ + tombstone witness   (Lance, compressed ~Scent/Base17)     — "what happened / who committed it"
+ + counterfactual residue (CausalEdge64 −6 mantissa, 4 bits) — "the road not taken"
+```
+
+Fallout: because Lance is append-only/**versioned**, the tombstone layer *is* the audit trail — GoBD/provenance falls out of the substrate by construction (`E-FIBU-GOBD-BY-CONSTRUCTION`, §6b), not as bolted-on logging. The one thing to nail is **link integrity**: the calcified SPO fact needs a durable back-pointer to its tombstone, and the tombstone must outlive the mailbox — Lance versioning is the right home for both.
+
+---
+
+**Proposed deliverables (NOT yet queued — pending greenlight):** D-ATOM-1 atom-basis derivation + I4-32D layout; D-ATOM-2 style/persona Cranelift recipe templates; D-ATOM-3 quorum-projection `(position, confidence)` per axis; D-ATOM-4 counterfactual-mantissa v2 (deposit) then v3 (mailbox+revision); D-ATOM-5 AriGraph hot→calcify→tombstone wiring.
+
+**To-verify (cross-refs asserted from this session's dialogue, confirm against board before relying):** the `WitnessCorpus` deliverable D-id (CAM-PQ-indexed witness + salience decay) and the `SigmaTierRouter` Rubicon-resonance Σ-tier D-id were cited in-conversation as the homes for the tombstone-witness and the Rubikon admission gate respectively — confirm exact ids in `STATUS_BOARD.md` / `PR_ARC_INVENTORY.md`.
+
+**Still pending separately (NOT folded here):** the substrate-Markov **re-scope** (substrate Markov = guarantee for *unsolicited materialization* only; episodic Markov is the governing transition account) awaits the `[FORMAL-SCAFFOLD]` dependency check (do the four pillars need substrate Markov as the *transition account* or only as the *guarantee*?) before it can be written as an `I-SUBSTRATE-MARKOV` amendment. The `rung-persona-orchestration-v1` → mailbox-centric **rename** also awaits explicit go (touches D-ids).
+
+**Cross-ref:** `I-VSA-IDENTITIES`, `E-BATON-1`, `I-LEGACY-API-FEATURE-GATED`, `E-CHECKLIST-AS-ESCALATION` (D-PERSONA-1: `InnerCouncil`/`EpiphanyDetector`/`GhostEcho`/`WisdomMarker`), `E-FIBU-GOBD-BY-CONSTRUCTION` (§6b business atoms + GoBD audit), `E-OGIT-STAKES-LINCHPIN` (stakes→temperature→savant, the front-door inheritance), The Click (Staunen×Wisdom, Resolution thresholds, `awareness.revise`); `contract::thinking` (36→atoms), `contract::jit` (`StyleRegistry`/`KernelHandle`), `contract::mul` (i4 SIMD eval, `DkPosition`/`TrustTexture`), `contract::nars` (5/5/5 selectors → register), `contract::a2a_blackboard` (`support`/`dissonance` quorum); `FormatBestPractices.md`, `ndarray-vertical-simd-alien-magic.md` (MANDATORY before the I4 SIMD path).
+
+**CORRECTION (2026-05-27, append-only) — §2 atom framing was wrong; superseded by `E-AGICHAT-DIMENSION-CONTRACT` + `.claude/knowledge/atom-basis-inventory.md`:** §2 said "the 36 `contract::thinking` styles demote to atoms (I4-32D, 32 bipolar dims / 64 poles)" — **retracted.** The atom basis is the **LOCKED 33-dim TSV** (3 Pearl + 9 Rung + 5 Σ + 8 Operations + 4 Presence + 4 Meta), NOT derived and NOT the 36 styles. Corrected layering: **atom = one lane** of that TSV (smallest unit, bare-metal, not human-legible); **style = one i4 vector over the atoms** (the molecule — the 36 `ThinkingStyle` ids resolve to such vectors); **persona = composition of styles**. Atoms are **not SIMD** — execution stack is **atoms → `cognitive-shader-driver` → SIMD**; the atom layer holds the carrier + catalogue and dispatches through the driver. Business is an **OGIT-inherited sidecar**, not an atom. The OO style/persona object layer (D-ATOM-2) is the actual metacognition; atoms are the bytes it rides. Code: `contract::atoms::CANONICAL_ATOMS` (locked 33). (This append-only correction follows the workspace's Storno-as-append rule — the wrong §2 is preserved, not edited.)
+
+---
+
+## 2026-05-26 — E-RIGID-RULES-OPEN-DOORS — rigidity belongs to the rules (the HOW, stakes-gated), never to the stance toward a door opening (the WHETHER-to-welcome, baseline-positive); and the welcome is *learned* per topic×texture, not naive
+
+**Status:** FINDING / stance-correction (rebalances the rigidity emphasis of `E-FIBU-GOBD-BY-CONSTRUCTION`; adds the learned-texture policy). Refines `rung-persona-orchestration-v1` §9.
+
+**Click:** We *are* SPO — a "door opening" is a new viable triple/edge, a 2³ projection screening-in, or an `EpiphanyDetector` fire. Two axes that must not be conflated:
+
+1. **rule-rigor** scales with stakes/`Marking` (`Financial`→hard `Soll=Haben`/GoBD/immutability) — the **HOW**.
+2. **door-welcome valence** is a baseline-positive stance toward novelty, **stakes-independent** — the **WHETHER**.
+
+Stakes gate the rigor, never the welcome. A bookkeeper is strict on the books *and* glad a new client walked in. So: a door opening is a **rewarded epiphany** (wisdom-marker grows; Affinity/Epiphany/Staunen ghosts brighten), not merely permitted; the MUL gate evaluates rigorously without being a sour bouncer; even a rule-`NO` carries no hostility to the door. Rigidity everywhere → no epiphanies; openness everywhere → can't hold money. **Rigid HOW, happy WHETHER.** (Corrects a drift: the FIBU/GoBD commits over-weighted rigidity.)
+
+**The welcome is learned, not naive.** *If in doubt, the agent fingerprint learns over time, per topic, which `TrustTexture` (Murky/Dissonant/Fuzzy/Clear, `mul/trust.rs`) means **don't touch** and which means **engage** — and vice-versa.* The learned `topic × texture → touch/avoid` policy lives in the wisdom-marker (cold-path / `CrystalCodebook`; content keyed by fingerprint, not bundled — I-VSA-IDENTITIES). Decision ladder: (1) hard rule → follow (rigid); (2) no rule, learned policy exists → follow it; (3) in doubt (no rule / thin history / Murky) → cautious-exploration + Lab, and record the outcome to grow the policy. Young fingerprint = rules + cautious-exploration; mature fingerprint = *taste*. The learning IS the calibration-gap closing.
+
+**Cross-ref:** `rung-persona-orchestration-v1` §9; `rung-mul-grounding-v1` §1 (calibration gap, experience curve); `E-FIBU-GOBD-BY-CONSTRUCTION` (the rigidity rebalanced); `E-CHECKLIST-AS-ESCALATION` (EpiphanyDetector = door opening; ghosts); `mul/trust.rs` (`TrustTexture`).
+
+---
+
+## 2026-05-26 — E-FIBU-GOBD-BY-CONSTRUCTION — German Finanzbuchhaltung is already partly in-code; GoBD legal compliance falls out of the substrate's pure-engine + digested-rules + append-only + Storno-as-append invariants — not a bolt-on
+
+**Status:** FINDING (corrects the "FIBU is net-new" assumption; refines `rung-persona-orchestration-v1` §6b + D-PERSONA-6).
+
+**Click:** "FIBU" (Finanzbuchhaltung) is **not net-new** — the Financial subtree is DACH-first and developed in-code: `contract::grammar::role_keys` has the German SMB catalogue (`KUNDE/SCHULDNER/MAHNUNG/RECHNUNG/DOKUMENT/BANK/FIBU/STEUER`, `FIBU_KEY` @[13072..13584)); `contract::tax.rs` has a **pure `TaxEngine`** (`collect(rule_bundle, period, entries)`, nondeterminism = `Err`), the **`fibu_entry`** RecordBatch (`booking_code, amount, tax_rate`), DACH `Jurisdiction {De, At, Ch}`, and a versioned + 32-byte **digested** `RuleBundle`; `SKR04` is in the foundry roadmap; DATEV/GoBD/BaFin are pre-flagged regulated-tenant triggers (`lf-integration-mapping-v1` LF-80/81). So the Odoo harvest **extends** this (`l10n_de`: SKR03/04→`booking_code`, USt→`RuleBundle`, DATEV→wire), it does not invent it.
+
+**The convergence:** German bookkeeping law **GoBD** (*Unveränderbarkeit / Festschreibung / Nachvollziehbarkeit* — immutable, audit-traceable, deterministic books) **falls out of the substrate by construction**, not as a compliance layer:
+
+| GoBD requirement | substrate invariant that already provides it |
+|---|---|
+| deterministic books | **pure `TaxEngine`** (nondeterminism = `Err`) |
+| audit checksum / rule provenance | **digested `RuleBundle`** (32-byte digest, versioned) |
+| Unveränderbarkeit (immutability) | **append-only** postings + boards + CausalEdge64 move-semantics |
+| correction = reversal, not edit | **Storno-as-append** = *"committed contradictions preserved, not resolved"* (CLAUDE.md) |
+
+So at `Financial`/FIBU stakes the MUL gate's hard invariants are: **Soll = Haben**, **GoBD immutability** (Storno-append, never edit), **SKR account validity**, **deterministic tax**. Storno is exactly the workspace's append-only-correction pattern (this very entry corrects a prior assumption by *appending*, not editing).
+
+**Cross-ref:** `rung-persona-orchestration-v1` §6b + D-PERSONA-6; `contract::tax.rs`, `contract::grammar::role_keys` (FIBU_KEY); `foundry-roadmap-unified-smb-medcare-v1` (FiBu/SKR04); `lf-integration-mapping-v1` LF-2/LF-80; `E-OGIT-STAKES-LINCHPIN` (marking=Financial→stakes).
+
+---
+
+## 2026-05-26 — E-OGIT-STAKES-LINCHPIN — stakes is an O(1) ontological lookup (OGIT class), and it is the single dial that drives temperature + MUL sensitivity + savant binding together
+
+**Status:** FINDING (grounds the MUL gate ratio + the front-door inheritance; refines `rung-mul-grounding-v1` §3 + `rung-persona-orchestration-v1` §1). **External ref — `AdaWorldAPI/OGIT` (Open Graph of IT, `ogit.ttl`, OWL/RDF, DOLCE-aligned), NOT in GitHub-MCP allowlist; reference-only.**
+
+**Click:** Two user observations are the same mechanism. (1) `MUL ≈ (risk / competence) × stakes` with `competence = f(rung-level, resonance)`. (2) "a chat inherits temperature; an invoice inquiry inherits the bookkeeping savant." The bridge: **`stakes` is not hand-assigned — it is an O(1) lookup of the request's OWL/DOLCE class in OGIT** (the ontology reframed as a CAM). And that one number drives three things at once:
+
+| request | OGIT class → stakes | inherited temp (viscosity) | MUL sensitivity | savant (dominant family) |
+|---|---|---|---|---|
+| chat | casual communicative act → low | hot (Plasma) | loose | generalist / exploratory |
+| invoice inquiry | economic object → high | cold (Crystalline) | tight (`×stakes`) | bookkeeping savant |
+
+**`felt_parse` is the front door:** viscosity = inherited start temperature, dominant axis-family = which savant binds; OGIT-class = stakes. So the inheritance the user described is `felt_parse` + an O(1) OGIT class lookup — no new dispatch layer. The MUL gate fires ∝ expected-loss / competence (DK danger zone gates hardest), with stakes ontologically grounded.
+
+**The ontology IS a graph** ⇒ OGIT lives natively as an AriGraph/SPO + CAM-PQ class layer; O(1) class address = the "3-dims-are-the-address" CAM pattern. No second store needed (AriGraph is the one graph).
+
+**Open (CONJECTURE):** whether `stakes` is an explicit OGIT annotation or derived from class position — confirm against `ogit.ttl`. README on `main` 404'd; repo-root gave only the high-level "semantic representation of all IT + business processes" description.
+
+**Cross-ref:** `rung-mul-grounding-v1` §3 (MUL gate ratio); `rung-persona-orchestration-v1` §1 (front-door inheritance); `E-CHECKLIST-AS-ESCALATION` (felt_parse collapse-hint); `I-VSA-IDENTITIES` (CAM addressing).
+
+**RESOLVED (same session, in-code grounding — supersedes the CONJECTURE above):** OGIT is in code as `lance-graph-ontology`. `stakes = Marking` (`Public < Internal < Pii ≈ Financial < Restricted`) — an **explicit field** on the `MappingRow`, resolved O(1) via `SchemaPtr` (packed `[namespace_id:8 | entity_type_id:16 | kind:8]` + `ontology_context_id` = the active named-graph / "active schema poll"). `Financial`'s doc literally reads *"bookkeeping or tax-relevant"* → grounds invoice→bookkeeping-savant. **The full O(1) inherit-set** the front door returns from one `MappingRow`: `marking`→stakes, `thinking_style`→savant, `qualia_meta`(qualia[18]/MetaWord/CausalEdge64)→qualia+dispatch prior, `confidence`→competence prior, `identity_codec`→CAM-PQ resonance address, `semantic_type`→attribute interpretation, `ontology_context_id`→active context. Table in `rung-persona-orchestration-v1` §1.
+
+---
+
+## 2026-05-26 — E-CHECKLIST-AS-ESCALATION — the boring checklist is NOT a bespoke verifier; it collapses into escalation-work + epiphanies, restoring ladybug's qualia loop on the SoA floor
+
+**Status:** FINDING (simplifies `rung-persona-orchestration-v1` D-PERSONA-1; user-flagged collapse). **External design refs — ladybug-rs `src/qualia/{council,felt_parse,resonance}.rs` @177a321, NOT in the GitHub-MCP allowlist; reference-only, never a port target.**
+
+**Click:** The "boring checklist → meta-recipe" of `rung-persona-orchestration-v1` does not need a new verifier subsystem — the list-completion machinery already exists in ladybug's qualia loop and only needs restoring on our SoA:
+
+- **`felt_parse` emits a collapse hint** = {Flow, Fanout, RungElevate}: Fanout = gather more (escalate breadth), RungElevate = deepen (rung-shift), Flow = done. *The item's escalation decision is already produced* — "the list as escalation work" verbatim.
+- **`InnerCouncil.deliberate`** (3 archetypes Guardian/Catalyst/Balanced, majority vote) + **`HdrResonance`**: a **split** (`is_split(0.7,0.5)` — one archetype sees what the others don't) is amplified ×1.2 for epiphany detection. **Disagreement IS the learning signal** = our SPO screening-off (perspectives disagree about a projection ⇒ spurious `S_O` caught).
+- **`EpiphanyDetector.observe`** (council.rs:158): `Some(Epiphany)` iff `similarity > baseline×1.5 ∧ recent_samples ≥ 4`. The **window≥4 guard is the anti-Mount-Stupid evidence rule** (same shape as window-5 / Boole-bound — never fire on thin evidence). A green-flip = an epiphany committed to the graph, not a checkbox.
+- **Ghost echoes** = {Affinity, **Epiphany**, Somatic, **Staunen**, **Wisdom**, Thought, Grief, Boundary} — persistent qualia residue (asymptotic decay to 0.1, never zero; felt_parse:70). Epiphany/Staunen/Wisdom-as-ghosts ARE the wisdom-marker substrate, already named; **8 ghosts ≤ 32 ✓ I-VSA-IDENTITIES**. (CLAUDE.md "Magnitude = Staunen × Wisdom qualia" — the ghosts are already in The Click.)
+
+**The collapse:** list-item → collapse-hint (escalate) → council/resonance (split = discovery) → EpiphanyDetector (close, evidence-gated) → Epiphany/Wisdom ghost (persist). **Escalation IS the work; epiphanies ARE the completions; ghosts ARE the hydrating wisdom.** D-PERSONA-1 drops from "checklist verifier" to "wire the existing loop."
+
+**Honest gap (unchanged):** ladybug's `detector.rs` still has no NaN/dead-end/escalation path ("all inputs produce valid output") — our NaN→cautious-exploration→Lab remains net-new.
+
+**Cross-ref:** `rung-persona-orchestration-v1` §2+§7; `rung-mul-grounding-v1` (screening-off = split); `E-AGICHAT-DIMENSION-CONTRACT` (restore-on-SoA); `I-VSA-IDENTITIES` (8 ghosts ≤32).
+
+---
+
+## 2026-05-26 — E-AGICHAT-DIMENSION-CONTRACT — the 32-dim basis already exists as agichat's locked 10kD allocation; ladybug-rs de-grounded it by inflating bytes→10K-bit fingerprints; the work is to RESTORE the contract on the SoA floor, not invent or port
+
+**Status:** FINDING (resolves the open `ThinkingStyleI4_32D` basis decision from E-I4-META-1; lineage + grounding map established from user-provided sources). **External design references — NOT in the GitHub-MCP allowlist; design-reference only, never a code-port target.**
+
+**Click:** A long session walking two upstream repos — `AdaWorldAPI/ladybug-rs` (Rust) and the older `AdaWorldAPI/agi-chat` (Py/TS) — settled the entire "which 32 dims / how to ground" thread. The basis was never something to invent: it is **agichat's locked 10kD dimension allocation** (`docs/CANONICAL_DIMENSION_ALLOCATION.md`, "Status: LOCKED").
+
+**Lineage (the key reframe):**
+
+> **agichat (Py/TS) = the grounded byte-contract** → **ladybug-rs (Rust) = inspired but de-grounded (inflated bytes→10K-bit VSA fingerprints) → never worked** → **workspace (ndarray+lance-graph) = restore the contract on the SoA/SIMD floor.**
+
+The user's account: ladybug-rs was "magically inspired but never informationally grounded, no LE contract"; it ran **10,000 vectors × 10,000-D** (~700 MB–1.4 GB RAM) and produced **no meaningful output — "an idealized cathedral."** The failure is mathematically forced: VSA bundle capacity is `N ≤ √d/4` (= 25 at d=10000), so resonating across 10,000 vectors is ~400× over capacity → noise (`I-NOISE-FLOOR-JIRAK`: classical stats on weakly-dependent bundles is meaningless). agichat had the *grounded* form (bytes + locked dimension ranges); ladybug-rs inflated every byte/dimension into a 10K-bit fingerprint and lost it.
+
+**THE BASIS — agichat's 33-dim ThinkingStyleVector** (`[175:208]`, detailed at `[256:320]`), which IS the i4-32 thinking-style fingerprint:
+
+- **3 Pearl** (SEE / DO / IMAGINE = association / intervention / counterfactual)
+- **9 Rung** (R1–R9, meaning-depth)
+- **5 Sigma** (Ω / Δ / Φ / Θ / Λ — the σ-tier chain)
+- **8 Operations** (abduct / deduce / induce / synthesize / preflight / escalate / transcend / model_other) — the fanout's 4 inference modes are 4 of these
+- **4 Presence** (authentic / performance / protective / absent)
+- **4 Meta** (confidence_threshold / preflight_depth / exploration / verbosity)
+
+= **33** (matches `STYLE_ENCODING.md`'s "3 Pearl + 9 Rung + 5 Σ + 8 Op + 8 spare"). Grounded form: `ThinkingStyleI4_32D` = i4 × 33 (or 32 + 1), riding the shipped ndarray i4-32 unpack.
+
+**Qualia resolved:** agichat `[2000:2018]` = **18D Qualia PCS** (arousal/valence/tension/warmth/clarity/boundary/depth/velocity/entropy/coherence/intimacy/presence/assertion/receptivity/groundedness/expansion/integration/meta_awareness) → packed to the **16 drift-locked** at `[0:16]` = `QualiaI4_16D`. The 18→17→16 history is exactly this PCS→packed reduction. (ladybug's compact form was 8 Russell channels — a further reduction.)
+
+**The dimension allocation IS a proto-LE-contract.** `CANONICAL_DIMENSION_ALLOCATION.md` locks every range and **rejects PRs #18/#19/#21 for "arbitrary dimension reallocation"** — *"DO NOT MOVE DIMENSIONS ARBITRARILY… bighorn code depends on these ranges."* That is a byte-budget with a no-arbitrary-moves invariant = the LE contract in proto-form. The grounding art = re-lock this allocation as a real `#[repr(C)]` / i4 SoA layout (which is what `SoaContainerHeader` + `SoaColumns` provide).
+
+**The 5 Canonical Invariants (agichat `thinking/index.ts`, "Resonance Grammar Spine v0.3" — the explicit gestell):**
+
+1. Addressability: O(1) via DN (Deterministic Names) + VASKey.
+2. CollapseGate: **SD** controls FLOW/HOLD/BLOCK (NOT confidence).
+3. RungShift: separate from SD; triggered by sustained-block / predictive-failure / structural-mismatch.
+4. Separation of Roles: Grammar→Graph, Overlap→VSA, Memory→LanceDB, Styles→L5.
+5. Cascade: Fork envelopes (STROKE 1) + Collapse records (STROKE 2) — the 2-stroke cycle.
+
+**Grounding map (concept → agichat contract → workspace grounded form):**
+
+| concept | agichat (grounded) | workspace grounded form |
+|---|---|---|
+| thinking-style | 33-dim TSV `[175:208]` | `ThinkingStyleI4_32D` (i4×33) |
+| qualia | 18D PCS `[2000:2018]` → 16 `[0:16]` | `QualiaI4_16D` (64-bit atom) |
+| quad-triangle | **12 bytes** (4 triangles × 3 corner-bytes) | `[u8;12]` / 1.5 atoms (NOT 10K-bit corners) |
+| texture | 8D (entropy/purity/density/bridgeness/warmth/edge/depth/flow) | `Texture8 = [i8;8]` = one 64-bit atom |
+| gestalt | Crystallizing/Contested/Dissolving/Epiphany (per-plane S/P/O CausalSaliency) | 2-bit derived field (on-demand) |
+| rung ladder | 0–9, bands 0-2/3-5/6-9 | 4-bit level + 2-bit band |
+| σ-gate | SD → FLOW/HOLD/BLOCK; `SignificanceLevel` Discovery/Strong/Evidence/Hint/Noise | 3-bit enum, **Jirak-bounded** threshold on bit-exact distance |
+| 7-level "triangle" | `PackedDn` — 7 levels × 8 bits, MSB-first (DN-tree path) | **already a `u64` atom** — adopt as-is |
+| address | DN (`PackedDn`) + VASKey | `u64` atom + `CognitiveAddress`-style `[Domain:4][Subtype:4][Index:8][Hash:48]` |
+
+**Greek-vocabulary decode (the gestell's notation, parsed by regex over ladybug-rs):** σ (140×) = the significance/calibration spine (`SignificanceLevel` ladder + SigmaGate); α/γ/β = Fixed/Learned/Discovered RL-triangle weights; τ = ThinkingStyle τ-addresses; φ = golden-ratio spiral; ρ = Spearman ρ + ρ^d braiding; ε = ε-greedy; Ω/Δ/Φ/Θ/Λ = the 5 Sigma-tier dims; ψ/Ψ = quantum hologram (research, not core).
+
+**Iron rule for this lineage:** **restore the contract; never port the carrier.** Mine agichat's *locked byte/dimension allocation + relational logic* (the gestell — hard to replicate), express each unit as a bit-exact i4/u8/u64 on the SoA floor, and never re-inflate to unbounded 10K-bit VSA resonance (the deprecated-`Vsa16kF32` / no-Baton anti-pattern that made the cathedral empty). `MulSnapshot`-packs-to-2-atoms, `CausalEdge64`, the Baton `(u16, CausalEdge64)`, and i4-32 are the grounding the upstream never had.
+
+**Cross-ref:** shipped floor — ndarray `SoaColumns<N>` @ `42cb7123`, i4-32 unpack @ `8de1dcf8`; `E-BATON-1` (`dec049b`), `E-I4-META-1` (`71ea390`). Upstream design refs (allowlist-external, read locally from user-provided sources): agichat `docs/CANONICAL_DIMENSION_ALLOCATION.md`, `docs/INT4_QUANTIZATION_ARCHITECTURE.md`, `docs/VSA_10000D_DIMENSIONS_SCHEMA.md`, `src/thinking/{index,rung-shift,quad-triangle,collapse-gate,two-stroke}.ts`; ladybug-rs `src/{mul,qualia,spectroscopy,spo,world,learning,cognitive}/*`, `crates/ladybug-contract/src/address.rs`. Iron rules invoked: `I-NOISE-FLOOR-JIRAK` (why 10K-D σ was noise), `I-VSA-IDENTITIES` (bundle identities not content), `I-SUBSTRATE-MARKOV` (N≤√d/4 capacity).
+
+**Next build (now fully specified):** `ThinkingStyleI4_32D` as the i4 quantization of the 33-dim TSV (3 Pearl + 9 Rung + 5 Σ + 8 Ops + 4 Presence + 4 Meta), general lanes fixed to that order, on the shipped i4-32 floor. No more "name the dims" — the allocation is the contract.
+
+---
+
+## 2026-05-26 — E-I4-META-1 — i4-32 thinking-style fingerprint = "thinking-about-thinking + domain"; qualia is the i4-16 64-bit atom; S-P-O is palette-pointers + Pearl-2³, not a 3×4096 identity
+
+**Status:** FINDING (design converged this session; the `ThinkingStyleI4_32D`
+type is NOT yet built — gated on the user naming the 32-dim general basis +
+general/OGIT-custom lane split). The **ndarray hardware floor is shipped** (see
+Cross-ref).
+
+**Click:** A long design session converged the cognitive-style representation.
+The capstone framing: **i4-32 is "thinking about thinking + domain"** — a
+cognitive *address* whose general lanes are the metacognitive style (HOW one is
+thinking, cross-domain) and whose OGIT-custom lanes are the domain (WHICH
+domain). Their product lands on a reusable best-practice thinking template.
+
+**The unification — 64-bit is the atom:**
+
+- `qualia` = `QualiaI4_16D(u64)` (8 B, 16 signed-i4 dims, range −8..+7) ==
+  `CausalEdge64` (8 B) in *width*. Both are the **64-bit atom**: same SoA column
+  stride (8 B), same SIMD lane (`U64x8`), same kernels → they cross-pollinate.
+- `thinking-style` = i4_32D (16 B = `u128`/`[u64;2]`, **32 signed activation
+  dims**) = **2 atoms**.
+- The shipped i4-32 unpack **subsumes** i4-16: the low 64 bits of
+  `I8x32::from_i4_packed_u128` equal `I8x16::from_i4_packed_u64` by construction
+  (atom-parity test). So the one primitive serves qualia/edge (low half) and
+  thinking (full).
+
+**32 dims = multi-activated meta-properties, bipolar-signed (NOT a pick-one
+enum):** each dim is a graded property; sign = the opposite pole
+(sarcasm `+` / sincerity `−`, irony `+` / literal `−`), magnitude = intensity,
+0 = neutral. **Opposite = one-instruction negation.** A persona/archetype is a
+*profile* (e.g. "Schopenhauer = +7 sarcasm, +pessimism, +philosophical,
+−warm"). The i4-**16D**-thinking alternative was **rejected** — 16 dims would
+force merging irony/sarcasm/etc. onto shared axes and rob their distinct poles;
+32 is the precision floor. The dims capture the *meta* (metacognition) and are
+**Jina-calibratable** (existing `thinking-engine` lens machinery —
+`jina_lens.rs`, `calibrate_lenses.rs`, Spearman ρ / ICC / Cronbach).
+
+**General / OGIT-custom split (the clean architecture):** keep the **general
+block** universal + Jina-calibrated (irony, sarcasm, care↔extraction, …) so
+K-NN similarity works *cross-domain*; let **OGIT inject domain axes into the
+custom block** (doctor↔autopsy when medical ontology active; bookkeeping / income
+tax when finance active). Domain axes are bipolar too (doctor `+` heal ↔ autopsy
+`−` post-mortem — a *same-domain* sign flip; it even rides the Abduction↔Deduction
+fanout axis). The custom lanes set by OGIT are the **explicit-binding** path
+(dispatch provable Odoo/DOLCE business logic); the general lanes are the
+**similarity fallback**. **OPEN DECISION (gates the build):** where the split is
+(e.g. 24 general + 8 custom) and the general meta-property list.
+
+**No-duplication rulings (Baton single-home discipline):**
+
+- **DK ↔ informational-trust is DERIVED, not stored.** `CausalEdge64.conf` (NARS
+  confidence, per-edge, object-level) is the single source for trust. The
+  Dunning-Kruger calibration is a *per-cycle meta-aggregate* over the edge-conf
+  distribution (the MUL already computes `DkPosition` / `TrustTexture`). It
+  lives as a **derived lane** (computed on-demand, mirroring qualia.rs
+  "magnitude = coherence × valence → i8 on demand"), NEVER as independent state
+  that could drift from `conf`.
+- **Relocating ephemeral *style* out of the crowded `CausalEdge64` v2 is
+  relocation, not duplication** — and a net plus: it decrowds the over-packed
+  u64 that caused the 5 sprint-11 I-LEGACY reclaim bugs, and upgrades style from
+  a cramped field to 32-dim resolution. **Granularity split:** `CausalEdge64` =
+  *persistent, per-edge structural truth* (committed to AriGraph); i4-32 =
+  *ephemeral, per-cycle thinking stance* (carried in the SoA grid, not stamped
+  on every edge).
+
+**S-P-O is NOT a "sneaked-in" 3×4096 identity (verified, the worry is
+unfounded):** `lance-graph-planner` `cache/nars_engine.rs::SpoHead` ("mirrors
+CausalEdge64 layout", 8 B) has `s_idx/p_idx/o_idx: u8` — **256-entry palette
+POINTERS**, not dense 4096 vectors. That is exactly the `I-VSA-IDENTITIES` Test-0
+register pattern (a natural ID indexes content; it does not bundle a
+fingerprint). The actual **2³ deconstruction** is the *separate* `pearl: u8`
+3-bit mask: `MASK_NONE` (prior) · S/P/O marginals · `MASK_SP` (confounder) ·
+`MASK_SO` Association(L1) · `MASK_PO` Intervention(L2) · `MASK_SPO`
+Counterfactual(L3). So the edge is causal-structural (pointers + rung mask +
+NARS truth + inference + temporal, all register) — **no identity smuggled →
+fine.** This `SpoHead`/ndarray SPO-palette variant has **no `style` field**,
+which confirms the style-unload target is the *other* v2-with-style variant
+(the dual/triple-`CausalEdge64` split remains the thing to watch).
+
+**The cycle (all loops close on the shipped carrier):** the SoA grid carries the
+address O(1) cycle-to-cycle → the 4-mode fanout (Abduction/Deduction/Synthesis/
+Induction; Revision = commit) explores → pattern-J K-NN over the general
+fingerprint retrieves the nearest best-practice when OGIT has no explicit binding
+→ pattern-K Cranelift JIT compiles the winning template and "sinks" it back to
+source as a compile-time primitive next build (engine exists:
+`jitson_cranelift` / `cam_pq/jitson_kernel.rs` / `contract/jit.rs`; the YAML/
+source-writeback half is the gap).
+
+**Cross-ref (shipped this session):** ndarray `src/simd_soa.rs` `SoaColumns<N>`
+multi-column SoA carrier @ `42cb7123` (zero-copy per-field lane iters + baked-in
+`CausalEdge64` accessor; O(1) `Arc`-clone cycle carry-over); ndarray i4-32 unpack
+`I8x32::from_i4_packed_u128` + `batch_packed_i4_32` across avx512/neon/scalar +
+4 simd.rs re-exports @ `8de1dcf8` (atom-parity tested, clippy/fmt clean);
+`E-BATON-1` (Baton ratification @ `dec049b`). **Cross-ref (design anchors):**
+`lance-graph-contract/src/qualia.rs` (`QualiaI4_16D`, 17D→i4-16 packing);
+`lance-graph-planner/src/cache/nars_engine.rs` (`SpoHead`, Pearl 2³ masks,
+`SpoDistances`); MUL `DkPosition`/`TrustTexture`; `.claude/patterns.md` J
+(INT4-32D Thinking Atoms) + K (Circular Compilation); ndarray
+`src/hpc/causal_diff.rs` (`CausalEdge64` SPO-palette variant: block/proj/verb/
+row/L1/freq/conf); CLAUDE.md `I-VSA-IDENTITIES` + `I-LEGACY-API-FEATURE-GATED`
+(the v2 reclaim bugs).
+
+**Next build (when basis named):** `ThinkingStyleI4_32D` (lance-graph,
+`[u64;2]`) with general lanes `0..K` + OGIT-custom lanes `K..32`, the i4-32 K-NN
+over the general block, and the DK derived-lane projection. The ndarray floor is
+ready under it.
+
+---
+
+## 2026-05-26 — E-BATON-1 — "Baton" is the workspace's native term for the little-endian contract; it ratifies the deprecation of the singleton BindSpace and Vsa16kF32-as-carrier
+
+**Status:** FINDING (user-ratified terminology + doctrine; board-first per "Both, board first")
+
+**Provenance (why the folk term exists):** The user coined **"Baton"** as the
+intuitive name *before* they had the information-science term for it. The formal
+name is the **little-endian (LE) contract** / gapless handoff. Both name the same
+thing. This entry exists so future sessions stop re-deriving it: when you see
+"baton" in code, plans, or a savant card, it IS the LE contract — do not invent a
+parallel concept. Direct user statements anchoring this entry: *"please grep for
+'Baton' its another word for little endian contract"*; *"every mention of 'baton'
+references the non materialization and deprecation of the singleton bindspace"*;
+*"'baton' was the idea before i knew the information science term"*; *"the little
+endian contract is real / just the SoA shape is a little richer"*.
+
+**The equivalence chain (now pinned):**
+
+> **LE contract = Baton = no materialized singleton BindSpace = discrete owned
+> `(u16 target, CausalEdge64)` handoffs.**
+
+**Doctrinal claim — what "Baton" deprecates:** The Baton is not merely a transport
+optimization; it is the **negation of the singleton BindSpace as a materialized
+object**. There is no global `Vsa16kF32` register that gets read/written across
+mailbox boundaries. There are only owned, per-thought `(target, edge)` handoffs
+passing between compartments. Consequences:
+
+1. **`Vsa16kF32` is deprecated AS A CARRIER** — it does not cross mailbox
+   boundaries and there is no singleton BindSpace to materialize. Cumulative
+   cognitive state lives in **CausalEdge64 emissions + AriGraph SPO-G quads +
+   BindSpace SoA columns**, NOT in a 16k-float envelope. New work must not reach
+   for `Vsa16kF32` as an inter-mailbox carrier or universal cumulative-state vessel.
+2. **The Vsa16kF32-deprecation and the Baton model are ONE ratification, not two.**
+   If the baton is the wire, the 16k-float carrier has nothing left to carry across
+   a boundary — the deprecation is the baton's premise, not a separate decision.
+3. **`ndarray::hpc::soa::SoaContainerHeader` (pinned b5d6b206) is the on-wire SoA
+   descriptor UNDER the baton stream**, not a parallel container. The MailboxSoA
+   named-column set ("the SoA shape is a little richer") layers over that same
+   padding-free `[u64; N]` LE descriptor; batons land in and are folded over those
+   columns.
+
+**Mechanism — the mailbox-as-owner is why the baton is sound ("Rust's holy grail
+UB solution"):** The Baton is handed off between **owning mailboxes** in a rotating
+sea-star topology (a hub of ownership-typed compartments; ownership rotates as each
+`(u16, CausalEdge64)` tuple moves from one mailbox-owner to the next). Because the
+handoff is a **Rust move**, the borrow checker proves — at compile time — that no
+two compartments alias the same baton: no data race, no use-after-free, no shared
+mutable singleton to corrupt. **This is the deep reason the singleton BindSpace is
+deprecated:** a materialized global `Vsa16kF32` register would be exactly the
+shared-mutable-aliased state Rust's ownership model exists to forbid. By making the
+mailbox the single owner and the baton a moved value, **UB becomes a compile
+error** (canonical plan §9 E-CE64-MB-4) — there is no runtime aliasing check
+because there is nothing to alias. The user's framing: *"we basically invented the
+rotating sea star ractor mailbox as owner as Rust's holy grail UB solution."* (Note
+the ractor edge is async-only and lives at the membrane / Zone 2, not the
+preemptive internal core — the ownership guarantee is the type-system property, not
+a ractor runtime feature.)
+
+**Where it already lives in the tree (do NOT re-invent):**
+
+- `crates/lance-graph-contract/src/collapse_gate.rs` — `CollapseGateEmission` with
+  `batons: Vec<(u16, u64)>`, `push_baton(target, edge)`, `baton_count()`,
+  `wire_cost_bytes() = 13 + 10 * baton_count`. The `10 * baton_count` (10 B = 2 B
+  target + 8 B CausalEdge64), NOT `16384 * 4`, IS the proof that nothing
+  materializes a singleton on the wire. **This is the Baton implementation.**
+- `.claude/plans/cognitive-substrate-convergence-v1.md` / `v2.md` — "the baton IS
+  the wire… Vsa16kF32 does NOT cross mailbox boundaries… discrete `(u16 target,
+  CausalEdge64)` tuples suffice."
+- PP-15 `baton-handoff-auditor` savant (the meta-review fleet's baton auditor).
+- `.claude/plans/causaledge64-mailbox-rename-soa-v1.md` — the canonical plan that
+  already encodes the baton model; the parallel `.claude/surreal/` POC was
+  re-deriving it under different names (see `RECONCILIATION_with_canonical_plan.md`).
+
+**Contradiction flagged (P-1 doctrine, must not silently diverge):** CLAUDE.md
+§"The Click" (P-1, "read before everything else") describes cognition AS the
+element-wise multiply+add Markov bundle on `Vsa16kF32`, and §I-SUBSTRATE-MARKOV
+makes VSA-bundling the Chapman-Kolmogorov guarantee. Deprecating `Vsa16kF32` as a
+carrier contradicts the *unscoped* reading of The Click. **Resolution (this
+ratification):** The Click's bundle math is NOT wrong — it describes how a single
+`Think` resolves **locally, within one compartment, ephemerally**. What the Baton
+changes is the **scope**: the bundle is a within-compartment computation, never a
+persisted or transmitted singleton. The persisted + transmitted form is the baton
+(`Vec<(u16, CausalEdge64)>`) + the SoA columns + AriGraph SPO-G quads.
+I-SUBSTRATE-MARKOV (the math guarantee for local bundling) and I-VSA-IDENTITIES
+(bundle identities, not content) are untouched; only the cross-boundary carrier is
+deprecated. A scoping note has been added to §"The Click" pointing here.
+
+**Lesson:** A folk term with no recorded bridge to its formal name is a
+rediscovery tax (the same shape as E-SIMD-SWEEP-1's retroactive-invariant
+pattern). Record provenance the moment the equivalence is stated, not after the
+next session re-derives "what is a baton."
+
+**Cross-ref:** `crates/lance-graph-contract/src/collapse_gate.rs`
+(`CollapseGateEmission` / `push_baton` / `wire_cost_bytes`);
+`.claude/plans/cognitive-substrate-convergence-v1.md` + `v2.md`;
+`.claude/plans/causaledge64-mailbox-rename-soa-v1.md` (§5 MailboxSoA, §9 E-CE64-MB-2);
+`.claude/surreal/RECONCILIATION_with_canonical_plan.md` (Vsa16kF32-deprecation +
+LE-contract-is-real notes); `ndarray` `src/hpc/soa.rs` @ b5d6b206 (`SoaContainerHeader`,
+the on-wire LE descriptor); CLAUDE.md §"The Click" (P-1, now carries a 2026-05-26
+Baton scoping note); §I-SUBSTRATE-MARKOV + §I-VSA-IDENTITIES (untouched — local
+bundle math); PP-15 `baton-handoff-auditor`.
+
+---
+
 ## 2026-05-16 — E-SIMD-SWEEP-1 — PR #398 was the 5th violation, not the first; the SIMD source-of-truth invariant is retroactive
 
 **Status:** FINDING
