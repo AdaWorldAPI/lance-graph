@@ -1,3 +1,21 @@
+## 2026-05-27 — E-RUBICON-RACTOR — the Σ10 Rubicon commit IS the Heckhausen action-phase crossing; ractor start/stop = crossing/closing the Rubicon; Libet "free won't" = the pre-commit veto; the kanban is a SurrealDB VIEW over leading LanceDB storage
+
+**Status:** CONJECTURE / design-grounding. Names the psychological origin of the *already-shipped* Σ10 Rubicon doctrine. **Provenance note:** "Σ10 Rubicon" is canonical and implemented (`SigmaTierRouter` Rubicon-resonance dispatch, `D-CSV-10` shipped PR #388; origin `linguistic-epiphanies-2026-04-19.md` E21), but **"Libet" and "Heckhausen" appear nowhere in the board/code/transcripts** — that grounding was a different session or verbal, recorded here now.
+
+**The model.** Heckhausen/Gollwitzer's **Rubicon model of action phases**: pre-decisional *deliberation* (motivational, reversible) → **crossing the Rubicon** (intention formed = volitional, *irreversible* commitment) → pre-actional → *actional* → post-actional *evaluation*. **Libet**: the readiness potential precedes conscious decision; conscious will's role is the **veto** ("free won't") — abort before the act.
+
+**The mapping (orchestration = ractor start/stop):**
+- **Deliberation (pre-decisional)** = a mailbox accumulating energy, **no commit** — reversible; the `MailboxSoA.energy` integrates baton receipts (`apply_edges`) below threshold.
+- **Crossing the Rubicon** = the **Σ10 commit**: `ΔF < threshold AND resonance > Rubicon-bar` (`SigmaTierRouter`, D-CSV-10) → **ractor START of the actional phase** — irreversible: the baton emits (`CollapseGateEmission`), the row's contents flow through L3 to AriGraph/SPO (calcify). "Opinions are committed contradictions preserved" = post-Rubicon irreversibility.
+- **Libet veto ("free won't")** = the CollapseGate **pre-commit abort window**: a mailbox can be preempted/vetoed *before* crossing (ghost-tier preemptible to zero — `E-LADDER-SERVES-MAILBOX` §5). The veto is the only "free will" lever; the readiness potential (energy ramp) is mechanical.
+- **Post-actional evaluation → ractor STOP / die** → tombstone-witness persists (`E-LADDER-SERVES-MAILBOX` §6). Start=spawn-at-crossing, stop=evaluate-and-die is the ractor outer-swarm lifecycle (`D-PERSONA-5`, async at the boundary; inner Click stays sync).
+
+**The kanban = a SurrealDB VIEW over leading LanceDB.** The Rubicon action-phase board (deliberation | crossed/intention | actional | evaluated) is a **SurrealDB view projecting LanceDB rows** — moving a thought across columns = ractor start/stop transitions. **LanceDB is the leading storage (source of truth, append-only/versioned); SurrealDB-on-`kv-lance` is a view/query surface over it, never a separate store** (corrects any "SurrealDB-on-Lance is the cold tier" framing — the cold tier is LanceDB; SurrealDB is one view over it). See `bindspace-singleton-to-mailbox-soa-v1` §2.7.
+
+**Cross-ref:** `linguistic-epiphanies-2026-04-19.md` E21 (Σ10 Rubicon tier doctrine), `causaledge64-mailbox-rename-soa-v1` §10 + E-CE64-MB-8 (SigmaTierRouter = substrate-tier router), `cognitive-substrate-convergence-v*` (D-CSV-10 Rubicon-resonance, #388), `E-LADDER-SERVES-MAILBOX` (§1 ractor outer-swarm sync/async, §5 ghost preempt = veto, §6 tombstone), `E-MAILBOX-IS-BINDSPACE` + `bindspace-singleton-to-mailbox-soa-v1` §2.7 (LanceDB-leading / SurrealDB-view), `D-PERSONA-5` (ractor outer-swarm runtime). **Open:** whether to add a `linguistic-epiphanies` entry naming the Heckhausen/Libet origin alongside E21 (awaits go).
+
+---
+
 ## 2026-05-27 — E-MAILBOX-IS-BINDSPACE — the singleton `Arc<BindSpace>` dissolves *onto* mailboxes: `MailboxSoA<N>` *becomes* the per-mailbox ephemeral thoughtspace (BindSpace surrogate), it is NOT copied per mailbox
 
 **Status:** CONJECTURE / design-ruling (migration spec authored this session; NOT yet implemented). Extends `E-BATON-1` + `E-CE64-MB-4` downward into the column layout. Plan: `.claude/plans/bindspace-singleton-to-mailbox-soa-v1.md`.

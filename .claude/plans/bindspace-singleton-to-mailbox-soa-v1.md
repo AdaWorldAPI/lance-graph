@@ -199,9 +199,10 @@ hot path translates to/from. p64-bridge is the conformance template for the stor
 ## 2.7 — Hot/cold: `ThoughtStruct` is a transparent view over the SurrealDB container table(s)
 
 The same "one SoA, no re-encode" rule (§2.5) extends **past RAM into persistence**. The hot
-path can hold **only ~64k–256k thoughts**; beyond that, thoughts live in the **SurrealDB-on-Lance
-container table(s)** (`crates/surreal_container`, the Zone-2 cold tier — currently a BLOCKED
-skeleton, see `surreal/RECONCILIATION`). The ruling:
+path can hold **only ~64k–256k thoughts**; beyond that, thoughts live in **LanceDB — the
+*leading* cold storage** (append-only/versioned, source of truth). **SurrealDB is a *view*
+over LanceDB, NOT a separate store** (`crates/surreal_container` = SurrealDB-on-`kv-lance` =
+a query/kanban surface projecting the LanceDB rows; LanceDB stays leading). The ruling:
 
 > `ThoughtStruct` (the Γ-collapse thought) is **later also a transparent view into the
 > ThoughtStruct container table(s)** — reading a thought resolves over the **same SoA layout**
@@ -230,20 +231,26 @@ skeleton, see `surreal/RECONCILIATION`). The ruling:
         hot (mailbox SoA, ≤ 64k–256k thoughts, ~300–600 MB)
             │  energy decays / mailbox dies / working set full
             ▼  spill — SAME SoA columns, no re-encode (persisted_row)
-        cold (SurrealDB-on-Lance container table(s), append-only/versioned)
+        cold = LanceDB  (LEADING storage: append-only/versioned, source of truth)
+            ├──────────────► SurrealDB  (a VIEW over LanceDB — the Rubicon kanban)
             ▲
-            │  ThoughtStruct view reads hot OR cold transparently (same layout)
+            │  ThoughtStruct view reads hot mailbox OR cold LanceDB transparently (same layout)
 ```
 
-- The SurrealDB container is the **same SoA columns** persisted (edge/qualia/meta/entity_type
-  + content identity), append-only/versioned — so the cold store *is* the tombstone-witness +
-  GoBD trail (`E-LADDER-SERVES-MAILBOX` §6) by construction.
-- `ThoughtStruct` (`thinking-engine`) becomes the **transparent view** over `(hot mailbox row |
-  cold container row)`; text stays lazy. This makes the §2.6 ruling literal at the storage tier:
-  `ThoughtStruct` is a read-projection, identical whether the row is in RAM or in SurrealDB.
-- **Gating:** the cold tier needs `surreal_container` unblocked (BLOCKED(A/B/C/D) — fork dep +
-  Lance 6 pin) **or** the `lance-graph-callcenter` Zone-2 path; the transparent-view wiring is
-  migration step **S4** (plan §6) and new deliverable **D-MBX-6**.
+- **LanceDB is the leading store.** The cold rows are the **same SoA columns** persisted
+  (edge/qualia/meta/entity_type + content identity), append-only/versioned — so LanceDB *is*
+  the tombstone-witness + GoBD trail (`E-LADDER-SERVES-MAILBOX` §6) by construction.
+- **SurrealDB is a view, not a store.** `surreal_container` (SurrealDB-on-`kv-lance`) projects
+  the LanceDB rows into query surfaces — notably the **Rubicon-model kanban** (action-phase
+  board; see the `E-RUBICON-RACTOR` epiphany). It never owns the data; LanceDB does.
+- `ThoughtStruct` (`thinking-engine`) is the **transparent view** over `(hot mailbox row |
+  cold LanceDB row)`; text stays lazy. The §2.6 ruling holds at the storage tier:
+  `ThoughtStruct` is a read-projection, identical whether the row is in RAM or LanceDB; the
+  SurrealDB kanban is a *second* view over the same LanceDB rows, not a re-encode.
+- **Gating:** the cold tier is LanceDB (already the workspace storage); the SurrealDB *view*
+  needs `surreal_container` unblocked (BLOCKED(A/B/C/D) — fork dep + Lance 6 pin) but is
+  **optional** (a kanban surface, not the source of truth). Transparent-view wiring is
+  migration step **S4** (plan §6) and deliverable **D-MBX-6**.
 
 ---
 
