@@ -1,3 +1,23 @@
+## [Agent-B / Sonnet] [SCAFFOLD ONLY — no implementation, no commit] D-ATOM-5 — witness_tombstone.rs memory lifecycle scaffold
+
+**D-id:** D-ATOM-5 (`atom-mailbox-substrate-v1` pillar 6 — AriGraph hot/cold/tombstone; basis-INDEPENDENT).
+
+**File:** `crates/lance-graph/src/graph/witness_tombstone.rs` — ONE new file, doc-comment scaffold only (`///` rustdoc + `todo!()` bodies). No existing file was edited (mod.rs and all other files untouched per constraint). No `cargo` run. No commit.
+
+**What the scaffold contains:**
+- `HotWitness` — ephemeral in-mailbox episodic working record; `///` explicitly cites E-BATON-1 (NOT a persisted singleton, never crosses mailbox boundaries).
+- `calcify(hot: &HotWitness) -> SpoRecord` — hardens a stabilised fact into the cold SPO ontology; `todo!()` body; return type references `crates/lance-graph/src/graph/spo/builder::SpoRecord` (confirmed in source).
+- `Tombstone` — cold episodic provenance written to Lance at mailbox-death; compressed payload field; `from_hot` + `persist` methods (`todo!()`); `///` notes GoBD-audit-by-construction (E-FIBU-GOBD-BY-CONSTRUCTION, append-only Lance = audit trail).
+- `WitnessLink` — back-pointer `(spo_key, mailbox_id, tombstone_lance_version)` enforcing link integrity; `new` constructor (non-`todo!()` — trivially derived from inputs); `verify` async method (`todo!()`).
+
+**BLOCKED list (do NOT guess):**
+1. Exact SPO quad constructor — `SpoRecord` + `SpoBuilder::build_edge` confirmed in `graph/spo/builder.rs` but `TruthValue` constructor + `Fingerprint` reconstruction from u64 keys unconfirmed.
+2. Lance versioned-store write API — `WriteMode::Append` availability in lance 4.0.0 unconfirmed; tombstone Arrow schema and dataset path convention not yet defined.
+3. WitnessCorpus ingestion API — `WitnessCorpus` (D-CSV-6, confirmed at `graph/arigraph/witness_corpus.rs`) holds observation provenance, not tombstone provenance; whether tombstones feed INTO it or a separate dataset is unresolved.
+4. Scent/Base17 compression entry point — `Base17` confirmed via `ndarray::hpc::bgz17_bridge::Base17` (`neuron.rs`); Scent (1-byte, `bgz17` crate) is in workspace `exclude` — dep addition required before wiring.
+
+---
+
 ## [Agent-C / Sonnet] [SCAFFOLD ONLY — no implementation, no commit] D-ATOM-3 — quorum.rs per-axis quorum projection scaffold
 
 **D-id:** D-ATOM-3 (`atom-mailbox-substrate-v1` pillar 3 — quorum projection per axis).
