@@ -72,6 +72,7 @@ pub use qualia::{
     QUALIA_DIMS, QUALIA_I4_DIMS, QUALIA_I4_LABELS, ZERO,
 };
 pub mod reasoning;
+pub mod recipe_kernels;
 pub mod recipes;
 pub mod repository;
 pub mod scenario;

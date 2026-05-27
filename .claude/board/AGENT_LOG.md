@@ -83,6 +83,23 @@
 
 ---
 
+## [Main-thread] [DONE — green] the 34 tactics as 34 working Rust kernels (Elixir-like behaviour)
+
+`crates/lance-graph-contract/src/recipe_kernels.rs` (new, wired in lib.rs). One uniform
+behaviour `trait Tactic { meta(); gate(); apply(); run() }` + **34 unit-struct
+implementations** (Rte..Hkf), each performing its characteristic op on a shared
+`ThoughtCtx` (sd/free_energy/dissonance/temperature/confidence/rung/candidates/beliefs)
+using OUR markers — CollapseGate SD thresholds (FLOW<0.15/BLOCK>0.35), Berry-Esseen noise
+floor, NARS-style contradiction, XOR self-inverse for ABBA/fusion/counterfactual. Implicit
+gating: Gate-bucket recipes skip in FLOW. Registry `kernel(id)` / `all_kernels()`. **5 tests
+green** (all 34 dispatch+run without panic & confidence stays in range; TCP prunes; CR drops
+coherence on same-topic contradiction; ICR builds the XOR counterfactual; Gate recipes skip
+in FLOW). No warnings. 446 prior contract tests unaffected. Charter D4 step 1 of "per-recipe
+evaluators" — these are deterministic kernels over a lightweight ctx; richer fingerprint
+substrate slots behind the same trait later.
+
+---
+
 ## [Main-thread] [DONE — green] ada-rewrite charter + the 34-tactic recipe catalogue (working code)
 
 **Decision (charter D0):** ladybug-rs has NO relation, never will — it's the failed "empty cathedral." We rewrite on our substrate; ladybug/ada-consciousness/neo4j-rs docs are spec-references only, never deps/ports. `.claude/knowledge/ada-rewrite-charter.md` is the once-and-for-all settled-decision record (substrate, SPOQ lattice, hardware partition, 34-as-recipe-targets, build order).
