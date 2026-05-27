@@ -1,3 +1,19 @@
+## 2026-05-27 — E-CONTRACT-NO-SERIALIZE-2 — correction to E-CONTRACT-NO-SERIALIZE (below): the audit event never leaves the inside; "serialize at the membrane" was the wrong half — audit is not membrane traffic at all
+
+**Status:** FINDING (sharpens the entry directly below; user correction via the question "why should the audit event go outside?"). The §1 half of the prior entry — *contracts compile types, never serialize; build-time serde codegen is fine* — stands. This entry replaces its "outer membrane's job" framing (board is append-only, so the prior entry is left intact and corrected here).
+
+The audit event does **not go outside**, and there is no reason for it to. It is a **cognitive-compliance witness** — a merkle-chained event (`merkle_root` / `prev_merkle`) that **calcifies into SPO + a Lance columnar tombstone** (cf. `E-LADDER-SERVES-MAILBOX` §6). It is **examined in place** — lance-graph *is* a query engine, so HIPAA §164.312(b) "audit review" is a query against the witness, not an export to a SIEM. The merkle chain is the tamper-evidence; no external append-only file is needed for integrity.
+
+- **No JSON by default.** `JsonlAuditSink` / `with_jsonl_audit` are the legacy "ship logs to Splunk" pattern this stack obsoletes — not a sanctioned boundary.
+- **The audit sink is inner, not membrane.** It belongs with the SPO/Lance tissue, behind the membrane — never in the outer client-facing layer. "Emit via the membrane sink" (prior entry's "Correct shape") was wrong.
+- **Off-box durability / external-auditor copies are an infra concern** — replicate the durable Lance/merkle artifact, or do a deliberate on-request export *action* at the storage edge. Egress as an explicit act on the artifact, never the sink's standing behavior, never the client membrane.
+
+So the lance-graph-side direction stands but with a corrected target: relocate the concrete `JsonlAuditSink` out of `lance-graph-callcenter` as an at-most-optional export adapter; callcenter keeps only the `AuditSink` trait + `UnifiedAuditEvent` type; the **canonical sink is the SPO/Lance witness projection**, not a JSON file at the membrane.
+
+Cross-ref: medcare-rs `CLAUDE.md` commitment #7 (corrected in MedCare-rs #159); prior entry `E-CONTRACT-NO-SERIALIZE` below.
+
+---
+
 ## 2026-05-27 — E-CONTRACT-NO-SERIALIZE — a contract crate is a compile-time handshake (shared types + traits), NOT an outer serialization boundary; JSON emission belongs at the membrane, never on the BBB/contract surface
 
 **Status:** FINDING (architectural vow, user-stated 2026-05-27 via the medcare-rs consumer session; recorded for the next session that touches the audit-sink / bridge surface — no lance-graph code change in this entry).
