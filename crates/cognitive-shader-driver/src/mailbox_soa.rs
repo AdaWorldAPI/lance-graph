@@ -9,6 +9,15 @@
 //! per-row plasticity accumulator + apply_edges baton receipt. NO ractor
 //! wrap, NO AttentionMask/LRU, NO cross-cycle rollup — those are W6's
 //! orthogonal concerns / sprint-12 SigmaTierRouter integration.
+//!
+//! Migration target (design, NOT yet wired): this type is the per-mailbox,
+//! mailbox-owned, *ephemeral* "thoughtspace" — the BindSpace surrogate. The
+//! shared singleton `Arc<BindSpace>` dissolves *onto* mailboxes (each owns its
+//! own LE-contract SoA columns: edges/qualia/meta/entity_type — minus the
+//! deprecated `Vsa16kF32` plane), it is NOT copied per mailbox. The only
+//! cross-boundary state stays the LE baton `(u16, CausalEdge64)` (E-BATON-1);
+//! ownership makes no-alias/no-race a compile error (E-CE64-MB-4). Column map +
+//! gated steps: `.claude/plans/bindspace-singleton-to-mailbox-soa-v1.md`.
 
 use causal_edge::CausalEdge64;
 use lance_graph_contract::collapse_gate::{CollapseGateEmission, MailboxId, MergeMode};

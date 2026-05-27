@@ -13,6 +13,14 @@
 ---
 
 
+### TD-RESONANCEDTO-DUP-1 (bindspace-singleton-to-mailbox-soa-v1)
+
+- **Severity:** P3 (name collision; two distinct `ResonanceDto` structs under the same name)
+- **Surfaced in:** DTO vertical audit, 2026-05-27, branch `claude/splat3d-cpu-simd-renderer-MAOO0`
+- **What:** `crates/thinking-engine/src/dto.rs:59` defines `ResonanceDto { energy: Vec<f32>, top_k, cycle_count, converged }` (the Ψ ripple field); `crates/thinking-engine/src/awareness_dto.rs:21` defines a *different* `ResonanceDto { hdr: HdrResonance, dominant_perspective, gate, dissonance, total_energy, … }` (multi-perspective S/P/O). Same name, different shape, same crate.
+- **Owed:** dedup under `bindspace-singleton-to-mailbox-soa-v1` — the `dto.rs` energy field unifies into `MailboxSoA.energy: [f32; N]`; the `awareness_dto.rs` scalars map to SoA `meta`/`edge` columns and `HdrResonance` becomes the S/P/O read over the SoA. Rename/merge so one canonical resonance read remains.
+- **Status:** Open — **Deferred** (user, 2026-05-27): not now; revisit folded into D-MBX-2 (the `engine_bridge` re-encode-seam collapse).
+
 ### TD-GHOST-ECHO-DUP-1 (D-PERSONA-1)
 
 - **Severity:** P3 (cosmetic type-dup; no runtime correctness risk — the two enums are not exchanged across a crate boundary today)
