@@ -1,3 +1,9 @@
+## [Main-thread → woa-rs HANDOFF] Odoo savant AXIS-B evidence-contract scaffold (carve-out request)
+
+Wrote `.claude/odoo/savants/_SCAFFOLD-EVIDENCE-CONTRACT.md` — a self-contained handover asking the **woa-rs session** (roster/evidence-schema owner) to carve out the **4 AXIS-B slots per savant** (Arrow `EvidenceRef` schema · odoo field→signal map · property-level OWL alignment · the decision in evidence terms) so lance-graph can implement the `Reasoner` impls (D-ODOO-2 / D-ODOO-SAV-4) in one pass without cross-session ping-pong. Includes the fixed dispatch tuple for all 25 (priority-tiered) + the target `Reasoner` shape + the open dispatch-shape question (N impls vs savant-config registry). Hand-back: fill per-savant docs + note here. No code; doc only. On branch `splat3d-cpu-simd-renderer-MAOO0` (PR #416).
+
+---
+
 ## [Agent-A / Sonnet] [SCAFFOLD ONLY — no implementation, no commit] D-ATOM-4 — counterfactual.rs split-resolution-via-counterfactual-mantissa scaffold
 
 **D-id:** D-ATOM-4 (`atom-mailbox-substrate-v1` pillar 5 — counterfactual mantissa v2 deposit + v3 mailbox+revision).
