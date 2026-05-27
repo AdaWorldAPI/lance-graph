@@ -80,18 +80,14 @@
       "Bash(cargo run:*)",
       "Bash(ls:*)",
       "Bash(wc:*)",
-      "Bash(grep:*)",
       "Bash(find:*)",
       "Bash(mkdir:*)",
       "Bash(cat:*)",
       "Bash(diff:*)",
       "Bash(rg:*)",
-      "Bash(head:*)",
-      "Bash(tail:*)",
       "Bash(sort:*)",
       "Bash(uniq:*)",
       "Bash(awk:*)",
-      "Bash(sed:*)",
       "Bash(test:*)",
       "Bash(echo:*)",
       "Bash(printf:*)",
@@ -183,6 +179,12 @@
       "Bash(rm -rf:*)",
       "Bash(rm -fr:*)",
       "Bash(git rm:*)",
+      "Bash(grep:*)",
+      "Bash(sed:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(egrep:*)",
+      "Bash(fgrep:*)",
       "Bash(find:* -delete:*)",
       "Bash(find:* -exec rm:*)",
       "Bash(> .claude/board/:*)",
@@ -197,6 +199,17 @@
     ]
   },
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/forbid-grep-sed-head-tail.sh"
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "matcher": "startup",
