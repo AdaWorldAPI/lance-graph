@@ -35,6 +35,7 @@
 //!   speed ratio. Distinct from `collapse_gate` per topology I-4.
 
 pub mod a2a_blackboard;
+pub mod atoms;
 pub mod auth;
 pub mod cam;
 pub mod cognitive_shader;
