@@ -16,6 +16,39 @@
 
 **Execution stack: `atoms → cognitive-shader-driver → SIMD`.** Atoms are NOT SIMD. Atoms **dispatch through `cognitive-shader-driver`** (the encode/decode engine that sweeps the SoA columns); the **shader-driver** is the layer that uses SIMD (ndarray i4-32). So **D-ATOM-1 defines the atoms and routes them into the shader-driver — no SIMD dot in the atom layer** (that's the driver's job, largely already built); **D-ATOM-2 builds the OO layer (the actual metacognition)** as objects dispatched through the same driver.
 
+## The atom source is the bighorn-36 OPERATIONS (HOW-TO-DO) — run the dichotomy method on them
+
+**Per the user (the original instruction): the atoms = the bighorn-36 operations** (`bighorn/thinking_styles_top.py`, 9 categories × 4 = 36, "HOW TO DO") — **distinct** from the contract-36 personas ("HOW TO BE") and from the agichat 33-TSV (a *different* taxonomy; see THINKING_RECONCILIATION.md, 5 taxonomies compared). Method: **mark the dichotomic ones (opposite already in the set); for the rest, find the true opposite and keep it iff it has value.**
+
+⚠️ The full 36 is in **upstream bighorn (not in the MCP allowlist — cannot fetch)**. Below is the method applied to the ~19 operations evidenced inside this workspace (THINKING_RECONCILIATION.md). The remaining ~17 need the bighorn source or user confirmation.
+
+**Confirmed dichotomic pairs (both poles in the evidenced set → one signed lane each):**
+
+| − pole | + pole |
+|---|---|
+| Decompose | Synthesize |
+| Compress | Expand |
+| Concretize | Abstract |
+| Ground | Lift |
+| Dissolve | Weave |
+| Sequence | Parallel |
+
+**Non-dichotomic (opposite not in set → PROPOSED, evaluate-for-value; confirm/correct):**
+
+| op | proposed opposite | value? |
+|---|---|---|
+| Hierarchize | Flatten | ✅ (Flatten is evidenced separately) |
+| Negate | Affirm | ✅ |
+| Resonate | Dissonate | ✅ (= the dissonance signal) |
+| Spiral | Direct (one-pass) | ✅ |
+| Transform | Conserve | ~ |
+| Meta | Object/Immerse | ✅ |
+| Invert | (self-inverse) | → likely unipolar |
+
+So far: 6 confirmed pairs + ~6 materialized opposites + 1 unipolar = 13 of the claimed 36. **Blocker:** the other ~17 bighorn ops are upstream-only.
+
+> **NOTE — supersedes the "33-TSV is the atom basis" section below.** The 33-dim TSV (Pearl/Rung/Σ/Ops/Presence/Meta) is the *agichat* taxonomy and is **not** the atom set; the atoms are the bighorn operations above. `contract::atoms::CANONICAL_ATOMS` currently holds the 33-TSV and must be re-pointed at the bighorn-36 once the full set is in hand. The 33-TSV content is retained below as a related-taxonomy reference, not the basis.
+
 ## The basis is LOCKED, not derived
 
 `ThinkingStyleI4_32D` = **i4 × 33** (32 + 1 spare), riding the shipped ndarray i4-32 unpack (`E-I4-META-1`, `8de1dcf8`). The allocation IS the contract — `CANONICAL_DIMENSION_ALLOCATION.md` rejects arbitrary dim moves. Do not re-derive; record and classify.
