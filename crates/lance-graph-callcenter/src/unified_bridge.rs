@@ -312,7 +312,7 @@ impl<B: NamespaceBridge> UnifiedBridge<B> {
         super_domain: SuperDomain,
         salt: u64,
         base_path: impl Into<std::path::PathBuf>,
-    ) -> std::io::Result<Self> {
+    ) -> Result<Self, crate::audit_sink::AuditError> {
         let sink = Arc::new(crate::audit_sink::JsonlAuditSink::new(base_path.into())?);
         Ok(self.with_audit_chain(super_domain, salt, sink))
     }
