@@ -1,3 +1,20 @@
+## 2026-05-27 — E-CONTRACT-NO-SERIALIZE — a contract crate is a compile-time handshake (shared types + traits), NOT an outer serialization boundary; JSON emission belongs at the membrane, never on the BBB/contract surface
+
+**Status:** FINDING (architectural vow, user-stated 2026-05-27 via the medcare-rs consumer session; recorded for the next session that touches the audit-sink / bridge surface — no lance-graph code change in this entry).
+
+A contract / BBB-tier crate (`lance-graph-contract`, `lance-graph-ontology`, `lance-graph-callcenter`) exists to make producer and consumer **compile against the same types + traits** — a handshake vow. It must not turn values into JSON or any wire/file format. Serialization is the **outer membrane**'s job (on the medcare consumer side that is `medcare-realtime`, the Supabase/Foundry-equivalent boundary).
+
+On the audit surface specifically:
+
+- **Contract-appropriate (keep):** the `AuditSink` trait (the vow — "hand me typed events, I decide what to do") and the `UnifiedAuditEvent` type (the shared shape both sides build against).
+- **Violation (the smell this vow names):** `JsonlAuditSink` + `UnifiedBridge::with_jsonl_audit` living in `lance-graph-callcenter`. A contract-tier crate emitting JSONL is acting as a serialization boundary.
+- **Correct shape:** `UnifiedBridge` already takes `with_audit_chain(super_domain, salt, Arc<dyn AuditSink>)` — the trait, the handshake. The concrete JSON-emitting sink should be supplied by the membrane. Proposed direction: relocate the concrete `JsonlAuditSink` out of callcenter into a membrane/sink crate; callcenter keeps only the `AuditSink` trait + `UnifiedAuditEvent` type.
+- **NOT a violation:** build-time serde codegen — e.g. `lance-graph-contract/build.rs` parsing `modules/*/manifest.yaml` (serde_yaml) to *generate* Rust types (#412). That IS "compile types"; the crate's runtime `[dependencies]` stay serde-free.
+
+Cross-ref: medcare-rs `CLAUDE.md` commitment #7 (consumer-side record of the same vow). The medcare bridge-audit path currently leans on callcenter's JSON sink; the gate path correctly emits via the membrane sink — reworking the bridge path to match is tracked on the medcare side, not done here.
+
+---
+
 ## 2026-05-27 — E-LADDER-SERVES-MAILBOX — the escalation ladder serves the *mailbox*, not the persona; atoms (bipolar I4-32D) are the bottom layer, measured by *quorum*, with split-poles preserved as a counterfactual mantissa; AriGraph is ephemeral-hot in the mailbox and calcifies to cold SPO + a Lance tombstone-witness
 
 **Status:** CONJECTURE / design-synthesis (a session design arc, anchored to four FINDING-grade iron rules below; NOT yet implemented). Refines `rung-persona-orchestration-v1` (the *name* "persona" is demoted — see §1 of this entry). Supersedes nothing; extends `E-CHECKLIST-AS-ESCALATION` (D-PERSONA-1) downward (atoms) and outward (mailbox lifecycle).
