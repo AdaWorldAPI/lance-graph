@@ -193,6 +193,15 @@ pub use odoo_alignment::{
     FAMILY_SMB_FOUNDRY_INVOICE,
 };
 
+// D-ODOO-SAV-4 — the 25-savant Reasoner layer (one impl per ReasoningKind).
+// woa-rs consumes the suggestion-only `SavantConclusion` as a native shared
+// type (one-binary contract); the ambiguous AXIS-B core reasons here.
+pub mod savant_reasoners;
+pub use savant_reasoners::{
+    CustomerCategoryReasoner, NextBestActionReasoner, OtherReasoner, PostingAnomalyReasoner,
+    SavantConclusion, SavantError,
+};
+
 // PR-F1 — UnifiedBridgeGate<B>: production CognitiveBridgeGate impl.
 // Wraps UnifiedBridge<B>; Chinese-wall check fires before policy evaluation
 // on cross-tenant ops (§3.8). No dep on thinking-engine from thinking-engine.
