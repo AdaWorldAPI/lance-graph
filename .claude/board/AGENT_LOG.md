@@ -426,3 +426,36 @@ W11 [2026-05-14T12:29] test-plan-unification: spec at .claude/specs/sprint-10-te
 **Process note:** user explicitly called out my prior context-reset framing — corrected via Explore agent research before writing. All 8 docs grounded in shipped source (file:line refs throughout) or referenced plan documents.
 
 ---
+
+---
+
+## [odoo-seam-bO] [IN PR] D-ODOO-1 odoo hydrator + DOLCE classifier (branch claude/lance-graph-att-activate-Jd2iZ)
+
+**D-id:** D-ODOO-1 — first concrete increment of the odoo → lance-graph-ontology integration (four-way alignment seam, Layer 1 + Layer 2 seed). Adds the odoo OWL hydrator, the odoo DOLCE suffix classifier (Seam decision 2, own module per Open-question 3), seed + alignment TTLs, and an `ODOO_V1` OGIT slot. Honors Seam decision 1 / Option B: odoo gets NO new CAM family — it inherits FIBO/SKR slots via `owl:equivalentClass` alignment axioms.
+
+**Worker:** general-purpose agent (Opus). Spec: `woa-rs/.claude/reference/four_way_alignment_seam.md`.
+
+**OGIT-slot decision: (a) — manifest YAML.** Added `modules/odoo/manifest.yaml` (`ogit_g: ODOO`, `inherits_from: fibofnd`, 17 entity_types at u16=4300..4316, no collision — highest prior code was 4204) and registered `("ODOO", 50)` in `crates/lance-graph-contract/build.rs` CANONICAL_SLOTS. Verified: `cargo build -p lance-graph-contract` regenerates `OUT_DIR/ogit_namespace.rs` with `pub const ODOO_V1: (u32, u32) = (50, 1);`. Slot 50 is fresh (prior slots: 0-6, 10-14, 20-21, 30-31, 40-42).
+
+**Files added:**
+- `data/ontologies/odoo/odoo-core.ttl` — 17 core classes as owl:Class + rdfs:label + rdfs:subClassOf (res.partner{.Company,.Individual}, account.{move,move.line,account,tax,journal}, product.{product,template,category}, stock.{move,picking}, mail.{message,template}, hr.{employee,attendance}). Namespace `odoo: <https://ada.world/onto/odoo#>`.
+- `data/ontologies/odoo/alignment/odoo-to-fibo.ttl` — owl:equivalentClass/equivalentProperty per seam worked example (res.partner.Company→fibo:LegalEntity, res.partner.Individual→vcard:Individual, account.move→fibo:FinancialTransaction + account.move.Invoice→ubl:Invoice dual-nature per Open-question 5, account.account→fibo:Account, product.template→schema:Product; name→foaf:name, vat→fibo:hasTaxIdentifier).
+- `data/ontologies/odoo/alignment/odoo-to-skr.ttl` — odoo accounting → SKR03/SKR04 chart pivots (account.account→skr:Konto, account.tax→skr:Steuersatz, account.journal→skr:Journal, code→kontonummer).
+- `crates/lance-graph-ontology/src/hydrators/odoo.rs` — `hydrate_odoo(registry)` (canonical seed + alignment overlays) + `hydrate_odoo_from(paths, registry)` (test/multi-file). `g: OGIT::ODOO_V1.0`, `inherits_from: Some(OGIT::FIBOFND_V1.0)`, edge whitelist {rdfs:subClassOf, owl:equivalentClass, rdfs:subPropertyOf, owl:equivalentProperty}. Doc-commented as Layer-1 odoo extraction source.
+- `crates/lance-graph-ontology/src/hydrators/dolce_odoo.rs` — `pub fn classify_odoo(iri: &str) -> DolceCategory` + `pub enum DolceCategory { Endurant, Perdurant, Quality, AbstractEntity }` (doc-noted: canonical DUL renames Endurant→Object / Perdurant→Event). Suffix heuristics + product.template Endurant special-case + default Endurant per seam §"Seam decision 2".
+- `crates/lance-graph-ontology/tests/odoo_hydrator_smoke.rs` — 3 tests (seed hydrate Ok + non-zero count + L1 invariants; edge whitelist; canonical-paths incl. alignment TTL parse-validation via fibo:LegalEntity interning).
+- `crates/lance-graph-ontology/tests/odoo_dolce_classifier.rs` — 4 tests incl. the full 21-row seam matrix.
+
+**Files modified:**
+- `crates/lance-graph-ontology/src/hydrators/mod.rs` — `pub mod odoo; pub mod dolce_odoo;` + re-exports.
+- `crates/lance-graph-ontology/src/lib.rs` — re-export `classify_odoo, DolceCategory, hydrate_odoo, hydrate_odoo_from`.
+
+**Tests:** `cargo test -p lance-graph-ontology` → 127 passed / 0 failed (all binaries; +7 new odoo tests, +4 new lib unit tests). `cargo test -p lance-graph-contract` → 449 passed / 0 failed (build.rs change verified).
+
+**Bug caught + fixed during impl:** the seam's reference classifier snippet only lists `.move` in PERDURANT_SUFFIXES, but `account.move.line` ends with `.line` → fell through to default Endurant, contradicting the seam matrix row (`account.move.line → Perdurant`). Added explicit `.move.line` suffix (a line is a fact within the move event). Matches lance-graph-callcenter::odoo_alignment::dolce_odoo's handling.
+
+**Note — prior art:** `lance-graph-callcenter::odoo_alignment` already ships a parallel `dolce_odoo()` + `DolceMarker` + `ODOO_SEED` static table (Option B family bytes). This D-ODOO-1 work is the lance-graph-ONTOLOGY side (TTL hydration into the OntologyRegistry, separate crate, distinct `DolceCategory` enum per the task spec). The two are consistent (same pivots, same Option-B doctrine) but not yet unified; cross-crate dedup is a possible follow-up.
+
+**Outcome:** D-ODOO-1 ready for review. Workspace compiles; both touched crates green. NOT pushed (orchestrator reviews + pushes).
+
+---

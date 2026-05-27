@@ -1,0 +1,45 @@
+# Odoo → SKR (DATEV chart-of-accounts) alignment — Layer-2 of the four-way seam.
+#
+# Hand-curated `owl:equivalentClass` / `owl:equivalentProperty` axioms tying
+# odoo's accounting models to the German SKR03/SKR04 chart concepts hydrated by
+# hydrators/skr_datev.rs. Per Seam decision 1 / Option B, odoo authors no CAM
+# family: these axioms route an odoo account onto the SKR account node, which
+# already carries an OGIT slot.
+#
+# Note (seam): odoo's `account.account.template` is the chart-of-accounts
+# template concept that SKR03/SKR04 populate; an odoo deployment localised to
+# DE maps each account.account onto its SKR account code. The structural
+# equivalence below is the class-level pivot; per-code mappings (1200 → Bank,
+# 1576 → Vorsteuer, …) are emitted by the extractor against the live SKR slot.
+
+@prefix odoo:  <https://ada.world/onto/odoo#> .
+@prefix owl:   <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skr03: <https://ada.world/onto/skr03#> .
+@prefix skr04: <https://ada.world/onto/skr04#> .
+
+# ── chart-of-accounts class pivots ───────────────────────────────────────────
+# An odoo account IS an SKR account node when the deployment's chart is SKR.
+# Declared against both SKR03 and SKR04 roots; the active chart is selected at
+# hydration time per tenant (seam Open-question 4 — multi-tenant file select).
+
+odoo:account.account
+    owl:equivalentClass skr03:Konto ,
+                        skr04:Konto .
+
+# account.tax aligns to the SKR Umsatzsteuer/Vorsteuer rate concept (a Quality
+# per the suffix classifier — it characterises a posting, it is not the event).
+odoo:account.tax
+    owl:equivalentClass skr03:Steuersatz ,
+                        skr04:Steuersatz .
+
+# account.journal is the SKR posting journal (Endurant container).
+odoo:account.journal
+    owl:equivalentClass skr03:Journal ,
+                        skr04:Journal .
+
+# ── property pivots ──────────────────────────────────────────────────────────
+# The odoo account `code` field IS the SKR account number (Kontonummer).
+odoo:account.account.code
+    owl:equivalentProperty skr03:kontonummer ,
+                           skr04:kontonummer .
