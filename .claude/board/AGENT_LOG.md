@@ -1,3 +1,17 @@
+## [Main-thread] [DESIGN — captured, not implemented] E-LADDER-SERVES-MAILBOX — atom/quorum/mantissa/AriGraph-hot-cold synthesis
+
+**What:** Captured a multi-turn design dialogue as `EPIPHANIES.md` E-LADDER-SERVES-MAILBOX (2026-05-27). No code; design crystallization only. Branch `claude/splat3d-cpu-simd-renderer-MAOO0`.
+
+**Six pieces:** (§1) the escalation ladder serves the **mailbox**, not the persona — persona is a Layer-2 dispatch policy per I-VSA-IDENTITIES, not a container; business/chat/OSINT = three β-policies over one substrate. (§2) 3-layer **atoms → thinking styles → persona recipes**: the 36 `contract::thinking` styles demote to **atoms** (I4-32D, 32 bipolar dims / 64 poles); styles+personas are compositions; Cranelift templates compile the *recipe*, not the atom-dot. (§3) the **quorum crux**: a dichotomy needs a quorum to project; each atom = `(I4 position, quorum-confidence)` = NARS truth per axis; splits held as Contradiction, never averaged. (§4) **wisdom↔Staunen = temperature** (self-regulated by free energy; explains the D-PERSONA-1 `WisdomMarker` 0.1 floor = min temperature). (§5) split-resolution = **counterfactual mantissa** (`CausalEdge64` −6 nibble), staged v1/v2/v3, ghost-tier test + `awareness.revise` reopen. (§6) **AriGraph hot/cold/tombstone**: ephemeral-hot in mailbox → calcify to cold SPO → tombstone-witness in versioned Lance (= GoBD audit by construction).
+
+**Honesty flags in the entry:** marked CONJECTURE/design (anchored to 4 FINDING-grade iron rules); the atom-basis derivation is the OPEN load-bearing step; NARS *type* selectors flagged as belonging in a register (Test 0), not as bipolar atoms; `WitnessCorpus` + `SigmaTierRouter` Σ-tier D-ids cited from dialogue are marked **to-verify** against the board (NOT asserted as fact).
+
+**Explicitly NOT done (pending greenlight):** D-ATOM-1..5 not queued in STATUS_BOARD (design, not deliverables yet); substrate-Markov re-scope deferred behind the [FORMAL-SCAFFOLD] dependency check; `rung-persona-orchestration-v1` → mailbox-centric rename awaits explicit go (touches D-ids). Three corrections to my own prior turns are recorded in-thread: conflated VSA-substrate Markov with episodic Markov; mis-sized MUL trust/DK as two axes (it's one); initially read the "36" as styles (it's atoms).
+
+**Tests:** none (no code). **Commit:** this entry + EPIPHANIES prepend.
+
+---
+
 ## [Main-thread] [IN PROGRESS] D-PERSONA-1 — escalation+epiphany loop = the boot checklist
 
 **D-id:** D-PERSONA-1 (`rung-persona-orchestration-v1` §2 + §7). Restore-on-SoA of ladybug's qualia loop (collapse-hint + InnerCouncil/HdrResonance split + EpiphanyDetector + ghost residue) onto our contract types — NOT a bespoke verifier. Branch `claude/splat3d-cpu-simd-renderer-MAOO0`.
