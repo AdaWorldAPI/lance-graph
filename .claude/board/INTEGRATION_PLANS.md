@@ -1,3 +1,28 @@
+## 2026-05-27 — atom-mailbox-substrate-v1 (ladder-serves-mailbox: atoms→styles→personas, quorum projection, counterfactual mantissa, AriGraph hot/cold/tombstone)
+
+**Status:** PROPOSAL (implements `EPIPHANIES.md` E-LADDER-SERVES-MAILBOX; extends `rung-persona-orchestration-v1` D-PERSONA-1 downward into the atom layer and outward into the mailbox lifecycle).
+**Confidence:** HIGH on the mechanism→shipped-type mapping; **CONJECTURE on the atom basis (D-ATOM-0, the load-bearing unsolved decision)** and the I4-32D SIMD layout until probed.
+**Plan file:** `.claude/plans/atom-mailbox-substrate-v1.md`
+**Predecessors:** `rung-persona-orchestration-v1`, `rung-mul-grounding-v1`, `cognitive-substrate-convergence-v1`.
+**Anchored iron rules:** `I-VSA-IDENTITIES`, `E-BATON-1`, `I-LEGACY-API-FEATURE-GATED`, The Click.
+
+### Scope
+Three-layer cognitive basis under the mailbox-served ladder: **atoms (bipolar I4-32D, 32 dims / 64 poles) → thinking styles (compositions) → persona recipes (compositions + thresholds + β)**. Each atom *measured by a quorum* (`(position, confidence)` = NARS truth per axis; splits = Contradiction never averaged); split-poles *preserved as a `CausalEdge64` −6 counterfactual mantissa* (ghost-tier test → `awareness.revise`); memory *ephemeral-hot in mailbox → calcified-cold SPO + Lance tombstone-witness* (GoBD audit by construction). wisdom↔Staunen = sampling temperature (self-regulated by free energy; the `WisdomMarker` 0.1 floor = min temperature).
+
+### Decision gates (block scaffolding)
+D-ATOM-0 atom-basis route (ICA/PCA over 36 / theory-driven from 6 clusters / hybrid) · D-ATOM-0b NARS as categorical register (Test 0, recommended) vs bipolar atoms.
+
+### Deliverables
+D-ATOM-1 atom catalogue + `I4x32` type + pack/SIMD (`contract::atoms`, blocked on D-ATOM-0) · D-ATOM-2 style/persona Cranelift recipe templates (`contract::jit`/`thinking`) · D-ATOM-3 quorum-projection per axis (`contract::escalation`/`a2a_blackboard`) · D-ATOM-4 counterfactual mantissa v2 deposit / v3 mailbox+revision (basis-independent) · D-ATOM-5 AriGraph hot/calcify/tombstone (basis-independent).
+
+### Execution
+Sonnet `///`-scaffold wave (disjoint file scopes, BLOCKED-not-guess) → P2 review (`/code-review` high, ultra for D-ATOM-1/2; no literal codex binary) → implement+remove stubs → per-deliverable PR into the working branch → subscribe+autofix CI → merge → repeat. Parallel-now: D-ATOM-4 v2, D-ATOM-5 (basis-independent); D-ATOM-1/2 spawn after D-ATOM-0.
+
+### Invariants
+persona=Layer-2 (no container) · NARS type in register (Test 0) · markers ≤32 (I-VSA-IDENTITIES) · splits=Contradiction never averaged · counterfactual in separate lane · one graph · no persisted singleton (E-BATON-1) · ractor async only at swarm boundary · bounded respawn · `latency_budget` arbiter, no hot-Pod wall-clock · SIMD gated on `ndarray-vertical-simd-alien-magic.md`.
+
+---
+
 ## 2026-05-26 — rung-persona-orchestration-v1 (time-bound persona orchestration: boring checklist → meta-recipe → hot/cold/feedback anneal)
 
 **Status:** PROPOSAL (sibling to `rung-mul-grounding-v1`; the time-bound + composition layer)
