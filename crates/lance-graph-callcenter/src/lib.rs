@@ -150,6 +150,13 @@ pub use unified_bridge::{
     AuthError, BridgeConfig, BridgeHandle, OgitFamily, OwlIdentity, TenantId, UnifiedBridge,
 };
 
+// Re-export the RBAC `Policy` surface that `UnifiedBridge::new` requires, so
+// consumer crates barred from a direct `lance-graph-rbac` dependency (e.g.
+// woa-rs's BBB-barrier: allow-list is contract / ontology / callcenter only)
+// can still construct a `UnifiedBridge` through the callcenter facade alone.
+// `lance-graph-rbac` is already an internal dependency of this crate.
+pub use lance_graph_rbac::policy::{smb_policy, Policy};
+
 // D-SDR-2 (super-domain-rbac-tenancy-v1 §3.4-§3.7) — SuperDomain layer.
 // Activation root above OGIT basins (1 byte; 8 starter values; 256 cap)
 // plus MetaAnchors (Foundry/OWL/DOLCE/Wikidata cross-walks), ComplianceRegime
