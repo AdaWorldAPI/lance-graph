@@ -459,3 +459,11 @@ W11 [2026-05-14T12:29] test-plan-unification: spec at .claude/specs/sprint-10-te
 **Outcome:** D-ODOO-1 ready for review. Workspace compiles; both touched crates green. NOT pushed (orchestrator reviews + pushes).
 
 ---
+
+## [main / Opus] [DOCS-IMPORT] odoo savant briefing pack -> .claude/odoo (2026-05-27)
+Imported the 18-file Odoo savant material verbatim from woa-rs/.claude/odoo:
+SAVANTS.md (roster) + BRIEFING.md + BRIEFING-GAP.md + 15 lane distillations
+(L1-L15: odoo model -> K-module mappings, e.g. L1-K3-POST, L3-K7-TAX,
+L4-K8K9-REPORTS-DATEV, L11-COA-JOURNALS-LOCKDATES, L15-TAX-REPARTITION).
+Reference material for lance-graph-side ontology/alignment work (companion to
+the merged D-ODOO-1 hydrator + the four_way_alignment_seam spec). No code impact.
