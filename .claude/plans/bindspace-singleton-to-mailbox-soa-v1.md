@@ -118,6 +118,84 @@ working set per mailbox; many small mailboxes replace one giant space).
 
 ---
 
+## 2.5 — THE little-endian contract: ONE SoA, end-to-end, no boundary re-encode
+
+**Ruling (2026-05-27):** the per-mailbox `MailboxSoA<N>` layout *is* **THE little-endian
+contract** — singular, canonical. The **same SoA byte layout runs the whole vertical**, from
+the cognitive-shader-driver hot path down to lance-graph storage, with **no re-encode /
+translation at any boundary**:
+
+```
+cognitive-shader-driver        lance-graph-contract              lance-graph storage
+  MailboxSoA<N>  ───────────►  LE byte contract types  ────────►  Lance columns /
+  (hot, owned, ephemeral)      CausalEdge64 · QualiaI4_16D ·       SPO-G + tombstone-witness
+                               MetaWord · SoaColumns<N> ·          (cold, durable)
+                               entity_type u16
+        └──────────────── ONE little-endian SoA the whole way ──────────────┘
+                  persisted_row: Option<u32>  is the link, not a re-encode
+```
+
+Consequences:
+
+- **No Arrow/JSON translation membrane for the thoughtspace.** The columns the mailbox owns
+  in RAM are the columns Lance stores. A persisted row (`ShaderCrystal.persisted_row`,
+  `lance-graph-contract/src/cognitive_shader.rs:382`) is a **pointer to the same SoA row**
+  laid down in Lance, not a serialized copy in a different shape. (Contrast the *ontology*
+  path, which legitimately translates `MappingRow ↔ RecordBatch` in `lance_cache.rs` — see §4
+  for why the ontology is a different animal.)
+- **The LE byte contract types are the shared vocabulary** (`lance-graph-contract`):
+  `CausalEdge64`, `QualiaI4_16D`, `MetaWord`, the `SoaColumns<N>` floor (ndarray), `entity_type`
+  u16. Every layer compiles against these exact types — the contract is a *compile-time*
+  handshake (cf. `E-CONTRACT-NO-SERIALIZE`), and the *bytes* are identical from compute to disk.
+- **Lance is append-only/versioned**, so persisting the SoA row IS the tombstone-witness +
+  GoBD audit trail by construction (`E-LADDER-SERVES-MAILBOX` §6) — no separate logging layer.
+- This is the "restore the contract, never port the carrier" rule made vertical: one i4/u8/
+  u64 SoA from shader to storage; never re-inflate to `Vsa16kF32` at any tier.
+
+This widens the migration scope from "cognitive-shader-driver only" to **the full vertical**:
+shader-driver SoA → contract LE types → lance-graph storage must all be THAT one SoA.
+
+---
+
+## 2.6 — DTO vertical audit: StreamDto / ResonanceDto / BusDto / p64 (what re-encodes vs what already conforms)
+
+The flow DTOs live in `crates/thinking-engine/src/dto.rs` (a workspace member) and stage the
+cycle Φ→Ψ→B→Γ. Audited against the "one SoA, no re-encode" ruling (§2.5), **two patterns
+coexist** and the migration must collapse the legacy one onto the SoA:
+
+### The GOOD pattern (already conforms — the reference) — `p64-bridge`
+
+`crates/p64-bridge/src/lib.rs` maps the **canonical LE-contract types directly** to p64
+palette storage with **no re-encode and no `p64` dependency** (compile-time bridge, joined at
+the call site): `CausalEdge64 → edge_to_block` (palette row/col), `ThinkingStyle → layer_mask
++ combine + contra`, `HdrSemiring → combine/contra mode`. This **is** THE SoA reaching
+storage — the i4/u8/u64 contract types address the palette directly. *Everything from the
+shader SoA to lance-graph storage should look like p64-bridge.* Keep as-is; it is the
+storage-ward end of the vertical.
+
+### The LEGACY pattern (re-encodes — collapse it) — `thinking-engine` DTOs ↔ `engine_bridge`
+
+These are heap `Vec`-based representations bridged into `BindSpace` rows by a **translation
+membrane** in `crates/cognitive-shader-driver/src/engine_bridge.rs`
+(`bind_busdto` / `unbind_busdto:310` / `busdto_to_binary16k:199`). That bind/unbind seam is
+exactly the re-encode the ruling forbids for the thoughtspace. Fates:
+
+| DTO (`thinking-engine`) | Shape today | Fate under THE SoA |
+|---|---|---|
+| `StreamDto` (Φ ingress) | `source`, `codebook_indices: Vec<u16>`, `timestamp` | **Thin ingress adapter only** — a sensor-membrane boundary (like the ontology); codebook indices (identity refs, `I-VSA-IDENTITIES`-clean) hand straight into the mailbox SoA. Does NOT carry a parallel `Vec` through the hot path. |
+| `ResonanceDto` (Ψ, `dto.rs`) | `energy: Vec<f32>` (the 4096 ripple field) + `top_k`/`cycle_count`/`converged` | **Already IS `MailboxSoA.energy: [f32; N]`.** The ripple field is the mailbox's energy column — unify, don't keep a separate heap `Vec` DTO. `top_k`/`converged` are derived reads. |
+| `ResonanceDto` (`awareness_dto.rs`) | richer multi-perspective: `hdr: HdrResonance`, `dominant_perspective`, `gate`, `dissonance`, `total_energy`, inferred user state | **NAME-COLLISION (two `ResonanceDto`) — dedup.** Scalars (`dissonance`/`total_energy`/`gate`) → SoA `meta`/`edge` columns; `HdrResonance` = the S/P/O 3-perspective read over the SoA. Rename or merge (tech-debt entry filed). |
+| `BusDto` (B consequence) | `codebook_index: u16`, `energy: f32`, `top_k`, `cycle_count`, `converged` | **Becomes a view/projection over the SoA row** (read `edges`/`qualia`/`meta` + `persisted_row`), not a bound/unbound separate struct. `unbind_busdto` collapses to a column read; `bind_busdto`/`busdto_to_binary16k` collapse (the SoA row's content-ref IS the binary16k identity). |
+| `ThoughtStruct` (Γ collapse) | `bus`, lazy `text`, `sensor_contributions`, `tension_history: Vec<Vec<f32>>`, `style_trajectory` | **Γ projection of the persisted SoA row** (text stays lazy). `tension_history`/`style_trajectory` become witness columns / tombstone fields (`E-LADDER-SERVES-MAILBOX` §6), not parallel `Vec`s. |
+
+**Ruling:** `engine_bridge`'s `bind_busdto`/`unbind_busdto`/`busdto_to_binary16k` are the
+re-encode boundary to dissolve (migration step S2). The thinking-engine DTOs survive only as
+(a) the `StreamDto` ingress adapter at the sensor membrane and (b) thin *read projections*
+(`BusDto`/`ThoughtStruct`) over the mailbox SoA — never as a parallel owned representation the
+hot path translates to/from. p64-bridge is the conformance template for the storage-ward half.
+
+---
+
 ## 3. Column-by-column migration map
 
 | `BindSpace` column | → Destination | How |
@@ -139,20 +217,36 @@ content_ref ≤ 6). That is the whole point: the mailbox thoughtspace is L1/L2-r
 
 ---
 
-## 4. What STAYS shared (does not migrate)
+## 4. What STAYS shared (does not migrate) — the Ontology is lazylock-via-cache, AS IS
 
-- **`Arc<OntologyRegistry>`** — the OGIT/DOLCE/FIBO calcified ontology. Immutable at read
-  time, hydrated/mutated on its own owner (`OntologyRegistry::append_mapping`), shared by
-  `Arc` to every mailbox. This is cold Zone-2, not ephemeral thinking. Mailboxes hold
-  `&OntologyRegistry` (or a cloned `Arc`), never a copy of its tables.
-- **Codebooks / CAM-PQ centroids** — the cleanup codebook the content references resolve
-  against (`I-VSA-IDENTITIES` Test 3). Shared, immutable, cold.
-- **AriGraph SPO-G cold store + Lance dataset** — where the mailbox's witness calcifies on
-  death (`E-LADDER-SERVES-MAILBOX` §6). Shared persistence, not per-mailbox.
+The **Ontology is explicitly NOT part of THE SoA contract** and does **not** migrate. It stays
+exactly as it is today — a lazily-initialised, cache-backed, read-only shared resource:
 
-Rule of thumb: **ephemeral per-think state → into the mailbox; calcified/immutable shared
-knowledge → stays a shared `Arc`.** The singleton's sin was conflating the two in one
-`BindSpace`.
+- **`LazyLock<NamespaceRegistry>`** — the seed registry is `static SEED_NAMESPACE_REGISTRY:
+  LazyLock<NamespaceRegistry>` (`crates/lance-graph-ontology/src/registry.rs:39`), built once,
+  read-only thereafter. Mailboxes consult it by reference; never own or copy it.
+- **The `ontology_dictionary` Lance cache** (`lance-graph-ontology/src/lance_cache.rs`,
+  feature `lance-cache`) — a **CACHE of hydrated TTL** keyed by `ttl_root_checksum`; the TTL
+  files on disk are source-of-truth; on version mismatch it **drop-and-rebuilds** (no
+  migration ladder). Its own header already states the boundary: *"BindSpace
+  (FingerprintColumns / QualiaColumn / MetaColumn / EdgeColumn) is the live runtime SoA and is
+  unrelated — it never lands here."* That invariant holds unchanged under this migration.
+- **Why it's a different animal (and why it legitimately re-encodes):** the ontology cache
+  *does* translate `MappingRow ↔ RecordBatch` — but it is calcified, immutable-at-read,
+  shared cold knowledge, not ephemeral per-think thoughtspace. The "one SoA, no re-encode"
+  rule (§2.5) governs the **thoughtspace** vertical; the ontology cache is an orthogonal
+  TTL-projection cache and is left **as is**.
+
+So: a mailbox holds the ontology as `Arc<OntologyRegistry>` / `&OntologyRegistry` (lazylock +
+cache, read-only); the per-row `entity_type: u16` (1-based index into the shared ontology)
+travels in THE SoA, but the ontology tables it indexes stay shared and cached. **No ontology
+work in this migration — it is `as is`.**
+
+Other shared-immutable state that likewise stays out of the SoA: CAM-PQ codebooks /
+centroids (the cleanup codebook content references resolve against, `I-VSA-IDENTITIES`
+Test 3); the AriGraph SPO-G cold store. Rule of thumb: **ephemeral per-think state → into the
+mailbox SoA; calcified/immutable shared knowledge → stays shared (lazylock/cache), out of the
+SoA.**
 
 ---
 
