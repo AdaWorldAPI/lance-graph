@@ -1,3 +1,12 @@
+## 2026-05-27 — bindspace-singleton-to-mailbox-soa-v1 (dissolve the shared `Arc<BindSpace>` into per-mailbox `MailboxSoA<N>` ephemeral thoughtspace)
+
+**Status:** PROPOSAL / design (migration spec; NOT yet implemented). **Plan file:** `.claude/plans/bindspace-singleton-to-mailbox-soa-v1.md`. **Epiphany:** `E-MAILBOX-IS-BINDSPACE`.
+**Scope:** `MailboxSoA<N>` *becomes* the per-mailbox, mailbox-owned, ephemeral "thoughtspace" — the BindSpace surrogate. The singleton `ShaderDriver.bindspace: Arc<BindSpace>` (`cognitive-shader-driver/src/driver.rs:56`; one `BindSpace::zeros(4096)` in `bin/serve.rs:29`) is **dissolved**, not copied. Column map: drop the 64 KB `Vsa16kF32` `cycle` plane; own `edges`/`qualia`/`meta`/`entity_type` in the mailbox; reference content via CAM-PQ; keep `ontology` a shared `Arc`.
+**Deliverables:** D-MBX-1 add migrated columns to `MailboxSoA<N>` (feature-gated) · D-MBX-2 move `engine_bridge` per-row surface onto mailbox rows · D-MBX-3 driver holds sea-star of mailboxes (kill the singleton) · D-MBX-4 death→SPO+Lance tombstone-witness · D-MBX-5 delete `BindSpace`+`cycle` plane.
+**Gates:** `D-CE64-MB-1-impl` (par-tile) + `PR-NDARRAY-MIRI-COMPLETE` first; D-MBX-5 blocked on the CLAUDE.md "The Click"/`Vsa16kF32` doctrinal update (OQ-4).
+**Invariants:** `E-CE64-MB-4` (ownership = compile-time no-alias) · `E-BATON-1` (LE baton is the only cross-boundary state) · `I-VSA-IDENTITIES` (reference content, don't copy planes) · `I-LEGACY-API-FEATURE-GATED` (feature-gate v1 `BindSpace` accessors during S1–S4) · no double-mailbox (sync inner / ractor outer).
+
+---
 ## 2026-05-27 — odoo-savant-reasoners-v1 (lance-graph side of the Odoo richness harvest: 2 new OGIT families + Layer-2 axioms + StyleCluster wiring + 5 Reasoner impls)
 
 **Status:** PROPOSAL (picks up the cross-repo handover boundary in `.claude/odoo/SAVANTS.md` §"lance-graph handover boundary"). woa-rs defined the 25-Savant roster + delegation tuples; lance-graph implements (a) Reasoner impls, (b) 2 new families + Layer-2 alignment axioms for the `None` classes, (c) StyleCluster wiring.

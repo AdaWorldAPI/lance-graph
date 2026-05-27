@@ -514,6 +514,20 @@ hot/cold/feedback loop onto our contract types + SoA floor
 
 ---
 
+## bindspace-singleton-to-mailbox-soa-v1 — dissolve `Arc<BindSpace>` into per-mailbox `MailboxSoA<N>`
+
+Plan path: `.claude/plans/bindspace-singleton-to-mailbox-soa-v1.md`. Epiphany `E-MAILBOX-IS-BINDSPACE`. Migration of the shared singleton address space into mailbox-owned ephemeral thoughtspace (LE-contract SoA columns); drops the 64 KB `Vsa16kF32` `cycle` plane.
+
+| D-id | Title | Crate(s) | ~LOC | Risk | Status | PR / Evidence |
+|---|---|---|---|---|---|---|
+| D-MBX-1 | add migrated columns (`edges`/`qualia`/`meta`/`entity_type`) to `MailboxSoA<N>` behind `mailbox-thoughtspace` feature | cognitive-shader-driver | 120 | MED | **Queued** | gated on D-CE64-MB-1-impl + PR-NDARRAY-MIRI-COMPLETE |
+| D-MBX-2 | move `engine_bridge` per-row read/write surface onto mailbox rows; `cycle` plane becomes a transient local | cognitive-shader-driver | 180 | MED | **Queued** | blocked on D-MBX-1 + OQ-1 (content-ref shape) |
+| D-MBX-3 | `ShaderDriver` holds a sea-star of mailboxes; kill the `BindSpace::zeros(4096)` singleton in `serve.rs` | cognitive-shader-driver | 160 | HIGH | **Queued** | blocked on D-MBX-2 + OQ-2 (temporal/expert fold) |
+| D-MBX-4 | death → SPO-G quad + Lance tombstone-witness (link-integrity back-pointer) | cognitive-shader-driver + Lance | 200 | HIGH | **Queued** | blocked on D-MBX-3 + Zone-2 persistence |
+| D-MBX-5 | delete `BindSpace` singleton + `Vsa16kF32` `cycle` plane; remove feature gate | cognitive-shader-driver | 80 | MED | **Queued** | blocked on D-MBX-4 + OQ-4 (CLAUDE.md "The Click" doctrinal update) |
+
+---
+
 ## Update protocol
 
 When a deliverable ships:
