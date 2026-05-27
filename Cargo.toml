@@ -37,9 +37,5 @@ exclude = [
     "crates/learning",
     "crates/jc",
     "crates/sigker",
-    # 3DGS geospatial rebuild Phase 1 — standalone 3D Tiles reader
-    # (.claude/plans/3DGS-3D-Tiles-runtime-plan.md). serde-only; opt-in via
-    # --manifest-path until traversal/storage phases wire it into production.
-    "crates/ada-3dtiles",
 ]
 resolver = "2"
