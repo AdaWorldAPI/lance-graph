@@ -83,6 +83,12 @@
 
 ---
 
+## [Inventory-Opus] [DONE — writes were permission-blocked; persisted by main thread] SPO-2³ workspace list inventory
+
+Catalogued **31 enumerated cognitive lists** across contract / planner / cognitive-shader-driver / thinking-engine / holograph + 3 markdown taxonomies. **2³ tally: Covered 4 / Partial 6 / Not 21** (confirms 2³ = the causal spine only — CausalMask / nars_engine masks / PearlLevel / CANONICAL_ATOMS Pearl lanes are the lattice; everything style/qualia/rung/layer/ghost/MUL is orthogonal). Gaps (reference tactics with no enumerated lance-graph home): #18 CWS, #14 M-CoT, #29/#32 intent, #16/#23/#33 meta-prompting, #12 TCA, #22/#19 dynamic-decompose, #5/#20 pruning — but ladybug-rs implements all 34 upstream. Result persisted into `.claude/knowledge/spo-2cubed-list-coverage.md`. No code edited.
+
+---
+
 ## [Main-thread] [DESIGN — captured, not implemented] E-LADDER-SERVES-MAILBOX — atom/quorum/mantissa/AriGraph-hot-cold synthesis
 
 **What:** Captured a multi-turn design dialogue as `EPIPHANIES.md` E-LADDER-SERVES-MAILBOX (2026-05-27). No code; design crystallization only. Branch `claude/splat3d-cpu-simd-renderer-MAOO0`.

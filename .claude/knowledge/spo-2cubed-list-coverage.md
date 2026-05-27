@@ -68,6 +68,23 @@ Source: Stakelum, "Beyond Chain-of-Thought: 34 next-gen LLM tactics." These are 
 
 **Tally:** 2³ Covered = 2 (RCR, ICR-counterfactual) · Partial = 5 · Not = 27. So **the 2³ lattice covers only the causal-reasoning tactics**; the other 27 are orthogonal axes (operations / meta / gating / memory) — confirming 2³ is the *causal* spine, not the whole style space. Buckets: ~6 datapath-touching, ~21 control, ~7 gate.
 
-## Inventory — workspace lists (filled by the inventory pass)
+## Inventory — workspace lists (Opus inventory pass, 2026-05-27)
 
-<!-- Opus agent appends: per enumerated list — repo · file · name · members · bucket · coverage {Covered/Partial/Not} · which of the 34 reference tactics it implements. -->
+**31 enumerated cognitive lists** inventoried across contract / planner / cognitive-shader-driver / thinking-engine / holograph + 3 markdown taxonomies (bighorn-36 ops, agi-chat Quad-Triangle / styleBank / 9-RI). **2³ tally: Covered 4 · Partial 6 · Not 21** — confirming 2³ is the *causal spine only*.
+
+**Covered (4 — these ARE the lattice):**
+- `CausalMask` — the 8 projections verbatim.
+- `nars_engine` `MASK_*` / `ALL_MASKS` — the powerset masks.
+- `PearlLevel` — the 3 rungs (Association/Intervention/Counterfactual).
+- `CANONICAL_ATOMS[0..3]` — the Pearl lanes of the 33-TSV.
+
+**Partial (6 — causal members ride the lattice, rest orthogonal):**
+- the 4 NARS inference enums (Intervention=`_PO`, Counterfactual=`SPO` ride it; Deduction/Induction/Abduction/Revision/Synthesis/Analogy orthogonal).
+- `InferenceOp` (10, Pearl-tagged).
+- `CANONICAL_ATOMS` Operation group + holograph `VerbCategory` (its Causal subcategory).
+
+**Not covered (21 — orthogonal axes):** every style / cluster / σ-tier / rung-ladder / layer / qualia / ghost-echo / presence / MUL / expert-capability list. (These are the operation/meta/gating/memory/affect axes — not causal.)
+
+**Gaps — reference tactics with NO enumerated workspace home yet:** #18 CWS (context-window/memory), #14 M-CoT (multimodal), #29 IDR / #32 SDD (intent/clarification), #16 PSO / #23 AMP / #33 DTM (meta-prompting scaffold), #12 TCA (temporal), #22 ETD / #19 ARE (dynamic decomposition), #5 TCP / #20 TCF (dedicated thought-pruning). Strongest orthogonal homes for the rest: bighorn-36 ops (#2/#8/#27), InnerCouncil Archetype+split (#3/#7/#21/#30), MUL layer (#26/#10/#15).
+
+> **Cross-repo note (per `agi-stack-cross-repo.md`):** ladybug-rs implements **all 34** as structural primitives (mapped to the Sun et al. reasoning ladder); ada-consciousness implements 21. So the "gaps" above are gaps in *lance-graph's enumerated lists*, not in the AGI stack — the homes exist upstream. Also: the real lattice is **SPOQ** (S/P/O + Q-qualia, 4 roles); SPO 2³ = the causal slice, Q = the orthogonal affective overlay.
