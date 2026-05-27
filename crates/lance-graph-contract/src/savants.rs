@@ -22,7 +22,6 @@ use crate::thinking::StyleCluster;
 /// Stable codes for the `ReasoningKind::Other(u32)` savants (SAVANTS.md).
 pub mod other_kind {
     pub const PRICELIST_ASSIGNMENT: u32 = 1;
-    pub const ANALYTIC_MODEL_MATCH: u32 = 2;
     pub const CHART_ACCOUNT_MAPPING: u32 = 3;
     pub const CONSOLIDATION_RATE_POLICY: u32 = 4;
     pub const RECONCILE_MATCH: u32 = 5;
@@ -62,7 +61,7 @@ pub const SAVANTS: [Savant; 25] = [
     // ── L8–L15 gap lanes (15) ──
     Savant { id: 1, name: "FiscalPositionResolver", family: Some(0x80), kind: CustomerCategory, inference: Deduction, semiring: NarsTruth, style: Analytical, lane: "L9", decides: "which fiscal position (tax mapping) applies to a partner" },
     Savant { id: 2, name: "PartnerTrustAdvisor", family: Some(0x80), kind: CustomerCategory, inference: Revision, semiring: NarsTruth, style: Empathic, lane: "L9", decides: "partner trust / dunning-risk from payment history" },
-    Savant { id: 3, name: "PricelistAssignmentAgent", family: None, kind: Other(other_kind::PRICELIST_ASSIGNMENT), inference: Revision, semiring: NarsTruth, style: Analytical, lane: "L8", decides: "partner pricelist when no explicit property (country-group/config fallback)" },
+    Savant { id: 3, name: "PricelistAssignmentAgent", family: Some(0x64), kind: Other(other_kind::PRICELIST_ASSIGNMENT), inference: Revision, semiring: NarsTruth, style: Analytical, lane: "L8", decides: "partner pricelist when no explicit property (country-group/config fallback)" },
     Savant { id: 4, name: "AnalyticDistributionSuggester", family: Some(0x62), kind: NextBestAction, inference: Induction, semiring: NarsTruth, style: Analytical, lane: "L10", decides: "suggested cost-centre distribution for a move line" },
     Savant { id: 5, name: "AnalyticModelScorer", family: None, kind: CustomerCategory, inference: Deduction, semiring: HammingMin, style: Analytical, lane: "L10", decides: "which analytic.distribution.model matches (priority-scored)" },
     Savant { id: 6, name: "SequenceGapAnomalyDetector", family: Some(0x62), kind: PostingAnomaly, inference: Abduction, semiring: NarsTruth, style: Analytical, lane: "L11", decides: "journal sequence gaps ⇒ deleted posted entries (GoBD)" },
