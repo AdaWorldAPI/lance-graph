@@ -407,3 +407,31 @@ Sprint-2 W7 → ndarray; sprint-3 W9 → ada-consciousness. Both corrected via m
 - `.claude/board/sprint-log-3/{SPRINT_LOG.md,agents/agent-W1..W12.md,meta-1-review.md,sprint-summary.md}`
 
 PR sequence: #360 → #361 → post-#360 substrate-sweep (this PR).
+
+---
+
+## APPEND-ONLY annotation — D-ODOO-1 odoo hydrator (2026-05-27)
+
+> Per the APPEND-ONLY governance rule, this section augments — does not edit — prior content. Treat as the new top-of-state. Branch: `claude/lance-graph-att-activate-Jd2iZ`.
+
+### Current Contract Inventory — new entry
+
+- **`OGIT::ODOO_V1` = (50, 1)** — new OGIT G slot (first manifest-declared slot above SKR03BAU=42). Source: `modules/odoo/manifest.yaml` (`ogit_g: ODOO`, `inherits_from: fibofnd`, 17 entity_types u16=4300..4316). Registered in `crates/lance-graph-contract/build.rs` CANONICAL_SLOTS as `("ODOO", 50)`; build regenerates `OUT_DIR/ogit_namespace.rs` accordingly.
+
+### New module surface (`lance-graph-ontology`)
+
+- **`hydrators::odoo`** — Layer-1 odoo extraction hydrator (four-way alignment seam). `hydrate_odoo(registry)` + `hydrate_odoo_from(paths, registry)`; `inherits_from: Some(OGIT::FIBOFND_V1.0)`; edge whitelist {rdfs:subClassOf, owl:equivalentClass, rdfs:subPropertyOf, owl:equivalentProperty}. Re-exported from `lib.rs`.
+- **`hydrators::dolce_odoo`** — odoo DOLCE suffix classifier (Seam decision 2, own module per Open-question 3). `pub fn classify_odoo(iri: &str) -> DolceCategory` + `pub enum DolceCategory { Endurant, Perdurant, Quality, AbstractEntity }`. Re-exported from `lib.rs`. (Doc-noted: canonical DUL renames Endurant→Object / Perdurant→Event.)
+
+### New data artifacts
+
+- `data/ontologies/odoo/odoo-core.ttl` — 17 odoo core classes (`odoo: <https://ada.world/onto/odoo#>`).
+- `data/ontologies/odoo/alignment/odoo-to-fibo.ttl` + `odoo-to-skr.ttl` — Layer-2 `owl:equivalentClass`/`owl:equivalentProperty` alignment axioms (Seam decision 1 / Option B: odoo inherits existing FIBO/SKR slots, no new CAM family).
+
+### Tests
+
+`cargo test -p lance-graph-ontology` → 127 passed / 0 failed (+7 odoo integration tests across `tests/odoo_hydrator_smoke.rs` + `tests/odoo_dolce_classifier.rs`, incl. the full 21-row seam classifier matrix; +4 lib unit tests). `cargo test -p lance-graph-contract` → 449 passed / 0 failed.
+
+### Relationship to prior art
+
+`lance-graph-callcenter::odoo_alignment` already ships a parallel `dolce_odoo()` + `DolceMarker` + `ODOO_SEED` table. This is the ontology-side counterpart (TTL hydration into `OntologyRegistry`); consistent doctrine (Option B, same pivots), distinct crate + distinct `DolceCategory` enum per task spec. Cross-crate dedup is a possible follow-up, not done here.
