@@ -196,6 +196,57 @@ hot path translates to/from. p64-bridge is the conformance template for the stor
 
 ---
 
+## 2.7 — Hot/cold: `ThoughtStruct` is a transparent view over the SurrealDB container table(s)
+
+The same "one SoA, no re-encode" rule (§2.5) extends **past RAM into persistence**. The hot
+path can hold **only ~64k–256k thoughts**; beyond that, thoughts live in the **SurrealDB-on-Lance
+container table(s)** (`crates/surreal_container`, the Zone-2 cold tier — currently a BLOCKED
+skeleton, see `surreal/RECONCILIATION`). The ruling:
+
+> `ThoughtStruct` (the Γ-collapse thought) is **later also a transparent view into the
+> ThoughtStruct container table(s)** — reading a thought resolves over the **same SoA layout**
+> whether it is hot (in a mailbox) or cold (in the SurrealDB container). No re-encode at the
+> RAM↔storage boundary: the container columns are the mailbox columns. `persisted_row` is the
+> seam; the view spans hot+cold transparently.
+
+### Capacity (the working-set bound)
+
+- **Hot ceiling: ~64k–256k thoughts.** At **64k ≈ 300–600 MB RAM** ⇒ **~4.5–9 KB/thought** hot.
+  256k ⇒ ~1.2–2.4 GB.
+- **Why ~6 KB/thought (not the ~24–30 B of bare SoA columns):** the dominant cost is the
+  **content/topic/angle Hamming identity planes** = 3 × 256 × 8 B = **6 KB/thought**. The bare
+  migrated columns (edge 8 + qualia 8 + meta 4 + entity_type 2 + accumulator ~9 B) add only
+  ~30–50 B. **6 KB × 64k ≈ 400 MB** — squarely in the stated 300–600 MB range. (This is *with*
+  the 64 KB `Vsa16kF32` `cycle` plane dropped; keeping it would make 64k thoughts ≈ 4.7 GB, so
+  dropping it is what makes the 64k–256k hot working set fit at all.)
+- **Resolves OQ-1 (content reference shape):** the 300–600 MB-for-64k budget implies the
+  **Hamming identity planes stay hot per thought** (≈ 6 KB) — they are *not* reduced to a 6 B
+  CAM-PQ ref in the hot path. The only thing dropped is the 64 KB f32 `cycle` carrier. A
+  CAM-PQ/codebook ref is the *cold/storage* form (and the spill key), not the hot form.
+
+### The spill / transparent-read model
+
+```
+        hot (mailbox SoA, ≤ 64k–256k thoughts, ~300–600 MB)
+            │  energy decays / mailbox dies / working set full
+            ▼  spill — SAME SoA columns, no re-encode (persisted_row)
+        cold (SurrealDB-on-Lance container table(s), append-only/versioned)
+            ▲
+            │  ThoughtStruct view reads hot OR cold transparently (same layout)
+```
+
+- The SurrealDB container is the **same SoA columns** persisted (edge/qualia/meta/entity_type
+  + content identity), append-only/versioned — so the cold store *is* the tombstone-witness +
+  GoBD trail (`E-LADDER-SERVES-MAILBOX` §6) by construction.
+- `ThoughtStruct` (`thinking-engine`) becomes the **transparent view** over `(hot mailbox row |
+  cold container row)`; text stays lazy. This makes the §2.6 ruling literal at the storage tier:
+  `ThoughtStruct` is a read-projection, identical whether the row is in RAM or in SurrealDB.
+- **Gating:** the cold tier needs `surreal_container` unblocked (BLOCKED(A/B/C/D) — fork dep +
+  Lance 6 pin) **or** the `lance-graph-callcenter` Zone-2 path; the transparent-view wiring is
+  migration step **S4** (plan §6) and new deliverable **D-MBX-6**.
+
+---
+
 ## 3. Column-by-column migration map
 
 | `BindSpace` column | → Destination | How |
@@ -210,10 +261,14 @@ hot path translates to/from. p64-bridge is the conformance template for the stor
 | `entity_type` (u16) | **Own** `[u16; N]` | 1-based index into the **shared** ontology; the index is per-row mailbox state, the table it indexes is shared (next row). |
 | `ontology` (`Arc<OntologyRegistry>`) | **Stays shared** | Read-only cold Zone-2; handed by `Arc` to the mailbox, never owned/copied. See §4. |
 
-**Net footprint:** per-row hot state drops from ~71.6 KB (dominated by the 64 KB `cycle`
-plane) to **≈ 24–30 B/row** (edge 8 + qualia 8 + meta 4 + entity_type 2 + optional
-content_ref ≤ 6). That is the whole point: the mailbox thoughtspace is L1/L2-resident
-(canonical plan §5 ~1.2 KB/compartment), the singleton never was.
+**Net footprint (two figures — don't conflate):**
+- *Bare migrated SoA columns* ≈ **24–50 B/row** (edge 8 + qualia 8 + meta 4 + entity_type 2 +
+  accumulator energy/plasticity/last_emit ~21).
+- *Full hot thought* ≈ **~6 KB** — because the **content/topic/angle Hamming identity planes
+  (3 × 2 KB) stay hot** (see §2.7; this is what sets the 64k ≈ 300–600 MB budget). The win is
+  dropping the **64 KB `Vsa16kF32` `cycle` plane**: per-thought ~71.6 KB → ~6 KB, which is what
+  makes the 64k–256k hot working set fit. The bare columns are L1/L2-resident; the Hamming
+  planes are the bulk and bound the working-set ceiling.
 
 ---
 
@@ -310,8 +365,10 @@ fold (OQ-2) reclaims bits.
 
 ## 8. Open questions (ratify before the gated step that needs them)
 
-- **OQ-1 (S2):** content identity in the mailbox — CAM-PQ code, codebook id, or a slim
-  Hamming slice? (drives the per-row content_ref width). Default proposal: CAM-PQ code (6 B).
+- **OQ-1 (S2): RESOLVED by §2.7 capacity.** The 64k ≈ 300–600 MB budget implies the
+  content/topic/angle **Hamming identity planes stay hot (~6 KB/thought)**; only the 64 KB
+  `Vsa16kF32` `cycle` plane is dropped. CAM-PQ/codebook ref is the *cold/storage + spill-key*
+  form, not the hot form.
 - **OQ-2 (S3):** fold `temporal`/`expert` into `CausalEdge64` (v2 already reclaimed the
   temporal bits) vs keep separate columns. Default proposal: fold; keep only if a step needs a
   standalone stamp.
