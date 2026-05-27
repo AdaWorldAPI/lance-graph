@@ -1,71 +1,43 @@
-# Atom Basis Inventory — D-ATOM-0 (the 32 harvested cognitive atoms)
+# Atom Basis Inventory — D-ATOM-0 (the LOCKED 33-dim ThinkingStyleVector)
 
-> **READ BY:** D-ATOM-1 (`contract::atoms`), D-ATOM-2 (`recipe.rs`), D-ATOM-3 (`quorum.rs`); `truth-architect`.
-> **Status:** D-ATOM-0 resolution. Source = **harvested ladybug-rs / PersonaHub**, `callcenter-membrane-v1.md` §16 ("Persona as Function: 32 Atoms × 16 Weightings"). NOT qualia, NOT the 36 styles.
+> **READ BY:** D-ATOM-1 (`contract::atoms` → `ThinkingStyleI4_32D`), D-ATOM-2, D-ATOM-3; `truth-architect`.
+> **Status:** D-ATOM-0 resolution. Source = **`E-AGICHAT-DIMENSION-CONTRACT`** — agichat's **LOCKED** 33-dim TSV (`CANONICAL_DIMENSION_ALLOCATION.md`, "Status: LOCKED"). **Supersedes the earlier qualia draft AND the callcenter-32 draft — both were the wrong source.** This is the rung-ladder the atoms live in.
 > **Date:** 2026-05-27.
 
-## The layering (from §16 — one identity, three representations)
+## The basis is LOCKED, not derived
 
-- **Atoms** = the **32 named cognitive atoms** (semantic *operations*). These are the i4-32D dims / 64 poles. **Dichotomy-bounded is an atom property — checked here.**
-- **Style** = an **i4-32D vector** — a weighting of the 32 atoms (16 levels each = `16^32 = 2^128`). The `ThinkingStyle` 6-bit id (36→64 slots) *resolves to* such a vector; it is not itself an atom.
-- **Persona** = `PersonaSignature { atom_bitset: u32, palette_weight, template_id }` + YAML runbook.
-- **Business / FIBU** = sidecar in the **style/persona palette** (Layer 1/3), NOT an atom dim.
+`ThinkingStyleI4_32D` = **i4 × 33** (32 + 1 spare), riding the shipped ndarray i4-32 unpack (`E-I4-META-1`, `8de1dcf8`). The allocation IS the contract — `CANONICAL_DIMENSION_ALLOCATION.md` rejects arbitrary dim moves. Do not re-derive; record and classify.
 
-## These are ORTHOGONAL axes, not NARS
+| group | n | dims | kind |
+|---|---|---|---|
+| **Pearl** | 3 | SEE (association) / DO (intervention) / IMAGINE (counterfactual) | ordinal causal ladder |
+| **Rung** | 9 | R1–R9 (meaning-depth) | ordinal depth ladder 🪜 |
+| **Sigma** | 5 | Ω / Δ / Φ / Θ / Λ (σ-tier chain) | ordinal tier sequence |
+| **Operations** | 8 | abduct / deduce / induce / synthesize / preflight / escalate / transcend / model_other | operations (one inference ± pair inside) |
+| **Presence** | 4 | authentic / performance / protective / absent | modes |
+| **Meta** | 4 | confidence_threshold / preflight_depth / exploration / verbosity | scalar knobs |
 
-The 32 atoms are **orthogonal cognitive dimensions** — mutually independent axes, which is exactly what I-VSA-IDENTITIES **Test 2 (role orthogonality)** requires for clean unbind. **They are NOT "NARS dims."** NARS (inference) is just *one small family* among several orthogonal families:
+= **33.** Qualia (`QualiaI4_16D`, 16D packed from the 18D PCS) is a **separate vector**, NOT part of the TSV — that's why qualia was the wrong source.
 
-- **inference (NARS):** deduction, induction, abduction
-- **conative:** volition↔aversion, intention, belief
-- **affective / relational:** empathy↔detachment, perspective
-- **structural ops:** synthesis↔decomposition, compression↔expansion, retrieval, clarification, comparison, classification, quantification, negation
-- **truth-maintenance:** confidence↔uncertainty, contradiction↔coherence, revision, hypothesis
-- **causal / modal:** causal, counterfactual↔factual, temporal, spatial, modal, deontic
-- **representational:** analogy, metaphor, narrative
+## Dichotomy-bounded? (first pass — confirm)
 
-This **supersedes the earlier "24 NARS dims" budget line** — the atoms are orthogonal operations across families; NARS-inference is ~3 of 32, not 24.
+Most TSV dims are **not ± dichotomies** — they are ordinal ladders / scalar knobs / distinct ops:
 
-## The 32 atoms + dichotomy classification
+- **Pearl (3), Rung (9), Sigma (5) = 17 dims → ordinal LEVELS.** A magnitude along a ladder, readable as −pole = low end ↔ +pole = high end (association↔counterfactual; shallow↔deep R1↔R9; Ω↔Λ). Bipolar *as endpoints*, not opposite operations.
+- **Operations (8):** mostly distinct operations (selectors). The one clean ± pair is **deduce ↔ induce** (top-down ↔ bottom-up); **abduct** is the third inference mode — this is exactly the "abduction–induction / deduction–induction" hint, and it lives *inside* the 8 Ops, not as a separate triad. synthesize / preflight / escalate / transcend / model_other = distinct unipolar ops.
+- **Presence (4):** **authentic ↔ performance** is a ± pair; protective / absent = modes (or present↔absent).
+- **Meta (4):** scalar knobs. **exploration = the explore↔exploit / temperature axis** (✅ bipolar). confidence_threshold / preflight_depth / verbosity = magnitudes.
 
-The user's rule: *atoms whose opposite is already among the 32 form a signed bipolar dim; atoms whose opposite is NOT listed get the true opposite evaluated for value — if valuable it materializes the − pole, else the atom is unipolar (intensity 0–15, opposite pole spare).*
+**Genuine ± dichotomies are few:** deduce↔induce, authentic↔performance, exploration. The bulk are **ordinal levels or scalar knobs** → i4 as signed-position or unsigned-magnitude, not opposite-poles.
 
-**A. Clean ± pairs already in the 32 (both poles present → one signed dim each):**
+## Resolved by this source
 
-| − pole | + pole |
-|---|---|
-| decomposition | synthesis |
-| compression | expansion |
-| uncertainty | confidence |
-| induction | deduction |
-
-**B. Opposite not listed but VALUABLE → materialize the − pole (new atom on that dim):**
-
-| atom (listed) | true opposite (materialized) | why valuable |
-|---|---|---|
-| contradiction | coherence/consistency | the §3 contested↔settled axis |
-| counterfactual | factual/actual | Pearl rung-1 vs rung-3 |
-| volition | aversion | conative ± (will-to-act / approach ↔ avoid); supersedes the harvested "desire" label for this dim |
-| empathy | detachment | analytical vs relational mode |
-| negation | affirmation | polarity operator |
-
-**C. Unipolar — no valuable opposite (intensity 0–15, − pole spare):**
-
-- *Reasoning domains* (selectors, not opposites): causal, temporal, spatial, modal, deontic.
-- *Operations*: analogy, metaphor, narrative, hypothesis, retrieval, clarification, revision, quantification, comparison, classification, perspective, intention, belief.
-
-**D. Needs your call — the inference triad.** You hinted `abduction–induction` and `deduction–induction`. deduction↔induction is the clean pair (A). **abduction** is the odd one: it pairs cleanly as **retrieval ↔ abduction** (recall-known − / hypothesize-new +), or you intend a single 3-pole inference-direction structure. Flag, not guess.
-
-## Count
-
-- 4 clean pairs (A) → 4 signed dims, 8 atoms
-- 5 materialized pairs (B) → 5 signed dims (5 listed atoms + 5 new − poles)
-- ~18 unipolar (C) → intensity-only poles, − side spare
-- 1 (abduction) pending your call (D)
-
-32 listed atoms occupy 32 of the 64 poles; the 9 dichotomy-bounded ones (A+B) load their opposite pole; the unipolar ~18 leave their − pole spare (or available for future opposites under the evaluate-for-value rule).
+- **Encoding:** i4 × 33 on the shipped i4-32 unpack. Ordinal ladders → magnitude lanes; the few ± pairs → signed lanes.
+- **abduction:** it is 1 of the 8 Operations (with deduce/induce) — not a separate triad to pair off.
+- **"not NARS / orthogonal":** the 6 groups (Pearl/Rung/Sigma/Ops/Presence/Meta) are the orthogonal dimension-groups; NARS-inference = ~3 of the 8 Ops. Confirmed.
 
 ## OPEN
 
-1. Resolve the inference triad (D) — abduction pairing.
-2. Confirm the 5 materialized opposites (B) are the right ones / right − poles.
-3. i4 weight encoding: unsigned 0–15 (harvest, intensity) vs signed −8..+7 (bipolar dichotomy). The dichotomy-bounded atoms (A+B) want signed; the unipolar (C) want unsigned-intensity — likely a **mixed encoding** to settle in D-ATOM-1.
+1. **The 33rd/spare dims:** `STYLE_ENCODING.md` says "3 Pearl + 9 Rung + 5 Σ + 8 Op + **8 spare**" (= 33); the contract body names the last 8 as **4 Presence + 4 Meta**. Confirm which is canonical (spare vs Presence+Meta).
+2. Confirm the ± reads (deduce↔induce, authentic↔performance, exploration) vs treating Ops/Presence as pure selectors.
+3. Per-lane i4 sign convention for the ordinal ladders (0=R1 ascending, or centered).
