@@ -1,3 +1,70 @@
+## 2026-05-27 — E-LADDER-SERVES-MAILBOX — the escalation ladder serves the *mailbox*, not the persona; atoms (bipolar I4-32D) are the bottom layer, measured by *quorum*, with split-poles preserved as a counterfactual mantissa; AriGraph is ephemeral-hot in the mailbox and calcifies to cold SPO + a Lance tombstone-witness
+
+**Status:** CONJECTURE / design-synthesis (a session design arc, anchored to four FINDING-grade iron rules below; NOT yet implemented). Refines `rung-persona-orchestration-v1` (the *name* "persona" is demoted — see §1 of this entry). Supersedes nothing; extends `E-CHECKLIST-AS-ESCALATION` (D-PERSONA-1) downward (atoms) and outward (mailbox lifecycle).
+
+**Grounded anchors (FINDING):** `I-VSA-IDENTITIES` (persona = Layer-2 catalogue; Test 0 register-laziness; bipolar ±1 role keys; Test 2/3 orthogonality+cleanup), `E-BATON-1`/Baton-scoping (mailbox-as-owner, bundle ephemeral, no persisted singleton), `I-LEGACY-API-FEATURE-GATED` (`CausalEdge64` 4-bit signed mantissa @46-49, `InferenceType::Counterfactual = to_mantissa() = −6`), The Click (Staunen×Wisdom = Contradiction magnitude; "opinions are committed contradictions preserved, not resolved"; `awareness.revise`; F<0.2 Commit / ΔF<0.05 Epiphany / F>0.8 FailureTicket).
+
+---
+
+### §1 — The ladder serves the mailbox; "persona" was mis-centered
+
+`rung-persona-orchestration-v1` framed the escalation→epiphany→ghost ladder as serving a *persona*. **Wrong primary object.** Per `I-VSA-IDENTITIES`'s own unification — *"Archetype / persona / thinking-style … are Layer-2 role catalogues; each entry gets ONE identity fingerprint; content lives in YAML; resonance dispatches to content"* — **persona is a dispatch policy, not a container.** The owned unit is the **mailbox** (mailbox-as-owner, sea-star). The ladder is *mailbox* machinery; a persona only decides *what to fan out as mailboxes* and *where the temperature/β knob sits*. The D-PERSONA-1 **types are already mailbox-shaped** (`Checklist`, `CollapseHint`, `InnerCouncil`, `GhostEcho`) — so this is a reframe + (pending) rename, not a rebuild. Three personas = three policies over one substrate:
+
+| persona | β / temperature | fan-out pattern |
+|---|---|---|
+| business | cold (exploit) | business-logic checkboxes → supervised mailboxes, **respawn-if-failed** (bounded) |
+| chat | warm (explore) | episodic persona-modeling + self-state-awareness **over witness-arcs** (never a persisted self-singleton — E-BATON-1) |
+| OSINT | **annealing** (hot→cold) | self-generated hypothesis-mailboxes; cross-style synthesis = the Layer-1 `a2a_blackboard` driven *autonomously*; provenance→NARS-confidence gates the Rubikon (untrusted sources never commit as fact); preserve `dissonance`, never average |
+
+Constraint: checkbox-as-mailbox fan-out + respawn lives at the **outer swarm boundary** (ractor, async), the inner Click stays sync — do not double-mailbox (E-BATON-1). Respawn needs a bounded supervision policy (N retries → `FailureTicket`), or crash-loop.
+
+### §2 — Three layers: atoms → thinking styles → persona recipes
+
+- **Atoms** — the bottom layer. The current `contract::thinking` "36 ThinkingStyles" are **demoted to atoms**, encoded **I4-32D**: 32 *bipolar* dimensions → **64 poles** (32−, 32+) = 16 bytes/vector. The atom set is the orthogonal basis + cleanup codebook (satisfies `I-VSA-IDENTITIES` Test 2/3, which 36 ad-hoc style-fingerprints did *not*).
+- **Thinking styles** (Kant, Schopenhauer, bookkeeping-savant) = I4-32D **compositions** over atoms.
+- **Persona recipes** = compositions of styles + thresholds, purpose, β.
+
+**JIT placement:** atoms + styles stay **I4-32D data**; the **persona recipe** is what gets templated into a Cranelift `KernelHandle` (`contract::jit` `StyleRegistry`). A 32-D i4 dot is one SIMD sequence — Cranelift overhead only amortizes at the fused-recipe level. Add-atom = data; add-style/persona = template (Elixir-style hot-load open/closed split).
+
+**Pole budget (user's allocation, with the atom-kind caveat):** the named axes that are genuinely *bipolar-continuous* — trust↔DK (one calibration axis, **not** two — see §3), wisdom↔Staunen (= temperature, §4), plasticity (rigid↔plastic), 6 hardwired business-logic dichotomies (FIBU/GoBD §6b) — are correct atoms. **But NARS inference-type / strategy / semiring are *categorical selectors*, not bipolar magnitudes** (`contract::nars` = `InferenceType(5)` + `QueryStrategy(5)` + `SemiringChoice(5)` + Pearl 2³ ≈ the "24"). By Test 0 (register-laziness) those belong in an **enum/register that gates which atoms fire**, not as poles. Allocating ~24 of 32 dims to NARS likely miscategorizes discrete selectors as continuous atoms. NARS *truth* (frequency, confidence) IS continuous → atoms; NARS *type* → register. **OPEN:** the atom-basis derivation (ICA/PCA over the 36 / theory-driven from the 6 clusters / hybrid) is the load-bearing unsolved design step. (i4 precision floor: documented tradeoff, cite `FormatBestPractices.md` Jirak; SIMD path gated on MANDATORY `ndarray-vertical-simd-alien-magic.md`.)
+
+### §3 — The crux: a dichotomy needs a *quorum* to project, and a split is not averaged
+
+A bounded dichotomy does not yield its projection for free. To place a measurement between two poles you need a **quorum**; a *split* quorum means the projection is **contested, not merely noisy**. Every one of the 32 axes inherits this — the universal cost of bipolar structure. The quorum machinery already exists: **`InnerCouncil` `is_split(0.7,0.5)` + ×1.2 split-amplify** (3-archetype vote) and the Layer-1 **`a2a_blackboard` `support[u16;4]` + `dissonance`** (wide quorum). Therefore **each I4-32D atom value is a quorum *output*, i.e. a pair `(I4 position, quorum-confidence)` = NARS truth `(frequency, confidence)` applied per axis.** A split is held as a **Contradiction, never averaged** (averaging contested state = laundering false confidence; the cardinal OSINT sin).
+
+### §4 — wisdom↔Staunen = temperature (control axis, self-regulated)
+
+This axis is *not* a measured feature like trust/DK — it is **sampling temperature** (Wisdom = low-temp/sharp/exploit; Staunen = high-temp/diffuse/explore), the same knob as the EFE explore/exploit β. It is **self-regulated by free energy** (thermostat): high surprise → Staunen → hot → wide sampling; F descends → Wisdom accrues → cools → commits. **This retroactively explains the `WisdomMarker` 0.1 floor** built in D-PERSONA-1: that floor *is the minimum temperature* — the φ-1 "permanent humility" ceiling means cognition never anneals to absolute zero. Distinct from **plasticity** (update-rate): you can run hot-but-rigid or cold-but-plastic, so both keep separate dims. Open layout question: temperature as a flat peer dim, or a **meta-atom read first** that sets the sampling sharpness for unbinding the other 31 (one-pass vs two-stage I4 sweep).
+
+### §5 — Split resolution = counterfactual mantissa (replaces quorum-tiering)
+
+On `is_split`, do **not** widen the quorum through tiers (too complex). Instead **commit the majority pole and fork the minority pole into a counterfactual-testing mailbox, retained as an episodic mantissa.** "Mantissa" is literal: the minority pole is a single `CausalEdge64` **−6 (Counterfactual) nibble** in the episodic witness — the road-not-taken costs **4 bits**, not a replay buffer (committed pole = coarse exponent / direction; counterfactual = fine mantissa / "could-have-been"). This is the mechanical form of *"contradictions preserved, not resolved"*, satisfies the counterfactual-stays-in-a-separate-lane rule (Counterfactual-tagged, never written as observed SPO truth), and IS the rung-ghost's counterfactual-learning fuel. **Loop closes via revision:** the counterfactual mailbox is **ghost-tier** (preemptible to zero, tests only on β headroom); if its test later beats the committed pole (lower F), that is a **NARS `awareness.revise`** on the original axis — the road-not-taken reopens and can overturn the verdict. **Staging:** v1 commit-majority/drop-minority → v2 deposit the −6 mantissa (contradiction-honesty for 4 bits, no spawn) → v3 full counterfactual-mailbox + revision loop. Spawn gated on dissonance/Staunen > threshold; ghost Staunen-keyed GC prunes counterfactuals that never pay.
+
+### §6 — AriGraph: ephemeral-hot in the mailbox, calcified-cold in SPO + Lance tombstone-witness
+
+AriGraph is **not a persisted singleton graph** (E-BATON-1). Its live/episodic form is **ephemeral inside the mailbox** (the working hot path). When a fact stabilizes it **calcifies into the SPO ontology** (cold, persistent). When the ephemeral mailbox dies (sea-star spawn→die→merge), its **witness persists as a tombstone in Lance**, linking the calcified cold fact back to the mailbox that committed it. This is one **compression hierarchy down the codec atlas**:
+
+```
+hot (full-fidelity ephemeral AriGraph, in mailbox)
+ → calcified semantic  (SPO-G quads, cold, Lance)            — "what is believed"
+ + tombstone witness   (Lance, compressed ~Scent/Base17)     — "what happened / who committed it"
+ + counterfactual residue (CausalEdge64 −6 mantissa, 4 bits) — "the road not taken"
+```
+
+Fallout: because Lance is append-only/**versioned**, the tombstone layer *is* the audit trail — GoBD/provenance falls out of the substrate by construction (`E-FIBU-GOBD-BY-CONSTRUCTION`, §6b), not as bolted-on logging. The one thing to nail is **link integrity**: the calcified SPO fact needs a durable back-pointer to its tombstone, and the tombstone must outlive the mailbox — Lance versioning is the right home for both.
+
+---
+
+**Proposed deliverables (NOT yet queued — pending greenlight):** D-ATOM-1 atom-basis derivation + I4-32D layout; D-ATOM-2 style/persona Cranelift recipe templates; D-ATOM-3 quorum-projection `(position, confidence)` per axis; D-ATOM-4 counterfactual-mantissa v2 (deposit) then v3 (mailbox+revision); D-ATOM-5 AriGraph hot→calcify→tombstone wiring.
+
+**To-verify (cross-refs asserted from this session's dialogue, confirm against board before relying):** the `WitnessCorpus` deliverable D-id (CAM-PQ-indexed witness + salience decay) and the `SigmaTierRouter` Rubicon-resonance Σ-tier D-id were cited in-conversation as the homes for the tombstone-witness and the Rubikon admission gate respectively — confirm exact ids in `STATUS_BOARD.md` / `PR_ARC_INVENTORY.md`.
+
+**Still pending separately (NOT folded here):** the substrate-Markov **re-scope** (substrate Markov = guarantee for *unsolicited materialization* only; episodic Markov is the governing transition account) awaits the `[FORMAL-SCAFFOLD]` dependency check (do the four pillars need substrate Markov as the *transition account* or only as the *guarantee*?) before it can be written as an `I-SUBSTRATE-MARKOV` amendment. The `rung-persona-orchestration-v1` → mailbox-centric **rename** also awaits explicit go (touches D-ids).
+
+**Cross-ref:** `I-VSA-IDENTITIES`, `E-BATON-1`, `I-LEGACY-API-FEATURE-GATED`, `E-CHECKLIST-AS-ESCALATION` (D-PERSONA-1: `InnerCouncil`/`EpiphanyDetector`/`GhostEcho`/`WisdomMarker`), `E-FIBU-GOBD-BY-CONSTRUCTION` (§6b business atoms + GoBD audit), `E-OGIT-STAKES-LINCHPIN` (stakes→temperature→savant, the front-door inheritance), The Click (Staunen×Wisdom, Resolution thresholds, `awareness.revise`); `contract::thinking` (36→atoms), `contract::jit` (`StyleRegistry`/`KernelHandle`), `contract::mul` (i4 SIMD eval, `DkPosition`/`TrustTexture`), `contract::nars` (5/5/5 selectors → register), `contract::a2a_blackboard` (`support`/`dissonance` quorum); `FormatBestPractices.md`, `ndarray-vertical-simd-alien-magic.md` (MANDATORY before the I4 SIMD path).
+
+---
+
 ## 2026-05-26 — E-RIGID-RULES-OPEN-DOORS — rigidity belongs to the rules (the HOW, stakes-gated), never to the stance toward a door opening (the WHETHER-to-welcome, baseline-positive); and the welcome is *learned* per topic×texture, not naive
 
 **Status:** FINDING / stance-correction (rebalances the rigidity emphasis of `E-FIBU-GOBD-BY-CONSTRUCTION`; adds the learned-texture policy). Refines `rung-persona-orchestration-v1` §9.
