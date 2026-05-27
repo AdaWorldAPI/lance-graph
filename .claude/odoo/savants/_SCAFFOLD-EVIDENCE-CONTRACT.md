@@ -8,7 +8,7 @@
 
 - **`contract::savants`** — the 25-savant roster as data: each `Savant { id, name, family, kind, inference, semiring, style, lane, decides }`. The dispatch tuple is **fixed**; `query_strategy()` rides `InferenceType::default_strategy()`.
 - **`reasoning::{Reasoner, ReasoningContext, ReasoningKind, EvidenceRef, Budget}`** — the delegation surface (shipped).
-- **#414**: OGIT families `0x63 ProductCatalog` / `0x90 HRFoundation` + Layer-2 alignment axioms (stock.* / analytic.distribution.model / account.account.tag) + StyleCluster wiring.
+- **#414**: OGIT families `0x64 ProductCatalog` / `0x90 HRFoundation` + Layer-2 alignment axioms (stock.* / analytic.distribution.model / account.account.tag) + StyleCluster wiring.
 - FIBU subtree now inherits `fibofnd` (zugferd/fibobe/skr0x).
 
 ## What I need carved out — 4 slots per savant
@@ -45,13 +45,13 @@ impl Reasoner for <Kind>Reasoner {
 | 4 | AnalyticDistributionSuggester | 0x62 | NextBestAction | Induction | L10 | suggested cost-centre distribution for a move line |
 | 15 | TaxExigibilitySuggestor | 0x62 | NextBestAction | Induction | L15 | tax exigibility (on-invoice vs on-payment / cash-basis) |
 
-**Tier 2 — partner / pricing (0x80 / 0x81 / 0x63):**
+**Tier 2 — partner / pricing (0x80 / 0x81 / 0x64):**
 
 | id | savant | family | kind | infer | lane | decides |
 |---|---|---|---|---|---|---|
 | 1 | FiscalPositionResolver | 0x80 | CustomerCategory | Deduction | L9 | which fiscal position (tax mapping) for a partner |
 | 2 | PartnerTrustAdvisor | 0x80 | CustomerCategory | Revision | L9 | partner trust / dunning-risk from payment history |
-| 3 | PricelistAssignmentAgent | 0x63 | Other(PRICELIST_ASSIGNMENT) | Revision | L8 | partner pricelist when no explicit property |
+| 3 | PricelistAssignmentAgent | 0x64 | Other(PRICELIST_ASSIGNMENT) | Revision | L8 | partner pricelist when no explicit property |
 | 23 | PricelistRecommender | 0x81 | NextBestAction | Synthesis | L6 | which pricelist rule when multiple candidates apply |
 | 22 | UpsellActivityTrigger | 0x81 | NextBestAction | Induction | L6 | qty_delivered>ordered ⇒ upsell TODO |
 | 10 | UserCompanyAccessAdvisor | 0x80 | CustomerCategory | Induction | L12 | branch-access subset by user role/context |
@@ -76,7 +76,7 @@ impl Reasoner for <Kind>Reasoner {
 | 12 | ReorderTimingAdvisor | None | NextBestAction | Induction | L13 | reorder timing under demand/supplier uncertainty |
 | 13 | ReplenishmentReportAdvisor | None | NextBestAction | Induction | L13 | real shortfall vs demand noise |
 | 14 | RouteTiebreaker | None | NextBestAction | Abduction | L13 | equal-sequence route tiebreak |
-| 24 | RemovalStrategySelector | None | NextBestAction | Induction(XorBundle) | L7 | quants to bind to a reservation (FIFO/FEFO/LIFO) |
+| 24 | RemovalStrategySelector | None | NextBestAction | Induction | L7 | quants to bind to a reservation (FIFO/FEFO/LIFO) |
 | 25 | MoveAssignmentPrioritizer | None | NextBestAction | Induction | L7 | which confirmed moves to satisfy first |
 | 26 | BackorderJudge | None | NextBestAction | Abduction | L7 | partial fulfilment ⇒ backorder vs cancel |
 

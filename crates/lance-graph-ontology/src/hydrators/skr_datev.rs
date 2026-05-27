@@ -46,7 +46,7 @@ pub fn hydrate_skr03_from(
         g: OGIT::SKR03_V1.0,
         version: OGIT::SKR03_V1.1,
         domain_name: "skr03".to_string(),
-        inherits_from: Some(OGIT::DOLCE_V1.0),
+        inherits_from: Some(OGIT::FIBOFND_V1.0),
         starting_entity_id: 100,
         iri_prefix: SKR03_IRI_PREFIX.to_string(),
     };
@@ -92,7 +92,7 @@ pub fn hydrate_skr04_from(
         g: OGIT::SKR04_V1.0,
         version: OGIT::SKR04_V1.1,
         domain_name: "skr04".to_string(),
-        inherits_from: Some(OGIT::DOLCE_V1.0),
+        inherits_from: Some(OGIT::FIBOFND_V1.0),
         starting_entity_id: 100,
         iri_prefix: SKR04_IRI_PREFIX.to_string(),
     };

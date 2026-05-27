@@ -67,8 +67,12 @@ fn main() {
             gate_state(ctx.sd), ctx.sd, ctx.free_energy, ctx.confidence);
     }
 
-    println!("== rest ==  the shader stopped because gate reached {:?} (SD={:.3} < FLOW {SD_FLOW}).",
-        gate_state(ctx.sd), ctx.sd);
+    if gate_state(ctx.sd) == GateState::Flow {
+        println!("== rest ==  the shader stopped because gate reached Flow (SD={:.3} < FLOW {SD_FLOW}).", ctx.sd);
+    } else {
+        println!("== rest ==  round cap reached ({round} rounds) before FLOW; gate={:?}, SD={:.3}.",
+            gate_state(ctx.sd), ctx.sd);
+    }
     println!("final: conf={:.2}, {} candidate(s) survived pruning, {} beliefs.",
         ctx.confidence, ctx.candidates.len(), ctx.beliefs.len());
     println!("\nKey: Gate-bucket tactics (TCP/CDT/TCF/CUR) skip while in FLOW — the markers,");
