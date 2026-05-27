@@ -83,6 +83,16 @@
 
 ---
 
+## [Main-thread] [DONE — green] ada-rewrite charter + the 34-tactic recipe catalogue (working code)
+
+**Decision (charter D0):** ladybug-rs has NO relation, never will — it's the failed "empty cathedral." We rewrite on our substrate; ladybug/ada-consciousness/neo4j-rs docs are spec-references only, never deps/ports. `.claude/knowledge/ada-rewrite-charter.md` is the once-and-for-all settled-decision record (substrate, SPOQ lattice, hardware partition, 34-as-recipe-targets, build order).
+
+**Code:** `crates/lance-graph-contract/src/recipes.rs` (new, wired in lib.rs) — the **34 reasoning-tactic recipes as a working catalogue**: `Recipe {id, code, name, Tier, Mechanism, Bucket, Coverage(spo2cubed), substrate}` + `RECIPES: [Recipe;34]` + `recipe()/recipe_by_code()/by_mechanism()/causal()`. Each tagged with the OUR-substrate primitive that realizes it (composes our pieces, never ladybug). **4 tests green** (complete 34 / ids unique, lookups, only RCR+ICR are 2³-Covered, mechanism tally 6/6/8/14). 442 existing contract tests unaffected.
+
+**Next (charter D4):** per-recipe evaluators tier-by-tier (Hard-tier truth/parallel first — substrate most built), then shader-driver carrier wiring for the datapath recipes.
+
+---
+
 ## [Inventory-Opus] [DONE — writes were permission-blocked; persisted by main thread] SPO-2³ workspace list inventory
 
 Catalogued **31 enumerated cognitive lists** across contract / planner / cognitive-shader-driver / thinking-engine / holograph + 3 markdown taxonomies. **2³ tally: Covered 4 / Partial 6 / Not 21** (confirms 2³ = the causal spine only — CausalMask / nars_engine masks / PearlLevel / CANONICAL_ATOMS Pearl lanes are the lattice; everything style/qualia/rung/layer/ghost/MUL is orthogonal). Gaps (reference tactics with no enumerated lance-graph home): #18 CWS, #14 M-CoT, #29/#32 intent, #16/#23/#33 meta-prompting, #12 TCA, #22/#19 dynamic-decompose, #5/#20 pruning — but ladybug-rs implements all 34 upstream. Result persisted into `.claude/knowledge/spo-2cubed-list-coverage.md`. No code edited.
