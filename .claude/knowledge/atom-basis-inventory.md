@@ -19,6 +19,8 @@
 
 = **33.** Qualia (`QualiaI4_16D`, 16D packed from the 18D PCS) is a **separate vector**, NOT part of the TSV — that's why qualia was the wrong source.
 
+**Business is NOT an atom — it is a sidecar inherited from OGIT.** No business/FIBU dims in the TSV. Business context rides in via the front-door OGIT class resolution (`E-OGIT-STAKES-LINCHPIN`): the request's OWL/DOLCE class → O(1) `lance_graph_ontology::MappingRow` → `Marking::Financial` → the bookkeeping savant + `RuleBundle`/SKR04 (`E-FIBU-GOBD-BY-CONSTRUCTION`). It is inherited per-request on the existing inherit-set (marking→stakes, thinking_style→savant, …), not hand-authored and not a pole.
+
 ## Dichotomy-bounded? (first pass — confirm)
 
 Most TSV dims are **not ± dichotomies** — they are ordinal ladders / scalar knobs / distinct ops:
