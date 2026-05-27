@@ -30,7 +30,7 @@ The user's rule: *atoms whose opposite is already among the 32 form a signed bip
 |---|---|---|
 | contradiction | coherence/consistency | the §3 contested↔settled axis |
 | counterfactual | factual/actual | Pearl rung-1 vs rung-3 |
-| desire | aversion | conative ± (approach/avoid) |
+| volition | aversion | conative ± (will-to-act / approach ↔ avoid); supersedes the harvested "desire" label for this dim |
 | empathy | detachment | analytical vs relational mode |
 | negation | affirmation | polarity operator |
 
