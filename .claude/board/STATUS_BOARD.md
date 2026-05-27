@@ -495,6 +495,41 @@ Consolidates sprint-10 architectural decisions before context dilution.
 
 ---
 
+## rung-persona-orchestration-v1 — time-bound persona orchestration (checklist → meta-recipe → hot/cold/feedback anneal)
+
+Active proposal. Authored 2026-05-26. Plan path:
+`.claude/plans/rung-persona-orchestration-v1.md`. Sibling/time-bound
+composition layer over `rung-mul-grounding-v1`. Grounds ladybug's
+hot/cold/feedback loop onto our contract types + SoA floor
+(restore-on-SoA, not port). Epiphany: `E-RIGID-RULES-OPEN-DOORS`.
+
+| D-id | Title | Crate(s) | ~LOC | Risk | Status | PR / Evidence |
+|---|---|---|---|---|---|---|
+| D-PERSONA-1 | escalation+epiphany loop = the checklist (`felt_parse` collapse-hint + `InnerCouncil`/`HdrResonance` split + `EpiphanyDetector`; green-flip = Epiphany/Wisdom ghost) — NOT a bespoke verifier | contract + planner | 160 | LOW | **In progress** | branch `claude/splat3d-cpu-simd-renderer-MAOO0` |
+| D-PERSONA-2 | meta-recipe manifest (declarative child-spec, recipe-as-data, macro-evaluable) | contract | 150 | MED | **Queued** | — |
+| D-PERSONA-3 | hot/cold/feedback wiring — anneal + `CrystalCodebook`→wisdom-marker cold path + Preload hydrate | planner + Lance | 240 | MED | **Queued** | — |
+| D-PERSONA-4 | macro-eval harness (scenario→trace→discover→diagnose; suspect-bridge = blasgraph betweenness; 5 rubrics from D-RUNG-MUL) | planner + Lance | 280 | HIGH | **Queued** | — |
+| D-PERSONA-5 | ractor outer-swarm runtime under `OrchestrationBridge` (batons as messages, async only at boundary) | planner | 200 | MED | **Queued** | — |
+| D-PERSONA-6 | `odoo_scanner` + `OdooBridge` — harvest Odoo `l10n_de` → Finance-ns `MappingProposal`s; bind existing `TaxEngine`; GoBD by construction | ontology + contract + planner | 280 | MED | **Queued** | — |
+
+---
+
+## bindspace-singleton-to-mailbox-soa-v1 — dissolve `Arc<BindSpace>` into per-mailbox `MailboxSoA<N>`
+
+Plan path: `.claude/plans/bindspace-singleton-to-mailbox-soa-v1.md`. Epiphany `E-MAILBOX-IS-BINDSPACE`. Migration of the shared singleton address space into mailbox-owned ephemeral thoughtspace (LE-contract SoA columns); drops the 64 KB `Vsa16kF32` `cycle` plane.
+
+| D-id | Title | Crate(s) | ~LOC | Risk | Status | PR / Evidence |
+|---|---|---|---|---|---|---|
+| D-MBX-1 | add migrated columns (`edges`/`qualia`/`meta`/`entity_type`) to `MailboxSoA<N>` behind `mailbox-thoughtspace` feature | cognitive-shader-driver | 120 | MED | **Queued** | gated on D-CE64-MB-1-impl + PR-NDARRAY-MIRI-COMPLETE |
+| D-MBX-2 | move `engine_bridge` per-row read/write surface onto mailbox rows; `cycle` plane becomes a transient local | cognitive-shader-driver | 180 | MED | **Queued** | blocked on D-MBX-1 + OQ-1 (content-ref shape) |
+| D-MBX-3 | `ShaderDriver` holds a sea-star of mailboxes; kill the `BindSpace::zeros(4096)` singleton in `serve.rs` | cognitive-shader-driver | 160 | HIGH | **Queued** | blocked on D-MBX-2 + OQ-2 (temporal/expert fold) |
+| D-MBX-4 | death → SPO-G quad + Lance tombstone-witness (link-integrity back-pointer) | cognitive-shader-driver + Lance | 200 | HIGH | **Queued** | blocked on D-MBX-3 + Zone-2 persistence |
+| D-MBX-5 | delete `BindSpace` singleton + `Vsa16kF32` `cycle` plane; remove feature gate | cognitive-shader-driver | 80 | MED | **Queued** | blocked on D-MBX-4 + OQ-4 (CLAUDE.md "The Click" doctrinal update) |
+| D-MBX-6 | `ThoughtStruct` = transparent hot/cold view over SurrealDB container table(s) (same SoA both tiers; ~64k–256k hot ceiling, ~6 KB/thought) | cognitive-shader-driver + surreal_container | 220 | HIGH | **Queued** | blocked on D-MBX-3 + surreal_container unblock (BLOCKED A/B/C/D) or callcenter Zone-2 |
+| TD-RESONANCEDTO-DUP-1 | dedup the two `ResonanceDto` (thinking-engine) | thinking-engine | 60 | LOW | **Deferred** | user 2026-05-27 — fold into D-MBX-2 |
+
+---
+
 ## Update protocol
 
 When a deliverable ships:

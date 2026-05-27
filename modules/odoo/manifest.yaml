@@ -1,0 +1,29 @@
+ogit_g: ODOO
+version: 1
+domain_name: odoo
+inert_when_consumer_absent: true
+
+entity_types:
+  Partner:          u16=4300
+  PartnerCompany:   u16=4301
+  PartnerIndividual: u16=4302
+  AccountMove:      u16=4303
+  AccountMoveLine:  u16=4304
+  Account:          u16=4305
+  AccountTax:       u16=4306
+  AccountJournal:   u16=4307
+  Product:          u16=4308
+  ProductTemplate:  u16=4309
+  ProductCategory:  u16=4310
+  StockMove:        u16=4311
+  StockPicking:     u16=4312
+  MailMessage:      u16=4313
+  MailTemplate:     u16=4314
+  HrEmployee:       u16=4315
+  HrAttendance:     u16=4316
+
+rbac_policy: ~
+stack_profile: ~
+action_capabilities: {}
+actor: ~
+inherits_from: fibofnd

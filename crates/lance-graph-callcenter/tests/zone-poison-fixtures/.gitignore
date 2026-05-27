@@ -1,0 +1,8 @@
+# Build artifacts generated when this test-fixture crate compiles during
+# `cargo test -p lance-graph-callcenter`. The fixture's sources (Cargo.toml,
+# build.rs, src/) are tracked; its lock + target are not (no fixture lock is
+# tracked anywhere in the repo, and the workspace root Cargo.lock is the
+# tracked one). A fixture-scoped ignore keeps the tree clean without
+# un-tracking the workspace lock at root.
+Cargo.lock
+/target/

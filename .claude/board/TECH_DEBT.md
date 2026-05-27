@@ -13,6 +13,26 @@
 ---
 
 
+### TD-RESONANCEDTO-DUP-1 (bindspace-singleton-to-mailbox-soa-v1)
+
+- **Severity:** P3 (name collision; two distinct `ResonanceDto` structs under the same name)
+- **Surfaced in:** DTO vertical audit, 2026-05-27, branch `claude/splat3d-cpu-simd-renderer-MAOO0`
+- **What:** `crates/thinking-engine/src/dto.rs:59` defines `ResonanceDto { energy: Vec<f32>, top_k, cycle_count, converged }` (the Ψ ripple field); `crates/thinking-engine/src/awareness_dto.rs:21` defines a *different* `ResonanceDto { hdr: HdrResonance, dominant_perspective, gate, dissonance, total_energy, … }` (multi-perspective S/P/O). Same name, different shape, same crate.
+- **Owed:** dedup under `bindspace-singleton-to-mailbox-soa-v1` — the `dto.rs` energy field unifies into `MailboxSoA.energy: [f32; N]`; the `awareness_dto.rs` scalars map to SoA `meta`/`edge` columns and `HdrResonance` becomes the S/P/O read over the SoA. Rename/merge so one canonical resonance read remains.
+- **Status:** Open — **Deferred** (user, 2026-05-27): not now; revisit folded into D-MBX-2 (the `engine_bridge` re-encode-seam collapse).
+
+### TD-GHOST-ECHO-DUP-1 (D-PERSONA-1)
+
+- **Severity:** P3 (cosmetic type-dup; no runtime correctness risk — the two enums are not exchanged across a crate boundary today)
+- **Surfaced in:** D-PERSONA-1 (`rung-persona-orchestration-v1` §2), 2026-05-26, branch `claude/splat3d-cpu-simd-renderer-MAOO0`
+- **Status:** Open
+- **Description:** `lance_graph_contract::escalation::GhostEcho` (8 variants: Affinity / Epiphany / Somatic / Staunen / Wisdom / Thought / Grief / Boundary) is a second declaration of the same 8 named ghost echoes already in `thinking_engine::ghosts::GhostType` (`crates/thinking-engine/src/ghosts.rs`). The duplication is *intentional and currently unavoidable*: `lance-graph-contract` is ZERO-DEP and cannot import the excluded `thinking-engine` crate, and the contract is the canonical "single source of truth for types" home for the wisdom-marker substrate (≤32 named identities per I-VSA-IDENTITIES). The two are NOT interchanged across a boundary today, so there is no silent-corruption risk (cf. I-LEGACY-API-FEATURE-GATED), only a naming/maintenance dup.
+- **Resolution (when thinking-engine joins the workspace):** make `thinking_engine::ghosts::GhostType` a re-export of (or `From`/`Into` with) `contract::escalation::GhostEcho`, retiring the thinking-engine copy. Until then, keep the variant sets identical (same 8, same order) so a future `transmute`/`From` bridge is trivial.
+- **Cross-ref:** `crates/lance-graph-contract/src/escalation.rs` (`GhostEcho`, `WisdomMarker`); `crates/thinking-engine/src/ghosts.rs` (`GhostType`, `GhostField`); `docs/TYPE_DUPLICATION_MAP.md`; `.claude/plans/rung-persona-orchestration-v1.md` §2 + §8.
+
+---
+
+
 ### TD-NDARRAY-SIMD-UNPACK-I4-16D (W1a-#1)
 
 - **Severity:** P1 (blocks mul.rs follow-up + future i4-packed codec consumers)
