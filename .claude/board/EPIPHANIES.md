@@ -1,3 +1,21 @@
+## 2026-05-27 — E-MAILBOX-IS-BINDSPACE — the singleton `Arc<BindSpace>` dissolves *onto* mailboxes: `MailboxSoA<N>` *becomes* the per-mailbox ephemeral thoughtspace (BindSpace surrogate), it is NOT copied per mailbox
+
+**Status:** CONJECTURE / design-ruling (migration spec authored this session; NOT yet implemented). Extends `E-BATON-1` + `E-CE64-MB-4` downward into the column layout. Plan: `.claude/plans/bindspace-singleton-to-mailbox-soa-v1.md`.
+
+**The correction:** the ask began as *"MailboxSoA has an individual **copy** of the BindSpace."* That is still a singleton (N synchronized copies = the aliasing problem `E-CE64-MB-4` kills). The ruling: **there is no global address space to copy.** `MailboxSoA<N>` *is* the BindSpace for the life of one think-arc — each mailbox **owns** its per-row SoA columns (born in the mailbox, die with it), and the shared singleton `Arc<BindSpace>` is **dissolved**, not sharded.
+
+**Current singleton (to migrate):** `crates/cognitive-shader-driver` — `ShaderDriver.bindspace: Arc<BindSpace>` (`driver.rs:56`); one `Arc::new(BindSpace::zeros(4096))` in `bin/serve.rs:29`; per-row read/write surface in `engine_bridge.rs`. `BindSpace` (`bindspace.rs:234`) carries a **64 KB/row `Vsa16kF32` `cycle` plane** (`FLOATS_PER_VSA=16384`) — 256 MB across the 4096-row singleton.
+
+**Column migration (full map in the plan §3):** `cycle` `Vsa16kF32` plane → **DROP** (ephemeral local compute, never a column — `E-BATON-1`); `content/topic/angle` dense planes → **reference** (CAM-PQ code ≤6 B), not own (`I-VSA-IDENTITIES`); `edges`(`CausalEdge64`)/`qualia`(i4-16D)/`meta`(u32)/`entity_type`(u16) → **own** in `MailboxSoA`; `temporal`/`expert` → fold into `CausalEdge64`/mailbox identity (OQ-2); **`ontology: Arc<OntologyRegistry>` STAYS shared** (cold Zone-2, read-only). Per-row hot footprint drops ~71.6 KB → ~24–30 B.
+
+**Why it's safe:** mailbox *moves* batons in (`apply_edges`) and *moves* emissions out (`CollapseGateEmission`), so the borrow checker proves no shared-mutable aliasing of the thoughtspace — the guarantee the `Arc<BindSpace>`+`CollapseGate` "read-only by convention" only enforced by discipline becomes a **compile error** (`E-CE64-MB-4`).
+
+**Gated staging (plan §6):** S1 add columns behind `mailbox-thoughtspace` feature → S2 move `engine_bridge` surface onto mailbox rows → S3 driver holds a sea-star of mailboxes (kill the 4096 singleton in `serve.rs`) → S4 death→SPO+Lance tombstone-witness → S5 delete `BindSpace`+`cycle` plane. Gated on `D-CE64-MB-1-impl` (par-tile) + `PR-NDARRAY-MIRI-COMPLETE`; S5 blocked on the CLAUDE.md "The Click" / `Vsa16kF32` doctrinal update (OQ-4, already flagged in `surreal/RECONCILIATION`).
+
+**Cross-ref:** `E-BATON-1`, `E-CE64-MB-4`, `E-LADDER-SERVES-MAILBOX` (§6 tombstone-witness), `I-VSA-IDENTITIES`, `I-LEGACY-API-FEATURE-GATED` (feature-gate the v1 accessors during S1–S4), `causaledge64-mailbox-rename-soa-v1` (§5 MailboxSoA), `cognitive-substrate-convergence-v1` (D-CSV-7 shipped accumulator).
+
+---
+
 ## 2026-05-27 — E-CONTRACT-NO-SERIALIZE-2 — correction to E-CONTRACT-NO-SERIALIZE (below): the audit event never leaves the inside; "serialize at the membrane" was the wrong half — audit is not membrane traffic at all
 
 **Status:** FINDING (sharpens the entry directly below; user correction via the question "why should the audit event go outside?"). The §1 half of the prior entry — *contracts compile types, never serialize; build-time serde codegen is fine* — stands. This entry replaces its "outer membrane's job" framing (board is append-only, so the prior entry is left intact and corrected here).
