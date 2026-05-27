@@ -43,6 +43,7 @@ pub mod container;
 pub mod crystal;
 pub mod cycle_accumulator;
 pub mod distance;
+pub mod escalation;
 pub mod exploration;
 pub mod external_membrane;
 pub mod faculty;
