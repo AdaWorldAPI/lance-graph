@@ -4,6 +4,16 @@
 > **Status:** D-ATOM-0 resolution. Source = **`E-AGICHAT-DIMENSION-CONTRACT`** — agichat's **LOCKED** 33-dim TSV (`CANONICAL_DIMENSION_ALLOCATION.md`, "Status: LOCKED"). **Supersedes the earlier qualia draft AND the callcenter-32 draft — both were the wrong source.** This is the rung-ladder the atoms live in.
 > **Date:** 2026-05-27.
 
+## Smallest → largest (do not confuse the layers)
+
+- **atom** = the **smallest unit = one pole** (e.g. `deduce`, `induce`, `R5`, `Φ`, `exploration`). 64 atoms = 32 lanes × ±. An atom is **not** a group and **not** the vector.
+- **thinking style** = **one i4-32D vector** — a weighting across all the atoms (2^128 possible). Kant / Schopenhauer = specific vectors. **This is the molecule.**
+- **persona** = a composition of styles + thresholds + purpose + β.
+
+`ThinkingStyleI4_32D` is the *type that holds a style* (a molecule); its **individual lanes/poles are the atoms**. The groups below (Pearl/Rung/Σ/Ops/Presence/Meta) are **allocation families** — neither atoms nor molecules, just how the lanes are budgeted.
+
+**Atoms are bare-metal by design — not human-legible.** A single i4 pole means nothing to a human; that's fine. Atoms exist to be *composed into object-oriented metacognition*: a **style is an object** (a `StyleRecipe` carrying behavior over its atom-weighting), a **persona is an object** (a `PersonaRecipe` composing styles + β/thresholds). The metacognition you reason about is Kant-the-object / the-OSINT-persona-object — never "pole #37". This is the workspace's "thinking is a struct / the object speaks for itself" doctrine: the atoms are the bytes (SoA, SIMD); the **objects are the cognition**. So D-ATOM-1 builds the bare-metal lanes; **D-ATOM-2 builds the OO layer (the actual metacognition)**.
+
 ## The basis is LOCKED, not derived
 
 `ThinkingStyleI4_32D` = **i4 × 33** (32 + 1 spare), riding the shipped ndarray i4-32 unpack (`E-I4-META-1`, `8de1dcf8`). The allocation IS the contract — `CANONICAL_DIMENSION_ALLOCATION.md` rejects arbitrary dim moves. Do not re-derive; record and classify.
