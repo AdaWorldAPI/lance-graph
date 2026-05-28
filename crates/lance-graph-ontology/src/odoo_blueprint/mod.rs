@@ -224,6 +224,93 @@ pub struct OdooSourceRef {
     pub line_range: (u32, u32),
 }
 
+// ─── German Chart of Accounts (SKR03 / SKR04) ────────────────────────────
+
+/// One account-template row from SKR03 or SKR04 — the German
+/// standard charts of accounts maintained by the
+/// Bundesfinanzministerium / DATEV.
+///
+/// Provenance: `/home/user/odoo/addons/l10n_de/data/template/account.account-de_skr0{3,4}.csv`.
+#[derive(Debug, Clone, Copy)]
+pub struct OdooAccountTemplate {
+    /// 4-digit Kontonummer (e.g. `"8400"` = Erlöse 19 %)
+    pub code: &'static str,
+    /// German label (CSV `name@de` column)
+    pub name: &'static str,
+    /// Odoo account_type (e.g. `"income"`, `"expense"`, `"asset_current"`)
+    pub account_type: &'static str,
+    /// account.account.tag xmlids attached to this account (drives report
+    /// line membership; e.g. UStVA Kz refs)
+    pub tag_xmlids: &'static [&'static str],
+    /// Which chart this row belongs to (SKR03 or SKR04)
+    pub chart: OdooSkrChart,
+    /// Anchor IRIs into the OGIT regulation codebook (HGB §238 for
+    /// Buchführungspflicht; specific UStG §§ when the account is
+    /// VAT-linked).
+    pub regulation_iri: &'static [&'static str],
+}
+
+/// Which German standard chart of accounts a template row belongs to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OdooSkrChart {
+    /// SKR03 (Standardkontenrahmen 03) — process-oriented, traditional
+    Skr03,
+    /// SKR04 (Standardkontenrahmen 04) — Bilanzgliederung-oriented (HGB)
+    Skr04,
+}
+
+// ─── UStVA Kennzahlen (Kz.81..95) ────────────────────────────────────────
+
+/// One UStVA (Umsatzsteuer-Voranmeldung) Kennzahl — a numbered box on
+/// the German monthly/quarterly VAT return that aggregates tax-tagged
+/// GL line balances.
+///
+/// Provenance: `/home/user/odoo/addons/l10n_de/data/account_account_tags_data.xml`,
+/// `account.report.line` records under the UStVA `account.report`.
+#[derive(Debug, Clone, Copy)]
+pub struct OdooUstvaKennzahl {
+    /// Numeric Kennziffer (e.g. `"81"`, `"86"`, `"35"`)
+    pub kz: &'static str,
+    /// German label (e.g. "Zum Steuersatz von 19 %")
+    pub label: &'static str,
+    /// The tag xmlid in `account.account.tag` that, when summed across
+    /// posted moves, fills this box.
+    pub tag_xmlid: &'static str,
+    /// Whether the box reports the base amount or the tax amount.
+    pub kind: OdooKennzahlKind,
+    /// UStG section that mandates this box.
+    pub regulation_iri: &'static [&'static str],
+}
+
+/// What kind of amount a UStVA Kennzahl box reports.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OdooKennzahlKind {
+    /// Box reports the taxable base (Bemessungsgrundlage)
+    Base,
+    /// Box reports the tax amount (Steuerbetrag)
+    Tax,
+    /// Box reports a derived/computed total
+    Derived,
+}
+
+// ─── GoBD audit-trail wiring ──────────────────────────────────────────────
+
+/// GoBD compliance wiring on `res.company` — documents the
+/// `force_restrictive_audit_trail` compute trigger for DE companies.
+///
+/// Provenance: `account/models/company.py:268` + `l10n_de/models/res_company.py:32`.
+#[derive(Debug, Clone, Copy)]
+pub struct OdooGobdWiring {
+    /// The base Boolean field that enables the restrictive audit trail.
+    pub base_field: &'static str,
+    /// The computed Boolean field forced True for DE companies.
+    pub force_field: &'static str,
+    /// The Python expression that triggers force=True.
+    pub trigger: &'static str,
+    /// Regulation IRIs covering GoBD + AO §146a.
+    pub regulation_iri: &'static [&'static str],
+}
+
 // ─── Enums ────────────────────────────────────────────────────────────────
 
 /// Odoo field kinds (mirrors the `odoo.fields.*` taxonomy).
