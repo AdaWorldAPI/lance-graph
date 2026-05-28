@@ -2,7 +2,7 @@
 
 Created `cognition::{stages, entity, op, advance, cascade}` + `transaction::{interactive, bulk, periodisch, ctx}` modules in `lance-graph-contract` — the typed consumer pipeline grammar per `.claude/plans/normalized-entity-holy-grail-v1.md`. All advancement verbs past `resolve_ogit` have `todo!()` bodies flagged with `/// work` markers for Stage 2 wiring. Compile-fail tests in `tests/cognition_typestate.rs` plus 7 passing positive tests document the typestate gate.
 
-**Branch:** `claude/normalized-entity-holy-grail-v1`, prior commit `1695a9a` (plan). Commit SHA TBD (pre-push). `cargo check -p lance-graph-contract` clean (0 errors); `cargo test -p lance-graph-contract --lib` green (472 tests); `cargo test -p lance-graph-contract --test cognition_typestate` green (7 tests).
+**Branch:** `claude/normalized-entity-holy-grail-v1`, prior commit `1695a9a` (plan). commit `b96baf3`. `cargo check -p lance-graph-contract` clean (0 errors); `cargo test -p lance-graph-contract --lib` green (472 tests); `cargo test -p lance-graph-contract --test cognition_typestate` green (7 tests).
 
 ---
 
