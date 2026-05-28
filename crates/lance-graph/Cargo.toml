@@ -11,12 +11,14 @@ keywords = ["lance", "graph", "cypher", "query", "datafusion"]
 categories = ["database", "data-structures", "science"]
 
 [dependencies]
-arrow = { version = "57", features = ["prettyprint"] }
-arrow-array = "57"
-arrow-schema = "57"
+# arrow + datafusion bumped to 58 + 53 to align with lance 6.0's transitive versions.
+# TODO(lance-bump): downstream crates may need follow-up to align.
+arrow = { version = "58", features = ["prettyprint"] }
+arrow-array = "58"
+arrow-schema = "58"
 chrono = "0.4"
 async-trait = "0.1"
-datafusion = { version = "52", default-features = false, features = [
+datafusion = { version = "53", default-features = false, features = [
     "nested_expressions",
     "regex_expressions",
     "unicode_expressions",
@@ -26,17 +28,17 @@ datafusion = { version = "52", default-features = false, features = [
     "string_expressions",
     "parquet",
 ] }
-datafusion-common = "52"
-datafusion-expr = "52"
-datafusion-sql = "52"
-datafusion-functions-aggregate = "52"
+datafusion-common = "53"
+datafusion-expr = "53"
+datafusion-sql = "53"
+datafusion-functions-aggregate = "53"
 futures = "0.3"
 lance-graph-catalog = { path = "../lance-graph-catalog", version = "0.5.4" }
 lance-graph-contract = { path = "../lance-graph-contract" }
-lance = "=4.0.0"
-lance-linalg = "=4.0.0"
-lance-namespace = "=4.0.0"
-lancedb = { version = "=0.27.2", optional = true, default-features = false }
+lance = "=6.0.0"
+lance-linalg = "=6.0.0"
+lance-namespace = "=6.0.0"
+lancedb = { version = "=0.29.0", optional = true, default-features = false }
 nom = "7.1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -83,8 +85,8 @@ tensor-codec = ["dep:bgz-tensor"]
 
 [dev-dependencies]
 futures = "0.3"
-lance-arrow = "=4.0.0"
-lance-index = "=4.0.0"
+lance-arrow = "=6.0.0"
+lance-index = "=6.0.0"
 tempfile = "3"
 tokio = { version = "1.37", features = ["macros", "rt-multi-thread"] }
 causal-edge = { path = "../causal-edge" }

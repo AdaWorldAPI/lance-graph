@@ -24,15 +24,17 @@ lance-graph-rbac = { path = "../lance-graph-rbac" }
 thiserror = "1"
 
 # [persist] — Arrow RecordBatch + Lance dataset ops
-arrow       = { version = "57", optional = true }
-lance       = { version = "=4.0.0",  optional = true }
+# arrow bumped to 58 to match lance 6.0's transitive arrow version.
+# TODO(lance-bump): align rest of workspace on arrow 58 once feasible.
+arrow       = { version = "58", optional = true }
+lance       = { version = "=6.0.0",  optional = true }
 
 # [query] / [query-lite] — DataFusion. Base dep has default-features = false.
 # The full `query` feature adds datafusion/default (compression backends etc).
 # The `query-lite` feature gets logical plan + optimizer without compression,
 # avoiding the xz2/liblzma `links = "lzma"` collision (lance v2 era; may be
 # resolved with lance 4 + datafusion 52 — verify and remove if so).
-datafusion  = { version = "52", optional = true, default-features = false, features = ["unicode_expressions"] }
+datafusion  = { version = "53", optional = true, default-features = false, features = ["unicode_expressions"] }
 
 # [realtime] — version watcher, Phoenix channel shapes, WebSocket
 tokio            = { version = "1", features = ["sync", "rt-multi-thread", "macros", "time"], optional = true }
@@ -46,8 +48,9 @@ chrono           = { version = "0.4", features = ["serde"], optional = true }
 flate2           = { version = "1", optional = true }
 
 # [lance-sink] — LanceAuditSink: arrow-array + arrow-schema + lance + tokio runtime
-arrow-array      = { version = "57", optional = true }
-arrow-schema     = { version = "57", optional = true }
+# TODO(lance-bump): arrow-array/arrow-schema bumped to 58 for lance 6.0 compat.
+arrow-array      = { version = "58", optional = true }
+arrow-schema     = { version = "58", optional = true }
 
 # verify binary — clap (only needed when building the bin)
 clap             = { version = "4", features = ["derive"], optional = true }
