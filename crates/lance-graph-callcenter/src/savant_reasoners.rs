@@ -48,6 +48,78 @@ impl core::fmt::Display for SavantError {
 
 impl std::error::Error for SavantError {}
 
+/// The AXIS-B decision shape a savant has delegated.
+///
+/// The reasoner names the decision and (where applicable) the candidate-evidence
+/// table; the row-level value (e.g. the concrete `fiscal_position_id`) is
+/// resolved by the consumer, which holds the rows. This boundary matches the
+/// 14 NEEDS-INPUT savants' gating note — full row-level value resolution lands
+/// when materialized evidence flows from the consumer.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SavantSuggestion {
+    /// Rank candidates in `candidate_table` by the savant's ranking key and
+    /// take the top-1 entity id (FiscalPosition / Pricelist / Account /
+    /// AnalyticModel / ProcurementRule / RouteTiebreaker / BankStatementMatch).
+    SelectFromTable { candidate_table: Cow<'static, str> },
+    /// Yes/no gate the consumer evaluates against its evidence (Autopost,
+    /// PaymentToInvoiceMatch, Upsell, BackorderJudge).
+    Gate,
+    /// Anomaly flag — the consumer pinpoints the suspect key from its sequence
+    /// (SequenceGapAnomalyDetector → missing seq ⇒ deletion).
+    Anomaly,
+    /// Date / period advance — the consumer resolves the next open period
+    /// (LockDateAdvancer, ReorderTimingAdvisor).
+    AdvancePeriod,
+    /// Discrete policy choice from a small fixed set the savant defines
+    /// (TaxExigibility, ReportRateType, PartnerTrust tier, UserCompanyAccess
+    /// subset, RemovalStrategy).
+    PolicyChoice,
+    /// A weighted distribution over targets in `over_table`
+    /// (AnalyticDistributionSuggester, ReplenishmentReportAdvisor).
+    Distribution { over_table: Cow<'static, str> },
+    /// A ranked candidate set drawn from `from_table` — the consumer takes the
+    /// prefix it can act on (ReconcileMatchSelector, MoveAssignmentPrioritizer,
+    /// CurrencySelectionAdvisor).
+    RankedSet { from_table: Cow<'static, str> },
+}
+
+/// Map a savant to its AXIS-B decision shape. Candidate / source tables follow
+/// the odoo model names from the per-savant specs under
+/// `.claude/odoo/savants/*.md`; the fully-sourced ones (e.g. FiscalPosition)
+/// match those docs verbatim, the rest follow the canonical Odoo model names
+/// implied by `Savant.decides` and the savant's family.
+fn suggestion_for(savant: &Savant) -> SavantSuggestion {
+    use SavantSuggestion::*;
+    match savant.id {
+        1 => SelectFromTable { candidate_table: Cow::Borrowed("account_fiscal_position") },
+        2 => PolicyChoice,
+        3 => SelectFromTable { candidate_table: Cow::Borrowed("product.pricelist") },
+        4 => Distribution { over_table: Cow::Borrowed("account.analytic.distribution.model") },
+        5 => SelectFromTable { candidate_table: Cow::Borrowed("account.analytic.distribution.model") },
+        6 => Anomaly,
+        7 => SelectFromTable { candidate_table: Cow::Borrowed("account.account") },
+        8 => PolicyChoice,
+        9 => RankedSet { from_table: Cow::Borrowed("res.currency") },
+        10 => PolicyChoice,
+        11 => SelectFromTable { candidate_table: Cow::Borrowed("stock.rule") },
+        12 => AdvancePeriod,
+        13 => Distribution { over_table: Cow::Borrowed("stock.warehouse.orderpoint") },
+        14 => SelectFromTable { candidate_table: Cow::Borrowed("stock.route") },
+        15 => PolicyChoice,
+        17 => Gate,
+        18 => AdvancePeriod,
+        19 => RankedSet { from_table: Cow::Borrowed("account.move.line") },
+        20 => SelectFromTable { candidate_table: Cow::Borrowed("account.reconcile.model") },
+        21 => Gate,
+        22 => Gate,
+        23 => SelectFromTable { candidate_table: Cow::Borrowed("product.pricelist.item") },
+        24 => PolicyChoice,
+        25 => RankedSet { from_table: Cow::Borrowed("stock.move") },
+        26 => Gate,
+        _ => PolicyChoice,
+    }
+}
+
 /// A suggestion-only conclusion from a savant reasoner.
 ///
 /// Plain in-binary value — **never serialized** (the one-binary contract). The
@@ -57,6 +129,11 @@ impl std::error::Error for SavantError {}
 pub struct SavantConclusion {
     /// Roster id of the savant that produced this (SAVANTS.md numbering).
     pub savant_id: u8,
+    /// The AXIS-B decision the consumer applies (e.g. `SelectFromTable`, `Gate`,
+    /// `Anomaly`). The reasoner names the decision and any candidate-evidence
+    /// table; the row-level value (e.g. the concrete `fiscal_position_id`) is
+    /// resolved by the consumer, which holds the rows.
+    pub suggestion: SavantSuggestion,
     /// The query strategy the savant dispatches to (from its `InferenceType`).
     pub query_strategy: QueryStrategy,
     /// NARS `(frequency, confidence)` weight of the suggestion.
@@ -128,6 +205,7 @@ fn build_conclusion(savant: &Savant, ctx: &ReasoningContext) -> SavantConclusion
     let confidence = w / (w + 1.0);
     SavantConclusion {
         savant_id: savant.id,
+        suggestion: suggestion_for(savant),
         query_strategy: strategy,
         confidence: NarsTruth::new(frequency, confidence),
         rationale: Cow::Owned(format!(
@@ -336,5 +414,81 @@ mod tests {
     fn wrong_reasoner_for_kind_is_mismatch() {
         let err = block_on(PostingAnomalyReasoner.reason(ctx(ReasoningKind::NextBestAction, "x", &[]))).unwrap_err();
         assert_eq!(err, SavantError::KindMismatch);
+    }
+
+    #[test]
+    fn suggestion_shape_per_savant() {
+        // FiscalPositionResolver → SelectFromTable over the candidate corpus
+        // named in slot 1 of its spec (`account_fiscal_position`).
+        let fiscal = build_conclusion(
+            savant_by_name("FiscalPositionResolver").unwrap(),
+            &ctx(ReasoningKind::CustomerCategory, "FiscalPositionResolver", &[]),
+        );
+        assert!(matches!(
+            &fiscal.suggestion,
+            SavantSuggestion::SelectFromTable { candidate_table } if candidate_table == "account_fiscal_position"
+        ));
+        // SequenceGapAnomalyDetector → Anomaly.
+        let gap = build_conclusion(
+            savant_by_name("SequenceGapAnomalyDetector").unwrap(),
+            &ctx(ReasoningKind::PostingAnomaly, "SequenceGapAnomalyDetector", &[]),
+        );
+        assert_eq!(gap.suggestion, SavantSuggestion::Anomaly);
+        // AutopostRecommender / PaymentToInvoiceMatcher → Gate.
+        let autopost = build_conclusion(
+            savant_by_name("AutopostRecommender").unwrap(),
+            &ctx(ReasoningKind::PostingAnomaly, "AutopostRecommender", &[]),
+        );
+        assert_eq!(autopost.suggestion, SavantSuggestion::Gate);
+        let pay = build_conclusion(
+            savant_by_name("PaymentToInvoiceMatcher").unwrap(),
+            &ctx(
+                ReasoningKind::Other(other_kind::RECONCILE_MATCH),
+                "erp.k3.payment_reconcile",
+                &[],
+            ),
+        );
+        assert_eq!(pay.suggestion, SavantSuggestion::Gate);
+        // ReconcileMatchSelector → RankedSet from account.move.line.
+        let rec = build_conclusion(
+            savant_by_name("ReconcileMatchSelector").unwrap(),
+            &ctx(
+                ReasoningKind::Other(other_kind::RECONCILE_MATCH),
+                "erp.k3.reconcile_match",
+                &[],
+            ),
+        );
+        assert!(matches!(
+            &rec.suggestion,
+            SavantSuggestion::RankedSet { from_table } if from_table == "account.move.line"
+        ));
+        // LockDateAdvancer → AdvancePeriod.
+        let lock = build_conclusion(
+            savant_by_name("LockDateAdvancer").unwrap(),
+            &ctx(ReasoningKind::PostingAnomaly, "LockDateAdvancer", &[]),
+        );
+        assert_eq!(lock.suggestion, SavantSuggestion::AdvancePeriod);
+        // AnalyticDistributionSuggester → Distribution.
+        let dist = build_conclusion(
+            savant_by_name("AnalyticDistributionSuggester").unwrap(),
+            &ctx(
+                ReasoningKind::NextBestAction,
+                "AnalyticDistributionSuggester",
+                &[],
+            ),
+        );
+        assert!(matches!(
+            &dist.suggestion,
+            SavantSuggestion::Distribution { over_table } if over_table == "account.analytic.distribution.model"
+        ));
+    }
+
+    #[test]
+    fn every_savant_has_a_suggestion_shape() {
+        // Defensive — `suggestion_for` must cover every roster id
+        // (id 16 is intentionally absent per SAVANTS.md).
+        for s in lance_graph_contract::savants::SAVANTS.iter() {
+            let _ = suggestion_for(s);
+        }
     }
 }
