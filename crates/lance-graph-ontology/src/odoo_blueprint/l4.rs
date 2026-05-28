@@ -18,8 +18,8 @@
 
 use super::{
     OdooConfidence, OdooConstraint, OdooConstraintKind, OdooDecorator, OdooDecoratorKind,
-    OdooEntity, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind, OdooProvenance,
-    OdooReturnKind, OdooSemanticRole, OdooSourceRef,
+    OdooEntity, OdooEntityKind, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind,
+    OdooProvenance, OdooReturnKind, OdooSemanticRole, OdooSourceRef,
 };
 
 // ─── 1. account.account.tag ──────────────────────────────────────────────────
@@ -39,6 +39,7 @@ use super::{
 /// L-doc §§3–5; source: `l10n_de/data/account_account_tags_data.xml:L3-L1106`.
 pub const ACCOUNT_ACCOUNT_TAG: OdooEntity = OdooEntity {
     model_name: "account.account.tag",
+    kind: OdooEntityKind::Model,
     description: "SKOS-style classification label applied to accounts or taxes; \
                   routes balances to USt-VA / GuV / Bilanz report lines (HGB §275 / §266)",
     fields: &[
@@ -111,6 +112,7 @@ pub const ACCOUNT_ACCOUNT_TAG: OdooEntity = OdooEntity {
             line_range: (3, 1106),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -127,6 +129,7 @@ pub const ACCOUNT_ACCOUNT_TAG: OdooEntity = OdooEntity {
 /// L-doc §6; source: `l10n_de/models/account_account.py:L8-L19`.
 pub const ACCOUNT_ACCOUNT_DE: OdooEntity = OdooEntity {
     model_name: "account.account",
+    kind: OdooEntityKind::Model,
     description: "General ledger account extended by l10n_de: blocks code changes \
                   (Kontonummer) once the account has posted journal entry lines \
                   (GoBD §§238/239 HGB Buchführungspflicht)",
@@ -192,6 +195,7 @@ pub const ACCOUNT_ACCOUNT_DE: OdooEntity = OdooEntity {
             line_range: (8, 19),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -207,6 +211,7 @@ pub const ACCOUNT_ACCOUNT_DE: OdooEntity = OdooEntity {
 /// L-doc §8; source: `l10n_de/models/datev.py:L1-L15`.
 pub const ACCOUNT_TAX_DATEV: OdooEntity = OdooEntity {
     model_name: "account.tax",
+    kind: OdooEntityKind::Model,
     description: "Tax record extended for DATEV export: carries a 4-character \
                   DATEV Steuerschlüssel (l10n_de_datev_code) used as the bridge \
                   from Odoo taxes to DATEV EXTF v700 tax key numbers",
@@ -266,6 +271,7 @@ pub const ACCOUNT_TAX_DATEV: OdooEntity = OdooEntity {
             line_range: (1, 15),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -283,6 +289,7 @@ pub const ACCOUNT_TAX_DATEV: OdooEntity = OdooEntity {
 /// L-doc §8.2; source: `l10n_de/models/datev.py:L17-L37`.
 pub const PRODUCT_TEMPLATE_DE: OdooEntity = OdooEntity {
     model_name: "product.template",
+    kind: OdooEntityKind::Model,
     description: "Product template extended by l10n_de: _get_product_accounts \
                   searches for a matching income/expense account by internal_group \
                   + tax_ids when no explicit account is configured — the Odoo side \
@@ -338,6 +345,7 @@ pub const PRODUCT_TEMPLATE_DE: OdooEntity = OdooEntity {
             line_range: (17, 37),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -354,6 +362,7 @@ pub const PRODUCT_TEMPLATE_DE: OdooEntity = OdooEntity {
 /// L-doc §7; source: `l10n_de/models/chart_template.py:L9-L25`.
 pub const RES_COMPANY_DE: OdooEntity = OdooEntity {
     model_name: "res.company",
+    kind: OdooEntityKind::Model,
     description: "Company record augmented by l10n_de chart-template setup: \
                   restrictive_audit_trail=True (GoBD Festschreibung §§146/239 HGB), \
                   DIN 5008 paper layout, and auto-tagging of suspense/transfer \
@@ -445,6 +454,7 @@ pub const RES_COMPANY_DE: OdooEntity = OdooEntity {
             line_range: (9, 25),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -461,6 +471,7 @@ pub const RES_COMPANY_DE: OdooEntity = OdooEntity {
 /// L-doc §7; source: `l10n_de/models/account_journal.py:L14-L16`.
 pub const ACCOUNT_JOURNAL_DE: OdooEntity = OdooEntity {
     model_name: "account.journal",
+    kind: OdooEntityKind::Model,
     description: "Journal model extended by l10n_de: bank/cash liquidity accounts \
                   receive tag_de_asset_bs_B_IV (Kassenbestand/Bankguthaben) at \
                   journal creation, routing them to Bilanz position B IV",
@@ -505,6 +516,7 @@ pub const ACCOUNT_JOURNAL_DE: OdooEntity = OdooEntity {
             line_range: (14, 16),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 

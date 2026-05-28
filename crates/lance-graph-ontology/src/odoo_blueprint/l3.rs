@@ -15,8 +15,8 @@
 
 use super::{
     OdooConfidence, OdooConstraint, OdooConstraintKind, OdooDecorator, OdooDecoratorKind,
-    OdooEntity, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind, OdooProvenance,
-    OdooReturnKind, OdooSemanticRole, OdooSourceRef,
+    OdooEntity, OdooEntityKind, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind,
+    OdooProvenance, OdooReturnKind, OdooSemanticRole, OdooSourceRef,
 };
 
 // ─── 1. account.tax.group ────────────────────────────────────────────────────
@@ -110,6 +110,7 @@ const TAX_GROUP_DECORATORS: &[OdooDecorator] = &[OdooDecorator {
 
 const ACCOUNT_TAX_GROUP: OdooEntity = OdooEntity {
     model_name: "account.tax.group",
+    kind: OdooEntityKind::Model,
     description: "Groups taxes for display + closing-entry accounts (USt/VSt/advance); \
                   l10n_de groups: 0%, 7%, 5.5%, 10.7%, 19%.",
     fields: TAX_GROUP_FIELDS,
@@ -125,6 +126,7 @@ const ACCOUNT_TAX_GROUP: OdooEntity = OdooEntity {
             line_range: (25, 69),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -464,6 +466,7 @@ const ACCOUNT_TAX_CONSTRAINTS: &[OdooConstraint] = &[
 
 const ACCOUNT_TAX: OdooEntity = OdooEntity {
     model_name: "account.tax",
+    kind: OdooEntityKind::Model,
     description: "VAT / USt tax definition with computation type (percent/fixed/division/group), \
                   exigibility (accrual vs cash-basis), price-include semantics, and repartition \
                   lines. Core of K7 computation engine.",
@@ -480,6 +483,7 @@ const ACCOUNT_TAX: OdooEntity = OdooEntity {
             line_range: (71, 320),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -621,6 +625,7 @@ const REPARTITION_LINE_CONSTRAINTS: &[OdooConstraint] = &[OdooConstraint {
 
 const ACCOUNT_TAX_REPARTITION_LINE: OdooEntity = OdooEntity {
     model_name: "account.tax.repartition.line",
+    kind: OdooEntityKind::Model,
     description: "Distribution rule mapping a tax computation result to a GL account and \
                   USt-VA grid tag. Negative factor lines implement §13b reverse-charge split. \
                   K8 bridge: tag_ids carry Kennziffer for Voranmeldung aggregation.",
@@ -637,6 +642,7 @@ const ACCOUNT_TAX_REPARTITION_LINE: OdooEntity = OdooEntity {
             line_range: (5141, 5210),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -890,6 +896,7 @@ const FISCAL_POSITION_CONSTRAINTS: &[OdooConstraint] = &[
 
 const ACCOUNT_FISCAL_POSITION: OdooEntity = OdooEntity {
     model_name: "account.fiscal.position",
+    kind: OdooEntityKind::Model,
     description: "Tax regime mapping rule: translates taxes and GL accounts for a partner. \
                   Auto-apply by country/group/state/ZIP/VAT; manual override wins. \
                   l10n_de: 2 auto-apply (Domestic + EU-with-VAT-ID), 4 manual-only.",
@@ -906,6 +913,7 @@ const ACCOUNT_FISCAL_POSITION: OdooEntity = OdooEntity {
             line_range: (26, 301),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -952,6 +960,7 @@ const FISCAL_POSITION_ACCOUNT_FIELDS: &[OdooField] = &[
 
 const FISCAL_POSITION_ACCOUNT: OdooEntity = OdooEntity {
     model_name: "account.fiscal.position.account",
+    kind: OdooEntityKind::Model,
     description: "One GL account remapping rule within a fiscal position. \
                   Used to redirect revenue/expense accounts (e.g. 8400→8125 for EU-with-VAT-ID).",
     fields: FISCAL_POSITION_ACCOUNT_FIELDS,
@@ -972,6 +981,7 @@ const FISCAL_POSITION_ACCOUNT: OdooEntity = OdooEntity {
             line_range: (303, 324),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -1020,6 +1030,7 @@ const ACCOUNT_TAG_FIELDS: &[OdooField] = &[
 
 const ACCOUNT_ACCOUNT_TAG: OdooEntity = OdooEntity {
     model_name: "account.account.tag",
+    kind: OdooEntityKind::Model,
     description: "USt-VA grid tag linking move lines to Kennziffer (Kz) in the \
                   Umsatzsteuer-Voranmeldung. For tax applicability, name encodes the \
                   Kz (e.g. '81_BASE', '81_TAX', '89_BASE'). K8 aggregation: sum \
@@ -1045,6 +1056,7 @@ const ACCOUNT_ACCOUNT_TAG: OdooEntity = OdooEntity {
             line_range: (7, 65),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 

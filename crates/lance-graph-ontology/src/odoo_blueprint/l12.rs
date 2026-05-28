@@ -42,8 +42,8 @@
 
 use super::{
     OdooConfidence, OdooConstraint, OdooConstraintKind, OdooDecorator, OdooDecoratorKind,
-    OdooEntity, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind, OdooProvenance,
-    OdooReturnKind, OdooSemanticRole, OdooSourceRef,
+    OdooEntity, OdooEntityKind, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind,
+    OdooProvenance, OdooReturnKind, OdooSemanticRole, OdooSourceRef,
 };
 
 // ─── 1. res.currency ─────────────────────────────────────────────────────────
@@ -70,6 +70,7 @@ use super::{
 /// Drives `CurrencySelectionAdvisor` (R6) and `ReportRateTypeSelector` (R8).
 pub const RES_CURRENCY: OdooEntity = OdooEntity {
     model_name: "res.currency",
+    kind: OdooEntityKind::Model,
     description: "ISO 4217 currency: defines rounding precision (decimal_places derived from \
                   rounding via log10), three-representation FX rate store (rate/company_rate/ \
                   inverse_company_rate), and drives enable/disable decisions via \
@@ -313,6 +314,7 @@ pub const RES_CURRENCY: OdooEntity = OdooEntity {
             },
         ],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -335,6 +337,7 @@ pub const RES_CURRENCY: OdooEntity = OdooEntity {
 /// rate; company_id=root_id = company-specific (preferred by _get_rates).
 pub const RES_CURRENCY_RATE: OdooEntity = OdooEntity {
     model_name: "res.currency.rate",
+    kind: OdooEntityKind::Model,
     description: "One dated FX exchange rate: foreign units per 1 base currency (technical `rate`). \
                   Lookup uses root_id, not company_id — branches inherit root rates. \
                   Only root companies may have dedicated rate records (no branch-level rates). \
@@ -407,6 +410,7 @@ pub const RES_CURRENCY_RATE: OdooEntity = OdooEntity {
             line_range: (120, 139),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -434,6 +438,7 @@ pub const RES_CURRENCY_RATE: OdooEntity = OdooEntity {
 /// scoping, and FX exchange account pointers.
 pub const RES_COMPANY_MULTICOMPANY: OdooEntity = OdooEntity {
     model_name: "res.company",
+    kind: OdooEntityKind::Model,
     description: "Company / branch node in the multi-company tree (res.company _parent_store). \
                   root_id = the tree root (branches inherit root currency). parent_id immutable \
                   after create. currency_id is root-delegated (branches cannot override). \
@@ -575,6 +580,7 @@ pub const RES_COMPANY_MULTICOMPANY: OdooEntity = OdooEntity {
             line_range: (96, 450),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -591,6 +597,7 @@ pub const RES_COMPANY_MULTICOMPANY: OdooEntity = OdooEntity {
 /// Drives `UserCompanyAccessAdvisor` savant (family=0x80).
 pub const RES_USERS_COMPANY_ACCESS: OdooEntity = OdooEntity {
     model_name: "res.users",
+    kind: OdooEntityKind::Model,
     description: "User model: company_id (active company) and allowed_company_ids \
                   (all companies/branches the user may switch to). \
                   UserCompanyAccessAdvisor uses allowed_company_ids to scope branch \
@@ -635,6 +642,7 @@ pub const RES_USERS_COMPANY_ACCESS: OdooEntity = OdooEntity {
             line_range: (429, 450),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -662,6 +670,7 @@ pub const RES_USERS_COMPANY_ACCESS: OdooEntity = OdooEntity {
 /// deterministically by sign: balance > 0 → expense (loss); balance < 0 → income (gain).
 pub const ACCOUNT_ACCOUNT_EXCHANGE: OdooEntity = OdooEntity {
     model_name: "account.account",
+    kind: OdooEntityKind::Model,
     description: "General ledger account in its FX exchange gain/loss role: \
                   referenced by res.company.income_currency_exchange_account_id (gain) and \
                   expense_currency_exchange_account_id (loss). ExchangeAccountSelector savant \
@@ -726,6 +735,7 @@ pub const ACCOUNT_ACCOUNT_EXCHANGE: OdooEntity = OdooEntity {
             },
         ],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 

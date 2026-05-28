@@ -7,9 +7,9 @@
 
 use super::{
     OdooConfidence, OdooConstraint, OdooConstraintKind, OdooDecorator, OdooDecoratorKind,
-    OdooEntity, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind, OdooProvenance,
-    OdooReturnKind, OdooSemanticRole, OdooState, OdooStateMachine, OdooStateSemantic,
-    OdooTransition,
+    OdooEntity, OdooEntityKind, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind,
+    OdooProvenance, OdooReturnKind, OdooSemanticRole, OdooState, OdooStateMachine,
+    OdooStateSemantic, OdooTransition,
 };
 
 // ─── Shared state machine ─────────────────────────────────────────────────────
@@ -50,6 +50,7 @@ const MOVE_SM: OdooStateMachine = OdooStateMachine {
 
 pub const ACCOUNT_MOVE: OdooEntity = OdooEntity {
     model_name: "account.move",
+    kind: OdooEntityKind::Model,
     description: "Double-entry journal entry / invoice; draft→posted→cancel state machine, \
                   Belegnummer sequence, GoBD K11 inalterability hash chain, storno logic.",
     fields: &[
@@ -256,6 +257,7 @@ pub const ACCOUNT_MOVE: OdooEntity = OdooEntity {
         l_doc_lines: (27, 743),
         odoo_source: &[],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -263,6 +265,7 @@ pub const ACCOUNT_MOVE: OdooEntity = OdooEntity {
 
 pub const ACCOUNT_MOVE_LINE: OdooEntity = OdooEntity {
     model_name: "account.move.line",
+    kind: OdooEntityKind::Model,
     description: "Journal entry line; balance/debit/credit in company currency, \
                   amount_currency for FX; subject to off-balance, payable/receivable, \
                   CABA, matching-number, and deductibility constraints.",
@@ -446,6 +449,7 @@ pub const ACCOUNT_MOVE_LINE: OdooEntity = OdooEntity {
         l_doc_lines: (234, 362),
         odoo_source: &[],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -453,6 +457,7 @@ pub const ACCOUNT_MOVE_LINE: OdooEntity = OdooEntity {
 
 pub const ACCOUNT_JOURNAL: OdooEntity = OdooEntity {
     model_name: "account.journal",
+    kind: OdooEntityKind::Model,
     description: "Accounting journal; owns Belegnummer sequence format, optional \
                   sequence_override_regex, and the (journal_id, sequence_prefix) \
                   K11 hash-chain anchor.",
@@ -498,6 +503,7 @@ pub const ACCOUNT_JOURNAL: OdooEntity = OdooEntity {
         l_doc_lines: (488, 562),
         odoo_source: &[],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 

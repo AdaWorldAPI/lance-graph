@@ -14,8 +14,8 @@
 
 use super::{
     OdooConfidence, OdooConstraint, OdooConstraintKind, OdooDecorator, OdooDecoratorKind,
-    OdooEntity, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind, OdooProvenance,
-    OdooReturnKind, OdooSemanticRole, OdooSourceRef,
+    OdooEntity, OdooEntityKind, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind,
+    OdooProvenance, OdooReturnKind, OdooSemanticRole, OdooSourceRef,
 };
 
 // helper macro to cut boilerplate on simple field declarations
@@ -43,6 +43,7 @@ macro_rules! m {
 
 pub const PRODUCT_CATEGORY: OdooEntity = OdooEntity {
     model_name: "product.category",
+    kind: OdooEntityKind::Model,
     description: "Hierarchical product category; parent_path materialized closure used in \
                   pricelist categ ancestor check; company-dependent income/expense GL accounts \
                   (account resolution waterfall R7).",
@@ -93,6 +94,7 @@ pub const PRODUCT_CATEGORY: OdooEntity = OdooEntity {
             OdooSourceRef { path: "addons/account/models/product.py", line_range: (13, 29) },
         ],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -100,6 +102,7 @@ pub const PRODUCT_CATEGORY: OdooEntity = OdooEntity {
 
 pub const UOM_UUM: OdooEntity = OdooEntity {
     model_name: "uom.uom",
+    kind: OdooEntityKind::Model,
     description: "Unit of Measure: factor-based conversion. Reference unit factor=1.0. \
                   _compute_quantity: (qty/from.factor)*to.factor, then float_round. \
                   _compute_price: price*from.factor/to.factor (no rounding). \
@@ -155,6 +158,7 @@ pub const UOM_UUM: OdooEntity = OdooEntity {
             OdooSourceRef { path: "addons/stock/models/product.py", line_range: (1344, 1375) },
         ],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -162,6 +166,7 @@ pub const UOM_UUM: OdooEntity = OdooEntity {
 
 pub const PRODUCT_TEMPLATE: OdooEntity = OdooEntity {
     model_name: "product.template",
+    kind: OdooEntityKind::Model,
     description: "Product template: canonical catalog record. Drives variant matrix via \
                   attribute_line_ids (Cartesian product, _create_variant_ids, R18). \
                   Holds list_price, company-dependent standard_price, currency_id. \
@@ -268,6 +273,7 @@ pub const PRODUCT_TEMPLATE: OdooEntity = OdooEntity {
             OdooSourceRef { path: "addons/account/models/product.py", line_range: (67, 293) },
         ],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -275,6 +281,7 @@ pub const PRODUCT_TEMPLATE: OdooEntity = OdooEntity {
 
 pub const PRODUCT_PRODUCT: OdooEntity = OdooEntity {
     model_name: "product.product",
+    kind: OdooEntityKind::Model,
     description: "Product variant: _inherits product.template. lst_price = list_price + \
                   price_extra ± UoM conversion (R2). company_dependent standard_price ≥ 0 \
                   (R3). combination_indices unique index within template (R18).",
@@ -342,6 +349,7 @@ pub const PRODUCT_PRODUCT: OdooEntity = OdooEntity {
             line_range: (1, 1197),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -350,6 +358,7 @@ pub const PRODUCT_PRODUCT: OdooEntity = OdooEntity {
 
 pub const PRODUCT_PRICELIST: OdooEntity = OdooEntity {
     model_name: "product.pricelist",
+    kind: OdooEntityKind::Model,
     description: "Pricelist: currency + company + country-group scoping + ordered rule set. \
                   _compute_price_rule is the core engine (R12). \
                   Gated by group_product_pricelist feature flag. \
@@ -397,6 +406,7 @@ pub const PRODUCT_PRICELIST: OdooEntity = OdooEntity {
             line_range: (1, 415),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -404,6 +414,7 @@ pub const PRODUCT_PRICELIST: OdooEntity = OdooEntity {
 
 pub const PRODUCT_PRICELIST_ITEM: OdooEntity = OdooEntity {
     model_name: "product.pricelist.item",
+    kind: OdooEntityKind::Model,
     description: "Pricelist rule: applied_on scope, min_quantity (product UoM), date validity. \
                   Three compute_price strategies: fixed/percentage/formula (R13). \
                   Base resolvers: list_price/standard_price/pricelist (R14). \
@@ -495,6 +506,7 @@ pub const PRODUCT_PRICELIST_ITEM: OdooEntity = OdooEntity {
             line_range: (1, 684),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 

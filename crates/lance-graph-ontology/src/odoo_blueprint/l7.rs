@@ -17,9 +17,9 @@
 
 use super::{
     OdooConfidence, OdooConstraint, OdooConstraintKind, OdooDecorator, OdooDecoratorKind,
-    OdooEntity, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind, OdooProvenance,
-    OdooReturnKind, OdooSemanticRole, OdooSourceRef, OdooState, OdooStateMachine,
-    OdooStateSemantic, OdooTransition,
+    OdooEntity, OdooEntityKind, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind,
+    OdooProvenance, OdooReturnKind, OdooSemanticRole, OdooSourceRef, OdooState,
+    OdooStateMachine, OdooStateSemantic, OdooTransition,
 };
 
 // ─── stock.move state machine ─────────────────────────────────────────────────
@@ -55,6 +55,7 @@ const STOCK_MOVE_STATE_MACHINE: OdooStateMachine = OdooStateMachine {
 
 const STOCK_MOVE: OdooEntity = OdooEntity {
     model_name: "stock.move",
+    kind: OdooEntityKind::Model,
     description: "One product movement between two stock locations; state machine \
                   (draft→confirmed→assigned→done/cancel); drives quant reservation \
                   via _action_assign; quant mutation via move_line_ids._action_done \
@@ -122,6 +123,7 @@ const STOCK_MOVE: OdooEntity = OdooEntity {
         l_doc_lines: (31, 108),
         odoo_source: &[OdooSourceRef { path: "addons/stock/models/stock_move.py", line_range: (107, 2503) }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -129,6 +131,7 @@ const STOCK_MOVE: OdooEntity = OdooEntity {
 
 const STOCK_MOVE_LINE: OdooEntity = OdooEntity {
     model_name: "stock.move.line",
+    kind: OdooEntityKind::Model,
     description: "One lot/package/owner reservation or done-qty record within a stock move; \
                   _action_done drives quant mutation via stock.quant._update_available_quantity; \
                   serial products get one move line per unit (K10, DOLCE Perdurant).",
@@ -161,6 +164,7 @@ const STOCK_MOVE_LINE: OdooEntity = OdooEntity {
         l_doc_lines: (77, 108),
         odoo_source: &[OdooSourceRef { path: "addons/stock/models/stock_move.py", line_range: (1763, 1820) }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -168,6 +172,7 @@ const STOCK_MOVE_LINE: OdooEntity = OdooEntity {
 
 const STOCK_QUANT: OdooEntity = OdooEntity {
     model_name: "stock.quant",
+    kind: OdooEntityKind::Model,
     description: "Persistent stock record: qty of one product at one location with \
                   specific lot/package/owner; reserved_quantity >= 0 invariant; \
                   _gather = RemovalStrategySelector dispatch surface (FIFO/LIFO/FEFO/ \
@@ -238,6 +243,7 @@ const STOCK_QUANT: OdooEntity = OdooEntity {
         l_doc_lines: (110, 415),
         odoo_source: &[OdooSourceRef { path: "addons/stock/models/stock_quant.py", line_range: (617, 1138) }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -266,6 +272,7 @@ const STOCK_PICKING_STATE_MACHINE: OdooStateMachine = OdooStateMachine {
 
 const STOCK_PICKING: OdooEntity = OdooEntity {
     model_name: "stock.picking",
+    kind: OdooEntityKind::Model,
     description: "Group of stock moves for one logistics operation (receipt/delivery/internal); \
                   state COMPUTED from move states (not stored); \
                   BackorderJudge dispatch surface on button_validate; \
@@ -339,6 +346,7 @@ const STOCK_PICKING: OdooEntity = OdooEntity {
         l_doc_lines: (419, 500),
         odoo_source: &[OdooSourceRef { path: "addons/stock/models/stock_picking.py", line_range: (575, 1602) }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -346,6 +354,7 @@ const STOCK_PICKING: OdooEntity = OdooEntity {
 
 const STOCK_LOCATION: OdooEntity = OdooEntity {
     model_name: "stock.location",
+    kind: OdooEntityKind::Model,
     description: "Node in the stock location hierarchy (physical or virtual); \
                   removal_strategy_id = RemovalStrategySelector dispatch surface \
                   (product.categ wins over location walk, default 'fifo'); \
@@ -403,6 +412,7 @@ const STOCK_LOCATION: OdooEntity = OdooEntity {
         l_doc_lines: (155, 207),
         odoo_source: &[OdooSourceRef { path: "addons/stock/models/stock_quant.py", line_range: (617, 791) }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -410,6 +420,7 @@ const STOCK_LOCATION: OdooEntity = OdooEntity {
 
 const STOCK_WAREHOUSE: OdooEntity = OdooEntity {
     model_name: "stock.warehouse",
+    kind: OdooEntityKind::Model,
     description: "Physical warehouse site with operational config (picking types, routes, \
                   multi-step delivery/reception policy); alignment UNRESOLVED — \
                   proposed gs1:Location (K10, DOLCE Endurant, FLAG-4). \
@@ -462,6 +473,7 @@ const STOCK_WAREHOUSE: OdooEntity = OdooEntity {
             line_range: (1, 200),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 

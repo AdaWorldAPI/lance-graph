@@ -20,9 +20,9 @@
 
 use super::{
     OdooConfidence, OdooConstraint, OdooConstraintKind, OdooDecorator, OdooDecoratorKind,
-    OdooEntity, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind, OdooProvenance,
-    OdooReturnKind, OdooSemanticRole, OdooSourceRef, OdooState, OdooStateMachine,
-    OdooStateSemantic, OdooTransition,
+    OdooEntity, OdooEntityKind, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind,
+    OdooProvenance, OdooReturnKind, OdooSemanticRole, OdooSourceRef, OdooState,
+    OdooStateMachine, OdooStateSemantic, OdooTransition,
 };
 
 // ─── account.payment ─────────────────────────────────────────────────────────
@@ -86,6 +86,7 @@ const PAYMENT_STATE_MACHINE: OdooStateMachine = OdooStateMachine {
 
 const PAYMENT: OdooEntity = OdooEntity {
     model_name: "account.payment",
+    kind: OdooEntityKind::Model,
     description: "A posted payment event generating double-entry journal lines; \
                   tracks bank-match (is_matched) and invoice-clearance (is_reconciled) \
                   status independently (K3 + K5 / Mahnwesen gate).",
@@ -382,6 +383,7 @@ const PAYMENT: OdooEntity = OdooEntity {
             line_range: (1, 1247),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -389,6 +391,7 @@ const PAYMENT: OdooEntity = OdooEntity {
 
 const PAYMENT_TERM: OdooEntity = OdooEntity {
     model_name: "account.payment.term",
+    kind: OdooEntityKind::Model,
     description: "Structured payment obligation terms (installments, Skonto/early-discount, \
                   due-date computation); feeds invoice aging and Mahnwesen escalation timing (K3).",
     fields: &[
@@ -541,6 +544,7 @@ const PAYMENT_TERM: OdooEntity = OdooEntity {
             line_range: (11, 279),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -548,6 +552,7 @@ const PAYMENT_TERM: OdooEntity = OdooEntity {
 
 const PAYMENT_TERM_LINE: OdooEntity = OdooEntity {
     model_name: "account.payment.term.line",
+    kind: OdooEntityKind::Model,
     description: "One installment line within a payment term; computes due date via \
                   delay_type + nb_days; last line always absorbs residual regardless of type.",
     fields: &[
@@ -667,6 +672,7 @@ const PAYMENT_TERM_LINE: OdooEntity = OdooEntity {
             line_range: (281, 368),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -679,6 +685,7 @@ const PAYMENT_TERM_LINE: OdooEntity = OdooEntity {
 
 const RECONCILE_MODEL: OdooEntity = OdooEntity {
     model_name: "account.reconcile.model",
+    kind: OdooEntityKind::Model,
     description: "Declarative rule for bank-statement-to-open-item matching \
                   (NARS-heavy, Axis-2 heuristic); greedy first-match by sequence; \
                   generates write-off journal lines on match (K3 + K5).",
@@ -877,6 +884,7 @@ const RECONCILE_MODEL: OdooEntity = OdooEntity {
             line_range: (91, 201),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -886,6 +894,7 @@ const RECONCILE_MODEL: OdooEntity = OdooEntity {
 
 const RECONCILE_MODEL_LINE: OdooEntity = OdooEntity {
     model_name: "account.reconcile.model.line",
+    kind: OdooEntityKind::Model,
     description: "Write-off journal line template within a reconcile model; \
                   amount sourced via fixed/percentage/regex from statement label.",
     fields: &[
@@ -1005,6 +1014,7 @@ const RECONCILE_MODEL_LINE: OdooEntity = OdooEntity {
             line_range: (8, 89),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 

@@ -11,9 +11,9 @@
 
 use super::{
     OdooConfidence, OdooConstraint, OdooConstraintKind, OdooDecorator, OdooDecoratorKind,
-    OdooEntity, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind, OdooProvenance,
-    OdooReturnKind, OdooSemanticRole, OdooSourceRef, OdooState, OdooStateMachine,
-    OdooStateSemantic, OdooTransition,
+    OdooEntity, OdooEntityKind, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind,
+    OdooProvenance, OdooReturnKind, OdooSemanticRole, OdooSourceRef, OdooState,
+    OdooStateMachine, OdooStateSemantic, OdooTransition,
 };
 
 // ─── account.move.line (reconciliation fields) ───────────────────────────────
@@ -41,6 +41,7 @@ const ACCOUNT_MOVE_LINE_SM: OdooStateMachine = OdooStateMachine {
 
 pub const ACCOUNT_MOVE_LINE: OdooEntity = OdooEntity {
     model_name: "account.move.line",
+    kind: OdooEntityKind::Model,
     description: "Journal entry line — the debit/credit leaf of a double-entry move; \
                   carries residual amounts for open-item matching (K3 scope: reconciliation \
                   region only).",
@@ -238,6 +239,7 @@ pub const ACCOUNT_MOVE_LINE: OdooEntity = OdooEntity {
             line_range: (241, 295),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -249,6 +251,7 @@ pub const ACCOUNT_MOVE_LINE: OdooEntity = OdooEntity {
 
 pub const ACCOUNT_PARTIAL_RECONCILE: OdooEntity = OdooEntity {
     model_name: "account.partial.reconcile",
+    kind: OdooEntityKind::Model,
     description: "Partial settlement event — one debit/credit AML pair matched for a \
                   given amount in company and foreign currency.  Cascade-unlinking this \
                   record reverses exchange-diff and CABA moves, clears the full reconcile, \
@@ -445,6 +448,7 @@ pub const ACCOUNT_PARTIAL_RECONCILE: OdooEntity = OdooEntity {
             line_range: (9, 215),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -456,6 +460,7 @@ pub const ACCOUNT_PARTIAL_RECONCILE: OdooEntity = OdooEntity {
 
 pub const ACCOUNT_FULL_RECONCILE: OdooEntity = OdooEntity {
     model_name: "account.full.reconcile",
+    kind: OdooEntityKind::Model,
     description: "Completed settlement event — groups all partials and AMLs that together \
                   achieve zero residuals; sets matching_number to a plain integer string \
                   (no 'P' prefix) on all participating lines.",
@@ -499,6 +504,7 @@ pub const ACCOUNT_FULL_RECONCILE: OdooEntity = OdooEntity {
             line_range: (1, 45),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 

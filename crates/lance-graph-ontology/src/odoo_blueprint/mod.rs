@@ -70,6 +70,17 @@ pub mod l15;
 
 // ─── Top-level entity ─────────────────────────────────────────────────────
 
+/// Which ORM base class the entity inherits from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OdooEntityKind {
+    /// `class X(models.Model)` — persisted, has a backing table.
+    Model,
+    /// `class X(models.TransientModel)` — wizard/in-memory, no persistence.
+    Transient,
+    /// `class X(models.AbstractModel)` — mixin, no own table.
+    Abstract,
+}
+
 /// One Odoo model captured as a typed const declaration.
 ///
 /// Holds the full set of fields, methods, decorators, state machine, and
@@ -80,6 +91,8 @@ pub mod l15;
 pub struct OdooEntity {
     /// Odoo model name (e.g. `"account.fiscal.position"`).
     pub model_name: &'static str,
+    /// Which ORM base class this entity inherits from.
+    pub kind: OdooEntityKind,
     /// One-line semantic intent — what this entity IS in business terms.
     pub description: &'static str,
     /// Fields declared on this model.
@@ -189,6 +202,11 @@ pub struct OdooProvenance {
     /// files via `_inherit`).
     pub odoo_source: &'static [OdooSourceRef],
     pub confidence: OdooConfidence,
+    /// German tax/accounting law anchors that bind this entity's semantics —
+    /// UStG / HGB / GoBD / AO / EN 16931 IRIs into the OGIT-inherited
+    /// regulation codebook (per `E-CODEBOOK-INHERITS-FROM-OGIT`).
+    /// Empty when the entity has no direct regulatory anchor.
+    pub regulation_iri: &'static [&'static str],
 }
 
 /// One Odoo source-file reference within [`OdooProvenance`].
@@ -318,8 +336,8 @@ pub enum OdooConstraintKind {
 pub enum OdooConfidence {
     /// Sourced from the human-curated L-docs (`D-ODOO-BP-1b`).
     Curated,
-    /// Extracted automatically from Odoo source via tree-sitter Python
-    /// AST (`D-ODOO-BP-1f`).
+    /// Extracted automatically from Odoo source via Python's stdlib `ast`
+    /// module (`D-ODOO-BP-1f` / `D-ODOO-EXT-2`).
     Extracted,
     /// Inferred but not yet validated against either source.
     Conjecture,
@@ -335,6 +353,7 @@ mod tests {
     fn sample_entity_compiles_as_const() {
         const FISCAL_POSITION: OdooEntity = OdooEntity {
             model_name: "account.fiscal.position",
+            kind: OdooEntityKind::Model,
             description: "Tax mapping for partner / company combination",
             fields: &[OdooField {
                 name: "country_id",
@@ -365,6 +384,7 @@ mod tests {
                     line_range: (1, 200),
                 }],
                 confidence: OdooConfidence::Curated,
+                regulation_iri: &[],
             },
         };
         assert_eq!(FISCAL_POSITION.model_name, "account.fiscal.position");
@@ -405,6 +425,7 @@ mod tests {
         // being curated.
         const EMPTY: OdooEntity = OdooEntity {
             model_name: "test.model",
+            kind: OdooEntityKind::Model,
             description: "test",
             fields: &[],
             methods: &[],
@@ -416,6 +437,7 @@ mod tests {
                 l_doc_lines: (0, 0),
                 odoo_source: &[],
                 confidence: OdooConfidence::Conjecture,
+                regulation_iri: &[],
             },
         };
         assert_eq!(EMPTY.fields.len(), 0);

@@ -33,8 +33,8 @@
 
 use super::{
     OdooConfidence, OdooConstraint, OdooConstraintKind, OdooDecorator, OdooDecoratorKind,
-    OdooEntity, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind, OdooProvenance,
-    OdooReturnKind, OdooSemanticRole, OdooSourceRef,
+    OdooEntity, OdooEntityKind, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind,
+    OdooProvenance, OdooReturnKind, OdooSemanticRole, OdooSourceRef,
 };
 
 // ─── 1. hr.employee ──────────────────────────────────────────────────────────
@@ -61,6 +61,7 @@ use super::{
 /// for future HR-domain savants in the 0x90 HRFoundation family.
 pub const HR_EMPLOYEE: OdooEntity = OdooEntity {
     model_name: "hr.employee",
+    kind: OdooEntityKind::Model,
     description: "Work-resource individual with versioned employment terms (hr.version chain); \
                   owns user↔partner linkage, org hierarchy (parent_id/coach_id), \
                   statutory identifiers, salary-distribution JSON (SEPA split), \
@@ -413,6 +414,7 @@ pub const HR_EMPLOYEE: OdooEntity = OdooEntity {
             line_range: (1, 1865),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -428,6 +430,7 @@ pub const HR_EMPLOYEE: OdooEntity = OdooEntity {
 /// L-doc R5, R6, R17; source: `hr/models/hr_department.py:1–243` (full read).
 pub const HR_DEPARTMENT: OdooEntity = OdooEntity {
     model_name: "hr.department",
+    kind: OdooEntityKind::Model,
     description: "Organisational unit in the company tree; recursive parent hierarchy \
                   (_parent_store, complete_name path); manager change propagates to \
                   direct-member employees; non-HR ACL restricts to managed subtree.",
@@ -569,6 +572,7 @@ pub const HR_DEPARTMENT: OdooEntity = OdooEntity {
             line_range: (1, 243),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -583,6 +587,7 @@ pub const HR_DEPARTMENT: OdooEntity = OdooEntity {
 /// L-doc R7; source: `hr/models/hr_job.py:1–94` (full read).
 pub const HR_JOB: OdooEntity = OdooEntity {
     model_name: "hr.job",
+    kind: OdooEntityKind::Model,
     description: "Job role / position within a department; tracks active headcount \
                   (no_of_employee) and open recruitment slots (no_of_recruitment); \
                   UNIQUE(name, company_id, department_id).",
@@ -686,6 +691,7 @@ pub const HR_JOB: OdooEntity = OdooEntity {
             line_range: (1, 94),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -715,6 +721,7 @@ pub const HR_JOB: OdooEntity = OdooEntity {
 /// will resolve structure_type_id from `contract.structure_type_id` directly.
 pub const HR_CONTRACT_TYPE: OdooEntity = OdooEntity {
     model_name: "hr.contract.type",
+    kind: OdooEntityKind::Model,
     description: "Employment contract type (e.g. CDI / CDD / interim); community stub with \
                   name + country_id; contract-template whitelist (R14) copies this field; \
                   structure_type_id (Enterprise-only) is the payroll-ruleset discriminant \
@@ -760,6 +767,7 @@ pub const HR_CONTRACT_TYPE: OdooEntity = OdooEntity {
             },
         ],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 

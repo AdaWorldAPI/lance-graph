@@ -27,8 +27,8 @@
 
 use super::{
     OdooConfidence, OdooConstraint, OdooConstraintKind, OdooDecorator, OdooDecoratorKind,
-    OdooEntity, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind, OdooProvenance,
-    OdooReturnKind, OdooSemanticRole, OdooSourceRef,
+    OdooEntity, OdooEntityKind, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind,
+    OdooProvenance, OdooReturnKind, OdooSemanticRole, OdooSourceRef,
 };
 
 // ─── stock.valuation.layer ────────────────────────────────────────────────────
@@ -43,6 +43,7 @@ use super::{
 /// (oldest layer; vacuum on later bill price).
 const STOCK_VALUATION_LAYER: OdooEntity = OdooEntity {
     model_name: "stock.valuation.layer",
+    kind: OdooEntityKind::Model,
     description: "One accounting-valuation record created per done stock.move; carries signed \
                   quantity + unit_cost + value (qty × unit_cost, rounded at currency precision); \
                   FIFO: remaining_qty/value tracks open layer balance; absent from community clone \
@@ -176,6 +177,7 @@ const STOCK_VALUATION_LAYER: OdooEntity = OdooEntity {
             line_range: (1, 1),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -183,6 +185,7 @@ const STOCK_VALUATION_LAYER: OdooEntity = OdooEntity {
 
 const STOCK_WAREHOUSE_ORDERPOINT: OdooEntity = OdooEntity {
     model_name: "stock.warehouse.orderpoint",
+    kind: OdooEntityKind::Model,
     description: "Min/max reorder rule for one product at one location; drives scheduler batch \
                   (_procure_orderpoint_confirm R11 / _run_scheduler_tasks R12); \
                   qty_to_order = max(min,max) − (virtual_available + qty_in_progress) rounded UP \
@@ -404,6 +407,7 @@ const STOCK_WAREHOUSE_ORDERPOINT: OdooEntity = OdooEntity {
             line_range: (1, 817),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -411,6 +415,7 @@ const STOCK_WAREHOUSE_ORDERPOINT: OdooEntity = OdooEntity {
 
 const STOCK_RULE: OdooEntity = OdooEntity {
     model_name: "stock.rule",
+    kind: OdooEntityKind::Model,
     description: "Procurement rule mapping (dest, route) → action (pull/push/transparent); \
                   L7 captured the basic shape; L13 focuses on procurement-priority resolution: \
                   _get_rule builds location-ancestor chain, _search_rule_for_warehouses orders by \
@@ -588,6 +593,7 @@ const STOCK_RULE: OdooEntity = OdooEntity {
             line_range: (1, 747),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -595,6 +601,7 @@ const STOCK_RULE: OdooEntity = OdooEntity {
 
 const STOCK_LOT: OdooEntity = OdooEntity {
     model_name: "stock.lot",
+    kind: OdooEntityKind::Model,
     description: "Lot/serial number master; uniqueness per (product_id, company_id, name) \
                   with cross-company NULL check (R13); name auto-generation by incrementing \
                   last numeric segment with zero-fill (R14 — generate_lot_names); \
@@ -704,6 +711,7 @@ const STOCK_LOT: OdooEntity = OdooEntity {
             line_range: (1, 431),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -711,6 +719,7 @@ const STOCK_LOT: OdooEntity = OdooEntity {
 
 const RES_COMPANY_VALUATION: OdooEntity = OdooEntity {
     model_name: "res.company",
+    kind: OdooEntityKind::Model,
     description: "Company-level accounting/valuation configuration relevant to stock; \
                   anglo_saxon_accounting (R2): AngloSaxon = COGS deferred to invoice via \
                   expense_account_id + price_difference_account_id; Continental (DE default, \
@@ -778,6 +787,7 @@ const RES_COMPANY_VALUATION: OdooEntity = OdooEntity {
             },
         ],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 

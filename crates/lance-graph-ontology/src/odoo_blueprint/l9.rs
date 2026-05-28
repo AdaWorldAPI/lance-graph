@@ -25,8 +25,8 @@
 
 use super::{
     OdooConfidence, OdooConstraint, OdooConstraintKind, OdooDecorator, OdooDecoratorKind,
-    OdooEntity, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind, OdooProvenance,
-    OdooReturnKind, OdooSemanticRole, OdooSourceRef,
+    OdooEntity, OdooEntityKind, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind,
+    OdooProvenance, OdooReturnKind, OdooSemanticRole, OdooSourceRef,
 };
 
 // ─── 1. account.fiscal.position ──────────────────────────────────────────────
@@ -37,6 +37,7 @@ use super::{
 /// L-doc R8–R12, R20; Odoo source L26–L301.
 pub const ACCOUNT_FISCAL_POSITION: OdooEntity = OdooEntity {
     model_name: "account.fiscal.position",
+    kind: OdooEntityKind::Model,
     description: "Named tax-and-account mapping applied to a partner; selected by \
                   _get_fiscal_position (FiscalPositionResolver savant) or manual override.",
     fields: &[
@@ -160,6 +161,7 @@ pub const ACCOUNT_FISCAL_POSITION: OdooEntity = OdooEntity {
             line_range: (26, 301),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -170,6 +172,7 @@ pub const ACCOUNT_FISCAL_POSITION: OdooEntity = OdooEntity {
 /// L-doc R10; Odoo source L303–L324.
 pub const ACCOUNT_FISCAL_POS_ACCOUNT: OdooEntity = OdooEntity {
     model_name: "account.fiscal.position.account",
+    kind: OdooEntityKind::Model,
     description: "One account-substitution rule inside a fiscal position: \
                   account_src_id → account_dest_id when the position is active (map_account).",
     fields: &[
@@ -203,6 +206,7 @@ pub const ACCOUNT_FISCAL_POS_ACCOUNT: OdooEntity = OdooEntity {
             line_range: (303, 324),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -224,6 +228,7 @@ pub const ACCOUNT_FISCAL_POS_ACCOUNT: OdooEntity = OdooEntity {
 /// L-doc R1–R7, R14–R19; Odoo source L326–L870.
 pub const RES_PARTNER_ACCOUNTING: OdooEntity = OdooEntity {
     model_name: "res.partner",
+    kind: OdooEntityKind::Model,
     description: "Partner extended by account module: AR/AP property accounts, payment terms, \
                   fiscal-position override, trust/dunning signal, rank counters, credit-limit, EDI.",
     fields: &[
@@ -343,6 +348,7 @@ pub const RES_PARTNER_ACCOUNTING: OdooEntity = OdooEntity {
             line_range: (326, 870),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -356,6 +362,7 @@ pub const RES_PARTNER_ACCOUNTING: OdooEntity = OdooEntity {
 /// L-doc R8 (EU VAT prefix logic); base module source.
 pub const RES_COUNTRY: OdooEntity = OdooEntity {
     model_name: "res.country",
+    kind: OdooEntityKind::Model,
     description: "Country; 2-char ISO code used in _get_fiscal_position to compute \
                   intra_eu / vat_exclusion flags; also the country filter predicate in fpos matching.",
     fields: &[
@@ -381,6 +388,7 @@ pub const RES_COUNTRY: OdooEntity = OdooEntity {
             line_range: (1, 80),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -394,6 +402,7 @@ pub const RES_COUNTRY: OdooEntity = OdooEntity {
 /// L-doc R8; Odoo source `res_country_group.py`.
 pub const RES_COUNTRY_GROUP: OdooEntity = OdooEntity {
     model_name: "res.country.group",
+    kind: OdooEntityKind::Model,
     description: "Named set of countries for fpos matching predicate 5: \
                   partner.country_id ∈ country_ids AND partner.state_id ∉ exclude_state_ids.",
     fields: &[
@@ -420,6 +429,7 @@ pub const RES_COUNTRY_GROUP: OdooEntity = OdooEntity {
             line_range: (1, 30),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -434,6 +444,7 @@ pub const RES_COUNTRY_GROUP: OdooEntity = OdooEntity {
 /// L-doc R2; see `l5::PAYMENT_TERM` for the full entity.
 pub const ACCOUNT_PAYMENT_TERM_REF: OdooEntity = OdooEntity {
     model_name: "account.payment.term",
+    kind: OdooEntityKind::Model,
     description: "Payment terms (L5 authoritative); projected in L9 only as target of \
                   property_payment_term_id / property_supplier_payment_term_id on res.partner (R2).",
     fields: &[
@@ -454,6 +465,7 @@ pub const ACCOUNT_PAYMENT_TERM_REF: OdooEntity = OdooEntity {
             line_range: (1, 30),
         }],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 

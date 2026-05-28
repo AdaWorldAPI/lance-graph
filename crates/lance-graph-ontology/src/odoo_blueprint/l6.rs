@@ -19,9 +19,9 @@
 
 use super::{
     OdooConfidence, OdooConstraint, OdooConstraintKind, OdooDecorator, OdooDecoratorKind,
-    OdooEntity, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind, OdooProvenance,
-    OdooReturnKind, OdooSemanticRole, OdooState, OdooStateMachine, OdooStateSemantic,
-    OdooTransition,
+    OdooEntity, OdooEntityKind, OdooField, OdooFieldKind, OdooMethod, OdooMethodKind,
+    OdooProvenance, OdooReturnKind, OdooSemanticRole, OdooState, OdooStateMachine,
+    OdooStateSemantic, OdooTransition,
 };
 
 // ─── sale.order ──────────────────────────────────────────────────────────────
@@ -74,6 +74,7 @@ const SALE_ORDER_SM: OdooStateMachine = OdooStateMachine {
 
 pub const SALE_ORDER: OdooEntity = OdooEntity {
     model_name: "sale.order",
+    kind: OdooEntityKind::Model,
     description: "Commercial sale quotation/order (Vorgang lifecycle: draft→sent→sale→cancel); \
                   generates account.move via _create_invoices. \
                   Proposed OWL pivot: ubl:Order → SmbFoundryInvoice (0x81) → DOLCE Perdurant.",
@@ -206,6 +207,7 @@ pub const SALE_ORDER: OdooEntity = OdooEntity {
         l_doc_lines: (31, 543),
         odoo_source: &[],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -213,6 +215,7 @@ pub const SALE_ORDER: OdooEntity = OdooEntity {
 
 pub const SALE_ORDER_LINE: OdooEntity = OdooEntity {
     model_name: "sale.order.line",
+    kind: OdooEntityKind::Model,
     description: "One line on a sale order; tracks price_unit/discount/tax_ids and \
                   partial invoicing state (qty_invoiced/qty_to_invoice/invoice_status). \
                   Proposed OWL pivot: ubl:OrderLine → SmbFoundryInvoice (0x81) → DOLCE Perdurant.",
@@ -342,6 +345,7 @@ pub const SALE_ORDER_LINE: OdooEntity = OdooEntity {
         l_doc_lines: (186, 743),
         odoo_source: &[],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -405,6 +409,7 @@ const PURCHASE_ORDER_SM: OdooStateMachine = OdooStateMachine {
 
 pub const PURCHASE_ORDER: OdooEntity = OdooEntity {
     model_name: "purchase.order",
+    kind: OdooEntityKind::Model,
     description: "Vendor purchase order (RFQ→PO); optional two-step approval via \
                   po_double_validation amount threshold; creates account.move (in_invoice) \
                   via action_create_invoice. \
@@ -515,6 +520,7 @@ pub const PURCHASE_ORDER: OdooEntity = OdooEntity {
         l_doc_lines: (546, 643),
         odoo_source: &[],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
@@ -522,6 +528,7 @@ pub const PURCHASE_ORDER: OdooEntity = OdooEntity {
 
 pub const PURCHASE_ORDER_LINE: OdooEntity = OdooEntity {
     model_name: "purchase.order.line",
+    kind: OdooEntityKind::Model,
     description: "One line on a purchase order; qty_to_invoice feeds the order-level \
                   _get_invoiced computation (L46-68). \
                   Proposed OWL pivot: ubl:OrderLine → SmbFoundryInvoice (0x81) → DOLCE Perdurant.",
@@ -586,6 +593,7 @@ pub const PURCHASE_ORDER_LINE: OdooEntity = OdooEntity {
         l_doc_lines: (611, 643),
         odoo_source: &[],
         confidence: OdooConfidence::Curated,
+        regulation_iri: &[],
     },
 };
 
