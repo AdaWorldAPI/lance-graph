@@ -74,11 +74,9 @@ const TAG_EXTENSION_FIELDS: &[OdooField] = &[
         required: false,
         computed: Some("_compute_balance_negate"),
         depends: &["report_expression_id.formula"],
-        // TRUE when the linked report expression's formula starts with '-'.
-        // Determines sign in USt-VA box aggregation: SUM(balance * (-1 if negate else 1)).
-        // account_account_tag.py L20, L40-48.
-        // LOAD-BEARING for USt-VA computation — all Kz aggregation paths must
-        // check this flag; cf. l4.rs comment on tag sign convention.
+        // True when report expression formula starts with '-'.
+        // Determines sign in USt-VA box aggregation. account_account_tag.py L20, L40-48.
+        // LOAD-BEARING: all Kz aggregation paths must check this flag.
         semantic_role: OdooSemanticRole::Policy,
     },
     OdooField {
@@ -88,11 +86,8 @@ const TAG_EXTENSION_FIELDS: &[OdooField] = &[
         required: false,
         computed: Some("_compute_report_expression_id"),
         depends: &["name", "country_id"],
-        // Links back to the report expression defining which VAT-return box this
-        // tag feeds. Community: tag linkage via name/'formula' join exists;
-        // full account.report model is Enterprise (account_reports module).
-        // woa-rs K8: implement USt-VA report independently but reuse the
-        // tag->Kennzahl structure (formula = tag.name.lstrip('-')).
+        // VAT-return box link. Full account.report is Enterprise; community has
+        // the tag→formula join. K8: reuse tag->Kz structure (formula=tag.name.lstrip('-')).
         semantic_role: OdooSemanticRole::Reference,
     },
 ];
@@ -187,15 +182,10 @@ pub const ACCOUNT_ACCOUNT_TAG_L15: OdooEntity = OdooEntity {
 // ─── 2. account.tax  (L15 extension: CABA + rounding + totals) ───────────────
 //
 // L3 captures: all core fields + compute/propagation/repartition methods.
-// L15 adds:
-//   Fields:   hide_tax_exigibility (UI visibility gate for CABA, R11 L15:163)
-//   Methods:  _round_base_lines_tax_details (R8), _get_tax_totals_summary (R10),
-//             _prepare_tax_lines (R13), _collect_tax_cash_basis_values (R11 move.py)
-//
-// NOTE: _collect_tax_cash_basis_values is defined on account.move (L4080-4147)
-//       but is documented here because it is the CABA reconciliation engine that
-//       reads tax_exigibility fields on account.tax. It belongs in the tax-lane
-//       semantic cluster. woa-rs implementors: see L15-TAX-REPARTITION.md R11.
+// L15 adds: hide_tax_exigibility (R11), _round_base_lines_tax_details (R8),
+//           _get_tax_totals_summary (R10), _prepare_tax_lines (R13).
+// _collect_tax_cash_basis_values lives on account.move (L4080-4147) but is
+// part of this CABA semantic cluster; see L15-TAX-REPARTITION.md R11.
 
 const TAX_EXTENSION_FIELDS: &[OdooField] = &[
     // ── Fields present in L3 (key selection for cross-reference) ─────────────
@@ -206,12 +196,9 @@ const TAX_EXTENSION_FIELDS: &[OdooField] = &[
         required: false,
         computed: None,
         depends: &[],
-        // 'on_invoice' (Soll-Besteuerung, default): tax due on invoice posting.
-        // 'on_payment'  (Ist-Besteuerung / CABA): tax due on payment receipt.
-        //   → on posting: routes to cash_basis_transition_account_id (clearing).
-        //   → on reconciliation: moves to real tax account via CABA entry.
-        // Full CABA routing: _get_aml_target_tax_account on repartition.line (L3 / l3.rs).
-        // Constraint: if 'on_payment', cash_basis_transition_account_id.reconcile must be True.
+        // 'on_invoice' (Soll): due on invoice posting.
+        // 'on_payment' (Ist/CABA): due on payment; routes via transition account until reconciled.
+        // CABA routing: _get_aml_target_tax_account on repartition.line (l3.rs).
         semantic_role: OdooSemanticRole::Tax,
     },
     OdooField {
@@ -221,9 +208,7 @@ const TAX_EXTENSION_FIELDS: &[OdooField] = &[
         required: false,
         computed: None,
         depends: &[],
-        // Interim clearing account for CABA taxes. MUST have reconcile=True.
-        // Constraint at account_tax.py L247-255. See l3.rs for field record;
-        // constraint text repeated here for L15 provenance.
+        // CABA clearing account; reconcile=True required. account_tax.py L247-255.
         semantic_role: OdooSemanticRole::Tax,
     },
     // ── Field NEW vs L3 ───────────────────────────────────────────────────────
