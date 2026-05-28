@@ -44,22 +44,31 @@ resolver = "2"
 
 # ─── Workspace-level dependency pins ────────────────────────────────────────
 #
-# Task 01 (deps_substrate) — Lance 6 / LanceDB 0.28 / surrealdb kv-lance
+# Task 01 (deps_substrate) — Lance 6 / LanceDB 0.29 / surrealdb kv-lance
 #
-# BLOCKED(A): Lance 6 has not been confirmed as a published crate version.
-#   Current workspace uses `lance = "=4.0.0"`.  The spec requests "Lance 6"
-#   but crates.io only shows lance up to the 4.x series as of this writing.
-#   A fork-access human must confirm the exact semver (e.g. "=6.0.0") and
-#   whether it is published to crates.io or must be pulled from a git source.
-#   Until confirmed, leave the existing `lance = "=4.0.0"` pins in place.
+# RESOLVED(A) 2026-05-28 — Lance pinned to `=6.0.0` across all crate Cargo.tomls
+#   (lance-graph, lance-graph-benches, lance-graph-callcenter, lance-graph-catalog,
+#   lance-graph-ontology, holograph, surreal_container; lance-arrow + lance-index
+#   + lance-linalg + lance-namespace bump in lock-step). #423's coordinated
+#   4 → 6 jump landed at 6.0.0.
 #
-# BLOCKED(B): LanceDB 0.28 has not been confirmed as published.
-#   Current workspace uses `lancedb = "=0.27.2"`.  The spec requests 0.28.
-#   A fork-access human must confirm `lancedb = "=0.28.0"` (or exact patch)
-#   is live on crates.io or a private registry, and that the DataFusion 52 /
-#   Arrow 57 transitive constraints still hold at 0.28.
+#   The user authorised a follow-on patch 6.0.0 → 6.0.1, but it is **CURRENTLY
+#   BLOCKED by lancedb 0.29.0's transitive `lance = "=6.0.0"` requirement**:
+#   lancedb 0.29.0 is the latest 0.29.x published on crates.io and pins lance
+#   to exact-equals 6.0.0. Cargo cannot satisfy both `lance = "=6.0.1"` (our
+#   pin) and lancedb's transitive `lance = "=6.0.0"`. Resolution path: wait
+#   for lancedb 0.29.1+ that bumps the lance pin, OR drop the strict-equals
+#   pin in lance-graph (doctrine change). Tracked as TD-LANCE-6.0.1-PIN.
 #
-# BLOCKED(C): `surrealdb` with `kv-lance` feature.
+# RESOLVED(B) 2026-05-28 — LanceDB pinned to `=0.29.0` (the latest 0.29 patch);
+#   transitively pins lance =6.x, datafusion 53, arrow 58.
+#
+# RESOLVED(D) 2026-05-28 — lance-index → ndarray transitive is satisfied by the
+#   workspace's `[patch.crates-io] ndarray = { path = "../ndarray" }` override
+#   (the AdaWorldAPI fork), confirmed working by `cargo check --workspace` post
+#   #423's 4 → 6 bump.
+#
+# STILL OPEN — BLOCKED(C): `surrealdb` with `kv-lance` feature.
 #   Upstream surrealdb (crates.io) does NOT ship a `kv-lance` feature.  This
 #   feature lives in the AdaWorldAPI fork (core/src/kvs/lance/ per
 #   cognitive-substrate.md).  A fork-access human must supply:
@@ -68,30 +77,14 @@ resolver = "2"
 #     - the exact feature flag name (confirmed: `kv-lance` from spec)
 #     - whether a published crate path or `[patch.crates-io]` override is
 #       required for workspace compilation.
+#   Until resolved, surreal_container's `surrealdb` dep stays commented out.
 #
-# BLOCKED(D): lance-index → ndarray 0.16 transitive constraint.
-#   Lance 6 may pull lance-index which depends on ndarray 0.16.x.  The
-#   workspace currently uses AdaWorldAPI/ndarray (a path dep).  If Lance 6's
-#   transitive closure requires ndarray "0.16" from crates.io, a
-#   `[patch.crates-io]` entry must alias it to the fork path.  This must be
-#   verified by the human with access to Lance 6's full Cargo.lock.
-#
-# Placeholder [workspace.dependencies] entries are left as comments below so
-# that the draft is ready to uncomment once BLOCKED items are resolved:
-#
-#   [workspace.dependencies]
-#   # BLOCKED(A): replace "=4.0.0" with confirmed Lance 6 semver
-#   lance          = "=4.0.0"           # TODO: bump to Lance 6 once BLOCKED(A) resolved
-#   lance-linalg   = "=4.0.0"           # TODO: bump in lock-step with lance
-#   lance-index    = "=4.0.0"           # TODO: bump in lock-step; see BLOCKED(D)
-#   lance-namespace = "=4.0.0"          # TODO: bump in lock-step with lance
-#
-#   # BLOCKED(B): replace "=0.27.2" with confirmed LanceDB 0.28 semver
-#   lancedb        = "=0.27.2"          # TODO: bump to 0.28 once BLOCKED(B) resolved
-#
-#   # BLOCKED(C): replace stub with real git source + feature name
-#   # surrealdb = { git = "BLOCKED_SEE_C", branch = "BLOCKED_SEE_C", features = ["kv-lance"] }
-#
-# [patch.crates-io]
-#   # BLOCKED(D): uncomment and fill once Lance 6 ndarray transitive version known
-#   # ndarray = { path = "../../../ndarray" }
+# Crate-level pins (canonical source of truth — workspace.dependencies is not
+# used; each consumer crate declares its own pin with exact-equals so the
+# whole graph resolves to the same semver):
+#   lance           = "=6.0.0"   (lance-arrow / lance-index / lance-linalg /
+#                                 lance-namespace bump in lock-step)
+#   lancedb         = "=0.29.0"
+#   datafusion      = "53"       (+ datafusion-common / -expr / -sql /
+#                                 -functions-aggregate)
+#   arrow-array     = "58"       (+ arrow-schema / -buffer / -ipc / arrow)
