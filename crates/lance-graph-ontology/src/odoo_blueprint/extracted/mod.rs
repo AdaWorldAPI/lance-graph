@@ -36,3 +36,5 @@ pub mod l10n_de_kennzahlen;
 
 // Curated-vs-extracted reconciliation (D-ODOO-EXT-5)
 pub mod pairing;
+// Coverage report + gate (D-ODOO-EXT-6 — closes Stage 1)
+pub mod coverage;
