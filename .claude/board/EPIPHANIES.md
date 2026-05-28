@@ -1,3 +1,51 @@
+## 2026-05-28 — E-NORMALIZED-ENTITY-1 — `NormalizedEntity<Stage>` is the single typed carrier holding the four-way inheritance chain (Odoo → OGIT → OWL → DOLCE → FIBU/FIBO); stage advancement is typestate, not method calls on a context
+
+**Status:** FINDING (architectural unification). Drives `normalized-entity-holy-grail-v1`. The carrier is a typed lens into a `MailboxSoA` row — it does NOT own the four cognitive columns; the mailbox does. The 4-way inheritance slots (`odoo`/`ogit`/`owl`/`dolce` + optional `fibu`) populate as stages advance; phantom-typed `Stage` parameter forbids out-of-order traversal at compile time. Consumers chain ON the carrier (`entity.resolve_ogit(ctx).hydrate_owl(ctx)...`), never reach into its internals.
+
+---
+
+## 2026-05-28 — E-OP-FIVE-VERBS-1 — only five universal verbs span the unification: `resolve` (Odoo → OGIT) · `hydrate` (OGIT → OWL) · `classify` (OWL → DOLCE) · `align` (DOLCE → FIBU/FIBO) · `think` (the op-chain over the normalized carrier)
+
+**Status:** FINDING. Every business operation is a special case of one of the five. The temptation to add a sixth verb (`reconcile`, `report`, `aggregate`) is a sign the operation should compose multiple `think` steps, not add to the algebra. The five-verb closure parallels the Vsa16k algebra closure (`bind`/`bundle`/`cosine`) — small algebra, large surface.
+
+---
+
+## 2026-05-28 — E-OP-THREE-CALLSITES-1 — `Op<I,O>` is one trait with three call sites (`apply` cold · `apply_stream` warm · `apply_soa` hot), one set of const data shared across all three; same heuristic, three execution speeds
+
+**Status:** FINDING. The cold path runs the kernel once per entity (DataFusion-routed). The warm path maps it over a `Stream` (per-element flow-controlled). The hot path is a SoA-swept SIMD kernel (JIT-compiled from the same const data). The Op's `kind()` is its register-layer identity per `I-VSA-IDENTITIES`; the shader dispatches on kind. Consumers don't pick the call site — the transaction context does.
+
+---
+
+## 2026-05-28 — E-TRANSACTION-CONTEXT-1 — three typed transaction shapes own commit + Baton epoch + Lance version policy: `Interactive` (eager cascade, live Lance, sync DFS) · `Bulk` (epochal flush, per-batch snapshot, async) · `Periodisch` (JIT chain, frozen Lance, iterate-to-fixed-point)
+
+**Status:** FINDING. The corollary of `E-OP-THREE-CALLSITES-1`: the three call sites map 1:1 to the three contexts; the consumer's typed enclosure (`woa.interactive { ... }` / `woa.bulk { ... }` / `woa.periodisch { ... }`) picks the call site, the cascade traversal mode, the Lance version pinning, and the Baton epoch boundary. Same chain shape inside; different commit discipline outside.
+
+---
+
+## 2026-05-28 — E-CASCADE-AS-EDGECOLUMN-1 — dependency cascade collapses Odoo's six overlapping mechanisms into ONE typed graph on `EdgeColumn`; transaction context picks the traversal discipline
+
+**Status:** FINDING (conjecture pending Stage-2 enumeration). Odoo encodes cascade in: (1) `@api.depends` strings, (2) `@api.constrains` post-write hooks, (3) SQL FK `ondelete`, (4) `base.automation` server actions, (5) `_inherits` field forwarding, (6) implicit model cascades (mail-thread auto-subscribe, tax-tag aggregation). We unify all six as `CausalEdge64` rows on the mailbox's `EdgeColumn` with a `CascadeKind` discriminant. Traversal mode (sync DFS / async batched / JIT-fixed-point) comes from the transaction context. The six-into-one collapse is the structural improvement over Odoo's prior art.
+
+---
+
+## 2026-05-28 — E-ODOO-AS-PRIOR-ART-1 — Odoo solved the three regimes (interactive / bulk / periodisch) 15 years ago via `@api.depends` strings + `env.context` flags + lock-date wizards; we re-encode the same decomposition as compile-time typed boundaries
+
+**Status:** FINDING. Odoo got the decomposition right — three SLAs, three commit disciplines, three cascade modes. What hurts in Odoo is the ENCODING: stringly-typed dependency declarations, runtime-evaluated context flags, multi-screen close wizards. Failure mode is runtime drift. Our re-encoding (typestate + Op-with-three-call-sites + typed transaction contexts) makes the same three regimes fail at COMPILE time. The decomposition is borrowed; the failure timing is the improvement.
+
+---
+
+## 2026-05-28 — E-CONSUMER-CANNOT-INTERPRET-1 — business heuristics MUST be expressible as SIMD-amenable const data; regex / hand-rolled `if line.account.code.starts_with("84")` is structurally banned because the chain does not expose that primitive
+
+**Status:** FINDING (iron-rule candidate). The structural ban is the point: today consumers CAN write hand-rolled business logic because the type system permits it; CodeRabbit/Codex will not catch it. Post-migration, the only way to "check an SKR range" is `chain.chk_data(SkrAccountInRange::new(8400..=8499))` where `SkrAccountInRange` is a typed Op the shader dispatches against `SKR03_CHART`. Hand-rolled regex becomes a MISSING FUNCTION, not a code-review finding. Pairs with `I-VSA-IDENTITIES`: consumer-side interpretation is identity-layer drift.
+
+---
+
+## 2026-05-28 — E-NO-AUTOMATIC-REGIME-PICK-1 — the cognitive shader does NOT autonomously choose between hot / warm / cold execution; the consumer's typed transaction context does (correction of the earlier "shader picks based on flow rate + surprise" framing)
+
+**Status:** FINDING (mid-session correction). The cute framing — "shader picks hot vs cold based on flow rate" — conflates three SLA regimes that have genuinely different correctness requirements: interactive MUST see live data (no frozen snapshot), periodisch MUST NOT see writes after fiscal cutoff (frozen point-in-time). A shader that switches modes based on flow pressure can silently break either invariant. The consumer's enclosing typed context (`Interactive` / `Bulk` / `Periodisch`) is the only authority for which mode is correct; the shader executes within whichever mode the context dictates. Pairs with the SoA-as-AGI doctrine: AGI is the SHADER'S behaviour under SoA dispatch, but the regime under which that dispatch runs is the CONSUMER'S typed declaration.
+
+---
+
 ## 2026-05-28 — E-CODEBOOK-INHERITS-FROM-OGIT — every identity (entities, savants, atoms, ontology classes, regulation rules, accounts) lives as a codebook entry inherited from OGIT; LE-byte SoA per mailbox stores the codes; bitpacked u64 is a desperation-bucket fallback; the SoA doesn't guess
 
 **Status:** FINDING (architectural correction, supersedes the role-key-as-canonical interpretation of `I-VSA-IDENTITIES`; drives the v2-step codebook foundation in `contract::callcenter::ogit_uris`).

@@ -1,3 +1,35 @@
+## 2026-05-28 — normalized-entity-holy-grail-v1 (typed unified normalization + Op chain over OGIT/OWL/DOLCE/Odoo with three-context execution — the trunk that unifies BP-1 + EXT-1..6 + jit + MailboxSoA into one consumer surface)
+
+**Status:** PROPOSAL. The trunk plan that ties together every prior architectural deliverable into ONE typed consumer pipeline grammar. Closes the structural gap that lets consumers re-implement business logic in regex / hand-rolled pseudo-code by making such interpretation a MISSING FUNCTION (per `E-CONSUMER-CANNOT-INTERPRET-1`) rather than a code-review concern. Re-encodes Odoo's three-regime decomposition (interactive / bulk / periodisch) as compile-time typestate, not stringly-typed `env.context` flags.
+**Confidence:** HIGH on carrier + algebra shape (one struct, 5 verbs — direct analogue of the SoA-as-AGI unification). HIGH on the three-context split (genuinely different SLAs; Odoo prior art proves the decomposition is real). MED on the Op-trait three-call-site specialisation (jit substrate exists but has never been wired against a typed Op grammar). LOW on the macro-DSL layer (consumer ergonomics; needs per-repo iteration).
+**Plan file:** `.claude/plans/normalized-entity-holy-grail-v1.md`
+**Predecessors:** `D-ODOO-BP-1a..g` typed surface (Wave 1-3 lane modules); `D-ODOO-EXT-1..6` source-extracted backing (PR #426 merged); PR #411 (`lance-graph-contract::jit::{JitCompiler, StyleRegistry, KernelHandle}`); PR #427 (`MailboxSoA` thoughtspace columns + WitnessTable + §10 refinements); `lance-graph-contract::callcenter::ogit_uris`; `lance-graph-ontology::dolce_odoo`; `lance-graph-contract::orchestration::{OrchestrationBridge, UnifiedStep}`; `lance-graph-rbac::{SuperDomain, smb_policy}`.
+**Anchored epiphanies (all 8 prepended to EPIPHANIES.md in the same commit):** `E-NORMALIZED-ENTITY-1` (single typed carrier); `E-OP-FIVE-VERBS-1` (resolve/hydrate/classify/align/think closure); `E-OP-THREE-CALLSITES-1` (cold/warm/hot, shared const data); `E-TRANSACTION-CONTEXT-1` (interactive/bulk/periodisch own commit+epoch+version policy); `E-CASCADE-AS-EDGECOLUMN-1` (Odoo's 6 mechanisms collapse into 1 typed graph); `E-ODOO-AS-PRIOR-ART-1` (decomposition borrowed, encoding improved); `E-CONSUMER-CANNOT-INTERPRET-1` (regex structurally banned via missing-function); `E-NO-AUTOMATIC-REGIME-PICK-1` (consumer-typed context picks mode, not shader).
+
+### Stage-1 deliverables (this plan ships ~2 500 LOC; mostly typed signatures + compile-fail tests)
+
+| D-id | Description | Site | LOC |
+|---|---|---|---:|
+| **D-NEH-1a** | `lance-graph-contract::cognition::{NormalizedEntity, stages, Op, OpKind, MailboxRow, Output}` typed surface — zero-dep, `todo!()` bodies, compile-fail tests | `lance-graph-contract/src/cognition/` | 600 |
+| **D-NEH-1b** | `lance-graph-contract::transaction::{Interactive, Bulk, Periodisch, Context, OgitCtx/OwlCtx/DolceCtx/FibuCtx}` — context shapes + commit-policy traits | `lance-graph-contract/src/transaction/` | 400 |
+| **D-NEH-1c** | 5-verb advancement methods on `NormalizedEntity<S>` (`resolve_ogit` / `hydrate_owl` / `classify_dolce` / `align_fibu` / chain methods) + provenance | `lance-graph-contract/src/cognition/advance.rs` | 300 |
+| **D-NEH-1d** | `CascadeKind` + cascade-graph traversal trait on `EdgeColumn` + per-context traversal mode (`Sync` / `Batched` / `JitFixedPoint`) | `lance-graph-contract/src/cognition/cascade.rs` | 350 |
+| **D-NEH-1e** | Compile-fail tests proving the typestate gate (out-of-order chain calls fail to compile) | `lance-graph-contract/tests/cognition_typestate.rs` | 250 |
+| **D-NEH-1f** | Doc-level example consumer chain (woa-rs invoice flow as `cargo doc` example) + crate-level doc landing page | `lance-graph-contract/src/cognition/mod.rs` + `docs/COGNITION_HOLY_GRAIL.md` | 400 |
+| **D-NEH-1g** | Board hygiene (this entry + EPIPHANIES prepend + STATUS_BOARD rows) | `.claude/board/` | 200 |
+
+### Subsequent waves (sketched in the plan; separate v2..v7 plans)
+- **v2** kernel bodies for ~50 typed Ops (port to shader dispatch table + JIT-compile hot path)
+- **v3** consumer DSL macros (`medcare_think!` / `woa_think!` / `smb_think!`) — pipe-style ergonomics on top of the typestate chain
+- **v4** Stream + ractor-supervised actor wiring (the Elixir-OTP analogue)
+- **v5** Jahresabrechnung JIT kernel (target ≥100× throughput vs Odoo's `account.fiscal.year.close` wizard)
+- **v6** palantir-foundry parity audit (ontology objects / branches / lineage / action types / functions-on-objects → workspace primitives matrix)
+- **v7** elixir-OTP parity audit (processes / supervision / streams / behaviours → workspace primitives matrix)
+
+When v6 and v7 are ≥80% present, the workspace has earned the "better palantir foundry / better elixir" framing the plan was named for.
+
+---
+
 ## 2026-05-28 — odoo-source-extraction-v1 (TIER-1 Odoo source extraction → `OdooConfidence::Extracted` backing for `D-ODOO-BP-1b`; sub-plan unfolding `D-ODOO-BP-1f`)
 
 **Status:** SHIPPED (Stage 1 — EXT-1..6 complete); per-lane gate test in `extracted::coverage`; Stage 2 addresses TIER-2 addons (POS, HR, website, fleet, maintenance, non-DE l10n, payment providers); the 5 known L13/L14 gaps (4 hr.* + stock.valuation.layer) close via hr + stock_account extraction. Unfolds `D-ODOO-BP-1f` of `odoo-business-logic-blueprint-v1` into a tractable Stage 1 over 12 TIER-1 addons (`account`, `account_payment`, `l10n_de`, `product`, `stock`, `uom`, `base`, `analytic`, `purchase`, `sale`, `account_peppol`, `account_edi_ubl_cii`) of the 622 in `/home/user/odoo/addons/`. Validates and adds source-extracted backing to the L-doc-curated `OdooEntity` consts that Wave 1-3 just shipped (commits `9507b36`..`2aca3e3`).
