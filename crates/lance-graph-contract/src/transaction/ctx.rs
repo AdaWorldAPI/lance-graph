@@ -49,11 +49,11 @@ mod sealed {
 /// canonical `OntologyRegistry` (OGIT URI → stable row index), never
 /// hash the model_name directly.
 ///
-/// /// work: Stage 2 wires the concrete implementation to dispatch into
-/// /// `crate::callcenter::ogit_uris::savant_ogit_uri` (already shipped
-/// /// in PR #427) for the savant codebook, and into a parallel
-/// /// `entity_ogit_uri(model_name)` lookup for Odoo model → OGIT URI
-/// /// mapping. Both lookups are `O(1)` static-str comparisons.
+// TODO(Stage 2): Stage 2 wires the concrete implementation to dispatch into
+// `crate::callcenter::ogit_uris::savant_ogit_uri` (already shipped
+// in PR #427) for the savant codebook, and into a parallel
+// `entity_ogit_uri(model_name)` lookup for Odoo model → OGIT URI
+// mapping. Both lookups are `O(1)` static-str comparisons.
 pub trait OgitCtx: Context {
     /// Resolve an Odoo `model_name` (e.g. `"account.move"`) to an
     /// [`OgitUriRef`] via the canonical OGIT codebook.
@@ -70,10 +70,10 @@ pub trait OgitCtx: Context {
 /// Unlocks the `hydrate_owl` verb on
 /// [`NormalizedEntity<WithOgit>`](crate::cognition::entity::NormalizedEntity).
 ///
-/// /// work: Stage 2 wires the concrete implementation to perform a TTL
-/// /// join on the OGIT ontology graph (the OWL TTL is available after
-/// /// the EXT-1 extraction). The join result is an OWL class IRI stored
-/// /// as a static-str handle in the `owl` field.
+// TODO(Stage 2): Stage 2 wires the concrete implementation to perform a TTL
+// join on the OGIT ontology graph (the OWL TTL is available after
+// the EXT-1 extraction). The join result is an OWL class IRI stored
+// as a static-str handle in the `owl` field.
 pub trait OwlCtx: Context {
     /// Hydrate an OGIT URI to its OWL class via TTL join.
     fn hydrate_owl(&self, ogit_uri: OgitUriRef) -> OwlClassRef;
@@ -86,9 +86,9 @@ pub trait OwlCtx: Context {
 /// Unlocks the `classify_dolce` verb on
 /// [`NormalizedEntity<WithOwl>`](crate::cognition::entity::NormalizedEntity).
 ///
-/// /// work: Stage 2 wires the concrete implementation to dispatch into
-/// /// `lance_graph_ontology::dolce_odoo::DolceClassifier` (already
-/// /// shipped in the EXT-2..6 extraction).
+// TODO(Stage 2): Stage 2 wires the concrete implementation to dispatch into
+// `lance_graph_ontology::dolce_odoo::DolceClassifier` (already
+// shipped in the EXT-2..6 extraction).
 pub trait DolceCtx: Context {
     /// Classify an OWL class into a [`DolceCategory`].
     fn classify_dolce(&self, owl_class: OwlClassRef) -> DolceCategory;
@@ -105,10 +105,10 @@ pub trait DolceCtx: Context {
 /// names to German accounting frames (Kontenerkennung, SKR03/SKR04,
 /// UStVA Kennzahlen, GoBD wiring).
 ///
-/// /// work: Stage 2 wires the concrete implementation using the D-ODOO-EXT-1..6
-/// /// Kontenerkennung tables (1274 + 1192 SKR account templates, 37
-/// /// UStVA Kennzahlen). The alignment is a static table lookup keyed
-/// /// on (DolceCategory, OdooEntityRef).
+// TODO(Stage 2): Stage 2 wires the concrete implementation using the D-ODOO-EXT-1..6
+// Kontenerkennung tables (1274 + 1192 SKR account templates, 37
+// UStVA Kennzahlen). The alignment is a static table lookup keyed
+// on (DolceCategory, OdooEntityRef).
 pub trait FibuCtx: Context {
     /// Align a (DOLCE category, Odoo entity) pair to a FIBU/FIBO frame.
     fn align_fibu(&self, dolce: DolceCategory, odoo: crate::cognition::entity::OdooEntityRef)

@@ -39,37 +39,37 @@ pub struct MailboxRow {
 
 // ── Zero-dep placeholder handles ─────────────────────────────────────────────
 //
-// /// work: These placeholder handles stand in for the real types that live in
-// /// other crates (`OdooEntity` in lance-graph-ontology, `OgitUri` in
-// /// callcenter::ogit_uris, `OwlClass` in the OWL registry). For Stage 1 we
-// /// use static-str wrappers so this crate stays zero-dep. Stage 2 replaces
-// /// these with `&'static OdooEntity` etc. once the ontology crate depends on
-// /// contract (or the relevant type is moved down to contract).
+// TODO(Stage 2): These placeholder handles stand in for the real types that live in
+// other crates (`OdooEntity` in lance-graph-ontology, `OgitUri` in
+// callcenter::ogit_uris, `OwlClass` in the OWL registry). For Stage 1 we
+// use static-str wrappers so this crate stays zero-dep. Stage 2 replaces
+// these with `&'static OdooEntity` etc. once the ontology crate depends on
+// contract (or the relevant type is moved down to contract).
 
 /// Zero-dep handle for an Odoo entity — wraps the `model_name` string
 /// (e.g. `"account.move"`).
 ///
-/// /// work: Stage 2 replaces with `&'static lance_graph_ontology::OdooEntity`.
+// TODO(Stage 2): Stage 2 replaces with `&'static lance_graph_ontology::OdooEntity`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct OdooEntityRef(pub &'static str);
 
 /// Zero-dep handle for an OGIT URI (e.g. `"https://ogit.adaworldapi.com/callcenter#Invoice"`).
 ///
-/// /// work: Stage 2 replaces with `&'static lance_graph_contract::callcenter::ogit_uris::OgitUri`.
+// TODO(Stage 2): Stage 2 replaces with `&'static lance_graph_contract::callcenter::ogit_uris::OgitUri`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct OgitUriRef(pub &'static str);
 
 /// Zero-dep handle for an OWL class IRI.
 ///
-/// /// work: Stage 2 replaces with a real `&'static OwlClass` from the
-/// /// OWL registry once it lands in the contract crate.
+// TODO(Stage 2): Stage 2 replaces with a real `&'static OwlClass` from the
+// OWL registry once it lands in the contract crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct OwlClassRef(pub &'static str);
 
 /// Zero-dep handle for a FIBU/FIBO alignment frame identifier.
 ///
-/// /// work: Stage 2 replaces with a typed alignment struct once the
-/// /// FIBU overlay is defined in a dependent crate.
+// TODO(Stage 2): Stage 2 replaces with a typed alignment struct once the
+// FIBU overlay is defined in a dependent crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct FibuAlignmentRef(pub &'static str);
 
@@ -79,9 +79,9 @@ pub struct FibuAlignmentRef(pub &'static str);
 ///
 /// Populated by the `classify_dolce` verb (see [`super::advance`]).
 ///
-/// /// work: the existing DOLCE classifier in
-/// /// `lance-graph-ontology::dolce_odoo` has richer sub-categories;
-/// /// Stage 2 expands this enum to match its full discriminant set.
+// TODO(Stage 2): the existing DOLCE classifier in
+// `lance-graph-ontology::dolce_odoo` has richer sub-categories;
+// Stage 2 expands this enum to match its full discriminant set.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DolceCategory {
     /// DOLCE `Endurant` — spatially and temporally extended objects
@@ -101,9 +101,9 @@ pub enum DolceCategory {
     Region,
     /// Catch-all for DOLCE sub-categories not yet enumerated.
     ///
-    /// /// work: Stage 2 expands by auditing all `_inherit`/`_inherits`
-    /// /// chains in the EXT-2 output and mapping each to a DOLCE sub-
-    /// /// category from the `lance-graph-ontology::dolce_odoo` classifier.
+    // TODO(Stage 2): Stage 2 expands by auditing all `_inherit`/`_inherits`
+    // chains in the EXT-2 output and mapping each to a DOLCE sub-
+    // category from the `lance-graph-ontology::dolce_odoo` classifier.
     Other,
 }
 
@@ -144,10 +144,10 @@ pub enum DolceCategory {
 pub struct NormalizedEntity<S: Stage = Raw> {
     /// Source-of-truth Odoo identity (the `model_name` handle).
     ///
-    /// /// work: Stage 2 replaces `OdooEntityRef` with
-    /// /// `&'static lance_graph_ontology::OdooEntity` (or moves the
-    /// /// type down to contract if the ontology crate can depend on
-    /// /// contract without a cycle).
+    // TODO(Stage 2): Stage 2 replaces `OdooEntityRef` with
+    // `&'static lance_graph_ontology::OdooEntity` (or moves the
+    // type down to contract if the ontology crate can depend on
+    // contract without a cycle).
     pub odoo: OdooEntityRef,
 
     /// OGIT URI resolved in the `WithOgit` stage.
@@ -175,9 +175,9 @@ pub struct NormalizedEntity<S: Stage = Raw> {
     /// The mailbox owns the actual SoA columns (edges / qualia / meta /
     /// entity_type); `NormalizedEntity` is a typed lens onto them.
     ///
-    /// /// work: in Stage 2 the advancement verbs also write back into
-    /// /// the mailbox's SoA fingerprint column with the resolved OGIT
-    /// /// identity, once `cognitive-shader-driver` is a hard dependency.
+    // TODO(Stage 2): in Stage 2 the advancement verbs also write back into
+    // the mailbox's SoA fingerprint column with the resolved OGIT
+    // identity, once `cognitive-shader-driver` is a hard dependency.
     pub row: MailboxRow,
 
     /// Phantom stage marker. Zero size; never stored at runtime.

@@ -44,10 +44,10 @@ impl NormalizedEntity<Raw> {
     /// Per E-CODEBOOK-INHERITS-FROM-OGIT: the resolved URI is a
     /// stable codebook row index, not a freshly hashed value.
     ///
-    /// /// work: also need to write back the resolved OGIT identity
-    /// /// into the owning mailbox's SoA fingerprint column. Stage 2
-    /// /// wires this once `cognitive-shader-driver` is a hard dep of
-    /// /// contract (or the write-back goes through a trait adapter).
+    // TODO(Stage 2): also need to write back the resolved OGIT identity
+    // into the owning mailbox's SoA fingerprint column. Stage 2
+    // wires this once `cognitive-shader-driver` is a hard dep of
+    // contract (or the write-back goes through a trait adapter).
     pub fn resolve_ogit<C: OgitCtx>(self, ctx: &C) -> NormalizedEntity<WithOgit> {
         let ogit = ctx.resolve_ogit(self.odoo.0);
         // Use advance_stage to copy the struct without touching _stage directly,
@@ -68,9 +68,9 @@ impl NormalizedEntity<WithOgit> {
     /// (which implements [`OwlCtx`]). Returns a `NormalizedEntity`
     /// with the `owl` slot populated.
     ///
-    /// /// work: dispatch OWL hydration via `ctx.hydrate_owl()`. Stage 2
-    /// /// wires the concrete hydrator from `lance-graph-ontology` (the
-    /// /// OWL TTL graph is already extracted in the EXT-1 deliverable).
+    // TODO(Stage 2): dispatch OWL hydration via `ctx.hydrate_owl()`. Stage 2
+    // wires the concrete hydrator from `lance-graph-ontology` (the
+    // OWL TTL graph is already extracted in the EXT-1 deliverable).
     pub fn hydrate_owl<C: OwlCtx>(self, _ctx: &C) -> NormalizedEntity<WithOwl> {
         todo!("D-NEH-2 wires the OWL hydrator from lance-graph-ontology")
     }
@@ -86,10 +86,10 @@ impl NormalizedEntity<WithOwl> {
     /// (which implements [`DolceCtx`]). Returns a `NormalizedEntity`
     /// with the `dolce` slot populated.
     ///
-    /// /// work: dispatch DOLCE classification via `ctx.classify_dolce()`.
-    /// /// Stage 2 wires the concrete classifier from
-    /// /// `lance-graph-ontology::dolce_odoo` (already shipped in the
-    /// /// EXT-2..6 extraction).
+    // TODO(Stage 2): dispatch DOLCE classification via `ctx.classify_dolce()`.
+    // Stage 2 wires the concrete classifier from
+    // `lance-graph-ontology::dolce_odoo` (already shipped in the
+    // EXT-2..6 extraction).
     pub fn classify_dolce<C: DolceCtx>(self, _ctx: &C) -> NormalizedEntity<WithDolce> {
         todo!("D-NEH-2 wires the DOLCE classifier from lance-graph-ontology::dolce_odoo")
     }
@@ -105,9 +105,9 @@ impl NormalizedEntity<WithDolce> {
     /// context (which implements [`FibuCtx`]). Returns a
     /// `NormalizedEntity<Normalized>` — fully chain-ready.
     ///
-    /// /// work: dispatch FIBU/FIBO alignment via `ctx.align_fibu()`.
-    /// /// Stage 2 wires the alignment overlay from the D-ODOO-EXT-1..6
-    /// /// Kontenerkennung tables (SKR03/SKR04 + UStVA Kennzahlen).
+    // TODO(Stage 2): dispatch FIBU/FIBO alignment via `ctx.align_fibu()`.
+    // Stage 2 wires the alignment overlay from the D-ODOO-EXT-1..6
+    // Kontenerkennung tables (SKR03/SKR04 + UStVA Kennzahlen).
     pub fn align_fibu<C: FibuCtx>(self, _ctx: &C) -> NormalizedEntity<Normalized> {
         todo!("D-NEH-2 wires the FIBU/FIBO alignment overlay from EXT-1..6 Kontenerkennung")
     }
@@ -215,13 +215,13 @@ impl NormalizedEntity<Reported> {
     /// `@api.depends`. The Baton (`(u16, CausalEdge64)`) carries the
     /// causal edge to each dependent mailbox.
     ///
-    /// /// work: wire to Baton emission + [`super::cascade::CascadeWalker`]
-    /// /// traversal per the active transaction context. Stage 2 detail:
-    /// /// pull the active [`crate::transaction::Context`] from a thread-
-    /// /// local or env handle (or pass it in explicitly — API TBD once
-    /// /// the first concrete consumer exists in Stage 2). The current
-    /// /// `Output { success: true }` placeholder is unconditional; Stage 2
-    /// /// gates on NARS confidence < audit_floor for escalation.
+    // TODO(Stage 2): wire to Baton emission + [`super::cascade::CascadeWalker`]
+    // traversal per the active transaction context. Stage 2 detail:
+    // pull the active [`crate::transaction::Context`] from a thread-
+    // local or env handle (or pass it in explicitly — API TBD once
+    // the first concrete consumer exists in Stage 2). The current
+    // `Output { success: true }` placeholder is unconditional; Stage 2
+    // gates on NARS confidence < audit_floor for escalation.
     pub fn output(self) -> Output {
         Output { success: true }
     }

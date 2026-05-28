@@ -80,9 +80,9 @@ pub enum CascadeKind {
     /// Highly configurable in Odoo; encoded as `Other` + tag until
     /// the specific automation patterns from EXT-2 are enumerated.
     ///
-    /// /// work: Stage 2 audit of `base.automation` records in the
-    /// /// EXT-2 output will surface specific subtypes; promote those
-    /// /// to their own variants at that time.
+    // TODO(Stage 2): Stage 2 audit of `base.automation` records in the
+    // EXT-2 output will surface specific subtypes; promote those
+    // to their own variants at that time.
     ServerAction,
 
     /// `_inherits` field-forwarding cascade.
@@ -95,10 +95,10 @@ pub enum CascadeKind {
     /// Catch-all for model-specific implicit cascades not yet
     /// individually enumerated.
     ///
-    /// /// work: Stage 2 enumerates the remaining cases by auditing
-    /// /// all `_inherit`/`_inherits` chains in the EXT-2 output and
-    /// /// promoting recurring implicit cascades (mail-thread auto-
-    /// /// subscribe, tax-tag aggregation) to their own variants.
+    // TODO(Stage 2): Stage 2 enumerates the remaining cases by auditing
+    // all `_inherit`/`_inherits` chains in the EXT-2 output and
+    // promoting recurring implicit cascades (mail-thread auto-
+    // subscribe, tax-tag aggregation) to their own variants.
     Other,
 }
 
@@ -138,10 +138,10 @@ pub enum TraversalMode {
     /// version is frozen at the cutoff date and iteration continues
     /// until debits = credits.
     ///
-    /// /// work: the JIT chain handle for fixed-point iteration over
-    /// /// a sequence of Op kernels is not yet defined in
-    /// /// `lance-graph-contract::jit`. Stage 2 adds
-    /// /// `JitChainHandle::iterate_until(predicate)`.
+    // TODO(Stage 2): the JIT chain handle for fixed-point iteration over
+    // a sequence of Op kernels is not yet defined in
+    // `lance-graph-contract::jit`. Stage 2 adds
+    // `JitChainHandle::iterate_until(predicate)`.
     JitFixedPoint,
 }
 
@@ -164,12 +164,12 @@ pub enum TraversalMode {
 /// - The `mode` argument tells the walker which traversal discipline
 ///   to apply (sync DFS / async batched / JIT fixed-point).
 ///
-/// /// work: Stage 2 wires this trait as `impl CascadeWalker for
-/// /// cognitive_shader_driver::EdgeColumn`. The walker output (the set
-/// /// of `MailboxRow`s that must be re-evaluated) is fed back into
-/// /// the Op chain as a new `NormalizedEntity<Raw>` per dependent row,
-/// /// forming the dependency fan-out. The Baton (`(u16, CausalEdge64)`)
-/// /// carries the causal edge across mailbox boundaries per E-BATON-1.
+// TODO(Stage 2): Stage 2 wires this trait as `impl CascadeWalker for
+// cognitive_shader_driver::EdgeColumn`. The walker output (the set
+// of `MailboxRow`s that must be re-evaluated) is fed back into
+// the Op chain as a new `NormalizedEntity<Raw>` per dependent row,
+// forming the dependency fan-out. The Baton (`(u16, CausalEdge64)`)
+// carries the causal edge across mailbox boundaries per E-BATON-1.
 pub trait CascadeWalker {
     /// Walk all downstream dependents of `from` in the `EdgeColumn`.
     ///

@@ -41,16 +41,16 @@ use crate::cognition::entity::{
 /// + lock-date global state are the prior art; our re-encoding uses
 /// a typed frozen context).
 ///
-/// /// work: Stage 2 adds:
-/// /// - `frozen_lance_version: LanceFrozenHandle` — the Lance version
-/// ///   pinned at the fiscal cutoff timestamp.
-/// /// - `jit_chain: JitChainHandle` — the JIT-compiled Op chain for
-/// ///   the hot path. Requires `lance-graph-contract::jit::JitCompiler`
-/// ///   to grow `compile_chain(ops: &[OpKind]) -> JitChainHandle`.
-/// ///   See plan §"JIT shape for chains" open question.
-/// /// - `fixed_point_predicate: fn(&MailboxSoA) -> bool` — the
-/// ///   termination condition (e.g. `|soa| soa.total_debit() == soa.total_credit()`).
-/// /// For Stage 1 we hold a unit placeholder.
+// TODO(Stage 2): Stage 2 adds:
+// - `frozen_lance_version: LanceFrozenHandle` — the Lance version
+//   pinned at the fiscal cutoff timestamp.
+// - `jit_chain: JitChainHandle` — the JIT-compiled Op chain for
+//   the hot path. Requires `lance-graph-contract::jit::JitCompiler`
+//   to grow `compile_chain(ops: &[OpKind]) -> JitChainHandle`.
+//   See plan §"JIT shape for chains" open question.
+// - `fixed_point_predicate: fn(&MailboxSoA) -> bool` — the
+//   termination condition (e.g. `|soa| soa.total_debit() == soa.total_credit()`).
+// For Stage 1 we hold a unit placeholder.
 pub struct Periodisch {
     /// Stage-1 placeholder; Stage 2 replaces with the frozen Lance
     /// handle + JIT chain handle + fixed-point predicate.
@@ -69,10 +69,10 @@ impl Periodisch {
 
     /// Return the frozen Lance version handle.
     ///
-    /// /// work: Stage 2 exposes a real `LanceFrozenHandle` that holds
-    /// /// a reference to the Lance version at the fiscal-cutoff date.
-    /// /// For now, this is a documentation placeholder showing where
-    /// /// the API surface will sit.
+    // TODO(Stage 2): Stage 2 exposes a real `LanceFrozenHandle` that holds
+    // a reference to the Lance version at the fiscal-cutoff date.
+    // For now, this is a documentation placeholder showing where
+    // the API surface will sit.
     pub fn frozen_lance_version(&self) {
         todo!("D-NEH-5 wires the frozen Lance version handle (JahresabrechnungChain)")
     }
@@ -90,33 +90,33 @@ impl Context for Periodisch {}
 
 impl OgitCtx for Periodisch {
     fn resolve_ogit(&self, _model_name: &'static str) -> OgitUriRef {
-        // /// work: same dispatch as Interactive/Bulk but reads from the
-        // /// FROZEN Lance version at fiscal-cutoff. Critical invariant:
-        // /// MUST NOT see any OGIT codebook changes made after the
-        // /// cutoff date (GoBD compliance: no retroactive writes).
+        // TODO(Stage 2): same dispatch as Interactive/Bulk but reads from the
+        // FROZEN Lance version at fiscal-cutoff. Critical invariant:
+        // MUST NOT see any OGIT codebook changes made after the
+        // cutoff date (GoBD compliance: no retroactive writes).
         todo!("D-NEH-2 wires the OGIT codebook lookup (frozen-version)")
     }
 }
 
 impl OwlCtx for Periodisch {
     fn hydrate_owl(&self, _ogit_uri: OgitUriRef) -> OwlClassRef {
-        // /// work: OWL hydration from the frozen Lance TTL registry.
+        // TODO(Stage 2): OWL hydration from the frozen Lance TTL registry.
         todo!("D-NEH-2 wires the OWL hydrator (frozen-version)")
     }
 }
 
 impl DolceCtx for Periodisch {
     fn classify_dolce(&self, _owl_class: OwlClassRef) -> DolceCategory {
-        // /// work: DOLCE classification from the frozen Lance ontology.
+        // TODO(Stage 2): DOLCE classification from the frozen Lance ontology.
         todo!("D-NEH-2 wires the DOLCE classifier (frozen-version)")
     }
 }
 
 impl FibuCtx for Periodisch {
     fn align_fibu(&self, _dolce: DolceCategory, _odoo: OdooEntityRef) -> FibuAlignmentRef {
-        // /// work: FIBU/FIBO alignment from the frozen Kontenerkennung
-        // /// tables. GoBD compliance: the SKR chart used at cutoff is
-        // /// the authority; subsequent chart updates are invisible.
+        // TODO(Stage 2): FIBU/FIBO alignment from the frozen Kontenerkennung
+        // tables. GoBD compliance: the SKR chart used at cutoff is
+        // the authority; subsequent chart updates are invisible.
         todo!("D-NEH-2 wires the FIBU/FIBO alignment overlay (frozen-version)")
     }
 }

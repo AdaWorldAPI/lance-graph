@@ -37,14 +37,14 @@ use crate::cognition::entity::{
 /// (to discourage sharing across concurrent flows — each interactive
 /// flow owns its context for the duration of the chain).
 ///
-/// /// work: Stage 2 adds:
-/// /// - `baton_queue: BatonEmissionQueue` — the sync Baton fan-out
-/// ///   queue that fires at `.output()`.
-/// /// - `edge_column_walker: SyncCascadeWalker` — the sync DFS
-/// ///   traverser over the `EdgeColumn` per
-/// ///   `lance_graph_contract::cognition::cascade::CascadeWalker`.
-/// /// - `lance_version: LanceReadHandle` — pinned live version.
-/// /// For Stage 1 we hold a unit placeholder.
+// TODO(Stage 2): Stage 2 adds:
+// - `baton_queue: BatonEmissionQueue` — the sync Baton fan-out
+//   queue that fires at `.output()`.
+// - `edge_column_walker: SyncCascadeWalker` — the sync DFS
+//   traverser over the `EdgeColumn` per
+//   `lance_graph_contract::cognition::cascade::CascadeWalker`.
+// - `lance_version: LanceReadHandle` — pinned live version.
+// For Stage 1 we hold a unit placeholder.
 pub struct Interactive {
     /// Stage-1 placeholder; Stage 2 replaces with the live Baton
     /// emission queue + sync cascade walker.
@@ -73,35 +73,35 @@ impl Context for Interactive {}
 
 impl OgitCtx for Interactive {
     fn resolve_ogit(&self, _model_name: &'static str) -> OgitUriRef {
-        // /// work: dispatch into `crate::callcenter::ogit_uris` for the
-        // /// canonical OGIT URI lookup. The codebook maps `model_name`
-        // /// to a stable `OgitUriRef` via `OntologyRegistry::resolve`.
-        // /// Stage 2 also writes the resolved code into the owning
-        // /// mailbox's SoA fingerprint column via the Baton emission
-        // /// queue (E-CODEBOOK-INHERITS-FROM-OGIT).
+        // TODO(Stage 2): dispatch into `crate::callcenter::ogit_uris` for the
+        // canonical OGIT URI lookup. The codebook maps `model_name`
+        // to a stable `OgitUriRef` via `OntologyRegistry::resolve`.
+        // Stage 2 also writes the resolved code into the owning
+        // mailbox's SoA fingerprint column via the Baton emission
+        // queue (E-CODEBOOK-INHERITS-FROM-OGIT).
         todo!("D-NEH-2 wires the real OGIT codebook lookup via callcenter::ogit_uris")
     }
 }
 
 impl OwlCtx for Interactive {
     fn hydrate_owl(&self, _ogit_uri: OgitUriRef) -> OwlClassRef {
-        // /// work: dispatch OWL hydration via the TTL-join registry.
-        // /// Stage 2 wires this against the EXT-1 OWL extraction.
+        // TODO(Stage 2): dispatch OWL hydration via the TTL-join registry.
+        // Stage 2 wires this against the EXT-1 OWL extraction.
         todo!("D-NEH-2 wires the OWL hydrator (TTL join on OGIT URI)")
     }
 }
 
 impl DolceCtx for Interactive {
     fn classify_dolce(&self, _owl_class: OwlClassRef) -> DolceCategory {
-        // /// work: dispatch into lance_graph_ontology::dolce_odoo::DolceClassifier.
+        // TODO(Stage 2): dispatch into lance_graph_ontology::dolce_odoo::DolceClassifier.
         todo!("D-NEH-2 wires the DOLCE classifier from lance-graph-ontology::dolce_odoo")
     }
 }
 
 impl FibuCtx for Interactive {
     fn align_fibu(&self, _dolce: DolceCategory, _odoo: OdooEntityRef) -> FibuAlignmentRef {
-        // /// work: dispatch into the Kontenerkennung alignment tables
-        // /// (SKR03/SKR04, UStVA Kennzahlen, GoBD wiring).
+        // TODO(Stage 2): dispatch into the Kontenerkennung alignment tables
+        // (SKR03/SKR04, UStVA Kennzahlen, GoBD wiring).
         todo!("D-NEH-2 wires the FIBU/FIBO alignment overlay from EXT-1..6")
     }
 }
