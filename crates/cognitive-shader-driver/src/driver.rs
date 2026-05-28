@@ -45,9 +45,7 @@ use p64_bridge::cognitive_shader::CognitiveShader;
 
 use crate::auto_style;
 use crate::bindspace::{BindSpace, WORDS_PER_FP};
-/// work
 use crate::mailbox_soa::MailboxSoA;
-/// work
 use lance_graph_contract::collapse_gate::MailboxId;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -76,7 +74,6 @@ pub struct ShaderDriver {
     /// Lives in `causal-edge` (zero-dep), so attaching it does NOT pull
     /// the planner into shader-driver.
     pub(crate) nars_tables: Option<Arc<NarsTables>>,
-    /// work
     /// Transitional per-mailbox routing surface (slice A2).
     ///
     /// Consumers can opt into per-mailbox routing by inserting
@@ -125,7 +122,6 @@ impl ShaderDriver {
         self.nars_tables.as_ref()
     }
 
-    /// work
     /// Return a read reference to the `MailboxSoA<1024>` registered under
     /// `id`, or `None` if no mailbox with that id has been inserted via
     /// the builder's `with_mailbox` method.
@@ -622,7 +618,6 @@ pub struct CognitiveShaderBuilder {
     planes: Option<[[u64; 64]; 8]>,
     default_style: u8,
     nars_tables: Option<Arc<NarsTables>>,
-    /// work
     /// Transitional per-mailbox routing map populated by `with_mailbox`.
     /// Forwarded into `ShaderDriver::mailboxes` at `build()` time.
     mailboxes: std::collections::HashMap<MailboxId, MailboxSoA<1024>>,
@@ -666,7 +661,6 @@ impl CognitiveShaderBuilder {
         self
     }
 
-    /// work
     /// Register a `MailboxSoA<1024>` for transitional per-mailbox routing
     /// (slice A2). The mailbox is keyed by `id`; a second call with the
     /// same `id` replaces the previous entry. Multiple mailboxes are

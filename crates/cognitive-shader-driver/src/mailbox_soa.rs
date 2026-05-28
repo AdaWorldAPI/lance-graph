@@ -61,25 +61,21 @@ pub struct MailboxSoA<const N: usize> {
 
     // ── NEW: migrated thoughtspace columns (per-mailbox owned, D-MBX-A1) ──
 
-    /// work
     /// Per-row LE baton edge (`CausalEdge64`, 8 B/row).
     /// Migrated from `BindSpace.edges` (EdgeColumn).
     /// This IS the LE contract / baton edge for this mailbox row.
     pub edges: [CausalEdge64; N],
 
-    /// work
     /// Per-row affective role vector (`QualiaI4_16D`, 8 B/row).
     /// Migrated from `BindSpace.qualia` (QualiaI4Column).
     /// 16 signed i4 dimensions (arousal/valence/tension/…); 9× compression vs f32.
     pub qualia: [QualiaI4_16D; N],
 
-    /// work
     /// Per-row packed meta word (`MetaWord`, 4 B/row).
     /// Migrated from `BindSpace.meta` (MetaColumn).
     /// Layout: `thinking(6) + awareness(4) + nars_f(8) + nars_c(8) + free_e(6)`.
     pub meta: [MetaWord; N],
 
-    /// work
     /// Per-row OGIT entity-type index (`u16`, 2 B/row).
     /// Migrated from `BindSpace.entity_type`.
     /// 1-based index into the shared (immutable) ontology registry.
@@ -269,7 +265,6 @@ impl<const N: usize> MailboxSoA<N> {
 
     // ── Thoughtspace column accessors (D-MBX-A1) ─────────────────────────────
 
-    /// work
     /// Return the `CausalEdge64` baton edge for `row`.
     ///
     /// Panics (debug) / wraps (release) on out-of-bounds; callers
@@ -279,7 +274,6 @@ impl<const N: usize> MailboxSoA<N> {
         self.edges[row]
     }
 
-    /// work
     /// Set the `CausalEdge64` baton edge for `row`.
     ///
     /// Panics (debug) / wraps (release) on out-of-bounds; callers
@@ -289,42 +283,36 @@ impl<const N: usize> MailboxSoA<N> {
         self.edges[row] = e;
     }
 
-    /// work
     /// Return the packed `QualiaI4_16D` affective vector for `row`.
     #[inline]
     pub fn qualia_at(&self, row: usize) -> QualiaI4_16D {
         self.qualia[row]
     }
 
-    /// work
     /// Set the packed `QualiaI4_16D` affective vector for `row`.
     #[inline]
     pub fn set_qualia(&mut self, row: usize, q: QualiaI4_16D) {
         self.qualia[row] = q;
     }
 
-    /// work
     /// Return the packed `MetaWord` for `row`.
     #[inline]
     pub fn meta_at(&self, row: usize) -> MetaWord {
         self.meta[row]
     }
 
-    /// work
     /// Set the packed `MetaWord` for `row`.
     #[inline]
     pub fn set_meta(&mut self, row: usize, m: MetaWord) {
         self.meta[row] = m;
     }
 
-    /// work
     /// Return the OGIT entity-type index for `row` (1-based, shared ontology).
     #[inline]
     pub fn entity_type_at(&self, row: usize) -> u16 {
         self.entity_type[row]
     }
 
-    /// work
     /// Set the OGIT entity-type index for `row`.
     #[inline]
     pub fn set_entity_type(&mut self, row: usize, t: u16) {

@@ -404,31 +404,22 @@ mailbox_soa.rs, driver.rs, engine_bridge.rs, bin/serve.rs}`.
 The following refinements were ratified after the initial plan was written. They are
 append-only findings; no prior section has been modified.
 
-<!-- ///work -->
 1. **SoA Lance container ≠ cascade.** The cascade is resolution-laddered superposition over per-axis granularities; the SoA Lance container is the materialized data substrate (same SoA the cognitive-shader-driver handles, same SoA the singleton BindSpace updated). One cascade resolves to one or more SoA Lance containers via top-k emission (Gaussian splat / CAM-PQ top-k). The container is the StreamDTO operand variable; the cascade is the resolver function.
 
-<!-- ///work -->
 2. **Cascade is NOT an index space.** L1-L4 (`64²/256²/4096²/16384²`) are per-axis granularities on the same semantic axis (causal / palette / COCA codebook / outcome), superposed and streamed like x265 cascaded prediction levels. No level is fully materialized; only the emission (rendered SoA container) reaches downstream.
 
-<!-- ///work -->
 3. **64K-256K mailbox envelope** (~360 MB - 1.4 GB total working set at 6 KB per mailbox). The whole population is RAM-resident on any reasonable server. No hot/warm/cold tier split needed. Tombstone retention is free at this scale; eviction is moot.
 
-<!-- ///work -->
 4. **W-slot resolves into a per-cohort witness table** of `(mailbox_ref, spo_fact_ref)` entries — NOT a witness-corpus pointer to a static repository. Active mailboxes carry a mailbox-ref alone (spo_fact_ref = None); once the belief crystallizes via Rubicon commit, the spo_fact_ref binds to the SPO triple. Tombstones stay reachable through their mailbox-ref. The chain of W-references across edges forms a Markov belief-update arc via AriGraph episodic-reference vectors (AriGraph today is a transcode; the chaining engine is the target shape).
 
-<!-- ///work -->
 5. **Cascade granularities are CPU/cache boundaries, not abstract resolutions.** 64 = AVX-512 i8 register / cache line; 256 = AMX tile row; 4096 = page (4 KiB); 16384 = L1d cache (16 KiB). The ladder is hardware-natural so SIMD sweeps stay register/cache/page-aligned by construction.
 
-<!-- ///work -->
 6. **`simd_soa.rs` (ndarray) is the SoA dispatch framework.** It adapts to any SoA shape by introspecting members; consumers declare their own column tuple via derive/const-generic and get SIMD sweeps for free. The MailboxSoA migration is positional, not structural — the framework already swallows the column shape.
 
-<!-- ///work -->
 7. **SoA invariant from spawn → commit.** The same SoA byte layout runs end-to-end: cognitive-shader-driver creates a mailbox + SoA via cascade hot path → traverse cold path with gridlake SIMD ops → commit via one of two egress modes: **external** (REST / sea-orm SQL via tokio, backpressure expected) or **internal** (SurrealDB → LanceDB or RocksDB, no backpressure). No marshalling at any boundary; Lance columnar IS the repr.
 
 ### Open Questions surviving these refinements
 
-<!-- ///work -->
 - **OQ-MBX-8** — `persisted_row` stub vs Lance native versioning (load-bearing; evidence at `REFACTOR_NOTES.md:129` + `driver.rs:458`).
 
-<!-- ///work -->
 - **OQ-MBX-15′** — container scoping: per-cognitive-cycle, per-shader-dispatch, or per-mailbox-cohort?
