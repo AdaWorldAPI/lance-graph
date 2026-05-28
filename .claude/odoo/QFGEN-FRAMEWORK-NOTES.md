@@ -10,6 +10,23 @@
 > posts critiqued my OWL conformance, this paper hands me the validation
 > + competency-question tooling.
 
+> **REFRAMING (2026-05-28, user correction this session):** the framework
+> is not just "validation tooling" — **it is the missing link between
+> psychometry and ontology.** Every axiom-pattern-derived item is
+> simultaneously (a) an ontology query and (b) a psychometric measurement
+> probe with calibrable difficulty / discrimination / reliability. The
+> existing `thinking-engine/cronbach.rs` (Cronbach α) and
+> `thinking-engine/calibrate_lenses.rs` (Spearman ρ + ICC) are the
+> psychometric instruments waiting to consume the item bank. Read every
+> section below through that lens: APS sketches aren't validators, they
+> are *test specifications* whose binding-population gives them
+> calibrated difficulty curves over the ontology size.
+>
+> The convergence is structural: 256 = 3σ = 0.9973 (the workspace's
+> palette / Gaussian-tail / byte-coverage confluence) is *also* the
+> conventional psychometric reliability threshold. Item-bank readiness =
+> 99.73% cross-source agreement under the determination algorithm.
+
 ## What the framework is
 
 A **content-determination engine** for ontology-driven NLG, sitting between
