@@ -44,7 +44,7 @@ in-memory Arrow.
 Standard build/test/lint commands are documented above and in `CLAUDE.md`.
 Key non-obvious notes:
 
-- **Workspace members vs excluded crates:** `Cargo.toml` lists 10 workspace
+- **Workspace members vs excluded crates:** `Cargo.toml` lists 17 workspace
   members and 15 excluded crates. `cargo test` (no args) only runs workspace
   member tests. To test excluded crates use `cargo test --manifest-path
   crates/<name>/Cargo.toml`.
