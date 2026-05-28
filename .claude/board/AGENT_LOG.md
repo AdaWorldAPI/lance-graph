@@ -31,6 +31,14 @@
 **Files touched:** `crates/cognitive-shader-driver/src/driver.rs` (+42 lines)
 **cargo check:** `Finished dev` — 0 errors; pre-existing warnings only (causal-edge/p64-bridge/ontology deprecations — none in cognitive-shader-driver). Note: `--features hpc-extras` absent from this crate; check ran with default features.
 **Outcome:** SUCCESS — added `HashMap<MailboxId, MailboxSoA<1024>>` field on `ShaderDriver`, `with_mailbox` builder setter on `CognitiveShaderBuilder`, `mailbox()` read accessor. Singleton `Arc<BindSpace>` untouched. All new items marked `/// work`.
+## [Sonnet agent] D-ODOO-EXT-4 — l10n_de SKR03/04 chart + UStVA Kennzahlen + GoBD wiring
+
+Emitted three new typed surfaces unreachable by the Python ast extractor: SKR03_CHART (1 274 accounts) + SKR04_CHART (1 192 accounts) from CSV via `OdooAccountTemplate`/`OdooSkrChart`; USTVA_KENNZAHLEN (37 Kennzahlen — full UStVA return, not just the canonic Kz.81..95 subset) from XML via `OdooUstvaKennzahl`/`OdooKennzahlKind`; GOBD_WIRING from `res_company.py` via `OdooGobdWiring`. All carry regulation_iri anchors (UStG §1a/4/13/13b/15/18, HGB §238/266, GoBD, AO §146a). Extractor extended with `data_extractors/{csv_chart,xml_kennzahl,gobd_company}.py` + `data` CLI subcommand (stdlib-only).
+
+**Branch:** `claude/activate-lance-graph-att-k2pHI`, commit `dd40713`. `cargo test -p lance-graph-ontology --lib` green (199 tests, +7 new sanity tests: skr03/04_chart_has_expected_size, skr03/04_chart_entries_have_codes, ustva_kennzahlen_cover_canonical_boxes, ustva_kennzahlen_non_empty, gobd_wiring_has_correct_trigger).
+
+---
+
 ## [Sonnet agent] D-ODOO-EXT-2 Wave C — l10n_de/account_peppol/account_edi_ubl_cii extraction (closes EXT-2)
 
 Extracted 3 DE-specific + EU e-invoice TIER-1 addons: l10n_de 8 models (335 LOC, 0% field-fallback — ORM models only; SKR03/04 chart, tax tables, and UStVA Kennzahlen are intentionally absent, scope of D-ODOO-EXT-4), account_peppol 10 models (1 446 LOC, 2.4% field-fallback, 1 Other field), account_edi_ubl_cii 16 models (3 703 LOC, 0% field-fallback). Helper method rates are high (57–94%) as expected for XML-rendering wrappers and partner-extension models — documented in commit body per plan guidance. No extractor fixes required for Wave C; German docstrings were not present in emitted Rust output and caused no UTF-8 issues.
